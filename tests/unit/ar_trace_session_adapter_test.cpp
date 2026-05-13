@@ -80,13 +80,6 @@ static std::vector<std::uint8_t> ReadBinaryFile(const std::string& path) {
                                    std::istreambuf_iterator<char>());
 }
 
-void ExpectCommonTracePhases(const std::string& content, const std::string& module_name) {
-  EXPECT_NE(content.find("\"module\":\"" + module_name + "\""), std::string::npos);
-  EXPECT_NE(content.find("\"phase\":\"config\""), std::string::npos);
-  EXPECT_NE(content.find("\"phase\":\"input\""), std::string::npos);
-  EXPECT_NE(content.find("\"phase\":\"output\""), std::string::npos);
-}
-
 static void ExpectFlatbufferRecord(const std::vector<std::uint8_t>& content,
                                                     const std::string& module_name,
                                                     const std::string& phase_name) {
@@ -548,7 +541,7 @@ namespace tests {
 TEST(TraceSessionAdapterTest, EsrTraceSessionWritesConfigInputOutput) {
   const std::string trace_path = MakeTempTracePath("oneq-esr-trace");
   std::shared_ptr<oneq::trace::TraceSink> sink(
-      new oneq::trace::JsonlFileTraceSink(trace_path, false));
+      new oneq::trace::FlatbufferFileTraceSink(trace_path, false));
 
   session::EsrSessionConfig config;
   config.hardware.beam_az_width_deg = 120.0f;
@@ -563,8 +556,32 @@ TEST(TraceSessionAdapterTest, EsrTraceSessionWritesConfigInputOutput) {
   const session::EsrCycleResult result = session.StepWithResult(input);
   EXPECT_GE(result.output_frame.observation_output.observations.size(), 0U);
 
-  const std::string content = ReadFile(trace_path);
-  ExpectCommonTracePhases(content, "electronic_surveillance_radar");
+  const std::vector<std::uint8_t> content = ReadBinaryFile(trace_path);
+  bool saw_config = false;
+  bool saw_input = false;
+  bool saw_output = false;
+  std::size_t offset = 0U;
+  while (offset + 4U <= content.size()) {
+    const std::uint32_t payload_size = static_cast<std::uint32_t>(content[offset]) |
+                                       (static_cast<std::uint32_t>(content[offset + 1]) << 8U) |
+                                       (static_cast<std::uint32_t>(content[offset + 2]) << 16U) |
+                                       (static_cast<std::uint32_t>(content[offset + 3]) << 24U);
+    ASSERT_LE(offset + 4U + payload_size, content.size());
+    const flexbuffers::Reference root =
+        flexbuffers::GetRoot(content.data() + offset + 4U, payload_size);
+    const flexbuffers::Map map = root.AsMap();
+    const std::string module = map["module"].AsString().str();
+    const std::string phase = map["phase"].AsString().str();
+    if (module == "electronic_surveillance_radar") {
+      if (phase == "config") saw_config = true;
+      if (phase == "input") saw_input = true;
+      if (phase == "output") saw_output = true;
+    }
+    offset += 4U + payload_size;
+  }
+  EXPECT_TRUE(saw_config);
+  EXPECT_TRUE(saw_input);
+  EXPECT_TRUE(saw_output);
 
   std::remove(trace_path.c_str());
 }
@@ -636,7 +653,7 @@ namespace tests {
 TEST(TraceSessionAdapterTest, EosTraceSessionWritesConfigInputOutput) {
   const std::string trace_path = MakeTempTracePath("oneq-eos-trace");
   std::shared_ptr<oneq::trace::TraceSink> sink(
-      new oneq::trace::JsonlFileTraceSink(trace_path, false));
+      new oneq::trace::FlatbufferFileTraceSink(trace_path, false));
 
   session::EosSessionConfig config;
   config.policy.detection.profile =
@@ -652,8 +669,32 @@ TEST(TraceSessionAdapterTest, EosTraceSessionWritesConfigInputOutput) {
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
   EXPECT_GE(result.output_frame.detections.size(), 0U);
 
-  const std::string content = ReadFile(trace_path);
-  ExpectCommonTracePhases(content, "electro_optical_sensor");
+  const std::vector<std::uint8_t> content = ReadBinaryFile(trace_path);
+  bool saw_config = false;
+  bool saw_input = false;
+  bool saw_output = false;
+  std::size_t offset = 0U;
+  while (offset + 4U <= content.size()) {
+    const std::uint32_t payload_size = static_cast<std::uint32_t>(content[offset]) |
+                                       (static_cast<std::uint32_t>(content[offset + 1]) << 8U) |
+                                       (static_cast<std::uint32_t>(content[offset + 2]) << 16U) |
+                                       (static_cast<std::uint32_t>(content[offset + 3]) << 24U);
+    ASSERT_LE(offset + 4U + payload_size, content.size());
+    const flexbuffers::Reference root =
+        flexbuffers::GetRoot(content.data() + offset + 4U, payload_size);
+    const flexbuffers::Map map = root.AsMap();
+    const std::string module = map["module"].AsString().str();
+    const std::string phase = map["phase"].AsString().str();
+    if (module == "electro_optical_sensor") {
+      if (phase == "config") saw_config = true;
+      if (phase == "input") saw_input = true;
+      if (phase == "output") saw_output = true;
+    }
+    offset += 4U + payload_size;
+  }
+  EXPECT_TRUE(saw_config);
+  EXPECT_TRUE(saw_input);
+  EXPECT_TRUE(saw_output);
 
   std::remove(trace_path.c_str());
 }
@@ -723,20 +764,13 @@ namespace oneq {
 namespace trace {
 namespace tests {
 
-TEST(TraceSessionAdapterTest, PlatformFileTraceSinkUsesPlatformBackend) {
-  const std::string trace_path = MakeTempTracePath("oneq-platform-trace");
-  std::shared_ptr<TraceSink> sink(new PlatformFileTraceSink(trace_path, false));
+TEST(TraceSessionAdapterTest, FlatbufferFileTraceSinkWritesBinaryFrame) {
+  const std::string trace_path = MakeTempTracePath("oneq-flatbuffer-trace");
+  std::shared_ptr<TraceSink> sink(new FlatbufferFileTraceSink(trace_path, false));
   sink->Record("platform_module", "input", "{\"value\":1}");
 
-#if defined(_WIN32)
   const std::vector<std::uint8_t> content = ReadBinaryFile(trace_path);
   ExpectFlatbufferRecord(content, "platform_module", "input");
-#else
-  const std::string content = ReadFile(trace_path);
-  EXPECT_NE(content.find("\"module\":\"platform_module\""), std::string::npos);
-  EXPECT_NE(content.find("\"phase\":\"input\""), std::string::npos);
-  EXPECT_NE(content.find("\"payload\":{\"value\":1}"), std::string::npos);
-#endif
 
   std::remove(trace_path.c_str());
 }

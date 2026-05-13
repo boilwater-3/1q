@@ -95,9 +95,10 @@ ctest --preset "$preset" --output-on-failure
 - Log critical paths and events.e.g Use `spdlog::debug/info` for flow and `spdlog::error` for failures.
 - For Chinese Doxygen work, explicitly use `$cpp-chinese-doxygen`.
 
+- Planning files live under `plan/<plan-name>/`, not tracked by git.
+
 ## Constraints
 - Do not introduce C++ exceptions.
-- Do not log in high-frequency math or simulation loops.
 - Do not introduce project-specific identifiers or prefixes in `cmake/`.
 - Do not reformat existing code that was not touched by the current change. 
 

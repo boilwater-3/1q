@@ -54,17 +54,6 @@ tracking::MeasurementCovariance BuildDefaultMeasurementCovariance(float measurem
   return tracking::MeasurementCovariance::Identity() * variance;
 }
 /**
- * @brief 关联先验来源文本化。
- * @param using_external_seeds 是否使用外部 seeds。
- * @return 先验来源字符串。
- */
-const char* AssociationPriorSourceName(bool using_external_seeds) {
-  if (using_external_seeds) {
-    return "external-seeds";
-  }
-  return "stateless";
-}
-/**
  * @brief 安全比值计算。
  * @param numerator 分子。
  * @param denominator 分母。
@@ -192,7 +181,6 @@ AssociationResult DataAssociationEngine::AssociateDetections(
   const bool using_external_seeds = UsingExternalSeeds();
   const std::vector<ExternalSeedTrackSignature>& external_priors = external_seed_tracks_;
   const std::size_t association_prior_count = using_external_seeds ? external_priors.size() : 0U;
-  const char* prior_source = AssociationPriorSourceName(using_external_seeds);
 
   if (measurement_indices.empty()) {
     result.missed_track_keys.reserve(association_prior_count);
@@ -203,10 +191,6 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     }
     result.quality_metrics = BuildAssociationQualityMetrics(
         association_prior_count, 0U, result.matches, 0U, result.missed_track_keys.size());
-    PROJECT_LOG_DEBUG(
-        "[DataAssociationEngine] cycle summary: prior_source={} priors={} detections=0 matches=0 "
-        "missed_tracks={} new_tracks=0",
-        prior_source, association_prior_count, result.missed_track_keys.size());
     ClearConsumedAssociationPriors();
     return result;
   }
@@ -304,11 +288,6 @@ AssociationResult DataAssociationEngine::AssociateDetections(
       association_prior_count, measurement_indices.size(), result.matches,
       result.unassociated_target_indices.size(), result.missed_track_keys.size());
 
-  PROJECT_LOG_DEBUG(
-      "[DataAssociationEngine] cycle summary: prior_source={} priors={} detections={} matches={} "
-      "missed_tracks={} new_tracks={}",
-      prior_source, association_prior_count, measurement_indices.size(), result.matches.size(),
-      result.missed_track_keys.size(), result.unassociated_target_indices.size());
   return result;
 }
 

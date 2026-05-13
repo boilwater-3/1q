@@ -1,5 +1,6 @@
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -9,6 +10,37 @@
 
 namespace electronic_surveillance_radar {
 namespace session {
+namespace {
+
+std::string BuildEsrInputPayload(const EsrCycleInput& input) {
+  std::ostringstream os;
+  os << "{"
+     << "\"cycle_index\":" << input.cycle_index << ","
+     << "\"dt_sec\":" << input.dt_sec << ","
+     << "\"platform_altitude_m\":" << input.platform_altitude_m << ","
+     << "\"scene_emitter_count\":" << input.scene.size()
+     << "}";
+  return os.str();
+}
+
+std::string BuildEsrOutputPayload(const EsrCycleResult& result) {
+  const auto& frame = result.output_frame;
+  std::ostringstream os;
+  os << "{"
+     << "\"cycle_index\":" << frame.cycle_index << ","
+     << "\"batch_id\":" << frame.batch_id << ","
+     << "\"executed\":" << (result.executed_this_cycle ? "true" : "false") << ","
+     << "\"raw_observation_count\":" << frame.observation_output.raw_observation_count << ","
+     << "\"observation_count\":" << frame.observation_output.observations.size() << ","
+     << "\"cluster_count\":" << frame.observation_output.cluster_count << ","
+     << "\"hypothesis_count\":" << frame.emitter_output.hypotheses.size() << ","
+     << "\"truth_association_count\":" << frame.truth_evaluation_output.associations.size() << ","
+     << "\"validation_error\":" << (result.has_validation_error ? "true" : "false")
+     << "}";
+  return os.str();
+}
+
+}  // namespace
 
 struct EsrTraceSession::Impl {
   Impl(EsrSessionConfig config, EsrTraceSessionOptions options)
@@ -76,13 +108,11 @@ session::EsrOutputFrame EsrTraceSession::Step(const EsrCycleInput& input) {
     impl_->pending_input_written = true;
   }
   if (impl_->sink) {
-    impl_->sink->Record("electronic_surveillance_radar", "input",
-                        std::to_string(input.cycle_index));
+    impl_->sink->Record("electronic_surveillance_radar", "input", BuildEsrInputPayload(input));
   }
   const session::EsrCycleResult result = impl_->session.StepWithResult(input);
   if (impl_->sink) {
-    impl_->sink->Record("electronic_surveillance_radar", "output",
-                        std::to_string(result.output_frame.cycle_index));
+    impl_->sink->Record("electronic_surveillance_radar", "output", BuildEsrOutputPayload(result));
   }
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_output", "EsrCycleResult", EncodeEsrCycleResult(result),
@@ -110,13 +140,11 @@ EsrCycleResult EsrTraceSession::StepWithResult(const EsrCycleInput& input) {
     impl_->pending_input_written = true;
   }
   if (impl_->sink) {
-    impl_->sink->Record("electronic_surveillance_radar", "input",
-                        std::to_string(input.cycle_index));
+    impl_->sink->Record("electronic_surveillance_radar", "input", BuildEsrInputPayload(input));
   }
   const EsrCycleResult result = impl_->session.StepWithResult(input);
   if (impl_->sink) {
-    impl_->sink->Record("electronic_surveillance_radar", "output",
-                        std::to_string(result.output_frame.cycle_index));
+    impl_->sink->Record("electronic_surveillance_radar", "output", BuildEsrOutputPayload(result));
   }
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_output", "EsrCycleResult", EncodeEsrCycleResult(result),

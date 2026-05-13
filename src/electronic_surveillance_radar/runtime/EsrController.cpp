@@ -73,7 +73,6 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   output_frame.observation_output = std::move(pipeline_result.observation_output);
   output_frame.emitter_output = std::move(pipeline_result.emitter_output);
   output_frame.truth_evaluation_output = std::move(pipeline_result.truth_evaluation_output);
-  output_formatter.LogCycleSummary(input, stamp, output_frame);
 
   impl_->runtime_state.latest_output = std::move(output_frame);
   impl_->runtime_state.has_latest_output = true;

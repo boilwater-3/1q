@@ -17,10 +17,6 @@ class EsrOutputFormatter {
   session::EsrOutputFrame BuildEmptyFrame(
       const oneq::internal::runtime::RuntimeCycleStamp& stamp) const;
 
-  void LogCycleSummary(const session::EsrCycleInput& cycle_input,
-                       const oneq::internal::runtime::RuntimeCycleStamp& stamp,
-                       const session::EsrOutputFrame& output_frame) const;
-
  private:
   output::EsrOutputManager& output_manager_;
 };

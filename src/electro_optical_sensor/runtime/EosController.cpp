@@ -4,7 +4,6 @@
 #include <memory>
 
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
-#include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 #include "electro_optical_sensor/runtime/components/EosCycleOutcomeRecorder.h"
 #include "electro_optical_sensor/runtime/components/EosInputValidator.h"
@@ -84,10 +83,6 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
     } else {
       impl_->latest_output = session::EosOutputFrame{};
     }
-    PROJECT_LOG_DEBUG(
-        "[EosController] cycle telemetry: cycle_index={} executed=false "
-        "abort=kValidationRejected validation_issues={}",
-        input.cycle_index, impl_->last_validation_issues.size());
     return;
   }
 
@@ -119,10 +114,6 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
   impl_->latest_output = assembled_frame;
   impl_->has_latest_output = true;
 
-  PROJECT_LOG_DEBUG(
-      "[EosController] cycle telemetry: cycle_index={} executed=true "
-      "detections={} input_targets={} abort=kNone",
-      input.cycle_index, assembled_frame.detections.size(), input.scene.size());
 }
 
 bool EosController::HasLatestOutputFrame() const { return impl_->has_latest_output; }

@@ -435,14 +435,6 @@ void TrackLifecycleManager::Update(const CycleContext& cycle,
   CommitPhase(scratch, cycle.cycle_index);
   RecyclePhase(scratch);
 
-  PROJECT_LOG_DEBUG(
-      "[TrackLifecycleManager] cycle summary: cycle_index={} measurements={} new_tracks={} "
-      "updated_tracks={} predicted_without_hit={} recycled_tracks={} active_tracks={} "
-      "imm_enabled={} dt_sec={:.3f}",
-      cycle.cycle_index, measurements.size(), scratch.new_track_count, scratch.updated_track_count,
-      scratch.predicted_without_hit_count, scratch.keys_to_recycle.size(), tracks_by_key_.size(),
-      IsImmEnabled() ? "true" : "false", effective_dt_sec);
-
   snapshot_emitter_.Refresh(tracks_by_key_);
 }
 

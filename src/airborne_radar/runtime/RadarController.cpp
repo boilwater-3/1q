@@ -14,7 +14,6 @@
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
 #include "airborne_radar/runtime/ControlCommandMapper.h"
-#include "airborne_radar/runtime/CycleTelemetryLogger.h"
 #include "airborne_radar/runtime/RadarCycleOrchestrator.h"
 #include "common/logging/ProjectLog.h"
 
@@ -226,17 +225,10 @@ void RadarController::RunOnce() {
     return;
   }
 
-  // 应用控制指令并记录遥测
+  // 应用控制指令
   const extension::ControlReductionResult reduction_result =
       impl_->command_mapper->Apply(&impl_->control_profile, exec_result.decision_result.proposals);
-  const std::size_t input_target_count = scene_targets != nullptr ? scene_targets->size() : 0U;
-  extension::LogCycleTelemetrySummary(extension::CycleTelemetryPayload(
-      stamp, input_target_count, exec_result.signal_result.decision_frame.tracks.size(),
-      reduction_result.applied_directives.size(),
-      exec_result.signal_result.decision_frame.environment_jamming_detected,
-      impl_->control_profile.version,
-      exec_result.signal_result.decision_frame.perception_quality_info,
-      exec_result.signal_result.association_quality_metrics));
+  (void)reduction_result;
 
   impl_->runtime_state.latest_output = exec_result.track_output_frame;
   impl_->runtime_state.has_latest_output = true;

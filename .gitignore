@@ -23,6 +23,9 @@ imgui.ini
 # Local docs
 doc/
 
+# Planning workspace (not tracked)
+plan/
+
 # project prompts
 .github/
 GEMINI.md

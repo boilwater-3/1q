@@ -1,5 +1,6 @@
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -9,6 +10,33 @@
 
 namespace electro_optical_sensor {
 namespace session {
+namespace {
+
+std::string BuildEosInputPayload(const EosCycleInput& input) {
+  std::ostringstream os;
+  os << "{"
+     << "\"cycle_index\":" << input.cycle_index << ","
+     << "\"dt_sec\":" << input.dt_sec << ","
+     << "\"platform_altitude_m\":" << input.platform_altitude_m << ","
+     << "\"scene_target_count\":" << input.scene.size()
+     << "}";
+  return os.str();
+}
+
+std::string BuildEosOutputPayload(const EosCycleResult& result) {
+  const auto& frame = result.output_frame;
+  std::ostringstream os;
+  os << "{"
+     << "\"cycle_index\":" << frame.cycle_index << ","
+     << "\"scan_azimuth_deg\":" << frame.scan_azimuth_deg << ","
+     << "\"executed\":" << (result.executed_this_cycle ? "true" : "false") << ","
+     << "\"detection_count\":" << frame.detections.size() << ","
+     << "\"validation_error\":" << (result.has_validation_error ? "true" : "false")
+     << "}";
+  return os.str();
+}
+
+}  // namespace
 
 struct EosTraceSession::Impl {
   Impl(EosSessionConfig config, EosTraceSessionOptions options)
@@ -76,12 +104,11 @@ session::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
     impl_->pending_input_written = true;
   }
   if (impl_->sink) {
-    impl_->sink->Record("electro_optical_sensor", "input", std::to_string(input.cycle_index));
+    impl_->sink->Record("electro_optical_sensor", "input", BuildEosInputPayload(input));
   }
   const session::EosCycleResult result = impl_->session.StepWithResult(input);
   if (impl_->sink) {
-    impl_->sink->Record("electro_optical_sensor", "output",
-                        std::to_string(result.output_frame.cycle_index));
+    impl_->sink->Record("electro_optical_sensor", "output", BuildEosOutputPayload(result));
   }
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_output", "EosCycleResult", EncodeEosCycleResult(result),
@@ -111,13 +138,12 @@ session::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
     impl_->pending_input_written = true;
   }
   if (impl_->sink) {
-    impl_->sink->Record("electro_optical_sensor", "input", std::to_string(input.cycle_index));
+    impl_->sink->Record("electro_optical_sensor", "input", BuildEosInputPayload(input));
   }
   const ::electro_optical_sensor::session::EosCycleResult result =
       impl_->session.StepWithResult(input);
   if (impl_->sink) {
-    impl_->sink->Record("electro_optical_sensor", "output",
-                        std::to_string(result.output_frame.cycle_index));
+    impl_->sink->Record("electro_optical_sensor", "output", BuildEosOutputPayload(result));
   }
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("cycle_output", "EosCycleResult", EncodeEosCycleResult(result),
