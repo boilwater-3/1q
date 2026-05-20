@@ -7,7 +7,8 @@
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "common/logging/ProjectLog.h"
-#include "electro_optical_sensor/runtime/EosCycleOrchestrator.h"
+#include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
+#include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
 #include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
 
 namespace electro_optical_sensor {
@@ -39,14 +40,16 @@ struct EosSession::Impl {
         owned_controller(std::move(composition.owned_controller)),
         pipeline(RequireCompositionDependency(composition.pipeline, "pipeline")),
         controller(RequireCompositionDependency(composition.controller, "controller")),
-        cycle_orchestrator(composition.runtime_config, composition.pipeline_config,
-                           composition.initial_reset_scan_phase, pipeline, controller) {}
+        runtime_config_(composition.runtime_config) {
+    pipeline.UpdateConfig(composition.pipeline_config,
+                          composition.initial_reset_scan_phase);
+  }
 
   std::unique_ptr<::electro_optical_sensor::extension::IEosPipeline> owned_pipeline;
   std::unique_ptr<extension::EosController> owned_controller;
   ::electro_optical_sensor::extension::IEosPipeline& pipeline;
   extension::EosController& controller;
-  runtime::session::internal::EosCycleOrchestrator cycle_orchestrator;
+  ::electro_optical_sensor::session::EosSessionConfig runtime_config_;
 };
 
 EosSession::EosSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -80,16 +83,27 @@ EosSession EosSessionFactory::CreateWithController(const EosSessionConfig& confi
 }
 
 session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
-  return impl_->cycle_orchestrator.RunCycle(input).output_frame;
+  return impl_->controller.RunOnce(input), impl_->controller.BuildCycleResult(input).output_frame;
 }
 
 ::electro_optical_sensor::session::EosCycleResult EosSession::StepWithResult(
     const EosCycleInput& input) {
-  return impl_->cycle_orchestrator.RunCycle(input);
+  impl_->controller.RunOnce(input);
+  return impl_->controller.BuildCycleResult(input);
 }
 
 void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
-  impl_->cycle_orchestrator.ApplyRuntimeConfig(patch);
+  const ::electro_optical_sensor::runtime::session::internal::EosRuntimeConfigResolveResult
+      resolved = ::electro_optical_sensor::runtime::session::internal::ResolveEosRuntimeConfigPatch(
+          impl_->runtime_config_, patch);
+  if (!resolved.has_requested_update || !resolved.is_valid) {
+    return;
+  }
+  impl_->runtime_config_ = resolved.next_config;
+  impl_->pipeline.UpdateConfig(
+      ::electro_optical_sensor::runtime::session::internal::BuildEosPipelineConfig(
+          impl_->runtime_config_),
+      resolved.reset_scan_phase);
 }
 
 }  // namespace session

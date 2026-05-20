@@ -4,10 +4,9 @@
 #include <memory>
 
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
+#include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 #include "electro_optical_sensor/runtime/components/EosCycleOutcomeRecorder.h"
-#include "electro_optical_sensor/runtime/components/EosInputValidator.h"
-#include "electro_optical_sensor/runtime/components/EosSignalProcessor.h"
 
 namespace electro_optical_sensor {
 namespace extension {
@@ -56,8 +55,6 @@ bool IsEosExecuteResultContractValid(
 }  // namespace
 
 void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInput& input) {
-  runtime::components::EosInputValidator input_validator;
-  runtime::components::EosSignalProcessor signal_processor(impl_->pipeline);
   runtime::components::EosCycleOutcomeRecorder outcome_recorder(
       impl_->latest_output, impl_->has_latest_output, impl_->last_cycle_executed,
       impl_->last_cycle_reused_previous_output, impl_->last_abort_reason);
@@ -65,13 +62,13 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
   const session::EosOutputFrame previous_output = impl_->latest_output;
   const bool had_previous_output = impl_->has_latest_output;
   const extension::EosPipelineRuntimeState previous_pipeline_state =
-      signal_processor.CaptureRuntimeState();
+      impl_->pipeline.CaptureRuntimeState();
   outcome_recorder.ResetPerCycleFlags();
 
   // 校验
-  const session::ValidationIssueList issues = input_validator.Validate(input);
+  const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
   impl_->last_validation_issues = issues;
-  impl_->has_validation_error = input_validator.HasError(issues);
+  impl_->has_validation_error = session::HasValidationError(issues);
 
   if (impl_->has_validation_error) {
     outcome_recorder.RecordValidationRejected(previous_output, had_previous_output);
@@ -84,10 +81,10 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
   }
 
   // 执行信号流水线
-  const extension::EosPipelineExecuteResult execute_result = signal_processor.Execute(input);
+  const extension::EosPipelineExecuteResult execute_result = impl_->pipeline.Execute(input);
 
   if (!IsEosExecuteResultContractValid(execute_result, input)) {
-    const bool restore_ok = signal_processor.RestoreRuntimeState(previous_pipeline_state);
+    const bool restore_ok = impl_->pipeline.RestoreRuntimeState(previous_pipeline_state);
     if (!restore_ok) {
       outcome_recorder.RecordExecuteContractViolationRollbackFailed();
       impl_->latest_output = session::EosOutputFrame{};
