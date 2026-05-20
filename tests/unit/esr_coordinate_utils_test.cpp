@@ -67,10 +67,11 @@ TEST(EsrCoordinateUtilsTest, ExternalEmitterInputBuildsSceneEmitter) {
 
   session::EsrExternalEmitterInput input;
   input.emitter_id = 1001U;
-  input.emitter_position_ecef_m = emitter_ecef;
-  input.emitter_velocity_mps.x_mps = 3.0f;  // ECEF X → ENU Up at lat=0,lon=0
-  input.emitter_velocity_mps.y_mps = 1.0f;  // ECEF Y → ENU East
-  input.emitter_velocity_mps.z_mps = 2.0f;  // ECEF Z → ENU North
+  input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  input.kinematics.position_ecef_m = emitter_ecef;
+  input.kinematics.velocity_mps.x_mps = 3.0f;  // ECEF X → ENU Up at lat=0,lon=0
+  input.kinematics.velocity_mps.y_mps = 1.0f;  // ECEF Y → ENU East
+  input.kinematics.velocity_mps.z_mps = 2.0f;  // ECEF Z → ENU North
   input.carrier_hz = 10.0e9;
   input.bandwidth_hz = 2.0e6;
   input.tx_power_w = 5.0e7;

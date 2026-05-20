@@ -66,6 +66,20 @@ bool TryConvertEcefPositionToLocal(const oneq::coordinate::EcefPositionM& ecef,
   return IsFiniteVector3f(*local);
 }
 
+bool TryConvertLlaPositionToLocal(const oneq::coordinate::LlaPositionDegM& lla,
+                                  const EsrCoordinateReference& reference,
+                                  EsrVector3f* local) {
+  if (local == nullptr) {
+    return false;
+  }
+  oneq::coordinate::EnuPositionM enu;
+  if (!oneq::coordinate::TryLlaToEnu(lla, reference.origin_lla, &enu)) {
+    return false;
+  }
+  *local = RotateEnuPositionToLocal(enu, reference.frame_attitude_deg);
+  return IsFiniteVector3f(*local);
+}
+
 bool TryConvertEcefVelocityToLocal(const oneq::coordinate::EcefVelocityMps& ecef,
                                    const EsrCoordinateReference& reference,
                                    EsrVector3f* local) {
@@ -126,19 +140,27 @@ bool TryMakeEsrSceneEmitterFromExternalInput(const EsrExternalEmitterInput& inpu
   }
 
   EsrVector3f local_position;
-  if (!TryConvertEcefPositionToLocal(input.emitter_position_ecef_m, reference,
-                                     &local_position)) {
-    SetStatus(EsrCoordinateStatus::kCoordinateTransformFail, status);
-    return false;
+  if (input.kinematics.position_frame == oneq::coordinate::PositionFrame::kLla) {
+    if (!TryConvertLlaPositionToLocal(input.kinematics.position_lla_deg_m, reference,
+                                      &local_position)) {
+      SetStatus(EsrCoordinateStatus::kCoordinateTransformFail, status);
+      return false;
+    }
+  } else {
+    if (!TryConvertEcefPositionToLocal(input.kinematics.position_ecef_m, reference,
+                                       &local_position)) {
+      SetStatus(EsrCoordinateStatus::kCoordinateTransformFail, status);
+      return false;
+    }
   }
 
-  if (!oneq::coordinate::IsFinite(input.emitter_velocity_mps)) {
+  if (!oneq::coordinate::IsFinite(input.kinematics.velocity_mps)) {
     SetStatus(EsrCoordinateStatus::kCoordinateTransformFail, status);
     return false;
   }
 
   EsrVector3f local_velocity;
-  if (!TryConvertEcefVelocityToLocal(input.emitter_velocity_mps, reference, &local_velocity)) {
+  if (!TryConvertEcefVelocityToLocal(input.kinematics.velocity_mps, reference, &local_velocity)) {
     SetStatus(EsrCoordinateStatus::kCoordinateTransformFail, status);
     return false;
   }
@@ -146,7 +168,7 @@ bool TryMakeEsrSceneEmitterFromExternalInput(const EsrExternalEmitterInput& inpu
   emitter->emitter_id = input.emitter_id;
   emitter->pose.position_m = local_position;
   emitter->pose.velocity_mps = local_velocity;
-  emitter->pose.attitude_deg = ToEsrEuler(input.emitter_attitude_deg);
+  emitter->pose.attitude_deg = ToEsrEuler(input.kinematics.attitude_deg);
   emitter->carrier_hz = input.carrier_hz;
   emitter->bandwidth_hz = input.bandwidth_hz;
   emitter->tx_power_w = input.tx_power_w;

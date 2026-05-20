@@ -52,9 +52,10 @@ std::vector<esr_session::EsrExternalEmitterInput> MakeEmitters(std::size_t count
 
     esr_session::EsrExternalEmitterInput emitter;
     emitter.emitter_id = 1000U + static_cast<std::uint64_t>(i);
-    emitter.emitter_position_ecef_m = ecef;
-    emitter.emitter_velocity_mps.x_mps = 8.0 + static_cast<double>(i % 3U);
-    emitter.emitter_velocity_mps.y_mps = -3.0 + static_cast<double>(i % 2U);
+    emitter.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+    emitter.kinematics.position_ecef_m = ecef;
+    emitter.kinematics.velocity_mps.x_mps = 8.0 + static_cast<double>(i % 3U);
+    emitter.kinematics.velocity_mps.y_mps = -3.0 + static_cast<double>(i % 2U);
     emitter.carrier_hz = 9.0e9 + static_cast<double>(i) * 1.0e7;
     emitter.bandwidth_hz = 2.0e6;
     emitter.tx_power_w = 5.0e8;
@@ -70,9 +71,9 @@ void AdvanceEmitters(double dt_sec, std::vector<esr_session::EsrExternalEmitterI
   ASSERT_NE(emitters, nullptr);
   for (std::size_t i = 0; i < emitters->size(); ++i) {
     esr_session::EsrExternalEmitterInput& emitter = (*emitters)[i];
-    emitter.emitter_position_ecef_m.x_m += emitter.emitter_velocity_mps.x_mps * dt_sec;
-    emitter.emitter_position_ecef_m.y_m += emitter.emitter_velocity_mps.y_mps * dt_sec;
-    emitter.emitter_position_ecef_m.z_m += emitter.emitter_velocity_mps.z_mps * dt_sec;
+    emitter.kinematics.position_ecef_m.x_m += emitter.kinematics.velocity_mps.x_mps * dt_sec;
+    emitter.kinematics.position_ecef_m.y_m += emitter.kinematics.velocity_mps.y_mps * dt_sec;
+    emitter.kinematics.position_ecef_m.z_m += emitter.kinematics.velocity_mps.z_mps * dt_sec;
   }
 }
 
@@ -102,9 +103,9 @@ esr_session::EsrSessionConfig MakeConfig() {
 oneq::coordinate::Vector3d TruthBearingUnit(const esr_session::EsrExternalPoseInput& platform,
                                             const esr_session::EsrExternalEmitterInput& emitter) {
   oneq::coordinate::Vector3d bearing;
-  bearing.x = emitter.emitter_position_ecef_m.x_m - platform.platform_position_ecef_m.x_m;
-  bearing.y = emitter.emitter_position_ecef_m.y_m - platform.platform_position_ecef_m.y_m;
-  bearing.z = emitter.emitter_position_ecef_m.z_m - platform.platform_position_ecef_m.z_m;
+  bearing.x = emitter.kinematics.position_ecef_m.x_m - platform.platform_position_ecef_m.x_m;
+  bearing.y = emitter.kinematics.position_ecef_m.y_m - platform.platform_position_ecef_m.y_m;
+  bearing.z = emitter.kinematics.position_ecef_m.z_m - platform.platform_position_ecef_m.z_m;
   const double norm =
       std::sqrt(bearing.x * bearing.x + bearing.y * bearing.y + bearing.z * bearing.z);
   bearing.x /= norm;

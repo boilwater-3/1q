@@ -47,10 +47,11 @@ TEST(EsrCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
 
   EsrExternalEmitterInput ext_emitter;
   ext_emitter.emitter_id = 1001U;
-  ext_emitter.emitter_position_ecef_m = emitter_ecef;
-  ext_emitter.emitter_velocity_mps.x_mps = 100.0f;
-  ext_emitter.emitter_velocity_mps.y_mps = 50.0f;
-  ext_emitter.emitter_velocity_mps.z_mps = 20.0f;
+  ext_emitter.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  ext_emitter.kinematics.position_ecef_m = emitter_ecef;
+  ext_emitter.kinematics.velocity_mps.x_mps = 100.0f;
+  ext_emitter.kinematics.velocity_mps.y_mps = 50.0f;
+  ext_emitter.kinematics.velocity_mps.z_mps = 20.0f;
   ext_emitter.carrier_hz = 10.0e9;
   ext_emitter.bandwidth_hz = 1.0e6;
   ext_emitter.tx_power_w = 1000.0;
@@ -178,8 +179,9 @@ TEST(EsrCycleInputBuilderTest, MultipleEmitters) {
   for (int i = 0; i < 3; ++i) {
     auto& e = emitters[i];
     e.emitter_id = 1000U + static_cast<std::uint64_t>(i);
-    e.emitter_position_ecef_m = origin_ecef;
-    e.emitter_position_ecef_m.x_m += static_cast<double>(i + 1) * 1000.0;
+    e.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+    e.kinematics.position_ecef_m = origin_ecef;
+    e.kinematics.position_ecef_m.x_m += static_cast<double>(i + 1) * 1000.0;
     e.carrier_hz = 10.0e9 + static_cast<double>(i) * 1.0e6;
     e.is_emitting = true;
   }

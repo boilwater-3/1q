@@ -38,10 +38,11 @@ esr_session::EsrExternalEmitterInput MakeEmitterInput(std::uint64_t id,
                                                       double carrier_hz) {
   esr_session::EsrExternalEmitterInput emitter;
   emitter.emitter_id = id;
-  emitter.emitter_position_ecef_m = pos;
-  emitter.emitter_velocity_mps.x_mps = 0.0;
-  emitter.emitter_velocity_mps.y_mps = 0.0;
-  emitter.emitter_velocity_mps.z_mps = 0.0;
+  emitter.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  emitter.kinematics.position_ecef_m = pos;
+  emitter.kinematics.velocity_mps.x_mps = 0.0;
+  emitter.kinematics.velocity_mps.y_mps = 0.0;
+  emitter.kinematics.velocity_mps.z_mps = 0.0;
   emitter.carrier_hz = carrier_hz;
   emitter.bandwidth_hz = 2.0e6;
   emitter.tx_power_w = 5.0e7;

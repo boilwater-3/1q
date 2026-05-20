@@ -39,9 +39,7 @@ struct ONEQ_API EsrExternalPoseInput {
  */
 struct ONEQ_API EsrExternalEmitterInput {
   std::uint64_t emitter_id{0U};                                  /**< 辐射源标识 */
-  oneq::coordinate::EcefPositionM emitter_position_ecef_m{};     /**< 辐射源位置（ECEF，m） */
-  oneq::coordinate::EcefVelocityMps emitter_velocity_mps{};      /**< 辐射源速度（ECEF，单位：m/s） */
-  oneq::coordinate::EulerAnglesDeg emitter_attitude_deg{};       /**< 辐射源姿态角（Body->ENU，deg） */
+  oneq::coordinate::ExternalKinematics kinematics{};            /**< 外部运动学输入 */
   double carrier_hz{0.0};                                   /**< 发射中心频率（Hz） */
   double bandwidth_hz{0.0};                                 /**< 发射带宽（Hz） */
   double tx_power_w{0.0};                                   /**< 发射功率（W） */
