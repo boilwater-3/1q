@@ -14,8 +14,9 @@
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
 #include "airborne_radar/runtime/ControlCommandMapper.h"
-#include "airborne_radar/runtime/RadarCycleOrchestrator.h"
+#include <algorithm>
 #include "common/logging/ProjectLog.h"
+#include "common/runtime/RuntimeCycleExecutor.h"
 
 namespace airborne_radar {
 namespace extension {
@@ -28,17 +29,6 @@ bool IsCompatibleSignalPipelineRuntimeState(const extension::SignalPipelineRunti
 }
 
 }  // namespace
-
-/**
- * @brief 单周期内部快照，用于执行失败时的原子回滚。
- */
-struct CycleSnapshot {
-  environment::EnvironmentServiceRuntimeState environment_state{};
-  session::TrackOutputFrame previous_output{};
-  bool had_previous_output{false};
-  std::uint64_t previous_batch_id{0U};
-  extension::SignalPipelineRuntimeState pipeline_state{};
-};
 
 /**
  * @brief 控制器内部自有组件，生命周期由 Impl 管理。
@@ -86,7 +76,6 @@ struct RadarController::Impl {
 
   // -- 独立生命周期组件
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
-  std::unique_ptr<extension::RadarCycleOrchestrator> cycle_orchestrator;
 
   // -- 周期运行时状态
   oneq::internal::runtime::RuntimeCycleState<session::TrackOutputFrame,
@@ -110,8 +99,6 @@ struct RadarController::Impl {
     command_mapper.reset(new extension::ControlCommandMapper(
         *owned_decision_components.control_reducer, static_cast<extension::IRadarCommandBus&>(ctx),
         static_cast<extension::IRadarControlProfileStore&>(ctx)));
-    cycle_orchestrator.reset(new extension::RadarCycleOrchestrator(
-        sig, decision_engine, owned_decision_components.tactical_state_store.get(), env));
   }
 
   /** @brief 构造使用外部决策引擎的控制器。 */
@@ -127,19 +114,6 @@ struct RadarController::Impl {
     command_mapper.reset(new extension::ControlCommandMapper(
         *owned_decision_components.control_reducer, static_cast<extension::IRadarCommandBus&>(ctx),
         static_cast<extension::IRadarControlProfileStore&>(ctx)));
-    cycle_orchestrator.reset(new extension::RadarCycleOrchestrator(
-        sig, decision_engine, owned_decision_components.tactical_state_store.get(), env));
-  }
-
-  /** @brief 在执行开始前为本周期捕获可回滚快照。 */
-  CycleSnapshot CaptureSnapshot() const {
-    CycleSnapshot snapshot;
-    snapshot.environment_state = environment_service.CaptureRuntimeState();
-    snapshot.previous_output = runtime_state.latest_output;
-    snapshot.had_previous_output = runtime_state.has_latest_output;
-    snapshot.previous_batch_id = runtime_state.next_batch_id;
-    snapshot.pipeline_state = signal_pipeline.CaptureRuntimeState();
-    return snapshot;
   }
 
   /** @brief 重置每周期可变标志位。 */
@@ -147,15 +121,6 @@ struct RadarController::Impl {
     last_cycle_executed = false;
     last_cycle_reused_previous_output = false;
     last_signal_abort_reason = extension::SignalCycleAbortReason::kNone;
-  }
-
-  /** @brief 将环境与信号流水线回滚至本周期执行前的状态。 */
-  void RestoreFromFailedCycle(const CycleSnapshot& snapshot) {
-    environment_service.RestoreRuntimeState(snapshot.environment_state);
-    signal_pipeline.RestoreRuntimeState(snapshot.pipeline_state);
-    runtime_state.latest_output = snapshot.previous_output;
-    runtime_state.has_latest_output = snapshot.had_previous_output;
-    runtime_state.next_batch_id = snapshot.previous_batch_id;
   }
 };
 
@@ -181,7 +146,6 @@ RadarController::RadarController(extension::IRadarContext& radar_context,
 RadarController::~RadarController() = default;
 
 void RadarController::RunOnce() {
-  const CycleSnapshot snapshot = impl_->CaptureSnapshot();
   impl_->ResetPerCycleFlags();
 
   const session::RadarSceneTargetList& scene_targets_ref = impl_->radar_context.GetSceneTargets();
@@ -206,31 +170,68 @@ void RadarController::RunOnce() {
 
   if (session::HasValidationError(issues)) {
     impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
-    impl_->RestoreFromFailedCycle(snapshot);
     return;
   }
 
   // 冻结环境
-  impl_->cycle_orchestrator->FreezeEnvironment(cycle_dt_sec, stamp);
+  environment::EnvironmentCycleContext environment_cycle_context;
+  environment_cycle_context.cycle_index = stamp.cycle_index;
+  environment_cycle_context.dt_sec = cycle_dt_sec;
+  impl_->environment_service.BeginCycle(environment_cycle_context);
 
   // 执行信号流水线与决策引擎
-  const extension::CycleExecutionResult exec_result = impl_->cycle_orchestrator->Execute(
-      scene_targets, platform_attitude, platform_altitude_m, impl_->control_profile, stamp);
-  impl_->last_cycle_executed = exec_result.signal_result.executed_this_cycle;
-  impl_->last_signal_abort_reason = exec_result.signal_result.abort_reason;
+  const session::RadarSceneTargetList kEmptyTargets;
+  const session::RadarSceneTargetList& targets =
+      scene_targets != nullptr ? *scene_targets : kEmptyTargets;
+
+  impl_->signal_pipeline.SetControlProfile(impl_->control_profile);
+  impl_->signal_pipeline.UpdatePlatformAttitude(platform_attitude);
+  impl_->signal_pipeline.UpdatePlatformAltitudeM(platform_altitude_m);
+
+  extension::SignalCycleResult signal_result =
+      impl_->signal_pipeline.RunCycle(targets, impl_->environment_service);
+
+  impl_->last_cycle_executed = signal_result.executed_this_cycle;
+  impl_->last_signal_abort_reason = signal_result.abort_reason;
 
   if (!impl_->last_cycle_executed) {
     impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
-    impl_->RestoreFromFailedCycle(snapshot);
     return;
   }
 
+  model::DecisionInputFrame decision_frame = signal_result.decision_frame;
+  decision_frame.cycle_index = stamp.cycle_index;
+  decision_frame.batch_id = stamp.batch_id;
+
+  session::TrackOutputFrame track_output_frame;
+  track_output_frame.cycle_index = stamp.cycle_index;
+  track_output_frame.batch_id = stamp.batch_id;
+  track_output_frame.tracks = decision_frame.tracks;
+
+  extension::TacticalDecisionResult decision_result;
+  if (impl_->decision_engine != nullptr &&
+      impl_->owned_decision_components.tactical_state_store != nullptr) {
+    decision_result = impl_->decision_engine->Evaluate(
+        decision_frame, *impl_->owned_decision_components.tactical_state_store);
+
+    // 将目标分类结果回填到轨迹输出帧
+    const auto& classifications = decision_result.target_classification_result;
+    auto& output_tracks = track_output_frame.tracks;
+    const std::size_t count = std::min(classifications.size(), output_tracks.size());
+    for (std::size_t i = 0; i < count; ++i) {
+      output_tracks[i].target_type = classifications[i].target_type;
+      output_tracks[i].target_probability = classifications[i].probability;
+    }
+  }
+
+  signal_result.decision_frame = decision_frame;
+
   // 应用控制指令
   const extension::ControlReductionResult reduction_result =
-      impl_->command_mapper->Apply(&impl_->control_profile, exec_result.decision_result.proposals);
+      impl_->command_mapper->Apply(&impl_->control_profile, decision_result.proposals);
   (void)reduction_result;
 
-  impl_->runtime_state.latest_output = exec_result.track_output_frame;
+  impl_->runtime_state.latest_output = track_output_frame;
   impl_->runtime_state.has_latest_output = true;
   impl_->last_cycle_reused_previous_output = false;
   ++impl_->runtime_state.next_batch_id;

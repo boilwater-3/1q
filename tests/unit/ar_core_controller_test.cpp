@@ -24,6 +24,8 @@
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
+#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -614,18 +616,26 @@ TEST_F(CoreControllerTest, FailedCycleDoesNotAdvanceEnvironmentStampOrOutputSequ
   environment::EnvironmentService environment_service;
   AbortingSignalPipeline signal_pipeline;
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+  session::RadarSession session = session::RadarSessionFactory::CreateWithController(
+      MakeDetectionFocusedConfig(), controller);
 
   EXPECT_FLOAT_EQ(environment_service.SampleEnvironment().cycle_dt_sec, 0.0f);
 
-  controller.RunOnce();
+  session::RadarCycleInput input;
+  input.cycle_index = 1U;
+  input.dt_sec = 1.0f;
+  input.scene = input_state;
+  const session::RadarCycleResult result = session.StepWithResult(input);
 
+  EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_FALSE(controller.ExecutedLatestCycle());
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
   EXPECT_FLOAT_EQ(environment_service.SampleEnvironment().cycle_dt_sec, 0.0f);
 
   signal_pipeline.SetShouldExecute(true);
-  controller.RunOnce();
+  const session::RadarCycleResult result2 = session.StepWithResult(input);
 
+  EXPECT_TRUE(result2.executed_this_cycle);
   EXPECT_TRUE(controller.ExecutedLatestCycle());
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame& latest_track_output_frame =

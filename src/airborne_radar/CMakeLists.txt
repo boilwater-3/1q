@@ -49,7 +49,6 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/session/RadarInputValidation.cpp
     airborne_radar/session/RadarSceneTargetUtils.cpp
     airborne_radar/runtime/ControlCommandMapper.cpp
-    airborne_radar/runtime/RadarCycleOrchestrator.cpp
     airborne_radar/runtime/RadarController.cpp
     airborne_radar/session/RadarSessionCompositionRoot.cpp
     airborne_radar/session/RadarExternalInputAdapter.cpp
