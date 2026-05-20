@@ -43,7 +43,11 @@ bool EosCycleInputBuilder::Build(const EosExternalPoseInput& platform,
 
   for (std::size_t i = 0; i < targets.size(); ++i) {
     EosSceneTarget target;
-    if (!TryMakeEosSceneTargetFromExternalInput(static_cast<std::uint64_t>(i), targets[i],
+    std::uint64_t target_id = targets[i].target_id;
+    if (target_id == 0U) {
+      target_id = static_cast<std::uint64_t>(i);
+    }
+    if (!TryMakeEosSceneTargetFromExternalInput(target_id, targets[i],
                                                 reference, output->platform_pose, &target,
                                                 status)) {
       return false;

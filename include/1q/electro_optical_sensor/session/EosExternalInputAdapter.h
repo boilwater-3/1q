@@ -47,6 +47,7 @@ struct ONEQ_API EosExternalPoseInput {
  * @brief EOS 外部目标输入（统一入口）。
  */
 struct ONEQ_API EosExternalTargetInput {
+  std::uint64_t target_id{0U};                                          /**< 目标标识 */
   EosTargetPositionFrame position_frame{EosTargetPositionFrame::kEcef}; /**< 目标位置参考系 */
   oneq::coordinate::EcefPositionM target_position_ecef_m{};              /**< 目标 ECEF 坐标 */
   oneq::coordinate::LlaPositionDegM target_position_lla_deg_m{};         /**< 目标 WGS84 LLA 坐标 */
