@@ -63,6 +63,22 @@ inline T SafePositive(T value, T fallback) {
   return value;
 }
 
+/**
+ * @brief 将角度规范化到 [-180, 180] 区间。
+ * @param[in] angle_deg 输入角度（单位：deg）。
+ * @return 规范化后的角度（单位：deg）。
+ */
+inline float NormalizeAngle180(float angle_deg) {
+  float normalized = angle_deg;
+  while (normalized > 180.0f) {
+    normalized -= 360.0f;
+  }
+  while (normalized < -180.0f) {
+    normalized += 360.0f;
+  }
+  return normalized;
+}
+
 }  // namespace numerics
 }  // namespace internal
 }  // namespace oneq

@@ -66,9 +66,6 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
   const bool had_previous_output = impl_->has_latest_output;
   const extension::EosPipelineRuntimeState previous_pipeline_state =
       signal_processor.CaptureRuntimeState();
-  const oneq::internal::runtime::RuntimeCycleStamp stamp =
-      oneq::internal::runtime::MakeRuntimeCycleStamp(input.cycle_index, 0U);
-
   outcome_recorder.ResetPerCycleFlags();
 
   // 校验
@@ -85,9 +82,6 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
     }
     return;
   }
-
-  // FreezeEnvironment（EOS 当前为空操作）
-  (void)stamp;
 
   // 执行信号流水线
   const extension::EosPipelineExecuteResult execute_result = signal_processor.Execute(input);

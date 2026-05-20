@@ -30,17 +30,6 @@ class DefaultEosEnvironmentService final : public environment::IEosEnvironmentSe
   }
 };
 
-float NormalizeAngle180(float angle_deg) {
-  float normalized = angle_deg;
-  while (normalized > 180.0f) {
-    normalized -= 360.0f;
-  }
-  while (normalized < -180.0f) {
-    normalized += 360.0f;
-  }
-  return normalized;
-}
-
 bool WorkModeIncludesInfrared(EosPipelineWorkMode mode) {
   return mode == EosPipelineWorkMode::kInfraredOnly || mode == EosPipelineWorkMode::kFused;
 }
@@ -471,7 +460,7 @@ void EosPipeline::AdvanceScan(float dt_sec) {
 bool EosPipeline::IsTargetInCurrentFov(
     const ::electro_optical_sensor::session::EosSceneTarget& target) const {
   const float azimuth_delta_deg =
-      std::fabs(NormalizeAngle180(target.azimuth_deg - current_scan_azimuth_deg_));
+      std::fabs(oneq::internal::numerics::NormalizeAngle180(target.azimuth_deg - current_scan_azimuth_deg_));
   const float elevation_delta_deg = std::fabs(target.elevation_deg - config_.scan_center_el_deg);
   return azimuth_delta_deg <= 0.5f * config_.horizontal_fov_deg &&
          elevation_delta_deg <= 0.5f * config_.vertical_fov_deg;
