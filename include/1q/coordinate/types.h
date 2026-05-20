@@ -120,6 +120,25 @@ struct ONEQ_API LocalFrameReference {
   EulerAnglesDeg frame_attitude_deg{}; /**< 局部坐标系相对 ENU 的姿态角 */
 };
 
+/**
+ * @brief 外部位置参考系类型。
+ */
+enum class PositionFrame {
+  kEcef = 0, /**< 位置由 ECEF 坐标给出 */
+  kLla = 1   /**< 位置由 WGS84 LLA 坐标给出 */
+};
+
+/**
+ * @brief 外部运动学输入结构体。
+ */
+struct ONEQ_API ExternalKinematics {
+  PositionFrame position_frame{PositionFrame::kEcef};     /**< 位置参考系 */
+  EcefPositionM position_ecef_m{};                        /**< ECEF 位置 */
+  LlaPositionDegM position_lla_deg_m{};                   /**< LLA 位置 */
+  EcefVelocityMps velocity_mps{};                         /**< 速度（ECEF，m/s） */
+  EulerAnglesDeg attitude_deg{};                          /**< 姿态角（Body->ENU，deg） */
+};
+
 }  // namespace coordinate
 }  // namespace oneq
 
