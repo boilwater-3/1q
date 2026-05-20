@@ -48,7 +48,7 @@ AR 的目标输入采用雷达局部坐标系。调用方可以直接填局部�
 
 | 字段 | 说明 | 影响功能 |
 | --- | --- | --- |
-| `external_target_id` | 外部目标标识，`0` 表示未知/未提供。 | 用于跨周期关联、输出航迹回填和调试定位；重复非 0 ID 会被校验为 error，0 ID 会产生 info。 |
+| `external_target_id` | 外部目标标识，`0` 表示未知/未提供。若外部系统将 0 用作合法 ID，校验会误判为"未设置"，应使用非 0 ID。 | 用于跨周期关联、输出航迹回填和调试定位；重复非 0 ID 会被校验为 error，0 ID 会产生 info。 |
 | `velocity_x/y/z` | 雷达局部坐标速度分量，单位 m/s。 | 输入到目标运动和跟踪链路；外部适配器会将 ECEF 目标速度转到雷达局部坐标后扣除平台速度，得到相对速度。 |
 | `rcs` | 目标雷达散射截面积，单位 m^2。 | 影响雷达方程、SNR、物理 RCS 融合和检测概率；负值会产生 warning。 |
 | `range_m` | 目标到雷达的斜距，单位 m。 | 影响传播损耗、雷达方程和检测门限。若 `range_m <= 0`，必须提供非零笛卡尔位置，否则校验为 error。 |
@@ -76,10 +76,12 @@ AR 的目标输入采用雷达局部坐标系。调用方可以直接填局部�
 | `RadarExternalPoseInput` | `platform_velocity_mps` | 平台 ECEF 速度。适配器转 ENU 后再转雷达局部速度。 |
 | `RadarExternalPoseInput` | `platform_attitude_deg` | 平台姿态，Body->ENU。输出平台姿态保存为 foundation 欧拉角。 |
 | `RadarExternalPoseInput` | `radar_mount_angles_deg` | 雷达安装角，Body->Radar。与平台姿态通过矩阵复合为雷达局部姿态。 |
-| `TargetExternalKinematics` | `target_position_ecef_m` | 目标 ECEF 位置。转换到雷达局部 `position_x/y/z` 并计算 `range_m`。 |
-| `TargetExternalKinematics` | `target_velocity_mps` | 目标 ECEF 速度。转换到雷达局部后扣除平台局部速度，写入相对速度。 |
-| `TargetExternalKinematics` | `rcs` | 目标 RCS，原样写入 `RadarSceneTarget::rcs`。 |
-| `TargetExternalKinematics` | `swerling_type` | 目标起伏模型编号，原样写入。 |
+| `RadarExternalTargetInput` | `kinematics.position_frame` | `kEcef` 或 `kLla`。指定目标位置来自 ECEF 还是 WGS84 LLA。 |
+| `RadarExternalTargetInput` | `kinematics.position_ecef_m` | 目标 ECEF 位置。`position_frame == kEcef` 时使用。转换到雷达局部 `position_x/y/z` 并计算 `range_m`。 |
+| `RadarExternalTargetInput` | `kinematics.position_lla_deg_m` | 目标 LLA 位置。`position_frame == kLla` 时使用。 |
+| `RadarExternalTargetInput` | `kinematics.velocity_mps` | 目标 ECEF 速度。转换到雷达局部后扣除平台局部速度，写入相对速度。 |
+| `RadarExternalTargetInput` | `rcs` | 目标 RCS，原样写入 `RadarSceneTarget::rcs`。 |
+| `RadarExternalTargetInput` | `swerling_type` | 目标起伏模型编号，原样写入。 |
 | `TryMakeRadarPoseFromExternalKinematics(...)` | 两步模式第一步。 | 生成局部参考系与平台位姿。 |
 | `TryMakeTargetFromExternalKinematics(...)` | 两步模式第二步。 | 使用第一步参考系把单个外部目标转为 `RadarSceneTarget`。 |
 
@@ -158,10 +160,10 @@ EOS 的目标输入是传感器视线空间中的目标状态，而不是三维�
 | `EosExternalPoseInput` | `platform_position_ecef_m` | 平台 ECEF 位置。构建器会先转 LLA，作为局部 ENU 原点。 |
 | `EosExternalPoseInput` | `platform_velocity_mps` | 平台 ECEF 速度。适配器转换为 EOS 局部速度。 |
 | `EosExternalPoseInput` | `platform_attitude_deg` | 平台姿态，Body->ENU。也作为 EOS 局部参考姿态。 |
-| `EosExternalTargetInput.position_frame` | `kEcef` 或 `kLla`。 | 指定目标位置来自 ECEF 还是 WGS84 LLA。 |
-| `EosExternalTargetInput.target_position_ecef_m` | 目标 ECEF 坐标。 | `position_frame == kEcef` 时使用。 |
-| `EosExternalTargetInput.target_position_lla_deg_m` | 目标 LLA 坐标。 | `position_frame == kLla` 时使用。 |
-| `EosExternalTargetInput.appearance` | 目标外观。 | 转换后原样写入 `EosSceneTarget::appearance`。 |
+| `EosExternalTargetInput` | `kinematics.position_frame` | `kEcef` 或 `kLla`。指定目标位置来自 ECEF 还是 WGS84 LLA。 |
+| `EosExternalTargetInput` | `kinematics.position_ecef_m` | 目标 ECEF 坐标。`position_frame == kEcef` 时使用。 |
+| `EosExternalTargetInput` | `kinematics.position_lla_deg_m` | 目标 LLA 坐标。`position_frame == kLla` 时使用。 |
+| `EosExternalTargetInput` | `appearance` | 目标外观。转换后原样写入 `EosSceneTarget::appearance`。 |
 | `TryMakeEosPoseFromExternalKinematics(...)` | 平台转换。 | 输出平台局部位姿。 |
 | `TryMakeEosSceneTargetFromExternalInput(...)` | 目标转换。 | 计算目标相对平台的 `range_m / azimuth_deg / elevation_deg`。 |
 
@@ -228,7 +230,7 @@ ESR 的 `scene` 不是目标点迹，而是可被电子侦察系统截获的辐�
 
 | 字段 | 说明 | 影响功能 |
 | --- | --- | --- |
-| `emitter_id` | 辐射源标识。 | 用于输出关联、识别和调试定位；空字符串会被校验为 error。 |
+| `emitter_id` | 辐射源标识（`uint64_t`）。 | 用于输出关联、识别和调试定位；`0` 会被校验为 error。 |
 | `pose` | 辐射源位置、速度与姿态。 | 影响传播距离、接收几何、波束覆盖和运动状态。 |
 | `carrier_hz` | 发射中心频率，单位 Hz。 | 影响是否落入接收机频段、截获频率和信号分类；必须 `>0`。 |
 | `bandwidth_hz` | 发射带宽，单位 Hz。 | 影响频域覆盖、检测带宽和信号特征；必须 `>0`。 |
@@ -247,9 +249,11 @@ ESR 的 `scene` 不是目标点迹，而是可被电子侦察系统截获的辐�
 | `EsrExternalPoseInput` | `platform_position_ecef_m` | 平台 ECEF 位置。构建器会转 LLA 作为局部 ENU 原点。 |
 | `EsrExternalPoseInput` | `platform_velocity_mps` | 平台 ECEF 速度。转换为 ESR 局部速度。 |
 | `EsrExternalPoseInput` | `platform_attitude_deg` | 平台姿态，Body->ENU。作为 ESR 局部参考姿态。 |
-| `EsrExternalEmitterInput` | `emitter_position_ecef_m` | 辐射源 ECEF 位置。转换为 ESR 局部 `pose.position_m`。 |
-| `EsrExternalEmitterInput` | `emitter_velocity_mps` | 辐射源 ECEF 速度。转换为 ESR 局部 `pose.velocity_mps`。 |
-| `EsrExternalEmitterInput` | `emitter_attitude_deg` | 辐射源姿态。写入 `pose.attitude_deg`。 |
+| `EsrExternalEmitterInput` | `kinematics.position_frame` | `kEcef` 或 `kLla`。指定辐射源位置来自 ECEF 还是 WGS84 LLA。 |
+| `EsrExternalEmitterInput` | `kinematics.position_ecef_m` | 辐射源 ECEF 位置。`position_frame == kEcef` 时使用。转换为 ESR 局部 `pose.position_m`。 |
+| `EsrExternalEmitterInput` | `kinematics.position_lla_deg_m` | 辐射源 LLA 位置。`position_frame == kLla` 时使用。 |
+| `EsrExternalEmitterInput` | `kinematics.velocity_mps` | 辐射源 ECEF 速度。转换为 ESR 局部 `pose.velocity_mps`。 |
+| `EsrExternalEmitterInput` | `kinematics.attitude_deg` | 辐射源姿态。写入 `pose.attitude_deg`。 |
 | `EsrExternalEmitterInput` | 发射参数与波束状态 | `carrier_hz`、`bandwidth_hz`、`tx_power_w`、`pulse_width_s`、`pri_s`、`beam_state`、`is_emitting` 原样写入场景辐射源。 |
 | `TryMakeEsrPoseFromExternalKinematics(...)` | 平台转换。 | 输出 ESR 局部平台位姿。 |
 | `TryMakeEsrSceneEmitterFromExternalInput(...)` | 辐射源转换。 | 输出 `EsrSceneEmitter`。 |
@@ -278,7 +282,7 @@ ESR 的 `scene` 不是目标点迹，而是可被电子侦察系统截获的辐�
 
 - `dt_sec` 必须有限且 `>0`。
 - 平台位姿数值必须有限。
-- `emitter_id` 不能为空。
+- `emitter_id` 不能为 `0`。
 - `carrier_hz`、`bandwidth_hz`、`tx_power_w`、`pulse_width_s`、`pri_s` 必须 `>0`。
 - `pri_s` 不能小于 `pulse_width_s`。
 - 波束宽度必须 `>0`。

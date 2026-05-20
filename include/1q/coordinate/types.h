@@ -114,6 +114,9 @@ struct ONEQ_API Vector3d {
 
 /**
  * @brief 局部坐标系参考定义。
+ * @note 各传感器模块（AR/EOS/ESR）目前定义了各自的参考系类型（RadarLocalFrameReference、
+ *       EosCoordinateReference、EsrCoordinateReference），其结构与本类型等价。
+ *       未来可考虑直接复用本类型以消除跨模块重复。
  */
 struct ONEQ_API LocalFrameReference {
   LlaPositionDegM origin_lla{};      /**< 局部坐标参考原点 */
@@ -130,11 +133,14 @@ enum class PositionFrame {
 
 /**
  * @brief 外部运动学输入结构体。
+ * @note 仅 `position_frame` 对应的位置字段被读取：`kEcef` 时读取 `position_ecef_m`，
+ *       `kLla` 时读取 `position_lla_deg_m`。调用方应只填写与 `position_frame` 匹配的
+ *       位置字段，另一个位置字段的值会被忽略。速度固定为 ECEF 坐标系。
  */
 struct ONEQ_API ExternalKinematics {
   PositionFrame position_frame{PositionFrame::kEcef};     /**< 位置参考系 */
-  EcefPositionM position_ecef_m{};                        /**< ECEF 位置 */
-  LlaPositionDegM position_lla_deg_m{};                   /**< LLA 位置 */
+  EcefPositionM position_ecef_m{};                        /**< ECEF 位置（position_frame==kEcef 时使用） */
+  LlaPositionDegM position_lla_deg_m{};                   /**< LLA 位置（position_frame==kLla 时使用） */
   EcefVelocityMps velocity_mps{};                         /**< 速度（ECEF，m/s） */
   EulerAnglesDeg attitude_deg{};                          /**< 姿态角（Body->ENU，deg） */
 };
