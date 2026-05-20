@@ -51,6 +51,13 @@ class IKalmanUpdater {
   virtual KalmanUpdateResult Update(const GaussianTrackState& predicted,
                                     const MeasurementVector& measurement,
                                     const MeasurementCovariance& dynamic_R) const = 0;
+  /**
+   * @brief 更新更新器配置。
+   * @details 默认实现为空操作。使用 KalmanUpdaterConfig 的子类应重写本方法。
+   *          使用自定义配置类型的子类（如 EkfUpdater）保留其自身的 UpdateConfig 重载。
+   * @param config 更新器配置。
+   */
+  virtual void UpdateConfig(KalmanUpdaterConfig /*config*/) {}
 };
 
 }  // namespace tracking

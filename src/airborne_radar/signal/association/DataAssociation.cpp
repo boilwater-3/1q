@@ -113,8 +113,9 @@ AssociationQualityMetrics BuildAssociationQualityMetrics(
   }
   metrics.mean_match_cost = sum_match_cost / static_cast<float>(matches.size());
 
-  std::sort(sorted_costs.begin(), sorted_costs.end());
-  metrics.p95_match_cost = sorted_costs[ComputeNearestRankP95Index(sorted_costs.size())];
+  auto p95_it = sorted_costs.begin() + ComputeNearestRankP95Index(sorted_costs.size());
+  std::nth_element(sorted_costs.begin(), p95_it, sorted_costs.end());
+  metrics.p95_match_cost = *p95_it;
   return metrics;
 }
 
@@ -164,7 +165,11 @@ AssociationResult DataAssociationEngine::AssociateDetections(
   }
 
   std::vector<std::size_t> measurement_indices;
+  std::vector<Eigen::Vector3f> measurements;
+  std::vector<tracking::MeasurementCovariance> measurement_covariances_for_matches;
   measurement_indices.reserve(target_count);
+  measurements.reserve(target_count);
+  measurement_covariances_for_matches.reserve(target_count);
   for (std::size_t i = 0; i < target_count; ++i) {
     if (i >= detection_succeeded.size() || detection_succeeded[i] == 0U) {
       continue;
@@ -176,6 +181,8 @@ AssociationResult DataAssociationEngine::AssociateDetections(
       continue;
     }
     measurement_indices.push_back(i);
+    measurements.push_back(BuildPositionVector(targets[i]));
+    measurement_covariances_for_matches.push_back(measurement_covariances[i]);
   }
 
   const bool using_external_seeds = UsingExternalSeeds();
@@ -197,13 +204,6 @@ AssociationResult DataAssociationEngine::AssociateDetections(
 
   result.used_position_association = true;
   result.used_external_association_seeds = using_external_seeds;
-
-  std::vector<Eigen::Vector3f> measurements;
-  measurements.reserve(measurement_indices.size());
-  for (std::size_t i = 0; i < measurement_indices.size(); ++i) {
-    const std::size_t target_index = measurement_indices[i];
-    measurements.push_back(BuildPositionVector(targets[target_index]));
-  }
 
   std::vector<std::uint64_t> measurement_to_key(measurements.size(), kUnassociatedKey);
   std::vector<float> measurement_match_cost(measurements.size(), 0.0f);
@@ -228,13 +228,6 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     if (dim > rows) {
       cost_matrix.bottomRows(static_cast<Eigen::Index>(dim - rows))
           .setConstant(config_.unassigned_cost);
-    }
-
-    std::vector<tracking::MeasurementCovariance> measurement_covariances_for_matches;
-    measurement_covariances_for_matches.reserve(measurement_indices.size());
-    for (std::size_t i = 0; i < measurement_indices.size(); ++i) {
-      measurement_covariances_for_matches.push_back(
-          measurement_covariances[measurement_indices[i]]);
     }
 
     const std::vector<AssociationHypothesis> hypotheses = position_hypothesiser_.Generate(

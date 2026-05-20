@@ -23,7 +23,7 @@ class SrifPredictor final : public IKalmanPredictor {
 
   GaussianTrackState Predict(const GaussianTrackState& prior, float dt) const override;
 
-  void UpdateConfig(KalmanPredictorConfig config);
+  void UpdateConfig(KalmanPredictorConfig config) override;
 
  private:
   static StateCovariance StabilizeWithInformationForm(const StateCovariance& covariance);

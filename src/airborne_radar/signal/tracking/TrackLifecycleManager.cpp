@@ -67,19 +67,7 @@ void UpdatePredictorConfigIfSupported(const IKalmanPredictor* predictor, float n
   }
   KalmanPredictorConfig config;
   config.noise_diff_coeff = noise_diff_coeff;
-  IKalmanPredictor* mutable_predictor = const_cast<IKalmanPredictor*>(predictor);
-  if (KalmanPredictor* concrete = dynamic_cast<KalmanPredictor*>(mutable_predictor)) {
-    concrete->UpdateConfig(config);
-    return;
-  }
-  if (SrifPredictor* concrete = dynamic_cast<SrifPredictor*>(mutable_predictor)) {
-    concrete->UpdateConfig(config);
-    return;
-  }
-  if (UdkfPredictor* concrete = dynamic_cast<UdkfPredictor*>(mutable_predictor)) {
-    concrete->UpdateConfig(config);
-    return;
-  }
+  const_cast<IKalmanPredictor*>(predictor)->UpdateConfig(config);
 }
 
 void UpdateUpdaterConfigIfSupported(const IKalmanUpdater* updater, float measurement_noise_std) {
@@ -89,19 +77,7 @@ void UpdateUpdaterConfigIfSupported(const IKalmanUpdater* updater, float measure
   }
   KalmanUpdaterConfig config;
   config.measurement_noise_std = measurement_noise_std;
-  IKalmanUpdater* mutable_updater = const_cast<IKalmanUpdater*>(updater);
-  if (KalmanUpdater* concrete = dynamic_cast<KalmanUpdater*>(mutable_updater)) {
-    concrete->UpdateConfig(config);
-    return;
-  }
-  if (SrifUpdater* concrete = dynamic_cast<SrifUpdater*>(mutable_updater)) {
-    concrete->UpdateConfig(config);
-    return;
-  }
-  if (UdkfUpdater* concrete = dynamic_cast<UdkfUpdater*>(mutable_updater)) {
-    concrete->UpdateConfig(config);
-    return;
-  }
+  const_cast<IKalmanUpdater*>(updater)->UpdateConfig(config);
 }
 
 bool IsValidTransitionProbability(const Eigen::MatrixXf& transition_probability) {

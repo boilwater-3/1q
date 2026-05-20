@@ -41,23 +41,6 @@ struct OwnedDecisionComponents {
   std::unique_ptr<decision::ControlReducer> control_reducer;
 };
 
-namespace {
-
-/**
- * @brief 构建使用默认 TacticalCoordinator 的内部决策组件。
- * @param override_strategy 可选的外部策略覆盖接口，nullptr 时使用内部评估器。
- */
-OwnedDecisionComponents BuildDecisionComponents(
-    extension::IOverrideControlStrategy* override_strategy) {
-  OwnedDecisionComponents components;
-  components.decision_engine.reset(new decision::TacticalCoordinator(nullptr, override_strategy));
-  components.tactical_state_store.reset(new extension::TacticalStateStore());
-  components.control_reducer.reset(new decision::ControlReducer());
-  return components;
-}
-
-}  // namespace
-
 /**
  * @brief RadarController 内部实现体，持有所有运行时状态。
  */
@@ -92,8 +75,11 @@ struct RadarController::Impl {
        extension::IOverrideControlStrategy* override_strategy)
       : radar_context(ctx),
         signal_pipeline(sig),
-        environment_service(env),
-        owned_decision_components(BuildDecisionComponents(override_strategy)) {
+        environment_service(env) {
+    owned_decision_components.decision_engine.reset(
+        new decision::TacticalCoordinator(nullptr, override_strategy));
+    owned_decision_components.tactical_state_store.reset(new extension::TacticalStateStore());
+    owned_decision_components.control_reducer.reset(new decision::ControlReducer());
     decision_engine = owned_decision_components.decision_engine.get();
     // 显式 upcast 表明 IRadarContext 同时满足两个写入接口
     command_mapper.reset(new extension::ControlCommandMapper(

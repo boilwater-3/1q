@@ -56,7 +56,7 @@ class KalmanUpdater final : public IKalmanUpdater {
    * @brief 更新配置。
    * @param config 新的更新器配置。
    */
-  void UpdateConfig(KalmanUpdaterConfig config);
+  void UpdateConfig(KalmanUpdaterConfig config) override;
 
  private:
   /**

@@ -45,7 +45,7 @@ class KalmanPredictor final : public IKalmanPredictor {
    * @brief 更新配置。
    * @param config 新的预测器配置。
    */
-  void UpdateConfig(KalmanPredictorConfig config);
+  void UpdateConfig(KalmanPredictorConfig config) override;
   /**
    * @brief 构建 6×6 状态转移矩阵 F。
    * @param dt 时间步长（秒）。

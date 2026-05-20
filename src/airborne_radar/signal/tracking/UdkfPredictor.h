@@ -23,7 +23,7 @@ class UdkfPredictor final : public IKalmanPredictor {
 
   GaussianTrackState Predict(const GaussianTrackState& prior, float dt) const override;
 
-  void UpdateConfig(KalmanPredictorConfig config);
+  void UpdateConfig(KalmanPredictorConfig config) override;
 
  private:
   static bool Cov2Ud(const StateCovariance& covariance, StateCovariance* upper_u,

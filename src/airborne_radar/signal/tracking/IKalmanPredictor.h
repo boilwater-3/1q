@@ -35,6 +35,13 @@ class IKalmanPredictor {
    * @return 预测后的高斯状态。
    */
   virtual GaussianTrackState Predict(const GaussianTrackState& prior, float dt) const = 0;
+  /**
+   * @brief 更新预测器配置。
+   * @details 默认实现为空操作。使用 KalmanPredictorConfig 的子类应重写本方法。
+   *          使用自定义配置类型的子类（如 EkfPredictor）保留其自身的 UpdateConfig 重载。
+   * @param config 预测器配置。
+   */
+  virtual void UpdateConfig(KalmanPredictorConfig /*config*/) {}
 };
 
 }  // namespace tracking
