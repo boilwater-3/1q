@@ -2,50 +2,24 @@
 
 #include <cmath>
 
-#include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
-#include "1q/coordinate/velocity_transform.h"
+#include "1q/coordinate/types.h"
+#include "common/coordinate/CoordinateUtils.h"
 
 namespace airborne_radar {
 namespace session {
 
 namespace {
 
+using oneq::internal::coordinate_utils::ToFoundationEuler;
+using oneq::internal::coordinate_utils::ToFoundationVector;
+using oneq::internal::coordinate_utils::RotateEnuPositionToLocal;
+using oneq::internal::coordinate_utils::RotateEnuVelocityToLocal;
+
 bool IsFinite(float value) { return std::isfinite(value) != 0; }
 
 bool IsFiniteVector3f(const oneq::foundation::Vector3f& value) {
   return IsFinite(value.x) && IsFinite(value.y) && IsFinite(value.z);
-}
-
-oneq::foundation::EulerAnglesDeg ToFoundationEuler(
-    const oneq::coordinate::EulerAnglesDeg& attitude_deg) {
-  oneq::foundation::EulerAnglesDeg output;
-  output.yaw_deg = static_cast<float>(attitude_deg.yaw_deg);
-  output.pitch_deg = static_cast<float>(attitude_deg.pitch_deg);
-  output.roll_deg = static_cast<float>(attitude_deg.roll_deg);
-  return output;
-}
-
-oneq::foundation::Vector3f ToFoundationVector(const oneq::coordinate::Vector3d& v) {
-  oneq::foundation::Vector3f out;
-  out.x = static_cast<float>(v.x);
-  out.y = static_cast<float>(v.y);
-  out.z = static_cast<float>(v.z);
-  return out;
-}
-
-oneq::foundation::Vector3f RotateEnuPositionToLocal(
-    const oneq::coordinate::EnuPositionM& enu,
-    const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  return ToFoundationVector(
-      oneq::coordinate::RotateEnuToLocal(enu.east_m, enu.north_m, enu.up_m, local_attitude_deg));
-}
-
-oneq::foundation::Vector3f RotateEnuVelocityToLocal(
-    const oneq::coordinate::EnuVelocityMps& enu,
-    const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  return ToFoundationVector(oneq::coordinate::RotateEnuToLocal(
-      enu.east_mps, enu.north_mps, enu.up_mps, local_attitude_deg));
 }
 
 }  // namespace
@@ -105,7 +79,6 @@ bool TryMakeRadarPoseFromExternalKinematics(
 }
 
 bool TryMakeTargetFromExternalKinematics(
-    std::uint64_t target_id,
     const RadarExternalTargetInput& target_input,
     const RadarLocalFrameReference& reference,
     oneq::foundation::Vector3f radar_local_velocity_mps,
@@ -131,22 +104,30 @@ bool TryMakeTargetFromExternalKinematics(
   }
 
   oneq::coordinate::EnuPositionM target_position_enu;
-  if (target_input.kinematics.position_frame == oneq::coordinate::PositionFrame::kLla) {
-    if (!oneq::coordinate::TryLlaToEnu(
-            target_input.kinematics.position_lla_deg_m, reference.origin_lla, &target_position_enu)) {
+  switch (target_input.kinematics.position_frame) {
+    case oneq::coordinate::PositionFrame::kEcef:
+      if (!oneq::coordinate::TryEcefToEnu(
+              target_input.kinematics.position_ecef_m, reference.origin_lla, &target_position_enu)) {
+        if (status != nullptr) {
+          *status = RadarCoordinateStatus::kCoordinateTransformFail;
+        }
+        return false;
+      }
+      break;
+    case oneq::coordinate::PositionFrame::kLla:
+      if (!oneq::coordinate::TryLlaToEnu(
+              target_input.kinematics.position_lla_deg_m, reference.origin_lla, &target_position_enu)) {
+        if (status != nullptr) {
+          *status = RadarCoordinateStatus::kCoordinateTransformFail;
+        }
+        return false;
+      }
+      break;
+    default:
       if (status != nullptr) {
         *status = RadarCoordinateStatus::kCoordinateTransformFail;
       }
       return false;
-    }
-  } else {
-    if (!oneq::coordinate::TryEcefToEnu(
-            target_input.kinematics.position_ecef_m, reference.origin_lla, &target_position_enu)) {
-      if (status != nullptr) {
-        *status = RadarCoordinateStatus::kCoordinateTransformFail;
-      }
-      return false;
-    }
   }
   oneq::foundation::Vector3f target_position_local =
       RotateEnuPositionToLocal(target_position_enu, reference.radar_attitude_deg);
@@ -171,7 +152,7 @@ bool TryMakeTargetFromExternalKinematics(
                 target_position_local.y * target_position_local.y +
                 target_position_local.z * target_position_local.z);
 
-  target->external_target_id = target_id;
+  target->external_target_id = target_input.target_id;
   target->velocity_x = target_velocity_local.x;
   target->velocity_y = target_velocity_local.y;
   target->velocity_z = target_velocity_local.z;

@@ -1,15 +1,20 @@
 #include <cmath>
 
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
-#include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
-#include "1q/coordinate/velocity_transform.h"
+#include "1q/coordinate/types.h"
 #include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
+#include "common/coordinate/CoordinateUtils.h"
 
 namespace electro_optical_sensor {
 namespace session {
 
 namespace {
+
+using oneq::internal::coordinate_utils::ToFoundationEuler;
+using oneq::internal::coordinate_utils::ToFoundationVector;
+using oneq::internal::coordinate_utils::RotateEnuPositionToLocal;
+using oneq::internal::coordinate_utils::RotateEnuVelocityToLocal;
 
 constexpr float kNormFloor = 1.0e-6f;
 
@@ -17,37 +22,6 @@ void SetStatus(EosCoordinateStatus value, EosCoordinateStatus* status) {
   if (status != nullptr) {
     *status = value;
   }
-}
-
-oneq::foundation::EulerAnglesDeg ToFoundationEuler(
-    const oneq::coordinate::EulerAnglesDeg& attitude_deg) {
-  oneq::foundation::EulerAnglesDeg output;
-  output.yaw_deg = static_cast<float>(attitude_deg.yaw_deg);
-  output.pitch_deg = static_cast<float>(attitude_deg.pitch_deg);
-  output.roll_deg = static_cast<float>(attitude_deg.roll_deg);
-  return output;
-}
-
-oneq::foundation::Vector3f ToFoundationVector(const oneq::coordinate::Vector3d& v) {
-  oneq::foundation::Vector3f out;
-  out.x = static_cast<float>(v.x);
-  out.y = static_cast<float>(v.y);
-  out.z = static_cast<float>(v.z);
-  return out;
-}
-
-oneq::foundation::Vector3f RotateEnuPositionToLocal(
-    const oneq::coordinate::EnuPositionM& enu,
-    const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  return ToFoundationVector(
-      oneq::coordinate::RotateEnuToLocal(enu.east_m, enu.north_m, enu.up_m, local_attitude_deg));
-}
-
-oneq::foundation::Vector3f RotateEnuVelocityToLocal(
-    const oneq::coordinate::EnuVelocityMps& enu,
-    const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  return ToFoundationVector(oneq::coordinate::RotateEnuToLocal(
-      enu.east_mps, enu.north_mps, enu.up_mps, local_attitude_deg));
 }
 
 bool TryConvertEcefToEosLocalInternal(const oneq::coordinate::EcefPositionM& position_ecef_m,
@@ -211,6 +185,9 @@ bool TryMakeEosSceneTargetFromExternalInput(
         return false;
       }
       break;
+    default:
+      SetStatus(EosCoordinateStatus::kCoordinateTransformFail, status);
+      return false;
   }
   return FillTargetFromLocalPosition(target_id, target_local, platform_pose, input.appearance, target,
                                      status);
