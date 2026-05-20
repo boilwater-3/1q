@@ -77,7 +77,10 @@ bool TryMakeExternalTrackFromSnapshot(const model::TrackStateSnapshot& snapshot,
   output->status = snapshot.status;
   output->target_position_ecef_m = position_ecef;
   output->target_velocity_mps = velocity_ecef;
-  output->speed = snapshot.speed;
+  output->speed = static_cast<float>(std::sqrt(
+      velocity_ecef.x_mps * velocity_ecef.x_mps +
+      velocity_ecef.y_mps * velocity_ecef.y_mps +
+      velocity_ecef.z_mps * velocity_ecef.z_mps));
   output->rcs = snapshot.rcs;
   output->jamming_detected = snapshot.jamming_detected;
   output->hit_count = snapshot.hit_count;
