@@ -369,7 +369,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   environment_patch.spectrum_occupancy_ratio = 0.25f;
   input.environment = environment_state.Update(environment_patch).Snapshot();
   session::EsrSceneEmitter emitter;
-  emitter.emitter_id = "smoke-emitter";
+  emitter.emitter_id = 1001U;
   emitter.pose.position_m.x = 1200.0f;
   emitter.carrier_hz = 10.0e9;
   emitter.bandwidth_hz = 2.0e6;

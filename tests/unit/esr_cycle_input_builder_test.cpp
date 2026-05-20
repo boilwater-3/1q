@@ -46,7 +46,7 @@ TEST(EsrCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   ASSERT_TRUE(TryMakeEsrPoseFromExternalKinematics(pose_input, reference, &pose_2step));
 
   EsrExternalEmitterInput ext_emitter;
-  ext_emitter.emitter_id = "emi_1";
+  ext_emitter.emitter_id = 1001U;
   ext_emitter.emitter_position_ecef_m = emitter_ecef;
   ext_emitter.emitter_velocity_mps.x_mps = 100.0f;
   ext_emitter.emitter_velocity_mps.y_mps = 50.0f;
@@ -68,7 +68,7 @@ TEST(EsrCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   ASSERT_EQ(builder_input.scene.size(), 1U);
 
   const auto& builder_emitter = builder_input.scene[0];
-  EXPECT_EQ(builder_emitter.emitter_id, "emi_1");
+  EXPECT_EQ(builder_emitter.emitter_id, 1001U);
   EXPECT_NEAR(builder_emitter.pose.position_m.x, emitter_2step.pose.position_m.x, 1.0e-5f);
   EXPECT_NEAR(builder_emitter.pose.position_m.y, emitter_2step.pose.position_m.y, 1.0e-5f);
   EXPECT_NEAR(builder_emitter.pose.position_m.z, emitter_2step.pose.position_m.z, 1.0e-5f);
@@ -177,7 +177,7 @@ TEST(EsrCycleInputBuilderTest, MultipleEmitters) {
   std::vector<EsrExternalEmitterInput> emitters(3);
   for (int i = 0; i < 3; ++i) {
     auto& e = emitters[i];
-    e.emitter_id = std::string("emi_") + std::to_string(i);
+    e.emitter_id = 1000U + static_cast<std::uint64_t>(i);
     e.emitter_position_ecef_m = origin_ecef;
     e.emitter_position_ecef_m.x_m += static_cast<double>(i + 1) * 1000.0;
     e.carrier_hz = 10.0e9 + static_cast<double>(i) * 1.0e6;
@@ -190,7 +190,7 @@ TEST(EsrCycleInputBuilderTest, MultipleEmitters) {
   ASSERT_EQ(input.scene.size(), 3U);
   EXPECT_FLOAT_EQ(input.dt_sec, 0.5f);
   for (std::size_t i = 0; i < 3; ++i) {
-    EXPECT_EQ(input.scene[i].emitter_id, std::string("emi_") + std::to_string(i));
+    EXPECT_EQ(input.scene[i].emitter_id, 1000U + i);
     EXPECT_TRUE(input.scene[i].is_emitting);
   }
 }

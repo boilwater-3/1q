@@ -51,7 +51,7 @@ std::vector<esr_session::EsrExternalEmitterInput> MakeEmitters(std::size_t count
     EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(lla, &ecef));
 
     esr_session::EsrExternalEmitterInput emitter;
-    emitter.emitter_id = std::string("emitter-") + static_cast<char>('A' + i);
+    emitter.emitter_id = 1000U + static_cast<std::uint64_t>(i);
     emitter.emitter_position_ecef_m = ecef;
     emitter.emitter_velocity_mps.x_mps = 8.0 + static_cast<double>(i % 3U);
     emitter.emitter_velocity_mps.y_mps = -3.0 + static_cast<double>(i % 2U);
@@ -124,7 +124,7 @@ const esr_session::EsrExternalObservation* FindObservation(
 }
 
 const esr_session::EsrExternalEmitterInput* FindEmitter(
-    const std::vector<esr_session::EsrExternalEmitterInput>& emitters, const std::string& id) {
+    const std::vector<esr_session::EsrExternalEmitterInput>& emitters, std::uint64_t id) {
   for (std::size_t i = 0; i < emitters.size(); ++i) {
     if (emitters[i].emitter_id == id) {
       return &emitters[i];

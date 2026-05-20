@@ -41,7 +41,7 @@ bool ContainsCode(const ValidationIssueList& issues, ValidationCode code) {
  */
 session::EsrSceneEmitter MakeValidEmitter() {
   session::EsrSceneEmitter emitter;
-  emitter.emitter_id = "E-1";
+  emitter.emitter_id = 1001U;
   emitter.carrier_hz = 10.0e9;
   emitter.bandwidth_hz = 2.0e6;
   emitter.tx_power_w = 1.0e6;

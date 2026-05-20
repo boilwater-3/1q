@@ -32,7 +32,7 @@ bool ContainsEsrIssueCode(const std::vector<session::ValidationIssue>& issues,
   return false;
 }
 
-session::EsrSceneEmitter MakeEmitter(const std::string& id) {
+session::EsrSceneEmitter MakeEmitter(std::uint64_t id) {
   session::EsrSceneEmitter emitter;
   emitter.emitter_id = id;
   emitter.pose.position_m.x = 1200.0f;
@@ -218,7 +218,7 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) 
   input.platform_pose.position_m.x = std::numeric_limits<float>::infinity();
 
   session::EsrSceneEmitter invalid_emitter;
-  invalid_emitter.emitter_id = "";
+  invalid_emitter.emitter_id = 0U;
   invalid_emitter.carrier_hz = -1.0;
   input.scene.push_back(invalid_emitter);
 
@@ -268,7 +268,7 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsSceneEmitterFromExternalI
   ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(emitter_lla, &emitter_ecef));
 
   session::EsrExternalEmitterInput input;
-  input.emitter_id = "emitter-001";
+  input.emitter_id = 1001U;
   input.emitter_position_ecef_m = emitter_ecef;
   input.emitter_velocity_mps.x_mps = 3.0f;  // ECEF X → ENU Up at lat=0,lon=0
   input.emitter_velocity_mps.y_mps = 1.0f;  // ECEF Y → ENU East
@@ -284,7 +284,7 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsSceneEmitterFromExternalI
   ASSERT_TRUE(
       session::TryMakeEsrSceneEmitterFromExternalInput(input, reference, &emitter, &status));
   EXPECT_EQ(status, session::EsrCoordinateStatus::kOk);
-  EXPECT_EQ(emitter.emitter_id, "emitter-001");
+  EXPECT_EQ(emitter.emitter_id, 1001U);
   EXPECT_GT(emitter.pose.position_m.x, 100.0f);
   EXPECT_NEAR(emitter.pose.velocity_mps.x, 1.0f, 1.0e-5f);
 }
@@ -295,7 +295,7 @@ TEST(EsrPublicApiConvenienceTest, SessionStepAndRuntimePatchWorkTogether) {
   session::EsrCycleInput input;
   input.cycle_index = 0U;
   input.dt_sec = 1.0f;
-  input.scene.push_back(MakeEmitter("emitter-1"));
+  input.scene.push_back(MakeEmitter(1001U));
 
   const session::EsrCycleResult baseline = session.StepWithResult(input);
   EXPECT_FALSE(baseline.has_validation_error);

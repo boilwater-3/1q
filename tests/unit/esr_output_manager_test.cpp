@@ -42,7 +42,7 @@ model::EmitterHypothesis MakeHypothesis(std::uint64_t hypothesis_id, float confi
 }
 
 extension::TruthAssociationRecord MakeAssociation(std::uint64_t observation_id,
-                                               const std::string& truth_emitter_id, bool matched) {
+                                               std::uint64_t truth_emitter_id, bool matched) {
   extension::TruthAssociationRecord association;
   association.observation_id = observation_id;
   association.truth_emitter_id = truth_emitter_id;
@@ -69,8 +69,8 @@ TEST(EsrOutputManagerTest, StampOutputFrameSetsHeaderAndPreservesData) {
   frame.observation_output.observations.push_back(MakeObservation(1001U, 18.5f));
   frame.observation_output.observations.push_back(MakeObservation(1002U, 7.5f));
   frame.emitter_output.hypotheses.push_back(MakeHypothesis(3001U, 0.82f));
-  frame.truth_evaluation_output.associations.push_back(MakeAssociation(1001U, "truth-a", true));
-  frame.truth_evaluation_output.associations.push_back(MakeAssociation(1002U, "UNASSOCIATED", false));
+  frame.truth_evaluation_output.associations.push_back(MakeAssociation(1001U, 101U, true));
+  frame.truth_evaluation_output.associations.push_back(MakeAssociation(1002U, 0U, false));
 
   manager.StampOutputFrame(8U, 104U, frame);
 

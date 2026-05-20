@@ -43,7 +43,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   input.platform_pose.attitude_deg.roll_deg = -3.0f;
 
   EsrSceneEmitter emitter;
-  emitter.emitter_id = "emitter_001";
+  emitter.emitter_id = 1001U;
   emitter.carrier_hz = 9.5e9;
   emitter.bandwidth_hz = 5.0e6;
   emitter.tx_power_w = 1000.0;
@@ -90,7 +90,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.platform_pose.attitude_deg.yaw_deg, 90.0f);
 
   ASSERT_EQ(decoded.scene.size(), 1U);
-  EXPECT_EQ(decoded.scene[0].emitter_id, "emitter_001");
+  EXPECT_EQ(decoded.scene[0].emitter_id, 1001U);
   EXPECT_DOUBLE_EQ(decoded.scene[0].carrier_hz, 9.5e9);
   EXPECT_DOUBLE_EQ(decoded.scene[0].pulse_width_s, 1.0e-6);
   EXPECT_TRUE(decoded.scene[0].is_emitting);
@@ -162,7 +162,7 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
 
   extension::TruthAssociationRecord truth;
   truth.observation_id = 100U;
-  truth.truth_emitter_id = "truth_emitter_001";
+  truth.truth_emitter_id = 2001U;
   truth.matched = true;
   truth.confidence = 0.95f;
   frame.truth_evaluation_output.associations.push_back(truth);
@@ -198,7 +198,7 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
 
   ASSERT_EQ(decoded.truth_evaluation_output.associations.size(), 1U);
   EXPECT_EQ(decoded.truth_evaluation_output.associations[0].observation_id, 100U);
-  EXPECT_EQ(decoded.truth_evaluation_output.associations[0].truth_emitter_id, "truth_emitter_001");
+  EXPECT_EQ(decoded.truth_evaluation_output.associations[0].truth_emitter_id, 2001U);
   EXPECT_TRUE(decoded.truth_evaluation_output.associations[0].matched);
   EXPECT_FLOAT_EQ(decoded.truth_evaluation_output.associations[0].confidence, 0.95f);
 }

@@ -30,7 +30,7 @@ EsrCycleInput MakeBaseInput() {
   input.platform_pose.position_m.z = 5000.0f;
 
   session::EsrSceneEmitter emitter;
-  emitter.emitter_id = "target-emitter";
+  emitter.emitter_id = 1001U;
   emitter.pose.position_m.x = 1200.0f;
   emitter.pose.position_m.z = 5200.0f;
   emitter.carrier_hz = 10.0e9;
@@ -63,7 +63,7 @@ EsrSessionConfig MakeSessionConfig() {
 }
 
 std::size_t CountMatchedTruthObservations(const EsrCycleResult& result,
-                                          const std::string& truth_id) {
+                                          std::uint64_t truth_id) {
   std::size_t matched_count = 0U;
   for (std::size_t i = 0; i < result.output_frame.truth_evaluation_output.associations.size();
        ++i) {
@@ -77,7 +77,7 @@ std::size_t CountMatchedTruthObservations(const EsrCycleResult& result,
 }
 
 std::size_t CountMatchedAcrossCycles(EsrSession* session, const EsrCycleInput& base_input,
-                                     const std::string& truth_id, std::size_t cycle_count) {
+                                     std::uint64_t truth_id, std::size_t cycle_count) {
   if (session == nullptr) {
     return 0U;
   }
@@ -110,9 +110,9 @@ TEST(EsrSessionIntegrationTest, WorkModeMappingMakesHgesmMoreDetectableThanRwr) 
   EsrSession hgesm_session(hgesm_config);
   EsrSession rwr_session(rwr_config);
   const std::size_t hgesm_matched =
-      CountMatchedAcrossCycles(&hgesm_session, input, "target-emitter", 24U);
+      CountMatchedAcrossCycles(&hgesm_session, input, 1001U, 24U);
   const std::size_t rwr_matched =
-      CountMatchedAcrossCycles(&rwr_session, input, "target-emitter", 24U);
+      CountMatchedAcrossCycles(&rwr_session, input, 1001U, 24U);
 
   EXPECT_GE(hgesm_matched, rwr_matched);
 }
@@ -131,7 +131,7 @@ TEST(EsrSessionIntegrationTest, MissionPowerOffReturnsEmptyChannels) {
 TEST(EsrSessionIntegrationTest, RuntimePatchCanDisableSensorWithoutReconstruction) {
   EsrSession session(MakeSessionConfig());
   const EsrCycleResult baseline = session.StepWithResult(MakeBaseInput());
-  EXPECT_GT(CountMatchedTruthObservations(baseline, "target-emitter"), 0U);
+  EXPECT_GT(CountMatchedTruthObservations(baseline, 1001U), 0U);
 
   const EsrRuntimeConfigPatch patch =
       esr_config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
@@ -149,7 +149,7 @@ TEST(EsrSessionIntegrationTest, RuntimePatchCanApplyExplicitScanBounds) {
   input.scene.front().pose.position_m.y = 0.0f;
 
   const EsrCycleResult baseline = session.StepWithResult(input);
-  EXPECT_GT(CountMatchedTruthObservations(baseline, "target-emitter"), 0U);
+  EXPECT_GT(CountMatchedTruthObservations(baseline, 1001U), 0U);
 
   const EsrRuntimeConfigPatch block_patch =
       esr_config::EsrRuntimeConfigBuilder()
@@ -157,13 +157,13 @@ TEST(EsrSessionIntegrationTest, RuntimePatchCanApplyExplicitScanBounds) {
           .Build();
   session.ApplyRuntimeConfig(block_patch);
   const EsrCycleResult blocked = session.StepWithResult(input);
-  EXPECT_EQ(CountMatchedTruthObservations(blocked, "target-emitter"), 0U);
+  EXPECT_EQ(CountMatchedTruthObservations(blocked, 1001U), 0U);
 }
 
 TEST(EsrSessionIntegrationTest, InvalidRuntimePatchRejectedAtomically) {
   EsrSession session(MakeSessionConfig());
   const EsrCycleResult baseline = session.StepWithResult(MakeBaseInput());
-  const std::size_t baseline_matched = CountMatchedTruthObservations(baseline, "target-emitter");
+  const std::size_t baseline_matched = CountMatchedTruthObservations(baseline, 1001U);
 
   EsrRuntimeConfigPatch invalid_patch;
   invalid_patch.has_use_explicit_scan_bounds = true;
@@ -179,7 +179,7 @@ TEST(EsrSessionIntegrationTest, InvalidRuntimePatchRejectedAtomically) {
   session.ApplyRuntimeConfig(invalid_patch);
 
   const EsrCycleResult after_invalid = session.StepWithResult(MakeBaseInput());
-  EXPECT_EQ(CountMatchedTruthObservations(after_invalid, "target-emitter"), baseline_matched);
+  EXPECT_EQ(CountMatchedTruthObservations(after_invalid, 1001U), baseline_matched);
 }
 
 }  // namespace

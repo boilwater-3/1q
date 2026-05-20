@@ -33,7 +33,7 @@ esr_session::EsrSession CreateEmitterSearchSession() {
   return esr_session::EsrSession(LoadConfigFromFile());
 }
 
-esr_session::EsrExternalEmitterInput MakeEmitterInput(const std::string& id,
+esr_session::EsrExternalEmitterInput MakeEmitterInput(std::uint64_t id,
                                                       const oneq::coordinate::EcefPositionM& pos,
                                                       double carrier_hz) {
   esr_session::EsrExternalEmitterInput emitter;
@@ -60,13 +60,13 @@ void PrintResult(const char* label, const esr_session::EsrCycleResult& result) {
 }
 
 struct MovingEsrEmitter {
-  std::string id;
+  std::uint64_t id;
   oneq::coordinate::EcefPositionM pos;
   double carrier_hz;
   double speed_x_mps;
 };
 
-MovingEsrEmitter MakeMovingEsrEmitter(const std::string& id, double x_m, double y_m, double z_m,
+MovingEsrEmitter MakeMovingEsrEmitter(std::uint64_t id, double x_m, double y_m, double z_m,
                                       double carrier_hz, double speed_x_mps) {
   MovingEsrEmitter emitter;
   emitter.id = id;
@@ -92,11 +92,11 @@ bool RunMovingTargetsScenario() {
   platform_vel.z_mps = 30.0;
 
   std::vector<MovingEsrEmitter> emitters = {
-      MakeMovingEsrEmitter("search-radar", -2289512.0, 4909946.0 + 12000.0, 3640982.0 + 5000.0,
+      MakeMovingEsrEmitter(1001U, -2289512.0, 4909946.0 + 12000.0, 3640982.0 + 5000.0,
                            10.0e9, -20.0),
-      MakeMovingEsrEmitter("tracking-radar", -2289512.0, 4909946.0 + 18000.0, 3640982.0 + 5000.0,
+      MakeMovingEsrEmitter(1002U, -2289512.0, 4909946.0 + 18000.0, 3640982.0 + 5000.0,
                            9.4e9, -15.0),
-      MakeMovingEsrEmitter("threat-emitter", -2289512.0, 4909946.0 + 25000.0, 3640982.0 + 5000.0,
+      MakeMovingEsrEmitter(1003U, -2289512.0, 4909946.0 + 25000.0, 3640982.0 + 5000.0,
                            9.8e9, -10.0),
   };
 

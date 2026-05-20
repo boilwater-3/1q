@@ -66,7 +66,7 @@ TEST(EsrCoordinateUtilsTest, ExternalEmitterInputBuildsSceneEmitter) {
   ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(emitter_lla, &emitter_ecef));
 
   session::EsrExternalEmitterInput input;
-  input.emitter_id = "e-001";
+  input.emitter_id = 1001U;
   input.emitter_position_ecef_m = emitter_ecef;
   input.emitter_velocity_mps.x_mps = 3.0f;  // ECEF X → ENU Up at lat=0,lon=0
   input.emitter_velocity_mps.y_mps = 1.0f;  // ECEF Y → ENU East
@@ -82,7 +82,7 @@ TEST(EsrCoordinateUtilsTest, ExternalEmitterInputBuildsSceneEmitter) {
   ASSERT_TRUE(
       session::TryMakeEsrSceneEmitterFromExternalInput(input, reference, &emitter, &status));
   EXPECT_EQ(status, session::EsrCoordinateStatus::kOk);
-  EXPECT_EQ(emitter.emitter_id, "e-001");
+  EXPECT_EQ(emitter.emitter_id, 1001U);
   EXPECT_GT(emitter.pose.position_m.x, 100.0f);
   EXPECT_NEAR(emitter.pose.velocity_mps.x, 1.0f, 1.0e-5f);
   EXPECT_NEAR(emitter.pose.velocity_mps.y, 2.0f, 1.0e-5f);
