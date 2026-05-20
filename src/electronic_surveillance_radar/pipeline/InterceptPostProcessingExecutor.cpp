@@ -290,13 +290,12 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
 
   // Truth evaluation
   const auto& scene_emitters = ctx.GetSceneEmitters();
-  std::set<std::string> observed_truth_ids;
+  std::set<std::uint64_t> observed_truth_ids;
   for (std::size_t i = 0; i < records.size(); ++i) {
     extension::TruthAssociationRecord association;
     association.observation_id = records[i].observation.observation_id;
-    association.truth_emitter_id =
-        records[i].truth_emitter_id.empty() ? "UNASSOCIATED" : records[i].truth_emitter_id;
-    association.matched = records[i].matched_truth && !records[i].truth_emitter_id.empty();
+    association.truth_emitter_id = records[i].truth_emitter_id;
+    association.matched = records[i].matched_truth && records[i].truth_emitter_id != 0U;
     association.confidence = association.matched
                                  ? static_cast<float>(ComputeObservationConfidence(
                                        records[i].observation.snr_db,

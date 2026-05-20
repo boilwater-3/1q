@@ -116,10 +116,10 @@ void ValidateEmitter(const session::EsrSceneEmitter& emitter, std::size_t emitte
     return;
   }
 
-  if (emitter.emitter_id.empty()) {
+  if (emitter.emitter_id == 0U) {
     issues->push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kEmptyEmitterId,
                                 ValidationLocationKind::kSceneEntity, emitter_index, "emitter_id",
-                                "emitter id must not be empty"));
+                                "emitter id must not be zero"));
   }
 
   if (!IsFinite(emitter.carrier_hz) || !IsFinite(emitter.bandwidth_hz) ||

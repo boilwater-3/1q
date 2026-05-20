@@ -391,7 +391,7 @@ internal::RawObservationRecord BuildDeceptionRecord(
   }
   record.observation.quality = model::EsrObservationQuality::kLow;
   record.observation.is_jammed = false;
-  record.truth_emitter_id = "";
+  record.truth_emitter_id = 0U;
   record.truth_pri_s = 0.0;
   record.matched_truth = false;
   record.deception_affected = true;

@@ -178,7 +178,7 @@ struct ONEQ_API InterceptPipelineConfig {
  */
 struct ONEQ_API TruthAssociationRecord {
   std::uint64_t observation_id{0U};
-  std::string truth_emitter_id{};
+  std::uint64_t truth_emitter_id{0U};
   bool matched{false};
   float confidence{0.0f};
 };

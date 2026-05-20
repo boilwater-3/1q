@@ -43,7 +43,7 @@ struct ObservationFeatureScales {
  */
 struct RawObservationRecord {
   model::EmitterObservation observation{}; /**< 观测记录 */
-  std::string truth_emitter_id{};           /**< 真值辐射源标识 */
+  std::uint64_t truth_emitter_id{0U};      /**< 真值辐射源标识 */
   double truth_pri_s{0.0};                  /**< 真值 PRI（单位：s），伪观测为 0 */
   bool matched_truth{true};                 /**< 是否来自真实辐射源链路 */
   bool deception_affected{false};           /**< 是否受到欺骗分量影响 */
