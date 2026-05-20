@@ -167,11 +167,14 @@ struct RadarSession::Impl {
         signal_pipeline.CaptureRuntimeState();
     const environment::EnvironmentServiceRuntimeState environment_state =
         environment_service.CaptureRuntimeState();
+    const extension::RadarControllerRuntimeState controller_state =
+        controller.CaptureRuntimeState();
 
     if (!CommitPendingRuntimeConfig()) {
       radar_context.RestoreRuntimeState(radar_context_state);
       signal_pipeline.RestoreRuntimeState(pipeline_state);
       environment_service.RestoreRuntimeState(environment_state);
+      controller.RestoreRuntimeState(controller_state);
       return BuildExecutionAbortResult(
           input, extension::SignalCycleAbortReason::kRuntimePreparationFailed);
     }
@@ -181,10 +184,13 @@ struct RadarSession::Impl {
     controller.RunOnce();
 
     if (!controller.ExecutedLatestCycle()) {
+      const extension::SignalCycleAbortReason abort_reason =
+          controller.GetLastSignalCycleAbortReason();
       radar_context.RestoreRuntimeState(radar_context_state);
       signal_pipeline.RestoreRuntimeState(pipeline_state);
       environment_service.RestoreRuntimeState(environment_state);
-      return BuildExecutionAbortResult(input, controller.GetLastSignalCycleAbortReason());
+      controller.RestoreRuntimeState(controller_state);
+      return BuildExecutionAbortResult(input, abort_reason);
     }
 
     FinalizePendingRuntimeConfig();
