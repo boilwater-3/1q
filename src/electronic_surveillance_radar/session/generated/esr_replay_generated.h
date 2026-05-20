@@ -15,67 +15,51 @@ struct EulerDeg;
 
 struct PoseState;
 struct PoseStateBuilder;
-struct PoseStateT;
 
 struct EmitterBeamState;
 struct EmitterBeamStateBuilder;
-struct EmitterBeamStateT;
 
 struct SceneEmitter;
 struct SceneEmitterBuilder;
-struct SceneEmitterT;
 
 struct EsrJammerSource;
 struct EsrJammerSourceBuilder;
-struct EsrJammerSourceT;
 
 struct EsrAtmosphericObservation;
 struct EsrAtmosphericObservationBuilder;
-struct EsrAtmosphericObservationT;
 
 struct EsrEnvironmentInput;
 struct EsrEnvironmentInputBuilder;
-struct EsrEnvironmentInputT;
 
 struct EsrCycleInput;
 struct EsrCycleInputBuilder;
-struct EsrCycleInputT;
 
 struct EmitterObservation;
 struct EmitterObservationBuilder;
-struct EmitterObservationT;
 
 struct ObservationOutput;
 struct ObservationOutputBuilder;
-struct ObservationOutputT;
 
 struct EmitterHypothesis;
 struct EmitterHypothesisBuilder;
-struct EmitterHypothesisT;
 
 struct EmitterOutput;
 struct EmitterOutputBuilder;
-struct EmitterOutputT;
 
 struct TruthAssociationRecord;
 struct TruthAssociationRecordBuilder;
-struct TruthAssociationRecordT;
 
 struct TruthEvaluationOutput;
 struct TruthEvaluationOutputBuilder;
-struct TruthEvaluationOutputT;
 
 struct EsrOutputFrame;
 struct EsrOutputFrameBuilder;
-struct EsrOutputFrameT;
 
 struct ValidationIssue;
 struct ValidationIssueBuilder;
-struct ValidationIssueT;
 
 struct EsrCycleResult;
 struct EsrCycleResultBuilder;
-struct EsrCycleResultT;
 
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) Vec3 FLATBUFFERS_FINAL_CLASS {
  private:
@@ -131,17 +115,7 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) EulerDeg FLATBUFFERS_FINAL_CLASS {
 };
 FLATBUFFERS_STRUCT_END(EulerDeg, 12);
 
-struct PoseStateT : public flatbuffers::NativeTable {
-  typedef PoseState TableType;
-  std::unique_ptr<esr::replay::Vec3> position_m;
-  std::unique_ptr<esr::replay::Vec3> velocity_mps;
-  std::unique_ptr<esr::replay::EulerDeg> attitude_deg;
-  PoseStateT() {
-  }
-};
-
 struct PoseState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef PoseStateT NativeTableType;
   typedef PoseStateBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_POSITION_M = 4,
@@ -164,9 +138,6 @@ struct PoseState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<esr::replay::EulerDeg>(verifier, VT_ATTITUDE_DEG) &&
            verifier.EndTable();
   }
-  PoseStateT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(PoseStateT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<PoseState> Pack(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct PoseStateBuilder {
@@ -206,26 +177,7 @@ inline flatbuffers::Offset<PoseState> CreatePoseState(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<PoseState> CreatePoseState(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EmitterBeamStateT : public flatbuffers::NativeTable {
-  typedef EmitterBeamState TableType;
-  double center_az_deg;
-  double center_el_deg;
-  double az_beamwidth_deg;
-  double el_beamwidth_deg;
-  bool beam_state_valid;
-  EmitterBeamStateT()
-      : center_az_deg(0.0),
-        center_el_deg(0.0),
-        az_beamwidth_deg(0.0),
-        el_beamwidth_deg(0.0),
-        beam_state_valid(false) {
-  }
-};
-
 struct EmitterBeamState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EmitterBeamStateT NativeTableType;
   typedef EmitterBeamStateBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CENTER_AZ_DEG = 4,
@@ -258,9 +210,6 @@ struct EmitterBeamState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_BEAM_STATE_VALID) &&
            verifier.EndTable();
   }
-  EmitterBeamStateT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EmitterBeamStateT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EmitterBeamState> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EmitterBeamStateT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EmitterBeamStateBuilder {
@@ -310,31 +259,7 @@ inline flatbuffers::Offset<EmitterBeamState> CreateEmitterBeamState(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EmitterBeamState> CreateEmitterBeamState(flatbuffers::FlatBufferBuilder &_fbb, const EmitterBeamStateT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct SceneEmitterT : public flatbuffers::NativeTable {
-  typedef SceneEmitter TableType;
-  std::string emitter_id;
-  std::unique_ptr<esr::replay::PoseStateT> pose;
-  double carrier_hz;
-  double bandwidth_hz;
-  double tx_power_w;
-  double pulse_width_s;
-  double pri_s;
-  std::unique_ptr<esr::replay::EmitterBeamStateT> beam_state;
-  bool is_emitting;
-  SceneEmitterT()
-      : carrier_hz(0.0),
-        bandwidth_hz(0.0),
-        tx_power_w(0.0),
-        pulse_width_s(0.0),
-        pri_s(0.0),
-        is_emitting(false) {
-  }
-};
-
 struct SceneEmitter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef SceneEmitterT NativeTableType;
   typedef SceneEmitterBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_EMITTER_ID = 4,
@@ -347,8 +272,8 @@ struct SceneEmitter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_BEAM_STATE = 18,
     VT_IS_EMITTING = 20
   };
-  const flatbuffers::String *emitter_id() const {
-    return GetPointer<const flatbuffers::String *>(VT_EMITTER_ID);
+  uint64_t emitter_id() const {
+    return GetField<uint64_t>(VT_EMITTER_ID, 0);
   }
   const esr::replay::PoseState *pose() const {
     return GetPointer<const esr::replay::PoseState *>(VT_POSE);
@@ -376,8 +301,7 @@ struct SceneEmitter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_EMITTER_ID) &&
-           verifier.VerifyString(emitter_id()) &&
+           VerifyField<uint64_t>(verifier, VT_EMITTER_ID) &&
            VerifyOffset(verifier, VT_POSE) &&
            verifier.VerifyTable(pose()) &&
            VerifyField<double>(verifier, VT_CARRIER_HZ) &&
@@ -390,17 +314,14 @@ struct SceneEmitter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_IS_EMITTING) &&
            verifier.EndTable();
   }
-  SceneEmitterT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(SceneEmitterT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<SceneEmitter> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SceneEmitterT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SceneEmitterBuilder {
   typedef SceneEmitter Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_emitter_id(flatbuffers::Offset<flatbuffers::String> emitter_id) {
-    fbb_.AddOffset(SceneEmitter::VT_EMITTER_ID, emitter_id);
+  void add_emitter_id(uint64_t emitter_id) {
+    fbb_.AddElement<uint64_t>(SceneEmitter::VT_EMITTER_ID, emitter_id, 0);
   }
   void add_pose(flatbuffers::Offset<esr::replay::PoseState> pose) {
     fbb_.AddOffset(SceneEmitter::VT_POSE, pose);
@@ -440,7 +361,7 @@ struct SceneEmitterBuilder {
 
 inline flatbuffers::Offset<SceneEmitter> CreateSceneEmitter(
     flatbuffers::FlatBufferBuilder &_fbb,
-    flatbuffers::Offset<flatbuffers::String> emitter_id = 0,
+    uint64_t emitter_id = 0,
     flatbuffers::Offset<esr::replay::PoseState> pose = 0,
     double carrier_hz = 0.0,
     double bandwidth_hz = 0.0,
@@ -455,62 +376,14 @@ inline flatbuffers::Offset<SceneEmitter> CreateSceneEmitter(
   builder_.add_tx_power_w(tx_power_w);
   builder_.add_bandwidth_hz(bandwidth_hz);
   builder_.add_carrier_hz(carrier_hz);
+  builder_.add_emitter_id(emitter_id);
   builder_.add_beam_state(beam_state);
   builder_.add_pose(pose);
-  builder_.add_emitter_id(emitter_id);
   builder_.add_is_emitting(is_emitting);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<SceneEmitter> CreateSceneEmitterDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    const char *emitter_id = nullptr,
-    flatbuffers::Offset<esr::replay::PoseState> pose = 0,
-    double carrier_hz = 0.0,
-    double bandwidth_hz = 0.0,
-    double tx_power_w = 0.0,
-    double pulse_width_s = 0.0,
-    double pri_s = 0.0,
-    flatbuffers::Offset<esr::replay::EmitterBeamState> beam_state = 0,
-    bool is_emitting = false) {
-  auto emitter_id__ = emitter_id ? _fbb.CreateString(emitter_id) : 0;
-  return esr::replay::CreateSceneEmitter(
-      _fbb,
-      emitter_id__,
-      pose,
-      carrier_hz,
-      bandwidth_hz,
-      tx_power_w,
-      pulse_width_s,
-      pri_s,
-      beam_state,
-      is_emitting);
-}
-
-flatbuffers::Offset<SceneEmitter> CreateSceneEmitter(flatbuffers::FlatBufferBuilder &_fbb, const SceneEmitterT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EsrJammerSourceT : public flatbuffers::NativeTable {
-  typedef EsrJammerSource TableType;
-  int32_t technique;
-  bool active;
-  double center_hz;
-  double bandwidth_hz;
-  float power_w;
-  float deception_risk;
-  float confidence;
-  EsrJammerSourceT()
-      : technique(0),
-        active(false),
-        center_hz(0.0),
-        bandwidth_hz(0.0),
-        power_w(0.0f),
-        deception_risk(0.0f),
-        confidence(0.0f) {
-  }
-};
-
 struct EsrJammerSource FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EsrJammerSourceT NativeTableType;
   typedef EsrJammerSourceBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TECHNIQUE = 4,
@@ -553,9 +426,6 @@ struct EsrJammerSource FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_CONFIDENCE) &&
            verifier.EndTable();
   }
-  EsrJammerSourceT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EsrJammerSourceT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EsrJammerSource> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrJammerSourceT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EsrJammerSourceBuilder {
@@ -615,22 +485,7 @@ inline flatbuffers::Offset<EsrJammerSource> CreateEsrJammerSource(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EsrJammerSource> CreateEsrJammerSource(flatbuffers::FlatBufferBuilder &_fbb, const EsrJammerSourceT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EsrAtmosphericObservationT : public flatbuffers::NativeTable {
-  typedef EsrAtmosphericObservation TableType;
-  float relative_humidity_ratio;
-  float precipitation_rate_mmph;
-  float visibility_km;
-  EsrAtmosphericObservationT()
-      : relative_humidity_ratio(0.0f),
-        precipitation_rate_mmph(0.0f),
-        visibility_km(0.0f) {
-  }
-};
-
 struct EsrAtmosphericObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EsrAtmosphericObservationT NativeTableType;
   typedef EsrAtmosphericObservationBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_RELATIVE_HUMIDITY_RATIO = 4,
@@ -653,9 +508,6 @@ struct EsrAtmosphericObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::
            VerifyField<float>(verifier, VT_VISIBILITY_KM) &&
            verifier.EndTable();
   }
-  EsrAtmosphericObservationT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EsrAtmosphericObservationT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EsrAtmosphericObservation> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrAtmosphericObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EsrAtmosphericObservationBuilder {
@@ -695,24 +547,7 @@ inline flatbuffers::Offset<EsrAtmosphericObservation> CreateEsrAtmosphericObserv
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EsrAtmosphericObservation> CreateEsrAtmosphericObservation(flatbuffers::FlatBufferBuilder &_fbb, const EsrAtmosphericObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EsrEnvironmentInputT : public flatbuffers::NativeTable {
-  typedef EsrEnvironmentInput TableType;
-  int32_t propagation_profile;
-  int32_t clutter_density;
-  float spectrum_occupancy_ratio;
-  std::unique_ptr<esr::replay::EsrAtmosphericObservationT> atmospheric_observation;
-  std::vector<std::unique_ptr<esr::replay::EsrJammerSourceT>> jammer_sources;
-  EsrEnvironmentInputT()
-      : propagation_profile(0),
-        clutter_density(0),
-        spectrum_occupancy_ratio(0.0f) {
-  }
-};
-
 struct EsrEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EsrEnvironmentInputT NativeTableType;
   typedef EsrEnvironmentInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PROPAGATION_PROFILE = 4,
@@ -748,9 +583,6 @@ struct EsrEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
            verifier.VerifyVectorOfTables(jammer_sources()) &&
            verifier.EndTable();
   }
-  EsrEnvironmentInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EsrEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EsrEnvironmentInput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EsrEnvironmentInputBuilder {
@@ -817,25 +649,7 @@ inline flatbuffers::Offset<EsrEnvironmentInput> CreateEsrEnvironmentInputDirect(
       jammer_sources__);
 }
 
-flatbuffers::Offset<EsrEnvironmentInput> CreateEsrEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const EsrEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EsrCycleInputT : public flatbuffers::NativeTable {
-  typedef EsrCycleInput TableType;
-  uint32_t cycle_index;
-  float dt_sec;
-  std::unique_ptr<esr::replay::PoseStateT> platform_pose;
-  std::vector<std::unique_ptr<esr::replay::SceneEmitterT>> scene_emitters;
-  std::unique_ptr<esr::replay::EsrEnvironmentInputT> environment;
-  float platform_altitude_m;
-  EsrCycleInputT()
-      : cycle_index(0),
-        dt_sec(0.0f),
-        platform_altitude_m(0.0f) {
-  }
-};
-
 struct EsrCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EsrCycleInputT NativeTableType;
   typedef EsrCycleInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CYCLE_INDEX = 4,
@@ -877,9 +691,6 @@ struct EsrCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_PLATFORM_ALTITUDE_M) &&
            verifier.EndTable();
   }
-  EsrCycleInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EsrCycleInputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EsrCycleInput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EsrCycleInputBuilder {
@@ -953,36 +764,7 @@ inline flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInputDirect(
       platform_altitude_m);
 }
 
-flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const EsrCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EmitterObservationT : public flatbuffers::NativeTable {
-  typedef EmitterObservation TableType;
-  uint32_t observation_id;
-  double timestamp_s;
-  double aoa_az_deg;
-  double aoa_el_deg;
-  double rf_hz;
-  double pulse_width_s;
-  double amplitude_db;
-  double snr_db;
-  int32_t quality;
-  bool is_jammed;
-  EmitterObservationT()
-      : observation_id(0),
-        timestamp_s(0.0),
-        aoa_az_deg(0.0),
-        aoa_el_deg(0.0),
-        rf_hz(0.0),
-        pulse_width_s(0.0),
-        amplitude_db(0.0),
-        snr_db(0.0),
-        quality(0),
-        is_jammed(false) {
-  }
-};
-
 struct EmitterObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EmitterObservationT NativeTableType;
   typedef EmitterObservationBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBSERVATION_ID = 4,
@@ -1040,9 +822,6 @@ struct EmitterObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_IS_JAMMED) &&
            verifier.EndTable();
   }
-  EmitterObservationT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EmitterObservationT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EmitterObservation> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EmitterObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EmitterObservationBuilder {
@@ -1117,17 +896,7 @@ inline flatbuffers::Offset<EmitterObservation> CreateEmitterObservation(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EmitterObservation> CreateEmitterObservation(flatbuffers::FlatBufferBuilder &_fbb, const EmitterObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct ObservationOutputT : public flatbuffers::NativeTable {
-  typedef ObservationOutput TableType;
-  std::vector<std::unique_ptr<esr::replay::EmitterObservationT>> observations;
-  ObservationOutputT() {
-  }
-};
-
 struct ObservationOutput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef ObservationOutputT NativeTableType;
   typedef ObservationOutputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBSERVATIONS = 4
@@ -1142,9 +911,6 @@ struct ObservationOutput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVectorOfTables(observations()) &&
            verifier.EndTable();
   }
-  ObservationOutputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(ObservationOutputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<ObservationOutput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const ObservationOutputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct ObservationOutputBuilder {
@@ -1183,33 +949,7 @@ inline flatbuffers::Offset<ObservationOutput> CreateObservationOutputDirect(
       observations__);
 }
 
-flatbuffers::Offset<ObservationOutput> CreateObservationOutput(flatbuffers::FlatBufferBuilder &_fbb, const ObservationOutputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EmitterHypothesisT : public flatbuffers::NativeTable {
-  typedef EmitterHypothesis TableType;
-  uint32_t hypothesis_id;
-  std::vector<std::string> candidate_classes;
-  int32_t mode;
-  int32_t threat_level;
-  float bearing_az_deg;
-  float bearing_el_deg;
-  float bearing_std_deg;
-  float confidence;
-  uint32_t last_seen_cycle;
-  EmitterHypothesisT()
-      : hypothesis_id(0),
-        mode(0),
-        threat_level(0),
-        bearing_az_deg(0.0f),
-        bearing_el_deg(0.0f),
-        bearing_std_deg(0.0f),
-        confidence(0.0f),
-        last_seen_cycle(0) {
-  }
-};
-
 struct EmitterHypothesis FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EmitterHypothesisT NativeTableType;
   typedef EmitterHypothesisBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HYPOTHESIS_ID = 4,
@@ -1264,9 +1004,6 @@ struct EmitterHypothesis FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_LAST_SEEN_CYCLE) &&
            verifier.EndTable();
   }
-  EmitterHypothesisT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EmitterHypothesisT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EmitterHypothesis> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EmitterHypothesisT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EmitterHypothesisBuilder {
@@ -1361,17 +1098,7 @@ inline flatbuffers::Offset<EmitterHypothesis> CreateEmitterHypothesisDirect(
       last_seen_cycle);
 }
 
-flatbuffers::Offset<EmitterHypothesis> CreateEmitterHypothesis(flatbuffers::FlatBufferBuilder &_fbb, const EmitterHypothesisT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EmitterOutputT : public flatbuffers::NativeTable {
-  typedef EmitterOutput TableType;
-  std::vector<std::unique_ptr<esr::replay::EmitterHypothesisT>> hypotheses;
-  EmitterOutputT() {
-  }
-};
-
 struct EmitterOutput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EmitterOutputT NativeTableType;
   typedef EmitterOutputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HYPOTHESES = 4
@@ -1386,9 +1113,6 @@ struct EmitterOutput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVectorOfTables(hypotheses()) &&
            verifier.EndTable();
   }
-  EmitterOutputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EmitterOutputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EmitterOutput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EmitterOutputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EmitterOutputBuilder {
@@ -1427,23 +1151,7 @@ inline flatbuffers::Offset<EmitterOutput> CreateEmitterOutputDirect(
       hypotheses__);
 }
 
-flatbuffers::Offset<EmitterOutput> CreateEmitterOutput(flatbuffers::FlatBufferBuilder &_fbb, const EmitterOutputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct TruthAssociationRecordT : public flatbuffers::NativeTable {
-  typedef TruthAssociationRecord TableType;
-  uint32_t observation_id;
-  std::string truth_emitter_id;
-  bool matched;
-  float confidence;
-  TruthAssociationRecordT()
-      : observation_id(0),
-        matched(false),
-        confidence(0.0f) {
-  }
-};
-
 struct TruthAssociationRecord FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef TruthAssociationRecordT NativeTableType;
   typedef TruthAssociationRecordBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_OBSERVATION_ID = 4,
@@ -1454,8 +1162,8 @@ struct TruthAssociationRecord FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
   uint32_t observation_id() const {
     return GetField<uint32_t>(VT_OBSERVATION_ID, 0);
   }
-  const flatbuffers::String *truth_emitter_id() const {
-    return GetPointer<const flatbuffers::String *>(VT_TRUTH_EMITTER_ID);
+  uint64_t truth_emitter_id() const {
+    return GetField<uint64_t>(VT_TRUTH_EMITTER_ID, 0);
   }
   bool matched() const {
     return GetField<uint8_t>(VT_MATCHED, 0) != 0;
@@ -1466,15 +1174,11 @@ struct TruthAssociationRecord FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_OBSERVATION_ID) &&
-           VerifyOffset(verifier, VT_TRUTH_EMITTER_ID) &&
-           verifier.VerifyString(truth_emitter_id()) &&
+           VerifyField<uint64_t>(verifier, VT_TRUTH_EMITTER_ID) &&
            VerifyField<uint8_t>(verifier, VT_MATCHED) &&
            VerifyField<float>(verifier, VT_CONFIDENCE) &&
            verifier.EndTable();
   }
-  TruthAssociationRecordT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(TruthAssociationRecordT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<TruthAssociationRecord> Pack(flatbuffers::FlatBufferBuilder &_fbb, const TruthAssociationRecordT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct TruthAssociationRecordBuilder {
@@ -1484,8 +1188,8 @@ struct TruthAssociationRecordBuilder {
   void add_observation_id(uint32_t observation_id) {
     fbb_.AddElement<uint32_t>(TruthAssociationRecord::VT_OBSERVATION_ID, observation_id, 0);
   }
-  void add_truth_emitter_id(flatbuffers::Offset<flatbuffers::String> truth_emitter_id) {
-    fbb_.AddOffset(TruthAssociationRecord::VT_TRUTH_EMITTER_ID, truth_emitter_id);
+  void add_truth_emitter_id(uint64_t truth_emitter_id) {
+    fbb_.AddElement<uint64_t>(TruthAssociationRecord::VT_TRUTH_EMITTER_ID, truth_emitter_id, 0);
   }
   void add_matched(bool matched) {
     fbb_.AddElement<uint8_t>(TruthAssociationRecord::VT_MATCHED, static_cast<uint8_t>(matched), 0);
@@ -1508,43 +1212,18 @@ struct TruthAssociationRecordBuilder {
 inline flatbuffers::Offset<TruthAssociationRecord> CreateTruthAssociationRecord(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t observation_id = 0,
-    flatbuffers::Offset<flatbuffers::String> truth_emitter_id = 0,
+    uint64_t truth_emitter_id = 0,
     bool matched = false,
     float confidence = 0.0f) {
   TruthAssociationRecordBuilder builder_(_fbb);
-  builder_.add_confidence(confidence);
   builder_.add_truth_emitter_id(truth_emitter_id);
+  builder_.add_confidence(confidence);
   builder_.add_observation_id(observation_id);
   builder_.add_matched(matched);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<TruthAssociationRecord> CreateTruthAssociationRecordDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t observation_id = 0,
-    const char *truth_emitter_id = nullptr,
-    bool matched = false,
-    float confidence = 0.0f) {
-  auto truth_emitter_id__ = truth_emitter_id ? _fbb.CreateString(truth_emitter_id) : 0;
-  return esr::replay::CreateTruthAssociationRecord(
-      _fbb,
-      observation_id,
-      truth_emitter_id__,
-      matched,
-      confidence);
-}
-
-flatbuffers::Offset<TruthAssociationRecord> CreateTruthAssociationRecord(flatbuffers::FlatBufferBuilder &_fbb, const TruthAssociationRecordT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct TruthEvaluationOutputT : public flatbuffers::NativeTable {
-  typedef TruthEvaluationOutput TableType;
-  std::vector<std::unique_ptr<esr::replay::TruthAssociationRecordT>> associations;
-  TruthEvaluationOutputT() {
-  }
-};
-
 struct TruthEvaluationOutput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef TruthEvaluationOutputT NativeTableType;
   typedef TruthEvaluationOutputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ASSOCIATIONS = 4
@@ -1559,9 +1238,6 @@ struct TruthEvaluationOutput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
            verifier.VerifyVectorOfTables(associations()) &&
            verifier.EndTable();
   }
-  TruthEvaluationOutputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(TruthEvaluationOutputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<TruthEvaluationOutput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const TruthEvaluationOutputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct TruthEvaluationOutputBuilder {
@@ -1600,23 +1276,7 @@ inline flatbuffers::Offset<TruthEvaluationOutput> CreateTruthEvaluationOutputDir
       associations__);
 }
 
-flatbuffers::Offset<TruthEvaluationOutput> CreateTruthEvaluationOutput(flatbuffers::FlatBufferBuilder &_fbb, const TruthEvaluationOutputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EsrOutputFrameT : public flatbuffers::NativeTable {
-  typedef EsrOutputFrame TableType;
-  uint32_t cycle_index;
-  uint32_t batch_id;
-  std::unique_ptr<esr::replay::ObservationOutputT> observation_output;
-  std::unique_ptr<esr::replay::EmitterOutputT> emitter_output;
-  std::unique_ptr<esr::replay::TruthEvaluationOutputT> truth_evaluation_output;
-  EsrOutputFrameT()
-      : cycle_index(0),
-        batch_id(0) {
-  }
-};
-
 struct EsrOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EsrOutputFrameT NativeTableType;
   typedef EsrOutputFrameBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CYCLE_INDEX = 4,
@@ -1652,9 +1312,6 @@ struct EsrOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(truth_evaluation_output()) &&
            verifier.EndTable();
   }
-  EsrOutputFrameT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EsrOutputFrameT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EsrOutputFrame> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrOutputFrameT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EsrOutputFrameBuilder {
@@ -1704,24 +1361,7 @@ inline flatbuffers::Offset<EsrOutputFrame> CreateEsrOutputFrame(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EsrOutputFrame> CreateEsrOutputFrame(flatbuffers::FlatBufferBuilder &_fbb, const EsrOutputFrameT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct ValidationIssueT : public flatbuffers::NativeTable {
-  typedef ValidationIssue TableType;
-  int32_t severity;
-  int32_t code;
-  int32_t emitter_index;
-  std::string field;
-  std::string message;
-  ValidationIssueT()
-      : severity(0),
-        code(0),
-        emitter_index(0) {
-  }
-};
-
 struct ValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef ValidationIssueT NativeTableType;
   typedef ValidationIssueBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SEVERITY = 4,
@@ -1756,9 +1396,6 @@ struct ValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyString(message()) &&
            verifier.EndTable();
   }
-  ValidationIssueT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(ValidationIssueT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<ValidationIssue> Pack(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct ValidationIssueBuilder {
@@ -1826,28 +1463,7 @@ inline flatbuffers::Offset<ValidationIssue> CreateValidationIssueDirect(
       message__);
 }
 
-flatbuffers::Offset<ValidationIssue> CreateValidationIssue(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EsrCycleResultT : public flatbuffers::NativeTable {
-  typedef EsrCycleResult TableType;
-  uint32_t input_cycle_index;
-  std::unique_ptr<esr::replay::EsrOutputFrameT> output_frame;
-  std::vector<std::unique_ptr<esr::replay::ValidationIssueT>> validation_issues;
-  bool has_validation_error;
-  bool executed_this_cycle;
-  bool reused_previous_output;
-  int32_t abort_reason;
-  EsrCycleResultT()
-      : input_cycle_index(0),
-        has_validation_error(false),
-        executed_this_cycle(false),
-        reused_previous_output(false),
-        abort_reason(0) {
-  }
-};
-
 struct EsrCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EsrCycleResultT NativeTableType;
   typedef EsrCycleResultBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INPUT_CYCLE_INDEX = 4,
@@ -1893,9 +1509,6 @@ struct EsrCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<int32_t>(verifier, VT_ABORT_REASON) &&
            verifier.EndTable();
   }
-  EsrCycleResultT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EsrCycleResultT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EsrCycleResult> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrCycleResultT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EsrCycleResultBuilder {
@@ -1976,619 +1589,6 @@ inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResultDirect(
       abort_reason);
 }
 
-flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResult(flatbuffers::FlatBufferBuilder &_fbb, const EsrCycleResultT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-inline PoseStateT *PoseState::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::PoseStateT> _o = std::unique_ptr<esr::replay::PoseStateT>(new PoseStateT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void PoseState::UnPackTo(PoseStateT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = position_m(); if (_e) _o->position_m = std::unique_ptr<esr::replay::Vec3>(new esr::replay::Vec3(*_e)); }
-  { auto _e = velocity_mps(); if (_e) _o->velocity_mps = std::unique_ptr<esr::replay::Vec3>(new esr::replay::Vec3(*_e)); }
-  { auto _e = attitude_deg(); if (_e) _o->attitude_deg = std::unique_ptr<esr::replay::EulerDeg>(new esr::replay::EulerDeg(*_e)); }
-}
-
-inline flatbuffers::Offset<PoseState> PoseState::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreatePoseState(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<PoseState> CreatePoseState(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PoseStateT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _position_m = _o->position_m ? _o->position_m.get() : 0;
-  auto _velocity_mps = _o->velocity_mps ? _o->velocity_mps.get() : 0;
-  auto _attitude_deg = _o->attitude_deg ? _o->attitude_deg.get() : 0;
-  return esr::replay::CreatePoseState(
-      _fbb,
-      _position_m,
-      _velocity_mps,
-      _attitude_deg);
-}
-
-inline EmitterBeamStateT *EmitterBeamState::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::EmitterBeamStateT> _o = std::unique_ptr<esr::replay::EmitterBeamStateT>(new EmitterBeamStateT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EmitterBeamState::UnPackTo(EmitterBeamStateT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = center_az_deg(); _o->center_az_deg = _e; }
-  { auto _e = center_el_deg(); _o->center_el_deg = _e; }
-  { auto _e = az_beamwidth_deg(); _o->az_beamwidth_deg = _e; }
-  { auto _e = el_beamwidth_deg(); _o->el_beamwidth_deg = _e; }
-  { auto _e = beam_state_valid(); _o->beam_state_valid = _e; }
-}
-
-inline flatbuffers::Offset<EmitterBeamState> EmitterBeamState::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EmitterBeamStateT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEmitterBeamState(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EmitterBeamState> CreateEmitterBeamState(flatbuffers::FlatBufferBuilder &_fbb, const EmitterBeamStateT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EmitterBeamStateT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _center_az_deg = _o->center_az_deg;
-  auto _center_el_deg = _o->center_el_deg;
-  auto _az_beamwidth_deg = _o->az_beamwidth_deg;
-  auto _el_beamwidth_deg = _o->el_beamwidth_deg;
-  auto _beam_state_valid = _o->beam_state_valid;
-  return esr::replay::CreateEmitterBeamState(
-      _fbb,
-      _center_az_deg,
-      _center_el_deg,
-      _az_beamwidth_deg,
-      _el_beamwidth_deg,
-      _beam_state_valid);
-}
-
-inline SceneEmitterT *SceneEmitter::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::SceneEmitterT> _o = std::unique_ptr<esr::replay::SceneEmitterT>(new SceneEmitterT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void SceneEmitter::UnPackTo(SceneEmitterT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = emitter_id(); if (_e) _o->emitter_id = _e->str(); }
-  { auto _e = pose(); if (_e) _o->pose = std::unique_ptr<esr::replay::PoseStateT>(_e->UnPack(_resolver)); }
-  { auto _e = carrier_hz(); _o->carrier_hz = _e; }
-  { auto _e = bandwidth_hz(); _o->bandwidth_hz = _e; }
-  { auto _e = tx_power_w(); _o->tx_power_w = _e; }
-  { auto _e = pulse_width_s(); _o->pulse_width_s = _e; }
-  { auto _e = pri_s(); _o->pri_s = _e; }
-  { auto _e = beam_state(); if (_e) _o->beam_state = std::unique_ptr<esr::replay::EmitterBeamStateT>(_e->UnPack(_resolver)); }
-  { auto _e = is_emitting(); _o->is_emitting = _e; }
-}
-
-inline flatbuffers::Offset<SceneEmitter> SceneEmitter::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SceneEmitterT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateSceneEmitter(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<SceneEmitter> CreateSceneEmitter(flatbuffers::FlatBufferBuilder &_fbb, const SceneEmitterT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SceneEmitterT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _emitter_id = _o->emitter_id.empty() ? 0 : _fbb.CreateString(_o->emitter_id);
-  auto _pose = _o->pose ? CreatePoseState(_fbb, _o->pose.get(), _rehasher) : 0;
-  auto _carrier_hz = _o->carrier_hz;
-  auto _bandwidth_hz = _o->bandwidth_hz;
-  auto _tx_power_w = _o->tx_power_w;
-  auto _pulse_width_s = _o->pulse_width_s;
-  auto _pri_s = _o->pri_s;
-  auto _beam_state = _o->beam_state ? CreateEmitterBeamState(_fbb, _o->beam_state.get(), _rehasher) : 0;
-  auto _is_emitting = _o->is_emitting;
-  return esr::replay::CreateSceneEmitter(
-      _fbb,
-      _emitter_id,
-      _pose,
-      _carrier_hz,
-      _bandwidth_hz,
-      _tx_power_w,
-      _pulse_width_s,
-      _pri_s,
-      _beam_state,
-      _is_emitting);
-}
-
-inline EsrJammerSourceT *EsrJammerSource::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::EsrJammerSourceT> _o = std::unique_ptr<esr::replay::EsrJammerSourceT>(new EsrJammerSourceT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EsrJammerSource::UnPackTo(EsrJammerSourceT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = technique(); _o->technique = _e; }
-  { auto _e = active(); _o->active = _e; }
-  { auto _e = center_hz(); _o->center_hz = _e; }
-  { auto _e = bandwidth_hz(); _o->bandwidth_hz = _e; }
-  { auto _e = power_w(); _o->power_w = _e; }
-  { auto _e = deception_risk(); _o->deception_risk = _e; }
-  { auto _e = confidence(); _o->confidence = _e; }
-}
-
-inline flatbuffers::Offset<EsrJammerSource> EsrJammerSource::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrJammerSourceT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEsrJammerSource(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EsrJammerSource> CreateEsrJammerSource(flatbuffers::FlatBufferBuilder &_fbb, const EsrJammerSourceT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrJammerSourceT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _technique = _o->technique;
-  auto _active = _o->active;
-  auto _center_hz = _o->center_hz;
-  auto _bandwidth_hz = _o->bandwidth_hz;
-  auto _power_w = _o->power_w;
-  auto _deception_risk = _o->deception_risk;
-  auto _confidence = _o->confidence;
-  return esr::replay::CreateEsrJammerSource(
-      _fbb,
-      _technique,
-      _active,
-      _center_hz,
-      _bandwidth_hz,
-      _power_w,
-      _deception_risk,
-      _confidence);
-}
-
-inline EsrAtmosphericObservationT *EsrAtmosphericObservation::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::EsrAtmosphericObservationT> _o = std::unique_ptr<esr::replay::EsrAtmosphericObservationT>(new EsrAtmosphericObservationT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EsrAtmosphericObservation::UnPackTo(EsrAtmosphericObservationT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = relative_humidity_ratio(); _o->relative_humidity_ratio = _e; }
-  { auto _e = precipitation_rate_mmph(); _o->precipitation_rate_mmph = _e; }
-  { auto _e = visibility_km(); _o->visibility_km = _e; }
-}
-
-inline flatbuffers::Offset<EsrAtmosphericObservation> EsrAtmosphericObservation::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrAtmosphericObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEsrAtmosphericObservation(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EsrAtmosphericObservation> CreateEsrAtmosphericObservation(flatbuffers::FlatBufferBuilder &_fbb, const EsrAtmosphericObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrAtmosphericObservationT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _relative_humidity_ratio = _o->relative_humidity_ratio;
-  auto _precipitation_rate_mmph = _o->precipitation_rate_mmph;
-  auto _visibility_km = _o->visibility_km;
-  return esr::replay::CreateEsrAtmosphericObservation(
-      _fbb,
-      _relative_humidity_ratio,
-      _precipitation_rate_mmph,
-      _visibility_km);
-}
-
-inline EsrEnvironmentInputT *EsrEnvironmentInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::EsrEnvironmentInputT> _o = std::unique_ptr<esr::replay::EsrEnvironmentInputT>(new EsrEnvironmentInputT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EsrEnvironmentInput::UnPackTo(EsrEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = propagation_profile(); _o->propagation_profile = _e; }
-  { auto _e = clutter_density(); _o->clutter_density = _e; }
-  { auto _e = spectrum_occupancy_ratio(); _o->spectrum_occupancy_ratio = _e; }
-  { auto _e = atmospheric_observation(); if (_e) _o->atmospheric_observation = std::unique_ptr<esr::replay::EsrAtmosphericObservationT>(_e->UnPack(_resolver)); }
-  { auto _e = jammer_sources(); if (_e) { _o->jammer_sources.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->jammer_sources[_i] = std::unique_ptr<esr::replay::EsrJammerSourceT>(_e->Get(_i)->UnPack(_resolver)); } } }
-}
-
-inline flatbuffers::Offset<EsrEnvironmentInput> EsrEnvironmentInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEsrEnvironmentInput(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EsrEnvironmentInput> CreateEsrEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const EsrEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrEnvironmentInputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _propagation_profile = _o->propagation_profile;
-  auto _clutter_density = _o->clutter_density;
-  auto _spectrum_occupancy_ratio = _o->spectrum_occupancy_ratio;
-  auto _atmospheric_observation = _o->atmospheric_observation ? CreateEsrAtmosphericObservation(_fbb, _o->atmospheric_observation.get(), _rehasher) : 0;
-  auto _jammer_sources = _o->jammer_sources.size() ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::EsrJammerSource>> (_o->jammer_sources.size(), [](size_t i, _VectorArgs *__va) { return CreateEsrJammerSource(*__va->__fbb, __va->__o->jammer_sources[i].get(), __va->__rehasher); }, &_va ) : 0;
-  return esr::replay::CreateEsrEnvironmentInput(
-      _fbb,
-      _propagation_profile,
-      _clutter_density,
-      _spectrum_occupancy_ratio,
-      _atmospheric_observation,
-      _jammer_sources);
-}
-
-inline EsrCycleInputT *EsrCycleInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::EsrCycleInputT> _o = std::unique_ptr<esr::replay::EsrCycleInputT>(new EsrCycleInputT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EsrCycleInput::UnPackTo(EsrCycleInputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = cycle_index(); _o->cycle_index = _e; }
-  { auto _e = dt_sec(); _o->dt_sec = _e; }
-  { auto _e = platform_pose(); if (_e) _o->platform_pose = std::unique_ptr<esr::replay::PoseStateT>(_e->UnPack(_resolver)); }
-  { auto _e = scene_emitters(); if (_e) { _o->scene_emitters.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->scene_emitters[_i] = std::unique_ptr<esr::replay::SceneEmitterT>(_e->Get(_i)->UnPack(_resolver)); } } }
-  { auto _e = environment(); if (_e) _o->environment = std::unique_ptr<esr::replay::EsrEnvironmentInputT>(_e->UnPack(_resolver)); }
-  { auto _e = platform_altitude_m(); _o->platform_altitude_m = _e; }
-}
-
-inline flatbuffers::Offset<EsrCycleInput> EsrCycleInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEsrCycleInput(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EsrCycleInput> CreateEsrCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const EsrCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrCycleInputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _cycle_index = _o->cycle_index;
-  auto _dt_sec = _o->dt_sec;
-  auto _platform_pose = _o->platform_pose ? CreatePoseState(_fbb, _o->platform_pose.get(), _rehasher) : 0;
-  auto _scene_emitters = _o->scene_emitters.size() ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::SceneEmitter>> (_o->scene_emitters.size(), [](size_t i, _VectorArgs *__va) { return CreateSceneEmitter(*__va->__fbb, __va->__o->scene_emitters[i].get(), __va->__rehasher); }, &_va ) : 0;
-  auto _environment = _o->environment ? CreateEsrEnvironmentInput(_fbb, _o->environment.get(), _rehasher) : 0;
-  auto _platform_altitude_m = _o->platform_altitude_m;
-  return esr::replay::CreateEsrCycleInput(
-      _fbb,
-      _cycle_index,
-      _dt_sec,
-      _platform_pose,
-      _scene_emitters,
-      _environment,
-      _platform_altitude_m);
-}
-
-inline EmitterObservationT *EmitterObservation::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::EmitterObservationT> _o = std::unique_ptr<esr::replay::EmitterObservationT>(new EmitterObservationT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EmitterObservation::UnPackTo(EmitterObservationT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = observation_id(); _o->observation_id = _e; }
-  { auto _e = timestamp_s(); _o->timestamp_s = _e; }
-  { auto _e = aoa_az_deg(); _o->aoa_az_deg = _e; }
-  { auto _e = aoa_el_deg(); _o->aoa_el_deg = _e; }
-  { auto _e = rf_hz(); _o->rf_hz = _e; }
-  { auto _e = pulse_width_s(); _o->pulse_width_s = _e; }
-  { auto _e = amplitude_db(); _o->amplitude_db = _e; }
-  { auto _e = snr_db(); _o->snr_db = _e; }
-  { auto _e = quality(); _o->quality = _e; }
-  { auto _e = is_jammed(); _o->is_jammed = _e; }
-}
-
-inline flatbuffers::Offset<EmitterObservation> EmitterObservation::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EmitterObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEmitterObservation(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EmitterObservation> CreateEmitterObservation(flatbuffers::FlatBufferBuilder &_fbb, const EmitterObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EmitterObservationT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _observation_id = _o->observation_id;
-  auto _timestamp_s = _o->timestamp_s;
-  auto _aoa_az_deg = _o->aoa_az_deg;
-  auto _aoa_el_deg = _o->aoa_el_deg;
-  auto _rf_hz = _o->rf_hz;
-  auto _pulse_width_s = _o->pulse_width_s;
-  auto _amplitude_db = _o->amplitude_db;
-  auto _snr_db = _o->snr_db;
-  auto _quality = _o->quality;
-  auto _is_jammed = _o->is_jammed;
-  return esr::replay::CreateEmitterObservation(
-      _fbb,
-      _observation_id,
-      _timestamp_s,
-      _aoa_az_deg,
-      _aoa_el_deg,
-      _rf_hz,
-      _pulse_width_s,
-      _amplitude_db,
-      _snr_db,
-      _quality,
-      _is_jammed);
-}
-
-inline ObservationOutputT *ObservationOutput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::ObservationOutputT> _o = std::unique_ptr<esr::replay::ObservationOutputT>(new ObservationOutputT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void ObservationOutput::UnPackTo(ObservationOutputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = observations(); if (_e) { _o->observations.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->observations[_i] = std::unique_ptr<esr::replay::EmitterObservationT>(_e->Get(_i)->UnPack(_resolver)); } } }
-}
-
-inline flatbuffers::Offset<ObservationOutput> ObservationOutput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const ObservationOutputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateObservationOutput(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<ObservationOutput> CreateObservationOutput(flatbuffers::FlatBufferBuilder &_fbb, const ObservationOutputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const ObservationOutputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _observations = _o->observations.size() ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::EmitterObservation>> (_o->observations.size(), [](size_t i, _VectorArgs *__va) { return CreateEmitterObservation(*__va->__fbb, __va->__o->observations[i].get(), __va->__rehasher); }, &_va ) : 0;
-  return esr::replay::CreateObservationOutput(
-      _fbb,
-      _observations);
-}
-
-inline EmitterHypothesisT *EmitterHypothesis::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::EmitterHypothesisT> _o = std::unique_ptr<esr::replay::EmitterHypothesisT>(new EmitterHypothesisT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EmitterHypothesis::UnPackTo(EmitterHypothesisT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = hypothesis_id(); _o->hypothesis_id = _e; }
-  { auto _e = candidate_classes(); if (_e) { _o->candidate_classes.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->candidate_classes[_i] = _e->Get(_i)->str(); } } }
-  { auto _e = mode(); _o->mode = _e; }
-  { auto _e = threat_level(); _o->threat_level = _e; }
-  { auto _e = bearing_az_deg(); _o->bearing_az_deg = _e; }
-  { auto _e = bearing_el_deg(); _o->bearing_el_deg = _e; }
-  { auto _e = bearing_std_deg(); _o->bearing_std_deg = _e; }
-  { auto _e = confidence(); _o->confidence = _e; }
-  { auto _e = last_seen_cycle(); _o->last_seen_cycle = _e; }
-}
-
-inline flatbuffers::Offset<EmitterHypothesis> EmitterHypothesis::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EmitterHypothesisT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEmitterHypothesis(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EmitterHypothesis> CreateEmitterHypothesis(flatbuffers::FlatBufferBuilder &_fbb, const EmitterHypothesisT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EmitterHypothesisT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _hypothesis_id = _o->hypothesis_id;
-  auto _candidate_classes = _o->candidate_classes.size() ? _fbb.CreateVectorOfStrings(_o->candidate_classes) : 0;
-  auto _mode = _o->mode;
-  auto _threat_level = _o->threat_level;
-  auto _bearing_az_deg = _o->bearing_az_deg;
-  auto _bearing_el_deg = _o->bearing_el_deg;
-  auto _bearing_std_deg = _o->bearing_std_deg;
-  auto _confidence = _o->confidence;
-  auto _last_seen_cycle = _o->last_seen_cycle;
-  return esr::replay::CreateEmitterHypothesis(
-      _fbb,
-      _hypothesis_id,
-      _candidate_classes,
-      _mode,
-      _threat_level,
-      _bearing_az_deg,
-      _bearing_el_deg,
-      _bearing_std_deg,
-      _confidence,
-      _last_seen_cycle);
-}
-
-inline EmitterOutputT *EmitterOutput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::EmitterOutputT> _o = std::unique_ptr<esr::replay::EmitterOutputT>(new EmitterOutputT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EmitterOutput::UnPackTo(EmitterOutputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = hypotheses(); if (_e) { _o->hypotheses.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->hypotheses[_i] = std::unique_ptr<esr::replay::EmitterHypothesisT>(_e->Get(_i)->UnPack(_resolver)); } } }
-}
-
-inline flatbuffers::Offset<EmitterOutput> EmitterOutput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EmitterOutputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEmitterOutput(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EmitterOutput> CreateEmitterOutput(flatbuffers::FlatBufferBuilder &_fbb, const EmitterOutputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EmitterOutputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _hypotheses = _o->hypotheses.size() ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::EmitterHypothesis>> (_o->hypotheses.size(), [](size_t i, _VectorArgs *__va) { return CreateEmitterHypothesis(*__va->__fbb, __va->__o->hypotheses[i].get(), __va->__rehasher); }, &_va ) : 0;
-  return esr::replay::CreateEmitterOutput(
-      _fbb,
-      _hypotheses);
-}
-
-inline TruthAssociationRecordT *TruthAssociationRecord::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::TruthAssociationRecordT> _o = std::unique_ptr<esr::replay::TruthAssociationRecordT>(new TruthAssociationRecordT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void TruthAssociationRecord::UnPackTo(TruthAssociationRecordT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = observation_id(); _o->observation_id = _e; }
-  { auto _e = truth_emitter_id(); if (_e) _o->truth_emitter_id = _e->str(); }
-  { auto _e = matched(); _o->matched = _e; }
-  { auto _e = confidence(); _o->confidence = _e; }
-}
-
-inline flatbuffers::Offset<TruthAssociationRecord> TruthAssociationRecord::Pack(flatbuffers::FlatBufferBuilder &_fbb, const TruthAssociationRecordT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateTruthAssociationRecord(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<TruthAssociationRecord> CreateTruthAssociationRecord(flatbuffers::FlatBufferBuilder &_fbb, const TruthAssociationRecordT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const TruthAssociationRecordT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _observation_id = _o->observation_id;
-  auto _truth_emitter_id = _o->truth_emitter_id.empty() ? 0 : _fbb.CreateString(_o->truth_emitter_id);
-  auto _matched = _o->matched;
-  auto _confidence = _o->confidence;
-  return esr::replay::CreateTruthAssociationRecord(
-      _fbb,
-      _observation_id,
-      _truth_emitter_id,
-      _matched,
-      _confidence);
-}
-
-inline TruthEvaluationOutputT *TruthEvaluationOutput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::TruthEvaluationOutputT> _o = std::unique_ptr<esr::replay::TruthEvaluationOutputT>(new TruthEvaluationOutputT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void TruthEvaluationOutput::UnPackTo(TruthEvaluationOutputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = associations(); if (_e) { _o->associations.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->associations[_i] = std::unique_ptr<esr::replay::TruthAssociationRecordT>(_e->Get(_i)->UnPack(_resolver)); } } }
-}
-
-inline flatbuffers::Offset<TruthEvaluationOutput> TruthEvaluationOutput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const TruthEvaluationOutputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateTruthEvaluationOutput(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<TruthEvaluationOutput> CreateTruthEvaluationOutput(flatbuffers::FlatBufferBuilder &_fbb, const TruthEvaluationOutputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const TruthEvaluationOutputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _associations = _o->associations.size() ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::TruthAssociationRecord>> (_o->associations.size(), [](size_t i, _VectorArgs *__va) { return CreateTruthAssociationRecord(*__va->__fbb, __va->__o->associations[i].get(), __va->__rehasher); }, &_va ) : 0;
-  return esr::replay::CreateTruthEvaluationOutput(
-      _fbb,
-      _associations);
-}
-
-inline EsrOutputFrameT *EsrOutputFrame::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::EsrOutputFrameT> _o = std::unique_ptr<esr::replay::EsrOutputFrameT>(new EsrOutputFrameT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EsrOutputFrame::UnPackTo(EsrOutputFrameT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = cycle_index(); _o->cycle_index = _e; }
-  { auto _e = batch_id(); _o->batch_id = _e; }
-  { auto _e = observation_output(); if (_e) _o->observation_output = std::unique_ptr<esr::replay::ObservationOutputT>(_e->UnPack(_resolver)); }
-  { auto _e = emitter_output(); if (_e) _o->emitter_output = std::unique_ptr<esr::replay::EmitterOutputT>(_e->UnPack(_resolver)); }
-  { auto _e = truth_evaluation_output(); if (_e) _o->truth_evaluation_output = std::unique_ptr<esr::replay::TruthEvaluationOutputT>(_e->UnPack(_resolver)); }
-}
-
-inline flatbuffers::Offset<EsrOutputFrame> EsrOutputFrame::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrOutputFrameT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEsrOutputFrame(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EsrOutputFrame> CreateEsrOutputFrame(flatbuffers::FlatBufferBuilder &_fbb, const EsrOutputFrameT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrOutputFrameT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _cycle_index = _o->cycle_index;
-  auto _batch_id = _o->batch_id;
-  auto _observation_output = _o->observation_output ? CreateObservationOutput(_fbb, _o->observation_output.get(), _rehasher) : 0;
-  auto _emitter_output = _o->emitter_output ? CreateEmitterOutput(_fbb, _o->emitter_output.get(), _rehasher) : 0;
-  auto _truth_evaluation_output = _o->truth_evaluation_output ? CreateTruthEvaluationOutput(_fbb, _o->truth_evaluation_output.get(), _rehasher) : 0;
-  return esr::replay::CreateEsrOutputFrame(
-      _fbb,
-      _cycle_index,
-      _batch_id,
-      _observation_output,
-      _emitter_output,
-      _truth_evaluation_output);
-}
-
-inline ValidationIssueT *ValidationIssue::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::ValidationIssueT> _o = std::unique_ptr<esr::replay::ValidationIssueT>(new ValidationIssueT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void ValidationIssue::UnPackTo(ValidationIssueT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = severity(); _o->severity = _e; }
-  { auto _e = code(); _o->code = _e; }
-  { auto _e = emitter_index(); _o->emitter_index = _e; }
-  { auto _e = field(); if (_e) _o->field = _e->str(); }
-  { auto _e = message(); if (_e) _o->message = _e->str(); }
-}
-
-inline flatbuffers::Offset<ValidationIssue> ValidationIssue::Pack(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateValidationIssue(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<ValidationIssue> CreateValidationIssue(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const ValidationIssueT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _severity = _o->severity;
-  auto _code = _o->code;
-  auto _emitter_index = _o->emitter_index;
-  auto _field = _o->field.empty() ? 0 : _fbb.CreateString(_o->field);
-  auto _message = _o->message.empty() ? 0 : _fbb.CreateString(_o->message);
-  return esr::replay::CreateValidationIssue(
-      _fbb,
-      _severity,
-      _code,
-      _emitter_index,
-      _field,
-      _message);
-}
-
-inline EsrCycleResultT *EsrCycleResult::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<esr::replay::EsrCycleResultT> _o = std::unique_ptr<esr::replay::EsrCycleResultT>(new EsrCycleResultT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EsrCycleResult::UnPackTo(EsrCycleResultT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = input_cycle_index(); _o->input_cycle_index = _e; }
-  { auto _e = output_frame(); if (_e) _o->output_frame = std::unique_ptr<esr::replay::EsrOutputFrameT>(_e->UnPack(_resolver)); }
-  { auto _e = validation_issues(); if (_e) { _o->validation_issues.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->validation_issues[_i] = std::unique_ptr<esr::replay::ValidationIssueT>(_e->Get(_i)->UnPack(_resolver)); } } }
-  { auto _e = has_validation_error(); _o->has_validation_error = _e; }
-  { auto _e = executed_this_cycle(); _o->executed_this_cycle = _e; }
-  { auto _e = reused_previous_output(); _o->reused_previous_output = _e; }
-  { auto _e = abort_reason(); _o->abort_reason = _e; }
-}
-
-inline flatbuffers::Offset<EsrCycleResult> EsrCycleResult::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrCycleResultT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEsrCycleResult(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EsrCycleResult> CreateEsrCycleResult(flatbuffers::FlatBufferBuilder &_fbb, const EsrCycleResultT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrCycleResultT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _input_cycle_index = _o->input_cycle_index;
-  auto _output_frame = _o->output_frame ? CreateEsrOutputFrame(_fbb, _o->output_frame.get(), _rehasher) : 0;
-  auto _validation_issues = _o->validation_issues.size() ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::ValidationIssue>> (_o->validation_issues.size(), [](size_t i, _VectorArgs *__va) { return CreateValidationIssue(*__va->__fbb, __va->__o->validation_issues[i].get(), __va->__rehasher); }, &_va ) : 0;
-  auto _has_validation_error = _o->has_validation_error;
-  auto _executed_this_cycle = _o->executed_this_cycle;
-  auto _reused_previous_output = _o->reused_previous_output;
-  auto _abort_reason = _o->abort_reason;
-  return esr::replay::CreateEsrCycleResult(
-      _fbb,
-      _input_cycle_index,
-      _output_frame,
-      _validation_issues,
-      _has_validation_error,
-      _executed_this_cycle,
-      _reused_previous_output,
-      _abort_reason);
-}
-
 inline const esr::replay::EsrCycleInput *GetEsrCycleInput(const void *buf) {
   return flatbuffers::GetRoot<esr::replay::EsrCycleInput>(buf);
 }
@@ -2626,18 +1626,6 @@ inline void FinishSizePrefixedEsrCycleInputBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
     flatbuffers::Offset<esr::replay::EsrCycleInput> root) {
   fbb.FinishSizePrefixed(root, EsrCycleInputIdentifier());
-}
-
-inline std::unique_ptr<esr::replay::EsrCycleInputT> UnPackEsrCycleInput(
-    const void *buf,
-    const flatbuffers::resolver_function_t *res = nullptr) {
-  return std::unique_ptr<esr::replay::EsrCycleInputT>(GetEsrCycleInput(buf)->UnPack(res));
-}
-
-inline std::unique_ptr<esr::replay::EsrCycleInputT> UnPackSizePrefixedEsrCycleInput(
-    const void *buf,
-    const flatbuffers::resolver_function_t *res = nullptr) {
-  return std::unique_ptr<esr::replay::EsrCycleInputT>(GetSizePrefixedEsrCycleInput(buf)->UnPack(res));
 }
 
 }  // namespace replay

@@ -35,7 +35,7 @@ struct ONEQ_API EsrEmitterBeamState {
 
 /** @brief EsrSceneEmitter 描述 ESR 场景辐射源输入。 */
 struct ONEQ_API EsrSceneEmitter {
-  std::string emitter_id{};          /**< 辐射源标识 */
+  std::uint64_t emitter_id{0U};      /**< 辐射源标识 */
   EsrPoseState pose{};               /**< 辐射源位置、速度与姿态状态 */
   double carrier_hz{0.0};            /**< 发射中心频率（单位：Hz） */
   double bandwidth_hz{0.0};          /**< 发射带宽（单位：Hz） */

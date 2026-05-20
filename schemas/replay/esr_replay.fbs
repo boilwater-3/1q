@@ -36,7 +36,7 @@ table EmitterBeamState {
 }
 
 table SceneEmitter {
-  emitter_id:   string;
+  emitter_id:   uint64;
   pose:         PoseState;
   carrier_hz:   double;
   bandwidth_hz: double;
@@ -120,7 +120,7 @@ table EmitterOutput {
 
 table TruthAssociationRecord {
   observation_id:   uint32;
-  truth_emitter_id: string;
+  truth_emitter_id: uint64;
   matched:          bool;
   confidence:       float;
 }

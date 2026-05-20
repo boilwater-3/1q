@@ -38,7 +38,7 @@ struct ONEQ_API EsrExternalPoseInput {
  * @brief ESR 外部辐射源输入（统一入口）。
  */
 struct ONEQ_API EsrExternalEmitterInput {
-  std::string emitter_id{};                                      /**< 辐射源标识 */
+  std::uint64_t emitter_id{0U};                                  /**< 辐射源标识 */
   oneq::coordinate::EcefPositionM emitter_position_ecef_m{};     /**< 辐射源位置（ECEF，m） */
   oneq::coordinate::EcefVelocityMps emitter_velocity_mps{};      /**< 辐射源速度（ECEF，单位：m/s） */
   oneq::coordinate::EulerAnglesDeg emitter_attitude_deg{};       /**< 辐射源姿态角（Body->ENU，deg） */

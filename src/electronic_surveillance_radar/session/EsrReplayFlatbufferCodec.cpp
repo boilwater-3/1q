@@ -58,13 +58,12 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
 
   std::vector<flatbuffers::Offset<esr::replay::SceneEmitter>> emitters;
   for (const auto& e : v.scene) {
-    auto id = fbb.CreateString(e.emitter_id);
     auto pose = BuildPose(fbb, e.pose);
     auto beam = esr::replay::CreateEmitterBeamState(
         fbb, e.beam_state.center_az_deg, e.beam_state.center_el_deg, e.beam_state.az_beamwidth_deg,
         e.beam_state.el_beamwidth_deg, e.beam_state.beam_state_valid);
     esr::replay::SceneEmitterBuilder eb(fbb);
-    eb.add_emitter_id(id);
+    eb.add_emitter_id(e.emitter_id);
     eb.add_pose(pose);
     eb.add_beam_state(beam);
     eb.add_carrier_hz(e.carrier_hz);
@@ -119,9 +118,7 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   if (fb->scene_emitters()) {
     for (const auto* e : *fb->scene_emitters()) {
       session::EsrSceneEmitter ts{};
-      if (e->emitter_id()) {
-        ts.emitter_id = e->emitter_id()->str();
-      }
+      ts.emitter_id = e->emitter_id();
       ts.pose = FromPose(e->pose());
       ts.carrier_hz = e->carrier_hz();
       ts.bandwidth_hz = e->bandwidth_hz();
@@ -204,7 +201,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
   std::vector<flatbuffers::Offset<esr::replay::TruthAssociationRecord>> ta_vec;
   for (const auto& a : v.truth_evaluation_output.associations) {
     ta_vec.push_back(esr::replay::CreateTruthAssociationRecord(
-        fbb, static_cast<std::uint32_t>(a.observation_id), fbb.CreateString(a.truth_emitter_id),
+        fbb, static_cast<std::uint32_t>(a.observation_id), a.truth_emitter_id,
         a.matched, static_cast<float>(a.confidence)));
   }
   auto truth_out = esr::replay::CreateTruthEvaluationOutput(fbb, fbb.CreateVector(ta_vec));
@@ -269,9 +266,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
       for (const auto* a : *t->associations()) {
         extension::TruthAssociationRecord rec{};
         rec.observation_id = a->observation_id();
-        if (a->truth_emitter_id()) {
-          rec.truth_emitter_id = a->truth_emitter_id()->str();
-        }
+        rec.truth_emitter_id = a->truth_emitter_id();
         rec.matched = a->matched();
         rec.confidence = a->confidence();
         out->truth_evaluation_output.associations.push_back(rec);
