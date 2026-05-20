@@ -684,6 +684,7 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalCoordinat
       session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
   session::RadarExternalTargetInput input;
+  input.target_id = 403U;
   input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
   input.kinematics.position_ecef_m = target_ecef;
   input.kinematics.velocity_mps.x_mps = 80.0f;
@@ -694,7 +695,7 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalCoordinat
 
   session::RadarSceneTarget target_from_external;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
-      403U, input, reference, platform_pose.velocity_mps, &target_from_external));
+      input, reference, platform_pose.velocity_mps, &target_from_external));
   EXPECT_EQ(target_from_external.external_target_id, 403U);
   EXPECT_GT(target_from_external.position_x, 100.0f);
   EXPECT_NEAR(target_from_external.position_y, 0.0f, 2.0f);
@@ -729,6 +730,7 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalKinematic
       session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
   session::RadarExternalTargetInput input;
+  input.target_id = 501U;
   input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
   input.kinematics.position_ecef_m = target_ecef;
   input.rcs = 1.2f;
@@ -739,7 +741,7 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalKinematic
   input.kinematics.velocity_mps.z_mps = 30.0f;
   session::RadarSceneTarget ecef_target;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
-      501U, input, reference, platform_pose.velocity_mps, &ecef_target));
+      input, reference, platform_pose.velocity_mps, &ecef_target));
   EXPECT_NEAR(ecef_target.velocity_x, 0.0f, 1.0e-4f);
   EXPECT_NEAR(ecef_target.velocity_y, 0.0f, 1.0e-4f);
   EXPECT_NEAR(ecef_target.velocity_z, 0.0f, 1.0e-4f);
@@ -772,6 +774,7 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
       session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
   session::RadarExternalTargetInput target_input;
+  target_input.target_id = 600U;
   target_input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
   target_input.kinematics.position_ecef_m = target_ecef;
   target_input.kinematics.velocity_mps.x_mps = 120.0f;
@@ -781,11 +784,11 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
   target_input.swerling_type = 0;
 
   session::RadarSceneTarget target_1;
-  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(600U, target_input, reference,
+  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(target_input, reference,
                                                            platform_pose.velocity_mps, &target_1));
 
   session::RadarSceneTarget target_2;
-  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(600U, target_input, reference,
+  ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(target_input, reference,
                                                            platform_pose.velocity_mps, &target_2));
 
   EXPECT_EQ(target_1.external_target_id, target_2.external_target_id);

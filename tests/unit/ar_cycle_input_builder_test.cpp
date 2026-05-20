@@ -55,7 +55,7 @@ TEST(RadarCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   ASSERT_TRUE(TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &pose_2step));
 
   RadarSceneTarget target_2step;
-  ASSERT_TRUE(TryMakeTargetFromExternalKinematics(600U, target_input, reference,
+  ASSERT_TRUE(TryMakeTargetFromExternalKinematics(target_input, reference,
                                                   pose_2step.velocity_mps, &target_2step));
 
   // Builder（一步构建）

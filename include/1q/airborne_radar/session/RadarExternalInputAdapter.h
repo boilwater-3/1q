@@ -60,6 +60,8 @@ ONEQ_API oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
 
 /**
  * @brief 雷达坐标适配执行状态。
+ * @note 当前 `kCoordinateTransformFail` 统一覆盖了 "输入 NaN/Inf" 和 "坐标变换数值失败"
+ *       两种不同的失败原因。未来可考虑拆分为更细粒度的枚举值（如 kInvalidInput、kTransformFailed）。
  */
 enum class ONEQ_API RadarCoordinateStatus {
   kOk = 0,
@@ -85,19 +87,15 @@ ONEQ_API bool TryMakeRadarPoseFromExternalKinematics(const RadarExternalPoseInpu
 
 /**
  * @brief 两步模式——第二步：使用预计算的参考系将外部目标转换为 RadarSceneTarget。
- * @param[in] external_target_id 外部目标标识符。
- * @param[in] target_input 目标运动学输入（纯目标字段）。
+ * @param[in] target_input 目标运动学输入，其中 `target_id` 字段用作输出的 external_target_id。
  * @param[in] reference 第一步产出的雷达局部参考系。
  * @param[in] radar_local_velocity_mps 雷达局部速度（用于计算相对速度）。
  * @param[out] target 输出场景目标输入，可为 nullptr。
  * @param[out] status 可选输出状态，nullptr 表示不关心失败原因。
  * @return 成功返回 true，输入非法或输出为空返回 false。
- *
- * @note 当 `radar_local_velocity_mps` 非零且目标速度参考系非 kRadarLocal 时，
- *       在雷达局部坐标系内扣除雷达自身速度：`v_rel = v_target_local - v_radar_local`。
  */
 ONEQ_API bool TryMakeTargetFromExternalKinematics(
-    std::uint64_t target_id, const RadarExternalTargetInput& target_input,
+    const RadarExternalTargetInput& target_input,
     const RadarLocalFrameReference& reference, oneq::foundation::Vector3f radar_local_velocity_mps,
     RadarSceneTarget* target, RadarCoordinateStatus* status = nullptr);
 
