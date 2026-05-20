@@ -218,12 +218,16 @@ AssociationResult DataAssociationEngine::AssociateDetections(
     const float rejected_cost =
         std::nextafter(config_.unassigned_cost, std::numeric_limits<float>::infinity());
 
-    Eigen::MatrixXf cost_matrix = Eigen::MatrixXf::Constant(
-        static_cast<Eigen::Index>(dim), static_cast<Eigen::Index>(dim), config_.unassigned_cost);
-    for (std::size_t r = 0; r < rows; ++r) {
-      for (std::size_t c = 0; c < cols; ++c) {
-        cost_matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(c)) = rejected_cost;
-      }
+    Eigen::MatrixXf cost_matrix(
+        static_cast<Eigen::Index>(dim), static_cast<Eigen::Index>(dim));
+    cost_matrix.setConstant(rejected_cost);
+    if (dim > cols) {
+      cost_matrix.rightCols(static_cast<Eigen::Index>(dim - cols))
+          .setConstant(config_.unassigned_cost);
+    }
+    if (dim > rows) {
+      cost_matrix.bottomRows(static_cast<Eigen::Index>(dim - rows))
+          .setConstant(config_.unassigned_cost);
     }
 
     std::vector<tracking::MeasurementCovariance> measurement_covariances_for_matches;

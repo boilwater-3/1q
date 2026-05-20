@@ -199,13 +199,9 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
     return;
   }
 
-  const model::JammingSemantic dominant_jamming_semantic =
-      ResolveDominantJammingSemantic(control_profile, environment_snapshot);
-  const float jamming_severity =
-      ComputeTrackLevelJammingSeverity(control_profile, environment_snapshot);
   scratch.association_quality_metrics = ToPipelineAssociationQualityMetrics(
-      scratch.association_result.quality_metrics, dominant_jamming_semantic, jamming_severity,
-      runtime_config.association.unassigned_cost);
+      scratch.association_result.quality_metrics, scratch.dominant_jamming_semantic,
+      scratch.jamming_severity, runtime_config.association.unassigned_cost);
 
   const model::EccmSourceInfo eccm_source_info = BuildEccmSourceInfo(environment_snapshot);
   const model::AssociationQualityInfo association_quality_info =

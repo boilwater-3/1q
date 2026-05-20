@@ -23,7 +23,6 @@ void ResetCycleExecutionScratch(const session::RadarSceneTargetList& input_state
   scratch.association_keys.resize(target_count);
   scratch.measurement_slots.assign(target_count, -1);
   scratch.target_geometry.resize(target_count);
-  RefreshMeasurementCovariances(target_count, 10.0f, &scratch.measurement_covariances);
   scratch.association_result = association::AssociationResult();
   scratch.dominant_jamming_semantic = model::JammingSemantic::kNone;
   scratch.jamming_severity = 0.0f;
