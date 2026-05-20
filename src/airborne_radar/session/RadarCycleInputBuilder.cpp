@@ -4,14 +4,14 @@ namespace airborne_radar {
 namespace session {
 
 bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
-                                   const std::vector<TargetExternalKinematics>& targets,
+                                   const std::vector<RadarExternalTargetInput>& targets,
                                    float dt_sec, RadarCycleInput* output,
                                    RadarCoordinateStatus* status) {
   return Build(platform, targets, dt_sec, RadarEnvironmentInput{}, output, status);
 }
 
 bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
-                                   const std::vector<TargetExternalKinematics>& targets,
+                                   const std::vector<RadarExternalTargetInput>& targets,
                                    float dt_sec, const RadarEnvironmentInput& environment,
                                    RadarCycleInput* output, RadarCoordinateStatus* status) {
   if (status != nullptr) {
@@ -38,7 +38,7 @@ bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
 
   for (std::size_t i = 0; i < targets.size(); ++i) {
     RadarSceneTarget target;
-    if (!TryMakeTargetFromExternalKinematics(targets[i].external_target_id, targets[i], reference,
+    if (!TryMakeTargetFromExternalKinematics(targets[i].target_id, targets[i], reference,
                                              output->platform_pose.velocity_mps, &target, status)) {
       return false;
     }

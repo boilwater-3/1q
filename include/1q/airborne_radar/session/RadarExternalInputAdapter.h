@@ -38,15 +38,13 @@ struct ONEQ_API RadarExternalPoseInput {
 };
 
 /**
- * @brief 外部目标运动学输入（纯目标字段）。
- * @note 速度固定为 ECEF 坐标系，适配器内自动扣除平台速度得到相对速度。
+ * @brief 外部目标输入（统一入口）。
  */
-struct ONEQ_API TargetExternalKinematics {
-  std::uint64_t external_target_id{0};                      /**< 外部目标标识符。0 视为未设置，将触发 kUnknownExternalTargetId 警告 */
-  oneq::coordinate::EcefPositionM target_position_ecef_m{}; /**< 目标位置（ECEF，m） */
-  oneq::coordinate::EcefVelocityMps target_velocity_mps{};  /**< 目标速度（ECEF，单位：m/s） */
-  float rcs{1.0f};                                          /**< 目标 RCS（m^2） */
-  int swerling_type{0};                                     /**< 目标起伏模型 */
+struct ONEQ_API RadarExternalTargetInput {
+  std::uint64_t target_id{0U};                                  /**< 外部目标标识符。0 视为未设置，将触发 kUnknownExternalTargetId 警告 */
+  oneq::coordinate::ExternalKinematics kinematics{};            /**< 外部运动学输入 */
+  float rcs{1.0f};                                              /**< 目标 RCS（m^2） */
+  int swerling_type{0};                                         /**< 目标起伏模型 */
 };
 
 /**
@@ -99,7 +97,7 @@ ONEQ_API bool TryMakeRadarPoseFromExternalKinematics(const RadarExternalPoseInpu
  *       在雷达局部坐标系内扣除雷达自身速度：`v_rel = v_target_local - v_radar_local`。
  */
 ONEQ_API bool TryMakeTargetFromExternalKinematics(
-    std::uint64_t external_target_id, const TargetExternalKinematics& target_input,
+    std::uint64_t target_id, const RadarExternalTargetInput& target_input,
     const RadarLocalFrameReference& reference, oneq::foundation::Vector3f radar_local_velocity_mps,
     RadarSceneTarget* target, RadarCoordinateStatus* status = nullptr);
 

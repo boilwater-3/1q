@@ -105,8 +105,8 @@ bool TryMakeRadarPoseFromExternalKinematics(
 }
 
 bool TryMakeTargetFromExternalKinematics(
-    std::uint64_t external_target_id,
-    const TargetExternalKinematics& target_input,
+    std::uint64_t target_id,
+    const RadarExternalTargetInput& target_input,
     const RadarLocalFrameReference& reference,
     oneq::foundation::Vector3f radar_local_velocity_mps,
     RadarSceneTarget* target,
@@ -122,7 +122,7 @@ bool TryMakeTargetFromExternalKinematics(
     return false;
   }
 
-  if (!oneq::coordinate::IsFinite(target_input.target_velocity_mps) ||
+  if (!oneq::coordinate::IsFinite(target_input.kinematics.velocity_mps) ||
       !IsFiniteVector3f(radar_local_velocity_mps)) {
     if (status != nullptr) {
       *status = RadarCoordinateStatus::kCoordinateTransformFail;
@@ -131,12 +131,22 @@ bool TryMakeTargetFromExternalKinematics(
   }
 
   oneq::coordinate::EnuPositionM target_position_enu;
-  if (!oneq::coordinate::TryEcefToEnu(
-          target_input.target_position_ecef_m, reference.origin_lla, &target_position_enu)) {
-    if (status != nullptr) {
-      *status = RadarCoordinateStatus::kCoordinateTransformFail;
+  if (target_input.kinematics.position_frame == oneq::coordinate::PositionFrame::kLla) {
+    if (!oneq::coordinate::TryLlaToEnu(
+            target_input.kinematics.position_lla_deg_m, reference.origin_lla, &target_position_enu)) {
+      if (status != nullptr) {
+        *status = RadarCoordinateStatus::kCoordinateTransformFail;
+      }
+      return false;
     }
-    return false;
+  } else {
+    if (!oneq::coordinate::TryEcefToEnu(
+            target_input.kinematics.position_ecef_m, reference.origin_lla, &target_position_enu)) {
+      if (status != nullptr) {
+        *status = RadarCoordinateStatus::kCoordinateTransformFail;
+      }
+      return false;
+    }
   }
   oneq::foundation::Vector3f target_position_local =
       RotateEnuPositionToLocal(target_position_enu, reference.radar_attitude_deg);
@@ -144,7 +154,7 @@ bool TryMakeTargetFromExternalKinematics(
   // 速度固定为 ECEF，转换为雷达局部坐标系后扣除平台速度得到相对速度
   oneq::coordinate::EnuVelocityMps velocity_enu;
   if (!oneq::coordinate::TryEcefToEnuVelocity(
-          target_input.target_velocity_mps, reference.origin_lla, &velocity_enu)) {
+          target_input.kinematics.velocity_mps, reference.origin_lla, &velocity_enu)) {
     if (status != nullptr) {
       *status = RadarCoordinateStatus::kCoordinateTransformFail;
     }
@@ -161,7 +171,7 @@ bool TryMakeTargetFromExternalKinematics(
                 target_position_local.y * target_position_local.y +
                 target_position_local.z * target_position_local.z);
 
-  target->external_target_id = external_target_id;
+  target->external_target_id = target_id;
   target->velocity_x = target_velocity_local.x;
   target->velocity_y = target_velocity_local.y;
   target->velocity_z = target_velocity_local.z;

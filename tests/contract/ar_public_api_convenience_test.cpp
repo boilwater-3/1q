@@ -683,11 +683,12 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalCoordinat
   ASSERT_TRUE(
       session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
-  session::TargetExternalKinematics input;
-  input.target_position_ecef_m = target_ecef;
-  input.target_velocity_mps.x_mps = 80.0f;
-  input.target_velocity_mps.y_mps = -30.0f;
-  input.target_velocity_mps.z_mps = 10.0f;
+  session::RadarExternalTargetInput input;
+  input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  input.kinematics.position_ecef_m = target_ecef;
+  input.kinematics.velocity_mps.x_mps = 80.0f;
+  input.kinematics.velocity_mps.y_mps = -30.0f;
+  input.kinematics.velocity_mps.z_mps = 10.0f;
   input.rcs = 2.0f;
   input.swerling_type = 0;
 
@@ -727,14 +728,15 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalKinematic
   ASSERT_TRUE(
       session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
-  session::TargetExternalKinematics input;
-  input.target_position_ecef_m = target_ecef;
+  session::RadarExternalTargetInput input;
+  input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  input.kinematics.position_ecef_m = target_ecef;
   input.rcs = 1.2f;
 
   // ECEF 速度 + 雷达自身 ECEF 速度补偿后应接近零相对速度。
-  input.target_velocity_mps.x_mps = 120.0f;
-  input.target_velocity_mps.y_mps = -70.0f;
-  input.target_velocity_mps.z_mps = 30.0f;
+  input.kinematics.velocity_mps.x_mps = 120.0f;
+  input.kinematics.velocity_mps.y_mps = -70.0f;
+  input.kinematics.velocity_mps.z_mps = 30.0f;
   session::RadarSceneTarget ecef_target;
   ASSERT_TRUE(session::TryMakeTargetFromExternalKinematics(
       501U, input, reference, platform_pose.velocity_mps, &ecef_target));
@@ -769,11 +771,12 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
   ASSERT_TRUE(
       session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
-  session::TargetExternalKinematics target_input;
-  target_input.target_position_ecef_m = target_ecef;
-  target_input.target_velocity_mps.x_mps = 120.0f;
-  target_input.target_velocity_mps.y_mps = -70.0f;
-  target_input.target_velocity_mps.z_mps = 30.0f;
+  session::RadarExternalTargetInput target_input;
+  target_input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  target_input.kinematics.position_ecef_m = target_ecef;
+  target_input.kinematics.velocity_mps.x_mps = 120.0f;
+  target_input.kinematics.velocity_mps.y_mps = -70.0f;
+  target_input.kinematics.velocity_mps.z_mps = 30.0f;
   target_input.rcs = 1.2f;
   target_input.swerling_type = 0;
 

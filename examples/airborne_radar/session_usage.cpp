@@ -68,13 +68,14 @@ ar_session::RadarExternalPoseInput MakePlatformPose(const oneq::coordinate::Ecef
 /// 构造目标外部运动学输入。
 /// external_target_id 为调用方分配的唯一目标标识（不可为 0，否则触发校验警告）。
 /// rcs 为雷达截面积（m²），swerling_type 表示 Swerling 起伏模型编号。
-ar_session::TargetExternalKinematics MakeTargetKinematics(
-    std::uint64_t external_target_id, const oneq::coordinate::EcefPositionM& pos,
+ar_session::RadarExternalTargetInput MakeTargetKinematics(
+    std::uint64_t target_id, const oneq::coordinate::EcefPositionM& pos,
     const oneq::coordinate::EcefVelocityMps& vel, float rcs) {
-  ar_session::TargetExternalKinematics target;
-  target.external_target_id = external_target_id;
-  target.target_position_ecef_m = pos;
-  target.target_velocity_mps = vel;
+  ar_session::RadarExternalTargetInput target;
+  target.target_id = target_id;
+  target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  target.kinematics.position_ecef_m = pos;
+  target.kinematics.velocity_mps = vel;
   target.rcs = rcs;
   target.swerling_type = 0;
   return target;
@@ -190,7 +191,7 @@ bool RunMovingTargetsScenario() {
     ar_session::RadarExternalPoseInput platform = MakePlatformPose(platform_pos, platform_vel);
 
     // 构造所有目标的运动学输入
-    std::vector<ar_session::TargetExternalKinematics> target_kinematics;
+    std::vector<ar_session::RadarExternalTargetInput> target_kinematics;
     target_kinematics.reserve(targets.size());
     for (const auto& mt : targets) {
       target_kinematics.push_back(MakeTargetKinematics(mt.id, mt.pos, mt.vel, mt.rcs));

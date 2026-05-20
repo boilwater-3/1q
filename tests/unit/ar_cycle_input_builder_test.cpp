@@ -39,12 +39,13 @@ TEST(RadarCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   pose_input.platform_attitude_deg.yaw_deg = 5.0f;
   pose_input.radar_mount_angles_deg.pitch_deg = 2.0f;
 
-  TargetExternalKinematics target_input;
-  target_input.external_target_id = 600U;
-  target_input.target_position_ecef_m = target_ecef;
-  target_input.target_velocity_mps.x_mps = 120.0f;
-  target_input.target_velocity_mps.y_mps = -70.0f;
-  target_input.target_velocity_mps.z_mps = 30.0f;
+  RadarExternalTargetInput target_input;
+  target_input.target_id = 600U;
+  target_input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  target_input.kinematics.position_ecef_m = target_ecef;
+  target_input.kinematics.velocity_mps.x_mps = 120.0f;
+  target_input.kinematics.velocity_mps.y_mps = -70.0f;
+  target_input.kinematics.velocity_mps.z_mps = 30.0f;
   target_input.rcs = 1.2f;
   target_input.swerling_type = 0;
 
@@ -177,12 +178,13 @@ TEST(RadarCycleInputBuilderTest, MultipleTargets) {
   RadarExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = radar_ecef;
 
-  std::vector<TargetExternalKinematics> targets(3);
+  std::vector<RadarExternalTargetInput> targets(3);
   for (int i = 0; i < 3; ++i) {
     auto& t = targets[i];
-    t.external_target_id = static_cast<std::uint64_t>(i) + 1U;
-    t.target_position_ecef_m = radar_ecef;
-    t.target_position_ecef_m.x_m += static_cast<double>(i + 1) * 1000.0;
+    t.target_id = static_cast<std::uint64_t>(i) + 1U;
+    t.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+    t.kinematics.position_ecef_m = radar_ecef;
+    t.kinematics.position_ecef_m.x_m += static_cast<double>(i + 1) * 1000.0;
     t.rcs = static_cast<float>(i + 1);
   }
 

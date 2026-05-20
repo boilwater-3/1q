@@ -25,7 +25,7 @@ using airborne_radar::session::RadarCycleResult;
 using airborne_radar::session::RadarExternalPoseInput;
 using airborne_radar::session::RadarExternalTrackOutputFrame;
 using airborne_radar::session::RadarSession;
-using airborne_radar::session::TargetExternalKinematics;
+using airborne_radar::session::RadarExternalTargetInput;
 using airborne_radar::session::TrackOutputFrame;
 
 airborne_radar::session::RadarSessionConfig MakeDetectionFocusedConfig() {
@@ -67,7 +67,7 @@ RadarExternalPoseInput MakePlatformInput() {
   return platform;
 }
 
-TargetExternalKinematics MakeTargetInput() {
+RadarExternalTargetInput MakeTargetInput() {
   oneq::coordinate::EcefPositionM target_ecef;
   oneq::coordinate::LlaPositionDegM target_lla;
   target_lla.latitude_deg = 30.0007;
@@ -75,19 +75,20 @@ TargetExternalKinematics MakeTargetInput() {
   target_lla.altitude_m = 1035.0;
   EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
-  TargetExternalKinematics target;
-  target.external_target_id = 9001U;
-  target.target_position_ecef_m = target_ecef;
-  target.target_velocity_mps.x_mps = -15.0;
-  target.target_velocity_mps.y_mps = 42.0;
-  target.target_velocity_mps.z_mps = 3.5;
+  RadarExternalTargetInput target;
+  target.target_id = 9001U;
+  target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  target.kinematics.position_ecef_m = target_ecef;
+  target.kinematics.velocity_mps.x_mps = -15.0;
+  target.kinematics.velocity_mps.y_mps = 42.0;
+  target.kinematics.velocity_mps.z_mps = 3.5;
   target.rcs = 1.7f;
   target.swerling_type = 2;
   return target;
 }
 
-std::vector<TargetExternalKinematics> MakeMovingTargetInputs(std::size_t target_count) {
-  std::vector<TargetExternalKinematics> targets;
+std::vector<RadarExternalTargetInput> MakeMovingTargetInputs(std::size_t target_count) {
+  std::vector<RadarExternalTargetInput> targets;
   targets.reserve(target_count);
 
   for (std::size_t i = 0; i < target_count; ++i) {
@@ -98,12 +99,13 @@ std::vector<TargetExternalKinematics> MakeMovingTargetInputs(std::size_t target_
     target_lla.altitude_m = 1010.0 + static_cast<double>(i % 5U) * 8.0;
     EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
-    TargetExternalKinematics target;
-    target.external_target_id = static_cast<std::uint64_t>(i) + 1U;
-    target.target_position_ecef_m = target_ecef;
-    target.target_velocity_mps.x_mps = -18.0 + static_cast<double>(i % 5U) * 2.5;
-    target.target_velocity_mps.y_mps = 24.0 + static_cast<double>(i % 7U) * 1.7;
-    target.target_velocity_mps.z_mps = -0.4 + static_cast<double>(i % 3U) * 0.4;
+    RadarExternalTargetInput target;
+    target.target_id = static_cast<std::uint64_t>(i) + 1U;
+    target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+    target.kinematics.position_ecef_m = target_ecef;
+    target.kinematics.velocity_mps.x_mps = -18.0 + static_cast<double>(i % 5U) * 2.5;
+    target.kinematics.velocity_mps.y_mps = 24.0 + static_cast<double>(i % 7U) * 1.7;
+    target.kinematics.velocity_mps.z_mps = -0.4 + static_cast<double>(i % 3U) * 0.4;
     target.rcs = 0.8f + static_cast<float>(i % 4U) * 0.2f;
     target.swerling_type = static_cast<int>(i % 3U);
     targets.push_back(target);
@@ -111,13 +113,13 @@ std::vector<TargetExternalKinematics> MakeMovingTargetInputs(std::size_t target_
   return targets;
 }
 
-void AdvanceExternalTargets(double dt_sec, std::vector<TargetExternalKinematics>* targets) {
+void AdvanceExternalTargets(double dt_sec, std::vector<RadarExternalTargetInput>* targets) {
   ASSERT_NE(targets, nullptr);
   for (std::size_t i = 0; i < targets->size(); ++i) {
-    TargetExternalKinematics& target = (*targets)[i];
-    target.target_position_ecef_m.x_m += target.target_velocity_mps.x_mps * dt_sec;
-    target.target_position_ecef_m.y_m += target.target_velocity_mps.y_mps * dt_sec;
-    target.target_position_ecef_m.z_m += target.target_velocity_mps.z_mps * dt_sec;
+    RadarExternalTargetInput& target = (*targets)[i];
+    target.kinematics.position_ecef_m.x_m += target.kinematics.velocity_mps.x_mps * dt_sec;
+    target.kinematics.position_ecef_m.y_m += target.kinematics.velocity_mps.y_mps * dt_sec;
+    target.kinematics.position_ecef_m.z_m += target.kinematics.velocity_mps.z_mps * dt_sec;
   }
 }
 
@@ -159,7 +161,7 @@ TrackOutputFrame MakeFrameFromInternalTarget(const RadarCycleInput& input) {
 
 TEST(RadarCycleOutputBuilderTest, ConvertsInternalLocalFrameBackToExternalEcef) {
   const RadarExternalPoseInput platform = MakePlatformInput();
-  const TargetExternalKinematics target = MakeTargetInput();
+  const RadarExternalTargetInput target = MakeTargetInput();
 
   RadarCycleInput input;
   ASSERT_TRUE(RadarCycleInputBuilder::Build(platform, {target}, 1.0f, &input));
@@ -177,12 +179,12 @@ TEST(RadarCycleOutputBuilderTest, ConvertsInternalLocalFrameBackToExternalEcef) 
   EXPECT_EQ(output.association_key, 1001U);
   EXPECT_EQ(output.external_target_id, 9001U);
   EXPECT_EQ(output.status, airborne_radar::model::TrackStatus::kConfirmed);
-  EXPECT_NEAR(output.target_position_ecef_m.x_m, target.target_position_ecef_m.x_m, 0.1);
-  EXPECT_NEAR(output.target_position_ecef_m.y_m, target.target_position_ecef_m.y_m, 0.1);
-  EXPECT_NEAR(output.target_position_ecef_m.z_m, target.target_position_ecef_m.z_m, 0.1);
-  EXPECT_NEAR(output.target_velocity_mps.x_mps, target.target_velocity_mps.x_mps, 1.0e-4);
-  EXPECT_NEAR(output.target_velocity_mps.y_mps, target.target_velocity_mps.y_mps, 1.0e-4);
-  EXPECT_NEAR(output.target_velocity_mps.z_mps, target.target_velocity_mps.z_mps, 1.0e-4);
+  EXPECT_NEAR(output.target_position_ecef_m.x_m, target.kinematics.position_ecef_m.x_m, 0.1);
+  EXPECT_NEAR(output.target_position_ecef_m.y_m, target.kinematics.position_ecef_m.y_m, 0.1);
+  EXPECT_NEAR(output.target_position_ecef_m.z_m, target.kinematics.position_ecef_m.z_m, 0.1);
+  EXPECT_NEAR(output.target_velocity_mps.x_mps, target.kinematics.velocity_mps.x_mps, 1.0e-4);
+  EXPECT_NEAR(output.target_velocity_mps.y_mps, target.kinematics.velocity_mps.y_mps, 1.0e-4);
+  EXPECT_NEAR(output.target_velocity_mps.z_mps, target.kinematics.velocity_mps.z_mps, 1.0e-4);
   EXPECT_FLOAT_EQ(output.rcs, target.rcs);
   EXPECT_EQ(output.hit_count, 3U);
 }
@@ -195,7 +197,7 @@ TEST(RadarCycleOutputBuilderTest, NullOutputReturnsFalse) {
 
 TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) {
   const RadarExternalPoseInput platform = MakePlatformInput();
-  const TargetExternalKinematics target = MakeTargetInput();
+  const RadarExternalTargetInput target = MakeTargetInput();
 
   RadarCycleInput input;
   ASSERT_TRUE(RadarCycleInputBuilder::Build(platform, {target}, 1.0f, &input));
@@ -211,12 +213,12 @@ TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) 
   ASSERT_FALSE(external_frame.tracks.empty());
 
   const airborne_radar::session::RadarExternalTrackKinematics& estimate = external_frame.tracks[0];
-  EXPECT_NEAR(estimate.target_position_ecef_m.x_m, target.target_position_ecef_m.x_m, 5.0);
-  EXPECT_NEAR(estimate.target_position_ecef_m.y_m, target.target_position_ecef_m.y_m, 5.0);
-  EXPECT_NEAR(estimate.target_position_ecef_m.z_m, target.target_position_ecef_m.z_m, 5.0);
-  EXPECT_NEAR(estimate.target_velocity_mps.x_mps, target.target_velocity_mps.x_mps, 0.5);
-  EXPECT_NEAR(estimate.target_velocity_mps.y_mps, target.target_velocity_mps.y_mps, 0.5);
-  EXPECT_NEAR(estimate.target_velocity_mps.z_mps, target.target_velocity_mps.z_mps, 0.5);
+  EXPECT_NEAR(estimate.target_position_ecef_m.x_m, target.kinematics.position_ecef_m.x_m, 5.0);
+  EXPECT_NEAR(estimate.target_position_ecef_m.y_m, target.kinematics.position_ecef_m.y_m, 5.0);
+  EXPECT_NEAR(estimate.target_position_ecef_m.z_m, target.kinematics.position_ecef_m.z_m, 5.0);
+  EXPECT_NEAR(estimate.target_velocity_mps.x_mps, target.kinematics.velocity_mps.x_mps, 0.5);
+  EXPECT_NEAR(estimate.target_velocity_mps.y_mps, target.kinematics.velocity_mps.y_mps, 0.5);
+  EXPECT_NEAR(estimate.target_velocity_mps.z_mps, target.kinematics.velocity_mps.z_mps, 0.5);
 }
 
 TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
@@ -225,7 +227,7 @@ TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) 
   platform.platform_velocity_mps.y_mps = 0.0;
   platform.platform_velocity_mps.z_mps = 0.0;
 
-  std::vector<TargetExternalKinematics> targets = MakeMovingTargetInputs(12U);
+  std::vector<RadarExternalTargetInput> targets = MakeMovingTargetInputs(12U);
   RadarSession session =
       airborne_radar::session::RadarSessionFactory::Create(MakeDetectionFocusedConfig());
 
@@ -251,18 +253,18 @@ TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) 
           FindExternalTrackByTargetId(external_frame, static_cast<std::uint64_t>(target_index) + 1U);
       ASSERT_NE(estimate, nullptr) << "cycle=" << cycle << " target_index=" << target_index;
 
-      const TargetExternalKinematics& truth = targets[target_index];
-      EXPECT_NEAR(estimate->target_position_ecef_m.x_m, truth.target_position_ecef_m.x_m, 10.0)
+      const RadarExternalTargetInput& truth = targets[target_index];
+      EXPECT_NEAR(estimate->target_position_ecef_m.x_m, truth.kinematics.position_ecef_m.x_m, 10.0)
           << "cycle=" << cycle << " target_index=" << target_index;
-      EXPECT_NEAR(estimate->target_position_ecef_m.y_m, truth.target_position_ecef_m.y_m, 10.0)
+      EXPECT_NEAR(estimate->target_position_ecef_m.y_m, truth.kinematics.position_ecef_m.y_m, 10.0)
           << "cycle=" << cycle << " target_index=" << target_index;
-      EXPECT_NEAR(estimate->target_position_ecef_m.z_m, truth.target_position_ecef_m.z_m, 10.0)
+      EXPECT_NEAR(estimate->target_position_ecef_m.z_m, truth.kinematics.position_ecef_m.z_m, 10.0)
           << "cycle=" << cycle << " target_index=" << target_index;
-      EXPECT_NEAR(estimate->target_velocity_mps.x_mps, truth.target_velocity_mps.x_mps, 1.0)
+      EXPECT_NEAR(estimate->target_velocity_mps.x_mps, truth.kinematics.velocity_mps.x_mps, 1.0)
           << "cycle=" << cycle << " target_index=" << target_index;
-      EXPECT_NEAR(estimate->target_velocity_mps.y_mps, truth.target_velocity_mps.y_mps, 1.0)
+      EXPECT_NEAR(estimate->target_velocity_mps.y_mps, truth.kinematics.velocity_mps.y_mps, 1.0)
           << "cycle=" << cycle << " target_index=" << target_index;
-      EXPECT_NEAR(estimate->target_velocity_mps.z_mps, truth.target_velocity_mps.z_mps, 1.0)
+      EXPECT_NEAR(estimate->target_velocity_mps.z_mps, truth.kinematics.velocity_mps.z_mps, 1.0)
           << "cycle=" << cycle << " target_index=" << target_index;
     }
 
