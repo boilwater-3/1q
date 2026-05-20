@@ -16,13 +16,6 @@ constexpr float kPlanckConstant = 6.62607015e-34f;
 constexpr float kLightSpeed = 2.99792458e8f;
 constexpr float kBoltzmannConstant = 1.380649e-23f;
 
-float SafePositive(float value, float fallback) {
-  if (!std::isfinite(value) || value <= 0.0f) {
-    return fallback;
-  }
-  return value;
-}
-
 float ComputeIlluminationScale(IlluminationCondition illumination) {
   if (illumination == IlluminationCondition::kNight) {
     return 0.05f;
@@ -36,8 +29,8 @@ float ComputeIlluminationScale(IlluminationCondition illumination) {
 }  // namespace
 
 float ComputePlanckRadiance(float wavelength_um, float temperature_k) {
-  const float safe_wavelength_m = SafePositive(wavelength_um * 1.0e-6f, 4.0e-6f);
-  const float safe_temperature_k = SafePositive(temperature_k, 290.0f);
+  const float safe_wavelength_m = oneq::internal::numerics::SafePositive(wavelength_um * 1.0e-6f, 4.0e-6f);
+  const float safe_temperature_k = oneq::internal::numerics::SafePositive(temperature_k, 290.0f);
   const float lambda5 = std::pow(safe_wavelength_m, 5.0f);
   if (!std::isfinite(lambda5) || lambda5 <= 0.0f) {
     return 0.0f;
@@ -57,7 +50,7 @@ float ComputePlanckRadiance(float wavelength_um, float temperature_k) {
 float IntegrateSpectralRadianceOverBand(float spectral_radiance_w_sr_m3,
                                         float wavelength_bandwidth_um) {
   const float safe_spectral_radiance = std::max(0.0f, spectral_radiance_w_sr_m3);
-  const float safe_bandwidth_m = SafePositive(wavelength_bandwidth_um * 1.0e-6f, 1.0e-6f);
+  const float safe_bandwidth_m = oneq::internal::numerics::SafePositive(wavelength_bandwidth_um * 1.0e-6f, 1.0e-6f);
   return safe_spectral_radiance * safe_bandwidth_m;
 }
 

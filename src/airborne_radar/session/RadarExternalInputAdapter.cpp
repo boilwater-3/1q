@@ -54,7 +54,7 @@ bool TryMakeRadarPoseFromExternalKinematics(
     return false;
   }
   reference->origin_lla = radar_lla;
-  reference->radar_attitude_deg =
+  reference->frame_attitude_deg =
       ComposeRadarAttitudeDeg(input.platform_attitude_deg, input.radar_mount_angles_deg);
 
   platform_pose->position_m = oneq::foundation::Vector3f{};
@@ -71,7 +71,7 @@ bool TryMakeRadarPoseFromExternalKinematics(
       return false;
     }
     platform_pose->velocity_mps = RotateEnuVelocityToLocal(velocity_enu,
-                                                           reference->radar_attitude_deg);
+                                                           reference->frame_attitude_deg);
   }
 
   platform_pose->attitude_deg = ToFoundationEuler(input.platform_attitude_deg);
@@ -130,7 +130,7 @@ bool TryMakeTargetFromExternalKinematics(
       return false;
   }
   oneq::foundation::Vector3f target_position_local =
-      RotateEnuPositionToLocal(target_position_enu, reference.radar_attitude_deg);
+      RotateEnuPositionToLocal(target_position_enu, reference.frame_attitude_deg);
 
   // 速度固定为 ECEF，转换为雷达局部坐标系后扣除平台速度得到相对速度
   oneq::coordinate::EnuVelocityMps velocity_enu;
@@ -142,7 +142,7 @@ bool TryMakeTargetFromExternalKinematics(
     return false;
   }
   oneq::foundation::Vector3f target_velocity_local =
-      RotateEnuVelocityToLocal(velocity_enu, reference.radar_attitude_deg);
+      RotateEnuVelocityToLocal(velocity_enu, reference.frame_attitude_deg);
   target_velocity_local.x -= radar_local_velocity_mps.x;
   target_velocity_local.y -= radar_local_velocity_mps.y;
   target_velocity_local.z -= radar_local_velocity_mps.z;

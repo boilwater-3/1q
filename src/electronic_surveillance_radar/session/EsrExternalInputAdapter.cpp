@@ -4,6 +4,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
 #include "common/coordinate/CoordinateUtils.h"
+#include "common/validation/ValidationUtils.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -21,10 +22,9 @@ void SetStatus(EsrCoordinateStatus value, EsrCoordinateStatus* status) {
   }
 }
 
-bool IsFinite(float value) { return std::isfinite(value) != 0; }
 
 bool IsFiniteVector3f(const EsrVector3f& value) {
-  return IsFinite(value.x) && IsFinite(value.y) && IsFinite(value.z);
+  return oneq::internal::validation::IsFinite(value.x) && oneq::internal::validation::IsFinite(value.y) && oneq::internal::validation::IsFinite(value.z);
 }
 
 bool TryConvertEcefPositionToLocal(const oneq::coordinate::EcefPositionM& ecef,

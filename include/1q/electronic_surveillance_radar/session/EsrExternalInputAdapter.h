@@ -19,10 +19,7 @@ namespace session {
  * @brief ESR 局部坐标参考系定义。
  * @note origin_lla 定义 ENU 原点；frame_attitude_deg 定义 ESR 局部坐标相对 ENU 的姿态。
  */
-struct ONEQ_API EsrCoordinateReference {
-  oneq::coordinate::LlaPositionDegM origin_lla{};      /**< 参考原点（WGS84 LLA） */
-  oneq::coordinate::EulerAnglesDeg frame_attitude_deg{}; /**< ESR 局部坐标相对 ENU 的姿态角 */
-};
+using EsrCoordinateReference = oneq::coordinate::LocalFrameReference;
 
 /**
  * @brief ESR 外部平台运动学输入。

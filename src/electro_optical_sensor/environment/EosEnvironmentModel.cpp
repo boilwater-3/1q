@@ -10,12 +10,6 @@ namespace environment {
 
 namespace {
 
-float SafePositive(float value, float fallback) {
-  if (std::isfinite(value) == 0 || value <= 0.0f) {
-    return fallback;
-  }
-  return value;
-}
 
 }  // namespace
 
@@ -41,9 +35,9 @@ EosEnvironmentModelResult ResolveEnvironmentFactors(const EosEnvironmentModelInp
     result.path_radiance_scale_bias = 1.0f;
   }
 
-  result.aerosol_density_factor = SafePositive(result.aerosol_density_factor, 1.0f);
-  result.turbulence_factor = SafePositive(result.turbulence_factor, 1.0f);
-  result.path_radiance_scale_bias = SafePositive(result.path_radiance_scale_bias, 1.0f);
+  result.aerosol_density_factor = oneq::internal::numerics::SafePositive(result.aerosol_density_factor, 1.0f);
+  result.turbulence_factor = oneq::internal::numerics::SafePositive(result.turbulence_factor, 1.0f);
+  result.path_radiance_scale_bias = oneq::internal::numerics::SafePositive(result.path_radiance_scale_bias, 1.0f);
   return result;
 }
 

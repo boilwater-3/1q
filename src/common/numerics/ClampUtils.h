@@ -7,6 +7,7 @@
 #define COMMON_NUMERICS_CLAMP_UTILS_H_
 
 #include <algorithm>
+#include <cmath>
 
 namespace oneq {
 namespace internal {
@@ -45,6 +46,21 @@ inline T Clamp01(T value) {
 template <typename T>
 inline T ClampNonNegative(T value) {
   return std::max(value, static_cast<T>(0));
+}
+
+/**
+ * @brief 当输入为非正或非有限数时返回安全回退值。
+ * @tparam T 标量类型。
+ * @param[in] value 输入值。
+ * @param[in] fallback 回退值。
+ * @return 安全限幅后的正值。
+ */
+template <typename T>
+inline T SafePositive(T value, T fallback) {
+  if (!std::isfinite(value) || value <= static_cast<T>(0)) {
+    return fallback;
+  }
+  return value;
 }
 
 }  // namespace numerics

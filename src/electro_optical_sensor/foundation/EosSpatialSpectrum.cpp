@@ -11,18 +11,12 @@ namespace spatial_spectrum {
 
 namespace {
 
-float SafePositive(float value, float fallback) {
-  if (std::isfinite(value) == 0 || value <= 0.0f) {
-    return fallback;
-  }
-  return value;
-}
 
 }  // namespace
 
 SpatialSpectrumResult EvaluateSpatialResolvability(const SpatialSpectrumInputs& inputs) {
-  const float target_size_m = SafePositive(inputs.target_characteristic_size_m, 1.0f);
-  const float gsd_m = SafePositive(inputs.ground_sample_distance_m, 0.2f);
+  const float target_size_m = oneq::internal::numerics::SafePositive(inputs.target_characteristic_size_m, 1.0f);
+  const float gsd_m = oneq::internal::numerics::SafePositive(inputs.ground_sample_distance_m, 0.2f);
   const float mtf_reference = oneq::internal::numerics::Clamp01(inputs.optical_mtf_reference);
   const float sampling_efficiency =
       oneq::internal::numerics::Clamp01(inputs.sampling_efficiency);

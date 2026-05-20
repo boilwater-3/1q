@@ -14,12 +14,6 @@ namespace {
 
 constexpr float kReferenceAtmosphericPathM = 5000.0f;
 
-float SafePositive(float value, float fallback) {
-  if (std::isfinite(value) == 0 || value <= 0.0f) {
-    return fallback;
-  }
-  return value;
-}
 
 }  // namespace
 
@@ -57,7 +51,7 @@ RadiativeTransferResult EvaluateRadiativeTransfer(const RadiativeTransferInputs&
   result.total_extinction_coeff_per_m = std::max(0.0f, total_extinction_coeff_per_m);
   result.transmittance = propagation::ComputeBeerLambertTransmittance(
       result.total_extinction_coeff_per_m, path_length_m);
-  result.path_radiance_penalty_scale = SafePositive(path_radiance_penalty_scale, 1.0f);
+  result.path_radiance_penalty_scale = oneq::internal::numerics::SafePositive(path_radiance_penalty_scale, 1.0f);
   return result;
 }
 

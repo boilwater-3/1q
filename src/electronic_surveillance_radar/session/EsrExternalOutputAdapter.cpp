@@ -4,6 +4,7 @@
 
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
+#include "common/validation/ValidationUtils.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -12,7 +13,6 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 
-bool IsFinite(double value) { return std::isfinite(value) != 0; }
 double DegToRad(double deg) { return deg * kPi / 180.0; }
 
 oneq::coordinate::EulerAnglesDeg ToCoordinateEuler(const EsrEulerAngleDeg& attitude_deg) {
@@ -37,7 +37,7 @@ oneq::coordinate::Vector3d BearingVectorFromAngles(double az_deg, double el_deg)
 bool TryBearingToEcefUnit(double az_deg, double el_deg, const EsrCoordinateReference& reference,
                           const EsrPoseState& platform_pose,
                           oneq::coordinate::Vector3d* ecef_unit) {
-  if (!IsFinite(az_deg) || !IsFinite(el_deg)) {
+  if (!oneq::internal::validation::IsFinite(az_deg) || !oneq::internal::validation::IsFinite(el_deg)) {
     return false;
   }
   const oneq::coordinate::Vector3d platform_frame = BearingVectorFromAngles(az_deg, el_deg);

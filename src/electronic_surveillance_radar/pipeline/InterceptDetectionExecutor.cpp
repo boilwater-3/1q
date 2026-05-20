@@ -17,6 +17,7 @@
 #include "electronic_surveillance_radar/intercept/JammingAggregator.h"
 #include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"
 #include "electronic_surveillance_radar/pipeline/InterceptComponentFactory.h"
+#include "common/validation/ValidationUtils.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
@@ -44,7 +45,6 @@ constexpr double kNumericFloor = 1.0e-18;
  * @param[in] value 输入值。
  * @return 有限数时返回 `true`。
  */
-bool IsFinite(double value) { return std::isfinite(value) != 0; }
 
 /**
  * @brief 把综合接收损耗 dB 映射到接收功率比例。
@@ -260,8 +260,8 @@ double ComputeReceivedPowerW(double tx_power_w, double carrier_hz, float range_m
  */
 std::pair<double, double> BuildReceiverWindow(std::uint32_t cycle_index,
                                               const extension::InterceptRuntimeConfig& runtime_config) {
-  if (runtime_config.use_fixed_receiver_window && IsFinite(runtime_config.receiver_lower_hz) &&
-      IsFinite(runtime_config.receiver_upper_hz) &&
+  if (runtime_config.use_fixed_receiver_window && oneq::internal::validation::IsFinite(runtime_config.receiver_lower_hz) &&
+      oneq::internal::validation::IsFinite(runtime_config.receiver_upper_hz) &&
       runtime_config.receiver_upper_hz > runtime_config.receiver_lower_hz) {
     return std::make_pair(runtime_config.receiver_lower_hz, runtime_config.receiver_upper_hz);
   }

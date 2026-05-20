@@ -49,7 +49,7 @@ bool TryMakeExternalTrackFromSnapshot(const model::TrackStateSnapshot& snapshot,
   const oneq::coordinate::Vector3d position_enu =
       oneq::coordinate::RotateLocalToEnu(
           static_cast<double>(snapshot.position_x), static_cast<double>(snapshot.position_y),
-          static_cast<double>(snapshot.position_z), reference.radar_attitude_deg);
+          static_cast<double>(snapshot.position_z), reference.frame_attitude_deg);
   oneq::coordinate::EcefPositionM position_ecef;
   if (!oneq::coordinate::TryEnuToEcef(Vector3dToEnuPosition(position_enu),
                                        reference.origin_lla, &position_ecef)) {
@@ -65,7 +65,7 @@ bool TryMakeExternalTrackFromSnapshot(const model::TrackStateSnapshot& snapshot,
   const oneq::coordinate::Vector3d velocity_enu =
       oneq::coordinate::RotateLocalToEnu(
           absolute_velocity_local_x, absolute_velocity_local_y,
-          absolute_velocity_local_z, reference.radar_attitude_deg);
+          absolute_velocity_local_z, reference.frame_attitude_deg);
   oneq::coordinate::EcefVelocityMps velocity_ecef;
   if (!oneq::coordinate::TryEnuToEcefVelocity(Vector3dToEnuVelocity(velocity_enu),
                                                reference.origin_lla, &velocity_ecef)) {

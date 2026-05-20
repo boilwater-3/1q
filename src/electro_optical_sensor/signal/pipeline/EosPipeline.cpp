@@ -30,13 +30,6 @@ class DefaultEosEnvironmentService final : public environment::IEosEnvironmentSe
   }
 };
 
-float SafePositive(float value, float fallback) {
-  if (std::isfinite(value) == 0 || value <= 0.0f) {
-    return fallback;
-  }
-  return value;
-}
-
 float NormalizeAngle180(float angle_deg) {
   float normalized = angle_deg;
   while (normalized > 180.0f) {
@@ -68,7 +61,7 @@ foundation::radiometry::IlluminationCondition ToIlluminationCondition(
 }
 
 float ComputeApertureAreaM2(float optical_aperture_m) {
-  const float safe_diameter_m = SafePositive(optical_aperture_m, 0.2f);
+  const float safe_diameter_m = oneq::internal::numerics::SafePositive(optical_aperture_m, 0.2f);
   const float radius_m = 0.5f * safe_diameter_m;
   return foundation::constants::kPi * radius_m * radius_m;
 }
@@ -124,17 +117,17 @@ float ComputeFovSolidAngleSr(float horizontal_fov_deg, float vertical_fov_deg) {
 float ComputeSensorIntegrationTimeSec(
     const EosPipelineConfig& config,
     const ::electro_optical_sensor::session::EosCycleInput& input) {
-  const float frame_period_sec = 1.0f / std::max(SafePositive(config.frame_rate_hz, 30.0f), 1.0f);
-  const float cycle_dt_sec = SafePositive(input.dt_sec, frame_period_sec);
+  const float frame_period_sec = 1.0f / std::max(oneq::internal::numerics::SafePositive(config.frame_rate_hz, 30.0f), 1.0f);
+  const float cycle_dt_sec = oneq::internal::numerics::SafePositive(input.dt_sec, frame_period_sec);
   const float base_integration_sec = std::min(cycle_dt_sec, frame_period_sec);
-  const float scan_blur_penalty = 1.0f + SafePositive(config.scan_rate_deg_per_sec, 20.0f) / 120.0f;
+  const float scan_blur_penalty = 1.0f + oneq::internal::numerics::SafePositive(config.scan_rate_deg_per_sec, 20.0f) / 120.0f;
   return std::max(1.0e-4f, base_integration_sec / scan_blur_penalty);
 }
 
 float ComputeVisiblePhotonNoiseEnhancement(
     const EosPipelineConfig& config,
     const ::electro_optical_sensor::session::EosCycleInput& input) {
-  const float reference_irradiance = SafePositive(config.visible_reference_irradiance_w_m2, 800.0f);
+  const float reference_irradiance = oneq::internal::numerics::SafePositive(config.visible_reference_irradiance_w_m2, 800.0f);
   const float observed_irradiance = std::max(0.0f, input.environment.solar_irradiance_w_m2);
   const float irradiance_ratio = std::max(observed_irradiance, 1.0e-3f) / reference_irradiance;
   const float irradiance_mismatch = std::fabs(std::log2(std::max(irradiance_ratio, 1.0e-6f)));
@@ -146,7 +139,7 @@ float ComputeVisiblePhotonNoiseEnhancement(
 
 float ComputeSystemNoiseFactorFromSensitivity(float detection_sensitivity_w) {
   const float kReferenceSensitivityW = 1.0e-12f;
-  const float safe_sensitivity_w = SafePositive(detection_sensitivity_w, kReferenceSensitivityW);
+  const float safe_sensitivity_w = oneq::internal::numerics::SafePositive(detection_sensitivity_w, kReferenceSensitivityW);
   return std::max(1.0f, safe_sensitivity_w / kReferenceSensitivityW);
 }
 
@@ -188,7 +181,7 @@ DetectionComputationContext BuildDetectionComputationContext(
   const environment::EosEnvironmentModelResult environment_result =
       environment_service->ResolveFactors(environment_inputs);
   const foundation::radiative_transfer::RadiativeTransferResult transfer_result =
-      ComputePathRadiativeTransfer(config, input, SafePositive(target.range_m, 1000.0f),
+      ComputePathRadiativeTransfer(config, input, oneq::internal::numerics::SafePositive(target.range_m, 1000.0f),
                                    environment_result);
   context_values.path_transmittance = transfer_result.transmittance;
   context_values.path_radiance_penalty_scale =
@@ -196,8 +189,8 @@ DetectionComputationContext BuildDetectionComputationContext(
   context_values.fov_solid_angle_sr =
       ComputeFovSolidAngleSr(config.horizontal_fov_deg, config.vertical_fov_deg);
 
-  const float wavelength_lower_um = SafePositive(config.wavelength_lower_um, 3.0f);
-  const float wavelength_upper_um = SafePositive(config.wavelength_upper_um, 5.0f);
+  const float wavelength_lower_um = oneq::internal::numerics::SafePositive(config.wavelength_lower_um, 3.0f);
+  const float wavelength_upper_um = oneq::internal::numerics::SafePositive(config.wavelength_upper_um, 5.0f);
   context_values.wavelength_center_um = 0.5f * (wavelength_lower_um + wavelength_upper_um);
   context_values.wavelength_bandwidth_um =
       std::max(std::fabs(wavelength_upper_um - wavelength_lower_um), 0.1f);
@@ -225,7 +218,7 @@ DetectionComputationContext BuildDetectionComputationContext(
   const float gsd_m =
       foundation::optics::ComputeGroundSampleDistanceM(target.range_m, diffraction_resolution_rad);
   const float target_linear_size_m =
-      std::sqrt(SafePositive(target.appearance.projected_area_m2, 1.0f));
+      std::sqrt(oneq::internal::numerics::SafePositive(target.appearance.projected_area_m2, 1.0f));
   const float geometric_quality_gain = target_linear_size_m / (target_linear_size_m + gsd_m);
   foundation::spatial_spectrum::SpatialSpectrumInputs spectrum_inputs;
   spectrum_inputs.target_characteristic_size_m = target_linear_size_m;
@@ -241,13 +234,13 @@ DetectionComputationContext BuildDetectionComputationContext(
       0.5f * geometric_quality_gain + 0.5f * spectrum_result.spectrum_quality_gain, 0.05f, 1.0f);
 
   context_values.nep_inputs.detector_detectivity_cm_sqrt_hz_per_w =
-      SafePositive(config.detector_detectivity_cm_sqrt_hz_per_w, 1.0e10f);
+      oneq::internal::numerics::SafePositive(config.detector_detectivity_cm_sqrt_hz_per_w, 1.0e10f);
   context_values.nep_inputs.detector_area_cm2 =
-      SafePositive(config.detector_area_cm2, 0.25f);
+      oneq::internal::numerics::SafePositive(config.detector_area_cm2, 0.25f);
   context_values.nep_inputs.optical_transmittance = context_values.optical_transmittance;
   context_values.nep_inputs.integration_time_sec = ComputeSensorIntegrationTimeSec(config, input);
   const float scan_coupled_bandwidth_hz =
-      SafePositive(config.scan_rate_deg_per_sec, 20.0f) * 100.0f;
+      oneq::internal::numerics::SafePositive(config.scan_rate_deg_per_sec, 20.0f) * 100.0f;
   const float frame_coupled_bandwidth_hz = 0.5f / context_values.nep_inputs.integration_time_sec;
   context_values.nep_inputs.electrical_bandwidth_hz =
       std::max(100.0f, std::max(scan_coupled_bandwidth_hz, frame_coupled_bandwidth_hz));

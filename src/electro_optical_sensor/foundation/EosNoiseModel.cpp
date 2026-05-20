@@ -11,13 +11,6 @@ namespace noise {
 
 namespace {
 
-float SafePositive(float value, float fallback) {
-  if (std::isfinite(value) == 0 || value <= 0.0f) {
-    return fallback;
-  }
-  return value;
-}
-
 constexpr float kEquivalentNoiseGuardW = 1.0e-12f;
 constexpr float kCloudScatteringGain = 0.8f;
 constexpr float kShotNoiseScale = 1.0e-7f;
@@ -36,9 +29,9 @@ BackgroundNoiseStatistics ComputeBackgroundNoiseStatistics(
   const float cloud_ratio = oneq::internal::numerics::Clamp01(inputs.cloud_coverage_ratio);
   const float scene_complexity = std::max(1.0f, inputs.scene_complexity_factor);
   const float photon_noise_factor = std::max(1.0f, inputs.photon_noise_enhancement_factor);
-  const float detector_area_cm2 = SafePositive(inputs.detector_area_cm2, 0.25f);
-  const float integration_time_sec = SafePositive(inputs.integration_time_sec, 1.0f / 30.0f);
-  const float electrical_bandwidth_hz = SafePositive(inputs.electrical_bandwidth_hz, 1000.0f);
+  const float detector_area_cm2 = oneq::internal::numerics::SafePositive(inputs.detector_area_cm2, 0.25f);
+  const float integration_time_sec = oneq::internal::numerics::SafePositive(inputs.integration_time_sec, 1.0f / 30.0f);
+  const float electrical_bandwidth_hz = oneq::internal::numerics::SafePositive(inputs.electrical_bandwidth_hz, 1000.0f);
   // Equivalent noise bandwidth of a first-order RC low-pass (single pole). This approximation
   // assumes stationary noise in the frame integration window and is intended for frame-level
   // EOS detection modeling, not high-fidelity transient front-end simulation.

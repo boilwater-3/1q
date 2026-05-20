@@ -20,10 +20,7 @@ namespace session {
  * @brief EOS 局部坐标参考系定义。
  * @note origin_lla 定义 ENU 原点；frame_attitude_deg 定义 EOS 局部坐标相对 ENU 的姿态。
  */
-struct ONEQ_API EosCoordinateReference {
-  oneq::coordinate::LlaPositionDegM origin_lla{};      /**< 参考原点（WGS84 LLA） */
-  oneq::coordinate::EulerAnglesDeg frame_attitude_deg{}; /**< EOS 局部坐标相对 ENU 的姿态角 */
-};
+using EosCoordinateReference = oneq::coordinate::LocalFrameReference;
 
 /**
  * @brief EOS 外部平台运动学输入。

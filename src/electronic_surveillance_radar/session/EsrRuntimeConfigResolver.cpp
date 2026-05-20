@@ -6,13 +6,13 @@
 
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "common/logging/ProjectLog.h"
+#include "common/validation/ValidationUtils.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
 namespace internal {
 namespace {
 
-bool IsFinite(float value) { return std::isfinite(value) != 0; }
 constexpr std::uint32_t kActiveScanPulseMultiplier = 4U;
 constexpr std::uint32_t kMaxPulseCount = 4096U;
 constexpr float kMinimumThresholdScale = 0.1f;
@@ -46,7 +46,7 @@ void ApplyWorkModeAdjustment(config::EsrWorkMode mode,
   }
   config_value->pulse_count = std::max<std::uint32_t>(1U, config_value->pulse_count);
   config_value->threshold_scale =
-      IsFinite(config_value->threshold_scale) && config_value->threshold_scale > 0.0f
+      oneq::internal::validation::IsFinite(config_value->threshold_scale) && config_value->threshold_scale > 0.0f
           ? config_value->threshold_scale
           : 1.0f;
   switch (mode) {
@@ -121,7 +121,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     has_requested_update = true;
     resolved.next_config.runtime_config.sensor_enabled = patch.mission.power_on;
     resolved.next_config.runtime_config.scan_rate_hz =
-        (IsFinite(patch.mission.scan.scan_rate_hz) && patch.mission.scan.scan_rate_hz > 0.0f)
+        (oneq::internal::validation::IsFinite(patch.mission.scan.scan_rate_hz) && patch.mission.scan.scan_rate_hz > 0.0f)
             ? patch.mission.scan.scan_rate_hz
             : 1.0f;
     ApplyWorkModeAdjustment(patch.mission.work_mode,
@@ -166,7 +166,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
 
   if (patch.has_scan_rate_hz) {
     has_requested_update = true;
-    if (!IsFinite(patch.scan_rate_hz) || patch.scan_rate_hz <= 0.0f) {
+    if (!oneq::internal::validation::IsFinite(patch.scan_rate_hz) || patch.scan_rate_hz <= 0.0f) {
       PROJECT_LOG_ERROR(
           "[EsrSession] Rejecting runtime config patch due to invalid scan_rate_hz={}; "
           "must be finite and positive.",
@@ -191,7 +191,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   }
   if (patch.has_scan_center_az_deg) {
     has_requested_update = true;
-    if (!IsFinite(patch.scan_center_az_deg)) {
+    if (!oneq::internal::validation::IsFinite(patch.scan_center_az_deg)) {
       PROJECT_LOG_ERROR(
           "[EsrSession] Rejecting runtime config patch due to non-finite scan_center_az_deg={} .",
           patch.scan_center_az_deg);
@@ -209,7 +209,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   }
   if (patch.has_scan_center_el_deg) {
     has_requested_update = true;
-    if (!IsFinite(patch.scan_center_el_deg)) {
+    if (!oneq::internal::validation::IsFinite(patch.scan_center_el_deg)) {
       PROJECT_LOG_ERROR(
           "[EsrSession] Rejecting runtime config patch due to non-finite scan_center_el_deg={} .",
           patch.scan_center_el_deg);
@@ -230,8 +230,8 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     if (patch.use_explicit_scan_bounds) {
       if (!patch.has_scan_start_az_deg || !patch.has_scan_end_az_deg ||
           !patch.has_scan_start_el_deg || !patch.has_scan_end_el_deg ||
-          !IsFinite(patch.scan_start_az_deg) || !IsFinite(patch.scan_end_az_deg) ||
-          !IsFinite(patch.scan_start_el_deg) || !IsFinite(patch.scan_end_el_deg)) {
+          !oneq::internal::validation::IsFinite(patch.scan_start_az_deg) || !oneq::internal::validation::IsFinite(patch.scan_end_az_deg) ||
+          !oneq::internal::validation::IsFinite(patch.scan_start_el_deg) || !oneq::internal::validation::IsFinite(patch.scan_end_el_deg)) {
         PROJECT_LOG_ERROR(
             "[EsrSession] Rejecting runtime config patch due to invalid explicit scan bounds "
             "payload.");

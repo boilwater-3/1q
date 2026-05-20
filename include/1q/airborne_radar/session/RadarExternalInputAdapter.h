@@ -21,10 +21,7 @@ namespace session {
  * @brief 描述外部坐标转换为雷达局部坐标所需的参考系信息。
  * @note `origin_lla` 定义局部 ENU 原点，`radar_attitude_deg` 定义雷达局部坐标相对 ENU 的姿态。
  */
-struct ONEQ_API RadarLocalFrameReference {
-  oneq::coordinate::LlaPositionDegM origin_lla{};        /**< 雷达参考原点（WGS84 LLA） */
-  oneq::coordinate::EulerAnglesDeg radar_attitude_deg{}; /**< 雷达局部坐标相对 ENU 的姿态角 */
-};
+using RadarLocalFrameReference = oneq::coordinate::LocalFrameReference;
 
 /**
  * @brief 外部平台运动学输入。
