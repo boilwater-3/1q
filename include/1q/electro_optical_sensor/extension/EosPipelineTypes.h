@@ -69,6 +69,8 @@ struct ONEQ_API EosPipelineConfig {
   float frame_rate_hz{30.0f};
   float minimum_snr_db{6.0f};
   float detection_sensitivity_w{1.0e-12f};
+  float detector_detectivity_cm_sqrt_hz_per_w{1.0e10f};
+  float detector_area_cm2{0.25f};
   float scan_start_az_deg{-60.0f};
   float scan_end_az_deg{60.0f};
   float scan_center_el_deg{0.0f};

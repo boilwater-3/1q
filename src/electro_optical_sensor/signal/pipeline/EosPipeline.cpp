@@ -162,6 +162,8 @@ struct DetectionComputationContext {
   float wavelength_center_um{4.0f};
   float wavelength_bandwidth_um{1.0f};
   float imaging_quality_gain{1.0f};
+  float background_spectral_radiance_w_sr_m3{0.0f};
+  float visible_photon_noise_enhancement{1.0f};
   foundation::propagation::NepNoiseModelInputs nep_inputs{};
   foundation::noise::BackgroundNoiseModelInputs noise_inputs{};
   foundation::stray_light::StrayLightFilterResult stray_light_result{};
@@ -199,6 +201,13 @@ DetectionComputationContext BuildDetectionComputationContext(
   context_values.wavelength_center_um = 0.5f * (wavelength_lower_um + wavelength_upper_um);
   context_values.wavelength_bandwidth_um =
       std::max(std::fabs(wavelength_upper_um - wavelength_lower_um), 0.1f);
+  if (context_values.infrared_enabled) {
+    context_values.background_spectral_radiance_w_sr_m3 =
+        foundation::radiometry::ComputePlanckRadiance(context_values.wavelength_center_um,
+                                                       input.environment.background_temperature_k);
+  }
+  context_values.visible_photon_noise_enhancement =
+      ComputeVisiblePhotonNoiseEnhancement(config, input);
 
   foundation::optics::DetectionRangeInputs range_inputs;
   range_inputs.platform_altitude_m = std::max(ResolvePlatformAltitudeM(input), 1.0f);
@@ -231,6 +240,10 @@ DetectionComputationContext BuildDetectionComputationContext(
   context_values.imaging_quality_gain = oneq::internal::numerics::Clamp(
       0.5f * geometric_quality_gain + 0.5f * spectrum_result.spectrum_quality_gain, 0.05f, 1.0f);
 
+  context_values.nep_inputs.detector_detectivity_cm_sqrt_hz_per_w =
+      SafePositive(config.detector_detectivity_cm_sqrt_hz_per_w, 1.0e10f);
+  context_values.nep_inputs.detector_area_cm2 =
+      SafePositive(config.detector_area_cm2, 0.25f);
   context_values.nep_inputs.optical_transmittance = context_values.optical_transmittance;
   context_values.nep_inputs.integration_time_sec = ComputeSensorIntegrationTimeSec(config, input);
   const float scan_coupled_bandwidth_hz =
@@ -268,15 +281,13 @@ DetectionComputationContext BuildDetectionComputationContext(
 float ComputeInfraredSnrLinear(const ::electro_optical_sensor::session::EosSceneTarget& target,
                                const ::electro_optical_sensor::session::EosCycleInput& input,
                                const DetectionComputationContext& context_values) {
-  foundation::radiometry::InfraredRadianceInputs infrared_inputs;
-  infrared_inputs.wavelength_um = context_values.wavelength_center_um;
-  infrared_inputs.target_temperature_k = target.appearance.apparent_temperature_k;
-  infrared_inputs.emissivity = target.appearance.emissivity;
-  infrared_inputs.background_temperature_k = input.environment.background_temperature_k;
+  const float background_spectral_radiance =
+      context_values.background_spectral_radiance_w_sr_m3;
+  const float target_spectral_radiance = foundation::radiometry::ComputePlanckRadiance(
+      context_values.wavelength_center_um, target.appearance.apparent_temperature_k);
+  const float emissivity = oneq::internal::numerics::Clamp01(target.appearance.emissivity);
   const float infrared_delta_spectral_radiance =
-      foundation::radiometry::ComputeInfraredRadianceDelta(infrared_inputs);
-  const float background_spectral_radiance = foundation::radiometry::ComputePlanckRadiance(
-      context_values.wavelength_center_um, input.environment.background_temperature_k);
+      emissivity * target_spectral_radiance - background_spectral_radiance;
   const float infrared_delta_radiance = foundation::radiometry::IntegrateSpectralRadianceOverBand(
       infrared_delta_spectral_radiance, context_values.wavelength_bandwidth_um);
   const float background_radiance = foundation::radiometry::IntegrateSpectralRadianceOverBand(
@@ -309,8 +320,7 @@ float ComputeInfraredSnrLinear(const ::electro_optical_sensor::session::EosScene
   return snr_result.snr_linear * context_values.imaging_quality_gain;
 }
 
-float ComputeVisibleSnrLinear(const EosPipelineConfig& config,
-                              const ::electro_optical_sensor::session::EosSceneTarget& target,
+float ComputeVisibleSnrLinear(const ::electro_optical_sensor::session::EosSceneTarget& target,
                               const ::electro_optical_sensor::session::EosCycleInput& input,
                               const DetectionComputationContext& context_values) {
   foundation::radiometry::VisibleChannelInputs visible_inputs;
@@ -336,7 +346,7 @@ float ComputeVisibleSnrLinear(const EosPipelineConfig& config,
           context_values.fov_solid_angle_sr, context_values.optical_transmittance) *
       context_values.stray_light_result.background_penalty_scale *
       context_values.path_radiance_penalty_scale;
-  const float visible_noise_enhancement = ComputeVisiblePhotonNoiseEnhancement(config, input);
+  const float visible_noise_enhancement = context_values.visible_photon_noise_enhancement;
   foundation::noise::BackgroundNoiseModelInputs noise_inputs = context_values.noise_inputs;
   noise_inputs.background_flux_w = visible_background_flux_w;
   noise_inputs.photon_noise_enhancement_factor = visible_noise_enhancement;
@@ -489,7 +499,7 @@ output::EosDetectionRecord EosPipeline::BuildDetectionRecord(
                                         : 0.0f;
   const float visible_snr_linear =
       context_values.visible_enabled
-          ? ComputeVisibleSnrLinear(config_, target, input, context_values)
+          ? ComputeVisibleSnrLinear(target, input, context_values)
           : 0.0f;
 
   record.infrared_snr_linear = infrared_snr_linear;

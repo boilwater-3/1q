@@ -246,10 +246,26 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
   const std::vector<RawObservationRecord> records =
       preprocessor.Run(raw_records, config.preprocess);
 
-  // Extract observations
+  // Extract observations & truth evaluation (merged single pass)
   result.observation_output.observations.reserve(records.size());
+  const auto& scene_emitters = ctx.GetSceneEmitters();
+  std::set<std::uint64_t> observed_truth_ids;
   for (std::size_t i = 0; i < records.size(); ++i) {
     result.observation_output.observations.push_back(records[i].observation);
+
+    extension::TruthAssociationRecord association;
+    association.observation_id = records[i].observation.observation_id;
+    association.truth_emitter_id = records[i].truth_emitter_id;
+    association.matched = records[i].matched_truth && records[i].truth_emitter_id != 0U;
+    association.confidence = association.matched
+                                 ? static_cast<float>(ComputeObservationConfidence(
+                                       records[i].observation.snr_db,
+                                       records[i].observation.is_jammed))
+                                 : 0.1f;
+    result.truth_evaluation_output.associations.push_back(association);
+    if (association.matched) {
+      observed_truth_ids.insert(records[i].truth_emitter_id);
+    }
   }
 
   // Feature encoding
@@ -287,25 +303,6 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
   associator.UpdateConfig(config.association);
   result.emitter_output.hypotheses =
       associator.Update(ctx.GetCycleIndex(), cluster_summaries, &next_hypothesis_id);
-
-  // Truth evaluation
-  const auto& scene_emitters = ctx.GetSceneEmitters();
-  std::set<std::uint64_t> observed_truth_ids;
-  for (std::size_t i = 0; i < records.size(); ++i) {
-    extension::TruthAssociationRecord association;
-    association.observation_id = records[i].observation.observation_id;
-    association.truth_emitter_id = records[i].truth_emitter_id;
-    association.matched = records[i].matched_truth && records[i].truth_emitter_id != 0U;
-    association.confidence = association.matched
-                                 ? static_cast<float>(ComputeObservationConfidence(
-                                       records[i].observation.snr_db,
-                                       records[i].observation.is_jammed))
-                                 : 0.1f;
-    result.truth_evaluation_output.associations.push_back(association);
-    if (association.matched) {
-      observed_truth_ids.insert(records[i].truth_emitter_id);
-    }
-  }
 
   for (std::size_t i = 0; i < scene_emitters.size(); ++i) {
     if (!scene_emitters[i].is_emitting) {
