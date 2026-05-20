@@ -17,7 +17,6 @@ execution::InternalExecutionConfig MapSessionToExecution(
   exec.association.policy = session_config.policy.association;
   exec.tracking.policy = session_config.policy.tracking;
   exec.lifecycle.policy = session_config.policy.lifecycle;
-  exec.lifecycle.imm_policy = session_config.policy.imm;
   exec.detection.orientation = session_config.mission.orientation;
 
   exec.detection.engineering = ResolveDetectionEngineering(exec.detection.hardware);

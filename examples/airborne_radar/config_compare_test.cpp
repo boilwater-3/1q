@@ -180,8 +180,6 @@ void CompareConfigs(const ar_session::RadarSessionConfig& a,
   CHECK_EQ(da.min_detection_margin_db, db.min_detection_margin_db,
            "detection.min_detection_margin_db");
   CHECK_INT(da.pulse_count, db.pulse_count, "detection.pulse_count");
-  CHECK_INT(static_cast<int>(da.swerling_model),
-            static_cast<int>(db.swerling_model), "detection.swerling_model");
 
   // mission.orientation
   const auto& oa = a.mission.orientation;
@@ -270,12 +268,9 @@ void CompareConfigs(const ar_session::RadarSessionConfig& a,
   CHECK_BOOL(a.policy.lifecycle.enable_imm_lifecycle,
              b.policy.lifecycle.enable_imm_lifecycle,
              "lifecycle.enable_imm_lifecycle");
-
-  // imm
-  CHECK_BOOL(a.policy.imm.enable_imm_lifecycle,
-             b.policy.imm.enable_imm_lifecycle, "imm.enable_imm_lifecycle");
-  CHECK_INT(a.policy.imm.model_count_hint, b.policy.imm.model_count_hint,
-            "imm.model_count_hint");
+  CHECK_INT(a.policy.lifecycle.model_count_hint,
+            b.policy.lifecycle.model_count_hint,
+            "lifecycle.model_count_hint");
 
   // environment
   CHECK_BOOL(a.environment.scenario_config.atmospheric_physics.enable_physical_model,

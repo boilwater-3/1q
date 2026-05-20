@@ -271,7 +271,7 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
       target.swerling_type =
           static_cast<config::profiles::SwerlingModel>(input[i].target_swerling_type);
     } else {
-      target.swerling_type = config.detection.hardware.swerling_model;
+      target.swerling_type = config::profiles::SwerlingModel::kSwerling0;
     }
 
     const detection::ResolvedBeamState beam_state = detection::BeamControlResolver::Resolve(

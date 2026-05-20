@@ -194,8 +194,6 @@ struct ONEQ_API DetectionConfig {
   RcsPhysicsConfig rcs_physics{};           /**< RCS 物理建模参数。 */
   float min_detection_margin_db{-2.0f};     /**< 最小探测裕量。 */
   int pulse_count{10};                      /**< 脉冲积累数。 */
-  profiles::SwerlingModel swerling_model{
-      profiles::SwerlingModel::kSwerling0}; /**< 目标起伏模型。 */
 };
 
 }  // namespace detection

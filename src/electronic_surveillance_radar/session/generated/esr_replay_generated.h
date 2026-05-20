@@ -778,8 +778,8 @@ struct EmitterObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_QUALITY = 20,
     VT_IS_JAMMED = 22
   };
-  uint32_t observation_id() const {
-    return GetField<uint32_t>(VT_OBSERVATION_ID, 0);
+  uint64_t observation_id() const {
+    return GetField<uint64_t>(VT_OBSERVATION_ID, 0);
   }
   double timestamp_s() const {
     return GetField<double>(VT_TIMESTAMP_S, 0.0);
@@ -810,7 +810,7 @@ struct EmitterObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint32_t>(verifier, VT_OBSERVATION_ID) &&
+           VerifyField<uint64_t>(verifier, VT_OBSERVATION_ID) &&
            VerifyField<double>(verifier, VT_TIMESTAMP_S) &&
            VerifyField<double>(verifier, VT_AOA_AZ_DEG) &&
            VerifyField<double>(verifier, VT_AOA_EL_DEG) &&
@@ -828,8 +828,8 @@ struct EmitterObservationBuilder {
   typedef EmitterObservation Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_observation_id(uint32_t observation_id) {
-    fbb_.AddElement<uint32_t>(EmitterObservation::VT_OBSERVATION_ID, observation_id, 0);
+  void add_observation_id(uint64_t observation_id) {
+    fbb_.AddElement<uint64_t>(EmitterObservation::VT_OBSERVATION_ID, observation_id, 0);
   }
   void add_timestamp_s(double timestamp_s) {
     fbb_.AddElement<double>(EmitterObservation::VT_TIMESTAMP_S, timestamp_s, 0.0);
@@ -872,7 +872,7 @@ struct EmitterObservationBuilder {
 
 inline flatbuffers::Offset<EmitterObservation> CreateEmitterObservation(
     flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t observation_id = 0,
+    uint64_t observation_id = 0,
     double timestamp_s = 0.0,
     double aoa_az_deg = 0.0,
     double aoa_el_deg = 0.0,
@@ -890,8 +890,8 @@ inline flatbuffers::Offset<EmitterObservation> CreateEmitterObservation(
   builder_.add_aoa_el_deg(aoa_el_deg);
   builder_.add_aoa_az_deg(aoa_az_deg);
   builder_.add_timestamp_s(timestamp_s);
-  builder_.add_quality(quality);
   builder_.add_observation_id(observation_id);
+  builder_.add_quality(quality);
   builder_.add_is_jammed(is_jammed);
   return builder_.Finish();
 }
@@ -962,8 +962,8 @@ struct EmitterHypothesis FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_CONFIDENCE = 18,
     VT_LAST_SEEN_CYCLE = 20
   };
-  uint32_t hypothesis_id() const {
-    return GetField<uint32_t>(VT_HYPOTHESIS_ID, 0);
+  uint64_t hypothesis_id() const {
+    return GetField<uint64_t>(VT_HYPOTHESIS_ID, 0);
   }
   const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *candidate_classes() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_CANDIDATE_CLASSES);
@@ -991,7 +991,7 @@ struct EmitterHypothesis FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint32_t>(verifier, VT_HYPOTHESIS_ID) &&
+           VerifyField<uint64_t>(verifier, VT_HYPOTHESIS_ID) &&
            VerifyOffset(verifier, VT_CANDIDATE_CLASSES) &&
            verifier.VerifyVector(candidate_classes()) &&
            verifier.VerifyVectorOfStrings(candidate_classes()) &&
@@ -1010,8 +1010,8 @@ struct EmitterHypothesisBuilder {
   typedef EmitterHypothesis Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_hypothesis_id(uint32_t hypothesis_id) {
-    fbb_.AddElement<uint32_t>(EmitterHypothesis::VT_HYPOTHESIS_ID, hypothesis_id, 0);
+  void add_hypothesis_id(uint64_t hypothesis_id) {
+    fbb_.AddElement<uint64_t>(EmitterHypothesis::VT_HYPOTHESIS_ID, hypothesis_id, 0);
   }
   void add_candidate_classes(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> candidate_classes) {
     fbb_.AddOffset(EmitterHypothesis::VT_CANDIDATE_CLASSES, candidate_classes);
@@ -1051,7 +1051,7 @@ struct EmitterHypothesisBuilder {
 
 inline flatbuffers::Offset<EmitterHypothesis> CreateEmitterHypothesis(
     flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t hypothesis_id = 0,
+    uint64_t hypothesis_id = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> candidate_classes = 0,
     int32_t mode = 0,
     int32_t threat_level = 0,
@@ -1061,6 +1061,7 @@ inline flatbuffers::Offset<EmitterHypothesis> CreateEmitterHypothesis(
     float confidence = 0.0f,
     uint32_t last_seen_cycle = 0) {
   EmitterHypothesisBuilder builder_(_fbb);
+  builder_.add_hypothesis_id(hypothesis_id);
   builder_.add_last_seen_cycle(last_seen_cycle);
   builder_.add_confidence(confidence);
   builder_.add_bearing_std_deg(bearing_std_deg);
@@ -1069,13 +1070,12 @@ inline flatbuffers::Offset<EmitterHypothesis> CreateEmitterHypothesis(
   builder_.add_threat_level(threat_level);
   builder_.add_mode(mode);
   builder_.add_candidate_classes(candidate_classes);
-  builder_.add_hypothesis_id(hypothesis_id);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<EmitterHypothesis> CreateEmitterHypothesisDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t hypothesis_id = 0,
+    uint64_t hypothesis_id = 0,
     const std::vector<flatbuffers::Offset<flatbuffers::String>> *candidate_classes = nullptr,
     int32_t mode = 0,
     int32_t threat_level = 0,
@@ -1159,8 +1159,8 @@ struct TruthAssociationRecord FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
     VT_MATCHED = 8,
     VT_CONFIDENCE = 10
   };
-  uint32_t observation_id() const {
-    return GetField<uint32_t>(VT_OBSERVATION_ID, 0);
+  uint64_t observation_id() const {
+    return GetField<uint64_t>(VT_OBSERVATION_ID, 0);
   }
   uint64_t truth_emitter_id() const {
     return GetField<uint64_t>(VT_TRUTH_EMITTER_ID, 0);
@@ -1173,7 +1173,7 @@ struct TruthAssociationRecord FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint32_t>(verifier, VT_OBSERVATION_ID) &&
+           VerifyField<uint64_t>(verifier, VT_OBSERVATION_ID) &&
            VerifyField<uint64_t>(verifier, VT_TRUTH_EMITTER_ID) &&
            VerifyField<uint8_t>(verifier, VT_MATCHED) &&
            VerifyField<float>(verifier, VT_CONFIDENCE) &&
@@ -1185,8 +1185,8 @@ struct TruthAssociationRecordBuilder {
   typedef TruthAssociationRecord Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_observation_id(uint32_t observation_id) {
-    fbb_.AddElement<uint32_t>(TruthAssociationRecord::VT_OBSERVATION_ID, observation_id, 0);
+  void add_observation_id(uint64_t observation_id) {
+    fbb_.AddElement<uint64_t>(TruthAssociationRecord::VT_OBSERVATION_ID, observation_id, 0);
   }
   void add_truth_emitter_id(uint64_t truth_emitter_id) {
     fbb_.AddElement<uint64_t>(TruthAssociationRecord::VT_TRUTH_EMITTER_ID, truth_emitter_id, 0);
@@ -1211,14 +1211,14 @@ struct TruthAssociationRecordBuilder {
 
 inline flatbuffers::Offset<TruthAssociationRecord> CreateTruthAssociationRecord(
     flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t observation_id = 0,
+    uint64_t observation_id = 0,
     uint64_t truth_emitter_id = 0,
     bool matched = false,
     float confidence = 0.0f) {
   TruthAssociationRecordBuilder builder_(_fbb);
   builder_.add_truth_emitter_id(truth_emitter_id);
-  builder_.add_confidence(confidence);
   builder_.add_observation_id(observation_id);
+  builder_.add_confidence(confidence);
   builder_.add_matched(matched);
   return builder_.Finish();
 }

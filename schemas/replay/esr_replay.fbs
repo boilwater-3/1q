@@ -86,7 +86,7 @@ file_identifier "ESRC";
 // ---- EsrOutputFrame ----
 
 table EmitterObservation {
-  observation_id: uint32;
+  observation_id: uint64;
   timestamp_s:    double;
   aoa_az_deg:     double;
   aoa_el_deg:     double;
@@ -103,7 +103,7 @@ table ObservationOutput {
 }
 
 table EmitterHypothesis {
-  hypothesis_id:     uint32;
+  hypothesis_id:     uint64;
   candidate_classes: [string];
   mode:              int32;
   threat_level:      int32;
@@ -119,7 +119,7 @@ table EmitterOutput {
 }
 
 table TruthAssociationRecord {
-  observation_id:   uint32;
+  observation_id:   uint64;
   truth_emitter_id: uint64;
   matched:          bool;
   confidence:       float;

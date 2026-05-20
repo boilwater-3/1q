@@ -82,7 +82,6 @@ inline void LoadDetectionConfig(const oneq::JsonValue& j,
   v->min_detection_margin_db =
       static_cast<float>(j["min_detection_margin_db"].AsDouble());
   v->pulse_count = static_cast<int>(j["pulse_count"].AsInt());
-  v->swerling_model = SwerlingModelFromString(j["swerling_model"].AsString());
 }
 
 inline void LoadHardware(const oneq::JsonValue& j,
@@ -173,12 +172,9 @@ inline void LoadLifecycle(const oneq::JsonValue& j,
       static_cast<std::uint32_t>(j["max_miss_before_lost"].AsInt());
   v->max_lost_cycles = static_cast<std::uint32_t>(j["max_lost_cycles"].AsInt());
   v->enable_imm_lifecycle = j["enable_imm_lifecycle"].AsBool();
-}
-
-inline void LoadImm(const oneq::JsonValue& j, airborne_radar::config::ImmConfig* v) {
-  if (j.IsNull()) return;
-  v->enable_imm_lifecycle = j["enable_imm_lifecycle"].AsBool();
-  v->model_count_hint = static_cast<std::uint32_t>(j["model_count_hint"].AsInt());
+  if (j.Has("model_count_hint")) {
+    v->model_count_hint = static_cast<std::uint32_t>(j["model_count_hint"].AsInt());
+  }
 }
 
 inline void LoadPolicy(const oneq::JsonValue& j,
@@ -188,7 +184,6 @@ inline void LoadPolicy(const oneq::JsonValue& j,
   LoadAssociation(j["association"], &v->association);
   LoadTracking(j["tracking"], &v->tracking);
   LoadLifecycle(j["lifecycle"], &v->lifecycle);
-  LoadImm(j["imm"], &v->imm);
 }
 
 // -- environment sub-tree ----------------------------------------------------

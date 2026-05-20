@@ -72,7 +72,6 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     next_execution_config.association.policy = patch.policy.association;
     next_execution_config.tracking.policy = patch.policy.tracking;
     next_execution_config.lifecycle.policy = patch.policy.lifecycle;
-    next_execution_config.lifecycle.imm_policy = patch.policy.imm;
     policy_changed = true;
     execution_config_changed = true;
     has_requested_update = true;
@@ -153,7 +152,6 @@ session::RadarSessionConfig MapExecutionToSession(
   config.policy.association = execution_config.association.policy;
   config.policy.tracking = execution_config.tracking.policy;
   config.policy.lifecycle = execution_config.lifecycle.policy;
-  config.policy.imm = execution_config.lifecycle.imm_policy;
   return config;
 }
 

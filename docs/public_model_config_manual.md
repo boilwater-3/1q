@@ -47,7 +47,6 @@
 | `rcs_physics` | 目标 RCS 物理估计与经验 RCS 的融合参数。 |
 | `min_detection_margin_db` | 最小探测裕量。检测执行中以 `margin >= min_detection_margin_db` 判定是否通过裕量门槛。值越低越容易检出，越高越保守。 |
 | `pulse_count` | 脉冲积累数量。影响多脉冲检测概率、Swerling 起伏模型计算以及检测稳定性。 |
-| `swerling_model` | 目标 RCS 起伏模型。传入雷达方程多脉冲检测概率计算，影响不同目标起伏假设下的检测概率。 |
 
 #### 1.2.2 `TransmitterConfig`
 
@@ -152,8 +151,7 @@
 | `lifecycle.max_miss_before_lost` | 进入 lost 前允许的连续失配数。越大越能容忍短时遮挡或漏检。 |
 | `lifecycle.max_lost_cycles` | lost 态最大保留周期。越大航迹保持时间越长，也可能保留更多过期航迹。 |
 | `lifecycle.enable_imm_lifecycle` | 是否启用 IMM 生命周期路径。开启后内部会准备 IMM 模型噪声提示。 |
-| `imm.enable_imm_lifecycle` | IMM 生命周期开关提示。当前 `MapSessionToExecution` 主要使用 `lifecycle.enable_imm_lifecycle` 生成工程配置。 |
-| `imm.model_count_hint` | IMM 模型数提示。用于表达外部期望的模型数量；当前主要是语义提示。 |
+| `lifecycle.model_count_hint` | IMM 模型数提示。用于表达外部期望的模型数量；当前主要是语义提示。 |
 
 ### 1.5 `RadarEnvironmentConfig`
 

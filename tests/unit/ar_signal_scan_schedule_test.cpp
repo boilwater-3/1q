@@ -636,7 +636,6 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   session_config.policy.association = exec_config.association.policy;
   session_config.policy.tracking = exec_config.tracking.policy;
   session_config.policy.lifecycle = exec_config.lifecycle.policy;
-  session_config.policy.imm = exec_config.lifecycle.imm_policy;
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   environment::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);

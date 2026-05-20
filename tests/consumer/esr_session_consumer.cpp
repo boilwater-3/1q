@@ -58,7 +58,7 @@ int main() {
   input.platform_altitude_m = 5000.0f;
 
   esr::session::EsrSceneEmitter emitter;
-  emitter.emitter_id = "test-emitter";
+  emitter.emitter_id = 1001U;
   emitter.pose.position_m.x = 1000.0f;
   emitter.pose.position_m.y = 0.0f;
   emitter.pose.position_m.z = 5000.0f;

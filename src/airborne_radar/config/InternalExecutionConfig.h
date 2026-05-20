@@ -114,7 +114,6 @@ struct TrackingExecutionConfig {
  */
 struct LifecycleExecutionConfig {
   LifecycleConfig policy{};
-  ImmConfig imm_policy{};
   engineering::LifecycleRuntimeConfig engineering{};
   signal::tracking::ImmActivationPolicy imm_activation_policy{
       signal::tracking::ImmActivationPolicy::kConfirmedTracksOnly};

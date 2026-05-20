@@ -177,7 +177,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
   std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>> obs_vec;
   for (const auto& o : v.observation_output.observations) {
     obs_vec.push_back(esr::replay::CreateEmitterObservation(
-        fbb, static_cast<std::uint32_t>(o.observation_id), o.timestamp_s, o.aoa_az_deg,
+        fbb, o.observation_id, o.timestamp_s, o.aoa_az_deg,
         o.aoa_el_deg, o.rf_hz, o.pulse_width_s, o.amplitude_db, o.snr_db,
         static_cast<int32_t>(o.quality), o.is_jammed));
   }
@@ -191,7 +191,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
       cls_vec.push_back(fbb.CreateString(c));
     }
     hyp_vec.push_back(esr::replay::CreateEmitterHypothesis(
-        fbb, static_cast<std::uint32_t>(h.hypothesis_id), fbb.CreateVector(cls_vec),
+        fbb, h.hypothesis_id, fbb.CreateVector(cls_vec),
         static_cast<int32_t>(h.mode), static_cast<int32_t>(h.threat_level), h.bearing_az_deg,
         h.bearing_el_deg, h.bearing_std_deg, h.confidence, h.last_seen_cycle));
   }
@@ -201,7 +201,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
   std::vector<flatbuffers::Offset<esr::replay::TruthAssociationRecord>> ta_vec;
   for (const auto& a : v.truth_evaluation_output.associations) {
     ta_vec.push_back(esr::replay::CreateTruthAssociationRecord(
-        fbb, static_cast<std::uint32_t>(a.observation_id), a.truth_emitter_id,
+        fbb, a.observation_id, a.truth_emitter_id,
         a.matched, static_cast<float>(a.confidence)));
   }
   auto truth_out = esr::replay::CreateTruthEvaluationOutput(fbb, fbb.CreateVector(ta_vec));

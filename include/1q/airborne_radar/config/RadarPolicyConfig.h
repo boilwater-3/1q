@@ -54,13 +54,6 @@ struct ONEQ_API LifecycleConfig {
   std::uint32_t max_miss_before_lost{2U}; /**< 丢失前最大连续失配数。 */
   std::uint32_t max_lost_cycles{5U}; /**< 允许保留的最大 lost 周期数。 */
   bool enable_imm_lifecycle{false}; /**< 是否启用 IMM 生命周期路径。 */
-};
-
-/**
- * @brief IMM 提示配置。
- */
-struct ONEQ_API ImmConfig {
-  bool enable_imm_lifecycle{false}; /**< 是否启用 IMM 生命周期路径。 */
   std::uint32_t model_count_hint{2U}; /**< IMM 模型数提示值。 */
 };
 
@@ -103,7 +96,6 @@ struct ONEQ_API AssociationConfig {
 using beam::BeamControlConfig;
 using beam::BeamPointingConfig;
 using beam::BeamSchedulerConfig;
-using lifecycle::ImmConfig;
 using lifecycle::LifecycleConfig;
 using tracking::AssociationConfig;
 using tracking::KalmanUpdateBackend;
@@ -119,7 +111,6 @@ struct ONEQ_API RadarPolicyConfig {
   AssociationConfig association{};
   TrackingConfig tracking{};
   LifecycleConfig lifecycle{};
-  ImmConfig imm{};
 };
 
 }  // namespace config

@@ -526,7 +526,8 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
           value.rcs_physics.min_rcs_m2, value.rcs_physics.max_rcs_m2,
           value.rcs_physics.bistatic_psi_offset_deg);
   return session_fb::CreateDetectionConfig(
-      *builder, value.enable_physics_detection, static_cast<int>(value.swerling_model), transmitter,
+      *builder, value.enable_physics_detection,
+      static_cast<int>(config::profiles::SwerlingModel::kSwerling0), transmitter,
       antenna, receiver, policy, rcs_physics, value.min_detection_margin_db, value.pulse_count);
 }
 
@@ -557,7 +558,7 @@ flatbuffers::Offset<session_fb::RadarPolicyConfig> EncodeSessionPolicyConfig(
           *builder, value.lifecycle.confirm_hits, value.lifecycle.max_miss_before_lost,
           value.lifecycle.max_lost_cycles, value.lifecycle.enable_imm_lifecycle);
   const flatbuffers::Offset<session_fb::ImmConfig> imm = session_fb::CreateImmConfig(
-      *builder, value.imm.enable_imm_lifecycle, value.imm.model_count_hint);
+      *builder, value.lifecycle.enable_imm_lifecycle, value.lifecycle.model_count_hint);
   return session_fb::CreateRadarPolicyConfig(*builder, beam_control, association, tracking,
                                              lifecycle, imm);
 }
@@ -687,7 +688,6 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
   config::DetectionConfig result;
   if (value != nullptr) {
     result.enable_physics_detection = value->enable_physics_detection();
-    result.swerling_model = static_cast<config::profiles::SwerlingModel>(value->swerling_model());
     const session_fb::TransmitterConfig* transmitter = value->transmitter();
     if (transmitter != nullptr) {
       result.transmitter.peak_power_w = transmitter->peak_power_w();
@@ -789,8 +789,8 @@ config::RadarPolicyConfig DecodeSessionPolicyConfig(const session_fb::RadarPolic
     }
     const session_fb::ImmConfig* imm = value->imm();
     if (imm != nullptr) {
-      result.imm.enable_imm_lifecycle = imm->enable_imm_lifecycle();
-      result.imm.model_count_hint = imm->model_count_hint();
+      result.lifecycle.enable_imm_lifecycle = imm->enable_imm_lifecycle();
+      result.lifecycle.model_count_hint = imm->model_count_hint();
     }
   }
   return result;

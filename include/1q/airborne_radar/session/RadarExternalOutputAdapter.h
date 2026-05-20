@@ -30,7 +30,7 @@ struct ONEQ_API RadarExternalTrackKinematics {
   oneq::coordinate::EcefPositionM target_position_ecef_m{}; /**< 目标 ECEF 位置（单位：m） */
   oneq::coordinate::EcefVelocityMps target_velocity_mps{};  /**< 目标 ECEF 绝对速度（单位：m/s） */
 
-  float speed{0.0f};              /**< 内部轨迹速度模长（单位：m/s） */
+  float speed{0.0f};              /**< 目标 ECEF 绝对速度模长（单位：m/s） */
   float rcs{0.0f};                /**< 目标估计雷达散射截面积（单位：平方米） */
   bool jamming_detected{false};   /**< 该轨迹是否携带干扰观测标记 */
   std::uint32_t hit_count{0};     /**< 命中累计计数 */
