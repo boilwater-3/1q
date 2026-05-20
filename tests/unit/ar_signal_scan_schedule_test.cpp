@@ -147,6 +147,20 @@ signal::pipeline::CycleExecutionRuntime BuildMinimalValidRuntime(
                                                  kEmptyAssociationSeeds, false);
 }
 
+signal::pipeline::CycleExecutionContext BuildContext(
+    const session::RadarSceneTargetList& input_state,
+    const environment::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
+    std::uint64_t batch_id, const signal::pipeline::CycleExecutionRuntime& runtime,
+    float platform_altitude_m = 0.0f) {
+  const signal::pipeline::ResolvedRuntimePipelineConfig resolved =
+      signal::pipeline::ResolveRuntimePipelineConfig(runtime.base_config, runtime.control_profile);
+  ExecutionConfig runtime_config = resolved.config;
+  signal::pipeline::ApplyScanScheduleToRuntimeConfig(cycle_index, &runtime_config);
+  return signal::pipeline::CycleExecutionContext(input_state, environment_snapshot, cycle_index,
+                                                 batch_id, std::move(runtime_config),
+                                                 platform_altitude_m);
+}
+
 TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
   model::AzimuthElevationLimitsDeg limits;
   limits.az_min_deg = -10.0f;
@@ -237,8 +251,8 @@ TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
 
   environment::EnvironmentService environment_service;
   signal::pipeline::CycleExecutionScratch scratch;
-  EXPECT_TRUE(signal::pipeline::ExecuteCycle(input_state, MakeEnvironmentSnapshot(3U), 3U, 9U,
-                                             runtime, scratch));
+  auto context = BuildContext(input_state, MakeEnvironmentSnapshot(3U), 3U, 9U, runtime);
+  EXPECT_TRUE(signal::pipeline::ExecuteCycle(context, runtime, scratch));
 
   EXPECT_EQ(scratch.output_state.size(), input_state.size());
   EXPECT_EQ(scratch.signal_term_db.size(), input_state.size());
@@ -267,8 +281,8 @@ TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
 
   const session::RadarSceneTargetList input_state;
   signal::pipeline::CycleExecutionScratch scratch;
-  EXPECT_TRUE(signal::pipeline::ExecuteCycle(input_state, MakeEnvironmentSnapshot(1U), 1U, 1U,
-                                             runtime, scratch));
+  auto context = BuildContext(input_state, MakeEnvironmentSnapshot(1U), 1U, 1U, runtime);
+  EXPECT_TRUE(signal::pipeline::ExecuteCycle(context, runtime, scratch));
 
   EXPECT_TRUE(scratch.output_state.empty());
   EXPECT_TRUE(scratch.track_measurements.empty());
@@ -317,13 +331,13 @@ TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
                                lifecycle_manager.get(), &signal_detector);
 
   signal::pipeline::CycleExecutionScratch sea_level_scratch;
-  ASSERT_TRUE(signal::pipeline::ExecuteCycle(input_state, environment_snapshot, 1U, 1U, runtime,
-                                             sea_level_scratch, 1.0f));
+  auto sea_level_context = BuildContext(input_state, environment_snapshot, 1U, 1U, runtime, 1.0f);
+  ASSERT_TRUE(signal::pipeline::ExecuteCycle(sea_level_context, runtime, sea_level_scratch));
   ASSERT_EQ(sea_level_scratch.signal_term_db.size(), 1U);
 
   signal::pipeline::CycleExecutionScratch elevated_scratch;
-  ASSERT_TRUE(signal::pipeline::ExecuteCycle(input_state, environment_snapshot, 1U, 2U, runtime,
-                                             elevated_scratch, 1000.0f));
+  auto elevated_context = BuildContext(input_state, environment_snapshot, 1U, 2U, runtime, 1000.0f);
+  ASSERT_TRUE(signal::pipeline::ExecuteCycle(elevated_context, runtime, elevated_scratch));
   ASSERT_EQ(elevated_scratch.signal_term_db.size(), 1U);
 
   EXPECT_GT(elevated_scratch.signal_term_db[0], sea_level_scratch.signal_term_db[0]);
@@ -371,8 +385,8 @@ TEST(CycleExecutorTest, PhysicalDetectionTreatsClutterDbAsThermalRelativeNoise) 
                                lifecycle_manager.get(), &signal_detector);
 
   signal::pipeline::CycleExecutionScratch scratch;
-  ASSERT_TRUE(signal::pipeline::ExecuteCycle(input_state, environment_snapshot, 1U, 1U, runtime,
-                                             scratch, 1000.0f));
+  auto context = BuildContext(input_state, environment_snapshot, 1U, 1U, runtime, 1000.0f);
+  ASSERT_TRUE(signal::pipeline::ExecuteCycle(context, runtime, scratch));
   ASSERT_EQ(scratch.signal_term_db.size(), 1U);
   ASSERT_EQ(scratch.detection_succeeded.size(), 1U);
 
@@ -397,9 +411,8 @@ TEST(CycleExecutorTest, NonAutoLifecycleManagerCausesRuntimeSyncFailure) {
   target.range_m = 1000.0f;
 
   signal::pipeline::CycleExecutionScratch scratch;
-  EXPECT_FALSE(signal::pipeline::ExecuteCycle(session::RadarSceneTargetList{target},
-                                              MakeEnvironmentSnapshot(1U), 1U, 1U, runtime,
-                                              scratch));
+  auto context = BuildContext(session::RadarSceneTargetList{target}, MakeEnvironmentSnapshot(1U), 1U, 1U, runtime);
+  EXPECT_FALSE(signal::pipeline::ExecuteCycle(context, runtime, scratch));
   EXPECT_TRUE(scratch.track_measurements.empty());
   EXPECT_EQ(scratch.decision_frame.cycle_index, 0U);
 }

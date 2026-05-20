@@ -87,11 +87,11 @@ struct CycleExecutionRuntime {
   bool has_manual_association_seeds{false};
 };
 
-struct CycleExecutionContract {
-  CycleExecutionContract(const session::RadarSceneTargetList& input_state,
-                         const environment::EnvironmentSnapshot& environment_snapshot,
-                         std::uint32_t cycle_index, std::uint64_t batch_id,
-                         ExecutionConfig runtime_config, float platform_altitude_m)
+struct CycleExecutionContext {
+  CycleExecutionContext(const session::RadarSceneTargetList& input_state,
+                        const environment::EnvironmentSnapshot& environment_snapshot,
+                        std::uint32_t cycle_index, std::uint64_t batch_id,
+                        ExecutionConfig runtime_config, float platform_altitude_m)
       : input_state(input_state),
         environment_snapshot(environment_snapshot),
         cycle_index(cycle_index),
@@ -107,11 +107,9 @@ struct CycleExecutionContract {
   ExecutionConfig runtime_config{};
 };
 
-bool ExecuteCycle(const session::RadarSceneTargetList& input_state,
-                  const environment::EnvironmentSnapshot& environment_snapshot,
-                  std::uint32_t cycle_index, std::uint64_t batch_id,
-                  const CycleExecutionRuntime& runtime, CycleExecutionScratch& cycle_scratch,
-                  float platform_altitude_m = 0.0f);
+bool ExecuteCycle(CycleExecutionContext& context,
+                  const CycleExecutionRuntime& runtime,
+                  CycleExecutionScratch& cycle_scratch);
 
 }  // namespace pipeline
 }  // namespace signal

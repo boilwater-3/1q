@@ -12,6 +12,7 @@
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/CycleContextSupport.h"
 #include "airborne_radar/signal/pipeline/CycleExecutor.h"
+#include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
 #include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"
@@ -139,9 +140,16 @@ struct SignalPipeline::Impl {
     }
     const CycleExecutionRuntime runtime_execution = BuildExecutionRuntimeView();
 
-    if (!ExecuteCycle(input_state, environment_snapshot, environment_snapshot.cycle_index,
-                      cycle_.batch_id, runtime_execution, cycle_.scratch,
-                      runtime_.config.platform_altitude_m)) {
+    const ResolvedRuntimePipelineConfig resolved =
+        ResolveRuntimePipelineConfig(runtime_execution.base_config, runtime_execution.control_profile);
+    ExecutionConfig runtime_config = resolved.config;
+    ApplyScanScheduleToRuntimeConfig(environment_snapshot.cycle_index, &runtime_config);
+
+    CycleExecutionContext context(input_state, environment_snapshot, environment_snapshot.cycle_index,
+                                  cycle_.batch_id, std::move(runtime_config),
+                                  runtime_.config.platform_altitude_m);
+
+    if (!ExecuteCycle(context, runtime_execution, cycle_.scratch)) {
       ResetCycleScratch(&cycle_.scratch);
       extension::SignalCycleResult result;
       result.abort_reason = extension::SignalCycleAbortReason::kRuntimePreparationFailed;
