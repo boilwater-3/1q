@@ -21,6 +21,23 @@ class IEsrEnvironmentService;
 namespace extension {
 class IInterceptPipeline;
 }
+
+/**
+ * @brief EsrControllerRuntimeState 描述 ESR 控制器运行态快照。
+ */
+struct ONEQ_API EsrControllerRuntimeState {
+  const void* owner_identity{nullptr};
+  std::uint32_t schema_version{0U};
+  bool has_latest_output{false};
+  session::EsrOutputFrame latest_output{};
+  session::ValidationIssueList last_validation_issues{};
+  std::uint64_t next_batch_id{0U};
+  bool last_cycle_executed{false};
+  extension::EsrPipelineAbortReason last_abort_reason{
+      extension::EsrPipelineAbortReason::kNone};
+  extension::InterceptPipelineRuntimeState pipeline_state{};
+};
+
 namespace extension {
 
 /**
@@ -86,6 +103,19 @@ class ONEQ_API EsrController {
    * @return 周期终止原因。
    */
   extension::EsrPipelineAbortReason GetLastAbortReason() const;
+
+  /**
+   * @brief 捕获当前控制器运行态快照（含流水线快照）。
+   * @return 当前运行态快照。
+   */
+  EsrControllerRuntimeState CaptureRuntimeState() const;
+
+  /**
+   * @brief 使用快照恢复控制器运行态。
+   * @param[in] state 待恢复的快照。
+   * @return 恢复成功返回 `true`。
+   */
+  bool RestoreRuntimeState(const EsrControllerRuntimeState& state);
 
   /**
    * @brief 获取当前控制器绑定的环境服务实例。

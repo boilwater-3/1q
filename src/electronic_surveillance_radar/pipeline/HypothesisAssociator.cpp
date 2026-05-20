@@ -263,6 +263,14 @@ model::EmitterHypothesisList HypothesisAssociator::Update(
 
 void HypothesisAssociator::Reset() { tracks_.clear(); }
 
+std::vector<HypothesisAssociator::TrackState> HypothesisAssociator::CaptureTracks() const {
+  return tracks_;
+}
+
+void HypothesisAssociator::RestoreTracks(const std::vector<TrackState>& tracks) {
+  tracks_ = tracks;
+}
+
 }  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar

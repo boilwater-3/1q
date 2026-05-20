@@ -23,6 +23,24 @@ namespace internal {
  */
 class HypothesisAssociator final {
  public:
+  struct TrackState {
+    std::uint64_t hypothesis_id{0U};
+    ObservationFeatureVector feature{};
+    std::vector<std::string> candidate_classes{};
+    model::EsrEmitterMode mode{model::EsrEmitterMode::kUnknown};
+    model::EsrThreatLevel threat_level{model::EsrThreatLevel::kLow};
+    float bearing_az_deg{0.0f};
+    float bearing_el_deg{0.0f};
+    float bearing_std_deg{8.0f};
+    float confidence{0.0f};
+    std::uint32_t last_seen_cycle{0U};
+    std::uint32_t hit_streak{0U};
+    std::uint32_t missed_cycles{0U};
+    std::uint32_t age_cycles{0U};
+    std::size_t support_count{0U};
+    bool confirmed{false};
+  };
+
   /**
    * @brief 使用配置构造关联器。
    * @param[in] config 假设关联配置。
@@ -51,25 +69,19 @@ class HypothesisAssociator final {
    */
   void Reset();
 
- private:
-  struct TrackState {
-    std::uint64_t hypothesis_id{0U};
-    ObservationFeatureVector feature{};
-    std::vector<std::string> candidate_classes{};
-    model::EsrEmitterMode mode{model::EsrEmitterMode::kUnknown};
-    model::EsrThreatLevel threat_level{model::EsrThreatLevel::kLow};
-    float bearing_az_deg{0.0f};
-    float bearing_el_deg{0.0f};
-    float bearing_std_deg{8.0f};
-    float confidence{0.0f};
-    std::uint32_t last_seen_cycle{0U};
-    std::uint32_t hit_streak{0U};
-    std::uint32_t missed_cycles{0U};
-    std::uint32_t age_cycles{0U};
-    std::size_t support_count{0U};
-    bool confirmed{false};
-  };
+  /**
+   * @brief 捕获当前跟踪状态快照。
+   * @return tracks_ 副本。
+   */
+  std::vector<TrackState> CaptureTracks() const;
 
+  /**
+   * @brief 使用快照恢复跟踪状态。
+   * @param[in] tracks 快照数据。
+   */
+  void RestoreTracks(const std::vector<TrackState>& tracks);
+
+ private:
   extension::InterceptAssociationConfig config_{};
   std::vector<TrackState> tracks_{};
 };

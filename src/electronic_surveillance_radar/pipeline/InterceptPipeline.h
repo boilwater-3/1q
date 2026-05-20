@@ -49,6 +49,9 @@ class InterceptPipeline final : public extension::IInterceptPipeline {
    */
   void UpdateRuntimeConfig(extension::InterceptRuntimeConfig runtime_config) override;
 
+  extension::InterceptPipelineRuntimeState CaptureRuntimeState() const override;
+  bool RestoreRuntimeState(const extension::InterceptPipelineRuntimeState& state) override;
+
   /**
    * @brief 执行单周期流水线。
    * @param[in] input_state 当前周期输入。

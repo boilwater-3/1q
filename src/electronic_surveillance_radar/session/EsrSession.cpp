@@ -47,7 +47,17 @@ struct EsrSession::Impl {
    * @return 当前周期聚合结果。
    */
   EsrCycleResult RunCycle(const session::EsrCycleInput& input) {
+    const auto pipeline_state = pipeline.CaptureRuntimeState();
+    const auto controller_state = controller.CaptureRuntimeState();
+
     controller.RunOnce(input);
+
+    if (!controller.ExecutedLatestCycle() &&
+        controller.GetLastAbortReason() !=
+            extension::EsrPipelineAbortReason::kValidationRejected) {
+      pipeline.RestoreRuntimeState(pipeline_state);
+      controller.RestoreRuntimeState(controller_state);
+    }
     return BuildCycleResult(input);
   }
 

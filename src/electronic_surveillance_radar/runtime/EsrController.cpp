@@ -108,6 +108,37 @@ environment::IEsrEnvironmentService& EsrController::GetEnvironmentService() {
   return impl_->environment_service;
 }
 
+EsrControllerRuntimeState EsrController::CaptureRuntimeState() const {
+  EsrControllerRuntimeState state;
+  state.owner_identity = this;
+  state.schema_version = 1U;
+  state.has_latest_output = impl_->runtime_state.has_latest_output;
+  state.latest_output = impl_->runtime_state.latest_output;
+  state.last_validation_issues = impl_->runtime_state.last_validation_issues;
+  state.next_batch_id = impl_->runtime_state.next_batch_id;
+  state.last_cycle_executed = impl_->last_cycle_executed;
+  state.last_abort_reason = impl_->last_abort_reason;
+  state.pipeline_state = impl_->pipeline.CaptureRuntimeState();
+  return state;
+}
+
+bool EsrController::RestoreRuntimeState(const EsrControllerRuntimeState& state) {
+  if (state.owner_identity != this || state.schema_version != 1U) {
+    return false;
+  }
+  if (!impl_->pipeline.RestoreRuntimeState(state.pipeline_state)) {
+    impl_->last_abort_reason = EsrPipelineAbortReason::kRuntimeStateRestoreRejected;
+    return false;
+  }
+  impl_->runtime_state.has_latest_output = state.has_latest_output;
+  impl_->runtime_state.latest_output = state.latest_output;
+  impl_->runtime_state.last_validation_issues = state.last_validation_issues;
+  impl_->runtime_state.next_batch_id = state.next_batch_id;
+  impl_->last_cycle_executed = state.last_cycle_executed;
+  impl_->last_abort_reason = state.last_abort_reason;
+  return true;
+}
+
 }  // namespace extension
 
 }  // namespace electronic_surveillance_radar

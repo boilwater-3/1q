@@ -60,5 +60,46 @@ extension::InterceptPipelineResult InterceptPipeline::Execute(
   return result;
 }
 
+namespace {
+
+struct PipelineRuntimeSnapshot {
+  std::mt19937 rng;
+  std::uint64_t next_observation_id{1U};
+  std::uint64_t next_hypothesis_id{1U};
+  std::vector<internal::HypothesisAssociator::TrackState> tracks;
+};
+
+}  // namespace
+
+extension::InterceptPipelineRuntimeState InterceptPipeline::CaptureRuntimeState() const {
+  auto snapshot = std::make_shared<PipelineRuntimeSnapshot>();
+  snapshot->rng = rng_;
+  snapshot->next_observation_id = next_observation_id_;
+  snapshot->next_hypothesis_id = next_hypothesis_id_;
+  snapshot->tracks = associator_.CaptureTracks();
+
+  extension::InterceptPipelineRuntimeState state;
+  state.owner_identity = this;
+  state.schema_version = 1U;
+  state.snapshot = snapshot;
+  return state;
+}
+
+bool InterceptPipeline::RestoreRuntimeState(
+    const extension::InterceptPipelineRuntimeState& state) {
+  if (state.owner_identity != this || state.schema_version != 1U) {
+    return false;
+  }
+  if (state.snapshot == nullptr) {
+    return false;
+  }
+  const auto* snapshot = static_cast<const PipelineRuntimeSnapshot*>(state.snapshot.get());
+  rng_ = snapshot->rng;
+  next_observation_id_ = snapshot->next_observation_id;
+  next_hypothesis_id_ = snapshot->next_hypothesis_id;
+  associator_.RestoreTracks(snapshot->tracks);
+  return true;
+}
+
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar

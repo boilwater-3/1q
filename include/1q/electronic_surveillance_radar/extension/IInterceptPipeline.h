@@ -41,6 +41,19 @@ class ONEQ_API IInterceptPipeline {
    * @param[in] runtime_config 新运行态配置。
    */
   virtual void UpdateRuntimeConfig(InterceptRuntimeConfig runtime_config) = 0;
+
+  /**
+   * @brief 捕获当前运行态快照。
+   * @return 当前运行态快照。
+   */
+  virtual InterceptPipelineRuntimeState CaptureRuntimeState() const = 0;
+
+  /**
+   * @brief 使用快照恢复运行态。
+   * @param[in] state 待恢复的快照。
+   * @return 恢复成功返回 `true`。
+   */
+  virtual bool RestoreRuntimeState(const InterceptPipelineRuntimeState& state) = 0;
 };
 
 }  // namespace extension

@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -216,6 +217,15 @@ struct ONEQ_API InterceptPipelineResult {
   ObservationOutputFrame observation_output{};
   EmitterOutputFrame emitter_output{};
   TruthEvaluationFrame truth_evaluation_output{};
+};
+
+/**
+ * @brief InterceptPipelineRuntimeState 描述 ESR 流水线运行态快照。
+ */
+struct ONEQ_API InterceptPipelineRuntimeState {
+  const void* owner_identity{nullptr};    /**< 快照归属标识 */
+  std::uint32_t schema_version{0U};      /**< 快照结构版本号 */
+  std::shared_ptr<const void> snapshot;  /**< 不透明状态句柄 */
 };
 
 /**
