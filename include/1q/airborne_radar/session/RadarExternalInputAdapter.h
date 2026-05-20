@@ -61,10 +61,20 @@ ONEQ_API oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
     const oneq::coordinate::EulerAnglesDeg& radar_mount_angles_deg);
 
 /**
+ * @brief 雷达坐标适配执行状态。
+ */
+enum class ONEQ_API RadarCoordinateStatus {
+  kOk = 0,
+  kNullOutput,
+  kCoordinateTransformFail
+};
+
+/**
  * @brief 两步模式——第一步：将外部平台运动学转换为雷达局部位姿。
  * @param[in] input 外部平台运动学输入。
  * @param[out] reference 输出雷达局部参考系信息，用于后续目标转换。
  * @param[out] platform_pose 输出雷达局部平台位姿。
+ * @param[out] status 可选输出状态，nullptr 表示不关心失败原因。
  * @return 成功返回 true，输入非法或输出为空返回 false。
  * @note AR 场景输入使用“雷达自身为局部原点”的坐标约定，因此
  *       `platform_pose.position_m` 固定为 `(0,0,0)`；`input.platform_position_ecef_m`
@@ -72,7 +82,8 @@ ONEQ_API oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
  */
 ONEQ_API bool TryMakeRadarPoseFromExternalKinematics(const RadarExternalPoseInput& input,
                                                      RadarLocalFrameReference* reference,
-                                                     oneq::foundation::PoseState* platform_pose);
+                                                     oneq::foundation::PoseState* platform_pose,
+                                                     RadarCoordinateStatus* status = nullptr);
 
 /**
  * @brief 两步模式——第二步：使用预计算的参考系将外部目标转换为 RadarSceneTarget。
@@ -81,6 +92,7 @@ ONEQ_API bool TryMakeRadarPoseFromExternalKinematics(const RadarExternalPoseInpu
  * @param[in] reference 第一步产出的雷达局部参考系。
  * @param[in] radar_local_velocity_mps 雷达局部速度（用于计算相对速度）。
  * @param[out] target 输出场景目标输入，可为 nullptr。
+ * @param[out] status 可选输出状态，nullptr 表示不关心失败原因。
  * @return 成功返回 true，输入非法或输出为空返回 false。
  *
  * @note 当 `radar_local_velocity_mps` 非零且目标速度参考系非 kRadarLocal 时，
@@ -89,7 +101,7 @@ ONEQ_API bool TryMakeRadarPoseFromExternalKinematics(const RadarExternalPoseInpu
 ONEQ_API bool TryMakeTargetFromExternalKinematics(
     std::uint64_t external_target_id, const TargetExternalKinematics& target_input,
     const RadarLocalFrameReference& reference, oneq::foundation::Vector3f radar_local_velocity_mps,
-    RadarSceneTarget* target);
+    RadarSceneTarget* target, RadarCoordinateStatus* status = nullptr);
 
 }  // namespace session
 }  // namespace airborne_radar

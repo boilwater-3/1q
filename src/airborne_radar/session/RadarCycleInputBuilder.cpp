@@ -5,20 +5,28 @@ namespace session {
 
 bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
                                    const std::vector<TargetExternalKinematics>& targets,
-                                   float dt_sec, RadarCycleInput* output) {
-  return Build(platform, targets, dt_sec, RadarEnvironmentInput{}, output);
+                                   float dt_sec, RadarCycleInput* output,
+                                   RadarCoordinateStatus* status) {
+  return Build(platform, targets, dt_sec, RadarEnvironmentInput{}, output, status);
 }
 
 bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
                                    const std::vector<TargetExternalKinematics>& targets,
                                    float dt_sec, const RadarEnvironmentInput& environment,
-                                   RadarCycleInput* output) {
+                                   RadarCycleInput* output, RadarCoordinateStatus* status) {
+  if (status != nullptr) {
+    *status = RadarCoordinateStatus::kOk;
+  }
+
   if (output == nullptr) {
+    if (status != nullptr) {
+      *status = RadarCoordinateStatus::kNullOutput;
+    }
     return false;
   }
 
   RadarLocalFrameReference reference;
-  if (!TryMakeRadarPoseFromExternalKinematics(platform, &reference, &output->platform_pose)) {
+  if (!TryMakeRadarPoseFromExternalKinematics(platform, &reference, &output->platform_pose, status)) {
     return false;
   }
 
@@ -31,7 +39,7 @@ bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
   for (std::size_t i = 0; i < targets.size(); ++i) {
     RadarSceneTarget target;
     if (!TryMakeTargetFromExternalKinematics(targets[i].external_target_id, targets[i], reference,
-                                             output->platform_pose.velocity_mps, &target)) {
+                                             output->platform_pose.velocity_mps, &target, status)) {
       return false;
     }
     output->scene.push_back(target);

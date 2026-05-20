@@ -33,11 +33,12 @@ struct ONEQ_API RadarCycleInputBuilder {
    * @param[in] targets 外部目标运动学输入列表（每个 pair 为 <external_target_id, kinematics>）。
    * @param[in] dt_sec 周期步长（单位：秒）。
    * @param[out] output 输出 RadarCycleInput；可为 nullptr。
+   * @param[out] status 可选输出状态，nullptr 表示不关心失败原因。
    * @return 所有转换成功返回 true。
    */
   static bool Build(const RadarExternalPoseInput& platform,
                     const std::vector<TargetExternalKinematics>& targets, float dt_sec,
-                    RadarCycleInput* output);
+                    RadarCycleInput* output, RadarCoordinateStatus* status = nullptr);
 
   /**
    * @brief 从外部坐标系输入与完整环境快照一步构建 RadarCycleInput。
@@ -46,11 +47,13 @@ struct ONEQ_API RadarCycleInputBuilder {
    * @param[in] dt_sec 周期步长（单位：秒）。
    * @param[in] environment 本周期完整环境事实快照。
    * @param[out] output 输出 RadarCycleInput；可为 nullptr。
+   * @param[out] status 可选输出状态，nullptr 表示不关心失败原因。
    * @return 所有转换成功返回 true。
    */
   static bool Build(const RadarExternalPoseInput& platform,
                     const std::vector<TargetExternalKinematics>& targets, float dt_sec,
-                    const RadarEnvironmentInput& environment, RadarCycleInput* output);
+                    const RadarEnvironmentInput& environment, RadarCycleInput* output,
+                    RadarCoordinateStatus* status = nullptr);
 
  private:
   RadarCycleInputBuilder() = delete;

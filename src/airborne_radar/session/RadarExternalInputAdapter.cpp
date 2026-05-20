@@ -59,13 +59,24 @@ oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
 bool TryMakeRadarPoseFromExternalKinematics(
     const RadarExternalPoseInput& input,
     RadarLocalFrameReference* reference,
-    oneq::foundation::PoseState* platform_pose) {
+    oneq::foundation::PoseState* platform_pose,
+    RadarCoordinateStatus* status) {
+  if (status != nullptr) {
+    *status = RadarCoordinateStatus::kOk;
+  }
+
   if (reference == nullptr || platform_pose == nullptr) {
+    if (status != nullptr) {
+      *status = RadarCoordinateStatus::kNullOutput;
+    }
     return false;
   }
 
   oneq::coordinate::LlaPositionDegM radar_lla;
   if (!oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m, &radar_lla)) {
+    if (status != nullptr) {
+      *status = RadarCoordinateStatus::kCoordinateTransformFail;
+    }
     return false;
   }
   reference->origin_lla = radar_lla;
@@ -80,6 +91,9 @@ bool TryMakeRadarPoseFromExternalKinematics(
     oneq::coordinate::EnuVelocityMps velocity_enu;
     if (!oneq::coordinate::TryEcefToEnuVelocity(
             input.platform_velocity_mps, reference->origin_lla, &velocity_enu)) {
+      if (status != nullptr) {
+        *status = RadarCoordinateStatus::kCoordinateTransformFail;
+      }
       return false;
     }
     platform_pose->velocity_mps = RotateEnuVelocityToLocal(velocity_enu,
@@ -95,15 +109,33 @@ bool TryMakeTargetFromExternalKinematics(
     const TargetExternalKinematics& target_input,
     const RadarLocalFrameReference& reference,
     oneq::foundation::Vector3f radar_local_velocity_mps,
-    RadarSceneTarget* target) {
-  if (target == nullptr || !oneq::coordinate::IsFinite(target_input.target_velocity_mps) ||
+    RadarSceneTarget* target,
+    RadarCoordinateStatus* status) {
+  if (status != nullptr) {
+    *status = RadarCoordinateStatus::kOk;
+  }
+
+  if (target == nullptr) {
+    if (status != nullptr) {
+      *status = RadarCoordinateStatus::kNullOutput;
+    }
+    return false;
+  }
+
+  if (!oneq::coordinate::IsFinite(target_input.target_velocity_mps) ||
       !IsFiniteVector3f(radar_local_velocity_mps)) {
+    if (status != nullptr) {
+      *status = RadarCoordinateStatus::kCoordinateTransformFail;
+    }
     return false;
   }
 
   oneq::coordinate::EnuPositionM target_position_enu;
   if (!oneq::coordinate::TryEcefToEnu(
           target_input.target_position_ecef_m, reference.origin_lla, &target_position_enu)) {
+    if (status != nullptr) {
+      *status = RadarCoordinateStatus::kCoordinateTransformFail;
+    }
     return false;
   }
   oneq::foundation::Vector3f target_position_local =
@@ -113,6 +145,9 @@ bool TryMakeTargetFromExternalKinematics(
   oneq::coordinate::EnuVelocityMps velocity_enu;
   if (!oneq::coordinate::TryEcefToEnuVelocity(
           target_input.target_velocity_mps, reference.origin_lla, &velocity_enu)) {
+    if (status != nullptr) {
+      *status = RadarCoordinateStatus::kCoordinateTransformFail;
+    }
     return false;
   }
   oneq::foundation::Vector3f target_velocity_local =
