@@ -46,8 +46,8 @@ TEST(EosCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   ASSERT_TRUE(TryMakeEosPoseFromExternalKinematics(pose_input, reference, &pose_2step));
 
   EosExternalTargetInput ext_target;
-  ext_target.position_frame = EosTargetPositionFrame::kEcef;
-  ext_target.target_position_ecef_m = target_ecef;
+  ext_target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  ext_target.kinematics.position_ecef_m = target_ecef;
   ext_target.appearance.apparent_temperature_k = 300.0f;
   ext_target.appearance.emissivity = 0.8f;
   ext_target.appearance.reflectance = 0.3f;
@@ -168,9 +168,9 @@ TEST(EosCycleInputBuilderTest, LlaTargetPosition) {
   pose_input.platform_attitude_deg.yaw_deg = 0.0f;
 
   EosExternalTargetInput ext_target;
-  ext_target.position_frame = EosTargetPositionFrame::kLla;
-  ext_target.target_position_lla_deg_m = origin_lla;
-  ext_target.target_position_lla_deg_m.latitude_deg += 0.001;
+  ext_target.kinematics.position_frame = oneq::coordinate::PositionFrame::kLla;
+  ext_target.kinematics.position_lla_deg_m = origin_lla;
+  ext_target.kinematics.position_lla_deg_m.latitude_deg += 0.001;
 
   EosCycleInput input;
   ASSERT_TRUE(EosCycleInputBuilder::Build(pose_input, {ext_target}, 1.0f, &input));

@@ -36,10 +36,10 @@ eos_session::EosSession CreateFusedSearchSession() {
 eos_session::EosExternalTargetInput MakeTargetLla(double lat_deg, double lon_deg, double alt_m,
                                                    float temperature_k, float area_m2) {
   eos_session::EosExternalTargetInput target;
-  target.position_frame = eos_session::EosTargetPositionFrame::kLla;
-  target.target_position_lla_deg_m.latitude_deg = lat_deg;
-  target.target_position_lla_deg_m.longitude_deg = lon_deg;
-  target.target_position_lla_deg_m.altitude_m = alt_m;
+  target.kinematics.position_frame = oneq::coordinate::PositionFrame::kLla;
+  target.kinematics.position_lla_deg_m.latitude_deg = lat_deg;
+  target.kinematics.position_lla_deg_m.longitude_deg = lon_deg;
+  target.kinematics.position_lla_deg_m.altitude_m = alt_m;
   target.appearance.apparent_temperature_k = temperature_k;
   target.appearance.emissivity = 0.92f;
   target.appearance.reflectance = 0.35f;

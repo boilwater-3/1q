@@ -26,14 +26,6 @@ struct ONEQ_API EosCoordinateReference {
 };
 
 /**
- * @brief EOS 外部目标位置参考系类型。
- */
-enum class ONEQ_API EosTargetPositionFrame {
-  kEcef = 0, /**< 目标位置由 ECEF 坐标给出 */
-  kLla = 1   /**< 目标位置由 WGS84 LLA 坐标给出 */
-};
-
-/**
  * @brief EOS 外部平台运动学输入。
  * @note 速度固定为 ECEF 坐标系。
  */
@@ -47,11 +39,9 @@ struct ONEQ_API EosExternalPoseInput {
  * @brief EOS 外部目标输入（统一入口）。
  */
 struct ONEQ_API EosExternalTargetInput {
-  std::uint64_t target_id{0U};                                          /**< 目标标识 */
-  EosTargetPositionFrame position_frame{EosTargetPositionFrame::kEcef}; /**< 目标位置参考系 */
-  oneq::coordinate::EcefPositionM target_position_ecef_m{};              /**< 目标 ECEF 坐标 */
-  oneq::coordinate::LlaPositionDegM target_position_lla_deg_m{};         /**< 目标 WGS84 LLA 坐标 */
-  EosTargetAppearance appearance{};                                      /**< 目标辐射与外观参数 */
+  std::uint64_t target_id{0U};                                  /**< 目标标识 */
+  oneq::coordinate::ExternalKinematics kinematics{};            /**< 外部运动学输入 */
+  EosTargetAppearance appearance{};                             /**< 目标辐射与外观参数 */
 };
 
 /**

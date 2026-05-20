@@ -338,8 +338,8 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   target_lla.altitude_m = 0.0;
 
   session::EosExternalTargetInput lla_input;
-  lla_input.position_frame = session::EosTargetPositionFrame::kLla;
-  lla_input.target_position_lla_deg_m = target_lla;
+  lla_input.kinematics.position_frame = oneq::coordinate::PositionFrame::kLla;
+  lla_input.kinematics.position_lla_deg_m = target_lla;
   lla_input.appearance = appearance;
   session::EosSceneTarget target_from_lla;
   ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(401U, lla_input, reference,
@@ -351,8 +351,8 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   oneq::coordinate::EcefPositionM target_ecef;
   ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
   session::EosExternalTargetInput ecef_input;
-  ecef_input.position_frame = session::EosTargetPositionFrame::kEcef;
-  ecef_input.target_position_ecef_m = target_ecef;
+  ecef_input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  ecef_input.kinematics.position_ecef_m = target_ecef;
   ecef_input.appearance = appearance;
   session::EosSceneTarget target_from_ecef;
   ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(402U, ecef_input, reference,

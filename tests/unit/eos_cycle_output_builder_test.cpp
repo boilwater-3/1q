@@ -47,8 +47,8 @@ std::vector<eos_session::EosExternalTargetInput> MakeMovingTargets(std::size_t c
     EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(lla, &ecef));
 
     eos_session::EosExternalTargetInput target;
-    target.position_frame = eos_session::EosTargetPositionFrame::kEcef;
-    target.target_position_ecef_m = ecef;
+    target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+    target.kinematics.position_ecef_m = ecef;
     target.appearance.apparent_temperature_k = 600.0f;
     target.appearance.emissivity = 0.95f;
     target.appearance.reflectance = 0.4f;
@@ -62,9 +62,9 @@ void AdvanceTargets(double dt_sec, std::vector<eos_session::EosExternalTargetInp
   ASSERT_NE(targets, nullptr);
   for (std::size_t i = 0; i < targets->size(); ++i) {
     eos_session::EosExternalTargetInput& target = (*targets)[i];
-    target.target_position_ecef_m.x_m += (4.0 + static_cast<double>(i % 3U)) * dt_sec;
-    target.target_position_ecef_m.y_m += (-2.0 + static_cast<double>(i % 2U)) * dt_sec;
-    target.target_position_ecef_m.z_m += 0.1 * static_cast<double>(i % 2U) * dt_sec;
+    target.kinematics.position_ecef_m.x_m += (4.0 + static_cast<double>(i % 3U)) * dt_sec;
+    target.kinematics.position_ecef_m.y_m += (-2.0 + static_cast<double>(i % 2U)) * dt_sec;
+    target.kinematics.position_ecef_m.z_m += 0.1 * static_cast<double>(i % 2U) * dt_sec;
   }
 }
 
@@ -121,7 +121,7 @@ TEST(EosCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
           external_frame.detections[detection_index];
       ASSERT_LT(detection.target_id, targets.size()) << "cycle=" << cycle;
       const std::size_t target_index = static_cast<std::size_t>(detection.target_id);
-      const oneq::coordinate::EcefPositionM& truth = targets[target_index].target_position_ecef_m;
+      const oneq::coordinate::EcefPositionM& truth = targets[target_index].kinematics.position_ecef_m;
       EXPECT_NEAR(detection.target_position_ecef_m.x_m, truth.x_m, 10.0)
           << "cycle=" << cycle << " target=" << target_index;
       EXPECT_NEAR(detection.target_position_ecef_m.y_m, truth.y_m, 10.0)

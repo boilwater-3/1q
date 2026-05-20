@@ -194,19 +194,19 @@ bool TryMakeEosSceneTargetFromExternalInput(
     const EosExternalTargetInput& input,
     const EosCoordinateReference& reference,
     const oneq::foundation::PoseState& platform_pose,
-  EosSceneTarget* target,
-  EosCoordinateStatus* status) {
+    EosSceneTarget* target,
+    EosCoordinateStatus* status) {
   oneq::foundation::Vector3f target_local;
 
-  switch (input.position_frame) {
-    case EosTargetPositionFrame::kEcef:
-      if (!TryConvertEcefToEosLocalInternal(input.target_position_ecef_m, reference,
+  switch (input.kinematics.position_frame) {
+    case oneq::coordinate::PositionFrame::kEcef:
+      if (!TryConvertEcefToEosLocalInternal(input.kinematics.position_ecef_m, reference,
                                             &target_local, status)) {
         return false;
       }
       break;
-    case EosTargetPositionFrame::kLla:
-      if (!TryConvertLlaToEosLocalInternal(input.target_position_lla_deg_m, reference, &target_local,
+    case oneq::coordinate::PositionFrame::kLla:
+      if (!TryConvertLlaToEosLocalInternal(input.kinematics.position_lla_deg_m, reference, &target_local,
                                            status)) {
         return false;
       }
