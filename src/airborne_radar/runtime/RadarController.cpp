@@ -80,7 +80,7 @@ struct RadarController::Impl {
   // -- 周期运行时状态
   oneq::internal::runtime::RuntimeCycleState<session::TrackOutputFrame,
                                              session::ValidationIssueList>
-      runtime_state{};
+      cycle_state{};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
   extension::SignalCycleAbortReason last_signal_abort_reason{
@@ -148,8 +148,7 @@ RadarController::~RadarController() = default;
 void RadarController::RunOnce() {
   impl_->ResetPerCycleFlags();
 
-  const session::RadarSceneTargetList& scene_targets_ref = impl_->radar_context.GetSceneTargets();
-  const session::RadarSceneTargetList* scene_targets = &scene_targets_ref;
+  const session::RadarSceneTargetList& scene_targets = impl_->radar_context.GetSceneTargets();
   const model::PlatformAttitudeDeg platform_attitude = impl_->radar_context.GetPlatformAttitude();
   const float platform_altitude_m = impl_->radar_context.GetPlatformAltitudeM();
   const float cycle_dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
@@ -157,19 +156,19 @@ void RadarController::RunOnce() {
 
   const oneq::internal::runtime::RuntimeCycleStamp stamp =
       oneq::internal::runtime::MakeRuntimeCycleStamp(cycle_index,
-                                                     impl_->runtime_state.next_batch_id);
+                                                     impl_->cycle_state.next_batch_id);
 
   // 校验
   session::ValidationIssueList issues = session::ValidateRadarCycleDeltaTime(cycle_dt_sec);
-  if (scene_targets != nullptr) {
+  {
     const session::ValidationIssueList target_issues =
-        session::ValidateRadarSceneTargets(*scene_targets);
+        session::ValidateRadarSceneTargets(scene_targets);
     issues.insert(issues.end(), target_issues.begin(), target_issues.end());
   }
-  impl_->runtime_state.last_validation_issues = issues;
+  impl_->cycle_state.last_validation_issues = issues;
 
   if (session::HasValidationError(issues)) {
-    impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
+    impl_->last_cycle_reused_previous_output = impl_->cycle_state.has_latest_output;
     return;
   }
 
@@ -180,9 +179,7 @@ void RadarController::RunOnce() {
   impl_->environment_service.BeginCycle(environment_cycle_context);
 
   // 执行信号流水线与决策引擎
-  const session::RadarSceneTargetList kEmptyTargets;
-  const session::RadarSceneTargetList& targets =
-      scene_targets != nullptr ? *scene_targets : kEmptyTargets;
+  const session::RadarSceneTargetList& targets = scene_targets;
 
   impl_->signal_pipeline.SetControlProfile(impl_->control_profile);
   impl_->signal_pipeline.UpdatePlatformAttitude(platform_attitude);
@@ -195,7 +192,7 @@ void RadarController::RunOnce() {
   impl_->last_signal_abort_reason = signal_result.abort_reason;
 
   if (!impl_->last_cycle_executed) {
-    impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
+    impl_->last_cycle_reused_previous_output = impl_->cycle_state.has_latest_output;
     return;
   }
 
@@ -231,10 +228,10 @@ void RadarController::RunOnce() {
       impl_->command_mapper->Apply(&impl_->control_profile, decision_result.proposals);
   (void)reduction_result;
 
-  impl_->runtime_state.latest_output = track_output_frame;
-  impl_->runtime_state.has_latest_output = true;
+  impl_->cycle_state.latest_output = track_output_frame;
+  impl_->cycle_state.has_latest_output = true;
   impl_->last_cycle_reused_previous_output = false;
-  ++impl_->runtime_state.next_batch_id;
+  ++impl_->cycle_state.next_batch_id;
 }
 
 void RadarController::RunCycles(std::size_t cycles) {
@@ -263,19 +260,19 @@ void RadarController::UpdateControlReducerConfig(const extension::ControlReducer
 }
 
 bool RadarController::HasLatestTrackOutputFrame() const {
-  return impl_->runtime_state.has_latest_output;
+  return impl_->cycle_state.has_latest_output;
 }
 
 const session::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame() const {
-  return impl_->runtime_state.latest_output;
+  return impl_->cycle_state.latest_output;
 }
 
 const session::ValidationIssueList& RadarController::GetLastValidationIssues() const {
-  return impl_->runtime_state.last_validation_issues;
+  return impl_->cycle_state.last_validation_issues;
 }
 
 bool RadarController::HasValidationError() const {
-  return session::HasValidationError(impl_->runtime_state.last_validation_issues);
+  return session::HasValidationError(impl_->cycle_state.last_validation_issues);
 }
 
 bool RadarController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
@@ -290,10 +287,10 @@ extension::SignalCycleAbortReason RadarController::GetLastSignalCycleAbortReason
 
 extension::RadarControllerRuntimeState RadarController::CaptureRuntimeState() const {
   extension::RadarControllerRuntimeState state;
-  state.latest_output = impl_->runtime_state.latest_output;
-  state.has_latest_output = impl_->runtime_state.has_latest_output;
-  state.last_validation_issues = impl_->runtime_state.last_validation_issues;
-  state.next_batch_id = impl_->runtime_state.next_batch_id;
+  state.latest_output = impl_->cycle_state.latest_output;
+  state.has_latest_output = impl_->cycle_state.has_latest_output;
+  state.last_validation_issues = impl_->cycle_state.last_validation_issues;
+  state.next_batch_id = impl_->cycle_state.next_batch_id;
   state.last_cycle_executed = impl_->last_cycle_executed;
   state.last_cycle_reused_previous_output = impl_->last_cycle_reused_previous_output;
   state.last_signal_abort_reason = impl_->last_signal_abort_reason;
@@ -309,10 +306,10 @@ void RadarController::RestoreRuntimeState(const extension::RadarControllerRuntim
         "snapshot owner or schema does not match the bound pipeline instance.");
     return;
   }
-  impl_->runtime_state.latest_output = state.latest_output;
-  impl_->runtime_state.has_latest_output = state.has_latest_output;
-  impl_->runtime_state.last_validation_issues = state.last_validation_issues;
-  impl_->runtime_state.next_batch_id = state.next_batch_id;
+  impl_->cycle_state.latest_output = state.latest_output;
+  impl_->cycle_state.has_latest_output = state.has_latest_output;
+  impl_->cycle_state.last_validation_issues = state.last_validation_issues;
+  impl_->cycle_state.next_batch_id = state.next_batch_id;
   impl_->last_cycle_executed = state.last_cycle_executed;
   impl_->last_cycle_reused_previous_output = state.last_cycle_reused_previous_output;
   impl_->last_signal_abort_reason = state.last_signal_abort_reason;
