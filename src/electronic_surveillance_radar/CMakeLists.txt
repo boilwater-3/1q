@@ -19,9 +19,6 @@ set(ESR_CORE_SOURCES
     electronic_surveillance_radar/session/EsrCycleOutputBuilder.cpp
     electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
     electronic_surveillance_radar/runtime/EsrController.cpp
-    electronic_surveillance_radar/runtime/components/EsrEnvironmentUpdater.cpp
-    electronic_surveillance_radar/runtime/components/EsrOutputFormatter.cpp
-    electronic_surveillance_radar/runtime/components/EsrSignalProcessor.cpp
     electronic_surveillance_radar/output/EsrOutputManager.cpp
     electronic_surveillance_radar/session/EsrInputValidation.cpp
     electronic_surveillance_radar/session/EsrSessionCompositionRoot.cpp
