@@ -21,8 +21,6 @@ namespace eos_session = electro_optical_sensor::session;
 
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
-
 eos_session::EosSessionConfig LoadConfigFromFile() {
   eos_session::EosSessionConfig config;
   std::string error;
@@ -31,9 +29,6 @@ eos_session::EosSessionConfig LoadConfigFromFile() {
     std::cerr << "Failed to load EOS config: " << error << "\n";
     std::exit(1);
   }
-  // Optimize sensor sensitivity in memory for high-altitude (7000m) detection scenario
-  config.policy.detection.minimum_snr_db = 4.0f;
-  config.hardware.optical_aperture_m = 0.25f;
   return config;
 }
 
