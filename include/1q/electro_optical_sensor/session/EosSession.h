@@ -33,6 +33,8 @@ class EosSessionFactory;
  */
 class ONEQ_API EosSession {
  public:
+  /** @brief 使用默认配置构造会话。 */
+  EosSession();
   ~EosSession() noexcept;
 
   EosSession(const EosSession&) = delete;

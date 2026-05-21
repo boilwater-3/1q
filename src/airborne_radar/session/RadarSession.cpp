@@ -216,6 +216,9 @@ struct RadarSession::Impl {
 
 RadarSession::RadarSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 
+RadarSession::RadarSession()
+    : impl_(new Impl(RadarSessionCompositionRoot::ComposeDefault(RadarSessionConfig{}))) {}
+
 RadarSession::~RadarSession() = default;
 RadarSession::RadarSession(RadarSession&&) noexcept = default;
 RadarSession& RadarSession::operator=(RadarSession&&) noexcept = default;

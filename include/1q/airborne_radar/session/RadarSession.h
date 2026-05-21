@@ -47,6 +47,8 @@ namespace session {
  */
 class ONEQ_API RadarSession {
  public:
+  /** @brief 使用默认配置构造会话。 */
+  RadarSession();
   ~RadarSession();
 
   RadarSession(const RadarSession&) = delete;

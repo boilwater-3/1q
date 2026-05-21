@@ -55,6 +55,9 @@ struct EosSession::Impl {
 
 EosSession::EosSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 
+EosSession::EosSession()
+    : impl_(new Impl(EosSessionCompositionRoot::ComposeDefault(EosSessionConfig{}))) {}
+
 EosSession::~EosSession() noexcept = default;
 EosSession::EosSession(EosSession&&) noexcept = default;
 EosSession& EosSession::operator=(EosSession&&) noexcept = default;

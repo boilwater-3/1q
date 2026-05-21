@@ -72,6 +72,9 @@ struct EsrSession::Impl {
 
 EsrSession::EsrSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 
+EsrSession::EsrSession()
+    : impl_(new Impl(EsrSessionCompositionRoot::ComposeDefault(EsrSessionConfig{}))) {}
+
 EsrSession::~EsrSession() = default;
 
 EsrSession::EsrSession(EsrSession&& other) noexcept = default;
