@@ -26,26 +26,15 @@ std::int64_t CurrentTimestampMs() {
 
 }  // namespace
 
-struct FlatbufferFileTraceSink::Impl {
-  explicit Impl(std::string path, bool append)
-      : file_path(std::move(path)),
-        output(file_path.c_str(),
-               append ? (std::ios::out | std::ios::app | std::ios::binary)
-                      : (std::ios::out | std::ios::trunc | std::ios::binary)) {
-    if (!output.is_open()) {
-      throw std::runtime_error("failed to open flatbuffer trace file: " + file_path);
-    }
-  }
-
-  std::string file_path;
-  std::ofstream output;
-  std::mutex mutex;
-};
-
 FlatbufferFileTraceSink::FlatbufferFileTraceSink(std::string file_path, bool append)
-    : impl_(new Impl(std::move(file_path), append)) {}
-
-FlatbufferFileTraceSink::~FlatbufferFileTraceSink() = default;
+    : file_path_(std::move(file_path)),
+      output_(file_path_.c_str(),
+              append ? (std::ios::out | std::ios::app | std::ios::binary)
+                     : (std::ios::out | std::ios::trunc | std::ios::binary)) {
+  if (!output_.is_open()) {
+    throw std::runtime_error("failed to open flatbuffer trace file: " + file_path_);
+  }
+}
 
 void FlatbufferFileTraceSink::Record(const std::string& module, const std::string& phase,
                                    const std::string& payload_json) {
@@ -73,14 +62,14 @@ void FlatbufferFileTraceSink::Record(const std::string& module, const std::strin
       static_cast<std::uint8_t>((frame_size >> 24) & 0xFFu),
   };
 
-  std::lock_guard<std::mutex> lock(impl_->mutex);
-  impl_->output.write(reinterpret_cast<const char*>(header), sizeof(header));
-  impl_->output.write(reinterpret_cast<const char*>(payload.data()),
-                      static_cast<std::streamsize>(payload.size()));
-  impl_->output.flush();
+  std::lock_guard<std::mutex> lock(mutex_);
+  output_.write(reinterpret_cast<const char*>(header), sizeof(header));
+  output_.write(reinterpret_cast<const char*>(payload.data()),
+                       static_cast<std::streamsize>(payload.size()));
+  output_.flush();
 }
 
-const std::string& FlatbufferFileTraceSink::file_path() const { return impl_->file_path; }
+const std::string& FlatbufferFileTraceSink::file_path() const { return file_path_; }
 
 }  // namespace trace
 }  // namespace oneq

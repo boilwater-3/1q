@@ -6,7 +6,8 @@
 #ifndef ONEQ_TRACE_TRACE_SINK_H_
 #define ONEQ_TRACE_TRACE_SINK_H_
 
-#include <memory>
+#include <fstream>
+#include <mutex>
 #include <string>
 
 #include "1q/api.hpp"
@@ -42,7 +43,6 @@ class ONEQ_API TraceSink {
 class ONEQ_API FlatbufferFileTraceSink final : public TraceSink {
  public:
   explicit FlatbufferFileTraceSink(std::string file_path, bool append = true);
-  ~FlatbufferFileTraceSink() override;
 
   void Record(const std::string& module, const std::string& phase,
               const std::string& payload_json) override;
@@ -50,8 +50,9 @@ class ONEQ_API FlatbufferFileTraceSink final : public TraceSink {
   const std::string& file_path() const;
 
  private:
-  struct Impl;
-  std::unique_ptr<Impl> impl_;
+  std::string file_path_;
+  std::ofstream output_;
+  std::mutex mutex_;
 };
 
 }  // namespace trace
