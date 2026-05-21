@@ -135,6 +135,7 @@ set(EOS_SESSION_HEADERS
     "electro_optical_sensor/session/EosInputValidation.h"
     "electro_optical_sensor/session/EosSceneTypes.h"
     "electro_optical_sensor/session/EosSession.h"
+    "electro_optical_sensor/session/EosSessionFactory.h"
     "electro_optical_sensor/session/EosTraceSession.h"
 )
 

@@ -15,6 +15,7 @@
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -91,7 +92,7 @@ std::size_t CountMatchedAcrossCycles(EsrSession* session, const EsrCycleInput& b
 }
 
 TEST(EsrSessionIntegrationTest, StepWithResultProducesThreeChannelOutput) {
-  EsrSession session(MakeSessionConfig());
+  EsrSession session = EsrSessionFactory::Create(MakeSessionConfig());
   const EsrCycleResult result = session.StepWithResult(MakeBaseInput());
 
   EXPECT_FALSE(result.has_validation_error);
@@ -107,8 +108,8 @@ TEST(EsrSessionIntegrationTest, WorkModeMappingMakesHgesmMoreDetectableThanRwr) 
   EsrCycleInput input = MakeBaseInput();
   input.scene.front().tx_power_w = 30.0;
 
-  EsrSession hgesm_session(hgesm_config);
-  EsrSession rwr_session(rwr_config);
+  auto hgesm_session = EsrSessionFactory::Create(hgesm_config);
+  auto rwr_session = EsrSessionFactory::Create(rwr_config);
   const std::size_t hgesm_matched =
       CountMatchedAcrossCycles(&hgesm_session, input, 1001U, 24U);
   const std::size_t rwr_matched =
@@ -121,7 +122,7 @@ TEST(EsrSessionIntegrationTest, MissionPowerOffReturnsEmptyChannels) {
   EsrSessionConfig config = MakeSessionConfig();
   config.mission.power_on = false;
 
-  EsrSession session(config);
+  EsrSession session = EsrSessionFactory::Create(config);
   const EsrCycleResult result = session.StepWithResult(MakeBaseInput());
   EXPECT_TRUE(result.output_frame.observation_output.observations.empty());
   EXPECT_TRUE(result.output_frame.emitter_output.hypotheses.empty());
@@ -129,7 +130,7 @@ TEST(EsrSessionIntegrationTest, MissionPowerOffReturnsEmptyChannels) {
 }
 
 TEST(EsrSessionIntegrationTest, RuntimePatchCanDisableSensorWithoutReconstruction) {
-  EsrSession session(MakeSessionConfig());
+  EsrSession session = EsrSessionFactory::Create(MakeSessionConfig());
   const EsrCycleResult baseline = session.StepWithResult(MakeBaseInput());
   EXPECT_GT(CountMatchedTruthObservations(baseline, 1001U), 0U);
 
@@ -142,7 +143,7 @@ TEST(EsrSessionIntegrationTest, RuntimePatchCanDisableSensorWithoutReconstructio
 }
 
 TEST(EsrSessionIntegrationTest, RuntimePatchCanApplyExplicitScanBounds) {
-  EsrSession session(MakeSessionConfig());
+  EsrSession session = EsrSessionFactory::Create(MakeSessionConfig());
 
   EsrCycleInput input = MakeBaseInput();
   input.scene.front().pose.position_m.x = 1200.0f;
@@ -161,7 +162,7 @@ TEST(EsrSessionIntegrationTest, RuntimePatchCanApplyExplicitScanBounds) {
 }
 
 TEST(EsrSessionIntegrationTest, InvalidRuntimePatchRejectedAtomically) {
-  EsrSession session(MakeSessionConfig());
+  EsrSession session = EsrSessionFactory::Create(MakeSessionConfig());
   const EsrCycleResult baseline = session.StepWithResult(MakeBaseInput());
   const std::size_t baseline_matched = CountMatchedTruthObservations(baseline, 1001U);
 

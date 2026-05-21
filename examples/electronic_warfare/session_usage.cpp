@@ -30,7 +30,7 @@ esr_session::EsrSessionConfig LoadConfigFromFile() {
 }
 
 esr_session::EsrSession CreateEmitterSearchSession() {
-  return esr_session::EsrSession(LoadConfigFromFile());
+  return esr_session::EsrSessionFactory::Create(LoadConfigFromFile());
 }
 
 esr_session::EsrExternalEmitterInput MakeEmitterInput(std::uint64_t id,

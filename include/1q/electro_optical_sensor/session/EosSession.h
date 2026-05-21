@@ -76,26 +76,10 @@ class ONEQ_API EosSession {
   std::unique_ptr<Impl> impl_;
 };
 
-/**
- * @brief EosSessionFactory 负责 EOS 会话装配与创建。
- */
-class ONEQ_API EosSessionFactory {
- public:
-  static EosSession Create(const EosSessionConfig& config = {});
-
-  static EosSession CreateWithPipeline(const EosSessionConfig& config,
-                                       extension::IEosPipeline& pipeline);
-
-  static EosSession CreateWithEnvironmentService(
-      const EosSessionConfig& config,
-      environment::IEosEnvironmentService& environment_service);
-
-  static EosSession CreateWithController(const EosSessionConfig& config,
-                                         extension::EosController& controller);
-};
-
 }  // namespace session
 
 }  // namespace electro_optical_sensor
+
+#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 
 #endif  // ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_SESSION_H_

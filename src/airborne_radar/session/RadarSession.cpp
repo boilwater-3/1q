@@ -251,6 +251,16 @@ RadarSession RadarSessionFactory::CreateWithOverrideStrategy(
           config, override_strategy))));
 }
 
+RadarSession RadarSessionFactory::CreateWithAll(
+    const RadarSessionConfig& config, extension::IRadarContext& radar_context,
+    extension::ISignalPipeline& signal_pipeline,
+    environment::IEnvironmentService& environment_service,
+    extension::RadarController& controller) {
+  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
+      RadarSessionCompositionRoot::ComposeAllExternal(config, radar_context, signal_pipeline,
+                                                       environment_service, controller))));
+}
+
 session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
   return impl_->RunCycle(input).track_output_frame;
 }

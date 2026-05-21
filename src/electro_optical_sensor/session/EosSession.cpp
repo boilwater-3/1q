@@ -9,6 +9,7 @@
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
+#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 #include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
 
 namespace electro_optical_sensor {
@@ -80,6 +81,13 @@ EosSession EosSessionFactory::CreateWithController(const EosSessionConfig& confi
                                                    extension::EosController& controller) {
   return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
       EosSessionCompositionRoot::ComposeWithController(config, controller))));
+}
+
+EosSession EosSessionFactory::CreateWithAll(const EosSessionConfig& config,
+                                             extension::IEosPipeline& pipeline,
+                                             extension::EosController& controller) {
+  return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
+      EosSessionCompositionRoot::ComposeAllExternal(config, pipeline, controller))));
 }
 
 session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {

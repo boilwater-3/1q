@@ -51,6 +51,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosInputValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSceneTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSession.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSessionFactory.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosTraceSession.h
     )
     set(PUBLIC_HEADERS_EOS_ENVIRONMENT

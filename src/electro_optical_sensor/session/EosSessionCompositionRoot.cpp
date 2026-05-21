@@ -135,5 +135,18 @@ EosSessionComposition EosSessionCompositionRoot::ComposeWithController(
   return FinalizeComposition(std::move(composition));
 }
 
+EosSessionComposition EosSessionCompositionRoot::ComposeAllExternal(
+    const EosSessionConfig& config,
+    ::electro_optical_sensor::extension::IEosPipeline& pipeline,
+    extension::EosController& controller) {
+  EosSessionComposition composition;
+  composition = BuildInitialCompositionRuntime(config, std::move(composition));
+  composition.pipeline = &pipeline;
+  composition.controller = &controller;
+  composition.pipeline->UpdateConfig(composition.pipeline_config,
+                                     composition.initial_reset_scan_phase);
+  return FinalizeComposition(std::move(composition));
+}
+
 }  // namespace session
 }  // namespace electro_optical_sensor

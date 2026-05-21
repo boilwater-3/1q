@@ -58,29 +58,6 @@ struct ONEQ_API EsrRuntimeConfigApplyResult {
  */
 class ONEQ_API EsrSession {
  public:
-  /**
-   * @brief 使用默认装配配置构造会话。
-   * @param[in] config 会话配置。
-   */
-  explicit EsrSession(EsrSessionConfig config = {});
-  /**
-   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
-   */
-  EsrSession(EsrSessionConfig config, extension::IInterceptPipeline& pipeline);
-  /**
-   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
-   */
-  EsrSession(EsrSessionConfig config, environment::IEsrEnvironmentService& environment_service);
-  /**
-   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
-   */
-  EsrSession(EsrSessionConfig config, extension::EsrController& controller);
-  /**
-   * @brief 使用外部装配链路构造会话（引用注入，不接管生命周期）。
-   */
-  EsrSession(EsrSessionConfig config, extension::IInterceptPipeline& pipeline,
-             environment::IEsrEnvironmentService& environment_service,
-             extension::EsrController& controller);
   ~EsrSession();
 
   EsrSession(const EsrSession&) = delete;
@@ -130,7 +107,9 @@ class ONEQ_API EsrSession {
   EsrRuntimeConfigApplyResult ApplyRuntimeConfigWithResult(const EsrRuntimeConfigPatch& patch);
 
  private:
+  friend class EsrSessionFactory;
   struct Impl;
+  explicit EsrSession(std::unique_ptr<Impl> impl);
   std::unique_ptr<Impl> impl_;
 };
 

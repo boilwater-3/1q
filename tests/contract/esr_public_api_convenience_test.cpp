@@ -17,6 +17,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 
 namespace electronic_surveillance_radar {
 namespace tests {
@@ -291,7 +292,7 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsSceneEmitterFromExternalI
 }
 
 TEST(EsrPublicApiConvenienceTest, SessionStepAndRuntimePatchWorkTogether) {
-  session::EsrSession session(MakeSessionConfig());
+  session::EsrSession session = session::EsrSessionFactory::Create(MakeSessionConfig());
 
   session::EsrCycleInput input;
   input.cycle_index = 0U;
@@ -310,7 +311,7 @@ TEST(EsrPublicApiConvenienceTest, SessionStepAndRuntimePatchWorkTogether) {
 }
 
 TEST(EsrPublicApiConvenienceTest, TryApplyRuntimeConfigExposesRejectFeedback) {
-  session::EsrSession session(MakeSessionConfig());
+  session::EsrSession session = session::EsrSessionFactory::Create(MakeSessionConfig());
 
   session::EsrRuntimeConfigPatch invalid_patch;
   invalid_patch.has_use_explicit_scan_bounds = true;

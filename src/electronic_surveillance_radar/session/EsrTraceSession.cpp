@@ -1,3 +1,4 @@
+#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 
 #include <sstream>
@@ -44,7 +45,7 @@ std::string BuildEsrOutputPayload(const EsrCycleResult& result) {
 
 struct EsrTraceSession::Impl {
   Impl(EsrSessionConfig config, EsrTraceSessionOptions options)
-      : session(config),
+      : session(EsrSessionFactory::Create(config)),
         sink(std::move(options.sink)),
         replay_writer(std::move(options.replay_writer)) {
     if (sink && options.trace_config_on_construct) {

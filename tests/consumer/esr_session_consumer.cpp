@@ -21,6 +21,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 
 namespace esr = electronic_surveillance_radar;
 
@@ -49,7 +50,7 @@ int main() {
   detailed_config.environment.scenario_config.preset = esr::config::EsrEnvironmentPreset::kStandard;
 
   // 3. Session construction
-  esr::session::EsrSession session(config);
+  auto session = esr::session::EsrSessionFactory::Create(config);
 
   // 4. CycleInput with a valid emitter
   esr::session::EsrCycleInput input;

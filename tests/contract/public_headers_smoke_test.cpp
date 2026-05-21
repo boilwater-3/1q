@@ -103,6 +103,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
+#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/foundation/atmospheric_types.h"
 #include "1q/foundation/pose_types.h"
@@ -150,35 +151,17 @@ static_assert(
                      std::declval<const ArConfig&>(),
                      std::declval<airborne_radar::extension::RadarController&>()))>::value,
     "RadarSessionFactory::CreateWithController must return RadarSession");
-static_assert(
-    std::is_constructible<electronic_surveillance_radar::session::EsrSession,
-                          electronic_surveillance_radar::session::EsrSessionConfig,
-                          electronic_surveillance_radar::extension::IInterceptPipeline&>::value,
-    "EsrSession must support pipeline-only injection");
-static_assert(std::is_constructible<
-                  electronic_surveillance_radar::session::EsrSession,
-                  electronic_surveillance_radar::session::EsrSessionConfig,
-                  electronic_surveillance_radar::environment::IEsrEnvironmentService&>::value,
-              "EsrSession must support environment-only injection");
-static_assert(
-    std::is_constructible<electronic_surveillance_radar::session::EsrSession,
-                          electronic_surveillance_radar::session::EsrSessionConfig,
-                          electronic_surveillance_radar::extension::EsrController&>::value,
-    "EsrSession must support controller-only injection");
-static_assert(
-    std::is_constructible<electronic_surveillance_radar::session::EsrSession,
-                          electronic_surveillance_radar::session::EsrSessionConfig,
-                          electronic_surveillance_radar::extension::IInterceptPipeline&,
-                          electronic_surveillance_radar::environment::IEsrEnvironmentService&,
-                          electronic_surveillance_radar::extension::EsrController&>::value,
-    "EsrSession must support full-chain injection");
+
+static_assert(!std::is_constructible<electronic_surveillance_radar::session::EsrSession,
+                                     electronic_surveillance_radar::session::EsrSessionConfig>::value,
+              "EsrSession direct construction must be disabled");
 
 static_assert(!std::is_constructible<electro_optical_sensor::session::EosSession,
                                      electro_optical_sensor::session::EosSessionConfig>::value,
               "EosSession direct construction must be disabled");
 static_assert(!std::is_constructible<electro_optical_sensor::session::EosSession,
                                      electro_optical_sensor::session::EosSessionConfig,
-                                     electro_optical_sensor::pipeline::IEosPipeline&>::value,
+                                     electro_optical_sensor::extension::IEosPipeline&>::value,
               "EosSession direct pipeline injection construction must be disabled");
 static_assert(
     !std::is_constructible<electro_optical_sensor::session::EosSession,
@@ -199,7 +182,7 @@ static_assert(
     std::is_same<electro_optical_sensor::session::EosSession,
                  decltype(electro_optical_sensor::session::EosSessionFactory::CreateWithPipeline(
                      std::declval<const electro_optical_sensor::session::EosSessionConfig&>(),
-                     std::declval<electro_optical_sensor::pipeline::IEosPipeline&>()))>::value,
+                     std::declval<electro_optical_sensor::extension::IEosPipeline&>()))>::value,
     "EosSessionFactory::CreateWithPipeline must return EosSession");
 static_assert(
     std::is_same<
@@ -393,7 +376,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   const session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
   EXPECT_FALSE(session::HasValidationError(issues));
 
-  session::EsrSession session(session_config);
+  auto session = session::EsrSessionFactory::Create(session_config);
   const session::EsrRuntimeConfigPatch runtime_patch =
       config::EsrRuntimeConfigBuilder().WithWorkMode(config::EsrWorkMode::kRwr).Build();
   session.ApplyRuntimeConfig(runtime_patch);

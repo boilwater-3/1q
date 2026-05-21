@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "1q/replay/ReplayTrace.h"
+#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 #include "1q/trace/TraceSink.h"
 #include "EosReplayFlatbufferCodec.h"
 

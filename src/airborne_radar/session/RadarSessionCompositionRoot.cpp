@@ -148,5 +148,19 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithOverrideStrategy
   return composition;
 }
 
+RadarSessionComposition RadarSessionCompositionRoot::ComposeAllExternal(
+    const RadarSessionConfig& config, extension::IRadarContext& radar_context,
+    extension::ISignalPipeline& signal_pipeline,
+    environment::IEnvironmentService& environment_service,
+    extension::RadarController& controller) {
+  RadarSessionComposition composition = BuildCompositionBase(config);
+  composition.radar_context = &radar_context;
+  composition.signal_pipeline = &signal_pipeline;
+  composition.environment_service = &environment_service;
+  composition.controller = &controller;
+  composition.pipeline_config_synced = true;
+  return composition;
+}
+
 }  // namespace session
 }  // namespace airborne_radar

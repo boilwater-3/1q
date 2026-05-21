@@ -71,6 +71,11 @@ class EosSessionCompositionRoot {
   static EosSessionComposition ComposeWithController(
       const EosSessionConfig& config,
       extension::EosController& controller);
+
+  static EosSessionComposition ComposeAllExternal(
+      const EosSessionConfig& config,
+      ::electro_optical_sensor::extension::IEosPipeline& pipeline,
+      extension::EosController& controller);
 };
 
 }  // namespace session

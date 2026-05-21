@@ -51,6 +51,12 @@ class RadarSessionCompositionRoot {
    */
   static RadarSessionComposition ComposeWithOverrideStrategy(
       const RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy);
+
+  static RadarSessionComposition ComposeAllExternal(
+      const RadarSessionConfig& config, extension::IRadarContext& radar_context,
+      extension::ISignalPipeline& signal_pipeline,
+      environment::IEnvironmentService& environment_service,
+      extension::RadarController& controller);
 };
 
 }  // namespace session
