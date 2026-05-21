@@ -163,12 +163,12 @@ extension::EosControllerRuntimeState EosController::CaptureRuntimeState() const 
   return state;
 }
 
-void EosController::RestoreRuntimeState(const extension::EosControllerRuntimeState& state) {
+bool EosController::RestoreRuntimeState(const extension::EosControllerRuntimeState& state) {
   if (!IsCompatibleControllerRuntimeState(state, this)) {
-    return;
+    return false;
   }
   if (!impl_->pipeline.RestoreRuntimeState(state.pipeline_state)) {
-    return;
+    return false;
   }
   impl_->latest_output = state.latest_output;
   impl_->last_validation_issues = state.last_validation_issues;
@@ -177,6 +177,7 @@ void EosController::RestoreRuntimeState(const extension::EosControllerRuntimeSta
   impl_->last_cycle_executed = state.last_cycle_executed;
   impl_->last_cycle_reused_previous_output = state.last_cycle_reused_previous_output;
   impl_->last_abort_reason = state.last_abort_reason;
+  return true;
 }
 
 }  // namespace extension

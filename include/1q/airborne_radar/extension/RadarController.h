@@ -25,6 +25,8 @@ class IRadarContext;
 class ITacticalDecisionEngine;
 
 struct ONEQ_API RadarControllerRuntimeState {
+  const void* owner_identity{nullptr};
+  std::uint32_t schema_version{0U};
   session::TrackOutputFrame latest_output{};
   bool has_latest_output{false};
   session::ValidationIssueList last_validation_issues{};
@@ -150,7 +152,7 @@ class ONEQ_API RadarController {
    * @brief 恢复此前捕获的控制器运行态快照。
    * @param state 待恢复的控制器运行态快照。
    */
-  void RestoreRuntimeState(const RadarControllerRuntimeState& state);
+  bool RestoreRuntimeState(const RadarControllerRuntimeState& state);
 
   /**
    * @brief 获取当前控制器绑定的上下文实例。

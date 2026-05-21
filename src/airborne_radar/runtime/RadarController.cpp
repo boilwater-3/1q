@@ -273,6 +273,8 @@ extension::SignalCycleAbortReason RadarController::GetLastSignalCycleAbortReason
 
 extension::RadarControllerRuntimeState RadarController::CaptureRuntimeState() const {
   extension::RadarControllerRuntimeState state;
+  state.owner_identity = this;
+  state.schema_version = 1U;
   state.latest_output = impl_->cycle_state.latest_output;
   state.has_latest_output = impl_->cycle_state.has_latest_output;
   state.last_validation_issues = impl_->cycle_state.last_validation_issues;
@@ -284,13 +286,19 @@ extension::RadarControllerRuntimeState RadarController::CaptureRuntimeState() co
   return state;
 }
 
-void RadarController::RestoreRuntimeState(const extension::RadarControllerRuntimeState& state) {
+bool RadarController::RestoreRuntimeState(const extension::RadarControllerRuntimeState& state) {
+  if (state.owner_identity != this || state.schema_version != 1U) {
+    PROJECT_LOG_ERROR(
+        "[RadarController] controller runtime state restore rejected: "
+        "owner/schema mismatch.");
+    return false;
+  }
   if (!IsCompatibleSignalPipelineRuntimeState(state.signal_pipeline_state,
                                               impl_->signal_pipeline)) {
     PROJECT_LOG_ERROR(
         "[RadarController] signal pipeline runtime state restore rejected because "
         "snapshot owner or schema does not match the bound pipeline instance.");
-    return;
+    return false;
   }
   impl_->cycle_state.latest_output = state.latest_output;
   impl_->cycle_state.has_latest_output = state.has_latest_output;
@@ -300,6 +308,7 @@ void RadarController::RestoreRuntimeState(const extension::RadarControllerRuntim
   impl_->last_cycle_reused_previous_output = state.last_cycle_reused_previous_output;
   impl_->last_signal_abort_reason = state.last_signal_abort_reason;
   impl_->signal_pipeline.RestoreRuntimeState(state.signal_pipeline_state);
+  return true;
 }
 
 extension::IRadarContext& RadarController::GetRadarContext() { return impl_->radar_context; }

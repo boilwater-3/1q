@@ -122,7 +122,7 @@ class ONEQ_API EosController {
    * @brief 恢复控制器运行态快照。
    * @param[in] state 待恢复运行态快照。
    */
-  void RestoreRuntimeState(const EosControllerRuntimeState& state);
+  bool RestoreRuntimeState(const EosControllerRuntimeState& state);
 
  private:
   struct Impl;
