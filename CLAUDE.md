@@ -104,10 +104,8 @@ ctest --preset "$preset" --output-on-failure
 
 ## Batch Refactoring Safety
 
-- **Incremental validation: 3-5 files → build → test → commit.** Never batch 15+ files without intermediate builds. Cascade failures from broken builds create more breakage.
-- **Do not use `bash` with perl/sed/awk for deletion or replacement on C++.** Regex cannot distinguish function definitions from call sites (`float ClampFloat(...) {` vs `ClampFloat(x, 1, 0)`), and the Edit tool's strict unique-string matching prevents typo cascades (e.g., `s/Foo\(/ns::Foo</` producing `Foo<value)`).
-- **For adding includes, prefer Edit with surrounding context.** Different files have different include structures; a single perl pattern will randomly miss files.
-- **Verify C++11 compat** before batch rename that changes call-site syntax (e.g., no template variables, no `auto` return types).
+- **Incremental validation: 3-5 files → build → test → commit.** Never batch 15+ files without intermediate builds.
+- **Verify C++11 compat** before any rename that changes call-site syntax (e.g., no template variables, no `auto` return types).
 ## Done Means
 - The chosen preset builds successfully.
 - Relevant tests pass for the chosen preset.
