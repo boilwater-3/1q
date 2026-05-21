@@ -10,7 +10,6 @@
 
 namespace electronic_surveillance_radar {
 namespace session {
-namespace internal {
 namespace {
 
 constexpr std::uint32_t kActiveScanPulseMultiplier = 4U;
@@ -259,7 +258,6 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   return resolved;
 }
 
-}  // namespace internal
 }  // namespace session
 
 }  // namespace electronic_surveillance_radar

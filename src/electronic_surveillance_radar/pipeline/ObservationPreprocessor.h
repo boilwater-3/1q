@@ -13,7 +13,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 /**
  * @brief ObservationPreprocessor 负责观测排序、过滤和去重。
@@ -30,7 +29,6 @@ class ObservationPreprocessor final {
                                         const extension::InterceptPreprocessConfig& config) const;
 };
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar
 

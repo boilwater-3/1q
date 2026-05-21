@@ -15,7 +15,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 /** @brief 特征向量维度常量。 */
 static const std::size_t kObservationFeatureDimension = 5U;
@@ -73,7 +72,6 @@ struct ClusterSummary {
   std::string spectral_class_label{};               /**< 频谱分类标签 */
 };
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar
 

@@ -6,7 +6,6 @@
 
 namespace electronic_surveillance_radar {
 namespace session {
-namespace internal {
 
 /**
  * @brief EsrRuntimeConfigResolveResult 描述 ESR 运行期补丁解析结果。
@@ -30,7 +29,6 @@ struct EsrRuntimeConfigResolveResult {
 EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     const ResolvedEsrSessionConfig& current_config, const EsrRuntimeConfigPatch& patch);
 
-}  // namespace internal
 }  // namespace session
 
 }  // namespace electronic_surveillance_radar

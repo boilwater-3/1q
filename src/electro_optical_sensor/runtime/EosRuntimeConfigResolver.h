@@ -6,7 +6,6 @@
 namespace electro_optical_sensor {
 namespace runtime {
 namespace session {
-namespace internal {
 
 /**
  * @brief EosRuntimeConfigResolveResult 描述 EOS 运行期补丁解析结果。
@@ -28,7 +27,6 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
     const ::electro_optical_sensor::session::EosSessionConfig& current_config,
     const ::electro_optical_sensor::session::EosRuntimeConfigPatch& patch);
 
-}  // namespace internal
 }  // namespace session
 }  // namespace runtime
 

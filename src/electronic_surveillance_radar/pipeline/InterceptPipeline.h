@@ -65,12 +65,12 @@ class InterceptPipeline final : public extension::IInterceptPipeline {
  private:
   extension::InterceptPipelineConfig config_{};
   extension::InterceptRuntimeConfig runtime_config_{};
-  internal::ObservationFeatureScales feature_scales_{};
-  internal::ObservationPreprocessor preprocessor_{};
-  internal::KdTreeClusterer clusterer_{};
-  internal::HypothesisAssociator associator_{};
-  internal::InterceptDetectionExecutor detection_executor_{};
-  internal::InterceptPostProcessingExecutor post_processing_executor_{};
+  ObservationFeatureScales feature_scales_{};
+  ObservationPreprocessor preprocessor_{};
+  KdTreeClusterer clusterer_{};
+  HypothesisAssociator associator_{};
+  InterceptDetectionExecutor detection_executor_{};
+  InterceptPostProcessingExecutor post_processing_executor_{};
   std::mt19937 rng_{};
   std::uint64_t next_observation_id_{1U};
   std::uint64_t next_hypothesis_id_{1U};

@@ -12,7 +12,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 namespace {
 
@@ -154,6 +153,5 @@ KdTreeClusterResult KdTreeClusterer::Cluster(const std::vector<ObservationFeatur
   return result;
 }
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar

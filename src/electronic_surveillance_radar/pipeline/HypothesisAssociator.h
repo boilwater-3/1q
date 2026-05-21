@@ -16,7 +16,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 /**
  * @brief HypothesisAssociator 负责簇级观测与历史假设的关联更新。
@@ -86,7 +85,6 @@ class HypothesisAssociator final {
   std::vector<TrackState> tracks_{};
 };
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar
 

@@ -13,7 +13,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 /**
  * @brief ObservationFeatureEncoder 负责观测到特征向量的映射。
@@ -64,7 +63,6 @@ class ObservationFeatureEncoder final {
   }
 };
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar
 

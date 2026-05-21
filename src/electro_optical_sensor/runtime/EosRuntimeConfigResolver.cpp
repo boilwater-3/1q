@@ -8,7 +8,6 @@
 namespace electro_optical_sensor {
 namespace runtime {
 namespace session {
-namespace internal {
 namespace {
 
 
@@ -167,7 +166,6 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
   return resolved;
 }
 
-}  // namespace internal
 }  // namespace session
 }  // namespace runtime
 }  // namespace electro_optical_sensor

@@ -9,7 +9,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 namespace {
 constexpr double kTimeCompareEpsilonSec = 1.0e-9;
@@ -151,6 +150,5 @@ std::vector<RawObservationRecord> ObservationPreprocessor::Run(
   return output;
 }
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar

@@ -22,7 +22,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 namespace {
 
@@ -327,7 +326,7 @@ model::EsrObservationQuality ClassifyObservationQuality(float snr_db, bool is_ja
  * @param[in,out] record 待扰动观测。
  */
 void ApplyDeceptionConfusion(float deception_strength, const extension::InterceptDeceptionModelConfig& config,
-                             std::mt19937* rng, internal::RawObservationRecord* record) {
+                             std::mt19937* rng, RawObservationRecord* record) {
   if (rng == nullptr || record == nullptr) {
     return;
   }
@@ -360,11 +359,11 @@ void ApplyDeceptionConfusion(float deception_strength, const extension::Intercep
  * @param[in,out] next_observation_id 观测 ID 分配器。
  * @return 伪观测记录。
  */
-internal::RawObservationRecord BuildDeceptionRecord(
-    const internal::RawObservationRecord& template_record, float deception_strength,
+RawObservationRecord BuildDeceptionRecord(
+    const RawObservationRecord& template_record, float deception_strength,
     const extension::InterceptDeceptionModelConfig& config, std::mt19937* rng,
     std::uint64_t* next_observation_id) {
-  internal::RawObservationRecord record = template_record;
+  RawObservationRecord record = template_record;
   if (next_observation_id != nullptr) {
     record.observation.observation_id = (*next_observation_id)++;
   }
@@ -534,7 +533,7 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const extension::IE
         utils::Clamp01(jamming_result.deception_risk * jamming_result.deception_weighted_overlap_ratio *
                 std::max(0.0f, config.deception_model.false_alarm_probability_scale));
 
-    internal::RawObservationRecord base_record;
+    RawObservationRecord base_record;
     base_record.observation.observation_id = next_observation_id++;
     base_record.observation.timestamp_s =
         static_cast<double>(ctx.GetCycleIndex()) * static_cast<double>(ctx.GetCycleDeltaTimeSec());
@@ -567,7 +566,7 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const extension::IE
       continue;
     }
 
-    internal::RawObservationRecord record = base_record;
+    RawObservationRecord record = base_record;
     record.truth_emitter_id = emitter.emitter_id;
     record.truth_pri_s = emitter.pri_s;
     record.matched_truth = true;
@@ -591,6 +590,5 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const extension::IE
   return output;
 }
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar

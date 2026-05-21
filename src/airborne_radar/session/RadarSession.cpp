@@ -29,7 +29,7 @@ environment::EnvironmentSceneState BuildSceneStateFromEnvironmentInput(
 }  // namespace
 
 struct RadarSession::Impl {
-  explicit Impl(internal::RadarSessionComposition composition)
+  explicit Impl(RadarSessionComposition composition)
       : runtime_state(),
         owned_radar_context(std::move(composition.owned_radar_context)),
         owned_signal_pipeline(std::move(composition.owned_signal_pipeline)),
@@ -222,32 +222,32 @@ RadarSession& RadarSession::operator=(RadarSession&&) noexcept = default;
 
 RadarSession RadarSessionFactory::Create(const RadarSessionConfig& config) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(
-      new RadarSession::Impl(internal::RadarSessionCompositionRoot::ComposeDefault(config))));
+      new RadarSession::Impl(RadarSessionCompositionRoot::ComposeDefault(config))));
 }
 
 RadarSession RadarSessionFactory::CreateWithSignalPipeline(
     const RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
-      internal::RadarSessionCompositionRoot::ComposeWithSignalPipeline(config, signal_pipeline))));
+      RadarSessionCompositionRoot::ComposeWithSignalPipeline(config, signal_pipeline))));
 }
 
 RadarSession RadarSessionFactory::CreateWithEnvironmentService(
     const RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(
-      new RadarSession::Impl(internal::RadarSessionCompositionRoot::ComposeWithEnvironmentService(
+      new RadarSession::Impl(RadarSessionCompositionRoot::ComposeWithEnvironmentService(
           config, environment_service))));
 }
 
 RadarSession RadarSessionFactory::CreateWithController(const RadarSessionConfig& config,
                                                        extension::RadarController& controller) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
-      internal::RadarSessionCompositionRoot::ComposeWithController(config, controller))));
+      RadarSessionCompositionRoot::ComposeWithController(config, controller))));
 }
 
 RadarSession RadarSessionFactory::CreateWithOverrideStrategy(
     const RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(
-      new RadarSession::Impl(internal::RadarSessionCompositionRoot::ComposeWithOverrideStrategy(
+      new RadarSession::Impl(RadarSessionCompositionRoot::ComposeWithOverrideStrategy(
           config, override_strategy))));
 }
 

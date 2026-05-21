@@ -16,7 +16,6 @@
 namespace airborne_radar {
 namespace utils {
 
-namespace internal {
 
 
 
@@ -76,7 +75,6 @@ inline model::EulerAnglesDeg FromRotationMatrix(const Matrix3f& rotation) {
   return euler_deg;
 }
 
-}  // namespace internal
 
 /**
  * @brief 判断扫描限位是否合法。
@@ -180,10 +178,10 @@ inline model::EulerAnglesDeg ComputeBodyFrameBeamPointing(
   model::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
-  const internal::Matrix3f body_rotation = internal::Multiply(
-      internal::BuildRotationMatrix(config.mount_angles_deg),
-      internal::BuildRotationMatrix(mount_frame_euler));
-  return internal::FromRotationMatrix(body_rotation);
+  const Matrix3f body_rotation = Multiply(
+      BuildRotationMatrix(config.mount_angles_deg),
+      BuildRotationMatrix(mount_frame_euler));
+  return FromRotationMatrix(body_rotation);
 }
 
 /**
@@ -214,12 +212,12 @@ inline model::EulerAnglesDeg ComputePlatformFrameBeamPointing(
   model::EulerAnglesDeg mount_frame_euler;
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
-  const internal::Matrix3f platform_mount_rotation = internal::Multiply(
-      internal::BuildRotationMatrix(platform_attitude_deg),
-      internal::BuildRotationMatrix(config.mount_angles_deg));
-  const internal::Matrix3f platform_rotation = internal::Multiply(
-      platform_mount_rotation, internal::BuildRotationMatrix(mount_frame_euler));
-  return internal::FromRotationMatrix(platform_rotation);
+  const Matrix3f platform_mount_rotation = Multiply(
+      BuildRotationMatrix(platform_attitude_deg),
+      BuildRotationMatrix(config.mount_angles_deg));
+  const Matrix3f platform_rotation = Multiply(
+      platform_mount_rotation, BuildRotationMatrix(mount_frame_euler));
+  return FromRotationMatrix(platform_rotation);
 }
 
 /**

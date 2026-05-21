@@ -12,7 +12,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 /**
  * @brief InterceptComponentFactory 负责流水线配置到内部组件配置的映射。
@@ -51,7 +50,6 @@ class InterceptComponentFactory final {
   }
 };
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar
 

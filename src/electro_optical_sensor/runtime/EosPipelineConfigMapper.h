@@ -12,7 +12,6 @@
 namespace electro_optical_sensor {
 namespace runtime {
 namespace session {
-namespace internal {
 
 /**
  * @brief 将会话配置映射为 pipeline 配置。
@@ -22,7 +21,6 @@ namespace internal {
 ::electro_optical_sensor::extension::EosPipelineConfig BuildEosPipelineConfig(
     const ::electro_optical_sensor::session::EosSessionConfig& config);
 
-}  // namespace internal
 }  // namespace session
 }  // namespace runtime
 }  // namespace electro_optical_sensor

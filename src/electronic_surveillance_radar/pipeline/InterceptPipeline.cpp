@@ -50,7 +50,7 @@ extension::InterceptPipelineResult InterceptPipeline::Execute(
   MutableEsrContext ctx;
   ctx.BeginCycle(input_state, environment_snapshot, config_, runtime_config_);
 
-  const internal::InterceptDetectionOutput detection_output =
+  const InterceptDetectionOutput detection_output =
       detection_executor_.Execute(ctx, rng_, next_observation_id_);
 
   result = post_processing_executor_.Execute(detection_output.raw_records, ctx, preprocessor_,
@@ -66,7 +66,7 @@ struct PipelineRuntimeSnapshot {
   std::mt19937 rng;
   std::uint64_t next_observation_id{1U};
   std::uint64_t next_hypothesis_id{1U};
-  std::vector<internal::HypothesisAssociator::TrackState> tracks;
+  std::vector<HypothesisAssociator::TrackState> tracks;
 };
 
 }  // namespace

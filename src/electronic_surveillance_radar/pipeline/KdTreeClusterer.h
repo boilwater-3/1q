@@ -14,7 +14,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 /**
  * @brief KdTreeClusterResult 描述聚类输出。
@@ -39,7 +38,6 @@ class KdTreeClusterer final {
                               const extension::InterceptClusterConfig& config) const;
 };
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar
 

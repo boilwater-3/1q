@@ -13,7 +13,6 @@
 
 namespace electro_optical_sensor {
 namespace session {
-namespace internal {
 
 /**
  * @brief EosSessionComposition 描述会话所需依赖的组合结果。
@@ -74,7 +73,6 @@ class EosSessionCompositionRoot {
       extension::EosController& controller);
 };
 
-}  // namespace internal
 }  // namespace session
 }  // namespace electro_optical_sensor
 

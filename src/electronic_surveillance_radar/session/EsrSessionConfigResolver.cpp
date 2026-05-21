@@ -7,7 +7,6 @@
 
 namespace electronic_surveillance_radar {
 namespace session {
-namespace internal {
 namespace {
 
 
@@ -195,7 +194,6 @@ ResolvedEsrSessionConfig ResolveEsrSessionConfig(const EsrSessionConfig& session
   return resolved;
 }
 
-}  // namespace internal
 }  // namespace session
 
 }  // namespace electronic_surveillance_radar

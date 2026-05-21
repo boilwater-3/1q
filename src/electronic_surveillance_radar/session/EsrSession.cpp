@@ -11,7 +11,7 @@ namespace electronic_surveillance_radar {
 namespace session {
 
 struct EsrSession::Impl {
-  explicit Impl(internal::EsrSessionComposition composition)
+  explicit Impl(EsrSessionComposition composition)
       : owned_pipeline(std::move(composition.owned_pipeline)),
         owned_environment_service(std::move(composition.owned_environment_service)),
         owned_controller(std::move(composition.owned_controller)),
@@ -61,7 +61,7 @@ struct EsrSession::Impl {
     return BuildCycleResult(input);
   }
 
-  internal::ResolvedEsrSessionConfig resolved_config{};
+  ResolvedEsrSessionConfig resolved_config{};
   std::unique_ptr<extension::IInterceptPipeline> owned_pipeline;
   std::unique_ptr<environment::IEsrEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::EsrController> owned_controller;
@@ -71,25 +71,25 @@ struct EsrSession::Impl {
 };
 
 EsrSession::EsrSession(EsrSessionConfig config)
-    : impl_(new Impl(internal::EsrSessionCompositionRoot::ComposeDefault(config))) {}
+    : impl_(new Impl(EsrSessionCompositionRoot::ComposeDefault(config))) {}
 
 EsrSession::EsrSession(EsrSessionConfig config, extension::IInterceptPipeline& pipeline_ref)
     : impl_(new Impl(
-          internal::EsrSessionCompositionRoot::ComposeWithPipeline(config, pipeline_ref))) {}
+          EsrSessionCompositionRoot::ComposeWithPipeline(config, pipeline_ref))) {}
 
 EsrSession::EsrSession(EsrSessionConfig config,
                        environment::IEsrEnvironmentService& environment_service_ref)
-    : impl_(new Impl(internal::EsrSessionCompositionRoot::ComposeWithEnvironmentService(
+    : impl_(new Impl(EsrSessionCompositionRoot::ComposeWithEnvironmentService(
           config, environment_service_ref))) {}
 
 EsrSession::EsrSession(EsrSessionConfig config, extension::EsrController& controller_ref)
     : impl_(new Impl(
-          internal::EsrSessionCompositionRoot::ComposeWithController(config, controller_ref))) {}
+          EsrSessionCompositionRoot::ComposeWithController(config, controller_ref))) {}
 
 EsrSession::EsrSession(EsrSessionConfig config, extension::IInterceptPipeline& pipeline_ref,
                        environment::IEsrEnvironmentService& environment_service_ref,
                        extension::EsrController& controller_ref)
-    : impl_(new Impl(internal::EsrSessionCompositionRoot::ComposeAllExternal(
+    : impl_(new Impl(EsrSessionCompositionRoot::ComposeAllExternal(
           config, pipeline_ref, environment_service_ref, controller_ref))) {}
 
 EsrSession::~EsrSession() = default;
@@ -117,8 +117,8 @@ bool EsrSession::TryApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
 EsrRuntimeConfigApplyResult EsrSession::ApplyRuntimeConfigWithResult(
     const EsrRuntimeConfigPatch& patch) {
   EsrRuntimeConfigApplyResult apply_result;
-  const internal::EsrRuntimeConfigResolveResult resolved =
-      internal::ResolveEsrRuntimeConfigPatch(impl_->resolved_config, patch);
+  const EsrRuntimeConfigResolveResult resolved =
+      ResolveEsrRuntimeConfigPatch(impl_->resolved_config, patch);
   apply_result.status = resolved.status;
   apply_result.has_requested_update = resolved.has_requested_update;
   if (!resolved.has_requested_update || !resolved.is_valid) {

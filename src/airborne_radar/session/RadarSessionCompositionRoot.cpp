@@ -10,7 +10,6 @@
 
 namespace airborne_radar {
 namespace session {
-namespace internal {
 namespace {
 
 session::RadarSessionConfig BuildRuntimeSessionConfig(const RadarSessionComposition& composition) {
@@ -149,6 +148,5 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithOverrideStrategy
   return composition;
 }
 
-}  // namespace internal
 }  // namespace session
 }  // namespace airborne_radar

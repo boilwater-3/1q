@@ -12,7 +12,6 @@
 
 namespace electronic_surveillance_radar {
 namespace session {
-namespace internal {
 
 /**
  * @brief ResolvedEsrSessionConfig 描述会话装配前的统一解析结果。
@@ -31,7 +30,6 @@ struct ResolvedEsrSessionConfig {
  */
 ResolvedEsrSessionConfig ResolveEsrSessionConfig(const EsrSessionConfig& config);
 
-}  // namespace internal
 }  // namespace session
 
 }  // namespace electronic_surveillance_radar

@@ -13,7 +13,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 namespace {
 
@@ -271,6 +270,5 @@ void HypothesisAssociator::RestoreTracks(const std::vector<TrackState>& tracks) 
   tracks_ = tracks;
 }
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar

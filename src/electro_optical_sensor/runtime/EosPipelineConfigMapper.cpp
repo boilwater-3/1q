@@ -8,7 +8,6 @@
 namespace electro_optical_sensor {
 namespace runtime {
 namespace session {
-namespace internal {
 namespace {
 
 ::electro_optical_sensor::extension::EosPipelineWorkMode ToPipelineWorkMode(
@@ -141,7 +140,6 @@ void ApplyEnvironmentModelConfig(
   return pipeline_config;
 }
 
-}  // namespace internal
 }  // namespace session
 }  // namespace runtime
 }  // namespace electro_optical_sensor

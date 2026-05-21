@@ -22,7 +22,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 /**
  * @brief InterceptPostProcessingExecutor 执行后处理阶段。
@@ -57,7 +56,6 @@ class InterceptPostProcessingExecutor {
                                              std::uint64_t& next_hypothesis_id);
 };
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar
 

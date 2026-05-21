@@ -35,7 +35,7 @@ T& RequireCompositionDependency(T* ptr, const char* dependency_name) {
 }  // namespace
 
 struct EosSession::Impl {
-  explicit Impl(internal::EosSessionComposition composition)
+  explicit Impl(EosSessionComposition composition)
       : owned_pipeline(std::move(composition.owned_pipeline)),
         owned_controller(std::move(composition.owned_controller)),
         pipeline(RequireCompositionDependency(composition.pipeline, "pipeline")),
@@ -60,26 +60,26 @@ EosSession& EosSession::operator=(EosSession&&) noexcept = default;
 
 EosSession EosSessionFactory::Create(const EosSessionConfig& config) {
   return EosSession(std::unique_ptr<EosSession::Impl>(
-      new EosSession::Impl(internal::EosSessionCompositionRoot::ComposeDefault(config))));
+      new EosSession::Impl(EosSessionCompositionRoot::ComposeDefault(config))));
 }
 
 EosSession EosSessionFactory::CreateWithPipeline(
     const EosSessionConfig& config, ::electro_optical_sensor::extension::IEosPipeline& pipeline) {
   return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-      internal::EosSessionCompositionRoot::ComposeWithPipeline(config, pipeline))));
+      EosSessionCompositionRoot::ComposeWithPipeline(config, pipeline))));
 }
 
 EosSession EosSessionFactory::CreateWithEnvironmentService(
     const EosSessionConfig& config, environment::IEosEnvironmentService& environment_service) {
   return EosSession(std::unique_ptr<EosSession::Impl>(
-      new EosSession::Impl(internal::EosSessionCompositionRoot::ComposeWithEnvironmentService(
+      new EosSession::Impl(EosSessionCompositionRoot::ComposeWithEnvironmentService(
           config, environment_service))));
 }
 
 EosSession EosSessionFactory::CreateWithController(const EosSessionConfig& config,
                                                    extension::EosController& controller) {
   return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-      internal::EosSessionCompositionRoot::ComposeWithController(config, controller))));
+      EosSessionCompositionRoot::ComposeWithController(config, controller))));
 }
 
 session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
@@ -93,15 +93,15 @@ session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
 }
 
 void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
-  const ::electro_optical_sensor::runtime::session::internal::EosRuntimeConfigResolveResult
-      resolved = ::electro_optical_sensor::runtime::session::internal::ResolveEosRuntimeConfigPatch(
+  const ::electro_optical_sensor::runtime::session::EosRuntimeConfigResolveResult
+      resolved = ::electro_optical_sensor::runtime::session::ResolveEosRuntimeConfigPatch(
           impl_->runtime_config_, patch);
   if (!resolved.has_requested_update || !resolved.is_valid) {
     return;
   }
   impl_->runtime_config_ = resolved.next_config;
   impl_->pipeline.UpdateConfig(
-      ::electro_optical_sensor::runtime::session::internal::BuildEosPipelineConfig(
+      ::electro_optical_sensor::runtime::session::BuildEosPipelineConfig(
           impl_->runtime_config_),
       resolved.reset_scan_phase);
 }

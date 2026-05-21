@@ -15,7 +15,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 namespace {
 
@@ -63,9 +62,9 @@ double ComputeStandardDeviation(const std::vector<double>& values) {
  * @param[out] summary 簇摘要。
  */
 void PopulateClusterSpectralSummary(const std::vector<std::size_t>& cluster_indices,
-                                    const std::vector<internal::RawObservationRecord>& records,
+                                    const std::vector<RawObservationRecord>& records,
                                     const extension::InterceptSpectralAnalysisConfig& spectral_config,
-                                    internal::ClusterSummary* summary) {
+                                    ClusterSummary* summary) {
   if (summary == nullptr || !spectral_config.enable) {
     return;
   }
@@ -152,13 +151,13 @@ void PopulateClusterSpectralSummary(const std::vector<std::size_t>& cluster_indi
  * @param[in] spectral_config 频谱分析配置。
  * @return 簇摘要。
  */
-internal::ClusterSummary BuildClusterSummary(
+ClusterSummary BuildClusterSummary(
     const std::vector<std::size_t>& cluster_indices,
-    const std::vector<internal::RawObservationRecord>& records,
-    const std::vector<internal::ObservationFeatureVector>& features,
+    const std::vector<RawObservationRecord>& records,
+    const std::vector<ObservationFeatureVector>& features,
     const extension::InterceptDeceptionModelConfig& deception_config,
     const extension::InterceptSpectralAnalysisConfig& spectral_config) {
-  internal::ClusterSummary summary;
+  ClusterSummary summary;
   if (cluster_indices.empty()) {
     return summary;
   }
@@ -179,7 +178,7 @@ internal::ClusterSummary BuildClusterSummary(
 
   for (std::size_t i = 0; i < cluster_indices.size(); ++i) {
     const std::size_t index = cluster_indices[i];
-    for (std::size_t dim = 0; dim < internal::kObservationFeatureDimension; ++dim) {
+    for (std::size_t dim = 0; dim < kObservationFeatureDimension; ++dim) {
       summary.centroid_feature.values[dim] += features[index].values[dim];
     }
     mean_snr_db += records[index].observation.snr_db;
@@ -207,7 +206,7 @@ internal::ClusterSummary BuildClusterSummary(
   }
 
   const float inv_count = 1.0f / static_cast<float>(cluster_indices.size());
-  for (std::size_t dim = 0; dim < internal::kObservationFeatureDimension; ++dim) {
+  for (std::size_t dim = 0; dim < kObservationFeatureDimension; ++dim) {
     summary.centroid_feature.values[dim] *= inv_count;
   }
   const double inv_count_d = static_cast<double>(inv_count);
@@ -322,6 +321,5 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
   return result;
 }
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar

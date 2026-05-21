@@ -18,14 +18,13 @@
 
 namespace electro_optical_sensor {
 namespace session {
-namespace internal {
 
 namespace {
 
 EosSessionComposition BuildInitialCompositionRuntime(const EosSessionConfig& config,
                                                      EosSessionComposition composition) {
   composition.runtime_config = config;
-  composition.pipeline_config = runtime::session::internal::BuildEosPipelineConfig(config);
+  composition.pipeline_config = runtime::session::BuildEosPipelineConfig(config);
   composition.initial_reset_scan_phase = true;
   return composition;
 }
@@ -103,7 +102,7 @@ EosSessionComposition ComposeWithExternalPipeline(extension::IEosPipeline& pipel
 EosSessionComposition EosSessionCompositionRoot::ComposeDefault(const EosSessionConfig& config) {
   return ComposeWithOwnedPipeline(
       std::unique_ptr<extension::IEosPipeline>(
-          new signal::pipeline::EosPipeline(runtime::session::internal::BuildEosPipelineConfig(
+          new signal::pipeline::EosPipeline(runtime::session::BuildEosPipelineConfig(
               config))),
       config);
 }
@@ -119,7 +118,7 @@ EosSessionComposition EosSessionCompositionRoot::ComposeWithEnvironmentService(
     environment::IEosEnvironmentService& environment_service) {
   return ComposeWithOwnedPipeline(
       std::unique_ptr<extension::IEosPipeline>(new signal::pipeline::EosPipeline(
-          runtime::session::internal::BuildEosPipelineConfig(config),
+          runtime::session::BuildEosPipelineConfig(config),
           MakeNonOwningEnvironmentServiceHandle(environment_service))),
       config);
 }
@@ -136,6 +135,5 @@ EosSessionComposition EosSessionCompositionRoot::ComposeWithController(
   return FinalizeComposition(std::move(composition));
 }
 
-}  // namespace internal
 }  // namespace session
 }  // namespace electro_optical_sensor

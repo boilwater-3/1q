@@ -13,7 +13,6 @@
 
 namespace electronic_surveillance_radar {
 namespace session {
-namespace internal {
 
 /**
  * @brief EsrSessionComposition 描述会话装配后的组件集合。
@@ -54,7 +53,6 @@ class EsrSessionCompositionRoot {
       extension::EsrController& controller);
 };
 
-}  // namespace internal
 }  // namespace session
 
 }  // namespace electronic_surveillance_radar

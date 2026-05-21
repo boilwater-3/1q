@@ -9,7 +9,6 @@
 
 namespace airborne_radar {
 namespace session {
-namespace internal {
 
 struct RadarSessionComposition {
   config::RadarHardwareConfig runtime_hardware{};
@@ -54,7 +53,6 @@ class RadarSessionCompositionRoot {
       const RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy);
 };
 
-}  // namespace internal
 }  // namespace session
 }  // namespace airborne_radar
 

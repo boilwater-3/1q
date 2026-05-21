@@ -20,7 +20,6 @@
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
-namespace internal {
 
 /**
  * @brief InterceptDetectionOutput 描述检测阶段输出。
@@ -52,7 +51,6 @@ class InterceptDetectionExecutor {
                                    std::uint64_t& next_observation_id);
 };
 
-}  // namespace internal
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar
 

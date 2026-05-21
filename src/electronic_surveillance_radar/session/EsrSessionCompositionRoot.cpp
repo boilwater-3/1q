@@ -9,7 +9,6 @@
 
 namespace electronic_surveillance_radar {
 namespace session {
-namespace internal {
 
 namespace {
 
@@ -106,7 +105,6 @@ EsrSessionComposition EsrSessionCompositionRoot::ComposeAllExternal(
   return composition;
 }
 
-}  // namespace internal
 }  // namespace session
 
 }  // namespace electronic_surveillance_radar

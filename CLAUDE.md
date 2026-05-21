@@ -75,7 +75,7 @@ root config files/
 - Use stress preset only for stress runs: `llvm-ninja-release-local-stress`.
 - Use log prefix: `/tmp/1q`.
 - Run configure, build, and test serially for the same preset.
-- Do not start ctest before that preset build completes.
+- Never start ctest before that preset build completes.
 - Parallel work is allowed only across different presets.
 
 ```bash
@@ -97,14 +97,14 @@ ctest --preset "$preset" --output-on-failure
 - 
 
 ## Constraints
-- Do not introduce C++ exceptions.
-- Do not introduce project-specific identifiers or prefixes in `cmake/`.
-- Do not reformat existing code that was not touched by the current change.
+- Never introduce C++ exceptions.
+- Never introduce project-specific identifiers or prefixes in `cmake/`.
+- Never reformat existing code that was not touched by the current change.
 
 ## Batch Refactoring Safety
 
-- **Incremental validation: 3-5 files → build → test → commit.** Never batch 15+ files without intermediate builds.
-- **Verify C++11 compat** before any rename that changes call-site syntax (e.g., no template variables, no `auto` return types).
+- Never run terminal commands (e.g., `sed`, `awk`, scripts) or perform automated bulk edits without importantly verifying the exact command on 1-2 files first.
+- Never modify more than 5 files concurrently without intermediate build and test validation to prevent mass codebase corruption and cascading repair cycles.
 
 ## Done Means
 - The chosen preset builds successfully.
