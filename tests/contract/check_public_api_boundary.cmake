@@ -137,6 +137,7 @@ set(EOS_SESSION_HEADERS
     "electro_optical_sensor/session/EosSession.h"
     "electro_optical_sensor/session/EosSessionFactory.h"
     "electro_optical_sensor/session/EosTraceSession.h"
+    "electro_optical_sensor/session/EosReplaySession.h"
 )
 
 # ── ESR 公开头 ──────────────────────────────────────────────────────
@@ -197,6 +198,7 @@ set(ESR_SESSION_HEADERS
     "electronic_surveillance_radar/session/EsrSession.h"
     "electronic_surveillance_radar/session/EsrSessionFactory.h"
     "electronic_surveillance_radar/session/EsrTraceSession.h"
+    "electronic_surveillance_radar/session/EsrReplaySession.h"
 )
 
 # ── 坐标工具 ─────────────────────────────────────────────────────────

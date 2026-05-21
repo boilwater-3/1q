@@ -127,7 +127,9 @@ set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_trace_session_adapter_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/eos_replay_codec_roundtrip_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/eos_replay_session_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/esr_replay_codec_roundtrip_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/esr_replay_session_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_compression_test.cpp
 )
 add_1q_gtest(${PROJECT_NAME}_replay_fast_tests replay_fast 90 ${REPLAY_FAST_TEST_SOURCES})

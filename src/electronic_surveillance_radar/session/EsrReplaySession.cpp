@@ -1,0 +1,320 @@
+#include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
+#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
+#include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
+
+namespace electronic_surveillance_radar {
+namespace session {
+namespace {
+
+struct EsrReplayState {
+  std::unique_ptr<EsrSession> session{};
+  EsrCycleInput pending_input{};
+  bool has_pending_input{false};
+  EsrCycleResult latest_result{};
+  bool reached_failure_marker{false};
+  std::string failure_marker_payload{};
+  oneq::replay::ReplayTraceFailure failure_marker_data{};
+};
+
+bool EmitterObservationEqual(const model::EmitterObservation& left,
+                             const model::EmitterObservation& right) {
+  return left.observation_id == right.observation_id && left.timestamp_s == right.timestamp_s &&
+         left.aoa_az_deg == right.aoa_az_deg && left.aoa_el_deg == right.aoa_el_deg &&
+         left.rf_hz == right.rf_hz && left.pulse_width_s == right.pulse_width_s &&
+         left.amplitude_db == right.amplitude_db && left.snr_db == right.snr_db &&
+         left.quality == right.quality && left.is_jammed == right.is_jammed;
+}
+
+bool EmitterHypothesisEqual(const model::EmitterHypothesis& left,
+                            const model::EmitterHypothesis& right) {
+  if (left.hypothesis_id != right.hypothesis_id || left.mode != right.mode ||
+      left.threat_level != right.threat_level || left.bearing_az_deg != right.bearing_az_deg ||
+      left.bearing_el_deg != right.bearing_el_deg || left.bearing_std_deg != right.bearing_std_deg ||
+      left.confidence != right.confidence || left.last_seen_cycle != right.last_seen_cycle ||
+      left.candidate_classes.size() != right.candidate_classes.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.candidate_classes.size(); ++i) {
+    if (left.candidate_classes[i] != right.candidate_classes[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool TruthAssociationRecordEqual(const extension::TruthAssociationRecord& left,
+                                 const extension::TruthAssociationRecord& right) {
+  return left.observation_id == right.observation_id &&
+         left.truth_emitter_id == right.truth_emitter_id && left.matched == right.matched &&
+         left.confidence == right.confidence;
+}
+
+bool ObservationOutputFrameEqual(const extension::ObservationOutputFrame& left,
+                                 const extension::ObservationOutputFrame& right) {
+  if (left.raw_observation_count != right.raw_observation_count ||
+      left.cluster_count != right.cluster_count ||
+      left.observations.size() != right.observations.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.observations.size(); ++i) {
+    if (!EmitterObservationEqual(left.observations[i], right.observations[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool EmitterOutputFrameEqual(const extension::EmitterOutputFrame& left,
+                             const extension::EmitterOutputFrame& right) {
+  if (left.hypotheses.size() != right.hypotheses.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.hypotheses.size(); ++i) {
+    if (!EmitterHypothesisEqual(left.hypotheses[i], right.hypotheses[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool TruthEvaluationFrameEqual(const extension::TruthEvaluationFrame& left,
+                               const extension::TruthEvaluationFrame& right) {
+  if (left.associations.size() != right.associations.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.associations.size(); ++i) {
+    if (!TruthAssociationRecordEqual(left.associations[i], right.associations[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool EsrOutputFrameEqual(const EsrOutputFrame& left, const EsrOutputFrame& right) {
+  return left.cycle_index == right.cycle_index && left.batch_id == right.batch_id &&
+         ObservationOutputFrameEqual(left.observation_output, right.observation_output) &&
+         EmitterOutputFrameEqual(left.emitter_output, right.emitter_output) &&
+         TruthEvaluationFrameEqual(left.truth_evaluation_output, right.truth_evaluation_output);
+}
+
+bool EsrValidationIssueEqual(const ValidationIssue& left, const ValidationIssue& right) {
+  return left.severity == right.severity && left.code == right.code &&
+         left.location.kind == right.location.kind &&
+         left.location.entity_index == right.location.entity_index && left.field == right.field &&
+         left.message == right.message;
+}
+
+bool EsrValidationIssueListEqual(const ValidationIssueList& left,
+                                 const ValidationIssueList& right) {
+  if (left.size() != right.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.size(); ++i) {
+    if (!EsrValidationIssueEqual(left[i], right[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool EsrCycleResultEqual(const EsrCycleResult& left, const EsrCycleResult& right) {
+  return left.input_cycle_index == right.input_cycle_index &&
+         EsrOutputFrameEqual(left.output_frame, right.output_frame) &&
+         EsrValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
+         left.has_validation_error == right.has_validation_error &&
+         left.executed_this_cycle == right.executed_this_cycle &&
+         left.reused_previous_output == right.reused_previous_output &&
+         left.abort_reason == right.abort_reason;
+}
+
+bool ExecutePendingCycle(EsrReplayState* state, std::string* error) {
+  if (!state->session) {
+    *error = "ESR replay cannot execute before session_config";
+    return false;
+  }
+  if (!state->has_pending_input) {
+    *error = "ESR replay cycle_output arrived before cycle_input";
+    return false;
+  }
+
+  EsrCycleResult result = state->session->StepWithResult(state->pending_input);
+  state->latest_result = result;
+  state->has_pending_input = false;
+  return true;
+}
+
+bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
+                     std::string* error) {
+  if (event.payload_type != "EsrSessionConfig") {
+    *error = "ESR replay expected EsrSessionConfig session_config";
+    return false;
+  }
+
+  EsrReplayState* state = static_cast<EsrReplayState*>(user_data);
+  EsrSessionConfig config;
+  if (!DecodeEsrSessionConfig(event.payload_bytes, &config)) {
+    *error = "ESR replay failed to decode session_config";
+    return false;
+  }
+  state->session.reset(new EsrSession(EsrSessionFactory::Create(config)));
+  return true;
+}
+
+bool OnCycleInput(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
+                  std::string* error) {
+  if (event.payload_type != "EsrCycleInput") {
+    *error = "ESR replay expected EsrCycleInput cycle_input";
+    return false;
+  }
+
+  EsrReplayState* state = static_cast<EsrReplayState*>(user_data);
+  if (!state->session) {
+    *error = "ESR replay received cycle_input before session_config";
+    return false;
+  }
+
+  if (state->has_pending_input) {
+    *error = "ESR replay received consecutive cycle_input without intervening cycle_output";
+    return false;
+  }
+
+  EsrCycleInput input;
+  if (!DecodeEsrCycleInput(event.payload_bytes, &input)) {
+    *error = "ESR replay failed to decode cycle_input";
+    return false;
+  }
+
+  state->pending_input = input;
+  state->has_pending_input = true;
+  return true;
+}
+
+bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
+                          std::string* error) {
+  if (event.payload_type != "EsrRuntimeConfigPatch") {
+    *error = "ESR replay expected EsrRuntimeConfigPatch runtime_config_patch";
+    return false;
+  }
+
+  EsrReplayState* state = static_cast<EsrReplayState*>(user_data);
+  if (!state->session) {
+    *error = "ESR replay received runtime_config_patch before session_config";
+    return false;
+  }
+
+  EsrRuntimeConfigPatch patch;
+  if (!DecodeEsrRuntimeConfigPatch(event.payload_bytes, &patch)) {
+    *error = "ESR replay failed to decode runtime_config_patch";
+    return false;
+  }
+  state->session->ApplyRuntimeConfig(patch);
+  return true;
+}
+
+bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
+                   std::string* actual_output, std::string* error) {
+  if (event.payload_type != "EsrCycleResult" && event.payload_type != "EsrOutputFrame") {
+    *error = "ESR replay does not support cycle_output payload type: " + event.payload_type;
+    return false;
+  }
+
+  EsrReplayState* state = static_cast<EsrReplayState*>(user_data);
+  if (!ExecutePendingCycle(state, error)) {
+    return false;
+  }
+
+  if (event.payload_type == "EsrCycleResult") {
+    EsrCycleResult expected_result;
+    if (!DecodeEsrCycleResult(event.payload_bytes, &expected_result)) {
+      *error = "ESR replay failed to decode EsrCycleResult";
+      return false;
+    }
+    if (!EsrCycleResultEqual(expected_result, state->latest_result)) {
+      *error = "ESR replay output divergence (EsrCycleResult)";
+      return false;
+    }
+    actual_output->clear();
+    return true;
+  }
+
+  if (event.payload_type == "EsrOutputFrame") {
+    EsrOutputFrame expected_frame;
+    if (!DecodeEsrOutputFrame(event.payload_bytes, &expected_frame)) {
+      *error = "ESR replay failed to decode EsrOutputFrame";
+      return false;
+    }
+    if (!EsrOutputFrameEqual(expected_frame, state->latest_result.output_frame)) {
+      *error = "ESR replay output divergence (EsrOutputFrame)";
+      return false;
+    }
+    actual_output->clear();
+    return true;
+  }
+
+  *error = "ESR replay does not support cycle_output payload type: " + event.payload_type;
+  return false;
+}
+
+bool OnFailureMarker(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
+                     std::string* /*error*/) {
+  EsrReplayState* state = static_cast<EsrReplayState*>(user_data);
+  state->reached_failure_marker = true;
+  state->failure_marker_payload = event.payload_bytes;
+  return true;
+}
+
+}  // namespace
+
+EsrReplaySessionResult ReplayEsrTrace(const std::string& trace_dir) {
+  EsrReplaySessionResult result;
+
+  oneq::replay::ReplayTraceCompatibilityExpectation expectation;
+  expectation.module = "electronic_surveillance_radar";
+  expectation.require_module_match = true;
+
+  result.report = oneq::replay::BuildReplayTraceReport(trace_dir, expectation);
+  if (!result.report.replay_ready) {
+    result.ok = false;
+    result.first_error = result.report.first_error;
+    return result;
+  }
+
+  EsrReplayState state;
+  oneq::replay::ReplayTracePlaybackCallbacks callbacks;
+  callbacks.user_data = &state;
+  callbacks.on_session_config = OnSessionConfig;
+  callbacks.on_cycle_input = OnCycleInput;
+  callbacks.on_runtime_config_patch = OnRuntimeConfigPatch;
+  callbacks.on_cycle_output = OnCycleOutput;
+  callbacks.on_failure_marker = OnFailureMarker;
+
+  oneq::replay::ReplayTracePlaybackOptions options;
+  options.require_output_callback = true;
+  options.stop_on_first_divergence = true;
+  options.stop_on_failure_marker = true;
+
+  result.playback = oneq::replay::PlaybackReplayTrace(trace_dir, callbacks, options);
+  result.ok = result.playback.ok;
+  if (result.ok && state.has_pending_input) {
+    result.ok = false;
+    result.playback.ok = false;
+    result.first_error = "ESR replay ended with pending cycle_input without cycle_output";
+    result.playback.first_error = result.first_error;
+  }
+  result.reached_failure_marker = state.reached_failure_marker;
+  result.failure_marker_payload = state.failure_marker_payload;
+  result.failure_marker_data = state.failure_marker_data;
+  if (!result.ok) {
+    result.first_error = result.playback.first_error;
+  }
+  return result;
+}
+
+}  // namespace session
+}  // namespace electronic_surveillance_radar

@@ -27,6 +27,7 @@ set(EOS_CORE_SOURCES
     electro_optical_sensor/session/EosSessionCompositionRoot.cpp
     electro_optical_sensor/session/EosSession.cpp
     electro_optical_sensor/session/EosTraceSession.cpp
+    electro_optical_sensor/session/EosReplaySession.cpp
     electro_optical_sensor/session/EosReplayFlatbufferCodec.cpp
 )
 
@@ -53,6 +54,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSessionFactory.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosTraceSession.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosReplaySession.h
     )
     set(PUBLIC_HEADERS_EOS_ENVIRONMENT
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/environment/EosEnvironmentConfig.h

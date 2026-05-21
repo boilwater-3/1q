@@ -26,6 +26,7 @@ set(ESR_CORE_SOURCES
     electronic_surveillance_radar/session/EsrRuntimeConfigResolver.cpp
     electronic_surveillance_radar/session/EsrSession.cpp
     electronic_surveillance_radar/session/EsrTraceSession.cpp
+    electronic_surveillance_radar/session/EsrReplaySession.cpp
     electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.cpp
 )
 
@@ -58,6 +59,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrSessionFactory.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrTraceSession.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrReplaySession.h
     )
     set(PUBLIC_HEADERS_ESR_ENVIRONMENT
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h
