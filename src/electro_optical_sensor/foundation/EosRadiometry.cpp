@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "common/numerics/ClampUtils.h"
+#include "common/numerics/Constants.h"
 #include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 
 namespace electro_optical_sensor {
@@ -13,8 +14,6 @@ namespace radiometry {
 namespace {
 
 constexpr float kPlanckConstant = 6.62607015e-34f;
-constexpr float kLightSpeed = 2.99792458e8f;
-constexpr float kBoltzmannConstant = 1.380649e-23f;
 
 float ComputeIlluminationScale(IlluminationCondition illumination) {
   if (illumination == IlluminationCondition::kNight) {
@@ -36,9 +35,9 @@ float ComputePlanckRadiance(float wavelength_um, float temperature_k) {
     return 0.0f;
   }
 
-  const float c1 = 2.0f * kPlanckConstant * kLightSpeed * kLightSpeed;
+  const float c1 = 2.0f * kPlanckConstant * oneq::internal::numerics::constants::kLightSpeed * oneq::internal::numerics::constants::kLightSpeed;
   const float exponent =
-      (kPlanckConstant * kLightSpeed) / (safe_wavelength_m * kBoltzmannConstant * safe_temperature_k);
+      (kPlanckConstant * oneq::internal::numerics::constants::kLightSpeed) / (safe_wavelength_m * oneq::internal::numerics::constants::kBoltzmann * safe_temperature_k);
   const float exp_value = std::exp(std::min(exponent, 80.0f));
   const float denominator = lambda5 * std::max(exp_value - 1.0f, 1.0e-12f);
   if (!std::isfinite(denominator) || denominator <= 0.0f) {

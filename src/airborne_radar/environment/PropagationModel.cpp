@@ -1,3 +1,4 @@
+#include "common/numerics/ClampUtils.h"
 #include "airborne_radar/environment/PropagationModel.h"
 
 #include <algorithm>
@@ -17,10 +18,6 @@ constexpr float kInternalAtmosphericAttenuationDb = 1.5f;
 constexpr float kInternalTerrainReflectionDb = 1.0f;
 constexpr float kInternalBaselineClutterPowerDb = 3.0f;
 constexpr float kRadToDeg = 57.2957795f;
-
-float ClampFloat(float value, float lower_bound, float upper_bound) {
-  return std::min(std::max(value, lower_bound), upper_bound);
-}
 
 float DbToLinear(float db_value) { return std::pow(10.0f, db_value / 10.0f); }
 
@@ -92,7 +89,7 @@ float ResolveVegetationIncidenceDeg(const VegetationPhysicsParameters& parameter
       std::atan2(std::max(parameters.canopy_height_m, 0.1f),
                  std::max(parameters.canopy_radius_m, 0.1f));
   const float incidence_deg = 8.0f + canopy_slope_rad * kRadToDeg * 0.5f;
-  return ClampFloat(incidence_deg, 8.0f, 75.0f);
+  return oneq::internal::numerics::Clamp(incidence_deg, 8.0f, 75.0f);
 }
 
 float ResolveVegetationScatterDeg(const VegetationPhysicsParameters& parameters,
@@ -100,8 +97,8 @@ float ResolveVegetationScatterDeg(const VegetationPhysicsParameters& parameters,
   const float canopy_aspect_ratio = std::max(parameters.canopy_height_m, 0.1f) /
                                     std::max(parameters.canopy_radius_m, 0.1f);
   const float anisotropy = std::fabs(canopy_aspect_ratio - 1.0f);
-  const float scatter_deg = incidence_deg + 12.0f + 6.0f * ClampFloat(anisotropy, 0.0f, 2.0f);
-  return ClampFloat(scatter_deg, 15.0f, 85.0f);
+  const float scatter_deg = incidence_deg + 12.0f + 6.0f * oneq::internal::numerics::Clamp(anisotropy, 0.0f, 2.0f);
+  return oneq::internal::numerics::Clamp(scatter_deg, 15.0f, 85.0f);
 }
 
 float ComputeVegetationClutterMultiplier(
@@ -144,7 +141,7 @@ float ComputeVegetationClutterMultiplier(
       std::log1p(static_cast<float>(scatterer_config.leaf_count)) * (1.0f + normalized_extent);
 
   const float unclamped_multiplier = 1.0f + 0.05f * phase_energy * density_term;
-  return ClampFloat(unclamped_multiplier, 1.0f, 30.0f);
+  return oneq::internal::numerics::Clamp(unclamped_multiplier, 1.0f, 30.0f);
 }
 
 }  // namespace

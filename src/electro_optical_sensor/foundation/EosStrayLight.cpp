@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "common/numerics/ClampUtils.h"
+#include "common/numerics/Constants.h"
 #include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 
 namespace electro_optical_sensor {
@@ -12,12 +13,12 @@ namespace stray_light {
 
 namespace {
 
-float DegToRad(float angle_deg) { return angle_deg * constants::kPi / 180.0f; }
 
 float ComputeAngularSeparationDeg(float az0_deg, float el0_deg, float az1_deg, float el1_deg) {
-  const float el0_rad = DegToRad(el0_deg);
-  const float el1_rad = DegToRad(el1_deg);
-  const float delta_az_rad = DegToRad(oneq::internal::numerics::NormalizeAngle180(az0_deg - az1_deg));
+  const float el0_rad = oneq::internal::numerics::constants::DegToRad(el0_deg);
+  const float el1_rad = oneq::internal::numerics::constants::DegToRad(el1_deg);
+  const float delta_az_rad = oneq::internal::numerics::constants::DegToRad(
+      oneq::internal::numerics::NormalizeAngle180(az0_deg - az1_deg));
 
   float cosine_angle = std::sin(el0_rad) * std::sin(el1_rad) +
                        std::cos(el0_rad) * std::cos(el1_rad) * std::cos(delta_az_rad);

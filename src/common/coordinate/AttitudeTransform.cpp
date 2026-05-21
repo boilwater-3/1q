@@ -2,38 +2,36 @@
 
 #include <algorithm>
 #include <cmath>
+#include "common/validation/ValidationUtils.h"
+#include "common/numerics/Constants.h"
 
 namespace oneq {
 namespace coordinate {
 
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
 constexpr double kNormFloor = 1.0e-9;
 
-bool IsFiniteScalar(double value) { return std::isfinite(value) != 0; }
-double DegToRad(double deg) { return deg * kPi / 180.0; }
-double RadToDeg(double rad) { return rad * 180.0 / kPi; }
 
 }  // namespace
 
 bool IsFinite(const EulerAnglesDeg& attitude) {
-  return IsFiniteScalar(attitude.yaw_deg) && IsFiniteScalar(attitude.pitch_deg) &&
-         IsFiniteScalar(attitude.roll_deg);
+  return oneq::internal::validation::IsFinite(attitude.yaw_deg) && oneq::internal::validation::IsFinite(attitude.pitch_deg) &&
+         oneq::internal::validation::IsFinite(attitude.roll_deg);
 }
 
 bool IsFinite(const RotationMatrix3d& rotation) {
-  return IsFiniteScalar(rotation.m00) && IsFiniteScalar(rotation.m01) &&
-         IsFiniteScalar(rotation.m02) && IsFiniteScalar(rotation.m10) &&
-         IsFiniteScalar(rotation.m11) && IsFiniteScalar(rotation.m12) &&
-         IsFiniteScalar(rotation.m20) && IsFiniteScalar(rotation.m21) &&
-         IsFiniteScalar(rotation.m22);
+  return oneq::internal::validation::IsFinite(rotation.m00) && oneq::internal::validation::IsFinite(rotation.m01) &&
+         oneq::internal::validation::IsFinite(rotation.m02) && oneq::internal::validation::IsFinite(rotation.m10) &&
+         oneq::internal::validation::IsFinite(rotation.m11) && oneq::internal::validation::IsFinite(rotation.m12) &&
+         oneq::internal::validation::IsFinite(rotation.m20) && oneq::internal::validation::IsFinite(rotation.m21) &&
+         oneq::internal::validation::IsFinite(rotation.m22);
 }
 
 RotationMatrix3d BuildRotationMatrix(const EulerAnglesDeg& attitude_deg) {
-  const double yaw_rad = DegToRad(attitude_deg.yaw_deg);
-  const double pitch_rad = DegToRad(-attitude_deg.pitch_deg);
-  const double roll_rad = DegToRad(attitude_deg.roll_deg);
+  const double yaw_rad = oneq::internal::numerics::constants::DegToRad(attitude_deg.yaw_deg);
+  const double pitch_rad = oneq::internal::numerics::constants::DegToRad(-attitude_deg.pitch_deg);
+  const double roll_rad = oneq::internal::numerics::constants::DegToRad(attitude_deg.roll_deg);
 
   const double cy = std::cos(yaw_rad);
   const double sy = std::sin(yaw_rad);
@@ -71,9 +69,9 @@ EulerAnglesDeg ToEulerAnglesDeg(const RotationMatrix3d& rotation) {
   }
 
   EulerAnglesDeg attitude;
-  attitude.yaw_deg = RadToDeg(yaw_rad);
-  attitude.pitch_deg = -RadToDeg(pitch_rad_internal);
-  attitude.roll_deg = RadToDeg(roll_rad);
+  attitude.yaw_deg = oneq::internal::numerics::constants::RadToDeg(yaw_rad);
+  attitude.pitch_deg = -oneq::internal::numerics::constants::RadToDeg(pitch_rad_internal);
+  attitude.roll_deg = oneq::internal::numerics::constants::RadToDeg(roll_rad);
   return attitude;
 }
 

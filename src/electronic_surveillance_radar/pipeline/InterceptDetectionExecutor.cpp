@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "common/geometry/GeometryTransform.h"
+#include "common/numerics/Constants.h"
 #include "common/numerics/SpectralNumerics.h"
 #include "common/timing/TimingRegimeModel.h"
 #include "electronic_surveillance_radar/utils/EsrSharedUtils.h"
@@ -29,12 +30,10 @@ namespace {
  * @brief 电磁传播计算中使用的圆周率常量。
  * @note 代码行为依据：接收功率计算使用自由空间路径损耗模型中的 `4πR/λ` 项。
  */
-constexpr double kPi = 3.14159265358979323846;
 /**
  * @brief 以米每秒表示的光速常量。
  * @note 代码行为依据：波长通过 `λ = c/f` 计算，用于路径损耗估计。
  */
-constexpr double kLightSpeedMps = 299792458.0;
 /**
  * @brief 数值稳定保护下限。
  * @note 代码行为依据：用于避免除零、`log10(0)` 与非正噪声功率。
@@ -245,8 +244,8 @@ double ComputeReceivedPowerW(double tx_power_w, double carrier_hz, float range_m
     return 0.0;
   }
   const double safe_range = std::max(static_cast<double>(range_m), 1.0);
-  const double wavelength = kLightSpeedMps / carrier_hz;
-  const double fspl_linear = std::pow((4.0 * kPi * safe_range) / wavelength, 2.0);
+  const double wavelength = static_cast<double>(oneq::internal::numerics::constants::kLightSpeed) / carrier_hz;
+  const double fspl_linear = std::pow((4.0 * static_cast<double>(oneq::internal::numerics::constants::kPi) * safe_range) / wavelength, 2.0);
   const double propagation_loss_linear =
       std::pow(10.0, static_cast<double>(std::max(0.0f, propagation_loss_db)) / 10.0);
   return tx_power_w / (fspl_linear * propagation_loss_linear);

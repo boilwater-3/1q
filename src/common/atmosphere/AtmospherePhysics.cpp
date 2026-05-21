@@ -3,22 +3,20 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/numerics/ClampUtils.h"
+#include "common/numerics/Constants.h"
+
 namespace oneq {
 namespace internal {
 namespace atmosphere {
 
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
 constexpr double kMinKelvin = 150.0;
 constexpr double kSeaLevelPressureHpa = 1013.25;
 constexpr double kSeaLevelDensity = 1.225;
 constexpr double kPressureScaleHeightM = 8434.5;
 constexpr double kRefractivityScaleHeightM = 7350.0;
-
-double Clamp(double value, double minimum, double maximum) {
-  return std::max(minimum, std::min(maximum, value));
-}
 
 double EstimatePressureFromAltitudeHpa(double altitude_m) {
   const double safe_altitude_m = std::max(0.0, altitude_m);
@@ -62,11 +60,11 @@ float refractivity_index_n_r4(float tc_celsius, float tk_kelvin, float pd_hpa, f
 double refractivity_index_n_r8(double tc_celsius, double tk_kelvin, double pd_hpa, double p_hpa,
                                double h_rel, int water_or_ice) {
   const double safe_tk = std::max(tk_kelvin, kMinKelvin);
-  const double safe_rh = Clamp(h_rel, 0.0, 1.0);
+  const double safe_rh = oneq::internal::numerics::Clamp(h_rel, 0.0, 1.0);
   const double safe_pressure_hpa = std::max(p_hpa, 0.0);
   const double saturation_vapor_hpa =
       6.112 * std::exp((17.67 * tc_celsius) / std::max(tc_celsius + 243.5, 1.0));
-  const double vapor_pressure_hpa = Clamp(safe_rh * saturation_vapor_hpa, 0.0, safe_pressure_hpa);
+  const double vapor_pressure_hpa = oneq::internal::numerics::Clamp(safe_rh * saturation_vapor_hpa, 0.0, safe_pressure_hpa);
   const double safe_dry_pressure_hpa = std::max(pd_hpa, safe_pressure_hpa - vapor_pressure_hpa);
 
   const double dry_refractivity = 77.6 * safe_dry_pressure_hpa / safe_tk;
@@ -95,10 +93,10 @@ Gtd7Profile GTD7(int day_of_year, double sec, double alt_m, double glat_deg, dou
 
   const double safe_alt_m = std::max(0.0, alt_m);
   const int wrapped_day = std::max(1, std::min(366, day_of_year));
-  const double seasonal_phase = (2.0 * kPi * static_cast<double>(wrapped_day)) / 365.0;
+  const double seasonal_phase = (2.0 * oneq::internal::numerics::constants::kPi * static_cast<double>(wrapped_day)) / 365.0;
   const double seasonal_factor = 1.0 + 0.03 * std::cos(seasonal_phase);
-  const double solar_factor = Clamp((f107a + f107) / 300.0, 0.6, 1.6);
-  const double geomagnetic_factor = 1.0 + Clamp(ap, 0.0, 400.0) * 1.0e-3;
+  const double solar_factor = oneq::internal::numerics::Clamp((f107a + f107) / 300.0, 0.6, 1.6);
+  const double geomagnetic_factor = 1.0 + oneq::internal::numerics::Clamp(ap, 0.0, 400.0) * 1.0e-3;
 
   double base_temperature_k = 216.65;
   if (safe_alt_m < 11000.0) {
@@ -137,7 +135,7 @@ AtmosphericPropagationResult EvaluateAtmosphericPropagation(
                                   ? static_cast<double>(inputs.pressure_hpa)
                                   : EstimatePressureFromAltitudeHpa(mid_altitude_m);
   const double dry_pressure_hpa =
-      pressure_hpa * (1.0 - 0.15 * Clamp(inputs.relative_humidity, 0.0f, 1.0f));
+      pressure_hpa * (1.0 - 0.15 * oneq::internal::numerics::Clamp(inputs.relative_humidity, 0.0f, 1.0f));
   const double temperature_k = inputs.temperature_k > 0.0f
                                    ? static_cast<double>(inputs.temperature_k)
                                    : profile.temperature_k;
@@ -155,7 +153,7 @@ AtmosphericPropagationResult EvaluateAtmosphericPropagation(
                                static_cast<float>(kRefractivityScaleHeightM));
   const double refractivity_gradient_db =
       std::max(0.0, (n_index - static_cast<double>(n_index_h)) * 1.0e6 * 1.0e-3);
-  const double density_factor = Clamp(profile.density_kg_m3 / kSeaLevelDensity, 0.05, 4.0);
+  const double density_factor = oneq::internal::numerics::Clamp(profile.density_kg_m3 / kSeaLevelDensity, 0.05, 4.0);
   const double total_loss_db =
       std::max(0.0, blake_loss_db * (0.85 + 0.15 * density_factor) + refractivity_gradient_db);
 

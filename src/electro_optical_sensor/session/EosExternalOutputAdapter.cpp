@@ -4,6 +4,7 @@
 
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
+#include "common/numerics/Constants.h"
 #include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 
 namespace electro_optical_sensor {
@@ -11,16 +12,14 @@ namespace session {
 
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
 
 bool IsFinite(float value) { return std::isfinite(value) != 0; }
-double DegToRad(double deg) { return deg * kPi / 180.0; }
 
 oneq::coordinate::Vector3d ToPlatformFrameVector(float range_m, float azimuth_deg,
                                                  float elevation_deg) {
   const double range = static_cast<double>(range_m);
-  const double az_rad = DegToRad(static_cast<double>(azimuth_deg));
-  const double el_rad = DegToRad(static_cast<double>(elevation_deg));
+  const double az_rad = oneq::internal::numerics::constants::DegToRad(static_cast<double>(azimuth_deg));
+  const double el_rad = oneq::internal::numerics::constants::DegToRad(static_cast<double>(elevation_deg));
   const double horizontal = range * std::cos(el_rad);
   oneq::coordinate::Vector3d vector;
   vector.x = horizontal * std::cos(az_rad);

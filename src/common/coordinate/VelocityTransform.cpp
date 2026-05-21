@@ -1,6 +1,8 @@
 #include "1q/coordinate/velocity_transform.h"
 
 #include <cmath>
+#include "common/validation/ValidationUtils.h"
+#include "common/numerics/Constants.h"
 
 #include "1q/coordinate/position_transform.h"
 
@@ -9,31 +11,28 @@ namespace coordinate {
 
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
 
-bool IsFiniteScalar(double value) { return std::isfinite(value) != 0; }
-double DegToRad(double deg) { return deg * kPi / 180.0; }
 
 }  // namespace
 
 bool IsFinite(const EcefVelocityMps& velocity) {
-  return IsFiniteScalar(velocity.x_mps) && IsFiniteScalar(velocity.y_mps) &&
-         IsFiniteScalar(velocity.z_mps);
+  return oneq::internal::validation::IsFinite(velocity.x_mps) && oneq::internal::validation::IsFinite(velocity.y_mps) &&
+         oneq::internal::validation::IsFinite(velocity.z_mps);
 }
 
 bool IsFinite(const EnuVelocityMps& velocity) {
-  return IsFiniteScalar(velocity.east_mps) && IsFiniteScalar(velocity.north_mps) &&
-         IsFiniteScalar(velocity.up_mps);
+  return oneq::internal::validation::IsFinite(velocity.east_mps) && oneq::internal::validation::IsFinite(velocity.north_mps) &&
+         oneq::internal::validation::IsFinite(velocity.up_mps);
 }
 
 bool IsFinite(const NedVelocityMps& velocity) {
-  return IsFiniteScalar(velocity.north_mps) && IsFiniteScalar(velocity.east_mps) &&
-         IsFiniteScalar(velocity.down_mps);
+  return oneq::internal::validation::IsFinite(velocity.north_mps) && oneq::internal::validation::IsFinite(velocity.east_mps) &&
+         oneq::internal::validation::IsFinite(velocity.down_mps);
 }
 
 bool IsFinite(const NueVelocityMps& velocity) {
-  return IsFiniteScalar(velocity.north_mps) && IsFiniteScalar(velocity.up_mps) &&
-         IsFiniteScalar(velocity.east_mps);
+  return oneq::internal::validation::IsFinite(velocity.north_mps) && oneq::internal::validation::IsFinite(velocity.up_mps) &&
+         oneq::internal::validation::IsFinite(velocity.east_mps);
 }
 
 bool TryEcefToEnuVelocity(const EcefVelocityMps& ecef_velocity,
@@ -43,8 +42,8 @@ bool TryEcefToEnuVelocity(const EcefVelocityMps& ecef_velocity,
     return false;
   }
 
-  const double lat_rad = DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = DegToRad(origin_lla.longitude_deg);
+  const double lat_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.longitude_deg);
   const double sin_lat = std::sin(lat_rad);
   const double cos_lat = std::cos(lat_rad);
   const double sin_lon = std::sin(lon_rad);
@@ -143,8 +142,8 @@ bool TryEnuToEcefVelocity(const EnuVelocityMps& enu_velocity,
     return false;
   }
 
-  const double lat_rad = DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = DegToRad(origin_lla.longitude_deg);
+  const double lat_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.longitude_deg);
   const double sin_lat = std::sin(lat_rad);
   const double cos_lat = std::cos(lat_rad);
   const double sin_lon = std::sin(lon_rad);

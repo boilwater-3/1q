@@ -442,8 +442,8 @@ Eigen::Vector3f DataAssociationEngine::BuildPositionVector(
 }
 
 bool DataAssociationEngine::HasPositionMeasurement(const session::RadarSceneTarget& target) const {
-  (void)target;
-  return true;
+  return std::isfinite(target.position_x) && std::isfinite(target.position_y) &&
+         std::isfinite(target.position_z);
 }
 
 tracking::GaussianTrackState DataAssociationEngine::InitializeGaussianState(

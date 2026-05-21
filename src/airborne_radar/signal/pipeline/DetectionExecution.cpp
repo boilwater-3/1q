@@ -21,12 +21,6 @@ namespace pipeline {
 
 namespace {
 
-constexpr float kPi = 3.14159265358979f;
-constexpr float kLightSpeedMps = 3.0e8f;
-
-float ClampToRange(float value, float lower_bound, float upper_bound) {
-  return std::min(std::max(value, lower_bound), upper_bound);
-}
 
 float ResolveRcsPhysicsFrequencyHz(const ExecutionConfig& exec_config) {
   const float config_frequency_hz = exec_config.detection.engineering.rcs_physics.frequency_hz;
@@ -51,7 +45,7 @@ float ComputeEquivalentClutterNoiseW(
   const float kMinRelativeClutterDb = -120.0f;
   const float kMaxRelativeClutterDb = 120.0f;
   const float relative_clutter_db =
-      ClampToRange(clutter_power_db, kMinRelativeClutterDb, kMaxRelativeClutterDb);
+      oneq::internal::numerics::Clamp(clutter_power_db, kMinRelativeClutterDb, kMaxRelativeClutterDb);
   return thermal_noise_w * std::pow(10.0f, relative_clutter_db / 10.0f);
 }
 
@@ -87,8 +81,8 @@ float ComputeEquivalentRadiusM(float input_rcs_m2,
   const float min_radius_m = std::max(rcs_config.min_equivalent_radius_m, 1.0e-3f);
   const float max_radius_m = std::max(rcs_config.max_equivalent_radius_m, min_radius_m);
   const float safe_input_rcs_m2 = std::max(input_rcs_m2, 0.0f);
-  const float equivalent_radius_m = std::sqrt(safe_input_rcs_m2 / kPi);
-  return ClampToRange(equivalent_radius_m, min_radius_m, max_radius_m);
+  const float equivalent_radius_m = std::sqrt(safe_input_rcs_m2 / static_cast<float>(oneq::internal::numerics::constants::kPi));
+  return oneq::internal::numerics::Clamp(equivalent_radius_m, min_radius_m, max_radius_m);
 }
 
 float ComputeEffectiveTargetRcsM2(const session::RadarSceneTarget& target,
@@ -101,7 +95,7 @@ float ComputeEffectiveTargetRcsM2(const session::RadarSceneTarget& target,
     return input_rcs_m2;
   }
 
-  const float mix_ratio = ClampToRange(rcs_config.physics_mix_ratio, 0.0f, 1.0f);
+  const float mix_ratio = oneq::internal::numerics::Clamp(rcs_config.physics_mix_ratio, 0.0f, 1.0f);
   if (mix_ratio <= 0.0f) {
     return input_rcs_m2;
   }
@@ -111,7 +105,7 @@ float ComputeEffectiveTargetRcsM2(const session::RadarSceneTarget& target,
     return input_rcs_m2;
   }
 
-  const float wavenumber_k0 = 2.0f * kPi * frequency_hz / kLightSpeedMps;
+  const float wavenumber_k0 = 2.0f * static_cast<float>(oneq::internal::numerics::constants::kPi) * frequency_hz / static_cast<float>(oneq::internal::numerics::constants::kLightSpeed);
   if (wavenumber_k0 <= 0.0f) {
     return input_rcs_m2;
   }
@@ -123,9 +117,9 @@ float ComputeEffectiveTargetRcsM2(const session::RadarSceneTarget& target,
   const float elevation_deg = geometry.look_angles_deg.has_look_angles
                                   ? std::fabs(geometry.look_angles_deg.look_el_deg)
                                   : 0.0f;
-  const float psi_i_deg = ClampToRange(elevation_deg, 0.0f, 89.0f);
+  const float psi_i_deg = oneq::internal::numerics::Clamp(elevation_deg, 0.0f, 89.0f);
   const float psi_s_deg =
-      ClampToRange(psi_i_deg + std::fabs(rcs_config.bistatic_psi_offset_deg), 0.0f, 89.0f);
+      oneq::internal::numerics::Clamp(psi_i_deg + std::fabs(rcs_config.bistatic_psi_offset_deg), 0.0f, 89.0f);
 
   const float cylinder_rcs_m2 =
       oneq::internal::rcs::rcs_f419_xmm4r4(equivalent_radius_m, wavenumber_k0);
@@ -134,13 +128,13 @@ float ComputeEffectiveTargetRcsM2(const session::RadarSceneTarget& target,
   const float planar_rcs_m2 =
       oneq::internal::rcs::RCS_f743_v128b_ps(wavenumber_k0, equivalent_radius_m, elevation_deg);
 
-  const float cylinder_weight = ClampToRange(rcs_config.cylinder_weight, 0.0f, 1.0f);
+  const float cylinder_weight = oneq::internal::numerics::Clamp(rcs_config.cylinder_weight, 0.0f, 1.0f);
   const float physical_rcs_m2 = cylinder_weight * (0.5f * (cylinder_rcs_m2 + bistatic_rcs_m2)) +
                                 (1.0f - cylinder_weight) * planar_rcs_m2;
 
   const float min_rcs_m2 = std::max(rcs_config.min_rcs_m2, 0.0f);
   const float max_rcs_m2 = std::max(rcs_config.max_rcs_m2, min_rcs_m2);
-  const float clamped_physical_rcs_m2 = ClampToRange(physical_rcs_m2, min_rcs_m2, max_rcs_m2);
+  const float clamped_physical_rcs_m2 = oneq::internal::numerics::Clamp(physical_rcs_m2, min_rcs_m2, max_rcs_m2);
   return input_rcs_m2 * (1.0f - mix_ratio) + clamped_physical_rcs_m2 * mix_ratio;
 }
 

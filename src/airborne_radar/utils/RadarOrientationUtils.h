@@ -11,15 +11,14 @@
 
 #include "airborne_radar/utils/MathUtils.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "common/numerics/Constants.h"
 
 namespace airborne_radar {
 namespace utils {
 
 namespace internal {
 
-constexpr float kPi = 3.14159265358979f;
 
-inline float DegToRad(float angle_deg) { return angle_deg * kPi / 180.0f; }
 
 struct Matrix3f {
   float m[3][3]{};
@@ -41,10 +40,10 @@ inline Matrix3f Multiply(const Matrix3f& lhs, const Matrix3f& rhs) {
 }
 
 inline Matrix3f BuildRotationMatrix(const model::EulerAnglesDeg& euler_deg) {
-  const float yaw_rad = DegToRad(euler_deg.yaw_deg);
+  const float yaw_rad = oneq::internal::numerics::constants::DegToRad(euler_deg.yaw_deg);
   // Keep the same pitch sign convention as the internal geometry module.
-  const float pitch_rad = DegToRad(-euler_deg.pitch_deg);
-  const float roll_rad = DegToRad(euler_deg.roll_deg);
+  const float pitch_rad = oneq::internal::numerics::constants::DegToRad(-euler_deg.pitch_deg);
+  const float roll_rad = oneq::internal::numerics::constants::DegToRad(euler_deg.roll_deg);
 
   const float cy = std::cos(yaw_rad);
   const float sy = std::sin(yaw_rad);

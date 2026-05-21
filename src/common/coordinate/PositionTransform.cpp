@@ -1,13 +1,14 @@
 #include "1q/coordinate/position_transform.h"
 
 #include <cmath>
+#include "common/validation/ValidationUtils.h"
+#include "common/numerics/Constants.h"
 
 namespace oneq {
 namespace coordinate {
 
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
 constexpr double kWgs84SemiMajorAxisM = 6378137.0;
 constexpr double kWgs84Flattening = 1.0 / 298.257223563;
 constexpr double kWgs84SemiMinorAxisM = kWgs84SemiMajorAxisM * (1.0 - kWgs84Flattening);
@@ -18,15 +19,12 @@ constexpr double kWgs84SecondEccentricitySquared =
     (kWgs84SemiMinorAxisM * kWgs84SemiMinorAxisM);
 constexpr double kNormFloor = 1.0e-9;
 
-bool IsFiniteScalar(double value) { return std::isfinite(value) != 0; }
-double DegToRad(double deg) { return deg * kPi / 180.0; }
-double RadToDeg(double rad) { return rad * 180.0 / kPi; }
 
 }  // namespace
 
 bool IsValid(const LlaPositionDegM& lla) {
-  if (!IsFiniteScalar(lla.latitude_deg) || !IsFiniteScalar(lla.longitude_deg) ||
-      !IsFiniteScalar(lla.altitude_m)) {
+  if (!oneq::internal::validation::IsFinite(lla.latitude_deg) || !oneq::internal::validation::IsFinite(lla.longitude_deg) ||
+      !oneq::internal::validation::IsFinite(lla.altitude_m)) {
     return false;
   }
   if (lla.latitude_deg < -90.0 || lla.latitude_deg > 90.0) {
@@ -39,22 +37,22 @@ bool IsValid(const LlaPositionDegM& lla) {
 }
 
 bool IsFinite(const EcefPositionM& ecef) {
-  return IsFiniteScalar(ecef.x_m) && IsFiniteScalar(ecef.y_m) && IsFiniteScalar(ecef.z_m);
+  return oneq::internal::validation::IsFinite(ecef.x_m) && oneq::internal::validation::IsFinite(ecef.y_m) && oneq::internal::validation::IsFinite(ecef.z_m);
 }
 
 bool IsFinite(const EnuPositionM& enu) {
-  return IsFiniteScalar(enu.east_m) && IsFiniteScalar(enu.north_m) &&
-         IsFiniteScalar(enu.up_m);
+  return oneq::internal::validation::IsFinite(enu.east_m) && oneq::internal::validation::IsFinite(enu.north_m) &&
+         oneq::internal::validation::IsFinite(enu.up_m);
 }
 
 bool IsFinite(const NedPositionM& ned) {
-  return IsFiniteScalar(ned.north_m) && IsFiniteScalar(ned.east_m) &&
-         IsFiniteScalar(ned.down_m);
+  return oneq::internal::validation::IsFinite(ned.north_m) && oneq::internal::validation::IsFinite(ned.east_m) &&
+         oneq::internal::validation::IsFinite(ned.down_m);
 }
 
 bool IsFinite(const NuePositionM& nue) {
-  return IsFiniteScalar(nue.north_m) && IsFiniteScalar(nue.up_m) &&
-         IsFiniteScalar(nue.east_m);
+  return oneq::internal::validation::IsFinite(nue.north_m) && oneq::internal::validation::IsFinite(nue.up_m) &&
+         oneq::internal::validation::IsFinite(nue.east_m);
 }
 
 bool TryLlaToEcef(const LlaPositionDegM& lla, EcefPositionM* ecef) {
@@ -62,8 +60,8 @@ bool TryLlaToEcef(const LlaPositionDegM& lla, EcefPositionM* ecef) {
     return false;
   }
 
-  const double lat_rad = DegToRad(lla.latitude_deg);
-  const double lon_rad = DegToRad(lla.longitude_deg);
+  const double lat_rad = oneq::internal::numerics::constants::DegToRad(lla.latitude_deg);
+  const double lon_rad = oneq::internal::numerics::constants::DegToRad(lla.longitude_deg);
   const double sin_lat = std::sin(lat_rad);
   const double cos_lat = std::cos(lat_rad);
   const double sin_lon = std::sin(lon_rad);
@@ -114,8 +112,8 @@ bool TryEcefToLla(const EcefPositionM& ecef, LlaPositionDegM* lla) {
         ecef.z_m / sin_lat - prime_vertical_radius * (1.0 - kWgs84EccentricitySquared);
   }
 
-  lla->latitude_deg = RadToDeg(lat_rad);
-  lla->longitude_deg = RadToDeg(lon_rad);
+  lla->latitude_deg = oneq::internal::numerics::constants::RadToDeg(lat_rad);
+  lla->longitude_deg = oneq::internal::numerics::constants::RadToDeg(lon_rad);
   lla->altitude_m = alt_m;
   return IsValid(*lla);
 }
@@ -132,8 +130,8 @@ bool TryEcefToEnu(const EcefPositionM& ecef,
     return false;
   }
 
-  const double lat_rad = DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = DegToRad(origin_lla.longitude_deg);
+  const double lat_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.longitude_deg);
   const double sin_lat = std::sin(lat_rad);
   const double cos_lat = std::cos(lat_rad);
   const double sin_lon = std::sin(lon_rad);
@@ -278,8 +276,8 @@ bool TryEnuToEcef(const EnuPositionM& enu,
     return false;
   }
 
-  const double lat_rad = DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = DegToRad(origin_lla.longitude_deg);
+  const double lat_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.longitude_deg);
   const double sin_lat = std::sin(lat_rad);
   const double cos_lat = std::cos(lat_rad);
   const double sin_lon = std::sin(lon_rad);
@@ -302,8 +300,8 @@ bool TryEnuToEcefDirection(const Vector3d& enu_dir,
     return false;
   }
 
-  const double lat_rad = DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = DegToRad(origin_lla.longitude_deg);
+  const double lat_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.longitude_deg);
   const double sin_lat = std::sin(lat_rad);
   const double cos_lat = std::cos(lat_rad);
   const double sin_lon = std::sin(lon_rad);
@@ -322,8 +320,8 @@ bool TryEnuToEcefDirection(const Vector3d& enu_dir,
   ecef_dir->x /= norm;
   ecef_dir->y /= norm;
   ecef_dir->z /= norm;
-  return IsFiniteScalar(ecef_dir->x) && IsFiniteScalar(ecef_dir->y) &&
-         IsFiniteScalar(ecef_dir->z);
+  return oneq::internal::validation::IsFinite(ecef_dir->x) && oneq::internal::validation::IsFinite(ecef_dir->y) &&
+         oneq::internal::validation::IsFinite(ecef_dir->z);
 }
 
 }  // namespace coordinate

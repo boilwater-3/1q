@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "1q/coordinate/attitude_transform.h"
+#include "common/numerics/Constants.h"
 #include "1q/coordinate/position_transform.h"
 #include "common/validation/ValidationUtils.h"
 
@@ -11,9 +12,7 @@ namespace session {
 
 namespace {
 
-constexpr double kPi = 3.14159265358979323846;
 
-double DegToRad(double deg) { return deg * kPi / 180.0; }
 
 oneq::coordinate::EulerAnglesDeg ToCoordinateEuler(const EsrEulerAngleDeg& attitude_deg) {
   oneq::coordinate::EulerAnglesDeg output;
@@ -24,8 +23,8 @@ oneq::coordinate::EulerAnglesDeg ToCoordinateEuler(const EsrEulerAngleDeg& attit
 }
 
 oneq::coordinate::Vector3d BearingVectorFromAngles(double az_deg, double el_deg) {
-  const double az_rad = DegToRad(az_deg);
-  const double el_rad = DegToRad(el_deg);
+  const double az_rad = oneq::internal::numerics::constants::DegToRad(az_deg);
+  const double el_rad = oneq::internal::numerics::constants::DegToRad(el_deg);
   const double horizontal = std::cos(el_rad);
   oneq::coordinate::Vector3d vector;
   vector.x = horizontal * std::cos(az_rad);

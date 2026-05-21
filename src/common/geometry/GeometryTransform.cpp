@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/numerics/ClampUtils.h"
+
 namespace oneq {
 namespace internal {
 namespace geometry {
@@ -39,17 +41,14 @@ float RadToDeg(float angle_rad) { return angle_rad * 180.0f / kPi; }
  * @param[in] maximum 上界。
  * @return 限幅后的结果。
  */
-float ClampFloat(float value, float minimum, float maximum) {
-  return std::max(minimum, std::min(maximum, value));
-}
 
 }  // namespace
 
 AzimuthElevationDeg ClampAzimuthElevation(const AzimuthElevationDeg& angle,
                                           const AzimuthElevationLimitsDeg& limits) {
   AzimuthElevationDeg clamped;
-  clamped.az_deg = ClampFloat(angle.az_deg, limits.az_min_deg, limits.az_max_deg);
-  clamped.el_deg = ClampFloat(angle.el_deg, limits.el_min_deg, limits.el_max_deg);
+  clamped.az_deg = oneq::internal::numerics::Clamp(angle.az_deg, limits.az_min_deg, limits.az_max_deg);
+  clamped.el_deg = oneq::internal::numerics::Clamp(angle.el_deg, limits.el_min_deg, limits.el_max_deg);
   return clamped;
 }
 
