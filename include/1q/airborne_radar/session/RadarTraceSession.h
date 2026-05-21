@@ -70,6 +70,7 @@ class ONEQ_API RadarTraceSession {
   RadarSession session_;
   std::shared_ptr<oneq::trace::TraceSink> sink_;
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer_;
+  bool pending_input_written_{false};
 };
 
 }  // namespace session

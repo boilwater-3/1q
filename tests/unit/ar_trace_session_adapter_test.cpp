@@ -493,6 +493,58 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionStepWritesResultFailureMarker) {
   EXPECT_TRUE(saw_failure_marker);
 }
 
+TEST(TraceSessionAdapterTest, RadarTraceSessionConsecutiveStepWithResultDoesNotEmitWarning) {
+  const std::string trace_dir = MakeTempTracePath("oneq-radar-consecutive-input");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "radar-consecutive-input-test";
+  manifest.module = "airborne_radar";
+  manifest.scenario_id = "unit-test";
+
+  std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+      new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+
+  session::RadarTraceSessionOptions options;
+  options.replay_writer = replay_writer;
+  options.trace_config_on_construct = true;
+  session::RadarTraceSession session(session::RadarSessionConfig(), options);
+
+  session::RadarCycleInput input1;
+  input1.cycle_index = 1U;
+  input1.dt_sec = 1.0f;
+  const session::RadarCycleResult result1 = session.StepWithResult(input1);
+  EXPECT_GE(result1.track_output_frame.tracks.size(), 0U);
+
+  session::RadarCycleInput input2;
+  input2.cycle_index = 2U;
+  input2.dt_sec = 1.0f;
+  const session::RadarCycleResult result2 = session.StepWithResult(input2);
+  EXPECT_GE(result2.track_output_frame.tracks.size(), 0U);
+
+  replay_writer->Flush();
+
+  oneq::replay::ReplayTraceReader replay_reader(trace_dir);
+  oneq::replay::ReplayTraceReadEvent replay_event;
+  std::uint32_t input_count = 0U;
+  std::uint32_t output_count = 0U;
+  std::uint32_t warning_count = 0U;
+  while (replay_reader.ReadNextEvent(&replay_event)) {
+    if (replay_event.event_type == "cycle_input") {
+      ++input_count;
+    }
+    if (replay_event.event_type == "cycle_output") {
+      ++output_count;
+    }
+    if (replay_event.event_type == "warning") {
+      ++warning_count;
+      EXPECT_EQ(replay_event.payload_type, "ConsecutiveCycleInputWarning");
+    }
+  }
+  EXPECT_EQ(input_count, 2U);
+  EXPECT_EQ(output_count, 2U);
+  EXPECT_EQ(warning_count, 0U);
+}
+
 TEST(TraceSessionAdapterTest, RadarReplaySessionRejectsTrailingCycleInput) {
   const std::string trace_dir = MakeTempTracePath("oneq-radar-trailing-input");
 

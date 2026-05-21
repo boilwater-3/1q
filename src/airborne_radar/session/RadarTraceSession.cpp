@@ -137,7 +137,16 @@ session::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) 
     sink_->Record("airborne_radar", "input", BuildRadarInputPayload(input));
   }
   if (replay_writer_) {
+    if (pending_input_written_) {
+      oneq::replay::ReplayTraceEvent warn_ev;
+      warn_ev.module = "airborne_radar";
+      warn_ev.event_type = "warning";
+      warn_ev.payload_type = "ConsecutiveCycleInputWarning";
+      warn_ev.payload_inline = "{\"message\":\"consecutive cycle_input without cycle_output\"}";
+      replay_writer_->WriteEvent(warn_ev);
+    }
     WriteCycleInputEvent(replay_writer_, input);
+    pending_input_written_ = true;
   }
   const RadarCycleResult result = session_.StepWithResult(input);
   if (sink_) {
@@ -146,6 +155,7 @@ session::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) 
   if (replay_writer_) {
     WriteCycleResultReplay(replay_writer_, result);
     MaybeWriteValidationFailureMarker(replay_writer_, result);
+    pending_input_written_ = false;
   }
   return result.track_output_frame;
 }
@@ -155,7 +165,16 @@ RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input)
     sink_->Record("airborne_radar", "input", BuildRadarInputPayload(input));
   }
   if (replay_writer_) {
+    if (pending_input_written_) {
+      oneq::replay::ReplayTraceEvent warn_ev;
+      warn_ev.module = "airborne_radar";
+      warn_ev.event_type = "warning";
+      warn_ev.payload_type = "ConsecutiveCycleInputWarning";
+      warn_ev.payload_inline = "{\"message\":\"consecutive cycle_input without cycle_output\"}";
+      replay_writer_->WriteEvent(warn_ev);
+    }
     WriteCycleInputEvent(replay_writer_, input);
+    pending_input_written_ = true;
   }
   const RadarCycleResult output = session_.StepWithResult(input);
   if (sink_) {
@@ -164,6 +183,7 @@ RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input)
   if (replay_writer_) {
     WriteCycleResultReplay(replay_writer_, output);
     MaybeWriteValidationFailureMarker(replay_writer_, output);
+    pending_input_written_ = false;
   }
   return output;
 }
