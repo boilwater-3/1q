@@ -2,7 +2,7 @@
   "hardware": {
     "wavelength_lower_um": 3.0,
     "wavelength_upper_um": 5.0,
-    "optical_aperture_m": 0.2,
+    "optical_aperture_m": 0.25,
     "focal_length_m": 0.8
   },
   "mission": {
@@ -20,7 +20,7 @@
     "detection": {
       "profile": "kAggressive",
       "use_profile_defaults": true,
-      "minimum_snr_db": 6.0,
+      "minimum_snr_db": 4.0,
       "detection_sensitivity_w": 1.0e-12,
       "visible_reference_irradiance_w_m2": 800.0
     },
