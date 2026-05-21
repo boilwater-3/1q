@@ -58,20 +58,12 @@ struct ONEQ_API EsrRuntimeConfigApplyResult {
  */
 class ONEQ_API EsrSession {
  public:
-  /** @brief 使用默认配置构造会话。 */
   EsrSession();
   ~EsrSession();
 
   EsrSession(const EsrSession&) = delete;
   EsrSession& operator=(const EsrSession&) = delete;
-
-  /**
-   * @brief 移动构造会话。
-   */
   EsrSession(EsrSession&&) noexcept;
-  /**
-   * @brief 移动赋值会话。
-   */
   EsrSession& operator=(EsrSession&&) noexcept;
 
   /**
