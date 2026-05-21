@@ -100,7 +100,52 @@ ctest --preset "$preset" --output-on-failure
 ## Constraints
 - Do not introduce C++ exceptions.
 - Do not introduce project-specific identifiers or prefixes in `cmake/`.
-- Do not reformat existing code that was not touched by the current change. 
+- Do not reformat existing code that was not touched by the current change.
+
+## Batch Refactoring Safety Rules
+
+These rules exist because of repeated failures during cross-file C++ refactoring (2026-05-21). perl/sed on C++ is fragile; the failures were systematic, not one-off.
+
+### 1. Incremental validation is mandatory
+
+```
+3-5 files → edit → cmake --build → ctest → commit → next batch
+```
+
+Never batch-edit 15+ files in one shot without intermediate builds. Every broken build spawns cascading fixes that themselves may break more things. The maximum safe batch size is the number of files you can hold in your head while reading compiler errors.
+
+### 2. Never use perl/sed `-ne 'next if /pattern/; print'` on C++ source
+
+This is the "delete matching lines" pattern. It will destroy function implementations whose signature happens to match a pattern intended only for declarations or calls. We lost an entire 160-line GeometryTransform.cpp this way. Use the Edit tool with exact old_string/new_string for deletions instead.
+
+### 3. Regex must distinguish function definitions from call sites
+
+A pattern like `s/ClampFloat\(/ns::Clamp\(/g` matches both:
+```cpp
+float ClampFloat(float v, float lo, float hi) {  // definition → becomes illegal C++
+result = ClampFloat(x, 0, 1);                     // call site → correct
+```
+When a function **definition** matches, it becomes a malformed qualified definition in the wrong namespace. For C++ refactoring, always handle definitions and call sites in separate steps with exact string matching.
+
+### 4. Replace strings must be syntactically valid
+
+A typo like `s/DegToRad\(/ns::DegToRad</g` (the `<` should be `(`) produced `DegToRad<value)` across 5 files. One character destroyed 5 translation units. In batch mode, this is invisible until the next build. Use the Edit tool's unique-string guarantee to catch mismatches early.
+
+### 5. Include insertion must match actual include structure
+
+Different files have different include patterns (`"local.h"`, `<system>`, `"common/..."`). A single perl pattern for adding includes will randomly miss files whose include structure doesn't match. Check each file's actual includes before editing, or use the Edit tool with surrounding context to guarantee placement.
+
+### 6. C++ language version constrains refactoring options
+
+This project is C++11. Template variables (`template<typename T> constexpr T kPi = ...`) require C++14. This forced `kPi<float>()` function-call syntax instead of `kPi<float>` variable syntax, making every call site change syntactically invasive. When planning a cross-file rename, verify the target syntax is valid in C++11 before starting.
+
+### Summary checklist before any batch edit across >3 files
+
+- [ ] Can this be done in batches of 3-5 with `cmake --build` between each?
+- [ ] Does the regex distinguish function definitions from call sites?
+- [ ] Is the replacement string free of typo-level errors?
+- [ ] Does every target file have the same include structure for include insertion?
+- [ ] Is the new syntax valid in C++11? 
 
 ## Done Means
 - The chosen preset builds successfully.
