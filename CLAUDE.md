@@ -1,4 +1,4 @@
-# AGENTS.md
+# 1Q Simulation Model Library
 
 ## Project Overview
 Simulation model library for external service modules such as airborne radar and electronic surveillance radar.
@@ -56,6 +56,7 @@ src/
 tests/                              unit and integration tests
 examples/                           usage examples
 tools/                              helper scripts
+|-- schemas/                        FlatBuffers schema definitions
 root config files/
 |-- .clang-format                   C/C++ formatting rules
 |-- .clang-tidy                     clang-tidy check configuration
@@ -92,7 +93,7 @@ ctest --preset "$preset" --output-on-failure
 - Prefer forward declarations to reduce includes and rebuild cost.
 - Use PIMPL for critical classes when hiding implementation reduces recompilation propagation.
 - Make interfaces easy to use correctly and hard to use incorrectly.
-- Log critical paths and events.e.g Use `spdlog::debug/info` for flow and `spdlog::error` for failures.
+- Log critical paths and events. e.g. Use `spdlog::debug/info` for flow and `spdlog::error` for failures.
 - For Chinese Doxygen work, explicitly use `$cpp-chinese-doxygen`.
 - 
 

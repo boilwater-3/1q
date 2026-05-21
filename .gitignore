@@ -26,6 +26,9 @@ doc/
 # Planning workspace (not tracked)
 plan/
 
+# Remember plugin workspace (not tracked)
+.remember/
+
 # project prompts
 .github/
 GEMINI.md
