@@ -94,8 +94,7 @@ ctest --preset "$preset" --output-on-failure
 - Make interfaces easy to use correctly and hard to use incorrectly.
 - Log critical paths and events.e.g Use `spdlog::debug/info` for flow and `spdlog::error` for failures.
 - For Chinese Doxygen work, explicitly use `$cpp-chinese-doxygen`.
-
-- Planning files live under `plan/<plan-name>/`, not tracked by git.
+- 
 
 ## Constraints
 - Do not introduce C++ exceptions.
@@ -106,6 +105,7 @@ ctest --preset "$preset" --output-on-failure
 
 - **Incremental validation: 3-5 files → build → test → commit.** Never batch 15+ files without intermediate builds.
 - **Verify C++11 compat** before any rename that changes call-site syntax (e.g., no template variables, no `auto` return types).
+
 ## Done Means
 - The chosen preset builds successfully.
 - Relevant tests pass for the chosen preset.

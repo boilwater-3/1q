@@ -60,8 +60,8 @@ bool TryLlaToEcef(const LlaPositionDegM& lla, EcefPositionM* ecef) {
     return false;
   }
 
-  const double lat_rad = oneq::internal::numerics::constants::DegToRad(lla.latitude_deg);
-  const double lon_rad = oneq::internal::numerics::constants::DegToRad(lla.longitude_deg);
+  const double lat_rad = oneq::internal::numerics::DegToRad(lla.latitude_deg);
+  const double lon_rad = oneq::internal::numerics::DegToRad(lla.longitude_deg);
   const double sin_lat = std::sin(lat_rad);
   const double cos_lat = std::cos(lat_rad);
   const double sin_lon = std::sin(lon_rad);
@@ -112,8 +112,8 @@ bool TryEcefToLla(const EcefPositionM& ecef, LlaPositionDegM* lla) {
         ecef.z_m / sin_lat - prime_vertical_radius * (1.0 - kWgs84EccentricitySquared);
   }
 
-  lla->latitude_deg = oneq::internal::numerics::constants::RadToDeg(lat_rad);
-  lla->longitude_deg = oneq::internal::numerics::constants::RadToDeg(lon_rad);
+  lla->latitude_deg = oneq::internal::numerics::RadToDeg(lat_rad);
+  lla->longitude_deg = oneq::internal::numerics::RadToDeg(lon_rad);
   lla->altitude_m = alt_m;
   return IsValid(*lla);
 }
@@ -130,8 +130,8 @@ bool TryEcefToEnu(const EcefPositionM& ecef,
     return false;
   }
 
-  const double lat_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.longitude_deg);
+  const double lat_rad = oneq::internal::numerics::DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = oneq::internal::numerics::DegToRad(origin_lla.longitude_deg);
   const double sin_lat = std::sin(lat_rad);
   const double cos_lat = std::cos(lat_rad);
   const double sin_lon = std::sin(lon_rad);
@@ -276,8 +276,8 @@ bool TryEnuToEcef(const EnuPositionM& enu,
     return false;
   }
 
-  const double lat_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.longitude_deg);
+  const double lat_rad = oneq::internal::numerics::DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = oneq::internal::numerics::DegToRad(origin_lla.longitude_deg);
   const double sin_lat = std::sin(lat_rad);
   const double cos_lat = std::cos(lat_rad);
   const double sin_lon = std::sin(lon_rad);
@@ -300,8 +300,8 @@ bool TryEnuToEcefDirection(const Vector3d& enu_dir,
     return false;
   }
 
-  const double lat_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.longitude_deg);
+  const double lat_rad = oneq::internal::numerics::DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = oneq::internal::numerics::DegToRad(origin_lla.longitude_deg);
   const double sin_lat = std::sin(lat_rad);
   const double cos_lat = std::cos(lat_rad);
   const double sin_lon = std::sin(lon_rad);

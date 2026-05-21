@@ -42,8 +42,8 @@ bool TryEcefToEnuVelocity(const EcefVelocityMps& ecef_velocity,
     return false;
   }
 
-  const double lat_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.longitude_deg);
+  const double lat_rad = oneq::internal::numerics::DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = oneq::internal::numerics::DegToRad(origin_lla.longitude_deg);
   const double sin_lat = std::sin(lat_rad);
   const double cos_lat = std::cos(lat_rad);
   const double sin_lon = std::sin(lon_rad);
@@ -142,8 +142,8 @@ bool TryEnuToEcefVelocity(const EnuVelocityMps& enu_velocity,
     return false;
   }
 
-  const double lat_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.latitude_deg);
-  const double lon_rad = oneq::internal::numerics::constants::DegToRad(origin_lla.longitude_deg);
+  const double lat_rad = oneq::internal::numerics::DegToRad(origin_lla.latitude_deg);
+  const double lon_rad = oneq::internal::numerics::DegToRad(origin_lla.longitude_deg);
   const double sin_lat = std::sin(lat_rad);
   const double cos_lat = std::cos(lat_rad);
   const double sin_lon = std::sin(lon_rad);

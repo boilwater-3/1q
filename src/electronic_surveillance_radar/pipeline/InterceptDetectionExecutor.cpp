@@ -244,8 +244,8 @@ double ComputeReceivedPowerW(double tx_power_w, double carrier_hz, float range_m
     return 0.0;
   }
   const double safe_range = std::max(static_cast<double>(range_m), 1.0);
-  const double wavelength = static_cast<double>(oneq::internal::numerics::constants::kLightSpeed) / carrier_hz;
-  const double fspl_linear = std::pow((4.0 * static_cast<double>(oneq::internal::numerics::constants::kPi) * safe_range) / wavelength, 2.0);
+  const double wavelength = static_cast<double>(oneq::internal::numerics::kLightSpeed) / carrier_hz;
+  const double fspl_linear = std::pow((4.0 * static_cast<double>(oneq::internal::numerics::kPi) * safe_range) / wavelength, 2.0);
   const double propagation_loss_linear =
       std::pow(10.0, static_cast<double>(std::max(0.0f, propagation_loss_db)) / 10.0);
   return tx_power_w / (fspl_linear * propagation_loss_linear);

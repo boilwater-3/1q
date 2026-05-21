@@ -1,8 +1,11 @@
+#include "common/validation/ValidationUtils.h"
 #include "1q/electro_optical_sensor/session/EosExternalOutputAdapter.h"
 
 #include <cmath>
 
+#include "common/validation/ValidationUtils.h"
 #include "1q/coordinate/attitude_transform.h"
+#include "common/validation/ValidationUtils.h"
 #include "1q/coordinate/position_transform.h"
 #include "common/numerics/Constants.h"
 #include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
@@ -13,13 +16,12 @@ namespace session {
 namespace {
 
 
-bool IsFinite(float value) { return std::isfinite(value) != 0; }
 
 oneq::coordinate::Vector3d ToPlatformFrameVector(float range_m, float azimuth_deg,
                                                  float elevation_deg) {
   const double range = static_cast<double>(range_m);
-  const double az_rad = oneq::internal::numerics::constants::DegToRad(static_cast<double>(azimuth_deg));
-  const double el_rad = oneq::internal::numerics::constants::DegToRad(static_cast<double>(elevation_deg));
+  const double az_rad = oneq::internal::numerics::DegToRad(static_cast<double>(azimuth_deg));
+  const double el_rad = oneq::internal::numerics::DegToRad(static_cast<double>(elevation_deg));
   const double horizontal = range * std::cos(el_rad);
   oneq::coordinate::Vector3d vector;
   vector.x = horizontal * std::cos(az_rad);
@@ -51,8 +53,8 @@ bool TryMakeExternalDetectionFromRecord(const output::EosDetectionRecord& detect
                                         const EosCoordinateReference& reference,
                                         const oneq::foundation::PoseState& platform_pose,
                                         EosExternalDetectionRecord* output) {
-  if (output == nullptr || !IsFinite(detection.range_m) || !IsFinite(detection.azimuth_deg) ||
-      !IsFinite(detection.elevation_deg) || detection.range_m <= 0.0f) {
+  if (output == nullptr || !oneq::internal::validation::IsFinite(detection.range_m) || !oneq::internal::validation::IsFinite(detection.azimuth_deg) ||
+      !oneq::internal::validation::IsFinite(detection.elevation_deg) || detection.range_m <= 0.0f) {
     return false;
   }
 

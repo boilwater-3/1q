@@ -35,9 +35,9 @@ float ComputePlanckRadiance(float wavelength_um, float temperature_k) {
     return 0.0f;
   }
 
-  const float c1 = 2.0f * kPlanckConstant * oneq::internal::numerics::constants::kLightSpeed * oneq::internal::numerics::constants::kLightSpeed;
+  const float c1 = 2.0f * kPlanckConstant * oneq::internal::numerics::kLightSpeed * oneq::internal::numerics::kLightSpeed;
   const float exponent =
-      (kPlanckConstant * oneq::internal::numerics::constants::kLightSpeed) / (safe_wavelength_m * oneq::internal::numerics::constants::kBoltzmann * safe_temperature_k);
+      (kPlanckConstant * oneq::internal::numerics::kLightSpeed) / (safe_wavelength_m * oneq::internal::numerics::kBoltzmann * safe_temperature_k);
   const float exp_value = std::exp(std::min(exponent, 80.0f));
   const float denominator = lambda5 * std::max(exp_value - 1.0f, 1.0e-12f);
   if (!std::isfinite(denominator) || denominator <= 0.0f) {

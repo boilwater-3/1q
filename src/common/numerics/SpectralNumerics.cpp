@@ -48,7 +48,7 @@ std::vector<std::complex<double>> ZFFT1D(const std::vector<std::complex<double>>
   for (std::size_t k = 0; k < n; ++k) {
     std::complex<double> accum(0.0, 0.0);
     for (std::size_t t = 0; t < n; ++t) {
-      const double angle = sign * 2.0 * oneq::internal::numerics::constants::kPi * static_cast<double>(k * t) / static_cast<double>(n);
+      const double angle = sign * 2.0 * oneq::internal::numerics::kPi * static_cast<double>(k * t) / static_cast<double>(n);
       const std::complex<double> kernel(std::cos(angle), std::sin(angle));
       accum += input[t] * kernel;
     }

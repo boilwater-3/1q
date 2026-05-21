@@ -93,7 +93,7 @@ Gtd7Profile GTD7(int day_of_year, double sec, double alt_m, double glat_deg, dou
 
   const double safe_alt_m = std::max(0.0, alt_m);
   const int wrapped_day = std::max(1, std::min(366, day_of_year));
-  const double seasonal_phase = (2.0 * oneq::internal::numerics::constants::kPi * static_cast<double>(wrapped_day)) / 365.0;
+  const double seasonal_phase = (2.0 * oneq::internal::numerics::kPi * static_cast<double>(wrapped_day)) / 365.0;
   const double seasonal_factor = 1.0 + 0.03 * std::cos(seasonal_phase);
   const double solar_factor = oneq::internal::numerics::Clamp((f107a + f107) / 300.0, 0.6, 1.6);
   const double geomagnetic_factor = 1.0 + oneq::internal::numerics::Clamp(ap, 0.0, 400.0) * 1.0e-3;

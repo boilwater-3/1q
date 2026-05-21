@@ -1,9 +1,13 @@
+#include "common/validation/ValidationUtils.h"
 #include "1q/airborne_radar/session/RadarExternalOutputAdapter.h"
 
 #include <cmath>
 
+#include "common/validation/ValidationUtils.h"
 #include "1q/coordinate/attitude_transform.h"
+#include "common/validation/ValidationUtils.h"
 #include "1q/coordinate/position_transform.h"
+#include "common/validation/ValidationUtils.h"
 #include "1q/coordinate/velocity_transform.h"
 
 namespace airborne_radar {
@@ -11,10 +15,9 @@ namespace session {
 
 namespace {
 
-bool IsFinite(float value) { return std::isfinite(value) != 0; }
 
 bool IsFiniteVector3f(const oneq::foundation::Vector3f& value) {
-  return IsFinite(value.x) && IsFinite(value.y) && IsFinite(value.z);
+  return oneq::internal::validation::IsFinite(value.x) && oneq::internal::validation::IsFinite(value.y) && oneq::internal::validation::IsFinite(value.z);
 }
 
 oneq::coordinate::EnuPositionM Vector3dToEnuPosition(const oneq::coordinate::Vector3d& enu) {
@@ -40,9 +43,9 @@ bool TryMakeExternalTrackFromSnapshot(const model::TrackStateSnapshot& snapshot,
                                       oneq::foundation::Vector3f radar_local_velocity_mps,
                                       RadarExternalTrackKinematics* output) {
   if (output == nullptr || !IsFiniteVector3f(radar_local_velocity_mps) ||
-      !IsFinite(snapshot.position_x) || !IsFinite(snapshot.position_y) ||
-      !IsFinite(snapshot.position_z) || !IsFinite(snapshot.velocity_x) ||
-      !IsFinite(snapshot.velocity_y) || !IsFinite(snapshot.velocity_z)) {
+      !oneq::internal::validation::IsFinite(snapshot.position_x) || !oneq::internal::validation::IsFinite(snapshot.position_y) ||
+      !oneq::internal::validation::IsFinite(snapshot.position_z) || !oneq::internal::validation::IsFinite(snapshot.velocity_x) ||
+      !oneq::internal::validation::IsFinite(snapshot.velocity_y) || !oneq::internal::validation::IsFinite(snapshot.velocity_z)) {
     return false;
   }
 

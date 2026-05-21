@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "common/numerics/ClampUtils.h"
+#include "common/numerics/Constants.h"
 
 namespace oneq {
 namespace internal {
@@ -11,36 +12,7 @@ namespace geometry {
 
 namespace {
 
-/**
- * @brief 圆周率常量。
- */
-constexpr float kPi = 3.14159265358979f;
-/**
- * @brief 向量范数保护下限。
- */
 constexpr float kVectorNormFloor = 1.0e-6f;
-
-/**
- * @brief 将角度从度转换为弧度。
- * @param[in] angle_deg 角度（度）。
- * @return 弧度值。
- */
-float DegToRad(float angle_deg) { return angle_deg * kPi / 180.0f; }
-
-/**
- * @brief 将角度从弧度转换为度。
- * @param[in] angle_rad 角度（弧度）。
- * @return 度值。
- */
-float RadToDeg(float angle_rad) { return angle_rad * 180.0f / kPi; }
-
-/**
- * @brief 对标量执行区间限幅。
- * @param[in] value 输入值。
- * @param[in] minimum 下界。
- * @param[in] maximum 上界。
- * @return 限幅后的结果。
- */
 
 }  // namespace
 
@@ -78,8 +50,8 @@ float ComputeAzimuthDifferenceDeg(float lhs_deg, float rhs_deg) {
 }
 
 Eigen::Vector3f AzimuthElevationToUnitVector(const AzimuthElevationDeg& pointing_deg) {
-  const float az_rad = DegToRad(pointing_deg.az_deg);
-  const float el_rad = DegToRad(pointing_deg.el_deg);
+  const float az_rad = oneq::internal::numerics::DegToRad(pointing_deg.az_deg);
+  const float el_rad = oneq::internal::numerics::DegToRad(pointing_deg.el_deg);
   const float cos_el = std::cos(el_rad);
   return Eigen::Vector3f(cos_el * std::cos(az_rad), cos_el * std::sin(az_rad), std::sin(el_rad));
 }
@@ -87,17 +59,17 @@ Eigen::Vector3f AzimuthElevationToUnitVector(const AzimuthElevationDeg& pointing
 AzimuthElevationDeg UnitVectorToAzimuthElevation(const Eigen::Vector3f& vector) {
   AzimuthElevationDeg pointing_deg;
   const float horizontal_norm = std::sqrt(vector.x() * vector.x() + vector.y() * vector.y());
-  pointing_deg.az_deg = RadToDeg(std::atan2(vector.y(), vector.x()));
-  pointing_deg.el_deg = RadToDeg(std::atan2(vector.z(), horizontal_norm));
+  pointing_deg.az_deg = oneq::internal::numerics::RadToDeg(std::atan2(vector.y(), vector.x()));
+  pointing_deg.el_deg = oneq::internal::numerics::RadToDeg(std::atan2(vector.z(), horizontal_norm));
   return pointing_deg;
 }
 
 Eigen::Matrix3f BuildRotationMatrix(const EulerAnglesDeg& euler_deg) {
-  const float yaw_rad = DegToRad(euler_deg.yaw_deg);
+  const float yaw_rad = oneq::internal::numerics::DegToRad(euler_deg.yaw_deg);
   // 仓库内约定正 pitch 表示正仰角；在当前 z-up 右手系下，
   // 旋转矩阵需使用绕 y 轴的负角，才能与 az/el 语义保持一致。
-  const float pitch_rad = DegToRad(-euler_deg.pitch_deg);
-  const float roll_rad = DegToRad(euler_deg.roll_deg);
+  const float pitch_rad = oneq::internal::numerics::DegToRad(-euler_deg.pitch_deg);
+  const float roll_rad = oneq::internal::numerics::DegToRad(euler_deg.roll_deg);
 
   const float cy = std::cos(yaw_rad);
   const float sy = std::sin(yaw_rad);

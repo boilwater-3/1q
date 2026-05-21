@@ -5,6 +5,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
 #include "common/coordinate/CoordinateUtils.h"
+#include "common/validation/ValidationUtils.h"
 
 namespace airborne_radar {
 namespace session {
@@ -15,8 +16,7 @@ using oneq::internal::coordinate_utils::ToFoundationEuler;
 using oneq::internal::coordinate_utils::ToFoundationVector;
 using oneq::internal::coordinate_utils::RotateEnuPositionToLocal;
 using oneq::internal::coordinate_utils::RotateEnuVelocityToLocal;
-
-bool IsFinite(float value) { return std::isfinite(value) != 0; }
+using oneq::internal::validation::IsFinite;
 
 bool IsFiniteVector3f(const oneq::foundation::Vector3f& value) {
   return IsFinite(value.x) && IsFinite(value.y) && IsFinite(value.z);

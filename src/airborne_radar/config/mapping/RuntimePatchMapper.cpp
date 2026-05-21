@@ -5,13 +5,13 @@
 
 #include "airborne_radar/config/mapping/EngineeringResolvers.h"
 #include "common/logging/ProjectLog.h"
+#include "common/validation/ValidationUtils.h"
 
 namespace airborne_radar {
 namespace config {
 namespace mapping {
 namespace {
 
-bool IsFinite(float value) { return std::isfinite(value) != 0; }
 
 RuntimeConfigResolveResult RejectPatch(const RuntimeConfigState& current_state,
                                        bool has_requested_update) {
@@ -36,7 +36,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
 
   if (patch.has_dwell_center_deg) {
     has_requested_update = true;
-    if (!IsFinite(patch.dwell_center_deg.az_deg) || !IsFinite(patch.dwell_center_deg.el_deg)) {
+    if (!oneq::internal::validation::IsFinite(patch.dwell_center_deg.az_deg) || !oneq::internal::validation::IsFinite(patch.dwell_center_deg.el_deg)) {
       PROJECT_LOG_ERROR(
           "[RadarSession] Rejecting runtime config patch due to non-finite dwell_center_deg "
           "(az_deg={}, el_deg={}).",
@@ -83,7 +83,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
   if (patch.has_scan_center_deg) {
-    if (!IsFinite(patch.scan_center_deg.az_deg) || !IsFinite(patch.scan_center_deg.el_deg)) {
+    if (!oneq::internal::validation::IsFinite(patch.scan_center_deg.az_deg) || !oneq::internal::validation::IsFinite(patch.scan_center_deg.el_deg)) {
       PROJECT_LOG_ERROR(
           "[RadarSession] Rejecting runtime config patch due to non-finite scan_center_deg "
           "(az_deg={}, el_deg={}).",
@@ -95,8 +95,8 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
   if (patch.has_commanded_beamwidth_deg) {
-    if (!IsFinite(patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg) ||
-        !IsFinite(patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg)) {
+    if (!oneq::internal::validation::IsFinite(patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg) ||
+        !oneq::internal::validation::IsFinite(patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg)) {
       PROJECT_LOG_ERROR(
           "[RadarSession] Rejecting runtime config patch due to non-finite "
           "commanded_beamwidth_deg (az_deg={}, el_deg={}).",

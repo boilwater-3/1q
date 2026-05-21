@@ -81,7 +81,7 @@ float ComputeEquivalentRadiusM(float input_rcs_m2,
   const float min_radius_m = std::max(rcs_config.min_equivalent_radius_m, 1.0e-3f);
   const float max_radius_m = std::max(rcs_config.max_equivalent_radius_m, min_radius_m);
   const float safe_input_rcs_m2 = std::max(input_rcs_m2, 0.0f);
-  const float equivalent_radius_m = std::sqrt(safe_input_rcs_m2 / static_cast<float>(oneq::internal::numerics::constants::kPi));
+  const float equivalent_radius_m = std::sqrt(safe_input_rcs_m2 / static_cast<float>(oneq::internal::numerics::kPi));
   return oneq::internal::numerics::Clamp(equivalent_radius_m, min_radius_m, max_radius_m);
 }
 
@@ -105,7 +105,7 @@ float ComputeEffectiveTargetRcsM2(const session::RadarSceneTarget& target,
     return input_rcs_m2;
   }
 
-  const float wavenumber_k0 = 2.0f * static_cast<float>(oneq::internal::numerics::constants::kPi) * frequency_hz / static_cast<float>(oneq::internal::numerics::constants::kLightSpeed);
+  const float wavenumber_k0 = 2.0f * static_cast<float>(oneq::internal::numerics::kPi) * frequency_hz / static_cast<float>(oneq::internal::numerics::kLightSpeed);
   if (wavenumber_k0 <= 0.0f) {
     return input_rcs_m2;
   }

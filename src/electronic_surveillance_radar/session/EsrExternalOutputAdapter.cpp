@@ -23,8 +23,8 @@ oneq::coordinate::EulerAnglesDeg ToCoordinateEuler(const EsrEulerAngleDeg& attit
 }
 
 oneq::coordinate::Vector3d BearingVectorFromAngles(double az_deg, double el_deg) {
-  const double az_rad = oneq::internal::numerics::constants::DegToRad(az_deg);
-  const double el_rad = oneq::internal::numerics::constants::DegToRad(el_deg);
+  const double az_rad = oneq::internal::numerics::DegToRad(az_deg);
+  const double el_rad = oneq::internal::numerics::DegToRad(el_deg);
   const double horizontal = std::cos(el_rad);
   oneq::coordinate::Vector3d vector;
   vector.x = horizontal * std::cos(az_rad);
