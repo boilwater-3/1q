@@ -98,21 +98,29 @@ ONEQ_API EulerAnglesDeg ComposeAttitudeDeg(const EulerAnglesDeg& parent_to_child
 
 // =============================================================================
 // ENU ↔ NED 姿态参考系转换
+//
+// 适用场景：传感器/云台安装角度等任意朝向的旋转矩阵参考系变换。
+//
+// ⚠ 不适用于飞机姿态转换：飞机机体 z 轴朝下，而 ENU z 轴朝上，
+//   标准 Z-Y-X Euler 角分解会对水平飞行产生 roll=180°（"倒飞"）。
+//   飞机姿态的正确处理是 heading 直传、pitch 取反、roll 取反。
 // =============================================================================
 
 /**
- * @brief 将 Body→NED 姿态转换为 Body→ENU 姿态。
+ * @brief 将 Body→NED 姿态转换为 Body→ENU 姿态（旋转矩阵参考系变换）。
  * @param[in] ned_attitude Body→NED 欧拉角（单位：deg）。
  * @return Body→ENU 欧拉角（单位：deg）。
- * @details ENU 与 NED 的当地水平面相同（east-north），仅天向相反（up vs down）。
- *          通过固定旋转 R_ned_to_enu = [[0 1 0],[1 0 0],[0 0 -1]] 复合实现。
+ * @details 通过 R_body→enu = R_ned→enu × R_body→ned 复合实现，
+ *          其中 R_ned→enu = [[0,1,0],[1,0,0],[0,0,-1]] 同时交换 x↔y 并取反 z。
+ * @warning 不适用于飞机姿态——会产生 roll=180° 和 yaw 90° 偏移。
  */
 ONEQ_API EulerAnglesDeg ToEnuAttitude(const EulerAnglesDeg& ned_attitude);
 
 /**
- * @brief 将 Body→ENU 姿态转换为 Body→NED 姿态。
+ * @brief 将 Body→ENU 姿态转换为 Body→NED 姿态（旋转矩阵参考系变换）。
  * @param[in] enu_attitude Body→ENU 欧拉角（单位：deg）。
  * @return Body→NED 欧拉角（单位：deg）。
+ * @warning 不适用于飞机姿态——会产生 roll=180° 和 yaw 90° 偏移。
  */
 ONEQ_API EulerAnglesDeg ToNedAttitude(const EulerAnglesDeg& enu_attitude);
 

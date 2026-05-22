@@ -319,21 +319,41 @@ TEST(FdManeuverTest, G4_WaypointSequenceFullFlight) {
   auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
   Stabilize(session, 200);
 
-  // 航路点 1：正东方向约 4.2km (0.05度)
-  // 航路点 2：在此基础上向北，形成转弯序列
+  // 5 航路点路线，包含不同方向的转弯：
+  //   WP1(东) → WP2(北) → WP3(西) → WP4(东南,对角线) → WP5(东)
+  //   转弯序列：右90° → 左90° → 右135° → 左90°
+  //   总距离约 22km，50m/s 巡航约 440s。
   fd_maneuver::WaypointList wps;
   {
     oneq::coordinate::LlaPositionDegM wp1{};
     wp1.latitude_deg = 39.9;
-    wp1.longitude_deg = 116.4 + 0.05;
+    wp1.longitude_deg = 116.4 + 0.05;   // 东 ~4.2km
     wp1.altitude_m = 1000.0;
     wps.push_back(wp1);
 
     oneq::coordinate::LlaPositionDegM wp2{};
-    wp2.latitude_deg = 39.9 + 0.05;
+    wp2.latitude_deg = 39.9 + 0.05;     // 北 ~5.6km
     wp2.longitude_deg = 116.4 + 0.05;
     wp2.altitude_m = 1000.0;
     wps.push_back(wp2);
+
+    oneq::coordinate::LlaPositionDegM wp3{};
+    wp3.latitude_deg = 39.9 + 0.05;     // 西 ~4.2km
+    wp3.longitude_deg = 116.4;
+    wp3.altitude_m = 1000.0;
+    wps.push_back(wp3);
+
+    oneq::coordinate::LlaPositionDegM wp4{};
+    wp4.latitude_deg = 39.9 + 0.02;     // 东南 ~4.7km（对角线）
+    wp4.longitude_deg = 116.4 + 0.03;
+    wp4.altitude_m = 1000.0;
+    wps.push_back(wp4);
+
+    oneq::coordinate::LlaPositionDegM wp5{};
+    wp5.latitude_deg = 39.9 + 0.02;     // 东 ~2.5km
+    wp5.longitude_deg = 116.4 + 0.06;
+    wp5.altitude_m = 1000.0;
+    wps.push_back(wp5);
   }
 
   fd_maneuver::WaypointParams params{};
