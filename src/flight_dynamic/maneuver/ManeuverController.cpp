@@ -363,10 +363,11 @@ model::FlightDynamicInput ManeuverController::ComputeOrbit(
   double tangent_deg = bearing_to_center + dir_sign * 90.0;
 
   // 径向修正：比例控制保持飞机在轨道半径上
-  // 归一化径向误差到 [-1, 1]，限制最大修正角 ±45°
+  // 修正量与归一化径向误差成正比，限幅 ±80°
+  // 远离轨道时大幅修正（飞向/远离中心），接近时趋于切线
   const double radial_error = (dist_m - params.radius_m) /
                               std::max(1.0, params.radius_m);
-  const double max_correction_deg = 45.0;
+  const double max_correction_deg = 80.0;
   const double correction_deg = std::max(-max_correction_deg,
       std::min(max_correction_deg, -dir_sign * radial_error * max_correction_deg));
 
