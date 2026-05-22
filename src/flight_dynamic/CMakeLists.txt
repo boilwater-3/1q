@@ -1,9 +1,10 @@
 # flight_dynamic 模块源文件与安装清单
 
-# -- engine: JSBSim 适配器、运动学积分（依赖 JSBSim，算法密集） ----------------
+# -- engine: JSBSim 适配器、运动学积分、机动控制（依赖 JSBSim，算法密集） ----------
 set(FD_ENGINE_SOURCES
     flight_dynamic/adapter/JsbsimAdapter.cpp
     flight_dynamic/model/VehicleStateMapper.cpp
+    flight_dynamic/maneuver/ManeuverController.cpp
 )
 
 # -- core: 会话、工厂（粘合层，依赖轻，仅 JSBSim 通过 Impl 间接引用） ----------
