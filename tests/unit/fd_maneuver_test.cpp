@@ -294,6 +294,7 @@ TEST(FdManeuverTest, G5_WeaveHeadingOscillates) {
 // ============================================================
 
 // 全链路受限于 C172 转弯性能（标准速率 3°/s, 转弯半径 ~955m @50m/s）。
+// F16 测试尝试失败——F100 引擎需要特殊的初始化序列（propulsion/fuel/throttle 路径不同）。
 // 算法正确性由 G4_WaypointGuidanceOutput 和 G4_WaypointEmptyListReturnsReached 验证。
 TEST(FdManeuverTest, DISABLED_G4_WaypointSequenceFullFlight) {
   if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
