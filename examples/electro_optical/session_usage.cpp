@@ -153,7 +153,7 @@ bool RunMovingTargetsScenario() {
 
     // 4. Moving Target 2 (ID = 202): Starts at Lon = base_lon + 0.060, moves West at 25 m/s (oncoming)
     double t202_lat = 35.001;
-    double t202_lon = base_lon + 0.060 - (25.0 * dt * static_cast<double>(i)) / (111111.0 * std::cos(35.0 * kPi / 180.0));
+    double t202_lon = base_lon + 0.060 - (25.0 * dt * static_cast<double>(i)) / (111111.0 * std::cos(35.0 * 3.141592653589793 / 180.0));
     target_inputs.push_back(MakeTargetLlaWithVelocity(
         t202_lat, t202_lon, 0.0,
         -25.0, 0.0, 0.0,
