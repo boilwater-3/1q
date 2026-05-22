@@ -314,9 +314,7 @@ TEST(FdManeuverTest, G5_WeaveHeadingOscillates) {
 // G4: 航路点机动
 // ============================================================
 
-// C172 AP 链路尚未验证（altitude_hold / airspeed_hold 的 XML→C++ 协议需调试）。
-// 待 AP 闭环验证通过后启用。
-TEST(FdManeuverTest, DISABLED_G4_WaypointSequenceFullFlight) {
+TEST(FdManeuverTest, G4_WaypointSequenceFullFlight) {
   if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
   auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
   Stabilize(session, 200);
