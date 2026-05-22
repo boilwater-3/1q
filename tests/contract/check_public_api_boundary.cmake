@@ -201,6 +201,18 @@ set(ESR_SESSION_HEADERS
     "electronic_surveillance_radar/session/EsrReplaySession.h"
 )
 
+# ── 飞行动力学 ───────────────────────────────────────────────────────
+set(FD_HEADERS
+    "flight_dynamic/config/AircraftDefinition.h"
+    "flight_dynamic/config/FlightDynamicConfig.h"
+    "flight_dynamic/flight_dynamic.hpp"
+    "flight_dynamic/model/FlightDynamicInput.h"
+    "flight_dynamic/model/FlightDynamicOutput.h"
+    "flight_dynamic/model/VehicleState.h"
+    "flight_dynamic/session/FlightDynamicSession.h"
+    "flight_dynamic/session/FlightDynamicSessionFactory.h"
+)
+
 # ── 坐标工具 ─────────────────────────────────────────────────────────
 set(COORDINATE_HEADERS
     "coordinate/attitude_transform.h"
@@ -239,6 +251,7 @@ set(EXPECTED_PUBLIC_HEADERS
     ${ESR_EXTENSION_HEADERS}
     ${ESR_MODEL_HEADERS}
     ${ESR_SESSION_HEADERS}
+    ${FD_HEADERS}
     ${COORDINATE_HEADERS}
     ${FOUNDATION_HEADERS}
 )

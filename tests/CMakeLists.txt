@@ -122,6 +122,19 @@ add_1q_gtest(${PROJECT_NAME}_unit_tests unit 60 ${UNIT_TEST_SOURCES})
 add_1q_gtest(${PROJECT_NAME}_integration_tests integration 120 ${INTEGRATION_TEST_SOURCES})
 add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES})
 
+# flight_dynamic 测试需要 JSBSim 数据文件路径
+set(FD_JSBSIM_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim")
+foreach(_fd_test_target IN ITEMS ${PROJECT_NAME}_unit_tests ${PROJECT_NAME}_integration_tests)
+  target_compile_definitions(${_fd_test_target}
+      PRIVATE FD_JSBSIM_ROOT_DIR="${FD_JSBSIM_ROOT_DIR}")
+  # 测试可执行文件需显式链接 JSBSim 共享库（静态主库不传递 PRIVATE 依赖）
+  target_link_libraries(${_fd_test_target} PRIVATE JSBSim::JSBSim)
+  # 将 JSBSim 共享库目录加入 rpath，避免设置 DYLD_LIBRARY_PATH
+  set_property(TARGET ${_fd_test_target} APPEND PROPERTY
+      BUILD_RPATH "$<TARGET_FILE_DIR:libJSBSim>")
+endforeach()
+unset(_fd_test_target)
+
 set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_writer_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_trace_session_adapter_test.cpp
@@ -209,3 +222,34 @@ set_tests_properties(
     public_header_external_dependency_isolation_guard
     PROPERTIES LABELS "contract"
 )
+
+# Scene programs — standalone executables that exercise full module pipelines
+file(GLOB SCENE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/scene/*.cpp")
+if(SCENE_SOURCES)
+    foreach(_scene_src ${SCENE_SOURCES})
+        get_filename_component(_scene_name ${_scene_src} NAME_WE)
+        add_executable(${_scene_name} ${_scene_src})
+        target_link_libraries(${_scene_name} PRIVATE
+            ${PROJECT_ALIAS}
+        )
+        target_include_directories(${_scene_name} PRIVATE
+            ${CMAKE_SOURCE_DIR}/include
+            ${CMAKE_SOURCE_DIR}/src
+            ${CMAKE_CURRENT_SOURCE_DIR}
+        )
+        target_compile_definitions(${_scene_name} PRIVATE
+            SCENE_CONFIG_DIR="${CMAKE_CURRENT_SOURCE_DIR}/scene/config"
+        )
+        # Scene programs include config_loader headers from the examples directory
+        if(_scene_name MATCHES "airborne_radar")
+            target_include_directories(${_scene_name} PRIVATE
+                "${CMAKE_SOURCE_DIR}/examples/airborne_radar")
+        elseif(_scene_name MATCHES "electro_optical")
+            target_include_directories(${_scene_name} PRIVATE
+                "${CMAKE_SOURCE_DIR}/examples/electro_optical")
+        elseif(_scene_name MATCHES "electronic_warfare")
+            target_include_directories(${_scene_name} PRIVATE
+                "${CMAKE_SOURCE_DIR}/examples/electronic_warfare")
+        endif()
+    endforeach()
+endif()
