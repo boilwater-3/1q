@@ -129,3 +129,29 @@
 - FD_JSBSIM_ROOT_DIR 编译定义指向 third_party/jsbsim
 
 **最终结果**: 876/876 全量测试通过（+8 个 fd 测试）
+
+---
+
+## 阶段 G 机动控制层 (2026-05-22)
+
+### 调研
+
+- 通过 DeepWiki 查询 JSBSim 对五种机动模式的原生支持
+- 结论：JSBSim 无高层机动原语，仅提供低级 FCS 组件（PID、switch、waypoint 等）和脚本事件系统
+- 确认无现成开源 C++ 制导/导航库可集成（ArduPilot GPLv3 不兼容，PX4 紧耦合）
+- 用户提供 `maneuver_algorithms.md` 核心算法设计文档
+
+### 审批
+
+- 方向/固定点/航路点/蛇形四种机动算法方案通过 ✅
+- 修正 1：G0 前置验证 AP 可用性（`ap/heading_*` 依赖飞机模型 XML 配置，非 JSBSim 内核）
+- 修正 2：滚筒机动从开环时序改为姿态反馈闭环（自适应飞机特性 + 异常中止）
+- 修正 3：ControlInput 接口需扩展 AP 指令字段
+- 修正 4：固定点/航路点到达判定增加航向收敛条件
+- 修正 5：航路点转弯增加提前量计算
+- 修正 6：坐标计算复用 `coordinate::` 函数，不依赖 JSBSim `FGWaypoint` 组件
+
+### 计划
+
+- 制定阶段 G0-G7 详细任务计划，写入 `task_plan.md`
+- 阶段 G0（AP 验证）为阻塞性前置任务

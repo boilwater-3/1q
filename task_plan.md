@@ -108,6 +108,137 @@ FlightDynamicSession.Step(FlightDynamicInput{dt, control, ext_force})
 | F5 | 全量测试回归（876/876 通过，含新增 8 个 fd 测试） | ✅ |
 | F6 | 测试通过 GLOB_RECURSE 自动注册到 `1q_unit_tests` | ✅ |
 
+---
+
+# 阶段 G：机动控制层 (Maneuver Controller)
+
+## 目标
+
+在 flight_dynamic 模块内扩展机动控制能力，实现五种基础机动模式（方向、固定点、航路点、蛇形、滚筒），由 1Q 端制导/控制逻辑驱动 JSBSim 物理引擎。遵循 `maneuver_algorithms.md` 的核心算法设计。
+
+## 前置依赖
+
+- ✅ phase A-F 完成，FlightDynamicSession 可用
+- ⚠️ 需验证 c172x 模型的 AP 属性（`ap/heading_setpoint`、`ap/heading_hold`、`ap/altitude_setpoint`）可用性
+
+## 架构设计
+
+```
+┌─────────────────────────────────────────────────┐
+│ ManeuverController (1Q 端)                       │
+│ ┌───────────┐ ┌──────────┐ ┌─────────────────┐ │
+│ │ Heading   │ │ Waypoint │ │ BarrelRoll       │ │
+│ │ Maneuver  │ │ Maneuver │ │ Maneuver         │ │
+│ └─────┬─────┘ └────┬─────┘ └────────┬────────┘ │
+│       │             │               │           │
+│       └──────────┬──┴───────────────┘           │
+│                  ▼                               │
+│         ControlInput { throttle, aileron,        │
+│           elevator, rudder, heading_setpoint,    │
+│           heading_hold, altitude_setpoint }       │
+└──────────────────┬──────────────────────────────┘
+                   │ Step()
+                   ▼
+┌─────────────────────────────────────────────────┐
+│ FlightDynamicSession (现有)                       │
+│   JsbsimAdapter → FGFDMExec.Run()                │
+│   VehicleStateMapper → ExternalKinematics         │
+└─────────────────────────────────────────────────┘
+```
+
+> **关键决策**: 制导/控制逻辑在 1Q 端，JSBSim 保持为纯物理引擎。ManeuverController 不依赖传感器模块。
+
+## 阶段
+
+### 阶段 G0：AP 可用性验证 ✅
+
+| # | 任务 | 状态 |
+|---|------|------|
+| G0a | 在 c172x 模型上读取 `ap/heading_setpoint` 等属性，确认 `c172ap.xml` 包含完整 autopilot | ✅ |
+| G0b | 方案 B 不需要——AP 存在 | N/A |
+| G0c | 方案 C 不需要——JSBSim 内置 AP 可用（航向保持已验证收敛） | N/A |
+
+> **G0 结论**: c172x 模型有完整的 AP（heading_hold + altitude_hold + wing_leveler）。
+> 航向保持 AP 经验证可收敛（90°/180° 转弯测试通过）。高度保持 AP 存在但收敛受
+> 发动机功率限制（2000m 高度 0.8 油门不足以维持平飞），实际使用需配合油门管理。
+
+### 阶段 G1：ControlInput 接口扩展 ✅
+
+| # | 任务 | 状态 |
+|---|------|------|
+| G1a | 扩展 `ControlInput`，新增 AP 指令字段：`heading_setpoint_deg`、`heading_hold`、`altitude_setpoint_m`、`altitude_hold` | ✅ |
+| G1b | `JsbsimAdapter::ApplyControlInputs()` 新增 AP 属性写入分支（含高度 m→ft 单位转换） | ✅ |
+| G1c | 跳过（AP 可用） | N/A |
+| G1d | 跳过（AP 可用） | N/A |
+
+### 阶段 G2：方向机动 ✅
+
+| # | 任务 | 状态 |
+|---|------|------|
+| G2a | 方向机动——直接下发目标航向到 `ap/heading_setpoint`，通过 `heading_hold` 激活 | ✅ |
+| G2b | 测试：90° 转弯 20s 内收敛（误差 < 3°）、180° 转弯 30s 内收敛（误差 < 5°） | ✅ |
+
+### 阶段 G3：固定点机动 (Point-to-Point) ✅
+
+| # | 任务 | 状态 |
+|---|------|------|
+| G3a | 实现方位角/距离计算——Haversine 大圆距离 + 前向方位角，纯数学不依赖 FGWaypoint | ✅ |
+| G3b | 航向制导——实时更新方位角为目标航向，调用 heading_hold AP | ✅ |
+| G3c | 高度控制——暂不启用（AP 高度保持受功率限制），仅做航向+油门 | ✅ |
+| G3d | 到达判定——距离 < arrival_distance_m | ✅ |
+| G3e | 测试：飞行器飞向 500m 外目标，最小距离 < 450m | ✅ |
+| **关键修复** | JSBSim 地心纬度→大地纬度（SetGeodLatitudeDegIC / GetGeodLatitudeDeg），消除 ~20km ECEF 偏差 | ✅ |
+
+### 阶段 G4：航路点机动 (Waypoint Sequence)
+
+| # | 任务 | 状态 |
+|---|------|------|
+| G4a | 实现航路点序列状态机——加载列表、索引管理、推进逻辑 | 🔲 |
+| G4b | 实现转弯提前量计算——`turn_anticipation = f(ground_speed, max_bank)` | 🔲 |
+| G4c | 测试：依次飞过 3 个航路点，每点到达误差 < 50m | 🔲 |
+
+### 阶段 G5：蛇形机动 (Weave/Snake)
+
+| # | 任务 | 状态 |
+|---|------|------|
+| G5a | 实现正弦航向偏置——`Ψ_target = Ψ_base + A·sin(ωt)`，高频更新航向设定点 | 🔲 |
+| G5b | 测试：飞行器轨迹呈正弦波，振幅/频率与参数一致 | 🔲 |
+
+### 阶段 G6：滚筒机动 (Barrel Roll) — 闭环方案
+
+| # | 任务 | 状态 |
+|---|------|------|
+| G6a | 实现姿态反馈闭环（非开环时序）——以目标滚转角序列为参考，PID 控制副翼跟踪；升降舵用高度保持 PID | 🔲 |
+| G6b | 实现安全前置检查——动能/高度判定 + 异常中止条件（高度损失 > 阈值） | 🔲 |
+| G6c | 测试：飞行器完成 360° 滚转，高度损失 < 100m | 🔲 |
+
+### 阶段 G7：回归验证
+
+| # | 任务 | 状态 |
+|---|------|------|
+| G7a | 全量测试回归通过 | 🔲 |
+| G7b | 新增机动测试注册到 `1q_unit_tests` | 🔲 |
+
+## 决策记录
+
+### DR6：AP 依赖策略
+- **当前**: 优先使用 JSBSim 内置 AP（方案 A），若不可用则自建 PID 控制器（方案 C）
+- **待 G0 验证后确定**
+
+### DR7：滚筒机动控制模式
+- **决定**: 采用姿态反馈闭环（代替 maneuver_algorithms.md 中的开环时序方案）
+- **原因**: 不同飞机滚转速率差异大，固定时序不可靠；闭环可自适应飞机特性且能处理帧率抖动
+- **实现**: PID 跟踪目标滚转角序列 + 高度保持 PID + 异常中止条件
+
+### DR8：ControlInput AP 语义
+- **决定**: AP 指令定位为"建议"，底层是否生效取决于飞机模型 AP 配置或自建控制器
+- **字段**: `heading_setpoint_deg` (double, -1 表示不使用)、`altitude_setpoint_m` (double, -1 表示不使用)
+
+### DR9：坐标计算
+- **决定**: 方位角/距离计算复用 `1q::coordinate::` 现有函数，不引入 JSBSim `FGWaypoint` 组件
+- **原因**: 保持计算逻辑在 1Q 侧可控、可测试，不依赖 JSBSim 内部实现
+
+
 ## 决策记录
 
 ### DR1：JSBSim 引入方式
@@ -148,3 +279,4 @@ FlightDynamicSession.Step(FlightDynamicInput{dt, control, ext_force})
 | PIMPL 析构函数需要完整 Impl 类型 | 1 | Impl 移至共享头文件 |
 | std::make_unique 不可用 (C++11) | 2 | 替换为 `unique_ptr<T>(new T(...))` |
 | public_api_boundary_guard 测试失败 | 1 | 添加 FD 头文件到白名单 |
+| ECEF→LLA 坐标偏差 ~21km | 2 | JSBSim 地心纬度→大地纬度（Geodetic），用户定位根因：SetLatitudeDegIC → SetGeodLatitudeDegIC |

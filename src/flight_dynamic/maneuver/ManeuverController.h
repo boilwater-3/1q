@@ -12,6 +12,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <vector>
 
 #include "1q/flight_dynamic/model/FlightDynamicInput.h"
 #include "1q/flight_dynamic/model/FlightDynamicOutput.h"
@@ -63,6 +64,15 @@ struct WeaveParams {
   double period_s{20.0};            ///< 摆动周期 (s)
 };
 
+/** @brief 航路点列表。 */
+using WaypointList = std::vector<oneq::coordinate::LlaPositionDegM>;
+
+/** @brief 航路点机动参数。 */
+struct WaypointParams {
+  PointToPointParams segment_params{};    ///< 单段制导参数（复用固定点逻辑）
+  double turn_anticipation_m{200.0};       ///< 转弯提前量 (m)，到达此距离内预转向下一航路点
+};
+
 // ---- 机动控制器 ----
 
 /**
@@ -103,6 +113,26 @@ class ManeuverController {
       const model::FlightDynamicOutput& current,
       const WeaveParams& params,
       double sim_time_s) const;
+
+  /**
+   * @brief 计算航路点序列机动的控制输入。
+   *
+   * 调用方管理航路点索引：传入当前索引，若到达则返回下一索引。
+   * 在接近当前航路点时提前计算下一航路点方位角，进行平滑过渡。
+   *
+   * @param current 当前状态。
+   * @param waypoints 航路点列表。
+   * @param params 航路点参数。
+   * @param[in,out] wp_index 当前活动航路点索引。到达时自增。
+   * @param[out] all_reached 全部航路点是否已到达。
+   * @return 控制输入。
+   */
+  model::FlightDynamicInput ComputeWaypoint(
+      const model::FlightDynamicOutput& current,
+      const WaypointList& waypoints,
+      const WaypointParams& params,
+      std::size_t* wp_index,
+      bool* all_reached) const;
 };
 
 }  // namespace maneuver

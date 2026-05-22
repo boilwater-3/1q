@@ -232,7 +232,55 @@ third_party/jsbsim/
 - utils/aeromatic++ 仍会编译但无影响
 - FGXMLParse 有 vtable 链接问题（仅影响 JSBSim 可执行文件，已禁用）
 
-## 13. 构建系统架构决策
+## 13. JSBSim 机动模式调研 (2026-05-22)
+
+通过 DeepWiki 查询 JSBSim 对五种机动模式的原生支持情况：
+
+### JSBSim 内置能力
+
+| 能力 | 支持程度 | 实现方式 |
+|------|---------|---------|
+| 方向/航向保持 | **内置** | `ap/heading_setpoint` + `ap/heading_hold` 属性，直接通过 `SetPropertyValue()` 控制 |
+| 高度保持 | **内置** | `ap/altitude_setpoint` + `ap/altitude_hold` 属性 |
+| 航路点导航 | **部分内置** | `FGWaypoint` 组件可计算目标方位角和距离，但无内置制导律 |
+| 固定点/轨道 | **无** | 需组合 FGWaypoint + PID 控制器 + 油门/副翼/升降舵逻辑 |
+| 蛇形/S转弯 | **无** | 需通过脚本事件系统定时操控舵面 |
+| 滚筒 | **无** | 需通过脚本事件系统协调副翼/升降舵时序 |
+
+### JSBSim FCS 组件清单
+
+可用于构建制导律的低级组件：
+- `pid` / `integrator` — PID 控制器
+- `switch` — 条件逻辑
+- `summer` — 求和器
+- `gain` — 增益/调度增益
+- `filter` — 滞后/超前/洗出/二阶滤波
+- `deadband` — 死区
+- `actuator` — 作动器（速率限制、滞后、死区）
+- `sensor` / `accelerometer` / `gyro` / `magnetometer` — 传感器
+- `kinematic` — 机械连杆
+- `waypoint_heading` / `waypoint_distance` — 航路点方位/距离
+
+### JSBSim 脚本事件系统
+
+- XML 脚本：`<event>` 标签，基于时间或属性条件触发
+- 动作类型：`FG_RAMP`（斜坡）、`FG_EXP`（指数）、直接赋值
+- 持久事件：条件保持期间重复执行
+- 典型用途：起飞序列、突风注入、舵面脉冲测试
+
+### 架构影响
+
+JSBSim **不提供高层机动原语**。五种机动模式都需要在 1Q 端实现制导/控制逻辑：
+
+1. **方向机动** → 直接用 `ap/heading_setpoint`，trivial
+2. **固定点机动** → 1Q 端计算相对目标点的方位/距离，控制航向+油门
+3. **航路点机动** → 1Q 端管理航路点序列，到达判定，切换逻辑
+4. **蛇形机动** → 1Q 端生成正弦航向偏置，叠加到基础航向
+5. **滚筒机动** → 1Q 端生成时序化的副翼/升降舵控制指令
+
+**推荐架构**：在 1Q 端实现 `ManeuverController` 层，根据机动模式计算控制输入 (`FlightDynamicInput.control`)，注入 `FlightDynamicSession::Step()`。保持 JSBSim 仅作为物理引擎，制导律完全在 1Q 侧。
+
+## 14. 构建系统架构决策
 
 - **JSBSim 始终共享库**: `cmake/ProjectDependencies.cmake` 中无条件 `add_subdirectory(jsbsim)`，设置 `BUILD_SHARED_LIBS=ON` 后恢复原值
 - **不依赖 Conan**: JSBSim 无 Conan 包，不走 find_package 路径
