@@ -280,7 +280,27 @@ JSBSim **不提供高层机动原语**。五种机动模式都需要在 1Q 端�
 
 **推荐架构**：在 1Q 端实现 `ManeuverController` 层，根据机动模式计算控制输入 (`FlightDynamicInput.control`)，注入 `FlightDynamicSession::Step()`。保持 JSBSim 仅作为物理引擎，制导律完全在 1Q 侧。
 
-## 14. 构建系统架构决策
+## 14. F16 多机型支持调研 (2026-05-22)
+
+尝试使用 F16 模型验证航路点机动（更高速度可缩短测试时间），发现多机型支持存在以下障碍：
+
+| 差异项 | C172x | F16 |
+|--------|-------|-----|
+| 节气门路径 | `fcs/throttle-cmd-norm[0]` (数组索引) | `fcs/throttle-cmd-norm` (标量) |
+| 发动机类型 | 活塞 (Lycoming) | 涡扇 (F100-PW-229) |
+| 发动机初始化 | RunIC 自动启动 | 默认 `propulsion=OFF`，需显式开启 |
+| AP 航向保持 | c172ap.xml + GNCUtilities.xml | 无 autopilot 配置 |
+| 推力模型 | 间接 (通过 engine) | direct thruster |
+| 舵面控制 | `fcs/aileron-cmd-norm` 等（通用） | 相同路径，但 FCS 增益不同 |
+
+**根因**: `JsbsimAdapter` 的节气门属性路径和 AP 接口硬编码为 C172 约定。F16 需要：
+1. 不同的节气门属性路径（`fcs/throttle-cmd-norm` 无 `[0]` 索引）
+2. 显式设置 `propulsion=1` 启动引擎
+3. 自定义 FCS 组件替代 AP（F16 无航向保持 autopilot）
+
+**结论**: 多机型支持需要将节气门路径、AP 可用性等差异抽象到 `AircraftDefinition` 配置中。当前阶段保持 C172 单一机型，多机型通用化列为未来任务。
+
+## 15. 构建系统架构决策
 
 - **JSBSim 始终共享库**: `cmake/ProjectDependencies.cmake` 中无条件 `add_subdirectory(jsbsim)`，设置 `BUILD_SHARED_LIBS=ON` 后恢复原值
 - **不依赖 Conan**: JSBSim 无 Conan 包，不走 find_package 路径

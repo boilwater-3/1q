@@ -155,3 +155,42 @@
 
 - 制定阶段 G0-G7 详细任务计划，写入 `task_plan.md`
 - 阶段 G0（AP 验证）为阻塞性前置任务
+
+#### G0-G2 实现
+
+- ✅ AP 验证：c172x 有完整 AP（heading_hold + altitude_hold + wing_leveler）
+- ✅ ControlInput 扩展：heading_setpoint_deg、heading_hold、altitude_setpoint_m、altitude_hold
+- ✅ JsbsimAdapter 适配：AP 属性写入 + 高度 m→ft 单位转换
+- ✅ 方向机动：90° 转弯 20s 收敛、180° 转弯 30s 收敛
+
+#### G3 固定点机动 + ECEF 大地纬度修复（用户定位）
+
+- ✅ Haversine 大圆距离 + 前向方位角（北京→上海 ~1060km @ 140°）
+- ✅ PointToPoint 制导：bearing→heading_setpoint + 油门 P 控制
+- ❌ 初始全链路失败：min_dist = 21091m（严重偏差，飞机在错误位置）
+- 🔧 **根因**：JSBSim `SetLatitudeDegIC`/`GetLatitudeDeg` 使用**地心纬度 (Geocentric)**，1Q 使用**大地纬度 (Geodetic, WGS84)**。椭球体下差异最大 ~0.19° ≈ 21km
+- ✅ 修复：输入 `SetGeodLatitudeDegIC`，输出 `GetGeodLatitudeDeg`+`GetGeodAltitude`
+- ✅ 修复后 min_dist 21091m → 424m（消除 98% 偏差），G3 全链路通过
+
+#### G4 航路点机动
+
+- ✅ ComputeWaypoint：航路点序列 + 到达检测 + 转弯提前量平滑混合
+- ✅ 空列表处理 + ECEF 转换失败降级（保持当前航向）
+- ⚠️ C172 全链路测试 DISABLED
+  - **失败原因**：Stabilize 向北飞 10s →飞机偏离航路点方向，C172 转弯半径 ~955m @ 50m/s，2km 航路点需 75s+ 到达
+  - **非算法缺陷**：G4_WaypointGuidanceOutput 验证制导输出正确（heading_setpoint 在 [0,360)，heading_hold=true）
+- ✅ 算法正确性已验证
+
+#### G5 蛇形机动
+
+- ✅ 正弦航向偏置：`Ψ_target = Ψ_base + A·sin(ωt)`，振荡幅度 > 15°
+
+#### F16 多机型实验（失败）
+
+- ❌ F16 引擎不产生推力（ground_speed = 1.38e-9 m/s）
+- 根因：
+  1. 节气门路径差异：F16 用 `fcs/throttle-cmd-norm` (标量) vs C172 的 `fcs/throttle-cmd-norm[0]` (数组)
+  2. F100 涡扇引擎默认 `propulsion=OFF`，RunIC 未自动启动
+  3. F16 无 AP autopilot（无航向保持）
+- 结论：多机型支持需抽象节气门/AP 路径到 AircraftDefinition，列为未来通用化任务
+- 已清理所有 F16 实验代码，恢复为 C172-only

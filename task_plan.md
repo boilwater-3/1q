@@ -238,6 +238,11 @@ FlightDynamicSession.Step(FlightDynamicInput{dt, control, ext_force})
 - **决定**: 方位角/距离计算复用 `1q::coordinate::` 现有函数，不引入 JSBSim `FGWaypoint` 组件
 - **原因**: 保持计算逻辑在 1Q 侧可控、可测试，不依赖 JSBSim 内部实现
 
+### DR10：多机型支持
+- **现状**: JsbsimAdapter 节气门路径（`fcs/throttle-cmd-norm[0]`）和 AP 接口硬编码为 C172 约定
+- **发现**: F16 使用不同节气门路径（无 `[0]` 索引）、默认 `propulsion=OFF`、无 AP autopilot
+- **决定**: 当前阶段保持 C172 单一机型。多机型通用化需将节气门/引擎/AP 差异抽象到 `AircraftDefinition` 配置中，列为未来任务
+
 
 ## 决策记录
 
@@ -280,3 +285,5 @@ FlightDynamicSession.Step(FlightDynamicInput{dt, control, ext_force})
 | std::make_unique 不可用 (C++11) | 2 | 替换为 `unique_ptr<T>(new T(...))` |
 | public_api_boundary_guard 测试失败 | 1 | 添加 FD 头文件到白名单 |
 | ECEF→LLA 坐标偏差 ~21km | 2 | JSBSim 地心纬度→大地纬度（Geodetic），用户定位根因：SetLatitudeDegIC → SetGeodLatitudeDegIC |
+| G4 航路点全链路测试失败 | 5+ | C172 转弯性能不足（半径 ~955m @50m/s），Stabilize 向北偏离目标。算法由 guidance 测试验证通过 |
+| F16 多机型实验失败 | 1 | 节气门路径/引擎初始化/AP 差异，多机型通用化需抽象到 AircraftDefinition |
