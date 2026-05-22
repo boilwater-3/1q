@@ -1,6 +1,41 @@
 # 第三方依赖加载与链接
 # Conan / vcpkg 通过 find_package 获取；vendor 模式通过 add_subdirectory 构建内置依赖。
 
+# -- JSBSim (始终从 third_party 源码构建为共享库，LGPL 合规) --
+# JSBSim 不通过 Conan/vcpkg 获取，始终本地编译为共享库。
+set(_oneq_prev_build_shared_libs ${BUILD_SHARED_LIBS})
+set(BUILD_SHARED_LIBS ON CACHE BOOL "Build JSBSim as shared library" FORCE)
+set(BUILD_DOCS OFF CACHE BOOL "" FORCE)
+
+# 1Q 项目通过 add_compile_options(-fvisibility=hidden) 隐藏符号，
+# 但 C++11 版 JSBSim 无导出宏。必须在 JSBSim 编译前移除该选项，
+# 编译后恢复。使用 COMPILE_OPTIONS 列表操作确保其他选项不受影响。
+get_directory_property(_oneq_compile_opts COMPILE_OPTIONS)
+set(_oneq_filtered_opts)
+foreach(_opt IN LISTS _oneq_compile_opts)
+  if(NOT _opt STREQUAL "-fvisibility=hidden")
+    list(APPEND _oneq_filtered_opts "${_opt}")
+  endif()
+endforeach()
+set_directory_properties(PROPERTIES COMPILE_OPTIONS "${_oneq_filtered_opts}")
+unset(_oneq_filtered_opts)
+
+add_subdirectory(${CMAKE_SOURCE_DIR}/third_party/jsbsim ${CMAKE_BINARY_DIR}/third_party/jsbsim)
+
+# 恢复可见性选项
+set_directory_properties(PROPERTIES COMPILE_OPTIONS "${_oneq_compile_opts}")
+unset(_oneq_compile_opts)
+set(BUILD_SHARED_LIBS ${_oneq_prev_build_shared_libs} CACHE BOOL "" FORCE)
+unset(_oneq_prev_build_shared_libs)
+
+# JSBSim 使用 include_directories() 而非 target_include_directories()，
+# 需显式将 include 路径附加到 INTERFACE 目标以供消费者使用。
+add_library(JSBSim_interface INTERFACE)
+target_link_libraries(JSBSim_interface INTERFACE libJSBSim)
+target_include_directories(JSBSim_interface INTERFACE
+    ${CMAKE_SOURCE_DIR}/third_party/jsbsim/src)
+add_library(JSBSim::JSBSim ALIAS JSBSim_interface)
+
 if(PACKAGE_MANAGER STREQUAL "conan" OR PACKAGE_MANAGER STREQUAL "vcpkg")
     if(WIN32)
         set(PROJECT_ENABLE_SPDLOG OFF)
@@ -63,6 +98,13 @@ target_link_libraries(esr_engine PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(esr_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(eos_engine PRIVATE flatbuffers::flatbuffers)
 target_link_libraries(eos_core PRIVATE flatbuffers::flatbuffers)
+
+# flight_dynamic 模块始终依赖 JSBSim 共享库（third_party 源码构建，LGPL 合规）。
+# Conan/vcpkg 模式下 JSBSim 不可用时会直接报依赖缺失，不静默跳过。
+target_link_libraries(fd_engine PRIVATE JSBSim::JSBSim)
+target_link_libraries(fd_core PRIVATE JSBSim::JSBSim)
+# OBJECT 库的 PRIVATE 依赖不会传递到最终链接目标，主库需显式链接 JSBSim。
+target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE JSBSim::JSBSim)
 
 # Conan's VS multi-config generation may only attach header-only include dirs
 # to Release. Mirror those include dirs onto this target when available so
