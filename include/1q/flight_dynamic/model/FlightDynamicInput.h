@@ -15,12 +15,21 @@ namespace model {
 
 /**
  * @brief 控制面输入（归一化，范围 [-1, 1]，除非另有说明）。
+ *
+ * AP 指令定位为"建议"：若飞机模型无对应 AP 配置，字段值被忽略。
+ * 哨兵值 < 0 表示不激活该 AP 模式。
  */
 struct ONEQ_API ControlInput {
   double throttle{0.0};   ///< 油门 [0, 1]，0=慢车，1=全加力
   double aileron{0.0};    ///< 副翼，右滚为正
   double elevator{0.0};   ///< 升降舵，抬头为正
   double rudder{0.0};     ///< 方向舵，右偏为正
+
+  // -- AP 指令（仅飞机模型有对应 autopilot 配置时生效） --
+  double heading_setpoint_deg{-1.0};   ///< 目标航向 (deg, 0=北, 90=东)，<0 不激活
+  bool heading_hold{false};            ///< 激活航向保持
+  double altitude_setpoint_m{-1.0};    ///< 目标海拔 (m, MSL)，<0 不激活
+  bool altitude_hold{false};           ///< 激活高度保持
 };
 
 /**

@@ -155,6 +155,17 @@ void JsbsimAdapter::ApplyControlInputs(const model::FlightDynamicInput& input) {
   fdm_exec_->SetPropertyValue("fcs/aileron-cmd-norm", ctrl.aileron);
   fdm_exec_->SetPropertyValue("fcs/elevator-cmd-norm", ctrl.elevator);
   fdm_exec_->SetPropertyValue("fcs/rudder-cmd-norm", ctrl.rudder);
+
+  // AP 指令（仅当设置值 >= 0 时激活，哨兵值 -1 表示不使用）
+  if (ctrl.heading_setpoint_deg >= 0.0) {
+    fdm_exec_->SetPropertyValue("ap/heading_setpoint", ctrl.heading_setpoint_deg);
+  }
+  fdm_exec_->SetPropertyValue("ap/heading_hold", ctrl.heading_hold ? 1.0 : 0.0);
+  if (ctrl.altitude_setpoint_m >= 0.0) {
+    // JSBSim AP 内部使用英制，需将米转换为英尺
+    fdm_exec_->SetPropertyValue("ap/altitude_setpoint", ctrl.altitude_setpoint_m * kMToFt);
+  }
+  fdm_exec_->SetPropertyValue("ap/altitude_hold", ctrl.altitude_hold ? 1.0 : 0.0);
 }
 
 void JsbsimAdapter::ApplyExternalForces(const model::FlightDynamicInput& input) {
