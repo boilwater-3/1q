@@ -96,14 +96,12 @@ model::FlightDynamicInput ManeuverController::ComputePointToPoint(
     input.control.heading_setpoint_deg = bearing_deg;
     input.control.heading_hold = true;
     input.control.altitude_setpoint_m = params.target_lla.altitude_m;
-    input.control.altitude_hold = false;
+    input.control.altitude_hold = true;
   }
 
-  // 速度控制：简单 P 控制油门
-  const double speed_error = params.cruise_speed_mps - current.state.ground_speed_mps;
-  double throttle = params.base_throttle + speed_error * 0.01;
-  throttle = std::max(0.1, std::min(1.0, throttle));
-  input.control.throttle = throttle;
+  // 速度控制：由 JSBSim Auto-Throttle 接管
+  input.control.airspeed_setpoint_mps = params.cruise_speed_mps;
+  input.control.airspeed_hold = true;
 
   return input;
 }
@@ -126,7 +124,11 @@ model::FlightDynamicInput ManeuverController::ComputeWeave(
 
   input.control.heading_setpoint_deg = normalized;
   input.control.heading_hold = true;
-  input.control.throttle = 0.75;
+  // 假定蛇形机动维持 1000m 高度，50m/s 空速
+  input.control.altitude_setpoint_m = 1000.0;
+  input.control.altitude_hold = true;
+  input.control.airspeed_setpoint_mps = 50.0;
+  input.control.airspeed_hold = true;
 
   return input;
 }
@@ -196,12 +198,12 @@ model::FlightDynamicInput ManeuverController::ComputeWaypoint(
   input.dt_sec = 0.05f;
   input.control.heading_setpoint_deg = bearing_deg;
   input.control.heading_hold = true;
-
-  const double speed_error =
-      params.segment_params.cruise_speed_mps - current.state.ground_speed_mps;
-  double throttle = params.segment_params.base_throttle + speed_error * 0.01;
-  throttle = std::max(0.1, std::min(1.0, throttle));
-  input.control.throttle = throttle;
+  
+  input.control.altitude_setpoint_m = target.altitude_m;
+  input.control.altitude_hold = true;
+  
+  input.control.airspeed_setpoint_mps = params.segment_params.cruise_speed_mps;
+  input.control.airspeed_hold = true;
 
   return input;
 }

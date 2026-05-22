@@ -50,6 +50,13 @@ struct ONEQ_API FlightDynamicConfig {
    * 生产环境建议设为 true，调试时可设为 false 以观察 JSBSim 内部日志。
    */
   bool silent{true};
+
+  /**
+   * @brief 仿真开始前是否自动执行 JSBSim 配平 (Trim)。
+   *
+   * 空中重置（Mid-air spawn）且有初始速度时必须设为 true，否则初始不平衡力矩会导致 NaNs。
+   */
+  bool do_trim{true};
 };
 
 }  // namespace config

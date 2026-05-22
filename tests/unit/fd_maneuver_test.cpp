@@ -29,21 +29,33 @@ fd_config::FlightDynamicConfig MakeC172Config() {
   cfg.aircraft.root_dir = FD_JSBSIM_ROOT_DIR;
   cfg.aircraft.model_name = "c172x";
   cfg.silent = true;
+  cfg.do_trim = true;  // 空中初始化：DoTrim 会自动配平（找到平衡的 alpha/elevator/throttle）
   cfg.initial_kinematics.position_frame = oneq::coordinate::PositionFrame::kLla;
   cfg.initial_kinematics.position_lla_deg_m.latitude_deg = 39.9;
   cfg.initial_kinematics.position_lla_deg_m.longitude_deg = 116.4;
   cfg.initial_kinematics.position_lla_deg_m.altitude_m = 1000.0;
-  cfg.initial_kinematics.attitude_deg.yaw_deg = 0.0;
+  cfg.initial_kinematics.attitude_deg.yaw_deg = 0.0;  // 初始向北
+
+  // 初始空速 50 m/s ≈ 97 kts（C172 巡航包线内）。
+  // ApplyInitialConditions 只使用 ECEF 速度的标量模，方向由 yaw 决定。
+  // 此处沿 ECEF-Z 轴设置 50 m/s 作为简便方法提供模值。
+  cfg.initial_kinematics.velocity_mps.z_mps = 50.0;
+
   return cfg;
 }
 
 bool HasDataDir() { return !std::string(FD_JSBSIM_ROOT_DIR).empty(); }
 
-// 稳定飞行若干步建立空速
+// 稳定飞行若干步，让 AP 进入稳态。
+// 配平后飞机已有空速，此处启用 AP 保持高度和速度。
 void Stabilize(fd_session::FlightDynamicSession& session, int steps = 60) {
   fd_model::FlightDynamicInput input{};
   input.dt_sec = 0.05f;
   input.control.throttle = 0.75;
+  input.control.altitude_setpoint_m = 1000.0;
+  input.control.altitude_hold = true;
+  input.control.airspeed_setpoint_mps = 50.0;
+  input.control.airspeed_hold = true;
   for (int i = 0; i < steps; ++i) {
     input.cycle_index = static_cast<std::uint32_t>(i);
     session.Step(input);
@@ -66,9 +78,12 @@ TEST(FdManeuverTest, G0_HeadingHoldConverges) {
 
   fd_model::FlightDynamicInput input{};
   input.dt_sec = 0.05f;
-  input.control.throttle = 0.75;
   input.control.heading_setpoint_deg = target_heading;
   input.control.heading_hold = true;
+  input.control.altitude_setpoint_m = 1000.0;
+  input.control.altitude_hold = true;
+  input.control.airspeed_setpoint_mps = 50.0;
+  input.control.airspeed_hold = true;
 
   double final_heading = 0.0;
   // C172 标准速率转弯约 3°/s，90° 转弯需 ~30s
@@ -129,13 +144,16 @@ TEST(FdManeuverTest, G2_HeadingManeuver_90degRightTurn) {
 
   fd_model::FlightDynamicInput input{};
   input.dt_sec = 0.05f;
-  input.control.throttle = 0.75;
   input.control.heading_setpoint_deg = 90.0;
   input.control.heading_hold = true;
+  input.control.altitude_setpoint_m = 1000.0;
+  input.control.altitude_hold = true;
+  input.control.airspeed_setpoint_mps = 50.0;
+  input.control.airspeed_hold = true;
 
-  // 应在大约 10-20s 内完成 90° 转弯
+  // C172 标准转弯率 ~3°/s，90° 转弯需 ~30s
   bool turned = false;
-  for (int i = 0; i < 400; ++i) {
+  for (int i = 0; i < 800; ++i) {  // 40s
     input.cycle_index = static_cast<std::uint32_t>(i);
     auto out = session.Step(input);
     ASSERT_TRUE(out.ok);
@@ -143,7 +161,7 @@ TEST(FdManeuverTest, G2_HeadingManeuver_90degRightTurn) {
     if (err > 180.0) err = 360.0 - err;
     if (err < 3.0) { turned = true; break; }
   }
-  EXPECT_TRUE(turned) << "Aircraft did not complete 90° turn within 20s";
+  EXPECT_TRUE(turned) << "Aircraft did not complete 90° turn within 40s";
 }
 
 TEST(FdManeuverTest, G2_HeadingManeuver_180degReversal) {
@@ -153,12 +171,15 @@ TEST(FdManeuverTest, G2_HeadingManeuver_180degReversal) {
 
   fd_model::FlightDynamicInput input{};
   input.dt_sec = 0.05f;
-  input.control.throttle = 0.75;
   input.control.heading_setpoint_deg = 180.0;
   input.control.heading_hold = true;
+  input.control.altitude_setpoint_m = 1000.0;
+  input.control.altitude_hold = true;
+  input.control.airspeed_setpoint_mps = 50.0;
+  input.control.airspeed_hold = true;
 
   bool turned = false;
-  for (int i = 0; i < 600; ++i) {
+  for (int i = 0; i < 1200; ++i) {  // 60s
     input.cycle_index = static_cast<std::uint32_t>(i);
     auto out = session.Step(input);
     ASSERT_TRUE(out.ok);
@@ -166,7 +187,7 @@ TEST(FdManeuverTest, G2_HeadingManeuver_180degReversal) {
     if (err > 180.0) err = 360.0 - err;
     if (err < 5.0) { turned = true; break; }
   }
-  EXPECT_TRUE(turned) << "Aircraft did not complete 180° turn within 30s";
+  EXPECT_TRUE(turned) << "Aircraft did not complete 180° turn within 60s";
 }
 
 // ============================================================
@@ -293,35 +314,41 @@ TEST(FdManeuverTest, G5_WeaveHeadingOscillates) {
 // G4: 航路点机动
 // ============================================================
 
-// 全链路受限于 C172 转弯性能（标准速率 3°/s, 转弯半径 ~955m @50m/s）。
-// F16 测试尝试失败——F100 引擎需要特殊的初始化序列（propulsion/fuel/throttle 路径不同）。
-// 算法正确性由 G4_WaypointGuidanceOutput 和 G4_WaypointEmptyListReturnsReached 验证。
+// C172 AP 链路尚未验证（altitude_hold / airspeed_hold 的 XML→C++ 协议需调试）。
+// 待 AP 闭环验证通过后启用。
 TEST(FdManeuverTest, DISABLED_G4_WaypointSequenceFullFlight) {
   if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
   auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
   Stabilize(session, 200);
 
-  // 单个航路点：东 ~2km（与 G3 相同场景，验证 ComputeWaypoint 等价于 ComputePointToPoint）
+  // 航路点 1：正东方向约 4.2km (0.05度)
+  // 航路点 2：在此基础上向北，形成转弯序列
   fd_maneuver::WaypointList wps;
   {
-    oneq::coordinate::LlaPositionDegM wp{};
-    wp.latitude_deg = 39.9;
-    wp.longitude_deg = 116.4 + 0.025;
-    wp.altitude_m = 1000.0;
-    wps.push_back(wp);
+    oneq::coordinate::LlaPositionDegM wp1{};
+    wp1.latitude_deg = 39.9;
+    wp1.longitude_deg = 116.4 + 0.05;
+    wp1.altitude_m = 1000.0;
+    wps.push_back(wp1);
+
+    oneq::coordinate::LlaPositionDegM wp2{};
+    wp2.latitude_deg = 39.9 + 0.05;
+    wp2.longitude_deg = 116.4 + 0.05;
+    wp2.altitude_m = 1000.0;
+    wps.push_back(wp2);
   }
 
   fd_maneuver::WaypointParams params{};
-  params.segment_params.arrival_distance_m = 600.0;
+  params.segment_params.arrival_distance_m = 1500.0; 
   params.segment_params.cruise_speed_mps = 50.0;
   params.segment_params.base_throttle = 0.8;
-  params.turn_anticipation_m = 400.0;
+  params.turn_anticipation_m = 1200.0; 
 
   fd_maneuver::ManeuverController ctrl;
   std::size_t wp_idx = 0U;
   bool all_reached = false;
 
-  for (int i = 0; i < 4000 && !all_reached; ++i) {  // 最多 200s
+  for (int i = 0; i < 10000 && !all_reached; ++i) {  
     auto input = ctrl.ComputeWaypoint(
         session.GetCurrentState(), wps, params, &wp_idx, &all_reached);
     input.cycle_index = static_cast<std::uint32_t>(i);
@@ -330,7 +357,7 @@ TEST(FdManeuverTest, DISABLED_G4_WaypointSequenceFullFlight) {
   }
 
   EXPECT_TRUE(all_reached)
-      << "Did not reach single waypoint within 100s, idx=" << wp_idx;
+      << "Did not reach all waypoints within 500s, idx=" << wp_idx;
 }
 
 TEST(FdManeuverTest, G4_WaypointGuidanceOutput) {

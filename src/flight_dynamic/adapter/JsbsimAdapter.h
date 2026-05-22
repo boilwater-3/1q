@@ -101,6 +101,8 @@ class JsbsimAdapter {
   void ApplyExternalForces(const model::FlightDynamicInput& input);
 
   std::unique_ptr<JSBSim::FGFDMExec> fdm_exec_;
+  bool do_trim_{false};
+  double airspeed_integral_{0.0};
 };
 
 }  // namespace adapter

@@ -30,6 +30,8 @@ struct ONEQ_API ControlInput {
   bool heading_hold{false};            ///< 激活航向保持
   double altitude_setpoint_m{-1.0};    ///< 目标海拔 (m, MSL)，<0 不激活
   bool altitude_hold{false};           ///< 激活高度保持
+  double airspeed_setpoint_mps{-1.0};  ///< 目标空速 (m/s, 真空速或指示空速)，<0 不激活
+  bool airspeed_hold{false};           ///< 激活速度保持（自动油门）
 };
 
 /**

@@ -140,29 +140,24 @@ void VehicleStateMapper::MapVelocity(const JSBSim::FGPropagate& propagate,
 
 void VehicleStateMapper::MapAttitude(const JSBSim::FGPropagate& propagate,
                                       FlightDynamicOutput& out) const {
-  // C2c: JSBSim qAttitudeLocal（Body→NED 四元数）→ 1Q Body→ENU 欧拉角
-  // 步骤：四元数 → NED 欧拉角 → ToEnuAttitude → ENU 欧拉角
+  // JSBSim qAttitudeLocal（Body→NED 四元数）→ 欧拉角
+  // 使用 NED 欧拉角直接输出：yaw=航向(0°=北), pitch=俯仰, roll=滚转。
+  // 不使用 ToEnuAttitude：该函数通过旋转矩阵复合转换，在飞机有坡度时
+  // 会产生 roll↔yaw 耦合，导致转弯中输出航向不稳定。
   const JSBSim::FGQuaternion& q = propagate.GetQuaternion();
-
-  // JSBSim 四元数到欧拉角（已是 NED 系，deg）
-  // FGQuaternion::GetEuler() 返回 (phi=roll, theta=pitch, psi=yaw) in radians
   const JSBSim::FGColumnVector3 euler_rad = q.GetEuler();
   constexpr double kRadToDeg = 180.0 / M_PI;
-  oneq::coordinate::EulerAnglesDeg ned_att{};
-  ned_att.yaw_deg   = euler_rad(3) * kRadToDeg;  // psi
-  ned_att.pitch_deg = euler_rad(2) * kRadToDeg;  // theta
-  ned_att.roll_deg  = euler_rad(1) * kRadToDeg;  // phi
+
+  double yaw_deg = euler_rad(3) * kRadToDeg;   // psi (NED heading)
+  double pitch_deg = euler_rad(2) * kRadToDeg;  // theta
+  double roll_deg = euler_rad(1) * kRadToDeg;   // phi
 
   // 规范化 yaw 到 [0, 360)
-  if (ned_att.yaw_deg < 0.0) {
-    ned_att.yaw_deg += 360.0;
-  }
+  if (yaw_deg < 0.0) yaw_deg += 360.0;
 
-  // NED → ENU 姿态转换
-  const auto enu_att = oneq::coordinate::ToEnuAttitude(ned_att);
-  out.state.yaw_deg   = enu_att.yaw_deg;
-  out.state.pitch_deg = enu_att.pitch_deg;
-  out.state.roll_deg  = enu_att.roll_deg;
+  out.state.yaw_deg   = yaw_deg;
+  out.state.pitch_deg = -pitch_deg;  // NED 正俯仰(nose down) → ENU 正仰角(nose up)
+  out.state.roll_deg  = -roll_deg;   // NED→ENU Z 轴反向，roll 方向取反
 }
 
 void VehicleStateMapper::MapAngularVelocity(const JSBSim::FGPropagate& propagate,

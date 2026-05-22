@@ -41,7 +41,7 @@ constexpr double kNmToLbfFt = 0.737562;
 }  // namespace
 
 JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config)
-    : fdm_exec_(new JSBSim::FGFDMExec()) {
+    : fdm_exec_(new JSBSim::FGFDMExec()), do_trim_(config.do_trim) {
   // 静默模式：重定向 JSBSim 输出
   if (config.silent) {
     fdm_exec_->SetDebugLevel(0);
@@ -67,6 +67,18 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config)
   if (!fdm_exec_->RunIC()) {
     throw std::runtime_error("JsbsimAdapter: RunIC() failed");
   }
+
+  // 4. 空中初始配平（避免由于舵面不在平衡位置而产生的初始巨大不平衡力矩导致 NaNs）
+  if (config.do_trim) {
+    fdm_exec_->SetPropertyValue("propulsion/set-running", -1); // 启动所有引擎
+    try {
+      fdm_exec_->DoTrim(0); 
+    } catch (const std::exception& e) {
+      std::cerr << "JsbsimAdapter: DoTrim exception: " << e.what() << std::endl;
+    } catch (...) {
+      std::cerr << "JsbsimAdapter: DoTrim unknown exception" << std::endl;
+    }
+  }
 }
 
 JsbsimAdapter::~JsbsimAdapter() = default;
@@ -90,6 +102,17 @@ void JsbsimAdapter::Reset(const oneq::coordinate::ExternalKinematics& kinematics
   if (!fdm_exec_->RunIC()) {
     throw std::runtime_error("JsbsimAdapter: RunIC() failed during Reset");
   }
+
+  if (do_trim_) {
+    fdm_exec_->SetPropertyValue("propulsion/set-running", -1);
+    try {
+      fdm_exec_->DoTrim(0);
+    } catch (...) {
+      std::cerr << "JsbsimAdapter: Reset DoTrim unknown exception" << std::endl;
+    }
+  }
+
+  airspeed_integral_ = 0.0;
 }
 
 double JsbsimAdapter::GetProperty(const std::string& property_name) const {
@@ -131,41 +154,70 @@ void JsbsimAdapter::ApplyInitialConditions(
   ic->SetLongitudeDegIC(lla.longitude_deg);
   ic->SetAltitudeASLFtIC(lla.altitude_m * kMToFt);
 
-  // 速度：ECEF → ENU → NED，再转换为空速(kts)注入
-  // 注意：JSBSim 初始条件最简单的注入方式是 NED 速度
-  oneq::coordinate::EnuVelocityMps enu_vel{};
-  if (oneq::coordinate::TryEcefToEnuVelocity(kinematics.velocity_mps, lla, &enu_vel)) {
-    const auto ned_vel = oneq::coordinate::ToNedVelocity(enu_vel);
-    // JSBSim 使用 vn/ve/vd（ft/s）
-    ic->SetVNorthFpsIC(ned_vel.north_mps * kMToFt);
-    ic->SetVEastFpsIC(ned_vel.east_mps * kMToFt);
-    ic->SetVDownFpsIC(ned_vel.down_mps * kMToFt);
-  }
+  // 姿态：1Q ENU 欧拉角 → JSBSim NED 初始条件
+  // 1Q 的 ENU yaw 约定：0°=北, 90°=东（与 NED heading 相同）。
+  // ToNedAttitude 通过旋转矩阵复合转换，对纯水平飞行会产生 roll=180° 的错误结果。
+  // 对于飞机初始条件，yaw 直接传递即可；pitch 和 roll 取反（ENU 天向朝上 vs NED 天向朝下）。
+  // 注意：必须在速度之前设置姿态，JSBSim 用 heading 来分解空速为 NED 分量
+  ic->SetPsiDegIC(kinematics.attitude_deg.yaw_deg);     // 航向（ENU yaw = NED heading）
+  ic->SetThetaDegIC(-kinematics.attitude_deg.pitch_deg); // 俯仰（ENU 正仰角 → NED 负俯仰）
+  ic->SetPhiDegIC(-kinematics.attitude_deg.roll_deg);    // 滚转（方向取反）
 
-  // 姿态：ENU 欧拉角 → NED 欧拉角（JSBSim 使用 NED 系）
-  const auto ned_att = oneq::coordinate::ToNedAttitude(kinematics.attitude_deg);
-  ic->SetPsiDegIC(ned_att.yaw_deg);    // 航向
-  ic->SetThetaDegIC(ned_att.pitch_deg); // 俯仰
-  ic->SetPhiDegIC(ned_att.roll_deg);   // 滚转
+  // 速度：使用 JSBSim 原生的校准空速接口（SetVcalibratedKtsIC）。
+  // JSBSim 内部会根据 heading (psi) 和 alpha 将空速分解为 body/NED 速度分量。
+  // 这种方式能正确初始化 alpha，使 DoTrim 可以正常收敛。
+  // 若使用 SetVNorthFpsIC/SetVEastFpsIC，在某些情况下会产生退化的 alpha=90° 问题。
+  const auto& vel = kinematics.velocity_mps;
+  const double speed_mps = std::sqrt(
+      vel.x_mps * vel.x_mps + vel.y_mps * vel.y_mps + vel.z_mps * vel.z_mps);
+  if (speed_mps > 1.0) {
+    ic->SetVcalibratedKtsIC(speed_mps * kMpsToKnots);
+  }
 }
 
 void JsbsimAdapter::ApplyControlInputs(const model::FlightDynamicInput& input) {
   const auto& ctrl = input.control;
-  fdm_exec_->SetPropertyValue("fcs/throttle-cmd-norm[0]", ctrl.throttle);
+
+  // ---- 基础控制面 ----
   fdm_exec_->SetPropertyValue("fcs/aileron-cmd-norm", ctrl.aileron);
   fdm_exec_->SetPropertyValue("fcs/elevator-cmd-norm", ctrl.elevator);
   fdm_exec_->SetPropertyValue("fcs/rudder-cmd-norm", ctrl.rudder);
 
-  // AP 指令（仅当设置值 >= 0 时激活，哨兵值 -1 表示不使用）
+  // ---- AP 航向（通过 c172ap.xml → ap/aileron_cmd → FCS Roll 通道） ----
+  // 1Q ENU yaw 约定与 JSBSim NED heading 相同：0°=北, 90°=东，直接传递。
   if (ctrl.heading_setpoint_deg >= 0.0) {
-    fdm_exec_->SetPropertyValue("ap/heading_setpoint", ctrl.heading_setpoint_deg);
+    fdm_exec_->SetPropertyValue("ap/heading_setpoint",
+                                ctrl.heading_setpoint_deg);
   }
-  fdm_exec_->SetPropertyValue("ap/heading_hold", ctrl.heading_hold ? 1.0 : 0.0);
+  fdm_exec_->SetPropertyValue("ap/heading_hold",
+                              ctrl.heading_hold ? 1.0 : 0.0);
+
+  // ---- AP 高度（通过 c172ap.xml → ap/elevator_cmd → FCS Pitch 通道） ----
   if (ctrl.altitude_setpoint_m >= 0.0) {
-    // JSBSim AP 内部使用英制，需将米转换为英尺
-    fdm_exec_->SetPropertyValue("ap/altitude_setpoint", ctrl.altitude_setpoint_m * kMToFt);
+    fdm_exec_->SetPropertyValue("ap/altitude_setpoint",
+                                ctrl.altitude_setpoint_m * kMToFt);
   }
-  fdm_exec_->SetPropertyValue("ap/altitude_hold", ctrl.altitude_hold ? 1.0 : 0.0);
+  fdm_exec_->SetPropertyValue("ap/altitude_hold",
+                              ctrl.altitude_hold ? 1.0 : 0.0);
+
+  // ---- AP 速度（C++ 侧 PI 控制器） ----
+  // c172ap.xml 原版无 auto-throttle 通道，此处在 C++ 侧实现空速保持。
+  if (ctrl.airspeed_hold && ctrl.airspeed_setpoint_mps > 0.0) {
+    const double target_kts = ctrl.airspeed_setpoint_mps * kMpsToKnots;
+    const double current_kts = fdm_exec_->GetPropertyValue("velocities/vc-kts");
+    double error = target_kts - current_kts;
+    error = std::max(-50.0, std::min(50.0, error));
+
+    const double dt = static_cast<double>(input.dt_sec);
+    airspeed_integral_ += error * dt;
+    airspeed_integral_ = std::max(-50.0, std::min(50.0, airspeed_integral_));
+
+    double throttle = 0.05 * error + 0.01 * airspeed_integral_;
+    throttle = std::max(0.0, std::min(1.0, throttle));
+    fdm_exec_->SetPropertyValue("fcs/throttle-cmd-norm[0]", throttle);
+  } else {
+    fdm_exec_->SetPropertyValue("fcs/throttle-cmd-norm[0]", ctrl.throttle);
+  }
 }
 
 void JsbsimAdapter::ApplyExternalForces(const model::FlightDynamicInput& input) {
