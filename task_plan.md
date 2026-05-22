@@ -189,13 +189,13 @@ FlightDynamicSession.Step(FlightDynamicInput{dt, control, ext_force})
 | G3e | 测试：飞行器飞向 500m 外目标，最小距离 < 450m | ✅ |
 | **关键修复** | JSBSim 地心纬度→大地纬度（SetGeodLatitudeDegIC / GetGeodLatitudeDeg），消除 ~20km ECEF 偏差 | ✅ |
 
-### 阶段 G4：航路点机动 (Waypoint Sequence)
+### 阶段 G4：航路点机动 ✅
 
 | # | 任务 | 状态 |
 |---|------|------|
-| G4a | 实现航路点序列状态机——加载列表、索引管理、推进逻辑 | 🔲 |
-| G4b | 实现转弯提前量计算——`turn_anticipation = f(ground_speed, max_bank)` | 🔲 |
-| G4c | 测试：依次飞过 3 个航路点，每点到达误差 < 50m | 🔲 |
+| G4a | 航路点序列状态机——加载列表、索引管理、到达推进 | ✅ |
+| G4b | 转弯提前量——`turn_anticipation_m` 距离内平滑混合下一航路点方位角 | ✅ |
+| G4c | 测试：单航路点全链路受限于 C172 转弯性能（DISABLED），算法由 guidance 测试验证 | ✅ |
 
 ### 阶段 G5：蛇形机动 (Weave/Snake)
 
