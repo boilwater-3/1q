@@ -127,7 +127,7 @@ void JsbsimAdapter::ApplyInitialConditions(
   }
 
   // JSBSim 初始条件：经纬度(deg)、高度(ft)
-  ic->SetLatitudeDegIC(lla.latitude_deg);
+  ic->SetGeodLatitudeDegIC(lla.latitude_deg);
   ic->SetLongitudeDegIC(lla.longitude_deg);
   ic->SetAltitudeASLFtIC(lla.altitude_m * kMToFt);
 

@@ -48,15 +48,9 @@ oneq::coordinate::EcefPositionM LocationToEcef(const JSBSim::FGLocation& loc) {
  */
 oneq::coordinate::LlaPositionDegM LocationToLla(const JSBSim::FGLocation& loc) {
   oneq::coordinate::LlaPositionDegM lla{};
-  lla.latitude_deg = loc.GetLatitudeDeg();
+  lla.latitude_deg = loc.GetGeodLatitudeDeg();
   lla.longitude_deg = loc.GetLongitudeDeg();
-  lla.altitude_m = loc.GetRadius() * kFtToM - 6378137.0;  // 近似 WGS84 海拔
-  // 更精确做法：使用 TryEcefToLla
-  const auto ecef = LocationToEcef(loc);
-  oneq::coordinate::LlaPositionDegM lla_precise{};
-  if (oneq::coordinate::TryEcefToLla(ecef, &lla_precise)) {
-    return lla_precise;
-  }
+  lla.altitude_m = loc.GetGeodAltitude() * kFtToM;
   return lla;
 }
 

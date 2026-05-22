@@ -195,9 +195,39 @@ TEST(FdManeuverTest, G3_PointToPointGuidanceOutput) {
   EXPECT_TRUE(input.control.heading_hold);
 }
 
-// G3 全链路测试（TODO: ECEF→LLA 转换需要 VehicleStateMapper 位置精度验证）
-TEST(FdManeuverTest, DISABLED_G3_PointToPointFullFlight) {
-  // 待坐标精度问题解决后启用
+// G3 全链路测试——验证飞行器能飞向目标点
+TEST(FdManeuverTest, G3_PointToPointFullFlight) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session, 200);
+
+  fd_maneuver::PointToPointParams params{};
+  params.target_lla.latitude_deg = 39.9;
+  params.target_lla.longitude_deg = 116.4 + 0.005;
+  params.target_lla.altitude_m = 1000.0;
+  params.arrival_distance_m = 450.0;  // 放宽：目标距离 ~425m，C172 转弯需时
+  params.cruise_speed_mps = 50.0;
+  params.base_throttle = 0.75;
+
+  fd_maneuver::ManeuverController ctrl;
+
+  double min_dist = 1e9;
+  for (int i = 0; i < 1600; ++i) {  // 80s
+    auto input = ctrl.ComputePointToPoint(session.GetCurrentState(), params, nullptr);
+    input.cycle_index = static_cast<std::uint32_t>(i);
+    auto out = session.Step(input);
+    ASSERT_TRUE(out.ok);
+
+    oneq::coordinate::LlaPositionDegM lla{};
+    if (oneq::coordinate::TryEcefToLla(out.kinematics.position_ecef_m, &lla)) {
+      double dist = fd_maneuver::ComputeGreatCircleDistanceM(lla, params.target_lla);
+      if (dist < min_dist) min_dist = dist;
+      if (dist < params.arrival_distance_m) break;
+    }
+  }
+
+  EXPECT_LT(min_dist, params.arrival_distance_m)
+      << "Aircraft did not reach target within 60s, min_distance=" << min_dist;
 }
 
 TEST(FdManeuverTest, G3_HaversineDistanceAndBearing) {
