@@ -1,0 +1,50 @@
+{
+  "hardware": {
+    "wavelength_lower_um": 3.0,
+    "wavelength_upper_um": 5.0,
+    "optical_aperture_m": 0.25,
+    "focal_length_m": 0.8
+  },
+  "mission": {
+    "work_mode": "kFused",
+    "horizontal_fov_deg": 20.0,
+    "vertical_fov_deg": 8.0,
+    "scan_rate_deg_per_sec": 5.0,
+    "frame_rate_hz": 30.0,
+    "scan_start_az_deg": -10.0,
+    "scan_end_az_deg": 10.0,
+    "scan_center_el_deg": -48.0,
+    "boresight_depression_deg": 48.0
+  },
+  "policy": {
+    "detection": {
+      "profile": "kAggressive",
+      "use_profile_defaults": true,
+      "minimum_snr_db": 4.0,
+      "detection_sensitivity_w": 1.0e-12,
+      "visible_reference_irradiance_w_m2": 800.0
+    },
+    "stray_light": {
+      "profile": "kStandardHood",
+      "use_profile_defaults": true,
+      "enable_straylight_filter": false,
+      "hood_inner_half_angle_deg": 12.0,
+      "hood_outer_half_angle_deg": 75.0,
+      "hood_min_suppression_ratio": 0.2,
+      "hood_max_suppression_ratio": 0.85
+    }
+  },
+  "environment": {
+    "scenario_config": {
+      "model_type": "kSimplified",
+      "preset": "kStandard",
+      "has_custom_overrides": false,
+      "custom_overrides": {
+        "radiative_transfer_model": "kDerivedBeerLambert",
+        "aerosol_density_factor": 1.0,
+        "turbulence_factor": 1.0,
+        "enable_optical_countermeasure_extension": false
+      }
+    }
+  }
+}

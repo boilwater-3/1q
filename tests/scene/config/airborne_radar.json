@@ -1,0 +1,119 @@
+{
+  "hardware": {
+    "detection": {
+      "enable_physics_detection": false,
+      "transmitter": {
+        "peak_power_w": 5000000.0,
+        "frequency_hz": 9300000000.0,
+        "bandwidth_hz": 3000000.0,
+        "pulse_width_s": 1.3e-5,
+        "prf_hz": 220.0,
+        "transmit_loss_db": 3.5
+      },
+      "antenna": {
+        "main_beam_gain_db": 38.0,
+        "nominal_az_beamwidth_deg": 4.0,
+        "nominal_el_beamwidth_deg": 4.0,
+        "pattern": {
+          "model_type": "kGaussianMainLobe",
+          "max_sidelobe_level_db": -20.0,
+          "backlobe_level_db": -35.0,
+          "scan_loss_coeff_db_per_deg2": 0.0,
+          "max_scan_loss_db": 6.0,
+          "boresight_offset_deg": {"az_deg": 0.0, "el_deg": 0.0}
+        },
+        "enable_directional_pattern": false
+      },
+      "receiver": {
+        "noise_figure_db": 3.0,
+        "receive_loss_db": 2.0
+      },
+      "detection_policy": {
+        "cfar_pfa": 1.0e-6,
+        "min_snr_db": -12.0
+      },
+      "rcs_physics": {
+        "enable_physical_rcs": false,
+        "frequency_hz": 0.0,
+        "physics_mix_ratio": 0.0,
+        "cylinder_weight": 0.5,
+        "min_equivalent_radius_m": 0.05,
+        "max_equivalent_radius_m": 5.0,
+        "min_rcs_m2": 0.01,
+        "max_rcs_m2": 1000.0,
+        "bistatic_psi_offset_deg": 5.0
+      },
+      "min_detection_margin_db": -100.0,
+      "pulse_count": 16
+    }
+  },
+  "mission": {
+    "orientation": {
+      "mount_angles_deg": {"yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+      "scan_center_deg": {"az_deg": 0.0, "el_deg": 0.0},
+      "mechanical_scan_limits_deg": {"az_min_deg": -60.0, "az_max_deg": 60.0, "el_min_deg": -30.0, "el_max_deg": 30.0},
+      "electronic_scan_limits_deg": {"az_min_deg": -60.0, "az_max_deg": 60.0, "el_min_deg": -30.0, "el_max_deg": 30.0},
+      "scan_start_position": "kLeftTop",
+      "scan_sequence": "kAzimuthFirst",
+      "work_sub_mode": "kTas",
+      "commanded_beamwidth_enabled": false,
+      "commanded_beamwidth_deg": {"commanded_az_beamwidth_deg": 4.0, "commanded_el_beamwidth_deg": 4.0},
+      "stabilization_mode": "kBodyStabilized"
+    }
+  },
+  "policy": {
+    "beam_control": {
+      "pointing": {
+        "default_scan_center_deg": {"az_deg": 0.0, "el_deg": 0.0},
+        "nominal_beamwidth_deg": {"commanded_az_beamwidth_deg": 4.0, "commanded_el_beamwidth_deg": 4.0}
+      },
+      "scheduler": {
+        "azimuth_step_count_hint": 0,
+        "elevation_step_count_hint": 0,
+        "prefer_dense_tas_sampling": false
+      }
+    },
+    "association": {
+      "unassigned_cost": 9.0,
+      "use_distance_gate_hint": false,
+      "distance_gate_sigma_hint": 0.0
+    },
+    "tracking": {
+      "enable_kalman_filter": true,
+      "kalman_measurement_noise_std": 6.0,
+      "kalman_update_backend": "kStandardKfJoseph",
+      "speed_decay_ratio_on_loss": 0.95,
+      "rcs_decay_ratio_on_loss": 0.92
+    },
+    "lifecycle": {
+      "confirm_hits": 1,
+      "max_miss_before_lost": 1,
+      "max_lost_cycles": 3,
+      "enable_imm_lifecycle": false,
+      "model_count_hint": 2
+    }
+  },
+  "environment": {
+    "scenario_config": {
+      "atmospheric_physics": {
+        "enable_physical_model": false,
+        "pressure_hpa": 1013.25,
+        "temperature_k": 288.15,
+        "relative_humidity": 0.5
+      },
+      "atmospheric_context": {
+        "has_simulation_unix_seconds": false,
+        "simulation_unix_seconds": 0,
+        "solar_flux_f107a": 150.0,
+        "solar_flux_f107": 150.0,
+        "geomagnetic_ap": 4.0
+      },
+      "vegetation_scatter_physics": {
+        "cover_profile": "kDisabled",
+        "enable_physical_model": false
+      },
+      "jammer_sources": []
+    }
+  },
+  "jamming_sensitivity_profile": "kBalanced"
+}
