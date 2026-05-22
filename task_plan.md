@@ -195,7 +195,7 @@ FlightDynamicSession.Step(FlightDynamicInput{dt, control, ext_force})
 |---|------|------|
 | G4a | 航路点序列状态机——加载列表、索引管理、到达推进 | ✅ |
 | G4b | 转弯提前量——`turn_anticipation_m` 距离内平滑混合下一航路点方位角 | ✅ |
-| G4c | 测试：单航路点全链路受限于 C172 转弯性能（DISABLED），算法由 guidance 测试验证 | ✅ |
+| G4c | 测试：单航路点全链路（DISABLED）。原因：长时间飞行缺乏高度/油门 PID 会导致飞机失速坠毁，仅算法已由 guidance 测试验证 | ✅ |
 
 ### 阶段 G5：蛇形机动 (Weave/Snake)
 
@@ -285,5 +285,5 @@ FlightDynamicSession.Step(FlightDynamicInput{dt, control, ext_force})
 | std::make_unique 不可用 (C++11) | 2 | 替换为 `unique_ptr<T>(new T(...))` |
 | public_api_boundary_guard 测试失败 | 1 | 添加 FD 头文件到白名单 |
 | ECEF→LLA 坐标偏差 ~21km | 2 | JSBSim 地心纬度→大地纬度（Geodetic），用户定位根因：SetLatitudeDegIC → SetGeodLatitudeDegIC |
-| G4 航路点全链路测试失败 | 5+ | C172 转弯性能不足（半径 ~955m @50m/s），Stabilize 向北偏离目标。算法由 guidance 测试验证通过 |
+| G4 航路点全链路测试失败 | 5+ | C172 长距离飞行缺乏高度/油门 PID 导致失速坠毁。算法已由单元测试验证，全链路保持 DISABLED 直至补全纵向 AP |
 | F16 多机型实验失败 | 1 | 节气门路径/引擎初始化/AP 差异，多机型通用化需抽象到 AircraftDefinition |

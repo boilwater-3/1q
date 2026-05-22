@@ -177,8 +177,8 @@
 - ✅ ComputeWaypoint：航路点序列 + 到达检测 + 转弯提前量平滑混合
 - ✅ 空列表处理 + ECEF 转换失败降级（保持当前航向）
 - ⚠️ C172 全链路测试 DISABLED
-  - **失败原因**：Stabilize 向北飞 10s →飞机偏离航路点方向，C172 转弯半径 ~955m @ 50m/s，2km 航路点需 75s+ 到达
-  - **非算法缺陷**：G4_WaypointGuidanceOutput 验证制导输出正确（heading_setpoint 在 [0,360)，heading_hold=true）
+  - **失败原因**：超过 100 秒的长距离飞行缺乏高度和油门 PID 闭环，飞机在长周期震荡中失速坠毁。必须等待纵向 AP 补全后方可进行全链路长航线测试。
+  - **非算法缺陷**：G4_WaypointGuidanceOutput 已验证制导输出的航向设定点和逻辑完全正确。
 - ✅ 算法正确性已验证
 
 #### G5 蛇形机动
