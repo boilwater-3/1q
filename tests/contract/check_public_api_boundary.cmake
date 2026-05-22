@@ -206,6 +206,8 @@ set(FD_HEADERS
     "flight_dynamic/config/AircraftDefinition.h"
     "flight_dynamic/config/FlightDynamicConfig.h"
     "flight_dynamic/flight_dynamic.hpp"
+    "flight_dynamic/maneuver/ManeuverController.h"
+    "flight_dynamic/maneuver/ManeuverTypes.h"
     "flight_dynamic/model/FlightDynamicInput.h"
     "flight_dynamic/model/FlightDynamicOutput.h"
     "flight_dynamic/model/VehicleState.h"

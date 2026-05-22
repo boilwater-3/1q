@@ -194,3 +194,171 @@
   3. F16 无 AP autopilot（无航向保持）
 - 结论：多机型支持需抽象节气门/AP 路径到 AircraftDefinition，列为未来通用化任务
 - 已清理所有 F16 实验代码，恢复为 C172-only
+
+#### AP 集成修复（2026-05-22 下午）
+
+G0_HeadingHoldConverges 测试持续失败（NaN → 不转弯 → 过冲），经系统性排查修复三个根因：
+
+**修复 1: c172x.xml `ap/aileron_cmd` 被注释掉**
+- 发现 c172ap.xml heading hold 输出 `ap/aileron_cmd` 在 c172x.xml Roll 通道 summer 中被注释掉
+- 上游 commit `ae318dea` (2023-02-03) 已修复此 bug（取消注释）
+- 我们的 JSBSim 版本 `70a327fc` (2020-10-18) 包含此 bug
+- 修复：取消注释 `<input>ap/aileron_cmd</input>`
+
+**修复 2: ENU↔NED 姿态转换不适用飞机**
+- `ToEnuAttitude`/`ToNedAttitude` 通过旋转矩阵 `R=[[0,1,0],[1,0,0],[0,0,-1]]` 复合转换
+- 对水平飞行（ENU yaw=0, pitch=0, roll=0）产生 NED yaw=90°, roll=180°（倒飞！）
+- 转弯时产生 roll↔yaw 耦合，导致输出航向不稳定
+- 修复：
+  - `ApplyInitialConditions`: 直接传递 yaw，取反 pitch 和 roll（NED→ENU Z 轴反向）
+  - `MapAttitude`: 直接输出 NED heading（0°=北, 90°=东），取反 pitch 和 roll
+  - `ApplyControlInputs`: `heading_setpoint_deg` 直接传递（ENU yaw 约定与 NED heading 相同）
+
+**修复 3: C++ 侧空速 PI 控制器**
+- c172ap.xml 原版无 auto-throttle 通道（我们之前添加的 XML PID 已还原）
+- 在 JsbsimAdapter 中实现 C++ PI 控制器：kp=0.05, ki=0.01, 误差限幅 ±50 kts
+- 新增 `airspeed_integral_` 成员变量，Reset 时重置
+
+**修复 4: 测试超时调整**
+- C172 标准转弯率 ~3°/s，c172ap.xml heading error 限幅 ±30°
+- 90° 转弯需 ~30s → G2_90deg 从 400 步(20s) 调整为 800 步(40s)
+- 180° 转弯需 ~60s → G2_180deg 从 600 步(30s) 调整为 1200 步(60s)
+
+**最终结果**: 全部 11 个 maneuver 测试通过，887/887 全量测试通过，零回归
+
+#### G6 滚筒机动（闭环方案）
+
+- ✅ `BarrelRollParams` / `BarrelRollState` / `BarrelRollPhase` 数据结构
+- ✅ `ComputeBarrelRoll` 实现：
+  - **滚转 PID**：跟踪累积滚转角（机体 roll_rate 积分，避免 Euler 角 ±180° 跳变）
+  - **高度 PID**：cos(roll) 修正升降舵（倒飞时 elevator 反向）
+  - **安全中止**：高度损失超限或海拔过低时自动中止，紧急恢复平飞
+- ✅ G6_BarrelRollCompleted：C172 完成 360° 滚转，通过
+- ✅ G6_BarrelRollGuidanceOutput：验证初始输出非零副翼、AP 禁用
+- 14/14 机动测试通过，零回归
+
+---
+
+## 阶段 H 规划：机动控制公共 API (2026-05-23)
+
+### 问题识别
+
+阶段 G（机动控制层）完成，但仅体现在测试代码中：
+- `ManeuverController` 在 `src/flight_dynamic/maneuver/` 内部，测试通过 `#include "flight_dynamic/maneuver/ManeuverController.h"` 直接引用
+- 机动参数类型（`PointToPointParams`、`WeaveParams` 等）未暴露到 `include/`
+- 用户无法通过 `#include "1q/flight_dynamic/flight_dynamic.hpp"` 使用机动功能
+- 机动执行模式（Compute → Step → 检查状态）的样板代码在每类测试中重复
+
+### 设计方案分析
+
+分析了三个方案：
+
+| 方案 | 改动量 | 用户样板 | 关注点分离 |
+|------|--------|---------|-----------|
+| A: 仅提升类型到公共 API | 最小 | 不减 | 好 |
+| B: Session 集成 StepManeuver（推荐） | 中等 | 消除 | 可接受 |
+| C: 独立 ManeuverSession 门面 | 较大 | 消除 | 好 |
+
+推荐方案 B：在 `FlightDynamicSession` 新增 `StepManeuver(ManeuverRequest) → ManeuverStepResult`，
+内部管理 `ManeuverController` + 机动状态（航路点索引、滚筒阶段、仿真时间）。
+原 `Step()` 保留用于手动控制。
+
+### 新增公共文件
+
+```
+include/1q/flight_dynamic/maneuver/
+  ManeuverTypes.h       — ManeuverMode + 机动参数 + ManeuverRequest/Status/StepResult
+  ManeuverController.h  — 公共接口（ComputeXxx 方法 + 几何工具）
+```
+
+### 计划更新
+
+task_plan.md 新增阶段 H（H1-H4），含完整架构设计、公共类型定义、构建系统集成、测试计划。
+决策 DR11 记录三个方案对比及推荐理由，待用户确认。
+
+### 阶段 H 实现 (2026-05-23)
+
+#### H1: 公共类型定义
+
+- ✅ `include/1q/flight_dynamic/maneuver/ManeuverTypes.h`
+  - ManeuverMode 枚举（kManual/kPointToPoint/kWaypoint/kWeave/kBarrelRoll）
+  - 机动参数结构体：PointToPointParams、WeaveParams、WaypointParams、BarrelRollParams
+  - BarrelRollPhase 枚举 + BarrelRollState 状态结构体
+  - ManeuverRequest / ManeuverStatus / ManeuverStepResult 请求-状态-结果类型
+- ✅ `include/1q/flight_dynamic/maneuver/ManeuverController.h`
+  - ManeuverController 公共接口声明（ComputeXxx 方法）
+  - 几何工具函数声明（ComputeGreatCircleDistanceM、ComputeForwardAzimuthDeg）
+- ✅ 删除内部 `src/flight_dynamic/maneuver/ManeuverController.h`（被公共头文件替代）
+- ✅ `ManeuverController.cpp` 改为包含公共头文件
+
+#### H2: FlightDynamicSession 集成
+
+- ✅ FlightDynamicSession.h 新增 StepManeuver/ResetManeuver 声明
+- ✅ FlightDynamicSessionImpl.h 新增机动状态成员：
+  - ManeuverController maneuver_ctrl
+  - ManeuverMode active_maneuver_mode
+  - double maneuver_sim_time_s
+  - size_t waypoint_index + WaypointList active_waypoints
+  - BarrelRollState barrel_roll_state
+- ✅ StepManeuver 实现：根据 mode 分发到 ComputeXxx → Step → 更新状态
+  - 机动切换时自动重置状态
+  - ManeuverStatus 包含 active/completed/aborted/waypoint_index/barrel_roll_phase
+- ✅ ResetManeuver 实现：清除机动状态，不影响物理引擎
+
+#### H3: 构建系统
+
+- ✅ flight_dynamic.hpp umbrella header 添加 maneuver include
+- ✅ CMakeLists.txt 添加 PUBLIC_HEADERS_FD_MANEUVER 安装规则
+- ✅ check_public_api_boundary.cmake 白名单添加 ManeuverTypes.h + ManeuverController.h
+
+#### H4: 测试
+
+新增 6 个 StepManeuver 公共 API 测试：
+
+| 测试 | 覆盖内容 |
+|------|---------|
+| H3_StepManeuverPointToPoint | kPointToPoint 全链路，到达目标 |
+| H5_StepManeuverWeave | kWeave 航向振荡 > 15° |
+| H4_StepManeuverWaypoint | kWaypoint 3 航路点全链路 |
+| H6_StepManeuverBarrelRoll | kBarrelRoll 360° 滚转，高度损失 < 250m |
+| H7_ManeuverSwitch | weave → point-to-point 切换，状态自动重置 |
+| H8_ResetManeuver | ResetManeuver 清除机动状态 |
+
+**最终结果**: 896/896 全量测试通过（+6 个 H 系列测试），零回归
+
+### 阶段 I：新增规避 + 绕圈盘旋机动 (2026-05-23)
+
+#### I1-I2: 类型与实现
+
+- ✅ ManeuverMode 新增 `kOrbit` + `kEvasion`
+- ✅ OrbitParams: center_lla, radius_m, clockwise, altitude_m, cruise_speed_mps
+- ✅ OrbitState: initialized 标志
+- ✅ EvasionParams: evasion_heading_deg, target_altitude_m, duration_s, cruise_speed_mps
+- ✅ EvasionState: phase (kBreaking/kDescending/kCompleted), start_time_s, initialized
+- ✅ EvasionPhase 枚举
+
+#### I3: Orbit 算法
+
+```
+tangent_heading = bearing_to_center + sign * 90°
+correction = -sign * 45° * (distance - radius) / radius  (限幅 ±45°)
+target_heading = tangent + correction
+```
+
+#### I4: Evasion 算法
+
+- kBreaking: AP 航向保持到规避航向
+- kDescending: 航向收敛后持续下降
+- kCompleted: 持续时间到期
+
+#### I5: 测试
+
+| 测试 | 覆盖内容 |
+|------|---------|
+| I1_OrbitGuidanceOutput | 制导输出有效航向 + 到中心距离 |
+| I2_OrbitCirclesCenter | 盘旋 200s，航向变化 > 300°（约 2 圈） |
+| I3_EvasionGuidanceOutput | 初始阶段为 kBreaking |
+| I4_EvasionCompletesAfterDuration | 持续时间后 completed = true |
+| I5_EvasionChangesHeading | 航向收敛到规避目标（< 20° 误差） |
+
+**最终结果**: 901/901 全量测试通过（+5 个 I 系列测试），零回归

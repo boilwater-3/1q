@@ -23,6 +23,10 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/flight_dynamic/model/FlightDynamicInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/flight_dynamic/model/FlightDynamicOutput.h
     )
+    set(PUBLIC_HEADERS_FD_MANEUVER
+        ${CMAKE_SOURCE_DIR}/include/1q/flight_dynamic/maneuver/ManeuverTypes.h
+        ${CMAKE_SOURCE_DIR}/include/1q/flight_dynamic/maneuver/ManeuverController.h
+    )
     set(PUBLIC_HEADERS_FD_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/flight_dynamic/session/FlightDynamicSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/flight_dynamic/session/FlightDynamicSessionFactory.h
@@ -39,6 +43,9 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_FD_MODEL}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/flight_dynamic/model
+    )
+    install(FILES ${PUBLIC_HEADERS_FD_MANEUVER}
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/flight_dynamic/maneuver
     )
     install(FILES ${PUBLIC_HEADERS_FD_SESSION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/flight_dynamic/session

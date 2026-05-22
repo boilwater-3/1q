@@ -305,3 +305,71 @@ JSBSim **不提供高层机动原语**。五种机动模式都需要在 1Q 端�
 - **JSBSim 始终共享库**: `cmake/ProjectDependencies.cmake` 中无条件 `add_subdirectory(jsbsim)`，设置 `BUILD_SHARED_LIBS=ON` 后恢复原值
 - **不依赖 Conan**: JSBSim 无 Conan 包，不走 find_package 路径
 - **C++11 兼容**: fd_engine/fd_core 无需提升 C++ 标准，与项目默认一致
+
+## 16. c172x Autopilot 链路分析 (2026-05-22)
+
+### c172x 加载的三个 XML 系统
+
+c172x.xml 加载了三个与 AP 相关的配置：
+
+| 文件 | 类型 | 功能 |
+|------|------|------|
+| `systems/GNCUtilities.xml` | `<system>` | 计算 `guidance/angle-to-heading-rad`（当前航向与目标航向的夹角） |
+| `systems/Autopilot.xml` | `<system>` | 基于 angle-to-heading 的 roll PID → 输出 `ap/roll-cmd-norm-output` |
+| `c172ap.xml` | `<autopilot>` | 独立 AP：heading hold → `ap/aileron_cmd`，altitude hold → `ap/elevator_cmd` |
+
+### FCS Roll 通道连接
+
+```xml
+<summer name="fcs/roll-trim-sum">
+    <input>ap/aileron_cmd</input>          <!-- 来自 c172ap.xml heading hold -->
+    <input>ap/roll-cmd-norm-output</input>  <!-- 来自 Autopilot.xml -->
+    <input>fcs/aileron-cmd-norm</input>     <!-- 来自 C++ 侧直接控制 -->
+    <input>fcs/roll-trim-cmd-norm</input>   <!-- 配平 -->
+</summer>
+```
+
+**关键发现**: 在我们的 JSBSim 版本 (`70a327fc`, 2020-10-18) 中，`ap/aileron_cmd` 被注释掉。
+上游于 2023-02-03 在 commit `ae318dea` 中修复此 bug。
+
+### 正确的 AP 属性路径
+
+| 功能 | 属性 | 来源 |
+|------|------|------|
+| 航向保持 | `ap/heading_hold` + `ap/heading_setpoint` (deg, 0=北) | c172ap.xml |
+| 高度保持 | `ap/altitude_hold` + `ap/altitude_setpoint` (ft) | c172ap.xml |
+| 空速保持 | 无（c172ap.xml 原版无 auto-throttle） | 需 C++ 侧实现 |
+
+### 数据文件版本建议
+
+JSBSim 引擎源码锁定在 2020 版本（C++11 兼容），但飞机数据文件（`aircraft/`、`systems/`）
+不存在编译兼容性问题，可安全更新到最新版本。此为后续优化任务。
+
+## 17. ENU↔NED 姿态转换对飞机的影响 (2026-05-22)
+
+### ToEnuAttitude/ToNedAttitude 的问题
+
+`oneq::coordinate::ToEnuAttitude` 和 `ToNedAttitude` 通过固定旋转矩阵 `R=[[0,1,0],[1,0,0],[0,0,-1]]`
+与姿态旋转矩阵复合实现转换。这种方式对传感器/云台姿态是正确的，但对飞机姿态有以下问题：
+
+1. **水平飞行产生 roll=180°**: ENU {yaw=0, pitch=0, roll=0} → NED {yaw=90°, pitch=0°, roll=180°}
+   - NED roll=180° 意味着"倒飞"，SetPhiDegIC(180) 导致 JSBSim 初始条件异常
+2. **转弯时 roll↔yaw 耦合**: 飞机有坡度时，旋转矩阵分解产生不稳定的 yaw 输出
+   - 导致输出航向在转弯中剧烈振荡
+
+### 飞机姿态的正确处理
+
+对于飞机，ENU 和 NED 的航向约定相同（0°=北, 90°=东），仅需处理 Z 轴反向：
+
+| 分量 | 转换 | 原因 |
+|------|------|------|
+| yaw / heading | 直接传递 | 1Q ENU yaw = NED heading（0°=北, 90°=东） |
+| pitch | 取反 | ENU 正仰角(nose up) = NED 正 theta(nose down) 方向相反 |
+| roll | 取反 | ENU Z 朝上 vs NED Z 朝下 |
+
+### 官方脚本验证
+
+`scripts/c172_cruise_8K.xml` 确认正确用法：
+- `ap/heading_setpoint` (deg) + `ap/heading_hold` = 1 → 激活航向保持
+- `ap/altitude_setpoint` (ft) + `ap/altitude_hold` = 1 → 激活高度保持
+- 固定油门 `fcs/throttle-cmd-norm`（无 auto-throttle）

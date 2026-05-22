@@ -3,7 +3,7 @@
  * @brief 机动制导/控制律实现。
  */
 
-#include "flight_dynamic/maneuver/ManeuverController.h"
+#include "1q/flight_dynamic/maneuver/ManeuverController.h"
 
 #include <algorithm>
 
@@ -124,7 +124,6 @@ model::FlightDynamicInput ManeuverController::ComputeWeave(
 
   input.control.heading_setpoint_deg = normalized;
   input.control.heading_hold = true;
-  // 假定蛇形机动维持 1000m 高度，50m/s 空速
   input.control.altitude_setpoint_m = 1000.0;
   input.control.altitude_hold = true;
   input.control.airspeed_setpoint_mps = 50.0;
@@ -160,7 +159,6 @@ model::FlightDynamicInput ManeuverController::ComputeWaypoint(
   } else {
     if (!oneq::coordinate::TryEcefToLla(current.kinematics.position_ecef_m,
                                          &current_lla)) {
-      // 转换失败时保持当前航向（不返回空输入导致飞控丢失）
       model::FlightDynamicInput input{};
       input.dt_sec = 0.05f;
       input.control.heading_hold = true;
@@ -176,7 +174,6 @@ model::FlightDynamicInput ManeuverController::ComputeWaypoint(
   if (dist_m < params.turn_anticipation_m && idx + 1U < waypoints.size()) {
     const double next_bearing =
         ComputeForwardAzimuthDeg(current_lla, waypoints[idx + 1U]);
-    // 平滑过渡：根据距离比例混合当前和下一航路点的方位角
     const double t = 1.0 - dist_m / params.turn_anticipation_m;
     bearing_deg = bearing_deg * (1.0 - t) + next_bearing * t;
   }
@@ -198,12 +195,242 @@ model::FlightDynamicInput ManeuverController::ComputeWaypoint(
   input.dt_sec = 0.05f;
   input.control.heading_setpoint_deg = bearing_deg;
   input.control.heading_hold = true;
-  
+
   input.control.altitude_setpoint_m = target.altitude_m;
   input.control.altitude_hold = true;
-  
+
   input.control.airspeed_setpoint_mps = params.segment_params.cruise_speed_mps;
   input.control.airspeed_hold = true;
+
+  return input;
+}
+
+model::FlightDynamicInput ManeuverController::ComputeBarrelRoll(
+    const model::FlightDynamicOutput& current,
+    const BarrelRollParams& params,
+    double sim_time_s,
+    BarrelRollState* state) const {
+  model::FlightDynamicInput input{};
+  input.dt_sec = 0.05f;
+
+  if (!state) return input;
+
+  constexpr double kDt = 0.05;
+
+  // 首次调用初始化
+  if (!state->initialized) {
+    state->phase = BarrelRollPhase::kRolling;
+    state->roll_start_time_s = sim_time_s;
+    state->initial_altitude_m = current.state.altitude_msl_m;
+    state->cumulative_roll_deg = 0.0;
+    state->roll_integral = 0.0;
+    state->alt_integral = 0.0;
+    state->initialized = true;
+  }
+
+  // 安全检查：高度损失超限 → 中止
+  const double alt_loss =
+      state->initial_altitude_m - current.state.altitude_msl_m;
+  if (alt_loss > params.max_altitude_loss_m) {
+    state->phase = BarrelRollPhase::kAborted;
+  }
+
+  // 安全检查：海拔过低 → 中止
+  if (current.state.altitude_msl_m < 200.0) {
+    state->phase = BarrelRollPhase::kAborted;
+  }
+
+  switch (state->phase) {
+    case BarrelRollPhase::kRolling: {
+      // 累积滚转角（使用机体滚转角速率积分，避免 Euler 角跳变）
+      state->cumulative_roll_deg +=
+          current.state.roll_rate_radps * kRadToDeg * kDt;
+
+      // 目标滚转角：线性爬坡到 target_roll_deg
+      const double elapsed = sim_time_s - state->roll_start_time_s;
+      const double target_roll =
+          std::min(elapsed * params.roll_rate_degps, params.target_roll_deg);
+
+      // 滚转 PID → 副翼
+      const double roll_error = target_roll - state->cumulative_roll_deg;
+      state->roll_integral += roll_error * kDt;
+      state->roll_integral =
+          std::max(-50.0, std::min(50.0, state->roll_integral));
+      double aileron =
+          params.roll_kp * roll_error + params.roll_ki * state->roll_integral;
+      aileron = std::max(-1.0, std::min(1.0, aileron));
+
+      // 高度 PID → 升降舵（cos 修正：倒飞时升降舵反向）
+      const double alt_error =
+          params.base_altitude_m - current.state.altitude_msl_m;
+      state->alt_integral += alt_error * kDt;
+      state->alt_integral =
+          std::max(-200.0, std::min(200.0, state->alt_integral));
+      double elevator =
+          params.alt_kp * alt_error + params.alt_ki * state->alt_integral;
+      elevator *= std::cos(state->cumulative_roll_deg * kDegToRad);
+      elevator = std::max(-1.0, std::min(1.0, elevator));
+
+      input.control.aileron = aileron;
+      input.control.elevator = elevator;
+      input.control.heading_hold = false;
+      input.control.altitude_hold = false;
+      input.control.airspeed_setpoint_mps = params.cruise_speed_mps;
+      input.control.airspeed_hold = true;
+      input.control.throttle = 0.9;
+
+      // 滚转完成判定
+      if (target_roll >= params.target_roll_deg &&
+          state->cumulative_roll_deg >= params.target_roll_deg * 0.9) {
+        state->phase = BarrelRollPhase::kRecovery;
+      }
+      break;
+    }
+
+    case BarrelRollPhase::kRecovery: {
+      // 恢复 AP 控制
+      input.control.heading_setpoint_deg = current.state.yaw_deg;
+      input.control.heading_hold = true;
+      input.control.altitude_setpoint_m = params.base_altitude_m;
+      input.control.altitude_hold = true;
+      input.control.airspeed_setpoint_mps = params.cruise_speed_mps;
+      input.control.airspeed_hold = true;
+
+      if (std::abs(current.state.roll_deg) < 10.0) {
+        state->phase = BarrelRollPhase::kCompleted;
+      }
+      break;
+    }
+
+    case BarrelRollPhase::kAborted: {
+      // 紧急恢复：副翼平飞
+      input.control.aileron =
+          std::max(-1.0, std::min(1.0, -current.state.roll_deg * 0.05));
+      input.control.altitude_setpoint_m = params.base_altitude_m;
+      input.control.altitude_hold = true;
+      input.control.airspeed_setpoint_mps = params.cruise_speed_mps;
+      input.control.airspeed_hold = true;
+      input.control.throttle = 0.8;
+
+      if (std::abs(current.state.roll_deg) < 10.0) {
+        state->phase = BarrelRollPhase::kCompleted;
+      }
+      break;
+    }
+
+    case BarrelRollPhase::kCompleted: {
+      input.control.heading_hold = true;
+      input.control.heading_setpoint_deg = current.state.yaw_deg;
+      input.control.altitude_setpoint_m = params.base_altitude_m;
+      input.control.altitude_hold = true;
+      input.control.throttle = 0.75;
+      break;
+    }
+  }
+
+  return input;
+}
+
+model::FlightDynamicInput ManeuverController::ComputeOrbit(
+    const model::FlightDynamicOutput& current,
+    const OrbitParams& params,
+    double /*sim_time_s*/,
+    OrbitState* state) const {
+  model::FlightDynamicInput input{};
+  input.dt_sec = 0.05f;
+
+  if (!state) return input;
+
+  // 从 ECEF 位置提取当前 LLA
+  oneq::coordinate::LlaPositionDegM current_lla{};
+  if (current.kinematics.position_frame == oneq::coordinate::PositionFrame::kLla) {
+    current_lla = current.kinematics.position_lla_deg_m;
+  } else {
+    if (!oneq::coordinate::TryEcefToLla(current.kinematics.position_ecef_m,
+                                         &current_lla)) {
+      return input;
+    }
+  }
+
+  // 计算到盘旋中心的方位角和距离
+  const double dist_m =
+      ComputeGreatCircleDistanceM(current_lla, params.center_lla);
+  const double bearing_to_center =
+      ComputeForwardAzimuthDeg(current_lla, params.center_lla);
+
+  // 切线航向：垂直于径向方向
+  const double dir_sign = params.clockwise ? 1.0 : -1.0;
+  double tangent_deg = bearing_to_center + dir_sign * 90.0;
+
+  // 径向修正：比例控制保持飞机在轨道半径上
+  // 归一化径向误差到 [-1, 1]，限制最大修正角 ±45°
+  const double radial_error = (dist_m - params.radius_m) /
+                              std::max(1.0, params.radius_m);
+  const double max_correction_deg = 45.0;
+  const double correction_deg = std::max(-max_correction_deg,
+      std::min(max_correction_deg, -dir_sign * radial_error * max_correction_deg));
+
+  double target_heading = tangent_deg + correction_deg;
+
+  // 规范化到 [0, 360)
+  while (target_heading < 0.0) target_heading += 360.0;
+  while (target_heading >= 360.0) target_heading -= 360.0;
+
+  if (!state->initialized) {
+    state->initialized = true;
+  }
+
+  input.control.heading_setpoint_deg = target_heading;
+  input.control.heading_hold = true;
+  input.control.altitude_setpoint_m = params.altitude_m;
+  input.control.altitude_hold = true;
+  input.control.airspeed_setpoint_mps = params.cruise_speed_mps;
+  input.control.airspeed_hold = true;
+
+  return input;
+}
+
+model::FlightDynamicInput ManeuverController::ComputeEvasion(
+    const model::FlightDynamicOutput& current,
+    const EvasionParams& params,
+    double sim_time_s,
+    EvasionState* state) const {
+  model::FlightDynamicInput input{};
+  input.dt_sec = 0.05f;
+
+  if (!state) return input;
+
+  // 首次调用初始化
+  if (!state->initialized) {
+    state->phase = EvasionPhase::kBreaking;
+    state->start_time_s = sim_time_s;
+    state->initialized = true;
+  }
+
+  const double elapsed = sim_time_s - state->start_time_s;
+
+  // 规避机动：急转弯到规避航向 + 下降 + 加速
+  input.control.heading_setpoint_deg = params.evasion_heading_deg;
+  input.control.heading_hold = true;
+  input.control.altitude_setpoint_m = params.target_altitude_m;
+  input.control.altitude_hold = true;
+  input.control.airspeed_setpoint_mps = params.cruise_speed_mps;
+  input.control.airspeed_hold = true;
+
+  // 阶段转换
+  if (state->phase == EvasionPhase::kBreaking) {
+    // 破转阶段：航向收敛到规避航向后进入下降阶段
+    double heading_err = std::abs(current.state.yaw_deg - params.evasion_heading_deg);
+    if (heading_err > 180.0) heading_err = 360.0 - heading_err;
+    if (heading_err < 10.0) {
+      state->phase = EvasionPhase::kDescending;
+    }
+  }
+
+  // 持续时间到期 → 完成
+  if (elapsed >= params.duration_s) {
+    state->phase = EvasionPhase::kCompleted;
+  }
 
   return input;
 }

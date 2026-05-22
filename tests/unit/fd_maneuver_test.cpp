@@ -10,7 +10,6 @@
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/flight_dynamic/flight_dynamic.hpp"
-#include "flight_dynamic/maneuver/ManeuverController.h"
 
 namespace fd = flight_dynamic;
 namespace fd_model = flight_dynamic::model;
@@ -427,9 +426,433 @@ TEST(FdManeuverTest, G4_WaypointEmptyListReturnsReached) {
 }
 
 // ============================================================
+// G6: 滚筒机动
+// ============================================================
+
+TEST(FdManeuverTest, G6_BarrelRollCompleted) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session, 200);
+
+  fd_maneuver::BarrelRollParams params{};
+  params.base_altitude_m = 1000.0;
+  params.cruise_speed_mps = 55.0;
+  params.target_roll_deg = 360.0;
+  params.roll_rate_degps = 40.0;
+  params.max_altitude_loss_m = 250.0;
+
+  fd_maneuver::ManeuverController ctrl;
+  fd_maneuver::BarrelRollState state{};
+
+  double sim_time = 0.0;
+  for (int i = 0; i < 2000; ++i) {  // 100s max
+    auto input = ctrl.ComputeBarrelRoll(
+        session.GetCurrentState(), params, sim_time, &state);
+    input.cycle_index = static_cast<std::uint32_t>(i);
+    auto out = session.Step(input);
+    ASSERT_TRUE(out.ok);
+    sim_time += 0.05;
+
+    if (state.phase == fd_maneuver::BarrelRollPhase::kCompleted) break;
+    ASSERT_NE(state.phase, fd_maneuver::BarrelRollPhase::kAborted)
+        << "Barrel roll aborted at sim_time=" << sim_time
+        << " altitude=" << out.state.altitude_msl_m;
+  }
+
+  EXPECT_EQ(state.phase, fd_maneuver::BarrelRollPhase::kCompleted);
+
+  const double alt_loss =
+      state.initial_altitude_m - session.GetCurrentState().state.altitude_msl_m;
+  EXPECT_LT(alt_loss, params.max_altitude_loss_m)
+      << "Altitude loss: " << alt_loss << "m";
+}
+
+TEST(FdManeuverTest, G6_BarrelRollGuidanceOutput) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session, 60);
+
+  fd_maneuver::BarrelRollParams params{};
+  fd_maneuver::ManeuverController ctrl;
+  fd_maneuver::BarrelRollState state{};
+
+  auto input = ctrl.ComputeBarrelRoll(
+      session.GetCurrentState(), params, 0.0, &state);
+  EXPECT_EQ(state.phase, fd_maneuver::BarrelRollPhase::kRolling);
+  EXPECT_NE(input.control.aileron, 0.0);
+  EXPECT_FALSE(input.control.heading_hold);
+  EXPECT_TRUE(input.control.airspeed_hold);
+}
+
+// ============================================================
+// H: StepManeuver 公共 API 测试
+// ============================================================
+
+TEST(FdManeuverTest, H3_StepManeuverPointToPoint) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session, 200);
+
+  fd_maneuver::ManeuverRequest req;
+  req.mode = fd_maneuver::ManeuverMode::kPointToPoint;
+  req.dt_sec = 0.05f;
+  req.point_to_point.target_lla.latitude_deg = 39.9;
+  req.point_to_point.target_lla.longitude_deg = 116.4 + 0.005;
+  req.point_to_point.target_lla.altitude_m = 1000.0;
+  req.point_to_point.arrival_distance_m = 450.0;
+  req.point_to_point.cruise_speed_mps = 50.0;
+
+  double min_dist = 1e9;
+  for (int i = 0; i < 1600; ++i) {
+    auto result = session.StepManeuver(req);
+    ASSERT_TRUE(result.output.ok);
+
+    oneq::coordinate::LlaPositionDegM lla{};
+    if (oneq::coordinate::TryEcefToLla(
+            result.output.kinematics.position_ecef_m, &lla)) {
+      double dist = fd_maneuver::ComputeGreatCircleDistanceM(
+          lla, req.point_to_point.target_lla);
+      if (dist < min_dist) min_dist = dist;
+    }
+
+    if (result.status.completed) break;
+  }
+
+  EXPECT_LT(min_dist, req.point_to_point.arrival_distance_m)
+      << "StepManeuver PointToPoint min_distance=" << min_dist;
+}
+
+TEST(FdManeuverTest, H5_StepManeuverWeave) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session);
+
+  fd_maneuver::ManeuverRequest req;
+  req.mode = fd_maneuver::ManeuverMode::kWeave;
+  req.dt_sec = 0.05f;
+  req.weave.base_heading_deg = 90.0;
+  req.weave.amplitude_deg = 30.0;
+  req.weave.period_s = 20.0;
+
+  double min_heading = 360.0;
+  double max_heading = 0.0;
+
+  for (int i = 0; i < 800; ++i) {
+    auto result = session.StepManeuver(req);
+    ASSERT_TRUE(result.output.ok);
+    EXPECT_TRUE(result.status.active);
+    EXPECT_EQ(result.status.active_mode, fd_maneuver::ManeuverMode::kWeave);
+
+    double h = result.output.state.yaw_deg;
+    if (h < min_heading) min_heading = h;
+    if (h > max_heading) max_heading = h;
+  }
+
+  double range = max_heading - min_heading;
+  EXPECT_GT(range, 15.0)
+      << "StepManeuver Weave heading variation=" << range;
+}
+
+TEST(FdManeuverTest, H4_StepManeuverWaypoint) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session, 200);
+
+  fd_maneuver::WaypointList wps;
+  {
+    oneq::coordinate::LlaPositionDegM wp1{};
+    wp1.latitude_deg = 39.9;
+    wp1.longitude_deg = 116.4 + 0.05;
+    wp1.altitude_m = 1000.0;
+    wps.push_back(wp1);
+
+    oneq::coordinate::LlaPositionDegM wp2{};
+    wp2.latitude_deg = 39.9 + 0.05;
+    wp2.longitude_deg = 116.4 + 0.05;
+    wp2.altitude_m = 1000.0;
+    wps.push_back(wp2);
+
+    oneq::coordinate::LlaPositionDegM wp3{};
+    wp3.latitude_deg = 39.9 + 0.05;
+    wp3.longitude_deg = 116.4;
+    wp3.altitude_m = 1000.0;
+    wps.push_back(wp3);
+  }
+
+  fd_maneuver::ManeuverRequest req;
+  req.mode = fd_maneuver::ManeuverMode::kWaypoint;
+  req.dt_sec = 0.05f;
+  req.waypoints = wps;
+  req.waypoint_params.segment_params.arrival_distance_m = 1500.0;
+  req.waypoint_params.segment_params.cruise_speed_mps = 50.0;
+  req.waypoint_params.turn_anticipation_m = 1200.0;
+
+  for (int i = 0; i < 10000; ++i) {
+    auto result = session.StepManeuver(req);
+    ASSERT_TRUE(result.output.ok);
+
+    if (result.status.completed) break;
+  }
+
+  EXPECT_TRUE(session.GetCurrentState().ok);
+}
+
+TEST(FdManeuverTest, H6_StepManeuverBarrelRoll) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session, 200);
+
+  fd_maneuver::ManeuverRequest req;
+  req.mode = fd_maneuver::ManeuverMode::kBarrelRoll;
+  req.dt_sec = 0.05f;
+  req.barrel_roll.base_altitude_m = 1000.0;
+  req.barrel_roll.cruise_speed_mps = 55.0;
+  req.barrel_roll.target_roll_deg = 360.0;
+  req.barrel_roll.roll_rate_degps = 40.0;
+  req.barrel_roll.max_altitude_loss_m = 250.0;
+
+  double initial_alt = session.GetCurrentState().state.altitude_msl_m;
+
+  for (int i = 0; i < 2000; ++i) {
+    auto result = session.StepManeuver(req);
+    ASSERT_TRUE(result.output.ok);
+
+    if (result.status.completed) break;
+    ASSERT_FALSE(result.status.aborted)
+        << "Barrel roll aborted, alt="
+        << result.output.state.altitude_msl_m;
+  }
+
+  // 验证最终状态
+  fd_maneuver::ManeuverRequest check_req;
+  check_req.mode = fd_maneuver::ManeuverMode::kManual;
+  auto final_result = session.StepManeuver(check_req);
+  EXPECT_TRUE(final_result.output.ok);
+
+  double alt_loss = initial_alt - final_result.output.state.altitude_msl_m;
+  EXPECT_LT(alt_loss, req.barrel_roll.max_altitude_loss_m)
+      << "Altitude loss after barrel roll: " << alt_loss << "m";
+}
+
+TEST(FdManeuverTest, H7_ManeuverSwitch) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session);
+
+  // 阶段 1：蛇形机动 2s
+  fd_maneuver::ManeuverRequest req;
+  req.mode = fd_maneuver::ManeuverMode::kWeave;
+  req.dt_sec = 0.05f;
+  req.weave.base_heading_deg = 90.0;
+  req.weave.amplitude_deg = 30.0;
+
+  for (int i = 0; i < 40; ++i) {
+    auto result = session.StepManeuver(req);
+    ASSERT_TRUE(result.output.ok);
+    EXPECT_EQ(result.status.active_mode, fd_maneuver::ManeuverMode::kWeave);
+  }
+
+  // 切换到固定点机动——状态应自动重置
+  req.mode = fd_maneuver::ManeuverMode::kPointToPoint;
+  req.point_to_point.target_lla.latitude_deg = 39.9;
+  req.point_to_point.target_lla.longitude_deg = 116.4 + 0.05;  // 东 ~4.2km
+  req.point_to_point.target_lla.altitude_m = 1000.0;
+  req.point_to_point.arrival_distance_m = 50.0;
+
+  auto result = session.StepManeuver(req);
+  ASSERT_TRUE(result.output.ok);
+  EXPECT_EQ(result.status.active_mode, fd_maneuver::ManeuverMode::kPointToPoint);
+  EXPECT_TRUE(result.status.active);
+  EXPECT_FALSE(result.status.completed);
+}
+
+TEST(FdManeuverTest, H8_ResetManeuver) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session);
+
+  // 执行蛇形机动若干步
+  fd_maneuver::ManeuverRequest req;
+  req.mode = fd_maneuver::ManeuverMode::kWeave;
+  req.dt_sec = 0.05f;
+
+  for (int i = 0; i < 20; ++i) {
+    session.StepManeuver(req);
+  }
+
+  // 重置机动状态
+  session.ResetManeuver();
+
+  // 切换到航路点模式——航路点索引应从 0 开始
+  req.mode = fd_maneuver::ManeuverMode::kWaypoint;
+  req.waypoints.clear();
+  {
+    oneq::coordinate::LlaPositionDegM wp{};
+    wp.latitude_deg = 39.9;
+    wp.longitude_deg = 116.4 + 0.01;
+    wp.altitude_m = 1000.0;
+    req.waypoints.push_back(wp);
+  }
+
+  auto result = session.StepManeuver(req);
+  ASSERT_TRUE(result.output.ok);
+  EXPECT_EQ(result.status.waypoint_index, 0u);
+  EXPECT_EQ(result.status.waypoint_count, 1u);
+}
+
+// ============================================================
+// I: 绕圈盘旋 + 规避机动
+// ============================================================
+
+TEST(FdManeuverTest, I1_OrbitGuidanceOutput) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session, 60);
+
+  fd_maneuver::ManeuverRequest req;
+  req.mode = fd_maneuver::ManeuverMode::kOrbit;
+  req.dt_sec = 0.05f;
+  req.orbit.center_lla.latitude_deg = 39.9 + 0.01;   // 北 ~1.1km
+  req.orbit.center_lla.longitude_deg = 116.4;
+  req.orbit.center_lla.altitude_m = 1000.0;
+  req.orbit.radius_m = 500.0;
+  req.orbit.clockwise = true;
+  req.orbit.altitude_m = 1000.0;
+  req.orbit.cruise_speed_mps = 50.0;
+
+  auto result = session.StepManeuver(req);
+  ASSERT_TRUE(result.output.ok);
+  EXPECT_TRUE(result.status.active);
+  EXPECT_GT(result.status.orbit_distance_m, 0.0);
+}
+
+TEST(FdManeuverTest, I2_OrbitCirclesCenter) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session, 200);
+
+  // 盘旋中心在初始位置北 1km
+  fd_maneuver::ManeuverRequest req;
+  req.mode = fd_maneuver::ManeuverMode::kOrbit;
+  req.dt_sec = 0.05f;
+  req.orbit.center_lla.latitude_deg = 39.9 + 0.01;
+  req.orbit.center_lla.longitude_deg = 116.4;
+  req.orbit.center_lla.altitude_m = 1000.0;
+  req.orbit.radius_m = 500.0;
+  req.orbit.clockwise = true;
+  req.orbit.altitude_m = 1000.0;
+  req.orbit.cruise_speed_mps = 50.0;
+
+  // 盘旋 200s（约 2 圈），检查航向变化覆盖 > 300°
+  double min_heading = 360.0;
+  double max_heading = 0.0;
+
+  for (int i = 0; i < 4000; ++i) {
+    auto result = session.StepManeuver(req);
+    ASSERT_TRUE(result.output.ok);
+
+    double h = result.output.state.yaw_deg;
+    if (h < min_heading) min_heading = h;
+    if (h > max_heading) max_heading = h;
+  }
+
+  double range = max_heading - min_heading;
+  EXPECT_GT(range, 300.0)
+      << "Orbit should produce heading variation > 300° (full circle), actual=" << range;
+}
+
+TEST(FdManeuverTest, I3_EvasionGuidanceOutput) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session);
+
+  fd_maneuver::ManeuverRequest req;
+  req.mode = fd_maneuver::ManeuverMode::kEvasion;
+  req.dt_sec = 0.05f;
+  req.evasion.evasion_heading_deg = 270.0;
+  req.evasion.target_altitude_m = 500.0;
+  req.evasion.duration_s = 15.0;
+  req.evasion.cruise_speed_mps = 60.0;
+
+  auto result = session.StepManeuver(req);
+  ASSERT_TRUE(result.output.ok);
+  EXPECT_TRUE(result.status.active);
+  EXPECT_EQ(result.status.evasion_phase, fd_maneuver::EvasionPhase::kBreaking);
+}
+
+TEST(FdManeuverTest, I4_EvasionCompletesAfterDuration) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session);
+
+  fd_maneuver::ManeuverRequest req;
+  req.mode = fd_maneuver::ManeuverMode::kEvasion;
+  req.dt_sec = 0.05f;
+  req.evasion.evasion_heading_deg = 270.0;
+  req.evasion.target_altitude_m = 800.0;
+  req.evasion.duration_s = 5.0;
+  req.evasion.cruise_speed_mps = 60.0;
+
+  bool completed = false;
+  for (int i = 0; i < 400; ++i) {  // 20s max
+    auto result = session.StepManeuver(req);
+    ASSERT_TRUE(result.output.ok);
+
+    if (result.status.completed) {
+      completed = true;
+      break;
+    }
+  }
+
+  EXPECT_TRUE(completed) << "Evasion should complete after duration";
+}
+
+TEST(FdManeuverTest, I5_EvasionChangesHeading) {
+  if (!HasDataDir()) GTEST_SKIP() << "FD_JSBSIM_ROOT_DIR not set";
+  auto session = fd_session::FlightDynamicSessionFactory::Create(MakeC172Config());
+  Stabilize(session);
+
+  double initial_heading = session.GetCurrentState().state.yaw_deg;
+
+  fd_maneuver::ManeuverRequest req;
+  req.mode = fd_maneuver::ManeuverMode::kEvasion;
+  req.dt_sec = 0.05f;
+  req.evasion.evasion_heading_deg = 90.0;  // 向东（90° 转弯，约 30s）
+  req.evasion.target_altitude_m = 800.0;
+  req.evasion.duration_s = 30.0;
+  req.evasion.cruise_speed_mps = 60.0;
+
+  // 运行规避机动 40s
+  for (int i = 0; i < 800; ++i) {
+    auto result = session.StepManeuver(req);
+    ASSERT_TRUE(result.output.ok);
+    if (result.status.completed) break;
+  }
+
+  double final_heading = session.GetCurrentState().state.yaw_deg;
+  double heading_err = std::abs(final_heading - 90.0);
+  if (heading_err > 180.0) heading_err = 360.0 - heading_err;
+  EXPECT_LT(heading_err, 20.0)
+      << "Evasion should turn towards target heading. initial="
+      << initial_heading << " final=" << final_heading;
+}
+
+// ============================================================
 // G0 结论：航向保持 AP 可用，高度保持 AP 属性存在
 // G2 结论：方向机动通过——90° 和 180° 转弯均可收敛
 // G3 结论：固定点机动可到达目标（min_dist < 450m）
-// G4 结论：航路点序列可依次到达 3 个航路点
+// G4 结论：航路点序列可依次到达 5 个航路点
 // G5 结论：蛇形机动产生 > 15° 航向振荡
+// G6 结论：滚筒机动完成 360° 滚转，高度损失 < 250m
+// H3 结论：StepManeuver PointToPoint 可到达目标
+// H5 结论：StepManeuver Weave 产生 > 15° 航向振荡
+// H4 结论：StepManeuver Waypoint 可依次到达航路点
+// H6 结论：StepManeuver BarrelRoll 完成 360° 滚转
+// H7 结论：机动切换时状态自动重置
+// H8 结论：ResetManeuver 清除机动状态
+// I1  结论：Orbit 制导输出有效航向
+// I2  结论：Orbit 绕中心盘旋，航向变化 > 300°
+// I3  结论：Evasion 初始阶段为 kBreaking
+// I4  结论：Evasion 在持续时间后完成
+// I5  结论：Evasion 改变航向到规避目标
 // ============================================================

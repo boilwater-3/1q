@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "1q/coordinate/types.h"
+#include "1q/flight_dynamic/maneuver/ManeuverTypes.h"
 #include "1q/flight_dynamic/model/FlightDynamicInput.h"
 #include "1q/flight_dynamic/model/FlightDynamicOutput.h"
 #include "1q/api.hpp"
@@ -96,6 +97,28 @@ class ONEQ_API FlightDynamicSession {
    * @return 最后一次成功 Step() 的输出，或 Reset() 后的初始状态。
    */
   model::FlightDynamicOutput GetCurrentState() const;
+
+  /**
+   * @brief 推进一个积分步长，使用机动制导自动计算控制输入。
+   *
+   * 根据 ManeuverRequest.mode 内部分发到对应的 Compute* 方法，
+   * 自动管理机动状态（航路点索引、滚筒 PID 状态、仿真时钟等）。
+   *
+   * 机动切换（mode 变化）自动重置前一个机动状态。
+   *
+   * @param request 机动请求（模式 + 参数）。
+   * @return 物理输出 + 机动状态。
+   */
+  maneuver::ManeuverStepResult StepManeuver(
+      const maneuver::ManeuverRequest& request);
+
+  /**
+   * @brief 重置机动状态，不影响物理引擎状态。
+   *
+   * 清除航路点索引、滚筒 PID 状态、仿真时钟等。
+   * 不调用 JSBSim RunIC。
+   */
+  void ResetManeuver();
 
  private:
   friend class FlightDynamicSessionFactory;

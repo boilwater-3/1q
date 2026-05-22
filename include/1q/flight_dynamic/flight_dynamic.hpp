@@ -20,6 +20,10 @@
 #include "1q/flight_dynamic/model/FlightDynamicInput.h"
 #include "1q/flight_dynamic/model/FlightDynamicOutput.h"
 
+// 机动控制
+#include "1q/flight_dynamic/maneuver/ManeuverTypes.h"
+#include "1q/flight_dynamic/maneuver/ManeuverController.h"
+
 // 会话与工厂
 #include "1q/flight_dynamic/session/FlightDynamicSession.h"
 #include "1q/flight_dynamic/session/FlightDynamicSessionFactory.h"

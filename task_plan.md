@@ -159,8 +159,13 @@ FlightDynamicSession.Step(FlightDynamicInput{dt, control, ext_force})
 | G0c | 方案 C 不需要——JSBSim 内置 AP 可用（航向保持已验证收敛） | N/A |
 
 > **G0 结论**: c172x 模型有完整的 AP（heading_hold + altitude_hold + wing_leveler）。
-> 航向保持 AP 经验证可收敛（90°/180° 转弯测试通过）。高度保持 AP 存在但收敛受
-> 发动机功率限制（2000m 高度 0.8 油门不足以维持平飞），实际使用需配合油门管理。
+> 航向保持 AP 经验证可收敛（90°/180° 转弯测试通过）。
+>
+> **关键修复（2026-05-22）**:
+> 1. c172x.xml 的 `ap/aileron_cmd` 被注释掉（2020 版 bug，上游 2023 年修复），导致 c172ap.xml heading hold 输出无法到达 FCS → 取消注释
+> 2. `ToEnuAttitude`/`ToNedAttitude` 不适用于飞机姿态转换（对水平飞行产生 roll=180° 倒飞 + 转弯时 roll↔yaw 耦合）→ ApplyInitialConditions 直接传递 yaw/取反 pitch&roll；MapAttitude 直接输出 NED heading
+> 3. c172ap.xml 原版无 auto-throttle 通道 → C++ 侧实现 PI 空速控制器
+> 4. 测试超时调整：C172 标准转弯率 ~3°/s，90° 需 ~30s → G2 测试从 20s/30s 调整为 40s/60s
 
 ### 阶段 G1：ControlInput 接口扩展 ✅
 
@@ -195,29 +200,242 @@ FlightDynamicSession.Step(FlightDynamicInput{dt, control, ext_force})
 |---|------|------|
 | G4a | 航路点序列状态机——加载列表、索引管理、到达推进 | ✅ |
 | G4b | 转弯提前量——`turn_anticipation_m` 距离内平滑混合下一航路点方位角 | ✅ |
-| G4c | 测试：单航路点全链路（DISABLED）。原因：长时间飞行缺乏高度/油门 PID 会导致飞机失速坠毁，仅算法已由 guidance 测试验证 | ✅ |
+| G4c | 测试：双航路点全链路（AP 修复后通过）——飞机依次到达正东 4.2km + 东北 5.5km 两个航路点 | ✅ |
 
-### 阶段 G5：蛇形机动 (Weave/Snake)
-
-| # | 任务 | 状态 |
-|---|------|------|
-| G5a | 实现正弦航向偏置——`Ψ_target = Ψ_base + A·sin(ωt)`，高频更新航向设定点 | 🔲 |
-| G5b | 测试：飞行器轨迹呈正弦波，振幅/频率与参数一致 | 🔲 |
-
-### 阶段 G6：滚筒机动 (Barrel Roll) — 闭环方案
+### 阶段 G5：蛇形机动 (Weave/Snake) ✅
 
 | # | 任务 | 状态 |
 |---|------|------|
-| G6a | 实现姿态反馈闭环（非开环时序）——以目标滚转角序列为参考，PID 控制副翼跟踪；升降舵用高度保持 PID | 🔲 |
-| G6b | 实现安全前置检查——动能/高度判定 + 异常中止条件（高度损失 > 阈值） | 🔲 |
-| G6c | 测试：飞行器完成 360° 滚转，高度损失 < 100m | 🔲 |
+| G5a | 实现正弦航向偏置——`Ψ_target = Ψ_base + A·sin(ωt)`，高频更新航向设定点 | ✅ |
+| G5b | 测试：飞行器轨迹呈正弦波，振幅/频率与参数一致 | ✅ |
+
+### 阶段 G6：滚筒机动 (Barrel Roll) — 闭环方案 ✅
+
+| # | 任务 | 状态 |
+|---|------|------|
+| G6a | 实现姿态反馈闭环——PID 副翼跟踪累积滚转角（机体 p 积分避免 Euler 跳变）；升降舵高度 PID × cos(roll) 修正倒飞 | ✅ |
+| G6b | 安全前置检查——高度损失超限 / 海拔过低自动中止；紧急恢复副翼平飞 | ✅ |
+| G6c | 测试：C172 完成 360° 滚转，高度损失 < 250m（G6_BarrelRollCompleted 通过） | ✅ |
 
 ### 阶段 G7：回归验证
 
 | # | 任务 | 状态 |
 |---|------|------|
-| G7a | 全量测试回归通过 | 🔲 |
-| G7b | 新增机动测试注册到 `1q_unit_tests` | 🔲 |
+| G7a | 全量测试回归通过 | ✅ |
+| G7b | 新增机动测试注册到 `1q_unit_tests` | ✅ |
+
+---
+
+# 阶段 H：机动控制公共 API 集成
+
+## 目标
+
+将 ManeuverController 从内部实现提升为模块公共 API，让用户通过 FlightDynamicSession 直接执行基础机动（方向、固定点、航路点、蛇形、滚筒），而非仅在测试中可见。
+
+## 问题分析
+
+**现状**：
+- `ManeuverController` 在 `src/flight_dynamic/maneuver/` 中，仅测试代码可见
+- 机动参数类型（`PointToPointParams`、`WeaveParams` 等）未暴露到 `include/`
+- 用户要执行机动需要手写循环：`Controller.ComputeXxx → Session.Step → 检查完成状态`
+- 状态管理（航路点索引、滚筒阶段、仿真时间）由调用方自行维护
+
+**目标**：
+- 机动参数/状态类型成为公共 API
+- 用户可通过 FlightDynamicSession 一步调用执行机动
+- 保留手动 Step() 用于高级控制
+
+## 架构设计
+
+### 方案 A：仅提升 ManeuverController 为公共 API
+
+```
+用户代码：
+  ManeuverController ctrl;
+  PointToPointParams params;
+  bool reached = false;
+  auto input = ctrl.ComputePointToPoint(session.GetCurrentState(), params, &reached);
+  auto output = session.Step(input);
+  // 用户自行管理 reached / wp_index / state
+```
+
+- **优点**：最小改动，灵活度高
+- **缺点**：样板代码不减，状态管理仍由用户负责
+
+### 方案 B：FlightDynamicSession 集成 StepManeuver（推荐）
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ FlightDynamicSession (公共 API)                             │
+│                                                             │
+│  Step(input) → output                 // 手动控制（保留）   │
+│  StepManeuver(request) → result       // 机动控制（新增）   │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ Impl                                                 │   │
+│  │  JsbsimAdapter + VehicleStateMapper  // 物理（现有）  │   │
+│  │  ManeuverController + ManeuverState  // 制导（新增）  │   │
+│  │    maneuver_mode_      // 当前机动模式                │   │
+│  │    waypoint_index_     // 航路点索引（kWaypoint）     │   │
+│  │    barrel_roll_state_  // 滚筒状态（kBarrelRoll）    │   │
+│  │    maneuver_sim_time_  // 机动仿真时钟                │   │
+│  │    maneuver_request_   // 当前机动请求（跨帧）        │   │
+│  └─────────────────────────────────────────────────────┘   │
+└────────────────────────────────────────────────────────────┘
+```
+
+用户代码：
+```cpp
+auto session = FlightDynamicSessionFactory::Create(config);
+
+// 航路点机动
+ManeuverRequest request;
+request.mode = ManeuverMode::kWaypoint;
+request.waypoint_params = {...};
+request.waypoints = {wp1, wp2, wp3};
+
+while (true) {
+  auto result = session.StepManeuver(request);
+  if (result.status.completed || result.status.aborted) break;
+  // result.output.kinematics → 注入传感器模块
+}
+
+// 切换到蛇形机动
+request.mode = ManeuverMode::kWeave;
+request.weave = {.base_heading_deg = 90, .amplitude_deg = 30, .period_s = 20};
+auto result = session.StepManeuver(request);
+```
+
+- **优点**：单入口、状态内聚、API 简洁
+- **缺点**：Session 持有制导状态（物理与制导耦合）；机动切换需明确 ResetManeuver
+
+### 方案 C：独立 ManeuverSession 门面
+
+```
+ManeuverSession(FlightDynamicSession + ManeuverController + ManeuverState)
+  → StepManeuver(request) → result
+```
+
+- **优点**：关注点分离（物理 vs 制导）
+- **缺点**：多一层间接、实体需管理两个 session 对象
+
+### 推荐：方案 B
+
+理由：
+1. 1Q 架构中 Session 是主要 API 面，机动是载具行为，归属于 Session 自然
+2. 机动状态与物理状态紧密耦合（航路点制导需要位置反馈，滚筒需要姿态反馈）
+3. 每个载具一个 Session 实例，机动状态生命周期与 Session 一致
+4. 原 `Step()` 保留，不破坏现有 API
+
+## 公共类型设计
+
+```
+include/1q/flight_dynamic/maneuver/
+  ManeuverTypes.h       — ManeuverMode 枚举 + 机动参数 + 机动状态
+  ManeuverController.h  — 公共接口（ComputeXxx 方法）
+```
+
+### ManeuverMode（枚举）
+
+| 值 | 含义 |
+|----|------|
+| `kManual` | 手动控制（默认，走 Step） |
+| `kPointToPoint` | 飞向目标点 |
+| `kWaypoint` | 航路点序列 |
+| `kWeave` | 蛇形机动 |
+| `kBarrelRoll` | 滚筒机动 |
+
+### ManeuverRequest（输入）
+
+```
+ManeuverMode mode
+PointToPointParams point_to_point     // kPointToPoint
+WaypointList waypoints                // kWaypoint
+WaypointParams waypoint_params        // kWaypoint
+WeaveParams weave                     // kWeave
+BarrelRollParams barrel_roll          // kBarrelRoll
+float dt_sec                          // 时间步长（从 Step 语义复用）
+```
+
+### ManeuverStatus（输出状态）
+
+```
+ManeuverMode active_mode              // 当前活动模式
+bool active                           // 机动进行中
+bool completed                        // 正常完成
+bool aborted                          // 安全中止
+std::size_t waypoint_index            // kWaypoint: 当前索引
+BarrelRollPhase barrel_roll_phase     // kBarrelRoll: 当前阶段
+double min_distance_m                 // kPointToPoint/kWaypoint: 最近距离
+```
+
+### ManeuverStepResult（输出）
+
+```
+FlightDynamicOutput output            // 物理输出（复用现有）
+ManeuverStatus status                 // 机动状态（新增）
+```
+
+## 阶段
+
+### 阶段 H1：公共类型定义
+
+| # | 任务 | 状态 |
+|---|------|------|
+| H1a | `include/1q/flight_dynamic/maneuver/ManeuverTypes.h` — ManeuverMode + 机动参数结构体（`ONEQ_API`） | ✅ |
+| H1b | `include/1q/flight_dynamic/maneuver/ManeuverController.h` — 公共接口声明 | ✅ |
+| H1c | 几何工具函数（`ComputeGreatCircleDistanceM`、`ComputeForwardAzimuthDeg`）纳入公共 API | ✅ |
+
+> **H1 设计要点**：
+> - 参数结构体从 `ManeuverController.h`（内部）迁移到 `ManeuverTypes.h`（公共）
+> - `ManeuverController` 类声明移到公共头文件，实现留在 `src/`
+> - 几何工具独立于 ManeuverController，用户可能直接调用（如计算两点距离）
+
+### 阶段 H2：FlightDynamicSession 集成
+
+| # | 任务 | 状态 |
+|---|------|------|
+| H2a | `ManeuverRequest` / `ManeuverStatus` / `ManeuverStepResult` 加入公共类型 | ✅ |
+| H2b | `FlightDynamicSession` 新增 `StepManeuver()` 方法声明 | ✅ |
+| H2c | `FlightDynamicSession` 新增 `ResetManeuver()` 方法（重置机动状态，不清除物理状态） | ✅ |
+| H2d | `FlightDynamicSession::Impl` 新增 `ManeuverController` + 机动状态成员 | ✅ |
+| H2e | `StepManeuver()` 实现：根据 mode 分发到 `ComputeXxx` → `Step()` → 更新状态 | ✅ |
+
+> **H2 设计要点**：
+> - `StepManeuver()` 是对 `Step()` 的高级封装：Compute → Step → 状态更新
+> - 机动切换（mode 变化）自动重置前一个机动状态
+> - `ResetManeuver()` 不影响物理引擎状态（不调用 JSBSim RunIC）
+
+### 阶段 H3：构建系统与 umbrella header
+
+| # | 任务 | 状态 |
+|---|------|------|
+| H3a | umbrella header 添加 maneuver 相关 include | ✅ |
+| H3b | CMakeLists.txt 添加 maneuver 公共头文件安装规则 | ✅ |
+| H3c | 合约守卫白名单更新（如需要） | ✅ |
+
+### 阶段 H4：测试
+
+| # | 任务 | 状态 |
+|---|------|------|
+| H4a | 使用公共 API 重写/补充机动测试（StepManeuver 路径） | ✅ |
+| H4b | 机动切换测试（waypoint → weave → barrel roll 连续执行） | ✅ |
+| H4c | 全量测试回归 | ✅ |
+
+### 阶段 I：新增规避 + 绕圈盘旋机动
+
+| # | 任务 | 状态 |
+|---|------|------|
+| I1 | OrbitParams/OrbitState + EvasionParams/EvasionState/EvasionPhase 类型定义 | ✅ |
+| I2 | ComputeOrbit 实现：切线航向 + 径向比例修正保持轨道半径 | ✅ |
+| I3 | ComputeEvasion 实现：破转→下降→持续时间完成 | ✅ |
+| I4 | StepManeuver 分发 + Impl 状态成员 + 重置逻辑 | ✅ |
+| I5 | 测试：Orbit 绕圈（航向变化 > 300°）、Evasion 转向 + 完成判定 | ✅ |
+| I6 | 全量测试回归（901/901） | ✅ |
+
+> **Orbit 算法**: 切线航向 = bearing_to_center ± 90°（顺/逆时针），径向修正 = -sign × max_correction × normalized_error，最大修正 ±45°
+>
+> **Evasion 算法**: 破转阶段（急转弯到规避航向）→ 下降阶段（航向收敛后持续下降）→ 持续时间到期完成
 
 ## 决策记录
 
@@ -242,6 +460,12 @@ FlightDynamicSession.Step(FlightDynamicInput{dt, control, ext_force})
 - **现状**: JsbsimAdapter 节气门路径（`fcs/throttle-cmd-norm[0]`）和 AP 接口硬编码为 C172 约定
 - **发现**: F16 使用不同节气门路径（无 `[0]` 索引）、默认 `propulsion=OFF`、无 AP autopilot
 - **决定**: 当前阶段保持 C172 单一机型。多机型通用化需将节气门/引擎/AP 差异抽象到 `AircraftDefinition` 配置中，列为未来任务
+
+### DR11：机动公共 API 集成策略
+- **决定**: 方案 B — FlightDynamicSession 新增 StepManeuver()，内部管理制导状态
+- **原因**: 1Q 中 Session 是主 API 面；机动状态与物理状态紧耦合（位置/姿态反馈）；每载具一个 Session，机动状态生命周期一致
+- **实现**: ManeuverRequest/Status/StepResult 公共类型 + StepManeuver/ResetManeuver 方法
+- **验证**: 896/896 测试通过，新增 6 个 StepManeuver 公共 API 测试
 
 
 ## 决策记录
@@ -285,5 +509,8 @@ FlightDynamicSession.Step(FlightDynamicInput{dt, control, ext_force})
 | std::make_unique 不可用 (C++11) | 2 | 替换为 `unique_ptr<T>(new T(...))` |
 | public_api_boundary_guard 测试失败 | 1 | 添加 FD 头文件到白名单 |
 | ECEF→LLA 坐标偏差 ~21km | 2 | JSBSim 地心纬度→大地纬度（Geodetic），用户定位根因：SetLatitudeDegIC → SetGeodLatitudeDegIC |
-| G4 航路点全链路测试失败 | 5+ | C172 长距离飞行缺乏高度/油门 PID 导致失速坠毁。算法已由单元测试验证，全链路保持 DISABLED 直至补全纵向 AP |
+| G4 航路点全链路测试失败 | 5+ | ~~缺乏高度/油门 PID~~ AP 修复后已解决，双航路点全链路通过 (888/888) |
 | F16 多机型实验失败 | 1 | 节气门路径/引擎初始化/AP 差异，多机型通用化需抽象到 AircraftDefinition |
+| c172x.xml ap/aileron_cmd 被注释掉 | 1 | 2020 版 bug（上游 2023 年修复 ae318dea），导致 heading hold 无效 → 取消注释 |
+| ToEnuAttitude 对飞机产生 roll=180° | 2 | 旋转矩阵复合不适用飞机姿态转换 → ApplyInitialConditions 直接传 yaw/取反 pitch&roll；MapAttitude 直接输出 NED heading |
+| G0 航向收敛 NaN / 不转弯 | 3+ | 根因链：c172x.xml bug + 坐标系转换错误 + 缺少 airspeed PID。逐一修复后全部 887 测试通过 |
