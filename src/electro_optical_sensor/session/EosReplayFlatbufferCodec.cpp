@@ -204,10 +204,12 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
         i.location.kind == session::ValidationLocationKind::kSceneEntity
             ? i.location.entity_index
             : static_cast<std::size_t>(-1);
+    auto field_str = fbb.CreateString(i.field);
     auto msg = fbb.CreateString(i.message);
     issue_vec.push_back(eos::replay::CreateValidationIssue(
         fbb, static_cast<int32_t>(i.severity), static_cast<int32_t>(i.code),
-        static_cast<int32_t>(encoded_entity_index), msg));
+        static_cast<int32_t>(i.location.kind), static_cast<int32_t>(encoded_entity_index),
+        field_str, msg));
   }
 
   auto result = eos::replay::CreateEosCycleResult(
@@ -259,11 +261,14 @@ bool DecodeEosCycleResult(const std::string& bytes,
       session::ValidationIssue iss{};
       iss.severity = static_cast<session::ValidationSeverity>(i->severity());
       iss.code = static_cast<session::ValidationCode>(i->code());
-      iss.location.kind = session::ValidationLocationKind::kSceneEntity;
+      iss.location.kind = static_cast<session::ValidationLocationKind>(i->location_kind());
       iss.location.entity_index = static_cast<std::size_t>(i->entity_index());
       if (i->entity_index() < 0) {
         iss.location.kind = session::ValidationLocationKind::kGlobal;
         iss.location.entity_index = static_cast<std::size_t>(-1);
+      }
+      if (i->field()) {
+        iss.field = i->field()->str();
       }
       if (i->message()) {
         iss.message = i->message()->str();

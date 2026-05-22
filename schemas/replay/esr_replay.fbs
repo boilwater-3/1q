@@ -99,7 +99,9 @@ table EmitterObservation {
 }
 
 table ObservationOutput {
-  observations:  [EmitterObservation];
+  raw_observation_count: uint32;
+  cluster_count:         uint32;
+  observations:          [EmitterObservation];
 }
 
 table EmitterHypothesis {

@@ -79,11 +79,20 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) Vec3 FLATBUFFERS_FINAL_CLASS {
   float x() const {
     return flatbuffers::EndianScalar(x_);
   }
+  void mutate_x(float _x) {
+    flatbuffers::WriteScalar(&x_, _x);
+  }
   float y() const {
     return flatbuffers::EndianScalar(y_);
   }
+  void mutate_y(float _y) {
+    flatbuffers::WriteScalar(&y_, _y);
+  }
   float z() const {
     return flatbuffers::EndianScalar(z_);
+  }
+  void mutate_z(float _z) {
+    flatbuffers::WriteScalar(&z_, _z);
   }
 };
 FLATBUFFERS_STRUCT_END(Vec3, 12);
@@ -106,11 +115,20 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) EulerDeg FLATBUFFERS_FINAL_CLASS {
   float yaw_deg() const {
     return flatbuffers::EndianScalar(yaw_deg_);
   }
+  void mutate_yaw_deg(float _yaw_deg) {
+    flatbuffers::WriteScalar(&yaw_deg_, _yaw_deg);
+  }
   float pitch_deg() const {
     return flatbuffers::EndianScalar(pitch_deg_);
   }
+  void mutate_pitch_deg(float _pitch_deg) {
+    flatbuffers::WriteScalar(&pitch_deg_, _pitch_deg);
+  }
   float roll_deg() const {
     return flatbuffers::EndianScalar(roll_deg_);
+  }
+  void mutate_roll_deg(float _roll_deg) {
+    flatbuffers::WriteScalar(&roll_deg_, _roll_deg);
   }
 };
 FLATBUFFERS_STRUCT_END(EulerDeg, 12);
@@ -125,11 +143,20 @@ struct PoseState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const esr::replay::Vec3 *position_m() const {
     return GetStruct<const esr::replay::Vec3 *>(VT_POSITION_M);
   }
+  esr::replay::Vec3 *mutable_position_m() {
+    return GetStruct<esr::replay::Vec3 *>(VT_POSITION_M);
+  }
   const esr::replay::Vec3 *velocity_mps() const {
     return GetStruct<const esr::replay::Vec3 *>(VT_VELOCITY_MPS);
   }
+  esr::replay::Vec3 *mutable_velocity_mps() {
+    return GetStruct<esr::replay::Vec3 *>(VT_VELOCITY_MPS);
+  }
   const esr::replay::EulerDeg *attitude_deg() const {
     return GetStruct<const esr::replay::EulerDeg *>(VT_ATTITUDE_DEG);
+  }
+  esr::replay::EulerDeg *mutable_attitude_deg() {
+    return GetStruct<esr::replay::EulerDeg *>(VT_ATTITUDE_DEG);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -189,17 +216,32 @@ struct EmitterBeamState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   double center_az_deg() const {
     return GetField<double>(VT_CENTER_AZ_DEG, 0.0);
   }
+  bool mutate_center_az_deg(double _center_az_deg) {
+    return SetField<double>(VT_CENTER_AZ_DEG, _center_az_deg, 0.0);
+  }
   double center_el_deg() const {
     return GetField<double>(VT_CENTER_EL_DEG, 0.0);
+  }
+  bool mutate_center_el_deg(double _center_el_deg) {
+    return SetField<double>(VT_CENTER_EL_DEG, _center_el_deg, 0.0);
   }
   double az_beamwidth_deg() const {
     return GetField<double>(VT_AZ_BEAMWIDTH_DEG, 0.0);
   }
+  bool mutate_az_beamwidth_deg(double _az_beamwidth_deg) {
+    return SetField<double>(VT_AZ_BEAMWIDTH_DEG, _az_beamwidth_deg, 0.0);
+  }
   double el_beamwidth_deg() const {
     return GetField<double>(VT_EL_BEAMWIDTH_DEG, 0.0);
   }
+  bool mutate_el_beamwidth_deg(double _el_beamwidth_deg) {
+    return SetField<double>(VT_EL_BEAMWIDTH_DEG, _el_beamwidth_deg, 0.0);
+  }
   bool beam_state_valid() const {
     return GetField<uint8_t>(VT_BEAM_STATE_VALID, 0) != 0;
+  }
+  bool mutate_beam_state_valid(bool _beam_state_valid) {
+    return SetField<uint8_t>(VT_BEAM_STATE_VALID, static_cast<uint8_t>(_beam_state_valid), 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -275,29 +317,56 @@ struct SceneEmitter FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint64_t emitter_id() const {
     return GetField<uint64_t>(VT_EMITTER_ID, 0);
   }
+  bool mutate_emitter_id(uint64_t _emitter_id) {
+    return SetField<uint64_t>(VT_EMITTER_ID, _emitter_id, 0);
+  }
   const esr::replay::PoseState *pose() const {
     return GetPointer<const esr::replay::PoseState *>(VT_POSE);
+  }
+  esr::replay::PoseState *mutable_pose() {
+    return GetPointer<esr::replay::PoseState *>(VT_POSE);
   }
   double carrier_hz() const {
     return GetField<double>(VT_CARRIER_HZ, 0.0);
   }
+  bool mutate_carrier_hz(double _carrier_hz) {
+    return SetField<double>(VT_CARRIER_HZ, _carrier_hz, 0.0);
+  }
   double bandwidth_hz() const {
     return GetField<double>(VT_BANDWIDTH_HZ, 0.0);
+  }
+  bool mutate_bandwidth_hz(double _bandwidth_hz) {
+    return SetField<double>(VT_BANDWIDTH_HZ, _bandwidth_hz, 0.0);
   }
   double tx_power_w() const {
     return GetField<double>(VT_TX_POWER_W, 0.0);
   }
+  bool mutate_tx_power_w(double _tx_power_w) {
+    return SetField<double>(VT_TX_POWER_W, _tx_power_w, 0.0);
+  }
   double pulse_width_s() const {
     return GetField<double>(VT_PULSE_WIDTH_S, 0.0);
+  }
+  bool mutate_pulse_width_s(double _pulse_width_s) {
+    return SetField<double>(VT_PULSE_WIDTH_S, _pulse_width_s, 0.0);
   }
   double pri_s() const {
     return GetField<double>(VT_PRI_S, 0.0);
   }
+  bool mutate_pri_s(double _pri_s) {
+    return SetField<double>(VT_PRI_S, _pri_s, 0.0);
+  }
   const esr::replay::EmitterBeamState *beam_state() const {
     return GetPointer<const esr::replay::EmitterBeamState *>(VT_BEAM_STATE);
   }
+  esr::replay::EmitterBeamState *mutable_beam_state() {
+    return GetPointer<esr::replay::EmitterBeamState *>(VT_BEAM_STATE);
+  }
   bool is_emitting() const {
     return GetField<uint8_t>(VT_IS_EMITTING, 0) != 0;
+  }
+  bool mutate_is_emitting(bool _is_emitting) {
+    return SetField<uint8_t>(VT_IS_EMITTING, static_cast<uint8_t>(_is_emitting), 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -397,23 +466,44 @@ struct EsrJammerSource FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t technique() const {
     return GetField<int32_t>(VT_TECHNIQUE, 0);
   }
+  bool mutate_technique(int32_t _technique) {
+    return SetField<int32_t>(VT_TECHNIQUE, _technique, 0);
+  }
   bool active() const {
     return GetField<uint8_t>(VT_ACTIVE, 0) != 0;
+  }
+  bool mutate_active(bool _active) {
+    return SetField<uint8_t>(VT_ACTIVE, static_cast<uint8_t>(_active), 0);
   }
   double center_hz() const {
     return GetField<double>(VT_CENTER_HZ, 0.0);
   }
+  bool mutate_center_hz(double _center_hz) {
+    return SetField<double>(VT_CENTER_HZ, _center_hz, 0.0);
+  }
   double bandwidth_hz() const {
     return GetField<double>(VT_BANDWIDTH_HZ, 0.0);
+  }
+  bool mutate_bandwidth_hz(double _bandwidth_hz) {
+    return SetField<double>(VT_BANDWIDTH_HZ, _bandwidth_hz, 0.0);
   }
   float power_w() const {
     return GetField<float>(VT_POWER_W, 0.0f);
   }
+  bool mutate_power_w(float _power_w) {
+    return SetField<float>(VT_POWER_W, _power_w, 0.0f);
+  }
   float deception_risk() const {
     return GetField<float>(VT_DECEPTION_RISK, 0.0f);
   }
+  bool mutate_deception_risk(float _deception_risk) {
+    return SetField<float>(VT_DECEPTION_RISK, _deception_risk, 0.0f);
+  }
   float confidence() const {
     return GetField<float>(VT_CONFIDENCE, 0.0f);
+  }
+  bool mutate_confidence(float _confidence) {
+    return SetField<float>(VT_CONFIDENCE, _confidence, 0.0f);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -495,11 +585,20 @@ struct EsrAtmosphericObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::
   float relative_humidity_ratio() const {
     return GetField<float>(VT_RELATIVE_HUMIDITY_RATIO, 0.0f);
   }
+  bool mutate_relative_humidity_ratio(float _relative_humidity_ratio) {
+    return SetField<float>(VT_RELATIVE_HUMIDITY_RATIO, _relative_humidity_ratio, 0.0f);
+  }
   float precipitation_rate_mmph() const {
     return GetField<float>(VT_PRECIPITATION_RATE_MMPH, 0.0f);
   }
+  bool mutate_precipitation_rate_mmph(float _precipitation_rate_mmph) {
+    return SetField<float>(VT_PRECIPITATION_RATE_MMPH, _precipitation_rate_mmph, 0.0f);
+  }
   float visibility_km() const {
     return GetField<float>(VT_VISIBILITY_KM, 0.0f);
+  }
+  bool mutate_visibility_km(float _visibility_km) {
+    return SetField<float>(VT_VISIBILITY_KM, _visibility_km, 0.0f);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -559,17 +658,32 @@ struct EsrEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
   int32_t propagation_profile() const {
     return GetField<int32_t>(VT_PROPAGATION_PROFILE, 0);
   }
+  bool mutate_propagation_profile(int32_t _propagation_profile) {
+    return SetField<int32_t>(VT_PROPAGATION_PROFILE, _propagation_profile, 0);
+  }
   int32_t clutter_density() const {
     return GetField<int32_t>(VT_CLUTTER_DENSITY, 0);
+  }
+  bool mutate_clutter_density(int32_t _clutter_density) {
+    return SetField<int32_t>(VT_CLUTTER_DENSITY, _clutter_density, 0);
   }
   float spectrum_occupancy_ratio() const {
     return GetField<float>(VT_SPECTRUM_OCCUPANCY_RATIO, 0.0f);
   }
+  bool mutate_spectrum_occupancy_ratio(float _spectrum_occupancy_ratio) {
+    return SetField<float>(VT_SPECTRUM_OCCUPANCY_RATIO, _spectrum_occupancy_ratio, 0.0f);
+  }
   const esr::replay::EsrAtmosphericObservation *atmospheric_observation() const {
     return GetPointer<const esr::replay::EsrAtmosphericObservation *>(VT_ATMOSPHERIC_OBSERVATION);
   }
+  esr::replay::EsrAtmosphericObservation *mutable_atmospheric_observation() {
+    return GetPointer<esr::replay::EsrAtmosphericObservation *>(VT_ATMOSPHERIC_OBSERVATION);
+  }
   const flatbuffers::Vector<flatbuffers::Offset<esr::replay::EsrJammerSource>> *jammer_sources() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<esr::replay::EsrJammerSource>> *>(VT_JAMMER_SOURCES);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<esr::replay::EsrJammerSource>> *mutable_jammer_sources() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<esr::replay::EsrJammerSource>> *>(VT_JAMMER_SOURCES);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -662,20 +776,38 @@ struct EsrCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t cycle_index() const {
     return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
   }
+  bool mutate_cycle_index(uint32_t _cycle_index) {
+    return SetField<uint32_t>(VT_CYCLE_INDEX, _cycle_index, 0);
+  }
   float dt_sec() const {
     return GetField<float>(VT_DT_SEC, 0.0f);
+  }
+  bool mutate_dt_sec(float _dt_sec) {
+    return SetField<float>(VT_DT_SEC, _dt_sec, 0.0f);
   }
   const esr::replay::PoseState *platform_pose() const {
     return GetPointer<const esr::replay::PoseState *>(VT_PLATFORM_POSE);
   }
+  esr::replay::PoseState *mutable_platform_pose() {
+    return GetPointer<esr::replay::PoseState *>(VT_PLATFORM_POSE);
+  }
   const flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>> *scene_emitters() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>> *>(VT_SCENE_EMITTERS);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>> *mutable_scene_emitters() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<esr::replay::SceneEmitter>> *>(VT_SCENE_EMITTERS);
   }
   const esr::replay::EsrEnvironmentInput *environment() const {
     return GetPointer<const esr::replay::EsrEnvironmentInput *>(VT_ENVIRONMENT);
   }
+  esr::replay::EsrEnvironmentInput *mutable_environment() {
+    return GetPointer<esr::replay::EsrEnvironmentInput *>(VT_ENVIRONMENT);
+  }
   float platform_altitude_m() const {
     return GetField<float>(VT_PLATFORM_ALTITUDE_M, 0.0f);
+  }
+  bool mutate_platform_altitude_m(float _platform_altitude_m) {
+    return SetField<float>(VT_PLATFORM_ALTITUDE_M, _platform_altitude_m, 0.0f);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -781,32 +913,62 @@ struct EmitterObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint64_t observation_id() const {
     return GetField<uint64_t>(VT_OBSERVATION_ID, 0);
   }
+  bool mutate_observation_id(uint64_t _observation_id) {
+    return SetField<uint64_t>(VT_OBSERVATION_ID, _observation_id, 0);
+  }
   double timestamp_s() const {
     return GetField<double>(VT_TIMESTAMP_S, 0.0);
+  }
+  bool mutate_timestamp_s(double _timestamp_s) {
+    return SetField<double>(VT_TIMESTAMP_S, _timestamp_s, 0.0);
   }
   double aoa_az_deg() const {
     return GetField<double>(VT_AOA_AZ_DEG, 0.0);
   }
+  bool mutate_aoa_az_deg(double _aoa_az_deg) {
+    return SetField<double>(VT_AOA_AZ_DEG, _aoa_az_deg, 0.0);
+  }
   double aoa_el_deg() const {
     return GetField<double>(VT_AOA_EL_DEG, 0.0);
+  }
+  bool mutate_aoa_el_deg(double _aoa_el_deg) {
+    return SetField<double>(VT_AOA_EL_DEG, _aoa_el_deg, 0.0);
   }
   double rf_hz() const {
     return GetField<double>(VT_RF_HZ, 0.0);
   }
+  bool mutate_rf_hz(double _rf_hz) {
+    return SetField<double>(VT_RF_HZ, _rf_hz, 0.0);
+  }
   double pulse_width_s() const {
     return GetField<double>(VT_PULSE_WIDTH_S, 0.0);
+  }
+  bool mutate_pulse_width_s(double _pulse_width_s) {
+    return SetField<double>(VT_PULSE_WIDTH_S, _pulse_width_s, 0.0);
   }
   double amplitude_db() const {
     return GetField<double>(VT_AMPLITUDE_DB, 0.0);
   }
+  bool mutate_amplitude_db(double _amplitude_db) {
+    return SetField<double>(VT_AMPLITUDE_DB, _amplitude_db, 0.0);
+  }
   double snr_db() const {
     return GetField<double>(VT_SNR_DB, 0.0);
+  }
+  bool mutate_snr_db(double _snr_db) {
+    return SetField<double>(VT_SNR_DB, _snr_db, 0.0);
   }
   int32_t quality() const {
     return GetField<int32_t>(VT_QUALITY, 0);
   }
+  bool mutate_quality(int32_t _quality) {
+    return SetField<int32_t>(VT_QUALITY, _quality, 0);
+  }
   bool is_jammed() const {
     return GetField<uint8_t>(VT_IS_JAMMED, 0) != 0;
+  }
+  bool mutate_is_jammed(bool _is_jammed) {
+    return SetField<uint8_t>(VT_IS_JAMMED, static_cast<uint8_t>(_is_jammed), 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -899,13 +1061,32 @@ inline flatbuffers::Offset<EmitterObservation> CreateEmitterObservation(
 struct ObservationOutput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ObservationOutputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_OBSERVATIONS = 4
+    VT_RAW_OBSERVATION_COUNT = 4,
+    VT_CLUSTER_COUNT = 6,
+    VT_OBSERVATIONS = 8
   };
+  uint32_t raw_observation_count() const {
+    return GetField<uint32_t>(VT_RAW_OBSERVATION_COUNT, 0);
+  }
+  bool mutate_raw_observation_count(uint32_t _raw_observation_count) {
+    return SetField<uint32_t>(VT_RAW_OBSERVATION_COUNT, _raw_observation_count, 0);
+  }
+  uint32_t cluster_count() const {
+    return GetField<uint32_t>(VT_CLUSTER_COUNT, 0);
+  }
+  bool mutate_cluster_count(uint32_t _cluster_count) {
+    return SetField<uint32_t>(VT_CLUSTER_COUNT, _cluster_count, 0);
+  }
   const flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterObservation>> *observations() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterObservation>> *>(VT_OBSERVATIONS);
   }
+  flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterObservation>> *mutable_observations() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterObservation>> *>(VT_OBSERVATIONS);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_RAW_OBSERVATION_COUNT) &&
+           VerifyField<uint32_t>(verifier, VT_CLUSTER_COUNT) &&
            VerifyOffset(verifier, VT_OBSERVATIONS) &&
            verifier.VerifyVector(observations()) &&
            verifier.VerifyVectorOfTables(observations()) &&
@@ -917,6 +1098,12 @@ struct ObservationOutputBuilder {
   typedef ObservationOutput Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
+  void add_raw_observation_count(uint32_t raw_observation_count) {
+    fbb_.AddElement<uint32_t>(ObservationOutput::VT_RAW_OBSERVATION_COUNT, raw_observation_count, 0);
+  }
+  void add_cluster_count(uint32_t cluster_count) {
+    fbb_.AddElement<uint32_t>(ObservationOutput::VT_CLUSTER_COUNT, cluster_count, 0);
+  }
   void add_observations(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterObservation>>> observations) {
     fbb_.AddOffset(ObservationOutput::VT_OBSERVATIONS, observations);
   }
@@ -934,18 +1121,26 @@ struct ObservationOutputBuilder {
 
 inline flatbuffers::Offset<ObservationOutput> CreateObservationOutput(
     flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t raw_observation_count = 0,
+    uint32_t cluster_count = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterObservation>>> observations = 0) {
   ObservationOutputBuilder builder_(_fbb);
   builder_.add_observations(observations);
+  builder_.add_cluster_count(cluster_count);
+  builder_.add_raw_observation_count(raw_observation_count);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<ObservationOutput> CreateObservationOutputDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t raw_observation_count = 0,
+    uint32_t cluster_count = 0,
     const std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>> *observations = nullptr) {
   auto observations__ = observations ? _fbb.CreateVector<flatbuffers::Offset<esr::replay::EmitterObservation>>(*observations) : 0;
   return esr::replay::CreateObservationOutput(
       _fbb,
+      raw_observation_count,
+      cluster_count,
       observations__);
 }
 
@@ -965,29 +1160,56 @@ struct EmitterHypothesis FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint64_t hypothesis_id() const {
     return GetField<uint64_t>(VT_HYPOTHESIS_ID, 0);
   }
+  bool mutate_hypothesis_id(uint64_t _hypothesis_id) {
+    return SetField<uint64_t>(VT_HYPOTHESIS_ID, _hypothesis_id, 0);
+  }
   const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *candidate_classes() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_CANDIDATE_CLASSES);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *mutable_candidate_classes() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_CANDIDATE_CLASSES);
   }
   int32_t mode() const {
     return GetField<int32_t>(VT_MODE, 0);
   }
+  bool mutate_mode(int32_t _mode) {
+    return SetField<int32_t>(VT_MODE, _mode, 0);
+  }
   int32_t threat_level() const {
     return GetField<int32_t>(VT_THREAT_LEVEL, 0);
+  }
+  bool mutate_threat_level(int32_t _threat_level) {
+    return SetField<int32_t>(VT_THREAT_LEVEL, _threat_level, 0);
   }
   float bearing_az_deg() const {
     return GetField<float>(VT_BEARING_AZ_DEG, 0.0f);
   }
+  bool mutate_bearing_az_deg(float _bearing_az_deg) {
+    return SetField<float>(VT_BEARING_AZ_DEG, _bearing_az_deg, 0.0f);
+  }
   float bearing_el_deg() const {
     return GetField<float>(VT_BEARING_EL_DEG, 0.0f);
+  }
+  bool mutate_bearing_el_deg(float _bearing_el_deg) {
+    return SetField<float>(VT_BEARING_EL_DEG, _bearing_el_deg, 0.0f);
   }
   float bearing_std_deg() const {
     return GetField<float>(VT_BEARING_STD_DEG, 0.0f);
   }
+  bool mutate_bearing_std_deg(float _bearing_std_deg) {
+    return SetField<float>(VT_BEARING_STD_DEG, _bearing_std_deg, 0.0f);
+  }
   float confidence() const {
     return GetField<float>(VT_CONFIDENCE, 0.0f);
   }
+  bool mutate_confidence(float _confidence) {
+    return SetField<float>(VT_CONFIDENCE, _confidence, 0.0f);
+  }
   uint32_t last_seen_cycle() const {
     return GetField<uint32_t>(VT_LAST_SEEN_CYCLE, 0);
+  }
+  bool mutate_last_seen_cycle(uint32_t _last_seen_cycle) {
+    return SetField<uint32_t>(VT_LAST_SEEN_CYCLE, _last_seen_cycle, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1106,6 +1328,9 @@ struct EmitterOutput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterHypothesis>> *hypotheses() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterHypothesis>> *>(VT_HYPOTHESES);
   }
+  flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterHypothesis>> *mutable_hypotheses() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<esr::replay::EmitterHypothesis>> *>(VT_HYPOTHESES);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_HYPOTHESES) &&
@@ -1162,14 +1387,26 @@ struct TruthAssociationRecord FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
   uint64_t observation_id() const {
     return GetField<uint64_t>(VT_OBSERVATION_ID, 0);
   }
+  bool mutate_observation_id(uint64_t _observation_id) {
+    return SetField<uint64_t>(VT_OBSERVATION_ID, _observation_id, 0);
+  }
   uint64_t truth_emitter_id() const {
     return GetField<uint64_t>(VT_TRUTH_EMITTER_ID, 0);
+  }
+  bool mutate_truth_emitter_id(uint64_t _truth_emitter_id) {
+    return SetField<uint64_t>(VT_TRUTH_EMITTER_ID, _truth_emitter_id, 0);
   }
   bool matched() const {
     return GetField<uint8_t>(VT_MATCHED, 0) != 0;
   }
+  bool mutate_matched(bool _matched) {
+    return SetField<uint8_t>(VT_MATCHED, static_cast<uint8_t>(_matched), 0);
+  }
   float confidence() const {
     return GetField<float>(VT_CONFIDENCE, 0.0f);
+  }
+  bool mutate_confidence(float _confidence) {
+    return SetField<float>(VT_CONFIDENCE, _confidence, 0.0f);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1231,6 +1468,9 @@ struct TruthEvaluationOutput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
   const flatbuffers::Vector<flatbuffers::Offset<esr::replay::TruthAssociationRecord>> *associations() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<esr::replay::TruthAssociationRecord>> *>(VT_ASSOCIATIONS);
   }
+  flatbuffers::Vector<flatbuffers::Offset<esr::replay::TruthAssociationRecord>> *mutable_associations() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<esr::replay::TruthAssociationRecord>> *>(VT_ASSOCIATIONS);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_ASSOCIATIONS) &&
@@ -1288,17 +1528,32 @@ struct EsrOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t cycle_index() const {
     return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
   }
+  bool mutate_cycle_index(uint32_t _cycle_index) {
+    return SetField<uint32_t>(VT_CYCLE_INDEX, _cycle_index, 0);
+  }
   uint32_t batch_id() const {
     return GetField<uint32_t>(VT_BATCH_ID, 0);
+  }
+  bool mutate_batch_id(uint32_t _batch_id) {
+    return SetField<uint32_t>(VT_BATCH_ID, _batch_id, 0);
   }
   const esr::replay::ObservationOutput *observation_output() const {
     return GetPointer<const esr::replay::ObservationOutput *>(VT_OBSERVATION_OUTPUT);
   }
+  esr::replay::ObservationOutput *mutable_observation_output() {
+    return GetPointer<esr::replay::ObservationOutput *>(VT_OBSERVATION_OUTPUT);
+  }
   const esr::replay::EmitterOutput *emitter_output() const {
     return GetPointer<const esr::replay::EmitterOutput *>(VT_EMITTER_OUTPUT);
   }
+  esr::replay::EmitterOutput *mutable_emitter_output() {
+    return GetPointer<esr::replay::EmitterOutput *>(VT_EMITTER_OUTPUT);
+  }
   const esr::replay::TruthEvaluationOutput *truth_evaluation_output() const {
     return GetPointer<const esr::replay::TruthEvaluationOutput *>(VT_TRUTH_EVALUATION_OUTPUT);
+  }
+  esr::replay::TruthEvaluationOutput *mutable_truth_evaluation_output() {
+    return GetPointer<esr::replay::TruthEvaluationOutput *>(VT_TRUTH_EVALUATION_OUTPUT);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1373,17 +1628,32 @@ struct ValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t severity() const {
     return GetField<int32_t>(VT_SEVERITY, 0);
   }
+  bool mutate_severity(int32_t _severity) {
+    return SetField<int32_t>(VT_SEVERITY, _severity, 0);
+  }
   int32_t code() const {
     return GetField<int32_t>(VT_CODE, 0);
+  }
+  bool mutate_code(int32_t _code) {
+    return SetField<int32_t>(VT_CODE, _code, 0);
   }
   int32_t emitter_index() const {
     return GetField<int32_t>(VT_EMITTER_INDEX, 0);
   }
+  bool mutate_emitter_index(int32_t _emitter_index) {
+    return SetField<int32_t>(VT_EMITTER_INDEX, _emitter_index, 0);
+  }
   const flatbuffers::String *field() const {
     return GetPointer<const flatbuffers::String *>(VT_FIELD);
   }
+  flatbuffers::String *mutable_field() {
+    return GetPointer<flatbuffers::String *>(VT_FIELD);
+  }
   const flatbuffers::String *message() const {
     return GetPointer<const flatbuffers::String *>(VT_MESSAGE);
+  }
+  flatbuffers::String *mutable_message() {
+    return GetPointer<flatbuffers::String *>(VT_MESSAGE);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1477,23 +1747,44 @@ struct EsrCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t input_cycle_index() const {
     return GetField<uint32_t>(VT_INPUT_CYCLE_INDEX, 0);
   }
+  bool mutate_input_cycle_index(uint32_t _input_cycle_index) {
+    return SetField<uint32_t>(VT_INPUT_CYCLE_INDEX, _input_cycle_index, 0);
+  }
   const esr::replay::EsrOutputFrame *output_frame() const {
     return GetPointer<const esr::replay::EsrOutputFrame *>(VT_OUTPUT_FRAME);
+  }
+  esr::replay::EsrOutputFrame *mutable_output_frame() {
+    return GetPointer<esr::replay::EsrOutputFrame *>(VT_OUTPUT_FRAME);
   }
   const flatbuffers::Vector<flatbuffers::Offset<esr::replay::ValidationIssue>> *validation_issues() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<esr::replay::ValidationIssue>> *>(VT_VALIDATION_ISSUES);
   }
+  flatbuffers::Vector<flatbuffers::Offset<esr::replay::ValidationIssue>> *mutable_validation_issues() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<esr::replay::ValidationIssue>> *>(VT_VALIDATION_ISSUES);
+  }
   bool has_validation_error() const {
     return GetField<uint8_t>(VT_HAS_VALIDATION_ERROR, 0) != 0;
+  }
+  bool mutate_has_validation_error(bool _has_validation_error) {
+    return SetField<uint8_t>(VT_HAS_VALIDATION_ERROR, static_cast<uint8_t>(_has_validation_error), 0);
   }
   bool executed_this_cycle() const {
     return GetField<uint8_t>(VT_EXECUTED_THIS_CYCLE, 0) != 0;
   }
+  bool mutate_executed_this_cycle(bool _executed_this_cycle) {
+    return SetField<uint8_t>(VT_EXECUTED_THIS_CYCLE, static_cast<uint8_t>(_executed_this_cycle), 0);
+  }
   bool reused_previous_output() const {
     return GetField<uint8_t>(VT_REUSED_PREVIOUS_OUTPUT, 0) != 0;
   }
+  bool mutate_reused_previous_output(bool _reused_previous_output) {
+    return SetField<uint8_t>(VT_REUSED_PREVIOUS_OUTPUT, static_cast<uint8_t>(_reused_previous_output), 0);
+  }
   int32_t abort_reason() const {
     return GetField<int32_t>(VT_ABORT_REASON, 0);
+  }
+  bool mutate_abort_reason(int32_t _abort_reason) {
+    return SetField<int32_t>(VT_ABORT_REASON, _abort_reason, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1595,6 +1886,10 @@ inline const esr::replay::EsrCycleInput *GetEsrCycleInput(const void *buf) {
 
 inline const esr::replay::EsrCycleInput *GetSizePrefixedEsrCycleInput(const void *buf) {
   return flatbuffers::GetSizePrefixedRoot<esr::replay::EsrCycleInput>(buf);
+}
+
+inline EsrCycleInput *GetMutableEsrCycleInput(void *buf) {
+  return flatbuffers::GetMutableRoot<EsrCycleInput>(buf);
 }
 
 inline const char *EsrCycleInputIdentifier() {

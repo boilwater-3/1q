@@ -181,7 +181,10 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
         o.aoa_el_deg, o.rf_hz, o.pulse_width_s, o.amplitude_db, o.snr_db,
         static_cast<int32_t>(o.quality), o.is_jammed));
   }
-  auto obs_out = esr::replay::CreateObservationOutput(fbb, fbb.CreateVector(obs_vec));
+  auto obs_out = esr::replay::CreateObservationOutput(
+      fbb, static_cast<std::uint32_t>(v.observation_output.raw_observation_count),
+      static_cast<std::uint32_t>(v.observation_output.cluster_count),
+      fbb.CreateVector(obs_vec));
 
   // emitter output
   std::vector<flatbuffers::Offset<esr::replay::EmitterHypothesis>> hyp_vec;
@@ -219,6 +222,8 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
   out->batch_id = fb->batch_id();
   if (fb->observation_output()) {
     const auto* o = fb->observation_output();
+    out->observation_output.raw_observation_count = o->raw_observation_count();
+    out->observation_output.cluster_count = o->cluster_count();
     if (o->observations()) {
       for (const auto* obs : *o->observations()) {
         model::EmitterObservation rec{};

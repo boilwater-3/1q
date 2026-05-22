@@ -85,7 +85,9 @@ table EosOutputFrame {
 table ValidationIssue {
   severity:     int32;
   code:         int32;
+  location_kind: int32;
   entity_index: int32;
+  field:        string;
   message:      string;
 }
 

@@ -15,35 +15,27 @@ struct EulerDeg;
 
 struct PoseState;
 struct PoseStateBuilder;
-struct PoseStateT;
 
 struct EosTargetState;
 struct EosTargetStateBuilder;
-struct EosTargetStateT;
 
 struct EosEnvironmentInput;
 struct EosEnvironmentInputBuilder;
-struct EosEnvironmentInputT;
 
 struct EosCycleInput;
 struct EosCycleInputBuilder;
-struct EosCycleInputT;
 
 struct EosDetectionRecord;
 struct EosDetectionRecordBuilder;
-struct EosDetectionRecordT;
 
 struct EosOutputFrame;
 struct EosOutputFrameBuilder;
-struct EosOutputFrameT;
 
 struct ValidationIssue;
 struct ValidationIssueBuilder;
-struct ValidationIssueT;
 
 struct EosCycleResult;
 struct EosCycleResultBuilder;
-struct EosCycleResultT;
 
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) Vec3 FLATBUFFERS_FINAL_CLASS {
  private:
@@ -63,11 +55,20 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) Vec3 FLATBUFFERS_FINAL_CLASS {
   float x() const {
     return flatbuffers::EndianScalar(x_);
   }
+  void mutate_x(float _x) {
+    flatbuffers::WriteScalar(&x_, _x);
+  }
   float y() const {
     return flatbuffers::EndianScalar(y_);
   }
+  void mutate_y(float _y) {
+    flatbuffers::WriteScalar(&y_, _y);
+  }
   float z() const {
     return flatbuffers::EndianScalar(z_);
+  }
+  void mutate_z(float _z) {
+    flatbuffers::WriteScalar(&z_, _z);
   }
 };
 FLATBUFFERS_STRUCT_END(Vec3, 12);
@@ -90,26 +91,25 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) EulerDeg FLATBUFFERS_FINAL_CLASS {
   float yaw_deg() const {
     return flatbuffers::EndianScalar(yaw_deg_);
   }
+  void mutate_yaw_deg(float _yaw_deg) {
+    flatbuffers::WriteScalar(&yaw_deg_, _yaw_deg);
+  }
   float pitch_deg() const {
     return flatbuffers::EndianScalar(pitch_deg_);
+  }
+  void mutate_pitch_deg(float _pitch_deg) {
+    flatbuffers::WriteScalar(&pitch_deg_, _pitch_deg);
   }
   float roll_deg() const {
     return flatbuffers::EndianScalar(roll_deg_);
   }
+  void mutate_roll_deg(float _roll_deg) {
+    flatbuffers::WriteScalar(&roll_deg_, _roll_deg);
+  }
 };
 FLATBUFFERS_STRUCT_END(EulerDeg, 12);
 
-struct PoseStateT : public flatbuffers::NativeTable {
-  typedef PoseState TableType;
-  std::unique_ptr<eos::replay::Vec3> position_m;
-  std::unique_ptr<eos::replay::Vec3> velocity_mps;
-  std::unique_ptr<eos::replay::EulerDeg> attitude_deg;
-  PoseStateT() {
-  }
-};
-
 struct PoseState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef PoseStateT NativeTableType;
   typedef PoseStateBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_POSITION_M = 4,
@@ -119,11 +119,20 @@ struct PoseState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const eos::replay::Vec3 *position_m() const {
     return GetStruct<const eos::replay::Vec3 *>(VT_POSITION_M);
   }
+  eos::replay::Vec3 *mutable_position_m() {
+    return GetStruct<eos::replay::Vec3 *>(VT_POSITION_M);
+  }
   const eos::replay::Vec3 *velocity_mps() const {
     return GetStruct<const eos::replay::Vec3 *>(VT_VELOCITY_MPS);
   }
+  eos::replay::Vec3 *mutable_velocity_mps() {
+    return GetStruct<eos::replay::Vec3 *>(VT_VELOCITY_MPS);
+  }
   const eos::replay::EulerDeg *attitude_deg() const {
     return GetStruct<const eos::replay::EulerDeg *>(VT_ATTITUDE_DEG);
+  }
+  eos::replay::EulerDeg *mutable_attitude_deg() {
+    return GetStruct<eos::replay::EulerDeg *>(VT_ATTITUDE_DEG);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -132,9 +141,6 @@ struct PoseState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<eos::replay::EulerDeg>(verifier, VT_ATTITUDE_DEG) &&
            verifier.EndTable();
   }
-  PoseStateT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(PoseStateT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<PoseState> Pack(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct PoseStateBuilder {
@@ -174,32 +180,7 @@ inline flatbuffers::Offset<PoseState> CreatePoseState(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<PoseState> CreatePoseState(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosTargetStateT : public flatbuffers::NativeTable {
-  typedef EosTargetState TableType;
-  uint32_t target_id;
-  float range_m;
-  float azimuth_deg;
-  float elevation_deg;
-  float apparent_temperature_k;
-  float emissivity;
-  float reflectance;
-  float projected_area_m2;
-  EosTargetStateT()
-      : target_id(0),
-        range_m(0.0f),
-        azimuth_deg(0.0f),
-        elevation_deg(0.0f),
-        apparent_temperature_k(0.0f),
-        emissivity(0.0f),
-        reflectance(0.0f),
-        projected_area_m2(0.0f) {
-  }
-};
-
 struct EosTargetState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosTargetStateT NativeTableType;
   typedef EosTargetStateBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TARGET_ID = 4,
@@ -214,26 +195,50 @@ struct EosTargetState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t target_id() const {
     return GetField<uint32_t>(VT_TARGET_ID, 0);
   }
+  bool mutate_target_id(uint32_t _target_id) {
+    return SetField<uint32_t>(VT_TARGET_ID, _target_id, 0);
+  }
   float range_m() const {
     return GetField<float>(VT_RANGE_M, 0.0f);
+  }
+  bool mutate_range_m(float _range_m) {
+    return SetField<float>(VT_RANGE_M, _range_m, 0.0f);
   }
   float azimuth_deg() const {
     return GetField<float>(VT_AZIMUTH_DEG, 0.0f);
   }
+  bool mutate_azimuth_deg(float _azimuth_deg) {
+    return SetField<float>(VT_AZIMUTH_DEG, _azimuth_deg, 0.0f);
+  }
   float elevation_deg() const {
     return GetField<float>(VT_ELEVATION_DEG, 0.0f);
+  }
+  bool mutate_elevation_deg(float _elevation_deg) {
+    return SetField<float>(VT_ELEVATION_DEG, _elevation_deg, 0.0f);
   }
   float apparent_temperature_k() const {
     return GetField<float>(VT_APPARENT_TEMPERATURE_K, 0.0f);
   }
+  bool mutate_apparent_temperature_k(float _apparent_temperature_k) {
+    return SetField<float>(VT_APPARENT_TEMPERATURE_K, _apparent_temperature_k, 0.0f);
+  }
   float emissivity() const {
     return GetField<float>(VT_EMISSIVITY, 0.0f);
+  }
+  bool mutate_emissivity(float _emissivity) {
+    return SetField<float>(VT_EMISSIVITY, _emissivity, 0.0f);
   }
   float reflectance() const {
     return GetField<float>(VT_REFLECTANCE, 0.0f);
   }
+  bool mutate_reflectance(float _reflectance) {
+    return SetField<float>(VT_REFLECTANCE, _reflectance, 0.0f);
+  }
   float projected_area_m2() const {
     return GetField<float>(VT_PROJECTED_AREA_M2, 0.0f);
+  }
+  bool mutate_projected_area_m2(float _projected_area_m2) {
+    return SetField<float>(VT_PROJECTED_AREA_M2, _projected_area_m2, 0.0f);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -247,9 +252,6 @@ struct EosTargetState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_PROJECTED_AREA_M2) &&
            verifier.EndTable();
   }
-  EosTargetStateT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosTargetStateT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosTargetState> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosTargetStateT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosTargetStateBuilder {
@@ -314,30 +316,7 @@ inline flatbuffers::Offset<EosTargetState> CreateEosTargetState(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EosTargetState> CreateEosTargetState(flatbuffers::FlatBufferBuilder &_fbb, const EosTargetStateT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosEnvironmentInputT : public flatbuffers::NativeTable {
-  typedef EosEnvironmentInput TableType;
-  float solar_altitude_deg;
-  float solar_azimuth_deg;
-  float solar_irradiance_w_m2;
-  float cloud_coverage_ratio;
-  float ambient_wind_speed_mps;
-  int32_t day_night_type;
-  float background_temperature_k;
-  EosEnvironmentInputT()
-      : solar_altitude_deg(0.0f),
-        solar_azimuth_deg(0.0f),
-        solar_irradiance_w_m2(0.0f),
-        cloud_coverage_ratio(0.0f),
-        ambient_wind_speed_mps(0.0f),
-        day_night_type(0),
-        background_temperature_k(0.0f) {
-  }
-};
-
 struct EosEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosEnvironmentInputT NativeTableType;
   typedef EosEnvironmentInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SOLAR_ALTITUDE_DEG = 4,
@@ -351,23 +330,44 @@ struct EosEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
   float solar_altitude_deg() const {
     return GetField<float>(VT_SOLAR_ALTITUDE_DEG, 0.0f);
   }
+  bool mutate_solar_altitude_deg(float _solar_altitude_deg) {
+    return SetField<float>(VT_SOLAR_ALTITUDE_DEG, _solar_altitude_deg, 0.0f);
+  }
   float solar_azimuth_deg() const {
     return GetField<float>(VT_SOLAR_AZIMUTH_DEG, 0.0f);
+  }
+  bool mutate_solar_azimuth_deg(float _solar_azimuth_deg) {
+    return SetField<float>(VT_SOLAR_AZIMUTH_DEG, _solar_azimuth_deg, 0.0f);
   }
   float solar_irradiance_w_m2() const {
     return GetField<float>(VT_SOLAR_IRRADIANCE_W_M2, 0.0f);
   }
+  bool mutate_solar_irradiance_w_m2(float _solar_irradiance_w_m2) {
+    return SetField<float>(VT_SOLAR_IRRADIANCE_W_M2, _solar_irradiance_w_m2, 0.0f);
+  }
   float cloud_coverage_ratio() const {
     return GetField<float>(VT_CLOUD_COVERAGE_RATIO, 0.0f);
+  }
+  bool mutate_cloud_coverage_ratio(float _cloud_coverage_ratio) {
+    return SetField<float>(VT_CLOUD_COVERAGE_RATIO, _cloud_coverage_ratio, 0.0f);
   }
   float ambient_wind_speed_mps() const {
     return GetField<float>(VT_AMBIENT_WIND_SPEED_MPS, 0.0f);
   }
+  bool mutate_ambient_wind_speed_mps(float _ambient_wind_speed_mps) {
+    return SetField<float>(VT_AMBIENT_WIND_SPEED_MPS, _ambient_wind_speed_mps, 0.0f);
+  }
   int32_t day_night_type() const {
     return GetField<int32_t>(VT_DAY_NIGHT_TYPE, 0);
   }
+  bool mutate_day_night_type(int32_t _day_night_type) {
+    return SetField<int32_t>(VT_DAY_NIGHT_TYPE, _day_night_type, 0);
+  }
   float background_temperature_k() const {
     return GetField<float>(VT_BACKGROUND_TEMPERATURE_K, 0.0f);
+  }
+  bool mutate_background_temperature_k(float _background_temperature_k) {
+    return SetField<float>(VT_BACKGROUND_TEMPERATURE_K, _background_temperature_k, 0.0f);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -380,9 +380,6 @@ struct EosEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
            VerifyField<float>(verifier, VT_BACKGROUND_TEMPERATURE_K) &&
            verifier.EndTable();
   }
-  EosEnvironmentInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosEnvironmentInput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosEnvironmentInputBuilder {
@@ -442,25 +439,7 @@ inline flatbuffers::Offset<EosEnvironmentInput> CreateEosEnvironmentInput(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EosEnvironmentInput> CreateEosEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosCycleInputT : public flatbuffers::NativeTable {
-  typedef EosCycleInput TableType;
-  uint32_t cycle_index;
-  float dt_sec;
-  std::unique_ptr<eos::replay::PoseStateT> platform_pose;
-  std::unique_ptr<eos::replay::EosEnvironmentInputT> environment;
-  std::vector<std::unique_ptr<eos::replay::EosTargetStateT>> scene_targets;
-  float platform_altitude_m;
-  EosCycleInputT()
-      : cycle_index(0),
-        dt_sec(0.0f),
-        platform_altitude_m(0.0f) {
-  }
-};
-
 struct EosCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosCycleInputT NativeTableType;
   typedef EosCycleInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CYCLE_INDEX = 4,
@@ -473,20 +452,38 @@ struct EosCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t cycle_index() const {
     return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
   }
+  bool mutate_cycle_index(uint32_t _cycle_index) {
+    return SetField<uint32_t>(VT_CYCLE_INDEX, _cycle_index, 0);
+  }
   float dt_sec() const {
     return GetField<float>(VT_DT_SEC, 0.0f);
+  }
+  bool mutate_dt_sec(float _dt_sec) {
+    return SetField<float>(VT_DT_SEC, _dt_sec, 0.0f);
   }
   const eos::replay::PoseState *platform_pose() const {
     return GetPointer<const eos::replay::PoseState *>(VT_PLATFORM_POSE);
   }
+  eos::replay::PoseState *mutable_platform_pose() {
+    return GetPointer<eos::replay::PoseState *>(VT_PLATFORM_POSE);
+  }
   const eos::replay::EosEnvironmentInput *environment() const {
     return GetPointer<const eos::replay::EosEnvironmentInput *>(VT_ENVIRONMENT);
+  }
+  eos::replay::EosEnvironmentInput *mutable_environment() {
+    return GetPointer<eos::replay::EosEnvironmentInput *>(VT_ENVIRONMENT);
   }
   const flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>> *scene_targets() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>> *>(VT_SCENE_TARGETS);
   }
+  flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>> *mutable_scene_targets() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosTargetState>> *>(VT_SCENE_TARGETS);
+  }
   float platform_altitude_m() const {
     return GetField<float>(VT_PLATFORM_ALTITUDE_M, 0.0f);
+  }
+  bool mutate_platform_altitude_m(float _platform_altitude_m) {
+    return SetField<float>(VT_PLATFORM_ALTITUDE_M, _platform_altitude_m, 0.0f);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -502,9 +499,6 @@ struct EosCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_PLATFORM_ALTITUDE_M) &&
            verifier.EndTable();
   }
-  EosCycleInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosCycleInputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosCycleInput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosCycleInputBuilder {
@@ -578,34 +572,7 @@ inline flatbuffers::Offset<EosCycleInput> CreateEosCycleInputDirect(
       platform_altitude_m);
 }
 
-flatbuffers::Offset<EosCycleInput> CreateEosCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const EosCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosDetectionRecordT : public flatbuffers::NativeTable {
-  typedef EosDetectionRecord TableType;
-  uint32_t target_id;
-  float range_m;
-  float azimuth_deg;
-  float elevation_deg;
-  float infrared_snr_linear;
-  float visible_snr_linear;
-  float fused_snr_linear;
-  float fused_snr_db;
-  bool detected;
-  EosDetectionRecordT()
-      : target_id(0),
-        range_m(0.0f),
-        azimuth_deg(0.0f),
-        elevation_deg(0.0f),
-        infrared_snr_linear(0.0f),
-        visible_snr_linear(0.0f),
-        fused_snr_linear(0.0f),
-        fused_snr_db(0.0f),
-        detected(false) {
-  }
-};
-
 struct EosDetectionRecord FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosDetectionRecordT NativeTableType;
   typedef EosDetectionRecordBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TARGET_ID = 4,
@@ -621,29 +588,56 @@ struct EosDetectionRecord FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t target_id() const {
     return GetField<uint32_t>(VT_TARGET_ID, 0);
   }
+  bool mutate_target_id(uint32_t _target_id) {
+    return SetField<uint32_t>(VT_TARGET_ID, _target_id, 0);
+  }
   float range_m() const {
     return GetField<float>(VT_RANGE_M, 0.0f);
+  }
+  bool mutate_range_m(float _range_m) {
+    return SetField<float>(VT_RANGE_M, _range_m, 0.0f);
   }
   float azimuth_deg() const {
     return GetField<float>(VT_AZIMUTH_DEG, 0.0f);
   }
+  bool mutate_azimuth_deg(float _azimuth_deg) {
+    return SetField<float>(VT_AZIMUTH_DEG, _azimuth_deg, 0.0f);
+  }
   float elevation_deg() const {
     return GetField<float>(VT_ELEVATION_DEG, 0.0f);
+  }
+  bool mutate_elevation_deg(float _elevation_deg) {
+    return SetField<float>(VT_ELEVATION_DEG, _elevation_deg, 0.0f);
   }
   float infrared_snr_linear() const {
     return GetField<float>(VT_INFRARED_SNR_LINEAR, 0.0f);
   }
+  bool mutate_infrared_snr_linear(float _infrared_snr_linear) {
+    return SetField<float>(VT_INFRARED_SNR_LINEAR, _infrared_snr_linear, 0.0f);
+  }
   float visible_snr_linear() const {
     return GetField<float>(VT_VISIBLE_SNR_LINEAR, 0.0f);
+  }
+  bool mutate_visible_snr_linear(float _visible_snr_linear) {
+    return SetField<float>(VT_VISIBLE_SNR_LINEAR, _visible_snr_linear, 0.0f);
   }
   float fused_snr_linear() const {
     return GetField<float>(VT_FUSED_SNR_LINEAR, 0.0f);
   }
+  bool mutate_fused_snr_linear(float _fused_snr_linear) {
+    return SetField<float>(VT_FUSED_SNR_LINEAR, _fused_snr_linear, 0.0f);
+  }
   float fused_snr_db() const {
     return GetField<float>(VT_FUSED_SNR_DB, 0.0f);
   }
+  bool mutate_fused_snr_db(float _fused_snr_db) {
+    return SetField<float>(VT_FUSED_SNR_DB, _fused_snr_db, 0.0f);
+  }
   bool detected() const {
     return GetField<uint8_t>(VT_DETECTED, 0) != 0;
+  }
+  bool mutate_detected(bool _detected) {
+    return SetField<uint8_t>(VT_DETECTED, static_cast<uint8_t>(_detected), 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -658,9 +652,6 @@ struct EosDetectionRecord FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_DETECTED) &&
            verifier.EndTable();
   }
-  EosDetectionRecordT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosDetectionRecordT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosDetectionRecord> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosDetectionRecordT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosDetectionRecordBuilder {
@@ -730,21 +721,7 @@ inline flatbuffers::Offset<EosDetectionRecord> CreateEosDetectionRecord(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EosDetectionRecord> CreateEosDetectionRecord(flatbuffers::FlatBufferBuilder &_fbb, const EosDetectionRecordT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosOutputFrameT : public flatbuffers::NativeTable {
-  typedef EosOutputFrame TableType;
-  uint32_t cycle_index;
-  float scan_azimuth_deg;
-  std::vector<std::unique_ptr<eos::replay::EosDetectionRecordT>> detections;
-  EosOutputFrameT()
-      : cycle_index(0),
-        scan_azimuth_deg(0.0f) {
-  }
-};
-
 struct EosOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosOutputFrameT NativeTableType;
   typedef EosOutputFrameBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CYCLE_INDEX = 4,
@@ -754,11 +731,20 @@ struct EosOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t cycle_index() const {
     return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
   }
+  bool mutate_cycle_index(uint32_t _cycle_index) {
+    return SetField<uint32_t>(VT_CYCLE_INDEX, _cycle_index, 0);
+  }
   float scan_azimuth_deg() const {
     return GetField<float>(VT_SCAN_AZIMUTH_DEG, 0.0f);
   }
+  bool mutate_scan_azimuth_deg(float _scan_azimuth_deg) {
+    return SetField<float>(VT_SCAN_AZIMUTH_DEG, _scan_azimuth_deg, 0.0f);
+  }
   const flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosDetectionRecord>> *detections() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosDetectionRecord>> *>(VT_DETECTIONS);
+  }
+  flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosDetectionRecord>> *mutable_detections() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<eos::replay::EosDetectionRecord>> *>(VT_DETECTIONS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -769,9 +755,6 @@ struct EosOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVectorOfTables(detections()) &&
            verifier.EndTable();
   }
-  EosOutputFrameT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosOutputFrameT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosOutputFrame> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosOutputFrameT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosOutputFrameBuilder {
@@ -824,54 +807,64 @@ inline flatbuffers::Offset<EosOutputFrame> CreateEosOutputFrameDirect(
       detections__);
 }
 
-flatbuffers::Offset<EosOutputFrame> CreateEosOutputFrame(flatbuffers::FlatBufferBuilder &_fbb, const EosOutputFrameT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct ValidationIssueT : public flatbuffers::NativeTable {
-  typedef ValidationIssue TableType;
-  int32_t severity;
-  int32_t code;
-  int32_t entity_index;
-  std::string message;
-  ValidationIssueT()
-      : severity(0),
-        code(0),
-        entity_index(0) {
-  }
-};
-
 struct ValidationIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef ValidationIssueT NativeTableType;
   typedef ValidationIssueBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SEVERITY = 4,
     VT_CODE = 6,
-    VT_ENTITY_INDEX = 8,
-    VT_MESSAGE = 10
+    VT_LOCATION_KIND = 8,
+    VT_ENTITY_INDEX = 10,
+    VT_FIELD = 12,
+    VT_MESSAGE = 14
   };
   int32_t severity() const {
     return GetField<int32_t>(VT_SEVERITY, 0);
   }
+  bool mutate_severity(int32_t _severity) {
+    return SetField<int32_t>(VT_SEVERITY, _severity, 0);
+  }
   int32_t code() const {
     return GetField<int32_t>(VT_CODE, 0);
+  }
+  bool mutate_code(int32_t _code) {
+    return SetField<int32_t>(VT_CODE, _code, 0);
+  }
+  int32_t location_kind() const {
+    return GetField<int32_t>(VT_LOCATION_KIND, 0);
+  }
+  bool mutate_location_kind(int32_t _location_kind) {
+    return SetField<int32_t>(VT_LOCATION_KIND, _location_kind, 0);
   }
   int32_t entity_index() const {
     return GetField<int32_t>(VT_ENTITY_INDEX, 0);
   }
+  bool mutate_entity_index(int32_t _entity_index) {
+    return SetField<int32_t>(VT_ENTITY_INDEX, _entity_index, 0);
+  }
+  const flatbuffers::String *field() const {
+    return GetPointer<const flatbuffers::String *>(VT_FIELD);
+  }
+  flatbuffers::String *mutable_field() {
+    return GetPointer<flatbuffers::String *>(VT_FIELD);
+  }
   const flatbuffers::String *message() const {
     return GetPointer<const flatbuffers::String *>(VT_MESSAGE);
+  }
+  flatbuffers::String *mutable_message() {
+    return GetPointer<flatbuffers::String *>(VT_MESSAGE);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int32_t>(verifier, VT_SEVERITY) &&
            VerifyField<int32_t>(verifier, VT_CODE) &&
+           VerifyField<int32_t>(verifier, VT_LOCATION_KIND) &&
            VerifyField<int32_t>(verifier, VT_ENTITY_INDEX) &&
+           VerifyOffset(verifier, VT_FIELD) &&
+           verifier.VerifyString(field()) &&
            VerifyOffset(verifier, VT_MESSAGE) &&
            verifier.VerifyString(message()) &&
            verifier.EndTable();
   }
-  ValidationIssueT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(ValidationIssueT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<ValidationIssue> Pack(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct ValidationIssueBuilder {
@@ -884,8 +877,14 @@ struct ValidationIssueBuilder {
   void add_code(int32_t code) {
     fbb_.AddElement<int32_t>(ValidationIssue::VT_CODE, code, 0);
   }
+  void add_location_kind(int32_t location_kind) {
+    fbb_.AddElement<int32_t>(ValidationIssue::VT_LOCATION_KIND, location_kind, 0);
+  }
   void add_entity_index(int32_t entity_index) {
     fbb_.AddElement<int32_t>(ValidationIssue::VT_ENTITY_INDEX, entity_index, 0);
+  }
+  void add_field(flatbuffers::Offset<flatbuffers::String> field) {
+    fbb_.AddOffset(ValidationIssue::VT_FIELD, field);
   }
   void add_message(flatbuffers::Offset<flatbuffers::String> message) {
     fbb_.AddOffset(ValidationIssue::VT_MESSAGE, message);
@@ -906,11 +905,15 @@ inline flatbuffers::Offset<ValidationIssue> CreateValidationIssue(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t severity = 0,
     int32_t code = 0,
+    int32_t location_kind = 0,
     int32_t entity_index = 0,
+    flatbuffers::Offset<flatbuffers::String> field = 0,
     flatbuffers::Offset<flatbuffers::String> message = 0) {
   ValidationIssueBuilder builder_(_fbb);
   builder_.add_message(message);
+  builder_.add_field(field);
   builder_.add_entity_index(entity_index);
+  builder_.add_location_kind(location_kind);
   builder_.add_code(code);
   builder_.add_severity(severity);
   return builder_.Finish();
@@ -920,39 +923,23 @@ inline flatbuffers::Offset<ValidationIssue> CreateValidationIssueDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t severity = 0,
     int32_t code = 0,
+    int32_t location_kind = 0,
     int32_t entity_index = 0,
+    const char *field = nullptr,
     const char *message = nullptr) {
+  auto field__ = field ? _fbb.CreateString(field) : 0;
   auto message__ = message ? _fbb.CreateString(message) : 0;
   return eos::replay::CreateValidationIssue(
       _fbb,
       severity,
       code,
+      location_kind,
       entity_index,
+      field__,
       message__);
 }
 
-flatbuffers::Offset<ValidationIssue> CreateValidationIssue(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosCycleResultT : public flatbuffers::NativeTable {
-  typedef EosCycleResult TableType;
-  uint32_t input_cycle_index;
-  std::unique_ptr<eos::replay::EosOutputFrameT> output_frame;
-  std::vector<std::unique_ptr<eos::replay::ValidationIssueT>> validation_issues;
-  bool has_validation_error;
-  bool executed_this_cycle;
-  bool reused_previous_output;
-  int32_t abort_reason;
-  EosCycleResultT()
-      : input_cycle_index(0),
-        has_validation_error(false),
-        executed_this_cycle(false),
-        reused_previous_output(false),
-        abort_reason(0) {
-  }
-};
-
 struct EosCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosCycleResultT NativeTableType;
   typedef EosCycleResultBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INPUT_CYCLE_INDEX = 4,
@@ -966,23 +953,44 @@ struct EosCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t input_cycle_index() const {
     return GetField<uint32_t>(VT_INPUT_CYCLE_INDEX, 0);
   }
+  bool mutate_input_cycle_index(uint32_t _input_cycle_index) {
+    return SetField<uint32_t>(VT_INPUT_CYCLE_INDEX, _input_cycle_index, 0);
+  }
   const eos::replay::EosOutputFrame *output_frame() const {
     return GetPointer<const eos::replay::EosOutputFrame *>(VT_OUTPUT_FRAME);
+  }
+  eos::replay::EosOutputFrame *mutable_output_frame() {
+    return GetPointer<eos::replay::EosOutputFrame *>(VT_OUTPUT_FRAME);
   }
   const flatbuffers::Vector<flatbuffers::Offset<eos::replay::ValidationIssue>> *validation_issues() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<eos::replay::ValidationIssue>> *>(VT_VALIDATION_ISSUES);
   }
+  flatbuffers::Vector<flatbuffers::Offset<eos::replay::ValidationIssue>> *mutable_validation_issues() {
+    return GetPointer<flatbuffers::Vector<flatbuffers::Offset<eos::replay::ValidationIssue>> *>(VT_VALIDATION_ISSUES);
+  }
   bool has_validation_error() const {
     return GetField<uint8_t>(VT_HAS_VALIDATION_ERROR, 0) != 0;
+  }
+  bool mutate_has_validation_error(bool _has_validation_error) {
+    return SetField<uint8_t>(VT_HAS_VALIDATION_ERROR, static_cast<uint8_t>(_has_validation_error), 0);
   }
   bool executed_this_cycle() const {
     return GetField<uint8_t>(VT_EXECUTED_THIS_CYCLE, 0) != 0;
   }
+  bool mutate_executed_this_cycle(bool _executed_this_cycle) {
+    return SetField<uint8_t>(VT_EXECUTED_THIS_CYCLE, static_cast<uint8_t>(_executed_this_cycle), 0);
+  }
   bool reused_previous_output() const {
     return GetField<uint8_t>(VT_REUSED_PREVIOUS_OUTPUT, 0) != 0;
   }
+  bool mutate_reused_previous_output(bool _reused_previous_output) {
+    return SetField<uint8_t>(VT_REUSED_PREVIOUS_OUTPUT, static_cast<uint8_t>(_reused_previous_output), 0);
+  }
   int32_t abort_reason() const {
     return GetField<int32_t>(VT_ABORT_REASON, 0);
+  }
+  bool mutate_abort_reason(int32_t _abort_reason) {
+    return SetField<int32_t>(VT_ABORT_REASON, _abort_reason, 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -998,9 +1006,6 @@ struct EosCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<int32_t>(verifier, VT_ABORT_REASON) &&
            verifier.EndTable();
   }
-  EosCycleResultT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosCycleResultT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosCycleResult> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosCycleResultT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosCycleResultBuilder {
@@ -1081,339 +1086,16 @@ inline flatbuffers::Offset<EosCycleResult> CreateEosCycleResultDirect(
       abort_reason);
 }
 
-flatbuffers::Offset<EosCycleResult> CreateEosCycleResult(flatbuffers::FlatBufferBuilder &_fbb, const EosCycleResultT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-inline PoseStateT *PoseState::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::PoseStateT> _o = std::unique_ptr<eos::replay::PoseStateT>(new PoseStateT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void PoseState::UnPackTo(PoseStateT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = position_m(); if (_e) _o->position_m = std::unique_ptr<eos::replay::Vec3>(new eos::replay::Vec3(*_e)); }
-  { auto _e = velocity_mps(); if (_e) _o->velocity_mps = std::unique_ptr<eos::replay::Vec3>(new eos::replay::Vec3(*_e)); }
-  { auto _e = attitude_deg(); if (_e) _o->attitude_deg = std::unique_ptr<eos::replay::EulerDeg>(new eos::replay::EulerDeg(*_e)); }
-}
-
-inline flatbuffers::Offset<PoseState> PoseState::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreatePoseState(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<PoseState> CreatePoseState(flatbuffers::FlatBufferBuilder &_fbb, const PoseStateT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PoseStateT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _position_m = _o->position_m ? _o->position_m.get() : 0;
-  auto _velocity_mps = _o->velocity_mps ? _o->velocity_mps.get() : 0;
-  auto _attitude_deg = _o->attitude_deg ? _o->attitude_deg.get() : 0;
-  return eos::replay::CreatePoseState(
-      _fbb,
-      _position_m,
-      _velocity_mps,
-      _attitude_deg);
-}
-
-inline EosTargetStateT *EosTargetState::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosTargetStateT> _o = std::unique_ptr<eos::replay::EosTargetStateT>(new EosTargetStateT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosTargetState::UnPackTo(EosTargetStateT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = target_id(); _o->target_id = _e; }
-  { auto _e = range_m(); _o->range_m = _e; }
-  { auto _e = azimuth_deg(); _o->azimuth_deg = _e; }
-  { auto _e = elevation_deg(); _o->elevation_deg = _e; }
-  { auto _e = apparent_temperature_k(); _o->apparent_temperature_k = _e; }
-  { auto _e = emissivity(); _o->emissivity = _e; }
-  { auto _e = reflectance(); _o->reflectance = _e; }
-  { auto _e = projected_area_m2(); _o->projected_area_m2 = _e; }
-}
-
-inline flatbuffers::Offset<EosTargetState> EosTargetState::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosTargetStateT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosTargetState(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosTargetState> CreateEosTargetState(flatbuffers::FlatBufferBuilder &_fbb, const EosTargetStateT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosTargetStateT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _target_id = _o->target_id;
-  auto _range_m = _o->range_m;
-  auto _azimuth_deg = _o->azimuth_deg;
-  auto _elevation_deg = _o->elevation_deg;
-  auto _apparent_temperature_k = _o->apparent_temperature_k;
-  auto _emissivity = _o->emissivity;
-  auto _reflectance = _o->reflectance;
-  auto _projected_area_m2 = _o->projected_area_m2;
-  return eos::replay::CreateEosTargetState(
-      _fbb,
-      _target_id,
-      _range_m,
-      _azimuth_deg,
-      _elevation_deg,
-      _apparent_temperature_k,
-      _emissivity,
-      _reflectance,
-      _projected_area_m2);
-}
-
-inline EosEnvironmentInputT *EosEnvironmentInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosEnvironmentInputT> _o = std::unique_ptr<eos::replay::EosEnvironmentInputT>(new EosEnvironmentInputT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosEnvironmentInput::UnPackTo(EosEnvironmentInputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = solar_altitude_deg(); _o->solar_altitude_deg = _e; }
-  { auto _e = solar_azimuth_deg(); _o->solar_azimuth_deg = _e; }
-  { auto _e = solar_irradiance_w_m2(); _o->solar_irradiance_w_m2 = _e; }
-  { auto _e = cloud_coverage_ratio(); _o->cloud_coverage_ratio = _e; }
-  { auto _e = ambient_wind_speed_mps(); _o->ambient_wind_speed_mps = _e; }
-  { auto _e = day_night_type(); _o->day_night_type = _e; }
-  { auto _e = background_temperature_k(); _o->background_temperature_k = _e; }
-}
-
-inline flatbuffers::Offset<EosEnvironmentInput> EosEnvironmentInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosEnvironmentInput(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosEnvironmentInput> CreateEosEnvironmentInput(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentInputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosEnvironmentInputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _solar_altitude_deg = _o->solar_altitude_deg;
-  auto _solar_azimuth_deg = _o->solar_azimuth_deg;
-  auto _solar_irradiance_w_m2 = _o->solar_irradiance_w_m2;
-  auto _cloud_coverage_ratio = _o->cloud_coverage_ratio;
-  auto _ambient_wind_speed_mps = _o->ambient_wind_speed_mps;
-  auto _day_night_type = _o->day_night_type;
-  auto _background_temperature_k = _o->background_temperature_k;
-  return eos::replay::CreateEosEnvironmentInput(
-      _fbb,
-      _solar_altitude_deg,
-      _solar_azimuth_deg,
-      _solar_irradiance_w_m2,
-      _cloud_coverage_ratio,
-      _ambient_wind_speed_mps,
-      _day_night_type,
-      _background_temperature_k);
-}
-
-inline EosCycleInputT *EosCycleInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosCycleInputT> _o = std::unique_ptr<eos::replay::EosCycleInputT>(new EosCycleInputT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosCycleInput::UnPackTo(EosCycleInputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = cycle_index(); _o->cycle_index = _e; }
-  { auto _e = dt_sec(); _o->dt_sec = _e; }
-  { auto _e = platform_pose(); if (_e) _o->platform_pose = std::unique_ptr<eos::replay::PoseStateT>(_e->UnPack(_resolver)); }
-  { auto _e = environment(); if (_e) _o->environment = std::unique_ptr<eos::replay::EosEnvironmentInputT>(_e->UnPack(_resolver)); }
-  { auto _e = scene_targets(); if (_e) { _o->scene_targets.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->scene_targets[_i] = std::unique_ptr<eos::replay::EosTargetStateT>(_e->Get(_i)->UnPack(_resolver)); } } }
-  { auto _e = platform_altitude_m(); _o->platform_altitude_m = _e; }
-}
-
-inline flatbuffers::Offset<EosCycleInput> EosCycleInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosCycleInput(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosCycleInput> CreateEosCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const EosCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosCycleInputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _cycle_index = _o->cycle_index;
-  auto _dt_sec = _o->dt_sec;
-  auto _platform_pose = _o->platform_pose ? CreatePoseState(_fbb, _o->platform_pose.get(), _rehasher) : 0;
-  auto _environment = _o->environment ? CreateEosEnvironmentInput(_fbb, _o->environment.get(), _rehasher) : 0;
-  auto _scene_targets = _o->scene_targets.size() ? _fbb.CreateVector<flatbuffers::Offset<eos::replay::EosTargetState>> (_o->scene_targets.size(), [](size_t i, _VectorArgs *__va) { return CreateEosTargetState(*__va->__fbb, __va->__o->scene_targets[i].get(), __va->__rehasher); }, &_va ) : 0;
-  auto _platform_altitude_m = _o->platform_altitude_m;
-  return eos::replay::CreateEosCycleInput(
-      _fbb,
-      _cycle_index,
-      _dt_sec,
-      _platform_pose,
-      _environment,
-      _scene_targets,
-      _platform_altitude_m);
-}
-
-inline EosDetectionRecordT *EosDetectionRecord::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosDetectionRecordT> _o = std::unique_ptr<eos::replay::EosDetectionRecordT>(new EosDetectionRecordT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosDetectionRecord::UnPackTo(EosDetectionRecordT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = target_id(); _o->target_id = _e; }
-  { auto _e = range_m(); _o->range_m = _e; }
-  { auto _e = azimuth_deg(); _o->azimuth_deg = _e; }
-  { auto _e = elevation_deg(); _o->elevation_deg = _e; }
-  { auto _e = infrared_snr_linear(); _o->infrared_snr_linear = _e; }
-  { auto _e = visible_snr_linear(); _o->visible_snr_linear = _e; }
-  { auto _e = fused_snr_linear(); _o->fused_snr_linear = _e; }
-  { auto _e = fused_snr_db(); _o->fused_snr_db = _e; }
-  { auto _e = detected(); _o->detected = _e; }
-}
-
-inline flatbuffers::Offset<EosDetectionRecord> EosDetectionRecord::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosDetectionRecordT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosDetectionRecord(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosDetectionRecord> CreateEosDetectionRecord(flatbuffers::FlatBufferBuilder &_fbb, const EosDetectionRecordT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosDetectionRecordT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _target_id = _o->target_id;
-  auto _range_m = _o->range_m;
-  auto _azimuth_deg = _o->azimuth_deg;
-  auto _elevation_deg = _o->elevation_deg;
-  auto _infrared_snr_linear = _o->infrared_snr_linear;
-  auto _visible_snr_linear = _o->visible_snr_linear;
-  auto _fused_snr_linear = _o->fused_snr_linear;
-  auto _fused_snr_db = _o->fused_snr_db;
-  auto _detected = _o->detected;
-  return eos::replay::CreateEosDetectionRecord(
-      _fbb,
-      _target_id,
-      _range_m,
-      _azimuth_deg,
-      _elevation_deg,
-      _infrared_snr_linear,
-      _visible_snr_linear,
-      _fused_snr_linear,
-      _fused_snr_db,
-      _detected);
-}
-
-inline EosOutputFrameT *EosOutputFrame::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosOutputFrameT> _o = std::unique_ptr<eos::replay::EosOutputFrameT>(new EosOutputFrameT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosOutputFrame::UnPackTo(EosOutputFrameT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = cycle_index(); _o->cycle_index = _e; }
-  { auto _e = scan_azimuth_deg(); _o->scan_azimuth_deg = _e; }
-  { auto _e = detections(); if (_e) { _o->detections.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->detections[_i] = std::unique_ptr<eos::replay::EosDetectionRecordT>(_e->Get(_i)->UnPack(_resolver)); } } }
-}
-
-inline flatbuffers::Offset<EosOutputFrame> EosOutputFrame::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosOutputFrameT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosOutputFrame(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosOutputFrame> CreateEosOutputFrame(flatbuffers::FlatBufferBuilder &_fbb, const EosOutputFrameT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosOutputFrameT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _cycle_index = _o->cycle_index;
-  auto _scan_azimuth_deg = _o->scan_azimuth_deg;
-  auto _detections = _o->detections.size() ? _fbb.CreateVector<flatbuffers::Offset<eos::replay::EosDetectionRecord>> (_o->detections.size(), [](size_t i, _VectorArgs *__va) { return CreateEosDetectionRecord(*__va->__fbb, __va->__o->detections[i].get(), __va->__rehasher); }, &_va ) : 0;
-  return eos::replay::CreateEosOutputFrame(
-      _fbb,
-      _cycle_index,
-      _scan_azimuth_deg,
-      _detections);
-}
-
-inline ValidationIssueT *ValidationIssue::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::ValidationIssueT> _o = std::unique_ptr<eos::replay::ValidationIssueT>(new ValidationIssueT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void ValidationIssue::UnPackTo(ValidationIssueT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = severity(); _o->severity = _e; }
-  { auto _e = code(); _o->code = _e; }
-  { auto _e = entity_index(); _o->entity_index = _e; }
-  { auto _e = message(); if (_e) _o->message = _e->str(); }
-}
-
-inline flatbuffers::Offset<ValidationIssue> ValidationIssue::Pack(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateValidationIssue(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<ValidationIssue> CreateValidationIssue(flatbuffers::FlatBufferBuilder &_fbb, const ValidationIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const ValidationIssueT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _severity = _o->severity;
-  auto _code = _o->code;
-  auto _entity_index = _o->entity_index;
-  auto _message = _o->message.empty() ? 0 : _fbb.CreateString(_o->message);
-  return eos::replay::CreateValidationIssue(
-      _fbb,
-      _severity,
-      _code,
-      _entity_index,
-      _message);
-}
-
-inline EosCycleResultT *EosCycleResult::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosCycleResultT> _o = std::unique_ptr<eos::replay::EosCycleResultT>(new EosCycleResultT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosCycleResult::UnPackTo(EosCycleResultT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = input_cycle_index(); _o->input_cycle_index = _e; }
-  { auto _e = output_frame(); if (_e) _o->output_frame = std::unique_ptr<eos::replay::EosOutputFrameT>(_e->UnPack(_resolver)); }
-  { auto _e = validation_issues(); if (_e) { _o->validation_issues.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->validation_issues[_i] = std::unique_ptr<eos::replay::ValidationIssueT>(_e->Get(_i)->UnPack(_resolver)); } } }
-  { auto _e = has_validation_error(); _o->has_validation_error = _e; }
-  { auto _e = executed_this_cycle(); _o->executed_this_cycle = _e; }
-  { auto _e = reused_previous_output(); _o->reused_previous_output = _e; }
-  { auto _e = abort_reason(); _o->abort_reason = _e; }
-}
-
-inline flatbuffers::Offset<EosCycleResult> EosCycleResult::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosCycleResultT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosCycleResult(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosCycleResult> CreateEosCycleResult(flatbuffers::FlatBufferBuilder &_fbb, const EosCycleResultT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosCycleResultT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _input_cycle_index = _o->input_cycle_index;
-  auto _output_frame = _o->output_frame ? CreateEosOutputFrame(_fbb, _o->output_frame.get(), _rehasher) : 0;
-  auto _validation_issues = _o->validation_issues.size() ? _fbb.CreateVector<flatbuffers::Offset<eos::replay::ValidationIssue>> (_o->validation_issues.size(), [](size_t i, _VectorArgs *__va) { return CreateValidationIssue(*__va->__fbb, __va->__o->validation_issues[i].get(), __va->__rehasher); }, &_va ) : 0;
-  auto _has_validation_error = _o->has_validation_error;
-  auto _executed_this_cycle = _o->executed_this_cycle;
-  auto _reused_previous_output = _o->reused_previous_output;
-  auto _abort_reason = _o->abort_reason;
-  return eos::replay::CreateEosCycleResult(
-      _fbb,
-      _input_cycle_index,
-      _output_frame,
-      _validation_issues,
-      _has_validation_error,
-      _executed_this_cycle,
-      _reused_previous_output,
-      _abort_reason);
-}
-
 inline const eos::replay::EosCycleInput *GetEosCycleInput(const void *buf) {
   return flatbuffers::GetRoot<eos::replay::EosCycleInput>(buf);
 }
 
 inline const eos::replay::EosCycleInput *GetSizePrefixedEosCycleInput(const void *buf) {
   return flatbuffers::GetSizePrefixedRoot<eos::replay::EosCycleInput>(buf);
+}
+
+inline EosCycleInput *GetMutableEosCycleInput(void *buf) {
+  return flatbuffers::GetMutableRoot<EosCycleInput>(buf);
 }
 
 inline const char *EosCycleInputIdentifier() {
@@ -1445,18 +1127,6 @@ inline void FinishSizePrefixedEosCycleInputBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
     flatbuffers::Offset<eos::replay::EosCycleInput> root) {
   fbb.FinishSizePrefixed(root, EosCycleInputIdentifier());
-}
-
-inline std::unique_ptr<eos::replay::EosCycleInputT> UnPackEosCycleInput(
-    const void *buf,
-    const flatbuffers::resolver_function_t *res = nullptr) {
-  return std::unique_ptr<eos::replay::EosCycleInputT>(GetEosCycleInput(buf)->UnPack(res));
-}
-
-inline std::unique_ptr<eos::replay::EosCycleInputT> UnPackSizePrefixedEosCycleInput(
-    const void *buf,
-    const flatbuffers::resolver_function_t *res = nullptr) {
-  return std::unique_ptr<eos::replay::EosCycleInputT>(GetSizePrefixedEosCycleInput(buf)->UnPack(res));
 }
 
 }  // namespace replay
