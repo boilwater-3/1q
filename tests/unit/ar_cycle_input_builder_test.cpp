@@ -50,7 +50,7 @@ TEST(RadarCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   target_input.swerling_type = 0;
 
   // 两步式适配器（参考基准）
-  RadarLocalFrameReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState pose_2step;
   ASSERT_TRUE(TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &pose_2step));
 

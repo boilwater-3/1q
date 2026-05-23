@@ -21,7 +21,6 @@ namespace session {
  * @brief 描述外部坐标转换为雷达局部坐标所需的参考系信息。
  * @note `origin_lla` 定义局部 ENU 原点，`radar_attitude_deg` 定义雷达局部坐标相对 ENU 的姿态。
  */
-using RadarLocalFrameReference = oneq::coordinate::LocalFrameReference;
 
 /**
  * @brief 外部平台运动学输入。
@@ -78,7 +77,7 @@ enum class ONEQ_API RadarCoordinateStatus {
  *       会写入 `reference.origin_lla`，用于把目标位置转换为相对雷达的局部坐标。
  */
 ONEQ_API bool TryMakeRadarPoseFromExternalKinematics(const RadarExternalPoseInput& input,
-                                                     RadarLocalFrameReference* reference,
+                                                     oneq::coordinate::LocalFrameReference* reference,
                                                      oneq::foundation::PoseState* platform_pose,
                                                      RadarCoordinateStatus* status = nullptr);
 
@@ -93,7 +92,7 @@ ONEQ_API bool TryMakeRadarPoseFromExternalKinematics(const RadarExternalPoseInpu
  */
 ONEQ_API bool TryMakeTargetFromExternalKinematics(
     const RadarExternalTargetInput& target_input,
-    const RadarLocalFrameReference& reference, oneq::foundation::Vector3f radar_local_velocity_mps,
+    const oneq::coordinate::LocalFrameReference& reference, oneq::foundation::Vector3f radar_local_velocity_mps,
     RadarSceneTarget* target, RadarCoordinateStatus* status = nullptr);
 
 }  // namespace session

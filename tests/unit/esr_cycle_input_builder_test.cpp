@@ -30,7 +30,7 @@ TEST(EsrCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   oneq::coordinate::EcefPositionM emitter_ecef;
   ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(emitter_lla, &emitter_ecef));
 
-  EsrCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   reference.origin_lla = origin_lla;
   reference.frame_attitude_deg.yaw_deg = 5.0f;
 

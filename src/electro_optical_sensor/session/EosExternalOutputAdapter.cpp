@@ -50,7 +50,7 @@ oneq::coordinate::EnuPositionM Vector3dToEnuPosition(const oneq::coordinate::Vec
 }  // namespace
 
 bool TryMakeExternalDetectionFromRecord(const output::EosDetectionRecord& detection,
-                                        const EosCoordinateReference& reference,
+                                        const oneq::coordinate::LocalFrameReference& reference,
                                         const oneq::foundation::PoseState& platform_pose,
                                         EosExternalDetectionRecord* output) {
   if (output == nullptr || !oneq::internal::validation::IsFinite(detection.range_m) || !oneq::internal::validation::IsFinite(detection.azimuth_deg) ||

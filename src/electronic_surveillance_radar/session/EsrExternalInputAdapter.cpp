@@ -28,7 +28,7 @@ bool IsFiniteVector3f(const EsrVector3f& value) {
 }
 
 bool TryConvertEcefPositionToLocal(const oneq::coordinate::EcefPositionM& ecef,
-                                   const EsrCoordinateReference& reference,
+                                   const oneq::coordinate::LocalFrameReference& reference,
                                    EsrVector3f* local) {
   if (local == nullptr) {
     return false;
@@ -42,7 +42,7 @@ bool TryConvertEcefPositionToLocal(const oneq::coordinate::EcefPositionM& ecef,
 }
 
 bool TryConvertLlaPositionToLocal(const oneq::coordinate::LlaPositionDegM& lla,
-                                  const EsrCoordinateReference& reference,
+                                  const oneq::coordinate::LocalFrameReference& reference,
                                   EsrVector3f* local) {
   if (local == nullptr) {
     return false;
@@ -56,7 +56,7 @@ bool TryConvertLlaPositionToLocal(const oneq::coordinate::LlaPositionDegM& lla,
 }
 
 bool TryConvertEcefVelocityToLocal(const oneq::coordinate::EcefVelocityMps& ecef,
-                                   const EsrCoordinateReference& reference,
+                                   const oneq::coordinate::LocalFrameReference& reference,
                                    EsrVector3f* local) {
   if (local == nullptr) {
     return false;
@@ -72,7 +72,7 @@ bool TryConvertEcefVelocityToLocal(const oneq::coordinate::EcefVelocityMps& ecef
 }  // namespace
 
 bool TryMakeEsrPoseFromExternalKinematics(const EsrExternalPoseInput& input,
-                                          const EsrCoordinateReference& reference,
+                                          const oneq::coordinate::LocalFrameReference& reference,
                                           session::EsrPoseState* pose,
                                           EsrCoordinateStatus* status) {
   if (pose == nullptr) {
@@ -106,7 +106,7 @@ bool TryMakeEsrPoseFromExternalKinematics(const EsrExternalPoseInput& input,
 }
 
 bool TryMakeEsrSceneEmitterFromExternalInput(const EsrExternalEmitterInput& input,
-                                             const EsrCoordinateReference& reference,
+                                             const oneq::coordinate::LocalFrameReference& reference,
                                              EsrSceneEmitter* emitter,
                                              EsrCoordinateStatus* status) {
   if (emitter == nullptr) {

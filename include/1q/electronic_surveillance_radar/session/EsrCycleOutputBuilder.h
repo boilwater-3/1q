@@ -31,7 +31,7 @@ struct ONEQ_API EsrCycleOutputBuilder {
   static bool Build(const EsrExternalPoseInput& platform, const EsrOutputFrame& frame,
                     EsrExternalOutputFrame* output);
 
-  static bool Build(const EsrCoordinateReference& reference, const EsrPoseState& platform_pose,
+  static bool Build(const oneq::coordinate::LocalFrameReference& reference, const EsrPoseState& platform_pose,
                     const EsrOutputFrame& frame, EsrExternalOutputFrame* output);
 
  private:

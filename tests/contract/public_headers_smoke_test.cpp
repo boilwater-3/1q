@@ -361,7 +361,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   emitter.pri_s = 1.0e-4;
   input.scene.push_back(emitter);
 
-  session::EsrCoordinateReference esr_reference;
+  oneq::coordinate::LocalFrameReference esr_reference;
   esr_reference.origin_lla.latitude_deg = 0.0;
   esr_reference.origin_lla.longitude_deg = 0.0;
   esr_reference.origin_lla.altitude_m = 0.0;
@@ -428,7 +428,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   target.appearance.projected_area_m2 = 2.0f;
   input.scene.push_back(target);
 
-  session::EosCoordinateReference eos_reference;
+  oneq::coordinate::LocalFrameReference eos_reference;
   eos_reference.origin_lla.latitude_deg = 0.0;
   eos_reference.origin_lla.longitude_deg = 0.0;
   eos_reference.origin_lla.altitude_m = 0.0;

@@ -29,7 +29,7 @@ struct ONEQ_API EosCycleOutputBuilder {
   static bool Build(const EosExternalPoseInput& platform, const EosOutputFrame& frame,
                     EosExternalOutputFrame* output);
 
-  static bool Build(const EosCoordinateReference& reference,
+  static bool Build(const oneq::coordinate::LocalFrameReference& reference,
                     const oneq::foundation::PoseState& platform_pose, const EosOutputFrame& frame,
                     EosExternalOutputFrame* output);
 

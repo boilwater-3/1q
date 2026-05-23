@@ -174,7 +174,7 @@ bool RunMovingTargetsScenario() {
     eos_session::EosCycleResult result = session.StepWithResult(input);
     if (result.has_validation_error) ++validation_error_count;
 
-    eos_session::EosCoordinateReference output_reference;
+    oneq::coordinate::LocalFrameReference output_reference;
     output_reference.origin_lla.latitude_deg = 31.0;
     output_reference.origin_lla.longitude_deg = 121.0;
     output_reference.origin_lla.altitude_m = 0.0;

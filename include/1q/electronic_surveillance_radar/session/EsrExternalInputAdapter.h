@@ -19,7 +19,6 @@ namespace session {
  * @brief ESR 局部坐标参考系定义。
  * @note origin_lla 定义 ENU 原点；frame_attitude_deg 定义 ESR 局部坐标相对 ENU 的姿态。
  */
-using EsrCoordinateReference = oneq::coordinate::LocalFrameReference;
 
 /**
  * @brief ESR 外部平台运动学输入。
@@ -56,13 +55,13 @@ enum class ONEQ_API EsrCoordinateStatus {
 };
 
 ONEQ_API bool TryMakeEsrPoseFromExternalKinematics(const EsrExternalPoseInput& input,
-                                                   const EsrCoordinateReference& reference,
+                                                   const oneq::coordinate::LocalFrameReference& reference,
                                                    EsrPoseState* pose,
                                                    EsrCoordinateStatus* status = nullptr);
 
 ONEQ_API bool TryMakeEsrSceneEmitterFromExternalInput(
     const EsrExternalEmitterInput& input,
-    const EsrCoordinateReference& reference,
+    const oneq::coordinate::LocalFrameReference& reference,
     EsrSceneEmitter* emitter,
     EsrCoordinateStatus* status = nullptr);
 

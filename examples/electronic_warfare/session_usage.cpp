@@ -138,7 +138,7 @@ bool RunMovingTargetsScenario() {
     esr_session::EsrCycleResult result = session.StepWithResult(input);
     if (result.has_validation_error) ++validation_error_count;
 
-    esr_session::EsrCoordinateReference output_reference;
+    oneq::coordinate::LocalFrameReference output_reference;
     output_reference.origin_lla.latitude_deg = 30.0;
     output_reference.origin_lla.longitude_deg = 120.0;
     output_reference.origin_lla.altitude_m = 0.0;

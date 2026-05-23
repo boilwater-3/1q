@@ -114,9 +114,7 @@ struct ONEQ_API Vector3d {
 
 /**
  * @brief 局部坐标系参考定义。
- * @note 各传感器模块（AR/EOS/ESR）目前定义了各自的参考系类型（RadarLocalFrameReference、
- *       EosCoordinateReference、EsrCoordinateReference），其结构与本类型等价。
- *       未来可考虑直接复用本类型以消除跨模块重复。
+ * @note 各传感器模块（AR/EOS/ESR）直接复用本类型作为局部坐标参考系定义。
  */
 struct ONEQ_API LocalFrameReference {
   LlaPositionDegM origin_lla{};      /**< 局部坐标参考原点 */

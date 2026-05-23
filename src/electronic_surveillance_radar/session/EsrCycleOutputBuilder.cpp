@@ -11,7 +11,7 @@ bool EsrCycleOutputBuilder::Build(const EsrExternalPoseInput& platform, const Es
     return false;
   }
 
-  EsrCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   if (!oneq::coordinate::TryEcefToLla(platform.platform_position_ecef_m, &reference.origin_lla)) {
     return false;
   }
@@ -24,7 +24,7 @@ bool EsrCycleOutputBuilder::Build(const EsrExternalPoseInput& platform, const Es
   return Build(reference, platform_pose, frame, output);
 }
 
-bool EsrCycleOutputBuilder::Build(const EsrCoordinateReference& reference,
+bool EsrCycleOutputBuilder::Build(const oneq::coordinate::LocalFrameReference& reference,
                                   const EsrPoseState& platform_pose, const EsrOutputFrame& frame,
                                   EsrExternalOutputFrame* output) {
   if (output == nullptr) {

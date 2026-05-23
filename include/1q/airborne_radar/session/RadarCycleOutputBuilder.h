@@ -45,7 +45,7 @@ struct ONEQ_API RadarCycleOutputBuilder {
    * @param[out] output 外部 ECEF 轨迹输出帧；可为 nullptr。
    * @return 转换成功返回 true。
    */
-  static bool Build(const RadarLocalFrameReference& reference,
+  static bool Build(const oneq::coordinate::LocalFrameReference& reference,
                     oneq::foundation::Vector3f radar_local_velocity_mps,
                     const TrackOutputFrame& frame, RadarExternalTrackOutputFrame* output);
 

@@ -30,14 +30,14 @@ struct EsrSession::Impl {
   EsrCycleResult BuildCycleResult(const session::EsrCycleInput& input) const {
     EsrCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    if (controller.HasLatestOutputFrame()) {
-      result.output_frame = controller.GetLatestOutputFrame();
+    if (controller.HasLatestInterceptOutputFrame()) {
+      result.output_frame = controller.GetLatestInterceptOutputFrame();
     }
     result.validation_issues = controller.GetLastValidationIssues();
     result.has_validation_error = session::HasValidationError(result.validation_issues);
     result.executed_this_cycle = controller.ExecutedLatestCycle();
-    result.reused_previous_output = controller.ReusedPreviousOutputLatestCycle();
-    result.abort_reason = controller.GetLastAbortReason();
+    result.reused_previous_output = controller.ReusedPreviousInterceptOutputLatestCycle();
+    result.abort_reason = controller.GetLastInterceptCycleAbortReason();
     return result;
   }
 
@@ -53,7 +53,7 @@ struct EsrSession::Impl {
     controller.RunOnce(input);
 
     if (!controller.ExecutedLatestCycle() &&
-        controller.GetLastAbortReason() !=
+        controller.GetLastInterceptCycleAbortReason() !=
             extension::EsrPipelineAbortReason::kValidationRejected) {
       pipeline.RestoreRuntimeState(pipeline_state);
       controller.RestoreRuntimeState(controller_state);

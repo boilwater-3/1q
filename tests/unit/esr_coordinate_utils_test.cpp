@@ -13,7 +13,7 @@ namespace session {
 namespace {
 
 TEST(EsrCoordinateUtilsTest, EcefVelocityConvertsToEsrLocal) {
-  session::EsrCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
@@ -46,13 +46,13 @@ TEST(EsrCoordinateUtilsTest, EcefVelocityConvertsToEsrLocal) {
 }
 
 TEST(EsrCoordinateUtilsTest, InvalidInputReturnsFalse) {
-  session::EsrCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   session::EsrExternalPoseInput input;
   EXPECT_FALSE(session::TryMakeEsrPoseFromExternalKinematics(input, reference, nullptr));
 }
 
 TEST(EsrCoordinateUtilsTest, ExternalEmitterInputBuildsSceneEmitter) {
-  session::EsrCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;

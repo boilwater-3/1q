@@ -50,7 +50,7 @@ using RadarExternalTrackKinematicsList = std::vector<RadarExternalTrackKinematic
  * @return 成功返回 true。
  */
 ONEQ_API bool TryMakeExternalTrackFromSnapshot(const model::TrackStateSnapshot& snapshot,
-                                               const RadarLocalFrameReference& reference,
+                                               const oneq::coordinate::LocalFrameReference& reference,
                                                oneq::foundation::Vector3f radar_local_velocity_mps,
                                                RadarExternalTrackKinematics* output);
 

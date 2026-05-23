@@ -10,7 +10,7 @@ bool RadarCycleOutputBuilder::Build(const RadarExternalPoseInput& platform,
     return false;
   }
 
-  RadarLocalFrameReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
   if (!TryMakeRadarPoseFromExternalKinematics(platform, &reference, &platform_pose)) {
     return false;
@@ -18,7 +18,7 @@ bool RadarCycleOutputBuilder::Build(const RadarExternalPoseInput& platform,
   return Build(reference, platform_pose.velocity_mps, frame, output);
 }
 
-bool RadarCycleOutputBuilder::Build(const RadarLocalFrameReference& reference,
+bool RadarCycleOutputBuilder::Build(const oneq::coordinate::LocalFrameReference& reference,
                                     oneq::foundation::Vector3f radar_local_velocity_mps,
                                     const TrackOutputFrame& frame,
                                     RadarExternalTrackOutputFrame* output) {

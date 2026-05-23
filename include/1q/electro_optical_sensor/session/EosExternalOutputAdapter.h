@@ -44,7 +44,7 @@ using EosExternalDetectionRecordList = std::vector<EosExternalDetectionRecord>;
  * @brief 将内部 EOS 探测记录转换为外部 ECEF 探测记录。
  */
 ONEQ_API bool TryMakeExternalDetectionFromRecord(const output::EosDetectionRecord& detection,
-                                                 const EosCoordinateReference& reference,
+                                                 const oneq::coordinate::LocalFrameReference& reference,
                                                  const oneq::foundation::PoseState& platform_pose,
                                                  EosExternalDetectionRecord* output);
 

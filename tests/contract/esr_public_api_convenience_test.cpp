@@ -233,7 +233,7 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) 
 }
 
 TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematics) {
-  session::EsrCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
@@ -255,7 +255,7 @@ TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematic
 }
 
 TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsSceneEmitterFromExternalInput) {
-  session::EsrCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;

@@ -13,7 +13,7 @@ namespace utils {
 namespace {
 
 TEST(EosCoordinateUtilsTest, MakePoseFromLlaPopulatesPlatformPose) {
-  ::electro_optical_sensor::session::EosCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
@@ -44,7 +44,7 @@ TEST(EosCoordinateUtilsTest, MakePoseFromLlaPopulatesPlatformPose) {
 }
 
 TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
-  ::electro_optical_sensor::session::EosCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
@@ -92,13 +92,13 @@ TEST(EosCoordinateUtilsTest, MakeTargetFromLlaAndEcefAreConsistent) {
 }
 
 TEST(EosCoordinateUtilsTest, InvalidInputReturnsFalse) {
-  ::electro_optical_sensor::session::EosCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   session::EosExternalPoseInput input;
   EXPECT_FALSE(session::TryMakeEosPoseFromExternalKinematics(input, reference, nullptr));
 }
 
 TEST(EosCoordinateUtilsTest, ReportsFailureStatusForNullOutputAndDegenerateGeometry) {
-  ::electro_optical_sensor::session::EosCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;

@@ -32,7 +32,7 @@ oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
 
 bool TryMakeRadarPoseFromExternalKinematics(
     const RadarExternalPoseInput& input,
-    RadarLocalFrameReference* reference,
+    oneq::coordinate::LocalFrameReference* reference,
     oneq::foundation::PoseState* platform_pose,
     RadarCoordinateStatus* status) {
   if (status != nullptr) {
@@ -80,7 +80,7 @@ bool TryMakeRadarPoseFromExternalKinematics(
 
 bool TryMakeTargetFromExternalKinematics(
     const RadarExternalTargetInput& target_input,
-    const RadarLocalFrameReference& reference,
+    const oneq::coordinate::LocalFrameReference& reference,
     oneq::foundation::Vector3f radar_local_velocity_mps,
     RadarSceneTarget* target,
     RadarCoordinateStatus* status) {

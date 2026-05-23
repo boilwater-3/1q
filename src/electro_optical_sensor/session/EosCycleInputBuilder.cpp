@@ -22,7 +22,7 @@ bool EosCycleInputBuilder::Build(const EosExternalPoseInput& platform,
     return false;
   }
 
-  EosCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   if (!oneq::coordinate::TryEcefToLla(platform.platform_position_ecef_m, &reference.origin_lla)) {
     if (status != nullptr) {
       *status = EosCoordinateStatus::kCoordinateTransformFail;

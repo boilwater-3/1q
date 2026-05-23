@@ -25,7 +25,7 @@ void SetStatus(EosCoordinateStatus value, EosCoordinateStatus* status) {
 }
 
 bool TryConvertEcefToEosLocalInternal(const oneq::coordinate::EcefPositionM& position_ecef_m,
-                                      const EosCoordinateReference& reference,
+                                      const oneq::coordinate::LocalFrameReference& reference,
                                       oneq::foundation::Vector3f* position_local_m,
                                       EosCoordinateStatus* status) {
   if (position_local_m == nullptr) {
@@ -42,7 +42,7 @@ bool TryConvertEcefToEosLocalInternal(const oneq::coordinate::EcefPositionM& pos
 }
 
 bool TryConvertLlaToEosLocalInternal(const oneq::coordinate::LlaPositionDegM& position_lla_deg_m,
-                                     const EosCoordinateReference& reference,
+                                     const oneq::coordinate::LocalFrameReference& reference,
                                      oneq::foundation::Vector3f* position_local_m,
                                      EosCoordinateStatus* status) {
   if (position_local_m == nullptr) {
@@ -131,7 +131,7 @@ bool FillTargetFromLocalPosition(std::uint64_t target_id,
 }  // namespace
 
 bool TryMakeEosPoseFromExternalKinematics(const EosExternalPoseInput& input,
-                                          const EosCoordinateReference& reference,
+                                          const oneq::coordinate::LocalFrameReference& reference,
                                           oneq::foundation::PoseState* pose,
                                           EosCoordinateStatus* status) {
   if (pose == nullptr) {
@@ -166,7 +166,7 @@ bool TryMakeEosPoseFromExternalKinematics(const EosExternalPoseInput& input,
 bool TryMakeEosSceneTargetFromExternalInput(
     std::uint64_t target_id,
     const EosExternalTargetInput& input,
-    const EosCoordinateReference& reference,
+    const oneq::coordinate::LocalFrameReference& reference,
     const oneq::foundation::PoseState& platform_pose,
     EosSceneTarget* target,
     EosCoordinateStatus* status) {

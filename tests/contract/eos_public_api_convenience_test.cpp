@@ -282,7 +282,7 @@ TEST(EosPublicApiConvenienceTest, InputValidationPassesForValidInput) {
 }
 
 TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematics) {
-  session::EosCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;
@@ -316,7 +316,7 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematic
 }
 
 TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
-  session::EosCoordinateReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   reference.origin_lla.latitude_deg = 0.0;
   reference.origin_lla.longitude_deg = 0.0;
   reference.origin_lla.altitude_m = 0.0;

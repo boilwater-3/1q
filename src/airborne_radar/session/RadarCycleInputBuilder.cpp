@@ -25,7 +25,7 @@ bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
     return false;
   }
 
-  RadarLocalFrameReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   if (!TryMakeRadarPoseFromExternalKinematics(platform, &reference, &output->platform_pose, status)) {
     return false;
   }

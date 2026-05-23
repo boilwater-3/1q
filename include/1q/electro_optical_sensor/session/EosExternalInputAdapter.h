@@ -20,7 +20,6 @@ namespace session {
  * @brief EOS 局部坐标参考系定义。
  * @note origin_lla 定义 ENU 原点；frame_attitude_deg 定义 EOS 局部坐标相对 ENU 的姿态。
  */
-using EosCoordinateReference = oneq::coordinate::LocalFrameReference;
 
 /**
  * @brief EOS 外部平台运动学输入。
@@ -60,7 +59,7 @@ enum class ONEQ_API EosCoordinateStatus {
  * @return 转换成功返回 true；输入非法、坐标变换失败或输出为空返回 false。
  */
 ONEQ_API bool TryMakeEosPoseFromExternalKinematics(const EosExternalPoseInput& input,
-                                                   const EosCoordinateReference& reference,
+                                                   const oneq::coordinate::LocalFrameReference& reference,
                                                    oneq::foundation::PoseState* pose,
                                                    EosCoordinateStatus* status = nullptr);
 
@@ -77,7 +76,7 @@ ONEQ_API bool TryMakeEosPoseFromExternalKinematics(const EosExternalPoseInput& i
 ONEQ_API bool TryMakeEosSceneTargetFromExternalInput(
     std::uint64_t target_id,
     const EosExternalTargetInput& input,
-    const EosCoordinateReference& reference,
+    const oneq::coordinate::LocalFrameReference& reference,
     const oneq::foundation::PoseState& platform_pose,
     EosSceneTarget* target,
     EosCoordinateStatus* status = nullptr);

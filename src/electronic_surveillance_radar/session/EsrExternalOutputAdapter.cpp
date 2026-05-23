@@ -33,7 +33,7 @@ oneq::coordinate::Vector3d BearingVectorFromAngles(double az_deg, double el_deg)
   return vector;
 }
 
-bool TryBearingToEcefUnit(double az_deg, double el_deg, const EsrCoordinateReference& reference,
+bool TryBearingToEcefUnit(double az_deg, double el_deg, const oneq::coordinate::LocalFrameReference& reference,
                           const EsrPoseState& platform_pose,
                           oneq::coordinate::Vector3d* ecef_unit) {
   if (!oneq::internal::validation::IsFinite(az_deg) || !oneq::internal::validation::IsFinite(el_deg)) {
@@ -51,7 +51,7 @@ bool TryBearingToEcefUnit(double az_deg, double el_deg, const EsrCoordinateRefer
 }  // namespace
 
 bool TryMakeExternalObservationFromRecord(const model::EmitterObservation& observation,
-                                          const EsrCoordinateReference& reference,
+                                          const oneq::coordinate::LocalFrameReference& reference,
                                           const EsrPoseState& platform_pose,
                                           EsrExternalObservation* output) {
   if (output == nullptr) {
@@ -78,7 +78,7 @@ bool TryMakeExternalObservationFromRecord(const model::EmitterObservation& obser
 }
 
 bool TryMakeExternalHypothesisFromRecord(const model::EmitterHypothesis& hypothesis,
-                                         const EsrCoordinateReference& reference,
+                                         const oneq::coordinate::LocalFrameReference& reference,
                                          const EsrPoseState& platform_pose,
                                          EsrExternalEmitterHypothesis* output) {
   if (output == nullptr) {

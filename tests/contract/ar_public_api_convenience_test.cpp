@@ -678,7 +678,7 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalCoordinat
   session::RadarExternalPoseInput pose_input;
   pose_input.platform_position_ecef_m = radar_ecef;
 
-  session::RadarLocalFrameReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
   ASSERT_TRUE(
       session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
@@ -724,7 +724,7 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalKinematic
   pose_input.platform_attitude_deg.yaw_deg = 5.0f;
   pose_input.radar_mount_angles_deg.pitch_deg = 2.0f;
 
-  session::RadarLocalFrameReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
   ASSERT_TRUE(
       session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
@@ -768,7 +768,7 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
   pose_input.platform_attitude_deg.yaw_deg = 5.0f;
   pose_input.radar_mount_angles_deg.pitch_deg = 2.0f;
 
-  session::RadarLocalFrameReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
   ASSERT_TRUE(
       session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
@@ -812,7 +812,7 @@ TEST(PublicApiConvenienceTest, TwoStepApiPlatformPoseFeedsDirectlyIntoCycleInput
   pose_input.platform_attitude_deg.pitch_deg = -3.0f;
   pose_input.platform_attitude_deg.roll_deg = 1.0f;
 
-  session::RadarLocalFrameReference reference;
+  oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
   ASSERT_TRUE(
       session::TryMakeRadarPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
