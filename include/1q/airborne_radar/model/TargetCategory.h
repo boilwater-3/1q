@@ -3,8 +3,8 @@
  * @brief 定义表示当前雷达处理周期内目标的目标分类信息。
  */
 
-#ifndef AIRBORNE_RADAR_COMMON_TARGET_CATEGORY_H_
-#define AIRBORNE_RADAR_COMMON_TARGET_CATEGORY_H_
+#ifndef ONEQ_AIRBORNE_RADAR_MODEL_TARGET_CATEGORY_H_
+#define ONEQ_AIRBORNE_RADAR_MODEL_TARGET_CATEGORY_H_
 
 #include <string>
 #include <unordered_map>
@@ -45,4 +45,4 @@ using TargetCategoryList = std::vector<TargetCategory>;
 }  // namespace model
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_COMMON_TARGET_CATEGORY_H_
+#endif  // ONEQ_AIRBORNE_RADAR_MODEL_TARGET_CATEGORY_H_

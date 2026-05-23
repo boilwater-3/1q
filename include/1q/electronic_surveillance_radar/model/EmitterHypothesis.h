@@ -3,8 +3,8 @@
  * @brief 定义电子侦察输出侧的辐射源假设与威胁评估类型。
  */
 
-#ifndef ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_HYPOTHESIS_H_
-#define ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_HYPOTHESIS_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_HYPOTHESIS_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_HYPOTHESIS_H_
 
 #include <cstdint>
 #include <string>
@@ -56,4 +56,4 @@ using EmitterHypothesisList = std::vector<EmitterHypothesis>;
 }  // namespace model
 }  // namespace electronic_surveillance_radar
 
-#endif  // ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_HYPOTHESIS_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_HYPOTHESIS_H_

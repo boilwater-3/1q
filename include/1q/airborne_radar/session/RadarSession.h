@@ -3,8 +3,8 @@
  * @brief 定义面向外部接入的高层机载雷达会话门面。
  */
 
-#ifndef AIRBORNE_RADAR_CORE_SESSION_RADAR_SESSION_H_
-#define AIRBORNE_RADAR_CORE_SESSION_RADAR_SESSION_H_
+#ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_SESSION_H_
+#define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_SESSION_H_
 
 #include <memory>
 #include <vector>
@@ -126,4 +126,4 @@ class ONEQ_API RadarSession {
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CORE_SESSION_RADAR_SESSION_H_
+#endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_SESSION_H_

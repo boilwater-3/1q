@@ -3,8 +3,8 @@
  * @brief 定义控制真值的写入与读取接口。
  */
 
-#ifndef AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTROL_PROFILE_STORE_H_
-#define AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTROL_PROFILE_STORE_H_
+#ifndef ONEQ_AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTROL_PROFILE_STORE_H_
+#define ONEQ_AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTROL_PROFILE_STORE_H_
 
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/api.hpp"
@@ -32,4 +32,4 @@ class ONEQ_API IRadarControlProfileStore {
 }  // namespace extension
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTROL_PROFILE_STORE_H_
+#endif  // ONEQ_AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTROL_PROFILE_STORE_H_

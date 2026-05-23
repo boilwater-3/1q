@@ -3,8 +3,8 @@
  * @brief 定义 ESR 单周期场景实体输入类型。
  */
 
-#ifndef ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SCENE_TYPES_H_
-#define ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SCENE_TYPES_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SCENE_TYPES_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SCENE_TYPES_H_
 
 #include <string>
 #include <vector>
@@ -49,4 +49,4 @@ using EsrSceneEmitterList = std::vector<EsrSceneEmitter>;
 }  // namespace session
 }  // namespace electronic_surveillance_radar
 
-#endif  // ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SCENE_TYPES_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SCENE_TYPES_H_

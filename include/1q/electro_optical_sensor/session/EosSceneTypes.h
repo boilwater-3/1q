@@ -3,8 +3,8 @@
  * @brief 定义 EOS 单周期场景实体输入类型。
  */
 
-#ifndef ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_TYPES_H_
-#define ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_TYPES_H_
+#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_TYPES_H_
+#define ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_TYPES_H_
 
 #include <cstdint>
 #include <vector>
@@ -41,4 +41,4 @@ using EosSceneTargetList = std::vector<EosSceneTarget>;
 }  // namespace session
 }  // namespace electro_optical_sensor
 
-#endif  // ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_TYPES_H_
+#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_TYPES_H_

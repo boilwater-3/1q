@@ -3,8 +3,8 @@
  * @brief 定义接收机视角的辐射源观测记录类型。
  */
 
-#ifndef ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_OBSERVATION_H_
-#define ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_OBSERVATION_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_OBSERVATION_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_OBSERVATION_H_
 
 #include <cstdint>
 #include <vector>
@@ -45,4 +45,4 @@ using EmitterObservationList = std::vector<EmitterObservation>;
 }  // namespace model
 }  // namespace electronic_surveillance_radar
 
-#endif  // ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_OBSERVATION_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_OBSERVATION_H_

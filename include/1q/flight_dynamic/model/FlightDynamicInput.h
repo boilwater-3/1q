@@ -3,8 +3,8 @@
  * @brief 定义 FlightDynamicSession::Step() 的输入结构体。
  */
 
-#ifndef FLIGHT_DYNAMIC_MODEL_FLIGHT_DYNAMIC_INPUT_H_
-#define FLIGHT_DYNAMIC_MODEL_FLIGHT_DYNAMIC_INPUT_H_
+#ifndef ONEQ_FLIGHT_DYNAMIC_MODEL_FLIGHT_DYNAMIC_INPUT_H_
+#define ONEQ_FLIGHT_DYNAMIC_MODEL_FLIGHT_DYNAMIC_INPUT_H_
 
 #include <cstdint>
 
@@ -66,4 +66,4 @@ struct ONEQ_API FlightDynamicInput {
 }  // namespace model
 }  // namespace flight_dynamic
 
-#endif  // FLIGHT_DYNAMIC_MODEL_FLIGHT_DYNAMIC_INPUT_H_
+#endif  // ONEQ_FLIGHT_DYNAMIC_MODEL_FLIGHT_DYNAMIC_INPUT_H_

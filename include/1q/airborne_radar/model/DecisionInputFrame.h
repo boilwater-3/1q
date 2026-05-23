@@ -3,8 +3,8 @@
  * @brief 定义供决策引擎消费的单周期输入帧。
  */
 
-#ifndef AIRBORNE_RADAR_COMMON_DECISION_INPUT_FRAME_H_
-#define AIRBORNE_RADAR_COMMON_DECISION_INPUT_FRAME_H_
+#ifndef ONEQ_AIRBORNE_RADAR_MODEL_DECISION_INPUT_FRAME_H_
+#define ONEQ_AIRBORNE_RADAR_MODEL_DECISION_INPUT_FRAME_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -67,4 +67,4 @@ struct ONEQ_API DecisionInputFrame {
 }  // namespace model
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_COMMON_DECISION_INPUT_FRAME_H_
+#endif  // ONEQ_AIRBORNE_RADAR_MODEL_DECISION_INPUT_FRAME_H_

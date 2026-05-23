@@ -3,8 +3,8 @@
  * @brief 定义 ESR 任务域配置、工作模式与扫描策略。
  */
 
-#ifndef ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_MISSION_CONFIG_H_
-#define ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_MISSION_CONFIG_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_MISSION_CONFIG_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_MISSION_CONFIG_H_
 
 #include "1q/api.hpp"
 #include "1q/foundation/scan_schedule_types.h"
@@ -55,4 +55,4 @@ struct ONEQ_API EsrMissionConfig {
 }  // namespace config
 }  // namespace electronic_surveillance_radar
 
-#endif  // ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_MISSION_CONFIG_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_MISSION_CONFIG_H_

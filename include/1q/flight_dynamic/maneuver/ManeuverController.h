@@ -9,8 +9,8 @@
  * FlightDynamicSession::StepManeuver() 获取集成的机动执行能力。
  */
 
-#ifndef FLIGHT_DYNAMIC_MANEUVER_MANEUVER_CONTROLLER_H_
-#define FLIGHT_DYNAMIC_MANEUVER_MANEUVER_CONTROLLER_H_
+#ifndef ONEQ_FLIGHT_DYNAMIC_MANEUVER_MANEUVER_CONTROLLER_H_
+#define ONEQ_FLIGHT_DYNAMIC_MANEUVER_MANEUVER_CONTROLLER_H_
 
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
@@ -99,4 +99,4 @@ class ONEQ_API ManeuverController {
 }  // namespace maneuver
 }  // namespace flight_dynamic
 
-#endif  // FLIGHT_DYNAMIC_MANEUVER_MANEUVER_CONTROLLER_H_
+#endif  // ONEQ_FLIGHT_DYNAMIC_MANEUVER_MANEUVER_CONTROLLER_H_

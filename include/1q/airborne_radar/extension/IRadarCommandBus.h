@@ -3,8 +3,8 @@
  * @brief 定义雷达控制指令的提交与读取接口。
  */
 
-#ifndef AIRBORNE_RADAR_EXTENSION_I_RADAR_COMMAND_BUS_H_
-#define AIRBORNE_RADAR_EXTENSION_I_RADAR_COMMAND_BUS_H_
+#ifndef ONEQ_AIRBORNE_RADAR_EXTENSION_I_RADAR_COMMAND_BUS_H_
+#define ONEQ_AIRBORNE_RADAR_EXTENSION_I_RADAR_COMMAND_BUS_H_
 
 #include <vector>
 
@@ -31,4 +31,4 @@ class ONEQ_API IRadarCommandBus {
 }  // namespace extension
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_EXTENSION_I_RADAR_COMMAND_BUS_H_
+#endif  // ONEQ_AIRBORNE_RADAR_EXTENSION_I_RADAR_COMMAND_BUS_H_

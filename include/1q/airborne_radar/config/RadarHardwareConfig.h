@@ -5,8 +5,8 @@
  * 硬件域承载探测链路固有能力参数。
  */
 
-#ifndef AIRBORNE_RADAR_CONFIG_RADAR_HARDWARE_CONFIG_H_
-#define AIRBORNE_RADAR_CONFIG_RADAR_HARDWARE_CONFIG_H_
+#ifndef ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_HARDWARE_CONFIG_H_
+#define ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_HARDWARE_CONFIG_H_
 
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/api.hpp"
@@ -213,4 +213,4 @@ struct ONEQ_API RadarHardwareConfig {
 }  // namespace config
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CONFIG_RADAR_HARDWARE_CONFIG_H_
+#endif  // ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_HARDWARE_CONFIG_H_

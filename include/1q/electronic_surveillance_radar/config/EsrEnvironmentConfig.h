@@ -3,8 +3,8 @@
  * @brief ESR 环境配置聚合别名（真源位于 environment 层）。
  */
 
-#ifndef ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_ENVIRONMENT_CONFIG_H_
-#define ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_ENVIRONMENT_CONFIG_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_ENVIRONMENT_CONFIG_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_ENVIRONMENT_CONFIG_H_
 
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
@@ -25,4 +25,4 @@ using EsrEnvironmentConfig = environment::EsrEnvironmentDefaultConfig;
 }  // namespace config
 }  // namespace electronic_surveillance_radar
 
-#endif  // ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_ENVIRONMENT_CONFIG_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_ENVIRONMENT_CONFIG_H_

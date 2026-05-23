@@ -3,8 +3,8 @@
  * @brief 定义 EOS 单周期环境输入聚合类型。
  */
 
-#ifndef ELECTRO_OPTICAL_SENSOR_SESSION_EOS_ENVIRONMENT_INPUT_H_
-#define ELECTRO_OPTICAL_SENSOR_SESSION_EOS_ENVIRONMENT_INPUT_H_
+#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_ENVIRONMENT_INPUT_H_
+#define ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_ENVIRONMENT_INPUT_H_
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
@@ -20,4 +20,4 @@ using EosEnvironmentInput = environment::EosEnvironmentObservation;
 }  // namespace session
 }  // namespace electro_optical_sensor
 
-#endif  // ELECTRO_OPTICAL_SENSOR_SESSION_EOS_ENVIRONMENT_INPUT_H_
+#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_ENVIRONMENT_INPUT_H_

@@ -3,8 +3,8 @@
  * @brief 为机载雷达提供独立的中间层记录包装器。
  */
 
-#ifndef AIRBORNE_RADAR_TOOLS_RADAR_TRACE_SESSION_H_
-#define AIRBORNE_RADAR_TOOLS_RADAR_TRACE_SESSION_H_
+#ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_TRACE_SESSION_H_
+#define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_TRACE_SESSION_H_
 
 #include <cstdint>
 #include <memory>
@@ -83,4 +83,4 @@ class ONEQ_API RadarTraceSession {
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_TOOLS_RADAR_TRACE_SESSION_H_
+#endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_TRACE_SESSION_H_

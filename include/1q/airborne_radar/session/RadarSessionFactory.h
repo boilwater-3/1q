@@ -3,8 +3,8 @@
  * @brief 定义 RadarSession 的公共创建入口。
  */
 
-#ifndef AIRBORNE_RADAR_CORE_SESSION_RADAR_SESSION_FACTORY_H_
-#define AIRBORNE_RADAR_CORE_SESSION_RADAR_SESSION_FACTORY_H_
+#ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_SESSION_FACTORY_H_
+#define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_SESSION_FACTORY_H_
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/session/RadarSession.h"
@@ -69,4 +69,4 @@ class ONEQ_API RadarSessionFactory {
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CORE_SESSION_RADAR_SESSION_FACTORY_H_
+#endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_SESSION_FACTORY_H_

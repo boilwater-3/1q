@@ -3,8 +3,8 @@
  * @brief 定义机载雷达方向、扫描窗口与波束指向配置。
  */
 
-#ifndef AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_
-#define AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_
+#ifndef ONEQ_AIRBORNE_RADAR_MODEL_RADAR_ORIENTATION_CONFIG_H_
+#define ONEQ_AIRBORNE_RADAR_MODEL_RADAR_ORIENTATION_CONFIG_H_
 
 #include "1q/api.hpp"
 #include "1q/foundation/pose_types.h"
@@ -107,4 +107,4 @@ struct ONEQ_API RadarOrientationConfig {
 }  // namespace model
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CONFIG_RADAR_ORIENTATION_CONFIG_H_
+#endif  // ONEQ_AIRBORNE_RADAR_MODEL_RADAR_ORIENTATION_CONFIG_H_

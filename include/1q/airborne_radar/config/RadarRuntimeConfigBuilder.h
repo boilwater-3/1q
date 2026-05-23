@@ -3,8 +3,8 @@
  * @brief 提供运行期可变配置补丁的链式构造器。
  */
 
-#ifndef AIRBORNE_RADAR_CONFIG_RADAR_RUNTIME_CONFIG_BUILDER_H_
-#define AIRBORNE_RADAR_CONFIG_RADAR_RUNTIME_CONFIG_BUILDER_H_
+#ifndef ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_RUNTIME_CONFIG_BUILDER_H_
+#define ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_RUNTIME_CONFIG_BUILDER_H_
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/api.hpp"
@@ -105,4 +105,4 @@ class ONEQ_API RadarRuntimeConfigBuilder {
 }  // namespace config
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CONFIG_RADAR_RUNTIME_CONFIG_BUILDER_H_
+#endif  // ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_RUNTIME_CONFIG_BUILDER_H_

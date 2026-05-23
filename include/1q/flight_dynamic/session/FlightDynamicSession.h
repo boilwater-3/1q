@@ -3,8 +3,8 @@
  * @brief 定义 6-DOF 飞行动力学会话门面（有状态积分器）。
  */
 
-#ifndef FLIGHT_DYNAMIC_SESSION_FLIGHT_DYNAMIC_SESSION_H_
-#define FLIGHT_DYNAMIC_SESSION_FLIGHT_DYNAMIC_SESSION_H_
+#ifndef ONEQ_FLIGHT_DYNAMIC_SESSION_FLIGHT_DYNAMIC_SESSION_H_
+#define ONEQ_FLIGHT_DYNAMIC_SESSION_FLIGHT_DYNAMIC_SESSION_H_
 
 #include <memory>
 
@@ -131,4 +131,4 @@ class ONEQ_API FlightDynamicSession {
 }  // namespace session
 }  // namespace flight_dynamic
 
-#endif  // FLIGHT_DYNAMIC_SESSION_FLIGHT_DYNAMIC_SESSION_H_
+#endif  // ONEQ_FLIGHT_DYNAMIC_SESSION_FLIGHT_DYNAMIC_SESSION_H_

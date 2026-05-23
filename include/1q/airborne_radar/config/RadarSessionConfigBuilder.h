@@ -3,8 +3,8 @@
  * @brief 提供链式构造 config::RadarSessionConfig 的 Builder（用于会话初始化基线配置）。
  */
 
-#ifndef AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
-#define AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
+#ifndef ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
+#define ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
 
 #include <string>
 #include <vector>
@@ -338,4 +338,4 @@ inline RadarSessionConfigBuilder::EnvironmentEditor RadarSessionConfigBuilder::E
 }  // namespace config
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
+#endif  // ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_

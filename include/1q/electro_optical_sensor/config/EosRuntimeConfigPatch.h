@@ -3,8 +3,8 @@
  * @brief 定义 EOS 会话运行期配置补丁结构。
  */
 
-#ifndef ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_PATCH_H_
-#define ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_PATCH_H_
+#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_PATCH_H_
+#define ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_PATCH_H_
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/config/EosMissionConfig.h"
@@ -42,4 +42,4 @@ struct ONEQ_API EosRuntimeConfigPatch {
 }  // namespace config
 }  // namespace electro_optical_sensor
 
-#endif  // ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_PATCH_H_
+#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_PATCH_H_

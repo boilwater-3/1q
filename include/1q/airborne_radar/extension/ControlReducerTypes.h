@@ -3,8 +3,8 @@
  * @brief 定义控制归并器对外公开的配置与结果类型。
  */
 
-#ifndef AIRBORNE_RADAR_DECISION_PIPELINE_CONTROL_REDUCER_TYPES_H_
-#define AIRBORNE_RADAR_DECISION_PIPELINE_CONTROL_REDUCER_TYPES_H_
+#ifndef ONEQ_AIRBORNE_RADAR_EXTENSION_CONTROL_REDUCER_TYPES_H_
+#define ONEQ_AIRBORNE_RADAR_EXTENSION_CONTROL_REDUCER_TYPES_H_
 
 #include <cstdint>
 #include <vector>
@@ -46,4 +46,4 @@ struct ONEQ_API ControlReductionResult {
 }  // namespace extension
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_DECISION_PIPELINE_CONTROL_REDUCER_TYPES_H_
+#endif  // ONEQ_AIRBORNE_RADAR_EXTENSION_CONTROL_REDUCER_TYPES_H_

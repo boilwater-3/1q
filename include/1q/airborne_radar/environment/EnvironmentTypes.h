@@ -3,8 +3,8 @@
  * @brief 定义环境层对外公开的运行期场景与快照类型。
  */
 
-#ifndef AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_TYPES_H_
-#define AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_TYPES_H_
+#ifndef ONEQ_AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_TYPES_H_
+#define ONEQ_AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_TYPES_H_
 
 #include <cstdint>
 
@@ -80,4 +80,4 @@ struct ONEQ_API EnvironmentSceneState {
 }  // namespace environment
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_TYPES_H_
+#endif  // ONEQ_AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_TYPES_H_

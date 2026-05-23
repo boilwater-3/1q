@@ -3,8 +3,8 @@
  * @brief 定义供信号层和决策层共享的干扰摘要语义。
  */
 
-#ifndef AIRBORNE_RADAR_COMMON_JAMMING_SEMANTICS_H_
-#define AIRBORNE_RADAR_COMMON_JAMMING_SEMANTICS_H_
+#ifndef ONEQ_AIRBORNE_RADAR_MODEL_JAMMING_SEMANTICS_H_
+#define ONEQ_AIRBORNE_RADAR_MODEL_JAMMING_SEMANTICS_H_
 
 #include "1q/api.hpp"
 
@@ -25,4 +25,4 @@ enum class ONEQ_API JammingSemantic {
 }  // namespace model
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_COMMON_JAMMING_SEMANTICS_H_
+#endif  // ONEQ_AIRBORNE_RADAR_MODEL_JAMMING_SEMANTICS_H_

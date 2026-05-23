@@ -3,8 +3,8 @@
  * @brief 定义环境建模层对外暴露的环境服务接口。
  */
 
-#ifndef AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
-#define AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
+#ifndef ONEQ_AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
+#define ONEQ_AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/api.hpp"
@@ -78,4 +78,4 @@ class ONEQ_API IEnvironmentService {
 }  // namespace environment
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
+#endif  // ONEQ_AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_

@@ -5,8 +5,8 @@
  *        控制真值接口 IRadarControlProfileStore，并增加生命周期管理方法。
  */
 
-#ifndef AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_H_
-#define AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_H_
+#ifndef ONEQ_AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_H_
+#define ONEQ_AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_H_
 
 #include <cstdint>
 #include <memory>
@@ -70,4 +70,4 @@ class ONEQ_API IRadarContext : public IRadarContextReader,
 }  // namespace extension
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_H_
+#endif  // ONEQ_AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_H_

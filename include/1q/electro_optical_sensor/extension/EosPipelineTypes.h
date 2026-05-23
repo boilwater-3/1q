@@ -3,8 +3,8 @@
  * @brief EOS 管线扩展契约类型与输出帧结构。
  */
 
-#ifndef ELECTRO_OPTICAL_SENSOR_PIPELINE_EOS_PIPELINE_TYPES_H_
-#define ELECTRO_OPTICAL_SENSOR_PIPELINE_EOS_PIPELINE_TYPES_H_
+#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_EXTENSION_EOS_PIPELINE_TYPES_H_
+#define ONEQ_ELECTRO_OPTICAL_SENSOR_EXTENSION_EOS_PIPELINE_TYPES_H_
 
 #include <cstdint>
 #include <vector>
@@ -126,4 +126,4 @@ struct ONEQ_API EosPipelineExecuteResult {
 }  // namespace extension
 }  // namespace electro_optical_sensor
 
-#endif  // ELECTRO_OPTICAL_SENSOR_PIPELINE_EOS_PIPELINE_TYPES_H_
+#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_EXTENSION_EOS_PIPELINE_TYPES_H_

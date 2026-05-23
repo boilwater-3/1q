@@ -3,8 +3,8 @@
  * @brief 定义机载雷达单周期场景实体输入类型。
  */
 
-#ifndef AIRBORNE_RADAR_SESSION_RADAR_SCENE_TYPES_H_
-#define AIRBORNE_RADAR_SESSION_RADAR_SCENE_TYPES_H_
+#ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_SCENE_TYPES_H_
+#define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_SCENE_TYPES_H_
 
 #include <cstdint>
 #include <vector>
@@ -48,4 +48,4 @@ using RadarSceneTargetList = std::vector<RadarSceneTarget>;
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_SESSION_RADAR_SCENE_TYPES_H_
+#endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_SCENE_TYPES_H_

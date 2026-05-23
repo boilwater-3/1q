@@ -3,8 +3,8 @@
  * @brief EOS 环境配置契约（Scenario/Model/Default）与单入口映射。
  */
 
-#ifndef ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_EOS_ENVIRONMENT_CONFIG_H_
-#define ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_EOS_ENVIRONMENT_CONFIG_H_
+#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_EOS_ENVIRONMENT_CONFIG_H_
+#define ONEQ_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_EOS_ENVIRONMENT_CONFIG_H_
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
@@ -118,4 +118,4 @@ inline EosEnvironmentModelConfig BuildModelConfigFromScenario(
 }  // namespace environment
 }  // namespace electro_optical_sensor
 
-#endif  // ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_EOS_ENVIRONMENT_CONFIG_H_
+#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_EOS_ENVIRONMENT_CONFIG_H_

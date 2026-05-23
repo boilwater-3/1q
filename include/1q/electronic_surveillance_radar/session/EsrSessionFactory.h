@@ -3,8 +3,8 @@
  * @brief 定义 EsrSession 的公共创建入口。
  */
 
-#ifndef ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SESSION_FACTORY_H_
-#define ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SESSION_FACTORY_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SESSION_FACTORY_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SESSION_FACTORY_H_
 
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
@@ -79,4 +79,4 @@ class ONEQ_API EsrSessionFactory {
 }  // namespace session
 }  // namespace electronic_surveillance_radar
 
-#endif  // ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SESSION_FACTORY_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_SESSION_FACTORY_H_

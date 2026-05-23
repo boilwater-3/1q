@@ -11,8 +11,8 @@
  * 5. 参考 ar_environment_config_contract_test.cpp 建立等价测试覆盖。
  */
 
-#ifndef AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_CONFIG_H_
-#define AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_CONFIG_H_
+#ifndef ONEQ_AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_CONFIG_H_
+#define ONEQ_AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_CONFIG_H_
 
 #include <cstdint>
 #include <vector>
@@ -229,4 +229,4 @@ inline ONEQ_API EnvironmentModelConfig BuildModelConfigFromScenario(
 }  // namespace environment
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_CONFIG_H_
+#endif  // ONEQ_AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_CONFIG_H_

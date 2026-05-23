@@ -3,8 +3,8 @@
  * @brief 定义飞行器机型加载参数。
  */
 
-#ifndef FLIGHT_DYNAMIC_CONFIG_AIRCRAFT_DEFINITION_H_
-#define FLIGHT_DYNAMIC_CONFIG_AIRCRAFT_DEFINITION_H_
+#ifndef ONEQ_FLIGHT_DYNAMIC_CONFIG_AIRCRAFT_DEFINITION_H_
+#define ONEQ_FLIGHT_DYNAMIC_CONFIG_AIRCRAFT_DEFINITION_H_
 
 #include <string>
 
@@ -44,4 +44,4 @@ struct ONEQ_API AircraftDefinition {
 }  // namespace config
 }  // namespace flight_dynamic
 
-#endif  // FLIGHT_DYNAMIC_CONFIG_AIRCRAFT_DEFINITION_H_
+#endif  // ONEQ_FLIGHT_DYNAMIC_CONFIG_AIRCRAFT_DEFINITION_H_

@@ -3,8 +3,8 @@
  * @brief 定义 RadarSession 单周期输出帧、查询工具与聚合结果类型。
  */
 
-#ifndef AIRBORNE_RADAR_CORE_SESSION_RADAR_CYCLE_RESULT_H_
-#define AIRBORNE_RADAR_CORE_SESSION_RADAR_CYCLE_RESULT_H_
+#ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_RESULT_H_
+#define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_RESULT_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -104,4 +104,4 @@ struct ONEQ_API RadarCycleResult {
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CORE_SESSION_RADAR_CYCLE_RESULT_H_
+#endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_RESULT_H_

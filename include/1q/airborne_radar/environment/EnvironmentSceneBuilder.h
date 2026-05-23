@@ -3,8 +3,8 @@
  * @brief 定义面向外部调用方的环境场景构造器。
  */
 
-#ifndef AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SCENE_BUILDER_H_
-#define AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SCENE_BUILDER_H_
+#ifndef ONEQ_AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SCENE_BUILDER_H_
+#define ONEQ_AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SCENE_BUILDER_H_
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/api.hpp"
@@ -74,4 +74,4 @@ class ONEQ_API EnvironmentSceneBuilder {
 }  // namespace environment
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SCENE_BUILDER_H_
+#endif  // ONEQ_AIRBORNE_RADAR_ENVIRONMENT_ENVIRONMENT_SCENE_BUILDER_H_

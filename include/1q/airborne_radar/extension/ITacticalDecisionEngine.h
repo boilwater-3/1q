@@ -3,8 +3,8 @@
  * @brief 定义决策协调器的公共接口与相关类型。
  */
 
-#ifndef AIRBORNE_RADAR_DECISION_I_TACTICAL_DECISION_ENGINE_H_
-#define AIRBORNE_RADAR_DECISION_I_TACTICAL_DECISION_ENGINE_H_
+#ifndef ONEQ_AIRBORNE_RADAR_EXTENSION_I_TACTICAL_DECISION_ENGINE_H_
+#define ONEQ_AIRBORNE_RADAR_EXTENSION_I_TACTICAL_DECISION_ENGINE_H_
 
 #include <cstdint>
 #include <string>
@@ -93,4 +93,4 @@ class ONEQ_API ITacticalDecisionEngine {
 }  // namespace extension
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_DECISION_I_TACTICAL_DECISION_ENGINE_H_
+#endif  // ONEQ_AIRBORNE_RADAR_EXTENSION_I_TACTICAL_DECISION_ENGINE_H_

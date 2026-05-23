@@ -3,8 +3,8 @@
  * @brief Provides an AR replay entry point backed by replay trace events.
  */
 
-#ifndef AIRBORNE_RADAR_SESSION_RADAR_REPLAY_SESSION_H_
-#define AIRBORNE_RADAR_SESSION_RADAR_REPLAY_SESSION_H_
+#ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_REPLAY_SESSION_H_
+#define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_REPLAY_SESSION_H_
 
 #include <string>
 
@@ -29,4 +29,4 @@ ONEQ_API RadarReplaySessionResult ReplayRadarTrace(const std::string& trace_dir)
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_SESSION_RADAR_REPLAY_SESSION_H_
+#endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_REPLAY_SESSION_H_

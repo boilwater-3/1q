@@ -5,8 +5,8 @@
  * 策略域承载调度、关联、跟踪与生命周期策略。
  */
 
-#ifndef AIRBORNE_RADAR_CONFIG_RADAR_POLICY_CONFIG_H_
-#define AIRBORNE_RADAR_CONFIG_RADAR_POLICY_CONFIG_H_
+#ifndef ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_POLICY_CONFIG_H_
+#define ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_POLICY_CONFIG_H_
 
 #include <cstdint>
 
@@ -116,4 +116,4 @@ struct ONEQ_API RadarPolicyConfig {
 }  // namespace config
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CONFIG_RADAR_POLICY_CONFIG_H_
+#endif  // ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_POLICY_CONFIG_H_

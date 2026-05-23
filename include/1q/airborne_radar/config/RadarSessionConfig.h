@@ -3,8 +3,8 @@
  * @brief 定义 RadarSession 的四域初始化配置聚合结构。
  */
 
-#ifndef AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_H_
-#define AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_H_
+#ifndef ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_H_
+#define ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_H_
 
 #include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
@@ -31,4 +31,4 @@ struct ONEQ_API RadarSessionConfig {
 }  // namespace config
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_H_
+#endif  // ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_H_

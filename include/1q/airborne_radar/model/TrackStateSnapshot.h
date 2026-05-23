@@ -3,8 +3,8 @@
  * @brief 定义供决策层消费的稳定轨迹快照。
  */
 
-#ifndef AIRBORNE_RADAR_MODEL_TRACK_STATE_SNAPSHOT_H_
-#define AIRBORNE_RADAR_MODEL_TRACK_STATE_SNAPSHOT_H_
+#ifndef ONEQ_AIRBORNE_RADAR_MODEL_TRACK_STATE_SNAPSHOT_H_
+#define ONEQ_AIRBORNE_RADAR_MODEL_TRACK_STATE_SNAPSHOT_H_
 
 #include <cstdint>
 #include <string>
@@ -66,4 +66,4 @@ using TrackStateSnapshotList = std::vector<TrackStateSnapshot>;
 }  // namespace model
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_MODEL_TRACK_STATE_SNAPSHOT_H_
+#endif  // ONEQ_AIRBORNE_RADAR_MODEL_TRACK_STATE_SNAPSHOT_H_

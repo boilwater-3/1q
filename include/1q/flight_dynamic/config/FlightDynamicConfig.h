@@ -3,8 +3,8 @@
  * @brief 定义 FlightDynamicSession 会话级配置。
  */
 
-#ifndef FLIGHT_DYNAMIC_CONFIG_FLIGHT_DYNAMIC_CONFIG_H_
-#define FLIGHT_DYNAMIC_CONFIG_FLIGHT_DYNAMIC_CONFIG_H_
+#ifndef ONEQ_FLIGHT_DYNAMIC_CONFIG_FLIGHT_DYNAMIC_CONFIG_H_
+#define ONEQ_FLIGHT_DYNAMIC_CONFIG_FLIGHT_DYNAMIC_CONFIG_H_
 
 #include "1q/coordinate/types.h"
 #include "1q/flight_dynamic/config/AircraftDefinition.h"
@@ -62,4 +62,4 @@ struct ONEQ_API FlightDynamicConfig {
 }  // namespace config
 }  // namespace flight_dynamic
 
-#endif  // FLIGHT_DYNAMIC_CONFIG_FLIGHT_DYNAMIC_CONFIG_H_
+#endif  // ONEQ_FLIGHT_DYNAMIC_CONFIG_FLIGHT_DYNAMIC_CONFIG_H_

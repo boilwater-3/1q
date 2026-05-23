@@ -3,8 +3,8 @@
  * @brief 定义信号处理层的流水线抽象接口。
  */
 
-#ifndef AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
-#define AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
+#ifndef ONEQ_AIRBORNE_RADAR_EXTENSION_I_SIGNAL_PIPELINE_H_
+#define ONEQ_AIRBORNE_RADAR_EXTENSION_I_SIGNAL_PIPELINE_H_
 
 #include <cstdint>
 #include <memory>
@@ -114,4 +114,4 @@ class ONEQ_API ISignalPipeline {
 }  // namespace extension
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
+#endif  // ONEQ_AIRBORNE_RADAR_EXTENSION_I_SIGNAL_PIPELINE_H_

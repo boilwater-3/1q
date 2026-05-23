@@ -3,8 +3,8 @@
  * @brief 定义 FlightDynamicSession::Step() 的输出结构体。
  */
 
-#ifndef FLIGHT_DYNAMIC_MODEL_FLIGHT_DYNAMIC_OUTPUT_H_
-#define FLIGHT_DYNAMIC_MODEL_FLIGHT_DYNAMIC_OUTPUT_H_
+#ifndef ONEQ_FLIGHT_DYNAMIC_MODEL_FLIGHT_DYNAMIC_OUTPUT_H_
+#define ONEQ_FLIGHT_DYNAMIC_MODEL_FLIGHT_DYNAMIC_OUTPUT_H_
 
 #include "1q/coordinate/types.h"
 #include "1q/flight_dynamic/model/VehicleState.h"
@@ -53,4 +53,4 @@ struct ONEQ_API FlightDynamicOutput {
 }  // namespace model
 }  // namespace flight_dynamic
 
-#endif  // FLIGHT_DYNAMIC_MODEL_FLIGHT_DYNAMIC_OUTPUT_H_
+#endif  // ONEQ_FLIGHT_DYNAMIC_MODEL_FLIGHT_DYNAMIC_OUTPUT_H_

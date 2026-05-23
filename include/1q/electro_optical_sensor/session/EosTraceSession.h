@@ -3,8 +3,8 @@
  * @brief 为光电传感器模块提供独立的中间层记录包装器。
  */
 
-#ifndef ELECTRO_OPTICAL_SENSOR_SESSION_EOS_TRACE_SESSION_H_
-#define ELECTRO_OPTICAL_SENSOR_SESSION_EOS_TRACE_SESSION_H_
+#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_TRACE_SESSION_H_
+#define ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_TRACE_SESSION_H_
 
 #include <cstdint>
 #include <memory>
@@ -84,4 +84,4 @@ class ONEQ_API EosTraceSession {
 
 }  // namespace electro_optical_sensor
 
-#endif  // ELECTRO_OPTICAL_SENSOR_SESSION_EOS_TRACE_SESSION_H_
+#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_TRACE_SESSION_H_

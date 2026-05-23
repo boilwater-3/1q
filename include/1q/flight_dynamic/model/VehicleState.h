@@ -3,8 +3,8 @@
  * @brief 定义 JSBSim 飞行动力学积分后的载具完整状态快照。
  */
 
-#ifndef FLIGHT_DYNAMIC_MODEL_VEHICLE_STATE_H_
-#define FLIGHT_DYNAMIC_MODEL_VEHICLE_STATE_H_
+#ifndef ONEQ_FLIGHT_DYNAMIC_MODEL_VEHICLE_STATE_H_
+#define ONEQ_FLIGHT_DYNAMIC_MODEL_VEHICLE_STATE_H_
 
 #include "1q/api.hpp"
 
@@ -59,4 +59,4 @@ struct ONEQ_API VehicleState {
 }  // namespace model
 }  // namespace flight_dynamic
 
-#endif  // FLIGHT_DYNAMIC_MODEL_VEHICLE_STATE_H_
+#endif  // ONEQ_FLIGHT_DYNAMIC_MODEL_VEHICLE_STATE_H_

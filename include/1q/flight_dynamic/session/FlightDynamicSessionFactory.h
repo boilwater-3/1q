@@ -3,8 +3,8 @@
  * @brief 定义 FlightDynamicSession 的公共创建入口。
  */
 
-#ifndef FLIGHT_DYNAMIC_SESSION_FLIGHT_DYNAMIC_SESSION_FACTORY_H_
-#define FLIGHT_DYNAMIC_SESSION_FLIGHT_DYNAMIC_SESSION_FACTORY_H_
+#ifndef ONEQ_FLIGHT_DYNAMIC_SESSION_FLIGHT_DYNAMIC_SESSION_FACTORY_H_
+#define ONEQ_FLIGHT_DYNAMIC_SESSION_FLIGHT_DYNAMIC_SESSION_FACTORY_H_
 
 #include "1q/flight_dynamic/config/FlightDynamicConfig.h"
 #include "1q/flight_dynamic/session/FlightDynamicSession.h"
@@ -45,4 +45,4 @@ class ONEQ_API FlightDynamicSessionFactory {
 }  // namespace session
 }  // namespace flight_dynamic
 
-#endif  // FLIGHT_DYNAMIC_SESSION_FLIGHT_DYNAMIC_SESSION_FACTORY_H_
+#endif  // ONEQ_FLIGHT_DYNAMIC_SESSION_FLIGHT_DYNAMIC_SESSION_FACTORY_H_

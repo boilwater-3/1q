@@ -3,8 +3,8 @@
  * @brief 定义 AR 调用方侧环境输入状态维护对象。
  */
 
-#ifndef AIRBORNE_RADAR_SESSION_RADAR_ENVIRONMENT_INPUT_STATE_H_
-#define AIRBORNE_RADAR_SESSION_RADAR_ENVIRONMENT_INPUT_STATE_H_
+#ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_ENVIRONMENT_INPUT_STATE_H_
+#define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_ENVIRONMENT_INPUT_STATE_H_
 
 #include "1q/airborne_radar/session/RadarEnvironmentInputPatch.h"
 #include "1q/api.hpp"
@@ -51,4 +51,4 @@ class ONEQ_API RadarEnvironmentInputState {
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_SESSION_RADAR_ENVIRONMENT_INPUT_STATE_H_
+#endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_ENVIRONMENT_INPUT_STATE_H_

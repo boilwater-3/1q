@@ -3,8 +3,8 @@
  * @brief 定义光学传感器会话单周期聚合结果类型。
  */
 
-#ifndef ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_CYCLE_RESULT_H_
-#define ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_CYCLE_RESULT_H_
+#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_RESULT_H_
+#define ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_RESULT_H_
 
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
@@ -39,4 +39,4 @@ struct ONEQ_API EosCycleResult {
 
 }  // namespace electro_optical_sensor
 
-#endif  // ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_CYCLE_RESULT_H_
+#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_RESULT_H_

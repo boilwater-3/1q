@@ -3,8 +3,8 @@
  * @brief 定义机动控制公共类型：机动模式、参数结构体、请求/状态/结果。
  */
 
-#ifndef FLIGHT_DYNAMIC_MANEUVER_MANEUVER_TYPES_H_
-#define FLIGHT_DYNAMIC_MANEUVER_MANEUVER_TYPES_H_
+#ifndef ONEQ_FLIGHT_DYNAMIC_MANEUVER_MANEUVER_TYPES_H_
+#define ONEQ_FLIGHT_DYNAMIC_MANEUVER_MANEUVER_TYPES_H_
 
 #include <cstdint>
 #include <vector>
@@ -170,4 +170,4 @@ struct ONEQ_API ManeuverStepResult {
 }  // namespace maneuver
 }  // namespace flight_dynamic
 
-#endif  // FLIGHT_DYNAMIC_MANEUVER_MANEUVER_TYPES_H_
+#endif  // ONEQ_FLIGHT_DYNAMIC_MANEUVER_MANEUVER_TYPES_H_

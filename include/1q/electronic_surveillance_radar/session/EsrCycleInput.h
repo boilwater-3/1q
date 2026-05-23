@@ -3,8 +3,8 @@
  * @brief 定义电子侦察模块单周期输入载荷。
  */
 
-#ifndef ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_CYCLE_INPUT_H_
-#define ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_CYCLE_INPUT_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_CYCLE_INPUT_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_CYCLE_INPUT_H_
 
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
@@ -29,4 +29,4 @@ struct ONEQ_API EsrCycleInput {
 
 }  // namespace electronic_surveillance_radar
 
-#endif  // ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_CYCLE_INPUT_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_CYCLE_INPUT_H_

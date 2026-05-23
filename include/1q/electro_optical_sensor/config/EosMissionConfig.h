@@ -3,8 +3,8 @@
  * @brief 定义 EOS 任务域配置及工作模式枚举。
  */
 
-#ifndef ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_MISSION_CONFIG_H_
-#define ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_MISSION_CONFIG_H_
+#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_MISSION_CONFIG_H_
+#define ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_MISSION_CONFIG_H_
 
 #include "1q/api.hpp"
 
@@ -38,4 +38,4 @@ struct ONEQ_API EosMissionConfig {
 }  // namespace config
 }  // namespace electro_optical_sensor
 
-#endif  // ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_MISSION_CONFIG_H_
+#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_MISSION_CONFIG_H_

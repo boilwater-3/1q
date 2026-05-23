@@ -3,8 +3,8 @@
  * @brief 定义按处理周期向雷达链路注入的标准输入载荷。
  */
 
-#ifndef AIRBORNE_RADAR_CORE_CONTEXT_RADAR_CYCLE_INPUT_H_
-#define AIRBORNE_RADAR_CORE_CONTEXT_RADAR_CYCLE_INPUT_H_
+#ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_INPUT_H_
+#define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_INPUT_H_
 
 #include <cstdint>
 
@@ -31,4 +31,4 @@ struct ONEQ_API RadarCycleInput {
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CORE_CONTEXT_RADAR_CYCLE_INPUT_H_
+#endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_INPUT_H_

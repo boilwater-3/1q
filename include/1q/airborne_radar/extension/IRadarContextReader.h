@@ -3,8 +3,8 @@
  * @brief 定义仅读取雷达上下文状态的只读接口。
  */
 
-#ifndef AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_READER_H_
-#define AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_READER_H_
+#ifndef ONEQ_AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_READER_H_
+#define ONEQ_AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_READER_H_
 
 #include <cstdint>
 
@@ -44,4 +44,4 @@ class ONEQ_API IRadarContextReader {
 }  // namespace extension
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_READER_H_
+#endif  // ONEQ_AIRBORNE_RADAR_EXTENSION_I_RADAR_CONTEXT_READER_H_

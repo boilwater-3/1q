@@ -3,8 +3,8 @@
  * @brief 定义 ESR 会话运行期配置补丁结构。
  */
 
-#ifndef ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_RUNTIME_CONFIG_PATCH_H_
-#define ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_RUNTIME_CONFIG_PATCH_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_RUNTIME_CONFIG_PATCH_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_RUNTIME_CONFIG_PATCH_H_
 
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
@@ -79,4 +79,4 @@ struct ONEQ_API EsrRuntimeConfigPatch {
 }  // namespace config
 }  // namespace electronic_surveillance_radar
 
-#endif  // ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_RUNTIME_CONFIG_PATCH_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_RUNTIME_CONFIG_PATCH_H_
