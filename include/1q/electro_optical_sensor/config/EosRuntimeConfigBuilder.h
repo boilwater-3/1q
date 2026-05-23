@@ -88,29 +88,59 @@ class ONEQ_API EosRuntimeConfigBuilder {
   }
 
 
-  EosRuntimeConfigBuilder& WithDetectionDetails(float minimum_snr_db,
-                                                float detection_sensitivity_w,
-                                                float visible_reference_irradiance_w_m2) noexcept {
+  EosRuntimeConfigBuilder& WithMinimumSnrDb(float value) noexcept {
     patch_.has_policy = true;
     patch_.policy.detection.use_profile_defaults = false;
-    patch_.policy.detection.minimum_snr_db = minimum_snr_db;
-    patch_.policy.detection.detection_sensitivity_w = detection_sensitivity_w;
-    patch_.policy.detection.visible_reference_irradiance_w_m2 =
-        visible_reference_irradiance_w_m2;
+    patch_.policy.detection.minimum_snr_db = value;
     return *this;
   }
 
-  EosRuntimeConfigBuilder& WithStrayLightDetails(
-      bool enable_straylight_filter, float hood_inner_half_angle_deg,
-      float hood_outer_half_angle_deg, float hood_min_suppression_ratio,
-      float hood_max_suppression_ratio) noexcept {
+  EosRuntimeConfigBuilder& WithDetectionSensitivityW(float value) noexcept {
+    patch_.has_policy = true;
+    patch_.policy.detection.use_profile_defaults = false;
+    patch_.policy.detection.detection_sensitivity_w = value;
+    return *this;
+  }
+
+  EosRuntimeConfigBuilder& WithVisibleReferenceIrradianceWM2(float value) noexcept {
+    patch_.has_policy = true;
+    patch_.policy.detection.use_profile_defaults = false;
+    patch_.policy.detection.visible_reference_irradiance_w_m2 = value;
+    return *this;
+  }
+
+  EosRuntimeConfigBuilder& WithEnableStraylightFilter(bool value) noexcept {
     patch_.has_policy = true;
     patch_.policy.stray_light.use_profile_defaults = false;
-    patch_.policy.stray_light.enable_straylight_filter = enable_straylight_filter;
-    patch_.policy.stray_light.hood_inner_half_angle_deg = hood_inner_half_angle_deg;
-    patch_.policy.stray_light.hood_outer_half_angle_deg = hood_outer_half_angle_deg;
-    patch_.policy.stray_light.hood_min_suppression_ratio = hood_min_suppression_ratio;
-    patch_.policy.stray_light.hood_max_suppression_ratio = hood_max_suppression_ratio;
+    patch_.policy.stray_light.enable_straylight_filter = value;
+    return *this;
+  }
+
+  EosRuntimeConfigBuilder& WithHoodInnerHalfAngleDeg(float value) noexcept {
+    patch_.has_policy = true;
+    patch_.policy.stray_light.use_profile_defaults = false;
+    patch_.policy.stray_light.hood_inner_half_angle_deg = value;
+    return *this;
+  }
+
+  EosRuntimeConfigBuilder& WithHoodOuterHalfAngleDeg(float value) noexcept {
+    patch_.has_policy = true;
+    patch_.policy.stray_light.use_profile_defaults = false;
+    patch_.policy.stray_light.hood_outer_half_angle_deg = value;
+    return *this;
+  }
+
+  EosRuntimeConfigBuilder& WithHoodMinSuppressionRatio(float value) noexcept {
+    patch_.has_policy = true;
+    patch_.policy.stray_light.use_profile_defaults = false;
+    patch_.policy.stray_light.hood_min_suppression_ratio = value;
+    return *this;
+  }
+
+  EosRuntimeConfigBuilder& WithHoodMaxSuppressionRatio(float value) noexcept {
+    patch_.has_policy = true;
+    patch_.policy.stray_light.use_profile_defaults = false;
+    patch_.policy.stray_light.hood_max_suppression_ratio = value;
     return *this;
   }
 
