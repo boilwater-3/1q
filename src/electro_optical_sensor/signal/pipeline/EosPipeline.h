@@ -57,7 +57,7 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
     * @return 探测执行结果。
    * @note 非线程安全：会推进内部扫描相位（`current_scan_azimuth_deg_`）。
    */
-    extension::EosPipelineExecuteResult Execute(
+    extension::EosPipelineExecuteResult RunCycle(
 	  const ::electro_optical_sensor::session::EosCycleInput& input) override;
 
  private:

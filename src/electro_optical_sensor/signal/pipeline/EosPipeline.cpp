@@ -423,7 +423,7 @@ bool EosPipeline::RestoreRuntimeState(const extension::EosPipelineRuntimeState& 
   return true;
 }
 
-extension::EosPipelineExecuteResult EosPipeline::Execute(
+extension::EosPipelineExecuteResult EosPipeline::RunCycle(
     const ::electro_optical_sensor::session::EosCycleInput& input) {
   extension::EosPipelineExecuteResult result;
   AdvanceScan(input.dt_sec);

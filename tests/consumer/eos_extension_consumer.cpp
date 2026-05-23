@@ -5,7 +5,7 @@
  * 覆盖要点：
  *   - IEosPipeline 自定义实现并注入 EosController
  *   - IEosEnvironmentService 自定义实现，并通过 EosSessionFactory 注入默认管线
- *   - EosController 构造、RunOnce、HasLatestOutputFrame、GetLatestOutputFrame
+ *   - EosController 构造、RunOnce、HasLatestDetectionOutputFrame、GetLatestDetectionOutputFrame
  *   - HasValidationError、GetLastValidationIssues 字段可访问
  */
 
@@ -96,11 +96,11 @@ int main() {
 
   controller.RunOnce(input);
 
-  if (!controller.HasLatestOutputFrame()) {
+  if (!controller.HasLatestDetectionOutputFrame()) {
     return 1;
   }
 
-  const electro_optical_sensor::session::EosOutputFrame& frame = controller.GetLatestOutputFrame();
+  const electro_optical_sensor::session::EosOutputFrame& frame = controller.GetLatestDetectionOutputFrame();
   (void)frame.cycle_index;
   (void)frame.detections.size();
 

@@ -27,7 +27,7 @@ class ONEQ_API IInterceptPipeline {
    * @param[in] environment 环境服务只读接口。
    * @return 当前周期流水线输出。
    */
-  virtual InterceptPipelineResult Execute(const session::EsrCycleInput& input_state,
+  virtual InterceptPipelineResult RunCycle(const session::EsrCycleInput& input_state,
                                          const environment::IEsrEnvironmentService& environment) = 0;
 
   /**

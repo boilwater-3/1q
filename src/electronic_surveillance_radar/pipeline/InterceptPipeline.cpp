@@ -36,7 +36,7 @@ void InterceptPipeline::UpdateRuntimeConfig(extension::InterceptRuntimeConfig ru
   runtime_config_ = std::move(runtime_config);
 }
 
-extension::InterceptPipelineResult InterceptPipeline::Execute(
+extension::InterceptPipelineResult InterceptPipeline::RunCycle(
     const session::EsrCycleInput& input_state,
     const environment::IEsrEnvironmentService& environment_service) {
   extension::InterceptPipelineResult result;

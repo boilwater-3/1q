@@ -27,7 +27,7 @@ class CountingPipeline final : public extension::IEosPipeline {
     last_reset_scan_phase = reset_scan_phase;
   }
 
-  extension::EosPipelineExecuteResult Execute(const EosCycleInput& input) override {
+  extension::EosPipelineExecuteResult RunCycle(const EosCycleInput& input) override {
     extension::EosPipelineExecuteResult result;
     result.executed_this_cycle = true;
     result.abort_reason = extension::EosPipelineAbortReason::kNone;

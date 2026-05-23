@@ -5,7 +5,7 @@
  * 覆盖要点：
  *   - extension::IInterceptPipeline 自定义实现并注入 EsrController
  *   - IEsrEnvironmentService 自定义实现并注入 EsrController
- *   - EsrController 构造、RunOnce、HasLatestOutputFrame、GetLatestOutputFrame
+ *   - EsrController 构造、RunOnce、HasLatestInterceptOutputFrame、GetLatestInterceptOutputFrame
  *   - GetLastValidationIssues 字段可访问
  */
 
@@ -78,12 +78,12 @@ int main() {
 
   controller.RunOnce(input);
 
-  if (!controller.HasLatestOutputFrame()) {
+  if (!controller.HasLatestInterceptOutputFrame()) {
     return 1;
   }
 
   const electronic_surveillance_radar::session::EsrOutputFrame& frame =
-      controller.GetLatestOutputFrame();
+      controller.GetLatestInterceptOutputFrame();
   (void)frame.observation_output.observations.size();
   (void)frame.emitter_output.hypotheses.size();
   (void)frame.truth_evaluation_output.associations.size();

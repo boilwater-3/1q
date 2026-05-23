@@ -54,7 +54,7 @@ class MockInterceptPipeline final : public IInterceptPipeline {
     return true;
   }
 
-  InterceptPipelineResult Execute(
+  InterceptPipelineResult RunCycle(
       const session::EsrCycleInput& input,
       const environment::IEsrEnvironmentService& environment) override {
     (void)input;
@@ -92,13 +92,13 @@ TEST(EsrControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
   const EsrControllerRuntimeState snapshot = controller.CaptureRuntimeState();
 
   controller.RunOnce(MakeValidInput(2U));
-  ASSERT_EQ(controller.GetLatestOutputFrame().cycle_index, 2U);
+  ASSERT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 2U);
 
   controller.RestoreRuntimeState(snapshot);
-  EXPECT_TRUE(controller.HasLatestOutputFrame());
-  EXPECT_EQ(controller.GetLatestOutputFrame().cycle_index, 1U);
+  EXPECT_TRUE(controller.HasLatestInterceptOutputFrame());
+  EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 1U);
   EXPECT_TRUE(controller.ExecutedLatestCycle());
-  EXPECT_FALSE(controller.ReusedPreviousOutputLatestCycle());
+  EXPECT_FALSE(controller.ReusedPreviousInterceptOutputLatestCycle());
 }
 
 TEST(EsrControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) {
@@ -114,7 +114,7 @@ TEST(EsrControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) 
   EsrControllerRuntimeState foreign_state = controller_b.CaptureRuntimeState();
   controller_a.RestoreRuntimeState(foreign_state);
 
-  EXPECT_EQ(controller_a.GetLatestOutputFrame().cycle_index, 20U);
+  EXPECT_EQ(controller_a.GetLatestInterceptOutputFrame().cycle_index, 20U);
 }
 
 TEST(EsrControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerInstance) {
@@ -129,7 +129,7 @@ TEST(EsrControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerIns
   const EsrControllerRuntimeState foreign_state = controller_b.CaptureRuntimeState();
   controller_a.RestoreRuntimeState(foreign_state);
 
-  EXPECT_EQ(controller_a.GetLatestOutputFrame().cycle_index, 21U);
+  EXPECT_EQ(controller_a.GetLatestInterceptOutputFrame().cycle_index, 21U);
 }
 
 TEST(EsrControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPreviousOutput) {
@@ -145,9 +145,9 @@ TEST(EsrControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPrev
   controller.RunOnce(invalid_input);
 
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_TRUE(controller.ReusedPreviousOutputLatestCycle());
-  EXPECT_EQ(controller.GetLastAbortReason(), EsrPipelineAbortReason::kValidationRejected);
-  EXPECT_EQ(controller.GetLatestOutputFrame().cycle_index, 40U);
+  EXPECT_TRUE(controller.ReusedPreviousInterceptOutputLatestCycle());
+  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), EsrPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 40U);
 }
 
 TEST(EsrControllerRuntimeStateTest, FirstValidationRejectBuildsEmptyOutputFrame) {
@@ -159,9 +159,9 @@ TEST(EsrControllerRuntimeStateTest, FirstValidationRejectBuildsEmptyOutputFrame)
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
 
-  EXPECT_TRUE(controller.HasLatestOutputFrame());
+  EXPECT_TRUE(controller.HasLatestInterceptOutputFrame());
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_EQ(controller.GetLastAbortReason(), EsrPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), EsrPipelineAbortReason::kValidationRejected);
 }
 
 TEST(EsrControllerRuntimeStateTest,
@@ -181,9 +181,9 @@ TEST(EsrControllerRuntimeStateTest,
   controller.RunOnce(invalid_input);
 
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_EQ(controller.GetLastAbortReason(), EsrPipelineAbortReason::kValidationRejected);
-  EXPECT_EQ(controller.GetLatestOutputFrame().cycle_index, 100U);
-  EXPECT_TRUE(controller.ReusedPreviousOutputLatestCycle());
+  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), EsrPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 100U);
+  EXPECT_TRUE(controller.ReusedPreviousInterceptOutputLatestCycle());
 }
 
 }  // namespace extension

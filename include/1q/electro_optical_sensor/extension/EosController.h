@@ -62,13 +62,13 @@ class ONEQ_API EosController {
    * @brief 判断当前是否有可读取的最新输出帧。
    * @return 若已有输出帧则返回 true。
    */
-  bool HasLatestOutputFrame() const;
+  bool HasLatestDetectionOutputFrame() const;
 
   /**
    * @brief 获取最新输出帧。
    * @return 最新输出帧。
    */
-  const session::EosOutputFrame& GetLatestOutputFrame() const;
+  const session::EosOutputFrame& GetLatestDetectionOutputFrame() const;
 
   /**
    * @brief 获取最近一次输入校验结果。
@@ -92,13 +92,13 @@ class ONEQ_API EosController {
    * @brief 最近一次 RunOnce 是否复用了上一有效输出。
    * @return 若复用了上一有效输出则返回 true。
    */
-  bool ReusedPreviousOutputLatestCycle() const;
+  bool ReusedPreviousDetectionOutputLatestCycle() const;
 
   /**
    * @brief 最近一次 RunOnce 的周期终止原因。
    * @return 周期终止原因。
    */
-  EosPipelineAbortReason GetLastAbortReason() const;
+  EosPipelineAbortReason GetLastDetectionCycleAbortReason() const;
 
   /**
    * @brief 基于最近一次 RunOnce 状态构建单周期聚合结果。

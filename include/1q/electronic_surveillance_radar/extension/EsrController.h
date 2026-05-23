@@ -67,13 +67,13 @@ class ONEQ_API EsrController {
    * @brief 判断当前是否有可读取的最新输出帧。
    * @return 若已有输出帧则返回 `true`。
    */
-  bool HasLatestOutputFrame() const;
+  bool HasLatestInterceptOutputFrame() const;
 
   /**
    * @brief 获取最新输出帧。
    * @return 最新电子侦察输出帧。
    */
-  const session::EsrOutputFrame& GetLatestOutputFrame() const;
+  const session::EsrOutputFrame& GetLatestInterceptOutputFrame() const;
 
   /**
    * @brief 获取最近一次输入校验结果。
@@ -96,13 +96,13 @@ class ONEQ_API EsrController {
    * @brief 最近一次 RunOnce 是否复用了上一有效输出。
    * @return 若复用了上一有效输出则返回 true。
    */
-  bool ReusedPreviousOutputLatestCycle() const;
+  bool ReusedPreviousInterceptOutputLatestCycle() const;
 
   /**
    * @brief 最近一次 RunOnce 的周期终止原因。
    * @return 周期终止原因。
    */
-  extension::EsrPipelineAbortReason GetLastAbortReason() const;
+  extension::EsrPipelineAbortReason GetLastInterceptCycleAbortReason() const;
 
   /**
    * @brief 捕获当前控制器运行态快照（含流水线快照）。

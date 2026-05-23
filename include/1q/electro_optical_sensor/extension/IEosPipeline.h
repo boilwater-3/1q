@@ -47,7 +47,7 @@ class ONEQ_API IEosPipeline {
    * @param[in] input 当前周期输入。
    * @return 单周期执行结果。
    */
-  virtual EosPipelineExecuteResult Execute(const ::electro_optical_sensor::session::EosCycleInput& input) = 0;
+  virtual EosPipelineExecuteResult RunCycle(const ::electro_optical_sensor::session::EosCycleInput& input) = 0;
 };
 
 }  // namespace extension

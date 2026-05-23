@@ -46,7 +46,7 @@ class TrackingPipeline final : public IEosPipeline {
     return true;
   }
 
-  EosPipelineExecuteResult Execute(
+  EosPipelineExecuteResult RunCycle(
       const ::electro_optical_sensor::session::EosCycleInput& input) override {
     ++execute_count;
     scan_azimuth_deg += 2.0f;
@@ -90,13 +90,13 @@ TEST(EosControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
   const EosControllerRuntimeState snapshot = controller.CaptureRuntimeState();
 
   controller.RunOnce(MakeValidInput(2U));
-  ASSERT_EQ(controller.GetLatestOutputFrame().cycle_index, 2U);
+  ASSERT_EQ(controller.GetLatestDetectionOutputFrame().cycle_index, 2U);
 
   controller.RestoreRuntimeState(snapshot);
-  EXPECT_TRUE(controller.HasLatestOutputFrame());
-  EXPECT_EQ(controller.GetLatestOutputFrame().cycle_index, 1U);
+  EXPECT_TRUE(controller.HasLatestDetectionOutputFrame());
+  EXPECT_EQ(controller.GetLatestDetectionOutputFrame().cycle_index, 1U);
   EXPECT_TRUE(controller.ExecutedLatestCycle());
-  EXPECT_FALSE(controller.ReusedPreviousOutputLatestCycle());
+  EXPECT_FALSE(controller.ReusedPreviousDetectionOutputLatestCycle());
 }
 
 TEST(EosControllerRuntimeStateTest, ExecuteAbortRestoresPipelineStateAndReusesPreviousOutput) {
@@ -106,15 +106,15 @@ TEST(EosControllerRuntimeStateTest, ExecuteAbortRestoresPipelineStateAndReusesPr
   controller.RunOnce(MakeValidInput(10U));
   ASSERT_TRUE(controller.ExecutedLatestCycle());
   const float baseline_scan_azimuth = pipeline.scan_azimuth_deg;
-  const session::EosOutputFrame baseline_output = controller.GetLatestOutputFrame();
+  const session::EosOutputFrame baseline_output = controller.GetLatestDetectionOutputFrame();
 
   pipeline.force_abort = true;
   controller.RunOnce(MakeValidInput(11U));
 
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_TRUE(controller.ReusedPreviousOutputLatestCycle());
-  EXPECT_EQ(controller.GetLastAbortReason(), EosPipelineAbortReason::kOutputContractViolation);
-  EXPECT_EQ(controller.GetLatestOutputFrame().cycle_index, baseline_output.cycle_index);
+  EXPECT_TRUE(controller.ReusedPreviousDetectionOutputLatestCycle());
+  EXPECT_EQ(controller.GetLastDetectionCycleAbortReason(), EosPipelineAbortReason::kOutputContractViolation);
+  EXPECT_EQ(controller.GetLatestDetectionOutputFrame().cycle_index, baseline_output.cycle_index);
   EXPECT_FLOAT_EQ(pipeline.scan_azimuth_deg, baseline_scan_azimuth);
 }
 
@@ -130,7 +130,7 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) 
   EosControllerRuntimeState foreign_state = controller_b.CaptureRuntimeState();
   controller_a.RestoreRuntimeState(foreign_state);
 
-  EXPECT_EQ(controller_a.GetLatestOutputFrame().cycle_index, 20U);
+  EXPECT_EQ(controller_a.GetLatestDetectionOutputFrame().cycle_index, 20U);
 }
 
 TEST(EosControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerInstance) {
@@ -144,7 +144,7 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerIns
   const EosControllerRuntimeState foreign_state = controller_b.CaptureRuntimeState();
   controller_a.RestoreRuntimeState(foreign_state);
 
-  EXPECT_EQ(controller_a.GetLatestOutputFrame().cycle_index, 21U);
+  EXPECT_EQ(controller_a.GetLatestDetectionOutputFrame().cycle_index, 21U);
 }
 
 TEST(EosControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPreviousOutput) {
@@ -160,9 +160,9 @@ TEST(EosControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPrev
 
   EXPECT_TRUE(controller.HasValidationError());
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_TRUE(controller.ReusedPreviousOutputLatestCycle());
-  EXPECT_EQ(controller.GetLastAbortReason(), EosPipelineAbortReason::kValidationRejected);
-  EXPECT_EQ(controller.GetLatestOutputFrame().cycle_index, 40U);
+  EXPECT_TRUE(controller.ReusedPreviousDetectionOutputLatestCycle());
+  EXPECT_EQ(controller.GetLastDetectionCycleAbortReason(), EosPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(controller.GetLatestDetectionOutputFrame().cycle_index, 40U);
 }
 
 TEST(EosControllerRuntimeStateTest, FirstValidationRejectDoesNotSynthesizeLatestOutput) {
@@ -175,7 +175,7 @@ TEST(EosControllerRuntimeStateTest, FirstValidationRejectDoesNotSynthesizeLatest
   const ::electro_optical_sensor::session::EosCycleResult result =
       controller.BuildCycleResult(invalid_input);
 
-  EXPECT_FALSE(controller.HasLatestOutputFrame());
+  EXPECT_FALSE(controller.HasLatestDetectionOutputFrame());
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kValidationRejected);
@@ -210,9 +210,9 @@ TEST(EosControllerRuntimeStateTest, PipelineAbortOnExecutedCycleFallsBackToPrevi
   controller.RunOnce(MakeValidInput(61U));
 
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_TRUE(controller.ReusedPreviousOutputLatestCycle());
-  EXPECT_EQ(controller.GetLastAbortReason(), EosPipelineAbortReason::kOutputContractViolation);
-  EXPECT_EQ(controller.GetLatestOutputFrame().cycle_index, 60U);
+  EXPECT_TRUE(controller.ReusedPreviousDetectionOutputLatestCycle());
+  EXPECT_EQ(controller.GetLastDetectionCycleAbortReason(), EosPipelineAbortReason::kOutputContractViolation);
+  EXPECT_EQ(controller.GetLatestDetectionOutputFrame().cycle_index, 60U);
 }
 
 TEST(EosControllerRuntimeStateTest, RestoreRejectDuringRollbackReturnsHardFailure) {
@@ -228,7 +228,7 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectDuringRollbackReturnsHardFailur
   const ::electro_optical_sensor::session::EosCycleResult result =
       controller.BuildCycleResult(MakeValidInput(71U));
 
-  EXPECT_FALSE(controller.HasLatestOutputFrame());
+  EXPECT_FALSE(controller.HasLatestDetectionOutputFrame());
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kRuntimeStateRestoreRejected);

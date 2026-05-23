@@ -30,7 +30,7 @@ class CountingPipeline final : public extension::IEosPipeline {
     last_reset_scan_phase = reset_scan_phase;
   }
 
-  extension::EosPipelineExecuteResult Execute(const EosCycleInput& input) override {
+  extension::EosPipelineExecuteResult RunCycle(const EosCycleInput& input) override {
     ++execute_count;
     extension::EosPipelineExecuteResult result;
     result.scan_azimuth_deg = 42.0f;

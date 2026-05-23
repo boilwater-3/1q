@@ -5,6 +5,7 @@
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
+#include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
 #include "electronic_surveillance_radar/output/EsrOutputManager.h"
 
@@ -52,6 +53,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
     }
     impl_->runtime_state.has_latest_output = true;
     ++impl_->runtime_state.next_batch_id;
+    PROJECT_LOG_ERROR("ESR validation rejected for cycle_index={}", stamp.cycle_index);
     return;
   }
 
@@ -66,7 +68,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
 
   // 执行
   extension::InterceptPipelineResult pipeline_result =
-      impl_->pipeline.Execute(input, impl_->environment_service);
+      impl_->pipeline.RunCycle(input, impl_->environment_service);
   session::EsrOutputFrame output_frame;
   output_frame.cycle_index = stamp.cycle_index;
   output_frame.batch_id = stamp.batch_id;
@@ -82,9 +84,9 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   ++impl_->runtime_state.next_batch_id;
 }
 
-bool EsrController::HasLatestOutputFrame() const { return impl_->runtime_state.has_latest_output; }
+bool EsrController::HasLatestInterceptOutputFrame() const { return impl_->runtime_state.has_latest_output; }
 
-const session::EsrOutputFrame& EsrController::GetLatestOutputFrame() const {
+const session::EsrOutputFrame& EsrController::GetLatestInterceptOutputFrame() const {
   return impl_->runtime_state.latest_output;
 }
 
@@ -94,11 +96,11 @@ const session::ValidationIssueList& EsrController::GetLastValidationIssues() con
 
 bool EsrController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
 
-bool EsrController::ReusedPreviousOutputLatestCycle() const {
+bool EsrController::ReusedPreviousInterceptOutputLatestCycle() const {
   return impl_->last_cycle_reused_previous_output;
 }
 
-extension::EsrPipelineAbortReason EsrController::GetLastAbortReason() const {
+extension::EsrPipelineAbortReason EsrController::GetLastInterceptCycleAbortReason() const {
   return impl_->last_abort_reason;
 }
 
@@ -128,6 +130,7 @@ bool EsrController::RestoreRuntimeState(const EsrControllerRuntimeState& state) 
   }
   if (!impl_->pipeline.RestoreRuntimeState(state.pipeline_state)) {
     impl_->last_abort_reason = EsrPipelineAbortReason::kRuntimeStateRestoreRejected;
+    PROJECT_LOG_ERROR("ESR pipeline runtime state restore rejected");
     return false;
   }
   impl_->runtime_state.has_latest_output = state.has_latest_output;

@@ -5,8 +5,8 @@
 
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
-#include "electro_optical_sensor/runtime/components/EosCycleOutcomeRecorder.h"
 
 namespace electro_optical_sensor {
 namespace extension {
@@ -26,6 +26,12 @@ bool IsCompatibleControllerRuntimeState(const extension::EosControllerRuntimeSta
 struct EosController::Impl {
   explicit Impl(extension::IEosPipeline& pipeline_ref) : pipeline(pipeline_ref) {}
 
+  void ResetPerCycleFlags() {
+    last_cycle_executed = false;
+    last_cycle_reused_previous_output = false;
+    last_abort_reason = extension::EosPipelineAbortReason::kNone;
+  }
+
   extension::IEosPipeline& pipeline;
   session::EosOutputFrame latest_output{};
   session::ValidationIssueList last_validation_issues{};
@@ -42,7 +48,6 @@ EosController::~EosController() = default;
 
 namespace {
 
-/** @brief 校验 EOS 执行结果是否符合契约。 */
 bool IsEosExecuteResultContractValid(
     const extension::EosPipelineExecuteResult& execute_result,
     const ::electro_optical_sensor::session::EosCycleInput& input) {
@@ -55,45 +60,46 @@ bool IsEosExecuteResultContractValid(
 }  // namespace
 
 void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInput& input) {
-  runtime::components::EosCycleOutcomeRecorder outcome_recorder(
-      impl_->latest_output, impl_->has_latest_output, impl_->last_cycle_executed,
-      impl_->last_cycle_reused_previous_output, impl_->last_abort_reason);
-
   const session::EosOutputFrame previous_output = impl_->latest_output;
   const bool had_previous_output = impl_->has_latest_output;
   const extension::EosPipelineRuntimeState previous_pipeline_state =
       impl_->pipeline.CaptureRuntimeState();
-  outcome_recorder.ResetPerCycleFlags();
+  impl_->ResetPerCycleFlags();
 
-  // 校验
   const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
   impl_->last_validation_issues = issues;
   impl_->has_validation_error = session::HasValidationError(issues);
 
   if (impl_->has_validation_error) {
-    outcome_recorder.RecordValidationRejected(previous_output, had_previous_output);
-    if (had_previous_output) {
-      impl_->latest_output = previous_output;
-    } else {
-      impl_->latest_output = session::EosOutputFrame{};
-    }
+    impl_->last_abort_reason = extension::EosPipelineAbortReason::kValidationRejected;
+    impl_->last_cycle_reused_previous_output = had_previous_output;
+    impl_->latest_output = previous_output;
+    impl_->has_latest_output = had_previous_output;
+    PROJECT_LOG_ERROR("EOS validation rejected for cycle_index={}", input.cycle_index);
     return;
   }
 
-  // 执行信号流水线
-  const extension::EosPipelineExecuteResult execute_result = impl_->pipeline.Execute(input);
+  const extension::EosPipelineExecuteResult execute_result = impl_->pipeline.RunCycle(input);
 
   if (!IsEosExecuteResultContractValid(execute_result, input)) {
     const bool restore_ok = impl_->pipeline.RestoreRuntimeState(previous_pipeline_state);
     if (!restore_ok) {
-      outcome_recorder.RecordExecuteContractViolationRollbackFailed();
       impl_->latest_output = session::EosOutputFrame{};
+      impl_->has_latest_output = false;
+      impl_->last_cycle_executed = false;
+      impl_->last_cycle_reused_previous_output = false;
+      impl_->last_abort_reason = extension::EosPipelineAbortReason::kRuntimeStateRestoreRejected;
+      PROJECT_LOG_ERROR("EOS pipeline rollback failed for cycle_index={}", input.cycle_index);
       return;
     }
-    outcome_recorder.RecordExecuteContractViolationRollbackSucceeded(
-        previous_output, had_previous_output, execute_result.abort_reason);
     impl_->latest_output = previous_output;
     impl_->has_latest_output = had_previous_output;
+    impl_->last_cycle_executed = false;
+    impl_->last_cycle_reused_previous_output = had_previous_output;
+    impl_->last_abort_reason =
+        execute_result.abort_reason == extension::EosPipelineAbortReason::kNone
+            ? extension::EosPipelineAbortReason::kOutputContractViolation
+            : execute_result.abort_reason;
     return;
   }
 
@@ -101,15 +107,14 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
   assembled_frame.cycle_index = input.cycle_index;
   assembled_frame.scan_azimuth_deg = execute_result.scan_azimuth_deg;
   assembled_frame.detections = std::move(execute_result.detections);
-  outcome_recorder.RecordExecuteSucceeded(assembled_frame);
   impl_->latest_output = assembled_frame;
   impl_->has_latest_output = true;
-
+  impl_->last_cycle_executed = true;
 }
 
-bool EosController::HasLatestOutputFrame() const { return impl_->has_latest_output; }
+bool EosController::HasLatestDetectionOutputFrame() const { return impl_->has_latest_output; }
 
-const session::EosOutputFrame& EosController::GetLatestOutputFrame() const {
+const session::EosOutputFrame& EosController::GetLatestDetectionOutputFrame() const {
   return impl_->latest_output;
 }
 
@@ -121,11 +126,11 @@ bool EosController::HasValidationError() const { return impl_->has_validation_er
 
 bool EosController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
 
-bool EosController::ReusedPreviousOutputLatestCycle() const {
+bool EosController::ReusedPreviousDetectionOutputLatestCycle() const {
   return impl_->last_cycle_reused_previous_output;
 }
 
-extension::EosPipelineAbortReason EosController::GetLastAbortReason() const {
+extension::EosPipelineAbortReason EosController::GetLastDetectionCycleAbortReason() const {
   return impl_->last_abort_reason;
 }
 
