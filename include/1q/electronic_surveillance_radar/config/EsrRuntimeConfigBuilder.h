@@ -88,7 +88,7 @@ class ONEQ_API EsrRuntimeConfigBuilder {
   EsrRuntimeConfigBuilder& WithExplicitScanBoundsDeg(float start_az, float end_az, float start_el,
                                                      float end_el) {
     patch_.has_explicit_scan_bounds = true;
-    session::ExplicitScanBounds sb;
+    ExplicitScanBounds sb;
     sb.enabled = true;
     sb.scan_start_az_deg = start_az;
     sb.scan_end_az_deg = end_az;
