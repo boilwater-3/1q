@@ -16,7 +16,7 @@ namespace internal {
 namespace {
 
 TEST(EsrSessionConfigResolverTest, HardwareAndMissionMapToRuntimeAndScanConfig) {
-  EsrSessionConfig config;
+  config::EsrSessionConfig config;
   config.hardware.receiver_band_lower_hz = 9.0e9;
   config.hardware.receiver_band_upper_hz = 11.0e9;
   config.hardware.receiver_sensitivity_w = 2.0e-12f;
@@ -25,12 +25,12 @@ TEST(EsrSessionConfigResolverTest, HardwareAndMissionMapToRuntimeAndScanConfig) 
   config.hardware.antenna_mount_az_deg = 5.0f;
   config.hardware.antenna_mount_el_deg = 2.0f;
   config.mission.power_on = false;
-  config.mission.work_mode = EsrWorkMode::kHgesm;
+  config.mission.work_mode = config::EsrWorkMode::kHgesm;
   config.mission.scan.scan_center_az_deg = 10.0f;
   config.mission.scan.scan_center_el_deg = 4.0f;
   config.mission.scan.scan_rate_hz = 4.0f;
-  config.mission.scan.scan_start_position = EsrScanStartPosition::kRightBottom;
-  config.mission.scan.scan_sequence = EsrScanSequence::kElevationFirst;
+  config.mission.scan.scan_start_position = config::EsrScanStartPosition::kRightBottom;
+  config.mission.scan.scan_sequence = config::EsrScanSequence::kElevationFirst;
 
   const ResolvedEsrSessionConfig resolved = ResolveEsrSessionConfig(config);
 
@@ -43,13 +43,13 @@ TEST(EsrSessionConfigResolverTest, HardwareAndMissionMapToRuntimeAndScanConfig) 
   EXPECT_FLOAT_EQ(resolved.pipeline_config.scan.az_step_deg, 8.0f);
   EXPECT_FLOAT_EQ(resolved.pipeline_config.scan.el_step_deg, 6.0f);
   EXPECT_EQ(resolved.pipeline_config.scan.scan_start_pos,
-            static_cast<int>(EsrScanStartPosition::kRightBottom));
+            static_cast<int>(config::EsrScanStartPosition::kRightBottom));
   EXPECT_EQ(resolved.pipeline_config.scan.scan_sequence,
-            static_cast<int>(EsrScanSequence::kElevationFirst));
+            static_cast<int>(config::EsrScanSequence::kElevationFirst));
 }
 
 TEST(EsrSessionConfigResolverTest, DetectionAndEnvironmentPoliciesMapToInternalDefaults) {
-  EsrSessionConfig config;
+  config::EsrSessionConfig config;
   config.policy.detection.profile = config::EsrDetectionProfile::kSensitive;
   config.environment.scenario_config.preset = config::EsrEnvironmentPreset::kJammed;
 
@@ -60,7 +60,7 @@ TEST(EsrSessionConfigResolverTest, DetectionAndEnvironmentPoliciesMapToInternalD
 }
 
 TEST(EsrSessionConfigResolverTest, InvalidInputsFallBackToSafeDefaults) {
-  EsrSessionConfig config;
+  config::EsrSessionConfig config;
   config.hardware.receiver_band_lower_hz = 12.0e9;
   config.hardware.receiver_band_upper_hz = 9.0e9;
   config.hardware.receiver_sensitivity_w = -1.0f;

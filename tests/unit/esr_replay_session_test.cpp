@@ -60,7 +60,7 @@ TEST(EsrReplaySessionTest, ReplayEsrTraceRoundtrip) {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-    EsrSessionConfig config;
+    config::EsrSessionConfig config;
     config.hardware.beam_az_width_deg = 120.0f;
     config.hardware.beam_el_width_deg = 40.0f;
 
@@ -116,7 +116,7 @@ TEST(EsrReplaySessionTest, ReplayEsrTraceStopsAtFailureMarker) {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-    EsrSessionConfig config;
+    config::EsrSessionConfig config;
     config.hardware.beam_az_width_deg = 120.0f;
     config.hardware.beam_el_width_deg = 40.0f;
 
@@ -161,7 +161,7 @@ TEST(EsrReplaySessionTest, ReplayEsrTraceRejectsTrailingCycleInput) {
   config_event.event_type = "session_config";
   config_event.payload_type = "EsrSessionConfig";
   config_event.payload_encoding = "flatbuffers";
-  config_event.payload_bytes = EncodeEsrSessionConfig(EsrSessionConfig());
+  config_event.payload_bytes = EncodeEsrSessionConfig(config::EsrSessionConfig());
   writer.WriteEvent(config_event);
 
   EsrCycleInput input;

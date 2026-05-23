@@ -54,8 +54,8 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float ra
   return input;
 }
 
-EosSessionConfig MakeSessionConfig() {
-  EosSessionConfig config;
+config::EosSessionConfig MakeSessionConfig() {
+  config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kFused;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   config.mission.scan_start_az_deg = -10.0f;
@@ -118,7 +118,7 @@ TEST(EosSessionIntegrationTest, StepReturnsSameCycleIndexAsStepWithResult) {
 }
 
 TEST(EosSessionIntegrationTest, FusedModeDetectsInFovTarget) {
-  EosSessionConfig config = MakeSessionConfig();
+  config::EosSessionConfig config = MakeSessionConfig();
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   EosSession session = EosSessionFactory::Create(config);
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
@@ -134,7 +134,7 @@ TEST(EosSessionIntegrationTest, FusedModeDetectsInFovTarget) {
 }
 
 TEST(EosSessionIntegrationTest, InfraredOnlyModeProducesInfraredSnr) {
-  EosSessionConfig config = MakeSessionConfig();
+  config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   EosSession session = EosSessionFactory::Create(config);
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
@@ -148,7 +148,7 @@ TEST(EosSessionIntegrationTest, InfraredOnlyModeProducesInfraredSnr) {
 }
 
 TEST(EosSessionIntegrationTest, VisibleOnlyModeProducesVisibleSnr) {
-  EosSessionConfig config = MakeSessionConfig();
+  config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
   EosSession session = EosSessionFactory::Create(config);
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
@@ -162,14 +162,14 @@ TEST(EosSessionIntegrationTest, VisibleOnlyModeProducesVisibleSnr) {
 }
 
 TEST(EosSessionIntegrationTest, FusedSnrExceedsBothSingleChannelSnrInDay) {
-  EosSessionConfig fused_config = MakeSessionConfig();
+  config::EosSessionConfig fused_config = MakeSessionConfig();
   fused_config.mission.work_mode = config::EosWorkMode::kFused;
   fused_config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
 
-  EosSessionConfig ir_config = fused_config;
+  config::EosSessionConfig ir_config = fused_config;
   ir_config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
 
-  EosSessionConfig vis_config = fused_config;
+  config::EosSessionConfig vis_config = fused_config;
   vis_config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
 
   EosSession fused_session = EosSessionFactory::Create(fused_config);
@@ -215,7 +215,7 @@ TEST(EosSessionIntegrationTest, OutOfFovTargetIsFiltered) {
 }
 
 TEST(EosSessionIntegrationTest, HigherCloudCoverageReducesVisibleSnr) {
-  EosSessionConfig config = MakeSessionConfig();
+  config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
 
@@ -238,7 +238,7 @@ TEST(EosSessionIntegrationTest, HigherCloudCoverageReducesVisibleSnr) {
 }
 
 TEST(EosSessionIntegrationTest, WorseAtmosphereObservationReducesInfraredSnr) {
-  EosSessionConfig config = MakeSessionConfig();
+  config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
 
@@ -263,12 +263,12 @@ TEST(EosSessionIntegrationTest, WorseAtmosphereObservationReducesInfraredSnr) {
 }
 
 TEST(EosSessionIntegrationTest, NightShiftsFusedWeightTowardInfrared) {
-  EosSessionConfig fused_config = MakeSessionConfig();
+  config::EosSessionConfig fused_config = MakeSessionConfig();
   fused_config.mission.work_mode = config::EosWorkMode::kFused;
   fused_config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
-  EosSessionConfig ir_config = fused_config;
+  config::EosSessionConfig ir_config = fused_config;
   ir_config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
-  EosSessionConfig vis_config = fused_config;
+  config::EosSessionConfig vis_config = fused_config;
   vis_config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
 
   EosSession day_fused = EosSessionFactory::Create(fused_config);
@@ -332,7 +332,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigWorkModeSwitchTakesEffectImmediatel
   EXPECT_GT(fused_frame.detections.front().infrared_snr_linear, 0.0f);
   EXPECT_GT(fused_frame.detections.front().visible_snr_linear, 0.0f);
 
-  const EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
+  const config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
                                           .WithWorkMode(config::EosWorkMode::kInfraredOnly)
                                           .Build();
   session.ApplyRuntimeConfig(patch);
@@ -351,7 +351,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   const session::EosOutputFrame frame_1 = session.Step(input);
 
-  const EosRuntimeConfigPatch patch =
+  const config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithScanRateDegPerSec(97.0f).Build();
   session.ApplyRuntimeConfig(patch);
 
@@ -372,7 +372,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
 }
 
 TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
-  EosSessionConfig config = MakeSessionConfig();
+  config::EosSessionConfig config = MakeSessionConfig();
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   EosSession session = EosSessionFactory::Create(config);
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
@@ -383,7 +383,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
   const session::EosOutputFrame baseline_frame = session.Step(input);
   ASSERT_GT(CountDetectedTargets(baseline_frame), 0U);
 
-  const EosRuntimeConfigPatch patch =
+  const config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithDetectionProfile(eos_config::EosDetectionProfile::kConservative)
           .Build();
@@ -400,8 +400,8 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
 }
 
 TEST(EosSessionIntegrationTest, SessionConfigBuilderProducesSameResultAsDirectConfig) {
-  const EosSessionConfig direct_config = MakeSessionConfig();
-  const EosSessionConfig built_config =
+  const config::EosSessionConfig direct_config = MakeSessionConfig();
+  const config::EosSessionConfig built_config =
       eos_config::EosSessionConfigBuilder(MakeSessionConfig())
           .Mission()
           .WithWorkMode(config::EosWorkMode::kFused)
@@ -483,12 +483,12 @@ TEST(EosSessionIntegrationTest, StepReusesPreviousOutputWhenValidationFailsAfter
 }
 
 TEST(EosSessionIntegrationTest, StraylightFilterReducesOffAxisTargetSnr) {
-  EosSessionConfig no_filter_config = MakeSessionConfig();
+  config::EosSessionConfig no_filter_config = MakeSessionConfig();
   no_filter_config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   no_filter_config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   no_filter_config.policy.stray_light.profile = eos_config::EosStrayLightProfile::kDisabled;
 
-  EosSessionConfig filter_config = no_filter_config;
+  config::EosSessionConfig filter_config = no_filter_config;
   filter_config.policy.stray_light.profile = eos_config::EosStrayLightProfile::kEnhancedHood;
 
   EosSession no_filter_session = EosSessionFactory::Create(no_filter_config);
@@ -528,7 +528,7 @@ TEST(EosSessionIntegrationTest, MultipleTargetsInFovAllDetected) {
 }
 
 TEST(EosSessionIntegrationTest, CloserTargetHasHigherSnrAtSameTemperature) {
-  EosSessionConfig config = MakeSessionConfig();
+  config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   EosSession session = EosSessionFactory::Create(config);
@@ -552,7 +552,7 @@ TEST(EosSessionIntegrationTest, CloserTargetHasHigherSnrAtSameTemperature) {
 }
 
 TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
-  EosSessionConfig config = MakeSessionConfig();
+  config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   config.policy.stray_light.profile = eos_config::EosStrayLightProfile::kDisabled;
@@ -568,7 +568,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
 
   const session::EosOutputFrame baseline_frame = session.Step(input);
 
-  const EosRuntimeConfigPatch patch =
+  const config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithStrayLightProfile(eos_config::EosStrayLightProfile::kEnhancedHood)
           .Build();
@@ -590,7 +590,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
 }
 
 TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
-  EosSessionConfig config = MakeSessionConfig();
+  config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   EosSession session = EosSessionFactory::Create(config);
@@ -613,7 +613,7 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
   env_config.custom_overrides.aerosol_density_factor = 1.3f;
   env_config.custom_overrides.turbulence_factor = 1.8f;
 
-  const EosRuntimeConfigPatch patch =
+  const config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(env_config).Build();
   session.ApplyRuntimeConfig(patch);
 

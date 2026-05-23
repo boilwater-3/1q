@@ -86,7 +86,7 @@ class ONEQ_API ISignalPipeline {
    * @param[in] config 四域会话配置。
    * @return 配置已被接受并同步成功时返回 true；若当前实例拒绝该配置则返回 false。
    */
-  virtual bool UpdateConfig(const session::RadarSessionConfig& config) = 0;
+  virtual bool UpdateConfig(const config::RadarSessionConfig& config) = 0;
 
   /**
    * @brief 获取上一周期关联质量指标。

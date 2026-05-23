@@ -30,7 +30,7 @@ namespace {
 
 using ExecutionConfig = config::execution::InternalExecutionConfig;
 
-session::RadarSessionConfig MakeDetectionFocusedConfig() {
+config::RadarSessionConfig MakeDetectionFocusedConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
@@ -201,7 +201,7 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
 }
 
 TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesPolicyBeamControlInputs) {
-  session::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
+  config::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
   session_config.mission.orientation.work_sub_mode = model::RadarWorkSubMode::kTas;
   session_config.mission.orientation.scan_center_deg.az_deg = 3.0f;
   session_config.mission.orientation.scan_center_deg.el_deg = -1.0f;
@@ -344,7 +344,7 @@ TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
 }
 
 TEST(CycleExecutorTest, PhysicalDetectionTreatsClutterDbAsThermalRelativeNoise) {
-  const session::RadarSessionConfig session_config =
+  const config::RadarSessionConfig session_config =
       config::RadarSessionConfigBuilder()
           .Detection()
           .EnablePhysicsDetection(true)
@@ -598,7 +598,7 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
 }
 
 TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutcome) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   session_config.hardware.detection.enable_physics_detection = true;
   session_config.hardware.detection.pulse_count = 16;
   session_config.hardware.detection.detection_policy.cfar_pfa = 2.0e-6f;
@@ -701,7 +701,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
 }
 
 TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedToTws) {
-  session::RadarSessionConfig tws_session;
+  config::RadarSessionConfig tws_session;
   tws_session.hardware.detection.enable_physics_detection = true;
   tws_session.hardware.detection.pulse_count = 16;
   tws_session.hardware.detection.detection_policy.cfar_pfa = 2.0e-6f;
@@ -724,7 +724,7 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
       oneq::foundation::ScanStartPosition::kLeftTop;
   tws_session.mission.orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
-  session::RadarSessionConfig stt_session = tws_session;
+  config::RadarSessionConfig stt_session = tws_session;
   stt_session.mission.orientation.work_sub_mode = model::RadarWorkSubMode::kStt;
 
   signal::pipeline::SignalPipeline tws_pipeline(tws_session);

@@ -111,7 +111,7 @@ void ApplyEnvironmentModelConfig(
 }  // namespace
 
 ::electro_optical_sensor::extension::EosPipelineConfig BuildEosPipelineConfig(
-    const ::electro_optical_sensor::session::EosSessionConfig& config) {
+    const ::electro_optical_sensor::config::EosSessionConfig& config) {
   ::electro_optical_sensor::extension::EosPipelineConfig pipeline_config;
   const environment::EosEnvironmentModelConfig environment_model_config =
       environment::BuildModelConfigFromScenario(config.environment.scenario_config);

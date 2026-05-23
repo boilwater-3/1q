@@ -10,19 +10,19 @@
 
 namespace examples {
 
-/// Load an EosSessionConfig from a parsed JSON object.
+/// Load an config::EosSessionConfig from a parsed JSON object.
 inline void LoadEosSessionConfig(
     const oneq::JsonValue& root,
-    electro_optical_sensor::session::EosSessionConfig* config) {
+    electro_optical_sensor::config::EosSessionConfig* config) {
   LoadEosHardware(root["hardware"], &config->hardware);
   LoadEosMission(root["mission"], &config->mission);
   LoadEosPolicy(root["policy"], &config->policy);
   LoadEosEnvironment(root["environment"], &config->environment);
 }
 
-/// Load an EosSessionConfig from a JSON file.
+/// Load an config::EosSessionConfig from a JSON file.
 inline bool LoadEosSessionConfigFromFile(
-    const char* path, electro_optical_sensor::session::EosSessionConfig* config,
+    const char* path, electro_optical_sensor::config::EosSessionConfig* config,
     std::string* error_msg) {
   oneq::JsonValue root;
   if (!oneq::JsonReader::ParseFile(path, &root, error_msg)) return false;

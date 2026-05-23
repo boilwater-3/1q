@@ -52,7 +52,7 @@ session::RadarSceneTargetList BuildSingleTarget(float speed, float rcs, bool jam
   return session::RadarSceneTargetList{target};
 }
 
-session::RadarSessionConfig MakeDetectionFocusedConfig() {
+config::RadarSessionConfig MakeDetectionFocusedConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
@@ -309,7 +309,7 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
     return control_profile_;
   }
 
-  bool UpdateConfig(const session::RadarSessionConfig& config) override {
+  bool UpdateConfig(const config::RadarSessionConfig& config) override {
     config_ = config;
     return true;
   }
@@ -352,13 +352,13 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
   struct RuntimeState {
     model::PlatformAttitudeDeg platform_attitude_deg{};
     extension::control::RadarControlProfile control_profile{};
-    session::RadarSessionConfig config{};
+    config::RadarSessionConfig config{};
     bool should_execute{false};
   };
 
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   extension::control::RadarControlProfile control_profile_{};
-  session::RadarSessionConfig config_{};
+  config::RadarSessionConfig config_{};
   bool should_execute_{false};
 };
 
@@ -650,7 +650,7 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
 
   environment::EnvironmentService environment_service;
 
-  const session::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
+  const config::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 
@@ -689,7 +689,7 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
 
   environment::EnvironmentService environment_service;
 
-  const session::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
+  const config::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   extension::RadarController controller(radar_context, signal_pipeline, environment_service);
 

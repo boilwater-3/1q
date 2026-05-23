@@ -285,11 +285,11 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
 }
 
 // ---------------------------------------------------------------------------
-// RadarSessionConfig（含 environment 域）
+// config::RadarSessionConfig（含 environment 域）
 // ---------------------------------------------------------------------------
 
 TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
-  RadarSessionConfig config;
+  config::RadarSessionConfig config;
   // hardware
   config.hardware.detection.transmitter.peak_power_w = 50000.0f;
   config.hardware.detection.transmitter.frequency_hz = 9.5e9f;
@@ -326,7 +326,7 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   const std::string bytes = EncodeSessionConfigFlatbuffer(config);
   ASSERT_FALSE(bytes.empty());
 
-  RadarSessionConfig decoded;
+  config::RadarSessionConfig decoded;
   std::string error;
   ASSERT_TRUE(DecodeSessionConfigFlatbuffer(bytes, &decoded, &error)) << error;
 

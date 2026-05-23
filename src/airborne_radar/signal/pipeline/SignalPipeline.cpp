@@ -309,7 +309,7 @@ struct SignalPipeline::Impl {
 SignalPipeline::SignalPipeline(const ExecutionConfig& config)
     : impl_(std::unique_ptr<Impl>(new Impl(config))) {}
 
-SignalPipeline::SignalPipeline(const session::RadarSessionConfig& config)
+SignalPipeline::SignalPipeline(const config::RadarSessionConfig& config)
     : SignalPipeline(::airborne_radar::config::mapping::MapSessionToExecution(config)) {}
 
 SignalPipeline::~SignalPipeline() = default;
@@ -371,7 +371,7 @@ extension::control::RadarControlProfile SignalPipeline::GetControlProfile() cons
   return impl_->GetControlProfile();
 }
 
-bool SignalPipeline::UpdateConfig(const session::RadarSessionConfig& config) {
+bool SignalPipeline::UpdateConfig(const config::RadarSessionConfig& config) {
   return UpdateExecutionConfig(::airborne_radar::config::mapping::MapSessionToExecution(config));
 }
 

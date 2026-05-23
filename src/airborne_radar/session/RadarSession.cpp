@@ -40,7 +40,7 @@ struct RadarSession::Impl {
         environment_service(*composition.environment_service),
         controller(*composition.controller),
         pipeline_config_synced(composition.pipeline_config_synced) {
-    session::RadarSessionConfig initial_session_config;
+    config::RadarSessionConfig initial_session_config;
     initial_session_config.hardware = composition.runtime_hardware;
     initial_session_config.mission = composition.runtime_mission;
     initial_session_config.policy = composition.runtime_policy;
@@ -125,7 +125,7 @@ struct RadarSession::Impl {
     if (should_sync_pipeline) {
       const config::mapping::RuntimeConfigState& state_to_commit =
           has_pending_runtime_update ? pending_runtime_state : runtime_state;
-      const session::RadarSessionConfig pipeline_config =
+      const config::RadarSessionConfig pipeline_config =
           config::mapping::MapRuntimeStateToPipelineSession(state_to_commit);
       if (!signal_pipeline.UpdateConfig(pipeline_config)) {
         return false;
@@ -217,45 +217,45 @@ struct RadarSession::Impl {
 RadarSession::RadarSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 
 RadarSession::RadarSession()
-    : impl_(new Impl(RadarSessionCompositionRoot::ComposeDefault(RadarSessionConfig{}))) {}
+    : impl_(new Impl(RadarSessionCompositionRoot::ComposeDefault(config::RadarSessionConfig{}))) {}
 
 RadarSession::~RadarSession() = default;
 RadarSession::RadarSession(RadarSession&&) noexcept = default;
 RadarSession& RadarSession::operator=(RadarSession&&) noexcept = default;
 
-RadarSession RadarSessionFactory::Create(const RadarSessionConfig& config) {
+RadarSession RadarSessionFactory::Create(const config::RadarSessionConfig& config) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(
       new RadarSession::Impl(RadarSessionCompositionRoot::ComposeDefault(config))));
 }
 
 RadarSession RadarSessionFactory::CreateWithSignalPipeline(
-    const RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline) {
+    const config::RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
       RadarSessionCompositionRoot::ComposeWithSignalPipeline(config, signal_pipeline))));
 }
 
 RadarSession RadarSessionFactory::CreateWithEnvironmentService(
-    const RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
+    const config::RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(
       new RadarSession::Impl(RadarSessionCompositionRoot::ComposeWithEnvironmentService(
           config, environment_service))));
 }
 
-RadarSession RadarSessionFactory::CreateWithController(const RadarSessionConfig& config,
+RadarSession RadarSessionFactory::CreateWithController(const config::RadarSessionConfig& config,
                                                        extension::RadarController& controller) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
       RadarSessionCompositionRoot::ComposeWithController(config, controller))));
 }
 
 RadarSession RadarSessionFactory::CreateWithOverrideStrategy(
-    const RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy) {
+    const config::RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(
       new RadarSession::Impl(RadarSessionCompositionRoot::ComposeWithOverrideStrategy(
           config, override_strategy))));
 }
 
 RadarSession RadarSessionFactory::CreateWithAll(
-    const RadarSessionConfig& config, extension::IRadarContext& radar_context,
+    const config::RadarSessionConfig& config, extension::IRadarContext& radar_context,
     extension::ISignalPipeline& signal_pipeline,
     environment::IEnvironmentService& environment_service,
     extension::RadarController& controller) {

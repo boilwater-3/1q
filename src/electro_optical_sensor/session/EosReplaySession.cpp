@@ -99,7 +99,7 @@ bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user
   }
 
   EosReplayState* state = static_cast<EosReplayState*>(user_data);
-  EosSessionConfig config;
+  config::EosSessionConfig config;
   if (!DecodeEosSessionConfig(event.payload_bytes, &config)) {
     *error = "EOS replay failed to decode session_config";
     return false;
@@ -150,7 +150,7 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
     return false;
   }
 
-  EosRuntimeConfigPatch patch;
+  config::EosRuntimeConfigPatch patch;
   if (!DecodeEosRuntimeConfigPatch(event.payload_bytes, &patch)) {
     *error = "EOS replay failed to decode runtime_config_patch";
     return false;

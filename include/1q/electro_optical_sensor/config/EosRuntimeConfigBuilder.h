@@ -6,7 +6,7 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_BUILDER_H_
 #define ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_BUILDER_H_
 
-#include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 
 namespace electro_optical_sensor {
@@ -15,15 +15,15 @@ namespace config {
 /**
  * @brief EosRuntimeConfigBuilder 提供运行期补丁的链式构造。
  * @note 推荐路径：会话创建后的参数热更新统一通过本构造器生成补丁，
- *       避免直接手写 `EosRuntimeConfigPatch` 的 `has_*` 标志位。
+ *       避免直接手写 `config::EosRuntimeConfigPatch` 的 `has_*` 标志位。
  */
 class ONEQ_API EosRuntimeConfigBuilder {
  public:
   explicit EosRuntimeConfigBuilder(
-      const session::EosRuntimeConfigPatch& patch = {}) noexcept : patch_(patch) {}
+      const config::EosRuntimeConfigPatch& patch = {}) noexcept : patch_(patch) {}
 
   EosRuntimeConfigBuilder& WithRuntimeConfigPatch(
-      const session::EosRuntimeConfigPatch& patch) noexcept {
+      const config::EosRuntimeConfigPatch& patch) noexcept {
     patch_ = patch;
     return *this;
   }
@@ -115,10 +115,10 @@ class ONEQ_API EosRuntimeConfigBuilder {
   }
 
 
-  session::EosRuntimeConfigPatch Build() const noexcept { return patch_; }
+  config::EosRuntimeConfigPatch Build() const noexcept { return patch_; }
 
  private:
-  session::EosRuntimeConfigPatch patch_{};
+  config::EosRuntimeConfigPatch patch_{};
 };
 
 }  // namespace config

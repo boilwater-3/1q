@@ -53,7 +53,7 @@ std::string BuildRadarOutputPayload(const RadarCycleResult& result) {
 }
 
 void WriteSessionConfigReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
-                              const RadarSessionConfig& config) {
+                              const config::RadarSessionConfig& config) {
   oneq::replay::ReplayTraceEvent event;
   event.module = "airborne_radar";
   event.event_type = "session_config";
@@ -129,7 +129,7 @@ struct RadarTraceSession::Impl {
   bool pending_input_written{false};
 };
 
-RadarTraceSession::RadarTraceSession(const RadarSessionConfig& config,
+RadarTraceSession::RadarTraceSession(const config::RadarSessionConfig& config,
                                      RadarTraceSessionOptions options)
     : impl_(new Impl(RadarSessionFactory::Create(config), std::move(options.sink),
                      std::move(options.replay_writer))) {

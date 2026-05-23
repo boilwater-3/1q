@@ -13,14 +13,14 @@
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
 
 namespace electronic_surveillance_radar {
-namespace session {
+namespace config {
 
 /**
- * @brief ExplicitScanBounds 封装显式扫描边界相关的 5 个字段。
+ * @brief ExplicitScanBounds 封装显式扫描边界相关的字段。
  *
  * 将 has_use_explicit_scan_bounds / use_explicit_scan_bounds 以及
- * 4 个 has_scan_*_deg / scan_*_deg 字段聚合成一个子结构，
- * 消除 has_use_explicit_scan_bounds 必须与其余 4 个 has_scan_*_deg 同时设置的隐含耦合。
+ * 4 个 scan_*_deg 字段聚合成一个子结构，
+ * 消除 has_use_explicit_scan_bounds 必须与其余字段同时设置的隐含耦合。
  */
 struct ExplicitScanBounds {
   bool enabled{false};            /**< 是否使用显式扫描起止角 */
@@ -42,10 +42,10 @@ struct ExplicitScanBounds {
  */
 struct ONEQ_API EsrRuntimeConfigPatch {
   bool has_mission{false};            /**< [补丁标志] 是否整块覆盖任务域 */
-  config::EsrMissionConfig mission{}; /**< [可外部调整] 任务域整块覆盖 */
+  EsrMissionConfig mission{}; /**< [可外部调整] 任务域整块覆盖 */
 
   bool has_policy{false};           /**< [补丁标志] 是否整块覆盖策略域 */
-  config::EsrPolicyConfig policy{}; /**< [可外部调整] 策略域整块覆盖 */
+  EsrPolicyConfig policy{}; /**< [可外部调整] 策略域整块覆盖 */
 
   bool has_environment_runtime_config{false}; /**< [补丁标志] 是否更新环境运行期配置 */
   environment::EsrEnvironmentRuntimeConfigPatch
@@ -55,16 +55,16 @@ struct ONEQ_API EsrRuntimeConfigPatch {
   bool sensor_enabled{true};      /**< [可外部调整] 传感器开关状态 */
 
   bool has_work_mode{false};                                /**< [补丁标志] 是否显式设置工作模式 */
-  config::EsrWorkMode work_mode{config::EsrWorkMode::kEsm}; /**< [可外部调整] 工作模式值 */
+  EsrWorkMode work_mode{EsrWorkMode::kEsm}; /**< [可外部调整] 工作模式值 */
 
   bool has_scan_rate_hz{false}; /**< [补丁标志] 是否显式设置扫描数据率 */
   float scan_rate_hz{1.0f};     /**< [可外部调整] 扫描数据率（单位：Hz） */
 
   bool has_scan_start_position{false}; /**< [补丁标志] 是否显式设置扫描起始位置 */
-  config::EsrScanStartPosition scan_start_position{config::EsrScanStartPosition::kLeftTop};
+  EsrScanStartPosition scan_start_position{EsrScanStartPosition::kLeftTop};
 
   bool has_scan_sequence{false}; /**< [补丁标志] 是否显式设置扫描顺序 */
-  config::EsrScanSequence scan_sequence{config::EsrScanSequence::kAzimuthFirst};
+  EsrScanSequence scan_sequence{EsrScanSequence::kAzimuthFirst};
 
   bool has_scan_center_az_deg{false}; /**< [补丁标志] 是否显式设置扫描中心方位角 */
   float scan_center_az_deg{0.0f};     /**< [可外部调整] 扫描中心方位角（单位：deg） */
@@ -76,7 +76,7 @@ struct ONEQ_API EsrRuntimeConfigPatch {
   ExplicitScanBounds explicit_scan_bounds{}; /**< [可外部调整] 显式扫描边界配置 */
 };
 
-}  // namespace session
+}  // namespace config
 }  // namespace electronic_surveillance_radar
 
 #endif  // ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_RUNTIME_CONFIG_PATCH_H_

@@ -14,7 +14,7 @@ namespace config {
 namespace mapping {
 
 execution::InternalExecutionConfig MapSessionToExecution(
-    const session::RadarSessionConfig& session_config);
+    const config::RadarSessionConfig& session_config);
 
 }  // namespace mapping
 }  // namespace config

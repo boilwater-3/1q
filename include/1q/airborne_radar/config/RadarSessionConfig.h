@@ -14,21 +14,21 @@
 #include "1q/api.hpp"
 
 namespace airborne_radar {
-namespace session {
+namespace config {
 
 /**
  * @brief RadarSession 初始化配置（四域公开模型）。
  */
 struct ONEQ_API RadarSessionConfig {
-  config::RadarHardwareConfig hardware{};
-  config::RadarMissionConfig mission{};
-  config::RadarPolicyConfig policy{};
-  config::RadarEnvironmentConfig environment{};
+  RadarHardwareConfig hardware{};
+  RadarMissionConfig mission{};
+  RadarPolicyConfig policy{};
+  RadarEnvironmentConfig environment{};
   environment::JammingSensitivityProfile jamming_sensitivity_profile{
       environment::JammingSensitivityProfile::kBalanced}; /**< 干扰判定灵敏度语义档位 */
 };
 
-}  // namespace session
+}  // namespace config
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_H_

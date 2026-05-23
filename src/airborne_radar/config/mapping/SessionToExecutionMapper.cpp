@@ -9,7 +9,7 @@ namespace config {
 namespace mapping {
 
 execution::InternalExecutionConfig MapSessionToExecution(
-    const session::RadarSessionConfig& session_config) {
+    const config::RadarSessionConfig& session_config) {
   execution::InternalExecutionConfig exec;
 
   exec.detection.hardware = session_config.hardware.detection;

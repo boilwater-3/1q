@@ -15,7 +15,7 @@ namespace tests {
 
 namespace {
 
-session::RadarSessionConfig MakeDetectionFocusedConfig() {
+config::RadarSessionConfig MakeDetectionFocusedConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
@@ -53,7 +53,7 @@ TEST(RadarSessionConfigBuilderTest, ExistingBuilderBasePreservesSemanticValues) 
 }
 
 TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEditingEnvironment) {
-  session::RadarSessionConfig base_config{};
+  config::RadarSessionConfig base_config{};
   base_config.hardware.detection.enable_physics_detection = true;
   base_config.hardware.detection.transmitter.peak_power_w = 7.5e6f;
   base_config.hardware.detection.transmitter.frequency_hz = 9.7e9f;
@@ -62,7 +62,7 @@ TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEdi
   base_config.policy.lifecycle.enable_imm_lifecycle = true;
   base_config.policy.lifecycle.confirm_hits = 2U;
 
-  const session::RadarSessionConfig rebuilt =
+  const config::RadarSessionConfig rebuilt =
       config::RadarSessionConfigBuilder(base_config)
           .Environment()
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
@@ -216,7 +216,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
 }
 
 TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig) {
-  session::RadarSessionConfig detailed_config{};
+  config::RadarSessionConfig detailed_config{};
   detailed_config.hardware.detection.enable_physics_detection = true;
   detailed_config.hardware.detection.transmitter.peak_power_w = 5.0e6f;
   detailed_config.hardware.detection.transmitter.frequency_hz = 9.3e9f;
@@ -249,7 +249,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
 }
 
 TEST(RadarSessionConfigBuilderTest, DetailedBuiltConfigCanConstructRadarSession) {
-  session::RadarSessionConfig config{};
+  config::RadarSessionConfig config{};
   config.hardware.detection.transmitter.peak_power_w = 5.0e6f;
   config.hardware.detection.transmitter.frequency_hz = 9.3e9f;
   config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
@@ -268,7 +268,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBeamSchedulerWritesPolicyPath) {
   nominal_beamwidth.commanded_az_beamwidth_deg = 2.5f;
   nominal_beamwidth.commanded_el_beamwidth_deg = 1.5f;
 
-  session::RadarSessionConfig detailed_config{};
+  config::RadarSessionConfig detailed_config{};
   detailed_config.policy.beam_control.scheduler.azimuth_step_count_hint = 8U;
   detailed_config.policy.beam_control.scheduler.elevation_step_count_hint = 4U;
   detailed_config.policy.beam_control.scheduler.prefer_dense_tas_sampling = true;

@@ -18,8 +18,8 @@ namespace esr_session = electronic_surveillance_radar::session;
 
 namespace {
 
-esr_session::EsrSessionConfig LoadConfigFromFile() {
-  esr_session::EsrSessionConfig config;
+esr_config::EsrSessionConfig LoadConfigFromFile() {
+  esr_config::EsrSessionConfig config;
   std::string error;
   if (!examples::LoadEsrSessionConfigFromFile("configs/electronic_warfare.json",
                                                &config, &error)) {

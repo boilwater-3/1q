@@ -12,8 +12,8 @@ namespace esr_session = electronic_surveillance_radar::session;
 
 namespace {
 
-esr_session::EsrSessionConfig MakeEmitterSearchConfig() {
-  esr_session::EsrSessionConfig config =
+esr_config::EsrSessionConfig MakeEmitterSearchConfig() {
+  esr_config::EsrSessionConfig config =
       esr_cfg::EsrSessionConfigBuilder()
           .Mission()
           .WithWorkMode(esr_cfg::EsrWorkMode::kEsm)
@@ -58,9 +58,9 @@ void ReportB(const char* name, bool a, bool b) {
 }  // namespace
 
 int main() {
-  const esr_session::EsrSessionConfig builder_cfg = MakeEmitterSearchConfig();
+  const esr_config::EsrSessionConfig builder_cfg = MakeEmitterSearchConfig();
 
-  esr_session::EsrSessionConfig file_cfg;
+  esr_config::EsrSessionConfig file_cfg;
   {
     std::string error;
     if (!examples::LoadEsrSessionConfigFromFile("configs/electronic_warfare.json",

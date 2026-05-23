@@ -21,8 +21,8 @@ namespace eos_session = electro_optical_sensor::session;
 
 namespace {
 
-eos_session::EosSessionConfig LoadConfigFromFile() {
-  eos_session::EosSessionConfig config;
+eos_config::EosSessionConfig LoadConfigFromFile() {
+  eos_config::EosSessionConfig config;
   std::string error;
   if (!examples::LoadEosSessionConfigFromFile("configs/electro_optical.json",
                                                &config, &error)) {

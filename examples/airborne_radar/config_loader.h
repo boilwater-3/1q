@@ -10,10 +10,10 @@
 
 namespace examples {
 
-/// Load an airborne_radar::session::RadarSessionConfig from a parsed JSON object.
+/// Load an airborne_radar::config::RadarSessionConfig from a parsed JSON object.
 inline void LoadArSessionConfig(
     const oneq::JsonValue& root,
-    airborne_radar::session::RadarSessionConfig* config) {
+    airborne_radar::config::RadarSessionConfig* config) {
   LoadHardware(root["hardware"], &config->hardware);
   LoadMission(root["mission"], &config->mission);
   LoadPolicy(root["policy"], &config->policy);
@@ -22,9 +22,9 @@ inline void LoadArSessionConfig(
       JammingSensFromString(root["jamming_sensitivity_profile"].AsString());
 }
 
-/// Load an airborne_radar::session::RadarSessionConfig from a JSON file.
+/// Load an airborne_radar::config::RadarSessionConfig from a JSON file.
 inline bool LoadArSessionConfigFromFile(
-    const char* path, airborne_radar::session::RadarSessionConfig* config,
+    const char* path, airborne_radar::config::RadarSessionConfig* config,
     std::string* error_msg) {
   oneq::JsonValue root;
   if (!oneq::JsonReader::ParseFile(path, &root, error_msg)) return false;

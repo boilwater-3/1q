@@ -42,7 +42,7 @@ using ValidationIssueList = std::vector<ConfigValidationIssue>;
  * @brief EosSessionConfigBuilder 提供初始化配置语义积木。
  * @note 该构造器只表达 mission/detection/stray-light/environment 的初始化语义。
  *       常见场景推荐配置应在 example 或业务层以具名函数封装，并返回
- *       EosSessionConfig 传入 EosSessionFactory。
+ *       config::EosSessionConfig 传入 EosSessionFactory。
  * @note 推荐路径：
  *       会话初始化优先使用本构造器；
  *       运行期热更新统一使用 EosRuntimeConfigBuilder。
@@ -54,10 +54,10 @@ class ONEQ_API EosSessionConfigBuilder {
   class StrayLightEditor;
   class EnvironmentEditor;
 
-  explicit EosSessionConfigBuilder(const session::EosSessionConfig& config = {}) noexcept
+  explicit EosSessionConfigBuilder(const config::EosSessionConfig& config = {}) noexcept
       : config_(config) {}
 
-  EosSessionConfigBuilder& WithSessionConfig(const session::EosSessionConfig& config) noexcept {
+  EosSessionConfigBuilder& WithSessionConfig(const config::EosSessionConfig& config) noexcept {
     config_ = config;
     return *this;
   }
@@ -67,7 +67,7 @@ class ONEQ_API EosSessionConfigBuilder {
   StrayLightEditor StrayLight() noexcept;
   EnvironmentEditor Environment() noexcept;
 
-  session::EosSessionConfig Build() const noexcept { return config_; }
+  config::EosSessionConfig Build() const noexcept { return config_; }
 
   /**
    * @brief 校验当前 Builder 状态的合法性，用于构造完成前的早期反馈。
@@ -89,7 +89,7 @@ class ONEQ_API EosSessionConfigBuilder {
   friend class StrayLightEditor;
   friend class EnvironmentEditor;
 
-  session::EosSessionConfig config_{};
+  config::EosSessionConfig config_{};
 };
 
 class ONEQ_API EosSessionConfigBuilder::MissionEditor {
@@ -158,7 +158,7 @@ class ONEQ_API EosSessionConfigBuilder::EnvironmentEditor {
     builder_->config_.environment.scenario_config.model_type = model_type;
     return *this;
   }
-  EnvironmentEditor& WithEnvironmentPreset(EosEnvironmentPreset preset) noexcept {
+  EnvironmentEditor& WithEnvironmentPreset(environment::EosEnvironmentPreset preset) noexcept {
     builder_->config_.environment.scenario_config.preset = preset;
     return *this;
   }

@@ -11,7 +11,7 @@ namespace session {
  * @brief EosRuntimeConfigResolveResult 描述 EOS 运行期补丁解析结果。
  */
 struct EosRuntimeConfigResolveResult {
-  ::electro_optical_sensor::session::EosSessionConfig next_config{};
+  ::electro_optical_sensor::config::EosSessionConfig next_config{};
   bool has_requested_update{false};
   bool is_valid{true};
   bool reset_scan_phase{false};
@@ -24,8 +24,8 @@ struct EosRuntimeConfigResolveResult {
  * @return 解析结果。
  */
 EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
-    const ::electro_optical_sensor::session::EosSessionConfig& current_config,
-    const ::electro_optical_sensor::session::EosRuntimeConfigPatch& patch);
+    const ::electro_optical_sensor::config::EosSessionConfig& current_config,
+    const ::electro_optical_sensor::config::EosRuntimeConfigPatch& patch);
 
 }  // namespace session
 }  // namespace runtime

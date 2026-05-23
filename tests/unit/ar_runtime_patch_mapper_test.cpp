@@ -61,7 +61,7 @@ TEST(ArRuntimePatchMapperTest, DwellPatchContributesToPipelinePointing) {
       RadarRuntimeConfigBuilder().WithDwellCenterDeg(dwell_center).Build();
 
   const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
-  const session::RadarSessionConfig pipeline_config =
+  const config::RadarSessionConfig pipeline_config =
       MapRuntimeStateToPipelineSession(resolved.next_state);
 
   EXPECT_TRUE(resolved.has_requested_update);
@@ -129,7 +129,7 @@ TEST(ArRuntimePatchMapperTest, InvalidPatchIsRejectedAtomically) {
 }
 
 TEST(ArRuntimePatchMapperTest, MapExecutionToSessionRoundTripsFields) {
-  session::RadarSessionConfig original;
+  config::RadarSessionConfig original;
   original.hardware.detection.min_detection_margin_db = -3.0f;
   original.hardware.detection.pulse_count = 20;
   original.mission.orientation.scan_center_deg.az_deg = 45.0f;
@@ -138,7 +138,7 @@ TEST(ArRuntimePatchMapperTest, MapExecutionToSessionRoundTripsFields) {
   original.policy.association.unassigned_cost = 12.0f;
 
   const execution::InternalExecutionConfig mapped = mapping::MapSessionToExecution(original);
-  const session::RadarSessionConfig round_tripped = mapping::MapExecutionToSession(mapped);
+  const config::RadarSessionConfig round_tripped = mapping::MapExecutionToSession(mapped);
 
   EXPECT_FLOAT_EQ(round_tripped.hardware.detection.min_detection_margin_db, -3.0f);
   EXPECT_EQ(round_tripped.hardware.detection.pulse_count, 20);

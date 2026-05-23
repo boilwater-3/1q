@@ -21,8 +21,8 @@ bool DecodeTrackOutputFrameFlatbuffer(const std::string& payload_bytes,
 std::string EncodeCycleResultFlatbuffer(const RadarCycleResult& result);
 bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, RadarCycleResult* result,
                                  std::string* error);
-std::string EncodeSessionConfigFlatbuffer(const RadarSessionConfig& config);
-bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, RadarSessionConfig* config,
+std::string EncodeSessionConfigFlatbuffer(const config::RadarSessionConfig& config);
+bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, config::RadarSessionConfig* config,
                                    std::string* error);
 std::string EncodeRuntimeConfigPatchFlatbuffer(const config::RadarRuntimeConfigPatch& patch);
 bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,

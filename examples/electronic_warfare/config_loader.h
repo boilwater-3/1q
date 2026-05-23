@@ -10,19 +10,19 @@
 
 namespace examples {
 
-/// Load an EsrSessionConfig from a parsed JSON object.
+/// Load an config::EsrSessionConfig from a parsed JSON object.
 inline void LoadEsrSessionConfig(
     const oneq::JsonValue& root,
-    electronic_surveillance_radar::session::EsrSessionConfig* config) {
+    electronic_surveillance_radar::config::EsrSessionConfig* config) {
   LoadEsrHardware(root["hardware"], &config->hardware);
   LoadEsrMission(root["mission"], &config->mission);
   LoadEsrPolicy(root["policy"], &config->policy);
   LoadEsrEnvironment(root["environment"], &config->environment);
 }
 
-/// Load an EsrSessionConfig from a JSON file.
+/// Load an config::EsrSessionConfig from a JSON file.
 inline bool LoadEsrSessionConfigFromFile(
-    const char* path, electronic_surveillance_radar::session::EsrSessionConfig* config,
+    const char* path, electronic_surveillance_radar::config::EsrSessionConfig* config,
     std::string* error_msg) {
   oneq::JsonValue root;
   if (!oneq::JsonReader::ParseFile(path, &root, error_msg)) return false;

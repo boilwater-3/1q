@@ -21,7 +21,7 @@ namespace session {
 
 namespace {
 
-EosSessionComposition BuildInitialCompositionRuntime(const EosSessionConfig& config,
+EosSessionComposition BuildInitialCompositionRuntime(const config::EosSessionConfig& config,
                                                      EosSessionComposition composition) {
   composition.runtime_config = config;
   composition.pipeline_config = runtime::session::BuildEosPipelineConfig(config);
@@ -64,7 +64,7 @@ std::shared_ptr<environment::IEosEnvironmentService> MakeNonOwningEnvironmentSer
 
 EosSessionComposition MakeCompositionWithOwnedPipeline(
     std::unique_ptr<extension::IEosPipeline> owned_pipeline,
-    const EosSessionConfig& config) {
+    const config::EosSessionConfig& config) {
   EosSessionComposition composition;
   composition.owned_pipeline = std::move(owned_pipeline);
   composition.owned_controller.reset(new extension::EosController(*composition.owned_pipeline));
@@ -75,7 +75,7 @@ EosSessionComposition MakeCompositionWithOwnedPipeline(
 
 EosSessionComposition MakeCompositionWithExternalPipeline(
     extension::IEosPipeline& pipeline,
-    const EosSessionConfig& config) {
+    const config::EosSessionConfig& config) {
   EosSessionComposition composition;
   composition.owned_controller.reset(new extension::EosController(pipeline));
   composition.pipeline = &pipeline;
@@ -88,18 +88,18 @@ EosSessionComposition MakeCompositionWithExternalPipeline(
 
 EosSessionComposition ComposeWithOwnedPipeline(
     std::unique_ptr<extension::IEosPipeline> owned_pipeline,
-    const EosSessionConfig& config) {
+    const config::EosSessionConfig& config) {
   return FinalizeComposition(MakeCompositionWithOwnedPipeline(std::move(owned_pipeline), config));
 }
 
 EosSessionComposition ComposeWithExternalPipeline(extension::IEosPipeline& pipeline,
-                                                  const EosSessionConfig& config) {
+                                                  const config::EosSessionConfig& config) {
   return FinalizeComposition(MakeCompositionWithExternalPipeline(pipeline, config));
 }
 
 }  // namespace
 
-EosSessionComposition EosSessionCompositionRoot::ComposeDefault(const EosSessionConfig& config) {
+EosSessionComposition EosSessionCompositionRoot::ComposeDefault(const config::EosSessionConfig& config) {
   return ComposeWithOwnedPipeline(
       std::unique_ptr<extension::IEosPipeline>(
           new signal::pipeline::EosPipeline(runtime::session::BuildEosPipelineConfig(
@@ -108,13 +108,13 @@ EosSessionComposition EosSessionCompositionRoot::ComposeDefault(const EosSession
 }
 
 EosSessionComposition EosSessionCompositionRoot::ComposeWithPipeline(
-    const EosSessionConfig& config,
+    const config::EosSessionConfig& config,
     ::electro_optical_sensor::extension::IEosPipeline& pipeline) {
   return ComposeWithExternalPipeline(pipeline, config);
 }
 
 EosSessionComposition EosSessionCompositionRoot::ComposeWithEnvironmentService(
-    const EosSessionConfig& config,
+    const config::EosSessionConfig& config,
     environment::IEosEnvironmentService& environment_service) {
   return ComposeWithOwnedPipeline(
       std::unique_ptr<extension::IEosPipeline>(new signal::pipeline::EosPipeline(
@@ -124,7 +124,7 @@ EosSessionComposition EosSessionCompositionRoot::ComposeWithEnvironmentService(
 }
 
 EosSessionComposition EosSessionCompositionRoot::ComposeWithController(
-    const EosSessionConfig& config,
+    const config::EosSessionConfig& config,
     extension::EosController& controller) {
   EosSessionComposition composition;
   composition = BuildInitialCompositionRuntime(config, std::move(composition));
@@ -136,7 +136,7 @@ EosSessionComposition EosSessionCompositionRoot::ComposeWithController(
 }
 
 EosSessionComposition EosSessionCompositionRoot::ComposeAllExternal(
-    const EosSessionConfig& config,
+    const config::EosSessionConfig& config,
     ::electro_optical_sensor::extension::IEosPipeline& pipeline,
     extension::EosController& controller) {
   EosSessionComposition composition;

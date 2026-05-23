@@ -157,7 +157,7 @@ bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user
   }
 
   EsrReplayState* state = static_cast<EsrReplayState*>(user_data);
-  EsrSessionConfig config;
+  config::EsrSessionConfig config;
   if (!DecodeEsrSessionConfig(event.payload_bytes, &config)) {
     *error = "ESR replay failed to decode session_config";
     return false;
@@ -208,7 +208,7 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
     return false;
   }
 
-  EsrRuntimeConfigPatch patch;
+  config::EsrRuntimeConfigPatch patch;
   if (!DecodeEsrRuntimeConfigPatch(event.payload_bytes, &patch)) {
     *error = "ESR replay failed to decode runtime_config_patch";
     return false;

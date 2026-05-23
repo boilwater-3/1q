@@ -195,7 +195,7 @@ struct SceneScriptStep {
       : scene_state(scene_state_in), expect_jamming(expect_jamming_in) {}
 };
 
-session::RadarSessionConfig MakeJointIntegrationSessionConfig() {
+config::RadarSessionConfig MakeJointIntegrationSessionConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
@@ -210,8 +210,8 @@ session::RadarSessionConfig MakeJointIntegrationSessionConfig() {
       .Build();
 }
 
-session::RadarSessionConfig MakeJointIntegrationPhysicsSessionConfig(float pulse_width_s) {
-  session::RadarSessionConfig config = MakeJointIntegrationSessionConfig();
+config::RadarSessionConfig MakeJointIntegrationPhysicsSessionConfig(float pulse_width_s) {
+  config::RadarSessionConfig config = MakeJointIntegrationSessionConfig();
   config.hardware.detection.enable_physics_detection = true;
   config.hardware.detection.transmitter.pulse_width_s = pulse_width_s;
   if (pulse_width_s > 15e-6f) {

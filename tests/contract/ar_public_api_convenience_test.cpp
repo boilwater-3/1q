@@ -165,7 +165,7 @@ session::RadarSceneTargetList CloneSceneTargets(const session::RadarSceneTargetL
   return out;
 }
 
-session::RadarSessionConfig MakeConvenienceSessionConfig() {
+config::RadarSessionConfig MakeConvenienceSessionConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
@@ -456,7 +456,7 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     return control_profile_;
   }
 
-  bool UpdateConfig(const session::RadarSessionConfig& config) override {
+  bool UpdateConfig(const config::RadarSessionConfig& config) override {
     ++update_config_count_;
     if (!should_accept_updates_) {
       return false;
@@ -509,13 +509,13 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
   }
   std::size_t run_cycle_count() const { return run_cycle_count_; }
   std::size_t update_config_count() const { return update_config_count_; }
-  const session::RadarSessionConfig& config() const { return config_; }
+  const config::RadarSessionConfig& config() const { return config_; }
 
  private:
   struct RuntimeState {
     model::PlatformAttitudeDeg platform_attitude_deg{};
     extension::control::RadarControlProfile control_profile{};
-    session::RadarSessionConfig config{};
+    config::RadarSessionConfig config{};
     bool should_execute{true};
     bool should_accept_updates{true};
     std::size_t run_cycle_count{0U};
@@ -524,7 +524,7 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
 
   model::PlatformAttitudeDeg platform_attitude_deg_{};
   extension::control::RadarControlProfile control_profile_{};
-  session::RadarSessionConfig config_{};
+  config::RadarSessionConfig config_{};
   bool should_execute_{true};
   bool should_accept_updates_{true};
   std::size_t run_cycle_count_{0U};
@@ -963,7 +963,7 @@ TEST(PublicApiConvenienceTest, RadarInputValidationFlagsMissingGeometryAndNonFin
 }
 
 TEST(PublicApiConvenienceTest, BuilderProvidesExpectedDetectionFocusedDefaults) {
-  const session::RadarSessionConfig detection_config = MakeConvenienceSessionConfig();
+  const config::RadarSessionConfig detection_config = MakeConvenienceSessionConfig();
   EXPECT_EQ(detection_config.policy.lifecycle.confirm_hits, 1U);
   EXPECT_EQ(detection_config.policy.lifecycle.max_miss_before_lost, 1U);
   EXPECT_EQ(detection_config.hardware.detection.pulse_count, 16);
@@ -1007,7 +1007,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInte
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualControllerChain) {
-  const session::RadarSessionConfig config = MakeConvenienceSessionConfig();
+  const config::RadarSessionConfig config = MakeConvenienceSessionConfig();
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
   session::MutableRadarContext manual_context;
@@ -1257,7 +1257,7 @@ TEST(PublicApiConvenienceTest,
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleObservations) {
-  const session::RadarSessionConfig config = MakeConvenienceSessionConfig();
+  const config::RadarSessionConfig config = MakeConvenienceSessionConfig();
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
   const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{
@@ -1613,7 +1613,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnderJammedScene) {
-  const session::RadarSessionConfig config = MakeConvenienceSessionConfig();
+  const config::RadarSessionConfig config = MakeConvenienceSessionConfig();
   session::RadarSession session = session::RadarSessionFactory::Create(config);
 
   session::MutableRadarContext manual_context;

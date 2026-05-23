@@ -12,7 +12,7 @@ namespace session {
 
 namespace {
 
-EsrSessionComposition BuildCompositionBase(const EsrSessionConfig& config) {
+EsrSessionComposition BuildCompositionBase(const config::EsrSessionConfig& config) {
   ResolvedEsrSessionConfig resolved = ResolveEsrSessionConfig(config);
   EsrSessionComposition composition;
   composition.runtime_pipeline_config = resolved.pipeline_config;
@@ -39,7 +39,7 @@ void SyncEnvironmentModelConfig(EsrSessionComposition* composition) {
 
 }  // namespace
 
-EsrSessionComposition EsrSessionCompositionRoot::ComposeDefault(const EsrSessionConfig& config) {
+EsrSessionComposition EsrSessionCompositionRoot::ComposeDefault(const config::EsrSessionConfig& config) {
   EsrSessionComposition composition = BuildCompositionBase(config);
   composition.owned_pipeline.reset(new pipeline::InterceptPipeline(
       composition.runtime_pipeline_config, composition.runtime_config));
@@ -54,7 +54,7 @@ EsrSessionComposition EsrSessionCompositionRoot::ComposeDefault(const EsrSession
 }
 
 EsrSessionComposition EsrSessionCompositionRoot::ComposeWithPipeline(
-    const EsrSessionConfig& config, extension::IInterceptPipeline& pipeline_ref) {
+    const config::EsrSessionConfig& config, extension::IInterceptPipeline& pipeline_ref) {
   EsrSessionComposition composition = BuildCompositionBase(config);
   composition.owned_environment_service.reset(
       new environment::EsrEnvironmentService(composition.runtime_environment_model_config));
@@ -68,7 +68,7 @@ EsrSessionComposition EsrSessionCompositionRoot::ComposeWithPipeline(
 }
 
 EsrSessionComposition EsrSessionCompositionRoot::ComposeWithEnvironmentService(
-    const EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service_ref) {
+    const config::EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service_ref) {
   EsrSessionComposition composition = BuildCompositionBase(config);
   composition.owned_pipeline.reset(new pipeline::InterceptPipeline(
       composition.runtime_pipeline_config, composition.runtime_config));
@@ -82,7 +82,7 @@ EsrSessionComposition EsrSessionCompositionRoot::ComposeWithEnvironmentService(
 }
 
 EsrSessionComposition EsrSessionCompositionRoot::ComposeWithController(
-    const EsrSessionConfig& config, extension::EsrController& controller_ref) {
+    const config::EsrSessionConfig& config, extension::EsrController& controller_ref) {
   EsrSessionComposition composition = BuildCompositionBase(config);
   composition.pipeline = &controller_ref.GetPipeline();
   composition.environment_service = &controller_ref.GetEnvironmentService();
@@ -93,7 +93,7 @@ EsrSessionComposition EsrSessionCompositionRoot::ComposeWithController(
 }
 
 EsrSessionComposition EsrSessionCompositionRoot::ComposeAllExternal(
-    const EsrSessionConfig& config, extension::IInterceptPipeline& pipeline_ref,
+    const config::EsrSessionConfig& config, extension::IInterceptPipeline& pipeline_ref,
     environment::IEsrEnvironmentService& environment_service_ref,
     extension::EsrController& controller_ref) {
   EsrSessionComposition composition = BuildCompositionBase(config);

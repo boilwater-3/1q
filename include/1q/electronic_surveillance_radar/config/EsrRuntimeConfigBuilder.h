@@ -14,14 +14,14 @@ namespace config {
 /**
  * @brief EsrRuntimeConfigBuilder 提供运行期补丁链式构造。
  * @note 推荐路径：会话创建后的参数热更新统一通过本构造器生成补丁，
- *       避免直接手写 `EsrRuntimeConfigPatch` 的 `has_*` 标志位。
+ *       避免直接手写 `config::EsrRuntimeConfigPatch` 的 `has_*` 标志位。
  */
 class ONEQ_API EsrRuntimeConfigBuilder {
  public:
-  explicit EsrRuntimeConfigBuilder(const session::EsrRuntimeConfigPatch& patch = {})
+  explicit EsrRuntimeConfigBuilder(const config::EsrRuntimeConfigPatch& patch = {})
       : patch_(patch) {}
 
-  EsrRuntimeConfigBuilder& WithRuntimeConfigPatch(const session::EsrRuntimeConfigPatch& patch) {
+  EsrRuntimeConfigBuilder& WithRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& patch) {
     patch_ = patch;
     return *this;
   }
@@ -111,10 +111,10 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     patch_.environment_runtime_config.atmospheric_context = atmospheric_context;
     return *this;
   }
-  session::EsrRuntimeConfigPatch Build() const { return patch_; }
+  config::EsrRuntimeConfigPatch Build() const { return patch_; }
 
  private:
-  session::EsrRuntimeConfigPatch patch_{};
+  config::EsrRuntimeConfigPatch patch_{};
 };
 
 }  // namespace config

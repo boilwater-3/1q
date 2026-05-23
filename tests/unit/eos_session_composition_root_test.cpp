@@ -69,20 +69,20 @@ class CountingEnvironmentService final : public environment::IEosEnvironmentServ
   mutable environment::EosEnvironmentModelInputs last_inputs{};
 };
 
-EosSessionConfig MakeSessionConfig() {
-  EosSessionConfig config;
+config::EosSessionConfig MakeSessionConfig() {
+  config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
   config.mission.scan_rate_deg_per_sec = 9.0f;
   config.mission.frame_rate_hz = 15.0f;
   config.policy.detection.profile = config::EosDetectionProfile::kConservative;
   config.environment.scenario_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
-  config.environment.scenario_config.preset = config::EosEnvironmentPreset::kDusty;
+  config.environment.scenario_config.preset = environment::EosEnvironmentPreset::kDusty;
   return config;
 }
 
 TEST(EosSessionCompositionRootTest, ComposeWithPipelineSyncsInjectedPipelineAndController) {
   CountingPipeline pipeline;
-  const EosSessionConfig config = MakeSessionConfig();
+  const config::EosSessionConfig config = MakeSessionConfig();
 
   EosSessionComposition composition =
       EosSessionCompositionRoot::ComposeWithPipeline(config, pipeline);
@@ -100,7 +100,7 @@ TEST(EosSessionCompositionRootTest, ComposeWithPipelineSyncsInjectedPipelineAndC
 TEST(EosSessionCompositionRootTest, ComposeWithControllerSyncsProvidedControllerPipeline) {
   CountingPipeline pipeline;
   extension::EosController controller(pipeline);
-  const EosSessionConfig config = MakeSessionConfig();
+  const config::EosSessionConfig config = MakeSessionConfig();
 
   EosSessionComposition composition =
       EosSessionCompositionRoot::ComposeWithController(config, controller);
@@ -115,7 +115,7 @@ TEST(EosSessionCompositionRootTest, ComposeWithControllerSyncsProvidedController
 }
 
 TEST(EosSessionCompositionRootTest, ComposeDefaultBuildsOwnedGraphAndRuntimeAssembly) {
-  const EosSessionConfig config = MakeSessionConfig();
+  const config::EosSessionConfig config = MakeSessionConfig();
 
   EosSessionComposition composition = EosSessionCompositionRoot::ComposeDefault(config);
 
@@ -129,7 +129,7 @@ TEST(EosSessionCompositionRootTest, ComposeDefaultBuildsOwnedGraphAndRuntimeAsse
 
 TEST(EosSessionCompositionRootTest, ComposeWithEnvironmentServiceBuildsOwnedPipeline) {
   CountingEnvironmentService environment_service;
-  const EosSessionConfig config = MakeSessionConfig();
+  const config::EosSessionConfig config = MakeSessionConfig();
 
   EosSessionComposition composition =
       EosSessionCompositionRoot::ComposeWithEnvironmentService(config, environment_service);

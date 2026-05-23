@@ -1,6 +1,6 @@
 /**
  * @file RadarSessionConfigBuilder.h
- * @brief 提供链式构造 RadarSessionConfig 的 Builder（用于会话初始化基线配置）。
+ * @brief 提供链式构造 config::RadarSessionConfig 的 Builder（用于会话初始化基线配置）。
  */
 
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
@@ -97,7 +97,7 @@ class ONEQ_API RadarSessionConfigBuilder {
    *
    * @param config 作为编辑基线的会话配置。
    */
-  explicit RadarSessionConfigBuilder(const session::RadarSessionConfig& config);
+  explicit RadarSessionConfigBuilder(const config::RadarSessionConfig& config);
 
   /** @brief 进入探测配置编辑域。 */
   DetectionEditor Detection();
@@ -112,9 +112,9 @@ class ONEQ_API RadarSessionConfigBuilder {
 
   /**
    * @brief 将语义档位翻译为四域配置，生成最终会话配置。
-   * @return 构建完成的 `RadarSessionConfig`（hardware/mission/policy/environment）。
+   * @return 构建完成的 `config::RadarSessionConfig`（hardware/mission/policy/environment）。
    */
-  session::RadarSessionConfig Build() const;
+  config::RadarSessionConfig Build() const;
 
   /**
    * @brief 校验当前 Builder 状态的合法性，用于构造完成前的早期反馈。
@@ -151,7 +151,7 @@ class ONEQ_API RadarSessionConfigBuilder {
   bool enable_imm_fusion_{false};
   profiles::LifecyclePolicyProfile lifecycle_profile_{profiles::LifecyclePolicyProfile::kBalanced};
 
-  session::RadarSessionConfig base_config_{};
+  config::RadarSessionConfig base_config_{};
   model::RadarOrientationConfig orientation_{};
   environment::EnvironmentDefaultConfig env_{};
   environment::JammingSensitivityProfile jamming_sensitivity_profile_{

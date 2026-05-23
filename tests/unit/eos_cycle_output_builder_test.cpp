@@ -69,8 +69,8 @@ void AdvanceTargets(double dt_sec, std::vector<eos_session::EosExternalTargetInp
   }
 }
 
-eos_session::EosSessionConfig MakeConfig() {
-  eos_session::EosSessionConfig config =
+eos_config::EosSessionConfig MakeConfig() {
+  eos_config::EosSessionConfig config =
       eos_config::EosSessionConfigBuilder()
           .Mission()
           .WithWorkMode(eos_config::EosWorkMode::kFused)

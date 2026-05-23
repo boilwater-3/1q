@@ -354,7 +354,7 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
   return true;
 }
 
-std::string EncodeEsrSessionConfig(const EsrSessionConfig& v) {
+std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
   auto hw = esr::replay::CreateEsrHardwareConfig(
       fbb, v.hardware.receiver_band_lower_hz, v.hardware.receiver_band_upper_hz,
@@ -389,7 +389,7 @@ std::string EncodeEsrSessionConfig(const EsrSessionConfig& v) {
   return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
 }
 
-bool DecodeEsrSessionConfig(const std::string& bytes, EsrSessionConfig* out) {
+bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* out) {
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!ver.VerifyBuffer<esr::replay::EsrSessionConfig>()) {
     return false;
@@ -466,7 +466,7 @@ bool DecodeEsrSessionConfig(const std::string& bytes, EsrSessionConfig* out) {
   return true;
 }
 
-std::string EncodeEsrRuntimeConfigPatch(const EsrRuntimeConfigPatch& v) {
+std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
   const auto& ev = v.environment_runtime_config;
   auto ap = esr::replay::CreateEsrAtmosphericPhysicsConfig(
@@ -513,7 +513,7 @@ std::string EncodeEsrRuntimeConfigPatch(const EsrRuntimeConfigPatch& v) {
   return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
 }
 
-bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, EsrRuntimeConfigPatch* out) {
+bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeConfigPatch* out) {
   flatbuffers::Verifier ver(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!ver.VerifyBuffer<esr::replay::EsrRuntimeConfigPatch>()) {
     return false;

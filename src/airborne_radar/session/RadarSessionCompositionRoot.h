@@ -32,15 +32,15 @@ struct RadarSessionComposition {
 
 class RadarSessionCompositionRoot {
  public:
-  static RadarSessionComposition ComposeDefault(const RadarSessionConfig& config);
+  static RadarSessionComposition ComposeDefault(const config::RadarSessionConfig& config);
 
   static RadarSessionComposition ComposeWithSignalPipeline(
-      const RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline);
+      const config::RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline);
 
   static RadarSessionComposition ComposeWithEnvironmentService(
-      const RadarSessionConfig& config, environment::IEnvironmentService& environment_service);
+      const config::RadarSessionConfig& config, environment::IEnvironmentService& environment_service);
 
-  static RadarSessionComposition ComposeWithController(const RadarSessionConfig& config,
+  static RadarSessionComposition ComposeWithController(const config::RadarSessionConfig& config,
                                                        extension::RadarController& controller);
 
   /**
@@ -50,10 +50,10 @@ class RadarSessionCompositionRoot {
    * 注入后内部 LPI/ECCM evaluator 将被跳过。
    */
   static RadarSessionComposition ComposeWithOverrideStrategy(
-      const RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy);
+      const config::RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy);
 
   static RadarSessionComposition ComposeAllExternal(
-      const RadarSessionConfig& config, extension::IRadarContext& radar_context,
+      const config::RadarSessionConfig& config, extension::IRadarContext& radar_context,
       extension::ISignalPipeline& signal_pipeline,
       environment::IEnvironmentService& environment_service,
       extension::RadarController& controller);

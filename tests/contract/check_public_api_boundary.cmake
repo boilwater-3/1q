@@ -88,7 +88,6 @@ set(EOS_MODULE_ENTRY_HEADERS
 
 # ── EOS 配置域 ────────────────────────────────────────────────────────
 set(EOS_CONFIG_HEADERS
-    "electro_optical_sensor/config/EosEnvironmentConfig.h"
     "electro_optical_sensor/config/EosHardwareConfig.h"
     "electro_optical_sensor/config/EosMissionConfig.h"
     "electro_optical_sensor/config/EosPolicyConfig.h"

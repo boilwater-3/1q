@@ -18,12 +18,12 @@ namespace eos_config = ::electro_optical_sensor::config;
 namespace eos_session = ::electro_optical_sensor::session;
 
 TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag) {
-  eos_session::EosSessionConfig current_config;
+  eos_config::EosSessionConfig current_config;
   current_config.mission.scan_rate_deg_per_sec = 20.0f;
   current_config.policy.detection.profile = eos_config::EosDetectionProfile::kBalanced;
-  current_config.environment.scenario_config.preset = eos_config::EosEnvironmentPreset::kStandard;
+  current_config.environment.scenario_config.preset = environment::EosEnvironmentPreset::kStandard;
 
-  eos_config::EosEnvironmentScenarioConfig env_config;
+  environment::EosEnvironmentScenarioConfig env_config;
   env_config.has_custom_overrides = true;
   env_config.custom_overrides.radiative_transfer_model =
       ::electro_optical_sensor::foundation::radiative_transfer::
@@ -31,7 +31,7 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
   env_config.custom_overrides.aerosol_density_factor = 2.0f;
   env_config.custom_overrides.turbulence_factor = 1.2f;
 
-  const eos_session::EosRuntimeConfigPatch patch =
+  const eos_config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(60.0f)
           .WithDetectionProfile(eos_config::EosDetectionProfile::kConservative)
@@ -60,11 +60,11 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
 }
 
 TEST(EosRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {
-  eos_session::EosSessionConfig current_config;
+  eos_config::EosSessionConfig current_config;
   current_config.mission.scan_rate_deg_per_sec = 20.0f;
   current_config.policy.detection.profile = eos_config::EosDetectionProfile::kBalanced;
 
-  const eos_session::EosRuntimeConfigPatch patch =
+  const eos_config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(60.0f)
           .WithDetectionProfile(eos_config::EosDetectionProfile::kConservative)

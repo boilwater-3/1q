@@ -73,7 +73,7 @@ struct EsrSession::Impl {
 EsrSession::EsrSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 
 EsrSession::EsrSession()
-    : impl_(new Impl(EsrSessionCompositionRoot::ComposeDefault(EsrSessionConfig{}))) {}
+    : impl_(new Impl(EsrSessionCompositionRoot::ComposeDefault(config::EsrSessionConfig{}))) {}
 
 EsrSession::~EsrSession() = default;
 
@@ -89,16 +89,16 @@ EsrCycleResult EsrSession::StepWithResult(const session::EsrCycleInput& input) {
   return impl_->RunCycle(input);
 }
 
-void EsrSession::ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
+void EsrSession::ApplyRuntimeConfig(const config::EsrRuntimeConfigPatch& patch) {
   (void)ApplyRuntimeConfigWithResult(patch);
 }
 
-bool EsrSession::TryApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
+bool EsrSession::TryApplyRuntimeConfig(const config::EsrRuntimeConfigPatch& patch) {
   return ApplyRuntimeConfigWithResult(patch).applied;
 }
 
 EsrRuntimeConfigApplyResult EsrSession::ApplyRuntimeConfigWithResult(
-    const EsrRuntimeConfigPatch& patch) {
+    const config::EsrRuntimeConfigPatch& patch) {
   EsrRuntimeConfigApplyResult apply_result;
   const EsrRuntimeConfigResolveResult resolved =
       ResolveEsrRuntimeConfigPatch(impl_->resolved_config, patch);
@@ -125,32 +125,32 @@ EsrRuntimeConfigApplyResult EsrSession::ApplyRuntimeConfigWithResult(
 
 // ── EsrSessionFactory ──────────────────────────────────────────────────────
 
-EsrSession EsrSessionFactory::Create(const EsrSessionConfig& config) {
+EsrSession EsrSessionFactory::Create(const config::EsrSessionConfig& config) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeDefault(config))));
 }
 
-EsrSession EsrSessionFactory::CreateWithPipeline(const EsrSessionConfig& config,
+EsrSession EsrSessionFactory::CreateWithPipeline(const config::EsrSessionConfig& config,
                                                  extension::IInterceptPipeline& pipeline_ref) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeWithPipeline(config, pipeline_ref))));
 }
 
 EsrSession EsrSessionFactory::CreateWithEnvironmentService(
-    const EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service_ref) {
+    const config::EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service_ref) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeWithEnvironmentService(
           config, environment_service_ref))));
 }
 
-EsrSession EsrSessionFactory::CreateWithController(const EsrSessionConfig& config,
+EsrSession EsrSessionFactory::CreateWithController(const config::EsrSessionConfig& config,
                                                    extension::EsrController& controller_ref) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeWithController(config, controller_ref))));
 }
 
 EsrSession EsrSessionFactory::CreateWithAll(
-    const EsrSessionConfig& config, extension::IInterceptPipeline& pipeline_ref,
+    const config::EsrSessionConfig& config, extension::IInterceptPipeline& pipeline_ref,
     environment::IEsrEnvironmentService& environment_service_ref,
     extension::EsrController& controller_ref) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(

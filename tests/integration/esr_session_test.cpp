@@ -44,8 +44,8 @@ EsrCycleInput MakeBaseInput() {
   return input;
 }
 
-EsrSessionConfig MakeSessionConfig() {
-  EsrSessionConfig config = esr_config::EsrSessionConfigBuilder()
+config::EsrSessionConfig MakeSessionConfig() {
+  config::EsrSessionConfig config = esr_config::EsrSessionConfigBuilder()
                                 .Detection()
                                 .WithDetectionProfile(esr_config::EsrDetectionProfile::kBalanced)
                                 .End()
@@ -100,10 +100,10 @@ TEST(EsrSessionIntegrationTest, StepWithResultProducesThreeChannelOutput) {
 }
 
 TEST(EsrSessionIntegrationTest, WorkModeMappingMakesHgesmMoreDetectableThanRwr) {
-  EsrSessionConfig hgesm_config = MakeSessionConfig();
-  hgesm_config.mission.work_mode = EsrWorkMode::kHgesm;
-  EsrSessionConfig rwr_config = hgesm_config;
-  rwr_config.mission.work_mode = EsrWorkMode::kRwr;
+  config::EsrSessionConfig hgesm_config = MakeSessionConfig();
+  hgesm_config.mission.work_mode = config::EsrWorkMode::kHgesm;
+  config::EsrSessionConfig rwr_config = hgesm_config;
+  rwr_config.mission.work_mode = config::EsrWorkMode::kRwr;
 
   EsrCycleInput input = MakeBaseInput();
   input.scene.front().tx_power_w = 30.0;
@@ -119,7 +119,7 @@ TEST(EsrSessionIntegrationTest, WorkModeMappingMakesHgesmMoreDetectableThanRwr) 
 }
 
 TEST(EsrSessionIntegrationTest, MissionPowerOffReturnsEmptyChannels) {
-  EsrSessionConfig config = MakeSessionConfig();
+  config::EsrSessionConfig config = MakeSessionConfig();
   config.mission.power_on = false;
 
   EsrSession session = EsrSessionFactory::Create(config);
@@ -134,7 +134,7 @@ TEST(EsrSessionIntegrationTest, RuntimePatchCanDisableSensorWithoutReconstructio
   const EsrCycleResult baseline = session.StepWithResult(MakeBaseInput());
   EXPECT_GT(CountMatchedTruthObservations(baseline, 1001U), 0U);
 
-  const EsrRuntimeConfigPatch patch =
+  const config::EsrRuntimeConfigPatch patch =
       esr_config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
   session.ApplyRuntimeConfig(patch);
 
@@ -152,7 +152,7 @@ TEST(EsrSessionIntegrationTest, RuntimePatchCanApplyExplicitScanBounds) {
   const EsrCycleResult baseline = session.StepWithResult(input);
   EXPECT_GT(CountMatchedTruthObservations(baseline, 1001U), 0U);
 
-  const EsrRuntimeConfigPatch block_patch =
+  const config::EsrRuntimeConfigPatch block_patch =
       esr_config::EsrRuntimeConfigBuilder()
           .WithExplicitScanBoundsDeg(-180.0f, -150.0f, -20.0f, 20.0f)
           .Build();
@@ -166,13 +166,17 @@ TEST(EsrSessionIntegrationTest, InvalidRuntimePatchRejectedAtomically) {
   const EsrCycleResult baseline = session.StepWithResult(MakeBaseInput());
   const std::size_t baseline_matched = CountMatchedTruthObservations(baseline, 1001U);
 
-  EsrRuntimeConfigPatch invalid_patch;
+  config::EsrRuntimeConfigPatch invalid_patch;
   invalid_patch.has_explicit_scan_bounds = true;
   invalid_patch.explicit_scan_bounds.enabled = true;
-  invalid_patch.explicit_scan_bounds.scan_start_az_deg = std::numeric_limits<float>::quiet_NaN();
-  invalid_patch.explicit_scan_bounds.scan_end_az_deg = 10.0f;
-  invalid_patch.explicit_scan_bounds.scan_start_el_deg = -10.0f;
-  invalid_patch.explicit_scan_bounds.scan_end_el_deg = 10.0f;
+  invalid_patch.has_scan_start_az_deg = true;
+  invalid_patch.has_scan_end_az_deg = true;
+  invalid_patch.has_scan_start_el_deg = true;
+  invalid_patch.has_scan_end_el_deg = true;
+  invalid_patch.scan_start_az_deg = std::numeric_limits<float>::quiet_NaN();
+  invalid_patch.scan_end_az_deg = 10.0f;
+  invalid_patch.scan_start_el_deg = -10.0f;
+  invalid_patch.scan_end_el_deg = 10.0f;
   session.ApplyRuntimeConfig(invalid_patch);
 
   const EsrCycleResult after_invalid = session.StepWithResult(MakeBaseInput());

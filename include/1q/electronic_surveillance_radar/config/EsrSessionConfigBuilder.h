@@ -52,10 +52,10 @@ class ONEQ_API EsrSessionConfigBuilder {
   class DetectionEditor;
   class EnvironmentEditor;
 
-  explicit EsrSessionConfigBuilder(const session::EsrSessionConfig& config = {})
+  explicit EsrSessionConfigBuilder(const config::EsrSessionConfig& config = {})
       : config_(config) {}
 
-  EsrSessionConfigBuilder& WithSessionConfig(const session::EsrSessionConfig& config) {
+  EsrSessionConfigBuilder& WithSessionConfig(const config::EsrSessionConfig& config) {
     config_ = config;
     return *this;
   }
@@ -63,7 +63,7 @@ class ONEQ_API EsrSessionConfigBuilder {
   DetectionEditor Detection();
   EnvironmentEditor Environment();
 
-  session::EsrSessionConfig Build() const { return config_; }
+  config::EsrSessionConfig Build() const { return config_; }
 
   /**
    * @brief 校验当前 Builder 状态的合法性，用于构造完成前的早期反馈。
@@ -85,7 +85,7 @@ class ONEQ_API EsrSessionConfigBuilder {
   friend class DetectionEditor;
   friend class EnvironmentEditor;
 
-  session::EsrSessionConfig config_{};
+  config::EsrSessionConfig config_{};
 };
 
 class ONEQ_API EsrSessionConfigBuilder::MissionEditor {

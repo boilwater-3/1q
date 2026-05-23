@@ -81,8 +81,8 @@ class CountingEnvironmentService final : public environment::IEosEnvironmentServ
   mutable environment::EosEnvironmentModelInputs last_inputs{};
 };
 
-EosSessionConfig MakeSessionConfig() {
-  EosSessionConfig config;
+config::EosSessionConfig MakeSessionConfig() {
+  config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   config.policy.detection.profile = config::EosDetectionProfile::kAggressive;
   config.mission.scan_rate_deg_per_sec = 5.0f;
@@ -196,7 +196,7 @@ TEST(EosSessionFactoryTest, ApplyRuntimeConfigUpdatesInjectedControllerPipeline)
 
   EXPECT_EQ(pipeline.update_count, 2U);
 
-  EosRuntimeConfigPatch patch;
+  config::EosRuntimeConfigPatch patch;
   patch.has_scan_rate_deg_per_sec = true;
   patch.scan_rate_deg_per_sec = 9.0f;
   session.ApplyRuntimeConfig(patch);
@@ -212,7 +212,7 @@ TEST(EosSessionFactoryTest, InvalidRuntimeConfigDoesNotUpdateInjectedControllerP
 
   EXPECT_EQ(pipeline.update_count, 2U);
 
-  EosRuntimeConfigPatch patch;
+  config::EosRuntimeConfigPatch patch;
   patch.has_frame_rate_hz = true;
   patch.frame_rate_hz = 0.0f;
   session.ApplyRuntimeConfig(patch);

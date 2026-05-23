@@ -52,7 +52,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
  * @param execution_config 内部执行配置。
  * @return 对应的四域会话配置。
  */
-session::RadarSessionConfig MapExecutionToSession(
+config::RadarSessionConfig MapExecutionToSession(
     const execution::InternalExecutionConfig& execution_config);
 
 /**
@@ -60,7 +60,7 @@ session::RadarSessionConfig MapExecutionToSession(
  * @param runtime_state 当前运行期状态。
  * @return 已叠加运行期驻留偏移的四域会话配置。
  */
-session::RadarSessionConfig MapRuntimeStateToPipelineSession(
+config::RadarSessionConfig MapRuntimeStateToPipelineSession(
     const RuntimeConfigState& runtime_state);
 
 }  // namespace mapping

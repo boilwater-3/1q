@@ -51,7 +51,7 @@ struct ONEQ_API RadarTraceSessionOptions {
  */
 class ONEQ_API RadarTraceSession {
  public:
-  explicit RadarTraceSession(const RadarSessionConfig& config = {},
+  explicit RadarTraceSession(const config::RadarSessionConfig& config = {},
                              RadarTraceSessionOptions options = {});
 
   RadarTraceSession(RadarTraceSession&& other) noexcept;

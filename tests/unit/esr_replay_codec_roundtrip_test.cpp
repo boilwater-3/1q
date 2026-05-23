@@ -255,11 +255,11 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
 }
 
 // ---------------------------------------------------------------------------
-// EsrSessionConfig
+// config::EsrSessionConfig
 // ---------------------------------------------------------------------------
 
 TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
-  EsrSessionConfig config;
+  config::EsrSessionConfig config;
   // hardware
   config.hardware.receiver_band_lower_hz = 0.5e9;
   config.hardware.receiver_band_upper_hz = 18.0e9;
@@ -303,7 +303,7 @@ TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   const std::string bytes = EncodeEsrSessionConfig(config);
   ASSERT_FALSE(bytes.empty());
 
-  EsrSessionConfig decoded;
+  config::EsrSessionConfig decoded;
   ASSERT_TRUE(DecodeEsrSessionConfig(bytes, &decoded));
 
   // hardware
@@ -340,11 +340,11 @@ TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
 }
 
 // ---------------------------------------------------------------------------
-// EsrRuntimeConfigPatch
+// config::EsrRuntimeConfigPatch
 // ---------------------------------------------------------------------------
 
 TEST(EsrReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
-  EsrRuntimeConfigPatch patch;
+  config::EsrRuntimeConfigPatch patch;
   patch.has_sensor_enabled = true;
   patch.sensor_enabled = false;
   patch.has_work_mode = true;
@@ -383,7 +383,7 @@ TEST(EsrReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   const std::string bytes = EncodeEsrRuntimeConfigPatch(patch);
   ASSERT_FALSE(bytes.empty());
 
-  EsrRuntimeConfigPatch decoded;
+  config::EsrRuntimeConfigPatch decoded;
   ASSERT_TRUE(DecodeEsrRuntimeConfigPatch(bytes, &decoded));
 
   EXPECT_TRUE(decoded.has_sensor_enabled);

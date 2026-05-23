@@ -28,7 +28,7 @@ using airborne_radar::session::RadarSession;
 using airborne_radar::session::RadarExternalTargetInput;
 using airborne_radar::session::TrackOutputFrame;
 
-airborne_radar::session::RadarSessionConfig MakeDetectionFocusedConfig() {
+airborne_radar::config::RadarSessionConfig MakeDetectionFocusedConfig() {
   return airborne_radar::config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(

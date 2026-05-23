@@ -19,14 +19,14 @@ namespace session {
 std::string EncodeEsrCycleInput(const EsrCycleInput& value);
 std::string EncodeEsrOutputFrame(const session::EsrOutputFrame& value);
 std::string EncodeEsrCycleResult(const EsrCycleResult& value);
-std::string EncodeEsrSessionConfig(const EsrSessionConfig& value);
-std::string EncodeEsrRuntimeConfigPatch(const EsrRuntimeConfigPatch& value);
+std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& value);
+std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& value);
 
 bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out);
 bool DecodeEsrOutputFrame(const std::string& bytes, session::EsrOutputFrame* out);
 bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out);
-bool DecodeEsrSessionConfig(const std::string& bytes, EsrSessionConfig* out);
-bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, EsrRuntimeConfigPatch* out);
+bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* out);
+bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeConfigPatch* out);
 
 }  // namespace session
 }  // namespace electronic_surveillance_radar

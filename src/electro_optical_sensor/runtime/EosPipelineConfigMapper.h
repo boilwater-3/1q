@@ -19,7 +19,7 @@ namespace session {
  * @return 对应的 pipeline 配置。
  */
 ::electro_optical_sensor::extension::EosPipelineConfig BuildEosPipelineConfig(
-    const ::electro_optical_sensor::session::EosSessionConfig& config);
+    const ::electro_optical_sensor::config::EosSessionConfig& config);
 
 }  // namespace session
 }  // namespace runtime

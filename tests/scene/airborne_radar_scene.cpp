@@ -10,6 +10,7 @@
 
 namespace ar = airborne_radar;
 namespace ar_session = airborne_radar::session;
+namespace ar_config = airborne_radar::config;
 namespace ar_env = airborne_radar::environment;
 namespace ar_model = airborne_radar::model;
 
@@ -85,7 +86,7 @@ ar_session::RadarEnvironmentInput MakeEnvironment() {
 }
 
 SceneState InitScene() {
-  ar_session::RadarSessionConfig config;
+  ar_config::RadarSessionConfig config;
   std::string error;
   if (!examples::LoadArSessionConfigFromFile(SCENE_CONFIG_DIR "/airborne_radar.json",
                                               &config, &error)) {

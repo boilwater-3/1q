@@ -71,7 +71,7 @@ environment::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
   return config;
 }
 
-void ApplyDetectionIntentProfile(session::RadarSessionConfig* config,
+void ApplyDetectionIntentProfile(config::RadarSessionConfig* config,
                                  config::profiles::DetectionIntentProfile profile) {
   if (config == nullptr) {
     return;
@@ -97,7 +97,7 @@ void ApplyDetectionIntentProfile(session::RadarSessionConfig* config,
   }
 }
 
-void ApplyLifecyclePolicyProfile(session::RadarSessionConfig* config,
+void ApplyLifecyclePolicyProfile(config::RadarSessionConfig* config,
                                  config::profiles::LifecyclePolicyProfile profile) {
   if (config == nullptr) {
     return;

@@ -34,7 +34,7 @@ namespace {
 
 using ExecutionConfig = config::execution::InternalExecutionConfig;
 
-session::RadarSessionConfig MakeDetectionFocusedConfig() {
+config::RadarSessionConfig MakeDetectionFocusedConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
@@ -48,7 +48,7 @@ session::RadarSessionConfig MakeDetectionFocusedConfig() {
       .Build();
 }
 
-session::RadarSessionConfig MakeTrackingFocusedConfig() {
+config::RadarSessionConfig MakeTrackingFocusedConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kTrackStabilityPriority)
@@ -56,7 +56,7 @@ session::RadarSessionConfig MakeTrackingFocusedConfig() {
       .Build();
 }
 
-session::RadarSessionConfig MakeRobustTrackingConfig() {
+config::RadarSessionConfig MakeRobustTrackingConfig() {
   return config::RadarSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kTrackStabilityPriority)
@@ -177,7 +177,7 @@ environment::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
   return config;
 }
 
-void ApplyHardwareProfile(session::RadarSessionConfig* config,
+void ApplyHardwareProfile(config::RadarSessionConfig* config,
                           config::profiles::RadarHardwareProfile profile) {
   if (config == nullptr) {
     return;
@@ -210,7 +210,7 @@ void ApplyHardwareProfile(session::RadarSessionConfig* config,
   }
 }
 
-void ApplyDetectionIntentProfile(session::RadarSessionConfig* config,
+void ApplyDetectionIntentProfile(config::RadarSessionConfig* config,
                                  config::profiles::DetectionIntentProfile profile) {
   if (config == nullptr) {
     return;
@@ -236,7 +236,7 @@ void ApplyDetectionIntentProfile(session::RadarSessionConfig* config,
   }
 }
 
-void ApplyRcsFusionProfile(session::RadarSessionConfig* config,
+void ApplyRcsFusionProfile(config::RadarSessionConfig* config,
                            config::profiles::RcsFusionProfile profile) {
   if (config == nullptr) {
     return;
@@ -260,7 +260,7 @@ void ApplyRcsFusionProfile(session::RadarSessionConfig* config,
   }
 }
 
-void ApplyTrackingPolicyProfile(session::RadarSessionConfig* config,
+void ApplyTrackingPolicyProfile(config::RadarSessionConfig* config,
                                 config::profiles::TrackingPolicyProfile profile) {
   if (config == nullptr) {
     return;
@@ -286,7 +286,7 @@ void ApplyTrackingPolicyProfile(session::RadarSessionConfig* config,
   }
 }
 
-void ApplyLifecyclePolicyProfile(session::RadarSessionConfig* config,
+void ApplyLifecyclePolicyProfile(config::RadarSessionConfig* config,
                                  config::profiles::LifecyclePolicyProfile profile) {
   if (config == nullptr) {
     return;
@@ -351,7 +351,7 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
 
 TEST(SignalPipelineTest,
      RcsPhysicsOverrideChangesMarginalHeuristicDetectionWhileDisabledPathStaysSame) {
-  session::RadarSessionConfig baseline_config;
+  config::RadarSessionConfig baseline_config;
   baseline_config.hardware.detection.enable_physics_detection = false;
   ApplyDetectionIntentProfile(&baseline_config,
                               config::profiles::DetectionIntentProfile::kBalanced);
@@ -371,7 +371,7 @@ TEST(SignalPipelineTest,
   ASSERT_EQ(baseline_result.updated_scene_targets.size(), 1u);
   EXPECT_FALSE(baseline_measurements.empty());
 
-  session::RadarSessionConfig disabled_override_config = baseline_config;
+  config::RadarSessionConfig disabled_override_config = baseline_config;
   ApplyRcsFusionProfile(&disabled_override_config, config::profiles::RcsFusionProfile::kDisabled);
 
   environment::EnvironmentService disabled_environment(env_config);
@@ -385,7 +385,7 @@ TEST(SignalPipelineTest,
   EXPECT_FLOAT_EQ(disabled_result.updated_scene_targets[0].rcs,
                   baseline_result.updated_scene_targets[0].rcs);
 
-  session::RadarSessionConfig enabled_override_config = disabled_override_config;
+  config::RadarSessionConfig enabled_override_config = disabled_override_config;
   ApplyRcsFusionProfile(&enabled_override_config, config::profiles::RcsFusionProfile::kEnhanced);
 
   environment::EnvironmentService enabled_environment(env_config);
@@ -462,7 +462,7 @@ TEST(SignalPipelineTest, RestoreRuntimeStatePreservesLifecycleTracks) {
 }
 
 TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig) {
-  session::RadarSessionConfig session_runtime_config;
+  config::RadarSessionConfig session_runtime_config;
   session_runtime_config.policy.lifecycle.enable_imm_lifecycle = true;
   const ExecutionConfig exec_config =
       config::mapping::MapSessionToExecution(session_runtime_config);
@@ -484,7 +484,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig)
 }
 
 TEST(SignalPipelineTest, AutoLifecycleManagerCreationFailsWhenImmAssemblyIsInvalid) {
-  session::RadarSessionConfig session_runtime_config;
+  config::RadarSessionConfig session_runtime_config;
   session_runtime_config.policy.tracking.enable_kalman_filter = true;
   session_runtime_config.policy.lifecycle.enable_imm_lifecycle = true;
   ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_runtime_config);
@@ -498,7 +498,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerCreationFailsWhenImmAssemblyIsInval
 }
 
 TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMargin) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   session_config.hardware.detection.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -526,7 +526,7 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
 }
 
 TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   session_config.hardware.detection.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -559,7 +559,7 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
 }
 
 TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTracks) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   ApplyTrackingPolicyProfile(&session_config,
                              config::profiles::TrackingPolicyProfile::kFastAssociation);
 
@@ -605,7 +605,7 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
 }
 
 TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummary) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   ApplyTrackingPolicyProfile(&session_config,
                              config::profiles::TrackingPolicyProfile::kFastAssociation);
 
@@ -723,7 +723,7 @@ TEST(SignalPipelineTest, DominantJammingSemanticStaysNoiseWhenSecondScoreBelowTh
 }
 
 TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   ApplyTrackingPolicyProfile(&session_config,
                              config::profiles::TrackingPolicyProfile::kFastAssociation);
 
@@ -781,7 +781,7 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
 }
 
 TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   session_config.hardware.detection.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -822,7 +822,7 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
 }
 
 TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   session_config.hardware.detection.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -879,7 +879,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
 }
 
 TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatchedEccmEnabled) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   session_config.hardware.detection.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -920,10 +920,10 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
 }
 
 TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
-  session::RadarSessionConfig phase_zero_config;
+  config::RadarSessionConfig phase_zero_config;
   ApplyHardwareProfile(&phase_zero_config,
                        config::profiles::RadarHardwareProfile::kGenericAirborneXBand);
-  session::RadarSessionConfig phase_one_config = phase_zero_config;
+  config::RadarSessionConfig phase_one_config = phase_zero_config;
   ExecutionConfig phase_zero_exec = config::mapping::MapSessionToExecution(phase_zero_config);
   ExecutionConfig phase_one_exec = config::mapping::MapSessionToExecution(phase_one_config);
   phase_zero_exec.detection.engineering.transmitter.frequency_hz = 1.0e9f;
@@ -976,7 +976,7 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
 }
 
 TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
 
@@ -1033,7 +1033,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
 }
 
 TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUpdater) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   ApplyLifecyclePolicyProfile(&session_config,
@@ -1092,7 +1092,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
 }
 
 TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   ApplyLifecyclePolicyProfile(&session_config,
@@ -1139,7 +1139,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
 }
 
 TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOperational) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   ApplyLifecyclePolicyProfile(&session_config,
@@ -1185,7 +1185,7 @@ TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOpe
 }
 
 TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoiseSuppression) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   session_config.hardware.detection.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -1233,7 +1233,7 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
 }
 
 TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmParameters) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   session_config.policy.lifecycle.enable_imm_lifecycle = true;
@@ -1579,7 +1579,7 @@ TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
 /// @brief 杂波功率由内部模型统一给出，不再由外部场景直填。
 
 TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecycleCovariance) {
-  session::RadarSessionConfig session_config;
+  config::RadarSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   ApplyLifecyclePolicyProfile(&session_config,
@@ -1667,7 +1667,7 @@ TEST(SignalPipelineInternalConfigTest, RobustBuilderProfileMapsToRobustProfile) 
 
 TEST(SignalPipelineInternalConfigTest,
      NonDefaultRcsPhysicsBreaksTrackingProfileSignatureAndFallsBackToBaseline) {
-  session::RadarSessionConfig session_config = MakeTrackingFocusedConfig();
+  config::RadarSessionConfig session_config = MakeTrackingFocusedConfig();
   ApplyRcsFusionProfile(&session_config, config::profiles::RcsFusionProfile::kEnhanced);
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
 
@@ -1678,7 +1678,7 @@ TEST(SignalPipelineInternalConfigTest,
 }
 
 TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLifecycleThresholds) {
-  session::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
+  config::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
   ApplyDetectionIntentProfile(&session_config, config::profiles::DetectionIntentProfile::kBalanced);
   ApplyLifecyclePolicyProfile(&session_config, config::profiles::LifecyclePolicyProfile::kBalanced);
   ApplyTrackingPolicyProfile(&session_config, config::profiles::TrackingPolicyProfile::kBalanced);
@@ -1691,7 +1691,7 @@ TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLife
 }
 
 TEST(SignalPipelineInternalConfigTest, ImmToggleOnlyControlsImmInternalDefaults) {
-  session::RadarSessionConfig session_config = MakeTrackingFocusedConfig();
+  config::RadarSessionConfig session_config = MakeTrackingFocusedConfig();
   const ExecutionConfig imm_disabled_exec = config::mapping::MapSessionToExecution(session_config);
   EXPECT_TRUE(imm_disabled_exec.lifecycle.imm_model_noise_diff_coeffs.empty());
   EXPECT_FLOAT_EQ(imm_disabled_exec.tracking.speed_decay_ratio_on_loss, 1.0f);
