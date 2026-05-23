@@ -87,7 +87,6 @@ void WriteCycleResultReplay(const std::shared_ptr<oneq::replay::ReplayTraceWrite
   writer->WriteEvent(event);
 }
 
-// P1-A: 若 result 携带 validation error，自动落盘 failure_marker。
 void MaybeWriteValidationFailureMarker(
     const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
     const RadarCycleResult& result) {
@@ -119,102 +118,118 @@ void WriteCycleInputEvent(const std::shared_ptr<oneq::replay::ReplayTraceWriter>
 
 }  // namespace
 
+struct RadarTraceSession::Impl {
+  Impl(RadarSession s, std::shared_ptr<oneq::trace::TraceSink> sk,
+       std::shared_ptr<oneq::replay::ReplayTraceWriter> rw)
+      : session(std::move(s)), sink(std::move(sk)), replay_writer(std::move(rw)) {}
+
+  RadarSession session;
+  std::shared_ptr<oneq::trace::TraceSink> sink;
+  std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer;
+  bool pending_input_written{false};
+};
+
 RadarTraceSession::RadarTraceSession(const RadarSessionConfig& config,
                                      RadarTraceSessionOptions options)
-    : session_(RadarSessionFactory::Create(config)),
-      sink_(std::move(options.sink)),
-      replay_writer_(std::move(options.replay_writer)) {
-  if (sink_ && options.trace_config_on_construct) {
-    sink_->Record("airborne_radar", "config", "{}");
-  }
-  if (replay_writer_ && options.trace_config_on_construct) {
-    WriteSessionConfigReplay(replay_writer_, config);
+    : impl_(new Impl(RadarSessionFactory::Create(config), std::move(options.sink),
+                     std::move(options.replay_writer))) {
+  if (options.trace_config_on_construct) {
+    if (impl_->sink) {
+      impl_->sink->Record("airborne_radar", "config", "{}");
+    }
+    if (impl_->replay_writer) {
+      WriteSessionConfigReplay(impl_->replay_writer, config);
+    }
   }
 }
 
+RadarTraceSession::RadarTraceSession(RadarTraceSession&& other) noexcept = default;
+RadarTraceSession& RadarTraceSession::operator=(RadarTraceSession&& other) noexcept = default;
+RadarTraceSession::~RadarTraceSession() = default;
+
 session::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) {
-  if (sink_) {
-    sink_->Record("airborne_radar", "input", BuildRadarInputPayload(input));
+  if (impl_->sink) {
+    impl_->sink->Record("airborne_radar", "input", BuildRadarInputPayload(input));
   }
-  if (replay_writer_) {
-    if (pending_input_written_) {
+  if (impl_->replay_writer) {
+    if (impl_->pending_input_written) {
       oneq::replay::ReplayTraceEvent warn_ev;
       warn_ev.module = "airborne_radar";
       warn_ev.event_type = "warning";
       warn_ev.payload_type = "ConsecutiveCycleInputWarning";
       warn_ev.payload_inline = "{\"message\":\"consecutive cycle_input without cycle_output\"}";
-      replay_writer_->WriteEvent(warn_ev);
+      impl_->replay_writer->WriteEvent(warn_ev);
     }
-    WriteCycleInputEvent(replay_writer_, input);
-    pending_input_written_ = true;
+    WriteCycleInputEvent(impl_->replay_writer, input);
+    impl_->pending_input_written = true;
   }
-  const RadarCycleResult result = session_.StepWithResult(input);
-  if (sink_) {
-    sink_->Record("airborne_radar", "output", BuildRadarOutputPayload(result));
+  const RadarCycleResult result = impl_->session.StepWithResult(input);
+  if (impl_->sink) {
+    impl_->sink->Record("airborne_radar", "output", BuildRadarOutputPayload(result));
   }
-  if (replay_writer_) {
-    WriteCycleResultReplay(replay_writer_, result);
-    MaybeWriteValidationFailureMarker(replay_writer_, result);
-    pending_input_written_ = false;
+  if (impl_->replay_writer) {
+    WriteCycleResultReplay(impl_->replay_writer, result);
+    MaybeWriteValidationFailureMarker(impl_->replay_writer, result);
+    impl_->pending_input_written = false;
   }
   return result.track_output_frame;
 }
 
 RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input) {
-  if (sink_) {
-    sink_->Record("airborne_radar", "input", BuildRadarInputPayload(input));
+  if (impl_->sink) {
+    impl_->sink->Record("airborne_radar", "input", BuildRadarInputPayload(input));
   }
-  if (replay_writer_) {
-    if (pending_input_written_) {
+  if (impl_->replay_writer) {
+    if (impl_->pending_input_written) {
       oneq::replay::ReplayTraceEvent warn_ev;
       warn_ev.module = "airborne_radar";
       warn_ev.event_type = "warning";
       warn_ev.payload_type = "ConsecutiveCycleInputWarning";
       warn_ev.payload_inline = "{\"message\":\"consecutive cycle_input without cycle_output\"}";
-      replay_writer_->WriteEvent(warn_ev);
+      impl_->replay_writer->WriteEvent(warn_ev);
     }
-    WriteCycleInputEvent(replay_writer_, input);
-    pending_input_written_ = true;
+    WriteCycleInputEvent(impl_->replay_writer, input);
+    impl_->pending_input_written = true;
   }
-  const RadarCycleResult output = session_.StepWithResult(input);
-  if (sink_) {
-    sink_->Record("airborne_radar", "output", BuildRadarOutputPayload(output));
+  const RadarCycleResult output = impl_->session.StepWithResult(input);
+  if (impl_->sink) {
+    impl_->sink->Record("airborne_radar", "output", BuildRadarOutputPayload(output));
   }
-  if (replay_writer_) {
-    WriteCycleResultReplay(replay_writer_, output);
-    MaybeWriteValidationFailureMarker(replay_writer_, output);
-    pending_input_written_ = false;
+  if (impl_->replay_writer) {
+    WriteCycleResultReplay(impl_->replay_writer, output);
+    MaybeWriteValidationFailureMarker(impl_->replay_writer, output);
+    impl_->pending_input_written = false;
   }
   return output;
 }
 
 void RadarTraceSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
-  if (replay_writer_) {
-    WriteRuntimeConfigPatchReplay(replay_writer_, patch);
+  if (impl_->replay_writer) {
+    WriteRuntimeConfigPatchReplay(impl_->replay_writer, patch);
   }
-  session_.ApplyRuntimeConfig(patch);
+  impl_->session.ApplyRuntimeConfig(patch);
 }
 
 const std::vector<extension::control::RadarCommand>& RadarTraceSession::GetSubmittedCommands()
     const {
-  return session_.GetSubmittedCommands();
+  return impl_->session.GetSubmittedCommands();
 }
 
 bool RadarTraceSession::HasLatestControlProfile() const {
-  return session_.HasLatestControlProfile();
+  return impl_->session.HasLatestControlProfile();
 }
 
 const extension::control::RadarControlProfile& RadarTraceSession::GetLatestControlProfile() const {
-  return session_.GetLatestControlProfile();
+  return impl_->session.GetLatestControlProfile();
 }
 
 extension::AssociationQualityMetrics RadarTraceSession::GetLastAssociationQualityMetrics() const {
-  return session_.GetLastAssociationQualityMetrics();
+  return impl_->session.GetLastAssociationQualityMetrics();
 }
 
-RadarSession& RadarTraceSession::session() { return session_; }
+RadarSession& RadarTraceSession::session() { return impl_->session; }
 
-const RadarSession& RadarTraceSession::session() const { return session_; }
+const RadarSession& RadarTraceSession::session() const { return impl_->session; }
 
 }  // namespace session
 }  // namespace airborne_radar

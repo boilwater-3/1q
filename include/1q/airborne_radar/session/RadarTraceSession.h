@@ -53,6 +53,14 @@ class ONEQ_API RadarTraceSession {
   explicit RadarTraceSession(const RadarSessionConfig& config = {},
                              RadarTraceSessionOptions options = {});
 
+  RadarTraceSession(RadarTraceSession&& other) noexcept;
+  RadarTraceSession& operator=(RadarTraceSession&& other) noexcept;
+
+  RadarTraceSession(const RadarTraceSession&) = delete;
+  RadarTraceSession& operator=(const RadarTraceSession&) = delete;
+
+  ~RadarTraceSession();
+
   session::TrackOutputFrame Step(const RadarCycleInput& input);
   RadarCycleResult StepWithResult(const RadarCycleInput& input);
 
@@ -67,10 +75,8 @@ class ONEQ_API RadarTraceSession {
   const RadarSession& session() const;
 
  private:
-  RadarSession session_;
-  std::shared_ptr<oneq::trace::TraceSink> sink_;
-  std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer_;
-  bool pending_input_written_{false};
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace session
