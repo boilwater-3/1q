@@ -1042,7 +1042,7 @@ bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, RadarCycleRes
   return true;
 }
 
-std::string EncodeSessionConfigFlatbuffer(const RadarSessionConfig& config) {
+std::string EncodeSessionConfigFlatbuffer(const config::RadarSessionConfig& config) {
   flatbuffers::FlatBufferBuilder builder;
   const flatbuffers::Offset<session_fb::RadarSessionConfig> root =
       session_fb::CreateRadarSessionConfig(
@@ -1058,17 +1058,17 @@ std::string EncodeSessionConfigFlatbuffer(const RadarSessionConfig& config) {
                      reinterpret_cast<const char*>(buffer) + builder.GetSize());
 }
 
-bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, RadarSessionConfig* config,
+bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, config::RadarSessionConfig* config,
                                    std::string* error) {
   if (config == nullptr) {
     if (error != nullptr) {
-      *error = "null RadarSessionConfig output";
+      *error = "null config::RadarSessionConfig output";
     }
     return false;
   }
   if (payload_bytes.empty()) {
     if (error != nullptr) {
-      *error = "empty RadarSessionConfig flatbuffers payload";
+      *error = "empty config::RadarSessionConfig flatbuffers payload";
     }
     return false;
   }
@@ -1077,7 +1077,7 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, RadarSessio
   flatbuffers::Verifier verifier(data, payload_bytes.size());
   if (!session_fb::VerifyRadarSessionConfigBuffer(verifier)) {
     if (error != nullptr) {
-      *error = "invalid RadarSessionConfig flatbuffers payload";
+      *error = "invalid config::RadarSessionConfig flatbuffers payload";
     }
     return false;
   }

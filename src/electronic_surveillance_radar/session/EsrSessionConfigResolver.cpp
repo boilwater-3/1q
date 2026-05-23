@@ -28,7 +28,7 @@ void NormalizeScanBounds(float* start, float* end) {
   }
 }
 
-void ApplyWorkModeAdjustment(EsrWorkMode mode,
+void ApplyWorkModeAdjustment(config::EsrWorkMode mode,
                              extension::InterceptStatisticalDetectionConfig* config) {
   if (config == nullptr) {
     return;
@@ -38,18 +38,18 @@ void ApplyWorkModeAdjustment(EsrWorkMode mode,
                                 ? config->threshold_scale
                                 : 1.0f;
   switch (mode) {
-    case EsrWorkMode::kHgesm:
+    case config::EsrWorkMode::kHgesm:
       config->pulse_count =
           std::min<std::uint32_t>(config->pulse_count * kActiveScanPulseMultiplier, kMaxPulseCount);
       config->threshold_scale =
           std::max(kMinimumThresholdScale, config->threshold_scale * kHgesmThresholdScale);
       break;
-    case EsrWorkMode::kRwr:
+    case config::EsrWorkMode::kRwr:
       config->pulse_count = std::max<std::uint32_t>(1U, config->pulse_count / 2U);
       config->threshold_scale =
           std::max(kMinimumThresholdScale, config->threshold_scale * kRwrThresholdScale);
       break;
-    case EsrWorkMode::kEsm:
+    case config::EsrWorkMode::kEsm:
     default:
       break;
   }
@@ -156,7 +156,7 @@ void ApplyEnvironmentConfig(const config::EsrEnvironmentConfig& env_config,
 
 }  // namespace
 
-ResolvedEsrSessionConfig ResolveEsrSessionConfig(const EsrSessionConfig& session_config) {
+ResolvedEsrSessionConfig ResolveEsrSessionConfig(const config::EsrSessionConfig& session_config) {
   ResolvedEsrSessionConfig resolved;
   const config::EsrHardwareConfig& hardware = session_config.hardware;
   const config::EsrMissionConfig& mission = session_config.mission;

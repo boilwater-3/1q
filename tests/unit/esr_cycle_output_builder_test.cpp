@@ -78,8 +78,8 @@ void AdvanceEmitters(double dt_sec, std::vector<esr_session::EsrExternalEmitterI
   }
 }
 
-esr_session::EsrSessionConfig MakeConfig() {
-  esr_session::EsrSessionConfig config =
+esr_config::EsrSessionConfig MakeConfig() {
+  esr_config::EsrSessionConfig config =
       esr_config::EsrSessionConfigBuilder()
           .Detection()
           .WithDetectionProfile(esr_config::EsrDetectionProfile::kSensitive)

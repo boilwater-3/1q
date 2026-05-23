@@ -8,6 +8,7 @@
 #include "config_loader.h"
 
 namespace esr_session = electronic_surveillance_radar::session;
+namespace esr_config = electronic_surveillance_radar::config;
 namespace esr_env = electronic_surveillance_radar::environment;
 
 namespace {
@@ -47,7 +48,7 @@ esr_session::EsrExternalEmitterInput ToEmitterInput(const EmitterState& e) {
 }
 
 SceneState InitScene() {
-  esr_session::EsrSessionConfig config;
+  esr_config::EsrSessionConfig config;
   std::string error;
   if (!examples::LoadEsrSessionConfigFromFile(SCENE_CONFIG_DIR "/electronic_warfare.json",
                                                &config, &error)) {

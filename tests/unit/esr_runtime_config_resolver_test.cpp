@@ -25,7 +25,7 @@ TEST(EsrRuntimeConfigResolverTest, ValidPatchUpdatesRuntimePipelineAndEnvironmen
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.relative_humidity = 0.66f;
 
-  const EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
+  const config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
                                           .WithScanRateHz(4.0f)
                                           .WithWorkMode(esr_config::EsrWorkMode::kRwr)
                                           .WithAtmosphericPhysicsConfig(atmospheric_physics)
@@ -58,7 +58,7 @@ TEST(EsrRuntimeConfigResolverTest, PresetPatchIsRejected) {
   environment_patch.has_preset = true;
   environment_patch.preset = esr_config::EsrEnvironmentPreset::kJammed;
 
-  const EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
+  const config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
                                           .WithEnvironmentRuntimeConfig(environment_patch)
                                           .Build();
   const EsrRuntimeConfigResolveResult resolved =
@@ -85,7 +85,7 @@ TEST(EsrRuntimeConfigResolverTest, AtmosphericPhysicsOnlyDoesNotOverridePresetOr
   atmospheric_physics.temperature_k = 295.0f;
   atmospheric_physics.relative_humidity = 0.81f;
 
-  const EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
+  const config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
                                           .WithAtmosphericPhysicsConfig(atmospheric_physics)
                                           .Build();
   const EsrRuntimeConfigResolveResult resolved =
@@ -111,7 +111,7 @@ TEST(EsrRuntimeConfigResolverTest, AtmosphericContextOnlyDoesNotOverridePresetOr
   atmospheric_context.day_of_year = 245;
   atmospheric_context.solar_flux_f107 = 180.0f;
 
-  const EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
+  const config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
                                           .WithAtmosphericContext(atmospheric_context)
                                           .Build();
   const EsrRuntimeConfigResolveResult resolved =
@@ -140,7 +140,7 @@ TEST(EsrRuntimeConfigResolverTest, MultiEnvironmentSubdomainsCanBeUpdatedInSingl
   atmospheric_context.has_k_factor = true;
   atmospheric_context.k_factor = 1.37f;
 
-  const EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
+  const config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
                                           .WithAtmosphericPhysicsConfig(atmospheric_physics)
                                           .WithAtmosphericContext(atmospheric_context)
                                           .Build();
@@ -161,7 +161,7 @@ TEST(EsrRuntimeConfigResolverTest, InvalidExplicitBoundsRejectWholePatch) {
   ResolvedEsrSessionConfig current_config;
   current_config.runtime_config.scan_rate_hz = 1.0f;
 
-  EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder().WithScanRateHz(3.0f).Build();
+  config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder().WithScanRateHz(3.0f).Build();
   patch.has_use_explicit_scan_bounds = true;
   patch.use_explicit_scan_bounds = true;
   patch.has_scan_start_az_deg = true;

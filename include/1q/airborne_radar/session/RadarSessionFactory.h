@@ -29,7 +29,7 @@ namespace session {
  */
 class ONEQ_API RadarSessionFactory {
  public:
-  static RadarSession Create(const RadarSessionConfig& config = {});
+  static RadarSession Create(const config::RadarSessionConfig& config = {});
 
   /**
    * @brief 使用外部 signal pipeline 创建会话。
@@ -39,12 +39,12 @@ class ONEQ_API RadarSessionFactory {
    *       `CaptureRuntimeState()` / `RestoreRuntimeState()`，并保证恢复后不遗留内部副作用。
    */
   static RadarSession CreateWithSignalPipeline(
-      const RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline);
+      const config::RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline);
 
   static RadarSession CreateWithEnvironmentService(
-      const RadarSessionConfig& config, environment::IEnvironmentService& environment_service);
+      const config::RadarSessionConfig& config, environment::IEnvironmentService& environment_service);
 
-  static RadarSession CreateWithController(const RadarSessionConfig& config,
+  static RadarSession CreateWithController(const config::RadarSessionConfig& config,
                                            extension::RadarController& controller);
 
   /**
@@ -56,11 +56,11 @@ class ONEQ_API RadarSessionFactory {
    * @note override_strategy 生命周期必须长于所在会话。
    */
   static RadarSession CreateWithOverrideStrategy(
-      const RadarSessionConfig& config,
+      const config::RadarSessionConfig& config,
       extension::IOverrideControlStrategy& override_strategy);
 
   static RadarSession CreateWithAll(
-      const RadarSessionConfig& config, extension::IRadarContext& radar_context,
+      const config::RadarSessionConfig& config, extension::IRadarContext& radar_context,
       extension::ISignalPipeline& signal_pipeline,
       environment::IEnvironmentService& environment_service,
       extension::RadarController& controller);

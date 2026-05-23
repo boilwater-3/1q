@@ -94,7 +94,7 @@ inline void LoadEosScenario(
 
 inline void LoadEosEnvironment(
     const oneq::JsonValue& j,
-    electro_optical_sensor::config::EosEnvironmentConfig* v) {
+    electro_optical_sensor::environment::EosEnvironmentDefaultConfig* v) {
   if (j.IsNull()) return;
   LoadEosScenario(j["scenario_config"], &v->scenario_config);
 }

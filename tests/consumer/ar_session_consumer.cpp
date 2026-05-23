@@ -22,7 +22,7 @@
 
 int main() {
   // 1. Builder config construction
-  airborne_radar::session::RadarSessionConfig preset_config =
+  airborne_radar::config::RadarSessionConfig preset_config =
       airborne_radar::config::RadarSessionConfigBuilder().Build();
 
   // 2. 直接字段赋值构造会话配置

@@ -116,7 +116,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
       new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-  session::RadarSessionConfig config = config::RadarSessionConfigBuilder().Build();
+  config::RadarSessionConfig config = config::RadarSessionConfigBuilder().Build();
   session::RadarTraceSessionOptions options;
   options.replay_writer = replay_writer;
   options.trace_config_on_construct = true;
@@ -210,7 +210,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     options.replay_writer = replay_writer;
     options.trace_config_on_construct = true;
 
-    session::RadarSessionConfig config;
+    config::RadarSessionConfig config;
     config.policy.lifecycle.confirm_hits = 1U;
     config.policy.lifecycle.max_miss_before_lost = 1U;
     config.policy.tracking.enable_kalman_filter = false;
@@ -354,7 +354,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionUsesInputCycleIndexForValidationF
   options.replay_writer = replay_writer;
   options.trace_config_on_construct = true;
 
-  session::RadarSessionConfig config;
+  config::RadarSessionConfig config;
   session::RadarTraceSession session(config, options);
 
   session::RadarCycleInput input;
@@ -419,7 +419,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
     options.replay_writer = replay_writer;
     options.trace_config_on_construct = true;
 
-    session::RadarSessionConfig config;
+    config::RadarSessionConfig config;
     session::RadarTraceSession session(config, options);
 
     session::RadarCycleInput input;
@@ -461,7 +461,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionStepWritesResultFailureMarker) {
   session::RadarTraceSessionOptions options;
   options.replay_writer = replay_writer;
   options.trace_config_on_construct = true;
-  session::RadarTraceSession session(session::RadarSessionConfig(), options);
+  session::RadarTraceSession session(config::RadarSessionConfig(), options);
 
   session::RadarCycleInput input;
   input.cycle_index = 91U;
@@ -507,7 +507,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionConsecutiveStepWithResultDoesNotE
   session::RadarTraceSessionOptions options;
   options.replay_writer = replay_writer;
   options.trace_config_on_construct = true;
-  session::RadarTraceSession session(session::RadarSessionConfig(), options);
+  session::RadarTraceSession session(config::RadarSessionConfig(), options);
 
   session::RadarCycleInput input1;
   input1.cycle_index = 1U;
@@ -561,7 +561,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionRejectsTrailingCycleInput) {
   config_event.payload_type = "RadarSessionConfig";
   config_event.payload_encoding = "flatbuffers";
   config_event.payload_bytes =
-      session::EncodeSessionConfigFlatbuffer(session::RadarSessionConfig());
+      session::EncodeSessionConfigFlatbuffer(config::RadarSessionConfig());
   writer.WriteEvent(config_event);
 
   session::RadarCycleInput input;
@@ -595,7 +595,7 @@ TEST(TraceSessionAdapterTest, EsrTraceSessionWritesConfigInputOutput) {
   std::shared_ptr<oneq::trace::TraceSink> sink(
       new oneq::trace::FlatbufferFileTraceSink(trace_path, false));
 
-  session::EsrSessionConfig config;
+  config::EsrSessionConfig config;
   config.hardware.beam_az_width_deg = 120.0f;
   config.hardware.beam_el_width_deg = 40.0f;
 
@@ -649,7 +649,7 @@ TEST(TraceSessionAdapterTest, EsrTraceSessionUsesInputCycleIndexForValidationFai
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
       new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-  session::EsrSessionConfig config;
+  config::EsrSessionConfig config;
   config.hardware.beam_az_width_deg = 120.0f;
   config.hardware.beam_el_width_deg = 40.0f;
 
@@ -707,7 +707,7 @@ TEST(TraceSessionAdapterTest, EosTraceSessionWritesConfigInputOutput) {
   std::shared_ptr<oneq::trace::TraceSink> sink(
       new oneq::trace::FlatbufferFileTraceSink(trace_path, false));
 
-  session::EosSessionConfig config;
+  config::EosSessionConfig config;
   config.policy.detection.profile =
       ::electro_optical_sensor::config::EosDetectionProfile::kAggressive;
 
@@ -762,7 +762,7 @@ TEST(TraceSessionAdapterTest, EosTraceSessionUsesInputCycleIndexForValidationFai
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
       new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-  session::EosSessionConfig config;
+  config::EosSessionConfig config;
   config.policy.detection.profile =
       ::electro_optical_sensor::config::EosDetectionProfile::kAggressive;
 

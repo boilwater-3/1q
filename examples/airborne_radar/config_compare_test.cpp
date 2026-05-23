@@ -23,7 +23,7 @@ ar_model::AzimuthElevationDeg MakeAzEl(float az_deg, float el_deg) {
 }
 
 /// Original hardcoded builder from git history.
-ar_session::RadarSessionConfig MakeWideAreaSearchConfig() {
+ar_config::RadarSessionConfig MakeWideAreaSearchConfig() {
   return ar_config::RadarSessionConfigBuilder()
       .Detection()
       .EnablePhysicsDetection(false)
@@ -163,8 +163,8 @@ void CheckRcsPhysics(const ar_config::detection::RcsPhysicsConfig& a,
            "rcs.bistatic_psi_offset_deg");
 }
 
-void CompareConfigs(const ar_session::RadarSessionConfig& a,
-                    const ar_session::RadarSessionConfig& b) {
+void CompareConfigs(const ar_config::RadarSessionConfig& a,
+                    const ar_config::RadarSessionConfig& b) {
   std::cout << "=== Comparing SessionConfig ===\n";
 
   // hardware.detection
@@ -318,9 +318,9 @@ void CompareConfigs(const ar_session::RadarSessionConfig& a,
 }  // namespace
 
 int main() {
-  const ar_session::RadarSessionConfig builder_config = MakeWideAreaSearchConfig();
+  const ar_config::RadarSessionConfig builder_config = MakeWideAreaSearchConfig();
 
-  ar_session::RadarSessionConfig file_config;
+  ar_config::RadarSessionConfig file_config;
   {
     std::string error;
     if (!examples::LoadArSessionConfigFromFile("configs/airborne_radar.json",

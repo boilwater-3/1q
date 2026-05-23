@@ -46,8 +46,8 @@ session::EsrSceneEmitter MakeEmitter(std::uint64_t id) {
   return emitter;
 }
 
-session::EsrSessionConfig MakeSessionConfig() {
-  session::EsrSessionConfig config =
+config::EsrSessionConfig MakeSessionConfig() {
+  config::EsrSessionConfig config =
       config::EsrSessionConfigBuilder()
           .Mission()
           .WithWorkMode(config::EsrWorkMode::kEsm)
@@ -72,8 +72,8 @@ session::EsrSessionConfig MakeSessionConfig() {
 }  // namespace
 
 TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchDefaultConfig) {
-  const session::EsrSessionConfig built = config::EsrSessionConfigBuilder().Build();
-  const session::EsrSessionConfig defaults;
+  const config::EsrSessionConfig built = config::EsrSessionConfigBuilder().Build();
+  const config::EsrSessionConfig defaults;
 
   EXPECT_EQ(built.mission.work_mode, defaults.mission.work_mode);
   EXPECT_EQ(built.policy.detection.profile, defaults.policy.detection.profile);
@@ -81,7 +81,7 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchDefaultConfig
 }
 
 TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesDomainFields) {
-  const session::EsrSessionConfig cfg =
+  const config::EsrSessionConfig cfg =
       config::EsrSessionConfigBuilder()
           .Mission()
           .WithWorkMode(config::EsrWorkMode::kRwr)
@@ -104,7 +104,7 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesDomainFields) {
 }
 
 TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsProfileAndDetails) {
-  session::EsrSessionConfig profile_cfg{};
+  config::EsrSessionConfig profile_cfg{};
   profile_cfg.policy.detection.profile = config::EsrDetectionProfile::kConservative;
   profile_cfg.policy.detection.use_profile_defaults = true;
   profile_cfg.mission.work_mode = config::EsrWorkMode::kEsm;
@@ -112,7 +112,7 @@ TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsProfileAnd
   EXPECT_EQ(profile_cfg.policy.detection.profile, config::EsrDetectionProfile::kConservative);
   EXPECT_TRUE(profile_cfg.policy.detection.use_profile_defaults);
 
-  session::EsrSessionConfig details_cfg{};
+  config::EsrSessionConfig details_cfg{};
   details_cfg.policy.detection.use_profile_defaults = false;
   details_cfg.policy.detection.min_detect_snr_db = 8.0f;
   details_cfg.policy.detection.pfa = 1.0e-5f;
@@ -140,7 +140,7 @@ TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsProfileAnd
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
-  const session::EsrRuntimeConfigPatch patch = config::EsrRuntimeConfigBuilder().Build();
+  const config::EsrRuntimeConfigPatch patch = config::EsrRuntimeConfigBuilder().Build();
 
   EXPECT_FALSE(patch.has_mission);
   EXPECT_FALSE(patch.has_policy);
@@ -160,7 +160,7 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
   atmospheric_context.has_day_of_year = true;
   atmospheric_context.day_of_year = 210;
 
-  const session::EsrRuntimeConfigPatch patch =
+  const config::EsrRuntimeConfigPatch patch =
       config::EsrRuntimeConfigBuilder()
           .WithSensorEnabled(false)
           .WithWorkMode(config::EsrWorkMode::kHgesm)
@@ -202,7 +202,7 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {
   policy.detection.profile = config::EsrDetectionProfile::kSensitive;
   policy.detection.use_profile_defaults = true;
 
-  const session::EsrRuntimeConfigPatch patch =
+  const config::EsrRuntimeConfigPatch patch =
       config::EsrRuntimeConfigBuilder().WithMission(mission).WithPolicy(policy).Build();
 
   EXPECT_TRUE(patch.has_mission);
@@ -302,7 +302,7 @@ TEST(EsrPublicApiConvenienceTest, SessionStepAndRuntimePatchWorkTogether) {
   const session::EsrCycleResult baseline = session.StepWithResult(input);
   EXPECT_FALSE(baseline.has_validation_error);
 
-  const session::EsrRuntimeConfigPatch patch =
+  const config::EsrRuntimeConfigPatch patch =
       config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
   session.ApplyRuntimeConfig(patch);
 
@@ -313,7 +313,7 @@ TEST(EsrPublicApiConvenienceTest, SessionStepAndRuntimePatchWorkTogether) {
 TEST(EsrPublicApiConvenienceTest, TryApplyRuntimeConfigExposesRejectFeedback) {
   session::EsrSession session = session::EsrSessionFactory::Create(MakeSessionConfig());
 
-  session::EsrRuntimeConfigPatch invalid_patch;
+  config::EsrRuntimeConfigPatch invalid_patch;
   invalid_patch.has_use_explicit_scan_bounds = true;
   invalid_patch.use_explicit_scan_bounds = true;
   invalid_patch.has_scan_start_az_deg = true;
@@ -333,7 +333,7 @@ TEST(EsrPublicApiConvenienceTest, TryApplyRuntimeConfigExposesRejectFeedback) {
             session::EsrRuntimeConfigApplyStatus::kRejectedInvalidExplicitScanBounds);
   EXPECT_FALSE(session.TryApplyRuntimeConfig(invalid_patch));
 
-  const session::EsrRuntimeConfigPatch valid_patch =
+  const config::EsrRuntimeConfigPatch valid_patch =
       config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();
   const session::EsrRuntimeConfigApplyResult valid_result =
       session.ApplyRuntimeConfigWithResult(valid_patch);

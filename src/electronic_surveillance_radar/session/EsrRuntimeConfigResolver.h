@@ -27,7 +27,7 @@ struct EsrRuntimeConfigResolveResult {
  * @return 解析结果。
  */
 EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
-    const ResolvedEsrSessionConfig& current_config, const EsrRuntimeConfigPatch& patch);
+    const ResolvedEsrSessionConfig& current_config, const config::EsrRuntimeConfigPatch& patch);
 
 }  // namespace session
 

@@ -159,8 +159,8 @@ void ApplyLifecycleSemanticConfig(bool enable_imm_fusion,
   }
 }
 
-session::RadarSessionConfig BuildDefaultSemanticSessionConfig() {
-  session::RadarSessionConfig config;
+config::RadarSessionConfig BuildDefaultSemanticSessionConfig() {
+  config::RadarSessionConfig config;
   ApplyDetectionSemanticConfig(false, profiles::RadarHardwareProfile::kGenericAirborneXBand,
                                profiles::DetectionIntentProfile::kBalanced,
                                profiles::AntennaPatternProfile::kStandard,
@@ -181,15 +181,15 @@ RadarSessionConfigBuilder::RadarSessionConfigBuilder()
       env_(base_config_.environment),
       jamming_sensitivity_profile_(base_config_.jamming_sensitivity_profile) {}
 
-RadarSessionConfigBuilder::RadarSessionConfigBuilder(const session::RadarSessionConfig& config)
+RadarSessionConfigBuilder::RadarSessionConfigBuilder(const config::RadarSessionConfig& config)
     : base_config_(config),
       orientation_(config.mission.orientation),
       env_(config.environment),
       jamming_sensitivity_profile_(config.jamming_sensitivity_profile) {}
 
-session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
-  session::RadarSessionConfig result = base_config_;
-  const session::RadarSessionConfig default_semantic = BuildDefaultSemanticSessionConfig();
+config::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
+  config::RadarSessionConfig result = base_config_;
+  const config::RadarSessionConfig default_semantic = BuildDefaultSemanticSessionConfig();
   result.mission.orientation = orientation_;
   result.environment = env_;
   result.jamming_sensitivity_profile = jamming_sensitivity_profile_;

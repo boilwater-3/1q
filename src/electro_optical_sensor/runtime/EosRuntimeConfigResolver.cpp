@@ -77,7 +77,7 @@ bool IsValidEnvironmentPatch(
 }
 
 EosRuntimeConfigResolveResult RejectPatch(
-    const ::electro_optical_sensor::session::EosSessionConfig& current_config,
+    const ::electro_optical_sensor::config::EosSessionConfig& current_config,
     bool has_requested_update) {
   EosRuntimeConfigResolveResult rejected;
   rejected.next_config = current_config;
@@ -91,8 +91,8 @@ EosRuntimeConfigResolveResult RejectPatch(
 }  // namespace
 
 EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
-    const ::electro_optical_sensor::session::EosSessionConfig& current_config,
-    const ::electro_optical_sensor::session::EosRuntimeConfigPatch& patch) {
+    const ::electro_optical_sensor::config::EosSessionConfig& current_config,
+    const ::electro_optical_sensor::config::EosRuntimeConfigPatch& patch) {
   EosRuntimeConfigResolveResult resolved;
   resolved.next_config = current_config;
   const bool has_requested_update =

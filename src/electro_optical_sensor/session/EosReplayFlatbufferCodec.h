@@ -24,16 +24,16 @@ namespace session {
 std::string EncodeEosCycleInput(const EosCycleInput& value);
 std::string EncodeEosOutputFrame(const session::EosOutputFrame& value);
 std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCycleResult& value);
-std::string EncodeEosSessionConfig(const EosSessionConfig& value);
-std::string EncodeEosRuntimeConfigPatch(const EosRuntimeConfigPatch& value);
+std::string EncodeEosSessionConfig(const config::EosSessionConfig& value);
+std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& value);
 
 // ---- Decode (bytes -> C++) ----
 
 bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out);
 bool DecodeEosOutputFrame(const std::string& bytes, session::EosOutputFrame* out);
 bool DecodeEosCycleResult(const std::string& bytes, ::electro_optical_sensor::session::EosCycleResult* out);
-bool DecodeEosSessionConfig(const std::string& bytes, EosSessionConfig* out);
-bool DecodeEosRuntimeConfigPatch(const std::string& bytes, EosRuntimeConfigPatch* out);
+bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* out);
+bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeConfigPatch* out);
 
 }  // namespace session
 }  // namespace electro_optical_sensor

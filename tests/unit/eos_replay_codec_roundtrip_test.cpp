@@ -182,11 +182,11 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
 }
 
 // ---------------------------------------------------------------------------
-// EosSessionConfig
+// config::EosSessionConfig
 // ---------------------------------------------------------------------------
 
 TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
-  EosSessionConfig config;
+  config::EosSessionConfig config;
   // hardware
   config.hardware.wavelength_lower_um = 3.0f;
   config.hardware.wavelength_upper_um = 5.0f;
@@ -230,7 +230,7 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   const std::string bytes = EncodeEosSessionConfig(config);
   ASSERT_FALSE(bytes.empty());
 
-  EosSessionConfig decoded;
+  config::EosSessionConfig decoded;
   ASSERT_TRUE(DecodeEosSessionConfig(bytes, &decoded));
 
   // hardware
@@ -266,11 +266,11 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
 }
 
 // ---------------------------------------------------------------------------
-// EosRuntimeConfigPatch
+// config::EosRuntimeConfigPatch
 // ---------------------------------------------------------------------------
 
 TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
-  EosRuntimeConfigPatch patch;
+  config::EosRuntimeConfigPatch patch;
   patch.has_mission = true;
   patch.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   patch.mission.scan_rate_deg_per_sec = 30.0f;
@@ -291,7 +291,7 @@ TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   const std::string bytes = EncodeEosRuntimeConfigPatch(patch);
   ASSERT_FALSE(bytes.empty());
 
-  EosRuntimeConfigPatch decoded;
+  config::EosRuntimeConfigPatch decoded;
   ASSERT_TRUE(DecodeEosRuntimeConfigPatch(bytes, &decoded));
 
   EXPECT_TRUE(decoded.has_mission);

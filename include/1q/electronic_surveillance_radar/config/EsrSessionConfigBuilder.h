@@ -24,10 +24,10 @@ class ONEQ_API EsrSessionConfigBuilder {
   class DetectionEditor;
   class EnvironmentEditor;
 
-  explicit EsrSessionConfigBuilder(const session::EsrSessionConfig& config = {})
+  explicit EsrSessionConfigBuilder(const config::EsrSessionConfig& config = {})
       : config_(config) {}
 
-  EsrSessionConfigBuilder& WithSessionConfig(const session::EsrSessionConfig& config) {
+  EsrSessionConfigBuilder& WithSessionConfig(const config::EsrSessionConfig& config) {
     config_ = config;
     return *this;
   }
@@ -35,14 +35,14 @@ class ONEQ_API EsrSessionConfigBuilder {
   DetectionEditor Detection();
   EnvironmentEditor Environment();
 
-  session::EsrSessionConfig Build() const { return config_; }
+  config::EsrSessionConfig Build() const { return config_; }
 
  private:
   friend class MissionEditor;
   friend class DetectionEditor;
   friend class EnvironmentEditor;
 
-  session::EsrSessionConfig config_{};
+  config::EsrSessionConfig config_{};
 };
 
 class ONEQ_API EsrSessionConfigBuilder::MissionEditor {

@@ -32,7 +32,7 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @brief 构造信号处理流水线（会话配置桥接入口）。
    * @param config 四域会话配置。
    */
-  explicit SignalPipeline(const session::RadarSessionConfig& config);
+  explicit SignalPipeline(const config::RadarSessionConfig& config);
   /**
    * @brief 析构信号处理流水线。
    */
@@ -112,7 +112,7 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @brief 更新流水线运行配置。
    * @param config 四域会话配置。
    */
-  bool UpdateConfig(const session::RadarSessionConfig& config) override;
+  bool UpdateConfig(const config::RadarSessionConfig& config) override;
 
   /**
    * @brief 以 execution 配置直接更新流水线运行配置。

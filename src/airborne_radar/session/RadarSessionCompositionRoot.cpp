@@ -12,15 +12,15 @@ namespace airborne_radar {
 namespace session {
 namespace {
 
-session::RadarSessionConfig BuildRuntimeSessionConfig(const RadarSessionComposition& composition) {
-  session::RadarSessionConfig config;
+config::RadarSessionConfig BuildRuntimeSessionConfig(const RadarSessionComposition& composition) {
+  config::RadarSessionConfig config;
   config.hardware = composition.runtime_hardware;
   config.mission = composition.runtime_mission;
   config.policy = composition.runtime_policy;
   return config;
 }
 
-RadarSessionComposition BuildCompositionBase(const RadarSessionConfig& config) {
+RadarSessionComposition BuildCompositionBase(const config::RadarSessionConfig& config) {
   RadarSessionComposition composition;
   composition.runtime_hardware = config.hardware;
   composition.runtime_mission = config.mission;
@@ -34,7 +34,7 @@ bool SyncPipelineConfig(RadarSessionComposition* composition) {
   if (composition == nullptr || composition->signal_pipeline == nullptr) {
     return false;
   }
-  const session::RadarSessionConfig runtime_session_config =
+  const config::RadarSessionConfig runtime_session_config =
       BuildRuntimeSessionConfig(*composition);
   return composition->signal_pipeline->UpdateConfig(runtime_session_config);
 }
@@ -58,7 +58,7 @@ void SyncEnvironmentJammingThreshold(RadarSessionComposition* composition) {
 }  // namespace
 
 RadarSessionComposition RadarSessionCompositionRoot::ComposeDefault(
-    const RadarSessionConfig& config) {
+    const config::RadarSessionConfig& config) {
   RadarSessionComposition composition = BuildCompositionBase(config);
   composition.owned_radar_context.reset(new MutableRadarContext());
   const config::execution::InternalExecutionConfig runtime_execution_config =
@@ -79,7 +79,7 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeDefault(
 }
 
 RadarSessionComposition RadarSessionCompositionRoot::ComposeWithSignalPipeline(
-    const RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline) {
+    const config::RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline) {
   RadarSessionComposition composition = BuildCompositionBase(config);
   composition.owned_radar_context.reset(new MutableRadarContext());
   composition.owned_environment_service.reset(new environment::EnvironmentService(
@@ -96,7 +96,7 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithSignalPipeline(
 }
 
 RadarSessionComposition RadarSessionCompositionRoot::ComposeWithEnvironmentService(
-    const RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
+    const config::RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
   RadarSessionComposition composition = BuildCompositionBase(config);
   composition.owned_radar_context.reset(new MutableRadarContext());
   const config::execution::InternalExecutionConfig runtime_execution_config =
@@ -115,7 +115,7 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithEnvironmentServi
 }
 
 RadarSessionComposition RadarSessionCompositionRoot::ComposeWithController(
-    const RadarSessionConfig& config, extension::RadarController& controller) {
+    const config::RadarSessionConfig& config, extension::RadarController& controller) {
   RadarSessionComposition composition = BuildCompositionBase(config);
   composition.radar_context = &controller.GetRadarContext();
   composition.signal_pipeline = &controller.GetSignalPipeline();
@@ -128,7 +128,7 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithController(
 }
 
 RadarSessionComposition RadarSessionCompositionRoot::ComposeWithOverrideStrategy(
-    const RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy) {
+    const config::RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy) {
   RadarSessionComposition composition = BuildCompositionBase(config);
   composition.owned_radar_context.reset(new MutableRadarContext());
   const config::execution::InternalExecutionConfig runtime_execution_config =
@@ -149,7 +149,7 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeWithOverrideStrategy
 }
 
 RadarSessionComposition RadarSessionCompositionRoot::ComposeAllExternal(
-    const RadarSessionConfig& config, extension::IRadarContext& radar_context,
+    const config::RadarSessionConfig& config, extension::IRadarContext& radar_context,
     extension::ISignalPipeline& signal_pipeline,
     environment::IEnvironmentService& environment_service,
     extension::RadarController& controller) {

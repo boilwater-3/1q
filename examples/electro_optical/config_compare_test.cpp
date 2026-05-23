@@ -12,8 +12,8 @@ namespace eos_session = electro_optical_sensor::session;
 
 namespace {
 
-eos_session::EosSessionConfig MakeFusedSearchConfig() {
-  eos_session::EosSessionConfig config =
+eos_config::EosSessionConfig MakeFusedSearchConfig() {
+  eos_config::EosSessionConfig config =
       eos_cfg::EosSessionConfigBuilder()
           .Mission()
           .WithWorkMode(eos_cfg::EosWorkMode::kFused)
@@ -62,9 +62,9 @@ void ReportB(const char* name, bool a, bool b) {
 }  // namespace
 
 int main() {
-  const eos_session::EosSessionConfig builder_cfg = MakeFusedSearchConfig();
+  const eos_config::EosSessionConfig builder_cfg = MakeFusedSearchConfig();
 
-  eos_session::EosSessionConfig file_cfg;
+  eos_config::EosSessionConfig file_cfg;
   {
     std::string error;
     if (!examples::LoadEosSessionConfigFromFile("configs/electro_optical.json",

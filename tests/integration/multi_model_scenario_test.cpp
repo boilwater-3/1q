@@ -29,10 +29,12 @@ namespace ar_model = airborne_radar::model;
 
 namespace eos = electro_optical_sensor;
 namespace eos_session = electro_optical_sensor::session;
+namespace eos_config = electro_optical_sensor::config;
 
 namespace esr = electronic_surveillance_radar;
 namespace esr_session = electronic_surveillance_radar::session;
 namespace esr_env = electronic_surveillance_radar::environment;
+namespace esr_config = electronic_surveillance_radar::config;
 
 namespace {
 
@@ -233,7 +235,7 @@ esr_session::EsrCycleInput BuildEsrInput(
 // 干扰场景：AR 启用干扰检测，环境输入含干扰源
 
 // -- 空对空通用 AR 配置 --
-ar_session::RadarSessionConfig MakeArConfigAirToAir() {
+ar_config::RadarSessionConfig MakeArConfigAirToAir() {
   return ar_config::RadarSessionConfigBuilder()
       .Detection()
       .EnablePhysicsDetection(false)
@@ -259,8 +261,8 @@ ar_session::RadarSessionConfig MakeArConfigAirToAir() {
 }
 
 // -- 空对空通用 EOS 配置 --
-eos_session::EosSessionConfig MakeEosConfigAirToAir() {
-  eos_session::EosSessionConfig config;
+eos_config::EosSessionConfig MakeEosConfigAirToAir() {
+  eos_config::EosSessionConfig config;
   config.hardware.wavelength_lower_um = 3.0f;
   config.hardware.wavelength_upper_um = 5.0f;
   config.hardware.optical_aperture_m = 0.25f;
@@ -281,8 +283,8 @@ eos_session::EosSessionConfig MakeEosConfigAirToAir() {
 }
 
 // -- 空对空通用 ESR 配置：水平扫描 ±10° 仰角 --
-esr_session::EsrSessionConfig MakeEsrConfigAirToAir() {
-  esr_session::EsrSessionConfig config;
+esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
+  esr_config::EsrSessionConfig config;
   config.hardware.receiver_band_lower_hz = 230000000.0;
   config.hardware.receiver_band_upper_hz = 100000000000.0;
   config.hardware.receiver_sensitivity_w = 1.0e-12f;
@@ -301,7 +303,7 @@ esr_session::EsrSessionConfig MakeEsrConfigAirToAir() {
 }
 
 // -- 空对地 AR 配置 --
-ar_session::RadarSessionConfig MakeArConfigAirToGround() {
+ar_config::RadarSessionConfig MakeArConfigAirToGround() {
   return ar_config::RadarSessionConfigBuilder()
       .Detection()
       .EnablePhysicsDetection(false)
@@ -327,8 +329,8 @@ ar_session::RadarSessionConfig MakeArConfigAirToGround() {
 }
 
 // -- 空对地 EOS 配置：俯视 45° --
-eos_session::EosSessionConfig MakeEosConfigAirToGround() {
-  eos_session::EosSessionConfig config;
+eos_config::EosSessionConfig MakeEosConfigAirToGround() {
+  eos_config::EosSessionConfig config;
   config.hardware.wavelength_lower_um = 3.0f;
   config.hardware.wavelength_upper_um = 5.0f;
   config.hardware.optical_aperture_m = 0.25f;
@@ -349,8 +351,8 @@ eos_session::EosSessionConfig MakeEosConfigAirToGround() {
 }
 
 // -- 空对地 ESR 配置：下视扫描，覆盖地面发射源 --
-esr_session::EsrSessionConfig MakeEsrConfigAirToGround() {
-  esr_session::EsrSessionConfig config;
+esr_config::EsrSessionConfig MakeEsrConfigAirToGround() {
+  esr_config::EsrSessionConfig config;
   config.hardware.receiver_band_lower_hz = 230000000.0;
   config.hardware.receiver_band_upper_hz = 100000000000.0;
   config.hardware.receiver_sensitivity_w = 1.0e-12f;
@@ -937,7 +939,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   eos_opts.trace_config_on_construct = true;
 
   // EOS 纯红外模式（夜间）
-  eos_session::EosSessionConfig eos_cfg = MakeEosConfigAirToAir();
+  eos_config::EosSessionConfig eos_cfg = MakeEosConfigAirToAir();
   eos_cfg.mission.work_mode = eos::config::EosWorkMode::kInfraredOnly;
   eos_session::EosTraceSession eos_sess(eos_cfg, eos_opts);
 

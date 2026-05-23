@@ -32,8 +32,8 @@ namespace ar_session = airborne_radar::session;
 namespace {
 
 /// 从 JSON 配置文件加载会话配置。
-ar_session::RadarSessionConfig LoadConfigFromFile() {
-  ar_session::RadarSessionConfig config;
+ar_config::RadarSessionConfig LoadConfigFromFile() {
+  ar_config::RadarSessionConfig config;
   std::string error;
   if (!examples::LoadArSessionConfigFromFile("configs/airborne_radar.json",
                                               &config, &error)) {

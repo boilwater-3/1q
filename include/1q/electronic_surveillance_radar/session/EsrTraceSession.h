@@ -49,7 +49,7 @@ struct ONEQ_API EsrTraceSessionOptions {
  */
 class ONEQ_API EsrTraceSession {
  public:
-  explicit EsrTraceSession(session::EsrSessionConfig config = {},
+  explicit EsrTraceSession(config::EsrSessionConfig config = {},
                            EsrTraceSessionOptions options = {});
   ~EsrTraceSession();
 
@@ -60,7 +60,7 @@ class ONEQ_API EsrTraceSession {
 
   session::EsrOutputFrame Step(const session::EsrCycleInput& input);
   session::EsrCycleResult StepWithResult(const session::EsrCycleInput& input);
-  void ApplyRuntimeConfig(const session::EsrRuntimeConfigPatch& patch);
+  void ApplyRuntimeConfig(const config::EsrRuntimeConfigPatch& patch);
 
   session::EsrSession& session();
   const session::EsrSession& session() const;

@@ -11,6 +11,7 @@
 #include "config_loader.h"
 
 namespace eos_session = electro_optical_sensor::session;
+namespace eos_config = electro_optical_sensor::config;
 namespace eos_env = electro_optical_sensor::environment;
 
 namespace {
@@ -67,7 +68,7 @@ eos_session::EosExternalTargetInput ToTargetInput(const TargetState& t) {
 }
 
 SceneState InitScene() {
-  eos_session::EosSessionConfig config;
+  eos_config::EosSessionConfig config;
   std::string error;
   if (!examples::LoadEosSessionConfigFromFile(SCENE_CONFIG_DIR "/electro_optical.json",
                                                &config, &error)) {

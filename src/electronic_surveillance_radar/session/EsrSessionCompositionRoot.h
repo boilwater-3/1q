@@ -36,19 +36,19 @@ struct EsrSessionComposition {
  */
 class EsrSessionCompositionRoot {
  public:
-  static EsrSessionComposition ComposeDefault(const EsrSessionConfig& config);
+  static EsrSessionComposition ComposeDefault(const config::EsrSessionConfig& config);
 
-  static EsrSessionComposition ComposeWithPipeline(const EsrSessionConfig& config,
+  static EsrSessionComposition ComposeWithPipeline(const config::EsrSessionConfig& config,
                                                    extension::IInterceptPipeline& pipeline);
 
   static EsrSessionComposition ComposeWithEnvironmentService(
-      const EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service);
+      const config::EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service);
 
-  static EsrSessionComposition ComposeWithController(const EsrSessionConfig& config,
+  static EsrSessionComposition ComposeWithController(const config::EsrSessionConfig& config,
                                                      extension::EsrController& controller);
 
   static EsrSessionComposition ComposeAllExternal(
-      const EsrSessionConfig& config, extension::IInterceptPipeline& pipeline,
+      const config::EsrSessionConfig& config, extension::IInterceptPipeline& pipeline,
       environment::IEsrEnvironmentService& environment_service,
       extension::EsrController& controller);
 };

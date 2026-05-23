@@ -22,7 +22,7 @@ namespace session {
  *       而非在 Composition 层独立管理。
  */
 struct EosSessionComposition {
-  EosSessionConfig runtime_config{};
+  config::EosSessionConfig runtime_config{};
   extension::EosPipelineConfig pipeline_config{};
   bool initial_reset_scan_phase{true};
 
@@ -43,7 +43,7 @@ class EosSessionCompositionRoot {
     * @param[in] config 会话初始化配置。
    * @return 完整的会话组合结果。
    */
-  static EosSessionComposition ComposeDefault(const EosSessionConfig& config);
+  static EosSessionComposition ComposeDefault(const config::EosSessionConfig& config);
 
   /**
    * @brief 使用外部注入 pipeline 装配会话。
@@ -52,7 +52,7 @@ class EosSessionCompositionRoot {
    * @return 完整的会话组合结果。
    */
   static EosSessionComposition ComposeWithPipeline(
-      const EosSessionConfig& config,
+      const config::EosSessionConfig& config,
       ::electro_optical_sensor::extension::IEosPipeline& pipeline);
 
   /**
@@ -62,7 +62,7 @@ class EosSessionCompositionRoot {
    * @return 完整的会话组合结果。
    */
   static EosSessionComposition ComposeWithEnvironmentService(
-      const EosSessionConfig& config,
+      const config::EosSessionConfig& config,
       environment::IEosEnvironmentService& environment_service);
 
   /**
@@ -72,11 +72,11 @@ class EosSessionCompositionRoot {
    * @return 完整的会话组合结果。
    */
   static EosSessionComposition ComposeWithController(
-      const EosSessionConfig& config,
+      const config::EosSessionConfig& config,
       extension::EosController& controller);
 
   static EosSessionComposition ComposeAllExternal(
-      const EosSessionConfig& config,
+      const config::EosSessionConfig& config,
       ::electro_optical_sensor::extension::IEosPipeline& pipeline,
       extension::EosController& controller);
 };

@@ -29,7 +29,7 @@ namespace eos = electro_optical_sensor;
 
 int main() {
   // 1. 语义 Builder：mission / detection / environment
-  const eos::session::EosSessionConfig semantic_config =
+  const eos::config::EosSessionConfig semantic_config =
       eos::config::EosSessionConfigBuilder()
           .Mission()
           .WithWorkMode(eos::config::EosWorkMode::kFused)
@@ -113,7 +113,7 @@ int main() {
   }
 
   // 9. RuntimeConfigBuilder: switch to infrared-only mode
-  const eos::session::EosRuntimeConfigPatch ir_patch =
+  const eos::config::EosRuntimeConfigPatch ir_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithWorkMode(eos::config::EosWorkMode::kInfraredOnly)
           .Build();
@@ -125,7 +125,7 @@ int main() {
   const eos::session::EosOutputFrame ir_frame = session.Step(input_2);
 
   // 11. RuntimeConfigBuilder: change scan rate + SNR threshold
-  const eos::session::EosRuntimeConfigPatch tune_patch =
+  const eos::config::EosRuntimeConfigPatch tune_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(100.0f)
           .WithDetectionProfile(eos::config::EosDetectionProfile::kAggressive)
@@ -133,14 +133,14 @@ int main() {
   session.ApplyRuntimeConfig(tune_patch);
 
   // 12. RuntimeConfigBuilder: enable straylight filter
-  const eos::session::EosRuntimeConfigPatch straylight_patch =
+  const eos::config::EosRuntimeConfigPatch straylight_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithStrayLightProfile(eos::config::EosStrayLightProfile::kEnhancedHood)
           .Build();
   session.ApplyRuntimeConfig(straylight_patch);
 
   // 13. RuntimeConfigBuilder: switch environment model to advanced
-  const eos::session::EosRuntimeConfigPatch env_patch =
+  const eos::config::EosRuntimeConfigPatch env_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kAdvanced)
           .WithEnvironmentDetails(
@@ -150,7 +150,7 @@ int main() {
   session.ApplyRuntimeConfig(env_patch);
 
   // 14. RuntimeConfigBuilder: tune environment model details
-  const eos::session::EosRuntimeConfigPatch rt_patch =
+  const eos::config::EosRuntimeConfigPatch rt_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentDetails(
               eos::foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance,
@@ -159,7 +159,7 @@ int main() {
   session.ApplyRuntimeConfig(rt_patch);
 
   // 15. RuntimeConfigBuilder: change environment model details again
-  const eos::session::EosRuntimeConfigPatch vis_ref_patch =
+  const eos::config::EosRuntimeConfigPatch vis_ref_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentDetails(
               eos::foundation::radiative_transfer::RadiativeTransferModel::kHumidityWeighted, 1.1f,

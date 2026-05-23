@@ -28,7 +28,7 @@ struct ResolvedEsrSessionConfig {
  * @param[in] config 输入会话配置。
  * @return 解析后的会话配置结果。
  */
-ResolvedEsrSessionConfig ResolveEsrSessionConfig(const EsrSessionConfig& config);
+ResolvedEsrSessionConfig ResolveEsrSessionConfig(const config::EsrSessionConfig& config);
 
 }  // namespace session
 

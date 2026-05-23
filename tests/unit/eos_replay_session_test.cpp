@@ -60,7 +60,7 @@ TEST(EosReplaySessionTest, ReplayEosTraceRoundtrip) {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-    EosSessionConfig config;
+    config::EosSessionConfig config;
     config.policy.detection.profile =
         ::electro_optical_sensor::config::EosDetectionProfile::kAggressive;
 
@@ -99,7 +99,7 @@ TEST(EosReplaySessionTest, ReplayEosTraceDetectsDivergence) {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-    EosSessionConfig config;
+    config::EosSessionConfig config;
     EosTraceSessionOptions options;
     options.replay_writer = replay_writer;
     options.trace_config_on_construct = true;
@@ -150,7 +150,7 @@ TEST(EosReplaySessionTest, ReplayEosTraceStopsAtFailureMarker) {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-    EosSessionConfig config;
+    config::EosSessionConfig config;
     EosTraceSessionOptions options;
     options.replay_writer = replay_writer;
     options.trace_config_on_construct = true;
@@ -192,7 +192,7 @@ TEST(EosReplaySessionTest, ReplayEosTraceRejectsTrailingCycleInput) {
   config_event.event_type = "session_config";
   config_event.payload_type = "EosSessionConfig";
   config_event.payload_encoding = "flatbuffers";
-  config_event.payload_bytes = EncodeEosSessionConfig(EosSessionConfig());
+  config_event.payload_bytes = EncodeEosSessionConfig(config::EosSessionConfig());
   writer.WriteEvent(config_event);
 
   EosCycleInput input;

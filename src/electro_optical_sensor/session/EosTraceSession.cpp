@@ -40,7 +40,7 @@ std::string BuildEosOutputPayload(const EosCycleResult& result) {
 }  // namespace
 
 struct EosTraceSession::Impl {
-  Impl(EosSessionConfig config, EosTraceSessionOptions options)
+  Impl(config::EosSessionConfig config, EosTraceSessionOptions options)
       : session(EosSessionFactory::Create(config)),
         sink(std::move(options.sink)),
         replay_writer(std::move(options.replay_writer)) {
@@ -91,7 +91,7 @@ struct EosTraceSession::Impl {
   bool pending_input_written{false};
 };
 
-EosTraceSession::EosTraceSession(EosSessionConfig config, EosTraceSessionOptions options)
+EosTraceSession::EosTraceSession(config::EosSessionConfig config, EosTraceSessionOptions options)
     : impl_(new Impl(std::move(config), std::move(options))) {}
 
 EosTraceSession::~EosTraceSession() = default;
@@ -157,7 +157,7 @@ session::EosOutputFrame EosTraceSession::Step(const EosCycleInput& input) {
   return result;
 }
 
-void EosTraceSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
+void EosTraceSession::ApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch) {
   if (impl_->replay_writer) {
     // 先写后 apply，保证回放时配置变更在执行前可重放
     impl_->WriteReplayEvent("runtime_config_patch", "EosRuntimeConfigPatch",

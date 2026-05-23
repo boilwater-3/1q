@@ -49,7 +49,7 @@ struct ONEQ_API EosTraceSessionOptions {
  */
 class ONEQ_API EosTraceSession {
  public:
-  explicit EosTraceSession(EosSessionConfig config = {},
+  explicit EosTraceSession(config::EosSessionConfig config = {},
                            EosTraceSessionOptions options = {});
   ~EosTraceSession();
 
@@ -70,7 +70,7 @@ class ONEQ_API EosTraceSession {
    * @note 返回值包含 `executed_this_cycle` / `reused_previous_output` 等状态语义。
    */
   ::electro_optical_sensor::session::EosCycleResult StepWithResult(const EosCycleInput& input);
-  void ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch);
+  void ApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch);
 
   EosSession& session();
   const EosSession& session() const;

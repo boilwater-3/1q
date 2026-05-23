@@ -12,25 +12,25 @@
 #include "1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
 
 namespace electro_optical_sensor {
-namespace session {
+namespace config {
 
 /**
- * @brief EosRuntimeConfigPatch 描述运行期可变高层策略补丁。
+ * @brief config::EosRuntimeConfigPatch 描述运行期可变高层策略补丁。
  * @note 覆盖顺序：先应用整块域覆盖（mission/policy/environment），
  *       再应用叶子快捷字段（work_mode/scan_rate_deg_per_sec/frame_rate_hz）。
  */
 struct ONEQ_API EosRuntimeConfigPatch {
   bool has_mission{false}; /**< 是否整块覆盖 mission */
-  config::EosMissionConfig mission{}; /**< mission 覆盖值 */
+  EosMissionConfig mission{}; /**< mission 覆盖值 */
 
   bool has_policy{false}; /**< 是否整块覆盖 policy */
-  config::EosPolicyConfig policy{}; /**< policy 覆盖值 */
+  EosPolicyConfig policy{}; /**< policy 覆盖值 */
 
   bool has_environment{false}; /**< 是否应用 environment 白名单补丁 */
   environment::EosEnvironmentRuntimeConfigPatch environment{}; /**< environment 白名单补丁 */
 
   bool has_work_mode{false};            /**< 是否显式设置工作模式 */
-  config::EosWorkMode work_mode{config::EosWorkMode::kFused}; /**< 工作模式值 */
+  EosWorkMode work_mode{EosWorkMode::kFused}; /**< 工作模式值 */
 
   bool has_scan_rate_deg_per_sec{false}; /**< 是否显式设置扫描角速度 */
   float scan_rate_deg_per_sec{20.0f};     /**< 扫描角速度（单位：deg/s） */
@@ -39,7 +39,7 @@ struct ONEQ_API EosRuntimeConfigPatch {
   float frame_rate_hz{30.0f};    /**< 帧率（单位：Hz） */
 };
 
-}  // namespace session
+}  // namespace config
 }  // namespace electro_optical_sensor
 
 #endif  // ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_PATCH_H_

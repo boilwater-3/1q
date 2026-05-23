@@ -44,7 +44,7 @@ std::string BuildEsrOutputPayload(const EsrCycleResult& result) {
 }  // namespace
 
 struct EsrTraceSession::Impl {
-  Impl(EsrSessionConfig config, EsrTraceSessionOptions options)
+  Impl(config::EsrSessionConfig config, EsrTraceSessionOptions options)
       : session(EsrSessionFactory::Create(config)),
         sink(std::move(options.sink)),
         replay_writer(std::move(options.replay_writer)) {
@@ -95,7 +95,7 @@ struct EsrTraceSession::Impl {
   bool pending_input_written{false};
 };
 
-EsrTraceSession::EsrTraceSession(EsrSessionConfig config, EsrTraceSessionOptions options)
+EsrTraceSession::EsrTraceSession(config::EsrSessionConfig config, EsrTraceSessionOptions options)
     : impl_(new Impl(std::move(config), std::move(options))) {}
 
 EsrTraceSession::~EsrTraceSession() = default;
@@ -158,7 +158,7 @@ EsrCycleResult EsrTraceSession::StepWithResult(const EsrCycleInput& input) {
   return result;
 }
 
-void EsrTraceSession::ApplyRuntimeConfig(const EsrRuntimeConfigPatch& patch) {
+void EsrTraceSession::ApplyRuntimeConfig(const config::EsrRuntimeConfigPatch& patch) {
   if (impl_->replay_writer) {
     impl_->WriteReplayEvent("runtime_config_patch", "EsrRuntimeConfigPatch",
                             EncodeEsrRuntimeConfigPatch(patch));

@@ -24,19 +24,19 @@ namespace session {
 
 class ONEQ_API EosSessionFactory {
  public:
-  static EosSession Create(const EosSessionConfig& config = {});
+  static EosSession Create(const config::EosSessionConfig& config = {});
 
-  static EosSession CreateWithPipeline(const EosSessionConfig& config,
+  static EosSession CreateWithPipeline(const config::EosSessionConfig& config,
                                         extension::IEosPipeline& pipeline);
 
   static EosSession CreateWithEnvironmentService(
-      const EosSessionConfig& config,
+      const config::EosSessionConfig& config,
       environment::IEosEnvironmentService& environment_service);
 
-  static EosSession CreateWithController(const EosSessionConfig& config,
+  static EosSession CreateWithController(const config::EosSessionConfig& config,
                                           extension::EosController& controller);
 
-  static EosSession CreateWithAll(const EosSessionConfig& config,
+  static EosSession CreateWithAll(const config::EosSessionConfig& config,
                                    extension::IEosPipeline& pipeline,
                                    extension::EosController& controller);
 };

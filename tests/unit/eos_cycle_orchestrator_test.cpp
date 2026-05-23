@@ -21,8 +21,8 @@ namespace {
 namespace eos_config = ::electro_optical_sensor::config;
 namespace eos_session = ::electro_optical_sensor::session;
 
-eos_session::EosSessionConfig MakeSessionConfig() {
-  eos_session::EosSessionConfig config;
+eos_config::EosSessionConfig MakeSessionConfig() {
+  eos_config::EosSessionConfig config;
   config.mission.work_mode = eos_config::EosWorkMode::kInfraredOnly;
   config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
   config.mission.scan_start_az_deg = -10.0f;
@@ -46,7 +46,7 @@ eos_session::EosCycleInput MakeCycleInput(std::uint32_t cycle_index, float dt_se
 }
 
 TEST(EosSessionTest, RunCycleProducesOutputAndPreservesCycleIndex) {
-  const eos_session::EosSessionConfig config = MakeSessionConfig();
+  const eos_config::EosSessionConfig config = MakeSessionConfig();
   eos_session::EosSession session = eos_session::EosSessionFactory::Create(config);
 
   const eos_session::EosCycleResult result = session.StepWithResult(MakeCycleInput(7U, 1.0f));
@@ -57,7 +57,7 @@ TEST(EosSessionTest, RunCycleProducesOutputAndPreservesCycleIndex) {
 }
 
 TEST(EosSessionTest, ValidRuntimePatchTakesEffectOnNextStep) {
-  const eos_session::EosSessionConfig config = MakeSessionConfig();
+  const eos_config::EosSessionConfig config = MakeSessionConfig();
   eos_session::EosSession session = eos_session::EosSessionFactory::Create(config);
 
   const eos_session::EosCycleResult baseline =
@@ -76,7 +76,7 @@ TEST(EosSessionTest, ValidRuntimePatchTakesEffectOnNextStep) {
 }
 
 TEST(EosSessionTest, InvalidRuntimePatchDoesNotChangeUpdateBehavior) {
-  const eos_session::EosSessionConfig config = MakeSessionConfig();
+  const eos_config::EosSessionConfig config = MakeSessionConfig();
   eos_session::EosSession session = eos_session::EosSessionFactory::Create(config);
 
   session.ApplyRuntimeConfig(

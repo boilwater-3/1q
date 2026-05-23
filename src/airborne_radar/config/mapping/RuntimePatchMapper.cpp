@@ -143,9 +143,9 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
   return resolved;
 }
 
-session::RadarSessionConfig MapExecutionToSession(
+config::RadarSessionConfig MapExecutionToSession(
     const execution::InternalExecutionConfig& execution_config) {
-  session::RadarSessionConfig config;
+  config::RadarSessionConfig config;
   config.hardware.detection = execution_config.detection.hardware;
   config.mission.orientation = execution_config.detection.orientation;
   config.policy.beam_control = execution_config.detection.beam_control;
@@ -155,9 +155,9 @@ session::RadarSessionConfig MapExecutionToSession(
   return config;
 }
 
-session::RadarSessionConfig MapRuntimeStateToPipelineSession(
+config::RadarSessionConfig MapRuntimeStateToPipelineSession(
     const RuntimeConfigState& runtime_state) {
-  session::RadarSessionConfig config = MapExecutionToSession(runtime_state.execution_config);
+  config::RadarSessionConfig config = MapExecutionToSession(runtime_state.execution_config);
   config.mission.orientation.scan_center_deg.az_deg += runtime_state.dwell_center_deg.az_deg;
   config.mission.orientation.scan_center_deg.el_deg += runtime_state.dwell_center_deg.el_deg;
   return config;

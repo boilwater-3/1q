@@ -108,7 +108,7 @@ void ApplyDetectionPolicy(const config::EsrDetectionPolicyConfig& detection,
 }  // namespace
 
 EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
-    const ResolvedEsrSessionConfig& current_config, const EsrRuntimeConfigPatch& patch) {
+    const ResolvedEsrSessionConfig& current_config, const config::EsrRuntimeConfigPatch& patch) {
   EsrRuntimeConfigResolveResult resolved;
   resolved.next_config = current_config;
   resolved.status = EsrRuntimeConfigApplyStatus::kNoRequestedUpdate;

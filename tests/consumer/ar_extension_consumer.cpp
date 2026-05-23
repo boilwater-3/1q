@@ -145,7 +145,7 @@ class DummySignalPipeline : public extension::ISignalPipeline {
     return control_profile_;
   }
 
-  bool UpdateConfig(const session::RadarSessionConfig& config) override {
+  bool UpdateConfig(const config::RadarSessionConfig& config) override {
     config_ = config;
     return true;
   }
@@ -184,12 +184,12 @@ class DummySignalPipeline : public extension::ISignalPipeline {
   struct RuntimeState {
     model::PlatformAttitudeDeg platform_attitude{};
     extension::control::RadarControlProfile control_profile{};
-    session::RadarSessionConfig config{};
+    config::RadarSessionConfig config{};
   };
 
   model::PlatformAttitudeDeg platform_attitude_{};
   extension::control::RadarControlProfile control_profile_{};
-  session::RadarSessionConfig config_{};
+  config::RadarSessionConfig config_{};
 };
 
 class DummyDecisionEngine : public extension::ITacticalDecisionEngine {

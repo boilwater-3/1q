@@ -280,9 +280,9 @@ bool DecodeEosCycleResult(const std::string& bytes,
   return true;
 }
 
-// ---- EosSessionConfig ----
+// ---- config::EosSessionConfig ----
 
-std::string EncodeEosSessionConfig(const EosSessionConfig& v) {
+std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
 
   // hardware
@@ -330,7 +330,7 @@ std::string EncodeEosSessionConfig(const EosSessionConfig& v) {
   return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
 }
 
-bool DecodeEosSessionConfig(const std::string& bytes, EosSessionConfig* out) {
+bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!verifier.VerifyBuffer<eos::replay::EosSessionConfig>()) {
     return false;
@@ -394,9 +394,9 @@ bool DecodeEosSessionConfig(const std::string& bytes, EosSessionConfig* out) {
   return true;
 }
 
-// ---- EosRuntimeConfigPatch ----
+// ---- config::EosRuntimeConfigPatch ----
 
-std::string EncodeEosRuntimeConfigPatch(const EosRuntimeConfigPatch& v) {
+std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) {
   flatbuffers::FlatBufferBuilder fbb(256);
   auto mission = eos::replay::CreateEosMissionConfig(
       fbb, static_cast<int32_t>(v.mission.work_mode), v.mission.horizontal_fov_deg,
@@ -441,7 +441,7 @@ std::string EncodeEosRuntimeConfigPatch(const EosRuntimeConfigPatch& v) {
   return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
 }
 
-bool DecodeEosRuntimeConfigPatch(const std::string& bytes, EosRuntimeConfigPatch* out) {
+bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeConfigPatch* out) {
   flatbuffers::Verifier verifier(reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
   if (!verifier.VerifyBuffer<eos::replay::EosRuntimeConfigPatch>()) {
     return false;
