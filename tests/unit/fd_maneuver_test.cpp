@@ -3,10 +3,13 @@
  * @brief 机动控制层测试 — G0 AP 验证 + G2 方向机动 + G3/G4/G5/G6。
  */
 
-#include <cmath>
-#include <string>
-
 #include <gtest/gtest.h>
+
+#include <cmath>
+#include <fstream>
+#include <iomanip>
+#include <string>
+#include <vector>
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/flight_dynamic/flight_dynamic.hpp"
@@ -96,9 +99,8 @@ TEST(FdManeuverTest, G0_HeadingHoldConverges) {
   double error = std::abs(final_heading - target_heading);
   // 处理角度环绕
   if (error > 180.0) error = 360.0 - error;
-  EXPECT_LT(error, tolerance)
-      << "Heading did not converge: target=" << target_heading
-      << " actual=" << final_heading;
+  EXPECT_LT(error, tolerance) << "Heading did not converge: target=" << target_heading
+                              << " actual=" << final_heading;
 }
 
 TEST(FdManeuverTest, G0_ApAltitudePropertyWritable) {
@@ -158,7 +160,10 @@ TEST(FdManeuverTest, G2_HeadingManeuver_90degRightTurn) {
     ASSERT_TRUE(out.ok);
     double err = std::abs(out.state.yaw_deg - 90.0);
     if (err > 180.0) err = 360.0 - err;
-    if (err < 3.0) { turned = true; break; }
+    if (err < 3.0) {
+      turned = true;
+      break;
+    }
   }
   EXPECT_TRUE(turned) << "Aircraft did not complete 90° turn within 40s";
 }
@@ -184,7 +189,10 @@ TEST(FdManeuverTest, G2_HeadingManeuver_180degReversal) {
     ASSERT_TRUE(out.ok);
     double err = std::abs(out.state.yaw_deg - 180.0);
     if (err > 180.0) err = 360.0 - err;
-    if (err < 5.0) { turned = true; break; }
+    if (err < 5.0) {
+      turned = true;
+      break;
+    }
   }
   EXPECT_TRUE(turned) << "Aircraft did not complete 180° turn within 60s";
 }
@@ -223,20 +231,31 @@ TEST(FdManeuverTest, G3_PointToPointFullFlight) {
 
   fd_maneuver::PointToPointParams params{};
   params.target_lla.latitude_deg = 39.9;
-  params.target_lla.longitude_deg = 116.4 + 0.005;
+  params.target_lla.longitude_deg = 116.4 + 0.05;  // 目标更远，避免过冲掉头
   params.target_lla.altitude_m = 1000.0;
-  params.arrival_distance_m = 450.0;  // 放宽：目标距离 ~425m，C172 转弯需时
+  params.arrival_distance_m = 300.0;
   params.cruise_speed_mps = 50.0;
   params.base_throttle = 0.75;
 
   fd_maneuver::ManeuverController ctrl;
 
   double min_dist = 1e9;
-  for (int i = 0; i < 1600; ++i) {  // 80s
+
+  std::ofstream ofs_p2p("/Users/aurora/Code/1q/point_to_point.csv");
+  ofs_p2p << std::fixed << std::setprecision(10);
+  ofs_p2p << "time,lat,lon,alt,yaw,roll,pitch\n";
+
+  for (int i = 0; i < 2400; ++i) {  // 80s
     auto input = ctrl.ComputePointToPoint(session.GetCurrentState(), params, nullptr);
     input.cycle_index = static_cast<std::uint32_t>(i);
     auto out = session.Step(input);
     ASSERT_TRUE(out.ok);
+
+    oneq::coordinate::LlaPositionDegM csv_lla{};
+    oneq::coordinate::TryEcefToLla(out.kinematics.position_ecef_m, &csv_lla);
+    ofs_p2p << (i * 0.05) << "," << csv_lla.latitude_deg << "," << csv_lla.longitude_deg << ","
+            << out.state.altitude_msl_m << "," << out.state.yaw_deg << "," << out.state.roll_deg
+            << "," << out.state.pitch_deg << "\n";
 
     oneq::coordinate::LlaPositionDegM lla{};
     if (oneq::coordinate::TryEcefToLla(out.kinematics.position_ecef_m, &lla)) {
@@ -289,6 +308,10 @@ TEST(FdManeuverTest, G5_WeaveHeadingOscillates) {
   double max_heading = 0.0;
   double sim_time = 0.0;
 
+  std::ofstream ofs("/Users/aurora/Code/1q/weave.csv");
+  ofs << std::fixed << std::setprecision(10);
+  ofs << "time,lat,lon,alt,yaw,roll,pitch\n";
+
   for (int i = 0; i < 800; ++i) {  // 40s
     auto input = ctrl.ComputeWeave(session.GetCurrentState(), weave, sim_time);
     input.cycle_index = static_cast<std::uint32_t>(i);
@@ -300,13 +323,18 @@ TEST(FdManeuverTest, G5_WeaveHeadingOscillates) {
     if (h < min_heading) min_heading = h;
     if (h > max_heading) max_heading = h;
 
+    oneq::coordinate::LlaPositionDegM csv_lla{};
+    oneq::coordinate::TryEcefToLla(out.kinematics.position_ecef_m, &csv_lla);
+    ofs << sim_time << "," << csv_lla.latitude_deg << "," << csv_lla.longitude_deg << ","
+        << out.state.altitude_msl_m << "," << h << "," << out.state.roll_deg << ","
+        << out.state.pitch_deg << "\n";
+
     sim_time += 0.05;
   }
 
   double range = max_heading - min_heading;
   // 蛇形机动应产生至少 15° 的航向变化
-  EXPECT_GT(range, 15.0)
-      << "Weave should produce heading variation > 15°, actual=" << range;
+  EXPECT_GT(range, 15.0) << "Weave should produce heading variation > 15°, actual=" << range;
 }
 
 // ============================================================
@@ -326,55 +354,64 @@ TEST(FdManeuverTest, G4_WaypointSequenceFullFlight) {
   {
     oneq::coordinate::LlaPositionDegM wp1{};
     wp1.latitude_deg = 39.9;
-    wp1.longitude_deg = 116.4 + 0.05;   // 东 ~4.2km
+    wp1.longitude_deg = 116.4 + 0.05;  // 东 ~4.2km
     wp1.altitude_m = 1000.0;
     wps.push_back(wp1);
 
     oneq::coordinate::LlaPositionDegM wp2{};
-    wp2.latitude_deg = 39.9 + 0.05;     // 北 ~5.6km
+    wp2.latitude_deg = 39.9 + 0.05;  // 北 ~5.6km
     wp2.longitude_deg = 116.4 + 0.05;
     wp2.altitude_m = 1000.0;
     wps.push_back(wp2);
 
     oneq::coordinate::LlaPositionDegM wp3{};
-    wp3.latitude_deg = 39.9 + 0.05;     // 西 ~4.2km
+    wp3.latitude_deg = 39.9 + 0.05;  // 西 ~4.2km
     wp3.longitude_deg = 116.4;
     wp3.altitude_m = 1000.0;
     wps.push_back(wp3);
 
     oneq::coordinate::LlaPositionDegM wp4{};
-    wp4.latitude_deg = 39.9 + 0.02;     // 东南 ~4.7km（对角线）
+    wp4.latitude_deg = 39.9 + 0.02;  // 东南 ~4.7km（对角线）
     wp4.longitude_deg = 116.4 + 0.03;
     wp4.altitude_m = 1000.0;
     wps.push_back(wp4);
 
     oneq::coordinate::LlaPositionDegM wp5{};
-    wp5.latitude_deg = 39.9 + 0.02;     // 东 ~2.5km
+    wp5.latitude_deg = 39.9 + 0.02;  // 东 ~2.5km
     wp5.longitude_deg = 116.4 + 0.06;
     wp5.altitude_m = 1000.0;
     wps.push_back(wp5);
   }
 
   fd_maneuver::WaypointParams params{};
-  params.segment_params.arrival_distance_m = 1500.0; 
+  params.segment_params.arrival_distance_m = 1500.0;
   params.segment_params.cruise_speed_mps = 50.0;
   params.segment_params.base_throttle = 0.8;
-  params.turn_anticipation_m = 1200.0; 
+  params.turn_anticipation_m = 400.0;  // 缩小提前转弯半径，使轨迹更贴近真实航路点
 
   fd_maneuver::ManeuverController ctrl;
   std::size_t wp_idx = 0U;
   bool all_reached = false;
 
-  for (int i = 0; i < 10000 && !all_reached; ++i) {  
-    auto input = ctrl.ComputeWaypoint(
-        session.GetCurrentState(), wps, params, &wp_idx, &all_reached);
+  std::ofstream ofs_wp("/Users/aurora/Code/1q/waypoint.csv");
+  ofs_wp << std::fixed << std::setprecision(10);
+  ofs_wp << "time,lat,lon,alt,yaw,roll,pitch\n";
+
+  for (int i = 0; i < 10000 && !all_reached; ++i) {
+    auto input =
+        ctrl.ComputeWaypoint(session.GetCurrentState(), wps, params, &wp_idx, &all_reached);
     input.cycle_index = static_cast<std::uint32_t>(i);
     auto out = session.Step(input);
     ASSERT_TRUE(out.ok);
+
+    oneq::coordinate::LlaPositionDegM csv_lla{};
+    oneq::coordinate::TryEcefToLla(out.kinematics.position_ecef_m, &csv_lla);
+    ofs_wp << (i * 0.05) << "," << csv_lla.latitude_deg << "," << csv_lla.longitude_deg << ","
+           << out.state.altitude_msl_m << "," << out.state.yaw_deg << "," << out.state.roll_deg
+           << "," << out.state.pitch_deg << "\n";
   }
 
-  EXPECT_TRUE(all_reached)
-      << "Did not reach all waypoints within 500s, idx=" << wp_idx;
+  EXPECT_TRUE(all_reached) << "Did not reach all waypoints within 500s, idx=" << wp_idx;
 }
 
 TEST(FdManeuverTest, G4_WaypointGuidanceOutput) {
@@ -397,8 +434,7 @@ TEST(FdManeuverTest, G4_WaypointGuidanceOutput) {
   fd_maneuver::ManeuverController ctrl;
   std::size_t idx = 0U;
   bool all_reached = false;
-  auto input = ctrl.ComputeWaypoint(
-      session.GetCurrentState(), wps, params, &idx, &all_reached);
+  auto input = ctrl.ComputeWaypoint(session.GetCurrentState(), wps, params, &idx, &all_reached);
   EXPECT_FALSE(all_reached);
   EXPECT_EQ(idx, 0U);
   // 方位角应在 [0, 360) 范围
@@ -445,12 +481,23 @@ TEST(FdManeuverTest, G6_BarrelRollCompleted) {
   fd_maneuver::BarrelRollState state{};
 
   double sim_time = 0.0;
+
+  std::ofstream ofs("/Users/aurora/Code/1q/barrel_roll.csv");
+  ofs << std::fixed << std::setprecision(10);
+  ofs << "time,lat,lon,alt,yaw,roll,pitch\n";
+
   for (int i = 0; i < 2000; ++i) {  // 100s max
-    auto input = ctrl.ComputeBarrelRoll(
-        session.GetCurrentState(), params, sim_time, &state);
+    auto input = ctrl.ComputeBarrelRoll(session.GetCurrentState(), params, sim_time, &state);
     input.cycle_index = static_cast<std::uint32_t>(i);
     auto out = session.Step(input);
     ASSERT_TRUE(out.ok);
+
+    oneq::coordinate::LlaPositionDegM csv_lla{};
+    oneq::coordinate::TryEcefToLla(out.kinematics.position_ecef_m, &csv_lla);
+    ofs << sim_time << "," << csv_lla.latitude_deg << "," << csv_lla.longitude_deg << ","
+        << out.state.altitude_msl_m << "," << out.state.yaw_deg << "," << out.state.roll_deg << ","
+        << out.state.pitch_deg << "\n";
+
     sim_time += 0.05;
 
     if (state.phase == fd_maneuver::BarrelRollPhase::kCompleted) break;
@@ -461,10 +508,8 @@ TEST(FdManeuverTest, G6_BarrelRollCompleted) {
 
   EXPECT_EQ(state.phase, fd_maneuver::BarrelRollPhase::kCompleted);
 
-  const double alt_loss =
-      state.initial_altitude_m - session.GetCurrentState().state.altitude_msl_m;
-  EXPECT_LT(alt_loss, params.max_altitude_loss_m)
-      << "Altitude loss: " << alt_loss << "m";
+  const double alt_loss = state.initial_altitude_m - session.GetCurrentState().state.altitude_msl_m;
+  EXPECT_LT(alt_loss, params.max_altitude_loss_m) << "Altitude loss: " << alt_loss << "m";
 }
 
 TEST(FdManeuverTest, G6_BarrelRollGuidanceOutput) {
@@ -476,8 +521,7 @@ TEST(FdManeuverTest, G6_BarrelRollGuidanceOutput) {
   fd_maneuver::ManeuverController ctrl;
   fd_maneuver::BarrelRollState state{};
 
-  auto input = ctrl.ComputeBarrelRoll(
-      session.GetCurrentState(), params, 0.0, &state);
+  auto input = ctrl.ComputeBarrelRoll(session.GetCurrentState(), params, 0.0, &state);
   EXPECT_EQ(state.phase, fd_maneuver::BarrelRollPhase::kRolling);
   EXPECT_NE(input.control.aileron, 0.0);
   EXPECT_FALSE(input.control.heading_hold);
@@ -497,21 +541,19 @@ TEST(FdManeuverTest, H3_StepManeuverPointToPoint) {
   req.mode = fd_maneuver::ManeuverMode::kPointToPoint;
   req.dt_sec = 0.05f;
   req.point_to_point.target_lla.latitude_deg = 39.9;
-  req.point_to_point.target_lla.longitude_deg = 116.4 + 0.005;
+  req.point_to_point.target_lla.longitude_deg = 116.4 + 0.05;
   req.point_to_point.target_lla.altitude_m = 1000.0;
   req.point_to_point.arrival_distance_m = 450.0;
   req.point_to_point.cruise_speed_mps = 50.0;
 
-  double min_dist = 1e9;
-  for (int i = 0; i < 1600; ++i) {
+  double min_dist = 9999999.0;
+  for (int i = 0; i < 2400; ++i) {
     auto result = session.StepManeuver(req);
     ASSERT_TRUE(result.output.ok);
 
     oneq::coordinate::LlaPositionDegM lla{};
-    if (oneq::coordinate::TryEcefToLla(
-            result.output.kinematics.position_ecef_m, &lla)) {
-      double dist = fd_maneuver::ComputeGreatCircleDistanceM(
-          lla, req.point_to_point.target_lla);
+    if (oneq::coordinate::TryEcefToLla(result.output.kinematics.position_ecef_m, &lla)) {
+      double dist = fd_maneuver::ComputeGreatCircleDistanceM(lla, req.point_to_point.target_lla);
       if (dist < min_dist) min_dist = dist;
     }
 
@@ -549,8 +591,7 @@ TEST(FdManeuverTest, H5_StepManeuverWeave) {
   }
 
   double range = max_heading - min_heading;
-  EXPECT_GT(range, 15.0)
-      << "StepManeuver Weave heading variation=" << range;
+  EXPECT_GT(range, 15.0) << "StepManeuver Weave heading variation=" << range;
 }
 
 TEST(FdManeuverTest, H4_StepManeuverWaypoint) {
@@ -619,8 +660,7 @@ TEST(FdManeuverTest, H6_StepManeuverBarrelRoll) {
 
     if (result.status.completed) break;
     ASSERT_FALSE(result.status.aborted)
-        << "Barrel roll aborted, alt="
-        << result.output.state.altitude_msl_m;
+        << "Barrel roll aborted, alt=" << result.output.state.altitude_msl_m;
   }
 
   // 验证最终状态
@@ -712,7 +752,7 @@ TEST(FdManeuverTest, I1_OrbitGuidanceOutput) {
   fd_maneuver::ManeuverRequest req;
   req.mode = fd_maneuver::ManeuverMode::kOrbit;
   req.dt_sec = 0.05f;
-  req.orbit.center_lla.latitude_deg = 39.9 + 0.01;   // 北 ~1.1km
+  req.orbit.center_lla.latitude_deg = 39.9 + 0.01;  // 北 ~1.1km
   req.orbit.center_lla.longitude_deg = 116.4;
   req.orbit.center_lla.altitude_m = 1000.0;
   req.orbit.radius_m = 500.0;
@@ -747,9 +787,19 @@ TEST(FdManeuverTest, I2_OrbitCirclesCenter) {
   double min_heading = 360.0;
   double max_heading = 0.0;
 
+  std::ofstream ofs_orbit("/Users/aurora/Code/1q/orbit.csv");
+  ofs_orbit << std::fixed << std::setprecision(10);
+  ofs_orbit << "time,lat,lon,alt,yaw,roll,pitch\n";
+
   for (int i = 0; i < 4000; ++i) {
     auto result = session.StepManeuver(req);
     ASSERT_TRUE(result.output.ok);
+
+    oneq::coordinate::LlaPositionDegM csv_lla{};
+    oneq::coordinate::TryEcefToLla(result.output.kinematics.position_ecef_m, &csv_lla);
+    ofs_orbit << (i * 0.05) << "," << csv_lla.latitude_deg << "," << csv_lla.longitude_deg << ","
+              << result.output.state.altitude_msl_m << "," << result.output.state.yaw_deg << ","
+              << result.output.state.roll_deg << "," << result.output.state.pitch_deg << "\n";
 
     double h = result.output.state.yaw_deg;
     if (h < min_heading) min_heading = h;
@@ -757,8 +807,8 @@ TEST(FdManeuverTest, I2_OrbitCirclesCenter) {
   }
 
   double range = max_heading - min_heading;
-  EXPECT_GT(range, 300.0)
-      << "Orbit should produce heading variation > 300° (full circle), actual=" << range;
+  EXPECT_GT(range, 300.0) << "Orbit should produce heading variation > 300° (full circle), actual="
+                          << range;
 }
 
 TEST(FdManeuverTest, I3_EvasionGuidanceOutput) {
@@ -822,19 +872,29 @@ TEST(FdManeuverTest, I5_EvasionChangesHeading) {
   req.evasion.duration_s = 30.0;
   req.evasion.cruise_speed_mps = 60.0;
 
+  std::ofstream ofs_eva("/Users/aurora/Code/1q/evasion.csv");
+  ofs_eva << std::fixed << std::setprecision(10);
+  ofs_eva << "time,lat,lon,alt,yaw,roll,pitch\n";
+
   // 运行规避机动 40s
   for (int i = 0; i < 800; ++i) {
     auto result = session.StepManeuver(req);
     ASSERT_TRUE(result.output.ok);
+
+    oneq::coordinate::LlaPositionDegM csv_lla{};
+    oneq::coordinate::TryEcefToLla(result.output.kinematics.position_ecef_m, &csv_lla);
+    ofs_eva << (i * 0.05) << "," << csv_lla.latitude_deg << "," << csv_lla.longitude_deg << ","
+            << result.output.state.altitude_msl_m << "," << result.output.state.yaw_deg << ","
+            << result.output.state.roll_deg << "," << result.output.state.pitch_deg << "\n";
+
     if (result.status.completed) break;
   }
 
   double final_heading = session.GetCurrentState().state.yaw_deg;
   double heading_err = std::abs(final_heading - 90.0);
   if (heading_err > 180.0) heading_err = 360.0 - heading_err;
-  EXPECT_LT(heading_err, 20.0)
-      << "Evasion should turn towards target heading. initial="
-      << initial_heading << " final=" << final_heading;
+  EXPECT_LT(heading_err, 20.0) << "Evasion should turn towards target heading. initial="
+                               << initial_heading << " final=" << final_heading;
 }
 
 // ============================================================
