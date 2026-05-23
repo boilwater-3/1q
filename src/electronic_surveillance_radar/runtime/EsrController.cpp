@@ -82,6 +82,11 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   impl_->last_cycle_reused_previous_output = false;
   impl_->last_abort_reason = extension::EsrPipelineAbortReason::kNone;
   ++impl_->runtime_state.next_batch_id;
+  PROJECT_LOG_DEBUG(
+      "[EsrController] cycle_index={} executed obs={} hyp={}",
+      stamp.cycle_index,
+      impl_->runtime_state.latest_output.observation_output.observations.size(),
+      impl_->runtime_state.latest_output.emitter_output.hypotheses.size());
 }
 
 bool EsrController::HasLatestInterceptOutputFrame() const { return impl_->runtime_state.has_latest_output; }

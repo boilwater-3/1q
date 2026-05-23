@@ -432,10 +432,18 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
     const ::electro_optical_sensor::session::EosSceneTarget& target = input.scene[i];
     if (!IsTargetInCurrentFov(target)) {
+      PROJECT_LOG_DEBUG("[EosPipeline] target_id={} outside FOV, skipped.", target.target_id);
       continue;
     }
     result.detections.push_back(BuildDetectionRecord(target, input));
+    PROJECT_LOG_DEBUG("[EosPipeline] target_id={} detected={} fused_snr_db={:.1f} range_m={:.0f}",
+                      target.target_id, result.detections.back().detected,
+                      result.detections.back().fused_snr_db, target.range_m);
   }
+
+  PROJECT_LOG_INFO("[EosPipeline] cycle_index={} scan_az={:.2f} detections={}/{}",
+                   input.cycle_index, current_scan_azimuth_deg_,
+                   result.detections.size(), input.scene.size());
 
   result.executed_this_cycle = true;
   result.abort_reason = extension::EosPipelineAbortReason::kNone;

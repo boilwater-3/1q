@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/logging/ProjectLog.h"
 #include "common/numerics/SpectralNumerics.h"
 #include "electronic_surveillance_radar/utils/EsrSharedUtils.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
@@ -244,6 +245,8 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
   // Preprocess
   const std::vector<RawObservationRecord> records =
       preprocessor.Run(raw_records, config.preprocess);
+  PROJECT_LOG_DEBUG("[InterceptPostProcess] raw={} preprocessed={}",
+                    raw_records.size(), records.size());
 
   // Extract observations & truth evaluation (merged single pass)
   result.observation_output.observations.reserve(records.size());
@@ -302,6 +305,9 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
   associator.UpdateConfig(config.association);
   result.emitter_output.hypotheses =
       associator.Update(ctx.GetCycleIndex(), cluster_summaries, &next_hypothesis_id);
+  PROJECT_LOG_INFO("[InterceptPostProcess] cycle_index={} clusters={} hypotheses={}",
+                   ctx.GetCycleIndex(), cluster_result.clusters.size(),
+                   result.emitter_output.hypotheses.size());
 
   for (std::size_t i = 0; i < scene_emitters.size(); ++i) {
     if (!scene_emitters[i].is_emitting) {

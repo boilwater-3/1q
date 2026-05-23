@@ -163,6 +163,13 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
   }
 
   resolved.has_requested_update = has_requested_update;
+  if (has_requested_update) {
+    PROJECT_LOG_INFO(
+        "[EosSession] runtime config patch applied: mission={} policy={} environment={} "
+        "work_mode={} scan_rate={} frame_rate={}",
+        patch.has_mission, patch.has_policy, patch.has_environment,
+        patch.has_work_mode, patch.has_scan_rate_deg_per_sec, patch.has_frame_rate_hz);
+  }
   return resolved;
 }
 

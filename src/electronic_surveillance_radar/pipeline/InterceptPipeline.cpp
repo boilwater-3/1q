@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "1q/electronic_surveillance_radar/extension/IEsrContext.h"
+#include "common/logging/ProjectLog.h"
 #include "electronic_surveillance_radar/pipeline/MutableEsrContext.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
 
@@ -41,6 +42,8 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
     const environment::IEsrEnvironmentService& environment_service) {
   extension::InterceptPipelineResult result;
   if (!runtime_config_.sensor_enabled) {
+    PROJECT_LOG_DEBUG("[InterceptPipeline] sensor disabled, cycle_index={} skipped.",
+                      input_state.cycle_index);
     return result;
   }
 
@@ -56,6 +59,11 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
   result = post_processing_executor_.Execute(detection_output.raw_records, ctx, preprocessor_,
                                              clusterer_, associator_, feature_scales_,
                                              next_hypothesis_id_);
+
+  PROJECT_LOG_INFO("[InterceptPipeline] cycle_index={} raw_records={} clusters={} hypotheses={}",
+                   input_state.cycle_index, detection_output.raw_records.size(),
+                   result.observation_output.cluster_count,
+                   result.emitter_output.hypotheses.size());
 
   return result;
 }

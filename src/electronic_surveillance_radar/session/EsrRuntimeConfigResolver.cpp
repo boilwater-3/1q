@@ -255,6 +255,12 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   resolved.has_requested_update = has_requested_update;
   if (has_requested_update) {
     resolved.status = EsrRuntimeConfigApplyStatus::kApplied;
+    PROJECT_LOG_INFO(
+        "[EsrSession] runtime config patch applied: mission={} policy={} env={} sensor_enabled={} "
+        "work_mode={} scan_rate={} scan_bounds={}",
+        patch.has_mission, patch.has_policy, patch.has_environment_runtime_config,
+        patch.has_sensor_enabled, patch.has_work_mode, patch.has_scan_rate_hz,
+        patch.has_explicit_scan_bounds);
   }
   return resolved;
 }

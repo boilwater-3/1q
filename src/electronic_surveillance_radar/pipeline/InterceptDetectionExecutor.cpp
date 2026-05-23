@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "common/geometry/GeometryTransform.h"
+#include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
 #include "common/numerics/SpectralNumerics.h"
 #include "common/timing/TimingRegimeModel.h"
@@ -516,6 +517,10 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const extension::IE
 
     const intercept::InterceptGateDecision gate_decision =
         intercept::InterceptGate::Evaluate(gate_input);
+    PROJECT_LOG_DEBUG(
+        "[InterceptDetection] emitter_id={} range={:.0f} snr={:.1f} gate_passed={} beam_overlap={:.2f}",
+        emitter.emitter_id, range_m, snr_db, gate_decision.passed,
+        emitter_beam_overlap_ratio);
     const float effective_beamwidth_deg =
         std::max(1.0f, 0.5f * (gate_input.beam_az_width_deg + gate_input.beam_el_width_deg));
     const double measured_az_deg =
@@ -586,6 +591,9 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const extension::IE
           record, deception_probability, config.deception_model, &rng, &next_observation_id));
     }
   }
+
+  PROJECT_LOG_DEBUG("[InterceptDetection] cycle_index={} raw_records={}",
+                    ctx.GetCycleIndex(), output.raw_records.size());
 
   return output;
 }
