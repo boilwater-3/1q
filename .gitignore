@@ -26,6 +26,12 @@ doc/
 # Planning workspace (not tracked)
 plan/
 
+# Engineering review and planning artifacts (not tracked)
+docs/review/
+task_plan.md
+findings.md
+progress.md
+
 # Remember plugin workspace (not tracked)
 .remember/
 
