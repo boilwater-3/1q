@@ -11,9 +11,11 @@ namespace electronic_surveillance_radar {
 namespace session {
 namespace {
 
-esr::replay::Vec3 ToV(const oneq::foundation::Vector3f& v) { return {v.x, v.y, v.z}; }
+esr::replay::Vec3 ToV(const oneq::foundation::Vector3f& v) {
+  return {static_cast<float>(v.x), static_cast<float>(v.y), static_cast<float>(v.z)};
+}
 esr::replay::EulerDeg ToE(const oneq::foundation::EulerAnglesDeg& e) {
-  return {e.yaw_deg, e.pitch_deg, e.roll_deg};
+  return {static_cast<float>(e.yaw_deg), static_cast<float>(e.pitch_deg), static_cast<float>(e.roll_deg)};
 }
 
 flatbuffers::Offset<esr::replay::PoseState> BuildPose(flatbuffers::FlatBufferBuilder& b,

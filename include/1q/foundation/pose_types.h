@@ -12,21 +12,21 @@ namespace oneq {
 namespace foundation {
 
 /**
- * @brief Vector3f 表示三维向量。
+ * @brief Vector3f 表示三维向量（double 精度）。
  */
 struct ONEQ_API Vector3f {
-  float x{0.0f}; /**< x 分量 */
-  float y{0.0f}; /**< y 分量 */
-  float z{0.0f}; /**< z 分量 */
+  double x{0.0}; /**< x 分量 */
+  double y{0.0}; /**< y 分量 */
+  double z{0.0}; /**< z 分量 */
 };
 
 /**
- * @brief EulerAnglesDeg 表示欧拉角姿态（单位：度）。
+ * @brief EulerAnglesDeg 表示欧拉角姿态（单位：度，double 精度）。
  */
 struct ONEQ_API EulerAnglesDeg {
-  float yaw_deg{0.0f};   /**< 偏航角（单位：deg） */
-  float pitch_deg{0.0f}; /**< 俯仰角（单位：deg） */
-  float roll_deg{0.0f};  /**< 横滚角（单位：deg） */
+  double yaw_deg{0.0};   /**< 偏航角（单位：deg） */
+  double pitch_deg{0.0}; /**< 俯仰角（单位：deg） */
+  double roll_deg{0.0};  /**< 横滚角（单位：deg） */
 };
 
 /**

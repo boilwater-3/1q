@@ -13,18 +13,18 @@ namespace coordinate_utils {
 inline oneq::foundation::EulerAnglesDeg ToFoundationEuler(
     const oneq::coordinate::EulerAnglesDeg& attitude_deg) {
   oneq::foundation::EulerAnglesDeg output;
-  output.yaw_deg = static_cast<float>(attitude_deg.yaw_deg);
-  output.pitch_deg = static_cast<float>(attitude_deg.pitch_deg);
-  output.roll_deg = static_cast<float>(attitude_deg.roll_deg);
+  output.yaw_deg = attitude_deg.yaw_deg;
+  output.pitch_deg = attitude_deg.pitch_deg;
+  output.roll_deg = attitude_deg.roll_deg;
   return output;
 }
 
 inline oneq::foundation::Vector3f ToFoundationVector(
     const oneq::coordinate::Vector3d& v) {
   oneq::foundation::Vector3f out;
-  out.x = static_cast<float>(v.x);
-  out.y = static_cast<float>(v.y);
-  out.z = static_cast<float>(v.z);
+  out.x = v.x;
+  out.y = v.y;
+  out.z = v.z;
   return out;
 }
 

@@ -39,10 +39,10 @@ inline Matrix3f Multiply(const Matrix3f& lhs, const Matrix3f& rhs) {
 }
 
 inline Matrix3f BuildRotationMatrix(const model::EulerAnglesDeg& euler_deg) {
-  const float yaw_rad = oneq::internal::numerics::DegToRad(euler_deg.yaw_deg);
+  const float yaw_rad = static_cast<float>(oneq::internal::numerics::DegToRad(euler_deg.yaw_deg));
   // Keep the same pitch sign convention as the internal geometry module.
-  const float pitch_rad = oneq::internal::numerics::DegToRad(-euler_deg.pitch_deg);
-  const float roll_rad = oneq::internal::numerics::DegToRad(euler_deg.roll_deg);
+  const float pitch_rad = static_cast<float>(oneq::internal::numerics::DegToRad(-euler_deg.pitch_deg));
+  const float roll_rad = static_cast<float>(oneq::internal::numerics::DegToRad(euler_deg.roll_deg));
 
   const float cy = std::cos(yaw_rad);
   const float sy = std::sin(yaw_rad);

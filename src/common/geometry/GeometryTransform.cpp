@@ -65,11 +65,11 @@ AzimuthElevationDeg UnitVectorToAzimuthElevation(const Eigen::Vector3f& vector) 
 }
 
 Eigen::Matrix3f BuildRotationMatrix(const EulerAnglesDeg& euler_deg) {
-  const float yaw_rad = oneq::internal::numerics::DegToRad(euler_deg.yaw_deg);
+  const float yaw_rad = static_cast<float>(oneq::internal::numerics::DegToRad(euler_deg.yaw_deg));
   // 仓库内约定正 pitch 表示正仰角；在当前 z-up 右手系下，
   // 旋转矩阵需使用绕 y 轴的负角，才能与 az/el 语义保持一致。
-  const float pitch_rad = oneq::internal::numerics::DegToRad(-euler_deg.pitch_deg);
-  const float roll_rad = oneq::internal::numerics::DegToRad(euler_deg.roll_deg);
+  const float pitch_rad = static_cast<float>(oneq::internal::numerics::DegToRad(-euler_deg.pitch_deg));
+  const float roll_rad = static_cast<float>(oneq::internal::numerics::DegToRad(euler_deg.roll_deg));
 
   const float cy = std::cos(yaw_rad);
   const float sy = std::sin(yaw_rad);
@@ -87,7 +87,9 @@ Eigen::Matrix3f BuildRotationMatrix(const EulerAnglesDeg& euler_deg) {
 Vector3f RotateVectorToLocalFrame(const Vector3f& world_vector,
                                   const EulerAnglesDeg& local_attitude_deg) {
   const Eigen::Matrix3f rotation = BuildRotationMatrix(local_attitude_deg);
-  const Eigen::Vector3f input_vector(world_vector.x, world_vector.y, world_vector.z);
+  const Eigen::Vector3f input_vector(static_cast<float>(world_vector.x),
+                                     static_cast<float>(world_vector.y),
+                                     static_cast<float>(world_vector.z));
   const Eigen::Vector3f local_vector = rotation.transpose() * input_vector;
 
   Vector3f rotated;
@@ -100,9 +102,9 @@ Vector3f RotateVectorToLocalFrame(const Vector3f& world_vector,
 AzimuthElevationDeg ComputeRelativeLineOfSightAzEl(const Vector3f& observer_position_m,
                                                    const EulerAnglesDeg& observer_attitude_deg,
                                                    const Vector3f& target_position_m) {
-  Eigen::Vector3f line_of_sight_world(target_position_m.x - observer_position_m.x,
-                                      target_position_m.y - observer_position_m.y,
-                                      target_position_m.z - observer_position_m.z);
+  Eigen::Vector3f line_of_sight_world(static_cast<float>(target_position_m.x - observer_position_m.x),
+                                      static_cast<float>(target_position_m.y - observer_position_m.y),
+                                      static_cast<float>(target_position_m.z - observer_position_m.z));
   const float norm = line_of_sight_world.norm();
   if (norm <= kVectorNormFloor) {
     return AzimuthElevationDeg();
@@ -116,7 +118,9 @@ AzimuthElevationDeg ComputeRelativeLineOfSightAzEl(const Vector3f& observer_posi
   const Vector3f observer_frame_vector =
       RotateVectorToLocalFrame(normalized_world_vector, observer_attitude_deg);
   return UnitVectorToAzimuthElevation(
-      Eigen::Vector3f(observer_frame_vector.x, observer_frame_vector.y, observer_frame_vector.z));
+      Eigen::Vector3f(static_cast<float>(observer_frame_vector.x),
+                      static_cast<float>(observer_frame_vector.y),
+                      static_cast<float>(observer_frame_vector.z)));
 }
 
 AzimuthElevationDeg ResolveStabilizedMountFramePointing(

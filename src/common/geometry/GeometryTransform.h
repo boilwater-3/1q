@@ -8,27 +8,14 @@
 
 #include <Eigen/Core>
 
+#include "1q/foundation/pose_types.h"
+
 namespace oneq {
 namespace internal {
 namespace geometry {
 
-/**
- * @brief Vector3f 描述三维向量。
- */
-struct Vector3f {
-  float x{0.0f}; /**< x 分量 */
-  float y{0.0f}; /**< y 分量 */
-  float z{0.0f}; /**< z 分量 */
-};
-
-/**
- * @brief EulerAnglesDeg 描述欧拉角姿态（单位：度）。
- */
-struct EulerAnglesDeg {
-  float yaw_deg{0.0f};   /**< 偏航角（单位：deg） */
-  float pitch_deg{0.0f}; /**< 俯仰角（单位：deg） */
-  float roll_deg{0.0f};  /**< 横滚角（单位：deg） */
-};
+using Vector3f = oneq::foundation::Vector3f;
+using EulerAnglesDeg = oneq::foundation::EulerAnglesDeg;
 
 /**
  * @brief AzimuthElevationDeg 描述方位/俯仰角（单位：度）。
