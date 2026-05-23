@@ -110,12 +110,8 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
         )
     endif()
 
-    gtest_discover_tests(${target_name}
-        DISCOVERY_MODE POST_BUILD
-        DISCOVERY_TIMEOUT ${discovery_timeout}
-        TEST_PREFIX "${suite_label}::"
-        PROPERTIES LABELS "${suite_label}"
-    )
+    add_test(NAME "${suite_label}::${target_name}" COMMAND ${target_name})
+    set_tests_properties("${suite_label}::${target_name}" PROPERTIES LABELS "${suite_label}")
 endfunction()
 
 add_1q_gtest(${PROJECT_NAME}_unit_tests unit 60 ${UNIT_TEST_SOURCES})

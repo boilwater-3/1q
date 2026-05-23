@@ -6,8 +6,6 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
-#include <fstream>
-#include <iomanip>
 #include <string>
 #include <vector>
 
@@ -241,21 +239,11 @@ TEST(FdManeuverTest, G3_PointToPointFullFlight) {
 
   double min_dist = 1e9;
 
-  std::ofstream ofs_p2p("/Users/aurora/Code/1q/point_to_point.csv");
-  ofs_p2p << std::fixed << std::setprecision(10);
-  ofs_p2p << "time,lat,lon,alt,yaw,roll,pitch\n";
-
   for (int i = 0; i < 2400; ++i) {  // 80s
     auto input = ctrl.ComputePointToPoint(session.GetCurrentState(), params, nullptr);
     input.cycle_index = static_cast<std::uint32_t>(i);
     auto out = session.Step(input);
     ASSERT_TRUE(out.ok);
-
-    oneq::coordinate::LlaPositionDegM csv_lla{};
-    oneq::coordinate::TryEcefToLla(out.kinematics.position_ecef_m, &csv_lla);
-    ofs_p2p << (i * 0.05) << "," << csv_lla.latitude_deg << "," << csv_lla.longitude_deg << ","
-            << out.state.altitude_msl_m << "," << out.state.yaw_deg << "," << out.state.roll_deg
-            << "," << out.state.pitch_deg << "\n";
 
     oneq::coordinate::LlaPositionDegM lla{};
     if (oneq::coordinate::TryEcefToLla(out.kinematics.position_ecef_m, &lla)) {
@@ -308,10 +296,6 @@ TEST(FdManeuverTest, G5_WeaveHeadingOscillates) {
   double max_heading = 0.0;
   double sim_time = 0.0;
 
-  std::ofstream ofs("/Users/aurora/Code/1q/weave.csv");
-  ofs << std::fixed << std::setprecision(10);
-  ofs << "time,lat,lon,alt,yaw,roll,pitch\n";
-
   for (int i = 0; i < 800; ++i) {  // 40s
     auto input = ctrl.ComputeWeave(session.GetCurrentState(), weave, sim_time);
     input.cycle_index = static_cast<std::uint32_t>(i);
@@ -322,12 +306,6 @@ TEST(FdManeuverTest, G5_WeaveHeadingOscillates) {
     double h = out.state.yaw_deg;
     if (h < min_heading) min_heading = h;
     if (h > max_heading) max_heading = h;
-
-    oneq::coordinate::LlaPositionDegM csv_lla{};
-    oneq::coordinate::TryEcefToLla(out.kinematics.position_ecef_m, &csv_lla);
-    ofs << sim_time << "," << csv_lla.latitude_deg << "," << csv_lla.longitude_deg << ","
-        << out.state.altitude_msl_m << "," << h << "," << out.state.roll_deg << ","
-        << out.state.pitch_deg << "\n";
 
     sim_time += 0.05;
   }
@@ -393,22 +371,12 @@ TEST(FdManeuverTest, G4_WaypointSequenceFullFlight) {
   std::size_t wp_idx = 0U;
   bool all_reached = false;
 
-  std::ofstream ofs_wp("/Users/aurora/Code/1q/waypoint.csv");
-  ofs_wp << std::fixed << std::setprecision(10);
-  ofs_wp << "time,lat,lon,alt,yaw,roll,pitch\n";
-
   for (int i = 0; i < 10000 && !all_reached; ++i) {
     auto input =
         ctrl.ComputeWaypoint(session.GetCurrentState(), wps, params, &wp_idx, &all_reached);
     input.cycle_index = static_cast<std::uint32_t>(i);
     auto out = session.Step(input);
     ASSERT_TRUE(out.ok);
-
-    oneq::coordinate::LlaPositionDegM csv_lla{};
-    oneq::coordinate::TryEcefToLla(out.kinematics.position_ecef_m, &csv_lla);
-    ofs_wp << (i * 0.05) << "," << csv_lla.latitude_deg << "," << csv_lla.longitude_deg << ","
-           << out.state.altitude_msl_m << "," << out.state.yaw_deg << "," << out.state.roll_deg
-           << "," << out.state.pitch_deg << "\n";
   }
 
   EXPECT_TRUE(all_reached) << "Did not reach all waypoints within 500s, idx=" << wp_idx;
@@ -482,21 +450,11 @@ TEST(FdManeuverTest, G6_BarrelRollCompleted) {
 
   double sim_time = 0.0;
 
-  std::ofstream ofs("/Users/aurora/Code/1q/barrel_roll.csv");
-  ofs << std::fixed << std::setprecision(10);
-  ofs << "time,lat,lon,alt,yaw,roll,pitch\n";
-
   for (int i = 0; i < 2000; ++i) {  // 100s max
     auto input = ctrl.ComputeBarrelRoll(session.GetCurrentState(), params, sim_time, &state);
     input.cycle_index = static_cast<std::uint32_t>(i);
     auto out = session.Step(input);
     ASSERT_TRUE(out.ok);
-
-    oneq::coordinate::LlaPositionDegM csv_lla{};
-    oneq::coordinate::TryEcefToLla(out.kinematics.position_ecef_m, &csv_lla);
-    ofs << sim_time << "," << csv_lla.latitude_deg << "," << csv_lla.longitude_deg << ","
-        << out.state.altitude_msl_m << "," << out.state.yaw_deg << "," << out.state.roll_deg << ","
-        << out.state.pitch_deg << "\n";
 
     sim_time += 0.05;
 
@@ -787,19 +745,9 @@ TEST(FdManeuverTest, I2_OrbitCirclesCenter) {
   double min_heading = 360.0;
   double max_heading = 0.0;
 
-  std::ofstream ofs_orbit("/Users/aurora/Code/1q/orbit.csv");
-  ofs_orbit << std::fixed << std::setprecision(10);
-  ofs_orbit << "time,lat,lon,alt,yaw,roll,pitch\n";
-
   for (int i = 0; i < 4000; ++i) {
     auto result = session.StepManeuver(req);
     ASSERT_TRUE(result.output.ok);
-
-    oneq::coordinate::LlaPositionDegM csv_lla{};
-    oneq::coordinate::TryEcefToLla(result.output.kinematics.position_ecef_m, &csv_lla);
-    ofs_orbit << (i * 0.05) << "," << csv_lla.latitude_deg << "," << csv_lla.longitude_deg << ","
-              << result.output.state.altitude_msl_m << "," << result.output.state.yaw_deg << ","
-              << result.output.state.roll_deg << "," << result.output.state.pitch_deg << "\n";
 
     double h = result.output.state.yaw_deg;
     if (h < min_heading) min_heading = h;
@@ -872,20 +820,10 @@ TEST(FdManeuverTest, I5_EvasionChangesHeading) {
   req.evasion.duration_s = 30.0;
   req.evasion.cruise_speed_mps = 60.0;
 
-  std::ofstream ofs_eva("/Users/aurora/Code/1q/evasion.csv");
-  ofs_eva << std::fixed << std::setprecision(10);
-  ofs_eva << "time,lat,lon,alt,yaw,roll,pitch\n";
-
   // 运行规避机动 40s
   for (int i = 0; i < 800; ++i) {
     auto result = session.StepManeuver(req);
     ASSERT_TRUE(result.output.ok);
-
-    oneq::coordinate::LlaPositionDegM csv_lla{};
-    oneq::coordinate::TryEcefToLla(result.output.kinematics.position_ecef_m, &csv_lla);
-    ofs_eva << (i * 0.05) << "," << csv_lla.latitude_deg << "," << csv_lla.longitude_deg << ","
-            << result.output.state.altitude_msl_m << "," << result.output.state.yaw_deg << ","
-            << result.output.state.roll_deg << "," << result.output.state.pitch_deg << "\n";
 
     if (result.status.completed) break;
   }
