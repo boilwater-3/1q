@@ -88,6 +88,28 @@ Gtd7Profile GTD7(int day_of_year, double sec, double alt_m, double glat_deg, dou
 AtmosphericPropagationResult EvaluateAtmosphericPropagation(
     const AtmosphericPropagationInputs& inputs);
 
+/**
+ * @brief 从大气状态和传感器参数构建 AtmosphericPropagationInputs。
+ *
+ * 消除各模块手工填充 14 个字段的重复代码。
+ * temperature_k / pressure_hpa 优先使用 atmospheric_state 中的精确值；
+ * 若 atmospheric_state 为默认构造（altitude_m == 0 且未查询），则回退到 observation 的值。
+ */
+struct AtmosphericObservationRef {
+  float pressure_hpa{1013.25f};
+  float temperature_k{288.15f};
+  float relative_humidity{0.5f};
+  float k_factor{4.0f / 3.0f};
+  int day_of_year{172};
+  float solar_flux_f107a{150.0f};
+  float solar_flux_f107{150.0f};
+  float geomagnetic_ap{4.0f};
+};
+
+AtmosphericPropagationInputs BuildPropagationInputs(
+    float frequency_hz, float path_length_m, float radar_altitude_m, float target_altitude_m,
+    float elevation_deg, const AtmosphericObservationRef& observation);
+
 }  // namespace atmosphere
 }  // namespace internal
 }  // namespace oneq

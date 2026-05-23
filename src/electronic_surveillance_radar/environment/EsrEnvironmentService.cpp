@@ -114,27 +114,25 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
       config.atmospheric_context;
   float physical_loss_db = 0.0f;
   if (atmospheric_physics.enable_physical_model) {
-    oneq::internal::atmosphere::AtmosphericPropagationInputs physics_inputs;
-    physics_inputs.enable_physics = true;
-    physics_inputs.frequency_hz = kDefaultAtmosphereFrequencyHz;
-    physics_inputs.path_length_m = kDefaultAtmospherePathLengthM;
-    physics_inputs.radar_altitude_m = kDefaultAtmosphereRadarAltitudeM;
-    physics_inputs.target_altitude_m = kDefaultAtmosphereTargetAltitudeM;
-    physics_inputs.elevation_deg = kDefaultAtmosphereElevationDeg;
-    physics_inputs.pressure_hpa = atmospheric_physics.pressure_hpa;
-    physics_inputs.temperature_k = atmospheric_physics.temperature_k;
-    physics_inputs.relative_humidity = atmospheric_physics.relative_humidity;
-    physics_inputs.k_factor = ::electronic_surveillance_radar::environment::ResolveEffectiveKFactor(
+    oneq::internal::atmosphere::AtmosphericObservationRef obs;
+    obs.pressure_hpa = atmospheric_physics.pressure_hpa;
+    obs.temperature_k = atmospheric_physics.temperature_k;
+    obs.relative_humidity = atmospheric_physics.relative_humidity;
+    obs.k_factor = ::electronic_surveillance_radar::environment::ResolveEffectiveKFactor(
         atmospheric_context);
-    physics_inputs.day_of_year =
+    obs.day_of_year =
         ::electronic_surveillance_radar::environment::ResolveEffectiveDayOfYear(
             atmospheric_context);
-    physics_inputs.solar_flux_f107a = atmospheric_context.solar_flux_f107a;
-    physics_inputs.solar_flux_f107 = atmospheric_context.solar_flux_f107;
-    physics_inputs.geomagnetic_ap = atmospheric_context.geomagnetic_ap;
-    const oneq::internal::atmosphere::AtmosphericPropagationResult physics_result =
-        oneq::internal::atmosphere::EvaluateAtmosphericPropagation(physics_inputs);
-    physical_loss_db = physics_result.total_physics_loss_db;
+    obs.solar_flux_f107a = atmospheric_context.solar_flux_f107a;
+    obs.solar_flux_f107 = atmospheric_context.solar_flux_f107;
+    obs.geomagnetic_ap = atmospheric_context.geomagnetic_ap;
+    const auto physics_inputs = oneq::internal::atmosphere::BuildPropagationInputs(
+        kDefaultAtmosphereFrequencyHz, kDefaultAtmospherePathLengthM,
+        kDefaultAtmosphereRadarAltitudeM, kDefaultAtmosphereTargetAltitudeM,
+        kDefaultAtmosphereElevationDeg, obs);
+    physical_loss_db =
+        oneq::internal::atmosphere::EvaluateAtmosphericPropagation(physics_inputs)
+            .total_physics_loss_db;
   }
   const float semantic_loss_db = ResolvePropagationProfileLossDb(observation.propagation_profile) +
                                  ResolveWeatherLossDb(observation.atmospheric_observation);

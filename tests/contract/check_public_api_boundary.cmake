@@ -225,6 +225,8 @@ set(COORDINATE_HEADERS
 
 # ── 跨域基础 ─────────────────────────────────────────────────────────
 set(FOUNDATION_HEADERS
+    "foundation/atmosphere_provider.h"
+    "foundation/atmosphere_state.h"
     "foundation/atmospheric_types.h"
     "foundation/json_reader.h"
     "foundation/pose_types.h"

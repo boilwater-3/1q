@@ -57,22 +57,20 @@ float ComputeTargetSpecificAtmosphericLossDb(
     return 0.0f;
   }
 
-  oneq::internal::atmosphere::AtmosphericPropagationInputs inputs;
-  inputs.enable_physics = true;
-  inputs.frequency_hz = exec_config.detection.engineering.transmitter.frequency_hz;
-  inputs.path_length_m = std::max(geometry.range_m, 0.1f);
-  inputs.radar_altitude_m = platform_altitude_m;
-  inputs.target_altitude_m = std::max(platform_altitude_m + geometry.position_m.z(), 0.0f);
-  inputs.elevation_deg =
-      geometry.look_angles_deg.has_look_angles ? geometry.look_angles_deg.look_el_deg : 0.0f;
-  inputs.pressure_hpa = environment_snapshot.atmospheric_physics.pressure_hpa;
-  inputs.temperature_k = environment_snapshot.atmospheric_physics.temperature_k;
-  inputs.relative_humidity = environment_snapshot.atmospheric_physics.relative_humidity;
-  inputs.k_factor = environment_snapshot.effective_k_factor;
-  inputs.day_of_year = environment_snapshot.effective_day_of_year;
-  inputs.solar_flux_f107a = environment_snapshot.atmospheric_context.solar_flux_f107a;
-  inputs.solar_flux_f107 = environment_snapshot.atmospheric_context.solar_flux_f107;
-  inputs.geomagnetic_ap = environment_snapshot.atmospheric_context.geomagnetic_ap;
+  oneq::internal::atmosphere::AtmosphericObservationRef obs;
+  obs.pressure_hpa = environment_snapshot.atmospheric_physics.pressure_hpa;
+  obs.temperature_k = environment_snapshot.atmospheric_physics.temperature_k;
+  obs.relative_humidity = environment_snapshot.atmospheric_physics.relative_humidity;
+  obs.k_factor = environment_snapshot.effective_k_factor;
+  obs.day_of_year = environment_snapshot.effective_day_of_year;
+  obs.solar_flux_f107a = environment_snapshot.atmospheric_context.solar_flux_f107a;
+  obs.solar_flux_f107 = environment_snapshot.atmospheric_context.solar_flux_f107;
+  obs.geomagnetic_ap = environment_snapshot.atmospheric_context.geomagnetic_ap;
+  const auto inputs = oneq::internal::atmosphere::BuildPropagationInputs(
+      exec_config.detection.engineering.transmitter.frequency_hz,
+      std::max(geometry.range_m, 0.1f), platform_altitude_m,
+      std::max(platform_altitude_m + geometry.position_m.z(), 0.0f),
+      geometry.look_angles_deg.has_look_angles ? geometry.look_angles_deg.look_el_deg : 0.0f, obs);
   return oneq::internal::atmosphere::EvaluateAtmosphericPropagation(inputs).total_physics_loss_db;
 }
 

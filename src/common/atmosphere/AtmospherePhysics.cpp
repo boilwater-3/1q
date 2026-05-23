@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/atmosphere/StandardAtmosphere.h"
 #include "common/numerics/ClampUtils.h"
 #include "common/numerics/Constants.h"
 
@@ -89,33 +90,20 @@ Gtd7Profile GTD7(int day_of_year, double sec, double alt_m, double glat_deg, dou
   (void)glat_deg;
   (void)glong_deg;
   (void)stl;
+  (void)f107a;
+  (void)f107;
+  (void)ap;
   (void)mass;
 
   const double safe_alt_m = std::max(0.0, alt_m);
-  const int wrapped_day = std::max(1, std::min(366, day_of_year));
-  const double seasonal_phase = (2.0 * oneq::internal::numerics::kPi * static_cast<double>(wrapped_day)) / 365.0;
-  const double seasonal_factor = 1.0 + 0.03 * std::cos(seasonal_phase);
-  const double solar_factor = oneq::internal::numerics::Clamp((f107a + f107) / 300.0, 0.6, 1.6);
-  const double geomagnetic_factor = 1.0 + oneq::internal::numerics::Clamp(ap, 0.0, 400.0) * 1.0e-3;
+  (void)day_of_year;
 
-  double base_temperature_k = 216.65;
-  if (safe_alt_m < 11000.0) {
-    base_temperature_k = 288.15 - 0.0065 * safe_alt_m;
-  } else if (safe_alt_m < 25000.0) {
-    base_temperature_k = 216.65;
-  } else {
-    base_temperature_k = 216.65 + 0.002 * (safe_alt_m - 25000.0);
-  }
-  const double temperature_k =
-      std::max(kMinKelvin, base_temperature_k * solar_factor * seasonal_factor);
-
-  const double scale_height_m = 7500.0 * solar_factor * geomagnetic_factor;
-  const double density_kg_m3 =
-      kSeaLevelDensity * std::exp(-safe_alt_m / std::max(scale_height_m, 1000.0)) * seasonal_factor;
+  const StandardAtmosphere isa;
+  const auto state = isa.GetState(static_cast<float>(safe_alt_m));
 
   Gtd7Profile profile;
-  profile.temperature_k = temperature_k;
-  profile.density_kg_m3 = std::max(1.0e-8, density_kg_m3);
+  profile.temperature_k = static_cast<double>(state.temperature_k);
+  profile.density_kg_m3 = static_cast<double>(state.density_kg_m3);
   return profile;
 }
 
@@ -163,6 +151,27 @@ AtmosphericPropagationResult EvaluateAtmosphericPropagation(
   result.neutral_density_kg_m3 = static_cast<float>(profile.density_kg_m3);
   result.total_physics_loss_db = static_cast<float>(total_loss_db);
   return result;
+}
+
+AtmosphericPropagationInputs BuildPropagationInputs(
+    float frequency_hz, float path_length_m, float radar_altitude_m, float target_altitude_m,
+    float elevation_deg, const AtmosphericObservationRef& observation) {
+  AtmosphericPropagationInputs inputs;
+  inputs.enable_physics = true;
+  inputs.frequency_hz = frequency_hz;
+  inputs.path_length_m = path_length_m;
+  inputs.radar_altitude_m = radar_altitude_m;
+  inputs.target_altitude_m = target_altitude_m;
+  inputs.elevation_deg = elevation_deg;
+  inputs.pressure_hpa = observation.pressure_hpa;
+  inputs.temperature_k = observation.temperature_k;
+  inputs.relative_humidity = observation.relative_humidity;
+  inputs.k_factor = observation.k_factor;
+  inputs.day_of_year = observation.day_of_year;
+  inputs.solar_flux_f107a = observation.solar_flux_f107a;
+  inputs.solar_flux_f107 = observation.solar_flux_f107;
+  inputs.geomagnetic_ap = observation.geomagnetic_ap;
+  return inputs;
 }
 
 }  // namespace atmosphere

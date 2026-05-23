@@ -89,6 +89,50 @@ TEST(AtmospherePhysicsTest, SameAltitudePathLosesLessAtHigherAbsoluteAltitude) {
   EXPECT_LT(elevated_result.total_physics_loss_db, sea_level_result.total_physics_loss_db);
 }
 
+TEST(AtmospherePhysicsTest, BuildPropagationInputsSetsAllFields) {
+  AtmosphericObservationRef obs;
+  obs.pressure_hpa = 950.0f;
+  obs.temperature_k = 280.0f;
+  obs.relative_humidity = 0.6f;
+  obs.k_factor = 1.5f;
+  obs.day_of_year = 200;
+  obs.solar_flux_f107a = 140.0f;
+  obs.solar_flux_f107 = 130.0f;
+  obs.geomagnetic_ap = 5.0f;
+
+  const auto inputs = BuildPropagationInputs(
+      9.6e9f, 50.0e3f, 1200.0f, 800.0f, 4.0f, obs);
+
+  EXPECT_TRUE(inputs.enable_physics);
+  EXPECT_FLOAT_EQ(inputs.frequency_hz, 9.6e9f);
+  EXPECT_FLOAT_EQ(inputs.path_length_m, 50.0e3f);
+  EXPECT_FLOAT_EQ(inputs.radar_altitude_m, 1200.0f);
+  EXPECT_FLOAT_EQ(inputs.target_altitude_m, 800.0f);
+  EXPECT_FLOAT_EQ(inputs.elevation_deg, 4.0f);
+  EXPECT_FLOAT_EQ(inputs.pressure_hpa, 950.0f);
+  EXPECT_FLOAT_EQ(inputs.temperature_k, 280.0f);
+  EXPECT_FLOAT_EQ(inputs.relative_humidity, 0.6f);
+  EXPECT_FLOAT_EQ(inputs.k_factor, 1.5f);
+  EXPECT_EQ(inputs.day_of_year, 200);
+  EXPECT_FLOAT_EQ(inputs.solar_flux_f107a, 140.0f);
+  EXPECT_FLOAT_EQ(inputs.solar_flux_f107, 130.0f);
+  EXPECT_FLOAT_EQ(inputs.geomagnetic_ap, 5.0f);
+}
+
+TEST(AtmospherePhysicsTest, BuildPropagationInputsProducesPositiveLoss) {
+  AtmosphericObservationRef obs;
+  obs.pressure_hpa = 1013.25f;
+  obs.temperature_k = 288.15f;
+  obs.relative_humidity = 0.5f;
+
+  const auto inputs = BuildPropagationInputs(
+      10.0e9f, 10.0e3f, 1.0e3f, 1.0e3f, 5.0f, obs);
+  const auto result = EvaluateAtmosphericPropagation(inputs);
+
+  EXPECT_GT(result.total_physics_loss_db, 0.0f);
+  EXPECT_GT(result.blake_loss_db, 0.0f);
+}
+
 }  // namespace
 }  // namespace atmosphere
 }  // namespace internal

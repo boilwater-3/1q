@@ -2,6 +2,7 @@
 
 set(ONEQ_COMMON_SOURCES
     common/atmosphere/AtmospherePhysics.cpp
+    common/atmosphere/StandardAtmosphere.cpp
     common/geometry/GeometryTransform.cpp
     common/coordinate/PositionTransform.cpp
     common/coordinate/VelocityTransform.cpp
@@ -17,6 +18,8 @@ set(ONEQ_COMMON_SOURCES
 if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_FOUNDATION
         ${CMAKE_SOURCE_DIR}/include/1q/foundation/atmospheric_types.h
+        ${CMAKE_SOURCE_DIR}/include/1q/foundation/atmosphere_state.h
+        ${CMAKE_SOURCE_DIR}/include/1q/foundation/atmosphere_provider.h
         ${CMAKE_SOURCE_DIR}/include/1q/foundation/pose_types.h
         ${CMAKE_SOURCE_DIR}/include/1q/foundation/scan_schedule_types.h
     )
