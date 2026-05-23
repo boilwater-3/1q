@@ -34,7 +34,7 @@ class ONEQ_API IEsrContext {
   virtual float GetCycleDeltaTimeSec() const = 0;
 
   /** @brief 获取当前周期平台姿态。 */
-  virtual const session::EsrPoseState& GetPlatformPose() const = 0;
+  virtual const oneq::foundation::PoseState& GetPlatformPose() const = 0;
 
   /** @brief 获取当前周期场景辐射源列表。 */
   virtual const session::EsrSceneEmitterList& GetSceneEmitters() const = 0;

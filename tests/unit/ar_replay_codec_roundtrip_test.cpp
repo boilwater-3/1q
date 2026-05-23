@@ -192,8 +192,8 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.validation_issues.push_back(issue);
   result.has_validation_error = true;
   result.executed_this_cycle = true;
-  result.signal_cycle_abort_reason = extension::SignalCycleAbortReason::kRuntimePreparationFailed;
-  result.reused_previous_track_output = true;
+  result.abort_reason = extension::SignalCycleAbortReason::kRuntimePreparationFailed;
+  result.reused_previous_output = true;
   result.has_control_profile = true;
   result.control_profile.version = 7U;
   result.control_profile.enable_lpi_power_control = true;
@@ -234,9 +234,9 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_EQ(decoded.track_output_frame.batch_id, 3U);
   EXPECT_TRUE(decoded.executed_this_cycle);
   EXPECT_TRUE(decoded.has_validation_error);
-  EXPECT_EQ(decoded.signal_cycle_abort_reason,
+  EXPECT_EQ(decoded.abort_reason,
             extension::SignalCycleAbortReason::kRuntimePreparationFailed);
-  EXPECT_TRUE(decoded.reused_previous_track_output);
+  EXPECT_TRUE(decoded.reused_previous_output);
   ASSERT_EQ(decoded.submitted_commands.size(), 1U);
   EXPECT_EQ(decoded.submitted_commands[0].type,
             extension::control::RadarCommandType::SET_AGILITY_FREQ);

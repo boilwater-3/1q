@@ -6,11 +6,13 @@
 #include <string>
 #include <vector>
 
+#include "1q/api.hpp"
+
 namespace oneq {
 
 /// Lightweight JSON value tree. Supports the subset of JSON needed for config
 /// loading: objects, arrays, strings, numbers (int/double), booleans, null.
-class JsonValue {
+class ONEQ_API JsonValue {
  public:
   enum Type { kNull, kBool, kInt, kDouble, kString, kArray, kObject };
 
@@ -52,7 +54,7 @@ class JsonValue {
 };
 
 /// Minimal recursive-descent JSON parser. No exceptions; errors via status string.
-class JsonReader {
+class ONEQ_API JsonReader {
  public:
   /// Parse a UTF-8 JSON file. Returns false and sets @p error on failure.
   static bool ParseFile(const char* path, JsonValue* root, std::string* error);

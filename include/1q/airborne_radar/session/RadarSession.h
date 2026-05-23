@@ -9,7 +9,6 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
@@ -70,9 +69,9 @@ class ONEQ_API RadarSession {
    * @param input 当前周期输入。
    * @return 当前周期聚合结果。
    * @note 输入容错：行为与 `Step()` 一致；可通过结果中的
-   *       `executed_this_cycle` / `reused_previous_track_output`
+   *       `executed_this_cycle` / `reused_previous_output`
    *       区分“本周期实际执行”与“仅回退上一有效输出”；若下游主链路 abort，
-   *       可进一步通过 `signal_cycle_abort_reason` 区分具体原因。
+   *       可进一步通过 `abort_reason` 区分具体原因。
    */
   RadarCycleResult StepWithResult(const RadarCycleInput& input);
 
@@ -108,6 +107,13 @@ class ONEQ_API RadarSession {
    *       补丁仍保持 staged 状态。
    */
   void ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
+
+  /**
+   * @brief 尝试应用运行期可变配置补丁。
+   * @param[in] patch 运行期可变配置补丁。
+   * @return 补丁被接受并暂存成功时返回 true；补丁无效或无变更时返回 false。
+   */
+  bool TryApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
 
  private:
   friend class RadarSessionFactory;

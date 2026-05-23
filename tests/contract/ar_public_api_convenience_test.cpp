@@ -1093,7 +1093,7 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(session::CollectTracksByExternalTargetId(frame_1, 701U).size(), 1U);
   EXPECT_FALSE(result_1.has_validation_error);
   EXPECT_TRUE(result_1.executed_this_cycle);
-  EXPECT_FALSE(result_1.reused_previous_track_output);
+  EXPECT_FALSE(result_1.reused_previous_output);
 
   session::RadarCycleInput duplicate_cycle = MakeCycleInput(
       session::RadarSceneTargetList{
@@ -1108,7 +1108,7 @@ TEST(PublicApiConvenienceTest,
                                 session::ValidationCode::kDuplicateExternalTargetId));
   EXPECT_TRUE(duplicate_result.has_validation_error);
   EXPECT_FALSE(duplicate_result.executed_this_cycle);
-  EXPECT_TRUE(duplicate_result.reused_previous_track_output);
+  EXPECT_TRUE(duplicate_result.reused_previous_output);
   EXPECT_EQ(duplicate_result.track_output_frame.cycle_index, frame_1.cycle_index);
   EXPECT_EQ(duplicate_result.track_output_frame.batch_id, frame_1.batch_id);
   EXPECT_EQ(duplicate_result.track_output_frame.tracks.size(), frame_1.tracks.size());
@@ -1135,7 +1135,7 @@ TEST(PublicApiConvenienceTest,
 
   EXPECT_TRUE(result_2.has_validation_error);
   EXPECT_FALSE(result_2.executed_this_cycle);
-  EXPECT_TRUE(result_2.reused_previous_track_output);
+  EXPECT_TRUE(result_2.reused_previous_output);
   EXPECT_TRUE(ContainsIssueCode(result_2.validation_issues,
                                 session::ValidationCode::kInvalidCycleDeltaTime));
   EXPECT_EQ(frame_2.cycle_index, frame_1.cycle_index);
@@ -1180,7 +1180,7 @@ TEST(PublicApiConvenienceTest,
   const session::RadarCycleResult baseline = session.StepWithResult(baseline_input);
   EXPECT_FALSE(baseline.has_validation_error);
   EXPECT_TRUE(baseline.executed_this_cycle);
-  EXPECT_FALSE(baseline.reused_previous_track_output);
+  EXPECT_FALSE(baseline.reused_previous_output);
   ASSERT_EQ(radar_context.GetSceneTargets().size(), 1U);
   EXPECT_EQ(radar_context.GetSceneTargets()[0].external_target_id, 810U);
   EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
@@ -1224,7 +1224,7 @@ TEST(PublicApiConvenienceTest,
   const session::RadarCycleResult invalid_result = session.StepWithResult(invalid_input);
   EXPECT_TRUE(invalid_result.has_validation_error);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
-  EXPECT_TRUE(invalid_result.reused_previous_track_output);
+  EXPECT_TRUE(invalid_result.reused_previous_output);
   EXPECT_TRUE(ContainsIssueCode(invalid_result.validation_issues,
                                 session::ValidationCode::kInvalidCycleDeltaTime));
   EXPECT_EQ(radar_context.begin_cycle_count(), committed_begin_cycles);
@@ -1242,7 +1242,7 @@ TEST(PublicApiConvenienceTest,
   const session::RadarCycleResult committed_result = session.StepWithResult(baseline_input);
   EXPECT_FALSE(committed_result.has_validation_error);
   EXPECT_TRUE(committed_result.executed_this_cycle);
-  EXPECT_FALSE(committed_result.reused_previous_track_output);
+  EXPECT_FALSE(committed_result.reused_previous_output);
   EXPECT_EQ(radar_context.begin_cycle_count(), committed_begin_cycles + 1U);
   EXPECT_EQ(signal_pipeline.run_cycle_count(), committed_signal_runs + 1U);
   EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count + 1U);
@@ -1272,7 +1272,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultAggregatesCurrentCycleO
       result.track_output_frame.tracks.size(),
       session::CountTracksByStatus(result.track_output_frame, model::TrackStatus::kConfirmed));
   EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.reused_previous_track_output);
+  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.submitted_commands.size(), session.GetSubmittedCommands().size());
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_TRUE(result.validation_issues.empty());
@@ -1316,16 +1316,16 @@ TEST(PublicApiConvenienceTest, RadarSessionReusesPreviousOutputWhenSignalPipelin
 
   const session::RadarCycleResult baseline = session.StepWithResult(input);
   EXPECT_TRUE(baseline.executed_this_cycle);
-  EXPECT_EQ(baseline.signal_cycle_abort_reason, extension::SignalCycleAbortReason::kNone);
-  EXPECT_FALSE(baseline.reused_previous_track_output);
+  EXPECT_EQ(baseline.abort_reason, extension::SignalCycleAbortReason::kNone);
+  EXPECT_FALSE(baseline.reused_previous_output);
 
   signal_pipeline.SetShouldExecute(false);
   const session::RadarCycleResult failed = session.StepWithResult(input);
   EXPECT_FALSE(failed.has_validation_error);
   EXPECT_FALSE(failed.executed_this_cycle);
-  EXPECT_EQ(failed.signal_cycle_abort_reason,
+  EXPECT_EQ(failed.abort_reason,
             extension::SignalCycleAbortReason::kRuntimePreparationFailed);
-  EXPECT_TRUE(failed.reused_previous_track_output);
+  EXPECT_TRUE(failed.reused_previous_output);
   EXPECT_TRUE(failed.submitted_commands.empty());
   EXPECT_FALSE(failed.has_control_profile);
   EXPECT_EQ(failed.association_quality_metrics.detection_count, 0U);
@@ -1376,9 +1376,9 @@ TEST(PublicApiConvenienceTest,
   ApplySceneStateToCycleInput(jammed_scene, &failed_input);
   const session::RadarCycleResult failed = session.StepWithResult(failed_input);
   EXPECT_FALSE(failed.executed_this_cycle);
-  EXPECT_EQ(failed.signal_cycle_abort_reason,
+  EXPECT_EQ(failed.abort_reason,
             extension::SignalCycleAbortReason::kRuntimePreparationFailed);
-  EXPECT_TRUE(failed.reused_previous_track_output);
+  EXPECT_TRUE(failed.reused_previous_output);
   ASSERT_EQ(radar_context.GetSceneTargets().size(), 1U);
   EXPECT_EQ(radar_context.GetSceneTargets()[0].external_target_id, 960U);
   EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
@@ -1427,7 +1427,7 @@ TEST(PublicApiConvenienceTest, RadarSessionRollsBackEnvironmentRuntimePatchWhenN
   signal_pipeline.SetShouldExecute(false);
   const session::RadarCycleResult failed = session.StepWithResult(baseline_input);
   EXPECT_FALSE(failed.executed_this_cycle);
-  EXPECT_EQ(failed.signal_cycle_abort_reason,
+  EXPECT_EQ(failed.abort_reason,
             extension::SignalCycleAbortReason::kRuntimePreparationFailed);
   EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
             environment::JammingSensitivityProfile::kBalanced);
@@ -1456,7 +1456,7 @@ TEST(PublicApiConvenienceTest, RadarSessionRetriesInitialInjectedPipelineConfigA
 
   const session::RadarCycleResult rejected = session.StepWithResult(input);
   EXPECT_FALSE(rejected.executed_this_cycle);
-  EXPECT_EQ(rejected.signal_cycle_abort_reason,
+  EXPECT_EQ(rejected.abort_reason,
             extension::SignalCycleAbortReason::kRuntimePreparationFailed);
   EXPECT_EQ(signal_pipeline.run_cycle_count(), 0U);
 
@@ -1534,9 +1534,9 @@ TEST(PublicApiConvenienceTest,
           model::MakeAirTarget(981U, 162.0f, 0.0f, 10.0f, 60.0f, 0.0f, 0.0f, 1.0f),
       }));
   EXPECT_FALSE(rejected.executed_this_cycle);
-  EXPECT_EQ(rejected.signal_cycle_abort_reason,
+  EXPECT_EQ(rejected.abort_reason,
             extension::SignalCycleAbortReason::kRuntimePreparationFailed);
-  EXPECT_TRUE(rejected.reused_previous_track_output);
+  EXPECT_TRUE(rejected.reused_previous_output);
   EXPECT_EQ(signal_pipeline.config().mission.orientation.work_sub_mode,
             model::RadarWorkSubMode::kTws);
   EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count);
@@ -1602,7 +1602,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
   EXPECT_TRUE(result.has_validation_error);
   EXPECT_EQ(result.input_cycle_index, 88U);
   EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_FALSE(result.reused_previous_track_output);
+  EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(result.submitted_commands.empty());
   EXPECT_FALSE(result.has_control_profile);
   EXPECT_EQ(result.association_quality_metrics.detection_count, 0U);

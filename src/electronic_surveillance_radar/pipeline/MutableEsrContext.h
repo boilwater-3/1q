@@ -33,7 +33,7 @@ class MutableEsrContext final : public extension::IEsrContext {
 
   std::uint32_t GetCycleIndex() const override;
   float GetCycleDeltaTimeSec() const override;
-  const session::EsrPoseState& GetPlatformPose() const override;
+  const oneq::foundation::PoseState& GetPlatformPose() const override;
   const session::EsrSceneEmitterList& GetSceneEmitters() const override;
   const environment::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const override;
   const extension::InterceptPipelineConfig& GetPipelineConfig() const override;
@@ -42,7 +42,7 @@ class MutableEsrContext final : public extension::IEsrContext {
  private:
   std::uint32_t cycle_index_{0U};
   float dt_sec_{1.0f};
-  session::EsrPoseState platform_pose_{};
+  oneq::foundation::PoseState platform_pose_{};
   session::EsrSceneEmitterList scene_emitters_{};
   environment::EsrEnvironmentSnapshot environment_snapshot_{};
   extension::InterceptPipelineConfig pipeline_config_{};

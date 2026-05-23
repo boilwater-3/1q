@@ -23,6 +23,7 @@
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 
 namespace eos = electro_optical_sensor;
 

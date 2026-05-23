@@ -6,8 +6,6 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_FOUNDATION_EOS_PROPAGATION_H_
 #define ELECTRO_OPTICAL_SENSOR_FOUNDATION_EOS_PROPAGATION_H_
 
-#include "1q/api.hpp"
-
 namespace electro_optical_sensor {
 namespace foundation {
 namespace propagation {
@@ -15,7 +13,7 @@ namespace propagation {
 /**
  * @brief NepNoiseModelInputs 描述 NEP 细化噪声模型输入。
  */
-struct ONEQ_API NepNoiseModelInputs {
+struct NepNoiseModelInputs {
   float detector_detectivity_cm_sqrt_hz_per_w{1.0e10f}; /**< 探测率 D*（单位：cm*sqrt(Hz)/W） */
   float detector_area_cm2{0.25f};                       /**< 探测器面积（单位：cm^2） */
   float electrical_bandwidth_hz{1000.0f};              /**< 电噪声带宽（单位：Hz） */
@@ -27,7 +25,7 @@ struct ONEQ_API NepNoiseModelInputs {
 /**
  * @brief SnrEvaluationResult 描述 SNR 细化评估输出。
  */
-struct ONEQ_API SnrEvaluationResult {
+struct SnrEvaluationResult {
   float nep_w{0.0f};         /**< 估算 NEP（单位：W） */
   float snr_linear{0.0f};    /**< 线性 SNR */
   float snr_db{-120.0f};     /**< dB SNR */
@@ -39,7 +37,7 @@ struct ONEQ_API SnrEvaluationResult {
  * @param[in] path_length_m 传播距离（单位：m）。
  * @return 透过率，范围 [0, 1]。
  */
-ONEQ_API float ComputeBeerLambertTransmittance(float attenuation_coeff_per_m, float path_length_m);
+float ComputeBeerLambertTransmittance(float attenuation_coeff_per_m, float path_length_m);
 
 /**
  * @brief 计算合成大气透过率。
@@ -48,7 +46,7 @@ ONEQ_API float ComputeBeerLambertTransmittance(float attenuation_coeff_per_m, fl
  * @param[in] path_length_m 传播距离（单位：m）。
  * @return 透过率，范围 [0, 1]。
  */
-ONEQ_API float ComputeAtmosphericTransmittance(float base_extinction_coeff_per_m,
+float ComputeAtmosphericTransmittance(float base_extinction_coeff_per_m,
                                                float humidity_absorption_coeff_per_m,
                                                float path_length_m);
 
@@ -60,7 +58,7 @@ ONEQ_API float ComputeAtmosphericTransmittance(float base_extinction_coeff_per_m
  * @param[in] optical_transmittance 光学系统透过率，范围 [0, 1]。
  * @return 背景通量（单位：W）。
  */
-ONEQ_API float ComputeBackgroundFluxW(float background_radiance_w_sr_m2, float aperture_area_m2,
+float ComputeBackgroundFluxW(float background_radiance_w_sr_m2, float aperture_area_m2,
                                       float fov_solid_angle_sr, float optical_transmittance);
 
 /**
@@ -73,7 +71,7 @@ ONEQ_API float ComputeBackgroundFluxW(float background_radiance_w_sr_m2, float a
  * @param[in] optical_transmittance 光学系统透过率，范围 [0, 1]。
  * @return 接收功率（单位：W）。
  */
-ONEQ_API float ComputeReceivedPowerW(float source_radiance_w_sr_m2, float projected_area_m2,
+float ComputeReceivedPowerW(float source_radiance_w_sr_m2, float projected_area_m2,
                                      float range_m, float aperture_area_m2,
                                      float atmospheric_transmittance,
                                      float optical_transmittance);
@@ -84,21 +82,21 @@ ONEQ_API float ComputeReceivedPowerW(float source_radiance_w_sr_m2, float projec
  * @param[in] nep_w 噪声等效功率（单位：W）。
  * @return 线性 SNR。
  */
-ONEQ_API float ComputeSnrLinear(float received_power_w, float nep_w);
+float ComputeSnrLinear(float received_power_w, float nep_w);
 
 /**
  * @brief 计算 dB 信噪比。
  * @param[in] snr_linear 线性 SNR。
  * @return dB SNR。
  */
-ONEQ_API float ComputeSnrDb(float snr_linear);
+float ComputeSnrDb(float snr_linear);
 
 /**
  * @brief 基于探测率与带宽估算 NEP。
  * @param[in] inputs NEP 噪声模型输入。
  * @return 估算 NEP（单位：W）。
  */
-ONEQ_API float ComputeNepW(const NepNoiseModelInputs& inputs);
+float ComputeNepW(const NepNoiseModelInputs& inputs);
 
 /**
  * @brief 基于 NEP 细化模型评估 SNR。
@@ -106,7 +104,7 @@ ONEQ_API float ComputeNepW(const NepNoiseModelInputs& inputs);
  * @param[in] inputs NEP 噪声模型输入。
  * @return SNR 评估结果。
  */
-ONEQ_API SnrEvaluationResult EvaluateSnrWithNep(float received_power_w,
+SnrEvaluationResult EvaluateSnrWithNep(float received_power_w,
                                                 const NepNoiseModelInputs& inputs);
 
 }  // namespace propagation

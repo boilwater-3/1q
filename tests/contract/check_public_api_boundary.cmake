@@ -231,6 +231,7 @@ set(FOUNDATION_HEADERS
     "foundation/json_reader.h"
     "foundation/pose_types.h"
     "foundation/scan_schedule_types.h"
+    "foundation/validation_types.h"
     "replay/ReplayTrace.h"
     "trace/TraceSink.h"
 )

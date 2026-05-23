@@ -42,7 +42,7 @@ TEST(EsrCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   pose_input.platform_attitude_deg.yaw_deg = 5.0f;
 
   // 两步式适配器（参考基准）
-  EsrPoseState pose_2step;
+  oneq::foundation::PoseState pose_2step;
   ASSERT_TRUE(TryMakeEsrPoseFromExternalKinematics(pose_input, reference, &pose_2step));
 
   EsrExternalEmitterInput ext_emitter;

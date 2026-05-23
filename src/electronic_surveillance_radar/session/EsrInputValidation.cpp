@@ -47,7 +47,7 @@ bool IsRatioValid(float value) { return IsFinite(value) && value >= 0.0f && valu
  * @param[in] platform_pose 平台位姿输入。
  * @param[out] issues 校验问题列表。
  */
-void ValidatePlatformPose(const session::EsrPoseState& platform_pose, ValidationIssueList* issues) {
+void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose, ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
   }

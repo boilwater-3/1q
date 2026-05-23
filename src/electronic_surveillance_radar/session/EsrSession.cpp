@@ -125,32 +125,32 @@ EsrRuntimeConfigApplyResult EsrSession::ApplyRuntimeConfigWithResult(
 
 // ── EsrSessionFactory ──────────────────────────────────────────────────────
 
-EsrSession EsrSessionFactory::Create(EsrSessionConfig config) {
+EsrSession EsrSessionFactory::Create(const EsrSessionConfig& config) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeDefault(config))));
 }
 
-EsrSession EsrSessionFactory::CreateWithPipeline(EsrSessionConfig config,
+EsrSession EsrSessionFactory::CreateWithPipeline(const EsrSessionConfig& config,
                                                  extension::IInterceptPipeline& pipeline_ref) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeWithPipeline(config, pipeline_ref))));
 }
 
 EsrSession EsrSessionFactory::CreateWithEnvironmentService(
-    EsrSessionConfig config, environment::IEsrEnvironmentService& environment_service_ref) {
+    const EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service_ref) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeWithEnvironmentService(
           config, environment_service_ref))));
 }
 
-EsrSession EsrSessionFactory::CreateWithController(EsrSessionConfig config,
+EsrSession EsrSessionFactory::CreateWithController(const EsrSessionConfig& config,
                                                    extension::EsrController& controller_ref) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeWithController(config, controller_ref))));
 }
 
 EsrSession EsrSessionFactory::CreateWithAll(
-    EsrSessionConfig config, extension::IInterceptPipeline& pipeline_ref,
+    const EsrSessionConfig& config, extension::IInterceptPipeline& pipeline_ref,
     environment::IEsrEnvironmentService& environment_service_ref,
     extension::EsrController& controller_ref) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(

@@ -124,8 +124,8 @@ bool CycleResultEqual(const RadarCycleResult& left, const RadarCycleResult& righ
          ValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
          left.has_validation_error == right.has_validation_error &&
          left.executed_this_cycle == right.executed_this_cycle &&
-         left.signal_cycle_abort_reason == right.signal_cycle_abort_reason &&
-         left.reused_previous_track_output == right.reused_previous_track_output &&
+         left.abort_reason == right.abort_reason &&
+         left.reused_previous_output == right.reused_previous_output &&
          left.has_control_profile == right.has_control_profile &&
          RadarControlProfileEqual(left.control_profile, right.control_profile) &&
          AssociationQualityMetricsEqual(left.association_quality_metrics,

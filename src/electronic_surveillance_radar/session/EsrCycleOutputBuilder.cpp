@@ -17,7 +17,7 @@ bool EsrCycleOutputBuilder::Build(const EsrExternalPoseInput& platform, const Es
   }
   reference.frame_attitude_deg = platform.platform_attitude_deg;
 
-  EsrPoseState platform_pose;
+  oneq::foundation::PoseState platform_pose;
   if (!TryMakeEsrPoseFromExternalKinematics(platform, reference, &platform_pose)) {
     return false;
   }
@@ -25,7 +25,7 @@ bool EsrCycleOutputBuilder::Build(const EsrExternalPoseInput& platform, const Es
 }
 
 bool EsrCycleOutputBuilder::Build(const oneq::coordinate::LocalFrameReference& reference,
-                                  const EsrPoseState& platform_pose, const EsrOutputFrame& frame,
+                                  const oneq::foundation::PoseState& platform_pose, const EsrOutputFrame& frame,
                                   EsrExternalOutputFrame* output) {
   if (output == nullptr) {
     return false;

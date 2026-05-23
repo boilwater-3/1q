@@ -13,18 +13,14 @@
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/api.hpp"
+#include "1q/foundation/validation_types.h"
 
 namespace airborne_radar {
 namespace session {
 
-/**
- * @brief ValidationSeverity 表示校验结果严重级别。
- */
-enum class ONEQ_API ValidationSeverity {
-  kInfo = 0, /**< 仅提示语义，不阻断执行 */
-  kWarning,  /**< 调用方应显式关注的潜在问题 */
-  kError     /**< 明确的错误输入，建议阻断执行 */
-};
+using oneq::foundation::ValidationSeverity;
+using oneq::foundation::ValidationLocation;
+using oneq::foundation::ValidationLocationKind;
 
 /**
  * @brief ValidationCode 表示结构化校验问题类型。
@@ -40,25 +36,6 @@ enum class ONEQ_API ValidationCode {
   kDuplicateExternalTargetId,        /**< 外部标识符重复 */
   kNegativeRcs,                      /**< 目标 RCS 为负值 */
   kInvalidEnvironmentObservation     /**< 环境观测字段非法 */
-};
-
-/**
- * @brief ValidationLocationKind 表示校验问题定位域。
- */
-enum class ONEQ_API ValidationLocationKind {
-  kGlobal = 0,  /**< 与具体域或实体无关 */
-  kPlatform,    /**< 平台位姿域 */
-  kEnvironment, /**< 环境输入域 */
-  kSceneEntity  /**< 场景实体域（需配合 `entity_index`） */
-};
-
-/**
- * @brief ValidationLocation 描述校验问题定位信息。
- */
-struct ONEQ_API ValidationLocation {
-  ValidationLocationKind kind{ValidationLocationKind::kGlobal}; /**< 定位域 */
-  std::size_t entity_index{
-      static_cast<std::size_t>(-1)}; /**< 场景实体索引；非场景实体问题时为 `size_t(-1)` */
 };
 
 /**

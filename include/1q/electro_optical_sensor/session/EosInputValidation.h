@@ -12,18 +12,14 @@
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/foundation/validation_types.h"
 
 namespace electro_optical_sensor {
 namespace session {
 
-/**
- * @brief ValidationSeverity 表示输入校验问题严重级别。
- */
-enum class ONEQ_API ValidationSeverity {
-  kInfo = 0, /**< 信息级问题，不阻断执行 */
-  kWarning,  /**< 警告级问题，建议调用方关注 */
-  kError     /**< 错误级问题，建议阻断执行 */
-};
+using oneq::foundation::ValidationSeverity;
+using oneq::foundation::ValidationLocation;
+using oneq::foundation::ValidationLocationKind;
 
 /**
  * @brief ValidationCode 表示结构化输入校验编码。
@@ -49,25 +45,6 @@ enum class ONEQ_API ValidationCode {
   kInvalidSolarAltitudeRange,       /**< 太阳高度角越界（不在 [-90, 90]） */
   kInconsistentDayNightType,        /**< 昼夜类型与太阳高度角不一致 */
   kCount                            /**< 枚举哨兵值（非实际错误码） */
-};
-
-/**
- * @brief ValidationLocationKind 表示校验问题定位域。
- */
-enum class ONEQ_API ValidationLocationKind {
-  kGlobal = 0,  /**< 与具体域或实体无关 */
-  kPlatform,    /**< 平台位姿域 */
-  kEnvironment, /**< 环境输入域 */
-  kSceneEntity  /**< 场景实体域（需配合 `entity_index`） */
-};
-
-/**
- * @brief ValidationLocation 描述校验问题定位信息。
- */
-struct ONEQ_API ValidationLocation {
-  ValidationLocationKind kind{ValidationLocationKind::kGlobal}; /**< 定位域 */
-  std::size_t entity_index{
-      static_cast<std::size_t>(-1)}; /**< 场景实体索引；非场景实体问题时为 `size_t(-1)` */
 };
 
 /**

@@ -165,8 +165,8 @@ table RadarCycleResult {
   validation_issues:[ValidationIssue];
   has_validation_error:bool;
   executed_this_cycle:bool;
-  signal_cycle_abort_reason:int;
-  reused_previous_track_output:bool;
+  abort_reason:int;
+  reused_previous_output:bool;
   has_control_profile:bool;
   control_profile:RadarControlProfile;
   association_quality_metrics:AssociationQualityMetrics;

@@ -423,7 +423,7 @@ flatbuffers::Offset<fb::RadarCycleResult> EncodeCycleResult(flatbuffers::FlatBuf
       *builder, value.input_cycle_index, EncodeTrackOutputFrame(builder, value.track_output_frame),
       builder->CreateVector(command_offsets), builder->CreateVector(issue_offsets),
       value.has_validation_error, value.executed_this_cycle,
-      static_cast<int>(value.signal_cycle_abort_reason), value.reused_previous_track_output,
+      static_cast<int>(value.abort_reason), value.reused_previous_output,
       value.has_control_profile, EncodeRadarControlProfile(builder, value.control_profile),
       EncodeAssociationQualityMetrics(builder, value.association_quality_metrics));
 }
@@ -451,9 +451,9 @@ RadarCycleResult DecodeCycleResult(const fb::RadarCycleResult* value) {
     }
     result.has_validation_error = value->has_validation_error();
     result.executed_this_cycle = value->executed_this_cycle();
-    result.signal_cycle_abort_reason =
-        static_cast<extension::SignalCycleAbortReason>(value->signal_cycle_abort_reason());
-    result.reused_previous_track_output = value->reused_previous_track_output();
+    result.abort_reason =
+        static_cast<extension::SignalCycleAbortReason>(value->abort_reason());
+    result.reused_previous_output = value->reused_previous_output();
     result.has_control_profile = value->has_control_profile();
     result.control_profile = DecodeRadarControlProfile(value->control_profile());
     result.association_quality_metrics =

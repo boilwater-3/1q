@@ -34,7 +34,7 @@ class ONEQ_API EsrSessionFactory {
    * @param config 会话配置。
    * @return 新创建的 EsrSession。
    */
-  static EsrSession Create(EsrSessionConfig config = {});
+  static EsrSession Create(const EsrSessionConfig& config = {});
 
   /**
    * @brief 使用外部截获流水线创建会话。
@@ -42,7 +42,7 @@ class ONEQ_API EsrSessionFactory {
    * @param pipeline 外部提供的截获流水线。
    * @return 新创建的 EsrSession。
    */
-  static EsrSession CreateWithPipeline(EsrSessionConfig config,
+  static EsrSession CreateWithPipeline(const EsrSessionConfig& config,
                                        extension::IInterceptPipeline& pipeline);
 
   /**
@@ -52,7 +52,7 @@ class ONEQ_API EsrSessionFactory {
    * @return 新创建的 EsrSession。
    */
   static EsrSession CreateWithEnvironmentService(
-      EsrSessionConfig config, environment::IEsrEnvironmentService& environment_service);
+      const EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service);
 
   /**
    * @brief 使用外部控制器创建会话。
@@ -60,7 +60,7 @@ class ONEQ_API EsrSessionFactory {
    * @param controller 外部提供的控制器。
    * @return 新创建的 EsrSession。
    */
-  static EsrSession CreateWithController(EsrSessionConfig config,
+  static EsrSession CreateWithController(const EsrSessionConfig& config,
                                          extension::EsrController& controller);
 
   /**
@@ -71,7 +71,7 @@ class ONEQ_API EsrSessionFactory {
    * @param controller 外部控制器。
    * @return 新创建的 EsrSession。
    */
-  static EsrSession CreateWithAll(EsrSessionConfig config, extension::IInterceptPipeline& pipeline,
+  static EsrSession CreateWithAll(const EsrSessionConfig& config, extension::IInterceptPipeline& pipeline,
                                   environment::IEsrEnvironmentService& environment_service,
                                   extension::EsrController& controller);
 };

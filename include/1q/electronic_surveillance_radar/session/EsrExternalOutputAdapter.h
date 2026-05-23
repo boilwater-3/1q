@@ -59,12 +59,12 @@ using EsrExternalEmitterHypothesisList = std::vector<EsrExternalEmitterHypothesi
 
 ONEQ_API bool TryMakeExternalObservationFromRecord(const model::EmitterObservation& observation,
                                                    const oneq::coordinate::LocalFrameReference& reference,
-                                                   const EsrPoseState& platform_pose,
+                                                   const oneq::foundation::PoseState& platform_pose,
                                                    EsrExternalObservation* output);
 
 ONEQ_API bool TryMakeExternalHypothesisFromRecord(const model::EmitterHypothesis& hypothesis,
                                                   const oneq::coordinate::LocalFrameReference& reference,
-                                                  const EsrPoseState& platform_pose,
+                                                  const oneq::foundation::PoseState& platform_pose,
                                                   EsrExternalEmitterHypothesis* output);
 
 }  // namespace session

@@ -6,6 +6,7 @@
 #ifndef AIRBORNE_RADAR_CORE_SESSION_RADAR_SESSION_FACTORY_H_
 #define AIRBORNE_RADAR_CORE_SESSION_RADAR_SESSION_FACTORY_H_
 
+#include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/api.hpp"
 

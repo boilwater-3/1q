@@ -17,6 +17,9 @@ namespace session {
 /**
  * @brief EosSessionComposition 描述会话所需依赖的组合结果。
  * @note 组合结果需保证 `pipeline` 与 `controller` 始终非空。
+ * @note 与 AR/ESR 不同，EO 传感器环境为纯观测型（无状态），环境因子以值类型嵌入
+ *       CycleInput，ResolveFactors() 为无状态纯函数，因此环境服务托管在 Pipeline 内部
+ *       而非在 Composition 层独立管理。
  */
 struct EosSessionComposition {
   EosSessionConfig runtime_config{};

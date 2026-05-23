@@ -6,8 +6,6 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_FOUNDATION_EOS_NOISE_MODEL_H_
 #define ELECTRO_OPTICAL_SENSOR_FOUNDATION_EOS_NOISE_MODEL_H_
 
-#include "1q/api.hpp"
-
 namespace electro_optical_sensor {
 namespace foundation {
 namespace noise {
@@ -15,7 +13,7 @@ namespace noise {
 /**
  * @brief BackgroundNoiseModelInputs 描述背景噪声统计输入。
  */
-struct ONEQ_API BackgroundNoiseModelInputs {
+struct BackgroundNoiseModelInputs {
   float background_flux_w{0.0f};               /**< 背景通量（单位：W） */
   float electrical_bandwidth_hz{1000.0f};      /**< 等效电带宽（单位：Hz） */
   float integration_time_sec{1.0f / 30.0f};    /**< 积分时间（单位：s） */
@@ -28,7 +26,7 @@ struct ONEQ_API BackgroundNoiseModelInputs {
 /**
  * @brief BackgroundNoiseStatistics 描述背景噪声统计结果。
  */
-struct ONEQ_API BackgroundNoiseStatistics {
+struct BackgroundNoiseStatistics {
   float mean_noise_power_w{0.0f};        /**< 背景均值噪声功率（单位：W） */
   float sigma_noise_power_w{0.0f};       /**< 背景噪声标准差（单位：W） */
   float equivalent_noise_power_w{0.0f};  /**< 等效背景噪声功率（单位：W） */
@@ -40,7 +38,7 @@ struct ONEQ_API BackgroundNoiseStatistics {
  * @param[in] inputs 背景噪声统计输入。
  * @return 背景噪声统计结果。
  */
-ONEQ_API BackgroundNoiseStatistics ComputeBackgroundNoiseStatistics(
+BackgroundNoiseStatistics ComputeBackgroundNoiseStatistics(
     const BackgroundNoiseModelInputs& inputs);
 
 /**
@@ -50,7 +48,7 @@ ONEQ_API BackgroundNoiseStatistics ComputeBackgroundNoiseStatistics(
  * @param[in] stats 背景噪声统计结果。
  * @return 扣减后的有效信号功率（单位：W）。
  */
-ONEQ_API float ComputeEffectiveSignalPowerW(float received_power_w, float background_flux_w,
+float ComputeEffectiveSignalPowerW(float received_power_w, float background_flux_w,
                                             const BackgroundNoiseStatistics& stats);
 
 }  // namespace noise

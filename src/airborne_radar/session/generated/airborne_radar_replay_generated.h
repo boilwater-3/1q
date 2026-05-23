@@ -1829,8 +1829,8 @@ struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_VALIDATION_ISSUES = 10,
     VT_HAS_VALIDATION_ERROR = 12,
     VT_EXECUTED_THIS_CYCLE = 14,
-    VT_SIGNAL_CYCLE_ABORT_REASON = 16,
-    VT_REUSED_PREVIOUS_TRACK_OUTPUT = 18,
+    VT_ABORT_REASON = 16,
+    VT_REUSED_PREVIOUS_OUTPUT = 18,
     VT_HAS_CONTROL_PROFILE = 20,
     VT_CONTROL_PROFILE = 22,
     VT_ASSOCIATION_QUALITY_METRICS = 24
@@ -1853,11 +1853,11 @@ struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool executed_this_cycle() const {
     return GetField<uint8_t>(VT_EXECUTED_THIS_CYCLE, 0) != 0;
   }
-  int32_t signal_cycle_abort_reason() const {
-    return GetField<int32_t>(VT_SIGNAL_CYCLE_ABORT_REASON, 0);
+  int32_t abort_reason() const {
+    return GetField<int32_t>(VT_ABORT_REASON, 0);
   }
-  bool reused_previous_track_output() const {
-    return GetField<uint8_t>(VT_REUSED_PREVIOUS_TRACK_OUTPUT, 0) != 0;
+  bool reused_previous_output() const {
+    return GetField<uint8_t>(VT_REUSED_PREVIOUS_OUTPUT, 0) != 0;
   }
   bool has_control_profile() const {
     return GetField<uint8_t>(VT_HAS_CONTROL_PROFILE, 0) != 0;
@@ -1881,8 +1881,8 @@ struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVectorOfTables(validation_issues()) &&
            VerifyField<uint8_t>(verifier, VT_HAS_VALIDATION_ERROR) &&
            VerifyField<uint8_t>(verifier, VT_EXECUTED_THIS_CYCLE) &&
-           VerifyField<int32_t>(verifier, VT_SIGNAL_CYCLE_ABORT_REASON) &&
-           VerifyField<uint8_t>(verifier, VT_REUSED_PREVIOUS_TRACK_OUTPUT) &&
+           VerifyField<int32_t>(verifier, VT_ABORT_REASON) &&
+           VerifyField<uint8_t>(verifier, VT_REUSED_PREVIOUS_OUTPUT) &&
            VerifyField<uint8_t>(verifier, VT_HAS_CONTROL_PROFILE) &&
            VerifyOffset(verifier, VT_CONTROL_PROFILE) &&
            verifier.VerifyTable(control_profile()) &&
@@ -1914,11 +1914,11 @@ struct RadarCycleResultBuilder {
   void add_executed_this_cycle(bool executed_this_cycle) {
     fbb_.AddElement<uint8_t>(RadarCycleResult::VT_EXECUTED_THIS_CYCLE, static_cast<uint8_t>(executed_this_cycle), 0);
   }
-  void add_signal_cycle_abort_reason(int32_t signal_cycle_abort_reason) {
-    fbb_.AddElement<int32_t>(RadarCycleResult::VT_SIGNAL_CYCLE_ABORT_REASON, signal_cycle_abort_reason, 0);
+  void add_abort_reason(int32_t abort_reason) {
+    fbb_.AddElement<int32_t>(RadarCycleResult::VT_ABORT_REASON, abort_reason, 0);
   }
-  void add_reused_previous_track_output(bool reused_previous_track_output) {
-    fbb_.AddElement<uint8_t>(RadarCycleResult::VT_REUSED_PREVIOUS_TRACK_OUTPUT, static_cast<uint8_t>(reused_previous_track_output), 0);
+  void add_reused_previous_output(bool reused_previous_output) {
+    fbb_.AddElement<uint8_t>(RadarCycleResult::VT_REUSED_PREVIOUS_OUTPUT, static_cast<uint8_t>(reused_previous_output), 0);
   }
   void add_has_control_profile(bool has_control_profile) {
     fbb_.AddElement<uint8_t>(RadarCycleResult::VT_HAS_CONTROL_PROFILE, static_cast<uint8_t>(has_control_profile), 0);
@@ -1949,21 +1949,21 @@ inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>>> validation_issues = 0,
     bool has_validation_error = false,
     bool executed_this_cycle = false,
-    int32_t signal_cycle_abort_reason = 0,
-    bool reused_previous_track_output = false,
+    int32_t abort_reason = 0,
+    bool reused_previous_output = false,
     bool has_control_profile = false,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarControlProfile> control_profile = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::AssociationQualityMetrics> association_quality_metrics = 0) {
   RadarCycleResultBuilder builder_(_fbb);
   builder_.add_association_quality_metrics(association_quality_metrics);
   builder_.add_control_profile(control_profile);
-  builder_.add_signal_cycle_abort_reason(signal_cycle_abort_reason);
+  builder_.add_abort_reason(abort_reason);
   builder_.add_validation_issues(validation_issues);
   builder_.add_submitted_commands(submitted_commands);
   builder_.add_track_output_frame(track_output_frame);
   builder_.add_input_cycle_index(input_cycle_index);
   builder_.add_has_control_profile(has_control_profile);
-  builder_.add_reused_previous_track_output(reused_previous_track_output);
+  builder_.add_reused_previous_output(reused_previous_output);
   builder_.add_executed_this_cycle(executed_this_cycle);
   builder_.add_has_validation_error(has_validation_error);
   return builder_.Finish();
@@ -1977,8 +1977,8 @@ inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResultDirect(
     const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>> *validation_issues = nullptr,
     bool has_validation_error = false,
     bool executed_this_cycle = false,
-    int32_t signal_cycle_abort_reason = 0,
-    bool reused_previous_track_output = false,
+    int32_t abort_reason = 0,
+    bool reused_previous_output = false,
     bool has_control_profile = false,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarControlProfile> control_profile = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::AssociationQualityMetrics> association_quality_metrics = 0) {
@@ -1992,8 +1992,8 @@ inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResultDirect(
       validation_issues__,
       has_validation_error,
       executed_this_cycle,
-      signal_cycle_abort_reason,
-      reused_previous_track_output,
+      abort_reason,
+      reused_previous_output,
       has_control_profile,
       control_profile,
       association_quality_metrics);

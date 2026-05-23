@@ -104,17 +104,22 @@ session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
 }
 
 void EosSession::ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
+  (void)TryApplyRuntimeConfig(patch);
+}
+
+bool EosSession::TryApplyRuntimeConfig(const EosRuntimeConfigPatch& patch) {
   const ::electro_optical_sensor::runtime::session::EosRuntimeConfigResolveResult
       resolved = ::electro_optical_sensor::runtime::session::ResolveEosRuntimeConfigPatch(
           impl_->runtime_config_, patch);
   if (!resolved.has_requested_update || !resolved.is_valid) {
-    return;
+    return false;
   }
   impl_->runtime_config_ = resolved.next_config;
   impl_->pipeline.UpdateConfig(
       ::electro_optical_sensor::runtime::session::BuildEosPipelineConfig(
           impl_->runtime_config_),
       resolved.reset_scan_phase);
+  return true;
 }
 
 }  // namespace session

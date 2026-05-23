@@ -13,6 +13,7 @@
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 #include "electro_optical_sensor/foundation/EosRadiometry.h"
 
 namespace electro_optical_sensor {

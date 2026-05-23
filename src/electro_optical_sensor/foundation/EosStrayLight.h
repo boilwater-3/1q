@@ -6,8 +6,6 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_FOUNDATION_EOS_STRAY_LIGHT_H_
 #define ELECTRO_OPTICAL_SENSOR_FOUNDATION_EOS_STRAY_LIGHT_H_
 
-#include "1q/api.hpp"
-
 namespace electro_optical_sensor {
 namespace foundation {
 namespace stray_light {
@@ -15,7 +13,7 @@ namespace stray_light {
 /**
  * @brief StrayLightFilterInputs 描述杂散光抑制评估输入。
  */
-struct ONEQ_API StrayLightFilterInputs {
+struct StrayLightFilterInputs {
   bool enabled{false};                        /**< 是否启用遮光罩抑制 */
   float target_azimuth_deg{0.0f};            /**< 目标方位角（单位：deg） */
   float target_elevation_deg{0.0f};          /**< 目标仰角（单位：deg） */
@@ -31,7 +29,7 @@ struct ONEQ_API StrayLightFilterInputs {
 /**
  * @brief StrayLightFilterResult 描述杂散光抑制结果。
  */
-struct ONEQ_API StrayLightFilterResult {
+struct StrayLightFilterResult {
   float sun_separation_deg{180.0f};          /**< 目标视线与太阳方向夹角（单位：deg） */
   float contamination_ratio{0.0f};           /**< 杂散光污染比例，范围 [0, 1] */
   float suppression_ratio{0.0f};             /**< 抑制比例，范围 [0, 1] */
@@ -44,7 +42,7 @@ struct ONEQ_API StrayLightFilterResult {
  * @param[in] inputs 杂散光抑制输入。
  * @return 杂散光抑制结果。
  */
-ONEQ_API StrayLightFilterResult EvaluateStrayLightFilter(
+StrayLightFilterResult EvaluateStrayLightFilter(
     const StrayLightFilterInputs& inputs);
 
 }  // namespace stray_light

@@ -37,7 +37,7 @@ TEST(EsrCoordinateUtilsTest, EcefVelocityConvertsToEsrLocal) {
   input.platform_velocity_mps.y_mps = 11.0f;  // ECEF Y → ENU East at lat=0,lon=0
   input.platform_velocity_mps.z_mps = 12.0f;  // ECEF Z → ENU North at lat=0,lon=0
 
-  session::EsrPoseState pose;
+  oneq::foundation::PoseState pose;
   ASSERT_TRUE(session::TryMakeEsrPoseFromExternalKinematics(input, reference, &pose));
   EXPECT_GT(pose.position_m.x, 100.0f);
   EXPECT_FLOAT_EQ(pose.attitude_deg.yaw_deg, 1.0f);

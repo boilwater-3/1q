@@ -109,7 +109,7 @@ oneq::internal::timing::StatisticalDetectionParams ToTimingDetectionParams(
  * @param[in] emitter_state 辐射源状态。
  * @return 两者距离（单位：m）。
  */
-float ComputeRangeM(const session::EsrPoseState& platform_pose,
+float ComputeRangeM(const oneq::foundation::PoseState& platform_pose,
                     const session::EsrSceneEmitter& emitter_state) {
   const float dx = emitter_state.pose.position_m.x - platform_pose.position_m.x;
   const float dy = emitter_state.pose.position_m.y - platform_pose.position_m.y;
@@ -150,7 +150,7 @@ oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(const session::EsrEuler
  * @return 接收机参考系下的方位/俯仰角（单位：deg）。
  */
 oneq::internal::geometry::AzimuthElevationDeg ComputeEmitterLookAngles(
-    const session::EsrPoseState& platform_pose, const session::EsrSceneEmitter& emitter_state) {
+    const oneq::foundation::PoseState& platform_pose, const session::EsrSceneEmitter& emitter_state) {
   return oneq::internal::geometry::ComputeRelativeLineOfSightAzEl(
       ToGeometryVector(platform_pose.position_m), ToGeometryEuler(platform_pose.attitude_deg),
       ToGeometryVector(emitter_state.pose.position_m));
@@ -178,7 +178,7 @@ oneq::internal::geometry::AzimuthElevationDeg ApplyAntennaMountOffset(
  * @param[in] emitter_state 发射源状态。
  * @return 发射源波束覆盖比例，范围 [0, 1]。
  */
-float ComputeEmitterBeamOverlapRatio(const session::EsrPoseState& platform_pose,
+float ComputeEmitterBeamOverlapRatio(const oneq::foundation::PoseState& platform_pose,
                                      const session::EsrSceneEmitter& emitter_state) {
   if (IsLegacyDefaultBeamState(emitter_state.beam_state)) {
     return 1.0f;

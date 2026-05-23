@@ -6,8 +6,6 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_FOUNDATION_EOS_SPATIAL_SPECTRUM_H_
 #define ELECTRO_OPTICAL_SENSOR_FOUNDATION_EOS_SPATIAL_SPECTRUM_H_
 
-#include "1q/api.hpp"
-
 namespace electro_optical_sensor {
 namespace foundation {
 namespace spatial_spectrum {
@@ -15,7 +13,7 @@ namespace spatial_spectrum {
 /**
  * @brief SpatialSpectrumInputs 描述空间频率可分辨性评估输入。
  */
-struct ONEQ_API SpatialSpectrumInputs {
+struct SpatialSpectrumInputs {
   float target_characteristic_size_m{1.0f};  /**< 目标等效尺寸（单位：m） */
   float ground_sample_distance_m{0.2f};      /**< 地面采样间隔/GSD（单位：m） */
   float optical_mtf_reference{0.65f};        /**< 光学 MTF 基准，范围 [0, 1] */
@@ -26,7 +24,7 @@ struct ONEQ_API SpatialSpectrumInputs {
 /**
  * @brief SpatialSpectrumResult 描述空间频率评估结果。
  */
-struct ONEQ_API SpatialSpectrumResult {
+struct SpatialSpectrumResult {
   float target_frequency_cpm{0.0f};      /**< 目标特征频率（cycles/m） */
   float nyquist_frequency_cpm{0.0f};     /**< 采样奈奎斯特频率（cycles/m） */
   float optical_pass_ratio{0.0f};        /**< 光学通带比例，范围 [0, 1] */
@@ -39,7 +37,7 @@ struct ONEQ_API SpatialSpectrumResult {
  * @param[in] inputs 空间频率评估输入。
  * @return 空间频率评估结果。
  */
-ONEQ_API SpatialSpectrumResult EvaluateSpatialResolvability(
+SpatialSpectrumResult EvaluateSpatialResolvability(
     const SpatialSpectrumInputs& inputs);
 
 }  // namespace spatial_spectrum

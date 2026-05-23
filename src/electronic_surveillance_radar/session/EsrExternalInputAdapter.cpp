@@ -73,7 +73,7 @@ bool TryConvertEcefVelocityToLocal(const oneq::coordinate::EcefVelocityMps& ecef
 
 bool TryMakeEsrPoseFromExternalKinematics(const EsrExternalPoseInput& input,
                                           const oneq::coordinate::LocalFrameReference& reference,
-                                          session::EsrPoseState* pose,
+                                          oneq::foundation::PoseState* pose,
                                           EsrCoordinateStatus* status) {
   if (pose == nullptr) {
     SetStatus(EsrCoordinateStatus::kNullOutput, status);

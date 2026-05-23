@@ -56,7 +56,7 @@ enum class ONEQ_API EsrCoordinateStatus {
 
 ONEQ_API bool TryMakeEsrPoseFromExternalKinematics(const EsrExternalPoseInput& input,
                                                    const oneq::coordinate::LocalFrameReference& reference,
-                                                   EsrPoseState* pose,
+                                                   oneq::foundation::PoseState* pose,
                                                    EsrCoordinateStatus* status = nullptr);
 
 ONEQ_API bool TryMakeEsrSceneEmitterFromExternalInput(

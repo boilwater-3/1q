@@ -19,7 +19,7 @@ esr::replay::EulerDeg ToE(const oneq::foundation::EulerAnglesDeg& e) {
 }
 
 flatbuffers::Offset<esr::replay::PoseState> BuildPose(flatbuffers::FlatBufferBuilder& b,
-                                                      const session::EsrPoseState& v) {
+                                                      const oneq::foundation::PoseState& v) {
   esr::replay::PoseStateBuilder pb(b);
   auto pos = ToV(v.position_m);
   pb.add_position_m(&pos);
@@ -30,8 +30,8 @@ flatbuffers::Offset<esr::replay::PoseState> BuildPose(flatbuffers::FlatBufferBui
   return pb.Finish();
 }
 
-session::EsrPoseState FromPose(const esr::replay::PoseState* fb) {
-  session::EsrPoseState out{};
+oneq::foundation::PoseState FromPose(const esr::replay::PoseState* fb) {
+  oneq::foundation::PoseState out{};
   if (!fb) {
     return out;
   }

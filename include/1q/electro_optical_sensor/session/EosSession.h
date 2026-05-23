@@ -3,8 +3,8 @@
  * @brief 定义光学传感器对外会话门面。
  */
 
-#ifndef ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_SESSION_H_
-#define ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_SESSION_H_
+#ifndef ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SESSION_H_
+#define ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SESSION_H_
 
 #include <memory>
 
@@ -69,6 +69,13 @@ class ONEQ_API EosSession {
    */
   void ApplyRuntimeConfig(const EosRuntimeConfigPatch& patch);
 
+  /**
+   * @brief 尝试应用运行期可变配置补丁。
+   * @param[in] patch 运行期可变配置补丁。
+   * @return 补丁被接受并应用成功时返回 true；补丁无效或无变更时返回 false。
+   */
+  bool TryApplyRuntimeConfig(const EosRuntimeConfigPatch& patch);
+
  private:
   friend class EosSessionFactory;
 
@@ -81,6 +88,4 @@ class ONEQ_API EosSession {
 
 }  // namespace electro_optical_sensor
 
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
-
-#endif  // ELECTRO_OPTICAL_SENSOR_CORE_SESSION_EOS_SESSION_H_
+#endif  // ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SESSION_H_

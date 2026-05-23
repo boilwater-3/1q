@@ -21,9 +21,6 @@ using EsrVector3f = oneq::foundation::Vector3f;
 /** @brief ESR 会话输入欧拉角姿态别名（单位：deg）。 */
 using EsrEulerAngleDeg = oneq::foundation::EulerAnglesDeg;
 
-/** @brief ESR 会话输入位姿状态别名。 */
-using EsrPoseState = oneq::foundation::PoseState;
-
 /** @brief EsrEmitterBeamState 描述 ESR 场景辐射源波束参数。 */
 struct ONEQ_API EsrEmitterBeamState {
   double center_az_deg{0.0};     /**< 波束中心方位（单位：deg） */
@@ -36,7 +33,7 @@ struct ONEQ_API EsrEmitterBeamState {
 /** @brief EsrSceneEmitter 描述 ESR 场景辐射源输入。 */
 struct ONEQ_API EsrSceneEmitter {
   std::uint64_t emitter_id{0U};      /**< 辐射源标识 */
-  EsrPoseState pose{};               /**< 辐射源位置、速度与姿态状态 */
+  oneq::foundation::PoseState pose{}; /**< 辐射源位置、速度与姿态状态 */
   double carrier_hz{0.0};            /**< 发射中心频率（单位：Hz） */
   double bandwidth_hz{0.0};          /**< 发射带宽（单位：Hz） */
   double tx_power_w{0.0};            /**< 发射功率（单位：W） */

@@ -57,8 +57,8 @@ struct RadarSession::Impl {
       result.track_output_frame = controller.GetLatestTrackOutputFrame();
     }
     result.executed_this_cycle = controller.ExecutedLatestCycle();
-    result.signal_cycle_abort_reason = controller.GetLastSignalCycleAbortReason();
-    result.reused_previous_track_output = controller.ReusedPreviousTrackOutputLatestCycle();
+    result.abort_reason = controller.GetLastSignalCycleAbortReason();
+    result.reused_previous_output = controller.ReusedPreviousTrackOutputLatestCycle();
     if (result.executed_this_cycle) {
       result.submitted_commands = radar_context.GetSubmittedCommands();
     }
@@ -86,7 +86,7 @@ struct RadarSession::Impl {
     if (controller.HasLatestTrackOutputFrame()) {
       result.track_output_frame = controller.GetLatestTrackOutputFrame();
     }
-    result.reused_previous_track_output = controller.HasLatestTrackOutputFrame();
+    result.reused_previous_output = controller.HasLatestTrackOutputFrame();
     result.validation_issues = issues;
     result.has_validation_error = HasValidationError(issues);
     return result;
@@ -99,8 +99,8 @@ struct RadarSession::Impl {
     if (controller.HasLatestTrackOutputFrame()) {
       result.track_output_frame = controller.GetLatestTrackOutputFrame();
     }
-    result.reused_previous_track_output = controller.HasLatestTrackOutputFrame();
-    result.signal_cycle_abort_reason = abort_reason;
+    result.reused_previous_output = controller.HasLatestTrackOutputFrame();
+    result.abort_reason = abort_reason;
     return result;
   }
 
@@ -289,12 +289,16 @@ extension::AssociationQualityMetrics RadarSession::GetLastAssociationQualityMetr
 }
 
 void RadarSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
+  (void)TryApplyRuntimeConfig(patch);
+}
+
+bool RadarSession::TryApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
   const config::mapping::RuntimeConfigState& patch_base_state =
       impl_->has_pending_runtime_update ? impl_->pending_runtime_state : impl_->runtime_state;
   const config::mapping::RuntimeConfigResolveResult resolved =
       config::mapping::ApplyRuntimePatch(patch_base_state, patch);
   if (!resolved.has_requested_update || !resolved.is_valid) {
-    return;
+    return false;
   }
   impl_->pending_runtime_state = resolved.next_state;
   impl_->has_pending_runtime_update = true;
@@ -306,6 +310,7 @@ void RadarSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& pat
   impl_->pending_jamming_sensitivity_profile_changed =
       impl_->pending_jamming_sensitivity_profile_changed ||
       resolved.jamming_sensitivity_profile_changed;
+  return true;
 }
 
 }  // namespace session
