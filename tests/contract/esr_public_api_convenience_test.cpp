@@ -149,7 +149,7 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
   EXPECT_FALSE(patch.has_work_mode);
   EXPECT_FALSE(patch.has_scan_rate_hz);
   EXPECT_FALSE(patch.has_scan_center_az_deg);
-  EXPECT_FALSE(patch.has_use_explicit_scan_bounds);
+  EXPECT_FALSE(patch.has_explicit_scan_bounds);
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
@@ -180,8 +180,8 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
   EXPECT_FLOAT_EQ(patch.scan_rate_hz, 3.0f);
   EXPECT_TRUE(patch.has_scan_center_az_deg);
   EXPECT_TRUE(patch.has_scan_center_el_deg);
-  EXPECT_TRUE(patch.has_use_explicit_scan_bounds);
-  EXPECT_TRUE(patch.use_explicit_scan_bounds);
+  EXPECT_TRUE(patch.has_explicit_scan_bounds);
+  EXPECT_TRUE(patch.explicit_scan_bounds.enabled);
   EXPECT_TRUE(patch.has_environment_runtime_config);
   EXPECT_FALSE(patch.environment_runtime_config.has_preset);
   EXPECT_TRUE(patch.environment_runtime_config.has_atmospheric_physics);
@@ -314,16 +314,12 @@ TEST(EsrPublicApiConvenienceTest, TryApplyRuntimeConfigExposesRejectFeedback) {
   session::EsrSession session = session::EsrSessionFactory::Create(MakeSessionConfig());
 
   session::EsrRuntimeConfigPatch invalid_patch;
-  invalid_patch.has_use_explicit_scan_bounds = true;
-  invalid_patch.use_explicit_scan_bounds = true;
-  invalid_patch.has_scan_start_az_deg = true;
-  invalid_patch.has_scan_end_az_deg = true;
-  invalid_patch.has_scan_start_el_deg = true;
-  invalid_patch.has_scan_end_el_deg = true;
-  invalid_patch.scan_start_az_deg = std::numeric_limits<float>::quiet_NaN();
-  invalid_patch.scan_end_az_deg = 10.0f;
-  invalid_patch.scan_start_el_deg = -10.0f;
-  invalid_patch.scan_end_el_deg = 10.0f;
+  invalid_patch.has_explicit_scan_bounds = true;
+  invalid_patch.explicit_scan_bounds.enabled = true;
+  invalid_patch.explicit_scan_bounds.scan_start_az_deg = std::numeric_limits<float>::quiet_NaN();
+  invalid_patch.explicit_scan_bounds.scan_end_az_deg = 10.0f;
+  invalid_patch.explicit_scan_bounds.scan_start_el_deg = -10.0f;
+  invalid_patch.explicit_scan_bounds.scan_end_el_deg = 10.0f;
 
   const session::EsrRuntimeConfigApplyResult invalid_result =
       session.ApplyRuntimeConfigWithResult(invalid_patch);

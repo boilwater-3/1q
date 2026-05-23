@@ -224,23 +224,24 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
         patch.scan_center_el_deg + half_el_span;
     resolved.pipeline_config_changed = true;
   }
-  if (patch.has_use_explicit_scan_bounds) {
+  if (patch.has_explicit_scan_bounds) {
     has_requested_update = true;
-    if (patch.use_explicit_scan_bounds) {
-      if (!patch.has_scan_start_az_deg || !patch.has_scan_end_az_deg ||
-          !patch.has_scan_start_el_deg || !patch.has_scan_end_el_deg ||
-          !oneq::internal::validation::IsFinite(patch.scan_start_az_deg) || !oneq::internal::validation::IsFinite(patch.scan_end_az_deg) ||
-          !oneq::internal::validation::IsFinite(patch.scan_start_el_deg) || !oneq::internal::validation::IsFinite(patch.scan_end_el_deg)) {
+    if (patch.explicit_scan_bounds.enabled) {
+      const auto& sb = patch.explicit_scan_bounds;
+      if (!oneq::internal::validation::IsFinite(sb.scan_start_az_deg) ||
+          !oneq::internal::validation::IsFinite(sb.scan_end_az_deg) ||
+          !oneq::internal::validation::IsFinite(sb.scan_start_el_deg) ||
+          !oneq::internal::validation::IsFinite(sb.scan_end_el_deg)) {
         PROJECT_LOG_ERROR(
             "[EsrSession] Rejecting runtime config patch due to invalid explicit scan bounds "
             "payload.");
         return RejectPatch(current_config, true,
                            EsrRuntimeConfigApplyStatus::kRejectedInvalidExplicitScanBounds);
       }
-      float start_az = patch.scan_start_az_deg;
-      float end_az = patch.scan_end_az_deg;
-      float start_el = patch.scan_start_el_deg;
-      float end_el = patch.scan_end_el_deg;
+      float start_az = sb.scan_start_az_deg;
+      float end_az = sb.scan_end_az_deg;
+      float start_el = sb.scan_start_el_deg;
+      float end_el = sb.scan_end_el_deg;
       NormalizeScanBounds(&start_az, &end_az);
       NormalizeScanBounds(&start_el, &end_el);
       resolved.next_config.pipeline_config.scan.scan_start_az_deg = start_az;

@@ -1,3 +1,4 @@
+// fix file
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 
 #include "common/logging/ProjectLog.h"
@@ -20,7 +21,6 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
   auto& d = *detection_config;
   d.enable_physics_detection = enable_physics_detection;
 
-  // 硬件档位 → 发射机 / 天线 / 接收机物理参数
   switch (hardware_profile) {
     case profiles::RadarHardwareProfile::kLongRangeHighPower:
       d.transmitter.peak_power_w = 5.0e6f;
@@ -47,7 +47,6 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
       break;
   }
 
-  // 探测意图档位 → 积累数 / 虚警率 / 最小信噪比 / 最小裕量
   switch (intent_profile) {
     case profiles::DetectionIntentProfile::kDetectionPriority:
       d.pulse_count = 16;
@@ -67,7 +66,6 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
       break;
   }
 
-  // 方向图档位 → 旁瓣 / 覆盖模型参数
   switch (antenna_profile) {
     case profiles::AntennaPatternProfile::kLowSidelobe:
       d.antenna.pattern.max_sidelobe_level_db = -30.0f;
@@ -84,7 +82,6 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
   }
   d.antenna.pattern.boresight_offset_deg = antenna_boresight_offset_deg;
 
-  // RCS 融合档位 → 物理 RCS 混合参数
   switch (rcs_fusion_profile) {
     case profiles::RcsFusionProfile::kConservative:
       d.rcs_physics.enable_physical_rcs = true;
@@ -109,7 +106,6 @@ void ApplyTrackingSemanticConfig(bool enable_tracking_filter,
     return;
   }
 
-  // 跟踪档位 → Kalman 参数 + 衰减系数
   auto& t = *tracking_config;
   t.enable_kalman_filter = enable_tracking_filter;
   switch (tracking_profile) {
@@ -139,7 +135,6 @@ void ApplyLifecycleSemanticConfig(bool enable_imm_fusion,
     return;
   }
 
-  // 生命周期档位 → 确认门限 / 丢失门限
   auto& lc = *lifecycle_config;
   lc.enable_imm_lifecycle = enable_imm_fusion;
   switch (lifecycle_profile) {
@@ -219,7 +214,78 @@ session::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
         "[RadarSessionConfigBuilder] robust tracking policy is set while IMM fusion is disabled; "
         "consider enabling IMM for stronger anti-jamming stability.");
   }
+
+  // 构造期校验提醒：仅记录日志，不改变构建行为
+  {
+    ValidationIssueList pre_issues = Validate();
+    if (!pre_issues.empty()) {
+      PROJECT_LOG_WARN("[RadarSessionConfigBuilder] Validate() found {} issue(s); call Validate() "
+                       "before Build() for early feedback.",
+                       pre_issues.size());
+    }
+  }
+
   return result;
+}
+
+ValidationIssueList RadarSessionConfigBuilder::Validate() const {
+  ValidationIssueList issues;
+
+  // 检查指令态波束宽度：启用时必须为正
+  if (orientation_.commanded_beamwidth_enabled) {
+    if (orientation_.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f) {
+      ConfigValidationIssue it;
+      it.code = ConfigValidationCode::kCommandedBeamwidthAzNotPositive;
+      it.field = "orientation_.commanded_beamwidth_deg.commanded_az_beamwidth_deg";
+      it.message = "Commanded azimuth beamwidth must be positive when enabled.";
+      issues.push_back(it);
+    }
+    if (orientation_.commanded_beamwidth_deg.commanded_el_beamwidth_deg <= 0.0f) {
+      ConfigValidationIssue it;
+      it.code = ConfigValidationCode::kCommandedBeamwidthElNotPositive;
+      it.field = "orientation_.commanded_beamwidth_deg.commanded_el_beamwidth_deg";
+      it.message = "Commanded elevation beamwidth must be positive when enabled.";
+      issues.push_back(it);
+    }
+  }
+
+  // 检查机械扫描限位一致性
+  if (orientation_.mechanical_scan_limits_deg.az_min_deg >
+      orientation_.mechanical_scan_limits_deg.az_max_deg) {
+    ConfigValidationIssue it;
+    it.code = ConfigValidationCode::kMechanicalScanLimitsSwappedAz;
+    it.field = "mechanical_scan_limits_deg";
+    it.message = "Mechanical azimuth scan min exceeds max.";
+    issues.push_back(it);
+  }
+  if (orientation_.mechanical_scan_limits_deg.el_min_deg >
+      orientation_.mechanical_scan_limits_deg.el_max_deg) {
+    ConfigValidationIssue it;
+    it.code = ConfigValidationCode::kMechanicalScanLimitsSwappedEl;
+    it.field = "mechanical_scan_limits_deg";
+    it.message = "Mechanical elevation scan min exceeds max.";
+    issues.push_back(it);
+  }
+
+  // 检查电子扫描限位一致性
+  if (orientation_.electronic_scan_limits_deg.az_min_deg >
+      orientation_.electronic_scan_limits_deg.az_max_deg) {
+    ConfigValidationIssue it;
+    it.code = ConfigValidationCode::kElectronicScanLimitsSwappedAz;
+    it.field = "electronic_scan_limits_deg";
+    it.message = "Electronic azimuth scan min exceeds max.";
+    issues.push_back(it);
+  }
+  if (orientation_.electronic_scan_limits_deg.el_min_deg >
+      orientation_.electronic_scan_limits_deg.el_max_deg) {
+    ConfigValidationIssue it;
+    it.code = ConfigValidationCode::kElectronicScanLimitsSwappedEl;
+    it.field = "electronic_scan_limits_deg";
+    it.message = "Electronic elevation scan min exceeds max.";
+    issues.push_back(it);
+  }
+
+  return issues;
 }
 
 }  // namespace config

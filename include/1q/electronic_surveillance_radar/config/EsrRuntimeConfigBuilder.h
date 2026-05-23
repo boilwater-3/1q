@@ -81,22 +81,20 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     return *this;
   }
   EsrRuntimeConfigBuilder& SetUseExplicitScanBounds(bool enable) {
-    patch_.has_use_explicit_scan_bounds = true;
-    patch_.use_explicit_scan_bounds = enable;
+    patch_.has_explicit_scan_bounds = true;
+    patch_.explicit_scan_bounds.enabled = enable;
     return *this;
   }
   EsrRuntimeConfigBuilder& WithExplicitScanBoundsDeg(float start_az, float end_az, float start_el,
                                                      float end_el) {
-    patch_.has_use_explicit_scan_bounds = true;
-    patch_.use_explicit_scan_bounds = true;
-    patch_.has_scan_start_az_deg = true;
-    patch_.has_scan_end_az_deg = true;
-    patch_.has_scan_start_el_deg = true;
-    patch_.has_scan_end_el_deg = true;
-    patch_.scan_start_az_deg = start_az;
-    patch_.scan_end_az_deg = end_az;
-    patch_.scan_start_el_deg = start_el;
-    patch_.scan_end_el_deg = end_el;
+    patch_.has_explicit_scan_bounds = true;
+    session::ExplicitScanBounds sb;
+    sb.enabled = true;
+    sb.scan_start_az_deg = start_az;
+    sb.scan_end_az_deg = end_az;
+    sb.scan_start_el_deg = start_el;
+    sb.scan_end_el_deg = end_el;
+    patch_.explicit_scan_bounds = sb;
     return *this;
   }
   EsrRuntimeConfigBuilder& WithAtmosphericPhysicsConfig(

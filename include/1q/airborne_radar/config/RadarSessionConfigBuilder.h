@@ -6,6 +6,9 @@
 #ifndef AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
 #define AIRBORNE_RADAR_CONFIG_RADAR_SESSION_CONFIG_BUILDER_H_
 
+#include <string>
+#include <vector>
+
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/api.hpp"
 
@@ -15,6 +18,32 @@ namespace config {
 using model::AzimuthElevationDeg;
 using model::CommandedBeamwidthDeg;
 using model::RadarWorkSubMode;
+
+/**
+ * @brief ConfigValidationCode 表示构造器校验问题编码。
+ */
+enum class ConfigValidationCode {
+  kNone = 0,
+  kCommandedBeamwidthAzNotPositive,    /**< 指令态方位波束宽度 <= 0 */
+  kCommandedBeamwidthElNotPositive,    /**< 指令态俯仰波束宽度 <= 0 */
+  kMechanicalScanLimitsSwappedAz,      /**< 机械方位限位 min > max */
+  kMechanicalScanLimitsSwappedEl,      /**< 机械俯仰限位 min > max */
+  kElectronicScanLimitsSwappedAz,      /**< 电子方位限位 min > max */
+  kElectronicScanLimitsSwappedEl,      /**< 电子俯仰限位 min > max */
+  kRobustTrackingWithoutImm            /**< 抗干扰跟踪开启但 IMM 未启用 */
+};
+
+/**
+ * @brief ConfigValidationIssue 描述一条构造器校验结果。
+ */
+struct ConfigValidationIssue {
+  ConfigValidationCode code{ConfigValidationCode::kNone}; /**< 问题编码 */
+  std::string field{};   /**< 关联字段名 */
+  std::string message{}; /**< 简短说明 */
+};
+
+/** @brief ValidationIssueList 表示构造器校验问题列表。 */
+using ValidationIssueList = std::vector<ConfigValidationIssue>;
 
 /**
  * @brief RadarSession 配置链式构造器。
@@ -86,6 +115,20 @@ class ONEQ_API RadarSessionConfigBuilder {
    * @return 构建完成的 `RadarSessionConfig`（hardware/mission/policy/environment）。
    */
   session::RadarSessionConfig Build() const;
+
+  /**
+   * @brief 校验当前 Builder 状态的合法性，用于构造完成前的早期反馈。
+   *
+   * 检查项包括：
+   * - 指令态波束宽度在启用时为正；
+   * - 机械 / 电子扫描限位一致（min <= max）；
+   * - 策略组合合理性（如抗干扰跟踪但未启用 IMM）。
+   *
+   * @note 本校验仅为构造期早期反馈，完整的运行期校验仍由
+   *       `RuntimeConfigResolver` 执行。`Build()` 的行为不受校验结果影响。
+   * @return 按发现顺序返回的校验问题列表。
+   */
+  ValidationIssueList Validate() const;
 
  private:
   friend class DetectionEditor;

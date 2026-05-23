@@ -498,15 +498,17 @@ std::string EncodeEsrRuntimeConfigPatch(const EsrRuntimeConfigPatch& v) {
         v.policy.detection.pfa, v.policy.detection.pulse_count, v.policy.detection.threshold_scale,
         v.policy.detection.enable_statistical_detection);
   }
+  const auto& sb = v.explicit_scan_bounds;
   fbb.Finish(esr::replay::CreateEsrRuntimeConfigPatch(
       fbb, v.has_sensor_enabled, v.sensor_enabled, v.has_work_mode,
       static_cast<int32_t>(v.work_mode), v.has_scan_rate_hz, v.scan_rate_hz,
       v.has_scan_start_position, static_cast<int32_t>(v.scan_start_position), v.has_scan_sequence,
       static_cast<int32_t>(v.scan_sequence), v.has_scan_center_az_deg, v.scan_center_az_deg,
-      v.has_scan_center_el_deg, v.scan_center_el_deg, v.has_use_explicit_scan_bounds,
-      v.use_explicit_scan_bounds, v.has_scan_start_az_deg, v.scan_start_az_deg,
-      v.has_scan_end_az_deg, v.scan_end_az_deg, v.has_scan_start_el_deg, v.scan_start_el_deg,
-      v.has_scan_end_el_deg, v.scan_end_el_deg, v.has_mission, mission, v.has_policy, policy,
+      v.has_scan_center_el_deg, v.scan_center_el_deg, v.has_explicit_scan_bounds,
+      sb.enabled, v.has_explicit_scan_bounds, sb.scan_start_az_deg,
+      v.has_explicit_scan_bounds, sb.scan_end_az_deg, v.has_explicit_scan_bounds,
+      sb.scan_start_el_deg, v.has_explicit_scan_bounds, sb.scan_end_el_deg,
+      v.has_mission, mission, v.has_policy, policy,
       v.has_environment_runtime_config, env_patch));
   return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
 }
@@ -531,16 +533,12 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, EsrRuntimeConfigPatch
   out->scan_center_az_deg = fb->scan_center_az_deg();
   out->has_scan_center_el_deg = fb->has_scan_center_el_deg();
   out->scan_center_el_deg = fb->scan_center_el_deg();
-  out->has_use_explicit_scan_bounds = fb->has_use_explicit_scan_bounds();
-  out->use_explicit_scan_bounds = fb->use_explicit_scan_bounds();
-  out->has_scan_start_az_deg = fb->has_scan_start_az_deg();
-  out->scan_start_az_deg = fb->scan_start_az_deg();
-  out->has_scan_end_az_deg = fb->has_scan_end_az_deg();
-  out->scan_end_az_deg = fb->scan_end_az_deg();
-  out->has_scan_start_el_deg = fb->has_scan_start_el_deg();
-  out->scan_start_el_deg = fb->scan_start_el_deg();
-  out->has_scan_end_el_deg = fb->has_scan_end_el_deg();
-  out->scan_end_el_deg = fb->scan_end_el_deg();
+  out->has_explicit_scan_bounds = fb->has_use_explicit_scan_bounds();
+  out->explicit_scan_bounds.enabled = fb->use_explicit_scan_bounds();
+  out->explicit_scan_bounds.scan_start_az_deg = fb->scan_start_az_deg();
+  out->explicit_scan_bounds.scan_end_az_deg = fb->scan_end_az_deg();
+  out->explicit_scan_bounds.scan_start_el_deg = fb->scan_start_el_deg();
+  out->explicit_scan_bounds.scan_end_el_deg = fb->scan_end_el_deg();
   out->has_mission = fb->has_mission();
   if (fb->mission()) {
     const auto* m = fb->mission();

@@ -16,6 +16,21 @@ namespace electronic_surveillance_radar {
 namespace session {
 
 /**
+ * @brief ExplicitScanBounds 封装显式扫描边界相关的 5 个字段。
+ *
+ * 将 has_use_explicit_scan_bounds / use_explicit_scan_bounds 以及
+ * 4 个 has_scan_*_deg / scan_*_deg 字段聚合成一个子结构，
+ * 消除 has_use_explicit_scan_bounds 必须与其余 4 个 has_scan_*_deg 同时设置的隐含耦合。
+ */
+struct ExplicitScanBounds {
+  bool enabled{false};            /**< 是否使用显式扫描起止角 */
+  float scan_start_az_deg{0.0f}; /**< 扫描起始方位角（单位：deg） */
+  float scan_end_az_deg{0.0f};   /**< 扫描结束方位角（单位：deg） */
+  float scan_start_el_deg{0.0f}; /**< 扫描起始俯仰角（单位：deg） */
+  float scan_end_el_deg{0.0f};   /**< 扫描结束俯仰角（单位：deg） */
+};
+
+/**
  * @brief EsrRuntimeConfigPatch 描述运行期可变参数补丁。
  *
  * 支持两类运行期更新：
@@ -57,17 +72,8 @@ struct ONEQ_API EsrRuntimeConfigPatch {
   bool has_scan_center_el_deg{false}; /**< [补丁标志] 是否显式设置扫描中心俯仰角 */
   float scan_center_el_deg{0.0f};     /**< [可外部调整] 扫描中心俯仰角（单位：deg） */
 
-  bool has_use_explicit_scan_bounds{false}; /**< [补丁标志] 是否显式设置扫描边界模式 */
-  bool use_explicit_scan_bounds{false};     /**< [可外部调整] 是否使用显式扫描起止角 */
-
-  bool has_scan_start_az_deg{false}; /**< [补丁标志] 是否显式设置扫描起始方位角 */
-  float scan_start_az_deg{-60.0f};   /**< [可外部调整] 扫描起始方位角（单位：deg） */
-  bool has_scan_end_az_deg{false};   /**< [补丁标志] 是否显式设置扫描结束方位角 */
-  float scan_end_az_deg{60.0f};      /**< [可外部调整] 扫描结束方位角（单位：deg） */
-  bool has_scan_start_el_deg{false}; /**< [补丁标志] 是否显式设置扫描起始俯仰角 */
-  float scan_start_el_deg{-10.0f};   /**< [可外部调整] 扫描起始俯仰角（单位：deg） */
-  bool has_scan_end_el_deg{false};   /**< [补丁标志] 是否显式设置扫描结束俯仰角 */
-  float scan_end_el_deg{10.0f};      /**< [可外部调整] 扫描结束俯仰角（单位：deg） */
+  bool has_explicit_scan_bounds{false};      /**< [补丁标志] 是否显式设置扫描边界 */
+  ExplicitScanBounds explicit_scan_bounds{}; /**< [可外部调整] 显式扫描边界配置 */
 };
 
 }  // namespace session

@@ -162,16 +162,12 @@ TEST(EsrRuntimeConfigResolverTest, InvalidExplicitBoundsRejectWholePatch) {
   current_config.runtime_config.scan_rate_hz = 1.0f;
 
   EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder().WithScanRateHz(3.0f).Build();
-  patch.has_use_explicit_scan_bounds = true;
-  patch.use_explicit_scan_bounds = true;
-  patch.has_scan_start_az_deg = true;
-  patch.has_scan_end_az_deg = true;
-  patch.has_scan_start_el_deg = true;
-  patch.has_scan_end_el_deg = true;
-  patch.scan_start_az_deg = std::numeric_limits<float>::quiet_NaN();
-  patch.scan_end_az_deg = 10.0f;
-  patch.scan_start_el_deg = -10.0f;
-  patch.scan_end_el_deg = 10.0f;
+  patch.has_explicit_scan_bounds = true;
+  patch.explicit_scan_bounds.enabled = true;
+  patch.explicit_scan_bounds.scan_start_az_deg = std::numeric_limits<float>::quiet_NaN();
+  patch.explicit_scan_bounds.scan_end_az_deg = 10.0f;
+  patch.explicit_scan_bounds.scan_start_el_deg = -10.0f;
+  patch.explicit_scan_bounds.scan_end_el_deg = 10.0f;
 
   const EsrRuntimeConfigResolveResult resolved =
       ResolveEsrRuntimeConfigPatch(current_config, patch);
