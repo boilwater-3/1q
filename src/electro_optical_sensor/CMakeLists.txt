@@ -21,7 +21,6 @@ set(EOS_CORE_SOURCES
     electro_optical_sensor/session/EosCycleOutputBuilder.cpp
     electro_optical_sensor/session/EosInputValidation.cpp
     electro_optical_sensor/runtime/EosController.cpp
-    electro_optical_sensor/runtime/components/EosCycleOutcomeRecorder.cpp
     electro_optical_sensor/runtime/EosPipelineConfigMapper.cpp
     electro_optical_sensor/runtime/EosRuntimeConfigResolver.cpp
     electro_optical_sensor/session/EosSessionCompositionRoot.cpp
