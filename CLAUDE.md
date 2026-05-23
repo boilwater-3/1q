@@ -78,11 +78,12 @@ root config files/
 - Run configure, build, and test serially for the same preset.
 - Never start ctest before that preset build completes.
 - Parallel work is allowed only across different presets.
+- Use the `-j <num_cores>` or `--parallel <num_cores>` option (e.g., `-j 4`) to run tests in parallel, leveraging multi-core CPUs to significantly reduce test execution time.
 
 ```bash
 cmake --preset "$preset" >"${log_prefix}-cmake.log" 2>&1 || { tail -n 80 "${log_prefix}-cmake.log"; false; }
 cmake --build --preset "$preset" >"${log_prefix}-build.log" 2>&1 || { tail -n 80 "${log_prefix}-build.log"; false; }
-ctest --preset "$preset" --output-on-failure
+ctest --preset "$preset" --output-on-failure -j 4
 ```
 
 ## Engineering Conventions
