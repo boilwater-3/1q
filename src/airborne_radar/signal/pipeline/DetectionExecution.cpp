@@ -244,6 +244,9 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
 
   signal_detector->UpdateConfig(config.detection.engineering);
 
+  const float measurement_covariance_inflation = ComputeMeasurementCovarianceInflation(
+      config.jamming_effects, control_profile, environment_snapshot);
+
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
     env.propagation_loss_db =
@@ -285,8 +288,7 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
         (*buffers->target_geometry)[i], measurement_error.range_error_std_m,
         measurement_error.angle_error_std_rad,
         config.tracking.engineering.kalman_measurement_noise_std);
-    (*buffers->measurement_covariances)[i] *= ComputeMeasurementCovarianceInflation(
-        config.jamming_effects, control_profile, environment_snapshot);
+    (*buffers->measurement_covariances)[i] *= measurement_covariance_inflation;
   }
 }
 
