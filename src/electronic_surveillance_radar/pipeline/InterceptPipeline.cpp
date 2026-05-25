@@ -6,6 +6,7 @@
 #include "common/logging/ProjectLog.h"
 #include "electronic_surveillance_radar/pipeline/MutableEsrContext.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
+#include "electronic_surveillance_radar/pipeline/PipelineRuntimeSnapshot.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
@@ -68,17 +69,6 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
   return result;
 }
 
-namespace {
-
-struct PipelineRuntimeSnapshot {
-  std::mt19937 rng;
-  std::uint64_t next_observation_id{1U};
-  std::uint64_t next_hypothesis_id{1U};
-  std::vector<HypothesisAssociator::TrackState> tracks;
-};
-
-}  // namespace
-
 extension::InterceptPipelineRuntimeState InterceptPipeline::CaptureRuntimeState() const {
   auto snapshot = std::make_shared<PipelineRuntimeSnapshot>();
   snapshot->rng = rng_;
@@ -89,7 +79,7 @@ extension::InterceptPipelineRuntimeState InterceptPipeline::CaptureRuntimeState(
   extension::InterceptPipelineRuntimeState state;
   state.owner_identity = this;
   state.schema_version = 1U;
-  state.snapshot = snapshot;
+  CapturePipelineSnapshot(state, snapshot);
   return state;
 }
 
@@ -98,10 +88,10 @@ bool InterceptPipeline::RestoreRuntimeState(
   if (state.owner_identity != this || state.schema_version != 1U) {
     return false;
   }
-  if (state.snapshot == nullptr) {
+  const auto* snapshot = RestorePipelineSnapshot(state);
+  if (snapshot == nullptr) {
     return false;
   }
-  const auto* snapshot = static_cast<const PipelineRuntimeSnapshot*>(state.snapshot.get());
   rng_ = snapshot->rng;
   next_observation_id_ = snapshot->next_observation_id;
   next_hypothesis_id_ = snapshot->next_hypothesis_id;
