@@ -10,8 +10,8 @@ namespace tracking {
 
 KalmanUpdater::KalmanUpdater(KalmanUpdaterConfig config)
     : config_(config),
-      H_(BuildMeasurementMatrix()),
-      R_(BuildMeasurementNoise(config.measurement_noise_std)) {}
+      H_(IKalmanUpdater::BuildPositionMeasurementMatrix()),
+      R_(IKalmanUpdater::BuildDefaultMeasurementNoise(config.measurement_noise_std)) {}
 
 KalmanUpdateResult KalmanUpdater::Update(const GaussianTrackState& predicted,
                                          const MeasurementVector& measurement) const {
@@ -69,24 +69,7 @@ KalmanUpdateResult KalmanUpdater::Update(const GaussianTrackState& predicted,
 
 void KalmanUpdater::UpdateConfig(KalmanUpdaterConfig config) {
   config_ = config;
-  R_ = BuildMeasurementNoise(config.measurement_noise_std);
-}
-
-MeasurementMatrix KalmanUpdater::BuildMeasurementMatrix() {
-  MeasurementMatrix H = MeasurementMatrix::Zero();
-  H(0, 0) = 1.0f;  // x
-  H(1, 2) = 1.0f;  // y
-  H(2, 4) = 1.0f;  // z
-  return H;
-}
-
-MeasurementCovariance KalmanUpdater::BuildMeasurementNoise(float std_dev) {
-  const float variance = std_dev * std_dev;
-  MeasurementCovariance R = MeasurementCovariance::Zero();
-  R(0, 0) = variance;
-  R(1, 1) = variance;
-  R(2, 2) = variance;
-  return R;
+  R_ = IKalmanUpdater::BuildDefaultMeasurementNoise(config.measurement_noise_std);
 }
 
 }  // namespace tracking

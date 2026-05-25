@@ -6,6 +6,7 @@
 #include <limits>
 #include <unordered_set>
 
+#include "airborne_radar/signal/tracking/IKalmanUpdater.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
@@ -19,11 +20,11 @@ namespace {
  */
 constexpr std::uint64_t kUnassociatedKey = 0;
 /**
- * @brief 触发关联输入契约违例并终止进程。
+ * @brief 记录关联输入合约违例日志，调用方自行决定后续处理策略。
  * @param message 违例信息。
  * @param index 违例目标索引或轨迹键。
  */
-void AbortContractViolation(const char* message, std::size_t index) {
+void LogContractViolation(const char* message, std::size_t index) {
   if (PROJECT_LOG_HAS_DEFAULT_LOGGER()) {
     PROJECT_LOG_CRITICAL("[DataAssociationEngine] Contract violation at target[{}]: {}", index,
                          message);
@@ -34,15 +35,11 @@ void AbortContractViolation(const char* message, std::size_t index) {
   std::fflush(stderr);
 }
 /**
- * @brief 构建位置量测矩阵 H（3x6）。
+ * @brief 构建位置量测矩阵 H（3x6），委托给 IKalmanUpdater 的共享实现。
  * @return 位置提取矩阵。
  */
 tracking::MeasurementMatrix BuildPositionMeasurementMatrix() {
-  tracking::MeasurementMatrix H = tracking::MeasurementMatrix::Zero();
-  H(0, 0) = 1.0f;
-  H(1, 2) = 1.0f;
-  H(2, 4) = 1.0f;
-  return H;
+  return tracking::IKalmanUpdater::BuildPositionMeasurementMatrix();
 }
 /**
  * @brief 构建默认量测协方差矩阵。
@@ -160,7 +157,7 @@ AssociationResult DataAssociationEngine::AssociateDetections(
   result.target_keys.resize(target_count, kUnassociatedKey);
 
   if (measurement_covariances.size() != target_count) {
-    AbortContractViolation("measurement_covariances size must match targets size", target_count);
+    LogContractViolation("measurement_covariances size must match targets size", target_count);
     return result;
   }
 
@@ -175,7 +172,7 @@ AssociationResult DataAssociationEngine::AssociateDetections(
       continue;
     }
     if (!HasPositionMeasurement(targets[i])) {
-      AbortContractViolation("detected target is missing cartesian position; dropped before "
+      LogContractViolation("detected target is missing cartesian position; dropped before "
                              "position association",
                              i);
       continue;
@@ -319,22 +316,22 @@ bool DataAssociationEngine::SetAssociationSeeds(
   for (std::size_t i = 0; i < seeds.size(); ++i) {
     const tracking::AssociationTrackSeed& seed = seeds[i];
     if (seed.association_key == kUnassociatedKey) {
-      AbortContractViolation("external association seed uses reserved association_key=0", i);
+      LogContractViolation("external association seed uses reserved association_key=0", i);
       external_seed_tracks_.clear();
       return false;
     }
     if (!seed.has_position) {
-      AbortContractViolation("external association seed missing cartesian position", i);
+      LogContractViolation("external association seed missing cartesian position", i);
       external_seed_tracks_.clear();
       return false;
     }
     if (!seed.has_gaussian_state) {
-      AbortContractViolation("external association seed missing gaussian state", i);
+      LogContractViolation("external association seed missing gaussian state", i);
       external_seed_tracks_.clear();
       return false;
     }
     if (!accepted_keys.insert(seed.association_key).second) {
-      AbortContractViolation("external association seed has duplicate association_key", i);
+      LogContractViolation("external association seed has duplicate association_key", i);
       external_seed_tracks_.clear();
       return false;
     }
@@ -414,12 +411,12 @@ DataAssociationEngine::BuildExternalPositionAssociationPriors(
   for (std::size_t i = 0; i < external_priors.size(); ++i) {
     const ExternalSeedTrackSignature& track = external_priors[i];
     if (!track.has_position) {
-      AbortContractViolation(
+      LogContractViolation(
           "association prior missing cartesian position under position-only mode", track.key);
       continue;
     }
     if (!track.has_gaussian_state) {
-      AbortContractViolation("association prior missing gaussian state under external-seed mode",
+      LogContractViolation("association prior missing gaussian state under external-seed mode",
                              track.key);
       continue;
     }

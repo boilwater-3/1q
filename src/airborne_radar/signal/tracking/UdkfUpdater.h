@@ -27,8 +27,6 @@ class UdkfUpdater final : public IKalmanUpdater {
   void UpdateConfig(KalmanUpdaterConfig config) override;
 
  private:
-  static MeasurementMatrix BuildMeasurementMatrix();
-  static MeasurementCovariance BuildMeasurementNoise(float std_dev);
   static StateCovariance StabilizeCovarianceWithUd(const StateCovariance& covariance);
 
   KalmanUpdaterConfig config_{};

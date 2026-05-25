@@ -59,17 +59,6 @@ class KalmanUpdater final : public IKalmanUpdater {
   void UpdateConfig(KalmanUpdaterConfig config) override;
 
  private:
-  /**
-   * @brief 构建量测矩阵 H（3×6 位置提取矩阵）。
-   * @return 量测矩阵。
-   */
-  static MeasurementMatrix BuildMeasurementMatrix();
-  /**
-   * @brief 构建量测噪声协方差矩阵 R（3×3 对角矩阵）。
-   * @param std_dev 量测噪声标准差。
-   * @return 量测噪声协方差矩阵。
-   */
-  static MeasurementCovariance BuildMeasurementNoise(float std_dev);
   KalmanUpdaterConfig config_{}; /**< 当前配置。 */
   MeasurementMatrix H_;          /**< 量测矩阵 H（编译期可确定，只构建一次）。 */
   MeasurementCovariance R_;      /**< 量测噪声协方差 R。 */

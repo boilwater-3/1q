@@ -27,9 +27,6 @@ class SrifUpdater final : public IKalmanUpdater {
   void UpdateConfig(KalmanUpdaterConfig config) override;
 
  private:
-  static MeasurementMatrix BuildMeasurementMatrix();
-  static MeasurementCovariance BuildMeasurementNoise(float std_dev);
-
   KalmanUpdaterConfig config_{};
   MeasurementMatrix H_;
   MeasurementCovariance R_;

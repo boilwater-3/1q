@@ -58,6 +58,30 @@ class IKalmanUpdater {
    * @param config 更新器配置。
    */
   virtual void UpdateConfig(KalmanUpdaterConfig /*config*/) {}
+  /**
+   * @brief 构建位置量测矩阵 H（3×6），从 6 维状态中提取 x/y/z 位置分量。
+   * @return 位置提取矩阵，各 Kalman 变体共享。
+   */
+  static MeasurementMatrix BuildPositionMeasurementMatrix() {
+    MeasurementMatrix H = MeasurementMatrix::Zero();
+    H(0, 0) = 1.0f;
+    H(1, 2) = 1.0f;
+    H(2, 4) = 1.0f;
+    return H;
+  }
+  /**
+   * @brief 构建默认量测噪声协方差矩阵 R（3×3 对角阵）。
+   * @param std_dev 各轴量测噪声标准差（单位：m）。
+   * @return 对角协方差矩阵，各 Kalman 变体共享。
+   */
+  static MeasurementCovariance BuildDefaultMeasurementNoise(float std_dev) {
+    const float variance = std_dev * std_dev;
+    MeasurementCovariance R = MeasurementCovariance::Zero();
+    R(0, 0) = variance;
+    R(1, 1) = variance;
+    R(2, 2) = variance;
+    return R;
+  }
 };
 
 }  // namespace tracking

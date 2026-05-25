@@ -5,21 +5,18 @@
 #include <algorithm>
 
 #include "common/logging/ProjectLog.h"
+#include "common/numerics/NumericGuard.h"
 
 namespace airborne_radar {
 namespace signal {
 namespace tracking {
 
-namespace {
-
-constexpr float kCovarianceFloor = 1.0e-6f;
-
-}  // namespace
+using oneq::internal::numerics::kCovarianceFloor;
 
 UdkfUpdater::UdkfUpdater(KalmanUpdaterConfig config)
     : config_(config),
-      H_(BuildMeasurementMatrix()),
-      R_(BuildMeasurementNoise(config.measurement_noise_std)) {}
+      H_(IKalmanUpdater::BuildPositionMeasurementMatrix()),
+      R_(IKalmanUpdater::BuildDefaultMeasurementNoise(config.measurement_noise_std)) {}
 
 KalmanUpdateResult UdkfUpdater::Update(const GaussianTrackState& predicted,
                                        const MeasurementVector& measurement) const {
@@ -52,24 +49,7 @@ KalmanUpdateResult UdkfUpdater::Update(const GaussianTrackState& predicted,
 
 void UdkfUpdater::UpdateConfig(KalmanUpdaterConfig config) {
   config_ = config;
-  R_ = BuildMeasurementNoise(config.measurement_noise_std);
-}
-
-MeasurementMatrix UdkfUpdater::BuildMeasurementMatrix() {
-  MeasurementMatrix H = MeasurementMatrix::Zero();
-  H(0, 0) = 1.0f;
-  H(1, 2) = 1.0f;
-  H(2, 4) = 1.0f;
-  return H;
-}
-
-MeasurementCovariance UdkfUpdater::BuildMeasurementNoise(float std_dev) {
-  const float variance = std_dev * std_dev;
-  MeasurementCovariance R = MeasurementCovariance::Zero();
-  R(0, 0) = variance;
-  R(1, 1) = variance;
-  R(2, 2) = variance;
-  return R;
+  R_ = IKalmanUpdater::BuildDefaultMeasurementNoise(config.measurement_noise_std);
 }
 
 StateCovariance UdkfUpdater::StabilizeCovarianceWithUd(const StateCovariance& covariance) {

@@ -106,11 +106,7 @@ class LinearPositionMeasurementModel final : public IMeasurementModel {
    * @return 量测 Jacobian 矩阵。
    */
   MeasurementMatrix Jacobian(const StateVector&) const override {
-    MeasurementMatrix H = MeasurementMatrix::Zero();
-    H(0, 0) = 1.0f;
-    H(1, 2) = 1.0f;
-    H(2, 4) = 1.0f;
-    return H;
+    return IKalmanUpdater::BuildPositionMeasurementMatrix();
   }
 };
 /**
