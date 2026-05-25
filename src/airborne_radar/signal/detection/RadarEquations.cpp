@@ -8,6 +8,7 @@
 #endif
 #include <boost/math/special_functions/gamma.hpp>
 #include "common/numerics/Constants.h"
+#include "common/numerics/NumericGuard.h"
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif
@@ -40,20 +41,15 @@ const float kRefTemperature = 290.0f;
  * @note 取配置默认值，确保默认参数下行为连续。
  */
 const float kReferencePulseWidthS = 13.0e-6f;
-/**
- * @brief 防止 log10(0) 的极小值保护。
- * @note 代码行为依据：当前实现把对数变换与 SNR 计算的最小输入钳制到该值，
- *       避免出现 `-inf` 或数值下溢。
- */
-const float kEpsilon = 1e-30f;
+using oneq::internal::numerics::kLog10Floor;
 /**
  * @brief 将线性值转为 dB。
  * @param linear 线性值。
  * @return 对应的 dB 值。
  */
 float LinearToDb(float linear) {
-  if (linear <= kEpsilon) {
-    return 10.0f * std::log10(kEpsilon);
+  if (linear <= kLog10Floor) {
+    return 10.0f * std::log10(kLog10Floor);
   }
   return 10.0f * std::log10(linear);
 }
@@ -61,13 +57,14 @@ float LinearToDb(float linear) {
 /**
  * @brief 计算相对参考脉宽的单脉冲能量缩放。
  * @param tx 发射机参数。
- * @return 线性能量缩放因子，最小钳位到 `kEpsilon`。
+ * @return 线性能量缩放因子，最小钳位到机器精度量级。
  */
 float ComputePulseEnergyScale(const config::engineering::TransmitterConfig& tx) {
+  constexpr float kMinEnergyScale = 1e-12f;
   if (!std::isfinite(tx.pulse_width_s) || tx.pulse_width_s <= 0.0f) {
-    return kEpsilon;
+    return kMinEnergyScale;
   }
-  return std::max(tx.pulse_width_s / kReferencePulseWidthS, kEpsilon);
+  return std::max(tx.pulse_width_s / kReferencePulseWidthS, kMinEnergyScale);
 }
 /**
  * @brief 将 dB 转为线性值。
@@ -101,16 +98,16 @@ float RadarEquations::ComputeEchoPowerWithGain_dBW(const config::engineering::Tr
 
   /* 计算波长、对数域参数和总损耗 */
   const float wavelength_m = static_cast<float>(oneq::internal::numerics::kLightSpeed) / tx.frequency_hz;
-  /* 公式中 PT 的对数域值是 10*log10(PT²) */
+  /* pt_db = 10·log10(Pt)，标准雷达方程中 Pt 为线性值 */
   const float pt_db = LinearToDb(tx.peak_power_w);
   const float pulse_energy_scale_db = LinearToDb(ComputePulseEnergyScale(tx));
-  /* 公式中 λ 的对数域值是 10*log10(λ²) = 20*log10(λ) */
+  /* lambda_db = 10·log10(λ)，公式中乘以 2 等价于 10·log10(λ²) */
   const float lambda_db = LinearToDb(wavelength_m);
-  /* 公式中 R 的对数域值是 10*log10(R²) = 20*log10(R) */
+  /* r_db = 10·log10(R)，公式中乘以 4 等价于 10·log10(R⁴) */
   const float r_db = LinearToDb(range_m);
-  /* 公式中 σ 的对数域值是 10*log10(σ²) = 20*log10(σ) */
+  /* rcs_db = 10·log10(σ)，标准雷达方程中 RCS 为线性值 */
   const float rcs_db = LinearToDb(rcs_m2);
-  /* 公式中总损耗 L_sys 包含发射系统损耗和传播损耗 */
+  /* 总损耗 L_sys 包含发射系统损耗和传播损耗 */
   const float total_loss_db = tx.transmit_loss_db + propagation_loss_db;
 
   const float pr_dbw = pt_db + pulse_energy_scale_db + one_way_gain_db + one_way_gain_db +
@@ -148,6 +145,7 @@ float RadarEquations::ComputeRangeErrorStdDev(float snr_db, float bandwidth_hz) 
   }
   const float snr_linear = DbToLinear(snr_db);
   const float std_dev = 0.5f * range_resolution / std::sqrt(snr_linear);
+  // 经验偏置项，包含系统偏置、量化误差等固定分量，来源于工程实测数据拟合。
   const float kRangeBias_m = 20.0f;
   return std_dev + kRangeBias_m;
 }
@@ -159,6 +157,7 @@ float RadarEquations::ComputeAngleErrorStdDev(float snr_db, float beamwidth_rad)
   }
   const float snr_linear = DbToLinear(snr_db);
   const float std_dev = 0.317f * beamwidth_rad / std::sqrt(snr_linear);
+  // 经验偏置项，波束宽度的 1/30，来源于单脉冲测角工程经验。
   const float angle_bias = beamwidth_rad / 30.0f;
   return std_dev + angle_bias;
 }

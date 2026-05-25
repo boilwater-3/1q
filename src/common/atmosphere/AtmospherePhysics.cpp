@@ -42,6 +42,8 @@ double blake_atmos_loss_r8_1(double h_a_m, double f_hz, double theta_deg, double
   const double pressure_ratio =
       EstimatePressureFromAltitudeHpa(safe_altitude_m) / kSeaLevelPressureHpa;
   const double f_ghz = safe_freq_hz / 1.0e9;
+  // Blake 大气损耗的简化幂律近似，适用于 1–18 GHz 范围内的大气窗口。
+  // 在水汽吸收线（22.235 GHz）和氧吸收线（60 GHz）附近偏差较大，不适用于毫米波段。
   const double oxygen_specific_db_per_km = 0.005 * std::pow(f_ghz, 1.25) * pressure_ratio;
   const double vapor_specific_db_per_km =
       0.008 * std::pow(f_ghz, 1.1) * std::exp(-safe_altitude_m / 2000.0);
@@ -84,6 +86,10 @@ float refractivity_index_nh_r4(float n0_index, float h_m, float h0_m) {
   return static_cast<float>(1.0 + nh_refractivity * 1.0e-6);
 }
 
+// GTD7 是 NRL 的经验大气模型，完整实现需要太阳活动指数 (F10.7)、地磁指数 (Ap)、
+// 地理位置和时间等参数。当前实现退化为 ISA 标准大气，忽略所有外部环境参数。
+// 调用方已通过 EvaluateAtmosphericPropagation 传入 solar_flux/geomagnetic 等值，
+// 未来可基于这些输入恢复完整的 GTD7 密度-温度剖面计算。
 Gtd7Profile GTD7(int day_of_year, double sec, double alt_m, double glat_deg, double glong_deg,
                  double stl, double f107a, double f107, double ap, int mass) {
   (void)sec;
