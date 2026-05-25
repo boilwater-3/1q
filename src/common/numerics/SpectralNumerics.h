@@ -71,13 +71,13 @@ bool lstsqs(const Eigen::MatrixXd& matrix_a, const Eigen::VectorXd& vector_b,
             Eigen::VectorXd* solution_x);
 
 /**
- * @brief 估计输入序列功率谱。
+ * @brief 使用标准周期图法估计输入序列功率谱。
  * @param[in] samples 输入实序列。
  * @param[in] fft_length FFT 点数。
  * @param[out] power_spectrum 输出功率谱（前半谱，含 DC 与 Nyquist）。
  * @return 成功返回 true。
  */
-bool marple_spect(const std::vector<double>& samples, std::size_t fft_length,
+bool ComputePeriodogram(const std::vector<double>& samples, std::size_t fft_length,
                   std::vector<double>* power_spectrum);
 
 }  // namespace numerics

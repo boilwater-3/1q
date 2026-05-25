@@ -97,7 +97,7 @@ void PopulateClusterSpectralSummary(const std::vector<std::size_t>& cluster_indi
   const std::size_t fft_length =
       static_cast<std::size_t>(std::max<std::uint32_t>(spectral_config.fft_length, 4U));
   std::vector<double> power_spectrum;
-  if (!oneq::common::numerics::marple_spect(rf_series, fft_length, &power_spectrum) ||
+  if (!oneq::common::numerics::ComputePeriodogram(rf_series, fft_length, &power_spectrum) ||
       power_spectrum.empty()) {
     summary->spectral_class_label = "SPECTRAL_INSUFFICIENT";
     return;

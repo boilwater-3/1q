@@ -36,6 +36,8 @@ bool RFFTI(std::size_t fft_length, RfftPlan* plan) {
   return true;
 }
 
+// O(n²) 朴素 DFT 实现。当前使用场景中 fft_length 默认 16（见 InterceptSpectralAnalysisConfig），
+// 计算开销可忽略。若未来 n > 512，应考虑替换为 Cooley-Tukey FFT 或 Eigen 的 FFT 模块。
 std::vector<std::complex<double>> ZFFT1D(const std::vector<std::complex<double>>& input,
                                          bool inverse) {
   const std::size_t n = input.size();
@@ -111,7 +113,7 @@ bool lstsqs(const Eigen::MatrixXd& matrix_a, const Eigen::VectorXd& vector_b,
   return solution_x->allFinite();
 }
 
-bool marple_spect(const std::vector<double>& samples, std::size_t fft_length,
+bool ComputePeriodogram(const std::vector<double>& samples, std::size_t fft_length,
                   std::vector<double>* power_spectrum) {
   if (power_spectrum == nullptr || fft_length == 0U || samples.empty()) {
     return false;

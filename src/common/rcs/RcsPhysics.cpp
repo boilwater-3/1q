@@ -18,7 +18,7 @@ float rcs_f419_xmm4r4(float radius_m, float wavenumber_k0) {
   const float safe_radius_m = std::max(radius_m, 0.0f);
   const float safe_k0 = std::max(wavenumber_k0, 0.0f);
   const float k0a = safe_k0 * safe_radius_m;
-  const float area_m2 = static_cast<decltype(static_cast<float>(oneq::internal::numerics::kPi))>(oneq::internal::numerics::kPi) * safe_radius_m * safe_radius_m;
+  const float area_m2 = static_cast<float>(oneq::internal::numerics::kPi) * safe_radius_m * safe_radius_m;
   if (k0a <= 0.0f || area_m2 <= 0.0f) {
     return 0.0f;
   }
@@ -47,10 +47,10 @@ float RCS_f743_v128b_ps(float wavenumber_k0, float radius_m, float theta_deg) {
     return 0.0f;
   }
   const float theta_rad = oneq::internal::numerics::DegToRad(theta_deg);
-  const float lambda_m = 2.0f * static_cast<decltype(static_cast<float>(oneq::internal::numerics::kPi))>(oneq::internal::numerics::kPi) / safe_k0;
-  const float area_m2 = static_cast<decltype(static_cast<float>(oneq::internal::numerics::kPi))>(oneq::internal::numerics::kPi) * safe_radius_m * safe_radius_m;
+  const float lambda_m = 2.0f * static_cast<float>(oneq::internal::numerics::kPi) / safe_k0;
+  const float area_m2 = static_cast<float>(oneq::internal::numerics::kPi) * safe_radius_m * safe_radius_m;
   const float cos_theta = std::max(0.0f, std::cos(theta_rad));
-  const float plate_rcs = (4.0f * static_cast<decltype(static_cast<float>(oneq::internal::numerics::kPi))>(oneq::internal::numerics::kPi) * area_m2 * area_m2) / std::max(lambda_m * lambda_m, 1.0e-9f);
+  const float plate_rcs = (4.0f * static_cast<float>(oneq::internal::numerics::kPi) * area_m2 * area_m2) / std::max(lambda_m * lambda_m, 1.0e-9f);
   return oneq::internal::numerics::ClampNonNegative(plate_rcs * cos_theta * cos_theta);
 }
 
