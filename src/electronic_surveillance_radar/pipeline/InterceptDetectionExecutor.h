@@ -13,8 +13,12 @@
 #include <random>
 #include <vector>
 
+#include <utility>
+
 #include "1q/electronic_surveillance_radar/extension/IEsrContext.h"
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "common/timing/TimingRegimeModel.h"
+#include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
 #include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
 
@@ -49,6 +53,32 @@ class InterceptDetectionExecutor {
    */
   InterceptDetectionOutput Execute(const extension::IEsrContext& ctx, std::mt19937& rng,
                                    std::uint64_t& next_observation_id);
+
+ private:
+  /**
+   * @brief 单个辐射源的截获判定与观测记录生成。
+   * @param emitter 当前辐射源真值。
+   * @param active_beam 当前周期激活波束。
+   * @param receiver_window 当前接收频段窗口。
+   * @param receive_loss_scale 综合接收损耗线性比例。
+   * @param angle_error_config 测角误差模型配置。
+   * @param base_statistical_detection_params 统计检测基线参数。
+   * @param ctx 周期上下文（只读部分）。
+   * @param rng 随机引擎。
+   * @param next_observation_id 观测 ID 分配器。
+   * @param raw_records 产出观测记录列表。
+   */
+  void ProcessSingleEmitter(
+      const session::EsrSceneEmitter& emitter,
+      const intercept::BeamPointingDeg& active_beam,
+      const std::pair<double, double>& receiver_window,
+      double receive_loss_scale,
+      const intercept::AngleErrorModelConfig& angle_error_config,
+      const oneq::internal::timing::StatisticalDetectionParams& base_statistical_detection_params,
+      const extension::IEsrContext& ctx,
+      std::mt19937& rng,
+      std::uint64_t& next_observation_id,
+      std::vector<RawObservationRecord>& raw_records) const;
 };
 
 }  // namespace pipeline
