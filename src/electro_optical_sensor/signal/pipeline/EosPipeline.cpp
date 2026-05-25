@@ -20,6 +20,24 @@ namespace electro_optical_sensor {
 namespace signal {
 namespace pipeline {
 
+struct FrameContext {
+  bool infrared_enabled{false};
+  bool visible_enabled{false};
+  float aperture_area_m2{0.0f};
+  float fov_solid_angle_sr{0.0f};
+  float wavelength_center_um{4.0f};
+  float wavelength_bandwidth_um{1.0f};
+  float background_spectral_radiance_w_sr_m3{0.0f};
+  float visible_photon_noise_enhancement{1.0f};
+  float optical_transmittance{0.85f};
+  float diffraction_resolution_rad{0.0f};
+  float dmin_m{0.0f};
+  float dmax_m{0.0f};
+  foundation::propagation::NepNoiseModelInputs nep_inputs{};
+  foundation::noise::BackgroundNoiseModelInputs noise_inputs_base{};
+  environment::EosEnvironmentModelResult environment_result{};
+};
+
 namespace {
 
 class DefaultEosEnvironmentService final : public environment::IEosEnvironmentService {
@@ -155,57 +173,36 @@ DetectionComputationContext BuildDetectionComputationContext(
     const EosPipelineConfig& config,
     const ::electro_optical_sensor::session::EosSceneTarget& target,
     const ::electro_optical_sensor::session::EosCycleInput& input,
-    const std::shared_ptr<environment::IEosEnvironmentService>& environment_service) {
+    const FrameContext& frame_ctx) {
   DetectionComputationContext context_values;
-  context_values.infrared_enabled = WorkModeIncludesInfrared(config.work_mode);
-  context_values.visible_enabled = WorkModeIncludesVisible(config.work_mode);
-  context_values.aperture_area_m2 = ComputeApertureAreaM2(config.optical_aperture_m);
+  // 从帧级上下文复制目标无关字段
+  context_values.infrared_enabled = frame_ctx.infrared_enabled;
+  context_values.visible_enabled = frame_ctx.visible_enabled;
+  context_values.aperture_area_m2 = frame_ctx.aperture_area_m2;
+  context_values.fov_solid_angle_sr = frame_ctx.fov_solid_angle_sr;
+  context_values.wavelength_center_um = frame_ctx.wavelength_center_um;
+  context_values.wavelength_bandwidth_um = frame_ctx.wavelength_bandwidth_um;
+  context_values.background_spectral_radiance_w_sr_m3 = frame_ctx.background_spectral_radiance_w_sr_m3;
+  context_values.visible_photon_noise_enhancement = frame_ctx.visible_photon_noise_enhancement;
+  context_values.optical_transmittance = frame_ctx.optical_transmittance;
+  context_values.nep_inputs = frame_ctx.nep_inputs;
+  context_values.noise_inputs = frame_ctx.noise_inputs_base;
 
-  environment::EosEnvironmentModelInputs environment_inputs;
-  environment_inputs.model_type = ToEnvironmentModelType(config.environment_model_type);
-  environment_inputs.platform_altitude_m = ResolvePlatformAltitudeM(input);
-  environment_inputs.cloud_coverage_ratio =
-      oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
-  environment_inputs.wind_speed_mps = std::max(0.0f, input.environment.ambient_wind_speed_mps);
-  const environment::EosEnvironmentModelResult environment_result =
-      environment_service->ResolveFactors(environment_inputs);
+  // 目标相关字段
   const foundation::radiative_transfer::RadiativeTransferResult transfer_result =
-      ComputePathRadiativeTransfer(config, input, oneq::internal::numerics::SafePositive(target.range_m, 1000.0f),
-                                   environment_result);
+      ComputePathRadiativeTransfer(config, input,
+                                   oneq::internal::numerics::SafePositive(target.range_m, 1000.0f),
+                                   frame_ctx.environment_result);
   context_values.path_transmittance = transfer_result.transmittance;
   context_values.path_radiance_penalty_scale =
-      transfer_result.path_radiance_penalty_scale * environment_result.path_radiance_scale_bias;
-  context_values.fov_solid_angle_sr =
-      ComputeFovSolidAngleSr(config.horizontal_fov_deg, config.vertical_fov_deg);
+      transfer_result.path_radiance_penalty_scale *
+      frame_ctx.environment_result.path_radiance_scale_bias;
 
-  const float wavelength_lower_um = oneq::internal::numerics::SafePositive(config.wavelength_lower_um, 3.0f);
-  const float wavelength_upper_um = oneq::internal::numerics::SafePositive(config.wavelength_upper_um, 5.0f);
-  context_values.wavelength_center_um = 0.5f * (wavelength_lower_um + wavelength_upper_um);
-  context_values.wavelength_bandwidth_um =
-      std::max(std::fabs(wavelength_upper_um - wavelength_lower_um), 0.1f);
-  if (context_values.infrared_enabled) {
-    context_values.background_spectral_radiance_w_sr_m3 =
-        foundation::radiometry::ComputePlanckRadiance(context_values.wavelength_center_um,
-                                                       input.environment.background_temperature_k);
-  }
-  context_values.visible_photon_noise_enhancement =
-      ComputeVisiblePhotonNoiseEnhancement(config, input);
+  context_values.is_within_detection_range =
+      target.range_m >= frame_ctx.dmin_m && target.range_m <= frame_ctx.dmax_m;
 
-  foundation::optics::DetectionRangeInputs range_inputs;
-  range_inputs.platform_altitude_m = std::max(ResolvePlatformAltitudeM(input), 1.0f);
-  range_inputs.boresight_depression_deg = config.boresight_depression_deg;
-  range_inputs.vertical_fov_deg = config.vertical_fov_deg;
-  range_inputs.min_depression_deg = config.min_detection_depression_deg;
-  range_inputs.max_depression_deg = config.max_detection_depression_deg;
-  const float dmin_m = foundation::optics::ComputeMinimumDetectionRangeM(range_inputs);
-  const float dmax_m = foundation::optics::ComputeMaximumDetectionRangeM(range_inputs);
-  context_values.is_within_detection_range = target.range_m >= dmin_m && target.range_m <= dmax_m;
-
-  const float diffraction_resolution_rad =
-      foundation::optics::ComputeDiffractionLimitedAngularResolutionRad(
-          context_values.wavelength_center_um, config.optical_aperture_m);
-  const float gsd_m =
-      foundation::optics::ComputeGroundSampleDistanceM(target.range_m, diffraction_resolution_rad);
+  const float gsd_m = foundation::optics::ComputeGroundSampleDistanceM(
+      target.range_m, frame_ctx.diffraction_resolution_rad);
   const float target_linear_size_m =
       std::sqrt(oneq::internal::numerics::SafePositive(target.appearance.projected_area_m2, 1.0f));
   const float geometric_quality_gain = target_linear_size_m / (target_linear_size_m + gsd_m);
@@ -222,25 +219,6 @@ DetectionComputationContext BuildDetectionComputationContext(
   context_values.imaging_quality_gain = oneq::internal::numerics::Clamp(
       0.5f * geometric_quality_gain + 0.5f * spectrum_result.spectrum_quality_gain, 0.05f, 1.0f);
 
-  context_values.nep_inputs.detector_detectivity_cm_sqrt_hz_per_w =
-      oneq::internal::numerics::SafePositive(config.detector_detectivity_cm_sqrt_hz_per_w, 1.0e10f);
-  context_values.nep_inputs.detector_area_cm2 =
-      oneq::internal::numerics::SafePositive(config.detector_area_cm2, 0.25f);
-  context_values.nep_inputs.optical_transmittance = context_values.optical_transmittance;
-  context_values.nep_inputs.integration_time_sec = ComputeSensorIntegrationTimeSec(config, input);
-  const float scan_coupled_bandwidth_hz =
-      oneq::internal::numerics::SafePositive(config.scan_rate_deg_per_sec, 20.0f) * 100.0f;
-  const float frame_coupled_bandwidth_hz = 0.5f / context_values.nep_inputs.integration_time_sec;
-  context_values.nep_inputs.electrical_bandwidth_hz =
-      std::max(100.0f, std::max(scan_coupled_bandwidth_hz, frame_coupled_bandwidth_hz));
-  context_values.nep_inputs.system_noise_factor =
-      ComputeSystemNoiseFactorFromSensitivity(config.detection_sensitivity_w);
-
-  context_values.noise_inputs.electrical_bandwidth_hz =
-      context_values.nep_inputs.electrical_bandwidth_hz;
-  context_values.noise_inputs.integration_time_sec = context_values.nep_inputs.integration_time_sec;
-  context_values.noise_inputs.cloud_coverage_ratio = input.environment.cloud_coverage_ratio;
-  context_values.noise_inputs.detector_area_cm2 = context_values.nep_inputs.detector_area_cm2;
   context_values.noise_inputs.scene_complexity_factor =
       std::max(1.0f, 1.0f + 0.3f * (1.0f - context_values.imaging_quality_gain));
 
@@ -429,13 +407,15 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
   AdvanceScan(input.dt_sec);
   result.scan_azimuth_deg = current_scan_azimuth_deg_;
 
+  const FrameContext frame_ctx = BuildFrameContext(input);
+
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
     const ::electro_optical_sensor::session::EosSceneTarget& target = input.scene[i];
     if (!IsTargetInCurrentFov(target)) {
       PROJECT_LOG_DEBUG("[EosPipeline] target_id={} outside FOV, skipped.", target.target_id);
       continue;
     }
-    result.detections.push_back(BuildDetectionRecord(target, input));
+    result.detections.push_back(BuildDetectionRecord(target, input, frame_ctx));
     PROJECT_LOG_DEBUG("[EosPipeline] target_id={} detected={} fused_snr_db={:.1f} range_m={:.0f}",
                       target.target_id, result.detections.back().detected,
                       result.detections.back().fused_snr_db, target.range_m);
@@ -474,16 +454,82 @@ bool EosPipeline::IsTargetInCurrentFov(
          elevation_delta_deg <= 0.5f * config_.vertical_fov_deg;
 }
 
+FrameContext EosPipeline::BuildFrameContext(
+    const ::electro_optical_sensor::session::EosCycleInput& input) const {
+  FrameContext frame;
+  frame.infrared_enabled = WorkModeIncludesInfrared(config_.work_mode);
+  frame.visible_enabled = WorkModeIncludesVisible(config_.work_mode);
+  frame.aperture_area_m2 = ComputeApertureAreaM2(config_.optical_aperture_m);
+  frame.fov_solid_angle_sr =
+      ComputeFovSolidAngleSr(config_.horizontal_fov_deg, config_.vertical_fov_deg);
+
+  const float wl_lower =
+      oneq::internal::numerics::SafePositive(config_.wavelength_lower_um, 3.0f);
+  const float wl_upper =
+      oneq::internal::numerics::SafePositive(config_.wavelength_upper_um, 5.0f);
+  frame.wavelength_center_um = 0.5f * (wl_lower + wl_upper);
+  frame.wavelength_bandwidth_um = std::max(std::fabs(wl_upper - wl_lower), 0.1f);
+
+  if (frame.infrared_enabled) {
+    frame.background_spectral_radiance_w_sr_m3 =
+        foundation::radiometry::ComputePlanckRadiance(
+            frame.wavelength_center_um, input.environment.background_temperature_k);
+  }
+  frame.visible_photon_noise_enhancement = ComputeVisiblePhotonNoiseEnhancement(config_, input);
+  frame.diffraction_resolution_rad =
+      foundation::optics::ComputeDiffractionLimitedAngularResolutionRad(
+          frame.wavelength_center_um, config_.optical_aperture_m);
+
+  foundation::optics::DetectionRangeInputs range_inputs;
+  range_inputs.platform_altitude_m = std::max(ResolvePlatformAltitudeM(input), 1.0f);
+  range_inputs.boresight_depression_deg = config_.boresight_depression_deg;
+  range_inputs.vertical_fov_deg = config_.vertical_fov_deg;
+  range_inputs.min_depression_deg = config_.min_detection_depression_deg;
+  range_inputs.max_depression_deg = config_.max_detection_depression_deg;
+  frame.dmin_m = foundation::optics::ComputeMinimumDetectionRangeM(range_inputs);
+  frame.dmax_m = foundation::optics::ComputeMaximumDetectionRangeM(range_inputs);
+
+  frame.nep_inputs.detector_detectivity_cm_sqrt_hz_per_w =
+      oneq::internal::numerics::SafePositive(config_.detector_detectivity_cm_sqrt_hz_per_w, 1.0e10f);
+  frame.nep_inputs.detector_area_cm2 =
+      oneq::internal::numerics::SafePositive(config_.detector_area_cm2, 0.25f);
+  frame.nep_inputs.optical_transmittance = frame.optical_transmittance;
+  frame.nep_inputs.integration_time_sec = ComputeSensorIntegrationTimeSec(config_, input);
+  const float scan_bw =
+      oneq::internal::numerics::SafePositive(config_.scan_rate_deg_per_sec, 20.0f) * 100.0f;
+  const float frame_bw = 0.5f / frame.nep_inputs.integration_time_sec;
+  frame.nep_inputs.electrical_bandwidth_hz =
+      std::max(100.0f, std::max(scan_bw, frame_bw));
+  frame.nep_inputs.system_noise_factor =
+      ComputeSystemNoiseFactorFromSensitivity(config_.detection_sensitivity_w);
+
+  frame.noise_inputs_base.electrical_bandwidth_hz = frame.nep_inputs.electrical_bandwidth_hz;
+  frame.noise_inputs_base.integration_time_sec = frame.nep_inputs.integration_time_sec;
+  frame.noise_inputs_base.cloud_coverage_ratio = input.environment.cloud_coverage_ratio;
+  frame.noise_inputs_base.detector_area_cm2 = frame.nep_inputs.detector_area_cm2;
+
+  environment::EosEnvironmentModelInputs env_inputs;
+  env_inputs.model_type = ToEnvironmentModelType(config_.environment_model_type);
+  env_inputs.platform_altitude_m = ResolvePlatformAltitudeM(input);
+  env_inputs.cloud_coverage_ratio =
+      oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
+  env_inputs.wind_speed_mps = std::max(0.0f, input.environment.ambient_wind_speed_mps);
+  frame.environment_result = environment_service_->ResolveFactors(env_inputs);
+
+  return frame;
+}
+
 output::EosDetectionRecord EosPipeline::BuildDetectionRecord(
     const ::electro_optical_sensor::session::EosSceneTarget& target,
-    const ::electro_optical_sensor::session::EosCycleInput& input) const {
+    const ::electro_optical_sensor::session::EosCycleInput& input,
+    const FrameContext& frame_ctx) const {
   output::EosDetectionRecord record;
   record.target_id = target.target_id;
   record.range_m = target.range_m;
   record.azimuth_deg = target.azimuth_deg;
   record.elevation_deg = target.elevation_deg;
   const DetectionComputationContext context_values =
-      BuildDetectionComputationContext(config_, target, input, environment_service_);
+      BuildDetectionComputationContext(config_, target, input, frame_ctx);
   const float infrared_snr_linear = context_values.infrared_enabled
                                         ? ComputeInfraredSnrLinear(target, input, context_values)
                                         : 0.0f;

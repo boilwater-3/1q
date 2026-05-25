@@ -21,6 +21,9 @@ using ::electro_optical_sensor::extension::EosPipelineConfig;
 using ::electro_optical_sensor::extension::EosPipelineEnvironmentModelType;
 using ::electro_optical_sensor::extension::EosPipelineWorkMode;
 
+/** @brief 帧级别环境计算上下文，目标无关字段的聚合（完整定义见 cpp）。 */
+struct FrameContext;
+
 /**
  * @brief EosPipeline 封装核心处理层执行。
  * @note 线程模型：实例维护可变扫描相位状态，不是线程安全类型；并发访问需外部同步。
@@ -28,8 +31,8 @@ using ::electro_optical_sensor::extension::EosPipelineWorkMode;
 class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
  public:
   explicit EosPipeline(
-	  const EosPipelineConfig& config,
-	  std::shared_ptr<environment::IEosEnvironmentService> environment_service = nullptr);
+      const EosPipelineConfig& config,
+      std::shared_ptr<environment::IEosEnvironmentService> environment_service = nullptr);
 
   /**
    * @brief 更新核心处理层配置。
@@ -54,19 +57,27 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
   /**
    * @brief 执行单周期核心处理并输出探测结果。
    * @param[in] input 当前周期输入。
-    * @return 探测执行结果。
+   * @return 探测执行结果。
    * @note 非线程安全：会推进内部扫描相位（`current_scan_azimuth_deg_`）。
    */
-    extension::EosPipelineExecuteResult RunCycle(
-	  const ::electro_optical_sensor::session::EosCycleInput& input) override;
+  extension::EosPipelineExecuteResult RunCycle(
+      const ::electro_optical_sensor::session::EosCycleInput& input) override;
 
  private:
   void AdvanceScan(float dt_sec);
   bool IsTargetInCurrentFov(
-	  const ::electro_optical_sensor::session::EosSceneTarget& target) const;
+      const ::electro_optical_sensor::session::EosSceneTarget& target) const;
+  /**
+   * @brief 构建帧级别目标无关计算上下文（每帧调用一次）。
+   * @param input 当前周期输入。
+   * @return 帧级上下文字段聚合。
+   */
+  FrameContext BuildFrameContext(
+      const ::electro_optical_sensor::session::EosCycleInput& input) const;
   output::EosDetectionRecord BuildDetectionRecord(
-	  const ::electro_optical_sensor::session::EosSceneTarget& target,
-	  const ::electro_optical_sensor::session::EosCycleInput& input) const;
+      const ::electro_optical_sensor::session::EosSceneTarget& target,
+      const ::electro_optical_sensor::session::EosCycleInput& input,
+      const FrameContext& frame_ctx) const;
 
   EosPipelineConfig config_{};
   float current_scan_azimuth_deg_{0.0f};
