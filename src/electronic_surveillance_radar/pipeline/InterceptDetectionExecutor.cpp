@@ -20,9 +20,12 @@
 #include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"
 #include "electronic_surveillance_radar/pipeline/InterceptComponentFactory.h"
 #include "common/validation/ValidationUtils.h"
+#include "common/numerics/NumericGuard.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
+
+using oneq::internal::numerics::kNumericFloor;
 
 namespace {
 
@@ -34,11 +37,6 @@ namespace {
  * @brief 以米每秒表示的光速常量。
  * @note 代码行为依据：波长通过 `λ = c/f` 计算，用于路径损耗估计。
  */
-/**
- * @brief 数值稳定保护下限。
- * @note 代码行为依据：用于避免除零、`log10(0)` 与非正噪声功率。
- */
-constexpr double kNumericFloor = 1.0e-18;
 /**
  * @brief 判断双精度浮点是否为有限数。
  * @param[in] value 输入值。
@@ -442,160 +440,180 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const extension::IE
         emitter.tx_power_w <= 0.0) {
       continue;
     }
-
-    const float range_m = ComputeRangeM(platform_pose, emitter);
-    const oneq::internal::geometry::AzimuthElevationDeg target_look_angles =
-        ApplyAntennaMountOffset(ComputeEmitterLookAngles(platform_pose, emitter), runtime_config);
-    const float target_az_deg = target_look_angles.az_deg;
-    const float target_el_deg = target_look_angles.el_deg;
-    const float emitter_beam_overlap_ratio = ComputeEmitterBeamOverlapRatio(platform_pose, emitter);
-    const bool emitter_beam_covered = emitter_beam_overlap_ratio > 0.0f;
-    const oneq::internal::timing::ResolvedCycleTimingState timing_state = ResolveEmitterTimingState(
-        ctx.GetCycleDeltaTimeSec(), emitter, base_statistical_detection_params);
-    const bool has_available_pulses = timing_state.effective_pulse_count > 0U;
-    oneq::internal::timing::StatisticalDetectionParams emitter_detection_params =
-        base_statistical_detection_params;
-    if (has_available_pulses) {
-      emitter_detection_params.pulse_count = std::max(1U, timing_state.effective_pulse_count);
-    }
-
-    const intercept::JammingAggregateResult jamming_result =
-        intercept::JammingAggregator::Aggregate(env_snapshot.jammer_sources, emitter.carrier_hz,
-                                                emitter.bandwidth_hz);
-    const float suppression_noise_scale =
-        std::max(0.0f, config.suppression_model.suppression_noise_scale);
-    const double effective_suppression_power_w =
-        static_cast<double>(jamming_result.suppression_power_w) *
-        static_cast<double>(suppression_noise_scale);
-    const double noise_power_w = std::max(
-        static_cast<double>(config.detection.receiver_noise_floor_w) +
-            static_cast<double>(env_snapshot.clutter_noise_w) + effective_suppression_power_w,
-        kNumericFloor);
-    const float static_threshold_snr_db = config.detection.min_detect_snr_db;
-    const float dynamic_threshold_snr_db = oneq::internal::timing::ComputeDynamicThresholdSnrDb(
-        noise_power_w, emitter_detection_params);
-    const float detection_threshold_snr_db =
-        config.statistical_detection.enable_statistical_detection
-            ? std::max(static_threshold_snr_db, dynamic_threshold_snr_db)
-            : static_threshold_snr_db;
-
-    const intercept::BoundarySearchResult boundary_result = intercept::BoundarySearchSolver::Solve(
-        1.0f, config.detection.max_detect_range_m, config.detection.boundary_resolution_m,
-        config.detection.boundary_max_iterations, [&](float candidate_range_m) {
-          const double candidate_received_power_w =
-              ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz, candidate_range_m,
-                                    env_snapshot.propagation_loss_db) *
-              static_cast<double>(emitter_beam_overlap_ratio) * receive_loss_scale;
-          const float candidate_snr_db = ToDb(candidate_received_power_w / noise_power_w);
-          return candidate_snr_db >= detection_threshold_snr_db;
-        });
-    const double received_power_w =
-        ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz, range_m,
-                              env_snapshot.propagation_loss_db) *
-        static_cast<double>(emitter_beam_overlap_ratio) * receive_loss_scale;
-    const float snr_db = ToDb(received_power_w / noise_power_w);
-
-    intercept::InterceptGateInput gate_input;
-    gate_input.line_of_sight = emitter_beam_covered;
-    gate_input.target_az_deg = target_az_deg;
-    gate_input.target_el_deg = target_el_deg;
-    gate_input.beam_az_deg = active_beam.az_deg;
-    gate_input.beam_el_deg = active_beam.el_deg;
-    gate_input.beam_az_width_deg = std::max(1.0f, config.scan.az_step_deg);
-    gate_input.beam_el_width_deg = std::max(1.0f, config.scan.el_step_deg);
-    gate_input.receiver_lower_hz = receiver_window.first;
-    gate_input.receiver_upper_hz = receiver_window.second;
-    gate_input.signal_center_hz = emitter.carrier_hz;
-    gate_input.signal_bandwidth_hz = emitter.bandwidth_hz;
-    gate_input.range_m = range_m;
-    gate_input.max_range_m =
-        boundary_result.boundary_range_m > 0.0f ? boundary_result.boundary_range_m : 0.0f;
-    gate_input.dynamic_range_margin_db = snr_db - detection_threshold_snr_db;
-    gate_input.min_dynamic_range_margin_db = config.detection.min_dynamic_range_margin_db;
-    gate_input.min_frequency_overlap_ratio = 0.05f;
-    gate_input.beam_guard_factor = 1.5f;
-
-    const intercept::InterceptGateDecision gate_decision =
-        intercept::InterceptGate::Evaluate(gate_input);
-    PROJECT_LOG_DEBUG(
-        "[InterceptDetection] emitter_id={} range={:.0f} snr={:.1f} gate_passed={} beam_overlap={:.2f}",
-        emitter.emitter_id, range_m, snr_db, gate_decision.passed,
-        emitter_beam_overlap_ratio);
-    const float effective_beamwidth_deg =
-        std::max(1.0f, 0.5f * (gate_input.beam_az_width_deg + gate_input.beam_el_width_deg));
-    const double measured_az_deg =
-        static_cast<double>(target_az_deg) +
-        static_cast<double>(intercept::AngleErrorModel::SampleErrorDeg(
-            snr_db, effective_beamwidth_deg, &rng, angle_error_config));
-    const double measured_el_deg =
-        static_cast<double>(target_el_deg) +
-        static_cast<double>(intercept::AngleErrorModel::SampleErrorDeg(
-            snr_db, effective_beamwidth_deg, &rng, angle_error_config));
-    const bool is_jammed =
-        effective_suppression_power_w >=
-        static_cast<double>(std::max(0.0f, config.suppression_model.suppression_mark_threshold_w));
-    const float deception_probability =
-        utils::Clamp01(jamming_result.deception_risk * jamming_result.deception_weighted_overlap_ratio *
-                std::max(0.0f, config.deception_model.false_alarm_probability_scale));
-
-    RawObservationRecord base_record;
-    base_record.observation.observation_id = next_observation_id++;
-    base_record.observation.timestamp_s =
-        static_cast<double>(ctx.GetCycleIndex()) * static_cast<double>(ctx.GetCycleDeltaTimeSec());
-    base_record.observation.aoa_az_deg = measured_az_deg;
-    base_record.observation.aoa_el_deg = measured_el_deg;
-    base_record.observation.rf_hz = emitter.carrier_hz;
-    base_record.observation.pulse_width_s = emitter.pulse_width_s;
-    base_record.observation.amplitude_db = static_cast<double>(ToDb(received_power_w));
-    base_record.observation.snr_db = static_cast<double>(snr_db);
-    base_record.observation.quality = ClassifyObservationQuality(snr_db, is_jammed);
-    base_record.observation.is_jammed = is_jammed;
-
-    const std::uint32_t false_alarm_cap = config.deception_model.max_false_observations_per_emitter;
-    bool detection_passed = gate_decision.passed && has_available_pulses;
-    if (detection_passed && config.statistical_detection.enable_statistical_detection) {
-      const float detection_probability =
-          oneq::internal::timing::ComputeStatisticalDetectionProbability(
-              snr_db, detection_threshold_snr_db, emitter_detection_params);
-      detection_passed = uniform_01(rng) < detection_probability;
-    }
-    if (!detection_passed) {
-      for (std::uint32_t fake_index = 0U; fake_index < false_alarm_cap; ++fake_index) {
-        if (uniform_01(rng) >= deception_probability) {
-          continue;
-        }
-        output.raw_records.push_back(BuildDeceptionRecord(base_record, deception_probability,
-                                                          config.deception_model, &rng,
-                                                          &next_observation_id));
-      }
-      continue;
-    }
-
-    RawObservationRecord record = base_record;
-    record.truth_emitter_id = emitter.emitter_id;
-    record.truth_pri_s = emitter.pri_s;
-    record.matched_truth = true;
-
-    const float confusion_probability = utils::Clamp01(
-        deception_probability * std::max(0.0f, config.deception_model.confusion_probability_scale));
-    if (uniform_01(rng) < confusion_probability) {
-      ApplyDeceptionConfusion(deception_probability, config.deception_model, &rng, &record);
-    }
-    output.raw_records.push_back(record);
-
-    for (std::uint32_t fake_index = 0U; fake_index < false_alarm_cap; ++fake_index) {
-      if (uniform_01(rng) >= deception_probability) {
-        continue;
-      }
-      output.raw_records.push_back(BuildDeceptionRecord(
-          record, deception_probability, config.deception_model, &rng, &next_observation_id));
-    }
+    ProcessSingleEmitter(emitter, active_beam, receiver_window, receive_loss_scale,
+                         angle_error_config, base_statistical_detection_params, ctx, rng,
+                         next_observation_id, output.raw_records);
   }
 
   PROJECT_LOG_DEBUG("[InterceptDetection] cycle_index={} raw_records={}",
                     ctx.GetCycleIndex(), output.raw_records.size());
 
   return output;
+}
+
+void InterceptDetectionExecutor::ProcessSingleEmitter(
+    const session::EsrSceneEmitter& emitter,
+    const intercept::BeamPointingDeg& active_beam,
+    const std::pair<double, double>& receiver_window,
+    double receive_loss_scale,
+    const intercept::AngleErrorModelConfig& angle_error_config,
+    const oneq::internal::timing::StatisticalDetectionParams& base_statistical_detection_params,
+    const extension::IEsrContext& ctx,
+    std::mt19937& rng,
+    std::uint64_t& next_observation_id,
+    std::vector<RawObservationRecord>& raw_records) const {
+  const auto& platform_pose = ctx.GetPlatformPose();
+  const auto& env_snapshot = ctx.GetEnvironmentSnapshot();
+  const auto& config = ctx.GetPipelineConfig();
+  const auto& runtime_config = ctx.GetRuntimeConfig();
+  std::uniform_real_distribution<float> uniform_01(0.0f, 1.0f);
+
+  const float range_m = ComputeRangeM(platform_pose, emitter);
+  const oneq::internal::geometry::AzimuthElevationDeg target_look_angles =
+      ApplyAntennaMountOffset(ComputeEmitterLookAngles(platform_pose, emitter), runtime_config);
+  const float target_az_deg = target_look_angles.az_deg;
+  const float target_el_deg = target_look_angles.el_deg;
+  const float emitter_beam_overlap_ratio = ComputeEmitterBeamOverlapRatio(platform_pose, emitter);
+  const bool emitter_beam_covered = emitter_beam_overlap_ratio > 0.0f;
+  const oneq::internal::timing::ResolvedCycleTimingState timing_state =
+      ResolveEmitterTimingState(ctx.GetCycleDeltaTimeSec(), emitter, base_statistical_detection_params);
+  const bool has_available_pulses = timing_state.effective_pulse_count > 0U;
+  oneq::internal::timing::StatisticalDetectionParams emitter_detection_params =
+      base_statistical_detection_params;
+  if (has_available_pulses) {
+    emitter_detection_params.pulse_count = std::max(1U, timing_state.effective_pulse_count);
+  }
+
+  const intercept::JammingAggregateResult jamming_result =
+      intercept::JammingAggregator::Aggregate(env_snapshot.jammer_sources, emitter.carrier_hz,
+                                              emitter.bandwidth_hz);
+  const float suppression_noise_scale =
+      std::max(0.0f, config.suppression_model.suppression_noise_scale);
+  const double effective_suppression_power_w =
+      static_cast<double>(jamming_result.suppression_power_w) *
+      static_cast<double>(suppression_noise_scale);
+  const double noise_power_w = std::max(
+      static_cast<double>(config.detection.receiver_noise_floor_w) +
+          static_cast<double>(env_snapshot.clutter_noise_w) + effective_suppression_power_w,
+      kNumericFloor);
+  const float static_threshold_snr_db = config.detection.min_detect_snr_db;
+  const float dynamic_threshold_snr_db = oneq::internal::timing::ComputeDynamicThresholdSnrDb(
+      noise_power_w, emitter_detection_params);
+  const float detection_threshold_snr_db =
+      config.statistical_detection.enable_statistical_detection
+          ? std::max(static_threshold_snr_db, dynamic_threshold_snr_db)
+          : static_threshold_snr_db;
+
+  const intercept::BoundarySearchResult boundary_result = intercept::BoundarySearchSolver::Solve(
+      1.0f, config.detection.max_detect_range_m, config.detection.boundary_resolution_m,
+      config.detection.boundary_max_iterations, [&](float candidate_range_m) {
+        const double candidate_received_power_w =
+            ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz, candidate_range_m,
+                                  env_snapshot.propagation_loss_db) *
+            static_cast<double>(emitter_beam_overlap_ratio) * receive_loss_scale;
+        const float candidate_snr_db = ToDb(candidate_received_power_w / noise_power_w);
+        return candidate_snr_db >= detection_threshold_snr_db;
+      });
+  const double received_power_w =
+      ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz, range_m,
+                            env_snapshot.propagation_loss_db) *
+      static_cast<double>(emitter_beam_overlap_ratio) * receive_loss_scale;
+  const float snr_db = ToDb(received_power_w / noise_power_w);
+
+  intercept::InterceptGateInput gate_input;
+  gate_input.line_of_sight = emitter_beam_covered;
+  gate_input.target_az_deg = target_az_deg;
+  gate_input.target_el_deg = target_el_deg;
+  gate_input.beam_az_deg = active_beam.az_deg;
+  gate_input.beam_el_deg = active_beam.el_deg;
+  gate_input.beam_az_width_deg = std::max(1.0f, config.scan.az_step_deg);
+  gate_input.beam_el_width_deg = std::max(1.0f, config.scan.el_step_deg);
+  gate_input.receiver_lower_hz = receiver_window.first;
+  gate_input.receiver_upper_hz = receiver_window.second;
+  gate_input.signal_center_hz = emitter.carrier_hz;
+  gate_input.signal_bandwidth_hz = emitter.bandwidth_hz;
+  gate_input.range_m = range_m;
+  gate_input.max_range_m =
+      boundary_result.boundary_range_m > 0.0f ? boundary_result.boundary_range_m : 0.0f;
+  gate_input.dynamic_range_margin_db = snr_db - detection_threshold_snr_db;
+  gate_input.min_dynamic_range_margin_db = config.detection.min_dynamic_range_margin_db;
+  gate_input.min_frequency_overlap_ratio = 0.05f;
+  gate_input.beam_guard_factor = 1.5f;
+
+  const intercept::InterceptGateDecision gate_decision =
+      intercept::InterceptGate::Evaluate(gate_input);
+  PROJECT_LOG_DEBUG(
+      "[InterceptDetection] emitter_id={} range={:.0f} snr={:.1f} gate_passed={} beam_overlap={:.2f}",
+      emitter.emitter_id, range_m, snr_db, gate_decision.passed, emitter_beam_overlap_ratio);
+  const float effective_beamwidth_deg =
+      std::max(1.0f, 0.5f * (gate_input.beam_az_width_deg + gate_input.beam_el_width_deg));
+  const double measured_az_deg =
+      static_cast<double>(target_az_deg) +
+      static_cast<double>(intercept::AngleErrorModel::SampleErrorDeg(
+          snr_db, effective_beamwidth_deg, &rng, angle_error_config));
+  const double measured_el_deg =
+      static_cast<double>(target_el_deg) +
+      static_cast<double>(intercept::AngleErrorModel::SampleErrorDeg(
+          snr_db, effective_beamwidth_deg, &rng, angle_error_config));
+  const bool is_jammed =
+      effective_suppression_power_w >=
+      static_cast<double>(std::max(0.0f, config.suppression_model.suppression_mark_threshold_w));
+  const float deception_probability =
+      utils::Clamp01(jamming_result.deception_risk * jamming_result.deception_weighted_overlap_ratio *
+              std::max(0.0f, config.deception_model.false_alarm_probability_scale));
+
+  RawObservationRecord base_record;
+  base_record.observation.observation_id = next_observation_id++;
+  base_record.observation.timestamp_s =
+      static_cast<double>(ctx.GetCycleIndex()) * static_cast<double>(ctx.GetCycleDeltaTimeSec());
+  base_record.observation.aoa_az_deg = measured_az_deg;
+  base_record.observation.aoa_el_deg = measured_el_deg;
+  base_record.observation.rf_hz = emitter.carrier_hz;
+  base_record.observation.pulse_width_s = emitter.pulse_width_s;
+  base_record.observation.amplitude_db = static_cast<double>(ToDb(received_power_w));
+  base_record.observation.snr_db = static_cast<double>(snr_db);
+  base_record.observation.quality = ClassifyObservationQuality(snr_db, is_jammed);
+  base_record.observation.is_jammed = is_jammed;
+
+  const std::uint32_t false_alarm_cap = config.deception_model.max_false_observations_per_emitter;
+  bool detection_passed = gate_decision.passed && has_available_pulses;
+  if (detection_passed && config.statistical_detection.enable_statistical_detection) {
+    const float detection_probability =
+        oneq::internal::timing::ComputeStatisticalDetectionProbability(
+            snr_db, detection_threshold_snr_db, emitter_detection_params);
+    detection_passed = uniform_01(rng) < detection_probability;
+  }
+  if (!detection_passed) {
+    for (std::uint32_t fake_index = 0U; fake_index < false_alarm_cap; ++fake_index) {
+      if (uniform_01(rng) >= deception_probability) {
+        continue;
+      }
+      raw_records.push_back(BuildDeceptionRecord(base_record, deception_probability,
+                                                 config.deception_model, &rng,
+                                                 &next_observation_id));
+    }
+    return;
+  }
+
+  RawObservationRecord record = base_record;
+  record.truth_emitter_id = emitter.emitter_id;
+  record.truth_pri_s = emitter.pri_s;
+  record.matched_truth = true;
+
+  const float confusion_probability = utils::Clamp01(
+      deception_probability * std::max(0.0f, config.deception_model.confusion_probability_scale));
+  if (uniform_01(rng) < confusion_probability) {
+    ApplyDeceptionConfusion(deception_probability, config.deception_model, &rng, &record);
+  }
+  raw_records.push_back(record);
+
+  for (std::uint32_t fake_index = 0U; fake_index < false_alarm_cap; ++fake_index) {
+    if (uniform_01(rng) >= deception_probability) {
+      continue;
+    }
+    raw_records.push_back(BuildDeceptionRecord(record, deception_probability,
+                                               config.deception_model, &rng, &next_observation_id));
+  }
 }
 
 }  // namespace pipeline

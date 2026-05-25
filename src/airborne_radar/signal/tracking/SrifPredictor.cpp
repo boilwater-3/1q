@@ -5,16 +5,13 @@
 #include <algorithm>
 
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
+#include "common/numerics/NumericGuard.h"
 
 namespace airborne_radar {
 namespace signal {
 namespace tracking {
 
-namespace {
-
-constexpr float kCovarianceFloor = 1.0e-6f;
-
-}  // namespace
+using oneq::internal::numerics::kCovarianceFloor;
 
 SrifPredictor::SrifPredictor(KalmanPredictorConfig config) : config_(config) {}
 

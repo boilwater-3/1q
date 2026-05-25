@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "common/numerics/ClampUtils.h"
+#include "common/numerics/NumericGuard.h"
 
 namespace oneq {
 namespace internal {
@@ -11,11 +12,6 @@ namespace timing {
 
 namespace {
 
-/**
- * @brief 数值稳定保护下限。
- * @note 用于避免除零、`log10(0)` 与阈值因子退化。
- */
-constexpr double kNumericFloor = 1.0e-18;
 /**
  * @brief 默认虚警概率回退值。
  */
@@ -64,7 +60,7 @@ float ClampProfileScale(float scale, float fallback) {
  * @return dB 表示值。
  */
 float ToDb(double ratio) {
-  return static_cast<float>(10.0 * std::log10(std::max(ratio, kNumericFloor)));
+  return static_cast<float>(10.0 * std::log10(std::max(ratio, numerics::kNumericFloor)));
 }
 
 /**
@@ -91,7 +87,7 @@ std::uint32_t ResolveAvailablePulseCount(const CycleTimingBaseParams& params) {
     return static_cast<std::uint32_t>(std::max(1, params.base_pulse_count));
   }
   const double pulse_window =
-      static_cast<double>(params.cycle_dt_sec) / std::max(params.pri_s, kNumericFloor);
+      static_cast<double>(params.cycle_dt_sec) / std::max(params.pri_s, numerics::kNumericFloor);
   if (!std::isfinite(pulse_window) || pulse_window <= 0.0) {
     return 0U;
   }
@@ -156,7 +152,7 @@ double ComputeIntegrationGain(const StatisticalDetectionParams& params) {
 }
 
 float ComputeDynamicThresholdSnrDb(double noise_power_w, const StatisticalDetectionParams& params) {
-  const double safe_noise_power_w = std::max(noise_power_w, kNumericFloor);
+  const double safe_noise_power_w = std::max(noise_power_w, numerics::kNumericFloor);
   const float pfa = NormalizePfa(params.pfa);
   const std::uint32_t pulse_count = std::max(1U, params.pulse_count);
   const double pulse_count_double = static_cast<double>(pulse_count);
@@ -170,7 +166,7 @@ float ComputeDynamicThresholdSnrDb(double noise_power_w, const StatisticalDetect
     threshold_factor = pulse_count_double *
                        (std::pow(1.0 / static_cast<double>(pfa), 1.0 / pulse_count_double) - 1.0);
   }
-  threshold_factor = std::max(threshold_factor, kNumericFloor) * threshold_scale;
+  threshold_factor = std::max(threshold_factor, numerics::kNumericFloor) * threshold_scale;
   const double threshold_power_w = safe_noise_power_w * threshold_factor;
   const float threshold_db = ToDb(threshold_power_w / safe_noise_power_w);
   return std::max(params.min_snr_db, threshold_db);
@@ -184,7 +180,7 @@ float ComputeStatisticalDetectionProbability(float snr_db, float threshold_snr_d
   const double snr_linear = std::pow(10.0, static_cast<double>(snr_db) / 10.0);
   const double threshold_linear = std::pow(10.0, static_cast<double>(threshold_snr_db) / 10.0);
   const double normalized_metric =
-      (snr_linear / std::max(threshold_linear, kNumericFloor)) * ComputeIntegrationGain(params);
+      (snr_linear / std::max(threshold_linear, numerics::kNumericFloor)) * ComputeIntegrationGain(params);
   const double pd = -std::expm1(-std::max(normalized_metric, 0.0));
   return oneq::internal::numerics::Clamp01(static_cast<float>(pd));
 }
