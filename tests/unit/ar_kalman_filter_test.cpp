@@ -585,5 +585,41 @@ TEST(KalmanPredictUpdateTest, VelocityConvergesFromWrongInitialGuess) {
   EXPECT_NEAR(state.mean(1), 20.0f, 3.0f);   // vx → 20
 }
 
+// 滤波器数值漂移回归测试 — 多步纯预测（无观测更新）场景
+// 验证协方差增长有界、状态分量有限、无 NaN/Inf 污染。
+TEST(KalmanPredictUpdateTest, MultiStepPredictionDriftStaysBounded) {
+  KalmanPredictorConfig pred_config;
+  pred_config.noise_diff_coeff = 1.0f;
+  KalmanPredictor predictor(pred_config);
+
+  KalmanUpdaterConfig upd_config;
+  upd_config.measurement_noise_std = 10.0f;
+  KalmanUpdater updater(upd_config);
+
+  // 通过一次观测更新建立合理的初始协方差
+  GaussianTrackState state = MakePrior(0.0f, 0.0f, 100.0f, 100.0f);
+  MeasurementVector z(0.0f, 0.0f, 0.0f);
+  state = updater.Update(state, z).posterior;
+
+  const float dt = 1.0f;
+  for (int step = 0; step < 20; ++step) {
+    state = predictor.Predict(state, dt);
+
+    // 状态分量保持有限
+    for (int i = 0; i < kStateDim; ++i) {
+      EXPECT_TRUE(std::isfinite(state.mean(i))) << "step=" << step << " dim=" << i;
+    }
+    // 协方差对角元素保持有限且非负
+    for (int i = 0; i < kStateDim; ++i) {
+      EXPECT_TRUE(std::isfinite(state.covariance(i, i))) << "step=" << step << " dim=" << i;
+      EXPECT_GE(state.covariance(i, i), 0.0f) << "step=" << step << " dim=" << i;
+    }
+  }
+
+  // 20 步后位置方差在物理合理范围内（不应溢出至无穷大）
+  const float pos_variance = state.covariance(0, 0);
+  EXPECT_LT(pos_variance, 1.0e8f) << "position variance exploded after 20 steps";
+}
+
 }  // namespace tests
 }  // namespace airborne_radar

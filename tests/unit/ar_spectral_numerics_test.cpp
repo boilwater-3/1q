@@ -92,7 +92,7 @@ TEST(SpectralNumericsTest, MarpleSpectReturnsNonNegativeAndDetectsPeak) {
   }
 
   std::vector<double> power_spectrum;
-  ASSERT_TRUE(common::numerics::marple_spect(signal, fft_length, &power_spectrum));
+  ASSERT_TRUE(common::numerics::ComputePeriodogram(signal, fft_length, &power_spectrum));
   ASSERT_FALSE(power_spectrum.empty());
   for (std::size_t i = 0; i < power_spectrum.size(); ++i) {
     EXPECT_GE(power_spectrum[i], 0.0);

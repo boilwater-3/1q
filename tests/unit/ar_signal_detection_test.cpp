@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/math/special_functions/gamma.hpp>
 #include <cmath>
 #include <limits>
 
@@ -732,6 +733,49 @@ TEST(RadarEquationsTest, MarcumQ_NegativeAIsEquivalentToZeroA) {
   const double q_negative_a = RadarEquations::MarcumQ(order, -3.5, b);
   const double q_zero_a = RadarEquations::MarcumQ(order, 0.0, b);
   EXPECT_NEAR(q_negative_a, q_zero_a, 1e-12);
+}
+
+/// @brief b=0 时 Q_M(a, 0) = 1（检测门限为零则必然检测）。
+TEST(RadarEquationsTest, MarcumQ_BZeroReturnsOne) {
+  for (int order : {1, 2, 4, 8}) {
+    EXPECT_NEAR(RadarEquations::MarcumQ(order, 0.0, 0.0), 1.0, 1e-12);
+    EXPECT_NEAR(RadarEquations::MarcumQ(order, 5.0, 0.0), 1.0, 1e-12);
+    EXPECT_NEAR(RadarEquations::MarcumQ(order, 20.0, 0.0), 1.0, 1e-12);
+  }
+}
+
+/// @brief a >> b 时检测概率近于 1（极高信噪比场景）。
+TEST(RadarEquationsTest, MarcumQ_LargeSnrReturnsNearOne) {
+  for (int order : {1, 3, 5}) {
+    const double q = RadarEquations::MarcumQ(order, 30.0, 2.0);
+    EXPECT_GT(q, 0.9999) << "order=" << order;
+  }
+}
+
+/// @brief Q_M(a, b) 对 b 单调递减——门限越高检测概率越低。
+TEST(RadarEquationsTest, MarcumQ_MonotonicDecreasingInB) {
+  for (int order : {1, 2, 4}) {
+    const double q_small_b = RadarEquations::MarcumQ(order, 3.0, 1.0);
+    const double q_large_b = RadarEquations::MarcumQ(order, 3.0, 5.0);
+    EXPECT_GT(q_small_b, q_large_b) << "order=" << order;
+  }
+}
+
+/// @brief a=0 时 MarcumQ 退化为正则化不完全 Gamma 函数。
+///   Q_M(0, b) = Γ(M, b²/2) / Γ(M) = gamma_q(M, b²/2)
+TEST(RadarEquationsTest, MarcumQ_ZeroAReducesToGammaQ) {
+  const int order = 3;
+  const double b = 4.0;
+  const double q = RadarEquations::MarcumQ(order, 0.0, b);
+  const double x = b * b / 2.0;
+  const double expected = boost::math::gamma_q(static_cast<double>(order), x);
+  EXPECT_NEAR(q, expected, 1e-12);
+}
+
+/// @brief 高阶数且大 SNR 时 Q_M(a, b) 接近 1（多脉冲积累增益占主导）。
+TEST(RadarEquationsTest, MarcumQ_HighOrderLargeSnrNearOne) {
+  const double q = RadarEquations::MarcumQ(8, 12.0, 3.0);
+  EXPECT_GT(q, 0.999);
 }
 
 // ===========================================================================
