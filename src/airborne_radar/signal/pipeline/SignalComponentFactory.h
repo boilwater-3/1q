@@ -52,8 +52,8 @@ struct LifecycleAssemblyArtifacts {
   std::unique_ptr<tracking::IKalmanUpdater> kalman_updater;
   std::vector<std::unique_ptr<tracking::IKalmanPredictor>> imm_predictors_owned;
   std::vector<std::unique_ptr<tracking::IKalmanUpdater>> imm_updaters_owned;
-  std::vector<const tracking::IKalmanPredictor*> imm_predictors;
-  std::vector<const tracking::IKalmanUpdater*> imm_updaters;
+  std::vector<tracking::IKalmanPredictor*> imm_predictors;
+  std::vector<tracking::IKalmanUpdater*> imm_updaters;
   std::unique_ptr<tracking::ITrackLifecycleManager> lifecycle_manager;
 };
 

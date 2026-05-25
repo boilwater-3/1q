@@ -61,23 +61,23 @@ std::uint32_t ResolveLocalMissToleranceBonus(const TrackState& track) {
   }
 }
 
-void UpdatePredictorConfigIfSupported(const IKalmanPredictor* predictor, float noise_diff_coeff) {
+void UpdatePredictorConfigIfSupported(IKalmanPredictor* predictor, float noise_diff_coeff) {
   if (predictor == nullptr || std::isfinite(noise_diff_coeff) == 0 || noise_diff_coeff <= 0.0f) {
     return;
   }
   KalmanPredictorConfig config;
   config.noise_diff_coeff = noise_diff_coeff;
-  const_cast<IKalmanPredictor*>(predictor)->UpdateConfig(config);
+  predictor->UpdateConfig(config);
 }
 
-void UpdateUpdaterConfigIfSupported(const IKalmanUpdater* updater, float measurement_noise_std) {
+void UpdateUpdaterConfigIfSupported(IKalmanUpdater* updater, float measurement_noise_std) {
   if (updater == nullptr || std::isfinite(measurement_noise_std) == 0 ||
       measurement_noise_std <= 0.0f) {
     return;
   }
   KalmanUpdaterConfig config;
   config.measurement_noise_std = measurement_noise_std;
-  const_cast<IKalmanUpdater*>(updater)->UpdateConfig(config);
+  updater->UpdateConfig(config);
 }
 
 bool IsValidTransitionProbability(const Eigen::MatrixXf& transition_probability) {
@@ -119,8 +119,8 @@ bool IsValidInitialWeights(const Eigen::VectorXf& initial_weights) {
 }  // namespace
 
 TrackLifecycleManager::TrackLifecycleManager(ITrackPool& pool, const LifecycleConfig& config,
-                                             const IKalmanPredictor* predictor,
-                                             const IKalmanUpdater* updater)
+                                             IKalmanPredictor* predictor,
+                                             IKalmanUpdater* updater)
     : pool_(&pool),
       config_(config),
       tracks_by_key_(),
@@ -129,8 +129,8 @@ TrackLifecycleManager::TrackLifecycleManager(ITrackPool& pool, const LifecycleCo
 
 TrackLifecycleManager::TrackLifecycleManager(
     ITrackPool& pool, const LifecycleConfig& config,
-    const std::vector<const IKalmanPredictor*>& imm_predictors,
-    const std::vector<const IKalmanUpdater*>& imm_updaters,
+    const std::vector<IKalmanPredictor*>& imm_predictors,
+    const std::vector<IKalmanUpdater*>& imm_updaters,
     const Eigen::MatrixXf& imm_transition_probability, const Eigen::VectorXf& imm_initial_weights)
     : pool_(&pool),
       config_(config),

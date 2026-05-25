@@ -9,8 +9,8 @@ namespace airborne_radar {
 namespace signal {
 namespace tracking {
 
-ImmFilter::ImmFilter(ImmConfig config, std::vector<const IKalmanPredictor*> predictors,
-                     std::vector<const IKalmanUpdater*> updaters)
+ImmFilter::ImmFilter(ImmConfig config, std::vector<IKalmanPredictor*> predictors,
+                     std::vector<IKalmanUpdater*> updaters)
     : num_models_(static_cast<int>(predictors.size())),
       config_(std::move(config)),
       predictors_(std::move(predictors)),
@@ -242,8 +242,8 @@ const std::vector<ImmModelState>& ImmFilter::GetModelStates() const { return mod
 void ImmFilter::SetModelStates(const std::vector<ImmModelState>& states) { model_states_ = states; }
 
 bool ImmFilter::UpdateRuntimeTuning(const ImmConfig& config,
-                                    const std::vector<const IKalmanPredictor*>& predictors,
-                                    const std::vector<const IKalmanUpdater*>& updaters) {
+                                    const std::vector<IKalmanPredictor*>& predictors,
+                                    const std::vector<IKalmanUpdater*>& updaters) {
   if (predictors.empty() || predictors.size() != updaters.size()) {
     return false;
   }

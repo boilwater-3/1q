@@ -40,8 +40,8 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param updater 可选的 Kalman 更新器（为 nullptr 时不执行状态更新）。
    */
   TrackLifecycleManager(ITrackPool& pool, const LifecycleConfig& config,
-                        const IKalmanPredictor* predictor = nullptr,
-                        const IKalmanUpdater* updater = nullptr);
+                        IKalmanPredictor* predictor = nullptr,
+                        IKalmanUpdater* updater = nullptr);
   /**
    * @brief 构造函数（IMM 多模型路径）。
    * @param pool 轨迹对象池抽象。
@@ -52,8 +52,8 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @param imm_initial_weights 模型初始权重。
    */
   TrackLifecycleManager(ITrackPool& pool, const LifecycleConfig& config,
-                        const std::vector<const IKalmanPredictor*>& imm_predictors,
-                        const std::vector<const IKalmanUpdater*>& imm_updaters,
+                        const std::vector<IKalmanPredictor*>& imm_predictors,
+                        const std::vector<IKalmanUpdater*>& imm_updaters,
                         const Eigen::MatrixXf& imm_transition_probability = Eigen::MatrixXf(),
                         const Eigen::VectorXf& imm_initial_weights = Eigen::VectorXf());
 
@@ -292,10 +292,10 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
   LifecycleConfig config_;         /**< 生命周期阈值配置。 */
   std::uint64_t next_track_id_{1}; /**< 下一个待分配轨迹 ID。 */
   std::unordered_map<std::uint64_t, TrackState*> tracks_by_key_; /**< 活跃轨迹表，key 为关联键。 */
-  const IKalmanPredictor* kalman_predictor_{nullptr};   /**< 可选 Kalman 预测器（非拥有）。 */
-  const IKalmanUpdater* kalman_updater_{nullptr};       /**< 可选 Kalman 更新器（非拥有）。 */
-  std::vector<const IKalmanPredictor*> imm_predictors_; /**< IMM 各模型预测器集合（非拥有）。 */
-  std::vector<const IKalmanUpdater*> imm_updaters_;     /**< IMM 各模型更新器集合（非拥有）。 */
+  IKalmanPredictor* kalman_predictor_{nullptr};   /**< 可选 Kalman 预测器（非拥有）。 */
+  IKalmanUpdater* kalman_updater_{nullptr};       /**< 可选 Kalman 更新器（非拥有）。 */
+  std::vector<IKalmanPredictor*> imm_predictors_; /**< IMM 各模型预测器集合（非拥有）。 */
+  std::vector<IKalmanUpdater*> imm_updaters_;     /**< IMM 各模型更新器集合（非拥有）。 */
   Eigen::MatrixXf imm_transition_probability_;          /**< IMM 模型转移概率矩阵。 */
   Eigen::VectorXf imm_initial_weights_;                 /**< IMM 模型初始权重。 */
   std::unordered_map<std::uint64_t, std::unique_ptr<ImmFilter>>

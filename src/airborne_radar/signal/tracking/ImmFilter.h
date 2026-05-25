@@ -56,8 +56,8 @@ class ImmFilter {
    * @param predictors 各模型的预测器（非拥有指针）。
    * @param updaters 各模型的更新器（非拥有指针）。
    */
-  ImmFilter(ImmConfig config, std::vector<const IKalmanPredictor*> predictors,
-            std::vector<const IKalmanUpdater*> updaters);
+  ImmFilter(ImmConfig config, std::vector<IKalmanPredictor*> predictors,
+            std::vector<IKalmanUpdater*> updaters);
   /**
    * @brief 执行完整的 IMM 循环：混合 → 预测 → 更新 → 组合。
    * @param measurement 量测向量。
@@ -94,8 +94,8 @@ class ImmFilter {
    * @return 同步成功返回 true；模型维度不一致时返回 false。
    */
   bool UpdateRuntimeTuning(const ImmConfig& config,
-                           const std::vector<const IKalmanPredictor*>& predictors,
-                           const std::vector<const IKalmanUpdater*>& updaters);
+                           const std::vector<IKalmanPredictor*>& predictors,
+                           const std::vector<IKalmanUpdater*>& updaters);
 
  private:
   /**
@@ -127,8 +127,8 @@ class ImmFilter {
                                       const MeasurementCovariance& S);
   int num_models_{0};                                /**< 模型数量。 */
   ImmConfig config_;                                 /**< IMM 配置。 */
-  std::vector<const IKalmanPredictor*> predictors_;  /**< 各模型的预测器。 */
-  std::vector<const IKalmanUpdater*> updaters_;      /**< 各模型的更新器。 */
+  std::vector<IKalmanPredictor*> predictors_;  /**< 各模型的预测器。 */
+  std::vector<IKalmanUpdater*> updaters_;      /**< 各模型的更新器。 */
   std::vector<ImmModelState> model_states_;          /**< 各模型分支状态。 */
   std::vector<GaussianTrackState> mixed_states_;     /**< 混合后的各模型状态（临时缓冲）。 */
   std::vector<GaussianTrackState> predicted_states_; /**< 预测后的各模型状态（临时缓冲）。 */
