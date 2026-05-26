@@ -90,7 +90,9 @@ class OneQConan(ConanFile):
 
     def generate(self):
         CMakeDeps(self).generate()
-        CMakeToolchain(self).generate()
+        tc = CMakeToolchain(self)
+        tc.user_presets_path = False
+        tc.generate()
 
     def layout(self):
         cmake_layout(self)

@@ -118,6 +118,15 @@ add_1q_gtest(${PROJECT_NAME}_unit_tests unit 60 ${UNIT_TEST_SOURCES})
 add_1q_gtest(${PROJECT_NAME}_integration_tests integration 120 ${INTEGRATION_TEST_SOURCES})
 add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES})
 
+# flight_dynamic 测试需要 JSBSim 数据文件路径
+set(FD_JSBSIM_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim")
+# flight_dynamic 测试需要链接 JSBSim（OBJECT 库的 PRIVATE 依赖不传递）
+if(TARGET jsbsim::jsbsim)
+  target_link_libraries(${PROJECT_NAME}_unit_tests PRIVATE jsbsim::jsbsim)
+endif()
+target_compile_definitions(${PROJECT_NAME}_unit_tests
+    PRIVATE FD_JSBSIM_ROOT_DIR="${FD_JSBSIM_ROOT_DIR}")
+
 set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_writer_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_trace_session_adapter_test.cpp

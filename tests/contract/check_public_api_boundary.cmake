@@ -202,16 +202,13 @@ set(ESR_SESSION_HEADERS
 
 # ── 飞行动力学 ───────────────────────────────────────────────────────
 set(FD_HEADERS
-    "flight_dynamic/config/AircraftDefinition.h"
+    "flight_dynamic/FlightManager.h"
+    "flight_dynamic/autopilot/Autopilot.h"
     "flight_dynamic/config/FlightDynamicConfig.h"
-    "flight_dynamic/flight_dynamic.hpp"
-    "flight_dynamic/maneuver/ManeuverController.h"
-    "flight_dynamic/maneuver/ManeuverTypes.h"
-    "flight_dynamic/model/FlightDynamicInput.h"
-    "flight_dynamic/model/FlightDynamicOutput.h"
+    "flight_dynamic/guidance/Maneuver.h"
+    "flight_dynamic/guidance/Waypoint.h"
+    "flight_dynamic/guidance/WaypointManager.h"
     "flight_dynamic/model/VehicleState.h"
-    "flight_dynamic/session/FlightDynamicSession.h"
-    "flight_dynamic/session/FlightDynamicSessionFactory.h"
 )
 
 # ── 坐标工具 ─────────────────────────────────────────────────────────

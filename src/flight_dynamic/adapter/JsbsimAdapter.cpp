@@ -1,0 +1,112 @@
+#include "flight_dynamic/adapter/JsbsimAdapter.h"
+
+#include <stdexcept>
+#include <iostream>
+
+#include "FGFDMExec.h"
+#include "initialization/FGInitialCondition.h"
+#include "simgear/misc/sg_path.hxx"
+
+namespace oneq {
+namespace flight_dynamic {
+namespace adapter {
+
+JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
+  fdm_exec_.reset(new JSBSim::FGFDMExec());
+
+  SetDeltaT(config.dt_sec);
+
+  if (!LoadAircraft(config)) {
+    throw std::runtime_error("JsbsimAdapter: failed to load aircraft: " +
+                             config.aircraft_model);
+  }
+
+  ConfigureIntegrators(config);
+
+  if (!RunIC()) {
+    throw std::runtime_error("JsbsimAdapter: RunIC() failed");
+  }
+
+  if (config.do_trim) {
+    fdm_exec_->DoTrim(0);
+  }
+}
+
+JsbsimAdapter::~JsbsimAdapter() = default;
+
+bool JsbsimAdapter::Run() {
+  return fdm_exec_->Run();
+}
+
+bool JsbsimAdapter::RunIC() {
+  return fdm_exec_->RunIC();
+}
+
+void JsbsimAdapter::SetDeltaT(double dt_sec) {
+  fdm_exec_->Setdt(dt_sec);
+}
+
+double JsbsimAdapter::GetDeltaT() const {
+  return fdm_exec_->GetDeltaT();
+}
+
+double JsbsimAdapter::GetProperty(const std::string& name) const {
+  return fdm_exec_->GetPropertyValue(name);
+}
+
+void JsbsimAdapter::SetProperty(const std::string& name, double value) {
+  fdm_exec_->SetPropertyValue(name, value);
+}
+
+JSBSim::FGPropagate& JsbsimAdapter::GetPropagate() {
+  return *fdm_exec_->GetPropagate();
+}
+
+const JSBSim::FGPropagate& JsbsimAdapter::GetPropagate() const {
+  return *fdm_exec_->GetPropagate();
+}
+
+JSBSim::FGAccelerations& JsbsimAdapter::GetAccelerations() {
+  return *fdm_exec_->GetAccelerations();
+}
+
+const JSBSim::FGAccelerations& JsbsimAdapter::GetAccelerations() const {
+  return *fdm_exec_->GetAccelerations();
+}
+
+JSBSim::FGFDMExec& JsbsimAdapter::GetFdmExec() {
+  return *fdm_exec_;
+}
+
+const JSBSim::FGFDMExec& JsbsimAdapter::GetFdmExec() const {
+  return *fdm_exec_;
+}
+
+bool JsbsimAdapter::LoadAircraft(const config::FlightDynamicConfig& config) {
+  if (!config.aircraft_root_dir.empty()) {
+    SGPath root(config.aircraft_root_dir);
+    fdm_exec_->SetRootDir(root);
+    fdm_exec_->SetAircraftPath(root / "aircraft");
+    fdm_exec_->SetEnginePath(root / "engine");
+    fdm_exec_->SetSystemsPath(root / "systems");
+  }
+  return fdm_exec_->LoadModel(config.aircraft_model, true);
+}
+
+void JsbsimAdapter::ConfigureIntegrators(
+    const config::FlightDynamicConfig& config) {
+  SetProperty("simulation/integrator/rate/rotational",
+              static_cast<double>(config.integrator_rate_rotational));
+  SetProperty("simulation/integrator/rate/translational",
+              static_cast<double>(config.integrator_rate_translational));
+  SetProperty("simulation/integrator/position/rotational",
+              static_cast<double>(config.integrator_pos_rotational));
+  SetProperty("simulation/integrator/position/translational",
+              static_cast<double>(config.integrator_pos_translational));
+  SetProperty("simulation/gravity-model",
+              static_cast<double>(config.gravity_model));
+}
+
+}  // namespace adapter
+}  // namespace flight_dynamic
+}  // namespace oneq

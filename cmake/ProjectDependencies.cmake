@@ -105,6 +105,13 @@ target_link_libraries(esr_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(eos_engine PRIVATE flatbuffers::flatbuffers)
 target_link_libraries(eos_core PRIVATE flatbuffers::flatbuffers)
 
+# flight_dynamic 模块依赖 JSBSim 飞行动力学引擎。
+target_link_libraries(fd_engine PRIVATE JSBSim::JSBSim)
+if(TARGET fd_core)
+  target_link_libraries(fd_core PRIVATE JSBSim::JSBSim)
+endif()
+target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE JSBSim::JSBSim)
+
 # Conan's VS multi-config generation may only attach header-only include dirs
 # to Release. Mirror those include dirs onto this target when available so
 # Debug/RelWithDebInfo/MinSizeRel can compile against the same headers.
