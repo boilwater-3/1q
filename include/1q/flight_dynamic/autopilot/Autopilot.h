@@ -49,7 +49,8 @@ class Autopilot {
   void Update(double dt_sec);
 
  private:
-  void UpdateNativeAutopilotBridge();
+  void UpdateOwnAutopilot();
+  void UpdateGenericApBridge();
   void UpdateWingLeveler();
   void UpdatePitchChannel();
   void UpdateAltitudeThrottle();
@@ -57,6 +58,8 @@ class Autopilot {
 
   adapter::JsbsimAdapter& adapter_;
   bool use_cpp_ap_ = false;
+  bool use_own_ap_ = false;
+  double roll_int_ = 0.0;
 
   bool heading_hold_ = false;
   double target_heading_rad_ = 0.0;

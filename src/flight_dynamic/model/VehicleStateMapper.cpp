@@ -79,7 +79,7 @@ VehicleState VehicleStateMapper::Map(
 void VehicleStateMapper::ApplyInitialConditions(
     JSBSim::FGFDMExec& fdm_exec,
     const coordinate::ExternalKinematics& kinematics) {
-  auto* ic = fdm_exec.GetIC();
+  auto ic = fdm_exec.GetIC();
   if (kinematics.position_frame == coordinate::PositionFrame::kLla) {
     ic->SetLatitudeDegIC(kinematics.position_lla_deg_m.latitude_deg);
     ic->SetLongitudeDegIC(kinematics.position_lla_deg_m.longitude_deg);

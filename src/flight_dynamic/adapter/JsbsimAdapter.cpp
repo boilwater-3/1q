@@ -152,14 +152,7 @@ bool JsbsimAdapter::LoadAircraft(const config::FlightDynamicConfig& config) {
     fdm_exec_->SetRootDir(root);
     fdm_exec_->SetAircraftPath(SGPath("aircraft"));
     fdm_exec_->SetEnginePath(SGPath("engine"));
-
-    // 优先使用机型特定的系统文件路径，不存在则使用全局路径
-    std::string model_systems_path = config.aircraft_root_dir + "/aircraft/" + config.aircraft_model + "/Systems";
-    if (SGPath(model_systems_path).exists()) {
-      fdm_exec_->SetSystemsPath(SGPath("aircraft/" + config.aircraft_model + "/Systems"));
-    } else {
-      fdm_exec_->SetSystemsPath(SGPath("systems"));
-    }
+    fdm_exec_->SetSystemsPath(SGPath("systems"));
   }
   return fdm_exec_->LoadModel(config.aircraft_model, true);
 }
@@ -176,6 +169,10 @@ void JsbsimAdapter::ConfigureIntegrators(
               static_cast<double>(config.integrator_pos_translational));
   SetProperty("simulation/gravity-model",
               static_cast<double>(config.gravity_model));
+  if (fdm_exec_->GetPropertyManager()->GetNode("guidance/roll-angle-limit") != nullptr) {
+    SetProperty("guidance/roll-angle-limit", 0.785);  // 45°
+    SetProperty("guidance/roll-rate-limit", 1.5);     // ~86°/s
+  }
 }
 
 }  // namespace adapter

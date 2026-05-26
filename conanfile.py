@@ -18,7 +18,7 @@ _BASE_DEPS_MODERN = {
 }
 
 _JSBSIM_DEPS_NON_WINDOWS = {
-    "jsbsim": "jsbsim/1.1.13",
+    "jsbsim": "jsbsim/1.3.1",
 }
 
 _LOG_DEPS_NON_WINDOWS = {
