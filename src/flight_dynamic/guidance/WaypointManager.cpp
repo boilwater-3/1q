@@ -1,5 +1,7 @@
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
+#include "models/FGPropagate.h"
+#include "math/FGLocation.h"
 
 #include <cmath>
 
@@ -56,12 +58,21 @@ bool WaypointManager::IsFinished() const {
 }
 
 double WaypointManager::GetDistanceToActiveM() const {
-  double dist_ft = adapter_.GetProperty("guidance/wp-distance");
-  return dist_ft * 0.3048;
+  if (active_index_ < waypoints_.size() && started_) {
+    const auto& wp = waypoints_[active_index_];
+    const auto& loc = adapter_.GetPropagate().GetLocation();
+    return loc.GetDistanceTo(wp.longitude_rad, wp.latitude_rad) * 0.3048;
+  }
+  return 0.0;
 }
 
 double WaypointManager::GetHeadingToActiveRad() const {
-  return adapter_.GetProperty("guidance/wp-heading-rad");
+  if (active_index_ < waypoints_.size() && started_) {
+    const auto& wp = waypoints_[active_index_];
+    const auto& loc = adapter_.GetPropagate().GetLocation();
+    return loc.GetHeadingTo(wp.longitude_rad, wp.latitude_rad);
+  }
+  return 0.0;
 }
 
 void WaypointManager::ApplyActiveWaypoint() {
