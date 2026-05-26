@@ -43,8 +43,24 @@ class Autopilot {
   double GetAngleToHeadingRad() const;
   double GetAltitudeAGLM() const;
 
+  void Update(double dt_sec);
+
  private:
   adapter::JsbsimAdapter& adapter_;
+  bool use_cpp_ap_ = false;
+
+  bool heading_hold_ = false;
+  double target_heading_rad_ = 0.0;
+  bool heading_src_wp_ = false;
+
+  bool altitude_hold_ = false;
+  double target_altitude_m_ = 0.0;
+
+  bool pitch_hold_ = false;
+  double target_pitch_deg_ = 0.0;
+
+  int roll_mode_ = 0;
+  bool roll_ap_on_ = false;
 };
 
 }  // namespace autopilot

@@ -24,6 +24,7 @@ bool FlightManager::Step(double dt_sec) {
     return false;
   }
 
+  ap_->Update(dt_sec);
   adapter_->SetDeltaT(dt_sec);
   bool running = adapter_->Run();
   sim_time_sec_ += dt_sec;
