@@ -290,9 +290,7 @@ TEST_F(FlightDynamicTest, OrbitManeuver) {
   EXPECT_GT(lateral, 0.0) << "Aircraft should move during orbit";
 }
 
-// Orbit's documented behavior: it is currently modeled as a single waypoint
-// flythrough and may complete or continue executing depending on whether the
-// waypoint threshold is crossed. Verify that it at least proceeds without
+// Orbit is a continuous loiter maneuver. Verify that it keeps executing without
 // error (no NaN, no crash, valid state).
 TEST_F(FlightDynamicTest, OrbitRunsWithoutError) {
   FlightManager fm(config_);
@@ -309,9 +307,8 @@ TEST_F(FlightDynamicTest, OrbitRunsWithoutError) {
   RunSteps(fm, 2000);
 
   auto state = fm.GetState();
-  EXPECT_TRUE(state == FlightManagerState::kExecuting ||
-              state == FlightManagerState::kCompleted)
-      << "Orbit should be kExecuting or kCompleted, not aborted or faulted";
+  EXPECT_EQ(state, FlightManagerState::kExecuting)
+      << "Orbit should keep executing until another command or abort";
   ExpectNoNaN(fm.GetVehicleState());
 }
 
@@ -780,18 +777,18 @@ TEST_P(AircraftManeuverTest, SetPitch) {
   ManeuverCommand cmd;
   cmd.type = guidance::ManeuverType::kSetPitch;
   cmd.value = 5.0;
-  cmd.duration_sec = 0.2;
+  cmd.duration_sec = 2.0;
   logger.LogTargetValue(cmd.value);
 
   fm.PushManeuver(cmd);
 
-  RunUntilDone(fm, 60, &logger);
+  RunUntilDone(fm, 600, &logger);
   if (is_dumping) {
     RunSteps(fm, 4000, &logger); // run ~20 seconds to observe pitch
   }
 
   EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted)
-      << GetParam().model << ": SetPitch should complete within 60 steps";
+      << GetParam().model << ": SetPitch should complete within 600 steps";
 }
 
 TEST_P(AircraftManeuverTest, SetRoll) {

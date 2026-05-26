@@ -1,7 +1,7 @@
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 
-#include <stdexcept>
 #include <iostream>
+#include <stdexcept>
 
 #include "FGFDMExec.h"
 #include "initialization/FGInitialCondition.h"
@@ -12,6 +12,46 @@
 namespace oneq {
 namespace flight_dynamic {
 namespace adapter {
+
+namespace {
+
+void SetPropertyIfPresent(JSBSim::FGFDMExec& fdm_exec, const std::string& name, double value) {
+  if (fdm_exec.GetPropertyManager()->GetNode(name) != nullptr) {
+    fdm_exec.SetPropertyValue(name, value);
+  }
+}
+
+void RetractLandingGearIfModeled(JSBSim::FGFDMExec& fdm_exec) {
+  if (fdm_exec.GetPropertyManager()->GetNode("gear/gear-cmd-norm") == nullptr) {
+    return;
+  }
+  fdm_exec.SetPropertyValue("gear/gear-cmd-norm", 0.0);
+  SetPropertyIfPresent(fdm_exec, "gear/gear-pos-norm", 0.0);
+}
+
+void ResetControlStateAfterTrimFailure(JSBSim::FGFDMExec& fdm_exec) {
+  const char* properties[] = {
+      "fcs/aileron-cmd-norm",
+      "fcs/elevator-cmd-norm",
+      "fcs/rudder-cmd-norm",
+      "fcs/pitch-trim-cmd-norm",
+      "fcs/roll-trim-cmd-norm",
+      "fcs/yaw-trim-cmd-norm",
+      "fcs/pitch-rate-integrator",
+      "fcs/roll-rate-integrator",
+      "fcs/yaw-rate-integrator",
+      "fcs/elevator-pos-norm",
+      "fcs/elevator-pos-rad",
+      "fcs/left-aileron-pos-rad",
+      "fcs/right-aileron-pos-rad",
+      "fcs/rudder-pos-rad",
+  };
+  for (const char* property : properties) {
+    SetPropertyIfPresent(fdm_exec, property, 0.0);
+  }
+}
+
+}  // namespace
 
 JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
   fdm_exec_.reset(new JSBSim::FGFDMExec());
@@ -34,12 +74,24 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
 
   // Start all engines so that JSBSim can trim longitudinal velocity (udot).
   fdm_exec_->GetPropulsion()->InitRunning(-1);
+  if (config.initial_kinematics.position_lla_deg_m.altitude_m > 10.0) {
+    RetractLandingGearIfModeled(*fdm_exec_);
+  }
 
   if (config.do_trim) {
     try {
       fdm_exec_->DoTrim(0);
     } catch (...) {
       std::cerr << "JsbsimAdapter: DoTrim(0) threw an exception, proceeding anyway." << std::endl;
+      model::VehicleStateMapper::ApplyInitialConditions(*fdm_exec_, config.initial_kinematics);
+      if (!RunIC()) {
+        throw std::runtime_error("JsbsimAdapter: RunIC() failed after trim recovery");
+      }
+      fdm_exec_->GetPropulsion()->InitRunning(-1);
+      if (config.initial_kinematics.position_lla_deg_m.altitude_m > 10.0) {
+        RetractLandingGearIfModeled(*fdm_exec_);
+      }
+      ResetControlStateAfterTrimFailure(*fdm_exec_);
     }
   }
 }

@@ -5,7 +5,9 @@ namespace oneq {
 namespace flight_dynamic {
 namespace adapter {
 class JsbsimAdapter;
-}}}  // namespace oneq::flight_dynamic::adapter
+}
+}  // namespace flight_dynamic
+}  // namespace oneq
 
 namespace oneq {
 namespace flight_dynamic {
@@ -47,6 +49,12 @@ class Autopilot {
   void Update(double dt_sec);
 
  private:
+  void UpdateNativeAutopilotBridge();
+  void UpdateWingLeveler();
+  void UpdatePitchChannel();
+  void UpdateAltitudeThrottle();
+  void ApplyNativeHeadingSetpoint();
+
   adapter::JsbsimAdapter& adapter_;
   bool use_cpp_ap_ = false;
 

@@ -49,23 +49,23 @@ def plot_trajectory(csv_file, output_dir):
     title = f"Maneuver: {maneuver} | Model: {model}"
     ax.set_title(title)
     
-    if maneuver in ["FlyToWaypoint", "Orbit", "SetHeading", "SetRoll"]:
+    if maneuver in ["FlyToWaypoint", "Orbit"]:
         # Top-down view (Local X/Y)
         lat0 = df['lat_rad'].iloc[0]
         lon0 = df['lon_rad'].iloc[0]
-        
+
         x = (df['lon_rad'] - lon0) * R_EARTH * np.cos(lat0)
         y = (df['lat_rad'] - lat0) * R_EARTH
-        
+
         ax.plot(x, y, label="Trajectory", color='blue')
         ax.scatter([x.iloc[0]], [y.iloc[0]], color='green', s=100, label='Start', zorder=5)
         ax.scatter([x.iloc[-1]], [y.iloc[-1]], color='red', s=100, label='End', zorder=5)
-        
+
         if target_wp:
             tx = (target_wp[1] - lon0) * R_EARTH * np.cos(lat0)
             ty = (target_wp[0] - lat0) * R_EARTH
             ax.scatter([tx], [ty], color='orange', s=150, marker='*', label='Target WP', zorder=5)
-            
+
         ax.set_xlabel("Local X (m)")
         ax.set_ylabel("Local Y (m)")
         ax.grid(True)
@@ -99,11 +99,27 @@ def plot_trajectory(csv_file, output_dir):
         ax.grid(True)
         ax.legend()
         
+    elif maneuver == "SetHeading":
+        ax.plot(df['time_sec'], np.degrees(df['heading_rad']), label="Heading", color='blue')
+        ax.scatter([df['time_sec'].iloc[0]], [np.degrees(df['heading_rad'].iloc[0])], color='green', s=100, label='Start', zorder=5)
+        ax.scatter([df['time_sec'].iloc[-1]], [np.degrees(df['heading_rad'].iloc[-1])], color='red', s=100, label='End', zorder=5)
+
+        if target_val is not None:
+            ax.axhline(np.degrees(target_val), color='orange', linestyle='--', label=f"Target ({np.degrees(target_val):.1f} deg)")
+
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Heading (deg)")
+        ax.grid(True)
+        ax.legend()
+
     elif maneuver == "SetRoll":
         ax.plot(df['time_sec'], np.degrees(df['roll_rad']), label="Roll", color='blue')
         ax.scatter([df['time_sec'].iloc[0]], [np.degrees(df['roll_rad'].iloc[0])], color='green', s=100, label='Start', zorder=5)
         ax.scatter([df['time_sec'].iloc[-1]], [np.degrees(df['roll_rad'].iloc[-1])], color='red', s=100, label='End', zorder=5)
-        
+
+        if target_val is not None:
+            ax.axhline(np.degrees(target_val), color='orange', linestyle='--', label=f"Target ({np.degrees(target_val):.1f} deg)")
+
         ax.set_xlabel("Time (s)")
         ax.set_ylabel("Roll (deg)")
         ax.grid(True)
