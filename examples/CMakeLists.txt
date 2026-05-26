@@ -13,7 +13,6 @@ endfunction()
 add_domain_example(airborne_radar_session_usage airborne_radar)
 add_domain_example(electro_optical_sensor_session_usage electro_optical)
 add_domain_example(electronic_surveillance_radar_session_usage electronic_warfare)
-
 add_executable(ar_config_compare_test airborne_radar/config_compare_test.cpp)
 target_link_libraries(ar_config_compare_test PRIVATE ${PROJECT_ALIAS})
 target_include_directories(ar_config_compare_test PRIVATE

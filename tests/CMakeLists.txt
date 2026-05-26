@@ -118,19 +118,6 @@ add_1q_gtest(${PROJECT_NAME}_unit_tests unit 60 ${UNIT_TEST_SOURCES})
 add_1q_gtest(${PROJECT_NAME}_integration_tests integration 120 ${INTEGRATION_TEST_SOURCES})
 add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES})
 
-# flight_dynamic 测试需要 JSBSim 数据文件路径
-set(FD_JSBSIM_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim")
-foreach(_fd_test_target IN ITEMS ${PROJECT_NAME}_unit_tests ${PROJECT_NAME}_integration_tests)
-  target_compile_definitions(${_fd_test_target}
-      PRIVATE FD_JSBSIM_ROOT_DIR="${FD_JSBSIM_ROOT_DIR}")
-  # 测试可执行文件需显式链接 JSBSim 共享库（静态主库不传递 PRIVATE 依赖）
-  target_link_libraries(${_fd_test_target} PRIVATE JSBSim::JSBSim)
-  # 将 JSBSim 共享库目录加入 rpath，避免设置 DYLD_LIBRARY_PATH
-  set_property(TARGET ${_fd_test_target} APPEND PROPERTY
-      BUILD_RPATH "$<TARGET_FILE_DIR:libJSBSim>")
-endforeach()
-unset(_fd_test_target)
-
 set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_writer_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_trace_session_adapter_test.cpp

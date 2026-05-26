@@ -6,7 +6,6 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/common/CMakeLists.txt)
 include(${CMAKE_CURRENT_SOURCE_DIR}/airborne_radar/CMakeLists.txt)
 include(${CMAKE_CURRENT_SOURCE_DIR}/electronic_surveillance_radar/CMakeLists.txt)
 include(${CMAKE_CURRENT_SOURCE_DIR}/electro_optical_sensor/CMakeLists.txt)
-include(${CMAKE_CURRENT_SOURCE_DIR}/flight_dynamic/CMakeLists.txt)
 
 # --- OBJECT 库 ---
 add_library(airborne_engine OBJECT ${AIRBORNE_ENGINE_SOURCES})
@@ -15,8 +14,6 @@ add_library(esr_engine OBJECT ${ESR_ENGINE_SOURCES})
 add_library(esr_core OBJECT ${ESR_CORE_SOURCES})
 add_library(eos_engine OBJECT ${EOS_ENGINE_SOURCES})
 add_library(eos_core OBJECT ${EOS_CORE_SOURCES})
-add_library(fd_engine OBJECT ${FD_ENGINE_SOURCES})
-add_library(fd_core OBJECT ${FD_CORE_SOURCES})
 
 set(ONEQ_OBJECT_TARGETS
     airborne_engine
@@ -25,8 +22,6 @@ set(ONEQ_OBJECT_TARGETS
     esr_core
     eos_engine
     eos_core
-    fd_engine
-    fd_core
 )
 
 set(PROJECT_SOURCES
@@ -37,8 +32,6 @@ set(PROJECT_SOURCES
     $<TARGET_OBJECTS:esr_core>
     $<TARGET_OBJECTS:eos_engine>
     $<TARGET_OBJECTS:eos_core>
-    $<TARGET_OBJECTS:fd_engine>
-    $<TARGET_OBJECTS:fd_core>
 )
 # 追加 vendor OBJECT 目标（flatbuffers_objects, zlib_objects 等）
 if(ONEQ_VENDOR_OBJECT_TARGETS)

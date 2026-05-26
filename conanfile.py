@@ -17,6 +17,10 @@ _BASE_DEPS_MODERN = {
     "zlib": "zlib/1.3.1",
 }
 
+_JSBSIM_DEPS_NON_WINDOWS = {
+    "jsbsim": "jsbsim/1.1.13",
+}
+
 _LOG_DEPS_NON_WINDOWS = {
     "spdlog": "spdlog/1.12.0",
     "fmt": "fmt/10.2.1",
@@ -76,6 +80,8 @@ class OneQConan(ConanFile):
         if not self._is_windows():
             self.requires(_LOG_DEPS_NON_WINDOWS["spdlog"])
             self.requires(_LOG_DEPS_NON_WINDOWS["fmt"], override=True)
+            # macOS 开发使用 conan 预编译的 JSBSim（Windows/VS2015 从 third_party 源码构建）
+            self.requires(_JSBSIM_DEPS_NON_WINDOWS["jsbsim"])
 
     def build_requirements(self):
         if self.options.enable_testing:

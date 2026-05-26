@@ -139,9 +139,9 @@ set(_conan_install_command
     --build
     missing
     -s
-    "build_type=${_conan_build_type}"
-    -s
     "compiler.cppstd=${_conan_cppstd}"
+    -s
+    "build_type=${_conan_build_type}"
     -o
     "&:enable_testing=${_conan_enable_testing}")
 
