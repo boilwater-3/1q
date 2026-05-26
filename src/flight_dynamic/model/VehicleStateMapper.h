@@ -9,12 +9,6 @@ class FGAccelerations;
 class FGFDMExec;
 }
 
-namespace JSBSim {
-class FGPropagate;
-class FGAccelerations;
-class FGFDMExec;
-}
-
 namespace oneq {
 namespace flight_dynamic {
 namespace model {

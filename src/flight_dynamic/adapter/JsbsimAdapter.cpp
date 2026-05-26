@@ -5,7 +5,9 @@
 
 #include "FGFDMExec.h"
 #include "initialization/FGInitialCondition.h"
+#include "models/FGPropulsion.h"
 #include "simgear/misc/sg_path.hxx"
+#include "flight_dynamic/model/VehicleStateMapper.h"
 
 namespace oneq {
 namespace flight_dynamic {
@@ -23,12 +25,22 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
 
   ConfigureIntegrators(config);
 
+  model::VehicleStateMapper::ApplyInitialConditions(*fdm_exec_,
+                                                     config.initial_kinematics);
+
   if (!RunIC()) {
     throw std::runtime_error("JsbsimAdapter: RunIC() failed");
   }
 
+  // Start all engines so that JSBSim can trim longitudinal velocity (udot).
+  fdm_exec_->GetPropulsion()->InitRunning(-1);
+
   if (config.do_trim) {
-    fdm_exec_->DoTrim(0);
+    try {
+      fdm_exec_->DoTrim(0);
+    } catch (...) {
+      std::cerr << "JsbsimAdapter: DoTrim(0) threw an exception, proceeding anyway." << std::endl;
+    }
   }
 }
 

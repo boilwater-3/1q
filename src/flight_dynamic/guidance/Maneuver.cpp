@@ -107,7 +107,7 @@ bool ManeuverExecutor::IsManeuverComplete() const {
       return angle_error < 0.035;  // ~2 degrees
     }
     case ManeuverType::kSetAltitude: {
-      double alt_error = std::abs(ap_.GetAltitudeAGLM() -
+      double alt_error = std::abs(ap_.GetAltitudeASLM() -
                                   current_maneuver_.value);
       return alt_error < 10.0;  // within 10m
     }

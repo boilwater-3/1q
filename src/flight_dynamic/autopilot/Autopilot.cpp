@@ -131,6 +131,10 @@ double Autopilot::GetAltitudeAGLM() const {
   return adapter_.GetProperty("position/h-agl-ft") * 0.3048;
 }
 
+double Autopilot::GetAltitudeASLM() const {
+  return adapter_.GetPropagate().GetLocation().GetGeodAltitude() * 0.3048;
+}
+
 void Autopilot::Update(double dt_sec) {
   if (!use_cpp_ap_) return;
 

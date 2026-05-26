@@ -42,6 +42,7 @@ class Autopilot {
   // --- Status queries ---
   double GetAngleToHeadingRad() const;
   double GetAltitudeAGLM() const;
+  double GetAltitudeASLM() const;
 
   void Update(double dt_sec);
 
