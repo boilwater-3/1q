@@ -55,6 +55,9 @@ void ResetControlStateAfterTrimFailure(JSBSim::FGFDMExec& fdm_exec) {
 
 JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
   fdm_exec_.reset(new JSBSim::FGFDMExec());
+  if (config.silent_mode) {
+    fdm_exec_->SetDebugLevel(0);
+  }
 
   SetDeltaT(config.dt_sec);
 
@@ -79,9 +82,12 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
   }
 
   if (config.do_trim) {
+    trim_attempted_ = true;
     try {
       fdm_exec_->DoTrim(0);
+      trim_succeeded_ = true;
     } catch (...) {
+      trim_succeeded_ = false;
       std::cerr << "JsbsimAdapter: DoTrim(0) threw an exception, proceeding anyway." << std::endl;
       model::VehicleStateMapper::ApplyInitialConditions(*fdm_exec_, config.initial_kinematics);
       if (!RunIC()) {
@@ -120,6 +126,10 @@ double JsbsimAdapter::GetProperty(const std::string& name) const {
 
 void JsbsimAdapter::SetProperty(const std::string& name, double value) {
   fdm_exec_->SetPropertyValue(name, value);
+}
+
+bool JsbsimAdapter::HasProperty(const std::string& name) const {
+  return fdm_exec_->GetPropertyManager()->GetNode(name) != nullptr;
 }
 
 JSBSim::FGPropagate& JsbsimAdapter::GetPropagate() {

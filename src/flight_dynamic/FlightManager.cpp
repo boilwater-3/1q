@@ -25,9 +25,14 @@ bool FlightManager::Step(double dt_sec) {
   }
 
   adapter_->SetDeltaT(dt_sec);
+
+  if (state_ == FlightManagerState::kExecuting) {
+    maneuver_exec_->Update(dt_sec);
+  }
+  ap_->Update(dt_sec);
+
   bool running = adapter_->Run();
   sim_time_sec_ += dt_sec;
-  ap_->Update(dt_sec);
 
   // Update vehicle state
   vehicle_state_ = model::VehicleStateMapper::Map(
@@ -38,7 +43,6 @@ bool FlightManager::Step(double dt_sec) {
 
   // Update active maneuver
   if (state_ == FlightManagerState::kExecuting) {
-    maneuver_exec_->Update(dt_sec);
     if (maneuver_exec_->IsManeuverComplete()) {
       ExecuteNextManeuver();
     }

@@ -28,6 +28,7 @@ class JsbsimAdapter {
 
   double GetProperty(const std::string& name) const;
   void SetProperty(const std::string& name, double value);
+  bool HasProperty(const std::string& name) const;
 
   JSBSim::FGPropagate& GetPropagate();
   const JSBSim::FGPropagate& GetPropagate() const;
@@ -37,12 +38,16 @@ class JsbsimAdapter {
   const JSBSim::FGFDMExec& GetFdmExec() const;
 
   bool IsValid() const { return fdm_exec_ != nullptr; }
+  bool TrimAttempted() const { return trim_attempted_; }
+  bool TrimSucceeded() const { return trim_succeeded_; }
 
  private:
   bool LoadAircraft(const config::FlightDynamicConfig& config);
   void ConfigureIntegrators(const config::FlightDynamicConfig& config);
 
   std::unique_ptr<JSBSim::FGFDMExec> fdm_exec_;
+  bool trim_attempted_ = false;
+  bool trim_succeeded_ = false;
 };
 
 }  // namespace adapter

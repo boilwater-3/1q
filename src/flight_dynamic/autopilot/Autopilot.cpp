@@ -5,6 +5,7 @@
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "math/FGLocation.h"
 #include "models/FGPropagate.h"
+#include "models/FGPropulsion.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -114,6 +115,16 @@ void Autopilot::SetRollAutopilotOn(bool on) {
 
 void Autopilot::SetThrottleCmdNorm(double value) {
   adapter_.SetProperty("fcs/throttle-cmd-norm", value);
+  if (!use_own_ap_) {
+    return;
+  }
+  const auto propulsion = adapter_.GetFdmExec().GetPropulsion();
+  if (!propulsion) {
+    return;
+  }
+  for (size_t engine = 0; engine < propulsion->GetNumEngines(); ++engine) {
+    SetThrottleCmd(static_cast<int>(engine), value);
+  }
 }
 
 void Autopilot::SetThrottleCmd(int engine, double value) {
@@ -156,7 +167,6 @@ void Autopilot::Update(double /*dt_sec*/) {
 
   if (use_own_ap_) {
     UpdateOwnAutopilot();
-    UpdatePitchChannel();
     UpdateAltitudeThrottle();
 
     double r = propagate.GetPQR(3);

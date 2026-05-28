@@ -28,6 +28,34 @@ void PrintTo(const AircraftTestParam& p, std::ostream* os) {
   *os << p.model;
 }
 
+double FlyToWaypointDistanceM(const std::string& model) {
+  if (model == "f16") {
+    return 10000.0;
+  }
+  if (model == "A4" || model == "f15") {
+    return 20000.0;
+  }
+  if (model == "F4N" || model == "F80C" || model == "737" ||
+      model == "B747" || model == "Concorde" || model == "MD11") {
+    return 10000.0;
+  }
+  return 5000.0;
+}
+
+double FlyToWaypointRadiusM(const std::string& model) {
+  if (model == "f16") {
+    return 3000.0;
+  }
+  return 100.0;
+}
+
+double OrbitRadiusM(const std::string& model) {
+  if (model == "A4" || model == "f16") {
+    return 6000.0;
+  }
+  return 1000.0;
+}
+
 class AircraftManeuverTest
     : public ::testing::TestWithParam<AircraftTestParam> {
  protected:
@@ -66,8 +94,11 @@ TEST_P(AircraftManeuverTest, FlyToWaypoint) {
 
   ManeuverCommand cmd;
   cmd.type = guidance::ManeuverType::kFlyToWaypoint;
-  cmd.target.latitude_rad = 3535.5 / 6378137.0;
-  cmd.target.longitude_rad = 3535.5 / 6378137.0;
+  constexpr double kInvSqrt2 = 0.7071067811865475;
+  double target_distance_m = FlyToWaypointDistanceM(GetParam().model);
+  cmd.target.latitude_rad = target_distance_m * kInvSqrt2 / 6378137.0;
+  cmd.target.longitude_rad = target_distance_m * kInvSqrt2 / 6378137.0;
+  cmd.target.radius_m = FlyToWaypointRadiusM(GetParam().model);
   if (is_dumping) {
     cmd.target.latitude_rad = 20000.0 / 6378137.0;
     cmd.target.longitude_rad = 20000.0 / 6378137.0;
@@ -122,9 +153,11 @@ TEST_P(AircraftManeuverTest, Orbit) {
 
   ManeuverCommand cmd;
   cmd.type = guidance::ManeuverType::kOrbit;
-  cmd.target.latitude_rad = 1414.0 / 6378137.0;
-  cmd.target.longitude_rad = 1414.0 / 6378137.0;
-  cmd.value = 1000.0;
+  double orbit_radius_m = OrbitRadiusM(GetParam().model);
+  double orbit_center_axis_m = orbit_radius_m * 2.0 * 0.7071067811865475;
+  cmd.target.latitude_rad = orbit_center_axis_m / 6378137.0;
+  cmd.target.longitude_rad = orbit_center_axis_m / 6378137.0;
+  cmd.value = orbit_radius_m;
   if (is_dumping) {
     cmd.target.latitude_rad = 5000.0 / 6378137.0;
     cmd.target.longitude_rad = 0.0;
@@ -165,7 +198,8 @@ TEST_P(AircraftManeuverTest, Orbit) {
 
     double dist = std::hypot(state.latitude_rad - cmd.target.latitude_rad,
                              state.longitude_rad - cmd.target.longitude_rad) * 6378137.0;
-    EXPECT_LT(dist, 5000.0) << GetParam().model << ": aircraft should stay near orbit";
+    EXPECT_LT(std::abs(dist - orbit_radius_m), 5000.0)
+        << GetParam().model << ": aircraft should stay near orbit";
   }
 }
 
