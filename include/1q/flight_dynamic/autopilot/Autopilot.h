@@ -13,6 +13,28 @@ namespace oneq {
 namespace flight_dynamic {
 namespace autopilot {
 
+enum class LateralControlInterface {
+  kDirectSurface,
+  kGenericAutopilotBridge,
+  kOwnAutopilot,
+  kFbwRateCommand,
+};
+
+enum class LateralGuidanceMode {
+  kHeading,
+  kOrbit,
+};
+
+struct AircraftControlProfile {
+  LateralControlInterface lateral_interface = LateralControlInterface::kDirectSurface;
+  bool has_own_autopilot = false;
+  bool has_generic_autopilot = false;
+  bool has_fbw_override = false;
+  bool has_roll_rate_command = false;
+  bool has_aileron_command = false;
+  int engine_count = 0;
+};
+
 class Autopilot {
  public:
   explicit Autopilot(adapter::JsbsimAdapter& adapter);
@@ -31,6 +53,7 @@ class Autopilot {
   void SetPitchHold(bool on);
 
   // --- Roll ---
+  void SetLateralGuidanceMode(LateralGuidanceMode mode);
   void SetRollAttitudeMode(int mode);  // 0=wings level, 1=angle hold
   void SetRollAutopilotOn(bool on);
 
@@ -45,18 +68,22 @@ class Autopilot {
   double GetAngleToHeadingRad() const;
   double GetAltitudeAGLM() const;
   double GetAltitudeASLM() const;
+  const AircraftControlProfile& GetControlProfile() const { return control_profile_; }
 
   void Update(double dt_sec);
 
  private:
   void UpdateOwnAutopilot();
   void UpdateGenericApBridge();
+  void UpdateFbwRateCommandLateral();
+  void UpdateDirectHeadingLateral();
   void UpdateWingLeveler();
   void UpdatePitchChannel();
   void UpdateAltitudeThrottle();
   void ApplyNativeHeadingSetpoint();
 
   adapter::JsbsimAdapter& adapter_;
+  AircraftControlProfile control_profile_;
   bool use_cpp_ap_ = false;
   bool use_own_ap_ = false;
   double roll_int_ = 0.0;
@@ -64,6 +91,7 @@ class Autopilot {
   bool heading_hold_ = false;
   double target_heading_rad_ = 0.0;
   bool heading_src_wp_ = false;
+  LateralGuidanceMode lateral_guidance_mode_ = LateralGuidanceMode::kHeading;
 
   bool altitude_hold_ = false;
   double target_altitude_m_ = 0.0;

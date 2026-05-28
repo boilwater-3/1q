@@ -1,7 +1,7 @@
 # Flight Dynamic AP 调试状态报告
 
-> 日期: 2026-05-27  
-> 基线提交: `2fed395` feat(flight_dynamic): upgrade JSBSim to 1.3.1
+> 日期: 2026-05-28
+> 基线提交: `201b887` test(flight_dynamic): diagnose JSBSim maneuver integration
 
 ## 1. 当前测试结果
 
@@ -18,7 +18,34 @@ build/llvm-ninja-release-local/bin/1q_unit_tests \
 
 初始结果：189 个 flight_dynamic 相关用例中 175 个通过、14 个失败。失败列表与 debug 口径一致。因此“release 测试二进制未重编译”这个问题已经可以从当前工作区状态中排除，但历史报告中的假阳性结论仍然成立。
 
-经过本轮 waypoint/orbit 证据驱动的测试参数分层，以及 c310 自有 AP 集成修复后，当前结果为 **189 个 flight_dynamic 相关用例中 186 个通过、3 个失败**。
+经过 waypoint/orbit 证据驱动的测试参数分层，以及 c310 自有 AP 集成修复后，结果曾提升到 **189 个 flight_dynamic 相关用例中 186 个通过、3 个失败**。
+
+### 2026-05-28 控制接口 profile 化增量
+
+本轮继续在 `llvm-ninja-release-local` 下构建并运行完整 flight_dynamic 过滤集：
+
+```bash
+cmake --build --preset llvm-ninja-release-local --target 1q_unit_tests
+build/llvm-ninja-release-local/bin/1q_unit_tests \
+  --gtest_filter='FlightDynamicTest.*:FlightDynamicRobustnessTest.*:*AircraftManeuverTest*:FdAircraftProbe.*'
+```
+
+当前结果为 **194 个用例中 189 个通过、3 个跳过、2 个失败**。
+
+本轮落地的代码侧变化：
+
+- `Autopilot` 增加 `AircraftControlProfile`，启动时探测 own AP、generic AP、FBW override、roll-rate command、副翼命令属性和发动机数量；
+- 横向控制接口显式分成 `DirectSurface`、`GenericAutopilotBridge`、`OwnAutopilot`、`FbwRateCommand` 四类，不再只靠 `ap/autopilot-roll-on` 推断；
+- f16 同时存在 generic AP 属性和 FBW 属性，最终按 FBW profile 处理；默认 FlyToWaypoint/SetHeading 保持 C++ 外环，Orbit 走 FBW roll-rate command；
+- FBW profile 的直接航向外环允许更大的滚转目标，并把 FlyToWaypoint capture 半径按 profile 扩展到 `1.6 * radius_m`，避免高速机型物理转弯半径与固定小半径阈值冲突；
+- 探针 CSV 增加 `has_roll_rate_command`、`lateral_interface`、`engine_count`，后续可按接口类型聚合失败。
+
+复验结果变化：
+
+- f16 `FlyToWaypoint/4`、`Orbit/4`、`SetHeading/4`、`SetAltitudeClimb/4`、`SetRoll/4` 均通过；
+- 剩余失败收敛为 f22 `FlyToWaypoint/5` 和 Concorde `Orbit/7`；
+- f22 仍伴随 `DoTrim(0)` 异常，不能直接套用 f16 的 FBW 完成半径修复；
+- Concorde Orbit 仍是高度/能量保持问题，横向半径不是主要瓶颈。
 
 ### 2026-05-27 深入复核增量
 
@@ -29,7 +56,7 @@ build/llvm-ninja-release-local/bin/1q_unit_tests \
   --gtest_filter='*AircraftManeuverTest*'
 ```
 
-初始结果仍为 **168 个用例中 154 个通过、14 个失败**，失败集合没有变化。随后根据 waypoint sweep 和 orbit 轨迹结果修正 mission 参数，并修复 c310 自有 AP 集成后，当前参数化机动测试为 **168 个用例中 165 个通过、3 个失败**。
+初始结果仍为 **168 个用例中 154 个通过、14 个失败**，失败集合没有变化。随后根据 waypoint sweep 和 orbit 轨迹结果修正 mission 参数，并修复 c310 自有 AP 集成后，当时参数化机动测试提升为 **168 个用例中 165 个通过、3 个失败**。2026-05-28 profile 化横向接口后，完整 flight_dynamic 过滤集为 **194 个用例中 189 个通过、3 个跳过、2 个失败**。
 
 已查询并对照 JSBSim 资料和源码：
 
@@ -103,7 +130,7 @@ build/llvm-ninja-release-local/bin/1q_unit_tests \
 | F4N | 未完成，最小约 208m | 完成，约 69s | 完成，约 127s | 5km 过紧，10km 起可完成 |
 | F80C | 未完成，最小约 119m | 完成，约 79s | 完成，约 152s | 5km 过紧，10km 起可完成 |
 | f15 | 未完成，最小约 507m | 未完成，最小约 250m | 完成，约 107s | 控制链可用，5km/10km 测试几何过紧 |
-| f16 | 5/10/20km 均未完成，最终飞离到 26-32km | 均未完成 | 均未完成 | FBW/FCS 命令语义或航向闭环问题 |
+| f16 | 修复前 5/10/20km 均未完成，最终飞离到 26-32km | 修复前均未完成 | 修复前均未完成 | 已通过 FBW profile 识别、Orbit roll-rate command 和高速 capture 半径修复移出失败集合 |
 | f22 | 5/10/20km 均坠毁，最小距离仍很大 | 均坠毁 | 均坠毁 | trim 失败叠加 FBW/FCS 接口问题 |
 | 737 | 未完成，最小约 183m | 完成，约 73s | 完成，约 139s | 5km 过紧，10km 起可完成 |
 | B747 | 未完成，最小约 236m | 完成，约 70s | 完成，约 135s | 5km 过紧，10km 起可完成 |
@@ -115,7 +142,7 @@ build/llvm-ninja-release-local/bin/1q_unit_tests \
 
 - A4、F4N、F80C、f15、737、B747、MD11 不是“无法飞向目标”，而是在 5km 目标和 100m 默认完成半径下经常掠过目标后重新拉大距离；
 - f15 20km 可完成，且探针显示 trim、舵面响应、航向闭环都能工作，因此 f15 不应继续作为 JSBSim 基础模型或集成顺序错误的主要证据；
-- f16 的 `FlyToWaypoint` 在 10km 目标和 3km 完成半径下可完成，说明 waypoint 失败主要是完成半径/转弯半径问题；但 f16 Orbit 放大到 6km 半径后仍不能保持，应继续查 FBW orbit 控制；
+- f16 的 `FlyToWaypoint` 在 10km 目标和 3km 完成半径下可完成，说明 waypoint 失败主要是完成半径/转弯半径问题；f16 Orbit 曾经放大到 6km 半径仍不能保持，本轮通过 FBW Orbit roll-rate command 修复；
 - c310 的 `max_abs_aileron_cmd=0` 符合自有 AP 路径特征；后续证实失败主因不在 C++ 副翼 PD，而在自有 AP 集成：C++ pitch channel 与 `c310ap.xml` 的 `ap/elevator_cmd` 叠加，同时双发模型需要同步 indexed throttle 命令。
 
 本轮继续新增一个默认跳过的 orbit sweep 探针 `FdAircraftProbe.EmitsOrbitSweepCsv`：
@@ -131,7 +158,7 @@ build/llvm-ninja-release-local/bin/1q_unit_tests \
 
 | 机型/初态 | 半径范围 | 结果 | 初步判断 |
 |-----------|----------|------|----------|
-| f16, 3000m / 200mps | 1/3/6/10/20km | 全部不坠毁，但最终距圆心 31-40km；20km 半径仍偏约 11.5km | 横向 orbit 引导/FBW 横向语义不收敛，不是单纯半径太小 |
+| f16, 3000m / 200mps | 1/3/6/10/20km | 修复前全部不坠毁，但最终距圆心 31-40km；20km 半径仍偏约 11.5km | 已通过 FBW profile 下的 Orbit roll-rate command 修复当前 `Orbit/4` 回归 |
 | Concorde, 5000m / 150mps | 1/3/6/10/20km | 约 87-122s 坠毁；1-10km 半径下最终半径误差约 1.7-3.5km | 横向半径可接近，失败主因是长期高度/能量保持 |
 | Concorde, 10000m / 250mps | 1/3/6/10/20km | 约 217-255s 坠毁；1-20km 半径下最终半径误差约 1.4-4.2km | 提高初始能量只能延缓坠毁，不能解决高度通道 |
 
@@ -173,13 +200,12 @@ build/llvm-ninja-release-local/bin/1q_unit_tests \
 | 13 | Orbit | Concorde | 未知 |
 | 14 | FlyToWaypoint | c310 | 自有 AP 不收敛 |
 
-### 当前剩余失败清单 (release-local, 分层目标/半径和 c310 集成修复后)
+### 当前剩余失败清单 (release-local, profile 化横向接口后)
 
 | # | 测试 | 机型 | 失败原因 |
 |---|------|------|----------|
 | 1 | FlyToWaypoint | f22 | trim 失败，最终坠毁，FBW/FCS 适配问题 |
-| 2 | Orbit | f16 | 即使放大 orbit 半径仍无法保持，FBW/FCS orbit 控制待查 |
-| 3 | Orbit | Concorde | 坠毁，高度/俯仰控制不稳定 |
+| 2 | Orbit | Concorde | 坠毁，高度/俯仰控制不稳定 |
 
 ### 非 DUMP 口径未失败的机型 (10/20)
 
@@ -190,20 +216,23 @@ B17, Boeing314, C130, DHC6, L410, OV10, c172p, c172r, c172x, c182
 ## 2. AP 三层架构
 
 ```
-检测 ap/heading_hold 存在？
-├─ 是 → use_own_ap_=true（c172x, c310）
-│   └─ 使用机型自带 AP（c172ap.xml / c310ap.xml）
-│       C++ 只设 setpoint，不控制舵面
+先探测 JSBSim 属性并生成 AircraftControlProfile
+├─ ap/heading_hold 存在
+│   └─ OwnAutopilot（c172x, c310）
+│       使用机型自带 AP；项目只写 setpoint、hold 开关和必要油门桥接
 │
-└─ 否 → 检测 ap/autopilot-roll-on 存在？
-    ├─ 是 → use_cpp_ap_=false（generic AP bridge）
-    │   └─ GNCUtilities 计算航向误差 → C++ PD+I 控制
-    │       读取 guidance/angle-to-heading-rad
-    │       写入 fcs/aileron-cmd-norm
-    │
-    └─ 否 → use_cpp_ap_=true（纯 C++ PD）
-        └─ 直接从 FGPropagate 计算航向
-            速度自适应增益
+├─ fcs/fbw-override 或 fcs/roll-rate-command / roll-rate-cmd 存在
+│   └─ FbwRateCommand（f16, f22）
+│       默认保持 C++ 外环；Orbit 可切到 FBW roll-rate command
+│       FlyToWaypoint capture 半径按高速 FBW profile 放宽
+│
+├─ ap/autopilot-roll-on 存在
+│   └─ GenericAutopilotBridge
+│       使用 JSBSim guidance/angle-to-heading-rad 作为航向误差输入
+│
+└─ 其他
+    └─ DirectSurface
+        直接从 FGPropagate 计算航向误差并写 fcs/aileron-cmd-norm
 ```
 
 ---
@@ -252,7 +281,7 @@ B17, Boeing314, C130, DHC6, L410, OV10, c172p, c172r, c172x, c182
   - f16: `fcs/aileron-cmd-norm` 被当作滚转速率命令（经过 PID + feedforward）
   - f22: 完整 LQR tracker，同样把 aileron-cmd-norm 当速率命令
   - 新探针显示 f16 在当前空中初态可 trim 且正/负命令滚转方向相反；f22 trim 失败且当前副翼位置属性无响应，应拆成两个不同适配问题处理
-  - Orbit sweep 显示 f16 即使放大到 20km orbit 半径仍不收敛，且 `fcs/fbw-override=1` 实验无效；下一步应优先查 orbit heading law 与 FBW 滚转率命令匹配，而不是继续放宽半径
+  - Orbit sweep 曾显示 f16 即使放大到 20km orbit 半径仍不收敛；本轮通过 FBW profile 识别和 Orbit 专用 roll-rate command 后，f16 `Orbit/4` 已通过
 
 ### 3.3 大型运输机失败 (737, B747, Concorde, MD11)
 
@@ -295,7 +324,7 @@ waypoint sweep 已证明 A4、F4N、F80C、f15、737、B747、MD11 在更长目�
 2. mission 层按机型类别设置目标距离、完成半径和最大时长；
 3. 保留 5km 近距用例，但改成“最小距离曾经接近目标”或专门命名为 near-pass probe，而不是要求所有机型完成。
 
-### P1: FBW 机型适配 (f16, f22)
+### P1: FBW 机型适配 (f16 已收敛，f22 待拆)
 
 f16/f22 的 FCS 把 `fcs/aileron-cmd-norm` 解释为滚转速率命令而非副翼位置。C++ AP 写入的是副翼角度命令。
 
@@ -303,17 +332,20 @@ f16/f22 的 FCS 把 `fcs/aileron-cmd-norm` 解释为滚转速率命令而非副�
 
 - `third_party/jsbsim/aircraft/f16/f16.xml`：`fcs/aileron-cmd-norm` 先参与 `fcs/roll-trim-error` 和 `fcs/roll-rate-command`，默认路径是滚转率闭环；`fcs/fbw-override == 1` 时才把 `fcs/aileron-cmd-norm` 作为直接输入送入 `fcs/roll-rate-command-switch`；
 - `third_party/jsbsim/aircraft/f22/f22.xml`：`fcs/aileron-cmd-norm` 经 `fcs/roll-cmd-filter`、`fcs/roll-rate-cmd`、`fcs/roll-rate-error`、LQR tracker，再输出到 `fcs/aileron-act`；没有 f16 那种 `fcs/fbw-override` 旁路；
-- 当前 generic AP 分支仍按“目标滚转角 -> 副翼位置命令”的思路写 `fcs/aileron-cmd-norm`，对 f16/f22 语义不匹配。
+- 修复前 generic AP 分支仍按“目标滚转角 -> 副翼位置命令”的思路写 `fcs/aileron-cmd-norm`，对 f16/f22 语义不匹配；当前 f16 已不再被 generic AP 属性误分类。
 
-**方案**:
-- f16：`fcs/fbw-override=1` 直接面控制实验已经验证无效；下一步应在默认 FBW 下按滚转率命令设计 orbit 横向控制；
-- f22：不能靠 override，必须按其 LQR tracker 期望输出滚转率/归一化滚转命令；
-- Autopilot 内部应区分 direct-surface、generic-AP、FBW-rate-command、自有 AP 四类横滚输出语义。
+**已落地**:
+- Autopilot 内部已区分 direct-surface、generic-AP、FBW-rate-command、自有 AP 四类横滚输出语义；
+- f16 的 generic AP 属性不再覆盖 FBW profile 判定；
+- f16 Orbit 使用 FBW roll-rate command，FlyToWaypoint 使用 profile 化的高速直接航向外环和扩展 capture 半径。
+
+**待继续**:
+- f22 不能靠 override，必须按其 LQR tracker 期望输出滚转率/归一化滚转命令；
+- f22 首要问题仍是当前空中初态下 trim 失败，需先区分 trim/初态问题与 FCS 接口问题。
 
 当前边界：
 
-- f16 `FlyToWaypoint` 已通过 10km 目标 + 3km 完成半径验证，剩余问题集中在 Orbit；
-- f16 Orbit sweep 在 1/3/6/10/20km 半径下全部横向不收敛，因此它不是单纯测试半径过紧；
+- f16 已从失败集合移除；
 - f22 `FlyToWaypoint` 仍失败且 trim 失败，不能按 f16 的完成半径问题处理。
 
 ### P2: Trim 失败机型 (B17, C130, L410)
@@ -358,11 +390,12 @@ Orbit sweep 补充显示：Concorde 的横向 orbit 半径在 1-10km 档可接�
 - `RunUntilDone` 忽略 `Step()` 返回值，模型停止运行和任务未完成可能被混合；
 - 部分 JSBSim XML 自带 output 文件（例如 `JSBoutB17.csv`）会尝试写当前目录，测试环境没有统一重定向或禁用输出。
 
-当前已补三个默认跳过的诊断探针：
+当前已补三个默认跳过的诊断探针，并在 aircraft profile CSV 中加入控制接口字段：
 
 - `FdAircraftProbe.EmitsAircraftProfileCsv`：输出 trim、AP 路径、FCS 接口、自由飞行和副翼响应；
 - `FdAircraftProbe.EmitsWaypointSweepCsv`：输出不同 waypoint 距离下的完成状态、最小距离、航向误差、滚转和副翼命令。
 - `FdAircraftProbe.EmitsOrbitSweepCsv`：输出不同 orbit 半径/初态下的半径误差、高度下限、滚转和坠毁状态。
+- `has_roll_rate_command` / `lateral_interface` / `engine_count`：用于判断失败是否与 XML 控制接口类型相关。
 
 后续正式测试应从这些探针中提炼稳定、语义单一的断言，而不是直接依赖一组跨所有机型的 5km mission 断言。
 

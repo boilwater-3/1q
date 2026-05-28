@@ -57,6 +57,7 @@ void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
   wp_manager_.AddWaypoint(target);
   wp_manager_.Start();
 
+  ap_.SetLateralGuidanceMode(autopilot::LateralGuidanceMode::kHeading);
   ap_.SetHeadingSourceIsWaypoint(true);
   ap_.SetRollAttitudeMode(1);
   ap_.SetRollAutopilotOn(true);
@@ -79,6 +80,7 @@ void ManeuverExecutor::ExecuteOrbit(const Waypoint& center, double radius_m) {
   wp_manager_.AddWaypoint(orbit_wp);
   wp_manager_.Start();
 
+  ap_.SetLateralGuidanceMode(autopilot::LateralGuidanceMode::kOrbit);
   ap_.SetHeadingSourceIsWaypoint(false);
   ap_.SetRollAttitudeMode(1);
   ap_.SetRollAutopilotOn(true);
@@ -93,6 +95,7 @@ void ManeuverExecutor::ExecuteSetHeading(double heading_rad) {
   active_ = true;
   elapsed_sec_ = 0.0;
 
+  ap_.SetLateralGuidanceMode(autopilot::LateralGuidanceMode::kHeading);
   ap_.SetHeadingSourceIsWaypoint(false);
   ap_.SetHeadingTargetRad(heading_rad);
   ap_.SetRollAttitudeMode(1);
@@ -136,6 +139,10 @@ bool ManeuverExecutor::IsManeuverComplete() const {
 
   switch (current_maneuver_.type) {
     case ManeuverType::kFlyToWaypoint:
+      if (ap_.GetControlProfile().lateral_interface ==
+          autopilot::LateralControlInterface::kFbwRateCommand) {
+        return wp_manager_.IsAtTarget(current_maneuver_.target.radius_m * 1.6);
+      }
       return wp_manager_.IsAtTarget();
     case ManeuverType::kOrbit:
       return false;

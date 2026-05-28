@@ -97,28 +97,22 @@ struct OrbitProbeResult {
 
 std::vector<AircraftProbeParam> ProbeAircraft() {
   return {
-      {"A4", 2000.0, 120.0},       {"F4N", 2000.0, 130.0},
-      {"F80C", 2000.0, 120.0},     {"f15", 3000.0, 200.0},
-      {"f16", 3000.0, 200.0},      {"f22", 3000.0, 200.0},
-      {"OV10", 500.0, 70.0},       {"B17", 1000.0, 80.0},
-      {"Boeing314", 500.0, 70.0},  {"C130", 1000.0, 90.0},
-      {"DHC6", 500.0, 55.0},       {"L410", 1000.0, 90.0},
-      {"737", 3000.0, 130.0},      {"B747", 3000.0, 140.0},
-      {"Concorde", 5000.0, 150.0}, {"MD11", 3000.0, 140.0},
-      {"c172p", 500.0, 50.0},      {"c172r", 500.0, 50.0},
-      {"c172x", 500.0, 50.0},      {"c182", 500.0, 55.0},
-      {"c310", 500.0, 65.0},
+      {"A4", 2000.0, 120.0},   {"F4N", 2000.0, 130.0},  {"F80C", 2000.0, 120.0},
+      {"f15", 3000.0, 200.0},  {"f16", 3000.0, 200.0},  {"f22", 3000.0, 200.0},
+      {"OV10", 500.0, 70.0},   {"B17", 1000.0, 80.0},   {"Boeing314", 500.0, 70.0},
+      {"C130", 1000.0, 90.0},  {"DHC6", 500.0, 55.0},   {"L410", 1000.0, 90.0},
+      {"737", 3000.0, 130.0},  {"B747", 3000.0, 140.0}, {"Concorde", 5000.0, 150.0},
+      {"MD11", 3000.0, 140.0}, {"c172p", 500.0, 50.0},  {"c172r", 500.0, 50.0},
+      {"c172x", 500.0, 50.0},  {"c182", 500.0, 55.0},   {"c310", 500.0, 65.0},
   };
 }
 
 std::vector<WaypointProbeParam> WaypointProbeAircraft() {
   return {
-      {"A4", 2000.0, 120.0},       {"F4N", 2000.0, 130.0},
-      {"F80C", 2000.0, 120.0},     {"f15", 3000.0, 200.0},
-      {"f16", 3000.0, 200.0},      {"f22", 3000.0, 200.0},
-      {"737", 3000.0, 130.0},
-      {"B747", 3000.0, 140.0},     {"Concorde", 5000.0, 150.0},
-      {"MD11", 3000.0, 140.0},     {"c310", 500.0, 65.0},
+      {"A4", 2000.0, 120.0},   {"F4N", 2000.0, 130.0},  {"F80C", 2000.0, 120.0},
+      {"f15", 3000.0, 200.0},  {"f16", 3000.0, 200.0},  {"f22", 3000.0, 200.0},
+      {"737", 3000.0, 130.0},  {"B747", 3000.0, 140.0}, {"Concorde", 5000.0, 150.0},
+      {"MD11", 3000.0, 140.0}, {"c310", 500.0, 65.0},
   };
 }
 
@@ -130,8 +124,7 @@ std::vector<OrbitProbeParam> OrbitProbeAircraft() {
   };
 }
 
-config::FlightDynamicConfig MakeConfig(const AircraftProbeParam& aircraft,
-                                       bool do_trim) {
+config::FlightDynamicConfig MakeConfig(const AircraftProbeParam& aircraft, bool do_trim) {
   config::FlightDynamicConfig config;
   config.aircraft_model = aircraft.model;
   config.aircraft_root_dir = FD_JSBSIM_ROOT_DIR;
@@ -151,21 +144,15 @@ config::FlightDynamicConfig MakeConfig(const AircraftProbeParam& aircraft,
   return config;
 }
 
-config::FlightDynamicConfig MakeWaypointConfig(
-    const WaypointProbeParam& aircraft) {
-  AircraftProbeParam param{aircraft.model, aircraft.altitude_m,
-                           aircraft.speed_mps};
+config::FlightDynamicConfig MakeWaypointConfig(const WaypointProbeParam& aircraft) {
+  AircraftProbeParam param{aircraft.model, aircraft.altitude_m, aircraft.speed_mps};
   return MakeConfig(param, true);
 }
 
 bool IsStable(const model::VehicleState& state) {
-  return std::isfinite(state.altitude_geod_m) &&
-         std::isfinite(state.vtrue_mps) &&
-         std::isfinite(state.phi_rad) &&
-         std::isfinite(state.theta_rad) &&
-         std::isfinite(state.psi_rad) &&
-         state.mass_kg > 0.0 &&
-         state.altitude_geod_m > 0.0 &&
+  return std::isfinite(state.altitude_geod_m) && std::isfinite(state.vtrue_mps) &&
+         std::isfinite(state.phi_rad) && std::isfinite(state.theta_rad) &&
+         std::isfinite(state.psi_rad) && state.mass_kg > 0.0 && state.altitude_geod_m > 0.0 &&
          state.vtrue_mps > 1.0;
 }
 
@@ -185,17 +172,16 @@ ProbeSnapshot RunProjectFreeFlight(adapter::JsbsimAdapter& adapter) {
     }
   }
 
-  const auto end = model::VehicleStateMapper::Map(
-      adapter.GetPropagate(), adapter.GetAccelerations(), adapter.GetFdmExec(),
-      snapshot.sim_time_sec);
+  const auto end =
+      model::VehicleStateMapper::Map(adapter.GetPropagate(), adapter.GetAccelerations(),
+                                     adapter.GetFdmExec(), snapshot.sim_time_sec);
   snapshot.alt_end_m = end.altitude_geod_m;
   snapshot.vt_end_mps = end.vtrue_mps;
   snapshot.stable = snapshot.run_ok && IsStable(end);
   return snapshot;
 }
 
-AileronProbe RunAileronProbe(const config::FlightDynamicConfig& config,
-                             double command) {
+AileronProbe RunAileronProbe(const config::FlightDynamicConfig& config, double command) {
   adapter::JsbsimAdapter adapter(config);
   const auto start = model::VehicleStateMapper::Map(
       adapter.GetPropagate(), adapter.GetAccelerations(), adapter.GetFdmExec(), 0.0);
@@ -214,31 +200,26 @@ AileronProbe RunAileronProbe(const config::FlightDynamicConfig& config,
   }
 
   const auto end = model::VehicleStateMapper::Map(
-      adapter.GetPropagate(), adapter.GetAccelerations(), adapter.GetFdmExec(),
-      200.0 * kDt);
+      adapter.GetPropagate(), adapter.GetAccelerations(), adapter.GetFdmExec(), 200.0 * kDt);
   AileronProbe result;
   result.roll_delta_rad = end.phi_rad - start.phi_rad;
   if (adapter.HasProperty("fcs/left-aileron-pos-rad")) {
-    result.left_aileron_delta_rad =
-        adapter.GetProperty("fcs/left-aileron-pos-rad") - left_start;
+    result.left_aileron_delta_rad = adapter.GetProperty("fcs/left-aileron-pos-rad") - left_start;
   }
   if (adapter.HasProperty("fcs/right-aileron-pos-rad")) {
-    result.right_aileron_delta_rad =
-        adapter.GetProperty("fcs/right-aileron-pos-rad") - right_start;
+    result.right_aileron_delta_rad = adapter.GetProperty("fcs/right-aileron-pos-rad") - right_start;
   }
   return result;
 }
 
-double DistanceToTargetM(const model::VehicleState& state,
-                         const guidance::Waypoint& target) {
+double DistanceToTargetM(const model::VehicleState& state, const guidance::Waypoint& target) {
   constexpr double kEarthRadiusM = 6378137.0;
   return std::hypot(target.latitude_rad - state.latitude_rad,
                     target.longitude_rad - state.longitude_rad) *
          kEarthRadiusM;
 }
 
-WaypointProbeResult RunWaypointProbe(const WaypointProbeParam& aircraft,
-                                     double target_distance_m) {
+WaypointProbeResult RunWaypointProbe(const WaypointProbeParam& aircraft, double target_distance_m) {
   constexpr double kInvSqrt2 = 0.7071067811865475;
   constexpr double kEarthRadiusM = 6378137.0;
   constexpr int kMaxSteps = 80000;
@@ -265,15 +246,13 @@ WaypointProbeResult RunWaypointProbe(const WaypointProbeParam& aircraft,
     const auto& state = fm.GetVehicleState();
     const double distance_m = DistanceToTargetM(state, target);
     result.min_distance_m = std::min(result.min_distance_m, distance_m);
-    result.max_abs_heading_error_rad = std::max(
-        result.max_abs_heading_error_rad,
-        std::abs(fm.GetAutopilot().GetAngleToHeadingRad()));
-    result.max_abs_roll_rad =
-        std::max(result.max_abs_roll_rad, std::abs(state.phi_rad));
+    result.max_abs_heading_error_rad = std::max(result.max_abs_heading_error_rad,
+                                                std::abs(fm.GetAutopilot().GetAngleToHeadingRad()));
+    result.max_abs_roll_rad = std::max(result.max_abs_roll_rad, std::abs(state.phi_rad));
     if (fm.GetAdapter().HasProperty("fcs/aileron-cmd-norm")) {
-      result.max_abs_aileron_cmd = std::max(
-          result.max_abs_aileron_cmd,
-          std::abs(fm.GetAdapter().GetProperty("fcs/aileron-cmd-norm")));
+      result.max_abs_aileron_cmd =
+          std::max(result.max_abs_aileron_cmd,
+                   std::abs(fm.GetAdapter().GetProperty("fcs/aileron-cmd-norm")));
     }
 
     if (state.altitude_geod_m <= 0.0) {
@@ -295,20 +274,17 @@ WaypointProbeResult RunWaypointProbe(const WaypointProbeParam& aircraft,
   result.sim_time_sec = final_state.sim_time_sec;
   result.final_altitude_m = final_state.altitude_geod_m;
   result.final_speed_mps = final_state.vtrue_mps;
-  result.final_heading_error_rad =
-      fm.GetAutopilot().GetAngleToHeadingRad();
+  result.final_heading_error_rad = fm.GetAutopilot().GetAngleToHeadingRad();
   return result;
 }
 
-OrbitProbeResult RunOrbitProbe(const OrbitProbeParam& aircraft,
-                               double orbit_radius_m,
+OrbitProbeResult RunOrbitProbe(const OrbitProbeParam& aircraft, double orbit_radius_m,
                                double center_distance_m) {
   constexpr double kInvSqrt2 = 0.7071067811865475;
   constexpr double kEarthRadiusM = 6378137.0;
   constexpr int kMaxSteps = 60000;
 
-  AircraftProbeParam aircraft_config{aircraft.model, aircraft.altitude_m,
-                                     aircraft.speed_mps};
+  AircraftProbeParam aircraft_config{aircraft.model, aircraft.altitude_m, aircraft.speed_mps};
   FlightManager fm(MakeConfig(aircraft_config, true));
 
   guidance::Waypoint center;
@@ -332,19 +308,15 @@ OrbitProbeResult RunOrbitProbe(const OrbitProbeParam& aircraft,
   for (int i = 0; i < kMaxSteps; ++i) {
     const bool running = fm.Step(kDt);
     const auto& state = fm.GetVehicleState();
-    const double distance_m =
-        std::hypot(center.latitude_rad - state.latitude_rad,
-                   center.longitude_rad - state.longitude_rad) *
-        kEarthRadiusM;
+    const double distance_m = std::hypot(center.latitude_rad - state.latitude_rad,
+                                         center.longitude_rad - state.longitude_rad) *
+                              kEarthRadiusM;
     result.min_distance_m = std::min(result.min_distance_m, distance_m);
     result.max_distance_m = std::max(result.max_distance_m, distance_m);
-    result.min_altitude_m =
-        std::min(result.min_altitude_m, state.altitude_geod_m);
-    result.max_abs_roll_rad =
-        std::max(result.max_abs_roll_rad, std::abs(state.phi_rad));
-    result.max_abs_heading_error_rad = std::max(
-        result.max_abs_heading_error_rad,
-        std::abs(fm.GetAutopilot().GetAngleToHeadingRad()));
+    result.min_altitude_m = std::min(result.min_altitude_m, state.altitude_geod_m);
+    result.max_abs_roll_rad = std::max(result.max_abs_roll_rad, std::abs(state.phi_rad));
+    result.max_abs_heading_error_rad = std::max(result.max_abs_heading_error_rad,
+                                                std::abs(fm.GetAutopilot().GetAngleToHeadingRad()));
 
     if (state.altitude_geod_m <= 0.0) {
       result.crashed = true;
@@ -357,10 +329,9 @@ OrbitProbeResult RunOrbitProbe(const OrbitProbeParam& aircraft,
   }
 
   const auto& final_state = fm.GetVehicleState();
-  result.final_distance_m =
-      std::hypot(center.latitude_rad - final_state.latitude_rad,
-                 center.longitude_rad - final_state.longitude_rad) *
-      kEarthRadiusM;
+  result.final_distance_m = std::hypot(center.latitude_rad - final_state.latitude_rad,
+                                       center.longitude_rad - final_state.longitude_rad) *
+                            kEarthRadiusM;
   result.sim_time_sec = final_state.sim_time_sec;
   result.final_altitude_m = final_state.altitude_geod_m;
   result.final_speed_mps = final_state.vtrue_mps;
@@ -368,8 +339,7 @@ OrbitProbeResult RunOrbitProbe(const OrbitProbeParam& aircraft,
 }
 
 bool ResetFileExists(const std::string& model) {
-  std::ifstream file(std::string(FD_JSBSIM_ROOT_DIR) + "/aircraft/" + model +
-                     "/reset00.xml");
+  std::ifstream file(std::string(FD_JSBSIM_ROOT_DIR) + "/aircraft/" + model + "/reset00.xml");
   return file.good();
 }
 
@@ -397,8 +367,8 @@ ProbeSnapshot RunResetFreeFlight(const AircraftProbeParam& aircraft) {
   }
   fdm.GetPropulsion()->InitRunning(-1);
 
-  const auto start = model::VehicleStateMapper::Map(
-      *fdm.GetPropagate(), *fdm.GetAccelerations(), fdm, 0.0);
+  const auto start =
+      model::VehicleStateMapper::Map(*fdm.GetPropagate(), *fdm.GetAccelerations(), fdm, 0.0);
   snapshot.alt_start_m = start.altitude_geod_m;
   snapshot.vt_start_mps = start.vtrue_mps;
 
@@ -411,8 +381,8 @@ ProbeSnapshot RunResetFreeFlight(const AircraftProbeParam& aircraft) {
     }
   }
 
-  const auto end = model::VehicleStateMapper::Map(
-      *fdm.GetPropagate(), *fdm.GetAccelerations(), fdm, snapshot.sim_time_sec);
+  const auto end = model::VehicleStateMapper::Map(*fdm.GetPropagate(), *fdm.GetAccelerations(), fdm,
+                                                  snapshot.sim_time_sec);
   snapshot.alt_end_m = end.altitude_geod_m;
   snapshot.vt_end_mps = end.vtrue_mps;
   snapshot.stable = snapshot.run_ok && std::isfinite(end.altitude_geod_m) &&
@@ -420,44 +390,48 @@ ProbeSnapshot RunResetFreeFlight(const AircraftProbeParam& aircraft) {
   return snapshot;
 }
 
-std::string CsvBool(bool value) {
-  return value ? "1" : "0";
+std::string CsvBool(bool value) { return value ? "1" : "0"; }
+
+std::string LateralInterfaceName(autopilot::LateralControlInterface lateral_interface) {
+  switch (lateral_interface) {
+    case autopilot::LateralControlInterface::kDirectSurface:
+      return "direct_surface";
+    case autopilot::LateralControlInterface::kGenericAutopilotBridge:
+      return "generic_ap_bridge";
+    case autopilot::LateralControlInterface::kOwnAutopilot:
+      return "own_ap";
+    case autopilot::LateralControlInterface::kFbwRateCommand:
+      return "fbw_rate_command";
+  }
+  return "unknown";
 }
 
-void WriteProjectRow(std::ostream& out,
-                     const AircraftProbeParam& aircraft,
-                     bool do_trim) {
+void WriteProjectRow(std::ostream& out, const AircraftProbeParam& aircraft, bool do_trim) {
   const auto config = MakeConfig(aircraft, do_trim);
   try {
     adapter::JsbsimAdapter adapter(config);
+    autopilot::Autopilot ap(adapter);
+    const auto& profile = ap.GetControlProfile();
     const ProbeSnapshot snapshot = RunProjectFreeFlight(adapter);
     const AileronProbe pos = RunAileronProbe(config, 0.2);
     const AileronProbe neg = RunAileronProbe(config, -0.2);
 
-    out << aircraft.model << ",project_air_" << (do_trim ? "trim_on" : "trim_off")
-        << "," << CsvBool(adapter.TrimAttempted())
-        << "," << CsvBool(adapter.TrimSucceeded())
-        << "," << CsvBool(adapter.HasProperty("ap/heading_hold"))
-        << "," << CsvBool(adapter.HasProperty("ap/autopilot-roll-on"))
-        << "," << CsvBool(adapter.HasProperty("fcs/fbw-override"))
-        << "," << CsvBool(adapter.HasProperty("fcs/aileron-cmd-norm"))
-        << "," << CsvBool(snapshot.run_ok)
-        << "," << CsvBool(snapshot.stable)
-        << "," << snapshot.sim_time_sec
-        << "," << snapshot.alt_start_m
-        << "," << snapshot.alt_end_m
-        << "," << snapshot.alt_end_m - snapshot.alt_start_m
-        << "," << snapshot.vt_start_mps
-        << "," << snapshot.vt_end_mps
-        << "," << pos.roll_delta_rad
-        << "," << neg.roll_delta_rad
-        << "," << pos.left_aileron_delta_rad
-        << "," << pos.right_aileron_delta_rad
-        << ",ok\n";
+    out << aircraft.model << ",project_air_" << (do_trim ? "trim_on" : "trim_off") << ","
+        << CsvBool(adapter.TrimAttempted()) << "," << CsvBool(adapter.TrimSucceeded()) << ","
+        << CsvBool(adapter.HasProperty("ap/heading_hold")) << ","
+        << CsvBool(adapter.HasProperty("ap/autopilot-roll-on")) << ","
+        << CsvBool(adapter.HasProperty("fcs/fbw-override")) << ","
+        << CsvBool(profile.has_roll_rate_command) << ","
+        << CsvBool(adapter.HasProperty("fcs/aileron-cmd-norm")) << ","
+        << LateralInterfaceName(profile.lateral_interface) << "," << profile.engine_count << ","
+        << CsvBool(snapshot.run_ok) << "," << CsvBool(snapshot.stable) << ","
+        << snapshot.sim_time_sec << "," << snapshot.alt_start_m << "," << snapshot.alt_end_m << ","
+        << snapshot.alt_end_m - snapshot.alt_start_m << "," << snapshot.vt_start_mps << ","
+        << snapshot.vt_end_mps << "," << pos.roll_delta_rad << "," << neg.roll_delta_rad << ","
+        << pos.left_aileron_delta_rad << "," << pos.right_aileron_delta_rad << ",ok\n";
   } catch (const std::exception& ex) {
     out << aircraft.model << ",project_air_" << (do_trim ? "trim_on" : "trim_off")
-        << ",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,error:" << ex.what()
-        << "\n";
+        << ",0,0,0,0,0,0,0,unknown,0,0,0,0,0,0,0,0,0,0,0,0,0,error:" << ex.what() << "\n";
   }
 }
 
@@ -465,16 +439,11 @@ void WriteResetRow(std::ostream& out, const AircraftProbeParam& aircraft) {
   const ProbeSnapshot snapshot = RunResetFreeFlight(aircraft);
   const std::string note = ResetFileExists(aircraft.model) ? "ok" : "no_reset00";
   out << aircraft.model << ",jsbsim_reset00"
-      << ",0,0,0,0,0,0"
-      << "," << CsvBool(snapshot.run_ok)
-      << "," << CsvBool(snapshot.stable)
-      << "," << snapshot.sim_time_sec
-      << "," << snapshot.alt_start_m
-      << "," << snapshot.alt_end_m
-      << "," << snapshot.alt_end_m - snapshot.alt_start_m
-      << "," << snapshot.vt_start_mps
-      << "," << snapshot.vt_end_mps
-      << ",0,0,0,0," << note << "\n";
+      << ",0,0,0,0,0,0,0,unknown,0"
+      << "," << CsvBool(snapshot.run_ok) << "," << CsvBool(snapshot.stable) << ","
+      << snapshot.sim_time_sec << "," << snapshot.alt_start_m << "," << snapshot.alt_end_m << ","
+      << snapshot.alt_end_m - snapshot.alt_start_m << "," << snapshot.vt_start_mps << ","
+      << snapshot.vt_end_mps << ",0,0,0,0," << note << "\n";
 }
 
 TEST(FdAircraftProbe, EmitsAircraftProfileCsv) {
@@ -484,15 +453,15 @@ TEST(FdAircraftProbe, EmitsAircraftProfileCsv) {
   }
 
   const char* csv_env = std::getenv("FD_AIRCRAFT_PROBE_CSV");
-  const std::string csv_path =
-      csv_env != nullptr ? csv_env : "/tmp/1q_aircraft_probe.csv";
+  const std::string csv_path = csv_env != nullptr ? csv_env : "/tmp/1q_aircraft_probe.csv";
   std::ofstream out(csv_path);
   ASSERT_TRUE(out.is_open()) << csv_path;
 
   out << std::fixed << std::setprecision(6);
   out << "model,scenario,trim_attempted,trim_succeeded,has_own_ap,"
-         "has_generic_ap,has_fbw,has_aileron_cmd,run_ok,stable,"
-         "sim_time_sec,alt_start_m,alt_end_m,alt_delta_m,vt_start_mps,"
+         "has_generic_ap,has_fbw,has_roll_rate_command,has_aileron_cmd,"
+         "lateral_interface,engine_count,run_ok,stable,sim_time_sec,alt_start_m,"
+         "alt_end_m,alt_delta_m,vt_start_mps,"
          "vt_end_mps,roll_pos_delta_rad,roll_neg_delta_rad,"
          "left_aileron_pos_delta_rad,right_aileron_pos_delta_rad,note\n";
 
@@ -510,8 +479,7 @@ TEST(FdAircraftProbe, EmitsWaypointSweepCsv) {
   }
 
   const char* csv_env = std::getenv("FD_WAYPOINT_PROBE_CSV");
-  const std::string csv_path =
-      csv_env != nullptr ? csv_env : "/tmp/1q_waypoint_probe.csv";
+  const std::string csv_path = csv_env != nullptr ? csv_env : "/tmp/1q_waypoint_probe.csv";
   std::ofstream out(csv_path);
   ASSERT_TRUE(out.is_open()) << csv_path;
 
@@ -523,24 +491,14 @@ TEST(FdAircraftProbe, EmitsWaypointSweepCsv) {
 
   for (const auto& aircraft : WaypointProbeAircraft()) {
     for (double target_distance_m : {5000.0, 10000.0, 20000.0}) {
-      const WaypointProbeResult result =
-          RunWaypointProbe(aircraft, target_distance_m);
-      out << aircraft.model
-          << "," << result.target_distance_m
-          << "," << result.init_distance_m
-          << "," << result.min_distance_m
-          << "," << result.final_distance_m
-          << "," << CsvBool(result.completed)
-          << "," << CsvBool(result.crashed)
-          << "," << CsvBool(result.stopped)
-          << "," << result.sim_time_sec
-          << "," << result.final_altitude_m
-          << "," << result.final_speed_mps
-          << "," << result.final_heading_error_rad
-          << "," << result.max_abs_heading_error_rad
-          << "," << result.max_abs_roll_rad
-          << "," << result.max_abs_aileron_cmd
-          << "\n";
+      const WaypointProbeResult result = RunWaypointProbe(aircraft, target_distance_m);
+      out << aircraft.model << "," << result.target_distance_m << "," << result.init_distance_m
+          << "," << result.min_distance_m << "," << result.final_distance_m << ","
+          << CsvBool(result.completed) << "," << CsvBool(result.crashed) << ","
+          << CsvBool(result.stopped) << "," << result.sim_time_sec << "," << result.final_altitude_m
+          << "," << result.final_speed_mps << "," << result.final_heading_error_rad << ","
+          << result.max_abs_heading_error_rad << "," << result.max_abs_roll_rad << ","
+          << result.max_abs_aileron_cmd << "\n";
     }
   }
 }
@@ -552,8 +510,7 @@ TEST(FdAircraftProbe, EmitsOrbitSweepCsv) {
   }
 
   const char* csv_env = std::getenv("FD_ORBIT_PROBE_CSV");
-  const std::string csv_path =
-      csv_env != nullptr ? csv_env : "/tmp/1q_orbit_probe.csv";
+  const std::string csv_path = csv_env != nullptr ? csv_env : "/tmp/1q_orbit_probe.csv";
   std::ofstream out(csv_path);
   ASSERT_TRUE(out.is_open()) << csv_path;
 
@@ -565,25 +522,14 @@ TEST(FdAircraftProbe, EmitsOrbitSweepCsv) {
 
   for (const auto& aircraft : OrbitProbeAircraft()) {
     for (double radius_m : {1000.0, 3000.0, 6000.0, 10000.0, 20000.0}) {
-      const OrbitProbeResult result =
-          RunOrbitProbe(aircraft, radius_m, radius_m * 2.0);
-      out << aircraft.model
-          << "," << aircraft.altitude_m
-          << "," << aircraft.speed_mps
-          << "," << result.orbit_radius_m
-          << "," << result.center_distance_m
-          << "," << result.final_distance_m
-          << "," << result.min_distance_m
-          << "," << result.max_distance_m
-          << "," << result.sim_time_sec
-          << "," << result.final_altitude_m
-          << "," << result.min_altitude_m
-          << "," << result.final_speed_mps
-          << "," << result.max_abs_roll_rad
-          << "," << result.max_abs_heading_error_rad
-          << "," << CsvBool(result.crashed)
-          << "," << CsvBool(result.stopped)
-          << "\n";
+      const OrbitProbeResult result = RunOrbitProbe(aircraft, radius_m, radius_m * 2.0);
+      out << aircraft.model << "," << aircraft.altitude_m << "," << aircraft.speed_mps << ","
+          << result.orbit_radius_m << "," << result.center_distance_m << ","
+          << result.final_distance_m << "," << result.min_distance_m << "," << result.max_distance_m
+          << "," << result.sim_time_sec << "," << result.final_altitude_m << ","
+          << result.min_altitude_m << "," << result.final_speed_mps << ","
+          << result.max_abs_roll_rad << "," << result.max_abs_heading_error_rad << ","
+          << CsvBool(result.crashed) << "," << CsvBool(result.stopped) << "\n";
     }
   }
 }

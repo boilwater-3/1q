@@ -4,8 +4,8 @@
 #include <string>
 
 #include "1q/flight_dynamic/FlightManager.h"
-#include "1q/flight_dynamic/config/FlightDynamicConfig.h"
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
+#include "1q/flight_dynamic/config/FlightDynamicConfig.h"
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
 #include "fd_test_helpers.h"
 
@@ -21,8 +21,7 @@ class FlightDynamicTest : public ::testing::Test {
     config_.dt_sec = kDt;
     config_.do_trim = true;
     config_.silent_mode = true;
-    config_.initial_kinematics.position_frame =
-        coordinate::PositionFrame::kLla;
+    config_.initial_kinematics.position_frame = coordinate::PositionFrame::kLla;
     config_.initial_kinematics.position_lla_deg_m.latitude_deg = 0.0;
     config_.initial_kinematics.position_lla_deg_m.longitude_deg = 0.0;
     config_.initial_kinematics.position_lla_deg_m.altitude_m = 500.0;
@@ -54,6 +53,33 @@ TEST_F(FlightDynamicTest, VehicleStatePopulated) {
   EXPECT_GT(state.sim_time_sec, 0.0);
   EXPECT_GT(state.mass_kg, 0.0);
   ExpectNoNaN(state);
+}
+
+TEST_F(FlightDynamicTest, AutopilotDetectsOwnApProfile) {
+  FlightManager fm(config_);
+  const auto& profile = fm.GetAutopilot().GetControlProfile();
+
+  EXPECT_EQ(profile.lateral_interface, autopilot::LateralControlInterface::kOwnAutopilot);
+  EXPECT_TRUE(profile.has_own_autopilot);
+  EXPECT_TRUE(profile.has_aileron_command);
+  EXPECT_EQ(profile.engine_count, 1);
+}
+
+TEST_F(FlightDynamicTest, AutopilotDetectsFbwProfile) {
+  config_.aircraft_model = "f16";
+  config_.initial_kinematics.position_lla_deg_m.altitude_m = 3000.0;
+  config_.initial_kinematics.velocity_mps.x_mps = 200.0;
+
+  FlightManager fm(config_);
+  const auto& profile = fm.GetAutopilot().GetControlProfile();
+
+  EXPECT_EQ(profile.lateral_interface, autopilot::LateralControlInterface::kFbwRateCommand);
+  EXPECT_FALSE(profile.has_own_autopilot);
+  EXPECT_TRUE(profile.has_generic_autopilot);
+  EXPECT_TRUE(profile.has_fbw_override);
+  EXPECT_TRUE(profile.has_roll_rate_command);
+  EXPECT_TRUE(profile.has_aileron_command);
+  EXPECT_EQ(profile.engine_count, 1);
 }
 
 TEST_F(FlightDynamicTest, AutopilotSetsHeading) {
@@ -116,10 +142,8 @@ TEST_F(FlightDynamicTest, FlyToWaypointManeuver) {
   EXPECT_TRUE(fm.GetState() == FlightManagerState::kExecuting ||
               fm.GetState() == FlightManagerState::kCompleted);
 
-  double pos_change =
-      std::hypot(lat_after - lat_before, lon_after - lon_before);
-  EXPECT_GT(pos_change, 0.0)
-      << "Aircraft position should change during FlyToWaypoint";
+  double pos_change = std::hypot(lat_after - lat_before, lon_after - lon_before);
+  EXPECT_GT(pos_change, 0.0) << "Aircraft position should change during FlyToWaypoint";
 }
 
 TEST_F(FlightDynamicTest, FlyToWaypointNearbyCompletesManeuver) {
@@ -194,8 +218,7 @@ TEST_F(FlightDynamicTest, OrbitManeuver) {
 
   double lat_after = fm.GetVehicleState().latitude_rad;
   double lon_after = fm.GetVehicleState().longitude_rad;
-  double lateral =
-      std::hypot(lat_after - lat_before, lon_after - lon_before);
+  double lateral = std::hypot(lat_after - lat_before, lon_after - lon_before);
   EXPECT_GT(lateral, 0.0) << "Aircraft should move during orbit";
 }
 
@@ -236,8 +259,7 @@ TEST_F(FlightDynamicTest, SetPitchManeuver) {
   constexpr double kTargetPitchRad = 5.0 * kPi / 180.0;
   double pitch_rad = fm.GetVehicleState().theta_rad;
   EXPECT_NEAR(pitch_rad, kTargetPitchRad, 0.35)
-      << "Pitch should be near 5 deg target, got "
-      << pitch_rad * 180.0 / kPi << " deg";
+      << "Pitch should be near 5 deg target, got " << pitch_rad * 180.0 / kPi << " deg";
 }
 
 TEST_F(FlightDynamicTest, SetRollManeuver) {
@@ -271,8 +293,7 @@ TEST_F(FlightDynamicTest, SetAltitudeManeuver) {
   double alt_after = fm.GetVehicleState().altitude_geod_m;
   EXPECT_TRUE(fm.GetState() == FlightManagerState::kExecuting ||
               fm.GetState() == FlightManagerState::kCompleted);
-  EXPECT_GT(alt_after, alt_before)
-      << "Altitude should increase when targeting 600m from ~500m";
+  EXPECT_GT(alt_after, alt_before) << "Altitude should increase when targeting 600m from ~500m";
 }
 
 TEST_F(FlightDynamicTest, AbortManeuver) {
