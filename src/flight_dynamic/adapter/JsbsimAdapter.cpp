@@ -3,6 +3,7 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "1q/coordinate/position_transform.h"
 #include "FGFDMExec.h"
 #include "initialization/FGInitialCondition.h"
 #include "models/FGPropulsion.h"
@@ -51,6 +52,17 @@ void ResetControlStateAfterTrimFailure(JSBSim::FGFDMExec& fdm_exec) {
   }
 }
 
+double InitialAltitudeM(const coordinate::ExternalKinematics& kinematics) {
+  if (kinematics.position_frame == coordinate::PositionFrame::kLla) {
+    return kinematics.position_lla_deg_m.altitude_m;
+  }
+  coordinate::LlaPositionDegM lla;
+  if (coordinate::TryEcefToLla(kinematics.position_ecef_m, &lla)) {
+    return lla.altitude_m;
+  }
+  return 0.0;
+}
+
 }  // namespace
 
 JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
@@ -77,7 +89,7 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
 
   // Start all engines so that JSBSim can trim longitudinal velocity (udot).
   fdm_exec_->GetPropulsion()->InitRunning(-1);
-  if (config.initial_kinematics.position_lla_deg_m.altitude_m > 10.0) {
+  if (InitialAltitudeM(config.initial_kinematics) > 10.0) {
     RetractLandingGearIfModeled(*fdm_exec_);
   }
 
@@ -95,7 +107,7 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
         throw std::runtime_error("JsbsimAdapter: RunIC() failed after trim recovery");
       }
       fdm_exec_->GetPropulsion()->InitRunning(-1);
-      if (config.initial_kinematics.position_lla_deg_m.altitude_m > 10.0) {
+      if (InitialAltitudeM(config.initial_kinematics) > 10.0) {
         RetractLandingGearIfModeled(*fdm_exec_);
       }
       ResetControlStateAfterTrimFailure(*fdm_exec_);
