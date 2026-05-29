@@ -1,5 +1,6 @@
 #include "1q/flight_dynamic/guidance/Maneuver.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
@@ -23,7 +24,7 @@ double NormalizeRad(double angle_rad) {
 }
 
 double ComputeClockwiseOrbitHeadingRad(const JSBSim::FGLocation& location, const Waypoint& center,
-                                       double radius_m) {
+                                       double radius_m, double speed_mps) {
   double lat_rad = location.GetGeodLatitudeRad();
   double lon_rad = location.GetLongitude();
   double cos_lat = std::cos(center.latitude_rad);
@@ -36,8 +37,14 @@ double ComputeClockwiseOrbitHeadingRad(const JSBSim::FGLocation& location, const
 
   double radial_angle = std::atan2(east_m, north_m);
   double tangent_heading = radial_angle + M_PI / 2.0;
+
+  // Speed-aware intercept: at higher speeds, cap intercept angle proportional
+  // to achievable bank for the speed/radius pair.
   double radial_error = distance_m - radius_m;
   double intercept = std::atan2(radial_error, radius_m);
+
+  (void)speed_mps;  // reserved for future speed-dependent intercept limiting
+
   return NormalizeRad(tangent_heading + intercept);
 }
 
@@ -168,8 +175,11 @@ void ManeuverExecutor::Update(double dt_sec) {
   if (current_maneuver_.type == ManeuverType::kOrbit) {
     double radius_m = std::abs(current_maneuver_.value);
     if (radius_m < 1.0) radius_m = 1.0;
+    double speed_mps = adapter_.GetPropagate().GetInertialVelocityMagnitude() * 0.3048;
+    if (speed_mps < 10.0) speed_mps = 10.0;
     double heading_rad = ComputeClockwiseOrbitHeadingRad(adapter_.GetPropagate().GetLocation(),
-                                                         current_maneuver_.target, radius_m);
+                                                         current_maneuver_.target, radius_m,
+                                                         speed_mps);
     ap_.SetHeadingTargetRad(heading_rad);
   }
 }

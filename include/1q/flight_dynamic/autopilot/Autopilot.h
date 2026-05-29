@@ -1,6 +1,8 @@
 #ifndef ONEQ_FLIGHT_DYNAMIC_AUTOPILOT_AUTOPILOT_H_
 #define ONEQ_FLIGHT_DYNAMIC_AUTOPILOT_AUTOPILOT_H_
 
+#include <string>
+
 namespace oneq {
 namespace flight_dynamic {
 namespace adapter {
@@ -20,6 +22,18 @@ enum class LateralControlInterface {
   kFbwRateCommand,
 };
 
+enum class FbwSubtype {
+  kNone,
+  kRollRatePid,
+  kRateIntegratorActuator,
+};
+
+enum class PitchControlInterface {
+  kDirectSurface,
+  kFbwScheduled,
+  kNativeAutopilot,
+};
+
 enum class LateralGuidanceMode {
   kHeading,
   kOrbit,
@@ -27,12 +41,20 @@ enum class LateralGuidanceMode {
 
 struct AircraftControlProfile {
   LateralControlInterface lateral_interface = LateralControlInterface::kDirectSurface;
+  PitchControlInterface pitch_interface = PitchControlInterface::kDirectSurface;
+  FbwSubtype fbw_subtype = FbwSubtype::kNone;
+
   bool has_own_autopilot = false;
   bool has_generic_autopilot = false;
   bool has_fbw_override = false;
   bool has_roll_rate_command = false;
   bool has_aileron_command = false;
+
+  bool indexed_throttle = false;
   int engine_count = 0;
+  bool has_mixture = false;
+
+  std::string yaw_input_property;
 };
 
 class Autopilot {

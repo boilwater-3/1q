@@ -131,6 +131,50 @@ TEST_F(FlightDynamicTest, AutopilotDetectsFbwProfile) {
   EXPECT_TRUE(profile.has_roll_rate_command);
   EXPECT_TRUE(profile.has_aileron_command);
   EXPECT_EQ(profile.engine_count, 1);
+  EXPECT_EQ(profile.fbw_subtype, autopilot::FbwSubtype::kRollRatePid);
+}
+
+TEST_F(FlightDynamicTest, AutopilotDetectsF22Profile) {
+  config_.aircraft_model = "f22";
+  config_.initial_kinematics.position_lla_deg_m.altitude_m = 3000.0;
+  config_.initial_kinematics.velocity_mps.x_mps = 200.0;
+
+  FlightManager fm(config_);
+  const auto& profile = fm.GetAutopilot().GetControlProfile();
+
+  // f22 has project-injected Autopilot system which provides ap/heading_hold,
+  // so it's detected as kOwnAutopilot, but FBW subtype is integrator+actuator.
+  EXPECT_EQ(profile.fbw_subtype, autopilot::FbwSubtype::kRateIntegratorActuator);
+  EXPECT_EQ(profile.engine_count, 2);
+  EXPECT_TRUE(profile.indexed_throttle);
+}
+
+TEST_F(FlightDynamicTest, AutopilotDetectsC310Profile) {
+  config_.aircraft_model = "c310";
+  config_.initial_kinematics.position_lla_deg_m.altitude_m = 500.0;
+  config_.initial_kinematics.velocity_mps.x_mps = 65.0;
+
+  FlightManager fm(config_);
+  const auto& profile = fm.GetAutopilot().GetControlProfile();
+
+  // c310 has project-injected Autopilot system providing ap/heading_hold.
+  EXPECT_EQ(profile.engine_count, 2);
+  EXPECT_TRUE(profile.indexed_throttle);
+  EXPECT_FALSE(profile.yaw_input_property.empty());
+}
+
+TEST_F(FlightDynamicTest, AutopilotDetectsConcordeProfile) {
+  config_.aircraft_model = "Concorde";
+  config_.initial_kinematics.position_lla_deg_m.altitude_m = 5000.0;
+  config_.initial_kinematics.velocity_mps.x_mps = 150.0;
+
+  FlightManager fm(config_);
+  const auto& profile = fm.GetAutopilot().GetControlProfile();
+
+  // Concorde has project-injected AP system, detected as generic AP bridge.
+  EXPECT_EQ(profile.engine_count, 4);
+  EXPECT_TRUE(profile.indexed_throttle);
+  EXPECT_EQ(profile.yaw_input_property, "fcs/rudder-pedal-norm");
 }
 
 TEST_F(FlightDynamicTest, AutopilotSetsHeading) {

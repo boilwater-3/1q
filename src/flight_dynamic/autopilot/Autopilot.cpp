@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
+#include "flight_dynamic/adapter/PropertyNames.h"
 #include "math/FGLocation.h"
 #include "models/FGPropagate.h"
 #include "models/FGPropulsion.h"
@@ -44,17 +45,49 @@ constexpr double kRefSpeedFps = 164.0;  // ~50 m/s reference (c172x cruise)
 
 Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   auto* pm = adapter.GetFdmExec().GetPropertyManager().get();
-  control_profile_.has_own_autopilot = pm->GetNode("ap/heading_hold") != nullptr;
-  control_profile_.has_generic_autopilot = pm->GetNode("ap/autopilot-roll-on") != nullptr;
-  control_profile_.has_fbw_override = pm->GetNode("fcs/fbw-override") != nullptr;
-  control_profile_.has_roll_rate_command = pm->GetNode("fcs/roll-rate-command") != nullptr ||
-                                           pm->GetNode("fcs/roll-rate-cmd") != nullptr;
-  control_profile_.has_aileron_command = pm->GetNode("fcs/aileron-cmd-norm") != nullptr;
+  control_profile_.has_own_autopilot = pm->GetNode(adapter::property::kApHeadingHold) != nullptr;
+  control_profile_.has_generic_autopilot = pm->GetNode(adapter::property::kApRollOn) != nullptr;
+  control_profile_.has_fbw_override = pm->GetNode(adapter::property::kApFbwOverride) != nullptr;
+  control_profile_.has_roll_rate_command = pm->GetNode(adapter::property::kRollRateCommand) != nullptr ||
+                                           pm->GetNode(adapter::property::kRollRateCmd) != nullptr;
+  control_profile_.has_aileron_command = pm->GetNode(adapter::property::kAileronCmd) != nullptr;
+
+  // Engine count and indexed throttle detection
   const auto propulsion = adapter_.GetFdmExec().GetPropulsion();
   if (propulsion) {
     control_profile_.engine_count = static_cast<int>(propulsion->GetNumEngines());
+    if (control_profile_.engine_count > 1) {
+      control_profile_.indexed_throttle =
+          pm->GetNode("fcs/throttle-cmd-norm[1]") != nullptr;
+    }
   }
 
+  // Mixture detection (piston aircraft)
+  control_profile_.has_mixture = pm->GetNode("fcs/mixture-cmd-norm") != nullptr;
+
+  // FBW subtype detection: f16 has roll-rate PID, f22 has rate integrator+actuator
+  if (pm->GetNode("fcs/aileron-act") != nullptr &&
+      pm->GetNode(adapter::property::kRollCmd) != nullptr) {
+    control_profile_.fbw_subtype = FbwSubtype::kRateIntegratorActuator;
+  } else if (control_profile_.has_roll_rate_command) {
+    control_profile_.fbw_subtype = FbwSubtype::kRollRatePid;
+  }
+
+  // Yaw input property detection
+  if (pm->GetNode("fcs/rudder-pedal-norm") != nullptr) {
+    control_profile_.yaw_input_property = "fcs/rudder-pedal-norm";
+  } else if (pm->GetNode(adapter::property::kRudderCmd) != nullptr) {
+    control_profile_.yaw_input_property = adapter::property::kRudderCmd;
+  }
+
+  // Pitch interface detection
+  if (control_profile_.has_own_autopilot || control_profile_.has_generic_autopilot) {
+    control_profile_.pitch_interface = PitchControlInterface::kNativeAutopilot;
+  } else if (pm->GetNode("fcs/pitch-rate-cmd") != nullptr) {
+    control_profile_.pitch_interface = PitchControlInterface::kFbwScheduled;
+  }
+
+  // Lateral interface selection
   if (control_profile_.has_own_autopilot) {
     control_profile_.lateral_interface = LateralControlInterface::kOwnAutopilot;
   } else if (control_profile_.has_fbw_override || control_profile_.has_roll_rate_command) {
@@ -74,29 +107,29 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
 void Autopilot::SetHeadingTargetRad(double heading_rad) {
   target_heading_rad_ = heading_rad;
   if (!use_cpp_ap_) {
-    adapter_.SetProperty("guidance/specified-heading-rad", heading_rad);
-    adapter_.SetProperty("ap/heading_setpoint", RadToDeg360(heading_rad));
+    adapter_.SetProperty(adapter::property::kGuidanceHeadingRad, heading_rad);
+    adapter_.SetProperty(adapter::property::kApHeadingSetpoint, RadToDeg360(heading_rad));
   }
 }
 
 void Autopilot::SetHeadingHold(bool on) {
   heading_hold_ = on;
   if (!use_cpp_ap_) {
-    adapter_.SetProperty("ap/heading_hold", on ? 1.0 : 0.0);
+    adapter_.SetProperty(adapter::property::kApHeadingHold, on ? 1.0 : 0.0);
   }
 }
 
 void Autopilot::SetHeadingSourceIsWaypoint(bool from_waypoint) {
   heading_src_wp_ = from_waypoint;
   if (!use_cpp_ap_) {
-    adapter_.SetProperty("guidance/heading-selector-switch", from_waypoint ? 0.0 : 1.0);
+    adapter_.SetProperty(adapter::property::kGuidanceHeadingSwitch, from_waypoint ? 0.0 : 1.0);
   }
 }
 
 void Autopilot::SetAltitudeTargetM(double altitude_m) {
   target_altitude_m_ = altitude_m;
   if (!use_cpp_ap_) {
-    adapter_.SetProperty("ap/altitude_setpoint", altitude_m * kMToFt);
+    adapter_.SetProperty(adapter::property::kApAltitudeSetpoint, altitude_m * kMToFt);
   }
 }
 
@@ -105,14 +138,14 @@ void Autopilot::SetAltitudeHold(bool on) { altitude_hold_ = on; }
 void Autopilot::SetPitchTargetDeg(double pitch_deg) {
   target_pitch_deg_ = pitch_deg;
   if (!use_cpp_ap_) {
-    adapter_.SetProperty("ap/pitch-target-deg", pitch_deg);
+    adapter_.SetProperty(adapter::property::kApPitchTarget, pitch_deg);
   }
 }
 
 void Autopilot::SetPitchHold(bool on) {
   pitch_hold_ = on;
   if (!use_cpp_ap_) {
-    adapter_.SetProperty("ap/pitch-hold", on ? 1.0 : 0.0);
+    adapter_.SetProperty(adapter::property::kApPitchHold, on ? 1.0 : 0.0);
   }
 }
 
@@ -121,19 +154,19 @@ void Autopilot::SetLateralGuidanceMode(LateralGuidanceMode mode) { lateral_guida
 void Autopilot::SetRollAttitudeMode(int mode) {
   roll_mode_ = mode;
   if (!use_cpp_ap_) {
-    adapter_.SetProperty("ap/roll-attitude-mode", static_cast<double>(mode));
+    adapter_.SetProperty(adapter::property::kApRollAttitudeMode, static_cast<double>(mode));
   }
 }
 
 void Autopilot::SetRollAutopilotOn(bool on) {
   roll_ap_on_ = on;
   if (!use_cpp_ap_) {
-    adapter_.SetProperty("ap/autopilot-roll-on", on ? 1.0 : 0.0);
+    adapter_.SetProperty(adapter::property::kApRollOn, on ? 1.0 : 0.0);
   }
 }
 
 void Autopilot::SetThrottleCmdNorm(double value) {
-  adapter_.SetProperty("fcs/throttle-cmd-norm", value);
+  adapter_.SetProperty(adapter::property::kThrottleCmd, value);
   if (control_profile_.lateral_interface != LateralControlInterface::kOwnAutopilot) {
     return;
   }
@@ -147,13 +180,13 @@ void Autopilot::SetThrottleCmdNorm(double value) {
 }
 
 void Autopilot::SetThrottleCmd(int engine, double value) {
-  std::string prop = "fcs/throttle-cmd-norm[" + std::to_string(engine) + "]";
+  std::string prop = std::string(adapter::property::kThrottleCmd) + "[" + std::to_string(engine) + "]";
   adapter_.SetProperty(prop, value);
 }
 
 void Autopilot::SetYawDamper(bool on) {
   if (!use_cpp_ap_) {
-    adapter_.SetProperty("ap/yaw_damper", on ? 1.0 : 0.0);
+    adapter_.SetProperty(adapter::property::kApYawDamper, on ? 1.0 : 0.0);
   }
 }
 
@@ -164,18 +197,18 @@ double Autopilot::GetAngleToHeadingRad() const {
     double current_heading = propagate.GetEuler(3);
     double target_heading = target_heading_rad_;
     if (heading_src_wp_) {
-      double target_lat = adapter_.GetProperty("guidance/target_wp_latitude_rad");
-      double target_lon = adapter_.GetProperty("guidance/target_wp_longitude_rad");
+      double target_lat = adapter_.GetProperty(adapter::property::kGuidanceTargetWpLat);
+      double target_lon = adapter_.GetProperty(adapter::property::kGuidanceTargetWpLon);
       target_heading = propagate.GetLocation().GetHeadingTo(target_lon, target_lat);
     }
     return NormalizeRad(target_heading - current_heading);
   } else {
-    return adapter_.GetProperty("guidance/angle-to-heading-rad");
+    return adapter_.GetProperty(adapter::property::kGuidanceAngleToHeading);
   }
 }
 
 double Autopilot::GetAltitudeAGLM() const {
-  return adapter_.GetProperty("position/h-agl-ft") * kFtToM;
+  return adapter_.GetProperty(adapter::property::kHaglFt) * kFtToM;
 }
 
 double Autopilot::GetAltitudeASLM() const {
@@ -192,7 +225,7 @@ void Autopilot::Update(double /*dt_sec*/) {
     double r = propagate.GetPQR(3);
     double rudder = -0.15 * r;
     rudder = Clamp(rudder, -1.0, 1.0);
-    adapter_.SetProperty("fcs/rudder-cmd-norm", rudder);
+    adapter_.SetProperty(adapter::property::kRudderCmd, rudder);
     return;
   }
 
@@ -206,7 +239,7 @@ void Autopilot::Update(double /*dt_sec*/) {
     double r = propagate.GetPQR(3);
     double rudder = -0.15 * r;
     rudder = Clamp(rudder, -1.0, 1.0);
-    adapter_.SetProperty("fcs/rudder-cmd-norm", rudder);
+    adapter_.SetProperty(adapter::property::kRudderCmd, rudder);
     return;
   }
 
@@ -223,7 +256,7 @@ void Autopilot::Update(double /*dt_sec*/) {
       double r = propagate.GetPQR(3);
       double rudder = -0.15 * r;
       rudder = Clamp(rudder, -1.0, 1.0);
-      adapter_.SetProperty("fcs/rudder-cmd-norm", rudder);
+      adapter_.SetProperty(adapter::property::kRudderCmd, rudder);
       return;
     }
 
@@ -245,7 +278,7 @@ void Autopilot::Update(double /*dt_sec*/) {
       roll_int_ = Clamp(roll_int_, -0.4, 0.4);
     }
     aileron = Clamp(aileron, -1.0, 1.0);
-    adapter_.SetProperty("fcs/aileron-cmd-norm", aileron);
+    adapter_.SetProperty(adapter::property::kAileronCmd, aileron);
 
     UpdatePitchChannel();
     UpdateAltitudeThrottle();
@@ -253,7 +286,7 @@ void Autopilot::Update(double /*dt_sec*/) {
     double r = propagate.GetPQR(3);
     double rudder = -0.15 * r;
     rudder = Clamp(rudder, -1.0, 1.0);
-    adapter_.SetProperty("fcs/rudder-cmd-norm", rudder);
+    adapter_.SetProperty(adapter::property::kRudderCmd, rudder);
     return;
   }
 
@@ -273,9 +306,9 @@ void Autopilot::UpdateOwnAutopilot() {
   if (heading_hold_) {
     ApplyNativeHeadingSetpoint();
   }
-  adapter_.SetProperty("ap/heading_hold", heading_hold_ ? 1.0 : 0.0);
-  adapter_.SetProperty("ap/attitude_hold", heading_hold_ ? 1.0 : 0.0);
-  adapter_.SetProperty("ap/altitude_hold", altitude_hold_ ? 1.0 : 0.0);
+  adapter_.SetProperty(adapter::property::kApHeadingHold, heading_hold_ ? 1.0 : 0.0);
+  adapter_.SetProperty(adapter::property::kApAttitudeHold, heading_hold_ ? 1.0 : 0.0);
+  adapter_.SetProperty(adapter::property::kApAltitudeHold, altitude_hold_ ? 1.0 : 0.0);
 }
 
 void Autopilot::UpdateGenericApBridge() {
@@ -320,7 +353,7 @@ void Autopilot::UpdateDirectHeadingLateral() {
   aileron = Clamp(aileron, -1.0, 1.0);
 
   if (roll_ap_on_ || heading_hold_ || roll_mode_ == 0) {
-    adapter_.SetProperty("fcs/aileron-cmd-norm", aileron);
+    adapter_.SetProperty(adapter::property::kAileronCmd, aileron);
   }
 }
 
@@ -357,7 +390,7 @@ void Autopilot::UpdatePitchChannel() {
     double pitch_err = target_pitch - pitch;
     double elevator = -(2.0 * pitch_err - 0.2 * q);
     elevator = Clamp(elevator, -1.0, 1.0);
-    adapter_.SetProperty("fcs/elevator-cmd-norm", elevator);
+    adapter_.SetProperty(adapter::property::kElevatorCmd, elevator);
   }
 }
 
@@ -375,11 +408,11 @@ void Autopilot::ApplyNativeHeadingSetpoint() {
   double heading_rad = target_heading_rad_;
   if (heading_src_wp_) {
     const auto& propagate = adapter_.GetPropagate();
-    double target_lat = adapter_.GetProperty("guidance/target_wp_latitude_rad");
-    double target_lon = adapter_.GetProperty("guidance/target_wp_longitude_rad");
+    double target_lat = adapter_.GetProperty(adapter::property::kGuidanceTargetWpLat);
+    double target_lon = adapter_.GetProperty(adapter::property::kGuidanceTargetWpLon);
     heading_rad = propagate.GetLocation().GetHeadingTo(target_lon, target_lat);
   }
-  adapter_.SetProperty("ap/heading_setpoint", RadToDeg360(heading_rad));
+  adapter_.SetProperty(adapter::property::kApHeadingSetpoint, RadToDeg360(heading_rad));
 }
 
 }  // namespace autopilot
