@@ -119,7 +119,11 @@ add_1q_gtest(${PROJECT_NAME}_integration_tests integration 120 ${INTEGRATION_TES
 add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES})
 
 # flight_dynamic 测试需要 JSBSim 数据文件路径
-set(FD_JSBSIM_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim")
+if(DEFINED ONEQ_JSBSIM_DATA_ROOT_DIR AND NOT ONEQ_JSBSIM_DATA_ROOT_DIR STREQUAL "")
+    set(FD_JSBSIM_ROOT_DIR "${ONEQ_JSBSIM_DATA_ROOT_DIR}")
+else()
+    set(FD_JSBSIM_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim")
+endif()
 # flight_dynamic 测试需要链接 JSBSim（OBJECT 库的 PRIVATE 依赖不传递）
 target_include_directories(${PROJECT_NAME}_unit_tests SYSTEM PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/jsbsim/src)

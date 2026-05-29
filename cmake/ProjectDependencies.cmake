@@ -4,10 +4,12 @@
 # -- JSBSim (macOS 通过 Conan 获取；Windows 从 third_party 源码构建) --
 if(PACKAGE_MANAGER STREQUAL "conan")
   # macOS 开发：使用 conancenter 预编译的 jsbsim/1.3.1
+  set(ONEQ_JSBSIM_BINARY_SOURCE "conan:jsbsim/1.3.1")
   find_package(jsbsim CONFIG REQUIRED)
   add_library(JSBSim::JSBSim ALIAS jsbsim::jsbsim)
 else()
   # Windows/VS2015 生产编译：从 third_party 源码构建为共享库（C++11 兼容，LGPL 合规）。
+  set(ONEQ_JSBSIM_BINARY_SOURCE "vendor:third_party/jsbsim")
   set(_oneq_prev_build_shared_libs ${BUILD_SHARED_LIBS})
   set(BUILD_SHARED_LIBS ON CACHE BOOL "Build JSBSim as shared library" FORCE)
   set(BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -41,6 +43,14 @@ else()
       ${CMAKE_SOURCE_DIR}/third_party/jsbsim/src)
   add_library(JSBSim::JSBSim ALIAS JSBSim_interface)
 endif()
+set(ONEQ_JSBSIM_BINARY_SOURCE "${ONEQ_JSBSIM_BINARY_SOURCE}"
+    CACHE INTERNAL "Resolved JSBSim binary source")
+set(ONEQ_JSBSIM_DATA_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim"
+    CACHE INTERNAL "Resolved JSBSim aircraft data root")
+set(ONEQ_JSBSIM_DATA_SOURCE "vendor:third_party/jsbsim"
+    CACHE INTERNAL "Resolved JSBSim aircraft data source")
+message(STATUS "JSBSim binary source: ${ONEQ_JSBSIM_BINARY_SOURCE}")
+message(STATUS "JSBSim data source: ${ONEQ_JSBSIM_DATA_SOURCE} (${ONEQ_JSBSIM_DATA_ROOT_DIR})")
 
 if(PACKAGE_MANAGER STREQUAL "conan" OR PACKAGE_MANAGER STREQUAL "vcpkg")
     if(WIN32)
