@@ -47,6 +47,42 @@ build/llvm-ninja-release-local/bin/1q_unit_tests \
 - f22 仍伴随 `DoTrim(0)` 异常，不能直接套用 f16 的 FBW 完成半径修复；
 - Concorde Orbit 仍是高度/能量保持问题，横向半径不是主要瓶颈。
 
+### 2026-05-29 f22 专项拆因增量
+
+本轮新增三个默认跳过的 f22 专项探针：
+
+```bash
+FD_RUN_F22_PROBE=1 \
+FD_F22_PROBE_CSV=/tmp/1q_f22_probe.csv \
+build/llvm-ninja-release-local/bin/1q_unit_tests \
+  --gtest_filter='FdAircraftProbe.EmitsF22FocusedCsv'
+
+FD_RUN_F22_THROTTLE_PROBE=1 \
+FD_F22_THROTTLE_PROBE_CSV=/tmp/1q_f22_throttle_probe.csv \
+build/llvm-ninja-release-local/bin/1q_unit_tests \
+  --gtest_filter='FdAircraftProbe.EmitsF22ThrottleCsv'
+
+FD_RUN_F22_ENVELOPE_PROBE=1 \
+FD_F22_ENVELOPE_PROBE_CSV=/tmp/1q_f22_envelope_probe.csv \
+build/llvm-ninja-release-local/bin/1q_unit_tests \
+  --gtest_filter='FdAircraftProbe.EmitsF22EnvelopeCsv'
+```
+
+新增探针后，常规完整过滤集为 **197 个用例中 189 个通过、6 个跳过、2 个失败**。失败集合仍为 f22 `FlyToWaypoint/5` 与 Concorde `Orbit/7`。
+
+f22 专项结果：
+
+- `f22.xml` 无 `reset00.xml`，无法建立自带 reset 裸机基线；
+- 当前空中初态 `3000m / 200mps / pitch=0` 下 `DoTrim(0)` 失败，错误表现为 `udot` 或在高能量 sweep 中 `qdot` 不可配平；
+- 自由飞行 10s 内速度从 `200mps` 掉到约 `31-42mps`，即使 `do_trim=false` 也类似，说明问题不只来自 trim 失败后的恢复流程；
+- 强制写 `fcs/throttle-cmd-norm` 和 `fcs/throttle-cmd-norm[1]` 后，两个 `throttle-pos` 都能到 `1.0`，两台发动机推力约 `28-29k lbf`，但速度仍快速衰减，因此“第二台发动机没收到 indexed throttle”不是主因；
+- 提高初始能量到 `5000m/250mps` 仍约 56s 坠毁；`10000m/300mps` 可跑满 400s 但速度降到约 `52mps`，且没有完成 waypoint；
+- 原生 JSBSim 初始条件包线探针直接设置 `Vtrue/alpha/gamma`，不经过项目 `ExternalKinematics -> body UVW` 路径和机动控制器。288 组 `altitude/speed/alpha/gamma/trim` 组合中，`DoTrim(0)` 成功数为 0；非 trim 分支在 `10000m/300mps` 附近存在 20s 近似可保持高度的包线，例如 `alpha=4deg/gamma=2deg` 结束高度约 `9994m`、速度约 `357mps`，但 `3000m/200mps` 组合仍会在 20s 内掉到约 `28-99mps`；
+- 这说明 f22 XML 并非在所有裸机初始条件下不可运行；更准确的边界是：当前测试默认空中初态和项目初始条件映射不在 f22 可用包线内，且 `DoTrim(0)` 不能替项目把该状态修复成稳态；
+- 临时实验表明：泛化 indexed throttle 会让多发运输机回归失败面扩大；禁用 FBW FlyToWaypoint 高度保持、降低 f22 roll-rate 外环增益也不能解决 f22 失败。因此这些生产改动已撤回，只保留诊断探针。
+
+当前更强的判断是：f22 失败优先归类为 **当前测试空中初态、初始条件映射、配平流程与 f22 XML 能量和姿态包线不匹配**，其次才是项目 AP/FCS 接口问题。下一步应先建立 f22 可稳定初态，并审视 `ExternalKinematics.velocity_mps` 文档所称 ECEF 速度与当前 `SetUBody/VBody/WBodyFpsIC` 体轴注入之间的语义不一致，而不是继续调通用 AP 增益。
+
 ### 2026-05-27 深入复核增量
 
 本轮使用 `llvm-ninja-release-local` 重新构建后，单独运行参数化机动测试：
@@ -395,6 +431,9 @@ Orbit sweep 补充显示：Concorde 的横向 orbit 半径在 1-10km 档可接�
 - `FdAircraftProbe.EmitsAircraftProfileCsv`：输出 trim、AP 路径、FCS 接口、自由飞行和副翼响应；
 - `FdAircraftProbe.EmitsWaypointSweepCsv`：输出不同 waypoint 距离下的完成状态、最小距离、航向误差、滚转和副翼命令。
 - `FdAircraftProbe.EmitsOrbitSweepCsv`：输出不同 orbit 半径/初态下的半径误差、高度下限、滚转和坠毁状态。
+- `FdAircraftProbe.EmitsF22FocusedCsv`：输出 f22 trim/free-flight/command/waypoint 初态 sweep 诊断。
+- `FdAircraftProbe.EmitsF22ThrottleCsv`：输出 f22 强制油门响应、双发 throttle position 和 thrust 诊断。
+- `FdAircraftProbe.EmitsF22EnvelopeCsv`：输出 f22 原生 JSBSim `Vtrue/alpha/gamma` 初始条件包线诊断，用于和项目 `ExternalKinematics` 注入路径对照。
 - `has_roll_rate_command` / `lateral_interface` / `engine_count`：用于判断失败是否与 XML 控制接口类型相关。
 
 后续正式测试应从这些探针中提炼稳定、语义单一的断言，而不是直接依赖一组跨所有机型的 5km mission 断言。

@@ -27,6 +27,7 @@ namespace {
 
 constexpr double kProbeRunSec = 10.0;
 constexpr double kDt = 0.005;
+constexpr double kMToFt = 1.0 / 0.3048;
 
 struct AircraftProbeParam {
   std::string model;
@@ -48,6 +49,88 @@ struct AileronProbe {
   double roll_delta_rad = 0.0;
   double left_aileron_delta_rad = 0.0;
   double right_aileron_delta_rad = 0.0;
+};
+
+struct F22CommandProbeResult {
+  std::string scenario;
+  bool do_trim = false;
+  double command = 0.0;
+  bool trim_attempted = false;
+  bool trim_succeeded = false;
+  bool run_ok = false;
+  bool stable = false;
+  double sim_time_sec = 0.0;
+  double alt_start_m = 0.0;
+  double alt_end_m = 0.0;
+  double speed_start_mps = 0.0;
+  double speed_end_mps = 0.0;
+  double roll_start_rad = 0.0;
+  double roll_end_rad = 0.0;
+  double roll_rate_start_rad_sec = 0.0;
+  double roll_rate_end_rad_sec = 0.0;
+  double aileron_cmd_end = 0.0;
+  double roll_rate_cmd_end = 0.0;
+  double roll_rate_error_end = 0.0;
+  double roll_rate_integrator_end = 0.0;
+  double roll_cmd_end = 0.0;
+  double aileron_act_end = 0.0;
+  double left_aileron_pos_end_rad = 0.0;
+  double right_aileron_pos_end_rad = 0.0;
+};
+
+struct F22ThrottleProbeResult {
+  bool do_trim = false;
+  double command = 0.0;
+  bool trim_attempted = false;
+  bool trim_succeeded = false;
+  bool run_ok = false;
+  bool stable = false;
+  double sim_time_sec = 0.0;
+  double alt_start_m = 0.0;
+  double alt_end_m = 0.0;
+  double speed_start_mps = 0.0;
+  double speed_end_mps = 0.0;
+  double throttle_pos_end = 0.0;
+  double throttle_pos_1_end = 0.0;
+  double thrust_end_lbs = 0.0;
+  double thrust_1_end_lbs = 0.0;
+};
+
+struct F22EnvelopeProbeParam {
+  double altitude_m = 0.0;
+  double speed_mps = 0.0;
+  double alpha_deg = 0.0;
+  double gamma_deg = 0.0;
+  double throttle = 0.0;
+  bool do_trim = false;
+};
+
+struct F22EnvelopeProbeResult {
+  bool loaded = false;
+  bool run_ic_ok = false;
+  bool trim_attempted = false;
+  bool trim_succeeded = false;
+  bool run_ok = false;
+  bool stable = false;
+  double sim_time_sec = 0.0;
+  double alt_start_m = 0.0;
+  double alt_end_m = 0.0;
+  double speed_start_mps = 0.0;
+  double speed_end_mps = 0.0;
+  double min_speed_mps = std::numeric_limits<double>::max();
+  double min_altitude_m = std::numeric_limits<double>::max();
+  double alpha_start_deg = 0.0;
+  double alpha_end_deg = 0.0;
+  double theta_start_rad = 0.0;
+  double theta_end_rad = 0.0;
+  double gamma_start_rad = 0.0;
+  double gamma_end_rad = 0.0;
+  double qbar_start_pa = 0.0;
+  double qbar_end_pa = 0.0;
+  double throttle_pos_end = 0.0;
+  double throttle_pos_1_end = 0.0;
+  double thrust_end_lbs = 0.0;
+  double thrust_1_end_lbs = 0.0;
 };
 
 struct WaypointProbeParam {
@@ -149,6 +232,11 @@ config::FlightDynamicConfig MakeWaypointConfig(const WaypointProbeParam& aircraf
   return MakeConfig(param, true);
 }
 
+config::FlightDynamicConfig MakeF22Config(bool do_trim) {
+  AircraftProbeParam param{"f22", 3000.0, 200.0};
+  return MakeConfig(param, do_trim);
+}
+
 bool IsStable(const model::VehicleState& state) {
   return std::isfinite(state.altitude_geod_m) && std::isfinite(state.vtrue_mps) &&
          std::isfinite(state.phi_rad) && std::isfinite(state.theta_rad) &&
@@ -209,6 +297,205 @@ AileronProbe RunAileronProbe(const config::FlightDynamicConfig& config, double c
   if (adapter.HasProperty("fcs/right-aileron-pos-rad")) {
     result.right_aileron_delta_rad = adapter.GetProperty("fcs/right-aileron-pos-rad") - right_start;
   }
+  return result;
+}
+
+double PropertyOrZero(const adapter::JsbsimAdapter& adapter, const std::string& name) {
+  return adapter.HasProperty(name) ? adapter.GetProperty(name) : 0.0;
+}
+
+double PropertyOrZero(JSBSim::FGFDMExec& fdm, const std::string& name) {
+  return fdm.GetPropertyManager()->GetNode(name) != nullptr ? fdm.GetPropertyValue(name) : 0.0;
+}
+
+void SetPropertyIfPresent(JSBSim::FGFDMExec& fdm, const std::string& name, double value) {
+  if (fdm.GetPropertyManager()->GetNode(name) != nullptr) {
+    fdm.SetPropertyValue(name, value);
+  }
+}
+
+void RetractLandingGearIfModeled(JSBSim::FGFDMExec& fdm) {
+  SetPropertyIfPresent(fdm, "gear/gear-cmd-norm", 0.0);
+  SetPropertyIfPresent(fdm, "gear/gear-pos-norm", 0.0);
+}
+
+F22EnvelopeProbeResult RunF22EnvelopeProbe(const F22EnvelopeProbeParam& param) {
+  F22EnvelopeProbeResult result;
+  JSBSim::FGFDMExec fdm;
+  fdm.SetDebugLevel(0);
+  fdm.SetRootDir(SGPath(FD_JSBSIM_ROOT_DIR));
+  fdm.SetAircraftPath(SGPath("aircraft"));
+  fdm.SetEnginePath(SGPath("engine"));
+  fdm.SetSystemsPath(SGPath("systems"));
+  fdm.Setdt(kDt);
+  result.loaded = fdm.LoadModel("f22", true);
+  if (!result.loaded) {
+    return result;
+  }
+
+  auto ic = fdm.GetIC();
+  ic->SetLatitudeDegIC(0.0);
+  ic->SetLongitudeDegIC(0.0);
+  ic->SetAltitudeASLFtIC(param.altitude_m * kMToFt);
+  ic->SetVtrueFpsIC(param.speed_mps * kMToFt);
+  ic->SetAlphaDegIC(param.alpha_deg);
+  ic->SetBetaDegIC(0.0);
+  ic->SetFlightPathAngleDegIC(param.gamma_deg);
+  ic->SetPhiDegIC(0.0);
+  ic->SetPsiDegIC(0.0);
+
+  result.run_ic_ok = fdm.RunIC();
+  if (!result.run_ic_ok) {
+    return result;
+  }
+  fdm.GetPropulsion()->InitRunning(-1);
+  RetractLandingGearIfModeled(fdm);
+  SetPropertyIfPresent(fdm, "fcs/throttle-cmd-norm", param.throttle);
+  SetPropertyIfPresent(fdm, "fcs/throttle-cmd-norm[1]", param.throttle);
+
+  if (param.do_trim) {
+    result.trim_attempted = true;
+    try {
+      fdm.DoTrim(0);
+      result.trim_succeeded = true;
+    } catch (...) {
+      result.trim_succeeded = false;
+    }
+    fdm.GetPropulsion()->InitRunning(-1);
+    RetractLandingGearIfModeled(fdm);
+    SetPropertyIfPresent(fdm, "fcs/throttle-cmd-norm", param.throttle);
+    SetPropertyIfPresent(fdm, "fcs/throttle-cmd-norm[1]", param.throttle);
+  }
+
+  const auto start =
+      model::VehicleStateMapper::Map(*fdm.GetPropagate(), *fdm.GetAccelerations(), fdm, 0.0);
+  result.alt_start_m = start.altitude_geod_m;
+  result.speed_start_mps = start.vtrue_mps;
+  result.min_speed_mps = start.vtrue_mps;
+  result.min_altitude_m = start.altitude_geod_m;
+  result.alpha_start_deg = PropertyOrZero(fdm, "aero/alpha-deg");
+  result.theta_start_rad = start.theta_rad;
+  result.gamma_start_rad = PropertyOrZero(fdm, "flight-path/gamma-rad");
+  result.qbar_start_pa = start.qbar_pa;
+
+  const int steps = static_cast<int>(20.0 / kDt);
+  for (int i = 0; i < steps; ++i) {
+    result.run_ok = fdm.Run();
+    result.sim_time_sec += kDt;
+    const auto state = model::VehicleStateMapper::Map(
+        *fdm.GetPropagate(), *fdm.GetAccelerations(), fdm, result.sim_time_sec);
+    result.min_speed_mps = std::min(result.min_speed_mps, state.vtrue_mps);
+    result.min_altitude_m = std::min(result.min_altitude_m, state.altitude_geod_m);
+    if (!result.run_ok || state.altitude_geod_m <= 0.0 || !std::isfinite(state.vtrue_mps)) {
+      break;
+    }
+  }
+
+  const auto end =
+      model::VehicleStateMapper::Map(*fdm.GetPropagate(), *fdm.GetAccelerations(), fdm,
+                                     result.sim_time_sec);
+  result.alt_end_m = end.altitude_geod_m;
+  result.speed_end_mps = end.vtrue_mps;
+  result.alpha_end_deg = PropertyOrZero(fdm, "aero/alpha-deg");
+  result.theta_end_rad = end.theta_rad;
+  result.gamma_end_rad = PropertyOrZero(fdm, "flight-path/gamma-rad");
+  result.qbar_end_pa = end.qbar_pa;
+  result.throttle_pos_end = PropertyOrZero(fdm, "fcs/throttle-pos-norm");
+  result.throttle_pos_1_end = PropertyOrZero(fdm, "fcs/throttle-pos-norm[1]");
+  result.thrust_end_lbs = PropertyOrZero(fdm, "propulsion/engine/thrust-lbs");
+  result.thrust_1_end_lbs = PropertyOrZero(fdm, "propulsion/engine[1]/thrust-lbs");
+  result.stable = result.run_ok && std::isfinite(end.altitude_geod_m) &&
+                  std::isfinite(end.vtrue_mps) && end.altitude_geod_m > 0.0 &&
+                  result.min_speed_mps > 30.0 && end.mass_kg > 0.0;
+  return result;
+}
+
+F22CommandProbeResult RunF22CommandProbe(bool do_trim, double command) {
+  const auto config = MakeF22Config(do_trim);
+  adapter::JsbsimAdapter adapter(config);
+
+  F22CommandProbeResult result;
+  result.scenario = "command_response";
+  result.do_trim = do_trim;
+  result.command = command;
+  result.trim_attempted = adapter.TrimAttempted();
+  result.trim_succeeded = adapter.TrimSucceeded();
+
+  const auto start = model::VehicleStateMapper::Map(
+      adapter.GetPropagate(), adapter.GetAccelerations(), adapter.GetFdmExec(), 0.0);
+  result.alt_start_m = start.altitude_geod_m;
+  result.speed_start_mps = start.vtrue_mps;
+  result.roll_start_rad = start.phi_rad;
+  result.roll_rate_start_rad_sec = PropertyOrZero(adapter, "velocities/p-aero-rad_sec");
+
+  adapter.SetProperty("fcs/aileron-cmd-norm", command);
+  const int steps = static_cast<int>(2.0 / kDt);
+  for (int i = 0; i < steps; ++i) {
+    result.run_ok = adapter.Run();
+    result.sim_time_sec += kDt;
+    if (!result.run_ok) {
+      break;
+    }
+  }
+
+  const auto end =
+      model::VehicleStateMapper::Map(adapter.GetPropagate(), adapter.GetAccelerations(),
+                                     adapter.GetFdmExec(), result.sim_time_sec);
+  result.alt_end_m = end.altitude_geod_m;
+  result.speed_end_mps = end.vtrue_mps;
+  result.roll_end_rad = end.phi_rad;
+  result.roll_rate_end_rad_sec = PropertyOrZero(adapter, "velocities/p-aero-rad_sec");
+  result.aileron_cmd_end = PropertyOrZero(adapter, "fcs/aileron-cmd-norm");
+  result.roll_rate_cmd_end = PropertyOrZero(adapter, "fcs/roll-rate-cmd");
+  result.roll_rate_error_end = PropertyOrZero(adapter, "fcs/roll-rate-error");
+  result.roll_rate_integrator_end = PropertyOrZero(adapter, "fcs/roll-rate-integrator");
+  result.roll_cmd_end = PropertyOrZero(adapter, "fcs/roll-cmd");
+  result.aileron_act_end = PropertyOrZero(adapter, "fcs/aileron-act");
+  result.left_aileron_pos_end_rad = PropertyOrZero(adapter, "fcs/left-aileron-pos-rad");
+  result.right_aileron_pos_end_rad = PropertyOrZero(adapter, "fcs/right-aileron-pos-rad");
+  result.stable = result.run_ok && IsStable(end);
+  return result;
+}
+
+F22ThrottleProbeResult RunF22ThrottleProbe(bool do_trim, double command) {
+  const auto config = MakeF22Config(do_trim);
+  adapter::JsbsimAdapter adapter(config);
+
+  F22ThrottleProbeResult result;
+  result.do_trim = do_trim;
+  result.command = command;
+  result.trim_attempted = adapter.TrimAttempted();
+  result.trim_succeeded = adapter.TrimSucceeded();
+
+  const auto start = model::VehicleStateMapper::Map(
+      adapter.GetPropagate(), adapter.GetAccelerations(), adapter.GetFdmExec(), 0.0);
+  result.alt_start_m = start.altitude_geod_m;
+  result.speed_start_mps = start.vtrue_mps;
+
+  adapter.SetProperty("fcs/throttle-cmd-norm", command);
+  if (adapter.HasProperty("fcs/throttle-cmd-norm[1]")) {
+    adapter.SetProperty("fcs/throttle-cmd-norm[1]", command);
+  }
+
+  const int steps = static_cast<int>(10.0 / kDt);
+  for (int i = 0; i < steps; ++i) {
+    result.run_ok = adapter.Run();
+    result.sim_time_sec += kDt;
+    if (!result.run_ok) {
+      break;
+    }
+  }
+
+  const auto end =
+      model::VehicleStateMapper::Map(adapter.GetPropagate(), adapter.GetAccelerations(),
+                                     adapter.GetFdmExec(), result.sim_time_sec);
+  result.alt_end_m = end.altitude_geod_m;
+  result.speed_end_mps = end.vtrue_mps;
+  result.throttle_pos_end = PropertyOrZero(adapter, "fcs/throttle-pos-norm");
+  result.throttle_pos_1_end = PropertyOrZero(adapter, "fcs/throttle-pos-norm[1]");
+  result.thrust_end_lbs = PropertyOrZero(adapter, "propulsion/engine/thrust-lbs");
+  result.thrust_1_end_lbs = PropertyOrZero(adapter, "propulsion/engine[1]/thrust-lbs");
+  result.stable = result.run_ok && IsStable(end);
   return result;
 }
 
@@ -530,6 +817,161 @@ TEST(FdAircraftProbe, EmitsOrbitSweepCsv) {
           << result.min_altitude_m << "," << result.final_speed_mps << ","
           << result.max_abs_roll_rad << "," << result.max_abs_heading_error_rad << ","
           << CsvBool(result.crashed) << "," << CsvBool(result.stopped) << "\n";
+    }
+  }
+}
+
+TEST(FdAircraftProbe, EmitsF22FocusedCsv) {
+  const char* enabled = std::getenv("FD_RUN_F22_PROBE");
+  if (enabled == nullptr || std::string(enabled) != "1") {
+    GTEST_SKIP() << "set FD_RUN_F22_PROBE=1 to emit f22 focused CSV";
+  }
+
+  const char* csv_env = std::getenv("FD_F22_PROBE_CSV");
+  const std::string csv_path = csv_env != nullptr ? csv_env : "/tmp/1q_f22_probe.csv";
+  std::ofstream out(csv_path);
+  ASSERT_TRUE(out.is_open()) << csv_path;
+
+  out << std::fixed << std::setprecision(6);
+  out << "kind,scenario,do_trim,command,target_distance_m,trim_attempted,"
+         "trim_succeeded,run_ok,stable,completed,crashed,stopped,sim_time_sec,"
+         "alt_start_m,alt_end_m,speed_start_mps,speed_end_mps,roll_start_rad,"
+         "roll_end_rad,roll_rate_start_rad_sec,roll_rate_end_rad_sec,"
+         "init_distance_m,min_distance_m,final_distance_m,"
+         "final_heading_error_rad,max_abs_heading_error_rad,max_abs_roll_rad,"
+         "max_abs_aileron_cmd,aileron_cmd_end,roll_rate_cmd_end,"
+         "roll_rate_error_end,roll_rate_integrator_end,roll_cmd_end,"
+         "aileron_act_end,left_aileron_pos_end_rad,right_aileron_pos_end_rad\n";
+
+  for (bool do_trim : {true, false}) {
+    {
+      adapter::JsbsimAdapter adapter(MakeF22Config(do_trim));
+      const ProbeSnapshot snapshot = RunProjectFreeFlight(adapter);
+      out << "free_flight,project_air," << CsvBool(do_trim) << ",0,0,"
+          << CsvBool(adapter.TrimAttempted()) << "," << CsvBool(adapter.TrimSucceeded()) << ","
+          << CsvBool(snapshot.run_ok) << "," << CsvBool(snapshot.stable) << ",0,0,0,"
+          << snapshot.sim_time_sec << "," << snapshot.alt_start_m << "," << snapshot.alt_end_m
+          << "," << snapshot.vt_start_mps << "," << snapshot.vt_end_mps << ",0,0,0,0,0,0,0,0,0,0,0,"
+          << PropertyOrZero(adapter, "fcs/aileron-cmd-norm") << ","
+          << PropertyOrZero(adapter, "fcs/roll-rate-cmd") << ","
+          << PropertyOrZero(adapter, "fcs/roll-rate-error") << ","
+          << PropertyOrZero(adapter, "fcs/roll-rate-integrator") << ","
+          << PropertyOrZero(adapter, "fcs/roll-cmd") << ","
+          << PropertyOrZero(adapter, "fcs/aileron-act") << ","
+          << PropertyOrZero(adapter, "fcs/left-aileron-pos-rad") << ","
+          << PropertyOrZero(adapter, "fcs/right-aileron-pos-rad") << "\n";
+    }
+
+    for (double command : {-0.4, 0.4}) {
+      const F22CommandProbeResult result = RunF22CommandProbe(do_trim, command);
+      out << "command," << result.scenario << "," << CsvBool(result.do_trim) << ","
+          << result.command << ",0," << CsvBool(result.trim_attempted) << ","
+          << CsvBool(result.trim_succeeded) << "," << CsvBool(result.run_ok) << ","
+          << CsvBool(result.stable) << ",0,0,0," << result.sim_time_sec << "," << result.alt_start_m
+          << "," << result.alt_end_m << "," << result.speed_start_mps << "," << result.speed_end_mps
+          << "," << result.roll_start_rad << "," << result.roll_end_rad << ","
+          << result.roll_rate_start_rad_sec << "," << result.roll_rate_end_rad_sec
+          << ",0,0,0,0,0,0,0," << result.aileron_cmd_end << "," << result.roll_rate_cmd_end << ","
+          << result.roll_rate_error_end << "," << result.roll_rate_integrator_end << ","
+          << result.roll_cmd_end << "," << result.aileron_act_end << ","
+          << result.left_aileron_pos_end_rad << "," << result.right_aileron_pos_end_rad << "\n";
+    }
+  }
+
+  for (const WaypointProbeParam& aircraft :
+       {WaypointProbeParam{"f22", 3000.0, 200.0}, WaypointProbeParam{"f22", 5000.0, 250.0},
+        WaypointProbeParam{"f22", 10000.0, 300.0}}) {
+    for (double target_distance_m : {5000.0, 10000.0, 20000.0}) {
+      const WaypointProbeResult result = RunWaypointProbe(aircraft, target_distance_m);
+      out << "waypoint,fly_to_alt" << aircraft.altitude_m << "_spd" << aircraft.speed_mps << ",1,0,"
+          << result.target_distance_m << ",1,0,1," << CsvBool(!result.crashed) << ","
+          << CsvBool(result.completed) << "," << CsvBool(result.crashed) << ","
+          << CsvBool(result.stopped) << "," << result.sim_time_sec << "," << aircraft.altitude_m
+          << "," << result.final_altitude_m << "," << aircraft.speed_mps << ","
+          << result.final_speed_mps << ",0,0,0,0," << result.init_distance_m << ","
+          << result.min_distance_m << "," << result.final_distance_m << ","
+          << result.final_heading_error_rad << "," << result.max_abs_heading_error_rad << ","
+          << result.max_abs_roll_rad << "," << result.max_abs_aileron_cmd << ",0,0,0,0,0,0,0,0\n";
+    }
+  }
+}
+
+TEST(FdAircraftProbe, EmitsF22ThrottleCsv) {
+  const char* enabled = std::getenv("FD_RUN_F22_THROTTLE_PROBE");
+  if (enabled == nullptr || std::string(enabled) != "1") {
+    GTEST_SKIP() << "set FD_RUN_F22_THROTTLE_PROBE=1 to emit f22 throttle CSV";
+  }
+
+  const char* csv_env = std::getenv("FD_F22_THROTTLE_PROBE_CSV");
+  const std::string csv_path = csv_env != nullptr ? csv_env : "/tmp/1q_f22_throttle_probe.csv";
+  std::ofstream out(csv_path);
+  ASSERT_TRUE(out.is_open()) << csv_path;
+
+  out << std::fixed << std::setprecision(6);
+  out << "do_trim,command,trim_attempted,trim_succeeded,run_ok,stable,"
+         "sim_time_sec,alt_start_m,alt_end_m,speed_start_mps,speed_end_mps,"
+         "throttle_pos_end,throttle_pos_1_end,thrust_end_lbs,thrust_1_end_lbs\n";
+
+  for (bool do_trim : {true, false}) {
+    for (double command : {0.3, 0.7, 1.0}) {
+      const F22ThrottleProbeResult result = RunF22ThrottleProbe(do_trim, command);
+      out << CsvBool(result.do_trim) << "," << result.command << ","
+          << CsvBool(result.trim_attempted) << "," << CsvBool(result.trim_succeeded) << ","
+          << CsvBool(result.run_ok) << "," << CsvBool(result.stable) << "," << result.sim_time_sec
+          << "," << result.alt_start_m << "," << result.alt_end_m << "," << result.speed_start_mps
+          << "," << result.speed_end_mps << "," << result.throttle_pos_end << ","
+          << result.throttle_pos_1_end << "," << result.thrust_end_lbs << ","
+          << result.thrust_1_end_lbs << "\n";
+    }
+  }
+}
+
+TEST(FdAircraftProbe, EmitsF22EnvelopeCsv) {
+  const char* enabled = std::getenv("FD_RUN_F22_ENVELOPE_PROBE");
+  if (enabled == nullptr || std::string(enabled) != "1") {
+    GTEST_SKIP() << "set FD_RUN_F22_ENVELOPE_PROBE=1 to emit f22 envelope CSV";
+  }
+
+  const char* csv_env = std::getenv("FD_F22_ENVELOPE_PROBE_CSV");
+  const std::string csv_path =
+      csv_env != nullptr ? csv_env : "/tmp/1q_f22_envelope_probe.csv";
+  std::ofstream out(csv_path);
+  ASSERT_TRUE(out.is_open()) << csv_path;
+
+  out << std::fixed << std::setprecision(6);
+  out << "altitude_m,speed_mps,alpha_deg,gamma_deg,throttle,do_trim,"
+         "loaded,run_ic_ok,trim_attempted,trim_succeeded,run_ok,stable,"
+         "sim_time_sec,alt_start_m,alt_end_m,speed_start_mps,speed_end_mps,"
+         "min_speed_mps,min_altitude_m,alpha_start_deg,alpha_end_deg,"
+         "theta_start_rad,theta_end_rad,gamma_start_rad,gamma_end_rad,"
+         "qbar_start_pa,qbar_end_pa,throttle_pos_end,throttle_pos_1_end,"
+         "thrust_end_lbs,thrust_1_end_lbs\n";
+
+  for (double altitude_m : {3000.0, 5000.0, 10000.0}) {
+    for (double speed_mps : {200.0, 250.0, 300.0, 350.0}) {
+      for (double alpha_deg : {-2.0, 0.0, 4.0, 8.0}) {
+        for (double gamma_deg : {-2.0, 0.0, 2.0}) {
+          for (bool do_trim : {false, true}) {
+            const F22EnvelopeProbeParam param{altitude_m, speed_mps, alpha_deg, gamma_deg,
+                                              1.0, do_trim};
+            const F22EnvelopeProbeResult result = RunF22EnvelopeProbe(param);
+            out << param.altitude_m << "," << param.speed_mps << "," << param.alpha_deg << ","
+                << param.gamma_deg << "," << param.throttle << "," << CsvBool(param.do_trim)
+                << "," << CsvBool(result.loaded) << "," << CsvBool(result.run_ic_ok) << ","
+                << CsvBool(result.trim_attempted) << "," << CsvBool(result.trim_succeeded) << ","
+                << CsvBool(result.run_ok) << "," << CsvBool(result.stable) << ","
+                << result.sim_time_sec << "," << result.alt_start_m << "," << result.alt_end_m
+                << "," << result.speed_start_mps << "," << result.speed_end_mps << ","
+                << result.min_speed_mps << "," << result.min_altitude_m << ","
+                << result.alpha_start_deg << "," << result.alpha_end_deg << ","
+                << result.theta_start_rad << "," << result.theta_end_rad << ","
+                << result.gamma_start_rad << "," << result.gamma_end_rad << ","
+                << result.qbar_start_pa << "," << result.qbar_end_pa << ","
+                << result.throttle_pos_end << "," << result.throttle_pos_1_end << ","
+                << result.thrust_end_lbs << "," << result.thrust_1_end_lbs << "\n";
+          }
+        }
+      }
     }
   }
 }
