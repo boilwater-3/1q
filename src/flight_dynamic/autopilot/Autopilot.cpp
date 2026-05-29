@@ -218,88 +218,41 @@ double Autopilot::GetAltitudeASLM() const {
 void Autopilot::Update(double /*dt_sec*/) {
   const auto& propagate = adapter_.GetPropagate();
 
-  if (use_own_ap_) {
+  // kOwnAutopilot: delegate entirely to XML autopilot
+  if (control_profile_.lateral_interface == LateralControlInterface::kOwnAutopilot) {
     UpdateOwnAutopilot();
     UpdateAltitudeThrottle();
-
     double r = propagate.GetPQR(3);
-    double rudder = -0.15 * r;
-    rudder = Clamp(rudder, -1.0, 1.0);
-    adapter_.SetProperty(adapter::property::kRudderCmd, rudder);
+    adapter_.SetProperty(adapter::property::kRudderCmd, Clamp(-0.15 * r, -1.0, 1.0));
     return;
   }
 
-  if (use_cpp_ap_ &&
-      control_profile_.lateral_interface == LateralControlInterface::kFbwRateCommand &&
-      lateral_guidance_mode_ == LateralGuidanceMode::kOrbit) {
-    UpdateFbwRateCommandLateral();
-    UpdatePitchChannel();
-    UpdateAltitudeThrottle();
-
-    double r = propagate.GetPQR(3);
-    double rudder = -0.15 * r;
-    rudder = Clamp(rudder, -1.0, 1.0);
-    adapter_.SetProperty(adapter::property::kRudderCmd, rudder);
-    return;
-  }
-
-  if (!use_cpp_ap_) {
-    if (control_profile_.lateral_interface == LateralControlInterface::kFbwRateCommand) {
-      if (lateral_guidance_mode_ == LateralGuidanceMode::kOrbit) {
+  // Lateral dispatch by profile — each profile handles all guidance modes uniformly.
+  switch (control_profile_.lateral_interface) {
+    case LateralControlInterface::kFbwRateCommand:
+      if (control_profile_.fbw_subtype == FbwSubtype::kRateIntegratorActuator ||
+          lateral_guidance_mode_ == LateralGuidanceMode::kOrbit) {
         UpdateFbwRateCommandLateral();
       } else {
         UpdateDirectHeadingLateral();
       }
-      UpdatePitchChannel();
-      UpdateAltitudeThrottle();
-
-      double r = propagate.GetPQR(3);
-      double rudder = -0.15 * r;
-      rudder = Clamp(rudder, -1.0, 1.0);
-      adapter_.SetProperty(adapter::property::kRudderCmd, rudder);
-      return;
-    }
-
-    UpdateGenericApBridge();
-    double roll = propagate.GetEuler(1);
-    double p = propagate.GetPQR(1);
-
-    double target_roll = 0.0;
-    if (heading_hold_) {
-      double heading_err = GetAngleToHeadingRad();
-      target_roll = 1.2 * heading_err;
-      target_roll = Clamp(target_roll, -0.785, 0.785);
-    }
-
-    double roll_err = target_roll - roll;
-    double aileron = 3.0 * roll_err + 0.5 * roll_int_ - 0.3 * p;
-    if (std::abs(aileron) < 1.0) {
-      roll_int_ += 0.005 * roll_err;
-      roll_int_ = Clamp(roll_int_, -0.4, 0.4);
-    }
-    aileron = Clamp(aileron, -1.0, 1.0);
-    adapter_.SetProperty(adapter::property::kAileronCmd, aileron);
-
-    UpdatePitchChannel();
-    UpdateAltitudeThrottle();
-
-    double r = propagate.GetPQR(3);
-    double rudder = -0.15 * r;
-    rudder = Clamp(rudder, -1.0, 1.0);
-    adapter_.SetProperty(adapter::property::kRudderCmd, rudder);
-    return;
+      break;
+    case LateralControlInterface::kGenericAutopilotBridge:
+      UpdateGenericApBridge();
+      UpdateRollAnglePD();
+      break;
+    case LateralControlInterface::kDirectSurface:
+      UpdateDirectHeadingLateral();
+      break;
+    default:
+      break;
   }
-
-  double r = propagate.GetPQR(3);
-  UpdateDirectHeadingLateral();
 
   UpdatePitchChannel();
   UpdateAltitudeThrottle();
 
-  // --- Yaw Damper ---
-  double rudder = -0.15 * r;
-  rudder = Clamp(rudder, -1.0, 1.0);
-  adapter_.SetProperty("fcs/rudder-cmd-norm", rudder);
+  double r = propagate.GetPQR(3);
+  adapter_.SetProperty(adapter::property::kRudderCmd, Clamp(-0.15 * r, -1.0, 1.0));
 }
 
 void Autopilot::UpdateOwnAutopilot() {
@@ -321,7 +274,14 @@ void Autopilot::UpdateFbwRateCommandLateral() {
   double roll_rate_cmd = 0.0;
   if (heading_hold_) {
     const double heading_err = GetAngleToHeadingRad();
-    roll_rate_cmd = Clamp(0.45 * heading_err, -0.60, 0.60);
+    // kRateIntegratorActuator (f22) needs more aggressive input because the
+    // FBW integrator + LQR tracker introduces phase lag. kRollRatePid (f16)
+    // has feedforward + PID that responds more directly.
+    if (control_profile_.fbw_subtype == FbwSubtype::kRateIntegratorActuator) {
+      roll_rate_cmd = Clamp(0.3 * heading_err, -0.35, 0.35);
+    } else {
+      roll_rate_cmd = Clamp(0.45 * heading_err, -0.60, 0.60);
+    }
   }
   if (roll_ap_on_ || heading_hold_ || roll_mode_ == 0) {
     adapter_.SetProperty("fcs/aileron-cmd-norm", roll_rate_cmd);
@@ -355,6 +315,28 @@ void Autopilot::UpdateDirectHeadingLateral() {
   if (roll_ap_on_ || heading_hold_ || roll_mode_ == 0) {
     adapter_.SetProperty(adapter::property::kAileronCmd, aileron);
   }
+}
+
+void Autopilot::UpdateRollAnglePD() {
+  const auto& propagate = adapter_.GetPropagate();
+  double roll = propagate.GetEuler(1);
+  double p = propagate.GetPQR(1);
+
+  double target_roll = 0.0;
+  if (heading_hold_) {
+    double heading_err = GetAngleToHeadingRad();
+    target_roll = 1.2 * heading_err;
+    target_roll = Clamp(target_roll, -0.785, 0.785);
+  }
+
+  double roll_err = target_roll - roll;
+  double aileron = 3.0 * roll_err + 0.5 * roll_int_ - 0.3 * p;
+  if (std::abs(aileron) < 1.0) {
+    roll_int_ += 0.005 * roll_err;
+    roll_int_ = Clamp(roll_int_, -0.4, 0.4);
+  }
+  aileron = Clamp(aileron, -1.0, 1.0);
+  adapter_.SetProperty(adapter::property::kAileronCmd, aileron);
 }
 
 void Autopilot::UpdateWingLeveler() {

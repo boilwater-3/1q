@@ -98,6 +98,7 @@ class Autopilot {
   void UpdateOwnAutopilot();
   void UpdateGenericApBridge();
   void UpdateFbwRateCommandLateral();
+  void UpdateRollAnglePD();
   void UpdateDirectHeadingLateral();
   void UpdateWingLeveler();
   void UpdatePitchChannel();
