@@ -2,12 +2,17 @@
 # Conan / vcpkg 通过 find_package 获取；vendor 模式通过 add_subdirectory 构建内置依赖。
 
 # -- JSBSim (macOS 通过 Conan 获取；Windows 从 third_party 源码构建) --
-if(PACKAGE_MANAGER STREQUAL "conan")
+# ONEQ_JSBSIM_FROM_SOURCE: 即使 Conan 可用，也从 third_party 源码构建 JSBSim。
+# 用于 LLDB 源码级调试：Debug 构建会在 JSBSim 代码中生成完整 DWARF 符号，
+# 可在 FGFDMExec、FGFCS、FGTrim 等内部设断点直接观察仿真状态。
+option(ONEQ_JSBSIM_FROM_SOURCE "Build JSBSim from third_party source (enables source-level debugging)" OFF)
+
+if(PACKAGE_MANAGER STREQUAL "conan" AND NOT ONEQ_JSBSIM_FROM_SOURCE)
   # macOS 开发：使用 conancenter 预编译的 jsbsim/1.3.1
   set(ONEQ_JSBSIM_BINARY_SOURCE "conan:jsbsim/1.3.1")
   find_package(jsbsim CONFIG REQUIRED)
   add_library(JSBSim::JSBSim ALIAS jsbsim::jsbsim)
-else()
+elseif(PACKAGE_MANAGER STREQUAL "none" OR ONEQ_JSBSIM_FROM_SOURCE)
   # Windows/VS2015 生产编译：从 third_party 源码构建为共享库（C++11 兼容，LGPL 合规）。
   set(ONEQ_JSBSIM_BINARY_SOURCE "vendor:third_party/jsbsim")
   set(_oneq_prev_build_shared_libs ${BUILD_SHARED_LIBS})
