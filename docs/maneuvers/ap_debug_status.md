@@ -68,7 +68,7 @@ build/llvm-ninja-release-local/bin/1q_unit_tests \
   --gtest_filter='FdAircraftProbe.EmitsF22EnvelopeCsv'
 ```
 
-新增探针后，常规完整过滤集为 **197 个用例中 189 个通过、6 个跳过、2 个失败**。失败集合仍为 f22 `FlyToWaypoint/5` 与 Concorde `Orbit/7`。
+新增探针后，常规完整过滤集曾为 **197 个用例中 189 个通过、6 个跳过、2 个失败**。后续增加初始位置/速度参考系合同测试后，当前过滤集为 **200 个用例中 192 个通过、6 个跳过、2 个失败**。失败集合仍为 f22 `FlyToWaypoint/5` 与 Concorde `Orbit/7`。
 
 f22 专项结果：
 
@@ -82,6 +82,14 @@ f22 专项结果：
 - 临时实验表明：泛化 indexed throttle 会让多发运输机回归失败面扩大；禁用 FBW FlyToWaypoint 高度保持、降低 f22 roll-rate 外环增益也不能解决 f22 失败。因此这些生产改动已撤回，只保留诊断探针。
 
 当前更强的判断是：f22 失败优先归类为 **当前测试空中初态、初始条件映射、配平流程与 f22 XML 能量和姿态包线不匹配**，其次才是项目 AP/FCS 接口问题。下一步应先建立 f22 可稳定初态，并审视 `ExternalKinematics.velocity_mps` 文档所称 ECEF 速度与当前 `SetUBody/VBody/WBodyFpsIC` 体轴注入之间的语义不一致，而不是继续调通用 AP 增益。
+
+初始条件集成增量：
+
+- `FlightDynamicConfig` 增加 `initial_velocity_frame`，默认 `kBody`，保留现有 flight_dynamic 测试和机动配置中 `velocity_mps.x_mps = 前向速度` 的行为；
+- `VehicleStateMapper` 现在会把 `position_frame=kEcef` 的初始位置转换为 LLA 后写入 JSBSim，补齐旧实现只处理 LLA 位置的集成缺口；
+- 显式设置 `initial_velocity_frame = kEcef` 时，`VehicleStateMapper` 会在解析出的 LLA 初始位置处把 ECEF 速度转换为 NED 并写入 JSBSim `SetVNorth/SetVEast/SetVDownFpsIC`；
+- 新增 `FlightDynamicTest.InitialVelocityDefaultsToBodyFrame`、`FlightDynamicTest.InitialVelocityCanUseEcefFrame` 与 `FlightDynamicTest.InitialConditionsAcceptEcefPosition`，锁住默认 body 兼容路径、显式 ECEF 速度路径和 ECEF 位置路径；
+- 使用 Homebrew LLVM `lldb 21.1.8` 对 f22 失败用例下断点验证：当前 `AircraftManeuverTest.FlyToWaypoint/5` 进入 `ApplyInitialConditions` 时 `initial_velocity_frame=kBody`，速度为 `(200,0,0)`，位置为 `0/0/3000m`。因此现有失败仍是 body 前向速度初态下的 f22 包线/trim/FCS 问题，不是误把该测试输入当 ECEF 后产生的新失败。
 
 ### 2026-05-27 深入复核增量
 

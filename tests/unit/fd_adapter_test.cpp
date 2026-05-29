@@ -3,15 +3,19 @@
 #include <cmath>
 #include <string>
 
+#include "1q/coordinate/position_transform.h"
 #include "1q/flight_dynamic/FlightManager.h"
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
 #include "1q/flight_dynamic/config/FlightDynamicConfig.h"
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
 #include "fd_test_helpers.h"
+#include "flight_dynamic/adapter/JsbsimAdapter.h"
 
 namespace oneq {
 namespace flight_dynamic {
 namespace {
+
+constexpr double kMToFt = 1.0 / 0.3048;
 
 class FlightDynamicTest : public ::testing::Test {
  protected:
@@ -53,6 +57,53 @@ TEST_F(FlightDynamicTest, VehicleStatePopulated) {
   EXPECT_GT(state.sim_time_sec, 0.0);
   EXPECT_GT(state.mass_kg, 0.0);
   ExpectNoNaN(state);
+}
+
+TEST_F(FlightDynamicTest, InitialVelocityDefaultsToBodyFrame) {
+  config_.do_trim = false;
+  config_.initial_kinematics.velocity_mps.x_mps = 50.0;
+  config_.initial_kinematics.velocity_mps.y_mps = 3.0;
+  config_.initial_kinematics.velocity_mps.z_mps = -2.0;
+
+  adapter::JsbsimAdapter adapter(config_);
+
+  EXPECT_NEAR(adapter.GetProperty("velocities/u-fps"), 50.0 * kMToFt, 1.0e-6);
+  EXPECT_NEAR(adapter.GetProperty("velocities/v-fps"), 3.0 * kMToFt, 1.0e-6);
+  EXPECT_NEAR(adapter.GetProperty("velocities/w-fps"), -2.0 * kMToFt, 1.0e-6);
+}
+
+TEST_F(FlightDynamicTest, InitialVelocityCanUseEcefFrame) {
+  config_.do_trim = false;
+  config_.initial_velocity_frame = config::InitialVelocityFrame::kEcef;
+  config_.initial_kinematics.velocity_mps.x_mps = 3.0;  // ECEF X -> ENU Up -> NED Down -3
+  config_.initial_kinematics.velocity_mps.y_mps = 1.0;  // ECEF Y -> ENU East
+  config_.initial_kinematics.velocity_mps.z_mps = 2.0;  // ECEF Z -> ENU North
+
+  adapter::JsbsimAdapter adapter(config_);
+
+  EXPECT_NEAR(adapter.GetProperty("velocities/v-north-fps"), 2.0 * kMToFt, 1.0e-6);
+  EXPECT_NEAR(adapter.GetProperty("velocities/v-east-fps"), 1.0 * kMToFt, 1.0e-6);
+  EXPECT_NEAR(adapter.GetProperty("velocities/v-down-fps"), -3.0 * kMToFt, 1.0e-6);
+}
+
+TEST_F(FlightDynamicTest, InitialConditionsAcceptEcefPosition) {
+  config_.do_trim = false;
+  config_.initial_velocity_frame = config::InitialVelocityFrame::kEcef;
+  config_.initial_kinematics.position_frame = coordinate::PositionFrame::kEcef;
+  ASSERT_TRUE(coordinate::TryLlaToEcef(config_.initial_kinematics.position_lla_deg_m,
+                                       &config_.initial_kinematics.position_ecef_m));
+  config_.initial_kinematics.velocity_mps.x_mps = 3.0;
+  config_.initial_kinematics.velocity_mps.y_mps = 1.0;
+  config_.initial_kinematics.velocity_mps.z_mps = 2.0;
+
+  adapter::JsbsimAdapter adapter(config_);
+
+  EXPECT_NEAR(adapter.GetProperty("position/lat-gc-deg"), 0.0, 1.0e-6);
+  EXPECT_NEAR(adapter.GetProperty("position/long-gc-deg"), 0.0, 1.0e-6);
+  EXPECT_NEAR(adapter.GetProperty("position/h-sl-ft"), 500.0 * kMToFt, 1.0e-3);
+  EXPECT_NEAR(adapter.GetProperty("velocities/v-north-fps"), 2.0 * kMToFt, 1.0e-6);
+  EXPECT_NEAR(adapter.GetProperty("velocities/v-east-fps"), 1.0 * kMToFt, 1.0e-6);
+  EXPECT_NEAR(adapter.GetProperty("velocities/v-down-fps"), -3.0 * kMToFt, 1.0e-6);
 }
 
 TEST_F(FlightDynamicTest, AutopilotDetectsOwnApProfile) {

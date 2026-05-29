@@ -68,8 +68,8 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
 
   ConfigureIntegrators(config);
 
-  model::VehicleStateMapper::ApplyInitialConditions(*fdm_exec_,
-                                                     config.initial_kinematics);
+  model::VehicleStateMapper::ApplyInitialConditions(*fdm_exec_, config.initial_kinematics,
+                                                    config.initial_velocity_frame);
 
   if (!RunIC()) {
     throw std::runtime_error("JsbsimAdapter: RunIC() failed");
@@ -89,7 +89,8 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
     } catch (...) {
       trim_succeeded_ = false;
       std::cerr << "JsbsimAdapter: DoTrim(0) threw an exception, proceeding anyway." << std::endl;
-      model::VehicleStateMapper::ApplyInitialConditions(*fdm_exec_, config.initial_kinematics);
+      model::VehicleStateMapper::ApplyInitialConditions(*fdm_exec_, config.initial_kinematics,
+                                                        config.initial_velocity_frame);
       if (!RunIC()) {
         throw std::runtime_error("JsbsimAdapter: RunIC() failed after trim recovery");
       }

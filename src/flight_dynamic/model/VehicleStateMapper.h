@@ -7,22 +7,24 @@ namespace JSBSim {
 class FGPropagate;
 class FGAccelerations;
 class FGFDMExec;
-}
+}  // namespace JSBSim
 
 namespace oneq {
 namespace flight_dynamic {
+namespace config {
+enum class InitialVelocityFrame;
+}
 namespace model {
 
 class VehicleStateMapper {
  public:
   static VehicleState Map(const JSBSim::FGPropagate& propagate,
-                          const JSBSim::FGAccelerations& accelerations,
-                          JSBSim::FGFDMExec& fdm_exec,
+                          const JSBSim::FGAccelerations& accelerations, JSBSim::FGFDMExec& fdm_exec,
                           double sim_time_sec);
 
-  static void ApplyInitialConditions(
-      JSBSim::FGFDMExec& fdm_exec,
-      const coordinate::ExternalKinematics& kinematics);
+  static void ApplyInitialConditions(JSBSim::FGFDMExec& fdm_exec,
+                                     const coordinate::ExternalKinematics& kinematics,
+                                     config::InitialVelocityFrame velocity_frame);
 
  private:
   static constexpr double kFtToM = 0.3048;

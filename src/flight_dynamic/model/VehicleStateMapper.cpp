@@ -1,5 +1,8 @@
 #include "flight_dynamic/model/VehicleStateMapper.h"
 
+#include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/velocity_transform.h"
+#include "1q/flight_dynamic/config/FlightDynamicConfig.h"
 #include "FGFDMExec.h"
 #include "initialization/FGInitialCondition.h"
 #include "models/FGPropagate.h"
@@ -78,16 +81,39 @@ VehicleState VehicleStateMapper::Map(
 
 void VehicleStateMapper::ApplyInitialConditions(
     JSBSim::FGFDMExec& fdm_exec,
-    const coordinate::ExternalKinematics& kinematics) {
+    const coordinate::ExternalKinematics& kinematics,
+    config::InitialVelocityFrame velocity_frame) {
   auto ic = fdm_exec.GetIC();
+  coordinate::LlaPositionDegM initial_lla;
+  bool has_initial_lla = false;
   if (kinematics.position_frame == coordinate::PositionFrame::kLla) {
-    ic->SetLatitudeDegIC(kinematics.position_lla_deg_m.latitude_deg);
-    ic->SetLongitudeDegIC(kinematics.position_lla_deg_m.longitude_deg);
-    ic->SetAltitudeASLFtIC(kinematics.position_lla_deg_m.altitude_m * kMToFt);
+    initial_lla = kinematics.position_lla_deg_m;
+    has_initial_lla = true;
+  } else if (kinematics.position_frame == coordinate::PositionFrame::kEcef) {
+    has_initial_lla = coordinate::TryEcefToLla(kinematics.position_ecef_m, &initial_lla);
   }
-  ic->SetUBodyFpsIC(kinematics.velocity_mps.x_mps * kMToFt);
-  ic->SetVBodyFpsIC(kinematics.velocity_mps.y_mps * kMToFt);
-  ic->SetWBodyFpsIC(kinematics.velocity_mps.z_mps * kMToFt);
+  if (has_initial_lla) {
+    ic->SetLatitudeDegIC(initial_lla.latitude_deg);
+    ic->SetLongitudeDegIC(initial_lla.longitude_deg);
+    ic->SetAltitudeASLFtIC(initial_lla.altitude_m * kMToFt);
+  }
+
+  bool velocity_applied = false;
+  if (velocity_frame == config::InitialVelocityFrame::kEcef && has_initial_lla) {
+    coordinate::NedVelocityMps ned_velocity;
+    if (coordinate::TryEcefToNedVelocity(kinematics.velocity_mps, initial_lla, &ned_velocity)) {
+      ic->SetVNorthFpsIC(ned_velocity.north_mps * kMToFt);
+      ic->SetVEastFpsIC(ned_velocity.east_mps * kMToFt);
+      ic->SetVDownFpsIC(ned_velocity.down_mps * kMToFt);
+      velocity_applied = true;
+    }
+  }
+  if (!velocity_applied) {
+    ic->SetUBodyFpsIC(kinematics.velocity_mps.x_mps * kMToFt);
+    ic->SetVBodyFpsIC(kinematics.velocity_mps.y_mps * kMToFt);
+    ic->SetWBodyFpsIC(kinematics.velocity_mps.z_mps * kMToFt);
+  }
+
   ic->SetPhiRadIC(kinematics.attitude_deg.roll_deg * kDegToRad);
   ic->SetThetaRadIC(kinematics.attitude_deg.pitch_deg * kDegToRad);
   ic->SetPsiRadIC(kinematics.attitude_deg.yaw_deg * kDegToRad);
