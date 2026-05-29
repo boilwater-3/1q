@@ -42,6 +42,9 @@ GEMINI.md
 AGENTS.md
 CLAUDE.md
 
+# JSBSim output side effects
+JSBout*.csv
+
 # Binary artifacts
 *.o
 *.obj
