@@ -3,6 +3,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/velocity_transform.h"
 #include "1q/flight_dynamic/config/FlightDynamicConfig.h"
+#include "flight_dynamic/adapter/PropertyNames.h"
 #include "FGFDMExec.h"
 #include "initialization/FGInitialCondition.h"
 #include "models/FGPropagate.h"
@@ -28,7 +29,7 @@ VehicleState VehicleStateMapper::Map(
   s.latitude_rad = loc.GetLatitude();
   s.longitude_rad = loc.GetLongitude();
   s.altitude_geod_m = loc.GetGeodAltitude() * kFtToM;
-  s.altitude_agl_m = fdm_exec.GetPropertyValue("position/h-agl-ft") * kFtToM;
+  s.altitude_agl_m = fdm_exec.GetPropertyValue(adapter::property::kHaglFt) * kFtToM;
 
   // Body velocities (UVW = body frame, fps)
   const auto& uvw = propagate.GetUVW();
@@ -40,9 +41,9 @@ VehicleState VehicleStateMapper::Map(
   s.v_inertial_mps = propagate.GetInertialVelocityMagnitude() * kFtToM;
 
   // Airspeeds
-  s.vc_mps = fdm_exec.GetPropertyValue("velocities/vc-fps") * kFtToM;
-  s.vtrue_mps = fdm_exec.GetPropertyValue("velocities/vtrue-fps") * kFtToM;
-  s.mach = fdm_exec.GetPropertyValue("velocities/mach");
+  s.vc_mps = fdm_exec.GetPropertyValue(adapter::property::kVcFps) * kFtToM;
+  s.vtrue_mps = fdm_exec.GetPropertyValue(adapter::property::kVtrueFps) * kFtToM;
+  s.mach = fdm_exec.GetPropertyValue(adapter::property::kMach);
 
   // Attitude (Euler, rad)
   const auto euler = propagate.GetEuler();
@@ -69,12 +70,12 @@ VehicleState VehicleStateMapper::Map(
   s.rdot_rad_s2 = pqr_dot(3);
 
   // Mass properties
-  s.weight_lbs = fdm_exec.GetPropertyValue("inertia/weight-lbs");
-  s.mass_kg = fdm_exec.GetPropertyValue("inertia/mass-slugs") * kSlugToKg;
+  s.weight_lbs = fdm_exec.GetPropertyValue(adapter::property::kWeightLbs);
+  s.mass_kg = fdm_exec.GetPropertyValue(adapter::property::kMassSlugs) * kSlugToKg;
 
   // Atmosphere
-  s.rho_kg_m3 = fdm_exec.GetPropertyValue("atmosphere/rho-slugs_ft3") * kSlugToKg / (kFtToM * kFtToM * kFtToM);
-  s.qbar_pa = fdm_exec.GetPropertyValue("aero/qbar-psf") * kPsfToPa;
+  s.rho_kg_m3 = fdm_exec.GetPropertyValue(adapter::property::kRhoSlugsFt3) * kSlugToKg / (kFtToM * kFtToM * kFtToM);
+  s.qbar_pa = fdm_exec.GetPropertyValue(adapter::property::kQbarPsf) * kPsfToPa;
 
   return s;
 }

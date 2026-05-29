@@ -38,16 +38,28 @@ class JsbsimAdapter {
   const JSBSim::FGFDMExec& GetFdmExec() const;
 
   bool IsValid() const { return fdm_exec_ != nullptr; }
-  bool TrimAttempted() const { return trim_attempted_; }
-  bool TrimSucceeded() const { return trim_succeeded_; }
+
+  struct InitDiagnostics {
+    bool model_loaded = false;
+    bool ic_applied = false;
+    bool run_ic_ok = false;
+    bool engines_started = false;
+    bool gear_retracted = false;
+    bool trim_attempted = false;
+    bool trim_succeeded = false;
+    bool trim_recovery_applied = false;
+  };
+
+  const InitDiagnostics& GetInitDiagnostics() const { return init_diag_; }
+  bool TrimAttempted() const { return init_diag_.trim_attempted; }
+  bool TrimSucceeded() const { return init_diag_.trim_succeeded; }
 
  private:
   bool LoadAircraft(const config::FlightDynamicConfig& config);
   void ConfigureIntegrators(const config::FlightDynamicConfig& config);
 
   std::unique_ptr<JSBSim::FGFDMExec> fdm_exec_;
-  bool trim_attempted_ = false;
-  bool trim_succeeded_ = false;
+  InitDiagnostics init_diag_;
 };
 
 }  // namespace adapter
