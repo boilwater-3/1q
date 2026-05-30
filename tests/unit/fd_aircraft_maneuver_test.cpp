@@ -385,7 +385,7 @@ INSTANTIATE_TEST_SUITE_P(
         AircraftTestParam{"F80C", 2000.0, 120.0},
         AircraftTestParam{"f15", 3000.0, 200.0},
         AircraftTestParam{"f16", 3000.0, 200.0},
-        AircraftTestParam{"f22", 3000.0, 200.0},
+        AircraftTestParam{"f22", 3000.0, 200.0, true},
         AircraftTestParam{"OV10", 500.0, 70.0}));
 
 INSTANTIATE_TEST_SUITE_P(
@@ -398,7 +398,7 @@ INSTANTIATE_TEST_SUITE_P(
         AircraftTestParam{"L410", 1000.0, 90.0},
         AircraftTestParam{"737", 3000.0, 130.0},
         AircraftTestParam{"B747", 3000.0, 140.0},
-        AircraftTestParam{"Concorde", 5000.0, 150.0},
+        AircraftTestParam{"Concorde", 5000.0, 150.0, true},
         AircraftTestParam{"MD11", 3000.0, 140.0}));
 
 INSTANTIATE_TEST_SUITE_P(

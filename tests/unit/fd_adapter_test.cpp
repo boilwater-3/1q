@@ -159,7 +159,7 @@ TEST_F(FlightDynamicTest, AutopilotDetectsC310Profile) {
 
   // c310 has project-injected Autopilot system providing ap/heading_hold.
   EXPECT_EQ(profile.engine_count, 2);
-  EXPECT_TRUE(profile.indexed_throttle);
+  EXPECT_FALSE(profile.indexed_throttle);
   EXPECT_FALSE(profile.yaw_input_property.empty());
 }
 
@@ -173,8 +173,45 @@ TEST_F(FlightDynamicTest, AutopilotDetectsConcordeProfile) {
 
   // Concorde has project-injected AP system, detected as generic AP bridge.
   EXPECT_EQ(profile.engine_count, 4);
-  EXPECT_TRUE(profile.indexed_throttle);
-  EXPECT_EQ(profile.yaw_input_property, "fcs/rudder-pedal-norm");
+  EXPECT_FALSE(profile.indexed_throttle);
+  EXPECT_EQ(profile.yaw_input_property, "fcs/rudder-cmd-norm");
+}
+
+TEST_F(FlightDynamicTest, AutopilotWritesIndexedThrottleForMultiEngineProfiles) {
+  config_.aircraft_model = "f22";
+  config_.do_trim = false;
+  config_.initial_kinematics.position_lla_deg_m.altitude_m = 3000.0;
+  config_.initial_kinematics.velocity_mps.x_mps = 200.0;
+
+  adapter::JsbsimAdapter adapter(config_);
+  autopilot::Autopilot ap(adapter);
+  ASSERT_TRUE(ap.GetControlProfile().indexed_throttle);
+  ASSERT_EQ(ap.GetControlProfile().engine_count, 2);
+
+  ap.SetThrottleCmdNorm(0.61);
+
+  EXPECT_NEAR(adapter.GetProperty("fcs/throttle-cmd-norm"), 0.61, 1.0e-9);
+  EXPECT_NEAR(adapter.GetProperty("fcs/throttle-cmd-norm[0]"), 0.61, 1.0e-9);
+  EXPECT_NEAR(adapter.GetProperty("fcs/throttle-cmd-norm[1]"), 0.61, 1.0e-9);
+}
+
+TEST_F(FlightDynamicTest, AutopilotWritesDetectedYawInputProperty) {
+  config_.aircraft_model = "Concorde";
+  config_.do_trim = false;
+  config_.initial_kinematics.position_lla_deg_m.altitude_m = 5000.0;
+  config_.initial_kinematics.velocity_mps.x_mps = 150.0;
+
+  adapter::JsbsimAdapter adapter(config_);
+  autopilot::Autopilot ap(adapter);
+  ASSERT_EQ(ap.GetControlProfile().yaw_input_property, "fcs/rudder-cmd-norm");
+
+  adapter.SetProperty("fcs/rudder-pedal-norm", 0.42);
+  adapter.SetProperty("fcs/rudder-cmd-norm", 0.42);
+
+  ap.Update(kDt);
+
+  EXPECT_NEAR(adapter.GetProperty("fcs/rudder-cmd-norm"), 0.0, 1.0e-9);
+  EXPECT_NEAR(adapter.GetProperty("fcs/rudder-pedal-norm"), 0.42, 1.0e-9);
 }
 
 TEST_F(FlightDynamicTest, AutopilotSetsHeading) {

@@ -104,6 +104,7 @@ class Autopilot {
   void UpdatePitchChannel();
   void UpdateAltitudeThrottle();
   void ApplyNativeHeadingSetpoint();
+  void ApplyYawDamping(double yaw_rate_rad_sec);
 
   adapter::JsbsimAdapter& adapter_;
   AircraftControlProfile control_profile_;

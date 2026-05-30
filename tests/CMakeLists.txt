@@ -101,6 +101,22 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
         target_compile_definitions(${target_name} PRIVATE ONEQ_HAVE_ZLIB=0)
     endif()
 
+    if(ENABLE_PCH)
+        target_precompile_headers(${target_name} PRIVATE
+            <vector>
+            <string>
+            <array>
+            <map>
+            <set>
+            <unordered_map>
+            <memory>
+            <algorithm>
+            <utility>
+            <cmath>
+            <cstdint>
+        )
+    endif()
+
     if(WIN32 AND BUILD_SHARED_LIBS)
         add_custom_command(TARGET ${target_name} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different

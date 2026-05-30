@@ -110,7 +110,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/TargetProperties.cmake)
 
 # --- PCH ---
 if(ENABLE_PCH)
-    target_precompile_headers(${PROJECT_CORE_TARGET} PRIVATE
+    set(ONEQ_PCH_HEADERS
         <vector>
         <string>
         <array>
@@ -133,11 +133,17 @@ if(ENABLE_PCH)
         <chrono>
     )
     if(CMAKE_CXX_STANDARD GREATER_EQUAL 17)
-        target_precompile_headers(${PROJECT_CORE_TARGET} PRIVATE
+        list(APPEND ONEQ_PCH_HEADERS
             <optional>
             <variant>
         )
     endif()
+    target_precompile_headers(${PROJECT_CORE_TARGET} PRIVATE ${ONEQ_PCH_HEADERS})
+    foreach(ONEQ_OBJECT_TARGET IN LISTS ONEQ_OBJECT_TARGETS)
+        target_precompile_headers(${ONEQ_OBJECT_TARGET} PRIVATE ${ONEQ_PCH_HEADERS})
+    endforeach()
+    unset(ONEQ_OBJECT_TARGET)
+    unset(ONEQ_PCH_HEADERS)
 endif()
 
 # --- 安装 ---

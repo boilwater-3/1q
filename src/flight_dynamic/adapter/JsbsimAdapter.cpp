@@ -1,11 +1,13 @@
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 
 #include "1q/coordinate/position_transform.h"
 #include "FGFDMExec.h"
 #include "initialization/FGInitialCondition.h"
+#include "models/FGOutput.h"
 #include "models/FGPropulsion.h"
 #include "simgear/misc/sg_path.hxx"
 #include "flight_dynamic/adapter/PropertyNames.h"
@@ -32,19 +34,24 @@ void RetractLandingGearIfModeled(JSBSim::FGFDMExec& fdm_exec) {
 }
 
 void DisableXmlOutput(JSBSim::FGFDMExec& fdm_exec) {
-  auto* pm = fdm_exec.GetPropertyManager().get();
-  auto* output_node = pm->GetNode("simulation/output");
-  if (output_node == nullptr) return;
+  fdm_exec.DisableOutput();
+}
 
-  auto* count_node = pm->GetNode("simulation/output/num-files");
-  if (count_node == nullptr) return;
-  int count = static_cast<int>(count_node->getDoubleValue());
-  for (int i = 0; i < count; ++i) {
-    std::string enable_prop = "simulation/output/" + std::to_string(i) + "/enabled";
-    auto* node = pm->GetNode(enable_prop);
-    if (node != nullptr) {
-      node->setDoubleValue(0.0);
-    }
+void PrepareXmlOutputPath(JSBSim::FGFDMExec& fdm_exec) {
+  try {
+    const std::filesystem::path output_dir =
+        std::filesystem::temp_directory_path() / "1q_jsbsim_output";
+    std::filesystem::create_directories(output_dir);
+    fdm_exec.SetOutputPath(SGPath(output_dir.string()));
+  } catch (const std::exception&) {
+    // A writable output path is only a side-effect guard; model loading can proceed without it.
+  }
+}
+
+void RotateXmlOutputBeforeRepeatedRunIC(JSBSim::FGFDMExec& fdm_exec) {
+  const auto output = fdm_exec.GetOutput();
+  if (output) {
+    output->SetStartNewOutput();
   }
 }
 
@@ -90,6 +97,7 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
   }
 
   SetDeltaT(config.dt_sec);
+  PrepareXmlOutputPath(*fdm_exec_);
 
   if (!LoadAircraft(config)) {
     throw std::runtime_error("JsbsimAdapter: failed to load aircraft: " +
@@ -128,6 +136,7 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
       std::cerr << "JsbsimAdapter: DoTrim(0) threw an exception, proceeding anyway." << std::endl;
       model::VehicleStateMapper::ApplyInitialConditions(*fdm_exec_, config.initial_kinematics,
                                                         config.initial_velocity_frame);
+      RotateXmlOutputBeforeRepeatedRunIC(*fdm_exec_);
       if (!RunIC()) {
         throw std::runtime_error("JsbsimAdapter: RunIC() failed after trim recovery");
       }

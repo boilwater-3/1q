@@ -11,9 +11,9 @@
 |------|----------|----------|----------|----------|------------|
 | `f16` | FBW roll-rate command | FBW pitch/g-load scheduler | 单发 `fcs/throttle-cmd-norm` | `Navigation`、`GNCUtilities`、`Autopilot` | datalog output 在注释块内 |
 | `f22` | FBW roll-rate integrator + actuator | FBW pitch-rate/g-load integrator | 双发 indexed throttle，另有 thrust normalize | `Navigation`、`GNCUtilities`、`Autopilot` | datalog output 在注释块内 |
-| `c310` | native AP + direct surface 混合 | native AP + direct surface 混合 | 双发 indexed throttle/mixture | `GNCUtilities` + `c310ap` | active CSV/socket |
+| `c310` | native AP + direct surface 混合 | native AP + direct surface 混合 | 双发 common throttle，indexed mixture | `GNCUtilities` + `c310ap` | active CSV/socket |
 | `c172x` | generic AP/native `c172ap` + direct surface 混合 | generic AP/native `c172ap` + direct surface 混合 | 单发 throttle + mixture system | `Navigation`、`GNCUtilities`、`Autopilot`、`c172ap` | active CSV/socket |
-| `Concorde` | direct surface | direct surface | 四发 indexed throttle | `Navigation`、`GNCUtilities`、`Autopilot` | 未见 active output |
+| `Concorde` | direct surface | direct surface | 四发 common throttle | `Navigation`、`GNCUtilities`、`Autopilot` | 未见 active output |
 | `f15` | direct surface | direct surface | 双发 throttle | `Navigation`、`GNCUtilities`、`Autopilot` | 未见 active output |
 
 阶段 2 后续代码化 profile 时，至少需要把 `f16` 与 `f22` 拆成不同 FBW subtype：`f16` 的 `fcs/aileron-cmd-norm` 进入 roll-rate PID，再生成舵面；`f22` 的 `fcs/aileron-cmd-norm` 进入 roll-rate command/filter/integrator/actuator 链，且存在独立 `fcs/roll-cmd` 函数和 `fcs/aileron-act`。
@@ -55,7 +55,7 @@
 | Roll | `ap/aileron_cmd` + `fcs/aileron-cmd-norm` + trim -> surface rad/norm | native AP 与 C++ direct command 叠加 |
 | Pitch | `ap/elevator_cmd` + `fcs/elevator-cmd-norm` + trim -> elevator rad/norm | native AP 与 C++ direct command 叠加 |
 | Yaw | `ap/rudder_cmd` + `fcs/rudder-cmd-norm` + trim -> rudder rad/norm | native AP 也可写 rudder |
-| Throttle/Mixture | indexed mixture `fcs/mixture-cmd-norm[0..1]`; throttle 由 engine count 与 C++ indexed write 驱动 | 双发 indexed 控制 |
+| Throttle/Mixture | indexed mixture `fcs/mixture-cmd-norm[0..1]`; throttle 未发现 aircraft XML 消费 `fcs/throttle-cmd-norm[0..1]` | 双发 common throttle + indexed mixture |
 
 关键风险：它有 `autopilot file="c310ap"`，但不是项目统一 `system file="Autopilot"`；profile 探测不能只看 `ap/autopilot-roll-on`，还要记录 native AP 文件和 `ap/*_cmd` consumer。
 
@@ -80,10 +80,10 @@
 |------|----------------------|------|
 | Roll | `fcs/aileron-cmd-norm` + trim -> actuator -> `fcs/aileron-surface` -> left/right aileron | direct surface |
 | Pitch | `fcs/elevator-cmd-norm` + trim -> actuator -> `fcs/elevator-surface` -> elevator | direct surface |
-| Yaw | `fcs/rudder-pedal-norm` + trim + yaw damper -> rudder actuator | yaw uses pedal property; `fcs/rudder-cmd-norm` first feeds nose wheel steering |
-| Throttle | four Olympus engines | 四发 indexed 控制需求 |
+| Yaw | `fcs/rudder-cmd-norm` -> nose-wheel steering schedule -> `fcs/rudder-pedal-norm` + trim + yaw damper -> rudder actuator | C++ 应写 `rudder-cmd-norm` 命令入口，`rudder-pedal-norm` 是 XML 中间输出 |
+| Throttle | four Olympus engines; 未发现 aircraft XML 消费 `fcs/throttle-cmd-norm[0..3]` | 四发 common throttle |
 
-关键风险：当前 Concorde `Orbit` 失败表现为高度/能量问题，横向 direct surface 不是唯一主因；yaw path 也不是单纯 `fcs/rudder-cmd-norm` 到 rudder。
+关键风险：当前 Concorde `Orbit` 失败表现为高度/能量问题，横向 direct surface 不是唯一主因；yaw path 经过 `rudder-cmd-norm -> rudder-pedal-norm -> rudder actuator`，不应绕过上游命令入口直接写中间量。
 
 ### f15
 
@@ -103,5 +103,6 @@
 1. `AircraftControlProfile` 需要从布尔探测扩展为可解释合同：lateral subtype、pitch subtype、yaw input、throttle indexing、native AP 文件、project injected AP、output side effects。
 2. f16/f22 的 FBW subtype 必须拆开，至少区分 `fbw_roll_rate_pid` 与 `fbw_rate_integrator_actuator`。
 3. c310/c172x 的 native AP consumer 要进入 profile，不应只靠 `ap/autopilot-roll-on` 判断 generic AP。
-4. Concorde 的 yaw 输入应标注为 `fcs/rudder-pedal-norm`，避免 C++ 只写 `fcs/rudder-cmd-norm` 后误判 yaw 有效。
-5. XML output 需要在 adapter/test fixture 层统一禁用或重定向；c172x/c310 是当前 active output 的重点。
+4. profile 中 `yaw_input_property` 应表示 C++ 应写入的命令入口；Concorde 应为 `fcs/rudder-cmd-norm`，不要把 XML 中间输出 `fcs/rudder-pedal-norm` 当外部控制输入。
+5. `indexed_throttle` 应表示 aircraft XML 实际消费 indexed throttle 输入；当前首批样本中只有 `f22` 需要 C++ 同步写 `fcs/throttle-cmd-norm[1]`。
+6. XML output 需要在 adapter/test fixture 层统一禁用或重定向；c172x/c310 是当前 active output 的重点。

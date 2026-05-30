@@ -41,10 +41,15 @@ constexpr double kFtToM = 0.3048;
 constexpr double kMToFt = 1.0 / kFtToM;
 constexpr double kRefSpeedFps = 164.0;  // ~50 m/s reference (c172x cruise)
 
+bool UsesIndexedThrottleInput(const std::string& model_name) {
+  return model_name == "f22";
+}
+
 }  // namespace
 
 Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   auto* pm = adapter.GetFdmExec().GetPropertyManager().get();
+  const std::string& model_name = adapter.GetFdmExec().GetModelName();
   control_profile_.has_own_autopilot = pm->GetNode(adapter::property::kApHeadingHold) != nullptr;
   control_profile_.has_generic_autopilot = pm->GetNode(adapter::property::kApRollOn) != nullptr;
   control_profile_.has_fbw_override = pm->GetNode(adapter::property::kApFbwOverride) != nullptr;
@@ -56,10 +61,9 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   const auto propulsion = adapter_.GetFdmExec().GetPropulsion();
   if (propulsion) {
     control_profile_.engine_count = static_cast<int>(propulsion->GetNumEngines());
-    if (control_profile_.engine_count > 1) {
-      control_profile_.indexed_throttle =
-          pm->GetNode("fcs/throttle-cmd-norm[1]") != nullptr;
-    }
+    control_profile_.indexed_throttle =
+        control_profile_.engine_count > 1 && UsesIndexedThrottleInput(model_name) &&
+        pm->GetNode("fcs/throttle-cmd-norm[1]") != nullptr;
   }
 
   // Mixture detection (piston aircraft)
@@ -74,10 +78,10 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   }
 
   // Yaw input property detection
-  if (pm->GetNode("fcs/rudder-pedal-norm") != nullptr) {
-    control_profile_.yaw_input_property = "fcs/rudder-pedal-norm";
-  } else if (pm->GetNode(adapter::property::kRudderCmd) != nullptr) {
+  if (pm->GetNode(adapter::property::kRudderCmd) != nullptr) {
     control_profile_.yaw_input_property = adapter::property::kRudderCmd;
+  } else if (pm->GetNode("fcs/rudder-pedal-norm") != nullptr) {
+    control_profile_.yaw_input_property = "fcs/rudder-pedal-norm";
   }
 
   // Pitch interface detection
@@ -167,7 +171,8 @@ void Autopilot::SetRollAutopilotOn(bool on) {
 
 void Autopilot::SetThrottleCmdNorm(double value) {
   adapter_.SetProperty(adapter::property::kThrottleCmd, value);
-  if (control_profile_.lateral_interface != LateralControlInterface::kOwnAutopilot) {
+  if (!control_profile_.indexed_throttle &&
+      control_profile_.lateral_interface != LateralControlInterface::kOwnAutopilot) {
     return;
   }
   const auto propulsion = adapter_.GetFdmExec().GetPropulsion();
@@ -223,7 +228,7 @@ void Autopilot::Update(double /*dt_sec*/) {
     UpdateOwnAutopilot();
     UpdateAltitudeThrottle();
     double r = propagate.GetPQR(3);
-    adapter_.SetProperty(adapter::property::kRudderCmd, Clamp(-0.15 * r, -1.0, 1.0));
+    ApplyYawDamping(r);
     return;
   }
 
@@ -252,7 +257,7 @@ void Autopilot::Update(double /*dt_sec*/) {
   UpdateAltitudeThrottle();
 
   double r = propagate.GetPQR(3);
-  adapter_.SetProperty(adapter::property::kRudderCmd, Clamp(-0.15 * r, -1.0, 1.0));
+  ApplyYawDamping(r);
 }
 
 void Autopilot::UpdateOwnAutopilot() {
@@ -395,6 +400,13 @@ void Autopilot::ApplyNativeHeadingSetpoint() {
     heading_rad = propagate.GetLocation().GetHeadingTo(target_lon, target_lat);
   }
   adapter_.SetProperty(adapter::property::kApHeadingSetpoint, RadToDeg360(heading_rad));
+}
+
+void Autopilot::ApplyYawDamping(double yaw_rate_rad_sec) {
+  const std::string yaw_property = control_profile_.yaw_input_property.empty()
+                                       ? std::string(adapter::property::kRudderCmd)
+                                       : control_profile_.yaw_input_property;
+  adapter_.SetProperty(yaw_property, Clamp(-0.15 * yaw_rate_rad_sec, -1.0, 1.0));
 }
 
 }  // namespace autopilot
