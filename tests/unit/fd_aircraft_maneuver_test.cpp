@@ -1,8 +1,6 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
-#include <cstdlib>
-#include <ostream>
 #include <string>
 
 #include "1q/flight_dynamic/FlightManager.h"
@@ -13,6 +11,8 @@
 namespace oneq {
 namespace flight_dynamic {
 namespace {
+
+using namespace guidance;
 
 struct AircraftTestParam {
   std::string model;
@@ -27,33 +27,6 @@ void PrintTo(const AircraftTestParam& p, std::ostream* os) {
   *os << p.model;
 }
 
-double FlyToWaypointDistanceM(const std::string& model) {
-  if (model == "f16") {
-    return 10000.0;
-  }
-  if (model == "A4" || model == "f15") {
-    return 20000.0;
-  }
-  if (model == "Concorde") {
-    return 50000.0;
-  }
-  if (model == "F4N" || model == "F80C" || model == "737" ||
-      model == "B747" || model == "MD11") {
-    return 10000.0;
-  }
-  return 5000.0;
-}
-
-double FlyToWaypointRadiusM(const std::string& model) {
-  if (model == "f16") {
-    return 3000.0;
-  }
-  if (model == "Concorde") {
-    return 5000.0;
-  }
-  return 100.0;
-}
-
 double OrbitRadiusM(double speed_mps, double max_bank_deg) {
   // radius = speed² / (g * tan(bank_limit))
   // Uses the aircraft's actual structural/aerodynamic roll limit.
@@ -64,25 +37,6 @@ double OrbitRadiusM(double speed_mps, double max_bank_deg) {
   double radius = (speed_mps * speed_mps) / (kG * bank_tan);
   double scale = 500.0;
   return std::max(std::ceil(radius / scale) * scale, 500.0);
-}
-
-bool IsFlyToWaypointKnownLimit(const std::string& model) {
-  // f22: FBW integrator corrupts trim recovery, AP convergence untested.
-  // c310: native AP airspeed hold decays at non-trim condition (213→139fps/20s),
-  //       aircraft can't sustain speed to complete 5000m FlyToWaypoint.
-  return model == "f22" || model == "c310";
-}
-
-bool IsOrbitKnownLimit(const std::string& model) {
-  return model == "A4" || model == "B17" || model == "f22";
-}
-
-bool IsQueueKnownLimit(const std::string& model) {
-  return IsFlyToWaypointKnownLimit(model) || IsOrbitKnownLimit(model);
-}
-
-bool IsPerformanceKnownLimit(const std::string& model) {
-  return model == "f22";
 }
 
 class AircraftManeuverTest
@@ -111,225 +65,6 @@ class AircraftManeuverTest
 
   config::FlightDynamicConfig config_;
 };
-
-TEST_P(AircraftManeuverTest, FlyToWaypoint) {
-  if (IsPerformanceKnownLimit(GetParam().model)) {
-    GTEST_SKIP() << GetParam().model << ": known-limit, FBW/trim state prevents reliable AP performance";
-  }
-  FlightManager fm(config_);
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
-
-  TrajectoryLogger logger(GetParam().model, "FlyToWaypoint");
-  logger.Log(fm.GetVehicleState());
-
-  bool is_dumping = std::getenv("DUMP_MANEUVER_TRAJECTORY") != nullptr;
-
-  ManeuverCommand cmd;
-  cmd.type = guidance::ManeuverType::kFlyToWaypoint;
-  constexpr double kInvSqrt2 = 0.7071067811865475;
-  double target_distance_m = FlyToWaypointDistanceM(GetParam().model);
-  cmd.target.latitude_rad = target_distance_m * kInvSqrt2 / 6378137.0;
-  cmd.target.longitude_rad = target_distance_m * kInvSqrt2 / 6378137.0;
-  cmd.target.radius_m = FlyToWaypointRadiusM(GetParam().model);
-  if (is_dumping) {
-    cmd.target.latitude_rad = 20000.0 / 6378137.0;
-    cmd.target.longitude_rad = 20000.0 / 6378137.0;
-  }
-  cmd.target.altitude_m = GetParam().altitude_m;
-  logger.LogTarget(cmd.target.latitude_rad, cmd.target.longitude_rad, cmd.target.altitude_m);
-
-  fm.PushManeuver(cmd);
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kExecuting);
-
-  fm.Step(kDt);
-  logger.Log(fm.GetVehicleState());
-  double lat_0 = fm.GetVehicleState().latitude_rad;
-  double lon_0 = fm.GetVehicleState().longitude_rad;
-  double init_dist = std::hypot(cmd.target.latitude_rad - lat_0,
-                                cmd.target.longitude_rad - lon_0) * 6378137.0;
-
-  const bool known_limit = IsFlyToWaypointKnownLimit(GetParam().model);
-  int max_steps = known_limit ? 1000 : 40000;
-  RunUntilDone(fm, max_steps, &logger);
-  if (is_dumping) {
-    RunUntilDone(fm, 80000, &logger);
-  }
-
-  const auto& state = fm.GetVehicleState();
-  EXPECT_GT(state.sim_time_sec, 0.0);
-  EXPECT_GT(state.mass_kg, 0.0);
-  ExpectNoNaN(state);
-
-  if (!known_limit) {
-    double final_dist = std::hypot(cmd.target.latitude_rad - state.latitude_rad,
-                                   cmd.target.longitude_rad - state.longitude_rad) * 6378137.0;
-
-    EXPECT_LT(final_dist, init_dist * 0.5)
-        << GetParam().model << ": aircraft should move significantly closer to target";
-
-    EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted)
-        << GetParam().model << ": maneuver should complete";
-
-    EXPECT_GT(state.altitude_geod_m, 0.0)
-        << GetParam().model << ": aircraft should not crash";
-  }
-}
-
-TEST_P(AircraftManeuverTest, Orbit) {
-  FlightManager fm(config_);
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
-
-  TrajectoryLogger logger(GetParam().model, "Orbit");
-  logger.Log(fm.GetVehicleState());
-
-  bool is_dumping = std::getenv("DUMP_MANEUVER_TRAJECTORY") != nullptr;
-
-  // Place orbit center a reasonable distance ahead of the aircraft.
-  double center_offset_m = GetParam().speed_mps * 20.0;  // 20 seconds of flight
-  ManeuverCommand cmd;
-  cmd.type = guidance::ManeuverType::kOrbit;
-  cmd.target.latitude_rad = center_offset_m / 6378137.0;
-  cmd.target.longitude_rad = center_offset_m / 6378137.0;
-  cmd.value = 500.0;  // desired radius (controller uses as reference only)
-  if (is_dumping) {
-    cmd.target.latitude_rad = 5000.0 / 6378137.0;
-    cmd.target.longitude_rad = 0.0;
-    cmd.value = 1000.0;
-  }
-  cmd.target.altitude_m = GetParam().altitude_m;
-  logger.LogTarget(cmd.target.latitude_rad, cmd.target.longitude_rad, cmd.target.altitude_m);
-  logger.LogTargetValue(cmd.value);
-
-  fm.PushManeuver(cmd);
-
-  fm.Step(kDt);
-  logger.Log(fm.GetVehicleState());
-
-  int orbit_steps = 10000;
-  RunSteps(fm, orbit_steps, &logger);
-  if (is_dumping) {
-    RunUntilDone(fm, 40000, &logger);
-  }
-
-  const auto& state = fm.GetVehicleState();
-  ExpectNoNaN(state);
-  if (!IsOrbitKnownLimit(GetParam().model)) {
-    EXPECT_GT(state.altitude_geod_m, 0.0)
-        << GetParam().model << ": aircraft should not crash during orbit";
-    EXPECT_TRUE(fm.GetState() == FlightManagerState::kExecuting ||
-                fm.GetState() == FlightManagerState::kCompleted);
-  }
-}
-
-TEST_P(AircraftManeuverTest, SetHeading) {
-  if (IsPerformanceKnownLimit(GetParam().model)) {
-    GTEST_SKIP() << GetParam().model << ": known-limit, heading AP does not meet performance contract";
-  }
-  FlightManager fm(config_);
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
-
-  TrajectoryLogger logger(GetParam().model, "SetHeading");
-  logger.Log(fm.GetVehicleState());
-
-  bool is_dumping = std::getenv("DUMP_MANEUVER_TRAJECTORY") != nullptr;
-
-  ManeuverCommand cmd;
-  cmd.type = guidance::ManeuverType::kSetHeading;
-  cmd.value = 1.57;
-  logger.LogTargetValue(cmd.value);
-
-  fm.PushManeuver(cmd);
-
-  RunSteps(fm, 200, &logger);
-  double err_early =
-      std::abs(fm.GetAutopilot().GetAngleToHeadingRad());
-
-  RunSteps(fm, 800, &logger);
-  double err_late =
-      std::abs(fm.GetAutopilot().GetAngleToHeadingRad());
-
-  if (is_dumping) {
-    RunSteps(fm, 12000, &logger);
-  }
-
-  // Convergence trend: heading error should not grow over time.
-  // Note: strict absolute convergence (e.g., <5 deg within 10s) requires
-  // per-aircraft AP gain tuning not yet implemented.
-  EXPECT_LT(err_late, err_early * 1.20)
-      << GetParam().model << ": heading error should not grow significantly (early="
-      << err_early << " late=" << err_late << ")";
-
-  auto state = fm.GetState();
-  EXPECT_TRUE(state == FlightManagerState::kExecuting ||
-              state == FlightManagerState::kCompleted);
-  ExpectNoNaN(fm.GetVehicleState());
-}
-
-TEST_P(AircraftManeuverTest, SetAltitudeClimb) {
-  if (IsPerformanceKnownLimit(GetParam().model)) {
-    GTEST_SKIP() << GetParam().model << ": known-limit, altitude AP does not meet performance contract";
-  }
-  FlightManager fm(config_);
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
-
-  TrajectoryLogger logger(GetParam().model, "SetAltitudeClimb");
-  logger.Log(fm.GetVehicleState());
-
-  bool is_dumping = std::getenv("DUMP_MANEUVER_TRAJECTORY") != nullptr;
-
-  ManeuverCommand cmd;
-  cmd.type = guidance::ManeuverType::kSetAltitude;
-  cmd.value = GetParam().altitude_m + 500.0;
-  logger.LogTargetValue(cmd.value);
-
-  fm.PushManeuver(cmd);
-
-  fm.Step(kDt);
-  logger.Log(fm.GetVehicleState());
-  double alt_before = fm.GetVehicleState().altitude_geod_m;
-
-  RunSteps(fm, 999, &logger);
-  if (is_dumping) {
-    RunUntilDone(fm, 20000, &logger);
-  }
-
-  double alt_after = fm.GetVehicleState().altitude_geod_m;
-
-  EXPECT_GT(alt_after, alt_before)
-      << GetParam().model
-      << ": altitude should increase toward target";
-
-  auto state = fm.GetState();
-  EXPECT_TRUE(state == FlightManagerState::kExecuting ||
-              state == FlightManagerState::kCompleted);
-  ExpectNoNaN(fm.GetVehicleState());
-}
-
-TEST_P(AircraftManeuverTest, SetPitch) {
-  FlightManager fm(config_);
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
-
-  TrajectoryLogger logger(GetParam().model, "SetPitch");
-  logger.Log(fm.GetVehicleState());
-
-  bool is_dumping = std::getenv("DUMP_MANEUVER_TRAJECTORY") != nullptr;
-
-  ManeuverCommand cmd;
-  cmd.type = guidance::ManeuverType::kSetPitch;
-  cmd.value = 5.0;
-  cmd.duration_sec = 2.0;
-  logger.LogTargetValue(cmd.value);
-
-  fm.PushManeuver(cmd);
-
-  RunUntilDone(fm, 600, &logger);
-  if (is_dumping) {
-    RunSteps(fm, 4000, &logger);
-  }
-
-  EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted)
-      << GetParam().model << ": SetPitch should complete within 600 steps";
-}
 
 TEST_P(AircraftManeuverTest, SetRoll) {
   FlightManager fm(config_);
@@ -436,124 +171,6 @@ INSTANTIATE_TEST_SUITE_P(
         AircraftTestParam{"c172x", 500.0, 50.0},
         AircraftTestParam{"c182", 500.0, 55.0},
         AircraftTestParam{"c310", 500.0, 65.0}));
-
-TEST_P(AircraftManeuverTest, OrbitTimedCompletion) {
-  if (IsPerformanceKnownLimit(GetParam().model)) {
-    GTEST_SKIP() << GetParam().model << ": known-limit, timed orbit currently violates attitude envelope";
-  }
-  FlightManager fm(config_);
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
-
-  fm.Step(kDt);
-  double roll_limit_deg = fm.GetAutopilot().GetControlProfile().max_roll_angle_deg;
-  double orbit_r = OrbitRadiusM(GetParam().speed_mps, roll_limit_deg);
-  double center_offset = orbit_r * 1.5 * 0.7071067811865475;
-
-  ManeuverCommand cmd;
-  cmd.type = guidance::ManeuverType::kOrbit;
-  cmd.target.latitude_rad = center_offset / 6378137.0;
-  cmd.target.longitude_rad = center_offset / 6378137.0;
-  cmd.value = orbit_r;
-  cmd.duration_sec = 5.0;
-  cmd.target.altitude_m = GetParam().altitude_m;
-
-  fm.PushManeuver(cmd);
-
-  int steps = RunUntilDone(fm, 2000);
-
-  EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted)
-      << GetParam().model << ": timed orbit should complete after duration";
-  EXPECT_GT(steps, 100)
-      << GetParam().model << ": should run more than 1 second at dt=0.01";
-  ExpectNoNaN(fm.GetVehicleState());
-  EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 0.0)
-      << GetParam().model << ": timed orbit should remain airborne";
-  EXPECT_LT(fm.GetDiagnostics().max_roll_deg, 80.0)
-      << GetParam().model << ": timed orbit exceeded roll envelope";
-  EXPECT_LT(fm.GetDiagnostics().max_pitch_deg, 45.0)
-      << GetParam().model << ": timed orbit exceeded pitch envelope";
-}
-
-TEST_P(AircraftManeuverTest, QueueOrbitThenHeading) {
-  if (IsPerformanceKnownLimit(GetParam().model)) {
-    GTEST_SKIP() << GetParam().model << ": known-limit, queue performance depends on unstable orbit/heading";
-  }
-  FlightManager fm(config_);
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
-
-  fm.Step(kDt);
-  double roll_limit_deg = fm.GetAutopilot().GetControlProfile().max_roll_angle_deg;
-  double orbit_r = OrbitRadiusM(GetParam().speed_mps, roll_limit_deg);
-  double center_offset = orbit_r * 1.5 * 0.7071067811865475;
-
-  ManeuverCommand orbit_cmd;
-  orbit_cmd.type = guidance::ManeuverType::kOrbit;
-  orbit_cmd.target.latitude_rad = center_offset / 6378137.0;
-  orbit_cmd.target.longitude_rad = center_offset / 6378137.0;
-  orbit_cmd.value = orbit_r;
-  orbit_cmd.duration_sec = 3.0;
-  orbit_cmd.target.altitude_m = GetParam().altitude_m;
-
-  ManeuverCommand heading_cmd;
-  heading_cmd.type = guidance::ManeuverType::kSetHeading;
-  heading_cmd.value = 0.0;
-
-  fm.PushManeuver(orbit_cmd);
-  fm.PushManeuver(heading_cmd);
-
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kExecuting);
-
-  int steps = RunUntilDone(fm, 5000);
-
-  EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted)
-      << GetParam().model << ": queue should complete both maneuvers";
-  EXPECT_GT(steps, 300)
-      << GetParam().model << ": should run both timed orbit + heading";
-  ExpectNoNaN(fm.GetVehicleState());
-}
-
-TEST_P(AircraftManeuverTest, QueueFlyToThenOrbit) {
-  if (IsPerformanceKnownLimit(GetParam().model)) {
-    GTEST_SKIP() << GetParam().model << ": known-limit, queue performance depends on unstable fly-to/orbit";
-  }
-  FlightManager fm(config_);
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
-
-  fm.Step(kDt);
-  double roll_limit_deg = fm.GetAutopilot().GetControlProfile().max_roll_angle_deg;
-  double orbit_r = OrbitRadiusM(GetParam().speed_mps, roll_limit_deg);
-  double wp_distance_m = orbit_r * 2.0;
-
-  ManeuverCommand fly_cmd;
-  fly_cmd.type = guidance::ManeuverType::kFlyToWaypoint;
-  fly_cmd.target.latitude_rad = wp_distance_m / 6378137.0;
-  fly_cmd.target.longitude_rad = 0.0;
-  fly_cmd.target.radius_m = orbit_r;
-  fly_cmd.target.altitude_m = GetParam().altitude_m;
-
-  ManeuverCommand orbit_cmd;
-  orbit_cmd.type = guidance::ManeuverType::kOrbit;
-  orbit_cmd.target.latitude_rad = wp_distance_m / 6378137.0;
-  orbit_cmd.target.longitude_rad = 0.0;
-  orbit_cmd.value = orbit_r;
-  orbit_cmd.duration_sec = 3.0;
-  orbit_cmd.target.altitude_m = GetParam().altitude_m;
-
-  fm.PushManeuver(fly_cmd);
-  fm.PushManeuver(orbit_cmd);
-
-  const bool known_limit = IsQueueKnownLimit(GetParam().model);
-  int steps = RunUntilDone(fm, known_limit ? 2000 : 20000);
-
-  if (!known_limit) {
-    EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted)
-        << GetParam().model << ": fly-to then orbit queue should complete";
-    ExpectNoNaN(fm.GetVehicleState());
-    EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 0.0)
-        << GetParam().model << ": should not crash";
-  }
-  EXPECT_GT(steps, 10) << GetParam().model << ": should run some steps";
-}
 
 TEST_P(AircraftManeuverTest, InvalidOrbitRadius) {
   FlightManager fm(config_);

@@ -158,6 +158,108 @@ void RunSetAltitude(const std::string& model, std::vector<ManeuverResult>& resul
   results.push_back(r);
 }
 
+void RunSetPitch(const std::string& model, std::vector<ManeuverResult>& results) {
+  ManeuverResult r;
+  r.aircraft = model;
+  r.maneuver = "SetPitch";
+  FlightManager fm(MakeConfig(model));
+  if (fm.GetState() != FlightManagerState::kReady) {
+    r.outcome = "init_failed";
+    results.push_back(r);
+    return;
+  }
+  ManeuverCommand cmd;
+  cmd.type = guidance::ManeuverType::kSetPitch;
+  cmd.value = 5.0;
+  cmd.duration_sec = 5.0;
+  fm.PushManeuver(cmd);
+  r.steps = RunUntilState(fm, 1000, r);
+  r.time_s = r.steps * kDt;
+  results.push_back(r);
+}
+
+void RunOrbitTimed(const std::string& model, std::vector<ManeuverResult>& results) {
+  ManeuverResult r;
+  r.aircraft = model;
+  r.maneuver = "OrbitTimed";
+  FlightManager fm(MakeConfig(model));
+  if (fm.GetState() != FlightManagerState::kReady) {
+    r.outcome = "init_failed";
+    results.push_back(r);
+    return;
+  }
+  ManeuverCommand cmd;
+  cmd.type = guidance::ManeuverType::kOrbit;
+  cmd.target.latitude_rad = 0.001;
+  cmd.target.longitude_rad = 0.001;
+  cmd.target.altitude_m = 500.0;
+  cmd.value = 2000.0;
+  cmd.duration_sec = 5.0;
+  fm.PushManeuver(cmd);
+  r.steps = RunUntilState(fm, 2000, r);
+  r.time_s = r.steps * kDt;
+  results.push_back(r);
+}
+
+void RunQueueOrbitThenHeading(const std::string& model,
+                              std::vector<ManeuverResult>& results) {
+  ManeuverResult r;
+  r.aircraft = model;
+  r.maneuver = "QueueOrbitHeading";
+  FlightManager fm(MakeConfig(model));
+  if (fm.GetState() != FlightManagerState::kReady) {
+    r.outcome = "init_failed";
+    results.push_back(r);
+    return;
+  }
+  ManeuverCommand orbit;
+  orbit.type = guidance::ManeuverType::kOrbit;
+  orbit.target.latitude_rad = 0.001;
+  orbit.target.longitude_rad = 0.001;
+  orbit.target.altitude_m = 500.0;
+  orbit.value = 2000.0;
+  orbit.duration_sec = 3.0;
+  fm.PushManeuver(orbit);
+  ManeuverCommand hdg;
+  hdg.type = guidance::ManeuverType::kSetHeading;
+  hdg.value = 0.0;
+  fm.PushManeuver(hdg);
+  r.steps = RunUntilState(fm, 5000, r);
+  r.time_s = r.steps * kDt;
+  results.push_back(r);
+}
+
+void RunQueueFlyToThenOrbit(const std::string& model,
+                            std::vector<ManeuverResult>& results) {
+  ManeuverResult r;
+  r.aircraft = model;
+  r.maneuver = "QueueFlyOrbit";
+  FlightManager fm(MakeConfig(model));
+  if (fm.GetState() != FlightManagerState::kReady) {
+    r.outcome = "init_failed";
+    results.push_back(r);
+    return;
+  }
+  ManeuverCommand fly;
+  fly.type = guidance::ManeuverType::kFlyToWaypoint;
+  fly.target.latitude_rad = 0.0005;
+  fly.target.longitude_rad = 0.0005;
+  fly.target.altitude_m = 500.0;
+  fly.target.radius_m = 200.0;
+  fm.PushManeuver(fly);
+  ManeuverCommand orbit;
+  orbit.type = guidance::ManeuverType::kOrbit;
+  orbit.target.latitude_rad = 0.001;
+  orbit.target.longitude_rad = 0.001;
+  orbit.target.altitude_m = 500.0;
+  orbit.value = 2000.0;
+  orbit.duration_sec = 3.0;
+  fm.PushManeuver(orbit);
+  r.steps = RunUntilState(fm, 20000, r);
+  r.time_s = r.steps * kDt;
+  results.push_back(r);
+}
+
 void WriteResults(FILE* out, const std::vector<ManeuverResult>& results) {
   fprintf(out, "aircraft,maneuver,outcome,steps,time_s,alt_min_m,alt_max_m,"
           "spd_min_mps,spd_max_mps,pitch_max_deg,roll_max_deg,crashed\n");
@@ -198,10 +300,14 @@ int main(int argc, char** argv) {
   std::vector<ManeuverResult> all_results;
   for (const auto& model : models) {
     fprintf(stderr, "%s: ", model.c_str());
-    RunFlyToWaypoint(model, all_results);  fprintf(stderr, "F");
-    RunOrbit(model, all_results);          fprintf(stderr, "O");
-    RunSetHeading(model, all_results);     fprintf(stderr, "H");
-    RunSetAltitude(model, all_results);    fprintf(stderr, "A\n");
+    RunFlyToWaypoint(model, all_results);       fprintf(stderr, "F");
+    RunOrbit(model, all_results);               fprintf(stderr, "O");
+    RunSetHeading(model, all_results);          fprintf(stderr, "H");
+    RunSetAltitude(model, all_results);         fprintf(stderr, "A");
+    RunSetPitch(model, all_results);            fprintf(stderr, "P");
+    RunOrbitTimed(model, all_results);          fprintf(stderr, "T");
+    RunQueueOrbitThenHeading(model, all_results);  fprintf(stderr, "Q");
+    RunQueueFlyToThenOrbit(model, all_results);    fprintf(stderr, "q\n");
   }
 
   WriteResults(out, all_results);
