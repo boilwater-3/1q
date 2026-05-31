@@ -18,16 +18,23 @@ target_link_libraries(ar_config_compare_test PRIVATE ${PROJECT_ALIAS})
 target_include_directories(ar_config_compare_test PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/airborne_radar")
 
+# Shared config for flight_dynamic example targets
+macro(setup_fd_example target)
+    target_link_libraries(${target} PRIVATE ${PROJECT_ALIAS})
+    target_include_directories(${target} PRIVATE "${CMAKE_SOURCE_DIR}/src")
+    target_include_directories(${target} SYSTEM PRIVATE
+        "${CMAKE_SOURCE_DIR}/third_party/jsbsim/src")
+    if(DEFINED ONEQ_JSBSIM_DATA_ROOT_DIR AND NOT ONEQ_JSBSIM_DATA_ROOT_DIR STREQUAL "")
+        set(FD_JSBSIM_ROOT_DIR "${ONEQ_JSBSIM_DATA_ROOT_DIR}")
+    else()
+        set(FD_JSBSIM_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim")
+    endif()
+    target_compile_definitions(${target} PRIVATE
+        FD_JSBSIM_ROOT_DIR="${FD_JSBSIM_ROOT_DIR}")
+endmacro()
+
 add_executable(takeoff_land_csv flight_dynamic/takeoff_land_csv.cpp)
-target_link_libraries(takeoff_land_csv PRIVATE ${PROJECT_ALIAS})
-target_include_directories(takeoff_land_csv PRIVATE
-    "${CMAKE_SOURCE_DIR}/src")
-target_include_directories(takeoff_land_csv SYSTEM PRIVATE
-    "${CMAKE_SOURCE_DIR}/third_party/jsbsim/src")
-if(DEFINED ONEQ_JSBSIM_DATA_ROOT_DIR AND NOT ONEQ_JSBSIM_DATA_ROOT_DIR STREQUAL "")
-    set(FD_JSBSIM_ROOT_DIR "${ONEQ_JSBSIM_DATA_ROOT_DIR}")
-else()
-    set(FD_JSBSIM_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim")
-endif()
-target_compile_definitions(takeoff_land_csv PRIVATE
-    FD_JSBSIM_ROOT_DIR="${FD_JSBSIM_ROOT_DIR}")
+setup_fd_example(takeoff_land_csv)
+
+add_executable(maneuver_sweep_csv flight_dynamic/maneuver_sweep_csv.cpp)
+setup_fd_example(maneuver_sweep_csv)

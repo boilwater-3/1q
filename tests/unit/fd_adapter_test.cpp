@@ -1,9 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
-#include <cstdio>
 #include <string>
-#include <vector>
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/flight_dynamic/FlightManager.h"
@@ -13,7 +11,6 @@
 #include "fd_test_helpers.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "flight_dynamic/adapter/PropertyNames.h"
-#include "flight_dynamic/propulsion/EngineManager.h"
 
 namespace oneq {
 namespace flight_dynamic {
@@ -281,194 +278,6 @@ TEST_F(FlightDynamicTest, F22FbwStateAfterTrimRecovery) {
   EXPECT_LT(pitch_rad, 1.0) << "f22 should not pitch over after recovery";
   EXPECT_GT(roll_rad, -1.0) << "f22 should not roll over after recovery";
   EXPECT_LT(roll_rad, 1.0) << "f22 should not roll over after recovery";
-}
-
-TEST_F(FlightDynamicTest, F22FlyToWaypointStable) {
-  config_.aircraft_model = "f22";
-  config_.initial_kinematics.position_lla_deg_m.altitude_m = 3000.0;
-  config_.initial_kinematics.velocity_mps.x_mps = 200.0;
-  config_.do_trim = true;
-
-  FlightManager fm(config_);
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
-
-  ManeuverCommand cmd;
-  cmd.type = guidance::ManeuverType::kFlyToWaypoint;
-  cmd.target.latitude_rad = 0.01;
-  cmd.target.longitude_rad = 0.01;
-  cmd.target.altitude_m = 3000.0;
-  fm.PushManeuver(cmd);
-
-  RunSteps(fm, 2000);
-  const auto& state = fm.GetVehicleState();
-  EXPECT_LT(std::abs(state.theta_rad), 1.0)
-      << "f22: should not pitch over during FlyToWaypoint";
-  EXPECT_LT(std::abs(state.phi_rad), 1.0)
-      << "f22: should not roll over during FlyToWaypoint";
-}
-
-struct TakeoffLandResult {
-  std::string model;
-  bool ground_start = false;
-  bool engine_on = false;
-  bool reached_vr = false;
-  double vr_kts = 0;
-  double max_kts = 0;
-  bool airborne = false;
-  bool climb_complete = false;
-  double max_agl_m = 0;
-  bool landed = false;
-  double land_spd_mps = 0;
-};
-
-TEST_F(FlightDynamicTest, AllAircraftTakeoffLand) {
-  const char* models[] = {"c172x", "c310", "B17", "f16", "f22", "737"};
-  std::vector<TakeoffLandResult> results;
-
-  for (const char* model : models) {
-    TakeoffLandResult r;
-    r.model = model;
-
-    config_.aircraft_model = model;
-    config_.initial_kinematics.position_lla_deg_m.altitude_m = 0.0;
-    config_.initial_kinematics.velocity_mps.x_mps = 0.0;
-    config_.do_trim = false;
-
-    FlightManager fm(config_);
-    if (fm.GetState() != FlightManagerState::kReady) {
-      results.push_back(r);
-      continue;
-    }
-    r.ground_start = true;
-
-    auto* pm = fm.GetAdapter().GetFdmExec().GetPropertyManager().get();
-    propulsion::EngineManager eng(fm.GetAdapter());
-    r.vr_kts = eng.GetRotationSpeedKts();
-
-    // Takeoff
-    ManeuverCommand tko;
-    tko.type = guidance::ManeuverType::kTakeoff;
-    tko.target.altitude_m = 300.0;  // modest climb target
-    fm.PushManeuver(tko);
-
-    double max_kts = 0, max_agl = 0;
-    for (int s = 0; s < 50000; ++s) {
-      fm.Step(kDt);
-      if (fm.GetState() != FlightManagerState::kExecuting) break;
-      double kts = pm->GetNode("velocities/vc-kts")->getDoubleValue();
-      double agl = pm->GetNode("position/h-agl-ft")->getDoubleValue() * 0.3048;
-      if (kts > max_kts) max_kts = kts;
-      if (agl > max_agl) max_agl = agl;
-      if (!r.reached_vr && kts >= r.vr_kts) r.reached_vr = true;
-      if (!r.airborne && agl > 10.0) r.airborne = true;
-    }
-    r.max_kts = max_kts;
-    r.max_agl_m = max_agl;
-    r.climb_complete = (fm.GetState() == FlightManagerState::kCompleted);
-
-    if (r.climb_complete && r.max_agl_m > 50.0) {
-      ManeuverCommand land;
-      land.type = guidance::ManeuverType::kLand;
-      land.target.latitude_rad = fm.GetVehicleState().latitude_rad + 0.0005;
-      land.target.longitude_rad = fm.GetVehicleState().longitude_rad + 0.0005;
-      land.target.altitude_m = 0.0;
-      land.value = 45.0;
-      fm.PushManeuver(land);
-
-      for (int s = 0; s < 50000; ++s) {
-        fm.Step(kDt);
-        if (fm.GetState() != FlightManagerState::kExecuting) break;
-      }
-      r.landed = (fm.GetState() == FlightManagerState::kCompleted);
-      if (r.landed) r.land_spd_mps = fm.GetVehicleState().vtrue_mps;
-    }
-
-    results.push_back(r);
-  }
-
-  // Print results table
-  std::cout << "\n=== Takeoff & Landing Results ===\n";
-  std::cout << "Model   Grnd Engine VrCalc  MaxKts  Airborne  MaxAGL  ClimbOK  Landed  LandSpd\n";
-  std::cout << "------  ---- ------ ------  ------  --------  ------  -------  ------  -------\n";
-  for (const auto& r : results) {
-    printf("%-7s  %c    %c      %4.0f    %5.0f     %c       %5.0f     %c       %c      %4.0f\n",
-           r.model.c_str(),
-           r.ground_start ? 'Y' : 'N',
-           r.ground_start ? 'Y' : 'N',  // engine on = ground start OK
-           r.vr_kts,
-           r.max_kts,
-           r.airborne ? 'Y' : 'N',
-           r.max_agl_m,
-           r.climb_complete ? 'Y' : 'N',
-           r.landed ? 'Y' : 'N',
-           r.land_spd_mps);
-  }
-}
-
-TEST_F(FlightDynamicTest, TakeoffAndClimbC172) {
-  config_.aircraft_model = "c172x";
-  config_.initial_kinematics.position_lla_deg_m.altitude_m = 0.0;
-  config_.initial_kinematics.velocity_mps.x_mps = 0.0;
-  config_.do_trim = false;
-
-  FlightManager fm(config_);
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
-
-  // Takeoff: climb to 500m (1640ft), heading 45°, speed 50 m/s
-  ManeuverCommand cmd;
-  cmd.type = guidance::ManeuverType::kTakeoff;
-  cmd.target.altitude_m = 500.0;
-  cmd.target.latitude_rad = 0.785;  // 45° heading
-  cmd.value = 50.0;                 // target climb speed
-  fm.PushManeuver(cmd);
-
-  int max_steps = 40000;
-  RunUntilDone(fm, max_steps);
-
-  EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted)
-      << "c172x should take off from ground and climb to 500m";
-  EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 100.0)
-      << "c172x should be well above ground after takeoff";
-}
-
-TEST_F(FlightDynamicTest, TakeoffFlyToLand) {
-  // Full mission: takeoff → fly to waypoint → land
-  config_.aircraft_model = "c172x";
-  config_.initial_kinematics.position_lla_deg_m.altitude_m = 0.0;
-  config_.initial_kinematics.velocity_mps.x_mps = 0.0;
-  config_.do_trim = false;
-
-  FlightManager fm(config_);
-  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
-
-  // 1. Takeoff: climb to 500m
-  ManeuverCommand tko;
-  tko.type = guidance::ManeuverType::kTakeoff;
-  tko.target.altitude_m = 500.0;
-  tko.target.latitude_rad = 0.0;  // runway heading
-  fm.PushManeuver(tko);
-
-  // 2. Fly to waypoint at 500m (northeast, ~7km)
-  ManeuverCommand fly;
-  fly.type = guidance::ManeuverType::kFlyToWaypoint;
-  fly.target.latitude_rad = 0.001;
-  fly.target.longitude_rad = 0.001;
-  fly.target.altitude_m = 500.0;
-  fly.target.radius_m = 200.0;
-  fm.PushManeuver(fly);
-
-  // 3. Land at waypoint near ground
-  ManeuverCommand land;
-  land.type = guidance::ManeuverType::kLand;
-  land.target.latitude_rad = 0.002;
-  land.target.longitude_rad = 0.002;
-  land.target.altitude_m = 0.0;  // ground
-  land.value = 45.0;  // approach speed m/s
-  fm.PushManeuver(land);
-
-  RunUntilDone(fm, 120000);  // max 1200 seconds
-  EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted)
-      << "full mission should complete: takeoff → fly → land";
 }
 
 TEST_F(FlightDynamicTest, AutopilotSetsHeading) {

@@ -177,6 +177,7 @@ void ManeuverExecutor::StartEngine() {
 }
 
 void ManeuverExecutor::ConfigureForTakeoffRoll() {
+  // Release brakes, takeoff flaps, full throttle for takeoff roll.
   engines_.SetBrakes(false);
   engines_.SetFlaps(0.33);
   engines_.SetThrottle(1.0);
@@ -184,9 +185,7 @@ void ManeuverExecutor::ConfigureForTakeoffRoll() {
 
 void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target_heading_rad,
                                          double /*target_speed_mps*/) {
-  engines_.SetGearDown(false);
-  engines_.SetFlaps(0.0);
-
+  // Rotate: elevator back. Gear/flaps stay until positive climb confirmed.
   rotation_elapsed_sec_ = 0.0;
   adapter_.SetProperty("fcs/elevator-cmd-norm", -0.3);
 
@@ -249,6 +248,8 @@ void ManeuverExecutor::Update(double dt_sec) {
     double vc_kts = adapter_.GetProperty("velocities/vc-kts");
     double agl_ft = adapter_.GetProperty("position/h-agl-ft");
     double agl_m = agl_ft * 0.3048;
+    sink_rate_mps_ = (agl_m - prev_alt_m_) / dt_sec;
+    prev_alt_m_ = agl_m;
 
     switch (takeoff_phase_) {
       case TakeoffPhase::kEngineStart:
@@ -273,13 +274,14 @@ void ManeuverExecutor::Update(double dt_sec) {
         if (agl_m < 10.0) {
           adapter_.SetProperty("fcs/elevator-cmd-norm", -0.3);
         } else {
-          // After airborne, maintain a gentle climb attitude to prevent
-          // phugoid oscillation. Without this, statically stable aircraft
-          // (c310) enter pitch oscillations after the initial climb.
-          const double target_pitch_rad = engines_.GetClimbPitchDeg() * 0.0174533;
-          double pitch_rad = adapter_.GetProperty("attitude/pitch-rad");
-          double pitch_err = target_pitch_rad - pitch_rad;
-          double elevator = std::clamp(-0.3 * pitch_err, -0.3, 0.3);
+          // Gear and flaps retraction after positive climb confirmed.
+          if (agl_m > 20.0) engines_.SetGearDown(false);
+          if (agl_m > 30.0) engines_.SetFlaps(0.0);
+          // Vertical speed control: pitch adjusts climb rate, not pitch angle.
+          // Target 5 m/s climb, use pitch to regulate.
+          double target_climb_mps = 5.0;
+          double climb_err = target_climb_mps - sink_rate_mps_;
+          double elevator = std::clamp(-0.05 * climb_err, -0.5, 0.3);
           adapter_.SetProperty("fcs/elevator-cmd-norm", elevator);
           if (!ap_.GetControlProfile().has_own_autopilot) {
             ap_.SetAltitudeHold(true);
