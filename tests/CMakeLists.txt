@@ -211,10 +211,7 @@ set_tests_properties("fd_contract::1q_fd_tests" PROPERTIES LABELS "fd_contract;f
 # Tier 3: controllability — 基本机动命令能否控制飞行器？边界情况？
 # ~30 tests, <15s
 set(_fd_ctrl_filter
-    "FlightDynamicTest.FlyToWaypointNearbyCompletesManeuver:"
     "FlightDynamicTest.MultipleManeuvers:"
-    "FlightDynamicTest.FlyToMultipleWaypointsThenOrbit:"
-    "FlightDynamicTest.OrbitRunsWithoutError:"
     "FlightDynamicTest.SetPitchManeuver:"
     "FlightDynamicTest.SetRollManeuver:"
     "FlightDynamicTest.SetAltitudeManeuver:"
@@ -248,18 +245,10 @@ set_tests_properties("fd_performance::1q_fd_tests" PROPERTIES LABELS "fd_perform
 # 也包含 KnownLimitFighterModels（f22）的 performance 测试（带 skip 守卫）。
 # ~130 tests, ~5s (大部分快速)
 set(_fd_limit_filter
-    "*AircraftManeuverTest.Orbit/*:"
-    "*AircraftManeuverTest.SetPitch/*:"
     "*AircraftManeuverTest.SetRoll/*:"
     "*AircraftManeuverTest.ResetAndReuse/*:"
     "*AircraftManeuverTest.AbortManeuver/*:"
     "*AircraftManeuverTest.InvalidOrbitRadius/*:"
-    "*KnownLimitFighterModels*AircraftManeuverTest.FlyToWaypoint/*:"
-    "*KnownLimitFighterModels*AircraftManeuverTest.SetHeading/*:"
-    "*KnownLimitFighterModels*AircraftManeuverTest.SetAltitudeClimb/*:"
-    "*KnownLimitFighterModels*AircraftManeuverTest.OrbitTimedCompletion/*:"
-    "*KnownLimitFighterModels*AircraftManeuverTest.QueueOrbitThenHeading/*:"
-    "*KnownLimitFighterModels*AircraftManeuverTest.QueueFlyToThenOrbit/*:"
     "*FdAircraftProbe.*"
 )
 string(REPLACE ";" "" _fd_limit_filter_str "${_fd_limit_filter}")
