@@ -6,6 +6,7 @@
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
+#include "flight_dynamic/adapter/PropertyNames.h"
 #include "math/FGLocation.h"
 #include "models/FGPropagate.h"
 
@@ -152,6 +153,50 @@ void ManeuverExecutor::ExecuteSetRoll(int roll_mode) {
   ap_.SetRollAutopilotOn(true);
 }
 
+void ManeuverExecutor::ExecuteTakeoff(double target_altitude_m, double target_heading_rad,
+                                      double target_speed_mps) {
+  current_maneuver_.type = ManeuverType::kTakeoff;
+  current_maneuver_.value = target_altitude_m;
+  current_maneuver_.duration_sec = target_speed_mps;
+  current_maneuver_.target.altitude_m = target_altitude_m;
+  active_ = true;
+  elapsed_sec_ = 0.0;
+  takeoff_phase_ = TakeoffPhase::kEngineStart;
+  takeoff_target_altitude_m_ = target_altitude_m;
+  takeoff_target_heading_rad_ = target_heading_rad;
+
+  StartEngine();
+}
+
+void ManeuverExecutor::StartEngine() {
+  adapter_.SetProperty(adapter::property::kLeftBrakeCmd, 1.0);
+  adapter_.SetProperty(adapter::property::kRightBrakeCmd, 1.0);
+  adapter_.SetProperty(adapter::property::kCenterBrakeCmd, 1.0);
+  adapter_.SetProperty(adapter::property::kThrottleCmd, 1.0);
+  adapter_.SetProperty(adapter::property::kMixtureCmdNorm, 1.0);
+  adapter_.SetProperty(adapter::property::kMagnetoCmd, 3.0);
+  adapter_.SetProperty(adapter::property::kStarterCmd, 1.0);
+}
+
+void ManeuverExecutor::ConfigureForTakeoffRoll() {
+  adapter_.SetProperty(adapter::property::kLeftBrakeCmd, 0.0);
+  adapter_.SetProperty(adapter::property::kRightBrakeCmd, 0.0);
+  adapter_.SetProperty(adapter::property::kCenterBrakeCmd, 0.0);
+  adapter_.SetProperty(adapter::property::kFlapCmdNorm, 0.33);
+  adapter_.SetProperty(adapter::property::kThrottleCmd, 1.0);
+}
+
+void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target_heading_rad,
+                                         double /*target_speed_mps*/) {
+  ap_.SetRollAttitudeMode(1);
+  ap_.SetRollAutopilotOn(true);
+  ap_.SetHeadingTargetRad(target_heading_rad);
+  ap_.SetHeadingHold(true);
+  ap_.SetAltitudeTargetM(target_altitude_m);
+  ap_.SetAltitudeHold(true);
+  adapter_.SetProperty(adapter::property::kFlapCmdNorm, 0.0);
+}
+
 bool ManeuverExecutor::IsManeuverComplete() const {
   if (!active_) return true;
 
@@ -179,6 +224,8 @@ bool ManeuverExecutor::IsManeuverComplete() const {
       return current_maneuver_.duration_sec > 0.0 && elapsed_sec_ >= current_maneuver_.duration_sec;
     case ManeuverType::kSetRoll:
       return true;
+    case ManeuverType::kTakeoff:
+      return takeoff_phase_ == TakeoffPhase::kComplete;
   }
   return true;
 }
@@ -195,6 +242,40 @@ void ManeuverExecutor::Update(double dt_sec) {
                                                          current_maneuver_.target, radius_m,
                                                          speed_mps);
     ap_.SetHeadingTargetRad(heading_rad);
+  }
+  if (current_maneuver_.type == ManeuverType::kTakeoff) {
+    double vc_kts = adapter_.GetProperty("velocities/vc-kts");
+    double agl_ft = adapter_.GetProperty("position/h-agl-ft");
+    double agl_m = agl_ft * 0.3048;
+
+    switch (takeoff_phase_) {
+      case TakeoffPhase::kEngineStart:
+        if (elapsed_sec_ >= 2.0) {
+          ConfigureForTakeoffRoll();
+          takeoff_phase_ = TakeoffPhase::kTakeoffRoll;
+        }
+        break;
+      case TakeoffPhase::kTakeoffRoll:
+        // Full throttle every frame during takeoff roll.
+        adapter_.SetProperty(adapter::property::kThrottleCmd, 1.0);
+        if (vc_kts >= 50.0) {
+          ConfigureForClimb(takeoff_target_altitude_m_,
+                            takeoff_target_heading_rad_,
+                            current_maneuver_.duration_sec);
+          takeoff_phase_ = TakeoffPhase::kRotateAndClimb;
+        }
+        break;
+      case TakeoffPhase::kRotateAndClimb:
+        // Keep throttle at max during climb; energy management may reduce it
+        // but we re-assert here since maneuver update runs after AP update.
+        adapter_.SetProperty(adapter::property::kThrottleCmd, 1.0);
+        if (agl_m >= takeoff_target_altitude_m_ * 0.95) {
+          takeoff_phase_ = TakeoffPhase::kComplete;
+        }
+        break;
+      case TakeoffPhase::kComplete:
+        break;
+    }
   }
 }
 

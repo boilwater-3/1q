@@ -303,6 +303,32 @@ TEST_F(FlightDynamicTest, F22FlyToWaypointStable) {
       << "f22: should not roll over during FlyToWaypoint";
 }
 
+TEST_F(FlightDynamicTest, TakeoffAndClimbC172) {
+  config_.aircraft_model = "c172x";
+  config_.initial_kinematics.position_lla_deg_m.altitude_m = 0.0;
+  config_.initial_kinematics.velocity_mps.x_mps = 0.0;
+  config_.do_trim = false;
+
+  FlightManager fm(config_);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+
+  // Takeoff: climb to 500m (1640ft), heading 45°, speed 50 m/s
+  ManeuverCommand cmd;
+  cmd.type = guidance::ManeuverType::kTakeoff;
+  cmd.target.altitude_m = 500.0;
+  cmd.target.latitude_rad = 0.785;  // 45° heading
+  cmd.value = 50.0;                 // target climb speed
+  fm.PushManeuver(cmd);
+
+  int max_steps = 40000;
+  RunUntilDone(fm, max_steps);
+
+  EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted)
+      << "c172x should take off from ground and climb to 500m";
+  EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 100.0)
+      << "c172x should be well above ground after takeoff";
+}
+
 TEST_F(FlightDynamicTest, AutopilotSetsHeading) {
   FlightManager fm(config_);
   auto& ap = fm.GetAutopilot();

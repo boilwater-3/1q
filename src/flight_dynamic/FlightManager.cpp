@@ -29,10 +29,10 @@ bool FlightManager::Step(double dt_sec) {
 
   adapter_->SetDeltaT(dt_sec);
 
+  ap_->Update(dt_sec);
   if (state_ == FlightManagerState::kExecuting) {
     maneuver_exec_->Update(dt_sec);
   }
-  ap_->Update(dt_sec);
 
   bool running = adapter_->Run();
   sim_time_sec_ += dt_sec;
@@ -134,6 +134,11 @@ void FlightManager::ExecuteNextManeuver() {
       break;
     case ManeuverType::kSetRoll:
       maneuver_exec_->ExecuteSetRoll(static_cast<int>(cmd.value));
+      break;
+    case ManeuverType::kTakeoff:
+      maneuver_exec_->ExecuteTakeoff(cmd.target.altitude_m,
+                                     cmd.target.latitude_rad,
+                                     cmd.value);
       break;
   }
 }

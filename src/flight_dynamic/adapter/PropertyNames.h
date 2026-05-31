@@ -91,6 +91,16 @@ constexpr const char* kAlphaDeg = "aero/alpha-deg";
 constexpr const char* kQbarPsf = "aero/qbar-psf";
 constexpr const char* kRhoSlugsFt3 = "atmosphere/rho-slugs_ft3";
 
+// Ground operations
+constexpr const char* kLeftBrakeCmd = "fcs/left-brake-cmd-norm";
+constexpr const char* kRightBrakeCmd = "fcs/right-brake-cmd-norm";
+constexpr const char* kCenterBrakeCmd = "fcs/center-brake-cmd-norm";
+constexpr const char* kFlapCmdNorm = "fcs/flap-cmd-norm";
+constexpr const char* kMixtureCmdNorm = "fcs/mixture-cmd-norm";
+constexpr const char* kMagnetoCmd = "propulsion/magneto_cmd";
+constexpr const char* kStarterCmd = "propulsion/starter_cmd";
+constexpr const char* kWowMain = "gear/unit[1]/WOW";
+
 // Propulsion
 constexpr const char* kEngineThrustLbs = "propulsion/engine/thrust-lbs";
 
