@@ -187,7 +187,11 @@ void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target
                                          double /*target_speed_mps*/) {
   // Rotate: elevator back. Gear/flaps stay until positive climb confirmed.
   rotation_elapsed_sec_ = 0.0;
-  adapter_.SetProperty("fcs/elevator-cmd-norm", -0.3);
+  // FBW aircraft (f22): avoid direct elevator which can wind up the
+  // rate-integrator chain. Let the aircraft lift off naturally at high speed.
+  if (ap_.GetControlProfile().fbw_subtype != autopilot::FbwSubtype::kRateIntegratorActuator) {
+    adapter_.SetProperty("fcs/elevator-cmd-norm", -0.3);
+  }
 
   ap_.SetRollAttitudeMode(1);
   ap_.SetRollAutopilotOn(true);
@@ -270,8 +274,11 @@ void ManeuverExecutor::Update(double dt_sec) {
       case TakeoffPhase::kRotateAndClimb:
         engines_.SetThrottle(1.0);
         rotation_elapsed_sec_ += dt_sec;
-        // Rotation phase: strong elevator until airborne.
-        if (agl_m < 10.0) {
+        // Rotation: skip direct elevator for FBW integrator aircraft — it
+        // winds up the rate-integrator chain and causes pitch/roll excursions.
+        bool is_fbw_int = ap_.GetControlProfile().fbw_subtype ==
+                          autopilot::FbwSubtype::kRateIntegratorActuator;
+        if (agl_m < 10.0 && !is_fbw_int) {
           adapter_.SetProperty("fcs/elevator-cmd-norm", -0.3);
         } else {
           // Gear and flaps retraction after positive climb confirmed.
