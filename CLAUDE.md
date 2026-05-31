@@ -73,6 +73,7 @@ root config files/
 ## Build and Test
 
 - Use presets: `llvm-ninja-debug-local`, `llvm-ninja-release-local`.
+- Prefer `llvm-ninja-release-local` for testing — JSBSim simulation runs ~6× faster than debug.
 - Use stress preset only for stress runs: `llvm-ninja-release-local-stress`.
 - Use log prefix: `/tmp/1q`.
 - Run configure, build, and test serially for the same preset.
