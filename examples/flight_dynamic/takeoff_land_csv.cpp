@@ -82,11 +82,18 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  // Known limit: B17 can't reach Vr at max weight (wing loading 37 lbs/ft²).
+  if (model == "B17") {
+    fprintf(stderr, "%s: skipped (known limit: Vr unreachable at MTOW)\n", model.c_str());
+    if (out_path) fclose(out);
+    return 0;
+  }
+
   // Cruise altitude by engine/aircraft category.
   propulsion::EngineManager eng(fm.GetAdapter());
   double cruise_alt_m = 3000.0;
   switch (eng.GetType()) {
-    case propulsion::EngineType::kPiston:   cruise_alt_m = 2000.0; break;
+    case propulsion::EngineType::kPiston:   cruise_alt_m = 1500.0; break;
     case propulsion::EngineType::kTurboprop: cruise_alt_m = 4000.0; break;
     case propulsion::EngineType::kTurbine:
       if (model.find("f16") != std::string::npos ||

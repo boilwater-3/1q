@@ -344,9 +344,13 @@ double Autopilot::GetAltitudeASLM() const {
 void Autopilot::Update(double /*dt_sec*/) {
   const auto& propagate = adapter_.GetPropagate();
 
-  // kOwnAutopilot: delegate entirely to XML autopilot
+  // kOwnAutopilot: delegate lateral to XML autopilot, but use C++ pitch
+  // control for altitude hold (native AP lacks speed protection and can
+  // stall the aircraft at high altitude — observed c310 at 2000m: 25° pitch,
+  // 70kts, sinking).
   if (control_profile_.lateral_interface == LateralControlInterface::kOwnAutopilot) {
     UpdateOwnAutopilot();
+    UpdatePitchChannel();
     UpdateEnergyManagement();
     double r = propagate.GetPQR(3);
     ApplyYawDamping(r);
