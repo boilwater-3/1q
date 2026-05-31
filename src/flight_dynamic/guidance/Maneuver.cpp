@@ -397,12 +397,15 @@ void ManeuverExecutor::ExecuteLand(const Waypoint& target, double approach_speed
 
 void ManeuverExecutor::ConfigureForApproach(const Waypoint& target,
                                             double approach_speed_mps) {
+  // Clear waypoint tracking — landing needs a fixed heading, not continuous
+  // waypoint guidance which can cause orbiting (observed 737 at 45° bank).
   wp_manager_.ClearWaypoints();
-  wp_manager_.AddWaypoint(target);
-  wp_manager_.Start();
 
-  ap_.SetLateralGuidanceMode(autopilot::LateralGuidanceMode::kHeading);
-  ap_.SetHeadingSourceIsWaypoint(true);
+  // Compute a single heading to the landing point.
+  const auto& loc = adapter_.GetPropagate().GetLocation();
+  double hdg_rad = loc.GetHeadingTo(target.longitude_rad, target.latitude_rad);
+  ap_.SetHeadingSourceIsWaypoint(false);
+  ap_.SetHeadingTargetRad(hdg_rad);
   ap_.SetRollAttitudeMode(1);
   ap_.SetRollAutopilotOn(true);
   ap_.SetHeadingHold(true);
@@ -411,12 +414,16 @@ void ManeuverExecutor::ConfigureForApproach(const Waypoint& target,
   ap_.SetAltitudeHold(false);
   ap_.SetSpeedHold(false);
 
-  // Approach speed: use parameter or compute from stall speed.
+  // Approach speed: use parameter, compute from Vr, or fall back to current.
   if (approach_speed_mps > 0.0) {
     land_approach_speed_mps_ = approach_speed_mps;
   } else {
     land_approach_speed_mps_ = engines_.GetRotationSpeedKts() * 0.514 * 1.2;
   }
+  // Floor at 80% of current speed — don't try to decelerate too fast.
+  double cur_spd = adapter_.GetProperty("velocities/vc-fps") * 0.3048;
+  if (land_approach_speed_mps_ < cur_spd * 0.8)
+    land_approach_speed_mps_ = cur_spd * 0.8;
   land_target_alt_m_ = target.altitude_m;
   prev_alt_m_ = adapter_.GetProperty("position/h-agl-ft") * 0.3048;
 
