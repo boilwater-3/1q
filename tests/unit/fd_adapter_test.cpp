@@ -214,6 +214,26 @@ TEST_F(FlightDynamicTest, AutopilotWritesDetectedYawInputProperty) {
   EXPECT_NEAR(adapter.GetProperty("fcs/rudder-pedal-norm"), 0.42, 1.0e-9);
 }
 
+TEST_F(FlightDynamicTest, EnergyManagementRaisesThrottleForPositiveSpeedError) {
+  config_.aircraft_model = "Concorde";
+  config_.do_trim = false;
+  config_.initial_kinematics.position_lla_deg_m.altitude_m = 5000.0;
+  config_.initial_kinematics.velocity_mps.x_mps = 150.0;
+
+  adapter::JsbsimAdapter adapter(config_);
+  autopilot::Autopilot ap(adapter);
+  ASSERT_TRUE(ap.GetControlProfile().speed_energy_priority);
+
+  ap.SetAltitudeTargetM(5000.0);
+  ap.SetAltitudeHold(true);
+  ap.SetSpeedTargetMps(ap.GetTrueSpeedMps() + 100.0);
+  ap.SetSpeedHold(true);
+  ap.Update(kDt);
+
+  EXPECT_GT(adapter.GetProperty("fcs/throttle-cmd-norm"), 0.70)
+      << "Positive speed error should add throttle, not reduce it";
+}
+
 TEST_F(FlightDynamicTest, AutopilotSetsHeading) {
   FlightManager fm(config_);
   auto& ap = fm.GetAutopilot();
@@ -662,14 +682,50 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     FAIL() << "Unknown model: " << model;
   }
 
-  // Energy management profile defaults (overridden per-aircraft as needed).
-  SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 0.0);
-  SNAPSHOT_CHECK_DBL(p, min_speed_mps, 0.0);
-  SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 20.0);
-  SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 45.0);
+  if (model == "Concorde") {
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 500.0);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 250.0);
+    SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 8.0);
+    SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 35.0);
+    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.55);
+    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
+  } else if (model == "f16" || model == "f15" || model == "f22") {
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 200.0);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 140.0);
+    SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 15.0);
+    SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 45.0);
+    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.35);
+    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
+  } else if (model == "B17") {
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 80.0);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 65.0);
+    SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 8.0);
+    SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 25.0);
+    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.45);
+    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
+  } else if (model == "C130") {
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 90.0);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 70.0);
+    SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 10.0);
+    SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 30.0);
+    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.35);
+    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
+  } else if (model == "c172x") {
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 50.0);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 40.0);
+    SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 12.0);
+    SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 30.0);
+    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.20);
+    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, false);
+  } else if (model == "c310") {
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 65.0);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 55.0);
+    SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 10.0);
+    SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 30.0);
+    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.30);
+    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
+  }
   SNAPSHOT_CHECK_DBL(p, max_throttle, 1.0);
-  SNAPSHOT_CHECK_DBL(p, min_throttle, 0.15);
-  SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, false);
 }
 
 INSTANTIATE_TEST_SUITE_P(

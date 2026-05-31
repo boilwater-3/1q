@@ -73,6 +73,59 @@ const AircraftControlProfile* LookupExplicitProfile(const std::string& model_nam
   return nullptr;
 }
 
+void ApplyEnergyManagementProfile(const std::string& model_name, AircraftControlProfile* profile) {
+  if (!profile) return;
+
+  if (model_name == "Concorde") {
+    profile->ref_speed_mps = 500.0;
+    profile->min_speed_mps = 250.0;
+    profile->max_pitch_command_deg = 8.0;
+    profile->max_roll_angle_deg = 35.0;
+    profile->min_throttle = 0.55;
+    profile->max_throttle = 1.0;
+    profile->speed_energy_priority = true;
+  } else if (model_name == "f16" || model_name == "f15" || model_name == "f22") {
+    profile->ref_speed_mps = 200.0;
+    profile->min_speed_mps = 140.0;
+    profile->max_pitch_command_deg = 15.0;
+    profile->max_roll_angle_deg = 45.0;
+    profile->min_throttle = 0.35;
+    profile->max_throttle = 1.0;
+    profile->speed_energy_priority = true;
+  } else if (model_name == "B17") {
+    profile->ref_speed_mps = 80.0;
+    profile->min_speed_mps = 65.0;
+    profile->max_pitch_command_deg = 8.0;
+    profile->max_roll_angle_deg = 25.0;
+    profile->min_throttle = 0.45;
+    profile->max_throttle = 1.0;
+    profile->speed_energy_priority = true;
+  } else if (model_name == "C130") {
+    profile->ref_speed_mps = 90.0;
+    profile->min_speed_mps = 70.0;
+    profile->max_pitch_command_deg = 10.0;
+    profile->max_roll_angle_deg = 30.0;
+    profile->min_throttle = 0.35;
+    profile->max_throttle = 1.0;
+    profile->speed_energy_priority = true;
+  } else if (model_name == "c172x") {
+    profile->ref_speed_mps = 50.0;
+    profile->min_speed_mps = 40.0;
+    profile->max_pitch_command_deg = 12.0;
+    profile->max_roll_angle_deg = 30.0;
+    profile->min_throttle = 0.20;
+    profile->max_throttle = 1.0;
+  } else if (model_name == "c310") {
+    profile->ref_speed_mps = 65.0;
+    profile->min_speed_mps = 55.0;
+    profile->max_pitch_command_deg = 10.0;
+    profile->max_roll_angle_deg = 30.0;
+    profile->min_throttle = 0.30;
+    profile->max_throttle = 1.0;
+    profile->speed_energy_priority = true;
+  }
+}
+
 }  // namespace
 
 Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
@@ -91,6 +144,7 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   // Tier 1: explicit profile override (replaces XML probing entirely).
   if (const auto* explicit_profile = LookupExplicitProfile(model_name)) {
     control_profile_ = *explicit_profile;
+    ApplyEnergyManagementProfile(model_name, &control_profile_);
     use_cpp_ap_ =
         control_profile_.lateral_interface != LateralControlInterface::kOwnAutopilot &&
         control_profile_.lateral_interface != LateralControlInterface::kGenericAutopilotBridge;
@@ -155,6 +209,7 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   use_cpp_ap_ =
       control_profile_.lateral_interface != LateralControlInterface::kOwnAutopilot &&
       control_profile_.lateral_interface != LateralControlInterface::kGenericAutopilotBridge;
+  ApplyEnergyManagementProfile(model_name, &control_profile_);
 }
 
 void Autopilot::SetHeadingTargetRad(double heading_rad) {
@@ -485,9 +540,9 @@ void Autopilot::UpdateEnergyManagement() {
   if (min_speed > 0.0 && current_speed_mps < min_speed * 1.1) {
     const double urgency = Clamp((min_speed * 1.1 - current_speed_mps) / (min_speed * 0.3), 0.0, 1.0);
     if (control_profile_.speed_energy_priority) {
-      energy_err -= urgency * 0.5;
+      energy_err += urgency * 0.5;
     } else {
-      energy_err -= urgency * 0.25;
+      energy_err += urgency * 0.25;
     }
   }
 
