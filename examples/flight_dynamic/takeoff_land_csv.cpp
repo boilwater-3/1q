@@ -8,6 +8,7 @@
 #include <string>
 
 #include "1q/flight_dynamic/FlightManager.h"
+#include "1q/flight_dynamic/autopilot/Autopilot.h"
 #include "1q/flight_dynamic/config/FlightDynamicConfig.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 
@@ -80,16 +81,23 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  // Queue: takeoff → short cruise → land
+  // Queue: takeoff → cruise (speed-adaptive distance) → land
   ManeuverCommand tko;
   tko.type = guidance::ManeuverType::kTakeoff;
   tko.target.altitude_m = 400.0;
   fm.PushManeuver(tko);
 
+  // Waypoint distance: 45s of cruise at ref_speed, min 3km.
+  double ref_spd = fm.GetAutopilot().GetControlProfile().ref_speed_mps;
+  if (ref_spd <= 0.0) ref_spd = 50.0;
+  double wp_dist_m = ref_spd * 45.0;
+  if (wp_dist_m < 3000.0) wp_dist_m = 3000.0;
+  double wp_offset_rad = wp_dist_m * 0.70710678 / 6378137.0;
+
   ManeuverCommand fly;
   fly.type = guidance::ManeuverType::kFlyToWaypoint;
-  fly.target.latitude_rad = 0.0008;
-  fly.target.longitude_rad = 0.0008;
+  fly.target.latitude_rad = wp_offset_rad;
+  fly.target.longitude_rad = wp_offset_rad;
   fly.target.altitude_m = 400.0;
   fly.target.radius_m = 200.0;
   fm.PushManeuver(fly);

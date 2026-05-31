@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "1q/flight_dynamic/FlightManager.h"
+#include "1q/flight_dynamic/autopilot/Autopilot.h"
 #include "1q/flight_dynamic/config/FlightDynamicConfig.h"
 
 using namespace oneq::flight_dynamic;
@@ -63,6 +64,14 @@ int RunUntilState(FlightManager& fm, int max_steps, ManeuverResult& r) {
   return max_steps;
 }
 
+double WaypointOffsetRad(FlightManager& fm) {
+  double ref = fm.GetAutopilot().GetControlProfile().ref_speed_mps;
+  if (ref <= 0.0) ref = 50.0;
+  double dist = ref * 45.0;  // 45s cruise at ref speed
+  if (dist < 3000.0) dist = 3000.0;
+  return dist * 0.70710678 / 6378137.0;
+}
+
 config::FlightDynamicConfig MakeConfig(const std::string& model) {
   config::FlightDynamicConfig cfg;
   cfg.aircraft_model = model;
@@ -85,12 +94,13 @@ void RunFlyToWaypoint(const std::string& model, std::vector<ManeuverResult>& res
     results.push_back(r);
     return;
   }
+  double r_rad = WaypointOffsetRad(fm);
   ManeuverCommand cmd;
   cmd.type = guidance::ManeuverType::kFlyToWaypoint;
-  cmd.target.latitude_rad = 0.0008;
-  cmd.target.longitude_rad = 0.0008;
+  cmd.target.latitude_rad = r_rad;
+  cmd.target.longitude_rad = r_rad;
   cmd.target.altitude_m = 500.0;
-  cmd.target.radius_m = 200.0;
+  cmd.target.radius_m = std::max(200.0, r_rad * 6378137.0 * 0.05);
   fm.PushManeuver(cmd);
   r.steps = RunUntilState(fm, 40000, r);
   r.time_s = r.steps * kDt;
