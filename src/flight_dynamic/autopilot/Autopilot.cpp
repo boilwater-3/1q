@@ -247,6 +247,16 @@ void Autopilot::SetYawDamper(bool on) {
 void Autopilot::SetSpeedTargetMps(double speed_mps) { target_speed_mps_ = speed_mps; }
 void Autopilot::SetSpeedHold(bool on) { speed_hold_ = on; }
 
+void Autopilot::ReleaseHolds() {
+  heading_hold_ = false;
+  altitude_hold_ = false;
+  pitch_hold_ = false;
+  speed_hold_ = false;
+  roll_ap_on_ = false;
+  roll_mode_ = 0;
+  lateral_guidance_mode_ = LateralGuidanceMode::kHeading;
+}
+
 double Autopilot::GetTrueSpeedMps() const {
   return adapter_.GetPropagate().GetInertialVelocityMagnitude() * kFtToM;
 }

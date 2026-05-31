@@ -53,12 +53,14 @@ bool FlightManager::Step(double dt_sec) {
   if (state_ == FlightManagerState::kExecuting) {
     if (diagnostics_.crashed) {
       diagnostics_.last_failure_reason = "crashed";
+      diagnostics_.outcome = ManeuverOutcome::kCrashed;
       diagnostics_.Print();
       state_ = FlightManagerState::kAborted;
       maneuver_exec_->Abort();
       return false;
     }
     if (maneuver_exec_->IsManeuverComplete()) {
+      diagnostics_.outcome = ManeuverOutcome::kCompleted;
       diagnostics_.Print();
       ExecuteNextManeuver();
     }
@@ -81,7 +83,9 @@ void FlightManager::Reset(const config::FlightDynamicConfig& config) {
 
 void FlightManager::Abort() {
   state_ = FlightManagerState::kAborted;
+  diagnostics_.outcome = ManeuverOutcome::kAborted;
   maneuver_exec_->Abort();
+  ap_->ReleaseHolds();
 }
 
 void FlightManager::PushManeuver(const ManeuverCommand& cmd) {
@@ -147,7 +151,17 @@ void ManeuverDiagnostics::Update(const model::VehicleState& s) {
 }
 
 void ManeuverDiagnostics::Print() const {
+  const char* outcome_str = "none";
+  switch (outcome) {
+    case ManeuverOutcome::kCompleted: outcome_str = "completed"; break;
+    case ManeuverOutcome::kCrashed: outcome_str = "crashed"; break;
+    case ManeuverOutcome::kAborted: outcome_str = "aborted"; break;
+    case ManeuverOutcome::kTimeout: outcome_str = "timeout"; break;
+    case ManeuverOutcome::kNearPass: outcome_str = "near-pass"; break;
+    default: break;
+  }
   std::cout << "[DIAG] type=" << static_cast<int>(current_type)
+            << " | outcome=" << outcome_str
             << " | steps=" << steps
             << " | time=" << total_time_sec << "s"
             << " | alt_min=" << min_altitude_m << "m"

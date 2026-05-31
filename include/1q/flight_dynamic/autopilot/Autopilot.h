@@ -100,6 +100,9 @@ class Autopilot {
   // --- Yaw damper ---
   void SetYawDamper(bool on);
 
+  // --- State management ---
+  void ReleaseHolds();
+
   // --- Status queries ---
   double GetAngleToHeadingRad() const;
   double GetAltitudeAGLM() const;

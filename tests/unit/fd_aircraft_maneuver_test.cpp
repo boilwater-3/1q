@@ -228,6 +228,9 @@ TEST_P(AircraftManeuverTest, SetHeading) {
   }
 
   if (!GetParam().unstable) {
+    // Convergence trend: heading error should not grow over time.
+    // Note: strict absolute convergence (e.g., <5 deg within 10s) requires
+    // per-aircraft AP gain tuning not yet implemented.
     EXPECT_LT(err_late, err_early * 1.20)
         << GetParam().model << ": heading error should not grow significantly (early="
         << err_early << " late=" << err_late << ")";

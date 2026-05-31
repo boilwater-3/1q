@@ -22,6 +22,15 @@ namespace guidance {
 class WaypointManager;
 }
 
+enum class ManeuverOutcome {
+  kNone,          // maneuver still active
+  kCompleted,     // reached target
+  kNearPass,      // came close but didn't fully reach
+  kCrashed,       // altitude <= 0
+  kTimeout,       // exceeded max steps
+  kAborted,       // externally aborted
+};
+
 enum class FlightManagerState {
   kIdle,
   kReady,
@@ -39,6 +48,7 @@ struct ManeuverCommand {
 
 struct ManeuverDiagnostics {
   guidance::ManeuverType current_type = guidance::ManeuverType::kFlyToWaypoint;
+  ManeuverOutcome outcome = ManeuverOutcome::kNone;
   double min_altitude_m = 1e9;
   double min_speed_mps = 1e9;
   double max_roll_deg = 0.0;
@@ -46,7 +56,7 @@ struct ManeuverDiagnostics {
   int steps = 0;
   double total_time_sec = 0.0;
   bool crashed = false;
-  std::string last_failure_reason;  // populated when maneuver fails
+  std::string last_failure_reason;
 
   void Update(const model::VehicleState& s);
   void Print() const;  // stdout summary
