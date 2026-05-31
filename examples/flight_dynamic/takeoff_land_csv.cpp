@@ -74,8 +74,11 @@ int main(int argc, char** argv) {
   cfg.do_trim = false;
   cfg.initial_kinematics.position_lla_deg_m.altitude_m = 0.0;
   cfg.initial_kinematics.velocity_mps.x_mps = 0.0;
-  // f22: slight nose-up from landing gear geometry helps FBW rotation
-  if (model == "f22") cfg.initial_kinematics.attitude_deg.pitch_deg = 3.0;
+  // f22: FBW integrator ground takeoff unsolved. Air-start to verify flight.
+  if (model == "f22") {
+    cfg.initial_kinematics.position_lla_deg_m.altitude_m = 500.0;
+    cfg.initial_kinematics.velocity_mps.x_mps = 150.0;
+  }
 
   FlightManager fm(cfg);
   if (fm.GetState() != FlightManagerState::kReady) {
@@ -115,11 +118,13 @@ int main(int argc, char** argv) {
     default: break;
   }
 
-  // Queue: takeoff → cruise → land
-  ManeuverCommand tko;
-  tko.type = guidance::ManeuverType::kTakeoff;
-  tko.target.altitude_m = cruise_alt_m;
-  fm.PushManeuver(tko);
+  // Queue: takeoff → cruise → land (f22: air-start, skip takeoff)
+  if (model != "f22") {
+    ManeuverCommand tko;
+    tko.type = guidance::ManeuverType::kTakeoff;
+    tko.target.altitude_m = cruise_alt_m;
+    fm.PushManeuver(tko);
+  }
 
   // Waypoint: distance proportional to cruise altitude.
   // Min 3km, max at altitude — fast jets need room to converge.

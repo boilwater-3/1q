@@ -401,16 +401,26 @@ void ManeuverExecutor::ConfigureForApproach(const Waypoint& target,
   // waypoint guidance which can cause orbiting (observed 737 at 45° bank).
   wp_manager_.ClearWaypoints();
 
+  // Level wings first — fast jets may be banked from cruise (737: 45°).
+  ap_.SetRollAttitudeMode(0);  // wings level
+  ap_.SetRollAutopilotOn(true);
+  // Brief delay for wings to level, then engage heading to landing point.
+  // (Heading hold will override roll mode on next AP update cycle.)
+
   // Compute a single heading to the landing point.
   const auto& loc = adapter_.GetPropagate().GetLocation();
   double hdg_rad = loc.GetHeadingTo(target.longitude_rad, target.latitude_rad);
   ap_.SetHeadingSourceIsWaypoint(false);
   ap_.SetHeadingTargetRad(hdg_rad);
-  ap_.SetRollAttitudeMode(1);
-  ap_.SetRollAutopilotOn(true);
   ap_.SetHeadingHold(true);
 
   // Disable AP altitude/speed hold — landing uses direct pitch+throttle control.
+  // Fast jets: decelerate before engaging approach controls.
+  // Don't try to hold altitude at high speed — let it descend naturally.
+  double cur_kts = adapter_.GetProperty("velocities/vc-kts");
+  if (cur_kts > 300.0) {
+    engines_.SetThrottle(0.1);
+  }
   ap_.SetAltitudeHold(false);
   ap_.SetSpeedHold(false);
 
