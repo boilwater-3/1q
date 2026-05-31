@@ -106,3 +106,54 @@
 4. profile 中 `yaw_input_property` 应表示 C++ 应写入的命令入口；Concorde 应为 `fcs/rudder-cmd-norm`，不要把 XML 中间输出 `fcs/rudder-pedal-norm` 当外部控制输入。
 5. `indexed_throttle` 应表示 aircraft XML 实际消费 indexed throttle 输入；当前首批样本中只有 `f22` 需要 C++ 同步写 `fcs/throttle-cmd-norm[1]`。
 6. XML output 需要在 adapter/test fixture 层统一禁用或重定向；c172x/c310 是当前 active output 的重点。
+
+## 4. 阶段 9 更新：快照测试确认的合同修正
+
+> 日期：2026-05-31
+> 来源：`AircraftProfiles/ProfileSnapshotTest` 参数化快照测试，8 机型 × 11 字段精确匹配。
+
+### 4.1 关键修正
+
+| 原假设（阶段 2） | 快照修正 | 原因 |
+|------------------|---------|------|
+| `f15` = kDirectSurface | **kGenericAutopilotBridge** | 项目注入 `Autopilot.xml` 创建 `ap/autopilot-roll-on` |
+| `B17` = kDirectSurface | **kGenericAutopilotBridge** | 同上 |
+| `C130` = kDirectSurface | **kGenericAutopilotBridge** | 同上 |
+| `f22` pitch = kFbwScheduled | **kNativeAutopilot** | 项目 `Autopilot.xml` 设置 `has_generic_autopilot=true` |
+| `has_mixture` 仅活塞机型 | **全部机型均为 true** | JSBSim 自动创建 `fcs/mixture-cmd-norm` |
+| `Concorde` 横向 = direct surface | **kGenericAutopilotBridge** | 项目 `Autopilot.xml` 提供 `ap/autopilot-roll-on` |
+
+### 4.2 8 机型 Profile 快照（快照测试 2026-05-31 确立）
+
+| 字段 | f16 | f22 | c172x | c310 | f15 | Concorde | B17 | C130 |
+|------|-----|-----|-------|------|-----|----------|-----|------|
+| **lateral_interface** | kFbwRateCommand | kFbwRateCommand | kOwnAutopilot | kOwnAutopilot | kGenericAutopilotBridge | kGenericAutopilotBridge | kGenericAutopilotBridge | kGenericAutopilotBridge |
+| **pitch_interface** | kNativeAutopilot | kNativeAutopilot | kNativeAutopilot | kNativeAutopilot | kNativeAutopilot | kNativeAutopilot | kNativeAutopilot | kNativeAutopilot |
+| **fbw_subtype** | kRollRatePid | kRateIntegratorActuator | kNone | kNone | kNone | kNone | kNone | kNone |
+| **has_own_autopilot** | false | false | true | true | false | false | false | false |
+| **has_generic_autopilot** | true | true | true | false | true | true | true | true |
+| **has_fbw_override** | true | false | false | false | false | false | false | false |
+| **has_roll_rate_command** | true | true | false | false | false | false | false | false |
+| **has_aileron_command** | true | true | true | true | true | true | true | true |
+| **indexed_throttle** | false | true | false | false | false | false | false | false |
+| **engine_count** | 1 | 2 | 1 | 2 | 2 | 4 | 4 | 4 |
+| **has_mixture** | true | true | true | true | true | true | true | true |
+| **yaw_input_property** | fcs/rudder-cmd-norm | fcs/rudder-cmd-norm | fcs/rudder-cmd-norm | fcs/rudder-cmd-norm | fcs/rudder-cmd-norm | fcs/rudder-cmd-norm | fcs/rudder-cmd-norm | fcs/rudder-cmd-norm |
+
+### 4.3 控制接口 Profile 分布画像
+
+```
+kOwnAutopilot (2):       c172x, c310           ← 有原生 AP XML，创建 ap/heading_hold
+kFbwRateCommand (2):     f16, f22              ← 有 FBW 系统（f16 PID, f22 LQR+integrator）
+kGenericAutopilotBridge (4): f15, Concorde, B17, C130  ← 只有项目 Autopilot.xml，无原生 AP/FBW
+kDirectSurface (0):      (当前 8 机型无)        ← 仅当没有 Autopilot.xml 且没有 FBW/native AP
+```
+
+注意：由于项目对几乎所有机型注入了 `systems/Autopilot.xml`，`kDirectSurface` 在当前测试集中不存在。`kGenericAutopilotBridge` 成为**没有 FBW 也没有原生 AP 的机型的默认 fallback**。
+
+### 4.4 后续注意事项
+
+1. `has_mixture` 不是有效区分器——JSBSim 对所有机型都创建该属性，应与实际 mixture 控制逻辑分离。
+2. `indexed_throttle` 仍由 `UsesIndexedThrottleInput()` 白名单控制，仅 `f22` 启用——后续应进入合同表而非散落函数。
+3. `c310` 是唯一不同时包含项目 `Autopilot.xml` 和原生 AP 的机型——它的 `has_generic_autopilot = false` 但不走 `kDirectSurface`，因为 `ap/heading_hold` 来自独立的 `c310ap.xml`。
+4. 新增机型后续纳入时，应优先运行 `ProfileSnapshotTest` 获取 profile 快照，再决定适配策略。

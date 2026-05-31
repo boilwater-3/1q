@@ -15,7 +15,7 @@ namespace oneq {
 namespace flight_dynamic {
 namespace {
 
-constexpr double kDt = 0.005;
+constexpr double kDt = 0.01;
 constexpr double kMToFt = 1.0 / 0.3048;
 constexpr double kFtToM = 0.3048;
 constexpr double kFreeFlightSec = 10.0;

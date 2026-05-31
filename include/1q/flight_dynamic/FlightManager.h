@@ -37,6 +37,21 @@ struct ManeuverCommand {
   double duration_sec = 0.0;
 };
 
+struct ManeuverDiagnostics {
+  guidance::ManeuverType current_type = guidance::ManeuverType::kFlyToWaypoint;
+  double min_altitude_m = 1e9;
+  double min_speed_mps = 1e9;
+  double max_roll_deg = 0.0;
+  double max_pitch_deg = 0.0;
+  int steps = 0;
+  double total_time_sec = 0.0;
+  bool crashed = false;
+  std::string last_failure_reason;  // populated when maneuver fails
+
+  void Update(const model::VehicleState& s);
+  void Print() const;  // stdout summary
+};
+
 class FlightManager {
  public:
   explicit FlightManager(const config::FlightDynamicConfig& config);
@@ -56,6 +71,8 @@ class FlightManager {
   // State queries
   FlightManagerState GetState() const { return state_; }
   const model::VehicleState& GetVehicleState() const { return vehicle_state_; }
+  const ManeuverDiagnostics& GetDiagnostics() const { return diagnostics_; }
+  ManeuverDiagnostics& GetDiagnostics() { return diagnostics_; }
 
   // Direct access for lower-level control
   adapter::JsbsimAdapter& GetAdapter() { return *adapter_; }
@@ -71,6 +88,7 @@ class FlightManager {
   std::unique_ptr<guidance::ManeuverExecutor> maneuver_exec_;
 
   model::VehicleState vehicle_state_;
+  ManeuverDiagnostics diagnostics_;
   std::vector<ManeuverCommand> maneuver_queue_;
   size_t current_maneuver_index_ = 0;
   FlightManagerState state_ = FlightManagerState::kIdle;

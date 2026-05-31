@@ -13,7 +13,7 @@ namespace oneq {
 namespace flight_dynamic {
 namespace {
 
-constexpr double kDt = 0.005;
+constexpr double kDt = 0.01;
 constexpr double kPi = 3.14159265358979323846;
 
 class TrajectoryLogger {
@@ -65,9 +65,8 @@ class TrajectoryLogger {
 bool RunSteps(FlightManager& fm, int steps, TrajectoryLogger* logger = nullptr) {
   for (int i = 0; i < steps; ++i) {
     if (!fm.Step(kDt)) return false;
-    if (logger) {
-      logger->Log(fm.GetVehicleState());
-    }
+    const auto& s = fm.GetVehicleState();
+    if (logger) logger->Log(s);
   }
   return true;
 }
@@ -75,12 +74,11 @@ bool RunSteps(FlightManager& fm, int steps, TrajectoryLogger* logger = nullptr) 
 int RunUntilDone(FlightManager& fm, int max_steps, TrajectoryLogger* logger = nullptr) {
   for (int i = 0; i < max_steps; ++i) {
     fm.Step(kDt);
-    if (logger) {
-      logger->Log(fm.GetVehicleState());
-    }
-    auto s = fm.GetState();
-    if (s == FlightManagerState::kCompleted ||
-        s == FlightManagerState::kAborted) {
+    const auto& s = fm.GetVehicleState();
+    if (logger) logger->Log(s);
+    auto state = fm.GetState();
+    if (state == FlightManagerState::kCompleted ||
+        state == FlightManagerState::kAborted) {
       return i + 1;
     }
   }

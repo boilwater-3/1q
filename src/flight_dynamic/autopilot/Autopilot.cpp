@@ -41,8 +41,36 @@ constexpr double kFtToM = 0.3048;
 constexpr double kMToFt = 1.0 / kFtToM;
 constexpr double kRefSpeedFps = 164.0;  // ~50 m/s reference (c172x cruise)
 
-bool UsesIndexedThrottleInput(const std::string& model_name) {
-  return model_name == "f22";
+// Tier 1: explicit profile override by aircraft model name.
+// Takes priority over XML property probing (Tier 2) and conservative fallback
+// (Tier 3). Based on AircraftProfiles/ProfileSnapshotTest snapshots.
+const AircraftControlProfile* LookupExplicitProfile(const std::string& model_name) {
+  using LI = LateralControlInterface;
+  using PI = PitchControlInterface;
+  using FBW = FbwSubtype;
+
+  // Static table: one entry per supported aircraft.
+  // Keep sorted by model_name for readability.
+  static const struct Entry {
+    const char* name;
+    AircraftControlProfile profile;
+  } kKnownProfiles[] = {
+    {"B17",       {LI::kGenericAutopilotBridge, PI::kNativeAutopilot, FBW::kNone, false, true,  false, false, true,  false, 4, true, "fcs/rudder-cmd-norm"}},
+    {"C130",      {LI::kGenericAutopilotBridge, PI::kNativeAutopilot, FBW::kNone, false, true,  false, false, true,  false, 4, true, "fcs/rudder-cmd-norm"}},
+    {"Concorde",  {LI::kGenericAutopilotBridge, PI::kNativeAutopilot, FBW::kNone, false, true,  false, false, true,  false, 4, true, "fcs/rudder-cmd-norm"}},
+    {"c172x",     {LI::kOwnAutopilot,           PI::kNativeAutopilot, FBW::kNone, true,  true,  false, false, true,  false, 1, true, "fcs/rudder-cmd-norm"}},
+    {"c310",      {LI::kOwnAutopilot,           PI::kNativeAutopilot, FBW::kNone, true,  false, false, false, true,  false, 2, true, "fcs/rudder-cmd-norm"}},
+    {"f15",       {LI::kGenericAutopilotBridge, PI::kNativeAutopilot, FBW::kNone, false, true,  false, false, true,  false, 2, true, "fcs/rudder-cmd-norm"}},
+    {"f16",       {LI::kFbwRateCommand,         PI::kNativeAutopilot, FBW::kRollRatePid,           false, true,  true,  true,  true,  false, 1, true, "fcs/rudder-cmd-norm"}},
+    {"f22",       {LI::kFbwRateCommand,         PI::kNativeAutopilot, FBW::kRateIntegratorActuator, false, true,  false, true,  true,  true,  2, true, "fcs/rudder-cmd-norm"}},
+  };
+
+  for (const auto& entry : kKnownProfiles) {
+    if (model_name == entry.name) {
+      return &entry.profile;
+    }
+  }
+  return nullptr;
 }
 
 }  // namespace
@@ -50,6 +78,26 @@ bool UsesIndexedThrottleInput(const std::string& model_name) {
 Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   auto* pm = adapter.GetFdmExec().GetPropertyManager().get();
   const std::string& model_name = adapter.GetFdmExec().GetModelName();
+
+  // Read the roll angle limit from JSBSim property tree (set by ConfigureIntegrators
+  // per aircraft in the adapter). Apply a sustained-turn factor: sustained ≈ structural × 0.7,
+  // because sustained turns generate induced drag that limits endurance at structural max.
+  if (pm->GetNode(adapter::property::kGuidanceRollAngleLimit) != nullptr) {
+    double roll_lim = adapter.GetProperty(adapter::property::kGuidanceRollAngleLimit);
+    double sustained_factor = 0.7;
+    control_profile_.max_roll_angle_deg = roll_lim * 180.0 / M_PI * sustained_factor;
+  }
+
+  // Tier 1: explicit profile override (replaces XML probing entirely).
+  if (const auto* explicit_profile = LookupExplicitProfile(model_name)) {
+    control_profile_ = *explicit_profile;
+    use_cpp_ap_ =
+        control_profile_.lateral_interface != LateralControlInterface::kOwnAutopilot &&
+        control_profile_.lateral_interface != LateralControlInterface::kGenericAutopilotBridge;
+    return;
+  }
+
+  // Tier 2: XML property probing.
   control_profile_.has_own_autopilot = pm->GetNode(adapter::property::kApHeadingHold) != nullptr;
   control_profile_.has_generic_autopilot = pm->GetNode(adapter::property::kApRollOn) != nullptr;
   control_profile_.has_fbw_override = pm->GetNode(adapter::property::kApFbwOverride) != nullptr;
@@ -61,9 +109,11 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   const auto propulsion = adapter_.GetFdmExec().GetPropulsion();
   if (propulsion) {
     control_profile_.engine_count = static_cast<int>(propulsion->GetNumEngines());
-    control_profile_.indexed_throttle =
-        control_profile_.engine_count > 1 && UsesIndexedThrottleInput(model_name) &&
-        pm->GetNode("fcs/throttle-cmd-norm[1]") != nullptr;
+    // indexed_throttle is determined from the explicit profile table for known
+    // aircraft. For unknown aircraft, fall back to false (conservative).
+    if (const auto* ep = LookupExplicitProfile(model_name)) {
+      control_profile_.indexed_throttle = ep->indexed_throttle;
+    }
   }
 
   // Mixture detection (piston aircraft)
@@ -102,7 +152,6 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
     control_profile_.lateral_interface = LateralControlInterface::kDirectSurface;
   }
 
-  use_own_ap_ = control_profile_.has_own_autopilot;
   use_cpp_ap_ =
       control_profile_.lateral_interface != LateralControlInterface::kOwnAutopilot &&
       control_profile_.lateral_interface != LateralControlInterface::kGenericAutopilotBridge;
@@ -195,6 +244,13 @@ void Autopilot::SetYawDamper(bool on) {
   }
 }
 
+void Autopilot::SetSpeedTargetMps(double speed_mps) { target_speed_mps_ = speed_mps; }
+void Autopilot::SetSpeedHold(bool on) { speed_hold_ = on; }
+
+double Autopilot::GetTrueSpeedMps() const {
+  return adapter_.GetPropagate().GetInertialVelocityMagnitude() * kFtToM;
+}
+
 double Autopilot::GetAngleToHeadingRad() const {
   if (use_cpp_ap_ ||
       control_profile_.lateral_interface == LateralControlInterface::kFbwRateCommand) {
@@ -226,7 +282,7 @@ void Autopilot::Update(double /*dt_sec*/) {
   // kOwnAutopilot: delegate entirely to XML autopilot
   if (control_profile_.lateral_interface == LateralControlInterface::kOwnAutopilot) {
     UpdateOwnAutopilot();
-    UpdateAltitudeThrottle();
+    UpdateEnergyManagement();
     double r = propagate.GetPQR(3);
     ApplyYawDamping(r);
     return;
@@ -253,8 +309,8 @@ void Autopilot::Update(double /*dt_sec*/) {
       break;
   }
 
+  UpdateEnergyManagement();
   UpdatePitchChannel();
-  UpdateAltitudeThrottle();
 
   double r = propagate.GetPQR(3);
   ApplyYawDamping(r);
@@ -276,16 +332,24 @@ void Autopilot::UpdateGenericApBridge() {
 }
 
 void Autopilot::UpdateFbwRateCommandLateral() {
+  const auto& propagate = adapter_.GetPropagate();
+  const double roll_rad = propagate.GetEuler(1);
+  const double bank_limit_rad =
+      control_profile_.max_roll_angle_deg * 0.01745329;
+
   double roll_rate_cmd = 0.0;
   if (heading_hold_) {
     const double heading_err = GetAngleToHeadingRad();
-    // kRateIntegratorActuator (f22) needs more aggressive input because the
-    // FBW integrator + LQR tracker introduces phase lag. kRollRatePid (f16)
-    // has feedforward + PID that responds more directly.
-    if (control_profile_.fbw_subtype == FbwSubtype::kRateIntegratorActuator) {
-      roll_rate_cmd = Clamp(0.3 * heading_err, -0.35, 0.35);
-    } else {
-      roll_rate_cmd = Clamp(0.45 * heading_err, -0.60, 0.60);
+    roll_rate_cmd = Clamp(0.45 * heading_err, -0.60, 0.60);
+
+    // Bank angle limiting: when current bank approaches structural limit,
+    // apply opposing rate command to prevent overshoot regardless of FBW type.
+    double bank_ratio = std::abs(roll_rad) / bank_limit_rad;
+    if (bank_ratio > 0.80) {
+      double roll_sign = (roll_rad >= 0.0) ? 1.0 : -1.0;
+      double excess = std::min((bank_ratio - 0.80) / 0.20, 1.0);
+      // Blend from heading-driven command to roll-recovery command.
+      roll_rate_cmd = roll_rate_cmd * (1.0 - excess) - roll_sign * excess * 0.60;
     }
   }
   if (roll_ap_on_ || heading_hold_ || roll_mode_ == 0) {
@@ -344,15 +408,6 @@ void Autopilot::UpdateRollAnglePD() {
   adapter_.SetProperty(adapter::property::kAileronCmd, aileron);
 }
 
-void Autopilot::UpdateWingLeveler() {
-  const auto& propagate = adapter_.GetPropagate();
-  double roll = propagate.GetEuler(1);
-  double p = propagate.GetPQR(1);
-  double aileron = -1.0 * roll - 0.1 * p;
-  aileron = Clamp(aileron, -1.0, 1.0);
-  adapter_.SetProperty("fcs/aileron-cmd-norm", aileron);
-}
-
 void Autopilot::UpdatePitchChannel() {
   const auto& propagate = adapter_.GetPropagate();
   double pitch = propagate.GetEuler(2);
@@ -366,8 +421,20 @@ void Autopilot::UpdatePitchChannel() {
     double target_alt_ft = target_altitude_m_ * kMToFt;
     double current_alt_ft = propagate.GetLocation().GetGeodAltitude();
     double alt_err_ft = target_alt_ft - current_alt_ft;
+
+    // Base pitch: altitude PD
     target_pitch = 0.0005 * alt_err_ft;
-    target_pitch = Clamp(target_pitch, -0.35, 0.35);
+
+    // Speed protection: reduce climb pitch if speed is too low.
+    double current_speed_mps = GetTrueSpeedMps();
+    double min_speed = control_profile_.min_speed_mps;
+    if (min_speed > 0.0 && current_speed_mps < min_speed * 1.15 && target_pitch > 0.0) {
+      double speed_deficit = Clamp((min_speed * 1.15 - current_speed_mps) / (min_speed * 0.2), 0.0, 1.0);
+      target_pitch *= (1.0 - speed_deficit);
+    }
+
+    double max_pitch_rad = control_profile_.max_pitch_command_deg * M_PI / 180.0;
+    target_pitch = Clamp(target_pitch, -max_pitch_rad, max_pitch_rad);
   } else if (pitch_hold_) {
     pitch_control_active = true;
     target_pitch = target_pitch_deg_ * M_PI / 180.0;
@@ -381,13 +448,42 @@ void Autopilot::UpdatePitchChannel() {
   }
 }
 
-void Autopilot::UpdateAltitudeThrottle() {
-  if (!altitude_hold_) return;
+void Autopilot::UpdateEnergyManagement() {
+  if (!altitude_hold_ && !speed_hold_) return;
 
   const auto& propagate = adapter_.GetPropagate();
-  double alt_err_m = target_altitude_m_ - propagate.GetLocation().GetGeodAltitude() * kFtToM;
-  double climb_bias = Clamp(alt_err_m / 500.0, -0.30, 0.30);
-  double throttle = Clamp(0.70 + climb_bias, 0.35, 1.0);
+  const double current_alt_m = propagate.GetLocation().GetGeodAltitude() * kFtToM;
+  const double current_speed_mps = GetTrueSpeedMps();
+  const double ref_speed = control_profile_.ref_speed_mps > 0.0
+                               ? control_profile_.ref_speed_mps
+                               : current_speed_mps;
+
+  // Altitude error (potential energy proxy)
+  double alt_err_m = altitude_hold_ ? (target_altitude_m_ - current_alt_m) : 0.0;
+
+  // Speed error (kinetic energy proxy)
+  double speed_err_mps = speed_hold_ ? (target_speed_mps_ - current_speed_mps) : 0.0;
+
+  // Combined energy error: throttle manages total energy.
+  double energy_err = alt_err_m / 500.0;
+  if (ref_speed > 1.0) {
+    energy_err += speed_err_mps / ref_speed * 0.3;
+  }
+
+  // Speed protection: if below min_speed, override energy demand to recover speed.
+  const double min_speed = control_profile_.min_speed_mps;
+  if (min_speed > 0.0 && current_speed_mps < min_speed * 1.1) {
+    const double urgency = Clamp((min_speed * 1.1 - current_speed_mps) / (min_speed * 0.3), 0.0, 1.0);
+    if (control_profile_.speed_energy_priority) {
+      energy_err -= urgency * 0.5;
+    } else {
+      energy_err -= urgency * 0.25;
+    }
+  }
+
+  double throttle = Clamp(0.70 + Clamp(energy_err, -0.40, 0.40),
+                          control_profile_.min_throttle,
+                          control_profile_.max_throttle);
   SetThrottleCmdNorm(throttle);
 }
 
@@ -406,7 +502,28 @@ void Autopilot::ApplyYawDamping(double yaw_rate_rad_sec) {
   const std::string yaw_property = control_profile_.yaw_input_property.empty()
                                        ? std::string(adapter::property::kRudderCmd)
                                        : control_profile_.yaw_input_property;
-  adapter_.SetProperty(yaw_property, Clamp(-0.15 * yaw_rate_rad_sec, -1.0, 1.0));
+
+  const auto& propagate = adapter_.GetPropagate();
+  const double roll_rad = propagate.GetEuler(1);
+
+  // Turn coordination: for a banked turn, the aircraft needs rudder to
+  // produce the yaw rate for a coordinated turn.  Without this, the yaw
+  // damper fights the sustained yaw rate and the turn radius balloons.
+  double rudder = 0.0;
+  if (std::abs(roll_rad) > 0.05) {
+    // Coordinated turn requires r ∝ sin(φ).  Apply rudder proportional
+    // to bank angle to assist the turn, then damp residual oscillations.
+    double vt_fps = propagate.GetInertialVelocityMagnitude();
+    if (vt_fps < 10.0) vt_fps = 10.0;
+    double vt_mps = vt_fps * 0.3048;
+    double coord_yaw_rate = 9.80665 * std::sin(roll_rad) / vt_mps;
+    double yaw_err = yaw_rate_rad_sec - coord_yaw_rate;
+    rudder = Clamp(-0.3 * yaw_err, -1.0, 1.0);
+  } else {
+    // Wings level: pure yaw damping to suppress Dutch roll.
+    rudder = Clamp(-0.15 * yaw_rate_rad_sec, -1.0, 1.0);
+  }
+  adapter_.SetProperty(yaw_property, rudder);
 }
 
 }  // namespace autopilot

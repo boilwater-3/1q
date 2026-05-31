@@ -1,3 +1,6 @@
+#include <cmath>
+#include <iostream>
+
 #include "1q/flight_dynamic/FlightManager.h"
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
@@ -41,9 +44,22 @@ bool FlightManager::Step(double dt_sec) {
       adapter_->GetFdmExec(),
       sim_time_sec_);
 
+  // Track diagnostics
+  if (state_ == FlightManagerState::kExecuting) {
+    diagnostics_.Update(vehicle_state_);
+  }
+
   // Update active maneuver
   if (state_ == FlightManagerState::kExecuting) {
+    if (diagnostics_.crashed) {
+      diagnostics_.last_failure_reason = "crashed";
+      diagnostics_.Print();
+      state_ = FlightManagerState::kAborted;
+      maneuver_exec_->Abort();
+      return false;
+    }
     if (maneuver_exec_->IsManeuverComplete()) {
+      diagnostics_.Print();
       ExecuteNextManeuver();
     }
   }
@@ -91,13 +107,17 @@ void FlightManager::ExecuteNextManeuver() {
   state_ = FlightManagerState::kExecuting;
   ++current_maneuver_index_;
 
+  // Reset diagnostics for new maneuver.
+  diagnostics_ = ManeuverDiagnostics();
+  diagnostics_.current_type = cmd.type;
+
   using guidance::ManeuverType;
   switch (cmd.type) {
     case ManeuverType::kFlyToWaypoint:
       maneuver_exec_->ExecuteFlyTo(cmd.target);
       break;
     case ManeuverType::kOrbit:
-      maneuver_exec_->ExecuteOrbit(cmd.target, cmd.value);
+      maneuver_exec_->ExecuteOrbit(cmd.target, cmd.value, cmd.duration_sec);
       break;
     case ManeuverType::kSetHeading:
       maneuver_exec_->ExecuteSetHeading(cmd.value);
@@ -112,6 +132,31 @@ void FlightManager::ExecuteNextManeuver() {
       maneuver_exec_->ExecuteSetRoll(static_cast<int>(cmd.value));
       break;
   }
+}
+
+void ManeuverDiagnostics::Update(const model::VehicleState& s) {
+  if (s.altitude_geod_m < min_altitude_m) min_altitude_m = s.altitude_geod_m;
+  if (s.vtrue_mps < min_speed_mps) min_speed_mps = s.vtrue_mps;
+  double r = std::abs(s.phi_rad) * 57.2958;
+  if (r > max_roll_deg) max_roll_deg = r;
+  double p = std::abs(s.theta_rad) * 57.2958;
+  if (p > max_pitch_deg) max_pitch_deg = p;
+  steps++;
+  total_time_sec = s.sim_time_sec;
+  if (s.altitude_agl_m <= 0.0) crashed = true;
+}
+
+void ManeuverDiagnostics::Print() const {
+  std::cout << "[DIAG] type=" << static_cast<int>(current_type)
+            << " | steps=" << steps
+            << " | time=" << total_time_sec << "s"
+            << " | alt_min=" << min_altitude_m << "m"
+            << " | spd_min=" << min_speed_mps << "m/s"
+            << " | roll_max=" << max_roll_deg << "deg"
+            << " | pitch_max=" << max_pitch_deg << "deg"
+            << " | crashed=" << (crashed ? "YES" : "no")
+            << " | reason=" << last_failure_reason
+            << std::endl;
 }
 
 }  // namespace flight_dynamic

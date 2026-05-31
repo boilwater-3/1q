@@ -34,7 +34,6 @@ struct Maneuver {
   Waypoint target;
   double value = 0.0;
   double duration_sec = 0.0;
-  bool wait_for_completion = true;
 };
 
 class ManeuverExecutor {
@@ -44,7 +43,7 @@ class ManeuverExecutor {
                    WaypointManager& wp_manager);
 
   void ExecuteFlyTo(const Waypoint& target);
-  void ExecuteOrbit(const Waypoint& center, double radius_m);
+  void ExecuteOrbit(const Waypoint& center, double radius_m, double duration_sec = 0.0);
   void ExecuteSetHeading(double heading_rad);
   void ExecuteSetAltitude(double altitude_m);
   void ExecuteSetPitch(double pitch_deg, double duration_sec);

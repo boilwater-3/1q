@@ -55,6 +55,15 @@ struct AircraftControlProfile {
   bool has_mixture = false;
 
   std::string yaw_input_property;
+
+  // --- Energy management profile ---
+  double ref_speed_mps = 0.0;     // cruise / reference speed for energy distribution
+  double min_speed_mps = 0.0;     // minimum task speed (stall margin)
+  double max_pitch_command_deg = 20.0;  // pitch command limit in altitude hold
+  double max_roll_angle_deg = 45.0;     // structural/aero roll limit (used for orbit radius)
+  double max_throttle = 1.0;
+  double min_throttle = 0.15;
+  bool speed_energy_priority = false;  // true = prioritize speed over altitude
 };
 
 class Autopilot {
@@ -69,6 +78,11 @@ class Autopilot {
   // --- Altitude ---
   void SetAltitudeTargetM(double altitude_m);
   void SetAltitudeHold(bool on);
+
+  // --- Speed / energy management ---
+  void SetSpeedTargetMps(double speed_mps);
+  void SetSpeedHold(bool on);
+  double GetTrueSpeedMps() const;
 
   // --- Pitch ---
   void SetPitchTargetDeg(double pitch_deg);
@@ -100,16 +114,14 @@ class Autopilot {
   void UpdateFbwRateCommandLateral();
   void UpdateRollAnglePD();
   void UpdateDirectHeadingLateral();
-  void UpdateWingLeveler();
   void UpdatePitchChannel();
-  void UpdateAltitudeThrottle();
   void ApplyNativeHeadingSetpoint();
   void ApplyYawDamping(double yaw_rate_rad_sec);
+  void UpdateEnergyManagement();
 
   adapter::JsbsimAdapter& adapter_;
   AircraftControlProfile control_profile_;
   bool use_cpp_ap_ = false;
-  bool use_own_ap_ = false;
   double roll_int_ = 0.0;
 
   bool heading_hold_ = false;
@@ -125,6 +137,9 @@ class Autopilot {
 
   int roll_mode_ = 0;
   bool roll_ap_on_ = false;
+
+  bool speed_hold_ = false;
+  double target_speed_mps_ = 0.0;
 };
 
 }  // namespace autopilot

@@ -26,7 +26,7 @@ namespace flight_dynamic {
 namespace {
 
 constexpr double kProbeRunSec = 10.0;
-constexpr double kDt = 0.005;
+constexpr double kDt = 0.01;
 constexpr double kMToFt = 1.0 / 0.3048;
 
 struct AircraftProbeParam {
@@ -202,8 +202,8 @@ std::vector<WaypointProbeParam> WaypointProbeAircraft() {
 std::vector<OrbitProbeParam> OrbitProbeAircraft() {
   return {
       {"f16", 3000.0, 200.0},
-      {"Concorde", 5000.0, 150.0},
-      {"Concorde", 10000.0, 250.0},
+      {"Concorde", 15000.0, 500.0},     // supersonic: clean orbit, no crash
+      {"Concorde", 10000.0, 250.0},      // transonic: marginal
   };
 }
 

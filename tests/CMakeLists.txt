@@ -130,7 +130,132 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
     set_tests_properties("${suite_label}::${target_name}" PROPERTIES LABELS "${suite_label}")
 endfunction()
 
+# --------------------------------------------------------------------------
+# flight_dynamic 测试（含 JSBSim）独立二进制，可并行构建与执行
+# --------------------------------------------------------------------------
+set(FD_TEST_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_adapter_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_maneuver_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_probe_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_bare_aircraft_baseline_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_robustness_test.cpp
+)
+
+# 从单元测试源列表中排除 FD 测试
+list(REMOVE_ITEM UNIT_TEST_SOURCES ${FD_TEST_SOURCES})
+
 add_1q_gtest(${PROJECT_NAME}_unit_tests unit 60 ${UNIT_TEST_SOURCES})
+add_1q_gtest(${PROJECT_NAME}_fd_tests fd 180 ${FD_TEST_SOURCES})
+
+# --------------------------------------------------------------------------
+# flight_dynamic 测试五层分类：smoke / contract / controllability /
+# performance / known-limit。每个 CTest 入口运行同一二进制，
+# 使用不同 gtest_filter 和 label。CI 默认运行 smoke+contract+
+# controllability；performance 和 known-limit 按需启用。
+#
+# 用法：
+#   ctest --preset <p> -L fd_smoke            # Tier 1: 快速冒烟
+#   ctest --preset <p> -L fd_contract          # Tier 2: 合同快照
+#   ctest --preset <p> -L fd_controllability   # Tier 3: 基本可控
+#   ctest --preset <p> -L fd_performance       # Tier 4: 多机型性能
+#   ctest --preset <p> -L fd_known_limit       # Tier 5: 已知限制
+#   ctest --preset <p> -L fd_ci                # CI 默认 (1+2+3)
+#   ctest --preset <p> -L fd                   # 全部
+# --------------------------------------------------------------------------
+
+# Tier 1: smoke — 库能否加载、初始化、单步运行？
+# ~20 tests, <5s
+set(_fd_smoke_filter
+    "FlightDynamicTest.AdapterCreatesAndRuns:"
+    "FlightDynamicTest.VehicleStatePopulated:"
+    "FlightDynamicTest.InitialVelocityDefaultsToBodyFrame:"
+    "FlightDynamicTest.AutopilotSetsHeading:"
+    "FlightDynamicTest.AutopilotSetsAltitude:"
+    "FlightDynamicTest.WaypointManagerAddsWaypoints:"
+    "FlightDynamicTest.FlyToWaypointManeuver:"
+    "FlightDynamicTest.OrbitManeuver:"
+    "FlightDynamicTest.AbortManeuver:"
+    "FlightDynamicTest.ResetAndReuse:"
+    "*BareAircraftTest.ModelLoadsSuccessfully/*:"
+    "*ProfileSnapshotTest.MatchesExpectedProfile/*"
+)
+string(REPLACE ";" "" _fd_smoke_filter_str "${_fd_smoke_filter}")
+add_test(NAME "fd_smoke::1q_fd_tests"
+         COMMAND ${PROJECT_NAME}_fd_tests --gtest_filter=${_fd_smoke_filter_str})
+set_tests_properties("fd_smoke::1q_fd_tests" PROPERTIES LABELS "fd_smoke;fd_ci")
+
+# Tier 2: contract — profile/IC/trim/XML 合同是否稳定？
+# ~30 tests, <10s
+set(_fd_contract_filter
+    "FlightDynamicTest.AutopilotDetectsOwnApProfile:"
+    "FlightDynamicTest.AutopilotDetectsFbwProfile:"
+    "FlightDynamicTest.AutopilotDetectsF22Profile:"
+    "FlightDynamicTest.AutopilotDetectsC310Profile:"
+    "FlightDynamicTest.AutopilotDetectsConcordeProfile:"
+    "FlightDynamicTest.AutopilotWritesIndexedThrottleForMultiEngineProfiles:"
+    "FlightDynamicTest.AutopilotWritesDetectedYawInputProperty:"
+    "FlightDynamicTest.InitialVelocityCanUseEcefFrame:"
+    "FlightDynamicTest.InitialConditionsAcceptEcefPosition:"
+    "*BareAircraftTest.ProjectIcTrimOnPassesL1/*:"
+    "*BareAircraftTest.ProjectIcTrimOffPassesL1/*:"
+    "*BareAircraftDiagnosticTest.*:"
+    "*BareAircraftTest.TrimBehaviorRecorded/*:"
+    "*ResetXmlBaselineTest.ResetXmlFreeFlightStable/*"
+)
+string(REPLACE ";" "" _fd_contract_filter_str "${_fd_contract_filter}")
+add_test(NAME "fd_contract::1q_fd_tests"
+         COMMAND ${PROJECT_NAME}_fd_tests --gtest_filter=${_fd_contract_filter_str})
+set_tests_properties("fd_contract::1q_fd_tests" PROPERTIES LABELS "fd_contract;fd_ci")
+
+# Tier 3: controllability — 基本机动命令能否控制飞行器？边界情况？
+# ~30 tests, <15s
+set(_fd_ctrl_filter
+    "FlightDynamicTest.FlyToWaypointNearbyCompletesManeuver:"
+    "FlightDynamicTest.MultipleManeuvers:"
+    "FlightDynamicTest.FlyToMultipleWaypointsThenOrbit:"
+    "FlightDynamicTest.OrbitRunsWithoutError:"
+    "FlightDynamicTest.SetPitchManeuver:"
+    "FlightDynamicTest.SetRollManeuver:"
+    "FlightDynamicTest.SetAltitudeManeuver:"
+    "FlightDynamicRobustnessTest.*:"
+    "*BareAircraftTest.ProjectIcTrimOnFreeFlightStable/*:"
+    "*BareAircraftTest.ProjectIcTrimOffFreeFlightStable/*"
+)
+string(REPLACE ";" "" _fd_ctrl_filter_str "${_fd_ctrl_filter}")
+add_test(NAME "fd_controllability::1q_fd_tests"
+         COMMAND ${PROJECT_NAME}_fd_tests --gtest_filter=${_fd_ctrl_filter_str})
+set_tests_properties("fd_controllability::1q_fd_tests" PROPERTIES LABELS "fd_controllability;fd_ci")
+
+# Tier 4: performance — 多机型机动质量：距离收敛、高度变化、航向收敛、队列完成
+# ~90 tests, ~10s
+set(_fd_perf_filter
+    "*AircraftManeuverTest.FlyToWaypoint/*:"
+    "*AircraftManeuverTest.SetAltitudeClimb/*:"
+    "*AircraftManeuverTest.SetHeading/*:"
+    "*AircraftManeuverTest.OrbitTimedCompletion/*:"
+    "*AircraftManeuverTest.QueueOrbitThenHeading/*:"
+    "*AircraftManeuverTest.QueueFlyToThenOrbit/*"
+)
+string(REPLACE ";" "" _fd_perf_filter_str "${_fd_perf_filter}")
+add_test(NAME "fd_performance::1q_fd_tests"
+         COMMAND ${PROJECT_NAME}_fd_tests --gtest_filter=${_fd_perf_filter_str})
+set_tests_properties("fd_performance::1q_fd_tests" PROPERTIES LABELS "fd_performance")
+
+# Tier 5: known-limit — 长时间 orbit 稳定性、极端参数、env-gated 诊断
+# ~130 tests, ~5s (大部分快速)
+set(_fd_limit_filter
+    "*AircraftManeuverTest.Orbit/*:"
+    "*AircraftManeuverTest.SetPitch/*:"
+    "*AircraftManeuverTest.SetRoll/*:"
+    "*AircraftManeuverTest.ResetAndReuse/*:"
+    "*AircraftManeuverTest.AbortManeuver/*:"
+    "*AircraftManeuverTest.InvalidOrbitRadius/*:"
+    "*FdAircraftProbe.*"
+)
+string(REPLACE ";" "" _fd_limit_filter_str "${_fd_limit_filter}")
+add_test(NAME "fd_known_limit::1q_fd_tests"
+         COMMAND ${PROJECT_NAME}_fd_tests --gtest_filter=${_fd_limit_filter_str})
+set_tests_properties("fd_known_limit::1q_fd_tests" PROPERTIES LABELS "fd_known_limit")
 add_1q_gtest(${PROJECT_NAME}_integration_tests integration 120 ${INTEGRATION_TEST_SOURCES})
 add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES})
 
@@ -141,12 +266,12 @@ else()
     set(FD_JSBSIM_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim")
 endif()
 # flight_dynamic 测试需要链接 JSBSim（OBJECT 库的 PRIVATE 依赖不传递）
-target_include_directories(${PROJECT_NAME}_unit_tests SYSTEM PRIVATE
+target_include_directories(${PROJECT_NAME}_fd_tests SYSTEM PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/jsbsim/src)
 if(TARGET JSBSim::JSBSim)
-  target_link_libraries(${PROJECT_NAME}_unit_tests PRIVATE JSBSim::JSBSim)
+  target_link_libraries(${PROJECT_NAME}_fd_tests PRIVATE JSBSim::JSBSim)
 endif()
-target_compile_definitions(${PROJECT_NAME}_unit_tests
+target_compile_definitions(${PROJECT_NAME}_fd_tests
     PRIVATE FD_JSBSIM_ROOT_DIR="${FD_JSBSIM_ROOT_DIR}")
 
 set(REPLAY_FAST_TEST_SOURCES
@@ -164,6 +289,7 @@ add_1q_gtest(${PROJECT_NAME}_replay_fast_tests replay_fast 90 ${REPLAY_FAST_TEST
 add_custom_target(${PROJECT_NAME}_tests)
 add_dependencies(${PROJECT_NAME}_tests
     ${PROJECT_NAME}_unit_tests
+    ${PROJECT_NAME}_fd_tests
     ${PROJECT_NAME}_integration_tests
     ${PROJECT_NAME}_contract_tests
 )

@@ -60,6 +60,21 @@
             }
         },
         {
+            "name": "macos-jsbsim-debug-base",
+            "hidden": true,
+            "inherits": "macos-base",
+            "displayName": "macOS JSBSim Debug Base (hidden — inherit for LLDB source debugging)",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_TESTING": "ON",
+                "BUILD_SHARED_LIBS": "OFF",
+                "USE_CCACHE": "ON",
+                "ENABLE_PCH": "ON",
+                "ENABLE_UNITY_BUILD": "OFF"
+            }
+        },
+        {
             "name": "windows-base",
             "hidden": true,
             "inherits": "base",

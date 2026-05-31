@@ -38,12 +38,17 @@ double ComputeClockwiseOrbitHeadingRad(const JSBSim::FGLocation& location, const
   double radial_angle = std::atan2(east_m, north_m);
   double tangent_heading = radial_angle + M_PI / 2.0;
 
-  // Speed-aware intercept: at higher speeds, cap intercept angle proportional
-  // to achievable bank for the speed/radius pair.
   double radial_error = distance_m - radius_m;
+
+  // Intercept angle: proportional correction toward orbit track.
+  // At high speed / tight radius the required bank exceeds structural limits,
+  // causing the orbit to widen — the intercept naturally shrinks as the
+  // aircraft converges.  Speed is logged but not used to cap the intercept
+  // because capping prevents high-performance aircraft from capturing the
+  // orbit track quickly enough.
   double intercept = std::atan2(radial_error, radius_m);
 
-  (void)speed_mps;  // reserved for future speed-dependent intercept limiting
+  (void)speed_mps;
 
   return NormalizeRad(tangent_heading + intercept);
 }
@@ -71,12 +76,16 @@ void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
   ap_.SetHeadingHold(true);
   ap_.SetAltitudeTargetM(target.altitude_m);
   ap_.SetAltitudeHold(true);
+  ap_.SetSpeedTargetMps(ap_.GetTrueSpeedMps());
+  ap_.SetSpeedHold(true);
 }
 
-void ManeuverExecutor::ExecuteOrbit(const Waypoint& center, double radius_m) {
+void ManeuverExecutor::ExecuteOrbit(const Waypoint& center, double radius_m, double duration_sec) {
   current_maneuver_.type = ManeuverType::kOrbit;
   current_maneuver_.target = center;
-  current_maneuver_.value = radius_m;
+  current_maneuver_.value = std::abs(radius_m);
+  current_maneuver_.duration_sec = duration_sec;
+  if (current_maneuver_.value < 1.0) current_maneuver_.value = 1.0;
   active_ = true;
   elapsed_sec_ = 0.0;
 
@@ -94,6 +103,8 @@ void ManeuverExecutor::ExecuteOrbit(const Waypoint& center, double radius_m) {
   ap_.SetHeadingHold(true);
   ap_.SetAltitudeTargetM(center.altitude_m);
   ap_.SetAltitudeHold(true);
+  ap_.SetSpeedTargetMps(ap_.GetTrueSpeedMps());
+  ap_.SetSpeedHold(true);
 }
 
 void ManeuverExecutor::ExecuteSetHeading(double heading_rad) {
@@ -152,6 +163,9 @@ bool ManeuverExecutor::IsManeuverComplete() const {
       }
       return wp_manager_.IsAtTarget();
     case ManeuverType::kOrbit:
+      if (current_maneuver_.duration_sec > 0.0) {
+        return elapsed_sec_ >= current_maneuver_.duration_sec;
+      }
       return false;
     case ManeuverType::kSetHeading: {
       double angle_error = std::abs(ap_.GetAngleToHeadingRad());

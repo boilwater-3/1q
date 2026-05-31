@@ -314,6 +314,44 @@ TEST_F(FlightDynamicTest, MultipleManeuvers) {
   RunSteps(fm, 500);
 }
 
+TEST_F(FlightDynamicTest, FlyToMultipleWaypointsThenOrbit) {
+  FlightManager fm(config_);
+
+  struct WpCheck { double lat; double lon; double alt; double radius; };
+  WpCheck waypoints[] = {
+    {500.0 / 6.371e6,  500.0 / 6.371e6,  500.0, 100.0},
+    {1000.0 / 6.371e6, 0.0,              500.0, 100.0},
+    {0.0,              1000.0 / 6.371e6,  500.0, 100.0},
+  };
+
+  for (const auto& wp : waypoints) {
+    ManeuverCommand fly;
+    fly.type = guidance::ManeuverType::kFlyToWaypoint;
+    fly.target.latitude_rad = wp.lat;
+    fly.target.longitude_rad = wp.lon;
+    fly.target.altitude_m = wp.alt;
+    fly.target.radius_m = wp.radius;
+    fm.PushManeuver(fly);
+  }
+
+  ManeuverCommand orbit;
+  orbit.type = guidance::ManeuverType::kOrbit;
+  orbit.target.latitude_rad = 1000.0 / 6.371e6;
+  orbit.target.longitude_rad = 1000.0 / 6.371e6;
+  orbit.target.altitude_m = 500.0;
+  orbit.value = 500.0;
+  fm.PushManeuver(orbit);
+
+  // Run long enough to fly through all 3 waypoints + enter orbit
+  RunSteps(fm, 10000);
+
+  auto s = fm.GetState();
+  EXPECT_TRUE(s == FlightManagerState::kExecuting)
+      << "Should still be in orbit (kExecuting), got " << static_cast<int>(s);
+  ExpectNoNaN(fm.GetVehicleState());
+  EXPECT_GT(fm.GetVehicleState().sim_time_sec, 0.0);
+}
+
 TEST_F(FlightDynamicTest, ResetAndReuse) {
   FlightManager fm(config_);
 
@@ -444,6 +482,207 @@ TEST_F(FlightDynamicTest, AbortManeuver) {
   bool result = fm.Step(kDt);
   EXPECT_FALSE(result);
 }
+
+// ==========================================================================
+// Profile snapshot test: captures ALL AircraftControlProfile fields for each
+// target aircraft. Any change to the profile detection logic or aircraft XML
+// that alters these values will produce a precise field-level diff.
+// ==========================================================================
+
+struct ProfileSnapshotParam {
+  std::string model_name;
+  double altitude_m;
+  double speed_mps;
+};
+
+class ProfileSnapshotTest
+    : public ::testing::TestWithParam<ProfileSnapshotParam> {
+ protected:
+  void InitConfig() {
+    const auto& param = GetParam();
+    config_.aircraft_model = param.model_name;
+    config_.aircraft_root_dir = FD_JSBSIM_ROOT_DIR;
+    config_.dt_sec = kDt;
+    config_.do_trim = true;
+    config_.silent_mode = true;
+    config_.initial_kinematics.position_frame = coordinate::PositionFrame::kLla;
+    config_.initial_kinematics.position_lla_deg_m.latitude_deg = 0.0;
+    config_.initial_kinematics.position_lla_deg_m.longitude_deg = 0.0;
+    config_.initial_kinematics.position_lla_deg_m.altitude_m = param.altitude_m;
+    config_.initial_kinematics.velocity_mps.x_mps = param.speed_mps;
+    config_.initial_kinematics.velocity_mps.y_mps = 0.0;
+    config_.initial_kinematics.velocity_mps.z_mps = 0.0;
+    config_.initial_kinematics.attitude_deg.roll_deg = 0.0;
+    config_.initial_kinematics.attitude_deg.pitch_deg = 0.0;
+    config_.initial_kinematics.attitude_deg.yaw_deg = 0.0;
+  }
+
+  config::FlightDynamicConfig config_;
+};
+
+#define SNAPSHOT_CHECK_ENUM(profile, field, expected) \
+  EXPECT_EQ(static_cast<int>(profile.field), static_cast<int>(expected))
+
+#define SNAPSHOT_CHECK_BOOL(profile, field, expected) \
+  EXPECT_EQ(profile.field, expected)
+
+#define SNAPSHOT_CHECK_INT(profile, field, expected) \
+  EXPECT_EQ(profile.field, expected)
+
+#define SNAPSHOT_CHECK_STR(profile, field, expected) \
+  EXPECT_EQ(profile.field, expected)
+
+#define SNAPSHOT_CHECK_DBL(profile, field, expected) \
+  EXPECT_DOUBLE_EQ(profile.field, expected)
+
+TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
+  InitConfig();
+  FlightManager fm(config_);
+  const auto& p = fm.GetAutopilot().GetControlProfile();
+
+  // Set per-aircraft expectations below.
+  const std::string& model = GetParam().model_name;
+
+  if (model == "f16") {
+    SNAPSHOT_CHECK_ENUM(p, lateral_interface, autopilot::LateralControlInterface::kFbwRateCommand);
+    SNAPSHOT_CHECK_ENUM(p, pitch_interface, autopilot::PitchControlInterface::kNativeAutopilot);
+    SNAPSHOT_CHECK_ENUM(p, fbw_subtype, autopilot::FbwSubtype::kRollRatePid);
+    SNAPSHOT_CHECK_BOOL(p, has_own_autopilot, false);
+    SNAPSHOT_CHECK_BOOL(p, has_generic_autopilot, true);
+    SNAPSHOT_CHECK_BOOL(p, has_fbw_override, true);
+    SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, true);
+    SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_INT(p, engine_count, 1);
+    SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
+    SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
+
+  } else if (model == "f22") {
+    SNAPSHOT_CHECK_ENUM(p, lateral_interface, autopilot::LateralControlInterface::kFbwRateCommand);
+    // Project-injected Autopilot.xml sets has_generic_autopilot=true → native pitch.
+    SNAPSHOT_CHECK_ENUM(p, pitch_interface, autopilot::PitchControlInterface::kNativeAutopilot);
+    SNAPSHOT_CHECK_ENUM(p, fbw_subtype, autopilot::FbwSubtype::kRateIntegratorActuator);
+    SNAPSHOT_CHECK_BOOL(p, has_own_autopilot, false);
+    SNAPSHOT_CHECK_BOOL(p, has_generic_autopilot, true);
+    SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
+    SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, true);
+    SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, true);
+    SNAPSHOT_CHECK_INT(p, engine_count, 2);
+    SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
+    SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
+
+  } else if (model == "c172x") {
+    SNAPSHOT_CHECK_ENUM(p, lateral_interface, autopilot::LateralControlInterface::kOwnAutopilot);
+    SNAPSHOT_CHECK_ENUM(p, pitch_interface, autopilot::PitchControlInterface::kNativeAutopilot);
+    SNAPSHOT_CHECK_ENUM(p, fbw_subtype, autopilot::FbwSubtype::kNone);
+    SNAPSHOT_CHECK_BOOL(p, has_own_autopilot, true);
+    SNAPSHOT_CHECK_BOOL(p, has_generic_autopilot, true);
+    SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
+    SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, false);
+    SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_INT(p, engine_count, 1);
+    SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
+    SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
+
+  } else if (model == "c310") {
+    SNAPSHOT_CHECK_ENUM(p, lateral_interface, autopilot::LateralControlInterface::kOwnAutopilot);
+    SNAPSHOT_CHECK_ENUM(p, pitch_interface, autopilot::PitchControlInterface::kNativeAutopilot);
+    SNAPSHOT_CHECK_ENUM(p, fbw_subtype, autopilot::FbwSubtype::kNone);
+    SNAPSHOT_CHECK_BOOL(p, has_own_autopilot, true);
+    SNAPSHOT_CHECK_BOOL(p, has_generic_autopilot, false);
+    SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
+    SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, false);
+    SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_INT(p, engine_count, 2);
+    SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
+    SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
+
+  } else if (model == "f15") {
+    SNAPSHOT_CHECK_ENUM(p, lateral_interface, autopilot::LateralControlInterface::kGenericAutopilotBridge);
+    SNAPSHOT_CHECK_ENUM(p, pitch_interface, autopilot::PitchControlInterface::kNativeAutopilot);
+    SNAPSHOT_CHECK_ENUM(p, fbw_subtype, autopilot::FbwSubtype::kNone);
+    SNAPSHOT_CHECK_BOOL(p, has_own_autopilot, false);
+    SNAPSHOT_CHECK_BOOL(p, has_generic_autopilot, true);
+    SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
+    SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, false);
+    SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_INT(p, engine_count, 2);
+    SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
+    SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
+
+  } else if (model == "Concorde") {
+    SNAPSHOT_CHECK_ENUM(p, lateral_interface, autopilot::LateralControlInterface::kGenericAutopilotBridge);
+    SNAPSHOT_CHECK_ENUM(p, pitch_interface, autopilot::PitchControlInterface::kNativeAutopilot);
+    SNAPSHOT_CHECK_ENUM(p, fbw_subtype, autopilot::FbwSubtype::kNone);
+    SNAPSHOT_CHECK_BOOL(p, has_own_autopilot, false);
+    SNAPSHOT_CHECK_BOOL(p, has_generic_autopilot, true);
+    SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
+    SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, false);
+    SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_INT(p, engine_count, 4);
+    SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
+    SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
+
+  } else if (model == "B17") {
+    // B17 has project-injected Autopilot.xml -> kGenericAutopilotBridge
+    SNAPSHOT_CHECK_ENUM(p, lateral_interface, autopilot::LateralControlInterface::kGenericAutopilotBridge);
+    SNAPSHOT_CHECK_ENUM(p, pitch_interface, autopilot::PitchControlInterface::kNativeAutopilot);
+    SNAPSHOT_CHECK_ENUM(p, fbw_subtype, autopilot::FbwSubtype::kNone);
+    SNAPSHOT_CHECK_BOOL(p, has_own_autopilot, false);
+    SNAPSHOT_CHECK_BOOL(p, has_generic_autopilot, true);
+    SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
+    SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, false);
+    SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_INT(p, engine_count, 4);
+    SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
+    SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
+
+  } else if (model == "C130") {
+    // C130 has project-injected Autopilot.xml -> kGenericAutopilotBridge
+    SNAPSHOT_CHECK_ENUM(p, lateral_interface, autopilot::LateralControlInterface::kGenericAutopilotBridge);
+    SNAPSHOT_CHECK_ENUM(p, pitch_interface, autopilot::PitchControlInterface::kNativeAutopilot);
+    SNAPSHOT_CHECK_ENUM(p, fbw_subtype, autopilot::FbwSubtype::kNone);
+    SNAPSHOT_CHECK_BOOL(p, has_own_autopilot, false);
+    SNAPSHOT_CHECK_BOOL(p, has_generic_autopilot, true);
+    SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
+    SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, false);
+    SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_INT(p, engine_count, 4);
+    SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
+    SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
+
+  } else {
+    FAIL() << "Unknown model: " << model;
+  }
+
+  // Energy management profile defaults (overridden per-aircraft as needed).
+  SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 0.0);
+  SNAPSHOT_CHECK_DBL(p, min_speed_mps, 0.0);
+  SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 20.0);
+  SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 45.0);
+  SNAPSHOT_CHECK_DBL(p, max_throttle, 1.0);
+  SNAPSHOT_CHECK_DBL(p, min_throttle, 0.15);
+  SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, false);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    AircraftProfiles, ProfileSnapshotTest,
+    ::testing::Values(
+        ProfileSnapshotParam{"f16", 3000.0, 200.0},
+        ProfileSnapshotParam{"f22", 3000.0, 200.0},
+        ProfileSnapshotParam{"c172x", 500.0, 50.0},
+        ProfileSnapshotParam{"c310", 500.0, 65.0},
+        ProfileSnapshotParam{"f15", 3000.0, 200.0},
+        ProfileSnapshotParam{"Concorde", 5000.0, 150.0},
+        ProfileSnapshotParam{"B17", 1000.0, 80.0},
+        ProfileSnapshotParam{"C130", 1000.0, 90.0}));
 
 }  // namespace
 }  // namespace flight_dynamic
