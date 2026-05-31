@@ -335,12 +335,43 @@ void ManeuverExecutor::Update(double dt_sec) {
     sink_rate_mps_ = (agl_m - prev_alt_m_) / dt_sec;
     prev_alt_m_ = agl_m;
 
+    bool is_fbw = ap_.GetControlProfile().fbw_subtype !=
+                  autopilot::FbwSubtype::kNone;
+    // FBW aircraft (f16, f22) use pitch-trim-cmd-norm which feeds through
+    // the FBW rate limiter/scheduler. Direct-surface aircraft use elevator-cmd-norm.
+    auto set_el = [&](double el_norm) {
+      if (is_fbw) {
+        adapter_.SetProperty("fcs/pitch-trim-cmd-norm", el_norm);
+      } else {
+        adapter_.SetProperty("fcs/elevator-cmd-norm", el_norm);
+      }
+    };
+
     switch (land_phase_) {
       case LandPhase::kDecelerate: {
-        // Cut throttle, hold gentle descent attitude, let drag slow the aircraft.
         engines_.SetThrottle(0.1);
-        adapter_.SetProperty("fcs/elevator-cmd-norm", -0.05);
+        if (is_fbw) {
+          // FBW aircraft: wings-level, no heading hold — avoid extreme roll
+          // at supersonic speeds. Just fly straight and decelerate.
+          ap_.SetHeadingHold(false);
+          set_el(-0.05);
+        } else if (vc_mps > 200.0) {
+          // Too fast for straight-in: orbit near landing point to bleed speed.
+          double orbit_radius_m = std::max(2000.0, vc_mps * 15.0);
+          double heading_rad = ComputeClockwiseOrbitHeadingRad(
+              adapter_.GetPropagate().GetLocation(),
+              current_maneuver_.target, orbit_radius_m,
+              std::max(vc_mps, 10.0));
+          ap_.SetHeadingTargetRad(heading_rad);
+          ap_.SetHeadingSourceIsWaypoint(false);
+          double sink_err = sink_rate_mps_ - 0.0;
+          double el = std::clamp(0.05 * sink_err, -0.15, 0.15);
+          set_el(el);
+        } else {
+          set_el(-0.05);
+        }
         if (vc_mps < land_approach_speed_mps_ * 1.15) {
+          if (is_fbw) ap_.SetHeadingHold(true);
           land_phase_ = LandPhase::kApproach;
         }
         break;
@@ -360,14 +391,14 @@ void ManeuverExecutor::Update(double dt_sec) {
           double thr = std::clamp(0.3 - 0.0005 * alt_above, 0.1, 0.5);
           engines_.SetThrottle(thr);
           double el = std::clamp(0.005 * speed_err, -0.15, 0.1);
-          adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+          set_el(el);
         } else {
           // Near pattern altitude: fixed glide-slope attitude, throttle for speed.
           double target_fpa_deg = -3.0;
           double cur_fpa_deg = vc_mps > 0 ? std::atan2(sink_rate_mps_, vc_mps) * 57.3 : 0.0;
           double fpa_err = cur_fpa_deg - target_fpa_deg;
           double el = std::clamp(0.1 * fpa_err, -0.2, 0.2);
-          adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+          set_el(el);
           double spd_err = vc_mps - land_approach_speed_mps_;
           double thr = std::clamp(0.3 - 0.005 * spd_err, 0.1, 0.6);
           engines_.SetThrottle(thr);
@@ -378,13 +409,13 @@ void ManeuverExecutor::Update(double dt_sec) {
         // Too fast for final descent: reduce throttle, gentle nose-up to bleed speed.
         if (vc_mps > land_approach_speed_mps_ * 1.3) {
           engines_.SetThrottle(0.0);
-          adapter_.SetProperty("fcs/elevator-cmd-norm", -0.1);
+          set_el(-0.1);
           break;
         }
         double flare_alt_m = std::max(15.0, vc_mps * 0.6);
         if (agl_m < land_target_alt_m_ + flare_alt_m) {
           engines_.SetThrottle(0.0);
-          adapter_.SetProperty("fcs/elevator-cmd-norm", -0.25);
+          set_el(-0.25);
           land_phase_ = LandPhase::kFlare;
           break;
         }
@@ -393,7 +424,7 @@ void ManeuverExecutor::Update(double dt_sec) {
         double cur_fpa_deg = vc_mps > 0 ? std::atan2(sink_rate_mps_, vc_mps) * 57.3 : 0.0;
         double fpa_err = cur_fpa_deg - target_fpa_deg;
         double el = std::clamp(0.1 * fpa_err, -0.2, 0.2);
-        adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+        set_el(el);
         double sink_err = -3.0 - sink_rate_mps_;
         double thr = std::clamp(0.25 + 0.05 * sink_err, 0.0, 0.6);
         engines_.SetThrottle(thr);
@@ -405,11 +436,11 @@ void ManeuverExecutor::Update(double dt_sec) {
         {
           double flare_progress = 1.0 - std::min(agl_m / 30.0, 1.0);
           double el_flare = -0.15 - 0.25 * flare_progress;
-          adapter_.SetProperty("fcs/elevator-cmd-norm", el_flare);
+          set_el(el_flare);
         }
         if (engines_.IsWeightOnWheels() || agl_m < 0.1) {
           engines_.SetBrakes(true);
-          adapter_.SetProperty("fcs/elevator-cmd-norm", 0.0);
+          set_el(0.0);
           land_phase_ = LandPhase::kTouchdown;
         }
         break;
