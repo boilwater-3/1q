@@ -11,6 +11,7 @@
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
 #include "1q/flight_dynamic/config/FlightDynamicConfig.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
+#include "flight_dynamic/propulsion/EngineManager.h"
 
 using namespace oneq::flight_dynamic;
 
@@ -81,13 +82,38 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  // Queue: takeoff → cruise (speed-adaptive distance) → land
+  // Cruise altitude by engine/aircraft category.
+  propulsion::EngineManager eng(fm.GetAdapter());
+  double cruise_alt_m = 3000.0;
+  switch (eng.GetType()) {
+    case propulsion::EngineType::kPiston:   cruise_alt_m = 2000.0; break;
+    case propulsion::EngineType::kTurboprop: cruise_alt_m = 4000.0; break;
+    case propulsion::EngineType::kTurbine:
+      if (model.find("f16") != std::string::npos ||
+          model.find("f22") != std::string::npos ||
+          model.find("f15") != std::string::npos ||
+          model.find("A4")  != std::string::npos ||
+          model.find("F4")  != std::string::npos ||
+          model.find("F80") != std::string::npos)
+        cruise_alt_m = 4000.0;
+      else if (model == "Concorde")
+        cruise_alt_m = 12000.0;
+      else if (model == "B17" || model == "C130")
+        cruise_alt_m = 5000.0;
+      else
+        cruise_alt_m = 8000.0;  // commercial jets
+      break;
+    case propulsion::EngineType::kRocket: cruise_alt_m = 15000.0; break;
+    default: break;
+  }
+
+  // Queue: takeoff → cruise → land
   ManeuverCommand tko;
   tko.type = guidance::ManeuverType::kTakeoff;
-  tko.target.altitude_m = 400.0;
+  tko.target.altitude_m = cruise_alt_m;
   fm.PushManeuver(tko);
 
-  // Waypoint distance: 45s of cruise at ref_speed, min 3km.
+  // Waypoint: 45s cruise at ref_speed, min 3km.
   double ref_spd = fm.GetAutopilot().GetControlProfile().ref_speed_mps;
   if (ref_spd <= 0.0) ref_spd = 50.0;
   double wp_dist_m = ref_spd * 45.0;
@@ -98,7 +124,7 @@ int main(int argc, char** argv) {
   fly.type = guidance::ManeuverType::kFlyToWaypoint;
   fly.target.latitude_rad = wp_offset_rad;
   fly.target.longitude_rad = wp_offset_rad;
-  fly.target.altitude_m = 400.0;
+  fly.target.altitude_m = cruise_alt_m;
   fly.target.radius_m = 200.0;
   fm.PushManeuver(fly);
 
