@@ -346,7 +346,8 @@ void ManeuverExecutor::Update(double dt_sec) {
       case LandPhase::kFlare:
         engines_.SetThrottle(0.0);
         adapter_.SetProperty("fcs/elevator-cmd-norm", -0.15);
-        if (engines_.IsWeightOnWheels()) {
+        if (engines_.IsWeightOnWheels() ||
+            (agl_m < 2.0 && vc_fps < 5.0)) {
           engines_.SetBrakes(true);
           adapter_.SetProperty("fcs/elevator-cmd-norm", 0.0);
           land_phase_ = LandPhase::kTouchdown;

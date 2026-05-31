@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
           model.find("A4")  != std::string::npos ||
           model.find("F4")  != std::string::npos ||
           model.find("F80") != std::string::npos)
-        cruise_alt_m = 4000.0;
+        cruise_alt_m = 2000.0;
       else if (model == "Concorde")
         cruise_alt_m = 12000.0;
       else if (model == "B17" || model == "C130")
@@ -132,7 +132,7 @@ int main(int argc, char** argv) {
   fly.target.latitude_rad = wp_offset_rad;
   fly.target.longitude_rad = wp_offset_rad;
   fly.target.altitude_m = cruise_alt_m;
-  fly.target.radius_m = 200.0;
+  fly.target.radius_m = std::max(200.0, ref_spd * 20.0);  // generous for fast jets
   fm.PushManeuver(fly);
 
   ManeuverCommand land;
