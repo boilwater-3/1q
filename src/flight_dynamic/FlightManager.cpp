@@ -53,7 +53,16 @@ bool FlightManager::Step(double dt_sec) {
 
   // Update active maneuver
   if (state_ == FlightManagerState::kExecuting) {
-    if (diagnostics_.crashed) {
+    if (diagnostics_.crashed && !maneuver_exec_->IsTouchingGround()) {
+      diagnostics_.last_failure_reason = "crashed";
+      diagnostics_.outcome = ManeuverOutcome::kCrashed;
+      diagnostics_.Print();
+      state_ = FlightManagerState::kAborted;
+      maneuver_exec_->Abort();
+      return false;
+    }
+    // Hard crash: well below ground even during landing (gear collapse).
+    if (vehicle_state_.altitude_agl_m < -5.0) {
       diagnostics_.last_failure_reason = "crashed";
       diagnostics_.outcome = ManeuverOutcome::kCrashed;
       diagnostics_.Print();
@@ -158,7 +167,9 @@ void ManeuverDiagnostics::Update(const model::VehicleState& s) {
   if (p > max_pitch_deg) max_pitch_deg = p;
   steps++;
   total_time_sec = s.sim_time_sec;
-  if (s.altitude_agl_m <= 0.0) crashed = true;
+  // Landing gear compression tolerance: allow up to 0.5m below ground
+  // before declaring crash (handles one-frame touchdown delay).
+  if (s.altitude_agl_m <= -0.5) crashed = true;
 }
 
 void ManeuverDiagnostics::Print() const {

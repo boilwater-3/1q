@@ -125,19 +125,33 @@ double EngineManager::GetRotationSpeedKts() const {
   constexpr double kClMaxTakeoff = 1.6;  // takeoff flaps ~10-20°
 
   if (weight_lbs < 1.0 || wing_area_ft2 < 1.0 || rho < 1e-9) {
-    return 50.0;  // fallback for aircraft missing metrics
+    return 50.0;
   }
 
   const double v_stall_ftps =
       std::sqrt((2.0 * weight_lbs) / (rho * wing_area_ft2 * kClMaxTakeoff));
   const double v_stall_kts = v_stall_ftps * 0.592484;
 
-  // Rotation speed margin by engine type.
+  double vr_kts = 0.0;
   switch (type_) {
-    case EngineType::kPiston:    return 1.10 * v_stall_kts;
-    case EngineType::kTurbine:   return 1.20 * v_stall_kts;
-    case EngineType::kTurboprop: return 1.15 * v_stall_kts;
-    default:                     return 1.15 * v_stall_kts;
+    case EngineType::kPiston:    vr_kts = 1.10 * v_stall_kts; break;
+    case EngineType::kTurbine:   vr_kts = 1.20 * v_stall_kts; break;
+    case EngineType::kTurboprop: vr_kts = 1.15 * v_stall_kts; break;
+    default:                     vr_kts = 1.15 * v_stall_kts; break;
+  }
+  // Sanity floor: any flyable aircraft needs at least 40 kts to rotate.
+  return std::max(vr_kts, 40.0);
+}
+
+double EngineManager::GetDefaultApproachSpeedMps() const {
+  // Type-based approach speeds when Vr calculation is unavailable.
+  // Target is ~1.3 × Vref for each category.
+  switch (type_) {
+    case EngineType::kPiston:    return 28.0;   // ~55 kts (C172: Vref~45)
+    case EngineType::kTurboprop: return 41.0;   // ~80 kts
+    case EngineType::kTurbine:   return 62.0;   // ~120 kts (737: Vref~130)
+    case EngineType::kRocket:    return 80.0;   // ~155 kts
+    default:                     return 36.0;   // ~70 kts
   }
 }
 

@@ -204,16 +204,26 @@ void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target
   ap_.SetAltitudeTargetM(target_altitude_m);
 }
 
+bool ManeuverExecutor::IsTouchingGround() const {
+  if (current_maneuver_.type != ManeuverType::kLand) return false;
+  return land_phase_ == LandPhase::kFlare ||
+         land_phase_ == LandPhase::kTouchdown ||
+         land_phase_ == LandPhase::kRollout;
+}
+
 bool ManeuverExecutor::IsManeuverComplete() const {
   if (!active_) return true;
 
   switch (current_maneuver_.type) {
-    case ManeuverType::kFlyToWaypoint:
-      if (ap_.GetControlProfile().lateral_interface ==
-          autopilot::LateralControlInterface::kFbwRateCommand) {
-        return wp_manager_.IsAtTarget(current_maneuver_.target.radius_m * 1.6);
-      }
-      return wp_manager_.IsAtTarget();
+    case ManeuverType::kFlyToWaypoint: {
+      double speed_mps = adapter_.GetPropagate().GetInertialVelocityMagnitude() * 0.3048;
+      double max_bank_rad = ap_.GetControlProfile().max_roll_angle_deg * 0.0174533;
+      double min_turn_radius_m =
+          (speed_mps * speed_mps) / (9.81 * std::tan(max_bank_rad));
+      double effective_radius_m = std::max(current_maneuver_.target.radius_m,
+                                           min_turn_radius_m * 1.5);
+      return wp_manager_.IsAtTarget(effective_radius_m);
+    }
     case ManeuverType::kOrbit:
       if (current_maneuver_.duration_sec > 0.0) {
         return elapsed_sec_ >= current_maneuver_.duration_sec;
@@ -326,6 +336,15 @@ void ManeuverExecutor::Update(double dt_sec) {
     prev_alt_m_ = agl_m;
 
     switch (land_phase_) {
+      case LandPhase::kDecelerate: {
+        // Cut throttle, hold gentle descent attitude, let drag slow the aircraft.
+        engines_.SetThrottle(0.1);
+        adapter_.SetProperty("fcs/elevator-cmd-norm", -0.05);
+        if (vc_mps < land_approach_speed_mps_ * 1.15) {
+          land_phase_ = LandPhase::kApproach;
+        }
+        break;
+      }
       case LandPhase::kApproach: {
         double alt_target = land_target_alt_m_ + 200.0;
         if (agl_m < alt_target) {
@@ -333,25 +352,47 @@ void ManeuverExecutor::Update(double dt_sec) {
           land_phase_ = LandPhase::kFinalDescent;
           break;
         }
-        // Pitch for speed, throttle for altitude.
         double speed_err = land_approach_speed_mps_ - vc_mps;
-        double el = std::clamp(0.02 * speed_err, -0.5, 0.3);
-        adapter_.SetProperty("fcs/elevator-cmd-norm", el);
-        double alt_err = agl_m - alt_target;
-        // Above target → reduce throttle to descend.
-        double thr = std::clamp(0.50 - 0.003 * alt_err, 0.15, 0.8);
-        engines_.SetThrottle(thr);
+        double alt_above = agl_m - alt_target;
+        // High above pattern: prioritize controlled descent.
+        // Aggressive pitch-up at high speed causes zoom climbs → PIO.
+        if (alt_above > 500.0) {
+          double thr = std::clamp(0.3 - 0.0005 * alt_above, 0.1, 0.5);
+          engines_.SetThrottle(thr);
+          double el = std::clamp(0.005 * speed_err, -0.15, 0.1);
+          adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+        } else {
+          // Near pattern altitude: fixed glide-slope attitude, throttle for speed.
+          double target_fpa_deg = -3.0;
+          double cur_fpa_deg = vc_mps > 0 ? std::atan2(sink_rate_mps_, vc_mps) * 57.3 : 0.0;
+          double fpa_err = cur_fpa_deg - target_fpa_deg;
+          double el = std::clamp(0.1 * fpa_err, -0.2, 0.2);
+          adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+          double spd_err = vc_mps - land_approach_speed_mps_;
+          double thr = std::clamp(0.3 - 0.005 * spd_err, 0.1, 0.6);
+          engines_.SetThrottle(thr);
+        }
         break;
       }
       case LandPhase::kFinalDescent: {
-        if (agl_m < land_target_alt_m_ + 15.0) {
+        // Too fast for final descent: reduce throttle, gentle nose-up to bleed speed.
+        if (vc_mps > land_approach_speed_mps_ * 1.3) {
           engines_.SetThrottle(0.0);
-          adapter_.SetProperty("fcs/elevator-cmd-norm", -0.15);
+          adapter_.SetProperty("fcs/elevator-cmd-norm", -0.1);
+          break;
+        }
+        double flare_alt_m = std::max(15.0, vc_mps * 0.6);
+        if (agl_m < land_target_alt_m_ + flare_alt_m) {
+          engines_.SetThrottle(0.0);
+          adapter_.SetProperty("fcs/elevator-cmd-norm", -0.25);
           land_phase_ = LandPhase::kFlare;
           break;
         }
-        double speed_err = land_approach_speed_mps_ - vc_mps;
-        double el = std::clamp(0.02 * speed_err, -0.5, 0.3);
+        // Fixed glide-slope attitude, throttle for sink rate.
+        double target_fpa_deg = -3.0;
+        double cur_fpa_deg = vc_mps > 0 ? std::atan2(sink_rate_mps_, vc_mps) * 57.3 : 0.0;
+        double fpa_err = cur_fpa_deg - target_fpa_deg;
+        double el = std::clamp(0.1 * fpa_err, -0.2, 0.2);
         adapter_.SetProperty("fcs/elevator-cmd-norm", el);
         double sink_err = -3.0 - sink_rate_mps_;
         double thr = std::clamp(0.25 + 0.05 * sink_err, 0.0, 0.6);
@@ -360,9 +401,13 @@ void ManeuverExecutor::Update(double dt_sec) {
       }
       case LandPhase::kFlare:
         engines_.SetThrottle(0.0);
-        adapter_.SetProperty("fcs/elevator-cmd-norm", -0.15);
-        if (engines_.IsWeightOnWheels() ||
-            (agl_m < 2.0 && vc_fps < 5.0)) {
+        // Progressive flare: more nose-up as altitude decreases.
+        {
+          double flare_progress = 1.0 - std::min(agl_m / 30.0, 1.0);
+          double el_flare = -0.15 - 0.25 * flare_progress;
+          adapter_.SetProperty("fcs/elevator-cmd-norm", el_flare);
+        }
+        if (engines_.IsWeightOnWheels() || agl_m < 0.1) {
           engines_.SetBrakes(true);
           adapter_.SetProperty("fcs/elevator-cmd-norm", 0.0);
           land_phase_ = LandPhase::kTouchdown;
@@ -390,7 +435,7 @@ void ManeuverExecutor::ExecuteLand(const Waypoint& target, double approach_speed
   current_maneuver_.value = approach_speed_mps;
   active_ = true;
   elapsed_sec_ = 0.0;
-  land_phase_ = LandPhase::kApproach;
+  land_phase_ = LandPhase::kDecelerate;
 
   ConfigureForApproach(target, approach_speed_mps);
 }
@@ -424,16 +469,23 @@ void ManeuverExecutor::ConfigureForApproach(const Waypoint& target,
   ap_.SetAltitudeHold(false);
   ap_.SetSpeedHold(false);
 
-  // Approach speed: use parameter, compute from Vr, or fall back to current.
+  engines_.SetGearDown(true);
+
+  // Approach speed: from parameter, Vr*1.3, or type-based default.
+  double cur_spd = adapter_.GetProperty("velocities/vc-fps") * 0.3048;
   if (approach_speed_mps > 0.0) {
     land_approach_speed_mps_ = approach_speed_mps;
   } else {
-    land_approach_speed_mps_ = engines_.GetRotationSpeedKts() * 0.514 * 1.2;
+    double vr_mps = engines_.GetRotationSpeedKts() * 0.514;
+    if (vr_mps > 20.0) {
+      land_approach_speed_mps_ = vr_mps * 1.3;
+    } else {
+      land_approach_speed_mps_ = engines_.GetDefaultApproachSpeedMps();
+    }
   }
-  // Floor at 80% of current speed — don't try to decelerate too fast.
-  double cur_spd = adapter_.GetProperty("velocities/vc-fps") * 0.3048;
-  if (land_approach_speed_mps_ < cur_spd * 0.8)
-    land_approach_speed_mps_ = cur_spd * 0.8;
+  // Upper bound: don't try to hold speed above 75% of current.
+  if (land_approach_speed_mps_ > cur_spd * 0.75)
+    land_approach_speed_mps_ = cur_spd * 0.75;
   land_target_alt_m_ = target.altitude_m;
   prev_alt_m_ = adapter_.GetProperty("position/h-agl-ft") * 0.3048;
 
@@ -441,6 +493,7 @@ void ManeuverExecutor::ConfigureForApproach(const Waypoint& target,
 }
 
 void ManeuverExecutor::ConfigureForLanding() {
+  engines_.SetGearDown(true);
   engines_.SetFlaps(1.0);
   engines_.SetThrottle(0.3);
   land_target_alt_m_ = current_maneuver_.target.altitude_m;

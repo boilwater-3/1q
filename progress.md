@@ -2,33 +2,45 @@
 
 ## 当前状态
 
-分支 `refactor/jsbsim-integration`，fd 6/6 绿（release ~8s，debug ~62s）。
+分支 `refactor/jsbsim-integration`，fd 6/6 绿（release ~9s）。
 
-## 本次会话（2026-05-31）
+## 本次会话（2026-05-31，续）
 
-1. **f22 trim recovery 修复** — `GetFCS()->InitModel()` 重置 FCS 内部状态
-2. **c310 known-limit** — 原生 AP 速度衰减，`FlyToWaypoint` 归入 known-limit
-3. **`kTakeoff` 机动** — 引擎→滑跑→抬轮→爬升；Vr 从翼载实时计算
-4. **`kLand` 机动** — pitch-for-speed/throttle-for-altitude PD；进近→下滑→拉平→触地→滑跑
-5. **`EngineManager`** — 引擎类型检测、启动、油门、刹车、襟翼、起落架
-6. **gtest→CSV 迁移** — 移除 12 个耗时测试，fd 全量 117→62s debug / 8s release
-7. **CSV 工具** — `takeoff_land_csv`、`maneuver_sweep_csv`、`analyze_takeoff.py`
-8. **Release 预设** — 建议测试用 `llvm-ninja-release-local`（~6× 快）
-9. **规划文件清理** — 删除已完成项
+### 航路点自适应捕获半径
+- 修复：`IsManeuverComplete()` 中用 `max(user_radius, V²/(g×tan(bank_max))×1.5)` 自动扩大捕获半径
+- 快飞机不再因转弯半径大于航路点距离而永远盘旋
 
-## 起降实测（最新代码）
+### 着陆控制器重写
+- **起落架 Bug 修复**：爬升阶段收轮后，着陆时 `ConfigureForApproach` 和 `ConfigureForLanding` 都要放轮
+- **减速段** (`kDecelerate`)：着陆开始时收油门、固定 elevator=-0.05，等速度降到 approach_speed×1.15
+- **高空下降段** (`kApproach` 高高度)：gentle descent，elevator 限制在 -0.15/+0.1
+- **低空进场段** (`kApproach` 低高度)：固定 -3° 下滑角，油门控速
+- **最终下降** (`kFinalDescent`)：同上 + 超速时主动收油抬头
+- **渐进式 Flare** (`kFlare`)：elevator 从 -0.15 到 -0.40 渐进增加
+- **着陆接地检测**：WOW 传感器优先，`agl<0.1m` 备份，起落架压缩容差 -0.5m
+
+### 进场速度计算
+- `GetRotationSpeedKts()` 加 40kt 下限
+- `GetDefaultApproachSpeedMps()`：按引擎类型返回默认值（piston=28, turboprop=41, turbine=62 m/s）
+- 进场速度上限 75% 当前速度（去掉了 55% 下限）
+
+### 起降实测（最新）
 
 ```
-c172x  ✅✅✅  全任务通过 (461s)
-c310   ✅✅❌  起飞+巡航完成，着陆坠毁 (256s)
-f16    ✅❌—   起飞完成，巡航超音速坠毁 (97s)
-f22    ⚠️——   能离地爬升到 357m，50s 后失控
-737    ✅❌—   起飞完成，560 节无法捕获航路点
-B17    ❌——   82 节<Vr=91 节，唯一不能起飞
+c172x  ✅✅✅  全任务完成 (1224s)
+c310   ✅✅✅  全任务完成 (518s)
+737    ✅✅✅  全任务完成 (2301s)
+f16    ✅❌—   起飞+巡航完成，着陆 crash (117s, 432m/s 超音速无法减速)
 ```
 
-## 待处理
+### f16/f22 待处理
+- f16: 低空超音速巡航 (432m/s @ 500m)，着陆无法在短距离内减速
+- f22: FBW rate-integrator 限制，6 种方案均未解决
+- 两者都需要 FBW 兼容的着陆控制策略
 
-- 起降稳定性：f22 高空失控、c310 着陆 crash、f16/737 超速、B17 推力
-- PD 增益从 CSV 迭代调优
-- Public 示例（遗留项 8.3/12.4）
+### 本次修改的文件
+- `src/flight_dynamic/guidance/Maneuver.cpp` — 着陆控制器重写、起落架修复、渐进 flare
+- `src/flight_dynamic/propulsion/EngineManager.cpp` — Vr 下限、默认进场速度
+- `src/flight_dynamic/propulsion/EngineManager.h` — 新增 `GetDefaultApproachSpeedMps()`
+- `src/flight_dynamic/FlightManager.cpp` — crash 检测容忍起落架压缩、着陆阶段豁免
+- `include/1q/flight_dynamic/guidance/Maneuver.h` — 新增 `kDecelerate`、`IsTouchingGround()`

@@ -59,6 +59,7 @@ class ManeuverExecutor {
   void ExecuteLand(const Waypoint& target, double approach_speed_mps = 0.0);
 
   bool IsManeuverComplete() const;
+  bool IsTouchingGround() const;
   void Update(double dt_sec);
   void Abort();
 
@@ -71,6 +72,7 @@ class ManeuverExecutor {
   };
 
   enum class LandPhase {
+    kDecelerate,
     kApproach,
     kFinalDescent,
     kFlare,

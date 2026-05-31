@@ -40,6 +40,7 @@ class EngineManager {
   // Performance parameters derived from aircraft physics.
   double GetRotationSpeedKts() const;
   double GetClimbPitchDeg() const;
+  double GetDefaultApproachSpeedMps() const;
 
   // Engine start: magneto+starter for piston, InitRunning for others.
   void Start();
