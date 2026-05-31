@@ -84,9 +84,8 @@ int main(int argc, char** argv) {
 
   // Known limit: B17 can't reach Vr at max weight (wing loading 37 lbs/ft²).
   if (model == "B17") {
-    fprintf(stderr, "%s: skipped (known limit: Vr unreachable at MTOW)\n", model.c_str());
-    if (out_path) fclose(out);
-    return 0;
+    fprintf(stderr, "%s: skipped (Vr unreachable at MTOW)\n", model.c_str());
+    if (out_path) fclose(out); return 0;
   }
 
   // Cruise altitude by engine/aircraft category.
@@ -102,7 +101,7 @@ int main(int argc, char** argv) {
           model.find("A4")  != std::string::npos ||
           model.find("F4")  != std::string::npos ||
           model.find("F80") != std::string::npos)
-        cruise_alt_m = 2000.0;
+        cruise_alt_m = 800.0;
       else if (model == "Concorde")
         cruise_alt_m = 12000.0;
       else if (model == "B17" || model == "C130")
@@ -120,10 +119,12 @@ int main(int argc, char** argv) {
   tko.target.altitude_m = cruise_alt_m;
   fm.PushManeuver(tko);
 
-  // Waypoint: 45s cruise at ref_speed, min 3km.
+  // Waypoint: distance proportional to cruise altitude.
+  // Min 3km, max at altitude — fast jets need room to converge.
   double ref_spd = fm.GetAutopilot().GetControlProfile().ref_speed_mps;
   if (ref_spd <= 0.0) ref_spd = 50.0;
   double wp_dist_m = ref_spd * 45.0;
+  if (wp_dist_m < cruise_alt_m * 1.5) wp_dist_m = cruise_alt_m * 1.5;
   if (wp_dist_m < 3000.0) wp_dist_m = 3000.0;
   double wp_offset_rad = wp_dist_m * 0.70710678 / 6378137.0;
 
@@ -146,7 +147,7 @@ int main(int argc, char** argv) {
   WriteHeader(out);
 
   double t = 0.0;
-  int max_steps = 300000;  // 3000s max
+  int max_steps = 250000;  // 2500s max
   for (int i = 0; i < max_steps; ++i) {
     fm.Step(kDt);
     t += kDt;

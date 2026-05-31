@@ -79,7 +79,12 @@ void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
   ap_.SetHeadingHold(true);
   ap_.SetAltitudeTargetM(target.altitude_m);
   ap_.SetAltitudeHold(true);
-  ap_.SetSpeedTargetMps(ap_.GetTrueSpeedMps());
+
+  // Speed target: cap at profile ref_speed to prevent overspeed (f16: 844kts).
+  double target_spd = ap_.GetTrueSpeedMps();
+  double ref = ap_.GetControlProfile().ref_speed_mps;
+  if (ref > 0.0 && target_spd > ref) target_spd = ref;
+  ap_.SetSpeedTargetMps(target_spd);
   ap_.SetSpeedHold(true);
 }
 
@@ -187,11 +192,7 @@ void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target
                                          double /*target_speed_mps*/) {
   // Rotate: elevator back. Gear/flaps stay until positive climb confirmed.
   rotation_elapsed_sec_ = 0.0;
-  // FBW aircraft (f22): avoid direct elevator which can wind up the
-  // rate-integrator chain. Let the aircraft lift off naturally at high speed.
-  if (ap_.GetControlProfile().fbw_subtype != autopilot::FbwSubtype::kRateIntegratorActuator) {
-    adapter_.SetProperty("fcs/elevator-cmd-norm", -0.3);
-  }
+  adapter_.SetProperty("fcs/elevator-cmd-norm", -0.3);
 
   ap_.SetRollAttitudeMode(1);
   ap_.SetRollAutopilotOn(true);
@@ -271,14 +272,11 @@ void ManeuverExecutor::Update(double dt_sec) {
           takeoff_phase_ = TakeoffPhase::kRotateAndClimb;
         }
         break;
-      case TakeoffPhase::kRotateAndClimb:
+      case TakeoffPhase::kRotateAndClimb: {
         engines_.SetThrottle(1.0);
         rotation_elapsed_sec_ += dt_sec;
-        // Rotation: skip direct elevator for FBW integrator aircraft — it
-        // winds up the rate-integrator chain and causes pitch/roll excursions.
-        bool is_fbw_int = ap_.GetControlProfile().fbw_subtype ==
-                          autopilot::FbwSubtype::kRateIntegratorActuator;
-        if (agl_m < 10.0 && !is_fbw_int) {
+        // Hold elevator until airborne.
+        if (agl_m < 10.0) {
           adapter_.SetProperty("fcs/elevator-cmd-norm", -0.3);
         } else {
           // Gear and flaps retraction after positive climb confirmed.
@@ -305,6 +303,7 @@ void ManeuverExecutor::Update(double dt_sec) {
           }
         }
         break;
+      }
       case TakeoffPhase::kComplete:
         break;
     }
