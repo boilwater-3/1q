@@ -160,7 +160,18 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
       // because FGFCSComponent stores Output in a member variable that is not
       // backed by the property tree. Without this, corrupted integrator state
       // causes immediate elevator deflection (observed 0.585 on f22).
-      fdm_exec_->GetFCS()->InitModel();
+      // Save throttle state: InitModel() clears ThrottleCmd/ThrottlePos to 0.
+      auto fcs = fdm_exec_->GetFCS();
+      const auto& throttle_pos = fcs->GetThrottlePos();
+      std::vector<double> saved_throttle = throttle_pos;
+      for (auto& t : saved_throttle) {
+        if (t < 0.5) t = 0.5;
+      }
+      fcs->InitModel();
+      for (unsigned i = 0; i < saved_throttle.size(); ++i) {
+        fcs->SetThrottleCmd(i, saved_throttle[i]);
+        fcs->SetThrottlePos(i, saved_throttle[i]);
+      }
 
       model::VehicleStateMapper::ApplyInitialConditions(*fdm_exec_, config.initial_kinematics,
                                                         config.initial_velocity_frame);
