@@ -28,6 +28,7 @@ enum class ManeuverType {
   kSetPitch,
   kSetRoll,
   kTakeoff,
+  kLand,
 };
 
 struct Maneuver {
@@ -51,6 +52,7 @@ class ManeuverExecutor {
   void ExecuteSetRoll(int roll_mode);
   void ExecuteTakeoff(double target_altitude_m, double target_heading_rad,
                       double target_speed_mps = 0.0);
+  void ExecuteLand(const Waypoint& target, double approach_speed_mps = 0.0);
 
   bool IsManeuverComplete() const;
   void Update(double dt_sec);
@@ -64,10 +66,21 @@ class ManeuverExecutor {
     kComplete,
   };
 
+  enum class LandPhase {
+    kApproach,
+    kFinalDescent,
+    kFlare,
+    kTouchdown,
+    kRollout,
+    kComplete,
+  };
+
   void StartEngine();
   void ConfigureForTakeoffRoll();
   void ConfigureForClimb(double target_altitude_m, double target_heading_rad,
                          double target_speed_mps);
+  void ConfigureForApproach(const Waypoint& target, double approach_speed_mps);
+  void ConfigureForLanding();
 
   adapter::JsbsimAdapter& adapter_;
   autopilot::Autopilot& ap_;
@@ -78,6 +91,7 @@ class ManeuverExecutor {
   TakeoffPhase takeoff_phase_ = TakeoffPhase::kEngineStart;
   double takeoff_target_altitude_m_ = 0.0;
   double takeoff_target_heading_rad_ = 0.0;
+  LandPhase land_phase_ = LandPhase::kApproach;
 };
 
 }  // namespace guidance

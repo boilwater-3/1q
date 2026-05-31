@@ -140,6 +140,9 @@ void FlightManager::ExecuteNextManeuver() {
                                      cmd.target.latitude_rad,
                                      cmd.value);
       break;
+    case ManeuverType::kLand:
+      maneuver_exec_->ExecuteLand(cmd.target, cmd.value);
+      break;
   }
 }
 

@@ -226,6 +226,8 @@ bool ManeuverExecutor::IsManeuverComplete() const {
       return true;
     case ManeuverType::kTakeoff:
       return takeoff_phase_ == TakeoffPhase::kComplete;
+    case ManeuverType::kLand:
+      return land_phase_ == LandPhase::kComplete;
   }
   return true;
 }
@@ -256,7 +258,6 @@ void ManeuverExecutor::Update(double dt_sec) {
         }
         break;
       case TakeoffPhase::kTakeoffRoll:
-        // Full throttle every frame during takeoff roll.
         adapter_.SetProperty(adapter::property::kThrottleCmd, 1.0);
         if (vc_kts >= 50.0) {
           ConfigureForClimb(takeoff_target_altitude_m_,
@@ -266,8 +267,6 @@ void ManeuverExecutor::Update(double dt_sec) {
         }
         break;
       case TakeoffPhase::kRotateAndClimb:
-        // Keep throttle at max during climb; energy management may reduce it
-        // but we re-assert here since maneuver update runs after AP update.
         adapter_.SetProperty(adapter::property::kThrottleCmd, 1.0);
         if (agl_m >= takeoff_target_altitude_m_ * 0.95) {
           takeoff_phase_ = TakeoffPhase::kComplete;
@@ -277,6 +276,109 @@ void ManeuverExecutor::Update(double dt_sec) {
         break;
     }
   }
+  if (current_maneuver_.type == ManeuverType::kLand) {
+    double agl_m = adapter_.GetProperty("position/h-agl-ft") * 0.3048;
+    double vc_fps = adapter_.GetProperty("velocities/vc-fps");
+    double wow = adapter_.GetProperty(adapter::property::kWowMain);
+
+    switch (land_phase_) {
+      case LandPhase::kApproach:
+        // Once within 200m AGL of target, transition to final descent
+        if (agl_m < current_maneuver_.target.altitude_m + 200.0) {
+          ConfigureForLanding();
+          land_phase_ = LandPhase::kFinalDescent;
+        }
+        break;
+      case LandPhase::kFinalDescent:
+        // Near ground: flare at 15m AGL
+        if (agl_m < current_maneuver_.target.altitude_m + 15.0) {
+          // Idle throttle, pitch up slightly for flare
+          adapter_.SetProperty(adapter::property::kThrottleCmd, 0.0);
+          adapter_.SetProperty("ap/pitch-target-deg", 5.0);
+          adapter_.SetProperty("ap/pitch-hold", 1.0);
+          land_phase_ = LandPhase::kFlare;
+        }
+        break;
+      case LandPhase::kFlare:
+        // Wait for touchdown (weight on wheels)
+        adapter_.SetProperty(adapter::property::kThrottleCmd, 0.0);
+        if (wow > 0.5) {
+          adapter_.SetProperty(adapter::property::kLeftBrakeCmd, 1.0);
+          adapter_.SetProperty(adapter::property::kRightBrakeCmd, 1.0);
+          adapter_.SetProperty(adapter::property::kCenterBrakeCmd, 1.0);
+          adapter_.SetProperty("ap/pitch-hold", 0.0);
+          ap_.SetAltitudeHold(false);
+          land_phase_ = LandPhase::kTouchdown;
+        }
+        break;
+      case LandPhase::kTouchdown:
+        adapter_.SetProperty(adapter::property::kThrottleCmd, 0.0);
+        adapter_.SetProperty(adapter::property::kLeftBrakeCmd, 1.0);
+        adapter_.SetProperty(adapter::property::kRightBrakeCmd, 1.0);
+        // Once firmly on ground and speed below threshold, rollout
+        if (vc_fps < 30.0) {
+          land_phase_ = LandPhase::kRollout;
+        }
+        break;
+      case LandPhase::kRollout:
+        adapter_.SetProperty(adapter::property::kThrottleCmd, 0.0);
+        adapter_.SetProperty(adapter::property::kLeftBrakeCmd, 1.0);
+        // Complete when nearly stopped
+        if (vc_fps < 10.0) {
+          land_phase_ = LandPhase::kComplete;
+        }
+        break;
+      case LandPhase::kComplete:
+        break;
+    }
+  }
+}
+
+void ManeuverExecutor::ExecuteLand(const Waypoint& target, double approach_speed_mps) {
+  current_maneuver_.type = ManeuverType::kLand;
+  current_maneuver_.target = target;
+  current_maneuver_.value = approach_speed_mps;
+  active_ = true;
+  elapsed_sec_ = 0.0;
+  land_phase_ = LandPhase::kApproach;
+
+  ConfigureForApproach(target, approach_speed_mps);
+}
+
+void ManeuverExecutor::ConfigureForApproach(const Waypoint& target,
+                                            double approach_speed_mps) {
+  wp_manager_.ClearWaypoints();
+  wp_manager_.AddWaypoint(target);
+  wp_manager_.Start();
+
+  ap_.SetLateralGuidanceMode(autopilot::LateralGuidanceMode::kHeading);
+  ap_.SetHeadingSourceIsWaypoint(true);
+  ap_.SetRollAttitudeMode(1);
+  ap_.SetRollAutopilotOn(true);
+  ap_.SetHeadingHold(true);
+
+  // Descend to approach altitude: 100m above target.
+  ap_.SetAltitudeTargetM(target.altitude_m + 100.0);
+  ap_.SetAltitudeHold(true);
+
+  if (approach_speed_mps > 0.0) {
+    ap_.SetSpeedTargetMps(approach_speed_mps);
+    ap_.SetSpeedHold(true);
+  }
+  // Approach flaps
+  adapter_.SetProperty(adapter::property::kFlapCmdNorm, 0.5);
+}
+
+void ManeuverExecutor::ConfigureForLanding() {
+  // Full flaps, idle throttle, maintain heading to runway
+  adapter_.SetProperty(adapter::property::kFlapCmdNorm, 1.0);
+  adapter_.SetProperty(adapter::property::kThrottleCmd, 0.0);
+
+  // Set altitude target to ground level.
+  ap_.SetAltitudeTargetM(current_maneuver_.target.altitude_m + 5.0);
+
+  // Disable speed hold so energy management doesn't add throttle.
+  ap_.SetSpeedHold(false);
 }
 
 void ManeuverExecutor::Abort() { active_ = false; }

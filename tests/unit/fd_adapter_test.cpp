@@ -329,6 +329,46 @@ TEST_F(FlightDynamicTest, TakeoffAndClimbC172) {
       << "c172x should be well above ground after takeoff";
 }
 
+TEST_F(FlightDynamicTest, TakeoffFlyToLand) {
+  // Full mission: takeoff → fly to waypoint → land
+  config_.aircraft_model = "c172x";
+  config_.initial_kinematics.position_lla_deg_m.altitude_m = 0.0;
+  config_.initial_kinematics.velocity_mps.x_mps = 0.0;
+  config_.do_trim = false;
+
+  FlightManager fm(config_);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+
+  // 1. Takeoff: climb to 500m
+  ManeuverCommand tko;
+  tko.type = guidance::ManeuverType::kTakeoff;
+  tko.target.altitude_m = 500.0;
+  tko.target.latitude_rad = 0.0;  // runway heading
+  fm.PushManeuver(tko);
+
+  // 2. Fly to waypoint at 500m (northeast, ~7km)
+  ManeuverCommand fly;
+  fly.type = guidance::ManeuverType::kFlyToWaypoint;
+  fly.target.latitude_rad = 0.001;
+  fly.target.longitude_rad = 0.001;
+  fly.target.altitude_m = 500.0;
+  fly.target.radius_m = 200.0;
+  fm.PushManeuver(fly);
+
+  // 3. Land at waypoint near ground
+  ManeuverCommand land;
+  land.type = guidance::ManeuverType::kLand;
+  land.target.latitude_rad = 0.002;
+  land.target.longitude_rad = 0.002;
+  land.target.altitude_m = 0.0;  // ground
+  land.value = 45.0;  // approach speed m/s
+  fm.PushManeuver(land);
+
+  RunUntilDone(fm, 120000);  // max 1200 seconds
+  EXPECT_EQ(fm.GetState(), FlightManagerState::kCompleted)
+      << "full mission should complete: takeoff → fly → land";
+}
+
 TEST_F(FlightDynamicTest, AutopilotSetsHeading) {
   FlightManager fm(config_);
   auto& ap = fm.GetAutopilot();

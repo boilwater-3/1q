@@ -220,6 +220,7 @@ set(_fd_ctrl_filter
     "FlightDynamicTest.SetRollManeuver:"
     "FlightDynamicTest.SetAltitudeManeuver:"
     "FlightDynamicTest.TakeoffAndClimbC172:"
+    "FlightDynamicTest.TakeoffFlyToLand:"
     "FlightDynamicRobustnessTest.*:"
     "*BareAircraftTest.ProjectIcTrimOnFreeFlightStable/*:"
     "*BareAircraftTest.ProjectIcTrimOffFreeFlightStable/*"
