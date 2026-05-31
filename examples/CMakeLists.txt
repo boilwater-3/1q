@@ -17,3 +17,17 @@ add_executable(ar_config_compare_test airborne_radar/config_compare_test.cpp)
 target_link_libraries(ar_config_compare_test PRIVATE ${PROJECT_ALIAS})
 target_include_directories(ar_config_compare_test PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/airborne_radar")
+
+add_executable(takeoff_land_csv flight_dynamic/takeoff_land_csv.cpp)
+target_link_libraries(takeoff_land_csv PRIVATE ${PROJECT_ALIAS})
+target_include_directories(takeoff_land_csv PRIVATE
+    "${CMAKE_SOURCE_DIR}/src")
+target_include_directories(takeoff_land_csv SYSTEM PRIVATE
+    "${CMAKE_SOURCE_DIR}/third_party/jsbsim/src")
+if(DEFINED ONEQ_JSBSIM_DATA_ROOT_DIR AND NOT ONEQ_JSBSIM_DATA_ROOT_DIR STREQUAL "")
+    set(FD_JSBSIM_ROOT_DIR "${ONEQ_JSBSIM_DATA_ROOT_DIR}")
+else()
+    set(FD_JSBSIM_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim")
+endif()
+target_compile_definitions(takeoff_land_csv PRIVATE
+    FD_JSBSIM_ROOT_DIR="${FD_JSBSIM_ROOT_DIR}")

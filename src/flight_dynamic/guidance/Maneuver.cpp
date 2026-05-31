@@ -7,6 +7,7 @@
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "flight_dynamic/propulsion/EngineManager.h"
+#include "flight_dynamic/adapter/PropertyNames.h"
 #include "math/FGLocation.h"
 #include "models/FGPropagate.h"
 
@@ -186,9 +187,8 @@ void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target
   engines_.SetGearDown(false);
   engines_.SetFlaps(0.0);
 
-  // Manual rotation: pitch up for initial climb before AP altitude hold engages.
-  adapter_.SetProperty("ap/pitch-target-deg", engines_.GetClimbPitchDeg());
-  adapter_.SetProperty("ap/pitch-hold", 1.0);
+  rotation_elapsed_sec_ = 0.0;
+  adapter_.SetProperty("fcs/elevator-cmd-norm", -0.3);
 
   ap_.SetRollAttitudeMode(1);
   ap_.SetRollAutopilotOn(true);
@@ -268,11 +268,32 @@ void ManeuverExecutor::Update(double dt_sec) {
         break;
       case TakeoffPhase::kRotateAndClimb:
         engines_.SetThrottle(1.0);
-        if (agl_m > 30.0) {
-          ap_.SetAltitudeHold(true);
+        rotation_elapsed_sec_ += dt_sec;
+        // Rotation phase: strong elevator until airborne.
+        if (agl_m < 10.0) {
+          adapter_.SetProperty("fcs/elevator-cmd-norm", -0.3);
+        } else {
+          // After airborne, maintain a gentle climb attitude to prevent
+          // phugoid oscillation. Without this, statically stable aircraft
+          // (c310) enter pitch oscillations after the initial climb.
+          const double target_pitch_rad = engines_.GetClimbPitchDeg() * 0.0174533;
+          double pitch_rad = adapter_.GetProperty("attitude/pitch-rad");
+          double pitch_err = target_pitch_rad - pitch_rad;
+          double elevator = std::clamp(-0.3 * pitch_err, -0.3, 0.3);
+          adapter_.SetProperty("fcs/elevator-cmd-norm", elevator);
+          if (!ap_.GetControlProfile().has_own_autopilot) {
+            ap_.SetAltitudeHold(true);
+          }
         }
-        if (agl_m >= takeoff_target_altitude_m_ * 0.95) {
-          takeoff_phase_ = TakeoffPhase::kComplete;
+        if (ap_.GetControlProfile().has_own_autopilot) {
+          if (agl_m >= takeoff_target_altitude_m_ * 0.95) {
+            ap_.SetAltitudeHold(true);
+            takeoff_phase_ = TakeoffPhase::kComplete;
+          }
+        } else {
+          if (agl_m >= takeoff_target_altitude_m_ * 0.95) {
+            takeoff_phase_ = TakeoffPhase::kComplete;
+          }
         }
         break;
       case TakeoffPhase::kComplete:
@@ -281,45 +302,63 @@ void ManeuverExecutor::Update(double dt_sec) {
   }
   if (current_maneuver_.type == ManeuverType::kLand) {
     double agl_m = adapter_.GetProperty("position/h-agl-ft") * 0.3048;
+    double vc_mps = adapter_.GetProperty("velocities/vc-fps") * 0.3048;
     double vc_fps = adapter_.GetProperty("velocities/vc-fps");
 
+    sink_rate_mps_ = (agl_m - prev_alt_m_) / dt_sec;
+    prev_alt_m_ = agl_m;
+
     switch (land_phase_) {
-      case LandPhase::kApproach:
-        if (agl_m < current_maneuver_.target.altitude_m + 200.0) {
+      case LandPhase::kApproach: {
+        double alt_target = land_target_alt_m_ + 200.0;
+        if (agl_m < alt_target) {
           ConfigureForLanding();
           land_phase_ = LandPhase::kFinalDescent;
+          break;
         }
+        // Pitch for speed, throttle for altitude.
+        double speed_err = land_approach_speed_mps_ - vc_mps;
+        double el = std::clamp(0.02 * speed_err, -0.5, 0.3);
+        adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+        double alt_err = agl_m - alt_target;
+        // Above target → reduce throttle to descend.
+        double thr = std::clamp(0.50 - 0.003 * alt_err, 0.15, 0.8);
+        engines_.SetThrottle(thr);
         break;
-      case LandPhase::kFinalDescent:
-        if (agl_m < current_maneuver_.target.altitude_m + 15.0) {
+      }
+      case LandPhase::kFinalDescent: {
+        if (agl_m < land_target_alt_m_ + 15.0) {
           engines_.SetThrottle(0.0);
-          adapter_.SetProperty("ap/pitch-target-deg", 5.0);
-          adapter_.SetProperty("ap/pitch-hold", 1.0);
+          adapter_.SetProperty("fcs/elevator-cmd-norm", -0.15);
           land_phase_ = LandPhase::kFlare;
+          break;
         }
+        double speed_err = land_approach_speed_mps_ - vc_mps;
+        double el = std::clamp(0.02 * speed_err, -0.5, 0.3);
+        adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+        double sink_err = -3.0 - sink_rate_mps_;
+        double thr = std::clamp(0.25 + 0.05 * sink_err, 0.0, 0.6);
+        engines_.SetThrottle(thr);
         break;
+      }
       case LandPhase::kFlare:
         engines_.SetThrottle(0.0);
+        adapter_.SetProperty("fcs/elevator-cmd-norm", -0.15);
         if (engines_.IsWeightOnWheels()) {
           engines_.SetBrakes(true);
-          adapter_.SetProperty("ap/pitch-hold", 0.0);
-          ap_.SetAltitudeHold(false);
+          adapter_.SetProperty("fcs/elevator-cmd-norm", 0.0);
           land_phase_ = LandPhase::kTouchdown;
         }
         break;
       case LandPhase::kTouchdown:
         engines_.SetThrottle(0.0);
         engines_.SetBrakes(true);
-        if (vc_fps < 30.0) {
-          land_phase_ = LandPhase::kRollout;
-        }
+        if (vc_fps < 30.0) land_phase_ = LandPhase::kRollout;
         break;
       case LandPhase::kRollout:
         engines_.SetThrottle(0.0);
         engines_.SetBrakes(true);
-        if (vc_fps < 10.0) {
-          land_phase_ = LandPhase::kComplete;
-        }
+        if (vc_fps < 10.0) land_phase_ = LandPhase::kComplete;
         break;
       case LandPhase::kComplete:
         break;
@@ -350,21 +389,26 @@ void ManeuverExecutor::ConfigureForApproach(const Waypoint& target,
   ap_.SetRollAutopilotOn(true);
   ap_.SetHeadingHold(true);
 
-  ap_.SetAltitudeTargetM(target.altitude_m + 100.0);
-  ap_.SetAltitudeHold(true);
+  // Disable AP altitude/speed hold — landing uses direct pitch+throttle control.
+  ap_.SetAltitudeHold(false);
+  ap_.SetSpeedHold(false);
 
+  // Approach speed: use parameter or compute from stall speed.
   if (approach_speed_mps > 0.0) {
-    ap_.SetSpeedTargetMps(approach_speed_mps);
-    ap_.SetSpeedHold(true);
+    land_approach_speed_mps_ = approach_speed_mps;
+  } else {
+    land_approach_speed_mps_ = engines_.GetRotationSpeedKts() * 0.514 * 1.2;
   }
+  land_target_alt_m_ = target.altitude_m;
+  prev_alt_m_ = adapter_.GetProperty("position/h-agl-ft") * 0.3048;
+
   engines_.SetFlaps(0.5);
 }
 
 void ManeuverExecutor::ConfigureForLanding() {
   engines_.SetFlaps(1.0);
-  engines_.SetThrottle(0.0);
-  ap_.SetAltitudeTargetM(current_maneuver_.target.altitude_m + 5.0);
-  ap_.SetSpeedHold(false);
+  engines_.SetThrottle(0.3);
+  land_target_alt_m_ = current_maneuver_.target.altitude_m;
 }
 
 void ManeuverExecutor::Abort() { active_ = false; }

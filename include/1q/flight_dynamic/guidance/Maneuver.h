@@ -96,7 +96,12 @@ class ManeuverExecutor {
   TakeoffPhase takeoff_phase_ = TakeoffPhase::kEngineStart;
   double takeoff_target_altitude_m_ = 0.0;
   double takeoff_target_heading_rad_ = 0.0;
+  double rotation_elapsed_sec_ = 0.0;
   LandPhase land_phase_ = LandPhase::kApproach;
+  double land_approach_speed_mps_ = 0.0;
+  double land_target_alt_m_ = 0.0;
+  double prev_alt_m_ = 0.0;
+  double sink_rate_mps_ = 0.0;
 };
 
 }  // namespace guidance

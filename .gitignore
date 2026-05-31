@@ -61,3 +61,4 @@ third_party/*
 # Submodules or embedded repos
 src/airborne_radar/signal/Stone-Soup/
 .claude/worktrees/
+.venv/
