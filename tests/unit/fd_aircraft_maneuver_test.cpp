@@ -67,7 +67,10 @@ double OrbitRadiusM(double speed_mps, double max_bank_deg) {
 }
 
 bool IsFlyToWaypointKnownLimit(const std::string& model) {
-  return model == "f22";
+  // f22: FBW integrator corrupts trim recovery, AP convergence untested.
+  // c310: native AP airspeed hold decays at non-trim condition (213→139fps/20s),
+  //       aircraft can't sustain speed to complete 5000m FlyToWaypoint.
+  return model == "f22" || model == "c310";
 }
 
 bool IsOrbitKnownLimit(const std::string& model) {
