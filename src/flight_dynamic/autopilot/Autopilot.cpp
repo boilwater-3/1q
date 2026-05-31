@@ -62,7 +62,6 @@ const AircraftControlProfile* LookupExplicitProfile(const std::string& model_nam
     {"c310",      {LI::kOwnAutopilot,           PI::kNativeAutopilot, FBW::kNone, true,  false, false, false, true,  false, 2, true, "fcs/rudder-cmd-norm"}},
     {"f15",       {LI::kGenericAutopilotBridge, PI::kNativeAutopilot, FBW::kNone, false, true,  false, false, true,  false, 2, true, "fcs/rudder-cmd-norm"}},
     {"f16",       {LI::kFbwRateCommand,         PI::kNativeAutopilot, FBW::kRollRatePid,           false, true,  true,  true,  true,  false, 1, true, "fcs/rudder-cmd-norm"}},
-    {"f22",       {LI::kFbwRateCommand,         PI::kNativeAutopilot, FBW::kRateIntegratorActuator, false, true,  false, true,  true,  true,  2, true, "fcs/rudder-cmd-norm"}},
   };
 
   for (const auto& entry : kKnownProfiles) {
@@ -84,7 +83,7 @@ void ApplyEnergyManagementProfile(const std::string& model_name, AircraftControl
     profile->min_throttle = 0.55;
     profile->max_throttle = 1.0;
     profile->speed_energy_priority = true;
-  } else if (model_name == "f16" || model_name == "f15" || model_name == "f22") {
+  } else if (model_name == "f16" || model_name == "f15") {
     profile->ref_speed_mps = 200.0;
     profile->min_speed_mps = 140.0;
     profile->max_pitch_command_deg = 15.0;
@@ -173,7 +172,7 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   // Mixture detection (piston aircraft)
   control_profile_.has_mixture = pm->GetNode("fcs/mixture-cmd-norm") != nullptr;
 
-  // FBW subtype detection: f16 has roll-rate PID, f22 has rate integrator+actuator
+  // FBW subtype detection: f16 has roll-rate PID
   if (pm->GetNode("fcs/aileron-act") != nullptr &&
       pm->GetNode(adapter::property::kRollCmd) != nullptr) {
     control_profile_.fbw_subtype = FbwSubtype::kRateIntegratorActuator;

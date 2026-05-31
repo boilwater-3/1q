@@ -145,10 +145,6 @@ INSTANTIATE_TEST_SUITE_P(
         AircraftTestParam{"f16", 3000.0, 200.0},
         AircraftTestParam{"OV10", 500.0, 70.0}));
 
-INSTANTIATE_TEST_SUITE_P(
-    KnownLimitFighterModels, AircraftManeuverTest,
-    ::testing::Values(
-        AircraftTestParam{"f22", 3000.0, 200.0}));
 
 INSTANTIATE_TEST_SUITE_P(
     TransportModels, AircraftManeuverTest,

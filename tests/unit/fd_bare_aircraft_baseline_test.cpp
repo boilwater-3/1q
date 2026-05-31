@@ -50,7 +50,7 @@ struct BareAircraftResult {
 
 std::vector<BareAircraftParam> FocusAircraft() {
   return {
-      {"f22", 3000.0, 200.0}, {"Concorde", 5000.0, 150.0},
+      {"Concorde", 5000.0, 150.0},
       {"B17", 1000.0, 80.0},  {"C130", 1000.0, 90.0},
       {"L410", 1000.0, 90.0}, {"c310", 500.0, 65.0},
   };
@@ -299,22 +299,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 // ── Trim diagnostics detail tests ───────────────────────────────────────
 
-TEST(BareAircraftDiagnosticTest, F22TrimOnAppliesRecovery) {
-  const BareAircraftResult result = RunBaseline({"f22", 3000.0, 200.0}, true);
-  ASSERT_TRUE(result.model_loaded);
-  ASSERT_TRUE(result.run_ic_ok);
-  EXPECT_TRUE(result.trim_attempted);
-  EXPECT_TRUE(result.trim_recovery_applied)
-      << "f22 DoTrim(0) should trigger recovery; recovery_applied records this";
-}
-
-TEST(BareAircraftDiagnosticTest, F22TrimOffSkipsTrim) {
-  const BareAircraftResult result = RunBaseline({"f22", 3000.0, 200.0}, false);
-  ASSERT_TRUE(result.model_loaded);
-  ASSERT_TRUE(result.run_ic_ok);
-  EXPECT_FALSE(result.trim_attempted);
-  EXPECT_FALSE(result.trim_succeeded);
-}
+// f22 tests removed — aircraft deleted from project.
 
 TEST(BareAircraftDiagnosticTest, ConcordeTrimOnCompletes) {
   const BareAircraftResult result = RunBaseline({"Concorde", 5000.0, 150.0}, true);

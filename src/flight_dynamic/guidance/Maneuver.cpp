@@ -347,7 +347,7 @@ void ManeuverExecutor::Update(double dt_sec) {
 
     bool is_fbw = ap_.GetControlProfile().fbw_subtype !=
                   autopilot::FbwSubtype::kNone;
-    // FBW aircraft (f16, f22) use pitch-trim-cmd-norm which feeds through
+    // FBW aircraft (f16) use pitch-trim-cmd-norm which feeds through
     // the FBW rate limiter/scheduler. Direct-surface aircraft use elevator-cmd-norm.
     auto set_el = [&](double el_norm) {
       if (is_fbw) {

@@ -283,7 +283,7 @@ void WriteResults(FILE* out, const std::vector<ManeuverResult>& results) {
 }
 
 const char* kAllAircraft[] = {
-    "f16", "f22", "c172x", "c310", "f15", "Concorde",
+    "f16", "c172x", "c310", "f15", "Concorde",
     "B17", "C130", "L410", "737", "B747", "MD11",
     "A4", "F4N", "F80C", "OV10", "DHC6",
 };

@@ -74,11 +74,7 @@ int main(int argc, char** argv) {
   cfg.do_trim = false;
   cfg.initial_kinematics.position_lla_deg_m.altitude_m = 0.0;
   cfg.initial_kinematics.velocity_mps.x_mps = 0.0;
-  // f22: FBW rate-integrator ground takeoff unsolved. Air-start to verify flight.
-  if (model == "f22") {
-    cfg.initial_kinematics.position_lla_deg_m.altitude_m = 500.0;
-    cfg.initial_kinematics.velocity_mps.x_mps = 150.0;
-  }
+
 
   FlightManager fm(cfg);
   if (fm.GetState() != FlightManagerState::kReady) {
@@ -101,7 +97,6 @@ int main(int argc, char** argv) {
     case propulsion::EngineType::kTurboprop: cruise_alt_m = 4000.0; break;
     case propulsion::EngineType::kTurbine:
       if (model.find("f16") != std::string::npos ||
-          model.find("f22") != std::string::npos ||
           model.find("f15") != std::string::npos ||
           model.find("A4")  != std::string::npos ||
           model.find("F4")  != std::string::npos ||
@@ -118,13 +113,11 @@ int main(int argc, char** argv) {
     default: break;
   }
 
-  // Queue: takeoff → cruise → land (f22: air-start, skip takeoff)
-  if (model != "f22") {
-    ManeuverCommand tko;
-    tko.type = guidance::ManeuverType::kTakeoff;
-    tko.target.altitude_m = cruise_alt_m;
-    fm.PushManeuver(tko);
-  }
+  // Queue: takeoff → cruise → land
+  ManeuverCommand tko;
+  tko.type = guidance::ManeuverType::kTakeoff;
+  tko.target.altitude_m = cruise_alt_m;
+  fm.PushManeuver(tko);
 
   // Waypoint: distance proportional to cruise altitude.
   // Min 3km, max at altitude — fast jets need room to converge.

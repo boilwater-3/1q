@@ -176,8 +176,7 @@ set(_fd_smoke_filter
     "FlightDynamicTest.OrbitManeuver:"
     "FlightDynamicTest.AbortManeuver:"
     "FlightDynamicTest.ResetAndReuse:"
-    "FlightDynamicTest.F22FbwStateAfterTrimRecovery:"
-    "*BareAircraftTest.ModelLoadsSuccessfully/*:"
+        "*BareAircraftTest.ModelLoadsSuccessfully/*:"
     "*ProfileSnapshotTest.MatchesExpectedProfile/*"
 )
 string(REPLACE ";" "" _fd_smoke_filter_str "${_fd_smoke_filter}")
@@ -190,10 +189,8 @@ set_tests_properties("fd_smoke::1q_fd_tests" PROPERTIES LABELS "fd_smoke;fd_ci")
 set(_fd_contract_filter
     "FlightDynamicTest.AutopilotDetectsOwnApProfile:"
     "FlightDynamicTest.AutopilotDetectsFbwProfile:"
-    "FlightDynamicTest.AutopilotDetectsF22Profile:"
-    "FlightDynamicTest.AutopilotDetectsC310Profile:"
+        "FlightDynamicTest.AutopilotDetectsC310Profile:"
     "FlightDynamicTest.AutopilotDetectsConcordeProfile:"
-    "FlightDynamicTest.AutopilotWritesIndexedThrottleForMultiEngineProfiles:"
     "FlightDynamicTest.AutopilotWritesDetectedYawInputProperty:"
     "FlightDynamicTest.InitialVelocityCanUseEcefFrame:"
     "FlightDynamicTest.InitialConditionsAcceptEcefPosition:"
@@ -225,7 +222,7 @@ add_test(NAME "fd_controllability::1q_fd_tests"
 set_tests_properties("fd_controllability::1q_fd_tests" PROPERTIES LABELS "fd_controllability;fd_ci")
 
 # Tier 4: performance — 稳定机型机动质量：距离收敛、高度变化、航向收敛、队列完成
-# 排除 KnownLimitFighterModels（f22），确保 0 skip 质量门。
+# KnownLimitFighterModels removed (f22 deleted).
 # ~90 tests, ~10s
 set(_fd_perf_filter
     "*AircraftManeuverTest.FlyToWaypoint/*:"
@@ -242,7 +239,7 @@ add_test(NAME "fd_performance::1q_fd_tests"
 set_tests_properties("fd_performance::1q_fd_tests" PROPERTIES LABELS "fd_performance")
 
 # Tier 5: known-limit — 长时间 orbit 稳定性、极端参数、env-gated 诊断
-# 也包含 KnownLimitFighterModels（f22）的 performance 测试（带 skip 守卫）。
+# F22 model removed, no longer needed.
 # ~130 tests, ~5s (大部分快速)
 set(_fd_limit_filter
     "*AircraftManeuverTest.SetRoll/*:"

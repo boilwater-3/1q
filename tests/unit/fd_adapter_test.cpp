@@ -135,21 +135,6 @@ TEST_F(FlightDynamicTest, AutopilotDetectsFbwProfile) {
   EXPECT_EQ(profile.fbw_subtype, autopilot::FbwSubtype::kRollRatePid);
 }
 
-TEST_F(FlightDynamicTest, AutopilotDetectsF22Profile) {
-  config_.aircraft_model = "f22";
-  config_.initial_kinematics.position_lla_deg_m.altitude_m = 3000.0;
-  config_.initial_kinematics.velocity_mps.x_mps = 200.0;
-
-  FlightManager fm(config_);
-  const auto& profile = fm.GetAutopilot().GetControlProfile();
-
-  // f22 has project-injected Autopilot system which provides ap/heading_hold,
-  // so it's detected as kOwnAutopilot, but FBW subtype is integrator+actuator.
-  EXPECT_EQ(profile.fbw_subtype, autopilot::FbwSubtype::kRateIntegratorActuator);
-  EXPECT_EQ(profile.engine_count, 2);
-  EXPECT_TRUE(profile.indexed_throttle);
-}
-
 TEST_F(FlightDynamicTest, AutopilotDetectsC310Profile) {
   config_.aircraft_model = "c310";
   config_.initial_kinematics.position_lla_deg_m.altitude_m = 500.0;
@@ -176,24 +161,6 @@ TEST_F(FlightDynamicTest, AutopilotDetectsConcordeProfile) {
   EXPECT_EQ(profile.engine_count, 4);
   EXPECT_FALSE(profile.indexed_throttle);
   EXPECT_EQ(profile.yaw_input_property, "fcs/rudder-cmd-norm");
-}
-
-TEST_F(FlightDynamicTest, AutopilotWritesIndexedThrottleForMultiEngineProfiles) {
-  config_.aircraft_model = "f22";
-  config_.do_trim = false;
-  config_.initial_kinematics.position_lla_deg_m.altitude_m = 3000.0;
-  config_.initial_kinematics.velocity_mps.x_mps = 200.0;
-
-  adapter::JsbsimAdapter adapter(config_);
-  autopilot::Autopilot ap(adapter);
-  ASSERT_TRUE(ap.GetControlProfile().indexed_throttle);
-  ASSERT_EQ(ap.GetControlProfile().engine_count, 2);
-
-  ap.SetThrottleCmdNorm(0.61);
-
-  EXPECT_NEAR(adapter.GetProperty("fcs/throttle-cmd-norm"), 0.61, 1.0e-9);
-  EXPECT_NEAR(adapter.GetProperty("fcs/throttle-cmd-norm[0]"), 0.61, 1.0e-9);
-  EXPECT_NEAR(adapter.GetProperty("fcs/throttle-cmd-norm[1]"), 0.61, 1.0e-9);
 }
 
 TEST_F(FlightDynamicTest, AutopilotWritesDetectedYawInputProperty) {
@@ -233,51 +200,6 @@ TEST_F(FlightDynamicTest, EnergyManagementRaisesThrottleForPositiveSpeedError) {
 
   EXPECT_GT(adapter.GetProperty("fcs/throttle-cmd-norm"), 0.70)
       << "Positive speed error should add throttle, not reduce it";
-}
-
-TEST_F(FlightDynamicTest, F22FbwStateAfterTrimRecovery) {
-  config_.aircraft_model = "f22";
-  config_.initial_kinematics.position_lla_deg_m.altitude_m = 3000.0;
-  config_.initial_kinematics.velocity_mps.x_mps = 200.0;
-  config_.do_trim = true;
-
-  adapter::JsbsimAdapter adapter(config_);
-
-  // FCS integrator and actuator state must be zero after trim recovery.
-  auto& exec = adapter.GetFdmExec();
-  auto* pm = exec.GetPropertyManager().get();
-
-  adapter.SetProperty("fcs/elevator-cmd-norm", 0.0);
-  adapter.SetProperty("fcs/aileron-cmd-norm", 0.0);
-  adapter.SetProperty("fcs/rudder-cmd-norm", 0.0);
-  adapter.Run();
-
-  auto get = [&](const char* name) -> double {
-    auto* n = pm->GetNode(name);
-    return n ? n->getDoubleValue() : 0.0;
-  };
-
-  EXPECT_NEAR(get("fcs/pitch-rate-integrator"), 0.0, 1e-6)
-      << "Integrator internal state should be reset";
-  EXPECT_NEAR(get("fcs/elevator-act"), 0.0, 0.01)
-      << "Elevator actuator should be near zero";
-  EXPECT_NEAR(get("fcs/elevator-pos-norm"), 0.0, 0.01)
-      << "Elevator position should be near zero";
-
-  // Aircraft should remain stable for at least 100 steps with zero input.
-  for (int i = 0; i < 100; ++i) {
-    adapter.SetProperty("fcs/elevator-cmd-norm", 0.0);
-    adapter.SetProperty("fcs/aileron-cmd-norm", 0.0);
-    adapter.SetProperty("fcs/rudder-cmd-norm", 0.0);
-    adapter.Run();
-  }
-
-  double pitch_rad = get("attitude/pitch-rad");
-  double roll_rad = get("attitude/roll-rad");
-  EXPECT_GT(pitch_rad, -1.0) << "f22 should not pitch over after recovery";
-  EXPECT_LT(pitch_rad, 1.0) << "f22 should not pitch over after recovery";
-  EXPECT_GT(roll_rad, -1.0) << "f22 should not roll over after recovery";
-  EXPECT_LT(roll_rad, 1.0) << "f22 should not roll over after recovery";
 }
 
 TEST_F(FlightDynamicTest, AutopilotSetsHeading) {
@@ -623,21 +545,6 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
     SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
 
-  } else if (model == "f22") {
-    SNAPSHOT_CHECK_ENUM(p, lateral_interface, autopilot::LateralControlInterface::kFbwRateCommand);
-    // Project-injected Autopilot.xml sets has_generic_autopilot=true → native pitch.
-    SNAPSHOT_CHECK_ENUM(p, pitch_interface, autopilot::PitchControlInterface::kNativeAutopilot);
-    SNAPSHOT_CHECK_ENUM(p, fbw_subtype, autopilot::FbwSubtype::kRateIntegratorActuator);
-    SNAPSHOT_CHECK_BOOL(p, has_own_autopilot, false);
-    SNAPSHOT_CHECK_BOOL(p, has_generic_autopilot, true);
-    SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
-    SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, true);
-    SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
-    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, true);
-    SNAPSHOT_CHECK_INT(p, engine_count, 2);
-    SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
-    SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
-
   } else if (model == "c172x") {
     SNAPSHOT_CHECK_ENUM(p, lateral_interface, autopilot::LateralControlInterface::kOwnAutopilot);
     SNAPSHOT_CHECK_ENUM(p, pitch_interface, autopilot::PitchControlInterface::kNativeAutopilot);
@@ -735,7 +642,7 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 35.0);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.55);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
-  } else if (model == "f16" || model == "f15" || model == "f22") {
+  } else if (model == "f16" || model == "f15") {
     SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 200.0);
     SNAPSHOT_CHECK_DBL(p, min_speed_mps, 140.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 15.0);
@@ -778,7 +685,6 @@ INSTANTIATE_TEST_SUITE_P(
     AircraftProfiles, ProfileSnapshotTest,
     ::testing::Values(
         ProfileSnapshotParam{"f16", 3000.0, 200.0},
-        ProfileSnapshotParam{"f22", 3000.0, 200.0},
         ProfileSnapshotParam{"c172x", 500.0, 50.0},
         ProfileSnapshotParam{"c310", 500.0, 65.0},
         ProfileSnapshotParam{"f15", 3000.0, 200.0},
