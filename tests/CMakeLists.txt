@@ -176,6 +176,8 @@ set(_fd_smoke_filter
     "FlightDynamicTest.OrbitManeuver:"
     "FlightDynamicTest.AbortManeuver:"
     "FlightDynamicTest.ResetAndReuse:"
+    "FlightDynamicTest.F22FbwStateAfterTrimRecovery:"
+    "FlightDynamicTest.F22FlyToWaypointStable:"
     "*BareAircraftTest.ModelLoadsSuccessfully/*:"
     "*ProfileSnapshotTest.MatchesExpectedProfile/*"
 )

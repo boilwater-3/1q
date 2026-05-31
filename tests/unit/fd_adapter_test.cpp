@@ -234,6 +234,75 @@ TEST_F(FlightDynamicTest, EnergyManagementRaisesThrottleForPositiveSpeedError) {
       << "Positive speed error should add throttle, not reduce it";
 }
 
+TEST_F(FlightDynamicTest, F22FbwStateAfterTrimRecovery) {
+  config_.aircraft_model = "f22";
+  config_.initial_kinematics.position_lla_deg_m.altitude_m = 3000.0;
+  config_.initial_kinematics.velocity_mps.x_mps = 200.0;
+  config_.do_trim = true;
+
+  adapter::JsbsimAdapter adapter(config_);
+
+  // FCS integrator and actuator state must be zero after trim recovery.
+  auto& exec = adapter.GetFdmExec();
+  auto* pm = exec.GetPropertyManager().get();
+
+  adapter.SetProperty("fcs/elevator-cmd-norm", 0.0);
+  adapter.SetProperty("fcs/aileron-cmd-norm", 0.0);
+  adapter.SetProperty("fcs/rudder-cmd-norm", 0.0);
+  adapter.Run();
+
+  auto get = [&](const char* name) -> double {
+    auto* n = pm->GetNode(name);
+    return n ? n->getDoubleValue() : 0.0;
+  };
+
+  EXPECT_NEAR(get("fcs/pitch-rate-integrator"), 0.0, 1e-6)
+      << "Integrator internal state should be reset";
+  EXPECT_NEAR(get("fcs/elevator-act"), 0.0, 0.01)
+      << "Elevator actuator should be near zero";
+  EXPECT_NEAR(get("fcs/elevator-pos-norm"), 0.0, 0.01)
+      << "Elevator position should be near zero";
+
+  // Aircraft should remain stable for at least 100 steps with zero input.
+  for (int i = 0; i < 100; ++i) {
+    adapter.SetProperty("fcs/elevator-cmd-norm", 0.0);
+    adapter.SetProperty("fcs/aileron-cmd-norm", 0.0);
+    adapter.SetProperty("fcs/rudder-cmd-norm", 0.0);
+    adapter.Run();
+  }
+
+  double pitch_rad = get("attitude/pitch-rad");
+  double roll_rad = get("attitude/roll-rad");
+  EXPECT_GT(pitch_rad, -1.0) << "f22 should not pitch over after recovery";
+  EXPECT_LT(pitch_rad, 1.0) << "f22 should not pitch over after recovery";
+  EXPECT_GT(roll_rad, -1.0) << "f22 should not roll over after recovery";
+  EXPECT_LT(roll_rad, 1.0) << "f22 should not roll over after recovery";
+}
+
+TEST_F(FlightDynamicTest, F22FlyToWaypointStable) {
+  config_.aircraft_model = "f22";
+  config_.initial_kinematics.position_lla_deg_m.altitude_m = 3000.0;
+  config_.initial_kinematics.velocity_mps.x_mps = 200.0;
+  config_.do_trim = true;
+
+  FlightManager fm(config_);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+
+  ManeuverCommand cmd;
+  cmd.type = guidance::ManeuverType::kFlyToWaypoint;
+  cmd.target.latitude_rad = 0.01;
+  cmd.target.longitude_rad = 0.01;
+  cmd.target.altitude_m = 3000.0;
+  fm.PushManeuver(cmd);
+
+  RunSteps(fm, 2000);
+  const auto& state = fm.GetVehicleState();
+  EXPECT_LT(std::abs(state.theta_rad), 1.0)
+      << "f22: should not pitch over during FlyToWaypoint";
+  EXPECT_LT(std::abs(state.phi_rad), 1.0)
+      << "f22: should not roll over during FlyToWaypoint";
+}
+
 TEST_F(FlightDynamicTest, AutopilotSetsHeading) {
   FlightManager fm(config_);
   auto& ap = fm.GetAutopilot();

@@ -7,6 +7,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "FGFDMExec.h"
 #include "initialization/FGInitialCondition.h"
+#include "models/FGFCS.h"
 #include "models/FGOutput.h"
 #include "models/FGPropulsion.h"
 #include "simgear/misc/sg_path.hxx"
@@ -75,6 +76,25 @@ void ResetControlStateAfterTrimFailure(JSBSim::FGFDMExec& fdm_exec) {
   for (const char* property : properties) {
     SetPropertyIfPresent(fdm_exec, property, 0.0);
   }
+
+  // Reset ALL fcs/* intermediate properties. DoTrim corrupts FBW internal
+  // state (integrators, LQR outputs, actuator positions). A targeted reset
+  // of known properties misses intermediate nodes like fcs/el-pitch-cmd or
+  // fcs/pitch-cmd-summer, which then produce non-zero elevator deflection
+  // on the very first Run() after recovery (observed: elevator-act=0.585
+  // causing f22 to flip in <1s).
+  auto* pm = fdm_exec.GetPropertyManager().get();
+  if (pm) {
+    auto* fcs_node = pm->GetNode("fcs");
+    if (fcs_node) {
+      for (int i = 0; i < fcs_node->nChildren(); ++i) {
+        auto* child = fcs_node->getChild(i);
+        if (child && std::abs(child->getDoubleValue()) > 1e-15) {
+          child->setDoubleValue(0.0);
+        }
+      }
+    }
+  }
 }
 
 double InitialAltitudeM(const coordinate::ExternalKinematics& kinematics) {
@@ -134,6 +154,14 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
     } catch (...) {
       init_diag_.trim_succeeded = false;
       std::cerr << "JsbsimAdapter: DoTrim(0) threw an exception, proceeding anyway." << std::endl;
+
+      // Reset FCS component internal state (integrator accumulators, filter
+      // past values, actuator positions). SetProperty() alone is insufficient
+      // because FGFCSComponent stores Output in a member variable that is not
+      // backed by the property tree. Without this, corrupted integrator state
+      // causes immediate elevator deflection (observed 0.585 on f22).
+      fdm_exec_->GetFCS()->InitModel();
+
       model::VehicleStateMapper::ApplyInitialConditions(*fdm_exec_, config.initial_kinematics,
                                                         config.initial_velocity_frame);
       RotateXmlOutputBeforeRepeatedRunIC(*fdm_exec_);
