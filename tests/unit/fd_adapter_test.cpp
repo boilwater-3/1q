@@ -10,6 +10,7 @@
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
 #include "fd_test_helpers.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
+#include "flight_dynamic/adapter/PropertyNames.h"
 
 namespace oneq {
 namespace flight_dynamic {
