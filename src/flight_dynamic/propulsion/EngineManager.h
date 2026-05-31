@@ -37,6 +37,10 @@ class EngineManager {
   bool HasMixture() const { return has_mixture_; }
   bool HasGroundContact() const { return has_wow_; }
 
+  // Performance parameters derived from aircraft physics.
+  double GetRotationSpeedKts() const;
+  double GetClimbPitchDeg() const;
+
   // Engine start: magneto+starter for piston, InitRunning for others.
   void Start();
 

@@ -11,6 +11,7 @@
 #include "fd_test_helpers.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "flight_dynamic/adapter/PropertyNames.h"
+#include "flight_dynamic/propulsion/EngineManager.h"
 
 namespace oneq {
 namespace flight_dynamic {

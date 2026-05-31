@@ -115,6 +115,41 @@ double EngineManager::GetProperty(const std::string& name) const {
   return node ? node->getDoubleValue() : 0.0;
 }
 
+double EngineManager::GetRotationSpeedKts() const {
+  // Compute stall speed from wing loading.
+  // V_stall = sqrt(2*W / (rho * S * CLmax))
+  // All units in JSBSim imperial: lbs, ft², slugs/ft³ → result in ft/s.
+  const double weight_lbs = GetProperty("inertia/weight-lbs");
+  const double wing_area_ft2 = GetProperty("metrics/Sw-sqft");
+  const double rho = GetProperty("atmosphere/rho-slugs_ft3");
+  constexpr double kClMaxTakeoff = 1.6;  // takeoff flaps ~10-20°
+
+  if (weight_lbs < 1.0 || wing_area_ft2 < 1.0 || rho < 1e-9) {
+    return 50.0;  // fallback for aircraft missing metrics
+  }
+
+  const double v_stall_ftps =
+      std::sqrt((2.0 * weight_lbs) / (rho * wing_area_ft2 * kClMaxTakeoff));
+  const double v_stall_kts = v_stall_ftps * 0.592484;
+
+  // Rotation speed margin by engine type.
+  switch (type_) {
+    case EngineType::kPiston:    return 1.10 * v_stall_kts;
+    case EngineType::kTurbine:   return 1.20 * v_stall_kts;
+    case EngineType::kTurboprop: return 1.15 * v_stall_kts;
+    default:                     return 1.15 * v_stall_kts;
+  }
+}
+
+double EngineManager::GetClimbPitchDeg() const {
+  switch (type_) {
+    case EngineType::kPiston:    return 10.0;
+    case EngineType::kTurbine:   return 15.0;
+    case EngineType::kTurboprop: return 10.0;
+    default:                     return 10.0;
+  }
+}
+
 }  // namespace propulsion
 }  // namespace flight_dynamic
 }  // namespace oneq

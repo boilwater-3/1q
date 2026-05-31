@@ -187,7 +187,7 @@ void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target
   engines_.SetFlaps(0.0);
 
   // Manual rotation: pitch up for initial climb before AP altitude hold engages.
-  adapter_.SetProperty("ap/pitch-target-deg", 10.0);
+  adapter_.SetProperty("ap/pitch-target-deg", engines_.GetClimbPitchDeg());
   adapter_.SetProperty("ap/pitch-hold", 1.0);
 
   ap_.SetRollAttitudeMode(1);
@@ -259,7 +259,7 @@ void ManeuverExecutor::Update(double dt_sec) {
         break;
       case TakeoffPhase::kTakeoffRoll:
         engines_.SetThrottle(1.0);
-        if (vc_kts >= 50.0) {
+        if (vc_kts >= engines_.GetRotationSpeedKts()) {
           ConfigureForClimb(takeoff_target_altitude_m_,
                             takeoff_target_heading_rad_,
                             current_maneuver_.duration_sec);
