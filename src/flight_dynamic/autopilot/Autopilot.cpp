@@ -513,7 +513,11 @@ void Autopilot::UpdatePitchChannel() {
     double pitch_err = target_pitch - pitch;
     double elevator = -(2.0 * pitch_err - 0.2 * q);
     elevator = Clamp(elevator, -1.0, 1.0);
-    adapter_.SetProperty(adapter::property::kElevatorCmd, elevator);
+    if (control_profile_.fbw_subtype != FbwSubtype::kNone) {
+      adapter_.SetProperty("fcs/pitch-trim-cmd-norm", elevator);
+    } else {
+      adapter_.SetProperty(adapter::property::kElevatorCmd, elevator);
+    }
   }
 }
 

@@ -288,27 +288,37 @@ void ManeuverExecutor::Update(double dt_sec) {
       case TakeoffPhase::kRotateAndClimb: {
         engines_.SetThrottle(1.0);
         rotation_elapsed_sec_ += dt_sec;
-        bool is_fbw = ap_.GetControlProfile().fbw_subtype ==
-                      autopilot::FbwSubtype::kRateIntegratorActuator;
-        // Rotation: single impulse for FBW (integrator processes once),
+        bool is_rate_int = ap_.GetControlProfile().fbw_subtype ==
+                           autopilot::FbwSubtype::kRateIntegratorActuator;
+        bool use_pitch_trim = ap_.GetControlProfile().fbw_subtype !=
+                              autopilot::FbwSubtype::kNone;
+        auto set_tko_el = [&](double el) {
+          if (use_pitch_trim)
+            adapter_.SetProperty("fcs/pitch-trim-cmd-norm", el);
+          else
+            adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+        };
+        // Rotation: single impulse for rate-integrator FBW,
         // continuous hold for direct-surface aircraft.
-        if (agl_m < 10.0 && (!is_fbw || rotation_elapsed_sec_ < dt_sec * 2)) {
-          double el = is_fbw ? -0.05 : -0.3;
-          adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+        if (agl_m < 10.0 && (!is_rate_int || rotation_elapsed_sec_ < dt_sec * 2)) {
+          double el = is_rate_int ? -0.05 : -0.3;
+          set_tko_el(el);
         } else if (agl_m < 10.0) {
-          adapter_.SetProperty("fcs/elevator-cmd-norm", 0.0);
+          set_tko_el(0.0);
         } else {
           // Gear and flaps retraction after positive climb confirmed.
           if (agl_m > 20.0) engines_.SetGearDown(false);
           if (agl_m > 30.0) engines_.SetFlaps(0.0);
-          // Vertical speed control: pitch adjusts climb rate, not pitch angle.
-          // Target 5 m/s climb, use pitch to regulate.
-          double target_climb_mps = 5.0;
-          double climb_err = target_climb_mps - sink_rate_mps_;
-          double elevator = std::clamp(-0.05 * climb_err, -0.5, 0.3);
-          adapter_.SetProperty("fcs/elevator-cmd-norm", elevator);
           if (!ap_.GetControlProfile().has_own_autopilot) {
             ap_.SetAltitudeHold(true);
+          }
+          // Rate-integrator FBW: skip direct pitch commands (integrator windup).
+          // Let altitude hold manage climb through the FBW system.
+          if (!is_rate_int) {
+            double target_climb_mps = 5.0;
+            double climb_err = target_climb_mps - sink_rate_mps_;
+            double elevator = std::clamp(-0.05 * climb_err, -0.5, 0.3);
+            set_tko_el(elevator);
           }
         }
         if (ap_.GetControlProfile().has_own_autopilot) {

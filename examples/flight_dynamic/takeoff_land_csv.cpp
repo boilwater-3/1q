@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
   cfg.do_trim = false;
   cfg.initial_kinematics.position_lla_deg_m.altitude_m = 0.0;
   cfg.initial_kinematics.velocity_mps.x_mps = 0.0;
-  // f22: FBW integrator ground takeoff unsolved. Air-start to verify flight.
+  // f22: FBW rate-integrator ground takeoff unsolved. Air-start to verify flight.
   if (model == "f22") {
     cfg.initial_kinematics.position_lla_deg_m.altitude_m = 500.0;
     cfg.initial_kinematics.velocity_mps.x_mps = 150.0;
