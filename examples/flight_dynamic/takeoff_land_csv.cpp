@@ -74,6 +74,8 @@ int main(int argc, char** argv) {
   cfg.do_trim = false;
   cfg.initial_kinematics.position_lla_deg_m.altitude_m = 0.0;
   cfg.initial_kinematics.velocity_mps.x_mps = 0.0;
+  // f22: slight nose-up from landing gear geometry helps FBW rotation
+  if (model == "f22") cfg.initial_kinematics.attitude_deg.pitch_deg = 3.0;
 
   FlightManager fm(cfg);
   if (fm.GetState() != FlightManagerState::kReady) {
@@ -101,7 +103,7 @@ int main(int argc, char** argv) {
           model.find("A4")  != std::string::npos ||
           model.find("F4")  != std::string::npos ||
           model.find("F80") != std::string::npos)
-        cruise_alt_m = 800.0;
+        cruise_alt_m = 500.0;
       else if (model == "Concorde")
         cruise_alt_m = 12000.0;
       else if (model == "B17" || model == "C130")
@@ -141,7 +143,7 @@ int main(int argc, char** argv) {
   land.target.latitude_rad = 0.0012;
   land.target.longitude_rad = 0.0012;
   land.target.altitude_m = 0.0;
-  land.value = 45.0;
+  land.value = eng.GetRotationSpeedKts() * 0.514 * 1.3;  // Vr×1.3 in m/s
   fm.PushManeuver(land);
 
   WriteHeader(out);

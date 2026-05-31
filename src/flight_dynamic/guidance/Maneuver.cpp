@@ -192,7 +192,10 @@ void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target
                                          double /*target_speed_mps*/) {
   // Rotate: elevator back. Gear/flaps stay until positive climb confirmed.
   rotation_elapsed_sec_ = 0.0;
-  adapter_.SetProperty("fcs/elevator-cmd-norm", -0.3);
+  double el_rot = ap_.GetControlProfile().fbw_subtype ==
+                          autopilot::FbwSubtype::kRateIntegratorActuator
+                  ? -0.05 : -0.3;
+  adapter_.SetProperty("fcs/elevator-cmd-norm", el_rot);
 
   ap_.SetRollAttitudeMode(1);
   ap_.SetRollAutopilotOn(true);
@@ -275,9 +278,15 @@ void ManeuverExecutor::Update(double dt_sec) {
       case TakeoffPhase::kRotateAndClimb: {
         engines_.SetThrottle(1.0);
         rotation_elapsed_sec_ += dt_sec;
-        // Hold elevator until airborne.
-        if (agl_m < 10.0) {
-          adapter_.SetProperty("fcs/elevator-cmd-norm", -0.3);
+        bool is_fbw = ap_.GetControlProfile().fbw_subtype ==
+                      autopilot::FbwSubtype::kRateIntegratorActuator;
+        // Rotation: single impulse for FBW (integrator processes once),
+        // continuous hold for direct-surface aircraft.
+        if (agl_m < 10.0 && (!is_fbw || rotation_elapsed_sec_ < dt_sec * 2)) {
+          double el = is_fbw ? -0.05 : -0.3;
+          adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+        } else if (agl_m < 10.0) {
+          adapter_.SetProperty("fcs/elevator-cmd-norm", 0.0);
         } else {
           // Gear and flaps retraction after positive climb confirmed.
           if (agl_m > 20.0) engines_.SetGearDown(false);
