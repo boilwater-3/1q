@@ -17,6 +17,9 @@ class Autopilot;
 namespace guidance {
 class WaypointManager;
 }
+namespace propulsion {
+class EngineManager;
+}
 
 namespace guidance {
 
@@ -42,7 +45,8 @@ class ManeuverExecutor {
  public:
   ManeuverExecutor(adapter::JsbsimAdapter& adapter,
                    autopilot::Autopilot& ap,
-                   WaypointManager& wp_manager);
+                   WaypointManager& wp_manager,
+                   propulsion::EngineManager& engines);
 
   void ExecuteFlyTo(const Waypoint& target);
   void ExecuteOrbit(const Waypoint& center, double radius_m, double duration_sec = 0.0);
@@ -85,6 +89,7 @@ class ManeuverExecutor {
   adapter::JsbsimAdapter& adapter_;
   autopilot::Autopilot& ap_;
   WaypointManager& wp_manager_;
+  propulsion::EngineManager& engines_;
   Maneuver current_maneuver_;
   bool active_ = false;
   double elapsed_sec_ = 0.0;

@@ -6,6 +6,7 @@
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "flight_dynamic/model/VehicleStateMapper.h"
+#include "flight_dynamic/propulsion/EngineManager.h"
 
 namespace oneq {
 namespace flight_dynamic {
@@ -13,9 +14,10 @@ namespace flight_dynamic {
 FlightManager::FlightManager(const config::FlightDynamicConfig& config) {
   adapter_.reset(new adapter::JsbsimAdapter(config));
   ap_.reset(new autopilot::Autopilot(*adapter_));
+  engines_.reset(new propulsion::EngineManager(*adapter_));
   wp_manager_.reset(new guidance::WaypointManager(*adapter_));
   maneuver_exec_.reset(new guidance::ManeuverExecutor(
-      *adapter_, *ap_, *wp_manager_));
+      *adapter_, *ap_, *wp_manager_, *engines_));
   state_ = FlightManagerState::kReady;
 }
 
@@ -72,9 +74,10 @@ bool FlightManager::Step(double dt_sec) {
 void FlightManager::Reset(const config::FlightDynamicConfig& config) {
   adapter_.reset(new adapter::JsbsimAdapter(config));
   ap_.reset(new autopilot::Autopilot(*adapter_));
+  engines_.reset(new propulsion::EngineManager(*adapter_));
   wp_manager_.reset(new guidance::WaypointManager(*adapter_));
   maneuver_exec_.reset(new guidance::ManeuverExecutor(
-      *adapter_, *ap_, *wp_manager_));
+      *adapter_, *ap_, *wp_manager_, *engines_));
   maneuver_queue_.clear();
   current_maneuver_index_ = 0;
   sim_time_sec_ = 0.0;

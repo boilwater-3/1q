@@ -6,7 +6,7 @@
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
-#include "flight_dynamic/adapter/PropertyNames.h"
+#include "flight_dynamic/propulsion/EngineManager.h"
 #include "math/FGLocation.h"
 #include "models/FGPropagate.h"
 
@@ -57,8 +57,9 @@ double ComputeClockwiseOrbitHeadingRad(const JSBSim::FGLocation& location, const
 }  // namespace
 
 ManeuverExecutor::ManeuverExecutor(adapter::JsbsimAdapter& adapter, autopilot::Autopilot& ap,
-                                   WaypointManager& wp_manager)
-    : adapter_(adapter), ap_(ap), wp_manager_(wp_manager) {}
+                                   WaypointManager& wp_manager,
+                                   propulsion::EngineManager& engines)
+    : adapter_(adapter), ap_(ap), wp_manager_(wp_manager), engines_(engines) {}
 
 void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
   current_maneuver_.type = ManeuverType::kFlyToWaypoint;
@@ -169,28 +170,21 @@ void ManeuverExecutor::ExecuteTakeoff(double target_altitude_m, double target_he
 }
 
 void ManeuverExecutor::StartEngine() {
-  adapter_.SetProperty(adapter::property::kLeftBrakeCmd, 1.0);
-  adapter_.SetProperty(adapter::property::kRightBrakeCmd, 1.0);
-  adapter_.SetProperty(adapter::property::kCenterBrakeCmd, 1.0);
-  ap_.SetThrottleCmdNorm( 1.0);
-  adapter_.SetProperty(adapter::property::kMixtureCmdNorm, 1.0);
-  adapter_.SetProperty(adapter::property::kMagnetoCmd, 3.0);
-  adapter_.SetProperty(adapter::property::kStarterCmd, 1.0);
+  engines_.SetBrakes(true);
+  engines_.SetThrottle(1.0);
+  engines_.Start();
 }
 
 void ManeuverExecutor::ConfigureForTakeoffRoll() {
-  adapter_.SetProperty(adapter::property::kLeftBrakeCmd, 0.0);
-  adapter_.SetProperty(adapter::property::kRightBrakeCmd, 0.0);
-  adapter_.SetProperty(adapter::property::kCenterBrakeCmd, 0.0);
-  adapter_.SetProperty(adapter::property::kFlapCmdNorm, 0.33);
-  ap_.SetThrottleCmdNorm( 1.0);
+  engines_.SetBrakes(false);
+  engines_.SetFlaps(0.33);
+  engines_.SetThrottle(1.0);
 }
 
 void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target_heading_rad,
                                          double /*target_speed_mps*/) {
-  // Retract gear for climb
-  adapter_.SetProperty(adapter::property::kGearCmdNorm, 0.0);
-  adapter_.SetProperty(adapter::property::kGearPosNorm, 0.0);
+  engines_.SetGearDown(false);
+  engines_.SetFlaps(0.0);
 
   // Manual rotation: pitch up for initial climb before AP altitude hold engages.
   adapter_.SetProperty("ap/pitch-target-deg", 10.0);
@@ -201,9 +195,6 @@ void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target
   ap_.SetHeadingTargetRad(target_heading_rad);
   ap_.SetHeadingHold(true);
   ap_.SetAltitudeTargetM(target_altitude_m);
-  // Don't engage altitude hold yet; use pitch hold for initial climb.
-  // Altitude hold will be engaged after reaching safe altitude.
-  adapter_.SetProperty(adapter::property::kFlapCmdNorm, 0.0);
 }
 
 bool ManeuverExecutor::IsManeuverComplete() const {
@@ -267,7 +258,7 @@ void ManeuverExecutor::Update(double dt_sec) {
         }
         break;
       case TakeoffPhase::kTakeoffRoll:
-        ap_.SetThrottleCmdNorm( 1.0);
+        engines_.SetThrottle(1.0);
         if (vc_kts >= 50.0) {
           ConfigureForClimb(takeoff_target_altitude_m_,
                             takeoff_target_heading_rad_,
@@ -276,8 +267,7 @@ void ManeuverExecutor::Update(double dt_sec) {
         }
         break;
       case TakeoffPhase::kRotateAndClimb:
-        ap_.SetThrottleCmdNorm( 1.0);
-        // After reaching safe altitude, switch from pitch hold to altitude hold
+        engines_.SetThrottle(1.0);
         if (agl_m > 30.0) {
           ap_.SetAltitudeHold(true);
         }
@@ -292,51 +282,41 @@ void ManeuverExecutor::Update(double dt_sec) {
   if (current_maneuver_.type == ManeuverType::kLand) {
     double agl_m = adapter_.GetProperty("position/h-agl-ft") * 0.3048;
     double vc_fps = adapter_.GetProperty("velocities/vc-fps");
-    double wow = adapter_.GetProperty(adapter::property::kWowMain);
 
     switch (land_phase_) {
       case LandPhase::kApproach:
-        // Once within 200m AGL of target, transition to final descent
         if (agl_m < current_maneuver_.target.altitude_m + 200.0) {
           ConfigureForLanding();
           land_phase_ = LandPhase::kFinalDescent;
         }
         break;
       case LandPhase::kFinalDescent:
-        // Near ground: flare at 15m AGL
         if (agl_m < current_maneuver_.target.altitude_m + 15.0) {
-          // Idle throttle, pitch up slightly for flare
-          ap_.SetThrottleCmdNorm( 0.0);
+          engines_.SetThrottle(0.0);
           adapter_.SetProperty("ap/pitch-target-deg", 5.0);
           adapter_.SetProperty("ap/pitch-hold", 1.0);
           land_phase_ = LandPhase::kFlare;
         }
         break;
       case LandPhase::kFlare:
-        // Wait for touchdown (weight on wheels)
-        ap_.SetThrottleCmdNorm( 0.0);
-        if (wow > 0.5) {
-          adapter_.SetProperty(adapter::property::kLeftBrakeCmd, 1.0);
-          adapter_.SetProperty(adapter::property::kRightBrakeCmd, 1.0);
-          adapter_.SetProperty(adapter::property::kCenterBrakeCmd, 1.0);
+        engines_.SetThrottle(0.0);
+        if (engines_.IsWeightOnWheels()) {
+          engines_.SetBrakes(true);
           adapter_.SetProperty("ap/pitch-hold", 0.0);
           ap_.SetAltitudeHold(false);
           land_phase_ = LandPhase::kTouchdown;
         }
         break;
       case LandPhase::kTouchdown:
-        ap_.SetThrottleCmdNorm( 0.0);
-        adapter_.SetProperty(adapter::property::kLeftBrakeCmd, 1.0);
-        adapter_.SetProperty(adapter::property::kRightBrakeCmd, 1.0);
-        // Once firmly on ground and speed below threshold, rollout
+        engines_.SetThrottle(0.0);
+        engines_.SetBrakes(true);
         if (vc_fps < 30.0) {
           land_phase_ = LandPhase::kRollout;
         }
         break;
       case LandPhase::kRollout:
-        ap_.SetThrottleCmdNorm( 0.0);
-        adapter_.SetProperty(adapter::property::kLeftBrakeCmd, 1.0);
-        // Complete when nearly stopped
+        engines_.SetThrottle(0.0);
+        engines_.SetBrakes(true);
         if (vc_fps < 10.0) {
           land_phase_ = LandPhase::kComplete;
         }
@@ -370,7 +350,6 @@ void ManeuverExecutor::ConfigureForApproach(const Waypoint& target,
   ap_.SetRollAutopilotOn(true);
   ap_.SetHeadingHold(true);
 
-  // Descend to approach altitude: 100m above target.
   ap_.SetAltitudeTargetM(target.altitude_m + 100.0);
   ap_.SetAltitudeHold(true);
 
@@ -378,19 +357,13 @@ void ManeuverExecutor::ConfigureForApproach(const Waypoint& target,
     ap_.SetSpeedTargetMps(approach_speed_mps);
     ap_.SetSpeedHold(true);
   }
-  // Approach flaps
-  adapter_.SetProperty(adapter::property::kFlapCmdNorm, 0.5);
+  engines_.SetFlaps(0.5);
 }
 
 void ManeuverExecutor::ConfigureForLanding() {
-  // Full flaps, idle throttle, maintain heading to runway
-  adapter_.SetProperty(adapter::property::kFlapCmdNorm, 1.0);
-  ap_.SetThrottleCmdNorm( 0.0);
-
-  // Set altitude target to ground level.
+  engines_.SetFlaps(1.0);
+  engines_.SetThrottle(0.0);
   ap_.SetAltitudeTargetM(current_maneuver_.target.altitude_m + 5.0);
-
-  // Disable speed hold so energy management doesn't add throttle.
   ap_.SetSpeedHold(false);
 }
 

@@ -21,6 +21,9 @@ class Autopilot;
 namespace guidance {
 class WaypointManager;
 }
+namespace propulsion {
+class EngineManager;
+}
 
 enum class ManeuverOutcome {
   kNone,          // maneuver still active
@@ -94,6 +97,7 @@ class FlightManager {
 
   std::unique_ptr<adapter::JsbsimAdapter> adapter_;
   std::unique_ptr<autopilot::Autopilot> ap_;
+  std::unique_ptr<propulsion::EngineManager> engines_;
   std::unique_ptr<guidance::WaypointManager> wp_manager_;
   std::unique_ptr<guidance::ManeuverExecutor> maneuver_exec_;
 
