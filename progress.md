@@ -126,3 +126,21 @@ M tools/analyze_takeoff.py                       (math.isfinite fix)
   1. L410：检查接触点、支柱压缩、重量/地面反力是否能平衡。
   2. OV10：检查 `EngineType` 为 `FGTurbine` 的 XML/发动机模型是否合理，以及起飞 roll/yaw/rotate 控制链。
   3. 通用起飞：保留 idle/runup/ramp，但需按机型验证 throttle schedule。
+
+## 会话 2026-06-02（续）：L410 分层诊断
+
+### 已提交
+- `a5985b1 Stabilize JSBSim takeoff initialization`
+
+### 新发现
+- L410 gear channel 不使用标准 `gear/gear-cmd-norm`，而使用 `/controls/gear/gear-down-cond` 驱动 `gear/gear-pos-norm`。
+- 只写标准 gear cmd/pos 时，`FGLGear` 会保留旧的 WOW/compression/StrutForce，但 `GetBodyForces()` 重新计算时 gear pos 为 0，导致实际 ground force 为 0。
+- `takeoff_land_csv` 原先只写 `position_lla_deg_m.altitude_m`，但没有设置 `position_frame=kLla`；默认 `kEcef` 下该高度被忽略。
+- L410 自带 `reset00.xml` 的 runway start AGL 是 7.1 ft；示例程序硬设 altitude=0 会让三轮初始压缩约 7 ft，产生百万磅级地面反力。
+- 修正 `position_frame=kLla`、L410 起始高度 7.1 ft、以及 `/controls/gear/gear-down-cond=1` 后，L410 不再穿地/弹跳 crash，能稳定跑到 2500s 上限。
+- 新剩余问题：L410 仍无法起飞，末尾约 `vc=6 kt`、`WOW=1`、`throttle=1.0`。推进力在 0 和数百磅间跳变，propeller RPM 基本在 0~10 rpm，说明涡桨/螺旋桨没有进入正常工作转速。
+- 实验性设置 propeller 初始 RPM=1600 被否定：首帧推力达到约 32M lbs，0.08s crash；不能作为修复保留。
+
+### 当前未完成项
+- L410 起飞失败已经不是 RunIC/gear 支撑问题，而是涡桨零 RPM/propeller spin-up 问题。
+- 下一步应查 JSBSim `FGTurboProp`/`FGPropeller` 的启动路径，或给 adapter 增加可控的 turboprop spool-up 初始化，而不是直接设 1600 rpm。

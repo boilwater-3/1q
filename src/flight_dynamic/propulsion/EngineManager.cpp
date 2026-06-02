@@ -67,6 +67,10 @@ void EngineManager::Start() {
       adapter_.SetProperty(adapter::property::kStarterCmd, 1.0);
       break;
     case EngineType::kTurboprop:
+      for (int i = 0; i < count_; ++i) {
+        exec_.GetFCS()->SetPropAdvanceCmd(i, 1.0);
+        exec_.GetFCS()->SetPropAdvance(i, 1.0);
+      }
       adapter_.SetProperty(adapter::property::kStarterCmd, 1.0);
       break;
     default:

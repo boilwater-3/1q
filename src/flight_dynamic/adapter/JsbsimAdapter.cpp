@@ -32,6 +32,16 @@ void RetractLandingGearIfModeled(JSBSim::FGFDMExec& fdm_exec) {
   }
   fdm_exec.SetPropertyValue(property::kGearCmdNorm, 0.0);
   SetPropertyIfPresent(fdm_exec, property::kGearPosNorm, 0.0);
+  SetPropertyIfPresent(fdm_exec, "/controls/gear/gear-down-cond", 0.0);
+}
+
+void ExtendLandingGearIfModeled(JSBSim::FGFDMExec& fdm_exec) {
+  if (fdm_exec.GetPropertyManager()->GetNode(property::kGearCmdNorm) == nullptr) {
+    return;
+  }
+  fdm_exec.SetPropertyValue(property::kGearCmdNorm, 1.0);
+  SetPropertyIfPresent(fdm_exec, property::kGearPosNorm, 1.0);
+  SetPropertyIfPresent(fdm_exec, "/controls/gear/gear-down-cond", 1.0);
 }
 
 void ResetThrottleState(JSBSim::FGFDMExec& fdm_exec, double value) {
@@ -53,6 +63,19 @@ void ResetThrottleState(JSBSim::FGFDMExec& fdm_exec, double value) {
   }
   fdm_exec.GetPropertyManager()->GetNode(property::kThrottleCmd, true)->setDoubleValue(value);
   fdm_exec.GetPropertyManager()->GetNode(property::kThrottlePosNorm, true)->setDoubleValue(value);
+}
+
+void SetPropellerAdvanceState(JSBSim::FGFDMExec& fdm_exec, double value) {
+  auto fcs = fdm_exec.GetFCS();
+  auto propulsion = fdm_exec.GetPropulsion();
+  if (!fcs || !propulsion) {
+    return;
+  }
+
+  for (unsigned int i = 0; i < propulsion->GetNumEngines(); ++i) {
+    fcs->SetPropAdvanceCmd(static_cast<int>(i), value);
+    fcs->SetPropAdvance(static_cast<int>(i), value);
+  }
 }
 
 void SetBrakeState(JSBSim::FGFDMExec& fdm_exec, double value) {
@@ -173,6 +196,11 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
   }
   init_diag_.run_ic_ok = true;
 
+  // Variable-pitch propellers need an advance command before InitRunning()
+  // computes propulsion steady state, otherwise turboprops can settle at
+  // near-zero prop RPM and never develop takeoff thrust.
+  SetPropellerAdvanceState(*fdm_exec_, 1.0);
+
   // Start all engines so that JSBSim can trim longitudinal velocity (udot).
   fdm_exec_->GetPropulsion()->InitRunning(-1);
   init_diag_.engines_started = true;
@@ -181,11 +209,14 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
   // converging engine steady state for trim. Clear both surfaces so the first
   // Run() starts from adapter/user commands instead of stale full-power input.
   ResetThrottleState(*fdm_exec_, 0.0);
-  SettleInitialGroundState(*fdm_exec_, config.dt_sec);
-  if (InitialAltitudeM(config.initial_kinematics) > 10.0) {
+  const bool starts_in_air = InitialAltitudeM(config.initial_kinematics) > 10.0;
+  if (starts_in_air) {
     RetractLandingGearIfModeled(*fdm_exec_);
     init_diag_.gear_retracted = true;
+  } else {
+    ExtendLandingGearIfModeled(*fdm_exec_);
   }
+  SettleInitialGroundState(*fdm_exec_, config.dt_sec);
 
   if (config.do_trim) {
     init_diag_.trim_attempted = true;
@@ -220,10 +251,13 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
       if (!RunIC()) {
         throw std::runtime_error("JsbsimAdapter: RunIC() failed after trim recovery");
       }
+      SetPropellerAdvanceState(*fdm_exec_, 1.0);
       fdm_exec_->GetPropulsion()->InitRunning(-1);
       ResetThrottleState(*fdm_exec_, 0.0);
       if (InitialAltitudeM(config.initial_kinematics) > 10.0) {
         RetractLandingGearIfModeled(*fdm_exec_);
+      } else {
+        ExtendLandingGearIfModeled(*fdm_exec_);
       }
       ResetControlStateAfterTrimFailure(*fdm_exec_);
       init_diag_.trim_recovery_applied = true;

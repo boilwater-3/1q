@@ -96,7 +96,7 @@ InitRunning(-1) → throttle=1.0, GetSteadyState() → engine at full thrust
   - L410 首帧 vc 20.8→0.0 kts，但 1.03s 仍 WOW=1 下沉到 h-agl=-5.02m hard crash。
   - OV10 首帧 vc 8.1→0.0 kts，但 4.01s 翻转 crash。
 - **待探索方案**：
-  - A. L410：独立检查地面接触点、支柱压缩、地面反力/重量平衡，避免继续把它归因于首帧弹跳。
+  - A. L410：地面接触/支撑已分离。需要继续定位涡桨/螺旋桨零 RPM spool-up，避免继续把它归因于首帧弹跳。
   - B. OV10：独立检查 XML/发动机类型、低速 roll/yaw/rotate 控制链和推力线。
   - C. 若继续源码线，应实现真实静态支柱平衡或正式 hold-down/ground-initialization 语义，而不是取消 SuspendIntegration 或简单抬高 AGL。
 
@@ -123,6 +123,8 @@ InitRunning(-1) → throttle=1.0, GetSteadyState() → engine at full thrust
 | 取消 RunIC SuspendIntegration | 1 | 否定：L410 首帧速度放大到 41.5 kts |
 | RunIC 起落架压缩几何修正 | 3 | 否定：L410 更早 crash，OV10 只能推迟失败 |
 | adapter HoldDown settle | 1 | 部分成功：L410/OV10 首帧 vc 均降为 0.0 kts；剩余失败另行分层 |
+| L410 gear input + 起始高度 | 1 | 部分成功：同步 `/controls/gear/gear-down-cond` 并使用 7.1 ft 起始高度后，不再穿地/弹跳 crash |
+| L410 propeller 初始 RPM=1600 | 1 | 否定：首帧约 32M lbs 推力，0.08s crash |
 
 ## 工具
 

@@ -24,7 +24,7 @@ double TakeoffIdleThrottle(propulsion::EngineType type) {
     case propulsion::EngineType::kPiston:
       return 0.15;
     case propulsion::EngineType::kTurboprop:
-      return 0.10;
+      return 0.65;
     case propulsion::EngineType::kTurbine:
       return 0.20;
     default:
@@ -63,7 +63,7 @@ double StaticRunupThrottle(propulsion::EngineType type, double elapsed_sec) {
 double TakeoffRampDurationSec(propulsion::EngineType type) {
   switch (type) {
     case propulsion::EngineType::kTurboprop:
-      return 6.0;
+      return 2.0;
     case propulsion::EngineType::kPiston:
       return 3.0;
     case propulsion::EngineType::kTurbine:
@@ -76,7 +76,7 @@ double TakeoffRampDurationSec(propulsion::EngineType type) {
 double TakeoffPowerThrottle(propulsion::EngineType type) {
   switch (type) {
     case propulsion::EngineType::kTurboprop:
-      return 0.85;
+      return 1.0;
     default:
       return 1.0;
   }

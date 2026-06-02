@@ -127,6 +127,45 @@ JSBSim `FGFDMExec::RunIC()` 调用 `SuspendIntegration()` 将 dt 设为 0：
   - OV10：初始化弹跳消失后仍起飞翻转，指向低速姿态/横侧控制、发动机/XML 类型或推力线问题。
 - 因此，后续应保留“首帧弹跳修复”作为独立改动，再分别建立 L410 地面支撑测试和 OV10 起飞控制测试。
 
+## L410 地面与推进链分层（2026-06-02 续）
+
+### Gear 输入面
+
+L410 的 gear kinematic channel 不是标准输入：
+
+```xml
+<input>/controls/gear/gear-down-cond</input>
+<output>gear/gear-pos-norm</output>
+```
+
+因此只设置 `gear/gear-cmd-norm` 对 L410 不够。适配器应在属性存在时同步设置 `/controls/gear/gear-down-cond`。
+
+### 初始高度合同
+
+`ExternalKinematics` 默认 `position_frame=kEcef`，因此示例程序只写 `position_lla_deg_m.altitude_m` 而不设置 `position_frame=kLla` 时，高度不会生效。
+
+L410 自带 `reset00.xml`：
+
+```xml
+<altitude unit="FT">7.1</altitude>
+```
+
+该值与 L410 起落架几何匹配。用 `altitude=0` 会造成约 7 ft 初始压缩和百万磅级地面反力；用 `7.1 ft` 后首帧压缩变为合理范围，地面支撑稳定。
+
+### 推进链剩余问题
+
+修正 gear input 和初始高度后，L410 不再 1s 穿地，也不再 3.9s 翻转 crash，而是稳定滑行到 2500s 上限但无法加速起飞：
+
+- `vc≈6 kt`
+- `WOW=1`
+- `throttle=1.0`
+- propeller RPM 基本在 `0~10 rpm`
+- propulsive force 在 `0~650 lbs` 量级波动
+
+`FGTurboProp` 将 `PropAdvance` 传给 `FGPropeller`，但 L410 仍不能从近零 RPM 自行建立正常转速。直接设置 propeller RPM=1600 会产生约 `32M lbs` 首帧推力，已否定。
+
+结论：L410 当前剩余问题是涡桨/螺旋桨 spool-up 初始化或模型表格零 RPM 区间问题，不应再归入 RunIC/gear 地面弹跳。
+
 ### LLDB 调试数据
 
 ```
