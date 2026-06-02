@@ -175,6 +175,41 @@ Step 2:    UVW=(0, -0, -58.29)   ← 继续加速向上
 Step 3:    UVW=(1, -0, -72.29)   ← 发散
 ```
 
+## AP Profile 动态检测架构（2026-06-02 重构）
+
+### 设计原则
+
+**零机型名硬编码**——所有 lateral_interface / pitch_interface / fbw_subtype 通过 JSBSim property tree 动态检测。
+
+### 检测优先级
+
+```
+has_fbw_override || has_roll_rate_command → kFbwRateCommand (f16)
+has_own_autopilot                        → kOwnAutopilot      (c172x, c310)
+has_generic_autopilot                    → kGenericAutopilotBridge (Concorde, B17, C130)
+default                                  → kDirectSurface     (OV10, F4N, 737, ...)
+```
+
+### GenericAutopilot Bridge Guard
+
+`ap/autopilot-roll-on` 从共享 `Autopilot.xml` 泄漏到未加载完整 AP 的机型（OV10）。Guard 规则：
+
+> `kGenericAutopilotBridge` ∧ `!has_own_autopilot` ∧ `!has_fbw_override` ∧ `engine_count < 4` → 降级 `kDirectSurface`
+
+### 能量管理分类
+
+```
+has_fbw                         → Fighter  (200m/s, 45°roll, 0.35min_thr)
+has_gen_ap ∧ heavy ∧ !mixture   → Heavy jet (500m/s, 35°roll, 0.55min_thr)
+heavy ∧ mixture                 → Heavy piston (85m/s, 25°roll)
+mixture ∧ !heavy                → GA piston (50-65m/s, 30°roll)
+default                         → struct defaults (45°roll)
+```
+
+### kOwnAutopilot 安全网
+
+`kOwnAutopilot` 路径在 `UpdateOwnAutopilot()` 后调用 `UpdateDirectHeadingLateral()`——对没有功能性 XML autopilot 但有 `ap/heading_hold` 属性的机型（F4N）提供直接副翼控制。
+
 ## 起降问题根因（原始）
 
 | 问题 | 根因 | 数据来源 |
