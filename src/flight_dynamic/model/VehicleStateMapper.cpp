@@ -96,7 +96,12 @@ void VehicleStateMapper::ApplyInitialConditions(
   if (has_initial_lla) {
     ic->SetLatitudeDegIC(initial_lla.latitude_deg);
     ic->SetLongitudeDegIC(initial_lla.longitude_deg);
-    ic->SetAltitudeASLFtIC(initial_lla.altitude_m * kMToFt);
+    // Zero altitude means "ground start": let reset00.xml's AGL value
+    // (loaded earlier by JsbsimAdapter) place the gear at runway level.
+    // Non-zero altitude means air-start or explicit altitude.
+    if (initial_lla.altitude_m != 0.0) {
+      ic->SetAltitudeASLFtIC(initial_lla.altitude_m * kMToFt);
+    }
   }
 
   bool velocity_applied = false;

@@ -21,12 +21,8 @@ namespace {
 constexpr double kDt = 0.01;
 constexpr double kFtToM = 0.3048;
 
-double GroundStartAltitudeM(const std::string& model) {
-  if (model == "L410") {
-    return 7.1 * kFtToM;  // Matches L410/reset00.xml runway start AGL.
-  }
-  return 0.0;
-}
+// Ground-start altitude is supplied by JSBSim reset00.xml, loaded
+// automatically in JsbsimAdapter via FGInitialCondition::Load().
 
 struct CsvRow {
   double time_sec, agl_m, vc_kts, pitch_deg, roll_deg, throttle, wow;
@@ -35,7 +31,8 @@ struct CsvRow {
 
 void WriteHeader(FILE* out) {
   fprintf(out,
-          "time_sec,agl_m,vc_kts,pitch_deg,roll_deg,throttle,elevator,wow,"
+          "time_sec,agl_m,vc_kts,pitch_deg,roll_deg,throttle,elevator,wow,aileron,"
+          "gear_cmd,gear_pos,"
           "thr0,thr1,thr2,thr3,"
           "gear0_wow,gear0_comp_ft,gear0_comp_vel_fps,gear0_comp_force_lbs,"
           "gear0_fbx_lbs,gear0_fby_lbs,gear0_fbz_lbs,"
@@ -81,7 +78,8 @@ void WriteRow(FILE* out, double t, FlightManager& fm) {
     return ground->GetForces(index);
   };
   fprintf(out,
-          "%.2f,%.2f,%.1f,%.3f,%.3f,%.3f,%.3f,%.1f,"
+          "%.2f,%.2f,%.1f,%.3f,%.3f,%.3f,%.3f,%.1f,%.3f,"
+          "%.2f,%.2f,"
           "%.2f,%.2f,%.2f,%.2f,"
           "%.1f,%.4f,%.3f,%.1f,"
           "%.1f,%.1f,%.1f,"
@@ -96,6 +94,8 @@ void WriteRow(FILE* out, double t, FlightManager& fm) {
           t, get("position/h-agl-ft") * 0.3048, get("velocities/vc-kts"),
           get("attitude/pitch-rad") * 57.2958, get("attitude/roll-rad") * 57.2958,
           get("fcs/throttle-cmd-norm"), get("fcs/elevator-cmd-norm"), get("gear/unit[1]/WOW"),
+          get("fcs/aileron-cmd-norm"),
+          get("gear/gear-cmd-norm"), get("gear/gear-pos-norm"),
           get("fcs/throttle-cmd-norm[0]"), get("fcs/throttle-cmd-norm[1]"),
           get("fcs/throttle-cmd-norm[2]"), get("fcs/throttle-cmd-norm[3]"), gear_value(0, "wow"),
           gear_value(0, "comp"), gear_value(0, "vel"), gear_value(0, "force"), gear_value(0, "fbx"),
@@ -131,7 +131,7 @@ int main(int argc, char** argv) {
   cfg.dt_sec = kDt;
   cfg.do_trim = false;
   cfg.initial_kinematics.position_frame = oneq::coordinate::PositionFrame::kLla;
-  cfg.initial_kinematics.position_lla_deg_m.altitude_m = GroundStartAltitudeM(model);
+  cfg.initial_kinematics.position_lla_deg_m.altitude_m = 0.0;
   cfg.initial_kinematics.velocity_mps.x_mps = 0.0;
 
   FlightManager fm(cfg);

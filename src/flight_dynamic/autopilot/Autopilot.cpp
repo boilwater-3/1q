@@ -41,88 +41,53 @@ constexpr double kFtToM = 0.3048;
 constexpr double kMToFt = 1.0 / kFtToM;
 constexpr double kRefSpeedFps = 164.0;  // ~50 m/s reference (c172x cruise)
 
-// Tier 1: explicit profile override by aircraft model name.
-// Takes priority over XML property probing (Tier 2) and conservative fallback
-// (Tier 3). Based on AircraftProfiles/ProfileSnapshotTest snapshots.
-const AircraftControlProfile* LookupExplicitProfile(const std::string& model_name) {
-  using LI = LateralControlInterface;
-  using PI = PitchControlInterface;
-  using FBW = FbwSubtype;
-
-  // Static table: one entry per supported aircraft.
-  // Keep sorted by model_name for readability.
-  static const struct Entry {
-    const char* name;
-    AircraftControlProfile profile;
-  } kKnownProfiles[] = {
-    {"B17",       {LI::kGenericAutopilotBridge, PI::kNativeAutopilot, FBW::kNone, false, true,  false, false, true,  false, 4, true, "fcs/rudder-cmd-norm"}},
-    {"C130",      {LI::kGenericAutopilotBridge, PI::kNativeAutopilot, FBW::kNone, false, true,  false, false, true,  false, 4, true, "fcs/rudder-cmd-norm"}},
-    {"Concorde",  {LI::kGenericAutopilotBridge, PI::kNativeAutopilot, FBW::kNone, false, true,  false, false, true,  false, 4, true, "fcs/rudder-cmd-norm"}},
-    {"c172x",     {LI::kOwnAutopilot,           PI::kNativeAutopilot, FBW::kNone, true,  true,  false, false, true,  false, 1, true, "fcs/rudder-cmd-norm"}},
-    {"c310",      {LI::kOwnAutopilot,           PI::kNativeAutopilot, FBW::kNone, true,  false, false, false, true,  false, 2, true, "fcs/rudder-cmd-norm"}},
-    {"f15",       {LI::kGenericAutopilotBridge, PI::kNativeAutopilot, FBW::kNone, false, true,  false, false, true,  false, 2, true, "fcs/rudder-cmd-norm"}},
-    {"f16",       {LI::kFbwRateCommand,         PI::kNativeAutopilot, FBW::kRollRatePid,           false, true,  true,  true,  true,  false, 1, true, "fcs/rudder-cmd-norm"}},
-  };
-
-  for (const auto& entry : kKnownProfiles) {
-    if (model_name == entry.name) {
-      return &entry.profile;
-    }
-  }
-  return nullptr;
-}
-
-void ApplyEnergyManagementProfile(const std::string& model_name, AircraftControlProfile* profile) {
+// Set energy-management defaults based on detected aircraft capability.
+// No model-name hardcoding — classifies by engine count, FBW presence,
+// and propulsion type from the property tree.
+void ApplyEnergyDefaults(AircraftControlProfile* profile) {
   if (!profile) return;
 
-  if (model_name == "Concorde") {
-    profile->ref_speed_mps = 500.0;
-    profile->min_speed_mps = 250.0;
-    profile->max_pitch_command_deg = 8.0;
-    profile->max_roll_angle_deg = 35.0;
-    profile->min_throttle = 0.55;
-    profile->max_throttle = 1.0;
-    profile->speed_energy_priority = true;
-  } else if (model_name == "f16" || model_name == "f15") {
+  const bool has_fbw = profile->has_fbw_override || profile->has_roll_rate_command;
+  const bool has_gen_ap = profile->has_generic_autopilot || profile->has_own_autopilot;
+  const bool is_heavy = profile->engine_count >= 4;
+  const int n_eng = profile->engine_count;
+
+  if (has_fbw) {
+    // High-performance FBW fighter (f16 class)
     profile->ref_speed_mps = 200.0;
     profile->min_speed_mps = 140.0;
     profile->max_pitch_command_deg = 15.0;
     profile->max_roll_angle_deg = 45.0;
     profile->min_throttle = 0.35;
-    profile->max_throttle = 1.0;
     profile->speed_energy_priority = true;
-  } else if (model_name == "B17") {
-    profile->ref_speed_mps = 80.0;
-    profile->min_speed_mps = 65.0;
+  } else if (has_gen_ap && is_heavy && !profile->has_mixture) {
+    // Heavy jet with native AP bridge (Concorde, B747)
+    profile->ref_speed_mps = 500.0;
+    profile->min_speed_mps = 250.0;
     profile->max_pitch_command_deg = 8.0;
-    profile->max_roll_angle_deg = 25.0;
-    profile->min_throttle = 0.45;
-    profile->max_throttle = 1.0;
+    profile->max_roll_angle_deg = 35.0;
+    profile->min_throttle = 0.55;
     profile->speed_energy_priority = true;
-  } else if (model_name == "C130") {
-    profile->ref_speed_mps = 90.0;
-    profile->min_speed_mps = 70.0;
-    profile->max_pitch_command_deg = 10.0;
-    profile->max_roll_angle_deg = 30.0;
-    profile->min_throttle = 0.35;
-    profile->max_throttle = 1.0;
-    profile->speed_energy_priority = true;
-  } else if (model_name == "c172x") {
-    profile->ref_speed_mps = 50.0;
-    profile->min_speed_mps = 40.0;
-    profile->max_pitch_command_deg = 12.0;
-    profile->max_roll_angle_deg = 30.0;
-    profile->min_throttle = 0.20;
-    profile->max_throttle = 1.0;
-  } else if (model_name == "c310") {
-    profile->ref_speed_mps = 65.0;
-    profile->min_speed_mps = 55.0;
-    profile->max_pitch_command_deg = 10.0;
-    profile->max_roll_angle_deg = 30.0;
-    profile->min_throttle = 0.30;
-    profile->max_throttle = 1.0;
-    profile->speed_energy_priority = true;
+  } else if (profile->has_mixture) {
+    if (is_heavy) {
+      // Multi-engine piston (B17)
+      profile->ref_speed_mps = 85.0;
+      profile->min_speed_mps = 65.0;
+      profile->max_pitch_command_deg = 10.0;
+      profile->max_roll_angle_deg = 25.0;
+      profile->min_throttle = 0.40;
+      profile->speed_energy_priority = true;
+    } else {
+      // Single/twin piston GA (c172x, c310)
+      profile->ref_speed_mps = n_eng >= 2 ? 65.0 : 50.0;
+      profile->min_speed_mps = n_eng >= 2 ? 55.0 : 40.0;
+      profile->max_pitch_command_deg = n_eng >= 2 ? 10.0 : 12.0;
+      profile->max_roll_angle_deg = 30.0;
+      profile->min_throttle = n_eng >= 2 ? 0.30 : 0.20;
+      profile->speed_energy_priority = (n_eng >= 2);
+    }
   }
+  // Non-piston non-FBW: use struct defaults (45° roll, etc.)
 }
 
 }  // namespace
@@ -140,17 +105,8 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
     control_profile_.max_roll_angle_deg = roll_lim * 180.0 / M_PI * sustained_factor;
   }
 
-  // Tier 1: explicit profile override (replaces XML probing entirely).
-  if (const auto* explicit_profile = LookupExplicitProfile(model_name)) {
-    control_profile_ = *explicit_profile;
-    ApplyEnergyManagementProfile(model_name, &control_profile_);
-    use_cpp_ap_ =
-        control_profile_.lateral_interface != LateralControlInterface::kOwnAutopilot &&
-        control_profile_.lateral_interface != LateralControlInterface::kGenericAutopilotBridge;
-    return;
-  }
-
-  // Tier 2: XML property probing.
+  // Tier 1: XML property probing — detect aircraft capabilities from
+  // the JSBSim property tree.  No model-name hardcoding.
   control_profile_.has_own_autopilot = pm->GetNode(adapter::property::kApHeadingHold) != nullptr;
   control_profile_.has_generic_autopilot = pm->GetNode(adapter::property::kApRollOn) != nullptr;
   control_profile_.has_fbw_override = pm->GetNode(adapter::property::kApFbwOverride) != nullptr;
@@ -162,11 +118,8 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   const auto propulsion = adapter_.GetFdmExec().GetPropulsion();
   if (propulsion) {
     control_profile_.engine_count = static_cast<int>(propulsion->GetNumEngines());
-    // indexed_throttle is determined from the explicit profile table for known
-    // aircraft. For unknown aircraft, fall back to false (conservative).
-    if (const auto* ep = LookupExplicitProfile(model_name)) {
-      control_profile_.indexed_throttle = ep->indexed_throttle;
-    }
+    // Multi-engine aircraft need per-engine throttle commands.
+    control_profile_.indexed_throttle = control_profile_.engine_count > 1;
   }
 
   // Mixture detection (piston aircraft)
@@ -194,21 +147,34 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
     control_profile_.pitch_interface = PitchControlInterface::kFbwScheduled;
   }
 
-  // Lateral interface selection
-  if (control_profile_.has_own_autopilot) {
-    control_profile_.lateral_interface = LateralControlInterface::kOwnAutopilot;
-  } else if (control_profile_.has_fbw_override || control_profile_.has_roll_rate_command) {
+  // Lateral interface selection.  FBW takes priority over native autopilot
+  // because some FBW aircraft (f16) have ap/heading_hold from their flight
+  // control system but need kFbwRateCommand for correct roll-rate handling.
+  if (control_profile_.has_fbw_override || control_profile_.has_roll_rate_command) {
     control_profile_.lateral_interface = LateralControlInterface::kFbwRateCommand;
+  } else if (control_profile_.has_own_autopilot) {
+    control_profile_.lateral_interface = LateralControlInterface::kOwnAutopilot;
   } else if (control_profile_.has_generic_autopilot) {
     control_profile_.lateral_interface = LateralControlInterface::kGenericAutopilotBridge;
   } else {
     control_profile_.lateral_interface = LateralControlInterface::kDirectSurface;
   }
 
+  // A single leaked ap/autopilot-roll-on from a shared system file
+  // (Autopilot.xml) is not enough evidence for kGenericAutopilotBridge
+  // when the aircraft has no own autopilot, no FBW, and fewer than 4
+  // engines (indicating no real native AP system — hits OV10).
+  if (control_profile_.lateral_interface == LateralControlInterface::kGenericAutopilotBridge &&
+      !control_profile_.has_own_autopilot &&
+      !control_profile_.has_fbw_override &&
+      control_profile_.engine_count < 4) {
+    control_profile_.lateral_interface = LateralControlInterface::kDirectSurface;
+  }
+
   use_cpp_ap_ =
       control_profile_.lateral_interface != LateralControlInterface::kOwnAutopilot &&
       control_profile_.lateral_interface != LateralControlInterface::kGenericAutopilotBridge;
-  ApplyEnergyManagementProfile(model_name, &control_profile_);
+  ApplyEnergyDefaults(&control_profile_);
 }
 
 void Autopilot::SetHeadingTargetRad(double heading_rad) {
@@ -349,6 +315,7 @@ void Autopilot::Update(double /*dt_sec*/) {
   // 70kts, sinking).
   if (control_profile_.lateral_interface == LateralControlInterface::kOwnAutopilot) {
     UpdateOwnAutopilot();
+    UpdateDirectHeadingLateral();
     UpdatePitchChannel();
     UpdateEnergyManagement();
     double r = propagate.GetPQR(3);

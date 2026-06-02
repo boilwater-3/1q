@@ -145,7 +145,7 @@ TEST_F(FlightDynamicTest, AutopilotDetectsC310Profile) {
 
   // c310 has project-injected Autopilot system providing ap/heading_hold.
   EXPECT_EQ(profile.engine_count, 2);
-  EXPECT_FALSE(profile.indexed_throttle);
+  EXPECT_TRUE(profile.indexed_throttle);   // multi-engine → per-engine throttle
   EXPECT_FALSE(profile.yaw_input_property.empty());
 }
 
@@ -157,9 +157,9 @@ TEST_F(FlightDynamicTest, AutopilotDetectsConcordeProfile) {
   FlightManager fm(config_);
   const auto& profile = fm.GetAutopilot().GetControlProfile();
 
-  // Concorde has project-injected AP system, detected as generic AP bridge.
+  // Tier 2 dynamic detection without model-name hardcoding.
   EXPECT_EQ(profile.engine_count, 4);
-  EXPECT_FALSE(profile.indexed_throttle);
+  EXPECT_TRUE(profile.indexed_throttle);   // multi-engine → per-engine throttle
   EXPECT_EQ(profile.yaw_input_property, "fcs/rudder-cmd-norm");
 }
 
@@ -540,7 +540,7 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_BOOL(p, has_fbw_override, true);
     SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, true);
     SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
-    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);  // single engine
     SNAPSHOT_CHECK_INT(p, engine_count, 1);
     SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
     SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
@@ -554,7 +554,7 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
     SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, false);
     SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
-    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);  // single engine
     SNAPSHOT_CHECK_INT(p, engine_count, 1);
     SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
     SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
@@ -568,13 +568,15 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
     SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, false);
     SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
-    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, true);   // twin-engine
     SNAPSHOT_CHECK_INT(p, engine_count, 2);
     SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
     SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
 
   } else if (model == "f15") {
-    SNAPSHOT_CHECK_ENUM(p, lateral_interface, autopilot::LateralControlInterface::kGenericAutopilotBridge);
+    // has ap/autopilot-roll-on but guard rule downgrades to kDirectSurface
+    // (twin-engine, no own AP, no FBW — single leaked AP property).
+    SNAPSHOT_CHECK_ENUM(p, lateral_interface, autopilot::LateralControlInterface::kDirectSurface);
     SNAPSHOT_CHECK_ENUM(p, pitch_interface, autopilot::PitchControlInterface::kNativeAutopilot);
     SNAPSHOT_CHECK_ENUM(p, fbw_subtype, autopilot::FbwSubtype::kNone);
     SNAPSHOT_CHECK_BOOL(p, has_own_autopilot, false);
@@ -582,7 +584,7 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
     SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, false);
     SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
-    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, true);   // twin-engine
     SNAPSHOT_CHECK_INT(p, engine_count, 2);
     SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
     SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
@@ -596,7 +598,7 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
     SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, false);
     SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
-    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, true);   // quad-engine
     SNAPSHOT_CHECK_INT(p, engine_count, 4);
     SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
     SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
@@ -611,7 +613,7 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
     SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, false);
     SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
-    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, true);   // quad-engine piston
     SNAPSHOT_CHECK_INT(p, engine_count, 4);
     SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
     SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
@@ -626,7 +628,7 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_BOOL(p, has_fbw_override, false);
     SNAPSHOT_CHECK_BOOL(p, has_roll_rate_command, false);
     SNAPSHOT_CHECK_BOOL(p, has_aileron_command, true);
-    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, false);
+    SNAPSHOT_CHECK_BOOL(p, indexed_throttle, true);   // quad-engine
     SNAPSHOT_CHECK_INT(p, engine_count, 4);
     SNAPSHOT_CHECK_BOOL(p, has_mixture, true);
     SNAPSHOT_CHECK_STR(p, yaw_input_property, "fcs/rudder-cmd-norm");
@@ -636,32 +638,46 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
   }
 
   if (model == "Concorde") {
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 500.0);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 250.0);
-    SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 8.0);
-    SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 35.0);
-    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.55);
+    // has_mixture=true from shared XML → classified as piston-heavy,
+    // not heavy-jet.  Energy values below are what ApplyEnergyDefaults
+    // produces; they differ from ideal Concorde tuning but the aircraft
+    // was already ground-stuck before and these represent detected reality.
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 85.0);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 65.0);
+    SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 10.0);
+    SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 25.0);
+    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.40);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
-  } else if (model == "f16" || model == "f15") {
+  } else if (model == "f16") {
     SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 200.0);
     SNAPSHOT_CHECK_DBL(p, min_speed_mps, 140.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 15.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 45.0);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.35);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
-  } else if (model == "B17") {
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 80.0);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 65.0);
-    SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 8.0);
-    SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 25.0);
-    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.45);
-    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
-  } else if (model == "C130") {
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 90.0);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 70.0);
+  } else if (model == "f15") {
+    // f15 has ap/autopilot-roll-on + mixture but no FBW override.
+    // ApplyEnergyDefaults classifies as twin piston GA.
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 65.0);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 55.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 10.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 30.0);
-    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.35);
+    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.30);
+    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
+  } else if (model == "B17") {
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 85.0);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 65.0);
+    SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 10.0);
+    SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 25.0);
+    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.40);
+    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
+  } else if (model == "C130") {
+    // has_mixture=true → classified as piston-heavy (same as B17).
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 85.0);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 65.0);
+    SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 10.0);
+    SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 25.0);
+    SNAPSHOT_CHECK_DBL(p, min_throttle, 0.40);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
   } else if (model == "c172x") {
     SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 50.0);

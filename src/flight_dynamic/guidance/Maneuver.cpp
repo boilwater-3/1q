@@ -251,7 +251,8 @@ void ManeuverExecutor::StartEngine() {
   engines_.SetBrakes(true);
   engines_.SetThrottle(TakeoffIdleThrottle(engines_.GetType()));
   engines_.Start();
-  // Wings-level hold during engine start and takeoff roll.
+  // Wings-level only during ground roll — heading hold causes integrator
+  // windup at low speeds where ailerons have no aerodynamic authority.
   ap_.SetRollAttitudeMode(0);  // wings level
   ap_.SetRollAutopilotOn(true);
 }

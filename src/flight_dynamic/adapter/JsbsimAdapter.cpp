@@ -87,11 +87,14 @@ void SetBrakeState(JSBSim::FGFDMExec& fdm_exec, double value) {
 void SettleInitialGroundState(JSBSim::FGFDMExec& fdm_exec, double dt_sec) {
   const auto* agl_node = fdm_exec.GetPropertyManager()->GetNode("position/h-agl-ft");
   if (agl_node && agl_node->getDoubleValue() > 1.0) {
-    return;
+    return;  // air start: no ground settling needed
   }
 
   const double saved_dt = fdm_exec.GetDeltaT();
   fdm_exec.Setdt(dt_sec);
+
+  // Phase 1: HoldDown — compute ground contact forces without moving the
+  // aircraft, so the gear spring/damper state is correctly initialized.
   fdm_exec.SetHoldDown(true);
   ResetThrottleState(fdm_exec, 0.0);
   SetBrakeState(fdm_exec, 1.0);
@@ -100,6 +103,7 @@ void SettleInitialGroundState(JSBSim::FGFDMExec& fdm_exec, double dt_sec) {
     ResetThrottleState(fdm_exec, 0.0);
     SetBrakeState(fdm_exec, 1.0);
   }
+
   fdm_exec.SetHoldDown(false);
   fdm_exec.Setdt(saved_dt);
 }
@@ -184,6 +188,21 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
   init_diag_.model_loaded = true;
 
   DisableXmlOutput(*fdm_exec_);
+
+  // Load the aircraft's reset00.xml to obtain the correct ground-start
+  // altitude.  Each aircraft's gear extends below the body reference point
+  // by a different amount; the reset XML's <altitude> sets AGL so the gear
+  // contact points are at runway level.  Without this, RunIC's dt=0
+  // integration leaves the gear penetrating the ground, producing
+  // catastrophic spring force on the first real Run() frame.
+  // VehicleStateMapper will skip its altitude override when the config
+  // altitude is 0, preserving this XML value.
+  std::string reset_path = fdm_exec_->GetFullAircraftPath().utf8Str() + "/reset00.xml";
+  if (std::filesystem::exists(reset_path)) {
+    fdm_exec_->GetIC()->Load(SGPath(reset_path), false);  // useAircraftPath=false, path is absolute
+    init_diag_.reset_xml_loaded = true;
+
+  }
 
   ConfigureIntegrators(config);
 

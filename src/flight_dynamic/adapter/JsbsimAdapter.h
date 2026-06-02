@@ -41,6 +41,7 @@ class JsbsimAdapter {
 
   struct InitDiagnostics {
     bool model_loaded = false;
+    bool reset_xml_loaded = false;
     bool ic_applied = false;
     bool run_ic_ok = false;
     bool engines_started = false;
