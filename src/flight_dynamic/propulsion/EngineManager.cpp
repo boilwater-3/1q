@@ -5,8 +5,8 @@
 #include "FGFDMExec.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "flight_dynamic/adapter/PropertyNames.h"
-#include "models/FGPropulsion.h"
 #include "models/FGFCS.h"
+#include "models/FGPropulsion.h"
 
 namespace oneq {
 namespace flight_dynamic {
@@ -24,27 +24,35 @@ EngineManager::EngineManager(adapter::JsbsimAdapter& adapter)
 }
 
 void EngineManager::DetectType() {
-  // Probe the property tree to classify the engine.
-  // Magneto exists only for piston engines (JSBSim FGPiston).
-  if (has_magneto_) {
-    type_ = EngineType::kPiston;
+  if (count_ <= 0) {
+    type_ = EngineType::kUnknown;
     return;
   }
-  // Check for turboprop: has starter but no magneto, and the engine XML
-  // may declare turboprop_engine. Fall back to turbine if unclear.
-  if (has_starter_ && count_ > 0) {
-    // Could be turboprop or turbine. Look at engine RPM property for clue:
-    // turboprops typically have propeller-related properties.
-    auto* pm = exec_.GetPropertyManager().get();
-    if (pm->GetNode("propulsion/engine[0]/propeller-rpm") != nullptr) {
+
+  switch (exec_.GetPropulsion()->GetEngine(0)->GetType()) {
+    case JSBSim::FGEngine::etPiston:
+      type_ = EngineType::kPiston;
+      return;
+    case JSBSim::FGEngine::etTurbine:
+      type_ = EngineType::kTurbine;
+      return;
+    case JSBSim::FGEngine::etTurboprop:
       type_ = EngineType::kTurboprop;
       return;
-    }
-    type_ = EngineType::kTurbine;
-    return;
+    case JSBSim::FGEngine::etRocket:
+      type_ = EngineType::kRocket;
+      return;
+    case JSBSim::FGEngine::etElectric:
+      type_ = EngineType::kElectric;
+      return;
+    case JSBSim::FGEngine::etUnknown:
+      break;
   }
-  // No magneto, no starter: could be turbine (InitRunning), rocket, or electric.
-  if (count_ > 0) {
+
+  // Fall back to legacy property probes for aircraft with incomplete engine metadata.
+  if (has_magneto_) {
+    type_ = EngineType::kPiston;
+  } else if (has_starter_) {
     type_ = EngineType::kTurbine;
   } else {
     type_ = EngineType::kUnknown;
@@ -105,8 +113,7 @@ void EngineManager::SetMixture(double value) {
   }
 }
 
-void EngineManager::SetIndexedProperty(const std::string& base, int index,
-                                       double value) {
+void EngineManager::SetIndexedProperty(const std::string& base, int index, double value) {
   adapter_.SetProperty(base + "[" + std::to_string(index) + "]", value);
 }
 
@@ -128,16 +135,23 @@ double EngineManager::GetRotationSpeedKts() const {
     return 50.0;
   }
 
-  const double v_stall_ftps =
-      std::sqrt((2.0 * weight_lbs) / (rho * wing_area_ft2 * kClMaxTakeoff));
+  const double v_stall_ftps = std::sqrt((2.0 * weight_lbs) / (rho * wing_area_ft2 * kClMaxTakeoff));
   const double v_stall_kts = v_stall_ftps * 0.592484;
 
   double vr_kts = 0.0;
   switch (type_) {
-    case EngineType::kPiston:    vr_kts = 1.10 * v_stall_kts; break;
-    case EngineType::kTurbine:   vr_kts = 1.20 * v_stall_kts; break;
-    case EngineType::kTurboprop: vr_kts = 1.15 * v_stall_kts; break;
-    default:                     vr_kts = 1.15 * v_stall_kts; break;
+    case EngineType::kPiston:
+      vr_kts = 1.10 * v_stall_kts;
+      break;
+    case EngineType::kTurbine:
+      vr_kts = 1.20 * v_stall_kts;
+      break;
+    case EngineType::kTurboprop:
+      vr_kts = 1.15 * v_stall_kts;
+      break;
+    default:
+      vr_kts = 1.15 * v_stall_kts;
+      break;
   }
   // Sanity floor: any flyable aircraft needs at least 40 kts to rotate.
   return std::max(vr_kts, 40.0);
@@ -147,20 +161,29 @@ double EngineManager::GetDefaultApproachSpeedMps() const {
   // Type-based approach speeds when Vr calculation is unavailable.
   // Target is ~1.3 × Vref for each category.
   switch (type_) {
-    case EngineType::kPiston:    return 28.0;   // ~55 kts (C172: Vref~45)
-    case EngineType::kTurboprop: return 41.0;   // ~80 kts
-    case EngineType::kTurbine:   return 62.0;   // ~120 kts (737: Vref~130)
-    case EngineType::kRocket:    return 80.0;   // ~155 kts
-    default:                     return 36.0;   // ~70 kts
+    case EngineType::kPiston:
+      return 28.0;  // ~55 kts (C172: Vref~45)
+    case EngineType::kTurboprop:
+      return 41.0;  // ~80 kts
+    case EngineType::kTurbine:
+      return 62.0;  // ~120 kts (737: Vref~130)
+    case EngineType::kRocket:
+      return 80.0;  // ~155 kts
+    default:
+      return 36.0;  // ~70 kts
   }
 }
 
 double EngineManager::GetClimbPitchDeg() const {
   switch (type_) {
-    case EngineType::kPiston:    return 10.0;
-    case EngineType::kTurbine:   return 15.0;
-    case EngineType::kTurboprop: return 10.0;
-    default:                     return 10.0;
+    case EngineType::kPiston:
+      return 10.0;
+    case EngineType::kTurbine:
+      return 15.0;
+    case EngineType::kTurboprop:
+      return 10.0;
+    default:
+      return 10.0;
   }
 }
 

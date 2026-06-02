@@ -89,6 +89,12 @@ int main(int argc, char** argv) {
     if (out_path) fclose(out); return 0;
   }
 
+  // F450 is a multirotor — fixed-wing takeoff/landing logic not applicable.
+  if (model == "F450") {
+    fprintf(stderr, "%s: skipped (multirotor)\n", model.c_str());
+    if (out_path) fclose(out); return 0;
+  }
+
   // Cruise altitude by engine/aircraft category.
   propulsion::EngineManager eng(fm.GetAdapter());
   double cruise_alt_m = 3000.0;

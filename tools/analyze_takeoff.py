@@ -9,6 +9,7 @@ Usage:
 
 import sys
 import csv
+import math
 import os
 
 try:
@@ -30,7 +31,16 @@ def load_csv(path):
     rows = []
     with open(path) as f:
         for r in csv.DictReader(f):
-            rows.append({k: float(v) for k, v in r.items()})
+            try:
+                row = {}
+                for k, v in r.items():
+                    fv = float(v)
+                    if not math.isfinite(fv):
+                        return rows
+                    row[k] = fv
+                rows.append(row)
+            except (ValueError, TypeError):
+                return rows
     return rows
 
 

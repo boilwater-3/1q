@@ -43,10 +43,8 @@ struct Maneuver {
 
 class ManeuverExecutor {
  public:
-  ManeuverExecutor(adapter::JsbsimAdapter& adapter,
-                   autopilot::Autopilot& ap,
-                   WaypointManager& wp_manager,
-                   propulsion::EngineManager& engines);
+  ManeuverExecutor(adapter::JsbsimAdapter& adapter, autopilot::Autopilot& ap,
+                   WaypointManager& wp_manager, propulsion::EngineManager& engines);
 
   void ExecuteFlyTo(const Waypoint& target);
   void ExecuteOrbit(const Waypoint& center, double radius_m, double duration_sec = 0.0);
@@ -66,6 +64,7 @@ class ManeuverExecutor {
  private:
   enum class TakeoffPhase {
     kEngineStart,
+    kStaticRunup,
     kTakeoffRoll,
     kRotateAndClimb,
     kComplete,
@@ -98,6 +97,7 @@ class ManeuverExecutor {
   TakeoffPhase takeoff_phase_ = TakeoffPhase::kEngineStart;
   double takeoff_target_altitude_m_ = 0.0;
   double takeoff_target_heading_rad_ = 0.0;
+  double takeoff_phase_elapsed_sec_ = 0.0;
   double rotation_elapsed_sec_ = 0.0;
   LandPhase land_phase_ = LandPhase::kApproach;
   double land_approach_speed_mps_ = 0.0;

@@ -6,13 +6,13 @@
 
 #include "1q/coordinate/position_transform.h"
 #include "FGFDMExec.h"
+#include "flight_dynamic/adapter/PropertyNames.h"
+#include "flight_dynamic/model/VehicleStateMapper.h"
 #include "initialization/FGInitialCondition.h"
 #include "models/FGFCS.h"
 #include "models/FGOutput.h"
 #include "models/FGPropulsion.h"
 #include "simgear/misc/sg_path.hxx"
-#include "flight_dynamic/adapter/PropertyNames.h"
-#include "flight_dynamic/model/VehicleStateMapper.h"
 
 namespace oneq {
 namespace flight_dynamic {
@@ -34,9 +34,54 @@ void RetractLandingGearIfModeled(JSBSim::FGFDMExec& fdm_exec) {
   SetPropertyIfPresent(fdm_exec, property::kGearPosNorm, 0.0);
 }
 
-void DisableXmlOutput(JSBSim::FGFDMExec& fdm_exec) {
-  fdm_exec.DisableOutput();
+void ResetThrottleState(JSBSim::FGFDMExec& fdm_exec, double value) {
+  auto fcs = fdm_exec.GetFCS();
+  auto propulsion = fdm_exec.GetPropulsion();
+  if (!fcs || !propulsion) {
+    return;
+  }
+
+  fcs->SetThrottleCmd(-1, value);
+  fcs->SetThrottlePos(-1, value);
+  for (unsigned int i = 0; i < propulsion->GetNumEngines(); ++i) {
+    if (i < propulsion->in.ThrottleCmd.size()) {
+      propulsion->in.ThrottleCmd[i] = value;
+    }
+    if (i < propulsion->in.ThrottlePos.size()) {
+      propulsion->in.ThrottlePos[i] = value;
+    }
+  }
+  fdm_exec.GetPropertyManager()->GetNode(property::kThrottleCmd, true)->setDoubleValue(value);
+  fdm_exec.GetPropertyManager()->GetNode(property::kThrottlePosNorm, true)->setDoubleValue(value);
 }
+
+void SetBrakeState(JSBSim::FGFDMExec& fdm_exec, double value) {
+  SetPropertyIfPresent(fdm_exec, property::kLeftBrakeCmd, value);
+  SetPropertyIfPresent(fdm_exec, property::kRightBrakeCmd, value);
+  SetPropertyIfPresent(fdm_exec, property::kCenterBrakeCmd, value);
+}
+
+void SettleInitialGroundState(JSBSim::FGFDMExec& fdm_exec, double dt_sec) {
+  const auto* agl_node = fdm_exec.GetPropertyManager()->GetNode("position/h-agl-ft");
+  if (agl_node && agl_node->getDoubleValue() > 1.0) {
+    return;
+  }
+
+  const double saved_dt = fdm_exec.GetDeltaT();
+  fdm_exec.Setdt(dt_sec);
+  fdm_exec.SetHoldDown(true);
+  ResetThrottleState(fdm_exec, 0.0);
+  SetBrakeState(fdm_exec, 1.0);
+  for (int i = 0; i < 5; ++i) {
+    fdm_exec.Run();
+    ResetThrottleState(fdm_exec, 0.0);
+    SetBrakeState(fdm_exec, 1.0);
+  }
+  fdm_exec.SetHoldDown(false);
+  fdm_exec.Setdt(saved_dt);
+}
+
+void DisableXmlOutput(JSBSim::FGFDMExec& fdm_exec) { fdm_exec.DisableOutput(); }
 
 void PrepareXmlOutputPath(JSBSim::FGFDMExec& fdm_exec) {
   try {
@@ -58,20 +103,11 @@ void RotateXmlOutputBeforeRepeatedRunIC(JSBSim::FGFDMExec& fdm_exec) {
 
 void ResetControlStateAfterTrimFailure(JSBSim::FGFDMExec& fdm_exec) {
   const char* properties[] = {
-      property::kAileronCmd,
-      property::kElevatorCmd,
-      property::kRudderCmd,
-      property::kPitchTrimCmd,
-      property::kRollTrimCmd,
-      property::kYawTrimCmd,
-      property::kPitchRateIntegrator,
-      property::kRollRateIntegrator,
-      property::kYawRateIntegrator,
-      property::kElevatorPosNorm,
-      property::kElevatorPosRad,
-      property::kLeftAileronPosRad,
-      property::kRightAileronPosRad,
-      property::kRudderPosRad,
+      property::kAileronCmd,          property::kElevatorCmd,        property::kRudderCmd,
+      property::kPitchTrimCmd,        property::kRollTrimCmd,        property::kYawTrimCmd,
+      property::kPitchRateIntegrator, property::kRollRateIntegrator, property::kYawRateIntegrator,
+      property::kElevatorPosNorm,     property::kElevatorPosRad,     property::kLeftAileronPosRad,
+      property::kRightAileronPosRad,  property::kRudderPosRad,
   };
   for (const char* property : properties) {
     SetPropertyIfPresent(fdm_exec, property, 0.0);
@@ -120,8 +156,7 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
   PrepareXmlOutputPath(*fdm_exec_);
 
   if (!LoadAircraft(config)) {
-    throw std::runtime_error("JsbsimAdapter: failed to load aircraft: " +
-                             config.aircraft_model);
+    throw std::runtime_error("JsbsimAdapter: failed to load aircraft: " + config.aircraft_model);
   }
   init_diag_.model_loaded = true;
 
@@ -141,6 +176,12 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
   // Start all engines so that JSBSim can trim longitudinal velocity (udot).
   fdm_exec_->GetPropulsion()->InitRunning(-1);
   init_diag_.engines_started = true;
+
+  // InitRunning sets per-engine FCS and propulsion throttles to 1.0 while
+  // converging engine steady state for trim. Clear both surfaces so the first
+  // Run() starts from adapter/user commands instead of stale full-power input.
+  ResetThrottleState(*fdm_exec_, 0.0);
+  SettleInitialGroundState(*fdm_exec_, config.dt_sec);
   if (InitialAltitudeM(config.initial_kinematics) > 10.0) {
     RetractLandingGearIfModeled(*fdm_exec_);
     init_diag_.gear_retracted = true;
@@ -180,6 +221,7 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
         throw std::runtime_error("JsbsimAdapter: RunIC() failed after trim recovery");
       }
       fdm_exec_->GetPropulsion()->InitRunning(-1);
+      ResetThrottleState(*fdm_exec_, 0.0);
       if (InitialAltitudeM(config.initial_kinematics) > 10.0) {
         RetractLandingGearIfModeled(*fdm_exec_);
       }
@@ -191,21 +233,13 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
 
 JsbsimAdapter::~JsbsimAdapter() = default;
 
-bool JsbsimAdapter::Run() {
-  return fdm_exec_->Run();
-}
+bool JsbsimAdapter::Run() { return fdm_exec_->Run(); }
 
-bool JsbsimAdapter::RunIC() {
-  return fdm_exec_->RunIC();
-}
+bool JsbsimAdapter::RunIC() { return fdm_exec_->RunIC(); }
 
-void JsbsimAdapter::SetDeltaT(double dt_sec) {
-  fdm_exec_->Setdt(dt_sec);
-}
+void JsbsimAdapter::SetDeltaT(double dt_sec) { fdm_exec_->Setdt(dt_sec); }
 
-double JsbsimAdapter::GetDeltaT() const {
-  return fdm_exec_->GetDeltaT();
-}
+double JsbsimAdapter::GetDeltaT() const { return fdm_exec_->GetDeltaT(); }
 
 double JsbsimAdapter::GetProperty(const std::string& name) const {
   return fdm_exec_->GetPropertyValue(name);
@@ -219,9 +253,7 @@ bool JsbsimAdapter::HasProperty(const std::string& name) const {
   return fdm_exec_->GetPropertyManager()->GetNode(name) != nullptr;
 }
 
-JSBSim::FGPropagate& JsbsimAdapter::GetPropagate() {
-  return *fdm_exec_->GetPropagate();
-}
+JSBSim::FGPropagate& JsbsimAdapter::GetPropagate() { return *fdm_exec_->GetPropagate(); }
 
 const JSBSim::FGPropagate& JsbsimAdapter::GetPropagate() const {
   return *fdm_exec_->GetPropagate();
@@ -235,13 +267,9 @@ const JSBSim::FGAccelerations& JsbsimAdapter::GetAccelerations() const {
   return *fdm_exec_->GetAccelerations();
 }
 
-JSBSim::FGFDMExec& JsbsimAdapter::GetFdmExec() {
-  return *fdm_exec_;
-}
+JSBSim::FGFDMExec& JsbsimAdapter::GetFdmExec() { return *fdm_exec_; }
 
-const JSBSim::FGFDMExec& JsbsimAdapter::GetFdmExec() const {
-  return *fdm_exec_;
-}
+const JSBSim::FGFDMExec& JsbsimAdapter::GetFdmExec() const { return *fdm_exec_; }
 
 bool JsbsimAdapter::LoadAircraft(const config::FlightDynamicConfig& config) {
   if (!config.aircraft_root_dir.empty()) {
@@ -254,18 +282,14 @@ bool JsbsimAdapter::LoadAircraft(const config::FlightDynamicConfig& config) {
   return fdm_exec_->LoadModel(config.aircraft_model, true);
 }
 
-void JsbsimAdapter::ConfigureIntegrators(
-    const config::FlightDynamicConfig& config) {
-  SetProperty(property::kIntegratorRateRot,
-              static_cast<double>(config.integrator_rate_rotational));
+void JsbsimAdapter::ConfigureIntegrators(const config::FlightDynamicConfig& config) {
+  SetProperty(property::kIntegratorRateRot, static_cast<double>(config.integrator_rate_rotational));
   SetProperty(property::kIntegratorRateTrans,
               static_cast<double>(config.integrator_rate_translational));
-  SetProperty(property::kIntegratorPosRot,
-              static_cast<double>(config.integrator_pos_rotational));
+  SetProperty(property::kIntegratorPosRot, static_cast<double>(config.integrator_pos_rotational));
   SetProperty(property::kIntegratorPosTrans,
               static_cast<double>(config.integrator_pos_translational));
-  SetProperty(property::kGravityModel,
-              static_cast<double>(config.gravity_model));
+  SetProperty(property::kGravityModel, static_cast<double>(config.gravity_model));
   if (fdm_exec_->GetPropertyManager()->GetNode(property::kGuidanceRollAngleLimit) != nullptr) {
     SetProperty(property::kGuidanceRollAngleLimit, 0.785);  // 45 deg
     SetProperty(property::kGuidanceRollRateLimit, 1.5);     // ~86 deg/s

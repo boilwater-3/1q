@@ -6,8 +6,8 @@
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
-#include "flight_dynamic/propulsion/EngineManager.h"
 #include "flight_dynamic/adapter/PropertyNames.h"
+#include "flight_dynamic/propulsion/EngineManager.h"
 #include "math/FGLocation.h"
 #include "models/FGPropagate.h"
 
@@ -18,6 +18,78 @@ namespace guidance {
 namespace {
 
 constexpr double kEarthRadiusM = 6378137.0;
+
+double TakeoffIdleThrottle(propulsion::EngineType type) {
+  switch (type) {
+    case propulsion::EngineType::kPiston:
+      return 0.15;
+    case propulsion::EngineType::kTurboprop:
+      return 0.10;
+    case propulsion::EngineType::kTurbine:
+      return 0.20;
+    default:
+      return 0.10;
+  }
+}
+
+double EngineStartDurationSec(propulsion::EngineType type) {
+  switch (type) {
+    case propulsion::EngineType::kPiston:
+      return 1.5;
+    case propulsion::EngineType::kTurboprop:
+      return 1.5;
+    case propulsion::EngineType::kTurbine:
+      return 1.0;
+    default:
+      return 1.0;
+  }
+}
+
+bool UsesStaticRunup(propulsion::EngineType type) {
+  return type == propulsion::EngineType::kTurbine || type == propulsion::EngineType::kRocket;
+}
+
+double StaticRunupDurationSec(propulsion::EngineType type) {
+  return type == propulsion::EngineType::kTurbine ? 1.5 : 0.5;
+}
+
+double StaticRunupThrottle(propulsion::EngineType type, double elapsed_sec) {
+  double target = type == propulsion::EngineType::kTurbine ? 0.90 : 0.70;
+  double duration = StaticRunupDurationSec(type);
+  double progress = duration > 0.0 ? std::clamp(elapsed_sec / duration, 0.0, 1.0) : 1.0;
+  return TakeoffIdleThrottle(type) + (target - TakeoffIdleThrottle(type)) * progress;
+}
+
+double TakeoffRampDurationSec(propulsion::EngineType type) {
+  switch (type) {
+    case propulsion::EngineType::kTurboprop:
+      return 6.0;
+    case propulsion::EngineType::kPiston:
+      return 3.0;
+    case propulsion::EngineType::kTurbine:
+      return 2.0;
+    default:
+      return 3.0;
+  }
+}
+
+double TakeoffPowerThrottle(propulsion::EngineType type) {
+  switch (type) {
+    case propulsion::EngineType::kTurboprop:
+      return 0.85;
+    default:
+      return 1.0;
+  }
+}
+
+double ScheduledTakeoffThrottle(propulsion::EngineType type, double elapsed_sec) {
+  double start = UsesStaticRunup(type) ? StaticRunupThrottle(type, StaticRunupDurationSec(type))
+                                       : TakeoffIdleThrottle(type);
+  double target = TakeoffPowerThrottle(type);
+  double duration = TakeoffRampDurationSec(type);
+  double progress = duration > 0.0 ? std::clamp(elapsed_sec / duration, 0.0, 1.0) : 1.0;
+  return start + (target - start) * progress;
+}
 
 double NormalizeRad(double angle_rad) {
   while (angle_rad > M_PI) angle_rad -= 2.0 * M_PI;
@@ -58,8 +130,7 @@ double ComputeClockwiseOrbitHeadingRad(const JSBSim::FGLocation& location, const
 }  // namespace
 
 ManeuverExecutor::ManeuverExecutor(adapter::JsbsimAdapter& adapter, autopilot::Autopilot& ap,
-                                   WaypointManager& wp_manager,
-                                   propulsion::EngineManager& engines)
+                                   WaypointManager& wp_manager, propulsion::EngineManager& engines)
     : adapter_(adapter), ap_(ap), wp_manager_(wp_manager), engines_(engines) {}
 
 void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
@@ -168,6 +239,7 @@ void ManeuverExecutor::ExecuteTakeoff(double target_altitude_m, double target_he
   current_maneuver_.target.altitude_m = target_altitude_m;
   active_ = true;
   elapsed_sec_ = 0.0;
+  takeoff_phase_elapsed_sec_ = 0.0;
   takeoff_phase_ = TakeoffPhase::kEngineStart;
   takeoff_target_altitude_m_ = target_altitude_m;
   takeoff_target_heading_rad_ = target_heading_rad;
@@ -177,27 +249,26 @@ void ManeuverExecutor::ExecuteTakeoff(double target_altitude_m, double target_he
 
 void ManeuverExecutor::StartEngine() {
   engines_.SetBrakes(true);
-  engines_.SetThrottle(1.0);
+  engines_.SetThrottle(TakeoffIdleThrottle(engines_.GetType()));
   engines_.Start();
+  // Wings-level hold during engine start and takeoff roll.
+  ap_.SetRollAttitudeMode(0);  // wings level
+  ap_.SetRollAutopilotOn(true);
 }
 
 void ManeuverExecutor::ConfigureForTakeoffRoll() {
-  // Release brakes, takeoff flaps, full throttle for takeoff roll.
+  // Release brakes, set takeoff flaps, then ramp throttle during the roll.
   engines_.SetBrakes(false);
   engines_.SetFlaps(0.33);
-  engines_.SetThrottle(1.0);
+  engines_.SetThrottle(ScheduledTakeoffThrottle(engines_.GetType(), 0.0));
 }
 
 void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target_heading_rad,
                                          double /*target_speed_mps*/) {
-  // Rotate: elevator back. Gear/flaps stay until positive climb confirmed.
+  // Rotation: elevator ramps gradually in kRotateAndClimb (no step input).
   rotation_elapsed_sec_ = 0.0;
-  double el_rot = ap_.GetControlProfile().fbw_subtype ==
-                          autopilot::FbwSubtype::kRateIntegratorActuator
-                  ? -0.05 : -0.3;
-  adapter_.SetProperty("fcs/elevator-cmd-norm", el_rot);
 
-  ap_.SetRollAttitudeMode(1);
+  ap_.SetRollAttitudeMode(1);  // heading-based roll
   ap_.SetRollAutopilotOn(true);
   ap_.SetHeadingTargetRad(target_heading_rad);
   ap_.SetHeadingHold(true);
@@ -205,10 +276,15 @@ void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target
 }
 
 bool ManeuverExecutor::IsTouchingGround() const {
+  if (current_maneuver_.type == ManeuverType::kTakeoff) {
+    return engines_.IsWeightOnWheels() && (takeoff_phase_ == TakeoffPhase::kEngineStart ||
+                                           takeoff_phase_ == TakeoffPhase::kStaticRunup ||
+                                           takeoff_phase_ == TakeoffPhase::kTakeoffRoll);
+  }
   if (current_maneuver_.type != ManeuverType::kLand) return false;
-  return land_phase_ == LandPhase::kFlare ||
-         land_phase_ == LandPhase::kTouchdown ||
-         land_phase_ == LandPhase::kRollout;
+  return engines_.IsWeightOnWheels() &&
+         (land_phase_ == LandPhase::kFlare || land_phase_ == LandPhase::kTouchdown ||
+          land_phase_ == LandPhase::kRollout);
 }
 
 bool ManeuverExecutor::IsManeuverComplete() const {
@@ -218,10 +294,9 @@ bool ManeuverExecutor::IsManeuverComplete() const {
     case ManeuverType::kFlyToWaypoint: {
       double speed_mps = adapter_.GetPropagate().GetInertialVelocityMagnitude() * 0.3048;
       double max_bank_rad = ap_.GetControlProfile().max_roll_angle_deg * 0.0174533;
-      double min_turn_radius_m =
-          (speed_mps * speed_mps) / (9.81 * std::tan(max_bank_rad));
-      double effective_radius_m = std::max(current_maneuver_.target.radius_m,
-                                           min_turn_radius_m * 1.5);
+      double min_turn_radius_m = (speed_mps * speed_mps) / (9.81 * std::tan(max_bank_rad));
+      double effective_radius_m =
+          std::max(current_maneuver_.target.radius_m, min_turn_radius_m * 1.5);
       return wp_manager_.IsAtTarget(effective_radius_m);
     }
     case ManeuverType::kOrbit:
@@ -257,12 +332,12 @@ void ManeuverExecutor::Update(double dt_sec) {
     if (radius_m < 1.0) radius_m = 1.0;
     double speed_mps = adapter_.GetPropagate().GetInertialVelocityMagnitude() * 0.3048;
     if (speed_mps < 10.0) speed_mps = 10.0;
-    double heading_rad = ComputeClockwiseOrbitHeadingRad(adapter_.GetPropagate().GetLocation(),
-                                                         current_maneuver_.target, radius_m,
-                                                         speed_mps);
+    double heading_rad = ComputeClockwiseOrbitHeadingRad(
+        adapter_.GetPropagate().GetLocation(), current_maneuver_.target, radius_m, speed_mps);
     ap_.SetHeadingTargetRad(heading_rad);
   }
   if (current_maneuver_.type == ManeuverType::kTakeoff) {
+    takeoff_phase_elapsed_sec_ += dt_sec;
     double vc_kts = adapter_.GetProperty("velocities/vc-kts");
     double agl_ft = adapter_.GetProperty("position/h-agl-ft");
     double agl_m = agl_ft * 0.3048;
@@ -271,37 +346,59 @@ void ManeuverExecutor::Update(double dt_sec) {
 
     switch (takeoff_phase_) {
       case TakeoffPhase::kEngineStart:
-        if (elapsed_sec_ >= 2.0) {
+        engines_.SetBrakes(true);
+        engines_.SetThrottle(TakeoffIdleThrottle(engines_.GetType()));
+        if (takeoff_phase_elapsed_sec_ >= EngineStartDurationSec(engines_.GetType())) {
+          takeoff_phase_elapsed_sec_ = 0.0;
+          if (UsesStaticRunup(engines_.GetType())) {
+            takeoff_phase_ = TakeoffPhase::kStaticRunup;
+          } else {
+            ConfigureForTakeoffRoll();
+            takeoff_phase_ = TakeoffPhase::kTakeoffRoll;
+          }
+        }
+        break;
+      case TakeoffPhase::kStaticRunup:
+        engines_.SetBrakes(true);
+        engines_.SetThrottle(StaticRunupThrottle(engines_.GetType(), takeoff_phase_elapsed_sec_));
+        if (takeoff_phase_elapsed_sec_ >= StaticRunupDurationSec(engines_.GetType())) {
           ConfigureForTakeoffRoll();
+          takeoff_phase_elapsed_sec_ = 0.0;
           takeoff_phase_ = TakeoffPhase::kTakeoffRoll;
         }
         break;
       case TakeoffPhase::kTakeoffRoll:
-        engines_.SetThrottle(1.0);
+        engines_.SetThrottle(
+            ScheduledTakeoffThrottle(engines_.GetType(), takeoff_phase_elapsed_sec_));
         if (vc_kts >= engines_.GetRotationSpeedKts()) {
-          ConfigureForClimb(takeoff_target_altitude_m_,
-                            takeoff_target_heading_rad_,
+          ConfigureForClimb(takeoff_target_altitude_m_, takeoff_target_heading_rad_,
                             current_maneuver_.duration_sec);
+          takeoff_phase_elapsed_sec_ = 0.0;
           takeoff_phase_ = TakeoffPhase::kRotateAndClimb;
         }
         break;
       case TakeoffPhase::kRotateAndClimb: {
-        engines_.SetThrottle(1.0);
+        engines_.SetThrottle(TakeoffPowerThrottle(engines_.GetType()));
         rotation_elapsed_sec_ += dt_sec;
-        bool is_rate_int = ap_.GetControlProfile().fbw_subtype ==
-                           autopilot::FbwSubtype::kRateIntegratorActuator;
-        bool use_pitch_trim = ap_.GetControlProfile().fbw_subtype !=
-                              autopilot::FbwSubtype::kNone;
+        bool is_rate_int =
+            ap_.GetControlProfile().fbw_subtype == autopilot::FbwSubtype::kRateIntegratorActuator;
+        bool use_pitch_trim = ap_.GetControlProfile().fbw_subtype != autopilot::FbwSubtype::kNone;
         auto set_tko_el = [&](double el) {
           if (use_pitch_trim)
             adapter_.SetProperty("fcs/pitch-trim-cmd-norm", el);
           else
             adapter_.SetProperty("fcs/elevator-cmd-norm", el);
         };
-        // Rotation: single impulse for rate-integrator FBW,
-        // continuous hold for direct-surface aircraft.
+        // Rotation: gradual ramp for direct-surface aircraft (3s),
+        // brief impulse for rate-integrator FBW.
         if (agl_m < 10.0 && (!is_rate_int || rotation_elapsed_sec_ < dt_sec * 2)) {
-          double el = is_rate_int ? -0.05 : -0.3;
+          double el;
+          if (is_rate_int) {
+            el = -0.05;  // brief impulse for rate-integrator
+          } else {
+            double progress = std::min(rotation_elapsed_sec_ / 3.0, 1.0);
+            el = -0.3 * progress;
+          }
           set_tko_el(el);
         } else if (agl_m < 10.0) {
           set_tko_el(0.0);
@@ -345,8 +442,7 @@ void ManeuverExecutor::Update(double dt_sec) {
     sink_rate_mps_ = (agl_m - prev_alt_m_) / dt_sec;
     prev_alt_m_ = agl_m;
 
-    bool is_fbw = ap_.GetControlProfile().fbw_subtype !=
-                  autopilot::FbwSubtype::kNone;
+    bool is_fbw = ap_.GetControlProfile().fbw_subtype != autopilot::FbwSubtype::kNone;
     // FBW aircraft (f16) use pitch-trim-cmd-norm which feeds through
     // the FBW rate limiter/scheduler. Direct-surface aircraft use elevator-cmd-norm.
     auto set_el = [&](double el_norm) {
@@ -369,8 +465,7 @@ void ManeuverExecutor::Update(double dt_sec) {
           // Too fast for straight-in: orbit near landing point to bleed speed.
           double orbit_radius_m = std::max(2000.0, vc_mps * 15.0);
           double heading_rad = ComputeClockwiseOrbitHeadingRad(
-              adapter_.GetPropagate().GetLocation(),
-              current_maneuver_.target, orbit_radius_m,
+              adapter_.GetPropagate().GetLocation(), current_maneuver_.target, orbit_radius_m,
               std::max(vc_mps, 10.0));
           ap_.SetHeadingTargetRad(heading_rad);
           ap_.SetHeadingSourceIsWaypoint(false);
@@ -481,8 +576,7 @@ void ManeuverExecutor::ExecuteLand(const Waypoint& target, double approach_speed
   ConfigureForApproach(target, approach_speed_mps);
 }
 
-void ManeuverExecutor::ConfigureForApproach(const Waypoint& target,
-                                            double approach_speed_mps) {
+void ManeuverExecutor::ConfigureForApproach(const Waypoint& target, double approach_speed_mps) {
   // Clear waypoint tracking — landing needs a fixed heading, not continuous
   // waypoint guidance which can cause orbiting (observed 737 at 45° bank).
   wp_manager_.ClearWaypoints();
@@ -525,8 +619,7 @@ void ManeuverExecutor::ConfigureForApproach(const Waypoint& target,
     }
   }
   // Upper bound: don't try to hold speed above 75% of current.
-  if (land_approach_speed_mps_ > cur_spd * 0.75)
-    land_approach_speed_mps_ = cur_spd * 0.75;
+  if (land_approach_speed_mps_ > cur_spd * 0.75) land_approach_speed_mps_ = cur_spd * 0.75;
   land_target_alt_m_ = target.altitude_m;
   prev_alt_m_ = adapter_.GetProperty("position/h-agl-ft") * 0.3048;
 
