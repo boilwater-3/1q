@@ -72,15 +72,20 @@
   - 方案：启动时显式设置 `cutoff-cmd=0`；研究 betarangeend 对 throttle ramp 的影响
 
 ### 8.3 飞行阶段问题 — `in_progress`
-- **MD11** ✅：四个根因修复 — Iyy 属性名、has_mixture 误判、惯性速度含地球自转、高空着陆 throttle。2389s completed。
+- **MD11** ✅ `commit 5d5f7ac5`：四个根因修复
+  1. **Iyy 属性名**：`inertia/iyy-lbsft2` 不存在 → 改为 `inertia/iyy-slugs_ft2`
+  2. **has_mixture 误判**：FGFCS 为所有引擎创建 indexed mixture → 同时检查 `propulsion/magneto_cmd`（仅 FGPiston）
+  3. **惯性速度含地球自转**：`GetInertialVelocityMagnitude()` 含 ~465m/s → 改用 TAS (`velocities/vtrue-fps`)
+  4. **高空着陆 throttle**：kDecelerate throttle=0.1 导致 zoom climb → AGL>3000m 用 AP altitude hold
+  - 2389s completed。文件：`Autopilot.cpp`, `Maneuver.cpp`, `EngineManager.cpp`, `fd_adapter_test.cpp`
+- **F80C** ✅：副作用修复 — has_mixture 和能量分类修正后 1740s completed
 - **XB-70**：delta wing 气动特性导致 pitch 爆发（t=16 pitch=34.65°→t=24 pitch=65.6°），Vr=115 kts 过低
-- **DHC6**：飞到 9180m 但 2500s 未完成（orbit/land 逻辑问题）
-- **F80C**：飞到 475m 但未完成
-- **OV10**：飞到 6542m 但未完成
+- **DHC6**：飞到 9180m 但 2500s 未完成（fly-to/land 机动不完成）
+- **OV10**：飞到 6380m 但 2500s 未完成（机动不完成）
 
-### 8.4 着陆 crash（T38, A4）— `pending`
-- T38：着陆 pitch=66° 坠毁
-- A4：21.5s crash
+### 8.4 着陆 crash（T38, A4）— ✅ `已自动解决`
+- **T38** ✅：副作用修复 — 572s completed（has_mixture 修正 → 能量分类正确 → 着陆下降受控）
+- **A4** ✅：之前已修复 — 166s completed
 
 ## 关键决策
 

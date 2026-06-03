@@ -302,3 +302,21 @@ default                         → struct defaults (45°roll)
 - 8000m 高空 0.1 throttle + 微小 nose-up → 动能转势能 → zoom climb 到 10965m
 - Pitch ±90°，roll ±180° 发散 → crash
 - 修复：AGL>3000m 时用 AP altitude hold + 0.7 throttle 下降到 intermediate altitude
+
+### 副作用修复（2026-06-03）
+
+has_mixture 修正和能量分类变更产生了额外修复效果：
+
+| 机型 | 之前 | 之后 | 原因 |
+|------|------|------|------|
+| F80C | TIMEOUT (475m) | COMPLETED (1740s) | has_mixture 修正 → 不再落入 piston 分支 → fly-to 航路点距离正确 |
+| T38 | 着陆 crash (pitch 66°) | COMPLETED (572s) | 能量分类修正 → 着陆下降受控，不再在高空 throttle 骤降 |
+
+F80C 和 T38 的表观症状不同但根因相同：它们之前被误判为 piston（has_mixture=true），导致：
+- ref_speed_mps=0（struct default）→ 航路点太近 → fly-to 瞬间完成 → throttle 骤降到 0.1
+- 现在 has_mixture=false → 正确落入结构默认（kDirectSurface, 非 FBW）→ 能量管理正常
+
+当前剩余问题（非引擎兼容性）：
+- **XB-70** (CRASH 44s)：delta wing 气动特性，pitch 68.5°/roll 100° 发散。Vr=115 kts 可能对 delta wing 过低
+- **DHC6** (TIMEOUT 2500s)：涡桨飞到 9180m 但 fly-to/land 机动不完成
+- **OV10** (TIMEOUT 2500s)：涡桨飞到 6380m 但机动不完成

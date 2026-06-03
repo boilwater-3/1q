@@ -136,14 +136,28 @@ double EngineManager::GetRotationSpeedKts() const {
   const double weight_lbs = GetProperty("inertia/weight-lbs");
   const double wing_area_ft2 = GetProperty("metrics/Sw-sqft");
   const double rho = GetProperty("atmosphere/rho-slugs_ft3");
-  const double iyy = GetProperty("inertia/iyy-lbsft2");
-  constexpr double kClMaxTakeoff = 1.6;  // takeoff flaps ~10-20°
+  const double iyy = GetProperty("inertia/iyy-slugs_ft2");
+
+  // CLmax for takeoff varies by aircraft type:
+  //   Clean wing: ~1.6 (default)
+  //   Turboprop:  ~2.0 (high-lift wings, takeoff flaps 33-50%)
+  //   Delta wing: ~2.5 (vortex lift at high AoA, AR < 2.5)
+  double cl_max = 1.6;
+  if (type_ == EngineType::kTurboprop) {
+    cl_max = 2.0;
+  }
+  // Detect delta-wing / low-aspect-ratio planforms via wing geometry.
+  const double wingspan_ft = GetProperty("metrics/bw-ft");
+  if (wingspan_ft > 1.0 && wing_area_ft2 > 1.0) {
+    double aspect_ratio = (wingspan_ft * wingspan_ft) / wing_area_ft2;
+    if (aspect_ratio < 2.5) cl_max = 2.5;  // delta wing (XB-70 AR=1.75)
+  }
 
   if (weight_lbs < 1.0 || wing_area_ft2 < 1.0 || rho < 1e-9) {
     return 50.0;
   }
 
-  const double v_stall_ftps = std::sqrt((2.0 * weight_lbs) / (rho * wing_area_ft2 * kClMaxTakeoff));
+  const double v_stall_ftps = std::sqrt((2.0 * weight_lbs) / (rho * wing_area_ft2 * cl_max));
   const double v_stall_kts = v_stall_ftps * 0.592484;
 
   // Vr factor: heavy aircraft have high-lift devices (slats, multi-slot

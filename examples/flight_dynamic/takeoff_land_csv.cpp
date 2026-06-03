@@ -218,7 +218,7 @@ int main(int argc, char** argv) {
   WriteHeader(out);
 
   double t = 0.0;
-  int max_steps = 250000;  // 2500s max
+  int max_steps = 350000;  // 2500s max
   for (int i = 0; i < max_steps; ++i) {
     fm.Step(kDt);
     t += kDt;

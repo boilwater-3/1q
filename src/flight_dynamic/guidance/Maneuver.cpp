@@ -381,6 +381,7 @@ void ManeuverExecutor::Update(double dt_sec) {
             ScheduledTakeoffThrottle(engines_.GetType(), takeoff_phase_elapsed_sec_));
         {
           double vr_kts = engines_.GetRotationSpeedKts();
+          takeoff_vr_kts_ = vr_kts;  // cache for airspeed checks during climb
           if (vc_kts >= vr_kts * 0.79 && vc_kts < vr_kts) {
             spdlog::info("[TAKEOFF] vc={:.1f} kts  Vr={:.1f} kts  pre-rot el={:.3f}",
                          vc_kts, vr_kts,
@@ -398,25 +399,51 @@ void ManeuverExecutor::Update(double dt_sec) {
                               current_maneuver_.duration_sec);
             takeoff_phase_elapsed_sec_ = 0.0;
             takeoff_phase_ = TakeoffPhase::kRotateAndClimb;
+          } else if (!engines_.IsWeightOnWheels() && agl_m > 10.0) {
+            // Uncommanded liftoff: delta-wing / high-lift aircraft may lift
+            // off before reaching computed Vr.  Transition to climb phase
+            // with the rotation ramp marked complete — the gradual pitch
+            // recovery in kRotateAndClimb will gently reduce pitch toward
+            // the climb target without a full-elevator step (XB-70, DHC6).
+            spdlog::info("[TAKEOFF] Uncommanded liftoff at vc={:.1f} kts (Vr={:.1f}), "
+                         "entering climb",
+                         vc_kts, vr_kts);
+            ConfigureForClimb(takeoff_target_altitude_m_, takeoff_target_heading_rad_,
+                              current_maneuver_.duration_sec);
+            rotation_elapsed_sec_ = ap_.GetControlProfile().rotation_ramp_sec + 0.01;
+            takeoff_phase_elapsed_sec_ = 0.0;
+            takeoff_phase_ = TakeoffPhase::kRotateAndClimb;
           } else if (vc_kts >= vr_kts * 0.80) {
             // Pre-rotation: light back-pressure starting at 80% Vr.
-            // Heavy aircraft destabilize on the ground at high speed
-            // without elevator input; this mimics real pilot technique.
-            double pre_rot_frac = (vc_kts - vr_kts * 0.80) / (vr_kts * 0.20);
-            pre_rot_frac = std::clamp(pre_rot_frac, 0.0, 1.0);
-            double el = -ap_.GetControlProfile().rotation_max_elevator * 0.8 * pre_rot_frac;
-            bool use_pitch_trim =
-                ap_.GetControlProfile().fbw_subtype != autopilot::FbwSubtype::kNone;
-            if (use_pitch_trim)
-              adapter_.SetProperty("fcs/pitch-trim-cmd-norm", el);
-            else
-              adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+            // Skip for delta-wing aircraft (XB-70, Concorde): vortex lift
+            // generates excessive pitch-up at low speed; the aircraft will
+            // rotate naturally without elevator input.
+            bool is_delta_wing = false;
+            {
+              double b = adapter_.GetProperty("metrics/bw-ft");
+              double s = adapter_.GetProperty("metrics/Sw-sqft");
+              if (b > 1.0 && s > 1.0 && (b * b) / s < 2.5) is_delta_wing = true;
+            }
+            if (!is_delta_wing) {
+              double pre_rot_frac = (vc_kts - vr_kts * 0.80) / (vr_kts * 0.20);
+              pre_rot_frac = std::clamp(pre_rot_frac, 0.0, 1.0);
+              double el = -ap_.GetControlProfile().rotation_max_elevator * 0.8 * pre_rot_frac;
+              double pitch_deg = adapter_.GetProperty("attitude/pitch-rad") * 57.2958;
+              if (pitch_deg > 15.0) el = 0.0;
+              bool use_pitch_trim =
+                  ap_.GetControlProfile().fbw_subtype != autopilot::FbwSubtype::kNone;
+              if (use_pitch_trim)
+                adapter_.SetProperty("fcs/pitch-trim-cmd-norm", el);
+              else
+                adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+            }
           }
         }
         break;
       case TakeoffPhase::kRotateAndClimb: {
         engines_.SetThrottle(TakeoffPowerThrottle(engines_.GetType()));
         rotation_elapsed_sec_ += dt_sec;
+
         bool is_rate_int =
             ap_.GetControlProfile().fbw_subtype == autopilot::FbwSubtype::kRateIntegratorActuator;
         bool use_pitch_trim = ap_.GetControlProfile().fbw_subtype != autopilot::FbwSubtype::kNone;
@@ -427,11 +454,21 @@ void ManeuverExecutor::Update(double dt_sec) {
             adapter_.SetProperty("fcs/elevator-cmd-norm", el);
         };
 
-        // Engage heading hold only after lifting off.  On the ground, heading-
-        // based roll control generates aggressive aileron at high speed that
-        // causes roll departure before rotation completes.
+        // Engage heading hold only after lifting off AND achieving adequate
+        // airspeed for roll control authority.  On the ground, heading-based
+        // roll control generates aggressive aileron at high speed that causes
+        // roll departure before rotation completes.
+        //   Normal rotation: require 85% Vr (some roll authority available).
+        //   Uncommanded liftoff (XB-70, DHC6): require 100% Vr — the
+        //     aircraft lifted off with excessive pitch and has very low
+        //     forward airspeed component; engaging heading hold too early
+        //     causes roll divergence.
         bool is_airborne = !engines_.IsWeightOnWheels() && agl_m > 5.0;
-        if (is_airborne && !ap_.GetControlProfile().has_own_autopilot) {
+        double min_hdg_kts = (rotation_elapsed_sec_ > ap_.GetControlProfile().rotation_ramp_sec)
+                                 ? takeoff_vr_kts_
+                                 : takeoff_vr_kts_ * 0.85;
+        bool has_roll_authority = vc_kts >= min_hdg_kts;
+        if (is_airborne && has_roll_authority && !ap_.GetControlProfile().has_own_autopilot) {
           ap_.SetRollAttitudeMode(1);  // heading-based roll
           ap_.SetRollAutopilotOn(true);
           ap_.SetHeadingHold(true);
@@ -477,10 +514,25 @@ void ManeuverExecutor::Update(double dt_sec) {
             // Below handoff altitude: use AP pitch hold for stabilized climb.
             // The AP's PD controller with pitch-rate damping is far more stable
             // than the direct climb-rate P controller which oscillated badly on
-            // heavy aircraft (MD11, B747).  The AP runs after the maneuver, so
-            // it overwrites any elevator set here — we simply don't call
-            // set_tko_el and let the AP manage elevator entirely.
+            // heavy aircraft (MD11, B747).
             double target_pitch = engines_.GetClimbPitchDeg();
+            double current_pitch_deg = adapter_.GetProperty("attitude/pitch-rad") * 57.2958;
+            // Gradual pitch recovery for uncommanded liftoff: limit per-frame
+            // pitch target change to avoid full-elevator corrections that
+            // trigger roll departure.  Delta-wing aircraft (AR < 2.5) skip
+            // this limit — they have strong pitch-up moments at low speed
+            // that require aggressive elevator to counter.
+            constexpr double kMaxPitchRecoveryDegPerSec = 5.0;
+            bool is_delta_wing = false;
+            {
+              double b = adapter_.GetProperty("metrics/bw-ft");
+              double s = adapter_.GetProperty("metrics/Sw-sqft");
+              if (b > 1.0 && s > 1.0 && (b * b) / s < 2.5) is_delta_wing = true;
+            }
+            if (current_pitch_deg > target_pitch + 5.0 && !is_delta_wing) {
+              target_pitch = std::max(target_pitch,
+                                      current_pitch_deg - kMaxPitchRecoveryDegPerSec * dt_sec);
+            }
             ap_.SetPitchTargetDeg(target_pitch);
             ap_.SetPitchHold(true);
           } else if (!is_rate_int) {
@@ -536,7 +588,10 @@ void ManeuverExecutor::Update(double dt_sec) {
           ap_.SetAltitudeTargetM(intermediate_alt);
           ap_.SetAltitudeHold(true);
           ap_.SetSpeedHold(false);
-          engines_.SetThrottle(0.7);
+          // Turboprops produce significant residual thrust at moderate throttle;
+          // use a lower setting so the aircraft actually descends (DHC6).
+          double descent_thr = (engines_.GetType() == propulsion::EngineType::kTurboprop) ? 0.50 : 0.70;
+          engines_.SetThrottle(descent_thr);
           if (agl_m < intermediate_alt + 500.0) {
             land_phase_ = LandPhase::kApproach;
           }
