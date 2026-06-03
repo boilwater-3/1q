@@ -6,7 +6,7 @@
 
 ## 背景
 
-分支 `refactor/jsbsim-integration`，fd_ci 3/3 绿。10/28 机型全任务通过，F450 跳过（多旋翼）。
+分支 `refactor/jsbsim-integration`，fd_ci 3/3 绿。16/20 机型全任务通过（含 OV10），F450 跳过（多旋翼）。
 
 ## 根因分析（最终确认）
 
@@ -52,7 +52,7 @@
 - 能量管理：按属性分类（FBW/发数/mixture）替代机型名字符串
 - 删除 F4N 硬编码 altitude override
 
-## 🆕 阶段 8 — 剩余 CRASH 修复 — `in_progress`
+## 🆕 阶段 8 — 剩余 CRASH 修复
 
 ### 8.1 重型机起飞稳定化 ✅ — `commit 06b37c3f`
 - 三个根因修复：
@@ -71,21 +71,64 @@
 - **L410**：engTM601 有 `cutoff-cmd` 属性（可能默认=1 燃油切断）+ `betarangeend=64`（油门<64%仅怠速）。两个引擎交替正负振荡
   - 方案：启动时显式设置 `cutoff-cmd=0`；研究 betarangeend 对 throttle ramp 的影响
 
-### 8.3 飞行阶段问题 — `in_progress`
-- **MD11** ✅ `commit 5d5f7ac5`：四个根因修复
-  1. **Iyy 属性名**：`inertia/iyy-lbsft2` 不存在 → 改为 `inertia/iyy-slugs_ft2`
-  2. **has_mixture 误判**：FGFCS 为所有引擎创建 indexed mixture → 同时检查 `propulsion/magneto_cmd`（仅 FGPiston）
-  3. **惯性速度含地球自转**：`GetInertialVelocityMagnitude()` 含 ~465m/s → 改用 TAS (`velocities/vtrue-fps`)
-  4. **高空着陆 throttle**：kDecelerate throttle=0.1 导致 zoom climb → AGL>3000m 用 AP altitude hold
-  - 2389s completed。文件：`Autopilot.cpp`, `Maneuver.cpp`, `EngineManager.cpp`, `fd_adapter_test.cpp`
-- **F80C** ✅：副作用修复 — has_mixture 和能量分类修正后 1740s completed
-- **XB-70**：delta wing 气动特性导致 pitch 爆发（t=16 pitch=34.65°→t=24 pitch=65.6°），Vr=115 kts 过低
-- **DHC6**：飞到 9180m 但 2500s 未完成（fly-to/land 机动不完成）
-- **OV10**：飞到 6380m 但 2500s 未完成（机动不完成）
+### 8.3 飞行阶段问题 ✅
+
+#### 8.3a：MD11 fly-to/landing ✅ — `commit 5d5f7ac5`
+- 四个根因：Iyy 属性名、has_mixture 误判、惯性速度含地球自转、高空着陆 throttle
+- MD11: 750s crash → 2389s completed
+- 副作用：F80C (TIMEOUT→1740s)、T38 (crash→572s)
+
+#### 8.3b：非指令升空 + CLmax + DHC6 ✅ — `commit 55c935f8`
+- **非指令升空检测**：`!WOW && AGL>10m && vc>25kts` → 自动进入 kRotateAndClimb，跳过 ramp
+- **Heading hold 速度门槛**：正常 85% Vr / 非指令升空 100% Vr
+- **CLmax 分档**：涡桨 2.0、delta wing (AR<2.5) 2.5、默认 1.6
+- **Iyy 属性名修复**：EngineManager 中 `iyy-lbsft2` → `iyy-slugs_ft2`
+- **高空着陆下降油门分档**：涡桨 0.50、涡扇 0.70
+- DHC6: TIMEOUT → 3031s completed
+
+#### 8.3c：OV10 重量分类巡航高度 ✅ — `commit 2efd8cb9`
+- **根因**：OV10 T76 引擎 XML 使用 `<turbine_engine>` 而非 `<turboprop_engine>`，JSBSim 报告 `etTurbine`，测试程序分配 8000m 巡航高度。OV10 推力不足到达，持续爬升到 6988m 超时。
+- **修复**：turbine 巡航高度按 `inertia/weight-lbs` 动态分类替代型号名硬编码：
+  - < 15k lbs → 4000m | < 100k lbs → 8000m | ≥ 100k lbs → 10000m
+- 同时移除 B17/C130 型号名硬编码
+- OV10: TIMEOUT → 1991s completed
+
+### 8.3d 已知限制
+
+| 机型 | 状态 | 根因 | 决策 |
+|------|------|------|------|
+| **XB-70** | 💥 CRASH | JSBSim delta wing 模型俯仰不稳定，Vr 可达但旋转后 pitch 69°+ 不可控 | 不修 |
 
 ### 8.4 着陆 crash（T38, A4）— ✅ `已自动解决`
-- **T38** ✅：副作用修复 — 572s completed（has_mixture 修正 → 能量分类正确 → 着陆下降受控）
-- **A4** ✅：之前已修复 — 166s completed
+- **T38** ✅：404s completed（has_mixture 修正 → 能量分类正确）
+- **A4** ✅：166s completed（阶段 8.1 或更早已修复）
+
+## 🆕 阶段 9 — 航路点速度与飞行包线 — `pending`
+
+### 问题
+- `Waypoint` 缺少 `speed_mps` 字段，航路点不携带目标速度
+- `ExecuteFlyTo()` 用 `GetTrueSpeedMps()`（惯性速度含地球自转 ~465 m/s）作速度目标
+- 对 `ref_speed_mps = 0` 的机型无 cap，能量管理失效
+- JSBSim 不提供飞行包线数据结构（`aero/alpha-max-rad` 大部分机型未定义）
+
+### JSBSim 可用运行时属性
+- `forces/fwx-aero-lbs`（气动阻力）、`forces/fwz-aero-lbs`（气动升力）
+- `aero/qbar-area`（动压×翼面积）、`forces/lod-norm`（升阻比）
+- `propulsion/engine[n]/thrust-lbs`（当前推力）
+- `atmosphere/rho-slugs_ft3`（空气密度，随高度变化）
+
+### 拟定步骤
+1. `Waypoint` 加 `speed_mps` 字段（0.0 = 使用机型默认巡航速度）
+2. 新增机型性能分类：基于引擎类型+重量计算默认巡航/失速速度
+3. `ExecuteFlyTo()`/`ExecuteOrbit()` 使用 waypoint 速度替代 `GetTrueSpeedMps()`
+4. 能量管理增加 Vmin/Vmax 约束（运行时从力平衡推导速度边界）
+5. 测试程序传入合理速度值
+
+### 速度包线策略
+- 速度在 [Vmin, Vmax] 内 → 正常保持
+- 速度 > Vmax → 限速（减小油门/减速板）
+- 速度 < Vmin → 安全策略（俯冲增速/减小爬升角）
+- 未指定速度 → 机型分类默认值
 
 ## 关键决策
 
@@ -96,6 +139,7 @@
 | 渐进旋转 3s | 模拟飞行员柔和操作 |
 | OV10 guard 规则 | `ap/autopilot-roll-on` 单属性泄漏，需额外证据 |
 | FBW 优先 | f16 有 ap/heading_hold（FBW 暴露）但需 kFbwRateCommand |
+| 重量分类巡航高度 | JSBSim 引擎 XML 类型不一定反映真实引擎类型 |
 
 ## 工具
 

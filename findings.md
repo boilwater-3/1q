@@ -317,6 +317,85 @@ F80C 和 T38 的表观症状不同但根因相同：它们之前被误判为 pis
 - 现在 has_mixture=false → 正确落入结构默认（kDirectSurface, 非 FBW）→ 能量管理正常
 
 当前剩余问题（非引擎兼容性）：
-- **XB-70** (CRASH 44s)：delta wing 气动特性，pitch 68.5°/roll 100° 发散。Vr=115 kts 可能对 delta wing 过低
-- **DHC6** (TIMEOUT 2500s)：涡桨飞到 9180m 但 fly-to/land 机动不完成
-- **OV10** (TIMEOUT 2500s)：涡桨飞到 6380m 但机动不完成
+- **XB-70** (CRASH)：JSBSim delta wing 模型俯仰不稳定。Vr 从 115→83 kts 可到达，但旋转后不可控抬头 69°+。**已知模型限制。**
+- **OV10** ✅ (COMPLETED 1991s)：见 8.3c 发现
+
+## 阶段 8.3b 发现：DHC6/CLmax/非指令升空（2026-06-03）
+
+### 非指令升空检测
+- 问题：XB-70、DHC6 在达到 Vr 前自然升空（delta wing 涡升力/涡桨高升力），卡在 kTakeoffRoll 永不完全
+- 检测条件：`!WOW && AGL>10m && vc>25kts`（vc 门槛过滤 JSBSim 初始化弹跳——MD11 回归）
+- 触发后：跳过 rotation ramp，直接进入 AP pitch hold 管理
+- Heading hold 延迟到 vc ≥ Vr（非指令升空需 100% Vr 确保横侧操纵面有足够 authority）
+
+### CLmax 分档（GetRotationSpeedKts）
+- `kClMaxTakeoff = 1.6` 对涡桨（带襟翼）和 delta wing（涡升力）过保守
+- 涡桨 (kTurboprop)：CLmax=2.0 → Vr 降低约 11%
+- Delta wing (AR<2.5)：CLmax=2.5 → Vr 降低约 20%（XB-70: 115→83 kts）
+- 属性名修复：`inertia/iyy-lbsft2` → `inertia/iyy-slugs_ft2`（EngineManager 中也存在同样错误）
+
+### Delta wing 处理
+- 跳过 pre-rotation：涡升力使升降舵后拉不必要且危险
+- XB-70 Vr 可达但 JSBSim 模型仍 crash——中性升降舵下 pitch 从 0° 飙到 69°+
+- 结论：JSBSim XB-70 模型有根本性俯仰不稳定，非控制逻辑可修复
+
+### 高空着陆下降油门分档
+- DHC6 turboprop throttle=0.70 在 3800m 仍产生足够推力维持平飞，降不下来
+- 涡桨 descent throttle=0.50，涡扇=0.70
+
+### max_steps 扩展
+- 250000 (2500s) → 350000 (3500s)：DHC6 慢速涡桨需要 3031s 完成全部机动
+
+## 阶段 8.3c 发现：OV10 引擎类型误分类（2026-06-03）
+
+### 根因
+- OV10 T76 引擎 XML 使用 `<turbine_engine>` 而非 `<turboprop_engine>`（注释写 turboprop 但根元素是 turbine）
+- JSBSim `FGEngine::GetType()` 返回 `etTurbine`，导致 EngineManager 分类为 kTurbine
+- 测试程序对 kTurbine 默认分配 8000m 巡航高度，远超 OV10 实际能力
+- OV10 持续爬升到 6988m 后 TIMEOUT（3500s），但 takeoff 目标 8000m×0.95=7600m 始终未达
+
+### 修复
+- 测试程序的 turbine 巡航高度从型号名硬编码改为 `inertia/weight-lbs` 动态分类：
+  - < 15k lbs → 4000m（OV10 ~6500 lbs）
+  - < 100k lbs → 8000m（737 ~130k lbs）
+  - ≥ 100k lbs → 10000m（B747 ~600k lbs）
+- 同时移除 B17/C130 的型号名硬编码
+
+### 副作用
+- B747/MD11 巡航高度 8000→10000m，完成时间增加但仍在上限内
+- B747: 2452→2901s, MD11: 2401→2530s
+
+### JSBSim 引擎类型准确性
+JSBSim 引擎类型由 XML 根元素决定，而非注释或实际行为：
+- `<piston_engine>` → etPiston (FGPiston)
+- `<turbine_engine>` → etTurbine (FGTurbine) — **包括被错误标记为 turbine 的 turboprop**
+- `<turboprop_engine>` → etTurboprop (FGTurboprop)
+- `<rocket_engine>` → etRocket (FGRocket)
+- `<electric_engine>` → etElectric (FGElectric)
+
+部分机型的引擎 XML 类型与实际不符（如 OV10 T76）。重量分类可作为通用 fallback。
+
+## 飞行包线与航路点速度分析（2026-06-03）
+
+### JSBSim 提供的运行时属性
+| 属性 | 说明 | 可靠性 |
+|------|------|--------|
+| `aero/alpha-max-rad` | 失速迎角 | ⚠️ 仅 c172x/c172p/Concorde 有 XML 定义 |
+| `aero/qbar-area` | 动压×翼面积 | ✅ |
+| `forces/fwx-aero-lbs` | 气动阻力 | ✅ |
+| `forces/fwz-aero-lbs` | 气动升力 | ✅ |
+| `forces/lod-norm` | 升阻比 | ✅ |
+| `propulsion/engine[n]/thrust-lbs` | 当前推力 | ✅ |
+| `atmosphere/rho-slugs_ft3` | 当前空气密度 | ✅ |
+| `limits/vne-kts` | 最大速度 | ⚠️ 大部分机型未定义 |
+
+### 架构缺陷
+1. `Waypoint` 无 `speed_mps` 字段 — 航路点不携带目标速度
+2. `ExecuteFlyTo()` 用 `GetTrueSpeedMps()`（惯性速度含地球自转 ~465 m/s）作速度目标
+3. 对 `ref_speed_mps=0` 的机型无 ref_speed cap → 能量管理用惯性速度作归一化因子
+4. JSBSim 不提供飞行包线数据结构 — 需从力平衡运行时推导
+
+### 可行的运行时速度边界估算
+- **Vmin**：从当前升力/重量反推 `V_stall`，乘以 1.2 安全系数
+- **Vmax**：从当前推力+阻力插值估计推力平衡速度，或 fallback 到机型分类默认值
+- **Vcruise**：机型分类默认（活塞 50-65 m/s、涡桨 80 m/s、中型涡扇 230 m/s、重型涡扇 250 m/s、战斗机 200 m/s）
