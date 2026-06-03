@@ -133,6 +133,7 @@ double EngineManager::GetRotationSpeedKts() const {
   const double weight_lbs = GetProperty("inertia/weight-lbs");
   const double wing_area_ft2 = GetProperty("metrics/Sw-sqft");
   const double rho = GetProperty("atmosphere/rho-slugs_ft3");
+  const double iyy = GetProperty("inertia/iyy-lbsft2");
   constexpr double kClMaxTakeoff = 1.6;  // takeoff flaps ~10-20°
 
   if (weight_lbs < 1.0 || wing_area_ft2 < 1.0 || rho < 1e-9) {
@@ -142,23 +143,21 @@ double EngineManager::GetRotationSpeedKts() const {
   const double v_stall_ftps = std::sqrt((2.0 * weight_lbs) / (rho * wing_area_ft2 * kClMaxTakeoff));
   const double v_stall_kts = v_stall_ftps * 0.592484;
 
-  double vr_kts = 0.0;
-  switch (type_) {
-    case EngineType::kPiston:
-      vr_kts = 1.10 * v_stall_kts;
-      break;
-    case EngineType::kTurbine:
-      vr_kts = 1.20 * v_stall_kts;
-      break;
-    case EngineType::kTurboprop:
-      vr_kts = 1.15 * v_stall_kts;
-      break;
-    default:
-      vr_kts = 1.15 * v_stall_kts;
-      break;
+  // Vr factor: heavy aircraft have high-lift devices (slats, multi-slot
+  // flaps) providing higher CL_max, so Vr is closer to V_stall.  Scale
+  // the Vr multiplier by pitch moment of inertia — a direct proxy for
+  // aircraft size and weight class.
+  double vr_factor = 1.15;  // default for turboprop / unknown
+  if (type_ == EngineType::kTurbine) {
+    if (iyy > 1e7) vr_factor = 1.08;       // heavy transport (B747, MD11)
+    else if (iyy > 1e6) vr_factor = 1.15;  // medium transport (737)
+    else vr_factor = 1.20;                  // light jet / fighter
+  } else if (type_ == EngineType::kPiston) {
+    vr_factor = 1.10;
   }
+
   // Sanity floor: any flyable aircraft needs at least 40 kts to rotate.
-  return std::max(vr_kts, 40.0);
+  return std::max(vr_factor * v_stall_kts, 40.0);
 }
 
 double EngineManager::GetDefaultApproachSpeedMps() const {

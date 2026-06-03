@@ -90,6 +90,28 @@ void ApplyEnergyDefaults(AircraftControlProfile* profile) {
   // Non-piston non-FBW: use struct defaults (45° roll, etc.)
 }
 
+// Set rotation/takeoff parameters based on pitch moment of inertia.
+// Heavier aircraft have larger Iyy → need longer ramp to avoid step input,
+// but do NOT reduce max elevator (they need MORE authority to rotate).
+// Thresholds on log10(Iyy):
+//   >7  heavy transport  (B747 3.3e7, MD11 3.8e7, XB-70 1.6e7, Concorde 1.9e7)
+//   >6  medium transport (737 1.5e6, C130 2.4e6)
+//   ≤6  light aircraft   (c172x 1.3e3, fighters ~5e4)
+void ApplyRotationDefaults(AircraftControlProfile* profile) {
+  if (!profile || profile->pitch_moi_lbsft2 <= 0.0) return;
+
+  double log_moi = std::log10(profile->pitch_moi_lbsft2);
+  if (log_moi > 7.0) {
+    profile->rotation_ramp_sec = 6.0;
+    profile->rotation_climb_rate_mps = 3.0;
+  } else if (log_moi > 6.0) {
+    profile->rotation_ramp_sec = 4.0;
+    profile->rotation_climb_rate_mps = 4.0;
+  }
+  // rotation_max_elevator stays at 0.30 for all — heavy aircraft need
+  // full authority to rotate.  The longer ramp prevents step-input departure.
+}
+
 }  // namespace
 
 Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
@@ -124,6 +146,13 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
 
   // Mixture detection (piston aircraft)
   control_profile_.has_mixture = pm->GetNode("fcs/mixture-cmd-norm") != nullptr;
+
+  // Pitch moment of inertia — determines rotation response and ramp scaling.
+  auto* iyy_node = pm->GetNode("inertia/iyy-lbsft2");
+  if (iyy_node) {
+    control_profile_.pitch_moi_lbsft2 = iyy_node->getDoubleValue();
+  }
+  ApplyRotationDefaults(&control_profile_);
 
   // FBW subtype detection: f16 has roll-rate PID
   if (pm->GetNode("fcs/aileron-act") != nullptr &&

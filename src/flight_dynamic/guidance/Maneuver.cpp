@@ -1,5 +1,7 @@
 #include "1q/flight_dynamic/guidance/Maneuver.h"
 
+#include <spdlog/spdlog.h>
+
 #include <algorithm>
 #include <cmath>
 
@@ -269,11 +271,13 @@ void ManeuverExecutor::ConfigureForClimb(double target_altitude_m, double target
   // Rotation: elevator ramps gradually in kRotateAndClimb (no step input).
   rotation_elapsed_sec_ = 0.0;
 
-  ap_.SetRollAttitudeMode(1);  // heading-based roll
-  ap_.SetRollAutopilotOn(true);
+  // Defer heading hold engagement until airborne.  Activating heading-based
+  // roll while still on the ground causes aggressive aileron commands at high
+  // speed, leading to roll departure before rotation completes (B747, XB-70).
   ap_.SetHeadingTargetRad(target_heading_rad);
-  ap_.SetHeadingHold(true);
   ap_.SetAltitudeTargetM(target_altitude_m);
+  // Keep wings-level mode during ground rotation — the heading hold and
+  // heading-based roll are engaged once WOW clears in kRotateAndClimb.
 }
 
 bool ManeuverExecutor::IsTouchingGround() const {
@@ -371,11 +375,39 @@ void ManeuverExecutor::Update(double dt_sec) {
       case TakeoffPhase::kTakeoffRoll:
         engines_.SetThrottle(
             ScheduledTakeoffThrottle(engines_.GetType(), takeoff_phase_elapsed_sec_));
-        if (vc_kts >= engines_.GetRotationSpeedKts()) {
-          ConfigureForClimb(takeoff_target_altitude_m_, takeoff_target_heading_rad_,
-                            current_maneuver_.duration_sec);
-          takeoff_phase_elapsed_sec_ = 0.0;
-          takeoff_phase_ = TakeoffPhase::kRotateAndClimb;
+        {
+          double vr_kts = engines_.GetRotationSpeedKts();
+          if (vc_kts >= vr_kts * 0.79 && vc_kts < vr_kts) {
+            spdlog::info("[TAKEOFF] vc={:.1f} kts  Vr={:.1f} kts  pre-rot el={:.3f}",
+                         vc_kts, vr_kts,
+                         -ap_.GetControlProfile().rotation_max_elevator * 0.8 *
+                             std::clamp((vc_kts - vr_kts * 0.80) / (vr_kts * 0.20), 0.0, 1.0));
+          }
+          if (vc_kts >= vr_kts) {
+            spdlog::info("[TAKEOFF] ROTATE at vc={:.1f} kts (Vr={:.1f}), entering kRotateAndClimb",
+                         vc_kts, vr_kts);
+            // Seed the rotation ramp from the pre-rotation elevator level
+            // so there is no step-down at the critical rotation moment.
+            double pre_rot_el = -ap_.GetControlProfile().rotation_max_elevator * 0.8;
+            rotation_ramp_origin_ = pre_rot_el;
+            ConfigureForClimb(takeoff_target_altitude_m_, takeoff_target_heading_rad_,
+                              current_maneuver_.duration_sec);
+            takeoff_phase_elapsed_sec_ = 0.0;
+            takeoff_phase_ = TakeoffPhase::kRotateAndClimb;
+          } else if (vc_kts >= vr_kts * 0.80) {
+            // Pre-rotation: light back-pressure starting at 80% Vr.
+            // Heavy aircraft destabilize on the ground at high speed
+            // without elevator input; this mimics real pilot technique.
+            double pre_rot_frac = (vc_kts - vr_kts * 0.80) / (vr_kts * 0.20);
+            pre_rot_frac = std::clamp(pre_rot_frac, 0.0, 1.0);
+            double el = -ap_.GetControlProfile().rotation_max_elevator * 0.8 * pre_rot_frac;
+            bool use_pitch_trim =
+                ap_.GetControlProfile().fbw_subtype != autopilot::FbwSubtype::kNone;
+            if (use_pitch_trim)
+              adapter_.SetProperty("fcs/pitch-trim-cmd-norm", el);
+            else
+              adapter_.SetProperty("fcs/elevator-cmd-norm", el);
+          }
         }
         break;
       case TakeoffPhase::kRotateAndClimb: {
@@ -390,30 +422,66 @@ void ManeuverExecutor::Update(double dt_sec) {
           else
             adapter_.SetProperty("fcs/elevator-cmd-norm", el);
         };
-        // Rotation: gradual ramp for direct-surface aircraft (3s),
-        // brief impulse for rate-integrator FBW.
-        if (agl_m < 10.0 && (!is_rate_int || rotation_elapsed_sec_ < dt_sec * 2)) {
+
+        // Engage heading hold only after lifting off.  On the ground, heading-
+        // based roll control generates aggressive aileron at high speed that
+        // causes roll departure before rotation completes.
+        bool is_airborne = !engines_.IsWeightOnWheels() && agl_m > 5.0;
+        if (is_airborne && !ap_.GetControlProfile().has_own_autopilot) {
+          ap_.SetRollAttitudeMode(1);  // heading-based roll
+          ap_.SetRollAutopilotOn(true);
+          ap_.SetHeadingHold(true);
+        }
+
+        // Rotation: gradual ramp from pre-rotation level to max, scaled by
+        // pitch MOI (heavy jets need longer ramp).  The ramp continues until
+        // fully complete regardless of altitude — cutting it short at agl=10m
+        // caused an abrupt elevator step from -0.30 to +0.10 that destabilized
+        // heavy aircraft (MD11).
+        const auto& rot_profile = ap_.GetControlProfile();
+        double ramp_progress = std::min(rotation_elapsed_sec_ / rot_profile.rotation_ramp_sec, 1.0);
+        bool ramp_complete = ramp_progress >= 1.0;
+
+        if (!ramp_complete && (!is_rate_int || rotation_elapsed_sec_ < dt_sec * 2)) {
           double el;
           if (is_rate_int) {
             el = -0.05;  // brief impulse for rate-integrator
           } else {
-            double progress = std::min(rotation_elapsed_sec_ / 3.0, 1.0);
-            el = -0.3 * progress;
+            double target_el = -rot_profile.rotation_max_elevator;
+            el = rotation_ramp_origin_ + (target_el - rotation_ramp_origin_) * ramp_progress;
           }
           set_tko_el(el);
-        } else if (agl_m < 10.0) {
+        } else if (!ramp_complete) {
+          // FBW rate-integrator: idle while ramp nominally runs.
           set_tko_el(0.0);
         } else {
+          // Ramp complete: transition to stabilized climb.
           // Gear and flaps retraction after positive climb confirmed.
           if (agl_m > 20.0) engines_.SetGearDown(false);
           if (agl_m > 30.0) engines_.SetFlaps(0.0);
-          if (!ap_.GetControlProfile().has_own_autopilot) {
+
+          constexpr double kAltHoldHandoffAltM = 150.0;
+          if (agl_m > kAltHoldHandoffAltM &&
+              !ap_.GetControlProfile().has_own_autopilot) {
+            // Above handoff altitude: switch from pitch hold to altitude hold.
+            // The AP pitch channel PD controller smoothly transitions to
+            // altitude-based targeting without the oscillation of the previous
+            // direct climb-rate controller.
+            ap_.SetPitchHold(false);
             ap_.SetAltitudeHold(true);
-          }
-          // Rate-integrator FBW: skip direct pitch commands (integrator windup).
-          // Let altitude hold manage climb through the FBW system.
-          if (!is_rate_int) {
-            double target_climb_mps = 5.0;
+          } else if (!ap_.GetControlProfile().has_own_autopilot && !is_rate_int) {
+            // Below handoff altitude: use AP pitch hold for stabilized climb.
+            // The AP's PD controller with pitch-rate damping is far more stable
+            // than the direct climb-rate P controller which oscillated badly on
+            // heavy aircraft (MD11, B747).  The AP runs after the maneuver, so
+            // it overwrites any elevator set here — we simply don't call
+            // set_tko_el and let the AP manage elevator entirely.
+            double target_pitch = engines_.GetClimbPitchDeg();
+            ap_.SetPitchTargetDeg(target_pitch);
+            ap_.SetPitchHold(true);
+          } else if (!is_rate_int) {
+            // Aircraft with own autopilot: direct climb-rate fallback.
+            double target_climb_mps = rot_profile.rotation_climb_rate_mps;
             double climb_err = target_climb_mps - sink_rate_mps_;
             double elevator = std::clamp(-0.05 * climb_err, -0.5, 0.3);
             set_tko_el(elevator);

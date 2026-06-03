@@ -64,6 +64,12 @@ struct AircraftControlProfile {
   double max_throttle = 1.0;
   double min_throttle = 0.15;
   bool speed_energy_priority = false;  // true = prioritize speed over altitude
+
+  // --- Rotation / takeoff parameters (scaled by pitch MOI) ---
+  double pitch_moi_lbsft2 = 0.0;        // pitch moment of inertia from property tree
+  double rotation_ramp_sec = 3.0;        // elevator ramp-up duration during rotation
+  double rotation_max_elevator = 0.30;   // peak elevator deflection during rotation
+  double rotation_climb_rate_mps = 5.0;  // target climb rate after rotation
 };
 
 class Autopilot {
