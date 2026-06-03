@@ -153,10 +153,26 @@ void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
   ap_.SetAltitudeTargetM(target.altitude_m);
   ap_.SetAltitudeHold(true);
 
-  // Speed target: cap at profile ref_speed to prevent overspeed (f16: 844kts).
-  double target_spd = ap_.GetTrueSpeedMps();
-  double ref = ap_.GetControlProfile().ref_speed_mps;
-  if (ref > 0.0 && target_spd > ref) target_spd = ref;
+  // Speed target priority:
+  //   1. Waypoint speed (if specified > 0)
+  //   2. Profile cruise_speed_mps (if > 0)
+  //   3. Current TAS (fallback)
+  // Always clamp to [min_speed, max_speed] from profile.
+  const auto& prof = ap_.GetControlProfile();
+  double target_spd = 0.0;
+  if (target.speed_mps > 0.0) {
+    target_spd = target.speed_mps;
+  } else if (prof.cruise_speed_mps > 0.0) {
+    target_spd = prof.cruise_speed_mps;
+  } else {
+    target_spd = ap_.GetTrueSpeedMps();
+  }
+  if (prof.min_speed_mps > 0.0 && target_spd < prof.min_speed_mps) {
+    target_spd = prof.min_speed_mps;
+  }
+  if (prof.max_speed_mps > 0.0 && target_spd > prof.max_speed_mps) {
+    target_spd = prof.max_speed_mps;
+  }
   ap_.SetSpeedTargetMps(target_spd);
   ap_.SetSpeedHold(true);
 }
@@ -184,7 +200,15 @@ void ManeuverExecutor::ExecuteOrbit(const Waypoint& center, double radius_m, dou
   ap_.SetHeadingHold(true);
   ap_.SetAltitudeTargetM(center.altitude_m);
   ap_.SetAltitudeHold(true);
-  ap_.SetSpeedTargetMps(ap_.GetTrueSpeedMps());
+  // Speed target: use waypoint speed or profile cruise default.
+  const auto& prof = ap_.GetControlProfile();
+  double orbit_spd = prof.cruise_speed_mps > 0.0 ? prof.cruise_speed_mps
+                                                   : ap_.GetTrueSpeedMps();
+  if (center.speed_mps > 0.0) orbit_spd = center.speed_mps;
+  if (prof.max_speed_mps > 0.0 && orbit_spd > prof.max_speed_mps) {
+    orbit_spd = prof.max_speed_mps;
+  }
+  ap_.SetSpeedTargetMps(orbit_spd);
   ap_.SetSpeedHold(true);
 }
 
@@ -399,11 +423,14 @@ void ManeuverExecutor::Update(double dt_sec) {
                               current_maneuver_.duration_sec);
             takeoff_phase_elapsed_sec_ = 0.0;
             takeoff_phase_ = TakeoffPhase::kRotateAndClimb;
-          } else if (!engines_.IsWeightOnWheels() && agl_m > 10.0) {
+          } else if (!engines_.IsWeightOnWheels() && agl_m > 10.0 && vc_kts > 25.0) {
             // Uncommanded liftoff: delta-wing / high-lift aircraft may lift
-            // off before reaching computed Vr.  Transition to climb phase
-            // with the rotation ramp marked complete — the gradual pitch
-            // recovery in kRotateAndClimb will gently reduce pitch toward
+            // off before reaching computed Vr.  Require at least 25 kts to
+            // filter out JSBSim initialization bounces (WOW flickers during
+            // engine start can clear WOW at low speed — MD11 regression).
+            // Transition to climb phase with the rotation ramp marked
+            // complete — the gradual pitch recovery in kRotateAndClimb will
+            // gently reduce pitch toward
             // the climb target without a full-elevator step (XB-70, DHC6).
             spdlog::info("[TAKEOFF] Uncommanded liftoff at vc={:.1f} kts (Vr={:.1f}), "
                          "entering climb",
@@ -593,6 +620,7 @@ void ManeuverExecutor::Update(double dt_sec) {
           double descent_thr = (engines_.GetType() == propulsion::EngineType::kTurboprop) ? 0.50 : 0.70;
           engines_.SetThrottle(descent_thr);
           if (agl_m < intermediate_alt + 500.0) {
+            ap_.SetAltitudeHold(false);
             land_phase_ = LandPhase::kApproach;
           }
           break;
@@ -659,7 +687,19 @@ void ManeuverExecutor::Update(double dt_sec) {
           set_el(-0.1);
           break;
         }
+        // Flare initiation altitude: heavy transports need a lower start
+        // because their large wing area generates excess lift at flare elevator,
+        // causing prolonged float at high speed (B747 observed 20s float at 5m).
         double flare_alt_m = std::max(15.0, vc_mps * 0.6);
+        {
+          double log_moi = ap_.GetControlProfile().pitch_moi_lbsft2 > 0.0
+                               ? std::log10(ap_.GetControlProfile().pitch_moi_lbsft2)
+                               : 0.0;
+          if (log_moi > 7.0) {
+            // Heavy transport: flare at 15-20m, not 45m+
+            flare_alt_m = std::max(15.0, vc_mps * 0.25);
+          }
+        }
         if (agl_m < land_target_alt_m_ + flare_alt_m) {
           engines_.SetThrottle(0.0);
           set_el(-0.25);

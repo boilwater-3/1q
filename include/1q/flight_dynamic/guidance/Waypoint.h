@@ -12,6 +12,7 @@ struct Waypoint {
   double longitude_rad = 0.0;
   double altitude_m = 0.0;
   double radius_m = 100.0;
+  double speed_mps = 0.0;  ///< Target TAS in m/s. 0.0 = use aircraft default cruise speed.
   std::string name;
 };
 

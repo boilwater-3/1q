@@ -48,18 +48,22 @@ void ApplyEnergyDefaults(AircraftControlProfile* profile) {
   if (!profile) return;
 
   const bool has_fbw = profile->has_fbw_override || profile->has_roll_rate_command;
-  const bool has_gen_ap = profile->has_generic_autopilot || profile->has_own_autopilot;
   // Heavy classification: 4+ engines OR large pitch MOI (>1e7 slugs·ft²).
   // Captures trijets like MD11 (Iyy=3.8e7, 3 engines) that are heavy
   // transports that don't meet the 4-engine threshold.
   const bool is_heavy = profile->engine_count >= 4 ||
       (profile->pitch_moi_lbsft2 > 0.0 && std::log10(profile->pitch_moi_lbsft2) > 7.0);
+  const bool is_medium =
+      !is_heavy && profile->pitch_moi_lbsft2 > 0.0 &&
+      std::log10(profile->pitch_moi_lbsft2) > 6.0;
   const int n_eng = profile->engine_count;
 
   if (has_fbw) {
     // High-performance FBW fighter (f16 class)
     profile->ref_speed_mps = 200.0;
+    profile->cruise_speed_mps = 200.0;
     profile->min_speed_mps = 140.0;
+    profile->max_speed_mps = 350.0;
     profile->max_pitch_command_deg = 15.0;
     profile->max_roll_angle_deg = 45.0;
     profile->min_throttle = 0.35;
@@ -67,16 +71,30 @@ void ApplyEnergyDefaults(AircraftControlProfile* profile) {
   } else if (is_heavy && !profile->has_mixture) {
     // Heavy jet transport (B747, MD11, Concorde, XB-70).
     profile->ref_speed_mps = 500.0;
-    profile->min_speed_mps = 250.0;
+    profile->cruise_speed_mps = 250.0;
+    profile->min_speed_mps = 130.0;
+    profile->max_speed_mps = 300.0;
     profile->max_pitch_command_deg = 8.0;
     profile->max_roll_angle_deg = 35.0;
     profile->min_throttle = 0.55;
+    profile->speed_energy_priority = true;
+  } else if (is_medium && !profile->has_mixture) {
+    // Medium jet transport (737 class, log10(Iyy) > 6).
+    profile->ref_speed_mps = 250.0;
+    profile->cruise_speed_mps = 200.0;
+    profile->min_speed_mps = 100.0;
+    profile->max_speed_mps = 260.0;
+    profile->max_pitch_command_deg = 10.0;
+    profile->max_roll_angle_deg = 35.0;
+    profile->min_throttle = 0.40;
     profile->speed_energy_priority = true;
   } else if (profile->has_mixture) {
     if (is_heavy) {
       // Multi-engine piston (B17)
       profile->ref_speed_mps = 85.0;
+      profile->cruise_speed_mps = 75.0;
       profile->min_speed_mps = 65.0;
+      profile->max_speed_mps = 100.0;
       profile->max_pitch_command_deg = 10.0;
       profile->max_roll_angle_deg = 25.0;
       profile->min_throttle = 0.40;
@@ -84,14 +102,23 @@ void ApplyEnergyDefaults(AircraftControlProfile* profile) {
     } else {
       // Single/twin piston GA (c172x, c310)
       profile->ref_speed_mps = n_eng >= 2 ? 65.0 : 50.0;
+      profile->cruise_speed_mps = n_eng >= 2 ? 60.0 : 50.0;
       profile->min_speed_mps = n_eng >= 2 ? 55.0 : 40.0;
+      profile->max_speed_mps = n_eng >= 2 ? 90.0 : 80.0;
       profile->max_pitch_command_deg = n_eng >= 2 ? 10.0 : 12.0;
       profile->max_roll_angle_deg = 30.0;
       profile->min_throttle = n_eng >= 2 ? 0.30 : 0.20;
       profile->speed_energy_priority = (n_eng >= 2);
     }
+  } else {
+    // Non-piston non-FBW non-heavy: light turbine / turboprop modeled as
+    // <turbine_engine> (OV10, f15). Use struct default roll (45°), but set
+    // reasonable speed defaults for energy management.
+    profile->ref_speed_mps = 80.0;
+    profile->cruise_speed_mps = 80.0;
+    profile->min_speed_mps = 50.0;
+    profile->max_speed_mps = 200.0;
   }
-  // Non-piston non-FBW: use struct defaults (45° roll, etc.)
 }
 
 // Set rotation/takeoff parameters based on pitch moment of inertia.
@@ -315,7 +342,7 @@ void Autopilot::ReleaseHolds() {
 }
 
 double Autopilot::GetTrueSpeedMps() const {
-  return adapter_.GetPropagate().GetInertialVelocityMagnitude() * kFtToM;
+  return adapter_.GetProperty("velocities/vtrue-fps") * kFtToM;
 }
 
 double Autopilot::GetAngleToHeadingRad() const {
@@ -527,18 +554,26 @@ void Autopilot::UpdatePitchChannel() {
 void Autopilot::UpdateEnergyManagement() {
   if (!altitude_hold_ && !speed_hold_) return;
 
-  const auto& propagate = adapter_.GetPropagate();
-  const double current_alt_m = propagate.GetLocation().GetGeodAltitude() * kFtToM;
   const double current_speed_mps = GetTrueSpeedMps();
+  // ref_speed normalizes the speed error term.  Use profile ref_speed if
+  // available, otherwise cruise_speed, otherwise current speed (last resort).
   const double ref_speed = control_profile_.ref_speed_mps > 0.0
                                ? control_profile_.ref_speed_mps
+                           : control_profile_.cruise_speed_mps > 0.0
+                               ? control_profile_.cruise_speed_mps
                                : current_speed_mps;
 
   // Altitude error (potential energy proxy)
+  const auto& propagate = adapter_.GetPropagate();
+  const double current_alt_m = propagate.GetLocation().GetGeodAltitude() * kFtToM;
   double alt_err_m = altitude_hold_ ? (target_altitude_m_ - current_alt_m) : 0.0;
 
-  // Speed error (kinetic energy proxy)
-  double speed_err_mps = speed_hold_ ? (target_speed_mps_ - current_speed_mps) : 0.0;
+  // Speed error (kinetic energy proxy), clamped to envelope.
+  double target_spd = target_speed_mps_;
+  if (control_profile_.min_speed_mps > 0.0 && target_spd < control_profile_.min_speed_mps) {
+    target_spd = control_profile_.min_speed_mps;
+  }
+  double speed_err_mps = speed_hold_ ? (target_spd - current_speed_mps) : 0.0;
 
   // Combined energy error: throttle manages total energy.
   double energy_err = alt_err_m / 500.0;
@@ -555,6 +590,13 @@ void Autopilot::UpdateEnergyManagement() {
     } else {
       energy_err += urgency * 0.25;
     }
+  }
+
+  // Speed protection: if above max_speed, reduce throttle aggressively.
+  const double max_speed = control_profile_.max_speed_mps;
+  if (max_speed > 0.0 && current_speed_mps > max_speed * 0.95) {
+    const double excess = Clamp((current_speed_mps - max_speed * 0.95) / (max_speed * 0.10), 0.0, 1.0);
+    energy_err -= excess * 0.5;
   }
 
   double throttle = Clamp(0.70 + Clamp(energy_err, -0.40, 0.40),

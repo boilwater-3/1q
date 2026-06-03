@@ -59,6 +59,8 @@ struct AircraftControlProfile {
   // --- Energy management profile ---
   double ref_speed_mps = 0.0;     // cruise / reference speed for energy distribution
   double min_speed_mps = 0.0;     // minimum task speed (stall margin)
+  double max_speed_mps = 0.0;     // maximum task speed (structural / thrust limit)
+  double cruise_speed_mps = 0.0;  // default cruise TAS by aircraft category
   double max_pitch_command_deg = 20.0;  // pitch command limit in altitude hold
   double max_roll_angle_deg = 45.0;     // structural/aero roll limit (used for orbit radius)
   double max_throttle = 1.0;
