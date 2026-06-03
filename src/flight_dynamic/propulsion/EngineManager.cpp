@@ -17,7 +17,10 @@ EngineManager::EngineManager(adapter::JsbsimAdapter& adapter)
   auto* pm = exec_.GetPropertyManager().get();
   has_magneto_ = pm->GetNode(adapter::property::kMagnetoCmd) != nullptr;
   has_starter_ = pm->GetNode(adapter::property::kStarterCmd) != nullptr;
-  has_mixture_ = pm->GetNode(adapter::property::kMixtureCmdNorm) != nullptr;
+  // Only treat as having mixture if BOTH mixture and magneto exist (piston-only).
+  // JSBSim creates indexed fcs/mixture-cmd-norm[n] for all engine types.
+  has_mixture_ = pm->GetNode(adapter::property::kMixtureCmdNorm) != nullptr &&
+                 has_magneto_;
   has_wow_ = pm->GetNode(adapter::property::kWowMain) != nullptr;
   count_ = static_cast<int>(exec_.GetPropulsion()->GetNumEngines());
   DetectType();

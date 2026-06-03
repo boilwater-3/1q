@@ -297,12 +297,16 @@ bool ManeuverExecutor::IsManeuverComplete() const {
 
   switch (current_maneuver_.type) {
     case ManeuverType::kFlyToWaypoint: {
-      double speed_mps = adapter_.GetPropagate().GetInertialVelocityMagnitude() * 0.3048;
+      // Use true airspeed (TAS) for turn radius — inertial velocity
+      // includes Earth rotation (~465 m/s at equator), which inflates the
+      // capture radius and causes premature maneuver completion.
+      double speed_mps = adapter_.GetProperty("velocities/vtrue-fps") * 0.3048;
+      if (speed_mps < 10.0) speed_mps = 10.0;
       double max_bank_rad = ap_.GetControlProfile().max_roll_angle_deg * 0.0174533;
       double min_turn_radius_m = (speed_mps * speed_mps) / (9.81 * std::tan(max_bank_rad));
       double effective_radius_m =
           std::max(current_maneuver_.target.radius_m, min_turn_radius_m * 1.5);
-      return wp_manager_.IsAtTarget(effective_radius_m);
+      return wp_manager_.IsAtOrPastTarget(effective_radius_m);
     }
     case ManeuverType::kOrbit:
       if (current_maneuver_.duration_sec > 0.0) {
@@ -335,7 +339,7 @@ void ManeuverExecutor::Update(double dt_sec) {
   if (current_maneuver_.type == ManeuverType::kOrbit) {
     double radius_m = std::abs(current_maneuver_.value);
     if (radius_m < 1.0) radius_m = 1.0;
-    double speed_mps = adapter_.GetPropagate().GetInertialVelocityMagnitude() * 0.3048;
+    double speed_mps = adapter_.GetProperty("velocities/vtrue-fps") * 0.3048;
     if (speed_mps < 10.0) speed_mps = 10.0;
     double heading_rad = ComputeClockwiseOrbitHeadingRad(
         adapter_.GetPropagate().GetLocation(), current_maneuver_.target, radius_m, speed_mps);
@@ -524,6 +528,20 @@ void ManeuverExecutor::Update(double dt_sec) {
 
     switch (land_phase_) {
       case LandPhase::kDecelerate: {
+        // High-altitude descent: use AP altitude hold to bring the aircraft
+        // down from cruise altitude before aggressive deceleration.  Cutting
+        // throttle to idle at 8000m causes zoom-climb → phugoid divergence.
+        if (agl_m > 3000.0 && !is_fbw) {
+          double intermediate_alt = std::max(land_target_alt_m_ + 2000.0, 3000.0);
+          ap_.SetAltitudeTargetM(intermediate_alt);
+          ap_.SetAltitudeHold(true);
+          ap_.SetSpeedHold(false);
+          engines_.SetThrottle(0.7);
+          if (agl_m < intermediate_alt + 500.0) {
+            land_phase_ = LandPhase::kApproach;
+          }
+          break;
+        }
         engines_.SetThrottle(0.1);
         if (is_fbw) {
           // FBW aircraft: wings-level, no heading hold — avoid extreme roll

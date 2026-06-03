@@ -49,7 +49,11 @@ void ApplyEnergyDefaults(AircraftControlProfile* profile) {
 
   const bool has_fbw = profile->has_fbw_override || profile->has_roll_rate_command;
   const bool has_gen_ap = profile->has_generic_autopilot || profile->has_own_autopilot;
-  const bool is_heavy = profile->engine_count >= 4;
+  // Heavy classification: 4+ engines OR large pitch MOI (>1e7 slugs·ft²).
+  // Captures trijets like MD11 (Iyy=3.8e7, 3 engines) that are heavy
+  // transports that don't meet the 4-engine threshold.
+  const bool is_heavy = profile->engine_count >= 4 ||
+      (profile->pitch_moi_lbsft2 > 0.0 && std::log10(profile->pitch_moi_lbsft2) > 7.0);
   const int n_eng = profile->engine_count;
 
   if (has_fbw) {
@@ -60,8 +64,8 @@ void ApplyEnergyDefaults(AircraftControlProfile* profile) {
     profile->max_roll_angle_deg = 45.0;
     profile->min_throttle = 0.35;
     profile->speed_energy_priority = true;
-  } else if (has_gen_ap && is_heavy && !profile->has_mixture) {
-    // Heavy jet with native AP bridge (Concorde, B747)
+  } else if (is_heavy && !profile->has_mixture) {
+    // Heavy jet transport (B747, MD11, Concorde, XB-70).
     profile->ref_speed_mps = 500.0;
     profile->min_speed_mps = 250.0;
     profile->max_pitch_command_deg = 8.0;
@@ -144,11 +148,15 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
     control_profile_.indexed_throttle = control_profile_.engine_count > 1;
   }
 
-  // Mixture detection (piston aircraft)
-  control_profile_.has_mixture = pm->GetNode("fcs/mixture-cmd-norm") != nullptr;
+  // Mixture detection (piston aircraft only — require both mixture and magneto,
+  // since JSBSim creates indexed fcs/mixture-cmd-norm[n] for all engine types,
+  // and propulsion/magneto_cmd only exists for FGPiston engines).
+  control_profile_.has_mixture = pm->GetNode("fcs/mixture-cmd-norm") != nullptr &&
+                                 pm->GetNode(adapter::property::kMagnetoCmd) != nullptr;
 
   // Pitch moment of inertia — determines rotation response and ramp scaling.
-  auto* iyy_node = pm->GetNode("inertia/iyy-lbsft2");
+  // JSBSim stores this as inertia/iyy-slugs_ft2 (XML unit="SLUG*FT2").
+  auto* iyy_node = pm->GetNode("inertia/iyy-slugs_ft2");
   if (iyy_node) {
     control_profile_.pitch_moi_lbsft2 = iyy_node->getDoubleValue();
   }

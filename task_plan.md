@@ -52,28 +52,35 @@
 - 能量管理：按属性分类（FBW/发数/mixture）替代机型名字符串
 - 删除 F4N 硬编码 altitude override
 
-## 🆕 阶段 8 — 剩余 CRASH 修复 — `pending`
+## 🆕 阶段 8 — 剩余 CRASH 修复 — `in_progress`
 
-### 8.1 阶跃 elevator（B747, MD11, XB-70）
-- 现状：3s ramp 对大推重比机型不够
-- 方案：增加 ramp 时间或按机型类别分档（重型机更慢）
-- 文件：`src/flight_dynamic/guidance/Maneuver.cpp`
+### 8.1 重型机起飞稳定化 ✅ — `commit 06b37c3f`
+- 三个根因修复：
+  1. **地面滚转发散**：延迟 heading hold 到离地后（WOW 清除 + AGL > 5m）
+  2. **Elevator 阶跃**：rotation ramp 持续到完成（不再在 AGL=10m 中断），Iyy 分档（重型 6s / 中型 4s / 轻型 3s）
+  3. **爬升振荡**：用 AP pitch hold（PD + pitch rate 阻尼）替代 climb rate P 控制器
+- Vr 按 Iyy 分级：重型 1.08×V_stall、中型 1.15×、轻型 1.20×
+- 结果：B747 完整完成 takeoff→fly→land（985s），MD11 起飞成功爬升到 10346m
+- 文件：`Maneuver.cpp`, `Autopilot.cpp`, `Autopilot.h`, `EngineManager.cpp`
 
-### 8.2 涡桨不启动（L410, DHC6）
-- 现状：`FGTurboProp` 零 RPM 无法自建转速，`SetPropAdvance` 已加但 RPM 仍 0
-- 方案：JSBSim 涡桨模型局限，需研究 propeller spool-up 初始化
-- 文件：`src/flight_dynamic/adapter/JsbsimAdapter.cpp`（SetPropellerAdvanceState）
+### 8.2 引擎/燃油兼容性（Concorde, C130, L410）— `pending`
+- **Concorde**：Collector tanks (13-16) 仅 46 lbs，满推力 4s 耗尽。需要 cross-feed 从主油箱补油。注释："LP valve to emulate cross feed... can feed 75000 kg/h per engine"
+  - 方案：起飞期间每帧通过 `propulsion/tank[n]/contents-lbs` 属性补充 collector tanks
+- **C130**：t56_prop 缺少 `gearratio`（应为 ~13.5:1），涡轮转速 ~13800 RPM vs 螺旋桨 maxrpm=1400，导致推力仅 1328 lbs（应为 ~40000 lbs）
+  - 方案：在 EngineManager 中通过 property 设置 gearratio，或接受为模型缺陷
+- **L410**：engTM601 有 `cutoff-cmd` 属性（可能默认=1 燃油切断）+ `betarangeend=64`（油门<64%仅怠速）。两个引擎交替正负振荡
+  - 方案：启动时显式设置 `cutoff-cmd=0`；研究 betarangeend 对 throttle ramp 的影响
 
-### 8.3 任务不完成（OV10, Concorde, C130, p51d）
-- OV10：不再 crash，但巡航目标过高/速度过慢，2500s 飞不到航路点
-- Concorde/C130/p51d：地面 stuck 不动
-- 方案：巡航高度引擎类型分类调整（OV10 被标为 turbine_engine 而非 turboprop）
+### 8.3 飞行阶段问题 — `in_progress`
+- **MD11** ✅：四个根因修复 — Iyy 属性名、has_mixture 误判、惯性速度含地球自转、高空着陆 throttle。2389s completed。
+- **XB-70**：delta wing 气动特性导致 pitch 爆发（t=16 pitch=34.65°→t=24 pitch=65.6°），Vr=115 kts 过低
+- **DHC6**：飞到 9180m 但 2500s 未完成（orbit/land 逻辑问题）
+- **F80C**：飞到 475m 但未完成
+- **OV10**：飞到 6542m 但未完成
 
-### 8.4 着陆 crash（T38, A4, DHC6）
-- T38：全程完成起飞+巡航，着陆 pitch=66° 坠毁
+### 8.4 着陆 crash（T38, A4）— `pending`
+- T38：着陆 pitch=66° 坠毁
 - A4：21.5s crash
-- DHC6：2.4s crash
-- 方案：着陆控制器调参，可能和 epoch 2 中的 F4N 修复相似
 
 ## 关键决策
 

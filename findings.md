@@ -226,3 +226,79 @@ default                         → struct defaults (45°roll)
 - **CSV 示例程序**：飞行性能分析——`takeoff_land_csv`（时间序列）、`maneuver_sweep_csv`（机动扫描）
 - **Python 分析**：`analyze_takeoff.py` 读 CSV，输出阶段时间线、速度/高度统计、matplotlib 图表
 - **Release 预设**：JSBSim 仿真 ~6× 快于 debug（fd_ci ~5s vs ~34s）
+
+## 阶段 8.1：重型机起飞稳定化发现（2026-06-03）
+
+### 三个根因链
+
+**根因 1：地面 heading hold → 滚转发散**
+- `ConfigureForClimb()` 在 Vr 时立即启用 heading hold + `UpdateRollAnglePD`
+- B747 仍在地面 (wow=1) 时，roll PD 产生满偏副翼 (-1.000)，速度 171+ kts
+- Roll 从 0° → -70° 发散 → 无法抬头 → 70s 坠毁
+- 修复：延迟 heading hold 到 `!WOW && agl > 5m`
+
+**根因 2：Rotation ramp 在 AGL=10m 中断**
+- 旧代码：`if (agl_m < 10.0) { ramp } else { climb rate }`
+- 重型机 Iyy>1e7 → ramp_sec=6s，但 agl>10m 时 ramp 只走了 ~67%（4s/6s）
+- Elevator 从 -0.300 瞬变到 +0.103（+0.4 阶跃）→ MD11 坠毁
+- 修复：ramp 持续到完成，不再依赖 agl 阈值
+
+**根因 3：Climb rate P 控制器振荡**
+- `elevator = clamp(-0.05 * climb_err, -0.5, 0.3)` — 纯 P 控制器，无阻尼
+- 重型机大惯量 → climb rate 变化慢 → P 控制器超调 → 全偏舵面振荡
+- MD11: el 在 ±0.5 间跳动，agl 在 9.8↔78.8m 间振荡
+- 修复：ramp 完成后启用 AP pitch hold（PD + pitch rate 阻尼），150m AGL 后交接到 altitude hold
+
+### Iyy 分级体系
+
+| log10(Iyy) | 类别 | ramp_sec | Vr factor | climb_rate | 机型 |
+|------------|------|----------|-----------|------------|------|
+| >7.0 | 重型运输 | 6.0s | 1.08 | 3.0 mps | B747, MD11, Concorde, XB-70 |
+| >6.0 | 中型运输 | 4.0s | 1.15 | 4.0 mps | 737, C130 |
+| ≤6.0 | 轻型 | 3.0s (default) | 1.20 | 5.0 mps (default) | c172x, f16 |
+
+### 引擎/燃油兼容性问题（三机型地面不动）
+
+**Concorde — collector tank 燃油耗尽**
+- Tanks 13-16（collector tanks）各 46 lbs 容量/初始量
+- 4× Olympus 引擎满推力消耗 ~11.7 lb/s → 46 lbs 仅撑 ~4 秒
+- XML 注释："LP valve to emulate cross feed... not empty, to avoid stop at launch"
+- 需要 cross-feed：737 引擎配置 `<feed>0</feed><feed>2</feed>`（多 feed 源），Concorde 只配单个 feed
+- 可通过 `propulsion/tank[n]/contents-lbs` 属性实时补充
+
+**C130 — 螺旋桨缺 gearratio**
+- t56 涡轮 ~13800 RPM，t56_prop maxrpm=1400，需要 gearratio≈13.5:1
+- t56_prop.xml 无 `<gearratio>` 标签 → 默认 1.0 → 螺旋桨不匹配
+- 推力仅 1328 lbs（4×332），应为 ~40000 lbs
+- 简化的 C_THRUST 表（仅 2 列 pitch=10/30 vs DHC6 的 17 列）
+
+**L410 — cutoff-cmd + betarangeend**
+- engTM601 有 `betarangeend=64`：油门<64% → 仅怠速功率
+- L410 XML 暴露 `/controls/engines/engine[n]/cutoff-cmd` 属性
+- 两个引擎交替正负振荡（eng0 和 eng1 交替输出/归零）
+- 可能 cutoff-cmd 默认=1（燃油切断）导致引擎间歇运行
+
+## 阶段 8.3 发现：MD11 fly-to/landing 四根因（2026-06-03）
+
+### 根因 1：Iyy 属性名错误
+- 代码读 `inertia/iyy-lbsft2`，JSBSim 只提供 `inertia/iyy-slugs_ft2`
+- 所有飞机 XML 用 `unit="SLUG*FT2"`，JSBSim 内部属性单位为 slugs·ft²
+- 结果：`pitch_moi_lbsft2=0` → Iyy 分级不生效 → MD11 不被识别为重型
+
+### 根因 2：has_mixture 误判
+- `FGFCS::CreateIndexedPropertyName("fcs/mixture-cmd-norm", num)` 为**所有**引擎类型创建 indexed 属性
+- 仅靠 `pm->GetNode("fcs/mixture-cmd-norm")` 无法区分活塞/非活塞
+- 修复：同时检查 `propulsion/magneto_cmd`（仅 `FGPiston` 创建，由 `HavePistonEngine` 控制）
+- 影响 f16, f15, Concorde, C130 的分类——全部从"伪活塞"恢复为正确类型
+
+### 根因 3：惯性速度含地球自转
+- `GetInertialVelocityMagnitude()` 返回 ECEF 惯性速度，赤道附近 +~465 m/s
+- IsManeuverComplete 用惯性速度计算最小转弯半径 → 捕获半径 = 63km（远超航路点距离 50km）
+- Orbit 机动同样受影响
+- 修复：改用 TAS (`velocities/vtrue-fps`)
+
+### 根因 4：高空着陆 throttle 骤降
+- kDecelerate 无差别 `engines_.SetThrottle(0.1)` 
+- 8000m 高空 0.1 throttle + 微小 nose-up → 动能转势能 → zoom climb 到 10965m
+- Pitch ±90°，roll ±180° 发散 → crash
+- 修复：AGL>3000m 时用 AP altitude hold + 0.7 throttle 下降到 intermediate altitude
