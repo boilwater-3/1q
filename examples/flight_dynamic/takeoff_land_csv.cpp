@@ -158,6 +158,15 @@ int main(int argc, char** argv) {
   // Cruise altitude by engine/aircraft category.
   propulsion::EngineManager eng(fm.GetAdapter());
   double cruise_alt_m = 3000.0;
+  // Aircraft weight from JSBSim property tree — used to classify turbine
+  // aircraft whose JSBSim engine model may not reflect the real engine type
+  // (e.g., OV10 T76 turboprop modeled as <turbine_engine>).
+  double weight_lbs = 0.0;
+  {
+    auto* pm = fm.GetAdapter().GetFdmExec().GetPropertyManager().get();
+    auto* w_node = pm->GetNode("inertia/weight-lbs");
+    if (w_node) weight_lbs = w_node->getDoubleValue();
+  }
   switch (eng.GetType()) {
     case propulsion::EngineType::kPiston:
       cruise_alt_m = 1500.0;
@@ -172,10 +181,12 @@ int main(int argc, char** argv) {
         cruise_alt_m = 500.0;
       else if (model == "Concorde")
         cruise_alt_m = 12000.0;
-      else if (model == "B17" || model == "C130")
-        cruise_alt_m = 5000.0;
+      else if (weight_lbs < 15000.0)
+        cruise_alt_m = 4000.0;   // light turbine (OV10: ~6500 lbs)
+      else if (weight_lbs < 100000.0)
+        cruise_alt_m = 8000.0;   // medium transport (737: ~130k lbs)
       else
-        cruise_alt_m = 8000.0;  // commercial jets
+        cruise_alt_m = 10000.0;  // heavy transport (B747: ~600k lbs)
       break;
     case propulsion::EngineType::kRocket:
       cruise_alt_m = 15000.0;
