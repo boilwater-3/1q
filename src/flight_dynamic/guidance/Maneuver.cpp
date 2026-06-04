@@ -330,7 +330,24 @@ bool ManeuverExecutor::IsManeuverComplete() const {
       double min_turn_radius_m = (speed_mps * speed_mps) / (9.81 * std::tan(max_bank_rad));
       double effective_radius_m =
           std::max(current_maneuver_.target.radius_m, min_turn_radius_m * 1.5);
-      return wp_manager_.IsAtOrPastTarget(effective_radius_m);
+      if (wp_manager_.IsAtOrPastTarget(effective_radius_m)) return true;
+
+      // Fly-past detection: if the aircraft started this maneuver already past
+      // the waypoint (e.g., fast fighter with long takeoff roll), the standard
+      // HasPassedActiveWaypoint check fails because the leg start coincides
+      // with the aircraft's position.  Detect this by checking if the waypoint
+      // is far behind the aircraft (> ~115° off the nose) and the distance
+      // exceeds 3× the effective capture radius.
+      if (elapsed_sec_ > 10.0) {
+        double dist_m = wp_manager_.GetDistanceToActiveM();
+        double heading_to_wp = wp_manager_.GetHeadingToActiveRad();
+        double current_heading = adapter_.GetPropagate().GetEuler(3);
+        double angle_off_nose = std::abs(NormalizeRad(heading_to_wp - current_heading));
+        if (angle_off_nose > 2.0 && dist_m > effective_radius_m * 3.0) {
+          return true;
+        }
+      }
+      return false;
     }
     case ManeuverType::kOrbit:
       if (current_maneuver_.duration_sec > 0.0) {
@@ -687,22 +704,22 @@ void ManeuverExecutor::Update(double dt_sec) {
           set_el(-0.1);
           break;
         }
-        // Flare initiation altitude: heavy transports need a lower start
-        // because their large wing area generates excess lift at flare elevator,
-        // causing prolonged float at high speed (B747 observed 20s float at 5m).
+        // Flare initiation altitude: proportional to approach speed.
+        // Fast aircraft need more altitude to arrest the descent.
         double flare_alt_m = std::max(15.0, vc_mps * 0.6);
-        {
-          double log_moi = ap_.GetControlProfile().pitch_moi_lbsft2 > 0.0
-                               ? std::log10(ap_.GetControlProfile().pitch_moi_lbsft2)
-                               : 0.0;
-          if (log_moi > 7.0) {
-            // Heavy transport: flare at 15-20m, not 45m+
-            flare_alt_m = std::max(15.0, vc_mps * 0.25);
-          }
-        }
         if (agl_m < land_target_alt_m_ + flare_alt_m) {
           engines_.SetThrottle(0.0);
-          set_el(-0.25);
+          // Heavy transports use a gentler initial flare elevator to prevent
+          // the large wing from generating excessive lift at high speed.
+          double init_flare_el = -0.25;
+          {
+            double log_moi = ap_.GetControlProfile().pitch_moi_lbsft2 > 0.0
+                                 ? std::log10(ap_.GetControlProfile().pitch_moi_lbsft2)
+                                 : 0.0;
+            if (log_moi > 7.0) init_flare_el = -0.08;
+          }
+          set_el(init_flare_el);
+          flare_elapsed_sec_ = 0.0;
           land_phase_ = LandPhase::kFlare;
           break;
         }
@@ -714,18 +731,57 @@ void ManeuverExecutor::Update(double dt_sec) {
         set_el(el);
         double sink_err = -3.0 - sink_rate_mps_;
         double thr = std::clamp(0.25 + 0.05 * sink_err, 0.0, 0.6);
+        // Speed management: cap throttle when above approach speed to
+        // allow deceleration.  Without this, the sink-rate-based throttle
+        // keeps the aircraft fast through final descent, causing excess
+        // lift at flare (B747 at 160 kts generates lift ≈ weight).
+        if (vc_mps > land_approach_speed_mps_ * 1.05) {
+          thr = std::min(thr, 0.15);
+        }
         engines_.SetThrottle(thr);
         break;
       }
       case LandPhase::kFlare:
+        flare_elapsed_sec_ += dt_sec;
         engines_.SetThrottle(0.0);
-        // Progressive flare: more nose-up as altitude decreases.
         {
-          double flare_progress = 1.0 - std::min(agl_m / 30.0, 1.0);
-          double el_flare = -0.15 - 0.25 * flare_progress;
-          set_el(el_flare);
+          double log_moi = ap_.GetControlProfile().pitch_moi_lbsft2 > 0.0
+                               ? std::log10(ap_.GetControlProfile().pitch_moi_lbsft2)
+                               : 0.0;
+          bool is_heavy_transport = log_moi > 7.0;
+          if (is_heavy_transport) {
+            // Heavy transport: altitude-based flare with bounce/float recovery.
+            // The B747 arrives at the flare with a steep descent (~-7 m/s)
+            // at high speed (~150 kts).  A gentle nose-up elevator arrests
+            // the descent, but gear contact at ~5m AGL can cause a bounce.
+            // The bounce/float recovery detects upward motion or hovering
+            // and pushes the nose down to commit to touchdown.
+            double flare_progress = 1.0 - std::min(agl_m / 30.0, 1.0);
+            double el_flare = -0.08 - 0.12 * flare_progress;
+            // Bounce recovery: if ascending at low altitude (gear rebound),
+            // apply immediate nose-down to arrest the bounce.
+            if (sink_rate_mps_ > 0.0 && agl_m < 10.0) {
+              el_flare = std::max(el_flare, 0.10);
+            }
+            // Float recovery: if barely descending near the ground for
+            // several seconds, push nose down to commit to touchdown.
+            if (sink_rate_mps_ > -0.5 && agl_m < 10.0 &&
+                flare_elapsed_sec_ > 5.0) {
+              el_flare = std::max(el_flare, 0.05);
+            }
+            set_el(el_flare);
+          } else {
+            // Standard progressive flare: more nose-up as altitude decreases.
+            double flare_progress = 1.0 - std::min(agl_m / 30.0, 1.0);
+            double el_flare = -0.15 - 0.25 * flare_progress;
+            set_el(el_flare);
+          }
         }
-        if (engines_.IsWeightOnWheels() || agl_m < 0.1) {
+        // Touchdown detection: require both WOW and low altitude.
+        // Heavy aircraft (B747) have tall gear — WOW triggers at ~5m AGL,
+        // but the aircraft can bounce at that height.  Requiring agl < 3m
+        // ensures the gear is firmly compressed before committing to rollout.
+        if ((engines_.IsWeightOnWheels() && agl_m < 3.0) || agl_m < 0.1) {
           engines_.SetBrakes(true);
           set_el(0.0);
           land_phase_ = LandPhase::kTouchdown;

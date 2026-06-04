@@ -106,6 +106,7 @@ class ManeuverExecutor {
   double land_target_alt_m_ = 0.0;
   double prev_alt_m_ = 0.0;
   double sink_rate_mps_ = 0.0;
+  double flare_elapsed_sec_ = 0.0;
 };
 
 }  // namespace guidance

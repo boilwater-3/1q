@@ -205,7 +205,13 @@ int main(int argc, char** argv) {
   // Min 3km, max at altitude — fast jets need room to converge.
   double ref_spd = fm.GetAutopilot().GetControlProfile().ref_speed_mps;
   if (ref_spd <= 0.0) ref_spd = 50.0;
-  double wp_dist_m = ref_spd * 45.0;
+  double wp_dist_m = ref_spd * 60.0;
+  // Fast aircraft (max_speed > 150 m/s) need much longer waypoint distances
+  // because their takeoff rolls cover large distances at high speed.
+  double max_spd = fm.GetAutopilot().GetControlProfile().max_speed_mps;
+  if (max_spd > 150.0) {
+    wp_dist_m = std::max(wp_dist_m, max_spd * 80.0);
+  }
   if (wp_dist_m < cruise_alt_m * 1.5) wp_dist_m = cruise_alt_m * 1.5;
   if (wp_dist_m < 3000.0) wp_dist_m = 3000.0;
   double wp_offset_rad = wp_dist_m * 0.70710678 / 6378137.0;
