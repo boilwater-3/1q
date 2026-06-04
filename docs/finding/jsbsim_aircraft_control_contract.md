@@ -157,3 +157,65 @@ kDirectSurface (0):      (当前 8 机型无)        ← 仅当没有 Autopilot.
 2. `indexed_throttle` 仍由 `UsesIndexedThrottleInput()` 白名单控制，仅 `f22` 启用——后续应进入合同表而非散落函数。
 3. `c310` 是唯一不同时包含项目 `Autopilot.xml` 和原生 AP 的机型——它的 `has_generic_autopilot = false` 但不走 `kDirectSurface`，因为 `ap/heading_hold` 来自独立的 `c310ap.xml`。
 4. 新增机型后续纳入时，应优先运行 `ProfileSnapshotTest` 获取 profile 快照，再决定适配策略。
+
+## 5. 阶段 11 更新：XML guidance profile 覆盖合同
+
+> 日期：2026-06-04
+> 来源：`Autopilot::ApplyEnergyDefaults()`、`ApplyXmlProfileOverrides()`、`JsbsimAdapter::ConfigureIntegrators()` 与 `AutopilotPreservesC172xXmlRollGuidanceOverrides` 回归测试。
+
+### 5.1 配置原则
+
+`AircraftControlProfile` 的配置来源按以下顺序生效：
+
+1. C++ 结构体默认值：保持没有 aircraft XML tuning 的机型可运行。
+2. 动态默认值：根据 FBW、发动机数、MOI、mixture 等属性树探测结果推导通用包线。
+3. XML structural guidance：例如 `guidance/roll-angle-limit`，表示 aircraft XML 暴露的结构/系统约束；当前只映射到非 FBW、非重型、非 adapter fallback 的 sustained profile roll limit。
+4. XML explicit profile override：例如 `guidance/max-roll-angle-deg`，表示直接覆盖 C++ profile 字段，优先级最高。
+
+这意味着 XML 配置不是所有机型的必填项。没有专用 XML guidance 属性的机型继续使用动态默认值；只有已知模型限制、真实系统约束或测试证明需要机型特化时，才在 aircraft XML 中声明覆盖项。
+
+### 5.2 当前 guidance 属性清单
+
+| 属性 | 目标字段/用途 | 单位/语义 | 当前来源 |
+|------|---------------|-----------|----------|
+| `guidance/ref-speed-mps` | `ref_speed_mps` | m/s | optional XML override |
+| `guidance/cruise-speed-mps` | `cruise_speed_mps` | m/s | optional XML override |
+| `guidance/min-speed-mps` | `min_speed_mps` | m/s | optional XML override |
+| `guidance/max-speed-mps` | `max_speed_mps` | m/s | optional XML override |
+| `guidance/max-pitch-command-deg` | `max_pitch_command_deg` | deg | optional XML override |
+| `guidance/roll-angle-limit` | `max_roll_angle_deg` | rad structural limit；非 FBW、非重型、非 fallback 时 C++ 乘 `0.7` sustained-turn factor | `c172x`、`global5000`、`systems/Autopilot.xml`、adapter fallback |
+| `guidance/roll-rate-limit` | JSBSim AP/guidance property | rad/s，adapter 保留 XML 值 | `c172x`、`global5000`、adapter fallback |
+| `guidance/max-roll-angle-deg` | `max_roll_angle_deg` | deg，显式 profile 覆盖，优先于 structural roll limit | optional XML override |
+| `guidance/min-throttle` | `min_throttle` | normalized throttle | optional XML override |
+| `guidance/max-throttle` | `max_throttle` | normalized throttle | optional XML override |
+| `guidance/speed-energy-priority` | `speed_energy_priority` | bool-like number | optional XML override |
+| `guidance/rotation-ramp-sec` | `rotation_ramp_sec` | sec | optional XML override |
+| `guidance/rotation-max-elevator` | `rotation_max_elevator` | normalized elevator | optional XML override |
+| `guidance/rotation-climb-rate-mps` | `rotation_climb_rate_mps` | m/s | optional XML override |
+| `guidance/landing-approach-speed-mps` | `landing_approach_speed_mps` | m/s | `B747` |
+| `guidance/landing-high-descent-agl-m` | `landing_high_descent_agl_m` | m AGL | `B747` |
+| `guidance/landing-staging-agl-m` | `landing_staging_agl_m` | m AGL | `B747` |
+| `guidance/landing-pattern-agl-m` | `landing_pattern_agl_m` | m AGL | `B747` |
+| `guidance/landing-high-descent-orbit` | `landing_high_descent_orbit` | bool-like number；默认 true | optional XML override |
+| `guidance/landing-descent-throttle` | `landing_descent_throttle` | normalized throttle | `B747` |
+| `guidance/landing-approach-flaps-norm` | `landing_approach_flaps_norm` | normalized flaps | `B747` |
+| `guidance/landing-final-flaps-norm` | `landing_final_flaps_norm` | normalized flaps | `B747` |
+| `guidance/landing-final-throttle-cap` | `landing_final_throttle_cap` | normalized throttle cap | `B747` |
+| `guidance/landing-flare-initial-elevator` | `landing_flare_initial_elevator` | normalized elevator | `B747` |
+| `guidance/landing-heavy-flare` | `landing_heavy_flare` | bool-like number；启用 transport bounce/float flare law | `B747` |
+| `guidance/landing-touchdown-agl-m` | `landing_touchdown_agl_m` | m AGL | `B747` |
+
+### 5.3 已覆盖的非 B747 XML 合同
+
+`c172x` aircraft XML 已声明：
+
+```xml
+<property value="0.523"> guidance/roll-angle-limit </property>
+<property value="0.174"> guidance/roll-rate-limit </property>
+```
+
+阶段 11 回归测试验证两层合同：
+
+1. adapter 不覆盖 XML 已声明的 roll limit / roll rate limit。
+2. `Autopilot` 在动态默认值之后应用 aircraft structural roll limit，因此 `c172x` 的最终 `max_roll_angle_deg` 来自 XML structural limit 乘 sustained-turn factor，而不是 GA 默认的 `30 deg`。
+3. adapter fallback `0.785 rad` 不被解释为 profile override；FBW 和重型机型也不从 generic `systems/Autopilot.xml` 的 roll limit 自动改写 dynamic profile。若这些机型需要 XML 驱动的 profile bank limit，应使用更明确的 `guidance/max-roll-angle-deg`。

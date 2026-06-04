@@ -20,6 +20,65 @@ namespace guidance {
 namespace {
 
 constexpr double kEarthRadiusM = 6378137.0;
+constexpr double kLandingHighSpeedOrbitFactor = 1.35;
+constexpr double kLandingHighAltitudeOrbitMinSpeedMps = 120.0;
+constexpr double kLandingHighAltitudeOrbitMinRadiusM = 3000.0;
+constexpr double kLandingHighAltitudeOrbitRadiusPerSpeed = 20.0;
+constexpr double kLandingPatternCaptureMarginM = 500.0;
+constexpr double kLandingPatternOrbitMinRadiusM = 2000.0;
+constexpr double kLandingPatternOrbitRadiusPerSpeed = 15.0;
+constexpr double kLandingOrbitHeadingMinSpeedMps = 10.0;
+constexpr double kLandingApproachEntrySpeedFactor = 1.15;
+constexpr double kLandingOrbitDisabledHighSpeedMps = 200.0;
+constexpr double kLandingIdleThrottle = 0.10;
+constexpr double kLandingFbwDecelElevator = -0.05;
+constexpr double kLandingLevelSinkTargetMps = 0.0;
+constexpr double kLandingHighSpeedFallbackElevatorGain = 0.05;
+constexpr double kLandingHighSpeedFallbackElevatorLimit = 0.15;
+constexpr double kLandingApproachHighAltitudeBandM = 500.0;
+constexpr double kLandingApproachThrottleBase = 0.30;
+constexpr double kLandingApproachThrottleAltGain = 0.0005;
+constexpr double kLandingApproachThrottleMin = 0.10;
+constexpr double kLandingApproachThrottleMax = 0.50;
+constexpr double kLandingApproachSpeedElevatorGain = 0.005;
+constexpr double kLandingApproachElevatorMin = -0.15;
+constexpr double kLandingApproachElevatorMax = 0.10;
+constexpr double kLandingTargetFpaDeg = -3.0;
+constexpr double kLandingRadToDeg = 57.3;
+constexpr double kLandingFpaElevatorGain = 0.10;
+constexpr double kLandingFpaElevatorLimit = 0.20;
+constexpr double kLandingNearPatternThrottleBase = 0.30;
+constexpr double kLandingNearPatternThrottleSpeedGain = 0.005;
+constexpr double kLandingNearPatternThrottleMin = 0.10;
+constexpr double kLandingNearPatternThrottleMax = 0.60;
+constexpr double kLandingFinalTooFastFactor = 1.30;
+constexpr double kLandingFinalTooFastElevator = -0.10;
+constexpr double kLandingFlareMinAltitudeM = 15.0;
+constexpr double kLandingFlareAltitudePerSpeed = 0.60;
+constexpr double kLandingHeavyFlareInitialElevator = -0.08;
+constexpr double kLandingStandardFlareInitialElevator = -0.25;
+constexpr double kLandingFinalSinkTargetMps = -3.0;
+constexpr double kLandingFinalThrottleBase = 0.25;
+constexpr double kLandingFinalThrottleSinkGain = 0.05;
+constexpr double kLandingFinalThrottleMin = 0.0;
+constexpr double kLandingFinalThrottleMax = 0.60;
+constexpr double kLandingFinalThrottleCapSpeedFactor = 1.05;
+constexpr double kLandingHeavyFlareScaleM = 30.0;
+constexpr double kLandingHeavyFlareBaseElevator = -0.08;
+constexpr double kLandingHeavyFlareProgressElevator = -0.12;
+constexpr double kLandingStandardFlareScaleM = 30.0;
+constexpr double kLandingStandardFlareBaseElevator = -0.15;
+constexpr double kLandingStandardFlareProgressElevator = -0.25;
+constexpr double kLandingBounceRecoveryAglM = 10.0;
+constexpr double kLandingBounceRecoverySinkMps = 0.0;
+constexpr double kLandingBounceRecoveryElevator = 0.10;
+constexpr double kLandingFloatRecoveryAglM = 10.0;
+constexpr double kLandingFloatRecoverySinkMps = -0.5;
+constexpr double kLandingFloatRecoveryDelaySec = 5.0;
+constexpr double kLandingFloatRecoveryElevator = 0.05;
+constexpr double kLandingGroundContactAglM = 0.10;
+constexpr double kLandingTouchdownRolloutSpeedFps = 30.0;
+constexpr double kLandingCompleteSpeedFps = 10.0;
 
 double TakeoffIdleThrottle(propulsion::EngineType type) {
   switch (type) {
@@ -136,13 +195,22 @@ ManeuverExecutor::ManeuverExecutor(adapter::JsbsimAdapter& adapter, autopilot::A
     : adapter_(adapter), ap_(ap), wp_manager_(wp_manager), engines_(engines) {}
 
 void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
+  // Clamp waypoint altitude to aircraft ceiling.
+  Waypoint clamped_target = target;
+  double ceiling = ap_.GetControlProfile().ceiling_m;
+  if (ceiling > 0.0 && target.altitude_m > ceiling) {
+    spdlog::info("[FLYTO] Clamping waypoint altitude {:.0f}m → ceiling {:.0f}m",
+                 target.altitude_m, ceiling);
+    clamped_target.altitude_m = ceiling;
+  }
+
   current_maneuver_.type = ManeuverType::kFlyToWaypoint;
-  current_maneuver_.target = target;
+  current_maneuver_.target = clamped_target;
   active_ = true;
   elapsed_sec_ = 0.0;
 
   wp_manager_.ClearWaypoints();
-  wp_manager_.AddWaypoint(target);
+  wp_manager_.AddWaypoint(clamped_target);
   wp_manager_.Start();
 
   ap_.SetLateralGuidanceMode(autopilot::LateralGuidanceMode::kHeading);
@@ -150,7 +218,7 @@ void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
   ap_.SetRollAttitudeMode(1);
   ap_.SetRollAutopilotOn(true);
   ap_.SetHeadingHold(true);
-  ap_.SetAltitudeTargetM(target.altitude_m);
+  ap_.SetAltitudeTargetM(clamped_target.altitude_m);
   ap_.SetAltitudeHold(true);
 
   // Speed target priority:
@@ -178,8 +246,17 @@ void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
 }
 
 void ManeuverExecutor::ExecuteOrbit(const Waypoint& center, double radius_m, double duration_sec) {
+  // Clamp orbit altitude to aircraft ceiling.
+  Waypoint clamped_center = center;
+  double ceiling = ap_.GetControlProfile().ceiling_m;
+  if (ceiling > 0.0 && center.altitude_m > ceiling) {
+    spdlog::info("[ORBIT] Clamping orbit altitude {:.0f}m → ceiling {:.0f}m",
+                 center.altitude_m, ceiling);
+    clamped_center.altitude_m = ceiling;
+  }
+
   current_maneuver_.type = ManeuverType::kOrbit;
-  current_maneuver_.target = center;
+  current_maneuver_.target = clamped_center;
   current_maneuver_.value = std::abs(radius_m);
   current_maneuver_.duration_sec = duration_sec;
   if (current_maneuver_.value < 1.0) current_maneuver_.value = 1.0;
@@ -187,7 +264,7 @@ void ManeuverExecutor::ExecuteOrbit(const Waypoint& center, double radius_m, dou
   elapsed_sec_ = 0.0;
 
   // Use a waypoint at center + offset for circular track
-  Waypoint orbit_wp = center;
+  Waypoint orbit_wp = clamped_center;
   orbit_wp.radius_m = radius_m;
   wp_manager_.ClearWaypoints();
   wp_manager_.AddWaypoint(orbit_wp);
@@ -198,7 +275,7 @@ void ManeuverExecutor::ExecuteOrbit(const Waypoint& center, double radius_m, dou
   ap_.SetRollAttitudeMode(1);
   ap_.SetRollAutopilotOn(true);
   ap_.SetHeadingHold(true);
-  ap_.SetAltitudeTargetM(center.altitude_m);
+  ap_.SetAltitudeTargetM(clamped_center.altitude_m);
   ap_.SetAltitudeHold(true);
   // Speed target: use waypoint speed or profile cruise default.
   const auto& prof = ap_.GetControlProfile();
@@ -259,15 +336,25 @@ void ManeuverExecutor::ExecuteSetRoll(int roll_mode) {
 
 void ManeuverExecutor::ExecuteTakeoff(double target_altitude_m, double target_heading_rad,
                                       double target_speed_mps) {
+  // Clamp to aircraft service ceiling so the takeoff never targets an
+  // unreachable altitude that would cause infinite climb → TIMEOUT.
+  double ceiling = ap_.GetControlProfile().ceiling_m;
+  double clamped_alt = target_altitude_m;
+  if (ceiling > 0.0 && target_altitude_m > ceiling) {
+    spdlog::info("[TKO] Clamping target altitude {:.0f}m → ceiling {:.0f}m",
+                 target_altitude_m, ceiling);
+    clamped_alt = ceiling;
+  }
+
   current_maneuver_.type = ManeuverType::kTakeoff;
-  current_maneuver_.value = target_altitude_m;
+  current_maneuver_.value = clamped_alt;
   current_maneuver_.duration_sec = target_speed_mps;
-  current_maneuver_.target.altitude_m = target_altitude_m;
+  current_maneuver_.target.altitude_m = clamped_alt;
   active_ = true;
   elapsed_sec_ = 0.0;
   takeoff_phase_elapsed_sec_ = 0.0;
   takeoff_phase_ = TakeoffPhase::kEngineStart;
-  takeoff_target_altitude_m_ = target_altitude_m;
+  takeoff_target_altitude_m_ = clamped_alt;
   takeoff_target_heading_rad_ = target_heading_rad;
 
   StartEngine();
@@ -652,28 +739,30 @@ void ManeuverExecutor::Update(double dt_sec) {
                                           : 0.70;
           engines_.SetThrottle(descent_thr);
           if (profile.landing_high_descent_orbit &&
-              vc_mps > std::max(land_approach_speed_mps_ * 1.35, 120.0)) {
-            double orbit_radius_m = std::max(3000.0, vc_mps * 20.0);
+              vc_mps > std::max(land_approach_speed_mps_ * kLandingHighSpeedOrbitFactor,
+                                 kLandingHighAltitudeOrbitMinSpeedMps)) {
+            double orbit_radius_m = std::max(kLandingHighAltitudeOrbitMinRadiusM,
+                                             vc_mps * kLandingHighAltitudeOrbitRadiusPerSpeed);
             double heading_rad = ComputeClockwiseOrbitHeadingRad(
                 adapter_.GetPropagate().GetLocation(), current_maneuver_.target, orbit_radius_m,
-                std::max(vc_mps, 10.0));
+                std::max(vc_mps, kLandingOrbitHeadingMinSpeedMps));
             ap_.SetHeadingTargetRad(heading_rad);
             ap_.SetHeadingSourceIsWaypoint(false);
           }
-          if (agl_m < intermediate_alt + 500.0) {
+          if (agl_m < intermediate_alt + kLandingPatternCaptureMarginM) {
             ap_.SetAltitudeHold(false);
             land_phase_ = LandPhase::kApproach;
           }
           break;
         }
-        engines_.SetThrottle(0.1);
+        engines_.SetThrottle(kLandingIdleThrottle);
         if (is_fbw) {
           // FBW aircraft: wings-level, no heading hold — avoid extreme roll
           // at supersonic speeds. Just fly straight and decelerate.
           ap_.SetHeadingHold(false);
-          set_el(-0.05);
+          set_el(kLandingFbwDecelElevator);
         } else if (profile.landing_high_descent_orbit &&
-                   vc_mps > land_approach_speed_mps_ * 1.35) {
+                   vc_mps > land_approach_speed_mps_ * kLandingHighSpeedOrbitFactor) {
           // Too fast for straight-in: orbit near landing point while holding
           // pattern altitude. Heavy transports otherwise skim the runway at
           // 200+ kt before reaching approach speed.
@@ -681,23 +770,26 @@ void ManeuverExecutor::Update(double dt_sec) {
           ap_.SetAltitudeTargetM(pattern_alt);
           ap_.SetAltitudeHold(true);
           ap_.SetSpeedHold(false);
-          double orbit_radius_m = std::max(2000.0, vc_mps * 15.0);
+          double orbit_radius_m = std::max(kLandingPatternOrbitMinRadiusM,
+                                           vc_mps * kLandingPatternOrbitRadiusPerSpeed);
           double heading_rad = ComputeClockwiseOrbitHeadingRad(
               adapter_.GetPropagate().GetLocation(), current_maneuver_.target, orbit_radius_m,
-              std::max(vc_mps, 10.0));
+              std::max(vc_mps, kLandingOrbitHeadingMinSpeedMps));
           ap_.SetHeadingTargetRad(heading_rad);
           ap_.SetHeadingSourceIsWaypoint(false);
           ap_.SetHeadingHold(true);
-        } else if (vc_mps > 200.0) {
+        } else if (vc_mps > kLandingOrbitDisabledHighSpeedMps) {
           // High-speed fallback for aircraft with orbit disabled.
-          double sink_err = sink_rate_mps_ - 0.0;
-          double el = std::clamp(0.05 * sink_err, -0.15, 0.15);
+          double sink_err = sink_rate_mps_ - kLandingLevelSinkTargetMps;
+          double el = std::clamp(kLandingHighSpeedFallbackElevatorGain * sink_err,
+                                 -kLandingHighSpeedFallbackElevatorLimit,
+                                 kLandingHighSpeedFallbackElevatorLimit);
           set_el(el);
         } else {
           ap_.SetAltitudeHold(false);
-          set_el(-0.05);
+          set_el(kLandingFbwDecelElevator);
         }
-        if (vc_mps < land_approach_speed_mps_ * 1.15) {
+        if (vc_mps < land_approach_speed_mps_ * kLandingApproachEntrySpeedFactor) {
           ap_.SetAltitudeHold(false);
           if (is_fbw) ap_.SetHeadingHold(true);
           land_phase_ = LandPhase::kApproach;
@@ -715,44 +807,52 @@ void ManeuverExecutor::Update(double dt_sec) {
         double alt_above = agl_m - alt_target;
         // High above pattern: prioritize controlled descent.
         // Aggressive pitch-up at high speed causes zoom climbs → PIO.
-        if (alt_above > 500.0) {
-          double thr = std::clamp(0.3 - 0.0005 * alt_above, 0.1, 0.5);
+        if (alt_above > kLandingApproachHighAltitudeBandM) {
+          double thr = std::clamp(kLandingApproachThrottleBase -
+                                      kLandingApproachThrottleAltGain * alt_above,
+                                  kLandingApproachThrottleMin, kLandingApproachThrottleMax);
           engines_.SetThrottle(thr);
-          double el = std::clamp(0.005 * speed_err, -0.15, 0.1);
+          double el = std::clamp(kLandingApproachSpeedElevatorGain * speed_err,
+                                 kLandingApproachElevatorMin, kLandingApproachElevatorMax);
           set_el(el);
         } else {
           // Near pattern altitude: fixed glide-slope attitude, throttle for speed.
-          double target_fpa_deg = -3.0;
-          double cur_fpa_deg = vc_mps > 0 ? std::atan2(sink_rate_mps_, vc_mps) * 57.3 : 0.0;
+          double target_fpa_deg = kLandingTargetFpaDeg;
+          double cur_fpa_deg =
+              vc_mps > 0 ? std::atan2(sink_rate_mps_, vc_mps) * kLandingRadToDeg : 0.0;
           double fpa_err = cur_fpa_deg - target_fpa_deg;
-          double el = std::clamp(0.1 * fpa_err, -0.2, 0.2);
+          double el = std::clamp(kLandingFpaElevatorGain * fpa_err,
+                                 -kLandingFpaElevatorLimit, kLandingFpaElevatorLimit);
           set_el(el);
           double spd_err = vc_mps - land_approach_speed_mps_;
-          double thr = std::clamp(0.3 - 0.005 * spd_err, 0.1, 0.6);
+          double thr = std::clamp(kLandingNearPatternThrottleBase -
+                                      kLandingNearPatternThrottleSpeedGain * spd_err,
+                                  kLandingNearPatternThrottleMin,
+                                  kLandingNearPatternThrottleMax);
           engines_.SetThrottle(thr);
         }
         break;
       }
       case LandPhase::kFinalDescent: {
         // Too fast for final descent: reduce throttle, gentle nose-up to bleed speed.
-        if (vc_mps > land_approach_speed_mps_ * 1.3) {
+        if (vc_mps > land_approach_speed_mps_ * kLandingFinalTooFastFactor) {
           engines_.SetThrottle(0.0);
-          set_el(-0.1);
+          set_el(kLandingFinalTooFastElevator);
           break;
         }
         // Flare initiation altitude: proportional to approach speed.
         // Fast aircraft need more altitude to arrest the descent.
-        double flare_alt_m = std::max(15.0, vc_mps * 0.6);
+        double flare_alt_m = std::max(kLandingFlareMinAltitudeM,
+                                      vc_mps * kLandingFlareAltitudePerSpeed);
         if (agl_m < land_target_alt_m_ + flare_alt_m) {
           engines_.SetThrottle(0.0);
           // Heavy transports use a gentler initial flare elevator to prevent
           // the large wing from generating excessive lift at high speed.
           double init_flare_el = profile.landing_flare_initial_elevator;
           if (init_flare_el == 0.0) {
-            double log_moi = ap_.GetControlProfile().pitch_moi_lbsft2 > 0.0
-                                 ? std::log10(ap_.GetControlProfile().pitch_moi_lbsft2)
-                                 : 0.0;
-            init_flare_el = log_moi > 7.0 ? -0.08 : -0.25;
+            init_flare_el = profile.landing_heavy_flare
+                                 ? kLandingHeavyFlareInitialElevator
+                                 : kLandingStandardFlareInitialElevator;
           }
           set_el(init_flare_el);
           flare_elapsed_sec_ = 0.0;
@@ -760,18 +860,22 @@ void ManeuverExecutor::Update(double dt_sec) {
           break;
         }
         // Fixed glide-slope attitude, throttle for sink rate.
-        double target_fpa_deg = -3.0;
-        double cur_fpa_deg = vc_mps > 0 ? std::atan2(sink_rate_mps_, vc_mps) * 57.3 : 0.0;
+        double target_fpa_deg = kLandingTargetFpaDeg;
+        double cur_fpa_deg =
+            vc_mps > 0 ? std::atan2(sink_rate_mps_, vc_mps) * kLandingRadToDeg : 0.0;
         double fpa_err = cur_fpa_deg - target_fpa_deg;
-        double el = std::clamp(0.1 * fpa_err, -0.2, 0.2);
+        double el = std::clamp(kLandingFpaElevatorGain * fpa_err,
+                               -kLandingFpaElevatorLimit, kLandingFpaElevatorLimit);
         set_el(el);
-        double sink_err = -3.0 - sink_rate_mps_;
-        double thr = std::clamp(0.25 + 0.05 * sink_err, 0.0, 0.6);
+        double sink_err = kLandingFinalSinkTargetMps - sink_rate_mps_;
+        double thr = std::clamp(kLandingFinalThrottleBase +
+                                    kLandingFinalThrottleSinkGain * sink_err,
+                                kLandingFinalThrottleMin, kLandingFinalThrottleMax);
         // Speed management: cap throttle when above approach speed to
         // allow deceleration.  Without this, the sink-rate-based throttle
         // keeps the aircraft fast through final descent, causing excess
         // lift at flare (B747 at 160 kts generates lift ≈ weight).
-        if (vc_mps > land_approach_speed_mps_ * 1.05) {
+        if (vc_mps > land_approach_speed_mps_ * kLandingFinalThrottleCapSpeedFactor) {
           thr = std::min(thr, profile.landing_final_throttle_cap);
         }
         engines_.SetThrottle(thr);
@@ -782,35 +886,35 @@ void ManeuverExecutor::Update(double dt_sec) {
         neutralize_lateral();
         engines_.SetThrottle(0.0);
         {
-          double log_moi = ap_.GetControlProfile().pitch_moi_lbsft2 > 0.0
-                               ? std::log10(ap_.GetControlProfile().pitch_moi_lbsft2)
-                               : 0.0;
-          bool is_heavy_transport = log_moi > 7.0;
-          if (is_heavy_transport) {
+          if (profile.landing_heavy_flare) {
             // Heavy transport: altitude-based flare with bounce/float recovery.
             // The B747 arrives at the flare with a steep descent (~-7 m/s)
             // at high speed (~150 kts).  A gentle nose-up elevator arrests
             // the descent, but gear contact at ~5m AGL can cause a bounce.
             // The bounce/float recovery detects upward motion or hovering
             // and pushes the nose down to commit to touchdown.
-            double flare_progress = 1.0 - std::min(agl_m / 30.0, 1.0);
-            double el_flare = -0.08 - 0.12 * flare_progress;
+            double flare_progress = 1.0 - std::min(agl_m / kLandingHeavyFlareScaleM, 1.0);
+            double el_flare = kLandingHeavyFlareBaseElevator +
+                              kLandingHeavyFlareProgressElevator * flare_progress;
             // Bounce recovery: if ascending at low altitude (gear rebound),
             // apply immediate nose-down to arrest the bounce.
-            if (sink_rate_mps_ > 0.0 && agl_m < 10.0) {
-              el_flare = std::max(el_flare, 0.10);
+            if (sink_rate_mps_ > kLandingBounceRecoverySinkMps &&
+                agl_m < kLandingBounceRecoveryAglM) {
+              el_flare = std::max(el_flare, kLandingBounceRecoveryElevator);
             }
             // Float recovery: if barely descending near the ground for
             // several seconds, push nose down to commit to touchdown.
-            if (sink_rate_mps_ > -0.5 && agl_m < 10.0 &&
-                flare_elapsed_sec_ > 5.0) {
-              el_flare = std::max(el_flare, 0.05);
+            if (sink_rate_mps_ > kLandingFloatRecoverySinkMps &&
+                agl_m < kLandingFloatRecoveryAglM &&
+                flare_elapsed_sec_ > kLandingFloatRecoveryDelaySec) {
+              el_flare = std::max(el_flare, kLandingFloatRecoveryElevator);
             }
             set_el(el_flare);
           } else {
             // Standard progressive flare: more nose-up as altitude decreases.
-            double flare_progress = 1.0 - std::min(agl_m / 30.0, 1.0);
-            double el_flare = -0.15 - 0.25 * flare_progress;
+            double flare_progress = 1.0 - std::min(agl_m / kLandingStandardFlareScaleM, 1.0);
+            double el_flare = kLandingStandardFlareBaseElevator +
+                              kLandingStandardFlareProgressElevator * flare_progress;
             set_el(el_flare);
           }
         }
@@ -818,7 +922,7 @@ void ManeuverExecutor::Update(double dt_sec) {
         // Large transports can report WOW while the body AGL is still well
         // above the default small-aircraft threshold due to tall landing gear.
         if ((engines_.IsWeightOnWheels() && agl_m < profile.landing_touchdown_agl_m) ||
-            agl_m < 0.1) {
+            agl_m < kLandingGroundContactAglM) {
           engines_.SetBrakes(true);
           set_el(0.0);
           land_phase_ = LandPhase::kTouchdown;
@@ -828,13 +932,13 @@ void ManeuverExecutor::Update(double dt_sec) {
         neutralize_lateral();
         engines_.SetThrottle(0.0);
         engines_.SetBrakes(true);
-        if (vc_fps < 30.0) land_phase_ = LandPhase::kRollout;
+        if (vc_fps < kLandingTouchdownRolloutSpeedFps) land_phase_ = LandPhase::kRollout;
         break;
       case LandPhase::kRollout:
         neutralize_lateral();
         engines_.SetThrottle(0.0);
         engines_.SetBrakes(true);
-        if (vc_fps < 10.0) land_phase_ = LandPhase::kComplete;
+        if (vc_fps < kLandingCompleteSpeedFps) land_phase_ = LandPhase::kComplete;
         break;
       case LandPhase::kComplete:
         break;

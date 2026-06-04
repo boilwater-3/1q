@@ -90,6 +90,8 @@ class FlightManager {
   // Direct access for lower-level control
   adapter::JsbsimAdapter& GetAdapter() { return *adapter_; }
   autopilot::Autopilot& GetAutopilot() { return *ap_; }
+  propulsion::EngineManager& GetEngineManager() { return *engines_; }
+  const propulsion::EngineManager& GetEngineManager() const { return *engines_; }
   guidance::WaypointManager& GetWaypointManager() { return *wp_manager_; }
 
  private:

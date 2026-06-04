@@ -11,6 +11,7 @@
 #include "fd_test_helpers.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "flight_dynamic/adapter/PropertyNames.h"
+#include "flight_dynamic/propulsion/EngineManager.h"
 #include "math/FGLocation.h"
 #include "models/FGPropagate.h"
 
@@ -211,8 +212,10 @@ TEST_F(FlightDynamicTest, AutopilotReadsB747LandingGuidanceOverrides) {
   config_.initial_kinematics.velocity_mps.x_mps = 150.0;
 
   FlightManager fm(config_);
+  auto& adapter = fm.GetAdapter();
   const auto& profile = fm.GetAutopilot().GetControlProfile();
 
+  EXPECT_DOUBLE_EQ(adapter.GetProperty("guidance/landing-heavy-flare"), 1.0);
   EXPECT_DOUBLE_EQ(profile.landing_approach_speed_mps, 68.0);
   EXPECT_DOUBLE_EQ(profile.landing_high_descent_agl_m, 3000.0);
   EXPECT_DOUBLE_EQ(profile.landing_staging_agl_m, 2500.0);
@@ -223,8 +226,154 @@ TEST_F(FlightDynamicTest, AutopilotReadsB747LandingGuidanceOverrides) {
   EXPECT_DOUBLE_EQ(profile.landing_final_flaps_norm, 0.75);
   EXPECT_DOUBLE_EQ(profile.landing_final_throttle_cap, 0.05);
   EXPECT_DOUBLE_EQ(profile.landing_flare_initial_elevator, -0.08);
+  EXPECT_TRUE(profile.landing_heavy_flare);
   EXPECT_DOUBLE_EQ(profile.landing_touchdown_agl_m, 5.5);
 }
+
+TEST_F(FlightDynamicTest, AutopilotPreservesC172xXmlRollGuidanceOverrides) {
+  config_.aircraft_model = "c172x";
+  config_.do_trim = false;
+
+  FlightManager fm(config_);
+  auto& adapter = fm.GetAdapter();
+  const auto& profile = fm.GetAutopilot().GetControlProfile();
+
+  EXPECT_NEAR(adapter.GetProperty(adapter::property::kGuidanceRollAngleLimit), 0.523, 1.0e-6);
+  EXPECT_NEAR(adapter.GetProperty(adapter::property::kGuidanceRollRateLimit), 0.174, 1.0e-6);
+  EXPECT_NEAR(profile.max_roll_angle_deg, 0.523 * 180.0 / kPi * 0.7, 1.0e-3);
+}
+
+// ─── EngineManager contract tests ───────────────────────────────────────────
+// Verify that EngineManager-derived aircraft capability parameters
+// (CLmax, Vr factor, climb pitch, approach speed fallback) match
+// expected values for representative aircraft types.
+
+struct EngineManagerContractParam {
+  std::string model_name;
+  double altitude_m;
+  double speed_mps;
+  bool do_trim;
+};
+
+class EngineManagerContractTest
+    : public ::testing::TestWithParam<EngineManagerContractParam> {
+ protected:
+  void SetUp() override {
+    const auto& param = GetParam();
+    config_.aircraft_model = param.model_name;
+    config_.aircraft_root_dir = FD_JSBSIM_ROOT_DIR;
+    config_.dt_sec = kDt;
+    config_.do_trim = param.do_trim;
+    config_.silent_mode = true;
+    config_.initial_kinematics.position_frame = coordinate::PositionFrame::kLla;
+    config_.initial_kinematics.position_lla_deg_m.latitude_deg = 0.0;
+    config_.initial_kinematics.position_lla_deg_m.longitude_deg = 0.0;
+    config_.initial_kinematics.position_lla_deg_m.altitude_m = param.altitude_m;
+    config_.initial_kinematics.velocity_mps.x_mps = param.speed_mps;
+    config_.initial_kinematics.velocity_mps.y_mps = 0.0;
+    config_.initial_kinematics.velocity_mps.z_mps = 0.0;
+    config_.initial_kinematics.attitude_deg.roll_deg = 0.0;
+    config_.initial_kinematics.attitude_deg.pitch_deg = 0.0;
+    config_.initial_kinematics.attitude_deg.yaw_deg = 0.0;
+  }
+
+  config::FlightDynamicConfig config_;
+};
+
+TEST_P(EngineManagerContractTest, RotationSpeedReasonable) {
+  // Verify that Vr falls within a reasonable range for the aircraft type.
+  // Exact Vr depends on runtime weight (fuel + payload), so we test
+  // range bounds and classification logic, not a single magic number.
+  FlightManager fm(config_);
+  const auto& engines = fm.GetEngineManager();
+  double vr_kts = engines.GetRotationSpeedKts();
+
+  EXPECT_GT(vr_kts, 30.0) << "Vr unreasonably low for " << GetParam().model_name;
+  EXPECT_LT(vr_kts, 400.0) << "Vr unreasonably high for " << GetParam().model_name;
+
+  const std::string& model = GetParam().model_name;
+
+  if (model == "c172x") {
+    // GA piston: CLmax=1.6, Vr factor=1.10, Iyy=1346 (light)
+    EXPECT_EQ(engines.GetType(), propulsion::EngineType::kPiston);
+    // C172 Vr is typically 50-60 kts at MTOW
+    EXPECT_GT(vr_kts, 40.0);
+    EXPECT_LT(vr_kts, 80.0);
+  } else if (model == "DHC6") {
+    // Turboprop: CLmax=2.0, Vr factor=1.15, Iyy=24679
+    EXPECT_EQ(engines.GetType(), propulsion::EngineType::kTurboprop);
+    EXPECT_GT(vr_kts, 35.0);
+    EXPECT_LT(vr_kts, 90.0);
+  } else if (model == "B747") {
+    // Heavy turbine: CLmax=1.6, Vr factor=1.08, Iyy=3.31e7
+    EXPECT_EQ(engines.GetType(), propulsion::EngineType::kTurbine);
+    EXPECT_GT(vr_kts, 100.0);
+    EXPECT_LT(vr_kts, 200.0);
+  } else if (model == "XB-70") {
+    // Delta wing: CLmax=2.5 (AR=1.75), Vr factor=1.20 (light turbine)
+    EXPECT_GT(vr_kts, 60.0);
+    EXPECT_LT(vr_kts, 160.0);
+  }
+}
+
+TEST_P(EngineManagerContractTest, ClimbPitchMatchesEngineType) {
+  // Verify climb pitch is consistent with engine type classification.
+  FlightManager fm(config_);
+  const auto& engines = fm.GetEngineManager();
+  double pitch_deg = engines.GetClimbPitchDeg();
+
+  EXPECT_GT(pitch_deg, 5.0) << "Climb pitch unreasonably low";
+  EXPECT_LT(pitch_deg, 25.0) << "Climb pitch unreasonably high";
+
+  switch (engines.GetType()) {
+    case propulsion::EngineType::kPiston:
+      EXPECT_DOUBLE_EQ(pitch_deg, 10.0);
+      break;
+    case propulsion::EngineType::kTurbine:
+      EXPECT_DOUBLE_EQ(pitch_deg, 15.0);
+      break;
+    case propulsion::EngineType::kTurboprop:
+      EXPECT_DOUBLE_EQ(pitch_deg, 10.0);
+      break;
+    default:
+      EXPECT_DOUBLE_EQ(pitch_deg, 10.0);  // fallback
+      break;
+  }
+}
+
+TEST_P(EngineManagerContractTest, ApproachSpeedFallbackReasonable) {
+  // Verify approach speed fallback is within category-appropriate range.
+  // These are last-resort defaults when Vr calculation is unavailable.
+  FlightManager fm(config_);
+  const auto& engines = fm.GetEngineManager();
+  double spd_mps = engines.GetDefaultApproachSpeedMps();
+
+  EXPECT_GT(spd_mps, 20.0) << "Approach speed unreasonably low";
+  EXPECT_LT(spd_mps, 100.0) << "Approach speed unreasonably high";
+
+  switch (engines.GetType()) {
+    case propulsion::EngineType::kPiston:
+      EXPECT_DOUBLE_EQ(spd_mps, 28.0);
+      break;
+    case propulsion::EngineType::kTurboprop:
+      EXPECT_DOUBLE_EQ(spd_mps, 41.0);
+      break;
+    case propulsion::EngineType::kTurbine:
+      EXPECT_DOUBLE_EQ(spd_mps, 62.0);
+      break;
+    default:
+      EXPECT_DOUBLE_EQ(spd_mps, 36.0);
+      break;
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    EngineManagerContracts, EngineManagerContractTest,
+    ::testing::Values(
+        EngineManagerContractParam{"c172x", 500.0, 50.0, true},
+        EngineManagerContractParam{"DHC6", 500.0, 50.0, true},
+        EngineManagerContractParam{"B747", 500.0, 100.0, false},
+        EngineManagerContractParam{"XB-70", 500.0, 100.0, true}));
 
 TEST_F(FlightDynamicTest, AutopilotSetsHeading) {
   FlightManager fm(config_);
@@ -686,19 +835,21 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
 
   if (model == "Concorde") {
     // Classified as heavy jet (4 engines, Iyy=1.9e7, no mixture).
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 500.0);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 250.0);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 130.0);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 300.0);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 241.64511004429477);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 201.3709250369123);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 69.041460012655634);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 241.64511004429477);
+    SNAPSHOT_CHECK_DBL(p, ceiling_m, 13700.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 8.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 35.0);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.55);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
   } else if (model == "f16") {
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 200.0);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 200.0);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 140.0);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 350.0);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 318.79173579619004);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 202.86746823393912);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 72.452667226406817);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 318.79173579619004);
+    SNAPSHOT_CHECK_DBL(p, ceiling_m, 15200.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 15.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 45.0);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.35);
@@ -706,51 +857,56 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
   } else if (model == "f15") {
     // Non-FBW, non-piston, not heavy (2 engines, Iyy=1.65e5).
     // Falls into the light turbine / turboprop catch-all branch.
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 80.0);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 50.0);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 196.35969819947218);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 67.175686226135227);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 20.0);
     EXPECT_NEAR(p.max_roll_angle_deg, 21.0, 0.5);  // from XML roll limit × sustained factor
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.15);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, false);
   } else if (model == "B17") {
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 85.0);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 75.0);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 65.0);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 100.0);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 149.43193652640619);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 119.54554922112493);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 55.503290709808013);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 149.43193652640619);
+    SNAPSHOT_CHECK_DBL(p, ceiling_m, 4300.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 10.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 25.0);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.40);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
   } else if (model == "C130") {
     // Classified as heavy jet (4 engines, no magneto, no mixture).
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 500.0);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 250.0);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 130.0);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 300.0);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 175.60809168697591);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 146.34007640581325);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 50.173740481993114);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 175.60809168697591);
+    SNAPSHOT_CHECK_DBL(p, ceiling_m, 13700.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 8.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 35.0);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.55);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
   } else if (model == "c172x") {
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 50.0);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 50.0);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 40.0);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 80.0);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 92.358025343142515);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 73.886420274514009);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 34.304409413167221);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 92.358025343142515);
+    SNAPSHOT_CHECK_DBL(p, ceiling_m, 4300.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 12.0);
-    SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 30.0);
+    EXPECT_NEAR(p.max_roll_angle_deg, 0.523 * 180.0 / kPi * 0.7, 1.0e-3);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.20);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, false);
   } else if (model == "c310") {
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 65.0);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 60.0);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 55.0);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 90.0);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 121.96887745540842);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 97.57510196432672);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 45.302725912008839);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 121.96887745540842);
+    SNAPSHOT_CHECK_DBL(p, ceiling_m, 4300.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 10.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 30.0);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.30);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
   }
   SNAPSHOT_CHECK_DBL(p, max_throttle, 1.0);
+  SNAPSHOT_CHECK_BOOL(p, landing_heavy_flare, model == "Concorde");
 }
 
 INSTANTIATE_TEST_SUITE_P(

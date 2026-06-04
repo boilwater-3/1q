@@ -57,10 +57,16 @@ struct AircraftControlProfile {
   std::string yaw_input_property;
 
   // --- Energy management profile ---
-  double ref_speed_mps = 0.0;     // cruise / reference speed for energy distribution
-  double min_speed_mps = 0.0;     // minimum task speed (stall margin)
-  double max_speed_mps = 0.0;     // maximum task speed (structural / thrust limit)
-  double cruise_speed_mps = 0.0;  // default cruise TAS by aircraft category
+  // Derived from aircraft physics (V_stall, wing loading), not hardcoded
+  // categories.  V_stall = sqrt(2W / ρ·S·CLmax) encodes actual weight,
+  // wing area, and lift capability into a single base speed.
+  double v_stall_mps = 0.0;           // clean stall speed (TAS, m/s) at sea level
+  double wing_loading_lbs_ft2 = 0.0;  // weight / wing_area (lbs/ft²)
+  double ref_speed_mps = 0.0;         // cruise / reference speed for energy distribution
+  double min_speed_mps = 0.0;         // minimum task speed (stall margin)
+  double max_speed_mps = 0.0;         // maximum task speed (structural / thrust limit)
+  double cruise_speed_mps = 0.0;      // default cruise TAS by aircraft category
+  double ceiling_m = 0.0;             // practical service ceiling (0 = derive from physics)
   double max_pitch_command_deg = 20.0;  // pitch command limit in altitude hold
   double max_roll_angle_deg = 45.0;     // structural/aero roll limit (used for orbit radius)
   double max_throttle = 1.0;
@@ -84,6 +90,7 @@ struct AircraftControlProfile {
   double landing_final_flaps_norm = 1.0;
   double landing_final_throttle_cap = 0.15;
   double landing_flare_initial_elevator = 0.0;    // 0 = derive from aircraft class
+  bool landing_heavy_flare = false;               // true = use transport bounce/float flare law
   double landing_touchdown_agl_m = 3.0;
 };
 

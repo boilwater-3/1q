@@ -53,83 +53,100 @@ bool HasProperty(adapter::JsbsimAdapter& adapter, const char* name) {
   return pm && pm->GetNode(name) != nullptr;
 }
 
-// Set energy-management defaults based on detected aircraft capability.
-// No model-name hardcoding — classifies by engine count, FBW presence,
-// and propulsion type from the property tree.
+// Set energy-management defaults from aircraft physics.
+// Speed envelope is derived from V_stall (which encodes actual weight,
+// wing area, and CLmax); ceiling is derived from wing loading.
+// Category flags adjust the multipliers but the base comes from physics,
+// so a C172 and a C182 naturally get different envelopes.
 void ApplyEnergyDefaults(AircraftControlProfile* profile) {
   if (!profile) return;
 
+  const double vs = profile->v_stall_mps;  // clean stall speed (m/s TAS)
+  if (vs <= 0.0) return;  // physics data unavailable → keep struct defaults
+
+  const double wl = profile->wing_loading_lbs_ft2;  // wing loading
+  const int n_eng = profile->engine_count;
   const bool has_fbw = profile->has_fbw_override || profile->has_roll_rate_command;
-  // Heavy classification: 4+ engines OR large pitch MOI (>1e7 slugs·ft²).
-  // Captures trijets like MD11 (Iyy=3.8e7, 3 engines) that are heavy
-  // transports that don't meet the 4-engine threshold.
   const bool is_heavy = profile->engine_count >= 4 ||
       (profile->pitch_moi_lbsft2 > 0.0 && std::log10(profile->pitch_moi_lbsft2) > 7.0);
-  const bool is_medium =
-      !is_heavy && profile->pitch_moi_lbsft2 > 0.0 &&
+  const bool is_medium = !is_heavy && profile->pitch_moi_lbsft2 > 0.0 &&
       std::log10(profile->pitch_moi_lbsft2) > 6.0;
-  const int n_eng = profile->engine_count;
+
+  // ── Speed envelope from V_stall ──────────────────────────────────────
+  //
+  // min_speed  = V_stall × margin          (prevents stall in turns)
+  // cruise     = V_stall × cruise_factor   (efficient cruise ~75% power)
+  // max_speed  = V_stall × max_factor      (structural / thrust limit)
+  //
+  // The factors differ by propulsion type because jets cruise at a higher
+  // multiple of stall speed than pistons (higher wing loading → higher
+  // efficient cruise speed relative to stall).
+
+  double stall_margin, cruise_factor, max_factor;
+  double pitch_cmd, roll_lim, min_thr;
+  bool spd_prio;
 
   if (has_fbw) {
-    // High-performance FBW fighter (f16 class)
-    profile->ref_speed_mps = 200.0;
-    profile->cruise_speed_mps = 200.0;
-    profile->min_speed_mps = 140.0;
-    profile->max_speed_mps = 350.0;
-    profile->max_pitch_command_deg = 15.0;
-    profile->max_roll_angle_deg = 45.0;
-    profile->min_throttle = 0.35;
-    profile->speed_energy_priority = true;
+    stall_margin  = 1.25;
+    cruise_factor = 3.5;
+    max_factor    = 5.5;
+    pitch_cmd = 15.0;  roll_lim = 45.0;  min_thr = 0.35;  spd_prio = true;
   } else if (is_heavy && !profile->has_mixture) {
-    // Heavy jet transport (B747, MD11, Concorde, XB-70).
-    profile->ref_speed_mps = 500.0;
-    profile->cruise_speed_mps = 250.0;
-    profile->min_speed_mps = 130.0;
-    profile->max_speed_mps = 300.0;
-    profile->max_pitch_command_deg = 8.0;
-    profile->max_roll_angle_deg = 35.0;
-    profile->min_throttle = 0.55;
-    profile->speed_energy_priority = true;
+    stall_margin  = 1.20;
+    cruise_factor = 3.5;
+    max_factor    = 4.2;
+    pitch_cmd = 8.0;   roll_lim = 35.0;  min_thr = 0.55;  spd_prio = true;
   } else if (is_medium && !profile->has_mixture) {
-    // Medium jet transport (737 class, log10(Iyy) > 6).
-    profile->ref_speed_mps = 250.0;
-    profile->cruise_speed_mps = 200.0;
-    profile->min_speed_mps = 100.0;
-    profile->max_speed_mps = 260.0;
-    profile->max_pitch_command_deg = 10.0;
-    profile->max_roll_angle_deg = 35.0;
-    profile->min_throttle = 0.40;
-    profile->speed_energy_priority = true;
+    stall_margin  = 1.25;
+    cruise_factor = 3.2;
+    max_factor    = 4.0;
+    pitch_cmd = 10.0;  roll_lim = 35.0;  min_thr = 0.40;  spd_prio = true;
   } else if (profile->has_mixture) {
     if (is_heavy) {
-      // Multi-engine piston (B17)
-      profile->ref_speed_mps = 85.0;
-      profile->cruise_speed_mps = 75.0;
-      profile->min_speed_mps = 65.0;
-      profile->max_speed_mps = 100.0;
-      profile->max_pitch_command_deg = 10.0;
-      profile->max_roll_angle_deg = 25.0;
-      profile->min_throttle = 0.40;
-      profile->speed_energy_priority = true;
+      // Multi-engine heavy piston (B17)
+      stall_margin  = 1.30;
+      cruise_factor = 2.8;
+      max_factor    = 3.5;
+      pitch_cmd = 10.0;  roll_lim = 25.0;  min_thr = 0.40;  spd_prio = true;
     } else {
       // Single/twin piston GA (c172x, c310)
-      profile->ref_speed_mps = n_eng >= 2 ? 65.0 : 50.0;
-      profile->cruise_speed_mps = n_eng >= 2 ? 60.0 : 50.0;
-      profile->min_speed_mps = n_eng >= 2 ? 55.0 : 40.0;
-      profile->max_speed_mps = n_eng >= 2 ? 90.0 : 80.0;
-      profile->max_pitch_command_deg = n_eng >= 2 ? 10.0 : 12.0;
-      profile->max_roll_angle_deg = 30.0;
-      profile->min_throttle = n_eng >= 2 ? 0.30 : 0.20;
-      profile->speed_energy_priority = (n_eng >= 2);
+      stall_margin  = 1.30;
+      cruise_factor = 2.8;
+      max_factor    = 3.5;
+      pitch_cmd = n_eng >= 2 ? 10.0 : 12.0;
+      roll_lim = 30.0;
+      min_thr = n_eng >= 2 ? 0.30 : 0.20;
+      spd_prio = (n_eng >= 2);
     }
   } else {
-    // Non-piston non-FBW non-heavy: light turbine / turboprop modeled as
-    // <turbine_engine> (OV10, f15). Use struct default roll (45°), but set
-    // reasonable speed defaults for energy management.
-    profile->ref_speed_mps = 80.0;
-    profile->cruise_speed_mps = 80.0;
-    profile->min_speed_mps = 50.0;
-    profile->max_speed_mps = 200.0;
+    // Light turbine / turboprop
+    stall_margin  = 1.30;
+    cruise_factor = 3.0;
+    max_factor    = 3.8;
+    pitch_cmd = 20.0;  roll_lim = 45.0;  min_thr = 0.15;  spd_prio = false;
+  }
+
+  profile->min_speed_mps    = vs * stall_margin;
+  profile->cruise_speed_mps = vs * cruise_factor;
+  profile->max_speed_mps    = vs * max_factor;
+  profile->ref_speed_mps    = vs * max_factor;  // generous for waypoint room
+
+  profile->max_pitch_command_deg = pitch_cmd;
+  profile->max_roll_angle_deg    = roll_lim;
+  profile->min_throttle          = min_thr;
+  profile->speed_energy_priority = spd_prio;
+
+  // ── Ceiling by category ──────────────────────────────────────────────
+  //
+  // Service ceiling depends primarily on engine power/supercharging,
+  // which JSBSim doesn't expose as a single property.  Category defaults
+  // provide a reasonable estimate; XML override handles special cases.
+  if (profile->ceiling_m <= 0.0) {
+    if (has_fbw)                               profile->ceiling_m = 15200.0;
+    else if (is_heavy && !profile->has_mixture) profile->ceiling_m = 13700.0;
+    else if (is_medium && !profile->has_mixture) profile->ceiling_m = 12500.0;
+    else if (profile->has_mixture)             profile->ceiling_m = 4300.0;
+    else                                       profile->ceiling_m = 7600.0;
   }
 }
 
@@ -155,6 +172,8 @@ void ApplyXmlProfileOverrides(adapter::JsbsimAdapter& adapter, AircraftControlPr
       ReadPropertyOrDefault(adapter, "guidance/min-throttle", profile->min_throttle);
   profile->max_throttle =
       ReadPropertyOrDefault(adapter, "guidance/max-throttle", profile->max_throttle);
+  profile->ceiling_m =
+      ReadPropertyOrDefault(adapter, "guidance/ceiling-m", profile->ceiling_m);
   if (HasProperty(adapter, "guidance/speed-energy-priority")) {
     profile->speed_energy_priority =
         adapter.GetProperty("guidance/speed-energy-priority") > 0.5;
@@ -189,8 +208,30 @@ void ApplyXmlProfileOverrides(adapter::JsbsimAdapter& adapter, AircraftControlPr
       adapter, "guidance/landing-final-throttle-cap", profile->landing_final_throttle_cap);
   profile->landing_flare_initial_elevator = ReadPropertyOrDefault(
       adapter, "guidance/landing-flare-initial-elevator", profile->landing_flare_initial_elevator);
+  if (HasProperty(adapter, "guidance/landing-heavy-flare")) {
+    profile->landing_heavy_flare =
+        adapter.GetProperty("guidance/landing-heavy-flare") > 0.5;
+  }
   profile->landing_touchdown_agl_m = ReadPropertyOrDefault(
       adapter, "guidance/landing-touchdown-agl-m", profile->landing_touchdown_agl_m);
+}
+
+void ApplyXmlRollLimitOverride(adapter::JsbsimAdapter& adapter, AircraftControlProfile* profile) {
+  if (!profile || !HasProperty(adapter, adapter::property::kGuidanceRollAngleLimit)) return;
+
+  constexpr double kSustainedTurnFactor = 0.7;
+  constexpr double kAdapterFallbackRollLimitRad = 0.785;
+  const double roll_lim_rad = adapter.GetProperty(adapter::property::kGuidanceRollAngleLimit);
+
+  const bool is_fbw = profile->has_fbw_override || profile->has_roll_rate_command;
+  const bool is_heavy = profile->engine_count >= 4 ||
+      (profile->pitch_moi_lbsft2 > 0.0 && std::log10(profile->pitch_moi_lbsft2) > 7.0);
+  if (is_fbw || is_heavy ||
+      std::abs(roll_lim_rad - kAdapterFallbackRollLimitRad) < 1.0e-6) {
+    return;
+  }
+
+  profile->max_roll_angle_deg = roll_lim_rad * 180.0 / M_PI * kSustainedTurnFactor;
 }
 
 // Set rotation/takeoff parameters based on pitch moment of inertia.
@@ -204,6 +245,7 @@ void ApplyRotationDefaults(AircraftControlProfile* profile) {
   if (!profile || profile->pitch_moi_lbsft2 <= 0.0) return;
 
   double log_moi = std::log10(profile->pitch_moi_lbsft2);
+  profile->landing_heavy_flare = log_moi > 7.0;
   if (log_moi > 7.0) {
     profile->rotation_ramp_sec = 6.0;
     profile->rotation_climb_rate_mps = 3.0;
@@ -219,15 +261,6 @@ void ApplyRotationDefaults(AircraftControlProfile* profile) {
 
 Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   auto* pm = adapter.GetFdmExec().GetPropertyManager().get();
-
-  // Read the roll angle limit from JSBSim property tree (set by ConfigureIntegrators
-  // per aircraft in the adapter). Apply a sustained-turn factor: sustained ≈ structural × 0.7,
-  // because sustained turns generate induced drag that limits endurance at structural max.
-  if (pm->GetNode(adapter::property::kGuidanceRollAngleLimit) != nullptr) {
-    double roll_lim = adapter.GetProperty(adapter::property::kGuidanceRollAngleLimit);
-    double sustained_factor = 0.7;
-    control_profile_.max_roll_angle_deg = roll_lim * 180.0 / M_PI * sustained_factor;
-  }
 
   // Tier 1: XML property probing — detect aircraft capabilities from
   // the JSBSim property tree.  No model-name hardcoding.
@@ -258,6 +291,39 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   if (iyy_node) {
     control_profile_.pitch_moi_lbsft2 = iyy_node->getDoubleValue();
   }
+
+  // --- Physics-derived performance baseline ---
+  // V_stall and wing loading are computed from the aircraft's actual
+  // weight, wing area, and high-lift capability — not from hardcoded
+  // category tables.  These drive the speed envelope and ceiling.
+  {
+    double weight_lbs = ReadPropertyOrDefault(adapter_, "inertia/weight-lbs", 0.0);
+    double wing_ft2 = ReadPropertyOrDefault(adapter_, "metrics/Sw-sqft", 0.0);
+    double span_ft = ReadPropertyOrDefault(adapter_, "metrics/bw-ft", 0.0);
+
+    if (weight_lbs > 1.0 && wing_ft2 > 1.0) {
+      control_profile_.wing_loading_lbs_ft2 = weight_lbs / wing_ft2;
+
+      // CLmax for takeoff — mirrors EngineManager logic.
+      double cl_max = 1.6;
+      if (propulsion) {
+        int n = propulsion->GetNumEngines();
+        if (n > 0 && propulsion->GetEngine(0)->GetType() == JSBSim::FGEngine::etTurboprop) {
+          cl_max = 2.0;
+        }
+      }
+      if (span_ft > 1.0 && wing_ft2 > 1.0) {
+        double ar = (span_ft * span_ft) / wing_ft2;
+        if (ar < 2.5) cl_max = 2.5;  // delta wing vortex lift
+      }
+
+      constexpr double kRhoSeaLevel = 0.002377;  // slugs/ft³
+      double v_stall_ftps = std::sqrt((2.0 * weight_lbs) /
+                                      (kRhoSeaLevel * wing_ft2 * cl_max));
+      control_profile_.v_stall_mps = v_stall_ftps * 0.3048;
+    }
+  }
+
   ApplyRotationDefaults(&control_profile_);
 
   // FBW subtype detection: f16 has roll-rate PID
@@ -310,6 +376,7 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
       control_profile_.lateral_interface != LateralControlInterface::kOwnAutopilot &&
       control_profile_.lateral_interface != LateralControlInterface::kGenericAutopilotBridge;
   ApplyEnergyDefaults(&control_profile_);
+  ApplyXmlRollLimitOverride(adapter_, &control_profile_);
   ApplyXmlProfileOverrides(adapter_, &control_profile_);
 }
 

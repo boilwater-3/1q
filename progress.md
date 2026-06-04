@@ -126,6 +126,179 @@
 - Landing 诊断：`outcome=completed | alt_min=4.10202m | spd_min=2.97916m/s | roll_max=54.72deg | pitch_max=11.058deg | crashed=no`。
 - CSV 末段：`vc≈5.8kt`、`roll=0`、`elevator=0`、`aileron=0`、`WOW=1`，完成前无穿地 crash。
 
+## 2026-06-04 10:05 CST — 阶段 11 规划研究
+
+用户提出两个后续问题：
+1. B747 XML 被直接修改后，其他机型怎么办，XML 配置路径是否能通过其他 XML 确认。
+2. `flight_dynamic` 中仍有大量硬编码，需要继续迭代。
+
+研究动作：
+- 扫描 `third_party/jsbsim/aircraft/**/*.xml` 的 `guidance/*` 用法。
+- 扫描 `src/flight_dynamic`、`include/1q/flight_dynamic`、`examples/flight_dynamic/takeoff_land_csv.cpp` 中的数值常量、型号名分支、MOI/weight/engine 分类逻辑。
+- 复查 profile snapshot 测试覆盖面。
+
+阶段 11 已写入 `task_plan.md`：
+- 11a XML 配置契约验证。
+- 11b flight_dynamic 硬编码分层清单。
+- 11c guidance 属性 schema/文档化。
+- 11d 分批迁移执行建议。
+
+初步结论：
+- 现有 XML guidance 属性不止 B747；`c172x` 和 `global5000` 已有 roll angle/rate limit，可用于验证非 B747 XML override 路径。
+- landing 系列 XML override 当前只有 B747，下一步不应立刻复制到所有机型，而应先补契约测试和属性表。
+- 硬编码迁移需要区分 aircraft capability 与通用控制律参数，避免把算法常量无边界塞入 XML。
+
+## 2026-06-04 10:35 CST — 阶段 11 执行：非 B747 XML 契约测试 + 下一批计划
+
+完成内容：
+- `Autopilot.cpp` 调整 roll guidance profile 覆盖顺序：先应用动态默认，再处理 structural roll limit，最后由显式 `guidance/max-roll-angle-deg` 覆盖。
+- structural `guidance/roll-angle-limit` 只映射到非 FBW、非重型、非 adapter fallback 的 profile `max_roll_angle_deg`；避免 generic `systems/Autopilot.xml` 或 fallback 值改变所有机型 profile。
+- 新增 `FlightDynamicTest.AutopilotPreservesC172xXmlRollGuidanceOverrides`，验证非 B747 XML guidance 属性路径。
+- 更新 `ProfileSnapshotTest` 中 `c172x` roll profile 期望。
+- 更新 `docs/finding/jsbsim_aircraft_control_contract.md`，补充 guidance profile 属性表、配置优先级和“XML 非全机型必填”的合同说明。
+- 更新 `task_plan.md`：阶段 11 标记完成，新增阶段 12 `flight_dynamic` 硬编码清理第一批计划。
+
+中间失败与处理：
+- focused snapshot 首次失败 5 项：f16、c310、Concorde、B17、C130 的 `max_roll_angle_deg` 被无条件 roll-limit override 改变。
+- 根因是 `systems/Autopilot.xml` 和 adapter fallback 也会创建 `guidance/roll-angle-limit`。
+- 处理方式：排除 adapter fallback、FBW 和重型机型；这些机型如需 profile bank XML 调参，应使用 `guidance/max-roll-angle-deg`。
+
+验证：
+- `cmake --build --preset llvm-ninja-release-local --target 1q_fd_tests`：通过。
+- `build/llvm-ninja-release-local/bin/1q_fd_tests --gtest_filter='FlightDynamicTest.AutopilotPreservesC172xXmlRollGuidanceOverrides:FlightDynamicTest.AutopilotReadsB747LandingGuidanceOverrides:AircraftProfiles/ProfileSnapshotTest.MatchesExpectedProfile/*'`：9/9 passed。
+- `build/llvm-ninja-release-local/bin/1q_fd_tests`：162 tests, 159 passed, 3 skipped。
+
+## 2026-06-04 11:05 CST — 阶段 12a 执行：landing/flare capability 参数迁移
+
+完成内容：
+- `AircraftControlProfile` 新增 `landing_heavy_flare`，表示是否使用 transport bounce/float flare law。
+- `Autopilot.cpp` 在 profile 默认生成阶段维持当前兼容行为：`log10(Iyy)>7` 推导默认 `landing_heavy_flare=true`；同时新增 XML override `guidance/landing-heavy-flare`。
+- `Maneuver.cpp` 的 flare 入口和 flare 控制律改为读取 `profile.landing_heavy_flare`，不再在 landing maneuver 中直接读取 `pitch_moi_lbsft2` 或 `log10()`。
+- B747 XML 增加 `<property value="1"> guidance/landing-heavy-flare </property>`，把 B747 使用 heavy flare law 的能力显式放进 XML。
+- B747 landing override 测试补充 raw XML 属性和 profile bool 断言；profile snapshot 补充 `landing_heavy_flare` 字段。
+- `docs/finding/jsbsim_aircraft_control_contract.md` 补充 `guidance/landing-heavy-flare` 属性表条目。
+
+验证：
+- `cmake --build --preset llvm-ninja-release-local --target 1q_fd_tests takeoff_land_csv`：通过。
+- `build/llvm-ninja-release-local/bin/1q_fd_tests --gtest_filter='FlightDynamicTest.AutopilotReadsB747LandingGuidanceOverrides:FlightDynamicTest.AutopilotPreservesC172xXmlRollGuidanceOverrides:AircraftProfiles/ProfileSnapshotTest.MatchesExpectedProfile/*:FlightDynamicTest.OrbitManeuver:FlightDynamicTest.FlyToMultipleWaypointsThenOrbit'`：11/11 passed。
+- `build/llvm-ninja-release-local/bin/takeoff_land_csv B747 /tmp/1q_fd/b747_stage12_heavy_flare.csv`：B747 completed at 1475.0s，landing `outcome=completed`，`alt_min=4.10202m`，`crashed=no`。
+- `build/llvm-ninja-release-local/bin/1q_fd_tests`：162 tests, 159 passed, 3 skipped。
+
+下一步：
+- 阶段 12b：对 `Maneuver.cpp` 中 `1.35/1.15/1.3/1.05`、`30m` flare scale、sink-rate throttle 参数先命名化和注释化，不急于 XML 化。
+
+## 2026-06-04 11:25 CST — 阶段 12b 执行：Maneuver landing 控制律常量命名化
+
+完成内容：
+- `Maneuver.cpp` 匿名命名空间新增 landing 控制律常量。
+- 命名化 decelerate/approach/final/flare/rollout 中的速度窗口、orbit 半径、pattern capture margin、FPA 目标、throttle/elevator gains、flare scale、bounce/float recovery、touchdown/rollout speed gates。
+- 未改变公式、阈值和 XML override；本阶段不把控制律参数塞进 XML。
+- `task_plan.md` 标记阶段 12b 完成；`findings.md` 记录命名化边界。
+
+验证：
+- `cmake --build --preset llvm-ninja-release-local --target 1q_fd_tests takeoff_land_csv`：通过。
+- `build/llvm-ninja-release-local/bin/1q_fd_tests --gtest_filter='FlightDynamicTest.AutopilotReadsB747LandingGuidanceOverrides:FlightDynamicTest.AutopilotPreservesC172xXmlRollGuidanceOverrides:AircraftProfiles/ProfileSnapshotTest.MatchesExpectedProfile/*:FlightDynamicTest.OrbitManeuver:FlightDynamicTest.FlyToMultipleWaypointsThenOrbit'`：11/11 passed。
+- `build/llvm-ninja-release-local/bin/takeoff_land_csv B747 /tmp/1q_fd/b747_stage12b_named_landing_constants.csv`：B747 completed at 1475.0s，landing `outcome=completed`，`alt_min=4.10202m`，`crashed=no`。
+- `build/llvm-ninja-release-local/bin/1q_fd_tests`：162 tests, 159 passed, 3 skipped。
+
+下一步：
+- 阶段 12c：梳理 `EngineManager.cpp` 中 CLmax、delta-wing AR、Vr factor、approach speed、climb pitch 的来源和边界，先补 contract/diagnostic 判断，再决定哪些进入 profile/XML。
+
+## 2026-06-04 12:30 CST — 阶段 12c 执行：EngineManager 参数边界确认
+
+完成内容：
+- `EngineManager.cpp` 匿名命名空间新增 20+ 命名常量：
+  - CLmax: `kClMaxTakeoffDefault` (1.6), `kClMaxTakeoffTurboprop` (2.0), `kClMaxTakeoffDeltaWing` (2.5)
+  - AR: `kDeltaWingArThreshold` (2.5)
+  - Iyy: `kIyyHeavyThreshold` (1e7), `kIyyMediumThreshold` (1e6)
+  - Vr factor: `kVrFactorHeavyTurbine` (1.08), `kVrFactorMediumTurbine` (1.15), `kVrFactorLightTurbine` (1.20), `kVrFactorPiston` (1.10), `kVrFactorDefault` (1.15)
+  - Safety: `kMinVrKts` (40), `kFallbackVrKts` (50), `kClMaxLowerBound` (1.0), `kClMaxUpperBound` (3.5)
+  - Approach speed / climb pitch category defaults
+- `EngineManager.cpp` 添加诊断日志：
+  - `GetRotationSpeedKts()`: `spdlog::debug`（Vr/Vstall/CLmax/factor/Iyy/AR/weight） + `spdlog::warn`（CLmax 越界、输入无效）
+  - `GetDefaultApproachSpeedMps()` 和 `GetClimbPitchDeg()`: `spdlog::debug`（值+类型）
+- `FlightManager.h` 新增 `GetEngineManager()` const/non-const 访问器。
+- `fd_adapter_test.cpp` 新增 `EngineManagerContractTest` 参数化测试（4 机型 × 3 方法 = 12 测试）：
+  - `RotationSpeedReasonable`: 验证 Vr 在合理范围且引擎类型匹配
+  - `ClimbPitchMatchesEngineType`: 验证爬升俯仰角与引擎类型一致
+  - `ApproachSpeedFallbackReasonable`: 验证进近速度 fallback 在类别范围内
+  - 覆盖机型：c172x (piston), DHC6 (turboprop), B747 (heavy turbine), XB-70 (delta wing)
+
+参数分类结论：
+- **aircraft capability**（可迁移 profile，保持 engine type fallback）：CLmax (1.6/2.0/2.5), Vr factor (1.08/1.10/1.15/1.20), climb pitch (10/15 deg)
+- **通用分类常量**（仅命名化，不 XML 化）：AR 阈值 (2.5), Iyy 阈值 (1e6/1e7), Vr floor (40 kts)
+- **last-resort fallback**（保留）：Approach speed (28/41/62/80 m/s)
+
+验证：
+- `cmake --build --preset llvm-ninja-release-local --target 1q_fd_tests`：通过。
+- `build/llvm-ninja-release-local/bin/1q_fd_tests --gtest_filter='EngineManager*'`：12/12 passed。
+- `build/llvm-ninja-release-local/bin/1q_fd_tests --gtest_filter='FlightDynamicTest.AutopilotReadsB747LandingGuidanceOverrides:FlightDynamicTest.AutopilotPreservesC172xXmlRollGuidanceOverrides:AircraftProfiles/ProfileSnapshotTest.MatchesExpectedProfile/*:FlightDynamicTest.OrbitManeuver:FlightDynamicTest.FlyToMultipleWaypointsThenOrbit'`：11/11 passed。
+- `build/llvm-ninja-release-local/bin/1q_fd_tests`：174 tests, 171 passed, 3 skipped。
+- `build/llvm-ninja-release-local/bin/takeoff_land_csv B747 /tmp/1q_fd/b747_stage12c_engine_contract.csv`：B747 completed at 1475.0s，landing `outcome=completed`，`alt_min=4.1608m`，`crashed=no`。
+
+下一步：
+- 阶段 12d：示例程序策略外移规划（`takeoff_land_csv.cpp` 的 cruise altitude、waypoint distance、landing target、skip/model 分支）。
+- 阶段 12e：飞机升限 + 物理推导速度包线。
+
+## 2026-06-04 14:30 CST — 阶段 12d+12e 执行：场景策略外移 + 物理推导包线
+
+### 12d：示例程序策略外移
+- 新增 `ScenarioConfig` 结构体 + `MakeScenario()` 工厂函数 — 零型号名硬编码。
+- `CheckSkip()` 用属性树检测（bw-ft < 1.0）替代 `model == "F450"` 字符串。
+- Landing target 改为独立场景位置参数（可同机场、可不同机场）。
+- 巡航高度确认留在场景层，不从 profile 推导。
+
+### 12e：物理推导速度包线 + 升限
+- Profile 新增 `v_stall_mps`、`wing_loading_lbs_ft2`，从 JSBSim 属性树实际重量/翼面积/翼展计算。
+- `ApplyEnergyDefaults()` 重写：速度包线从 V_stall × 类别系数推导，而非硬编码分类值。
+  - c172x V_stall=25.7m/s → cruise=72m/s, max=92m/s
+  - B747 V_stall=57.5m/s → cruise=201m/s, max=242m/s
+  - 每架飞机不同，基准来自实际物理属性。
+- 升限 `ceiling_m` 保持类别默认 + XML override。
+- `ExecuteTakeoff`/`ExecuteFlyTo`/`ExecuteOrbit` 统一 clamp 目标高度 ≤ ceiling_m。
+- `FlightManager.h` 新增 `GetEngineManager()` 访问器。
+
+### 验证
+- `1q_fd_tests`：174 tests, 171 passed, 3 skipped。
+- `takeoff_land_csv` 全机型：15/16 完成（MD11 abort 待确认为 baseline issue）。
+- B747 端到端：completed at 1475s, alt_min=4.10m, crashed=no。
+
+### MD11 状态确认 ✅
+切回 `5d5f7ac5` 验证：MD11 completed at 2389s（crashed=no, alt_min=5.50m）。
+当前 abort 由阶段 10 着陆重构（`bd2a4f59`）引入，非阶段 12c/12d/12e 改动所致。
+
+## 全机型 takeoff_land_csv 测试结果（2026-06-04，物理包线后）
+
+### ✅ 完成 OK（15 机）
+| 机型 | 时间 | 备注 |
+|------|------|------|
+| c172x | 1329s | |
+| c172p | 865s | |
+| c172r | 1092s | |
+| c182 | 492s | |
+| c310 | 395s | |
+| 737 | 1131s | |
+| f16 | 184s | |
+| f15 | 225s | |
+| A4 | 359s | |
+| F4N | 244s | |
+| T38 | 353s | |
+| DHC6 | 2985s | |
+| OV10 | 1414s | |
+| F80C | 359s | |
+| Boeing314 | 712s | |
+
+### ⚠️ MD11 — 阶段 10 回归（1 机）
+| 机型 | 状态 | 备注 |
+|------|------|------|
+| **MD11** | 💥 abort 2433s | 切回 `5d5f7ac5` 验证通过。阶段 10 着陆重构引入的回归。 |
+
+### 💥 CRASH（1 机）
+- **XB-70**: JSBSim delta wing 模型俯仰不稳定。已知模型限制。
+
+### ⏰ TIMEOUT（3 机）— 引擎兼容性（阶段 8.2）
+- Concorde, C130, L410
+
 ## git 历史
 
 ```

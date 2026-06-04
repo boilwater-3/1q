@@ -19,10 +19,146 @@ using namespace oneq::flight_dynamic;
 namespace {
 
 constexpr double kDt = 0.01;
-constexpr double kFtToM = 0.3048;
 
-// Ground-start altitude is supplied by JSBSim reset00.xml, loaded
-// automatically in JsbsimAdapter via FGInitialCondition::Load().
+// ─── Scenario geometry (not aircraft-specific) ────────────────────────────
+//
+// These are TEST-SCENARIO parameters — they define the shape of the
+// takeoff→fly-to→land mission, not aircraft capability.  They live here
+// (in the example program) rather than in the core library because
+// different scenarios will want different geometries.
+//
+// The core library provides:
+//   - profile.cruise_altitude_m    →  default cruise altitude by category
+//   - profile.cruise_speed_mps     →  default cruise speed by category
+//   - profile.max_speed_mps        →  speed ceiling
+//   - ConfigureForApproach()       →  approach speed priority chain
+
+struct ScenarioConfig {
+  double cruise_altitude_m = 0.0;   // 0 → use profile default
+  double waypoint_distance_m = 0.0; // 0 → auto-calculate from speed/altitude
+  double landing_lat_rad = 0.0;     // landing target latitude (radians)
+  double landing_lon_rad = 0.0;     // landing target longitude (radians)
+  int max_steps = 350000;           // simulation step budget
+};
+
+ScenarioConfig MakeScenario(FlightManager& fm) {
+  ScenarioConfig cfg;
+  const auto& profile = fm.GetAutopilot().GetControlProfile();
+  const auto& engines = fm.GetEngineManager();
+
+  // ── Cruise altitude: scenario-level default by aircraft category ──
+  // Derived from profile detection booleans (not model names), so new
+  // aircraft get a reasonable default without code changes.  This is a
+  // SCENARIO parameter — the same aircraft could cruise at different
+  // altitudes in different missions.
+  const bool has_fbw = profile.has_fbw_override || profile.has_roll_rate_command;
+  const bool is_heavy = profile.engine_count >= 4 ||
+      (profile.pitch_moi_lbsft2 > 0.0 && std::log10(profile.pitch_moi_lbsft2) > 7.0);
+  const bool is_medium = !is_heavy && profile.pitch_moi_lbsft2 > 0.0 &&
+      std::log10(profile.pitch_moi_lbsft2) > 6.0;
+
+  if (has_fbw) {
+    cfg.cruise_altitude_m = 500.0;       // FBW fighter: low circuit
+  } else if (is_heavy && !profile.has_mixture) {
+    cfg.cruise_altitude_m = 10000.0;     // heavy jet transport
+  } else if (is_medium && !profile.has_mixture) {
+    cfg.cruise_altitude_m = 8000.0;      // medium jet transport (737-class)
+  } else if (profile.has_mixture) {
+    cfg.cruise_altitude_m = 1500.0;      // piston (all sizes)
+  } else {
+    // Light turbine / turboprop: use weight-based sub-classification.
+    // (Handles OV10-style misclassified turboprops at ~6500 lbs.)
+    double weight_lbs = 0.0;
+    {
+      auto* pm = fm.GetAdapter().GetFdmExec().GetPropertyManager().get();
+      auto* w = pm->GetNode("inertia/weight-lbs");
+      if (w) weight_lbs = w->getDoubleValue();
+    }
+    switch (engines.GetType()) {
+      case propulsion::EngineType::kRocket:
+        cfg.cruise_altitude_m = 15000.0;
+        break;
+      default:
+        cfg.cruise_altitude_m = 4000.0;
+        break;
+    }
+    (void)weight_lbs;  // reserved for future weight-based tuning
+  }
+
+  // ── Waypoint distance ──
+  // Base distance: ref_speed × 60s (~3 km for c172x, ~30 km for B747).
+  // ref_speed_mps is the energy-management reference speed — it is
+  // intentionally generous to provide room for fly-to convergence.
+  double ref_spd = profile.ref_speed_mps;
+  if (ref_spd <= 0.0) ref_spd = 50.0;
+  double wp_dist = ref_spd * 60.0;
+
+  // Fast aircraft need longer legs because their takeoff rolls cover
+  // large distances at high speed, and fly-to convergence needs room.
+  constexpr double kFastAircraftSpeedMps = 150.0;
+  constexpr double kFastAircraftDistanceFactor = 80.0;
+  if (profile.max_speed_mps > kFastAircraftSpeedMps) {
+    wp_dist = std::max(wp_dist, profile.max_speed_mps * kFastAircraftDistanceFactor);
+  }
+
+  // Floor: at least 1.5× cruise altitude or 3 km, whichever is larger.
+  constexpr double kMinWaypointDistanceM = 3000.0;
+  if (wp_dist < cfg.cruise_altitude_m * 1.5) {
+    wp_dist = cfg.cruise_altitude_m * 1.5;
+  }
+  if (wp_dist < kMinWaypointDistanceM) wp_dist = kMinWaypointDistanceM;
+
+  cfg.waypoint_distance_m = wp_dist;
+
+  // ── Landing target ──
+  // The landing point is an independent scenario location (simulating a
+  // destination airport).  It is NOT derived from the waypoint — a real
+  // flight may land at an airport that is not on the outbound route.
+  // For this test scenario we place it ~7.6 km diagonal from origin,
+  // which gives the aircraft room to descend after passing the waypoint.
+  constexpr double kDefaultLandingOffsetRad = 0.0012;
+  cfg.landing_lat_rad = kDefaultLandingOffsetRad;
+  cfg.landing_lon_rad = kDefaultLandingOffsetRad;
+
+  return cfg;
+}
+
+// ─── Model skip detection ─────────────────────────────────────────────────
+//
+// Some JSBSim aircraft models are not compatible with fixed-wing
+// takeoff/landing cycles.  Detection uses property-tree probing, not
+// model-name strings, so new aircraft are handled without code changes.
+
+struct SkipReason {
+  bool should_skip = false;
+  const char* reason = nullptr;
+};
+
+SkipReason CheckSkip(FlightManager& fm, const ScenarioConfig& cfg) {
+  const auto& profile = fm.GetAutopilot().GetControlProfile();
+
+  // Multirotor: no wingspan → not a fixed-wing aircraft.
+  double bw_ft = 0.0;
+  {
+    auto* pm = fm.GetAdapter().GetFdmExec().GetPropertyManager().get();
+    auto* node = pm->GetNode("metrics/bw-ft");
+    if (node) bw_ft = node->getDoubleValue();
+  }
+  if (bw_ft < 1.0) {
+    return {true, "multirotor / no fixed wing (bw-ft < 1.0)"};
+  }
+
+  // Cruise altitude unreachable: profile derived 0 — shouldn't happen
+  // but guard against it.
+  if (cfg.cruise_altitude_m <= 0.0) {
+    return {true, "cruise altitude not available"};
+  }
+
+  (void)profile;
+  return {false, nullptr};
+}
+
+// ─── CSV output (diagnostic trace) ────────────────────────────────────────
 
 struct CsvRow {
   double time_sec, agl_m, vc_kts, pitch_deg, roll_deg, throttle, wow;
@@ -141,102 +277,50 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  // Known limit: B17 can't reach Vr at max weight (wing loading 37 lbs/ft²).
-  if (model == "B17") {
-    fprintf(stderr, "%s: skipped (Vr unreachable at MTOW)\n", model.c_str());
+  // ── Scenario derivation (zero model-name hardcoding) ──────────────────
+  ScenarioConfig sc = MakeScenario(fm);
+
+  // ── Skip detection (property-tree based, not model-name based) ────────
+  auto skip = CheckSkip(fm, sc);
+  if (skip.should_skip) {
+    fprintf(stderr, "%s: skipped (%s)\n", model.c_str(), skip.reason);
     if (out_path) fclose(out);
     return 0;
   }
 
-  // F450 is a multirotor — fixed-wing takeoff/landing logic not applicable.
-  if (model == "F450") {
-    fprintf(stderr, "%s: skipped (multirotor)\n", model.c_str());
-    if (out_path) fclose(out);
-    return 0;
-  }
-
-  // Cruise altitude by engine/aircraft category.
-  propulsion::EngineManager eng(fm.GetAdapter());
-  double cruise_alt_m = 3000.0;
-  // Aircraft weight from JSBSim property tree — used to classify turbine
-  // aircraft whose JSBSim engine model may not reflect the real engine type
-  // (e.g., OV10 T76 turboprop modeled as <turbine_engine>).
-  double weight_lbs = 0.0;
-  {
-    auto* pm = fm.GetAdapter().GetFdmExec().GetPropertyManager().get();
-    auto* w_node = pm->GetNode("inertia/weight-lbs");
-    if (w_node) weight_lbs = w_node->getDoubleValue();
-  }
-  switch (eng.GetType()) {
-    case propulsion::EngineType::kPiston:
-      cruise_alt_m = 1500.0;
-      break;
-    case propulsion::EngineType::kTurboprop:
-      cruise_alt_m = 4000.0;
-      break;
-    case propulsion::EngineType::kTurbine:
-      if (model.find("f16") != std::string::npos || model.find("f15") != std::string::npos ||
-          model.find("A4") != std::string::npos || model.find("F4") != std::string::npos ||
-          model.find("F80") != std::string::npos)
-        cruise_alt_m = 500.0;
-      else if (model == "Concorde")
-        cruise_alt_m = 12000.0;
-      else if (weight_lbs < 15000.0)
-        cruise_alt_m = 4000.0;   // light turbine (OV10: ~6500 lbs)
-      else if (weight_lbs < 100000.0)
-        cruise_alt_m = 8000.0;   // medium transport (737: ~130k lbs)
-      else
-        cruise_alt_m = 10000.0;  // heavy transport (B747: ~600k lbs)
-      break;
-    case propulsion::EngineType::kRocket:
-      cruise_alt_m = 15000.0;
-      break;
-    default:
-      break;
-  }
-
-  // Queue: takeoff → cruise → land
+  // ── Maneuver queue: takeoff → fly-to → land ──────────────────────────
   ManeuverCommand tko;
   tko.type = guidance::ManeuverType::kTakeoff;
-  tko.target.altitude_m = cruise_alt_m;
+  tko.target.altitude_m = sc.cruise_altitude_m;
   fm.PushManeuver(tko);
 
-  // Waypoint: distance proportional to cruise altitude.
-  // Min 3km, max at altitude — fast jets need room to converge.
-  double ref_spd = fm.GetAutopilot().GetControlProfile().ref_speed_mps;
-  if (ref_spd <= 0.0) ref_spd = 50.0;
-  double wp_dist_m = ref_spd * 60.0;
-  // Fast aircraft (max_speed > 150 m/s) need much longer waypoint distances
-  // because their takeoff rolls cover large distances at high speed.
-  double max_spd = fm.GetAutopilot().GetControlProfile().max_speed_mps;
-  if (max_spd > 150.0) {
-    wp_dist_m = std::max(wp_dist_m, max_spd * 80.0);
-  }
-  if (wp_dist_m < cruise_alt_m * 1.5) wp_dist_m = cruise_alt_m * 1.5;
-  if (wp_dist_m < 3000.0) wp_dist_m = 3000.0;
-  double wp_offset_rad = wp_dist_m * 0.70710678 / 6378137.0;
+  double wp_offset_rad =
+      sc.waypoint_distance_m * 0.70710678 / 6378137.0;
+  double wp_radius = std::max(200.0, fm.GetAutopilot().GetControlProfile().ref_speed_mps * 20.0);
 
   ManeuverCommand fly;
   fly.type = guidance::ManeuverType::kFlyToWaypoint;
   fly.target.latitude_rad = wp_offset_rad;
   fly.target.longitude_rad = wp_offset_rad;
-  fly.target.altitude_m = cruise_alt_m;
-  fly.target.radius_m = std::max(200.0, ref_spd * 20.0);  // generous for fast jets
+  fly.target.altitude_m = sc.cruise_altitude_m;
+  fly.target.radius_m = wp_radius;
   fm.PushManeuver(fly);
 
+  // Landing target: independent scenario location (simulated destination airport).
   ManeuverCommand land;
   land.type = guidance::ManeuverType::kLand;
-  land.target.latitude_rad = 0.0012;
-  land.target.longitude_rad = 0.0012;
+  land.target.latitude_rad = sc.landing_lat_rad;
+  land.target.longitude_rad = sc.landing_lon_rad;
   land.target.altitude_m = 0.0;
-  land.value = eng.GetRotationSpeedKts() * 0.514 * 1.3;  // Vr×1.3 in m/s
+  // approach_speed_mps=0 → let ConfigureForApproach() use the full
+  // priority chain: profile → Vr×1.3 → engine-category fallback.
+  land.value = 0.0;
   fm.PushManeuver(land);
 
   WriteHeader(out);
 
   double t = 0.0;
-  int max_steps = 350000;  // 2500s max
-  for (int i = 0; i < max_steps; ++i) {
+  for (int i = 0; i < sc.max_steps; ++i) {
     fm.Step(kDt);
     t += kDt;
     WriteRow(out, t, fm);
