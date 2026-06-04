@@ -2,25 +2,26 @@
 
 ## 当前状态
 
-分支 `refactor/jsbsim-integration`。16 可用机型全任务通过。阶段 12 完成，阶段 13 待开始。
+分支 `refactor/jsbsim-integration`。17 可用机型（含 B747）全任务通过。13a-e 完成。
 
-## 全机型 takeoff_land_csv 测试结果（2026-06-04）
+## 全机型 takeoff_land_csv 测试结果（2026-06-04，13d+13e 后）
 
-### ✅ 完成（16 机）
+### ✅ 完成（17 机）
 | 机型 | 时间 | 备注 |
 |------|------|------|
 | c172x | 1313s | |
 | c172p | 840s | |
 | c172r | 1037s | |
 | c182 | 793s | |
-| c310 | 406s | |
-| 737 | 1136s | |
+| c310 | 405s | spd_prio→false（WL=22<50），微小差异 |
+| 737 | 962s | |
+| **B747** | **1485s** | ✅ 13b 连续化 cruise_factor 修复 |
 | **MD11** | **2436s** | ✅ 阶段 12 修复（flare 解耦） |
 | f16 | 179s | |
 | f15 | 242s | |
 | A4 | 359s | |
 | F4N | 244s | |
-| T38 | 338s | |
+| T38 | 330s | spd_prio→true（WL=58>50），-8s |
 | DHC6 | 2381s | |
 | OV10 | 1420s | |
 | F80C | 359s | |
@@ -53,6 +54,10 @@
 | 12c | EngineManager 参数边界确认 | — |
 | 12d | 示例程序策略外移 | — |
 | 12e | 物理包线+升限+MD11修复 | 97c05b45 |
+| 13a | 推重比运行时估算 | 41d95e68 |
+| 13b | 翼载连续化速度包线 | 384bab96 |
+| 13d | wing_loading→spd_priority+V_stall→approach fallback | — |
+| 13e | CLmax/climb_pitch/Vr_factor XML override | — |
 
 ## 阶段 13 计划
 
@@ -60,12 +65,12 @@
 |--------|------|------|------|
 | 13a | 获取推重比（运行时估算） | 中 | ✅ 完成 |
 | 13b | 翼载连续化速度包线 | 中 | ✅ 完成 |
-| 13c | log10(Iyy)→连续化 rotation | 低 |
-| 13d | wing_loading→spd_priority; V_stall→approach fallback | 低 |
-| 13e | CLmax/climb_pitch/Vr_factor XML override | 低 |
-| 13f | B747 着陆回归修复 | 独立 |
+| 13c | log10(Iyy)→连续化 rotation | 低 | ⏭️ 跳过 — 无物理推导路径 |
+| 13d | wing_loading→spd_priority; V_stall→approach fallback | 低 | ✅ 完成 |
+| 13e | CLmax/climb_pitch/Vr_factor XML override | 低 | ✅ 完成 |
+| 13f | B747 着陆回归修复 | 独立 | ✅ 13b 副作用修复 |
 
-执行顺序：13a→13c→13d（第一批）→ 13b（第二批）→ 13e→13f
+执行顺序：13a→13b→13d→13e（13c 跳过，13f 已由 13b 解决）
 
 ## git 历史
 

@@ -342,8 +342,10 @@ TEST_P(EngineManagerContractTest, ClimbPitchMatchesEngineType) {
 }
 
 TEST_P(EngineManagerContractTest, ApproachSpeedFallbackReasonable) {
-  // Verify approach speed fallback is within category-appropriate range.
+  // Verify approach speed fallback is physically plausible.
+  // Computed as V_stall × 1.3 — derived from weight, wing area, and CLmax.
   // These are last-resort defaults when Vr calculation is unavailable.
+  // Exact values vary with aircraft weight and CLmax; we verify physical bounds.
   FlightManager fm(config_);
   const auto& engines = fm.GetEngineManager();
   double spd_mps = engines.GetDefaultApproachSpeedMps();
@@ -351,19 +353,23 @@ TEST_P(EngineManagerContractTest, ApproachSpeedFallbackReasonable) {
   EXPECT_GT(spd_mps, 20.0) << "Approach speed unreasonably low";
   EXPECT_LT(spd_mps, 100.0) << "Approach speed unreasonably high";
 
-  switch (engines.GetType()) {
-    case propulsion::EngineType::kPiston:
-      EXPECT_DOUBLE_EQ(spd_mps, 28.0);
-      break;
-    case propulsion::EngineType::kTurboprop:
-      EXPECT_DOUBLE_EQ(spd_mps, 41.0);
-      break;
-    case propulsion::EngineType::kTurbine:
-      EXPECT_DOUBLE_EQ(spd_mps, 62.0);
-      break;
-    default:
-      EXPECT_DOUBLE_EQ(spd_mps, 36.0);
-      break;
+  const std::string& model = GetParam().model_name;
+  if (model == "c172x") {
+    // GA piston: V_stall ≈ 26 m/s × 1.3 ≈ 34 m/s
+    EXPECT_GT(spd_mps, 25.0);
+    EXPECT_LT(spd_mps, 45.0);
+  } else if (model == "DHC6") {
+    // Turboprop, CLmax=2.0: V_stall ≈ 25 m/s × 1.3 ≈ 32 m/s
+    EXPECT_GT(spd_mps, 22.0);
+    EXPECT_LT(spd_mps, 50.0);
+  } else if (model == "B747") {
+    // Heavy turbine: V_stall ≈ 69 m/s × 1.3 ≈ 90 m/s (no-trim, near-empty weight)
+    EXPECT_GT(spd_mps, 60.0);
+    EXPECT_LT(spd_mps, 110.0);
+  } else if (model == "XB-70") {
+    // Delta wing, CLmax=2.5: V_stall ≈ 39 m/s × 1.3 ≈ 50 m/s
+    EXPECT_GT(spd_mps, 30.0);
+    EXPECT_LT(spd_mps, 70.0);
   }
 }
 
@@ -899,7 +905,8 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 20.0);
     EXPECT_NEAR(p.max_roll_angle_deg, 21.0, 0.5);  // from XML roll limit × sustained factor
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.15);
-    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, false);
+    // f15 wing_loading ≈ 55 lbs/ft² > 50 → speed_energy_priority = true.
+    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
   } else if (model == "B17") {
     SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 149.43193652640619);
     SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 119.54554922112493);
@@ -909,7 +916,8 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 10.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 25.0);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.40);
-    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
+    // B17 wing_loading ≈ 25 lbs/ft² < 50 → speed_energy_priority = false.
+    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, false);
   } else if (model == "C130") {
     // Classified as heavy jet (4 engines, no magneto, no mixture).
     // cruise_factor continuous: 2.89 + 0.00455 × WL ≈ 3.20, max_factor = CF + 0.7
@@ -921,7 +929,8 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 8.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 35.0);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.55);
-    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
+    // C130 wing_loading ≈ 30 lbs/ft² < 50 → speed_energy_priority = false.
+    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, false);
   } else if (model == "c172x") {
     SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 92.358025343142515);
     SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 73.886420274514009);
@@ -941,7 +950,8 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 10.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 30.0);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.30);
-    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
+    // c310 wing_loading ≈ 22 lbs/ft² < 50 → speed_energy_priority = false.
+    SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, false);
   }
   SNAPSHOT_CHECK_DBL(p, max_throttle, 1.0);
   SNAPSHOT_CHECK_BOOL(p, landing_heavy_flare, false);  // only B747 XML enables it

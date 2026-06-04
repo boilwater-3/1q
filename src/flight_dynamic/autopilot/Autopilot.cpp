@@ -121,32 +121,40 @@ void ApplyEnergyDefaults(AircraftControlProfile* profile) {
 
   // Safety-critical parameters: keep discrete categories.
   double stall_margin, pitch_cmd, roll_lim, min_thr;
-  bool spd_prio;
 
   if (has_fbw) {
     stall_margin  = 1.25;
-    pitch_cmd = 15.0;  roll_lim = 45.0;  min_thr = 0.35;  spd_prio = true;
+    pitch_cmd = 15.0;  roll_lim = 45.0;  min_thr = 0.35;
   } else if (is_heavy && !profile->has_mixture) {
     stall_margin  = 1.20;
-    pitch_cmd = 8.0;   roll_lim = 35.0;  min_thr = 0.55;  spd_prio = true;
+    pitch_cmd = 8.0;   roll_lim = 35.0;  min_thr = 0.55;
   } else if (profile->has_mixture) {
     if (profile->engine_count >= 4) {
       // Multi-engine heavy piston (B17)
       stall_margin  = 1.30;
-      pitch_cmd = 10.0;  roll_lim = 25.0;  min_thr = 0.40;  spd_prio = true;
+      pitch_cmd = 10.0;  roll_lim = 25.0;  min_thr = 0.40;
     } else {
       // Single/twin piston GA (c172x, c310)
       stall_margin  = 1.30;
       pitch_cmd = n_eng >= 2 ? 10.0 : 12.0;
       roll_lim = 30.0;
       min_thr = n_eng >= 2 ? 0.30 : 0.20;
-      spd_prio = (n_eng >= 2);
     }
   } else {
     // Medium / light turbine / turboprop
     stall_margin  = 1.30;
-    pitch_cmd = 20.0;  roll_lim = 45.0;  min_thr = 0.15;  spd_prio = false;
+    pitch_cmd = 20.0;  roll_lim = 45.0;  min_thr = 0.15;
   }
+
+  // Speed-energy priority: high wing loading (>50 lbs/ft²) means high
+  // kinetic energy at stall, so speed recovery is more urgent.  FBW
+  // aircraft always get priority — they have flight envelope protection
+  // that can compensate for altitude excursions.
+  // Physical basis: KE = ½mv² ∝ W × V_stall² ∝ W × (W/(ρ·S·CLmax))
+  //              = W²/(ρ·S·CLmax) ∝ WL × W/CLmax
+  // Higher WL → proportionally more kinetic energy → speed loss harder
+  // to recover → prioritize speed over altitude in energy management.
+  bool spd_prio = has_fbw || (wl > 50.0);
 
   profile->min_speed_mps    = vs * stall_margin;
   profile->cruise_speed_mps = vs * cruise_factor;

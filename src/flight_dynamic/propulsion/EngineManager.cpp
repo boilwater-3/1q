@@ -47,13 +47,11 @@ constexpr double kFallbackVrKts = 50.0;           // returned when inputs are in
 constexpr double kClMaxLowerBound = 1.0;          // physically impossible below ~1.0
 constexpr double kClMaxUpperBound = 3.5;          // realistic upper bound (blown flaps)
 
-// --- Approach speed defaults by engine category (last-resort fallback) ---
-// Target ≈1.3 × Vref.  Only used when Vr-calculation path is unavailable.
-constexpr double kApproachSpeedPistonMps = 28.0;      // ~55 kts (C172 Vref≈45)
-constexpr double kApproachSpeedTurbopropMps = 41.0;   // ~80 kts
-constexpr double kApproachSpeedTurbineMps = 62.0;     // ~120 kts (737 Vref≈130)
-constexpr double kApproachSpeedRocketMps = 80.0;      // ~155 kts
-constexpr double kApproachSpeedDefaultMps = 36.0;     // ~70 kts
+// --- Approach speed fallback multiplier ---
+// Standard approach speed = V_stall × 1.3 (ICAO standard approach margin).
+// Only used when Vr-calculation path is unavailable (dead code in practice).
+constexpr double kApproachSpeedStallFactor = 1.3;
+constexpr double kApproachSpeedFallbackMps = 40.0;    // ~78 kts absolute fallback
 
 // --- Climb pitch defaults by engine category ---
 constexpr double kClimbPitchPistonDeg = 10.0;
@@ -200,20 +198,36 @@ double EngineManager::GetRotationSpeedKts() const {
 
   // --- CLmax selection (aircraft capability, wing physics) ---
   // These are wing-planform parameters, not control-law tuning knobs.
+  // XML override: guidance/takeoff-cl-max allows per-aircraft tuning.
   double cl_max = kClMaxTakeoffDefault;
-  if (type_ == EngineType::kTurboprop) {
-    cl_max = kClMaxTakeoffTurboprop;
+  {
+    auto pm = exec_.GetPropertyManager();
+    auto* cl_node = pm ? pm->GetNode("guidance/takeoff-cl-max") : nullptr;
+    if (cl_node) {
+      double xml_cl = cl_node->getDoubleValue();
+      if (xml_cl > 0.5) cl_max = xml_cl;  // sanity: must be physically reasonable
+    }
   }
-  // Detect delta-wing / low-aspect-ratio planforms via wing geometry.
+  if (cl_max == kClMaxTakeoffDefault) {
+    // No XML override — apply automatic detection.
+    if (type_ == EngineType::kTurboprop) {
+      cl_max = kClMaxTakeoffTurboprop;
+    }
+    // Detect delta-wing / low-aspect-ratio planforms via wing geometry.
+    const double wingspan_ft = GetProperty("metrics/bw-ft");
+    if (wingspan_ft > 1.0 && wing_area_ft2 > 1.0) {
+      double ar = (wingspan_ft * wingspan_ft) / wing_area_ft2;
+      if (ar < kDeltaWingArThreshold) {
+        cl_max = kClMaxTakeoffDeltaWing;
+      }
+    }
+  }
   const double wingspan_ft = GetProperty("metrics/bw-ft");
   bool is_delta_wing = false;
   double aspect_ratio = 0.0;
   if (wingspan_ft > 1.0 && wing_area_ft2 > 1.0) {
     aspect_ratio = (wingspan_ft * wingspan_ft) / wing_area_ft2;
-    if (aspect_ratio < kDeltaWingArThreshold) {
-      cl_max = kClMaxTakeoffDeltaWing;
-      is_delta_wing = true;
-    }
+    if (aspect_ratio < kDeltaWingArThreshold) is_delta_wing = true;
   }
 
   // Diagnostic: log CLmax for unusual values (outside realistic bounds).
@@ -230,17 +244,29 @@ double EngineManager::GetRotationSpeedKts() const {
   // takeoff configuration, so Vr is closer to V_stall.  Iyy is used as
   // a weight-class proxy — it correlates strongly with aircraft size
   // and the availability of complex high-lift systems.
+  // XML override: guidance/takeoff-vr-factor allows per-aircraft tuning.
   double vr_factor = kVrFactorDefault;
-  if (type_ == EngineType::kTurbine) {
-    if (iyy > kIyyHeavyThreshold) {
-      vr_factor = kVrFactorHeavyTurbine;
-    } else if (iyy > kIyyMediumThreshold) {
-      vr_factor = kVrFactorMediumTurbine;
-    } else {
-      vr_factor = kVrFactorLightTurbine;
+  {
+    auto pm = exec_.GetPropertyManager();
+    auto* vr_node = pm ? pm->GetNode("guidance/takeoff-vr-factor") : nullptr;
+    if (vr_node) {
+      double xml_vr = vr_node->getDoubleValue();
+      if (xml_vr > 0.5 && xml_vr < 2.0) vr_factor = xml_vr;
     }
-  } else if (type_ == EngineType::kPiston) {
-    vr_factor = kVrFactorPiston;
+  }
+  if (vr_factor == kVrFactorDefault) {
+    // No XML override — apply automatic classification.
+    if (type_ == EngineType::kTurbine) {
+      if (iyy > kIyyHeavyThreshold) {
+        vr_factor = kVrFactorHeavyTurbine;
+      } else if (iyy > kIyyMediumThreshold) {
+        vr_factor = kVrFactorMediumTurbine;
+      } else {
+        vr_factor = kVrFactorLightTurbine;
+      }
+    } else if (type_ == EngineType::kPiston) {
+      vr_factor = kVrFactorPiston;
+    }
   }
 
   const double vr_kts = std::max(vr_factor * v_stall_kts, kMinVrKts);
@@ -255,38 +281,60 @@ double EngineManager::GetRotationSpeedKts() const {
 }
 
 double EngineManager::GetDefaultApproachSpeedMps() const {
-  // Type-based approach speeds when Vr calculation is unavailable.
-  // These are LAST-RESORT fallbacks: the Maneuver layer prioritises
+  // Physics-based approach speed: V_stall × 1.3 (standard ICAO approach margin).
+  // This is a LAST-RESORT fallback — the Maneuver layer prioritises:
   //  1) profile landing_approach_speed_mps (from XML or explicit set)
   //  2) caller-supplied approach_speed_mps argument
   //  3) Vr × 1.3 (from GetRotationSpeedKts)
-  //  4) this method (engine-category default)
-  // Target ≈1.3 × Vref for each category.
-  double spd = kApproachSpeedDefaultMps;
-  switch (type_) {
-    case EngineType::kPiston:
-      spd = kApproachSpeedPistonMps;
-      break;
-    case EngineType::kTurboprop:
-      spd = kApproachSpeedTurbopropMps;
-      break;
-    case EngineType::kTurbine:
-      spd = kApproachSpeedTurbineMps;
-      break;
-    case EngineType::kRocket:
-      spd = kApproachSpeedRocketMps;
-      break;
-    default:
-      break;
+  //  4) this method (computed from V_stall)
+  // Replaces the previous engine-category lookup table with a single
+  // physics-derived value.  CLmax logic mirrors GetRotationSpeedKts().
+  const double weight_lbs = GetProperty("inertia/weight-lbs");
+  const double wing_area_ft2 = GetProperty("metrics/Sw-sqft");
+  const double rho = GetProperty("atmosphere/rho-slugs_ft3");
+
+  if (weight_lbs < 1.0 || wing_area_ft2 < 1.0 || rho < 1e-9) {
+    spdlog::debug("[ENGINE] DefaultApproachSpeed: invalid inputs → fallback {:.0f} m/s",
+                  kApproachSpeedFallbackMps);
+    return kApproachSpeedFallbackMps;
   }
-  spdlog::debug("[ENGINE] DefaultApproachSpeed={:.1f} m/s (type={})",
-                spd, static_cast<int>(type_));
-  return spd;
+
+  double cl_max = kClMaxTakeoffDefault;
+  if (type_ == EngineType::kTurboprop) {
+    cl_max = kClMaxTakeoffTurboprop;
+  }
+  const double wingspan_ft = GetProperty("metrics/bw-ft");
+  if (wingspan_ft > 1.0 && wing_area_ft2 > 1.0) {
+    double ar = (wingspan_ft * wingspan_ft) / wing_area_ft2;
+    if (ar < kDeltaWingArThreshold) cl_max = kClMaxTakeoffDeltaWing;
+  }
+
+  constexpr double kRhoSeaLevel = 0.002377;  // slugs/ft³
+  double v_stall_ftps = std::sqrt((2.0 * weight_lbs) /
+                                  (kRhoSeaLevel * wing_area_ft2 * cl_max));
+  double approach_mps = v_stall_ftps * 0.3048 * kApproachSpeedStallFactor;
+
+  spdlog::debug("[ENGINE] DefaultApproachSpeed={:.1f} m/s (V_stall={:.1f} m/s × 1.3)",
+                approach_mps, v_stall_ftps * 0.3048);
+  return approach_mps;
 }
 
 double EngineManager::GetClimbPitchDeg() const {
   // Engine-type-based initial climb pitch target.
-  // These are typical best-climb attitudes — turbine aircraft have
+  // XML override: guidance/climb-pitch-deg allows per-aircraft tuning.
+  {
+    auto pm = exec_.GetPropertyManager();
+    auto* node = pm ? pm->GetNode("guidance/climb-pitch-deg") : nullptr;
+    if (node) {
+      double xml_pitch = node->getDoubleValue();
+      if (xml_pitch > 0.0 && xml_pitch < 45.0) {
+        spdlog::debug("[ENGINE] ClimbPitch={:.0f} deg (XML override)",
+                      xml_pitch);
+        return xml_pitch;
+      }
+    }
+  }
+  // Default: typical best-climb attitudes — turbine aircraft have
   // higher thrust-to-weight and can sustain steeper climb angles.
   double pitch = kClimbPitchDefaultDeg;
   switch (type_) {
