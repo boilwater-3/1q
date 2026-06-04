@@ -47,6 +47,35 @@ default                                  → kDirectSurface
 ### Iyy 属性名
 JSBSim XML `unit="SLUG*FT2"`，属性路径 `inertia/iyy-slugs_ft2`（非 `iyy-lbsft2`）。
 
+## TWR 估算方案（阶段 13a，2026-06-04）
+
+### 方案选择
+- ❌ 直接访问 `FGTurbine::MilThrust` 等私有成员 — Conan 包中为 private，无 getter
+- ❌ 调用 `InitRunning(-1)` 测量 — 会改变引擎 N1/N2 状态，导致 MD11 着陆回归
+- ✅ 非侵入式估算：从当前 `thrust-lbs`/`power-hp` 线性缩放 → rated_thrust ≈ current / throttle
+
+### JSBSim 引擎属性可用性
+| 属性 | 类型 | 可用性 |
+|------|------|--------|
+| `propulsion/engine[n]/thrust-lbs` | 当前推力 | 所有引擎类型 |
+| `propulsion/engine[n]/power-hp` | 当前功率(HP) | 活塞 + 涡桨 |
+| `fcs/throttle-cmd-norm` | 油门位置 | 所有 |
+| `FGTurbine::MilThrust` | 额定推力 | **private**，不可访问 |
+| `FGPiston::MaxHP` | 额定功率 | **private**，不可访问 |
+| `FGTurboProp::MaxPower` | 额定功率 | **private**，不可访问 |
+
+### TWR 测量值（估算）
+| 机型 | TWR | 引擎类型 | 备注 |
+|------|-----|---------|------|
+| c172x | ~0.42 | piston | 活塞用 HP×3.5 lbs/HP 转换 |
+| DHC6 | ~0.15 | turboprop | trim throttle 低，缩放后偏小 |
+| B747 | ~0.28 | turbine | do_trim=false，缩放效果好 |
+| XB-70 | ~0.19 | turbine | trim throttle 低 |
+
+### 关键决策
+- **为什么不用 InitRunning**：`FGTurbine::InitRunning()` 虽然用 `SuspendIntegration()` 不推进仿真，但会重置 N1/N2/Cutoff/phase，二次 InitRunning 也无法完全恢复 trim 状态（MD11 2431s crash）
+- **构造顺序**：FlightManager 中 EngineManager 在 Autopilot 之前构造，确保 `guidance/thrust-to-weight` 属性在 Autopilot 构造时可用
+
 ## 硬编码参数分类（详见 docs/finding/hardcoded_parameter_audit.md）
 
 | 分类 | 说明 | 例子 |

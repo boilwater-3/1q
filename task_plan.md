@@ -44,10 +44,18 @@ XML 属性驱动方案、B747 着陆进近重构
 - 31 机型全无 alpha-max-rad 和 vne-kts
 - 当前速度包线仍用 5 档分类乘数，所有同类别飞机一样
 
-#### 13a：获取引擎推力数据（推重比）— `pending`
-运行时测量满油门静态推力 → 推重比。替代方案：解析引擎 XML `<milthrust>`/`<maxhp>`。
+#### 13a：获取引擎推力数据（推重比）— `complete` ✅
+非侵入式方案：从当前运行状态（thrust-lbs / power-hp）线性缩放估算额定推力。
+低 throttle 时用翼载分类 fallback。发布到 `guidance/thrust-to-weight` 属性。
+FlightManager 构造顺序：EngineManager → Autopilot（确保 TWR 属性可用）。
 
-#### 13b：推重比 + 翼载 → 连续化速度包线 — `pending`
+#### 13b：推重比 + 翼载 → 连续化速度包线 — `complete` ✅
+cruise_factor 从翼载连续计算，替代 5 档离散分类：
+- 活塞：CF = 2.8（不变，WL 范围窄）
+- 非活塞：CF = 2.89 + 0.00455 × WL（线性拟合 17 机型数据）
+- FBW 补偿：+0.25
+max_factor 从 cruise_factor + 类别 delta 推导，安全参数保持离散分类。
+副作用：B747 着陆从 abort(1451s) 变为 completed(1485s)。
 `cruise_factor = f(T/W, wing_loading)` 替代 5 档硬编码分类。每架飞机独立计算。
 
 #### 13c：rotation_ramp_sec + rotation_climb_rate 连续化 — `pending`

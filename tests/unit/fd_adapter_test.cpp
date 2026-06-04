@@ -870,20 +870,22 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
 
   if (model == "Concorde") {
     // Classified as heavy jet (4 engines, Iyy=1.9e7, no mixture).
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 241.64511004429477);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 201.3709250369123);
+    // cruise_factor continuous: 2.89 + 0.00455 × WL ≈ 3.43, max_factor = CF + 0.7
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 234.26352052539247);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 193.98933551800999);
     SNAPSHOT_CHECK_DBL(p, min_speed_mps, 69.041460012655634);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 241.64511004429477);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 234.26352052539247);
     SNAPSHOT_CHECK_DBL(p, ceiling_m, 13700.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 8.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 35.0);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.55);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
   } else if (model == "f16") {
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 318.79173579619004);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 202.86746823393912);
+    // FBW fighter: cruise_factor continuous + 0.25 FBW bonus → ~3.48
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 316.06104307020496);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 200.13677550795398);
     SNAPSHOT_CHECK_DBL(p, min_speed_mps, 72.452667226406817);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 318.79173579619004);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 316.06104307020496);
     SNAPSHOT_CHECK_DBL(p, ceiling_m, 15200.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 15.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 45.0);
@@ -891,8 +893,8 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
   } else if (model == "f15") {
     // Non-FBW, non-piston, not heavy (2 engines, Iyy=1.65e5).
-    // Falls into the light turbine / turboprop catch-all branch.
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 196.35969819947218);
+    // cruise_factor continuous: 2.89 + 0.00455 × WL ≈ 3.16, max_factor = CF + 0.8
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 203.52571382154451);
     SNAPSHOT_CHECK_DBL(p, min_speed_mps, 67.175686226135227);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 20.0);
     EXPECT_NEAR(p.max_roll_angle_deg, 21.0, 0.5);  // from XML roll limit × sustained factor
@@ -910,10 +912,11 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
   } else if (model == "C130") {
     // Classified as heavy jet (4 engines, no magneto, no mixture).
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 175.60809168697591);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 146.34007640581325);
+    // cruise_factor continuous: 2.89 + 0.00455 × WL ≈ 3.20, max_factor = CF + 0.7
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 156.91058639731219);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 127.64257111614953);
     SNAPSHOT_CHECK_DBL(p, min_speed_mps, 50.173740481993114);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 175.60809168697591);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 156.91058639731219);
     SNAPSHOT_CHECK_DBL(p, ceiling_m, 13700.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 8.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 35.0);

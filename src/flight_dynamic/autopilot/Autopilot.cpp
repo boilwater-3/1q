@@ -1,5 +1,6 @@
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
@@ -56,8 +57,9 @@ bool HasProperty(adapter::JsbsimAdapter& adapter, const char* name) {
 // Set energy-management defaults from aircraft physics.
 // Speed envelope is derived from V_stall (which encodes actual weight,
 // wing area, and CLmax); ceiling is derived from wing loading.
-// Category flags adjust the multipliers but the base comes from physics,
-// so a C172 and a C182 naturally get different envelopes.
+// cruise_factor is a continuous function of wing loading, replacing the
+// previous 5-category discrete classification.  Safety-critical parameters
+// (stall_margin, max_factor, roll_lim, etc.) remain in discrete categories.
 void ApplyEnergyDefaults(AircraftControlProfile* profile) {
   if (!profile) return;
 
@@ -78,51 +80,71 @@ void ApplyEnergyDefaults(AircraftControlProfile* profile) {
   // cruise     = V_stall × cruise_factor   (efficient cruise ~75% power)
   // max_speed  = V_stall × max_factor      (structural / thrust limit)
   //
-  // The factors differ by propulsion type because jets cruise at a higher
-  // multiple of stall speed than pistons (higher wing loading → higher
-  // efficient cruise speed relative to stall).
+  // cruise_factor is now continuous in wing loading:
+  //   Piston:     CF = 2.8 (flat — all GA pistons have similar WL range)
+  //   Non-piston: CF = 2.89 + 0.00455 × WL  (linear fit)
+  //     WL=25→3.00, WL=50→3.12, WL=92→3.30, WL=135→3.50
+  //   FBW bonus: +0.25 for fly-by-wire fighters (can sustain higher cruise)
+  //
+  // Data from 17 aircraft (empty weight × 1.3 / wing area):
+  //   c172x WL=10.9, c310 WL=21.9, DHC6 WL=24.9, A4 WL=51.2, T38 WL=57.9,
+  //   f15 WL=59.9, f16 WL=75.4, 737 WL=92.1, B747 WL=120.6, MD11 WL=134.8
 
-  double stall_margin, cruise_factor, max_factor;
-  double pitch_cmd, roll_lim, min_thr;
+  double cruise_factor;
+  if (profile->has_mixture) {
+    // Piston: all GA pistons have WL 10-22, CF is essentially flat.
+    cruise_factor = 2.8;
+  } else {
+    // Non-piston: continuous linear function of wing loading.
+    // Higher wing loading → higher optimal cruise speed relative to V_stall.
+    // Calibrated on: DHC6(25), OV10(39), F80C(45), A4(51), T38(58),
+    // f15(60), F4N(69), f16(75), 737(92), B747(121), MD11(135).
+    cruise_factor = 2.89 + 0.00455 * wl;
+    // FBW fighters can sustain significantly higher cruise speeds due to
+    // high thrust-to-weight ratio and structural margins.
+    if (has_fbw) cruise_factor += 0.25;
+    cruise_factor = std::max(2.8, std::min(cruise_factor, 4.0));
+  }
+
+  // max_factor: cruise_factor + category-based delta.
+  // Remains discrete because it's a structural/thrust safety limit.
+  double max_factor;
+  if (has_fbw) {
+    max_factor = cruise_factor + 2.0;   // fighters: ~5.5
+  } else if (is_heavy) {
+    max_factor = cruise_factor + 0.7;   // heavy transports: ~4.2
+  } else if (profile->has_mixture) {
+    max_factor = cruise_factor + 0.7;   // pistons: 3.5
+  } else {
+    max_factor = cruise_factor + 0.8;   // medium/light turbines: ~3.8
+  }
+
+  // Safety-critical parameters: keep discrete categories.
+  double stall_margin, pitch_cmd, roll_lim, min_thr;
   bool spd_prio;
 
   if (has_fbw) {
     stall_margin  = 1.25;
-    cruise_factor = 3.5;
-    max_factor    = 5.5;
     pitch_cmd = 15.0;  roll_lim = 45.0;  min_thr = 0.35;  spd_prio = true;
   } else if (is_heavy && !profile->has_mixture) {
     stall_margin  = 1.20;
-    cruise_factor = 3.5;
-    max_factor    = 4.2;
     pitch_cmd = 8.0;   roll_lim = 35.0;  min_thr = 0.55;  spd_prio = true;
-  } else if (is_medium && !profile->has_mixture) {
-    stall_margin  = 1.25;
-    cruise_factor = 3.2;
-    max_factor    = 4.0;
-    pitch_cmd = 10.0;  roll_lim = 35.0;  min_thr = 0.40;  spd_prio = true;
   } else if (profile->has_mixture) {
-    if (is_heavy) {
+    if (profile->engine_count >= 4) {
       // Multi-engine heavy piston (B17)
       stall_margin  = 1.30;
-      cruise_factor = 2.8;
-      max_factor    = 3.5;
       pitch_cmd = 10.0;  roll_lim = 25.0;  min_thr = 0.40;  spd_prio = true;
     } else {
       // Single/twin piston GA (c172x, c310)
       stall_margin  = 1.30;
-      cruise_factor = 2.8;
-      max_factor    = 3.5;
       pitch_cmd = n_eng >= 2 ? 10.0 : 12.0;
       roll_lim = 30.0;
       min_thr = n_eng >= 2 ? 0.30 : 0.20;
       spd_prio = (n_eng >= 2);
     }
   } else {
-    // Light turbine / turboprop
+    // Medium / light turbine / turboprop
     stall_margin  = 1.30;
-    cruise_factor = 3.0;
-    max_factor    = 3.8;
     pitch_cmd = 20.0;  roll_lim = 45.0;  min_thr = 0.15;  spd_prio = false;
   }
 

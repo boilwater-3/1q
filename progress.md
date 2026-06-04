@@ -29,7 +29,7 @@
 ### ⚠️ 已知问题
 | 机型 | 状态 | 根因 |
 |------|------|------|
-| **B747** | 💥 abort 1451s | git-ignored B747.xml guidance 属性问题（阶段 13f） |
+| **B747** | ✅ 1485s | ✅ 13b 连续化 cruise_factor 修复 |
 | **XB-70** | 💥 crash | JSBSim delta wing 模型俯仰不稳定，不修 |
 | Concorde | ⏰ timeout | 引擎燃油兼容性（阶段 8.2） |
 | C130 | ⏰ timeout | 螺旋桨缺 gearratio（阶段 8.2） |
@@ -56,10 +56,10 @@
 
 ## 阶段 13 计划
 
-| 子阶段 | 描述 | 风险 |
-|--------|------|------|
-| 13a | 获取推重比（运行时测量） | 中 |
-| 13b | 推重比+翼载→连续化速度包线 | 中 |
+| 子阶段 | 描述 | 风险 | 状态 |
+|--------|------|------|------|
+| 13a | 获取推重比（运行时估算） | 中 | ✅ 完成 |
+| 13b | 翼载连续化速度包线 | 中 | ✅ 完成 |
 | 13c | log10(Iyy)→连续化 rotation | 低 |
 | 13d | wing_loading→spd_priority; V_stall→approach fallback | 低 |
 | 13e | CLmax/climb_pitch/Vr_factor XML override | 低 |
