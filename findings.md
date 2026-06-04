@@ -399,3 +399,68 @@ JSBSim 引擎类型由 XML 根元素决定，而非注释或实际行为：
 - **Vmin**：从当前升力/重量反推 `V_stall`，乘以 1.2 安全系数
 - **Vmax**：从当前推力+阻力插值估计推力平衡速度，或 fallback 到机型分类默认值
 - **Vcruise**：机型分类默认（活塞 50-65 m/s、涡桨 80 m/s、中型涡扇 230 m/s、重型涡扇 250 m/s、战斗机 200 m/s）
+
+## Fly-Past Detection 机制（2026-06-04）
+
+### 问题
+- `WaypointManager::HasPassedActiveWaypoint()` 用 leg_start→target 向量与 target→aircraft 向量的点积判断是否飞越
+- 当 `ExecuteFlyTo()` 开始时飞机已超过航路点（如 F80C 长距离起飞），`SetLegStartFromCurrentLocation()` 记录的 leg_start=飞机当前位置，target 在身后
+- leg 向量指向后方，aircraft 向前移动 → `target·(aircraft - target)` = 负数 → `HasPassedActiveWaypoint()` 返回 false
+- fly-to 永不完全
+
+### 修复
+在 `IsManeuverComplete()` 的 kFlyToWaypoint 分支添加飞越检测：
+```cpp
+if (elapsed_sec_ > 10.0) {
+    double dist_m = wp_manager_.GetDistanceToActiveM();
+    double heading_to_wp = wp_manager_.GetHeadingToActiveRad();
+    double current_heading = adapter_.GetPropagate().GetEuler(3);
+    double angle_off_nose = std::abs(NormalizeRad(heading_to_wp - current_heading));
+    if (angle_off_nose > 2.0 && dist_m > effective_radius_m * 3.0) return true;
+}
+```
+- 条件：航路点 >~115° 偏机头 + 距离 >3× 捕获半径 + 已飞行 >10s
+- 对正常 fly-to 无影响（正常情况下飞机朝向航路点，角度 <90°）
+
+## B747 着陆问题深入分析（2026-06-04）
+
+### 症状
+- kFinalDescent 阶段飞机以 150-160 kts (290 km/h) 进场，pitch=-12°, sink≈-7.6 m/s
+- Flare 起始于 AGL≈20m，电梯 -0.08 至 -0.12（轻度拉杆）
+- 飞机 2s 内降至 5m AGL，主轮触地（B747 主轮高~5m）
+- 起落架压缩弹起（sink rate +0.8→+1.0 m/s）→ 飞机回到 7-8m AGL
+- 浮空 30s+，滚转逐渐发散至 90°+ → pitch 俯冲到 -60° → 坠毁
+
+### 根因链
+1. **高空段（10000→3000m）空气密度低**：descent_thr=0.70 维持 220-230 kts，几乎不减速
+2. **进近段（3000→200m）油门=0.10**：但重力分量平衡阻力，速度仅从 210→200 kts
+3. **kFinalDescent 油门=0.42**：基于 sink rate 的油门控制（`0.25 + 0.05*sink_err`），维持 155-160 kts
+4. **全襟翼升力≈重量**：150 kts 时 B747 翼面产生≈重量的升力，翼载低导致无法下降
+5. **Flare 电梯有限**：即使 -0.25 满拉杆也需要 30s+ 才能减到 130 kts 以下
+
+### 尝试的修复（均未成功）
+| 方案 | 结果 |
+|------|------|
+| 进近速度 Vr×1.0 (145 kts) | kApproach 高空分支不依赖 approach_speed，无效 |
+| 高空下降油门 0.30 | 仍维持 225→200 kts，高空空气稀薄 |
+| 高空下降高度 1500m | 减少高空段但低空段减速仍不足 |
+| sink rate 闭环 flare 控制器 | 饱含在 -0.12 极限（sink error 过大） |
+| bounce recovery (sink>0→+0.10) | 浮空但滚转仍然发散 |
+
+### 结论
+B747 着陆是 **进近阶段设计问题**，非 flare 阶段可单独修复。进出方案需要：
+- 在高空段增加盘旋减速（orbit at 3000m）
+- 或使用减速板（需 JSBSim 模型支持）
+- 或引入襟翼管理的多段放襟翼进近
+
+### XML 属性驱动配置方案讨论（2026-06-04）
+用户提出：硬编码 MOI 阈值 (log10(Iyy) > 7.0 = 重型) 后期容易出现机动异常。
+
+建议方案：扩展 `AircraftControlProfile` 支持 JSBSim 属性树读取：
+```cpp
+// 优先读取 XML 配置值，不存在时 fallback 到 MOI 分类默认值
+auto* node = pm->GetNode("guidance/approach-speed-mps");
+land_approach_speed_mps_ = node ? node->getDoubleValue() : Vr * 1.3;
+```
+每个机型 XML 可定义自己的指导属性，C++ 代码优先读取，不存在时用动态检测的分类默认值。
+
