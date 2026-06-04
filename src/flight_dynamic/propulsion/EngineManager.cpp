@@ -75,6 +75,7 @@ EngineManager::EngineManager(adapter::JsbsimAdapter& adapter)
   has_wow_ = pm->GetNode(adapter::property::kWowMain) != nullptr;
   count_ = static_cast<int>(exec_.GetPropulsion()->GetNumEngines());
   DetectType();
+  MeasureRatedThrust();
 }
 
 void EngineManager::DetectType() {
@@ -304,6 +305,82 @@ double EngineManager::GetClimbPitchDeg() const {
   spdlog::debug("[ENGINE] ClimbPitch={:.0f} deg (type={})",
                 pitch, static_cast<int>(type_));
   return pitch;
+}
+
+void EngineManager::MeasureRatedThrust() {
+  // Estimate rated maximum static thrust from current engine state.
+  // This approach is NON-INVASIVE: it does not call InitRunning or change
+  // any engine state, so it cannot cause flight dynamics regressions.
+  //
+  // Strategy: read current thrust/HP from the JSBSim property tree and
+  // scale by throttle position to estimate rated max values.
+  //   rated_thrust ≈ current_thrust / max(throttle_pos, 0.1)
+  // This is approximate (thrust is not perfectly linear with throttle)
+  // but sufficient for TWR-based speed envelope discrimination.
+  if (count_ <= 0) return;
+
+  const double weight_lbs = GetProperty("inertia/weight-lbs");
+  if (weight_lbs < 1.0) return;
+
+  // Read current throttle position (use indexed property for multi-engine).
+  double throttle_pos = GetProperty("fcs/throttle-cmd-norm");
+  if (throttle_pos < 0.1) {
+    // At very low throttle, the linear estimate is unreliable.
+    // Fall back to engine-type-based estimate using wing loading as proxy.
+    const double wing_area_ft2 = GetProperty("metrics/Sw-sqft");
+    if (wing_area_ft2 > 1.0) {
+      double wl = weight_lbs / wing_area_ft2;
+      // Rough TWR estimates by wing loading class:
+      //   GA piston (WL<30):    TWR ≈ 0.25
+      //   Turboprop (WL 30-60): TWR ≈ 0.35
+      //   Medium jet (WL 60-120): TWR ≈ 0.30
+      //   Heavy/fighter (WL>120): TWR ≈ 0.28 (heavy) or 0.80 (fighter)
+      if (wl < 30.0) {
+        rated_thrust_lbs_ = 0.25 * weight_lbs;
+      } else if (wl < 60.0) {
+        rated_thrust_lbs_ = 0.35 * weight_lbs;
+      } else if (wl < 120.0) {
+        rated_thrust_lbs_ = 0.30 * weight_lbs;
+      } else {
+        rated_thrust_lbs_ = 0.28 * weight_lbs;
+      }
+    }
+  } else {
+    // Scale current thrust by throttle to estimate rated max.
+    double total = 0.0;
+    for (int i = 0; i < count_; ++i) {
+      if (type_ == EngineType::kPiston) {
+        const std::string hp_prop =
+            "propulsion/engine[" + std::to_string(i) + "]/power-hp";
+        double hp = GetProperty(hp_prop);
+        total += (hp / throttle_pos) * 3.5;  // scale to rated, convert to lbs
+      } else {
+        const std::string thrust_prop =
+            "propulsion/engine[" + std::to_string(i) + "]/thrust-lbs";
+        double thrust = GetProperty(thrust_prop);
+        total += thrust / throttle_pos;  // linear scale to rated
+      }
+    }
+    rated_thrust_lbs_ = total;
+  }
+
+  // Publish TWR to JSBSim property tree for other components (Autopilot).
+  if (rated_thrust_lbs_ > 0.0) {
+    double twr = rated_thrust_lbs_ / weight_lbs;
+    auto* pm = exec_.GetPropertyManager().get();
+    auto* node = pm->GetNode("guidance/thrust-to-weight", true);
+    if (node) node->setDoubleValue(twr);
+    spdlog::debug("[ENGINE] Rated thrust={:.0f} lbs  weight={:.0f} lbs  TWR={:.3f}",
+                  rated_thrust_lbs_, weight_lbs, twr);
+  }
+}
+
+double EngineManager::GetTotalThrustLbs() const { return rated_thrust_lbs_; }
+
+double EngineManager::GetThrustToWeight() const {
+  const double weight_lbs = GetProperty("inertia/weight-lbs");
+  if (weight_lbs < 1.0 || rated_thrust_lbs_ <= 0.0) return 0.0;
+  return rated_thrust_lbs_ / weight_lbs;
 }
 
 }  // namespace propulsion

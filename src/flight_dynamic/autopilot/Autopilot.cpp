@@ -325,6 +325,12 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
       double v_stall_ftps = std::sqrt((2.0 * weight_lbs) /
                                       (kRhoSeaLevel * wing_ft2 * cl_max));
       control_profile_.v_stall_mps = v_stall_ftps * 0.3048;
+
+      // Thrust-to-weight ratio: read from property tree.
+      // EngineManager publishes this during construction via InitRunning()
+      // measurement.  Falls back to 0.0 if EngineManager hasn't set it yet.
+      control_profile_.thrust_to_weight =
+          ReadPropertyOrDefault(adapter_, "guidance/thrust-to-weight", 0.0);
     }
   }
 

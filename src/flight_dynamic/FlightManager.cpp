@@ -13,8 +13,8 @@ namespace flight_dynamic {
 
 FlightManager::FlightManager(const config::FlightDynamicConfig& config) {
   adapter_.reset(new adapter::JsbsimAdapter(config));
-  ap_.reset(new autopilot::Autopilot(*adapter_));
   engines_.reset(new propulsion::EngineManager(*adapter_));
+  ap_.reset(new autopilot::Autopilot(*adapter_));
   wp_manager_.reset(new guidance::WaypointManager(*adapter_));
   maneuver_exec_.reset(new guidance::ManeuverExecutor(
       *adapter_, *ap_, *wp_manager_, *engines_));
@@ -82,8 +82,8 @@ bool FlightManager::Step(double dt_sec) {
 
 void FlightManager::Reset(const config::FlightDynamicConfig& config) {
   adapter_.reset(new adapter::JsbsimAdapter(config));
-  ap_.reset(new autopilot::Autopilot(*adapter_));
   engines_.reset(new propulsion::EngineManager(*adapter_));
+  ap_.reset(new autopilot::Autopilot(*adapter_));
   wp_manager_.reset(new guidance::WaypointManager(*adapter_));
   maneuver_exec_.reset(new guidance::ManeuverExecutor(
       *adapter_, *ap_, *wp_manager_, *engines_));

@@ -62,6 +62,7 @@ struct AircraftControlProfile {
   // wing area, and lift capability into a single base speed.
   double v_stall_mps = 0.0;           // clean stall speed (TAS, m/s) at sea level
   double wing_loading_lbs_ft2 = 0.0;  // weight / wing_area (lbs/ft²)
+  double thrust_to_weight = 0.0;      // total static thrust / weight (dimensionless)
   double ref_speed_mps = 0.0;         // cruise / reference speed for energy distribution
   double min_speed_mps = 0.0;         // minimum task speed (stall margin)
   double max_speed_mps = 0.0;         // maximum task speed (structural / thrust limit)

@@ -375,6 +375,41 @@ INSTANTIATE_TEST_SUITE_P(
         EngineManagerContractParam{"B747", 500.0, 100.0, false},
         EngineManagerContractParam{"XB-70", 500.0, 100.0, true}));
 
+// ─── Thrust-to-Weight contract tests ─────────────────────────────────────
+// Verify that TWR is physically plausible for each aircraft category.
+
+TEST_P(EngineManagerContractTest, ThrustToWeightReasonable) {
+  FlightManager fm(config_);
+  const auto& engines = fm.GetEngineManager();
+  double twr = engines.GetThrustToWeight();
+
+  EXPECT_GE(twr, 0.0) << "TWR must be non-negative for " << GetParam().model_name;
+
+  // TWR is estimated from current thrust/HP scaled by throttle position.
+  // The estimate is approximate (thrust is not perfectly linear with throttle)
+  // so bounds are generous.  The key property is that different aircraft
+  // categories produce different TWR values (discrimination, not precision).
+  const std::string& model = GetParam().model_name;
+  if (model == "c172x") {
+    EXPECT_GT(twr, 0.10) << "Piston TWR too low";
+    EXPECT_LT(twr, 0.60) << "Piston TWR too high";
+  } else if (model == "DHC6") {
+    EXPECT_GT(twr, 0.08);
+    EXPECT_LT(twr, 0.70);
+  } else if (model == "B747") {
+    EXPECT_GT(twr, 0.10);
+    EXPECT_LT(twr, 0.50);
+  } else if (model == "XB-70") {
+    EXPECT_GT(twr, 0.08);
+    EXPECT_LT(twr, 0.70);
+  }
+
+  // Also verify the profile's TWR matches EngineManager's.
+  const auto& profile = fm.GetAutopilot().GetControlProfile();
+  EXPECT_NEAR(profile.thrust_to_weight, twr, 0.01)
+      << "Profile TWR should match EngineManager TWR";
+}
+
 TEST_F(FlightDynamicTest, AutopilotSetsHeading) {
   FlightManager fm(config_);
   auto& ap = fm.GetAutopilot();

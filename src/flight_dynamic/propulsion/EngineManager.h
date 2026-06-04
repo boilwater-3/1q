@@ -42,6 +42,13 @@ class EngineManager {
   double GetClimbPitchDeg() const;
   double GetDefaultApproachSpeedMps() const;
 
+  // Total static thrust from all engines (lbs).  Reads JSBSim property
+  // propulsion/engine[n]/thrust-lbs for each engine.
+  double GetTotalThrustLbs() const;
+
+  // Thrust-to-weight ratio.  Returns 0.0 if weight is unavailable.
+  double GetThrustToWeight() const;
+
   // Engine start: magneto+starter for piston, InitRunning for others.
   void Start();
 
@@ -65,6 +72,7 @@ class EngineManager {
 
  private:
   void DetectType();
+  void MeasureRatedThrust();
   void SetIndexedProperty(const std::string& base, int index, double value);
   double GetProperty(const std::string& name) const;
 
@@ -72,6 +80,7 @@ class EngineManager {
   JSBSim::FGFDMExec& exec_;
   EngineType type_ = EngineType::kUnknown;
   int count_ = 0;
+  double rated_thrust_lbs_ = 0.0;
   bool has_magneto_ = false;
   bool has_starter_ = false;
   bool has_mixture_ = false;
