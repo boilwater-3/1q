@@ -607,11 +607,12 @@ void ManeuverExecutor::Update(double dt_sec) {
     double agl_m = adapter_.GetProperty("position/h-agl-ft") * 0.3048;
     double vc_mps = adapter_.GetProperty("velocities/vc-fps") * 0.3048;
     double vc_fps = adapter_.GetProperty("velocities/vc-fps");
+    const auto& profile = ap_.GetControlProfile();
 
     sink_rate_mps_ = (agl_m - prev_alt_m_) / dt_sec;
     prev_alt_m_ = agl_m;
 
-    bool is_fbw = ap_.GetControlProfile().fbw_subtype != autopilot::FbwSubtype::kNone;
+    bool is_fbw = profile.fbw_subtype != autopilot::FbwSubtype::kNone;
     // FBW aircraft (f16) use pitch-trim-cmd-norm which feeds through
     // the FBW rate limiter/scheduler. Direct-surface aircraft use elevator-cmd-norm.
     auto set_el = [&](double el_norm) {
@@ -621,21 +622,44 @@ void ManeuverExecutor::Update(double dt_sec) {
         adapter_.SetProperty("fcs/elevator-cmd-norm", el_norm);
       }
     };
+    auto neutralize_lateral = [&]() {
+      ap_.SetHeadingHold(false);
+      ap_.SetRollAutopilotOn(false);
+      adapter_.SetProperty("fcs/aileron-cmd-norm", 0.0);
+      const std::string& yaw_prop = profile.yaw_input_property;
+      if (!yaw_prop.empty()) {
+        adapter_.SetProperty(yaw_prop, 0.0);
+      }
+    };
 
     switch (land_phase_) {
       case LandPhase::kDecelerate: {
         // High-altitude descent: use AP altitude hold to bring the aircraft
         // down from cruise altitude before aggressive deceleration.  Cutting
         // throttle to idle at 8000m causes zoom-climb → phugoid divergence.
-        if (agl_m > 3000.0 && !is_fbw) {
-          double intermediate_alt = std::max(land_target_alt_m_ + 2000.0, 3000.0);
+        if (agl_m > profile.landing_high_descent_agl_m && !is_fbw) {
+          double intermediate_alt = std::max(land_target_alt_m_ + profile.landing_pattern_agl_m,
+                                             profile.landing_staging_agl_m);
           ap_.SetAltitudeTargetM(intermediate_alt);
           ap_.SetAltitudeHold(true);
           ap_.SetSpeedHold(false);
           // Turboprops produce significant residual thrust at moderate throttle;
           // use a lower setting so the aircraft actually descends (DHC6).
-          double descent_thr = (engines_.GetType() == propulsion::EngineType::kTurboprop) ? 0.50 : 0.70;
+          double descent_thr = profile.landing_descent_throttle >= 0.0
+                                    ? profile.landing_descent_throttle
+                                    : (engines_.GetType() == propulsion::EngineType::kTurboprop)
+                                          ? 0.50
+                                          : 0.70;
           engines_.SetThrottle(descent_thr);
+          if (profile.landing_high_descent_orbit &&
+              vc_mps > std::max(land_approach_speed_mps_ * 1.35, 120.0)) {
+            double orbit_radius_m = std::max(3000.0, vc_mps * 20.0);
+            double heading_rad = ComputeClockwiseOrbitHeadingRad(
+                adapter_.GetPropagate().GetLocation(), current_maneuver_.target, orbit_radius_m,
+                std::max(vc_mps, 10.0));
+            ap_.SetHeadingTargetRad(heading_rad);
+            ap_.SetHeadingSourceIsWaypoint(false);
+          }
           if (agl_m < intermediate_alt + 500.0) {
             ap_.SetAltitudeHold(false);
             land_phase_ = LandPhase::kApproach;
@@ -648,28 +672,40 @@ void ManeuverExecutor::Update(double dt_sec) {
           // at supersonic speeds. Just fly straight and decelerate.
           ap_.SetHeadingHold(false);
           set_el(-0.05);
-        } else if (vc_mps > 200.0) {
-          // Too fast for straight-in: orbit near landing point to bleed speed.
+        } else if (profile.landing_high_descent_orbit &&
+                   vc_mps > land_approach_speed_mps_ * 1.35) {
+          // Too fast for straight-in: orbit near landing point while holding
+          // pattern altitude. Heavy transports otherwise skim the runway at
+          // 200+ kt before reaching approach speed.
+          double pattern_alt = land_target_alt_m_ + profile.landing_pattern_agl_m;
+          ap_.SetAltitudeTargetM(pattern_alt);
+          ap_.SetAltitudeHold(true);
+          ap_.SetSpeedHold(false);
           double orbit_radius_m = std::max(2000.0, vc_mps * 15.0);
           double heading_rad = ComputeClockwiseOrbitHeadingRad(
               adapter_.GetPropagate().GetLocation(), current_maneuver_.target, orbit_radius_m,
               std::max(vc_mps, 10.0));
           ap_.SetHeadingTargetRad(heading_rad);
           ap_.SetHeadingSourceIsWaypoint(false);
+          ap_.SetHeadingHold(true);
+        } else if (vc_mps > 200.0) {
+          // High-speed fallback for aircraft with orbit disabled.
           double sink_err = sink_rate_mps_ - 0.0;
           double el = std::clamp(0.05 * sink_err, -0.15, 0.15);
           set_el(el);
         } else {
+          ap_.SetAltitudeHold(false);
           set_el(-0.05);
         }
         if (vc_mps < land_approach_speed_mps_ * 1.15) {
+          ap_.SetAltitudeHold(false);
           if (is_fbw) ap_.SetHeadingHold(true);
           land_phase_ = LandPhase::kApproach;
         }
         break;
       }
       case LandPhase::kApproach: {
-        double alt_target = land_target_alt_m_ + 200.0;
+        double alt_target = land_target_alt_m_ + profile.landing_pattern_agl_m;
         if (agl_m < alt_target) {
           ConfigureForLanding();
           land_phase_ = LandPhase::kFinalDescent;
@@ -711,12 +747,12 @@ void ManeuverExecutor::Update(double dt_sec) {
           engines_.SetThrottle(0.0);
           // Heavy transports use a gentler initial flare elevator to prevent
           // the large wing from generating excessive lift at high speed.
-          double init_flare_el = -0.25;
-          {
+          double init_flare_el = profile.landing_flare_initial_elevator;
+          if (init_flare_el == 0.0) {
             double log_moi = ap_.GetControlProfile().pitch_moi_lbsft2 > 0.0
                                  ? std::log10(ap_.GetControlProfile().pitch_moi_lbsft2)
                                  : 0.0;
-            if (log_moi > 7.0) init_flare_el = -0.08;
+            init_flare_el = log_moi > 7.0 ? -0.08 : -0.25;
           }
           set_el(init_flare_el);
           flare_elapsed_sec_ = 0.0;
@@ -736,13 +772,14 @@ void ManeuverExecutor::Update(double dt_sec) {
         // keeps the aircraft fast through final descent, causing excess
         // lift at flare (B747 at 160 kts generates lift ≈ weight).
         if (vc_mps > land_approach_speed_mps_ * 1.05) {
-          thr = std::min(thr, 0.15);
+          thr = std::min(thr, profile.landing_final_throttle_cap);
         }
         engines_.SetThrottle(thr);
         break;
       }
       case LandPhase::kFlare:
         flare_elapsed_sec_ += dt_sec;
+        neutralize_lateral();
         engines_.SetThrottle(0.0);
         {
           double log_moi = ap_.GetControlProfile().pitch_moi_lbsft2 > 0.0
@@ -777,22 +814,24 @@ void ManeuverExecutor::Update(double dt_sec) {
             set_el(el_flare);
           }
         }
-        // Touchdown detection: require both WOW and low altitude.
-        // Heavy aircraft (B747) have tall gear — WOW triggers at ~5m AGL,
-        // but the aircraft can bounce at that height.  Requiring agl < 3m
-        // ensures the gear is firmly compressed before committing to rollout.
-        if ((engines_.IsWeightOnWheels() && agl_m < 3.0) || agl_m < 0.1) {
+        // Touchdown detection: require WOW and an aircraft-specific AGL gate.
+        // Large transports can report WOW while the body AGL is still well
+        // above the default small-aircraft threshold due to tall landing gear.
+        if ((engines_.IsWeightOnWheels() && agl_m < profile.landing_touchdown_agl_m) ||
+            agl_m < 0.1) {
           engines_.SetBrakes(true);
           set_el(0.0);
           land_phase_ = LandPhase::kTouchdown;
         }
         break;
       case LandPhase::kTouchdown:
+        neutralize_lateral();
         engines_.SetThrottle(0.0);
         engines_.SetBrakes(true);
         if (vc_fps < 30.0) land_phase_ = LandPhase::kRollout;
         break;
       case LandPhase::kRollout:
+        neutralize_lateral();
         engines_.SetThrottle(0.0);
         engines_.SetBrakes(true);
         if (vc_fps < 10.0) land_phase_ = LandPhase::kComplete;
@@ -818,6 +857,7 @@ void ManeuverExecutor::ConfigureForApproach(const Waypoint& target, double appro
   // Clear waypoint tracking — landing needs a fixed heading, not continuous
   // waypoint guidance which can cause orbiting (observed 737 at 45° bank).
   wp_manager_.ClearWaypoints();
+  ap_.ReleaseHolds();
 
   // Level wings first — fast jets may be banked from cruise (737: 45°).
   ap_.SetRollAttitudeMode(0);  // wings level
@@ -840,13 +880,17 @@ void ManeuverExecutor::ConfigureForApproach(const Waypoint& target, double appro
     engines_.SetThrottle(0.1);
   }
   ap_.SetAltitudeHold(false);
+  ap_.SetPitchHold(false);
   ap_.SetSpeedHold(false);
 
   engines_.SetGearDown(true);
 
   // Approach speed: from parameter, Vr*1.3, or type-based default.
   double cur_spd = adapter_.GetProperty("velocities/vc-fps") * 0.3048;
-  if (approach_speed_mps > 0.0) {
+  const auto& profile = ap_.GetControlProfile();
+  if (profile.landing_approach_speed_mps > 0.0) {
+    land_approach_speed_mps_ = profile.landing_approach_speed_mps;
+  } else if (approach_speed_mps > 0.0) {
     land_approach_speed_mps_ = approach_speed_mps;
   } else {
     double vr_mps = engines_.GetRotationSpeedKts() * 0.514;
@@ -861,12 +905,15 @@ void ManeuverExecutor::ConfigureForApproach(const Waypoint& target, double appro
   land_target_alt_m_ = target.altitude_m;
   prev_alt_m_ = adapter_.GetProperty("position/h-agl-ft") * 0.3048;
 
-  engines_.SetFlaps(0.5);
+  engines_.SetFlaps(profile.landing_approach_flaps_norm);
 }
 
 void ManeuverExecutor::ConfigureForLanding() {
+  ap_.SetAltitudeHold(false);
+  ap_.SetPitchHold(false);
+  ap_.SetSpeedHold(false);
   engines_.SetGearDown(true);
-  engines_.SetFlaps(1.0);
+  engines_.SetFlaps(ap_.GetControlProfile().landing_final_flaps_norm);
   engines_.SetThrottle(0.3);
   land_target_alt_m_ = current_maneuver_.target.altitude_m;
 }

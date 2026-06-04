@@ -35,11 +35,11 @@
 - **F80C**: fly-past detection + 航路点距离增大 → 1776s completed
 - **B747**: 部分改进（bounce recovery, agl<3m touchdown, 进近速度管理）— 仍有进近阶段物理限制
 
-### 阶段 10 — 额外改进（待规划）
+### 阶段 10 — 配置驱动进近重构 ✅
 
-- B747 着陆进近阶段重构（高空减速、盘旋下降、襟翼管理）
+- 10a XML 属性驱动的配置方案（替代硬编码 MOI 阈值）— `completed`
+- 10b B747 着陆进近阶段重构（高空减速、盘旋下降、襟翼管理）— `completed`
 - 8.2 引擎兼容性（Concorde 燃油 cross-feed、C130 gearratio、L410 cutoff-cmd）
-- XML 属性驱动的配置方案（替代硬编码 MOI 阈值）— 用户提出需求
 
 ## 工具
 

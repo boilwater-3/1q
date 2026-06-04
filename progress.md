@@ -95,6 +95,37 @@
 | B747 着陆 | B747 | 回归修复（需进近阶段重构） | 低 |
 | — | XB-70 | JSBSim 模型限制 | 不修 |
 
+## 2026-06-04 09:20 CST — 阶段 10 优先级调整
+
+用户要求推迟 8.2 引擎/燃油兼容性，优先处理：
+1. XML 属性驱动的配置方案（替代硬编码 MOI 阈值）
+2. B747 着陆进近阶段重构（高空减速、盘旋下降、襟翼管理）
+
+已更新 `task_plan.md`：阶段 10a XML 配置驱动为 `in_progress`，阶段 10b B747 进近重构为 `pending`。
+
+初步代码观察：
+- `Autopilot.cpp` 的能量和旋转默认值仍主要依赖 `engine_count`、`has_mixture`、`log10(Iyy)` 分类。
+- `Maneuver.cpp` 的着陆参数仍有多处固定值：高空下降门槛 3000m、中间高度 2000/3000m、进近/最终襟翼 0.5/1.0、重型 flare 初始电梯由 `log10(Iyy)>7` 判断。
+- `JsbsimAdapter::ConfigureIntegrators()` 当前会把已有 XML `guidance/roll-angle-limit` 覆盖为 45deg，这与 XML 优先配置目标冲突，需要先修正为“XML 存在则保留，缺省才创建默认值”。
+
+## 2026-06-04 09:45 CST — 阶段 10 完成：XML 配置驱动 + B747 进近重构
+
+完成内容：
+- `AircraftControlProfile` 新增 landing/approach XML override 字段：进近速度、高空下降门槛、staging/pattern 高度、默认盘旋下降开关、下降油门、进近/最终襟翼、最终油门上限、flare 初始电梯、touchdown AGL。
+- `Autopilot.cpp` 新增 `ApplyXmlProfileOverrides()`，优先读取 `guidance/*` 属性；不存在时保留动态检测/MOI 分类默认值。
+- `JsbsimAdapter::ConfigureIntegrators()` 改为 XML 已存在 `guidance/roll-angle-limit` / `guidance/roll-rate-limit` 时不覆盖。
+- B747 XML 写入 landing guidance 参数；`landing-high-descent-orbit` 不显式写入，因为默认值已改为开启。
+- B747 decelerate 阶段修复：速度高于 `approach_speed * 1.35` 时继续 orbit 并保持 pattern altitude，避免在 200kt+ 时贴地/WOW。
+- Landing 入口释放遗留 AP hold，flare/touchdown/rollout 期间中和横侧输入。
+
+验证：
+- `cmake --build --preset llvm-ninja-release-local --target 1q_fd_tests takeoff_land_csv` 通过。
+- `build/llvm-ninja-release-local/bin/1q_fd_tests --gtest_filter='FlightDynamicTest.AutopilotReadsB747LandingGuidanceOverrides:AircraftProfiles/ProfileSnapshotTest.MatchesExpectedProfile/*'`：8/8 passed。
+- `build/llvm-ninja-release-local/bin/1q_fd_tests`：158 passed, 3 skipped。
+- `build/llvm-ninja-release-local/bin/takeoff_land_csv B747 /tmp/1q_fd/b747_stage10_mid_speed_orbit.csv`：B747 completed at 1475.0s。
+- Landing 诊断：`outcome=completed | alt_min=4.10202m | spd_min=2.97916m/s | roll_max=54.72deg | pitch_max=11.058deg | crashed=no`。
+- CSV 末段：`vc≈5.8kt`、`roll=0`、`elevator=0`、`aileron=0`、`WOW=1`，完成前无穿地 crash。
+
 ## git 历史
 
 ```

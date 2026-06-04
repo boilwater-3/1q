@@ -41,6 +41,18 @@ constexpr double kFtToM = 0.3048;
 constexpr double kMToFt = 1.0 / kFtToM;
 constexpr double kRefSpeedFps = 164.0;  // ~50 m/s reference (c172x cruise)
 
+double ReadPropertyOrDefault(adapter::JsbsimAdapter& adapter, const char* name,
+                             double default_value) {
+  auto* pm = adapter.GetFdmExec().GetPropertyManager().get();
+  auto* node = pm ? pm->GetNode(name) : nullptr;
+  return node ? node->getDoubleValue() : default_value;
+}
+
+bool HasProperty(adapter::JsbsimAdapter& adapter, const char* name) {
+  auto* pm = adapter.GetFdmExec().GetPropertyManager().get();
+  return pm && pm->GetNode(name) != nullptr;
+}
+
 // Set energy-management defaults based on detected aircraft capability.
 // No model-name hardcoding — classifies by engine count, FBW presence,
 // and propulsion type from the property tree.
@@ -121,6 +133,66 @@ void ApplyEnergyDefaults(AircraftControlProfile* profile) {
   }
 }
 
+// XML guidance/* properties override dynamic defaults.  This keeps property-tree
+// detection as the fallback while allowing aircraft XML to carry tuning that is
+// specific to its flight envelope or model limitations.
+void ApplyXmlProfileOverrides(adapter::JsbsimAdapter& adapter, AircraftControlProfile* profile) {
+  if (!profile) return;
+
+  profile->ref_speed_mps =
+      ReadPropertyOrDefault(adapter, "guidance/ref-speed-mps", profile->ref_speed_mps);
+  profile->cruise_speed_mps =
+      ReadPropertyOrDefault(adapter, "guidance/cruise-speed-mps", profile->cruise_speed_mps);
+  profile->min_speed_mps =
+      ReadPropertyOrDefault(adapter, "guidance/min-speed-mps", profile->min_speed_mps);
+  profile->max_speed_mps =
+      ReadPropertyOrDefault(adapter, "guidance/max-speed-mps", profile->max_speed_mps);
+  profile->max_pitch_command_deg = ReadPropertyOrDefault(
+      adapter, "guidance/max-pitch-command-deg", profile->max_pitch_command_deg);
+  profile->max_roll_angle_deg =
+      ReadPropertyOrDefault(adapter, "guidance/max-roll-angle-deg", profile->max_roll_angle_deg);
+  profile->min_throttle =
+      ReadPropertyOrDefault(adapter, "guidance/min-throttle", profile->min_throttle);
+  profile->max_throttle =
+      ReadPropertyOrDefault(adapter, "guidance/max-throttle", profile->max_throttle);
+  if (HasProperty(adapter, "guidance/speed-energy-priority")) {
+    profile->speed_energy_priority =
+        adapter.GetProperty("guidance/speed-energy-priority") > 0.5;
+  }
+
+  profile->rotation_ramp_sec =
+      ReadPropertyOrDefault(adapter, "guidance/rotation-ramp-sec", profile->rotation_ramp_sec);
+  profile->rotation_max_elevator = ReadPropertyOrDefault(
+      adapter, "guidance/rotation-max-elevator", profile->rotation_max_elevator);
+  profile->rotation_climb_rate_mps = ReadPropertyOrDefault(
+      adapter, "guidance/rotation-climb-rate-mps", profile->rotation_climb_rate_mps);
+
+  profile->landing_approach_speed_mps = ReadPropertyOrDefault(
+      adapter, "guidance/landing-approach-speed-mps", profile->landing_approach_speed_mps);
+  profile->landing_high_descent_agl_m = ReadPropertyOrDefault(
+      adapter, "guidance/landing-high-descent-agl-m", profile->landing_high_descent_agl_m);
+  profile->landing_staging_agl_m = ReadPropertyOrDefault(
+      adapter, "guidance/landing-staging-agl-m", profile->landing_staging_agl_m);
+  profile->landing_pattern_agl_m = ReadPropertyOrDefault(
+      adapter, "guidance/landing-pattern-agl-m", profile->landing_pattern_agl_m);
+  if (HasProperty(adapter, "guidance/landing-high-descent-orbit")) {
+    profile->landing_high_descent_orbit =
+        adapter.GetProperty("guidance/landing-high-descent-orbit") > 0.5;
+  }
+  profile->landing_descent_throttle = ReadPropertyOrDefault(
+      adapter, "guidance/landing-descent-throttle", profile->landing_descent_throttle);
+  profile->landing_approach_flaps_norm = ReadPropertyOrDefault(
+      adapter, "guidance/landing-approach-flaps-norm", profile->landing_approach_flaps_norm);
+  profile->landing_final_flaps_norm = ReadPropertyOrDefault(
+      adapter, "guidance/landing-final-flaps-norm", profile->landing_final_flaps_norm);
+  profile->landing_final_throttle_cap = ReadPropertyOrDefault(
+      adapter, "guidance/landing-final-throttle-cap", profile->landing_final_throttle_cap);
+  profile->landing_flare_initial_elevator = ReadPropertyOrDefault(
+      adapter, "guidance/landing-flare-initial-elevator", profile->landing_flare_initial_elevator);
+  profile->landing_touchdown_agl_m = ReadPropertyOrDefault(
+      adapter, "guidance/landing-touchdown-agl-m", profile->landing_touchdown_agl_m);
+}
+
 // Set rotation/takeoff parameters based on pitch moment of inertia.
 // Heavier aircraft have larger Iyy → need longer ramp to avoid step input,
 // but do NOT reduce max elevator (they need MORE authority to rotate).
@@ -147,7 +219,6 @@ void ApplyRotationDefaults(AircraftControlProfile* profile) {
 
 Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
   auto* pm = adapter.GetFdmExec().GetPropertyManager().get();
-  const std::string& model_name = adapter.GetFdmExec().GetModelName();
 
   // Read the roll angle limit from JSBSim property tree (set by ConfigureIntegrators
   // per aircraft in the adapter). Apply a sustained-turn factor: sustained ≈ structural × 0.7,
@@ -239,6 +310,7 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
       control_profile_.lateral_interface != LateralControlInterface::kOwnAutopilot &&
       control_profile_.lateral_interface != LateralControlInterface::kGenericAutopilotBridge;
   ApplyEnergyDefaults(&control_profile_);
+  ApplyXmlProfileOverrides(adapter_, &control_profile_);
 }
 
 void Autopilot::SetHeadingTargetRad(double heading_rad) {
@@ -339,6 +411,13 @@ void Autopilot::ReleaseHolds() {
   roll_ap_on_ = false;
   roll_mode_ = 0;
   lateral_guidance_mode_ = LateralGuidanceMode::kHeading;
+
+  adapter_.SetProperty(adapter::property::kApHeadingHold, 0.0);
+  adapter_.SetProperty(adapter::property::kApAltitudeHold, 0.0);
+  adapter_.SetProperty(adapter::property::kApAttitudeHold, 0.0);
+  adapter_.SetProperty(adapter::property::kApPitchHold, 0.0);
+  adapter_.SetProperty(adapter::property::kApRollOn, 0.0);
+  adapter_.SetProperty(adapter::property::kApYawDamper, 0.0);
 }
 
 double Autopilot::GetTrueSpeedMps() const {

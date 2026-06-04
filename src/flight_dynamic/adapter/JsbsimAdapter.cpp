@@ -343,9 +343,11 @@ void JsbsimAdapter::ConfigureIntegrators(const config::FlightDynamicConfig& conf
   SetProperty(property::kIntegratorPosTrans,
               static_cast<double>(config.integrator_pos_translational));
   SetProperty(property::kGravityModel, static_cast<double>(config.gravity_model));
-  if (fdm_exec_->GetPropertyManager()->GetNode(property::kGuidanceRollAngleLimit) != nullptr) {
+  if (fdm_exec_->GetPropertyManager()->GetNode(property::kGuidanceRollAngleLimit) == nullptr) {
     SetProperty(property::kGuidanceRollAngleLimit, 0.785);  // 45 deg
-    SetProperty(property::kGuidanceRollRateLimit, 1.5);     // ~86 deg/s
+  }
+  if (fdm_exec_->GetPropertyManager()->GetNode(property::kGuidanceRollRateLimit) == nullptr) {
+    SetProperty(property::kGuidanceRollRateLimit, 1.5);  // ~86 deg/s
   }
 }
 

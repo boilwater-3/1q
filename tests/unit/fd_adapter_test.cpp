@@ -204,6 +204,28 @@ TEST_F(FlightDynamicTest, EnergyManagementRaisesThrottleForPositiveSpeedError) {
       << "Positive speed error should add throttle, not reduce it";
 }
 
+TEST_F(FlightDynamicTest, AutopilotReadsB747LandingGuidanceOverrides) {
+  config_.aircraft_model = "B747";
+  config_.do_trim = false;
+  config_.initial_kinematics.position_lla_deg_m.altitude_m = 5000.0;
+  config_.initial_kinematics.velocity_mps.x_mps = 150.0;
+
+  FlightManager fm(config_);
+  const auto& profile = fm.GetAutopilot().GetControlProfile();
+
+  EXPECT_DOUBLE_EQ(profile.landing_approach_speed_mps, 68.0);
+  EXPECT_DOUBLE_EQ(profile.landing_high_descent_agl_m, 3000.0);
+  EXPECT_DOUBLE_EQ(profile.landing_staging_agl_m, 2500.0);
+  EXPECT_DOUBLE_EQ(profile.landing_pattern_agl_m, 450.0);
+  EXPECT_TRUE(profile.landing_high_descent_orbit);
+  EXPECT_DOUBLE_EQ(profile.landing_descent_throttle, 0.15);
+  EXPECT_DOUBLE_EQ(profile.landing_approach_flaps_norm, 0.25);
+  EXPECT_DOUBLE_EQ(profile.landing_final_flaps_norm, 0.75);
+  EXPECT_DOUBLE_EQ(profile.landing_final_throttle_cap, 0.05);
+  EXPECT_DOUBLE_EQ(profile.landing_flare_initial_elevator, -0.08);
+  EXPECT_DOUBLE_EQ(profile.landing_touchdown_agl_m, 5.5);
+}
+
 TEST_F(FlightDynamicTest, AutopilotSetsHeading) {
   FlightManager fm(config_);
   auto& ap = fm.GetAutopilot();
@@ -687,7 +709,7 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 80.0);
     SNAPSHOT_CHECK_DBL(p, min_speed_mps, 50.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 20.0);
-    EXPECT_NEAR(p.max_roll_angle_deg, 31.5, 0.5);  // from property tree (~31.5°)
+    EXPECT_NEAR(p.max_roll_angle_deg, 21.0, 0.5);  // from XML roll limit × sustained factor
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.15);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, false);
   } else if (model == "B17") {

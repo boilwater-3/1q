@@ -464,3 +464,15 @@ land_approach_speed_mps_ = node ? node->getDoubleValue() : Vr * 1.3;
 ```
 每个机型 XML 可定义自己的指导属性，C++ 代码优先读取，不存在时用动态检测的分类默认值。
 
+## B747 着陆最终修复结论（2026-06-04）
+
+### 新根因拆分
+- flare 阶段曾出现 pitch/elevator 失控，但清理 AP hold 后可排除为主根因。
+- touchdown AGL 阈值需要 XML 配置：B747 主轮 WOW 可在机身 AGL 3m 以上出现，默认 3m 对高起落架机型偏低。
+- 真正阻塞完成的是 decelerate 阶段中低空速度窗口：速度低于旧硬编码 `200m/s` 后不再 orbit，也不保持 pattern altitude，导致 B747 在 `200kt+` 时贴近地面并长时间 WOW。
+
+### 已验证修复
+- 默认开启 `landing_high_descent_orbit`。
+- 当 `vc_mps > landing_approach_speed_mps * 1.35` 时，不进入直线低空减速；继续围绕着陆点 orbit，并由 AP altitude hold 保持 `landing_pattern_agl_m`。
+- B747 XML 配置 `landing-pattern-agl-m=450`、`landing-touchdown-agl-m=5.5`、`landing-approach-flaps-norm=0.25`、`landing-final-flaps-norm=0.75`、`landing-final-throttle-cap=0.05`。
+- 验证命令 `takeoff_land_csv B747 /tmp/1q_fd/b747_stage10_mid_speed_orbit.csv` 完成，landing 诊断 `completed`，最低 AGL `4.10m`，无 crash。

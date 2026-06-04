@@ -72,6 +72,19 @@ struct AircraftControlProfile {
   double rotation_ramp_sec = 3.0;        // elevator ramp-up duration during rotation
   double rotation_max_elevator = 0.30;   // peak elevator deflection during rotation
   double rotation_climb_rate_mps = 5.0;  // target climb rate after rotation
+
+  // --- Landing / approach parameters ---
+  double landing_approach_speed_mps = 0.0;        // 0 = derive from command/Vr
+  double landing_high_descent_agl_m = 3000.0;     // above this, descend to staging altitude
+  double landing_staging_agl_m = 3000.0;          // altitude used for high-speed decel
+  double landing_pattern_agl_m = 200.0;           // final-descent handoff altitude
+  bool landing_high_descent_orbit = true;
+  double landing_descent_throttle = -1.0;         // <0 = engine-type default
+  double landing_approach_flaps_norm = 0.5;
+  double landing_final_flaps_norm = 1.0;
+  double landing_final_throttle_cap = 0.15;
+  double landing_flare_initial_elevator = 0.0;    // 0 = derive from aircraft class
+  double landing_touchdown_agl_m = 3.0;
 };
 
 class Autopilot {
