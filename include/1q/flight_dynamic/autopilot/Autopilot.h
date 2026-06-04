@@ -88,7 +88,7 @@ struct AircraftControlProfile {
   double landing_descent_throttle = -1.0;         // <0 = engine-type default
   double landing_approach_flaps_norm = 0.5;
   double landing_final_flaps_norm = 1.0;
-  double landing_final_throttle_cap = 0.15;
+  double landing_final_throttle_cap = 0.60;  // default = no-op (matches sink-rate max); B747 XML overrides to 0.05
   double landing_flare_initial_elevator = 0.0;    // 0 = derive from aircraft class
   bool landing_heavy_flare = false;               // true = use transport bounce/float flare law
   double landing_touchdown_agl_m = 3.0;

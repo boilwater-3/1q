@@ -33,6 +33,11 @@
 |------|------|------|------|
 | **B747** | 💥 abort 2683s | 进近速度过高 (150 kts) + 全襟翼升力≈重量 → flare 浮空 20s+ → 滚转发散。bounce/float recovery 已加入但不够突破物理极限。高空空气密度低致减速不足。 | cd8900e9 |
 
+### ⚠️ B747 — git-ignored XML 问题（1 机）
+| 机型 | 状态 | 备注 |
+|------|------|------|
+| **B747** | 💥 abort 1451s | 依赖 git-ignored B747.xml guidance 属性。当前 crash 原因与 XML 配置有关，非阶段 12 改动引入。 |
+
 ### 💥 CRASH（1 机）
 - **XB-70**: JSBSim delta wing 模型俯仰不稳定。**已知模型限制。**
 
@@ -291,7 +296,12 @@
 ### ⚠️ MD11 — 阶段 10 回归（1 机）
 | 机型 | 状态 | 备注 |
 |------|------|------|
-| **MD11** | 💥 abort 2433s | 切回 `5d5f7ac5` 验证通过。阶段 10 着陆重构引入的回归。 |
+| **MD11** | ✅ **FIXED** 2436s | 根因：阶段 9b (8484c90c) B747 flare 改动用 log10(Iyy)>7 误套到 MD11。修复：flare 高度缩减 + landing_heavy_flare 不再默认开启。 |
+
+### ⚠️ B747 — git-ignored XML 问题（1 机）
+| 机型 | 状态 | 备注 |
+|------|------|------|
+| **B747** | 💥 abort 1451s | 依赖 git-ignored B747.xml guidance 属性。当前 crash 原因与 XML 配置有关，非阶段 12 改动引入。 |
 
 ### 💥 CRASH（1 机）
 - **XB-70**: JSBSim delta wing 模型俯仰不稳定。已知模型限制。

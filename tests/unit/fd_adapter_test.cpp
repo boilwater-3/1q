@@ -906,7 +906,7 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
   }
   SNAPSHOT_CHECK_DBL(p, max_throttle, 1.0);
-  SNAPSHOT_CHECK_BOOL(p, landing_heavy_flare, model == "Concorde");
+  SNAPSHOT_CHECK_BOOL(p, landing_heavy_flare, false);  // only B747 XML enables it
 }
 
 INSTANTIATE_TEST_SUITE_P(

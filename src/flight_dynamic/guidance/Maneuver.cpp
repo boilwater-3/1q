@@ -842,8 +842,22 @@ void ManeuverExecutor::Update(double dt_sec) {
         }
         // Flare initiation altitude: proportional to approach speed.
         // Fast aircraft need more altitude to arrest the descent.
+        // Heavy transports that use the standard progressive flare law
+        // need a lower flare start, because their large wing area
+        // generates excess lift — starting too high causes prolonged
+        // float and eventual stall (MD11 at 60m AGL).  Aircraft with
+        // the explicit heavy flare law (B747, landing_heavy_flare=true)
+        // use the standard scale — their gentler flare profile works
+        // best with more altitude to work with.
+        constexpr double kLandingHeavyFlareAltitudePerSpeed = 0.25;
+        bool is_heavy = profile.engine_count >= 4 ||
+            (profile.pitch_moi_lbsft2 > 0.0 &&
+             std::log10(profile.pitch_moi_lbsft2) > 7.0);
+        double flare_scale = (is_heavy && !profile.landing_heavy_flare)
+                                 ? kLandingHeavyFlareAltitudePerSpeed
+                                 : kLandingFlareAltitudePerSpeed;
         double flare_alt_m = std::max(kLandingFlareMinAltitudeM,
-                                      vc_mps * kLandingFlareAltitudePerSpeed);
+                                      vc_mps * flare_scale);
         if (agl_m < land_target_alt_m_ + flare_alt_m) {
           engines_.SetThrottle(0.0);
           // Heavy transports use a gentler initial flare elevator to prevent

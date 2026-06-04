@@ -245,7 +245,11 @@ void ApplyRotationDefaults(AircraftControlProfile* profile) {
   if (!profile || profile->pitch_moi_lbsft2 <= 0.0) return;
 
   double log_moi = std::log10(profile->pitch_moi_lbsft2);
-  profile->landing_heavy_flare = log_moi > 7.0;
+  // landing_heavy_flare defaults to false.  Only aircraft XML that
+  // explicitly sets guidance/landing-heavy-flare=1 (currently B747)
+  // will use the transport bounce/float flare law.  Using log10(Iyy)>7
+  // as a proxy also catches MD11 (Iyy=3.8e7) whose different planform
+  // and flap geometry do not need the B747-tuned flare parameters.
   if (log_moi > 7.0) {
     profile->rotation_ramp_sec = 6.0;
     profile->rotation_climb_rate_mps = 3.0;
