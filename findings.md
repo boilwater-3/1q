@@ -730,3 +730,30 @@ max_speed = V_stall × max_factor (3.5-5.5)
 - 174 tests, 171 passed, 3 skipped
 - 15/16 机型 takeoff_land_csv 完成
 - MD11 abort 待确认为 baseline issue
+
+
+## 阶段 13 规划：基于物理推导的硬编码消减（2026-06-04）
+
+### 背景
+
+基于 `docs/finding/hardcoded_parameter_audit.md` 全 31 机型 JSBSim XML 审计结论。
+
+核心发现：
+- JSBSim 属性树直接暴露的物理属性只有 4 个：weight、wing_area、wingspan、Iyy
+- 引擎推力/功率数据在 XML 文件中存在（milthrust/maxhp），但不在属性树中
+- 31 机型全无 aero/alpha-max-rad 和 limits/vne-kts
+- 只有 3 机型有 guidance XML 覆盖（B747、c172x、global5000）
+
+### 分阶段执行
+
+13a: 获取推重比（运行时测量满油门静态推力）
+13b: 推重比+翼载连续化速度包线（替代 5 档硬编码 factor）
+13c: log10(Iyy) 连续化 rotation ramp/climb rate
+13d: wing_loading 替代 speed_energy_priority；V_stall×1.3 替代 approach_speed fallback 引擎类型表
+13e: CLmax / climb_pitch / Vr_factor 加 XML override
+13f: B747 着陆回归修复
+
+### 预期改进
+
+速度包线从"所有活塞都 ×2.8"变为"每架飞机根据推重比和翼载独立计算"。
+例如 c310（推重比 0.18 hp/lb, 翼载 31）和 c172x（0.11, 14）会得到不同的 cruise_speed。

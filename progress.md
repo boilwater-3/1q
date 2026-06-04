@@ -309,6 +309,29 @@
 ### ⏰ TIMEOUT（3 机）— 引擎兼容性（阶段 8.2）
 - Concorde, C130, L410
 
+## 2026-06-04 16:00 CST — 阶段 13 规划：基于物理推导的硬编码消减
+
+基于全 31 机型 JSBSim XML 审计结论（`docs/finding/hardcoded_parameter_audit.md`），制定阶段 13 计划。
+
+### 审计关键发现
+- JSBSim 属性树只有 4 个物理属性：weight、wing_area、wingspan、Iyy
+- 引擎推力/功率在 XML 中存在但不在属性树中（需运行时测量）
+- 31 机型全无 alpha-max-rad 和 vne-kts
+- 当前 5 档硬编码 speed envelope 将所有同类别飞机视为相同
+
+### 阶段 13 子任务
+
+| 子阶段 | 描述 | 优先级 | 风险 |
+|--------|------|--------|------|
+| 13a | 获取推重比（运行时测量满油门静态推力） | 高 | 中 |
+| 13b | 推重比+翼载→连续化速度包线 | 高 | 中 |
+| 13c | log10(Iyy)→连续化 rotation ramp/climb rate | 中 | 低 |
+| 13d | wing_loading→speed_energy_priority; V_stall→approach fallback | 中 | 低 |
+| 13e | CLmax/climb_pitch/Vr_factor 加 XML override | 低 | 低 |
+| 13f | B747 着陆回归修复 | 高 | 独立 |
+
+### 执行顺序：13a→13c→13d（第一批，低风险）→ 13b（第二批，核心）→ 13e（第三批）→ 13f（第四批）
+
 ## git 历史
 
 ```

@@ -106,6 +106,118 @@
 - 方案：profile 新增 `ceiling_m`，按 6 档分类设默认值（FBW 15200m, 重型涡扇 13700m, 中型涡扇 12500m, 涡桨/轻涡 7600m, 活塞 4300m），支持 XML `guidance/ceiling-m` 覆盖。
 - `ExecuteTakeoff`、`ExecuteFlyTo`、`ExecuteOrbit` 三入口统一 clamp 目标高度 ≤ ceiling_m。
 
+### 阶段 13 — 基于物理推导的硬编码消减 — `pending`
+
+基于 `docs/finding/hardcoded_parameter_audit.md` 调研结论。核心原则：
+- **A 类**（直接读取）— JSBSim 属性树已有 → 直接读
+- **B 类**（间接推导）— 可从 weight/wing_area/Iyy/engine_type/thrust 物理推导 → 连续公式替代硬编码分类
+- **C 类**（控制律常量）— 通用参数，非 aircraft-specific → 保持命名常量
+- **D 类**（XML override）— aircraft capability → 加 profile 字段 + XML 覆盖路径
+
+#### 13a：获取引擎推力数据（推重比）— `pending`
+
+**目标**：在 Autopilot 初始化时获取每架飞机的实际推重比，替代当前"FBW/重型/中型/活塞"的粗粒度分类。
+
+**方案**：JSBSim 引擎 XML 中包含 `<milthrust>`（喷气推力 lbs）和 `<maxhp>`（活塞马力），但这些值不通过属性树暴露。
+
+**方案 A（推荐）**：运行时测量。在 `JsbsimAdapter` 初始化完成后、`FlightManager` 首次 `Step()` 前，短暂运行若干帧（throttle=1, brakes=on, 地面静态），读取 `propulsion/engine[n]/thrust-lbs` 累计值作为 max_static_thrust。推重比 = total_thrust / weight。
+
+**方案 B**：解析引擎 XML。实现轻量 XML 解析器读取 `<milthrust>` / `<maxhp>` 标签。风险是各机型 XML 格式不统一。
+
+**验收**：
+- 16 机型均能获取到非零推重比
+- 推重比与机型实际性能一致（f16≈1.6, B747≈0.44, c172x≈0.11 hp/lb）
+- 不影响现有 `1q_fd_tests` 和 `takeoff_land_csv` 结果
+
+#### 13b：推重比 + 翼载 → 连续化速度包线 — `pending`
+
+**目标**：用连续公式替代当前 5 档硬编码的 `stall_margin` / `cruise_factor` / `max_factor`。
+
+**当前问题**：
+```
+活塞 ×2.8, 涡桨/轻涡 ×3.0, 中型涡扇 ×3.2, 重型涡扇 ×3.5, FBW ×3.5
+```
+所有活塞都一样，所有重型涡扇都一样——忽略了同类别内的性能差异。
+
+**方案**：
+```
+cruise_factor = base + kTW * (T/W) + kWL * (wing_loading / 100)
+max_factor    = cruise_factor * (1.2 ~ 1.5, 取决于引擎类型)
+
+其中 base, kTW, kWL 由引擎类型决定：
+  活塞:     base=2.3, kTW=4.0,  kWL=0.3
+  涡桨:     base=2.5, kTW=3.0,  kWL=0.4
+  涡扇(非FBW): base=2.8, kTW=1.5, kWL=0.5
+  涡扇(FBW):   base=3.0, kTW=1.0, kWL=0.6
+```
+
+**预期效果**：
+| 机型 | 当前 cruise | 推导 cruise | 推重比 | 翼载 |
+|------|------------|------------|--------|------|
+| c172x | 72 m/s | ~68 m/s | 0.11 | 14 |
+| c310 | 98 m/s | ~95 m/s | 0.18 | 31 |
+| 737 | ~232 m/s | ~240 m/s | 0.48 | 111 |
+| B747 | 201 m/s | ~220 m/s | 0.44 | 106 |
+| f16 | 203 m/s | ~280 m/s | 1.67 | 83 |
+
+**验收**：16 机型 `takeoff_land_csv` 全部完成，与旧包线结果无 crash 回归。
+
+#### 13c：rotation_ramp_sec + rotation_climb_rate 连续化 — `pending`
+
+**目标**：用 `log10(Iyy)` 线性公式替代 3 档硬阈值。
+
+**当前**：
+```
+if log10(Iyy) > 7.0: ramp=6.0s, climb=3.0m/s
+if log10(Iyy) > 6.0: ramp=4.0s, climb=4.0m/s
+else:                ramp=3.0s, climb=5.0m/s
+```
+
+**方案**：
+```
+ramp_sec = clamp(1.5 + 0.6 * log10(Iyy), 3.0, 6.0)
+climb_mps = clamp(7.0 - 0.5 * log10(Iyy), 3.0, 5.0)
+```
+
+**预期效果**：
+| 机型 | log10(Iyy) | 旧 ramp | 新 ramp | 旧 climb | 新 climb |
+|------|-----------|---------|---------|---------|---------|
+| c172x | 3.13 | 3.0s | 3.4s | 5.0 | 5.0 |
+| 737 | 6.18 | 4.0s | 5.2s | 4.0 | 3.9 |
+| B747 | 7.52 | 6.0s | 6.0s | 3.0 | 3.2 |
+| f16 | 4.75 | 3.0s | 4.4s | 5.0 | 4.6 |
+
+**验收**：同 13b。
+
+#### 13d：speed_energy_priority + approach_speed fallback 替代 — `pending`
+
+- `speed_energy_priority`：用 wing_loading > 50 lbs/ft² 替代 5 档布尔值。高翼载飞机动能大，速度保护更重要。
+- `approach_speed fallback`：统一用 `V_stall × 1.3` 替代引擎类型表。当前极少触发（profile 优先 → Vr×1.3 优先 → 才到这里）。
+
+**验收**：同 13b。
+
+#### 13e：CLmax / climb_pitch / Vr_factor 加 XML override — `pending`
+
+- `guidance/takeoff-cl-max` → 覆盖 CLmax（默认 1.6/2.0/2.5 auto-detect）
+- `guidance/takeoff-vr-factor` → 覆盖 Vr factor（默认按引擎+Iyy 推导）
+- `guidance/climb-pitch-deg` → 覆盖爬升俯仰角（默认按引擎类型）
+- 补充 snapshot 测试 + contract 文档
+
+**验收**：新 XML 属性在 B747（或专用 fixture XML）上通过测试验证优先级。
+
+#### 13f：B747 着陆回归修复 — `pending`
+
+B747 当前 crash at 1451s。依赖 git-ignored B747.xml guidance 属性。需要排查 guidance 属性是否正确加载，并确保 B747 端到端通过。
+
+### 批次执行顺序
+
+```
+第一批（13a+13c+13d）：低风险，不影响飞行行为或影响可预测
+第二批（13b）：中风险，速度包线核心变动，需全 16 机回归
+第三批（13e）：低风险，加 XML override 路径
+第四批（13f）：B747 修复，独立于前三批
+```
+
 ## 工具
 
 - `cmake --preset llvm-ninja-release-local` 构建
