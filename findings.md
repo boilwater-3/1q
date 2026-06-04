@@ -98,7 +98,35 @@ commit 8484c90c 的 B747 flare 改进用了 `log10(Iyy)>7.0` 判断重型机，�
 
 ## B747 着陆问题
 
-当前 crash at 1451s。B747.xml 是 git-ignored 文件，guidance 属性是本地修改。需阶段 13f 排查。
+**✅ 已解决**（阶段 13b 副作用）。连续化 cruise_factor（从 3.5 离散值→3.44）使 B747 进近速度管理平滑化，着陆从 abort(1451s) 变为 completed(1485s)。无需独立修复。
+
+## 13c 跳过分析
+
+`rotation_ramp_sec` 连续化的物理路径需要 `α = M_elevator / Iyy`，但 `M_elevator`（升降舵俯仰力矩）不在 JSBSim 属性树中——编码在气动系数表里不可读。任何纯 `log10(Iyy)` 线性公式都只是曲线拟合。硬阈值工作良好，不更换。
+
+## 13d 关键决策：speed_energy_priority 阈值
+
+`wing_loading > 50` 的物理依据：
+- KE = ½mv² ∝ W × V_stall² ∝ W²/(ρ·S·CLmax) ∝ WL × W/CLmax
+- 高 WL → 单位重量携带更多动能 → 速度损失后需要更多推力来恢复 → 优先保护速度
+
+变化情况：
+| 机型 | WL | 旧值 | 新值 | 正确性 |
+|------|-----|------|------|-------|
+| f15 | 55 | false | true | ✅ 高翼载战斗机需速度保护 |
+| c310 | 22 | true | false | ✅ 低翼载双发不需要 |
+| C130 | 31 | true | false | ✅ 低速运输机 |
+| B17 | 25 | true | false | ✅ 低翼载活塞 |
+
+## 13e 新增 XML override 属性
+
+| 属性 | 覆盖内容 | 默认来源 | 验证 |
+|------|---------|---------|------|
+| `guidance/takeoff-cl-max` | CLmax | 引擎类型+AR检测 | >0.5 生效 |
+| `guidance/takeoff-vr-factor` | Vr安全系数 | Iyy+引擎类型 | (0.5, 2.0) 生效 |
+| `guidance/climb-pitch-deg` | 爬升俯仰角 | 引擎类型表 | (0, 45) 生效 |
+
+无 XML 属性时行为完全不变（非侵入式）。
 
 ## 调试方法
 

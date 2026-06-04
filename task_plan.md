@@ -6,7 +6,7 @@
 
 ## 背景
 
-分支 `refactor/jsbsim-integration`。16 可用机型全任务通过。
+分支 `refactor/jsbsim-integration`。17 可用机型（含 B747）全任务通过。
 
 ## 已完成阶段
 
@@ -34,7 +34,7 @@ XML 属性驱动方案、B747 着陆进近重构
 
 ## 当前阶段
 
-### 阶段 13 — 基于物理推导的硬编码消减 — `pending`
+### 阶段 13 — 基于物理推导的硬编码消减 — `complete` ✅
 
 依据：`docs/finding/hardcoded_parameter_audit.md`（全 31 机型 JSBSim XML 审计）
 
@@ -56,26 +56,42 @@ cruise_factor 从翼载连续计算，替代 5 档离散分类：
 - FBW 补偿：+0.25
 max_factor 从 cruise_factor + 类别 delta 推导，安全参数保持离散分类。
 副作用：B747 着陆从 abort(1451s) 变为 completed(1485s)。
-`cruise_factor = f(T/W, wing_loading)` 替代 5 档硬编码分类。每架飞机独立计算。
 
-#### 13c：rotation_ramp_sec + rotation_climb_rate 连续化 — `pending`
-`log10(Iyy)` 线性公式替代 3 档硬阈值。
+#### 13c：rotation_ramp_sec + rotation_climb_rate 连续化 — `skipped` ⏭️
+`log10(Iyy)` 线性公式替代 3 档硬阈值。**跳过原因**：升降舵力矩 M_elevator 不在 JSBSim 属性树中，Iyy 是唯一可用的物理量，任何连续公式都只是曲线拟合而非物理推导。硬阈值工作良好。
 
-#### 13d：speed_energy_priority + approach_speed fallback 替代 — `pending`
-`wing_loading > 50` → speed_energy_priority；`V_stall × 1.3` → approach fallback。
+#### 13d：speed_energy_priority + approach_speed fallback — `complete` ✅
+- `speed_energy_priority`: `wing_loading > 50` → true，替代 5 类别布尔值。
+  物理基础：KE ∝ WL × W/CLmax，高翼载→高动能→速度恢复更难→优先保护速度。
+  f15(WL=55) 获优先级，c310(WL=22)/C130(WL=31)/B17(WL=25) 放弃优先级。
+- `GetDefaultApproachSpeedMps()`: `V_stall × 1.3` 替代引擎类型查找表。
+  正常路径走 `Vr × 1.3`，此 fallback 是死代码但语义更物理。
 
-#### 13e：CLmax / climb_pitch / Vr_factor 加 XML override — `pending`
-`guidance/takeoff-cl-max`、`guidance/climb-pitch-deg`、`guidance/takeoff-vr-factor`。
+#### 13e：CLmax / climb_pitch / Vr_factor 加 XML override — `complete` ✅
+新增 3 个可选 guidance 属性（不写 XML 时行为不变）：
+- `guidance/takeoff-cl-max` → 覆盖 CLmax
+- `guidance/climb-pitch-deg` → 覆盖爬升俯仰角
+- `guidance/takeoff-vr-factor` → 覆盖 Vr 安全系数
 
-#### 13f：B747 着陆回归修复 — `pending`
-B747 crash at 1451s，依赖 git-ignored XML guidance 属性，需排查。
+#### 13f：B747 着陆回归修复 — `complete` ✅
+**13b 副作用解决**：连续化 cruise_factor 使 B747 进近速度管理平滑化，着陆从 abort(1451s) 变为 completed(1485s)。无需独立修复。
+
+### 变更总结
+
+消除的硬编码分类：
+- `cruise_factor`: 5 档离散表 → `2.89 + 0.00455 × WL` 连续函数
+- `speed_energy_priority`: 5 类布尔值 → `WL > 50 || FBW`
+- `approach_speed fallback`: 引擎类型表 → `V_stall × 1.3`
+- `CLmax / Vr_factor / climb_pitch`: 加 XML override 路径
+
+保留不变的 C 类参数（控制律常量，非 aircraft-specific）：
+- kLanding* 常量、Vr floor(40 kts)、AR 阈值(2.5)、rotation 阈值(log10>6/7)
 
 ### 执行顺序
 ```
-第一批（低风险）: 13a → 13c → 13d
-第二批（核心）:   13b（需全 16 机回归）
-第三批（低风险）: 13e
-第四批（独立）:   13f
+13a（推重比估算）→ 13b（翼载连续化速度包线）→ 13d（spd_prio+approach）→ 13e（XML override）
+13c 跳过（无物理推导路径）
+13f 已被 13b 副作用解决
 ```
 
 ### 待处理（非当前阶段）

@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-分支 `refactor/jsbsim-integration`。17 可用机型（含 B747）全任务通过。13a-e 完成。
+分支 `refactor/jsbsim-integration`。17 可用机型（含 B747）全任务通过。阶段 13 完成。
 
 ## 全机型 takeoff_land_csv 测试结果（2026-06-04，13d+13e 后）
 
@@ -56,8 +56,8 @@
 | 12e | 物理包线+升限+MD11修复 | 97c05b45 |
 | 13a | 推重比运行时估算 | 41d95e68 |
 | 13b | 翼载连续化速度包线 | 384bab96 |
-| 13d | wing_loading→spd_priority+V_stall→approach fallback | — |
-| 13e | CLmax/climb_pitch/Vr_factor XML override | — |
+| 13d | wing_loading→spd_priority+V_stall→approach fallback | 4336dec7 |
+| 13e | CLmax/climb_pitch/Vr_factor XML override | 4336dec7 |
 
 ## 阶段 13 计划
 
@@ -75,6 +75,9 @@
 ## git 历史
 
 ```
+4336dec7 feat: speed_energy_priority from wing_loading, approach_speed from V_stall, XML overrides
+384bab96 feat: continuous cruise_factor from wing loading (stage 13b)
+41d95e68 feat: non-invasive TWR estimation for speed envelope (stage 13a)
 97c05b45 feat: physics-based speed envelope, ceiling clamp, scenario config
 bd2a4f59 Refactor landing guidance profile configuration
 8484c90c fix: F80C fly-to timeout and B747 flare improvements
