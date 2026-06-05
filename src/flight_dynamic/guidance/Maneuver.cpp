@@ -468,16 +468,21 @@ void ManeuverExecutor::ExecuteRacetrack(const Waypoint& start, double heading_ra
   ap_.SetAltitudeHold(true);
 
   const auto& prof = ap_.GetControlProfile();
-  double spd = prof.cruise_speed_mps > 0.0 ? prof.cruise_speed_mps : ap_.GetTrueSpeedMps();
-  if (start.speed_mps > 0.0) spd = start.speed_mps;
+  double cruise_spd = prof.cruise_speed_mps > 0.0 ? prof.cruise_speed_mps : ap_.GetTrueSpeedMps();
+  if (start.speed_mps > 0.0) cruise_spd = start.speed_mps;
+  if (prof.max_speed_mps > 0.0 && cruise_spd > prof.max_speed_mps) cruise_spd = prof.max_speed_mps;
 
   double max_bank_rad = prof.max_roll_angle_deg * (M_PI / 180.0);
   if (max_bank_rad < 0.1) max_bank_rad = 0.1;
   double max_turn_spd = std::sqrt(turn_radius_m * 9.80665 * std::tan(max_bank_rad));
-  if (spd > max_turn_spd) spd = max_turn_spd;
 
-  if (prof.max_speed_mps > 0.0 && spd > prof.max_speed_mps) spd = prof.max_speed_mps;
-  ap_.SetSpeedTargetMps(spd);
+  // Speed scheduling: fly fast on straight legs, decelerate for turns.
+  // The turn speed is capped by the bank-angle physics; the cruise speed
+  // is the profile's preferred cruise (may be much higher for FBW aircraft).
+  racetrack_cruise_spd_ = cruise_spd;
+  racetrack_turn_spd_   = std::min(cruise_spd, max_turn_spd);
+
+  ap_.SetSpeedTargetMps(racetrack_cruise_spd_);  // start legs at cruise
   ap_.SetSpeedHold(true);
 }
 
@@ -850,6 +855,8 @@ void ManeuverExecutor::Update(double dt_sec) {
 
     switch (racetrack_phase_) {
       case RacetrackPhase::kLeg1: {
+        // Straight-leg speed: cruise (faster).
+        ap_.SetSpeedTargetMps(racetrack_cruise_spd_);
         // Steer along heading ψ with cross-track correction.
         double xtk_m = x_prime;
         double lookahead_m = std::max(2000.0, speed * 10.0);
@@ -865,6 +872,8 @@ void ManeuverExecutor::Update(double dt_sec) {
       }
 
       case RacetrackPhase::kTurn1: {
+        // Turn speed: decelerated to fit bank-angle physics.
+        ap_.SetSpeedTargetMps(racetrack_turn_spd_);
         double hdg = turn_heading(racetrack_center1_, racetrack_turn_r_);
         ap_.SetHeadingTargetRad(hdg);
 
@@ -875,6 +884,8 @@ void ManeuverExecutor::Update(double dt_sec) {
       }
 
       case RacetrackPhase::kLeg2: {
+        // Back to cruise speed on the straight leg.
+        ap_.SetSpeedTargetMps(racetrack_cruise_spd_);
         // Steer along heading ψ+π with cross-track correction in
         // the racetrack frame.  Track line is at x_prime = 2r.
         double xtk_m = x_prime - 2.0 * racetrack_turn_r_;
@@ -894,6 +905,8 @@ void ManeuverExecutor::Update(double dt_sec) {
       }
 
       case RacetrackPhase::kTurn2: {
+        // Turn speed: decelerated to fit bank-angle physics.
+        ap_.SetSpeedTargetMps(racetrack_turn_spd_);
         double hdg = turn_heading(racetrack_center2_, racetrack_turn_r_);
         ap_.SetHeadingTargetRad(hdg);
 

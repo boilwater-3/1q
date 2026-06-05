@@ -133,6 +133,10 @@ class ManeuverExecutor {
   Waypoint racetrack_leg1_entry_; // Absolute geographic start of Leg 1
   Waypoint racetrack_leg2_entry_; // Absolute geographic start of Leg 2
 
+  // ── Racetrack speed scheduling ──
+  double racetrack_cruise_spd_ = 0.0;  // target speed on straight legs
+  double racetrack_turn_spd_   = 0.0;  // target speed in turns
+
   // ── Figure-8 FSM ──
   enum class Figure8Phase { kCw, kCcw, kComplete };
   Figure8Phase figure8_phase_ = Figure8Phase::kComplete;
