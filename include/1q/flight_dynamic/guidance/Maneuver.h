@@ -144,7 +144,8 @@ class ManeuverExecutor {
   int figure8_target_cycles_ = 1;
   double figure8_bearing_accum_ = 0.0;
   double figure8_prev_bearing_ = 0.0;
-  Waypoint figure8_center_;
+  Waypoint figure8_center_;   // CW lobe center
+  Waypoint figure8_center2_;  // CCW lobe center
   double figure8_radius_ = 0.0;
 
   // ── S-Turn state ──

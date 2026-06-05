@@ -9,6 +9,7 @@
 - Racetrack/Figure-8/S-Turn 实现及全机型质量验证（48/60 GOOD, 0 BAD）
 - Racetrack 转弯 lookahead 修正（从 ≥2000m→π/3·r，漂移从 362m→64m）
 - Racetrack 进场阶段 kApproach（任意位置/方向进场，收敛后误差一致 128-160m）
+- Figure-8 双圆心修复（CW/CCW 各绕独立圆心，误差从 35-40% 降到 0.9-7.4%）
 
 ### 🏗️ 进行中
 
@@ -24,6 +25,7 @@
 | 16f | CSV 分析工具（racetrack_quality_csv 等） | 低 | ~300 行 | ✅ 完成 |
 | 16g | Racetrack 转弯 lookahead 修正 + 全机型质量验证 | 高 | ~100 行 | ✅ 完成 |
 | 16h | Racetrack 进场阶段 (kApproach) + 诊断工具 | 中 | ~200 行 | ✅ 完成 |
+| 16i | Figure-8 双圆心修复 + 进场验证工具 | 中 | ~150 行 | ✅ 完成 |
 
 ### 架构概览
 ```

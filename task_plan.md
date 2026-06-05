@@ -149,11 +149,13 @@ ManeuverExecutor::Update()
 - 字段复用：`target`=起点, `value`=直边航向(rad), `duration_sec`=直边长度(m), `heading_tolerance_rad`=转弯半径(m), `altitude_tolerance_m`=圈数
 
 ### Figure-8（8字形）
-- 顺时针 360° + 逆时针 360° 交替
-- 2 阶段 FSM：`CW → CCW → [repeat]`
+- 双圆心设计：CW 围绕 center1，CCW 围绕 center2
+- 两圆半径 r，沿 axis_heading 方向偏移 ±r，在中点相切
+- 2 阶段 FSM：`CW(center1) → CCW(center2) → [repeat]`
 - `ComputeFigure8HeadingRad()` 支持 `is_cw` 方向标志
-- 方位角累积 2π 切换方向
-- 字段复用：`target`=中心, `value`=半径(m), `duration_sec`=轴航向(rad), `heading_tolerance_rad`=循环次数
+- 方位角累积 2π 围绕当前活跃圆心后切换阶段
+- 阶段切换时重置 bearing tracking 到新圆心
+- 字段复用：`target`=中点, `value`=半径(m), `duration_sec`=轴航向(rad), `heading_tolerance_rad`=循环次数
 
 ### S-Turn（S形转弯）
 - 正弦航向调制：`heading(t) = ψ_base + A·sin(2πt/T)`
@@ -168,7 +170,8 @@ ManeuverExecutor::Update()
 | `Maneuver.cpp` | Execute*() 实现 + Update() 状态机 + Compute*HeadingRad() + IsManeuverComplete() 分支 |
 | `FlightManager.cpp` | ExecuteNextManeuver() 新增 3 个 case 分支 |
 | `fd_orbit_quality_test.cpp` | 新增 Racetrack/Figure-8/STurn 单元测试 + RacetrackQuality 阈值调整 |
-| `examples/` | 新增 racetrack_quality_csv/trace_csv 分析工具 |
+| `examples/` | 新增 racetrack_quality_csv/trace_csv/figure8_approach_trace 分析工具 |
+| `tools/` | 新增 plot_racetrack_approach.py/plot_figure8_approach.py 可视化脚本 |
 
 ### Racetrack 转弯修复（子阶段 16g）
 
@@ -207,6 +210,36 @@ ManeuverExecutor::Update()
 | 反向180° | — | 0.062 | 62m |
 
 关键发现：**收敛后所有场景误差一致**（128-160m），证明 approach 正确引导后正常 FSM 效果一致。
+
+### Figure-8 双圆心修复（子阶段 16i）
+
+初始实现 CW 和 CCW 围绕同一个圆心，轨迹只是同圆反复而非真正的 8 字形。MCP 识图确认轨迹为单圆，无双瓣结构。
+
+| 修复 | 效果 |
+|------|------|
+| 双圆心设计：center1 = midpoint + r·axis_dir，center2 = midpoint − r·axis_dir | 产生真正的 ∞ 形双瓣轨迹 |
+| CW 阶段围绕 center1，CCW 阶段围绕 center2 | 两瓣在中点相切自然过渡 |
+| 阶段切换时重置 bearing tracking 到新圆心 | 方位角累积准确计数 2π |
+| 实现 `axis_heading_rad` 参数（原已预留但被 `(void)` 忽略） | 支持任意方向的 8 字轴 |
+
+验证结果（c172p, r=1318m, axis=North）：
+
+| 场景 | 修复前误差 | 修复后误差 | 状态 |
+|------|-----------|-----------|------|
+| aligned（中点） | 39.1% | **1.0%** | ✅ |
+| on_circle_s（切线） | 35.3% | **2.5%** | ✅ |
+| behind 5km | 36.2% | **1.1%** | ✅ |
+| left_side 5km | 36.6% | **4.6%** | ✅ |
+| right_side 5km | 36.4% | **1.3%** | ✅ |
+| far_behind 10km | 38.0% | **0.9%** | ✅ |
+| far_right 10km | 38.0% | **0.9%** | ✅ |
+| diagonal_se 5km | 36.5% | **1.8%** | ✅ |
+| reverse_180° | 39.7% | **7.4%** | ✅ |
+
+关键发现：
+- **误差从 35-40% 降到 0.9-7.4%**，改善 5-40 倍
+- **无需进场阶段**：与 Orbit 相同，胡萝卜算法天然处理任意位置进场
+- 所有场景均完成完整 figure-8 机动（MCP 识图确认双瓣 ∞ 形状）
 
 ### 最终质量验证
 | 等级 | 数量 | 占比 |

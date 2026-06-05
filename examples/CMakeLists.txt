@@ -59,3 +59,6 @@ setup_fd_example(racetrack_approach_diag)
 
 add_executable(racetrack_approach_trace flight_dynamic/racetrack_approach_trace.cpp)
 setup_fd_example(racetrack_approach_trace)
+
+add_executable(figure8_approach_trace flight_dynamic/figure8_approach_trace.cpp)
+setup_fd_example(figure8_approach_trace)

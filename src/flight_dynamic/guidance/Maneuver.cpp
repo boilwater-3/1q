@@ -497,15 +497,32 @@ void ManeuverExecutor::ExecuteFigure8(const Waypoint& center, double radius_m,
   active_ = true;
   elapsed_sec_ = 0.0;
 
-  figure8_center_ = center;
   figure8_radius_ = r;
   figure8_target_cycles_ = num_cycles;
   figure8_cycle_ = 0;
   figure8_phase_ = Figure8Phase::kCw;
   figure8_bearing_accum_ = 0.0;
 
+  // ── Two-lobe geometry ──
+  // The figure-8 is formed by two tangent circles (each radius r) along
+  // axis_heading_rad.  The user-provided "center" is the midpoint where
+  // the two lobes meet.
+  //   center1 (CW lobe)  = midpoint + r × axis_dir
+  //   center2 (CCW lobe) = midpoint - r × axis_dir
+  // Both circles are tangent at the midpoint, enabling a smooth
+  // transition when the aircraft crosses from one lobe to the other.
+  double cos_h = std::cos(axis_heading_rad);
+  double sin_h = std::sin(axis_heading_rad);
+  double dn = r * cos_h;
+  double de = r * sin_h;
+
+  figure8_center_ = LocalToWaypoint(center.latitude_rad, center.longitude_rad,
+                                     dn, de, center.altitude_m);
+  figure8_center2_ = LocalToWaypoint(center.latitude_rad, center.longitude_rad,
+                                      -dn, -de, center.altitude_m);
+
   const auto& loc = adapter_.GetPropagate().GetLocation();
-  figure8_prev_bearing_ = BearingFromCenterRad(loc, center);
+  figure8_prev_bearing_ = BearingFromCenterRad(loc, figure8_center_);
 
   // AP config
   ap_.SetLateralGuidanceMode(autopilot::LateralGuidanceMode::kHeading);
@@ -528,9 +545,6 @@ void ManeuverExecutor::ExecuteFigure8(const Waypoint& center, double radius_m,
   if (prof.max_speed_mps > 0.0 && spd > prof.max_speed_mps) spd = prof.max_speed_mps;
   ap_.SetSpeedTargetMps(spd);
   ap_.SetSpeedHold(true);
-
-  // Ignore axis_heading_rad for now — figure-8 uses CW then CCW around same center
-  (void)axis_heading_rad;
 }
 
 void ManeuverExecutor::ExecuteSTurn(double base_heading_rad, double amplitude_deg,
@@ -1049,28 +1063,40 @@ void ManeuverExecutor::Update(double dt_sec) {
     }
   }
 
-  // ── Figure-8 FSM: CW → CCW → [repeat], switch at 2π bearing accumulation ──
+  // ── Figure-8 FSM: CW (center1) → CCW (center2) → [repeat] ──
+  // Two-lobe design: center1 and center2 are offset by r along the
+  // axis heading.  The CW lobe orbits center1; the CCW lobe orbits
+  // center2.  The tangent point (user-provided center) is where the
+  // aircraft transitions between lobes.
   if (current_maneuver_.type == ManeuverType::kFigure8) {
     const auto& loc = adapter_.GetPropagate().GetLocation();
     double speed = adapter_.GetProperty("velocities/vtrue-fps") * 0.3048;
     if (speed < 10.0) speed = 10.0;
 
-    double bearing = BearingFromCenterRad(loc, figure8_center_);
+    // Use the correct center for each phase.
+    const Waypoint& active_center =
+        (figure8_phase_ == Figure8Phase::kCw) ? figure8_center_ : figure8_center2_;
+
+    double bearing = BearingFromCenterRad(loc, active_center);
     figure8_bearing_accum_ += NormalizeRad(bearing - figure8_prev_bearing_);
     figure8_prev_bearing_ = bearing;
 
     bool is_cw = (figure8_phase_ == Figure8Phase::kCw);
-    double hdg = ComputeFigure8HeadingRad(loc, figure8_center_, figure8_radius_, is_cw, speed);
+    double hdg = ComputeFigure8HeadingRad(loc, active_center, figure8_radius_, is_cw, speed);
     ap_.SetHeadingTargetRad(hdg);
 
-    // Switch direction after accumulating 2π of bearing change
+    // Switch lobe after accumulating 2π of bearing change around the
+    // active center.
     if (std::abs(figure8_bearing_accum_) >= 2.0 * M_PI - 0.05) {
       figure8_bearing_accum_ = 0.0;
       if (figure8_phase_ == Figure8Phase::kCw) {
         figure8_phase_ = Figure8Phase::kCcw;
+        // Reset bearing tracking for the new center.
+        figure8_prev_bearing_ = BearingFromCenterRad(loc, figure8_center2_);
       } else {
         figure8_cycle_++;
         figure8_phase_ = Figure8Phase::kCw;
+        figure8_prev_bearing_ = BearingFromCenterRad(loc, figure8_center_);
         if (figure8_cycle_ >= figure8_target_cycles_) {
           figure8_phase_ = Figure8Phase::kComplete;
         }

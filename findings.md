@@ -437,6 +437,44 @@ FSM 从 4 阶段扩展为 5 阶段：`kApproach → kLeg1 → kTurn1 → kLeg2 �
 - `racetrack_approach_trace`：进场轨迹 CSV 导出（x_prime/y_prime 坐标）
 - `tools/plot_racetrack_approach.py`：进场轨迹可视化（全局 + 航线区域放大双视图）
 
+## Figure-8 双圆心修复（阶段 16i，2026-06-05）
+
+### 问题
+初始 Figure-8 实现 CW 和 CCW 围绕**同一个圆心**。`axis_heading_rad` 参数已预留但被 `(void)` 忽略。结果轨迹只是同一个圆反复画圈，不是真正的 8 字形。MCP 识图确认：无双瓣结构。
+
+### 根因
+`ExecuteFigure8()` 只设置了一个 `figure8_center_`，`Update()` 中 CW 和 CCW 都围绕它计算 carrot 航向。需要两个独立圆心才能产生 ∞ 形轨迹。
+
+### 修复
+双圆心设计：
+- `center1 = midpoint + r × axis_dir`（CW 瓣）
+- `center2 = midpoint − r × axis_dir`（CCW 瓣）
+- 两圆半径 r，沿轴方向偏移 ±r，在中点相切
+- CW 阶段围绕 center1，CCW 阶段围绕 center2
+- 阶段切换时重置 bearing tracking 到新圆心
+
+### 质量改善
+c172p, r=1318m, axis=North：
+
+| 指标 | 修复前 | 修复后 |
+|------|--------|--------|
+| 轨迹形状 | 单圆 | 双瓣 ∞ |
+| 半径误差 | 35-40% | 0.9-7.4% |
+| 任意位置进场 | ✅ | ✅ |
+
+### Orbit vs Figure-8 对比
+- **Orbit**：无需进场阶段，胡萝卜算法天然处理任意位置进场
+- **Figure-8**：同理无需进场阶段，双圆心 + 胡萝卜算法天然收敛
+- **Racetrack**：需要 kApproach 进场阶段，因为 FSM 依赖特定几何起点
+
+### FlightManager 队列状态陷阱
+`PushManeuver(SetHeading)` → 完成后 `state_=kCompleted` → 后续 `PushManeuver(Figure8)` 不会执行。
+解决：将两个机动同时推入队列，FlightManager 自动按序执行。
+
+### 诊断工具
+- `figure8_approach_trace`：9 场景进场轨迹 CSV 导出（含 SetHeading 队列模式）
+- `tools/plot_figure8_approach.py`：双圆心理想轨迹 + 实际轨迹叠加可视化
+
 ## 调试方法
 
 - **gtest**：合同/profile/smoke 测试

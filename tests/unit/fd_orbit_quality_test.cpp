@@ -475,7 +475,7 @@ TEST(NewManeuverSmoke, Figure8RunsWithoutCrash) {
   cmd.target.longitude_rad = 0.0;
   cmd.target.altitude_m = 500.0;
   cmd.value = 800.0;                  // radius = 800m
-  cmd.duration_sec = 0.0;             // axis heading (unused so far)
+  cmd.duration_sec = 0.0;             // axis heading (0 = North)
   cmd.heading_tolerance_rad = 1.0;    // 1 cycle
   fm.PushManeuver(cmd);
 
