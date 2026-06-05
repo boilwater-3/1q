@@ -38,3 +38,12 @@ setup_fd_example(takeoff_land_csv)
 
 add_executable(maneuver_sweep_csv flight_dynamic/maneuver_sweep_csv.cpp)
 setup_fd_example(maneuver_sweep_csv)
+
+add_executable(orbit_quality_csv flight_dynamic/orbit_quality_csv.cpp)
+setup_fd_example(orbit_quality_csv)
+
+add_executable(orbit_trace_csv flight_dynamic/orbit_trace_csv.cpp)
+setup_fd_example(orbit_trace_csv)
+
+add_executable(orbit_long_duration flight_dynamic/orbit_long_duration.cpp)
+setup_fd_example(orbit_long_duration)

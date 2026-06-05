@@ -138,6 +138,7 @@ set(FD_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_maneuver_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_probe_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_bare_aircraft_baseline_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_orbit_quality_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_robustness_test.cpp
 )
 
@@ -246,6 +247,7 @@ set(_fd_limit_filter
     "*AircraftManeuverTest.ResetAndReuse/*:"
     "*AircraftManeuverTest.AbortManeuver/*:"
     "*AircraftManeuverTest.InvalidOrbitRadius/*:"
+    "*OrbitUnitTest.*/*"
     "*FdAircraftProbe.*"
 )
 string(REPLACE ";" "" _fd_limit_filter_str "${_fd_limit_filter}")

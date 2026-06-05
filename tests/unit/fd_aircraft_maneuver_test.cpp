@@ -195,6 +195,115 @@ TEST_P(AircraftManeuverTest, InvalidOrbitRadius) {
       << GetParam().model << ": should not crash with invalid radius";
 }
 
+/// 定时盘旋完成：设置 duration_sec，验证在规定时间内完成且不崩溃
+TEST_P(AircraftManeuverTest, OrbitTimedCompletion) {
+  FlightManager fm(config_);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+
+  fm.Step(kDt);
+  double roll_limit_deg = fm.GetAutopilot().GetControlProfile().max_roll_angle_deg;
+  double orbit_r = OrbitRadiusM(GetParam().speed_mps, roll_limit_deg);
+  constexpr double kEarthR = 6378137.0;
+  double center_offset = orbit_r * 1.5 * 0.7071067811865475;
+
+  ManeuverCommand cmd;
+  cmd.type = guidance::ManeuverType::kOrbit;
+  cmd.target.latitude_rad = center_offset / kEarthR;
+  cmd.target.longitude_rad = center_offset / kEarthR;
+  cmd.target.altitude_m = GetParam().altitude_m;
+  cmd.value = orbit_r;
+  cmd.duration_sec = 5.0;
+  fm.PushManeuver(cmd);
+
+  int steps = RunUntilDone(fm, 3000);
+
+  // 应在最大步数内完成或仍在执行（Duration orbit 应完成或接近完成）
+  auto state = fm.GetState();
+  EXPECT_TRUE(state == FlightManagerState::kCompleted ||
+              state == FlightManagerState::kExecuting)
+      << GetParam().model << ": unexpected state after timed orbit";
+  ExpectNoNaN(fm.GetVehicleState());
+  EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 0.0)
+      << GetParam().model << ": should not crash during timed orbit";
+}
+
+/// 机动队列：盘旋后切换到航向保持
+TEST_P(AircraftManeuverTest, QueueOrbitThenHeading) {
+  FlightManager fm(config_);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+
+  fm.Step(kDt);
+  double roll_limit_deg = fm.GetAutopilot().GetControlProfile().max_roll_angle_deg;
+  double orbit_r = OrbitRadiusM(GetParam().speed_mps, roll_limit_deg);
+  constexpr double kEarthR = 6378137.0;
+  double center_offset = orbit_r * 1.5 * 0.7071067811865475;
+
+  // 先盘旋 5 秒
+  ManeuverCommand orbit_cmd;
+  orbit_cmd.type = guidance::ManeuverType::kOrbit;
+  orbit_cmd.target.latitude_rad = center_offset / kEarthR;
+  orbit_cmd.target.longitude_rad = center_offset / kEarthR;
+  orbit_cmd.target.altitude_m = GetParam().altitude_m;
+  orbit_cmd.value = orbit_r;
+  orbit_cmd.duration_sec = 5.0;
+  fm.PushManeuver(orbit_cmd);
+
+  // 然后保持 90° 航向
+  ManeuverCommand hdg_cmd;
+  hdg_cmd.type = guidance::ManeuverType::kSetHeading;
+  hdg_cmd.value = M_PI / 2.0;
+  fm.PushManeuver(hdg_cmd);
+
+  int steps = RunUntilDone(fm, 4000);
+
+  EXPECT_GT(steps, 200) << GetParam().model << ": should run orbit then heading";
+  ExpectNoNaN(fm.GetVehicleState());
+  EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 0.0)
+      << GetParam().model << ": should not crash during queue orbit→heading";
+  EXPECT_TRUE(fm.GetState() == FlightManagerState::kCompleted ||
+              fm.GetState() == FlightManagerState::kExecuting)
+      << GetParam().model << ": unexpected state after queue";
+}
+
+/// 机动队列：飞点后切入盘旋
+TEST_P(AircraftManeuverTest, QueueFlyToThenOrbit) {
+  FlightManager fm(config_);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+
+  fm.Step(kDt);
+  double roll_limit_deg = fm.GetAutopilot().GetControlProfile().max_roll_angle_deg;
+  double orbit_r = OrbitRadiusM(GetParam().speed_mps, roll_limit_deg);
+  constexpr double kEarthR = 6378137.0;
+
+  // 先飞到一个中间航点
+  double wp_dist = orbit_r * 3.0 * 0.7071067811865475;
+  ManeuverCommand fly_cmd;
+  fly_cmd.type = guidance::ManeuverType::kFlyToWaypoint;
+  fly_cmd.target.latitude_rad = wp_dist / kEarthR;
+  fly_cmd.target.longitude_rad = wp_dist / kEarthR;
+  fly_cmd.target.altitude_m = GetParam().altitude_m;
+  fly_cmd.target.radius_m = 500.0;
+  fm.PushManeuver(fly_cmd);
+
+  // 到达后开始盘旋
+  double center_offset = orbit_r * 1.5 * 0.7071067811865475;
+  ManeuverCommand orbit_cmd;
+  orbit_cmd.type = guidance::ManeuverType::kOrbit;
+  orbit_cmd.target.latitude_rad = center_offset / kEarthR;
+  orbit_cmd.target.longitude_rad = center_offset / kEarthR;
+  orbit_cmd.target.altitude_m = GetParam().altitude_m;
+  orbit_cmd.value = orbit_r;
+  orbit_cmd.duration_sec = 3.0;
+  fm.PushManeuver(orbit_cmd);
+
+  int steps = RunUntilDone(fm, 8000);
+
+  EXPECT_GT(steps, 100) << GetParam().model << ": should run fly-to then orbit";
+  ExpectNoNaN(fm.GetVehicleState());
+  EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 0.0)
+      << GetParam().model << ": should not crash during queue fly-to→orbit";
+}
+
 }  // namespace
 }  // namespace flight_dynamic
 }  // namespace oneq
