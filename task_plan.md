@@ -125,6 +125,64 @@ max_factor 从 cruise_factor + 类别 delta 推导，安全参数保持离散分
 13f 已被 13b 副作用解决
 ```
 
+## 阶段 16 — Racetrack / Figure-8 / S-Turn 机动扩展 — `in progress` 🏗️
+
+### 背景
+现有机动类型覆盖：FlyToWaypoint、Orbit、SetHeading、SetAltitude、SetPitch、SetRoll、Takeoff、Land。新增三种复杂机动满足搜索/巡逻/消速需求。
+
+### 架构设计
+所有新机动复用 Orbit 的核心模式：**每帧计算航向目标 → 通过 AP 航向 PD 跟踪**，不引入新的 `LateralGuidanceMode`。
+
+```
+ManeuverExecutor::Update()
+  └─ switch (current_maneuver_.type)
+       ├─ kOrbit:       ComputeClockwiseOrbitHeadingRad()
+       ├─ kRacetrack:   ComputeRacetrackHeadingRad() + FSM
+       ├─ kFigure8:     ComputeFigure8HeadingRad() + FSM
+       └─ kSTurn:       ComputeSTurnHeadingRad()  (纯时间驱动)
+```
+
+### Racetrack（矩形航线 / 等待航线）
+- 两直边 + 两 180° 半圆连接
+- 4 阶段 FSM：`LEG1 → CW_TURN1 → LEG2 → CW_TURN2 → [repeat]`
+- 复用 `ComputeClockwiseOrbitHeadingRad()` 在转弯段
+- 字段复用：`target`=起点, `value`=直边航向(rad), `duration_sec`=直边长度(m), `heading_tolerance_rad`=转弯半径(m), `altitude_tolerance_m`=圈数
+
+### Figure-8（8字形）
+- 顺时针 360° + 逆时针 360° 交替
+- 2 阶段 FSM：`CW → CCW → [repeat]`
+- `ComputeFigure8HeadingRad()` 支持 `is_cw` 方向标志
+- 方位角累积 2π 切换方向
+- 字段复用：`target`=中心, `value`=半径(m), `duration_sec`=轴航向(rad), `heading_tolerance_rad`=循环次数
+
+### S-Turn（S形转弯）
+- 正弦航向调制：`heading(t) = ψ_base + A·sin(2πt/T)`
+- 无状态机，纯时间驱动
+- 字段复用：`value`=基准航向(rad), `duration_sec`=持续时间(s), `heading_tolerance_rad`=振幅(deg), `altitude_tolerance_m`=周期(s)
+
+### 变更清单
+
+| 文件 | 变更 |
+|------|------|
+| `Maneuver.h` | ManeuverType 新增 kRacetrack/kFigure8/kSTurn；ManeuverExecutor 新增 Execute*() 声明 + 3 个 FSM 枚举 + 状态字段 |
+| `Maneuver.cpp` | Execute*() 实现 + Update() 状态机 + Compute*HeadingRad() + IsManeuverComplete() 分支 |
+| `FlightManager.cpp` | ExecuteNextManeuver() 新增 3 个 case 分支 |
+| `fd_orbit_quality_test.cpp` | 新增 Racetrack/Figure-8/STurn 单元测试 |
+| `examples/` | 新增 racetrack_quality_csv 等分析工具 |
+
+### 工作量
+~1000 行（接口 50 + 实现 500 + 测试 400 + CMake 50）
+
+### 执行顺序
+```
+ManeuverType 枚举 → HeadngRad 几何函数 → Execute*() → Update() FSM → IsManeuverComplete() → FlightManager dispatch → 单元测试 → CSV 工具
+```
+
+### 依赖
+- 无外部依赖
+- 复用现有 `ComputeClockwiseOrbitHeadingRad()` 在 Racetrack 的转弯段
+- 复用现有 `RunSteps()`/`RunUntilDone()` 测试辅助
+
 ### 待处理（非当前阶段）
 
 | 任务 | 阶段 | 优先级 |

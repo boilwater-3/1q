@@ -429,6 +429,85 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::ValuesIn(AllOrbitAircraft()),
     [](const ::testing::TestParamInfo<OrbitTestParam>& i) { return i.param.model; });
 
+// ── 新机动冒烟测试 ─────────────────────────────────────────────────────────
+
+TEST(NewManeuverSmoke, RacetrackRunsWithoutCrash) {
+  config::FlightDynamicConfig cfg;
+  cfg.aircraft_model = "c172p"; cfg.aircraft_root_dir = FD_JSBSIM_ROOT_DIR;
+  cfg.dt_sec = kDt; cfg.do_trim = true; cfg.silent_mode = true;
+  cfg.initial_kinematics.position_lla_deg_m.altitude_m = 500.0;
+  cfg.initial_kinematics.velocity_mps.x_mps = 50.0;
+  cfg.initial_kinematics.position_frame = coordinate::PositionFrame::kLla;
+
+  FlightManager fm(cfg);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+
+  ManeuverCommand cmd;
+  cmd.type = ManeuverType::kRacetrack;
+  cmd.target.latitude_rad = 0.0;
+  cmd.target.longitude_rad = 0.0;
+  cmd.target.altitude_m = 500.0;
+  cmd.value = 0.0;                    // heading = north
+  cmd.duration_sec = 500.0;           // leg length = 500m
+  cmd.heading_tolerance_rad = 200.0;  // turn radius = 200m
+  cmd.altitude_tolerance_m = 1.0;     // 1 lap
+  fm.PushManeuver(cmd);
+
+  RunSteps(fm, 500);
+  ExpectNoNaN(fm.GetVehicleState());
+  EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 0.0);
+}
+
+TEST(NewManeuverSmoke, Figure8RunsWithoutCrash) {
+  config::FlightDynamicConfig cfg;
+  cfg.aircraft_model = "c172p"; cfg.aircraft_root_dir = FD_JSBSIM_ROOT_DIR;
+  cfg.dt_sec = kDt; cfg.do_trim = true; cfg.silent_mode = true;
+  cfg.initial_kinematics.position_lla_deg_m.altitude_m = 500.0;
+  cfg.initial_kinematics.velocity_mps.x_mps = 50.0;
+  cfg.initial_kinematics.position_frame = coordinate::PositionFrame::kLla;
+
+  FlightManager fm(cfg);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+
+  ManeuverCommand cmd;
+  cmd.type = ManeuverType::kFigure8;
+  cmd.target.latitude_rad = 0.0;
+  cmd.target.longitude_rad = 0.0;
+  cmd.target.altitude_m = 500.0;
+  cmd.value = 800.0;                  // radius = 800m
+  cmd.duration_sec = 0.0;             // axis heading (unused so far)
+  cmd.heading_tolerance_rad = 1.0;    // 1 cycle
+  fm.PushManeuver(cmd);
+
+  RunSteps(fm, 500);
+  ExpectNoNaN(fm.GetVehicleState());
+  EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 0.0);
+}
+
+TEST(NewManeuverSmoke, STurnRunsWithoutCrash) {
+  config::FlightDynamicConfig cfg;
+  cfg.aircraft_model = "c172p"; cfg.aircraft_root_dir = FD_JSBSIM_ROOT_DIR;
+  cfg.dt_sec = kDt; cfg.do_trim = true; cfg.silent_mode = true;
+  cfg.initial_kinematics.position_lla_deg_m.altitude_m = 500.0;
+  cfg.initial_kinematics.velocity_mps.x_mps = 50.0;
+  cfg.initial_kinematics.position_frame = coordinate::PositionFrame::kLla;
+
+  FlightManager fm(cfg);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+
+  ManeuverCommand cmd;
+  cmd.type = ManeuverType::kSTurn;
+  cmd.value = 0.0;                    // base heading = north
+  cmd.heading_tolerance_rad = 10.0;   // amplitude = 10 deg
+  cmd.altitude_tolerance_m = 5.0;     // period = 5s
+  cmd.duration_sec = 10.0;            // duration = 10s
+  fm.PushManeuver(cmd);
+
+  RunSteps(fm, 500);
+  ExpectNoNaN(fm.GetVehicleState());
+  EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 0.0);
+}
+
 }  // namespace
 }  // namespace flight_dynamic
 }  // namespace oneq

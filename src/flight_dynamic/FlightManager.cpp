@@ -155,6 +155,24 @@ void FlightManager::ExecuteNextManeuver() {
     case ManeuverType::kLand:
       maneuver_exec_->ExecuteLand(cmd.target, cmd.value);
       break;
+    case ManeuverType::kRacetrack:
+      maneuver_exec_->ExecuteRacetrack(
+          cmd.target, cmd.value, cmd.duration_sec,
+          cmd.heading_tolerance_rad,
+          static_cast<int>(cmd.altitude_tolerance_m));
+      break;
+    case ManeuverType::kFigure8:
+      maneuver_exec_->ExecuteFigure8(
+          cmd.target, cmd.value, cmd.duration_sec,
+          static_cast<int>(cmd.heading_tolerance_rad));
+      break;
+    case ManeuverType::kSTurn:
+      // Field convention: value=base_heading_rad, heading_tolerance_rad=amplitude_deg,
+      // altitude_tolerance_m=period_sec, duration_sec=duration_sec
+      maneuver_exec_->ExecuteSTurn(
+          cmd.value, cmd.heading_tolerance_rad,
+          cmd.altitude_tolerance_m, cmd.duration_sec);
+      break;
   }
 }
 

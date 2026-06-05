@@ -247,7 +247,8 @@ set(_fd_limit_filter
     "*AircraftManeuverTest.ResetAndReuse/*:"
     "*AircraftManeuverTest.AbortManeuver/*:"
     "*AircraftManeuverTest.InvalidOrbitRadius/*:"
-    "*OrbitUnitTest.*/*"
+    "*OrbitUnitTest.*/*:"
+    "*NewManeuverSmoke.*"
     "*FdAircraftProbe.*"
 )
 string(REPLACE ";" "" _fd_limit_filter_str "${_fd_limit_filter}")

@@ -2,9 +2,36 @@
 
 ## 当前状态
 
-分支 `refactor/jsbsim-integration`。阶段 15 完成。全机型 `--heading-alt` 验证：**15/17 完成**（v1: 6/17）。`IsManeuverComplete()` 增加 Tiered Best-Effort Convergence。SetPitch 速度保护机制（15e）实现双层保护架构，全机型 +15° 从不到 7° 提升到 15-21°，f16/F4N 命中 +25° 目标。
+分支 `refactor/jsbsim-integration`。阶段 15 完成，阶段 16 进行中。
 
-## 阶段 15 计划
+### ✅ 已完成
+- 全机型 heading-alt/SetPitch 验证，Orbit 综合测试（52 断言 + CSV 分析 + 轨迹可视化）
+- Racetrack/Figure-8/S-Turn 架构设计完成
+
+### 🏗️ 进行中
+- **阶段 16**：Racetrack / Figure-8 / S-Turn 实现
+
+## 阶段 16 计划 — Racetrack/Figure-8/S-Turn
+
+| 子阶段 | 描述 | 风险 | 预计工作量 | 状态 |
+|--------|------|------|-----------|------|
+| 16a | ManeuverType 枚举 + ManeuverExecutor 声明 | 低 | ~50 行 | ⏳ |
+| 16b | Compute*HeadingRad() 几何函数实现 | 中 | ~80 行 | ⏳ |
+| 16c | Execute*() + Update() FSM + IsManeuverComplete() | 中 | ~400 行 | ⏳ |
+| 16d | FlightManager dispatch 分支 | 低 | ~20 行 | ⏳ |
+| 16e | 单元测试（Racetrack/Figure-8/S-Turn 各 4+ 用例） | 中 | ~400 行 | ⏳ |
+| 16f | CSV 分析工具（racetrack_quality_csv 等） | 低 | ~300 行 | ⏳ |
+
+### 架构概览
+```
+ManeuverExecutor::Update()
+  ├─ kOrbit:       ComputeClockwiseOrbitHeadingRad()
+  ├─ kRacetrack:   LEG1→TURN1→LEG2→TURN2 FSM
+  ├─ kFigure8:     CW→CCW FSM (方位角累积 2π 切换)
+  └─ kSTurn:       heading(t)=ψ_base+A·sin(2πt/T)
+```
+
+### 阶段 15 计划
 
 | 子阶段 | 描述 | 风险 | 状态 |
 |--------|------|------|------|

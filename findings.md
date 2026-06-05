@@ -290,6 +290,68 @@ v2 改为渐进式偏置融入现有能量公式，效果：
 - **渐进式 > 全有/全无**：小 pitch 不浪费油门，大 pitch 渐进满推力，速度/超速保护始终在线。
 - **Clear altitude_hold 是关键 bugfix**：takeoff 后 altitude_hold 仍为 true，导致 pitch-only 油门覆盖不触达。这个问题隐藏了多轮测试。
 
+## 新机动行为架构（阶段 16，2026-06-05）
+
+### 核心设计原则
+所有复杂机动（Racetrack、Figure-8、S-Turn）复用 Orbit 的核心模式：
+**每帧计算航向目标 → 通过 AP 航向 PD 跟踪**，不引入新的 `LateralGuidanceMode`。
+
+```
+ManeuverExecutor::Update()
+  └─ switch (current_maneuver_.type)
+       ├─ kOrbit:       ComputeClockwiseOrbitHeadingRad()
+       ├─ kRacetrack:   ComputeRacetrackHeadingRad() + FSM
+       ├─ kFigure8:     ComputeFigure8HeadingRad() + FSM
+       └─ kSTurn:       ComputeSTurnHeadingRad()  (纯时间驱动)
+```
+
+### Racetrack 四阶段 FSM
+```
+LEG1 ──(直边长度到达)──→ CW_TURN1 ──(180° 转弯完成)──→ LEG2 ──(直边长度到达)──→ CW_TURN2 ──(180° 转弯完成)──→ LEG1 [repeat]
+```
+- 转弯段复用 `ComputeClockwiseOrbitHeadingRad()`，圆心位于直边末端的垂直偏移
+- 每次环绕回到 LEG1 时 `lap++`，达到目标圈数后 `kComplete`
+- **关键几何**：圆心1 = 起点偏移 r×90°(朝向 ψ+90°)，圆心2 = 起点+L 沿 ψ + 偏移 r×(-90°)
+
+### Figure-8 双阶段 FSM
+```
+CW(360°) ──(方位角累积 2π)──→ CCW(360°) ──(方位角累积 -2π)──→ CW [cycle++]
+```
+- 与 Orbit 的 `ComputeClockwiseOrbitHeadingRad()` 共享几何
+- 增加 `is_cw` 参数：CW 用 `radial_angle + π/2`，CCW 用 `radial_angle - π/2`
+- 截距修正 `atan2(radial_error, radius_m)` 在两种方向下都有效
+
+### S-Turn 纯时间驱动
+```cpp
+heading(t) = ψ_base + A·sin(2πt/T)
+```
+- 无状态机，AP 持续跟踪正弦航向
+- `IsManeuverComplete()` = `elapsed_sec >= duration_sec`
+
+### 字段复用约定（ManeuverCommand 无新增字段）
+
+| 机动 | target | value | duration_sec | heading_tolerance_rad | altitude_tolerance_m |
+|------|--------|-------|-------------|----------------------|----------------------|
+| Racetrack | 起点(lat/lon/alt) | 直边航向(rad) | 直边长度(m) | 转弯半径(m) | 圈数 |
+| Figure-8 | 中心(lat/lon/alt) | 半径(m) | 轴航向(rad) | 循环次数 | — |
+| STurn | — | 基准航向(rad) | 持续时间(s) | 振幅(deg) | 周期(s) |
+
+### 与 Orbit 实现的对比分析
+
+| 特性 | Orbit | Racetrack | Figure-8 | S-Turn |
+|------|-------|-----------|----------|--------|
+| 航向计算 | 圆切线+截距修正 | 直边固定+半圆切线 | 交替切线方向 | 正弦调制 |
+| 状态机 | 无（单圆） | 4 阶段 | 2 阶段 | 无 |
+| 复用 ComputeClockwiseOrbitHeadingRad | — | ✅ 转弯段 | ⚠️ 带 is_cw 参数 | ❌ |
+| 完成判定 | duration_sec | lap数+phase | cycle数+phase | elapsed_sec |
+| 几何复杂度 | 低 | 高（4段衔接） | 中（方向切换） | 低（连续函数） |
+
+### 测试策略
+- **单元测试**：每种机动独立验证几何收敛性、阶段切换正确性、完成判定
+- **长时间测试**：Racetrack 10 圈验证无累积误差，Figure-8 10 循环验证交替稳定性
+- **边界测试**：极小转弯半径（clamped）、零振幅 S-Turn（= 直飞）、零圈数 Racetrack（立即完成）
+- **队列测试**：Racetrack → Orbit → SetHeading 多级切换
+
 ## 调试方法
 
 - **gtest**：合同/profile/smoke 测试
