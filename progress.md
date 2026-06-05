@@ -8,6 +8,7 @@
 - 全机型 heading-alt/SetPitch 验证，Orbit 综合测试（52 断言 + CSV 分析 + 轨迹可视化）
 - Racetrack/Figure-8/S-Turn 实现及全机型质量验证（48/60 GOOD, 0 BAD）
 - Racetrack 转弯 lookahead 修正（从 ≥2000m→π/3·r，漂移从 362m→64m）
+- Racetrack 进场阶段 kApproach（任意位置/方向进场，收敛后误差一致 128-160m）
 
 ### 🏗️ 进行中
 
@@ -22,12 +23,13 @@
 | 16e | 单元测试（Racetrack/Figure-8/S-Turn 各 4+ 用例） | 中 | ~400 行 | ✅ 完成 |
 | 16f | CSV 分析工具（racetrack_quality_csv 等） | 低 | ~300 行 | ✅ 完成 |
 | 16g | Racetrack 转弯 lookahead 修正 + 全机型质量验证 | 高 | ~100 行 | ✅ 完成 |
+| 16h | Racetrack 进场阶段 (kApproach) + 诊断工具 | 中 | ~200 行 | ✅ 完成 |
 
 ### 架构概览
 ```
 ManeuverExecutor::Update()
   ├─ kOrbit:       ComputeClockwiseOrbitHeadingRad()
-  ├─ kRacetrack:   LEG1→TURN1→LEG2→TURN2 FSM
+  ├─ kRacetrack:   APPROACH→LEG1→TURN1→LEG2→TURN2 FSM (5阶段)
   ├─ kFigure8:     CW→CCW FSM (方位角累积 2π 切换)
   └─ kSTurn:       heading(t)=ψ_base+A·sin(2πt/T)
 ```
@@ -401,3 +403,45 @@ cd8900e9 feat: waypoint speed field and speed envelope management
 | f16 | 7439m (1.52) | **2056m (0.18)** | 3.6× |
 | MD11 | 5250m (1.53) | **3166m (0.30)** | 1.7× |
 | C130 | CRASHED | **13m (0.003)** | ∞ |
+
+## 2026-06-05 — Racetrack 进场阶段 kApproach (16h)
+
+### 背景
+Racetrack FSM 假设飞机从起点开始且航向对齐。用户指出：实际使用中飞机可能从任意方向/位置进入。无进场阶段时，对角线场景 ratio > 1.5（BAD），远距离场景 ratio > 8（完全不收敛）。
+
+### 变更
+- `include/1q/flight_dynamic/guidance/Maneuver.h`：
+  - `RacetrackPhase` 枚举新增 `kApproach`（5 阶段：Approach→Leg1→Turn1→Leg2→Turn2）
+- `src/flight_dynamic/guidance/Maneuver.cpp`：
+  - `ExecuteRacetrack()`：初始阶段从 `kLeg1` → `kApproach`
+  - `Update()` 新增 `kApproach` 分支：
+    - 最近点搜索：遍历 Leg1/Leg2/Turn1/Turn2 四段几何体
+    - 前瞻点导航：沿航线前进方向展望 `max(1000, speed×5)m`
+    - 捕获条件：`best_dist <= max(r×1.5, 1000m)` → 切入对应 FSM 阶段
+- `examples/flight_dynamic/racetrack_approach_diag.cpp`：进场场景诊断工具（8 场景）
+- `examples/flight_dynamic/racetrack_approach_trace.cpp`：进场轨迹 CSV 导出
+- `examples/CMakeLists.txt`：注册新 example 目标
+- `tools/plot_racetrack_approach.py`：进场轨迹可视化（全局+放大双视图）
+
+### 验证结果（c172p, r=1000m, leg=10000m, 800s）
+
+| 场景 | ratio | 收敛后误差 | 收敛时间 | 判定 |
+|------|-------|-----------|---------|------|
+| Aligned (基线) | 0.036 | 29m | 0s | ✅ GOOD |
+| Behind 5km | 0.146 | 133m | 24s | ✅ GOOD |
+| Left 5km | 0.209 | 160m | 52s | ✅ GOOD |
+| Right 5km | 0.160 | 128m | 0s | ✅ GOOD |
+| Behind 10km | 0.183 | 147m | 116s | ✅ GOOD |
+| Right 10km | 0.194 | 140m | 94s | ✅ GOOD |
+| SE diagonal 5km | 0.167 | 137m | 44s | ✅ GOOD |
+| NW diagonal 5km | 0.191 | 155m | 52s | ✅ GOOD |
+| Opposite 180° | 0.062 | 62m | 0s | ✅ GOOD |
+
+### 关键结论
+- **所有场景收敛后误差一致**（128-160m），证明 approach 正确引导后正常 FSM 效果一致
+- **对齐场景零成本**：dist=0 立即过渡，ratio 不变 (0.030→0.036)
+- **反向 180° 场景极好**（ratio 0.062）：approach 将飞机引导至 Turn2 区域后 CW 绕回
+- **18/18 全部测试通过**，无回归
+
+### FD CI 回归
+- 18 tests passed，无回归

@@ -53,3 +53,9 @@ setup_fd_example(orbit_trace_csv)
 
 add_executable(orbit_long_duration flight_dynamic/orbit_long_duration.cpp)
 setup_fd_example(orbit_long_duration)
+
+add_executable(racetrack_approach_diag flight_dynamic/racetrack_approach_diag.cpp)
+setup_fd_example(racetrack_approach_diag)
+
+add_executable(racetrack_approach_trace flight_dynamic/racetrack_approach_trace.cpp)
+setup_fd_example(racetrack_approach_trace)

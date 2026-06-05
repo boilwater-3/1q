@@ -390,6 +390,53 @@ Racetrack 转弯使用 `ComputeClockwiseOrbitHeadingRad()` 的默认 lookahead�
 - 60 次测试，**0 BAD**，48/60 (80%) GOOD
 - 剩余 WARN/CRASHED 均为模型限制（B17/FBW/Concorde）
 
+## Racetrack 进场阶段分析（阶段 16h，2026-06-05）
+
+### 问题描述
+初始 Racetrack FSM 从 `kLeg1` 开始，假设飞机在起点位置且航向对齐。当飞机从任意位置/方向进入时：
+- 后方5km：需飞额外距离，误差 5× 恶化
+- 侧方5km：45° 截角限制收敛极慢
+- 对角线5km：ratio > 1.0（BAD），飞机永远无法加入航线
+- 远距15km：ratio > 8.0，完全不收敛
+
+### 根因
+FSM 无进场阶段，`kLeg1` 的引导逻辑（航向 ψ + 横距修正）只在飞机靠近 Leg1 轨迹时有效。远距离时：
+1. 航向目标固定为 ψ，不管飞机朝哪
+2. 横距修正被 ±45° clamp 限制，收敛极慢
+3. `y_prime >= leg_len` 阶段转换可能在错误位置触发
+
+### 解决方案：kApproach 阶段
+
+FSM 从 4 阶段扩展为 5 阶段：`kApproach → kLeg1 → kTurn1 → kLeg2 → kTurn2`
+
+核心算法：
+1. **最近点搜索**：遍历 racetrack 四段几何体（Leg1/Leg2/Turn1/Turn2），找到距飞机最近的跑道巡逻航线上的点
+2. **前瞻点导航**：从最近点沿航线前进方向前进 `max(1000, speed×5)` 米，飞向前瞻点而非最近点
+   - Leg1: 沿 +y 方向前进
+   - Leg2: 沿 -y 方向前进
+   - Turn: 沿 CW 方向在圆弧上前进 `la/r` 弧度
+3. **前瞻导航的作用**：飞机自然从航线后方接近，到达时航向已对齐
+4. **捕获条件**：`best_dist <= max(r×1.5, 1000m)` 时切入对应 FSM 阶段
+
+### 关键发现
+
+#### 前瞻 vs 直接飞向最近点
+直接飞向最近点时，飞机到达最近点航向可能不对（如从东侧到达 Leg2 但朝西飞，而 Leg2 航向朝南）。前瞻点让飞机瞄准航线前进方向的某个点，到达时航向自然对齐。
+
+#### 收敛一致性
+所有场景（对齐/后方/侧方/对角线/远距）收敛后平均误差均为 128-160m（r=1000m），方差极小。证明 approach 正确引导后，正常 FSM 接管效果一致。
+
+#### 零成本
+对齐场景下 approach 阶段立即过渡（dist=0），不增加任何延迟。
+
+#### JSBSim Trim 限制
+非北向初始航向导致 JSBSim `DoTrim(0)` 失败。这是 JSBSim 的已知限制——trim 假设北向飞行。解决方法：始终北向配平，用 SetHeading 转向后再开始机动。
+
+### 诊断工具
+- `racetrack_approach_diag`：8 场景进场质量测试（位置偏移 + 航向偏移）
+- `racetrack_approach_trace`：进场轨迹 CSV 导出（x_prime/y_prime 坐标）
+- `tools/plot_racetrack_approach.py`：进场轨迹可视化（全局 + 航线区域放大双视图）
+
 ## 调试方法
 
 - **gtest**：合同/profile/smoke 测试

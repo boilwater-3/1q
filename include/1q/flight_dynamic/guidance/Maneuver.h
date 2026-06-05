@@ -120,7 +120,7 @@ class ManeuverExecutor {
   double flare_elapsed_sec_ = 0.0;
 
   // ── Racetrack FSM ──
-  enum class RacetrackPhase { kLeg1, kTurn1, kLeg2, kTurn2, kComplete };
+  enum class RacetrackPhase { kApproach, kLeg1, kTurn1, kLeg2, kTurn2, kComplete };
   RacetrackPhase racetrack_phase_ = RacetrackPhase::kComplete;
   double racetrack_heading_ = 0.0;
   double racetrack_leg_len_ = 0.0;

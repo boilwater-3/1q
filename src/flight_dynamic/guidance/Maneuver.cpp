@@ -420,7 +420,7 @@ void ManeuverExecutor::ExecuteRacetrack(const Waypoint& start, double heading_ra
   racetrack_turn_r_ = r;
   racetrack_target_laps_ = num_laps;
   racetrack_lap_ = 0;
-  racetrack_phase_ = RacetrackPhase::kLeg1;
+  racetrack_phase_ = RacetrackPhase::kApproach;
   racetrack_entry_ = start;
 
   // Precompute turn centers.
@@ -854,6 +854,129 @@ void ManeuverExecutor::Update(double dt_sec) {
     };
 
     switch (racetrack_phase_) {
+      case RacetrackPhase::kApproach: {
+        // ── Approach phase: navigate to racetrack with heading alignment ──
+        //
+        // Finds the nearest point on the racetrack perimeter, then flies
+        // toward a LOOK-AHEAD point ahead on the track. This naturally
+        // aligns the aircraft's heading with the track direction as it
+        // approaches, enabling a smooth transition to the FSM phase.
+        //
+        // Racetrack perimeter in local frame (x=cross-track, y=along-track):
+        //   Leg1:  x=0,   y∈[0, L]
+        //   Turn1: center (r, L), CW semicircle
+        //   Leg2:  x=2r,  y∈[0, L]
+        //   Turn2: center (r, 0), CW semicircle
+        ap_.SetSpeedTargetMps(racetrack_cruise_spd_);
+
+        double r = racetrack_turn_r_;
+        double L = racetrack_leg_len_;
+        double best_dist = 1e18;
+        double best_nx = 0.0, best_ny = 0.0;
+        int best_seg = 0;  // 0=Leg1, 1=Turn1, 2=Leg2, 3=Turn2
+
+        // Nearest point on Leg1: (0, clamp(y, 0, L))
+        {
+          double ny = std::clamp(y_prime, 0.0, L);
+          double d = std::hypot(x_prime, y_prime - ny);
+          if (d < best_dist) {
+            best_dist = d; best_nx = 0.0; best_ny = ny; best_seg = 0;
+          }
+        }
+        // Nearest point on Leg2: (2r, clamp(y, 0, L))
+        {
+          double ny = std::clamp(y_prime, 0.0, L);
+          double d = std::hypot(x_prime - 2.0 * r, y_prime - ny);
+          if (d < best_dist) {
+            best_dist = d; best_nx = 2.0 * r; best_ny = ny; best_seg = 2;
+          }
+        }
+        // Nearest point on Turn1: center (r, L), project onto circle
+        {
+          double dx = x_prime - r, dy = y_prime - L;
+          double d = std::hypot(dx, dy);
+          if (d < 1.0) d = 1.0;
+          double pd = std::abs(d - r);
+          if (pd < best_dist) {
+            best_dist = pd;
+            best_nx = r + r * dx / d;
+            best_ny = L + r * dy / d;
+            best_seg = 1;
+          }
+        }
+        // Nearest point on Turn2: center (r, 0), project onto circle
+        {
+          double dx = x_prime - r, dy = y_prime;
+          double d = std::hypot(dx, dy);
+          if (d < 1.0) d = 1.0;
+          double pd = std::abs(d - r);
+          if (pd < best_dist) {
+            best_dist = pd;
+            best_nx = r + r * dx / d;
+            best_ny = r * dy / d;
+            best_seg = 3;
+          }
+        }
+
+        // Capture threshold: close enough to join the pattern.
+        double capture_dist = std::max(r * 1.5, 1000.0);
+
+        if (best_dist <= capture_dist) {
+          spdlog::debug("[RACETRACK] Approach captured: dist={:.0f}m → segment {}",
+                        best_dist, best_seg);
+          switch (best_seg) {
+            case 0: racetrack_phase_ = RacetrackPhase::kLeg1; break;
+            case 1: racetrack_phase_ = RacetrackPhase::kTurn1; break;
+            case 2: racetrack_phase_ = RacetrackPhase::kLeg2; break;
+            case 3: racetrack_phase_ = RacetrackPhase::kTurn2; break;
+          }
+          break;
+        }
+
+        // Compute look-ahead point: advance along the track from the
+        // nearest point. This aligns the approach with the track heading.
+        double la = std::max(1000.0, speed * 5.0);
+        double la_nx, la_ny;
+
+        switch (best_seg) {
+          case 0:  // Leg1: track direction is +y
+            la_nx = best_nx;
+            la_ny = std::min(best_ny + la, L);
+            break;
+          case 2:  // Leg2: track direction is -y
+            la_nx = best_nx;
+            la_ny = std::max(best_ny - la, 0.0);
+            break;
+          case 1:   // Turn1: CW along circle
+          case 3: {  // Turn2: CW along circle
+            double cx = r;
+            double cy = (best_seg == 1) ? L : 0.0;
+            double dx = best_nx - cx, dy = best_ny - cy;
+            double d = std::hypot(dx, dy);
+            if (d < 1.0) d = 1.0;
+            // Advance angle CW by la/r radians.
+            // Radial angle in atan2(east, north) convention.
+            double angle = std::atan2(dx, dy);
+            double advance = la / r;
+            double new_angle = angle + advance;
+            la_nx = cx + r * std::sin(new_angle);
+            la_ny = cy + r * std::cos(new_angle);
+            break;
+          }
+        }
+
+        // Navigate toward look-ahead point on perimeter.
+        double tgt_n = la_ny * cos_h - la_nx * sin_h;
+        double tgt_e = la_ny * sin_h + la_nx * cos_h;
+        Waypoint tgt_wp = LocalToWaypoint(
+            racetrack_leg1_entry_.latitude_rad,
+            racetrack_leg1_entry_.longitude_rad,
+            tgt_n, tgt_e, racetrack_leg1_entry_.altitude_m);
+        double hdg = loc.GetHeadingTo(tgt_wp.longitude_rad, tgt_wp.latitude_rad);
+        ap_.SetHeadingTargetRad(hdg);
+        break;
+      }
+
       case RacetrackPhase::kLeg1: {
         // Straight-leg speed: cruise (faster).
         ap_.SetSpeedTargetMps(racetrack_cruise_spd_);
