@@ -330,8 +330,26 @@ void ManeuverExecutor::ExecuteSetPitch(double pitch_deg, double duration_sec) {
   active_ = true;
   elapsed_sec_ = 0.0;
 
+  ap_.SetAltitudeHold(false);   // release takeoff/cruise altitude hold
   ap_.SetPitchTargetDeg(pitch_deg);
   ap_.SetPitchHold(true);
+
+  // Speed protection (L1): lock current airspeed so energy management
+  // maintains it via throttle.  Using cruise_speed as the target would
+  // create an unreachable goal for low-power aircraft, causing the energy
+  // management to misbehave (throttle oscillates, speed fluctuates).
+  // Instead, lock the current speed (clamped above a safe floor) so the
+  // aircraft only fights to recover speed it lost from the pitch change,
+  // not from a mismatch between current conditions and cruise target.
+  const auto& prof = ap_.GetControlProfile();
+  double target_spd = ap_.GetTrueSpeedMps();
+  constexpr double kMinSpeedMargin = 1.15;
+  double min_safe = prof.min_speed_mps * kMinSpeedMargin;
+  if (min_safe > 0.0 && target_spd < min_safe) {
+    target_spd = min_safe;
+  }
+  ap_.SetSpeedTargetMps(target_spd);
+  ap_.SetSpeedHold(true);
 }
 
 void ManeuverExecutor::ExecuteSetRoll(int roll_mode) {

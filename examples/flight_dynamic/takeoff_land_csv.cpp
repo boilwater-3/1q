@@ -341,13 +341,16 @@ void BuildPitchTestSequence(FlightManager& fm, const ScenarioConfig& sc) {
 
   // SetPitch sweep: exercise the pitch PD controller at multiple targets.
   // Each pitch command runs for a fixed duration; completion is time-based.
-  // This tests: (1) PD controller can achieve the target, (2) no oscillation,
-  // (3) FBW aircraft (f16) respect alpha limits, (4) heavy aircraft respond.
+  // With speed protection (L1: speed_hold, L2: pitch relief), the aircraft
+  // will reach its physical pitch limit — the equilibrium between thrust
+  // and drag at the commanded pitch angle.  Durations are long enough for
+  // the aircraft to reach steady-state at each target.
   struct { double pitch_deg; double duration_sec; } pitch_seq[] = {
-      {5.0, 10.0},    // mild nose-up
-      {-5.0, 10.0},   // mild nose-down
-      {15.0, 10.0},   // aggressive nose-up (stress test)
-      {0.0, 5.0},     // recover to level
+      {5.0, 15.0},    // mild nose-up (baseline, should always succeed)
+      {-5.0, 15.0},   // mild nose-down (speed increases, safe)
+      {15.0, 20.0},   // aggressive — tests physical limit for most types
+      {25.0, 20.0},   // extreme — only high-TWR fighters may sustain this
+      {0.0, 10.0},    // recover to level
   };
   for (const auto& p : pitch_seq) {
     ManeuverCommand cmd;

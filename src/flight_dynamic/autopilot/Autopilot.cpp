@@ -737,6 +737,20 @@ void Autopilot::UpdatePitchChannel() {
   } else if (pitch_hold_) {
     pitch_control_active = true;
     target_pitch = target_pitch_deg_ * M_PI / 180.0;
+
+    // Speed protection (L2): reduce pitch if speed is too low.
+    // This prevents stall when thrust is insufficient to maintain speed
+    // at the commanded pitch angle despite the energy management (L1)
+    // commanding max throttle.  The equilibrium between L1 throttle and
+    // L2 pitch relief is the aircraft's physical pitch limit at the
+    // current altitude/speed combination.
+    double current_speed_mps = GetTrueSpeedMps();
+    double min_speed = control_profile_.min_speed_mps;
+    if (min_speed > 0.0 && current_speed_mps < min_speed * 1.10 && target_pitch > 0.0) {
+      double speed_deficit = Clamp(
+          (min_speed * 1.10 - current_speed_mps) / (min_speed * 0.15), 0.0, 1.0);
+      target_pitch *= (1.0 - speed_deficit);
+    }
   }
 
   if (pitch_control_active) {
@@ -752,9 +766,34 @@ void Autopilot::UpdatePitchChannel() {
 }
 
 void Autopilot::UpdateEnergyManagement() {
-  if (!altitude_hold_ && !speed_hold_) return;
+  if (!altitude_hold_ && !speed_hold_ && !pitch_hold_) return;
 
   const double current_speed_mps = GetTrueSpeedMps();
+
+  // ── Pitch hold energy override ──────────────────────────────────────
+  // When holding a non-zero pitch without altitude hold, the normal
+  // energy management formula (alpha=0.3 on speed error) is too weak to
+  // drive throttle aggressively.  We override throttle to reach the
+  // aircraft's physical pitch limit:
+  //   Positive pitch → max thrust (pitch relief in UpdatePitchChannel()
+  //     prevents actual stall if thrust is insufficient).
+  //   Negative pitch → manage overspeed (aircraft accelerates in dive).
+  if (pitch_hold_ && !altitude_hold_ && target_pitch_deg_ != 0.0) {
+    double throttle;
+    if (target_pitch_deg_ > 0.0) {
+      throttle = control_profile_.max_throttle;
+    } else {
+      const double max_speed = control_profile_.max_speed_mps;
+      if (max_speed > 0.0 && current_speed_mps > max_speed * 0.95) {
+        throttle = control_profile_.min_throttle;
+      } else {
+        throttle = 0.7;  // moderate thrust for control authority
+      }
+    }
+    SetThrottleCmdNorm(throttle);
+    return;
+  }
+
   // ref_speed normalizes the speed error term.  Use profile ref_speed if
   // available, otherwise cruise_speed, otherwise current speed (last resort).
   const double ref_speed = control_profile_.ref_speed_mps > 0.0
