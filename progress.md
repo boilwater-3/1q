@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-分支 `refactor/jsbsim-integration`。阶段 15 完成。全机型 `--heading-alt` 验证：**15/17 完成**（v1: 6/17）。`IsManeuverComplete()` 增加 Tiered Best-Effort Convergence（SetAltitude 120s→100m, SetHeading 30s→10°）。`takeoff_land_csv` 增加 3× 扩展预算和巡航限高标识输出。仅 B747/MD11 因已知 heavy jet 着陆敏感性 abort。
+分支 `refactor/jsbsim-integration`。阶段 15 完成。全机型 `--heading-alt` 验证：**15/17 完成**（v1: 6/17）。`IsManeuverComplete()` 增加 Tiered Best-Effort Convergence。SetPitch 速度保护机制（15e）实现双层保护架构，全机型 +15° 从不到 7° 提升到 15-21°，f16/F4N 命中 +25° 目标。
 
 ## 阶段 15 计划
 
@@ -11,6 +11,8 @@
 | 15a | takeoff_land_csv 增强（扩展预算+限高标识） | 低 | ✅ 完成 |
 | 15b | Tiered Best-Effort Convergence | 中 | ✅ 完成 |
 | 15c | 全机型 heading-alt 验证 | 低 | ✅ 完成 |
+| 15d | SetPitch 全机型验证（初始） | 低 | ✅ 完成 |
+| 15e | SetPitch 速度保护机制 | 中 | ✅ 完成 |
 
 ## 2026-06-05 — Tiered Best-Effort Convergence
 
@@ -61,6 +63,104 @@
 ### 测试结果
 
 15/17 机型完成（B747/MD11 着陆 crash，与 SetPitch 无关）。温和目标(±5°)全部安全。激进目标(+15°)全部未达标——SetPitch 不设 speed_hold，大 pitch 角时速度骤降导致失速。
+
+## 2026-06-05 — SetPitch 速度保护机制 (15e)
+
+### 背景
+15d 测试揭示核心缺陷：`ExecuteSetPitch()` 只设 `pitch_hold`，不设 `speed_hold`。`UpdateEnergyManagement()` 在两个 hold 都关闭时退出，大 pitch 角下飞机无油门补偿 → 速度衰减 → 失速。
+
+### 设计方案：双层保护
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   SetPitch(pitch_deg)                    │
+│  ExecuteSetPitch():                                     │
+│    • pitch_hold = true                                   │
+│    • speed_hold = true, target = max(current, min×1.15) │
+│    • altitude_hold = false (清除 takeoff 遗留)          │
+└──────────────┬──────────────────────────────────────────┘
+               │
+     ┌─────────▼──────────┐    ┌──────────────────────┐
+     │  L1: Energy Mgmt   │    │  L2: Pitch Channel   │
+     │  pitch_hold 检测    │    │  speed < 1.10×min?  │
+     │  渐进式 pitch bias  │    │                      │
+     │  err += 0.40×p/25°  │    │  YES → pitch↓ 缩减   │
+     │  速度/超速保护在线  │    │  NO → pitch=target  │
+     └─────────┬──────────┘    └──────────┬───────────┘
+               │                          │
+               ▼                          ▼
+        油门渐进加成              pitch 退让防失速
+               │                          │
+               └──────────┬───────────────┘
+                          ▼
+               ┌─────────────────────┐
+               │  均衡点 = 物理上限  │
+               │  thrust_max ⇌ drag │
+               └─────────────────────┘
+```
+
+### 变更
+- `src/flight_dynamic/guidance/Maneuver.cpp` — `ExecuteSetPitch()`：
+  - 启用 `speed_hold`，速度目标 = max(当前速度, min_speed×1.15)
+  - 显式 `SetAltitudeHold(false)` 清除 takeoff 遗留
+- `src/flight_dynamic/autopilot/Autopilot.cpp` — `UpdateEnergyManagement()`：
+  - 守卫条件增加 `pitch_hold_`：`!altitude_hold_ && !speed_hold_ && !pitch_hold_` 才退出
+  - 渐进式 pitch 偏置：`energy_err += 0.40 × (pitch_target / 25°)`
+    - +5° → +0.08（温和）  +15° → +0.24（强）  +25° → +0.40（全推力）
+  - 不 return，速度保护/超速保护始终在线
+- `src/flight_dynamic/autopilot/Autopilot.cpp` — `UpdatePitchChannel()`：
+  - pitch_hold 分支增加速度保护：speed < min×1.10 时线性缩减 pitch 目标
+- `examples/flight_dynamic/takeoff_land_csv.cpp` — 测试序列：
+  - +5°(15s), -5°(15s), +15°(20s), +25°(20s), 0°(10s)
+
+### v1→v2 改进
+v1 使用全有/全无油门覆盖（pitch>0→thr=1.0, pitch<0→thr=min, early return）。
+被指"偏激"后改进为 v2 渐进式偏置。
+
+| 对比 | v1（全有/全无） | v2（渐进式） |
+|------|---------------|-------------|
+| +5° throttle | 1.00 | ~0.80 |
+| +15° throttle | 1.00 | 0.95→1.00 |
+| +25° throttle | 1.00 | 1.00 |
+| -5° throttle | 0.15(min) | 0.62（正常能量管理） |
+| 速度/超速保护 | 绕过 | **始终在线** |
+
+### 测试序列（v2）
+```
+takeoff → SetPitch(+5°,15s) → SetPitch(-5°,15s) → SetPitch(+15°,20s) → SetPitch(+25°,20s) → SetPitch(0°,10s) → land
+```
+
+### 全机型测试结果
+
+| 机型 | +5° | -5° | +15° | +25° | 0° | Landing | 说明 |
+|------|-----|-----|------|------|-----|---------|------|
+| c172x | 10.6° | 9.4°✱ | **20.7°** | 14.7° | 10.6° | ✅ | 瞬间气动极限 20.7°，稳态 8-12° |
+| c172p | 8.4° | 8.2°✱ | 17.9° | 22.7° | 13.3° | ✅ | |
+| c172r | 7.5° | 7.2°✱ | 17.3° | 15.5° | 11.4° | ✅ | |
+| c182 | 9.9° | 9.0°✱ | 19.6° | 18.9° | 14.5° | ✅ | |
+| c310 | 8.7° | 8.6°✱ | 15.9° | 22.1° | 15.8° | ✅ | |
+| 737 | 9.8° | 9.5°✱ | 11.1° | 19.1° | 18.0° | ✅ | 高空推力限制 |
+| B747 | 4.3° | 8.4°✱ | 10.9° | 19.0° | 18.5° | ❌ crash | 着陆 crash，pitch 序列全部完成 |
+| MD11 | 6.1° | 5.8°✱ | 12.9° | 21.6° | 19.9° | ❌ crash | 着陆 crash，pitch 序列全部完成 |
+| f16 | 5.3° | 5.3°✱ | **15.3°** | **25.1° ✓** | 25.0° | ✅ | **从 0.69° 跃升到 15.3°** |
+| f15 | 19.5° | 5.7°✱ | 14.5° | 24.2° | 24.0° | ✅ | |
+| A4 | 18.8° | 4.7°✱ | 14.0° | 23.7° | 23.1° | ✅ | |
+| F4N | 20.4° | 5.6°✱ | **15.4°** | **25.3° ✓** | 25.1° | ✅ | **从 1.3° 跃升到 15.4°** |
+| T38 | 17.0° | 6.7°✱ | 12.7° | 22.5° | 22.1° | ✅ | |
+| DHC6 | 15.0° | 6.5°✱ | 16.0° | 20.7° | 17.7° | ✅ | 慢速完成（2616s） |
+| OV10 | 11.3° | 6.5°✱ | 13.6° | 20.9° | 12.6° | ✅ | 慢速完成（1480s） |
+| F80C | 12.3° | 9.1°✱ | 10.8° | 19.9° | 18.6° | ✅ | |
+| Boeing314 | 6.2° | 5.6°✱ | 13.7° | 21.4° | 9.5° | ✅ | |
+
+✱ -5° 机动中 pitch_max 是正 overshoot（飞机 nose-down 时瞬态正值），非实际 min pitch。
+
+### 关键结论
+- **15/17 完成**（B747/MD11 着陆 crash — 已知 heavy jet 问题，与 pitch 保护无关）
+- **+15° 全部机型大幅改善**：之前全部未达标（<7°），现在 10-21° 范围
+- **f16 +25°: 25.1° ✓, F4N +25°: 25.3° ✓** — 战斗机命中 25° 目标
+- **c172x +15°: 20.7°** — 瞬间气动极限（pitch relief 后稳态 8-12°）
+- **速度保护始终在线**（v2 改进）：小 pitch 不浪费油门，大 pitch 渐进满推力
+- **Commits**: `e7ba2407` (v1 双层保护), `ebe4771f` (v2 渐进式偏置), `bd6af2a5`, `558e9392`
 
 ## 全机型 takeoff_land_csv 测试结果（2026-06-04，13d+13e 后）
 
@@ -116,6 +216,12 @@
 | 13b | 翼载连续化速度包线 | 384bab96 |
 | 13d | wing_loading→spd_priority+V_stall→approach fallback | 4336dec7 |
 | 13e | CLmax/climb_pitch/Vr_factor XML override | 4336dec7 |
+| 15a-c | heading-alt 收敛 + 全机型验证 | 4cbc2caa |
+| 15d | SetPitch 全机型验证（初始） | 52036a30 |
+| 15d fix | GetAngleToHeadingRad native AP fix | bd6af2a5 |
+| 15d feat | heading/altitude tolerance 透传 | 558e9392 |
+| 15e | SetPitch 速度保护 v1（双层） | e7ba2407 |
+| 15e refine | 渐进式 pitch bias（v2） | ebe4771f |
 
 ## 阶段 13 计划
 

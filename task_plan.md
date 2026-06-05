@@ -57,6 +57,14 @@ XML 属性驱动方案、B747 着陆进近重构
 - **激进目标 (+15°) 全部未达标**：f16 FBW 阻止（0.7°），f15/DHC6 振荡，c172x 接近失速
 - 根因：SetPitch 不设 speed_hold → 大 pitch 角时速度骤降 → 失速 → nose-dive
 
+#### 15e：SetPitch 速度保护机制 — `complete` ✅
+- **双层保护架构**：
+  - L1（油门）：`ExecuteSetPitch()` 启用 `speed_hold` + 速度锁定；能量管理增加渐进式 pitch 偏置 `energy_err += 0.40×(pitch/25°)`
+  - L2（俯仰退让）：`UpdatePitchChannel()` pitch_hold 分支增加速度保护（speed < min×1.10 时缩减 pitch）
+- **v1→v2 改进**：全有/全无油门覆盖 → 渐进式偏置（+5°=+0.08, +15°=+0.24, +25°=+0.40），速度/超速保护始终在线
+- 关键修复：`ExecuteSetPitch()` 显式清除 `altitude_hold`（避免 takeoff 遗留的 altitude_hold 阻止 pitch-only 油门覆盖）
+- Commits: `e7ba2407` (v1), `ebe4771f` (v2 progressive)
+
 ### 阶段 13 — 基于物理推导的硬编码消减 — `complete` ✅
 
 依据：`docs/finding/hardcoded_parameter_audit.md`（全 31 机型 JSBSim XML 审计）
