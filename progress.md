@@ -499,3 +499,36 @@
 - Sinc 作为显式内部实验路径获批；public Session 默认仍为 linear。
 - Phase 2B 已启动。
 - 由于 Phase 1 与 Phase 2A 变更在当前工作树中已经交织且此前未提交，本次将其作为当前 SAR 已验收基线统一提交；后续严格按每个阶段完成后独立提交。
+
+## 2026-06-05 Phase 2B 小场景 GBP 与跨算法比较
+
+### 已执行
+
+1. 新增内部 `SarGbp` 小场景参考聚焦内核。
+2. 冻结 GBP local Cartesian 网格、距离压缩、双程时延插值和相位补偿契约。
+3. 新增严格 `128x128` 尺寸门，超限明确拒绝。
+4. 新增单点、三点目标和 RDA/GBP 同场景比较测试。
+5. 将跨算法 NRMS 修正为两幅图分别单位能量归一化后的形状误差。
+6. 新增 `128x128` GBP 独立性能测试。
+
+### 遇到并解决的问题
+
+- C++11 不接受带默认成员初始化的 `LocalPoint{x,y,z}` 三参数聚合构造，已改为逐字段赋值。
+- 仅相位对齐的 NRMS 被算法全局增益差异放大，已改为单位能量形状 NRMS。
+
+### 验证结果
+
+- `SarGbpTest.*`：4/4 passed。
+- RDA/GBP 相同窗口：相位偏移约 `-0.047659 rad`，NRMS 约 `0.042218`，相干相关系数约 `0.999109`。
+- `128x128` GBP Debug 参考场景：约 `0.149 s`。
+- `ctest -L sar_ci`：4/4 passed。
+- `ctest -L sar_performance`：1/1 CTest entry passed。
+- Eigen 3.3.9 聚焦/Session 过滤测试：22/22 passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- Phase 2B 已完成当前平台审批。
+- public Session 未增加 GBP 或 Auto 入口。
+- Phase 2C 审批门已启动。

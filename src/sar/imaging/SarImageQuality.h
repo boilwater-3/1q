@@ -28,6 +28,7 @@ struct ImageQualityMetrics {
 struct ImageComparisonMetrics {
   bool valid{false};
   double phase_offset_rad{0.0};
+  // 两幅图分别单位能量归一化并消除全局常数相位后的 L2 误差。
   double normalized_rms_error{0.0};
   double coherent_correlation{0.0};
 };

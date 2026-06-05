@@ -138,11 +138,14 @@ ImageComparisonMetrics CompareImagesWithGlobalPhaseReference(
   metrics.phase_offset_rad = std::arg(cross);
   const signal::ComplexSample phase_rotation(std::cos(metrics.phase_offset_rad),
                                              std::sin(metrics.phase_offset_rad));
+  const double reference_norm = std::sqrt(reference_power);
+  const double candidate_norm = std::sqrt(candidate_power);
   double error_power = 0.0;
   for (std::size_t index = 0U; index < reference.values.size(); ++index) {
-    error_power += std::norm(reference.values[index] - candidate.values[index] * phase_rotation);
+    error_power += std::norm(reference.values[index] / reference_norm -
+                             candidate.values[index] * phase_rotation / candidate_norm);
   }
-  metrics.normalized_rms_error = std::sqrt(error_power / reference_power);
+  metrics.normalized_rms_error = std::sqrt(error_power);
   metrics.coherent_correlation = std::abs(cross) / std::sqrt(reference_power * candidate_power);
   metrics.valid = true;
   return metrics;

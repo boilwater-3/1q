@@ -5,6 +5,7 @@ endif()
 set(SAR_ENGINE_SOURCES
     sar/echo/SarEcho.cpp
     sar/geometry/SarGeometry.cpp
+    sar/imaging/SarGbp.cpp
     sar/imaging/SarImageQuality.cpp
     sar/imaging/SarRda.cpp
     sar/runtime/PulseRingBuffer.cpp

@@ -62,6 +62,23 @@ TEST(SarImageQualityTest, RemovesOnlyGlobalConstantPhaseForComparison) {
   EXPECT_NEAR(metrics.coherent_correlation, 1.0, 1.0e-12);
 }
 
+TEST(SarImageQualityTest, NormalizesGlobalAmplitudeScaleForShapeComparison) {
+  signal::ComplexMatrix reference = MakeZeroImage(1U, 3U);
+  reference.values = {signal::ComplexSample(1.0, 0.0), signal::ComplexSample(0.0, 2.0),
+                      signal::ComplexSample(-1.0, 0.5)};
+  signal::ComplexMatrix candidate = reference;
+  for (signal::ComplexSample& sample : candidate.values) {
+    sample *= 7.0;
+  }
+
+  const imaging::ImageComparisonMetrics metrics =
+      imaging::CompareImagesWithGlobalPhaseReference(reference, candidate);
+
+  ASSERT_TRUE(metrics.valid);
+  EXPECT_NEAR(metrics.normalized_rms_error, 0.0, 1.0e-12);
+  EXPECT_NEAR(metrics.coherent_correlation, 1.0, 1.0e-12);
+}
+
 TEST(SarImageQualityTest, DoesNotHideSpatiallyVaryingPhaseError) {
   signal::ComplexMatrix reference = MakeZeroImage(1U, 3U);
   reference.values.assign(3U, signal::ComplexSample(1.0, 0.0));
