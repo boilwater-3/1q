@@ -1,0 +1,74 @@
+/**
+ * @file SarTraceSession.h
+ * @brief 定义 SAR trace 会话占位门面。
+ */
+
+#ifndef ONEQ_SAR_SESSION_SAR_TRACE_SESSION_H_
+#define ONEQ_SAR_SESSION_SAR_TRACE_SESSION_H_
+
+#include <memory>
+#include <utility>
+
+#include "1q/sar/session/SarSession.h"
+
+namespace oneq {
+namespace replay {
+class ReplayTraceWriter;
+}
+namespace trace {
+class TraceSink;
+}
+}  // namespace oneq
+
+namespace sar {
+namespace session {
+
+/**
+ * @brief SAR trace 会话配置。
+ */
+struct ONEQ_API SarTraceSessionOptions {
+  std::shared_ptr<oneq::trace::TraceSink> sink{};
+  std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer{};
+  bool trace_config_on_construct{true};
+
+  SarTraceSessionOptions() = default;
+  SarTraceSessionOptions(std::shared_ptr<oneq::trace::TraceSink> trace_sink, bool trace_config)
+      : sink(std::move(trace_sink)), trace_config_on_construct(trace_config) {}
+  SarTraceSessionOptions(std::shared_ptr<oneq::trace::TraceSink> trace_sink, bool trace_config,
+                         std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_trace_writer)
+      : sink(std::move(trace_sink)),
+        replay_writer(std::move(replay_trace_writer)),
+        trace_config_on_construct(trace_config) {}
+};
+
+/**
+ * @brief SAR trace 会话。
+ */
+class ONEQ_API SarTraceSession {
+ public:
+  SarTraceSession();
+  explicit SarTraceSession(SarSession session);
+  explicit SarTraceSession(config::SarSessionConfig config, SarTraceSessionOptions options = {});
+  ~SarTraceSession();
+
+  SarTraceSession(const SarTraceSession&) = delete;
+  SarTraceSession& operator=(const SarTraceSession&) = delete;
+  SarTraceSession(SarTraceSession&&) noexcept;
+  SarTraceSession& operator=(SarTraceSession&&) noexcept;
+
+  SarCycleResult StepWithResult(const SarCycleInput& input);
+  SarOutputFrame Step(const SarCycleInput& input);
+  void ApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch);
+
+  SarSession& session();
+  const SarSession& session() const;
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+}  // namespace session
+}  // namespace sar
+
+#endif  // ONEQ_SAR_SESSION_SAR_TRACE_SESSION_H_

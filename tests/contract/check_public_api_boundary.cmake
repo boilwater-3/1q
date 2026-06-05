@@ -211,6 +211,30 @@ set(FD_HEADERS
     "flight_dynamic/model/VehicleState.h"
 )
 
+# ── SAR 公开头 ──────────────────────────────────────────────────────
+set(SAR_MODULE_ENTRY_HEADERS
+    "sar/sar.hpp"
+)
+
+set(SAR_CONFIG_HEADERS
+    "sar/config/SarEnvironmentConfig.h"
+    "sar/config/SarHardwareConfig.h"
+    "sar/config/SarMissionConfig.h"
+    "sar/config/SarPolicyConfig.h"
+    "sar/config/SarRuntimeConfigPatch.h"
+    "sar/config/SarSessionConfig.h"
+    "sar/config/sar_config.hpp"
+)
+
+set(SAR_SESSION_HEADERS
+    "sar/session/SarCycleInput.h"
+    "sar/session/SarCycleResult.h"
+    "sar/session/SarReplaySession.h"
+    "sar/session/SarSession.h"
+    "sar/session/SarSessionFactory.h"
+    "sar/session/SarTraceSession.h"
+)
+
 # ── 坐标工具 ─────────────────────────────────────────────────────────
 set(COORDINATE_HEADERS
     "coordinate/attitude_transform.h"
@@ -253,6 +277,9 @@ set(EXPECTED_PUBLIC_HEADERS
     ${ESR_MODEL_HEADERS}
     ${ESR_SESSION_HEADERS}
     ${FD_HEADERS}
+    ${SAR_MODULE_ENTRY_HEADERS}
+    ${SAR_CONFIG_HEADERS}
+    ${SAR_SESSION_HEADERS}
     ${COORDINATE_HEADERS}
     ${FOUNDATION_HEADERS}
 )

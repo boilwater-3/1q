@@ -1,0 +1,30 @@
+/**
+ * @file SarPolicyConfig.h
+ * @brief 定义 SAR 会话执行策略配置。
+ */
+
+#ifndef ONEQ_SAR_CONFIG_SAR_POLICY_CONFIG_H_
+#define ONEQ_SAR_CONFIG_SAR_POLICY_CONFIG_H_
+
+#include "1q/api.hpp"
+
+namespace sar {
+namespace config {
+
+/**
+ * @brief SAR 算法与运行策略。
+ */
+struct ONEQ_API SarPolicyConfig {
+  bool enable_raw_echo_generation{true};
+  bool enable_range_compression{true};
+  bool enable_l1_rda_imaging{false};
+  bool enable_diagnostics{true};
+  bool retain_raw_phase_history{false};
+  double max_allowed_squint_angle_deg{5.0};
+  double min_valid_snr_db{-10.0};
+};
+
+}  // namespace config
+}  // namespace sar
+
+#endif  // ONEQ_SAR_CONFIG_SAR_POLICY_CONFIG_H_

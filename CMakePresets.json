@@ -49,6 +49,19 @@
             }
         },
         {
+            "name": "llvm-ninja-debug-eigen339",
+            "inherits": "macos-base",
+            "displayName": "macOS LLVM Ninja Debug with Conan Eigen 3.3.9",
+            "binaryDir": "${sourceDir}/build/llvm-ninja-debug-eigen339-local",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_TESTING": "ON",
+                "BUILD_SHARED_LIBS": "OFF",
+                "CONAN_EIGEN_VERSION": "3.3.9"
+            }
+        },
+        {
             "name": "llvm-ninja-release",
             "inherits": "macos-base",
             "displayName": "macOS LLVM Ninja Release",
@@ -198,6 +211,10 @@
             "configurePreset": "llvm-ninja-debug"
         },
         {
+            "name": "llvm-ninja-debug-eigen339",
+            "configurePreset": "llvm-ninja-debug-eigen339"
+        },
+        {
             "name": "llvm-ninja-release",
             "configurePreset": "llvm-ninja-release"
         },
@@ -259,6 +276,11 @@
             "name": "llvm-ninja-debug",
             "inherits": "test-base",
             "configurePreset": "llvm-ninja-debug"
+        },
+        {
+            "name": "llvm-ninja-debug-eigen339",
+            "inherits": "test-base",
+            "configurePreset": "llvm-ninja-debug-eigen339"
         },
         {
             "name": "llvm-ninja-release",

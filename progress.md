@@ -1,89 +1,501 @@
-# 进度：JSBSim 飞行机动模块
+# 进度：SAR Phase 1 工程化计划
 
-## 当前状态
+## 2026-06-04
 
-分支 `refactor/jsbsim-integration`。17 可用机型（含 B747）全任务通过。阶段 13 完成。
+### 会话目标
 
-## 全机型 takeoff_land_csv 测试结果（2026-06-04，13d+13e 后）
+用户要求使用 `planning-with-files-zh`，基于当前 SAR 探索成果制定各阶段详细计划。
 
-### ✅ 完成（17 机）
-| 机型 | 时间 | 备注 |
-|------|------|------|
-| c172x | 1313s | |
-| c172p | 840s | |
-| c172r | 1037s | |
-| c182 | 793s | |
-| c310 | 405s | spd_prio→false（WL=22<50），微小差异 |
-| 737 | 962s | |
-| **B747** | **1485s** | ✅ 13b 连续化 cruise_factor 修复 |
-| **MD11** | **2436s** | ✅ 阶段 12 修复（flare 解耦） |
-| f16 | 179s | |
-| f15 | 242s | |
-| A4 | 359s | |
-| F4N | 244s | |
-| T38 | 330s | spd_prio→true（WL=58>50），-8s |
-| DHC6 | 2381s | |
-| OV10 | 1420s | |
-| F80C | 359s | |
-| Boeing314 | 721s | |
+### 已执行
 
-### ⚠️ 已知问题
-| 机型 | 状态 | 根因 |
-|------|------|------|
-| **B747** | ✅ 1485s | ✅ 13b 连续化 cruise_factor 修复 |
-| **XB-70** | 💥 crash | JSBSim delta wing 模型俯仰不稳定，不修 |
-| Concorde | ⏰ timeout | 引擎燃油兼容性（阶段 8.2） |
-| C130 | ⏰ timeout | 螺旋桨缺 gearratio（阶段 8.2） |
-| L410 | ⏰ timeout | 引擎 cutoff-cmd（阶段 8.2） |
+1. 读取技能文件 `/Users/aurora/.agents/skills/planning-with-files-zh/SKILL.md`。
+2. 读取现有 `task_plan.md`、`findings.md`、`progress.md`。
+3. 确认旧规划文件属于 flight_dynamic/JSBSim 阶段 13，不适用于当前 SAR 任务。
+4. 运行 `session-catchup.py`，无输出。
+5. 查看 `git diff --stat`，无已跟踪文件差异。
+6. 查看 `git status --short`，当前 SAR 文档均为未跟踪文件。
+7. 将根目录规划文件切换为 SAR Phase 1 工程化规划。
 
-## 已完成阶段
+### 创建/修改文件
 
-| 阶段 | 内容 | 关键 commit |
-|------|------|------------|
-| 1-7 | 初始修复 | — |
-| 8.1 | 重型机起飞稳定化 | 06b37c3f |
-| 8.3a | MD11 fly-to/landing | 5d5f7ac5 |
-| 8.3b | 非指令升空+CLmax+DHC6 | 55c935f8 |
-| 8.3c | OV10 重量分类巡航高度 | 2efd8cb9 |
-| 9a | 航路点速度+速度包线 | cd8900e9 |
-| 9b | F80C+B747 flare | 8484c90c |
-| 10 | XML 配置驱动进近重构 | bd2a4f59 |
-| 11 | XML 配置契约 | — |
-| 12a | landing/flare capability 迁移 | — |
-| 12b | landing 控制律常量命名化 | — |
-| 12c | EngineManager 参数边界确认 | — |
-| 12d | 示例程序策略外移 | — |
-| 12e | 物理包线+升限+MD11修复 | 97c05b45 |
-| 13a | 推重比运行时估算 | 41d95e68 |
-| 13b | 翼载连续化速度包线 | 384bab96 |
-| 13d | wing_loading→spd_priority+V_stall→approach fallback | 4336dec7 |
-| 13e | CLmax/climb_pitch/Vr_factor XML override | 4336dec7 |
+已改写：
 
-## 阶段 13 计划
+- `task_plan.md`
+- `findings.md`
+- `progress.md`
 
-| 子阶段 | 描述 | 风险 | 状态 |
-|--------|------|------|------|
-| 13a | 获取推重比（运行时估算） | 中 | ✅ 完成 |
-| 13b | 翼载连续化速度包线 | 中 | ✅ 完成 |
-| 13c | log10(Iyy)→连续化 rotation | 低 | ⏭️ 跳过 — 无物理推导路径 |
-| 13d | wing_loading→spd_priority; V_stall→approach fallback | 低 | ✅ 完成 |
-| 13e | CLmax/climb_pitch/Vr_factor XML override | 低 | ✅ 完成 |
-| 13f | B747 着陆回归修复 | 独立 | ✅ 13b 副作用修复 |
+当前 SAR 文档：
 
-执行顺序：13a→13b→13d→13e（13c 跳过，13f 已由 13b 解决）
+- `sar_construction_scheme_complete.md`
+- `SAR_MODULE_DESIGN.md`
+- `SAR_PHASE1_ENGINEERING_CONTRACT.md`
 
-## git 历史
+### 当前计划状态
 
-```
-4336dec7 feat: speed_energy_priority from wing_loading, approach_speed from V_stall, XML overrides
-384bab96 feat: continuous cruise_factor from wing loading (stage 13b)
-41d95e68 feat: non-invasive TWR estimation for speed envelope (stage 13a)
-97c05b45 feat: physics-based speed envelope, ceiling clamp, scenario config
-bd2a4f59 Refactor landing guidance profile configuration
-8484c90c fix: F80C fly-to timeout and B747 flare improvements
-cd8900e9 feat: waypoint speed field and speed envelope management
-2efd8cb9 fix: OV10 TIMEOUT — weight-based cruise altitude for turbine aircraft
-55c935f8 fix: uncommanded liftoff, CLmax, DHC6 landing
-5d5f7ac5 fix: MD11 fly-to/landing crash — four root causes
-06b37c3f fix: stabilize heavy aircraft takeout (B747, MD11)
-```
+| 阶段 | 状态 |
+|---|---|
+| 阶段 0：规划与契约冻结 | complete |
+| 阶段 1：公共 API 与构建骨架 | pending |
+| 阶段 2：FFT 后端与数值基础 | pending |
+| 阶段 3：信号链路 | pending |
+| 阶段 4：几何、原始回波与缓冲区 | pending |
+| 阶段 5：RDA 聚焦实现 | pending |
+| 阶段 6：Session/Trace/Replay 集成 | pending |
+| 阶段 7：CI 验收与审批包 | pending |
+| 阶段 8：Phase 2 决策门 | pending |
+
+### 关键发现
+
+- Phase 1 只能批准 RDA 最小闭环。
+- FFT 后端是正式实现前置门。
+- 现有 `common/rcs` 不支撑 SAR 辐射定标闭环。
+- 机动/侦察/融合不属于 SAR Phase 1。
+
+### 错误记录
+
+无工具错误。
+
+### 下一步建议
+
+从阶段 1 开始落 SAR 公共 API 与 CMake 骨架；同时在阶段 2 前置研究 FFT 后端。阶段 2 未完成前，不承诺大尺寸 RDA 性能。
+
+## 2026-06-04 后续执行
+
+### 会话目标
+
+用户要求新建工作树后切换到新工作树，从阶段 1 开始落 SAR 公共 API 与 CMake 骨架，同时并行研究阶段 2 FFT 后端。
+
+### 已执行
+
+1. 新建工作树 `/Users/aurora/Code/1q-sar-phase1`，分支 `codex/sar-phase1`。
+2. 将 SAR 方案文档和规划文件复制到新工作树。
+3. 新增 SAR 公共配置头、会话输入输出头、会话门面、工厂、trace/replay 门面。
+4. 新增 `src/sar/CMakeLists.txt` 和最小 `SarSession`/trace/replay 实现。
+5. 将 SAR core object target 接入 `src/CMakeLists.txt`。
+6. 将 SAR 公开头加入 `tests/contract/check_public_api_boundary.cmake` 白名单。
+7. 将 SAR include 与最小用法加入 `tests/contract/public_headers_smoke_test.cpp`。
+8. 核查 FFT 依赖现状，并新增 `docs/sar_fft_backend_research.md`。
+
+### 当前计划状态
+
+| 阶段 | 状态 |
+|---|---|
+| 阶段 0：规划与契约冻结 | complete |
+| 阶段 1：公共 API 与构建骨架 | complete |
+| 阶段 2：FFT 后端与数值基础 | current_platform_complete_cross_platform_pending |
+| 阶段 3：信号链路 | complete_current_platform |
+| 阶段 4：几何、原始回波与缓冲区 | complete_current_platform |
+| 阶段 5：RDA 聚焦实现 | complete_current_platform |
+| 阶段 6：Session/Trace/Replay 集成 | pending |
+| 阶段 7：CI 验收与审批包 | pending |
+| 阶段 8：Phase 2 决策门 | pending |
+
+### 已验证
+
+- `cmake --preset llvm-ninja-debug`
+- `cmake --build --preset llvm-ninja-debug --target 1q_contract_tests`
+- `build/llvm-ninja-debug-local/bin/1q_contract_tests`，结果：72/72 passed。
+- `cmake -DSOURCE_DIR=/Users/aurora/Code/1q-sar-phase1 -P tests/contract/check_public_api_boundary.cmake`
+
+### 当前剩余门禁
+
+- 阶段 2 已在 macOS AppleClang + Conan Eigen 3.4.0 下实现并验证内部 FFT facade。
+- Windows/VS2015 + Eigen 3.3.9 尚未验证。
+- 1024x1024 级别 RDA 性能基准尚未建立。
+
+### 阶段 2 已验证
+
+- `cmake --preset llvm-ninja-debug`
+- `cmake --build --preset llvm-ninja-debug --target 1q_unit_tests`
+- `build/llvm-ninja-debug-local/bin/1q_unit_tests '--gtest_filter=SarFftBackendTest.*'`，结果：7/7 passed。
+
+## 2026-06-04 阶段 3 执行
+
+### 已执行
+
+1. 新增 `src/sar/signal/SarWaveform.h`。
+2. 新增 `src/sar/signal/SarWaveform.cpp`。
+3. 新增 `tests/unit/sar_signal_chain_test.cpp`。
+4. 将 `SarWaveform.cpp` 接入 `SAR_ENGINE_SOURCES`。
+5. 实现 LFM 生成、时域匹配滤波器、FFT 线性卷积、距离压缩和基础脉冲质量指标。
+
+### 已验证
+
+- `cmake --preset llvm-ninja-debug`
+- `cmake --build --preset llvm-ninja-debug --target 1q_unit_tests`
+- `build/llvm-ninja-debug-local/bin/1q_unit_tests '--gtest_filter=SarFftBackendTest.*:SarSignalChainTest.*'`，结果：14/14 passed。
+
+### 当前剩余门禁
+
+- 20dB 宽度估计未实现。
+- 阶段 4 已完成当前平台点目标原始回波和 `PulseRingBuffer`。
+- SAR Session 仍是阶段 1 骨架，尚未接入真实信号链路输出。
+
+## 2026-06-04 阶段 4 执行
+
+### 已执行
+
+1. 新增 `src/sar/geometry/SarGeometry.h/.cpp`。
+2. 新增 `src/sar/echo/SarEcho.h/.cpp`。
+3. 新增 `src/sar/runtime/PulseRingBuffer.h/.cpp`。
+4. 新增 `tests/unit/sar_echo_geometry_buffer_test.cpp`。
+5. 将 geometry/echo/runtime 源文件接入 `SAR_ENGINE_SOURCES`。
+
+### 已验证
+
+- `cmake --preset llvm-ninja-debug`
+- `cmake --build --preset llvm-ninja-debug --target 1q_unit_tests`
+- `build/llvm-ninja-debug-local/bin/1q_unit_tests '--gtest_filter=SarFftBackendTest.*:SarSignalChainTest.*:SarGeometryTest.*:SarEchoTest.*:PulseRingBufferTest.*'`，结果：22/22 passed。
+
+### 当前剩余门禁
+
+- 生产链路尚未生成二维 pulse history 矩阵；当前 RDA 单元测试使用测试夹具生成矩阵。
+- 阶段 5 已完成当前平台 L1 broadside 点目标 RDA 最小闭环。
+- 尚未把真实信号链路接入 `SarSession`。
+
+## 2026-06-04 阶段 5 执行
+
+### 已执行
+
+1. 新增 `src/sar/imaging/SarRda.h/.cpp`。
+2. 新增 `tests/unit/sar_rda_test.cpp`。
+3. 将 `SarRda.cpp` 接入 `SAR_ENGINE_SOURCES`。
+4. 实现 range compression、azimuth FFT、linear RCMC、azimuth matched filter、azimuth IFFT 和 focused image extraction。
+5. 输出 RDA diagnostics。
+
+### 已验证
+
+- `cmake --build --preset llvm-ninja-debug --target 1q_unit_tests`
+- `build/llvm-ninja-debug-local/bin/1q_unit_tests '--gtest_filter=SarFftBackendTest.*:SarSignalChainTest.*:SarGeometryTest.*:SarEchoTest.*:PulseRingBufferTest.*:SarRdaTest.*'`，结果：26/26 passed。
+
+### 当前剩余门禁
+
+- `SarSession` 尚未接入真实信号链路和 RDA 输出。
+- trace/replay 仍未实现 SAR schema 和 codec。
+- 1024x1024 性能基准尚未建立。
+
+## 2026-06-04 阶段 6 执行
+
+### 已执行
+
+1. 修改 `src/sar/session/SarSession.cpp`，将 `SarSession::StepWithResult()` 接入真实 Phase 1 信号/RDA 管线。
+2. 新增 `tests/unit/sar_session_pipeline_test.cpp`。
+3. 将 public header smoke test 中的 SAR 最小用法改为小尺寸 RDA 场景，避免公共合约测试触发未批准的大尺寸成像。
+4. 增加 Session RDA 运行时尺寸门：`range_sample_count <= 256` 且 `azimuth_pulse_count <= 64`。
+5. 增加 RDA 对 raw echo generation 的前置校验，错误码为 `rda_requires_raw_echo`。
+6. 记录 RDA peak diagnostics，保持 public API 只暴露摘要和阶段标记，不暴露内部 complex matrix。
+
+### 已验证
+
+- `cmake --preset llvm-ninja-debug`
+- `cmake --build --preset llvm-ninja-debug --target 1q_unit_tests`
+- `build/llvm-ninja-debug-local/bin/1q_unit_tests '--gtest_filter=SarFftBackendTest.*:SarSignalChainTest.*:SarGeometryTest.*:SarEchoTest.*:PulseRingBufferTest.*:SarRdaTest.*:SarSessionPipelineTest.*'`，结果：30/30 passed。
+- `cmake --build --preset llvm-ninja-debug --target 1q_contract_tests`
+- `build/llvm-ninja-debug-local/bin/1q_contract_tests`，结果：72/72 passed。
+- `cmake -DSOURCE_DIR=/Users/aurora/Code/1q-sar-phase1 -P tests/contract/check_public_api_boundary.cmake`
+- `git diff --check`
+
+### 当前计划状态
+
+| 阶段 | 状态 |
+|---|---|
+| 阶段 0：规划与契约冻结 | complete |
+| 阶段 1：公共 API 与构建骨架 | complete |
+| 阶段 2：FFT 后端与数值基础 | current_platform_complete_cross_platform_pending |
+| 阶段 3：信号链路 | complete_current_platform |
+| 阶段 4：几何、原始回波与缓冲区 | complete_current_platform |
+| 阶段 5：RDA 聚焦实现 | complete_current_platform |
+| 阶段 6：Session/Trace/Replay 集成 | complete_current_platform |
+| 阶段 7：CI 验收与审批包 | pending |
+| 阶段 8：Phase 2 决策门 | pending |
+
+### 当前剩余门禁
+
+- `PulseRingBuffer` 已作为跨周期慢时间累积机制接入 Session；仍限当前小场景 Phase 1 路径。
+- Windows/VS2015 + Eigen 3.3.9 尚未验证。
+- 1024x1024 性能基准尚未建立，Session RDA 尺寸门不能放开。
+
+## 2026-06-05 阶段 6 Trace/Replay 执行
+
+### 已执行
+
+1. 新增 `schemas/replay/sar_replay.fbs` 和 `schemas/replay/sar_session_replay.fbs`。
+2. 使用 Conan flatbuffers 包内 `flatc` 生成：
+   - `src/sar/session/generated/sar_replay_generated.h`
+   - `src/sar/session/generated/sar_session_replay_generated.h`
+3. 新增 `src/sar/session/SarReplayFlatbufferCodec.h/.cpp`，覆盖 SAR public cycle input、output frame、cycle result、session config 和 runtime patch。
+4. 扩展 `SarTraceSession`，支持 `ReplayTraceWriter`，写入 `session_config`、`cycle_input`、`runtime_config_patch` 和 `cycle_output`。
+5. 扩展 `SarReplaySession`，新增 `ReplaySarTrace(trace_dir)`，按 trace 重建 Session、应用 runtime patch、执行 input 并比对 `SarCycleResult` 摘要。
+6. 新增 `tests/unit/sar_replay_codec_roundtrip_test.cpp` 和 `tests/unit/sar_replay_session_test.cpp`。
+7. 将 SAR replay tests 接入 `1q_replay_fast_tests`，并将 SAR codec 接入 `SAR_CORE_SOURCES`。
+
+### 已验证
+
+- `cmake --preset llvm-ninja-debug`
+- `cmake --build --preset llvm-ninja-debug --target 1q_replay_fast_tests`
+- `build/llvm-ninja-debug-local/bin/1q_replay_fast_tests '--gtest_filter=SarReplayCodecRoundtripTest.*:SarReplaySessionTest.*'`，结果：9/9 passed。
+- `build/llvm-ninja-debug-local/bin/1q_replay_fast_tests`，结果：71/71 passed。
+- `cmake --build --preset llvm-ninja-debug --target 1q_unit_tests`
+- `build/llvm-ninja-debug-local/bin/1q_unit_tests '--gtest_filter=SarFftBackendTest.*:SarSignalChainTest.*:SarGeometryTest.*:SarEchoTest.*:PulseRingBufferTest.*:SarRdaTest.*:SarSessionPipelineTest.*:SarReplayCodecRoundtripTest.*:SarReplaySessionTest.*'`，结果：39/39 passed。
+- `cmake --build --preset llvm-ninja-debug --target 1q_contract_tests`
+- `build/llvm-ninja-debug-local/bin/1q_contract_tests`，结果：72/72 passed。
+- `cmake -DSOURCE_DIR=/Users/aurora/Code/1q-sar-phase1 -P tests/contract/check_public_api_boundary.cmake`
+- `git diff --check`
+
+### 当前计划状态
+
+| 阶段 | 状态 |
+|---|---|
+| 阶段 0：规划与契约冻结 | complete |
+| 阶段 1：公共 API 与构建骨架 | complete |
+| 阶段 2：FFT 后端与数值基础 | current_platform_complete_cross_platform_pending |
+| 阶段 3：信号链路 | complete_current_platform |
+| 阶段 4：几何、原始回波与缓冲区 | complete_current_platform |
+| 阶段 5：RDA 聚焦实现 | complete_current_platform |
+| 阶段 6：Session/Trace/Replay 集成 | complete_current_platform |
+| 阶段 7：CI 验收与审批包 | pending |
+| 阶段 8：Phase 2 决策门 | pending |
+
+### 当前剩余门禁
+
+- Trace/replay 当前为 public 摘要级，不保存 focused complex image 全矩阵。
+- `PulseRingBuffer` 已作为跨周期慢时间累积机制接入 Session；仍限当前小场景 Phase 1 路径。
+- Windows/VS2015 + Eigen 3.3.9 尚未验证。
+- 1024x1024 性能基准尚未建立，Session RDA 尺寸门不能放开。
+
+## 2026-06-05 阶段 7 CI 与审批包执行
+
+### 已执行
+
+1. 在 `tests/CMakeLists.txt` 中新增 SAR 专属 CTest 入口：
+   - `sar_unit::1q_unit_tests`
+   - `sar_replay::1q_replay_fast_tests`
+   - `sar_integration::1q_unit_tests`
+   - `sar_contract::1q_contract_tests`
+2. 为上述入口设置标签：
+   - `sar_unit`
+   - `sar_replay`
+   - `sar_integration`
+   - `sar_contract`
+   - `sar_ci`
+3. 将 `public_api_boundary_guard` 也标记为 `sar_contract;sar_ci`。
+4. 新增 `docs/sar_phase1_acceptance_report.md`。
+
+### 当前审批结论
+
+- 当前平台、小场景、点目标 SAR Phase 1 工程基线可进入进一步审批。
+- 不批准大尺寸性能、全平台支持、全图 replay、生产图像质量或 Phase 2 算法能力。
+
+### 已验证
+
+- `cmake --preset llvm-ninja-debug`
+- `ctest --test-dir build/llvm-ninja-debug-local -L sar_ci --output-on-failure`，结果：4/4 passed。
+- `build/llvm-ninja-debug-local/bin/1q_replay_fast_tests '--gtest_filter=SarReplayCodecRoundtripTest.*:SarReplaySessionTest.*'`，结果：9/9 passed。
+- `build/llvm-ninja-debug-local/bin/1q_contract_tests --gtest_filter=PublicHeadersSmokeTest.SarPublicSurfaceSupportsMinimalUsage`，结果：1/1 passed。
+- `git diff --check`
+
+### 当前剩余门禁
+
+- `sar_performance` 尚未启用。
+- Windows/VS2015 + Eigen 3.3.9 尚未验证。
+- 1024x1024 性能基准尚未建立。
+
+## 2026-06-05 Session 跨周期 PulseRingBuffer 接入
+
+### 已执行
+
+1. 修改 `src/sar/session/SarSession.cpp`，在 `SarSession::Impl` 内维护：
+   - `runtime::PulseRingBuffer raw_pulse_buffer`
+   - `next_pulse_id`
+   - `pulse_fraction_carry`
+2. `SarSession::StepWithResult()` 的 raw echo 阶段改为：
+   - 首帧或缓冲不足时补足一个 aperture 窗口。
+   - 后续周期按 `dt_sec * PRF + pulse_fraction_carry` 追加新 pulse。
+   - 从 `PulseRingBuffer::ReadLatest(azimuth_pulse_count)` 读取连续 latest-N pulse history。
+3. 新增 `SarSessionPipelineTest.RawPulseHistoryUsesCrossCycleRingBuffer`。
+
+### 已验证
+
+- `cmake --build --preset llvm-ninja-debug --target 1q_unit_tests 1q_replay_fast_tests`
+- `build/llvm-ninja-debug-local/bin/1q_unit_tests '--gtest_filter=SarFftBackendTest.*:SarSignalChainTest.*:SarGeometryTest.*:SarEchoTest.*:PulseRingBufferTest.*:SarRdaTest.*:SarSessionPipelineTest.*:SarReplayCodecRoundtripTest.*:SarReplaySessionTest.*'`，结果：40/40 passed。
+- `build/llvm-ninja-debug-local/bin/1q_replay_fast_tests '--gtest_filter=SarReplayCodecRoundtripTest.*:SarReplaySessionTest.*'`，结果：9/9 passed。
+- `ctest --test-dir build/llvm-ninja-debug-local -L sar_ci --output-on-failure`，结果：4/4 passed。
+
+### 当前剩余门禁
+
+- `sar_performance` 尚未启用。
+- Windows/VS2015 + Eigen 3.3.9 尚未验证。
+- 1024x1024 性能基准尚未建立。
+
+## 2026-06-05 Focused Image Entropy 指标
+
+### 已执行
+
+1. 在 `RdaDiagnostics` 中新增 `image_entropy_nats`。
+2. 新增 `EstimateImageEntropyNats()`，按归一化像素功率计算 Shannon entropy：
+   - `p_i = |z_i|^2 / sum(|z|^2)`
+   - `H = -sum(p_i * ln(p_i))`
+3. `FocusStripmapRda()` 在 focused image 生成后计算 entropy。
+4. `SarSession` 的 `sar.rda_peak` diagnostics 增加 `image_entropy_nats`。
+5. 新增 `SarRdaTest.ImageEntropyUsesNormalizedPowerDistribution`。
+
+### 已验证
+
+- SAR 过滤测试：41/41 passed。
+- SAR replay 测试：9/9 passed。
+- `ctest --test-dir build/llvm-ninja-debug-local -L sar_ci --output-on-failure`：4/4 passed。
+
+### 当前剩余门禁
+
+- `sar_performance` 尚未启用。
+- azimuth 3dB 宽度指标尚未实现。
+- Windows/VS2015 + Eigen 3.3.9 尚未验证。
+- 1024x1024 性能基准尚未建立。
+
+## 2026-06-05 Range 20dB 宽度指标
+
+### 已执行
+
+1. 在 `PulseQualityMetrics` 中新增 `width_20db_bins`。
+2. `EstimatePulseQuality()` 使用 `peak_magnitude * 0.1` 幅度阈值估计连续 20dB 宽度。
+3. 扩展 `SarSignalChainTest.PulseQualityMetricsCapturePeakWidthAndSidelobes` 验证 20dB 宽度。
+
+### 已验证
+
+- SAR 过滤测试：41/41 passed。
+- `ctest --test-dir build/llvm-ninja-debug-local -L sar_ci --output-on-failure`：4/4 passed。
+- `git diff --check`。
+
+### 当前剩余门禁
+
+- `sar_performance` 尚未启用。
+- azimuth 3dB 宽度指标尚未实现。
+- Windows/VS2015 + Eigen 3.3.9 尚未验证。
+- 1024x1024 性能基准尚未建立。
+
+## 2026-06-05 二维聚焦输出、方位 3dB 与 FFT 性能烟测
+
+### 已执行
+
+1. 移除将方位 IFFT 结果求和并压入中心行的 `ExtractFocusedAzimuth()` 非物理投影，focused image 现在保留完整二维复数响应。
+2. 新增 `EstimateAzimuthWidth3dbBins()`，在全图峰值所在距离列上按连续半功率样本估计方位向 3dB 宽度。
+3. 将方位向 3dB 宽度写入 RDA diagnostics 和 Session `sar.rda_peak` 摘要。
+4. 新增 `sar_performance` 独立入口，覆盖 1024x1024 二维 FFT facade 和内部 RDA 合成场景当前平台基准。
+
+### 已验证
+
+- `SarRdaTest.*:SarSessionPipelineTest.*`：11/11 passed。
+- `ctest --test-dir build/llvm-ninja-debug-local -L sar_performance --output-on-failure`：1/1 CTest entry、2/2 internal gtests passed。
+- 1024x1024 二维 FFT facade Debug 核心变换当前观测约 344 ms。
+- 1024x1024 内部 RDA 合成场景 Debug 核心处理当前观测约 943 ms。
+
+### 当前剩余门禁
+
+- `sar_performance` 不代表 1024x1024 Session 真实点目标端到端性能和峰值内存获批。
+- Windows/VS2015 + Conan Eigen 3.3.9 尚未验证。
+
+## 2026-06-05 Conan Eigen 3.3.9 与 1024x1024 Public Session 门
+
+### 已执行
+
+1. Conan 新增项目级 `eigen_version=auto|3.3.9|3.4.0` 选项，bootstrap 安装指纹同步纳入该选项。
+2. 新增 `llvm-ninja-debug-eigen339` configure/build/test preset。
+3. 新增 1024x1024 真实点目标内部管线和 public `SarSession::StepWithResult()` 性能测试。
+4. 当前平台 Session RDA 尺寸门由 256x64 提升到已验证的 1024x1024；默认 2048x1024 仍被拒绝。
+
+### 已验证
+
+- AppleClang + Conan Eigen 3.3.9：SAR FFT/信号链/RDA/Session 25/25 passed，`sar_performance` passed。
+- 当前 Conan Eigen 3.4.0：`sar_performance` 1/1 CTest entry、4/4 internal gtests passed。
+- 1024x1024 真实点目标内部管线 Debug 当前观测约 1493 ms。
+- 1024x1024 public Session Debug 当前观测约 1421-1496 ms。
+- 隔离 public Session 最大常驻内存当前观测为 137035776 bytes。
+
+### 当前剩余门禁
+
+- Windows/VS2015 尚未验证。
+- 超过 1024x1024 的性能与峰值内存尚未批准。
+
+## 2026-06-05 Phase 1 最终决策冻结
+
+### 用户决策
+
+1. Windows/VS2015 不作为 Phase 1 强制审批门；以 C++11 + Eigen 3.3.9 本机验证为准。
+2. 正式冻结 1024x1024 为 Phase 1 当前平台上限，超过该尺寸继续门禁。
+3. 全图复数矩阵 replay 后置，Phase 1 保持摘要级 replay。
+
+### 已执行与验证
+
+- 新增 `sar_cxx11_compat`，使用 `-std=c++11` 和 Conan Eigen 3.3.9 编译全部 SAR engine 源文件。
+- `ctest --test-dir build/llvm-ninja-debug-eigen339-local -L sar_cxx11_compat --output-on-failure`：1/1 passed。
+- Phase 1 工程契约、计划、研究记录和审批报告已同步冻结上述决策。
+
+## 2026-06-05 Phase 2 方向批准与启动
+
+### 用户决策
+
+1. Phase 2 选择“参考级成像与算法对比闭环”。
+2. Auto algorithm selector 继续后置。
+
+### 已执行
+
+1. 将 `task_plan.md` 阶段 8 标记为完成。
+2. 新增 Phase 2A/2B/2C 分阶段计划和独立审批门。
+3. 冻结 Phase 2 当前非目标：
+   - Auto 正式运行。
+   - L2/L3 与运动补偿。
+   - 辐射定标。
+   - HDF5/GeoTIFF。
+   - 全图复数矩阵 replay。
+   - 放宽 Phase 1 public Session `1024x1024` 上限。
+
+### 当前执行点
+
+- Phase 2A 第一批：新增内部图像质量评估组件和确定性测试。
+
+## 2026-06-05 Phase 2A 第一批实现
+
+### 已执行
+
+1. 新增 `SAR_PHASE2_REFERENCE_IMAGING_CONTRACT.md`，冻结 Phase 2A/2B 范围和 Auto 门禁。
+2. 新增内部 `SarImageQuality`：
+   - 峰值位置与幅度。
+   - 距离向/方位向 3dB 宽度。
+   - PSLR、ISLR、图像熵。
+   - 全局常数相位重参考后的归一化 RMS 误差和相干相关系数。
+3. RDA 已直接使用统一质量组件生成现有 diagnostics。
+4. 新增可复用确定性点目标参考场景测试支持层。
+5. RCMC 内部配置升级为显式 `none/linear/sinc`，public Session 继续固定 linear。
+6. 新增有限核 Lanczos-Sinc RCMC、边界计数和诊断测试。
+7. 新增 1024x1024 Sinc RCMC 独立性能测量。
+
+### 已验证
+
+- 聚焦/Session 过滤测试：17/17 passed。
+- `ctest -L sar_ci`：4/4 passed。
+- Eigen 3.3.9 聚焦/Session 过滤测试：17/17 passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- 现有 `sar_performance`：passed。
+- 1024x1024 独立 RCMC Debug 测量：
+  - linear：约 0.024230 s。
+  - Sinc 半宽 4：约 0.178153 s。
+
+### 当前审批结论
+
+- Sinc 实现、插值精度优势和性能代价已有证据。
+- Sinc 尚未获批成为 public Session 默认路径；真实成像质量优越性等待 GBP 独立参考真值。
+- Phase 2A 继续进行，下一工程步骤为 Phase 2B 前置：冻结 GBP 坐标、相位和尺寸契约并实现最小小场景内核。
+
+### 最终回归
+
+- `ctest --test-dir build/llvm-ninja-debug-local -L sar_ci --output-on-failure`：4/4 passed。
+- `ctest --test-dir build/llvm-ninja-debug-local -L sar_performance --output-on-failure`：1/1 passed，内部 5/5 performance tests passed。
+- `ctest --test-dir build/llvm-ninja-debug-eigen339-local -L sar_cxx11_compat --output-on-failure`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- Phase 2A 已完成当前平台审批。
+- Sinc 作为显式内部实验路径获批；public Session 默认仍为 linear。
+- Phase 2B 已启动。
+- 由于 Phase 1 与 Phase 2A 变更在当前工作树中已经交织且此前未提交，本次将其作为当前 SAR 已验收基线统一提交；后续严格按每个阶段完成后独立提交。

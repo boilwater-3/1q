@@ -147,6 +147,10 @@ target_link_libraries(esr_engine PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(esr_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(eos_engine PRIVATE flatbuffers::flatbuffers)
 target_link_libraries(eos_core PRIVATE flatbuffers::flatbuffers)
+target_link_libraries(sar_core PRIVATE flatbuffers::flatbuffers)
+if(TARGET sar_engine)
+  target_link_libraries(sar_engine PRIVATE Eigen3::Eigen)
+endif()
 
 # flight_dynamic 模块依赖 JSBSim 飞行动力学引擎。
 target_link_libraries(fd_engine PRIVATE JSBSim::JSBSim)

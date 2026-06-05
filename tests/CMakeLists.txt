@@ -38,6 +38,9 @@ file(GLOB_RECURSE INTEGRATION_TEST_SOURCES CONFIGURE_DEPENDS
 file(GLOB_RECURSE CONTRACT_TEST_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/contract/*.cpp"
 )
+file(GLOB_RECURSE PERFORMANCE_TEST_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/performance/*.cpp"
+)
 
 set(TEST_SOURCES
     ${UNIT_TEST_SOURCES}
@@ -146,6 +149,7 @@ list(REMOVE_ITEM UNIT_TEST_SOURCES ${FD_TEST_SOURCES})
 
 add_1q_gtest(${PROJECT_NAME}_unit_tests unit 60 ${UNIT_TEST_SOURCES})
 add_1q_gtest(${PROJECT_NAME}_fd_tests fd 180 ${FD_TEST_SOURCES})
+add_1q_gtest(${PROJECT_NAME}_performance_tests performance 180 ${PERFORMANCE_TEST_SOURCES})
 
 # --------------------------------------------------------------------------
 # flight_dynamic 测试五层分类：smoke / contract / controllability /
@@ -278,14 +282,79 @@ set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/eos_replay_session_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/esr_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/esr_replay_session_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/sar_replay_codec_roundtrip_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/sar_replay_session_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_compression_test.cpp
 )
 add_1q_gtest(${PROJECT_NAME}_replay_fast_tests replay_fast 90 ${REPLAY_FAST_TEST_SOURCES})
+
+# --------------------------------------------------------------------------
+# SAR Phase 1/2 验收入口。Phase 2 性能项只记录 Sinc RCMC 独立代价，
+# 不代表 Sinc 已批准成为 public Session 默认路径。
+# --------------------------------------------------------------------------
+set(_sar_unit_filter
+    "SarFftBackendTest.*:"
+    "SarSignalChainTest.*:"
+    "SarGeometryTest.*:"
+    "SarEchoTest.*:"
+    "PulseRingBufferTest.*:"
+    "SarImageQualityTest.*:"
+    "SarRdaTest.*:"
+    "SarSessionPipelineTest.*:"
+    "SarReplayCodecRoundtripTest.*:"
+    "SarReplaySessionTest.*"
+)
+string(REPLACE ";" "" _sar_unit_filter_str "${_sar_unit_filter}")
+add_test(NAME "sar_unit::1q_unit_tests"
+         COMMAND ${PROJECT_NAME}_unit_tests --gtest_filter=${_sar_unit_filter_str})
+set_tests_properties("sar_unit::1q_unit_tests" PROPERTIES LABELS "sar_unit;sar_ci")
+
+set(_sar_replay_filter
+    "SarReplayCodecRoundtripTest.*:"
+    "SarReplaySessionTest.*"
+)
+string(REPLACE ";" "" _sar_replay_filter_str "${_sar_replay_filter}")
+add_test(NAME "sar_replay::1q_replay_fast_tests"
+         COMMAND ${PROJECT_NAME}_replay_fast_tests --gtest_filter=${_sar_replay_filter_str})
+set_tests_properties("sar_replay::1q_replay_fast_tests" PROPERTIES LABELS "sar_replay;sar_ci")
+
+set(_sar_integration_filter
+    "SarSessionPipelineTest.*:"
+    "SarReplaySessionTest.*"
+)
+string(REPLACE ";" "" _sar_integration_filter_str "${_sar_integration_filter}")
+add_test(NAME "sar_integration::1q_unit_tests"
+         COMMAND ${PROJECT_NAME}_unit_tests --gtest_filter=${_sar_integration_filter_str})
+set_tests_properties("sar_integration::1q_unit_tests"
+                     PROPERTIES LABELS "sar_integration;sar_ci")
+
+add_test(NAME "sar_contract::1q_contract_tests"
+         COMMAND ${PROJECT_NAME}_contract_tests
+                 --gtest_filter=PublicHeadersSmokeTest.SarPublicSurfaceSupportsMinimalUsage)
+set_tests_properties("sar_contract::1q_contract_tests" PROPERTIES LABELS "sar_contract;sar_ci")
+
+add_test(NAME "sar_performance::1q_performance_tests"
+         COMMAND ${PROJECT_NAME}_performance_tests
+                 --gtest_filter=SarPerformanceTest.*)
+set_tests_properties("sar_performance::1q_performance_tests" PROPERTIES LABELS "sar_performance")
+
+get_target_property(_sar_eigen_include_dirs Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
+list(GET _sar_eigen_include_dirs 0 _sar_eigen_include_dir)
+add_test(
+    NAME sar_cxx11_compat
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -DCXX_COMPILER=${CMAKE_CXX_COMPILER}
+            -DEIGEN_INCLUDE_DIR=${_sar_eigen_include_dir}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_sar_cxx11_compat.cmake
+)
+set_tests_properties(sar_cxx11_compat PROPERTIES LABELS "sar_cxx11_compat")
 
 add_custom_target(${PROJECT_NAME}_tests)
 add_dependencies(${PROJECT_NAME}_tests
     ${PROJECT_NAME}_unit_tests
     ${PROJECT_NAME}_fd_tests
+    ${PROJECT_NAME}_performance_tests
     ${PROJECT_NAME}_integration_tests
     ${PROJECT_NAME}_contract_tests
 )
@@ -301,6 +370,7 @@ add_test(
             -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_public_api_boundary.cmake
 )
+set_tests_properties(public_api_boundary_guard PROPERTIES LABELS "contract;sar_contract;sar_ci")
 
 add_test(
     NAME airborne_include_style_guard
