@@ -136,10 +136,10 @@ void FlightManager::ExecuteNextManeuver() {
       maneuver_exec_->ExecuteOrbit(cmd.target, cmd.value, cmd.duration_sec);
       break;
     case ManeuverType::kSetHeading:
-      maneuver_exec_->ExecuteSetHeading(cmd.value);
+      maneuver_exec_->ExecuteSetHeading(cmd.value, cmd.heading_tolerance_rad);
       break;
     case ManeuverType::kSetAltitude:
-      maneuver_exec_->ExecuteSetAltitude(cmd.value);
+      maneuver_exec_->ExecuteSetAltitude(cmd.value, cmd.altitude_tolerance_m);
       break;
     case ManeuverType::kSetPitch:
       maneuver_exec_->ExecuteSetPitch(cmd.value, cmd.duration_sec);

@@ -47,6 +47,8 @@ struct ManeuverCommand {
   guidance::Waypoint target;
   double value = 0.0;
   double duration_sec = 0.0;
+  double heading_tolerance_rad = 0.035;   // SetHeading convergence (~2 deg)
+  double altitude_tolerance_m = 10.0;      // SetAltitude convergence
 };
 
 struct ManeuverDiagnostics {

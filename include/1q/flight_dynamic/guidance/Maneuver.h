@@ -39,6 +39,8 @@ struct Maneuver {
   Waypoint target;
   double value = 0.0;
   double duration_sec = 0.0;
+  double heading_tolerance_rad = 0.035;
+  double altitude_tolerance_m = 10.0;
 };
 
 class ManeuverExecutor {
@@ -48,8 +50,8 @@ class ManeuverExecutor {
 
   void ExecuteFlyTo(const Waypoint& target);
   void ExecuteOrbit(const Waypoint& center, double radius_m, double duration_sec = 0.0);
-  void ExecuteSetHeading(double heading_rad);
-  void ExecuteSetAltitude(double altitude_m);
+  void ExecuteSetHeading(double heading_rad, double tolerance_rad = 0.035);
+  void ExecuteSetAltitude(double altitude_m, double tolerance_m = 10.0);
   void ExecuteSetPitch(double pitch_deg, double duration_sec);
   void ExecuteSetRoll(int roll_mode);
   void ExecuteTakeoff(double target_altitude_m, double target_heading_rad,
