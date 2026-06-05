@@ -532,3 +532,33 @@
 - Phase 2B 已完成当前平台审批。
 - public Session 未增加 GBP 或 Auto 入口。
 - Phase 2C 审批门已启动。
+
+## 2026-06-05 Phase 2C 扩展审批门
+
+### 已执行
+
+1. 使用 GBP 参考真值补充 linear/Sinc RCMC 三方比较。
+2. 新增 `docs/sar_phase2_acceptance_report.md`。
+3. 审计 Auto 正式运行前置条件。
+
+### 证据
+
+- Linear 相对 GBP：NRMS `0.042218`，相干相关系数 `0.999109`。
+- Sinc 相对 GBP：NRMS `0.042107`，相干相关系数 `0.999114`。
+- Sinc 改善极小，独立 RCMC 性能代价约为 linear 的 7.4 倍。
+
+### 审批结论
+
+- Phase 2 当前计划完成。
+- Auto 继续后置，不增加 public 入口。
+- Sinc 保持内部显式路径，public Session 默认保持 linear。
+- 下一方向建议 L2 轨迹误差与一阶运动补偿，必须另行批准。
+
+### 最终回归
+
+- 默认构建 GBP/质量/RDA/Session 过滤测试：23/23 passed。
+- Eigen 3.3.9 GBP/质量/RDA/Session 过滤测试：23/23 passed。
+- `ctest --test-dir build/llvm-ninja-debug-local -L sar_ci --output-on-failure`：4/4 passed。
+- `ctest --test-dir build/llvm-ninja-debug-local -L sar_performance --output-on-failure`：1/1 passed。
+- `ctest --test-dir build/llvm-ninja-debug-eigen339-local -L sar_cxx11_compat --output-on-failure`：1/1 passed。
+- `git diff --check`：passed。

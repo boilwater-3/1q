@@ -125,6 +125,42 @@ TEST(SarGbpTest, ThreeSeparatedRangeTargetsPreserveExpectedPeakOrder) {
   EXPECT_GT(third, 0.0);
 }
 
+TEST(SarGbpTest, LinearAndSincRdaAreMeasuredAgainstGbpReference) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  const std::size_t target_delay = 20U;
+  signal::ComplexMatrix raw_history;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(
+      scene, {test_support::MakeReferenceTargetAtDelay(target_delay, scene.sample_rate_hz, 1.0)},
+      &raw_history));
+
+  imaging::RdaConfig linear_config = test_support::MakeReferenceRdaConfig(scene, target_delay);
+  imaging::FocusedSarImage linear;
+  ASSERT_TRUE(imaging::FocusStripmapRda(linear_config, raw_history, scene.matched_filter, &linear));
+  imaging::RdaConfig sinc_config = linear_config;
+  sinc_config.rcmc_interpolation = imaging::RcmcInterpolation::kSinc;
+  imaging::FocusedSarImage sinc;
+  ASSERT_TRUE(imaging::FocusStripmapRda(sinc_config, raw_history, scene.matched_filter, &sinc));
+  imaging::FocusedGbpImage gbp;
+  ASSERT_TRUE(imaging::FocusSmallSceneGbp(MakeGbpConfig(scene, target_delay, 9U, 9U), scene.pulses,
+                                          raw_history, scene.matched_filter, &gbp));
+
+  const imaging::ImageComparisonMetrics linear_comparison =
+      imaging::CompareImagesWithGlobalPhaseReference(
+          CropRdaReferenceWindow(linear.image, target_delay, 9U), gbp.image);
+  const imaging::ImageComparisonMetrics sinc_comparison =
+      imaging::CompareImagesWithGlobalPhaseReference(
+          CropRdaReferenceWindow(sinc.image, target_delay, 9U), gbp.image);
+  ASSERT_TRUE(linear_comparison.valid);
+  ASSERT_TRUE(sinc_comparison.valid);
+  RecordProperty("linear_nrms", std::to_string(linear_comparison.normalized_rms_error));
+  RecordProperty("sinc_nrms", std::to_string(sinc_comparison.normalized_rms_error));
+  RecordProperty("linear_correlation", std::to_string(linear_comparison.coherent_correlation));
+  RecordProperty("sinc_correlation", std::to_string(sinc_comparison.coherent_correlation));
+  EXPECT_TRUE(std::isfinite(linear_comparison.normalized_rms_error));
+  EXPECT_TRUE(std::isfinite(sinc_comparison.normalized_rms_error));
+}
+
 TEST(SarGbpTest, RejectsSceneBeyondApproved128SquareGate) {
   test_support::ReferencePointScene scene;
   ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));

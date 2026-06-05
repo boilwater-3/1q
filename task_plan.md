@@ -33,7 +33,7 @@
 | 8 | Phase 2 决策门 | complete | 已批准“参考级成像与算法对比闭环”，Auto 继续后置 |
 | 9 | Phase 2A 参考质量闭环与 Sinc RCMC | complete_current_platform | 确定性参考场景、统一质量指标、linear/sinc 对照通过 |
 | 10 | Phase 2B 小场景 GBP 与跨算法比较 | complete_current_platform | GBP 尺寸门、相位重参考、RDA/GBP 对比通过 |
-| 11 | Phase 2C 扩展审批门 | in_progress | 基于双算法证据决定 Auto 或 L2 运动补偿 |
+| 11 | Phase 2C 扩展审批门 | complete | Auto 继续后置；下一方向建议 L2 轨迹与一阶运动补偿 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -487,13 +487,25 @@
 
 ## 阶段 11：Phase 2C 扩展审批门
 
-状态：`in_progress`
+状态：`complete`
 
 候选方向：
 
 1. 在 RDA/GBP 双算法证据齐备后审批 Auto。
 2. 转入 L2 轨迹误差与一阶运动补偿。
 3. 继续后置的辐射定标或图像产品输出。
+
+审批结论：
+
+1. Auto 不批准，继续后置。
+   - 当前只有 RDA 与严格受限 GBP，BP/CSA/Omega-K 未实现和审批。
+   - 当前场景只覆盖 L1 broadside 点目标。
+   - Auto 选择阈值、降级规则和结构化诊断尚未冻结。
+   - GBP 不进入 public Session，也不得作为自动降级目标。
+2. Sinc 继续作为内部显式路径，不成为 public Session 默认值。
+   - 相对 GBP 的单点参考场景中，Sinc NRMS `0.042107`，linear NRMS `0.042218`。
+   - 改善可测但极小，而 Sinc 独立 RCMC 代价约为 linear 的 7.4 倍。
+3. 下一扩展方向建议 L2 轨迹误差与一阶运动补偿，但必须另行批准并新增工程契约。
 
 ## 当前待决策问题
 
@@ -529,4 +541,4 @@
 
 ## 下一步
 
-执行阶段 11 审批门：基于 RDA/GBP 双算法证据审计 Auto 是否具备正式运行条件，并确定下一阶段方向。
+当前 Phase 2 计划已完成。下一步需单独批准 L2 轨迹误差与一阶运动补偿工程契约；批准前不开始实现。
