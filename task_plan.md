@@ -50,6 +50,13 @@ XML 属性驱动方案、B747 着陆进近重构
 - 17 机型全部测试：15/17 完成，2/17 着陆 crash（B747/MD11 已知问题）
 - 9 个原本 timeout/abort 的机型全部恢复完成（T38 abort→completed）
 
+#### 15d：SetPitch 全机型验证 — `complete` ✅
+- `--pitch-test` 模式：takeoff → SetPitch(+5°,10s) → SetPitch(-5°,10s) → SetPitch(+15°,10s) → SetPitch(0°,5s) → land
+- 15/17 机型安全完成（B747/MD11 着陆 crash 无关）
+- **温和目标 (+5°/-5°/0°) 全部安全**，无振荡无 crash
+- **激进目标 (+15°) 全部未达标**：f16 FBW 阻止（0.7°），f15/DHC6 振荡，c172x 接近失速
+- 根因：SetPitch 不设 speed_hold → 大 pitch 角时速度骤降 → 失速 → nose-dive
+
 ### 阶段 13 — 基于物理推导的硬编码消减 — `complete` ✅
 
 依据：`docs/finding/hardcoded_parameter_audit.md`（全 31 机型 JSBSim XML 审计）

@@ -2,10 +2,12 @@
 /// Usage:
 ///   takeoff_land_csv <aircraft_model> [output.csv]
 ///   takeoff_land_csv --heading-alt <aircraft_model> [output.csv]
+///   takeoff_land_csv --pitch-test <aircraft_model> [output.csv]
 ///
 /// Modes:
 ///   default     → 3 fly-to waypoints along the 45° diagonal
 ///   --heading-alt → SetHeading/SetAltitude pairs in cruise, no fly-to
+///   --pitch-test → SetPitch sweep after takeoff, then land
 
 #include <cstdio>
 #include <cstdlib>
@@ -331,6 +333,39 @@ void BuildHeadingAltSequence(FlightManager& fm, const ScenarioConfig& sc) {
   fm.PushManeuver(land);
 }
 
+void BuildPitchTestSequence(FlightManager& fm, const ScenarioConfig& sc) {
+  ManeuverCommand tko;
+  tko.type = guidance::ManeuverType::kTakeoff;
+  tko.target.altitude_m = sc.cruise_altitude_m;
+  fm.PushManeuver(tko);
+
+  // SetPitch sweep: exercise the pitch PD controller at multiple targets.
+  // Each pitch command runs for a fixed duration; completion is time-based.
+  // This tests: (1) PD controller can achieve the target, (2) no oscillation,
+  // (3) FBW aircraft (f16) respect alpha limits, (4) heavy aircraft respond.
+  struct { double pitch_deg; double duration_sec; } pitch_seq[] = {
+      {5.0, 10.0},    // mild nose-up
+      {-5.0, 10.0},   // mild nose-down
+      {15.0, 10.0},   // aggressive nose-up (stress test)
+      {0.0, 5.0},     // recover to level
+  };
+  for (const auto& p : pitch_seq) {
+    ManeuverCommand cmd;
+    cmd.type = guidance::ManeuverType::kSetPitch;
+    cmd.value = p.pitch_deg;
+    cmd.duration_sec = p.duration_sec;
+    fm.PushManeuver(cmd);
+  }
+
+  ManeuverCommand land;
+  land.type = guidance::ManeuverType::kLand;
+  land.target.latitude_rad = sc.landing_lat_rad;
+  land.target.longitude_rad = sc.landing_lon_rad;
+  land.target.altitude_m = 0.0;
+  land.value = 0.0;
+  fm.PushManeuver(land);
+}
+
 // ─── Run loop ──────────────────────────────────────────────────────────────
 
 void RunSimulation(FlightManager& fm, const ScenarioConfig& sc, FILE* out,
@@ -386,18 +421,25 @@ void RunSimulation(FlightManager& fm, const ScenarioConfig& sc, FILE* out,
 
 int main(int argc, char** argv) {
   if (argc < 2) {
-    std::cerr << "Usage: takeoff_land_csv [--heading-alt] <aircraft_model> [output.csv]\n";
+    std::cerr << "Usage: takeoff_land_csv [--heading-alt|--pitch-test] <aircraft_model> [output.csv]\n";
     return 1;
   }
 
   bool heading_alt_mode = false;
+  bool pitch_test_mode = false;
   int arg_i = 1;
-  if (argc > 1 && std::string(argv[1]) == "--heading-alt") {
-    heading_alt_mode = true;
-    arg_i = 2;
+  if (argc > 1) {
+    std::string flag(argv[1]);
+    if (flag == "--heading-alt") {
+      heading_alt_mode = true;
+      arg_i = 2;
+    } else if (flag == "--pitch-test") {
+      pitch_test_mode = true;
+      arg_i = 2;
+    }
   }
   if (arg_i >= argc) {
-    std::cerr << "Usage: takeoff_land_csv [--heading-alt] <aircraft_model> [output.csv]\n";
+    std::cerr << "Usage: takeoff_land_csv [--heading-alt|--pitch-test] <aircraft_model> [output.csv]\n";
     return 1;
   }
 
@@ -436,6 +478,8 @@ int main(int argc, char** argv) {
 
   if (heading_alt_mode) {
     BuildHeadingAltSequence(fm, sc);
+  } else if (pitch_test_mode) {
+    BuildPitchTestSequence(fm, sc);
   } else {
     BuildWaypointSequence(fm, sc);
   }

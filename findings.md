@@ -164,6 +164,86 @@ AP 高度/航向保持使用纯 PD 控制器（无积分项），对某些机型
 - 高空推力不足是物理限制，积分项也无法解决
 - best-effort 方案更安全：精确收敛优先，超时才放宽
 
+## JSBSim 控制接口分析（阶段 15，2026-06-05）
+
+### SetRoll — 模式开关（非目标角度）
+- `SetRoll(0)` = wings level：PD 控制器驱动 aileron 归零 roll 角
+- `SetRoll(1)` = heading-based roll：roll 角正比于航向误差
+- **不是"设坡度到 X°"**，JSBSim 中没有对应的通用概念
+- 所有 17 机型 heading-alt 测试已间接覆盖，不需要单独测试
+
+### SetPitch — 固定俯仰角目标（有风险）
+- 使用与 altitude hold 相同的 PD 控制器：`elevator = -(2.0·err - 0.2·q)`
+- **JSBSim 没有通用高层 pitch 目标 API**（仅 X15 有 `ap/pitch-target-deg`）
+- 我们通过 `fcs/elevator-cmd-norm`（或 FBW 的 `fcs/pitch-trim-cmd-norm`）直接驱动
+
+### 控制接口分类（17 机型）
+
+| 接口类型 | 机型 | 特征 |
+|---------|------|------|
+| direct surface | c172p/r, c182, c310, 737, B747, MD11, f15, A4, F4N, T38, DHC6, OV10, F80C, Boeing314 | `elevator-cmd-norm` → `elevator-pos-rad` |
+| native AP bridge | c172x, c310, global5000 | XML AP `ap/attitude_hold` → wing leveler PID |
+| FBW rate command | **f16** | `aileron-cmd-norm` → roll-rate PID → `aileron-pos-rad` |
+| FBW pitch | **f16** | `pitch-trim-cmd-norm` → elevator-cmd-limiter → alpha scheduler → `elevator-pos-rad` |
+
+### f16 FBW 保护机制（影响 SetPitch）
+- **elevator-cmd-limiter**：clip [-1, 0.44]， Nose-down 权限大于 nose-up
+- **alpha limiter**：高迎角时 elevator 权限降到 0.11（几乎无效）
+- **elevator scheduler**：按 AoA 调度 elevator 增益（0°→1.0，±30°→0.0）
+- **SetPitch(20°)** 在高迎角时会被 FBW 限制住，物理上到不了目标
+
+### 17 机型 elevator/aileron 物理限制
+
+| 机型 | elevator 物理范围 | aileron 物理范围 | 备注 |
+|------|:-:|:-:|------|
+| c310 | ±25/35° | — | — |
+| 737 | ±0.3 rad | — | — |
+| OV10 | ±0.35 rad | — | — |
+| F80C | ±0.35 rad | — | — |
+| f16 | clip [-1, 0.44] + alpha 调度 | ±0.375 rad | FBW 保护 |
+| 其余 | JSBSim 默认 | JSBSim 默认 | — |
+
+### SetPitch 风险评估
+- PD 增益固定（2.0/0.2），对 Iyy 差 4 数量级的机型可能过激或不足
+- altitude hold 已验证（heading-alt 测试），但 SetPitch 目标是固定角度而非高度
+- 高俯仰角目标（>15°）可能在某些机型上引起振荡或失速
+- **需要全机型验证**，特别是 f16（FBW 限制）和 B747（高 Iyy）
+
+### SetPitch 全机型验证结果（15d，2026-06-05）
+
+使用 `--pitch-test` 模式：takeoff → SetPitch(+5°,10s) → SetPitch(-5°,10s) → SetPitch(+15°,10s) → SetPitch(0°,5s) → land
+
+#### 温和目标 (+5°/-5°/0°)：15/17 安全
+所有机型在 ±5° pitch 目标下稳定响应，无 crash，无振荡。
+
+#### 激进目标 (+15°)：全部机型未达标
+
+| 机型 | +15° pitch_max | 实际行为 |
+|------|:-:|------|
+| f16 | 0.7° | FBW alpha 保护几乎完全阻止 pitch-up |
+| f15 | 2.0° | 先升后降，振荡→nose-dive 至 -22° |
+| A4 | 0.9° | 高速下 pitch 响应极慢 |
+| F4N | 1.3° | 同 A4 |
+| T38 | 3.0° | 缓慢上升后回落 |
+| B747 | 3.8° | 上升后反转负 pitch，不稳定 |
+| c172x | 7.3° | 最接近目标，但速度从 67→52 kts（接近失速）|
+| DHC6 | 9.0° | 先升后降，pitch 反转至 -10.7° |
+| 737 | 7.4° | 温和响应，未达标 |
+
+#### 根因
+- `ExecuteSetPitch()` 只设 `pitch_hold=true`，不设 `speed_hold`
+- `UpdateEnergyManagement()` 在 `altitude_hold=false && speed_hold=false` 时退出
+- **速度无保护**：大 pitch 角 → 阻力增大 → 速度骤降 → 升力不足 → 失速 → nose-dive
+- f16 的 FBW alpha limiter 反而是保护机制（阻止了失速）
+
+#### 结论
+- SetPitch 限于 ±5° 安全范围
+- +15° 需要：速度保护 + pitch 角限幅 + 更长的持续时间
+- 当前 PD 控制器增益对温和目标足够，激进目标需要额外安全机制
+- 积分项可能引起振荡（积分饱和、超调）
+- 高空推力不足是物理限制，积分项也无法解决
+- best-effort 方案更安全：精确收敛优先，超时才放宽
+
 ## 调试方法
 
 - **gtest**：合同/profile/smoke 测试

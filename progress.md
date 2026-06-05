@@ -52,6 +52,16 @@
 ### FD CI 回归
 - 3 tests passed (fd_smoke/fd_controllability/fd_contract)，无回归
 
+## 2026-06-05 — SetPitch 全机型验证 (15d)
+
+### 变更
+- `examples/flight_dynamic/takeoff_land_csv.cpp`：新增 `--pitch-test` 模式
+- 序列：takeoff → SetPitch(+5°,10s) → SetPitch(-5°,10s) → SetPitch(+15°,10s) → SetPitch(0°,5s) → land
+
+### 测试结果
+
+15/17 机型完成（B747/MD11 着陆 crash，与 SetPitch 无关）。温和目标(±5°)全部安全。激进目标(+15°)全部未达标——SetPitch 不设 speed_hold，大 pitch 角时速度骤降导致失速。
+
 ## 全机型 takeoff_land_csv 测试结果（2026-06-04，13d+13e 后）
 
 ### ✅ 完成（17 机）
