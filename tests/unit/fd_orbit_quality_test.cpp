@@ -508,6 +508,90 @@ TEST(NewManeuverSmoke, STurnRunsWithoutCrash) {
   EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 0.0);
 }
 
+TEST(RacetrackQuality, CompletesAndMaintainsPath) {
+  config::FlightDynamicConfig cfg;
+  cfg.aircraft_model = "c172p";
+  cfg.aircraft_root_dir = FD_JSBSIM_ROOT_DIR;
+  cfg.dt_sec = kDt;
+  cfg.do_trim = true;
+  cfg.silent_mode = true;
+  cfg.initial_kinematics.position_lla_deg_m.latitude_deg = 0.0;
+  cfg.initial_kinematics.position_lla_deg_m.longitude_deg = 0.0;
+  cfg.initial_kinematics.position_lla_deg_m.altitude_m = 500.0;
+  cfg.initial_kinematics.velocity_mps.x_mps = 50.0;
+  cfg.initial_kinematics.position_frame = coordinate::PositionFrame::kLla;
+
+  FlightManager fm(cfg);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+
+  guidance::Waypoint start;
+  start.latitude_rad = 0.0;
+  start.longitude_rad = 0.0;
+  start.altitude_m = 500.0;
+
+  double leg_length_m = 2000.0;
+  double heading_rad = 0.0;
+  double turn_radius_m = 1000.0;
+  int num_laps = 1;
+
+  ManeuverCommand cmd;
+  cmd.type = ManeuverType::kRacetrack;
+  cmd.target = start;
+  cmd.value = heading_rad;
+  cmd.duration_sec = leg_length_m;
+  cmd.heading_tolerance_rad = turn_radius_m;
+  cmd.altitude_tolerance_m = static_cast<double>(num_laps);
+  fm.PushManeuver(cmd);
+
+  std::vector<double> errors;
+  int steps = 0;
+  bool finished = false;
+  double max_error = 0.0;
+
+  // Run for up to 600 seconds (60000 steps)
+  while (steps < 60000) {
+    if (!fm.Step(kDt)) break;
+    steps++;
+    if (fm.GetState() == FlightManagerState::kCompleted) {
+      finished = true;
+      break;
+    }
+    const auto& s = fm.GetVehicleState();
+    
+    double d_lat = s.latitude_rad - start.latitude_rad;
+    double d_lon = s.longitude_rad - start.longitude_rad;
+    double north = d_lat * kEarthRadiusM;
+    double east = d_lon * kEarthRadiusM * std::cos(start.latitude_rad);
+
+    double x_prime = east * std::cos(heading_rad) - north * std::sin(heading_rad);
+    double y_prime = east * std::sin(heading_rad) + north * std::cos(heading_rad);
+
+    double dist = 0.0;
+    if (y_prime >= 0.0 && y_prime <= leg_length_m) {
+      dist = std::min(std::abs(x_prime - 0.0), std::abs(x_prime - 2.0 * turn_radius_m));
+    } else if (y_prime > leg_length_m) {
+      dist = std::abs(std::hypot(x_prime - turn_radius_m, y_prime - leg_length_m) - turn_radius_m);
+    } else {
+      dist = std::abs(std::hypot(x_prime - turn_radius_m, y_prime - 0.0) - turn_radius_m);
+    }
+    max_error = std::max(max_error, dist);
+    errors.push_back(dist);
+  }
+
+  EXPECT_TRUE(finished);
+  EXPECT_GT(errors.size(), 100);
+  
+  double sum = 0.0;
+  for (double e : errors) sum += e;
+  double avg_error = sum / static_cast<double>(errors.size());
+
+  // The average error should be small (e.g. < 50m, which is 5% of turn radius).
+  // Reduced-carrot lookahead for turns slightly increases straight-leg
+  // intercept overshoot, so the threshold accommodates that trade-off.
+  EXPECT_LT(avg_error, 50.0);
+  EXPECT_LT(max_error, 150.0);
+}
+
 }  // namespace
 }  // namespace flight_dynamic
 }  // namespace oneq

@@ -171,21 +171,30 @@ double ComputeClockwiseOrbitHeadingRad(const JSBSim::FGLocation& location, const
   }
 
   double radial_angle = std::atan2(east_m, north_m);
-  double tangent_heading = radial_angle + M_PI / 2.0;
-
-  double radial_error = distance_m - radius_m;
-
-  // Intercept angle: proportional correction toward orbit track.
-  // At high speed / tight radius the required bank exceeds structural limits,
-  // causing the orbit to widen — the intercept naturally shrinks as the
-  // aircraft converges.  Speed is logged but not used to cap the intercept
-  // because capping prevents high-performance aircraft from capturing the
-  // orbit track quickly enough.
-  double intercept = std::atan2(radial_error, radius_m);
-
-  (void)speed_mps;
-
-  return NormalizeRad(tangent_heading + intercept);
+  double lookahead_m = std::max(2000.0, speed_mps * 10.0);
+  
+  double d = distance_m;
+  double r = radius_m;
+  double l = lookahead_m;
+  
+  // By law of cosines: L^2 = d^2 + R^2 - 2 d R cos(theta)
+  double cos_theta = (d * d + r * r - l * l) / (2.0 * d * r);
+  
+  double carrot_n, carrot_e;
+  if (cos_theta > -1.0 && cos_theta < 1.0) {
+    double theta = std::acos(cos_theta);
+    double carrot_angle = radial_angle + theta; // clockwise -> increase angle
+    carrot_n = r * std::cos(carrot_angle);
+    carrot_e = r * std::sin(carrot_angle);
+    return NormalizeRad(std::atan2(carrot_e - east_m, carrot_n - north_m));
+  } else {
+    // Carrot does not intersect. Intercept the tangent.
+    double tangent_heading = radial_angle + M_PI / 2.0;
+    double radial_error = d - r;
+    double intercept = std::atan2(radial_error, l);
+    intercept = std::clamp(intercept, -M_PI/4.0, M_PI/4.0);
+    return NormalizeRad(tangent_heading + intercept);
+  }
 }
 
 /// Compute heading for a figure-8 segment: CW or CCW orbit around a center.
@@ -205,13 +214,32 @@ double ComputeFigure8HeadingRad(const JSBSim::FGLocation& location, const Waypoi
   }
 
   double radial_angle = std::atan2(east_m, north_m);
-  double tangent_heading = radial_angle + (is_cw ? M_PI / 2.0 : -M_PI / 2.0);
-  double radial_error = distance_m - radius_m;
-  double intercept = std::atan2(radial_error, radius_m);
-  (void)speed_mps;
-  return NormalizeRad(tangent_heading + intercept);
+  double lookahead_m = std::max(2000.0, speed_mps * 10.0);
+  
+  double d = distance_m;
+  double r = radius_m;
+  double l = lookahead_m;
+  
+  double cos_theta = (d * d + r * r - l * l) / (2.0 * d * r);
+  
+  double carrot_n, carrot_e;
+  if (cos_theta > -1.0 && cos_theta < 1.0) {
+    double theta = std::acos(cos_theta);
+    double carrot_angle = radial_angle + (is_cw ? theta : -theta);
+    carrot_n = r * std::cos(carrot_angle);
+    carrot_e = r * std::sin(carrot_angle);
+    return NormalizeRad(std::atan2(carrot_e - east_m, carrot_n - north_m));
+  } else {
+    double tangent_heading = radial_angle + (is_cw ? M_PI / 2.0 : -M_PI / 2.0);
+    double radial_error = d - r;
+    double intercept = std::atan2(radial_error, l);
+    intercept = std::clamp(intercept, -M_PI/4.0, M_PI/4.0);
+    if (!is_cw) intercept = -intercept; // turn opposite direction to intercept
+    return NormalizeRad(tangent_heading + intercept);
+  }
 }
 
+/*
 /// Compute local (north_m, east_m) offset from a reference center.
 void LatLonToLocal(double lat_rad, double lon_rad, double ref_lat_rad, double ref_lon_rad,
                    double& north_m, double& east_m) {
@@ -219,6 +247,7 @@ void LatLonToLocal(double lat_rad, double lon_rad, double ref_lat_rad, double re
   north_m = (lat_rad - ref_lat_rad) * kEarthRadiusM;
   east_m = (lon_rad - ref_lon_rad) * kEarthRadiusM * cos_lat;
 }
+*/
 
 /// Apply local (north_m, east_m) offset to produce a lat/lon Waypoint.
 Waypoint LocalToWaypoint(double ref_lat_rad, double ref_lon_rad,
@@ -240,6 +269,7 @@ double BearingFromCenterRad(const JSBSim::FGLocation& location, const Waypoint& 
   return std::atan2(de, dn);
 }
 
+/*
 /// Compute along-track distance from entry_pos in direction heading_rad.
 /// Returns distance in meters projected onto the heading direction.
 double AlongTrackDistanceM(const JSBSim::FGLocation& location,
@@ -250,6 +280,19 @@ double AlongTrackDistanceM(const JSBSim::FGLocation& location,
   double dn = (lat - entry_pos.latitude_rad) * kEarthRadiusM;
   double de = (lon - entry_pos.longitude_rad) * kEarthRadiusM * cos_lat;
   return dn * std::cos(heading_rad) + de * std::sin(heading_rad);
+}
+*/
+
+/// Compute cross-track distance from the track defined by entry_pos and heading_rad.
+/// Returns distance in meters. Positive means the aircraft is to the right of the track.
+double CrossTrackDistanceM(const JSBSim::FGLocation& location,
+                           const Waypoint& entry_pos, double heading_rad) {
+  double lat = location.GetGeodLatitudeRad();
+  double lon = location.GetLongitude();
+  double cos_lat = std::cos(entry_pos.latitude_rad);
+  double dn = (lat - entry_pos.latitude_rad) * kEarthRadiusM;
+  double de = (lon - entry_pos.longitude_rad) * kEarthRadiusM * cos_lat;
+  return -dn * std::sin(heading_rad) + de * std::cos(heading_rad);
 }
 
 }  // namespace
@@ -344,8 +387,14 @@ void ManeuverExecutor::ExecuteOrbit(const Waypoint& center, double radius_m, dou
   // Speed target: use waypoint speed or profile cruise default.
   const auto& prof = ap_.GetControlProfile();
   double orbit_spd = prof.cruise_speed_mps > 0.0 ? prof.cruise_speed_mps
-                                                   : ap_.GetTrueSpeedMps();
+                                                 : ap_.GetTrueSpeedMps();
   if (center.speed_mps > 0.0) orbit_spd = center.speed_mps;
+
+  double max_bank_rad = prof.max_roll_angle_deg * (M_PI / 180.0);
+  if (max_bank_rad < 0.1) max_bank_rad = 0.1;
+  double max_turn_spd = std::sqrt(radius_m * 9.80665 * std::tan(max_bank_rad));
+  if (orbit_spd > max_turn_spd) orbit_spd = max_turn_spd;
+
   if (prof.max_speed_mps > 0.0 && orbit_spd > prof.max_speed_mps) {
     orbit_spd = prof.max_speed_mps;
   }
@@ -384,29 +433,30 @@ void ManeuverExecutor::ExecuteRacetrack(const Waypoint& start, double heading_ra
   double leg_end_north = leg_length_m * cos_h;
   double leg_end_east  = leg_length_m * sin_h;
 
-  // center1 = end_of_LEG1 + r * (-sin(ψ), cos(ψ))
+  // Absolute geographic entry point for Leg 1
+  racetrack_leg1_entry_ = start;
+
+  // Absolute geographic entry point for Leg 2
+  // Leg 1 is from start to start + leg_length * (cos, sin)
+  // Leg 2 starts 2*r to the right of Leg 1's end.
+  // Right vector is (-sin, cos).
+  double leg2_start_n = leg_end_north + 2.0 * r * (-sin_h);
+  double leg2_start_e = leg_end_east  + 2.0 * r * cos_h;
+  racetrack_leg2_entry_ = LocalToWaypoint(start.latitude_rad, start.longitude_rad,
+                                          leg2_start_n, leg2_start_e, start.altitude_m);
+
+  // Geographically fixed centers
   double c1_n = leg_end_north + r * (-sin_h);
   double c1_e = leg_end_east  + r * cos_h;
   racetrack_center1_ = LocalToWaypoint(start.latitude_rad, start.longitude_rad,
-                                      start.altitude_m, c1_n, c1_e);
+                                       c1_n, c1_e, start.altitude_m);
 
-  // After TURN1 (180° around center1), aircraft is at:
-  //   start + leg_len*(cos,sin) + 2r*(sin,-cos)
-  // LEG2: back toward the opposite direction for leg_len meters.
-  // center2 is r meters to the RIGHT of the reverse heading (ψ+π):
-  //   right(ψ+π) = (sin(ψ), -cos(ψ))
-  double leg2_start_n = leg_end_north + 2.0 * r * sin_h;
-  double leg2_start_e = leg_end_east  + 2.0 * r * (-cos_h);
-
-  // center2 = start_of_LEG2 - leg_len*(cos,sin) + r*(sin,-cos)
-  // Actually: end of LEG2 = start of LEG2 - leg_len*(cos,sin)
-  // and center2 is r to the right of (ψ+π) from that point.
   double end_of_leg2_n = leg2_start_n - leg_length_m * cos_h;
   double end_of_leg2_e = leg2_start_e - leg_length_m * sin_h;
   double c2_n = end_of_leg2_n + r * sin_h;
   double c2_e = end_of_leg2_e + r * (-cos_h);
   racetrack_center2_ = LocalToWaypoint(start.latitude_rad, start.longitude_rad,
-                                      start.altitude_m, c2_n, c2_e);
+                                       c2_n, c2_e, start.altitude_m);
 
   // Configure autopilot
   ap_.SetLateralGuidanceMode(autopilot::LateralGuidanceMode::kHeading);
@@ -420,6 +470,12 @@ void ManeuverExecutor::ExecuteRacetrack(const Waypoint& start, double heading_ra
   const auto& prof = ap_.GetControlProfile();
   double spd = prof.cruise_speed_mps > 0.0 ? prof.cruise_speed_mps : ap_.GetTrueSpeedMps();
   if (start.speed_mps > 0.0) spd = start.speed_mps;
+
+  double max_bank_rad = prof.max_roll_angle_deg * (M_PI / 180.0);
+  if (max_bank_rad < 0.1) max_bank_rad = 0.1;
+  double max_turn_spd = std::sqrt(turn_radius_m * 9.80665 * std::tan(max_bank_rad));
+  if (spd > max_turn_spd) spd = max_turn_spd;
+
   if (prof.max_speed_mps > 0.0 && spd > prof.max_speed_mps) spd = prof.max_speed_mps;
   ap_.SetSpeedTargetMps(spd);
   ap_.SetSpeedHold(true);
@@ -458,6 +514,12 @@ void ManeuverExecutor::ExecuteFigure8(const Waypoint& center, double radius_m,
   const auto& prof = ap_.GetControlProfile();
   double spd = prof.cruise_speed_mps > 0.0 ? prof.cruise_speed_mps : ap_.GetTrueSpeedMps();
   if (center.speed_mps > 0.0) spd = center.speed_mps;
+
+  double max_bank_rad = prof.max_roll_angle_deg * (M_PI / 180.0);
+  if (max_bank_rad < 0.1) max_bank_rad = 0.1;
+  double max_turn_spd = std::sqrt(r * 9.80665 * std::tan(max_bank_rad));
+  if (spd > max_turn_spd) spd = max_turn_spd;
+
   if (prof.max_speed_mps > 0.0 && spd > prof.max_speed_mps) spd = prof.max_speed_mps;
   ap_.SetSpeedTargetMps(spd);
   ap_.SetSpeedHold(true);
@@ -728,68 +790,118 @@ void ManeuverExecutor::Update(double dt_sec) {
     ap_.SetHeadingTargetRad(heading_rad);
   }
   // ── Racetrack FSM: LEG1 → TURN1 → LEG2 → TURN2 → [repeat] ──
+  //
+  // Coordinate system: racetrack-aligned local frame with origin at
+  // racetrack_leg1_entry_, x_prime = cross-track (positive = right
+  // of heading), y_prime = along-track (positive = forward).
+  //
+  // Ideal shape (heading ψ = 0 / North):
+  //   Leg1:  x=0,        y: 0 → leg_len      heading ψ
+  //   Turn1: center (r, leg_len), CW semicircle
+  //   Leg2:  x=2r,       y: leg_len → 0       heading ψ+π
+  //   Turn2: center (r, 0),       CW semicircle
+  //
+  // Turn guidance uses the same carrot algorithm as the orbit
+  // function but with a capped lookahead of (π/3)·r ≈ 60° of arc.
+  // The default lookahead (≥ 2000 m) exceeds half the semicircle
+  // for small turn radii, causing the aircraft to cut corners and
+  // drift each lap.
   if (current_maneuver_.type == ManeuverType::kRacetrack) {
     const auto& loc = adapter_.GetPropagate().GetLocation();
     double speed = adapter_.GetProperty("velocities/vtrue-fps") * 0.3048;
     if (speed < 10.0) speed = 10.0;
 
+    double lat = loc.GetGeodLatitudeRad();
+    double lon = loc.GetLongitude();
+    double cos_lat = std::cos(racetrack_leg1_entry_.latitude_rad);
+    double dn = (lat - racetrack_leg1_entry_.latitude_rad) * kEarthRadiusM;
+    double de = (lon - racetrack_leg1_entry_.longitude_rad) * kEarthRadiusM * cos_lat;
+
+    double cos_h = std::cos(racetrack_heading_);
+    double sin_h = std::sin(racetrack_heading_);
+    double x_prime = de * cos_h - dn * sin_h;
+    double y_prime = de * sin_h + dn * cos_h;
+
+    // Helper: CW orbit heading with reduced lookahead for turns.
+    // Caps lookahead to (π/3)·radius ≈ 60° of arc so the carrot
+    // does not extend past the semicircle endpoint.
+    auto turn_heading = [&](const Waypoint& center, double radius) -> double {
+      double c_cos = std::cos(center.latitude_rad);
+      double n_m = (lat - center.latitude_rad) * kEarthRadiusM;
+      double e_m = (lon - center.longitude_rad) * kEarthRadiusM * c_cos;
+      double dist = std::hypot(n_m, e_m);
+      if (dist < 1.0) return loc.GetHeadingTo(center.longitude_rad, center.latitude_rad);
+      double radial = std::atan2(e_m, n_m);
+      double la = std::max(200.0, std::min(speed * 5.0, M_PI / 3.0 * radius));
+      double cos_t = (dist * dist + radius * radius - la * la) / (2.0 * dist * radius);
+      if (cos_t > -1.0 && cos_t < 1.0) {
+        double t = std::acos(cos_t);
+        double ca = radial + t;
+        double cn = radius * std::cos(ca);
+        double ce = radius * std::sin(ca);
+        return NormalizeRad(std::atan2(ce - e_m, cn - n_m));
+      } else {
+        double th = radial + M_PI / 2.0;
+        double re = dist - radius;
+        double ic = std::clamp(std::atan2(re, la), -M_PI / 4.0, M_PI / 4.0);
+        return NormalizeRad(th + ic);
+      }
+    };
+
     switch (racetrack_phase_) {
-      case RacetrackPhase::kLeg1:
-        ap_.SetHeadingTargetRad(racetrack_heading_);
-        if (AlongTrackDistanceM(loc, racetrack_entry_, racetrack_heading_) >= racetrack_leg_len_) {
-          // Transition to TURN1: store entry position + bearing from center1
-          racetrack_entry_.latitude_rad = loc.GetGeodLatitudeRad();
-          racetrack_entry_.longitude_rad = loc.GetLongitude();
-          racetrack_entry_.altitude_m =
-              BearingFromCenterRad(loc, racetrack_center1_);  // encode bearing
+      case RacetrackPhase::kLeg1: {
+        // Steer along heading ψ with cross-track correction.
+        double xtk_m = x_prime;
+        double lookahead_m = std::max(2000.0, speed * 10.0);
+        double intercept_angle = std::atan2(xtk_m, lookahead_m);
+        intercept_angle = std::clamp(intercept_angle, -M_PI / 4.0, M_PI / 4.0);
+        double intercept_hdg = racetrack_heading_ - intercept_angle;
+        ap_.SetHeadingTargetRad(NormalizeRad(intercept_hdg));
+
+        if (y_prime >= racetrack_leg_len_) {
           racetrack_phase_ = RacetrackPhase::kTurn1;
         }
         break;
+      }
 
       case RacetrackPhase::kTurn1: {
-        double hdg = ComputeClockwiseOrbitHeadingRad(loc, racetrack_center1_,
-                                                      racetrack_turn_r_, speed);
+        double hdg = turn_heading(racetrack_center1_, racetrack_turn_r_);
         ap_.SetHeadingTargetRad(hdg);
-        double bearing_now = BearingFromCenterRad(loc, racetrack_center1_);
-        double bearing_entry = racetrack_entry_.altitude_m;
-        if (NormalizeRad(bearing_now - bearing_entry) >= M_PI - 0.05) {
-          // TURN1 complete → LEG2: store entry position
-          racetrack_entry_.latitude_rad = loc.GetGeodLatitudeRad();
-          racetrack_entry_.longitude_rad = loc.GetLongitude();
-          racetrack_entry_.altitude_m = current_maneuver_.target.altitude_m;  // restore actual altitude
+
+        if (x_prime > racetrack_turn_r_ && y_prime <= racetrack_leg_len_) {
           racetrack_phase_ = RacetrackPhase::kLeg2;
         }
         break;
       }
 
-      case RacetrackPhase::kLeg2:
-        ap_.SetHeadingTargetRad(NormalizeRad(racetrack_heading_ + M_PI));
-        if (AlongTrackDistanceM(loc, racetrack_entry_,
-                                NormalizeRad(racetrack_heading_ + M_PI)) >= racetrack_leg_len_) {
-          // Transition to TURN2: store entry bearing from center2
-          racetrack_entry_.latitude_rad = loc.GetGeodLatitudeRad();
-          racetrack_entry_.longitude_rad = loc.GetLongitude();
-          racetrack_entry_.altitude_m =
-              BearingFromCenterRad(loc, racetrack_center2_);
+      case RacetrackPhase::kLeg2: {
+        // Steer along heading ψ+π with cross-track correction in
+        // the racetrack frame.  Track line is at x_prime = 2r.
+        double xtk_m = x_prime - 2.0 * racetrack_turn_r_;
+        double lookahead_m = std::max(2000.0, speed * 10.0);
+        double intercept_angle = std::atan2(xtk_m, lookahead_m);
+        intercept_angle = std::clamp(intercept_angle, -M_PI / 4.0, M_PI / 4.0);
+        // For reverse heading, add the intercept angle (sign flips
+        // because the heading direction is opposite).
+        double track2_hdg = NormalizeRad(racetrack_heading_ + M_PI);
+        double intercept_hdg = track2_hdg + intercept_angle;
+        ap_.SetHeadingTargetRad(NormalizeRad(intercept_hdg));
+
+        if (y_prime <= 0.0) {
           racetrack_phase_ = RacetrackPhase::kTurn2;
         }
         break;
+      }
 
       case RacetrackPhase::kTurn2: {
-        double hdg = ComputeClockwiseOrbitHeadingRad(loc, racetrack_center2_,
-                                                      racetrack_turn_r_, speed);
+        double hdg = turn_heading(racetrack_center2_, racetrack_turn_r_);
         ap_.SetHeadingTargetRad(hdg);
-        double bearing_now = BearingFromCenterRad(loc, racetrack_center2_);
-        double bearing_entry = racetrack_entry_.altitude_m;
-        if (NormalizeRad(bearing_now - bearing_entry) >= M_PI - 0.05) {
+
+        if (x_prime < racetrack_turn_r_ && y_prime >= 0.0) {
           racetrack_lap_++;
           if (racetrack_lap_ >= racetrack_target_laps_) {
             racetrack_phase_ = RacetrackPhase::kComplete;
           } else {
-            // Start next lap LEG1
-            racetrack_entry_.latitude_rad = loc.GetGeodLatitudeRad();
-            racetrack_entry_.longitude_rad = loc.GetLongitude();
-            racetrack_entry_.altitude_m = current_maneuver_.target.altitude_m;
             racetrack_phase_ = RacetrackPhase::kLeg1;
           }
         }

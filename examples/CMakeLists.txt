@@ -42,6 +42,12 @@ setup_fd_example(maneuver_sweep_csv)
 add_executable(orbit_quality_csv flight_dynamic/orbit_quality_csv.cpp)
 setup_fd_example(orbit_quality_csv)
 
+add_executable(racetrack_quality_csv flight_dynamic/racetrack_quality_csv.cpp)
+setup_fd_example(racetrack_quality_csv)
+
+add_executable(racetrack_trace_csv flight_dynamic/racetrack_trace_csv.cpp)
+setup_fd_example(racetrack_trace_csv)
+
 add_executable(orbit_trace_csv flight_dynamic/orbit_trace_csv.cpp)
 setup_fd_example(orbit_trace_csv)
 

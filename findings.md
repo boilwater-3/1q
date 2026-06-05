@@ -352,6 +352,44 @@ heading(t) = ψ_base + A·sin(2πt/T)
 - **边界测试**：极小转弯半径（clamped）、零振幅 S-Turn（= 直飞）、零圈数 Racetrack（立即完成）
 - **队列测试**：Racetrack → Orbit → SetHeading 多级切换
 
+## Racetrack 转弯精度分析（阶段 16g，2026-06-05）
+
+### 问题描述
+Racetrack 转弯使用 `ComputeClockwiseOrbitHeadingRad()` 的默认 lookahead（`max(2000, speed×10)`），对于小转弯半径（r≈1000m）导致 carrot 落在 121° 前方——半圆弧才 180°。
+
+### 切弯机制
+- **Carrot 角**：law of cosines 计算 `theta = acos((d²+r²-l²)/(2dr))`
+- 对于 d≈r, l=2000, r=1147：`cos_theta = 2r²-4×10⁶/2r² ≈ -0.52` → `theta = 121°`
+- 飞机始终瞄准 121° 前的点 → 切弯 → 沿内圈飞行 → Leg2 起飞点偏离
+
+### 修正方案
+```cpp
+// 老：lookahead = max(2000, speed×10)       → 121° 超前（r=1147）
+// 新：lookahead = max(200, min(speed×5, π/3·r))  → 60° 超前
+```
+- π/3·r ≈ 60° 弧长，半圆弧 180°，carrot 不超出圆弧端点
+- `speed×5` 作为高速保底（vs 原来的 `speed×10`）
+
+### Leg2 交叉修正
+老方案用 `CrossTrackDistanceM(loc, leg2_entry, heading_π)` 从预计算入口测横向偏差。但 Turn1 结束时机位置 ≠ 预计算入口点：
+
+```cpp
+// 老：x_track = CrossTrackDistanceM(loc, leg2_entry, π)  → 错位
+// 新：x_track = x_prime - 2r                            → 精确
+```
+
+### Speed 失配模式
+
+| 模式 | 原因 | 修复 |
+|------|------|------|
+| Profile cruise ≠ actual | FBW 飞机不尊崇 AP speed hold | 预热 2000 步测峰值速度 |
+| feasible_r 用 spec speed 计算 | spec=200 但实际 311 m/s | 用实测速度 vtrue 计算 |
+| ExecuteRacetrack 速度 clamp 失效 | FBW 覆盖 AP speed target | 无代码修复，仅测试端适配 |
+
+### 验证结果
+- 60 次测试，**0 BAD**，48/60 (80%) GOOD
+- 剩余 WARN/CRASHED 均为模型限制（B17/FBW/Concorde）
+
 ## 调试方法
 
 - **gtest**：合同/profile/smoke 测试

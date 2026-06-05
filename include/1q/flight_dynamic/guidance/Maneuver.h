@@ -130,6 +130,8 @@ class ManeuverExecutor {
   Waypoint racetrack_entry_;  // position at current phase start
   Waypoint racetrack_center1_;
   Waypoint racetrack_center2_;
+  Waypoint racetrack_leg1_entry_; // Absolute geographic start of Leg 1
+  Waypoint racetrack_leg2_entry_; // Absolute geographic start of Leg 2
 
   // ── Figure-8 FSM ──
   enum class Figure8Phase { kCw, kCcw, kComplete };

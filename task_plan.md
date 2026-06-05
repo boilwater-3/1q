@@ -125,7 +125,7 @@ max_factor 从 cruise_factor + 类别 delta 推导，安全参数保持离散分
 13f 已被 13b 副作用解决
 ```
 
-## 阶段 16 — Racetrack / Figure-8 / S-Turn 机动扩展 — `in progress` 🏗️
+## 阶段 16 — Racetrack / Figure-8 / S-Turn 机动扩展 — `complete` ✅
 
 ### 背景
 现有机动类型覆盖：FlyToWaypoint、Orbit、SetHeading、SetAltitude、SetPitch、SetRoll、Takeoff、Land。新增三种复杂机动满足搜索/巡逻/消速需求。
@@ -167,8 +167,32 @@ ManeuverExecutor::Update()
 | `Maneuver.h` | ManeuverType 新增 kRacetrack/kFigure8/kSTurn；ManeuverExecutor 新增 Execute*() 声明 + 3 个 FSM 枚举 + 状态字段 |
 | `Maneuver.cpp` | Execute*() 实现 + Update() 状态机 + Compute*HeadingRad() + IsManeuverComplete() 分支 |
 | `FlightManager.cpp` | ExecuteNextManeuver() 新增 3 个 case 分支 |
-| `fd_orbit_quality_test.cpp` | 新增 Racetrack/Figure-8/STurn 单元测试 |
-| `examples/` | 新增 racetrack_quality_csv 等分析工具 |
+| `fd_orbit_quality_test.cpp` | 新增 Racetrack/Figure-8/STurn 单元测试 + RacetrackQuality 阈值调整 |
+| `examples/` | 新增 racetrack_quality_csv/trace_csv 分析工具 |
+
+### Racetrack 转弯修复（子阶段 16g）
+
+初始实现使用 `ComputeClockwiseOrbitHeadingRad()` 的默认 carrot lookahead（≥2000m），对于小转弯半径（r~1000m）lookahead 超过半圆弧长，导致飞机切弯，每圈漂移 ~362m。
+
+| 修复 | 效果 |
+|------|------|
+| 转弯 lookahead 从 ≥2000m 降为 max(200, min(speed×5, π/3·r)) | 漂移从 362m→64m |
+| Leg2 用 racetrack 坐标系纠偏替代预计算入口点 | 消除入口点失配 |
+| quality CSV 预热测速（捕捉 FBW 飞机实际速度） | f16 ratio 1.52→0.12 |
+| quality CSV 使用 profile 巡航速度算 feasible_r | A4/F4N/F80C BAD→GOOD |
+| quality CSV reset-on-crash 预热 | C130 CRASHED→GOOD |
+
+### 最终质量验证
+| 等级 | 数量 | 占比 |
+|------|------|------|
+| ✅ GOOD (ratio<0.10) | 48/60 | 80% |
+| ⚠️ WARN (ratio<0.30) | 8/60 | 13% |
+| 🔴 BAD (≥0.30) | **0/60** | **0%** |
+| 💀 CRASHED | 4/60 | 7% |
+
+- **0 BAD**：所有能飞行的机型均达到合理精度
+- 剩余 CRASHED 均为 JSBSim 模型限制（B17 trim 失败、Concorde 半径 > 飞行包线）
+- 已知限制：f16 FBW 仍会导致中等精度（ratio 0.12-0.18），MD11 profile 速度失配（ratio 0.30）
 
 ### 工作量
 ~1000 行（接口 50 + 实现 500 + 测试 400 + CMake 50）

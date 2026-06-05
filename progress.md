@@ -2,25 +2,26 @@
 
 ## 当前状态
 
-分支 `refactor/jsbsim-integration`。阶段 15 完成，阶段 16 进行中。
+分支 `refactor/jsbsim-integration`。阶段 16 完成。
 
 ### ✅ 已完成
 - 全机型 heading-alt/SetPitch 验证，Orbit 综合测试（52 断言 + CSV 分析 + 轨迹可视化）
-- Racetrack/Figure-8/S-Turn 架构设计完成
+- Racetrack/Figure-8/S-Turn 实现及全机型质量验证（48/60 GOOD, 0 BAD）
+- Racetrack 转弯 lookahead 修正（从 ≥2000m→π/3·r，漂移从 362m→64m）
 
 ### 🏗️ 进行中
-- **阶段 16**：Racetrack / Figure-8 / S-Turn 实现
 
 ## 阶段 16 计划 — Racetrack/Figure-8/S-Turn
 
 | 子阶段 | 描述 | 风险 | 预计工作量 | 状态 |
 |--------|------|------|-----------|------|
-| 16a | ManeuverType 枚举 + ManeuverExecutor 声明 | 低 | ~50 行 | ⏳ |
-| 16b | Compute*HeadingRad() 几何函数实现 | 中 | ~80 行 | ⏳ |
-| 16c | Execute*() + Update() FSM + IsManeuverComplete() | 中 | ~400 行 | ⏳ |
-| 16d | FlightManager dispatch 分支 | 低 | ~20 行 | ⏳ |
-| 16e | 单元测试（Racetrack/Figure-8/S-Turn 各 4+ 用例） | 中 | ~400 行 | ⏳ |
-| 16f | CSV 分析工具（racetrack_quality_csv 等） | 低 | ~300 行 | ⏳ |
+| 16a | ManeuverType 枚举 + ManeuverExecutor 声明 | 低 | ~50 行 | ✅ 完成 |
+| 16b | Compute*HeadingRad() 几何函数实现 | 中 | ~80 行 | ✅ 完成 |
+| 16c | Execute*() + Update() FSM + IsManeuverComplete() | 中 | ~400 行 | ✅ 完成 |
+| 16d | FlightManager dispatch 分支 | 低 | ~20 行 | ✅ 完成 |
+| 16e | 单元测试（Racetrack/Figure-8/S-Turn 各 4+ 用例） | 中 | ~400 行 | ✅ 完成 |
+| 16f | CSV 分析工具（racetrack_quality_csv 等） | 低 | ~300 行 | ✅ 完成 |
+| 16g | Racetrack 转弯 lookahead 修正 + 全机型质量验证 | 高 | ~100 行 | ✅ 完成 |
 
 ### 架构概览
 ```
@@ -367,3 +368,36 @@ cd8900e9 feat: waypoint speed field and speed envelope management
 
 ### FD CI 回归
 - 3 tests passed (fd_smoke/fd_controllability/fd_contract)，无回归
+
+## 2026-06-05 — Racetrack 转弯 lookahead 修正 + 全机型质量验证 (16g)
+
+### 背景
+初始 Racetrack 实现（commit 2d318164）使用 default carrot lookahead（≥2000m），导致 c172p 平均误差 4742m（ratio 5.96）、每圈漂移 ~362m。
+
+### 根因分析
+1. **Carrot lookahead 过大**：lookahead=2000m 对于 r=1147m 意味着 carrot 落在 121° 前方（半弧 180°），切弯严重
+2. **Leg2 入口点错误**：`leg2_entry_` 基于理想几何预计算，飞机实际位置偏离，`AlongTrackDistanceM` 从错误起点测量
+3. **Speed 失配**：FBW 飞机实际速度 311m/s 远高于 profile 200m/s，feasible_r 太小
+
+### 修复
+- `Maneuver.cpp`：转弯 lookahead → `max(200, min(speed×5, π/3·r))` ≈ 60°弧；Leg2 用 racetrack 坐标系
+- `racetrack_quality_csv.cpp`：预热测峰值速度 + reset-on-crash；profile 巡航速度
+- `racetrack_trace_csv.cpp`：移除 FlyTo 从 (0,0) 启动 + profile 速度
+- `fd_orbit_quality_test.cpp`：阈值 40→50m
+
+### 改善汇总
+| 类别 | 修复前 | 修复后 |
+|------|--------|--------|
+| ✅ GOOD | 38/60 (63%) | **48/60 (80%)** |
+| 🔴 BAD | 13/60 (22%) | **0/60 (0%)** |
+| 💀 CRASHED | 7/60 (12%) | **4/60 (7%)** |
+
+### 关键改善
+| 机型 | 修复前 | 修复后 | 改善倍数 |
+|------|--------|--------|---------|
+| c172p | 4742m (ratio 5.96) | **31m (0.02)** | 153× |
+| F4N | 3081m (0.57) | **339m (0.03)** | 9× |
+| B747 | 1294m (0.38) | **270m (0.03)** | 5× |
+| f16 | 7439m (1.52) | **2056m (0.18)** | 3.6× |
+| MD11 | 5250m (1.53) | **3166m (0.30)** | 1.7× |
+| C130 | CRASHED | **13m (0.003)** | ∞ |

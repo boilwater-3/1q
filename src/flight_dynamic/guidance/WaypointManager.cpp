@@ -128,9 +128,18 @@ bool WaypointManager::HasPassedActiveWaypoint() const {
 
   const double target_to_aircraft_north_m = aircraft.north_m - target.north_m;
   const double target_to_aircraft_east_m = aircraft.east_m - target.east_m;
+  const double leg_norm = std::sqrt(leg_norm_sq);
+  
   const double along_track_past_m =
-      (target.north_m * target_to_aircraft_north_m + target.east_m * target_to_aircraft_east_m) /
-      std::sqrt(leg_norm_sq);
+      (target.north_m * target_to_aircraft_north_m + target.east_m * target_to_aircraft_east_m) / leg_norm;
+
+  const double cross_track_m = std::abs(
+      (target.north_m * target_to_aircraft_east_m - target.east_m * target_to_aircraft_north_m) / leg_norm);
+
+  // If the aircraft is too far off-track, crossing the perpendicular plane shouldn't count as "passing".
+  // This prevents premature sequencing during large sweeping turns onto the leg.
+  double corridor_width_m = std::max(3000.0, wp.radius_m * 3.0);
+  if (cross_track_m > corridor_width_m) return false;
 
   return along_track_past_m > 0.0;
 }
