@@ -770,30 +770,6 @@ void Autopilot::UpdateEnergyManagement() {
 
   const double current_speed_mps = GetTrueSpeedMps();
 
-  // ── Pitch hold energy override ──────────────────────────────────────
-  // When holding a non-zero pitch without altitude hold, the normal
-  // energy management formula (alpha=0.3 on speed error) is too weak to
-  // drive throttle aggressively.  We override throttle to reach the
-  // aircraft's physical pitch limit:
-  //   Positive pitch → max thrust (pitch relief in UpdatePitchChannel()
-  //     prevents actual stall if thrust is insufficient).
-  //   Negative pitch → manage overspeed (aircraft accelerates in dive).
-  if (pitch_hold_ && !altitude_hold_ && target_pitch_deg_ != 0.0) {
-    double throttle;
-    if (target_pitch_deg_ > 0.0) {
-      throttle = control_profile_.max_throttle;
-    } else {
-      const double max_speed = control_profile_.max_speed_mps;
-      if (max_speed > 0.0 && current_speed_mps > max_speed * 0.95) {
-        throttle = control_profile_.min_throttle;
-      } else {
-        throttle = 0.7;  // moderate thrust for control authority
-      }
-    }
-    SetThrottleCmdNorm(throttle);
-    return;
-  }
-
   // ref_speed normalizes the speed error term.  Use profile ref_speed if
   // available, otherwise cruise_speed, otherwise current speed (last resort).
   const double ref_speed = control_profile_.ref_speed_mps > 0.0
@@ -818,6 +794,20 @@ void Autopilot::UpdateEnergyManagement() {
   double energy_err = alt_err_m / 500.0;
   if (ref_speed > 1.0) {
     energy_err += speed_err_mps / ref_speed * 0.3;
+  }
+
+  // ── Pitch hold energy bias ─────────────────────────────────────────
+  // Proportional to pitch target: higher pitch → more drag → need more
+  // thrust.  Blends into the existing energy formula so all speed /
+  // overspeed protections remain active (no early return).
+  //   +5° → +0.08  (gentle boost)
+  //   +15°→ +0.24  (strong boost)
+  //   +25°→ +0.40  (near full throttle, matches max energy_err clamp)
+  // Negative pitch relies on normal energy management + overspeed guard.
+  if (pitch_hold_ && !altitude_hold_ && target_pitch_deg_ > 0.0) {
+    constexpr double kPitchBiasGain = 0.40;
+    constexpr double kPitchBiasRefDeg = 25.0;
+    energy_err += kPitchBiasGain * (target_pitch_deg_ / kPitchBiasRefDeg);
   }
 
   // Speed protection: if below min_speed, override energy demand to recover speed.
