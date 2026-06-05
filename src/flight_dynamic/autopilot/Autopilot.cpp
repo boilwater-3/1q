@@ -543,9 +543,23 @@ double Autopilot::GetAngleToHeadingRad() const {
       target_heading = propagate.GetLocation().GetHeadingTo(target_lon, target_lat);
     }
     return NormalizeRad(target_heading - current_heading);
-  } else {
-    return adapter_.GetProperty(adapter::property::kGuidanceAngleToHeading);
   }
+  // kOwnAutopilot / kGenericApBridge: compute from current attitude instead
+  // of guidance/angle-to-heading-rad. The JSBSim guidance angle depends on
+  // navigation/actual-heading-rad which is only updated by an explicit nav
+  // system (c172x/c310/global5000 have none), leaving the source frozen at
+  // its initial value (0). The C++ target_heading_rad_ is what was actually
+  // sent to the native AP via ap/heading_setpoint, so it is the correct
+  // convergence reference.
+  const auto& propagate = adapter_.GetPropagate();
+  double current_heading = propagate.GetEuler(3);
+  double target_heading = target_heading_rad_;
+  if (heading_src_wp_) {
+    double target_lat = adapter_.GetProperty(adapter::property::kGuidanceTargetWpLat);
+    double target_lon = adapter_.GetProperty(adapter::property::kGuidanceTargetWpLon);
+    target_heading = propagate.GetLocation().GetHeadingTo(target_lon, target_lat);
+  }
+  return NormalizeRad(target_heading - current_heading);
 }
 
 double Autopilot::GetAltitudeAGLM() const {
