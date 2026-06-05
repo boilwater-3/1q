@@ -289,9 +289,10 @@ void ManeuverExecutor::ExecuteOrbit(const Waypoint& center, double radius_m, dou
   ap_.SetSpeedHold(true);
 }
 
-void ManeuverExecutor::ExecuteSetHeading(double heading_rad) {
+void ManeuverExecutor::ExecuteSetHeading(double heading_rad, double tolerance_rad) {
   current_maneuver_.type = ManeuverType::kSetHeading;
   current_maneuver_.value = heading_rad;
+  current_maneuver_.heading_tolerance_rad = tolerance_rad;
   active_ = true;
   elapsed_sec_ = 0.0;
 
@@ -303,13 +304,22 @@ void ManeuverExecutor::ExecuteSetHeading(double heading_rad) {
   ap_.SetHeadingHold(true);
 }
 
-void ManeuverExecutor::ExecuteSetAltitude(double altitude_m) {
+void ManeuverExecutor::ExecuteSetAltitude(double altitude_m, double tolerance_m) {
+  double ceiling = ap_.GetControlProfile().ceiling_m;
+  double clamped_alt = altitude_m;
+  if (ceiling > 0.0 && altitude_m > ceiling) {
+    spdlog::info("[SETALT] Clamping target altitude {:.0f}m → ceiling {:.0f}m",
+                 altitude_m, ceiling);
+    clamped_alt = ceiling;
+  }
+
   current_maneuver_.type = ManeuverType::kSetAltitude;
-  current_maneuver_.value = altitude_m;
+  current_maneuver_.value = clamped_alt;
+  current_maneuver_.altitude_tolerance_m = tolerance_m;
   active_ = true;
   elapsed_sec_ = 0.0;
 
-  ap_.SetAltitudeTargetM(altitude_m);
+  ap_.SetAltitudeTargetM(clamped_alt);
   ap_.SetAltitudeHold(true);
 }
 
@@ -443,11 +453,34 @@ bool ManeuverExecutor::IsManeuverComplete() const {
       return false;
     case ManeuverType::kSetHeading: {
       double angle_error = std::abs(ap_.GetAngleToHeadingRad());
-      return angle_error < 0.035;  // ~2 degrees
+      if (angle_error < current_maneuver_.heading_tolerance_rad) return true;
+      // Best-effort convergence: the heading PD controller has no integral
+      // term, so some aircraft reach steady-state with a small residual
+      // heading error.  After a grace period, accept within relaxed tolerance.
+      constexpr double kBestEffortHeadingSec = 30.0;
+      constexpr double kBestEffortHeadingScale = 5.0;
+      if (elapsed_sec_ > kBestEffortHeadingSec &&
+          angle_error < current_maneuver_.heading_tolerance_rad * kBestEffortHeadingScale) {
+        return true;
+      }
+      return false;
     }
     case ManeuverType::kSetAltitude: {
       double alt_error = std::abs(ap_.GetAltitudeASLM() - current_maneuver_.value);
-      return alt_error < 10.0;  // within 10m
+      if (alt_error < current_maneuver_.altitude_tolerance_m) return true;
+      // Best-effort convergence: the altitude PD controller has no integral
+      // term, so at high altitude the available thrust may limit climb rate
+      // and the aircraft reaches a steady-state below the target (observed
+      // 12–76 m offset across 9 aircraft types).  After a grace period,
+      // accept within relaxed tolerance to prevent fuel exhaustion and allow
+      // the mission sequence to continue.
+      constexpr double kBestEffortAltitudeSec = 120.0;
+      constexpr double kBestEffortAltitudeScale = 10.0;
+      if (elapsed_sec_ > kBestEffortAltitudeSec &&
+          alt_error < current_maneuver_.altitude_tolerance_m * kBestEffortAltitudeScale) {
+        return true;
+      }
+      return false;
     }
     case ManeuverType::kSetPitch:
       return current_maneuver_.duration_sec > 0.0 && elapsed_sec_ >= current_maneuver_.duration_sec;

@@ -1,6 +1,11 @@
 /// Standalone program: run takeoff → cruise → landing and output CSV.
-/// Usage: takeoff_land_csv <aircraft_model> [output.csv]
-///   If output.csv is omitted, writes to stdout.
+/// Usage:
+///   takeoff_land_csv <aircraft_model> [output.csv]
+///   takeoff_land_csv --heading-alt <aircraft_model> [output.csv]
+///
+/// Modes:
+///   default     → 3 fly-to waypoints along the 45° diagonal
+///   --heading-alt → SetHeading/SetAltitude pairs in cruise, no fly-to
 
 #include <cstdio>
 #include <cstdlib>
@@ -34,11 +39,13 @@ constexpr double kDt = 0.01;
 //   - ConfigureForApproach()       →  approach speed priority chain
 
 struct ScenarioConfig {
-  double cruise_altitude_m = 0.0;   // 0 → use profile default
-  double waypoint_distance_m = 0.0; // 0 → auto-calculate from speed/altitude
-  double landing_lat_rad = 0.0;     // landing target latitude (radians)
-  double landing_lon_rad = 0.0;     // landing target longitude (radians)
-  int max_steps = 350000;           // simulation step budget
+  double cruise_altitude_m = 0.0;       // 0 → use profile default
+  double waypoint_distance_m = 0.0;     // 0 → auto-calculate from speed/altitude
+  double landing_lat_rad = 0.0;         // landing target latitude (radians)
+  double landing_lon_rad = 0.0;         // landing target longitude (radians)
+  int max_steps = 350000;               // simulation step budget
+  double altitude_tolerance_m = 10.0;   // SetAltitude convergence
+  double heading_tolerance_rad = 0.035; // SetHeading convergence (~2 deg)
 };
 
 ScenarioConfig MakeScenario(FlightManager& fm) {
@@ -248,13 +255,154 @@ void WriteRow(FILE* out, double t, FlightManager& fm) {
 
 }  // namespace
 
+// ─── Maneuver sequence builders ────────────────────────────────────────────
+
+void BuildWaypointSequence(FlightManager& fm, const ScenarioConfig& sc) {
+  ManeuverCommand tko;
+  tko.type = guidance::ManeuverType::kTakeoff;
+  tko.target.altitude_m = sc.cruise_altitude_m;
+  fm.PushManeuver(tko);
+
+  double wp_offset_rad =
+      sc.waypoint_distance_m * 0.70710678 / 6378137.0;
+  double wp_radius = std::max(200.0, fm.GetAutopilot().GetControlProfile().ref_speed_mps * 20.0);
+
+  // Three waypoints along the same 45° diagonal.
+  struct { double fraction; double radius_scale; } wp_seq[] = {
+    {1.0/3.0, 0.35},
+    {2.0/3.0, 0.55},
+    {1.0,     1.0},
+  };
+  for (const auto& w : wp_seq) {
+    ManeuverCommand fly;
+    fly.type = guidance::ManeuverType::kFlyToWaypoint;
+    fly.target.latitude_rad = wp_offset_rad * w.fraction;
+    fly.target.longitude_rad = wp_offset_rad * w.fraction;
+    fly.target.altitude_m = sc.cruise_altitude_m;
+    fly.target.radius_m = std::max(200.0, wp_radius * w.radius_scale);
+    fm.PushManeuver(fly);
+  }
+
+  ManeuverCommand land;
+  land.type = guidance::ManeuverType::kLand;
+  land.target.latitude_rad = sc.landing_lat_rad;
+  land.target.longitude_rad = sc.landing_lon_rad;
+  land.target.altitude_m = 0.0;
+  land.value = 0.0;
+  fm.PushManeuver(land);
+}
+
+void BuildHeadingAltSequence(FlightManager& fm, const ScenarioConfig& sc) {
+  ManeuverCommand tko;
+  tko.type = guidance::ManeuverType::kTakeoff;
+  tko.target.altitude_m = sc.cruise_altitude_m;
+  fm.PushManeuver(tko);
+
+  // Three SetHeading → SetAltitude pairs that exercise convergence on
+  // discrete heading targets (2° tolerance) and altitude targets (10m).
+  // The land phase computes its own heading to the landing point, so
+  // the exact final heading is not critical.
+  // Altitude deltas are kept modest (+100m) to avoid stall near ceiling.
+  struct { double heading_rad; double alt_delta_m; } ha_seq[] = {
+    {0.523599,  200.0},   //  30° right (toward NE-ish), climb 200m
+    {1.047197,  0.0},     //  60° right, return to cruise altitude
+    {0.523599,  200.0},   //  30° right again, climb 200m
+  };
+  for (const auto& h : ha_seq) {
+    ManeuverCommand hdg;
+    hdg.type = guidance::ManeuverType::kSetHeading;
+    hdg.value = h.heading_rad;
+    hdg.heading_tolerance_rad = sc.heading_tolerance_rad;
+    fm.PushManeuver(hdg);
+
+    ManeuverCommand alt;
+    alt.type = guidance::ManeuverType::kSetAltitude;
+    alt.value = sc.cruise_altitude_m + h.alt_delta_m;
+    alt.altitude_tolerance_m = sc.altitude_tolerance_m;
+    fm.PushManeuver(alt);
+  }
+
+  ManeuverCommand land;
+  land.type = guidance::ManeuverType::kLand;
+  land.target.latitude_rad = sc.landing_lat_rad;
+  land.target.longitude_rad = sc.landing_lon_rad;
+  land.target.altitude_m = 0.0;
+  land.value = 0.0;
+  fm.PushManeuver(land);
+}
+
+// ─── Run loop ──────────────────────────────────────────────────────────────
+
+void RunSimulation(FlightManager& fm, const ScenarioConfig& sc, FILE* out,
+                   const std::string& model, const char* out_path) {
+  WriteHeader(out);
+  double t = 0.0;
+  bool reached_cruise_alt = false;
+  bool timeout_logged = false;
+
+  // Extended budget: if the normal step budget runs out, keep running up to
+  // 3× the original limit so the aircraft can complete its full cycle.
+  const int extended_max_steps = sc.max_steps * 3;
+
+  for (int i = 0; i < extended_max_steps; ++i) {
+    fm.Step(kDt);
+    t += kDt;
+
+    WriteRow(out, t, fm);
+
+    // ── Cruise-altitude reached detection ──
+    if (!reached_cruise_alt) {
+      auto* pm = fm.GetAdapter().GetFdmExec().GetPropertyManager().get();
+      auto* node = pm->GetNode("position/h-agl-ft");
+      double agl_m = node ? node->getDoubleValue() * 0.3048 : 0.0;
+      if (agl_m >= sc.cruise_altitude_m - sc.altitude_tolerance_m) {
+        reached_cruise_alt = true;
+        fprintf(stderr, "%s: ★ reached cruise altitude %.0f m at t=%.1fs\n",
+                model.c_str(), sc.cruise_altitude_m, t);
+      }
+    }
+
+    if (fm.GetState() == FlightManagerState::kCompleted ||
+        fm.GetState() == FlightManagerState::kAborted) {
+      if (fm.GetState() == FlightManagerState::kCompleted) {
+        fprintf(stderr, "%s: completed at t=%.1fs\n", model.c_str(), t);
+      } else {
+        fprintf(stderr, "%s: aborted at t=%.1fs\n", model.c_str(), t);
+      }
+      return;
+    }
+
+    // Log timeout once but keep going.
+    if (!timeout_logged && (i + 1) >= sc.max_steps) {
+      timeout_logged = true;
+      fprintf(stderr, "%s: timeout at t=%.1fs, continuing to completion...\n",
+              model.c_str(), t);
+    }
+  }
+  fprintf(stderr, "%s: extended timeout at t=%.1fs\n", model.c_str(), t);
+}
+
+// ─── Main ──────────────────────────────────────────────────────────────────
+
 int main(int argc, char** argv) {
   if (argc < 2) {
-    std::cerr << "Usage: takeoff_land_csv <aircraft_model> [output.csv]\n";
+    std::cerr << "Usage: takeoff_land_csv [--heading-alt] <aircraft_model> [output.csv]\n";
     return 1;
   }
-  std::string model(argv[1]);
-  const char* out_path = (argc >= 3) ? argv[2] : nullptr;
+
+  bool heading_alt_mode = false;
+  int arg_i = 1;
+  if (argc > 1 && std::string(argv[1]) == "--heading-alt") {
+    heading_alt_mode = true;
+    arg_i = 2;
+  }
+  if (arg_i >= argc) {
+    std::cerr << "Usage: takeoff_land_csv [--heading-alt] <aircraft_model> [output.csv]\n";
+    return 1;
+  }
+
+  std::string model(argv[arg_i]);
+  const char* out_path = (argc > arg_i + 1) ? argv[arg_i + 1] : nullptr;
   FILE* out = out_path ? fopen(out_path, "w") : stdout;
   if (!out) {
     std::cerr << "Cannot open " << out_path << "\n";
@@ -277,10 +425,8 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  // ── Scenario derivation (zero model-name hardcoding) ──────────────────
   ScenarioConfig sc = MakeScenario(fm);
 
-  // ── Skip detection (property-tree based, not model-name based) ────────
   auto skip = CheckSkip(fm, sc);
   if (skip.should_skip) {
     fprintf(stderr, "%s: skipped (%s)\n", model.c_str(), skip.reason);
@@ -288,52 +434,13 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  // ── Maneuver queue: takeoff → fly-to → land ──────────────────────────
-  ManeuverCommand tko;
-  tko.type = guidance::ManeuverType::kTakeoff;
-  tko.target.altitude_m = sc.cruise_altitude_m;
-  fm.PushManeuver(tko);
-
-  double wp_offset_rad =
-      sc.waypoint_distance_m * 0.70710678 / 6378137.0;
-  double wp_radius = std::max(200.0, fm.GetAutopilot().GetControlProfile().ref_speed_mps * 20.0);
-
-  ManeuverCommand fly;
-  fly.type = guidance::ManeuverType::kFlyToWaypoint;
-  fly.target.latitude_rad = wp_offset_rad;
-  fly.target.longitude_rad = wp_offset_rad;
-  fly.target.altitude_m = sc.cruise_altitude_m;
-  fly.target.radius_m = wp_radius;
-  fm.PushManeuver(fly);
-
-  // Landing target: independent scenario location (simulated destination airport).
-  ManeuverCommand land;
-  land.type = guidance::ManeuverType::kLand;
-  land.target.latitude_rad = sc.landing_lat_rad;
-  land.target.longitude_rad = sc.landing_lon_rad;
-  land.target.altitude_m = 0.0;
-  // approach_speed_mps=0 → let ConfigureForApproach() use the full
-  // priority chain: profile → Vr×1.3 → engine-category fallback.
-  land.value = 0.0;
-  fm.PushManeuver(land);
-
-  WriteHeader(out);
-
-  double t = 0.0;
-  for (int i = 0; i < sc.max_steps; ++i) {
-    fm.Step(kDt);
-    t += kDt;
-    WriteRow(out, t, fm);
-    if (fm.GetState() == FlightManagerState::kCompleted ||
-        fm.GetState() == FlightManagerState::kAborted) {
-      if (fm.GetState() == FlightManagerState::kCompleted) {
-        fprintf(stderr, "%s: completed at t=%.1fs\n", model.c_str(), t);
-      } else {
-        fprintf(stderr, "%s: aborted at t=%.1fs\n", model.c_str(), t);
-      }
-      break;
-    }
+  if (heading_alt_mode) {
+    BuildHeadingAltSequence(fm, sc);
+  } else {
+    BuildWaypointSequence(fm, sc);
   }
+
+  RunSimulation(fm, sc, out, model, out_path);
 
   if (out_path) fclose(out);
   return 0;

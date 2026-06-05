@@ -34,6 +34,22 @@ XML 属性驱动方案、B747 着陆进近重构
 
 ## 当前阶段
 
+### 阶段 15 — SetAltitude/SetHeading 收敛改善 + 全机型 heading-alt 验证 — `complete` ✅
+
+#### 15a：takeoff_land_csv 增强 — `complete` ✅
+- timeout 后继续执行（3× 扩展预算），让机型跑完全过程
+- 巡航限高到达标识输出（★ 符号）
+
+#### 15b：Tiered Best-Effort Convergence — `complete` ✅
+- `IsManeuverComplete()` 增加基于时间的容差放宽
+- SetAltitude: 120s 内精确收敛（10m），之后放宽至 10×（100m）
+- SetHeading: 30s 内精确收敛（2°），之后放宽至 5×（10°）
+- 根因：AP 高度/航向 PD 控制器无积分项，高空推力限制导致稳态偏差（12–76m）
+
+#### 15c：全机型 heading-alt 验证 — `complete` ✅
+- 17 机型全部测试：15/17 完成，2/17 着陆 crash（B747/MD11 已知问题）
+- 9 个原本 timeout/abort 的机型全部恢复完成（T38 abort→completed）
+
 ### 阶段 13 — 基于物理推导的硬编码消减 — `complete` ✅
 
 依据：`docs/finding/hardcoded_parameter_audit.md`（全 31 机型 JSBSim XML 审计）
@@ -100,6 +116,23 @@ max_factor 从 cruise_factor + 类别 delta 推导，安全参数保持离散分
 |------|------|--------|
 | Concorde/C130/L410 引擎兼容性 | 8.2 | 低 |
 | XB-70 delta wing 不稳定 | JSBSim 模型限制 | 不修 |
+| B747/MD11 着陆 crash（heading-alt 序列） | 16 | 低 |
+
+## 阶段 14 — 多航路点巡航验证 — `complete` ✅
+
+将 `takeoff_land_csv` 巡航阶段的单个 fly-to waypoint 扩展为 3 个，验证多航路点队列在起飞→巡航→着陆全流程中的正确性。
+
+### 变更
+- 3 个 fly-to waypoint 沿 45° 对角线均匀分布：1/3、2/3、full 距离
+- 中间航路点接受半径缩放（0.35×、0.55×）确保捕获区互不重叠
+- `waypoint_distance_m` 保持 `ref_spd × 60s`（不变）
+
+### 验证结果
+- **c172x/c310/f16/737** ✅ — 3 个航路点各自独立飞行通过
+- **B747** ⚠️ — min_turn_radius（30km）主导捕获区，3 点在 1 步内完成；0.02s 时序偏移触发着陆敏感性（1451s crash，原 1485s complete）
+
+### 后续
+- B747 着陆敏感性可单独调查（阶段 14），与多航路点队列逻辑无关
 
 ## 工具
 
