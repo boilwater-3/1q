@@ -7,11 +7,21 @@
 #define ONEQ_SAR_CONFIG_SAR_MISSION_CONFIG_H_
 
 #include <cstdint>
+#include <vector>
 
 #include "1q/api.hpp"
 
 namespace sar {
 namespace config {
+
+struct ONEQ_API SarWaypointConfig {
+  double time_from_session_start_s{0.0};
+  double latitude_deg{0.0};
+  double longitude_deg{0.0};
+  double altitude_m{0.0};
+};
+
+using SarWaypointConfigList = std::vector<SarWaypointConfig>;
 
 /**
  * @brief SAR 条带成像任务配置。
@@ -31,6 +41,7 @@ struct ONEQ_API SarMissionConfig {
   double l2_velocity_error_stddev_y_mps{0.0};
   double l2_velocity_error_stddev_z_mps{0.0};
   std::uint32_t l2_random_seed{0U};
+  SarWaypointConfigList l3_waypoints{};
 };
 
 }  // namespace config

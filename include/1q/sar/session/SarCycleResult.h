@@ -18,7 +18,13 @@ namespace session {
 /**
  * @brief SAR 处理阶段状态。
  */
-enum class SarProcessingStage { kNone = 0, kRawEcho = 1, kRangeCompression = 2, kL1RdaImage = 3 };
+enum class SarProcessingStage {
+  kNone = 0,
+  kRawEcho = 1,
+  kRangeCompression = 2,
+  kL1RdaImage = 3,
+  kL3BpImage = 4
+};
 
 /**
  * @brief SAR 诊断等级。
@@ -49,6 +55,7 @@ struct ONEQ_API SarOutputFrame {
   bool has_raw_echo{false};
   bool has_range_compressed_echo{false};
   bool has_l1_image{false};
+  bool has_l3_bp_image{false};
 };
 
 /**

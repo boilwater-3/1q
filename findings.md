@@ -494,3 +494,10 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - L3 BP 必须显式启用，并与 L1-RDA、L2 运动补偿互斥；当前不允许根据轨迹自动选择算法。
 - public L3 BP 必须使用独立 `128x128` 尺寸门，不能沿用 RDA `1024x1024` 上限。
 - waypoint、BP policy 和 L3/BP 输出摘要必须进入 replay，但不得进入 runtime patch，也不开放全图复矩阵。
+
+## L3 BP 公开配置与 replay 发现
+
+- public `SarWaypointConfig` 使用相对 Session 起点时间和 LLA 字段，保持与现有 SAR 外部输入一致。
+- `enable_l3_bp_imaging` 默认 `false`；`l3_waypoints` 默认空列表，旧 payload 解码保持 L3/BP 关闭。
+- cycle output replay 已保真 `kL3BpImage` 与 `has_l3_bp_image`，但 focused complex image 仍未开放。
+- waypoint、L3 BP policy 和输出摘要 codec round-trip、public smoke、默认 Session replay 均通过。

@@ -820,6 +820,31 @@
 - 阶段 31 L3 BP Session 接入契约完成。
 - 阶段 32 L3 BP 公开配置与 replay 已启动。
 
+## 2026-06-06 阶段 32 L3 BP 公开配置与 replay
+
+### 已执行
+
+1. public mission 新增 `SarWaypointConfig` 与 waypoint 列表。
+2. public policy 新增默认关闭的 `enable_l3_bp_imaging`。
+3. output 新增 `kL3BpImage` 与 `has_l3_bp_image`。
+4. 更新 session/cycle FlatBuffers schema、生成头和 codec。
+5. 扩展 round-trip 与 public smoke。
+
+### 验证结果
+
+- 默认与 Eigen 3.3.9 replay/Session 过滤测试：各 18/18 passed。
+- 默认与 Eigen 3.3.9 replay fast 过滤测试：各 9/9 passed。
+- public SAR smoke：passed。
+- `ctest -L sar_ci`：4/4 passed。
+- `ctest -L sar_performance`：1/1 passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 32 完成当前平台审批。
+- 阶段 33 L3 BP Session 执行闭环已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

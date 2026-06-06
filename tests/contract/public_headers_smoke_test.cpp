@@ -512,7 +512,12 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   session_config.mission.azimuth_pulse_count = 9U;
   session_config.policy.enable_l1_rda_imaging = true;
   EXPECT_FALSE(session_config.policy.enable_l2_motion_compensation);
+  EXPECT_FALSE(session_config.policy.enable_l3_bp_imaging);
   EXPECT_DOUBLE_EQ(session_config.mission.l2_velocity_error_stddev_y_mps, 0.0);
+  config::SarWaypointConfig waypoint;
+  waypoint.time_from_session_start_s = 0.0;
+  session_config.mission.l3_waypoints.push_back(waypoint);
+  EXPECT_EQ(session_config.mission.l3_waypoints.size(), 1U);
   EXPECT_EQ(session_config.mission.range_sample_count, 64U);
 
   session::SarCycleInput input;
@@ -538,6 +543,7 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
   EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_FALSE(result.output_frame.has_l3_bp_image);
 
   session::SarTraceSession trace_session(session::SarSessionFactory::Create(session_config));
   const session::SarCycleResult trace_result = trace_session.StepWithResult(input);

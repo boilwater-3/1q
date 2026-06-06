@@ -34,7 +34,7 @@ bool SarOutputFrameEqual(const SarOutputFrame& left, const SarOutputFrame& right
          left.estimated_snr_db == right.estimated_snr_db &&
          left.has_raw_echo == right.has_raw_echo &&
          left.has_range_compressed_echo == right.has_range_compressed_echo &&
-         left.has_l1_image == right.has_l1_image;
+         left.has_l1_image == right.has_l1_image && left.has_l3_bp_image == right.has_l3_bp_image;
 }
 
 bool SarCycleResultEqual(const SarCycleResult& left, const SarCycleResult& right) {

@@ -332,7 +332,8 @@ struct SarOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_ESTIMATED_SNR_DB = 14,
     VT_HAS_RAW_ECHO = 16,
     VT_HAS_RANGE_COMPRESSED_ECHO = 18,
-    VT_HAS_L1_IMAGE = 20
+    VT_HAS_L1_IMAGE = 20,
+    VT_HAS_L3_BP_IMAGE = 22
   };
   uint32_t cycle_index() const {
     return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
@@ -361,6 +362,9 @@ struct SarOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool has_l1_image() const {
     return GetField<uint8_t>(VT_HAS_L1_IMAGE, 0) != 0;
   }
+  bool has_l3_bp_image() const {
+    return GetField<uint8_t>(VT_HAS_L3_BP_IMAGE, 0) != 0;
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_CYCLE_INDEX) &&
@@ -372,6 +376,7 @@ struct SarOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_HAS_RAW_ECHO) &&
            VerifyField<uint8_t>(verifier, VT_HAS_RANGE_COMPRESSED_ECHO) &&
            VerifyField<uint8_t>(verifier, VT_HAS_L1_IMAGE) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_L3_BP_IMAGE) &&
            verifier.EndTable();
   }
 };
@@ -407,6 +412,9 @@ struct SarOutputFrameBuilder {
   void add_has_l1_image(bool has_l1_image) {
     fbb_.AddElement<uint8_t>(SarOutputFrame::VT_HAS_L1_IMAGE, static_cast<uint8_t>(has_l1_image), 0);
   }
+  void add_has_l3_bp_image(bool has_l3_bp_image) {
+    fbb_.AddElement<uint8_t>(SarOutputFrame::VT_HAS_L3_BP_IMAGE, static_cast<uint8_t>(has_l3_bp_image), 0);
+  }
   explicit SarOutputFrameBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -429,7 +437,8 @@ inline flatbuffers::Offset<SarOutputFrame> CreateSarOutputFrame(
     double estimated_snr_db = 0.0,
     bool has_raw_echo = false,
     bool has_range_compressed_echo = false,
-    bool has_l1_image = false) {
+    bool has_l1_image = false,
+    bool has_l3_bp_image = false) {
   SarOutputFrameBuilder builder_(_fbb);
   builder_.add_estimated_snr_db(estimated_snr_db);
   builder_.add_center_slant_range_m(center_slant_range_m);
@@ -437,6 +446,7 @@ inline flatbuffers::Offset<SarOutputFrame> CreateSarOutputFrame(
   builder_.add_range_sample_count(range_sample_count);
   builder_.add_completed_stage(completed_stage);
   builder_.add_cycle_index(cycle_index);
+  builder_.add_has_l3_bp_image(has_l3_bp_image);
   builder_.add_has_l1_image(has_l1_image);
   builder_.add_has_range_compressed_echo(has_range_compressed_echo);
   builder_.add_has_raw_echo(has_raw_echo);

@@ -54,8 +54,8 @@
 | 29 | L3 BP 内部闭环 | complete_current_platform | 逐样本一致、L3 失效区质量和性能通过 |
 | 30 | L3 BP 后续接入决策门 | complete | 选择受控 public Session 接入契约，Auto 继续后置 |
 | 31 | L3 BP Session 接入契约 | complete | 冻结 waypoint、时间基准、replay、算法和尺寸门 |
-| 32 | L3 BP 公开配置与 replay | in_progress | waypoint/policy/output schema、codec 和 round-trip |
-| 33 | L3 BP Session 执行闭环 | pending | L3 raw echo、BP 聚焦、诊断、replay 和回归 |
+| 32 | L3 BP 公开配置与 replay | complete_current_platform | waypoint/policy/output schema、codec 和 round-trip 通过 |
+| 33 | L3 BP Session 执行闭环 | in_progress | L3 raw echo、BP 聚焦、诊断、replay 和回归 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -871,7 +871,7 @@
 
 ## 阶段 32：L3 BP 公开配置与 replay
 
-状态：`in_progress`
+状态：`complete_current_platform`
 
 任务：
 
@@ -879,6 +879,14 @@
 2. 更新 session/cycle FlatBuffers schema 和生成头。
 3. 更新 codec、round-trip 和 public smoke。
 4. 验证旧 payload/default 行为保持 L3/BP 关闭。
+
+已完成：
+
+- public mission 新增 `SarWaypointConfigList l3_waypoints`。
+- public policy 新增默认关闭的 `enable_l3_bp_imaging`。
+- output 新增 `kL3BpImage` 和 `has_l3_bp_image`。
+- FlatBuffers schema、生成头、codec、round-trip 和 public smoke 通过。
+- waypoint 与 BP policy 未进入 runtime patch。
 
 ## 阶段 33：L3 BP Session 执行闭环
 
@@ -926,4 +934,4 @@
 
 ## 下一步
 
-执行阶段 32：新增 L3 BP 公开配置、输出摘要与 replay 契约。
+执行阶段 33：实现 L3 BP Session 执行闭环、结构化拒绝和摘要级 replay。

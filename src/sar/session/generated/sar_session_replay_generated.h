@@ -12,6 +12,9 @@ namespace replay {
 struct SarHardwareConfig;
 struct SarHardwareConfigBuilder;
 
+struct SarWaypointConfig;
+struct SarWaypointConfigBuilder;
+
 struct SarMissionConfig;
 struct SarMissionConfigBuilder;
 
@@ -169,6 +172,78 @@ inline flatbuffers::Offset<SarHardwareConfig> CreateSarHardwareConfig(
   return builder_.Finish();
 }
 
+struct SarWaypointConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarWaypointConfigBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_TIME_FROM_SESSION_START_S = 4,
+    VT_LATITUDE_DEG = 6,
+    VT_LONGITUDE_DEG = 8,
+    VT_ALTITUDE_M = 10
+  };
+  double time_from_session_start_s() const {
+    return GetField<double>(VT_TIME_FROM_SESSION_START_S, 0.0);
+  }
+  double latitude_deg() const {
+    return GetField<double>(VT_LATITUDE_DEG, 0.0);
+  }
+  double longitude_deg() const {
+    return GetField<double>(VT_LONGITUDE_DEG, 0.0);
+  }
+  double altitude_m() const {
+    return GetField<double>(VT_ALTITUDE_M, 0.0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<double>(verifier, VT_TIME_FROM_SESSION_START_S) &&
+           VerifyField<double>(verifier, VT_LATITUDE_DEG) &&
+           VerifyField<double>(verifier, VT_LONGITUDE_DEG) &&
+           VerifyField<double>(verifier, VT_ALTITUDE_M) &&
+           verifier.EndTable();
+  }
+};
+
+struct SarWaypointConfigBuilder {
+  typedef SarWaypointConfig Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_time_from_session_start_s(double time_from_session_start_s) {
+    fbb_.AddElement<double>(SarWaypointConfig::VT_TIME_FROM_SESSION_START_S, time_from_session_start_s, 0.0);
+  }
+  void add_latitude_deg(double latitude_deg) {
+    fbb_.AddElement<double>(SarWaypointConfig::VT_LATITUDE_DEG, latitude_deg, 0.0);
+  }
+  void add_longitude_deg(double longitude_deg) {
+    fbb_.AddElement<double>(SarWaypointConfig::VT_LONGITUDE_DEG, longitude_deg, 0.0);
+  }
+  void add_altitude_m(double altitude_m) {
+    fbb_.AddElement<double>(SarWaypointConfig::VT_ALTITUDE_M, altitude_m, 0.0);
+  }
+  explicit SarWaypointConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  SarWaypointConfigBuilder &operator=(const SarWaypointConfigBuilder &);
+  flatbuffers::Offset<SarWaypointConfig> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<SarWaypointConfig>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<SarWaypointConfig> CreateSarWaypointConfig(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    double time_from_session_start_s = 0.0,
+    double latitude_deg = 0.0,
+    double longitude_deg = 0.0,
+    double altitude_m = 0.0) {
+  SarWaypointConfigBuilder builder_(_fbb);
+  builder_.add_altitude_m(altitude_m);
+  builder_.add_longitude_deg(longitude_deg);
+  builder_.add_latitude_deg(latitude_deg);
+  builder_.add_time_from_session_start_s(time_from_session_start_s);
+  return builder_.Finish();
+}
+
 struct SarMissionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef SarMissionConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -185,7 +260,8 @@ struct SarMissionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_L2_VELOCITY_ERROR_STDDEV_X_MPS = 24,
     VT_L2_VELOCITY_ERROR_STDDEV_Y_MPS = 26,
     VT_L2_VELOCITY_ERROR_STDDEV_Z_MPS = 28,
-    VT_L2_RANDOM_SEED = 30
+    VT_L2_RANDOM_SEED = 30,
+    VT_L3_WAYPOINTS = 32
   };
   double scene_center_latitude_deg() const {
     return GetField<double>(VT_SCENE_CENTER_LATITUDE_DEG, 0.0);
@@ -229,6 +305,9 @@ struct SarMissionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t l2_random_seed() const {
     return GetField<uint32_t>(VT_L2_RANDOM_SEED, 0);
   }
+  const flatbuffers::Vector<flatbuffers::Offset<sar::replay::SarWaypointConfig>> *l3_waypoints() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<sar::replay::SarWaypointConfig>> *>(VT_L3_WAYPOINTS);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<double>(verifier, VT_SCENE_CENTER_LATITUDE_DEG) &&
@@ -245,6 +324,9 @@ struct SarMissionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<double>(verifier, VT_L2_VELOCITY_ERROR_STDDEV_Y_MPS) &&
            VerifyField<double>(verifier, VT_L2_VELOCITY_ERROR_STDDEV_Z_MPS) &&
            VerifyField<uint32_t>(verifier, VT_L2_RANDOM_SEED) &&
+           VerifyOffset(verifier, VT_L3_WAYPOINTS) &&
+           verifier.VerifyVector(l3_waypoints()) &&
+           verifier.VerifyVectorOfTables(l3_waypoints()) &&
            verifier.EndTable();
   }
 };
@@ -295,6 +377,9 @@ struct SarMissionConfigBuilder {
   void add_l2_random_seed(uint32_t l2_random_seed) {
     fbb_.AddElement<uint32_t>(SarMissionConfig::VT_L2_RANDOM_SEED, l2_random_seed, 0);
   }
+  void add_l3_waypoints(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<sar::replay::SarWaypointConfig>>> l3_waypoints) {
+    fbb_.AddOffset(SarMissionConfig::VT_L3_WAYPOINTS, l3_waypoints);
+  }
   explicit SarMissionConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -322,7 +407,8 @@ inline flatbuffers::Offset<SarMissionConfig> CreateSarMissionConfig(
     double l2_velocity_error_stddev_x_mps = 0.0,
     double l2_velocity_error_stddev_y_mps = 0.0,
     double l2_velocity_error_stddev_z_mps = 0.0,
-    uint32_t l2_random_seed = 0) {
+    uint32_t l2_random_seed = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<sar::replay::SarWaypointConfig>>> l3_waypoints = 0) {
   SarMissionConfigBuilder builder_(_fbb);
   builder_.add_l2_velocity_error_stddev_z_mps(l2_velocity_error_stddev_z_mps);
   builder_.add_l2_velocity_error_stddev_y_mps(l2_velocity_error_stddev_y_mps);
@@ -335,10 +421,48 @@ inline flatbuffers::Offset<SarMissionConfig> CreateSarMissionConfig(
   builder_.add_scene_center_altitude_m(scene_center_altitude_m);
   builder_.add_scene_center_longitude_deg(scene_center_longitude_deg);
   builder_.add_scene_center_latitude_deg(scene_center_latitude_deg);
+  builder_.add_l3_waypoints(l3_waypoints);
   builder_.add_l2_random_seed(l2_random_seed);
   builder_.add_azimuth_pulse_count(azimuth_pulse_count);
   builder_.add_range_sample_count(range_sample_count);
   return builder_.Finish();
+}
+
+inline flatbuffers::Offset<SarMissionConfig> CreateSarMissionConfigDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    double scene_center_latitude_deg = 0.0,
+    double scene_center_longitude_deg = 0.0,
+    double scene_center_altitude_m = 0.0,
+    double nominal_slant_range_m = 0.0,
+    double synthetic_aperture_time_s = 0.0,
+    double platform_speed_mps = 0.0,
+    uint32_t range_sample_count = 0,
+    uint32_t azimuth_pulse_count = 0,
+    double desired_ground_range_resolution_m = 0.0,
+    double desired_azimuth_resolution_m = 0.0,
+    double l2_velocity_error_stddev_x_mps = 0.0,
+    double l2_velocity_error_stddev_y_mps = 0.0,
+    double l2_velocity_error_stddev_z_mps = 0.0,
+    uint32_t l2_random_seed = 0,
+    const std::vector<flatbuffers::Offset<sar::replay::SarWaypointConfig>> *l3_waypoints = nullptr) {
+  auto l3_waypoints__ = l3_waypoints ? _fbb.CreateVector<flatbuffers::Offset<sar::replay::SarWaypointConfig>>(*l3_waypoints) : 0;
+  return sar::replay::CreateSarMissionConfig(
+      _fbb,
+      scene_center_latitude_deg,
+      scene_center_longitude_deg,
+      scene_center_altitude_m,
+      nominal_slant_range_m,
+      synthetic_aperture_time_s,
+      platform_speed_mps,
+      range_sample_count,
+      azimuth_pulse_count,
+      desired_ground_range_resolution_m,
+      desired_azimuth_resolution_m,
+      l2_velocity_error_stddev_x_mps,
+      l2_velocity_error_stddev_y_mps,
+      l2_velocity_error_stddev_z_mps,
+      l2_random_seed,
+      l3_waypoints__);
 }
 
 struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -351,7 +475,8 @@ struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_RETAIN_RAW_PHASE_HISTORY = 12,
     VT_MAX_ALLOWED_SQUINT_ANGLE_DEG = 14,
     VT_MIN_VALID_SNR_DB = 16,
-    VT_ENABLE_L2_MOTION_COMPENSATION = 18
+    VT_ENABLE_L2_MOTION_COMPENSATION = 18,
+    VT_ENABLE_L3_BP_IMAGING = 20
   };
   bool enable_raw_echo_generation() const {
     return GetField<uint8_t>(VT_ENABLE_RAW_ECHO_GENERATION, 0) != 0;
@@ -377,6 +502,9 @@ struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool enable_l2_motion_compensation() const {
     return GetField<uint8_t>(VT_ENABLE_L2_MOTION_COMPENSATION, 0) != 0;
   }
+  bool enable_l3_bp_imaging() const {
+    return GetField<uint8_t>(VT_ENABLE_L3_BP_IMAGING, 0) != 0;
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_ENABLE_RAW_ECHO_GENERATION) &&
@@ -387,6 +515,7 @@ struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<double>(verifier, VT_MAX_ALLOWED_SQUINT_ANGLE_DEG) &&
            VerifyField<double>(verifier, VT_MIN_VALID_SNR_DB) &&
            VerifyField<uint8_t>(verifier, VT_ENABLE_L2_MOTION_COMPENSATION) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_L3_BP_IMAGING) &&
            verifier.EndTable();
   }
 };
@@ -419,6 +548,9 @@ struct SarPolicyConfigBuilder {
   void add_enable_l2_motion_compensation(bool enable_l2_motion_compensation) {
     fbb_.AddElement<uint8_t>(SarPolicyConfig::VT_ENABLE_L2_MOTION_COMPENSATION, static_cast<uint8_t>(enable_l2_motion_compensation), 0);
   }
+  void add_enable_l3_bp_imaging(bool enable_l3_bp_imaging) {
+    fbb_.AddElement<uint8_t>(SarPolicyConfig::VT_ENABLE_L3_BP_IMAGING, static_cast<uint8_t>(enable_l3_bp_imaging), 0);
+  }
   explicit SarPolicyConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -440,10 +572,12 @@ inline flatbuffers::Offset<SarPolicyConfig> CreateSarPolicyConfig(
     bool retain_raw_phase_history = false,
     double max_allowed_squint_angle_deg = 0.0,
     double min_valid_snr_db = 0.0,
-    bool enable_l2_motion_compensation = false) {
+    bool enable_l2_motion_compensation = false,
+    bool enable_l3_bp_imaging = false) {
   SarPolicyConfigBuilder builder_(_fbb);
   builder_.add_min_valid_snr_db(min_valid_snr_db);
   builder_.add_max_allowed_squint_angle_deg(max_allowed_squint_angle_deg);
+  builder_.add_enable_l3_bp_imaging(enable_l3_bp_imaging);
   builder_.add_enable_l2_motion_compensation(enable_l2_motion_compensation);
   builder_.add_retain_raw_phase_history(retain_raw_phase_history);
   builder_.add_enable_diagnostics(enable_diagnostics);

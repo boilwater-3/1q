@@ -44,7 +44,7 @@ flatbuffers::Offset<replay::SarOutputFrame> BuildOutputFrame(flatbuffers::FlatBu
       fbb, value.cycle_index, static_cast<std::int32_t>(value.completed_stage),
       value.range_sample_count, value.azimuth_pulse_count, value.center_slant_range_m,
       value.estimated_snr_db, value.has_raw_echo, value.has_range_compressed_echo,
-      value.has_l1_image);
+      value.has_l1_image, value.has_l3_bp_image);
 }
 
 void FromFbOutputFrame(const replay::SarOutputFrame* fb, SarOutputFrame* out) {
@@ -60,6 +60,7 @@ void FromFbOutputFrame(const replay::SarOutputFrame* fb, SarOutputFrame* out) {
   out->has_raw_echo = fb->has_raw_echo();
   out->has_range_compressed_echo = fb->has_range_compressed_echo();
   out->has_l1_image = fb->has_l1_image();
+  out->has_l3_bp_image = fb->has_l3_bp_image();
 }
 
 flatbuffers::Offset<replay::SarHardwareConfig> BuildHardwareConfig(
@@ -90,13 +91,21 @@ void FromFbHardwareConfig(const replay::SarHardwareConfig* fb, config::SarHardwa
 
 flatbuffers::Offset<replay::SarMissionConfig> BuildMissionConfig(
     flatbuffers::FlatBufferBuilder& fbb, const config::SarMissionConfig& value) {
+  std::vector<flatbuffers::Offset<replay::SarWaypointConfig>> waypoints;
+  waypoints.reserve(value.l3_waypoints.size());
+  for (const config::SarWaypointConfig& waypoint : value.l3_waypoints) {
+    waypoints.push_back(replay::CreateSarWaypointConfig(
+        fbb, waypoint.time_from_session_start_s, waypoint.latitude_deg, waypoint.longitude_deg,
+        waypoint.altitude_m));
+  }
+  const auto waypoint_vector = fbb.CreateVector(waypoints);
   return replay::CreateSarMissionConfig(
       fbb, value.scene_center_latitude_deg, value.scene_center_longitude_deg,
       value.scene_center_altitude_m, value.nominal_slant_range_m, value.synthetic_aperture_time_s,
       value.platform_speed_mps, value.range_sample_count, value.azimuth_pulse_count,
       value.desired_ground_range_resolution_m, value.desired_azimuth_resolution_m,
       value.l2_velocity_error_stddev_x_mps, value.l2_velocity_error_stddev_y_mps,
-      value.l2_velocity_error_stddev_z_mps, value.l2_random_seed);
+      value.l2_velocity_error_stddev_z_mps, value.l2_random_seed, waypoint_vector);
 }
 
 void FromFbMissionConfig(const replay::SarMissionConfig* fb, config::SarMissionConfig* out) {
@@ -117,15 +126,27 @@ void FromFbMissionConfig(const replay::SarMissionConfig* fb, config::SarMissionC
   out->l2_velocity_error_stddev_y_mps = fb->l2_velocity_error_stddev_y_mps();
   out->l2_velocity_error_stddev_z_mps = fb->l2_velocity_error_stddev_z_mps();
   out->l2_random_seed = fb->l2_random_seed();
+  out->l3_waypoints.clear();
+  if (fb->l3_waypoints()) {
+    out->l3_waypoints.reserve(fb->l3_waypoints()->size());
+    for (const replay::SarWaypointConfig* waypoint : *fb->l3_waypoints()) {
+      config::SarWaypointConfig decoded;
+      decoded.time_from_session_start_s = waypoint->time_from_session_start_s();
+      decoded.latitude_deg = waypoint->latitude_deg();
+      decoded.longitude_deg = waypoint->longitude_deg();
+      decoded.altitude_m = waypoint->altitude_m();
+      out->l3_waypoints.push_back(decoded);
+    }
+  }
 }
 
 flatbuffers::Offset<replay::SarPolicyConfig> BuildPolicyConfig(
     flatbuffers::FlatBufferBuilder& fbb, const config::SarPolicyConfig& value) {
-  return replay::CreateSarPolicyConfig(fbb, value.enable_raw_echo_generation,
-                                       value.enable_range_compression, value.enable_l1_rda_imaging,
-                                       value.enable_diagnostics, value.retain_raw_phase_history,
-                                       value.max_allowed_squint_angle_deg, value.min_valid_snr_db,
-                                       value.enable_l2_motion_compensation);
+  return replay::CreateSarPolicyConfig(
+      fbb, value.enable_raw_echo_generation, value.enable_range_compression,
+      value.enable_l1_rda_imaging, value.enable_diagnostics, value.retain_raw_phase_history,
+      value.max_allowed_squint_angle_deg, value.min_valid_snr_db,
+      value.enable_l2_motion_compensation, value.enable_l3_bp_imaging);
 }
 
 void FromFbPolicyConfig(const replay::SarPolicyConfig* fb, config::SarPolicyConfig* out) {
@@ -140,6 +161,7 @@ void FromFbPolicyConfig(const replay::SarPolicyConfig* fb, config::SarPolicyConf
   out->max_allowed_squint_angle_deg = fb->max_allowed_squint_angle_deg();
   out->min_valid_snr_db = fb->min_valid_snr_db();
   out->enable_l2_motion_compensation = fb->enable_l2_motion_compensation();
+  out->enable_l3_bp_imaging = fb->enable_l3_bp_imaging();
 }
 
 flatbuffers::Offset<replay::SarEnvironmentConfig> BuildEnvironmentConfig(

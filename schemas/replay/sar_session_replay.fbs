@@ -19,6 +19,13 @@ table SarHardwareConfig {
   system_loss_db: double;
 }
 
+table SarWaypointConfig {
+  time_from_session_start_s: double;
+  latitude_deg: double;
+  longitude_deg: double;
+  altitude_m: double;
+}
+
 table SarMissionConfig {
   scene_center_latitude_deg: double;
   scene_center_longitude_deg: double;
@@ -34,6 +41,7 @@ table SarMissionConfig {
   l2_velocity_error_stddev_y_mps: double;
   l2_velocity_error_stddev_z_mps: double;
   l2_random_seed: uint32;
+  l3_waypoints: [SarWaypointConfig];
 }
 
 table SarPolicyConfig {
@@ -45,6 +53,7 @@ table SarPolicyConfig {
   max_allowed_squint_angle_deg: double;
   min_valid_snr_db: double;
   enable_l2_motion_compensation: bool;
+  enable_l3_bp_imaging: bool;
 }
 
 table SarEnvironmentConfig {

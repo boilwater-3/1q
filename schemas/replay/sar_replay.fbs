@@ -45,6 +45,7 @@ table SarOutputFrame {
   has_raw_echo: bool;
   has_range_compressed_echo: bool;
   has_l1_image: bool;
+  has_l3_bp_image: bool;
 }
 
 table SarDiagnosticIssue {

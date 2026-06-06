@@ -19,6 +19,7 @@ struct ONEQ_API SarPolicyConfig {
   bool enable_range_compression{true};
   bool enable_l1_rda_imaging{false};
   bool enable_l2_motion_compensation{false};
+  bool enable_l3_bp_imaging{false};
   bool enable_diagnostics{true};
   bool retain_raw_phase_history{false};
   double max_allowed_squint_angle_deg{5.0};
