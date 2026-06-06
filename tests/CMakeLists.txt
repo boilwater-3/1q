@@ -300,6 +300,7 @@ set(_sar_unit_filter
     "PulseRingBufferTest.*:"
     "SarGbpTest.*:"
     "SarImageQualityTest.*:"
+    "SarMotionCompensationTest.*:"
     "SarRdaTest.*:"
     "SarSessionPipelineTest.*:"
     "SarReplayCodecRoundtripTest.*:"

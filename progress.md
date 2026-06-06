@@ -532,6 +532,37 @@
 - 阶段 13 完成当前平台审批。
 - 阶段 14 一阶运动补偿闭环已启动。
 
+## 2026-06-06 阶段 14 一阶运动补偿闭环
+
+### 已执行
+
+1. 新增内部 `SarMotionCompensation`。
+2. 实现相对显式参考点的逐脉冲包络平移和载频相位校正。
+3. 新增补偿诊断、零误差恒等测试和 L2 聚焦改善测试。
+4. 新增 `1024x1024` 一阶补偿性能测试。
+5. 新增 `docs/sar_l2_motion_compensation_acceptance_report.md`。
+
+### 质量证据
+
+- 最大参考斜距误差：约 `1.300414 m`。
+- 未补偿：NRMS `1.312794`，相关系数 `0.138285`。
+- 补偿后：NRMS `0.249779`，相关系数 `0.968805`。
+- `1024x1024` raw history 一阶补偿：约 `0.052741 s`。
+
+### 最终回归
+
+- 默认构建 L2/补偿/GBP/质量/RDA/Session 过滤测试：29/29 passed。
+- Eigen 3.3.9 L2/补偿/GBP/质量/RDA/Session 过滤测试：29/29 passed。
+- `ctest -L sar_ci`：4/4 passed。
+- `ctest -L sar_performance`：1/1 passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 14 完成当前平台审批。
+- 阶段 15 等待选择 public Session 接入、多参考点补偿或 L3。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

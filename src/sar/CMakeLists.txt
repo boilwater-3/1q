@@ -6,6 +6,7 @@ set(SAR_ENGINE_SOURCES
     sar/geometry/SarGeometry.cpp
     sar/imaging/SarGbp.cpp
     sar/imaging/SarImageQuality.cpp
+    sar/imaging/SarMotionCompensation.cpp
     sar/imaging/SarRda.cpp
     sar/runtime/PulseRingBuffer.cpp
     sar/signal/SarFft.cpp

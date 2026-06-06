@@ -8,6 +8,7 @@
 #include "sar/echo/SarEcho.h"
 #include "sar/geometry/SarGeometry.h"
 #include "sar/imaging/SarGbp.h"
+#include "sar/imaging/SarMotionCompensation.h"
 #include "sar/imaging/SarRda.h"
 #include "sar/signal/SarFft.h"
 #include "sar/signal/SarWaveform.h"
@@ -164,6 +165,53 @@ TEST(SarPerformanceTest, GbpCompletesApproved128SquareReferenceScene) {
   EXPECT_EQ(focused.image.rows, kSize);
   EXPECT_EQ(focused.image.cols, kSize);
   EXPECT_EQ(focused.diagnostics.evaluated_pixels, kSize * kSize);
+  EXPECT_LT(elapsed_seconds, kCurrentPlatformLimitSeconds);
+}
+
+TEST(SarPerformanceTest, FirstOrderMotionCompensationCompletes1024SquareRawHistory) {
+  constexpr std::size_t kSize = 1024U;
+  constexpr double kCurrentPlatformLimitSeconds = 10.0;
+  geometry::StraightStripmapTrackConfig ideal_config;
+  ideal_config.start_position_m.x_m = -512.0;
+  ideal_config.start_position_m.y_m = 10000.0;
+  ideal_config.velocity_x_mps = 150.0;
+  ideal_config.prf_hz = 1000.0;
+  ideal_config.pulse_count = static_cast<std::uint32_t>(kSize);
+  std::vector<geometry::PlatformPulseState> ideal;
+  ASSERT_TRUE(geometry::GenerateStraightStripmapTrack(ideal_config, &ideal));
+
+  geometry::PerturbedStripmapTrackConfig actual_config;
+  actual_config.ideal = ideal_config;
+  actual_config.velocity_error_stddev_y_mps = 1.0;
+  actual_config.velocity_error_stddev_z_mps = 0.5;
+  actual_config.random_seed = 2026U;
+  std::vector<geometry::PlatformPulseState> actual;
+  geometry::TrajectoryErrorDiagnostics trajectory_diagnostics;
+  ASSERT_TRUE(
+      geometry::GeneratePerturbedStripmapTrack(actual_config, &actual, &trajectory_diagnostics));
+
+  ComplexMatrix raw_history;
+  raw_history.rows = kSize;
+  raw_history.cols = kSize;
+  raw_history.values.assign(kSize * kSize, ComplexSample(1.0, 0.0));
+  imaging::FirstOrderMotionCompensationConfig config;
+  config.sample_rate_hz = 100.0e6;
+  config.carrier_frequency_hz = 1.0e9;
+  config.reference_point_m.y_m = 10000.0;
+
+  const auto start = std::chrono::steady_clock::now();
+  ComplexMatrix compensated;
+  imaging::MotionCompensationDiagnostics diagnostics;
+  ASSERT_TRUE(imaging::ApplyFirstOrderMotionCompensation(config, ideal, actual, raw_history,
+                                                         &compensated, &diagnostics));
+  const double elapsed_seconds =
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+
+  RecordProperty("matrix_rows", static_cast<int>(kSize));
+  RecordProperty("matrix_cols", static_cast<int>(kSize));
+  RecordProperty("elapsed_seconds", std::to_string(elapsed_seconds));
+  EXPECT_EQ(compensated.values.size(), kSize * kSize);
+  EXPECT_EQ(diagnostics.compensated_pulses, kSize);
   EXPECT_LT(elapsed_seconds, kCurrentPlatformLimitSeconds);
 }
 
