@@ -510,3 +510,11 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - `sar.l3_trajectory`、`sar.bp_peak`、`sar.bp_traversal` 与 L3 输出摘要可完成两周期无 divergence replay。
 - public L3 BP 已具备受控 Session 闭环，但当前证据仍不支持 Auto、runtime patch、全图复矩阵 replay、时变 PRF 或扩大 BP 尺寸门。
 - 全仓无目标构建仍被非 SAR 的 JSBSim `FGFDMExec.h` 缺失阻断；SAR 独立构建与审批门不受影响。
+
+## Phase 2 完成度审计发现
+
+- 当前固定 PRF、小场景、点目标范围内，RDA/GBP/BP、L2 一阶补偿、L3 适用边界和 public L3 BP 已形成可重复闭环。
+- 当前跨算法质量证据仍主要来自中心单点与同距离向多目标；缺少方位偏置、二维多目标、边界目标和硬件参数扫描。
+- RDA/GBP/BP 分别具备回归与性能证据仍不足以批准 Auto；代表性矩阵、选择阈值、资源预算、降级规则和结构化选择诊断均未冻结。
+- 下一方向选择参考场景矩阵扩展，优先补齐已批准主线的代表性证据，不提前增加 public API 或复杂算法。
+- 首批矩阵冻结为 M1-M7，覆盖 L1/L2/L3、中心/偏置/二维多目标以及一阶补偿通过区和失效区。

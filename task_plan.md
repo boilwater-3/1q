@@ -56,7 +56,9 @@
 | 31 | L3 BP Session 接入契约 | complete | 冻结 waypoint、时间基准、replay、算法和尺寸门 |
 | 32 | L3 BP 公开配置与 replay | complete_current_platform | waypoint/policy/output schema、codec 和 round-trip 通过 |
 | 33 | L3 BP Session 执行闭环 | complete_current_platform | L3 raw echo、BP 聚焦、诊断、replay 和回归通过 |
-| 34 | Phase 2 完成度审计 | in_progress | 逐项核对参考成像、算法对比、适用边界与 public 闭环 |
+| 34 | Phase 2 完成度审计 | complete | 当前小场景闭环完成；代表性参考矩阵仍不足，Auto 继续后置 |
+| 35 | 参考场景矩阵扩展契约 | complete | 冻结 L1/L2/L3、二维目标与统一比较矩阵 |
+| 36 | 参考场景矩阵实现 | in_progress | 建设可复用场景、矩阵测试和质量报告 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -912,13 +914,43 @@
 
 ## 阶段 34：Phase 2 完成度审计
 
-状态：`in_progress`
+状态：`complete`
 
 任务：
 
 1. 按“参考级成像与算法对比闭环”目标逐项审计现有证据。
 2. 核对 RDA/GBP/BP、L2/L3 适用边界、public Session 与 replay 的完成度和剩余缺口。
 3. 保持 Auto 后置，基于缺口证据选择下一扩展方向。
+
+审计结论：
+
+- 当前固定 PRF、小场景、点目标范围内的参考级成像与算法对比闭环已完成。
+- RDA、GBP、BP、L2 一阶补偿、L3 适用边界和 public L3 BP 均有独立证据。
+- 方位偏置、二维多目标、边界目标和参数扫描证据不足，不能批准通用 Auto。
+- 下一方向选择参考场景矩阵扩展。
+- 新增 `docs/sar_phase2_reference_closure_audit.md`。
+
+## 阶段 35：参考场景矩阵扩展契约
+
+状态：`complete`
+
+已完成：
+
+- 新增 `SAR_REFERENCE_SCENARIO_MATRIX_CONTRACT.md`。
+- 冻结 M1-M7 首批场景，覆盖 L1/L2/L3、中心/偏置/二维多目标与通过区/失效区。
+- 冻结统一 raw、轨迹、网格、质量指标和跨算法比较口径。
+- Auto、public API、尺寸扩展、时变 PRF 和全图 replay 继续后置。
+
+## 阶段 36：参考场景矩阵实现
+
+状态：`in_progress`
+
+任务：
+
+1. 提取可复用的矩阵场景描述与执行 helper。
+2. 实现 M1-M7 确定性质量矩阵测试。
+3. 记录质量结果与暴露的适用边界。
+4. 完成双环境回归、审批报告和下一决策门。
 
 ## 当前待决策问题
 
@@ -955,4 +987,4 @@
 
 ## 下一步
 
-执行阶段 34：完成 Phase 2 参考级成像与算法对比闭环审计，并冻结下一扩展方向。
+执行阶段 36：实现 M1-M7 参考场景矩阵与质量报告。

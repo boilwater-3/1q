@@ -875,6 +875,23 @@
 - Auto、runtime patch、全图复矩阵 replay、时变 PRF 和 BP 尺寸扩展继续后置。
 - 阶段 34 Phase 2 完成度审计已启动。
 
+## 2026-06-06 阶段 34-35 Phase 2 完成度审计与参考矩阵契约
+
+### 已执行
+
+1. 按参考成像、算法对比、L2/L3 适用边界、public Session、replay 和性能逐项审计现有证据。
+2. 明确当前闭环仅批准固定 PRF、小场景、点目标范围，不外推为通用质量声明。
+3. 明确 Auto 仍缺代表性参考矩阵、选择阈值、资源预算、降级规则和结构化选择诊断。
+4. 选择参考场景矩阵扩展作为下一方向。
+5. 新增 `docs/sar_phase2_reference_closure_audit.md`。
+6. 新增 `SAR_REFERENCE_SCENARIO_MATRIX_CONTRACT.md`，冻结 M1-M7 首批矩阵。
+
+### 阶段状态
+
+- 阶段 34 完成。
+- 阶段 35 契约冻结完成。
+- 阶段 36 参考场景矩阵实现已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
