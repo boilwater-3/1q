@@ -10,9 +10,36 @@ namespace geometry {
 
 namespace {
 
+constexpr double kPi = 3.141592653589793238462643383279502884;
+
 bool IsFinite(const LocalPoint& point) {
   return std::isfinite(point.x_m) && std::isfinite(point.y_m) && std::isfinite(point.z_m);
 }
+
+struct DeterministicGaussianSampler {
+  std::mt19937& generator;
+  bool has_spare;
+  double spare;
+
+  explicit DeterministicGaussianSampler(std::mt19937& gen)
+      : generator(gen), has_spare(false), spare(0.0) {}
+
+  double Next() {
+    if (has_spare) {
+      has_spare = false;
+      return spare;
+    }
+    // Box-Muller transform: platform-independent Gaussian sampling.
+    // u1 and u2 are in (0, 1) to avoid log(0).
+    constexpr double kScale = 1.0 / (static_cast<double>(std::mt19937::max()) + 1.0);
+    const double u1 = (static_cast<double>(generator()) + 0.5) * kScale;
+    const double u2 = (static_cast<double>(generator()) + 0.5) * kScale;
+    const double r = std::sqrt(-2.0 * std::log(u1));
+    spare = r * std::sin(2.0 * kPi * u2);
+    has_spare = true;
+    return r * std::cos(2.0 * kPi * u2);
+  }
+};
 
 }  // namespace
 
@@ -60,7 +87,7 @@ bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
   }
 
   std::mt19937 generator(config.random_seed);
-  std::normal_distribution<double> normal(0.0, 1.0);
+  DeterministicGaussianSampler gaussian{generator};
   const double dt_s = 1.0 / config.ideal.prf_hz;
   pulses->assign(config.ideal.pulse_count, PlatformPulseState{});
   *diagnostics = TrajectoryErrorDiagnostics{};
@@ -83,9 +110,9 @@ bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
       pulse.position_m.z_m = previous.position_m.z_m + previous.velocity_z_mps * dt_s;
     }
     pulse.velocity_x_mps =
-        config.ideal.velocity_x_mps + normal(generator) * config.velocity_error_stddev_x_mps;
-    pulse.velocity_y_mps = normal(generator) * config.velocity_error_stddev_y_mps;
-    pulse.velocity_z_mps = normal(generator) * config.velocity_error_stddev_z_mps;
+        config.ideal.velocity_x_mps + gaussian.Next() * config.velocity_error_stddev_x_mps;
+    pulse.velocity_y_mps = gaussian.Next() * config.velocity_error_stddev_y_mps;
+    pulse.velocity_z_mps = gaussian.Next() * config.velocity_error_stddev_z_mps;
 
     const double position_error_m = Distance(pulse.position_m, ideal_pulses[index].position_m);
     const double velocity_error_x_mps = pulse.velocity_x_mps - config.ideal.velocity_x_mps;

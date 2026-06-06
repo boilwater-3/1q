@@ -31,6 +31,7 @@ struct EchoTargetDiagnostic {
   double slant_range_m{0.0};
   double two_way_delay_s{0.0};
   std::size_t delay_sample_index{0U};
+  double fractional_delay_samples{0.0};
   bool clipped{false};
   std::size_t clipped_samples{0U};
 };
