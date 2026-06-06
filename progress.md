@@ -675,6 +675,35 @@
 - 阶段 21 完成当前平台审批。
 - 阶段 22 L3 raw echo 与成像退化基线已启动。
 
+## 2026-06-06 阶段 22-23 L3 成像退化基线与后续决策
+
+### 已执行
+
+1. 使用折线 L3 实际轨迹生成单点 raw echo。
+2. 对比 L1-RDA/L1-GBP 与 L3-RDA/L3-GBP。
+3. 记录 `33x9` 扩大场景的既有跨算法基线不一致，不用于 L3 验收。
+4. 新增 `docs/sar_l3_imaging_degradation_baseline_report.md`。
+
+### 质量证据
+
+- L1-RDA 相对 L1-GBP：NRMS `0.042218`，相关系数 `0.999109`。
+- L3 raw echo 经 L1-RDA 相对 L3-GBP：NRMS `0.501878`，相关系数 `0.874059`。
+- L3-GBP 峰值位于预期目标像素邻域。
+
+### 最终回归
+
+- 默认与 Eigen 3.3.9 L3/GBP/补偿/RDA/Session 过滤测试：各 32/32 passed。
+- `ctest -L sar_ci`：4/4 passed。
+- `ctest -L sar_performance`：1/1 passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 22 完成当前平台审批。
+- 阶段 23 决策选择先审计现有一阶补偿对 L3 的适用性。
+- 阶段 24 L3 一阶补偿适用性审计已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
