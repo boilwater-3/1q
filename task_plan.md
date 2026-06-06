@@ -70,7 +70,8 @@
 | 45 | RDA 孔径二次相位跨度诊断实现 | complete_current_platform | RdaDiagnostics、Session、replay 和双环境回归通过 |
 | 46 | RDA 目标方位偏置误差决策门 | complete | 不批准单一偏置诊断、警告、拒绝或 Auto |
 | 47 | Phase 2 参考级成像闭环综合再审批 | complete | 固定 PRF 点目标闭环通过；选择 SNR 鲁棒性矩阵 |
-| 48 | 确定性噪声与 SNR 鲁棒性矩阵契约 | in_progress | 冻结测试侧噪声定义、矩阵和审批边界 |
+| 48 | 确定性噪声与 SNR 鲁棒性矩阵契约 | complete | 冻结测试侧噪声定义、矩阵和审批边界 |
+| 49 | 确定性噪声与 SNR 鲁棒性矩阵实现 | in_progress | 实现测试 helper、矩阵与审批报告 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1129,14 +1130,26 @@
 
 ## 阶段 48：确定性噪声与 SNR 鲁棒性矩阵契约
 
-状态：`in_progress`
+状态：`complete`
 
-任务：
+已完成：
 
 1. 冻结固定 seed 复高斯噪声定义和 SNR 计算口径。
 2. 冻结首批 L1 RDA/GBP/BP 参考场景与质量指标矩阵。
 3. 明确只修改测试支持层，不增加 public 配置、replay 或生产算法分支。
 4. 禁止由首批 SNR 矩阵直接生成 Auto、警告或结构化拒绝。
+5. 新增 `SAR_REFERENCE_SNR_MATRIX_CONTRACT.md`。
+
+## 阶段 49：确定性噪声与 SNR 鲁棒性矩阵实现
+
+状态：`in_progress`
+
+任务：
+
+1. 实现测试支持层固定 seed 复高斯噪声 helper 与 diagnostics。
+2. 实现 M1/M4 双 seed、多 SNR 参考矩阵。
+3. 验证 clean/noisy 算法比较、BP/GBP 一致性和趋势。
+4. 完成双环境审批门与审批报告。
 
 ## 当前待决策问题
 
@@ -1177,4 +1190,4 @@
 
 ## 下一步
 
-执行阶段 48：冻结确定性噪声与 SNR 鲁棒性参考矩阵契约。
+执行阶段 49：实现确定性噪声 helper 与 SNR 鲁棒性参考矩阵。

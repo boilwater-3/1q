@@ -597,3 +597,11 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - RDA 与 BP 的适用域和尺寸门不同，GBP 仍是内部参考路径，现有 diagnostics 也不能形成通用质量阈值，因此 Auto 继续不批准。
 - 当前跨算法证据仍以无噪声确定性点目标为主，无法证明质量指标和算法比较在不同 SNR 下的稳定性。
 - 下一方向选择测试侧固定 seed 复高斯噪声与 SNR 鲁棒性矩阵；分布式杂波、辐射定标、时变 PRF 和真实动力学轨迹继续后置。
+
+## 确定性噪声与 SNR 鲁棒性矩阵契约发现
+
+- 测试噪声必须注入 raw pulse history，并由 RDA、GBP 与 BP 共同消费同一 noisy 输入。
+- 为避免标准库实现相关序列，固定 seed 噪声使用自定义伪随机生成器与明确的复高斯变换。
+- 候选噪声按总能量精确缩放到 requested SNR，使 realized SNR 可重复并可严格验证。
+- 首批矩阵覆盖 M1 中心单点、M4 二维多目标和无噪声/30/20/10/0 dB；只评估趋势，不冻结通用阈值。
+- 生产噪声模型、public 配置、replay、Auto、杂波和辐射定标继续后置。
