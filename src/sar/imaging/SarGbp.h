@@ -38,6 +38,7 @@ struct GbpDiagnostics {
   std::size_t out_of_bounds_samples{0U};
   std::size_t max_approved_dimension{128U};
   std::string range_interpolation{"linear"};
+  std::string traversal_order{"pixel_major"};
 };
 
 struct FocusedGbpImage {
@@ -49,6 +50,11 @@ bool FocusSmallSceneGbp(const GbpConfig& config,
                         const std::vector<geometry::PlatformPulseState>& pulses,
                         const signal::ComplexMatrix& raw_pulse_history,
                         const signal::ComplexVector& matched_filter, FocusedGbpImage* output);
+
+bool FocusSmallSceneBp(const GbpConfig& config,
+                       const std::vector<geometry::PlatformPulseState>& pulses,
+                       const signal::ComplexMatrix& raw_pulse_history,
+                       const signal::ComplexVector& matched_filter, FocusedGbpImage* output);
 
 }  // namespace imaging
 }  // namespace sar

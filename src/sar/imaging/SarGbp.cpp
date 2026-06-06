@@ -14,6 +14,8 @@ constexpr double kPi = 3.141592653589793238462643383279502884;
 constexpr double kSpeedOfLightMps = 299792458.0;
 constexpr std::size_t kMaxApprovedDimension = 128U;
 
+enum class BackprojectionTraversal { kPixelMajor, kPulseMajor };
+
 bool IsValid(const GbpConfig& config, const std::vector<geometry::PlatformPulseState>& pulses,
              const signal::ComplexMatrix& raw_pulse_history,
              const signal::ComplexVector& matched_filter) {
@@ -63,12 +65,40 @@ bool RangeCompressHistory(const signal::ComplexMatrix& raw_pulse_history,
   return true;
 }
 
-}  // namespace
+geometry::LocalPoint MakePixel(const GbpConfig& config, std::size_t row, std::size_t col) {
+  geometry::LocalPoint pixel;
+  pixel.x_m =
+      config.grid.azimuth_start_m + static_cast<double>(row) * config.grid.azimuth_spacing_m;
+  pixel.y_m = config.grid.range_start_m + static_cast<double>(col) * config.grid.range_spacing_m;
+  pixel.z_m = config.grid.image_plane_z_m;
+  return pixel;
+}
 
-bool FocusSmallSceneGbp(const GbpConfig& config,
-                        const std::vector<geometry::PlatformPulseState>& pulses,
-                        const signal::ComplexMatrix& raw_pulse_history,
-                        const signal::ComplexVector& matched_filter, FocusedGbpImage* output) {
+void AccumulatePulseAtPixel(const GbpConfig& config,
+                            const std::vector<geometry::PlatformPulseState>& pulses,
+                            const signal::ComplexMatrix& range_compressed, double wavelength_m,
+                            std::size_t pulse, std::size_t row, std::size_t col,
+                            FocusedGbpImage* output, GbpDiagnostics* diagnostics) {
+  const geometry::LocalPoint pixel = MakePixel(config, row, col);
+  const double slant_range_m = geometry::Distance(pulses[pulse].position_m, pixel);
+  const double source_col = 2.0 * slant_range_m * config.sample_rate_hz / kSpeedOfLightMps;
+  bool out_of_bounds = false;
+  const signal::ComplexSample sample =
+      InterpolateLinear(range_compressed, pulse, source_col, &out_of_bounds);
+  if (out_of_bounds) {
+    ++diagnostics->out_of_bounds_samples;
+    return;
+  }
+  const double phase = 4.0 * kPi * slant_range_m / wavelength_m;
+  output->image(row, col) += sample * signal::ComplexSample(std::cos(phase), std::sin(phase));
+  ++diagnostics->accumulated_samples;
+}
+
+bool FocusSmallSceneBackprojection(const GbpConfig& config,
+                                   const std::vector<geometry::PlatformPulseState>& pulses,
+                                   const signal::ComplexMatrix& raw_pulse_history,
+                                   const signal::ComplexVector& matched_filter,
+                                   BackprojectionTraversal traversal, FocusedGbpImage* output) {
   if (output == nullptr || !IsValid(config, pulses, raw_pulse_history, matched_filter)) {
     return false;
   }
@@ -81,41 +111,52 @@ bool FocusSmallSceneGbp(const GbpConfig& config,
 
   GbpDiagnostics diagnostics;
   diagnostics.evaluated_pixels = config.grid.azimuth_pixel_count * config.grid.range_pixel_count;
+  diagnostics.traversal_order =
+      traversal == BackprojectionTraversal::kPixelMajor ? "pixel_major" : "pulse_major";
   output->image.rows = config.grid.azimuth_pixel_count;
   output->image.cols = config.grid.range_pixel_count;
   output->image.values.assign(diagnostics.evaluated_pixels, signal::ComplexSample(0.0, 0.0));
 
   const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
-  for (std::size_t row = 0U; row < output->image.rows; ++row) {
-    const double x_m =
-        config.grid.azimuth_start_m + static_cast<double>(row) * config.grid.azimuth_spacing_m;
-    for (std::size_t col = 0U; col < output->image.cols; ++col) {
-      const double y_m =
-          config.grid.range_start_m + static_cast<double>(col) * config.grid.range_spacing_m;
-      geometry::LocalPoint pixel;
-      pixel.x_m = x_m;
-      pixel.y_m = y_m;
-      pixel.z_m = config.grid.image_plane_z_m;
-      signal::ComplexSample coherent_sum(0.0, 0.0);
-      for (std::size_t pulse = 0U; pulse < pulses.size(); ++pulse) {
-        const double slant_range_m = geometry::Distance(pulses[pulse].position_m, pixel);
-        const double source_col = 2.0 * slant_range_m * config.sample_rate_hz / kSpeedOfLightMps;
-        bool out_of_bounds = false;
-        const signal::ComplexSample sample =
-            InterpolateLinear(range_compressed, pulse, source_col, &out_of_bounds);
-        if (out_of_bounds) {
-          ++diagnostics.out_of_bounds_samples;
-          continue;
+  if (traversal == BackprojectionTraversal::kPixelMajor) {
+    for (std::size_t row = 0U; row < output->image.rows; ++row) {
+      for (std::size_t col = 0U; col < output->image.cols; ++col) {
+        for (std::size_t pulse = 0U; pulse < pulses.size(); ++pulse) {
+          AccumulatePulseAtPixel(config, pulses, range_compressed, wavelength_m, pulse, row, col,
+                                 output, &diagnostics);
         }
-        const double phase = 4.0 * kPi * slant_range_m / wavelength_m;
-        coherent_sum += sample * signal::ComplexSample(std::cos(phase), std::sin(phase));
-        ++diagnostics.accumulated_samples;
       }
-      output->image(row, col) = coherent_sum;
+    }
+  } else {
+    for (std::size_t pulse = 0U; pulse < pulses.size(); ++pulse) {
+      for (std::size_t row = 0U; row < output->image.rows; ++row) {
+        for (std::size_t col = 0U; col < output->image.cols; ++col) {
+          AccumulatePulseAtPixel(config, pulses, range_compressed, wavelength_m, pulse, row, col,
+                                 output, &diagnostics);
+        }
+      }
     }
   }
   output->diagnostics = diagnostics;
   return true;
+}
+
+}  // namespace
+
+bool FocusSmallSceneGbp(const GbpConfig& config,
+                        const std::vector<geometry::PlatformPulseState>& pulses,
+                        const signal::ComplexMatrix& raw_pulse_history,
+                        const signal::ComplexVector& matched_filter, FocusedGbpImage* output) {
+  return FocusSmallSceneBackprojection(config, pulses, raw_pulse_history, matched_filter,
+                                       BackprojectionTraversal::kPixelMajor, output);
+}
+
+bool FocusSmallSceneBp(const GbpConfig& config,
+                       const std::vector<geometry::PlatformPulseState>& pulses,
+                       const signal::ComplexMatrix& raw_pulse_history,
+                       const signal::ComplexVector& matched_filter, FocusedGbpImage* output) {
+  return FocusSmallSceneBackprojection(config, pulses, raw_pulse_history, matched_filter,
+                                       BackprojectionTraversal::kPulseMajor, output);
 }
 
 }  // namespace imaging

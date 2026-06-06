@@ -776,6 +776,36 @@
 - 阶段 28 L3 BP 工程契约完成。
 - 阶段 29 L3 BP 内部闭环已启动。
 
+## 2026-06-06 阶段 29-30 L3 BP 内部闭环与接入决策
+
+### 已执行
+
+1. 提取 GBP/BP 共享后向投影核心。
+2. 新增脉冲优先 BP 内部入口和遍历顺序诊断。
+3. 验证 L1/L3 下 GBP/BP 复图逐样本一致。
+4. 验证 BP 在 `12 m` L3 一阶补偿失效区优于补偿后 RDA。
+5. 新增 `128x128` BP 独立性能测试。
+6. 新增 `docs/sar_l3_bp_acceptance_report.md`。
+
+### 性能证据
+
+- `128x128` GBP Debug：约 `0.183516 s`。
+- `128x128` BP Debug：约 `0.177757 s`。
+
+### 最终回归
+
+- 默认与 Eigen 3.3.9 L3/GBP/BP/补偿/RDA/Session 过滤测试：各 35/35 passed。
+- `ctest -L sar_ci`：4/4 passed。
+- `ctest -L sar_performance`：1/1 passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 29 完成当前平台审批。
+- 阶段 30 选择冻结 L3 BP public Session 接入契约，Auto 继续后置。
+- 阶段 31 L3 BP Session 接入契约已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

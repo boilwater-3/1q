@@ -388,6 +388,49 @@ TEST(SarGbpTest, L3FirstOrderCompensationApplicabilityMatrixFindsPassAndFailureR
   EXPECT_GT(previous_residual_m, 0.001);
 }
 
+TEST(SarGbpTest, BpAndGbpProduceIdenticalL1AndL3Images) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  const std::size_t target_delay = 20U;
+  const std::vector<echo::PointTarget> targets = {
+      test_support::MakeReferenceTargetAtDelay(target_delay, scene.sample_rate_hz, 1.0)};
+  const imaging::GbpConfig config = MakeGbpConfig(scene, target_delay, 9U, 9U);
+
+  signal::ComplexMatrix l1_raw;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(scene, targets, &l1_raw));
+  imaging::FocusedGbpImage l1_gbp;
+  imaging::FocusedGbpImage l1_bp;
+  ASSERT_TRUE(
+      imaging::FocusSmallSceneGbp(config, scene.pulses, l1_raw, scene.matched_filter, &l1_gbp));
+  ASSERT_TRUE(
+      imaging::FocusSmallSceneBp(config, scene.pulses, l1_raw, scene.matched_filter, &l1_bp));
+  EXPECT_EQ(l1_bp.image.values, l1_gbp.image.values);
+  EXPECT_EQ(l1_gbp.diagnostics.traversal_order, "pixel_major");
+  EXPECT_EQ(l1_bp.diagnostics.traversal_order, "pulse_major");
+
+  test_support::ReferencePointScene l3_scene = scene;
+  l3_scene.pulses = BuildTurningWaypointTrack(scene, 12.0);
+  signal::ComplexMatrix l3_raw;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(l3_scene, targets, &l3_raw));
+  imaging::FocusedGbpImage l3_gbp;
+  imaging::FocusedGbpImage l3_bp;
+  ASSERT_TRUE(
+      imaging::FocusSmallSceneGbp(config, l3_scene.pulses, l3_raw, scene.matched_filter, &l3_gbp));
+  ASSERT_TRUE(
+      imaging::FocusSmallSceneBp(config, l3_scene.pulses, l3_raw, scene.matched_filter, &l3_bp));
+  EXPECT_EQ(l3_bp.image.values, l3_gbp.image.values);
+
+  L3CompensationCaseMetrics compensated_rda;
+  ASSERT_TRUE(EvaluateL3CompensationCase(scene, target_delay, 12.0, &compensated_rda));
+  const imaging::ImageComparisonMetrics bp_vs_gbp =
+      imaging::CompareImagesWithGlobalPhaseReference(l3_gbp.image, l3_bp.image);
+  ASSERT_TRUE(bp_vs_gbp.valid);
+  EXPECT_DOUBLE_EQ(bp_vs_gbp.normalized_rms_error, 0.0);
+  EXPECT_DOUBLE_EQ(bp_vs_gbp.coherent_correlation, 1.0);
+  EXPECT_LT(bp_vs_gbp.normalized_rms_error, compensated_rda.compensated.normalized_rms_error);
+  EXPECT_GT(bp_vs_gbp.coherent_correlation, compensated_rda.compensated.coherent_correlation);
+}
+
 TEST(SarGbpTest, RejectsSceneBeyondApproved128SquareGate) {
   test_support::ReferencePointScene scene;
   ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
@@ -400,6 +443,8 @@ TEST(SarGbpTest, RejectsSceneBeyondApproved128SquareGate) {
   imaging::FocusedGbpImage focused;
   EXPECT_FALSE(imaging::FocusSmallSceneGbp(oversized, scene.pulses, raw_history,
                                            scene.matched_filter, &focused));
+  EXPECT_FALSE(imaging::FocusSmallSceneBp(oversized, scene.pulses, raw_history,
+                                          scene.matched_filter, &focused));
 }
 
 }  // namespace

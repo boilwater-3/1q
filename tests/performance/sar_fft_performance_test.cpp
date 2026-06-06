@@ -168,6 +168,50 @@ TEST(SarPerformanceTest, GbpCompletesApproved128SquareReferenceScene) {
   EXPECT_LT(elapsed_seconds, kCurrentPlatformLimitSeconds);
 }
 
+TEST(SarPerformanceTest, BpCompletesApproved128SquareReferenceScene) {
+  constexpr std::size_t kSize = 128U;
+  constexpr double kCurrentPlatformLimitSeconds = 10.0;
+  test_support::ReferencePointScene scene;
+  scene.range_sample_count = kSize;
+  scene.pulse_count = 128U;
+  scene.prf_hz = 100.0;
+  scene.platform_velocity_mps = 20.0;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  const std::size_t target_delay = 64U;
+  signal::ComplexMatrix raw_history;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(
+      scene, {test_support::MakeReferenceTargetAtDelay(target_delay, scene.sample_rate_hz, 1.0)},
+      &raw_history));
+
+  imaging::GbpConfig config;
+  config.sample_rate_hz = scene.sample_rate_hz;
+  config.carrier_frequency_hz = scene.carrier_frequency_hz;
+  config.grid.azimuth_pixel_count = kSize;
+  config.grid.range_pixel_count = kSize;
+  config.grid.azimuth_spacing_m = scene.platform_velocity_mps / scene.prf_hz;
+  config.grid.range_spacing_m =
+      test_support::kReferenceSpeedOfLightMps / (2.0 * scene.sample_rate_hz);
+  config.grid.azimuth_start_m =
+      -0.5 * static_cast<double>(kSize - 1U) * config.grid.azimuth_spacing_m;
+  config.grid.range_start_m = 0.0;
+
+  const auto start = std::chrono::steady_clock::now();
+  imaging::FocusedGbpImage focused;
+  ASSERT_TRUE(imaging::FocusSmallSceneBp(config, scene.pulses, raw_history, scene.matched_filter,
+                                         &focused));
+  const double elapsed_seconds =
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+
+  RecordProperty("matrix_rows", static_cast<int>(kSize));
+  RecordProperty("matrix_cols", static_cast<int>(kSize));
+  RecordProperty("elapsed_seconds", std::to_string(elapsed_seconds));
+  EXPECT_EQ(focused.image.rows, kSize);
+  EXPECT_EQ(focused.image.cols, kSize);
+  EXPECT_EQ(focused.diagnostics.evaluated_pixels, kSize * kSize);
+  EXPECT_EQ(focused.diagnostics.traversal_order, "pulse_major");
+  EXPECT_LT(elapsed_seconds, kCurrentPlatformLimitSeconds);
+}
+
 TEST(SarPerformanceTest, FirstOrderMotionCompensationCompletes1024SquareRawHistory) {
   constexpr std::size_t kSize = 1024U;
   constexpr double kCurrentPlatformLimitSeconds = 10.0;

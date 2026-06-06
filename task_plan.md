@@ -51,7 +51,9 @@
 | 26 | L3 一阶补偿适用边界矩阵 | complete_current_platform | `0-6 m` 当前门通过，`12 m` 明确失效 |
 | 27 | L3 失效区后续决策门 | complete | 选择共享核心的 L3 BP 路径，二阶补偿继续后置 |
 | 28 | L3 BP 工程契约 | complete | 冻结 BP/GBP 共享核心、遍历顺序和验收边界 |
-| 29 | L3 BP 内部闭环 | in_progress | 共享核心、逐样本一致性、失效区质量和性能 |
+| 29 | L3 BP 内部闭环 | complete_current_platform | 逐样本一致、L3 失效区质量和性能通过 |
+| 30 | L3 BP 后续接入决策门 | complete | 选择受控 public Session 接入契约，Auto 继续后置 |
+| 31 | L3 BP Session 接入契约 | in_progress | 冻结 waypoint、时间基准、replay、算法和尺寸门 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -817,7 +819,7 @@
 
 ## 阶段 29：L3 BP 内部闭环
 
-状态：`in_progress`
+状态：`complete_current_platform`
 
 任务：
 
@@ -826,6 +828,37 @@
 3. 验证 L1/L3 场景 GBP/BP 逐样本一致。
 4. 验证 BP 在 `12 m` L3 失效区优于一阶补偿 RDA。
 5. 增加 `128x128` BP 独立性能门并完成双环境回归。
+
+已完成：
+
+- GBP/BP 共用后向投影核心，仅遍历顺序不同。
+- L1/L3 相同输入 BP 与 GBP 复图逐样本一致。
+- `12 m` L3 失效区中 BP 相对 GBP 为零误差，优于一阶补偿 RDA。
+- `128x128` BP Debug 约 `0.177757 s`，通过独立性能门。
+- 新增 `docs/sar_l3_bp_acceptance_report.md`。
+
+## 阶段 30：L3 BP 后续接入决策门
+
+状态：`complete`
+
+决策结论：
+
+- 下一步冻结 L3 航路点与 BP 的受控 public Session 接入契约。
+- public L3 必须默认关闭、显式选择 BP、进入 session config replay，并严格受 `128x128` 门禁。
+- Auto 继续后置；当前不允许根据轨迹自动切换算法。
+- 时变 PRF 调度、二阶补偿、自聚焦继续后置。
+
+## 阶段 31：L3 BP Session 接入契约
+
+状态：`in_progress`
+
+任务：
+
+1. 冻结 public waypoint 配置与 session 起始时间基准。
+2. 冻结固定 PRF 脉冲时刻生成与航路点覆盖拒绝行为。
+3. 冻结显式 BP policy、L2/L3 互斥、`128x128` 尺寸门和默认关闭行为。
+4. 冻结 waypoint/session config replay；runtime patch 继续禁止。
+5. 冻结输出摘要和结构化诊断，不开放全图 replay。
 
 ## 当前待决策问题
 
@@ -862,4 +895,4 @@
 
 ## 下一步
 
-执行阶段 29：实现共享后向投影核心上的 L3 BP 内部闭环。
+执行阶段 31：冻结 L3 航路点与 BP 的受控 public Session 接入契约。
