@@ -486,3 +486,11 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - `12 m` L3 一阶补偿失效区中，BP 相对 L3-GBP 的 NRMS 为 `0.0`、相关系数为 `1.0`，明确优于补偿后 RDA。
 - `128x128` Debug 下 GBP 约 `0.183516 s`、BP 约 `0.177757 s`，遍历顺序变化未引入不可接受性能回退。
 - BP 内部能力已具备，但 public Session 尚无 waypoint、时间基准、显式算法 policy 或 BP replay 契约，因此不得直接接入。
+
+## L3 BP Public Session 接入契约发现
+
+- 现有 public SAR 输入与目标均使用 LLA；public waypoint 应保持 LLA，并在 Session 内相对 scene center 转换为 local Cartesian，不能泄漏内部坐标类型。
+- L3 waypoint 时间采用相对 Session 起点秒数；固定 PRF 脉冲时刻由连续 `pulse_id / PRF` 生成，禁止超出 waypoint 覆盖范围外推。
+- L3 BP 必须显式启用，并与 L1-RDA、L2 运动补偿互斥；当前不允许根据轨迹自动选择算法。
+- public L3 BP 必须使用独立 `128x128` 尺寸门，不能沿用 RDA `1024x1024` 上限。
+- waypoint、BP policy 和 L3/BP 输出摘要必须进入 replay，但不得进入 runtime patch，也不开放全图复矩阵。

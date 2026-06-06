@@ -53,7 +53,9 @@
 | 28 | L3 BP 工程契约 | complete | 冻结 BP/GBP 共享核心、遍历顺序和验收边界 |
 | 29 | L3 BP 内部闭环 | complete_current_platform | 逐样本一致、L3 失效区质量和性能通过 |
 | 30 | L3 BP 后续接入决策门 | complete | 选择受控 public Session 接入契约，Auto 继续后置 |
-| 31 | L3 BP Session 接入契约 | in_progress | 冻结 waypoint、时间基准、replay、算法和尺寸门 |
+| 31 | L3 BP Session 接入契约 | complete | 冻结 waypoint、时间基准、replay、算法和尺寸门 |
+| 32 | L3 BP 公开配置与 replay | in_progress | waypoint/policy/output schema、codec 和 round-trip |
+| 33 | L3 BP Session 执行闭环 | pending | L3 raw echo、BP 聚焦、诊断、replay 和回归 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -850,7 +852,7 @@
 
 ## 阶段 31：L3 BP Session 接入契约
 
-状态：`in_progress`
+状态：`complete`
 
 任务：
 
@@ -859,6 +861,35 @@
 3. 冻结显式 BP policy、L2/L3 互斥、`128x128` 尺寸门和默认关闭行为。
 4. 冻结 waypoint/session config replay；runtime patch 继续禁止。
 5. 冻结输出摘要和结构化诊断，不开放全图 replay。
+
+已完成：
+
+- 新增 `SAR_L3_BP_SESSION_INTEGRATION_CONTRACT.md`。
+- public waypoint 使用相对 Session 起点时间与 LLA，内部转换为 local Cartesian。
+- public L3 固定 PRF，显式选择 BP，与 L1-RDA/L2 互斥。
+- 冻结独立 `128x128` 尺寸门、输出阶段、诊断和 replay 边界。
+
+## 阶段 32：L3 BP 公开配置与 replay
+
+状态：`in_progress`
+
+任务：
+
+1. 新增 public waypoint、L3 BP policy 和输出摘要字段。
+2. 更新 session/cycle FlatBuffers schema 和生成头。
+3. 更新 codec、round-trip 和 public smoke。
+4. 验证旧 payload/default 行为保持 L3/BP 关闭。
+
+## 阶段 33：L3 BP Session 执行闭环
+
+状态：`pending`
+
+任务：
+
+1. Session 按固定 PRF 和 waypoint 覆盖生成 L3 脉冲轨迹。
+2. 使用 L3 轨迹生成 raw echo 并执行 BP。
+3. 实现互斥、覆盖范围和 `128x128` 结构化拒绝。
+4. 输出 L3/BP diagnostics，并完成摘要级 replay。
 
 ## 当前待决策问题
 
@@ -895,4 +926,4 @@
 
 ## 下一步
 
-执行阶段 31：冻结 L3 航路点与 BP 的受控 public Session 接入契约。
+执行阶段 32：新增 L3 BP 公开配置、输出摘要与 replay 契约。

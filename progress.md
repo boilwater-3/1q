@@ -806,6 +806,20 @@
 - 阶段 30 选择冻结 L3 BP public Session 接入契约，Auto 继续后置。
 - 阶段 31 L3 BP Session 接入契约已启动。
 
+## 2026-06-06 阶段 31 L3 BP Session 接入契约
+
+### 已执行
+
+1. 新增 `SAR_L3_BP_SESSION_INTEGRATION_CONTRACT.md`。
+2. 冻结 public waypoint 的 LLA、相对 Session 起点时间和固定 PRF 契约。
+3. 冻结 L3 BP 与 L1-RDA/L2 互斥、独立 `128x128` 门和结构化拒绝。
+4. 冻结输出阶段、diagnostics、session config replay 和 runtime patch 禁止边界。
+
+### 阶段状态
+
+- 阶段 31 L3 BP Session 接入契约完成。
+- 阶段 32 L3 BP 公开配置与 replay 已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
