@@ -1087,6 +1087,35 @@
 - 阶段 45 完成当前平台审批。
 - 阶段 46 RDA 目标方位偏置误差决策门已启动。
 
+## 2026-06-06 阶段 46 RDA 目标方位偏置误差决策门
+
+### 已执行
+
+1. 新增等物理孔径、等归一化目标偏置矩阵，分离孔径、采样密度与目标布局。
+2. 计算目标偏置相对 broadside 中心切线的非线性相位残差。
+3. 新增正负目标偏置对称性矩阵。
+4. 新增 `docs/sar_rda_target_azimuth_offset_decision.md`。
+
+### 决策结论
+
+- 目标偏置额外误差对方向对称，并随偏置幅值增加。
+- 非线性相位残差不能单独解释额外误差；质量还依赖孔径相位跨度和采样密度。
+- 不新增生产 diagnostics、质量警告、结构化拒绝或 Auto。
+
+### 验证结果
+
+- 默认与 Conan Eigen 3.3.9 目标偏置决策测试：各 2/2 passed。
+- 默认与 Conan Eigen 3.3.9 全部 `Sar*`：各 95/95 passed。
+- 默认与 Conan Eigen 3.3.9 `sar_ci`：各 4/4 passed。
+- 默认 `sar_performance`：1/1 passed。
+- Conan Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 46 决策完成。
+- 阶段 47 Phase 2 参考级成像与算法对比闭环综合再审批已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

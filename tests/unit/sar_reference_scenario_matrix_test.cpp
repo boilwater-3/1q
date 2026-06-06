@@ -16,6 +16,7 @@ namespace {
 
 constexpr std::size_t kMatrixCenterDelay = 20U;
 constexpr std::size_t kMatrixPixels = 9U;
+constexpr double kPi = 3.141592653589793238462643383279502884;
 
 imaging::GbpConfig MakeMatrixGbpConfig(const test_support::ReferencePointScene& scene,
                                        std::size_t center_delay = kMatrixCenterDelay,
@@ -128,6 +129,36 @@ void RecordQuality(const std::string& prefix, const imaging::ImageQualityMetrics
   ::testing::Test::RecordProperty(prefix + "_pslr_db", std::to_string(metrics.pslr_db));
   ::testing::Test::RecordProperty(prefix + "_islr_db", std::to_string(metrics.islr_db));
   ::testing::Test::RecordProperty(prefix + "_entropy_nats", std::to_string(metrics.entropy_nats));
+}
+
+double ComputeTargetOffsetNonlinearPhaseResidualRad(
+    const test_support::ReferencePointScene& scene, double target_azimuth_m,
+    std::size_t target_delay) {
+  const double reference_range_m =
+      static_cast<double>(target_delay) * test_support::kReferenceSpeedOfLightMps /
+      (2.0 * scene.sample_rate_hz);
+  const double wavelength_m =
+      test_support::kReferenceSpeedOfLightMps / scene.carrier_frequency_hz;
+  const double center_slant_m =
+      std::sqrt(reference_range_m * reference_range_m + target_azimuth_m * target_azimuth_m);
+  const double center_difference_m = center_slant_m - reference_range_m;
+  const double center_slope = -target_azimuth_m / center_slant_m;
+  double max_residual_m = 0.0;
+  for (const geometry::PlatformPulseState& pulse : scene.pulses) {
+    const double platform_azimuth_m = pulse.position_m.x_m;
+    const double target_slant_m =
+        std::sqrt(reference_range_m * reference_range_m +
+                  (platform_azimuth_m - target_azimuth_m) *
+                      (platform_azimuth_m - target_azimuth_m));
+    const double broadside_slant_m =
+        std::sqrt(reference_range_m * reference_range_m +
+                  platform_azimuth_m * platform_azimuth_m);
+    const double nonlinear_residual_m =
+        target_slant_m - broadside_slant_m - center_difference_m -
+        center_slope * platform_azimuth_m;
+    max_residual_m = std::max(max_residual_m, std::abs(nonlinear_residual_m));
+  }
+  return 4.0 * kPi * max_residual_m / wavelength_m;
 }
 
 struct ApplicabilityCaseResult {
@@ -710,6 +741,115 @@ TEST(SarRdaDiagnosticDecisionTest, ApertureAndAzimuthOffsetMatrixPreservesDiagno
     EXPECT_NEAR(results[equivalent_pair.first].comparison.normalized_rms_error,
                 results[equivalent_pair.second].comparison.normalized_rms_error, 0.03);
   }
+}
+
+TEST(SarRdaTargetOffsetDecisionTest, EqualPhysicalAperturesSeparateOffsetGeometryFromSampling) {
+  struct OffsetCaseResult {
+    double nonlinear_phase_residual_rad{0.0};
+    imaging::ImageComparisonMetrics comparison{};
+  };
+  std::vector<OffsetCaseResult> results;
+  const std::vector<std::pair<std::uint32_t, double>> equal_aperture_cases = {
+      std::make_pair(5U, 0.2), std::make_pair(9U, 0.1),
+      std::make_pair(9U, 0.2), std::make_pair(17U, 0.1),
+      std::make_pair(17U, 0.2), std::make_pair(33U, 0.1)};
+  const std::vector<double> normalized_offsets = {0.0, 0.25, 0.5};
+  for (const std::pair<std::uint32_t, double>& aperture_case : equal_aperture_cases) {
+    test_support::ReferencePointScene scene;
+    scene.pulse_count = aperture_case.first;
+    scene.prf_hz = scene.platform_velocity_mps / aperture_case.second;
+    ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+    const double aperture_half_width_m =
+        0.5 * static_cast<double>(scene.pulse_count - 1U) * aperture_case.second;
+    for (const double normalized_offset : normalized_offsets) {
+      const double target_azimuth_m = normalized_offset * aperture_half_width_m;
+      const echo::PointTarget target = test_support::MakeReferenceTargetAtPosition(
+          target_azimuth_m, kMatrixCenterDelay, scene.sample_rate_hz, 1.0);
+      signal::ComplexMatrix raw;
+      test_support::ReferenceRawHistoryDiagnostics raw_diagnostics;
+      ASSERT_TRUE(test_support::BuildReferenceRawHistory(scene, {target}, &raw, &raw_diagnostics));
+      MatrixFocusResult focus;
+      ASSERT_TRUE(FocusMatrix(scene, scene.pulses, raw, &focus, kMatrixCenterDelay,
+                              scene.pulse_count));
+      ASSERT_TRUE(focus.rda_vs_gbp.valid);
+      const std::string prefix =
+          "pulses_" + std::to_string(scene.pulse_count) + "_spacing_" +
+          std::to_string(static_cast<int>(aperture_case.second * 1000.0)) + "_normalized_offset_" +
+          std::to_string(static_cast<int>(normalized_offset * 100.0));
+      const double nonlinear_phase_residual_rad = ComputeTargetOffsetNonlinearPhaseResidualRad(
+          scene, target_azimuth_m, kMatrixCenterDelay);
+      RecordComparison(prefix, focus.rda_vs_gbp);
+      ::testing::Test::RecordProperty(prefix + "_aperture_half_width_m",
+                                      std::to_string(aperture_half_width_m));
+      ::testing::Test::RecordProperty(prefix + "_target_azimuth_m",
+                                      std::to_string(target_azimuth_m));
+      ::testing::Test::RecordProperty(prefix + "_nonlinear_phase_residual_rad",
+                                      std::to_string(nonlinear_phase_residual_rad));
+      results.push_back({nonlinear_phase_residual_rad, focus.rda_vs_gbp});
+      EXPECT_EQ(raw_diagnostics.clipped_pulse_count, 0U);
+      EXPECT_EQ(focus.bp.image.values, focus.gbp.image.values);
+    }
+  }
+
+  ASSERT_EQ(results.size(), 18U);
+  for (std::size_t aperture_index = 0U; aperture_index < equal_aperture_cases.size();
+       ++aperture_index) {
+    const std::size_t first = aperture_index * normalized_offsets.size();
+    EXPECT_NEAR(results[first].nonlinear_phase_residual_rad, 0.0, 1.0e-12);
+    EXPECT_LT(results[first].nonlinear_phase_residual_rad,
+              results[first + 1U].nonlinear_phase_residual_rad);
+    EXPECT_LT(results[first + 1U].nonlinear_phase_residual_rad,
+              results[first + 2U].nonlinear_phase_residual_rad);
+    EXPECT_LE(results[first].comparison.normalized_rms_error,
+              results[first + 1U].comparison.normalized_rms_error);
+    EXPECT_LE(results[first + 1U].comparison.normalized_rms_error,
+              results[first + 2U].comparison.normalized_rms_error);
+  }
+  for (std::size_t pair_index = 0U; pair_index < equal_aperture_cases.size(); pair_index += 2U) {
+    for (std::size_t offset_index = 0U; offset_index < normalized_offsets.size(); ++offset_index) {
+      const OffsetCaseResult& first =
+          results[pair_index * normalized_offsets.size() + offset_index];
+      const OffsetCaseResult& second =
+          results[(pair_index + 1U) * normalized_offsets.size() + offset_index];
+      EXPECT_NEAR(first.nonlinear_phase_residual_rad, second.nonlinear_phase_residual_rad, 1.0e-12);
+    }
+  }
+}
+
+TEST(SarRdaTargetOffsetDecisionTest, SymmetricOffsetsPreserveErrorMagnitude) {
+  test_support::ReferencePointScene scene;
+  scene.pulse_count = 17U;
+  scene.prf_hz = scene.platform_velocity_mps / 0.1;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  std::vector<double> nrms_values;
+  std::vector<double> nonlinear_phase_residuals_rad;
+  for (const double target_azimuth_m : {-0.4, -0.2, 0.0, 0.2, 0.4}) {
+    const echo::PointTarget target = test_support::MakeReferenceTargetAtPosition(
+        target_azimuth_m, kMatrixCenterDelay, scene.sample_rate_hz, 1.0);
+    signal::ComplexMatrix raw;
+    test_support::ReferenceRawHistoryDiagnostics raw_diagnostics;
+    ASSERT_TRUE(test_support::BuildReferenceRawHistory(scene, {target}, &raw, &raw_diagnostics));
+    MatrixFocusResult focus;
+    ASSERT_TRUE(
+        FocusMatrix(scene, scene.pulses, raw, &focus, kMatrixCenterDelay, scene.pulse_count));
+    ASSERT_TRUE(focus.rda_vs_gbp.valid);
+    const std::string prefix =
+        "signed_offset_" + std::to_string(static_cast<int>(target_azimuth_m * 1000.0));
+    RecordComparison(prefix, focus.rda_vs_gbp);
+    nrms_values.push_back(focus.rda_vs_gbp.normalized_rms_error);
+    nonlinear_phase_residuals_rad.push_back(
+        ComputeTargetOffsetNonlinearPhaseResidualRad(scene, target_azimuth_m, kMatrixCenterDelay));
+    ::testing::Test::RecordProperty(prefix + "_nonlinear_phase_residual_rad",
+                                    std::to_string(nonlinear_phase_residuals_rad.back()));
+    EXPECT_EQ(raw_diagnostics.clipped_pulse_count, 0U);
+    EXPECT_EQ(focus.bp.image.values, focus.gbp.image.values);
+  }
+
+  ASSERT_EQ(nrms_values.size(), 5U);
+  EXPECT_NEAR(nrms_values[0], nrms_values[4], 1.0e-12);
+  EXPECT_NEAR(nrms_values[1], nrms_values[3], 1.0e-12);
+  EXPECT_NEAR(nonlinear_phase_residuals_rad[0], nonlinear_phase_residuals_rad[4], 1.0e-12);
+  EXPECT_NEAR(nonlinear_phase_residuals_rad[1], nonlinear_phase_residuals_rad[3], 1.0e-12);
 }
 
 }  // namespace
