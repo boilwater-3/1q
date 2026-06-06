@@ -425,3 +425,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - L2 public 配置只进入初始化 session config，不进入 runtime patch，避免 aperture 中途改变随机轨迹统计。
 - FlatBuffers mission/policy 字段追加在表尾部，旧 payload 解码时新字段自然采用 `0/false`，保持默认 L1 行为。
 - `enable_l2_motion_compensation` 默认 `false`，public smoke test 和既有 replay 回放保持不变。
+
+## L2 Public Session 执行闭环发现
+
+- Session 必须让 raw pulse history、理想轨迹和实际轨迹使用同一 latest-N aperture；只保存当前周期新轨迹会导致跨周期补偿错位。
+- 跨周期 L2 轨迹通过上一实际脉冲位置与速度外推下一批首脉冲位置误差，保持批次边界位置连续。
+- 实际轨迹用于 raw echo，理想/实际轨迹共同用于 RDA 前一阶补偿；public L2 未补偿 RDA 继续禁止。
+- 全零扰动路径严格退化为 L1 输出摘要，并输出零位置/斜距误差诊断。
+- L2 非零扰动摘要级 replay、第二周期增量脉冲和双轨迹 aperture 对齐均通过。
+- 阶段 18 完成后仍没有证据支持开放多参考点、L3、二阶补偿、自聚焦或 Auto。

@@ -42,8 +42,9 @@ bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
   if (!GenerateStraightStripmapTrack(config.ideal, &ideal_pulses)) {
     return false;
   }
-  if (config.velocity_error_stddev_x_mps == 0.0 && config.velocity_error_stddev_y_mps == 0.0 &&
-      config.velocity_error_stddev_z_mps == 0.0) {
+  if (config.initial_position_error_m.x_m == 0.0 && config.initial_position_error_m.y_m == 0.0 &&
+      config.initial_position_error_m.z_m == 0.0 && config.velocity_error_stddev_x_mps == 0.0 &&
+      config.velocity_error_stddev_y_mps == 0.0 && config.velocity_error_stddev_z_mps == 0.0) {
     *pulses = ideal_pulses;
     *diagnostics = TrajectoryErrorDiagnostics{};
     return true;
@@ -63,6 +64,9 @@ bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
     pulse.time_s = ideal_pulses[index].time_s;
     if (index == 0U) {
       pulse.position_m = config.ideal.start_position_m;
+      pulse.position_m.x_m += config.initial_position_error_m.x_m;
+      pulse.position_m.y_m += config.initial_position_error_m.y_m;
+      pulse.position_m.z_m += config.initial_position_error_m.z_m;
     } else {
       const PlatformPulseState& previous = (*pulses)[index - 1U];
       pulse.position_m.x_m = previous.position_m.x_m + previous.velocity_x_mps * dt_s;

@@ -46,6 +46,7 @@ struct StraightStripmapTrackConfig {
 
 struct PerturbedStripmapTrackConfig {
   StraightStripmapTrackConfig ideal{};
+  LocalPoint initial_position_error_m{};
   double velocity_error_stddev_x_mps{0.0};
   double velocity_error_stddev_y_mps{0.0};
   double velocity_error_stddev_z_mps{0.0};

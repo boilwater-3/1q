@@ -605,6 +605,32 @@
 - 阶段 17 完成当前平台审批。
 - 阶段 18 Session 执行闭环已启动。
 
+## 2026-06-06 阶段 18 L2 Session 执行闭环
+
+### 已执行
+
+1. Session 新增 latest-N 理想/实际轨迹同步缓冲。
+2. 使用实际 L2 轨迹生成 raw echo，并在 RDA 前强制执行一阶运动补偿。
+3. 增加 L2 非法配置拒绝、轨迹与补偿结构化诊断。
+4. 增加默认关闭、零扰动严格退化、非零扰动、跨周期对齐和 L2 replay 测试。
+5. 新增 `docs/sar_l2_session_integration_acceptance_report.md`。
+
+### 最终回归
+
+- 默认构建 SAR 聚焦过滤测试：42/42 passed。
+- Eigen 3.3.9 SAR 聚焦过滤测试：42/42 passed。
+- 默认与 Eigen 3.3.9 SAR replay 过滤测试：各 9/9 passed。
+- `ctest -L sar_ci`：4/4 passed。
+- `ctest -L sar_performance`：1/1 passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 18 完成当前平台审批。
+- 阶段 19 L2 后续扩展决策门已就绪。
+- 在完成下一方向选择前，Auto、多参考点、L3、二阶补偿和外部逐脉冲轨迹输入继续后置。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

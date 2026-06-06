@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <deque>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -9,6 +10,7 @@
 #include "1q/sar/session/SarSessionFactory.h"
 #include "sar/echo/SarEcho.h"
 #include "sar/geometry/SarGeometry.h"
+#include "sar/imaging/SarMotionCompensation.h"
 #include "sar/imaging/SarRda.h"
 #include "sar/runtime/PulseRingBuffer.h"
 #include "sar/signal/SarWaveform.h"
@@ -111,6 +113,18 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config, SarCyc
                   "SAR session RDA requires raw echo generation in the current Phase 1 pipeline."));
     return false;
   }
+  if (config.policy.enable_l2_motion_compensation &&
+      (!config.policy.enable_l1_rda_imaging || !config.policy.enable_raw_echo_generation ||
+       config.mission.l2_velocity_error_stddev_x_mps < 0.0 ||
+       config.mission.l2_velocity_error_stddev_y_mps < 0.0 ||
+       config.mission.l2_velocity_error_stddev_z_mps < 0.0)) {
+    result->has_error = true;
+    result->abort_reason = "invalid_l2_motion_compensation_config";
+    result->diagnostics.push_back(MakeError(
+        "sar.invalid_l2_motion_compensation_config",
+        "SAR L2 motion compensation requires raw echo, RDA, and non-negative velocity errors."));
+    return false;
+  }
   return true;
 }
 
@@ -144,8 +158,11 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
                           const signal::ComplexVector& transmit_waveform,
                           runtime::PulseRingBuffer* pulse_buffer, std::uint64_t* next_pulse_id,
                           double* pulse_fraction_carry, signal::ComplexMatrix* history,
+                          std::deque<geometry::PlatformPulseState>* ideal_trajectory_buffer,
+                          std::deque<geometry::PlatformPulseState>* actual_trajectory_buffer,
                           SarCycleResult* result) {
-  if (pulse_buffer == nullptr || next_pulse_id == nullptr || pulse_fraction_carry == nullptr) {
+  if (pulse_buffer == nullptr || next_pulse_id == nullptr || pulse_fraction_carry == nullptr ||
+      ideal_trajectory_buffer == nullptr || actual_trajectory_buffer == nullptr) {
     result->has_error = true;
     result->abort_reason = "pulse_buffer_unavailable";
     result->diagnostics.push_back(
@@ -176,16 +193,54 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
                                        config.hardware.pulse_repetition_frequency_hz;
   track_config.velocity_x_mps = config.mission.platform_speed_mps;
   track_config.prf_hz = config.hardware.pulse_repetition_frequency_hz;
+  track_config.first_pulse_id = *next_pulse_id;
   track_config.pulse_count = static_cast<std::uint32_t>(pulse_count_to_generate);
 
-  std::vector<geometry::PlatformPulseState> pulses;
+  std::vector<geometry::PlatformPulseState> ideal_pulses;
   if (pulse_count_to_generate > 0U &&
-      !geometry::GenerateStraightStripmapTrack(track_config, &pulses)) {
+      !geometry::GenerateStraightStripmapTrack(track_config, &ideal_pulses)) {
     result->has_error = true;
     result->abort_reason = "track_generation_failed";
     result->diagnostics.push_back(
         MakeError("sar.track_generation_failed", "SAR failed to generate L1 stripmap track."));
     return false;
+  }
+  std::vector<geometry::PlatformPulseState> actual_pulses = ideal_pulses;
+  if (config.policy.enable_l2_motion_compensation && !ideal_pulses.empty()) {
+    geometry::PerturbedStripmapTrackConfig l2_config;
+    l2_config.ideal = track_config;
+    l2_config.velocity_error_stddev_x_mps = config.mission.l2_velocity_error_stddev_x_mps;
+    l2_config.velocity_error_stddev_y_mps = config.mission.l2_velocity_error_stddev_y_mps;
+    l2_config.velocity_error_stddev_z_mps = config.mission.l2_velocity_error_stddev_z_mps;
+    l2_config.random_seed =
+        config.mission.l2_random_seed + static_cast<std::uint32_t>(*next_pulse_id);
+    if (!actual_trajectory_buffer->empty()) {
+      const geometry::PlatformPulseState& previous = actual_trajectory_buffer->back();
+      const double dt_s = 1.0 / config.hardware.pulse_repetition_frequency_hz;
+      l2_config.initial_position_error_m.x_m = previous.position_m.x_m +
+                                               previous.velocity_x_mps * dt_s -
+                                               ideal_pulses.front().position_m.x_m;
+      l2_config.initial_position_error_m.y_m = previous.position_m.y_m +
+                                               previous.velocity_y_mps * dt_s -
+                                               ideal_pulses.front().position_m.y_m;
+      l2_config.initial_position_error_m.z_m = previous.position_m.z_m +
+                                               previous.velocity_z_mps * dt_s -
+                                               ideal_pulses.front().position_m.z_m;
+    }
+    geometry::TrajectoryErrorDiagnostics trajectory_diagnostics;
+    if (!geometry::GeneratePerturbedStripmapTrack(l2_config, &actual_pulses,
+                                                  &trajectory_diagnostics)) {
+      result->has_error = true;
+      result->abort_reason = "l2_track_generation_failed";
+      result->diagnostics.push_back(
+          MakeError("sar.l2_track_generation_failed", "SAR failed to generate L2 trajectory."));
+      return false;
+    }
+    result->diagnostics.push_back(MakeInfo(
+        "sar.l2_trajectory", "SAR L2 trajectory max_position_error_m=" +
+                                 std::to_string(trajectory_diagnostics.max_position_error_m) +
+                                 ", rms_position_error_m=" +
+                                 std::to_string(trajectory_diagnostics.rms_position_error_m)));
   }
 
   const std::vector<echo::PointTarget> targets = BuildLocalTargets(input, config.mission);
@@ -194,15 +249,15 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   echo_config.carrier_frequency_hz = config.hardware.carrier_frequency_hz;
   echo_config.range_sample_count = config.mission.range_sample_count;
 
-  history->rows = pulses.size();
+  history->rows = actual_pulses.size();
   history->cols = config.mission.range_sample_count;
   history->values.assign(history->rows * history->cols, signal::ComplexSample(0.0, 0.0));
 
   std::size_t clipping_count = 0U;
-  for (std::size_t row = 0U; row < pulses.size(); ++row) {
+  for (std::size_t row = 0U; row < actual_pulses.size(); ++row) {
     echo::RawEchoResult echo;
-    if (!echo::GeneratePointTargetRawEcho(echo_config, pulses[row], targets, transmit_waveform,
-                                          &echo)) {
+    if (!echo::GeneratePointTargetRawEcho(echo_config, actual_pulses[row], targets,
+                                          transmit_waveform, &echo)) {
       result->has_error = true;
       result->abort_reason = "raw_echo_failed";
       result->diagnostics.push_back(
@@ -223,6 +278,12 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
       return false;
     }
     ++(*next_pulse_id);
+    ideal_trajectory_buffer->push_back(ideal_pulses[row]);
+    actual_trajectory_buffer->push_back(actual_pulses[row]);
+    while (ideal_trajectory_buffer->size() > config.mission.azimuth_pulse_count) {
+      ideal_trajectory_buffer->pop_front();
+      actual_trajectory_buffer->pop_front();
+    }
   }
 
   if (clipping_count > 0U) {
@@ -261,7 +322,7 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   result->diagnostics.push_back(
       MakeInfo("sar.pulse_ring_buffer",
                "SAR pulse ring buffer size=" + std::to_string(pulse_buffer->size()) +
-                   ", generated=" + std::to_string(pulses.size()) +
+                   ", generated=" + std::to_string(actual_pulses.size()) +
                    ", overflow=" + (pulse_buffer->overflow_sticky() ? "true" : "false")));
   return true;
 }
@@ -275,6 +336,8 @@ struct SarSession::Impl {
 
   config::SarSessionConfig runtime_config;
   runtime::PulseRingBuffer raw_pulse_buffer;
+  std::deque<geometry::PlatformPulseState> ideal_trajectory_buffer;
+  std::deque<geometry::PlatformPulseState> actual_trajectory_buffer;
   std::uint64_t next_pulse_id{0U};
   double pulse_fraction_carry{0.0};
   SarOutputFrame previous_output{};
@@ -339,9 +402,10 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
 
   signal::ComplexMatrix raw_history;
   if (impl_->runtime_config.policy.enable_raw_echo_generation) {
-    if (!BuildRawPulseHistory(impl_->runtime_config, input, waveform.samples,
-                              &impl_->raw_pulse_buffer, &impl_->next_pulse_id,
-                              &impl_->pulse_fraction_carry, &raw_history, &result)) {
+    if (!BuildRawPulseHistory(
+            impl_->runtime_config, input, waveform.samples, &impl_->raw_pulse_buffer,
+            &impl_->next_pulse_id, &impl_->pulse_fraction_carry, &raw_history,
+            &impl_->ideal_trajectory_buffer, &impl_->actual_trajectory_buffer, &result)) {
       return result;
     }
     result.output_frame.completed_stage = SarProcessingStage::kRawEcho;
@@ -352,6 +416,45 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
     result.output_frame.has_range_compressed_echo = true;
   }
   if (impl_->runtime_config.policy.enable_l1_rda_imaging) {
+    signal::ComplexMatrix rda_input = raw_history;
+    if (impl_->runtime_config.policy.enable_l2_motion_compensation) {
+      if (impl_->ideal_trajectory_buffer.size() != raw_history.rows ||
+          impl_->actual_trajectory_buffer.size() != raw_history.rows) {
+        result.has_error = true;
+        result.abort_reason = "l2_trajectory_history_mismatch";
+        result.diagnostics.push_back(
+            MakeError("sar.l2_trajectory_history_mismatch",
+                      "SAR L2 trajectory history does not match the latest raw aperture."));
+        return result;
+      }
+      const std::vector<geometry::PlatformPulseState> ideal_trajectory(
+          impl_->ideal_trajectory_buffer.begin(), impl_->ideal_trajectory_buffer.end());
+      const std::vector<geometry::PlatformPulseState> actual_trajectory(
+          impl_->actual_trajectory_buffer.begin(), impl_->actual_trajectory_buffer.end());
+      imaging::FirstOrderMotionCompensationConfig compensation_config;
+      compensation_config.sample_rate_hz = impl_->runtime_config.hardware.sample_rate_hz;
+      compensation_config.carrier_frequency_hz =
+          impl_->runtime_config.hardware.carrier_frequency_hz;
+      compensation_config.reference_point_m.y_m =
+          impl_->runtime_config.mission.nominal_slant_range_m;
+      imaging::MotionCompensationDiagnostics compensation_diagnostics;
+      if (!imaging::ApplyFirstOrderMotionCompensation(compensation_config, ideal_trajectory,
+                                                      actual_trajectory, raw_history, &rda_input,
+                                                      &compensation_diagnostics)) {
+        result.has_error = true;
+        result.abort_reason = "motion_compensation_failed";
+        result.diagnostics.push_back(
+            MakeError("sar.motion_compensation_failed", "SAR L2 motion compensation failed."));
+        return result;
+      }
+      result.diagnostics.push_back(MakeInfo(
+          "sar.motion_compensation",
+          "SAR first-order motion compensation max_abs_range_error_m=" +
+              std::to_string(compensation_diagnostics.max_abs_range_error_m) +
+              ", rms_range_error_m=" + std::to_string(compensation_diagnostics.rms_range_error_m) +
+              ", max_abs_envelope_shift_bins=" +
+              std::to_string(compensation_diagnostics.max_abs_envelope_shift_bins)));
+    }
     imaging::RdaConfig rda_config;
     rda_config.sample_rate_hz = impl_->runtime_config.hardware.sample_rate_hz;
     rda_config.carrier_frequency_hz = impl_->runtime_config.hardware.carrier_frequency_hz;
@@ -361,7 +464,7 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
     rda_config.rcmc_interpolation = imaging::RcmcInterpolation::kLinear;
 
     imaging::FocusedSarImage image;
-    if (!imaging::FocusStripmapRda(rda_config, raw_history, matched_filter, &image)) {
+    if (!imaging::FocusStripmapRda(rda_config, rda_input, matched_filter, &image)) {
       result.has_error = true;
       result.abort_reason = "rda_failed";
       result.diagnostics.push_back(MakeError("sar.rda_failed", "SAR RDA focus failed."));

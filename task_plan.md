@@ -622,7 +622,7 @@
 
 ## 阶段 18：L2 Session 执行闭环
 
-状态：`in_progress`
+状态：`complete_current_platform`
 
 任务：
 
@@ -631,6 +631,29 @@
 3. 在 RDA 前强制执行一阶运动补偿。
 4. 输出结构化 L2 轨迹和补偿诊断。
 5. 验证默认 L1、L2 零扰动、L2 非零扰动和 replay。
+
+已完成：
+
+- Session 同步维护 latest-N 理想轨迹、实际轨迹和 raw pulse history。
+- 使用实际 L2 轨迹生成 raw echo，并在 RDA 前强制执行一阶运动补偿。
+- 零扰动严格退化为 L1 输出摘要；非零扰动与跨周期 aperture 对齐通过。
+- L2 session config replay、结构化诊断和非法配置拒绝通过。
+- 新增 `docs/sar_l2_session_integration_acceptance_report.md`。
+
+## 阶段 19：L2 后续扩展决策门
+
+状态：`ready_for_decision`
+
+候选方向：
+
+1. 多参考点/空间变化一阶运动补偿。
+2. L3 轨迹与二阶残余误差校正。
+3. 外部逐脉冲轨迹 public 输入与 replay 契约。
+
+当前建议：
+
+- 优先讨论外部逐脉冲轨迹输入契约；若没有真实导航/轨迹数据源需求，则保持后置。
+- Auto、多参考点、L3 和二阶补偿在选择前继续门禁。
 
 ## 当前待决策问题
 
@@ -667,4 +690,4 @@
 
 ## 下一步
 
-执行阶段 18：Session 使用实际 L2 轨迹生成 raw echo，在 RDA 前强制补偿并输出结构化诊断。
+阶段 18 已完成当前平台审批。进入阶段 19 决策门，在选择下一扩展方向前不扩大 public 或算法范围。

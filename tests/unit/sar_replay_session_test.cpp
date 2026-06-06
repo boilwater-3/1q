@@ -90,11 +90,17 @@ TEST(SarReplaySessionTest, ReplaySarTraceRoundtrip) {
     SarTraceSessionOptions options;
     options.replay_writer = replay_writer;
     options.trace_config_on_construct = true;
-    SarTraceSession session(MakeSmallRdaConfigForReplay(), options);
+    config::SarSessionConfig config = MakeSmallRdaConfigForReplay();
+    config.policy.enable_l2_motion_compensation = true;
+    config.mission.l2_velocity_error_stddev_y_mps = 30.0;
+    config.mission.l2_velocity_error_stddev_z_mps = 10.0;
+    config.mission.l2_random_seed = 2026U;
+    SarTraceSession session(config, options);
 
     const SarCycleResult result = session.StepWithResult(MakeReplayInput());
     ASSERT_TRUE(result.executed_this_cycle);
     ASSERT_TRUE(result.output_frame.has_l1_image);
+    ASSERT_GE(result.diagnostics.size(), 3U);
     replay_writer->Flush();
   }
 
