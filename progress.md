@@ -892,6 +892,31 @@
 - 阶段 35 契约冻结完成。
 - 阶段 36 参考场景矩阵实现已启动。
 
+## 2026-06-06 阶段 36 首批参考场景矩阵实现
+
+### 已执行
+
+1. 在参考场景支持层新增二维局部坐标目标构建 helper。
+2. 新增独立 `SarReferenceScenarioMatrixTest`，实现 M1-M7。
+3. M1-M4 验证 L1 中心、距离偏置、方位偏置和二维多目标的 RDA/GBP/BP 对比。
+4. M5 验证 L2 二维目标零扰动退化与固定 seed 补偿改善。
+5. M6/M7 复核 L3 二维目标 `3 m` 通过区与 `12 m` 失效区。
+6. 新增 `docs/sar_reference_scenario_matrix_acceptance_report.md`。
+
+### 验证结果
+
+- 默认与 Conan Eigen 3.3.9 M1-M7：各 7/7 passed。
+- 默认与 Conan Eigen 3.3.9 全部 `Sar*` 单测：各 80/80 passed。
+- 默认与 Conan Eigen 3.3.9 `ctest -L sar_ci`：各 4/4 passed。
+- 默认 `ctest -L sar_performance`：1/1 passed。
+- Conan Eigen 3.3.9 `ctest -L sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 36 完成当前平台审批。
+- 阶段 37 参考矩阵后续决策门已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

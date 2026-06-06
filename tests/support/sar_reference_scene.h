@@ -42,6 +42,18 @@ inline echo::PointTarget MakeReferenceTargetAtDelay(std::size_t delay_sample, do
   return target;
 }
 
+inline echo::PointTarget MakeReferenceTargetAtPosition(double azimuth_m, std::size_t delay_sample,
+                                                       double sample_rate_hz,
+                                                       double desired_amplitude) {
+  echo::PointTarget target =
+      MakeReferenceTargetAtDelay(delay_sample, sample_rate_hz, desired_amplitude);
+  target.position_m.x_m = azimuth_m;
+  const double range_m = target.position_m.y_m;
+  const double slant_range_m = std::sqrt(azimuth_m * azimuth_m + range_m * range_m);
+  target.rcs_m2 = std::pow(desired_amplitude * slant_range_m * slant_range_m, 2.0);
+  return target;
+}
+
 inline bool BuildReferencePointScene(ReferencePointScene* scene) {
   if (scene == nullptr) {
     return false;

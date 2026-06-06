@@ -58,7 +58,8 @@
 | 33 | L3 BP Session 执行闭环 | complete_current_platform | L3 raw echo、BP 聚焦、诊断、replay 和回归通过 |
 | 34 | Phase 2 完成度审计 | complete | 当前小场景闭环完成；代表性参考矩阵仍不足，Auto 继续后置 |
 | 35 | 参考场景矩阵扩展契约 | complete | 冻结 L1/L2/L3、二维目标与统一比较矩阵 |
-| 36 | 参考场景矩阵实现 | in_progress | 建设可复用场景、矩阵测试和质量报告 |
+| 36 | 参考场景矩阵实现 | complete_current_platform | M1-M7 矩阵、质量结果和双环境回归通过 |
+| 37 | 参考矩阵后续决策门 | in_progress | 基于 M1-M7 选择下一证据扩展方向 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -943,7 +944,7 @@
 
 ## 阶段 36：参考场景矩阵实现
 
-状态：`in_progress`
+状态：`complete_current_platform`
 
 任务：
 
@@ -951,6 +952,26 @@
 2. 实现 M1-M7 确定性质量矩阵测试。
 3. 记录质量结果与暴露的适用边界。
 4. 完成双环境回归、审批报告和下一决策门。
+
+验收结果：
+
+- 新增二维局部坐标确定性目标 helper 与独立 `SarReferenceScenarioMatrixTest`。
+- M1-M4 L1 RDA/GBP NRMS 均 `<0.1`、相关系数均 `>0.99`，BP/GBP 逐样本一致。
+- M5 L2 二维目标补偿后 NRMS `0.239074`、相关系数 `0.971422`。
+- M6 `3 m` L3 二维目标当前门通过；M7 `12 m` 补偿后仍明确失效。
+- 默认与 Conan Eigen 3.3.9 全部 `Sar*` 单测各 80/80 passed。
+- 验收报告：`docs/sar_reference_scenario_matrix_acceptance_report.md`。
+
+## 阶段 37：参考矩阵后续决策门
+
+状态：`in_progress`
+
+候选方向：
+
+1. 图像边界与采样/硬件参数适用性矩阵。
+2. 时变 PRF 与更真实 L3 轨迹。
+3. 多参考点或二阶补偿。
+4. 重新审计 Auto。
 
 ## 当前待决策问题
 
@@ -987,4 +1008,4 @@
 
 ## 下一步
 
-执行阶段 36：实现 M1-M7 参考场景矩阵与质量报告。
+执行阶段 37：基于 M1-M7 结果选择并冻结下一参考证据扩展方向。
