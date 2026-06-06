@@ -1150,6 +1150,30 @@
 - 阶段 48 契约冻结完成。
 - 阶段 49 确定性噪声与 SNR 鲁棒性矩阵实现已启动。
 
+## 2026-06-06 阶段 49 确定性噪声与 SNR 鲁棒性矩阵实现
+
+### 已执行
+
+1. 在测试支持层实现固定 seed 复高斯噪声 helper 与精确能量缩放 diagnostics。
+2. 新增 M1/M4、双 seed、`30/20/10/0 dB` 鲁棒性矩阵。
+3. 验证同 seed 严格重复、不同 seed 差异和 requested/realized SNR 一致。
+4. 验证 RDA/GBP/BP 共同消费 noisy raw history，BP 与 GBP 继续逐样本一致。
+5. 新增 `docs/sar_reference_snr_matrix_acceptance_report.md`。
+
+### 验证结果
+
+- 默认与 Conan Eigen 3.3.9 噪声 helper/SNR 矩阵测试：各 2/2 passed。
+- 默认与 Conan Eigen 3.3.9 全部 `Sar*`：各 97/97 passed。
+- 默认与 Conan Eigen 3.3.9 `sar_ci`：各 4/4 passed。
+- 默认 `sar_performance`：1/1 passed。
+- Conan Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 49 完成当前平台审批。
+- 阶段 50 SNR 矩阵后续决策门已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

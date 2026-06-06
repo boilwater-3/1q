@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "sar/echo/SarEcho.h"
@@ -37,6 +38,70 @@ struct ReferenceRawHistoryDiagnostics {
   std::size_t clipped_target_count{0U};
   std::size_t clipped_sample_count{0U};
 };
+
+struct ReferenceNoiseDiagnostics {
+  double signal_energy{0.0};
+  double noise_energy{0.0};
+  double requested_snr_db{0.0};
+  double realized_snr_db{0.0};
+  std::uint64_t seed{0U};
+};
+
+inline double NextReferenceUniformOpen(std::uint64_t* state) {
+  *state += UINT64_C(0x9e3779b97f4a7c15);
+  std::uint64_t value = *state;
+  value = (value ^ (value >> 30U)) * UINT64_C(0xbf58476d1ce4e5b9);
+  value = (value ^ (value >> 27U)) * UINT64_C(0x94d049bb133111eb);
+  value ^= value >> 31U;
+  return (static_cast<double>(value >> 11U) + 0.5) / 9007199254740992.0;
+}
+
+inline bool AddDeterministicComplexGaussianNoise(const signal::ComplexMatrix& input,
+                                                 double requested_snr_db, std::uint64_t seed,
+                                                 signal::ComplexMatrix* output,
+                                                 ReferenceNoiseDiagnostics* diagnostics) {
+  if (output == nullptr || diagnostics == nullptr || input.rows == 0U || input.cols == 0U ||
+      input.values.size() != input.rows * input.cols || !std::isfinite(requested_snr_db)) {
+    return false;
+  }
+  double signal_energy = 0.0;
+  for (const signal::ComplexSample& sample : input.values) {
+    signal_energy += std::norm(sample);
+  }
+  if (!(signal_energy > 0.0)) {
+    return false;
+  }
+
+  signal::ComplexVector noise(input.values.size());
+  double candidate_noise_energy = 0.0;
+  std::uint64_t state = seed;
+  const double two_pi = 6.283185307179586476925286766559005768;
+  for (signal::ComplexSample& sample : noise) {
+    const double radius = std::sqrt(-2.0 * std::log(NextReferenceUniformOpen(&state)));
+    const double angle = two_pi * NextReferenceUniformOpen(&state);
+    sample = signal::ComplexSample(radius * std::cos(angle), radius * std::sin(angle));
+    candidate_noise_energy += std::norm(sample);
+  }
+  if (!(candidate_noise_energy > 0.0)) {
+    return false;
+  }
+
+  const double target_noise_energy = signal_energy / std::pow(10.0, requested_snr_db / 10.0);
+  const double scale = std::sqrt(target_noise_energy / candidate_noise_energy);
+  *output = input;
+  double realized_noise_energy = 0.0;
+  for (std::size_t index = 0U; index < noise.size(); ++index) {
+    const signal::ComplexSample scaled_noise = noise[index] * scale;
+    output->values[index] += scaled_noise;
+    realized_noise_energy += std::norm(scaled_noise);
+  }
+  diagnostics->signal_energy = signal_energy;
+  diagnostics->noise_energy = realized_noise_energy;
+  diagnostics->requested_snr_db = requested_snr_db;
+  diagnostics->realized_snr_db = 10.0 * std::log10(signal_energy / realized_noise_energy);
+  diagnostics->seed = seed;
+  return true;
+}
 
 inline echo::PointTarget MakeReferenceTargetAtDelay(std::size_t delay_sample, double sample_rate_hz,
                                                     double desired_amplitude) {

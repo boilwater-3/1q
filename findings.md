@@ -605,3 +605,11 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - 候选噪声按总能量精确缩放到 requested SNR，使 realized SNR 可重复并可严格验证。
 - 首批矩阵覆盖 M1 中心单点、M4 二维多目标和无噪声/30/20/10/0 dB；只评估趋势，不冻结通用阈值。
 - 生产噪声模型、public 配置、replay、Auto、杂波和辐射定标继续后置。
+
+## 确定性噪声与 SNR 鲁棒性矩阵实现发现
+
+- 固定 seed noisy raw history 逐样本一致，不同 seed 不同，精确能量缩放使 realized SNR 与 requested SNR 一致。
+- RDA、GBP 与 BP 在每个场景共同消费同一 noisy raw history；BP 与 GBP 在 noisy 输入下继续逐样本一致。
+- seed 17 下 M1 的 RDA/GBP NRMS 随 `30/20/10/0 dB` 为 `0.042180/0.044864/0.070107/0.187519`；M4 为 `0.079274/0.079116/0.092969/0.201058`。
+- seed 29 保持相同总体趋势；`0 dB` 明显越过当前无噪声参考门，但不能据此定义带噪场景算法失效。
+- RDA clean/noisy 完整输出与 GBP clean/noisy 小窗口的绝对数值不可直接横向比较；统一 SNR 质量口径必须先冻结相同输出支持范围。

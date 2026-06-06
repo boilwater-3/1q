@@ -71,7 +71,8 @@
 | 46 | RDA 目标方位偏置误差决策门 | complete | 不批准单一偏置诊断、警告、拒绝或 Auto |
 | 47 | Phase 2 参考级成像闭环综合再审批 | complete | 固定 PRF 点目标闭环通过；选择 SNR 鲁棒性矩阵 |
 | 48 | 确定性噪声与 SNR 鲁棒性矩阵契约 | complete | 冻结测试侧噪声定义、矩阵和审批边界 |
-| 49 | 确定性噪声与 SNR 鲁棒性矩阵实现 | in_progress | 实现测试 helper、矩阵与审批报告 |
+| 49 | 确定性噪声与 SNR 鲁棒性矩阵实现 | complete_current_platform | helper、M1/M4 双 seed 矩阵和双环境回归通过 |
+| 50 | SNR 矩阵后续决策门 | in_progress | 统一相同输出支持范围的质量比较口径 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1142,14 +1143,27 @@
 
 ## 阶段 49：确定性噪声与 SNR 鲁棒性矩阵实现
 
-状态：`in_progress`
+状态：`complete_current_platform`
 
-任务：
+已完成：
 
 1. 实现测试支持层固定 seed 复高斯噪声 helper 与 diagnostics。
 2. 实现 M1/M4 双 seed、多 SNR 参考矩阵。
 3. 验证 clean/noisy 算法比较、BP/GBP 一致性和趋势。
 4. 完成双环境审批门与审批报告。
+5. 新增 `docs/sar_reference_snr_matrix_acceptance_report.md`。
+6. 默认与 Conan Eigen 3.3.9 全部 `Sar*` 各 97/97 通过，审批门通过。
+
+## 阶段 50：SNR 矩阵后续决策门
+
+状态：`in_progress`
+
+任务：
+
+1. 统一 RDA/GBP clean/noisy 比较的输出支持范围。
+2. 判断是否需要更多 seed、SNR 档位或场景。
+3. 判断下一步应进入输出质量有效性诊断还是确定性分布式杂波。
+4. 不直接批准通用 SNR 阈值、警告、拒绝或 Auto。
 
 ## 当前待决策问题
 
@@ -1190,4 +1204,4 @@
 
 ## 下一步
 
-执行阶段 49：实现确定性噪声 helper 与 SNR 鲁棒性参考矩阵。
+执行阶段 50：统一 SNR 矩阵输出支持范围并进行后续决策。

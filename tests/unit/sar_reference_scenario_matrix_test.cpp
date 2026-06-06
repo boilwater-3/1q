@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -850,6 +851,103 @@ TEST(SarRdaTargetOffsetDecisionTest, SymmetricOffsetsPreserveErrorMagnitude) {
   EXPECT_NEAR(nrms_values[1], nrms_values[3], 1.0e-12);
   EXPECT_NEAR(nonlinear_phase_residuals_rad[0], nonlinear_phase_residuals_rad[4], 1.0e-12);
   EXPECT_NEAR(nonlinear_phase_residuals_rad[1], nonlinear_phase_residuals_rad[3], 1.0e-12);
+}
+
+TEST(SarReferenceNoiseTest, FixedSeedAndExactEnergyScalingAreDeterministic) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  signal::ComplexMatrix clean;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(
+      scene,
+      {test_support::MakeReferenceTargetAtDelay(kMatrixCenterDelay, scene.sample_rate_hz, 1.0)},
+      &clean));
+  signal::ComplexMatrix first;
+  signal::ComplexMatrix repeated;
+  signal::ComplexMatrix different_seed;
+  test_support::ReferenceNoiseDiagnostics first_diagnostics;
+  test_support::ReferenceNoiseDiagnostics repeated_diagnostics;
+  test_support::ReferenceNoiseDiagnostics different_seed_diagnostics;
+  ASSERT_TRUE(test_support::AddDeterministicComplexGaussianNoise(clean, 20.0, 17U, &first,
+                                                                &first_diagnostics));
+  ASSERT_TRUE(test_support::AddDeterministicComplexGaussianNoise(clean, 20.0, 17U, &repeated,
+                                                                &repeated_diagnostics));
+  ASSERT_TRUE(test_support::AddDeterministicComplexGaussianNoise(
+      clean, 20.0, 29U, &different_seed, &different_seed_diagnostics));
+
+  EXPECT_EQ(first.values, repeated.values);
+  EXPECT_NE(first.values, different_seed.values);
+  EXPECT_NEAR(first_diagnostics.realized_snr_db, 20.0, 1.0e-12);
+  EXPECT_NEAR(repeated_diagnostics.noise_energy, first_diagnostics.noise_energy, 1.0e-12);
+  EXPECT_NEAR(different_seed_diagnostics.realized_snr_db, 20.0, 1.0e-12);
+  signal::ComplexMatrix invalid;
+  test_support::ReferenceNoiseDiagnostics invalid_diagnostics;
+  EXPECT_FALSE(test_support::AddDeterministicComplexGaussianNoise(
+      signal::ComplexMatrix{}, 20.0, 17U, &invalid, &invalid_diagnostics));
+  EXPECT_FALSE(test_support::AddDeterministicComplexGaussianNoise(
+      clean, std::numeric_limits<double>::infinity(), 17U, &invalid, &invalid_diagnostics));
+}
+
+TEST(SarReferenceSnrMatrixTest, M1AndM4PreserveDeterminismAndRecordQualityTrends) {
+  struct Scenario {
+    const char* name;
+    std::vector<echo::PointTarget> targets;
+  };
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  const std::vector<Scenario> scenarios = {
+      {"m1",
+       {test_support::MakeReferenceTargetAtDelay(kMatrixCenterDelay, scene.sample_rate_hz, 1.0)}},
+      {"m4",
+       {test_support::MakeReferenceTargetAtPosition(-0.2, 18U, scene.sample_rate_hz, 3.0),
+        test_support::MakeReferenceTargetAtPosition(0.0, 20U, scene.sample_rate_hz, 2.0),
+        test_support::MakeReferenceTargetAtPosition(0.2, 22U, scene.sample_rate_hz, 1.0)}}};
+  const std::vector<double> snr_values_db = {30.0, 20.0, 10.0, 0.0};
+  const std::vector<std::uint64_t> seeds = {17U, 29U};
+  for (const Scenario& scenario : scenarios) {
+    signal::ComplexMatrix clean_raw;
+    ASSERT_TRUE(test_support::BuildReferenceRawHistory(scene, scenario.targets, &clean_raw));
+    MatrixFocusResult clean_focus;
+    ASSERT_TRUE(FocusMatrix(scene, scene.pulses, clean_raw, &clean_focus));
+    for (const std::uint64_t seed : seeds) {
+      double previous_rda_clean_nrms = -1.0;
+      double previous_gbp_clean_nrms = -1.0;
+      for (const double snr_db : snr_values_db) {
+        signal::ComplexMatrix noisy_raw;
+        signal::ComplexMatrix repeated_raw;
+        test_support::ReferenceNoiseDiagnostics noise_diagnostics;
+        test_support::ReferenceNoiseDiagnostics repeated_diagnostics;
+        ASSERT_TRUE(test_support::AddDeterministicComplexGaussianNoise(
+            clean_raw, snr_db, seed, &noisy_raw, &noise_diagnostics));
+        ASSERT_TRUE(test_support::AddDeterministicComplexGaussianNoise(
+            clean_raw, snr_db, seed, &repeated_raw, &repeated_diagnostics));
+        ASSERT_EQ(noisy_raw.values, repeated_raw.values);
+        ASSERT_NEAR(noise_diagnostics.realized_snr_db, snr_db, 1.0e-12);
+        MatrixFocusResult noisy_focus;
+        ASSERT_TRUE(FocusMatrix(scene, scene.pulses, noisy_raw, &noisy_focus));
+        ASSERT_EQ(noisy_focus.bp.image.values, noisy_focus.gbp.image.values);
+        const imaging::ImageComparisonMetrics rda_to_clean =
+            imaging::CompareImagesWithGlobalPhaseReference(noisy_focus.rda.image,
+                                                           clean_focus.rda.image);
+        const imaging::ImageComparisonMetrics gbp_to_clean =
+            imaging::CompareImagesWithGlobalPhaseReference(noisy_focus.gbp.image,
+                                                           clean_focus.gbp.image);
+        ASSERT_TRUE(rda_to_clean.valid);
+        ASSERT_TRUE(gbp_to_clean.valid);
+        const std::string prefix =
+            std::string(scenario.name) + "_seed_" + std::to_string(seed) + "_snr_" +
+            std::to_string(static_cast<int>(snr_db));
+        RecordComparison(prefix + "_rda_clean", rda_to_clean);
+        RecordComparison(prefix + "_gbp_clean", gbp_to_clean);
+        RecordComparison(prefix + "_rda_gbp", noisy_focus.rda_vs_gbp);
+        ::testing::Test::RecordProperty(prefix + "_realized_snr_db",
+                                        std::to_string(noise_diagnostics.realized_snr_db));
+        EXPECT_GT(rda_to_clean.normalized_rms_error, previous_rda_clean_nrms);
+        EXPECT_GT(gbp_to_clean.normalized_rms_error, previous_gbp_clean_nrms);
+        previous_rda_clean_nrms = rda_to_clean.normalized_rms_error;
+        previous_gbp_clean_nrms = gbp_to_clean.normalized_rms_error;
+      }
+    }
+  }
 }
 
 }  // namespace
