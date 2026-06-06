@@ -502,5 +502,152 @@ TEST(SarBoundaryParameterMatrixTest, P4PlatformVelocityApplicability) {
   }
 }
 
+TEST(SarAzimuthSamplingAuditTest, SpacingSweepDegradesBeforeGeometricDopplerNyquistFailure) {
+  const std::vector<double> spacings_m = {0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2};
+  double previous_nrms = -1.0;
+  for (std::size_t case_index = 0U; case_index < spacings_m.size(); ++case_index) {
+    test_support::ReferencePointScene scene;
+    scene.prf_hz = scene.platform_velocity_mps / spacings_m[case_index];
+    ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+    const echo::PointTarget target =
+        test_support::MakeReferenceTargetAtDelay(kMatrixCenterDelay, scene.sample_rate_hz, 1.0);
+    ApplicabilityCaseResult result;
+    ASSERT_TRUE(RunApplicabilityCase(scene, target, kMatrixCenterDelay, &result));
+
+    const double wavelength_m =
+        test_support::kReferenceSpeedOfLightMps / scene.carrier_frequency_hz;
+    const double edge_x_m = std::abs(scene.pulses.front().position_m.x_m);
+    const double edge_range_m =
+        geometry::Distance(scene.pulses.front().position_m, target.position_m);
+    const double max_geometric_doppler_hz =
+        2.0 * scene.platform_velocity_mps * edge_x_m / (wavelength_m * edge_range_m);
+    const double nyquist_margin = 0.5 * scene.prf_hz / max_geometric_doppler_hz;
+    double max_phase_step_rad = 0.0;
+    for (std::size_t pulse = 1U; pulse < scene.pulses.size(); ++pulse) {
+      const double previous_range_m =
+          geometry::Distance(scene.pulses[pulse - 1U].position_m, target.position_m);
+      const double current_range_m =
+          geometry::Distance(scene.pulses[pulse].position_m, target.position_m);
+      max_phase_step_rad = std::max(
+          max_phase_step_rad, 4.0 * 3.14159265358979323846 *
+                                  std::abs(current_range_m - previous_range_m) / wavelength_m);
+    }
+
+    const std::string prefix = "spacing_" + std::to_string(case_index);
+    RecordApplicabilityCase(prefix, result);
+    ::testing::Test::RecordProperty(prefix + "_meters", std::to_string(spacings_m[case_index]));
+    ::testing::Test::RecordProperty(prefix + "_nyquist_margin", std::to_string(nyquist_margin));
+    ::testing::Test::RecordProperty(prefix + "_max_phase_step_rad",
+                                    std::to_string(max_phase_step_rad));
+    EXPECT_NEAR(result.focus.rda.diagnostics.azimuth_sample_spacing_m, spacings_m[case_index],
+                1.0e-12);
+    EXPECT_NEAR(result.focus.rda.diagnostics.max_geometric_doppler_hz,
+                max_geometric_doppler_hz, 1.0e-12);
+    EXPECT_NEAR(result.focus.rda.diagnostics.doppler_nyquist_margin, nyquist_margin, 1.0e-12);
+    EXPECT_GT(nyquist_margin, 1.0);
+    EXPECT_LT(max_phase_step_rad, 3.14159265358979323846);
+    EXPECT_GE(result.focus.rda_vs_gbp.normalized_rms_error, previous_nrms);
+    previous_nrms = result.focus.rda_vs_gbp.normalized_rms_error;
+  }
+}
+
+TEST(SarAzimuthSamplingAuditTest, RcmcInterpolationDoesNotExplainCoarseSpacingFailure) {
+  test_support::ReferencePointScene scene;
+  scene.prf_hz = 10.0;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  const echo::PointTarget target =
+      test_support::MakeReferenceTargetAtDelay(kMatrixCenterDelay, scene.sample_rate_hz, 1.0);
+  signal::ComplexMatrix raw;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(scene, {target}, &raw));
+
+  imaging::FocusedGbpImage gbp;
+  ASSERT_TRUE(imaging::FocusSmallSceneGbp(MakeMatrixGbpConfig(scene), scene.pulses, raw,
+                                          scene.matched_filter, &gbp));
+  std::vector<imaging::ImageComparisonMetrics> comparisons;
+  for (const imaging::RcmcInterpolation interpolation :
+       {imaging::RcmcInterpolation::kNone, imaging::RcmcInterpolation::kLinear,
+        imaging::RcmcInterpolation::kSinc}) {
+    imaging::RdaConfig config = test_support::MakeReferenceRdaConfig(scene, kMatrixCenterDelay);
+    config.rcmc_interpolation = interpolation;
+    imaging::FocusedSarImage rda;
+    ASSERT_TRUE(imaging::FocusStripmapRda(config, raw, scene.matched_filter, &rda));
+    const imaging::ImageComparisonMetrics comparison =
+        imaging::CompareImagesWithGlobalPhaseReference(CropMatrixWindow(rda.image), gbp.image);
+    ASSERT_TRUE(comparison.valid);
+    comparisons.push_back(comparison);
+  }
+
+  RecordComparison("coarse_spacing_none", comparisons[0U]);
+  RecordComparison("coarse_spacing_linear", comparisons[1U]);
+  RecordComparison("coarse_spacing_sinc", comparisons[2U]);
+  EXPECT_GT(comparisons[0U].normalized_rms_error, 0.1);
+  EXPECT_GT(comparisons[1U].normalized_rms_error, 0.1);
+  EXPECT_GT(comparisons[2U].normalized_rms_error, 0.1);
+}
+
+struct PhaseCurvatureCase {
+  double phase_curvature_rad{0.0};
+  imaging::ImageComparisonMetrics comparison{};
+};
+
+PhaseCurvatureCase EvaluatePhaseCurvatureCase(test_support::ReferencePointScene scene) {
+  PhaseCurvatureCase result;
+  if (!test_support::BuildReferencePointScene(&scene)) {
+    return result;
+  }
+  ApplicabilityCaseResult applicability;
+  const echo::PointTarget target =
+      test_support::MakeReferenceTargetAtDelay(kMatrixCenterDelay, scene.sample_rate_hz, 1.0);
+  if (!RunApplicabilityCase(scene, target, kMatrixCenterDelay, &applicability)) {
+    return result;
+  }
+  result.phase_curvature_rad =
+      applicability.focus.rda.diagnostics.azimuth_phase_curvature_rad_per_pulse2;
+  result.comparison = applicability.focus.rda_vs_gbp;
+  return result;
+}
+
+TEST(SarAzimuthSamplingAuditTest, PhaseCurvatureCollapsesEquivalentCarrierAndRangeCases) {
+  test_support::ReferencePointScene lower_sample_rate;
+  lower_sample_rate.sample_rate_hz = 80.0e6;
+  const PhaseCurvatureCase range_case = EvaluatePhaseCurvatureCase(lower_sample_rate);
+  test_support::ReferencePointScene lower_carrier;
+  lower_carrier.carrier_frequency_hz = 0.8e9;
+  const PhaseCurvatureCase carrier_case = EvaluatePhaseCurvatureCase(lower_carrier);
+
+  test_support::ReferencePointScene higher_sample_rate;
+  higher_sample_rate.sample_rate_hz = 120.0e6;
+  const PhaseCurvatureCase near_range_case = EvaluatePhaseCurvatureCase(higher_sample_rate);
+  test_support::ReferencePointScene higher_carrier;
+  higher_carrier.carrier_frequency_hz = 1.2e9;
+  const PhaseCurvatureCase high_carrier_case = EvaluatePhaseCurvatureCase(higher_carrier);
+
+  ASSERT_TRUE(range_case.comparison.valid);
+  ASSERT_TRUE(carrier_case.comparison.valid);
+  ASSERT_TRUE(near_range_case.comparison.valid);
+  ASSERT_TRUE(high_carrier_case.comparison.valid);
+  ::testing::Test::RecordProperty("lower_curvature_rad",
+                                  std::to_string(range_case.phase_curvature_rad));
+  ::testing::Test::RecordProperty("lower_range_nrms",
+                                  std::to_string(range_case.comparison.normalized_rms_error));
+  ::testing::Test::RecordProperty("lower_carrier_nrms",
+                                  std::to_string(carrier_case.comparison.normalized_rms_error));
+  ::testing::Test::RecordProperty("higher_curvature_rad",
+                                  std::to_string(near_range_case.phase_curvature_rad));
+  ::testing::Test::RecordProperty("near_range_nrms",
+                                  std::to_string(near_range_case.comparison.normalized_rms_error));
+  ::testing::Test::RecordProperty(
+      "higher_carrier_nrms", std::to_string(high_carrier_case.comparison.normalized_rms_error));
+  EXPECT_NEAR(range_case.phase_curvature_rad, carrier_case.phase_curvature_rad, 1.0e-12);
+  EXPECT_NEAR(range_case.comparison.normalized_rms_error,
+              carrier_case.comparison.normalized_rms_error, 0.001);
+  EXPECT_NEAR(near_range_case.phase_curvature_rad, high_carrier_case.phase_curvature_rad, 1.0e-12);
+  EXPECT_NEAR(near_range_case.comparison.normalized_rms_error,
+              high_carrier_case.comparison.normalized_rms_error, 0.001);
+  EXPECT_GT(near_range_case.phase_curvature_rad, range_case.phase_curvature_rad);
+  EXPECT_GT(near_range_case.comparison.normalized_rms_error,
+            range_case.comparison.normalized_rms_error);
+}
+
 }  // namespace
 }  // namespace sar

@@ -35,6 +35,10 @@ struct RdaDiagnostics {
   double reference_range_m{0.0};
   double doppler_rate_hz_per_s{0.0};
   double range_bin_spacing_m{0.0};
+  double azimuth_sample_spacing_m{0.0};
+  double azimuth_phase_curvature_rad_per_pulse2{0.0};
+  double max_geometric_doppler_hz{0.0};
+  double doppler_nyquist_margin{0.0};
   double azimuth_width_3db_bins{0.0};
   double image_entropy_nats{0.0};
   std::size_t out_of_bounds_samples{0U};
@@ -52,6 +56,9 @@ struct FocusedSarImage {
 
 bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_pulse_history,
                       const signal::ComplexVector& matched_filter, FocusedSarImage* output);
+
+bool ComputeRdaSamplingDiagnostics(const RdaConfig& config, std::size_t pulse_count,
+                                   RdaDiagnostics* diagnostics);
 
 bool ApplyRangeMigrationCorrection(const signal::ComplexMatrix& input,
                                    const std::vector<double>& delta_bins_by_row,

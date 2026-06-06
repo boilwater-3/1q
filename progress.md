@@ -968,6 +968,58 @@
 - 阶段 39 完成当前平台审批。
 - 阶段 40 方位采样充分性决策门已启动。
 
+## 2026-06-06 阶段 40-41 方位采样审计与诊断契约
+
+### 已执行
+
+1. 连续扫描 `0.05-0.2 m/pulse` 方位采样间距。
+2. 计算最大几何 Doppler Nyquist 裕量和相邻传播相位步进。
+3. 隔离 none/linear/sinc RCMC，排除插值主因。
+4. 使用等曲率载频/斜距参数对验证相位曲率解释。
+5. 新增 `docs/sar_azimuth_sampling_audit.md`。
+6. 新增 `SAR_RDA_AZIMUTH_PHASE_CURVATURE_DIAGNOSTIC_CONTRACT.md`。
+
+### 决策结论
+
+- 当前粗间距质量失败不是几何 Doppler Nyquist 混叠。
+- 每脉冲二阶方位相位曲率可解释现有参数矩阵。
+- 下一步只增加解释性 diagnostics，不增加警告、拒绝或 Auto。
+
+### 阶段状态
+
+- 阶段 40 完成。
+- 阶段 41 契约冻结完成。
+- 阶段 42 RDA 方位相位曲率诊断实现已启动。
+
+## 2026-06-06 阶段 42 RDA 方位相位曲率诊断实现
+
+### 已执行
+
+1. 扩展 `RdaDiagnostics`，增加方位采样间距、相位曲率、最大几何 Doppler 和 Nyquist 裕量。
+2. 提取 `ComputeRdaSamplingDiagnostics()`，支持独立验证单脉冲无穷裕量定义。
+3. 在 Session `sar.rda_peak` 中追加四项诊断，保持摘要级 replay。
+4. 扩展 RDA 单测与方位采样审计矩阵，直接核对生产 diagnostics。
+5. 新增 `docs/sar_rda_phase_curvature_diagnostics_acceptance_report.md`。
+
+### 遇到并解决的问题
+
+- 使用单脉冲完整 RDA 链验证无穷裕量时，现有 FFT 成像链异常退出。
+- 解决方案：RDA 成像入口明确拒绝单脉冲 aperture；独立验证采样诊断定义，不扩大现有 RDA FFT 成像输入范围。
+
+### 验证结果
+
+- 默认与 Conan Eigen 3.3.9 聚焦诊断测试：各 15/15 passed。
+- 默认与 Conan Eigen 3.3.9 全部 `Sar*`：各 92/92 passed。
+- 默认与 Conan Eigen 3.3.9 `sar_ci`：各 4/4 passed。
+- 默认 `sar_performance`：1/1 passed。
+- Conan Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 42 完成当前平台审批。
+- 阶段 43 RDA 诊断后续决策门已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

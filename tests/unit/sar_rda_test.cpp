@@ -103,11 +103,77 @@ TEST(SarRdaTest, DiagnosticsRecordRdaStagesAndReferenceParameters) {
   EXPECT_NEAR(focused.diagnostics.range_bin_spacing_m,
               kSpeedOfLightMps / (2.0 * fixture.sample_rate_hz), 1.0e-12);
   EXPECT_GT(focused.diagnostics.doppler_rate_hz_per_s, 0.0);
+  const double expected_spacing_m = config.platform_velocity_mps / config.prf_hz;
+  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  const double expected_curvature_rad =
+      4.0 * 3.14159265358979323846 * expected_spacing_m * expected_spacing_m /
+      (wavelength_m * config.reference_range_m);
+  const double aperture_edge_m =
+      0.5 * static_cast<double>(raw_history.rows - 1U) * expected_spacing_m;
+  const double expected_max_doppler_hz =
+      2.0 * config.platform_velocity_mps * aperture_edge_m /
+      (wavelength_m *
+       std::sqrt(config.reference_range_m * config.reference_range_m +
+                 aperture_edge_m * aperture_edge_m));
+  EXPECT_DOUBLE_EQ(focused.diagnostics.azimuth_sample_spacing_m, expected_spacing_m);
+  EXPECT_NEAR(focused.diagnostics.azimuth_phase_curvature_rad_per_pulse2,
+              expected_curvature_rad, 1.0e-15);
+  EXPECT_NEAR(focused.diagnostics.max_geometric_doppler_hz, expected_max_doppler_hz, 1.0e-15);
+  EXPECT_NEAR(focused.diagnostics.doppler_nyquist_margin,
+              0.5 * config.prf_hz / expected_max_doppler_hz, 1.0e-12);
   EXPECT_GT(focused.diagnostics.azimuth_width_3db_bins, 0.0);
   EXPECT_TRUE(std::isfinite(focused.diagnostics.image_entropy_nats));
   EXPECT_GE(focused.diagnostics.image_entropy_nats, 0.0);
   EXPECT_EQ(focused.image.rows, fixture.pulse_count);
   EXPECT_EQ(focused.image.cols, fixture.range_sample_count);
+}
+
+TEST(SarRdaTest, DiagnosticsPreserveEquivalentAzimuthSpacingAndPhaseCurvature) {
+  RdaSceneFixture baseline = MakeFixture();
+  const std::size_t expected_delay = 20U;
+  const signal::ComplexMatrix baseline_raw =
+      BuildRawHistory(baseline, {MakeTargetAtDelay(expected_delay, baseline.sample_rate_hz, 1.0)});
+  imaging::FocusedSarImage baseline_focused;
+  ASSERT_TRUE(imaging::FocusStripmapRda(MakeRdaConfig(baseline, expected_delay), baseline_raw,
+                                        baseline.matched_filter, &baseline_focused));
+
+  RdaSceneFixture equivalent = baseline;
+  equivalent.platform_velocity_mps *= 2.0;
+  equivalent.prf_hz *= 2.0;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&equivalent));
+  const signal::ComplexMatrix equivalent_raw = BuildRawHistory(
+      equivalent, {MakeTargetAtDelay(expected_delay, equivalent.sample_rate_hz, 1.0)});
+  imaging::FocusedSarImage equivalent_focused;
+  ASSERT_TRUE(imaging::FocusStripmapRda(MakeRdaConfig(equivalent, expected_delay), equivalent_raw,
+                                        equivalent.matched_filter, &equivalent_focused));
+
+  EXPECT_DOUBLE_EQ(baseline_focused.diagnostics.azimuth_sample_spacing_m,
+                   equivalent_focused.diagnostics.azimuth_sample_spacing_m);
+  EXPECT_DOUBLE_EQ(baseline_focused.diagnostics.azimuth_phase_curvature_rad_per_pulse2,
+                   equivalent_focused.diagnostics.azimuth_phase_curvature_rad_per_pulse2);
+}
+
+TEST(SarRdaTest, SinglePulseDiagnosticsUseInfiniteNyquistMargin) {
+  const RdaSceneFixture fixture = MakeFixture();
+  imaging::RdaDiagnostics diagnostics;
+  ASSERT_TRUE(imaging::ComputeRdaSamplingDiagnostics(MakeRdaConfig(fixture, 20U), 1U,
+                                                     &diagnostics));
+
+  EXPECT_DOUBLE_EQ(diagnostics.max_geometric_doppler_hz, 0.0);
+  EXPECT_TRUE(std::isinf(diagnostics.doppler_nyquist_margin));
+}
+
+TEST(SarRdaTest, RejectsSinglePulseImagingAperture) {
+  RdaSceneFixture fixture;
+  fixture.pulse_count = 1U;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&fixture));
+  const std::size_t expected_delay = 20U;
+  const signal::ComplexMatrix raw_history =
+      BuildRawHistory(fixture, {MakeTargetAtDelay(expected_delay, fixture.sample_rate_hz, 1.0)});
+  imaging::FocusedSarImage focused;
+
+  EXPECT_FALSE(imaging::FocusStripmapRda(MakeRdaConfig(fixture, expected_delay), raw_history,
+                                         fixture.matched_filter, &focused));
 }
 
 TEST(SarRdaTest, AzimuthWidthUsesPeakRangeColumnAndContiguousHalfPowerRows) {

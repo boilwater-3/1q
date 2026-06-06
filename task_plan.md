@@ -62,7 +62,10 @@
 | 37 | 参考矩阵后续决策门 | complete | 选择图像边界与采样/硬件参数适用性矩阵 |
 | 38 | 边界与参数矩阵契约 | complete | 冻结边界分类、B1-B4、P1-P4 与验收门 |
 | 39 | 边界与参数矩阵实现 | complete_current_platform | B1-B4/P1-P4 分类、适用边界和双环境回归通过 |
-| 40 | 方位采样充分性决策门 | in_progress | 研究 `v/PRF` 耦合失效并选择后续工程方向 |
+| 40 | 方位采样充分性决策门 | complete | 排除 Nyquist/RCMC 主因，选择相位曲率解释性诊断 |
+| 41 | RDA 方位相位曲率诊断契约 | complete | 冻结采样间距、相位曲率、Nyquist 裕量与 replay |
+| 42 | RDA 方位相位曲率诊断实现 | complete_current_platform | diagnostics、Session、replay 和双环境回归通过 |
+| 43 | RDA 诊断后续决策门 | in_progress | 扩展孔径与目标布局矩阵，判断是否具备警告阈值证据 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1017,13 +1020,56 @@
 
 ## 阶段 40：方位采样充分性决策门
 
-状态：`in_progress`
+状态：`complete`
 
 任务：
 
 1. 分离 `v/PRF`、载频、斜距、孔径和多普勒采样的工程关系。
 2. 判断当前 `0.2 m/pulse` 失败属于预期采样边界、RDA 实现边界或参考网格比较边界。
 3. 选择结构化诊断、算法修复或更宽矩阵，不直接冻结经验硬阈值。
+
+审计结论：
+
+- `0.175/0.2 m/pulse` 质量失败时几何 Doppler Nyquist 裕量仍为 `18.35x/14.05x`，不是混叠失败。
+- none/linear/sinc RCMC 在粗间距下均失败，RCMC 不是主因。
+- NRMS 随每脉冲二阶方位相位曲率
+  `4*pi*(v/PRF)^2/(lambda*R_ref)` 变化；等曲率参数对得到近似相同 NRMS。
+- 选择增加解释性 diagnostics，不批准结构化拒绝阈值或算法修复。
+- 新增 `docs/sar_azimuth_sampling_audit.md`。
+
+## 阶段 41：RDA 方位相位曲率诊断契约
+
+状态：`complete`
+
+已完成：
+
+- 新增 `SAR_RDA_AZIMUTH_PHASE_CURVATURE_DIAGNOSTIC_CONTRACT.md`。
+- 冻结方位采样间距、每脉冲二阶相位曲率、最大几何多普勒与 Nyquist 裕量公式。
+- 冻结内部 RDA diagnostics 与 Session `sar.rda_peak` 摘要级 replay。
+- 不增加警告、拒绝、Auto 或 public 配置。
+
+## 阶段 42：RDA 方位相位曲率诊断实现
+
+状态：`complete_current_platform`
+
+已完成：
+
+1. 扩展 `RdaDiagnostics`，实现采样间距、相位曲率、最大几何 Doppler 和 Nyquist 裕量。
+2. 提取独立内部采样诊断计算，保留单脉冲无穷裕量定义但不扩大 RDA FFT 输入范围。
+3. 扩展 RDA 单测和耦合参数矩阵，直接核对生产 diagnostics。
+4. 在 Session `sar.rda_peak` 中记录新指标并通过 replay 严格比较。
+5. 新增 `docs/sar_rda_phase_curvature_diagnostics_acceptance_report.md`。
+6. 默认与 Conan Eigen 3.3.9 全部 `Sar*` 各 92/92 通过，审批门通过。
+
+## 阶段 43：RDA 诊断后续决策门
+
+状态：`in_progress`
+
+任务：
+
+1. 扩展 aperture 脉冲数与目标方位偏置矩阵。
+2. 判断相同相位曲率在不同孔径和目标布局下是否仍能解释质量退化。
+3. 决定是否具备仅诊断级质量风险警告证据；继续禁止结构化拒绝和 Auto。
 
 ## 当前待决策问题
 
@@ -1057,7 +1103,9 @@
 | GBP `LocalPoint{x,y,z}` 在 C++11 兼容门下编译失败 | 1 | 改为默认构造后逐字段赋值，保持 C++11 |
 | RDA/GBP 仅相位对齐的 NRMS 被全局累积增益放大 | 1 | 两幅图分别单位能量归一化后计算形状 NRMS |
 | L2 零扰动递推积分与 L1 直接公式产生约 `1e-14 m` 浮点差 | 1 | 全零扰动配置显式返回 L1 轨迹与零诊断，保持严格退化契约 |
+| 单脉冲完整 RDA 测试进入不受支持的 FFT 成像链并异常退出 | 1 | 成像入口明确拒绝单脉冲 aperture；独立诊断函数验证无穷 Nyquist 裕量 |
+| 审计阶段状态的 shell 命令引号未闭合 | 1 | 改用无嵌套反引号的独立检索命令 |
 
 ## 下一步
 
-执行阶段 40：审计方位采样充分性并冻结下一工程方向。
+执行阶段 43：扩展孔径与目标布局诊断矩阵，评估是否具备警告阈值证据。

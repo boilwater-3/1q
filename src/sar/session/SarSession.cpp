@@ -544,6 +544,14 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
         "sar.rda_peak",
         "SAR RDA peak index " + std::to_string(peak_index) +
             ", doppler_rate_hz_per_s=" + std::to_string(image.diagnostics.doppler_rate_hz_per_s) +
+            ", azimuth_sample_spacing_m=" +
+            std::to_string(image.diagnostics.azimuth_sample_spacing_m) +
+            ", azimuth_phase_curvature_rad_per_pulse2=" +
+            std::to_string(image.diagnostics.azimuth_phase_curvature_rad_per_pulse2) +
+            ", max_geometric_doppler_hz=" +
+            std::to_string(image.diagnostics.max_geometric_doppler_hz) +
+            ", doppler_nyquist_margin=" +
+            std::to_string(image.diagnostics.doppler_nyquist_margin) +
             ", azimuth_width_3db_bins=" + std::to_string(image.diagnostics.azimuth_width_3db_bins) +
             ", image_entropy_nats=" + std::to_string(image.diagnostics.image_entropy_nats)));
     result.output_frame.completed_stage = SarProcessingStage::kL1RdaImage;

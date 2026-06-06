@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 #include "sar/imaging/SarImageQuality.h"
 #include "sar/signal/SarWaveform.h"
@@ -18,7 +19,7 @@ bool IsValid(const RdaConfig& config, const signal::ComplexMatrix& raw_pulse_his
              const signal::ComplexVector& matched_filter) {
   return config.sample_rate_hz > 0.0 && config.carrier_frequency_hz > 0.0 && config.prf_hz > 0.0 &&
          config.platform_velocity_mps > 0.0 && config.reference_range_m > 0.0 &&
-         raw_pulse_history.rows > 0U && raw_pulse_history.cols > 0U &&
+         raw_pulse_history.rows > 1U && raw_pulse_history.cols > 0U &&
          raw_pulse_history.values.size() == raw_pulse_history.rows * raw_pulse_history.cols &&
          !matched_filter.empty() &&
          (config.rcmc_interpolation != RcmcInterpolation::kSinc ||
@@ -111,6 +112,43 @@ void ApplyBroadsidePhaseReference(const RdaConfig& config, signal::ComplexMatrix
 
 }  // namespace
 
+bool ComputeRdaSamplingDiagnostics(const RdaConfig& config, std::size_t pulse_count,
+                                   RdaDiagnostics* diagnostics) {
+  if (diagnostics == nullptr || pulse_count == 0U || config.sample_rate_hz <= 0.0 ||
+      config.carrier_frequency_hz <= 0.0 || config.prf_hz <= 0.0 ||
+      config.platform_velocity_mps <= 0.0 || config.reference_range_m <= 0.0) {
+    return false;
+  }
+
+  *diagnostics = RdaDiagnostics{};
+  diagnostics->reference_range_m = config.reference_range_m;
+  diagnostics->range_bin_spacing_m = kSpeedOfLightMps / (2.0 * config.sample_rate_hz);
+  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  diagnostics->doppler_rate_hz_per_s =
+      2.0 * config.platform_velocity_mps * config.platform_velocity_mps /
+      (wavelength_m * config.reference_range_m);
+  diagnostics->azimuth_sample_spacing_m = config.platform_velocity_mps / config.prf_hz;
+  diagnostics->azimuth_phase_curvature_rad_per_pulse2 =
+      4.0 * kPi * diagnostics->azimuth_sample_spacing_m *
+      diagnostics->azimuth_sample_spacing_m / (wavelength_m * config.reference_range_m);
+  const double aperture_edge_m =
+      0.5 * static_cast<double>(pulse_count - 1U) * diagnostics->azimuth_sample_spacing_m;
+  if (aperture_edge_m == 0.0) {
+    diagnostics->max_geometric_doppler_hz = 0.0;
+    diagnostics->doppler_nyquist_margin = std::numeric_limits<double>::infinity();
+    return true;
+  }
+
+  diagnostics->max_geometric_doppler_hz =
+      2.0 * config.platform_velocity_mps * aperture_edge_m /
+      (wavelength_m *
+       std::sqrt(config.reference_range_m * config.reference_range_m +
+                 aperture_edge_m * aperture_edge_m));
+  diagnostics->doppler_nyquist_margin =
+      0.5 * config.prf_hz / diagnostics->max_geometric_doppler_hz;
+  return true;
+}
+
 bool ApplyRangeMigrationCorrection(const signal::ComplexMatrix& input,
                                    const std::vector<double>& delta_bins_by_row,
                                    RcmcInterpolation interpolation, std::size_t sinc_half_width,
@@ -150,11 +188,10 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
   }
 
   RdaDiagnostics diagnostics;
-  diagnostics.reference_range_m = config.reference_range_m;
-  diagnostics.range_bin_spacing_m = kSpeedOfLightMps / (2.0 * config.sample_rate_hz);
-  diagnostics.doppler_rate_hz_per_s =
-      2.0 * config.platform_velocity_mps * config.platform_velocity_mps /
-      ((kSpeedOfLightMps / config.carrier_frequency_hz) * config.reference_range_m);
+  if (!ComputeRdaSamplingDiagnostics(config, raw_pulse_history.rows, &diagnostics)) {
+    return false;
+  }
+  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
   diagnostics.rcmc_interpolation = InterpolationName(config.rcmc_interpolation);
 
   signal::ComplexMatrix range_compressed;
@@ -189,9 +226,8 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
   std::vector<double> delta_bins_by_row(azimuth_spectrum.rows, 0.0);
   for (std::size_t row = 0U; row < azimuth_spectrum.rows; ++row) {
     const double fa_hz = DopplerFrequency(row, azimuth_spectrum.rows, config.prf_hz);
-    const double lambda_m = kSpeedOfLightMps / config.carrier_frequency_hz;
     const double delta_range_m =
-        lambda_m * lambda_m * config.reference_range_m * fa_hz * fa_hz /
+        wavelength_m * wavelength_m * config.reference_range_m * fa_hz * fa_hz /
         (8.0 * config.platform_velocity_mps * config.platform_velocity_mps);
     delta_bins_by_row[row] = delta_range_m / diagnostics.range_bin_spacing_m;
   }
