@@ -1116,6 +1116,25 @@
 - 阶段 46 决策完成。
 - 阶段 47 Phase 2 参考级成像与算法对比闭环综合再审批已启动。
 
+## 2026-06-06 阶段 47 Phase 2 参考级成像闭环综合再审批
+
+### 已执行
+
+1. 汇总 L1 RDA、L2 一阶补偿、L3 BP、GBP/BP 参考、边界参数矩阵和 RDA diagnostics 证据。
+2. 复核 public Session、replay、尺寸门和 Auto 前置条件。
+3. 新增 `docs/sar_phase2_reference_imaging_reapproval_report.md`。
+
+### 审批结论
+
+- 当前固定 PRF、点目标、显式算法路径完成综合再审批。
+- Auto、尺寸扩展、时变 PRF、真实动力学、全图 replay、杂波和辐射定标继续后置。
+- 下一方向批准测试侧确定性噪声与 SNR 鲁棒性参考矩阵，不新增生产或 public 能力。
+
+### 阶段状态
+
+- 阶段 47 完成。
+- 阶段 48 确定性噪声与 SNR 鲁棒性矩阵契约已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
