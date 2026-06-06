@@ -37,7 +37,10 @@
 | 12 | L2 工程契约冻结 | complete | L2 连续扰动轨迹和一阶运动补偿边界明确 |
 | 13 | L2 连续扰动轨迹 | complete_current_platform | 固定种子、零扰动退化和连续位置轨迹通过 |
 | 14 | 一阶运动补偿闭环 | complete_current_platform | 包络/相位补偿相对理想参考产生可测改善 |
-| 15 | L2 后续扩展决策门 | ready_for_decision | 决定 public Session 接入、多参考点补偿或 L3 |
+| 15 | L2 后续扩展决策门 | complete | 选择 L2 与一阶运动补偿受控接入 public Session |
+| 16 | L2 Session 接入契约 | complete | 默认关闭、replay 保真和强制补偿边界明确 |
+| 17 | L2 公开配置与 replay | in_progress | 配置、schema、codec 和 round-trip 通过 |
+| 18 | L2 Session 执行闭环 | pending | Session 非零轨迹、补偿诊断、replay 和回归通过 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -570,7 +573,7 @@
 
 ## 阶段 15：L2 后续扩展决策门
 
-状态：`ready_for_decision`
+状态：`complete`
 
 候选方向：
 
@@ -582,6 +585,45 @@
 
 - 优先受控接入 public Session，但必须新增公开配置、replay 契约、结构化诊断和默认关闭门。
 - Auto 继续后置。
+
+决策结论：
+
+- 跟随任务执行，选择受控接入 public Session。
+- 多参考点补偿与 L3 继续后置。
+
+## 阶段 16：L2 Session 接入契约
+
+状态：`complete`
+
+- 新增 `SAR_L2_SESSION_INTEGRATION_CONTRACT.md`。
+- public policy 新增默认关闭的 `enable_l2_motion_compensation`。
+- mission 配置提供三轴速度扰动标准差和固定种子。
+- 参考点固定为 local `(0, nominal_slant_range_m, 0)`。
+- 启用 L2 时必须在 RDA 前强制执行一阶补偿，不允许 public L2 未补偿成像。
+- L2 配置进入 session config replay，但不进入 runtime patch。
+
+## 阶段 17：L2 公开配置与 replay
+
+状态：`in_progress`
+
+任务：
+
+1. 新增公开 mission/policy 配置字段，默认关闭。
+2. 更新 FlatBuffers session config schema 和生成头。
+3. 更新 codec 与 round-trip 测试。
+4. 验证旧默认行为和 public API contract。
+
+## 阶段 18：L2 Session 执行闭环
+
+状态：`pending`
+
+任务：
+
+1. Session 同时维护当前 aperture 的理想与实际轨迹。
+2. 使用实际 L2 轨迹生成 raw echo。
+3. 在 RDA 前强制执行一阶运动补偿。
+4. 输出结构化 L2 轨迹和补偿诊断。
+5. 验证默认 L1、L2 零扰动、L2 非零扰动和 replay。
 
 ## 当前待决策问题
 
@@ -618,4 +660,4 @@
 
 ## 下一步
 
-阶段 12-14 已完成。下一步讨论并审批阶段 15 的扩展方向。
+执行阶段 17：新增默认关闭的 L2 public 配置和 session config replay 保真。

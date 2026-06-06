@@ -412,3 +412,10 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - 未补偿成像相对理想参考的 NRMS 为 `1.312794`、相关系数为 `0.138285`；补偿后 NRMS 降至 `0.249779`、相关系数升至 `0.968805`。
 - `1024x1024` raw history 一阶补偿 Debug 核心处理约 `0.052741 s`。
 - 当前内部能力已证明，但 public Session 尚无 L2 配置、实际/理想轨迹输入和 replay 契约，因此不得直接接入默认路径。
+
+## L2 Public Session 接入契约发现
+
+- Session 当前内部生成 L1 aperture，public 输入没有逐脉冲实际/理想轨迹，因此受控接入应继续由 Session 依据 mission 固定种子生成 L2。
+- 为防止跨 aperture 运行期修改扰动统计特性，L2 标准差和 seed 只进入 session config replay，不进入 runtime patch。
+- public Session 不开放 L2 未补偿 RDA：启用 L2 policy 时必须强制执行一阶补偿。
+- 一阶补偿参考点冻结为 local `(0, nominal_slant_range_m, 0)`，避免依赖目标列表顺序。
