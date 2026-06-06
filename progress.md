@@ -845,6 +845,36 @@
 - 阶段 32 完成当前平台审批。
 - 阶段 33 L3 BP Session 执行闭环已启动。
 
+## 2026-06-06 阶段 33 L3 BP Session 执行闭环
+
+### 已执行
+
+1. Session 按 public LLA waypoint 和连续 `pulse_id / PRF` 生成 L3 实际轨迹。
+2. 使用 L3 实际轨迹生成 raw echo，并通过共享后向投影核心执行 `pulse_major` BP。
+3. 新增 L1/L2 互斥、raw/range 前置条件、waypoint 结构、覆盖范围和 `128x128` 尺寸结构化拒绝。
+4. 新增 `sar.l3_trajectory`、`sar.bp_peak`、`sar.bp_traversal` diagnostics。
+5. 新增跨周期 aperture 对齐和两周期 L3 BP trace replay 测试。
+6. 新增 `docs/sar_l3_bp_session_integration_acceptance_report.md`。
+
+### 验证结果
+
+- 默认与 Conan Eigen 3.3.9 全部 `Sar*` 单测：各 73/73 passed。
+- 默认与 Conan Eigen 3.3.9 SAR replay-fast：各 10/10 passed。
+- 默认与 Conan Eigen 3.3.9 `ctest -L sar_ci`：各 4/4 passed。
+- 默认 `ctest -L sar_performance`：1/1 passed。
+- Conan Eigen 3.3.9 `ctest -L sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 独立限制
+
+- 全仓无目标构建在既有 `flight_dynamic` 测试处被缺失的 JSBSim `FGFDMExec.h` 阻断；SAR 独立目标与门禁均通过。
+
+### 阶段状态
+
+- 阶段 33 完成当前平台审批。
+- Auto、runtime patch、全图复矩阵 replay、时变 PRF 和 BP 尺寸扩展继续后置。
+- 阶段 34 Phase 2 完成度审计已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

@@ -10,6 +10,8 @@
 #include "1q/sar/session/SarSessionFactory.h"
 #include "sar/echo/SarEcho.h"
 #include "sar/geometry/SarGeometry.h"
+#include "sar/imaging/SarGbp.h"
+#include "sar/imaging/SarImageQuality.h"
 #include "sar/imaging/SarMotionCompensation.h"
 #include "sar/imaging/SarRda.h"
 #include "sar/runtime/PulseRingBuffer.h"
@@ -21,8 +23,10 @@ namespace session {
 namespace {
 
 constexpr double kEarthRadiusM = 6378137.0;
+constexpr double kSpeedOfLightMps = 299792458.0;
 constexpr std::uint32_t kMaxSessionRdaRangeSamples = 1024U;
 constexpr std::uint32_t kMaxSessionRdaPulses = 1024U;
+constexpr std::uint32_t kMaxSessionBpDimension = 128U;
 
 bool HasRequestedUpdate(const config::SarRuntimeConfigPatch& patch) {
   return patch.has_enable_raw_echo_generation || patch.has_enable_range_compression ||
@@ -81,6 +85,23 @@ geometry::LocalPoint ToLocalPoint(double latitude_deg, double longitude_deg, dou
 
 double DbsmToSquareMeters(double dbsm) { return std::pow(10.0, dbsm / 10.0); }
 
+bool HasValidL3Waypoints(const config::SarMissionConfig& mission) {
+  if (mission.l3_waypoints.size() < 2U) {
+    return false;
+  }
+  for (std::size_t index = 0U; index < mission.l3_waypoints.size(); ++index) {
+    const config::SarWaypointConfig& waypoint = mission.l3_waypoints[index];
+    if (!std::isfinite(waypoint.time_from_session_start_s) ||
+        !std::isfinite(waypoint.latitude_deg) || !std::isfinite(waypoint.longitude_deg) ||
+        !std::isfinite(waypoint.altitude_m) || waypoint.time_from_session_start_s < 0.0 ||
+        (index > 0U && waypoint.time_from_session_start_s <=
+                           mission.l3_waypoints[index - 1U].time_from_session_start_s)) {
+      return false;
+    }
+  }
+  return mission.l3_waypoints.front().time_from_session_start_s == 0.0;
+}
+
 bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config, SarCycleResult* result) {
   if (config.hardware.bandwidth_hz <= 0.0 || config.hardware.sample_rate_hz <= 0.0 ||
       config.hardware.carrier_frequency_hz <= 0.0 ||
@@ -123,6 +144,26 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config, SarCyc
     result->diagnostics.push_back(MakeError(
         "sar.invalid_l2_motion_compensation_config",
         "SAR L2 motion compensation requires raw echo, RDA, and non-negative velocity errors."));
+    return false;
+  }
+  if (config.policy.enable_l3_bp_imaging &&
+      (!config.policy.enable_raw_echo_generation || !config.policy.enable_range_compression ||
+       config.policy.enable_l1_rda_imaging || config.policy.enable_l2_motion_compensation ||
+       !HasValidL3Waypoints(config.mission))) {
+    result->has_error = true;
+    result->abort_reason = "invalid_l3_bp_config";
+    result->diagnostics.push_back(MakeError(
+        "sar.invalid_l3_bp_config",
+        "SAR L3 BP requires raw echo, range compression, valid waypoints, and no L1/L2 path."));
+    return false;
+  }
+  if (config.policy.enable_l3_bp_imaging &&
+      (config.mission.range_sample_count > kMaxSessionBpDimension ||
+       config.mission.azimuth_pulse_count > kMaxSessionBpDimension)) {
+    result->has_error = true;
+    result->abort_reason = "l3_bp_size_gate";
+    result->diagnostics.push_back(MakeError(
+        "sar.l3_bp_size_gate", "SAR L3 BP size exceeds the approved 128x128 runtime gate."));
     return false;
   }
   return true;
@@ -206,7 +247,35 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
     return false;
   }
   std::vector<geometry::PlatformPulseState> actual_pulses = ideal_pulses;
-  if (config.policy.enable_l2_motion_compensation && !ideal_pulses.empty()) {
+  if (config.policy.enable_l3_bp_imaging && pulse_count_to_generate > 0U) {
+    geometry::WaypointTrackConfig l3_config;
+    l3_config.first_pulse_id = *next_pulse_id;
+    for (const config::SarWaypointConfig& waypoint : config.mission.l3_waypoints) {
+      geometry::Waypoint local_waypoint;
+      local_waypoint.time_s = waypoint.time_from_session_start_s;
+      local_waypoint.position_m = ToLocalPoint(waypoint.latitude_deg, waypoint.longitude_deg,
+                                               waypoint.altitude_m, config.mission);
+      l3_config.waypoints.push_back(local_waypoint);
+    }
+    for (std::size_t index = 0U; index < pulse_count_to_generate; ++index) {
+      l3_config.pulse_times_s.push_back(static_cast<double>(*next_pulse_id + index) /
+                                        config.hardware.pulse_repetition_frequency_hz);
+    }
+    if (!geometry::GenerateWaypointTrack(l3_config, &actual_pulses)) {
+      result->has_error = true;
+      result->abort_reason = "l3_waypoint_coverage";
+      result->diagnostics.push_back(
+          MakeError("sar.l3_waypoint_coverage",
+                    "SAR L3 waypoints do not cover the required fixed-PRF pulse time range."));
+      return false;
+    }
+    ideal_pulses = actual_pulses;
+    result->diagnostics.push_back(
+        MakeInfo("sar.l3_trajectory",
+                 "SAR L3 waypoint trajectory generated=" + std::to_string(actual_pulses.size()) +
+                     ", first_time_s=" + std::to_string(actual_pulses.front().time_s) +
+                     ", last_time_s=" + std::to_string(actual_pulses.back().time_s)));
+  } else if (config.policy.enable_l2_motion_compensation && !ideal_pulses.empty()) {
     geometry::PerturbedStripmapTrackConfig l2_config;
     l2_config.ideal = track_config;
     l2_config.velocity_error_stddev_x_mps = config.mission.l2_velocity_error_stddev_x_mps;
@@ -479,6 +548,47 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
             ", image_entropy_nats=" + std::to_string(image.diagnostics.image_entropy_nats)));
     result.output_frame.completed_stage = SarProcessingStage::kL1RdaImage;
     result.output_frame.has_l1_image = true;
+  }
+  if (impl_->runtime_config.policy.enable_l3_bp_imaging) {
+    if (impl_->actual_trajectory_buffer.size() != raw_history.rows) {
+      result.has_error = true;
+      result.abort_reason = "l3_trajectory_history_mismatch";
+      result.diagnostics.push_back(
+          MakeError("sar.l3_trajectory_history_mismatch",
+                    "SAR L3 trajectory history does not match the latest raw aperture."));
+      return result;
+    }
+    const std::vector<geometry::PlatformPulseState> actual_trajectory(
+        impl_->actual_trajectory_buffer.begin(), impl_->actual_trajectory_buffer.end());
+    imaging::GbpConfig bp_config;
+    bp_config.sample_rate_hz = impl_->runtime_config.hardware.sample_rate_hz;
+    bp_config.carrier_frequency_hz = impl_->runtime_config.hardware.carrier_frequency_hz;
+    bp_config.grid.azimuth_pixel_count = impl_->runtime_config.mission.azimuth_pulse_count;
+    bp_config.grid.range_pixel_count = impl_->runtime_config.mission.range_sample_count;
+    bp_config.grid.azimuth_spacing_m = impl_->runtime_config.mission.platform_speed_mps /
+                                       impl_->runtime_config.hardware.pulse_repetition_frequency_hz;
+    bp_config.grid.range_spacing_m =
+        kSpeedOfLightMps / (2.0 * impl_->runtime_config.hardware.sample_rate_hz);
+    bp_config.grid.azimuth_start_m = -0.5 *
+                                     static_cast<double>(bp_config.grid.azimuth_pixel_count - 1U) *
+                                     bp_config.grid.azimuth_spacing_m;
+    imaging::FocusedGbpImage image;
+    if (!imaging::FocusSmallSceneBp(bp_config, actual_trajectory, raw_history, matched_filter,
+                                    &image)) {
+      result.has_error = true;
+      result.abort_reason = "l3_bp_failed";
+      result.diagnostics.push_back(MakeError("sar.l3_bp_failed", "SAR L3 BP focus failed."));
+      return result;
+    }
+    const imaging::ImageQualityMetrics quality = imaging::EvaluateImageQuality(image.image);
+    result.diagnostics.push_back(MakeInfo(
+        "sar.bp_peak", "SAR BP peak_row=" + std::to_string(quality.peak_row) +
+                           ", peak_col=" + std::to_string(quality.peak_col) +
+                           ", image_entropy_nats=" + std::to_string(quality.entropy_nats)));
+    result.diagnostics.push_back(
+        MakeInfo("sar.bp_traversal", "SAR BP traversal=" + image.diagnostics.traversal_order));
+    result.output_frame.completed_stage = SarProcessingStage::kL3BpImage;
+    result.output_frame.has_l3_bp_image = true;
   }
 
   result.executed_this_cycle = true;

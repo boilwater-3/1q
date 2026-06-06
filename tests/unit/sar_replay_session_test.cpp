@@ -59,6 +59,24 @@ config::SarSessionConfig MakeSmallRdaConfigForReplay() {
   return config;
 }
 
+config::SarSessionConfig MakeSmallL3BpConfigForReplay() {
+  config::SarSessionConfig config = MakeSmallRdaConfigForReplay();
+  config.policy.enable_l1_rda_imaging = false;
+  config.policy.enable_l3_bp_imaging = true;
+  const double meters_to_degrees = 180.0 / (3.14159265358979323846 * 6378137.0);
+  config::SarWaypointConfig start;
+  start.time_from_session_start_s = 0.0;
+  start.longitude_deg = -0.4 * meters_to_degrees;
+  config::SarWaypointConfig turn;
+  turn.time_from_session_start_s = 0.2;
+  config::SarWaypointConfig end;
+  end.time_from_session_start_s = 1.0;
+  end.longitude_deg = 1.6 * meters_to_degrees;
+  end.latitude_deg = 3.0 * meters_to_degrees;
+  config.mission.l3_waypoints = {start, turn, end};
+  return config;
+}
+
 SarCycleInput MakeReplayInput(std::uint32_t cycle_index = 1U) {
   SarCycleInput input;
   input.cycle_index = cycle_index;
@@ -109,6 +127,41 @@ TEST(SarReplaySessionTest, ReplaySarTraceRoundtrip) {
   EXPECT_TRUE(replay_result.report.replay_ready);
   EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
   EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+  EXPECT_FALSE(replay_result.reached_failure_marker);
+}
+
+TEST(SarReplaySessionTest, ReplayL3BpTraceRoundtrip) {
+  const std::string trace_dir = MakeTempTracePath("oneq-sar-l3-bp-replay-roundtrip");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "sar-l3-bp-replay-roundtrip-test";
+  manifest.module = "sar";
+  manifest.scenario_id = "unit-test";
+
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+    SarTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+    SarTraceSession session(MakeSmallL3BpConfigForReplay(), options);
+
+    const SarCycleResult first = session.StepWithResult(MakeReplayInput(1U));
+    ASSERT_TRUE(first.executed_this_cycle);
+    ASSERT_TRUE(first.output_frame.has_l3_bp_image);
+    ASSERT_EQ(first.output_frame.completed_stage, SarProcessingStage::kL3BpImage);
+    const SarCycleResult second = session.StepWithResult(MakeReplayInput(2U));
+    ASSERT_TRUE(second.executed_this_cycle);
+    ASSERT_TRUE(second.output_frame.has_l3_bp_image);
+    replay_writer->Flush();
+  }
+
+  const SarReplaySessionResult replay_result = ReplaySarTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_TRUE(replay_result.report.replay_ready);
+  EXPECT_EQ(replay_result.playback.applied_input_count, 2U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 2U);
   EXPECT_FALSE(replay_result.playback.divergence_found);
   EXPECT_FALSE(replay_result.reached_failure_marker);
 }

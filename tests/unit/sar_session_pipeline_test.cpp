@@ -30,6 +30,24 @@ config::SarSessionConfig MakeSmallRdaConfig() {
   return config;
 }
 
+config::SarSessionConfig MakeSmallL3BpConfig() {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.enable_l1_rda_imaging = false;
+  config.policy.enable_l3_bp_imaging = true;
+  const double meters_to_degrees = 180.0 / (3.14159265358979323846 * 6378137.0);
+  config::SarWaypointConfig start;
+  start.time_from_session_start_s = 0.0;
+  start.longitude_deg = -0.4 * meters_to_degrees;
+  config::SarWaypointConfig turn;
+  turn.time_from_session_start_s = 0.2;
+  config::SarWaypointConfig end;
+  end.time_from_session_start_s = 1.0;
+  end.longitude_deg = 1.6 * meters_to_degrees;
+  end.latitude_deg = 3.0 * meters_to_degrees;
+  config.mission.l3_waypoints = {start, turn, end};
+  return config;
+}
+
 session::SarCycleInput MakeInput(std::uint32_t cycle_index = 1U) {
   session::SarCycleInput input;
   input.cycle_index = cycle_index;
@@ -202,6 +220,108 @@ TEST(SarSessionPipelineTest, L2MotionCompensationRequiresRawEchoAndRda) {
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_error);
   EXPECT_EQ(result.abort_reason, "invalid_l2_motion_compensation_config");
+}
+
+TEST(SarSessionPipelineTest, L3BpRunsOnlyWhenExplicitlyEnabled) {
+  session::SarSession session = session::SarSessionFactory::Create(MakeSmallL3BpConfig());
+
+  const session::SarCycleResult result = session.StepWithResult(MakeInput());
+
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.has_error);
+  EXPECT_TRUE(result.output_frame.has_raw_echo);
+  EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
+  EXPECT_FALSE(result.output_frame.has_l1_image);
+  EXPECT_TRUE(result.output_frame.has_l3_bp_image);
+  EXPECT_EQ(result.output_frame.completed_stage, session::SarProcessingStage::kL3BpImage);
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.l3_trajectory", "generated=9"));
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.bp_peak", "peak_row="));
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.bp_traversal", "pulse_major"));
+}
+
+TEST(SarSessionPipelineTest, L3BpRejectsMutualExclusionAndSizeViolations) {
+  config::SarSessionConfig mutual_exclusion = MakeSmallL3BpConfig();
+  mutual_exclusion.policy.enable_l1_rda_imaging = true;
+  session::SarSession mutual_session = session::SarSessionFactory::Create(mutual_exclusion);
+  const session::SarCycleResult mutual_result = mutual_session.StepWithResult(MakeInput());
+  EXPECT_FALSE(mutual_result.executed_this_cycle);
+  EXPECT_EQ(mutual_result.abort_reason, "invalid_l3_bp_config");
+
+  config::SarSessionConfig oversized = MakeSmallL3BpConfig();
+  oversized.mission.range_sample_count = 129U;
+  session::SarSession oversized_session = session::SarSessionFactory::Create(oversized);
+  const session::SarCycleResult oversized_result = oversized_session.StepWithResult(MakeInput());
+  EXPECT_FALSE(oversized_result.executed_this_cycle);
+  EXPECT_EQ(oversized_result.abort_reason, "l3_bp_size_gate");
+}
+
+TEST(SarSessionPipelineTest, L3BpRequiresRawEchoAndRangeCompression) {
+  config::SarSessionConfig no_raw = MakeSmallL3BpConfig();
+  no_raw.policy.enable_raw_echo_generation = false;
+  session::SarSession no_raw_session = session::SarSessionFactory::Create(no_raw);
+  const session::SarCycleResult no_raw_result = no_raw_session.StepWithResult(MakeInput());
+  EXPECT_FALSE(no_raw_result.executed_this_cycle);
+  EXPECT_EQ(no_raw_result.abort_reason, "invalid_l3_bp_config");
+
+  config::SarSessionConfig no_range_compression = MakeSmallL3BpConfig();
+  no_range_compression.policy.enable_range_compression = false;
+  session::SarSession no_range_session = session::SarSessionFactory::Create(no_range_compression);
+  const session::SarCycleResult no_range_result = no_range_session.StepWithResult(MakeInput());
+  EXPECT_FALSE(no_range_result.executed_this_cycle);
+  EXPECT_EQ(no_range_result.abort_reason, "invalid_l3_bp_config");
+}
+
+TEST(SarSessionPipelineTest, L3BpRejectsInvalidWaypointStructure) {
+  config::SarSessionConfig nonzero_start = MakeSmallL3BpConfig();
+  nonzero_start.mission.l3_waypoints.front().time_from_session_start_s = 0.01;
+  session::SarSession nonzero_start_session = session::SarSessionFactory::Create(nonzero_start);
+  const session::SarCycleResult nonzero_start_result =
+      nonzero_start_session.StepWithResult(MakeInput());
+  EXPECT_FALSE(nonzero_start_result.executed_this_cycle);
+  EXPECT_EQ(nonzero_start_result.abort_reason, "invalid_l3_bp_config");
+
+  config::SarSessionConfig nonmonotonic = MakeSmallL3BpConfig();
+  nonmonotonic.mission.l3_waypoints.back().time_from_session_start_s =
+      nonmonotonic.mission.l3_waypoints[1].time_from_session_start_s;
+  session::SarSession nonmonotonic_session = session::SarSessionFactory::Create(nonmonotonic);
+  const session::SarCycleResult nonmonotonic_result =
+      nonmonotonic_session.StepWithResult(MakeInput());
+  EXPECT_FALSE(nonmonotonic_result.executed_this_cycle);
+  EXPECT_EQ(nonmonotonic_result.abort_reason, "invalid_l3_bp_config");
+}
+
+TEST(SarSessionPipelineTest, L3BpTrajectoryHistoryRemainsAlignedAcrossCycles) {
+  session::SarSession session = session::SarSessionFactory::Create(MakeSmallL3BpConfig());
+
+  const session::SarCycleResult first = session.StepWithResult(MakeInput(1U));
+  ASSERT_TRUE(first.executed_this_cycle);
+  ASSERT_FALSE(first.has_error);
+  EXPECT_TRUE(first.output_frame.has_l3_bp_image);
+  EXPECT_TRUE(HasDiagnosticContaining(first, "sar.l3_trajectory", "generated=9"));
+  EXPECT_TRUE(HasDiagnosticContaining(first, "sar.l3_trajectory", "last_time_s=0.400000"));
+
+  const session::SarCycleResult second = session.StepWithResult(MakeInput(2U));
+  EXPECT_TRUE(second.executed_this_cycle);
+  EXPECT_FALSE(second.has_error);
+  EXPECT_TRUE(second.output_frame.has_l3_bp_image);
+  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.pulse_ring_buffer", "generated=2"));
+  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.pulse_ring_buffer", "overflow=true"));
+  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.l3_trajectory", "first_time_s=0.450000"));
+  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.l3_trajectory", "last_time_s=0.500000"));
+  EXPECT_TRUE(HasDiagnosticContaining(second, "sar.bp_traversal", "pulse_major"));
+}
+
+TEST(SarSessionPipelineTest, L3BpRejectsWaypointCoverageGap) {
+  config::SarSessionConfig config = MakeSmallL3BpConfig();
+  config.mission.l3_waypoints.back().time_from_session_start_s = 0.2;
+  config.mission.l3_waypoints[1].time_from_session_start_s = 0.1;
+  session::SarSession session = session::SarSessionFactory::Create(config);
+
+  const session::SarCycleResult result = session.StepWithResult(MakeInput());
+
+  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_TRUE(result.has_error);
+  EXPECT_EQ(result.abort_reason, "l3_waypoint_coverage");
 }
 
 TEST(SarSessionPipelineTest, InvalidCycleReusesPreviousOutput) {

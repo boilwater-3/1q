@@ -501,3 +501,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - `enable_l3_bp_imaging` 默认 `false`；`l3_waypoints` 默认空列表，旧 payload 解码保持 L3/BP 关闭。
 - cycle output replay 已保真 `kL3BpImage` 与 `has_l3_bp_image`，但 focused complex image 仍未开放。
 - waypoint、L3 BP policy 和输出摘要 codec round-trip、public smoke、默认 Session replay 均通过。
+
+## L3 BP Session 执行闭环发现
+
+- Session 可按连续 `pulse_id / PRF` 将 public LLA waypoint 转为固定 PRF L3 脉冲轨迹，并使用实际轨迹生成 raw echo 与执行 BP。
+- latest-N raw history 与实际轨迹跨周期保持同一 aperture；第二周期仅追加两脉冲，时间从 `0.45 s` 连续到 `0.50 s`。
+- L3 BP 与 L1-RDA/L2 互斥，缺失 raw/range compression、无效 waypoint 结构、覆盖不足和超过 `128x128` 均有独立结构化拒绝。
+- `sar.l3_trajectory`、`sar.bp_peak`、`sar.bp_traversal` 与 L3 输出摘要可完成两周期无 divergence replay。
+- public L3 BP 已具备受控 Session 闭环，但当前证据仍不支持 Auto、runtime patch、全图复矩阵 replay、时变 PRF 或扩大 BP 尺寸门。
+- 全仓无目标构建仍被非 SAR 的 JSBSim `FGFDMExec.h` 缺失阻断；SAR 独立构建与审批门不受影响。

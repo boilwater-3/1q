@@ -1,4 +1,4 @@
-# 任务计划：SAR 工程化建设、参考级成像与 L2 运动补偿
+# 任务计划：SAR 工程化建设、参考级成像与 L3 BP
 
 ## 目标
 
@@ -55,7 +55,8 @@
 | 30 | L3 BP 后续接入决策门 | complete | 选择受控 public Session 接入契约，Auto 继续后置 |
 | 31 | L3 BP Session 接入契约 | complete | 冻结 waypoint、时间基准、replay、算法和尺寸门 |
 | 32 | L3 BP 公开配置与 replay | complete_current_platform | waypoint/policy/output schema、codec 和 round-trip 通过 |
-| 33 | L3 BP Session 执行闭环 | in_progress | L3 raw echo、BP 聚焦、诊断、replay 和回归 |
+| 33 | L3 BP Session 执行闭环 | complete_current_platform | L3 raw echo、BP 聚焦、诊断、replay 和回归通过 |
+| 34 | Phase 2 完成度审计 | in_progress | 逐项核对参考成像、算法对比、适用边界与 public 闭环 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -890,7 +891,7 @@
 
 ## 阶段 33：L3 BP Session 执行闭环
 
-状态：`pending`
+状态：`complete_current_platform`
 
 任务：
 
@@ -898,6 +899,26 @@
 2. 使用 L3 轨迹生成 raw echo 并执行 BP。
 3. 实现互斥、覆盖范围和 `128x128` 结构化拒绝。
 4. 输出 L3/BP diagnostics，并完成摘要级 replay。
+
+验收结果：
+
+- 默认与 Conan Eigen 3.3.9 全部 `Sar*` 单测：各 73/73 passed。
+- 默认与 Conan Eigen 3.3.9 SAR replay-fast：各 10/10 passed。
+- 默认与 Conan Eigen 3.3.9 `sar_ci`：各 4/4 passed。
+- 默认 `sar_performance`：1/1 passed。
+- Conan Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+- 验收报告：`docs/sar_l3_bp_session_integration_acceptance_report.md`。
+
+## 阶段 34：Phase 2 完成度审计
+
+状态：`in_progress`
+
+任务：
+
+1. 按“参考级成像与算法对比闭环”目标逐项审计现有证据。
+2. 核对 RDA/GBP/BP、L2/L3 适用边界、public Session 与 replay 的完成度和剩余缺口。
+3. 保持 Auto 后置，基于缺口证据选择下一扩展方向。
 
 ## 当前待决策问题
 
@@ -934,4 +955,4 @@
 
 ## 下一步
 
-执行阶段 33：实现 L3 BP Session 执行闭环、结构化拒绝和摘要级 replay。
+执行阶段 34：完成 Phase 2 参考级成像与算法对比闭环审计，并冻结下一扩展方向。
