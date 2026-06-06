@@ -2,10 +2,19 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <random>
 
 namespace sar {
 namespace geometry {
+
+namespace {
+
+bool IsFinite(const LocalPoint& point) {
+  return std::isfinite(point.x_m) && std::isfinite(point.y_m) && std::isfinite(point.z_m);
+}
+
+}  // namespace
 
 bool GenerateStraightStripmapTrack(const StraightStripmapTrackConfig& config,
                                    std::vector<PlatformPulseState>* pulses) {
@@ -94,6 +103,62 @@ bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
       std::sqrt(position_error_squared_sum / static_cast<double>(pulses->size()));
   diagnostics->rms_velocity_error_mps =
       std::sqrt(velocity_error_squared_sum / static_cast<double>(pulses->size()));
+  return true;
+}
+
+bool GenerateWaypointTrack(const WaypointTrackConfig& config,
+                           std::vector<PlatformPulseState>* pulses) {
+  if (pulses == nullptr || config.waypoints.size() < 2U || config.pulse_times_s.empty() ||
+      config.pulse_times_s.size() - 1U >
+          std::numeric_limits<std::uint64_t>::max() - config.first_pulse_id) {
+    return false;
+  }
+  for (std::size_t index = 0U; index < config.waypoints.size(); ++index) {
+    if (!std::isfinite(config.waypoints[index].time_s) ||
+        !IsFinite(config.waypoints[index].position_m) ||
+        (index > 0U && config.waypoints[index].time_s <= config.waypoints[index - 1U].time_s)) {
+      return false;
+    }
+  }
+  for (std::size_t index = 0U; index < config.pulse_times_s.size(); ++index) {
+    if (!std::isfinite(config.pulse_times_s[index]) ||
+        config.pulse_times_s[index] < config.waypoints.front().time_s ||
+        config.pulse_times_s[index] > config.waypoints.back().time_s ||
+        (index > 0U && config.pulse_times_s[index] <= config.pulse_times_s[index - 1U])) {
+      return false;
+    }
+  }
+
+  pulses->clear();
+  pulses->reserve(config.pulse_times_s.size());
+  for (std::size_t index = 0U; index < config.pulse_times_s.size(); ++index) {
+    const double pulse_time_s = config.pulse_times_s[index];
+    const std::vector<Waypoint>::const_iterator upper = std::upper_bound(
+        config.waypoints.begin(), config.waypoints.end(), pulse_time_s,
+        [](double time_s, const Waypoint& waypoint) { return time_s < waypoint.time_s; });
+    const std::size_t segment =
+        upper == config.waypoints.end()
+            ? config.waypoints.size() - 2U
+            : static_cast<std::size_t>(upper - config.waypoints.begin() - 1);
+    const Waypoint& start = config.waypoints[segment];
+    const Waypoint& end = config.waypoints[segment + 1U];
+    const double duration_s = end.time_s - start.time_s;
+    const double fraction = (pulse_time_s - start.time_s) / duration_s;
+
+    PlatformPulseState pulse;
+    pulse.pulse_id = config.first_pulse_id + index;
+    pulse.time_s = pulse_time_s;
+    pulse.position_m.x_m =
+        start.position_m.x_m + fraction * (end.position_m.x_m - start.position_m.x_m);
+    pulse.position_m.y_m =
+        start.position_m.y_m + fraction * (end.position_m.y_m - start.position_m.y_m);
+    pulse.position_m.z_m =
+        start.position_m.z_m + fraction * (end.position_m.z_m - start.position_m.z_m);
+    pulse.velocity_x_mps = (end.position_m.x_m - start.position_m.x_m) / duration_s;
+    pulse.velocity_y_mps = (end.position_m.y_m - start.position_m.y_m) / duration_s;
+    pulse.velocity_z_mps = (end.position_m.z_m - start.position_m.z_m) / duration_s;
+    pulses->push_back(pulse);
+  }
   return true;
 }
 

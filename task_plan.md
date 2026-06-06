@@ -43,7 +43,8 @@
 | 18 | L2 Session 执行闭环 | complete_current_platform | Session 非零轨迹、补偿诊断、replay 和回归通过 |
 | 19 | L2 后续扩展决策门 | complete | 选择 L3 航路点轨迹；外部轨迹和多参考点继续后置 |
 | 20 | L3 航路点轨迹契约 | complete | 显式时间航路点、显式脉冲时刻和退化边界明确 |
-| 21 | L3 航路点轨迹几何 | in_progress | 确定性插值、时变脉冲时刻和严格退化测试 |
+| 21 | L3 航路点轨迹几何 | complete_current_platform | 确定性插值、显式脉冲时刻和严格退化测试通过 |
+| 22 | L3 raw echo 与成像退化基线 | in_progress | 量化 L3 经 L1-RDA 的退化，并以 GBP 建立参考 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -677,7 +678,7 @@
 
 ## 阶段 21：L3 航路点轨迹几何
 
-状态：`in_progress`
+状态：`complete_current_platform`
 
 任务：
 
@@ -686,6 +687,26 @@
 3. 验证固定 PRF 直线轨迹严格退化为 L1。
 4. 验证转角命中、非均匀脉冲时刻和非法输入拒绝。
 5. 完成默认与 Eigen 3.3.9/C++11 回归。
+
+已完成：
+
+- 新增内部 `Waypoint`、`WaypointTrackConfig` 和 `GenerateWaypointTrack()`。
+- 显式脉冲时刻支持固定与非均匀采样，位置按航段线性插值。
+- 固定 PRF 直线航路点与 L1 逐点一致。
+- 转角航段速度切换、重复生成和非法时间契约拒绝通过。
+- 新增 `docs/sar_l3_waypoint_trajectory_acceptance_report.md`。
+
+## 阶段 22：L3 raw echo 与成像退化基线
+
+状态：`in_progress`
+
+任务：
+
+1. 使用相同点目标与 L1/L3 轨迹分别生成 raw echo。
+2. 将 L3 raw echo 输入现有 L1-RDA，量化非直线轨迹退化。
+3. 使用支持任意逐脉冲位置的 GBP 建立 L3 参考聚焦结果。
+4. 对比 L1-RDA、L3 未适配 RDA 和 L3-GBP 的峰值位置、NRMS 与相关性。
+5. 不接入 public Session，不实现二阶补偿或 Auto。
 
 ## 当前待决策问题
 
@@ -722,4 +743,4 @@
 
 ## 下一步
 
-执行阶段 21：实现内部 L3 航路点轨迹几何与显式脉冲时刻验收，不接入 public Session。
+执行阶段 22：建立内部 L3 raw echo 与成像退化基线，以证据决定后续 BP/补偿方向。

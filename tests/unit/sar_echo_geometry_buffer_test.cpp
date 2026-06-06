@@ -127,6 +127,119 @@ TEST(SarGeometryTest, PerturbedL2TrackIsDeterministicContinuousAndNonzero) {
   EXPECT_NE(first.back().position_m.y_m, different.back().position_m.y_m);
 }
 
+TEST(SarGeometryTest, StraightWaypointTrackExactlyMatchesL1Track) {
+  geometry::StraightStripmapTrackConfig l1_config;
+  l1_config.start_position_m.x_m = -50.0;
+  l1_config.start_position_m.y_m = 1000.0;
+  l1_config.velocity_x_mps = 100.0;
+  l1_config.prf_hz = 4.0;
+  l1_config.first_pulse_id = 20U;
+  l1_config.pulse_count = 5U;
+  std::vector<geometry::PlatformPulseState> l1;
+  ASSERT_TRUE(geometry::GenerateStraightStripmapTrack(l1_config, &l1));
+
+  geometry::WaypointTrackConfig l3_config;
+  geometry::Waypoint start;
+  start.time_s = 0.0;
+  start.position_m = l1_config.start_position_m;
+  geometry::Waypoint end;
+  end.time_s = 1.0;
+  end.position_m = l1_config.start_position_m;
+  end.position_m.x_m += 100.0;
+  l3_config.waypoints.push_back(start);
+  l3_config.waypoints.push_back(end);
+  l3_config.first_pulse_id = l1_config.first_pulse_id;
+  for (std::size_t index = 0U; index < l1_config.pulse_count; ++index) {
+    l3_config.pulse_times_s.push_back(static_cast<double>(index) / l1_config.prf_hz);
+  }
+
+  std::vector<geometry::PlatformPulseState> l3;
+  ASSERT_TRUE(geometry::GenerateWaypointTrack(l3_config, &l3));
+  ASSERT_EQ(l3.size(), l1.size());
+  for (std::size_t index = 0U; index < l1.size(); ++index) {
+    EXPECT_EQ(l3[index].pulse_id, l1[index].pulse_id);
+    EXPECT_DOUBLE_EQ(l3[index].time_s, l1[index].time_s);
+    EXPECT_DOUBLE_EQ(l3[index].position_m.x_m, l1[index].position_m.x_m);
+    EXPECT_DOUBLE_EQ(l3[index].position_m.y_m, l1[index].position_m.y_m);
+    EXPECT_DOUBLE_EQ(l3[index].position_m.z_m, l1[index].position_m.z_m);
+    EXPECT_DOUBLE_EQ(l3[index].velocity_x_mps, l1[index].velocity_x_mps);
+    EXPECT_DOUBLE_EQ(l3[index].velocity_y_mps, l1[index].velocity_y_mps);
+    EXPECT_DOUBLE_EQ(l3[index].velocity_z_mps, l1[index].velocity_z_mps);
+  }
+}
+
+TEST(SarGeometryTest, WaypointTrackPreservesTurnAndNonuniformPulseTimes) {
+  geometry::WaypointTrackConfig config;
+  geometry::Waypoint first;
+  first.time_s = 0.0;
+  geometry::Waypoint turn;
+  turn.time_s = 1.0;
+  turn.position_m.x_m = 100.0;
+  geometry::Waypoint last;
+  last.time_s = 3.0;
+  last.position_m.x_m = 100.0;
+  last.position_m.y_m = 100.0;
+  config.waypoints.push_back(first);
+  config.waypoints.push_back(turn);
+  config.waypoints.push_back(last);
+  config.pulse_times_s = {0.0, 0.25, 1.0, 1.5, 3.0};
+  config.first_pulse_id = 100U;
+
+  std::vector<geometry::PlatformPulseState> pulses;
+  ASSERT_TRUE(geometry::GenerateWaypointTrack(config, &pulses));
+  ASSERT_EQ(pulses.size(), config.pulse_times_s.size());
+  std::vector<geometry::PlatformPulseState> repeated;
+  ASSERT_TRUE(geometry::GenerateWaypointTrack(config, &repeated));
+  ASSERT_EQ(repeated.size(), pulses.size());
+  EXPECT_DOUBLE_EQ(pulses[1].position_m.x_m, 25.0);
+  EXPECT_DOUBLE_EQ(pulses[1].position_m.y_m, 0.0);
+  EXPECT_DOUBLE_EQ(pulses[1].velocity_x_mps, 100.0);
+  EXPECT_DOUBLE_EQ(pulses[1].velocity_y_mps, 0.0);
+  EXPECT_DOUBLE_EQ(pulses[2].position_m.x_m, 100.0);
+  EXPECT_DOUBLE_EQ(pulses[2].position_m.y_m, 0.0);
+  EXPECT_DOUBLE_EQ(pulses[2].velocity_x_mps, 0.0);
+  EXPECT_DOUBLE_EQ(pulses[2].velocity_y_mps, 50.0);
+  EXPECT_DOUBLE_EQ(pulses[3].position_m.x_m, 100.0);
+  EXPECT_DOUBLE_EQ(pulses[3].position_m.y_m, 25.0);
+  EXPECT_DOUBLE_EQ(pulses.back().position_m.y_m, 100.0);
+  for (std::size_t index = 0U; index < pulses.size(); ++index) {
+    EXPECT_EQ(pulses[index].pulse_id, config.first_pulse_id + index);
+    EXPECT_DOUBLE_EQ(pulses[index].time_s, config.pulse_times_s[index]);
+    EXPECT_DOUBLE_EQ(repeated[index].position_m.x_m, pulses[index].position_m.x_m);
+    EXPECT_DOUBLE_EQ(repeated[index].position_m.y_m, pulses[index].position_m.y_m);
+    EXPECT_DOUBLE_EQ(repeated[index].position_m.z_m, pulses[index].position_m.z_m);
+    EXPECT_DOUBLE_EQ(repeated[index].velocity_x_mps, pulses[index].velocity_x_mps);
+    EXPECT_DOUBLE_EQ(repeated[index].velocity_y_mps, pulses[index].velocity_y_mps);
+    EXPECT_DOUBLE_EQ(repeated[index].velocity_z_mps, pulses[index].velocity_z_mps);
+  }
+}
+
+TEST(SarGeometryTest, WaypointTrackRejectsInvalidTimeContracts) {
+  geometry::WaypointTrackConfig config;
+  geometry::Waypoint first;
+  first.time_s = 0.0;
+  geometry::Waypoint last;
+  last.time_s = 1.0;
+  last.position_m.x_m = 1.0;
+  config.waypoints = {first, last};
+  config.pulse_times_s = {0.0, 0.5, 1.0};
+  std::vector<geometry::PlatformPulseState> pulses;
+  ASSERT_TRUE(geometry::GenerateWaypointTrack(config, &pulses));
+
+  config.waypoints.pop_back();
+  EXPECT_FALSE(geometry::GenerateWaypointTrack(config, &pulses));
+  config.waypoints.push_back(last);
+  config.waypoints.back().time_s = 0.0;
+  EXPECT_FALSE(geometry::GenerateWaypointTrack(config, &pulses));
+  config.waypoints.back().time_s = 1.0;
+  config.pulse_times_s = {0.0, 0.5, 0.5};
+  EXPECT_FALSE(geometry::GenerateWaypointTrack(config, &pulses));
+  config.pulse_times_s = {-0.1, 0.5, 1.0};
+  EXPECT_FALSE(geometry::GenerateWaypointTrack(config, &pulses));
+  config.pulse_times_s = {0.0, 0.5, 1.1};
+  EXPECT_FALSE(geometry::GenerateWaypointTrack(config, &pulses));
+}
+
 TEST(SarGeometryTest, FractionalPrfCarryPreservesAveragePulseRate) {
   geometry::FractionalPrfState state;
   std::uint32_t emitted = 0U;

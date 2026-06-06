@@ -652,6 +652,29 @@
 - 阶段 20 L3 航路点轨迹契约完成。
 - 阶段 21 L3 航路点轨迹几何已启动。
 
+## 2026-06-06 阶段 21 L3 航路点轨迹几何
+
+### 已执行
+
+1. 新增内部航路点、显式脉冲时刻配置和 L3 轨迹生成器。
+2. 实现航段线性位置插值与航段常速度输出。
+3. 增加 L1 严格退化、转角命中、非均匀脉冲时刻、重复生成和非法输入拒绝测试。
+4. 新增 `docs/sar_l3_waypoint_trajectory_acceptance_report.md`。
+
+### 最终回归
+
+- 默认构建 L3/echo/buffer/补偿/GBP/质量/RDA/Session 过滤测试：42/42 passed。
+- Eigen 3.3.9 同过滤测试：42/42 passed。
+- `ctest -L sar_ci`：4/4 passed。
+- `ctest -L sar_performance`：1/1 passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 21 完成当前平台审批。
+- 阶段 22 L3 raw echo 与成像退化基线已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

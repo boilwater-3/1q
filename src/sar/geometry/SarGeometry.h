@@ -1,6 +1,6 @@
 /**
  * @file SarGeometry.h
- * @brief SAR 内部本地几何与 L1 条带轨迹工具。
+ * @brief SAR 内部本地几何与 L1-L3 轨迹工具。
  */
 
 #ifndef ONEQ_SRC_SAR_GEOMETRY_SAR_GEOMETRY_H_
@@ -53,6 +53,17 @@ struct PerturbedStripmapTrackConfig {
   std::uint32_t random_seed{0U};
 };
 
+struct Waypoint {
+  double time_s{0.0};
+  LocalPoint position_m{};
+};
+
+struct WaypointTrackConfig {
+  std::vector<Waypoint> waypoints{};
+  std::vector<double> pulse_times_s{};
+  std::uint64_t first_pulse_id{0U};
+};
+
 struct TrajectoryErrorDiagnostics {
   double max_position_error_m{0.0};
   double rms_position_error_m{0.0};
@@ -73,6 +84,9 @@ bool GenerateStraightStripmapTrack(const StraightStripmapTrackConfig& config,
 bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
                                     std::vector<PlatformPulseState>* pulses,
                                     TrajectoryErrorDiagnostics* diagnostics);
+
+bool GenerateWaypointTrack(const WaypointTrackConfig& config,
+                           std::vector<PlatformPulseState>* pulses);
 
 bool AdvanceFractionalPrf(double dt_s, double prf_hz, FractionalPrfState* state,
                           std::uint32_t* emitted_pulses);
