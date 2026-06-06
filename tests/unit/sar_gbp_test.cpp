@@ -86,6 +86,66 @@ double MaxResidualRangeError(const std::vector<geometry::PlatformPulseState>& id
   return maximum;
 }
 
+struct L3CompensationCaseMetrics {
+  imaging::ImageComparisonMetrics uncompensated{};
+  imaging::ImageComparisonMetrics compensated{};
+  double max_range_error_m{0.0};
+};
+
+bool EvaluateL3CompensationCase(const test_support::ReferencePointScene& scene,
+                                std::size_t target_delay, double final_cross_range_m,
+                                L3CompensationCaseMetrics* metrics) {
+  if (metrics == nullptr) {
+    return false;
+  }
+  const echo::PointTarget target =
+      test_support::MakeReferenceTargetAtDelay(target_delay, scene.sample_rate_hz, 1.0);
+  const std::vector<geometry::PlatformPulseState> l3_pulses =
+      BuildTurningWaypointTrack(scene, final_cross_range_m);
+  if (l3_pulses.size() != scene.pulses.size()) {
+    return false;
+  }
+  test_support::ReferencePointScene l3_scene = scene;
+  l3_scene.pulses = l3_pulses;
+  signal::ComplexMatrix l3_raw;
+  if (!test_support::BuildReferenceRawHistory(l3_scene, {target}, &l3_raw)) {
+    return false;
+  }
+
+  imaging::FirstOrderMotionCompensationConfig compensation_config;
+  compensation_config.sample_rate_hz = scene.sample_rate_hz;
+  compensation_config.carrier_frequency_hz = scene.carrier_frequency_hz;
+  compensation_config.reference_point_m = target.position_m;
+  signal::ComplexMatrix compensated_raw;
+  imaging::MotionCompensationDiagnostics compensation_diagnostics;
+  if (!imaging::ApplyFirstOrderMotionCompensation(compensation_config, scene.pulses, l3_pulses,
+                                                  l3_raw, &compensated_raw,
+                                                  &compensation_diagnostics)) {
+    return false;
+  }
+
+  const imaging::RdaConfig rda_config = test_support::MakeReferenceRdaConfig(scene, target_delay);
+  imaging::FocusedSarImage uncompensated_rda;
+  imaging::FocusedSarImage compensated_rda;
+  if (!imaging::FocusStripmapRda(rda_config, l3_raw, scene.matched_filter, &uncompensated_rda) ||
+      !imaging::FocusStripmapRda(rda_config, compensated_raw, scene.matched_filter,
+                                 &compensated_rda)) {
+    return false;
+  }
+  imaging::FocusedGbpImage l3_gbp;
+  if (!imaging::FocusSmallSceneGbp(MakeGbpConfig(scene, target_delay, 9U, 9U), l3_pulses, l3_raw,
+                                   scene.matched_filter, &l3_gbp)) {
+    return false;
+  }
+
+  metrics->uncompensated = imaging::CompareImagesWithGlobalPhaseReference(
+      CropRdaReferenceWindow(uncompensated_rda.image, target_delay, 9U), l3_gbp.image);
+  metrics->compensated = imaging::CompareImagesWithGlobalPhaseReference(
+      CropRdaReferenceWindow(compensated_rda.image, target_delay, 9U), l3_gbp.image);
+  metrics->max_range_error_m = compensation_diagnostics.max_abs_range_error_m;
+  return metrics->uncompensated.valid && metrics->compensated.valid;
+}
+
 TEST(SarGbpTest, FocusesSinglePointAtExpectedSmallScenePixel) {
   test_support::ReferencePointScene scene;
   ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
@@ -264,48 +324,18 @@ TEST(SarGbpTest, FirstOrderCompensationImprovesL3ReferenceButLeavesSpatialResidu
       test_support::MakeReferenceTargetAtDelay(target_delay, scene.sample_rate_hz, 1.0);
   const std::vector<geometry::PlatformPulseState> l3_pulses = BuildTurningWaypointTrack(scene, 3.0);
   ASSERT_EQ(l3_pulses.size(), scene.pulses.size());
-
-  test_support::ReferencePointScene l3_scene = scene;
-  l3_scene.pulses = l3_pulses;
-  signal::ComplexMatrix l3_raw;
-  ASSERT_TRUE(test_support::BuildReferenceRawHistory(l3_scene, {reference_target}, &l3_raw));
-  imaging::FirstOrderMotionCompensationConfig compensation_config;
-  compensation_config.sample_rate_hz = scene.sample_rate_hz;
-  compensation_config.carrier_frequency_hz = scene.carrier_frequency_hz;
-  compensation_config.reference_point_m = reference_target.position_m;
-  signal::ComplexMatrix compensated_raw;
-  imaging::MotionCompensationDiagnostics compensation_diagnostics;
-  ASSERT_TRUE(imaging::ApplyFirstOrderMotionCompensation(compensation_config, scene.pulses,
-                                                         l3_pulses, l3_raw, &compensated_raw,
-                                                         &compensation_diagnostics));
-
-  const imaging::RdaConfig rda_config = test_support::MakeReferenceRdaConfig(scene, target_delay);
-  imaging::FocusedSarImage uncompensated_rda;
-  imaging::FocusedSarImage compensated_rda;
-  ASSERT_TRUE(
-      imaging::FocusStripmapRda(rda_config, l3_raw, scene.matched_filter, &uncompensated_rda));
-  ASSERT_TRUE(imaging::FocusStripmapRda(rda_config, compensated_raw, scene.matched_filter,
-                                        &compensated_rda));
-  imaging::FocusedGbpImage l3_gbp;
-  ASSERT_TRUE(imaging::FocusSmallSceneGbp(MakeGbpConfig(scene, target_delay, 9U, 9U), l3_pulses,
-                                          l3_raw, scene.matched_filter, &l3_gbp));
-
-  const imaging::ImageComparisonMetrics uncompensated =
-      imaging::CompareImagesWithGlobalPhaseReference(
-          CropRdaReferenceWindow(uncompensated_rda.image, target_delay, 9U), l3_gbp.image);
-  const imaging::ImageComparisonMetrics compensated =
-      imaging::CompareImagesWithGlobalPhaseReference(
-          CropRdaReferenceWindow(compensated_rda.image, target_delay, 9U), l3_gbp.image);
-  ASSERT_TRUE(uncompensated.valid);
-  ASSERT_TRUE(compensated.valid);
-  RecordProperty("uncompensated_nrms", std::to_string(uncompensated.normalized_rms_error));
-  RecordProperty("compensated_nrms", std::to_string(compensated.normalized_rms_error));
-  RecordProperty("uncompensated_correlation", std::to_string(uncompensated.coherent_correlation));
-  RecordProperty("compensated_correlation", std::to_string(compensated.coherent_correlation));
-  EXPECT_LT(compensated.normalized_rms_error, uncompensated.normalized_rms_error);
-  EXPECT_GT(compensated.coherent_correlation, uncompensated.coherent_correlation);
-  EXPECT_LT(compensated.normalized_rms_error, 0.25);
-  EXPECT_GT(compensated.coherent_correlation, 0.97);
+  L3CompensationCaseMetrics metrics;
+  ASSERT_TRUE(EvaluateL3CompensationCase(scene, target_delay, 3.0, &metrics));
+  RecordProperty("uncompensated_nrms", std::to_string(metrics.uncompensated.normalized_rms_error));
+  RecordProperty("compensated_nrms", std::to_string(metrics.compensated.normalized_rms_error));
+  RecordProperty("uncompensated_correlation",
+                 std::to_string(metrics.uncompensated.coherent_correlation));
+  RecordProperty("compensated_correlation",
+                 std::to_string(metrics.compensated.coherent_correlation));
+  EXPECT_LT(metrics.compensated.normalized_rms_error, metrics.uncompensated.normalized_rms_error);
+  EXPECT_GT(metrics.compensated.coherent_correlation, metrics.uncompensated.coherent_correlation);
+  EXPECT_LT(metrics.compensated.normalized_rms_error, 0.25);
+  EXPECT_GT(metrics.compensated.coherent_correlation, 0.97);
 
   const echo::PointTarget off_reference_target =
       test_support::MakeReferenceTargetAtDelay(16U, scene.sample_rate_hz, 1.0);
@@ -315,7 +345,47 @@ TEST(SarGbpTest, FirstOrderCompensationImprovesL3ReferenceButLeavesSpatialResidu
                  std::to_string(residual_range_error_m));
   EXPECT_GT(residual_range_error_m, 0.0);
   EXPECT_LT(residual_range_error_m, 0.001);
-  EXPECT_LT(residual_range_error_m, compensation_diagnostics.max_abs_range_error_m);
+  EXPECT_LT(residual_range_error_m, metrics.max_range_error_m);
+}
+
+TEST(SarGbpTest, L3FirstOrderCompensationApplicabilityMatrixFindsPassAndFailureRegions) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  const std::vector<double> cross_range_offsets_m = {0.0, 1.0, 3.0, 6.0, 12.0};
+  std::vector<L3CompensationCaseMetrics> matrix;
+  for (std::size_t index = 0U; index < cross_range_offsets_m.size(); ++index) {
+    L3CompensationCaseMetrics metrics;
+    ASSERT_TRUE(EvaluateL3CompensationCase(scene, 20U, cross_range_offsets_m[index], &metrics));
+    matrix.push_back(metrics);
+    RecordProperty("turn_" + std::to_string(index) + "_compensated_nrms",
+                   std::to_string(metrics.compensated.normalized_rms_error));
+    RecordProperty("turn_" + std::to_string(index) + "_compensated_correlation",
+                   std::to_string(metrics.compensated.coherent_correlation));
+  }
+
+  EXPECT_LT(matrix[2U].compensated.normalized_rms_error, 0.25);
+  EXPECT_GT(matrix[2U].compensated.coherent_correlation, 0.97);
+  EXPECT_TRUE(matrix.back().compensated.normalized_rms_error >= 0.25 ||
+              matrix.back().compensated.coherent_correlation <= 0.97);
+
+  const std::vector<geometry::PlatformPulseState> l3_pulses =
+      BuildTurningWaypointTrack(scene, 12.0);
+  ASSERT_EQ(l3_pulses.size(), scene.pulses.size());
+  const geometry::LocalPoint reference =
+      test_support::MakeReferenceTargetAtDelay(20U, scene.sample_rate_hz, 1.0).position_m;
+  const std::vector<std::size_t> target_delays = {20U, 18U, 16U, 12U};
+  double previous_residual_m = -1.0;
+  for (std::size_t index = 0U; index < target_delays.size(); ++index) {
+    const geometry::LocalPoint target =
+        test_support::MakeReferenceTargetAtDelay(target_delays[index], scene.sample_rate_hz, 1.0)
+            .position_m;
+    const double residual_m = MaxResidualRangeError(scene.pulses, l3_pulses, reference, target);
+    RecordProperty("target_" + std::to_string(index) + "_residual_range_error_m",
+                   std::to_string(residual_m));
+    EXPECT_GE(residual_m, previous_residual_m);
+    previous_residual_m = residual_m;
+  }
+  EXPECT_GT(previous_residual_m, 0.001);
 }
 
 TEST(SarGbpTest, RejectsSceneBeyondApproved128SquareGate) {
