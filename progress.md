@@ -493,6 +493,24 @@
 - `ctest --test-dir build/llvm-ninja-debug-eigen339-local -L sar_cxx11_compat --output-on-failure`：1/1 passed。
 - `git diff --check`：passed。
 
+## 2026-06-06 L2 工程契约冻结
+
+### 用户批准
+
+- 用户以“继续”批准进入 L2 轨迹误差与一阶运动补偿方向。
+
+### 已执行
+
+1. 新增 `SAR_L2_MOTION_COMPENSATION_CONTRACT.md`。
+2. 将 L2 冻结为固定种子速度扰动经时间积分形成的连续位置轨迹。
+3. 冻结一阶运动补偿的包络平移、载频相位校正、诊断和验收口径。
+4. 新增阶段 12-14 计划。
+
+### 阶段状态
+
+- 阶段 12 L2 工程契约冻结完成。
+- 阶段 13 L2 连续扰动轨迹已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
