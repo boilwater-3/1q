@@ -649,5 +649,70 @@ TEST(SarAzimuthSamplingAuditTest, PhaseCurvatureCollapsesEquivalentCarrierAndRan
             range_case.comparison.normalized_rms_error);
 }
 
+TEST(SarRdaDiagnosticDecisionTest, ApertureAndAzimuthOffsetMatrixPreservesDiagnosticDefinitions) {
+  struct DecisionCaseResult {
+    double quadratic_phase_span_rad{0.0};
+    imaging::ImageComparisonMetrics comparison{};
+  };
+  std::vector<DecisionCaseResult> results;
+  const std::vector<std::uint32_t> pulse_counts = {5U, 9U, 17U, 33U};
+  const std::vector<double> spacings_m = {0.1, 0.2};
+  for (const std::uint32_t pulse_count : pulse_counts) {
+    for (const double spacing_m : spacings_m) {
+      for (const double target_azimuth_m : {0.0, spacing_m}) {
+        test_support::ReferencePointScene scene;
+        scene.pulse_count = pulse_count;
+        scene.prf_hz = scene.platform_velocity_mps / spacing_m;
+        ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+        const echo::PointTarget target = test_support::MakeReferenceTargetAtPosition(
+            target_azimuth_m, kMatrixCenterDelay, scene.sample_rate_hz, 1.0);
+        signal::ComplexMatrix raw;
+        test_support::ReferenceRawHistoryDiagnostics raw_diagnostics;
+        ASSERT_TRUE(test_support::BuildReferenceRawHistory(scene, {target}, &raw, &raw_diagnostics));
+        MatrixFocusResult focus;
+        ASSERT_TRUE(FocusMatrix(scene, scene.pulses, raw, &focus, kMatrixCenterDelay, pulse_count));
+        ASSERT_TRUE(focus.rda_vs_gbp.valid);
+        const std::string prefix =
+            "pulses_" + std::to_string(pulse_count) + "_spacing_" +
+            std::to_string(static_cast<int>(spacing_m * 1000.0)) + "_offset_" +
+            std::to_string(static_cast<int>(target_azimuth_m * 1000.0));
+        RecordComparison(prefix, focus.rda_vs_gbp);
+        ::testing::Test::RecordProperty(
+            prefix + "_curvature_rad_per_pulse2",
+            std::to_string(focus.rda.diagnostics.azimuth_phase_curvature_rad_per_pulse2));
+        ::testing::Test::RecordProperty(
+            prefix + "_nyquist_margin",
+            std::to_string(focus.rda.diagnostics.doppler_nyquist_margin));
+        const double aperture_half_pulses = 0.5 * static_cast<double>(pulse_count - 1U);
+        DecisionCaseResult decision_result;
+        decision_result.quadratic_phase_span_rad =
+            focus.rda.diagnostics.azimuth_phase_curvature_rad_per_pulse2 *
+            aperture_half_pulses * aperture_half_pulses;
+        decision_result.comparison = focus.rda_vs_gbp;
+        results.push_back(decision_result);
+        ::testing::Test::RecordProperty(prefix + "_quadratic_phase_span_rad",
+                                        std::to_string(decision_result.quadratic_phase_span_rad));
+        EXPECT_EQ(raw_diagnostics.clipped_pulse_count, 0U);
+        EXPECT_EQ(focus.bp.image.values, focus.gbp.image.values);
+        EXPECT_NEAR(focus.rda.diagnostics.azimuth_sample_spacing_m, spacing_m, 1.0e-12);
+        EXPECT_GT(focus.rda.diagnostics.doppler_nyquist_margin, 1.0);
+      }
+    }
+  }
+
+  ASSERT_EQ(results.size(), 16U);
+  for (std::size_t center_index = 0U; center_index < results.size(); center_index += 2U) {
+    EXPECT_GE(results[center_index + 1U].comparison.normalized_rms_error,
+              results[center_index].comparison.normalized_rms_error);
+  }
+  for (const std::pair<std::size_t, std::size_t> equivalent_pair :
+       {std::make_pair(2U, 4U), std::make_pair(6U, 8U), std::make_pair(10U, 12U)}) {
+    EXPECT_NEAR(results[equivalent_pair.first].quadratic_phase_span_rad,
+                results[equivalent_pair.second].quadratic_phase_span_rad, 1.0e-12);
+    EXPECT_NEAR(results[equivalent_pair.first].comparison.normalized_rms_error,
+                results[equivalent_pair.second].comparison.normalized_rms_error, 0.03);
+  }
+}
+
 }  // namespace
 }  // namespace sar

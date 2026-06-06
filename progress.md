@@ -1020,6 +1020,35 @@
 - 阶段 42 完成当前平台审批。
 - 阶段 43 RDA 诊断后续决策门已启动。
 
+## 2026-06-06 阶段 43 RDA 诊断后续决策门
+
+### 已执行
+
+1. 新增 aperture `5/9/17/33`、间距 `0.1/0.2 m/pulse` 和中心/偏置目标矩阵。
+2. 直接记录生产 RDA diagnostics、RDA/GBP NRMS 和相关系数。
+3. 验证孔径二次相位跨度对中心目标等效组合的归并能力。
+4. 新增 `docs/sar_rda_diagnostic_followup_decision.md`。
+
+### 决策结论
+
+- 每脉冲相位曲率不足以形成跨 aperture 质量警告阈值。
+- 孔径二次相位跨度是更完整的解释性指标候选。
+- 目标方位布局仍产生独立误差，因此当前不批准质量警告、结构化拒绝或 Auto。
+
+### 验证结果
+
+- 默认与 Conan Eigen 3.3.9 决策矩阵：各 1/1 passed。
+- 默认与 Conan Eigen 3.3.9 全部 `Sar*`：各 93/93 passed。
+- 默认与 Conan Eigen 3.3.9 `sar_ci`：各 4/4 passed。
+- 默认 `sar_performance`：1/1 passed。
+- Conan Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 43 完成。
+- 阶段 44 RDA 孔径二次相位跨度诊断契约已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
