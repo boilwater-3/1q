@@ -39,8 +39,8 @@
 | 14 | 一阶运动补偿闭环 | complete_current_platform | 包络/相位补偿相对理想参考产生可测改善 |
 | 15 | L2 后续扩展决策门 | complete | 选择 L2 与一阶运动补偿受控接入 public Session |
 | 16 | L2 Session 接入契约 | complete | 默认关闭、replay 保真和强制补偿边界明确 |
-| 17 | L2 公开配置与 replay | in_progress | 配置、schema、codec 和 round-trip 通过 |
-| 18 | L2 Session 执行闭环 | pending | Session 非零轨迹、补偿诊断、replay 和回归通过 |
+| 17 | L2 公开配置与 replay | complete_current_platform | 配置、schema、codec 和 round-trip 通过 |
+| 18 | L2 Session 执行闭环 | in_progress | Session 非零轨迹、补偿诊断、replay 和回归通过 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -604,7 +604,7 @@
 
 ## 阶段 17：L2 公开配置与 replay
 
-状态：`in_progress`
+状态：`complete_current_platform`
 
 任务：
 
@@ -613,9 +613,16 @@
 3. 更新 codec 与 round-trip 测试。
 4. 验证旧默认行为和 public API contract。
 
+已完成：
+
+- policy 新增默认关闭的 `enable_l2_motion_compensation`。
+- mission 新增三轴速度扰动标准差和固定 seed。
+- FlatBuffers session config schema 在尾部追加字段，旧 payload 缺失字段解码为关闭/零值。
+- codec、round-trip、public smoke、replay 和 SAR CI 通过。
+
 ## 阶段 18：L2 Session 执行闭环
 
-状态：`pending`
+状态：`in_progress`
 
 任务：
 
@@ -660,4 +667,4 @@
 
 ## 下一步
 
-执行阶段 17：新增默认关闭的 L2 public 配置和 session config replay 保真。
+执行阶段 18：Session 使用实际 L2 轨迹生成 raw echo，在 RDA 前强制补偿并输出结构化诊断。

@@ -511,6 +511,8 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   session_config.mission.range_sample_count = 64U;
   session_config.mission.azimuth_pulse_count = 9U;
   session_config.policy.enable_l1_rda_imaging = true;
+  EXPECT_FALSE(session_config.policy.enable_l2_motion_compensation);
+  EXPECT_DOUBLE_EQ(session_config.mission.l2_velocity_error_stddev_y_mps, 0.0);
   EXPECT_EQ(session_config.mission.range_sample_count, 64U);
 
   session::SarCycleInput input;

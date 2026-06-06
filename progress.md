@@ -582,6 +582,29 @@
 - 阶段 16 接入契约完成。
 - 阶段 17 公开配置与 replay 已启动。
 
+## 2026-06-06 阶段 17 L2 公开配置与 replay
+
+### 已执行
+
+1. mission 新增三轴 L2 速度扰动标准差与固定 seed。
+2. policy 新增默认关闭的 `enable_l2_motion_compensation`。
+3. 更新 FlatBuffers session config schema、生成头和 codec。
+4. 扩展 round-trip 和 public smoke 测试。
+
+### 验证结果
+
+- `SarReplayCodecRoundtripTest.*`：5/5 passed。
+- SAR replay 过滤测试：9/9 passed。
+- public SAR smoke：passed。
+- `ctest -L sar_ci`：4/4 passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 17 完成当前平台审批。
+- 阶段 18 Session 执行闭环已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

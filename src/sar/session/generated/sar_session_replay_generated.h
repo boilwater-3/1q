@@ -181,7 +181,11 @@ struct SarMissionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_RANGE_SAMPLE_COUNT = 16,
     VT_AZIMUTH_PULSE_COUNT = 18,
     VT_DESIRED_GROUND_RANGE_RESOLUTION_M = 20,
-    VT_DESIRED_AZIMUTH_RESOLUTION_M = 22
+    VT_DESIRED_AZIMUTH_RESOLUTION_M = 22,
+    VT_L2_VELOCITY_ERROR_STDDEV_X_MPS = 24,
+    VT_L2_VELOCITY_ERROR_STDDEV_Y_MPS = 26,
+    VT_L2_VELOCITY_ERROR_STDDEV_Z_MPS = 28,
+    VT_L2_RANDOM_SEED = 30
   };
   double scene_center_latitude_deg() const {
     return GetField<double>(VT_SCENE_CENTER_LATITUDE_DEG, 0.0);
@@ -213,6 +217,18 @@ struct SarMissionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   double desired_azimuth_resolution_m() const {
     return GetField<double>(VT_DESIRED_AZIMUTH_RESOLUTION_M, 0.0);
   }
+  double l2_velocity_error_stddev_x_mps() const {
+    return GetField<double>(VT_L2_VELOCITY_ERROR_STDDEV_X_MPS, 0.0);
+  }
+  double l2_velocity_error_stddev_y_mps() const {
+    return GetField<double>(VT_L2_VELOCITY_ERROR_STDDEV_Y_MPS, 0.0);
+  }
+  double l2_velocity_error_stddev_z_mps() const {
+    return GetField<double>(VT_L2_VELOCITY_ERROR_STDDEV_Z_MPS, 0.0);
+  }
+  uint32_t l2_random_seed() const {
+    return GetField<uint32_t>(VT_L2_RANDOM_SEED, 0);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<double>(verifier, VT_SCENE_CENTER_LATITUDE_DEG) &&
@@ -225,6 +241,10 @@ struct SarMissionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_AZIMUTH_PULSE_COUNT) &&
            VerifyField<double>(verifier, VT_DESIRED_GROUND_RANGE_RESOLUTION_M) &&
            VerifyField<double>(verifier, VT_DESIRED_AZIMUTH_RESOLUTION_M) &&
+           VerifyField<double>(verifier, VT_L2_VELOCITY_ERROR_STDDEV_X_MPS) &&
+           VerifyField<double>(verifier, VT_L2_VELOCITY_ERROR_STDDEV_Y_MPS) &&
+           VerifyField<double>(verifier, VT_L2_VELOCITY_ERROR_STDDEV_Z_MPS) &&
+           VerifyField<uint32_t>(verifier, VT_L2_RANDOM_SEED) &&
            verifier.EndTable();
   }
 };
@@ -263,6 +283,18 @@ struct SarMissionConfigBuilder {
   void add_desired_azimuth_resolution_m(double desired_azimuth_resolution_m) {
     fbb_.AddElement<double>(SarMissionConfig::VT_DESIRED_AZIMUTH_RESOLUTION_M, desired_azimuth_resolution_m, 0.0);
   }
+  void add_l2_velocity_error_stddev_x_mps(double l2_velocity_error_stddev_x_mps) {
+    fbb_.AddElement<double>(SarMissionConfig::VT_L2_VELOCITY_ERROR_STDDEV_X_MPS, l2_velocity_error_stddev_x_mps, 0.0);
+  }
+  void add_l2_velocity_error_stddev_y_mps(double l2_velocity_error_stddev_y_mps) {
+    fbb_.AddElement<double>(SarMissionConfig::VT_L2_VELOCITY_ERROR_STDDEV_Y_MPS, l2_velocity_error_stddev_y_mps, 0.0);
+  }
+  void add_l2_velocity_error_stddev_z_mps(double l2_velocity_error_stddev_z_mps) {
+    fbb_.AddElement<double>(SarMissionConfig::VT_L2_VELOCITY_ERROR_STDDEV_Z_MPS, l2_velocity_error_stddev_z_mps, 0.0);
+  }
+  void add_l2_random_seed(uint32_t l2_random_seed) {
+    fbb_.AddElement<uint32_t>(SarMissionConfig::VT_L2_RANDOM_SEED, l2_random_seed, 0);
+  }
   explicit SarMissionConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -286,8 +318,15 @@ inline flatbuffers::Offset<SarMissionConfig> CreateSarMissionConfig(
     uint32_t range_sample_count = 0,
     uint32_t azimuth_pulse_count = 0,
     double desired_ground_range_resolution_m = 0.0,
-    double desired_azimuth_resolution_m = 0.0) {
+    double desired_azimuth_resolution_m = 0.0,
+    double l2_velocity_error_stddev_x_mps = 0.0,
+    double l2_velocity_error_stddev_y_mps = 0.0,
+    double l2_velocity_error_stddev_z_mps = 0.0,
+    uint32_t l2_random_seed = 0) {
   SarMissionConfigBuilder builder_(_fbb);
+  builder_.add_l2_velocity_error_stddev_z_mps(l2_velocity_error_stddev_z_mps);
+  builder_.add_l2_velocity_error_stddev_y_mps(l2_velocity_error_stddev_y_mps);
+  builder_.add_l2_velocity_error_stddev_x_mps(l2_velocity_error_stddev_x_mps);
   builder_.add_desired_azimuth_resolution_m(desired_azimuth_resolution_m);
   builder_.add_desired_ground_range_resolution_m(desired_ground_range_resolution_m);
   builder_.add_platform_speed_mps(platform_speed_mps);
@@ -296,6 +335,7 @@ inline flatbuffers::Offset<SarMissionConfig> CreateSarMissionConfig(
   builder_.add_scene_center_altitude_m(scene_center_altitude_m);
   builder_.add_scene_center_longitude_deg(scene_center_longitude_deg);
   builder_.add_scene_center_latitude_deg(scene_center_latitude_deg);
+  builder_.add_l2_random_seed(l2_random_seed);
   builder_.add_azimuth_pulse_count(azimuth_pulse_count);
   builder_.add_range_sample_count(range_sample_count);
   return builder_.Finish();
@@ -310,7 +350,8 @@ struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_ENABLE_DIAGNOSTICS = 10,
     VT_RETAIN_RAW_PHASE_HISTORY = 12,
     VT_MAX_ALLOWED_SQUINT_ANGLE_DEG = 14,
-    VT_MIN_VALID_SNR_DB = 16
+    VT_MIN_VALID_SNR_DB = 16,
+    VT_ENABLE_L2_MOTION_COMPENSATION = 18
   };
   bool enable_raw_echo_generation() const {
     return GetField<uint8_t>(VT_ENABLE_RAW_ECHO_GENERATION, 0) != 0;
@@ -333,6 +374,9 @@ struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   double min_valid_snr_db() const {
     return GetField<double>(VT_MIN_VALID_SNR_DB, 0.0);
   }
+  bool enable_l2_motion_compensation() const {
+    return GetField<uint8_t>(VT_ENABLE_L2_MOTION_COMPENSATION, 0) != 0;
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_ENABLE_RAW_ECHO_GENERATION) &&
@@ -342,6 +386,7 @@ struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_RETAIN_RAW_PHASE_HISTORY) &&
            VerifyField<double>(verifier, VT_MAX_ALLOWED_SQUINT_ANGLE_DEG) &&
            VerifyField<double>(verifier, VT_MIN_VALID_SNR_DB) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_L2_MOTION_COMPENSATION) &&
            verifier.EndTable();
   }
 };
@@ -371,6 +416,9 @@ struct SarPolicyConfigBuilder {
   void add_min_valid_snr_db(double min_valid_snr_db) {
     fbb_.AddElement<double>(SarPolicyConfig::VT_MIN_VALID_SNR_DB, min_valid_snr_db, 0.0);
   }
+  void add_enable_l2_motion_compensation(bool enable_l2_motion_compensation) {
+    fbb_.AddElement<uint8_t>(SarPolicyConfig::VT_ENABLE_L2_MOTION_COMPENSATION, static_cast<uint8_t>(enable_l2_motion_compensation), 0);
+  }
   explicit SarPolicyConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -391,10 +439,12 @@ inline flatbuffers::Offset<SarPolicyConfig> CreateSarPolicyConfig(
     bool enable_diagnostics = false,
     bool retain_raw_phase_history = false,
     double max_allowed_squint_angle_deg = 0.0,
-    double min_valid_snr_db = 0.0) {
+    double min_valid_snr_db = 0.0,
+    bool enable_l2_motion_compensation = false) {
   SarPolicyConfigBuilder builder_(_fbb);
   builder_.add_min_valid_snr_db(min_valid_snr_db);
   builder_.add_max_allowed_squint_angle_deg(max_allowed_squint_angle_deg);
+  builder_.add_enable_l2_motion_compensation(enable_l2_motion_compensation);
   builder_.add_retain_raw_phase_history(retain_raw_phase_history);
   builder_.add_enable_diagnostics(enable_diagnostics);
   builder_.add_enable_l1_rda_imaging(enable_l1_rda_imaging);

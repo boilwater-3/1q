@@ -419,3 +419,9 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - 为防止跨 aperture 运行期修改扰动统计特性，L2 标准差和 seed 只进入 session config replay，不进入 runtime patch。
 - public Session 不开放 L2 未补偿 RDA：启用 L2 policy 时必须强制执行一阶补偿。
 - 一阶补偿参考点冻结为 local `(0, nominal_slant_range_m, 0)`，避免依赖目标列表顺序。
+
+## L2 公开配置与 replay 发现
+
+- L2 public 配置只进入初始化 session config，不进入 runtime patch，避免 aperture 中途改变随机轨迹统计。
+- FlatBuffers mission/policy 字段追加在表尾部，旧 payload 解码时新字段自然采用 `0/false`，保持默认 L1 行为。
+- `enable_l2_motion_compensation` 默认 `false`，public smoke test 和既有 replay 回放保持不变。

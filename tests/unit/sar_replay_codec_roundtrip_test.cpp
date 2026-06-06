@@ -110,9 +110,14 @@ TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.mission.azimuth_pulse_count = 9U;
   config.mission.desired_ground_range_resolution_m = 2.0;
   config.mission.desired_azimuth_resolution_m = 3.0;
+  config.mission.l2_velocity_error_stddev_x_mps = 0.5;
+  config.mission.l2_velocity_error_stddev_y_mps = 1.5;
+  config.mission.l2_velocity_error_stddev_z_mps = 0.25;
+  config.mission.l2_random_seed = 2026U;
   config.policy.enable_raw_echo_generation = true;
   config.policy.enable_range_compression = true;
   config.policy.enable_l1_rda_imaging = true;
+  config.policy.enable_l2_motion_compensation = true;
   config.policy.enable_diagnostics = false;
   config.policy.retain_raw_phase_history = true;
   config.policy.max_allowed_squint_angle_deg = 3.0;
@@ -133,7 +138,10 @@ TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_DOUBLE_EQ(decoded.mission.scene_center_longitude_deg,
                    config.mission.scene_center_longitude_deg);
   EXPECT_EQ(decoded.mission.azimuth_pulse_count, 9U);
+  EXPECT_DOUBLE_EQ(decoded.mission.l2_velocity_error_stddev_y_mps, 1.5);
+  EXPECT_EQ(decoded.mission.l2_random_seed, 2026U);
   EXPECT_TRUE(decoded.policy.enable_l1_rda_imaging);
+  EXPECT_TRUE(decoded.policy.enable_l2_motion_compensation);
   EXPECT_TRUE(decoded.policy.retain_raw_phase_history);
   EXPECT_DOUBLE_EQ(decoded.policy.min_valid_snr_db, -5.0);
   EXPECT_FALSE(decoded.environment.use_flat_earth_geometry);

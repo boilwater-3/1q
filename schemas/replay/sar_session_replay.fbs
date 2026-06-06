@@ -30,6 +30,10 @@ table SarMissionConfig {
   azimuth_pulse_count: uint32;
   desired_ground_range_resolution_m: double;
   desired_azimuth_resolution_m: double;
+  l2_velocity_error_stddev_x_mps: double;
+  l2_velocity_error_stddev_y_mps: double;
+  l2_velocity_error_stddev_z_mps: double;
+  l2_random_seed: uint32;
 }
 
 table SarPolicyConfig {
@@ -40,6 +44,7 @@ table SarPolicyConfig {
   retain_raw_phase_history: bool;
   max_allowed_squint_angle_deg: double;
   min_valid_snr_db: double;
+  enable_l2_motion_compensation: bool;
 }
 
 table SarEnvironmentConfig {

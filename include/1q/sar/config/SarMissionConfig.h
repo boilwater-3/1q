@@ -27,6 +27,10 @@ struct ONEQ_API SarMissionConfig {
   std::uint32_t azimuth_pulse_count{1024U};
   double desired_ground_range_resolution_m{1.5};
   double desired_azimuth_resolution_m{1.5};
+  double l2_velocity_error_stddev_x_mps{0.0};
+  double l2_velocity_error_stddev_y_mps{0.0};
+  double l2_velocity_error_stddev_z_mps{0.0};
+  std::uint32_t l2_random_seed{0U};
 };
 
 }  // namespace config

@@ -94,7 +94,9 @@ flatbuffers::Offset<replay::SarMissionConfig> BuildMissionConfig(
       fbb, value.scene_center_latitude_deg, value.scene_center_longitude_deg,
       value.scene_center_altitude_m, value.nominal_slant_range_m, value.synthetic_aperture_time_s,
       value.platform_speed_mps, value.range_sample_count, value.azimuth_pulse_count,
-      value.desired_ground_range_resolution_m, value.desired_azimuth_resolution_m);
+      value.desired_ground_range_resolution_m, value.desired_azimuth_resolution_m,
+      value.l2_velocity_error_stddev_x_mps, value.l2_velocity_error_stddev_y_mps,
+      value.l2_velocity_error_stddev_z_mps, value.l2_random_seed);
 }
 
 void FromFbMissionConfig(const replay::SarMissionConfig* fb, config::SarMissionConfig* out) {
@@ -111,6 +113,10 @@ void FromFbMissionConfig(const replay::SarMissionConfig* fb, config::SarMissionC
   out->azimuth_pulse_count = fb->azimuth_pulse_count();
   out->desired_ground_range_resolution_m = fb->desired_ground_range_resolution_m();
   out->desired_azimuth_resolution_m = fb->desired_azimuth_resolution_m();
+  out->l2_velocity_error_stddev_x_mps = fb->l2_velocity_error_stddev_x_mps();
+  out->l2_velocity_error_stddev_y_mps = fb->l2_velocity_error_stddev_y_mps();
+  out->l2_velocity_error_stddev_z_mps = fb->l2_velocity_error_stddev_z_mps();
+  out->l2_random_seed = fb->l2_random_seed();
 }
 
 flatbuffers::Offset<replay::SarPolicyConfig> BuildPolicyConfig(
@@ -118,7 +124,8 @@ flatbuffers::Offset<replay::SarPolicyConfig> BuildPolicyConfig(
   return replay::CreateSarPolicyConfig(fbb, value.enable_raw_echo_generation,
                                        value.enable_range_compression, value.enable_l1_rda_imaging,
                                        value.enable_diagnostics, value.retain_raw_phase_history,
-                                       value.max_allowed_squint_angle_deg, value.min_valid_snr_db);
+                                       value.max_allowed_squint_angle_deg, value.min_valid_snr_db,
+                                       value.enable_l2_motion_compensation);
 }
 
 void FromFbPolicyConfig(const replay::SarPolicyConfig* fb, config::SarPolicyConfig* out) {
@@ -132,6 +139,7 @@ void FromFbPolicyConfig(const replay::SarPolicyConfig* fb, config::SarPolicyConf
   out->retain_raw_phase_history = fb->retain_raw_phase_history();
   out->max_allowed_squint_angle_deg = fb->max_allowed_squint_angle_deg();
   out->min_valid_snr_db = fb->min_valid_snr_db();
+  out->enable_l2_motion_compensation = fb->enable_l2_motion_compensation();
 }
 
 flatbuffers::Offset<replay::SarEnvironmentConfig> BuildEnvironmentConfig(
