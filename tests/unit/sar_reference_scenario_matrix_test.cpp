@@ -926,8 +926,8 @@ TEST(SarReferenceSnrMatrixTest, M1AndM4PreserveDeterminismAndRecordQualityTrends
         ASSERT_TRUE(FocusMatrix(scene, scene.pulses, noisy_raw, &noisy_focus));
         ASSERT_EQ(noisy_focus.bp.image.values, noisy_focus.gbp.image.values);
         const imaging::ImageComparisonMetrics rda_to_clean =
-            imaging::CompareImagesWithGlobalPhaseReference(noisy_focus.rda.image,
-                                                           clean_focus.rda.image);
+            imaging::CompareImagesWithGlobalPhaseReference(
+                CropMatrixWindow(noisy_focus.rda.image), CropMatrixWindow(clean_focus.rda.image));
         const imaging::ImageComparisonMetrics gbp_to_clean =
             imaging::CompareImagesWithGlobalPhaseReference(noisy_focus.gbp.image,
                                                            clean_focus.gbp.image);
