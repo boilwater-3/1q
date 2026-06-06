@@ -66,7 +66,9 @@
 | 41 | RDA 方位相位曲率诊断契约 | complete | 冻结采样间距、相位曲率、Nyquist 裕量与 replay |
 | 42 | RDA 方位相位曲率诊断实现 | complete_current_platform | diagnostics、Session、replay 和双环境回归通过 |
 | 43 | RDA 诊断后续决策门 | complete | 每脉冲曲率不足以形成警告阈值，选择孔径二次相位跨度诊断 |
-| 44 | RDA 孔径二次相位跨度诊断契约 | in_progress | 冻结新解释性诊断，不增加警告、拒绝或 Auto |
+| 44 | RDA 孔径二次相位跨度诊断契约 | complete | 冻结新解释性诊断，不增加警告、拒绝或 Auto |
+| 45 | RDA 孔径二次相位跨度诊断实现 | complete_current_platform | RdaDiagnostics、Session、replay 和双环境回归通过 |
+| 46 | RDA 目标方位偏置误差决策门 | in_progress | 研究偏置目标额外误差的几何解释 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1077,13 +1079,36 @@
 
 ## 阶段 44：RDA 孔径二次相位跨度诊断契约
 
+状态：`complete`
+
+已完成：
+
+1. 新增 `SAR_RDA_APERTURE_PHASE_SPAN_DIAGNOSTIC_CONTRACT.md`。
+2. 冻结 `azimuth_quadratic_phase_span_rad` 定义、输出和 replay 语义。
+3. 明确该指标只解释 aperture 中心参考点二次相位跨度，不覆盖目标布局误差。
+4. 继续禁止质量警告、结构化拒绝和 Auto。
+
+## 阶段 45：RDA 孔径二次相位跨度诊断实现
+
+状态：`complete_current_platform`
+
+已完成：
+
+1. 扩展 `RdaDiagnostics` 与采样诊断计算。
+2. 扩展 Session `sar.rda_peak` 和 replay 验证。
+3. 使用阶段 43 等跨度组合验证生产 diagnostics。
+4. 新增 `docs/sar_rda_aperture_phase_span_acceptance_report.md`。
+5. 默认与 Conan Eigen 3.3.9 全部 `Sar*` 各 93/93 通过，审批门通过。
+
+## 阶段 46：RDA 目标方位偏置误差决策门
+
 状态：`in_progress`
 
 任务：
 
-1. 冻结 `azimuth_quadratic_phase_span_rad` 定义、输出和 replay 语义。
-2. 明确该指标只解释 aperture 中心参考点二次相位跨度，不覆盖目标布局误差。
-3. 继续禁止质量警告、结构化拒绝和 Auto。
+1. 分离目标方位偏置、aperture 长度和采样间距对 RDA/GBP 差异的影响。
+2. 判断是否存在可解释的目标布局几何诊断。
+3. 不直接增加质量警告、结构化拒绝或 Auto。
 
 ## 当前待决策问题
 
@@ -1122,4 +1147,4 @@
 
 ## 下一步
 
-执行阶段 44：冻结 RDA 孔径二次相位跨度诊断契约。
+执行阶段 46：研究 RDA 目标方位偏置额外误差的几何解释。

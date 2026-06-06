@@ -133,6 +133,10 @@ bool ComputeRdaSamplingDiagnostics(const RdaConfig& config, std::size_t pulse_co
       diagnostics->azimuth_sample_spacing_m / (wavelength_m * config.reference_range_m);
   const double aperture_edge_m =
       0.5 * static_cast<double>(pulse_count - 1U) * diagnostics->azimuth_sample_spacing_m;
+  const double aperture_half_pulses = 0.5 * static_cast<double>(pulse_count - 1U);
+  diagnostics->azimuth_quadratic_phase_span_rad =
+      diagnostics->azimuth_phase_curvature_rad_per_pulse2 *
+      aperture_half_pulses * aperture_half_pulses;
   if (aperture_edge_m == 0.0) {
     diagnostics->max_geometric_doppler_hz = 0.0;
     diagnostics->doppler_nyquist_margin = std::numeric_limits<double>::infinity();

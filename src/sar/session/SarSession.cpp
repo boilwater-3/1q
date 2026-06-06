@@ -548,6 +548,8 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
             std::to_string(image.diagnostics.azimuth_sample_spacing_m) +
             ", azimuth_phase_curvature_rad_per_pulse2=" +
             std::to_string(image.diagnostics.azimuth_phase_curvature_rad_per_pulse2) +
+            ", azimuth_quadratic_phase_span_rad=" +
+            std::to_string(image.diagnostics.azimuth_quadratic_phase_span_rad) +
             ", max_geometric_doppler_hz=" +
             std::to_string(image.diagnostics.max_geometric_doppler_hz) +
             ", doppler_nyquist_margin=" +

@@ -37,6 +37,7 @@ struct RdaDiagnostics {
   double range_bin_spacing_m{0.0};
   double azimuth_sample_spacing_m{0.0};
   double azimuth_phase_curvature_rad_per_pulse2{0.0};
+  double azimuth_quadratic_phase_span_rad{0.0};
   double max_geometric_doppler_hz{0.0};
   double doppler_nyquist_margin{0.0};
   double azimuth_width_3db_bins{0.0};

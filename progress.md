@@ -1049,6 +1049,44 @@
 - 阶段 43 完成。
 - 阶段 44 RDA 孔径二次相位跨度诊断契约已启动。
 
+## 2026-06-06 阶段 44 RDA 孔径二次相位跨度诊断契约
+
+### 已执行
+
+1. 新增 `SAR_RDA_APERTURE_PHASE_SPAN_DIAGNOSTIC_CONTRACT.md`。
+2. 冻结 `azimuth_quadratic_phase_span_rad` 公式、Session message 和 replay 语义。
+3. 冻结单脉冲跨度为 `0`。
+4. 明确目标方位偏置影响不由该指标覆盖。
+
+### 阶段状态
+
+- 阶段 44 契约冻结完成。
+- 阶段 45 RDA 孔径二次相位跨度诊断实现已启动。
+
+## 2026-06-06 阶段 45 RDA 孔径二次相位跨度诊断实现
+
+### 已执行
+
+1. 扩展 `RdaDiagnostics`，增加 `azimuth_quadratic_phase_span_rad`。
+2. 使用实际 aperture 脉冲数计算跨度，单脉冲定义为 `0`。
+3. Session `sar.rda_peak` 追加新指标，replay 严格比较通过。
+4. 阶段 43 决策矩阵改为直接核对生产 diagnostics。
+5. 新增 `docs/sar_rda_aperture_phase_span_acceptance_report.md`。
+
+### 验证结果
+
+- 默认与 Conan Eigen 3.3.9 聚焦诊断测试：各 14/14 passed。
+- 默认与 Conan Eigen 3.3.9 全部 `Sar*`：各 93/93 passed。
+- 默认与 Conan Eigen 3.3.9 `sar_ci`：各 4/4 passed。
+- 默认 `sar_performance`：1/1 passed。
+- Conan Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 45 完成当前平台审批。
+- 阶段 46 RDA 目标方位偏置误差决策门已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

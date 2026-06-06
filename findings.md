@@ -568,3 +568,17 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - 候选孔径二次相位跨度 `curvature*((N-1)/2)^2` 可归并中心目标等效组合；三组等跨度 NRMS 差值分别为 `0.005636/0.017843/0.027830`。
 - 相同采样诊断与 aperture 下，方位偏置目标的 NRMS 均高于中心目标，目标布局仍是独立质量影响量。
 - 阶段 43 不批准质量警告、结构化拒绝、算法修复或 Auto；下一步只冻结孔径二次相位跨度解释性诊断契约。
+
+## RDA 孔径二次相位跨度诊断契约发现
+
+- 孔径二次相位跨度定义为 `azimuth_phase_curvature_rad_per_pulse2*((N-1)/2)^2`。
+- 单脉冲跨度定义为 `0`，与独立采样诊断可验证但 RDA 成像入口拒绝单脉冲的边界一致。
+- 指标进入内部 `RdaDiagnostics` 和 Session `sar.rda_peak`，不修改 replay schema。
+- 目标方位偏置影响不由该指标覆盖；当前仍禁止警告阈值、结构化拒绝和 Auto。
+
+## RDA 孔径二次相位跨度诊断实现发现
+
+- `RdaDiagnostics` 已记录 `azimuth_quadratic_phase_span_rad`，由每脉冲曲率与实际 aperture 脉冲数计算。
+- 单脉冲跨度为 `0`；Session `sar.rda_peak` 与 replay 已保真该字段。
+- 阶段 43 三组等跨度组合由生产 diagnostics 得到相同跨度，中心目标 NRMS 差值保持在 `0.03` 内。
+- 指标仍不能解释同配置下目标方位偏置产生的额外误差；下一步进入目标方位偏置几何决策门。

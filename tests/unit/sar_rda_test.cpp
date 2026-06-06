@@ -118,6 +118,10 @@ TEST(SarRdaTest, DiagnosticsRecordRdaStagesAndReferenceParameters) {
   EXPECT_DOUBLE_EQ(focused.diagnostics.azimuth_sample_spacing_m, expected_spacing_m);
   EXPECT_NEAR(focused.diagnostics.azimuth_phase_curvature_rad_per_pulse2,
               expected_curvature_rad, 1.0e-15);
+  EXPECT_NEAR(focused.diagnostics.azimuth_quadratic_phase_span_rad,
+              expected_curvature_rad *
+                  std::pow(0.5 * static_cast<double>(raw_history.rows - 1U), 2.0),
+              1.0e-15);
   EXPECT_NEAR(focused.diagnostics.max_geometric_doppler_hz, expected_max_doppler_hz, 1.0e-15);
   EXPECT_NEAR(focused.diagnostics.doppler_nyquist_margin,
               0.5 * config.prf_hz / expected_max_doppler_hz, 1.0e-12);
@@ -160,6 +164,7 @@ TEST(SarRdaTest, SinglePulseDiagnosticsUseInfiniteNyquistMargin) {
                                                      &diagnostics));
 
   EXPECT_DOUBLE_EQ(diagnostics.max_geometric_doppler_hz, 0.0);
+  EXPECT_DOUBLE_EQ(diagnostics.azimuth_quadratic_phase_span_rad, 0.0);
   EXPECT_TRUE(std::isinf(diagnostics.doppler_nyquist_margin));
 }
 

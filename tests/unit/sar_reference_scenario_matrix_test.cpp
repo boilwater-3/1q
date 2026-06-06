@@ -683,11 +683,9 @@ TEST(SarRdaDiagnosticDecisionTest, ApertureAndAzimuthOffsetMatrixPreservesDiagno
         ::testing::Test::RecordProperty(
             prefix + "_nyquist_margin",
             std::to_string(focus.rda.diagnostics.doppler_nyquist_margin));
-        const double aperture_half_pulses = 0.5 * static_cast<double>(pulse_count - 1U);
         DecisionCaseResult decision_result;
         decision_result.quadratic_phase_span_rad =
-            focus.rda.diagnostics.azimuth_phase_curvature_rad_per_pulse2 *
-            aperture_half_pulses * aperture_half_pulses;
+            focus.rda.diagnostics.azimuth_quadratic_phase_span_rad;
         decision_result.comparison = focus.rda_vs_gbp;
         results.push_back(decision_result);
         ::testing::Test::RecordProperty(prefix + "_quadratic_phase_span_rad",

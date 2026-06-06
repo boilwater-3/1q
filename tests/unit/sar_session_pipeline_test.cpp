@@ -85,6 +85,8 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_sample_spacing_m="));
   EXPECT_TRUE(
       HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_phase_curvature_rad_per_pulse2="));
+  EXPECT_TRUE(
+      HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_quadratic_phase_span_rad="));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "max_geometric_doppler_hz="));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "doppler_nyquist_margin="));
 }
