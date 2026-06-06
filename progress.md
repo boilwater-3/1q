@@ -511,6 +511,27 @@
 - 阶段 12 L2 工程契约冻结完成。
 - 阶段 13 L2 连续扰动轨迹已启动。
 
+## 2026-06-06 阶段 13 L2 连续扰动轨迹
+
+### 已执行
+
+1. `PlatformPulseState` 新增 `velocity_y_mps` 和 `velocity_z_mps`。
+2. 新增固定种子三轴速度扰动配置和轨迹误差诊断。
+3. 实现速度积分形成的连续 L2 位置轨迹。
+4. 全零扰动显式退化为 L1。
+
+### 验证结果
+
+- `SarGeometryTest.*:SarEchoTest.*:SarGbpTest.*:SarRdaTest.*`：20/20 passed。
+- `ctest -L sar_ci`：4/4 passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 13 完成当前平台审批。
+- 阶段 14 一阶运动补偿闭环已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

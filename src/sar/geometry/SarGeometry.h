@@ -29,6 +29,8 @@ struct PlatformPulseState {
   double time_s{0.0};
   LocalPoint position_m{};
   double velocity_x_mps{0.0};
+  double velocity_y_mps{0.0};
+  double velocity_z_mps{0.0};
 };
 
 /**
@@ -42,6 +44,21 @@ struct StraightStripmapTrackConfig {
   std::uint32_t pulse_count{0U};
 };
 
+struct PerturbedStripmapTrackConfig {
+  StraightStripmapTrackConfig ideal{};
+  double velocity_error_stddev_x_mps{0.0};
+  double velocity_error_stddev_y_mps{0.0};
+  double velocity_error_stddev_z_mps{0.0};
+  std::uint32_t random_seed{0U};
+};
+
+struct TrajectoryErrorDiagnostics {
+  double max_position_error_m{0.0};
+  double rms_position_error_m{0.0};
+  double max_velocity_error_mps{0.0};
+  double rms_velocity_error_mps{0.0};
+};
+
 /**
  * @brief fractional PRF 脉冲计数状态。
  */
@@ -51,6 +68,10 @@ struct FractionalPrfState {
 
 bool GenerateStraightStripmapTrack(const StraightStripmapTrackConfig& config,
                                    std::vector<PlatformPulseState>* pulses);
+
+bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
+                                    std::vector<PlatformPulseState>* pulses,
+                                    TrajectoryErrorDiagnostics* diagnostics);
 
 bool AdvanceFractionalPrf(double dt_s, double prf_hz, FractionalPrfState* state,
                           std::uint32_t* emitted_pulses);

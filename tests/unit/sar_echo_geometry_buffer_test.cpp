@@ -58,6 +58,75 @@ TEST(SarGeometryTest, StraightStripmapTrackUsesMonotonicPulseIdsAndConstantPrf) 
   }
 }
 
+TEST(SarGeometryTest, ZeroPerturbationL2ExactlyMatchesL1Track) {
+  geometry::StraightStripmapTrackConfig ideal;
+  ideal.start_position_m.x_m = -2.0;
+  ideal.start_position_m.y_m = 1000.0;
+  ideal.velocity_x_mps = 100.0;
+  ideal.prf_hz = 20.0;
+  ideal.first_pulse_id = 40U;
+  ideal.pulse_count = 16U;
+  std::vector<geometry::PlatformPulseState> l1;
+  ASSERT_TRUE(geometry::GenerateStraightStripmapTrack(ideal, &l1));
+
+  geometry::PerturbedStripmapTrackConfig config;
+  config.ideal = ideal;
+  config.random_seed = 1234U;
+  std::vector<geometry::PlatformPulseState> l2;
+  geometry::TrajectoryErrorDiagnostics diagnostics;
+  ASSERT_TRUE(geometry::GeneratePerturbedStripmapTrack(config, &l2, &diagnostics));
+
+  ASSERT_EQ(l2.size(), l1.size());
+  for (std::size_t index = 0U; index < l1.size(); ++index) {
+    EXPECT_DOUBLE_EQ(l2[index].position_m.x_m, l1[index].position_m.x_m);
+    EXPECT_DOUBLE_EQ(l2[index].position_m.y_m, l1[index].position_m.y_m);
+    EXPECT_DOUBLE_EQ(l2[index].position_m.z_m, l1[index].position_m.z_m);
+    EXPECT_DOUBLE_EQ(l2[index].velocity_x_mps, l1[index].velocity_x_mps);
+    EXPECT_DOUBLE_EQ(l2[index].velocity_y_mps, 0.0);
+    EXPECT_DOUBLE_EQ(l2[index].velocity_z_mps, 0.0);
+  }
+  EXPECT_DOUBLE_EQ(diagnostics.max_position_error_m, 0.0);
+  EXPECT_DOUBLE_EQ(diagnostics.rms_position_error_m, 0.0);
+}
+
+TEST(SarGeometryTest, PerturbedL2TrackIsDeterministicContinuousAndNonzero) {
+  geometry::PerturbedStripmapTrackConfig config;
+  config.ideal.start_position_m.y_m = 1000.0;
+  config.ideal.velocity_x_mps = 100.0;
+  config.ideal.prf_hz = 50.0;
+  config.ideal.pulse_count = 64U;
+  config.velocity_error_stddev_x_mps = 0.5;
+  config.velocity_error_stddev_y_mps = 0.4;
+  config.velocity_error_stddev_z_mps = 0.2;
+  config.random_seed = 77U;
+
+  std::vector<geometry::PlatformPulseState> first;
+  std::vector<geometry::PlatformPulseState> second;
+  geometry::TrajectoryErrorDiagnostics first_diagnostics;
+  geometry::TrajectoryErrorDiagnostics second_diagnostics;
+  ASSERT_TRUE(geometry::GeneratePerturbedStripmapTrack(config, &first, &first_diagnostics));
+  ASSERT_TRUE(geometry::GeneratePerturbedStripmapTrack(config, &second, &second_diagnostics));
+  ASSERT_EQ(first.size(), second.size());
+  for (std::size_t index = 0U; index < first.size(); ++index) {
+    EXPECT_DOUBLE_EQ(first[index].position_m.x_m, second[index].position_m.x_m);
+    EXPECT_DOUBLE_EQ(first[index].position_m.y_m, second[index].position_m.y_m);
+    EXPECT_DOUBLE_EQ(first[index].position_m.z_m, second[index].position_m.z_m);
+    if (index > 0U) {
+      EXPECT_LT(geometry::Distance(first[index - 1U].position_m, first[index].position_m), 3.0);
+    }
+  }
+  EXPECT_GT(first_diagnostics.max_position_error_m, 0.0);
+  EXPECT_GT(first_diagnostics.rms_position_error_m, 0.0);
+  EXPECT_GT(first_diagnostics.max_velocity_error_mps, 0.0);
+  EXPECT_DOUBLE_EQ(first_diagnostics.max_position_error_m, second_diagnostics.max_position_error_m);
+
+  config.random_seed = 78U;
+  std::vector<geometry::PlatformPulseState> different;
+  geometry::TrajectoryErrorDiagnostics different_diagnostics;
+  ASSERT_TRUE(geometry::GeneratePerturbedStripmapTrack(config, &different, &different_diagnostics));
+  EXPECT_NE(first.back().position_m.y_m, different.back().position_m.y_m);
+}
+
 TEST(SarGeometryTest, FractionalPrfCarryPreservesAveragePulseRate) {
   geometry::FractionalPrfState state;
   std::uint32_t emitted = 0U;
