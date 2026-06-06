@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "sar/imaging/SarGbp.h"
@@ -16,28 +17,32 @@ namespace {
 constexpr std::size_t kMatrixCenterDelay = 20U;
 constexpr std::size_t kMatrixPixels = 9U;
 
-imaging::GbpConfig MakeMatrixGbpConfig(const test_support::ReferencePointScene& scene) {
+imaging::GbpConfig MakeMatrixGbpConfig(const test_support::ReferencePointScene& scene,
+                                       std::size_t center_delay = kMatrixCenterDelay,
+                                       std::size_t pixel_count = kMatrixPixels) {
   imaging::GbpConfig config;
   config.sample_rate_hz = scene.sample_rate_hz;
   config.carrier_frequency_hz = scene.carrier_frequency_hz;
-  config.grid.azimuth_pixel_count = kMatrixPixels;
-  config.grid.range_pixel_count = kMatrixPixels;
+  config.grid.azimuth_pixel_count = pixel_count;
+  config.grid.range_pixel_count = pixel_count;
   config.grid.azimuth_spacing_m = scene.platform_velocity_mps / scene.prf_hz;
   config.grid.range_spacing_m =
       test_support::kReferenceSpeedOfLightMps / (2.0 * scene.sample_rate_hz);
   config.grid.azimuth_start_m =
-      -0.5 * static_cast<double>(kMatrixPixels - 1U) * config.grid.azimuth_spacing_m;
+      -0.5 * static_cast<double>(pixel_count - 1U) * config.grid.azimuth_spacing_m;
   config.grid.range_start_m =
-      static_cast<double>(kMatrixCenterDelay - kMatrixPixels / 2U) * config.grid.range_spacing_m;
+      static_cast<double>(center_delay - pixel_count / 2U) * config.grid.range_spacing_m;
   return config;
 }
 
-signal::ComplexMatrix CropMatrixWindow(const signal::ComplexMatrix& image) {
+signal::ComplexMatrix CropMatrixWindow(const signal::ComplexMatrix& image,
+                                       std::size_t center_delay = kMatrixCenterDelay,
+                                       std::size_t pixel_count = kMatrixPixels) {
   signal::ComplexMatrix cropped;
   cropped.rows = image.rows;
-  cropped.cols = kMatrixPixels;
+  cropped.cols = pixel_count;
   cropped.values.assign(cropped.rows * cropped.cols, signal::ComplexSample(0.0, 0.0));
-  const std::size_t first_col = kMatrixCenterDelay - kMatrixPixels / 2U;
+  const std::size_t first_col = center_delay - pixel_count / 2U;
   for (std::size_t row = 0U; row < cropped.rows; ++row) {
     for (std::size_t col = 0U; col < cropped.cols; ++col) {
       cropped(row, col) = image(row, first_col + col);
@@ -79,20 +84,22 @@ struct MatrixFocusResult {
 
 bool FocusMatrix(const test_support::ReferencePointScene& scene,
                  const std::vector<geometry::PlatformPulseState>& pulses,
-                 const signal::ComplexMatrix& raw, MatrixFocusResult* result) {
+                 const signal::ComplexMatrix& raw, MatrixFocusResult* result,
+                 std::size_t center_delay = kMatrixCenterDelay,
+                 std::size_t pixel_count = kMatrixPixels) {
   if (result == nullptr || pulses.size() != scene.pulses.size()) {
     return false;
   }
-  if (!imaging::FocusStripmapRda(test_support::MakeReferenceRdaConfig(scene, kMatrixCenterDelay),
-                                 raw, scene.matched_filter, &result->rda) ||
-      !imaging::FocusSmallSceneGbp(MakeMatrixGbpConfig(scene), pulses, raw, scene.matched_filter,
-                                   &result->gbp) ||
-      !imaging::FocusSmallSceneBp(MakeMatrixGbpConfig(scene), pulses, raw, scene.matched_filter,
-                                  &result->bp)) {
+  if (!imaging::FocusStripmapRda(test_support::MakeReferenceRdaConfig(scene, center_delay), raw,
+                                 scene.matched_filter, &result->rda) ||
+      !imaging::FocusSmallSceneGbp(MakeMatrixGbpConfig(scene, center_delay, pixel_count), pulses,
+                                   raw, scene.matched_filter, &result->gbp) ||
+      !imaging::FocusSmallSceneBp(MakeMatrixGbpConfig(scene, center_delay, pixel_count), pulses,
+                                  raw, scene.matched_filter, &result->bp)) {
     return false;
   }
   result->rda_vs_gbp = imaging::CompareImagesWithGlobalPhaseReference(
-      CropMatrixWindow(result->rda.image), result->gbp.image);
+      CropMatrixWindow(result->rda.image, center_delay, pixel_count), result->gbp.image);
   return result->rda_vs_gbp.valid;
 }
 
@@ -121,6 +128,52 @@ void RecordQuality(const std::string& prefix, const imaging::ImageQualityMetrics
   ::testing::Test::RecordProperty(prefix + "_pslr_db", std::to_string(metrics.pslr_db));
   ::testing::Test::RecordProperty(prefix + "_islr_db", std::to_string(metrics.islr_db));
   ::testing::Test::RecordProperty(prefix + "_entropy_nats", std::to_string(metrics.entropy_nats));
+}
+
+struct ApplicabilityCaseResult {
+  test_support::ReferenceRawHistoryDiagnostics raw_diagnostics{};
+  MatrixFocusResult focus{};
+  imaging::ImageQualityMetrics quality{};
+  std::string classification{};
+};
+
+bool RunApplicabilityCase(const test_support::ReferencePointScene& scene,
+                          const echo::PointTarget& target, std::size_t center_delay,
+                          ApplicabilityCaseResult* result) {
+  if (result == nullptr) {
+    return false;
+  }
+  signal::ComplexMatrix raw;
+  if (!test_support::BuildReferenceRawHistory(scene, {target}, &raw, &result->raw_diagnostics) ||
+      !FocusMatrix(scene, scene.pulses, raw, &result->focus, center_delay, kMatrixPixels)) {
+    return false;
+  }
+  result->quality = imaging::EvaluateImageQuality(result->focus.gbp.image);
+  if (!result->quality.valid) {
+    result->classification = "invalid";
+  } else if (result->raw_diagnostics.clipped_pulse_count > 0U) {
+    result->classification = "echo_clipped";
+  } else if (result->quality.peak_row == 0U ||
+             result->quality.peak_row + 1U == result->focus.gbp.image.rows ||
+             result->quality.peak_col == 0U ||
+             result->quality.peak_col + 1U == result->focus.gbp.image.cols ||
+             result->focus.rda_vs_gbp.normalized_rms_error >= 0.1 ||
+             result->focus.rda_vs_gbp.coherent_correlation <= 0.99) {
+    result->classification = "boundary_degraded";
+  } else {
+    result->classification = "interior_pass";
+  }
+  return true;
+}
+
+void RecordApplicabilityCase(const std::string& prefix, const ApplicabilityCaseResult& result) {
+  ::testing::Test::RecordProperty(prefix + "_classification", result.classification);
+  ::testing::Test::RecordProperty(prefix + "_clipped_pulses",
+                                  std::to_string(result.raw_diagnostics.clipped_pulse_count));
+  ::testing::Test::RecordProperty(prefix + "_clipped_samples",
+                                  std::to_string(result.raw_diagnostics.clipped_sample_count));
+  RecordComparison(prefix + "_rda_vs_gbp", result.focus.rda_vs_gbp);
+  RecordQuality(prefix + "_gbp", result.quality);
 }
 
 TEST(SarReferenceScenarioMatrixTest, M1CenterSinglePointPreservesApprovedBaseline) {
@@ -342,6 +395,111 @@ TEST(SarReferenceScenarioMatrixTest, M6L3PassRegionRetainsCompensationImprovemen
 
 TEST(SarReferenceScenarioMatrixTest, M7L3FailureRegionKeepsBpReferenceAndCompensationFailure) {
   VerifyL3MatrixCase(12.0, false);
+}
+
+TEST(SarBoundaryParameterMatrixTest, B1ToB3SeparateInteriorImageEdgeAndEchoClipping) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  struct RangeBoundaryCase {
+    const char* name;
+    std::size_t target_delay;
+    std::size_t center_delay;
+    const char* expected_classification;
+  };
+  const std::vector<RangeBoundaryCase> cases = {
+      {"b1_center", 20U, 20U, "interior_pass"},
+      {"b2_lower_interior", 18U, 20U, "interior_pass"},
+      {"b2_lower_image_edge", 16U, 20U, "boundary_degraded"},
+      {"b3_upper_interior", 22U, 20U, "interior_pass"},
+      {"b3_upper_image_edge", 24U, 20U, "boundary_degraded"},
+      {"b3_upper_echo_clip", 56U, 56U, "echo_clipped"}};
+  for (const RangeBoundaryCase& boundary_case : cases) {
+    ApplicabilityCaseResult result;
+    ASSERT_TRUE(RunApplicabilityCase(scene,
+                                     test_support::MakeReferenceTargetAtDelay(
+                                         boundary_case.target_delay, scene.sample_rate_hz, 1.0),
+                                     boundary_case.center_delay, &result));
+    RecordApplicabilityCase(boundary_case.name, result);
+    EXPECT_EQ(result.focus.bp.image.values, result.focus.gbp.image.values);
+    EXPECT_EQ(result.classification, boundary_case.expected_classification);
+  }
+}
+
+TEST(SarBoundaryParameterMatrixTest, B4SeparatesInteriorAndAzimuthGridEdge) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  struct AzimuthBoundaryCase {
+    const char* name;
+    double azimuth_m;
+    const char* expected_classification;
+  };
+  const std::vector<AzimuthBoundaryCase> cases = {{"b4_center", 0.0, "interior_pass"},
+                                                  {"b4_interior", 0.2, "interior_pass"},
+                                                  {"b4_grid_edge", 0.4, "boundary_degraded"}};
+  for (const AzimuthBoundaryCase& boundary_case : cases) {
+    ApplicabilityCaseResult result;
+    ASSERT_TRUE(RunApplicabilityCase(
+        scene,
+        test_support::MakeReferenceTargetAtPosition(boundary_case.azimuth_m, kMatrixCenterDelay,
+                                                    scene.sample_rate_hz, 1.0),
+        kMatrixCenterDelay, &result));
+    RecordApplicabilityCase(boundary_case.name, result);
+    EXPECT_EQ(result.focus.bp.image.values, result.focus.gbp.image.values);
+    EXPECT_EQ(result.classification, boundary_case.expected_classification);
+  }
+}
+
+void VerifyParameterCase(const std::string& name, test_support::ReferencePointScene scene,
+                         const std::string& expected_classification) {
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  ApplicabilityCaseResult result;
+  ASSERT_TRUE(RunApplicabilityCase(
+      scene,
+      test_support::MakeReferenceTargetAtDelay(kMatrixCenterDelay, scene.sample_rate_hz, 1.0),
+      kMatrixCenterDelay, &result));
+  RecordApplicabilityCase(name, result);
+  EXPECT_EQ(result.focus.bp.image.values, result.focus.gbp.image.values);
+  EXPECT_EQ(result.classification, expected_classification);
+}
+
+TEST(SarBoundaryParameterMatrixTest, P1SampleRateApplicability) {
+  for (const double sample_rate_hz : {80.0e6, 100.0e6, 120.0e6}) {
+    test_support::ReferencePointScene scene;
+    scene.sample_rate_hz = sample_rate_hz;
+    VerifyParameterCase("p1_" + std::to_string(static_cast<int>(sample_rate_hz / 1.0e6)), scene,
+                        "interior_pass");
+  }
+}
+
+TEST(SarBoundaryParameterMatrixTest, P2CarrierFrequencyApplicability) {
+  for (const double carrier_frequency_hz : {0.8e9, 1.0e9, 1.2e9}) {
+    test_support::ReferencePointScene scene;
+    scene.carrier_frequency_hz = carrier_frequency_hz;
+    VerifyParameterCase("p2_" + std::to_string(static_cast<int>(carrier_frequency_hz / 1.0e6)),
+                        scene, "interior_pass");
+  }
+}
+
+TEST(SarBoundaryParameterMatrixTest, P3PrfApplicability) {
+  const std::vector<std::pair<double, std::string>> cases = {
+      {10.0, "boundary_degraded"}, {20.0, "interior_pass"}, {40.0, "interior_pass"}};
+  for (const std::pair<double, std::string>& parameter_case : cases) {
+    test_support::ReferencePointScene scene;
+    scene.prf_hz = parameter_case.first;
+    VerifyParameterCase("p3_" + std::to_string(static_cast<int>(parameter_case.first)), scene,
+                        parameter_case.second);
+  }
+}
+
+TEST(SarBoundaryParameterMatrixTest, P4PlatformVelocityApplicability) {
+  const std::vector<std::pair<double, std::string>> cases = {
+      {1.0, "interior_pass"}, {2.0, "interior_pass"}, {4.0, "boundary_degraded"}};
+  for (const std::pair<double, std::string>& parameter_case : cases) {
+    test_support::ReferencePointScene scene;
+    scene.platform_velocity_mps = parameter_case.first;
+    VerifyParameterCase("p4_" + std::to_string(static_cast<int>(parameter_case.first)), scene,
+                        parameter_case.second);
+  }
 }
 
 }  // namespace

@@ -938,6 +938,36 @@
 - 阶段 38 契约冻结完成。
 - 阶段 39 边界与参数矩阵实现已启动。
 
+## 2026-06-06 阶段 39 边界与参数适用性矩阵
+
+### 已执行
+
+1. 扩展参考 raw history helper，可选汇总裁剪脉冲、目标和样本数。
+2. 实现 B1-B4，区分内部通过、图像边缘退化和 raw echo 裁剪。
+3. 实现 P1-P4，扫描采样率、载频、PRF 和平台速度。
+4. 保留 PRF/速度退化档位，不放宽当前质量门。
+5. 新增 `docs/sar_boundary_parameter_matrix_acceptance_report.md`。
+
+### 关键证据
+
+- raw echo 裁剪场景仍可得到 NRMS `0.014853`、相关系数 `0.999890`，证明裁剪诊断必须独立门禁。
+- `v/PRF=0.2 m/pulse` 的两组配置均得到 NRMS `0.177589`、相关系数 `0.984231` 并失败。
+- `v/PRF=0.05/0.1 m/pulse` 当前门通过。
+
+### 验证结果
+
+- 默认与 Conan Eigen 3.3.9 M1-M7 + B1-B4 + P1-P4：各 13/13 passed。
+- 默认与 Conan Eigen 3.3.9 全部 `Sar*` 单测：各 86/86 passed。
+- 默认与 Conan Eigen 3.3.9 `ctest -L sar_ci`：各 4/4 passed。
+- 默认 `ctest -L sar_performance`：1/1 passed。
+- Conan Eigen 3.3.9 `ctest -L sar_cxx11_compat`：1/1 passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 39 完成当前平台审批。
+- 阶段 40 方位采样充分性决策门已启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

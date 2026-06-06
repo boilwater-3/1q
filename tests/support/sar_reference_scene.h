@@ -32,6 +32,12 @@ struct ReferencePointScene {
   std::vector<geometry::PlatformPulseState> pulses{};
 };
 
+struct ReferenceRawHistoryDiagnostics {
+  std::size_t clipped_pulse_count{0U};
+  std::size_t clipped_target_count{0U};
+  std::size_t clipped_sample_count{0U};
+};
+
 inline echo::PointTarget MakeReferenceTargetAtDelay(std::size_t delay_sample, double sample_rate_hz,
                                                     double desired_amplitude) {
   const double range_m =
@@ -78,9 +84,13 @@ inline bool BuildReferencePointScene(ReferencePointScene* scene) {
 
 inline bool BuildReferenceRawHistory(const ReferencePointScene& scene,
                                      const std::vector<echo::PointTarget>& targets,
-                                     signal::ComplexMatrix* history) {
+                                     signal::ComplexMatrix* history,
+                                     ReferenceRawHistoryDiagnostics* diagnostics) {
   if (history == nullptr || scene.pulses.empty() || scene.waveform.samples.empty()) {
     return false;
+  }
+  if (diagnostics != nullptr) {
+    *diagnostics = ReferenceRawHistoryDiagnostics{};
   }
   history->rows = scene.pulses.size();
   history->cols = scene.range_sample_count;
@@ -96,11 +106,26 @@ inline bool BuildReferenceRawHistory(const ReferencePointScene& scene,
                                           scene.waveform.samples, &echo)) {
       return false;
     }
+    if (diagnostics != nullptr && echo.has_clipping) {
+      ++diagnostics->clipped_pulse_count;
+      for (const echo::EchoTargetDiagnostic& target_diagnostic : echo.diagnostics) {
+        if (target_diagnostic.clipped) {
+          ++diagnostics->clipped_target_count;
+          diagnostics->clipped_sample_count += target_diagnostic.clipped_samples;
+        }
+      }
+    }
     for (std::size_t col = 0U; col < scene.range_sample_count; ++col) {
       (*history)(row, col) = echo.samples[col];
     }
   }
   return true;
+}
+
+inline bool BuildReferenceRawHistory(const ReferencePointScene& scene,
+                                     const std::vector<echo::PointTarget>& targets,
+                                     signal::ComplexMatrix* history) {
+  return BuildReferenceRawHistory(scene, targets, history, nullptr);
 }
 
 inline imaging::RdaConfig MakeReferenceRdaConfig(const ReferencePointScene& scene,
