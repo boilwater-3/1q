@@ -11,13 +11,13 @@ execution::InternalExecutionConfig MapSessionToExecution(
   execution::InternalExecutionConfig exec;
 
   exec.detection.hardware = session_config.hardware.detection;
+  exec.detection.engineering = session_config.hardware.detection;
   exec.detection.beam_control = session_config.policy.beam_control;
   exec.association.policy = session_config.policy.association;
   exec.tracking.policy = session_config.policy.tracking;
   exec.lifecycle.policy = session_config.policy.lifecycle;
   exec.detection.orientation = session_config.mission.orientation;
 
-  exec.detection.engineering = ResolveDetectionEngineering(exec.detection.hardware);
   exec.tracking.engineering = ResolveTrackingEngineering(exec.tracking.policy);
   exec.lifecycle.engineering = ResolveLifecycleEngineering(exec.lifecycle.policy);
 

@@ -19,65 +19,14 @@ namespace engineering {
 using AntennaPatternModelType = detection::AntennaPatternModelType;
 using KalmanUpdateBackend = tracking::KalmanUpdateBackend;
 
-struct TransmitterConfig {
-  float peak_power_w{1e6f};
-  float frequency_hz{3e9f};
-  float bandwidth_hz{4.5e6f};
-  float pulse_width_s{13e-6f};
-  float prf_hz{300.0f};
-  float transmit_loss_db{3.5f};
-};
-
-struct AntennaPatternConfig {
-  AntennaPatternModelType model_type{
-      AntennaPatternModelType::kGaussianMainLobe};
-  float max_sidelobe_level_db{-20.0f};
-  float backlobe_level_db{-35.0f};
-  float scan_loss_coeff_db_per_deg2{0.0f};
-  float max_scan_loss_db{6.0f};
-  model::AzimuthElevationDeg boresight_offset_deg{};
-};
-
-struct AntennaConfig {
-  float main_beam_gain_db{35.0f};
-  float nominal_az_beamwidth_deg{4.0f};
-  float nominal_el_beamwidth_deg{4.0f};
-  engineering::AntennaPatternConfig pattern{};
-  bool enable_directional_pattern{false};
-};
-
-struct ReceiverConfig {
-  float noise_figure_db{4.0f};
-  float receive_loss_db{2.0f};
-};
-
-struct DetectionPolicy {
-  float cfar_pfa{1e-6f};
-  float min_snr_db{-10.0f};
-};
-
-struct RcsPhysicsConfig {
-  bool enable_physical_rcs{false};
-  float frequency_hz{0.0f};
-  float physics_mix_ratio{0.0f};
-  float cylinder_weight{0.5f};
-  float min_equivalent_radius_m{0.05f};
-  float max_equivalent_radius_m{5.0f};
-  float min_rcs_m2{0.01f};
-  float max_rcs_m2{1000.0f};
-  float bistatic_psi_offset_deg{5.0f};
-};
-
-struct DetectionConfig {
-  bool enable_physics_detection{false};
-  TransmitterConfig transmitter{};
-  AntennaConfig antenna{};
-  ReceiverConfig receiver{};
-  DetectionPolicy detection_policy{};
-  RcsPhysicsConfig rcs_physics{};
-  float min_detection_margin_db{-2.0f};
-  int pulse_count{10};
-};
+// Detection domain types — 1:1 aliases to public detection:: types (extends P7 pattern).
+using TransmitterConfig = detection::TransmitterConfig;
+using AntennaPatternConfig = detection::AntennaPatternConfig;
+using AntennaConfig = detection::AntennaConfig;
+using ReceiverConfig = detection::ReceiverConfig;
+using DetectionPolicy = detection::DetectionPolicyConfig;
+using RcsPhysicsConfig = detection::RcsPhysicsConfig;
+using DetectionConfig = detection::DetectionConfig;
 
 struct TrackingConfig {
   bool enable_kalman_filter{true};
