@@ -454,12 +454,10 @@ struct EosEnvironmentCustomOverridesT : public flatbuffers::NativeTable {
   int32_t radiative_transfer_model;
   float aerosol_density_factor;
   float turbulence_factor;
-  bool enable_optical_countermeasure_extension;
   EosEnvironmentCustomOverridesT()
       : radiative_transfer_model(0),
         aerosol_density_factor(0.0f),
-        turbulence_factor(0.0f),
-        enable_optical_countermeasure_extension(false) {
+        turbulence_factor(0.0f) {
   }
 };
 
@@ -469,8 +467,7 @@ struct EosEnvironmentCustomOverrides FLATBUFFERS_FINAL_CLASS : private flatbuffe
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_RADIATIVE_TRANSFER_MODEL = 4,
     VT_AEROSOL_DENSITY_FACTOR = 6,
-    VT_TURBULENCE_FACTOR = 8,
-    VT_ENABLE_OPTICAL_COUNTERMEASURE_EXTENSION = 10
+    VT_TURBULENCE_FACTOR = 8
   };
   int32_t radiative_transfer_model() const {
     return GetField<int32_t>(VT_RADIATIVE_TRANSFER_MODEL, 0);
@@ -481,15 +478,11 @@ struct EosEnvironmentCustomOverrides FLATBUFFERS_FINAL_CLASS : private flatbuffe
   float turbulence_factor() const {
     return GetField<float>(VT_TURBULENCE_FACTOR, 0.0f);
   }
-  bool enable_optical_countermeasure_extension() const {
-    return GetField<uint8_t>(VT_ENABLE_OPTICAL_COUNTERMEASURE_EXTENSION, 0) != 0;
-  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int32_t>(verifier, VT_RADIATIVE_TRANSFER_MODEL) &&
            VerifyField<float>(verifier, VT_AEROSOL_DENSITY_FACTOR) &&
            VerifyField<float>(verifier, VT_TURBULENCE_FACTOR) &&
-           VerifyField<uint8_t>(verifier, VT_ENABLE_OPTICAL_COUNTERMEASURE_EXTENSION) &&
            verifier.EndTable();
   }
   EosEnvironmentCustomOverridesT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -510,9 +503,6 @@ struct EosEnvironmentCustomOverridesBuilder {
   void add_turbulence_factor(float turbulence_factor) {
     fbb_.AddElement<float>(EosEnvironmentCustomOverrides::VT_TURBULENCE_FACTOR, turbulence_factor, 0.0f);
   }
-  void add_enable_optical_countermeasure_extension(bool enable_optical_countermeasure_extension) {
-    fbb_.AddElement<uint8_t>(EosEnvironmentCustomOverrides::VT_ENABLE_OPTICAL_COUNTERMEASURE_EXTENSION, static_cast<uint8_t>(enable_optical_countermeasure_extension), 0);
-  }
   explicit EosEnvironmentCustomOverridesBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -529,13 +519,11 @@ inline flatbuffers::Offset<EosEnvironmentCustomOverrides> CreateEosEnvironmentCu
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t radiative_transfer_model = 0,
     float aerosol_density_factor = 0.0f,
-    float turbulence_factor = 0.0f,
-    bool enable_optical_countermeasure_extension = false) {
+    float turbulence_factor = 0.0f) {
   EosEnvironmentCustomOverridesBuilder builder_(_fbb);
   builder_.add_turbulence_factor(turbulence_factor);
   builder_.add_aerosol_density_factor(aerosol_density_factor);
   builder_.add_radiative_transfer_model(radiative_transfer_model);
-  builder_.add_enable_optical_countermeasure_extension(enable_optical_countermeasure_extension);
   return builder_.Finish();
 }
 
@@ -550,15 +538,13 @@ struct EosEnvironmentConfigT : public flatbuffers::NativeTable {
   int32_t radiative_transfer_model_derived;
   float aerosol_density_factor_derived;
   float turbulence_factor_derived;
-  bool enable_optical_countermeasure_extension_derived;
   EosEnvironmentConfigT()
       : model_type(0),
         preset(0),
         has_custom_overrides(false),
         radiative_transfer_model_derived(0),
         aerosol_density_factor_derived(0.0f),
-        turbulence_factor_derived(0.0f),
-        enable_optical_countermeasure_extension_derived(false) {
+        turbulence_factor_derived(0.0f) {
   }
 };
 
@@ -572,8 +558,7 @@ struct EosEnvironmentConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
     VT_CUSTOM_OVERRIDES = 10,
     VT_RADIATIVE_TRANSFER_MODEL_DERIVED = 12,
     VT_AEROSOL_DENSITY_FACTOR_DERIVED = 14,
-    VT_TURBULENCE_FACTOR_DERIVED = 16,
-    VT_ENABLE_OPTICAL_COUNTERMEASURE_EXTENSION_DERIVED = 18
+    VT_TURBULENCE_FACTOR_DERIVED = 16
   };
   int32_t model_type() const {
     return GetField<int32_t>(VT_MODEL_TYPE, 0);
@@ -596,9 +581,6 @@ struct EosEnvironmentConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
   float turbulence_factor_derived() const {
     return GetField<float>(VT_TURBULENCE_FACTOR_DERIVED, 0.0f);
   }
-  bool enable_optical_countermeasure_extension_derived() const {
-    return GetField<uint8_t>(VT_ENABLE_OPTICAL_COUNTERMEASURE_EXTENSION_DERIVED, 0) != 0;
-  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int32_t>(verifier, VT_MODEL_TYPE) &&
@@ -609,7 +591,6 @@ struct EosEnvironmentConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
            VerifyField<int32_t>(verifier, VT_RADIATIVE_TRANSFER_MODEL_DERIVED) &&
            VerifyField<float>(verifier, VT_AEROSOL_DENSITY_FACTOR_DERIVED) &&
            VerifyField<float>(verifier, VT_TURBULENCE_FACTOR_DERIVED) &&
-           VerifyField<uint8_t>(verifier, VT_ENABLE_OPTICAL_COUNTERMEASURE_EXTENSION_DERIVED) &&
            verifier.EndTable();
   }
   EosEnvironmentConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -642,9 +623,6 @@ struct EosEnvironmentConfigBuilder {
   void add_turbulence_factor_derived(float turbulence_factor_derived) {
     fbb_.AddElement<float>(EosEnvironmentConfig::VT_TURBULENCE_FACTOR_DERIVED, turbulence_factor_derived, 0.0f);
   }
-  void add_enable_optical_countermeasure_extension_derived(bool enable_optical_countermeasure_extension_derived) {
-    fbb_.AddElement<uint8_t>(EosEnvironmentConfig::VT_ENABLE_OPTICAL_COUNTERMEASURE_EXTENSION_DERIVED, static_cast<uint8_t>(enable_optical_countermeasure_extension_derived), 0);
-  }
   explicit EosEnvironmentConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -665,8 +643,7 @@ inline flatbuffers::Offset<EosEnvironmentConfig> CreateEosEnvironmentConfig(
     flatbuffers::Offset<eos::replay::EosEnvironmentCustomOverrides> custom_overrides = 0,
     int32_t radiative_transfer_model_derived = 0,
     float aerosol_density_factor_derived = 0.0f,
-    float turbulence_factor_derived = 0.0f,
-    bool enable_optical_countermeasure_extension_derived = false) {
+    float turbulence_factor_derived = 0.0f) {
   EosEnvironmentConfigBuilder builder_(_fbb);
   builder_.add_turbulence_factor_derived(turbulence_factor_derived);
   builder_.add_aerosol_density_factor_derived(aerosol_density_factor_derived);
@@ -674,7 +651,6 @@ inline flatbuffers::Offset<EosEnvironmentConfig> CreateEosEnvironmentConfig(
   builder_.add_custom_overrides(custom_overrides);
   builder_.add_preset(preset);
   builder_.add_model_type(model_type);
-  builder_.add_enable_optical_countermeasure_extension_derived(enable_optical_countermeasure_extension_derived);
   builder_.add_has_custom_overrides(has_custom_overrides);
   return builder_.Finish();
 }
@@ -1214,7 +1190,6 @@ inline void EosEnvironmentCustomOverrides::UnPackTo(EosEnvironmentCustomOverride
   { auto _e = radiative_transfer_model(); _o->radiative_transfer_model = _e; }
   { auto _e = aerosol_density_factor(); _o->aerosol_density_factor = _e; }
   { auto _e = turbulence_factor(); _o->turbulence_factor = _e; }
-  { auto _e = enable_optical_countermeasure_extension(); _o->enable_optical_countermeasure_extension = _e; }
 }
 
 inline flatbuffers::Offset<EosEnvironmentCustomOverrides> EosEnvironmentCustomOverrides::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentCustomOverridesT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -1228,13 +1203,11 @@ inline flatbuffers::Offset<EosEnvironmentCustomOverrides> CreateEosEnvironmentCu
   auto _radiative_transfer_model = _o->radiative_transfer_model;
   auto _aerosol_density_factor = _o->aerosol_density_factor;
   auto _turbulence_factor = _o->turbulence_factor;
-  auto _enable_optical_countermeasure_extension = _o->enable_optical_countermeasure_extension;
   return eos::replay::CreateEosEnvironmentCustomOverrides(
       _fbb,
       _radiative_transfer_model,
       _aerosol_density_factor,
-      _turbulence_factor,
-      _enable_optical_countermeasure_extension);
+      _turbulence_factor);
 }
 
 inline EosEnvironmentConfigT *EosEnvironmentConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
@@ -1253,7 +1226,6 @@ inline void EosEnvironmentConfig::UnPackTo(EosEnvironmentConfigT *_o, const flat
   { auto _e = radiative_transfer_model_derived(); _o->radiative_transfer_model_derived = _e; }
   { auto _e = aerosol_density_factor_derived(); _o->aerosol_density_factor_derived = _e; }
   { auto _e = turbulence_factor_derived(); _o->turbulence_factor_derived = _e; }
-  { auto _e = enable_optical_countermeasure_extension_derived(); _o->enable_optical_countermeasure_extension_derived = _e; }
 }
 
 inline flatbuffers::Offset<EosEnvironmentConfig> EosEnvironmentConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -1271,7 +1243,6 @@ inline flatbuffers::Offset<EosEnvironmentConfig> CreateEosEnvironmentConfig(flat
   auto _radiative_transfer_model_derived = _o->radiative_transfer_model_derived;
   auto _aerosol_density_factor_derived = _o->aerosol_density_factor_derived;
   auto _turbulence_factor_derived = _o->turbulence_factor_derived;
-  auto _enable_optical_countermeasure_extension_derived = _o->enable_optical_countermeasure_extension_derived;
   return eos::replay::CreateEosEnvironmentConfig(
       _fbb,
       _model_type,
@@ -1280,8 +1251,7 @@ inline flatbuffers::Offset<EosEnvironmentConfig> CreateEosEnvironmentConfig(flat
       _custom_overrides,
       _radiative_transfer_model_derived,
       _aerosol_density_factor_derived,
-      _turbulence_factor_derived,
-      _enable_optical_countermeasure_extension_derived);
+      _turbulence_factor_derived);
 }
 
 inline EosHardwareConfigT *EosHardwareConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {

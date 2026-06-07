@@ -74,8 +74,6 @@ inline void LoadEosCustomOverrides(
   v->aerosol_density_factor =
       static_cast<float>(j["aerosol_density_factor"].AsDouble());
   v->turbulence_factor = static_cast<float>(j["turbulence_factor"].AsDouble());
-  v->enable_optical_countermeasure_extension =
-      j["enable_optical_countermeasure_extension"].AsBool();
 }
 
 inline void LoadEosScenario(

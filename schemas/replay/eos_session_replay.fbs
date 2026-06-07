@@ -42,7 +42,6 @@ table EosEnvironmentCustomOverrides {
   radiative_transfer_model:                int32;
   aerosol_density_factor:                  float;
   turbulence_factor:                       float;
-  enable_optical_countermeasure_extension: bool;
 }
 
 table EosEnvironmentConfig {
@@ -54,7 +53,6 @@ table EosEnvironmentConfig {
   radiative_transfer_model_derived:                int32;
   aerosol_density_factor_derived:                  float;
   turbulence_factor_derived:                       float;
-  enable_optical_countermeasure_extension_derived: bool;
 }
 
 table EosHardwareConfig {

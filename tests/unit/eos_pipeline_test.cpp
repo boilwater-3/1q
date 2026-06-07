@@ -193,12 +193,12 @@ TEST(EosPipelineTest, AdvancedEnvironmentModelLowersSnrInHighWindScene) {
   simplified_config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
   simplified_config.environment.radiative_transfer_model =
       foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
-  simplified_config.environment.environment_model_type = EosPipelineEnvironmentModelType::kSimplified;
+  simplified_config.environment.model_type = EosPipelineEnvironmentModelType::kSimplified;
   simplified_config.environment.aerosol_density_factor = 1.2f;
   simplified_config.environment.turbulence_factor = 1.1f;
 
   config::execution::EosInternalExecutionConfig advanced_config = simplified_config;
-  advanced_config.environment.environment_model_type = EosPipelineEnvironmentModelType::kAdvanced;
+  advanced_config.environment.model_type = EosPipelineEnvironmentModelType::kAdvanced;
 
   EosPipeline simplified_pipeline(simplified_config);
   EosPipeline advanced_pipeline(advanced_config);
@@ -227,7 +227,7 @@ TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFix
   config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
   config.environment.radiative_transfer_model =
       foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
-  config.environment.environment_model_type = EosPipelineEnvironmentModelType::kAdvanced;
+  config.environment.model_type = EosPipelineEnvironmentModelType::kAdvanced;
   config.environment.aerosol_density_factor = 1.2f;
   config.environment.turbulence_factor = 1.1f;
 

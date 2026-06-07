@@ -50,7 +50,7 @@ using StrayLightConfig = config::EosStrayLightPolicyConfig;
  * @brief 环境衰减配置（场景派生后的数值）。
  */
 struct EnvironmentConfig {
-  environment::EosEnvironmentModelType environment_model_type{
+  environment::EosEnvironmentModelType model_type{
       environment::EosEnvironmentModelType::kSimplified};
   foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model{
       foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};

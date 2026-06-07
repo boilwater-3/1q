@@ -220,7 +220,6 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
       foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
   config.environment.scenario_config.custom_overrides.aerosol_density_factor = 1.5f;
   config.environment.scenario_config.custom_overrides.turbulence_factor = 2.0f;
-  config.environment.scenario_config.custom_overrides.enable_optical_countermeasure_extension =
       true;
 
   const std::string bytes = EncodeEosSessionConfig(config);
@@ -254,8 +253,6 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
             foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.custom_overrides.aerosol_density_factor,
                   1.5f);
-  EXPECT_TRUE(
-      decoded.environment.scenario_config.custom_overrides.enable_optical_countermeasure_extension);
 }
 
 // ---------------------------------------------------------------------------

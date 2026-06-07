@@ -55,8 +55,6 @@ environment::EosEnvironmentModelConfig BuildModelConfigFromScenario(
     model_config.aerosol_density_factor =
         scenario_config.custom_overrides.aerosol_density_factor;
     model_config.turbulence_factor = scenario_config.custom_overrides.turbulence_factor;
-    model_config.enable_optical_countermeasure_extension =
-        scenario_config.custom_overrides.enable_optical_countermeasure_extension;
   }
 
   return model_config;
@@ -80,7 +78,7 @@ config::execution::EosInternalExecutionConfig MapSessionToInternal(
   exec.stray_light = config.policy.stray_light;
   ApplyEnvironmentModelToInternal(environment_model_config, &exec);
 
-  exec.environment.environment_model_type = environment_model_config.model_type;
+  exec.environment.model_type = environment_model_config.model_type;
   return exec;
 }
 

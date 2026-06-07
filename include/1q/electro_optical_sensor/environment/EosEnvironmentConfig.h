@@ -39,7 +39,6 @@ struct ONEQ_API EosEnvironmentCustomOverrides {
       foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
   float aerosol_density_factor{1.0f};
   float turbulence_factor{1.0f};
-  bool enable_optical_countermeasure_extension{false};
 };
 
 /**
@@ -61,7 +60,6 @@ struct ONEQ_API EosEnvironmentModelConfig {
       foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
   float aerosol_density_factor{1.0f};
   float turbulence_factor{1.0f};
-  bool enable_optical_countermeasure_extension{false};
 };
 
 /**

@@ -503,7 +503,7 @@ FrameContext EosPipeline::BuildFrameContext(
   frame.noise_inputs_base.detector_area_cm2 = frame.nep_inputs.detector_area_cm2;
 
   environment::EosEnvironmentModelInputs env_inputs;
-  env_inputs.model_type = config_.environment.environment_model_type;
+  env_inputs.model_type = config_.environment.model_type;
   env_inputs.platform_altitude_m = ResolvePlatformAltitudeM(input);
   env_inputs.cloud_coverage_ratio =
       oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);

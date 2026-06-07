@@ -315,13 +315,11 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
   const auto model_cfg = environment::BuildModelConfigFromScenario(sc);
   auto co = eos::replay::CreateEosEnvironmentCustomOverrides(
       fbb, static_cast<int32_t>(sc.custom_overrides.radiative_transfer_model),
-      sc.custom_overrides.aerosol_density_factor, sc.custom_overrides.turbulence_factor,
-      sc.custom_overrides.enable_optical_countermeasure_extension);
+      sc.custom_overrides.aerosol_density_factor, sc.custom_overrides.turbulence_factor);
   auto env = eos::replay::CreateEosEnvironmentConfig(
       fbb, static_cast<int32_t>(sc.model_type), static_cast<int32_t>(sc.preset),
       sc.has_custom_overrides, co, static_cast<int32_t>(model_cfg.radiative_transfer_model),
-      model_cfg.aerosol_density_factor, model_cfg.turbulence_factor,
-      model_cfg.enable_optical_countermeasure_extension);
+      model_cfg.aerosol_density_factor, model_cfg.turbulence_factor);
 
   fbb.Finish(eos::replay::CreateEosSessionConfig(fbb, hw, mission, policy, env));
   const uint8_t* buf = fbb.GetBufferPointer();
@@ -381,8 +379,6 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
               co->radiative_transfer_model());
       sc.custom_overrides.aerosol_density_factor = co->aerosol_density_factor();
       sc.custom_overrides.turbulence_factor = co->turbulence_factor();
-      sc.custom_overrides.enable_optical_countermeasure_extension =
-          co->enable_optical_countermeasure_extension();
     }
   }
   return true;
@@ -414,16 +410,15 @@ std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) 
     auto co = eos::replay::CreateEosEnvironmentCustomOverrides(
         fbb, static_cast<int32_t>(ep.scenario_config.custom_overrides.radiative_transfer_model),
         ep.scenario_config.custom_overrides.aerosol_density_factor,
-        ep.scenario_config.custom_overrides.turbulence_factor,
-        ep.scenario_config.custom_overrides.enable_optical_countermeasure_extension);
+        ep.scenario_config.custom_overrides.turbulence_factor);
     env = eos::replay::CreateEosEnvironmentConfig(
         fbb, static_cast<int32_t>(ep.scenario_config.model_type),
         static_cast<int32_t>(ep.scenario_config.preset), ep.scenario_config.has_custom_overrides,
-        co, 0, 0.0f, 0.0f, false);  // derived fields set to 0/false for patch
+        co, 0, 0.0f, 0.0f);  // derived fields set to 0/false for patch
   } else {
     // Write an empty environment config just to satisfy the struct
-    auto co = eos::replay::CreateEosEnvironmentCustomOverrides(fbb, 0, 1.0f, 1.0f, false);
-    env = eos::replay::CreateEosEnvironmentConfig(fbb, 0, 0, false, co, 0, 0.0f, 0.0f, false);
+    auto co = eos::replay::CreateEosEnvironmentCustomOverrides(fbb, 0, 1.0f, 1.0f);
+    env = eos::replay::CreateEosEnvironmentConfig(fbb, 0, 0, false, co, 0, 0.0f, 0.0f);
   }
   fbb.Finish(eos::replay::CreateEosRuntimeConfigPatch(
       fbb, v.has_mission, mission, v.has_policy, policy, v.has_environment, env, v.has_work_mode,
@@ -458,8 +453,6 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeCon
           e->custom_overrides()->aerosol_density_factor();
       out->environment.scenario_config.custom_overrides.turbulence_factor =
           e->custom_overrides()->turbulence_factor();
-      out->environment.scenario_config.custom_overrides.enable_optical_countermeasure_extension =
-          e->custom_overrides()->enable_optical_countermeasure_extension();
     }
   }
   if (fb->policy()) {
