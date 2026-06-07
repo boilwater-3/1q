@@ -172,7 +172,7 @@ TEST(ArEnvironmentMappingFunctionTest, BuildModelConfigFromScenarioPreservesJamm
 TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveKFactorStandardConditions) {
   AtmosphericDerivedContext context;
   AtmosphericPhysicsConfig physics;
-  const float k = ResolveEffectiveKFactor(context, physics);
+  const float k = oneq::environment::ResolveEffectiveKFactor(physics);
   EXPECT_GT(k, 1.0f);
   EXPECT_LT(k, 2.0f);
 }
@@ -181,7 +181,7 @@ TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveKFactorFallbackOnInvalidT
   AtmosphericDerivedContext context;
   AtmosphericPhysicsConfig physics;
   physics.temperature_k = 0.5f;  // <= 1K triggers ISA fallback
-  const float k = ResolveEffectiveKFactor(context, physics);
+  const float k = oneq::environment::ResolveEffectiveKFactor(physics);
   EXPECT_GT(k, 0.5f);
   EXPECT_LT(k, 2.5f);
 }
@@ -190,7 +190,7 @@ TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveKFactorFallbackOnInvalidP
   AtmosphericDerivedContext context;
   AtmosphericPhysicsConfig physics;
   physics.pressure_hpa = -1.0f;  // <= 0 triggers ISA fallback
-  const float k = ResolveEffectiveKFactor(context, physics);
+  const float k = oneq::environment::ResolveEffectiveKFactor(physics);
   EXPECT_GT(k, 0.5f);
   EXPECT_LT(k, 2.5f);
 }
@@ -199,7 +199,7 @@ TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveKFactorClampsNegativeHumi
   AtmosphericDerivedContext context;
   AtmosphericPhysicsConfig physics;
   physics.relative_humidity = -0.5f;
-  const float k = ResolveEffectiveKFactor(context, physics);
+  const float k = oneq::environment::ResolveEffectiveKFactor(physics);
   EXPECT_GT(k, 0.5f);
   EXPECT_LT(k, 2.5f);
 }
@@ -208,7 +208,7 @@ TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveKFactorClampsHumidityAbov
   AtmosphericDerivedContext context;
   AtmosphericPhysicsConfig physics;
   physics.relative_humidity = 2.0f;
-  const float k = ResolveEffectiveKFactor(context, physics);
+  const float k = oneq::environment::ResolveEffectiveKFactor(physics);
   EXPECT_GT(k, 0.5f);
   EXPECT_LT(k, 2.5f);
 }
@@ -220,7 +220,7 @@ TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveKFactorFallbackOutOfRange
   physics.temperature_k = 1000.0f;
   physics.pressure_hpa = 100.0f;
   physics.relative_humidity = 1.0f;
-  const float k = ResolveEffectiveKFactor(context, physics);
+  const float k = oneq::environment::ResolveEffectiveKFactor(physics);
   // If out of [0.5, 2.5], should fallback to 4/3
   EXPECT_GE(k, 0.5f);
   EXPECT_LE(k, 2.5f);
@@ -231,14 +231,14 @@ TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveDayOfYearWithTimestamp) {
   context.has_simulation_unix_seconds = true;
   // 2024-01-01 00:00:00 UTC = Unix 1704067200 → DOY 1
   context.simulation_unix_seconds = 1704067200;
-  EXPECT_EQ(ResolveEffectiveDayOfYear(context), 1);
+  EXPECT_EQ(oneq::environment::ResolveEffectiveDayOfYear(context), 1);
 }
 
 TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveDayOfYearFallbackWithoutTimestamp) {
   AtmosphericDerivedContext context;
   context.has_simulation_unix_seconds = false;
   context.simulation_unix_seconds = 0;
-  EXPECT_EQ(ResolveEffectiveDayOfYear(context), 172);
+  EXPECT_EQ(oneq::environment::ResolveEffectiveDayOfYear(context), 172);
 }
 
 TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveDayOfYearWithLeapYear) {
@@ -246,7 +246,7 @@ TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveDayOfYearWithLeapYear) {
   context.has_simulation_unix_seconds = true;
   // 2024-12-31 00:00:00 UTC → DOY 366 (2024 is leap year)
   context.simulation_unix_seconds = 1735603200;
-  EXPECT_EQ(ResolveEffectiveDayOfYear(context), 366);
+  EXPECT_EQ(oneq::environment::ResolveEffectiveDayOfYear(context), 366);
 }
 
 TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveDayOfYearWithNonLeapYear) {
@@ -254,7 +254,7 @@ TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveDayOfYearWithNonLeapYear)
   context.has_simulation_unix_seconds = true;
   // 2023-12-31 00:00:00 UTC → DOY 365 (2023 is not leap year)
   context.simulation_unix_seconds = 1703980800;
-  EXPECT_EQ(ResolveEffectiveDayOfYear(context), 365);
+  EXPECT_EQ(oneq::environment::ResolveEffectiveDayOfYear(context), 365);
 }
 
 TEST(ArEnvironmentMappingFunctionTest, ResolveJammingSensitivityProfileStrictBoundary) {

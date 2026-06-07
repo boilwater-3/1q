@@ -243,10 +243,10 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
   frozen_snapshot_.clutter_power_db = propagation_result.clutter_power_db;
   frozen_snapshot_.atmospheric_physics = active_scene.atmospheric_physics;
   frozen_snapshot_.atmospheric_context = active_scene.atmospheric_context;
-  frozen_snapshot_.effective_k_factor = ::airborne_radar::environment::ResolveEffectiveKFactor(
-      active_scene.atmospheric_context, active_scene.atmospheric_physics);
-  frozen_snapshot_.effective_day_of_year =
-      ::airborne_radar::environment::ResolveEffectiveDayOfYear(active_scene.atmospheric_context);
+  frozen_snapshot_.effective_k_factor = oneq::environment::ResolveEffectiveKFactor(
+      active_scene.atmospheric_physics);
+  frozen_snapshot_.effective_day_of_year = oneq::environment::ResolveEffectiveDayOfYear(
+      active_scene.atmospheric_context);
   frozen_snapshot_.jammer_sources.clear();
   frozen_snapshot_.jammer_sources.reserve(active_scene.jammer_emitters.size());
   for (std::size_t i = 0; i < active_scene.jammer_emitters.size(); ++i) {

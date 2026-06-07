@@ -208,6 +208,17 @@ set(FD_HEADERS
     "flight_dynamic/model/VehicleState.h"
 )
 
+# ── 统一环境模块 ─────────────────────────────────────────────────────
+set(ENVIRONMENT_HEADERS
+    "environment/AtmosphericState.h"
+    "environment/AtmosphericTypes.h"
+    "environment/EnvironmentCycleContext.h"
+    "environment/IAtmosphereProvider.h"
+    "environment/JsbsimAtmosphereAdapter.h"
+    "environment/PropagationPhysics.h"
+    "environment/StandardAtmosphere.h"
+)
+
 # ── 坐标工具 ─────────────────────────────────────────────────────────
 set(COORDINATE_HEADERS
     "coordinate/attitude_transform.h"
@@ -251,6 +262,7 @@ set(EXPECTED_PUBLIC_HEADERS
     ${ESR_SESSION_HEADERS}
     ${FD_HEADERS}
     ${COORDINATE_HEADERS}
+    ${ENVIRONMENT_HEADERS}
     ${FOUNDATION_HEADERS}
 )
 

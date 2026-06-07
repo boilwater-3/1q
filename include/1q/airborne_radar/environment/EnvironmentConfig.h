@@ -19,6 +19,7 @@
 
 #include "1q/api.hpp"
 #include "1q/airborne_radar/model/DecisionSourceInfo.h"
+#include "1q/environment/AtmosphericTypes.h"
 #include "1q/foundation/atmospheric_types.h"
 
 namespace airborne_radar {
@@ -85,56 +86,21 @@ struct ONEQ_API JammerEmitterState {
 /** @brief 场景中的干扰源输入列表 */
 using JammerEmitterStateList = std::vector<JammerEmitterState>;
 
-/** @brief AtmosphericPhysicsConfig 复用 foundation 层统一基础气象观测类型。 */
-using AtmosphericPhysicsConfig = oneq::foundation::AtmosphericObservation;
+/** @brief AtmosphericPhysicsConfig 复用统一环境模块基础气象观测类型。 */
+using AtmosphericPhysicsConfig = oneq::environment::AtmosphericObservation;
 
 /**
- * @brief AtmosphericDerivedContext 描述 AR 的高层时间/空间天气上下文输入。
- * @note k_factor/day_of_year 由库内从基础观测与时间语义自动推导，不作为对外输入字段。
+ * @brief AtmosphericDerivedContext 复用统一环境模块空间天气上下文类型。
+ *
+ * 字段包含：k_factor, day_of_year, solar_flux, geomagnetic_ap,
+ * simulation_unix_seconds（从原 AR 独有类型吸收）。
+ * 解析函数统一到 oneq::environment 命名空间。
  */
-struct ONEQ_API AtmosphericDerivedContext {
-  bool has_simulation_unix_seconds{false}; /**< 是否显式提供仿真 UTC 秒级时间戳 */
-  std::int64_t simulation_unix_seconds{0}; /**< 仿真 UTC 秒级时间戳（Unix epoch） */
-  float solar_flux_f107a{150.0f};          /**< 平滑太阳流量指数 */
-  float solar_flux_f107{150.0f};           /**< 当日太阳流量指数 */
-  float geomagnetic_ap{4.0f};              /**< 地磁活动指数 */
-};
+using AtmosphericDerivedContext = oneq::environment::SpaceWeatherContext;
 
-/**
- * @brief 推导环境上下文中的有效 k_factor（由基础观测自动推导）。
- *
- * 基于地面气象观测估计近地层折射率梯度，映射到有效地球半径因子 k。
- *
- * @par 解析合约
- * - 输入：AtmosphericDerivedContext（当前未使用，保留扩展）+ AtmosphericPhysicsConfig（基础气象观测）。
- * - 输出：有效地球半径因子 k，物理合理范围 (0.5, 2.5)。
- * - Fallback 语义：
- *   1. temperature_k <= 1 K 或 pressure_hpa <= 0：使用 ISA 标准值替代（288.15 K / 1013.25 hPa）。
- *   2. relative_humidity 负值钳位到 0，超出 1.0 钳位到 1.0。
- *   3. 折射率分母 <= 0.1（极端超折射陷阱条件）：回退到 4/3。
- *   4. 推导结果 < 0.5 或 > 2.5：回退到标准 4/3 近似（~1.333）。
- * - 无异常抛出；所有非法输入均通过 fallback 或钳位处理。
- *
- * @param[in] context 时间/空间天气上下文（当前未使用，保留扩展）。
- * @param[in] physics 基础气象观测输入。
- * @return 有效地球半径因子 k。
- */
-ONEQ_API float ResolveEffectiveKFactor(const AtmosphericDerivedContext& context,
-                              const AtmosphericPhysicsConfig& physics);
-
-/**
- * @brief 推导环境上下文中的有效 day_of_year（由仿真时间自动推导）。
- *
- * @par 解析合约
- * - 输入：AtmosphericDerivedContext（需 has_simulation_unix_seconds == true 方使用仿真时间）。
- * - 输出：年积日 [1, 366]，由仿真 UTC 秒级时间戳推导。
- * - Fallback 语义：若 has_simulation_unix_seconds == false，回退到 172（夏至附近）。
- * - 无异常抛出。
- *
- * @param[in] context 时间/空间天气上下文。
- * @return 年积日 [1, 366]。
- */
-ONEQ_API std::int32_t ResolveEffectiveDayOfYear(const AtmosphericDerivedContext& context);
+// 注意：ResolveEffectiveKFactor / ResolveEffectiveDayOfYear 的 AR 命名空间包装
+// 已移除。类型统一后，调用方直接使用 oneq::environment 中的 inline 版本即可。
+// 需要使用时 include "1q/environment/AtmosphericTypes.h"。
 
 /**
  * @brief 地表植被覆盖档位。

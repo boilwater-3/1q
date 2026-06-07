@@ -5,6 +5,7 @@
 #include <cmath>
 #include <vector>
 
+#include "1q/environment/PropagationPhysics.h"
 #include "common/atmosphere/AtmospherePhysics.h"
 #include "common/rcs/RcsPhysics.h"
 
@@ -150,21 +151,14 @@ PropagationResult PropagationModel::Evaluate(const EnvironmentSceneState& scene_
   PropagationResult result;
   float physical_loss_db = 0.0f;
   if (scene_state.atmospheric_physics.enable_physical_model) {
-    oneq::internal::atmosphere::AtmosphericObservationRef obs;
+    oneq::environment::AtmosphericObservation obs;
     obs.pressure_hpa = scene_state.atmospheric_physics.pressure_hpa;
     obs.temperature_k = scene_state.atmospheric_physics.temperature_k;
     obs.relative_humidity = scene_state.atmospheric_physics.relative_humidity;
-    obs.k_factor = ::airborne_radar::environment::ResolveEffectiveKFactor(
-        scene_state.atmospheric_context, scene_state.atmospheric_physics);
-    obs.day_of_year = ::airborne_radar::environment::ResolveEffectiveDayOfYear(
-        scene_state.atmospheric_context);
-    obs.solar_flux_f107a = scene_state.atmospheric_context.solar_flux_f107a;
-    obs.solar_flux_f107 = scene_state.atmospheric_context.solar_flux_f107;
-    obs.geomagnetic_ap = scene_state.atmospheric_context.geomagnetic_ap;
-    const auto inputs = oneq::internal::atmosphere::BuildPropagationInputs(
+    oneq::environment::PropagationInputs inputs = oneq::environment::BuildPropagationInputs(
         10.0e9f, 10.0e3f, 1.0e3f, 1.0e3f, 5.0f, obs);
     physical_loss_db =
-        oneq::internal::atmosphere::EvaluateAtmosphericPropagation(inputs).total_physics_loss_db;
+        oneq::environment::EvaluatePropagation(inputs).total_physics_loss_db;
   }
   result.atmospheric_physics_loss_db = physical_loss_db;
   result.propagation_loss_db = kInternalBasePropagationLossDb +

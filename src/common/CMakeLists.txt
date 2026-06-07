@@ -3,6 +3,9 @@
 set(ONEQ_COMMON_SOURCES
     common/atmosphere/AtmospherePhysics.cpp
     common/atmosphere/StandardAtmosphere.cpp
+    common/environment/StandardAtmosphereImpl.cpp
+    common/environment/PropagationPhysicsImpl.cpp
+    common/environment/JsbsimAtmosphereAdapter.cpp
     common/geometry/GeometryTransform.cpp
     common/coordinate/PositionTransform.cpp
     common/coordinate/VelocityTransform.cpp
