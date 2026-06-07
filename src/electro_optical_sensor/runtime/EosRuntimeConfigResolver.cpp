@@ -137,7 +137,6 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
       const environment::EosEnvironmentModelConfig model_config =
           environment::BuildModelConfigFromScenario(patch.environment.scenario_config);
       ApplyEnvironmentModelToInternal(model_config, &resolved.next_config);
-      resolved.next_config.environment.model_type = model_config.model_type;
     }
   }
 

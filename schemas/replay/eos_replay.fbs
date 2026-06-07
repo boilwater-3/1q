@@ -28,7 +28,7 @@ table PoseState {
 // ---- EosCycleInput ----
 
 table EosTargetState {
-  target_id:             uint32;
+  target_id:             uint64;
   range_m:               float;
   azimuth_deg:           float;
   elevation_deg:         float;
@@ -63,7 +63,7 @@ file_identifier "EOSC";
 // ---- EosOutputFrame ----
 
 table EosDetectionRecord {
-  target_id:           uint32;
+  target_id:           uint64;
   range_m:             float;
   azimuth_deg:         float;
   elevation_deg:       float;

@@ -15,10 +15,14 @@ namespace config {
  * @brief EosHardwareConfig 描述外部可观测的硬件规格。
  */
 struct ONEQ_API EosHardwareConfig {
-  float wavelength_lower_um{3.0f}; /**< 工作波段下限（单位：um） */
-  float wavelength_upper_um{5.0f}; /**< 工作波段上限（单位：um） */
-  float optical_aperture_m{0.2f};  /**< 光学口径（单位：m） */
-  float focal_length_m{0.8f};      /**< 焦距（单位：m） */
+  float wavelength_lower_um{3.0f};               /**< 工作波段下限（单位：um） */
+  float wavelength_upper_um{5.0f};               /**< 工作波段上限（单位：um） */
+  float optical_aperture_m{0.2f};                /**< 光学口径（单位：m） */
+  float focal_length_m{0.8f};                    /**< 焦距（单位：m） */
+  float detector_detectivity_cm_sqrt_hz_per_w{1.0e10f}; /**< 探测器比探测率（D*） */
+  float detector_area_cm2{0.25f};                        /**< 探测器面积（单位：cm2） */
+  float min_detection_depression_deg{1.0f};              /**< 最小探测俯仰角（单位：deg） */
+  float max_detection_depression_deg{89.0f};             /**< 最大探测俯仰角（单位：deg） */
 };
 
 }  // namespace config

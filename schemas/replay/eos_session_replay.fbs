@@ -56,10 +56,14 @@ table EosEnvironmentConfig {
 }
 
 table EosHardwareConfig {
-  wavelength_lower_um:  float;
-  wavelength_upper_um:  float;
-  optical_aperture_m:   float;
-  focal_length_m:       float;
+  wavelength_lower_um:           float;
+  wavelength_upper_um:           float;
+  optical_aperture_m:            float;
+  focal_length_m:                float;
+  detector_detectivity_cm_sqrt_hz_per_w: float;
+  detector_area_cm2:             float;
+  min_detection_depression_deg:  float;
+  max_detection_depression_deg:  float;
 }
 
 table EosSessionConfig {
@@ -81,6 +85,7 @@ table EosRuntimeConfigPatch {
   policy:                   EosPolicyConfig;
   has_environment:          bool;
   environment:              EosEnvironmentConfig;
+  has_scenario_config_in_environment: bool;
   has_work_mode:            bool;
   work_mode:                int32;
   has_scan_rate_deg_per_sec: bool;

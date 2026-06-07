@@ -11,6 +11,7 @@ namespace session {
 void ApplyEnvironmentModelToInternal(
     const environment::EosEnvironmentModelConfig& model_config,
     config::execution::EosInternalExecutionConfig* exec) {
+  exec->environment.model_type = model_config.model_type;
   exec->environment.radiative_transfer_model = model_config.radiative_transfer_model;
   exec->environment.aerosol_density_factor = model_config.aerosol_density_factor;
   exec->environment.turbulence_factor = model_config.turbulence_factor;
@@ -72,13 +73,16 @@ config::execution::EosInternalExecutionConfig MapSessionToInternal(
       environment::BuildModelConfigFromScenario(config.environment.scenario_config);
 
   exec.optics = config.hardware;
+  exec.detector.detector_detectivity_cm_sqrt_hz_per_w = config.hardware.detector_detectivity_cm_sqrt_hz_per_w;
+  exec.detector.detector_area_cm2 = config.hardware.detector_area_cm2;
+  exec.detector.min_detection_depression_deg = config.hardware.min_detection_depression_deg;
+  exec.detector.max_detection_depression_deg = config.hardware.max_detection_depression_deg;
   exec.scan = config.mission;
 
   exec.detection = config.policy.detection;
   exec.stray_light = config.policy.stray_light;
   ApplyEnvironmentModelToInternal(environment_model_config, &exec);
 
-  exec.environment.model_type = environment_model_config.model_type;
   return exec;
 }
 

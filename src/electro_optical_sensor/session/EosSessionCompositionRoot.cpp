@@ -22,13 +22,6 @@ namespace session {
 
 namespace {
 
-EosSessionComposition BuildInitialCompositionRuntime(const config::EosSessionConfig& config,
-                                                     EosSessionComposition composition) {
-  composition.internal_config = runtime::session::MapSessionToInternal(config);
-  composition.initial_reset_scan_phase = true;
-  return composition;
-}
-
 template <typename T>
 T& RequireComposedDependency(std::unique_ptr<T>& ptr, const char* dependency_name) {
   if (ptr != nullptr) {
@@ -53,12 +46,14 @@ std::shared_ptr<environment::IEosEnvironmentService> MakeNonOwningEnvironmentSer
 
 EosSessionComposition EosSessionCompositionRoot::ComposeDefault(
     const config::EosSessionConfig& config) {
+  auto internal_config = runtime::session::MapSessionToInternal(config);
   EosSessionComposition composition;
-  composition.owned_pipeline.reset(new signal::pipeline::EosPipeline(
-      runtime::session::MapSessionToInternal(config)));
+  composition.internal_config = internal_config;
+  composition.owned_pipeline.reset(
+      new signal::pipeline::EosPipeline(internal_config));
   composition.owned_controller.reset(
       new extension::EosController(*composition.owned_pipeline));
-  composition = BuildInitialCompositionRuntime(config, std::move(composition));
+  composition.initial_reset_scan_phase = true;
   FinalizeComposition(composition);
   return composition;
 }
@@ -66,13 +61,15 @@ EosSessionComposition EosSessionCompositionRoot::ComposeDefault(
 EosSessionComposition EosSessionCompositionRoot::ComposeWithEnvironmentService(
     const config::EosSessionConfig& config,
     environment::IEosEnvironmentService& environment_service) {
+  auto internal_config = runtime::session::MapSessionToInternal(config);
   EosSessionComposition composition;
+  composition.internal_config = internal_config;
   composition.owned_pipeline.reset(new signal::pipeline::EosPipeline(
-      runtime::session::MapSessionToInternal(config),
+      internal_config,
       MakeNonOwningEnvironmentServiceHandle(environment_service)));
   composition.owned_controller.reset(
       new extension::EosController(*composition.owned_pipeline));
-  composition = BuildInitialCompositionRuntime(config, std::move(composition));
+  composition.initial_reset_scan_phase = true;
   FinalizeComposition(composition);
   return composition;
 }

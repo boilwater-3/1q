@@ -48,6 +48,11 @@ using StrayLightConfig = config::EosStrayLightPolicyConfig;
 
 /**
  * @brief 环境衰减配置（场景派生后的数值）。
+ *
+ * @note 字段集合与默认值与 `EosEnvironmentModelConfig` 保持同步。
+ *       若修改此结构的字段或默认值，必须同步更新
+ *       `include/1q/electro_optical_sensor/environment/EosEnvironmentConfig.h` 中
+ *       `EosEnvironmentModelConfig` 的对应字段以避免漂移。
  */
 struct EnvironmentConfig {
   environment::EosEnvironmentModelType model_type{

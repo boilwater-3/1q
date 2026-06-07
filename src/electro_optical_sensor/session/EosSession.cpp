@@ -40,11 +40,6 @@ struct EosSession::Impl {
         owned_controller(std::move(composition.owned_controller)),
         controller(RequireCompositionDependency(owned_controller.get(), "controller")),
         internal_config_(composition.internal_config) {
-    if (owned_pipeline) {
-      owned_pipeline->ApplyInternalConfig(
-          composition.internal_config,
-          composition.initial_reset_scan_phase);
-    }
   }
 
   std::unique_ptr<signal::pipeline::EosPipeline> owned_pipeline;

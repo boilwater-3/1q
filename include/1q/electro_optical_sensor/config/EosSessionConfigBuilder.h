@@ -50,8 +50,6 @@ using ValidationIssueList = std::vector<ConfigValidationIssue>;
 class ONEQ_API EosSessionConfigBuilder {
  public:
   class MissionEditor;
-  class DetectionEditor;
-  class StrayLightEditor;
   class EnvironmentEditor;
 
   explicit EosSessionConfigBuilder(const config::EosSessionConfig& config = {}) noexcept
@@ -63,8 +61,6 @@ class ONEQ_API EosSessionConfigBuilder {
   }
 
   MissionEditor Mission() noexcept;
-  DetectionEditor Detection() noexcept;
-  StrayLightEditor StrayLight() noexcept;
   EnvironmentEditor Environment() noexcept;
 
   config::EosSessionConfig Build() const noexcept { return config_; }
@@ -85,8 +81,6 @@ class ONEQ_API EosSessionConfigBuilder {
 
  private:
   friend class MissionEditor;
-  friend class DetectionEditor;
-  friend class StrayLightEditor;
   friend class EnvironmentEditor;
 
   config::EosSessionConfig config_{};
@@ -108,26 +102,6 @@ class ONEQ_API EosSessionConfigBuilder::MissionEditor {
     builder_->config_.mission.frame_rate_hz = value;
     return *this;
   }
-  EosSessionConfigBuilder& End() noexcept { return *builder_; }
-
- private:
-  EosSessionConfigBuilder* builder_;
-};
-
-class ONEQ_API EosSessionConfigBuilder::DetectionEditor {
- public:
-  explicit DetectionEditor(EosSessionConfigBuilder* builder) noexcept : builder_(builder) {}
-
-  EosSessionConfigBuilder& End() noexcept { return *builder_; }
-
- private:
-  EosSessionConfigBuilder* builder_;
-};
-
-class ONEQ_API EosSessionConfigBuilder::StrayLightEditor {
- public:
-  explicit StrayLightEditor(EosSessionConfigBuilder* builder) noexcept : builder_(builder) {}
-
   EosSessionConfigBuilder& End() noexcept { return *builder_; }
 
  private:
@@ -160,14 +134,6 @@ class ONEQ_API EosSessionConfigBuilder::EnvironmentEditor {
 
 inline EosSessionConfigBuilder::MissionEditor EosSessionConfigBuilder::Mission() noexcept {
   return MissionEditor(this);
-}
-
-inline EosSessionConfigBuilder::DetectionEditor EosSessionConfigBuilder::Detection() noexcept {
-  return DetectionEditor(this);
-}
-
-inline EosSessionConfigBuilder::StrayLightEditor EosSessionConfigBuilder::StrayLight() noexcept {
-  return StrayLightEditor(this);
 }
 
 inline EosSessionConfigBuilder::EnvironmentEditor EosSessionConfigBuilder::Environment() noexcept {

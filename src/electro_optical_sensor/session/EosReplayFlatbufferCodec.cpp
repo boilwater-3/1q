@@ -74,7 +74,7 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
   targets_vec.reserve(v.scene.size());
   for (const auto& t : v.scene) {
     auto b = eos::replay::CreateEosTargetState(
-        fbb, static_cast<std::uint32_t>(t.target_id), t.range_m, t.azimuth_deg, t.elevation_deg,
+        fbb, t.target_id, t.range_m, t.azimuth_deg, t.elevation_deg,
         t.appearance.apparent_temperature_k, t.appearance.emissivity, t.appearance.reflectance,
         t.appearance.projected_area_m2);
     targets_vec.push_back(b);
@@ -146,7 +146,7 @@ std::string EncodeEosOutputFrame(const session::EosOutputFrame& v) {
   det_vec.reserve(v.detections.size());
   for (const auto& d : v.detections) {
     det_vec.push_back(eos::replay::CreateEosDetectionRecord(
-        fbb, static_cast<std::uint32_t>(d.target_id), d.range_m, d.azimuth_deg, d.elevation_deg,
+        fbb, d.target_id, d.range_m, d.azimuth_deg, d.elevation_deg,
         d.infrared_snr_linear, d.visible_snr_linear, d.fused_snr_linear, d.fused_snr_db,
         d.detected));
   }
@@ -193,7 +193,7 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
   std::vector<flatbuffers::Offset<eos::replay::EosDetectionRecord>> det_vec;
   for (const auto& d : v.output_frame.detections) {
     det_vec.push_back(eos::replay::CreateEosDetectionRecord(
-        fbb, static_cast<std::uint32_t>(d.target_id), d.range_m, d.azimuth_deg, d.elevation_deg,
+        fbb, d.target_id, d.range_m, d.azimuth_deg, d.elevation_deg,
         d.infrared_snr_linear, d.visible_snr_linear, d.fused_snr_linear, d.fused_snr_db,
         d.detected));
   }
@@ -288,7 +288,11 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
   // hardware
   auto hw = eos::replay::CreateEosHardwareConfig(
       fbb, v.hardware.wavelength_lower_um, v.hardware.wavelength_upper_um,
-      v.hardware.optical_aperture_m, v.hardware.focal_length_m);
+      v.hardware.optical_aperture_m, v.hardware.focal_length_m,
+      v.hardware.detector_detectivity_cm_sqrt_hz_per_w,
+      v.hardware.detector_area_cm2,
+      v.hardware.min_detection_depression_deg,
+      v.hardware.max_detection_depression_deg);
 
   // mission
   auto mission = eos::replay::CreateEosMissionConfig(
@@ -338,6 +342,11 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
     out->hardware.wavelength_upper_um = fb->hardware()->wavelength_upper_um();
     out->hardware.optical_aperture_m = fb->hardware()->optical_aperture_m();
     out->hardware.focal_length_m = fb->hardware()->focal_length_m();
+    out->hardware.detector_detectivity_cm_sqrt_hz_per_w =
+        fb->hardware()->detector_detectivity_cm_sqrt_hz_per_w();
+    out->hardware.detector_area_cm2 = fb->hardware()->detector_area_cm2();
+    out->hardware.min_detection_depression_deg = fb->hardware()->min_detection_depression_deg();
+    out->hardware.max_detection_depression_deg = fb->hardware()->max_detection_depression_deg();
   }
   if (fb->mission()) {
     const auto* m = fb->mission();
@@ -421,9 +430,10 @@ std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) 
     env = eos::replay::CreateEosEnvironmentConfig(fbb, 0, 0, false, co, 0, 0.0f, 0.0f);
   }
   fbb.Finish(eos::replay::CreateEosRuntimeConfigPatch(
-      fbb, v.has_mission, mission, v.has_policy, policy, v.has_environment, env, v.has_work_mode,
-      static_cast<int32_t>(v.work_mode), v.has_scan_rate_deg_per_sec, v.scan_rate_deg_per_sec,
-      v.has_frame_rate_hz, v.frame_rate_hz));
+      fbb, v.has_mission, mission, v.has_policy, policy, v.has_environment, env,
+      v.environment.has_scenario_config, v.has_work_mode, static_cast<int32_t>(v.work_mode),
+      v.has_scan_rate_deg_per_sec, v.scan_rate_deg_per_sec, v.has_frame_rate_hz,
+      v.frame_rate_hz));
   const uint8_t* buf = fbb.GetBufferPointer();
   return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
 }
@@ -439,7 +449,7 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeCon
   out->has_environment = fb->has_environment();
   if (out->has_environment && fb->environment()) {
     const auto* e = fb->environment();
-    out->environment.has_scenario_config = true;
+    out->environment.has_scenario_config = fb->has_scenario_config_in_environment();
     out->environment.scenario_config.model_type =
         static_cast<environment::EosEnvironmentModelType>(e->model_type());
     out->environment.scenario_config.preset =

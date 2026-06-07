@@ -11,66 +11,32 @@ namespace replay {
 
 struct EosMissionConfig;
 struct EosMissionConfigBuilder;
-struct EosMissionConfigT;
 
 struct EosPolicyDetectionConfig;
 struct EosPolicyDetectionConfigBuilder;
-struct EosPolicyDetectionConfigT;
 
 struct EosPolicyStrayLightConfig;
 struct EosPolicyStrayLightConfigBuilder;
-struct EosPolicyStrayLightConfigT;
 
 struct EosPolicyConfig;
 struct EosPolicyConfigBuilder;
-struct EosPolicyConfigT;
 
 struct EosEnvironmentCustomOverrides;
 struct EosEnvironmentCustomOverridesBuilder;
-struct EosEnvironmentCustomOverridesT;
 
 struct EosEnvironmentConfig;
 struct EosEnvironmentConfigBuilder;
-struct EosEnvironmentConfigT;
 
 struct EosHardwareConfig;
 struct EosHardwareConfigBuilder;
-struct EosHardwareConfigT;
 
 struct EosSessionConfig;
 struct EosSessionConfigBuilder;
-struct EosSessionConfigT;
 
 struct EosRuntimeConfigPatch;
 struct EosRuntimeConfigPatchBuilder;
-struct EosRuntimeConfigPatchT;
-
-struct EosMissionConfigT : public flatbuffers::NativeTable {
-  typedef EosMissionConfig TableType;
-  int32_t work_mode;
-  float horizontal_fov_deg;
-  float vertical_fov_deg;
-  float scan_rate_deg_per_sec;
-  float frame_rate_hz;
-  float scan_start_az_deg;
-  float scan_end_az_deg;
-  float scan_center_el_deg;
-  float boresight_depression_deg;
-  EosMissionConfigT()
-      : work_mode(0),
-        horizontal_fov_deg(0.0f),
-        vertical_fov_deg(0.0f),
-        scan_rate_deg_per_sec(0.0f),
-        frame_rate_hz(0.0f),
-        scan_start_az_deg(0.0f),
-        scan_end_az_deg(0.0f),
-        scan_center_el_deg(0.0f),
-        boresight_depression_deg(0.0f) {
-  }
-};
 
 struct EosMissionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosMissionConfigT NativeTableType;
   typedef EosMissionConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_WORK_MODE = 4,
@@ -123,9 +89,6 @@ struct EosMissionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<float>(verifier, VT_BORESIGHT_DEPRESSION_DEG) &&
            verifier.EndTable();
   }
-  EosMissionConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosMissionConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosMissionConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosMissionConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosMissionConfigBuilder {
@@ -195,22 +158,7 @@ inline flatbuffers::Offset<EosMissionConfig> CreateEosMissionConfig(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EosMissionConfig> CreateEosMissionConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosMissionConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosPolicyDetectionConfigT : public flatbuffers::NativeTable {
-  typedef EosPolicyDetectionConfig TableType;
-  float minimum_snr_db;
-  float detection_sensitivity_w;
-  float visible_reference_irradiance_w_m2;
-  EosPolicyDetectionConfigT()
-      : minimum_snr_db(0.0f),
-        detection_sensitivity_w(0.0f),
-        visible_reference_irradiance_w_m2(0.0f) {
-  }
-};
-
 struct EosPolicyDetectionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosPolicyDetectionConfigT NativeTableType;
   typedef EosPolicyDetectionConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MINIMUM_SNR_DB = 4,
@@ -233,9 +181,6 @@ struct EosPolicyDetectionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
            VerifyField<float>(verifier, VT_VISIBLE_REFERENCE_IRRADIANCE_W_M2) &&
            verifier.EndTable();
   }
-  EosPolicyDetectionConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosPolicyDetectionConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosPolicyDetectionConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosPolicyDetectionConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosPolicyDetectionConfigBuilder {
@@ -275,26 +220,7 @@ inline flatbuffers::Offset<EosPolicyDetectionConfig> CreateEosPolicyDetectionCon
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EosPolicyDetectionConfig> CreateEosPolicyDetectionConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosPolicyDetectionConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosPolicyStrayLightConfigT : public flatbuffers::NativeTable {
-  typedef EosPolicyStrayLightConfig TableType;
-  bool enable_straylight_filter;
-  float hood_inner_half_angle_deg;
-  float hood_outer_half_angle_deg;
-  float hood_min_suppression_ratio;
-  float hood_max_suppression_ratio;
-  EosPolicyStrayLightConfigT()
-      : enable_straylight_filter(false),
-        hood_inner_half_angle_deg(0.0f),
-        hood_outer_half_angle_deg(0.0f),
-        hood_min_suppression_ratio(0.0f),
-        hood_max_suppression_ratio(0.0f) {
-  }
-};
-
 struct EosPolicyStrayLightConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosPolicyStrayLightConfigT NativeTableType;
   typedef EosPolicyStrayLightConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENABLE_STRAYLIGHT_FILTER = 4,
@@ -327,9 +253,6 @@ struct EosPolicyStrayLightConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::
            VerifyField<float>(verifier, VT_HOOD_MAX_SUPPRESSION_RATIO) &&
            verifier.EndTable();
   }
-  EosPolicyStrayLightConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosPolicyStrayLightConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosPolicyStrayLightConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosPolicyStrayLightConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosPolicyStrayLightConfigBuilder {
@@ -379,18 +302,7 @@ inline flatbuffers::Offset<EosPolicyStrayLightConfig> CreateEosPolicyStrayLightC
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EosPolicyStrayLightConfig> CreateEosPolicyStrayLightConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosPolicyStrayLightConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosPolicyConfigT : public flatbuffers::NativeTable {
-  typedef EosPolicyConfig TableType;
-  std::unique_ptr<eos::replay::EosPolicyDetectionConfigT> detection;
-  std::unique_ptr<eos::replay::EosPolicyStrayLightConfigT> stray_light;
-  EosPolicyConfigT() {
-  }
-};
-
 struct EosPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosPolicyConfigT NativeTableType;
   typedef EosPolicyConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_DETECTION = 4,
@@ -410,9 +322,6 @@ struct EosPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(stray_light()) &&
            verifier.EndTable();
   }
-  EosPolicyConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosPolicyConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosPolicyConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosPolicyConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosPolicyConfigBuilder {
@@ -447,22 +356,7 @@ inline flatbuffers::Offset<EosPolicyConfig> CreateEosPolicyConfig(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EosPolicyConfig> CreateEosPolicyConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosPolicyConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosEnvironmentCustomOverridesT : public flatbuffers::NativeTable {
-  typedef EosEnvironmentCustomOverrides TableType;
-  int32_t radiative_transfer_model;
-  float aerosol_density_factor;
-  float turbulence_factor;
-  EosEnvironmentCustomOverridesT()
-      : radiative_transfer_model(0),
-        aerosol_density_factor(0.0f),
-        turbulence_factor(0.0f) {
-  }
-};
-
 struct EosEnvironmentCustomOverrides FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosEnvironmentCustomOverridesT NativeTableType;
   typedef EosEnvironmentCustomOverridesBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_RADIATIVE_TRANSFER_MODEL = 4,
@@ -485,9 +379,6 @@ struct EosEnvironmentCustomOverrides FLATBUFFERS_FINAL_CLASS : private flatbuffe
            VerifyField<float>(verifier, VT_TURBULENCE_FACTOR) &&
            verifier.EndTable();
   }
-  EosEnvironmentCustomOverridesT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosEnvironmentCustomOverridesT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosEnvironmentCustomOverrides> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentCustomOverridesT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosEnvironmentCustomOverridesBuilder {
@@ -527,29 +418,7 @@ inline flatbuffers::Offset<EosEnvironmentCustomOverrides> CreateEosEnvironmentCu
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EosEnvironmentCustomOverrides> CreateEosEnvironmentCustomOverrides(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentCustomOverridesT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosEnvironmentConfigT : public flatbuffers::NativeTable {
-  typedef EosEnvironmentConfig TableType;
-  int32_t model_type;
-  int32_t preset;
-  bool has_custom_overrides;
-  std::unique_ptr<eos::replay::EosEnvironmentCustomOverridesT> custom_overrides;
-  int32_t radiative_transfer_model_derived;
-  float aerosol_density_factor_derived;
-  float turbulence_factor_derived;
-  EosEnvironmentConfigT()
-      : model_type(0),
-        preset(0),
-        has_custom_overrides(false),
-        radiative_transfer_model_derived(0),
-        aerosol_density_factor_derived(0.0f),
-        turbulence_factor_derived(0.0f) {
-  }
-};
-
 struct EosEnvironmentConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosEnvironmentConfigT NativeTableType;
   typedef EosEnvironmentConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MODEL_TYPE = 4,
@@ -593,9 +462,6 @@ struct EosEnvironmentConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
            VerifyField<float>(verifier, VT_TURBULENCE_FACTOR_DERIVED) &&
            verifier.EndTable();
   }
-  EosEnvironmentConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosEnvironmentConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosEnvironmentConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosEnvironmentConfigBuilder {
@@ -655,30 +521,17 @@ inline flatbuffers::Offset<EosEnvironmentConfig> CreateEosEnvironmentConfig(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EosEnvironmentConfig> CreateEosEnvironmentConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosHardwareConfigT : public flatbuffers::NativeTable {
-  typedef EosHardwareConfig TableType;
-  float wavelength_lower_um;
-  float wavelength_upper_um;
-  float optical_aperture_m;
-  float focal_length_m;
-  EosHardwareConfigT()
-      : wavelength_lower_um(0.0f),
-        wavelength_upper_um(0.0f),
-        optical_aperture_m(0.0f),
-        focal_length_m(0.0f) {
-  }
-};
-
 struct EosHardwareConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosHardwareConfigT NativeTableType;
   typedef EosHardwareConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_WAVELENGTH_LOWER_UM = 4,
     VT_WAVELENGTH_UPPER_UM = 6,
     VT_OPTICAL_APERTURE_M = 8,
-    VT_FOCAL_LENGTH_M = 10
+    VT_FOCAL_LENGTH_M = 10,
+    VT_DETECTOR_DETECTIVITY_CM_SQRT_HZ_PER_W = 12,
+    VT_DETECTOR_AREA_CM2 = 14,
+    VT_MIN_DETECTION_DEPRESSION_DEG = 16,
+    VT_MAX_DETECTION_DEPRESSION_DEG = 18
   };
   float wavelength_lower_um() const {
     return GetField<float>(VT_WAVELENGTH_LOWER_UM, 0.0f);
@@ -692,17 +545,30 @@ struct EosHardwareConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   float focal_length_m() const {
     return GetField<float>(VT_FOCAL_LENGTH_M, 0.0f);
   }
+  float detector_detectivity_cm_sqrt_hz_per_w() const {
+    return GetField<float>(VT_DETECTOR_DETECTIVITY_CM_SQRT_HZ_PER_W, 0.0f);
+  }
+  float detector_area_cm2() const {
+    return GetField<float>(VT_DETECTOR_AREA_CM2, 0.0f);
+  }
+  float min_detection_depression_deg() const {
+    return GetField<float>(VT_MIN_DETECTION_DEPRESSION_DEG, 0.0f);
+  }
+  float max_detection_depression_deg() const {
+    return GetField<float>(VT_MAX_DETECTION_DEPRESSION_DEG, 0.0f);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<float>(verifier, VT_WAVELENGTH_LOWER_UM) &&
            VerifyField<float>(verifier, VT_WAVELENGTH_UPPER_UM) &&
            VerifyField<float>(verifier, VT_OPTICAL_APERTURE_M) &&
            VerifyField<float>(verifier, VT_FOCAL_LENGTH_M) &&
+           VerifyField<float>(verifier, VT_DETECTOR_DETECTIVITY_CM_SQRT_HZ_PER_W) &&
+           VerifyField<float>(verifier, VT_DETECTOR_AREA_CM2) &&
+           VerifyField<float>(verifier, VT_MIN_DETECTION_DEPRESSION_DEG) &&
+           VerifyField<float>(verifier, VT_MAX_DETECTION_DEPRESSION_DEG) &&
            verifier.EndTable();
   }
-  EosHardwareConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosHardwareConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosHardwareConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosHardwareConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosHardwareConfigBuilder {
@@ -721,6 +587,18 @@ struct EosHardwareConfigBuilder {
   void add_focal_length_m(float focal_length_m) {
     fbb_.AddElement<float>(EosHardwareConfig::VT_FOCAL_LENGTH_M, focal_length_m, 0.0f);
   }
+  void add_detector_detectivity_cm_sqrt_hz_per_w(float detector_detectivity_cm_sqrt_hz_per_w) {
+    fbb_.AddElement<float>(EosHardwareConfig::VT_DETECTOR_DETECTIVITY_CM_SQRT_HZ_PER_W, detector_detectivity_cm_sqrt_hz_per_w, 0.0f);
+  }
+  void add_detector_area_cm2(float detector_area_cm2) {
+    fbb_.AddElement<float>(EosHardwareConfig::VT_DETECTOR_AREA_CM2, detector_area_cm2, 0.0f);
+  }
+  void add_min_detection_depression_deg(float min_detection_depression_deg) {
+    fbb_.AddElement<float>(EosHardwareConfig::VT_MIN_DETECTION_DEPRESSION_DEG, min_detection_depression_deg, 0.0f);
+  }
+  void add_max_detection_depression_deg(float max_detection_depression_deg) {
+    fbb_.AddElement<float>(EosHardwareConfig::VT_MAX_DETECTION_DEPRESSION_DEG, max_detection_depression_deg, 0.0f);
+  }
   explicit EosHardwareConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -738,8 +616,16 @@ inline flatbuffers::Offset<EosHardwareConfig> CreateEosHardwareConfig(
     float wavelength_lower_um = 0.0f,
     float wavelength_upper_um = 0.0f,
     float optical_aperture_m = 0.0f,
-    float focal_length_m = 0.0f) {
+    float focal_length_m = 0.0f,
+    float detector_detectivity_cm_sqrt_hz_per_w = 0.0f,
+    float detector_area_cm2 = 0.0f,
+    float min_detection_depression_deg = 0.0f,
+    float max_detection_depression_deg = 0.0f) {
   EosHardwareConfigBuilder builder_(_fbb);
+  builder_.add_max_detection_depression_deg(max_detection_depression_deg);
+  builder_.add_min_detection_depression_deg(min_detection_depression_deg);
+  builder_.add_detector_area_cm2(detector_area_cm2);
+  builder_.add_detector_detectivity_cm_sqrt_hz_per_w(detector_detectivity_cm_sqrt_hz_per_w);
   builder_.add_focal_length_m(focal_length_m);
   builder_.add_optical_aperture_m(optical_aperture_m);
   builder_.add_wavelength_upper_um(wavelength_upper_um);
@@ -747,20 +633,7 @@ inline flatbuffers::Offset<EosHardwareConfig> CreateEosHardwareConfig(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EosHardwareConfig> CreateEosHardwareConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosHardwareConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosSessionConfigT : public flatbuffers::NativeTable {
-  typedef EosSessionConfig TableType;
-  std::unique_ptr<eos::replay::EosHardwareConfigT> hardware;
-  std::unique_ptr<eos::replay::EosMissionConfigT> mission;
-  std::unique_ptr<eos::replay::EosPolicyConfigT> policy;
-  std::unique_ptr<eos::replay::EosEnvironmentConfigT> environment;
-  EosSessionConfigT() {
-  }
-};
-
 struct EosSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosSessionConfigT NativeTableType;
   typedef EosSessionConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HARDWARE = 4,
@@ -792,9 +665,6 @@ struct EosSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(environment()) &&
            verifier.EndTable();
   }
-  EosSessionConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosSessionConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosSessionConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosSessionConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosSessionConfigBuilder {
@@ -839,37 +709,7 @@ inline flatbuffers::Offset<EosSessionConfig> CreateEosSessionConfig(
   return builder_.Finish();
 }
 
-flatbuffers::Offset<EosSessionConfig> CreateEosSessionConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosSessionConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-struct EosRuntimeConfigPatchT : public flatbuffers::NativeTable {
-  typedef EosRuntimeConfigPatch TableType;
-  bool has_mission;
-  std::unique_ptr<eos::replay::EosMissionConfigT> mission;
-  bool has_policy;
-  std::unique_ptr<eos::replay::EosPolicyConfigT> policy;
-  bool has_environment;
-  std::unique_ptr<eos::replay::EosEnvironmentConfigT> environment;
-  bool has_work_mode;
-  int32_t work_mode;
-  bool has_scan_rate_deg_per_sec;
-  float scan_rate_deg_per_sec;
-  bool has_frame_rate_hz;
-  float frame_rate_hz;
-  EosRuntimeConfigPatchT()
-      : has_mission(false),
-        has_policy(false),
-        has_environment(false),
-        has_work_mode(false),
-        work_mode(0),
-        has_scan_rate_deg_per_sec(false),
-        scan_rate_deg_per_sec(0.0f),
-        has_frame_rate_hz(false),
-        frame_rate_hz(0.0f) {
-  }
-};
-
 struct EosRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef EosRuntimeConfigPatchT NativeTableType;
   typedef EosRuntimeConfigPatchBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HAS_MISSION = 4,
@@ -878,12 +718,13 @@ struct EosRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
     VT_POLICY = 10,
     VT_HAS_ENVIRONMENT = 12,
     VT_ENVIRONMENT = 14,
-    VT_HAS_WORK_MODE = 16,
-    VT_WORK_MODE = 18,
-    VT_HAS_SCAN_RATE_DEG_PER_SEC = 20,
-    VT_SCAN_RATE_DEG_PER_SEC = 22,
-    VT_HAS_FRAME_RATE_HZ = 24,
-    VT_FRAME_RATE_HZ = 26
+    VT_HAS_SCENARIO_CONFIG_IN_ENVIRONMENT = 16,
+    VT_HAS_WORK_MODE = 18,
+    VT_WORK_MODE = 20,
+    VT_HAS_SCAN_RATE_DEG_PER_SEC = 22,
+    VT_SCAN_RATE_DEG_PER_SEC = 24,
+    VT_HAS_FRAME_RATE_HZ = 26,
+    VT_FRAME_RATE_HZ = 28
   };
   bool has_mission() const {
     return GetField<uint8_t>(VT_HAS_MISSION, 0) != 0;
@@ -902,6 +743,9 @@ struct EosRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
   }
   const eos::replay::EosEnvironmentConfig *environment() const {
     return GetPointer<const eos::replay::EosEnvironmentConfig *>(VT_ENVIRONMENT);
+  }
+  bool has_scenario_config_in_environment() const {
+    return GetField<uint8_t>(VT_HAS_SCENARIO_CONFIG_IN_ENVIRONMENT, 0) != 0;
   }
   bool has_work_mode() const {
     return GetField<uint8_t>(VT_HAS_WORK_MODE, 0) != 0;
@@ -932,6 +776,7 @@ struct EosRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
            VerifyField<uint8_t>(verifier, VT_HAS_ENVIRONMENT) &&
            VerifyOffset(verifier, VT_ENVIRONMENT) &&
            verifier.VerifyTable(environment()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_SCENARIO_CONFIG_IN_ENVIRONMENT) &&
            VerifyField<uint8_t>(verifier, VT_HAS_WORK_MODE) &&
            VerifyField<int32_t>(verifier, VT_WORK_MODE) &&
            VerifyField<uint8_t>(verifier, VT_HAS_SCAN_RATE_DEG_PER_SEC) &&
@@ -940,9 +785,6 @@ struct EosRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
            VerifyField<float>(verifier, VT_FRAME_RATE_HZ) &&
            verifier.EndTable();
   }
-  EosRuntimeConfigPatchT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  void UnPackTo(EosRuntimeConfigPatchT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
-  static flatbuffers::Offset<EosRuntimeConfigPatch> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosRuntimeConfigPatchT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct EosRuntimeConfigPatchBuilder {
@@ -966,6 +808,9 @@ struct EosRuntimeConfigPatchBuilder {
   }
   void add_environment(flatbuffers::Offset<eos::replay::EosEnvironmentConfig> environment) {
     fbb_.AddOffset(EosRuntimeConfigPatch::VT_ENVIRONMENT, environment);
+  }
+  void add_has_scenario_config_in_environment(bool has_scenario_config_in_environment) {
+    fbb_.AddElement<uint8_t>(EosRuntimeConfigPatch::VT_HAS_SCENARIO_CONFIG_IN_ENVIRONMENT, static_cast<uint8_t>(has_scenario_config_in_environment), 0);
   }
   void add_has_work_mode(bool has_work_mode) {
     fbb_.AddElement<uint8_t>(EosRuntimeConfigPatch::VT_HAS_WORK_MODE, static_cast<uint8_t>(has_work_mode), 0);
@@ -1005,6 +850,7 @@ inline flatbuffers::Offset<EosRuntimeConfigPatch> CreateEosRuntimeConfigPatch(
     flatbuffers::Offset<eos::replay::EosPolicyConfig> policy = 0,
     bool has_environment = false,
     flatbuffers::Offset<eos::replay::EosEnvironmentConfig> environment = 0,
+    bool has_scenario_config_in_environment = false,
     bool has_work_mode = false,
     int32_t work_mode = 0,
     bool has_scan_rate_deg_per_sec = false,
@@ -1021,366 +867,11 @@ inline flatbuffers::Offset<EosRuntimeConfigPatch> CreateEosRuntimeConfigPatch(
   builder_.add_has_frame_rate_hz(has_frame_rate_hz);
   builder_.add_has_scan_rate_deg_per_sec(has_scan_rate_deg_per_sec);
   builder_.add_has_work_mode(has_work_mode);
+  builder_.add_has_scenario_config_in_environment(has_scenario_config_in_environment);
   builder_.add_has_environment(has_environment);
   builder_.add_has_policy(has_policy);
   builder_.add_has_mission(has_mission);
   return builder_.Finish();
-}
-
-flatbuffers::Offset<EosRuntimeConfigPatch> CreateEosRuntimeConfigPatch(flatbuffers::FlatBufferBuilder &_fbb, const EosRuntimeConfigPatchT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
-
-inline EosMissionConfigT *EosMissionConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosMissionConfigT> _o = std::unique_ptr<eos::replay::EosMissionConfigT>(new EosMissionConfigT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosMissionConfig::UnPackTo(EosMissionConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = work_mode(); _o->work_mode = _e; }
-  { auto _e = horizontal_fov_deg(); _o->horizontal_fov_deg = _e; }
-  { auto _e = vertical_fov_deg(); _o->vertical_fov_deg = _e; }
-  { auto _e = scan_rate_deg_per_sec(); _o->scan_rate_deg_per_sec = _e; }
-  { auto _e = frame_rate_hz(); _o->frame_rate_hz = _e; }
-  { auto _e = scan_start_az_deg(); _o->scan_start_az_deg = _e; }
-  { auto _e = scan_end_az_deg(); _o->scan_end_az_deg = _e; }
-  { auto _e = scan_center_el_deg(); _o->scan_center_el_deg = _e; }
-  { auto _e = boresight_depression_deg(); _o->boresight_depression_deg = _e; }
-}
-
-inline flatbuffers::Offset<EosMissionConfig> EosMissionConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosMissionConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosMissionConfig(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosMissionConfig> CreateEosMissionConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosMissionConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosMissionConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _work_mode = _o->work_mode;
-  auto _horizontal_fov_deg = _o->horizontal_fov_deg;
-  auto _vertical_fov_deg = _o->vertical_fov_deg;
-  auto _scan_rate_deg_per_sec = _o->scan_rate_deg_per_sec;
-  auto _frame_rate_hz = _o->frame_rate_hz;
-  auto _scan_start_az_deg = _o->scan_start_az_deg;
-  auto _scan_end_az_deg = _o->scan_end_az_deg;
-  auto _scan_center_el_deg = _o->scan_center_el_deg;
-  auto _boresight_depression_deg = _o->boresight_depression_deg;
-  return eos::replay::CreateEosMissionConfig(
-      _fbb,
-      _work_mode,
-      _horizontal_fov_deg,
-      _vertical_fov_deg,
-      _scan_rate_deg_per_sec,
-      _frame_rate_hz,
-      _scan_start_az_deg,
-      _scan_end_az_deg,
-      _scan_center_el_deg,
-      _boresight_depression_deg);
-}
-
-inline EosPolicyDetectionConfigT *EosPolicyDetectionConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosPolicyDetectionConfigT> _o = std::unique_ptr<eos::replay::EosPolicyDetectionConfigT>(new EosPolicyDetectionConfigT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosPolicyDetectionConfig::UnPackTo(EosPolicyDetectionConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = minimum_snr_db(); _o->minimum_snr_db = _e; }
-  { auto _e = detection_sensitivity_w(); _o->detection_sensitivity_w = _e; }
-  { auto _e = visible_reference_irradiance_w_m2(); _o->visible_reference_irradiance_w_m2 = _e; }
-}
-
-inline flatbuffers::Offset<EosPolicyDetectionConfig> EosPolicyDetectionConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosPolicyDetectionConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosPolicyDetectionConfig(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosPolicyDetectionConfig> CreateEosPolicyDetectionConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosPolicyDetectionConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosPolicyDetectionConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _minimum_snr_db = _o->minimum_snr_db;
-  auto _detection_sensitivity_w = _o->detection_sensitivity_w;
-  auto _visible_reference_irradiance_w_m2 = _o->visible_reference_irradiance_w_m2;
-  return eos::replay::CreateEosPolicyDetectionConfig(
-      _fbb,
-      _minimum_snr_db,
-      _detection_sensitivity_w,
-      _visible_reference_irradiance_w_m2);
-}
-
-inline EosPolicyStrayLightConfigT *EosPolicyStrayLightConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosPolicyStrayLightConfigT> _o = std::unique_ptr<eos::replay::EosPolicyStrayLightConfigT>(new EosPolicyStrayLightConfigT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosPolicyStrayLightConfig::UnPackTo(EosPolicyStrayLightConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = enable_straylight_filter(); _o->enable_straylight_filter = _e; }
-  { auto _e = hood_inner_half_angle_deg(); _o->hood_inner_half_angle_deg = _e; }
-  { auto _e = hood_outer_half_angle_deg(); _o->hood_outer_half_angle_deg = _e; }
-  { auto _e = hood_min_suppression_ratio(); _o->hood_min_suppression_ratio = _e; }
-  { auto _e = hood_max_suppression_ratio(); _o->hood_max_suppression_ratio = _e; }
-}
-
-inline flatbuffers::Offset<EosPolicyStrayLightConfig> EosPolicyStrayLightConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosPolicyStrayLightConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosPolicyStrayLightConfig(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosPolicyStrayLightConfig> CreateEosPolicyStrayLightConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosPolicyStrayLightConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosPolicyStrayLightConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _enable_straylight_filter = _o->enable_straylight_filter;
-  auto _hood_inner_half_angle_deg = _o->hood_inner_half_angle_deg;
-  auto _hood_outer_half_angle_deg = _o->hood_outer_half_angle_deg;
-  auto _hood_min_suppression_ratio = _o->hood_min_suppression_ratio;
-  auto _hood_max_suppression_ratio = _o->hood_max_suppression_ratio;
-  return eos::replay::CreateEosPolicyStrayLightConfig(
-      _fbb,
-      _enable_straylight_filter,
-      _hood_inner_half_angle_deg,
-      _hood_outer_half_angle_deg,
-      _hood_min_suppression_ratio,
-      _hood_max_suppression_ratio);
-}
-
-inline EosPolicyConfigT *EosPolicyConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosPolicyConfigT> _o = std::unique_ptr<eos::replay::EosPolicyConfigT>(new EosPolicyConfigT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosPolicyConfig::UnPackTo(EosPolicyConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = detection(); if (_e) _o->detection = std::unique_ptr<eos::replay::EosPolicyDetectionConfigT>(_e->UnPack(_resolver)); }
-  { auto _e = stray_light(); if (_e) _o->stray_light = std::unique_ptr<eos::replay::EosPolicyStrayLightConfigT>(_e->UnPack(_resolver)); }
-}
-
-inline flatbuffers::Offset<EosPolicyConfig> EosPolicyConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosPolicyConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosPolicyConfig(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosPolicyConfig> CreateEosPolicyConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosPolicyConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosPolicyConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _detection = _o->detection ? CreateEosPolicyDetectionConfig(_fbb, _o->detection.get(), _rehasher) : 0;
-  auto _stray_light = _o->stray_light ? CreateEosPolicyStrayLightConfig(_fbb, _o->stray_light.get(), _rehasher) : 0;
-  return eos::replay::CreateEosPolicyConfig(
-      _fbb,
-      _detection,
-      _stray_light);
-}
-
-inline EosEnvironmentCustomOverridesT *EosEnvironmentCustomOverrides::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosEnvironmentCustomOverridesT> _o = std::unique_ptr<eos::replay::EosEnvironmentCustomOverridesT>(new EosEnvironmentCustomOverridesT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosEnvironmentCustomOverrides::UnPackTo(EosEnvironmentCustomOverridesT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = radiative_transfer_model(); _o->radiative_transfer_model = _e; }
-  { auto _e = aerosol_density_factor(); _o->aerosol_density_factor = _e; }
-  { auto _e = turbulence_factor(); _o->turbulence_factor = _e; }
-}
-
-inline flatbuffers::Offset<EosEnvironmentCustomOverrides> EosEnvironmentCustomOverrides::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentCustomOverridesT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosEnvironmentCustomOverrides(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosEnvironmentCustomOverrides> CreateEosEnvironmentCustomOverrides(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentCustomOverridesT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosEnvironmentCustomOverridesT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _radiative_transfer_model = _o->radiative_transfer_model;
-  auto _aerosol_density_factor = _o->aerosol_density_factor;
-  auto _turbulence_factor = _o->turbulence_factor;
-  return eos::replay::CreateEosEnvironmentCustomOverrides(
-      _fbb,
-      _radiative_transfer_model,
-      _aerosol_density_factor,
-      _turbulence_factor);
-}
-
-inline EosEnvironmentConfigT *EosEnvironmentConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosEnvironmentConfigT> _o = std::unique_ptr<eos::replay::EosEnvironmentConfigT>(new EosEnvironmentConfigT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosEnvironmentConfig::UnPackTo(EosEnvironmentConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = model_type(); _o->model_type = _e; }
-  { auto _e = preset(); _o->preset = _e; }
-  { auto _e = has_custom_overrides(); _o->has_custom_overrides = _e; }
-  { auto _e = custom_overrides(); if (_e) _o->custom_overrides = std::unique_ptr<eos::replay::EosEnvironmentCustomOverridesT>(_e->UnPack(_resolver)); }
-  { auto _e = radiative_transfer_model_derived(); _o->radiative_transfer_model_derived = _e; }
-  { auto _e = aerosol_density_factor_derived(); _o->aerosol_density_factor_derived = _e; }
-  { auto _e = turbulence_factor_derived(); _o->turbulence_factor_derived = _e; }
-}
-
-inline flatbuffers::Offset<EosEnvironmentConfig> EosEnvironmentConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosEnvironmentConfig(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosEnvironmentConfig> CreateEosEnvironmentConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosEnvironmentConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _model_type = _o->model_type;
-  auto _preset = _o->preset;
-  auto _has_custom_overrides = _o->has_custom_overrides;
-  auto _custom_overrides = _o->custom_overrides ? CreateEosEnvironmentCustomOverrides(_fbb, _o->custom_overrides.get(), _rehasher) : 0;
-  auto _radiative_transfer_model_derived = _o->radiative_transfer_model_derived;
-  auto _aerosol_density_factor_derived = _o->aerosol_density_factor_derived;
-  auto _turbulence_factor_derived = _o->turbulence_factor_derived;
-  return eos::replay::CreateEosEnvironmentConfig(
-      _fbb,
-      _model_type,
-      _preset,
-      _has_custom_overrides,
-      _custom_overrides,
-      _radiative_transfer_model_derived,
-      _aerosol_density_factor_derived,
-      _turbulence_factor_derived);
-}
-
-inline EosHardwareConfigT *EosHardwareConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosHardwareConfigT> _o = std::unique_ptr<eos::replay::EosHardwareConfigT>(new EosHardwareConfigT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosHardwareConfig::UnPackTo(EosHardwareConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = wavelength_lower_um(); _o->wavelength_lower_um = _e; }
-  { auto _e = wavelength_upper_um(); _o->wavelength_upper_um = _e; }
-  { auto _e = optical_aperture_m(); _o->optical_aperture_m = _e; }
-  { auto _e = focal_length_m(); _o->focal_length_m = _e; }
-}
-
-inline flatbuffers::Offset<EosHardwareConfig> EosHardwareConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosHardwareConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosHardwareConfig(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosHardwareConfig> CreateEosHardwareConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosHardwareConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosHardwareConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _wavelength_lower_um = _o->wavelength_lower_um;
-  auto _wavelength_upper_um = _o->wavelength_upper_um;
-  auto _optical_aperture_m = _o->optical_aperture_m;
-  auto _focal_length_m = _o->focal_length_m;
-  return eos::replay::CreateEosHardwareConfig(
-      _fbb,
-      _wavelength_lower_um,
-      _wavelength_upper_um,
-      _optical_aperture_m,
-      _focal_length_m);
-}
-
-inline EosSessionConfigT *EosSessionConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosSessionConfigT> _o = std::unique_ptr<eos::replay::EosSessionConfigT>(new EosSessionConfigT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosSessionConfig::UnPackTo(EosSessionConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = hardware(); if (_e) _o->hardware = std::unique_ptr<eos::replay::EosHardwareConfigT>(_e->UnPack(_resolver)); }
-  { auto _e = mission(); if (_e) _o->mission = std::unique_ptr<eos::replay::EosMissionConfigT>(_e->UnPack(_resolver)); }
-  { auto _e = policy(); if (_e) _o->policy = std::unique_ptr<eos::replay::EosPolicyConfigT>(_e->UnPack(_resolver)); }
-  { auto _e = environment(); if (_e) _o->environment = std::unique_ptr<eos::replay::EosEnvironmentConfigT>(_e->UnPack(_resolver)); }
-}
-
-inline flatbuffers::Offset<EosSessionConfig> EosSessionConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosSessionConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosSessionConfig(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosSessionConfig> CreateEosSessionConfig(flatbuffers::FlatBufferBuilder &_fbb, const EosSessionConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosSessionConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _hardware = _o->hardware ? CreateEosHardwareConfig(_fbb, _o->hardware.get(), _rehasher) : 0;
-  auto _mission = _o->mission ? CreateEosMissionConfig(_fbb, _o->mission.get(), _rehasher) : 0;
-  auto _policy = _o->policy ? CreateEosPolicyConfig(_fbb, _o->policy.get(), _rehasher) : 0;
-  auto _environment = _o->environment ? CreateEosEnvironmentConfig(_fbb, _o->environment.get(), _rehasher) : 0;
-  return eos::replay::CreateEosSessionConfig(
-      _fbb,
-      _hardware,
-      _mission,
-      _policy,
-      _environment);
-}
-
-inline EosRuntimeConfigPatchT *EosRuntimeConfigPatch::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
-  std::unique_ptr<eos::replay::EosRuntimeConfigPatchT> _o = std::unique_ptr<eos::replay::EosRuntimeConfigPatchT>(new EosRuntimeConfigPatchT());
-  UnPackTo(_o.get(), _resolver);
-  return _o.release();
-}
-
-inline void EosRuntimeConfigPatch::UnPackTo(EosRuntimeConfigPatchT *_o, const flatbuffers::resolver_function_t *_resolver) const {
-  (void)_o;
-  (void)_resolver;
-  { auto _e = has_mission(); _o->has_mission = _e; }
-  { auto _e = mission(); if (_e) _o->mission = std::unique_ptr<eos::replay::EosMissionConfigT>(_e->UnPack(_resolver)); }
-  { auto _e = has_policy(); _o->has_policy = _e; }
-  { auto _e = policy(); if (_e) _o->policy = std::unique_ptr<eos::replay::EosPolicyConfigT>(_e->UnPack(_resolver)); }
-  { auto _e = has_environment(); _o->has_environment = _e; }
-  { auto _e = environment(); if (_e) _o->environment = std::unique_ptr<eos::replay::EosEnvironmentConfigT>(_e->UnPack(_resolver)); }
-  { auto _e = has_work_mode(); _o->has_work_mode = _e; }
-  { auto _e = work_mode(); _o->work_mode = _e; }
-  { auto _e = has_scan_rate_deg_per_sec(); _o->has_scan_rate_deg_per_sec = _e; }
-  { auto _e = scan_rate_deg_per_sec(); _o->scan_rate_deg_per_sec = _e; }
-  { auto _e = has_frame_rate_hz(); _o->has_frame_rate_hz = _e; }
-  { auto _e = frame_rate_hz(); _o->frame_rate_hz = _e; }
-}
-
-inline flatbuffers::Offset<EosRuntimeConfigPatch> EosRuntimeConfigPatch::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosRuntimeConfigPatchT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
-  return CreateEosRuntimeConfigPatch(_fbb, _o, _rehasher);
-}
-
-inline flatbuffers::Offset<EosRuntimeConfigPatch> CreateEosRuntimeConfigPatch(flatbuffers::FlatBufferBuilder &_fbb, const EosRuntimeConfigPatchT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
-  (void)_rehasher;
-  (void)_o;
-  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosRuntimeConfigPatchT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _has_mission = _o->has_mission;
-  auto _mission = _o->mission ? CreateEosMissionConfig(_fbb, _o->mission.get(), _rehasher) : 0;
-  auto _has_policy = _o->has_policy;
-  auto _policy = _o->policy ? CreateEosPolicyConfig(_fbb, _o->policy.get(), _rehasher) : 0;
-  auto _has_environment = _o->has_environment;
-  auto _environment = _o->environment ? CreateEosEnvironmentConfig(_fbb, _o->environment.get(), _rehasher) : 0;
-  auto _has_work_mode = _o->has_work_mode;
-  auto _work_mode = _o->work_mode;
-  auto _has_scan_rate_deg_per_sec = _o->has_scan_rate_deg_per_sec;
-  auto _scan_rate_deg_per_sec = _o->scan_rate_deg_per_sec;
-  auto _has_frame_rate_hz = _o->has_frame_rate_hz;
-  auto _frame_rate_hz = _o->frame_rate_hz;
-  return eos::replay::CreateEosRuntimeConfigPatch(
-      _fbb,
-      _has_mission,
-      _mission,
-      _has_policy,
-      _policy,
-      _has_environment,
-      _environment,
-      _has_work_mode,
-      _work_mode,
-      _has_scan_rate_deg_per_sec,
-      _scan_rate_deg_per_sec,
-      _has_frame_rate_hz,
-      _frame_rate_hz);
 }
 
 inline const eos::replay::EosSessionConfig *GetEosSessionConfig(const void *buf) {
@@ -1420,18 +911,6 @@ inline void FinishSizePrefixedEosSessionConfigBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
     flatbuffers::Offset<eos::replay::EosSessionConfig> root) {
   fbb.FinishSizePrefixed(root, EosSessionConfigIdentifier());
-}
-
-inline std::unique_ptr<eos::replay::EosSessionConfigT> UnPackEosSessionConfig(
-    const void *buf,
-    const flatbuffers::resolver_function_t *res = nullptr) {
-  return std::unique_ptr<eos::replay::EosSessionConfigT>(GetEosSessionConfig(buf)->UnPack(res));
-}
-
-inline std::unique_ptr<eos::replay::EosSessionConfigT> UnPackSizePrefixedEosSessionConfig(
-    const void *buf,
-    const flatbuffers::resolver_function_t *res = nullptr) {
-  return std::unique_ptr<eos::replay::EosSessionConfigT>(GetSizePrefixedEosSessionConfig(buf)->UnPack(res));
 }
 
 }  // namespace replay
