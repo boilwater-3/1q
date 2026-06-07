@@ -3,10 +3,10 @@
 #include <cstddef>
 #include <memory>
 
-#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
+#include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace extension {
@@ -24,7 +24,7 @@ bool IsCompatibleControllerRuntimeState(const extension::EosControllerRuntimeSta
 }  // namespace
 
 struct EosController::Impl {
-  explicit Impl(extension::IEosPipeline& pipeline_ref) : pipeline(pipeline_ref) {}
+  explicit Impl(signal::pipeline::EosPipeline& pipeline_ref) : pipeline(pipeline_ref) {}
 
   void ResetPerCycleFlags() {
     last_cycle_executed = false;
@@ -32,7 +32,7 @@ struct EosController::Impl {
     last_abort_reason = extension::EosPipelineAbortReason::kNone;
   }
 
-  extension::IEosPipeline& pipeline;
+  signal::pipeline::EosPipeline& pipeline;
   session::EosOutputFrame latest_output{};
   session::ValidationIssueList last_validation_issues{};
   bool has_latest_output{false};
@@ -42,7 +42,7 @@ struct EosController::Impl {
   extension::EosPipelineAbortReason last_abort_reason{extension::EosPipelineAbortReason::kNone};
 };
 
-EosController::EosController(extension::IEosPipeline& pipeline) : impl_(new Impl(pipeline)) {}
+EosController::EosController(signal::pipeline::EosPipeline& pipeline) : impl_(new Impl(pipeline)) {}
 
 EosController::~EosController() = default;
 
@@ -154,8 +154,6 @@ extension::EosPipelineAbortReason EosController::GetLastDetectionCycleAbortReaso
   }
   return result;
 }
-
-extension::IEosPipeline& EosController::GetPipeline() { return impl_->pipeline; }
 
 extension::EosControllerRuntimeState EosController::CaptureRuntimeState() const {
   extension::EosControllerRuntimeState state;

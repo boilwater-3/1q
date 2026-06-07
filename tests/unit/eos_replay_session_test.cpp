@@ -61,8 +61,9 @@ TEST(EosReplaySessionTest, ReplayEosTraceRoundtrip) {
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
     config::EosSessionConfig config;
-    config.policy.detection.profile =
-        ::electro_optical_sensor::config::EosDetectionProfile::kAggressive;
+    config.policy.detection.minimum_snr_db = 4.5f;
+    config.policy.detection.detection_sensitivity_w = 0.8e-12f;
+    config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
 
     EosTraceSessionOptions options;
     options.replay_writer = replay_writer;

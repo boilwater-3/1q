@@ -35,20 +35,6 @@ config::execution::EosInternalExecutionConfig MapSessionToInternal(
     const ::electro_optical_sensor::config::EosSessionConfig& config);
 
 /**
- * @brief 将检测策略解析为内部检测配置数值。
- */
-void ApplyDetectionPolicyToInternal(
-    const ::electro_optical_sensor::config::EosDetectionPolicyConfig& policy,
-    config::execution::EosInternalExecutionConfig* exec);
-
-/**
- * @brief 将杂散光策略解析为内部杂散光配置数值。
- */
-void ApplyStrayLightPolicyToInternal(
-    const ::electro_optical_sensor::config::EosStrayLightPolicyConfig& policy,
-    config::execution::EosInternalExecutionConfig* exec);
-
-/**
  * @brief 将环境模型配置写入内部环境配置。
  */
 void ApplyEnvironmentModelToInternal(

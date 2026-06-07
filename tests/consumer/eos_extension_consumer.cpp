@@ -1,18 +1,17 @@
 /**
  * @file eos_extension_consumer.cpp
- * @brief 验证安装后 EOS 扩展接口可被外部工程实现并接入控制器。
+ * @brief 验证安装后 EOS 扩展接口可被外部工程实现并接入。
  *
  * 覆盖要点：
- *   - IEosPipeline 自定义实现并注入 EosController
  *   - IEosEnvironmentService 自定义实现，并通过 EosSessionFactory 注入默认管线
- *   - EosController 构造、RunOnce、HasLatestDetectionOutputFrame、GetLatestDetectionOutputFrame
+ *   - EosController 可通过 EosSession::StepWithResult 间接访问
+ *   - EosSession 构建、Step、StepWithResult、ApplyRuntimeConfig
  *   - HasValidationError、GetLastValidationIssues 字段可访问
  */
 
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
-#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
@@ -21,44 +20,6 @@
 
 namespace electro_optical_sensor {
 namespace {
-
-class DummyEosPipeline : public extension::IEosPipeline {
- public:
-  extension::EosPipelineExecuteResult Execute(
-      const ::electro_optical_sensor::session::EosCycleInput& input) override {
-    extension::EosPipelineExecuteResult result;
-    session::EosOutputFrame& frame = result.output_frame;
-    frame.cycle_index = input.cycle_index;
-    output::EosDetectionRecord record;
-    record.target_id = 1U;
-    record.range_m = 1500.0f;
-    record.infrared_snr_linear = 10.0f;
-    record.visible_snr_linear = 5.0f;
-    record.fused_snr_linear = 12.0f;
-    record.fused_snr_db = 10.79f;
-    record.detected = true;
-    frame.detections.push_back(record);
-    result.executed_this_cycle = true;
-    result.abort_reason = extension::EosPipelineAbortReason::kNone;
-    return result;
-  }
-
-  extension::EosPipelineRuntimeState CaptureRuntimeState() const override {
-    extension::EosPipelineRuntimeState state;
-    state.owner_identity = this;
-    state.schema_version = 1U;
-    state.current_scan_azimuth_deg = 0.0f;
-    state.scan_start_az_deg = -60.0f;
-    state.scan_end_az_deg = 60.0f;
-    state.scan_rate_deg_per_sec = 20.0f;
-    return state;
-  }
-
-  bool RestoreRuntimeState(const extension::EosPipelineRuntimeState& state) override {
-    (void)state;
-    return true;
-  }
-};
 
 class DummyEosEnvironmentService : public environment::IEosEnvironmentService {
  public:
@@ -77,48 +38,57 @@ class DummyEosEnvironmentService : public environment::IEosEnvironmentService {
 }  // namespace electro_optical_sensor
 
 int main() {
-  electro_optical_sensor::DummyEosPipeline pipeline;
-
-  electro_optical_sensor::extension::EosController controller(pipeline);
-
-  electro_optical_sensor::session::EosCycleInput input;
-  input.cycle_index = 1U;
-  input.dt_sec = 1.0f;
-  input.environment.solar_irradiance_w_m2 = 850.0f;
-  input.environment.background_temperature_k = 289.0f;
-
-  controller.RunOnce(input);
-
-  if (!controller.HasLatestDetectionOutputFrame()) {
-    return 1;
-  }
-
-  const electro_optical_sensor::session::EosOutputFrame& frame = controller.GetLatestDetectionOutputFrame();
-  (void)frame.cycle_index;
-  (void)frame.detections.size();
-
-  if (controller.HasValidationError()) {
-    return 2;
-  }
-
-  const electro_optical_sensor::session::ValidationIssueList& issues =
-      controller.GetLastValidationIssues();
-  (void)issues.size();
-
-  electro_optical_sensor::extension::IEosPipeline& pipeline_ref = controller.GetPipeline();
-  (void)pipeline_ref;
-
-  electro_optical_sensor::session::EosCycleInput input_2;
-  input_2.cycle_index = 2U;
-  input_2.dt_sec = 1.0f;
-  controller.RunOnce(input_2);
-
+  // 1. Custom environment service with session factory
   electro_optical_sensor::DummyEosEnvironmentService environment_service;
   electro_optical_sensor::session::EosSession session =
       electro_optical_sensor::session::EosSessionFactory::CreateWithEnvironmentService(
           {}, environment_service);
-  const electro_optical_sensor::session::EosOutputFrame session_frame = session.Step(input);
-  (void)session_frame.cycle_index;
+
+  // 2. StepWithResult
+  electro_optical_sensor::session::EosCycleInput input;
+  input.cycle_index = 1U;
+  input.dt_sec = 1.0f;
+  input.environment.solar_irradiance_w_m2 = 800.0f;
+  input.environment.background_temperature_k = 289.0f;
+  input.environment.day_night_type = electro_optical_sensor::session::DayNightType::kDay;
+
+  const electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
+  if (!result.executed_this_cycle) {
+    return 1;
+  }
+  (void)result.output_frame.detections.size();
+
+  // 3. Step
+  electro_optical_sensor::session::EosCycleInput input_2;
+  input_2.cycle_index = 2U;
+  input_2.dt_sec = 1.0f;
+  input_2.environment.solar_irradiance_w_m2 = 800.0f;
+  input_2.environment.background_temperature_k = 289.0f;
+  input_2.environment.day_night_type = electro_optical_sensor::session::DayNightType::kDay;
+  const electro_optical_sensor::session::EosOutputFrame frame = session.Step(input_2);
+  (void)frame.cycle_index;
+
+  // 4. Runtime config patch
+  electro_optical_sensor::config::EosRuntimeConfigPatch patch;
+  patch.has_frame_rate_hz = true;
+  patch.frame_rate_hz = 15.0f;
+  session.ApplyRuntimeConfig(patch);
+
+  // 5. Validation access
+  const electro_optical_sensor::session::ValidationIssueList& issues =
+      result.validation_issues;
+  (void)issues.size();
+
+  // 6. EosController is accessible through the public header
+  // (construction is done internally by session factory)
+  electro_optical_sensor::extension::EosControllerRuntimeState controller_state;
+  controller_state.owner_identity = nullptr;
+  (void)controller_state;
+
+  // 7. EosController types accessible
+  electro_optical_sensor::extension::EosPipelineAbortReason abort_reason{
+      electro_optical_sensor::extension::EosPipelineAbortReason::kNone};
+  (void)abort_reason;
 
   return 0;
 }

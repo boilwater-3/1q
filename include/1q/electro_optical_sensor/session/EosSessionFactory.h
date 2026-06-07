@@ -1,6 +1,9 @@
 /**
  * @file EosSessionFactory.h
  * @brief 定义 EosSession 的公共创建入口。
+ * @note 管线已完全内部化，不再支持外部注入。
+ *       使用 Create() 自动装配默认管线，或使用 CreateWithEnvironmentService()
+ *       注入自定义环境服务。
  */
 
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SESSION_FACTORY_H_
@@ -10,10 +13,6 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
-namespace extension {
-class IEosPipeline;
-class EosController;
-}
 namespace environment {
 class IEosEnvironmentService;
 }
@@ -26,19 +25,9 @@ class ONEQ_API EosSessionFactory {
  public:
   static EosSession Create(const config::EosSessionConfig& config = {});
 
-  static EosSession CreateWithPipeline(const config::EosSessionConfig& config,
-                                        extension::IEosPipeline& pipeline);
-
   static EosSession CreateWithEnvironmentService(
       const config::EosSessionConfig& config,
       environment::IEosEnvironmentService& environment_service);
-
-  static EosSession CreateWithController(const config::EosSessionConfig& config,
-                                          extension::EosController& controller);
-
-  static EosSession CreateWithAll(const config::EosSessionConfig& config,
-                                   extension::IEosPipeline& pipeline,
-                                   extension::EosController& controller);
 };
 
 }  // namespace session

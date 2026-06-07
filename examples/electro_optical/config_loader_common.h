@@ -21,28 +21,6 @@ inline electro_optical_sensor::config::EosWorkMode EosWorkModeFromString(
   return electro_optical_sensor::config::EosWorkMode::kFused;
 }
 
-inline electro_optical_sensor::config::EosDetectionProfile EosDetectFromString(
-    const std::string& s) {
-  if (s == "kConservative")
-    return electro_optical_sensor::config::EosDetectionProfile::kConservative;
-  if (s == "kBalanced")
-    return electro_optical_sensor::config::EosDetectionProfile::kBalanced;
-  if (s == "kAggressive")
-    return electro_optical_sensor::config::EosDetectionProfile::kAggressive;
-  return electro_optical_sensor::config::EosDetectionProfile::kBalanced;
-}
-
-inline electro_optical_sensor::config::EosStrayLightProfile EosStrayFromString(
-    const std::string& s) {
-  if (s == "kDisabled")
-    return electro_optical_sensor::config::EosStrayLightProfile::kDisabled;
-  if (s == "kStandardHood")
-    return electro_optical_sensor::config::EosStrayLightProfile::kStandardHood;
-  if (s == "kEnhancedHood")
-    return electro_optical_sensor::config::EosStrayLightProfile::kEnhancedHood;
-  return electro_optical_sensor::config::EosStrayLightProfile::kDisabled;
-}
-
 inline electro_optical_sensor::environment::EosEnvironmentModelType EosModelFromString(
     const std::string& s) {
   if (s == "kSimplified")

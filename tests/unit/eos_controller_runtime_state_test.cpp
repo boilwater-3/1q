@@ -9,58 +9,23 @@
 #include <cstdint>
 
 #include "1q/electro_optical_sensor/extension/EosController.h"
-#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
+#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace extension {
 namespace {
 
-class TrackingPipeline final : public IEosPipeline {
- public:
-  EosPipelineRuntimeState CaptureRuntimeState() const override {
-    EosPipelineRuntimeState state;
-    state.owner_identity = this;
-    state.schema_version = 1U;
-    state.current_scan_azimuth_deg = scan_azimuth_deg;
-    state.scan_start_az_deg = -5.0f;
-    state.scan_end_az_deg = 5.0f;
-    state.scan_rate_deg_per_sec = 2.0f;
-    return state;
-  }
-
-  bool RestoreRuntimeState(const EosPipelineRuntimeState& state) override {
-    if (force_restore_reject) {
-      return false;
-    }
-    if (state.owner_identity != this || state.schema_version != 1U) {
-      return false;
-    }
-    scan_azimuth_deg = state.current_scan_azimuth_deg;
-    return true;
-  }
-
-  EosPipelineExecuteResult RunCycle(
-      const ::electro_optical_sensor::session::EosCycleInput& input) override {
-    ++execute_count;
-    scan_azimuth_deg += 2.0f;
-
-    EosPipelineExecuteResult result;
-    result.scan_azimuth_deg = scan_azimuth_deg;
-    result.executed_this_cycle = !force_abort;
-    result.abort_reason = emit_abort_on_executed_cycle
-                              ? EosPipelineAbortReason::kOutputContractViolation
-                              : (force_abort ? EosPipelineAbortReason::kOutputContractViolation
-                                             : EosPipelineAbortReason::kNone);
-    return result;
-  }
-
-  bool force_abort{false};
-  bool force_restore_reject{false};
-  bool emit_cycle_index_mismatch{false};
-  bool emit_abort_on_executed_cycle{false};
-  std::size_t execute_count{0U};
-  float scan_azimuth_deg{-5.0f};
-};
+config::execution::EosInternalExecutionConfig MakePipelineConfig() {
+  config::execution::EosInternalExecutionConfig config;
+  config.scan.scan_start_az_deg = -60.0f;
+  config.scan.scan_end_az_deg = 60.0f;
+  config.scan.scan_rate_deg_per_sec = 5.0f;
+  config.scan.horizontal_fov_deg = 20.0f;
+  config.scan.vertical_fov_deg = 4.0f;
+  config.scan.work_mode = config::EosWorkMode::kInfraredOnly;
+  return config;
+}
 
 ::electro_optical_sensor::session::EosCycleInput MakeValidInput(std::uint32_t cycle_index) {
   ::electro_optical_sensor::session::EosCycleInput input;
@@ -75,7 +40,7 @@ class TrackingPipeline final : public IEosPipeline {
 }
 
 TEST(EosControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
-  TrackingPipeline pipeline;
+  signal::pipeline::EosPipeline pipeline(MakePipelineConfig());
   EosController controller(pipeline);
 
   controller.RunOnce(MakeValidInput(1U));
@@ -92,28 +57,9 @@ TEST(EosControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
   EXPECT_FALSE(controller.ReusedPreviousDetectionOutputLatestCycle());
 }
 
-TEST(EosControllerRuntimeStateTest, ExecuteAbortRestoresPipelineStateAndReusesPreviousOutput) {
-  TrackingPipeline pipeline;
-  EosController controller(pipeline);
-
-  controller.RunOnce(MakeValidInput(10U));
-  ASSERT_TRUE(controller.ExecutedLatestCycle());
-  const float baseline_scan_azimuth = pipeline.scan_azimuth_deg;
-  const session::EosOutputFrame baseline_output = controller.GetLatestDetectionOutputFrame();
-
-  pipeline.force_abort = true;
-  controller.RunOnce(MakeValidInput(11U));
-
-  EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_TRUE(controller.ReusedPreviousDetectionOutputLatestCycle());
-  EXPECT_EQ(controller.GetLastDetectionCycleAbortReason(), EosPipelineAbortReason::kOutputContractViolation);
-  EXPECT_EQ(controller.GetLatestDetectionOutputFrame().cycle_index, baseline_output.cycle_index);
-  EXPECT_FLOAT_EQ(pipeline.scan_azimuth_deg, baseline_scan_azimuth);
-}
-
 TEST(EosControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) {
-  TrackingPipeline pipeline_a;
-  TrackingPipeline pipeline_b;
+  signal::pipeline::EosPipeline pipeline_a(MakePipelineConfig());
+  signal::pipeline::EosPipeline pipeline_b(MakePipelineConfig());
   EosController controller_a(pipeline_a);
   EosController controller_b(pipeline_b);
 
@@ -127,7 +73,7 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) 
 }
 
 TEST(EosControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerInstance) {
-  TrackingPipeline shared_pipeline;
+  signal::pipeline::EosPipeline shared_pipeline(MakePipelineConfig());
   EosController controller_a(shared_pipeline);
   EosController controller_b(shared_pipeline);
 
@@ -141,7 +87,7 @@ TEST(EosControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerIns
 }
 
 TEST(EosControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPreviousOutput) {
-  TrackingPipeline pipeline;
+  signal::pipeline::EosPipeline pipeline(MakePipelineConfig());
   EosController controller(pipeline);
 
   controller.RunOnce(MakeValidInput(40U));
@@ -159,7 +105,7 @@ TEST(EosControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPrev
 }
 
 TEST(EosControllerRuntimeStateTest, FirstValidationRejectDoesNotSynthesizeLatestOutput) {
-  TrackingPipeline pipeline;
+  signal::pipeline::EosPipeline pipeline(MakePipelineConfig());
   EosController controller(pipeline);
 
   ::electro_optical_sensor::session::EosCycleInput invalid_input = MakeValidInput(45U);
@@ -173,58 +119,6 @@ TEST(EosControllerRuntimeStateTest, FirstValidationRejectDoesNotSynthesizeLatest
   EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(result.output_frame.cycle_index, 45U);
-}
-
-TEST(EosControllerRuntimeStateTest,
-     BuildCycleResultOnFirstAbortUsesInputCycleIndexWithoutSynthesizingReuse) {
-  TrackingPipeline pipeline;
-  EosController controller(pipeline);
-
-  pipeline.force_abort = true;
-  const ::electro_optical_sensor::session::EosCycleInput input = MakeValidInput(50U);
-  controller.RunOnce(input);
-  const ::electro_optical_sensor::session::EosCycleResult result =
-      controller.BuildCycleResult(input);
-
-  EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_FALSE(result.reused_previous_output);
-  EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kOutputContractViolation);
-  EXPECT_EQ(result.output_frame.cycle_index, input.cycle_index);
-}
-
-TEST(EosControllerRuntimeStateTest, PipelineAbortOnExecutedCycleFallsBackToPreviousOutput) {
-  TrackingPipeline pipeline;
-  EosController controller(pipeline);
-
-  controller.RunOnce(MakeValidInput(60U));
-  ASSERT_TRUE(controller.ExecutedLatestCycle());
-
-  pipeline.emit_abort_on_executed_cycle = true;
-  controller.RunOnce(MakeValidInput(61U));
-
-  EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_TRUE(controller.ReusedPreviousDetectionOutputLatestCycle());
-  EXPECT_EQ(controller.GetLastDetectionCycleAbortReason(), EosPipelineAbortReason::kOutputContractViolation);
-  EXPECT_EQ(controller.GetLatestDetectionOutputFrame().cycle_index, 60U);
-}
-
-TEST(EosControllerRuntimeStateTest, RestoreRejectDuringRollbackReturnsHardFailure) {
-  TrackingPipeline pipeline;
-  EosController controller(pipeline);
-
-  controller.RunOnce(MakeValidInput(70U));
-  ASSERT_TRUE(controller.ExecutedLatestCycle());
-
-  pipeline.force_abort = true;
-  pipeline.force_restore_reject = true;
-  controller.RunOnce(MakeValidInput(71U));
-  const ::electro_optical_sensor::session::EosCycleResult result =
-      controller.BuildCycleResult(MakeValidInput(71U));
-
-  EXPECT_FALSE(controller.HasLatestDetectionOutputFrame());
-  EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_FALSE(result.reused_previous_output);
-  EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kRuntimeStateRestoreRejected);
 }
 
 }  // namespace

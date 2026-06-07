@@ -24,7 +24,9 @@ namespace eos_session = ::electro_optical_sensor::session;
 eos_config::EosSessionConfig MakeSessionConfig() {
   eos_config::EosSessionConfig config;
   config.mission.work_mode = eos_config::EosWorkMode::kInfraredOnly;
-  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.policy.detection.minimum_snr_db = 4.5f;
+  config.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   config.mission.scan_start_az_deg = -10.0f;
   config.mission.scan_end_az_deg = 10.0f;
   config.mission.scan_rate_deg_per_sec = 5.0f;

@@ -203,14 +203,10 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.mission.scan_center_el_deg = 2.0f;
   config.mission.boresight_depression_deg = 50.0f;
   // policy - detection
-  config.policy.detection.profile = config::EosDetectionProfile::kAggressive;
-  config.policy.detection.use_profile_defaults = false;
   config.policy.detection.minimum_snr_db = 8.0f;
   config.policy.detection.detection_sensitivity_w = 2.0e-12f;
   config.policy.detection.visible_reference_irradiance_w_m2 = 900.0f;
   // policy - stray light
-  config.policy.stray_light.profile = config::EosStrayLightProfile::kStandardHood;
-  config.policy.stray_light.use_profile_defaults = false;
   config.policy.stray_light.enable_straylight_filter = true;
   config.policy.stray_light.hood_inner_half_angle_deg = 10.0f;
   config.policy.stray_light.hood_outer_half_angle_deg = 80.0f;
@@ -244,12 +240,9 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.mission.frame_rate_hz, 30.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan_start_az_deg, -70.0f);
   // policy
-  EXPECT_EQ(decoded.policy.detection.profile, config::EosDetectionProfile::kAggressive);
-  EXPECT_FALSE(decoded.policy.detection.use_profile_defaults);
   EXPECT_FLOAT_EQ(decoded.policy.detection.minimum_snr_db, 8.0f);
   EXPECT_FLOAT_EQ(decoded.policy.detection.detection_sensitivity_w, 2.0e-12f);
   EXPECT_FLOAT_EQ(decoded.policy.detection.visible_reference_irradiance_w_m2, 900.0f);
-  EXPECT_EQ(decoded.policy.stray_light.profile, config::EosStrayLightProfile::kStandardHood);
   EXPECT_TRUE(decoded.policy.stray_light.enable_straylight_filter);
   EXPECT_FLOAT_EQ(decoded.policy.stray_light.hood_inner_half_angle_deg, 10.0f);
   // environment
@@ -275,7 +268,6 @@ TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   patch.mission.scan_rate_deg_per_sec = 30.0f;
   patch.has_policy = true;
-  patch.policy.detection.profile = config::EosDetectionProfile::kConservative;
   patch.policy.detection.minimum_snr_db = 10.0f;
   patch.policy.stray_light.enable_straylight_filter = true;
   patch.has_environment = true;
@@ -297,7 +289,6 @@ TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_TRUE(decoded.has_mission);
   EXPECT_EQ(decoded.mission.work_mode, config::EosWorkMode::kInfraredOnly);
   EXPECT_TRUE(decoded.has_policy);
-  EXPECT_EQ(decoded.policy.detection.profile, config::EosDetectionProfile::kConservative);
   EXPECT_FLOAT_EQ(decoded.policy.detection.minimum_snr_db, 10.0f);
   EXPECT_TRUE(decoded.policy.stray_light.enable_straylight_filter);
   EXPECT_TRUE(decoded.has_environment);

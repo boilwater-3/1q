@@ -76,10 +76,10 @@ eos_config::EosSessionConfig MakeConfig() {
           .WithWorkMode(eos_config::EosWorkMode::kFused)
           .WithScanRateDegPerSec(1.0f)
           .End()
-          .Detection()
-          .WithDetectionProfile(eos_config::EosDetectionProfile::kAggressive)
-          .End()
           .Build();
+  config.policy.detection.minimum_snr_db = 4.5f;
+  config.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   config.mission.scan_start_az_deg = -90.0f;
   config.mission.scan_end_az_deg = 90.0f;
   config.mission.horizontal_fov_deg = 180.0f;

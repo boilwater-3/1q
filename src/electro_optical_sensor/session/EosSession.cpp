@@ -5,7 +5,6 @@
 
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
-#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
 #include "1q/electro_optical_sensor/session/EosSessionFactory.h"
@@ -39,22 +38,18 @@ struct EosSession::Impl {
   explicit Impl(EosSessionComposition composition)
       : owned_pipeline(std::move(composition.owned_pipeline)),
         owned_controller(std::move(composition.owned_controller)),
-        pipeline(RequireCompositionDependency(composition.pipeline, "pipeline")),
-        controller(RequireCompositionDependency(composition.controller, "controller")),
-        concrete_pipeline_(composition.concrete_pipeline),
+        controller(RequireCompositionDependency(owned_controller.get(), "controller")),
         internal_config_(composition.internal_config) {
-    if (concrete_pipeline_ != nullptr) {
-      concrete_pipeline_->ApplyInternalConfig(
+    if (owned_pipeline) {
+      owned_pipeline->ApplyInternalConfig(
           composition.internal_config,
           composition.initial_reset_scan_phase);
     }
   }
 
-  std::unique_ptr<::electro_optical_sensor::extension::IEosPipeline> owned_pipeline;
+  std::unique_ptr<signal::pipeline::EosPipeline> owned_pipeline;
   std::unique_ptr<extension::EosController> owned_controller;
-  ::electro_optical_sensor::extension::IEosPipeline& pipeline;
   extension::EosController& controller;
-  signal::pipeline::EosPipeline* concrete_pipeline_;
   config::execution::EosInternalExecutionConfig internal_config_;
 };
 
@@ -72,30 +67,11 @@ EosSession EosSessionFactory::Create(const config::EosSessionConfig& config) {
       new EosSession::Impl(EosSessionCompositionRoot::ComposeDefault(config))));
 }
 
-EosSession EosSessionFactory::CreateWithPipeline(
-    const config::EosSessionConfig& config, ::electro_optical_sensor::extension::IEosPipeline& pipeline) {
-  return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-      EosSessionCompositionRoot::ComposeWithPipeline(config, pipeline))));
-}
-
 EosSession EosSessionFactory::CreateWithEnvironmentService(
     const config::EosSessionConfig& config, environment::IEosEnvironmentService& environment_service) {
   return EosSession(std::unique_ptr<EosSession::Impl>(
       new EosSession::Impl(EosSessionCompositionRoot::ComposeWithEnvironmentService(
           config, environment_service))));
-}
-
-EosSession EosSessionFactory::CreateWithController(const config::EosSessionConfig& config,
-                                                   extension::EosController& controller) {
-  return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-      EosSessionCompositionRoot::ComposeWithController(config, controller))));
-}
-
-EosSession EosSessionFactory::CreateWithAll(const config::EosSessionConfig& config,
-                                             extension::IEosPipeline& pipeline,
-                                             extension::EosController& controller) {
-  return EosSession(std::unique_ptr<EosSession::Impl>(new EosSession::Impl(
-      EosSessionCompositionRoot::ComposeAllExternal(config, pipeline, controller))));
 }
 
 session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
@@ -120,8 +96,8 @@ bool EosSession::TryApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patc
     return false;
   }
   impl_->internal_config_ = resolved.next_config;
-  if (impl_->concrete_pipeline_ != nullptr) {
-    impl_->concrete_pipeline_->ApplyInternalConfig(
+  if (impl_->owned_pipeline != nullptr) {
+    impl_->owned_pipeline->ApplyInternalConfig(
         impl_->internal_config_, resolved.reset_scan_phase);
   }
   return true;

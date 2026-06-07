@@ -299,13 +299,11 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
 
   // policy detection
   auto pd = eos::replay::CreateEosPolicyDetectionConfig(
-      fbb, static_cast<int32_t>(v.policy.detection.profile),
-      v.policy.detection.use_profile_defaults, v.policy.detection.minimum_snr_db,
+      fbb, v.policy.detection.minimum_snr_db,
       v.policy.detection.detection_sensitivity_w,
       v.policy.detection.visible_reference_irradiance_w_m2);
   auto ps = eos::replay::CreateEosPolicyStrayLightConfig(
-      fbb, static_cast<int32_t>(v.policy.stray_light.profile),
-      v.policy.stray_light.use_profile_defaults, v.policy.stray_light.enable_straylight_filter,
+      fbb, v.policy.stray_light.enable_straylight_filter,
       v.policy.stray_light.hood_inner_half_angle_deg,
       v.policy.stray_light.hood_outer_half_angle_deg,
       v.policy.stray_light.hood_min_suppression_ratio,
@@ -357,8 +355,6 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
   }
   if (fb->policy() && fb->policy()->detection()) {
     const auto* pd = fb->policy()->detection();
-    out->policy.detection.profile = static_cast<config::EosDetectionProfile>(pd->profile());
-    out->policy.detection.use_profile_defaults = pd->use_profile_defaults();
     out->policy.detection.minimum_snr_db = pd->minimum_snr_db();
     out->policy.detection.detection_sensitivity_w = pd->detection_sensitivity_w();
     out->policy.detection.visible_reference_irradiance_w_m2 =
@@ -366,8 +362,6 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
   }
   if (fb->policy() && fb->policy()->stray_light()) {
     const auto* ps = fb->policy()->stray_light();
-    out->policy.stray_light.profile = static_cast<config::EosStrayLightProfile>(ps->profile());
-    out->policy.stray_light.use_profile_defaults = ps->use_profile_defaults();
     out->policy.stray_light.enable_straylight_filter = ps->enable_straylight_filter();
     out->policy.stray_light.hood_inner_half_angle_deg = ps->hood_inner_half_angle_deg();
     out->policy.stray_light.hood_outer_half_angle_deg = ps->hood_outer_half_angle_deg();
@@ -404,13 +398,11 @@ std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) 
       v.mission.scan_start_az_deg, v.mission.scan_end_az_deg, v.mission.scan_center_el_deg,
       v.mission.boresight_depression_deg);
   auto pd = eos::replay::CreateEosPolicyDetectionConfig(
-      fbb, static_cast<int32_t>(v.policy.detection.profile),
-      v.policy.detection.use_profile_defaults, v.policy.detection.minimum_snr_db,
+      fbb, v.policy.detection.minimum_snr_db,
       v.policy.detection.detection_sensitivity_w,
       v.policy.detection.visible_reference_irradiance_w_m2);
   auto ps = eos::replay::CreateEosPolicyStrayLightConfig(
-      fbb, static_cast<int32_t>(v.policy.stray_light.profile),
-      v.policy.stray_light.use_profile_defaults, v.policy.stray_light.enable_straylight_filter,
+      fbb, v.policy.stray_light.enable_straylight_filter,
       v.policy.stray_light.hood_inner_half_angle_deg,
       v.policy.stray_light.hood_outer_half_angle_deg,
       v.policy.stray_light.hood_min_suppression_ratio,
@@ -473,18 +465,12 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeCon
   if (fb->policy()) {
     const auto* p = fb->policy();
     if (p->detection()) {
-      out->policy.detection.profile =
-          static_cast<config::EosDetectionProfile>(p->detection()->profile());
-      out->policy.detection.use_profile_defaults = p->detection()->use_profile_defaults();
       out->policy.detection.minimum_snr_db = p->detection()->minimum_snr_db();
       out->policy.detection.detection_sensitivity_w = p->detection()->detection_sensitivity_w();
       out->policy.detection.visible_reference_irradiance_w_m2 =
           p->detection()->visible_reference_irradiance_w_m2();
     }
     if (p->stray_light()) {
-      out->policy.stray_light.profile =
-          static_cast<config::EosStrayLightProfile>(p->stray_light()->profile());
-      out->policy.stray_light.use_profile_defaults = p->stray_light()->use_profile_defaults();
       out->policy.stray_light.enable_straylight_filter =
           p->stray_light()->enable_straylight_filter();
       out->policy.stray_light.hood_inner_half_angle_deg =

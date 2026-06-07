@@ -34,17 +34,12 @@ int main() {
           .Mission()
           .WithWorkMode(eos::config::EosWorkMode::kFused)
           .End()
-          .Detection()
-          .WithDetectionProfile(eos::config::EosDetectionProfile::kAggressive)
-          .End()
           .Environment()
           .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kSimplified)
           .End()
           .Build();
-  // 2. 直接字段赋值覆盖四域详细参数
   auto config = semantic_config;
   config.mission.scan_rate_deg_per_sec = 5.0f;
-  config.policy.detection.use_profile_defaults = false;
   config.policy.detection.minimum_snr_db = 4.5f;
   config.policy.detection.detection_sensitivity_w = 0.9e-12f;
   config.policy.detection.visible_reference_irradiance_w_m2 = 720.0f;
@@ -128,14 +123,20 @@ int main() {
   const eos::config::EosRuntimeConfigPatch tune_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(100.0f)
-          .WithDetectionProfile(eos::config::EosDetectionProfile::kAggressive)
+          .WithMinimumSnrDb(4.5f)
+          .WithDetectionSensitivityW(0.8e-12f)
+          .WithVisibleReferenceIrradianceWM2(700.0f)
           .Build();
   session.ApplyRuntimeConfig(tune_patch);
 
   // 12. RuntimeConfigBuilder: enable straylight filter
   const eos::config::EosRuntimeConfigPatch straylight_patch =
       eos::config::EosRuntimeConfigBuilder()
-          .WithStrayLightProfile(eos::config::EosStrayLightProfile::kEnhancedHood)
+          .WithEnableStraylightFilter(true)
+          .WithHoodInnerHalfAngleDeg(8.0f)
+          .WithHoodOuterHalfAngleDeg(55.0f)
+          .WithHoodMinSuppressionRatio(0.35f)
+          .WithHoodMaxSuppressionRatio(0.95f)
           .Build();
   session.ApplyRuntimeConfig(straylight_patch);
 

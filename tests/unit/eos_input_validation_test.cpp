@@ -162,7 +162,9 @@ TEST(EosInputValidationTest, InvalidAmbientWindSpeedIsReportedAsError) {
 TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
   config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kFused;
-  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.policy.detection.minimum_snr_db = 4.5f;
+  config.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   config.mission.scan_start_az_deg = -5.0f;
   config.mission.scan_end_az_deg = 5.0f;
   config.mission.horizontal_fov_deg = 6.0f;
@@ -205,23 +207,28 @@ TEST(EosInputValidationTest, SessionConfigBuilderCanStartFromExternalConfig) {
   base_config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   base_config.mission.scan_rate_deg_per_sec = 12.0f;
   base_config.mission.frame_rate_hz = 20.0f;
-  base_config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  base_config.policy.detection.minimum_snr_db = 4.5f;
+  base_config.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  base_config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   auto built_config = base_config;
   built_config.mission.frame_rate_hz = 25.0f;
-  built_config.policy.stray_light.profile = eos_config::EosStrayLightProfile::kEnhancedHood;
-  built_config.policy.stray_light.use_profile_defaults = true;
+  built_config.policy.stray_light.enable_straylight_filter = true;
+  built_config.policy.stray_light.hood_inner_half_angle_deg = 8.0f;
+  built_config.policy.stray_light.hood_outer_half_angle_deg = 55.0f;
+  built_config.policy.stray_light.hood_min_suppression_ratio = 0.35f;
+  built_config.policy.stray_light.hood_max_suppression_ratio = 0.95f;
   EXPECT_EQ(built_config.mission.work_mode, config::EosWorkMode::kInfraredOnly);
   EXPECT_FLOAT_EQ(built_config.mission.scan_rate_deg_per_sec, 12.0f);
   EXPECT_FLOAT_EQ(built_config.mission.frame_rate_hz, 25.0f);
-  EXPECT_EQ(built_config.policy.detection.profile, eos_config::EosDetectionProfile::kAggressive);
-  EXPECT_EQ(built_config.policy.stray_light.profile,
-            eos_config::EosStrayLightProfile::kEnhancedHood);
+  EXPECT_EQ(built_config.policy.stray_light.enable_straylight_filter, true);
 }
 
 TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtRuntime) {
   config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kFused;
-  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.policy.detection.minimum_snr_db = 4.5f;
+  config.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   config.mission.scan_start_az_deg = -20.0f;
   config.mission.scan_end_az_deg = 20.0f;
   config.mission.horizontal_fov_deg = 12.0f;
@@ -241,7 +248,9 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
 
   const eos_config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
-          .WithDetectionProfile(eos_config::EosDetectionProfile::kConservative)
+          .WithMinimumSnrDb(60.0f)
+          .WithDetectionSensitivityW(2.0e-12f)
+          .WithVisibleReferenceIrradianceWM2(1000.0f)
           .Build();
   eos_session.ApplyRuntimeConfig(patch);
 
@@ -261,7 +270,9 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
 TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges) {
   config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
-  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.policy.detection.minimum_snr_db = 4.5f;
+  config.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   config.mission.scan_start_az_deg = -20.0f;
   config.mission.scan_end_az_deg = 20.0f;
   config.mission.horizontal_fov_deg = 12.0f;
@@ -279,7 +290,9 @@ TEST(EosInputValidationTest, RuntimePatchPreservesScanPhaseUnlessScanRateChanges
 
   const eos_config::EosRuntimeConfigPatch non_geometry_patch =
       eos_config::EosRuntimeConfigBuilder()
-          .WithDetectionProfile(eos_config::EosDetectionProfile::kAggressive)
+          .WithMinimumSnrDb(4.5f)
+          .WithDetectionSensitivityW(0.8e-12f)
+          .WithVisibleReferenceIrradianceWM2(700.0f)
           .Build();
   eos_session.ApplyRuntimeConfig(non_geometry_patch);
 
@@ -343,7 +356,9 @@ TEST(EosInputValidationTest, InconsistentDayNightTypeIsReportedAsWarning) {
 TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
   config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
-  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.policy.detection.minimum_snr_db = 4.5f;
+  config.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   config.mission.scan_start_az_deg = -20.0f;
   config.mission.scan_end_az_deg = 20.0f;
   config.mission.horizontal_fov_deg = 12.0f;
@@ -371,7 +386,9 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
   const eos_config::EosRuntimeConfigPatch valid_patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithFrameRateHz(-5.0f)
-          .WithDetectionProfile(eos_config::EosDetectionProfile::kAggressive)
+          .WithMinimumSnrDb(4.5f)
+          .WithDetectionSensitivityW(0.8e-12f)
+          .WithVisibleReferenceIrradianceWM2(700.0f)
           .Build();
   eos_session.ApplyRuntimeConfig(valid_patch);
 
@@ -384,7 +401,9 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidFrameRateHz) {
 TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
   config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
-  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.policy.detection.minimum_snr_db = 4.5f;
+  config.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   config.mission.scan_start_az_deg = -20.0f;
   config.mission.scan_end_az_deg = 20.0f;
   config.mission.horizontal_fov_deg = 12.0f;
@@ -417,7 +436,9 @@ TEST(EosInputValidationTest, RuntimePatchRejectsInvalidScanRate) {
 TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
   config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kFused;
-  config.policy.detection.profile = eos_config::EosDetectionProfile::kAggressive;
+  config.policy.detection.minimum_snr_db = 4.5f;
+  config.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   config.mission.scan_start_az_deg = -20.0f;
   config.mission.scan_end_az_deg = 20.0f;
   config.mission.horizontal_fov_deg = 12.0f;
@@ -437,7 +458,9 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
   const eos_config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithFrameRateHz(0.0f)
-          .WithDetectionProfile(eos_config::EosDetectionProfile::kAggressive)
+          .WithMinimumSnrDb(4.5f)
+          .WithDetectionSensitivityW(0.8e-12f)
+          .WithVisibleReferenceIrradianceWM2(700.0f)
           .Build();
   eos_session.ApplyRuntimeConfig(patch);
 

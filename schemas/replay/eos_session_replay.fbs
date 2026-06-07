@@ -20,16 +20,12 @@ table EosMissionConfig {
 }
 
 table EosPolicyDetectionConfig {
-  profile:                          int32;
-  use_profile_defaults:             bool;
   minimum_snr_db:                   float;
   detection_sensitivity_w:          float;
   visible_reference_irradiance_w_m2: float;
 }
 
 table EosPolicyStrayLightConfig {
-  profile:                   int32;
-  use_profile_defaults:      bool;
   enable_straylight_filter:  bool;
   hood_inner_half_angle_deg: float;
   hood_outer_half_angle_deg: float;

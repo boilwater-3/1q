@@ -199,15 +199,11 @@ flatbuffers::Offset<EosMissionConfig> CreateEosMissionConfig(flatbuffers::FlatBu
 
 struct EosPolicyDetectionConfigT : public flatbuffers::NativeTable {
   typedef EosPolicyDetectionConfig TableType;
-  int32_t profile;
-  bool use_profile_defaults;
   float minimum_snr_db;
   float detection_sensitivity_w;
   float visible_reference_irradiance_w_m2;
   EosPolicyDetectionConfigT()
-      : profile(0),
-        use_profile_defaults(false),
-        minimum_snr_db(0.0f),
+      : minimum_snr_db(0.0f),
         detection_sensitivity_w(0.0f),
         visible_reference_irradiance_w_m2(0.0f) {
   }
@@ -217,18 +213,10 @@ struct EosPolicyDetectionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
   typedef EosPolicyDetectionConfigT NativeTableType;
   typedef EosPolicyDetectionConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PROFILE = 4,
-    VT_USE_PROFILE_DEFAULTS = 6,
-    VT_MINIMUM_SNR_DB = 8,
-    VT_DETECTION_SENSITIVITY_W = 10,
-    VT_VISIBLE_REFERENCE_IRRADIANCE_W_M2 = 12
+    VT_MINIMUM_SNR_DB = 4,
+    VT_DETECTION_SENSITIVITY_W = 6,
+    VT_VISIBLE_REFERENCE_IRRADIANCE_W_M2 = 8
   };
-  int32_t profile() const {
-    return GetField<int32_t>(VT_PROFILE, 0);
-  }
-  bool use_profile_defaults() const {
-    return GetField<uint8_t>(VT_USE_PROFILE_DEFAULTS, 0) != 0;
-  }
   float minimum_snr_db() const {
     return GetField<float>(VT_MINIMUM_SNR_DB, 0.0f);
   }
@@ -240,8 +228,6 @@ struct EosPolicyDetectionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_PROFILE) &&
-           VerifyField<uint8_t>(verifier, VT_USE_PROFILE_DEFAULTS) &&
            VerifyField<float>(verifier, VT_MINIMUM_SNR_DB) &&
            VerifyField<float>(verifier, VT_DETECTION_SENSITIVITY_W) &&
            VerifyField<float>(verifier, VT_VISIBLE_REFERENCE_IRRADIANCE_W_M2) &&
@@ -256,12 +242,6 @@ struct EosPolicyDetectionConfigBuilder {
   typedef EosPolicyDetectionConfig Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_profile(int32_t profile) {
-    fbb_.AddElement<int32_t>(EosPolicyDetectionConfig::VT_PROFILE, profile, 0);
-  }
-  void add_use_profile_defaults(bool use_profile_defaults) {
-    fbb_.AddElement<uint8_t>(EosPolicyDetectionConfig::VT_USE_PROFILE_DEFAULTS, static_cast<uint8_t>(use_profile_defaults), 0);
-  }
   void add_minimum_snr_db(float minimum_snr_db) {
     fbb_.AddElement<float>(EosPolicyDetectionConfig::VT_MINIMUM_SNR_DB, minimum_snr_db, 0.0f);
   }
@@ -285,8 +265,6 @@ struct EosPolicyDetectionConfigBuilder {
 
 inline flatbuffers::Offset<EosPolicyDetectionConfig> CreateEosPolicyDetectionConfig(
     flatbuffers::FlatBufferBuilder &_fbb,
-    int32_t profile = 0,
-    bool use_profile_defaults = false,
     float minimum_snr_db = 0.0f,
     float detection_sensitivity_w = 0.0f,
     float visible_reference_irradiance_w_m2 = 0.0f) {
@@ -294,8 +272,6 @@ inline flatbuffers::Offset<EosPolicyDetectionConfig> CreateEosPolicyDetectionCon
   builder_.add_visible_reference_irradiance_w_m2(visible_reference_irradiance_w_m2);
   builder_.add_detection_sensitivity_w(detection_sensitivity_w);
   builder_.add_minimum_snr_db(minimum_snr_db);
-  builder_.add_profile(profile);
-  builder_.add_use_profile_defaults(use_profile_defaults);
   return builder_.Finish();
 }
 
@@ -303,17 +279,13 @@ flatbuffers::Offset<EosPolicyDetectionConfig> CreateEosPolicyDetectionConfig(fla
 
 struct EosPolicyStrayLightConfigT : public flatbuffers::NativeTable {
   typedef EosPolicyStrayLightConfig TableType;
-  int32_t profile;
-  bool use_profile_defaults;
   bool enable_straylight_filter;
   float hood_inner_half_angle_deg;
   float hood_outer_half_angle_deg;
   float hood_min_suppression_ratio;
   float hood_max_suppression_ratio;
   EosPolicyStrayLightConfigT()
-      : profile(0),
-        use_profile_defaults(false),
-        enable_straylight_filter(false),
+      : enable_straylight_filter(false),
         hood_inner_half_angle_deg(0.0f),
         hood_outer_half_angle_deg(0.0f),
         hood_min_suppression_ratio(0.0f),
@@ -325,20 +297,12 @@ struct EosPolicyStrayLightConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::
   typedef EosPolicyStrayLightConfigT NativeTableType;
   typedef EosPolicyStrayLightConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_PROFILE = 4,
-    VT_USE_PROFILE_DEFAULTS = 6,
-    VT_ENABLE_STRAYLIGHT_FILTER = 8,
-    VT_HOOD_INNER_HALF_ANGLE_DEG = 10,
-    VT_HOOD_OUTER_HALF_ANGLE_DEG = 12,
-    VT_HOOD_MIN_SUPPRESSION_RATIO = 14,
-    VT_HOOD_MAX_SUPPRESSION_RATIO = 16
+    VT_ENABLE_STRAYLIGHT_FILTER = 4,
+    VT_HOOD_INNER_HALF_ANGLE_DEG = 6,
+    VT_HOOD_OUTER_HALF_ANGLE_DEG = 8,
+    VT_HOOD_MIN_SUPPRESSION_RATIO = 10,
+    VT_HOOD_MAX_SUPPRESSION_RATIO = 12
   };
-  int32_t profile() const {
-    return GetField<int32_t>(VT_PROFILE, 0);
-  }
-  bool use_profile_defaults() const {
-    return GetField<uint8_t>(VT_USE_PROFILE_DEFAULTS, 0) != 0;
-  }
   bool enable_straylight_filter() const {
     return GetField<uint8_t>(VT_ENABLE_STRAYLIGHT_FILTER, 0) != 0;
   }
@@ -356,8 +320,6 @@ struct EosPolicyStrayLightConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_PROFILE) &&
-           VerifyField<uint8_t>(verifier, VT_USE_PROFILE_DEFAULTS) &&
            VerifyField<uint8_t>(verifier, VT_ENABLE_STRAYLIGHT_FILTER) &&
            VerifyField<float>(verifier, VT_HOOD_INNER_HALF_ANGLE_DEG) &&
            VerifyField<float>(verifier, VT_HOOD_OUTER_HALF_ANGLE_DEG) &&
@@ -374,12 +336,6 @@ struct EosPolicyStrayLightConfigBuilder {
   typedef EosPolicyStrayLightConfig Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_profile(int32_t profile) {
-    fbb_.AddElement<int32_t>(EosPolicyStrayLightConfig::VT_PROFILE, profile, 0);
-  }
-  void add_use_profile_defaults(bool use_profile_defaults) {
-    fbb_.AddElement<uint8_t>(EosPolicyStrayLightConfig::VT_USE_PROFILE_DEFAULTS, static_cast<uint8_t>(use_profile_defaults), 0);
-  }
   void add_enable_straylight_filter(bool enable_straylight_filter) {
     fbb_.AddElement<uint8_t>(EosPolicyStrayLightConfig::VT_ENABLE_STRAYLIGHT_FILTER, static_cast<uint8_t>(enable_straylight_filter), 0);
   }
@@ -409,8 +365,6 @@ struct EosPolicyStrayLightConfigBuilder {
 
 inline flatbuffers::Offset<EosPolicyStrayLightConfig> CreateEosPolicyStrayLightConfig(
     flatbuffers::FlatBufferBuilder &_fbb,
-    int32_t profile = 0,
-    bool use_profile_defaults = false,
     bool enable_straylight_filter = false,
     float hood_inner_half_angle_deg = 0.0f,
     float hood_outer_half_angle_deg = 0.0f,
@@ -421,9 +375,7 @@ inline flatbuffers::Offset<EosPolicyStrayLightConfig> CreateEosPolicyStrayLightC
   builder_.add_hood_min_suppression_ratio(hood_min_suppression_ratio);
   builder_.add_hood_outer_half_angle_deg(hood_outer_half_angle_deg);
   builder_.add_hood_inner_half_angle_deg(hood_inner_half_angle_deg);
-  builder_.add_profile(profile);
   builder_.add_enable_straylight_filter(enable_straylight_filter);
-  builder_.add_use_profile_defaults(use_profile_defaults);
   return builder_.Finish();
 }
 
@@ -1160,8 +1112,6 @@ inline EosPolicyDetectionConfigT *EosPolicyDetectionConfig::UnPack(const flatbuf
 inline void EosPolicyDetectionConfig::UnPackTo(EosPolicyDetectionConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = profile(); _o->profile = _e; }
-  { auto _e = use_profile_defaults(); _o->use_profile_defaults = _e; }
   { auto _e = minimum_snr_db(); _o->minimum_snr_db = _e; }
   { auto _e = detection_sensitivity_w(); _o->detection_sensitivity_w = _e; }
   { auto _e = visible_reference_irradiance_w_m2(); _o->visible_reference_irradiance_w_m2 = _e; }
@@ -1175,15 +1125,11 @@ inline flatbuffers::Offset<EosPolicyDetectionConfig> CreateEosPolicyDetectionCon
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosPolicyDetectionConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _profile = _o->profile;
-  auto _use_profile_defaults = _o->use_profile_defaults;
   auto _minimum_snr_db = _o->minimum_snr_db;
   auto _detection_sensitivity_w = _o->detection_sensitivity_w;
   auto _visible_reference_irradiance_w_m2 = _o->visible_reference_irradiance_w_m2;
   return eos::replay::CreateEosPolicyDetectionConfig(
       _fbb,
-      _profile,
-      _use_profile_defaults,
       _minimum_snr_db,
       _detection_sensitivity_w,
       _visible_reference_irradiance_w_m2);
@@ -1198,8 +1144,6 @@ inline EosPolicyStrayLightConfigT *EosPolicyStrayLightConfig::UnPack(const flatb
 inline void EosPolicyStrayLightConfig::UnPackTo(EosPolicyStrayLightConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = profile(); _o->profile = _e; }
-  { auto _e = use_profile_defaults(); _o->use_profile_defaults = _e; }
   { auto _e = enable_straylight_filter(); _o->enable_straylight_filter = _e; }
   { auto _e = hood_inner_half_angle_deg(); _o->hood_inner_half_angle_deg = _e; }
   { auto _e = hood_outer_half_angle_deg(); _o->hood_outer_half_angle_deg = _e; }
@@ -1215,8 +1159,6 @@ inline flatbuffers::Offset<EosPolicyStrayLightConfig> CreateEosPolicyStrayLightC
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosPolicyStrayLightConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _profile = _o->profile;
-  auto _use_profile_defaults = _o->use_profile_defaults;
   auto _enable_straylight_filter = _o->enable_straylight_filter;
   auto _hood_inner_half_angle_deg = _o->hood_inner_half_angle_deg;
   auto _hood_outer_half_angle_deg = _o->hood_outer_half_angle_deg;
@@ -1224,8 +1166,6 @@ inline flatbuffers::Offset<EosPolicyStrayLightConfig> CreateEosPolicyStrayLightC
   auto _hood_max_suppression_ratio = _o->hood_max_suppression_ratio;
   return eos::replay::CreateEosPolicyStrayLightConfig(
       _fbb,
-      _profile,
-      _use_profile_defaults,
       _enable_straylight_filter,
       _hood_inner_half_angle_deg,
       _hood_outer_half_angle_deg,

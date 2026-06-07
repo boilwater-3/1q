@@ -111,7 +111,6 @@ set(EOS_ENVIRONMENT_HEADERS
 set(EOS_EXTENSION_HEADERS
     "electro_optical_sensor/extension/EosController.h"
     "electro_optical_sensor/extension/EosPipelineTypes.h"
-    "electro_optical_sensor/extension/IEosPipeline.h"
     "electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
 )
 

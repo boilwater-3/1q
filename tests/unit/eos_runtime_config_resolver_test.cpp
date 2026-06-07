@@ -32,7 +32,9 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
   const eos_config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(60.0f)
-          .WithDetectionProfile(eos_config::EosDetectionProfile::kConservative)
+          .WithMinimumSnrDb(60.0f)
+          .WithDetectionSensitivityW(2.0e-12f)
+          .WithVisibleReferenceIrradianceWM2(1000.0f)
           .WithEnvironmentScenarioConfig(env_config)
           .Build();
 
@@ -44,7 +46,7 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
   EXPECT_TRUE(resolved.reset_scan_phase);
   // scan field updated
   EXPECT_FLOAT_EQ(resolved.next_config.scan.scan_rate_deg_per_sec, 60.0f);
-  // detection profile resolved to Conservative values
+  // detection values set directly
   EXPECT_FLOAT_EQ(resolved.next_config.detection.minimum_snr_db, 60.0f);
   // environment custom overrides applied
   EXPECT_EQ(
@@ -65,7 +67,7 @@ TEST(EosRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {
   const eos_config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
           .WithScanRateDegPerSec(60.0f)
-          .WithDetectionProfile(eos_config::EosDetectionProfile::kConservative)
+          .WithMinimumSnrDb(6.0f)
           .WithFrameRateHz(0.0f)
           .Build();
 

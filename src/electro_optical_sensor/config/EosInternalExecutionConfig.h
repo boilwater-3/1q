@@ -10,8 +10,8 @@
  * - EnvironmentConfig：环境衰减（辐射传输/气溶胶/湍流）
  * - DetectionConfig：探测判决（SNR 门限/灵敏度/参考辐照度）
  *
- * 其中 OpticsConfig 和 ScanConfig 与公开类型完全一致，使用 using 别名；
- * 其余 4 个为独立内部类型，字段为策略解析后的数值（无 profile 元数据）。
+ * 其中 OpticsConfig、ScanConfig、DetectionConfig 和 StrayLightConfig 与公开类型完全一致，使用 using 别名；
+ * 其余 2 个为独立内部类型，字段为策略解析后的数值。
  */
 
 #ifndef ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_INTERNAL_EXECUTION_CONFIG_H_
@@ -19,6 +19,7 @@
 
 #include "1q/electro_optical_sensor/config/EosHardwareConfig.h"
 #include "1q/electro_optical_sensor/config/EosMissionConfig.h"
+#include "1q/electro_optical_sensor/config/EosPolicyConfig.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
@@ -42,16 +43,8 @@ struct DetectorConfig {
   float max_detection_depression_deg{89.0f};
 };
 
-/**
- * @brief 杂散光抑制配置（profile 解析后的数值）。
- */
-struct StrayLightConfig {
-  bool enable_straylight_filter{false};
-  float hood_inner_half_angle_deg{12.0f};
-  float hood_outer_half_angle_deg{75.0f};
-  float hood_min_suppression_ratio{0.20f};
-  float hood_max_suppression_ratio{0.85f};
-};
+/// 杂散光抑制配置 — 直接别名到公开类型。
+using StrayLightConfig = config::EosStrayLightPolicyConfig;
 
 /**
  * @brief 环境衰减配置（场景派生后的数值）。
@@ -65,14 +58,8 @@ struct EnvironmentConfig {
   float turbulence_factor{1.0f};
 };
 
-/**
- * @brief 探测判决配置（profile 解析后的数值）。
- */
-struct DetectionConfig {
-  float minimum_snr_db{6.0f};
-  float detection_sensitivity_w{1.0e-12f};
-  float visible_reference_irradiance_w_m2{800.0f};
-};
+/// 探测判决配置 — 直接别名到公开类型。
+using DetectionConfig = config::EosDetectionPolicyConfig;
 
 /**
  * @brief 唯一内部执行配置真值。

@@ -32,9 +32,6 @@ bool IsValidMission(const config::EosMissionConfig& mission) {
 }
 
 bool IsValidDetectionPolicy(const config::EosDetectionPolicyConfig& detection) {
-  if (detection.use_profile_defaults) {
-    return true;
-  }
   return oneq::internal::validation::IsFinite(detection.minimum_snr_db) &&
          oneq::internal::validation::IsFinite(detection.detection_sensitivity_w) &&
          detection.detection_sensitivity_w > 0.0f &&
@@ -43,9 +40,6 @@ bool IsValidDetectionPolicy(const config::EosDetectionPolicyConfig& detection) {
 }
 
 bool IsValidStrayLightPolicy(const config::EosStrayLightPolicyConfig& stray_light) {
-  if (stray_light.use_profile_defaults) {
-    return true;
-  }
   if (!oneq::internal::validation::IsFinite(stray_light.hood_inner_half_angle_deg) ||
       !oneq::internal::validation::IsFinite(stray_light.hood_outer_half_angle_deg) ||
       !oneq::internal::validation::IsFinite(stray_light.hood_min_suppression_ratio) ||
@@ -128,8 +122,8 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
           "[EosSession] Rejecting policy patch because policy values are invalid.");
       return RejectPatch(current_config, true);
     }
-    ApplyDetectionPolicyToInternal(patch.policy.detection, &resolved.next_config);
-    ApplyStrayLightPolicyToInternal(patch.policy.stray_light, &resolved.next_config);
+    resolved.next_config.detection = patch.policy.detection;
+    resolved.next_config.stray_light = patch.policy.stray_light;
   }
 
   if (patch.has_environment) {

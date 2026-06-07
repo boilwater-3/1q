@@ -16,7 +16,6 @@
 
 namespace electro_optical_sensor {
 namespace extension {
-class IEosPipeline;
 class EosController;
 }  // namespace extension
 namespace environment {

@@ -118,11 +118,6 @@ class ONEQ_API EosSessionConfigBuilder::DetectionEditor {
  public:
   explicit DetectionEditor(EosSessionConfigBuilder* builder) noexcept : builder_(builder) {}
 
-  DetectionEditor& WithDetectionProfile(EosDetectionProfile profile) noexcept {
-    builder_->config_.policy.detection.profile = profile;
-    builder_->config_.policy.detection.use_profile_defaults = true;
-    return *this;
-  }
   EosSessionConfigBuilder& End() noexcept { return *builder_; }
 
  private:
@@ -133,11 +128,6 @@ class ONEQ_API EosSessionConfigBuilder::StrayLightEditor {
  public:
   explicit StrayLightEditor(EosSessionConfigBuilder* builder) noexcept : builder_(builder) {}
 
-  StrayLightEditor& WithStrayLightProfile(EosStrayLightProfile profile) noexcept {
-    builder_->config_.policy.stray_light.profile = profile;
-    builder_->config_.policy.stray_light.use_profile_defaults = true;
-    return *this;
-  }
   EosSessionConfigBuilder& End() noexcept { return *builder_; }
 
  private:

@@ -37,8 +37,6 @@ inline void LoadEosMission(const oneq::JsonValue& j,
 inline void LoadEosDetection(const oneq::JsonValue& j,
                              electro_optical_sensor::config::EosDetectionPolicyConfig* v) {
   if (j.IsNull()) return;
-  v->profile = EosDetectFromString(j["profile"].AsString());
-  v->use_profile_defaults = j["use_profile_defaults"].AsBool();
   v->minimum_snr_db = static_cast<float>(j["minimum_snr_db"].AsDouble());
   v->detection_sensitivity_w =
       static_cast<float>(j["detection_sensitivity_w"].AsDouble());
@@ -49,8 +47,6 @@ inline void LoadEosDetection(const oneq::JsonValue& j,
 inline void LoadEosStrayLight(const oneq::JsonValue& j,
                               electro_optical_sensor::config::EosStrayLightPolicyConfig* v) {
   if (j.IsNull()) return;
-  v->profile = EosStrayFromString(j["profile"].AsString());
-  v->use_profile_defaults = j["use_profile_defaults"].AsBool();
   v->enable_straylight_filter = j["enable_straylight_filter"].AsBool();
   v->hood_inner_half_angle_deg =
       static_cast<float>(j["hood_inner_half_angle_deg"].AsDouble());

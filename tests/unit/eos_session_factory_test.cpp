@@ -1,6 +1,8 @@
 /**
  * @file eos_session_factory_test.cpp
  * @brief 验证 EOS 会话工厂的外部注入与装配路径契约。
+ * @note 管线已完全内部化，不再支持外部注入。仅保留 Create() 和
+ *       CreateWithEnvironmentService() 路径。
  */
 
 #include <gtest/gtest.h>
@@ -14,7 +16,6 @@
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
-#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/session/EosSessionFactory.h"
@@ -22,38 +23,6 @@
 namespace electro_optical_sensor {
 namespace session {
 namespace {
-
-class CountingPipeline final : public extension::IEosPipeline {
- public:
-  extension::EosPipelineExecuteResult RunCycle(const EosCycleInput& input) override {
-    ++execute_count;
-    extension::EosPipelineExecuteResult result;
-    result.scan_azimuth_deg = 42.0f;
-    output::EosDetectionRecord detection;
-    detection.target_id = 99U;
-    detection.detected = true;
-    detection.fused_snr_linear = 12.5f;
-    result.detections.push_back(detection);
-    result.executed_this_cycle = true;
-    result.abort_reason = extension::EosPipelineAbortReason::kNone;
-    return result;
-  }
-
-  extension::EosPipelineRuntimeState CaptureRuntimeState() const override {
-    extension::EosPipelineRuntimeState state;
-    state.owner_identity = this;
-    state.schema_version = 1U;
-    state.current_scan_azimuth_deg = 0.0f;
-    return state;
-  }
-
-  bool RestoreRuntimeState(const extension::EosPipelineRuntimeState& state) override {
-    (void)state;
-    return true;
-  }
-
-  std::size_t execute_count{0U};
-};
 
 class CountingEnvironmentService final : public environment::IEosEnvironmentService {
  public:
@@ -75,7 +44,9 @@ class CountingEnvironmentService final : public environment::IEosEnvironmentServ
 config::EosSessionConfig MakeSessionConfig() {
   config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
-  config.policy.detection.profile = config::EosDetectionProfile::kAggressive;
+  config.policy.detection.minimum_snr_db = 4.5f;
+  config.policy.detection.detection_sensitivity_w = 0.8e-12f;
+  config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
   config.mission.scan_rate_deg_per_sec = 5.0f;
   config.mission.horizontal_fov_deg = 20.0f;
   config.mission.vertical_fov_deg = 4.0f;
@@ -92,20 +63,6 @@ EosCycleInput MakeValidInput(std::uint32_t cycle_index) {
   input.environment.background_temperature_k = 289.0f;
   input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
   return input;
-}
-
-TEST(EosSessionFactoryTest, CreateWithPipelineUsesInjectedPipeline) {
-  CountingPipeline pipeline;
-  EosSession session = EosSessionFactory::CreateWithPipeline(MakeSessionConfig(), pipeline);
-
-  const ::electro_optical_sensor::session::EosCycleResult result =
-      session.StepWithResult(MakeValidInput(8U));
-
-  EXPECT_EQ(pipeline.execute_count, 1U);
-  EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_EQ(result.output_frame.cycle_index, 8U);
-  EXPECT_EQ(result.output_frame.detections.size(), 1U);
-  EXPECT_EQ(result.output_frame.detections.front().target_id, 99U);
 }
 
 TEST(EosSessionFactoryTest, CreateWithEnvironmentServiceUsesInjectedService) {
@@ -146,57 +103,6 @@ TEST(EosSessionFactoryTest, CreateUsesDefaultPipelineAndProducesResult) {
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_EQ(result.output_frame.cycle_index, 10U);
   EXPECT_TRUE(result.output_frame.detections.empty());
-}
-
-TEST(EosSessionFactoryTest, CreateWithControllerReusesProvidedController) {
-  CountingPipeline pipeline;
-  extension::EosController controller(pipeline);
-  EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
-
-  const ::electro_optical_sensor::session::EosCycleResult result =
-      session.StepWithResult(MakeValidInput(11U));
-
-  EXPECT_EQ(pipeline.execute_count, 1U);
-  EXPECT_TRUE(controller.ExecutedLatestCycle());
-  EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_EQ(result.output_frame.cycle_index, 11U);
-}
-
-TEST(EosSessionFactoryTest, CreateWithControllerSessionMoveKeepsExternalControllerPath) {
-  CountingPipeline pipeline;
-  extension::EosController controller(pipeline);
-  EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
-
-  EosSession moved_session(std::move(session));
-  const ::electro_optical_sensor::session::EosCycleResult result =
-      moved_session.StepWithResult(MakeValidInput(12U));
-
-  EXPECT_EQ(pipeline.execute_count, 1U);
-  EXPECT_TRUE(controller.ExecutedLatestCycle());
-  EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_EQ(result.output_frame.cycle_index, 12U);
-}
-
-TEST(EosSessionFactoryTest, ApplyRuntimeConfigUpdatesInjectedControllerPipeline) {
-  CountingPipeline pipeline;
-  extension::EosController controller(pipeline);
-  EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
-
-  config::EosRuntimeConfigPatch patch;
-  patch.has_scan_rate_deg_per_sec = true;
-  patch.scan_rate_deg_per_sec = 9.0f;
-  EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
-}
-
-TEST(EosSessionFactoryTest, InvalidRuntimeConfigDoesNotUpdateInjectedControllerPipeline) {
-  CountingPipeline pipeline;
-  extension::EosController controller(pipeline);
-  EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
-
-  config::EosRuntimeConfigPatch patch;
-  patch.has_frame_rate_hz = true;
-  patch.frame_rate_hz = 0.0f;
-  EXPECT_FALSE(session.TryApplyRuntimeConfig(patch));
 }
 
 }  // namespace

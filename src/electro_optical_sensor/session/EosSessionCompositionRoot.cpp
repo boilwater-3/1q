@@ -1,6 +1,7 @@
 /**
  * @file EosSessionCompositionRoot.cpp
  * @brief 实现 EOS 会话组合根，统一装配 pipeline 与 controller 依赖。
+ * @note 管线已完全内部化，仅支持 ComposeDefault 和 ComposeWithEnvironmentService。
  */
 
 #include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
@@ -29,7 +30,7 @@ EosSessionComposition BuildInitialCompositionRuntime(const config::EosSessionCon
 }
 
 template <typename T>
-T& RequireComposedDependency(T* ptr, const char* dependency_name) {
+T& RequireComposedDependency(std::unique_ptr<T>& ptr, const char* dependency_name) {
   if (ptr != nullptr) {
     return *ptr;
   }
@@ -37,10 +38,9 @@ T& RequireComposedDependency(T* ptr, const char* dependency_name) {
   std::abort();
 }
 
-EosSessionComposition FinalizeComposition(EosSessionComposition composition) {
-  static_cast<void>(RequireComposedDependency(composition.pipeline, "pipeline"));
-  static_cast<void>(RequireComposedDependency(composition.controller, "controller"));
-  return composition;
+void FinalizeComposition(EosSessionComposition& composition) {
+  static_cast<void>(RequireComposedDependency(composition.owned_pipeline, "pipeline"));
+  static_cast<void>(RequireComposedDependency(composition.owned_controller, "controller"));
 }
 
 std::shared_ptr<environment::IEosEnvironmentService> MakeNonOwningEnvironmentServiceHandle(
@@ -49,87 +49,32 @@ std::shared_ptr<environment::IEosEnvironmentService> MakeNonOwningEnvironmentSer
       &environment_service, [](environment::IEosEnvironmentService*) {});
 }
 
-EosSessionComposition MakeCompositionWithOwnedPipeline(
-    std::unique_ptr<extension::IEosPipeline> owned_pipeline,
-    const config::EosSessionConfig& config) {
-  EosSessionComposition composition;
-  composition.owned_pipeline = std::move(owned_pipeline);
-  composition.owned_controller.reset(
-      new extension::EosController(*composition.owned_pipeline));
-  composition.pipeline = composition.owned_pipeline.get();
-  composition.controller = composition.owned_controller.get();
-  composition.concrete_pipeline =
-      dynamic_cast<signal::pipeline::EosPipeline*>(composition.pipeline);
-  return BuildInitialCompositionRuntime(config, std::move(composition));
-}
-
-EosSessionComposition MakeCompositionWithExternalPipeline(
-    extension::IEosPipeline& pipeline,
-    const config::EosSessionConfig& config) {
-  EosSessionComposition composition;
-  composition.owned_controller.reset(new extension::EosController(pipeline));
-  composition.pipeline = &pipeline;
-  composition.controller = composition.owned_controller.get();
-  return BuildInitialCompositionRuntime(config, std::move(composition));
-}
-
-EosSessionComposition ComposeWithOwnedPipeline(
-    std::unique_ptr<extension::IEosPipeline> owned_pipeline,
-    const config::EosSessionConfig& config) {
-  return FinalizeComposition(MakeCompositionWithOwnedPipeline(std::move(owned_pipeline), config));
-}
-
-EosSessionComposition ComposeWithExternalPipeline(extension::IEosPipeline& pipeline,
-                                                  const config::EosSessionConfig& config) {
-  return FinalizeComposition(MakeCompositionWithExternalPipeline(pipeline, config));
-}
-
 }  // namespace
 
 EosSessionComposition EosSessionCompositionRoot::ComposeDefault(
     const config::EosSessionConfig& config) {
-  return ComposeWithOwnedPipeline(
-      std::unique_ptr<extension::IEosPipeline>(
-          new signal::pipeline::EosPipeline(runtime::session::MapSessionToInternal(
-              config))),
-      config);
-}
-
-EosSessionComposition EosSessionCompositionRoot::ComposeWithPipeline(
-    const config::EosSessionConfig& config,
-    ::electro_optical_sensor::extension::IEosPipeline& pipeline) {
-  return ComposeWithExternalPipeline(pipeline, config);
+  EosSessionComposition composition;
+  composition.owned_pipeline.reset(new signal::pipeline::EosPipeline(
+      runtime::session::MapSessionToInternal(config)));
+  composition.owned_controller.reset(
+      new extension::EosController(*composition.owned_pipeline));
+  composition = BuildInitialCompositionRuntime(config, std::move(composition));
+  FinalizeComposition(composition);
+  return composition;
 }
 
 EosSessionComposition EosSessionCompositionRoot::ComposeWithEnvironmentService(
     const config::EosSessionConfig& config,
     environment::IEosEnvironmentService& environment_service) {
-  return ComposeWithOwnedPipeline(
-      std::unique_ptr<extension::IEosPipeline>(new signal::pipeline::EosPipeline(
-          runtime::session::MapSessionToInternal(config),
-          MakeNonOwningEnvironmentServiceHandle(environment_service))),
-      config);
-}
-
-EosSessionComposition EosSessionCompositionRoot::ComposeWithController(
-    const config::EosSessionConfig& config,
-    extension::EosController& controller) {
   EosSessionComposition composition;
+  composition.owned_pipeline.reset(new signal::pipeline::EosPipeline(
+      runtime::session::MapSessionToInternal(config),
+      MakeNonOwningEnvironmentServiceHandle(environment_service)));
+  composition.owned_controller.reset(
+      new extension::EosController(*composition.owned_pipeline));
   composition = BuildInitialCompositionRuntime(config, std::move(composition));
-  composition.pipeline = &controller.GetPipeline();
-  composition.controller = &controller;
-  return FinalizeComposition(std::move(composition));
-}
-
-EosSessionComposition EosSessionCompositionRoot::ComposeAllExternal(
-    const config::EosSessionConfig& config,
-    ::electro_optical_sensor::extension::IEosPipeline& pipeline,
-    extension::EosController& controller) {
-  EosSessionComposition composition;
-  composition = BuildInitialCompositionRuntime(config, std::move(composition));
-  composition.pipeline = &pipeline;
-  composition.controller = &controller;
-  return FinalizeComposition(std::move(composition));
+  FinalizeComposition(composition);
+  return composition;
 }
 
 }  // namespace session

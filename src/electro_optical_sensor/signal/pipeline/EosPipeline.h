@@ -8,9 +8,9 @@
 
 #include <memory>
 
+#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
-#include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "electro_optical_sensor/config/EosInternalExecutionConfig.h"
 
@@ -28,7 +28,7 @@ struct FrameContext;
  * @brief EosPipeline 封装核心处理层执行。
  * @note 线程模型：实例维护可变扫描相位状态，不是线程安全类型；并发访问需外部同步。
  */
-class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
+class EosPipeline {
  public:
   explicit EosPipeline(
       const config::execution::EosInternalExecutionConfig& config,
@@ -38,11 +38,11 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
   void ApplyInternalConfig(const config::execution::EosInternalExecutionConfig& config,
                            bool reset_scan_phase = true);
 
-  extension::EosPipelineRuntimeState CaptureRuntimeState() const override;
-  bool RestoreRuntimeState(const extension::EosPipelineRuntimeState& state) override;
+  extension::EosPipelineRuntimeState CaptureRuntimeState() const;
+  bool RestoreRuntimeState(const extension::EosPipelineRuntimeState& state);
 
   extension::EosPipelineExecuteResult RunCycle(
-      const ::electro_optical_sensor::session::EosCycleInput& input) override;
+      const ::electro_optical_sensor::session::EosCycleInput& input);
 
  private:
   void AdvanceScan(float dt_sec);

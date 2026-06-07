@@ -16,8 +16,10 @@
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 
 namespace electro_optical_sensor {
-namespace extension {
-class IEosPipeline;
+namespace signal {
+namespace pipeline {
+class EosPipeline;
+}
 }
 namespace extension {
 
@@ -44,9 +46,9 @@ class ONEQ_API EosController {
  public:
   /**
    * @brief 构造光学传感器控制器。
-   * @param[in] pipeline 核心管线接口实现。
+   * @param[in] pipeline 核心管线实现。
    */
-  explicit EosController(extension::IEosPipeline& pipeline);
+  explicit EosController(signal::pipeline::EosPipeline& pipeline);
   ~EosController();
 
   EosController(const EosController&) = delete;
@@ -106,11 +108,6 @@ class ONEQ_API EosController {
    * @return 当前周期聚合结果。
    */
   ::electro_optical_sensor::session::EosCycleResult BuildCycleResult(const ::electro_optical_sensor::session::EosCycleInput& input) const;
-
-  /**
-   * @brief 获取当前控制器绑定的核心管线实例。
-   */
-  extension::IEosPipeline& GetPipeline();
 
   /**
    * @brief 捕获控制器运行态快照。

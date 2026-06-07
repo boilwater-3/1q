@@ -276,8 +276,6 @@ eos_config::EosSessionConfig MakeEosConfigAirToAir() {
   config.mission.scan_end_az_deg = 10.0f;
   config.mission.scan_center_el_deg = 0.0f;
   config.mission.boresight_depression_deg = 0.0f;
-  config.policy.detection.profile = eos::config::EosDetectionProfile::kAggressive;
-  config.policy.detection.use_profile_defaults = true;
   config.policy.detection.minimum_snr_db = 4.0f;
   return config;
 }
@@ -344,8 +342,6 @@ eos_config::EosSessionConfig MakeEosConfigAirToGround() {
   config.mission.scan_end_az_deg = 10.0f;
   config.mission.scan_center_el_deg = -45.0f;
   config.mission.boresight_depression_deg = 45.0f;
-  config.policy.detection.profile = eos::config::EosDetectionProfile::kAggressive;
-  config.policy.detection.use_profile_defaults = true;
   config.policy.detection.minimum_snr_db = 4.0f;
   return config;
 }
