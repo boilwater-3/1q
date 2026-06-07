@@ -9,14 +9,35 @@
 #include <cstdint>
 
 #include "1q/electronic_surveillance_radar/extension/EsrController.h"
-#include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
+#include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 
 namespace electronic_surveillance_radar {
 namespace extension {
 namespace {
+
+EsrInternalExecutionConfig MakeDefaultConfig() {
+  EsrInternalExecutionConfig config;
+  config.mission.power_on = true;
+  config.mission.scan.scan_rate_hz = 1.0f;
+  config.resolved_scan.scan_start_az_deg = -60.0f;
+  config.resolved_scan.scan_end_az_deg = 60.0f;
+  config.resolved_scan.scan_start_el_deg = -10.0f;
+  config.resolved_scan.scan_end_el_deg = 10.0f;
+  config.resolved_scan.az_step_deg = 5.0f;
+  config.resolved_scan.el_step_deg = 5.0f;
+  config.detection.min_detect_snr_db = 6.0f;
+  config.detection.pfa = 1.0e-6f;
+  config.detection.pulse_count = 8U;
+  config.hardware.receiver_sensitivity_w = 1.0e-12f;
+  config.hardware.integrated_receive_loss_db = 0.0f;
+  config.hardware.antenna_mount_az_deg = 0.0f;
+  config.hardware.antenna_mount_el_deg = 0.0f;
+  return config;
+}
 
 class StubEnvironmentService final : public environment::IEsrEnvironmentService {
  public:
@@ -24,53 +45,7 @@ class StubEnvironmentService final : public environment::IEsrEnvironmentService 
   environment::EsrEnvironmentSnapshot SampleEnvironment() const override {
     return environment::EsrEnvironmentSnapshot{};
   }
-  void UpdateModelConfig(environment::EsrEnvironmentModelConfig) override {}
-};
-
-class MockInterceptPipeline final : public IInterceptPipeline {
- public:
-  void UpdateConfig(InterceptPipelineConfig config) override { last_config_ = config; }
-  void UpdateRuntimeConfig(InterceptRuntimeConfig runtime_config) override {
-    last_runtime_config_ = runtime_config;
-  }
-
-  InterceptPipelineRuntimeState CaptureRuntimeState() const override {
-    auto snapshot = std::make_shared<int>(execute_count_);
-    InterceptPipelineRuntimeState state;
-    state.owner_identity = this;
-    state.schema_version = 1U;
-    state.snapshot = snapshot;
-    return state;
-  }
-
-  bool RestoreRuntimeState(const InterceptPipelineRuntimeState& state) override {
-    if (force_restore_reject_) {
-      return false;
-    }
-    if (state.owner_identity != this || state.schema_version != 1U || state.snapshot == nullptr) {
-      return false;
-    }
-    execute_count_ = *static_cast<const int*>(state.snapshot.get());
-    return true;
-  }
-
-  InterceptPipelineResult RunCycle(
-      const session::EsrCycleInput& input,
-      const environment::IEsrEnvironmentService& environment) override {
-    (void)input;
-    (void)environment;
-    ++execute_count_;
-
-    InterceptPipelineResult result;
-    result.observation_output.raw_observation_count = static_cast<std::size_t>(execute_count_);
-    return result;
-  }
-
-  bool force_abort_{false};
-  bool force_restore_reject_{false};
-  int execute_count_{0};
-  InterceptPipelineConfig last_config_{};
-  InterceptRuntimeConfig last_runtime_config_{};
+  void UpdateModelConfig(environment::EsrEnvironmentScenarioConfig) override {}
 };
 
 session::EsrCycleInput MakeValidInput(std::uint32_t cycle_index) {
@@ -83,7 +58,7 @@ session::EsrCycleInput MakeValidInput(std::uint32_t cycle_index) {
 }  // namespace
 
 TEST(EsrControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
-  MockInterceptPipeline pipeline;
+  pipeline::InterceptPipeline pipeline(MakeDefaultConfig());
   StubEnvironmentService env;
   EsrController controller(pipeline, env);
 
@@ -102,8 +77,8 @@ TEST(EsrControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
 }
 
 TEST(EsrControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) {
-  MockInterceptPipeline pipeline_a;
-  MockInterceptPipeline pipeline_b;
+  pipeline::InterceptPipeline pipeline_a(MakeDefaultConfig());
+  pipeline::InterceptPipeline pipeline_b(MakeDefaultConfig());
   StubEnvironmentService env;
   EsrController controller_a(pipeline_a, env);
   EsrController controller_b(pipeline_b, env);
@@ -118,7 +93,7 @@ TEST(EsrControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) 
 }
 
 TEST(EsrControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerInstance) {
-  MockInterceptPipeline shared_pipeline;
+  pipeline::InterceptPipeline shared_pipeline(MakeDefaultConfig());
   StubEnvironmentService env;
   EsrController controller_a(shared_pipeline, env);
   EsrController controller_b(shared_pipeline, env);
@@ -133,7 +108,7 @@ TEST(EsrControllerRuntimeStateTest, RestoreRejectsSnapshotFromOtherControllerIns
 }
 
 TEST(EsrControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPreviousOutput) {
-  MockInterceptPipeline pipeline;
+  pipeline::InterceptPipeline pipeline(MakeDefaultConfig());
   StubEnvironmentService env;
   EsrController controller(pipeline, env);
 
@@ -151,7 +126,7 @@ TEST(EsrControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPrev
 }
 
 TEST(EsrControllerRuntimeStateTest, FirstValidationRejectBuildsEmptyOutputFrame) {
-  MockInterceptPipeline pipeline;
+  pipeline::InterceptPipeline pipeline(MakeDefaultConfig());
   StubEnvironmentService env;
   EsrController controller(pipeline, env);
 
@@ -166,7 +141,7 @@ TEST(EsrControllerRuntimeStateTest, FirstValidationRejectBuildsEmptyOutputFrame)
 
 TEST(EsrControllerRuntimeStateTest,
      SessionCaptureRestoreSkipsRollbackOnValidationRejection) {
-  MockInterceptPipeline pipeline;
+  pipeline::InterceptPipeline pipeline(MakeDefaultConfig());
   StubEnvironmentService env;
   EsrController controller(pipeline, env);
 

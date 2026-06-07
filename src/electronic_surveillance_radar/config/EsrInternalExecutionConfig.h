@@ -126,8 +126,8 @@ struct RuntimeConfig {
 
 // ── 内部环境子配置 ───────────────────────────────────────────────
 
-/** @brief 内部环境执行态配置（与 EsrEnvironmentModelConfig 字段兼容）。 */
-using EnvironmentConfig = environment::EsrEnvironmentModelConfig;
+/** @brief 内部环境执行态配置（与 EsrEnvironmentScenarioConfig 字段兼容）。 */
+using EnvironmentConfig = environment::EsrEnvironmentScenarioConfig;
 
 /**
  * @brief EsrInternalExecutionConfig 描述会话装配前的统一内部解析结果。

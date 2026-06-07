@@ -2,7 +2,6 @@
 
 #include <utility>
 
-#include "1q/electronic_surveillance_radar/extension/IEsrContext.h"
 #include "common/logging/ProjectLog.h"
 #include "electronic_surveillance_radar/pipeline/MutableEsrContext.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"

@@ -2,9 +2,9 @@
 
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "1q/electronic_surveillance_radar/extension/EsrController.h"
-#include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
 #include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 #include "electronic_surveillance_radar/session/EsrRuntimeConfigResolver.h"
 #include "electronic_surveillance_radar/session/EsrSessionCompositionRoot.h"
 
@@ -61,10 +61,10 @@ struct EsrSession::Impl {
   }
 
   EsrInternalExecutionConfig resolved_config{};
-  std::unique_ptr<extension::IInterceptPipeline> owned_pipeline;
+  std::unique_ptr<pipeline::InterceptPipeline> owned_pipeline;
   std::unique_ptr<environment::IEsrEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::EsrController> owned_controller;
-  extension::IInterceptPipeline& pipeline;
+  pipeline::InterceptPipeline& pipeline;
   environment::IEsrEnvironmentService& environment_service;
   extension::EsrController& controller;
 };
@@ -130,32 +130,11 @@ EsrSession EsrSessionFactory::Create(const config::EsrSessionConfig& config) {
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeDefault(config))));
 }
 
-EsrSession EsrSessionFactory::CreateWithPipeline(const config::EsrSessionConfig& config,
-                                                 extension::IInterceptPipeline& pipeline_ref) {
-  return EsrSession(std::unique_ptr<EsrSession::Impl>(
-      new EsrSession::Impl(EsrSessionCompositionRoot::ComposeWithPipeline(config, pipeline_ref))));
-}
-
 EsrSession EsrSessionFactory::CreateWithEnvironmentService(
     const config::EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service_ref) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeWithEnvironmentService(
           config, environment_service_ref))));
-}
-
-EsrSession EsrSessionFactory::CreateWithController(const config::EsrSessionConfig& config,
-                                                   extension::EsrController& controller_ref) {
-  return EsrSession(std::unique_ptr<EsrSession::Impl>(
-      new EsrSession::Impl(EsrSessionCompositionRoot::ComposeWithController(config, controller_ref))));
-}
-
-EsrSession EsrSessionFactory::CreateWithAll(
-    const config::EsrSessionConfig& config, extension::IInterceptPipeline& pipeline_ref,
-    environment::IEsrEnvironmentService& environment_service_ref,
-    extension::EsrController& controller_ref) {
-  return EsrSession(std::unique_ptr<EsrSession::Impl>(
-      new EsrSession::Impl(EsrSessionCompositionRoot::ComposeAllExternal(
-          config, pipeline_ref, environment_service_ref, controller_ref))));
 }
 
 }  // namespace session

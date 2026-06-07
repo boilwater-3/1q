@@ -61,24 +61,11 @@ struct ONEQ_API EsrEnvironmentScenarioConfig {
 };
 
 /**
- * @brief EsrEnvironmentModelConfig 描述环境模型执行输入。
+ * @brief 将场景语义输入映射为模型执行输入（当前为标识复制，二者为同一类型）。
  */
-struct ONEQ_API EsrEnvironmentModelConfig {
-  config::EsrEnvironmentPreset preset{config::EsrEnvironmentPreset::kStandard}; /**< 环境预设语义 */
-  EsrAtmosphericPhysicsConfig atmospheric_physics{};  /**< 可选基础气象观测参数 */
-  EsrAtmosphericDerivedContext atmospheric_context{}; /**< 可选时间/空间天气高级上下文 */
-};
-
-/**
- * @brief 将场景语义输入映射为模型执行输入。
- */
-inline EsrEnvironmentModelConfig BuildModelConfigFromScenario(
+inline EsrEnvironmentScenarioConfig BuildModelConfigFromScenario(
     const EsrEnvironmentScenarioConfig& scenario_config) {
-  EsrEnvironmentModelConfig model_config;
-  model_config.preset = scenario_config.preset;
-  model_config.atmospheric_physics = scenario_config.atmospheric_physics;
-  model_config.atmospheric_context = scenario_config.atmospheric_context;
-  return model_config;
+  return scenario_config;
 }
 
 /**

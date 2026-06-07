@@ -15,7 +15,6 @@ namespace config {
 using EsrAtmosphericPhysicsConfig = environment::EsrAtmosphericPhysicsConfig;
 using EsrAtmosphericDerivedContext = environment::EsrAtmosphericDerivedContext;
 using EsrEnvironmentScenarioConfig = environment::EsrEnvironmentScenarioConfig;
-using EsrEnvironmentModelConfig = environment::EsrEnvironmentModelConfig;
 
 /**
  * @brief EsrEnvironmentConfig 是 environment::EsrEnvironmentDefaultConfig 的聚合别名。

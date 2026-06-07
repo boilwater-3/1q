@@ -9,7 +9,8 @@
 #include <cstdint>
 #include <random>
 
-#include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
+#include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 #include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
 #include "electronic_surveillance_radar/pipeline/InterceptDetectionExecutor.h"
@@ -28,7 +29,7 @@ namespace pipeline {
  *   1. 截获检测阶段（InterceptDetectionExecutor）——扫描图生成 + 逐辐射源截获判定
  *   2. 后处理阶段（InterceptPostProcessingExecutor）——预处理 + 编码 + 聚类 + 摘要 + 关联 + 真值评估
  */
-class InterceptPipeline final : public extension::IInterceptPipeline {
+class InterceptPipeline final {
  public:
   /**
    * @brief 构造默认流水线。
@@ -40,16 +41,16 @@ class InterceptPipeline final : public extension::IInterceptPipeline {
    * @brief 更新流水线配置。
    * @param[in] config 新配置。
    */
-  void UpdateConfig(extension::InterceptPipelineConfig config) override;
+  void UpdateConfig(extension::InterceptPipelineConfig config);
 
   /**
    * @brief 更新运行态配置。
    * @param[in] runtime_config 新运行态配置。
    */
-  void UpdateRuntimeConfig(extension::InterceptRuntimeConfig runtime_config) override;
+  void UpdateRuntimeConfig(extension::InterceptRuntimeConfig runtime_config);
 
-  extension::InterceptPipelineRuntimeState CaptureRuntimeState() const override;
-  bool RestoreRuntimeState(const extension::InterceptPipelineRuntimeState& state) override;
+  extension::InterceptPipelineRuntimeState CaptureRuntimeState() const;
+  bool RestoreRuntimeState(const extension::InterceptPipelineRuntimeState& state);
 
   /**
    * @brief 执行单周期流水线。
@@ -59,7 +60,7 @@ class InterceptPipeline final : public extension::IInterceptPipeline {
    */
   extension::InterceptPipelineResult RunCycle(
       const session::EsrCycleInput& input_state,
-      const environment::IEsrEnvironmentService& environment) override;
+      const environment::IEsrEnvironmentService& environment);
 
  private:
   EsrInternalExecutionConfig config_{};

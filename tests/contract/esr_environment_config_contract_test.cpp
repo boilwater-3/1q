@@ -28,7 +28,7 @@ TEST(EsrEnvironmentConfigContractTest, BuildModelConfigFromScenarioMapsFields) {
   scenario_config.atmospheric_context.has_day_of_year = true;
   scenario_config.atmospheric_context.day_of_year = 215;
 
-  const environment::EsrEnvironmentModelConfig model_config =
+  const environment::EsrEnvironmentScenarioConfig model_config =
       environment::BuildModelConfigFromScenario(scenario_config);
 
   EXPECT_EQ(model_config.preset, config::EsrEnvironmentPreset::kDenseClutter);

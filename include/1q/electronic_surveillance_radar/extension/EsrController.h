@@ -15,11 +15,11 @@
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
+namespace pipeline {
+class InterceptPipeline;
+}
 namespace environment {
 class IEsrEnvironmentService;
-}
-namespace extension {
-class IInterceptPipeline;
 }
 
 /**
@@ -47,10 +47,10 @@ class ONEQ_API EsrController {
  public:
   /**
    * @brief 构造电子侦察控制器。
-   * @param[in] pipeline 侦察流水线接口实现。
+   * @param[in] pipeline 侦察流水线实现。
    * @param[in] environment_service 环境服务接口实现。
    */
-  EsrController(extension::IInterceptPipeline& pipeline,
+  EsrController(pipeline::InterceptPipeline& pipeline,
                 environment::IEsrEnvironmentService& environment_service);
   ~EsrController();
 
@@ -80,11 +80,6 @@ class ONEQ_API EsrController {
    * @return 最近一次输入校验问题列表。
    */
   const session::ValidationIssueList& GetLastValidationIssues() const;
-
-  /**
-   * @brief 获取当前控制器绑定的流水线实例。
-   */
-  extension::IInterceptPipeline& GetPipeline();
 
   /**
    * @brief 最近一次 RunOnce 是否执行了核心 pipeline。

@@ -19,9 +19,6 @@ namespace extension {
 class EsrController;
 }
 
-namespace extension {
-class IInterceptPipeline;
-}
 namespace environment {
 class IEsrEnvironmentService;
 }

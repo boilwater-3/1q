@@ -65,7 +65,7 @@ TEST(EsrEnvironmentServiceTest, UnknownTechniqueWithZeroRiskInfersSuppressionOnl
 }
 
 TEST(EsrEnvironmentServiceTest, DeceptionOnlySourceDoesNotTriggerSuppressionDetection) {
-  EsrEnvironmentModelConfig config;
+  EsrEnvironmentScenarioConfig config;
   config.preset = config::EsrEnvironmentPreset::kJammed;
   EsrEnvironmentService service(config);
 
@@ -116,7 +116,7 @@ TEST(EsrEnvironmentServiceTest, AtmosphericPhysicsCanIncreasePropagationLoss) {
 }
 
 TEST(EsrEnvironmentServiceTest, ConfigAtmosphericPhysicsAppliesWhenSceneDoesNotOverride) {
-  EsrEnvironmentModelConfig config;
+  EsrEnvironmentScenarioConfig config;
   config.atmospheric_physics.enable_physical_model = true;
   config.atmospheric_physics.relative_humidity = 0.75f;
   EsrEnvironmentService service(config);
@@ -134,7 +134,7 @@ TEST(EsrEnvironmentServiceTest, ConfigAtmosphericPhysicsAppliesWhenSceneDoesNotO
 }
 
 TEST(EsrEnvironmentServiceTest, AtmosphericContextCanChangePropagationLoss) {
-  EsrEnvironmentModelConfig baseline_config;
+  EsrEnvironmentScenarioConfig baseline_config;
   baseline_config.atmospheric_physics.enable_physical_model = true;
   baseline_config.atmospheric_physics.pressure_hpa = 1013.25f;
   baseline_config.atmospheric_physics.temperature_k = 288.15f;
@@ -147,7 +147,7 @@ TEST(EsrEnvironmentServiceTest, AtmosphericContextCanChangePropagationLoss) {
   baseline_config.atmospheric_context.solar_flux_f107 = 140.0f;
   baseline_config.atmospheric_context.geomagnetic_ap = 5.0f;
 
-  EsrEnvironmentModelConfig stressed_config = baseline_config;
+  EsrEnvironmentScenarioConfig stressed_config = baseline_config;
   stressed_config.atmospheric_context.day_of_year = 280;
   stressed_config.atmospheric_context.k_factor = 1.45f;
   stressed_config.atmospheric_context.solar_flux_f107a = 220.0f;

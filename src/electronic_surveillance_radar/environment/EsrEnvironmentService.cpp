@@ -40,7 +40,7 @@ float ResolveWeatherLossDb(const EsrAtmosphericObservation& observation) {
 }
 
 float ResolveClutterNoiseW(const EsrEnvironmentObservation& observation,
-                           const EsrEnvironmentModelConfig& config) {
+                           const EsrEnvironmentScenarioConfig& config) {
   float reference_noise = 1.0e-12f;
   switch (config.preset) {
     case config::EsrEnvironmentPreset::kLowClutter:
@@ -66,7 +66,7 @@ float ResolveClutterNoiseW(const EsrEnvironmentObservation& observation,
   }
 }
 
-float ResolveJammingDetectionThresholdW(const EsrEnvironmentModelConfig& config) {
+float ResolveJammingDetectionThresholdW(const EsrEnvironmentScenarioConfig& config) {
   switch (config.preset) {
     case config::EsrEnvironmentPreset::kLowClutter:
       return 8.0e-10f;
@@ -103,7 +103,7 @@ EsrJammerSource NormalizeJammerSource(const EsrJammerSource& raw_source) {
  * @return 冻结环境快照。
  */
 EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_context,
-                                     const EsrEnvironmentModelConfig& config) {
+                                     const EsrEnvironmentScenarioConfig& config) {
   EsrEnvironmentSnapshot snapshot;
   snapshot.cycle_index = cycle_context.cycle_index;
   snapshot.dt_sec = cycle_context.dt_sec;
@@ -172,7 +172,7 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
 
 }  // namespace
 
-EsrEnvironmentService::EsrEnvironmentService(EsrEnvironmentModelConfig config) : config_(config) {}
+EsrEnvironmentService::EsrEnvironmentService(EsrEnvironmentScenarioConfig config) : config_(config) {}
 
 void EsrEnvironmentService::BeginCycle(const EsrEnvironmentCycleContext& cycle_context) {
   frozen_snapshot_ = BuildSnapshot(cycle_context, config_);
@@ -180,7 +180,7 @@ void EsrEnvironmentService::BeginCycle(const EsrEnvironmentCycleContext& cycle_c
 
 EsrEnvironmentSnapshot EsrEnvironmentService::SampleEnvironment() const { return frozen_snapshot_; }
 
-void EsrEnvironmentService::UpdateModelConfig(EsrEnvironmentModelConfig config) {
+void EsrEnvironmentService::UpdateModelConfig(EsrEnvironmentScenarioConfig config) {
   config_ = config;
 }
 

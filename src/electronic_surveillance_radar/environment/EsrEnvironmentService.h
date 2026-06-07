@@ -20,7 +20,7 @@ class EsrEnvironmentService final : public IEsrEnvironmentService {
    * @brief 使用配置初始化环境服务。
    * @param[in] config 环境模型配置。
    */
-  explicit EsrEnvironmentService(EsrEnvironmentModelConfig config = {});
+  explicit EsrEnvironmentService(EsrEnvironmentScenarioConfig config = {});
 
   /**
    * @brief 冻结当前周期环境输入。
@@ -38,10 +38,10 @@ class EsrEnvironmentService final : public IEsrEnvironmentService {
    * @brief 更新环境模型配置。
    * @param[in] config 新配置。
    */
-  void UpdateModelConfig(EsrEnvironmentModelConfig config) override;
+  void UpdateModelConfig(EsrEnvironmentScenarioConfig config) override;
 
  private:
-  EsrEnvironmentModelConfig config_{};
+  EsrEnvironmentScenarioConfig config_{};
   EsrEnvironmentSnapshot frozen_snapshot_{};
 };
 

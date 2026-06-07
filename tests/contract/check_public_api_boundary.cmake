@@ -169,8 +169,6 @@ set(ESR_ENVIRONMENT_HEADERS
 # ── ESR 扩展域 ────────────────────────────────────────────────────────
 set(ESR_EXTENSION_HEADERS
     "electronic_surveillance_radar/extension/EsrController.h"
-    "electronic_surveillance_radar/extension/IEsrContext.h"
-    "electronic_surveillance_radar/extension/IInterceptPipeline.h"
     "electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 )
 

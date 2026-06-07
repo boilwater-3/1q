@@ -6,8 +6,8 @@
  * 解耦流水线与上层调度之间的数据依赖。
  */
 
-#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_EXTENSION_I_ESR_CONTEXT_H_
-#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_EXTENSION_I_ESR_CONTEXT_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_I_ESR_CONTEXT_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_I_ESR_CONTEXT_H_
 
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
@@ -50,7 +50,6 @@ class ONEQ_API IEsrContext {
 };
 
 }  // namespace extension
-
 }  // namespace electronic_surveillance_radar
 
-#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_EXTENSION_I_ESR_CONTEXT_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_I_ESR_CONTEXT_H_

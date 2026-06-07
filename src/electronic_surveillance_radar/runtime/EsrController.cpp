@@ -3,7 +3,7 @@
 #include <memory>
 
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
-#include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
@@ -13,11 +13,11 @@ namespace electronic_surveillance_radar {
 namespace extension {
 
 struct EsrController::Impl {
-  Impl(extension::IInterceptPipeline& pipeline_ref,
+  Impl(pipeline::InterceptPipeline& pipeline_ref,
        environment::IEsrEnvironmentService& environment_service_ref)
       : pipeline(pipeline_ref), environment_service(environment_service_ref) {}
 
-  extension::IInterceptPipeline& pipeline;
+  pipeline::InterceptPipeline& pipeline;
   environment::IEsrEnvironmentService& environment_service;
   output::EsrOutputManager output_manager;
   oneq::internal::runtime::RuntimeCycleState<session::EsrOutputFrame,
@@ -28,7 +28,7 @@ struct EsrController::Impl {
   extension::EsrPipelineAbortReason last_abort_reason{extension::EsrPipelineAbortReason::kNone};
 };
 
-EsrController::EsrController(extension::IInterceptPipeline& pipeline,
+EsrController::EsrController(pipeline::InterceptPipeline& pipeline,
                              environment::IEsrEnvironmentService& environment_service)
     : impl_(new Impl(pipeline, environment_service)) {}
 
@@ -108,8 +108,6 @@ bool EsrController::ReusedPreviousInterceptOutputLatestCycle() const {
 extension::EsrPipelineAbortReason EsrController::GetLastInterceptCycleAbortReason() const {
   return impl_->last_abort_reason;
 }
-
-extension::IInterceptPipeline& EsrController::GetPipeline() { return impl_->pipeline; }
 
 environment::IEsrEnvironmentService& EsrController::GetEnvironmentService() {
   return impl_->environment_service;

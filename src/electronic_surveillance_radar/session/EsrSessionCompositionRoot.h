@@ -12,6 +12,9 @@
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 
 namespace electronic_surveillance_radar {
+namespace pipeline {
+class InterceptPipeline;
+}
 namespace session {
 
 /**
@@ -20,11 +23,11 @@ namespace session {
 struct EsrSessionComposition {
   EsrInternalExecutionConfig execution_config{};
 
-  std::unique_ptr<extension::IInterceptPipeline> owned_pipeline;
+  std::unique_ptr<pipeline::InterceptPipeline> owned_pipeline;
   std::unique_ptr<environment::IEsrEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::EsrController> owned_controller;
 
-  extension::IInterceptPipeline* pipeline{nullptr};
+  pipeline::InterceptPipeline* pipeline{nullptr};
   environment::IEsrEnvironmentService* environment_service{nullptr};
   extension::EsrController* controller{nullptr};
 };
@@ -36,19 +39,8 @@ class EsrSessionCompositionRoot {
  public:
   static EsrSessionComposition ComposeDefault(const config::EsrSessionConfig& config);
 
-  static EsrSessionComposition ComposeWithPipeline(const config::EsrSessionConfig& config,
-                                                   extension::IInterceptPipeline& pipeline);
-
   static EsrSessionComposition ComposeWithEnvironmentService(
       const config::EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service);
-
-  static EsrSessionComposition ComposeWithController(const config::EsrSessionConfig& config,
-                                                     extension::EsrController& controller);
-
-  static EsrSessionComposition ComposeAllExternal(
-      const config::EsrSessionConfig& config, extension::IInterceptPipeline& pipeline,
-      environment::IEsrEnvironmentService& environment_service,
-      extension::EsrController& controller);
 };
 
 }  // namespace session

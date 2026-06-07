@@ -104,6 +104,42 @@ class ONEQ_API EsrSessionConfigBuilder::MissionEditor {
     builder_->config_.mission.scan.scan_rate_hz = value;
     return *this;
   }
+  MissionEditor& WithScanCenterAzDeg(float value) {
+    builder_->config_.mission.scan.scan_center_az_deg = value;
+    return *this;
+  }
+  MissionEditor& WithScanCenterElDeg(float value) {
+    builder_->config_.mission.scan.scan_center_el_deg = value;
+    return *this;
+  }
+  MissionEditor& WithScanStartPosition(config::EsrScanStartPosition position) {
+    builder_->config_.mission.scan.scan_start_position = position;
+    return *this;
+  }
+  MissionEditor& WithScanSequence(config::EsrScanSequence sequence) {
+    builder_->config_.mission.scan.scan_sequence = sequence;
+    return *this;
+  }
+  MissionEditor& WithUseExplicitScanBounds(bool value) {
+    builder_->config_.mission.scan.use_explicit_scan_bounds = value;
+    return *this;
+  }
+  MissionEditor& WithScanStartAzDeg(float value) {
+    builder_->config_.mission.scan.scan_start_az_deg = value;
+    return *this;
+  }
+  MissionEditor& WithScanEndAzDeg(float value) {
+    builder_->config_.mission.scan.scan_end_az_deg = value;
+    return *this;
+  }
+  MissionEditor& WithScanStartElDeg(float value) {
+    builder_->config_.mission.scan.scan_start_el_deg = value;
+    return *this;
+  }
+  MissionEditor& WithScanEndElDeg(float value) {
+    builder_->config_.mission.scan.scan_end_el_deg = value;
+    return *this;
+  }
   EsrSessionConfigBuilder& End() { return *builder_; }
 
  private:
@@ -151,6 +187,16 @@ class ONEQ_API EsrSessionConfigBuilder::EnvironmentEditor {
   }
   EnvironmentEditor& WithEnvironmentPreset(config::EsrEnvironmentPreset preset) {
     builder_->config_.environment.scenario_config.preset = preset;
+    return *this;
+  }
+  EnvironmentEditor& WithAtmosphericPhysics(
+      const environment::EsrAtmosphericPhysicsConfig& config) {
+    builder_->config_.environment.scenario_config.atmospheric_physics = config;
+    return *this;
+  }
+  EnvironmentEditor& WithAtmosphericContext(
+      const environment::EsrAtmosphericDerivedContext& context) {
+    builder_->config_.environment.scenario_config.atmospheric_context = context;
     return *this;
   }
   EsrSessionConfigBuilder& End() { return *builder_; }
