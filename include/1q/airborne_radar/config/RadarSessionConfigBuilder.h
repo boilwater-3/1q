@@ -154,8 +154,6 @@ class ONEQ_API RadarSessionConfigBuilder {
   config::RadarSessionConfig base_config_{};
   model::RadarOrientationConfig orientation_{};
   environment::EnvironmentDefaultConfig env_{};
-  environment::JammingSensitivityProfile jamming_sensitivity_profile_{
-      environment::JammingSensitivityProfile::kBalanced};
   bool detection_dirty_{false};
   bool tracking_dirty_{false};
   bool lifecycle_dirty_{false};
@@ -305,7 +303,7 @@ class ONEQ_API RadarSessionConfigBuilder::EnvironmentEditor {
   }
   /** @brief 设置干扰判定灵敏度语义档位。 */
   EnvironmentEditor& WithJammingSensitivityProfile(environment::JammingSensitivityProfile profile) {
-    builder_->jamming_sensitivity_profile_ = profile;
+    builder_->env_.jamming_sensitivity_profile = profile;
     return *this;
   }
 

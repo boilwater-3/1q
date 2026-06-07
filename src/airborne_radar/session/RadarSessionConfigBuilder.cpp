@@ -173,21 +173,18 @@ config::RadarSessionConfig BuildDefaultSemanticSessionConfig() {
 RadarSessionConfigBuilder::RadarSessionConfigBuilder()
     : base_config_(BuildDefaultSemanticSessionConfig()),
       orientation_(base_config_.mission.orientation),
-      env_(base_config_.environment),
-      jamming_sensitivity_profile_(base_config_.environment.jamming_sensitivity_profile) {}
+      env_(base_config_.environment) {}
 
 RadarSessionConfigBuilder::RadarSessionConfigBuilder(const config::RadarSessionConfig& config)
     : base_config_(config),
       orientation_(config.mission.orientation),
-      env_(config.environment),
-      jamming_sensitivity_profile_(config.environment.jamming_sensitivity_profile) {}
+      env_(config.environment) {}
 
 config::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   config::RadarSessionConfig result = base_config_;
   const config::RadarSessionConfig default_semantic = BuildDefaultSemanticSessionConfig();
   result.mission.orientation = orientation_;
   result.environment = env_;
-  result.environment.jamming_sensitivity_profile = jamming_sensitivity_profile_;
 
   if (detection_dirty_) {
     result.hardware.detection = default_semantic.hardware.detection;
