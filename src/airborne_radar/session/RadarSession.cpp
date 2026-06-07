@@ -11,6 +11,7 @@
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/session/RadarSessionCompositionRoot.h"
+#include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
 namespace airborne_radar {
 namespace session {
@@ -44,10 +45,16 @@ struct RadarSession::Impl {
     initial_session_config.hardware = composition.runtime_hardware;
     initial_session_config.mission = composition.runtime_mission;
     initial_session_config.policy = composition.runtime_policy;
+    initial_session_config.environment.scenario_config = composition.runtime_environment_scenario_config;
+    initial_session_config.environment.jamming_sensitivity_profile =
+        composition.runtime_jamming_sensitivity_profile;
     runtime_state.execution_config = config::mapping::MapSessionToExecution(initial_session_config);
     runtime_state.environment_scenario_config = composition.runtime_environment_scenario_config;
     runtime_state.jamming_sensitivity_profile = composition.runtime_jamming_sensitivity_profile;
     pending_runtime_state = runtime_state;
+
+    concrete_signal_pipeline_ =
+        static_cast<signal::pipeline::SignalPipeline*>(owned_signal_pipeline.get());
   }
 
   RadarCycleResult BuildCycleResult(const RadarCycleInput& input) const {
@@ -125,10 +132,25 @@ struct RadarSession::Impl {
     if (should_sync_pipeline) {
       const config::mapping::RuntimeConfigState& state_to_commit =
           has_pending_runtime_update ? pending_runtime_state : runtime_state;
-      const config::RadarSessionConfig pipeline_config =
-          config::mapping::MapRuntimeStateToPipelineSession(state_to_commit);
-      if (!signal_pipeline.UpdateConfig(pipeline_config)) {
-        return false;
+
+      if (concrete_signal_pipeline_ != nullptr) {
+        // 内部路径：直接传递 InternalExecutionConfig，避免经过公开类型的 round-trip 信息损失
+        config::execution::InternalExecutionConfig exec_config =
+            state_to_commit.execution_config;
+        exec_config.detection.orientation.scan_center_deg.az_deg +=
+            state_to_commit.dwell_center_deg.az_deg;
+        exec_config.detection.orientation.scan_center_deg.el_deg +=
+            state_to_commit.dwell_center_deg.el_deg;
+        if (!concrete_signal_pipeline_->UpdateExecutionConfig(exec_config)) {
+          return false;
+        }
+      } else {
+        // 外部路径：通过公开接口合约传递，由外部 pipeline 自行管理内部配置
+        const config::RadarSessionConfig pipeline_config =
+            config::mapping::MapRuntimeStateToPipelineSession(state_to_commit);
+        if (!signal_pipeline.UpdateConfig(pipeline_config)) {
+          return false;
+        }
       }
       pipeline_config_synced = true;
     }
@@ -212,6 +234,7 @@ struct RadarSession::Impl {
   extension::ISignalPipeline& signal_pipeline;
   environment::IEnvironmentService& environment_service;
   extension::RadarController& controller;
+  signal::pipeline::SignalPipeline* concrete_signal_pipeline_{nullptr};
 };
 
 RadarSession::RadarSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}

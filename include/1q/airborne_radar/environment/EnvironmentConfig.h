@@ -203,6 +203,8 @@ struct ONEQ_API EnvironmentModelConfig {
  */
 struct ONEQ_API EnvironmentDefaultConfig {
   EnvironmentScenarioConfig scenario_config{}; /**< 默认环境场景输入 */
+  JammingSensitivityProfile jamming_sensitivity_profile{
+      JammingSensitivityProfile::kBalanced}; /**< 干扰判定灵敏度语义档位 */
 };
 
 /**

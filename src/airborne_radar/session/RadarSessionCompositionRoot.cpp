@@ -17,6 +17,8 @@ config::RadarSessionConfig BuildRuntimeSessionConfig(const RadarSessionCompositi
   config.hardware = composition.runtime_hardware;
   config.mission = composition.runtime_mission;
   config.policy = composition.runtime_policy;
+  config.environment.scenario_config = composition.runtime_environment_scenario_config;
+  config.environment.jamming_sensitivity_profile = composition.runtime_jamming_sensitivity_profile;
   return config;
 }
 
@@ -26,7 +28,7 @@ RadarSessionComposition BuildCompositionBase(const config::RadarSessionConfig& c
   composition.runtime_mission = config.mission;
   composition.runtime_policy = config.policy;
   composition.runtime_environment_scenario_config = config.environment.scenario_config;
-  composition.runtime_jamming_sensitivity_profile = config.jamming_sensitivity_profile;
+  composition.runtime_jamming_sensitivity_profile = config.environment.jamming_sensitivity_profile;
   return composition;
 }
 

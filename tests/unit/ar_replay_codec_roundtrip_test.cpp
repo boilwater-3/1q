@@ -303,7 +303,7 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.tracking.enable_kalman_filter = true;
   config.policy.tracking.kalman_measurement_noise_std = 5.5f;
   // jamming_sensitivity_profile
-  config.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
+  config.environment.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
   // environment (previously missing from codec!)
   config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
   config.environment.scenario_config.atmospheric_physics.pressure_hpa = 1010.0f;
@@ -343,7 +343,7 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_TRUE(decoded.policy.tracking.enable_kalman_filter);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.kalman_measurement_noise_std, 5.5f);
   // jamming_sensitivity_profile
-  EXPECT_EQ(decoded.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
+  EXPECT_EQ(decoded.environment.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
   // environment (previously broken!)
   EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.pressure_hpa, 1010.0f);

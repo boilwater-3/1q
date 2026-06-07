@@ -1014,7 +1014,7 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   signal::pipeline::SignalPipeline signal_pipeline(config);
   environment::EnvironmentService environment_service(
       environment::BuildModelConfigFromScenario(config.environment.scenario_config));
-  environment_service.SetJammingSensitivityProfile(config.jamming_sensitivity_profile);
+  environment_service.SetJammingSensitivityProfile(config.environment.jamming_sensitivity_profile);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
 
   const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{
@@ -1620,7 +1620,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   signal::pipeline::SignalPipeline signal_pipeline(config);
   environment::EnvironmentService environment_service(
       environment::BuildModelConfigFromScenario(config.environment.scenario_config));
-  environment_service.SetJammingSensitivityProfile(config.jamming_sensitivity_profile);
+  environment_service.SetJammingSensitivityProfile(config.environment.jamming_sensitivity_profile);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
 
   const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{

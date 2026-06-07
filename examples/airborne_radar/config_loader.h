@@ -18,7 +18,7 @@ inline void LoadArSessionConfig(
   LoadMission(root["mission"], &config->mission);
   LoadPolicy(root["policy"], &config->policy);
   LoadEnvironment(root["environment"], &config->environment);
-  config->jamming_sensitivity_profile =
+  config->environment.jamming_sensitivity_profile =
       JammingSensFromString(root["jamming_sensitivity_profile"].AsString());
 }
 

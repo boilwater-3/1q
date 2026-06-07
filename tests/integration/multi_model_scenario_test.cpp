@@ -913,7 +913,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
 
   // AR config with strict jamming sensitivity
   auto ar_cfg = MakeArConfigAirToAir();
-  ar_cfg.jamming_sensitivity_profile = ar_env::JammingSensitivityProfile::kStrict;
+  ar_cfg.environment.jamming_sensitivity_profile = ar_env::JammingSensitivityProfile::kStrict;
 
   const std::string ar_trace = MakeTempTraceDir("multi-scene3-ar");
   oneq::replay::ReplayTraceManifest ar_mf;

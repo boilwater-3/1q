@@ -1049,7 +1049,7 @@ std::string EncodeSessionConfigFlatbuffer(const config::RadarSessionConfig& conf
           builder, EncodeSessionDetectionConfig(&builder, config.hardware.detection),
           EncodeSessionOrientation(&builder, config.mission.orientation),
           EncodeSessionPolicyConfig(&builder, config.policy),
-          static_cast<int>(config.jamming_sensitivity_profile),
+          static_cast<int>(config.environment.jamming_sensitivity_profile),
           EncodeEnvironmentDefaultConfig(&builder, config.environment));
   builder.Finish(root, session_fb::RadarSessionConfigIdentifier());
 
@@ -1086,9 +1086,9 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, config::Rad
   config->hardware.detection = DecodeSessionDetectionConfig(root->hardware_detection());
   config->mission.orientation = DecodeSessionOrientation(root->mission_orientation());
   config->policy = DecodeSessionPolicyConfig(root->policy());
-  config->jamming_sensitivity_profile =
-      static_cast<environment::JammingSensitivityProfile>(root->jamming_sensitivity_profile());
   config->environment = DecodeEnvironmentDefaultConfig(root->environment_default_config());
+  config->environment.jamming_sensitivity_profile =
+      static_cast<environment::JammingSensitivityProfile>(root->jamming_sensitivity_profile());
   return true;
 }
 

@@ -310,8 +310,8 @@ void CompareConfigs(const ar_config::RadarSessionConfig& a,
              "veg.enable_physical_model");
 
   // jamming_sensitivity_profile
-  CHECK_INT(static_cast<int>(a.jamming_sensitivity_profile),
-            static_cast<int>(b.jamming_sensitivity_profile),
+  CHECK_INT(static_cast<int>(a.environment.jamming_sensitivity_profile),
+            static_cast<int>(b.environment.jamming_sensitivity_profile),
             "jamming_sensitivity_profile");
 }
 

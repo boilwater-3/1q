@@ -270,11 +270,11 @@ TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
   session_cfg.mission = mission;
   session_cfg.policy = policy;
   session_cfg.environment = env;
-  session_cfg.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
+  session_cfg.environment.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
   EXPECT_EQ(session_cfg.hardware.detection.pulse_count, 32);
   EXPECT_FLOAT_EQ(session_cfg.mission.orientation.scan_center_deg.az_deg, 45.0f);
   EXPECT_EQ(session_cfg.policy.lifecycle.confirm_hits, 2U);
-  EXPECT_EQ(session_cfg.jamming_sensitivity_profile,
+  EXPECT_EQ(session_cfg.environment.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kStrict);
 }
 
@@ -307,7 +307,7 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
   EXPECT_FLOAT_EQ(config.hardware.detection.antenna.pattern.max_sidelobe_level_db, -30.0f);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, -12.0f);
   EXPECT_EQ(config.policy.lifecycle.confirm_hits, 1U);
-  EXPECT_EQ(config.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kRelaxed);
+  EXPECT_EQ(config.environment.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kRelaxed);
 
   environment::EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;

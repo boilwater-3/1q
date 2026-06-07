@@ -76,7 +76,7 @@ TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEdi
   EXPECT_FLOAT_EQ(rebuilt.policy.tracking.kalman_measurement_noise_std, 4.5f);
   EXPECT_TRUE(rebuilt.policy.lifecycle.enable_imm_lifecycle);
   EXPECT_EQ(rebuilt.policy.lifecycle.confirm_hits, 2U);
-  EXPECT_EQ(rebuilt.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
+  EXPECT_EQ(rebuilt.environment.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
 }
 
 TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
@@ -139,7 +139,7 @@ TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
   EXPECT_EQ(config.mission.orientation.work_sub_mode, model::RadarWorkSubMode::kTas);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, 8.0f);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.el_deg, -2.0f);
-  EXPECT_EQ(config.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
+  EXPECT_EQ(config.environment.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
 }
 
 TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
@@ -233,7 +233,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   detailed_config.policy.lifecycle.confirm_hits = 2U;
   detailed_config.policy.lifecycle.max_miss_before_lost = 1U;
   detailed_config.policy.lifecycle.max_lost_cycles = 4U;
-  detailed_config.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
+  detailed_config.environment.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
 
   EXPECT_TRUE(detailed_config.hardware.detection.enable_physics_detection);
   EXPECT_FLOAT_EQ(detailed_config.hardware.detection.transmitter.peak_power_w, 5.0e6f);
@@ -244,7 +244,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
             config::KalmanUpdateBackend::kUdKf);
   EXPECT_EQ(detailed_config.policy.lifecycle.confirm_hits, 2U);
   EXPECT_TRUE(detailed_config.policy.lifecycle.enable_imm_lifecycle);
-  EXPECT_EQ(detailed_config.jamming_sensitivity_profile,
+  EXPECT_EQ(detailed_config.environment.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kStrict);
 }
 

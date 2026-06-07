@@ -24,8 +24,6 @@ struct ONEQ_API RadarSessionConfig {
   RadarMissionConfig mission{};
   RadarPolicyConfig policy{};
   RadarEnvironmentConfig environment{};
-  environment::JammingSensitivityProfile jamming_sensitivity_profile{
-      environment::JammingSensitivityProfile::kBalanced}; /**< 干扰判定灵敏度语义档位 */
 };
 
 }  // namespace config
