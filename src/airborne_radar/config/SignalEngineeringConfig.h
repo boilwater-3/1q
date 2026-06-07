@@ -8,11 +8,16 @@
 
 #include <cstdint>
 
+#include "1q/airborne_radar/config/RadarHardwareConfig.h"
+#include "1q/airborne_radar/config/RadarPolicyConfig.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 
 namespace airborne_radar {
 namespace config {
 namespace engineering {
+
+using AntennaPatternModelType = detection::AntennaPatternModelType;
+using KalmanUpdateBackend = tracking::KalmanUpdateBackend;
 
 struct TransmitterConfig {
   float peak_power_w{1e6f};
@@ -21,12 +26,6 @@ struct TransmitterConfig {
   float pulse_width_s{13e-6f};
   float prf_hz{300.0f};
   float transmit_loss_db{3.5f};
-};
-
-enum class AntennaPatternModelType {
-  kGaussianMainLobe = 0,
-  kParabolicMainLobe = 1,
-  kCosinePower = 2
 };
 
 struct AntennaPatternConfig {
@@ -78,13 +77,6 @@ struct DetectionConfig {
   RcsPhysicsConfig rcs_physics{};
   float min_detection_margin_db{-2.0f};
   int pulse_count{10};
-};
-
-enum class KalmanUpdateBackend {
-  kStandardKfJoseph = 0,
-  kUdKf,
-  kSrif,
-  kEkf
 };
 
 struct TrackingConfig {

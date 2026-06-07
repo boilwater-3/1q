@@ -14,34 +14,6 @@ namespace airborne_radar {
 namespace config {
 namespace mapping {
 
-inline engineering::AntennaPatternModelType ResolveAntennaPatternModelType(
-    AntennaPatternModelType model_type) {
-  switch (model_type) {
-    case AntennaPatternModelType::kParabolicMainLobe:
-      return engineering::AntennaPatternModelType::kParabolicMainLobe;
-    case AntennaPatternModelType::kCosinePower:
-      return engineering::AntennaPatternModelType::kCosinePower;
-    case AntennaPatternModelType::kGaussianMainLobe:
-    default:
-      return engineering::AntennaPatternModelType::kGaussianMainLobe;
-  }
-}
-
-inline engineering::KalmanUpdateBackend ResolveKalmanUpdateBackend(
-    KalmanUpdateBackend backend) {
-  switch (backend) {
-    case KalmanUpdateBackend::kUdKf:
-      return engineering::KalmanUpdateBackend::kUdKf;
-    case KalmanUpdateBackend::kSrif:
-      return engineering::KalmanUpdateBackend::kSrif;
-    case KalmanUpdateBackend::kEkf:
-      return engineering::KalmanUpdateBackend::kEkf;
-    case KalmanUpdateBackend::kStandardKfJoseph:
-    default:
-      return engineering::KalmanUpdateBackend::kStandardKfJoseph;
-  }
-}
-
 inline engineering::DetectionConfig ResolveDetectionEngineering(
     const DetectionConfig& detection) {
   engineering::DetectionConfig resolved;
@@ -57,8 +29,7 @@ inline engineering::DetectionConfig ResolveDetectionEngineering(
       detection.antenna.nominal_az_beamwidth_deg;
   resolved.antenna.nominal_el_beamwidth_deg =
       detection.antenna.nominal_el_beamwidth_deg;
-  resolved.antenna.pattern.model_type =
-      ResolveAntennaPatternModelType(detection.antenna.pattern.model_type);
+  resolved.antenna.pattern.model_type = detection.antenna.pattern.model_type;
   resolved.antenna.pattern.max_sidelobe_level_db =
       detection.antenna.pattern.max_sidelobe_level_db;
   resolved.antenna.pattern.backlobe_level_db =
@@ -97,8 +68,7 @@ inline engineering::TrackingConfig ResolveTrackingEngineering(
   engineering::TrackingConfig resolved;
   resolved.enable_kalman_filter = tracking.enable_kalman_filter;
   resolved.kalman_measurement_noise_std = tracking.kalman_measurement_noise_std;
-  resolved.kalman_update_backend =
-      ResolveKalmanUpdateBackend(tracking.kalman_update_backend);
+  resolved.kalman_update_backend = tracking.kalman_update_backend;
   return resolved;
 }
 
