@@ -15,6 +15,8 @@ void ApplyEnvironmentModelToInternal(
   exec->environment.radiative_transfer_model = model_config.radiative_transfer_model;
   exec->environment.aerosol_density_factor = model_config.aerosol_density_factor;
   exec->environment.turbulence_factor = model_config.turbulence_factor;
+  exec->environment.has_atmospheric_observation = model_config.has_atmospheric_observation;
+  exec->environment.atmospheric_observation = model_config.atmospheric_observation;
 }
 
 }  // namespace session
@@ -57,6 +59,10 @@ environment::EosEnvironmentModelConfig BuildModelConfigFromScenario(
         scenario_config.custom_overrides.aerosol_density_factor;
     model_config.turbulence_factor = scenario_config.custom_overrides.turbulence_factor;
   }
+
+  // 传递可选大气物理观测
+  model_config.has_atmospheric_observation = scenario_config.has_atmospheric_observation;
+  model_config.atmospheric_observation = scenario_config.atmospheric_observation;
 
   return model_config;
 }

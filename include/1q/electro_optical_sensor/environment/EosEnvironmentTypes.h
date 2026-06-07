@@ -42,6 +42,8 @@ struct ONEQ_API EosEnvironmentModelInputs {
   float platform_altitude_m{0.0f};
   float cloud_coverage_ratio{0.0f};
   float wind_speed_mps{0.0f};
+  bool has_atmospheric_observation{false};              /**< 是否提供大气物理观测输入 */
+  oneq::environment::AtmosphericObservation atmospheric_observation{}; /**< 可选大气物理观测 */
 };
 
 /**

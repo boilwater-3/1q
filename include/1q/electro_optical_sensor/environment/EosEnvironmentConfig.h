@@ -8,6 +8,7 @@
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+#include "1q/environment/AtmosphericTypes.h"
 
 namespace electro_optical_sensor {
 namespace environment {
@@ -49,6 +50,8 @@ struct ONEQ_API EosEnvironmentScenarioConfig {
   EosEnvironmentPreset preset{EosEnvironmentPreset::kStandard};
   bool has_custom_overrides{false};
   EosEnvironmentCustomOverrides custom_overrides{};
+  bool has_atmospheric_observation{false};              /**< 是否提供大气物理观测输入 */
+  oneq::environment::AtmosphericObservation atmospheric_observation{}; /**< 可选大气物理观测 */
 };
 
 /**
@@ -60,6 +63,8 @@ struct ONEQ_API EosEnvironmentModelConfig {
       foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
   float aerosol_density_factor{1.0f};
   float turbulence_factor{1.0f};
+  bool has_atmospheric_observation{false};              /**< 是否提供大气物理观测输入 */
+  oneq::environment::AtmosphericObservation atmospheric_observation{}; /**< 可选大气物理观测 */
 };
 
 /**

@@ -44,6 +44,13 @@ table EosEnvironmentCustomOverrides {
   turbulence_factor:                       float;
 }
 
+table EosAtmosphericObservation {
+  enable_physical_model: bool;
+  pressure_hpa:          float;
+  temperature_k:         float;
+  relative_humidity:     float;
+}
+
 table EosEnvironmentConfig {
   model_type:           int32;
   preset:               int32;
@@ -53,6 +60,9 @@ table EosEnvironmentConfig {
   radiative_transfer_model_derived:                int32;
   aerosol_density_factor_derived:                  float;
   turbulence_factor_derived:                       float;
+  // 可选大气物理观测（新增字段，默认值保持向后兼容）
+  has_atmospheric_observation: bool = false;
+  atmospheric_observation:     EosAtmosphericObservation;
 }
 
 table EosHardwareConfig {

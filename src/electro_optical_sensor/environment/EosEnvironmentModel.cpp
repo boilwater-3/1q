@@ -29,6 +29,17 @@ EosEnvironmentModelResult ResolveEnvironmentFactors(const EosEnvironmentModelInp
                                 0.01f * altitude_km);
     result.path_radiance_scale_bias =
         1.0f + 0.1f * cloud_ratio + 0.005f * wind_speed_mps;
+
+    // 若提供大气物理观测，用湿度修正气溶胶因子、温度修正湍流因子
+    if (inputs.has_atmospheric_observation &&
+        inputs.atmospheric_observation.enable_physical_model) {
+      const float humidity = oneq::internal::numerics::Clamp01(
+          inputs.atmospheric_observation.relative_humidity);
+      result.aerosol_density_factor *= (1.0f + 0.3f * humidity);
+      const float temp_deviation =
+          (inputs.atmospheric_observation.temperature_k - 288.15f) / 50.0f;
+      result.turbulence_factor *= (1.0f + 0.1f * std::fabs(temp_deviation));
+    }
   } else {
     result.aerosol_density_factor = base_aerosol;
     result.turbulence_factor = base_turbulence;

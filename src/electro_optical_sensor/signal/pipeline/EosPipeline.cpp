@@ -514,6 +514,8 @@ FrameContext EosPipeline::BuildFrameContext(
   env_inputs.cloud_coverage_ratio =
       oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
   env_inputs.wind_speed_mps = std::max(0.0f, input.environment.ambient_wind_speed_mps);
+  env_inputs.has_atmospheric_observation = config_.environment.has_atmospheric_observation;
+  env_inputs.atmospheric_observation = config_.environment.atmospheric_observation;
   frame.environment_result = environment_service_->ResolveFactors(env_inputs);
 
   return frame;

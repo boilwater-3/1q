@@ -320,10 +320,17 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
   auto co = eos::replay::CreateEosEnvironmentCustomOverrides(
       fbb, static_cast<int32_t>(sc.custom_overrides.radiative_transfer_model),
       sc.custom_overrides.aerosol_density_factor, sc.custom_overrides.turbulence_factor);
+  flatbuffers::Offset<eos::replay::EosAtmosphericObservation> atm_obs = 0;
+  if (sc.has_atmospheric_observation) {
+    atm_obs = eos::replay::CreateEosAtmosphericObservation(
+        fbb, sc.atmospheric_observation.enable_physical_model,
+        sc.atmospheric_observation.pressure_hpa, sc.atmospheric_observation.temperature_k,
+        sc.atmospheric_observation.relative_humidity);
+  }
   auto env = eos::replay::CreateEosEnvironmentConfig(
       fbb, static_cast<int32_t>(sc.model_type), static_cast<int32_t>(sc.preset),
       sc.has_custom_overrides, co, static_cast<int32_t>(model_cfg.radiative_transfer_model),
-      model_cfg.aerosol_density_factor, model_cfg.turbulence_factor);
+      model_cfg.aerosol_density_factor, model_cfg.turbulence_factor, sc.has_atmospheric_observation, atm_obs);
 
   fbb.Finish(eos::replay::CreateEosSessionConfig(fbb, hw, mission, policy, env));
   const uint8_t* buf = fbb.GetBufferPointer();
@@ -389,6 +396,14 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
       sc.custom_overrides.aerosol_density_factor = co->aerosol_density_factor();
       sc.custom_overrides.turbulence_factor = co->turbulence_factor();
     }
+    sc.has_atmospheric_observation = e->has_atmospheric_observation();
+    if (e->atmospheric_observation()) {
+      sc.atmospheric_observation.enable_physical_model =
+          e->atmospheric_observation()->enable_physical_model();
+      sc.atmospheric_observation.pressure_hpa = e->atmospheric_observation()->pressure_hpa();
+      sc.atmospheric_observation.temperature_k = e->atmospheric_observation()->temperature_k();
+      sc.atmospheric_observation.relative_humidity = e->atmospheric_observation()->relative_humidity();
+    }
   }
   return true;
 }
@@ -420,14 +435,22 @@ std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) 
         fbb, static_cast<int32_t>(ep.scenario_config.custom_overrides.radiative_transfer_model),
         ep.scenario_config.custom_overrides.aerosol_density_factor,
         ep.scenario_config.custom_overrides.turbulence_factor);
+    flatbuffers::Offset<eos::replay::EosAtmosphericObservation> ep_atm_obs = 0;
+    if (ep.scenario_config.has_atmospheric_observation) {
+      ep_atm_obs = eos::replay::CreateEosAtmosphericObservation(
+          fbb, ep.scenario_config.atmospheric_observation.enable_physical_model,
+          ep.scenario_config.atmospheric_observation.pressure_hpa,
+          ep.scenario_config.atmospheric_observation.temperature_k,
+          ep.scenario_config.atmospheric_observation.relative_humidity);
+    }
     env = eos::replay::CreateEosEnvironmentConfig(
         fbb, static_cast<int32_t>(ep.scenario_config.model_type),
         static_cast<int32_t>(ep.scenario_config.preset), ep.scenario_config.has_custom_overrides,
-        co, 0, 0.0f, 0.0f);  // derived fields set to 0/false for patch
+        co, 0, 0.0f, 0.0f, ep.scenario_config.has_atmospheric_observation, ep_atm_obs);  // derived fields set to 0/false for patch
   } else {
     // Write an empty environment config just to satisfy the struct
     auto co = eos::replay::CreateEosEnvironmentCustomOverrides(fbb, 0, 1.0f, 1.0f);
-    env = eos::replay::CreateEosEnvironmentConfig(fbb, 0, 0, false, co, 0, 0.0f, 0.0f);
+    env = eos::replay::CreateEosEnvironmentConfig(fbb, 0, 0, false, co, 0, 0.0f, 0.0f, false, 0);
   }
   fbb.Finish(eos::replay::CreateEosRuntimeConfigPatch(
       fbb, v.has_mission, mission, v.has_policy, policy, v.has_environment, env,
@@ -463,6 +486,17 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeCon
           e->custom_overrides()->aerosol_density_factor();
       out->environment.scenario_config.custom_overrides.turbulence_factor =
           e->custom_overrides()->turbulence_factor();
+    }
+    out->environment.scenario_config.has_atmospheric_observation = e->has_atmospheric_observation();
+    if (e->atmospheric_observation()) {
+      out->environment.scenario_config.atmospheric_observation.enable_physical_model =
+          e->atmospheric_observation()->enable_physical_model();
+      out->environment.scenario_config.atmospheric_observation.pressure_hpa =
+          e->atmospheric_observation()->pressure_hpa();
+      out->environment.scenario_config.atmospheric_observation.temperature_k =
+          e->atmospheric_observation()->temperature_k();
+      out->environment.scenario_config.atmospheric_observation.relative_humidity =
+          e->atmospheric_observation()->relative_humidity();
     }
   }
   if (fb->policy()) {

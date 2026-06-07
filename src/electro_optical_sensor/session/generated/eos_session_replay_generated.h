@@ -29,6 +29,10 @@ struct EosEnvironmentCustomOverrides;
 struct EosEnvironmentCustomOverridesBuilder;
 struct EosEnvironmentCustomOverridesT;
 
+struct EosAtmosphericObservation;
+struct EosAtmosphericObservationBuilder;
+struct EosAtmosphericObservationT;
+
 struct EosEnvironmentConfig;
 struct EosEnvironmentConfigBuilder;
 struct EosEnvironmentConfigT;
@@ -86,29 +90,56 @@ struct EosMissionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int32_t work_mode() const {
     return GetField<int32_t>(VT_WORK_MODE, 0);
   }
+  bool mutate_work_mode(int32_t _work_mode) {
+    return SetField<int32_t>(VT_WORK_MODE, _work_mode, 0);
+  }
   float horizontal_fov_deg() const {
     return GetField<float>(VT_HORIZONTAL_FOV_DEG, 0.0f);
+  }
+  bool mutate_horizontal_fov_deg(float _horizontal_fov_deg) {
+    return SetField<float>(VT_HORIZONTAL_FOV_DEG, _horizontal_fov_deg, 0.0f);
   }
   float vertical_fov_deg() const {
     return GetField<float>(VT_VERTICAL_FOV_DEG, 0.0f);
   }
+  bool mutate_vertical_fov_deg(float _vertical_fov_deg) {
+    return SetField<float>(VT_VERTICAL_FOV_DEG, _vertical_fov_deg, 0.0f);
+  }
   float scan_rate_deg_per_sec() const {
     return GetField<float>(VT_SCAN_RATE_DEG_PER_SEC, 0.0f);
+  }
+  bool mutate_scan_rate_deg_per_sec(float _scan_rate_deg_per_sec) {
+    return SetField<float>(VT_SCAN_RATE_DEG_PER_SEC, _scan_rate_deg_per_sec, 0.0f);
   }
   float frame_rate_hz() const {
     return GetField<float>(VT_FRAME_RATE_HZ, 0.0f);
   }
+  bool mutate_frame_rate_hz(float _frame_rate_hz) {
+    return SetField<float>(VT_FRAME_RATE_HZ, _frame_rate_hz, 0.0f);
+  }
   float scan_start_az_deg() const {
     return GetField<float>(VT_SCAN_START_AZ_DEG, 0.0f);
+  }
+  bool mutate_scan_start_az_deg(float _scan_start_az_deg) {
+    return SetField<float>(VT_SCAN_START_AZ_DEG, _scan_start_az_deg, 0.0f);
   }
   float scan_end_az_deg() const {
     return GetField<float>(VT_SCAN_END_AZ_DEG, 0.0f);
   }
+  bool mutate_scan_end_az_deg(float _scan_end_az_deg) {
+    return SetField<float>(VT_SCAN_END_AZ_DEG, _scan_end_az_deg, 0.0f);
+  }
   float scan_center_el_deg() const {
     return GetField<float>(VT_SCAN_CENTER_EL_DEG, 0.0f);
   }
+  bool mutate_scan_center_el_deg(float _scan_center_el_deg) {
+    return SetField<float>(VT_SCAN_CENTER_EL_DEG, _scan_center_el_deg, 0.0f);
+  }
   float boresight_depression_deg() const {
     return GetField<float>(VT_BORESIGHT_DEPRESSION_DEG, 0.0f);
+  }
+  bool mutate_boresight_depression_deg(float _boresight_depression_deg) {
+    return SetField<float>(VT_BORESIGHT_DEPRESSION_DEG, _boresight_depression_deg, 0.0f);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -220,11 +251,20 @@ struct EosPolicyDetectionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::T
   float minimum_snr_db() const {
     return GetField<float>(VT_MINIMUM_SNR_DB, 0.0f);
   }
+  bool mutate_minimum_snr_db(float _minimum_snr_db) {
+    return SetField<float>(VT_MINIMUM_SNR_DB, _minimum_snr_db, 0.0f);
+  }
   float detection_sensitivity_w() const {
     return GetField<float>(VT_DETECTION_SENSITIVITY_W, 0.0f);
   }
+  bool mutate_detection_sensitivity_w(float _detection_sensitivity_w) {
+    return SetField<float>(VT_DETECTION_SENSITIVITY_W, _detection_sensitivity_w, 0.0f);
+  }
   float visible_reference_irradiance_w_m2() const {
     return GetField<float>(VT_VISIBLE_REFERENCE_IRRADIANCE_W_M2, 0.0f);
+  }
+  bool mutate_visible_reference_irradiance_w_m2(float _visible_reference_irradiance_w_m2) {
+    return SetField<float>(VT_VISIBLE_REFERENCE_IRRADIANCE_W_M2, _visible_reference_irradiance_w_m2, 0.0f);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -306,17 +346,32 @@ struct EosPolicyStrayLightConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::
   bool enable_straylight_filter() const {
     return GetField<uint8_t>(VT_ENABLE_STRAYLIGHT_FILTER, 0) != 0;
   }
+  bool mutate_enable_straylight_filter(bool _enable_straylight_filter) {
+    return SetField<uint8_t>(VT_ENABLE_STRAYLIGHT_FILTER, static_cast<uint8_t>(_enable_straylight_filter), 0);
+  }
   float hood_inner_half_angle_deg() const {
     return GetField<float>(VT_HOOD_INNER_HALF_ANGLE_DEG, 0.0f);
+  }
+  bool mutate_hood_inner_half_angle_deg(float _hood_inner_half_angle_deg) {
+    return SetField<float>(VT_HOOD_INNER_HALF_ANGLE_DEG, _hood_inner_half_angle_deg, 0.0f);
   }
   float hood_outer_half_angle_deg() const {
     return GetField<float>(VT_HOOD_OUTER_HALF_ANGLE_DEG, 0.0f);
   }
+  bool mutate_hood_outer_half_angle_deg(float _hood_outer_half_angle_deg) {
+    return SetField<float>(VT_HOOD_OUTER_HALF_ANGLE_DEG, _hood_outer_half_angle_deg, 0.0f);
+  }
   float hood_min_suppression_ratio() const {
     return GetField<float>(VT_HOOD_MIN_SUPPRESSION_RATIO, 0.0f);
   }
+  bool mutate_hood_min_suppression_ratio(float _hood_min_suppression_ratio) {
+    return SetField<float>(VT_HOOD_MIN_SUPPRESSION_RATIO, _hood_min_suppression_ratio, 0.0f);
+  }
   float hood_max_suppression_ratio() const {
     return GetField<float>(VT_HOOD_MAX_SUPPRESSION_RATIO, 0.0f);
+  }
+  bool mutate_hood_max_suppression_ratio(float _hood_max_suppression_ratio) {
+    return SetField<float>(VT_HOOD_MAX_SUPPRESSION_RATIO, _hood_max_suppression_ratio, 0.0f);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -399,8 +454,14 @@ struct EosPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const eos::replay::EosPolicyDetectionConfig *detection() const {
     return GetPointer<const eos::replay::EosPolicyDetectionConfig *>(VT_DETECTION);
   }
+  eos::replay::EosPolicyDetectionConfig *mutable_detection() {
+    return GetPointer<eos::replay::EosPolicyDetectionConfig *>(VT_DETECTION);
+  }
   const eos::replay::EosPolicyStrayLightConfig *stray_light() const {
     return GetPointer<const eos::replay::EosPolicyStrayLightConfig *>(VT_STRAY_LIGHT);
+  }
+  eos::replay::EosPolicyStrayLightConfig *mutable_stray_light() {
+    return GetPointer<eos::replay::EosPolicyStrayLightConfig *>(VT_STRAY_LIGHT);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -472,11 +533,20 @@ struct EosEnvironmentCustomOverrides FLATBUFFERS_FINAL_CLASS : private flatbuffe
   int32_t radiative_transfer_model() const {
     return GetField<int32_t>(VT_RADIATIVE_TRANSFER_MODEL, 0);
   }
+  bool mutate_radiative_transfer_model(int32_t _radiative_transfer_model) {
+    return SetField<int32_t>(VT_RADIATIVE_TRANSFER_MODEL, _radiative_transfer_model, 0);
+  }
   float aerosol_density_factor() const {
     return GetField<float>(VT_AEROSOL_DENSITY_FACTOR, 0.0f);
   }
+  bool mutate_aerosol_density_factor(float _aerosol_density_factor) {
+    return SetField<float>(VT_AEROSOL_DENSITY_FACTOR, _aerosol_density_factor, 0.0f);
+  }
   float turbulence_factor() const {
     return GetField<float>(VT_TURBULENCE_FACTOR, 0.0f);
+  }
+  bool mutate_turbulence_factor(float _turbulence_factor) {
+    return SetField<float>(VT_TURBULENCE_FACTOR, _turbulence_factor, 0.0f);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -529,6 +599,110 @@ inline flatbuffers::Offset<EosEnvironmentCustomOverrides> CreateEosEnvironmentCu
 
 flatbuffers::Offset<EosEnvironmentCustomOverrides> CreateEosEnvironmentCustomOverrides(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentCustomOverridesT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct EosAtmosphericObservationT : public flatbuffers::NativeTable {
+  typedef EosAtmosphericObservation TableType;
+  bool enable_physical_model;
+  float pressure_hpa;
+  float temperature_k;
+  float relative_humidity;
+  EosAtmosphericObservationT()
+      : enable_physical_model(false),
+        pressure_hpa(0.0f),
+        temperature_k(0.0f),
+        relative_humidity(0.0f) {
+  }
+};
+
+struct EosAtmosphericObservation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef EosAtmosphericObservationT NativeTableType;
+  typedef EosAtmosphericObservationBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ENABLE_PHYSICAL_MODEL = 4,
+    VT_PRESSURE_HPA = 6,
+    VT_TEMPERATURE_K = 8,
+    VT_RELATIVE_HUMIDITY = 10
+  };
+  bool enable_physical_model() const {
+    return GetField<uint8_t>(VT_ENABLE_PHYSICAL_MODEL, 0) != 0;
+  }
+  bool mutate_enable_physical_model(bool _enable_physical_model) {
+    return SetField<uint8_t>(VT_ENABLE_PHYSICAL_MODEL, static_cast<uint8_t>(_enable_physical_model), 0);
+  }
+  float pressure_hpa() const {
+    return GetField<float>(VT_PRESSURE_HPA, 0.0f);
+  }
+  bool mutate_pressure_hpa(float _pressure_hpa) {
+    return SetField<float>(VT_PRESSURE_HPA, _pressure_hpa, 0.0f);
+  }
+  float temperature_k() const {
+    return GetField<float>(VT_TEMPERATURE_K, 0.0f);
+  }
+  bool mutate_temperature_k(float _temperature_k) {
+    return SetField<float>(VT_TEMPERATURE_K, _temperature_k, 0.0f);
+  }
+  float relative_humidity() const {
+    return GetField<float>(VT_RELATIVE_HUMIDITY, 0.0f);
+  }
+  bool mutate_relative_humidity(float _relative_humidity) {
+    return SetField<float>(VT_RELATIVE_HUMIDITY, _relative_humidity, 0.0f);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_ENABLE_PHYSICAL_MODEL) &&
+           VerifyField<float>(verifier, VT_PRESSURE_HPA) &&
+           VerifyField<float>(verifier, VT_TEMPERATURE_K) &&
+           VerifyField<float>(verifier, VT_RELATIVE_HUMIDITY) &&
+           verifier.EndTable();
+  }
+  EosAtmosphericObservationT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(EosAtmosphericObservationT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<EosAtmosphericObservation> Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosAtmosphericObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct EosAtmosphericObservationBuilder {
+  typedef EosAtmosphericObservation Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_enable_physical_model(bool enable_physical_model) {
+    fbb_.AddElement<uint8_t>(EosAtmosphericObservation::VT_ENABLE_PHYSICAL_MODEL, static_cast<uint8_t>(enable_physical_model), 0);
+  }
+  void add_pressure_hpa(float pressure_hpa) {
+    fbb_.AddElement<float>(EosAtmosphericObservation::VT_PRESSURE_HPA, pressure_hpa, 0.0f);
+  }
+  void add_temperature_k(float temperature_k) {
+    fbb_.AddElement<float>(EosAtmosphericObservation::VT_TEMPERATURE_K, temperature_k, 0.0f);
+  }
+  void add_relative_humidity(float relative_humidity) {
+    fbb_.AddElement<float>(EosAtmosphericObservation::VT_RELATIVE_HUMIDITY, relative_humidity, 0.0f);
+  }
+  explicit EosAtmosphericObservationBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  EosAtmosphericObservationBuilder &operator=(const EosAtmosphericObservationBuilder &);
+  flatbuffers::Offset<EosAtmosphericObservation> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<EosAtmosphericObservation>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<EosAtmosphericObservation> CreateEosAtmosphericObservation(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    bool enable_physical_model = false,
+    float pressure_hpa = 0.0f,
+    float temperature_k = 0.0f,
+    float relative_humidity = 0.0f) {
+  EosAtmosphericObservationBuilder builder_(_fbb);
+  builder_.add_relative_humidity(relative_humidity);
+  builder_.add_temperature_k(temperature_k);
+  builder_.add_pressure_hpa(pressure_hpa);
+  builder_.add_enable_physical_model(enable_physical_model);
+  return builder_.Finish();
+}
+
+flatbuffers::Offset<EosAtmosphericObservation> CreateEosAtmosphericObservation(flatbuffers::FlatBufferBuilder &_fbb, const EosAtmosphericObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 struct EosEnvironmentConfigT : public flatbuffers::NativeTable {
   typedef EosEnvironmentConfig TableType;
   int32_t model_type;
@@ -538,13 +712,16 @@ struct EosEnvironmentConfigT : public flatbuffers::NativeTable {
   int32_t radiative_transfer_model_derived;
   float aerosol_density_factor_derived;
   float turbulence_factor_derived;
+  bool has_atmospheric_observation;
+  std::unique_ptr<eos::replay::EosAtmosphericObservationT> atmospheric_observation;
   EosEnvironmentConfigT()
       : model_type(0),
         preset(0),
         has_custom_overrides(false),
         radiative_transfer_model_derived(0),
         aerosol_density_factor_derived(0.0f),
-        turbulence_factor_derived(0.0f) {
+        turbulence_factor_derived(0.0f),
+        has_atmospheric_observation(false) {
   }
 };
 
@@ -558,28 +735,63 @@ struct EosEnvironmentConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
     VT_CUSTOM_OVERRIDES = 10,
     VT_RADIATIVE_TRANSFER_MODEL_DERIVED = 12,
     VT_AEROSOL_DENSITY_FACTOR_DERIVED = 14,
-    VT_TURBULENCE_FACTOR_DERIVED = 16
+    VT_TURBULENCE_FACTOR_DERIVED = 16,
+    VT_HAS_ATMOSPHERIC_OBSERVATION = 18,
+    VT_ATMOSPHERIC_OBSERVATION = 20
   };
   int32_t model_type() const {
     return GetField<int32_t>(VT_MODEL_TYPE, 0);
   }
+  bool mutate_model_type(int32_t _model_type) {
+    return SetField<int32_t>(VT_MODEL_TYPE, _model_type, 0);
+  }
   int32_t preset() const {
     return GetField<int32_t>(VT_PRESET, 0);
+  }
+  bool mutate_preset(int32_t _preset) {
+    return SetField<int32_t>(VT_PRESET, _preset, 0);
   }
   bool has_custom_overrides() const {
     return GetField<uint8_t>(VT_HAS_CUSTOM_OVERRIDES, 0) != 0;
   }
+  bool mutate_has_custom_overrides(bool _has_custom_overrides) {
+    return SetField<uint8_t>(VT_HAS_CUSTOM_OVERRIDES, static_cast<uint8_t>(_has_custom_overrides), 0);
+  }
   const eos::replay::EosEnvironmentCustomOverrides *custom_overrides() const {
     return GetPointer<const eos::replay::EosEnvironmentCustomOverrides *>(VT_CUSTOM_OVERRIDES);
+  }
+  eos::replay::EosEnvironmentCustomOverrides *mutable_custom_overrides() {
+    return GetPointer<eos::replay::EosEnvironmentCustomOverrides *>(VT_CUSTOM_OVERRIDES);
   }
   int32_t radiative_transfer_model_derived() const {
     return GetField<int32_t>(VT_RADIATIVE_TRANSFER_MODEL_DERIVED, 0);
   }
+  bool mutate_radiative_transfer_model_derived(int32_t _radiative_transfer_model_derived) {
+    return SetField<int32_t>(VT_RADIATIVE_TRANSFER_MODEL_DERIVED, _radiative_transfer_model_derived, 0);
+  }
   float aerosol_density_factor_derived() const {
     return GetField<float>(VT_AEROSOL_DENSITY_FACTOR_DERIVED, 0.0f);
   }
+  bool mutate_aerosol_density_factor_derived(float _aerosol_density_factor_derived) {
+    return SetField<float>(VT_AEROSOL_DENSITY_FACTOR_DERIVED, _aerosol_density_factor_derived, 0.0f);
+  }
   float turbulence_factor_derived() const {
     return GetField<float>(VT_TURBULENCE_FACTOR_DERIVED, 0.0f);
+  }
+  bool mutate_turbulence_factor_derived(float _turbulence_factor_derived) {
+    return SetField<float>(VT_TURBULENCE_FACTOR_DERIVED, _turbulence_factor_derived, 0.0f);
+  }
+  bool has_atmospheric_observation() const {
+    return GetField<uint8_t>(VT_HAS_ATMOSPHERIC_OBSERVATION, 0) != 0;
+  }
+  bool mutate_has_atmospheric_observation(bool _has_atmospheric_observation) {
+    return SetField<uint8_t>(VT_HAS_ATMOSPHERIC_OBSERVATION, static_cast<uint8_t>(_has_atmospheric_observation), 0);
+  }
+  const eos::replay::EosAtmosphericObservation *atmospheric_observation() const {
+    return GetPointer<const eos::replay::EosAtmosphericObservation *>(VT_ATMOSPHERIC_OBSERVATION);
+  }
+  eos::replay::EosAtmosphericObservation *mutable_atmospheric_observation() {
+    return GetPointer<eos::replay::EosAtmosphericObservation *>(VT_ATMOSPHERIC_OBSERVATION);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -591,6 +803,9 @@ struct EosEnvironmentConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
            VerifyField<int32_t>(verifier, VT_RADIATIVE_TRANSFER_MODEL_DERIVED) &&
            VerifyField<float>(verifier, VT_AEROSOL_DENSITY_FACTOR_DERIVED) &&
            VerifyField<float>(verifier, VT_TURBULENCE_FACTOR_DERIVED) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_ATMOSPHERIC_OBSERVATION) &&
+           VerifyOffset(verifier, VT_ATMOSPHERIC_OBSERVATION) &&
+           verifier.VerifyTable(atmospheric_observation()) &&
            verifier.EndTable();
   }
   EosEnvironmentConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -623,6 +838,12 @@ struct EosEnvironmentConfigBuilder {
   void add_turbulence_factor_derived(float turbulence_factor_derived) {
     fbb_.AddElement<float>(EosEnvironmentConfig::VT_TURBULENCE_FACTOR_DERIVED, turbulence_factor_derived, 0.0f);
   }
+  void add_has_atmospheric_observation(bool has_atmospheric_observation) {
+    fbb_.AddElement<uint8_t>(EosEnvironmentConfig::VT_HAS_ATMOSPHERIC_OBSERVATION, static_cast<uint8_t>(has_atmospheric_observation), 0);
+  }
+  void add_atmospheric_observation(flatbuffers::Offset<eos::replay::EosAtmosphericObservation> atmospheric_observation) {
+    fbb_.AddOffset(EosEnvironmentConfig::VT_ATMOSPHERIC_OBSERVATION, atmospheric_observation);
+  }
   explicit EosEnvironmentConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -643,14 +864,18 @@ inline flatbuffers::Offset<EosEnvironmentConfig> CreateEosEnvironmentConfig(
     flatbuffers::Offset<eos::replay::EosEnvironmentCustomOverrides> custom_overrides = 0,
     int32_t radiative_transfer_model_derived = 0,
     float aerosol_density_factor_derived = 0.0f,
-    float turbulence_factor_derived = 0.0f) {
+    float turbulence_factor_derived = 0.0f,
+    bool has_atmospheric_observation = false,
+    flatbuffers::Offset<eos::replay::EosAtmosphericObservation> atmospheric_observation = 0) {
   EosEnvironmentConfigBuilder builder_(_fbb);
+  builder_.add_atmospheric_observation(atmospheric_observation);
   builder_.add_turbulence_factor_derived(turbulence_factor_derived);
   builder_.add_aerosol_density_factor_derived(aerosol_density_factor_derived);
   builder_.add_radiative_transfer_model_derived(radiative_transfer_model_derived);
   builder_.add_custom_overrides(custom_overrides);
   builder_.add_preset(preset);
   builder_.add_model_type(model_type);
+  builder_.add_has_atmospheric_observation(has_atmospheric_observation);
   builder_.add_has_custom_overrides(has_custom_overrides);
   return builder_.Finish();
 }
@@ -695,26 +920,50 @@ struct EosHardwareConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   float wavelength_lower_um() const {
     return GetField<float>(VT_WAVELENGTH_LOWER_UM, 0.0f);
   }
+  bool mutate_wavelength_lower_um(float _wavelength_lower_um) {
+    return SetField<float>(VT_WAVELENGTH_LOWER_UM, _wavelength_lower_um, 0.0f);
+  }
   float wavelength_upper_um() const {
     return GetField<float>(VT_WAVELENGTH_UPPER_UM, 0.0f);
+  }
+  bool mutate_wavelength_upper_um(float _wavelength_upper_um) {
+    return SetField<float>(VT_WAVELENGTH_UPPER_UM, _wavelength_upper_um, 0.0f);
   }
   float optical_aperture_m() const {
     return GetField<float>(VT_OPTICAL_APERTURE_M, 0.0f);
   }
+  bool mutate_optical_aperture_m(float _optical_aperture_m) {
+    return SetField<float>(VT_OPTICAL_APERTURE_M, _optical_aperture_m, 0.0f);
+  }
   float focal_length_m() const {
     return GetField<float>(VT_FOCAL_LENGTH_M, 0.0f);
+  }
+  bool mutate_focal_length_m(float _focal_length_m) {
+    return SetField<float>(VT_FOCAL_LENGTH_M, _focal_length_m, 0.0f);
   }
   float detector_detectivity_cm_sqrt_hz_per_w() const {
     return GetField<float>(VT_DETECTOR_DETECTIVITY_CM_SQRT_HZ_PER_W, 0.0f);
   }
+  bool mutate_detector_detectivity_cm_sqrt_hz_per_w(float _detector_detectivity_cm_sqrt_hz_per_w) {
+    return SetField<float>(VT_DETECTOR_DETECTIVITY_CM_SQRT_HZ_PER_W, _detector_detectivity_cm_sqrt_hz_per_w, 0.0f);
+  }
   float detector_area_cm2() const {
     return GetField<float>(VT_DETECTOR_AREA_CM2, 0.0f);
+  }
+  bool mutate_detector_area_cm2(float _detector_area_cm2) {
+    return SetField<float>(VT_DETECTOR_AREA_CM2, _detector_area_cm2, 0.0f);
   }
   float min_detection_depression_deg() const {
     return GetField<float>(VT_MIN_DETECTION_DEPRESSION_DEG, 0.0f);
   }
+  bool mutate_min_detection_depression_deg(float _min_detection_depression_deg) {
+    return SetField<float>(VT_MIN_DETECTION_DEPRESSION_DEG, _min_detection_depression_deg, 0.0f);
+  }
   float max_detection_depression_deg() const {
     return GetField<float>(VT_MAX_DETECTION_DEPRESSION_DEG, 0.0f);
+  }
+  bool mutate_max_detection_depression_deg(float _max_detection_depression_deg) {
+    return SetField<float>(VT_MAX_DETECTION_DEPRESSION_DEG, _max_detection_depression_deg, 0.0f);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -819,14 +1068,26 @@ struct EosSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const eos::replay::EosHardwareConfig *hardware() const {
     return GetPointer<const eos::replay::EosHardwareConfig *>(VT_HARDWARE);
   }
+  eos::replay::EosHardwareConfig *mutable_hardware() {
+    return GetPointer<eos::replay::EosHardwareConfig *>(VT_HARDWARE);
+  }
   const eos::replay::EosMissionConfig *mission() const {
     return GetPointer<const eos::replay::EosMissionConfig *>(VT_MISSION);
+  }
+  eos::replay::EosMissionConfig *mutable_mission() {
+    return GetPointer<eos::replay::EosMissionConfig *>(VT_MISSION);
   }
   const eos::replay::EosPolicyConfig *policy() const {
     return GetPointer<const eos::replay::EosPolicyConfig *>(VT_POLICY);
   }
+  eos::replay::EosPolicyConfig *mutable_policy() {
+    return GetPointer<eos::replay::EosPolicyConfig *>(VT_POLICY);
+  }
   const eos::replay::EosEnvironmentConfig *environment() const {
     return GetPointer<const eos::replay::EosEnvironmentConfig *>(VT_ENVIRONMENT);
+  }
+  eos::replay::EosEnvironmentConfig *mutable_environment() {
+    return GetPointer<eos::replay::EosEnvironmentConfig *>(VT_ENVIRONMENT);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -945,47 +1206,92 @@ struct EosRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
   bool has_mission() const {
     return GetField<uint8_t>(VT_HAS_MISSION, 0) != 0;
   }
+  bool mutate_has_mission(bool _has_mission) {
+    return SetField<uint8_t>(VT_HAS_MISSION, static_cast<uint8_t>(_has_mission), 0);
+  }
   const eos::replay::EosMissionConfig *mission() const {
     return GetPointer<const eos::replay::EosMissionConfig *>(VT_MISSION);
+  }
+  eos::replay::EosMissionConfig *mutable_mission() {
+    return GetPointer<eos::replay::EosMissionConfig *>(VT_MISSION);
   }
   bool has_policy() const {
     return GetField<uint8_t>(VT_HAS_POLICY, 0) != 0;
   }
+  bool mutate_has_policy(bool _has_policy) {
+    return SetField<uint8_t>(VT_HAS_POLICY, static_cast<uint8_t>(_has_policy), 0);
+  }
   const eos::replay::EosPolicyConfig *policy() const {
     return GetPointer<const eos::replay::EosPolicyConfig *>(VT_POLICY);
+  }
+  eos::replay::EosPolicyConfig *mutable_policy() {
+    return GetPointer<eos::replay::EosPolicyConfig *>(VT_POLICY);
   }
   bool has_environment() const {
     return GetField<uint8_t>(VT_HAS_ENVIRONMENT, 0) != 0;
   }
+  bool mutate_has_environment(bool _has_environment) {
+    return SetField<uint8_t>(VT_HAS_ENVIRONMENT, static_cast<uint8_t>(_has_environment), 0);
+  }
   const eos::replay::EosEnvironmentConfig *environment() const {
     return GetPointer<const eos::replay::EosEnvironmentConfig *>(VT_ENVIRONMENT);
+  }
+  eos::replay::EosEnvironmentConfig *mutable_environment() {
+    return GetPointer<eos::replay::EosEnvironmentConfig *>(VT_ENVIRONMENT);
   }
   bool has_scenario_config_in_environment() const {
     return GetField<uint8_t>(VT_HAS_SCENARIO_CONFIG_IN_ENVIRONMENT, 0) != 0;
   }
+  bool mutate_has_scenario_config_in_environment(bool _has_scenario_config_in_environment) {
+    return SetField<uint8_t>(VT_HAS_SCENARIO_CONFIG_IN_ENVIRONMENT, static_cast<uint8_t>(_has_scenario_config_in_environment), 0);
+  }
   bool has_work_mode() const {
     return GetField<uint8_t>(VT_HAS_WORK_MODE, 0) != 0;
+  }
+  bool mutate_has_work_mode(bool _has_work_mode) {
+    return SetField<uint8_t>(VT_HAS_WORK_MODE, static_cast<uint8_t>(_has_work_mode), 0);
   }
   int32_t work_mode() const {
     return GetField<int32_t>(VT_WORK_MODE, 0);
   }
+  bool mutate_work_mode(int32_t _work_mode) {
+    return SetField<int32_t>(VT_WORK_MODE, _work_mode, 0);
+  }
   bool has_scan_rate_deg_per_sec() const {
     return GetField<uint8_t>(VT_HAS_SCAN_RATE_DEG_PER_SEC, 0) != 0;
+  }
+  bool mutate_has_scan_rate_deg_per_sec(bool _has_scan_rate_deg_per_sec) {
+    return SetField<uint8_t>(VT_HAS_SCAN_RATE_DEG_PER_SEC, static_cast<uint8_t>(_has_scan_rate_deg_per_sec), 0);
   }
   float scan_rate_deg_per_sec() const {
     return GetField<float>(VT_SCAN_RATE_DEG_PER_SEC, 0.0f);
   }
+  bool mutate_scan_rate_deg_per_sec(float _scan_rate_deg_per_sec) {
+    return SetField<float>(VT_SCAN_RATE_DEG_PER_SEC, _scan_rate_deg_per_sec, 0.0f);
+  }
   bool has_frame_rate_hz() const {
     return GetField<uint8_t>(VT_HAS_FRAME_RATE_HZ, 0) != 0;
+  }
+  bool mutate_has_frame_rate_hz(bool _has_frame_rate_hz) {
+    return SetField<uint8_t>(VT_HAS_FRAME_RATE_HZ, static_cast<uint8_t>(_has_frame_rate_hz), 0);
   }
   float frame_rate_hz() const {
     return GetField<float>(VT_FRAME_RATE_HZ, 0.0f);
   }
+  bool mutate_frame_rate_hz(float _frame_rate_hz) {
+    return SetField<float>(VT_FRAME_RATE_HZ, _frame_rate_hz, 0.0f);
+  }
   bool has_sensor_enabled() const {
     return GetField<uint8_t>(VT_HAS_SENSOR_ENABLED, 0) != 0;
   }
+  bool mutate_has_sensor_enabled(bool _has_sensor_enabled) {
+    return SetField<uint8_t>(VT_HAS_SENSOR_ENABLED, static_cast<uint8_t>(_has_sensor_enabled), 0);
+  }
   bool sensor_enabled() const {
     return GetField<uint8_t>(VT_SENSOR_ENABLED, 0) != 0;
+  }
+  bool mutate_sensor_enabled(bool _sensor_enabled) {
+    return SetField<uint8_t>(VT_SENSOR_ENABLED, static_cast<uint8_t>(_sensor_enabled), 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1294,6 +1600,41 @@ inline flatbuffers::Offset<EosEnvironmentCustomOverrides> CreateEosEnvironmentCu
       _turbulence_factor);
 }
 
+inline EosAtmosphericObservationT *EosAtmosphericObservation::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<eos::replay::EosAtmosphericObservationT> _o = std::unique_ptr<eos::replay::EosAtmosphericObservationT>(new EosAtmosphericObservationT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void EosAtmosphericObservation::UnPackTo(EosAtmosphericObservationT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = enable_physical_model(); _o->enable_physical_model = _e; }
+  { auto _e = pressure_hpa(); _o->pressure_hpa = _e; }
+  { auto _e = temperature_k(); _o->temperature_k = _e; }
+  { auto _e = relative_humidity(); _o->relative_humidity = _e; }
+}
+
+inline flatbuffers::Offset<EosAtmosphericObservation> EosAtmosphericObservation::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosAtmosphericObservationT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateEosAtmosphericObservation(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<EosAtmosphericObservation> CreateEosAtmosphericObservation(flatbuffers::FlatBufferBuilder &_fbb, const EosAtmosphericObservationT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EosAtmosphericObservationT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _enable_physical_model = _o->enable_physical_model;
+  auto _pressure_hpa = _o->pressure_hpa;
+  auto _temperature_k = _o->temperature_k;
+  auto _relative_humidity = _o->relative_humidity;
+  return eos::replay::CreateEosAtmosphericObservation(
+      _fbb,
+      _enable_physical_model,
+      _pressure_hpa,
+      _temperature_k,
+      _relative_humidity);
+}
+
 inline EosEnvironmentConfigT *EosEnvironmentConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
   std::unique_ptr<eos::replay::EosEnvironmentConfigT> _o = std::unique_ptr<eos::replay::EosEnvironmentConfigT>(new EosEnvironmentConfigT());
   UnPackTo(_o.get(), _resolver);
@@ -1310,6 +1651,8 @@ inline void EosEnvironmentConfig::UnPackTo(EosEnvironmentConfigT *_o, const flat
   { auto _e = radiative_transfer_model_derived(); _o->radiative_transfer_model_derived = _e; }
   { auto _e = aerosol_density_factor_derived(); _o->aerosol_density_factor_derived = _e; }
   { auto _e = turbulence_factor_derived(); _o->turbulence_factor_derived = _e; }
+  { auto _e = has_atmospheric_observation(); _o->has_atmospheric_observation = _e; }
+  { auto _e = atmospheric_observation(); if (_e) _o->atmospheric_observation = std::unique_ptr<eos::replay::EosAtmosphericObservationT>(_e->UnPack(_resolver)); }
 }
 
 inline flatbuffers::Offset<EosEnvironmentConfig> EosEnvironmentConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EosEnvironmentConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -1327,6 +1670,8 @@ inline flatbuffers::Offset<EosEnvironmentConfig> CreateEosEnvironmentConfig(flat
   auto _radiative_transfer_model_derived = _o->radiative_transfer_model_derived;
   auto _aerosol_density_factor_derived = _o->aerosol_density_factor_derived;
   auto _turbulence_factor_derived = _o->turbulence_factor_derived;
+  auto _has_atmospheric_observation = _o->has_atmospheric_observation;
+  auto _atmospheric_observation = _o->atmospheric_observation ? CreateEosAtmosphericObservation(_fbb, _o->atmospheric_observation.get(), _rehasher) : 0;
   return eos::replay::CreateEosEnvironmentConfig(
       _fbb,
       _model_type,
@@ -1335,7 +1680,9 @@ inline flatbuffers::Offset<EosEnvironmentConfig> CreateEosEnvironmentConfig(flat
       _custom_overrides,
       _radiative_transfer_model_derived,
       _aerosol_density_factor_derived,
-      _turbulence_factor_derived);
+      _turbulence_factor_derived,
+      _has_atmospheric_observation,
+      _atmospheric_observation);
 }
 
 inline EosHardwareConfigT *EosHardwareConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
@@ -1494,6 +1841,10 @@ inline const eos::replay::EosSessionConfig *GetEosSessionConfig(const void *buf)
 
 inline const eos::replay::EosSessionConfig *GetSizePrefixedEosSessionConfig(const void *buf) {
   return flatbuffers::GetSizePrefixedRoot<eos::replay::EosSessionConfig>(buf);
+}
+
+inline EosSessionConfig *GetMutableEosSessionConfig(void *buf) {
+  return flatbuffers::GetMutableRoot<EosSessionConfig>(buf);
 }
 
 inline const char *EosSessionConfigIdentifier() {

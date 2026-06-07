@@ -220,6 +220,11 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
       foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
   config.environment.scenario_config.custom_overrides.aerosol_density_factor = 1.5f;
   config.environment.scenario_config.custom_overrides.turbulence_factor = 2.0f;
+  config.environment.scenario_config.has_atmospheric_observation = true;
+  config.environment.scenario_config.atmospheric_observation.enable_physical_model = true;
+  config.environment.scenario_config.atmospheric_observation.pressure_hpa = 1010.0f;
+  config.environment.scenario_config.atmospheric_observation.temperature_k = 295.0f;
+  config.environment.scenario_config.atmospheric_observation.relative_humidity = 0.65f;
       true;
 
   const std::string bytes = EncodeEosSessionConfig(config);
@@ -253,6 +258,11 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
             foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.custom_overrides.aerosol_density_factor,
                   1.5f);
+  EXPECT_TRUE(decoded.environment.scenario_config.has_atmospheric_observation);
+  EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_observation.enable_physical_model);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_observation.pressure_hpa, 1010.0f);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_observation.temperature_k, 295.0f);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_observation.relative_humidity, 0.65f);
 }
 
 // ---------------------------------------------------------------------------

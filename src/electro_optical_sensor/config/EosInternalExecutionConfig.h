@@ -61,6 +61,8 @@ struct EnvironmentConfig {
       foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
   float aerosol_density_factor{1.0f};
   float turbulence_factor{1.0f};
+  bool has_atmospheric_observation{false};
+  oneq::environment::AtmosphericObservation atmospheric_observation{};
 };
 
 /// 探测判决配置 — 直接别名到公开类型。
