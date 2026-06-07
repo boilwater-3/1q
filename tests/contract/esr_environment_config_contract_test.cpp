@@ -28,7 +28,7 @@ TEST(EsrEnvironmentConfigContractTest, BuildModelConfigFromScenarioMapsFields) {
   scenario_config.atmospheric_context.has_day_of_year = true;
   scenario_config.atmospheric_context.day_of_year = 215;
 
-  const environment::EsrEnvironmentScenarioConfig model_config =
+  const environment::EsrEnvironmentModelConfig model_config =
       environment::BuildModelConfigFromScenario(scenario_config);
 
   EXPECT_EQ(model_config.preset, config::EsrEnvironmentPreset::kDenseClutter);
@@ -41,6 +41,13 @@ TEST(EsrEnvironmentConfigContractTest, BuildModelConfigFromScenarioMapsFields) {
 TEST(EsrEnvironmentConfigContractTest, DefaultConfigOwnsScenarioConfig) {
   const config::EsrEnvironmentConfig config_default;
   EXPECT_EQ(config_default.scenario_config.preset, config::EsrEnvironmentPreset::kStandard);
+}
+
+TEST(EsrEnvironmentConfigContractTest, ModelConfigIsDistinctFromScenarioConfig) {
+  const bool is_same =
+      std::is_same<environment::EsrEnvironmentModelConfig,
+                   environment::EsrEnvironmentScenarioConfig>::value;
+  EXPECT_FALSE(is_same);
 }
 
 }  // namespace

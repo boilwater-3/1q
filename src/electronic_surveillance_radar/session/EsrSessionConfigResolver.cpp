@@ -184,8 +184,8 @@ EsrInternalExecutionConfig MapSessionToInternal(const config::EsrSessionConfig& 
   exec.runtime.track.confidence_alpha = 0.3f;
   exec.runtime.track.output_tentative = true;
 
-  // Environment (from scenario config)
-  exec.environment = session_config.environment.scenario_config;
+  // Environment: scenario → model config explicit mapping
+  exec.environment = environment::BuildModelConfigFromScenario(session_config.environment.scenario_config);
 
   return exec;
 }

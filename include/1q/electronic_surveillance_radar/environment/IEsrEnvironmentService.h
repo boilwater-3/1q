@@ -33,9 +33,9 @@ class ONEQ_API IEsrEnvironmentService {
 
   /**
    * @brief 更新环境模型配置。
-   * @param[in] config 新配置。
+   * @param[in] config 新的内部模型配置。
    */
-  virtual void UpdateModelConfig(EsrEnvironmentScenarioConfig config) = 0;
+  virtual void UpdateModelConfig(EsrEnvironmentModelConfig config) = 0;
 };
 
 }  // namespace environment

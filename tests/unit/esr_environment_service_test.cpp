@@ -65,9 +65,10 @@ TEST(EsrEnvironmentServiceTest, UnknownTechniqueWithZeroRiskInfersSuppressionOnl
 }
 
 TEST(EsrEnvironmentServiceTest, DeceptionOnlySourceDoesNotTriggerSuppressionDetection) {
-  EsrEnvironmentScenarioConfig config;
-  config.preset = config::EsrEnvironmentPreset::kJammed;
-  EsrEnvironmentService service(config);
+  EsrEnvironmentScenarioConfig scenario;
+  scenario.preset = config::EsrEnvironmentPreset::kJammed;
+  EsrEnvironmentModelConfig model_config = BuildModelConfigFromScenario(scenario);
+  EsrEnvironmentService service(model_config);
 
   EsrEnvironmentCycleContext context;
   context.cycle_index = 3U;
@@ -116,10 +117,11 @@ TEST(EsrEnvironmentServiceTest, AtmosphericPhysicsCanIncreasePropagationLoss) {
 }
 
 TEST(EsrEnvironmentServiceTest, ConfigAtmosphericPhysicsAppliesWhenSceneDoesNotOverride) {
-  EsrEnvironmentScenarioConfig config;
-  config.atmospheric_physics.enable_physical_model = true;
-  config.atmospheric_physics.relative_humidity = 0.75f;
-  EsrEnvironmentService service(config);
+  EsrEnvironmentScenarioConfig scenario;
+  scenario.atmospheric_physics.enable_physical_model = true;
+  scenario.atmospheric_physics.relative_humidity = 0.75f;
+  EsrEnvironmentModelConfig model_config = BuildModelConfigFromScenario(scenario);
+  EsrEnvironmentService service(model_config);
 
   EsrEnvironmentCycleContext context;
   context.cycle_index = 7U;
@@ -134,25 +136,25 @@ TEST(EsrEnvironmentServiceTest, ConfigAtmosphericPhysicsAppliesWhenSceneDoesNotO
 }
 
 TEST(EsrEnvironmentServiceTest, AtmosphericContextCanChangePropagationLoss) {
-  EsrEnvironmentScenarioConfig baseline_config;
-  baseline_config.atmospheric_physics.enable_physical_model = true;
-  baseline_config.atmospheric_physics.pressure_hpa = 1013.25f;
-  baseline_config.atmospheric_physics.temperature_k = 288.15f;
-  baseline_config.atmospheric_physics.relative_humidity = 0.5f;
-  baseline_config.atmospheric_context.has_day_of_year = true;
-  baseline_config.atmospheric_context.day_of_year = 90;
-  baseline_config.atmospheric_context.has_k_factor = true;
-  baseline_config.atmospheric_context.k_factor = 1.30f;
-  baseline_config.atmospheric_context.solar_flux_f107a = 140.0f;
-  baseline_config.atmospheric_context.solar_flux_f107 = 140.0f;
-  baseline_config.atmospheric_context.geomagnetic_ap = 5.0f;
+  EsrEnvironmentScenarioConfig baseline_scenario;
+  baseline_scenario.atmospheric_physics.enable_physical_model = true;
+  baseline_scenario.atmospheric_physics.pressure_hpa = 1013.25f;
+  baseline_scenario.atmospheric_physics.temperature_k = 288.15f;
+  baseline_scenario.atmospheric_physics.relative_humidity = 0.5f;
+  baseline_scenario.atmospheric_context.has_day_of_year = true;
+  baseline_scenario.atmospheric_context.day_of_year = 90;
+  baseline_scenario.atmospheric_context.has_k_factor = true;
+  baseline_scenario.atmospheric_context.k_factor = 1.30f;
+  baseline_scenario.atmospheric_context.solar_flux_f107a = 140.0f;
+  baseline_scenario.atmospheric_context.solar_flux_f107 = 140.0f;
+  baseline_scenario.atmospheric_context.geomagnetic_ap = 5.0f;
 
-  EsrEnvironmentScenarioConfig stressed_config = baseline_config;
-  stressed_config.atmospheric_context.day_of_year = 280;
-  stressed_config.atmospheric_context.k_factor = 1.45f;
-  stressed_config.atmospheric_context.solar_flux_f107a = 220.0f;
-  stressed_config.atmospheric_context.solar_flux_f107 = 220.0f;
-  stressed_config.atmospheric_context.geomagnetic_ap = 120.0f;
+  EsrEnvironmentScenarioConfig stressed_scenario = baseline_scenario;
+  stressed_scenario.atmospheric_context.day_of_year = 280;
+  stressed_scenario.atmospheric_context.k_factor = 1.45f;
+  stressed_scenario.atmospheric_context.solar_flux_f107a = 220.0f;
+  stressed_scenario.atmospheric_context.solar_flux_f107 = 220.0f;
+  stressed_scenario.atmospheric_context.geomagnetic_ap = 120.0f;
 
   EsrEnvironmentCycleContext context;
   context.cycle_index = 8U;
@@ -162,11 +164,11 @@ TEST(EsrEnvironmentServiceTest, AtmosphericContextCanChangePropagationLoss) {
   context.observation.atmospheric_observation.precipitation_rate_mmph = 0.0f;
   context.observation.atmospheric_observation.visibility_km = 30.0f;
 
-  EsrEnvironmentService baseline_service(baseline_config);
+  EsrEnvironmentService baseline_service(BuildModelConfigFromScenario(baseline_scenario));
   baseline_service.BeginCycle(context);
   const EsrEnvironmentSnapshot baseline_snapshot = baseline_service.SampleEnvironment();
 
-  EsrEnvironmentService stressed_service(stressed_config);
+  EsrEnvironmentService stressed_service(BuildModelConfigFromScenario(stressed_scenario));
   stressed_service.BeginCycle(context);
   const EsrEnvironmentSnapshot stressed_snapshot = stressed_service.SampleEnvironment();
 

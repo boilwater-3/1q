@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstddef>
 
-#include "common/atmosphere/AtmospherePhysics.h"
+#include "1q/environment/PropagationPhysics.h"
 #include "electronic_surveillance_radar/utils/EsrSharedUtils.h"
 
 namespace electronic_surveillance_radar {
@@ -40,7 +40,7 @@ float ResolveWeatherLossDb(const EsrAtmosphericObservation& observation) {
 }
 
 float ResolveClutterNoiseW(const EsrEnvironmentObservation& observation,
-                           const EsrEnvironmentScenarioConfig& config) {
+                           const EsrEnvironmentModelConfig& config) {
   float reference_noise = 1.0e-12f;
   switch (config.preset) {
     case config::EsrEnvironmentPreset::kLowClutter:
@@ -66,7 +66,7 @@ float ResolveClutterNoiseW(const EsrEnvironmentObservation& observation,
   }
 }
 
-float ResolveJammingDetectionThresholdW(const EsrEnvironmentScenarioConfig& config) {
+float ResolveJammingDetectionThresholdW(const EsrEnvironmentModelConfig& config) {
   switch (config.preset) {
     case config::EsrEnvironmentPreset::kLowClutter:
       return 8.0e-10f;
@@ -99,11 +99,11 @@ EsrJammerSource NormalizeJammerSource(const EsrJammerSource& raw_source) {
 /**
  * @brief 根据周期上下文构造冻结快照。
  * @param[in] cycle_context 周期上下文。
- * @param[in] config 环境配置。
+ * @param[in] config 环境模型配置。
  * @return 冻结环境快照。
  */
 EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_context,
-                                     const EsrEnvironmentScenarioConfig& config) {
+                                     const EsrEnvironmentModelConfig& config) {
   EsrEnvironmentSnapshot snapshot;
   snapshot.cycle_index = cycle_context.cycle_index;
   snapshot.dt_sec = cycle_context.dt_sec;
@@ -114,25 +114,19 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
       config.atmospheric_context;
   float physical_loss_db = 0.0f;
   if (atmospheric_physics.enable_physical_model) {
-    oneq::internal::atmosphere::AtmosphericObservationRef obs;
+    oneq::environment::AtmosphericObservation obs;
     obs.pressure_hpa = atmospheric_physics.pressure_hpa;
     obs.temperature_k = atmospheric_physics.temperature_k;
     obs.relative_humidity = atmospheric_physics.relative_humidity;
-    obs.k_factor = ::electronic_surveillance_radar::environment::ResolveEffectiveKFactor(
-        atmospheric_context);
-    obs.day_of_year =
-        ::electronic_surveillance_radar::environment::ResolveEffectiveDayOfYear(
-            atmospheric_context);
-    obs.solar_flux_f107a = atmospheric_context.solar_flux_f107a;
-    obs.solar_flux_f107 = atmospheric_context.solar_flux_f107;
-    obs.geomagnetic_ap = atmospheric_context.geomagnetic_ap;
-    const auto physics_inputs = oneq::internal::atmosphere::BuildPropagationInputs(
-        kDefaultAtmosphereFrequencyHz, kDefaultAtmospherePathLengthM,
-        kDefaultAtmosphereRadarAltitudeM, kDefaultAtmosphereTargetAltitudeM,
-        kDefaultAtmosphereElevationDeg, obs);
+    oneq::environment::PropagationInputs inputs =
+        oneq::environment::BuildPropagationInputs(
+            kDefaultAtmosphereFrequencyHz, kDefaultAtmospherePathLengthM,
+            kDefaultAtmosphereRadarAltitudeM, kDefaultAtmosphereTargetAltitudeM,
+            kDefaultAtmosphereElevationDeg, obs);
+    inputs.has_space_weather_context = true;
+    inputs.space_weather_context = atmospheric_context;
     physical_loss_db =
-        oneq::internal::atmosphere::EvaluateAtmosphericPropagation(physics_inputs)
-            .total_physics_loss_db;
+        oneq::environment::EvaluatePropagation(inputs).total_physics_loss_db;
   }
   const float semantic_loss_db = ResolvePropagationProfileLossDb(observation.propagation_profile) +
                                  ResolveWeatherLossDb(observation.atmospheric_observation);
@@ -172,7 +166,7 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
 
 }  // namespace
 
-EsrEnvironmentService::EsrEnvironmentService(EsrEnvironmentScenarioConfig config) : config_(config) {}
+EsrEnvironmentService::EsrEnvironmentService(EsrEnvironmentModelConfig config) : config_(config) {}
 
 void EsrEnvironmentService::BeginCycle(const EsrEnvironmentCycleContext& cycle_context) {
   frozen_snapshot_ = BuildSnapshot(cycle_context, config_);
@@ -180,7 +174,7 @@ void EsrEnvironmentService::BeginCycle(const EsrEnvironmentCycleContext& cycle_c
 
 EsrEnvironmentSnapshot EsrEnvironmentService::SampleEnvironment() const { return frozen_snapshot_; }
 
-void EsrEnvironmentService::UpdateModelConfig(EsrEnvironmentScenarioConfig config) {
+void EsrEnvironmentService::UpdateModelConfig(EsrEnvironmentModelConfig config) {
   config_ = config;
 }
 

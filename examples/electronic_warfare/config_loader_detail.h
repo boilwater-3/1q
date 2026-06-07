@@ -2,6 +2,7 @@
 #define EXAMPLES_ESR_CONFIG_LOADER_DETAIL_H_
 
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
+#include "1q/environment/AtmosphericTypes.h"
 #include "1q/foundation/json_reader.h"
 #include "config_loader_common.h"
 
@@ -63,7 +64,7 @@ inline void LoadEsrPolicy(const oneq::JsonValue& j, esr_cfg::EsrPolicyConfig* v)
 }
 
 inline void LoadEsrAtmosObs(const oneq::JsonValue& j,
-                            oneq::foundation::AtmosphericObservation* v) {
+                            oneq::environment::AtmosphericObservation* v) {
   if (j.IsNull()) return;
   v->enable_physical_model = j["enable_physical_model"].AsBool();
   v->pressure_hpa = static_cast<float>(j["pressure_hpa"].AsDouble());
@@ -72,7 +73,7 @@ inline void LoadEsrAtmosObs(const oneq::JsonValue& j,
 }
 
 inline void LoadEsrAtmosCtx(const oneq::JsonValue& j,
-                            oneq::foundation::SpaceWeatherContext* v) {
+                            oneq::environment::SpaceWeatherContext* v) {
   if (j.IsNull()) return;
   v->solar_flux_f107a = static_cast<float>(j["solar_flux_f107a"].AsDouble());
   v->solar_flux_f107 = static_cast<float>(j["solar_flux_f107"].AsDouble());
