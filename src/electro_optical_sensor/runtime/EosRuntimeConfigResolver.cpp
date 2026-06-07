@@ -104,7 +104,8 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
   resolved.next_config = current_config;
   const bool has_requested_update =
       patch.has_mission || patch.has_policy || patch.has_environment ||
-      patch.has_work_mode || patch.has_scan_rate_deg_per_sec || patch.has_frame_rate_hz;
+      patch.has_work_mode || patch.has_scan_rate_deg_per_sec || patch.has_frame_rate_hz ||
+      patch.has_sensor_enabled;
 
   if (patch.has_mission) {
     if (!IsValidMission(patch.mission)) {
@@ -167,6 +168,10 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
       return RejectPatch(current_config, true);
     }
     resolved.next_config.scan.frame_rate_hz = patch.frame_rate_hz;
+  }
+
+  if (patch.has_sensor_enabled) {
+    resolved.next_config.sensor_enabled = patch.sensor_enabled;
   }
 
   resolved.has_requested_update = has_requested_update;

@@ -13,11 +13,9 @@ namespace session {
 namespace {
 
 EsrSessionComposition BuildCompositionBase(const config::EsrSessionConfig& config) {
-  ResolvedEsrSessionConfig resolved = ResolveEsrSessionConfig(config);
+  EsrInternalExecutionConfig exec = MapSessionToInternal(config);
   EsrSessionComposition composition;
-  composition.runtime_pipeline_config = resolved.pipeline_config;
-  composition.runtime_config = resolved.runtime_config;
-  composition.runtime_environment_model_config = resolved.environment_model_config;
+  composition.execution_config = std::move(exec);
   return composition;
 }
 
@@ -25,8 +23,10 @@ void SyncPipelineConfig(EsrSessionComposition* composition) {
   if (composition == nullptr || composition->pipeline == nullptr) {
     return;
   }
-  composition->pipeline->UpdateConfig(composition->runtime_pipeline_config);
-  composition->pipeline->UpdateRuntimeConfig(composition->runtime_config);
+  composition->pipeline->UpdateConfig(
+      BuildPipelineConfig(composition->execution_config));
+  composition->pipeline->UpdateRuntimeConfig(
+      BuildRuntimeConfig(composition->execution_config));
 }
 
 void SyncEnvironmentModelConfig(EsrSessionComposition* composition) {
@@ -34,7 +34,7 @@ void SyncEnvironmentModelConfig(EsrSessionComposition* composition) {
     return;
   }
   composition->environment_service->UpdateModelConfig(
-      composition->runtime_environment_model_config);
+      composition->execution_config.environment);
 }
 
 }  // namespace
@@ -42,9 +42,9 @@ void SyncEnvironmentModelConfig(EsrSessionComposition* composition) {
 EsrSessionComposition EsrSessionCompositionRoot::ComposeDefault(const config::EsrSessionConfig& config) {
   EsrSessionComposition composition = BuildCompositionBase(config);
   composition.owned_pipeline.reset(new pipeline::InterceptPipeline(
-      composition.runtime_pipeline_config, composition.runtime_config));
+      composition.execution_config));
   composition.owned_environment_service.reset(
-      new environment::EsrEnvironmentService(composition.runtime_environment_model_config));
+      new environment::EsrEnvironmentService(composition.execution_config.environment));
   composition.owned_controller.reset(new extension::EsrController(
       *composition.owned_pipeline, *composition.owned_environment_service));
   composition.pipeline = composition.owned_pipeline.get();
@@ -57,7 +57,7 @@ EsrSessionComposition EsrSessionCompositionRoot::ComposeWithPipeline(
     const config::EsrSessionConfig& config, extension::IInterceptPipeline& pipeline_ref) {
   EsrSessionComposition composition = BuildCompositionBase(config);
   composition.owned_environment_service.reset(
-      new environment::EsrEnvironmentService(composition.runtime_environment_model_config));
+      new environment::EsrEnvironmentService(composition.execution_config.environment));
   composition.owned_controller.reset(
       new extension::EsrController(pipeline_ref, *composition.owned_environment_service));
   composition.pipeline = &pipeline_ref;
@@ -71,7 +71,7 @@ EsrSessionComposition EsrSessionCompositionRoot::ComposeWithEnvironmentService(
     const config::EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service_ref) {
   EsrSessionComposition composition = BuildCompositionBase(config);
   composition.owned_pipeline.reset(new pipeline::InterceptPipeline(
-      composition.runtime_pipeline_config, composition.runtime_config));
+      composition.execution_config));
   composition.owned_controller.reset(
       new extension::EsrController(*composition.owned_pipeline, environment_service_ref));
   composition.pipeline = composition.owned_pipeline.get();
@@ -106,5 +106,4 @@ EsrSessionComposition EsrSessionCompositionRoot::ComposeAllExternal(
 }
 
 }  // namespace session
-
 }  // namespace electronic_surveillance_radar

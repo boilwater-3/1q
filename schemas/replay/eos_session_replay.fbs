@@ -92,4 +92,6 @@ table EosRuntimeConfigPatch {
   scan_rate_deg_per_sec:    float;
   has_frame_rate_hz:        bool;
   frame_rate_hz:            float;
+  has_sensor_enabled:       bool;
+  sensor_enabled:           bool;
 }

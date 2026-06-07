@@ -73,6 +73,7 @@ using DetectionConfig = config::EosDetectionPolicyConfig;
  * 各 pipeline 函数应只接收其所需的子配置引用，而非整个 EosInternalExecutionConfig。
  */
 struct EosInternalExecutionConfig {
+  bool sensor_enabled{true}; /**< 全局设备开关 */
   OpticsConfig optics{};
   ScanConfig scan{};
   DetectorConfig detector{};

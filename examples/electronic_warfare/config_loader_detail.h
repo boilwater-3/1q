@@ -50,8 +50,6 @@ inline void LoadEsrMission(const oneq::JsonValue& j, esr_cfg::EsrMissionConfig* 
 inline void LoadEsrDetection(const oneq::JsonValue& j,
                              esr_cfg::EsrDetectionPolicyConfig* v) {
   if (j.IsNull()) return;
-  v->profile = EsrDetectFromString(j["profile"].AsString());
-  v->use_profile_defaults = j["use_profile_defaults"].AsBool();
   v->min_detect_snr_db = static_cast<float>(j["min_detect_snr_db"].AsDouble());
   v->pfa = static_cast<float>(j["pfa"].AsDouble());
   v->pulse_count = static_cast<std::uint32_t>(j["pulse_count"].AsInt());

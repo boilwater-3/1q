@@ -47,7 +47,7 @@ EsrCycleInput MakeBaseInput() {
 config::EsrSessionConfig MakeSessionConfig() {
   config::EsrSessionConfig config = esr_config::EsrSessionConfigBuilder()
                                 .Detection()
-                                .WithDetectionProfile(esr_config::EsrDetectionProfile::kBalanced)
+                                .WithMinDetectSnrDb(6.0f)
                                 .End()
                                 .Environment()
                                 .WithEnvironmentPreset(esr_config::EsrEnvironmentPreset::kStandard)

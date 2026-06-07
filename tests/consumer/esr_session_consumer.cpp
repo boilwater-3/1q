@@ -30,7 +30,7 @@ int main() {
   esr::config::EsrSessionConfig config =
       esr::config::EsrSessionConfigBuilder()
           .Detection()
-          .WithDetectionProfile(esr::config::EsrDetectionProfile::kBalanced)
+          .WithMinDetectSnrDb(6.0f)
           .End()
           .Mission()
           .WithScanRateHz(1.0f)
@@ -41,7 +41,6 @@ int main() {
   esr::config::EsrSessionConfig detailed_config{};
   detailed_config.mission.work_mode = esr::config::EsrWorkMode::kEsm;
   detailed_config.mission.scan.scan_rate_hz = 2.0f;
-  detailed_config.policy.detection.use_profile_defaults = false;
   detailed_config.policy.detection.min_detect_snr_db = 8.0f;
   detailed_config.policy.detection.pfa = 1.0e-6f;
   detailed_config.policy.detection.pulse_count = 16U;

@@ -4,6 +4,7 @@
 #include "1q/electronic_surveillance_radar/extension/EsrController.h"
 #include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
 #include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
+#include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 #include "electronic_surveillance_radar/session/EsrRuntimeConfigResolver.h"
 #include "electronic_surveillance_radar/session/EsrSessionCompositionRoot.h"
 
@@ -18,9 +19,7 @@ struct EsrSession::Impl {
         pipeline(*composition.pipeline),
         environment_service(*composition.environment_service),
         controller(*composition.controller) {
-    resolved_config.pipeline_config = composition.runtime_pipeline_config;
-    resolved_config.environment_model_config = composition.runtime_environment_model_config;
-    resolved_config.runtime_config = composition.runtime_config;
+    resolved_config = std::move(composition.execution_config);
   }
 
   /**
@@ -61,7 +60,7 @@ struct EsrSession::Impl {
     return BuildCycleResult(input);
   }
 
-  ResolvedEsrSessionConfig resolved_config{};
+  EsrInternalExecutionConfig resolved_config{};
   std::unique_ptr<extension::IInterceptPipeline> owned_pipeline;
   std::unique_ptr<environment::IEsrEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::EsrController> owned_controller;
@@ -110,14 +109,15 @@ EsrRuntimeConfigApplyResult EsrSession::ApplyRuntimeConfigWithResult(
   }
 
   impl_->resolved_config = resolved.next_config;
-  if (resolved.runtime_config_changed) {
-    impl_->pipeline.UpdateRuntimeConfig(impl_->resolved_config.runtime_config);
-  }
-  if (resolved.pipeline_config_changed) {
-    impl_->pipeline.UpdateConfig(impl_->resolved_config.pipeline_config);
+  if (resolved.runtime_config_changed || resolved.pipeline_config_changed) {
+    impl_->pipeline.UpdateConfig(
+        BuildPipelineConfig(impl_->resolved_config));
+    impl_->pipeline.UpdateRuntimeConfig(
+        BuildRuntimeConfig(impl_->resolved_config));
   }
   if (resolved.environment_model_config_changed) {
-    impl_->environment_service.UpdateModelConfig(impl_->resolved_config.environment_model_config);
+    impl_->environment_service.UpdateModelConfig(
+        impl_->resolved_config.environment);
   }
   apply_result.applied = true;
   return apply_result;

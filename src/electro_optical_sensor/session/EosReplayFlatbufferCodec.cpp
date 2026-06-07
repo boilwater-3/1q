@@ -433,7 +433,7 @@ std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) 
       fbb, v.has_mission, mission, v.has_policy, policy, v.has_environment, env,
       v.environment.has_scenario_config, v.has_work_mode, static_cast<int32_t>(v.work_mode),
       v.has_scan_rate_deg_per_sec, v.scan_rate_deg_per_sec, v.has_frame_rate_hz,
-      v.frame_rate_hz));
+      v.frame_rate_hz, v.has_sensor_enabled, v.sensor_enabled));
   const uint8_t* buf = fbb.GetBufferPointer();
   return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
 }
@@ -492,6 +492,8 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeCon
   out->scan_rate_deg_per_sec = fb->scan_rate_deg_per_sec();
   out->has_frame_rate_hz = fb->has_frame_rate_hz();
   out->frame_rate_hz = fb->frame_rate_hz();
+  out->has_sensor_enabled = fb->has_sensor_enabled();
+  out->sensor_enabled = fb->sensor_enabled();
   if (fb->mission()) {
     const auto* m = fb->mission();
     out->mission.work_mode = static_cast<config::EosWorkMode>(m->work_mode());

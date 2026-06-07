@@ -88,6 +88,13 @@ class ONEQ_API RadarRuntimeConfigBuilder {
     return *this;
   }
 
+  /** @brief 设置设备开关机状态。 */
+  RadarRuntimeConfigBuilder& WithSensorEnabled(bool enable) {
+    patch_.has_sensor_enabled = true;
+    patch_.sensor_enabled = enable;
+    return *this;
+  }
+
   /** @brief 更新指令态波束宽度使能开关。 */
   RadarRuntimeConfigBuilder& EnableCommandedBeamwidth(bool enable = true) {
     patch_.has_commanded_beamwidth_enabled = true;

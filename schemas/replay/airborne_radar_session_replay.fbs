@@ -212,6 +212,8 @@ table RadarRuntimeConfigPatch {
   commanded_beamwidth_deg:CommandedBeamwidthDeg;
   has_commanded_beamwidth_enabled:bool;
   commanded_beamwidth_enabled:bool;
+  has_sensor_enabled:bool;
+  sensor_enabled:bool = true;
 }
 
 table RadarSessionConfig {
@@ -220,6 +222,7 @@ table RadarSessionConfig {
   policy:RadarPolicyConfig;
   jamming_sensitivity_profile:int;
   environment_default_config:EnvironmentDefaultConfig;
+  power_on:bool = true;
 }
 
 root_type RadarSessionConfig;

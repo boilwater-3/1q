@@ -21,7 +21,7 @@ esr_config::EsrSessionConfig MakeEmitterSearchConfig() {
           .WithScanRateHz(1.0f)
           .End()
           .Detection()
-          .WithDetectionProfile(esr_cfg::EsrDetectionProfile::kBalanced)
+          .WithMinDetectSnrDb(6.0f)
           .End()
           .Environment()
           .WithEnvironmentPreset(esr_cfg::EsrEnvironmentPreset::kStandard)
@@ -106,10 +106,6 @@ int main() {
   // policy
   const auto& bp = builder_cfg.policy;
   const auto& fp = file_cfg.policy;
-  ReportI("policy.detection.profile", static_cast<int>(bp.detection.profile),
-          static_cast<int>(fp.detection.profile));
-  ReportB("policy.detection.use_profile_defaults",
-          bp.detection.use_profile_defaults, fp.detection.use_profile_defaults);
   ReportF("policy.detection.min_detect_snr_db",
           bp.detection.min_detect_snr_db, fp.detection.min_detect_snr_db);
   ReportF("policy.detection.pfa", bp.detection.pfa, fp.detection.pfa);

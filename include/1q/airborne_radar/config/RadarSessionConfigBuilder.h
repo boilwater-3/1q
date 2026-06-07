@@ -210,6 +210,11 @@ class ONEQ_API RadarSessionConfigBuilder::MissionEditor {
  public:
   explicit MissionEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
 
+  /** @brief 设置设备开关机状态。 */
+  MissionEditor& WithPowerOn(bool power_on) {
+    builder_->base_config_.mission.power_on = power_on;
+    return *this;
+  }
   /** @brief 设置雷达工作子模式。 */
   MissionEditor& WithRadarWorkSubMode(RadarWorkSubMode work_sub_mode) {
     builder_->orientation_.work_sub_mode = work_sub_mode;

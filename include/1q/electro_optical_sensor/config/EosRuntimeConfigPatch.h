@@ -37,6 +37,9 @@ struct ONEQ_API EosRuntimeConfigPatch {
 
   bool has_frame_rate_hz{false}; /**< 是否显式设置帧率 */
   float frame_rate_hz{30.0f};    /**< 帧率（单位：Hz） */
+
+  bool has_sensor_enabled{false}; /**< [补丁标志] 是否显式设置传感器开关状态 */
+  bool sensor_enabled{true};      /**< [可外部调整] 传感器开关状态 */
 };
 
 }  // namespace config

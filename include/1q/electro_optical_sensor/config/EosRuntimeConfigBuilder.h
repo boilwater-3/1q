@@ -73,6 +73,12 @@ class ONEQ_API EosRuntimeConfigBuilder {
     return *this;
   }
 
+  EosRuntimeConfigBuilder& WithSensorEnabled(bool enable) noexcept {
+    patch_.has_sensor_enabled = true;
+    patch_.sensor_enabled = enable;
+    return *this;
+  }
+
   EosRuntimeConfigBuilder& WithMinimumSnrDb(float value) noexcept {
     patch_.has_policy = true;
     patch_.policy.detection.minimum_snr_db = value;

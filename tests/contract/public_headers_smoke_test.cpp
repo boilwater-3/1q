@@ -316,7 +316,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
           .WithScanRateHz(1.0f)
           .End()
           .Detection()
-          .WithDetectionProfile(config::EsrDetectionProfile::kBalanced)
+          .WithMinDetectSnrDb(6.0f)
           .End()
           .Build();
   session_config.mission.scan.use_explicit_scan_bounds = true;

@@ -8,8 +8,8 @@
 
 #include <memory>
 
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
+#include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -18,9 +18,7 @@ namespace session {
  * @brief EsrSessionComposition 描述会话装配后的组件集合。
  */
 struct EsrSessionComposition {
-  extension::InterceptPipelineConfig runtime_pipeline_config{};
-  extension::InterceptRuntimeConfig runtime_config{};
-  environment::EsrEnvironmentModelConfig runtime_environment_model_config{};
+  EsrInternalExecutionConfig execution_config{};
 
   std::unique_ptr<extension::IInterceptPipeline> owned_pipeline;
   std::unique_ptr<environment::IEsrEnvironmentService> owned_environment_service;
@@ -54,7 +52,6 @@ class EsrSessionCompositionRoot {
 };
 
 }  // namespace session
-
 }  // namespace electronic_surveillance_radar
 
 #endif  // ELECTRONIC_SURVEILLANCE_RADAR_SRC_SESSION_ESR_SESSION_COMPOSITION_ROOT_H_

@@ -114,8 +114,24 @@ class ONEQ_API EsrSessionConfigBuilder::DetectionEditor {
  public:
   explicit DetectionEditor(EsrSessionConfigBuilder* builder) : builder_(builder) {}
 
-  DetectionEditor& WithDetectionProfile(config::EsrDetectionProfile profile) {
-    builder_->config_.policy.detection.profile = profile;
+  DetectionEditor& WithMinDetectSnrDb(float value) {
+    builder_->config_.policy.detection.min_detect_snr_db = value;
+    return *this;
+  }
+  DetectionEditor& WithPfa(float value) {
+    builder_->config_.policy.detection.pfa = value;
+    return *this;
+  }
+  DetectionEditor& WithPulseCount(std::uint32_t value) {
+    builder_->config_.policy.detection.pulse_count = value;
+    return *this;
+  }
+  DetectionEditor& WithThresholdScale(float value) {
+    builder_->config_.policy.detection.threshold_scale = value;
+    return *this;
+  }
+  DetectionEditor& EnableStatisticalDetection(bool enable) {
+    builder_->config_.policy.detection.enable_statistical_detection = enable;
     return *this;
   }
   EsrSessionConfigBuilder& End() { return *builder_; }

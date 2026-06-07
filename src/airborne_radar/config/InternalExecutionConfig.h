@@ -129,6 +129,7 @@ struct LifecycleExecutionConfig {
  * 各 pipeline phase 函数应只接收其所需的子配置引用，而非整个 InternalExecutionConfig。
  */
 struct InternalExecutionConfig {
+  bool sensor_enabled{true};  /**< 设备开关机状态 */
   DetectionExecutionConfig detection{};
   AssociationExecutionConfig association{};
   TrackingExecutionConfig tracking{};

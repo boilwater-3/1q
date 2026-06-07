@@ -102,6 +102,10 @@ class ONEQ_API EosSessionConfigBuilder::MissionEditor {
     builder_->config_.mission.frame_rate_hz = value;
     return *this;
   }
+  MissionEditor& WithPowerOn(bool power_on) noexcept {
+    builder_->config_.mission.power_on = power_on;
+    return *this;
+  }
   EosSessionConfigBuilder& End() noexcept { return *builder_; }
 
  private:

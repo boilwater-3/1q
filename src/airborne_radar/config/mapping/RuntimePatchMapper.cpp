@@ -62,6 +62,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
   }
 
   if (patch.has_mission) {
+    next_execution_config.sensor_enabled = patch.mission.power_on;
     next_execution_config.detection.orientation = patch.mission.orientation;
     execution_config_changed = true;
     has_requested_update = true;
@@ -116,6 +117,12 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
 
+  if (patch.has_sensor_enabled) {
+    next_execution_config.sensor_enabled = patch.sensor_enabled;
+    execution_config_changed = true;
+    has_requested_update = true;
+  }
+
   if (policy_changed) {
     next_execution_config.tracking.engineering =
         next_execution_config.tracking.policy;
@@ -141,6 +148,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
 config::RadarSessionConfig MapExecutionToSession(
     const execution::InternalExecutionConfig& execution_config) {
   config::RadarSessionConfig config;
+  config.mission.power_on = execution_config.sensor_enabled;
   config.hardware.detection = execution_config.detection.engineering;
   config.mission.orientation = execution_config.detection.orientation;
   config.policy.beam_control = execution_config.detection.beam_control;

@@ -370,9 +370,9 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
       sc.scan_end_el_deg);
   auto mission = esr::replay::CreateEsrMissionConfig(
       fbb, v.mission.power_on, static_cast<int32_t>(v.mission.work_mode), scan);
+  // detection_profile and use_profile_defaults retired in Phase 2; pass defaults for schema compat
   auto policy = esr::replay::CreateEsrPolicyConfig(
-      fbb, static_cast<int32_t>(v.policy.detection.profile),
-      v.policy.detection.use_profile_defaults, v.policy.detection.min_detect_snr_db,
+      fbb, 0, false, v.policy.detection.min_detect_snr_db,
       v.policy.detection.pfa, v.policy.detection.pulse_count, v.policy.detection.threshold_scale,
       v.policy.detection.enable_statistical_detection);
   const auto& es = v.environment.scenario_config;
@@ -429,9 +429,6 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
   }
   if (fb->policy()) {
     const auto* p = fb->policy();
-    out->policy.detection.profile =
-        static_cast<config::EsrDetectionProfile>(p->detection_profile());
-    out->policy.detection.use_profile_defaults = p->use_profile_defaults();
     out->policy.detection.min_detect_snr_db = p->min_detect_snr_db();
     out->policy.detection.pfa = p->pfa();
     out->policy.detection.pulse_count = p->pulse_count();
@@ -492,9 +489,9 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
   }
   flatbuffers::Offset<esr::replay::EsrPolicyConfig> policy;
   if (v.has_policy) {
+    // detection_profile and use_profile_defaults retired in Phase 2; pass defaults for schema compat
     policy = esr::replay::CreateEsrPolicyConfig(
-        fbb, static_cast<int32_t>(v.policy.detection.profile),
-        v.policy.detection.use_profile_defaults, v.policy.detection.min_detect_snr_db,
+        fbb, 0, false, v.policy.detection.min_detect_snr_db,
         v.policy.detection.pfa, v.policy.detection.pulse_count, v.policy.detection.threshold_scale,
         v.policy.detection.enable_statistical_detection);
   }
@@ -562,9 +559,6 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeCon
   out->has_policy = fb->has_policy();
   if (fb->policy()) {
     const auto* p = fb->policy();
-    out->policy.detection.profile =
-        static_cast<config::EsrDetectionProfile>(p->detection_profile());
-    out->policy.detection.use_profile_defaults = p->use_profile_defaults();
     out->policy.detection.min_detect_snr_db = p->min_detect_snr_db();
     out->policy.detection.pfa = p->pfa();
     out->policy.detection.pulse_count = p->pulse_count();

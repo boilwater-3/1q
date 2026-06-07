@@ -1050,7 +1050,8 @@ std::string EncodeSessionConfigFlatbuffer(const config::RadarSessionConfig& conf
           EncodeSessionOrientation(&builder, config.mission.orientation),
           EncodeSessionPolicyConfig(&builder, config.policy),
           static_cast<int>(config.environment.jamming_sensitivity_profile),
-          EncodeEnvironmentDefaultConfig(&builder, config.environment));
+          EncodeEnvironmentDefaultConfig(&builder, config.environment),
+          config.mission.power_on);
   builder.Finish(root, session_fb::RadarSessionConfigIdentifier());
 
   const std::uint8_t* buffer = builder.GetBufferPointer();
@@ -1085,6 +1086,7 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, config::Rad
   const session_fb::RadarSessionConfig* root = session_fb::GetRadarSessionConfig(data);
   config->hardware.detection = DecodeSessionDetectionConfig(root->hardware_detection());
   config->mission.orientation = DecodeSessionOrientation(root->mission_orientation());
+  config->mission.power_on = root->power_on();
   config->policy = DecodeSessionPolicyConfig(root->policy());
   config->environment = DecodeEnvironmentDefaultConfig(root->environment_default_config());
   config->environment.jamming_sensitivity_profile =
@@ -1104,7 +1106,8 @@ std::string EncodeRuntimeConfigPatchFlatbuffer(const config::RadarRuntimeConfigP
           EncodeSessionAzEl(&builder, patch.scan_center_deg), patch.has_dwell_center_deg,
           EncodeSessionAzEl(&builder, patch.dwell_center_deg), patch.has_commanded_beamwidth_deg,
           EncodeSessionCommandedBeamwidth(&builder, patch.commanded_beamwidth_deg),
-          patch.has_commanded_beamwidth_enabled, patch.commanded_beamwidth_enabled);
+          patch.has_commanded_beamwidth_enabled, patch.commanded_beamwidth_enabled,
+          patch.has_sensor_enabled, patch.sensor_enabled);
   builder.Finish(root);
 
   const std::uint8_t* buffer = builder.GetBufferPointer();
@@ -1156,6 +1159,8 @@ bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
   patch->commanded_beamwidth_deg = DecodeSessionCommandedBeamwidth(root->commanded_beamwidth_deg());
   patch->has_commanded_beamwidth_enabled = root->has_commanded_beamwidth_enabled();
   patch->commanded_beamwidth_enabled = root->commanded_beamwidth_enabled();
+  patch->has_sensor_enabled = root->has_sensor_enabled();
+  patch->sensor_enabled = root->sensor_enabled();
   return true;
 }
 

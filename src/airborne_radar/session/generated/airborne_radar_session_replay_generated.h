@@ -2248,7 +2248,9 @@ struct RadarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
     VT_HAS_COMMANDED_BEAMWIDTH_DEG = 28,
     VT_COMMANDED_BEAMWIDTH_DEG = 30,
     VT_HAS_COMMANDED_BEAMWIDTH_ENABLED = 32,
-    VT_COMMANDED_BEAMWIDTH_ENABLED = 34
+    VT_COMMANDED_BEAMWIDTH_ENABLED = 34,
+    VT_HAS_SENSOR_ENABLED = 36,
+    VT_SENSOR_ENABLED = 38
   };
   bool has_mission() const {
     return GetField<uint8_t>(VT_HAS_MISSION, 0) != 0;
@@ -2298,6 +2300,12 @@ struct RadarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
   bool commanded_beamwidth_enabled() const {
     return GetField<uint8_t>(VT_COMMANDED_BEAMWIDTH_ENABLED, 0) != 0;
   }
+  bool has_sensor_enabled() const {
+    return GetField<uint8_t>(VT_HAS_SENSOR_ENABLED, 0) != 0;
+  }
+  bool sensor_enabled() const {
+    return GetField<uint8_t>(VT_SENSOR_ENABLED, 1) != 0;
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint8_t>(verifier, VT_HAS_MISSION) &&
@@ -2322,6 +2330,8 @@ struct RadarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
            verifier.VerifyTable(commanded_beamwidth_deg()) &&
            VerifyField<uint8_t>(verifier, VT_HAS_COMMANDED_BEAMWIDTH_ENABLED) &&
            VerifyField<uint8_t>(verifier, VT_COMMANDED_BEAMWIDTH_ENABLED) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_SENSOR_ENABLED) &&
+           VerifyField<uint8_t>(verifier, VT_SENSOR_ENABLED) &&
            verifier.EndTable();
   }
 };
@@ -2378,6 +2388,12 @@ struct RadarRuntimeConfigPatchBuilder {
   void add_commanded_beamwidth_enabled(bool commanded_beamwidth_enabled) {
     fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_COMMANDED_BEAMWIDTH_ENABLED, static_cast<uint8_t>(commanded_beamwidth_enabled), 0);
   }
+  void add_has_sensor_enabled(bool has_sensor_enabled) {
+    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_SENSOR_ENABLED, static_cast<uint8_t>(has_sensor_enabled), 0);
+  }
+  void add_sensor_enabled(bool sensor_enabled) {
+    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_SENSOR_ENABLED, static_cast<uint8_t>(sensor_enabled), 1);
+  }
   explicit RadarRuntimeConfigPatchBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2407,7 +2423,9 @@ inline flatbuffers::Offset<RadarRuntimeConfigPatch> CreateRadarRuntimeConfigPatc
     bool has_commanded_beamwidth_deg = false,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::CommandedBeamwidthDeg> commanded_beamwidth_deg = 0,
     bool has_commanded_beamwidth_enabled = false,
-    bool commanded_beamwidth_enabled = false) {
+    bool commanded_beamwidth_enabled = false,
+    bool has_sensor_enabled = false,
+    bool sensor_enabled = true) {
   RadarRuntimeConfigPatchBuilder builder_(_fbb);
   builder_.add_commanded_beamwidth_deg(commanded_beamwidth_deg);
   builder_.add_dwell_center_deg(dwell_center_deg);
@@ -2416,6 +2434,8 @@ inline flatbuffers::Offset<RadarRuntimeConfigPatch> CreateRadarRuntimeConfigPatc
   builder_.add_environment_runtime_config(environment_runtime_config);
   builder_.add_policy(policy);
   builder_.add_mission_orientation(mission_orientation);
+  builder_.add_sensor_enabled(sensor_enabled);
+  builder_.add_has_sensor_enabled(has_sensor_enabled);
   builder_.add_commanded_beamwidth_enabled(commanded_beamwidth_enabled);
   builder_.add_has_commanded_beamwidth_enabled(has_commanded_beamwidth_enabled);
   builder_.add_has_commanded_beamwidth_deg(has_commanded_beamwidth_deg);
@@ -2438,7 +2458,8 @@ struct RadarSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_MISSION_ORIENTATION = 6,
     VT_POLICY = 8,
     VT_JAMMING_SENSITIVITY_PROFILE = 10,
-    VT_ENVIRONMENT_DEFAULT_CONFIG = 12
+    VT_ENVIRONMENT_DEFAULT_CONFIG = 12,
+    VT_POWER_ON = 14
   };
   const oneq::replay::airborne_radar::session::fb::DetectionConfig *hardware_detection() const {
     return GetPointer<const oneq::replay::airborne_radar::session::fb::DetectionConfig *>(VT_HARDWARE_DETECTION);
@@ -2455,6 +2476,9 @@ struct RadarSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const oneq::replay::airborne_radar::session::fb::EnvironmentDefaultConfig *environment_default_config() const {
     return GetPointer<const oneq::replay::airborne_radar::session::fb::EnvironmentDefaultConfig *>(VT_ENVIRONMENT_DEFAULT_CONFIG);
   }
+  bool power_on() const {
+    return GetField<uint8_t>(VT_POWER_ON, 1) != 0;
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_HARDWARE_DETECTION) &&
@@ -2466,6 +2490,7 @@ struct RadarSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<int32_t>(verifier, VT_JAMMING_SENSITIVITY_PROFILE) &&
            VerifyOffset(verifier, VT_ENVIRONMENT_DEFAULT_CONFIG) &&
            verifier.VerifyTable(environment_default_config()) &&
+           VerifyField<uint8_t>(verifier, VT_POWER_ON) &&
            verifier.EndTable();
   }
 };
@@ -2489,6 +2514,9 @@ struct RadarSessionConfigBuilder {
   void add_environment_default_config(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentDefaultConfig> environment_default_config) {
     fbb_.AddOffset(RadarSessionConfig::VT_ENVIRONMENT_DEFAULT_CONFIG, environment_default_config);
   }
+  void add_power_on(bool power_on) {
+    fbb_.AddElement<uint8_t>(RadarSessionConfig::VT_POWER_ON, static_cast<uint8_t>(power_on), 1);
+  }
   explicit RadarSessionConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2507,13 +2535,15 @@ inline flatbuffers::Offset<RadarSessionConfig> CreateRadarSessionConfig(
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarOrientationConfig> mission_orientation = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarPolicyConfig> policy = 0,
     int32_t jamming_sensitivity_profile = 0,
-    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentDefaultConfig> environment_default_config = 0) {
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentDefaultConfig> environment_default_config = 0,
+    bool power_on = true) {
   RadarSessionConfigBuilder builder_(_fbb);
   builder_.add_environment_default_config(environment_default_config);
   builder_.add_jamming_sensitivity_profile(jamming_sensitivity_profile);
   builder_.add_policy(policy);
   builder_.add_mission_orientation(mission_orientation);
   builder_.add_hardware_detection(hardware_detection);
+  builder_.add_power_on(power_on);
   return builder_.Finish();
 }
 

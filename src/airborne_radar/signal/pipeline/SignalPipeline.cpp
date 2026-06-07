@@ -119,6 +119,11 @@ struct SignalPipeline::Impl {
                                         const environment::IEnvironmentService& environment) {
     const session::RadarSceneTargetList& input_state = scene_targets;
 
+    if (!runtime_.config.base_config.sensor_enabled) {
+      ResetCycleScratch(&cycle_.scratch);
+      return {};
+    }
+
     if (runtime_.owned.auto_lifecycle_manager == nullptr) {
       PROJECT_LOG_ERROR(
           "[SignalPipeline] RunCycle aborted because auto_lifecycle_manager is unavailable.");

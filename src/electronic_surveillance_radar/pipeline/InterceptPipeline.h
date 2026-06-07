@@ -10,6 +10,7 @@
 #include <random>
 
 #include "1q/electronic_surveillance_radar/extension/IInterceptPipeline.h"
+#include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 #include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
 #include "electronic_surveillance_radar/pipeline/InterceptDetectionExecutor.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPostProcessingExecutor.h"
@@ -31,11 +32,9 @@ class InterceptPipeline final : public extension::IInterceptPipeline {
  public:
   /**
    * @brief 构造默认流水线。
-   * @param[in] config 流水线配置。
-   * @param[in] runtime_config 会话运行态参数。
+   * @param[in] config 内部执行态配置。
    */
-  explicit InterceptPipeline(extension::InterceptPipelineConfig config = {},
-                             extension::InterceptRuntimeConfig runtime_config = {});
+  explicit InterceptPipeline(EsrInternalExecutionConfig config = {});
 
   /**
    * @brief 更新流水线配置。
@@ -63,8 +62,7 @@ class InterceptPipeline final : public extension::IInterceptPipeline {
       const environment::IEsrEnvironmentService& environment) override;
 
  private:
-  extension::InterceptPipelineConfig config_{};
-  extension::InterceptRuntimeConfig runtime_config_{};
+  EsrInternalExecutionConfig config_{};
   ObservationFeatureScales feature_scales_{};
   ObservationPreprocessor preprocessor_{};
   KdTreeClusterer clusterer_{};

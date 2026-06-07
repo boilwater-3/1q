@@ -53,7 +53,7 @@ config::EsrSessionConfig MakeSessionConfig() {
           .WithWorkMode(config::EsrWorkMode::kEsm)
           .End()
           .Detection()
-          .WithDetectionProfile(config::EsrDetectionProfile::kBalanced)
+          .WithMinDetectSnrDb(6.0f)
           .End()
           .Environment()
           .WithEnvironmentPreset(config::EsrEnvironmentPreset::kStandard)
@@ -76,7 +76,6 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchDefaultConfig
   const config::EsrSessionConfig defaults;
 
   EXPECT_EQ(built.mission.work_mode, defaults.mission.work_mode);
-  EXPECT_EQ(built.policy.detection.profile, defaults.policy.detection.profile);
   EXPECT_EQ(built.environment.scenario_config.preset, defaults.environment.scenario_config.preset);
 }
 
@@ -89,7 +88,7 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesDomainFields) {
           .WithScanRateHz(2.0f)
           .End()
           .Detection()
-          .WithDetectionProfile(config::EsrDetectionProfile::kSensitive)
+          .WithMinDetectSnrDb(3.0f)
           .End()
           .Environment()
           .WithEnvironmentPreset(config::EsrEnvironmentPreset::kJammed)
@@ -99,21 +98,12 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesDomainFields) {
   EXPECT_EQ(cfg.mission.work_mode, config::EsrWorkMode::kRwr);
   EXPECT_FALSE(cfg.mission.power_on);
   EXPECT_FLOAT_EQ(cfg.mission.scan.scan_rate_hz, 2.0f);
-  EXPECT_EQ(cfg.policy.detection.profile, config::EsrDetectionProfile::kSensitive);
+  EXPECT_FLOAT_EQ(cfg.policy.detection.min_detect_snr_db, 3.0f);
   EXPECT_EQ(cfg.environment.scenario_config.preset, config::EsrEnvironmentPreset::kJammed);
 }
 
-TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsProfileAndDetails) {
-  config::EsrSessionConfig profile_cfg{};
-  profile_cfg.policy.detection.profile = config::EsrDetectionProfile::kConservative;
-  profile_cfg.policy.detection.use_profile_defaults = true;
-  profile_cfg.mission.work_mode = config::EsrWorkMode::kEsm;
-
-  EXPECT_EQ(profile_cfg.policy.detection.profile, config::EsrDetectionProfile::kConservative);
-  EXPECT_TRUE(profile_cfg.policy.detection.use_profile_defaults);
-
+TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsDetailedDetectionParams) {
   config::EsrSessionConfig details_cfg{};
-  details_cfg.policy.detection.use_profile_defaults = false;
   details_cfg.policy.detection.min_detect_snr_db = 8.0f;
   details_cfg.policy.detection.pfa = 1.0e-5f;
   details_cfg.policy.detection.pulse_count = 16U;
@@ -127,7 +117,6 @@ TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsProfileAnd
   details_cfg.mission.scan.scan_end_el_deg = 5.0f;
   details_cfg.environment.scenario_config.preset = config::EsrEnvironmentPreset::kLowClutter;
 
-  EXPECT_FALSE(details_cfg.policy.detection.use_profile_defaults);
   EXPECT_FLOAT_EQ(details_cfg.policy.detection.min_detect_snr_db, 8.0f);
   EXPECT_FLOAT_EQ(details_cfg.policy.detection.pfa, 1.0e-5f);
   EXPECT_EQ(details_cfg.policy.detection.pulse_count, 16U);
@@ -199,8 +188,7 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {
   mission.scan.scan_rate_hz = 5.0f;
 
   config::EsrPolicyConfig policy;
-  policy.detection.profile = config::EsrDetectionProfile::kSensitive;
-  policy.detection.use_profile_defaults = true;
+  policy.detection.min_detect_snr_db = 5.0f;
 
   const config::EsrRuntimeConfigPatch patch =
       config::EsrRuntimeConfigBuilder().WithMission(mission).WithPolicy(policy).Build();
@@ -210,7 +198,7 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {
   EXPECT_EQ(patch.mission.work_mode, config::EsrWorkMode::kRwr);
   EXPECT_FLOAT_EQ(patch.mission.scan.scan_rate_hz, 5.0f);
   EXPECT_TRUE(patch.has_policy);
-  EXPECT_EQ(patch.policy.detection.profile, config::EsrDetectionProfile::kSensitive);
+  EXPECT_FLOAT_EQ(patch.policy.detection.min_detect_snr_db, 5.0f);
 }
 
 TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) {

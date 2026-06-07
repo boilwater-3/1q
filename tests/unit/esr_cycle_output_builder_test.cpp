@@ -82,13 +82,12 @@ esr_config::EsrSessionConfig MakeConfig() {
   esr_config::EsrSessionConfig config =
       esr_config::EsrSessionConfigBuilder()
           .Detection()
-          .WithDetectionProfile(esr_config::EsrDetectionProfile::kSensitive)
+          .WithMinDetectSnrDb(3.0f)
           .End()
           .Environment()
           .WithEnvironmentPreset(esr_config::EsrEnvironmentPreset::kStandard)
           .End()
           .Build();
-  config.policy.detection.use_profile_defaults = false;
   config.policy.detection.min_detect_snr_db = -20.0f;
   config.policy.detection.enable_statistical_detection = false;
   config.mission.scan.use_explicit_scan_bounds = true;

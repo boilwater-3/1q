@@ -279,8 +279,6 @@ TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.mission.scan.scan_start_az_deg = -30.0f;
   config.mission.scan.scan_end_az_deg = 30.0f;
   // policy
-  config.policy.detection.profile = config::EsrDetectionProfile::kSensitive;
-  config.policy.detection.use_profile_defaults = false;
   config.policy.detection.min_detect_snr_db = 4.0f;
   config.policy.detection.pfa = 1.0e-5f;
   config.policy.detection.pulse_count = 16U;
@@ -321,8 +319,6 @@ TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_TRUE(decoded.mission.scan.use_explicit_scan_bounds);
   EXPECT_FLOAT_EQ(decoded.mission.scan.scan_start_az_deg, -30.0f);
   // policy
-  EXPECT_EQ(decoded.policy.detection.profile, config::EsrDetectionProfile::kSensitive);
-  EXPECT_FALSE(decoded.policy.detection.use_profile_defaults);
   EXPECT_FLOAT_EQ(decoded.policy.detection.min_detect_snr_db, 4.0f);
   EXPECT_FLOAT_EQ(decoded.policy.detection.pfa, 1.0e-5f);
   EXPECT_EQ(decoded.policy.detection.pulse_count, 16U);
@@ -371,7 +367,6 @@ TEST(EsrReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.mission.scan.scan_center_az_deg = 15.0f;
   patch.mission.scan.scan_rate_hz = 2.0f;
   patch.has_policy = true;
-  patch.policy.detection.profile = config::EsrDetectionProfile::kConservative;
   patch.policy.detection.min_detect_snr_db = 8.0f;
   patch.has_environment_runtime_config = true;
   patch.environment_runtime_config.has_atmospheric_physics = true;
@@ -412,7 +407,6 @@ TEST(EsrReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.mission.scan.scan_center_az_deg, 15.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan.scan_rate_hz, 2.0f);
   EXPECT_TRUE(decoded.has_policy);
-  EXPECT_EQ(decoded.policy.detection.profile, config::EsrDetectionProfile::kConservative);
   EXPECT_FLOAT_EQ(decoded.policy.detection.min_detect_snr_db, 8.0f);
   EXPECT_TRUE(decoded.has_environment_runtime_config);
   EXPECT_TRUE(decoded.environment_runtime_config.has_atmospheric_physics);

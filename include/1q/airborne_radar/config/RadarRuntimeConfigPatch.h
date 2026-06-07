@@ -27,7 +27,7 @@ using model::RadarWorkSubMode;
  *
  * 支持两类运行期更新：
  * 1) 整域覆盖：`mission`、`policy`、`environment_runtime_config`；
- * 2) 叶子覆盖：工作子模式、扫描/驻留指向、指令态波束宽度等。
+ * 2) 叶子覆盖：传感器开关、工作子模式、扫描/驻留指向、指令态波束宽度等。
  * 当整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
  */
 struct ONEQ_API RadarRuntimeConfigPatch {
@@ -54,6 +54,9 @@ struct ONEQ_API RadarRuntimeConfigPatch {
 
   bool has_commanded_beamwidth_enabled{false};
   bool commanded_beamwidth_enabled{false};
+
+  bool has_sensor_enabled{false};
+  bool sensor_enabled{true};
 };
 
 }  // namespace config

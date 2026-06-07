@@ -20,13 +20,6 @@ inline esr_cfg::EsrWorkMode EsrWorkModeFromString(const std::string& s) {
   return esr_cfg::EsrWorkMode::kEsm;
 }
 
-inline esr_cfg::EsrDetectionProfile EsrDetectFromString(const std::string& s) {
-  if (s == "kConservative") return esr_cfg::EsrDetectionProfile::kConservative;
-  if (s == "kBalanced") return esr_cfg::EsrDetectionProfile::kBalanced;
-  if (s == "kSensitive") return esr_cfg::EsrDetectionProfile::kSensitive;
-  return esr_cfg::EsrDetectionProfile::kBalanced;
-}
-
 inline esr_cfg::EsrEnvironmentPreset EsrPresetFromString(const std::string& s) {
   if (s == "kStandard") return esr_cfg::EsrEnvironmentPreset::kStandard;
   if (s == "kLowClutter") return esr_cfg::EsrEnvironmentPreset::kLowClutter;

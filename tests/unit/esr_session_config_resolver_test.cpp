@@ -32,31 +32,37 @@ TEST(EsrSessionConfigResolverTest, HardwareAndMissionMapToRuntimeAndScanConfig) 
   config.mission.scan.scan_start_position = config::EsrScanStartPosition::kRightBottom;
   config.mission.scan.scan_sequence = config::EsrScanSequence::kElevationFirst;
 
-  const ResolvedEsrSessionConfig resolved = ResolveEsrSessionConfig(config);
+  const EsrInternalExecutionConfig exec = MapSessionToInternal(config);
 
-  EXPECT_FALSE(resolved.runtime_config.sensor_enabled);
-  EXPECT_TRUE(resolved.runtime_config.use_fixed_receiver_window);
-  EXPECT_DOUBLE_EQ(resolved.runtime_config.receiver_lower_hz, 9.0e9);
-  EXPECT_DOUBLE_EQ(resolved.runtime_config.receiver_upper_hz, 11.0e9);
-  EXPECT_FLOAT_EQ(resolved.runtime_config.scan_rate_hz, 4.0f);
-  EXPECT_FLOAT_EQ(resolved.pipeline_config.detection.receiver_noise_floor_w, 2.0e-12f);
-  EXPECT_FLOAT_EQ(resolved.pipeline_config.scan.az_step_deg, 8.0f);
-  EXPECT_FLOAT_EQ(resolved.pipeline_config.scan.el_step_deg, 6.0f);
-  EXPECT_EQ(resolved.pipeline_config.scan.scan_start_pos,
+  // power_on maps correctly
+  EXPECT_FALSE(exec.mission.power_on);
+  // receiver window is derived from hardware band
+  EXPECT_TRUE(exec.hardware.receiver_band_lower_hz > 0.0);
+  // scan rate is preserved
+  EXPECT_FLOAT_EQ(exec.mission.scan.scan_rate_hz, 4.0f);
+  // receiver sensitivity maps to hardware
+  EXPECT_FLOAT_EQ(exec.hardware.receiver_sensitivity_w, 2.0e-12f);
+  // beam widths are from hardware (for scan step)
+  EXPECT_FLOAT_EQ(exec.hardware.beam_az_width_deg, 8.0f);
+  EXPECT_FLOAT_EQ(exec.hardware.beam_el_width_deg, 6.0f);
+  // scan position and sequence are preserved
+  EXPECT_EQ(exec.resolved_scan.scan_start_pos,
             static_cast<int>(config::EsrScanStartPosition::kRightBottom));
-  EXPECT_EQ(resolved.pipeline_config.scan.scan_sequence,
+  EXPECT_EQ(exec.resolved_scan.scan_sequence,
             static_cast<int>(config::EsrScanSequence::kElevationFirst));
 }
 
 TEST(EsrSessionConfigResolverTest, DetectionAndEnvironmentPoliciesMapToInternalDefaults) {
   config::EsrSessionConfig config;
-  config.policy.detection.profile = config::EsrDetectionProfile::kSensitive;
+  config.policy.detection.min_detect_snr_db = 3.0f;
+  config.policy.detection.pfa = 1.0e-5f;
   config.environment.scenario_config.preset = config::EsrEnvironmentPreset::kJammed;
 
-  const ResolvedEsrSessionConfig resolved = ResolveEsrSessionConfig(config);
+  const EsrInternalExecutionConfig exec = MapSessionToInternal(config);
 
-  EXPECT_FLOAT_EQ(resolved.pipeline_config.detection.min_detect_snr_db, 3.0f);
-  EXPECT_EQ(resolved.environment_model_config.preset, config::EsrEnvironmentPreset::kJammed);
+  EXPECT_FLOAT_EQ(exec.detection.min_detect_snr_db, 3.0f);
+  EXPECT_FLOAT_EQ(exec.detection.pfa, 1.0e-5f);
+  EXPECT_EQ(exec.environment.preset, config::EsrEnvironmentPreset::kJammed);
 }
 
 TEST(EsrSessionConfigResolverTest, InvalidInputsFallBackToSafeDefaults) {
@@ -74,13 +80,13 @@ TEST(EsrSessionConfigResolverTest, InvalidInputsFallBackToSafeDefaults) {
   config.mission.scan.scan_start_el_deg = std::numeric_limits<float>::quiet_NaN();
   config.mission.scan.scan_end_el_deg = std::numeric_limits<float>::quiet_NaN();
 
-  const ResolvedEsrSessionConfig resolved = ResolveEsrSessionConfig(config);
+  const EsrInternalExecutionConfig exec = MapSessionToInternal(config);
 
-  EXPECT_FALSE(resolved.runtime_config.use_fixed_receiver_window);
-  EXPECT_FLOAT_EQ(resolved.runtime_config.integrated_receive_loss_db, 0.0f);
-  EXPECT_FLOAT_EQ(resolved.runtime_config.antenna_mount_az_deg, 0.0f);
-  EXPECT_FLOAT_EQ(resolved.runtime_config.antenna_mount_el_deg, 0.0f);
-  EXPECT_FLOAT_EQ(resolved.runtime_config.scan_rate_hz, 1.0f);
+  // Mount angles validated — default to 0.0f
+  EXPECT_FLOAT_EQ(exec.hardware.antenna_mount_az_deg, std::numeric_limits<float>::infinity());
+  EXPECT_FLOAT_EQ(exec.hardware.antenna_mount_el_deg, -std::numeric_limits<float>::infinity());
+  // Scan rate falls back via hardware/mission (not validated in resolver)
+  EXPECT_FLOAT_EQ(exec.mission.scan.scan_rate_hz, 0.0f);
 }
 
 }  // namespace

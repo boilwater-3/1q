@@ -20,6 +20,7 @@ namespace config {
  * 当前阶段任务域承载工作子模式与波束指向运行态。
  */
 struct ONEQ_API RadarMissionConfig {
+  bool power_on{true};                           /**< 设备开关机状态 */
   model::RadarOrientationConfig orientation{};
 };
 

@@ -397,6 +397,12 @@ bool EosPipeline::RestoreRuntimeState(const extension::EosPipelineRuntimeState& 
 
 extension::EosPipelineExecuteResult EosPipeline::RunCycle(
     const ::electro_optical_sensor::session::EosCycleInput& input) {
+  if (!config_.sensor_enabled) {
+    extension::EosPipelineExecuteResult result;
+    result.executed_this_cycle = false;
+    result.abort_reason = extension::EosPipelineAbortReason::kNone;
+    return result;
+  }
   extension::EosPipelineExecuteResult result;
   AdvanceScan(input.dt_sec);
   result.scan_azimuth_deg = current_scan_azimuth_deg_;
