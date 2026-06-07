@@ -76,19 +76,19 @@ session::EosSceneTarget MakeTarget(float azimuth_deg, float elevation_deg) {
 
 EosPipelineConfig MakeConfig(bool enable_straylight_filter) {
   EosPipelineConfig config;
-  config.work_mode = EosPipelineWorkMode::kInfraredOnly;
-  config.minimum_snr_db = -120.0f;
-  config.scan_start_az_deg = 170.0f;
-  config.scan_end_az_deg = 190.0f;
-  config.scan_center_el_deg = 45.0f;
-  config.scan_rate_deg_per_sec = 10.0f;
-  config.horizontal_fov_deg = 20.0f;
-  config.vertical_fov_deg = 20.0f;
-  config.enable_straylight_filter = enable_straylight_filter;
-  config.hood_inner_half_angle_deg = 8.0f;
-  config.hood_outer_half_angle_deg = 70.0f;
-  config.hood_min_suppression_ratio = 0.2f;
-  config.hood_max_suppression_ratio = 0.9f;
+  config.mission.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  config.detection_policy.minimum_snr_db = -120.0f;
+  config.mission.scan_start_az_deg = 170.0f;
+  config.mission.scan_end_az_deg = 190.0f;
+  config.mission.scan_center_el_deg = 45.0f;
+  config.mission.scan_rate_deg_per_sec = 10.0f;
+  config.mission.horizontal_fov_deg = 20.0f;
+  config.mission.vertical_fov_deg = 20.0f;
+  config.stray_light_policy.enable_straylight_filter = enable_straylight_filter;
+  config.stray_light_policy.hood_inner_half_angle_deg = 8.0f;
+  config.stray_light_policy.hood_outer_half_angle_deg = 70.0f;
+  config.stray_light_policy.hood_min_suppression_ratio = 0.2f;
+  config.stray_light_policy.hood_max_suppression_ratio = 0.9f;
   return config;
 }
 

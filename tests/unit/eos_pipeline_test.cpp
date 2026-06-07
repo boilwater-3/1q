@@ -46,30 +46,30 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float azimuth_deg, float ra
 
 extension::EosPipelineConfig MakePipelineConfig() {
   extension::EosPipelineConfig config;
-  config.work_mode = EosPipelineWorkMode::kFused;
-  config.minimum_snr_db = 0.0f;
-  config.scan_start_az_deg = -10.0f;
-  config.scan_end_az_deg = 10.0f;
-  config.scan_rate_deg_per_sec = 5.0f;
-  config.horizontal_fov_deg = 6.0f;
-  config.vertical_fov_deg = 4.0f;
+  config.mission.work_mode = EosPipelineWorkMode::kFused;
+  config.detection_policy.minimum_snr_db = 0.0f;
+  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 5.0f;
+  config.mission.horizontal_fov_deg = 6.0f;
+  config.mission.vertical_fov_deg = 4.0f;
   return config;
 }
 
 float ResolveFirstCycleScanAzimuthDeg(const extension::EosPipelineConfig& config, float dt_sec) {
-  const float scan_width_deg = config.scan_end_az_deg - config.scan_start_az_deg;
+  const float scan_width_deg = config.mission.scan_end_az_deg - config.mission.scan_start_az_deg;
   if (scan_width_deg <= 0.0f) {
-    return config.scan_start_az_deg;
+    return config.mission.scan_start_az_deg;
   }
 
-  float wrapped_offset_deg = config.scan_rate_deg_per_sec * dt_sec;
+  float wrapped_offset_deg = config.mission.scan_rate_deg_per_sec * dt_sec;
   while (wrapped_offset_deg >= scan_width_deg) {
     wrapped_offset_deg -= scan_width_deg;
   }
   while (wrapped_offset_deg < 0.0f) {
     wrapped_offset_deg += scan_width_deg;
   }
-  return config.scan_start_az_deg + wrapped_offset_deg;
+  return config.mission.scan_start_az_deg + wrapped_offset_deg;
 }
 
 TEST(EosPipelineTest, ScanAngleAdvancesAndWrapsInsideRange) {
@@ -112,7 +112,7 @@ TEST(EosPipelineTest, OutOfRangeTargetIsMarkedUndetected) {
 
 TEST(EosPipelineTest, LargerTargetAreaHasHigherFusedSnrAtSameGeometry) {
   extension::EosPipelineConfig config = MakePipelineConfig();
-  config.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  config.mission.work_mode = EosPipelineWorkMode::kInfraredOnly;
   EosPipeline pipeline(config);
   ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 5U;
@@ -136,8 +136,8 @@ TEST(EosPipelineTest, LargerTargetAreaHasHigherFusedSnrAtSameGeometry) {
 
 TEST(EosPipelineTest, VisibleChainAppliesProjectedAreaOnce) {
   extension::EosPipelineConfig config = MakePipelineConfig();
-  config.work_mode = EosPipelineWorkMode::kVisibleOnly;
-  config.minimum_snr_db = -120.0f;
+  config.mission.work_mode = EosPipelineWorkMode::kVisibleOnly;
+  config.detection_policy.minimum_snr_db = -120.0f;
   EosPipeline pipeline(config);
   ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
   input.cycle_index = 6U;
@@ -156,7 +156,7 @@ TEST(EosPipelineTest, VisibleChainAppliesProjectedAreaOnce) {
 
 TEST(EosPipelineTest, AdaptiveRadiativeTransferModelProducesLowerSnrInSameScene) {
   extension::EosPipelineConfig baseline_config = MakePipelineConfig();
-  baseline_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  baseline_config.mission.work_mode = EosPipelineWorkMode::kInfraredOnly;
   baseline_config.radiative_transfer_model =
       foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert;
 
@@ -190,7 +190,7 @@ TEST(EosPipelineTest, AdaptiveRadiativeTransferModelProducesLowerSnrInSameScene)
 
 TEST(EosPipelineTest, AdvancedEnvironmentModelLowersSnrInHighWindScene) {
   extension::EosPipelineConfig simplified_config = MakePipelineConfig();
-  simplified_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  simplified_config.mission.work_mode = EosPipelineWorkMode::kInfraredOnly;
   simplified_config.radiative_transfer_model =
       foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
   simplified_config.environment_model_type = EosPipelineEnvironmentModelType::kSimplified;
@@ -224,7 +224,7 @@ TEST(EosPipelineTest, AdvancedEnvironmentModelLowersSnrInHighWindScene) {
 
 TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFixed) {
   extension::EosPipelineConfig config = MakePipelineConfig();
-  config.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  config.mission.work_mode = EosPipelineWorkMode::kInfraredOnly;
   config.radiative_transfer_model =
       foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
   config.environment_model_type = EosPipelineEnvironmentModelType::kAdvanced;
@@ -262,12 +262,12 @@ TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFix
 
 TEST(EosPipelineTest, LowerFrameRateProducesHigherSnrWithLongerIntegrationWindow) {
   extension::EosPipelineConfig low_rate_config = MakePipelineConfig();
-  low_rate_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
-  low_rate_config.frame_rate_hz = 5.0f;
-  low_rate_config.scan_rate_deg_per_sec = 5.0f;
+  low_rate_config.mission.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  low_rate_config.mission.frame_rate_hz = 5.0f;
+  low_rate_config.mission.scan_rate_deg_per_sec = 5.0f;
 
   extension::EosPipelineConfig high_rate_config = low_rate_config;
-  high_rate_config.frame_rate_hz = 120.0f;
+  high_rate_config.mission.frame_rate_hz = 120.0f;
 
   EosPipeline low_rate_pipeline(low_rate_config);
   EosPipeline high_rate_pipeline(high_rate_config);
@@ -293,11 +293,11 @@ TEST(EosPipelineTest, LowerFrameRateProducesHigherSnrWithLongerIntegrationWindow
 
 TEST(EosPipelineTest, VisibleReferenceIrradianceAffectsVisibleSnrThroughNoiseModel) {
   extension::EosPipelineConfig matched_reference_config = MakePipelineConfig();
-  matched_reference_config.work_mode = EosPipelineWorkMode::kVisibleOnly;
-  matched_reference_config.visible_reference_irradiance_w_m2 = 400.0f;
+  matched_reference_config.mission.work_mode = EosPipelineWorkMode::kVisibleOnly;
+  matched_reference_config.detection_policy.visible_reference_irradiance_w_m2 = 400.0f;
 
   extension::EosPipelineConfig mismatched_reference_config = matched_reference_config;
-  mismatched_reference_config.visible_reference_irradiance_w_m2 = 2000.0f;
+  mismatched_reference_config.detection_policy.visible_reference_irradiance_w_m2 = 2000.0f;
 
   EosPipeline matched_reference_pipeline(matched_reference_config);
   EosPipeline mismatched_reference_pipeline(mismatched_reference_config);
@@ -320,11 +320,11 @@ TEST(EosPipelineTest, VisibleReferenceIrradianceAffectsVisibleSnrThroughNoiseMod
 
 TEST(EosPipelineTest, BetterDetectionSensitivityProducesHigherSnr) {
   extension::EosPipelineConfig better_sensitivity_config = MakePipelineConfig();
-  better_sensitivity_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
-  better_sensitivity_config.detection_sensitivity_w = 5.0e-13f;
+  better_sensitivity_config.mission.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  better_sensitivity_config.detection_policy.detection_sensitivity_w = 5.0e-13f;
 
   extension::EosPipelineConfig worse_sensitivity_config = better_sensitivity_config;
-  worse_sensitivity_config.detection_sensitivity_w = 5.0e-12f;
+  worse_sensitivity_config.detection_policy.detection_sensitivity_w = 5.0e-12f;
 
   EosPipeline better_sensitivity_pipeline(better_sensitivity_config);
   EosPipeline worse_sensitivity_pipeline(worse_sensitivity_config);
@@ -350,14 +350,14 @@ TEST(EosPipelineTest, BetterDetectionSensitivityProducesHigherSnr) {
 
 TEST(EosPipelineTest, InfraredBandwidthIncreaseRaisesSnrAtFixedCenterWavelength) {
   extension::EosPipelineConfig narrow_band_config = MakePipelineConfig();
-  narrow_band_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
-  narrow_band_config.wavelength_lower_um = 3.5f;
-  narrow_band_config.wavelength_upper_um = 4.5f;
-  narrow_band_config.minimum_snr_db = -120.0f;
+  narrow_band_config.mission.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  narrow_band_config.hardware.wavelength_lower_um = 3.5f;
+  narrow_band_config.hardware.wavelength_upper_um = 4.5f;
+  narrow_band_config.detection_policy.minimum_snr_db = -120.0f;
 
   extension::EosPipelineConfig wide_band_config = narrow_band_config;
-  wide_band_config.wavelength_lower_um = 2.0f;
-  wide_band_config.wavelength_upper_um = 6.0f;
+  wide_band_config.hardware.wavelength_lower_um = 2.0f;
+  wide_band_config.hardware.wavelength_upper_um = 6.0f;
 
   EosPipeline narrow_band_pipeline(narrow_band_config);
   EosPipeline wide_band_pipeline(wide_band_config);
@@ -382,12 +382,12 @@ TEST(EosPipelineTest, InfraredBandwidthIncreaseRaisesSnrAtFixedCenterWavelength)
 
 TEST(EosPipelineTest, FusedWeightShiftsTowardVisibleInDayAndInfraredAtNight) {
   extension::EosPipelineConfig fused_config = MakePipelineConfig();
-  fused_config.work_mode = EosPipelineWorkMode::kFused;
-  fused_config.minimum_snr_db = -120.0f;
+  fused_config.mission.work_mode = EosPipelineWorkMode::kFused;
+  fused_config.detection_policy.minimum_snr_db = -120.0f;
   extension::EosPipelineConfig infrared_config = fused_config;
-  infrared_config.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  infrared_config.mission.work_mode = EosPipelineWorkMode::kInfraredOnly;
   extension::EosPipelineConfig visible_config = fused_config;
-  visible_config.work_mode = EosPipelineWorkMode::kVisibleOnly;
+  visible_config.mission.work_mode = EosPipelineWorkMode::kVisibleOnly;
 
   EosPipeline fused_pipeline(fused_config);
   EosPipeline infrared_pipeline(infrared_config);
