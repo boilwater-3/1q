@@ -105,14 +105,6 @@ foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTran
   return foundation::radiative_transfer::EvaluateRadiativeTransfer(transfer_inputs);
 }
 
-environment::EosEnvironmentModelType ToEnvironmentModelType(
-    EosPipelineEnvironmentModelType model_type) {
-  if (model_type == EosPipelineEnvironmentModelType::kAdvanced) {
-    return environment::EosEnvironmentModelType::kAdvanced;
-  }
-  return environment::EosEnvironmentModelType::kSimplified;
-}
-
 float ComputeFovSolidAngleSr(float horizontal_fov_deg, float vertical_fov_deg) {
   const float horizontal_fov_rad =
       std::max(0.0f, horizontal_fov_deg) * foundation::constants::kPi / 180.0f;
@@ -509,7 +501,7 @@ FrameContext EosPipeline::BuildFrameContext(
   frame.noise_inputs_base.detector_area_cm2 = frame.nep_inputs.detector_area_cm2;
 
   environment::EosEnvironmentModelInputs env_inputs;
-  env_inputs.model_type = ToEnvironmentModelType(config_.environment_model_type);
+  env_inputs.model_type = config_.environment_model_type;
   env_inputs.platform_altitude_m = ResolvePlatformAltitudeM(input);
   env_inputs.cloud_coverage_ratio =
       oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);

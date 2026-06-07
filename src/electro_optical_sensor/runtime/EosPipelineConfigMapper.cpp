@@ -10,25 +10,6 @@ namespace runtime {
 namespace session {
 namespace {
 
-::electro_optical_sensor::extension::EosPipelineWorkMode ToPipelineWorkMode(
-    ::electro_optical_sensor::config::EosWorkMode mode) {
-  if (mode == ::electro_optical_sensor::config::EosWorkMode::kInfraredOnly) {
-    return ::electro_optical_sensor::extension::EosPipelineWorkMode::kInfraredOnly;
-  }
-  if (mode == ::electro_optical_sensor::config::EosWorkMode::kVisibleOnly) {
-    return ::electro_optical_sensor::extension::EosPipelineWorkMode::kVisibleOnly;
-  }
-  return ::electro_optical_sensor::extension::EosPipelineWorkMode::kFused;
-}
-
-::electro_optical_sensor::extension::EosPipelineEnvironmentModelType ToPipelineEnvironmentModelType(
-    environment::EosEnvironmentModelType model_type) {
-  if (model_type == environment::EosEnvironmentModelType::kAdvanced) {
-    return ::electro_optical_sensor::extension::EosPipelineEnvironmentModelType::kAdvanced;
-  }
-  return ::electro_optical_sensor::extension::EosPipelineEnvironmentModelType::kSimplified;
-}
-
 void ApplyDetectionProfile(config::EosDetectionProfile profile,
                            ::electro_optical_sensor::extension::EosPipelineConfig* config_out) {
   if (profile == config::EosDetectionProfile::kConservative) {
@@ -119,7 +100,7 @@ void ApplyEnvironmentModelConfig(
   pipeline_config.wavelength_upper_um = config.hardware.wavelength_upper_um;
   pipeline_config.optical_aperture_m = config.hardware.optical_aperture_m;
   pipeline_config.focal_length_m = config.hardware.focal_length_m;
-  pipeline_config.work_mode = ToPipelineWorkMode(config.mission.work_mode);
+  pipeline_config.work_mode = config.mission.work_mode;
   pipeline_config.horizontal_fov_deg = config.mission.horizontal_fov_deg;
   pipeline_config.vertical_fov_deg = config.mission.vertical_fov_deg;
   pipeline_config.scan_rate_deg_per_sec = config.mission.scan_rate_deg_per_sec;
@@ -135,8 +116,7 @@ void ApplyEnvironmentModelConfig(
   ApplyStrayLightPolicy(config.policy.stray_light, &pipeline_config);
   ApplyEnvironmentModelConfig(environment_model_config, &pipeline_config);
 
-  pipeline_config.environment_model_type =
-      ToPipelineEnvironmentModelType(environment_model_config.model_type);
+  pipeline_config.environment_model_type = environment_model_config.model_type;
   return pipeline_config;
 }
 

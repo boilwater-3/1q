@@ -10,6 +10,8 @@
 #include <vector>
 
 #include "1q/api.hpp"
+#include "1q/electro_optical_sensor/config/EosMissionConfig.h"
+#include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace electro_optical_sensor {
@@ -39,20 +41,15 @@ namespace extension {
 
 /**
  * @brief EosPipelineWorkMode 描述核心探测评估模式。
+ * @note 等价于 config::EosWorkMode，保留命名以维持扩展层独立性。
  */
-enum class ONEQ_API EosPipelineWorkMode {
-  kInfraredOnly = 0,
-  kVisibleOnly,
-  kFused
-};
+using EosPipelineWorkMode = config::EosWorkMode;
 
 /**
  * @brief EosPipelineEnvironmentModelType 描述环境模型策略。
+ * @note 等价于 environment::EosEnvironmentModelType，保留命名以维持扩展层独立性。
  */
-enum class ONEQ_API EosPipelineEnvironmentModelType {
-  kSimplified = 0,
-  kAdvanced
-};
+using EosPipelineEnvironmentModelType = environment::EosEnvironmentModelType;
 
 /**
  * @brief EosPipelineConfig 描述核心处理层配置。
