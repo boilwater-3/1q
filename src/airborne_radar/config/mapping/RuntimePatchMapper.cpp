@@ -141,7 +141,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
 config::RadarSessionConfig MapExecutionToSession(
     const execution::InternalExecutionConfig& execution_config) {
   config::RadarSessionConfig config;
-  config.hardware.detection = execution_config.detection.hardware;
+  config.hardware.detection = execution_config.detection.engineering;
   config.mission.orientation = execution_config.detection.orientation;
   config.policy.beam_control = execution_config.detection.beam_control;
   config.policy.association = execution_config.association.policy;

@@ -10,7 +10,6 @@ execution::InternalExecutionConfig MapSessionToExecution(
     const config::RadarSessionConfig& session_config) {
   execution::InternalExecutionConfig exec;
 
-  exec.detection.hardware = session_config.hardware.detection;
   exec.detection.engineering = session_config.hardware.detection;
   exec.detection.beam_control = session_config.policy.beam_control;
   exec.association.policy = session_config.policy.association;

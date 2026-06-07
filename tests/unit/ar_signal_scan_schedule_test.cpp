@@ -631,7 +631,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
   session_config.mission.orientation = exec_config.detection.orientation;
-  session_config.hardware.detection = exec_config.detection.hardware;
+  session_config.hardware.detection = exec_config.detection.engineering;
   session_config.policy.beam_control = exec_config.detection.beam_control;
   session_config.policy.association = exec_config.association.policy;
   session_config.policy.tracking = exec_config.tracking.policy;

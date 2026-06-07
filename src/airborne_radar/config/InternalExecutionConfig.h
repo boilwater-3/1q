@@ -83,7 +83,6 @@ struct ControlProfileEffectsConfig {
  * @brief 检测与波束调度相关执行配置。
  */
 struct DetectionExecutionConfig {
-  DetectionConfig hardware{};
   BeamControlConfig beam_control{};
   model::RadarOrientationConfig orientation{};
   model::PlatformAttitudeDeg platform_attitude_deg{};

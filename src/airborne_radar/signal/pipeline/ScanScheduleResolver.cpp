@@ -36,8 +36,8 @@ detection::EffectiveBeamwidthDeg ResolveSchedulingBeamwidth(const ExecutionConfi
     return beamwidth;
   }
 
-  beamwidth.az_beamwidth_deg = runtime_config.detection.hardware.antenna.nominal_az_beamwidth_deg;
-  beamwidth.el_beamwidth_deg = runtime_config.detection.hardware.antenna.nominal_el_beamwidth_deg;
+  beamwidth.az_beamwidth_deg = runtime_config.detection.engineering.antenna.nominal_az_beamwidth_deg;
+  beamwidth.el_beamwidth_deg = runtime_config.detection.engineering.antenna.nominal_el_beamwidth_deg;
   return beamwidth;
 }
 
