@@ -8,8 +8,8 @@
 
 #include <memory>
 
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "electro_optical_sensor/config/EosInternalExecutionConfig.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -22,8 +22,7 @@ namespace session {
  *       而非在 Composition 层独立管理。
  */
 struct EosSessionComposition {
-  config::EosSessionConfig runtime_config{};
-  extension::EosPipelineConfig pipeline_config{};
+  config::execution::EosInternalExecutionConfig internal_config{};
   bool initial_reset_scan_phase{true};
 
   std::unique_ptr<::electro_optical_sensor::extension::IEosPipeline> owned_pipeline;

@@ -12,12 +12,12 @@
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "electro_optical_sensor/config/EosInternalExecutionConfig.h"
 
 namespace electro_optical_sensor {
 namespace signal {
 namespace pipeline {
 
-using ::electro_optical_sensor::extension::EosPipelineConfig;
 using ::electro_optical_sensor::extension::EosPipelineEnvironmentModelType;
 using ::electro_optical_sensor::extension::EosPipelineWorkMode;
 
@@ -31,35 +31,20 @@ struct FrameContext;
 class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
  public:
   explicit EosPipeline(
-      const EosPipelineConfig& config,
+      const config::execution::EosInternalExecutionConfig& config,
       std::shared_ptr<environment::IEosEnvironmentService> environment_service = nullptr);
 
-  /**
-   * @brief 更新核心处理层配置。
-   * @param[in] config 新配置。
-   * @param[in] reset_scan_phase 是否重置扫描相位。
-   * @note 非线程安全：会修改内部扫描状态；并发调用需外部同步。
-   */
-  void UpdateConfig(const EosPipelineConfig& config, bool reset_scan_phase = true) override;
+  // ---- IEosPipeline 公开接口 (保持 EosPipelineConfig 签名兼容) ----
+  void UpdateConfig(const ::electro_optical_sensor::extension::EosPipelineConfig& config,
+                    bool reset_scan_phase = true) override;
 
-  /**
-   * @brief 捕获核心处理层运行态快照。
-   * @return 当前运行态快照。
-   */
+  // ---- 内部接口 (直接操作 EosInternalExecutionConfig, 无转换开销) ----
+  void ApplyInternalConfig(const config::execution::EosInternalExecutionConfig& config,
+                           bool reset_scan_phase = true);
+
   extension::EosPipelineRuntimeState CaptureRuntimeState() const override;
-
-  /**
-   * @brief 恢复核心处理层运行态快照。
-   * @param[in] state 待恢复运行态快照。
-   */
   bool RestoreRuntimeState(const extension::EosPipelineRuntimeState& state) override;
 
-  /**
-   * @brief 执行单周期核心处理并输出探测结果。
-   * @param[in] input 当前周期输入。
-   * @return 探测执行结果。
-   * @note 非线程安全：会推进内部扫描相位（`current_scan_azimuth_deg_`）。
-   */
   extension::EosPipelineExecuteResult RunCycle(
       const ::electro_optical_sensor::session::EosCycleInput& input) override;
 
@@ -67,11 +52,6 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
   void AdvanceScan(float dt_sec);
   bool IsTargetInCurrentFov(
       const ::electro_optical_sensor::session::EosSceneTarget& target) const;
-  /**
-   * @brief 构建帧级别目标无关计算上下文（每帧调用一次）。
-   * @param input 当前周期输入。
-   * @return 帧级上下文字段聚合。
-   */
   FrameContext BuildFrameContext(
       const ::electro_optical_sensor::session::EosCycleInput& input) const;
   output::EosDetectionRecord BuildDetectionRecord(
@@ -79,7 +59,7 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
       const ::electro_optical_sensor::session::EosCycleInput& input,
       const FrameContext& frame_ctx) const;
 
-  EosPipelineConfig config_{};
+  config::execution::EosInternalExecutionConfig config_{};
   float current_scan_azimuth_deg_{0.0f};
   std::shared_ptr<environment::IEosEnvironmentService> environment_service_;
 };

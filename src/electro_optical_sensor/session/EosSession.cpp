@@ -41,16 +41,18 @@ struct EosSession::Impl {
         owned_controller(std::move(composition.owned_controller)),
         pipeline(RequireCompositionDependency(composition.pipeline, "pipeline")),
         controller(RequireCompositionDependency(composition.controller, "controller")),
-        runtime_config_(composition.runtime_config) {
-    pipeline.UpdateConfig(composition.pipeline_config,
-                          composition.initial_reset_scan_phase);
+        internal_config_(composition.internal_config) {
+    pipeline.UpdateConfig(
+        ::electro_optical_sensor::runtime::session::InternalToPipelineConfig(
+            composition.internal_config),
+        composition.initial_reset_scan_phase);
   }
 
   std::unique_ptr<::electro_optical_sensor::extension::IEosPipeline> owned_pipeline;
   std::unique_ptr<extension::EosController> owned_controller;
   ::electro_optical_sensor::extension::IEosPipeline& pipeline;
   extension::EosController& controller;
-  ::electro_optical_sensor::config::EosSessionConfig runtime_config_;
+  config::execution::EosInternalExecutionConfig internal_config_;
 };
 
 EosSession::EosSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -110,14 +112,14 @@ void EosSession::ApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch) 
 bool EosSession::TryApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch) {
   const ::electro_optical_sensor::runtime::session::EosRuntimeConfigResolveResult
       resolved = ::electro_optical_sensor::runtime::session::ResolveEosRuntimeConfigPatch(
-          impl_->runtime_config_, patch);
+          impl_->internal_config_, patch);
   if (!resolved.has_requested_update || !resolved.is_valid) {
     return false;
   }
-  impl_->runtime_config_ = resolved.next_config;
+  impl_->internal_config_ = resolved.next_config;
   impl_->pipeline.UpdateConfig(
-      ::electro_optical_sensor::runtime::session::BuildEosPipelineConfig(
-          impl_->runtime_config_),
+      ::electro_optical_sensor::runtime::session::InternalToPipelineConfig(
+          impl_->internal_config_),
       resolved.reset_scan_phase);
   return true;
 }

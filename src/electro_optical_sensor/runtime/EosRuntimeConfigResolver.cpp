@@ -1,23 +1,34 @@
+/**
+ * @file EosRuntimeConfigResolver.cpp
+ * @brief 实现 EOS 运行期补丁解析，直接操作内部执行配置。
+ */
+
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
 
 #include <cmath>
 
 #include "common/logging/ProjectLog.h"
 #include "common/validation/ValidationUtils.h"
+#include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 
 namespace electro_optical_sensor {
 namespace runtime {
 namespace session {
 namespace {
 
-
 bool IsValidMission(const config::EosMissionConfig& mission) {
-  return oneq::internal::validation::IsFinite(mission.scan_rate_deg_per_sec) && mission.scan_rate_deg_per_sec > 0.0f &&
-         oneq::internal::validation::IsFinite(mission.frame_rate_hz) && mission.frame_rate_hz > 0.0f &&
-         oneq::internal::validation::IsFinite(mission.horizontal_fov_deg) && mission.horizontal_fov_deg > 0.0f &&
-         oneq::internal::validation::IsFinite(mission.vertical_fov_deg) && mission.vertical_fov_deg > 0.0f &&
-         oneq::internal::validation::IsFinite(mission.scan_start_az_deg) && oneq::internal::validation::IsFinite(mission.scan_end_az_deg) &&
-         oneq::internal::validation::IsFinite(mission.scan_center_el_deg) && oneq::internal::validation::IsFinite(mission.boresight_depression_deg);
+  return oneq::internal::validation::IsFinite(mission.scan_rate_deg_per_sec) &&
+         mission.scan_rate_deg_per_sec > 0.0f &&
+         oneq::internal::validation::IsFinite(mission.frame_rate_hz) &&
+         mission.frame_rate_hz > 0.0f &&
+         oneq::internal::validation::IsFinite(mission.horizontal_fov_deg) &&
+         mission.horizontal_fov_deg > 0.0f &&
+         oneq::internal::validation::IsFinite(mission.vertical_fov_deg) &&
+         mission.vertical_fov_deg > 0.0f &&
+         oneq::internal::validation::IsFinite(mission.scan_start_az_deg) &&
+         oneq::internal::validation::IsFinite(mission.scan_end_az_deg) &&
+         oneq::internal::validation::IsFinite(mission.scan_center_el_deg) &&
+         oneq::internal::validation::IsFinite(mission.boresight_depression_deg);
 }
 
 bool IsValidDetectionPolicy(const config::EosDetectionPolicyConfig& detection) {
@@ -63,11 +74,13 @@ bool IsValidEnvironmentPatch(
     const environment::EosEnvironmentRuntimeConfigPatch& environment_patch) {
   if (environment_patch.has_scenario_config) {
     if (environment_patch.scenario_config.has_custom_overrides) {
-      if (!oneq::internal::validation::IsFinite(environment_patch.scenario_config.custom_overrides.aerosol_density_factor) ||
+      if (!oneq::internal::validation::IsFinite(
+              environment_patch.scenario_config.custom_overrides.aerosol_density_factor) ||
           environment_patch.scenario_config.custom_overrides.aerosol_density_factor <= 0.0f) {
         return false;
       }
-      if (!oneq::internal::validation::IsFinite(environment_patch.scenario_config.custom_overrides.turbulence_factor) ||
+      if (!oneq::internal::validation::IsFinite(
+              environment_patch.scenario_config.custom_overrides.turbulence_factor) ||
           environment_patch.scenario_config.custom_overrides.turbulence_factor <= 0.0f) {
         return false;
       }
@@ -77,7 +90,7 @@ bool IsValidEnvironmentPatch(
 }
 
 EosRuntimeConfigResolveResult RejectPatch(
-    const ::electro_optical_sensor::config::EosSessionConfig& current_config,
+    const config::execution::EosInternalExecutionConfig& current_config,
     bool has_requested_update) {
   EosRuntimeConfigResolveResult rejected;
   rejected.next_config = current_config;
@@ -91,7 +104,7 @@ EosRuntimeConfigResolveResult RejectPatch(
 }  // namespace
 
 EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
-    const ::electro_optical_sensor::config::EosSessionConfig& current_config,
+    const config::execution::EosInternalExecutionConfig& current_config,
     const ::electro_optical_sensor::config::EosRuntimeConfigPatch& patch) {
   EosRuntimeConfigResolveResult resolved;
   resolved.next_config = current_config;
@@ -105,7 +118,7 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
           "[EosSession] Rejecting mission patch because mission values are invalid.");
       return RejectPatch(current_config, true);
     }
-    resolved.next_config.mission = patch.mission;
+    resolved.next_config.scan = patch.mission;
     resolved.reset_scan_phase = true;
   }
 
@@ -115,7 +128,8 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
           "[EosSession] Rejecting policy patch because policy values are invalid.");
       return RejectPatch(current_config, true);
     }
-    resolved.next_config.policy = patch.policy;
+    ApplyDetectionPolicyToInternal(patch.policy.detection, &resolved.next_config);
+    ApplyStrayLightPolicyToInternal(patch.policy.stray_light, &resolved.next_config);
   }
 
   if (patch.has_environment) {
@@ -125,41 +139,41 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
       return RejectPatch(current_config, true);
     }
 
-    environment::EosEnvironmentScenarioConfig& scenario_config =
-        resolved.next_config.environment.scenario_config;
-    const environment::EosEnvironmentRuntimeConfigPatch& environment_patch =
-        patch.environment;
-
-    if (environment_patch.has_scenario_config) {
-      scenario_config = environment_patch.scenario_config;
+    if (patch.environment.has_scenario_config) {
+      const environment::EosEnvironmentModelConfig model_config =
+          environment::BuildModelConfigFromScenario(patch.environment.scenario_config);
+      ApplyEnvironmentModelToInternal(model_config, &resolved.next_config);
+      resolved.next_config.environment.environment_model_type = model_config.model_type;
     }
   }
 
   if (patch.has_work_mode) {
-    resolved.next_config.mission.work_mode = patch.work_mode;
+    resolved.next_config.scan.work_mode = patch.work_mode;
   }
 
   if (patch.has_scan_rate_deg_per_sec) {
-    if (!oneq::internal::validation::IsFinite(patch.scan_rate_deg_per_sec) || patch.scan_rate_deg_per_sec <= 0.0f) {
+    if (!oneq::internal::validation::IsFinite(patch.scan_rate_deg_per_sec) ||
+        patch.scan_rate_deg_per_sec <= 0.0f) {
       PROJECT_LOG_ERROR(
           "[EosSession] Rejecting invalid scan_rate_deg_per_sec={}; "
           "must be finite and positive.",
           patch.scan_rate_deg_per_sec);
       return RejectPatch(current_config, true);
     }
-    resolved.next_config.mission.scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
+    resolved.next_config.scan.scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
     resolved.reset_scan_phase = true;
   }
 
   if (patch.has_frame_rate_hz) {
-    if (!oneq::internal::validation::IsFinite(patch.frame_rate_hz) || patch.frame_rate_hz <= 0.0f) {
+    if (!oneq::internal::validation::IsFinite(patch.frame_rate_hz) ||
+        patch.frame_rate_hz <= 0.0f) {
       PROJECT_LOG_ERROR(
           "[EosSession] Rejecting invalid frame_rate_hz={}; "
           "must be finite and positive.",
           patch.frame_rate_hz);
       return RejectPatch(current_config, true);
     }
-    resolved.next_config.mission.frame_rate_hz = patch.frame_rate_hz;
+    resolved.next_config.scan.frame_rate_hz = patch.frame_rate_hz;
   }
 
   resolved.has_requested_update = has_requested_update;

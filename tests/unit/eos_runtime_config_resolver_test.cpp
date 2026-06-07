@@ -15,13 +15,11 @@ namespace internal {
 namespace {
 
 namespace eos_config = ::electro_optical_sensor::config;
-namespace eos_session = ::electro_optical_sensor::session;
 
 TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag) {
-  eos_config::EosSessionConfig current_config;
-  current_config.mission.scan_rate_deg_per_sec = 20.0f;
-  current_config.policy.detection.profile = eos_config::EosDetectionProfile::kBalanced;
-  current_config.environment.scenario_config.preset = environment::EosEnvironmentPreset::kStandard;
+  config::execution::EosInternalExecutionConfig current_config;
+  current_config.scan.scan_rate_deg_per_sec = 20.0f;
+  current_config.detection.minimum_snr_db = 6.0f;
 
   environment::EosEnvironmentScenarioConfig env_config;
   env_config.has_custom_overrides = true;
@@ -44,25 +42,25 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_TRUE(resolved.is_valid);
   EXPECT_TRUE(resolved.reset_scan_phase);
-  EXPECT_FLOAT_EQ(resolved.next_config.mission.scan_rate_deg_per_sec, 60.0f);
-  EXPECT_EQ(resolved.next_config.policy.detection.profile, eos_config::EosDetectionProfile::kConservative);
-  EXPECT_TRUE(resolved.next_config.environment.scenario_config.has_custom_overrides);
+  // scan field updated
+  EXPECT_FLOAT_EQ(resolved.next_config.scan.scan_rate_deg_per_sec, 60.0f);
+  // detection profile resolved to Conservative values
+  EXPECT_FLOAT_EQ(resolved.next_config.detection.minimum_snr_db, 60.0f);
+  // environment custom overrides applied
   EXPECT_EQ(
-      resolved.next_config.environment.scenario_config.custom_overrides.radiative_transfer_model,
+      resolved.next_config.environment.radiative_transfer_model,
       ::electro_optical_sensor::foundation::radiative_transfer::
           RadiativeTransferModel::kAdaptivePathRadiance);
   EXPECT_FLOAT_EQ(
-      resolved.next_config.environment.scenario_config.custom_overrides.aerosol_density_factor,
-      2.0f);
+      resolved.next_config.environment.aerosol_density_factor, 2.0f);
   EXPECT_FLOAT_EQ(
-      resolved.next_config.environment.scenario_config.custom_overrides.turbulence_factor,
-      1.2f);
+      resolved.next_config.environment.turbulence_factor, 1.2f);
 }
 
 TEST(EosRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {
-  eos_config::EosSessionConfig current_config;
-  current_config.mission.scan_rate_deg_per_sec = 20.0f;
-  current_config.policy.detection.profile = eos_config::EosDetectionProfile::kBalanced;
+  config::execution::EosInternalExecutionConfig current_config;
+  current_config.scan.scan_rate_deg_per_sec = 20.0f;
+  current_config.detection.minimum_snr_db = 6.0f;
 
   const eos_config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder()
@@ -77,8 +75,9 @@ TEST(EosRuntimeConfigResolverTest, InvalidFieldRejectsWholePatch) {
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_FALSE(resolved.is_valid);
   EXPECT_FALSE(resolved.reset_scan_phase);
-  EXPECT_FLOAT_EQ(resolved.next_config.mission.scan_rate_deg_per_sec, 20.0f);
-  EXPECT_EQ(resolved.next_config.policy.detection.profile, eos_config::EosDetectionProfile::kBalanced);
+  // values unchanged on reject
+  EXPECT_FLOAT_EQ(resolved.next_config.scan.scan_rate_deg_per_sec, 20.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.detection.minimum_snr_db, 6.0f);
 }
 
 }  // namespace

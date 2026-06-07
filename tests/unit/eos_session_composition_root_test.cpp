@@ -93,8 +93,8 @@ TEST(EosSessionCompositionRootTest, ComposeWithPipelineSyncsInjectedPipelineAndC
   EXPECT_NE(composition.owned_controller, nullptr);
   EXPECT_EQ(pipeline.update_count, 1U);
   EXPECT_TRUE(pipeline.last_reset_scan_phase);
-  EXPECT_FLOAT_EQ(pipeline.last_config.mission.scan_rate_deg_per_sec, config.mission.scan_rate_deg_per_sec);
-  EXPECT_EQ(composition.runtime_config.mission.work_mode, config.mission.work_mode);
+  EXPECT_FLOAT_EQ(pipeline.last_config.scan_rate_deg_per_sec, config.mission.scan_rate_deg_per_sec);
+  EXPECT_EQ(composition.internal_config.scan.work_mode, config.mission.work_mode);
 }
 
 TEST(EosSessionCompositionRootTest, ComposeWithControllerSyncsProvidedControllerPipeline) {
@@ -111,7 +111,7 @@ TEST(EosSessionCompositionRootTest, ComposeWithControllerSyncsProvidedController
   EXPECT_EQ(composition.owned_controller, nullptr);
   EXPECT_EQ(pipeline.update_count, 1U);
   EXPECT_TRUE(pipeline.last_reset_scan_phase);
-  EXPECT_FLOAT_EQ(pipeline.last_config.mission.frame_rate_hz, config.mission.frame_rate_hz);
+  EXPECT_FLOAT_EQ(pipeline.last_config.frame_rate_hz, config.mission.frame_rate_hz);
 }
 
 TEST(EosSessionCompositionRootTest, ComposeDefaultBuildsOwnedGraphAndRuntimeAssembly) {
@@ -123,8 +123,8 @@ TEST(EosSessionCompositionRootTest, ComposeDefaultBuildsOwnedGraphAndRuntimeAsse
   ASSERT_NE(composition.owned_controller, nullptr);
   EXPECT_EQ(composition.pipeline, composition.owned_pipeline.get());
   EXPECT_EQ(composition.controller, composition.owned_controller.get());
-  EXPECT_EQ(composition.runtime_config.mission.work_mode, config.mission.work_mode);
-  EXPECT_FLOAT_EQ(composition.pipeline_config.detection_policy.minimum_snr_db, 60.0f);
+  EXPECT_EQ(composition.internal_config.scan.work_mode, config.mission.work_mode);
+  EXPECT_FLOAT_EQ(composition.internal_config.detection.minimum_snr_db, 60.0f);
 }
 
 TEST(EosSessionCompositionRootTest, ComposeWithEnvironmentServiceBuildsOwnedPipeline) {
@@ -138,7 +138,7 @@ TEST(EosSessionCompositionRootTest, ComposeWithEnvironmentServiceBuildsOwnedPipe
   ASSERT_NE(composition.owned_controller, nullptr);
   EXPECT_EQ(composition.pipeline, composition.owned_pipeline.get());
   EXPECT_EQ(composition.controller, composition.owned_controller.get());
-  EXPECT_FLOAT_EQ(composition.pipeline_config.aerosol_density_factor, 2.0f);
+  EXPECT_FLOAT_EQ(composition.internal_config.environment.aerosol_density_factor, 2.0f);
 }
 
 }  // namespace

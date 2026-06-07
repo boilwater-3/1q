@@ -10,9 +10,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/config/EosHardwareConfig.h"
 #include "1q/electro_optical_sensor/config/EosMissionConfig.h"
-#include "1q/electro_optical_sensor/config/EosPolicyConfig.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
@@ -54,26 +52,43 @@ using EosPipelineWorkMode = config::EosWorkMode;
 using EosPipelineEnvironmentModelType = environment::EosEnvironmentModelType;
 
 /**
- * @brief EosPipelineConfig 描述核心处理层配置。
+ * @brief EosPipelineConfig 描述核心处理层配置（公开契约，拍平类型）。
  *
- * 按域嵌入公开配置类型，外加 pipeline 专属与环境派生字段。
- * 与 AR 模块 InternalExecutionConfig 的子结构组织模式保持一致。
+ * 供 IEosPipeline::UpdateConfig() 使用。
+ * 内部执行域请使用 config::execution::EosInternalExecutionConfig。
  */
 struct ONEQ_API EosPipelineConfig {
-  config::EosHardwareConfig hardware{};
-  config::EosMissionConfig mission{};
-  config::EosDetectionPolicyConfig detection_policy{};
-  config::EosStrayLightPolicyConfig stray_light_policy{};
-  EosPipelineEnvironmentModelType environment_model_type{
-      EosPipelineEnvironmentModelType::kSimplified};
+  float wavelength_lower_um{3.0f};
+  float wavelength_upper_um{5.0f};
+  float optical_aperture_m{0.2f};
+  float focal_length_m{0.8f};
+  EosPipelineWorkMode work_mode{EosPipelineWorkMode::kFused};
+  float horizontal_fov_deg{6.0f};
+  float vertical_fov_deg{4.0f};
+  float scan_rate_deg_per_sec{20.0f};
+  float frame_rate_hz{30.0f};
+  float minimum_snr_db{6.0f};
+  float detection_sensitivity_w{1.0e-12f};
+  float detector_detectivity_cm_sqrt_hz_per_w{1.0e10f};
+  float detector_area_cm2{0.25f};
+  float scan_start_az_deg{-60.0f};
+  float scan_end_az_deg{60.0f};
+  float scan_center_el_deg{0.0f};
+  float boresight_depression_deg{45.0f};
+  float min_detection_depression_deg{1.0f};
+  float max_detection_depression_deg{89.0f};
+  float visible_reference_irradiance_w_m2{800.0f};
+  bool enable_straylight_filter{false};
+  float hood_inner_half_angle_deg{12.0f};
+  float hood_outer_half_angle_deg{75.0f};
+  float hood_min_suppression_ratio{0.20f};
+  float hood_max_suppression_ratio{0.85f};
   foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model{
       foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
   float aerosol_density_factor{1.0f};
   float turbulence_factor{1.0f};
-  float detector_detectivity_cm_sqrt_hz_per_w{1.0e10f};
-  float detector_area_cm2{0.25f};
-  float min_detection_depression_deg{1.0f};
-  float max_detection_depression_deg{89.0f};
+  EosPipelineEnvironmentModelType environment_model_type{
+      EosPipelineEnvironmentModelType::kSimplified};
 };
 
 /**

@@ -23,19 +23,11 @@ namespace {
 
 EosSessionComposition BuildInitialCompositionRuntime(const config::EosSessionConfig& config,
                                                      EosSessionComposition composition) {
-  composition.runtime_config = config;
-  composition.pipeline_config = runtime::session::BuildEosPipelineConfig(config);
+  composition.internal_config = runtime::session::MapSessionToInternal(config);
   composition.initial_reset_scan_phase = true;
   return composition;
 }
 
-/**
- * @brief 校验组合结果中的关键依赖非空。
- * @param[in] ptr 待校验指针。
- * @param[in] dependency_name 依赖名称，用于日志与故障定位。
- * @return 非空依赖引用。
- * @warning 若装配输出为空指针，将终止进程避免未定义行为。
- */
 template <typename T>
 T& RequireComposedDependency(T* ptr, const char* dependency_name) {
   if (ptr != nullptr) {
@@ -45,11 +37,6 @@ T& RequireComposedDependency(T* ptr, const char* dependency_name) {
   std::abort();
 }
 
-/**
- * @brief 统一收尾并校验组合结果。
- * @param[in] composition 待校验组合结果。
- * @return 校验后的组合结果。
- */
 EosSessionComposition FinalizeComposition(EosSessionComposition composition) {
   static_cast<void>(RequireComposedDependency(composition.pipeline, "pipeline"));
   static_cast<void>(RequireComposedDependency(composition.controller, "controller"));
@@ -67,7 +54,8 @@ EosSessionComposition MakeCompositionWithOwnedPipeline(
     const config::EosSessionConfig& config) {
   EosSessionComposition composition;
   composition.owned_pipeline = std::move(owned_pipeline);
-  composition.owned_controller.reset(new extension::EosController(*composition.owned_pipeline));
+  composition.owned_controller.reset(
+      new extension::EosController(*composition.owned_pipeline));
   composition.pipeline = composition.owned_pipeline.get();
   composition.controller = composition.owned_controller.get();
   return BuildInitialCompositionRuntime(config, std::move(composition));
@@ -81,8 +69,10 @@ EosSessionComposition MakeCompositionWithExternalPipeline(
   composition.pipeline = &pipeline;
   composition.controller = composition.owned_controller.get();
   composition = BuildInitialCompositionRuntime(config, std::move(composition));
-  composition.pipeline->UpdateConfig(composition.pipeline_config,
-                                     composition.initial_reset_scan_phase);
+  // 通过公开接口更新（支持外部 IEosPipeline 实现）
+  composition.pipeline->UpdateConfig(
+      runtime::session::InternalToPipelineConfig(composition.internal_config),
+      composition.initial_reset_scan_phase);
   return composition;
 }
 
@@ -99,10 +89,11 @@ EosSessionComposition ComposeWithExternalPipeline(extension::IEosPipeline& pipel
 
 }  // namespace
 
-EosSessionComposition EosSessionCompositionRoot::ComposeDefault(const config::EosSessionConfig& config) {
+EosSessionComposition EosSessionCompositionRoot::ComposeDefault(
+    const config::EosSessionConfig& config) {
   return ComposeWithOwnedPipeline(
       std::unique_ptr<extension::IEosPipeline>(
-          new signal::pipeline::EosPipeline(runtime::session::BuildEosPipelineConfig(
+          new signal::pipeline::EosPipeline(runtime::session::MapSessionToInternal(
               config))),
       config);
 }
@@ -118,7 +109,7 @@ EosSessionComposition EosSessionCompositionRoot::ComposeWithEnvironmentService(
     environment::IEosEnvironmentService& environment_service) {
   return ComposeWithOwnedPipeline(
       std::unique_ptr<extension::IEosPipeline>(new signal::pipeline::EosPipeline(
-          runtime::session::BuildEosPipelineConfig(config),
+          runtime::session::MapSessionToInternal(config),
           MakeNonOwningEnvironmentServiceHandle(environment_service))),
       config);
 }
@@ -130,8 +121,9 @@ EosSessionComposition EosSessionCompositionRoot::ComposeWithController(
   composition = BuildInitialCompositionRuntime(config, std::move(composition));
   composition.pipeline = &controller.GetPipeline();
   composition.controller = &controller;
-  composition.pipeline->UpdateConfig(composition.pipeline_config,
-                                     composition.initial_reset_scan_phase);
+  composition.pipeline->UpdateConfig(
+      runtime::session::InternalToPipelineConfig(composition.internal_config),
+      composition.initial_reset_scan_phase);
   return FinalizeComposition(std::move(composition));
 }
 
@@ -143,8 +135,9 @@ EosSessionComposition EosSessionCompositionRoot::ComposeAllExternal(
   composition = BuildInitialCompositionRuntime(config, std::move(composition));
   composition.pipeline = &pipeline;
   composition.controller = &controller;
-  composition.pipeline->UpdateConfig(composition.pipeline_config,
-                                     composition.initial_reset_scan_phase);
+  composition.pipeline->UpdateConfig(
+      runtime::session::InternalToPipelineConfig(composition.internal_config),
+      composition.initial_reset_scan_phase);
   return FinalizeComposition(std::move(composition));
 }
 
