@@ -8,6 +8,7 @@
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "flatbuffers/flatbuffers.h"
 #include "generated/eos_replay_generated.h"
 #include "generated/eos_session_replay_generated.h"
@@ -230,8 +231,7 @@ bool DecodeEosCycleResult(const std::string& bytes,
   const auto* fb = flatbuffers::GetRoot<eos::replay::EosCycleResult>(bytes.data());
   out->input_cycle_index = fb->input_cycle_index();
   if (fb->output_frame()) {
-    DecodeEosOutputFrame(EncodeEosOutputFrame(out->output_frame), &out->output_frame);
-    // 直接从 fb 还原（不能递归，展开）
+    // 直接从 fb 还原
     const auto* frm = fb->output_frame();
     out->output_frame.cycle_index = frm->cycle_index();
     out->output_frame.scan_azimuth_deg = frm->scan_azimuth_deg();

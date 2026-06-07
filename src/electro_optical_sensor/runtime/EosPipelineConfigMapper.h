@@ -10,6 +10,19 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
+namespace environment {
+
+/**
+ * @brief 将场景配置映射为环境模型配置（单入口）。
+ * @note 已从公开头文件移入 src/，仅限内部使用。
+ */
+environment::EosEnvironmentModelConfig BuildModelConfigFromScenario(
+    const environment::EosEnvironmentScenarioConfig& scenario_config);
+
+}  // namespace environment
+}  // namespace electro_optical_sensor
+
+namespace electro_optical_sensor {
 namespace runtime {
 namespace session {
 

@@ -71,50 +71,6 @@ struct ONEQ_API EosEnvironmentDefaultConfig {
   EosEnvironmentScenarioConfig scenario_config{};
 };
 
-/**
- * @brief 将场景配置映射为环境模型配置（单入口）。
- */
-inline EosEnvironmentModelConfig BuildModelConfigFromScenario(
-    const EosEnvironmentScenarioConfig& scenario_config) {
-  EosEnvironmentModelConfig model_config;
-  model_config.model_type = scenario_config.model_type;
-
-  using Model = foundation::radiative_transfer::RadiativeTransferModel;
-  if (scenario_config.preset == EosEnvironmentPreset::kHumid) {
-    model_config.radiative_transfer_model = Model::kHumidityWeighted;
-    model_config.aerosol_density_factor = 1.1f;
-    model_config.turbulence_factor = 1.1f;
-  } else if (scenario_config.preset == EosEnvironmentPreset::kDusty) {
-    model_config.radiative_transfer_model = Model::kAdaptivePathRadiance;
-    model_config.aerosol_density_factor = 2.0f;
-    model_config.turbulence_factor = 1.2f;
-  } else if (scenario_config.preset == EosEnvironmentPreset::kTurbulent) {
-    model_config.radiative_transfer_model = Model::kAdaptivePathRadiance;
-    model_config.aerosol_density_factor = 1.3f;
-    model_config.turbulence_factor = 1.8f;
-  } else if (scenario_config.preset == EosEnvironmentPreset::kMaritime) {
-    model_config.radiative_transfer_model = Model::kHumidityWeighted;
-    model_config.aerosol_density_factor = 1.5f;
-    model_config.turbulence_factor = 1.4f;
-  } else {
-    model_config.radiative_transfer_model = Model::kDerivedBeerLambert;
-    model_config.aerosol_density_factor = 1.0f;
-    model_config.turbulence_factor = 1.0f;
-  }
-
-  if (scenario_config.has_custom_overrides) {
-    model_config.radiative_transfer_model =
-        scenario_config.custom_overrides.radiative_transfer_model;
-    model_config.aerosol_density_factor =
-        scenario_config.custom_overrides.aerosol_density_factor;
-    model_config.turbulence_factor = scenario_config.custom_overrides.turbulence_factor;
-    model_config.enable_optical_countermeasure_extension =
-        scenario_config.custom_overrides.enable_optical_countermeasure_extension;
-  }
-
-  return model_config;
-}
-
 }  // namespace environment
 }  // namespace electro_optical_sensor
 
