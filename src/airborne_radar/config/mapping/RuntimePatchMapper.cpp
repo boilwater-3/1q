@@ -121,10 +121,6 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
         ResolveTrackingEngineering(next_execution_config.tracking.policy);
     next_execution_config.lifecycle.engineering =
         ResolveLifecycleEngineering(next_execution_config.lifecycle.policy);
-    next_execution_config.tracking.speed_decay_ratio_on_loss =
-        next_execution_config.tracking.policy.speed_decay_ratio_on_loss;
-    next_execution_config.tracking.rcs_decay_ratio_on_loss =
-        next_execution_config.tracking.policy.rcs_decay_ratio_on_loss;
     next_execution_config.association.unassigned_cost =
         next_execution_config.association.policy.unassigned_cost;
     if (next_execution_config.lifecycle.engineering.enable_imm_lifecycle) {

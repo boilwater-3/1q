@@ -104,8 +104,6 @@ struct AssociationExecutionConfig {
 struct TrackingExecutionConfig {
   TrackingConfig policy{};
   engineering::TrackingConfig engineering{};
-  float speed_decay_ratio_on_loss{0.90f};
-  float rcs_decay_ratio_on_loss{0.85f};
   float kalman_noise_diff_coeff{1.0f};
 };
 

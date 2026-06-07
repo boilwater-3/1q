@@ -84,6 +84,8 @@ struct TrackingConfig {
   float kalman_measurement_noise_std{10.0f};
   KalmanUpdateBackend kalman_update_backend{
       KalmanUpdateBackend::kStandardKfJoseph};
+  float speed_decay_ratio_on_loss{0.90f};
+  float rcs_decay_ratio_on_loss{0.85f};
 };
 
 struct LifecycleConfig {

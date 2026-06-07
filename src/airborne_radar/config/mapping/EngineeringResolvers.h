@@ -72,6 +72,8 @@ inline engineering::TrackingConfig ResolveTrackingEngineering(
   resolved.enable_kalman_filter = tracking.enable_kalman_filter;
   resolved.kalman_measurement_noise_std = tracking.kalman_measurement_noise_std;
   resolved.kalman_update_backend = tracking.kalman_update_backend;
+  resolved.speed_decay_ratio_on_loss = tracking.speed_decay_ratio_on_loss;
+  resolved.rcs_decay_ratio_on_loss = tracking.rcs_decay_ratio_on_loss;
   return resolved;
 }
 

@@ -31,8 +31,8 @@ tracking::LifecycleConfig SignalComponentFactory::BuildLifecycleConfig(
 tracking::TrackFilterConfig SignalComponentFactory::BuildTrackFilterConfig(
     const ExecutionConfig& config) {
   tracking::TrackFilterConfig filter_config;
-  filter_config.speed_decay_ratio_on_loss = config.tracking.speed_decay_ratio_on_loss;
-  filter_config.rcs_decay_ratio_on_loss = config.tracking.rcs_decay_ratio_on_loss;
+  filter_config.speed_decay_ratio_on_loss = config.tracking.engineering.speed_decay_ratio_on_loss;
+  filter_config.rcs_decay_ratio_on_loss = config.tracking.engineering.rcs_decay_ratio_on_loss;
   return filter_config;
 }
 

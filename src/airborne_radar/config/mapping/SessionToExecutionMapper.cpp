@@ -21,8 +21,6 @@ execution::InternalExecutionConfig MapSessionToExecution(
   exec.tracking.engineering = ResolveTrackingEngineering(exec.tracking.policy);
   exec.lifecycle.engineering = ResolveLifecycleEngineering(exec.lifecycle.policy);
 
-  exec.tracking.speed_decay_ratio_on_loss = exec.tracking.policy.speed_decay_ratio_on_loss;
-  exec.tracking.rcs_decay_ratio_on_loss = exec.tracking.policy.rcs_decay_ratio_on_loss;
   exec.association.unassigned_cost = exec.association.policy.unassigned_cost;
 
   if (exec.lifecycle.engineering.enable_imm_lifecycle) {

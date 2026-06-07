@@ -217,11 +217,11 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
 
   if (control_profile.enable_sidelobe_canceller || control_profile.enable_agility_frequency ||
       control_profile.enable_eccm_rejitter || control_profile.eccm_burnthrough_gain > 1.0f) {
-    config->tracking.speed_decay_ratio_on_loss =
-        utils::ClampFloat(config->tracking.speed_decay_ratio_on_loss + cfg.eccm_speed_decay_bonus,
+    config->tracking.engineering.speed_decay_ratio_on_loss =
+        utils::ClampFloat(config->tracking.engineering.speed_decay_ratio_on_loss + cfg.eccm_speed_decay_bonus,
                           0.0f, kSpeedDecayRatioMax);
-    config->tracking.rcs_decay_ratio_on_loss =
-        utils::ClampFloat(config->tracking.rcs_decay_ratio_on_loss + cfg.eccm_rcs_decay_bonus, 0.0f,
+    config->tracking.engineering.rcs_decay_ratio_on_loss =
+        utils::ClampFloat(config->tracking.engineering.rcs_decay_ratio_on_loss + cfg.eccm_rcs_decay_bonus, 0.0f,
                           kRcsDecayRatioMax);
   }
 
