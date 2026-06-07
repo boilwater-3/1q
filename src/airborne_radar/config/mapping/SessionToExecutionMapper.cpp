@@ -1,5 +1,3 @@
-#include <vector>
-
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 
 #include "airborne_radar/config/mapping/EngineeringResolvers.h"
@@ -28,7 +26,8 @@ execution::InternalExecutionConfig MapSessionToExecution(
   exec.association.unassigned_cost = exec.association.policy.unassigned_cost;
 
   if (exec.lifecycle.engineering.enable_imm_lifecycle) {
-    exec.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 4.0f};
+    exec.lifecycle.imm_model_noise_diff_coeffs =
+        BuildDefaultImmNoiseDiffCoeffs(exec.lifecycle.policy.model_count_hint);
   }
 
   return exec;

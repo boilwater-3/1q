@@ -1700,8 +1700,8 @@ TEST(SignalPipelineInternalConfigTest, ImmToggleOnlyControlsImmInternalDefaults)
   session_config.policy.lifecycle.enable_imm_lifecycle = true;
   const ExecutionConfig imm_enabled_exec = config::mapping::MapSessionToExecution(session_config);
   ASSERT_EQ(imm_enabled_exec.lifecycle.imm_model_noise_diff_coeffs.size(), 2U);
-  EXPECT_FLOAT_EQ(imm_enabled_exec.lifecycle.imm_model_noise_diff_coeffs[0], 0.5f);
-  EXPECT_FLOAT_EQ(imm_enabled_exec.lifecycle.imm_model_noise_diff_coeffs[1], 4.0f);
+  EXPECT_FLOAT_EQ(imm_enabled_exec.lifecycle.imm_model_noise_diff_coeffs[0], 1.0f);
+  EXPECT_FLOAT_EQ(imm_enabled_exec.lifecycle.imm_model_noise_diff_coeffs[1], 10.0f);
   EXPECT_FLOAT_EQ(imm_enabled_exec.tracking.speed_decay_ratio_on_loss, 1.0f);
   EXPECT_FLOAT_EQ(imm_enabled_exec.tracking.rcs_decay_ratio_on_loss, 1.0f);
 }

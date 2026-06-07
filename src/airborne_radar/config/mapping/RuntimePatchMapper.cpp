@@ -128,7 +128,8 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     next_execution_config.association.unassigned_cost =
         next_execution_config.association.policy.unassigned_cost;
     if (next_execution_config.lifecycle.engineering.enable_imm_lifecycle) {
-      next_execution_config.lifecycle.imm_model_noise_diff_coeffs = std::vector<float>{0.5f, 4.0f};
+      next_execution_config.lifecycle.imm_model_noise_diff_coeffs =
+          BuildDefaultImmNoiseDiffCoeffs(next_execution_config.lifecycle.policy.model_count_hint);
     } else {
       next_execution_config.lifecycle.imm_model_noise_diff_coeffs.clear();
       next_execution_config.lifecycle.imm_initial_weights.clear();
