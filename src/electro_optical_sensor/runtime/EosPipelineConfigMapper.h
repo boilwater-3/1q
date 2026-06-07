@@ -35,12 +35,6 @@ config::execution::EosInternalExecutionConfig MapSessionToInternal(
     const ::electro_optical_sensor::config::EosSessionConfig& config);
 
 /**
- * @brief 将内部执行配置转换为公开 pipeline 配置（供 IEosPipeline::UpdateConfig 使用）。
- */
-::electro_optical_sensor::extension::EosPipelineConfig InternalToPipelineConfig(
-    const config::execution::EosInternalExecutionConfig& internal);
-
-/**
  * @brief 将检测策略解析为内部检测配置数值。
  */
 void ApplyDetectionPolicyToInternal(

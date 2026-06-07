@@ -58,6 +58,8 @@ EosSessionComposition MakeCompositionWithOwnedPipeline(
       new extension::EosController(*composition.owned_pipeline));
   composition.pipeline = composition.owned_pipeline.get();
   composition.controller = composition.owned_controller.get();
+  composition.concrete_pipeline =
+      dynamic_cast<signal::pipeline::EosPipeline*>(composition.pipeline);
   return BuildInitialCompositionRuntime(config, std::move(composition));
 }
 
@@ -68,12 +70,7 @@ EosSessionComposition MakeCompositionWithExternalPipeline(
   composition.owned_controller.reset(new extension::EosController(pipeline));
   composition.pipeline = &pipeline;
   composition.controller = composition.owned_controller.get();
-  composition = BuildInitialCompositionRuntime(config, std::move(composition));
-  // 通过公开接口更新（支持外部 IEosPipeline 实现）
-  composition.pipeline->UpdateConfig(
-      runtime::session::InternalToPipelineConfig(composition.internal_config),
-      composition.initial_reset_scan_phase);
-  return composition;
+  return BuildInitialCompositionRuntime(config, std::move(composition));
 }
 
 EosSessionComposition ComposeWithOwnedPipeline(
@@ -121,9 +118,6 @@ EosSessionComposition EosSessionCompositionRoot::ComposeWithController(
   composition = BuildInitialCompositionRuntime(config, std::move(composition));
   composition.pipeline = &controller.GetPipeline();
   composition.controller = &controller;
-  composition.pipeline->UpdateConfig(
-      runtime::session::InternalToPipelineConfig(composition.internal_config),
-      composition.initial_reset_scan_phase);
   return FinalizeComposition(std::move(composition));
 }
 
@@ -135,9 +129,6 @@ EosSessionComposition EosSessionCompositionRoot::ComposeAllExternal(
   composition = BuildInitialCompositionRuntime(config, std::move(composition));
   composition.pipeline = &pipeline;
   composition.controller = &controller;
-  composition.pipeline->UpdateConfig(
-      runtime::session::InternalToPipelineConfig(composition.internal_config),
-      composition.initial_reset_scan_phase);
   return FinalizeComposition(std::move(composition));
 }
 

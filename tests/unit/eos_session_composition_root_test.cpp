@@ -20,13 +20,6 @@ namespace {
 
 class CountingPipeline final : public extension::IEosPipeline {
  public:
-  void UpdateConfig(const extension::EosPipelineConfig& config,
-                    bool reset_scan_phase) override {
-    ++update_count;
-    last_config = config;
-    last_reset_scan_phase = reset_scan_phase;
-  }
-
   extension::EosPipelineExecuteResult RunCycle(const EosCycleInput& input) override {
     extension::EosPipelineExecuteResult result;
     result.executed_this_cycle = true;
@@ -46,10 +39,6 @@ class CountingPipeline final : public extension::IEosPipeline {
     (void)state;
     return true;
   }
-
-  std::size_t update_count{0U};
-  bool last_reset_scan_phase{false};
-  extension::EosPipelineConfig last_config{};
 };
 
 class CountingEnvironmentService final : public environment::IEosEnvironmentService {
@@ -91,9 +80,6 @@ TEST(EosSessionCompositionRootTest, ComposeWithPipelineSyncsInjectedPipelineAndC
   EXPECT_NE(composition.controller, nullptr);
   EXPECT_EQ(composition.owned_pipeline, nullptr);
   EXPECT_NE(composition.owned_controller, nullptr);
-  EXPECT_EQ(pipeline.update_count, 1U);
-  EXPECT_TRUE(pipeline.last_reset_scan_phase);
-  EXPECT_FLOAT_EQ(pipeline.last_config.scan_rate_deg_per_sec, config.mission.scan_rate_deg_per_sec);
   EXPECT_EQ(composition.internal_config.scan.work_mode, config.mission.work_mode);
 }
 
@@ -109,9 +95,6 @@ TEST(EosSessionCompositionRootTest, ComposeWithControllerSyncsProvidedController
   EXPECT_EQ(composition.controller, &controller);
   EXPECT_EQ(composition.owned_pipeline, nullptr);
   EXPECT_EQ(composition.owned_controller, nullptr);
-  EXPECT_EQ(pipeline.update_count, 1U);
-  EXPECT_TRUE(pipeline.last_reset_scan_phase);
-  EXPECT_FLOAT_EQ(pipeline.last_config.frame_rate_hz, config.mission.frame_rate_hz);
 }
 
 TEST(EosSessionCompositionRootTest, ComposeDefaultBuildsOwnedGraphAndRuntimeAssembly) {

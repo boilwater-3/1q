@@ -22,13 +22,6 @@ class ONEQ_API IEosPipeline {
   virtual ~IEosPipeline() = default;
 
   /**
-   * @brief 更新核心处理层配置。
-   * @param[in] config 新配置。
-   * @param[in] reset_scan_phase 是否重置扫描相位。
-   */
-  virtual void UpdateConfig(const EosPipelineConfig& config, bool reset_scan_phase = true) = 0;
-
-  /**
    * @brief 捕获核心处理层运行态快照。
    * @return 当前管线运行态快照。
    */
@@ -54,7 +47,6 @@ class ONEQ_API IEosPipeline {
 
 namespace pipeline {
 using ::electro_optical_sensor::extension::IEosPipeline;
-using ::electro_optical_sensor::extension::EosPipelineConfig;
 using ::electro_optical_sensor::extension::EosPipelineWorkMode;
 using ::electro_optical_sensor::extension::EosPipelineEnvironmentModelType;
 }  // namespace pipeline

@@ -365,44 +365,6 @@ EosPipeline::EosPipeline(const config::execution::EosInternalExecutionConfig& co
   }
 }
 
-void EosPipeline::UpdateConfig(
-    const ::electro_optical_sensor::extension::EosPipelineConfig& config,
-    bool reset_scan_phase) {
-  config::execution::EosInternalExecutionConfig internal;
-  internal.optics.wavelength_lower_um = config.wavelength_lower_um;
-  internal.optics.wavelength_upper_um = config.wavelength_upper_um;
-  internal.optics.optical_aperture_m = config.optical_aperture_m;
-  internal.optics.focal_length_m = config.focal_length_m;
-  internal.scan.work_mode = config.work_mode;
-  internal.scan.horizontal_fov_deg = config.horizontal_fov_deg;
-  internal.scan.vertical_fov_deg = config.vertical_fov_deg;
-  internal.scan.scan_rate_deg_per_sec = config.scan_rate_deg_per_sec;
-  internal.scan.frame_rate_hz = config.frame_rate_hz;
-  internal.scan.scan_start_az_deg = config.scan_start_az_deg;
-  internal.scan.scan_end_az_deg = config.scan_end_az_deg;
-  internal.scan.scan_center_el_deg = config.scan_center_el_deg;
-  internal.scan.boresight_depression_deg = config.boresight_depression_deg;
-  internal.detection.minimum_snr_db = config.minimum_snr_db;
-  internal.detection.detection_sensitivity_w = config.detection_sensitivity_w;
-  internal.detection.visible_reference_irradiance_w_m2 =
-      config.visible_reference_irradiance_w_m2;
-  internal.stray_light.enable_straylight_filter = config.enable_straylight_filter;
-  internal.stray_light.hood_inner_half_angle_deg = config.hood_inner_half_angle_deg;
-  internal.stray_light.hood_outer_half_angle_deg = config.hood_outer_half_angle_deg;
-  internal.stray_light.hood_min_suppression_ratio = config.hood_min_suppression_ratio;
-  internal.stray_light.hood_max_suppression_ratio = config.hood_max_suppression_ratio;
-  internal.environment.environment_model_type = config.environment_model_type;
-  internal.environment.radiative_transfer_model = config.radiative_transfer_model;
-  internal.environment.aerosol_density_factor = config.aerosol_density_factor;
-  internal.environment.turbulence_factor = config.turbulence_factor;
-  internal.detector.detector_detectivity_cm_sqrt_hz_per_w =
-      config.detector_detectivity_cm_sqrt_hz_per_w;
-  internal.detector.detector_area_cm2 = config.detector_area_cm2;
-  internal.detector.min_detection_depression_deg = config.min_detection_depression_deg;
-  internal.detector.max_detection_depression_deg = config.max_detection_depression_deg;
-  ApplyInternalConfig(internal, reset_scan_phase);
-}
-
 void EosPipeline::ApplyInternalConfig(
     const config::execution::EosInternalExecutionConfig& config,
     bool reset_scan_phase) {

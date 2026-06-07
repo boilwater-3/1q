@@ -159,43 +159,6 @@ config::execution::EosInternalExecutionConfig MapSessionToInternal(
   return exec;
 }
 
-::electro_optical_sensor::extension::EosPipelineConfig InternalToPipelineConfig(
-    const config::execution::EosInternalExecutionConfig& internal) {
-  ::electro_optical_sensor::extension::EosPipelineConfig config;
-  config.wavelength_lower_um = internal.optics.wavelength_lower_um;
-  config.wavelength_upper_um = internal.optics.wavelength_upper_um;
-  config.optical_aperture_m = internal.optics.optical_aperture_m;
-  config.focal_length_m = internal.optics.focal_length_m;
-  config.work_mode = internal.scan.work_mode;
-  config.horizontal_fov_deg = internal.scan.horizontal_fov_deg;
-  config.vertical_fov_deg = internal.scan.vertical_fov_deg;
-  config.scan_rate_deg_per_sec = internal.scan.scan_rate_deg_per_sec;
-  config.frame_rate_hz = internal.scan.frame_rate_hz;
-  config.scan_start_az_deg = internal.scan.scan_start_az_deg;
-  config.scan_end_az_deg = internal.scan.scan_end_az_deg;
-  config.scan_center_el_deg = internal.scan.scan_center_el_deg;
-  config.boresight_depression_deg = internal.scan.boresight_depression_deg;
-  config.minimum_snr_db = internal.detection.minimum_snr_db;
-  config.detection_sensitivity_w = internal.detection.detection_sensitivity_w;
-  config.visible_reference_irradiance_w_m2 =
-      internal.detection.visible_reference_irradiance_w_m2;
-  config.enable_straylight_filter = internal.stray_light.enable_straylight_filter;
-  config.hood_inner_half_angle_deg = internal.stray_light.hood_inner_half_angle_deg;
-  config.hood_outer_half_angle_deg = internal.stray_light.hood_outer_half_angle_deg;
-  config.hood_min_suppression_ratio = internal.stray_light.hood_min_suppression_ratio;
-  config.hood_max_suppression_ratio = internal.stray_light.hood_max_suppression_ratio;
-  config.environment_model_type = internal.environment.environment_model_type;
-  config.radiative_transfer_model = internal.environment.radiative_transfer_model;
-  config.aerosol_density_factor = internal.environment.aerosol_density_factor;
-  config.turbulence_factor = internal.environment.turbulence_factor;
-  config.detector_detectivity_cm_sqrt_hz_per_w =
-      internal.detector.detector_detectivity_cm_sqrt_hz_per_w;
-  config.detector_area_cm2 = internal.detector.detector_area_cm2;
-  config.min_detection_depression_deg = internal.detector.min_detection_depression_deg;
-  config.max_detection_depression_deg = internal.detector.max_detection_depression_deg;
-  return config;
-}
-
 }  // namespace session
 }  // namespace runtime
 }  // namespace electro_optical_sensor

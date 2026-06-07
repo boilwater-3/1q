@@ -34,10 +34,6 @@ class EosPipeline : public ::electro_optical_sensor::extension::IEosPipeline {
       const config::execution::EosInternalExecutionConfig& config,
       std::shared_ptr<environment::IEosEnvironmentService> environment_service = nullptr);
 
-  // ---- IEosPipeline 公开接口 (保持 EosPipelineConfig 签名兼容) ----
-  void UpdateConfig(const ::electro_optical_sensor::extension::EosPipelineConfig& config,
-                    bool reset_scan_phase = true) override;
-
   // ---- 内部接口 (直接操作 EosInternalExecutionConfig, 无转换开销) ----
   void ApplyInternalConfig(const config::execution::EosInternalExecutionConfig& config,
                            bool reset_scan_phase = true);

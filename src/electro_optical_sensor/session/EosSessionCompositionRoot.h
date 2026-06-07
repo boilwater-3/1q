@@ -12,6 +12,14 @@
 #include "electro_optical_sensor/config/EosInternalExecutionConfig.h"
 
 namespace electro_optical_sensor {
+namespace signal {
+namespace pipeline {
+class EosPipeline;
+}  // namespace pipeline
+}  // namespace signal
+}  // namespace electro_optical_sensor
+
+namespace electro_optical_sensor {
 namespace session {
 
 /**
@@ -30,6 +38,7 @@ struct EosSessionComposition {
 
   ::electro_optical_sensor::extension::IEosPipeline* pipeline{nullptr};
   extension::EosController* controller{nullptr};
+  signal::pipeline::EosPipeline* concrete_pipeline{nullptr};
 };
 
 /**

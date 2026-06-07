@@ -24,11 +24,6 @@ namespace {
 
 class DummyEosPipeline : public extension::IEosPipeline {
  public:
-  void UpdateConfig(const extension::EosPipelineConfig& config, bool reset_scan_phase) override {
-    config_ = config;
-    (void)reset_scan_phase;
-  }
-
   extension::EosPipelineExecuteResult Execute(
       const ::electro_optical_sensor::session::EosCycleInput& input) override {
     extension::EosPipelineExecuteResult result;
@@ -53,9 +48,9 @@ class DummyEosPipeline : public extension::IEosPipeline {
     state.owner_identity = this;
     state.schema_version = 1U;
     state.current_scan_azimuth_deg = 0.0f;
-    state.scan_start_az_deg = config_.scan_start_az_deg;
-    state.scan_end_az_deg = config_.scan_end_az_deg;
-    state.scan_rate_deg_per_sec = config_.scan_rate_deg_per_sec;
+    state.scan_start_az_deg = -60.0f;
+    state.scan_end_az_deg = 60.0f;
+    state.scan_rate_deg_per_sec = 20.0f;
     return state;
   }
 
@@ -63,9 +58,6 @@ class DummyEosPipeline : public extension::IEosPipeline {
     (void)state;
     return true;
   }
-
- private:
-  extension::EosPipelineConfig config_{};
 };
 
 class DummyEosEnvironmentService : public environment::IEosEnvironmentService {

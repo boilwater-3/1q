@@ -25,12 +25,6 @@ namespace {
 
 class CountingPipeline final : public extension::IEosPipeline {
  public:
-  void UpdateConfig(const extension::EosPipelineConfig& config, bool reset_scan_phase) override {
-    ++update_count;
-    last_config = config;
-    last_reset_scan_phase = reset_scan_phase;
-  }
-
   extension::EosPipelineExecuteResult RunCycle(const EosCycleInput& input) override {
     ++execute_count;
     extension::EosPipelineExecuteResult result;
@@ -58,10 +52,7 @@ class CountingPipeline final : public extension::IEosPipeline {
     return true;
   }
 
-  std::size_t update_count{0U};
   std::size_t execute_count{0U};
-  bool last_reset_scan_phase{false};
-  extension::EosPipelineConfig last_config{};
 };
 
 class CountingEnvironmentService final : public environment::IEosEnvironmentService {
@@ -110,7 +101,6 @@ TEST(EosSessionFactoryTest, CreateWithPipelineUsesInjectedPipeline) {
   const ::electro_optical_sensor::session::EosCycleResult result =
       session.StepWithResult(MakeValidInput(8U));
 
-  EXPECT_EQ(pipeline.update_count, 2U);
   EXPECT_EQ(pipeline.execute_count, 1U);
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_EQ(result.output_frame.cycle_index, 8U);
@@ -166,7 +156,6 @@ TEST(EosSessionFactoryTest, CreateWithControllerReusesProvidedController) {
   const ::electro_optical_sensor::session::EosCycleResult result =
       session.StepWithResult(MakeValidInput(11U));
 
-  EXPECT_EQ(pipeline.update_count, 2U);
   EXPECT_EQ(pipeline.execute_count, 1U);
   EXPECT_TRUE(controller.ExecutedLatestCycle());
   EXPECT_TRUE(result.executed_this_cycle);
@@ -182,7 +171,6 @@ TEST(EosSessionFactoryTest, CreateWithControllerSessionMoveKeepsExternalControll
   const ::electro_optical_sensor::session::EosCycleResult result =
       moved_session.StepWithResult(MakeValidInput(12U));
 
-  EXPECT_EQ(pipeline.update_count, 2U);
   EXPECT_EQ(pipeline.execute_count, 1U);
   EXPECT_TRUE(controller.ExecutedLatestCycle());
   EXPECT_TRUE(result.executed_this_cycle);
@@ -194,15 +182,10 @@ TEST(EosSessionFactoryTest, ApplyRuntimeConfigUpdatesInjectedControllerPipeline)
   extension::EosController controller(pipeline);
   EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
 
-  EXPECT_EQ(pipeline.update_count, 2U);
-
   config::EosRuntimeConfigPatch patch;
   patch.has_scan_rate_deg_per_sec = true;
   patch.scan_rate_deg_per_sec = 9.0f;
-  session.ApplyRuntimeConfig(patch);
-
-  EXPECT_EQ(pipeline.update_count, 3U);
-  EXPECT_TRUE(pipeline.last_reset_scan_phase);
+  EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
 }
 
 TEST(EosSessionFactoryTest, InvalidRuntimeConfigDoesNotUpdateInjectedControllerPipeline) {
@@ -210,14 +193,10 @@ TEST(EosSessionFactoryTest, InvalidRuntimeConfigDoesNotUpdateInjectedControllerP
   extension::EosController controller(pipeline);
   EosSession session = EosSessionFactory::CreateWithController(MakeSessionConfig(), controller);
 
-  EXPECT_EQ(pipeline.update_count, 2U);
-
   config::EosRuntimeConfigPatch patch;
   patch.has_frame_rate_hz = true;
   patch.frame_rate_hz = 0.0f;
-  session.ApplyRuntimeConfig(patch);
-
-  EXPECT_EQ(pipeline.update_count, 2U);
+  EXPECT_FALSE(session.TryApplyRuntimeConfig(patch));
 }
 
 }  // namespace

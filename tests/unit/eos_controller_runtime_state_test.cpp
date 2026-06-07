@@ -17,13 +17,6 @@ namespace {
 
 class TrackingPipeline final : public IEosPipeline {
  public:
-  void UpdateConfig(const EosPipelineConfig& config, bool reset_scan_phase) override {
-    (void)config;
-    if (reset_scan_phase) {
-      scan_azimuth_deg = -5.0f;
-    }
-  }
-
   EosPipelineRuntimeState CaptureRuntimeState() const override {
     EosPipelineRuntimeState state;
     state.owner_identity = this;

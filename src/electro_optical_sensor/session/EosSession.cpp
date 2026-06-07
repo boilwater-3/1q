@@ -7,10 +7,10 @@
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/extension/IEosPipeline.h"
 #include "common/logging/ProjectLog.h"
-#include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
 #include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 #include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
+#include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -41,17 +41,20 @@ struct EosSession::Impl {
         owned_controller(std::move(composition.owned_controller)),
         pipeline(RequireCompositionDependency(composition.pipeline, "pipeline")),
         controller(RequireCompositionDependency(composition.controller, "controller")),
+        concrete_pipeline_(composition.concrete_pipeline),
         internal_config_(composition.internal_config) {
-    pipeline.UpdateConfig(
-        ::electro_optical_sensor::runtime::session::InternalToPipelineConfig(
-            composition.internal_config),
-        composition.initial_reset_scan_phase);
+    if (concrete_pipeline_ != nullptr) {
+      concrete_pipeline_->ApplyInternalConfig(
+          composition.internal_config,
+          composition.initial_reset_scan_phase);
+    }
   }
 
   std::unique_ptr<::electro_optical_sensor::extension::IEosPipeline> owned_pipeline;
   std::unique_ptr<extension::EosController> owned_controller;
   ::electro_optical_sensor::extension::IEosPipeline& pipeline;
   extension::EosController& controller;
+  signal::pipeline::EosPipeline* concrete_pipeline_;
   config::execution::EosInternalExecutionConfig internal_config_;
 };
 
@@ -117,10 +120,10 @@ bool EosSession::TryApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patc
     return false;
   }
   impl_->internal_config_ = resolved.next_config;
-  impl_->pipeline.UpdateConfig(
-      ::electro_optical_sensor::runtime::session::InternalToPipelineConfig(
-          impl_->internal_config_),
-      resolved.reset_scan_phase);
+  if (impl_->concrete_pipeline_ != nullptr) {
+    impl_->concrete_pipeline_->ApplyInternalConfig(
+        impl_->internal_config_, resolved.reset_scan_phase);
+  }
   return true;
 }
 
