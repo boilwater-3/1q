@@ -50,6 +50,8 @@ using ValidationIssueList = std::vector<ConfigValidationIssue>;
 class ONEQ_API EosSessionConfigBuilder {
  public:
   class MissionEditor;
+  class PolicyEditor;
+  class HardwareEditor;
   class EnvironmentEditor;
 
   explicit EosSessionConfigBuilder(const config::EosSessionConfig& config = {}) noexcept
@@ -61,6 +63,8 @@ class ONEQ_API EosSessionConfigBuilder {
   }
 
   MissionEditor Mission() noexcept;
+  PolicyEditor Policy() noexcept;
+  HardwareEditor Hardware() noexcept;
   EnvironmentEditor Environment() noexcept;
 
   config::EosSessionConfig Build() const noexcept { return config_; }
@@ -81,6 +85,8 @@ class ONEQ_API EosSessionConfigBuilder {
 
  private:
   friend class MissionEditor;
+  friend class PolicyEditor;
+  friend class HardwareEditor;
   friend class EnvironmentEditor;
 
   config::EosSessionConfig config_{};
@@ -104,6 +110,30 @@ class ONEQ_API EosSessionConfigBuilder::MissionEditor {
   }
   MissionEditor& WithPowerOn(bool power_on) noexcept {
     builder_->config_.mission.power_on = power_on;
+    return *this;
+  }
+  MissionEditor& WithHorizontalFovDeg(float value) noexcept {
+    builder_->config_.mission.horizontal_fov_deg = value;
+    return *this;
+  }
+  MissionEditor& WithVerticalFovDeg(float value) noexcept {
+    builder_->config_.mission.vertical_fov_deg = value;
+    return *this;
+  }
+  MissionEditor& WithScanStartAzDeg(float value) noexcept {
+    builder_->config_.mission.scan_start_az_deg = value;
+    return *this;
+  }
+  MissionEditor& WithScanEndAzDeg(float value) noexcept {
+    builder_->config_.mission.scan_end_az_deg = value;
+    return *this;
+  }
+  MissionEditor& WithScanCenterElDeg(float value) noexcept {
+    builder_->config_.mission.scan_center_el_deg = value;
+    return *this;
+  }
+  MissionEditor& WithBoresightDepressionDeg(float value) noexcept {
+    builder_->config_.mission.boresight_depression_deg = value;
     return *this;
   }
   EosSessionConfigBuilder& End() noexcept { return *builder_; }
@@ -136,8 +166,100 @@ class ONEQ_API EosSessionConfigBuilder::EnvironmentEditor {
   EosSessionConfigBuilder* builder_;
 };
 
+class ONEQ_API EosSessionConfigBuilder::PolicyEditor {
+ public:
+  explicit PolicyEditor(EosSessionConfigBuilder* builder) noexcept : builder_(builder) {}
+
+  PolicyEditor& WithMinSnrDb(float value) noexcept {
+    builder_->config_.policy.detection.minimum_snr_db = value;
+    return *this;
+  }
+  PolicyEditor& WithDetectionSensitivityW(float value) noexcept {
+    builder_->config_.policy.detection.detection_sensitivity_w = value;
+    return *this;
+  }
+  PolicyEditor& WithVisibleReferenceIrradianceWM2(float value) noexcept {
+    builder_->config_.policy.detection.visible_reference_irradiance_w_m2 = value;
+    return *this;
+  }
+  PolicyEditor& WithEnableStraylightFilter(bool value) noexcept {
+    builder_->config_.policy.stray_light.enable_straylight_filter = value;
+    return *this;
+  }
+  PolicyEditor& WithHoodInnerHalfAngleDeg(float value) noexcept {
+    builder_->config_.policy.stray_light.hood_inner_half_angle_deg = value;
+    return *this;
+  }
+  PolicyEditor& WithHoodOuterHalfAngleDeg(float value) noexcept {
+    builder_->config_.policy.stray_light.hood_outer_half_angle_deg = value;
+    return *this;
+  }
+  PolicyEditor& WithHoodMinSuppressionRatio(float value) noexcept {
+    builder_->config_.policy.stray_light.hood_min_suppression_ratio = value;
+    return *this;
+  }
+  PolicyEditor& WithHoodMaxSuppressionRatio(float value) noexcept {
+    builder_->config_.policy.stray_light.hood_max_suppression_ratio = value;
+    return *this;
+  }
+  EosSessionConfigBuilder& End() noexcept { return *builder_; }
+
+ private:
+  EosSessionConfigBuilder* builder_;
+};
+
+class ONEQ_API EosSessionConfigBuilder::HardwareEditor {
+ public:
+  explicit HardwareEditor(EosSessionConfigBuilder* builder) noexcept : builder_(builder) {}
+
+  HardwareEditor& WithWavelengthLowerUm(float value) noexcept {
+    builder_->config_.hardware.wavelength_lower_um = value;
+    return *this;
+  }
+  HardwareEditor& WithWavelengthUpperUm(float value) noexcept {
+    builder_->config_.hardware.wavelength_upper_um = value;
+    return *this;
+  }
+  HardwareEditor& WithOpticalApertureM(float value) noexcept {
+    builder_->config_.hardware.optical_aperture_m = value;
+    return *this;
+  }
+  HardwareEditor& WithFocalLengthM(float value) noexcept {
+    builder_->config_.hardware.focal_length_m = value;
+    return *this;
+  }
+  HardwareEditor& WithDetectorDetectivity(float value) noexcept {
+    builder_->config_.hardware.detector_detectivity_cm_sqrt_hz_per_w = value;
+    return *this;
+  }
+  HardwareEditor& WithDetectorAreaCm2(float value) noexcept {
+    builder_->config_.hardware.detector_area_cm2 = value;
+    return *this;
+  }
+  HardwareEditor& WithMinDetectionDepressionDeg(float value) noexcept {
+    builder_->config_.hardware.min_detection_depression_deg = value;
+    return *this;
+  }
+  HardwareEditor& WithMaxDetectionDepressionDeg(float value) noexcept {
+    builder_->config_.hardware.max_detection_depression_deg = value;
+    return *this;
+  }
+  EosSessionConfigBuilder& End() noexcept { return *builder_; }
+
+ private:
+  EosSessionConfigBuilder* builder_;
+};
+
 inline EosSessionConfigBuilder::MissionEditor EosSessionConfigBuilder::Mission() noexcept {
   return MissionEditor(this);
+}
+
+inline EosSessionConfigBuilder::PolicyEditor EosSessionConfigBuilder::Policy() noexcept {
+  return PolicyEditor(this);
+}
+
+inline EosSessionConfigBuilder::HardwareEditor EosSessionConfigBuilder::Hardware() noexcept {
+  return HardwareEditor(this);
 }
 
 inline EosSessionConfigBuilder::EnvironmentEditor EosSessionConfigBuilder::Environment() noexcept {
