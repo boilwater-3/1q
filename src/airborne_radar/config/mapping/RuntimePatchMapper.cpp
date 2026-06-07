@@ -118,7 +118,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
 
   if (policy_changed) {
     next_execution_config.tracking.engineering =
-        ResolveTrackingEngineering(next_execution_config.tracking.policy);
+        next_execution_config.tracking.policy;
     next_execution_config.lifecycle.engineering =
         ResolveLifecycleEngineering(next_execution_config.lifecycle.policy);
     if (next_execution_config.lifecycle.engineering.enable_imm_lifecycle) {

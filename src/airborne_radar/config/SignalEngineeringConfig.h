@@ -28,14 +28,8 @@ using DetectionPolicy = detection::DetectionPolicyConfig;
 using RcsPhysicsConfig = detection::RcsPhysicsConfig;
 using DetectionConfig = detection::DetectionConfig;
 
-struct TrackingConfig {
-  bool enable_kalman_filter{true};
-  float kalman_measurement_noise_std{10.0f};
-  KalmanUpdateBackend kalman_update_backend{
-      KalmanUpdateBackend::kStandardKfJoseph};
-  float speed_decay_ratio_on_loss{1.0f};
-  float rcs_decay_ratio_on_loss{1.0f};
-};
+// Tracking domain type — 1:1 alias to public tracking:: type (extends P9+P10 pattern).
+using TrackingConfig = tracking::TrackingConfig;
 
 struct LifecycleConfig {
   std::uint32_t confirm_hits{3};

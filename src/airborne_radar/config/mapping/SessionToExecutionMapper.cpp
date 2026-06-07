@@ -18,7 +18,7 @@ execution::InternalExecutionConfig MapSessionToExecution(
   exec.lifecycle.policy = session_config.policy.lifecycle;
   exec.detection.orientation = session_config.mission.orientation;
 
-  exec.tracking.engineering = ResolveTrackingEngineering(exec.tracking.policy);
+  exec.tracking.engineering = exec.tracking.policy;
   exec.lifecycle.engineering = ResolveLifecycleEngineering(exec.lifecycle.policy);
 
   if (exec.lifecycle.engineering.enable_imm_lifecycle) {
