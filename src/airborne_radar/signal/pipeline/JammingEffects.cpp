@@ -365,7 +365,7 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
     }
   }
 
-  runtime_config->association.unassigned_cost *=
+  runtime_config->association.policy.unassigned_cost *=
       utils::ClampFloat(association_scale, 1.0f, cfg.association_scale_max);
   runtime_config->tracking.kalman_noise_diff_coeff *=
       utils::ClampFloat(tracking_noise_scale, 1.0f, cfg.tracking_noise_scale_max);

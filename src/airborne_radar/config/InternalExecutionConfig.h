@@ -95,7 +95,6 @@ struct DetectionExecutionConfig {
  */
 struct AssociationExecutionConfig {
   AssociationConfig policy{};
-  float unassigned_cost{9.0f};
 };
 
 /**

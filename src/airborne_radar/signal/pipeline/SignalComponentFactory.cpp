@@ -39,7 +39,7 @@ tracking::TrackFilterConfig SignalComponentFactory::BuildTrackFilterConfig(
 association::DataAssociationConfig SignalComponentFactory::BuildAssociationConfig(
     const ExecutionConfig& config) {
   association::DataAssociationConfig association_config;
-  association_config.unassigned_cost = config.association.unassigned_cost;
+  association_config.unassigned_cost = config.association.policy.unassigned_cost;
   association_config.kalman_noise_diff_coeff = config.tracking.kalman_noise_diff_coeff;
   association_config.kalman_measurement_noise_std =
       config.tracking.engineering.kalman_measurement_noise_std;

@@ -158,7 +158,7 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
     config->detection.engineering.transmitter.peak_power_w *=
         ClampProfileScale(control_profile.lpi_power_scale, 1.0f);
     config->tracking.engineering.kalman_measurement_noise_std *= kLpiPowerKalmanNoiseScale;
-    config->association.unassigned_cost *= kLpiPowerAssignCostScale;
+    config->association.policy.unassigned_cost *= kLpiPowerAssignCostScale;
   }
 
   if (control_profile.lpi_dwell_scale != 1.0f) {
@@ -170,13 +170,13 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
     const float hop_factor =
         (control_profile.agility_frequency_hop_phase % 2U == 0U) ? 1.015f : 0.985f;
     config->detection.engineering.transmitter.frequency_hz *= hop_factor;
-    config->association.unassigned_cost *= kAgilityFreqAssignCostScale;
+    config->association.policy.unassigned_cost *= kAgilityFreqAssignCostScale;
     config->tracking.kalman_noise_diff_coeff *= kAgilityFreqKalmanDiffScale;
   }
 
   if (control_profile.enable_eccm_rejitter) {
     config->detection.engineering.transmitter.prf_hz = timing_state.effective_prf_hz;
-    config->association.unassigned_cost *= kRejitterAssignCostScale;
+    config->association.policy.unassigned_cost *= kRejitterAssignCostScale;
     config->tracking.kalman_noise_diff_coeff *= kRejitterKalmanDiffScale;
   }
 
@@ -184,7 +184,7 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
     const float gain_db = ToDbDelta(control_profile.eccm_burnthrough_gain);
     config->detection.engineering.receiver.noise_figure_db =
         std::max(0.0f, config->detection.engineering.receiver.noise_figure_db - gain_db);
-    config->association.unassigned_cost *=
+    config->association.policy.unassigned_cost *=
         utils::ClampFloat(control_profile.eccm_burnthrough_gain, 1.0f, kBurnthroughAssignCostMax);
     config->tracking.engineering.kalman_measurement_noise_std *= kBurnthroughKalmanNoiseScale;
   }
@@ -193,7 +193,7 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
     config->detection.engineering.antenna.enable_directional_pattern = true;
     config->detection.engineering.antenna.pattern.max_sidelobe_level_db -=
         cfg.sidelobe_level_reduction_db;
-    config->association.unassigned_cost *= kSidelobeAssignCostScale;
+    config->association.policy.unassigned_cost *= kSidelobeAssignCostScale;
   }
 
   const float beamwidth_scale = ResolveBeamwidthScale(cfg, control_profile);
@@ -207,7 +207,7 @@ void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& 
 
   if (control_profile.enable_adaptive_beamforming) {
     config->detection.engineering.antenna.main_beam_gain_db += cfg.adaptive_beam_gain_boost_db;
-    config->association.unassigned_cost *= kAdaptiveBeamAssignCostScale;
+    config->association.policy.unassigned_cost *= kAdaptiveBeamAssignCostScale;
     config->tracking.engineering.kalman_measurement_noise_std *= kAdaptiveBeamKalmanNoiseScale;
   }
 

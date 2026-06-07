@@ -1639,7 +1639,7 @@ TEST(SignalPipelineInternalConfigTest, DetectionBuilderProfileMapsToBaselineProf
   const ExecutionConfig exec_config =
       config::mapping::MapSessionToExecution(MakeDetectionFocusedConfig());
 
-  EXPECT_FLOAT_EQ(exec_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(exec_config.association.policy.unassigned_cost, 9.0f);
   EXPECT_FLOAT_EQ(exec_config.tracking.kalman_noise_diff_coeff, 1.0f);
   EXPECT_FLOAT_EQ(exec_config.tracking.engineering.speed_decay_ratio_on_loss, 0.95f);
   EXPECT_FLOAT_EQ(exec_config.tracking.engineering.rcs_decay_ratio_on_loss, 0.92f);
@@ -1649,7 +1649,7 @@ TEST(SignalPipelineInternalConfigTest, TrackingBuilderProfileMapsToTrackingProfi
   const ExecutionConfig exec_config =
       config::mapping::MapSessionToExecution(MakeTrackingFocusedConfig());
 
-  EXPECT_FLOAT_EQ(exec_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(exec_config.association.policy.unassigned_cost, 9.0f);
   EXPECT_FLOAT_EQ(exec_config.tracking.kalman_noise_diff_coeff, 1.0f);
   EXPECT_FLOAT_EQ(exec_config.tracking.engineering.speed_decay_ratio_on_loss, 1.0f);
   EXPECT_FLOAT_EQ(exec_config.tracking.engineering.rcs_decay_ratio_on_loss, 1.0f);
@@ -1659,7 +1659,7 @@ TEST(SignalPipelineInternalConfigTest, RobustBuilderProfileMapsToRobustProfile) 
   const ExecutionConfig exec_config =
       config::mapping::MapSessionToExecution(MakeRobustTrackingConfig());
 
-  EXPECT_FLOAT_EQ(exec_config.association.unassigned_cost, 12.0f);
+  EXPECT_FLOAT_EQ(exec_config.association.policy.unassigned_cost, 12.0f);
   EXPECT_FLOAT_EQ(exec_config.tracking.kalman_noise_diff_coeff, 1.0f);
   EXPECT_FLOAT_EQ(exec_config.tracking.engineering.speed_decay_ratio_on_loss, 0.95f);
   EXPECT_FLOAT_EQ(exec_config.tracking.engineering.rcs_decay_ratio_on_loss, 0.92f);
@@ -1671,7 +1671,7 @@ TEST(SignalPipelineInternalConfigTest,
   ApplyRcsFusionProfile(&session_config, config::profiles::RcsFusionProfile::kEnhanced);
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
 
-  EXPECT_FLOAT_EQ(exec_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(exec_config.association.policy.unassigned_cost, 9.0f);
   EXPECT_FLOAT_EQ(exec_config.tracking.kalman_noise_diff_coeff, 1.0f);
   EXPECT_FLOAT_EQ(exec_config.tracking.engineering.speed_decay_ratio_on_loss, 1.0f);
   EXPECT_FLOAT_EQ(exec_config.tracking.engineering.rcs_decay_ratio_on_loss, 1.0f);
@@ -1684,7 +1684,7 @@ TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLife
   ApplyTrackingPolicyProfile(&session_config, config::profiles::TrackingPolicyProfile::kBalanced);
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
 
-  EXPECT_FLOAT_EQ(exec_config.association.unassigned_cost, 9.0f);
+  EXPECT_FLOAT_EQ(exec_config.association.policy.unassigned_cost, 9.0f);
   EXPECT_FLOAT_EQ(exec_config.tracking.kalman_noise_diff_coeff, 1.0f);
   EXPECT_FLOAT_EQ(exec_config.tracking.engineering.speed_decay_ratio_on_loss, 0.95f);
   EXPECT_FLOAT_EQ(exec_config.tracking.engineering.rcs_decay_ratio_on_loss, 0.92f);

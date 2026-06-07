@@ -21,8 +21,6 @@ execution::InternalExecutionConfig MapSessionToExecution(
   exec.tracking.engineering = ResolveTrackingEngineering(exec.tracking.policy);
   exec.lifecycle.engineering = ResolveLifecycleEngineering(exec.lifecycle.policy);
 
-  exec.association.unassigned_cost = exec.association.policy.unassigned_cost;
-
   if (exec.lifecycle.engineering.enable_imm_lifecycle) {
     exec.lifecycle.imm_model_noise_diff_coeffs =
         BuildDefaultImmNoiseDiffCoeffs(exec.lifecycle.policy.model_count_hint);
