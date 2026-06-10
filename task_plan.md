@@ -87,7 +87,8 @@
 | 62 | 显式标定观测后续决策门 | complete | 选择内部显式校准请求与 Session 执行边界 |
 | 63 | Session 内部显式校准请求契约 | complete | 冻结内部请求、执行器、路径与失败语义 |
 | 64 | Session 内部显式校准执行器实现 | complete_current_platform | 无状态执行器、路径矩阵和双环境验收通过 |
-| 65 | 内部校准执行器后续接入决策门 | pending | 审计 SarSession 受控接入与公共边界 |
+| 65 | 内部校准执行器后续接入决策门 | complete | Session 接入后置；转入剩余聚焦能力审计 |
+| 66 | SAR 剩余聚焦能力审计 | pending | 审计 CSA/Omega-K/Auto/自聚焦等实现顺序 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1354,13 +1355,25 @@
 
 ## 阶段 65：内部校准执行器后续接入决策门
 
+状态：`complete`
+
+决策结论：
+
+1. `SarSession` 缺少可审计的显式校准请求来源，直接接入后置。
+2. 内部执行器保持独立参考能力，不增加死分支或隐式请求生成。
+3. public 摘要、schema、runtime patch、replay、阈值与完整系统因子继续后置。
+4. 下一方向转入 SAR 剩余聚焦能力审计。
+5. 新增 `docs/sar_internal_calibration_executor_followup_decision.md`。
+
+## 阶段 66：SAR 剩余聚焦能力审计
+
 状态：`pending`
 
 任务：
 
-1. 审计无状态执行器与 SarSession 内部管线的接入条件。
-2. 决定受控内部接入、public 摘要或继续独立内部能力的优先级。
-3. 保持 schema、runtime patch、replay、阈值和 Auto 门禁。
+1. 审计 CSA、Omega-K、Auto、自聚焦、时变 PRF 和图像产品输出的现有依赖。
+2. 对照 `1.1.4.4` 长期目标选择下一条可验证实现线。
+3. 冻结下一阶段工程边界和验收前置条件。
 
 ## 当前待决策问题
 
@@ -1401,4 +1414,4 @@
 
 ## 下一步
 
-执行阶段 65：完成内部校准执行器后续接入决策门。
+执行阶段 66：完成 SAR 剩余聚焦能力审计。
