@@ -103,7 +103,8 @@
 | 78 | 自聚焦相位真值后续决策门 | complete | PGA 与生产接入后置；选择时变 PRF 重采样契约 |
 | 79 | 时变 PRF 慢时间采样与重采样工程契约 | complete | 冻结名义轴、非均匀诊断、线性重采样与解析真值 |
 | 80 | 时变 PRF 慢时间重采样基础实现 | complete_current_platform | 时间轴诊断、复数线性重采样与双环境验收通过 |
-| 81 | 时变 PRF 重采样后续接入决策门 | pending | 审计二维接入、误差阈值与缺失脉冲前置条件 |
+| 81 | 时变 PRF 重采样后续接入决策门 | complete | RDA/Session 接入后置；选择二维 raw-history 契约 |
+| 82 | 二维 raw-history 慢时间重采样契约 | pending | 冻结矩阵轴、列独立性、诊断复用与真值要求 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1562,14 +1563,25 @@
 
 ## 阶段 81：时变 PRF 重采样后续接入决策门
 
+状态：`complete`
+
+决策结论：
+
+1. 缺少带限回波误差阈值、缺失脉冲策略和 RDA/GBP 独立质量矩阵。
+2. RDA、Session、public、schema、trace 和 replay 接入继续后置。
+3. 下一方向选择二维 raw-history 慢时间重采样契约。
+4. 新增 `docs/sar_slow_time_resampling_followup_decision.md`。
+
+## 阶段 82：二维 raw-history 慢时间重采样契约
+
 状态：`pending`
 
 任务：
 
-1. 审计二维 raw-history 重采样、插值误差阈值和缺失脉冲策略。
-2. 决定是否具备接入 RDA 前置处理的条件。
-3. 确认 Session/public/schema/replay 是否继续后置。
-4. 记录下一条 SAR 雷达组件建设方向。
+1. 冻结 row=方位、col=距离矩阵轴与尺寸边界。
+2. 冻结同一慢时间映射逐距离列应用和列独立性。
+3. 定义多列复数仿射解析真值与验收矩阵。
+4. 明确 RDA 接入和带限回波质量继续后置。
 
 ## 当前待决策问题
 
@@ -1610,4 +1622,4 @@
 
 ## 下一步
 
-执行阶段 81：完成时变 PRF 重采样后续接入决策门。
+执行阶段 82：冻结二维 raw-history 慢时间重采样契约。
