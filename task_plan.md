@@ -77,7 +77,8 @@
 | 52 | 确定性分布式杂波参考模型实现 | complete_current_platform | helper、M1/M4 双密度双 seed 矩阵通过 |
 | 53 | 分布式杂波后续决策门 | complete | 选择确定性噪声与杂波 SNR/SCR 二维矩阵契约 |
 | 54 | 确定性噪声与杂波 SNR/SCR 二维矩阵契约 | complete | 冻结联合输入、矩阵和审批边界 |
-| 55 | 确定性噪声与杂波 SNR/SCR 二维矩阵实现 | pending | 实现联合 helper、首批矩阵与验收报告 |
+| 55 | 确定性噪声与杂波 SNR/SCR 二维矩阵实现 | complete_current_platform | 联合 helper、首批矩阵与验收报告通过 |
+| 56 | 联合 SNR/SCR 矩阵后续决策门 | pending | 审计矩阵证据并选择下一项 SAR 雷达组件能力 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1223,14 +1224,27 @@
 
 ## 阶段 55：确定性噪声与杂波 SNR/SCR 二维矩阵实现
 
-状态：`pending`
+状态：`complete_current_platform`
 
-任务：
+已完成：
 
 1. 在 `tests/support` 实现独立目标、噪声、杂波分量及联合输入 helper。
 2. 增加独立 seed、能量缩放、注入顺序无关和算法共享输入测试。
 3. 实现 M1 完整二维矩阵与 M4 哨兵矩阵。
-4. 新增验收报告并执行双环境 SAR 审批门。
+4. 新增 `docs/sar_reference_snr_scr_matrix_acceptance_report.md`。
+5. 默认环境完整 CTest `25/25`、参考矩阵 `13/13` 通过。
+6. Conan Eigen 3.3.9 联合矩阵 `2/2` 与 `sar_cxx11_compat` 通过。
+
+## 阶段 56：联合 SNR/SCR 矩阵后续决策门
+
+状态：`pending`
+
+任务：
+
+1. 审计首批联合矩阵的证据覆盖和剩余风险。
+2. 在中间 SNR/SCR 档位、相关杂波研究和联合输入质量诊断之间选择下一方向。
+3. 继续禁止生产噪声、生产杂波、质量阈值、警告、拒绝和 Auto 自动进入默认路径。
+4. 后续工作范围只覆盖 `1.1.4.4 SAR雷达组件`。
 
 ## 当前待决策问题
 
@@ -1271,4 +1285,4 @@
 
 ## 下一步
 
-执行阶段 55：实现确定性噪声与杂波 SNR/SCR 二维矩阵。
+执行阶段 56：完成联合 SNR/SCR 矩阵后续决策门。

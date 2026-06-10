@@ -70,6 +70,24 @@ struct ReferenceClutterDiagnostics {
   ReferenceRawHistoryDiagnostics raw_diagnostics{};
 };
 
+struct ReferenceJointInterferenceConfig {
+  bool enable_noise{false};
+  double requested_snr_db{0.0};
+  std::uint64_t noise_seed{0U};
+  bool enable_clutter{false};
+  ReferenceClutterGridConfig clutter{};
+};
+
+struct ReferenceJointInterferenceDiagnostics {
+  double target_energy{0.0};
+  double noise_energy{0.0};
+  double clutter_energy{0.0};
+  bool has_noise{false};
+  bool has_clutter{false};
+  ReferenceNoiseDiagnostics noise{};
+  ReferenceClutterDiagnostics clutter{};
+};
+
 inline double NextReferenceUniformOpen(std::uint64_t* state) {
   *state += UINT64_C(0x9e3779b97f4a7c15);
   std::uint64_t value = *state;
@@ -316,6 +334,58 @@ inline bool BuildDeterministicDistributedClutter(
   diagnostics->grid_cols = config.range_count;
   diagnostics->raw_diagnostics = aggregate_raw_diagnostics;
   return true;
+}
+
+inline bool BuildDeterministicJointInterference(
+    const ReferencePointScene& scene, const signal::ComplexMatrix& target_history,
+    const ReferenceJointInterferenceConfig& config, signal::ComplexMatrix* joint_history,
+    signal::ComplexMatrix* noise_history, signal::ComplexMatrix* clutter_history,
+    ReferenceJointInterferenceDiagnostics* diagnostics) {
+  if (joint_history == nullptr || noise_history == nullptr || clutter_history == nullptr ||
+      diagnostics == nullptr || target_history.rows == 0U || target_history.cols == 0U ||
+      target_history.values.size() != target_history.rows * target_history.cols) {
+    return false;
+  }
+
+  *diagnostics = ReferenceJointInterferenceDiagnostics{};
+  diagnostics->has_noise = config.enable_noise;
+  diagnostics->has_clutter = config.enable_clutter;
+  noise_history->rows = target_history.rows;
+  noise_history->cols = target_history.cols;
+  noise_history->values.assign(target_history.values.size(), signal::ComplexSample(0.0, 0.0));
+  clutter_history->rows = target_history.rows;
+  clutter_history->cols = target_history.cols;
+  clutter_history->values.assign(target_history.values.size(), signal::ComplexSample(0.0, 0.0));
+
+  if (config.enable_noise) {
+    signal::ComplexMatrix noisy_history;
+    if (!AddDeterministicComplexGaussianNoise(target_history, config.requested_snr_db,
+                                              config.noise_seed, &noisy_history,
+                                              &diagnostics->noise)) {
+      return false;
+    }
+    for (std::size_t index = 0U; index < target_history.values.size(); ++index) {
+      noise_history->values[index] = noisy_history.values[index] - target_history.values[index];
+    }
+  }
+
+  if (config.enable_clutter) {
+    signal::ComplexMatrix clutter_mixed_history;
+    if (!BuildDeterministicDistributedClutter(scene, target_history, config.clutter,
+                                              &clutter_mixed_history, clutter_history,
+                                              &diagnostics->clutter)) {
+      return false;
+    }
+  }
+
+  *joint_history = target_history;
+  for (std::size_t index = 0U; index < target_history.values.size(); ++index) {
+    joint_history->values[index] += noise_history->values[index] + clutter_history->values[index];
+    diagnostics->target_energy += std::norm(target_history.values[index]);
+    diagnostics->noise_energy += std::norm(noise_history->values[index]);
+    diagnostics->clutter_energy += std::norm(clutter_history->values[index]);
+  }
+  return diagnostics->target_energy > 0.0;
 }
 
 inline imaging::RdaConfig MakeReferenceRdaConfig(const ReferencePointScene& scene,

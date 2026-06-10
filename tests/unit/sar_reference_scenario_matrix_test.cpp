@@ -1093,5 +1093,182 @@ TEST(SarReferenceSnrMatrixTest, M1AndM4PreserveDeterminismAndRecordQualityTrends
   }
 }
 
+TEST(SarReferenceSnrScrMatrixTest, ComponentsAreDeterministicIndependentAndOrderInvariant) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  signal::ComplexMatrix target_raw;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(
+      scene,
+      {test_support::MakeReferenceTargetAtDelay(kMatrixCenterDelay, scene.sample_rate_hz, 1.0)},
+      &target_raw));
+
+  test_support::ReferenceJointInterferenceConfig config;
+  config.enable_noise = true;
+  config.requested_snr_db = 20.0;
+  config.noise_seed = 17U;
+  config.enable_clutter = true;
+  config.clutter.azimuth_count = 3U;
+  config.clutter.range_count = 3U;
+  config.clutter.azimuth_start_m = -0.3;
+  config.clutter.azimuth_spacing_m = 0.3;
+  config.clutter.range_start_sample = 15U;
+  config.clutter.range_spacing_samples = 3U;
+  config.clutter.requested_scr_db = 20.0;
+  config.clutter.seed = 29U;
+
+  signal::ComplexMatrix joint;
+  signal::ComplexMatrix noise;
+  signal::ComplexMatrix clutter;
+  signal::ComplexMatrix repeated_joint;
+  signal::ComplexMatrix repeated_noise;
+  signal::ComplexMatrix repeated_clutter;
+  test_support::ReferenceJointInterferenceDiagnostics diagnostics;
+  test_support::ReferenceJointInterferenceDiagnostics repeated_diagnostics;
+  ASSERT_TRUE(test_support::BuildDeterministicJointInterference(
+      scene, target_raw, config, &joint, &noise, &clutter, &diagnostics));
+  ASSERT_TRUE(test_support::BuildDeterministicJointInterference(
+      scene, target_raw, config, &repeated_joint, &repeated_noise, &repeated_clutter,
+      &repeated_diagnostics));
+  EXPECT_EQ(joint.values, repeated_joint.values);
+  EXPECT_EQ(noise.values, repeated_noise.values);
+  EXPECT_EQ(clutter.values, repeated_clutter.values);
+  EXPECT_NEAR(diagnostics.noise.realized_snr_db, config.requested_snr_db, 1.0e-12);
+  EXPECT_NEAR(diagnostics.clutter.realized_scr_db, config.clutter.requested_scr_db, 1.0e-12);
+  EXPECT_NEAR(diagnostics.noise.signal_energy, diagnostics.target_energy, 1.0e-12);
+  EXPECT_NEAR(diagnostics.clutter.target_energy, diagnostics.target_energy, 1.0e-12);
+
+  signal::ComplexMatrix reverse_order = target_raw;
+  for (std::size_t index = 0U; index < reverse_order.values.size(); ++index) {
+    reverse_order.values[index] += clutter.values[index];
+    reverse_order.values[index] += noise.values[index];
+  }
+  ASSERT_EQ(joint.values.size(), reverse_order.values.size());
+  for (std::size_t index = 0U; index < joint.values.size(); ++index) {
+    EXPECT_NEAR(std::abs(joint.values[index] - reverse_order.values[index]), 0.0, 1.0e-15);
+  }
+
+  test_support::ReferenceJointInterferenceConfig different_noise_config = config;
+  different_noise_config.noise_seed = 31U;
+  signal::ComplexMatrix different_noise_joint;
+  signal::ComplexMatrix different_noise;
+  signal::ComplexMatrix same_clutter;
+  test_support::ReferenceJointInterferenceDiagnostics different_noise_diagnostics;
+  ASSERT_TRUE(test_support::BuildDeterministicJointInterference(
+      scene, target_raw, different_noise_config, &different_noise_joint, &different_noise,
+      &same_clutter, &different_noise_diagnostics));
+  EXPECT_NE(noise.values, different_noise.values);
+  EXPECT_EQ(clutter.values, same_clutter.values);
+
+  test_support::ReferenceJointInterferenceConfig different_clutter_config = config;
+  different_clutter_config.clutter.seed = 37U;
+  signal::ComplexMatrix different_clutter_joint;
+  signal::ComplexMatrix same_noise;
+  signal::ComplexMatrix different_clutter;
+  test_support::ReferenceJointInterferenceDiagnostics different_clutter_diagnostics;
+  ASSERT_TRUE(test_support::BuildDeterministicJointInterference(
+      scene, target_raw, different_clutter_config, &different_clutter_joint, &same_noise,
+      &different_clutter, &different_clutter_diagnostics));
+  EXPECT_EQ(noise.values, same_noise.values);
+  EXPECT_NE(clutter.values, different_clutter.values);
+}
+
+TEST(SarReferenceSnrScrMatrixTest, M1CompleteAndM4SentinelMatricesRecordJointTrends) {
+  struct Scenario {
+    const char* name;
+    std::vector<echo::PointTarget> targets;
+    std::size_t grid_count;
+    double azimuth_start_m;
+    double azimuth_spacing_m;
+    std::size_t range_start_sample;
+    std::size_t range_spacing_samples;
+    bool complete_matrix;
+  };
+  struct Level {
+    bool enabled;
+    double db;
+    const char* name;
+  };
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  const std::vector<Scenario> scenarios = {
+      {"m1",
+       {test_support::MakeReferenceTargetAtDelay(kMatrixCenterDelay, scene.sample_rate_hz, 1.0)},
+       3U, -0.3, 0.3, 15U, 3U, true},
+      {"m4",
+       {test_support::MakeReferenceTargetAtPosition(-0.2, 18U, scene.sample_rate_hz, 3.0),
+        test_support::MakeReferenceTargetAtPosition(0.0, 20U, scene.sample_rate_hz, 2.0),
+        test_support::MakeReferenceTargetAtPosition(0.2, 22U, scene.sample_rate_hz, 1.0)},
+       5U, -0.4, 0.2, 13U, 2U, false}};
+  const std::vector<Level> levels = {
+      {false, 0.0, "none"}, {true, 20.0, "20"}, {true, 0.0, "0"}};
+  const std::vector<std::pair<std::uint64_t, std::uint64_t>> seed_pairs = {
+      {17U, 29U}, {31U, 37U}};
+
+  for (const Scenario& scenario : scenarios) {
+    signal::ComplexMatrix target_raw;
+    ASSERT_TRUE(test_support::BuildReferenceRawHistory(scene, scenario.targets, &target_raw));
+    MatrixFocusResult clean_focus;
+    ASSERT_TRUE(FocusMatrix(scene, scene.pulses, target_raw, &clean_focus));
+    for (const std::pair<std::uint64_t, std::uint64_t>& seeds : seed_pairs) {
+      for (std::size_t snr_index = 0U; snr_index < levels.size(); ++snr_index) {
+        for (std::size_t scr_index = 0U; scr_index < levels.size(); ++scr_index) {
+          const Level& snr = levels[snr_index];
+          const Level& scr = levels[scr_index];
+          if (!scenario.complete_matrix && snr_index != scr_index) {
+            continue;
+          }
+          test_support::ReferenceJointInterferenceConfig config;
+          config.enable_noise = snr.enabled;
+          config.requested_snr_db = snr.db;
+          config.noise_seed = seeds.first;
+          config.enable_clutter = scr.enabled;
+          config.clutter.azimuth_count = scenario.grid_count;
+          config.clutter.range_count = scenario.grid_count;
+          config.clutter.azimuth_start_m = scenario.azimuth_start_m;
+          config.clutter.azimuth_spacing_m = scenario.azimuth_spacing_m;
+          config.clutter.range_start_sample = scenario.range_start_sample;
+          config.clutter.range_spacing_samples = scenario.range_spacing_samples;
+          config.clutter.requested_scr_db = scr.db;
+          config.clutter.seed = seeds.second;
+          signal::ComplexMatrix joint_raw;
+          signal::ComplexMatrix noise_raw;
+          signal::ComplexMatrix clutter_raw;
+          test_support::ReferenceJointInterferenceDiagnostics diagnostics;
+          ASSERT_TRUE(test_support::BuildDeterministicJointInterference(
+              scene, target_raw, config, &joint_raw, &noise_raw, &clutter_raw, &diagnostics));
+          if (!snr.enabled && !scr.enabled) {
+            ASSERT_EQ(joint_raw.values, target_raw.values);
+          }
+          if (snr.enabled) {
+            ASSERT_NEAR(diagnostics.noise.realized_snr_db, snr.db, 1.0e-12);
+          }
+          if (scr.enabled) {
+            ASSERT_NEAR(diagnostics.clutter.realized_scr_db, scr.db, 1.0e-12);
+            ASSERT_EQ(diagnostics.clutter.raw_diagnostics.clipped_sample_count, 0U);
+          }
+          MatrixFocusResult joint_focus;
+          ASSERT_TRUE(FocusMatrix(scene, scene.pulses, joint_raw, &joint_focus));
+          ASSERT_EQ(joint_focus.bp.image.values, joint_focus.gbp.image.values);
+          const imaging::ImageComparisonMetrics rda_to_clean =
+              imaging::CompareImagesWithGlobalPhaseReference(
+                  CropMatrixWindow(joint_focus.rda.image), CropMatrixWindow(clean_focus.rda.image));
+          const imaging::ImageComparisonMetrics gbp_to_clean =
+              imaging::CompareImagesWithGlobalPhaseReference(joint_focus.gbp.image,
+                                                             clean_focus.gbp.image);
+          ASSERT_TRUE(rda_to_clean.valid);
+          ASSERT_TRUE(gbp_to_clean.valid);
+          const std::string prefix =
+              std::string(scenario.name) + "_noise_seed_" + std::to_string(seeds.first) +
+              "_clutter_seed_" + std::to_string(seeds.second) + "_snr_" + snr.name + "_scr_" +
+              scr.name;
+          RecordComparison(prefix + "_rda_clean", rda_to_clean);
+          RecordComparison(prefix + "_gbp_clean", gbp_to_clean);
+          RecordComparison(prefix + "_rda_gbp", joint_focus.rda_vs_gbp);
+        }
+      }
+    }
+  }
+}
+
 }  // namespace
 }  // namespace sar

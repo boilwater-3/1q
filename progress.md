@@ -1268,6 +1268,29 @@
 - 阶段 54 契约完成。
 - 阶段 55 SNR/SCR 二维矩阵实现待启动。
 
+## 2026-06-10 阶段 55 确定性噪声与杂波 SNR/SCR 二维矩阵实现
+
+### 执行内容
+
+1. 增加测试侧联合配置、独立分量输出和联合 diagnostics helper。
+2. 验证固定参数可重复、噪声/杂波 seed 隔离和注入顺序数值一致。
+3. 完成 M1 `3x3` 完整矩阵与 M4 clean/20 dB/0 dB 哨兵矩阵。
+4. 验证 requested/realized SNR/SCR、无裁剪和所有联合输入下 BP/GBP 逐样本一致。
+5. 新增 `docs/sar_reference_snr_scr_matrix_acceptance_report.md`。
+
+### 验证结果
+
+- Windows Debug 编译通过。
+- 默认环境联合矩阵 `2/2`、全部参考矩阵 `13/13` 通过。
+- Conan Eigen 3.3.9 联合矩阵 `2/2` 与 `sar_cxx11_compat` 通过。
+- 默认 Windows Debug 完整 CTest `25/25` 通过。
+
+### 当前状态
+
+- 阶段 55 完成当前平台审批。
+- 下一步进入阶段 56 联合 SNR/SCR 矩阵后续决策门。
+- 后续范围只覆盖 `1.1.4.4 SAR雷达组件`。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
