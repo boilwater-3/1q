@@ -84,7 +84,8 @@
 | 59 | 辐射定标后续接入决策门 | complete | public 接入后置；选择显式标定观测契约 |
 | 60 | 显式标定观测工程契约 | complete | 冻结显式身份、像素功率、斜距与生命周期 |
 | 61 | 显式标定观测内部实现 | complete_current_platform | 观测构建、原子转换和双环境验收通过 |
-| 62 | 显式标定观测后续决策门 | pending | 审计 Session 内部接入与像素功率扩展 |
+| 62 | 显式标定观测后续决策门 | complete | 选择内部显式校准请求与 Session 执行边界 |
+| 63 | Session 内部显式校准请求契约 | pending | 冻结请求、执行时机、算法支持和失败语义 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1316,13 +1317,25 @@
 
 ## 阶段 62：显式标定观测后续决策门
 
+状态：`complete`
+
+决策结论：
+
+1. 下一方向选择内部显式校准请求与 Session 执行边界。
+2. 自动像素定位和主瓣积分功率缺少误差口径，继续后置。
+3. public diagnostics、schema、runtime patch 和 replay 继续后置。
+4. 新增 `docs/sar_explicit_calibration_observation_followup_decision.md`。
+
+## 阶段 63：Session 内部显式校准请求契约
+
 状态：`pending`
 
 任务：
 
-1. 审计显式观测、定标核心和 Session 内部聚焦链路的接入条件。
-2. 决定 Session 内部受控接入、像素定位或主瓣积分功率的优先级。
-3. public API、schema、replay 和有效性阈值继续门禁。
+1. 冻结内部显式校准请求、目标身份、指定像素和已知 RCS。
+2. 冻结请求执行时机、支持算法路径和结果生命周期。
+3. 冻结拒绝、无输出和不得静默回退语义。
+4. public API、schema、runtime patch 和 replay 继续后置。
 
 ## 当前待决策问题
 
@@ -1363,4 +1376,4 @@
 
 ## 下一步
 
-执行阶段 62：完成显式标定观测后续决策门。
+执行阶段 63：冻结 Session 内部显式校准请求契约。

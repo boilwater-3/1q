@@ -1390,6 +1390,20 @@
 - 阶段 61 完成当前平台审批。
 - 阶段 62 显式标定观测后续决策门待启动。
 
+## 2026-06-10 阶段 62 显式标定观测后续决策门
+
+### 决策结论
+
+- 下一方向选择内部显式校准请求与 Session 执行边界。
+- 自动像素定位与主瓣积分功率缺少独立误差口径，继续后置。
+- public diagnostics、schema、runtime patch 和 replay 继续后置。
+- 新增 `docs/sar_explicit_calibration_observation_followup_decision.md`。
+
+### 阶段状态
+
+- 阶段 62 完成。
+- 阶段 63 Session 内部显式校准请求契约待启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
