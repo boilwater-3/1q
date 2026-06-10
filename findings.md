@@ -785,6 +785,16 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
   频点。
 - 完整 CSA 必须验证中间域固定结果；只比较最终峰值无法发现相位函数符号或轴顺序错误。
 
+## 阶段 71 CSA 频率几何基础实现发现
+
+- 现有 RDA 与 CSA 几何基础可以共享同一未 shift Doppler bin 约定，偶数长度 Nyquist
+  bin 均位于正频率位置。
+- 将结构有效与 Doppler 域有效分开表达，可以保留诊断信息，同时明确阻止无效域进入
+  后续完整处理。
+- 无效 Doppler bin 使用有限占位值并单独计数，比生成 NaN/Inf 更适合确定性记录和测试。
+- 参考斜距属于已批准 L1 CSA 输入边界，但首批频率几何公式不使用该值；完整相位函数
+  契约必须明确其使用位置。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`

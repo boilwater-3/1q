@@ -1528,6 +1528,30 @@
 - 阶段 70 契约完成。
 - 阶段 71 CSA 频率几何基础实现待启动。
 
+## 2026-06-10 阶段 71 CSA 频率几何基础实现
+
+### 已执行
+
+1. 新增内部 `SarCsaGeometry`，生成未 shift 距离/方位频率轴。
+2. 实现波长、`D(f_a)`、`alpha(f_a)` 与有效域诊断。
+3. 对无效 Doppler bin 计数并保持输出有限，不允许无提示 NaN/Inf。
+4. 新增奇偶轴、对称性、边界、非法输入与确定性测试。
+5. 新增 `docs/sar_csa_frequency_geometry_acceptance_report.md`。
+
+### 验证结果
+
+- 默认 `SarCsaGeometryTest.*`：`4/4` passed。
+- 默认完整 CTest：`25/25` passed。
+- Eigen 3.3.9 `SarCsaGeometryTest.*`：`4/4` passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：`1/1` passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 71 完成当前平台审批。
+- 完整 CSA 相位函数继续后置。
+- 阶段 72 CSA 频率几何后续决策门待启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
