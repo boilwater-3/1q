@@ -32,6 +32,24 @@ struct SlowTimeResamplingDiagnostics {
   std::vector<double> nominal_times_s;
 };
 
+struct SlowTimeGapDiagnostics {
+  bool valid{false};
+  bool resampling_allowed{false};
+  std::size_t sample_count{0U};
+  double expected_interval_s{0.0};
+  double expected_prf_hz{0.0};
+  double minimum_actual_gap_s{0.0};
+  double maximum_actual_gap_s{0.0};
+  double maximum_gap_ratio{0.0};
+  std::size_t rejected_gap_count{0U};
+  std::size_t suspected_missing_pulse_count{0U};
+  std::size_t first_rejected_gap_index{static_cast<std::size_t>(-1)};
+};
+
+bool DiagnoseSlowTimeGaps(const std::vector<double>& explicit_times_s,
+                          double expected_interval_s,
+                          SlowTimeGapDiagnostics* diagnostics);
+
 bool ResampleSlowTimeLinear(const std::vector<double>& explicit_times_s,
                             const std::vector<std::complex<double>>& input_samples,
                             std::vector<std::complex<double>>* output_samples,
@@ -41,6 +59,12 @@ bool ResampleRawHistorySlowTimeLinear(const std::vector<double>& explicit_times_
                                       const signal::ComplexMatrix& input,
                                       signal::ComplexMatrix* output,
                                       SlowTimeResamplingDiagnostics* diagnostics);
+
+bool ResampleRawHistorySlowTimeLinearGuarded(
+    const std::vector<double>& explicit_times_s, double expected_interval_s,
+    const signal::ComplexMatrix& input, signal::ComplexMatrix* output,
+    SlowTimeGapDiagnostics* gap_diagnostics,
+    SlowTimeResamplingDiagnostics* resampling_diagnostics);
 
 }  // namespace imaging
 }  // namespace sar
