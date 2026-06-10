@@ -1193,6 +1193,46 @@
 - 阶段 50 完成。
 - 阶段 51 确定性分布式杂波参考模型契约已启动。
 
+## 2026-06-10 阶段 51 确定性分布式杂波参考模型契约
+
+### 已执行
+
+1. 新增 `SAR_DETERMINISTIC_DISTRIBUTED_CLUTTER_CONTRACT.md`。
+2. 冻结规则网格散射点、固定 seed、显式 PRNG、复幅相和稳定遍历顺序。
+3. 冻结 target/clutter raw-history 总能量定义的 requested/realized SCR。
+4. 冻结 M1/M4、双网格密度、双 seed 与无杂波/30/20/10/0 dB 首批矩阵。
+5. 冻结测试支持层边界，继续禁止生产杂波、公用配置、绝对功率、辐射定标、
+   质量阈值、警告、拒绝和 Auto。
+
+### 阶段状态
+
+- 阶段 51 契约完成。
+- 阶段 52 确定性分布式杂波参考模型实现待启动。
+
+## 2026-06-10 阶段 52 确定性分布式杂波参考模型实现
+
+### 已执行
+
+1. 在 `tests/support/sar_reference_scene.h` 新增规则网格确定性杂波 helper 与 diagnostics。
+2. 逐散射点复用现有点目标 raw echo 链路，并使用固定 seed 零均值复系数叠加杂波。
+3. 按 target/clutter raw-history 总能量精确缩放 requested SCR。
+4. 新增确定性、不同 seed、无裁剪、算法共享输入和 BP/GBP 一致性测试。
+5. 新增 M1/M4、`3x3/5x5`、双 seed、`30/20/10/0 dB` 首批矩阵。
+6. 新增 `docs/sar_deterministic_distributed_clutter_acceptance_report.md`。
+
+### 关键证据
+
+- M1 sparse seed 17：RDA/clean NRMS 从 `30 dB` 的 `0.014621` 增至 `0 dB` 的
+  `0.619501`；GBP 从 `0.014217` 增至 `0.606510`。
+- M4 dense seed 29：RDA/clean NRMS 从 `0.019897` 增至 `0.362255`；GBP 从
+  `0.019850` 增至 `0.361540`。
+- 新增杂波 helper 与矩阵测试：2/2 passed。
+
+### 阶段状态
+
+- 阶段 52 完成当前平台实现。
+- 阶段 53 分布式杂波后续决策门待启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

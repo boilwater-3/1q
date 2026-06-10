@@ -73,7 +73,9 @@
 | 48 | 确定性噪声与 SNR 鲁棒性矩阵契约 | complete | 冻结测试侧噪声定义、矩阵和审批边界 |
 | 49 | 确定性噪声与 SNR 鲁棒性矩阵实现 | complete_current_platform | helper、M1/M4 双 seed 矩阵和双环境回归通过 |
 | 50 | SNR 矩阵后续决策门 | complete | 统一窗口口径；选择确定性分布式杂波参考模型 |
-| 51 | 确定性分布式杂波参考模型契约 | in_progress | 冻结测试侧杂波定义与审批边界 |
+| 51 | 确定性分布式杂波参考模型契约 | complete | 冻结测试侧杂波定义与审批边界 |
+| 52 | 确定性分布式杂波参考模型实现 | complete_current_platform | helper、M1/M4 双密度双 seed 矩阵通过 |
+| 53 | 分布式杂波后续决策门 | pending | 选择相关杂波、SNR/SCR 二维矩阵或继续后置 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1169,14 +1171,39 @@
 
 ## 阶段 51：确定性分布式杂波参考模型契约
 
-状态：`in_progress`
+状态：`complete`
+
+已完成：
+
+1. 新增 `SAR_DETERMINISTIC_DISTRIBUTED_CLUTTER_CONTRACT.md`。
+2. 冻结规则网格散射点、固定 seed、显式 PRNG、复幅相和遍历顺序定义。
+3. 冻结基于 target/clutter raw-history 总能量的 requested/realized SCR 定义。
+4. 冻结 M1/M4、双网格密度、双 seed 与无杂波/30/20/10/0 dB 首批矩阵。
+5. 明确只修改测试支持层，不增加生产杂波、公用配置、绝对功率或辐射定标语义。
+6. 禁止直接生成质量阈值、警告、拒绝或 Auto。
+
+## 阶段 52：确定性分布式杂波参考模型实现
+
+状态：`complete_current_platform`
+
+已完成：
+
+1. 在 `tests/support` 实现确定性散射点网格和杂波 raw-history helper。
+2. 增加确定性、SCR 能量缩放、无裁剪和算法共享输入测试。
+3. 实现 M1/M4、`3x3/5x5`、双 seed 与 `30/20/10/0 dB` 首批矩阵。
+4. 验证 BP/GBP 在混合 raw history 下继续逐样本一致。
+5. 新增 `docs/sar_deterministic_distributed_clutter_acceptance_report.md`。
+
+## 阶段 53：分布式杂波后续决策门
+
+状态：`pending`
 
 任务：
 
-1. 冻结测试侧分布式杂波散射点布局、幅相与固定 seed 定义。
-2. 冻结信杂比和目标/杂波参考矩阵口径。
-3. 明确不增加生产杂波、公用配置、绝对功率或辐射定标语义。
-4. 禁止直接生成质量阈值、警告、拒绝或 Auto。
+1. 复核规则网格、双密度、双 seed 与首批 SCR 趋势证据。
+2. 判断是否优先扩展相关杂波、随机位置或更多密度。
+3. 判断是否建立噪声与杂波共同存在的 SNR/SCR 二维矩阵。
+4. 继续禁止直接批准生产杂波、通用 SCR 阈值、质量警告或 Auto。
 
 ## 当前待决策问题
 
@@ -1217,4 +1244,4 @@
 
 ## 下一步
 
-执行阶段 51：冻结确定性分布式杂波参考模型契约。
+执行阶段 53：完成分布式杂波后续决策门。

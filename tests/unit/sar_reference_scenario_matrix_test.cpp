@@ -887,6 +887,149 @@ TEST(SarReferenceNoiseTest, FixedSeedAndExactEnergyScalingAreDeterministic) {
       clean, std::numeric_limits<double>::infinity(), 17U, &invalid, &invalid_diagnostics));
 }
 
+TEST(SarReferenceClutterTest, FixedGridSeedAndExactScrAreDeterministic) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  signal::ComplexMatrix target_raw;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(
+      scene,
+      {test_support::MakeReferenceTargetAtDelay(kMatrixCenterDelay, scene.sample_rate_hz, 1.0)},
+      &target_raw));
+
+  test_support::ReferenceClutterGridConfig config;
+  config.azimuth_count = 3U;
+  config.range_count = 3U;
+  config.azimuth_start_m = -0.3;
+  config.azimuth_spacing_m = 0.3;
+  config.range_start_sample = 16U;
+  config.range_spacing_samples = 4U;
+  config.requested_scr_db = 20.0;
+  config.seed = 17U;
+
+  signal::ComplexMatrix first_mixed;
+  signal::ComplexMatrix first_clutter;
+  signal::ComplexMatrix repeated_mixed;
+  signal::ComplexMatrix repeated_clutter;
+  signal::ComplexMatrix different_seed_mixed;
+  signal::ComplexMatrix different_seed_clutter;
+  test_support::ReferenceClutterDiagnostics first_diagnostics;
+  test_support::ReferenceClutterDiagnostics repeated_diagnostics;
+  test_support::ReferenceClutterDiagnostics different_seed_diagnostics;
+  ASSERT_TRUE(test_support::BuildDeterministicDistributedClutter(
+      scene, target_raw, config, &first_mixed, &first_clutter, &first_diagnostics));
+  ASSERT_TRUE(test_support::BuildDeterministicDistributedClutter(
+      scene, target_raw, config, &repeated_mixed, &repeated_clutter, &repeated_diagnostics));
+  config.seed = 29U;
+  ASSERT_TRUE(test_support::BuildDeterministicDistributedClutter(
+      scene, target_raw, config, &different_seed_mixed, &different_seed_clutter,
+      &different_seed_diagnostics));
+
+  EXPECT_EQ(first_clutter.values, repeated_clutter.values);
+  EXPECT_EQ(first_mixed.values, repeated_mixed.values);
+  EXPECT_NE(first_clutter.values, different_seed_clutter.values);
+  EXPECT_NE(first_mixed.values, different_seed_mixed.values);
+  EXPECT_NEAR(first_diagnostics.realized_scr_db, 20.0, 1.0e-12);
+  EXPECT_NEAR(repeated_diagnostics.clutter_energy, first_diagnostics.clutter_energy, 1.0e-12);
+  EXPECT_NEAR(different_seed_diagnostics.realized_scr_db, 20.0, 1.0e-12);
+  EXPECT_EQ(first_diagnostics.scatterer_count, 9U);
+  EXPECT_EQ(first_diagnostics.grid_rows, 3U);
+  EXPECT_EQ(first_diagnostics.grid_cols, 3U);
+  EXPECT_EQ(first_diagnostics.raw_diagnostics.clipped_pulse_count, 0U);
+  EXPECT_EQ(first_diagnostics.raw_diagnostics.clipped_target_count, 0U);
+  EXPECT_EQ(first_diagnostics.raw_diagnostics.clipped_sample_count, 0U);
+
+  MatrixFocusResult focus;
+  ASSERT_TRUE(FocusMatrix(scene, scene.pulses, first_mixed, &focus));
+  EXPECT_EQ(focus.bp.image.values, focus.gbp.image.values);
+}
+
+TEST(SarReferenceClutterMatrixTest, M1AndM4RecordDeterministicScrAndDensityTrends) {
+  struct Scenario {
+    const char* name;
+    std::vector<echo::PointTarget> targets;
+  };
+  struct Grid {
+    const char* name;
+    std::size_t count;
+    double azimuth_start_m;
+    double azimuth_spacing_m;
+    std::size_t range_start_sample;
+    std::size_t range_spacing_samples;
+  };
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  const std::vector<Scenario> scenarios = {
+      {"m1",
+       {test_support::MakeReferenceTargetAtDelay(kMatrixCenterDelay, scene.sample_rate_hz, 1.0)}},
+      {"m4",
+       {test_support::MakeReferenceTargetAtPosition(-0.2, 18U, scene.sample_rate_hz, 3.0),
+        test_support::MakeReferenceTargetAtPosition(0.0, 20U, scene.sample_rate_hz, 2.0),
+        test_support::MakeReferenceTargetAtPosition(0.2, 22U, scene.sample_rate_hz, 1.0)}}};
+  const std::vector<Grid> grids = {{"sparse", 3U, -0.3, 0.3, 15U, 3U},
+                                   {"dense", 5U, -0.4, 0.2, 13U, 2U}};
+  const std::vector<double> scr_values_db = {30.0, 20.0, 10.0, 0.0};
+  const std::vector<std::uint64_t> seeds = {17U, 29U};
+  for (const Scenario& scenario : scenarios) {
+    signal::ComplexMatrix target_raw;
+    ASSERT_TRUE(test_support::BuildReferenceRawHistory(scene, scenario.targets, &target_raw));
+    MatrixFocusResult clean_focus;
+    ASSERT_TRUE(FocusMatrix(scene, scene.pulses, target_raw, &clean_focus));
+    for (const Grid& grid : grids) {
+      for (const std::uint64_t seed : seeds) {
+        double first_rda_clean_nrms = 0.0;
+        double first_gbp_clean_nrms = 0.0;
+        double last_rda_clean_nrms = 0.0;
+        double last_gbp_clean_nrms = 0.0;
+        for (std::size_t scr_index = 0U; scr_index < scr_values_db.size(); ++scr_index) {
+          test_support::ReferenceClutterGridConfig config;
+          config.azimuth_count = grid.count;
+          config.range_count = grid.count;
+          config.azimuth_start_m = grid.azimuth_start_m;
+          config.azimuth_spacing_m = grid.azimuth_spacing_m;
+          config.range_start_sample = grid.range_start_sample;
+          config.range_spacing_samples = grid.range_spacing_samples;
+          config.requested_scr_db = scr_values_db[scr_index];
+          config.seed = seed;
+          signal::ComplexMatrix mixed_raw;
+          signal::ComplexMatrix clutter_raw;
+          test_support::ReferenceClutterDiagnostics diagnostics;
+          ASSERT_TRUE(test_support::BuildDeterministicDistributedClutter(
+              scene, target_raw, config, &mixed_raw, &clutter_raw, &diagnostics));
+          ASSERT_NEAR(diagnostics.realized_scr_db, config.requested_scr_db, 1.0e-12);
+          ASSERT_EQ(diagnostics.raw_diagnostics.clipped_sample_count, 0U);
+          MatrixFocusResult focus;
+          ASSERT_TRUE(FocusMatrix(scene, scene.pulses, mixed_raw, &focus));
+          ASSERT_EQ(focus.bp.image.values, focus.gbp.image.values);
+          const imaging::ImageComparisonMetrics rda_to_clean =
+              imaging::CompareImagesWithGlobalPhaseReference(
+                  CropMatrixWindow(focus.rda.image), CropMatrixWindow(clean_focus.rda.image));
+          const imaging::ImageComparisonMetrics gbp_to_clean =
+              imaging::CompareImagesWithGlobalPhaseReference(focus.gbp.image,
+                                                             clean_focus.gbp.image);
+          ASSERT_TRUE(rda_to_clean.valid);
+          ASSERT_TRUE(gbp_to_clean.valid);
+          const std::string prefix =
+              std::string(scenario.name) + "_" + grid.name + "_seed_" + std::to_string(seed) +
+              "_scr_" + std::to_string(static_cast<int>(config.requested_scr_db));
+          RecordComparison(prefix + "_rda_clean", rda_to_clean);
+          RecordComparison(prefix + "_gbp_clean", gbp_to_clean);
+          RecordComparison(prefix + "_rda_gbp", focus.rda_vs_gbp);
+          ::testing::Test::RecordProperty(prefix + "_realized_scr_db",
+                                          std::to_string(diagnostics.realized_scr_db));
+          if (scr_index == 0U) {
+            first_rda_clean_nrms = rda_to_clean.normalized_rms_error;
+            first_gbp_clean_nrms = gbp_to_clean.normalized_rms_error;
+          }
+          last_rda_clean_nrms = rda_to_clean.normalized_rms_error;
+          last_gbp_clean_nrms = gbp_to_clean.normalized_rms_error;
+        }
+        EXPECT_GT(last_rda_clean_nrms, first_rda_clean_nrms);
+        EXPECT_GT(last_gbp_clean_nrms, first_gbp_clean_nrms);
+      }
+    }
+  }
+}
+
 TEST(SarReferenceSnrMatrixTest, M1AndM4PreserveDeterminismAndRecordQualityTrends) {
   struct Scenario {
     const char* name;

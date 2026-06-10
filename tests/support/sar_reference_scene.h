@@ -47,6 +47,29 @@ struct ReferenceNoiseDiagnostics {
   std::uint64_t seed{0U};
 };
 
+struct ReferenceClutterGridConfig {
+  std::size_t azimuth_count{0U};
+  std::size_t range_count{0U};
+  double azimuth_start_m{0.0};
+  double azimuth_spacing_m{0.0};
+  std::size_t range_start_sample{0U};
+  std::size_t range_spacing_samples{0U};
+  double requested_scr_db{0.0};
+  std::uint64_t seed{0U};
+};
+
+struct ReferenceClutterDiagnostics {
+  double target_energy{0.0};
+  double clutter_energy{0.0};
+  double requested_scr_db{0.0};
+  double realized_scr_db{0.0};
+  std::uint64_t seed{0U};
+  std::size_t scatterer_count{0U};
+  std::size_t grid_rows{0U};
+  std::size_t grid_cols{0U};
+  ReferenceRawHistoryDiagnostics raw_diagnostics{};
+};
+
 inline double NextReferenceUniformOpen(std::uint64_t* state) {
   *state += UINT64_C(0x9e3779b97f4a7c15);
   std::uint64_t value = *state;
@@ -191,6 +214,108 @@ inline bool BuildReferenceRawHistory(const ReferencePointScene& scene,
                                      const std::vector<echo::PointTarget>& targets,
                                      signal::ComplexMatrix* history) {
   return BuildReferenceRawHistory(scene, targets, history, nullptr);
+}
+
+inline bool BuildDeterministicDistributedClutter(
+    const ReferencePointScene& scene, const signal::ComplexMatrix& target_history,
+    const ReferenceClutterGridConfig& config, signal::ComplexMatrix* mixed_history,
+    signal::ComplexMatrix* clutter_history, ReferenceClutterDiagnostics* diagnostics) {
+  if (mixed_history == nullptr || clutter_history == nullptr || diagnostics == nullptr ||
+      target_history.rows == 0U || target_history.cols == 0U ||
+      target_history.values.size() != target_history.rows * target_history.cols ||
+      target_history.rows != scene.pulses.size() || target_history.cols != scene.range_sample_count ||
+      config.azimuth_count == 0U || config.range_count == 0U ||
+      config.azimuth_spacing_m <= 0.0 || config.range_spacing_samples == 0U ||
+      !std::isfinite(config.requested_scr_db)) {
+    return false;
+  }
+
+  double target_energy = 0.0;
+  for (const signal::ComplexSample& sample : target_history.values) {
+    target_energy += std::norm(sample);
+  }
+  if (!(target_energy > 0.0)) {
+    return false;
+  }
+
+  const std::size_t scatterer_count = config.azimuth_count * config.range_count;
+  if (scatterer_count < 2U) {
+    return false;
+  }
+  signal::ComplexVector coefficients(scatterer_count);
+  signal::ComplexSample coefficient_mean(0.0, 0.0);
+  std::uint64_t state = config.seed;
+  for (signal::ComplexSample& coefficient : coefficients) {
+    coefficient = signal::ComplexSample(2.0 * NextReferenceUniformOpen(&state) - 1.0,
+                                        2.0 * NextReferenceUniformOpen(&state) - 1.0);
+    coefficient_mean += coefficient;
+  }
+  coefficient_mean /= static_cast<double>(scatterer_count);
+  for (signal::ComplexSample& coefficient : coefficients) {
+    coefficient -= coefficient_mean;
+  }
+
+  clutter_history->rows = target_history.rows;
+  clutter_history->cols = target_history.cols;
+  clutter_history->values.assign(target_history.values.size(), signal::ComplexSample(0.0, 0.0));
+  ReferenceRawHistoryDiagnostics aggregate_raw_diagnostics;
+  std::size_t scatterer_index = 0U;
+  for (std::size_t azimuth_index = 0U; azimuth_index < config.azimuth_count; ++azimuth_index) {
+    const double azimuth_m =
+        config.azimuth_start_m + static_cast<double>(azimuth_index) * config.azimuth_spacing_m;
+    for (std::size_t range_index = 0U; range_index < config.range_count;
+         ++range_index, ++scatterer_index) {
+      const std::size_t delay_sample =
+          config.range_start_sample + range_index * config.range_spacing_samples;
+      signal::ComplexMatrix scatterer_history;
+      ReferenceRawHistoryDiagnostics scatterer_diagnostics;
+      if (!BuildReferenceRawHistory(
+              scene, {MakeReferenceTargetAtPosition(azimuth_m, delay_sample, scene.sample_rate_hz,
+                                                    1.0)},
+              &scatterer_history, &scatterer_diagnostics)) {
+        return false;
+      }
+      aggregate_raw_diagnostics.clipped_pulse_count += scatterer_diagnostics.clipped_pulse_count;
+      aggregate_raw_diagnostics.clipped_target_count += scatterer_diagnostics.clipped_target_count;
+      aggregate_raw_diagnostics.clipped_sample_count += scatterer_diagnostics.clipped_sample_count;
+      for (std::size_t sample_index = 0U; sample_index < scatterer_history.values.size();
+           ++sample_index) {
+        clutter_history->values[sample_index] +=
+            scatterer_history.values[sample_index] * coefficients[scatterer_index];
+      }
+    }
+  }
+
+  double candidate_clutter_energy = 0.0;
+  for (const signal::ComplexSample& sample : clutter_history->values) {
+    candidate_clutter_energy += std::norm(sample);
+  }
+  if (!(candidate_clutter_energy > 0.0)) {
+    return false;
+  }
+  const double target_clutter_energy =
+      target_energy / std::pow(10.0, config.requested_scr_db / 10.0);
+  const double scale = std::sqrt(target_clutter_energy / candidate_clutter_energy);
+  double realized_clutter_energy = 0.0;
+  for (signal::ComplexSample& sample : clutter_history->values) {
+    sample *= scale;
+    realized_clutter_energy += std::norm(sample);
+  }
+
+  *mixed_history = target_history;
+  for (std::size_t index = 0U; index < mixed_history->values.size(); ++index) {
+    mixed_history->values[index] += clutter_history->values[index];
+  }
+  diagnostics->target_energy = target_energy;
+  diagnostics->clutter_energy = realized_clutter_energy;
+  diagnostics->requested_scr_db = config.requested_scr_db;
+  diagnostics->realized_scr_db = 10.0 * std::log10(target_energy / realized_clutter_energy);
+  diagnostics->seed = config.seed;
+  diagnostics->scatterer_count = scatterer_count;
+  diagnostics->grid_rows = config.azimuth_count;
+  diagnostics->grid_cols = config.range_count;
+  diagnostics->raw_diagnostics = aggregate_raw_diagnostics;
+  return true;
 }
 
 inline imaging::RdaConfig MakeReferenceRdaConfig(const ReferencePointScene& scene,
