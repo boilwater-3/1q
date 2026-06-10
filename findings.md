@@ -746,6 +746,15 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - 辐射定标内部线已达到当前可审计边界，继续扩展需要新的 public 请求或完整系统参数。
 - 下一步应回到长期方案剩余聚焦能力，重新排序 CSA、Omega-K、Auto、自聚焦和时变 PRF。
 
+## 阶段 66 剩余聚焦能力审计发现
+
+- CSA 和 Omega-K 不能仅复用现有 FFT facade 即开始实现；必须先冻结二维频率、相位项、
+  插值和独立参考真值。
+- 显式脉冲时间只解决时变 PRF 几何采样，不解决 RDA 均匀慢时间 FFT 假设。
+- 自聚焦需要独立残余相位误差模型，不能只以图像熵下降作为正确性证据。
+- RDA、GBP、BP 当前证据足以支持内部建议器，但不足以直接开放 public Auto。
+- 先实现只建议、不执行的确定性选择器，可以审计规则而不引入自动回退风险。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`
