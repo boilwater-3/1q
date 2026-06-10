@@ -1404,6 +1404,20 @@
 - 阶段 62 完成。
 - 阶段 63 Session 内部显式校准请求契约待启动。
 
+## 2026-06-10 阶段 63 Session 内部显式校准请求契约
+
+### 已执行
+
+1. 新增 `SAR_INTERNAL_SESSION_CALIBRATION_REQUEST_CONTRACT.md`。
+2. 冻结内部显式请求、无状态执行器和 RDA/GBP/BP 路径匹配。
+3. 冻结原子失败、结构化失败原因和不影响原聚焦结果语义。
+4. public API、SarSession、schema、trace、replay 与有效性阈值继续后置。
+
+### 阶段状态
+
+- 阶段 63 契约完成。
+- 阶段 64 Session 内部显式校准执行器实现待启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
