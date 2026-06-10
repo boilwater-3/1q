@@ -776,6 +776,15 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - public Auto 仍需要自动执行、失败回退、跨周期稳定性和结构化警告独立契约。
 - CSA 不依赖 Stolt 插值，适合作为下一条 Phase 3 聚焦算法契约线。
 
+## 阶段 70 CSA 数学与参考真值契约发现
+
+- 现有 CSA 设计只给出六步流程，没有完整 chirp-scaling、SRC/RCMC 和方位压缩相位式，
+  不足以直接实现完整算法。
+- 未 shift 频率轴必须与现有 FFT bin 顺序保持一致，否则相位函数会施加到错误频点。
+- `D(f_a)` 和 `alpha(f_a)` 提供了可独立验证的 CSA 几何基础，也能提前诊断无效 Doppler
+  频点。
+- 完整 CSA 必须验证中间域固定结果；只比较最终峰值无法发现相位函数符号或轴顺序错误。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`
