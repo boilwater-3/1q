@@ -13,6 +13,7 @@ set(SAR_ENGINE_SOURCES
     sar/imaging/SarMotionCompensation.cpp
     sar/imaging/SarOmegaKGeometry.cpp
     sar/imaging/SarRda.cpp
+    sar/imaging/SarSlowTimeResampling.cpp
     sar/runtime/PulseRingBuffer.cpp
     sar/signal/SarFft.cpp
     sar/signal/SarWaveform.cpp

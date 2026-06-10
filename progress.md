@@ -1687,6 +1687,27 @@
 - 阶段 79 契约完成。
 - 阶段 80 时变 PRF 慢时间重采样基础实现待启动。
 
+## 2026-06-10 阶段 80 时变 PRF 慢时间重采样基础实现
+
+### 已执行
+
+1. 新增内部 `SarSlowTimeResampling`，生成名义均匀慢时间轴。
+2. 实现间隔/时间轴非均匀度诊断与复数线性重采样。
+3. 保持首尾样本，拒绝重复、逆序和非有限输入。
+4. 新增 `docs/sar_slow_time_resampling_acceptance_report.md`。
+
+### 验证结果
+
+- 默认与 Eigen 3.3.9 定向测试各 `4/4` passed。
+- 默认完整 CTest：`25/25` passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：`1/1` passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 80 完成当前平台审批。
+- 阶段 81 时变 PRF 重采样后续接入决策门待启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
