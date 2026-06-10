@@ -1284,13 +1284,26 @@ TEST(SarReferenceRadiometricCalibrationTest, M1CalibratesM4AndRecordsJointInterf
   const double calibration_range_m =
       static_cast<double>(kMatrixCenterDelay) * test_support::kReferenceSpeedOfLightMps /
       (2.0 * scene.sample_rate_hz);
-  calibration::CalibrationSample calibration_sample;
-  calibration_sample.known_rcs_m2 = calibration_target.rcs_m2;
-  calibration_sample.image_power =
-      calibration_quality.peak_magnitude * calibration_quality.peak_magnitude;
-  calibration_sample.slant_range_m = calibration_range_m;
+  calibration::CalibrationObservationRequest observation_request;
+  observation_request.observation_id = "m1-gbp-calibration";
+  observation_request.known_rcs_m2 = calibration_target.rcs_m2;
+  observation_request.slant_range_m = calibration_range_m;
+  observation_request.image_row = calibration_quality.peak_row;
+  observation_request.image_col = calibration_quality.peak_col;
+  observation_request.aperture_end_pulse_id = scene.pulses.size() - 1U;
+  calibration::CalibrationObservation calibration_observation;
+  ASSERT_TRUE(calibration::BuildCalibrationObservation(
+      observation_request, calibration_focus.gbp.image, &calibration_observation));
+  calibration::CalibrationObservation bp_observation;
+  observation_request.observation_id = "m1-bp-calibration";
+  ASSERT_TRUE(calibration::BuildCalibrationObservation(
+      observation_request, calibration_focus.bp.image, &bp_observation));
+  EXPECT_EQ(calibration_observation.image_power, bp_observation.image_power);
+  std::vector<calibration::CalibrationSample> calibration_samples;
+  ASSERT_TRUE(calibration::ConvertObservationsToSamples({calibration_observation},
+                                                        &calibration_samples));
   calibration::RadiometricCalibration radiometric_calibration;
-  ASSERT_TRUE(calibration::CalibrateSingle(calibration_sample, &radiometric_calibration));
+  ASSERT_TRUE(calibration::CalibrateMultiple(calibration_samples, &radiometric_calibration));
 
   const std::vector<echo::PointTarget> m4_targets = {
       test_support::MakeReferenceTargetAtPosition(-0.2, 18U, scene.sample_rate_hz, 3.0),

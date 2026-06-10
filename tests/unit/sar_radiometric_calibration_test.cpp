@@ -88,6 +88,47 @@ TEST(SarRadiometricCalibrationTest, InvalidInputsAreRejected) {
   EXPECT_FALSE(EvaluateRadiometricErrorDb(0.0, 1.0, &value));
 }
 
+TEST(SarRadiometricCalibrationTest, ExplicitObservationValidatesSourceAndConvertsAtomically) {
+  signal::ComplexMatrix image;
+  image.rows = 2U;
+  image.cols = 2U;
+  image.values = {signal::ComplexSample(1.0, 0.0), signal::ComplexSample(0.0, 2.0),
+                  signal::ComplexSample(0.0, 0.0), signal::ComplexSample(3.0, 4.0)};
+  CalibrationObservationRequest request;
+  request.observation_id = "cal-1";
+  request.known_rcs_m2 = 4.0;
+  request.slant_range_m = 20.0;
+  request.image_row = 1U;
+  request.image_col = 1U;
+  request.aperture_start_pulse_id = 10U;
+  request.aperture_end_pulse_id = 18U;
+  request.weight = 2.0;
+  CalibrationObservation observation;
+  ASSERT_TRUE(BuildCalibrationObservation(request, image, &observation));
+  EXPECT_EQ(observation.observation_id, "cal-1");
+  EXPECT_DOUBLE_EQ(observation.image_power, 25.0);
+
+  CalibrationObservation same_math = observation;
+  same_math.observation_id = "cal-2";
+  std::vector<CalibrationSample> samples;
+  ASSERT_TRUE(ConvertObservationsToSamples({observation, same_math}, &samples));
+  ASSERT_EQ(samples.size(), 2U);
+  EXPECT_EQ(samples[0].image_power, samples[1].image_power);
+
+  request.image_is_normalized = true;
+  EXPECT_FALSE(BuildCalibrationObservation(request, image, &observation));
+  request.image_is_normalized = false;
+  request.observation_id.clear();
+  EXPECT_FALSE(BuildCalibrationObservation(request, image, &observation));
+  request.observation_id = "cal-1";
+  request.image_row = 2U;
+  EXPECT_FALSE(BuildCalibrationObservation(request, image, &observation));
+
+  same_math.observation_id.clear();
+  EXPECT_FALSE(ConvertObservationsToSamples({observation, same_math}, &samples));
+  EXPECT_EQ(samples.size(), 2U);
+}
+
 }  // namespace
 }  // namespace calibration
 }  // namespace sar

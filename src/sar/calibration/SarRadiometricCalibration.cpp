@@ -67,6 +67,59 @@ bool CalibrateMultiple(const std::vector<CalibrationSample>& samples,
   return true;
 }
 
+bool BuildCalibrationObservation(const CalibrationObservationRequest& request,
+                                 const signal::ComplexMatrix& unnormalized_image,
+                                 CalibrationObservation* observation) {
+  if (observation == nullptr || request.observation_id.empty() ||
+      !IsPositiveFinite(request.known_rcs_m2) || !IsPositiveFinite(request.slant_range_m) ||
+      !IsPositiveFinite(request.weight) || request.image_is_normalized ||
+      request.aperture_start_pulse_id > request.aperture_end_pulse_id ||
+      unnormalized_image.rows == 0U || unnormalized_image.cols == 0U ||
+      unnormalized_image.values.size() != unnormalized_image.rows * unnormalized_image.cols ||
+      request.image_row >= unnormalized_image.rows || request.image_col >= unnormalized_image.cols) {
+    return false;
+  }
+  const double image_power = std::norm(unnormalized_image(request.image_row, request.image_col));
+  if (!IsPositiveFinite(image_power)) {
+    return false;
+  }
+  observation->observation_id = request.observation_id;
+  observation->known_rcs_m2 = request.known_rcs_m2;
+  observation->image_power = image_power;
+  observation->slant_range_m = request.slant_range_m;
+  observation->image_row = request.image_row;
+  observation->image_col = request.image_col;
+  observation->aperture_start_pulse_id = request.aperture_start_pulse_id;
+  observation->aperture_end_pulse_id = request.aperture_end_pulse_id;
+  observation->weight = request.weight;
+  return true;
+}
+
+bool ConvertObservationsToSamples(const std::vector<CalibrationObservation>& observations,
+                                  std::vector<CalibrationSample>* samples) {
+  if (samples == nullptr || observations.empty()) {
+    return false;
+  }
+  std::vector<CalibrationSample> converted;
+  converted.reserve(observations.size());
+  for (const CalibrationObservation& observation : observations) {
+    CalibrationSample sample;
+    sample.known_rcs_m2 = observation.known_rcs_m2;
+    sample.image_power = observation.image_power;
+    sample.slant_range_m = observation.slant_range_m;
+    sample.weight = observation.weight;
+    double factor = 0.0;
+    if (observation.observation_id.empty() ||
+        observation.aperture_start_pulse_id > observation.aperture_end_pulse_id ||
+        !SampleFactor(sample, &factor)) {
+      return false;
+    }
+    converted.push_back(sample);
+  }
+  *samples = converted;
+  return true;
+}
+
 bool InvertRcs(double image_power, double slant_range_m,
                const RadiometricCalibration& calibration, double* measured_rcs_m2) {
   if (measured_rcs_m2 == nullptr || !calibration.valid ||
