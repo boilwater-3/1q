@@ -863,6 +863,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - 缺失脉冲和大时间间隙会改变线性插值可信度，当前没有审批门，不能直接接入 RDA。
 - 二维内部基础可先复用相同时间映射逐列验证，不需要扩大 Session 或 public 表面。
 
+## 阶段 82 二维 raw-history 慢时间重采样契约发现
+
+- 所有距离列必须共享同一慢时间映射，否则逐列计算差异会破坏同一方位行的时间语义。
+- 列独立性是二维重采样的核心验收条件，可防止误把距离方向作为插值轴。
+- 复用现有 `ComplexMatrix` 可保持 row=方位、col=距离约定，不需要扩大 public 类型。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`
