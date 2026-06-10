@@ -129,6 +129,53 @@ TEST(SarRadiometricCalibrationTest, ExplicitObservationValidatesSourceAndConvert
   EXPECT_EQ(samples.size(), 2U);
 }
 
+TEST(SarRadiometricCalibrationTest, InternalExecutorMatchesPathAndFailsAtomically) {
+  signal::ComplexMatrix image;
+  image.rows = 1U;
+  image.cols = 2U;
+  image.values = {signal::ComplexSample(2.0, 0.0), signal::ComplexSample(0.0, 3.0)};
+  CalibrationExecutionRequest first;
+  first.request_id = "request-1";
+  first.image_path = CalibrationImagePath::kGbp;
+  first.observation.observation_id = "observation-1";
+  first.observation.known_rcs_m2 = 4.0;
+  first.observation.slant_range_m = 10.0;
+  first.observation.image_col = 0U;
+  CalibrationExecutionRequest second = first;
+  second.request_id = "request-2";
+  second.observation.observation_id = "observation-2";
+  second.observation.known_rcs_m2 = 9.0;
+  second.observation.image_col = 1U;
+  second.observation.weight = 2.0;
+
+  CalibrationExecutionResult result;
+  ASSERT_TRUE(ExecuteCalibrationRequests(CalibrationImagePath::kGbp, image, {first, second},
+                                         &result));
+  EXPECT_TRUE(result.valid);
+  EXPECT_EQ(result.failure, CalibrationExecutionFailure::kNone);
+  EXPECT_EQ(result.request_count, 2U);
+  ASSERT_EQ(result.residuals.size(), 2U);
+  EXPECT_EQ(result.residuals[0].request_id, "request-1");
+  EXPECT_EQ(result.residuals[1].observation_id, "observation-2");
+
+  const CalibrationExecutionResult successful = result;
+  EXPECT_FALSE(
+      ExecuteCalibrationRequests(CalibrationImagePath::kRda, image, {first, second}, &result));
+  EXPECT_FALSE(result.valid);
+  EXPECT_EQ(result.failure, CalibrationExecutionFailure::kImagePathMismatch);
+  EXPECT_TRUE(result.residuals.empty());
+  EXPECT_TRUE(successful.valid);
+
+  second.observation.image_col = 2U;
+  EXPECT_FALSE(
+      ExecuteCalibrationRequests(CalibrationImagePath::kGbp, image, {first, second}, &result));
+  EXPECT_EQ(result.failure, CalibrationExecutionFailure::kObservationBuildFailed);
+  EXPECT_TRUE(result.residuals.empty());
+
+  EXPECT_FALSE(ExecuteCalibrationRequests(CalibrationImagePath::kGbp, image, {}, &result));
+  EXPECT_EQ(result.failure, CalibrationExecutionFailure::kEmptyRequestList);
+}
+
 }  // namespace
 }  // namespace calibration
 }  // namespace sar

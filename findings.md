@@ -732,6 +732,13 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - 定标失败不应影响原聚焦结果，也不应触发算法回退或 Auto。
 - 首批 RDA/GBP/BP 路径矩阵足以验证执行器；L2/L3 public 接入仍需单独审批。
 
+## 阶段 64 内部校准执行器实现发现
+
+- 显式路径匹配可以可靠阻止用 GBP/BP 像素坐标误读 RDA 图像等跨算法误用。
+- 候选结果构建后一次性替换输出，使失败路径不留下部分残差或部分定标状态。
+- M1 GBP/BP 定标因子严格一致；RDA 定标因子差异可作为解释性记录，但不形成质量阈值。
+- 执行器已具备 Session 风格调用边界，但尚未定义 public 请求来源，因此不能直接公开。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`

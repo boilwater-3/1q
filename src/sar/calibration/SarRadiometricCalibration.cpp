@@ -120,6 +120,67 @@ bool ConvertObservationsToSamples(const std::vector<CalibrationObservation>& obs
   return true;
 }
 
+bool ExecuteCalibrationRequests(CalibrationImagePath actual_image_path,
+                                const signal::ComplexMatrix& unnormalized_image,
+                                const std::vector<CalibrationExecutionRequest>& requests,
+                                CalibrationExecutionResult* result) {
+  if (result == nullptr) {
+    return false;
+  }
+  CalibrationExecutionResult candidate;
+  candidate.request_count = requests.size();
+  if (requests.empty()) {
+    candidate.failure = CalibrationExecutionFailure::kEmptyRequestList;
+    *result = candidate;
+    return false;
+  }
+  std::vector<CalibrationObservation> observations;
+  observations.reserve(requests.size());
+  for (const CalibrationExecutionRequest& request : requests) {
+    if (request.request_id.empty()) {
+      candidate.failure = CalibrationExecutionFailure::kInvalidRequest;
+      *result = candidate;
+      return false;
+    }
+    if (request.image_path != actual_image_path) {
+      candidate.failure = CalibrationExecutionFailure::kImagePathMismatch;
+      *result = candidate;
+      return false;
+    }
+    CalibrationObservation observation;
+    if (!BuildCalibrationObservation(request.observation, unnormalized_image, &observation)) {
+      candidate.failure = CalibrationExecutionFailure::kObservationBuildFailed;
+      *result = candidate;
+      return false;
+    }
+    observations.push_back(observation);
+  }
+
+  std::vector<CalibrationSample> samples;
+  if (!ConvertObservationsToSamples(observations, &samples)) {
+    candidate.failure = CalibrationExecutionFailure::kObservationConversionFailed;
+    *result = candidate;
+    return false;
+  }
+  if (!CalibrateMultiple(samples, &candidate.calibration)) {
+    candidate.failure = CalibrationExecutionFailure::kCalibrationFailed;
+    *result = candidate;
+    return false;
+  }
+  candidate.residuals.reserve(requests.size());
+  for (std::size_t index = 0U; index < requests.size(); ++index) {
+    CalibrationExecutionResidual residual;
+    residual.request_id = requests[index].request_id;
+    residual.observation_id = observations[index].observation_id;
+    residual.residual_error_db = candidate.calibration.residual_error_db[index];
+    candidate.residuals.push_back(residual);
+  }
+  candidate.valid = true;
+  candidate.failure = CalibrationExecutionFailure::kNone;
+  *result = candidate;
+  return true;
+}
+
 bool InvertRcs(double image_power, double slant_range_m,
                const RadiometricCalibration& calibration, double* measured_rcs_m2) {
   if (measured_rcs_m2 == nullptr || !calibration.valid ||

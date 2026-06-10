@@ -86,7 +86,8 @@
 | 61 | 显式标定观测内部实现 | complete_current_platform | 观测构建、原子转换和双环境验收通过 |
 | 62 | 显式标定观测后续决策门 | complete | 选择内部显式校准请求与 Session 执行边界 |
 | 63 | Session 内部显式校准请求契约 | complete | 冻结内部请求、执行器、路径与失败语义 |
-| 64 | Session 内部显式校准执行器实现 | pending | 实现无状态执行器与首批路径矩阵 |
+| 64 | Session 内部显式校准执行器实现 | complete_current_platform | 无状态执行器、路径矩阵和双环境验收通过 |
+| 65 | 内部校准执行器后续接入决策门 | pending | 审计 SarSession 受控接入与公共边界 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1341,14 +1342,25 @@
 
 ## 阶段 64：Session 内部显式校准执行器实现
 
-状态：`pending`
+状态：`complete_current_platform`
 
-任务：
+已完成：
 
 1. 在内部 calibration 模块实现无状态请求执行器与结构化失败原因。
 2. 增加路径匹配、原子失败、多请求融合和摘要测试。
 3. 增加 M1 RDA/GBP/BP 与联合干扰首批执行矩阵。
-4. 新增验收报告并执行双环境 SAR 审批门。
+4. 新增 `docs/sar_internal_calibration_executor_acceptance_report.md`。
+5. 默认完整 CTest `25/25`、双环境定标执行器测试各 `7/7`、Eigen 3.3.9 C++11 门通过。
+
+## 阶段 65：内部校准执行器后续接入决策门
+
+状态：`pending`
+
+任务：
+
+1. 审计无状态执行器与 SarSession 内部管线的接入条件。
+2. 决定受控内部接入、public 摘要或继续独立内部能力的优先级。
+3. 保持 schema、runtime patch、replay、阈值和 Auto 门禁。
 
 ## 当前待决策问题
 
@@ -1389,4 +1401,4 @@
 
 ## 下一步
 
-执行阶段 64：实现 Session 内部显式校准执行器。
+执行阶段 65：完成内部校准执行器后续接入决策门。

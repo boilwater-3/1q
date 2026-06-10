@@ -16,6 +16,22 @@
 namespace sar {
 namespace calibration {
 
+enum class CalibrationImagePath {
+  kRda = 0,
+  kGbp = 1,
+  kBp = 2,
+};
+
+enum class CalibrationExecutionFailure {
+  kNone = 0,
+  kEmptyRequestList = 1,
+  kInvalidRequest = 2,
+  kImagePathMismatch = 3,
+  kObservationBuildFailed = 4,
+  kObservationConversionFailed = 5,
+  kCalibrationFailed = 6,
+};
+
 struct CalibrationObservationRequest {
   std::string observation_id{};
   double known_rcs_m2{0.0};
@@ -26,6 +42,18 @@ struct CalibrationObservationRequest {
   std::uint64_t aperture_end_pulse_id{0U};
   double weight{1.0};
   bool image_is_normalized{false};
+};
+
+struct CalibrationExecutionRequest {
+  std::string request_id{};
+  CalibrationImagePath image_path{CalibrationImagePath::kRda};
+  CalibrationObservationRequest observation{};
+};
+
+struct CalibrationExecutionResidual {
+  std::string request_id{};
+  std::string observation_id{};
+  double residual_error_db{0.0};
 };
 
 struct CalibrationObservation {
@@ -54,6 +82,14 @@ struct RadiometricCalibration {
   std::vector<double> residual_error_db{};
 };
 
+struct CalibrationExecutionResult {
+  bool valid{false};
+  CalibrationExecutionFailure failure{CalibrationExecutionFailure::kNone};
+  std::size_t request_count{0U};
+  RadiometricCalibration calibration{};
+  std::vector<CalibrationExecutionResidual> residuals{};
+};
+
 bool CalibrateSingle(const CalibrationSample& sample, RadiometricCalibration* calibration);
 
 bool CalibrateMultiple(const std::vector<CalibrationSample>& samples,
@@ -65,6 +101,11 @@ bool BuildCalibrationObservation(const CalibrationObservationRequest& request,
 
 bool ConvertObservationsToSamples(const std::vector<CalibrationObservation>& observations,
                                   std::vector<CalibrationSample>* samples);
+
+bool ExecuteCalibrationRequests(CalibrationImagePath actual_image_path,
+                                const signal::ComplexMatrix& unnormalized_image,
+                                const std::vector<CalibrationExecutionRequest>& requests,
+                                CalibrationExecutionResult* result);
 
 bool InvertRcs(double image_power, double slant_range_m,
                const RadiometricCalibration& calibration, double* measured_rcs_m2);

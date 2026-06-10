@@ -1299,6 +1299,44 @@ TEST(SarReferenceRadiometricCalibrationTest, M1CalibratesM4AndRecordsJointInterf
   ASSERT_TRUE(calibration::BuildCalibrationObservation(
       observation_request, calibration_focus.bp.image, &bp_observation));
   EXPECT_EQ(calibration_observation.image_power, bp_observation.image_power);
+  calibration::CalibrationExecutionRequest gbp_execution_request;
+  gbp_execution_request.request_id = "m1-gbp-request";
+  gbp_execution_request.image_path = calibration::CalibrationImagePath::kGbp;
+  gbp_execution_request.observation = observation_request;
+  gbp_execution_request.observation.observation_id = "m1-gbp-execution";
+  calibration::CalibrationExecutionRequest bp_execution_request = gbp_execution_request;
+  bp_execution_request.request_id = "m1-bp-request";
+  bp_execution_request.image_path = calibration::CalibrationImagePath::kBp;
+  bp_execution_request.observation.observation_id = "m1-bp-execution";
+  calibration::CalibrationExecutionResult gbp_execution;
+  calibration::CalibrationExecutionResult bp_execution;
+  ASSERT_TRUE(calibration::ExecuteCalibrationRequests(
+      calibration::CalibrationImagePath::kGbp, calibration_focus.gbp.image,
+      {gbp_execution_request}, &gbp_execution));
+  ASSERT_TRUE(calibration::ExecuteCalibrationRequests(
+      calibration::CalibrationImagePath::kBp, calibration_focus.bp.image, {bp_execution_request},
+      &bp_execution));
+  EXPECT_EQ(gbp_execution.calibration.image_calibration_factor,
+            bp_execution.calibration.image_calibration_factor);
+
+  const imaging::ImageQualityMetrics rda_calibration_quality =
+      imaging::EvaluateImageQuality(calibration_focus.rda.image);
+  ASSERT_TRUE(rda_calibration_quality.valid);
+  calibration::CalibrationExecutionRequest rda_execution_request = gbp_execution_request;
+  rda_execution_request.request_id = "m1-rda-request";
+  rda_execution_request.image_path = calibration::CalibrationImagePath::kRda;
+  rda_execution_request.observation.observation_id = "m1-rda-execution";
+  rda_execution_request.observation.image_row = rda_calibration_quality.peak_row;
+  rda_execution_request.observation.image_col = rda_calibration_quality.peak_col;
+  calibration::CalibrationExecutionResult rda_execution;
+  ASSERT_TRUE(calibration::ExecuteCalibrationRequests(
+      calibration::CalibrationImagePath::kRda, calibration_focus.rda.image,
+      {rda_execution_request}, &rda_execution));
+  ::testing::Test::RecordProperty(
+      "m1_rda_to_gbp_calibration_factor_ratio",
+      std::to_string(rda_execution.calibration.image_calibration_factor /
+                     gbp_execution.calibration.image_calibration_factor));
+
   std::vector<calibration::CalibrationSample> calibration_samples;
   ASSERT_TRUE(calibration::ConvertObservationsToSamples({calibration_observation},
                                                         &calibration_samples));
