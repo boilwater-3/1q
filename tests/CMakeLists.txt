@@ -301,6 +301,7 @@ set(_sar_unit_filter
     "SarGbpTest.*:"
     "SarImageQualityTest.*:"
     "SarMotionCompensationTest.*:"
+    "SarRadiometricCalibrationTest.*:"
     "SarRdaTest.*:"
     "SarSessionPipelineTest.*:"
     "SarReplayCodecRoundtripTest.*:"

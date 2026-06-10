@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 
+#include "sar/calibration/SarRadiometricCalibration.h"
 #include "sar/imaging/SarGbp.h"
 #include "sar/imaging/SarImageQuality.h"
 #include "sar/imaging/SarMotionCompensation.h"
@@ -1268,6 +1269,89 @@ TEST(SarReferenceSnrScrMatrixTest, M1CompleteAndM4SentinelMatricesRecordJointTre
       }
     }
   }
+}
+
+TEST(SarReferenceRadiometricCalibrationTest, M1CalibratesM4AndRecordsJointInterferenceError) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  const echo::PointTarget calibration_target =
+      test_support::MakeReferenceTargetAtDelay(kMatrixCenterDelay, scene.sample_rate_hz, 1.0);
+  MatrixFocusResult calibration_focus;
+  ASSERT_TRUE(FocusL1Matrix(scene, {calibration_target}, &calibration_focus));
+  const imaging::ImageQualityMetrics calibration_quality =
+      imaging::EvaluateImageQuality(calibration_focus.gbp.image);
+  ASSERT_TRUE(calibration_quality.valid);
+  const double calibration_range_m =
+      static_cast<double>(kMatrixCenterDelay) * test_support::kReferenceSpeedOfLightMps /
+      (2.0 * scene.sample_rate_hz);
+  calibration::CalibrationSample calibration_sample;
+  calibration_sample.known_rcs_m2 = calibration_target.rcs_m2;
+  calibration_sample.image_power =
+      calibration_quality.peak_magnitude * calibration_quality.peak_magnitude;
+  calibration_sample.slant_range_m = calibration_range_m;
+  calibration::RadiometricCalibration radiometric_calibration;
+  ASSERT_TRUE(calibration::CalibrateSingle(calibration_sample, &radiometric_calibration));
+
+  const std::vector<echo::PointTarget> m4_targets = {
+      test_support::MakeReferenceTargetAtPosition(-0.2, 18U, scene.sample_rate_hz, 3.0),
+      test_support::MakeReferenceTargetAtPosition(0.0, 20U, scene.sample_rate_hz, 2.0),
+      test_support::MakeReferenceTargetAtPosition(0.2, 22U, scene.sample_rate_hz, 1.0)};
+  for (std::size_t target_index = 0U; target_index < m4_targets.size(); ++target_index) {
+    const echo::PointTarget& target = m4_targets[target_index];
+    MatrixFocusResult target_focus;
+    ASSERT_TRUE(FocusL1Matrix(scene, {target}, &target_focus));
+    const imaging::ImageQualityMetrics quality = imaging::EvaluateImageQuality(target_focus.gbp.image);
+    ASSERT_TRUE(quality.valid);
+    const double target_range_m =
+        geometry::Distance(scene.pulses[scene.pulses.size() / 2U].position_m, target.position_m);
+    double measured_rcs_m2 = 0.0;
+    ASSERT_TRUE(calibration::InvertRcs(quality.peak_magnitude * quality.peak_magnitude,
+                                      target_range_m, radiometric_calibration, &measured_rcs_m2));
+    double error_db = 0.0;
+    ASSERT_TRUE(calibration::EvaluateRadiometricErrorDb(measured_rcs_m2, target.rcs_m2, &error_db));
+    EXPECT_LT(std::abs(error_db), 0.01);
+    ::testing::Test::RecordProperty("m4_isolated_target_" + std::to_string(target_index) +
+                                        "_error_db",
+                                    std::to_string(error_db));
+  }
+
+  signal::ComplexMatrix clean_raw;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(scene, {calibration_target}, &clean_raw));
+  test_support::ReferenceJointInterferenceConfig interference_config;
+  interference_config.enable_noise = true;
+  interference_config.requested_snr_db = 20.0;
+  interference_config.noise_seed = 17U;
+  interference_config.enable_clutter = true;
+  interference_config.clutter.azimuth_count = 3U;
+  interference_config.clutter.range_count = 3U;
+  interference_config.clutter.azimuth_start_m = -0.3;
+  interference_config.clutter.azimuth_spacing_m = 0.3;
+  interference_config.clutter.range_start_sample = 15U;
+  interference_config.clutter.range_spacing_samples = 3U;
+  interference_config.clutter.requested_scr_db = 20.0;
+  interference_config.clutter.seed = 29U;
+  signal::ComplexMatrix joint_raw;
+  signal::ComplexMatrix noise_raw;
+  signal::ComplexMatrix clutter_raw;
+  test_support::ReferenceJointInterferenceDiagnostics interference_diagnostics;
+  ASSERT_TRUE(test_support::BuildDeterministicJointInterference(
+      scene, clean_raw, interference_config, &joint_raw, &noise_raw, &clutter_raw,
+      &interference_diagnostics));
+  MatrixFocusResult joint_focus;
+  ASSERT_TRUE(FocusMatrix(scene, scene.pulses, joint_raw, &joint_focus));
+  const imaging::ImageQualityMetrics joint_quality =
+      imaging::EvaluateImageQuality(joint_focus.gbp.image);
+  ASSERT_TRUE(joint_quality.valid);
+  double joint_measured_rcs_m2 = 0.0;
+  double joint_error_db = 0.0;
+  ASSERT_TRUE(calibration::InvertRcs(joint_quality.peak_magnitude * joint_quality.peak_magnitude,
+                                    calibration_range_m, radiometric_calibration,
+                                    &joint_measured_rcs_m2));
+  ASSERT_TRUE(calibration::EvaluateRadiometricErrorDb(
+      joint_measured_rcs_m2, calibration_target.rcs_m2, &joint_error_db));
+  EXPECT_TRUE(std::isfinite(joint_error_db));
+  ::testing::Test::RecordProperty("m1_joint_20db_radiometric_error_db",
+                                  std::to_string(joint_error_db));
 }
 
 }  // namespace

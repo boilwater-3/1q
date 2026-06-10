@@ -2,6 +2,7 @@
 
 # -- engine: 信号处理、几何、回波、成像与输出内核 -----------------------------
 set(SAR_ENGINE_SOURCES
+    sar/calibration/SarRadiometricCalibration.cpp
     sar/echo/SarEcho.cpp
     sar/geometry/SarGeometry.cpp
     sar/imaging/SarGbp.cpp
