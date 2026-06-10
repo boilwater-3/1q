@@ -5,6 +5,7 @@ set(SAR_ENGINE_SOURCES
     sar/calibration/SarRadiometricCalibration.cpp
     sar/echo/SarEcho.cpp
     sar/geometry/SarGeometry.cpp
+    sar/imaging/SarAutofocusPhaseTruth.cpp
     sar/imaging/SarCsaGeometry.cpp
     sar/imaging/SarGbp.cpp
     sar/imaging/SarFocusingSelector.cpp
