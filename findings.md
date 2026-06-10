@@ -869,6 +869,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - 列独立性是二维重采样的核心验收条件，可防止误把距离方向作为插值轴。
 - 复用现有 `ComplexMatrix` 可保持 row=方位、col=距离约定，不需要扩大 public 类型。
 
+## 阶段 83 二维 raw-history 慢时间重采样实现发现
+
+- 逐列复用向量重采样可以保持距离列完全独立，并共享同一慢时间诊断。
+- 现有 `ComplexMatrix` 没有二维构造函数，内部模块必须显式设置尺寸并分配 values。
+- 二维仿射真值验证了轴和列独立性，但仍不足以批准带限 SAR 回波质量或 RDA 接入。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`

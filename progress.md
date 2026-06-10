@@ -1736,6 +1736,25 @@
 - 阶段 82 契约完成。
 - 阶段 83 二维 raw-history 慢时间重采样实现待启动。
 
+## 2026-06-10 阶段 83 二维 raw-history 慢时间重采样实现
+
+### 已执行
+
+1. 在 `SarSlowTimeResampling` 增加二维 `ComplexMatrix` 重采样入口。
+2. 保持矩阵轴、尺寸、首尾行和列独立性。
+3. 新增 `docs/sar_raw_history_slow_time_resampling_acceptance_report.md`。
+
+### 验证结果
+
+- 默认与 Eigen 3.3.9 定向测试各 `3/3` passed。
+- 默认完整 CTest：`25/25` passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：`1/1` passed。
+
+### 阶段状态
+
+- 阶段 83 完成当前平台审批。
+- 阶段 84 二维慢时间重采样后续接入决策门待启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。

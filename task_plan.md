@@ -105,7 +105,8 @@
 | 80 | 时变 PRF 慢时间重采样基础实现 | complete_current_platform | 时间轴诊断、复数线性重采样与双环境验收通过 |
 | 81 | 时变 PRF 重采样后续接入决策门 | complete | RDA/Session 接入后置；选择二维 raw-history 契约 |
 | 82 | 二维 raw-history 慢时间重采样契约 | complete | 冻结矩阵轴、共享映射、列独立性与真值要求 |
-| 83 | 二维 raw-history 慢时间重采样实现 | pending | 实现矩阵逐列重采样与双环境验收 |
+| 83 | 二维 raw-history 慢时间重采样实现 | complete_current_platform | 矩阵逐列重采样、列独立性与双环境验收通过 |
+| 84 | 二维慢时间重采样后续接入决策门 | pending | 审计带限回波质量、缺失脉冲与 RDA 接入条件 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1587,14 +1588,26 @@
 
 ## 阶段 83：二维 raw-history 慢时间重采样实现
 
-状态：`pending`
+状态：`complete_current_platform`
 
-任务：
+已完成：
 
 1. 实现内部二维矩阵慢时间线性重采样。
 2. 复用向量基础诊断并验证列独立性。
 3. 增加均匀退化、多列仿射真值和非法矩阵测试。
-4. 新增验收报告并执行双环境 SAR 审批门。
+4. 新增 `docs/sar_raw_history_slow_time_resampling_acceptance_report.md`。
+5. 默认完整 CTest `25/25`、双环境二维测试各 `3/3`、Eigen 3.3.9 C++11 门通过。
+
+## 阶段 84：二维慢时间重采样后续接入决策门
+
+状态：`pending`
+
+任务：
+
+1. 审计带限 SAR 回波插值质量阈值和缺失脉冲策略。
+2. 决定是否具备接入 RDA 前置处理的条件。
+3. 确认 Session/public/schema/replay 是否继续后置。
+4. 记录下一条 SAR 雷达组件建设方向。
 
 ## 当前待决策问题
 
@@ -1635,4 +1648,4 @@
 
 ## 下一步
 
-执行阶段 83：实现二维 raw-history 慢时间重采样。
+执行阶段 84：完成二维慢时间重采样后续接入决策门。

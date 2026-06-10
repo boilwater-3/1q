@@ -10,6 +10,8 @@
 #include <cstddef>
 #include <vector>
 
+#include "sar/signal/SarFft.h"
+
 namespace sar {
 namespace imaging {
 
@@ -34,6 +36,11 @@ bool ResampleSlowTimeLinear(const std::vector<double>& explicit_times_s,
                             const std::vector<std::complex<double>>& input_samples,
                             std::vector<std::complex<double>>* output_samples,
                             SlowTimeResamplingDiagnostics* diagnostics);
+
+bool ResampleRawHistorySlowTimeLinear(const std::vector<double>& explicit_times_s,
+                                      const signal::ComplexMatrix& input,
+                                      signal::ComplexMatrix* output,
+                                      SlowTimeResamplingDiagnostics* diagnostics);
 
 }  // namespace imaging
 }  // namespace sar

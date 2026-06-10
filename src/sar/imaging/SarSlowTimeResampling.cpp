@@ -103,5 +103,48 @@ bool ResampleSlowTimeLinear(const std::vector<double>& explicit_times_s,
   return true;
 }
 
+bool ResampleRawHistorySlowTimeLinear(const std::vector<double>& explicit_times_s,
+                                      const signal::ComplexMatrix& input,
+                                      signal::ComplexMatrix* output,
+                                      SlowTimeResamplingDiagnostics* diagnostics) {
+  if (output == nullptr || diagnostics == nullptr) {
+    return false;
+  }
+  *output = signal::ComplexMatrix{};
+  *diagnostics = SlowTimeResamplingDiagnostics{};
+  if (input.rows < 2U || input.cols == 0U || input.values.size() != input.rows * input.cols ||
+      explicit_times_s.size() != input.rows) {
+    return false;
+  }
+
+  signal::ComplexMatrix result;
+  result.rows = input.rows;
+  result.cols = input.cols;
+  result.values.resize(input.rows * input.cols);
+  std::vector<std::complex<double>> input_column(input.rows);
+  std::vector<std::complex<double>> output_column;
+  SlowTimeResamplingDiagnostics shared_diagnostics;
+  for (std::size_t col = 0U; col < input.cols; ++col) {
+    for (std::size_t row = 0U; row < input.rows; ++row) {
+      input_column[row] = input(row, col);
+    }
+    SlowTimeResamplingDiagnostics column_diagnostics;
+    if (!ResampleSlowTimeLinear(explicit_times_s, input_column, &output_column,
+                                &column_diagnostics)) {
+      return false;
+    }
+    if (col == 0U) {
+      shared_diagnostics = column_diagnostics;
+    }
+    for (std::size_t row = 0U; row < input.rows; ++row) {
+      result(row, col) = output_column[row];
+    }
+  }
+
+  *output = result;
+  *diagnostics = shared_diagnostics;
+  return true;
+}
+
 }  // namespace imaging
 }  // namespace sar

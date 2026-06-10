@@ -302,6 +302,7 @@ set(_sar_unit_filter
     "SarOmegaKGeometryTest.*:"
     "SarAutofocusPhaseTruthTest.*:"
     "SarSlowTimeResamplingTest.*:"
+    "SarRawHistorySlowTimeResamplingTest.*:"
     "PulseRingBufferTest.*:"
     "SarGbpTest.*:"
     "SarImageQualityTest.*:"
