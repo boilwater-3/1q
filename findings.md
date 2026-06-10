@@ -769,6 +769,13 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - RDA `1024x1024` 与 GBP/BP `128x128` 尺寸门可直接形成确定性建议门。
 - 当前建议器不依赖质量阈值或执行耗时，因此不能被误解为运行时质量自适应 Auto。
 
+## 阶段 69 内部聚焦选择器后续决策发现
+
+- 没有显式调用目的时，Session 无法区分常规成像与独立 GBP 参考请求。
+- 只公开建议 diagnostics 而不改变执行路径，会扩大 schema/replay 表面但缺少直接价值。
+- public Auto 仍需要自动执行、失败回退、跨周期稳定性和结构化警告独立契约。
+- CSA 不依赖 Stolt 插值，适合作为下一条 Phase 3 聚焦算法契约线。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`

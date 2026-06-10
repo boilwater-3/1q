@@ -91,7 +91,8 @@
 | 66 | SAR 剩余聚焦能力审计 | complete | 选择内部确定性聚焦算法选择器 |
 | 67 | 内部确定性聚焦选择器契约 | complete | 冻结显式规则、尺寸/可用性门与拒绝语义 |
 | 68 | 内部确定性聚焦选择器实现 | complete_current_platform | 建议器、决策矩阵和双环境验收通过 |
-| 69 | 内部聚焦选择器后续接入决策门 | pending | 审计 Session 诊断接入与 public Auto 边界 |
+| 69 | 内部聚焦选择器后续接入决策门 | complete | Session 接入后置；选择 CSA 数学契约 |
+| 70 | CSA 数学与参考真值工程契约 | pending | 冻结二维频率、相位函数与验收边界 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1406,13 +1407,26 @@
 
 ## 阶段 69：内部聚焦选择器后续接入决策门
 
+状态：`complete`
+
+决策结论：
+
+1. public Session 缺少显式调用目的，接入建议器会迫使 Session 猜测意图。
+2. 当前显式 policy 已决定执行路径，增加建议 diagnostics 用户价值不足。
+3. public Auto、自动执行、回退、schema、runtime patch 和 replay 继续后置。
+4. 下一方向选择 CSA 数学与参考真值工程契约。
+5. 新增 `docs/sar_internal_focusing_selector_followup_decision.md`。
+
+## 阶段 70：CSA 数学与参考真值工程契约
+
 状态：`pending`
 
 任务：
 
-1. 审计内部建议器与 Session diagnostics 的接入价值和风险。
-2. 决定内部记录、受控 Session 诊断或 public Auto 的优先级。
-3. 保持自动执行、回退、schema、runtime patch 和 replay 门禁。
+1. 冻结二维距离/方位频率轴、参考距离和 broadside L1 输入边界。
+2. 冻结 chirp scaling、距离压缩/RCMC 和方位压缩相位函数。
+3. 冻结与 RDA/GBP 的独立参考比较和退化边界。
+4. public API、Session、Auto、时变 PRF 和尺寸扩展继续后置。
 
 ## 当前待决策问题
 
@@ -1453,4 +1467,4 @@
 
 ## 下一步
 
-执行阶段 69：完成内部聚焦选择器后续接入决策门。
+执行阶段 70：冻结 CSA 数学与参考真值工程契约。
