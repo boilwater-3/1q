@@ -108,7 +108,8 @@
 | 83 | 二维 raw-history 慢时间重采样实现 | complete_current_platform | 矩阵逐列重采样、列独立性与双环境验收通过 |
 | 84 | 二维慢时间重采样后续接入决策门 | complete | RDA 接入后置；选择时变 PRF 重采样质量矩阵 |
 | 85 | 时变 PRF 重采样质量参考矩阵契约 | complete | 冻结确定性抖动、raw/RDA 指标与趋势验收 |
-| 86 | 时变 PRF 重采样质量参考矩阵实现 | pending | 实现抖动矩阵、质量记录与双环境验收 |
+| 86 | 时变 PRF 重采样质量参考矩阵实现 | complete_current_platform | 抖动矩阵、raw/RDA 趋势与双环境验收通过 |
+| 87 | 时变 PRF 质量矩阵后续决策门 | pending | 审计通用阈值、多目标与缺失脉冲前置条件 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1626,14 +1627,26 @@
 
 ## 阶段 86：时变 PRF 重采样质量参考矩阵实现
 
-状态：`pending`
+状态：`complete_current_platform`
 
-任务：
+已完成：
 
 1. 在参考场景矩阵中实现确定性抖动与实际轨迹 raw-history。
 2. 重采样并记录 raw-history/RDA 图像质量指标。
 3. 验证零抖动退化与小/大抖动趋势。
-4. 新增验收报告并执行双环境 SAR 审批门。
+4. 新增 `docs/sar_variable_prf_resampling_quality_matrix_acceptance_report.md`。
+5. 默认完整 CTest `25/25`、双环境质量矩阵各 `1/1`、Eigen 3.3.9 C++11 门通过。
+
+## 阶段 87：时变 PRF 质量矩阵后续决策门
+
+状态：`pending`
+
+任务：
+
+1. 审计通用接入阈值、多目标/高 Doppler 与缺失脉冲证据。
+2. 决定是否具备接入 RDA 前置处理的条件。
+3. 确认 Session/public/schema/replay 是否继续后置。
+4. 记录下一条 SAR 雷达组件建设方向。
 
 ## 当前待决策问题
 
@@ -1674,4 +1687,4 @@
 
 ## 下一步
 
-执行阶段 86：实现时变 PRF 重采样质量参考矩阵。
+执行阶段 87：完成时变 PRF 质量矩阵后续决策门。

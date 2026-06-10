@@ -303,6 +303,7 @@ set(_sar_unit_filter
     "SarAutofocusPhaseTruthTest.*:"
     "SarSlowTimeResamplingTest.*:"
     "SarRawHistorySlowTimeResamplingTest.*:"
+    "SarVariablePrfQualityMatrixTest.*:"
     "PulseRingBufferTest.*:"
     "SarGbpTest.*:"
     "SarImageQualityTest.*:"

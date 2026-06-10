@@ -1784,6 +1784,31 @@
 - 阶段 85 契约完成。
 - 阶段 86 时变 PRF 重采样质量参考矩阵实现待启动。
 
+## 2026-06-10 阶段 86 时变 PRF 重采样质量参考矩阵实现
+
+### 已执行
+
+1. 新增确定性抖动参考矩阵，重建实际轨迹 raw-history 并执行二维重采样。
+2. 记录 raw-history NRMS 与重采样后 RDA 图像 NRMS/相关趋势。
+3. 新增 `docs/sar_variable_prf_resampling_quality_matrix_acceptance_report.md`。
+
+### 测量结果
+
+- `A=0.05`：raw NRMS `0.000164`，图像 NRMS `0.000090`。
+- `A=0.15`：raw NRMS `0.000463`，图像 NRMS `0.000254`。
+- `A=0.35`：raw NRMS `0.000947`，图像 NRMS `0.000526`。
+
+### 验证结果
+
+- 默认与 Eigen 3.3.9 定向矩阵各 `1/1` passed。
+- 默认完整 CTest：`25/25` passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：`1/1` passed。
+
+### 阶段状态
+
+- 阶段 86 完成当前平台审批。
+- 阶段 87 时变 PRF 质量矩阵后续决策门待启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
