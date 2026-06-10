@@ -912,6 +912,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - `1.5x` 边界保守拒绝能阻止线性重采样静默跨越疑似缺失脉冲。
 - 门禁包装入口可在不改变已审批基础函数行为的前提下增加拒绝语义。
 
+## 阶段 90 缺失脉冲诊断后续接入决策发现
+
+- 固定参考场景的 `prf_hz` 是可信 expected interval 来源，可用于缺失拒绝矩阵。
+- Session 固定硬件 PRF 不等于已审批的时变 PRF 请求语义，生产接入仍需单独契约。
+- 缺失 case 的关键验收不是图像质量，而是必须在插值和聚焦前停止。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`
