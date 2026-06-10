@@ -6,6 +6,7 @@ set(SAR_ENGINE_SOURCES
     sar/echo/SarEcho.cpp
     sar/geometry/SarGeometry.cpp
     sar/imaging/SarGbp.cpp
+    sar/imaging/SarFocusingSelector.cpp
     sar/imaging/SarImageQuality.cpp
     sar/imaging/SarMotionCompensation.cpp
     sar/imaging/SarRda.cpp
