@@ -10,6 +10,7 @@ set(SAR_ENGINE_SOURCES
     sar/imaging/SarFocusingSelector.cpp
     sar/imaging/SarImageQuality.cpp
     sar/imaging/SarMotionCompensation.cpp
+    sar/imaging/SarOmegaKGeometry.cpp
     sar/imaging/SarRda.cpp
     sar/runtime/PulseRingBuffer.cpp
     sar/signal/SarFft.cpp

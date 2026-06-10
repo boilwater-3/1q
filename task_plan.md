@@ -96,7 +96,8 @@
 | 71 | CSA 频率几何基础实现 | complete_current_platform | 频率轴、D/alpha、有效域诊断与双环境验收通过 |
 | 72 | CSA 频率几何后续决策门 | complete | 完整 CSA 与选择器接入后置；选择 Omega-K 数学契约 |
 | 73 | Omega-K 数学与参考真值工程契约 | complete | 冻结波数几何、Stolt 查询映射与独立真值要求 |
-| 74 | Omega-K Stolt 几何基础实现 | pending | 实现波数、查询位置与有效域诊断 |
+| 74 | Omega-K Stolt 几何基础实现 | complete_current_platform | 波数、Stolt 查询、失败分类与双环境验收通过 |
+| 75 | Omega-K Stolt 几何后续决策门 | pending | 审计复数插值、支持区策略与参考相位前置条件 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1471,14 +1472,26 @@
 
 ## 阶段 74：Omega-K Stolt 几何基础实现
 
-状态：`pending`
+状态：`complete_current_platform`
 
-任务：
+已完成：
 
 1. 在 `src/sar/imaging` 实现波数与 Stolt 查询位置诊断。
 2. 增加零 Doppler、正负对称、单调性、无效域和越支持区测试。
 3. 与 CSA/RDA 未 shift 频率轴约定交叉核对。
-4. 新增验收报告并执行双环境 SAR 审批门。
+4. 新增 `docs/sar_omega_k_stolt_geometry_acceptance_report.md`。
+5. 默认完整 CTest `25/25`、双环境几何测试各 `5/5`、Eigen 3.3.9 C++11 门通过。
+
+## 阶段 75：Omega-K Stolt 几何后续决策门
+
+状态：`pending`
+
+任务：
+
+1. 审计复数 Stolt 插值、越支持区策略和参考相位所需独立真值。
+2. 决定是否具备继续冻结插值契约的条件。
+3. 确认是否需要接入内部聚焦选择器。
+4. 记录下一条 SAR 雷达组件建设方向。
 
 ## 当前待决策问题
 
@@ -1519,4 +1532,4 @@
 
 ## 下一步
 
-执行阶段 74：实现 Omega-K Stolt 几何基础。
+执行阶段 75：完成 Omega-K Stolt 几何后续决策门。

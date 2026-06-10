@@ -299,6 +299,7 @@ set(_sar_unit_filter
     "SarEchoTest.*:"
     "SarFocusingSelectorTest.*:"
     "SarCsaGeometryTest.*:"
+    "SarOmegaKGeometryTest.*:"
     "PulseRingBufferTest.*:"
     "SarGbpTest.*:"
     "SarImageQualityTest.*:"

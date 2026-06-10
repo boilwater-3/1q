@@ -1582,6 +1582,30 @@
 - 阶段 73 契约完成。
 - 阶段 74 Omega-K Stolt 几何基础实现待启动。
 
+## 2026-06-10 阶段 74 Omega-K Stolt 几何基础实现
+
+### 已执行
+
+1. 新增内部 `SarOmegaKGeometry`，计算双程波数、传播色散和 Stolt 查询位置。
+2. 分别诊断色散无效点与越支持区查询，并保持所有输出有限。
+3. 新增未 shift 轴、零 Doppler、对称性、单调趋势、失败分类和确定性测试。
+4. 修正零 Doppler 波数反算产生的微小 shift，使其成为精确零不变量。
+5. 新增 `docs/sar_omega_k_stolt_geometry_acceptance_report.md`。
+
+### 验证结果
+
+- 默认 `SarOmegaKGeometryTest.*`：`5/5` passed。
+- 默认完整 CTest：`25/25` passed。
+- Eigen 3.3.9 `SarOmegaKGeometryTest.*`：`5/5` passed。
+- Eigen 3.3.9 `sar_cxx11_compat`：`1/1` passed。
+- `git diff --check`：passed。
+
+### 阶段状态
+
+- 阶段 74 完成当前平台审批。
+- 完整 Omega-K 聚焦继续后置。
+- 阶段 75 Omega-K Stolt 几何后续决策门待启动。
+
 ### 阶段状态
 
 - Phase 2A 已完成当前平台审批。
