@@ -930,6 +930,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - 显式 `rda_attempted=false` 和空输出共同证明拒绝 case 没有进入聚焦链。
 - 相邻缺失与分离缺失可以分别验证单个大间隙估计和多个拒绝间隙累计语义。
 
+## 阶段 93 缺失脉冲拒绝矩阵后续决策发现
+
+- 门禁正确停止缺失 case，但生产接入仍需要显式请求和结构化失败传播契约。
+- RDA 默认路径直接接入会改变固定 PRF 审批行为，继续后置。
+- 内部请求执行器可以组合现有门禁与重采样，而无需扩大 Session 或 public 表面。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`
