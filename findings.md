@@ -918,6 +918,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - Session 固定硬件 PRF 不等于已审批的时变 PRF 请求语义，生产接入仍需单独契约。
 - 缺失 case 的关键验收不是图像质量，而是必须在插值和聚焦前停止。
 
+## 阶段 91 缺失脉冲拒绝参考矩阵契约发现
+
+- 缺失脉冲拒绝矩阵必须显式证明 RDA 未尝试，而不仅是重采样返回失败。
+- 删除 raw-history 行和对应显式时刻可以构造真实约 `2x/3x` 间隙，不应排序或补点。
+- 拒绝 case 没有有效图像，不能被纳入图像质量下降趋势。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`
