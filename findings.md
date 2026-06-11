@@ -924,6 +924,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - 删除 raw-history 行和对应显式时刻可以构造真实约 `2x/3x` 间隙，不应排序或补点。
 - 拒绝 case 没有有效图像，不能被纳入图像质量下降趋势。
 
+## 阶段 92 缺失脉冲拒绝参考矩阵实现发现
+
+- 门禁允许 baseline 与小抖动 case 完成重采样和 RDA，同时在缺失 case 前停止。
+- 显式 `rda_attempted=false` 和空输出共同证明拒绝 case 没有进入聚焦链。
+- 相邻缺失与分离缺失可以分别验证单个大间隙估计和多个拒绝间隙累计语义。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`
