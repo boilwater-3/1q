@@ -954,6 +954,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - public/schema/replay 缺少显式慢时间请求、expected interval、拒绝原因和重采样诊断，直接接入会改变已审批默认行为。
 - 生产接入继续后置；下一方向补齐多目标、高 Doppler 与确定性随机抖动质量证据。
 
+## 阶段 97 扩展时变 PRF 重采样质量矩阵契约发现
+
+- 多目标与方位偏置单点可复用现有参考场景能力，直接检验重采样误差是否依赖目标布局和 Doppler 历史。
+- 固定 seed 随机抖动必须独立于标准库随机实现，才能保持跨编译器确定性。
+- 不同 seed 的质量不保证单调；首批矩阵应记录有限有效指标，而非猜测通用阈值。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`
