@@ -299,6 +299,7 @@ set(_sar_unit_filter
     "SarEchoTest.*:"
     "SarFocusingSelectorTest.*:"
     "SarCsaGeometryTest.*:"
+    "SarCsaIntermediateTruthTest.*:"
     "SarOmegaKGeometryTest.*:"
     "SarAutofocusPhaseTruthTest.*:"
     "SarSlowTimeResamplingTest.*:"

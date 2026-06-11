@@ -7,6 +7,7 @@ set(SAR_ENGINE_SOURCES
     sar/geometry/SarGeometry.cpp
     sar/imaging/SarAutofocusPhaseTruth.cpp
     sar/imaging/SarCsaGeometry.cpp
+    sar/imaging/SarCsaIntermediateTruth.cpp
     sar/imaging/SarGbp.cpp
     sar/imaging/SarFocusingSelector.cpp
     sar/imaging/SarImageQuality.cpp
