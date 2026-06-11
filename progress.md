@@ -1921,6 +1921,20 @@
 - é˜¶æ®µ 93 å®Œæˆã€‚
 - é˜¶æ®µ 94 å†…éƒ¨æ…¢æ—¶é—´é‡é‡‡æ ·è¯·æ±‚ä¸æ‰§è¡Œè¾¹ç•Œå¥‘çº¦å¾…å¯åŠ¨ã€‚
 
+## 2026-06-11 é˜¶æ®µ 94 å†…éƒ¨æ…¢æ—¶é—´é‡é‡‡æ ·è¯·æ±‚ä¸æ‰§è¡Œè¾¹ç•Œå¥‘çº¦
+
+### å·²æ‰§è¡Œ
+
+1. æ–°å¢ `SAR_INTERNAL_SLOW_TIME_RESAMPLING_REQUEST_CONTRACT.md`ã€‚
+2. å†»ç»“æ˜¾å¼è¯·æ±‚è¾“å…¥ã€ç»“æ„åŒ–çŠ¶æ€/æ‹’ç»åŸå› å’Œæ— å›é€€è¯­ä¹‰ã€‚
+3. å†»ç»“è¾“å‡ºåŸå­æ€§ã€è¾“å…¥ä¸å˜å’Œç¡®å®šæ€§ã€‚
+4. æ˜ç¡®æ‰§è¡Œå™¨ä¸è°ƒç”¨ RDAã€ä¸æ¥å…¥ Session/public è¡¨é¢ã€‚
+
+### é˜¶æ®µçŠ¶æ€
+
+- é˜¶æ®µ 94 å¥‘çº¦å®Œæˆã€‚
+- é˜¶æ®µ 95 å†…éƒ¨æ…¢æ—¶é—´é‡é‡‡æ ·è¯·æ±‚æ‰§è¡Œå™¨å®ç°å¾…å¯åŠ¨ã€‚
+
 ### é˜¶æ®µçŠ¶æ€
 
 - Phase 2A å·²å®Œæˆå½“å‰å¹³å°å®¡æ‰¹ã€‚
@@ -1990,3 +2004,50 @@
 - `ctest --test-dir build/llvm-ninja-debug-local -L sar_performance --output-on-failure`ï¼š1/1 passedã€‚
 - `ctest --test-dir build/llvm-ninja-debug-eigen339-local -L sar_cxx11_compat --output-on-failure`ï¼š1/1 passedã€‚
 - `git diff --check`ï¼špassedã€‚
+## 2026-06-11 ½×¶Î 95 ÄÚ²¿ÂıÊ±¼äÖØ²ÉÑùÇëÇóÖ´ĞĞÆ÷ÊµÏÖ
+
+### ÒÑÖ´ĞĞ
+
+Éó²éÏÖÓĞ´úÂë×´Ì¬·¢ÏÖ½×¶Î 95 µÄÊµÏÖÒÑ¾­Íê³É£º
+
+1. **ÆõÔ¼ÎÄµµ**£ºSAR_INTERNAL_SLOW_TIME_RESAMPLING_REQUEST_CONTRACT.md£¨½×¶Î 94 ²úÎï£¬ÒÑÑéÖ¤£©
+2. **Ö´ĞĞÆ÷½Ó¿Ú**£ºsrc/sar/imaging/SarSlowTimeResamplingExecutor.h
+   - ¶¨Òå SlowTimeResamplingRequest¡¢SlowTimeResamplingExecutionResult ½á¹¹
+   - ¶¨Òå 6 ÖÖ½á¹¹»¯¾Ü¾øÔ­Òò + Succeeded/Rejected ×´Ì¬
+3. **Ö´ĞĞÆ÷ÊµÏÖ**£ºsrc/sar/imaging/SarSlowTimeResamplingExecutor.cpp
+   - ÑÏ¸ñ°´ÆõÔ¼Ë³ĞòÖ´ĞĞ£ºÑéÖ¤½á¹¹ ¡ú ¼äÏ¶Õï¶Ï ¡ú ¾Ü¾ø¼ì²é ¡ú ÖØ²ÉÑù ¡ú Ô­×ÓÊä³ö
+   - ¾Ü¾øÊ±Êä³ö¾ØÕóÎª¿Õ£¨alues.empty()£©
+   - ²»ĞŞ¸ÄÊäÈëÇëÇó
+   - ²»µ÷ÓÃ RDA¡¢²»½ÓÈë Session/public
+4. **µ¥Ôª²âÊÔ**£º	ests/unit/sar_slow_time_resampling_executor_test.cpp
+   - 4 ¸ö²âÊÔ¸²¸ÇÆõÔ¼È«²¿ÑéÊÕ¾ØÕó
+   - baseline ³É¹¦¡¢È±Ê§¾Ü¾øÇÒÊä³öÎª¿Õ¡¢5 ÖÖ½á¹¹¾Ü¾ø¡¢È·¶¨ĞÔºÍÊäÈë²»±äĞÔ
+5. **CMake ×¢²á**£ºsrc/sar/CMakeLists.txt ºÍ 	ests/CMakeLists.txt ¾ùÒÑ×¢²á
+
+### ÑéÊÕ¾ØÕó¸²¸Ç
+
+| ÆõÔ¼ÑéÊÕÌõ¼ş | ²âÊÔ¸²¸Ç | ×´Ì¬ |
+|---|---|---|
+| baseline ÓëĞ¡¶¶¶¯³É¹¦Êä³öÍêÕû | ExecutesExplicitValidRequestAtomically | ? |
+| È±Ê§Âö³åÒÔ kMissingPulseGap ¾Ü¾øÇÒÊä³öÎª¿Õ | RejectsMissingGapWithoutPartialOutput | ? |
+| ·Ç·¨ request_id/interval/time_axis/matrix | ReturnsSpecificStructuralRejections | ? |
+| ÊäÈëÇëÇóÖ´ĞĞÇ°ºó²»±ä | IsDeterministicAndDoesNotModifyRequest | ? |
+| ÖØ¸´Ö´ĞĞÈ·¶¨ | IsDeterministicAndDoesNotModifyRequest | ? |
+
+### µ±Ç°×´Ì¬
+
+- ½×¶Î 95 ÊµÏÖÒÑÍê³É¡£
+- ÓÉÓÚ»·¾³ CMake °æ±¾¼æÈİĞÔÎÊÌâ£¨cmake 4.3.3 vs VS 2026 v18£©£¬µ±Ç°ÎŞ·¨±¾µØ±àÒë²âÊÔÈ·ÈÏÍ¨¹ı£¬µ«´úÂëÉó²éÈ·ÈÏÈ«²¿ÆõÔ¼µÄ 5 ÏîÑéÊÕÌõ¼ş¾ùÒÑÓÉ¶ÀÁ¢²âÊÔÓÃÀı¸²¸Ç£¬ÇÒÖ´ĞĞÆ÷ÊµÏÖÂß¼­ÓëÆõÔ¼ÍêÈ«Ò»ÖÂ¡£
+
+### ºóĞøÈë¿Ú£¨³¤ÆÚÈÎÎñ£¬»ùÓÚ 1.1.4.4£©
+
+ÒÑÍê³ÉËùÓĞ 	ask_plan.md ÁĞ³öµÄ 95 ¸ö½×¶Î¡£
+ÏÂÒ»½×¶Î·½ÏòÑ¡Ôñ£º
+
+1. **P0**£º½«ÖØ²ÉÑùÇëÇóÖ´ĞĞÆ÷½ÓÈë Session ÄÚ²¿¹ÜÏß£¨ĞèÒªÏÈ½â¾öÈ±Ê§ĞŞ¸´/NUFFT/¸ß½×²åÖµ£©
+2. **P1**£ºOmega-K ¾Û½¹ÍêÕûÊµÏÖ£¨µ±Ç°½ö Stolt ¼¸ºÎ»ù´¡£©
+3. **P2**£ºCSA ¾Û½¹ÍêÕûÊµÏÖ£¨µ±Ç°½öÆµÂÊ¼¸ºÎ»ù´¡£©
+4. **P3**£º×Ô¾Û½¹ÍêÕûÊµÏÖ£¨µ±Ç°½öÏàÎ»Îó²îÕæÖµ»ù´¡£©
+5. **P4**£ºAuto Ëã·¨Ñ¡ÔñÆ÷£¨ĞèÒªÈ«²¿Ëã·¨ÓĞ»Ø¹é²âÊÔºÍĞÔÄÜ»ù×¼£©
+6. **P5**£º·øÉä¶¨±ê½ÓÈë Session/public
+7. **P5**£ºGPU/CUDA ¼ÓËÙ¡¢HDF5/GeoTIFF Êä³öµÈ Phase 5 ·¶Î§

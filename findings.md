@@ -936,6 +936,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - RDA 默认路径直接接入会改变固定 PRF 审批行为，继续后置。
 - 内部请求执行器可以组合现有门禁与重采样，而无需扩大 Session 或 public 表面。
 
+## 阶段 94 内部慢时间重采样请求契约发现
+
+- expected interval 必须是显式请求字段，执行器不能从缺失后的时间轴猜测。
+- 结构无效与缺失间隙拒绝应使用不同原因，便于后续调用方审计。
+- 原子输出要求拒绝时矩阵为空，防止调用方误用部分重采样结果。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`

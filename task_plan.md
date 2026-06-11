@@ -116,7 +116,8 @@
 | 91 | 缺失脉冲拒绝参考矩阵契约 | complete | 冻结允许/边界/单/多缺失 case 与停止语义 |
 | 92 | 缺失脉冲拒绝参考矩阵实现 | complete_current_platform | 允许/拒绝矩阵、停止语义与双环境验收通过 |
 | 93 | 缺失脉冲拒绝矩阵后续决策门 | complete | 生产接入/修复后置；选择内部重采样请求契约 |
-| 94 | 内部慢时间重采样请求与执行边界契约 | pending | 冻结请求、拒绝原因、原子输出与执行边界 |
+| 94 | 内部慢时间重采样请求与执行边界契约 | complete | 冻结显式请求、结构化拒绝、原子输出与执行边界 |
+| 95 | 内部慢时间重采样请求执行器实现 | pending | 实现无状态执行器、拒绝矩阵与双环境验收 |
 
 ## 阶段 0：规划与契约冻结
 
@@ -1729,14 +1730,26 @@
 
 ## 阶段 94：内部慢时间重采样请求与执行边界契约
 
+状态：`complete`
+
+已完成：
+
+1. 新增 `SAR_INTERNAL_SLOW_TIME_RESAMPLING_REQUEST_CONTRACT.md`。
+2. 冻结 request id、显式时刻、expected interval 和 raw-history 输入。
+3. 冻结结构化执行状态、拒绝原因和无回退语义。
+4. 冻结输出原子性、输入不变和确定性。
+5. RDA、Session、public/schema/replay 接入继续后置。
+
+## 阶段 95：内部慢时间重采样请求执行器实现
+
 状态：`pending`
 
 任务：
 
-1. 冻结显式请求输入、expected interval 和 raw-history 所有权。
-2. 冻结执行成功、间隙拒绝和结构无效的结构化原因。
-3. 冻结输出原子性、输入不变和确定性。
-4. 明确首批执行器不调用 RDA、不接入 Session/public 表面。
+1. 在 `src/sar/imaging` 实现内部无状态请求执行器。
+2. 组合间隙诊断与二维重采样，返回结构化原因。
+3. 增加成功、缺失拒绝、结构无效、输入不变和确定性测试。
+4. 新增验收报告并执行双环境 SAR 审批门。
 
 ## 当前待决策问题
 
@@ -1777,4 +1790,38 @@
 
 ## 下一步
 
-执行阶段 94：冻结内部慢时间重采样请求与执行边界契约。
+执行阶段 95：实现内部慢时间重采样请求执行器。
+## �׶� 95���ڲ���ʱ���ز�������ִ����ʵ��
+
+**״̬**������� ?��2026-06-11��
+
+### �ļ�
+
+- src/sar/imaging/SarSlowTimeResamplingExecutor.h �� ִ�����ӿڶ���
+- src/sar/imaging/SarSlowTimeResamplingExecutor.cpp �� ִ����ʵ��
+- 	ests/unit/sar_slow_time_resampling_executor_test.cpp �� 4 �����Ը���ȫ�����վ���
+- SAR_INTERNAL_SLOW_TIME_RESAMPLING_REQUEST_CONTRACT.md �� ��Լ�ĵ����׶� 94 ���
+
+### ����ͨ������
+
+- [x] baseline ��С��������ɹ�������� raw-history
+- [x] ȱʧ���������� kMissingPulseGap �ܾ������Ϊ��
+- [x] �Ƿ� request_id / expected_interval / ʱ���� / ����ֱ𷵻ؽṹ���ܾ�ԭ��
+- [x] ����������ִ��ǰ�󱣳ֲ���
+- [x] �ظ�ִ�о���ȷ����
+
+### ��������
+
+�μ����������б������� sar_construction_scheme_complete.md 1.1.4.4����
+
+���ĵ���������� SAR ����ܹ��У�����ģ����δ�������ڻ����׶Σ�
+  - Omega-K �۽�����ʵ��
+  - CSA �۽�����ʵ��
+  - �Ծ۽�����λ�ݶȵȣ�����ʵ��
+  - Auto �㷨ѡ����
+  - ��Ŀ��/�� Doppler/�������ͨ����ֵ
+  - ���䶨����� Session/public
+  - GPU/CUDA ����
+  - HDF5/GeoTIFF ���
+  - ȱʧ�޸����߽���ʱ���ֵ��NUFFT
+  - �ز�������ִ�������� Session����ǰ��������
