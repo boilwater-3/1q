@@ -948,6 +948,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - 在执行重采样前完成全部结构和缺失间隙检查，可自然保证拒绝时无部分输出。
 - 结构化拒绝原因和原子输出已通过默认/Eigen 3.3.9 双环境验证；生产链接入仍需独立审批。
 
+## 阶段 96 内部慢时间重采样执行器后续接入决策发现
+
+- Session 仍按固定硬件 PRF 与连续 pulse id 构造 aperture，RDA 也只接收单一 `prf_hz`。
+- public/schema/replay 缺少显式慢时间请求、expected interval、拒绝原因和重采样诊断，直接接入会改变已审批默认行为。
+- 生产接入继续后置；下一方向补齐多目标、高 Doppler 与确定性随机抖动质量证据。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`
