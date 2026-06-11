@@ -306,6 +306,7 @@ set(_sar_unit_filter
     "SarVariablePrfQualityMatrixTest.*:"
     "SarMissingPulseGapDiagnosticsTest.*:"
     "SarMissingPulseRejectionMatrixTest.*:"
+    "SarSlowTimeResamplingExecutorTest.*:"
     "PulseRingBufferTest.*:"
     "SarGbpTest.*:"
     "SarImageQualityTest.*:"
