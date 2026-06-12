@@ -534,7 +534,11 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   raw_iq.samples_per_pulse = 1U;
   raw_iq.i_values.push_back(1.0);
   raw_iq.q_values.push_back(0.0);
+  session::SarRawIqFrame::PulseState pulse_state;
+  pulse_state.pulse_id = 0U;
+  raw_iq.pulse_states.push_back(pulse_state);
   EXPECT_EQ(raw_iq.i_values.size(), 1U);
+  EXPECT_EQ(raw_iq.pulse_states.size(), 1U);
 
   session::SarSession session = session::SarSessionFactory::Create(session_config);
   config::SarRuntimeConfigPatch patch;

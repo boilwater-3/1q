@@ -2461,3 +2461,17 @@
 - Verification: modern Windows debug build passed; SAR targeted tests passed;
   full CTest 25/25 passed; VS2015 `sar_core` passed; whitespace validation
   passed.
+
+## Stage 142 - External raw IQ pulse trajectory and BP
+
+- Status: complete
+- Scope: accept one local Cartesian pulse state per external IQ row and use the
+  complete trajectory for the existing small-scene L3 BP path.
+- Contract: `SAR_EXTERNAL_RAW_IQ_PULSE_TRAJECTORY_CONTRACT.md`
+- Implementation: `include/1q/sar/session/SarCycleInput.h`,
+  `src/sar/session/SarSession.cpp`
+- Boundary: L2 motion compensation and summary replay remain rejected.
+- Tests: `tests/unit/sar_session_pipeline_test.cpp`
+- Acceptance: `docs/sar_external_raw_iq_pulse_trajectory_acceptance_report.md`
+- Verification: modern Windows debug build passed; full CTest 25/25 passed;
+  VS2015 `sar_core` passed; whitespace validation passed.

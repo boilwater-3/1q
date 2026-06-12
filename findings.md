@@ -1292,3 +1292,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
   is supplied and validated.
 - Summary replay must reject external IQ rather than silently serialize an
   incomplete cycle input.
+
+## Stage 142 - External raw IQ pulse trajectory and BP
+
+- BP can safely consume one complete actual trajectory because its internal
+  contract already operates on per-pulse platform states.
+- External-IQ L2 motion compensation cannot reuse the same contract because it
+  requires both ideal and actual trajectories.
+- L1 RDA continues to use nominal configured geometry; supplied external pulse
+  states are explicitly ignored rather than partially applied.

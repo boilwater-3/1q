@@ -103,7 +103,8 @@ bool HasValidL3Waypoints(const config::SarMissionConfig& mission) {
   return mission.l3_waypoints.front().time_from_session_start_s == 0.0;
 }
 
-bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config, SarCycleResult* result) {
+bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config, bool has_external_raw_iq,
+                                  SarCycleResult* result) {
   if (config.hardware.bandwidth_hz <= 0.0 || config.hardware.sample_rate_hz <= 0.0 ||
       config.hardware.carrier_frequency_hz <= 0.0 ||
       config.hardware.pulse_repetition_frequency_hz <= 0.0 ||
@@ -150,7 +151,7 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config, SarCyc
   if (config.policy.enable_l3_bp_imaging &&
       (!config.policy.enable_raw_echo_generation || !config.policy.enable_range_compression ||
        config.policy.enable_l1_rda_imaging || config.policy.enable_l2_motion_compensation ||
-       !HasValidL3Waypoints(config.mission))) {
+       (!has_external_raw_iq && !HasValidL3Waypoints(config.mission)))) {
     result->has_error = true;
     result->abort_reason = "invalid_l3_bp_config";
     result->diagnostics.push_back(MakeError(
@@ -172,21 +173,24 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config, SarCyc
 
 bool HasExternalRawIq(const SarCycleInput& input) {
   return input.raw_iq.pulse_count != 0U || input.raw_iq.samples_per_pulse != 0U ||
-         !input.raw_iq.i_values.empty() || !input.raw_iq.q_values.empty();
+         !input.raw_iq.i_values.empty() || !input.raw_iq.q_values.empty() ||
+         !input.raw_iq.pulse_states.empty();
 }
 
 bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const SarCycleInput& input,
-                               signal::ComplexMatrix* history, SarCycleResult* result) {
+                               signal::ComplexMatrix* history,
+                               std::deque<geometry::PlatformPulseState>* actual_trajectory_buffer,
+                               SarCycleResult* result) {
   const std::size_t expected_value_count =
       static_cast<std::size_t>(config.mission.azimuth_pulse_count) *
       static_cast<std::size_t>(config.mission.range_sample_count);
-  if (!config.policy.enable_l1_rda_imaging || config.policy.enable_l2_motion_compensation ||
-      config.policy.enable_l3_bp_imaging) {
+  if ((!config.policy.enable_l1_rda_imaging && !config.policy.enable_l3_bp_imaging) ||
+      config.policy.enable_l2_motion_compensation) {
     result->has_error = true;
     result->abort_reason = "external_raw_iq_requires_l1_rda";
     result->diagnostics.push_back(MakeError(
         "sar.external_raw_iq_requires_l1_rda",
-        "External raw IQ requires L1 RDA without L2 motion compensation or BP."));
+        "External raw IQ requires L1 RDA or L3 BP and does not yet support L2 motion compensation."));
     return false;
   }
   if (input.raw_iq.pulse_count != config.mission.azimuth_pulse_count ||
@@ -199,6 +203,21 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
         "sar.external_raw_iq_shape_mismatch",
         "External raw IQ shape must exactly match the configured complete aperture."));
     return false;
+  }
+
+  if (config.policy.enable_l3_bp_imaging &&
+      input.raw_iq.pulse_states.size() != input.raw_iq.pulse_count) {
+    result->has_error = true;
+    result->abort_reason = "external_raw_iq_trajectory_required";
+    result->diagnostics.push_back(MakeError(
+        "sar.external_raw_iq_trajectory_required",
+        "External raw IQ BP requires one public pulse state for every IQ row."));
+    return false;
+  }
+  if (config.policy.enable_l1_rda_imaging && !input.raw_iq.pulse_states.empty()) {
+    result->diagnostics.push_back(MakeInfo(
+        "sar.external_raw_iq_trajectory_ignored",
+        "External pulse states are currently ignored by the L1 RDA path."));
   }
 
   signal::ComplexMatrix external_history;
@@ -216,6 +235,38 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
       return false;
     }
     external_history.values.push_back(signal::ComplexSample(i_value, q_value));
+  }
+  if (config.policy.enable_l3_bp_imaging) {
+    actual_trajectory_buffer->clear();
+    for (std::size_t index = 0U; index < input.raw_iq.pulse_states.size(); ++index) {
+      const SarRawIqFrame::PulseState& public_state = input.raw_iq.pulse_states[index];
+      if (!std::isfinite(public_state.time_s) || !std::isfinite(public_state.position_x_m) ||
+          !std::isfinite(public_state.position_y_m) || !std::isfinite(public_state.position_z_m) ||
+          !std::isfinite(public_state.velocity_x_mps) ||
+          !std::isfinite(public_state.velocity_y_mps) ||
+          !std::isfinite(public_state.velocity_z_mps) ||
+          (index > 0U &&
+           (public_state.pulse_id != input.raw_iq.pulse_states[index - 1U].pulse_id + 1U ||
+            public_state.time_s <= input.raw_iq.pulse_states[index - 1U].time_s))) {
+        result->has_error = true;
+        result->abort_reason = "external_raw_iq_invalid_trajectory";
+        result->diagnostics.push_back(MakeError(
+            "sar.external_raw_iq_invalid_trajectory",
+            "External raw IQ pulse states must be finite, contiguous, and strictly time ordered."));
+        actual_trajectory_buffer->clear();
+        return false;
+      }
+      geometry::PlatformPulseState internal_state;
+      internal_state.pulse_id = public_state.pulse_id;
+      internal_state.time_s = public_state.time_s;
+      internal_state.position_m.x_m = public_state.position_x_m;
+      internal_state.position_m.y_m = public_state.position_y_m;
+      internal_state.position_m.z_m = public_state.position_z_m;
+      internal_state.velocity_x_mps = public_state.velocity_x_mps;
+      internal_state.velocity_y_mps = public_state.velocity_y_mps;
+      internal_state.velocity_z_mps = public_state.velocity_z_mps;
+      actual_trajectory_buffer->push_back(internal_state);
+    }
   }
   *history = std::move(external_history);
   result->diagnostics.push_back(
@@ -532,7 +583,8 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
   result.output_frame.center_slant_range_m = impl_->runtime_config.mission.nominal_slant_range_m;
   result.output_frame.estimated_snr_db = 0.0;
 
-  if (!ValidateRuntimeConfigForStep(impl_->runtime_config, &result)) {
+  const bool has_external_raw_iq = HasExternalRawIq(input);
+  if (!ValidateRuntimeConfigForStep(impl_->runtime_config, has_external_raw_iq, &result)) {
     if (impl_->has_previous_output) {
       result.output_frame = impl_->previous_output;
       result.reused_previous_output = true;
@@ -552,8 +604,9 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
 
   signal::ComplexMatrix raw_history;
   if (impl_->runtime_config.policy.enable_raw_echo_generation) {
-    if (HasExternalRawIq(input)) {
-      if (!BuildExternalRawIqHistory(impl_->runtime_config, input, &raw_history, &result)) {
+    if (has_external_raw_iq) {
+      if (!BuildExternalRawIqHistory(impl_->runtime_config, input, &raw_history,
+                                     &impl_->actual_trajectory_buffer, &result)) {
         return result;
       }
     } else {

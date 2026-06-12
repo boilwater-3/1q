@@ -90,6 +90,19 @@ session::SarCycleInput MakeExternalRawIqInput() {
   return input;
 }
 
+session::SarCycleInput MakeExternalRawIqInputWithTrajectory() {
+  session::SarCycleInput input = MakeExternalRawIqInput();
+  for (std::size_t index = 0U; index < input.raw_iq.pulse_count; ++index) {
+    session::SarRawIqFrame::PulseState state;
+    state.pulse_id = static_cast<std::uint64_t>(index);
+    state.time_s = static_cast<double>(index) / 20.0;
+    state.position_x_m = -0.4 + 0.1 * static_cast<double>(index);
+    state.velocity_x_mps = 2.0;
+    input.raw_iq.pulse_states.push_back(state);
+  }
+  return input;
+}
+
 TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
 
@@ -190,6 +203,58 @@ TEST(SarSessionPipelineTest, ExternalRawIqRejectsShapeMismatchAndAdvancedPaths) 
   const session::SarCycleResult l2_result = l2_session.StepWithResult(MakeExternalRawIqInput());
   EXPECT_FALSE(l2_result.executed_this_cycle);
   EXPECT_EQ(l2_result.abort_reason, "external_raw_iq_requires_l1_rda");
+}
+
+TEST(SarSessionPipelineTest, ExternalRawIqWithPulseStatesRunsL3Bp) {
+  session::SarSession session = session::SarSessionFactory::Create(MakeSmallL3BpConfig());
+
+  const session::SarCycleResult result =
+      session.StepWithResult(MakeExternalRawIqInputWithTrajectory());
+
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.has_error);
+  EXPECT_TRUE(result.output_frame.has_l3_bp_image);
+  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL3Bp);
+  EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.external_raw_iq", "pulses=9"));
+  EXPECT_FALSE(HasDiagnosticContaining(result, "sar.l3_trajectory", ""));
+}
+
+TEST(SarSessionPipelineTest, ExternalRawIqL1ExplicitlyIgnoresPulseStates) {
+  session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+
+  const session::SarCycleResult result =
+      session.StepWithResult(MakeExternalRawIqInputWithTrajectory());
+
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.has_error);
+  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.external_raw_iq_trajectory_ignored", ""));
+}
+
+TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
+  session::SarSession missing_session = session::SarSessionFactory::Create(MakeSmallL3BpConfig());
+  const session::SarCycleResult missing_result =
+      missing_session.StepWithResult(MakeExternalRawIqInput());
+  EXPECT_FALSE(missing_result.executed_this_cycle);
+  EXPECT_EQ(missing_result.abort_reason, "external_raw_iq_trajectory_required");
+
+  session::SarCycleInput invalid = MakeExternalRawIqInputWithTrajectory();
+  invalid.raw_iq.pulse_states[2].pulse_id = invalid.raw_iq.pulse_states[1].pulse_id;
+  session::SarSession invalid_session = session::SarSessionFactory::Create(MakeSmallL3BpConfig());
+  const session::SarCycleResult invalid_result = invalid_session.StepWithResult(invalid);
+  EXPECT_FALSE(invalid_result.executed_this_cycle);
+  EXPECT_EQ(invalid_result.abort_reason, "external_raw_iq_invalid_trajectory");
+
+  session::SarCycleInput non_finite = MakeExternalRawIqInputWithTrajectory();
+  non_finite.raw_iq.pulse_states[0].position_y_m =
+      std::numeric_limits<double>::infinity();
+  session::SarSession non_finite_session =
+      session::SarSessionFactory::Create(MakeSmallL3BpConfig());
+  const session::SarCycleResult non_finite_result =
+      non_finite_session.StepWithResult(non_finite);
+  EXPECT_FALSE(non_finite_result.executed_this_cycle);
+  EXPECT_EQ(non_finite_result.abort_reason, "external_raw_iq_invalid_trajectory");
 }
 
 TEST(SarSessionPipelineTest, RuntimeSizeGateRejectsUnapprovedLargeRda) {

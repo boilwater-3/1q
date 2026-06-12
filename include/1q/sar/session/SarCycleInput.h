@@ -47,10 +47,22 @@ using SarPointTargetList = std::vector<SarPointTarget>;
  * @note 当前仅批准用于 L1 RDA；逐脉冲轨迹、L2/BP 和 replay 后续单独审批。
  */
 struct ONEQ_API SarRawIqFrame {
+  struct PulseState {
+    std::uint64_t pulse_id{0U};
+    double time_s{0.0};
+    double position_x_m{0.0};
+    double position_y_m{0.0};
+    double position_z_m{0.0};
+    double velocity_x_mps{0.0};
+    double velocity_y_mps{0.0};
+    double velocity_z_mps{0.0};
+  };
+
   std::uint32_t pulse_count{0U};
   std::uint32_t samples_per_pulse{0U};
   std::vector<double> i_values{};
   std::vector<double> q_values{};
+  std::vector<PulseState> pulse_states{};
 };
 
 /**

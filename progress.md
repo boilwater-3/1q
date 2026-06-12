@@ -2351,3 +2351,12 @@
   requests, and summary replay encoding.
 - Kept partial-aperture streaming, external trajectory metadata, and IQ replay
   deferred.
+
+## Stage 142
+
+- Added public local Cartesian per-pulse trajectory metadata to external IQ.
+- Enabled complete external IQ plus trajectory to drive small-scene L3 BP
+  without mission waypoints.
+- Added atomic rejection for missing, non-finite, non-contiguous, and
+  non-monotonic external trajectories.
+- Kept external-IQ L2 motion compensation and replay deferred.
