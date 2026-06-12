@@ -170,6 +170,63 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config, SarCyc
   return true;
 }
 
+bool HasExternalRawIq(const SarCycleInput& input) {
+  return input.raw_iq.pulse_count != 0U || input.raw_iq.samples_per_pulse != 0U ||
+         !input.raw_iq.i_values.empty() || !input.raw_iq.q_values.empty();
+}
+
+bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const SarCycleInput& input,
+                               signal::ComplexMatrix* history, SarCycleResult* result) {
+  const std::size_t expected_value_count =
+      static_cast<std::size_t>(config.mission.azimuth_pulse_count) *
+      static_cast<std::size_t>(config.mission.range_sample_count);
+  if (!config.policy.enable_l1_rda_imaging || config.policy.enable_l2_motion_compensation ||
+      config.policy.enable_l3_bp_imaging) {
+    result->has_error = true;
+    result->abort_reason = "external_raw_iq_requires_l1_rda";
+    result->diagnostics.push_back(MakeError(
+        "sar.external_raw_iq_requires_l1_rda",
+        "External raw IQ requires L1 RDA without L2 motion compensation or BP."));
+    return false;
+  }
+  if (input.raw_iq.pulse_count != config.mission.azimuth_pulse_count ||
+      input.raw_iq.samples_per_pulse != config.mission.range_sample_count ||
+      input.raw_iq.i_values.size() != expected_value_count ||
+      input.raw_iq.q_values.size() != expected_value_count) {
+    result->has_error = true;
+    result->abort_reason = "external_raw_iq_shape_mismatch";
+    result->diagnostics.push_back(MakeError(
+        "sar.external_raw_iq_shape_mismatch",
+        "External raw IQ shape must exactly match the configured complete aperture."));
+    return false;
+  }
+
+  signal::ComplexMatrix external_history;
+  external_history.rows = input.raw_iq.pulse_count;
+  external_history.cols = input.raw_iq.samples_per_pulse;
+  external_history.values.reserve(expected_value_count);
+  for (std::size_t index = 0U; index < expected_value_count; ++index) {
+    const double i_value = input.raw_iq.i_values[index];
+    const double q_value = input.raw_iq.q_values[index];
+    if (!std::isfinite(i_value) || !std::isfinite(q_value)) {
+      result->has_error = true;
+      result->abort_reason = "external_raw_iq_non_finite";
+      result->diagnostics.push_back(MakeError(
+          "sar.external_raw_iq_non_finite", "External raw IQ contains a non-finite sample."));
+      return false;
+    }
+    external_history.values.push_back(signal::ComplexSample(i_value, q_value));
+  }
+  *history = std::move(external_history);
+  result->diagnostics.push_back(
+      MakeInfo("sar.external_raw_iq",
+               "SAR consumed external complete-aperture raw IQ pulses=" +
+                   std::to_string(input.raw_iq.pulse_count) +
+                   ", samples_per_pulse=" + std::to_string(input.raw_iq.samples_per_pulse) +
+                   (input.point_targets.empty() ? "." : "; point targets were ignored.")));
+  return true;
+}
+
 bool CopyFocusedImage(const signal::ComplexMatrix& source, SarFocusedImageSource image_source,
                       SarFocusedImage* output) {
   if (output == nullptr || source.rows == 0U || source.cols == 0U ||
@@ -495,11 +552,17 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
 
   signal::ComplexMatrix raw_history;
   if (impl_->runtime_config.policy.enable_raw_echo_generation) {
-    if (!BuildRawPulseHistory(
-            impl_->runtime_config, input, waveform.samples, &impl_->raw_pulse_buffer,
-            &impl_->next_pulse_id, &impl_->pulse_fraction_carry, &raw_history,
-            &impl_->ideal_trajectory_buffer, &impl_->actual_trajectory_buffer, &result)) {
-      return result;
+    if (HasExternalRawIq(input)) {
+      if (!BuildExternalRawIqHistory(impl_->runtime_config, input, &raw_history, &result)) {
+        return result;
+      }
+    } else {
+      if (!BuildRawPulseHistory(
+              impl_->runtime_config, input, waveform.samples, &impl_->raw_pulse_buffer,
+              &impl_->next_pulse_id, &impl_->pulse_fraction_carry, &raw_history,
+              &impl_->ideal_trajectory_buffer, &impl_->actual_trajectory_buffer, &result)) {
+        return result;
+      }
     }
     result.output_frame.completed_stage = SarProcessingStage::kRawEcho;
     result.output_frame.has_raw_echo = true;

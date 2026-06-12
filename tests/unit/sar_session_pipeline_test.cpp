@@ -1,6 +1,10 @@
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #include "1q/sar/session/SarSessionFactory.h"
+#include "1q/sar/session/SarTraceSession.h"
+#include "sar/session/SarReplayFlatbufferCodec.h"
 
 namespace sar {
 namespace {
@@ -74,6 +78,18 @@ session::SarCycleInput MakeInput(std::uint32_t cycle_index = 1U) {
   return input;
 }
 
+session::SarCycleInput MakeExternalRawIqInput() {
+  session::SarCycleInput input = MakeInput();
+  input.raw_iq.pulse_count = 9U;
+  input.raw_iq.samples_per_pulse = 64U;
+  input.raw_iq.i_values.assign(9U * 64U, 0.0);
+  input.raw_iq.q_values.assign(9U * 64U, 0.0);
+  for (std::size_t row = 0U; row < 9U; ++row) {
+    input.raw_iq.i_values[row * 64U + 20U] = 1.0;
+  }
+  return input;
+}
+
 TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
 
@@ -120,6 +136,60 @@ TEST(SarSessionPipelineTest, RawPulseHistoryUsesCrossCycleRingBuffer) {
   EXPECT_TRUE(second.output_frame.has_l1_image);
   EXPECT_TRUE(HasDiagnosticContaining(second, "sar.pulse_ring_buffer", "generated=2"));
   EXPECT_TRUE(HasDiagnosticContaining(second, "sar.pulse_ring_buffer", "overflow=true"));
+}
+
+TEST(SarSessionPipelineTest, ExternalRawIqRunsL1RdaAndReturnsFocusedImage) {
+  session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+
+  const session::SarCycleResult result = session.StepWithResult(MakeExternalRawIqInput());
+
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.has_error);
+  EXPECT_TRUE(result.output_frame.has_raw_echo);
+  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.external_raw_iq", "pulses=9"));
+  EXPECT_FALSE(HasDiagnosticContaining(result, "sar.pulse_ring_buffer", ""));
+}
+
+TEST(SarSessionPipelineTest, TraceSessionWithoutReplayWriterAcceptsExternalRawIq) {
+  session::SarTraceSession session(MakeSmallRdaConfig());
+
+  const session::SarCycleResult result = session.StepWithResult(MakeExternalRawIqInput());
+
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.has_error);
+  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+}
+
+TEST(SarSessionPipelineTest, SummaryReplayCodecRejectsExternalRawIq) {
+  EXPECT_TRUE(session::EncodeSarCycleInput(MakeExternalRawIqInput()).empty());
+}
+
+TEST(SarSessionPipelineTest, ExternalRawIqRejectsShapeMismatchAndAdvancedPaths) {
+  session::SarCycleInput malformed = MakeExternalRawIqInput();
+  malformed.raw_iq.i_values.pop_back();
+  session::SarSession malformed_session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+  const session::SarCycleResult malformed_result = malformed_session.StepWithResult(malformed);
+  EXPECT_FALSE(malformed_result.executed_this_cycle);
+  EXPECT_EQ(malformed_result.abort_reason, "external_raw_iq_shape_mismatch");
+
+  session::SarCycleInput non_finite = MakeExternalRawIqInput();
+  non_finite.raw_iq.q_values[0] = std::numeric_limits<double>::quiet_NaN();
+  session::SarSession non_finite_session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+  const session::SarCycleResult non_finite_result =
+      non_finite_session.StepWithResult(non_finite);
+  EXPECT_FALSE(non_finite_result.executed_this_cycle);
+  EXPECT_EQ(non_finite_result.abort_reason, "external_raw_iq_non_finite");
+
+  config::SarSessionConfig l2_config = MakeSmallRdaConfig();
+  l2_config.policy.enable_l2_motion_compensation = true;
+  session::SarSession l2_session = session::SarSessionFactory::Create(l2_config);
+  const session::SarCycleResult l2_result = l2_session.StepWithResult(MakeExternalRawIqInput());
+  EXPECT_FALSE(l2_result.executed_this_cycle);
+  EXPECT_EQ(l2_result.abort_reason, "external_raw_iq_requires_l1_rda");
 }
 
 TEST(SarSessionPipelineTest, RuntimeSizeGateRejectsUnapprovedLargeRda) {

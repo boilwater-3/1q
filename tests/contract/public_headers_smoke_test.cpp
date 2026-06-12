@@ -529,6 +529,12 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   target.longitude_deg = 0.0;
   target.radar_cross_section_dbsm = 80.0;
   input.point_targets.push_back(target);
+  session::SarRawIqFrame raw_iq;
+  raw_iq.pulse_count = 1U;
+  raw_iq.samples_per_pulse = 1U;
+  raw_iq.i_values.push_back(1.0);
+  raw_iq.q_values.push_back(0.0);
+  EXPECT_EQ(raw_iq.i_values.size(), 1U);
 
   session::SarSession session = session::SarSessionFactory::Create(session_config);
   config::SarRuntimeConfigPatch patch;

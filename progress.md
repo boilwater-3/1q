@@ -2341,3 +2341,13 @@
 - Passed the modern Windows debug build and full CTest 25/25.
 - Reconfigured VS2015 without source-tree rewriting, rebuilt `sar_core` and
   `sar_legacy_toolchain_smoke`, and ran the smoke executable with exit code 0.
+
+## Stage 141
+
+- Added a bounded public complete-aperture raw IQ input.
+- External IQ now bypasses point-target echo generation and feeds the existing
+  L1 RDA path.
+- Added atomic rejection for shape mismatch, non-finite samples, L2/BP
+  requests, and summary replay encoding.
+- Kept partial-aperture streaming, external trajectory metadata, and IQ replay
+  deferred.

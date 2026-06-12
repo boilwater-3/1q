@@ -1283,3 +1283,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - Configure-time source-tree CRLF/BOM rewriting is unsuitable as a default;
   it is now an explicit VS2015 fallback and the isolated SAR targets compile
   successfully without it.
+
+## Stage 141 - Public external raw IQ input
+
+- A complete external aperture can reuse the current RDA path without changing
+  the internal focusing algorithm.
+- External IQ cannot safely enter L2 or BP until per-pulse trajectory metadata
+  is supplied and validated.
+- Summary replay must reject external IQ rather than silently serialize an
+  incomplete cycle input.

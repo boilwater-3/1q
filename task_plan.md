@@ -2446,3 +2446,18 @@
 - Verification: modern Windows debug build and full CTest 25/25 passed;
   VS2015 rebuilt `sar_core` and `sar_legacy_toolchain_smoke`; smoke exited 0;
   whitespace validation passed.
+
+## Stage 141 - Public external raw IQ input
+
+- Status: complete
+- Scope: accept one complete-aperture public IQ frame and feed it into L1 RDA.
+- Contract: `SAR_EXTERNAL_RAW_IQ_INPUT_CONTRACT.md`
+- Implementation: `include/1q/sar/session/SarCycleInput.h`,
+  `src/sar/session/SarSession.cpp`
+- Replay boundary: summary replay rejects external IQ until an artifact or
+  payload schema is approved.
+- Tests: `tests/unit/sar_session_pipeline_test.cpp`
+- Acceptance: `docs/sar_external_raw_iq_input_acceptance_report.md`
+- Verification: modern Windows debug build passed; SAR targeted tests passed;
+  full CTest 25/25 passed; VS2015 `sar_core` passed; whitespace validation
+  passed.

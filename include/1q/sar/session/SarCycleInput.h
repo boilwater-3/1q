@@ -43,6 +43,17 @@ struct ONEQ_API SarPointTarget {
 using SarPointTargetList = std::vector<SarPointTarget>;
 
 /**
+ * @brief 外部提供的完整孔径行主序复数 IQ 帧。
+ * @note 当前仅批准用于 L1 RDA；逐脉冲轨迹、L2/BP 和 replay 后续单独审批。
+ */
+struct ONEQ_API SarRawIqFrame {
+  std::uint32_t pulse_count{0U};
+  std::uint32_t samples_per_pulse{0U};
+  std::vector<double> i_values{};
+  std::vector<double> q_values{};
+};
+
+/**
  * @brief SAR 单周期输入。
  */
 struct ONEQ_API SarCycleInput {
@@ -50,6 +61,7 @@ struct ONEQ_API SarCycleInput {
   double dt_sec{1.0};
   SarPlatformState platform{};
   SarPointTargetList point_targets{};
+  SarRawIqFrame raw_iq{};
 };
 
 }  // namespace session

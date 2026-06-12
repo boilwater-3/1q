@@ -12,6 +12,11 @@ namespace sar {
 namespace session {
 namespace {
 
+bool HasExternalRawIq(const SarCycleInput& input) {
+  return input.raw_iq.pulse_count != 0U || input.raw_iq.samples_per_pulse != 0U ||
+         !input.raw_iq.i_values.empty() || !input.raw_iq.q_values.empty();
+}
+
 flatbuffers::Offset<replay::SarPlatformState> BuildPlatformState(
     flatbuffers::FlatBufferBuilder& fbb, const SarPlatformState& value) {
   return replay::CreateSarPlatformState(fbb, value.time_s, value.latitude_deg, value.longitude_deg,
@@ -192,6 +197,9 @@ std::string FinishToString(flatbuffers::FlatBufferBuilder* fbb) {
 }  // namespace
 
 std::string EncodeSarCycleInput(const SarCycleInput& value) {
+  if (HasExternalRawIq(value)) {
+    return std::string{};
+  }
   flatbuffers::FlatBufferBuilder fbb(512);
   std::vector<flatbuffers::Offset<replay::SarPointTarget>> target_offsets;
   target_offsets.reserve(value.point_targets.size());
@@ -219,6 +227,7 @@ bool DecodeSarCycleInput(const std::string& bytes, SarCycleInput* out) {
   out->dt_sec = fb->dt_sec();
   out->platform = FromFbPlatformState(fb->platform());
   out->point_targets.clear();
+  out->raw_iq = SarRawIqFrame{};
   if (fb->point_targets()) {
     for (const auto* target : *fb->point_targets()) {
       SarPointTarget decoded;
