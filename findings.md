@@ -990,6 +990,67 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - 在三个完整相位函数和逐阶段固定复数真值进入仓库前，完整 CSA 聚焦继续后置。
 - Omega-K Stolt 几何已经具备，复数插值是可独立推进且可建立解析真值的下一前置能力。
 
+## 阶段 103 Omega-K 复数 Stolt 插值契约发现
+
+- 未 shift 距离频率轴在内存中不单调，复数插值必须先按频率值构建排序视图，不能直接使用相邻列。
+- 笛卡尔线性插值可对仿射复数谱提供解析精确真值；复指数只适合误差趋势证据。
+- 首批任何越支持区查询均原子拒绝，避免在未审批情况下引入填零、裁剪或外推策略。
+
+## 阶段 104 Omega-K 复数 Stolt 插值实现发现
+
+- 按频率排序的索引视图可在保持未 shift 输出列顺序的同时正确选择线性插值邻点。
+- 仿射复数谱逐样本精确恢复，证明逐行隔离、复数笛卡尔插值与输出顺序正确。
+- 首次完整回归失败来自测试命中计数期望错误，插值数值真值未失败；修正为实际 `6/4` 后完整回归通过。
+- 完整未 shift 目标网格在非零 Doppler 行会产生越支持区 Stolt 查询；当前原子拒绝语义正确，但完整 Omega-K 必须先冻结目标网格收缩或越界策略。
+
+## 阶段 105 Omega-K 复数 Stolt 插值后续决策发现
+
+- 插值器已能正确处理支持区内查询，但完整目标网格不能在所有 Doppler 行保持有效。
+- 自动填零、边界裁剪或外推会改变幅相和输出尺寸，不能作为未审批的隐式行为。
+- 下一步应先诊断所有方位行共同有效的目标距离频率列，再决定是否批准显式网格收缩。
+
+## 阶段 106 Omega-K 共同支持窗口诊断实现发现
+
+- 原未 shift 列掩码与按频率排序的连续窗口是两个不同口径，诊断必须同时保留。
+- 完整多 Doppler 网格可形成共同有效窗口，但边界列会因任一方位行越界而被排除。
+- 诊断提供了显式网格收缩依据，但输出尺寸、距离轴和裁剪后插值仍需独立审批。
+
+## 阶段 107 Omega-K 共同支持窗口后续决策发现
+
+- 最大连续共同窗口可作为唯一首批显式收缩选择，避免调用方任意拼接非连续列。
+- 收缩结果必须返回严格递增目标频率轴和原始列索引，才能审计输出尺寸与网格变化。
+- 收缩频率域输出仍不能定义空间域距离轴；二维 IFFT 和完整聚焦继续后置。
+
+## 阶段 108 Omega-K 显式网格收缩请求实现发现
+
+- 源谱列数与收缩目标查询列数是独立维度，插值器的验证、输出和循环边界必须全部使用正确口径。
+- 最大连续共同窗口可让完整多 Doppler 几何在不填零、不外推的情况下完成支持区内插值。
+- 收缩频率轴严格递增且保留原列索引，但尚不足以定义空间域距离采样轴。
+
+## 阶段 109 Omega-K 显式网格收缩后续决策发现
+
+- 连续均匀频率子集足以定义 inverse-range FFT 的周期性相对延迟轴与采样间隔。
+- 收缩带宽会改变距离分辨率和无模糊延迟窗口，不能沿用原完整网格诊断。
+- 没有参考相位和斜距原点时，相对延迟轴不能解释为绝对斜距或地理距离。
+
+## 阶段 110 Omega-K 收缩距离频率网格与相对延迟轴实现发现
+
+- 收缩频率轴保持均匀时，可直接定义周期性 inverse FFT 相对延迟采样轴。
+- 有效带宽、频率间隔和样本数分别决定分辨能力、无模糊窗口和相对延迟采样间隔。
+- FFT 往返只能验证数值约定，不能提供绝对斜距原点或 Omega-K 参考相位。
+
+## 阶段 111 Omega-K 相对延迟轴后续决策发现
+
+- 相对延迟轴和 inverse-range FFT 已足以形成内部原子执行边界。
+- 距离时域矩阵仍位于方位频率域，不能被解释为完整聚焦图像。
+- 没有参考相位与绝对斜距原点时，继续禁止方位 IFFT 后的物理图像声明。
+
+## 阶段 112 Omega-K 相对延迟变换执行器实现发现
+
+- 逐行 inverse FFT 可保持方位频率行完全独立，并与现有 FFT facade 往返一致。
+- 原子执行边界避免调用方误用无效轴或部分距离时域矩阵。
+- 输出仍是方位频率-相对延迟中间域，不能被命名或解释为聚焦 SAR 图像。
+
 ## 确定性噪声与杂波 SNR/SCR 二维矩阵契约发现
 
 - SNR 与 SCR 必须共同以纯目标 raw-history 能量为参考；若噪声相对 `target + clutter`
@@ -1000,3 +1061,225 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
 - M1 适合受控完整二维矩阵；M4 使用少量哨兵组合即可验证多目标趋势，避免首批矩阵
   无证据膨胀。
 - 联合矩阵仍只提供测试侧趋势证据，不能批准生产模型、相关杂波、通用阈值或 Auto。
+## Stage 113 - Omega-K relative-delay transform follow-up
+
+- The inverse range-frequency result is deterministic and useful, but its
+  coordinates remain relative to the reduced frequency grid.
+- An azimuth inverse transform alone cannot supply the missing physical phase
+  reference or absolute slant-range origin.
+- Production Omega-K image integration is therefore deferred until a contract
+  fixes reference phase, absolute range, azimuth coordinates, normalization,
+  and an independent point-target truth.
+## Stage 114 - Omega-K reference phase and absolute range contract
+
+- Absolute slant range requires an explicit reference range and delay sign
+  convention; it cannot be recovered from the reduced matrix shape.
+- Reference phase sign, transform domain, azimuth coordinates, and every
+  normalization factor must be request data rather than hidden conventions.
+- Acceptance requires independently generated point-target truth. FFT
+  round-trip or executor-generated expected data cannot establish physical
+  image correctness.
+## Stage 115 - Omega-K reference mapping executor
+
+- Absolute range mapping can be implemented independently from final image
+  formation when delay direction, propagation speed, and reference range are
+  explicit request fields.
+- Requiring a declared reference-phase convention prevents an identity
+  intermediate from being mistaken for a compensated physical image.
+- The implementation preserves the validated matrix and coordinates atomically;
+  analytic phase compensation and final azimuth transformation remain outside
+  the accepted boundary.
+## Stage 116 - Omega-K reference mapping follow-up
+
+- The mapping executor supplies enough validated coordinates to safely apply an
+  explicit per-range phase vector.
+- It does not supply enough independent physical truth to derive a production
+  phase model or approve final image formation.
+- The next executor is therefore limited to request-supplied finite phase
+  values and an explicit multiplication sign.
+## Stage 117 - Omega-K explicit reference phase compensation
+
+- A request-supplied phase vector can be applied deterministically without
+  introducing hidden geometry or Fourier conventions.
+- Explicit positive/negative application signs make conjugation behavior
+  testable and prevent silent convention changes.
+- The compensated result remains an intermediate because its phase model has
+  not yet been validated against independent point-target truth.
+## Stage 118 - Omega-K explicit phase compensation follow-up
+
+- The compensated intermediate is sufficient for a deterministic numerical
+  azimuth inverse transform when output coordinates and normalization are
+  explicit.
+- The transform cannot establish physical image correctness by itself.
+- Independent point-target truth remains the acceptance gate for absolute
+  location, peak response, and sidelobe behavior.
+## Stage 119 - Omega-K numerical azimuth inverse transform
+
+- The existing FFT facade supports a deterministic inverse transform down each
+  range column and documents its built-in inverse normalization.
+- Reporting an additional request normalization prevents that physical scaling
+  choice from becoming implicit.
+- The resulting matrix is intentionally classified as a numerical image
+  candidate pending independent point-target truth.
+## Stage 120 - Omega-K point-target image acceptance contract
+
+- A physically meaningful acceptance gate must use truth generated
+  independently from the imaging executor.
+- Peak location, phase, and magnitude are necessary but insufficient; range and
+  azimuth PSLR/ISLR are also required to characterize focus quality.
+- Targets outside common support must be rejected before metrics are evaluated,
+  and edge cases require explicitly separate tolerances.
+## Stage 121 - Omega-K point-target acceptance evaluator
+
+- A valid candidate can fail quality thresholds without being a malformed
+  request; the evaluator reports these outcomes separately.
+- Explicit mainlobe widths make PSLR/ISLR measurement deterministic and expose
+  the chosen quality convention.
+- The synthetic unit fixture verifies evaluator mathematics but is not itself
+  independent physical evidence for production image acceptance.
+## Stage 122 - Omega-K independent physical truth ingestion
+
+- Independence requires verifiable provenance and a digest, not merely a flag
+  supplied to the evaluator.
+- The ingestion layer must preserve truth values and tolerances exactly; it
+  cannot derive expectations or relax thresholds.
+- Repository synthetic fixtures can verify parsing but cannot authorize
+  production physical image acceptance.
+## Stage 123 - Omega-K versioned truth manifest parser
+
+- Strict ordered parsing provides deterministic C++11-compatible manifest
+  validation without adding a dormant JSON/YAML dependency.
+- Digest syntax validation and payload integrity verification are distinct
+  responsibilities and must be reported separately.
+- The synthetic fixture remains explicitly non-physical and non-independent.
+## Stage 124 - Omega-K truth payload digest verification
+
+- Integrity verification must hash the exact acquired bytes without parsing or
+  normalization.
+- Digest matching is independent from provenance and physical correctness.
+- A portable C++11 implementation avoids binding SAR truth ingestion to a
+  platform-specific cryptography API.
+## Stage 125 - Omega-K portable truth payload digest verifier
+
+- Portable C++11 SHA-256 matches standard empty-string and `abc` vectors.
+- Exact-byte hashing makes payload normalization or parser behavior irrelevant
+  to integrity verification.
+- A successful digest match remains only an integrity statement, not a
+  provenance or physical-correctness statement.
+## Stage 126 - Omega-K atomic truth ingestion gate
+
+- Parsing success and digest match are both required before truth data can be
+  published by ingestion.
+- Integrity checks must not alter or upgrade the manifest's physical-evidence
+  and independence classifications.
+- A synthetic fixture can validate the gate while remaining ineligible for
+  production physical image acceptance.
+## Stage 127 - Omega-K atomic truth ingestion gate
+
+- Combining strict parsing and digest verification prevents partially trusted
+  truth data from escaping ingestion.
+- Separate rejection reasons retain useful diagnostics without publishing
+  partial trusted state.
+- Integrity success does not upgrade synthetic or non-independent evidence.
+## Stage 128 - Omega-K truth ingestion follow-up
+
+- Missing external physical truth blocks final physical-image acceptance, not
+  deterministic repository robustness work.
+- A separate eligibility decision is required before ingested truth may enter
+  physical point-target evaluation.
+- Eligibility authorizes evaluation only; it cannot imply image-quality pass.
+## Stage 129 - Omega-K physical truth evaluation eligibility gate
+
+- Evaluation eligibility can be decided independently from image-quality pass.
+- Digest comparison must be case-insensitive because manifest syntax accepts
+  both uppercase and lowercase hexadecimal.
+- The gate correctly keeps synthetic fixtures ineligible even after successful
+  parsing and integrity verification.
+## Stage 130 - Omega-K eligible truth evaluation orchestration
+
+- Eligibility and quality acceptance must remain separate outcomes.
+- Dataset identity binding prevents eligibility for one truth package from
+  authorizing evaluation with another package.
+- Truth and tolerances must pass from the ingested manifest to the evaluator
+  without modification.
+## Stage 131 - Omega-K eligible truth evaluation orchestrator
+
+- Dataset identity binding closes the gap between eligibility and evaluation.
+- A quality failure remains a valid evaluated outcome and is not confused with
+  orchestration rejection.
+- The repository-side path is ready to consume eligible truth, but no external
+  or measured physical dataset is present.
+## Stage 132 - Omega-K physical acceptance readiness
+
+- Repository-side Omega-K acceptance prerequisites now form a complete path
+  from strict truth ingestion through identity-bound quality evaluation.
+- The remaining physical-acceptance blocker is external evidence, not another
+  repository wrapper.
+- Synthetic fixtures must remain synthetic; relabeling them would invalidate
+  the acceptance model.
+## Stage 133 - Next incomplete SAR capability
+
+- Existing autofocus work establishes controlled residual phase-error truth but
+  explicitly lacks PGA support selection, gradient estimation truth, unwrap,
+  and stopping criteria.
+- PGA support selection and phase-gradient truth can be developed without
+  external Omega-K physical truth.
+- Production image correction remains deferred until the estimator stages are
+  independently validated.
+## Stage 134 - PGA support and phase-gradient truth contract
+
+- Peak-relative support with first-index tie breaking provides a deterministic
+  initial support policy.
+- Forward wrapped phase differences remove unobservable constant phase offsets
+  from the truth target.
+- Estimation, unwrap, iteration, and production correction remain separate
+  future boundaries.
+## Stage 135 - PGA support and phase-gradient truth executor
+
+- Peak-relative support and first-index tie breaking are deterministic across
+  repeated execution.
+- Wrapped forward differences correctly remove constant phase offsets and bound
+  gradients to the selected convention.
+- The next safe boundary is a bounded estimator compared against this truth,
+  not unwrap or production correction.
+## Stage 136 - PGA bounded phase-gradient estimator decision
+
+- Adjacent conjugate products provide a deterministic wrapped phase-difference
+  estimate without phase unwrap.
+- Unsupported gaps must not be bridged because doing so invents unavailable
+  aperture evidence.
+- Truth comparison should evaluate only explicitly valid adjacent pairs.
+## Stage 137 - PGA adjacent-sample phase-gradient estimator
+
+- Adjacent conjugate products recover wrapped phase differences without
+  requiring explicit phase extraction or unwrap.
+- Explicit pair validity prevents unsupported gaps and zero-amplitude samples
+  from silently contributing estimates.
+- Estimator correctness still needs a dedicated truth-comparison gate.
+## Stage 138 - PGA gradient estimator truth comparison contract
+
+- Only pairs valid in both estimator and truth may contribute to metrics.
+- Invalid-pair zero placeholders must be ignored rather than rewarded.
+- Wrapped maximum and RMS errors provide bounded estimator acceptance without
+  requiring phase integration.
+## Stage 139 - PGA gradient truth comparison evaluator
+
+- Joint validity alignment prevents invalid placeholders from improving
+  estimator metrics.
+- Wrapped error correctly handles estimates near opposite phase branch
+  boundaries.
+- The bounded estimator line now has truth and an acceptance mechanism; phase
+  integration remains a separate decision.
+
+## SAR Phase 1 closeout
+
+- The current SAR component has a coherent closeout boundary at Stage 139.
+- VS2015 can build the isolated SAR core and run the bounded PGA smoke chain.
+- A complete VS2015 repository build is not a valid acceptance expectation
+  while imported JSBSim and GoogleTest require newer C++ library/compiler
+  support.
+- Omega-K physical acceptance still depends on external or measured truth;
+  adding more repository-side wrappers would not remove that blocker.
+- Configure-time source-tree CRLF/BOM rewriting is unsuitable as a default;
+  it is now an explicit VS2015 fallback and the isolated SAR targets compile
+  successfully without it.

@@ -549,6 +549,70 @@
 - 中间域真值执行器保留为未来公式参考包的强制审批门。
 - 下一方向选择 Omega-K 复数 Stolt 插值与中间域参考真值契约。
 
+## 2026-06-11 阶段 103：Omega-K 复数 Stolt 插值与中间域参考真值契约
+
+- 冻结未 shift 距离频率轴排序视图、逐方位行复数笛卡尔线性插值和原顺序输出。
+- 冻结零 Doppler、仿射复数、非对称二维、复指数趋势和越界拒绝真值。
+- 冻结结构化诊断、原子拒绝、确定性、双环境验收与禁止项。
+- 阶段 103 完成；下一步实现内部复数 Stolt 插值器。
+
+## 2026-06-11 阶段 104：Omega-K 复数 Stolt 插值实现
+
+- 实现按频率排序视图逐方位行执行的复数线性 Stolt 插值器。
+- 仿射复数、零 shift、越界拒绝、结构无效与确定性测试已纳入完整回归。
+- 验证完整 Stolt 几何网格中的越支持区查询被插值器原子拒绝。
+- 修正测试命中计数期望后，默认完整 CTest 25/25 passed。
+- Eigen 3.3.9 构建与 C++11 门通过；Eigen 定向独立记录因审批超时待补。
+
+## 2026-06-11 阶段 105：Omega-K 复数 Stolt 插值后续决策门
+
+- 确认支持区内复数线性插值正确，但完整目标网格无法覆盖所有非零 Doppler 行。
+- 自动填零、裁剪和外推继续禁止，完整 Omega-K 聚焦继续后置。
+- 下一方向选择全方位共同有效 Stolt 支持窗口诊断契约。
+
+## 2026-06-11 阶段 106：Omega-K 全方位共同有效 Stolt 支持窗口诊断
+
+- 实现逐列共同有效掩码、越界计数、有效比例和最大连续频率窗口诊断。
+- 零 Doppler、完整多 Doppler、闭边界、无效形状与确定性测试纳入完整回归。
+- 默认完整 CTest 25/25 passed；Eigen 记录因审批超时待补。
+
+## 2026-06-11 阶段 107：Omega-K 共同支持窗口后续决策门
+
+- 批准内部显式最大连续共同支持窗口收缩请求，不批准自动裁剪。
+- 冻结收缩输出的严格递增目标频率轴、原始列索引与原子失败语义。
+- 下一步实现显式网格收缩请求执行器；完整 Omega-K 聚焦继续后置。
+
+## 2026-06-11 阶段 108：Omega-K 显式 Stolt 目标网格收缩请求实现
+
+- 实现最大连续共同支持窗口提取、收缩查询构造和复数 Stolt 插值执行器。
+- 输出严格递增目标频率轴、原始列索引和收缩复数频谱。
+- 修正目标列数收缩后插值循环仍使用源列数导致的越界。
+- 默认完整 CTest 25/25 passed；Eigen 构建与 C++11 门通过，Eigen 运行记录待补。
+
+## 2026-06-11 阶段 109：Omega-K 显式网格收缩后续决策门
+
+- 确认收缩轴可定义 inverse-range FFT 的周期性相对延迟轴。
+- 冻结相对延迟、采样间隔、无模糊窗口口径；绝对斜距原点和参考相位继续后置。
+- 下一步实现收缩距离频率网格与相对延迟轴诊断。
+
+## 2026-06-11 阶段 110：Omega-K 收缩距离频率网格与相对延迟轴实现
+
+- 实现均匀收缩频率轴、相对延迟采样、无模糊窗口和双程相对距离间隔诊断。
+- 验证 inverse/forward FFT 非对称复数频谱往返。
+- 默认完整 CTest 25/25 passed；绝对斜距原点和完整聚焦继续后置。
+
+## 2026-06-11 阶段 111：Omega-K 相对延迟轴后续决策门
+
+- 绝对斜距原点和参考相位继续后置。
+- 批准内部收缩频谱 inverse-range 相对延迟变换执行器。
+- 方位 IFFT、完整图像和生产接入继续禁止。
+
+## 2026-06-11 阶段 112：Omega-K 收缩频谱相对延迟变换执行器实现
+
+- 实现收缩频率轴验证与逐行 inverse-range FFT 原子执行器。
+- 验证二维非对称复数频谱 inverse/forward 往返、结构拒绝和确定性。
+- 默认完整 CTest 25/25 passed；输出仍是方位频率-相对延迟中间域。
+
 ## 2026-06-06 L2 工程契约冻结
 
 ### 用户批准
@@ -2060,3 +2124,220 @@
 - `ctest --test-dir build/llvm-ninja-debug-local -L sar_performance --output-on-failure`：1/1 passed。
 - `ctest --test-dir build/llvm-ninja-debug-eigen339-local -L sar_cxx11_compat --output-on-failure`：1/1 passed。
 - `git diff --check`：passed。
+## Stage 113
+
+- Completed the Omega-K relative-delay transform follow-up decision.
+- Accepted the transform output as an internal numerical intermediate.
+- Deferred production azimuth inverse-transform integration and physical-image
+  claims until the reference-phase and absolute-range mapping contract exists.
+- Next: Stage 114, freeze the Omega-K reference-phase and absolute-range
+  mapping contract.
+## Stage 114
+
+- Froze the Omega-K reference-phase and absolute-range mapping contract.
+- Defined explicit input metadata, two-way absolute-range mapping, phase and
+  normalization conventions, atomic rejection, and independent point-target
+  truth requirements.
+- Kept production Omega-K image integration deferred.
+- Next: Stage 115, implement the explicit request executor.
+## Stage 115
+
+- Implemented the explicit Omega-K reference metadata and absolute-range
+  mapping executor.
+- Added unit coverage for increasing/decreasing range conventions and atomic
+  rejection.
+- Passed default and Eigen 3.3.9 builds, default full CTest 25/25, Eigen 3.3.9
+  C++11 compatibility, and whitespace validation.
+- Eigen 3.3.9 SAR runtime launch remains pending because managed sandbox spawn
+  refresh failed.
+- Next: Stage 116, decide the analytic reference-phase compensation boundary.
+## Stage 116
+
+- Approved a narrow explicit reference-phase compensation executor.
+- Required request-supplied per-range phase values, explicit sign, preserved
+  coordinates, and atomic rejection.
+- Kept geometry-derived phase models and final azimuth transformation deferred.
+- Next: Stage 117, implement the explicit phase compensation executor.
+## Stage 117
+
+- Implemented explicit per-range Omega-K reference-phase compensation.
+- Added positive/negative sign and atomic rejection unit coverage.
+- Passed default and Eigen 3.3.9 builds, default full CTest 25/25, and Eigen
+  3.3.9 C++11 compatibility.
+- Next: Stage 118, decide the numerical azimuth inverse-transform boundary.
+## Stage 118
+
+- Approved a narrowly scoped numerical azimuth inverse-transform executor.
+- Required explicit output coordinates, normalization, and atomic rejection.
+- Kept physical SAR image acceptance deferred to independent point-target
+  truth.
+- Next: Stage 119, implement the numerical azimuth inverse transform.
+## Stage 119
+
+- Implemented the numerical Omega-K azimuth inverse-transform executor.
+- Added coordinate, normalization, round-trip, and atomic rejection coverage.
+- Passed default and Eigen 3.3.9 builds, default full CTest 25/25, Eigen 3.3.9
+  C++11 compatibility, and whitespace validation.
+- Eigen SAR runtime launch remains pending due managed sandbox spawn refresh.
+- Next: Stage 120, freeze independent point-target truth and quality metrics.
+## Stage 120
+
+- Froze the Omega-K independent point-target image acceptance contract.
+- Required independent truth, coordinate and complex peak errors, range and
+  azimuth PSLR/ISLR, support-boundary handling, and atomic evaluation.
+- Next: Stage 121, implement the point-target image acceptance evaluator.
+## Stage 121
+
+- Implemented the Omega-K independent point-target acceptance evaluator.
+- Added peak coordinate, phase, magnitude, PSLR/ISLR, quality-failure, and
+  atomic rejection coverage.
+- Passed default and Eigen 3.3.9 builds, default full CTest 25/25, Eigen 3.3.9
+  C++11 compatibility, and whitespace validation.
+- Next: Stage 122, define independent physical truth dataset provenance and
+  ingestion.
+## Stage 122
+
+- Froze the Omega-K independent physical truth ingestion contract.
+- Defined provenance, digest, physical metadata, versioned parsing, and
+  immutable truth transfer requirements.
+- Kept production physical image acceptance blocked pending an external or
+  measured dataset.
+- Next: Stage 123, implement a versioned manifest parser using a non-physical
+  synthetic fixture.
+## Stage 123
+
+- Implemented the strict versioned Omega-K truth manifest parser.
+- Added unsupported-version, digest-format, reordered-field, and trailing-data
+  rejection coverage.
+- Passed default and Eigen 3.3.9 builds, default full CTest 25/25, Eigen 3.3.9
+  C++11 compatibility, and whitespace validation.
+- Next: Stage 124, freeze the portable payload digest verification boundary.
+## Stage 124
+
+- Froze the Omega-K truth payload digest verification contract.
+- Separated exact-byte SHA-256 integrity verification from manifest parsing,
+  provenance, and physical image acceptance.
+- Next: Stage 125, implement the portable digest verifier.
+## Stage 125
+
+- Implemented portable C++11 SHA-256 truth payload verification.
+- Added standard-vector, case-insensitive declared digest, tamper mismatch, and
+  atomic rejection coverage.
+- Passed default and Eigen 3.3.9 builds, default full CTest 25/25, Eigen 3.3.9
+  C++11 compatibility, and whitespace validation.
+- Next: Stage 126, freeze the atomic truth ingestion gate.
+## Stage 126
+
+- Approved the atomic Omega-K truth ingestion gate.
+- Required strict parse plus digest match, distinct failure reasons, and
+  immutable evidence classifications.
+- Next: Stage 127, implement the combined ingestion gate.
+## Stage 127
+
+- Implemented the atomic Omega-K truth ingestion gate.
+- Added successful publication, digest mismatch, manifest rejection, and
+  immutable-classification coverage.
+- Passed default and Eigen 3.3.9 builds, default full CTest 25/25, Eigen 3.3.9
+  C++11 compatibility, and whitespace validation.
+- Next: Stage 128, decide the boundary while external physical truth is absent.
+## Stage 128
+
+- Confirmed that external physical truth remains the final acceptance blocker.
+- Approved continued repository robustness work under explicit synthetic-data
+  classification.
+- Next: Stage 129, implement the physical truth evaluation eligibility gate.
+## Stage 129
+
+- Implemented the Omega-K physical truth evaluation eligibility gate.
+- Fixed uppercase declared-digest handling and added regression coverage.
+- Passed default and Eigen 3.3.9 builds, default full CTest 25/25, Eigen 3.3.9
+  C++11 compatibility, and whitespace validation.
+- Next: Stage 130, freeze eligible truth evaluation orchestration.
+## Stage 130
+
+- Froze identity-bound eligible truth evaluation orchestration.
+- Required separate orchestration and quality outcomes and immutable transfer
+  of manifest truth/tolerances.
+- Next: Stage 131, implement the eligible truth evaluation orchestrator.
+## Stage 131
+
+- Implemented identity-bound eligible truth evaluation orchestration.
+- Added quality-pass, quality-failure, ineligible, and identity-mismatch
+  coverage.
+- Passed default and Eigen 3.3.9 builds, default full CTest 25/25, Eigen 3.3.9
+  C++11 compatibility, and whitespace validation.
+- Next: Stage 132, assess physical acceptance readiness and the remaining
+  external blocker.
+## Stage 132
+
+- Completed the Omega-K physical acceptance readiness assessment.
+- Confirmed repository-side prerequisites are complete.
+- Recorded the sole remaining blocker: an eligible external or measured
+  point-target dataset.
+- Stopped extending Omega-K acceptance wrappers until external truth exists.
+- Next: Stage 133, select the next incomplete SAR component capability.
+## Stage 133
+
+- Selected Phase Gradient Autofocus as the next incomplete SAR capability.
+- Chose deterministic support selection and phase-gradient truth as the first
+  bounded stage.
+- Kept unwrap, iterative correction, entropy optimization, and production image
+  modification deferred.
+- Next: Stage 134, freeze the PGA support/gradient truth contract.
+## Stage 134
+
+- Froze the PGA support-selection and phase-gradient truth contract.
+- Defined deterministic peak-relative support, wrapped forward-gradient truth,
+  acceptance metrics, and atomic rejection.
+- Next: Stage 135, implement the support and gradient truth executor.
+## Stage 135
+
+- Implemented deterministic PGA support selection and wrapped gradient truth.
+- Added tie-breaking, constant-phase invariance, wrapping, zero-energy, and
+  insufficient-support coverage.
+- Passed default and Eigen 3.3.9 builds, default full CTest 25/25, Eigen 3.3.9
+  C++11 compatibility, and whitespace validation.
+- Next: Stage 136, decide the first bounded PGA phase-gradient estimator.
+## Stage 136
+
+- Approved the first bounded PGA phase-gradient estimator.
+- Selected adjacent supported-sample conjugate-product estimation with explicit
+  valid-pair reporting.
+- Kept integration, unwrap, iteration, and production correction deferred.
+- Next: Stage 137, implement the adjacent-sample gradient estimator.
+## Stage 137
+
+- Implemented the bounded adjacent-sample PGA phase-gradient estimator.
+- Added conjugate-product, unsupported-gap, zero-amplitude, and atomic
+  insufficient-pair coverage.
+- Passed default and Eigen 3.3.9 builds, default full CTest 25/25, Eigen 3.3.9
+  C++11 compatibility, and whitespace validation.
+- Next: Stage 138, freeze estimator-to-truth comparison metrics.
+## Stage 138
+
+- Froze PGA estimator-to-truth comparison.
+- Defined jointly valid pair alignment, wrapped maximum/RMS errors, tolerances,
+  and atomic rejection.
+- Next: Stage 139, implement the truth comparison evaluator.
+## Stage 139
+
+- Implemented PGA jointly valid wrapped-gradient truth comparison.
+- Added branch-boundary wrapping, tolerance failure, and atomic insufficient
+  pair coverage.
+- Passed default and Eigen 3.3.9 builds, default full CTest 25/25, Eigen 3.3.9
+  C++11 compatibility, and whitespace validation.
+- Next: Stage 140, decide explicitly anchored phase-gradient integration.
+
+## SAR Phase 1 closeout
+
+- Froze the current `1.1.4.4 SAR` delivery at Stage 139.
+- Deferred PGA integration, unwrap, iteration, and production image correction.
+- Added a VS2015-only standalone smoke executable for the completed PGA
+  truth-to-estimator-to-comparison chain.
+- Confirmed the VS2015 full-repository limitation is in imported JSBSim and
+  GoogleTest, not the isolated SAR closeout targets.
+- Recorded the delivery and remaining evidence in
+  `docs/sar_phase1_closeout_report.md`.
+- Passed the modern Windows debug build and full CTest 25/25.
+- Reconfigured VS2015 without source-tree rewriting, rebuilt `sar_core` and
+  `sar_legacy_toolchain_smoke`, and ran the smoke executable with exit code 0.

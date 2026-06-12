@@ -1829,13 +1829,136 @@
 
 ## 阶段 103：Omega-K 复数 Stolt 插值与中间域参考真值契约
 
-状态：`pending`
+状态：`complete`
 
-任务：
+已完成：
 
 1. 冻结 Stolt 输入/输出频率轴、复数插值和越界语义。
 2. 冻结仿射复数解析真值、相位趋势真值和固定二维中间域矩阵。
 3. 冻结确定性、结构化拒绝、双环境验收与禁止项。
+
+## 阶段 104：Omega-K 复数 Stolt 插值实现
+
+状态：`complete_current_platform_pending_eigen_targeted_record`
+
+已完成：
+
+1. 实现按频率排序视图逐方位行执行的复数线性 Stolt 插值。
+2. 返回结构化状态、原因和查询诊断；拒绝时输出为空。
+3. 增加零 Doppler、仿射复数、非对称二维、越界和确定性测试。
+4. 默认完整 CTest、Eigen 3.3.9 构建与 C++11 门通过；Eigen 定向记录待审批通道恢复。
+5. 不新增完整 Omega-K 聚焦入口。
+
+## 阶段 105：Omega-K 复数 Stolt 插值后续决策门
+
+状态：`complete`
+
+已完成：
+
+1. 确认复数线性插值已具备仿射真值、未 shift 顺序和原子越界拒绝证据。
+2. 确认完整目标网格在非零 Doppler 行产生越支持区查询，不能进入完整 Omega-K。
+3. 目标网格填零、裁剪和外推继续禁止。
+4. 下一方向选择全方位共同有效 Stolt 支持窗口诊断契约。
+
+## 阶段 106：Omega-K 全方位共同有效 Stolt 支持窗口诊断契约
+
+状态：`complete_current_platform_pending_eigen_record`
+
+任务：
+
+1. 冻结所有方位 Doppler 行共同可查询的目标距离频率支持窗口。
+2. 冻结保留列掩码、连续窗口、丢弃列数和有效比例诊断。
+3. 冻结零 Doppler 退化、对称性、边界和拒绝验收矩阵。
+4. 保持自动裁剪、插值执行和完整 Omega-K 聚焦后置。
+
+## 阶段 107：Omega-K 共同支持窗口后续决策门
+
+状态：`complete`
+
+任务：
+
+1. 补齐 Eigen 3.3.9 构建与运行记录。
+2. 审计是否批准显式目标网格收缩与裁剪后插值。
+3. 冻结输出距离轴、尺寸变化、禁止项与下一建设方向。
+
+已完成：
+
+1. 批准内部显式最大连续共同支持窗口收缩请求，不批准自动裁剪。
+2. 冻结收缩输出必须携带严格递增目标频率轴和原始列索引。
+3. 收缩后空间域距离轴、参考相位、二维 IFFT 与完整聚焦继续后置。
+
+## 阶段 108：Omega-K 显式 Stolt 目标网格收缩请求实现
+
+状态：`complete_current_platform_pending_eigen_record`
+
+任务：
+
+1. 实现显式最大连续共同支持窗口请求执行器。
+2. 组合共同支持诊断、查询提取与复数 Stolt 插值。
+3. 验证仿射复数真值、输出轴/索引、结构拒绝、原子性和确定性。
+4. 完成双环境与 C++11 验收。
+
+## 阶段 109：Omega-K 显式网格收缩后续决策门
+
+状态：`complete`
+
+任务：
+
+1. 补齐 Eigen 运行记录。
+2. 审计收缩频率域结果是否足以定义空间域距离轴与二维 IFFT。
+3. 冻结完整 Omega-K 参考相位前的下一前置能力与禁止项。
+
+已完成：
+
+1. 确认收缩轴为原均匀频率网格连续子集，可定义 inverse-range FFT 相对延迟轴。
+2. 绝对斜距原点、参考相位和完整 Omega-K 聚焦继续后置。
+3. 下一方向选择收缩距离频率网格与相对延迟轴契约。
+
+## 阶段 110：Omega-K 收缩距离频率网格与相对延迟轴实现
+
+状态：`complete_current_platform_pending_eigen_record`
+
+任务：
+
+1. 实现收缩频率轴均匀性与相对延迟轴诊断。
+2. 验证 inverse-range FFT 轴、归一化和往返真值。
+3. 保持绝对距离轴、方位 IFFT 和完整聚焦后置。
+
+## 阶段 111：Omega-K 相对延迟轴后续决策门
+
+状态：`complete`
+
+任务：
+
+1. 补齐 Eigen 运行记录。
+2. 审计是否已有足够证据冻结参考相位与绝对斜距原点。
+3. 冻结下一前置能力与完整 Omega-K 继续后置项。
+
+已完成：
+
+1. 确认当前证据不足以冻结绝对斜距原点和参考相位。
+2. 批准内部收缩频谱 inverse-range 相对延迟变换执行器。
+3. 方位 IFFT、绝对距离解释和完整聚焦继续后置。
+
+## 阶段 112：Omega-K 收缩频谱相对延迟变换执行器实现
+
+状态：`complete_current_platform_pending_eigen_record`
+
+任务：
+
+1. 实现显式收缩频谱逐行 inverse FFT 执行器。
+2. 原子返回相对延迟轴、诊断和距离时域矩阵。
+3. 验证 FFT 往返、结构拒绝、输入不变和确定性。
+
+## 阶段 113：Omega-K 相对延迟变换后续决策门
+
+状态：`pending`
+
+任务：
+
+1. 补齐 Eigen 运行记录。
+2. 审计是否批准方位 inverse FFT 的纯数值中间域变换。
+3. 冻结完整图像声明前的下一边界与禁止项。
 
 ## 当前待决策问题
 
@@ -1876,4 +1999,450 @@
 
 ## 下一步
 
-执行阶段 103：冻结 Omega-K 复数 Stolt 插值与中间域参考真值契约。
+补齐阶段 112 Eigen 记录后执行阶段 113。
+## Stage 113 - Omega-K relative-delay transform follow-up decision
+
+- Status: complete
+- Scope: decide whether the validated relative-delay transform is sufficient
+  to proceed directly to a production azimuth inverse transform.
+- Decision: retain the result as an internal numerical intermediate and defer
+  physical-image claims until reference phase, absolute slant-range mapping,
+  azimuth coordinates, normalization, and point-target truth are contracted.
+- Evidence: `SAR_OMEGA_K_RELATIVE_DELAY_TRANSFORM_FOLLOWUP_DECISION.md`
+
+## Stage 114 - Omega-K reference phase and absolute range mapping contract
+
+- Status: pending
+- Scope: freeze the reference-phase sign convention, absolute slant-range
+  mapping, output coordinates, normalization, and independent point-target
+  truth required before completing the Omega-K image-domain transform.
+## Stage 114 - Omega-K reference phase and absolute range mapping contract
+
+- Status: complete
+- Scope: freeze the physical metadata and independent truth required before an
+  Omega-K relative-delay intermediate can become an absolute-range image.
+- Contract: `SAR_OMEGA_K_REFERENCE_PHASE_ABSOLUTE_RANGE_CONTRACT.md`
+- Boundary: production image integration remains deferred until an executor and
+  independently generated point-target truth satisfy the contract.
+
+## Stage 115 - Omega-K reference phase and absolute range request executor
+
+- Status: pending
+- Scope: implement the contract as an explicit, atomic request executor without
+  yet claiming completion of the production Omega-K image path.
+## Stage 115 - Omega-K reference phase and absolute range request executor
+
+- Status: complete_current_platform_pending_eigen_runtime_record
+- Scope: implement explicit physical metadata validation and absolute slant
+  range mapping while preserving the numerical intermediate atomically.
+- Implementation: `src/sar/imaging/SarOmegaKReferenceMapping.h`,
+  `src/sar/imaging/SarOmegaKReferenceMapping.cpp`
+- Tests: `tests/unit/sar_omega_k_reference_mapping_test.cpp`
+- Acceptance: `docs/sar_omega_k_reference_mapping_acceptance_report.md`
+- Verification: default and Eigen 3.3.9 builds passed; default CTest 25/25
+  passed; Eigen 3.3.9 C++11 contract passed; Eigen runtime launch remains
+  blocked by managed sandbox spawn refresh.
+
+## Stage 116 - Omega-K reference mapping follow-up decision
+
+- Status: pending
+- Scope: decide whether the metadata/mapping executor is sufficient to approve
+  an analytic reference-phase compensation implementation.
+## Stage 116 - Omega-K reference mapping follow-up decision
+
+- Status: complete
+- Scope: decide whether the explicit reference mapping boundary is sufficient
+  to implement analytic reference-phase compensation.
+- Decision: approve only an executor that applies request-supplied finite phase
+  values with an explicit sign; defer hidden geometry derivation and final
+  azimuth inverse transformation.
+- Evidence: `docs/sar_omega_k_reference_mapping_followup_decision.md`
+
+## Stage 117 - Omega-K explicit reference phase compensation executor
+
+- Status: pending
+- Scope: apply request-supplied per-range phase values atomically while
+  preserving absolute range and azimuth coordinates.
+## Stage 117 - Omega-K explicit reference phase compensation executor
+
+- Status: complete_current_platform_pending_eigen_runtime_record
+- Scope: apply request-supplied per-range phase values atomically while
+  preserving absolute range and azimuth coordinates.
+- Implementation:
+  `src/sar/imaging/SarOmegaKReferencePhaseCompensation.h`,
+  `src/sar/imaging/SarOmegaKReferencePhaseCompensation.cpp`
+- Tests: `tests/unit/sar_omega_k_reference_phase_compensation_test.cpp`
+- Acceptance:
+  `docs/sar_omega_k_reference_phase_compensation_acceptance_report.md`
+- Verification: default and Eigen 3.3.9 builds passed; default CTest 25/25
+  passed; Eigen 3.3.9 C++11 contract passed.
+
+## Stage 118 - Omega-K explicit phase compensation follow-up decision
+
+- Status: pending
+- Scope: decide whether to authorize a numerical azimuth inverse transform as
+  an intermediate without claiming physical image acceptance.
+## Stage 118 - Omega-K explicit phase compensation follow-up decision
+
+- Status: complete
+- Scope: decide whether to authorize a numerical azimuth inverse transform as
+  an intermediate without claiming physical image acceptance.
+- Decision: approve an explicit-coordinate, explicit-normalization numerical
+  inverse transform; defer physical image acceptance to independent
+  point-target truth.
+- Evidence:
+  `docs/sar_omega_k_explicit_phase_compensation_followup_decision.md`
+
+## Stage 119 - Omega-K numerical azimuth inverse transform executor
+
+- Status: pending
+- Scope: transform each range column into the supplied azimuth coordinate axis,
+  apply explicit normalization, and preserve atomic behavior.
+## Stage 119 - Omega-K numerical azimuth inverse transform executor
+
+- Status: complete_current_platform_pending_eigen_runtime_record
+- Scope: transform each range column into the supplied azimuth coordinate axis,
+  apply explicit normalization, and preserve atomic behavior.
+- Implementation:
+  `src/sar/imaging/SarOmegaKAzimuthInverseTransform.h`,
+  `src/sar/imaging/SarOmegaKAzimuthInverseTransform.cpp`
+- Tests: `tests/unit/sar_omega_k_azimuth_inverse_transform_test.cpp`
+- Acceptance:
+  `docs/sar_omega_k_azimuth_inverse_transform_acceptance_report.md`
+- Verification: default and Eigen 3.3.9 builds passed; default CTest 25/25
+  passed; Eigen 3.3.9 C++11 contract passed.
+
+## Stage 120 - Omega-K numerical image candidate follow-up decision
+
+- Status: pending
+- Scope: freeze the independent point-target truth and quality metrics required
+  before accepting the numerical image candidate as a physical SAR image.
+## Stage 120 - Omega-K numerical image candidate follow-up decision
+
+- Status: complete
+- Scope: freeze the independent point-target truth and quality metrics required
+  before accepting the numerical image candidate as a physical SAR image.
+- Contract: `SAR_OMEGA_K_POINT_TARGET_IMAGE_ACCEPTANCE_CONTRACT.md`
+- Boundary: physical image acceptance requires every declared metric to pass
+  against independently generated truth.
+
+## Stage 121 - Omega-K point-target image acceptance evaluator
+
+- Status: pending
+- Scope: implement an atomic evaluator for peak location, phase, magnitude, and
+  range/azimuth sidelobe metrics without generating its own truth.
+## Stage 121 - Omega-K point-target image acceptance evaluator
+
+- Status: complete_current_platform_pending_eigen_runtime_record
+- Scope: implement an atomic evaluator for peak location, phase, magnitude, and
+  range/azimuth sidelobe metrics without generating its own truth.
+- Implementation:
+  `src/sar/imaging/SarOmegaKPointTargetAcceptance.h`,
+  `src/sar/imaging/SarOmegaKPointTargetAcceptance.cpp`
+- Tests: `tests/unit/sar_omega_k_point_target_acceptance_test.cpp`
+- Acceptance: `docs/sar_omega_k_point_target_acceptance_report.md`
+- Verification: default and Eigen 3.3.9 builds passed; default CTest 25/25
+  passed; Eigen 3.3.9 C++11 contract passed.
+
+## Stage 122 - Omega-K independent physical truth acquisition decision
+
+- Status: pending
+- Scope: define the provenance and ingestion boundary for a genuinely
+  independent physical point-target dataset.
+## Stage 122 - Omega-K independent physical truth acquisition decision
+
+- Status: complete
+- Scope: define the provenance and ingestion boundary for a genuinely
+  independent physical point-target dataset.
+- Contract: `SAR_OMEGA_K_INDEPENDENT_PHYSICAL_TRUTH_INGESTION_CONTRACT.md`
+- Boundary: production physical image acceptance remains blocked until an
+  external or measured dataset satisfies the contract and passes evaluation.
+
+## Stage 123 - Omega-K versioned truth manifest parser
+
+- Status: pending
+- Scope: implement atomic parsing and validation for a synthetic, explicitly
+  non-physical versioned truth manifest fixture.
+## Stage 123 - Omega-K versioned truth manifest parser
+
+- Status: complete_current_platform_pending_eigen_runtime_record
+- Scope: implement atomic parsing and validation for a synthetic, explicitly
+  non-physical versioned truth manifest fixture.
+- Implementation: `src/sar/imaging/SarOmegaKTruthManifest.h`,
+  `src/sar/imaging/SarOmegaKTruthManifest.cpp`
+- Tests: `tests/unit/sar_omega_k_truth_manifest_test.cpp`
+- Acceptance: `docs/sar_omega_k_truth_manifest_acceptance_report.md`
+- Verification: default and Eigen 3.3.9 builds passed; default CTest 25/25
+  passed; Eigen 3.3.9 C++11 contract passed.
+
+## Stage 124 - Omega-K truth payload digest verification decision
+
+- Status: pending
+- Scope: freeze a portable SHA-256 payload-verification boundary without
+  conflating digest syntax validation with integrity verification.
+## Stage 124 - Omega-K truth payload digest verification decision
+
+- Status: complete
+- Scope: freeze a portable SHA-256 payload-verification boundary without
+  conflating digest syntax validation with integrity verification.
+- Contract: `SAR_OMEGA_K_TRUTH_PAYLOAD_DIGEST_VERIFICATION_CONTRACT.md`
+- Boundary: digest match establishes payload integrity only, not independence
+  or physical correctness.
+
+## Stage 125 - Omega-K portable truth payload digest verifier
+
+- Status: pending
+- Scope: implement portable C++11 SHA-256 verification over exact payload bytes
+  with atomic result publication.
+## Stage 125 - Omega-K portable truth payload digest verifier
+
+- Status: complete_current_platform_pending_eigen_runtime_record
+- Scope: implement portable C++11 SHA-256 verification over exact payload bytes
+  with atomic result publication.
+- Implementation: `src/sar/imaging/SarOmegaKTruthPayloadDigest.h`,
+  `src/sar/imaging/SarOmegaKTruthPayloadDigest.cpp`
+- Tests: `tests/unit/sar_omega_k_truth_payload_digest_test.cpp`
+- Acceptance: `docs/sar_omega_k_truth_payload_digest_acceptance_report.md`
+- Verification: standard vectors passed in the default full CTest 25/25;
+  default and Eigen 3.3.9 builds passed; Eigen C++11 contract passed.
+
+## Stage 126 - Omega-K atomic truth ingestion gate decision
+
+- Status: pending
+- Scope: decide how strict manifest parsing and exact-byte digest verification
+  combine without promoting synthetic fixtures to physical evidence.
+## Stage 126 - Omega-K atomic truth ingestion gate decision
+
+- Status: complete
+- Scope: decide how strict manifest parsing and exact-byte digest verification
+  combine without promoting synthetic fixtures to physical evidence.
+- Decision: approve atomic publication only after strict parsing and digest
+  match; preserve physical and independence classifications exactly.
+- Evidence: `docs/sar_omega_k_atomic_truth_ingestion_gate_decision.md`
+
+## Stage 127 - Omega-K atomic truth ingestion gate
+
+- Status: pending
+- Scope: implement the combined parser/digest gate with distinct rejection
+  reasons and immutable classification.
+## Stage 127 - Omega-K atomic truth ingestion gate
+
+- Status: complete_current_platform_pending_eigen_runtime_record
+- Scope: implement the combined parser/digest gate with distinct rejection
+  reasons and immutable classification.
+- Implementation: `src/sar/imaging/SarOmegaKTruthIngestion.h`,
+  `src/sar/imaging/SarOmegaKTruthIngestion.cpp`
+- Tests: `tests/unit/sar_omega_k_truth_ingestion_test.cpp`
+- Acceptance: `docs/sar_omega_k_truth_ingestion_acceptance_report.md`
+- Verification: default and Eigen 3.3.9 builds passed; default CTest 25/25
+  passed; Eigen 3.3.9 C++11 contract passed; whitespace validation passed.
+
+## Stage 128 - Omega-K truth ingestion follow-up decision
+
+- Status: pending
+- Scope: decide whether repository work can proceed without an externally
+  generated physical truth dataset.
+## Stage 128 - Omega-K truth ingestion follow-up decision
+
+- Status: complete
+- Scope: decide whether repository work can proceed without an externally
+  generated physical truth dataset.
+- Decision: continue repository-side robustness work, while keeping physical
+  image acceptance blocked; next add a strict evaluation-eligibility gate.
+- Evidence: `docs/sar_omega_k_truth_ingestion_followup_decision.md`
+
+## Stage 129 - Omega-K physical truth evaluation eligibility gate
+
+- Status: pending
+- Scope: determine whether an atomically ingested dataset is eligible to enter
+  physical point-target image evaluation without claiming that it passes.
+## Stage 129 - Omega-K physical truth evaluation eligibility gate
+
+- Status: complete_current_platform_pending_targeted_runtime_record
+- Scope: determine whether an atomically ingested dataset is eligible to enter
+  physical point-target image evaluation without claiming that it passes.
+- Implementation: `src/sar/imaging/SarOmegaKTruthEligibility.h`,
+  `src/sar/imaging/SarOmegaKTruthEligibility.cpp`
+- Tests: `tests/unit/sar_omega_k_truth_eligibility_test.cpp`
+- Acceptance: `docs/sar_omega_k_truth_eligibility_acceptance_report.md`
+- Verification: default and Eigen 3.3.9 builds passed; default CTest 25/25
+  passed; Eigen 3.3.9 C++11 contract passed; whitespace validation passed.
+
+## Stage 130 - Omega-K eligible truth evaluation orchestration decision
+
+- Status: pending
+- Scope: define how eligibility and point-target evaluation combine while
+  preserving distinct eligibility and quality outcomes.
+## Stage 130 - Omega-K eligible truth evaluation orchestration decision
+
+- Status: complete
+- Scope: define how eligibility and point-target evaluation combine while
+  preserving distinct eligibility and quality outcomes.
+- Decision: approve orchestration only with successful eligibility, matching
+  dataset identity, unmodified manifest truth/tolerances, and separate quality
+  result reporting.
+- Evidence:
+  `docs/sar_omega_k_eligible_truth_evaluation_orchestration_decision.md`
+
+## Stage 131 - Omega-K eligible truth evaluation orchestrator
+
+- Status: pending
+- Scope: implement identity-bound orchestration from eligible ingested truth to
+  point-target quality evaluation.
+## Stage 131 - Omega-K eligible truth evaluation orchestrator
+
+- Status: complete_current_platform_pending_targeted_runtime_record
+- Scope: implement identity-bound orchestration from eligible ingested truth to
+  point-target quality evaluation.
+- Implementation:
+  `src/sar/imaging/SarOmegaKTruthEvaluationOrchestrator.h`,
+  `src/sar/imaging/SarOmegaKTruthEvaluationOrchestrator.cpp`
+- Tests: `tests/unit/sar_omega_k_truth_evaluation_orchestrator_test.cpp`
+- Acceptance:
+  `docs/sar_omega_k_truth_evaluation_orchestrator_acceptance_report.md`
+- Verification: default and Eigen 3.3.9 builds passed; default CTest 25/25
+  passed; Eigen 3.3.9 C++11 contract passed; whitespace validation passed.
+
+## Stage 132 - Omega-K physical acceptance readiness decision
+
+- Status: pending
+- Scope: assess whether all repository-side prerequisites are complete and
+  identify the remaining external acceptance blocker.
+## Stage 132 - Omega-K physical acceptance readiness decision
+
+- Status: complete
+- Scope: assess whether all repository-side prerequisites are complete and
+  identify the remaining external acceptance blocker.
+- Decision: repository-side Omega-K acceptance prerequisites are complete; the
+  sole physical-acceptance blocker is an eligible external or measured
+  point-target dataset.
+- Evidence: `docs/sar_omega_k_physical_acceptance_readiness_decision.md`
+
+## Stage 133 - Select next incomplete SAR component capability
+
+- Status: pending
+- Scope: inspect the SAR construction scheme and current implementation to
+  select the next independent incomplete capability, avoiding further Omega-K
+  acceptance wrappers until external truth is available.
+## Stage 133 - Select next incomplete SAR component capability
+
+- Status: complete
+- Scope: inspect the SAR construction scheme and current implementation to
+  select the next independent incomplete capability.
+- Selection: Phase Gradient Autofocus, starting with deterministic support
+  selection and phase-gradient truth.
+- Evidence: `docs/sar_next_incomplete_capability_selection.md`
+
+## Stage 134 - PGA support selection and phase-gradient truth contract
+
+- Status: pending
+- Scope: freeze deterministic support selection, known phase-gradient truth,
+  rejection behavior, and acceptance metrics before implementing a PGA
+  estimator.
+## Stage 134 - PGA support selection and phase-gradient truth contract
+
+- Status: complete
+- Scope: freeze deterministic support selection, known phase-gradient truth,
+  rejection behavior, and acceptance metrics before implementing a PGA
+  estimator.
+- Contract: `SAR_PGA_SUPPORT_GRADIENT_TRUTH_CONTRACT.md`
+- Boundary: estimator, unwrap, iteration, and production correction remain
+  deferred.
+
+## Stage 135 - PGA support and gradient truth executor
+
+- Status: pending
+- Scope: implement deterministic peak-relative support selection and wrapped
+  forward phase-gradient truth generation.
+## Stage 135 - PGA support and gradient truth executor
+
+- Status: complete_current_platform_pending_targeted_runtime_record
+- Scope: implement deterministic peak-relative support selection and wrapped
+  forward phase-gradient truth generation.
+- Implementation: `src/sar/imaging/SarPgaSupportGradientTruth.h`,
+  `src/sar/imaging/SarPgaSupportGradientTruth.cpp`
+- Tests: `tests/unit/sar_pga_support_gradient_truth_test.cpp`
+- Acceptance: `docs/sar_pga_support_gradient_truth_acceptance_report.md`
+- Verification: default and Eigen 3.3.9 builds passed; default CTest 25/25
+  passed; Eigen 3.3.9 C++11 contract passed; whitespace validation passed.
+
+## Stage 136 - PGA support/gradient truth follow-up decision
+
+- Status: pending
+- Scope: decide the first bounded phase-gradient estimator implementation and
+  its comparison metrics against the completed truth executor.
+## Stage 136 - PGA support/gradient truth follow-up decision
+
+- Status: complete
+- Scope: decide the first bounded phase-gradient estimator implementation and
+  its comparison metrics against the completed truth executor.
+- Decision: approve adjacent supported-sample conjugate-product gradient
+  estimation; defer integration, unwrap, iteration, and image correction.
+- Evidence: `docs/sar_pga_support_gradient_truth_followup_decision.md`
+
+## Stage 137 - PGA adjacent-sample phase-gradient estimator
+
+- Status: pending
+- Scope: implement explicit-support adjacent conjugate-product gradient
+  estimation with valid-pair reporting and atomic rejection.
+## Stage 137 - PGA adjacent-sample phase-gradient estimator
+
+- Status: complete_current_platform_pending_targeted_runtime_record
+- Scope: implement explicit-support adjacent conjugate-product gradient
+  estimation with valid-pair reporting and atomic rejection.
+- Implementation: `src/sar/imaging/SarPgaPhaseGradientEstimator.h`,
+  `src/sar/imaging/SarPgaPhaseGradientEstimator.cpp`
+- Tests: `tests/unit/sar_pga_phase_gradient_estimator_test.cpp`
+- Acceptance: `docs/sar_pga_phase_gradient_estimator_acceptance_report.md`
+- Verification: default and Eigen 3.3.9 builds passed; default CTest 25/25
+  passed; Eigen 3.3.9 C++11 contract passed; whitespace validation passed.
+
+## Stage 138 - PGA gradient estimator truth comparison contract
+
+- Status: pending
+- Scope: freeze valid-pair alignment and wrapped maximum/RMS error metrics
+  before accepting the bounded estimator.
+## Stage 138 - PGA gradient estimator truth comparison contract
+
+- Status: complete
+- Scope: freeze valid-pair alignment and wrapped maximum/RMS error metrics
+  before accepting the bounded estimator.
+- Contract: `SAR_PGA_GRADIENT_ESTIMATOR_TRUTH_COMPARISON_CONTRACT.md`
+- Boundary: comparison acceptance does not authorize integration or image
+  correction.
+
+## Stage 139 - PGA gradient estimator truth comparison evaluator
+
+- Status: pending
+- Scope: implement atomic jointly-valid wrapped-gradient error evaluation.
+## Stage 139 - PGA gradient estimator truth comparison evaluator
+
+- Status: complete_current_platform_pending_targeted_runtime_record
+- Scope: implement atomic jointly-valid wrapped-gradient error evaluation.
+- Implementation: `src/sar/imaging/SarPgaGradientTruthComparison.h`,
+  `src/sar/imaging/SarPgaGradientTruthComparison.cpp`
+- Tests: `tests/unit/sar_pga_gradient_truth_comparison_test.cpp`
+- Acceptance: `docs/sar_pga_gradient_truth_comparison_acceptance_report.md`
+- Verification: default and Eigen 3.3.9 builds passed; default CTest 25/25
+  passed; Eigen 3.3.9 C++11 contract passed; whitespace validation passed.
+
+## Stage 140 - PGA bounded gradient line follow-up decision
+
+- Status: deferred_by_phase1_closeout
+- Scope: decide whether the estimator and comparison evidence are sufficient to
+  proceed to explicitly anchored phase-gradient integration.
+- Closeout: the current `1.1.4.4 SAR` delivery is frozen at Stage 139. Anchored
+  integration, unwrap, iteration, and production correction require a future
+  authorization.
+
+## SAR Phase 1 closeout
+
+- Status: complete
+- Delivery: bounded Omega-K validation and bounded PGA gradient validation.
+- VS2015 boundary: `sar_core` and `sar_legacy_toolchain_smoke` are the supported
+  legacy-toolchain targets; imported JSBSim and GoogleTest prevent a complete
+  repository VS2015 build.
+- Report: `docs/sar_phase1_closeout_report.md`
+- Verification: modern Windows debug build and full CTest 25/25 passed;
+  VS2015 rebuilt `sar_core` and `sar_legacy_toolchain_smoke`; smoke exited 0;
+  whitespace validation passed.

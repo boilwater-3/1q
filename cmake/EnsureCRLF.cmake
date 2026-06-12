@@ -5,13 +5,15 @@
 # Additionally, UTF-8 multi-byte sequences inside string literals are
 # misinterpreted under the system code page (GBK/936), breaking tokenisation.
 #
-# This module converts all .cpp/.h/.hpp files under src/, include/, and tests/
-# from LF to CRLF and adds a UTF-8 BOM at configure time.  The BOM forces
-# VS2015 to parse the file as UTF-8, preventing GBK misinterpretation of
-# multi-byte characters in both comments and string literals.
+# When explicitly enabled, this module converts all .cpp/.h/.hpp files under
+# src/, include/, and tests/ from LF to CRLF and adds a UTF-8 BOM at configure
+# time. The BOM forces VS2015 to parse the file as UTF-8, preventing GBK
+# misinterpretation of multi-byte characters in both comments and string
+# literals.
 #
-# It is a no-op when the files already use CRLF with BOM or when the generator
-# is not Visual Studio 14 2015.
+# Source-tree rewriting is disabled by default because configure operations
+# must not dirty a checkout. It is also a no-op when the generator is not
+# Visual Studio 14 2015.
 #
 # CMake file(READ/WRITE) uses text mode on Windows: READ strips \r, WRITE
 # re-adds \r before \n.  A plain read-then-write round-trip therefore
@@ -21,6 +23,17 @@
 # on the next git checkout, so the repo is not permanently affected.
 
 if(NOT CMAKE_GENERATOR MATCHES "^Visual Studio 14 2015")
+  return()
+endif()
+
+option(ONEQ_VS2015_NORMALIZE_SOURCE
+  "Rewrite source files to CRLF with UTF-8 BOM for legacy VS2015 parsing"
+  OFF
+)
+if(NOT ONEQ_VS2015_NORMALIZE_SOURCE)
+  message(STATUS
+    "EnsureCRLF: disabled; set ONEQ_VS2015_NORMALIZE_SOURCE=ON only for legacy parser issues"
+  )
   return()
 endif()
 

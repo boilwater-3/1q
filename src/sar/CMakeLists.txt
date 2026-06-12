@@ -12,7 +12,24 @@ set(SAR_ENGINE_SOURCES
     sar/imaging/SarFocusingSelector.cpp
     sar/imaging/SarImageQuality.cpp
     sar/imaging/SarMotionCompensation.cpp
+    sar/imaging/SarOmegaKCommonSupport.cpp
+    sar/imaging/SarOmegaKAzimuthInverseTransform.cpp
     sar/imaging/SarOmegaKGeometry.cpp
+    sar/imaging/SarOmegaKGridReduction.cpp
+    sar/imaging/SarOmegaKPointTargetAcceptance.cpp
+    sar/imaging/SarOmegaKReducedRangeAxis.cpp
+    sar/imaging/SarOmegaKReferenceMapping.cpp
+    sar/imaging/SarOmegaKReferencePhaseCompensation.cpp
+    sar/imaging/SarOmegaKRelativeDelayTransform.cpp
+    sar/imaging/SarOmegaKStoltInterpolation.cpp
+    sar/imaging/SarOmegaKTruthManifest.cpp
+    sar/imaging/SarOmegaKTruthIngestion.cpp
+    sar/imaging/SarOmegaKTruthEligibility.cpp
+    sar/imaging/SarOmegaKTruthEvaluationOrchestrator.cpp
+    sar/imaging/SarOmegaKTruthPayloadDigest.cpp
+    sar/imaging/SarPgaSupportGradientTruth.cpp
+    sar/imaging/SarPgaPhaseGradientEstimator.cpp
+    sar/imaging/SarPgaGradientTruthComparison.cpp
     sar/imaging/SarRda.cpp
     sar/imaging/SarSlowTimeResampling.cpp
     sar/imaging/SarSlowTimeResamplingExecutor.cpp
@@ -20,6 +37,23 @@ set(SAR_ENGINE_SOURCES
     sar/signal/SarFft.cpp
     sar/signal/SarWaveform.cpp
 )
+
+if(MSVC AND MSVC_VERSION EQUAL 1900)
+    add_executable(sar_legacy_toolchain_smoke
+        sar/smoke/SarLegacyToolchainSmoke.cpp
+        sar/imaging/SarPgaSupportGradientTruth.cpp
+        sar/imaging/SarPgaPhaseGradientEstimator.cpp
+        sar/imaging/SarPgaGradientTruthComparison.cpp
+    )
+    target_include_directories(sar_legacy_toolchain_smoke PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+    set_target_properties(sar_legacy_toolchain_smoke PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF
+    )
+endif()
 
 # -- core: 会话与运行时粘合层 ------------------------------------------------
 set(SAR_CORE_SOURCES

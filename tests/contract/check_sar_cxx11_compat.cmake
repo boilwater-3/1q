@@ -19,18 +19,34 @@ file(MAKE_DIRECTORY "${OUTPUT_DIR}")
 
 foreach(SOURCE IN LISTS SAR_ENGINE_SOURCES)
   get_filename_component(OBJECT_NAME "${SOURCE}" NAME_WE)
+  if(CXX_COMPILER_ID STREQUAL "MSVC")
+    set(COMPILE_COMMAND
+        "${CXX_COMPILER}"
+        /std:c++14
+        /utf-8
+        /EHsc
+        "/I${SOURCE_DIR}/src"
+        "/I${EIGEN_INCLUDE_DIR}"
+        /W4
+        /WX
+        /c "${SOURCE_DIR}/src/${SOURCE}"
+        "/Fo${OUTPUT_DIR}/${OBJECT_NAME}.obj")
+  else()
+    set(COMPILE_COMMAND
+        "${CXX_COMPILER}"
+        -std=c++11
+        "-I${SOURCE_DIR}/src"
+        -isystem
+        "${EIGEN_INCLUDE_DIR}"
+        -Wall
+        -Wextra
+        -Wpedantic
+        -Werror
+        -c "${SOURCE_DIR}/src/${SOURCE}"
+        -o "${OUTPUT_DIR}/${OBJECT_NAME}.o")
+  endif()
   execute_process(
-      COMMAND "${CXX_COMPILER}"
-              -std=c++11
-              "-I${SOURCE_DIR}/src"
-              -isystem
-              "${EIGEN_INCLUDE_DIR}"
-              -Wall
-              -Wextra
-              -Wpedantic
-              -Werror
-              -c "${SOURCE_DIR}/src/${SOURCE}"
-              -o "${OUTPUT_DIR}/${OBJECT_NAME}.o"
+      COMMAND ${COMPILE_COMMAND}
       RESULT_VARIABLE COMPILE_RESULT
       OUTPUT_VARIABLE COMPILE_STDOUT
       ERROR_VARIABLE COMPILE_STDERR)
