@@ -16,7 +16,7 @@ namespace {
 bool HasExternalRawIq(const SarCycleInput& input) {
   return input.raw_iq.pulse_count != 0U || input.raw_iq.samples_per_pulse != 0U ||
          !input.raw_iq.i_values.empty() || !input.raw_iq.q_values.empty() ||
-         !input.raw_iq.pulse_states.empty();
+         !input.raw_iq.pulse_states.empty() || !input.raw_iq.ideal_pulse_states.empty();
 }
 
 std::string BuildSarInputPayload(const SarCycleInput& input) {

@@ -2475,3 +2475,19 @@
 - Acceptance: `docs/sar_external_raw_iq_pulse_trajectory_acceptance_report.md`
 - Verification: modern Windows debug build passed; full CTest 25/25 passed;
   VS2015 `sar_core` passed; whitespace validation passed.
+
+## Stage 143 - External raw IQ dual-trajectory L2 motion compensation
+
+- Status: complete
+- Scope: accept complete actual and ideal local Cartesian trajectories and run
+  the existing first-order L2 motion compensation before L1 RDA.
+- Contract: `SAR_EXTERNAL_RAW_IQ_L2_MOTION_COMPENSATION_CONTRACT.md`
+- Implementation: `include/1q/sar/session/SarCycleInput.h`,
+  `src/sar/session/SarSession.cpp`
+- Boundary: trajectory estimation, higher-order compensation, autofocus, and
+  summary replay remain deferred.
+- Tests: `tests/unit/sar_session_pipeline_test.cpp`
+- Acceptance:
+  `docs/sar_external_raw_iq_l2_motion_compensation_acceptance_report.md`
+- Verification: modern Windows debug build passed; full CTest 25/25 passed;
+  VS2015 `sar_core` passed; whitespace validation passed.

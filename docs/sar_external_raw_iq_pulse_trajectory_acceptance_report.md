@@ -14,7 +14,8 @@ per-pulse trajectory and drive the existing small-scene L3 BP path.
 - Mission waypoints are not required when the external trajectory is complete.
 - Missing and invalid trajectories fail atomically.
 - External-IQ L1 RDA behavior is unchanged.
-- L2 motion compensation and summary replay remain rejected.
+- L2 motion compensation requires the later approved dual-trajectory contract;
+  summary replay remains rejected.
 
 ## Verification
 

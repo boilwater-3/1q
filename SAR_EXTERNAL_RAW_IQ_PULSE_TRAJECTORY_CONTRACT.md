@@ -29,8 +29,8 @@ internal geometry: x is azimuth, y is ground range, and z is altitude.
 
 ## Explicit exclusions
 
-- External-IQ L2 motion compensation remains rejected because it requires both
-  ideal and actual trajectory contracts.
+- External-IQ L2 motion compensation requires the later approved ideal plus
+  actual dual-trajectory contract.
 - Geodetic pulse-state input, attitude, antenna phase-center offsets, timing
   uncertainty, and navigation covariance remain deferred.
 - External IQ and trajectory replay remain unsupported by the summary schema.

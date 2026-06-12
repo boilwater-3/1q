@@ -44,7 +44,7 @@ using SarPointTargetList = std::vector<SarPointTarget>;
 
 /**
  * @brief 外部提供的完整孔径行主序复数 IQ 帧。
- * @note 当前仅批准用于 L1 RDA；逐脉冲轨迹、L2/BP 和 replay 后续单独审批。
+ * @note 当前支持 L1 RDA、双轨迹 L2+RDA 和实际轨迹 BP；replay 后续单独审批。
  */
 struct ONEQ_API SarRawIqFrame {
   struct PulseState {
@@ -62,7 +62,10 @@ struct ONEQ_API SarRawIqFrame {
   std::uint32_t samples_per_pulse{0U};
   std::vector<double> i_values{};
   std::vector<double> q_values{};
+  // Actual platform trajectory associated with the IQ rows.
   std::vector<PulseState> pulse_states{};
+  // Nominal trajectory required when external IQ requests L2 motion compensation.
+  std::vector<PulseState> ideal_pulse_states{};
 };
 
 /**

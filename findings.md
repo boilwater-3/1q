@@ -1301,3 +1301,12 @@ RCMC 第一版允许 linear interpolation；sinc interpolation 后置。
   requires both ideal and actual trajectories.
 - L1 RDA continues to use nominal configured geometry; supplied external pulse
   states are explicitly ignored rather than partially applied.
+
+## Stage 143 - External raw IQ dual-trajectory L2 motion compensation
+
+- The existing first-order compensator can safely consume external IQ when
+  actual and ideal trajectories are both explicit and independently valid.
+- Estimating the ideal trajectory from actual navigation data would introduce
+  a separate navigation/modeling contract and is not implied by this stage.
+- Keeping the two trajectory lists explicit prevents accidental use of the
+  actual trajectory as its own zero-error reference.

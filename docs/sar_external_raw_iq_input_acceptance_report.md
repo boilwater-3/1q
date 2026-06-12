@@ -22,8 +22,8 @@ existing RDA implementation, and returns the real public focused-image payload.
 ## Rejected behavior
 
 - Shape mismatch and non-finite values fail atomically.
-- L2 motion compensation and L3 BP are rejected until per-pulse external
-  trajectory metadata is contracted.
+- L2 motion compensation and L3 BP require the later approved per-pulse
+  trajectory contracts.
 - Summary-only replay encoding rejects external IQ instead of silently dropping
   the payload.
 

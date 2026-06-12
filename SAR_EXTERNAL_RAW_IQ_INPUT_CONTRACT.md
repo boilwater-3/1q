@@ -16,8 +16,8 @@ The first public external-IQ stage accepts one complete aperture through
 
 ## Explicit exclusions
 
-- L2 motion compensation and L3 BP are rejected because external per-pulse
-  trajectory metadata is not yet contracted.
+- L2 motion compensation and L3 BP require the later approved external
+  per-pulse trajectory contracts.
 - Partial-aperture streaming and ring-buffer accumulation are not supported.
 - Current summary-only replay cannot serialize external IQ. `SarTraceSession`
   rejects external IQ when a replay writer is attached.

@@ -2360,3 +2360,13 @@
 - Added atomic rejection for missing, non-finite, non-contiguous, and
   non-monotonic external trajectories.
 - Kept external-IQ L2 motion compensation and replay deferred.
+
+## Stage 143
+
+- Added complete ideal trajectory metadata alongside the existing actual
+  external-IQ pulse trajectory.
+- Enabled external IQ dual trajectories to drive existing first-order L2
+  motion compensation before L1 RDA.
+- Added atomic rejection for missing and invalid ideal trajectories.
+- Kept trajectory estimation, higher-order compensation, autofocus, and replay
+  deferred.

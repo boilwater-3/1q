@@ -103,6 +103,15 @@ session::SarCycleInput MakeExternalRawIqInputWithTrajectory() {
   return input;
 }
 
+session::SarCycleInput MakeExternalRawIqInputWithDualTrajectory() {
+  session::SarCycleInput input = MakeExternalRawIqInputWithTrajectory();
+  input.raw_iq.ideal_pulse_states = input.raw_iq.pulse_states;
+  for (session::SarRawIqFrame::PulseState& state : input.raw_iq.pulse_states) {
+    state.position_y_m += 0.25;
+  }
+  return input;
+}
+
 TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
 
@@ -202,7 +211,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqRejectsShapeMismatchAndAdvancedPaths) 
   session::SarSession l2_session = session::SarSessionFactory::Create(l2_config);
   const session::SarCycleResult l2_result = l2_session.StepWithResult(MakeExternalRawIqInput());
   EXPECT_FALSE(l2_result.executed_this_cycle);
-  EXPECT_EQ(l2_result.abort_reason, "external_raw_iq_requires_l1_rda");
+  EXPECT_EQ(l2_result.abort_reason, "external_raw_iq_trajectory_required");
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqWithPulseStatesRunsL3Bp) {
@@ -230,6 +239,41 @@ TEST(SarSessionPipelineTest, ExternalRawIqL1ExplicitlyIgnoresPulseStates) {
   EXPECT_FALSE(result.has_error);
   EXPECT_TRUE(result.output_frame.has_l1_image);
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.external_raw_iq_trajectory_ignored", ""));
+}
+
+TEST(SarSessionPipelineTest, ExternalRawIqDualTrajectoryRunsL2MotionCompensation) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.enable_l2_motion_compensation = true;
+  session::SarSession session = session::SarSessionFactory::Create(config);
+
+  const session::SarCycleResult result =
+      session.StepWithResult(MakeExternalRawIqInputWithDualTrajectory());
+
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.has_error);
+  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.motion_compensation", "max_abs_range_error_m="));
+  EXPECT_FALSE(HasDiagnosticContaining(result, "sar.external_raw_iq_trajectory_ignored", ""));
+}
+
+TEST(SarSessionPipelineTest, ExternalRawIqL2RejectsMissingOrInvalidIdealTrajectory) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.enable_l2_motion_compensation = true;
+
+  session::SarSession missing_session = session::SarSessionFactory::Create(config);
+  const session::SarCycleResult missing_result =
+      missing_session.StepWithResult(MakeExternalRawIqInputWithTrajectory());
+  EXPECT_FALSE(missing_result.executed_this_cycle);
+  EXPECT_EQ(missing_result.abort_reason, "external_raw_iq_ideal_trajectory_required");
+
+  session::SarCycleInput invalid = MakeExternalRawIqInputWithDualTrajectory();
+  invalid.raw_iq.ideal_pulse_states[3].time_s =
+      invalid.raw_iq.ideal_pulse_states[2].time_s;
+  session::SarSession invalid_session = session::SarSessionFactory::Create(config);
+  const session::SarCycleResult invalid_result = invalid_session.StepWithResult(invalid);
+  EXPECT_FALSE(invalid_result.executed_this_cycle);
+  EXPECT_EQ(invalid_result.abort_reason, "external_raw_iq_invalid_ideal_trajectory");
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
