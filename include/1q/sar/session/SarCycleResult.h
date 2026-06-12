@@ -32,6 +32,15 @@ enum class SarProcessingStage {
 enum class SarDiagnosticSeverity { kInfo = 0, kWarning = 1, kError = 2 };
 
 /**
+ * @brief 公共聚焦图像的生成来源。
+ */
+enum class SarFocusedImageSource {
+  kNone = 0,
+  kL1Rda = 1,
+  kL3Bp = 2
+};
+
+/**
  * @brief SAR 诊断条目。
  */
 struct ONEQ_API SarDiagnosticIssue {
@@ -41,6 +50,19 @@ struct ONEQ_API SarDiagnosticIssue {
 };
 
 using SarDiagnosticIssueList = std::vector<SarDiagnosticIssue>;
+
+/**
+ * @brief 与内部矩阵实现解耦的行主序复数聚焦图像。
+ * @note Phase 1 replay 仍只保存摘要；该载荷仅由本次实时执行结果返回。
+ */
+struct ONEQ_API SarFocusedImage {
+  SarFocusedImageSource source{SarFocusedImageSource::kNone};
+  std::uint32_t row_count{0U};
+  std::uint32_t column_count{0U};
+  std::vector<double> real_values{};
+  std::vector<double> imaginary_values{};
+  bool is_placeholder{false};
+};
 
 /**
  * @brief SAR 输出帧元数据。
@@ -64,6 +86,7 @@ struct ONEQ_API SarOutputFrame {
 struct ONEQ_API SarCycleResult {
   std::uint32_t input_cycle_index{0U};
   SarOutputFrame output_frame{};
+  SarFocusedImage focused_image{};
   SarDiagnosticIssueList diagnostics{};
   bool has_error{false};
   bool executed_this_cycle{false};

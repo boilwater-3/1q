@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <deque>
+#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -166,6 +167,29 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config, SarCyc
         "sar.l3_bp_size_gate", "SAR L3 BP size exceeds the approved 128x128 runtime gate."));
     return false;
   }
+  return true;
+}
+
+bool CopyFocusedImage(const signal::ComplexMatrix& source, SarFocusedImageSource image_source,
+                      SarFocusedImage* output) {
+  if (output == nullptr || source.rows == 0U || source.cols == 0U ||
+      source.values.size() != source.rows * source.cols ||
+      source.rows > static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max()) ||
+      source.cols > static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max())) {
+    return false;
+  }
+
+  SarFocusedImage image;
+  image.source = image_source;
+  image.row_count = static_cast<std::uint32_t>(source.rows);
+  image.column_count = static_cast<std::uint32_t>(source.cols);
+  image.real_values.reserve(source.values.size());
+  image.imaginary_values.reserve(source.values.size());
+  for (const signal::ComplexSample& sample : source.values) {
+    image.real_values.push_back(sample.real());
+    image.imaginary_values.push_back(sample.imag());
+  }
+  *output = std::move(image);
   return true;
 }
 
@@ -539,6 +563,14 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
       result.diagnostics.push_back(MakeError("sar.rda_failed", "SAR RDA focus failed."));
       return result;
     }
+    if (!CopyFocusedImage(image.image, SarFocusedImageSource::kL1Rda, &result.focused_image)) {
+      result.has_error = true;
+      result.abort_reason = "rda_public_image_export_failed";
+      result.diagnostics.push_back(
+          MakeError("sar.rda_public_image_export_failed",
+                    "SAR RDA image could not be converted to the public focused-image payload."));
+      return result;
+    }
     const std::size_t peak_index = imaging::FindPeakIndex(image.image);
     result.diagnostics.push_back(MakeInfo(
         "sar.rda_peak",
@@ -588,6 +620,14 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
       result.has_error = true;
       result.abort_reason = "l3_bp_failed";
       result.diagnostics.push_back(MakeError("sar.l3_bp_failed", "SAR L3 BP focus failed."));
+      return result;
+    }
+    if (!CopyFocusedImage(image.image, SarFocusedImageSource::kL3Bp, &result.focused_image)) {
+      result.has_error = true;
+      result.abort_reason = "bp_public_image_export_failed";
+      result.diagnostics.push_back(
+          MakeError("sar.bp_public_image_export_failed",
+                    "SAR BP image could not be converted to the public focused-image payload."));
       return result;
     }
     const imaging::ImageQualityMetrics quality = imaging::EvaluateImageQuality(image.image);

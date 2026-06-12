@@ -15,6 +15,15 @@ bool HasDiagnosticContaining(const session::SarCycleResult& result, const std::s
   return false;
 }
 
+bool HasNonZeroFocusedPixel(const session::SarFocusedImage& image) {
+  for (std::size_t index = 0U; index < image.real_values.size(); ++index) {
+    if (image.real_values[index] != 0.0 || image.imaginary_values[index] != 0.0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 config::SarSessionConfig MakeSmallRdaConfig() {
   config::SarSessionConfig config;
   config.hardware.carrier_frequency_hz = 1.0e9;
@@ -79,6 +88,13 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   EXPECT_EQ(result.output_frame.completed_stage, session::SarProcessingStage::kL1RdaImage);
   EXPECT_EQ(result.output_frame.range_sample_count, 64U);
   EXPECT_EQ(result.output_frame.azimuth_pulse_count, 9U);
+  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_EQ(result.focused_image.row_count, 9U);
+  EXPECT_EQ(result.focused_image.column_count, 64U);
+  EXPECT_EQ(result.focused_image.real_values.size(), 9U * 64U);
+  EXPECT_EQ(result.focused_image.imaginary_values.size(), 9U * 64U);
+  EXPECT_FALSE(result.focused_image.is_placeholder);
+  EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
   EXPECT_FALSE(result.diagnostics.empty());
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "image_entropy_nats="));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_width_3db_bins="));
@@ -241,6 +257,13 @@ TEST(SarSessionPipelineTest, L3BpRunsOnlyWhenExplicitlyEnabled) {
   EXPECT_FALSE(result.output_frame.has_l1_image);
   EXPECT_TRUE(result.output_frame.has_l3_bp_image);
   EXPECT_EQ(result.output_frame.completed_stage, session::SarProcessingStage::kL3BpImage);
+  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL3Bp);
+  EXPECT_EQ(result.focused_image.row_count, 9U);
+  EXPECT_EQ(result.focused_image.column_count, 64U);
+  EXPECT_EQ(result.focused_image.real_values.size(), 9U * 64U);
+  EXPECT_EQ(result.focused_image.imaginary_values.size(), 9U * 64U);
+  EXPECT_FALSE(result.focused_image.is_placeholder);
+  EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.l3_trajectory", "generated=9"));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.bp_peak", "peak_row="));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.bp_traversal", "pulse_major"));
@@ -345,6 +368,9 @@ TEST(SarSessionPipelineTest, InvalidCycleReusesPreviousOutput) {
   EXPECT_TRUE(second.reused_previous_output);
   EXPECT_EQ(second.output_frame.cycle_index, first.output_frame.cycle_index);
   EXPECT_TRUE(second.output_frame.has_l1_image);
+  EXPECT_EQ(second.focused_image.source, session::SarFocusedImageSource::kNone);
+  EXPECT_TRUE(second.focused_image.real_values.empty());
+  EXPECT_TRUE(second.focused_image.imaginary_values.empty());
 }
 
 }  // namespace
