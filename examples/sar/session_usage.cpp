@@ -8,19 +8,28 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kEarthRadiusM = 6378137.0;
+constexpr double kSpeedOfLightMps = 299792458.0;
+constexpr double kTargetLengthM = 2.0;
+constexpr double kTargetWidthM = 3.0;
+constexpr double kTargetRcsM2 = 1.0;
+constexpr double kPlatformAltitudeM = 10000.0;
+constexpr double kTargetSlantRangeM = 100000.0;
+constexpr double kTargetGroundRangeM =
+    99498.7437106620;  // sqrt(100 km^2 - 10 km^2)
+constexpr double kSampleRateHz = 1.0e6;
 
 sar::config::SarSessionConfig MakeConfig() {
   sar::config::SarSessionConfig config;
-  config.hardware.carrier_frequency_hz = 1.0e9;
-  config.hardware.bandwidth_hz = 25.0e6;
-  config.hardware.pulse_width_s = 0.16e-6;
-  config.hardware.pulse_repetition_frequency_hz = 20.0;
-  config.hardware.sample_rate_hz = 100.0e6;
+  config.hardware.carrier_frequency_hz = 9.6e9;
+  config.hardware.bandwidth_hz = 0.5e6;
+  config.hardware.pulse_width_s = 20.0e-6;
+  config.hardware.pulse_repetition_frequency_hz = 100.0;
+  config.hardware.sample_rate_hz = kSampleRateHz;
 
-  config.mission.nominal_slant_range_m = 29.9792458;
-  config.mission.platform_speed_mps = 2.0;
-  config.mission.range_sample_count = 64U;
-  config.mission.azimuth_pulse_count = 9U;
+  config.mission.nominal_slant_range_m = kTargetSlantRangeM;
+  config.mission.platform_speed_mps = 180.0;
+  config.mission.range_sample_count = 1024U;
+  config.mission.azimuth_pulse_count = 33U;
 
   config.policy.enable_raw_echo_generation = true;
   config.policy.enable_range_compression = true;
@@ -36,14 +45,14 @@ sar::session::SarCycleInput MakeInput() {
 
   input.platform.latitude_deg = 0.0;
   input.platform.longitude_deg = 0.0;
-  input.platform.altitude_m = 0.0;
-  input.platform.velocity_east_mps = 2.0;
+  input.platform.altitude_m = kPlatformAltitudeM;
+  input.platform.velocity_east_mps = 180.0;
 
   sar::session::SarPointTarget target;
-  target.latitude_deg = 29.9792458 / kEarthRadiusM * 180.0 / kPi;
+  target.latitude_deg = kTargetGroundRangeM / kEarthRadiusM * 180.0 / kPi;
   target.longitude_deg = 0.0;
   target.altitude_m = 0.0;
-  target.radar_cross_section_dbsm = 80.0;
+  target.radar_cross_section_dbsm = 10.0 * std::log10(kTargetRcsM2);
   input.point_targets.push_back(target);
   return input;
 }
@@ -103,11 +112,26 @@ int main() {
   const std::size_t peak_col = peak_index % image.column_count;
   const double peak_magnitude =
       std::hypot(image.real_values[peak_index], image.imaginary_values[peak_index]);
+  const double observed_slant_range_m =
+      static_cast<double>(peak_col) * kSpeedOfLightMps / (2.0 * kSampleRateHz);
+  const double range_bin_spacing_m = kSpeedOfLightMps / (2.0 * kSampleRateHz);
+  const double slant_range_error_m = std::abs(observed_slant_range_m - kTargetSlantRangeM);
+  if (peak_magnitude <= 0.0 || slant_range_error_m > range_bin_spacing_m) {
+    std::cerr << "The 100 km, 1 m^2 RCS target was not focused within one range bin.\n";
+    return 3;
+  }
 
   std::cout << "SAR processing succeeded\n"
+            << "  target model: point target approximation, length=" << kTargetLengthM
+            << " m, width=" << kTargetWidthM << " m, RCS=" << kTargetRcsM2 << " m^2\n"
+            << "  target altitude: 0 m, platform altitude: " << kPlatformAltitudeM << " m\n"
+            << "  expected ground/slant range: " << kTargetGroundRangeM << " / "
+            << kTargetSlantRangeM << " m\n"
             << "  focused image: " << image.row_count << " x " << image.column_count << '\n'
             << "  peak pixel: row=" << peak_row << ", col=" << peak_col
-            << ", magnitude=" << peak_magnitude << '\n'
+            << ", magnitude=" << peak_magnitude
+            << ", observed slant range=" << observed_slant_range_m
+            << " m, range error=" << slant_range_error_m << " m\n"
             << "  raw echo: " << result.output_frame.has_raw_echo << '\n'
             << "  range compressed: " << result.output_frame.has_range_compressed_echo << '\n'
             << "  L1 RDA image: " << result.output_frame.has_l1_image << '\n'
