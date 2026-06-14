@@ -416,6 +416,38 @@ TEST(EsrReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.environment_runtime_config.atmospheric_context.k_factor, 1.5f);
 }
 
+// ---------------------------------------------------------------------------
+// FailureMarker
+// ---------------------------------------------------------------------------
+
+TEST(EsrReplayCodecRoundtripTest, FailureMarkerPreservesAllFields) {
+  oneq::replay::ReplayTraceFailure failure;
+  failure.error_code = "ESR_ASSERT";
+  failure.message = "emitter pool overflow";
+  failure.location = "EsrController::RunOnce";
+  failure.has_cycle_index = true;
+  failure.cycle_index = 42U;
+  failure.has_sim_time_sec = true;
+  failure.sim_time_sec = 42.5;
+  failure.diagnostics_payload = "{\"hypothesis_count\":128}";
+
+  const std::string bytes = EncodeEsrFailureMarker(failure);
+  ASSERT_FALSE(bytes.empty());
+
+  oneq::replay::ReplayTraceFailure decoded;
+  std::string error;
+  ASSERT_TRUE(DecodeEsrFailureMarker(bytes, &decoded, &error)) << error;
+
+  EXPECT_EQ(decoded.error_code, "ESR_ASSERT");
+  EXPECT_EQ(decoded.message, "emitter pool overflow");
+  EXPECT_EQ(decoded.location, "EsrController::RunOnce");
+  EXPECT_TRUE(decoded.has_cycle_index);
+  EXPECT_EQ(decoded.cycle_index, 42U);
+  EXPECT_TRUE(decoded.has_sim_time_sec);
+  EXPECT_DOUBLE_EQ(decoded.sim_time_sec, 42.5);
+  EXPECT_EQ(decoded.diagnostics_payload, "{\"hypothesis_count\":128}");
+}
+
 }  // namespace tests
 }  // namespace session
 }  // namespace electronic_surveillance_radar

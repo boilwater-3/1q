@@ -158,3 +158,19 @@ table EsrCycleResult {
   reused_previous_output: bool = false;
   abort_reason:         int32 = 0;
 }
+
+// ---- FailureMarker (failure_marker 事件的 flatbuffer 载荷) ----
+// 字段与 AR 模块的 FailureMarker 保持一致，用于在回放时结构化还原失败标记。
+
+table FailureMarker {
+  error_code:           string;
+  message:              string;
+  location:             string;
+  has_cycle_index:      bool;
+  cycle_index:          uint32;
+  has_sim_time_sec:     bool;
+  sim_time_sec:         double;
+  diagnostics:          string;
+  has_last_event_sequence: bool;
+  last_event_sequence:  uint64;
+}

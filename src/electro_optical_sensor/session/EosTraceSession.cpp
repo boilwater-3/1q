@@ -78,11 +78,13 @@ struct EosTraceSession::Impl {
 
   void WriteValidationFailureMarker(const EosCycleResult& result) const {
     oneq::replay::ReplayTraceFailure failure;
-    failure.error_code = "validation_error";
+    failure.error_code = "EOS_VALIDATION_ERROR";
     failure.message = "EosCycleResult has_validation_error=true";
+    failure.location = "EosTraceSession::StepWithResult";
     failure.cycle_index = result.input_cycle_index;
     failure.has_cycle_index = true;
-    replay_writer->WriteFailureMarker(failure);
+    const std::string failure_bytes = EncodeEosFailureMarker(failure);
+    replay_writer->WriteFailureMarker(failure, failure_bytes);
   }
 
   EosSession session;

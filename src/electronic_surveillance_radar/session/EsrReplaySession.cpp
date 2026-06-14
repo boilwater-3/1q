@@ -262,10 +262,19 @@ bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_d
 }
 
 bool OnFailureMarker(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
-                     std::string* /*error*/) {
+                     std::string* error) {
   EsrReplayState* state = static_cast<EsrReplayState*>(user_data);
   state->reached_failure_marker = true;
   state->failure_marker_payload = event.payload_bytes;
+  // 空 payload 兼容旧版单参写入的失败标记：仅置 reached，不解码。
+  if (event.payload_bytes.empty()) {
+    return true;
+  }
+  oneq::replay::ReplayTraceFailure decoded;
+  if (!DecodeEsrFailureMarker(event.payload_bytes, &decoded, error)) {
+    return false;
+  }
+  state->failure_marker_data = decoded;
   return true;
 }
 

@@ -82,11 +82,13 @@ struct EsrTraceSession::Impl {
 
   void WriteValidationFailureMarker(const EsrCycleResult& result) const {
     oneq::replay::ReplayTraceFailure failure;
-    failure.error_code = "validation_error";
+    failure.error_code = "ESR_VALIDATION_ERROR";
     failure.message = "EsrCycleResult has_validation_error=true";
+    failure.location = "EsrTraceSession::StepWithResult";
     failure.cycle_index = result.input_cycle_index;
     failure.has_cycle_index = true;
-    replay_writer->WriteFailureMarker(failure);
+    const std::string failure_bytes = EncodeEsrFailureMarker(failure);
+    replay_writer->WriteFailureMarker(failure, failure_bytes);
   }
 
   EsrSession session;

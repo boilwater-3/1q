@@ -167,7 +167,8 @@ TEST(EosReplaySessionTest, ReplayEosTraceStopsAtFailureMarker) {
     failure.message = "synthetic replay failure marker";
     failure.has_cycle_index = true;
     failure.cycle_index = 1U;
-    replay_writer->WriteFailureMarker(failure);
+    const std::string failure_bytes = EncodeEosFailureMarker(failure);
+    replay_writer->WriteFailureMarker(failure, failure_bytes);
     replay_writer->Flush();
   }
 
@@ -176,6 +177,9 @@ TEST(EosReplaySessionTest, ReplayEosTraceStopsAtFailureMarker) {
   EXPECT_TRUE(replay_result.report.has_failure_marker);
   EXPECT_TRUE(replay_result.reached_failure_marker);
   EXPECT_EQ(replay_result.playback.failure_marker_count, 1U);
+  EXPECT_EQ(replay_result.failure_marker_data.error_code, "EOS_SIM_ASSERT");
+  EXPECT_EQ(replay_result.failure_marker_data.message, "synthetic replay failure marker");
+  EXPECT_TRUE(replay_result.failure_marker_data.has_cycle_index);
 }
 
 TEST(EosReplaySessionTest, ReplayEosTraceRejectsTrailingCycleInput) {

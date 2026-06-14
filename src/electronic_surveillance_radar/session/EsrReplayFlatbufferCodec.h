@@ -12,6 +12,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
+#include "1q/replay/ReplayTrace.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -21,12 +22,15 @@ std::string EncodeEsrOutputFrame(const session::EsrOutputFrame& value);
 std::string EncodeEsrCycleResult(const EsrCycleResult& value);
 std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& value);
 std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& value);
+std::string EncodeEsrFailureMarker(const oneq::replay::ReplayTraceFailure& failure);
 
 bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out);
 bool DecodeEsrOutputFrame(const std::string& bytes, session::EsrOutputFrame* out);
 bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out);
 bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* out);
 bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeConfigPatch* out);
+bool DecodeEsrFailureMarker(const std::string& bytes, oneq::replay::ReplayTraceFailure* failure,
+                            std::string* error);
 
 }  // namespace session
 }  // namespace electronic_surveillance_radar
