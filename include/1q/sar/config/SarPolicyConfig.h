@@ -20,12 +20,16 @@ struct ONEQ_API SarPolicyConfig {
   bool enable_l1_rda_imaging{false};
   bool enable_l2_motion_compensation{false};
   bool enable_l3_bp_imaging{false};
+  /// 是否返回非错误诊断。关闭时仍保留错误诊断和 abort_reason。
   bool enable_diagnostics{true};
+  /// 保留字段：当前 public result 不返回 raw phase history，仅 replay/config 保真。
   bool retain_raw_phase_history{false};
   /// 是否在 SarCycleResult 中返回完整聚焦复图像。默认开启以保持向后兼容；
   /// 关闭时 focused_image 仅含占位元数据（is_placeholder=true），可避免大图拷贝。
   bool retain_focused_image{true};
+  /// 保留字段：当前 session 尚未实现 squint-angle runtime gate。
   double max_allowed_squint_angle_deg{5.0};
+  /// 原始孔径峰均功率比估算 SNR 的最低有效门限，低于该值时本周期中止。
   double min_valid_snr_db{-10.0};
 };
 

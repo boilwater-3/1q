@@ -351,6 +351,12 @@ add_test(NAME "sar_contract::1q_contract_tests"
                  --gtest_filter=PublicHeadersSmokeTest.SarPublicSurfaceSupportsMinimalUsage)
 set_tests_properties("sar_contract::1q_contract_tests" PROPERTIES LABELS "sar_contract;sar_ci")
 
+add_test(NAME "sar_frozen_sources"
+         COMMAND ${CMAKE_COMMAND}
+                 -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+                 -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_sar_frozen_sources.cmake)
+set_tests_properties("sar_frozen_sources" PROPERTIES LABELS "sar_contract;sar_ci")
+
 add_test(NAME "sar_performance::1q_performance_tests"
          COMMAND ${PROJECT_NAME}_performance_tests
                  --gtest_filter=SarPerformanceTest.*)

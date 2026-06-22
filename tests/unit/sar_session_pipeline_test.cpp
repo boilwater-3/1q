@@ -198,6 +198,35 @@ TEST(SarSessionPipelineTest, RetainFocusedImageFalseAppliesToL3Bp) {
   EXPECT_TRUE(result.focused_image.real_values.empty());
 }
 
+TEST(SarSessionPipelineTest, DiagnosticsDisabledSuppressesNonErrorDiagnostics) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.enable_diagnostics = false;
+  session::SarSession session = session::SarSessionFactory::Create(config);
+
+  const session::SarCycleResult result = session.StepWithResult(MakeInput());
+
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.has_error);
+  EXPECT_TRUE(result.diagnostics.empty());
+  EXPECT_TRUE(result.output_frame.has_l1_image);
+}
+
+TEST(SarSessionPipelineTest, MinValidSnrRejectsApertureBelowThreshold) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.min_valid_snr_db = 100.0;
+  session::SarSession session = session::SarSessionFactory::Create(config);
+
+  const session::SarCycleResult result = session.StepWithResult(MakeExternalRawIqInput());
+
+  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_TRUE(result.has_error);
+  EXPECT_EQ(result.abort_reason, "snr_below_minimum");
+  EXPECT_TRUE(result.output_frame.has_raw_echo);
+  EXPECT_FALSE(result.output_frame.has_l1_image);
+  EXPECT_LT(result.output_frame.estimated_snr_db, config.policy.min_valid_snr_db);
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.snr_below_minimum", "below"));
+}
+
 TEST(SarSessionPipelineTest, RawPulseHistoryUsesCrossCycleRingBuffer) {
   session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
 

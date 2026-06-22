@@ -2,17 +2,7 @@ if(NOT DEFINED SOURCE_DIR OR NOT DEFINED CXX_COMPILER OR NOT DEFINED EIGEN_INCLU
   message(FATAL_ERROR "SOURCE_DIR, CXX_COMPILER, and EIGEN_INCLUDE_DIR are required")
 endif()
 
-set(SAR_ENGINE_SOURCES
-    sar/echo/SarEcho.cpp
-    sar/geometry/SarGeometry.cpp
-    sar/imaging/SarGbp.cpp
-    sar/imaging/SarImageQuality.cpp
-    sar/imaging/SarMotionCompensation.cpp
-    sar/imaging/SarRda.cpp
-    sar/runtime/PulseRingBuffer.cpp
-    sar/signal/SarFft.cpp
-    sar/signal/SarWaveform.cpp
-)
+include("${SOURCE_DIR}/src/sar/SarSources.cmake")
 
 set(OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/sar_cxx11_compat")
 file(MAKE_DIRECTORY "${OUTPUT_DIR}")
@@ -25,6 +15,7 @@ foreach(SOURCE IN LISTS SAR_ENGINE_SOURCES)
         /std:c++14
         /utf-8
         /EHsc
+        "/I${SOURCE_DIR}/include"
         "/I${SOURCE_DIR}/src"
         "/I${EIGEN_INCLUDE_DIR}"
         /W4
@@ -35,6 +26,7 @@ foreach(SOURCE IN LISTS SAR_ENGINE_SOURCES)
     set(COMPILE_COMMAND
         "${CXX_COMPILER}"
         -std=c++11
+        "-I${SOURCE_DIR}/include"
         "-I${SOURCE_DIR}/src"
         -isystem
         "${EIGEN_INCLUDE_DIR}"
