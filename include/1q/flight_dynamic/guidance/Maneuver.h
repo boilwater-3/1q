@@ -1,3 +1,7 @@
+/**
+ * @file Maneuver.h
+ * @brief 定义机动类型枚举与机动执行状态机（ManeuverExecutor）。
+ */
 #ifndef ONEQ_FLIGHT_DYNAMIC_GUIDANCE_MANEUVER_H_
 #define ONEQ_FLIGHT_DYNAMIC_GUIDANCE_MANEUVER_H_
 
@@ -23,29 +27,45 @@ class EngineManager;
 
 namespace guidance {
 
+/**
+ * @brief 机动类型枚举，决定 ManeuverCommand 各字段的语义重载。
+ * @note 字段与机动的精确映射见 FlightManager.h 中 ManeuverCommand 的说明。
+ */
 enum class ManeuverType {
-  kFlyToWaypoint,
-  kOrbit,
-  kRacetrack,
-  kFigure8,
-  kSTurn,
-  kSetHeading,
-  kSetAltitude,
-  kSetPitch,
-  kSetRoll,
-  kTakeoff,
-  kLand,
+  kFlyToWaypoint, /**< 飞向指定航点 */
+  kOrbit,         /**< 绕指定圆心盘旋 */
+  kRacetrack,     /**< 跑道形往返航线（直线段+半圆转弯） */
+  kFigure8,       /**< 8 字航线（两个反向圆弧） */
+  kSTurn,         /**< S 型转弯（正弦航向摆动） */
+  kSetHeading,    /**< 保持目标航向 */
+  kSetAltitude,   /**< 爬升/下降到目标高度 */
+  kSetPitch,      /**< 保持目标俯仰角一段时间 */
+  kSetRoll,       /**< 设置滚转模式（改平/角度保持） */
+  kTakeoff,       /**< 起飞（滑跑→抬轮→爬升） */
+  kLand,          /**< 降落（减速→进近→拉平→接地） */
 };
 
+/**
+ * @brief ManeuverExecutor 内部使用的机动描述。
+ *
+ * 字段语义与 FlightManager.h 的 ManeuverCommand 一致（随 ManeuverType 重载），
+ * 由 FlightManager 在 ExecuteNextManeuver 中由 ManeuverCommand 转换而来。
+ */
 struct Maneuver {
-  ManeuverType type;
-  Waypoint target;
-  double value = 0.0;
-  double duration_sec = 0.0;
-  double heading_tolerance_rad = 0.035;
-  double altitude_tolerance_m = 10.0;
+  ManeuverType type;          /**< 机动类型 */
+  Waypoint target;            /**< 航点目标 */
+  double value = 0.0;         /**< 通用数值参数（语义随类型重载） */
+  double duration_sec = 0.0;  /**< 通用时长/长度参数（语义随类型重载） */
+  double heading_tolerance_rad = 0.035; /**< 航向容差或重载的摆幅/转弯半径 */
+  double altitude_tolerance_m = 10.0;   /**< 高度容差或重载的周期/圈数 */
 };
 
+/**
+ * @brief 机动执行状态机（FSM），驱动单个机动的相位推进。
+ *
+ * 由 FlightManager 持有，用户通常不直接调用：各类 Execute* 方法启动对应机动，
+ * Update(dt) 在每步推进相位，IsManeuverComplete() 报告是否完成。
+ */
 class ManeuverExecutor {
  public:
   ManeuverExecutor(adapter::JsbsimAdapter& adapter, autopilot::Autopilot& ap,

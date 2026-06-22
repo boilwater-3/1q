@@ -11,9 +11,13 @@ C++11, CMake, Conan, GTest/GMock, spdlog, Eigen, nanoflann.
 include/
 `-- 1q/
     |-- airborne_radar/                     airborne radar public API surface
+    |-- coordinate/                         shared coordinate & kinematics reference types
     |-- electro_optical_sensor/             electro optical sensor public API surface
     |-- electronic_surveillance_radar/      ESR public API surface
+    |-- environment/                        unified environment modeling (atmosphere/observers)
+    |-- flight_dynamic/                     flight dynamics & maneuver public API surface
     |-- foundation/                         cross-domain public foundation types
+    |-- replay/                             replay public interfaces
     `-- trace/                              cross-domain trace interfaces
 src/
 |-- airborne_radar/
@@ -44,15 +48,21 @@ src/
 |   |-- session/                            EOS session composition/runtime config
 |   |-- signal/                             EOS signal pipeline
 |   `-- utils/                              EOS utilities
-`-- electronic_surveillance_radar/
-    |-- environment/                        ESR environment modeling and state
-    |-- intercept/                          ESR signal/intercept domain logic
-    |-- model/                              ESR model helpers
-    |-- output/                             ESR output manager and formatters
-    |-- pipeline/                           ESR pipeline composition and processing
-    |-- runtime/                            ESR controller and runtime telemetry
-    |-- session/                            ESR session composition/config/runtime resolvers
-    `-- utils/                              ESR utility helpers
+|-- electronic_surveillance_radar/
+|   |-- environment/                        ESR environment modeling and state
+|   |-- intercept/                          ESR signal/intercept domain logic
+|   |-- model/                              ESR model helpers
+|   |-- output/                             ESR output manager and formatters
+|   |-- pipeline/                           ESR pipeline composition and processing
+|   |-- runtime/                            ESR controller and runtime telemetry
+|   |-- session/                            ESR session composition/config/runtime resolvers
+|   `-- utils/                              ESR utility helpers
+`-- flight_dynamic/
+    |-- adapter/                            JSBSim FDM adapter (property-tree bridge)
+    |-- autopilot/                          multi-channel autopilot (heading/alt/speed/pitch/roll)
+    |-- guidance/                           maneuver executor FSM and waypoint sequencing
+    |-- model/                              vehicle state mapping from JSBSim
+    `-- propulsion/                         engine and throttle management
 tests/                              unit and integration tests
 examples/                           usage examples
 tools/                              helper scripts

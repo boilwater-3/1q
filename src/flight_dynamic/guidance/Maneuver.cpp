@@ -559,6 +559,16 @@ void ManeuverExecutor::ExecuteSTurn(double base_heading_rad, double amplitude_de
   sturn_amplitude_rad_ = amplitude_deg * M_PI / 180.0;
   sturn_freq_ = period_sec > 0.01 ? (2.0 * M_PI / period_sec) : 0.0;
 
+  // Lock current altitude and speed during sinusoidal heading modulation.
+  // Without explicit targets, altitude hold has no reference and the aircraft
+  // bleeds altitude during bank oscillations (f16: -500m in 10s, L410: -217m).
+  ap_.SetAltitudeTargetM(ap_.GetAltitudeASLM());
+  ap_.SetAltitudeHold(true);
+  const auto& prof = ap_.GetControlProfile();
+  double spd = prof.cruise_speed_mps > 0.0 ? prof.cruise_speed_mps : ap_.GetTrueSpeedMps();
+  ap_.SetSpeedTargetMps(spd);
+  ap_.SetSpeedHold(true);
+
   ap_.SetLateralGuidanceMode(autopilot::LateralGuidanceMode::kHeading);
   ap_.SetHeadingSourceIsWaypoint(false);
   ap_.SetRollAttitudeMode(1);

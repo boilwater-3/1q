@@ -304,6 +304,74 @@ TEST_P(AircraftManeuverTest, QueueFlyToThenOrbit) {
       << GetParam().model << ": should not crash during queue fly-to→orbit";
 }
 
+/// S型转弯：正弦航向调制，验证各机型在整个 duration 内不失控
+TEST_P(AircraftManeuverTest, STurnCompletion) {
+  FlightManager fm(config_);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+
+  fm.Step(kDt);
+
+  // ManeuverCommand 字段约定（参见 FlightManager.cpp dispatch）：
+  //   value                = base_heading_rad (0 = 北)
+  //   heading_tolerance_rad = amplitude_deg   (±15° 摆幅)
+  //   altitude_tolerance_m  = period_sec      (10秒一个完整周期)
+  //   duration_sec          = 总持续时间       (20秒 = 2个完整S周期)
+  ManeuverCommand cmd;
+  cmd.type = guidance::ManeuverType::kSTurn;
+  cmd.value = 0.0;                    // base heading: 北
+  cmd.heading_tolerance_rad = 15.0;   // amplitude: ±15°
+  cmd.altitude_tolerance_m = 10.0;    // period: 10s
+  cmd.duration_sec = 20.0;            // duration: 20s (2 full S-cycles)
+  fm.PushManeuver(cmd);
+
+  TrajectoryLogger logger(GetParam().model, "STurn");
+  int steps = RunUntilDone(fm, 5000, &logger);
+
+  auto state = fm.GetState();
+  EXPECT_TRUE(state == FlightManagerState::kCompleted ||
+              state == FlightManagerState::kExecuting)
+      << GetParam().model << ": unexpected state after S-turn";
+  ExpectNoNaN(fm.GetVehicleState());
+  EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 0.0)
+      << GetParam().model << ": should not crash during S-turn";
+  // 20秒 / 0.01 dt = 2000 步, 留余量
+  EXPECT_GT(steps, 1500)
+      << GetParam().model << ": should complete at least ~20s of S-turn";
+}
+
+/// S型转弯后切换到航向保持：验证机动队列中 S-Turn → SetHeading 衔接
+TEST_P(AircraftManeuverTest, QueueSTurnThenHeading) {
+  FlightManager fm(config_);
+  ASSERT_EQ(fm.GetState(), FlightManagerState::kReady);
+
+  fm.Step(kDt);
+
+  // 先做 10 秒 S-Turn
+  ManeuverCommand sturn_cmd;
+  sturn_cmd.type = guidance::ManeuverType::kSTurn;
+  sturn_cmd.value = 0.0;
+  sturn_cmd.heading_tolerance_rad = 20.0;  // ±20°
+  sturn_cmd.altitude_tolerance_m = 8.0;    // period 8s
+  sturn_cmd.duration_sec = 10.0;
+  fm.PushManeuver(sturn_cmd);
+
+  // 然后保持航向 90°
+  ManeuverCommand hdg_cmd;
+  hdg_cmd.type = guidance::ManeuverType::kSetHeading;
+  hdg_cmd.value = M_PI / 2.0;
+  fm.PushManeuver(hdg_cmd);
+
+  int steps = RunUntilDone(fm, 6000);
+
+  EXPECT_GT(steps, 500) << GetParam().model << ": should run S-turn then heading";
+  ExpectNoNaN(fm.GetVehicleState());
+  EXPECT_GT(fm.GetVehicleState().altitude_geod_m, 0.0)
+      << GetParam().model << ": should not crash during queue S-turn→heading";
+  EXPECT_TRUE(fm.GetState() == FlightManagerState::kCompleted ||
+              fm.GetState() == FlightManagerState::kExecuting)
+      << GetParam().model << ": unexpected state after queue";
+}
+
 }  // namespace
 }  // namespace flight_dynamic
 }  // namespace oneq

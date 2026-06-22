@@ -48,6 +48,9 @@ setup_fd_example(racetrack_quality_csv)
 add_executable(racetrack_trace_csv flight_dynamic/racetrack_trace_csv.cpp)
 setup_fd_example(racetrack_trace_csv)
 
+add_executable(sturn_trace_csv flight_dynamic/sturn_trace_csv.cpp)
+setup_fd_example(sturn_trace_csv)
+
 add_executable(orbit_trace_csv flight_dynamic/orbit_trace_csv.cpp)
 setup_fd_example(orbit_trace_csv)
 
