@@ -1,3 +1,9 @@
+// ============================================================================
+// 【未进行设计需求，不再扩展 — DEPRECATED】
+// 本文件不参与构建（见 src/sar/CMakeLists.txt 的 SAR_ENGINE_SOURCES 注释），
+// 仅作为探索性参考保留。请勿新增依赖或据此实施。
+// ============================================================================
+
 ﻿/**
  * @file SarOmegaKPointTargetAcceptance.h
  * @brief Independent point-target acceptance evaluator for Omega-K candidates.
