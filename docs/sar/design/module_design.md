@@ -172,15 +172,15 @@ examples/sar/    session_usage.cpp
 | `sar.hpp` | 模块入口 | 聚合 config + 全部 session 头 |
 | `SarSessionConfig` | 四域聚合 struct(`ONEQ_API`) | hardware/mission/policy/environment |
 | `SarCycleInput` | 单周期输入(`ONEQ_API`) | `SarPlatformState`(10 字段)、`SarPointTarget`、`SarRawIqFrame`、`cycle_index`、`dt_sec`;运行期指令通过 `ApplyRuntimeConfig` 旁路注入 |
-| `SarCycleResult` | 单周期结果(`ONEQ_API`) | `SarOutputFrame`(状态/采样数/斜距/SNR/各阶段 has_* 标志 + 相位参考/图像质量标量摘要)、`SarFocusedImage`(行主序双 vector<double> 实虚分离 + is_placeholder + source)、`SarDiagnosticIssueList`、`has_error`/`executed_this_cycle`/`reused_previous_output`/`abort_reason` |
+| `SarCycleResult` | 单周期结果(`ONEQ_API`) | `SarOutputFrame`(状态/采样数/斜距/SNR/各阶段 has_* 标志 + 相位参考/图像质量标量摘要)、`SarFocusedImage`(行主序双 vector<double> 实虚分离 + `is_placeholder` + source)、`SarDiagnosticIssueList`、`has_error`/`executed_this_cycle`/`reused_previous_output`/`abort_reason` |
 | `SarSession` | PIMPL 门面(`ONEQ_API`) | 私有构造 + `friend SarSessionFactory`;`Step()` / `StepWithResult()` / `ApplyRuntimeConfig()` / `TryApplyRuntimeConfig()` |
-| `SarRuntimeConfigPatch` | 运行期补丁(`ONEQ_API`) | `has_*` + 值的可选字段模式,仅覆盖 `SarPolicyConfig` 子集,不暴露内部算法对象 |
+| `SarRuntimeConfigPatch` | 运行期补丁(`ONEQ_API`) | `has_*` + 值的可选字段模式,覆盖 `SarPolicyConfig` 子集(含 `retain_focused_image`),不暴露内部算法对象 |
 
 **超设计交付**:`SarSessionFactory`(强制走工厂)、`SarTraceSession`(trace 录制,写 `TraceSink` + `ReplayTraceWriter`)、`SarReplaySession`(重放,`ReplaySarTrace()`)、`SarReplayFlatbufferCodec`(FlatBuffers 编解码)。整条 trace/replay 链已落地,设计初稿未列。
 
 ### SarFocusedImage 数据形态
 
-聚焦复图像在公共层以**实/虚双 `std::vector<double>`** 拆分行主序存储(`index = row*column_count + col`),非 `vector<complex<double>>`、非 Eigen。`is_placeholder=true` 时实虚数组为空,仅形状有效。内部计算态用 `sar::signal::ComplexMatrix`,`SarSession` 内部 `CopyFocusedImage` 负责互转。
+聚焦复图像在公共层以**实/虚双 `std::vector<double>`** 拆分行主序存储(`index = row*column_count + col`),非 `vector<complex<double>>`、非 Eigen。`SarPolicyConfig::retain_focused_image=false` 时 `is_placeholder=true`,实虚数组为空,仅形状有效,用于避免大图拷贝;该策略可通过 `SarRuntimeConfigPatch` 运行期切换,并已纳入 session replay 配置 schema。内部计算态用 `sar::signal::ComplexMatrix`,`SarSession` 内部 `ExportFocusedImage` 负责按策略导出。
 
 ---
 
@@ -338,7 +338,7 @@ examples/sar/    session_usage.cpp
 
 `SarGbp.*`。GBP 与 BP 共享 `FocusSmallSceneBackprojection` 内核,通过 `BackprojectionTraversal{kPixelMajor/kPulseMajor}` 区分遍历顺序。`kMaxApprovedDimension=128`(小场景上限)。**无多线程、无 GPU**(`setNumThreads`/`setUseGpu` 未实现,Phase 5)。
 
-### 相位重参考(✅ 内部完成)
+### 相位重参考(✅ 完成)
 
 `SarPhaseReference.*` 已抽出内部自由函数模块,覆盖当前两个实际使用路径:
 
@@ -353,7 +353,7 @@ examples/sar/    session_usage.cpp
 
 **后续口径**:公共配置是否暴露 `PhaseReferenceMode` 需要单独审批;当前不引入设计初稿中的 OOP `PhaseReference` 类。
 
-### 成像质量评估(✅ 内部完成)
+### 成像质量评估(✅ 完成)
 
 `SarImageQuality.*` 已成为 imaging 内部质量指标入口,并被 RDA/GBP/BP、参考场景矩阵、PRF 重采样和运动补偿测试复用。
 
@@ -371,7 +371,7 @@ examples/sar/    session_usage.cpp
 | 全图/场景级产品 QA | ❌ 后置 | 暂无 public `ComputeImageMetrics`/产品级 QA 入口;多目标汇总、峰值内存、产品级质量报告未闭环。 |
 | 辐射精度指标 | ❌ 冻结缺口 | `radiometric_accuracy_db` 依赖冻结的辐射定标链,当前不纳入继续扩展。 |
 
-**后续口径**:公共 API widening 需等会话结果字段需求明确后再做;辐射精度仍需辐射定标边界重新批准。
+**后续口径**:公共结果摘要已通过 `SarOutputFrame`/replay/trace 完成;公共质量配置、产品级 QA 报告与辐射精度仍需单独审批。
 
 ### 运动补偿(✅ 一阶完整)
 
@@ -493,4 +493,4 @@ CSA、Omega-K、`SarFocusingSelector`(Auto 选择)均完整实现但被冻结排
 *文档版本: v2.2*
 *创建日期: 2026-06-04*
 *更新日期: 2026-06-22*
-*变更摘要: v2.2 删除全部 C++ 代码段,改为 struct 字段表 + 自由函数清单的描述性形态;对齐实际架构(自由函数+POD、`sar::{signal,geometry,echo,imaging,output}` 子命名空间、四域配置取代 `SarSimulationConfig`);新增「实施状态总览」「架构约定」「孤儿文件状态」章节;记录 6 个待补模块(窗函数/斜距/多普勒/杂波/天线/输出)的实施计划与目标 API;补充相位重参考和成像质量评估的已实现路径、测试覆盖边界与剩余缺口。v2.1 已将 CSA、Omega-K、自适应选择(Auto)与辐射定标标注为【未进行设计需求,不再扩展】。*
+*变更摘要: v2.2 删除全部 C++ 代码段,改为 struct 字段表 + 自由函数清单的描述性形态;对齐实际架构(自由函数+POD、`sar::{signal,geometry,echo,imaging,output}` 子命名空间、四域配置取代 `SarSimulationConfig`);新增「实施状态总览」「架构约定」「孤儿文件状态」章节;记录 6 个待补模块(窗函数/斜距/多普勒/杂波/天线/输出)的实施计划与目标 API;补充相位重参考和成像质量评估的 public 标量摘要闭环、测试覆盖边界与剩余产品 QA 缺口;记录 `retain_focused_image` 的公共结果导出策略。v2.1 已将 CSA、Omega-K、自适应选择(Auto)与辐射定标标注为【未进行设计需求,不再扩展】。*
