@@ -71,8 +71,14 @@ else()
     set(_conan_enable_testing "False")
 endif()
 
+if(DEFINED CONAN_EIGEN_VERSION AND NOT CONAN_EIGEN_VERSION STREQUAL "")
+    set(_conan_eigen_version "${CONAN_EIGEN_VERSION}")
+else()
+    set(_conan_eigen_version "auto")
+endif()
+
 set(_conan_install_fingerprint
-    "conanfile=${_conan_conanfile_hash};build_type=${_conan_build_type};cppstd=${_conan_cppstd};enable_testing=${_conan_enable_testing};generator=${CMAKE_GENERATOR};platform=${CMAKE_GENERATOR_PLATFORM};toolset=${CMAKE_GENERATOR_TOOLSET}")
+    "conanfile=${_conan_conanfile_hash};build_type=${_conan_build_type};cppstd=${_conan_cppstd};enable_testing=${_conan_enable_testing};eigen_version=${_conan_eigen_version};generator=${CMAKE_GENERATOR};platform=${CMAKE_GENERATOR_PLATFORM};toolset=${CMAKE_GENERATOR_TOOLSET}")
 
 set(_conan_real_toolchain
     "${_conan_output_dir}/build/${_conan_build_type}/generators/conan_toolchain.cmake")
@@ -143,7 +149,9 @@ set(_conan_install_command
     -s
     "build_type=${_conan_build_type}"
     -o
-    "&:enable_testing=${_conan_enable_testing}")
+    "&:enable_testing=${_conan_enable_testing}"
+    -o
+    "&:eigen_version=${_conan_eigen_version}")
 
     if(WIN32)
         set(_conan_arch "x86_64")

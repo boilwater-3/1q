@@ -147,6 +147,23 @@ target_link_libraries(esr_engine PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(esr_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(eos_engine PRIVATE flatbuffers::flatbuffers)
 target_link_libraries(eos_core PRIVATE flatbuffers::flatbuffers)
+target_link_libraries(sar_core PRIVATE flatbuffers::flatbuffers)
+
+# ── SAR HDF5 输出(可选, 默认 OFF) ──
+if(ONEQ_ENABLE_HDF5_OUTPUT)
+  find_package(HighFive CONFIG REQUIRED)
+  message(STATUS "SAR HDF5 output: ENABLED (HighFive found)")
+  if(TARGET sar_engine)
+    target_link_libraries(sar_engine PRIVATE HighFive::HighFive)
+    target_compile_definitions(sar_engine PRIVATE ONEQ_ENABLE_HDF5_OUTPUT)
+  endif()
+else()
+  message(STATUS "SAR HDF5 output: disabled (ONEQ_ENABLE_HDF5_OUTPUT=OFF)")
+endif()
+
+if(TARGET sar_engine)
+  target_link_libraries(sar_engine PRIVATE Eigen3::Eigen)
+endif()
 
 # flight_dynamic 模块依赖 JSBSim 飞行动力学引擎。
 target_link_libraries(fd_engine PRIVATE JSBSim::JSBSim)

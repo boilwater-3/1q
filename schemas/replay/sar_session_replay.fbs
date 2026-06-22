@@ -1,0 +1,91 @@
+// sar_session_replay.fbs
+// SAR 模块 replay FlatBuffers schema：session_config 与 runtime_config_patch 载荷。
+//
+// file_identifier: SARS (SAR Session)
+
+namespace sar.replay;
+
+table SarHardwareConfig {
+  carrier_frequency_hz: double;
+  bandwidth_hz: double;
+  pulse_width_s: double;
+  pulse_repetition_frequency_hz: double;
+  sample_rate_hz: double;
+  peak_power_w: double;
+  antenna_length_m: double;
+  antenna_width_m: double;
+  antenna_gain_db: double;
+  receiver_noise_figure_db: double;
+  system_loss_db: double;
+}
+
+table SarWaypointConfig {
+  time_from_session_start_s: double;
+  latitude_deg: double;
+  longitude_deg: double;
+  altitude_m: double;
+}
+
+table SarMissionConfig {
+  scene_center_latitude_deg: double;
+  scene_center_longitude_deg: double;
+  scene_center_altitude_m: double;
+  nominal_slant_range_m: double;
+  synthetic_aperture_time_s: double;
+  platform_speed_mps: double;
+  range_sample_count: uint32;
+  azimuth_pulse_count: uint32;
+  desired_ground_range_resolution_m: double;
+  desired_azimuth_resolution_m: double;
+  l2_velocity_error_stddev_x_mps: double;
+  l2_velocity_error_stddev_y_mps: double;
+  l2_velocity_error_stddev_z_mps: double;
+  l2_random_seed: uint32;
+  l3_waypoints: [SarWaypointConfig];
+}
+
+table SarPolicyConfig {
+  enable_raw_echo_generation: bool;
+  enable_range_compression: bool;
+  enable_l1_rda_imaging: bool;
+  enable_diagnostics: bool;
+  retain_raw_phase_history: bool;
+  retain_focused_image: bool;
+  max_allowed_squint_angle_deg: double;
+  min_valid_snr_db: double;
+  enable_l2_motion_compensation: bool;
+  enable_l3_bp_imaging: bool;
+}
+
+table SarEnvironmentConfig {
+  terrain_reference_altitude_m: double;
+  atmospheric_loss_db_per_km: double;
+  surface_backscatter_sigma0_db: double;
+  use_flat_earth_geometry: bool;
+  enable_atmospheric_attenuation: bool;
+}
+
+table SarSessionConfig {
+  hardware: SarHardwareConfig;
+  mission: SarMissionConfig;
+  policy: SarPolicyConfig;
+  environment: SarEnvironmentConfig;
+}
+
+root_type SarSessionConfig;
+file_identifier "SARS";
+
+table SarRuntimeConfigPatch {
+  has_enable_raw_echo_generation: bool;
+  enable_raw_echo_generation: bool;
+  has_enable_range_compression: bool;
+  enable_range_compression: bool;
+  has_enable_l1_rda_imaging: bool;
+  enable_l1_rda_imaging: bool;
+  has_retain_raw_phase_history: bool;
+  retain_raw_phase_history: bool;
+  has_retain_focused_image: bool;
+  retain_focused_image: bool;
+  has_min_valid_snr_db: bool;
+  min_valid_snr_db: double;
+}

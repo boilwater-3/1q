@@ -37,10 +37,14 @@ class OneQConan(ConanFile):
 
     options = {
         "enable_testing": [True, False],
+        "enable_hdf5": [True, False],
+        "eigen_version": ["auto", "3.3.9", "3.4.0"],
     }
 
     default_options = {
         "enable_testing": False,
+        "enable_hdf5": False,
+        "eigen_version": "auto",
         # 显式固定第三方链接形态，避免依赖 recipe 默认值导致构建行为漂移。
         "spdlog/*:shared": False,
         "fmt/*:shared": False,
@@ -70,7 +74,8 @@ class OneQConan(ConanFile):
     def requirements(self):
         deps = self._base_deps()
 
-        self.requires(deps["eigen"])
+        eigen_version = str(self.options.eigen_version)
+        self.requires(deps["eigen"] if eigen_version == "auto" else f"eigen/{eigen_version}")
         self.requires(deps["boost"])
         self.requires(deps["nanoflann"])
         self.requires(deps["flatbuffers"])
@@ -82,6 +87,10 @@ class OneQConan(ConanFile):
             self.requires(_LOG_DEPS_NON_WINDOWS["fmt"], override=True)
             # macOS 开发使用 conan 预编译的 JSBSim（Windows/VS2015 从 third_party 源码构建）
             self.requires(_JSBSIM_DEPS_NON_WINDOWS["jsbsim"])
+
+            # SAR HDF5 输出(可选, 默认 OFF)
+            if self.options.enable_hdf5:
+                self.requires("highfive/2.10.0")
 
     def build_requirements(self):
         if self.options.enable_testing:

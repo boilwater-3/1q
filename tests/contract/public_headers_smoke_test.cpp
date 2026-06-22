@@ -107,6 +107,20 @@
 #include "1q/foundation/atmospheric_types.h"
 #include "1q/foundation/pose_types.h"
 #include "1q/foundation/scan_schedule_types.h"
+#include "1q/sar/config/SarEnvironmentConfig.h"
+#include "1q/sar/config/SarHardwareConfig.h"
+#include "1q/sar/config/SarMissionConfig.h"
+#include "1q/sar/config/SarPolicyConfig.h"
+#include "1q/sar/config/SarRuntimeConfigPatch.h"
+#include "1q/sar/config/SarSessionConfig.h"
+#include "1q/sar/config/sar_config.hpp"
+#include "1q/sar/sar.hpp"
+#include "1q/sar/session/SarCycleInput.h"
+#include "1q/sar/session/SarCycleResult.h"
+#include "1q/sar/session/SarReplaySession.h"
+#include "1q/sar/session/SarSession.h"
+#include "1q/sar/session/SarSessionFactory.h"
+#include "1q/sar/session/SarTraceSession.h"
 #include "1q/trace/TraceSink.h"
 
 using ArSession = airborne_radar::session::RadarSession;
@@ -151,9 +165,10 @@ static_assert(
                      std::declval<airborne_radar::extension::RadarController&>()))>::value,
     "RadarSessionFactory::CreateWithController must return RadarSession");
 
-static_assert(!std::is_constructible<electronic_surveillance_radar::session::EsrSession,
-                                     electronic_surveillance_radar::config::EsrSessionConfig>::value,
-              "EsrSession direct construction must be disabled");
+static_assert(
+    !std::is_constructible<electronic_surveillance_radar::session::EsrSession,
+                           electronic_surveillance_radar::config::EsrSessionConfig>::value,
+    "EsrSession direct construction must be disabled");
 
 static_assert(!std::is_constructible<electro_optical_sensor::session::EosSession,
                                      electro_optical_sensor::config::EosSessionConfig>::value,
@@ -180,6 +195,14 @@ static_assert(
             std::declval<const electro_optical_sensor::config::EosSessionConfig&>(),
             std::declval<electro_optical_sensor::environment::IEosEnvironmentService&>()))>::value,
     "EosSessionFactory::CreateWithEnvironmentService must return EosSession");
+
+static_assert(
+    !std::is_constructible<sar::session::SarSession, sar::config::SarSessionConfig>::value,
+    "SarSession direct construction must be disabled");
+static_assert(std::is_same<sar::session::SarSession,
+                           decltype(sar::session::SarSessionFactory::Create(
+                               std::declval<const sar::config::SarSessionConfig&>()))>::value,
+              "SarSessionFactory::Create must return SarSession");
 
 namespace airborne_radar {
 namespace {
@@ -454,3 +477,82 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
 
 }  // namespace
 }  // namespace electro_optical_sensor
+
+namespace sar {
+namespace {
+
+TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
+  config::SarSessionConfig session_config;
+  session_config.hardware.carrier_frequency_hz = 1.0e9;
+  session_config.hardware.bandwidth_hz = 25.0e6;
+  session_config.hardware.pulse_width_s = 0.16e-6;
+  session_config.hardware.pulse_repetition_frequency_hz = 20.0;
+  session_config.hardware.sample_rate_hz = 100.0e6;
+  session_config.mission.nominal_slant_range_m = 29.9792458;
+  session_config.mission.platform_speed_mps = 2.0;
+  session_config.mission.range_sample_count = 64U;
+  session_config.mission.azimuth_pulse_count = 9U;
+  session_config.policy.enable_l1_rda_imaging = true;
+  EXPECT_FALSE(session_config.policy.enable_l2_motion_compensation);
+  EXPECT_FALSE(session_config.policy.enable_l3_bp_imaging);
+  EXPECT_DOUBLE_EQ(session_config.mission.l2_velocity_error_stddev_y_mps, 0.0);
+  config::SarWaypointConfig waypoint;
+  waypoint.time_from_session_start_s = 0.0;
+  session_config.mission.l3_waypoints.push_back(waypoint);
+  EXPECT_EQ(session_config.mission.l3_waypoints.size(), 1U);
+  EXPECT_EQ(session_config.mission.range_sample_count, 64U);
+
+  session::SarCycleInput input;
+  input.cycle_index = 8U;
+  input.dt_sec = 0.5;
+  input.platform.altitude_m = 0.0;
+  session::SarPointTarget target;
+  target.latitude_deg = 29.9792458 / 6378137.0 * 180.0 / 3.14159265358979323846;
+  target.longitude_deg = 0.0;
+  target.radar_cross_section_dbsm = 80.0;
+  input.point_targets.push_back(target);
+  session::SarRawIqFrame raw_iq;
+  raw_iq.pulse_count = 1U;
+  raw_iq.samples_per_pulse = 1U;
+  raw_iq.i_values.push_back(1.0);
+  raw_iq.q_values.push_back(0.0);
+  session::SarRawIqFrame::PulseState pulse_state;
+  pulse_state.pulse_id = 0U;
+  raw_iq.pulse_states.push_back(pulse_state);
+  raw_iq.ideal_pulse_states.push_back(pulse_state);
+  EXPECT_EQ(raw_iq.i_values.size(), 1U);
+  EXPECT_EQ(raw_iq.pulse_states.size(), 1U);
+  EXPECT_EQ(raw_iq.ideal_pulse_states.size(), 1U);
+
+  session::SarSession session = session::SarSessionFactory::Create(session_config);
+  config::SarRuntimeConfigPatch patch;
+  patch.has_retain_raw_phase_history = true;
+  patch.retain_raw_phase_history = true;
+  EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
+
+  const session::SarCycleResult result = session.StepWithResult(input);
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.reused_previous_output);
+  EXPECT_EQ(result.output_frame.range_sample_count, 64U);
+  EXPECT_TRUE(result.output_frame.has_raw_echo);
+  EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
+  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_FALSE(result.output_frame.has_l3_bp_image);
+  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_EQ(result.focused_image.row_count, 9U);
+  EXPECT_EQ(result.focused_image.column_count, 64U);
+  EXPECT_EQ(result.focused_image.real_values.size(), 9U * 64U);
+  EXPECT_EQ(result.focused_image.imaginary_values.size(), 9U * 64U);
+  EXPECT_FALSE(result.focused_image.is_placeholder);
+
+  session::SarTraceSession trace_session(session::SarSessionFactory::Create(session_config));
+  const session::SarCycleResult trace_result = trace_session.StepWithResult(input);
+  EXPECT_TRUE(trace_result.executed_this_cycle);
+
+  session::SarReplaySession replay_session(session::SarSessionFactory::Create(session_config));
+  const session::SarCycleResult replay_result = replay_session.StepWithResult(input);
+  EXPECT_TRUE(replay_result.executed_this_cycle);
+}
+
+}  // namespace
+}  // namespace sar

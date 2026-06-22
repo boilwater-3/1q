@@ -7,6 +7,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/airborne_radar/CMakeLists.txt)
 include(${CMAKE_CURRENT_SOURCE_DIR}/electronic_surveillance_radar/CMakeLists.txt)
 include(${CMAKE_CURRENT_SOURCE_DIR}/electro_optical_sensor/CMakeLists.txt)
 include(${CMAKE_CURRENT_SOURCE_DIR}/flight_dynamic/CMakeLists.txt)
+include(${CMAKE_CURRENT_SOURCE_DIR}/sar/CMakeLists.txt)
 
 # --- OBJECT 库 ---
 add_library(airborne_engine OBJECT ${AIRBORNE_ENGINE_SOURCES})
@@ -16,6 +17,10 @@ add_library(esr_core OBJECT ${ESR_CORE_SOURCES})
 add_library(eos_engine OBJECT ${EOS_ENGINE_SOURCES})
 add_library(eos_core OBJECT ${EOS_CORE_SOURCES})
 add_library(fd_engine OBJECT ${FD_ENGINE_SOURCES})
+add_library(sar_core OBJECT ${SAR_CORE_SOURCES})
+if(SAR_ENGINE_SOURCES)
+  add_library(sar_engine OBJECT ${SAR_ENGINE_SOURCES})
+endif()
 if(FD_CORE_SOURCES)
   add_library(fd_core OBJECT ${FD_CORE_SOURCES})
 endif()
@@ -28,7 +33,12 @@ set(ONEQ_OBJECT_TARGETS
     eos_engine
     eos_core
     fd_engine
+    sar_core
 )
+
+if(TARGET sar_engine)
+  list(APPEND ONEQ_OBJECT_TARGETS sar_engine)
+endif()
 
 if(TARGET fd_core)
   list(APPEND ONEQ_OBJECT_TARGETS fd_core)
@@ -43,7 +53,12 @@ set(PROJECT_SOURCES
     $<TARGET_OBJECTS:eos_engine>
     $<TARGET_OBJECTS:eos_core>
     $<TARGET_OBJECTS:fd_engine>
+    $<TARGET_OBJECTS:sar_core>
 )
+
+if(TARGET sar_engine)
+  list(APPEND PROJECT_SOURCES $<TARGET_OBJECTS:sar_engine>)
+endif()
 
 if(TARGET fd_core)
   list(APPEND PROJECT_SOURCES $<TARGET_OBJECTS:fd_core>)

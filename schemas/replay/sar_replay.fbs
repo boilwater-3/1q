@@ -1,0 +1,76 @@
+// sar_replay.fbs
+// SAR 模块 replay FlatBuffers schema：cycle_input 与 cycle_output 载荷。
+//
+// file_identifier: SARC (SAR Cycle)
+
+namespace sar.replay;
+
+table SarPlatformState {
+  time_s: double;
+  latitude_deg: double;
+  longitude_deg: double;
+  altitude_m: double;
+  velocity_north_mps: double;
+  velocity_east_mps: double;
+  velocity_down_mps: double;
+  roll_deg: double;
+  pitch_deg: double;
+  yaw_deg: double;
+}
+
+table SarPointTarget {
+  latitude_deg: double;
+  longitude_deg: double;
+  altitude_m: double;
+  radar_cross_section_dbsm: double;
+}
+
+table SarCycleInput {
+  cycle_index: uint32;
+  dt_sec: double;
+  platform: SarPlatformState;
+  point_targets: [SarPointTarget];
+}
+
+root_type SarCycleInput;
+file_identifier "SARC";
+
+table SarOutputFrame {
+  cycle_index: uint32;
+  completed_stage: int32;
+  range_sample_count: uint32;
+  azimuth_pulse_count: uint32;
+  center_slant_range_m: double;
+  estimated_snr_db: double;
+  phase_reference_mode: int32;
+  image_quality_mainlobe_method: int32;
+  range_width_3db_bins: double;
+  azimuth_width_3db_bins: double;
+  range_resolution_3db_m: double;
+  azimuth_resolution_3db_m: double;
+  image_entropy_nats: double;
+  image_contrast: double;
+  has_raw_echo: bool;
+  has_range_compressed_echo: bool;
+  has_l1_image: bool;
+  has_l3_bp_image: bool;
+  has_image_quality_metrics: bool;
+  image_resolution_m_valid: bool;
+  phase_reference_applied: bool;
+}
+
+table SarDiagnosticIssue {
+  severity: int32;
+  code: string;
+  message: string;
+}
+
+table SarCycleResult {
+  input_cycle_index: uint32;
+  output_frame: SarOutputFrame;
+  diagnostics: [SarDiagnosticIssue];
+  has_error: bool;
+  executed_this_cycle: bool;
+  reused_previous_output: bool;
+  abort_reason: string;
+}
