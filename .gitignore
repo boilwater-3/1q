@@ -23,6 +23,7 @@ imgui.ini
 
 # Local docs
 doc/
+docs/
 
 # Planning workspace (not tracked)
 plan/
@@ -41,6 +42,7 @@ progress.md
 GEMINI.md
 AGENTS.md
 CLAUDE.md
+.claude/skills/debug-cpp-bug/
 
 # JSBSim output side effects
 JSBout*.csv
@@ -54,9 +56,11 @@ JSBout*.csv
 *.dll
 *.exe
 
-# Vendored third-party dependencies (offline build — only CMakeLists tracked)
-third_party/*
-!third_party/CMakeLists.txt
+# Vendored third-party dependencies
+third_party/
+
+# Local analysis artifacts
+jsbsim_aircraft_analysis.md
 
 # Submodules or embedded repos
 src/airborne_radar/signal/Stone-Soup/

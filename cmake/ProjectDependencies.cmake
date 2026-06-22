@@ -1,5 +1,5 @@
 # 第三方依赖加载与链接
-# Conan / vcpkg 通过 find_package 获取；vendor 模式通过 add_subdirectory 构建内置依赖。
+# Conan / vcpkg 通过 find_package 获取；third_party 不进入仓库。
 
 # -- JSBSim (macOS 通过 Conan 获取；Windows 从 third_party 源码构建) --
 # ONEQ_JSBSIM_FROM_SOURCE: 即使 Conan 可用，也从 third_party 源码构建 JSBSim。
@@ -100,16 +100,9 @@ if(PACKAGE_MANAGER STREQUAL "conan" OR PACKAGE_MANAGER STREQUAL "vcpkg")
     endif()
     find_package(ZLIB REQUIRED)
 else()
-    if(WIN32)
-        set(PROJECT_ENABLE_SPDLOG OFF)
-    else()
-        set(PROJECT_ENABLE_SPDLOG ON)
-    endif()
-    find_package(ZLIB QUIET)
-    if(NOT ZLIB_FOUND)
-        set(ONEQ_VENDOR_ZLIB ON)
-    endif()
-    add_subdirectory(${CMAKE_SOURCE_DIR}/third_party ${CMAKE_BINARY_DIR}/third_party)
+    message(FATAL_ERROR
+        "PACKAGE_MANAGER=none is unsupported because third_party is not tracked. "
+        "Use PACKAGE_MANAGER=conan or PACKAGE_MANAGER=vcpkg.")
 endif()
 set(ONEQ_HAVE_ZLIB ON)
 
