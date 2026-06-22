@@ -1,36 +1,23 @@
 # sar 模块源文件与安装清单
 
 # -- engine: 信号处理、几何、回波、成像与输出内核 -----------------------------
+# 注：CSA / Omega-K / 自适应选择（Auto, SarFocusingSelector）/ 辐射定标
+# （SarRadiometricCalibration）已标注【未进行设计需求，不再扩展】，相关源文件
+# 不再纳入构建；如需恢复，参见 git 历史。
 set(SAR_ENGINE_SOURCES
-    sar/calibration/SarRadiometricCalibration.cpp
     sar/echo/SarEcho.cpp
+    sar/geometry/SarAntenna.cpp
     sar/geometry/SarGeometry.cpp
     sar/imaging/SarAutofocusPhaseTruth.cpp
-    sar/imaging/SarCsaGeometry.cpp
-    sar/imaging/SarCsaIntermediateTruth.cpp
     sar/imaging/SarGbp.cpp
-    sar/imaging/SarFocusingSelector.cpp
     sar/imaging/SarImageQuality.cpp
     sar/imaging/SarMotionCompensation.cpp
-    sar/imaging/SarOmegaKCommonSupport.cpp
-    sar/imaging/SarOmegaKAzimuthInverseTransform.cpp
-    sar/imaging/SarOmegaKGeometry.cpp
-    sar/imaging/SarOmegaKGridReduction.cpp
-    sar/imaging/SarOmegaKPointTargetAcceptance.cpp
-    sar/imaging/SarOmegaKReducedRangeAxis.cpp
-    sar/imaging/SarOmegaKReferenceMapping.cpp
-    sar/imaging/SarOmegaKReferencePhaseCompensation.cpp
-    sar/imaging/SarOmegaKRelativeDelayTransform.cpp
-    sar/imaging/SarOmegaKStoltInterpolation.cpp
-    sar/imaging/SarOmegaKTruthManifest.cpp
-    sar/imaging/SarOmegaKTruthIngestion.cpp
-    sar/imaging/SarOmegaKTruthEligibility.cpp
-    sar/imaging/SarOmegaKTruthEvaluationOrchestrator.cpp
-    sar/imaging/SarOmegaKTruthPayloadDigest.cpp
+    sar/imaging/SarPhaseReference.cpp
     sar/imaging/SarPgaSupportGradientTruth.cpp
     sar/imaging/SarPgaPhaseGradientEstimator.cpp
     sar/imaging/SarPgaGradientTruthComparison.cpp
     sar/imaging/SarRda.cpp
+    sar/output/ImageFormatter.cpp
     sar/imaging/SarSlowTimeResampling.cpp
     sar/imaging/SarSlowTimeResamplingExecutor.cpp
     sar/runtime/PulseRingBuffer.cpp
