@@ -25,6 +25,8 @@ set(SAR_CORE_SOURCES
     sar/session/SarRawHistoryBuilder.cpp
     sar/session/SarReplayFlatbufferCodec.cpp
     sar/session/SarRuntimeConfigValidation.cpp
+    sar/session/SarFocusedImageAssembler.cpp
+    sar/session/SarImagingExecutor.cpp
     sar/session/SarSession.cpp
     sar/session/SarTraceSession.cpp
     sar/session/SarReplaySession.cpp
