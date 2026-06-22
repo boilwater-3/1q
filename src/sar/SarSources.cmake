@@ -22,6 +22,7 @@ set(SAR_ENGINE_SOURCES
 )
 
 set(SAR_CORE_SOURCES
+    sar/session/SarDiagnosticUtils.cpp
     sar/session/SarRawHistoryBuilder.cpp
     sar/session/SarReplayFlatbufferCodec.cpp
     sar/session/SarRuntimeConfigValidation.cpp
@@ -30,4 +31,14 @@ set(SAR_CORE_SOURCES
     sar/session/SarSession.cpp
     sar/session/SarTraceSession.cpp
     sar/session/SarReplaySession.cpp
+)
+
+set(SAR_CXX11_COMPAT_SOURCES
+    ${SAR_ENGINE_SOURCES}
+    sar/session/SarDiagnosticUtils.cpp
+    sar/session/SarRuntimeConfigValidation.cpp
+    sar/session/SarRawHistoryBuilder.cpp
+    sar/session/SarFocusedImageAssembler.cpp
+    sar/session/SarImagingExecutor.cpp
+    sar/session/SarSession.cpp
 )

@@ -227,6 +227,21 @@ TEST(SarSessionPipelineTest, MinValidSnrRejectsApertureBelowThreshold) {
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.snr_below_minimum", "below"));
 }
 
+TEST(SarSessionPipelineTest, EmptySceneDoesNotTripMinSnrGate) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarCycleInput input = MakeInput();
+  input.point_targets.clear();
+
+  const session::SarCycleResult result = session.StepWithResult(input);
+
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.has_error);
+  EXPECT_TRUE(result.output_frame.has_raw_echo);
+  EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_EQ(result.output_frame.estimated_snr_db, -std::numeric_limits<double>::infinity());
+}
+
 TEST(SarSessionPipelineTest, RawPulseHistoryUsesCrossCycleRingBuffer) {
   session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
 

@@ -140,7 +140,10 @@ src/sar/
 ├── calibration/ (冻结:SarRadiometricCalibration.{h,cpp})
 ├── output/   ImageFormatter.{h,cpp}(批次5)
 ├── runtime/  PulseRingBuffer.{h,cpp}
-└── session/  SarSession  SarTraceSession  SarReplaySession  SarReplayFlatbufferCodec  generated/
+└── session/  SarSession(调度骨架)  SarRawHistoryBuilder  SarRuntimeConfigValidation
+              SarImagingExecutor  SarFocusedImageAssembler  SarTraceSession
+              SarReplaySession  SarReplayFlatbufferCodec  generated/
+              (SarSources.cmake 集中维护源清单,供生产目标与合同测试复用)
 
 tests/
 ├── unit/        sar_*.cpp(GLOB_RECURSE 自动收集)
@@ -158,7 +161,7 @@ examples/sar/    session_usage.cpp
 
 设计初稿(`sar_types.h`)曾定义 `FocusingAlgorithm` / `PhaseReferenceMode` / `MainlobeEstimationMethod` / `TrajectoryFidelity` / `SarSimulationConfig` 等公共枚举与单体配置。**实施时该层被废弃**,改为:
 
-- 公共对外**不暴露算法选择枚举**,改由 `SarPolicyConfig` 的一组布尔开关表达(`enable_l1_rda_imaging`、`enable_l3_bp_imaging`、`enable_range_compression` 等)。
+- 公共对外**不暴露算法选择枚举**,改由 `SarPolicyConfig` 的一组布尔开关表达(`enable_l1_rda_imaging`、`enable_l3_bp_imaging`、`enable_range_compression` 等)。其中 `enable_range_compression` 当前 Phase 1 不产出独立可消费的距离压缩产物,真实距离压缩在 RDA / BP 内部完成;该开关作为 L3 BP 的前置条件门(参见 `l3_bp_session_integration` 契约),并在启用时触发 `SarProcessingStage::kRangeCompression` 阶段标记与 `has_range_compressed_echo` 摘要(前置条件摘要,非独立输出载荷)。语义详见 `SarPolicyConfig.h` / `SarCycleResult.h` 注释。
 - 保真度分级不再有公共枚举,由 `SarMissionConfig` 的 `l2_*`、`l3_waypoints` 字段隐式表达。
 - 等价枚举仅存在于内部 `src/sar/imaging/SarFocusingSelector.h`(`RecommendedFocusingAlgorithm`、`SelectorTrajectoryFidelity`),且该选择器已被冻结(见孤儿文件)。
 - 单体 `SarSimulationConfig` 被**四域配置**(`SarHardwareConfig` + `SarMissionConfig` + `SarPolicyConfig` + `SarEnvironmentConfig`)取代。
@@ -180,7 +183,7 @@ examples/sar/    session_usage.cpp
 
 ### SarFocusedImage 数据形态
 
-聚焦复图像在公共层以**实/虚双 `std::vector<double>`** 拆分行主序存储(`index = row*column_count + col`),非 `vector<complex<double>>`、非 Eigen。`SarPolicyConfig::retain_focused_image=false` 时 `is_placeholder=true`,实虚数组为空,仅形状有效,用于避免大图拷贝;该策略可通过 `SarRuntimeConfigPatch` 运行期切换,并已纳入 session replay 配置 schema。内部计算态用 `sar::signal::ComplexMatrix`,`SarSession` 内部 `ExportFocusedImage` 负责按策略导出。
+聚焦复图像在公共层以**实/虚双 `std::vector<double>`** 拆分行主序存储(`index = row*column_count + col`),非 `vector<complex<double>>`、非 Eigen。`SarPolicyConfig::retain_focused_image=false` 时 `is_placeholder=true`,实虚数组为空,仅形状有效,用于避免大图拷贝;该策略可通过 `SarRuntimeConfigPatch` 运行期切换,并已纳入 session replay 配置 schema。内部计算态用 `sar::signal::ComplexMatrix`;按策略导出的 `ExportFocusedImage`/`CopyFocusedImage` 由 `SarImagingExecutor` 持有(`SarSession` 仅编排,不再直接负责导出)。
 
 ---
 
@@ -444,7 +447,7 @@ CSA、Omega-K、`SarFocusingSelector`(Auto 选择)均完整实现但被冻结排
 - 全部用 `TEST`(无 `TEST_F`),工厂函数构造场景,`EXPECT_NEAR` 按场景缩放容差,确定性随机用固定整数 seed(2026)。
 - 覆盖:LFM 波形(采样/调频斜率/瞬时频率单调)、匹配滤波(`h[n]=s*[N-1-n]`)、脉冲压缩(3dB/20dB 主瓣 + PSLR/ISLR)、斜距(解析 vs 采样)、多普勒参数、脉冲环形缓冲区(覆盖/连续 pulse_id/跨步长/分数累积)、相位重参考(跨算法对齐)。
 - 补齐测试(随批次):`sar_window_function_test`、`sar_geometry_model_test`、`sar_echo_clutter_test`、`sar_antenna_pattern_test`、`sar_image_output_test`。
-- 新增库源文件须显式加入 `src/sar/CMakeLists.txt` 的 `SAR_ENGINE_SOURCES`;测试源无需改 CMake。
+- 新增库源文件须显式加入 `src/sar/SarSources.cmake` 的 `SAR_ENGINE_SOURCES`(engine 层)或 `SAR_CORE_SOURCES`(session 层);`src/sar/CMakeLists.txt` 仅 `include()` 该 manifest,不再持有源列表;测试源无需改 CMake。
 
 ### 集成测试
 
@@ -468,7 +471,7 @@ CSA、Omega-K、`SarFocusingSelector`(Auto 选择)均完整实现但被冻结排
 
 ## 孤儿文件状态
 
-下列文件均有实质实现,但被 `src/sar/CMakeLists.txt` 的 `SAR_ENGINE_SOURCES` 排除,且无任何已构建目标引用、无对应测试、公共入口 `sar.hpp` 不暴露。它们相互 include 形成内部闭环,对外完全孤立。**处置策略:不动代码,仅文档记录状态**(保留可恢复性,符合"不再扩展"而非"删除"的原始决策)。
+下列文件均有实质实现,但被 `src/sar/SarSources.cmake` 的 `SAR_ENGINE_SOURCES` / `SAR_CORE_SOURCES` 排除,且无任何已构建目标引用、无对应测试、公共入口 `sar.hpp` 不暴露。它们相互 include 形成内部闭环,对外完全孤立。**处置策略:不动代码,仅文档记录状态**(保留可恢复性,符合"不再扩展"而非"删除"的原始决策)。
 
 | 文件 / 文件组 | 实现深度 | 备注 |
 |---|---|---|
@@ -477,7 +480,7 @@ CSA、Omega-K、`SarFocusingSelector`(Auto 选择)均完整实现但被冻结排
 | `SarFocusingSelector` | 完整:L1/L2/L3 × 3 目的路由(刻意不含 CSA/OmegaK 选项) | 设计标注 Auto【不扩展】 |
 | `SarRadiometricCalibration` | 完整:单/多目标定标 + RCS 反演 + 误差评估 + 执行流水线 | API 与设计初稿分叉;设计标注【不扩展】 |
 
-**风险提示**:这些是"写完后被冻结的完整实现"。若误把它们加回 `SAR_ENGINE_SOURCES`,会突破 v2.1 的冻结决策。恢复任一项前须先重开设计审批。
+**风险提示**:这些是"写完后被冻结的完整实现"。若误把它们加回 `src/sar/SarSources.cmake`,会突破 v2.1 的冻结决策。恢复任一项前须先重开设计审批。`tests/contract/check_sar_frozen_sources.cmake` 合同测试会拦截这类误注册。
 
 ---
 
@@ -490,7 +493,7 @@ CSA、Omega-K、`SarFocusingSelector`(Auto 选择)均完整实现但被冻结排
 
 ---
 
-*文档版本: v2.2*
+*文档版本: v2.3*
 *创建日期: 2026-06-04*
 *更新日期: 2026-06-22*
-*变更摘要: v2.2 删除全部 C++ 代码段,改为 struct 字段表 + 自由函数清单的描述性形态;对齐实际架构(自由函数+POD、`sar::{signal,geometry,echo,imaging,output}` 子命名空间、四域配置取代 `SarSimulationConfig`);新增「实施状态总览」「架构约定」「孤儿文件状态」章节;记录 6 个待补模块(窗函数/斜距/多普勒/杂波/天线/输出)的实施计划与目标 API;补充相位重参考和成像质量评估的 public 标量摘要闭环、测试覆盖边界与剩余产品 QA 缺口;记录 `retain_focused_image` 的公共结果导出策略。v2.1 已将 CSA、Omega-K、自适应选择(Auto)与辐射定标标注为【未进行设计需求,不再扩展】。*
+*变更摘要: v2.3 同步阶段 4-5 拆分结果:源清单引用由 `CMakeLists.txt` 更正为 `SarSources.cmake`(含 `SAR_ENGINE_SOURCES`/`SAR_CORE_SOURCES` 双清单);session 目录树补全 `SarRawHistoryBuilder`/`SarRuntimeConfigValidation`/`SarImagingExecutor`/`SarFocusedImageAssembler`;`ExportFocusedImage` 归属由 `SarSession` 更正为 `SarImagingExecutor`;补充 `enable_range_compression`/`kRangeCompression` 语义说明(前置条件门,非独立输出);孤儿文件章节补充 `sar_frozen_sources` 合同护栏。v2.2 删除全部 C++ 代码段,改为 struct 字段表 + 自由函数清单的描述性形态;对齐实际架构(自由函数+POD、`sar::{signal,geometry,echo,imaging,output}` 子命名空间、四域配置取代 `SarSimulationConfig`);新增「实施状态总览」「架构约定」「孤儿文件状态」章节;记录 6 个待补模块(窗函数/斜距/多普勒/杂波/天线/输出)的实施计划与目标 API;补充相位重参考和成像质量评估的 public 标量摘要闭环、测试覆盖边界与剩余产品 QA 缺口;记录 `retain_focused_image` 的公共结果导出策略。v2.1 已将 CSA、Omega-K、自适应选择(Auto)与辐射定标标注为【未进行设计需求,不再扩展】。*

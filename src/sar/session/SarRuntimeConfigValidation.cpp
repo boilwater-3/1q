@@ -2,7 +2,8 @@
 
 #include <cmath>
 #include <cstdint>
-#include <string>
+
+#include "sar/session/SarDiagnosticUtils.h"
 
 namespace sar {
 namespace session {
@@ -12,16 +13,6 @@ namespace {
 constexpr std::uint32_t kMaxSessionRdaRangeSamples = 1024U;
 constexpr std::uint32_t kMaxSessionRdaPulses = 1024U;
 constexpr std::uint32_t kMaxSessionBpDimension = 128U;
-
-void RecordAbort(SarCycleResult* result, const std::string& tag, const std::string& message) {
-  result->has_error = true;
-  result->abort_reason = tag;
-  SarDiagnosticIssue issue;
-  issue.severity = SarDiagnosticSeverity::kError;
-  issue.code = "sar." + tag;
-  issue.message = message;
-  result->diagnostics.push_back(issue);
-}
 
 bool HasValidL3Waypoints(const config::SarMissionConfig& mission) {
   if (mission.l3_waypoints.size() < 2U) {
@@ -98,4 +89,3 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
 
 }  // namespace session
 }  // namespace sar
-

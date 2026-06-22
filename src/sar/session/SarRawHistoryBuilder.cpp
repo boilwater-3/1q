@@ -12,6 +12,7 @@
 #include "sar/echo/SarEcho.h"
 #include "sar/geometry/SarGeometry.h"
 #include "sar/runtime/PulseRingBuffer.h"
+#include "sar/session/SarDiagnosticUtils.h"
 #include "sar/signal/SarWaveform.h"
 
 namespace sar {
@@ -20,27 +21,6 @@ namespace session {
 namespace {
 
 constexpr double kEarthRadiusM = 6378137.0;
-
-SarDiagnosticIssue MakeInfo(const char* code, const std::string& message) {
-  SarDiagnosticIssue issue;
-  issue.severity = SarDiagnosticSeverity::kInfo;
-  issue.code = code;
-  issue.message = message;
-  return issue;
-}
-
-// 记录结构化中止错误：设置 has_error、以 tag 作为 abort_reason、追加 code 为
-// "sar."+tag 的 Error 诊断。集中此三件套模式，确保 abort_reason 与 diagnostic code
-// 始终一致，避免散落字符串字面量产生拼写漂移。
-void RecordAbort(SarCycleResult* result, const std::string& tag, const std::string& message) {
-  result->has_error = true;
-  result->abort_reason = tag;
-  SarDiagnosticIssue issue;
-  issue.severity = SarDiagnosticSeverity::kError;
-  issue.code = "sar." + tag;
-  issue.message = message;
-  result->diagnostics.push_back(std::move(issue));
-}
 
 geometry::LocalPoint ToLocalPoint(double latitude_deg, double longitude_deg, double altitude_m,
                                   const config::SarMissionConfig& mission) {
@@ -156,10 +136,11 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
     }
     *ideal_pulses = *actual_pulses;
     result->diagnostics.push_back(
-        MakeInfo("sar.l3_trajectory",
-                 "SAR L3 waypoint trajectory generated=" + std::to_string(actual_pulses->size()) +
-                     ", first_time_s=" + std::to_string(actual_pulses->front().time_s) +
-                     ", last_time_s=" + std::to_string(actual_pulses->back().time_s)));
+        MakeInfoDiagnostic(
+            "sar.l3_trajectory",
+            "SAR L3 waypoint trajectory generated=" + std::to_string(actual_pulses->size()) +
+                ", first_time_s=" + std::to_string(actual_pulses->front().time_s) +
+                ", last_time_s=" + std::to_string(actual_pulses->back().time_s)));
   } else if (config.policy.enable_l2_motion_compensation && !ideal_pulses->empty()) {
     geometry::PerturbedStripmapTrackConfig l2_config;
     l2_config.ideal = track_config;
@@ -186,7 +167,7 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
       RecordAbort(result, "l2_track_generation_failed", "SAR failed to generate L2 trajectory.");
       return false;
     }
-    result->diagnostics.push_back(MakeInfo(
+    result->diagnostics.push_back(MakeInfoDiagnostic(
         "sar.l2_trajectory", "SAR L2 trajectory max_position_error_m=" +
                                  std::to_string(trajectory_diagnostics.max_position_error_m) +
                                  ", rms_position_error_m=" +
@@ -272,7 +253,7 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
   }
   if (config.policy.enable_l1_rda_imaging && !config.policy.enable_l2_motion_compensation &&
       (!input.raw_iq.pulse_states.empty() || !input.raw_iq.ideal_pulse_states.empty())) {
-    result->diagnostics.push_back(MakeInfo(
+    result->diagnostics.push_back(MakeInfoDiagnostic(
         "sar.external_raw_iq_trajectory_ignored",
         "External pulse states are ignored by L1 RDA when L2 motion compensation is disabled."));
   }
@@ -310,11 +291,12 @@ bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const Sar
   }
   *history = std::move(external_history);
   result->diagnostics.push_back(
-      MakeInfo("sar.external_raw_iq",
-               "SAR consumed external complete-aperture raw IQ pulses=" +
-                   std::to_string(input.raw_iq.pulse_count) +
-                   ", samples_per_pulse=" + std::to_string(input.raw_iq.samples_per_pulse) +
-                   (input.point_targets.empty() ? "." : "; point targets were ignored.")));
+      MakeInfoDiagnostic("sar.external_raw_iq",
+                         "SAR consumed external complete-aperture raw IQ pulses=" +
+                             std::to_string(input.raw_iq.pulse_count) +
+                             ", samples_per_pulse=" +
+                             std::to_string(input.raw_iq.samples_per_pulse) +
+                             (input.point_targets.empty() ? "." : "; point targets were ignored.")));
   return true;
 }
 
@@ -342,7 +324,7 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
 
   if (pulse_count_to_generate == 0U) {
     result->diagnostics.push_back(
-        MakeInfo("sar.pulse_ring_buffer", "SAR pulse ring buffer reused latest aperture."));
+        MakeInfoDiagnostic("sar.pulse_ring_buffer", "SAR pulse ring buffer reused latest aperture."));
   }
 
   std::vector<geometry::PlatformPulseState> ideal_pulses;
@@ -393,7 +375,7 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   }
 
   if (clipping_count > 0U) {
-    result->diagnostics.push_back(MakeInfo(
+    result->diagnostics.push_back(MakeInfoDiagnostic(
         "sar.raw_echo_clipping",
         "SAR raw echo clipping observed in " + std::to_string(clipping_count) + " pulses."));
   }
@@ -420,10 +402,11 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   }
 
   result->diagnostics.push_back(
-      MakeInfo("sar.pulse_ring_buffer",
-               "SAR pulse ring buffer size=" + std::to_string(pulse_buffer->size()) +
-                   ", generated=" + std::to_string(actual_pulses.size()) +
-                   ", overflow=" + (pulse_buffer->overflow_sticky() ? "true" : "false")));
+      MakeInfoDiagnostic("sar.pulse_ring_buffer",
+                         "SAR pulse ring buffer size=" + std::to_string(pulse_buffer->size()) +
+                             ", generated=" + std::to_string(actual_pulses.size()) +
+                             ", overflow=" +
+                             (pulse_buffer->overflow_sticky() ? "true" : "false")));
   return true;
 }
 

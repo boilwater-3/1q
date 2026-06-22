@@ -24,6 +24,8 @@ struct ONEQ_API SarRuntimeConfigPatch {
   bool has_enable_l1_rda_imaging{false};
   bool enable_l1_rda_imaging{false};
 
+  /// 保留字段补丁：当前 public result 不返回 raw phase history；应用该补丁仅保持
+  /// runtime/replay 配置保真，不改变本周期输出载荷。
   bool has_retain_raw_phase_history{false};
   bool retain_raw_phase_history{false};
 

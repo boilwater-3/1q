@@ -11,6 +11,7 @@
 #include "sar/imaging/SarImageQuality.h"
 #include "sar/imaging/SarMotionCompensation.h"
 #include "sar/imaging/SarRda.h"
+#include "sar/session/SarDiagnosticUtils.h"
 #include "sar/signal/SarWaveform.h"
 
 namespace sar {
@@ -19,27 +20,6 @@ namespace session {
 namespace {
 
 constexpr double kSpeedOfLightMps = 299792458.0;
-
-SarDiagnosticIssue MakeInfo(const char* code, const std::string& message) {
-  SarDiagnosticIssue issue;
-  issue.severity = SarDiagnosticSeverity::kInfo;
-  issue.code = code;
-  issue.message = message;
-  return issue;
-}
-
-// 记录结构化中止错误：设置 has_error、以 tag 作为 abort_reason、追加 code 为
-// "sar."+tag 的 Error 诊断。集中此三件套模式，确保 abort_reason 与 diagnostic code
-// 始终一致，避免散落字符串字面量产生拼写漂移。
-void RecordAbort(SarCycleResult* result, const std::string& tag, const std::string& message) {
-  result->has_error = true;
-  result->abort_reason = tag;
-  SarDiagnosticIssue issue;
-  issue.severity = SarDiagnosticSeverity::kError;
-  issue.code = "sar." + tag;
-  issue.message = message;
-  result->diagnostics.push_back(std::move(issue));
-}
 
 bool CopyFocusedImage(const signal::ComplexMatrix& source, SarFocusedImageSource image_source,
                       SarFocusedImage* output) {
@@ -115,7 +95,7 @@ bool ExecuteL1RdaImaging(const config::SarSessionConfig& config,
       RecordAbort(result, "motion_compensation_failed", "SAR L2 motion compensation failed.");
       return false;
     }
-    result->diagnostics.push_back(MakeInfo(
+    result->diagnostics.push_back(MakeInfoDiagnostic(
         "sar.motion_compensation",
         "SAR first-order motion compensation max_abs_range_error_m=" +
             std::to_string(compensation_diagnostics.max_abs_range_error_m) +
@@ -154,7 +134,7 @@ bool ExecuteL1RdaImaging(const config::SarSessionConfig& config,
   result->output_frame.has_image_quality_metrics = true;
   result->output_frame.image_resolution_m_valid = image.diagnostics.resolution_m_valid;
   result->output_frame.phase_reference_applied = image.diagnostics.phase_reference_applied;
-  result->diagnostics.push_back(MakeInfo(
+  result->diagnostics.push_back(MakeInfoDiagnostic(
       "sar.rda_peak",
       "SAR RDA peak index " + std::to_string(peak_index) +
           ", doppler_rate_hz_per_s=" + std::to_string(image.diagnostics.doppler_rate_hz_per_s) +
@@ -229,12 +209,13 @@ bool ExecuteL3BpImaging(const config::SarSessionConfig& config,
   result->output_frame.has_image_quality_metrics = quality.valid;
   result->output_frame.image_resolution_m_valid = false;
   result->output_frame.phase_reference_applied = false;
-  result->diagnostics.push_back(MakeInfo(
+  result->diagnostics.push_back(MakeInfoDiagnostic(
       "sar.bp_peak", "SAR BP peak_row=" + std::to_string(quality.peak_row) +
                          ", peak_col=" + std::to_string(quality.peak_col) +
                          ", image_entropy_nats=" + std::to_string(quality.entropy_nats)));
   result->diagnostics.push_back(
-      MakeInfo("sar.bp_traversal", "SAR BP traversal=" + image.diagnostics.traversal_order));
+      MakeInfoDiagnostic("sar.bp_traversal",
+                         "SAR BP traversal=" + image.diagnostics.traversal_order));
   result->output_frame.completed_stage = SarProcessingStage::kL3BpImage;
   result->output_frame.has_l3_bp_image = true;
   return true;

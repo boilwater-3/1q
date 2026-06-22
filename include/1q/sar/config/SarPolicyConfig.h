@@ -35,6 +35,7 @@ struct ONEQ_API SarPolicyConfig {
   /// 保留字段：当前 session 尚未实现 squint-angle runtime gate。
   double max_allowed_squint_angle_deg{5.0};
   /// 原始孔径峰均功率比估算 SNR 的最低有效门限，低于该值时本周期中止。
+  /// 全零/空孔径返回不可估计值，不触发该低 SNR 门控。
   double min_valid_snr_db{-10.0};
 };
 

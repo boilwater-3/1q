@@ -39,7 +39,8 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
                           std::deque<geometry::PlatformPulseState>* actual_trajectory_buffer,
                           SarCycleResult* result);
 
-// 基于峰均功率比估算 raw history 的 SNR（dB）；空矩阵或非有限值返回 -inf。
+// 基于峰均功率比估算 raw history 的启发式 SNR（dB）；空矩阵、全零孔径或
+// 非有限值返回 -inf。调用方应将 -inf 视为“无可估计信号”，而非低 SNR 失败。
 double EstimateRawHistorySnrDb(const signal::ComplexMatrix& history);
 
 }  // namespace session

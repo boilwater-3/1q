@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <deque>
+#include <cmath>
 #include <memory>
-#include <string>
 #include <utility>
 
 #include "1q/sar/session/SarSessionFactory.h"
@@ -11,6 +11,7 @@
 #include "sar/runtime/PulseRingBuffer.h"
 #include "sar/session/SarFocusedImageAssembler.h"
 #include "sar/session/SarImagingExecutor.h"
+#include "sar/session/SarDiagnosticUtils.h"
 #include "sar/session/SarRawHistoryBuilder.h"
 #include "sar/session/SarRuntimeConfigValidation.h"
 #include "sar/signal/SarWaveform.h"
@@ -59,19 +60,6 @@ void ApplyDiagnosticsPolicy(const config::SarPolicyConfig& policy, SarCycleResul
     }
   }
   result->diagnostics.swap(errors);
-}
-
-// 记录结构化中止错误：设置 has_error、以 tag 作为 abort_reason、追加 code 为
-// "sar."+tag 的 Error 诊断。集中此三件套模式，确保 abort_reason 与 diagnostic code
-// 始终一致，避免散落字符串字面量产生拼写漂移。
-void RecordAbort(SarCycleResult* result, const std::string& tag, const std::string& message) {
-  result->has_error = true;
-  result->abort_reason = tag;
-  SarDiagnosticIssue issue;
-  issue.severity = SarDiagnosticSeverity::kError;
-  issue.code = "sar." + tag;
-  issue.message = message;
-  result->diagnostics.push_back(std::move(issue));
 }
 
 }  // namespace
@@ -161,7 +149,8 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
     }
     const double estimated_snr_db = EstimateRawHistorySnrDb(raw_history);
     MarkRawEchoStage(&result.output_frame, estimated_snr_db);
-    if (result.output_frame.estimated_snr_db < impl_->runtime_config.policy.min_valid_snr_db) {
+    if (std::isfinite(result.output_frame.estimated_snr_db) &&
+        result.output_frame.estimated_snr_db < impl_->runtime_config.policy.min_valid_snr_db) {
       RecordAbort(&result, "snr_below_minimum",
                   "SAR estimated SNR is below the configured minimum valid SNR.");
       return finish();

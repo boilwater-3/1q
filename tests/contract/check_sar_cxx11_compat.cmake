@@ -7,7 +7,7 @@ include("${SOURCE_DIR}/src/sar/SarSources.cmake")
 set(OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/sar_cxx11_compat")
 file(MAKE_DIRECTORY "${OUTPUT_DIR}")
 
-foreach(SOURCE IN LISTS SAR_ENGINE_SOURCES)
+foreach(SOURCE IN LISTS SAR_CXX11_COMPAT_SOURCES)
   get_filename_component(OBJECT_NAME "${SOURCE}" NAME_WE)
   if(CXX_COMPILER_ID STREQUAL "MSVC")
     set(COMPILE_COMMAND
