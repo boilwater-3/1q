@@ -19,24 +19,43 @@
 
 namespace {
 
-std::string MakeTempTracePath(const char* prefix) {
-  static unsigned int unique_counter = 0U;
-  const char* temp_dir = std::getenv("TMPDIR");
-  if (temp_dir == nullptr || temp_dir[0] == '\0') {
-    temp_dir = "/tmp";
+/**
+ * @brief RAII 临时目录包装，在析构时删除目录及其内容。
+ *
+ * 每个实例创建后生成一个唯一目录路径，使用 testing::TempDir() 作为基目录。
+ * 析构时删除整个目录，确保测试失败时也不会遗留临时文件。
+ */
+class ScopedTempDir {
+ public:
+  ScopedTempDir() {
+    const std::string base = testing::TempDir();
+    const long long ticks =
+        static_cast<long long>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    std::ostringstream stream;
+    stream << base << "sar-replay-" << std::time(nullptr) << "-" << ticks << "-"
+           << std::rand();
+    path_ = stream.str();
   }
-  std::ostringstream stream;
-  stream << temp_dir;
-  const std::string path = stream.str();
-  if (!path.empty() && path[path.size() - 1] != '/') {
-    stream << "/";
+
+  ~ScopedTempDir() {
+    if (!path_.empty()) {
+      RemoveAll(path_);
+    }
   }
-  const long long ticks =
-      static_cast<long long>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  stream << prefix << "-" << std::time(nullptr) << "-" << ticks << "-" << std::rand() << "-"
-         << unique_counter++ << ".trace";
-  return stream.str();
-}
+
+  ScopedTempDir(const ScopedTempDir&) = delete;
+  ScopedTempDir& operator=(const ScopedTempDir&) = delete;
+
+  const std::string& Path() const { return path_; }
+
+ private:
+  static void RemoveAll(const std::string& dir) {
+    const std::string cmd = "rm -rf " + dir;
+    std::system(cmd.c_str());
+  }
+
+  std::string path_;
+};
 
 }  // namespace
 
@@ -95,7 +114,8 @@ SarCycleInput MakeReplayInput(std::uint32_t cycle_index = 1U) {
 }
 
 TEST(SarReplaySessionTest, ReplaySarTraceRoundtrip) {
-  const std::string trace_dir = MakeTempTracePath("oneq-sar-replay-roundtrip");
+  ScopedTempDir temp_dir;
+  const std::string& trace_dir = temp_dir.Path();
 
   oneq::replay::ReplayTraceManifest manifest;
   manifest.trace_id = "sar-replay-roundtrip-test";
@@ -132,7 +152,8 @@ TEST(SarReplaySessionTest, ReplaySarTraceRoundtrip) {
 }
 
 TEST(SarReplaySessionTest, ReplayL3BpTraceRoundtrip) {
-  const std::string trace_dir = MakeTempTracePath("oneq-sar-l3-bp-replay-roundtrip");
+  ScopedTempDir temp_dir;
+  const std::string& trace_dir = temp_dir.Path();
 
   oneq::replay::ReplayTraceManifest manifest;
   manifest.trace_id = "sar-l3-bp-replay-roundtrip-test";
@@ -167,7 +188,8 @@ TEST(SarReplaySessionTest, ReplayL3BpTraceRoundtrip) {
 }
 
 TEST(SarReplaySessionTest, ReplaySarTraceAppliesRuntimePatchBeforeCycle) {
-  const std::string trace_dir = MakeTempTracePath("oneq-sar-replay-runtime-patch");
+  ScopedTempDir temp_dir;
+  const std::string& trace_dir = temp_dir.Path();
 
   oneq::replay::ReplayTraceManifest manifest;
   manifest.trace_id = "sar-replay-runtime-patch-test";
@@ -200,7 +222,8 @@ TEST(SarReplaySessionTest, ReplaySarTraceAppliesRuntimePatchBeforeCycle) {
 }
 
 TEST(SarReplaySessionTest, ReplaySarTraceRejectsWrongModule) {
-  const std::string trace_dir = MakeTempTracePath("oneq-sar-replay-wrong-module");
+  ScopedTempDir temp_dir;
+  const std::string& trace_dir = temp_dir.Path();
 
   oneq::replay::ReplayTraceManifest manifest;
   manifest.trace_id = "sar-replay-wrong-module-test";
@@ -217,7 +240,8 @@ TEST(SarReplaySessionTest, ReplaySarTraceRejectsWrongModule) {
 }
 
 TEST(SarReplaySessionTest, ReplaySarTraceRejectsTrailingCycleInput) {
-  const std::string trace_dir = MakeTempTracePath("oneq-sar-replay-trailing-input");
+  ScopedTempDir temp_dir;
+  const std::string& trace_dir = temp_dir.Path();
 
   oneq::replay::ReplayTraceManifest manifest;
   manifest.trace_id = "sar-replay-trailing-input-test";
