@@ -449,7 +449,7 @@ Do not implement these during Phase 1 unless this contract is revised:
 
 This contract refines:
 
-- `sar_construction_scheme_complete.md`
-- `SAR_MODULE_DESIGN.md`
+- `construction_scheme.md`
+- `module_design.md`
 
 If either source document conflicts with this contract for Phase 1, this contract should control until the source document is revised.

@@ -26,9 +26,9 @@
 
 当前 SAR 文档：
 
-- `sar_construction_scheme_complete.md`
-- `SAR_MODULE_DESIGN.md`
-- `SAR_PHASE1_ENGINEERING_CONTRACT.md`
+- `docs/sar/design/construction_scheme.md`
+- `docs/sar/design/module_design.md`
+- `docs/sar/design/phase1_engineering.md`
 
 ### 当前计划状态
 

@@ -55,7 +55,7 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 - `AGENTS.md`: 工程约束、构建测试规则与重构策略。
 - `include/1q/README.md`: 公共头文件导航与对外接入建议。
 - `tests/README.md`: 测试分层约定与运行建议。
-- `input_surface_unification_refactor_plan.md`: 当前 input surface 统一重构计划与执行状态。
+- `docs/README.md`: 文档区总索引与导航（公共手册 / 模块评审 / SAR 设计·合约·验收·决策）。
 
 ## 测试
 

@@ -4,9 +4,9 @@
 
 本轮研究基于：
 
-- `sar_construction_scheme_complete.md`
-- `SAR_MODULE_DESIGN.md`
-- `SAR_PHASE1_ENGINEERING_CONTRACT.md`
+- `docs/sar/design/construction_scheme.md`
+- `docs/sar/design/module_design.md`
+- `docs/sar/design/phase1_engineering.md`
 - 现有 1Q 模块结构：`airborne_radar`、`electronic_surveillance_radar`、`electro_optical_sensor`
 - 现有共享工具：`src/common/numerics`、`src/common/geometry`、`src/common/rcs`、`src/common/runtime`
 
