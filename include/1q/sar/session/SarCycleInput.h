@@ -45,16 +45,39 @@ using SarPointTargetList = std::vector<SarPointTarget>;
 /**
  * @brief 外部提供的完整孔径行主序复数 IQ 帧。
  * @note 当前支持 L1 RDA、双轨迹 L2+RDA 和实际轨迹 BP；replay 后续单独审批。
+ *
+ * 坐标系约定：`PulseState` 中的位置与速度使用 **本地直角坐标**（local Cartesian），
+ * 与 `SarPlatformState` / `SarPointTarget` 的大地坐标（LLA + NED）不同。这是因为外部
+ * IQ 数据通常已由上游系统在统一场景坐标系中处理完毕，直接以本地坐标提供可避免重复转换。
+ *
+ * 本地坐标系定义（与内部 `geometry::LocalPoint` 一致）：
+ * - 原点：`SarMissionConfig::scene_center_*` 对应的场景中心点。
+ * - x 轴：方位向（azimuth），沿平台标称航迹方向。
+ * - y 轴：地距向（ground range），垂直于航迹的水平方向。
+ * - z 轴：高度向（altitude），向上为正，相对 `scene_center_altitude_m`。
+ *
+ * 因此，调用方在填充 `pulse_states` 时必须使用 **相对于 `scene_center_*` 的本地坐标**，
+ * 而非绝对大地坐标。`SarSession` 内部会将这些值直接映射到聚焦算法所需的本地几何，
+ * 不再做 LLA 转换。
  */
 struct ONEQ_API SarRawIqFrame {
+  /**
+   * @brief 单脉冲平台状态（本地直角坐标，scene-center-relative）。
+   */
   struct PulseState {
     std::uint64_t pulse_id{0U};
     double time_s{0.0};
+    /// 方位向位置（m），相对 scene_center。
     double position_x_m{0.0};
+    /// 地距向位置（m），相对 scene_center。
     double position_y_m{0.0};
+    /// 高度向位置（m），相对 scene_center_altitude_m。
     double position_z_m{0.0};
+    /// 方位向速度（m/s）。
     double velocity_x_mps{0.0};
+    /// 地距向速度（m/s）。
     double velocity_y_mps{0.0};
+    /// 高度向速度（m/s）。
     double velocity_z_mps{0.0};
   };
 

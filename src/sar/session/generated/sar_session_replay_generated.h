@@ -473,10 +473,11 @@ struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_ENABLE_L1_RDA_IMAGING = 8,
     VT_ENABLE_DIAGNOSTICS = 10,
     VT_RETAIN_RAW_PHASE_HISTORY = 12,
-    VT_MAX_ALLOWED_SQUINT_ANGLE_DEG = 14,
-    VT_MIN_VALID_SNR_DB = 16,
-    VT_ENABLE_L2_MOTION_COMPENSATION = 18,
-    VT_ENABLE_L3_BP_IMAGING = 20
+    VT_RETAIN_FOCUSED_IMAGE = 14,
+    VT_MAX_ALLOWED_SQUINT_ANGLE_DEG = 16,
+    VT_MIN_VALID_SNR_DB = 18,
+    VT_ENABLE_L2_MOTION_COMPENSATION = 20,
+    VT_ENABLE_L3_BP_IMAGING = 22
   };
   bool enable_raw_echo_generation() const {
     return GetField<uint8_t>(VT_ENABLE_RAW_ECHO_GENERATION, 0) != 0;
@@ -492,6 +493,9 @@ struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   bool retain_raw_phase_history() const {
     return GetField<uint8_t>(VT_RETAIN_RAW_PHASE_HISTORY, 0) != 0;
+  }
+  bool retain_focused_image() const {
+    return GetField<uint8_t>(VT_RETAIN_FOCUSED_IMAGE, 0) != 0;
   }
   double max_allowed_squint_angle_deg() const {
     return GetField<double>(VT_MAX_ALLOWED_SQUINT_ANGLE_DEG, 0.0);
@@ -512,6 +516,7 @@ struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_ENABLE_L1_RDA_IMAGING) &&
            VerifyField<uint8_t>(verifier, VT_ENABLE_DIAGNOSTICS) &&
            VerifyField<uint8_t>(verifier, VT_RETAIN_RAW_PHASE_HISTORY) &&
+           VerifyField<uint8_t>(verifier, VT_RETAIN_FOCUSED_IMAGE) &&
            VerifyField<double>(verifier, VT_MAX_ALLOWED_SQUINT_ANGLE_DEG) &&
            VerifyField<double>(verifier, VT_MIN_VALID_SNR_DB) &&
            VerifyField<uint8_t>(verifier, VT_ENABLE_L2_MOTION_COMPENSATION) &&
@@ -538,6 +543,9 @@ struct SarPolicyConfigBuilder {
   }
   void add_retain_raw_phase_history(bool retain_raw_phase_history) {
     fbb_.AddElement<uint8_t>(SarPolicyConfig::VT_RETAIN_RAW_PHASE_HISTORY, static_cast<uint8_t>(retain_raw_phase_history), 0);
+  }
+  void add_retain_focused_image(bool retain_focused_image) {
+    fbb_.AddElement<uint8_t>(SarPolicyConfig::VT_RETAIN_FOCUSED_IMAGE, static_cast<uint8_t>(retain_focused_image), 0);
   }
   void add_max_allowed_squint_angle_deg(double max_allowed_squint_angle_deg) {
     fbb_.AddElement<double>(SarPolicyConfig::VT_MAX_ALLOWED_SQUINT_ANGLE_DEG, max_allowed_squint_angle_deg, 0.0);
@@ -570,6 +578,7 @@ inline flatbuffers::Offset<SarPolicyConfig> CreateSarPolicyConfig(
     bool enable_l1_rda_imaging = false,
     bool enable_diagnostics = false,
     bool retain_raw_phase_history = false,
+    bool retain_focused_image = false,
     double max_allowed_squint_angle_deg = 0.0,
     double min_valid_snr_db = 0.0,
     bool enable_l2_motion_compensation = false,
@@ -579,6 +588,7 @@ inline flatbuffers::Offset<SarPolicyConfig> CreateSarPolicyConfig(
   builder_.add_max_allowed_squint_angle_deg(max_allowed_squint_angle_deg);
   builder_.add_enable_l3_bp_imaging(enable_l3_bp_imaging);
   builder_.add_enable_l2_motion_compensation(enable_l2_motion_compensation);
+  builder_.add_retain_focused_image(retain_focused_image);
   builder_.add_retain_raw_phase_history(retain_raw_phase_history);
   builder_.add_enable_diagnostics(enable_diagnostics);
   builder_.add_enable_l1_rda_imaging(enable_l1_rda_imaging);
@@ -756,8 +766,10 @@ struct SarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
     VT_ENABLE_L1_RDA_IMAGING = 14,
     VT_HAS_RETAIN_RAW_PHASE_HISTORY = 16,
     VT_RETAIN_RAW_PHASE_HISTORY = 18,
-    VT_HAS_MIN_VALID_SNR_DB = 20,
-    VT_MIN_VALID_SNR_DB = 22
+    VT_HAS_RETAIN_FOCUSED_IMAGE = 20,
+    VT_RETAIN_FOCUSED_IMAGE = 22,
+    VT_HAS_MIN_VALID_SNR_DB = 24,
+    VT_MIN_VALID_SNR_DB = 26
   };
   bool has_enable_raw_echo_generation() const {
     return GetField<uint8_t>(VT_HAS_ENABLE_RAW_ECHO_GENERATION, 0) != 0;
@@ -783,6 +795,12 @@ struct SarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
   bool retain_raw_phase_history() const {
     return GetField<uint8_t>(VT_RETAIN_RAW_PHASE_HISTORY, 0) != 0;
   }
+  bool has_retain_focused_image() const {
+    return GetField<uint8_t>(VT_HAS_RETAIN_FOCUSED_IMAGE, 0) != 0;
+  }
+  bool retain_focused_image() const {
+    return GetField<uint8_t>(VT_RETAIN_FOCUSED_IMAGE, 0) != 0;
+  }
   bool has_min_valid_snr_db() const {
     return GetField<uint8_t>(VT_HAS_MIN_VALID_SNR_DB, 0) != 0;
   }
@@ -799,6 +817,8 @@ struct SarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
            VerifyField<uint8_t>(verifier, VT_ENABLE_L1_RDA_IMAGING) &&
            VerifyField<uint8_t>(verifier, VT_HAS_RETAIN_RAW_PHASE_HISTORY) &&
            VerifyField<uint8_t>(verifier, VT_RETAIN_RAW_PHASE_HISTORY) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_RETAIN_FOCUSED_IMAGE) &&
+           VerifyField<uint8_t>(verifier, VT_RETAIN_FOCUSED_IMAGE) &&
            VerifyField<uint8_t>(verifier, VT_HAS_MIN_VALID_SNR_DB) &&
            VerifyField<double>(verifier, VT_MIN_VALID_SNR_DB) &&
            verifier.EndTable();
@@ -833,6 +853,12 @@ struct SarRuntimeConfigPatchBuilder {
   void add_retain_raw_phase_history(bool retain_raw_phase_history) {
     fbb_.AddElement<uint8_t>(SarRuntimeConfigPatch::VT_RETAIN_RAW_PHASE_HISTORY, static_cast<uint8_t>(retain_raw_phase_history), 0);
   }
+  void add_has_retain_focused_image(bool has_retain_focused_image) {
+    fbb_.AddElement<uint8_t>(SarRuntimeConfigPatch::VT_HAS_RETAIN_FOCUSED_IMAGE, static_cast<uint8_t>(has_retain_focused_image), 0);
+  }
+  void add_retain_focused_image(bool retain_focused_image) {
+    fbb_.AddElement<uint8_t>(SarRuntimeConfigPatch::VT_RETAIN_FOCUSED_IMAGE, static_cast<uint8_t>(retain_focused_image), 0);
+  }
   void add_has_min_valid_snr_db(bool has_min_valid_snr_db) {
     fbb_.AddElement<uint8_t>(SarRuntimeConfigPatch::VT_HAS_MIN_VALID_SNR_DB, static_cast<uint8_t>(has_min_valid_snr_db), 0);
   }
@@ -861,11 +887,15 @@ inline flatbuffers::Offset<SarRuntimeConfigPatch> CreateSarRuntimeConfigPatch(
     bool enable_l1_rda_imaging = false,
     bool has_retain_raw_phase_history = false,
     bool retain_raw_phase_history = false,
+    bool has_retain_focused_image = false,
+    bool retain_focused_image = false,
     bool has_min_valid_snr_db = false,
     double min_valid_snr_db = 0.0) {
   SarRuntimeConfigPatchBuilder builder_(_fbb);
   builder_.add_min_valid_snr_db(min_valid_snr_db);
   builder_.add_has_min_valid_snr_db(has_min_valid_snr_db);
+  builder_.add_retain_focused_image(retain_focused_image);
+  builder_.add_has_retain_focused_image(has_retain_focused_image);
   builder_.add_retain_raw_phase_history(retain_raw_phase_history);
   builder_.add_has_retain_raw_phase_history(has_retain_raw_phase_history);
   builder_.add_enable_l1_rda_imaging(enable_l1_rda_imaging);

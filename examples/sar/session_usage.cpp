@@ -1,6 +1,8 @@
 #include <cmath>
 #include <cstddef>
+#include <fstream>
 #include <iostream>
+#include <vector>
 
 #include "1q/sar/sar.hpp"
 
@@ -140,6 +142,34 @@ int main() {
   for (const sar::session::SarDiagnosticIssue& issue : result.diagnostics) {
     std::cout << '[' << SeverityName(issue.severity) << "] " << issue.code << ": "
               << issue.message << '\n';
+  }
+
+  // Export focused image as raw binary for external visualization.
+  {
+    const std::string output_path = "/tmp/sar_focused_image.raw";
+    std::ofstream output(output_path, std::ios::binary);
+    if (!output) {
+      std::cerr << "Failed to open " << output_path << " for writing.\n";
+      return 4;
+    }
+    const std::uint32_t rows = image.row_count;
+    const std::uint32_t cols = image.column_count;
+    const std::uint32_t has_imag = 1U;
+    const std::uint32_t peak_r = static_cast<std::uint32_t>(peak_row);
+    const std::uint32_t peak_c = static_cast<std::uint32_t>(peak_col);
+    output.write(reinterpret_cast<const char*>(&rows), sizeof(rows));
+    output.write(reinterpret_cast<const char*>(&cols), sizeof(cols));
+    output.write(reinterpret_cast<const char*>(&has_imag), sizeof(has_imag));
+    output.write(reinterpret_cast<const char*>(&peak_r), sizeof(peak_r));
+    output.write(reinterpret_cast<const char*>(&peak_c), sizeof(peak_c));
+    for (std::size_t i = 0U; i < image.real_values.size(); ++i) {
+      float real = static_cast<float>(image.real_values[i]);
+      float imag = static_cast<float>(image.imaginary_values[i]);
+      output.write(reinterpret_cast<const char*>(&real), sizeof(real));
+      output.write(reinterpret_cast<const char*>(&imag), sizeof(imag));
+    }
+    std::cout << "  exported focused image: " << output_path << " ("
+              << (output.tellp()) << " bytes)\n";
   }
   return 0;
 }

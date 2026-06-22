@@ -27,6 +27,9 @@ struct ONEQ_API SarRuntimeConfigPatch {
   bool has_retain_raw_phase_history{false};
   bool retain_raw_phase_history{false};
 
+  bool has_retain_focused_image{false};
+  bool retain_focused_image{true};
+
   bool has_min_valid_snr_db{false};
   double min_valid_snr_db{-10.0};
 };

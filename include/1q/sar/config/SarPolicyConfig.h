@@ -22,6 +22,9 @@ struct ONEQ_API SarPolicyConfig {
   bool enable_l3_bp_imaging{false};
   bool enable_diagnostics{true};
   bool retain_raw_phase_history{false};
+  /// 是否在 SarCycleResult 中返回完整聚焦复图像。默认开启以保持向后兼容；
+  /// 关闭时 focused_image 仅含占位元数据（is_placeholder=true），可避免大图拷贝。
+  bool retain_focused_image{true};
   double max_allowed_squint_angle_deg{5.0};
   double min_valid_snr_db{-10.0};
 };

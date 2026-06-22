@@ -50,6 +50,7 @@ table SarPolicyConfig {
   enable_l1_rda_imaging: bool;
   enable_diagnostics: bool;
   retain_raw_phase_history: bool;
+  retain_focused_image: bool;
   max_allowed_squint_angle_deg: double;
   min_valid_snr_db: double;
   enable_l2_motion_compensation: bool;
@@ -83,6 +84,8 @@ table SarRuntimeConfigPatch {
   enable_l1_rda_imaging: bool;
   has_retain_raw_phase_history: bool;
   retain_raw_phase_history: bool;
+  has_retain_focused_image: bool;
+  retain_focused_image: bool;
   has_min_valid_snr_db: bool;
   min_valid_snr_db: double;
 }
