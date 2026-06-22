@@ -20,7 +20,7 @@
 - `ENABLE_CLANG_TIDY` - 静态分析
 - `CLANG_TIDY_CHECKS` - clang-tidy 检查项白名单
 - `STACK_SIZE_OPTION` - 栈大小配置
-- `PACKAGE_MANAGER` - 包管理器选择（none/vcpkg/conan）
+- `PACKAGE_MANAGER` - 包管理器选择（none/conan）
 
 ### 2. FeatureUnityBuild.cmake
 
@@ -88,17 +88,7 @@
 - 未使用节移除（`--gc-sections`）
 - 位置无关代码（PIC）
 
-### 9. PackageManagerVcpkg.cmake
-
-**用途**: vcpkg 包管理器依赖配置  
-**功能**:
-
-- 检查 CMAKE_TOOLCHAIN_FILE 配置
-- 集中管理 find_package 依赖声明
-- 自动链接到主库目标
-- Windows DLL 运行时安装支持
-
-### 10. PackageManagerConan.cmake
+### 9. PackageManagerConan.cmake
 
 **用途**: Conan 包管理器依赖配置  
 **功能**:
@@ -119,7 +109,7 @@ CMakeLists.txt (主文件)
   ├── FeatureClangTidy.cmake       # 依赖 ENABLE_CLANG_TIDY
   ├── FeatureClangFormat.cmake     # 提供 format/format-check 目标
   ├── Compiler{MSVC|GNU}.cmake     # 根据编译器选择一个
-  └── PackageManager{Vcpkg|Conan}.cmake  # 根据 PACKAGE_MANAGER 选择（可选）
+  └── PackageManagerConan.cmake      # PACKAGE_MANAGER=conan 时包含
 
 src/CMakeLists.txt (在此之后)
   └── 包管理器模块会链接依赖到 ${PROJECT_CORE_TARGET}
@@ -146,9 +136,7 @@ else()
 endif()
 
 # 包管理器配置（在 src/ 目标创建之后）
-if(PACKAGE_MANAGER STREQUAL "vcpkg")
-    include(cmake/PackageManagerVcpkg.cmake)
-elseif(PACKAGE_MANAGER STREQUAL "conan")
+if(PACKAGE_MANAGER STREQUAL "conan")
     include(cmake/PackageManagerConan.cmake)
 endif()
 ```
@@ -170,10 +158,6 @@ cmake --build build --target format
 
 # 配置大栈空间
 cmake -B build -DSTACK_SIZE_OPTION=LARGE_PROJECT
-
-# 使用 vcpkg 包管理器
-cmake -B build -DPACKAGE_MANAGER=vcpkg \
-  -DCMAKE_TOOLCHAIN_FILE=<vcpkg_root>/scripts/buildsystems/vcpkg.cmake
 
 # 使用 Conan 包管理器
 cd build

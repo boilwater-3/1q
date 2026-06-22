@@ -1,5 +1,5 @@
 # 第三方依赖加载与链接
-# Conan / vcpkg 通过 find_package 获取；third_party 不进入仓库。
+# Conan 通过 find_package 获取；third_party 不进入仓库。
 
 # -- JSBSim (macOS 通过 Conan 获取；Windows 从 third_party 源码构建) --
 # ONEQ_JSBSIM_FROM_SOURCE: 即使 Conan 可用，也从 third_party 源码构建 JSBSim。
@@ -65,14 +65,6 @@ elseif(PACKAGE_MANAGER STREQUAL "conan")
   set(ONEQ_JSBSIM_BINARY_SOURCE "conan:jsbsim/1.3.1")
   find_package(jsbsim CONFIG REQUIRED)
   add_library(JSBSim::JSBSim ALIAS jsbsim::jsbsim)
-elseif(PACKAGE_MANAGER STREQUAL "vcpkg")
-  set(ONEQ_JSBSIM_BINARY_SOURCE "vcpkg:jsbsim")
-  find_package(jsbsim CONFIG REQUIRED)
-  if(TARGET jsbsim::jsbsim AND NOT TARGET JSBSim::JSBSim)
-    add_library(JSBSim::JSBSim ALIAS jsbsim::jsbsim)
-  elseif(NOT TARGET JSBSim::JSBSim)
-    message(FATAL_ERROR "jsbsim package did not provide jsbsim::jsbsim or JSBSim::JSBSim")
-  endif()
 else()
   message(FATAL_ERROR "Unsupported PACKAGE_MANAGER for JSBSim: ${PACKAGE_MANAGER}")
 endif()
@@ -85,7 +77,7 @@ set(ONEQ_JSBSIM_DATA_SOURCE "vendor:third_party/jsbsim"
 message(STATUS "JSBSim binary source: ${ONEQ_JSBSIM_BINARY_SOURCE}")
 message(STATUS "JSBSim data source: ${ONEQ_JSBSIM_DATA_SOURCE} (${ONEQ_JSBSIM_DATA_ROOT_DIR})")
 
-if(PACKAGE_MANAGER STREQUAL "conan" OR PACKAGE_MANAGER STREQUAL "vcpkg")
+if(PACKAGE_MANAGER STREQUAL "conan")
     if(WIN32)
         set(PROJECT_ENABLE_SPDLOG OFF)
     else()
@@ -102,7 +94,7 @@ if(PACKAGE_MANAGER STREQUAL "conan" OR PACKAGE_MANAGER STREQUAL "vcpkg")
 else()
     message(FATAL_ERROR
         "PACKAGE_MANAGER=none is unsupported because third_party is not tracked. "
-        "Use PACKAGE_MANAGER=conan or PACKAGE_MANAGER=vcpkg.")
+        "Use PACKAGE_MANAGER=conan.")
 endif()
 set(ONEQ_HAVE_ZLIB ON)
 
@@ -243,7 +235,7 @@ endif()
 # 与 conanfile.py requirements() 保持一致：Eigen3, Boost, nanoflann, flatbuffers, ZLIB,
 # 非 Windows 平台额外需要 spdlog。Vendor 模式下留空，消费者无需安装任何第三方依赖。
 set(ONEQ_CONFIG_FIND_DEPENDENCIES "")
-if(PACKAGE_MANAGER STREQUAL "conan" OR PACKAGE_MANAGER STREQUAL "vcpkg")
+if(PACKAGE_MANAGER STREQUAL "conan")
     string(APPEND ONEQ_CONFIG_FIND_DEPENDENCIES
         "find_dependency(Eigen3 REQUIRED CONFIG)\n"
         "find_dependency(Boost REQUIRED CONFIG)\n"

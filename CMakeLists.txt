@@ -169,9 +169,7 @@ else()
 endif()
 
 # 包管理器配置（必须在 target 创建之后）
-if(PACKAGE_MANAGER STREQUAL "vcpkg")
-    include(cmake/PackageManagerVcpkg.cmake)
-elseif(PACKAGE_MANAGER STREQUAL "conan")
+if(PACKAGE_MANAGER STREQUAL "conan")
     include(cmake/PackageManagerConan.cmake)
 endif()
 

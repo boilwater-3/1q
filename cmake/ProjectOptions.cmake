@@ -94,22 +94,18 @@ mark_as_advanced(STACK_SIZE_OPTION)
 
 # PACKAGE_MANAGER: 选择包管理器
 # none: 不使用包管理器（手动管理依赖）
-# vcpkg: 使用 vcpkg（微软开发，跨平台，与 CMake 集成良好）
 # conan: 使用 Conan（去中心化，支持多种构建系统）
 set(PACKAGE_MANAGER "none" CACHE STRING "Package manager to use for dependencies")
 set_property(CACHE PACKAGE_MANAGER PROPERTY STRINGS 
-    "none" "vcpkg" "conan")
+    "none" "conan")
 
 # 使用最可靠的 STREQUAL 方法
 if(NOT ((PACKAGE_MANAGER STREQUAL "none") OR 
-        (PACKAGE_MANAGER STREQUAL "vcpkg") OR 
         (PACKAGE_MANAGER STREQUAL "conan")))
-    message(FATAL_ERROR "Invalid PACKAGE_MANAGER: '${PACKAGE_MANAGER}'. Must be one of: none, vcpkg, conan")
+    message(FATAL_ERROR "Invalid PACKAGE_MANAGER: '${PACKAGE_MANAGER}'. Must be one of: none, conan")
 endif()
 
-if(PACKAGE_MANAGER STREQUAL "vcpkg")
-    message(STATUS "Package Manager: vcpkg")
-elseif(PACKAGE_MANAGER STREQUAL "conan")
+if(PACKAGE_MANAGER STREQUAL "conan")
     message(STATUS "Package Manager: Conan")
 else()
     message(STATUS "Package Manager: None (manual dependency management)")
