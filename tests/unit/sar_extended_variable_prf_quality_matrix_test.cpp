@@ -170,9 +170,11 @@ TEST(SarExtendedVariablePrfQualityMatrixTest,
                      std::to_string(results[profile_index].execution.gap_diagnostics.maximum_gap_ratio));
       EXPECT_EQ(results[profile_index].execution.reason, SlowTimeResamplingRejectionReason::kNone);
       EXPECT_TRUE(results[profile_index].execution.gap_diagnostics.resampling_allowed);
-      EXPECT_TRUE(std::isfinite(results[profile_index].raw_nrms));
-      EXPECT_TRUE(std::isfinite(results[profile_index].image.normalized_rms_error));
-      EXPECT_TRUE(std::isfinite(results[profile_index].image.coherent_correlation));
+      EXPECT_GE(results[profile_index].raw_nrms, 0.0);
+      EXPECT_GE(results[profile_index].image.normalized_rms_error, 0.0);
+      EXPECT_LE(results[profile_index].image.normalized_rms_error, 2.0);
+      EXPECT_GE(results[profile_index].image.coherent_correlation, -1.0);
+      EXPECT_LE(results[profile_index].image.coherent_correlation, 1.0);
     }
     EXPECT_NEAR(results[0].raw_nrms, 0.0, 1.0e-12);
     EXPECT_NEAR(results[0].image.normalized_rms_error, 0.0, 1.0e-12);

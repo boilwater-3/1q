@@ -101,5 +101,58 @@ TEST(SarMotionCompensationTest, ImprovesL2RdaAgainstIdealReference) {
   EXPECT_GT(compensated.coherent_correlation, 0.95);
 }
 
+TEST(SarMotionCompensationTest, RejectsNullCompensatedPointer) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  const std::size_t target_delay = 20U;
+  const echo::PointTarget target =
+      test_support::MakeReferenceTargetAtDelay(target_delay, scene.sample_rate_hz, 1.0);
+  signal::ComplexMatrix raw_history;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(scene, {target}, &raw_history));
+
+  imaging::FirstOrderMotionCompensationConfig config;
+  config.sample_rate_hz = scene.sample_rate_hz;
+  config.carrier_frequency_hz = scene.carrier_frequency_hz;
+  config.reference_point_m = target.position_m;
+  imaging::MotionCompensationDiagnostics diagnostics;
+  EXPECT_FALSE(imaging::ApplyFirstOrderMotionCompensation(config, scene.pulses, scene.pulses,
+                                                         raw_history, nullptr, &diagnostics));
+}
+
+TEST(SarMotionCompensationTest, RejectsNullDiagnosticsPointer) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  const std::size_t target_delay = 20U;
+  const echo::PointTarget target =
+      test_support::MakeReferenceTargetAtDelay(target_delay, scene.sample_rate_hz, 1.0);
+  signal::ComplexMatrix raw_history;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(scene, {target}, &raw_history));
+
+  imaging::FirstOrderMotionCompensationConfig config;
+  config.sample_rate_hz = scene.sample_rate_hz;
+  config.carrier_frequency_hz = scene.carrier_frequency_hz;
+  config.reference_point_m = target.position_m;
+  signal::ComplexMatrix compensated;
+  EXPECT_FALSE(imaging::ApplyFirstOrderMotionCompensation(config, scene.pulses, scene.pulses,
+                                                         raw_history, &compensated, nullptr));
+}
+
+TEST(SarMotionCompensationTest, RejectsBothNullOutputs) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  const std::size_t target_delay = 20U;
+  const echo::PointTarget target =
+      test_support::MakeReferenceTargetAtDelay(target_delay, scene.sample_rate_hz, 1.0);
+  signal::ComplexMatrix raw_history;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(scene, {target}, &raw_history));
+
+  imaging::FirstOrderMotionCompensationConfig config;
+  config.sample_rate_hz = scene.sample_rate_hz;
+  config.carrier_frequency_hz = scene.carrier_frequency_hz;
+  config.reference_point_m = target.position_m;
+  EXPECT_FALSE(imaging::ApplyFirstOrderMotionCompensation(config, scene.pulses, scene.pulses,
+                                                         raw_history, nullptr, nullptr));
+}
+
 }  // namespace
 }  // namespace sar

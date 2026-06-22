@@ -36,10 +36,29 @@ std::size_t FindPeakIndex(const ComplexVector& values) {
 
 double ToDb(double linear_ratio) { return 10.0 * std::log10(std::max(linear_ratio, kTiny)); }
 
+/**
+ * @brief 修正贝塞尔函数 I0(x) 的级数展开(供 Kaiser 窗使用)。
+ */
+double BesselI0(double x) {
+  double sum = 1.0;
+  double term = 1.0;
+  const double half_x = x * 0.5;
+  for (std::size_t k = 1; k < 64U; ++k) {
+    term *= (half_x / static_cast<double>(k)) * (half_x / static_cast<double>(k));
+    sum += term;
+    if (term < 1.0e-15 * sum) {
+      break;
+    }
+  }
+  return sum;
+}
+
 }  // namespace
 
 bool GenerateLfmWaveform(const LfmWaveformConfig& config, LfmWaveform* waveform) {
-  if (waveform == nullptr || config.bandwidth_hz <= 0.0 || config.time_bandwidth_product <= 0.0 ||
+  if (waveform == nullptr || !std::isfinite(config.bandwidth_hz) ||
+      config.bandwidth_hz <= 0.0 || !std::isfinite(config.time_bandwidth_product) ||
+      config.time_bandwidth_product <= 0.0 || !std::isfinite(config.sample_rate_hz) ||
       config.sample_rate_hz <= 0.0) {
     return false;
   }
@@ -114,7 +133,8 @@ bool LinearConvolveFft(const ComplexVector& input, const ComplexVector& filter,
 
 bool RangeCompress(const ComplexVector& input, const ComplexVector& matched_filter,
                    double sample_rate_hz, RangeCompressionResult* result) {
-  if (result == nullptr || input.empty() || matched_filter.empty() || sample_rate_hz <= 0.0) {
+  if (result == nullptr || input.empty() || matched_filter.empty() ||
+      !std::isfinite(sample_rate_hz) || sample_rate_hz <= 0.0) {
     return false;
   }
 
@@ -198,6 +218,159 @@ bool EstimatePulseQuality(const ComplexVector& compressed_pulse, PulseQualityMet
   metrics->pslr_db = ToDb(max_side_lobe_power / std::max(peak_magnitude * peak_magnitude, kTiny));
   metrics->islr_db = ToDb(side_lobe_energy / std::max(main_lobe_energy, kTiny));
   return true;
+}
+
+bool GenerateWindow(const WindowSpec& spec, std::size_t length, ComplexVector* window) {
+  if (window == nullptr || length == 0U) {
+    return false;
+  }
+  window->assign(length, ComplexSample(0.0, 0.0));
+  if (length == 1U) {
+    (*window)[0] = ComplexSample(1.0, 0.0);
+    return true;
+  }
+  const double denom = static_cast<double>(length - 1U);
+  for (std::size_t n = 0; n < length; ++n) {
+    double w = 1.0;
+    const double phase_index = static_cast<double>(n);
+    switch (spec.type) {
+      case WindowType::kNone:
+        w = 1.0;
+        break;
+      case WindowType::kHamming:
+        w = 0.54 - 0.46 * std::cos(2.0 * kPi * phase_index / denom);
+        break;
+      case WindowType::kHanning:
+        w = 0.5 - 0.5 * std::cos(2.0 * kPi * phase_index / denom);
+        break;
+      case WindowType::kBlackman:
+        w = 0.42 - 0.5 * std::cos(2.0 * kPi * phase_index / denom) +
+            0.08 * std::cos(4.0 * kPi * phase_index / denom);
+        break;
+      case WindowType::kKaiser: {
+        const double beta = std::isfinite(spec.kaiser_beta) ? spec.kaiser_beta : 8.6;
+        const double arg = (phase_index / denom - 0.5) * 2.0;  // [-1, 1]
+        const double ratio = std::sqrt(std::max(1.0 - arg * arg, 0.0));
+        w = BesselI0(beta * ratio) / BesselI0(beta);
+        break;
+      }
+    }
+    (*window)[n] = ComplexSample(w, 0.0);
+  }
+  return true;
+}
+
+bool BuildMatchedFilter(const ComplexVector& waveform, const WindowSpec& window,
+                        ComplexVector* filter) {
+  if (filter == nullptr || waveform.empty()) {
+    return false;
+  }
+  ComplexVector window_samples;
+  if (!GenerateWindow(window, waveform.size(), &window_samples)) {
+    return false;
+  }
+  ComplexVector windowed_waveform(waveform.size());
+  for (std::size_t i = 0; i < waveform.size(); ++i) {
+    windowed_waveform[i] = waveform[i] * window_samples[i];
+  }
+  return BuildMatchedFilter(windowed_waveform, filter);
+}
+
+bool RangeCompress(const ComplexVector& input, const ComplexVector& matched_filter,
+                   double sample_rate_hz, const WindowSpec& window,
+                   RangeCompressionResult* result) {
+  if (result == nullptr || input.empty() || matched_filter.empty()) {
+    return false;
+  }
+  if (window.type == WindowType::kNone) {
+    return RangeCompress(input, matched_filter, sample_rate_hz, result);
+  }
+  ComplexVector window_samples;
+  if (!GenerateWindow(window, matched_filter.size(), &window_samples)) {
+    return false;
+  }
+  ComplexVector windowed_filter(matched_filter.size());
+  for (std::size_t i = 0; i < matched_filter.size(); ++i) {
+    windowed_filter[i] = matched_filter[i] * window_samples[i];
+  }
+  return RangeCompress(input, windowed_filter, sample_rate_hz, result);
+}
+
+bool Compress2D(const ComplexMatrix& raw_pulse_history, const ComplexVector& range_matched_filter,
+                const RangeAzimuthCompressionConfig& config, ComplexMatrix* output) {
+  if (output == nullptr || raw_pulse_history.rows == 0U || raw_pulse_history.cols == 0U ||
+      raw_pulse_history.values.size() != raw_pulse_history.rows * raw_pulse_history.cols ||
+      range_matched_filter.empty() || !std::isfinite(config.sample_rate_hz) ||
+      config.sample_rate_hz <= 0.0) {
+    return false;
+  }
+
+  const std::size_t rows = raw_pulse_history.rows;
+  const std::size_t cols = raw_pulse_history.cols;
+
+  ComplexMatrix range_compressed;
+  range_compressed.rows = rows;
+  range_compressed.cols = cols;
+  range_compressed.values.assign(rows * cols, ComplexSample(0.0, 0.0));
+
+  for (std::size_t row = 0; row < rows; ++row) {
+    ComplexVector row_input(cols);
+    for (std::size_t col = 0; col < cols; ++col) {
+      row_input[col] = raw_pulse_history(row, col);
+    }
+    RangeCompressionResult rc;
+    if (!RangeCompress(row_input, range_matched_filter, config.sample_rate_hz,
+                       config.range_window, &rc)) {
+      return false;
+    }
+    const std::size_t out_len = std::min(rc.range_aligned_output.size(), cols);
+    for (std::size_t col = 0; col < out_len; ++col) {
+      range_compressed(row, col) = rc.range_aligned_output[col];
+    }
+  }
+
+  const bool apply_azimuth =
+      std::isfinite(config.azimuth_matched_filter_rate_hz_per_s) &&
+      config.azimuth_matched_filter_rate_hz_per_s != 0.0 && rows > 1U &&
+      std::isfinite(config.prf_hz) && config.prf_hz > 0.0;
+  if (!apply_azimuth) {
+    *output = range_compressed;
+    return true;
+  }
+
+  // 方位压缩:逐列 FFT → 多普勒域匹配滤波 exp(j π fa² / Ka) → 逐列 IFFT。
+  ComplexMatrix azimuth_spectrum;
+  if (!FftCols(range_compressed, false, &azimuth_spectrum)) {
+    return false;
+  }
+
+  const double ka = config.azimuth_matched_filter_rate_hz_per_s;
+  ComplexVector azimuth_window_samples;
+  if (config.azimuth_window.type != WindowType::kNone) {
+    if (!GenerateWindow(config.azimuth_window, rows, &azimuth_window_samples)) {
+      return false;
+    }
+  }
+
+  const double row_count = static_cast<double>(rows);
+  for (std::size_t col = 0; col < cols; ++col) {
+    for (std::size_t row = 0; row < rows; ++row) {
+      double fa_bin = static_cast<double>(row);
+      if (fa_bin > row_count * 0.5) {
+        fa_bin -= row_count;  // FFT bin → 双边多普勒频率
+      }
+      const double fa_hz = fa_bin * config.prf_hz / row_count;
+      const double phase = kPi * fa_hz * fa_hz / ka;
+      const ComplexSample matched_filter_value(std::cos(phase), std::sin(phase));
+      ComplexSample sample = azimuth_spectrum(row, col) * matched_filter_value;
+      if (config.azimuth_window.type != WindowType::kNone) {
+        sample *= azimuth_window_samples[row];
+      }
+      azimuth_spectrum(row, col) = sample;
+    }
+  }
+
+  return FftCols(azimuth_spectrum, true, output);
 }
 
 }  // namespace signal

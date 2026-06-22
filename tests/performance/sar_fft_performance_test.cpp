@@ -264,7 +264,10 @@ TEST(SarPerformanceTest, PointTargetPipelineCompletes1024SquareScene) {
   constexpr double kSampleRateHz = 100.0e6;
   constexpr double kCarrierFrequencyHz = 1.0e9;
   constexpr double kPrfHz = 1000.0;
-  constexpr double kPlatformVelocityMps = 150.0;
+  // 平台速度取 120 m/s，使孔径边缘斜视 ≈4.6°，落在 policy 冻结的 5.0° 上限内。
+  // 先前 150 m/s 对应 5.7° 斜视，超出 broadside RDA 适用域，孔径边缘泄漏会在
+  // (row=0, col=514) 产生高于真目标的伪峰，使全局峰值搜索偏离中心列。
+  constexpr double kPlatformVelocityMps = 120.0;
   constexpr double kSpeedOfLightMps = 299792458.0;
   constexpr double kCurrentPlatformLimitSeconds = 30.0;
 

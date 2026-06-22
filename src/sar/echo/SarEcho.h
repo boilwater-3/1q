@@ -60,6 +60,92 @@ bool GeneratePointTargetRawEcho(const RawEchoConfig& config,
                                 const signal::ComplexVector& transmit_waveform,
                                 RawEchoResult* result);
 
+/**
+ * @brief 频域分数延迟:对 input 施加 fractional_delay 样点的子采样时移。
+ */
+bool ApplyFractionalDelay(const signal::ComplexVector& input, double fractional_delay,
+                          signal::ComplexVector* output);
+
+// ────────────────────────────────────────────────────────────
+// 接收机噪声
+// ────────────────────────────────────────────────────────────
+
+/**
+ * @brief 加性噪声规格。
+ */
+struct NoiseSpec {
+  double signal_to_noise_ratio_db{0.0};
+  std::uint32_t random_seed{2026U};
+};
+
+/**
+ * @brief 根据 SNR 向样点序列叠加复高斯噪声(实虚部独立,各 σ/√2)。
+ *        信号功率从 samples 估算,噪声功率 = 信号功率 / 10^(snr_db/10)。
+ *        使用 DeterministicGaussianSampler(seed) 确保可复现。
+ */
+bool AddNoise(const NoiseSpec& spec, signal::ComplexVector* samples);
+
+// ────────────────────────────────────────────────────────────
+// 杂波
+// ────────────────────────────────────────────────────────────
+
+/**
+ * @brief 杂波类型。
+ */
+enum class ClutterType {
+  kGamma = 0,  ///< γ 常数模型(陆)
+  kSea = 1,    ///< 海杂波 GIT 经验模型
+};
+
+/**
+ * @brief 杂波模型参数。
+ */
+struct ClutterModel {
+  ClutterType type{ClutterType::kGamma};
+  double gamma_constant{0.0};      ///< γ 常数(kGamma 时有效)
+  double sea_state{3.0};           ///< 海况级数(kSea 时有效)
+  double wind_speed_mps{5.0};      ///< 风速 m/s(kSea 时有效)
+  double incidence_angle_rad{0.0}; ///< 局部入射角
+  double resolution_cell_area_m2{1.0};  ///< 分辨单元面积 m²
+};
+
+/**
+ * @brief γ 模型:σ = γ·sin(θ_inc)·A_cell。
+ */
+double GammaClutterRcs(const ClutterModel& model);
+
+/**
+ * @brief 海杂波 GIT 经验模型:σ = f(海况, 风速, 入射角)·A_cell。
+ */
+double SeaClutterRcs(const ClutterModel& model);
+
+// ────────────────────────────────────────────────────────────
+// 面目标场景
+// ────────────────────────────────────────────────────────────
+
+/**
+ * @brief 面目标/场景描述。
+ */
+struct SceneDescription {
+  geometry::LocalPoint scene_center{};
+  double scene_extent_x_m{0.0};
+  double scene_extent_y_m{0.0};
+  std::vector<PointTarget> point_targets{};
+  ClutterModel clutter{};
+  double clutter_grid_spacing_m{10.0};
+};
+
+/**
+ * @brief 生成含点目标 + 杂波的原始回波。
+ *        1) 先生成点目标回波,2) 叠加规则网格杂波单元。
+ *        grid_spacing ≤ 0 则跳过杂波。
+ */
+bool GenerateClutterScene(const RawEchoConfig& config,
+                          const geometry::PlatformPulseState& platform,
+                          const SceneDescription& scene,
+                          const signal::ComplexVector& transmit_waveform,
+                          RawEchoResult* result);
+
 }  // namespace echo
 }  // namespace sar
 

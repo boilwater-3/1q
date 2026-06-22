@@ -60,6 +60,11 @@ endif()
 # 推荐开启，帮助发现潜在问题，提高代码质量
 option(ENABLE_WARNINGS "Enable additional compiler warnings" ON)
 
+# ONEQ_ENABLE_HDF5_OUTPUT: 启用 SAR HDF5 图像输出(需 HighFive 库)
+# 默认 OFF: 保持零外部依赖，不污染 vendor/none 构建路径。
+# 开启后: 需通过 Conan 拉取 highfive/2.x, CMake find_package HighFive。
+option(ONEQ_ENABLE_HDF5_OUTPUT "Enable SAR HDF5 image output (requires HighFive)" OFF)
+
 # ENABLE_CLANG_TIDY: 启用clang-tidy静态分析
 # 在编译时执行代码检查，发现潜在bug、代码风格问题、现代化建议
 # 会显著增加编译时间，建议仅在开发时开启

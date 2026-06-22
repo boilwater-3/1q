@@ -86,6 +86,63 @@ bool RangeCompress(const ComplexVector& input, const ComplexVector& matched_filt
  */
 bool EstimatePulseQuality(const ComplexVector& compressed_pulse, PulseQualityMetrics* metrics);
 
+/**
+ * @brief 窗函数类型(用于距离/方位脉冲压缩的旁瓣抑制)。
+ */
+enum class WindowType {
+  kNone = 0,
+  kHamming = 1,
+  kHanning = 2,
+  kBlackman = 3,
+  kKaiser = 4,
+};
+
+/**
+ * @brief 窗函数规格。
+ */
+struct WindowSpec {
+  WindowType type{WindowType::kNone};
+  double kaiser_beta{8.6};  ///< 仅 kKaiser 使用
+};
+
+/**
+ * @brief 生成长度为 length 的复数窗(实部为窗值,虚部为 0)。
+ */
+bool GenerateWindow(const WindowSpec& spec, std::size_t length, ComplexVector* window);
+
+/**
+ * @brief 对发射波形施加窗后构造匹配滤波器(加窗降低旁瓣)。
+ *        等价于先 windowed[n] = waveform[n] * window[n],再 h[n] = conj(windowed[N-1-n])。
+ */
+bool BuildMatchedFilter(const ComplexVector& waveform, const WindowSpec& window,
+                        ComplexVector* filter);
+
+/**
+ * @brief 加窗距离向脉冲压缩:对 matched_filter 施加窗后压缩。
+ *        原 RangeCompress(input, filter, fs, result) 等价于 kNone 窗路径。
+ */
+bool RangeCompress(const ComplexVector& input, const ComplexVector& matched_filter,
+                   double sample_rate_hz, const WindowSpec& window, RangeCompressionResult* result);
+
+/**
+ * @brief 二维(距离 + 方位)脉冲压缩配置。
+ */
+struct RangeAzimuthCompressionConfig {
+  double sample_rate_hz{0.0};
+  double prf_hz{0.0};
+  WindowSpec range_window{};
+  WindowSpec azimuth_window{};
+  double azimuth_matched_filter_rate_hz_per_s{0.0};  ///< 多普勒调频率 Ka,非零则执行方位压缩
+};
+
+/**
+ * @brief 二维脉冲压缩:逐行距离压缩,可选方位匹配滤波(多普勒域)。
+ *        raw_pulse_history 行 = 脉冲(方位),列 = 距离采样。
+ *        方位压缩按距离-多普勒域相位 exp(j π fa² / Ka) 补偿。
+ */
+bool Compress2D(const ComplexMatrix& raw_pulse_history, const ComplexVector& range_matched_filter,
+                const RangeAzimuthCompressionConfig& config, ComplexMatrix* output);
+
 }  // namespace signal
 }  // namespace sar
 

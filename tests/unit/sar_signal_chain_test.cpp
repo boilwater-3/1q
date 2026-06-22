@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <complex>
+#include <limits>
 
 #include "sar/signal/SarWaveform.h"
 
@@ -150,6 +151,79 @@ TEST(SarSignalChainTest, RejectsInvalidSignalInputs) {
 
   PulseQualityMetrics metrics;
   EXPECT_FALSE(EstimatePulseQuality({}, &metrics));
+}
+
+TEST(SarSignalChainTest, GenerateLfmWaveformRejectsNanBandwidth) {
+  LfmWaveformConfig config;
+  config.bandwidth_hz = std::numeric_limits<double>::quiet_NaN();
+  config.time_bandwidth_product = 4.0;
+  config.sample_rate_hz = 100.0e6;
+  LfmWaveform waveform;
+  EXPECT_FALSE(GenerateLfmWaveform(config, &waveform));
+}
+
+TEST(SarSignalChainTest, GenerateLfmWaveformRejectsInfBandwidth) {
+  LfmWaveformConfig config;
+  config.bandwidth_hz = std::numeric_limits<double>::infinity();
+  config.time_bandwidth_product = 4.0;
+  config.sample_rate_hz = 100.0e6;
+  LfmWaveform waveform;
+  EXPECT_FALSE(GenerateLfmWaveform(config, &waveform));
+}
+
+TEST(SarSignalChainTest, GenerateLfmWaveformRejectsNanSampleRate) {
+  LfmWaveformConfig config;
+  config.bandwidth_hz = 20.0;
+  config.time_bandwidth_product = 4.0;
+  config.sample_rate_hz = std::numeric_limits<double>::quiet_NaN();
+  LfmWaveform waveform;
+  EXPECT_FALSE(GenerateLfmWaveform(config, &waveform));
+}
+
+TEST(SarSignalChainTest, GenerateLfmWaveformRejectsInfSampleRate) {
+  LfmWaveformConfig config;
+  config.bandwidth_hz = 20.0;
+  config.time_bandwidth_product = 4.0;
+  config.sample_rate_hz = std::numeric_limits<double>::infinity();
+  LfmWaveform waveform;
+  EXPECT_FALSE(GenerateLfmWaveform(config, &waveform));
+}
+
+TEST(SarSignalChainTest, GenerateLfmWaveformRejectsNanTimeBandwidthProduct) {
+  LfmWaveformConfig config;
+  config.bandwidth_hz = 20.0;
+  config.time_bandwidth_product = std::numeric_limits<double>::quiet_NaN();
+  config.sample_rate_hz = 100.0;
+  LfmWaveform waveform;
+  EXPECT_FALSE(GenerateLfmWaveform(config, &waveform));
+}
+
+TEST(SarSignalChainTest, GenerateLfmWaveformRejectsInfTimeBandwidthProduct) {
+  LfmWaveformConfig config;
+  config.bandwidth_hz = 20.0;
+  config.time_bandwidth_product = std::numeric_limits<double>::infinity();
+  config.sample_rate_hz = 100.0;
+  LfmWaveform waveform;
+  EXPECT_FALSE(GenerateLfmWaveform(config, &waveform));
+}
+
+TEST(SarSignalChainTest, RangeCompressRejectsNanSampleRate) {
+  LfmWaveformConfig config;
+  config.bandwidth_hz = 20.0;
+  config.time_bandwidth_product = 4.0;
+  config.sample_rate_hz = 100.0;
+  LfmWaveform waveform;
+  ASSERT_TRUE(GenerateLfmWaveform(config, &waveform));
+
+  ComplexVector matched_filter;
+  ASSERT_TRUE(BuildMatchedFilter(waveform.samples, &matched_filter));
+
+  ComplexVector input(10U, ComplexSample(0.0, 0.0));
+  RangeCompressionResult compression;
+  EXPECT_FALSE(RangeCompress(input, matched_filter,
+                              std::numeric_limits<double>::quiet_NaN(), &compression));
+  EXPECT_FALSE(RangeCompress(input, matched_filter,
+                              std::numeric_limits<double>::infinity(), &compression));
 }
 
 }  // namespace

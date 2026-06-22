@@ -16,36 +16,13 @@ bool IsFinite(const LocalPoint& point) {
   return std::isfinite(point.x_m) && std::isfinite(point.y_m) && std::isfinite(point.z_m);
 }
 
-struct DeterministicGaussianSampler {
-  std::mt19937& generator;
-  bool has_spare;
-  double spare;
-
-  explicit DeterministicGaussianSampler(std::mt19937& gen)
-      : generator(gen), has_spare(false), spare(0.0) {}
-
-  double Next() {
-    if (has_spare) {
-      has_spare = false;
-      return spare;
-    }
-    // Box-Muller transform: platform-independent Gaussian sampling.
-    // u1 and u2 are in (0, 1) to avoid log(0).
-    constexpr double kScale = 1.0 / (static_cast<double>(std::mt19937::max()) + 1.0);
-    const double u1 = (static_cast<double>(generator()) + 0.5) * kScale;
-    const double u2 = (static_cast<double>(generator()) + 0.5) * kScale;
-    const double r = std::sqrt(-2.0 * std::log(u1));
-    spare = r * std::sin(2.0 * kPi * u2);
-    has_spare = true;
-    return r * std::cos(2.0 * kPi * u2);
-  }
-};
 
 }  // namespace
 
 bool GenerateStraightStripmapTrack(const StraightStripmapTrackConfig& config,
                                    std::vector<PlatformPulseState>* pulses) {
-  if (pulses == nullptr || config.prf_hz <= 0.0 || config.pulse_count == 0U) {
+  if (pulses == nullptr || !std::isfinite(config.prf_hz) || config.prf_hz <= 0.0 ||
+      config.pulse_count == 0U) {
     return false;
   }
 
@@ -86,8 +63,7 @@ bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
     return true;
   }
 
-  std::mt19937 generator(config.random_seed);
-  DeterministicGaussianSampler gaussian{generator};
+  DeterministicGaussianSampler gaussian{config.random_seed};
   const double dt_s = 1.0 / config.ideal.prf_hz;
   pulses->assign(config.ideal.pulse_count, PlatformPulseState{});
   *diagnostics = TrajectoryErrorDiagnostics{};
@@ -110,9 +86,9 @@ bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
       pulse.position_m.z_m = previous.position_m.z_m + previous.velocity_z_mps * dt_s;
     }
     pulse.velocity_x_mps =
-        config.ideal.velocity_x_mps + gaussian.Next() * config.velocity_error_stddev_x_mps;
-    pulse.velocity_y_mps = gaussian.Next() * config.velocity_error_stddev_y_mps;
-    pulse.velocity_z_mps = gaussian.Next() * config.velocity_error_stddev_z_mps;
+        config.ideal.velocity_x_mps + gaussian.Sample() * config.velocity_error_stddev_x_mps;
+    pulse.velocity_y_mps = gaussian.Sample() * config.velocity_error_stddev_y_mps;
+    pulse.velocity_z_mps = gaussian.Sample() * config.velocity_error_stddev_z_mps;
 
     const double position_error_m = Distance(pulse.position_m, ideal_pulses[index].position_m);
     const double velocity_error_x_mps = pulse.velocity_x_mps - config.ideal.velocity_x_mps;
@@ -191,7 +167,8 @@ bool GenerateWaypointTrack(const WaypointTrackConfig& config,
 
 bool AdvanceFractionalPrf(double dt_s, double prf_hz, FractionalPrfState* state,
                           std::uint32_t* emitted_pulses) {
-  if (state == nullptr || emitted_pulses == nullptr || dt_s < 0.0 || prf_hz <= 0.0) {
+  if (state == nullptr || emitted_pulses == nullptr || !std::isfinite(dt_s) || dt_s < 0.0 ||
+      !std::isfinite(prf_hz) || prf_hz <= 0.0) {
     return false;
   }
 
@@ -207,6 +184,128 @@ double Distance(const LocalPoint& a, const LocalPoint& b) {
   const double dy = a.y_m - b.y_m;
   const double dz = a.z_m - b.z_m;
   return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+// ────────────────────────────────────────────────────────────
+// 数学工具
+// ────────────────────────────────────────────────────────────
+
+double Sinc(double x) {
+  if (std::abs(x) < 1.0e-12) {
+    return 1.0;
+  }
+  return std::sin(kPi * x) / (kPi * x);
+}
+
+DeterministicGaussianSampler::DeterministicGaussianSampler(std::uint32_t seed)
+    : generator_(seed), has_spare_(false), spare_(0.0) {}
+
+double DeterministicGaussianSampler::Sample() {
+  if (has_spare_) {
+    has_spare_ = false;
+    return spare_;
+  }
+  constexpr double kScale = 1.0 / (static_cast<double>(std::mt19937::max()) + 1.0);
+  const double u1 = (static_cast<double>(generator_()) + 0.5) * kScale;
+  const double u2 = (static_cast<double>(generator_()) + 0.5) * kScale;
+  const double r = std::sqrt(-2.0 * std::log(u1));
+  spare_ = r * std::sin(2.0 * kPi * u2);
+  has_spare_ = true;
+  return r * std::cos(2.0 * kPi * u2);
+}
+
+// ────────────────────────────────────────────────────────────
+// 斜距模型
+// ────────────────────────────────────────────────────────────
+
+double ExactSlantRange(const PlatformPulseState& platform, const LocalPoint& target) {
+  return Distance(platform.position_m, target);
+}
+
+double ClosestSlantRange(const std::vector<PlatformPulseState>& track, const LocalPoint& target) {
+  if (track.empty()) {
+    return 0.0;
+  }
+  double closest = Distance(track.front().position_m, target);
+  for (std::size_t i = 1U; i < track.size(); ++i) {
+    const double d = Distance(track[i].position_m, target);
+    if (d < closest) {
+      closest = d;
+    }
+  }
+  return closest;
+}
+
+double QuadraticApproxRange(const QuadraticRangeApprox& approx, double time_s) {
+  const double dt = time_s - approx.broadside_time_s;
+  const double r0 = approx.reference_range_m;
+  const double v = approx.platform_velocity_mps;
+  if (r0 <= 0.0 || v <= 0.0) {
+    return r0;
+  }
+  return r0 + 0.5 * (v * v / r0) * dt * dt;
+}
+
+double RangeRate(const PlatformPulseState& platform, const LocalPoint& target) {
+  // dR/dt = (platform - target) · v / R, 闭合时 < 0。
+  const double dx = platform.position_m.x_m - target.x_m;
+  const double dy = platform.position_m.y_m - target.y_m;
+  const double dz = platform.position_m.z_m - target.z_m;
+  const double range_m = std::sqrt(dx * dx + dy * dy + dz * dz);
+  if (range_m < 1.0e-30) {
+    return 0.0;
+  }
+  return (dx * platform.velocity_x_mps + dy * platform.velocity_y_mps +
+          dz * platform.velocity_z_mps) /
+         range_m;
+}
+
+// ────────────────────────────────────────────────────────────
+// 多普勒模型
+// ────────────────────────────────────────────────────────────
+
+bool ComputeDopplerParams(const DopplerComputationInput& input, DopplerParams* params) {
+  if (params == nullptr || !std::isfinite(input.wavelength_m) || input.wavelength_m <= 0.0 ||
+      !std::isfinite(input.platform_velocity_mps) || input.platform_velocity_mps <= 0.0 ||
+      !std::isfinite(input.reference_slant_range_m) || input.reference_slant_range_m <= 0.0) {
+    return false;
+  }
+
+  *params = DopplerParams{};
+  params->fd_central_hz =
+      2.0 * input.platform_velocity_mps * std::sin(input.squint_angle_rad) / input.wavelength_m;
+  const double cos_theta = std::cos(input.squint_angle_rad);
+  params->fd_rate_hz_per_s = 2.0 * input.platform_velocity_mps * input.platform_velocity_mps *
+                             cos_theta * cos_theta * cos_theta /
+                             (input.wavelength_m * input.reference_slant_range_m);
+
+  if (std::isfinite(input.real_aperture_length_m) && input.real_aperture_length_m > 0.0) {
+    const double beam_width_rad = input.wavelength_m / input.real_aperture_length_m;
+    params->synthetic_aperture_time_s =
+        input.reference_slant_range_m * beam_width_rad / input.platform_velocity_mps;
+    params->doppler_bandwidth_hz =
+        std::abs(params->fd_rate_hz_per_s) * params->synthetic_aperture_time_s;
+  }
+  return true;
+}
+
+double DopplerFrequencyAt(const DopplerParams& params, double slow_time_s) {
+  return params.fd_central_hz + params.fd_rate_hz_per_s * slow_time_s;
+}
+
+double AzimuthResolution(const DopplerParams& params, double platform_velocity_mps) {
+  if (params.doppler_bandwidth_hz <= 0.0 || !std::isfinite(params.doppler_bandwidth_hz)) {
+    return 0.0;
+  }
+  return platform_velocity_mps / params.doppler_bandwidth_hz;
+}
+
+double DopplerBinFrequency(std::size_t index, std::size_t count, double prf_hz) {
+  if (count == 0U || !std::isfinite(prf_hz)) {
+    return 0.0;
+  }
+  const double raw = static_cast<double>(index) * prf_hz / static_cast<double>(count);
+  return (index <= count / 2U) ? raw : (raw - prf_hz);
 }
 
 }  // namespace geometry

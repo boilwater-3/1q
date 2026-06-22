@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 #include <vector>
 
 #include "sar/echo/SarEcho.h"
@@ -373,6 +374,94 @@ TEST(PulseRingBufferTest, RejectsOutOfOrderPulseIds) {
   EXPECT_TRUE(buffer.Push({5U, {}}));
   EXPECT_FALSE(buffer.Push({4U, {}}));
   EXPECT_FALSE(buffer.Push({5U, {}}));
+}
+
+TEST(SarEchoTest, GeneratePointTargetRawEchoRejectsNanSampleRate) {
+  echo::RawEchoConfig config;
+  config.sample_rate_hz = std::numeric_limits<double>::quiet_NaN();
+  config.carrier_frequency_hz = 10.0e9;
+  config.range_sample_count = 32U;
+
+  echo::RawEchoResult result;
+  EXPECT_FALSE(echo::GeneratePointTargetRawEcho(
+      config, MakePlatformAtOrigin(),
+      {MakeTargetAtDelay(10U, 100.0e6)},
+      {signal::ComplexSample(1.0, 0.0)}, &result));
+}
+
+TEST(SarEchoTest, GeneratePointTargetRawEchoRejectsInfCarrierFrequency) {
+  echo::RawEchoConfig config;
+  config.sample_rate_hz = 100.0e6;
+  config.carrier_frequency_hz = std::numeric_limits<double>::infinity();
+  config.range_sample_count = 32U;
+
+  echo::RawEchoResult result;
+  EXPECT_FALSE(echo::GeneratePointTargetRawEcho(
+      config, MakePlatformAtOrigin(),
+      {MakeTargetAtDelay(10U, 100.0e6)},
+      {signal::ComplexSample(1.0, 0.0)}, &result));
+}
+
+TEST(SarEchoTest, GeneratePointTargetRawEchoRejectsNanCarrierFrequency) {
+  echo::RawEchoConfig config;
+  config.sample_rate_hz = 100.0e6;
+  config.carrier_frequency_hz = std::numeric_limits<double>::quiet_NaN();
+  config.range_sample_count = 32U;
+
+  echo::RawEchoResult result;
+  EXPECT_FALSE(echo::GeneratePointTargetRawEcho(
+      config, MakePlatformAtOrigin(),
+      {MakeTargetAtDelay(10U, 100.0e6)},
+      {signal::ComplexSample(1.0, 0.0)}, &result));
+}
+
+TEST(SarEchoTest, GeneratePointTargetRawEchoRejectsZeroCarrierFrequency) {
+  echo::RawEchoConfig config;
+  config.sample_rate_hz = 100.0e6;
+  config.carrier_frequency_hz = 0.0;
+  config.range_sample_count = 32U;
+
+  echo::RawEchoResult result;
+  EXPECT_FALSE(echo::GeneratePointTargetRawEcho(
+      config, MakePlatformAtOrigin(),
+      {MakeTargetAtDelay(10U, 100.0e6)},
+      {signal::ComplexSample(1.0, 0.0)}, &result));
+}
+
+TEST(SarGeometryTest, GenerateStraightStripmapTrackRejectsNanPrf) {
+  geometry::StraightStripmapTrackConfig config;
+  config.start_position_m = {10.0, 100.0, 2000.0};
+  config.velocity_x_mps = 150.0;
+  config.prf_hz = std::numeric_limits<double>::quiet_NaN();
+  config.pulse_count = 4U;
+
+  std::vector<geometry::PlatformPulseState> pulses;
+  EXPECT_FALSE(geometry::GenerateStraightStripmapTrack(config, &pulses));
+}
+
+TEST(SarGeometryTest, GenerateStraightStripmapTrackRejectsInfPrf) {
+  geometry::StraightStripmapTrackConfig config;
+  config.start_position_m = {10.0, 100.0, 2000.0};
+  config.velocity_x_mps = 150.0;
+  config.prf_hz = std::numeric_limits<double>::infinity();
+  config.pulse_count = 4U;
+
+  std::vector<geometry::PlatformPulseState> pulses;
+  EXPECT_FALSE(geometry::GenerateStraightStripmapTrack(config, &pulses));
+}
+
+TEST(SarGeometryTest, AdvanceFractionalPrfRejectsNanDt) {
+  geometry::FractionalPrfState state;
+  std::uint32_t emitted = 0U;
+  EXPECT_FALSE(geometry::AdvanceFractionalPrf(
+      std::numeric_limits<double>::quiet_NaN(), 12.5, &state, &emitted));
+}
+
+TEST(SarGeometryTest, AdvanceFractionalPrfRejectsNanPrf) {
+  geometry::FractionalPrfState state;
+  std::uint32_t emitted = 0U;
+  EXPECT_FALSE(geometry::AdvanceFractionalPrf(
+      0.1, std::numeric_limits<double>::quiet_NaN(), &state, &emitted));
 }
 
 }  // namespace
