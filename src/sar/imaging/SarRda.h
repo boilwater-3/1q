@@ -40,10 +40,18 @@ struct RdaDiagnostics {
   double azimuth_quadratic_phase_span_rad{0.0};
   double max_geometric_doppler_hz{0.0};
   double doppler_nyquist_margin{0.0};
+  double range_width_3db_bins{0.0};
   double azimuth_width_3db_bins{0.0};
+  bool resolution_m_valid{false};
+  double range_resolution_3db_m{0.0};
+  double azimuth_resolution_3db_m{0.0};
   double image_entropy_nats{0.0};
+  double image_contrast{0.0};
   std::size_t out_of_bounds_samples{0U};
   std::string rcmc_interpolation{"none"};
+  std::string phase_reference_mode{"native"};
+  std::string image_quality_mainlobe_method{"3db"};
+  bool phase_reference_applied{false};
   bool range_compression_applied{false};
   bool azimuth_fft_applied{false};
   bool azimuth_matched_filter_applied{false};

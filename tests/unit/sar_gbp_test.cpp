@@ -259,8 +259,10 @@ TEST(SarGbpTest, LinearAndSincRdaAreMeasuredAgainstGbpReference) {
   RecordProperty("sinc_nrms", std::to_string(sinc_comparison.normalized_rms_error));
   RecordProperty("linear_correlation", std::to_string(linear_comparison.coherent_correlation));
   RecordProperty("sinc_correlation", std::to_string(sinc_comparison.coherent_correlation));
-  EXPECT_TRUE(std::isfinite(linear_comparison.normalized_rms_error));
-  EXPECT_TRUE(std::isfinite(sinc_comparison.normalized_rms_error));
+  EXPECT_GE(linear_comparison.normalized_rms_error, 0.0);
+  EXPECT_LE(linear_comparison.normalized_rms_error, 2.0);
+  EXPECT_GE(sinc_comparison.normalized_rms_error, 0.0);
+  EXPECT_LE(sinc_comparison.normalized_rms_error, 2.0);
 }
 
 TEST(SarGbpTest, L3WaypointRawEchoDegradesL1RdaWhileGbpUsesActualTrajectory) {
@@ -445,6 +447,21 @@ TEST(SarGbpTest, RejectsSceneBeyondApproved128SquareGate) {
                                            scene.matched_filter, &focused));
   EXPECT_FALSE(imaging::FocusSmallSceneBp(oversized, scene.pulses, raw_history,
                                           scene.matched_filter, &focused));
+}
+
+TEST(SarGbpTest, RejectsNullOutputPointer) {
+  test_support::ReferencePointScene scene;
+  ASSERT_TRUE(test_support::BuildReferencePointScene(&scene));
+  signal::ComplexMatrix raw_history;
+  ASSERT_TRUE(test_support::BuildReferenceRawHistory(
+      scene, {test_support::MakeReferenceTargetAtDelay(20U, scene.sample_rate_hz, 1.0)},
+      &raw_history));
+
+  const imaging::GbpConfig config = MakeGbpConfig(scene, 20U, 9U, 9U);
+  EXPECT_FALSE(
+      imaging::FocusSmallSceneGbp(config, scene.pulses, raw_history, scene.matched_filter, nullptr));
+  EXPECT_FALSE(
+      imaging::FocusSmallSceneBp(config, scene.pulses, raw_history, scene.matched_filter, nullptr));
 }
 
 }  // namespace

@@ -95,10 +95,13 @@ TEST(SarRdaTest, DiagnosticsRecordRdaStagesAndReferenceParameters) {
   ASSERT_TRUE(imaging::FocusStripmapRda(config, raw_history, fixture.matched_filter, &focused));
 
   EXPECT_TRUE(focused.diagnostics.range_compression_applied);
+  EXPECT_TRUE(focused.diagnostics.phase_reference_applied);
   EXPECT_TRUE(focused.diagnostics.azimuth_fft_applied);
   EXPECT_TRUE(focused.diagnostics.azimuth_matched_filter_applied);
   EXPECT_TRUE(focused.diagnostics.azimuth_ifft_applied);
   EXPECT_EQ(focused.diagnostics.rcmc_interpolation, "linear");
+  EXPECT_EQ(focused.diagnostics.phase_reference_mode, "center_broadside");
+  EXPECT_EQ(focused.diagnostics.image_quality_mainlobe_method, "3db");
   EXPECT_DOUBLE_EQ(focused.diagnostics.reference_range_m, config.reference_range_m);
   EXPECT_NEAR(focused.diagnostics.range_bin_spacing_m,
               kSpeedOfLightMps / (2.0 * fixture.sample_rate_hz), 1.0e-12);
@@ -125,9 +128,20 @@ TEST(SarRdaTest, DiagnosticsRecordRdaStagesAndReferenceParameters) {
   EXPECT_NEAR(focused.diagnostics.max_geometric_doppler_hz, expected_max_doppler_hz, 1.0e-15);
   EXPECT_NEAR(focused.diagnostics.doppler_nyquist_margin,
               0.5 * config.prf_hz / expected_max_doppler_hz, 1.0e-12);
+  EXPECT_GT(focused.diagnostics.range_width_3db_bins, 0.0);
   EXPECT_GT(focused.diagnostics.azimuth_width_3db_bins, 0.0);
-  EXPECT_TRUE(std::isfinite(focused.diagnostics.image_entropy_nats));
+  EXPECT_TRUE(focused.diagnostics.resolution_m_valid);
+  EXPECT_NEAR(focused.diagnostics.range_resolution_3db_m,
+              focused.diagnostics.range_width_3db_bins *
+                  focused.diagnostics.range_bin_spacing_m,
+              1.0e-12);
+  EXPECT_NEAR(focused.diagnostics.azimuth_resolution_3db_m,
+              focused.diagnostics.azimuth_width_3db_bins *
+                  focused.diagnostics.azimuth_sample_spacing_m,
+              1.0e-12);
   EXPECT_GE(focused.diagnostics.image_entropy_nats, 0.0);
+  EXPECT_LE(focused.diagnostics.image_entropy_nats, 50.0);
+  EXPECT_GE(focused.diagnostics.image_contrast, 0.0);
   EXPECT_EQ(focused.image.rows, fixture.pulse_count);
   EXPECT_EQ(focused.image.cols, fixture.range_sample_count);
 }

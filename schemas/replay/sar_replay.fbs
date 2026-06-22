@@ -42,10 +42,21 @@ table SarOutputFrame {
   azimuth_pulse_count: uint32;
   center_slant_range_m: double;
   estimated_snr_db: double;
+  phase_reference_mode: int32;
+  image_quality_mainlobe_method: int32;
+  range_width_3db_bins: double;
+  azimuth_width_3db_bins: double;
+  range_resolution_3db_m: double;
+  azimuth_resolution_3db_m: double;
+  image_entropy_nats: double;
+  image_contrast: double;
   has_raw_echo: bool;
   has_range_compressed_echo: bool;
   has_l1_image: bool;
   has_l3_bp_image: bool;
+  has_image_quality_metrics: bool;
+  image_resolution_m_valid: bool;
+  phase_reference_applied: bool;
 }
 
 table SarDiagnosticIssue {

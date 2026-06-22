@@ -4,7 +4,9 @@
 #include <cmath>
 #include <limits>
 
+#include "sar/geometry/SarGeometry.h"
 #include "sar/imaging/SarImageQuality.h"
+#include "sar/imaging/SarPhaseReference.h"
 #include "sar/signal/SarWaveform.h"
 
 namespace sar {
@@ -26,11 +28,6 @@ bool IsValid(const RdaConfig& config, const signal::ComplexMatrix& raw_pulse_his
           (config.sinc_half_width >= 2U && config.sinc_half_width <= 16U));
 }
 
-double DopplerFrequency(std::size_t index, std::size_t count, double prf_hz) {
-  const double raw = static_cast<double>(index) * prf_hz / static_cast<double>(count);
-  return (index <= count / 2U) ? raw : (raw - prf_hz);
-}
-
 signal::ComplexSample InterpolateRangeLinear(const signal::ComplexMatrix& matrix, std::size_t row,
                                              double source_col, std::size_t* out_of_bounds) {
   if (source_col < 0.0 || source_col > static_cast<double>(matrix.cols - 1U)) {
@@ -42,13 +39,6 @@ signal::ComplexSample InterpolateRangeLinear(const signal::ComplexMatrix& matrix
   const std::size_t right = std::min(left + 1U, matrix.cols - 1U);
   const double frac = source_col - static_cast<double>(left);
   return matrix(row, left) * (1.0 - frac) + matrix(row, right) * frac;
-}
-
-double Sinc(double value) {
-  if (std::abs(value) < 1.0e-12) {
-    return 1.0;
-  }
-  return std::sin(kPi * value) / (kPi * value);
 }
 
 signal::ComplexSample InterpolateRangeSinc(const signal::ComplexMatrix& matrix, std::size_t row,
@@ -71,7 +61,8 @@ signal::ComplexSample InterpolateRangeSinc(const signal::ComplexMatrix& matrix, 
       continue;
     }
     const double distance = source_col - static_cast<double>(index);
-    const double weight = Sinc(distance) * Sinc(distance / static_cast<double>(half_width));
+    const double weight =
+        geometry::Sinc(distance) * geometry::Sinc(distance / static_cast<double>(half_width));
     sum += matrix(row, static_cast<std::size_t>(index)) * weight;
     weight_sum += weight;
   }
@@ -93,21 +84,14 @@ const char* InterpolationName(RcmcInterpolation interpolation) {
   return "unknown";
 }
 
-void ApplyBroadsidePhaseReference(const RdaConfig& config, signal::ComplexMatrix* matrix,
-                                  double range_bin_spacing_m) {
-  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
-  const double center_row = 0.5 * static_cast<double>(matrix->rows - 1U);
-  for (std::size_t row = 0U; row < matrix->rows; ++row) {
-    const double slow_time_s = (static_cast<double>(row) - center_row) / config.prf_hz;
-    const double x_m = config.platform_velocity_mps * slow_time_s;
-    for (std::size_t col = 0U; col < matrix->cols; ++col) {
-      const double range_m =
-          std::max(static_cast<double>(col) * range_bin_spacing_m, 0.5 * range_bin_spacing_m);
-      const double slant_m = std::sqrt(range_m * range_m + x_m * x_m);
-      const double phase = 4.0 * kPi * slant_m / wavelength_m;
-      (*matrix)(row, col) *= signal::ComplexSample(std::cos(phase), std::sin(phase));
-    }
+const char* PhaseReferenceModeName(PhaseReferenceMode mode) {
+  switch (mode) {
+    case PhaseReferenceMode::kNative:
+      return "native";
+    case PhaseReferenceMode::kCenterBroadside:
+      return "center_broadside";
   }
+  return "unknown";
 }
 
 }  // namespace
@@ -219,7 +203,19 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
   }
   diagnostics.range_compression_applied = true;
 
-  ApplyBroadsidePhaseReference(config, &range_compressed, diagnostics.range_bin_spacing_m);
+  PhaseReferenceConfig phase_reference_config;
+  phase_reference_config.mode = PhaseReferenceMode::kCenterBroadside;
+  phase_reference_config.carrier_frequency_hz = config.carrier_frequency_hz;
+  phase_reference_config.prf_hz = config.prf_hz;
+  phase_reference_config.platform_velocity_mps = config.platform_velocity_mps;
+  phase_reference_config.range_bin_spacing_m = diagnostics.range_bin_spacing_m;
+  PhaseReferenceDiagnostics phase_reference_diagnostics;
+  if (!ApplyBroadsideCenterPhaseReference(phase_reference_config, &range_compressed,
+                                          &phase_reference_diagnostics)) {
+    return false;
+  }
+  diagnostics.phase_reference_applied = phase_reference_diagnostics.applied;
+  diagnostics.phase_reference_mode = PhaseReferenceModeName(phase_reference_diagnostics.mode);
 
   signal::ComplexMatrix azimuth_spectrum;
   if (!signal::FftCols(range_compressed, false, &azimuth_spectrum)) {
@@ -229,7 +225,7 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
 
   std::vector<double> delta_bins_by_row(azimuth_spectrum.rows, 0.0);
   for (std::size_t row = 0U; row < azimuth_spectrum.rows; ++row) {
-    const double fa_hz = DopplerFrequency(row, azimuth_spectrum.rows, config.prf_hz);
+    const double fa_hz = geometry::DopplerBinFrequency(row, azimuth_spectrum.rows, config.prf_hz);
     const double delta_range_m =
         wavelength_m * wavelength_m * config.reference_range_m * fa_hz * fa_hz /
         (8.0 * config.platform_velocity_mps * config.platform_velocity_mps);
@@ -244,7 +240,7 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
 
   const double ka_hz_per_s = diagnostics.doppler_rate_hz_per_s;
   for (std::size_t row = 0U; row < rcmc.rows; ++row) {
-    const double fa_hz = DopplerFrequency(row, rcmc.rows, config.prf_hz);
+    const double fa_hz = geometry::DopplerBinFrequency(row, rcmc.rows, config.prf_hz);
     const double phase = kPi * fa_hz * fa_hz / ka_hz_per_s;
     const signal::ComplexSample azimuth_filter(std::cos(phase), std::sin(phase));
     for (std::size_t col = 0U; col < rcmc.cols; ++col) {
@@ -260,9 +256,17 @@ bool FocusStripmapRda(const RdaConfig& config, const signal::ComplexMatrix& raw_
   diagnostics.azimuth_ifft_applied = true;
 
   output->image = azimuth_time;
-  const ImageQualityMetrics quality = EvaluateImageQuality(output->image);
+  ImageQualityConfig quality_config;
+  quality_config.range_pixel_spacing_m = diagnostics.range_bin_spacing_m;
+  quality_config.azimuth_pixel_spacing_m = diagnostics.azimuth_sample_spacing_m;
+  const ImageQualityMetrics quality = EvaluateImageQuality(output->image, quality_config);
+  diagnostics.range_width_3db_bins = quality.range_width_3db_bins;
   diagnostics.azimuth_width_3db_bins = quality.azimuth_width_3db_bins;
+  diagnostics.resolution_m_valid = quality.resolution_m_valid;
+  diagnostics.range_resolution_3db_m = quality.range_resolution_3db_m;
+  diagnostics.azimuth_resolution_3db_m = quality.azimuth_resolution_3db_m;
   diagnostics.image_entropy_nats = quality.entropy_nats;
+  diagnostics.image_contrast = quality.image_contrast;
   output->diagnostics = diagnostics;
   return true;
 }

@@ -32,9 +32,21 @@ bool SarOutputFrameEqual(const SarOutputFrame& left, const SarOutputFrame& right
          left.azimuth_pulse_count == right.azimuth_pulse_count &&
          left.center_slant_range_m == right.center_slant_range_m &&
          left.estimated_snr_db == right.estimated_snr_db &&
+         left.phase_reference_mode == right.phase_reference_mode &&
+         left.image_quality_mainlobe_method == right.image_quality_mainlobe_method &&
+         left.range_width_3db_bins == right.range_width_3db_bins &&
+         left.azimuth_width_3db_bins == right.azimuth_width_3db_bins &&
+         left.range_resolution_3db_m == right.range_resolution_3db_m &&
+         left.azimuth_resolution_3db_m == right.azimuth_resolution_3db_m &&
+         left.image_entropy_nats == right.image_entropy_nats &&
+         left.image_contrast == right.image_contrast &&
          left.has_raw_echo == right.has_raw_echo &&
          left.has_range_compressed_echo == right.has_range_compressed_echo &&
-         left.has_l1_image == right.has_l1_image && left.has_l3_bp_image == right.has_l3_bp_image;
+         left.has_l1_image == right.has_l1_image &&
+         left.has_l3_bp_image == right.has_l3_bp_image &&
+         left.has_image_quality_metrics == right.has_image_quality_metrics &&
+         left.image_resolution_m_valid == right.image_resolution_m_valid &&
+         left.phase_reference_applied == right.phase_reference_applied;
 }
 
 bool SarCycleResultEqual(const SarCycleResult& left, const SarCycleResult& right) {

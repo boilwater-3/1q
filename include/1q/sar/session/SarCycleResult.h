@@ -41,6 +41,22 @@ enum class SarFocusedImageSource {
 };
 
 /**
+ * @brief SAR 聚焦图像相位参考摘要。
+ */
+enum class SarPhaseReferenceMode {
+  kNative = 0,
+  kCenterBroadside = 1
+};
+
+/**
+ * @brief SAR 图像质量主瓣判定方法摘要。
+ */
+enum class SarMainlobeEstimationMethod {
+  k3dB = 0,
+  k20dB = 1
+};
+
+/**
  * @brief SAR 诊断条目。
  */
 struct ONEQ_API SarDiagnosticIssue {
@@ -74,10 +90,21 @@ struct ONEQ_API SarOutputFrame {
   std::uint32_t azimuth_pulse_count{0U};
   double center_slant_range_m{0.0};
   double estimated_snr_db{0.0};
+  SarPhaseReferenceMode phase_reference_mode{SarPhaseReferenceMode::kNative};
+  SarMainlobeEstimationMethod image_quality_mainlobe_method{SarMainlobeEstimationMethod::k3dB};
+  double range_width_3db_bins{0.0};
+  double azimuth_width_3db_bins{0.0};
+  double range_resolution_3db_m{0.0};
+  double azimuth_resolution_3db_m{0.0};
+  double image_entropy_nats{0.0};
+  double image_contrast{0.0};
   bool has_raw_echo{false};
   bool has_range_compressed_echo{false};
   bool has_l1_image{false};
   bool has_l3_bp_image{false};
+  bool has_image_quality_metrics{false};
+  bool image_resolution_m_valid{false};
+  bool phase_reference_applied{false};
 };
 
 /**

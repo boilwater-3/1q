@@ -330,10 +330,21 @@ struct SarOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_AZIMUTH_PULSE_COUNT = 10,
     VT_CENTER_SLANT_RANGE_M = 12,
     VT_ESTIMATED_SNR_DB = 14,
-    VT_HAS_RAW_ECHO = 16,
-    VT_HAS_RANGE_COMPRESSED_ECHO = 18,
-    VT_HAS_L1_IMAGE = 20,
-    VT_HAS_L3_BP_IMAGE = 22
+    VT_PHASE_REFERENCE_MODE = 16,
+    VT_IMAGE_QUALITY_MAINLOBE_METHOD = 18,
+    VT_RANGE_WIDTH_3DB_BINS = 20,
+    VT_AZIMUTH_WIDTH_3DB_BINS = 22,
+    VT_RANGE_RESOLUTION_3DB_M = 24,
+    VT_AZIMUTH_RESOLUTION_3DB_M = 26,
+    VT_IMAGE_ENTROPY_NATS = 28,
+    VT_IMAGE_CONTRAST = 30,
+    VT_HAS_RAW_ECHO = 32,
+    VT_HAS_RANGE_COMPRESSED_ECHO = 34,
+    VT_HAS_L1_IMAGE = 36,
+    VT_HAS_L3_BP_IMAGE = 38,
+    VT_HAS_IMAGE_QUALITY_METRICS = 40,
+    VT_IMAGE_RESOLUTION_M_VALID = 42,
+    VT_PHASE_REFERENCE_APPLIED = 44
   };
   uint32_t cycle_index() const {
     return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
@@ -353,6 +364,30 @@ struct SarOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   double estimated_snr_db() const {
     return GetField<double>(VT_ESTIMATED_SNR_DB, 0.0);
   }
+  int32_t phase_reference_mode() const {
+    return GetField<int32_t>(VT_PHASE_REFERENCE_MODE, 0);
+  }
+  int32_t image_quality_mainlobe_method() const {
+    return GetField<int32_t>(VT_IMAGE_QUALITY_MAINLOBE_METHOD, 0);
+  }
+  double range_width_3db_bins() const {
+    return GetField<double>(VT_RANGE_WIDTH_3DB_BINS, 0.0);
+  }
+  double azimuth_width_3db_bins() const {
+    return GetField<double>(VT_AZIMUTH_WIDTH_3DB_BINS, 0.0);
+  }
+  double range_resolution_3db_m() const {
+    return GetField<double>(VT_RANGE_RESOLUTION_3DB_M, 0.0);
+  }
+  double azimuth_resolution_3db_m() const {
+    return GetField<double>(VT_AZIMUTH_RESOLUTION_3DB_M, 0.0);
+  }
+  double image_entropy_nats() const {
+    return GetField<double>(VT_IMAGE_ENTROPY_NATS, 0.0);
+  }
+  double image_contrast() const {
+    return GetField<double>(VT_IMAGE_CONTRAST, 0.0);
+  }
   bool has_raw_echo() const {
     return GetField<uint8_t>(VT_HAS_RAW_ECHO, 0) != 0;
   }
@@ -365,6 +400,15 @@ struct SarOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool has_l3_bp_image() const {
     return GetField<uint8_t>(VT_HAS_L3_BP_IMAGE, 0) != 0;
   }
+  bool has_image_quality_metrics() const {
+    return GetField<uint8_t>(VT_HAS_IMAGE_QUALITY_METRICS, 0) != 0;
+  }
+  bool image_resolution_m_valid() const {
+    return GetField<uint8_t>(VT_IMAGE_RESOLUTION_M_VALID, 0) != 0;
+  }
+  bool phase_reference_applied() const {
+    return GetField<uint8_t>(VT_PHASE_REFERENCE_APPLIED, 0) != 0;
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_CYCLE_INDEX) &&
@@ -373,10 +417,21 @@ struct SarOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_AZIMUTH_PULSE_COUNT) &&
            VerifyField<double>(verifier, VT_CENTER_SLANT_RANGE_M) &&
            VerifyField<double>(verifier, VT_ESTIMATED_SNR_DB) &&
+           VerifyField<int32_t>(verifier, VT_PHASE_REFERENCE_MODE) &&
+           VerifyField<int32_t>(verifier, VT_IMAGE_QUALITY_MAINLOBE_METHOD) &&
+           VerifyField<double>(verifier, VT_RANGE_WIDTH_3DB_BINS) &&
+           VerifyField<double>(verifier, VT_AZIMUTH_WIDTH_3DB_BINS) &&
+           VerifyField<double>(verifier, VT_RANGE_RESOLUTION_3DB_M) &&
+           VerifyField<double>(verifier, VT_AZIMUTH_RESOLUTION_3DB_M) &&
+           VerifyField<double>(verifier, VT_IMAGE_ENTROPY_NATS) &&
+           VerifyField<double>(verifier, VT_IMAGE_CONTRAST) &&
            VerifyField<uint8_t>(verifier, VT_HAS_RAW_ECHO) &&
            VerifyField<uint8_t>(verifier, VT_HAS_RANGE_COMPRESSED_ECHO) &&
            VerifyField<uint8_t>(verifier, VT_HAS_L1_IMAGE) &&
            VerifyField<uint8_t>(verifier, VT_HAS_L3_BP_IMAGE) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_IMAGE_QUALITY_METRICS) &&
+           VerifyField<uint8_t>(verifier, VT_IMAGE_RESOLUTION_M_VALID) &&
+           VerifyField<uint8_t>(verifier, VT_PHASE_REFERENCE_APPLIED) &&
            verifier.EndTable();
   }
 };
@@ -403,6 +458,30 @@ struct SarOutputFrameBuilder {
   void add_estimated_snr_db(double estimated_snr_db) {
     fbb_.AddElement<double>(SarOutputFrame::VT_ESTIMATED_SNR_DB, estimated_snr_db, 0.0);
   }
+  void add_phase_reference_mode(int32_t phase_reference_mode) {
+    fbb_.AddElement<int32_t>(SarOutputFrame::VT_PHASE_REFERENCE_MODE, phase_reference_mode, 0);
+  }
+  void add_image_quality_mainlobe_method(int32_t image_quality_mainlobe_method) {
+    fbb_.AddElement<int32_t>(SarOutputFrame::VT_IMAGE_QUALITY_MAINLOBE_METHOD, image_quality_mainlobe_method, 0);
+  }
+  void add_range_width_3db_bins(double range_width_3db_bins) {
+    fbb_.AddElement<double>(SarOutputFrame::VT_RANGE_WIDTH_3DB_BINS, range_width_3db_bins, 0.0);
+  }
+  void add_azimuth_width_3db_bins(double azimuth_width_3db_bins) {
+    fbb_.AddElement<double>(SarOutputFrame::VT_AZIMUTH_WIDTH_3DB_BINS, azimuth_width_3db_bins, 0.0);
+  }
+  void add_range_resolution_3db_m(double range_resolution_3db_m) {
+    fbb_.AddElement<double>(SarOutputFrame::VT_RANGE_RESOLUTION_3DB_M, range_resolution_3db_m, 0.0);
+  }
+  void add_azimuth_resolution_3db_m(double azimuth_resolution_3db_m) {
+    fbb_.AddElement<double>(SarOutputFrame::VT_AZIMUTH_RESOLUTION_3DB_M, azimuth_resolution_3db_m, 0.0);
+  }
+  void add_image_entropy_nats(double image_entropy_nats) {
+    fbb_.AddElement<double>(SarOutputFrame::VT_IMAGE_ENTROPY_NATS, image_entropy_nats, 0.0);
+  }
+  void add_image_contrast(double image_contrast) {
+    fbb_.AddElement<double>(SarOutputFrame::VT_IMAGE_CONTRAST, image_contrast, 0.0);
+  }
   void add_has_raw_echo(bool has_raw_echo) {
     fbb_.AddElement<uint8_t>(SarOutputFrame::VT_HAS_RAW_ECHO, static_cast<uint8_t>(has_raw_echo), 0);
   }
@@ -414,6 +493,15 @@ struct SarOutputFrameBuilder {
   }
   void add_has_l3_bp_image(bool has_l3_bp_image) {
     fbb_.AddElement<uint8_t>(SarOutputFrame::VT_HAS_L3_BP_IMAGE, static_cast<uint8_t>(has_l3_bp_image), 0);
+  }
+  void add_has_image_quality_metrics(bool has_image_quality_metrics) {
+    fbb_.AddElement<uint8_t>(SarOutputFrame::VT_HAS_IMAGE_QUALITY_METRICS, static_cast<uint8_t>(has_image_quality_metrics), 0);
+  }
+  void add_image_resolution_m_valid(bool image_resolution_m_valid) {
+    fbb_.AddElement<uint8_t>(SarOutputFrame::VT_IMAGE_RESOLUTION_M_VALID, static_cast<uint8_t>(image_resolution_m_valid), 0);
+  }
+  void add_phase_reference_applied(bool phase_reference_applied) {
+    fbb_.AddElement<uint8_t>(SarOutputFrame::VT_PHASE_REFERENCE_APPLIED, static_cast<uint8_t>(phase_reference_applied), 0);
   }
   explicit SarOutputFrameBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -435,17 +523,39 @@ inline flatbuffers::Offset<SarOutputFrame> CreateSarOutputFrame(
     uint32_t azimuth_pulse_count = 0,
     double center_slant_range_m = 0.0,
     double estimated_snr_db = 0.0,
+    int32_t phase_reference_mode = 0,
+    int32_t image_quality_mainlobe_method = 0,
+    double range_width_3db_bins = 0.0,
+    double azimuth_width_3db_bins = 0.0,
+    double range_resolution_3db_m = 0.0,
+    double azimuth_resolution_3db_m = 0.0,
+    double image_entropy_nats = 0.0,
+    double image_contrast = 0.0,
     bool has_raw_echo = false,
     bool has_range_compressed_echo = false,
     bool has_l1_image = false,
-    bool has_l3_bp_image = false) {
+    bool has_l3_bp_image = false,
+    bool has_image_quality_metrics = false,
+    bool image_resolution_m_valid = false,
+    bool phase_reference_applied = false) {
   SarOutputFrameBuilder builder_(_fbb);
+  builder_.add_image_contrast(image_contrast);
+  builder_.add_image_entropy_nats(image_entropy_nats);
+  builder_.add_azimuth_resolution_3db_m(azimuth_resolution_3db_m);
+  builder_.add_range_resolution_3db_m(range_resolution_3db_m);
+  builder_.add_azimuth_width_3db_bins(azimuth_width_3db_bins);
+  builder_.add_range_width_3db_bins(range_width_3db_bins);
   builder_.add_estimated_snr_db(estimated_snr_db);
   builder_.add_center_slant_range_m(center_slant_range_m);
+  builder_.add_image_quality_mainlobe_method(image_quality_mainlobe_method);
+  builder_.add_phase_reference_mode(phase_reference_mode);
   builder_.add_azimuth_pulse_count(azimuth_pulse_count);
   builder_.add_range_sample_count(range_sample_count);
   builder_.add_completed_stage(completed_stage);
   builder_.add_cycle_index(cycle_index);
+  builder_.add_phase_reference_applied(phase_reference_applied);
+  builder_.add_image_resolution_m_valid(image_resolution_m_valid);
+  builder_.add_has_image_quality_metrics(has_image_quality_metrics);
   builder_.add_has_l3_bp_image(has_l3_bp_image);
   builder_.add_has_l1_image(has_l1_image);
   builder_.add_has_range_compressed_echo(has_range_compressed_echo);

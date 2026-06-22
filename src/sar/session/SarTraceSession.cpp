@@ -37,7 +37,23 @@ std::string BuildSarOutputPayload(const SarCycleResult& result) {
      << "\"completed_stage\":" << static_cast<int>(frame.completed_stage) << ","
      << "\"executed\":" << (result.executed_this_cycle ? "true" : "false") << ","
      << "\"has_error\":" << (result.has_error ? "true" : "false") << ","
-     << "\"has_l1_image\":" << (frame.has_l1_image ? "true" : "false") << "}";
+     << "\"has_l1_image\":" << (frame.has_l1_image ? "true" : "false") << ","
+     << "\"has_l3_bp_image\":" << (frame.has_l3_bp_image ? "true" : "false") << ","
+     << "\"phase_reference_mode\":" << static_cast<int>(frame.phase_reference_mode) << ","
+     << "\"phase_reference_applied\":"
+     << (frame.phase_reference_applied ? "true" : "false") << ","
+     << "\"image_quality_mainlobe_method\":"
+     << static_cast<int>(frame.image_quality_mainlobe_method) << ","
+     << "\"has_image_quality_metrics\":"
+     << (frame.has_image_quality_metrics ? "true" : "false") << ","
+     << "\"image_resolution_m_valid\":"
+     << (frame.image_resolution_m_valid ? "true" : "false") << ","
+     << "\"range_width_3db_bins\":" << frame.range_width_3db_bins << ","
+     << "\"azimuth_width_3db_bins\":" << frame.azimuth_width_3db_bins << ","
+     << "\"range_resolution_3db_m\":" << frame.range_resolution_3db_m << ","
+     << "\"azimuth_resolution_3db_m\":" << frame.azimuth_resolution_3db_m << ","
+     << "\"image_entropy_nats\":" << frame.image_entropy_nats << ","
+     << "\"image_contrast\":" << frame.image_contrast << "}";
   return os.str();
 }
 

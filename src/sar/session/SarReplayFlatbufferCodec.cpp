@@ -49,8 +49,14 @@ flatbuffers::Offset<replay::SarOutputFrame> BuildOutputFrame(flatbuffers::FlatBu
   return replay::CreateSarOutputFrame(
       fbb, value.cycle_index, static_cast<std::int32_t>(value.completed_stage),
       value.range_sample_count, value.azimuth_pulse_count, value.center_slant_range_m,
-      value.estimated_snr_db, value.has_raw_echo, value.has_range_compressed_echo,
-      value.has_l1_image, value.has_l3_bp_image);
+      value.estimated_snr_db, static_cast<std::int32_t>(value.phase_reference_mode),
+      static_cast<std::int32_t>(value.image_quality_mainlobe_method),
+      value.range_width_3db_bins, value.azimuth_width_3db_bins,
+      value.range_resolution_3db_m, value.azimuth_resolution_3db_m,
+      value.image_entropy_nats, value.image_contrast, value.has_raw_echo,
+      value.has_range_compressed_echo, value.has_l1_image, value.has_l3_bp_image,
+      value.has_image_quality_metrics, value.image_resolution_m_valid,
+      value.phase_reference_applied);
 }
 
 void FromFbOutputFrame(const replay::SarOutputFrame* fb, SarOutputFrame* out) {
@@ -63,10 +69,22 @@ void FromFbOutputFrame(const replay::SarOutputFrame* fb, SarOutputFrame* out) {
   out->azimuth_pulse_count = fb->azimuth_pulse_count();
   out->center_slant_range_m = fb->center_slant_range_m();
   out->estimated_snr_db = fb->estimated_snr_db();
+  out->phase_reference_mode = static_cast<SarPhaseReferenceMode>(fb->phase_reference_mode());
+  out->image_quality_mainlobe_method =
+      static_cast<SarMainlobeEstimationMethod>(fb->image_quality_mainlobe_method());
+  out->range_width_3db_bins = fb->range_width_3db_bins();
+  out->azimuth_width_3db_bins = fb->azimuth_width_3db_bins();
+  out->range_resolution_3db_m = fb->range_resolution_3db_m();
+  out->azimuth_resolution_3db_m = fb->azimuth_resolution_3db_m();
+  out->image_entropy_nats = fb->image_entropy_nats();
+  out->image_contrast = fb->image_contrast();
   out->has_raw_echo = fb->has_raw_echo();
   out->has_range_compressed_echo = fb->has_range_compressed_echo();
   out->has_l1_image = fb->has_l1_image();
   out->has_l3_bp_image = fb->has_l3_bp_image();
+  out->has_image_quality_metrics = fb->has_image_quality_metrics();
+  out->image_resolution_m_valid = fb->image_resolution_m_valid();
+  out->phase_reference_applied = fb->phase_reference_applied();
 }
 
 flatbuffers::Offset<replay::SarHardwareConfig> BuildHardwareConfig(
@@ -151,7 +169,7 @@ flatbuffers::Offset<replay::SarPolicyConfig> BuildPolicyConfig(
   return replay::CreateSarPolicyConfig(
       fbb, value.enable_raw_echo_generation, value.enable_range_compression,
       value.enable_l1_rda_imaging, value.enable_diagnostics, value.retain_raw_phase_history,
-      value.max_allowed_squint_angle_deg, value.min_valid_snr_db,
+      value.retain_focused_image, value.max_allowed_squint_angle_deg, value.min_valid_snr_db,
       value.enable_l2_motion_compensation, value.enable_l3_bp_imaging);
 }
 
@@ -164,6 +182,7 @@ void FromFbPolicyConfig(const replay::SarPolicyConfig* fb, config::SarPolicyConf
   out->enable_l1_rda_imaging = fb->enable_l1_rda_imaging();
   out->enable_diagnostics = fb->enable_diagnostics();
   out->retain_raw_phase_history = fb->retain_raw_phase_history();
+  out->retain_focused_image = fb->retain_focused_image();
   out->max_allowed_squint_angle_deg = fb->max_allowed_squint_angle_deg();
   out->min_valid_snr_db = fb->min_valid_snr_db();
   out->enable_l2_motion_compensation = fb->enable_l2_motion_compensation();
@@ -338,6 +357,7 @@ std::string EncodeSarRuntimeConfigPatch(const config::SarRuntimeConfigPatch& val
       value.has_enable_range_compression, value.enable_range_compression,
       value.has_enable_l1_rda_imaging, value.enable_l1_rda_imaging,
       value.has_retain_raw_phase_history, value.retain_raw_phase_history,
+      value.has_retain_focused_image, value.retain_focused_image,
       value.has_min_valid_snr_db, value.min_valid_snr_db));
   return FinishToString(&fbb);
 }
@@ -359,6 +379,8 @@ bool DecodeSarRuntimeConfigPatch(const std::string& bytes, config::SarRuntimeCon
   out->enable_l1_rda_imaging = fb->enable_l1_rda_imaging();
   out->has_retain_raw_phase_history = fb->has_retain_raw_phase_history();
   out->retain_raw_phase_history = fb->retain_raw_phase_history();
+  out->has_retain_focused_image = fb->has_retain_focused_image();
+  out->retain_focused_image = fb->retain_focused_image();
   out->has_min_valid_snr_db = fb->has_min_valid_snr_db();
   out->min_valid_snr_db = fb->min_valid_snr_db();
   return true;

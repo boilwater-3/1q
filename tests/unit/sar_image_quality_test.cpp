@@ -32,14 +32,73 @@ TEST(SarImageQualityTest, MeasuresPeakMainlobeAndSidelobesDeterministically) {
   EXPECT_DOUBLE_EQ(metrics.peak_magnitude, 10.0);
   EXPECT_DOUBLE_EQ(metrics.azimuth_width_3db_bins, 3.0);
   EXPECT_DOUBLE_EQ(metrics.range_width_3db_bins, 3.0);
+  EXPECT_FALSE(metrics.resolution_m_valid);
   EXPECT_NEAR(metrics.pslr_db, -20.0, 1.0e-12);
   EXPECT_LT(metrics.islr_db, 0.0);
   EXPECT_GT(metrics.entropy_nats, 0.0);
+  EXPECT_GT(metrics.image_contrast, 0.0);
 }
 
 TEST(SarImageQualityTest, RejectsEmptyAndZeroEnergyImages) {
   EXPECT_FALSE(imaging::EvaluateImageQuality(signal::ComplexMatrix{}).valid);
   EXPECT_FALSE(imaging::EvaluateImageQuality(MakeZeroImage(2U, 2U)).valid);
+}
+
+TEST(SarImageQualityTest, ConvertsBinWidthsToMetersWhenSpacingIsValid) {
+  signal::ComplexMatrix image = MakeZeroImage(3U, 5U);
+  image(1U, 2U) = signal::ComplexSample(10.0, 0.0);
+  image(1U, 1U) = signal::ComplexSample(8.0, 0.0);
+  image(1U, 3U) = signal::ComplexSample(8.0, 0.0);
+
+  imaging::ImageQualityConfig config;
+  config.range_pixel_spacing_m = 1.5;
+  config.azimuth_pixel_spacing_m = 2.0;
+  const imaging::ImageQualityMetrics metrics = imaging::EvaluateImageQuality(image, config);
+
+  ASSERT_TRUE(metrics.valid);
+  EXPECT_TRUE(metrics.resolution_m_valid);
+  EXPECT_DOUBLE_EQ(metrics.range_width_3db_bins, 3.0);
+  EXPECT_DOUBLE_EQ(metrics.azimuth_width_3db_bins, 1.0);
+  EXPECT_DOUBLE_EQ(metrics.range_resolution_3db_m, 4.5);
+  EXPECT_DOUBLE_EQ(metrics.azimuth_resolution_3db_m, 2.0);
+}
+
+TEST(SarImageQualityTest, MainlobeMethodChangesDeterministicWidth) {
+  signal::ComplexMatrix image = MakeZeroImage(1U, 7U);
+  image(0U, 3U) = signal::ComplexSample(10.0, 0.0);
+  image(0U, 2U) = signal::ComplexSample(3.0, 0.0);
+  image(0U, 4U) = signal::ComplexSample(3.0, 0.0);
+  image(0U, 1U) = signal::ComplexSample(2.0, 0.0);
+  image(0U, 5U) = signal::ComplexSample(2.0, 0.0);
+
+  imaging::ImageQualityConfig config;
+  config.mainlobe_method = imaging::MainlobeEstimationMethod::k3dB;
+  const imaging::ImageQualityMetrics three_db = imaging::EvaluateImageQuality(image, config);
+
+  config.mainlobe_method = imaging::MainlobeEstimationMethod::k20dB;
+  const imaging::ImageQualityMetrics twenty_db = imaging::EvaluateImageQuality(image, config);
+
+  ASSERT_TRUE(three_db.valid);
+  ASSERT_TRUE(twenty_db.valid);
+  EXPECT_EQ(three_db.mainlobe_method, imaging::MainlobeEstimationMethod::k3dB);
+  EXPECT_EQ(twenty_db.mainlobe_method, imaging::MainlobeEstimationMethod::k20dB);
+  EXPECT_DOUBLE_EQ(three_db.range_width_3db_bins, 1.0);
+  EXPECT_DOUBLE_EQ(twenty_db.range_width_3db_bins, 5.0);
+}
+
+TEST(SarImageQualityTest, UniformImageHasLowerContrastThanPointImage) {
+  signal::ComplexMatrix uniform = MakeZeroImage(4U, 4U);
+  uniform.values.assign(uniform.values.size(), signal::ComplexSample(1.0, 0.0));
+  signal::ComplexMatrix point = MakeZeroImage(4U, 4U);
+  point(2U, 2U) = signal::ComplexSample(10.0, 0.0);
+
+  const imaging::ImageQualityMetrics uniform_metrics = imaging::EvaluateImageQuality(uniform);
+  const imaging::ImageQualityMetrics point_metrics = imaging::EvaluateImageQuality(point);
+
+  ASSERT_TRUE(uniform_metrics.valid);
+  ASSERT_TRUE(point_metrics.valid);
+  EXPECT_NEAR(uniform_metrics.image_contrast, 0.0, 1.0e-12);
+  EXPECT_GT(point_metrics.image_contrast, uniform_metrics.image_contrast);
 }
 
 TEST(SarImageQualityTest, RemovesOnlyGlobalConstantPhaseForComparison) {

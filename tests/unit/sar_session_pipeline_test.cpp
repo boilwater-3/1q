@@ -123,6 +123,19 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
   EXPECT_TRUE(result.output_frame.has_l1_image);
+  EXPECT_TRUE(result.output_frame.has_image_quality_metrics);
+  EXPECT_TRUE(result.output_frame.image_resolution_m_valid);
+  EXPECT_TRUE(result.output_frame.phase_reference_applied);
+  EXPECT_EQ(result.output_frame.phase_reference_mode,
+            session::SarPhaseReferenceMode::kCenterBroadside);
+  EXPECT_EQ(result.output_frame.image_quality_mainlobe_method,
+            session::SarMainlobeEstimationMethod::k3dB);
+  EXPECT_GT(result.output_frame.range_width_3db_bins, 0.0);
+  EXPECT_GT(result.output_frame.azimuth_width_3db_bins, 0.0);
+  EXPECT_GT(result.output_frame.range_resolution_3db_m, 0.0);
+  EXPECT_GT(result.output_frame.azimuth_resolution_3db_m, 0.0);
+  EXPECT_GE(result.output_frame.image_entropy_nats, 0.0);
+  EXPECT_GE(result.output_frame.image_contrast, 0.0);
   EXPECT_EQ(result.output_frame.completed_stage, session::SarProcessingStage::kL1RdaImage);
   EXPECT_EQ(result.output_frame.range_sample_count, 64U);
   EXPECT_EQ(result.output_frame.azimuth_pulse_count, 9U);
@@ -135,7 +148,13 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   EXPECT_TRUE(HasNonZeroFocusedPixel(result.focused_image));
   EXPECT_FALSE(result.diagnostics.empty());
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "image_entropy_nats="));
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "image_contrast="));
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "phase_reference_mode="));
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "phase_reference_applied=1"));
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "range_width_3db_bins="));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_width_3db_bins="));
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "range_resolution_3db_m="));
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_resolution_3db_m="));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_sample_spacing_m="));
   EXPECT_TRUE(
       HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_phase_curvature_rad_per_pulse2="));
@@ -143,6 +162,40 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
       HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_quadratic_phase_span_rad="));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "max_geometric_doppler_hz="));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "doppler_nyquist_margin="));
+}
+
+TEST(SarSessionPipelineTest, RetainFocusedImageFalseProducesPlaceholder) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.retain_focused_image = false;
+  session::SarSession session = session::SarSessionFactory::Create(config);
+
+  const session::SarCycleResult result = session.StepWithResult(MakeInput());
+
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.has_error);
+  EXPECT_TRUE(result.output_frame.has_l1_image);
+  // 元数据仍完整，但像素数据被跳过。
+  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
+  EXPECT_EQ(result.focused_image.row_count, 9U);
+  EXPECT_EQ(result.focused_image.column_count, 64U);
+  EXPECT_TRUE(result.focused_image.is_placeholder);
+  EXPECT_TRUE(result.focused_image.real_values.empty());
+  EXPECT_TRUE(result.focused_image.imaginary_values.empty());
+}
+
+TEST(SarSessionPipelineTest, RetainFocusedImageFalseAppliesToL3Bp) {
+  config::SarSessionConfig config = MakeSmallL3BpConfig();
+  config.policy.retain_focused_image = false;
+  session::SarSession session = session::SarSessionFactory::Create(config);
+
+  const session::SarCycleResult result = session.StepWithResult(MakeInput());
+
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.has_error);
+  EXPECT_TRUE(result.output_frame.has_l3_bp_image);
+  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL3Bp);
+  EXPECT_TRUE(result.focused_image.is_placeholder);
+  EXPECT_TRUE(result.focused_image.real_values.empty());
 }
 
 TEST(SarSessionPipelineTest, RawPulseHistoryUsesCrossCycleRingBuffer) {
@@ -435,6 +488,16 @@ TEST(SarSessionPipelineTest, L3BpRunsOnlyWhenExplicitlyEnabled) {
   EXPECT_TRUE(result.output_frame.has_range_compressed_echo);
   EXPECT_FALSE(result.output_frame.has_l1_image);
   EXPECT_TRUE(result.output_frame.has_l3_bp_image);
+  EXPECT_TRUE(result.output_frame.has_image_quality_metrics);
+  EXPECT_FALSE(result.output_frame.image_resolution_m_valid);
+  EXPECT_FALSE(result.output_frame.phase_reference_applied);
+  EXPECT_EQ(result.output_frame.phase_reference_mode, session::SarPhaseReferenceMode::kNative);
+  EXPECT_EQ(result.output_frame.image_quality_mainlobe_method,
+            session::SarMainlobeEstimationMethod::k3dB);
+  EXPECT_GT(result.output_frame.range_width_3db_bins, 0.0);
+  EXPECT_GT(result.output_frame.azimuth_width_3db_bins, 0.0);
+  EXPECT_GE(result.output_frame.image_entropy_nats, 0.0);
+  EXPECT_GE(result.output_frame.image_contrast, 0.0);
   EXPECT_EQ(result.output_frame.completed_stage, session::SarProcessingStage::kL3BpImage);
   EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL3Bp);
   EXPECT_EQ(result.focused_image.row_count, 9U);
