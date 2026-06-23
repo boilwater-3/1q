@@ -1,7 +1,8 @@
 # SAR CSA 完整聚焦工程契约
 
 Date: 2026-06-24
-状态: 草案(待审批)
+状态: **阶段 A 完成,阶段 B 否决(Omega-K 已覆盖 CSA 想解决的问题,broadside α 极小)。详见
+`docs/sar/audits/csa_complete_focusing_phase_a_verdict.md`。**
 实现难度: 🔴 大(主流程完全从零;冻结护栏仍拦截;Phase 4 squint/SRC 才是其真正价值区)
 前置契约: `csa_math_reference.md`(§6 明令未批准完整 CSA 相位函数)
 
