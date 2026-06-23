@@ -249,7 +249,7 @@ examples/sar/    session_usage.cpp
 | `QuadraticApproxRange(approx, time_s)` | 二次近似 `R(t)≈R0+(v·Δt)²/(2R0)` |
 | `RangeRate(platform, target)` | 斜距变化率 `dR/dt` |
 
-> 实施时把 `SarRda.cpp` 内 `ApplyBroadsidePhaseReference` 的 `sqrt(range²+x²)` 几何提炼到本层,RDA 改调用,消除重复。
+> 实施时把 `SarRda.cpp` 内 `ApplyBroadsidePhaseReference` 的 `sqrt(range²+x²)` 几何抽出到 imaging 层的独立模块 `SarPhaseReference.*`(更名为 `ApplyBroadsideCenterPhaseReference`),消除与 RDA 主流程的耦合。注意:该公式**未提升到 geometry 层**,geometry 层的 `ExactSlantRange` 仍是纯 3D 欧氏 `Distance` 包装。详见 `phase1_status_audit.md`。
 
 ### 多普勒模型(✅ 已实现)
 
@@ -262,7 +262,7 @@ examples/sar/    session_usage.cpp
 | `AzimuthResolution(params, v)` | `ρ_az = v/B_doppler` |
 | `DopplerBinFrequency(index, count, prf_hz)` | FFT bin → 多普勒频率(提炼自 RDA) |
 
-> 实施时把 `SarRda.cpp::ComputeRdaSamplingDiagnostics` 内的多普勒计算提炼到 `ComputeDopplerParams`,RDA 公开签名不变,内部改调用(`sar_rda_test.cpp` 回归兜底)。
+> ⚠️ **未落地**:`ComputeRdaSamplingDiagnostics` 当前**内联**了多普勒率 `2v²/(λR0)`(`SarRda.cpp:111-113`),并未改调 `geometry::ComputeDopplerParams`。`ComputeDopplerParams` 已实现且自测,但对 RDA 是死代码(仅被 `sar_geometry_model_test.cpp` 调用),二者存在重复实现。原设计 L265/L338 的重构承诺未执行;恢复需单独审批。详见 `phase1_status_audit.md`。
 
 ### 数学工具与采样器(✅ 已实现)
 
@@ -335,7 +335,7 @@ examples/sar/    session_usage.cpp
 | `RdaDiagnostics` | `doppler_rate_hz_per_s`、`max_geometric_doppler_hz`、`doppler_nyquist_margin`、`image_entropy_nats`、`out_of_bounds_samples` 等 |
 | `FocusStripmapRda` | 主聚焦入口 |
 | `ApplyRangeMigrationCorrection` | RCMC 独立公开 API,Lanczos 加窗 sinc |
-| `ComputeRdaSamplingDiagnostics` | 多普勒/采样诊断(批次2 后内部改调 `geometry::ComputeDopplerParams`) |
+| `ComputeRdaSamplingDiagnostics` | 多普勒/采样诊断(多普勒率当前**内联**于 RDA,未改调 `geometry::ComputeDopplerParams`;详见 `phase1_status_audit.md`) |
 
 ### GBP / BP(✅ 完整)
 
@@ -378,7 +378,9 @@ examples/sar/    session_usage.cpp
 
 ### 运动补偿(✅ 一阶完整)
 
-`SarMotionCompensation.*`(位于 imaging 而非 calibration)。`ApplyFirstOrderMotionCompensation`:逐脉冲算 ΔR、包络线性插值重采样 + 相位校正 `exp(j·4π·ΔR/λ)`,带 RMS/max 诊断。**二阶/高阶缺失**,无 IMU 低通滤波。
+`SarMotionCompensation.*`(位于 imaging 而非 calibration)。`ApplyFirstOrderMotionCompensation`:逐脉冲算 ΔR、包络线性插值重采样 + 相位校正 `exp(j·4π·ΔR/λ)`,带 RMS/max 诊断。
+
+**二阶/高阶补偿状态**:有意冻结后置,非实现疏漏。`l3_first_order_applicability_matrix.md` 在 9x9 固定 PRF 场景扫到 `12 m` 横向偏移失效区,但其工程结论是"当前失效同时涉及非直线轨迹聚焦假设,**不应只归因于残余相位**",因此二阶补偿缺乏充分证据,`l3_first_order_compensation.md`/`l3_first_order_applicability_matrix.md`/`phase2_reference_closure.md` 等多份审计均明确"二阶补偿继续后置,等待一阶失效证据"。恢复前须先开新契约审批,禁止直接实现。无 IMU 低通滤波。
 
 ### 自聚焦 PGA(✅ 估计+真值完整)
 
@@ -398,9 +400,9 @@ CSA、Omega-K、`SarFocusingSelector`(Auto 选择)均完整实现但被冻结排
 
 | 函数(目标) | 依赖 | 说明 |
 |---|---|---|
-| `WriteBinaryImage(image, meta, filepath)` | 零依赖 | magic `1QSAR\x01\x00` + header(元数据)+ float32 交错实虚;升级自 `examples/session_usage.cpp` 的临时格式 |
-| `WriteGeoTiffSidecar(image, meta, base_filepath)` | 零依赖 | `base.raw` + `base.json` manifest(origin_lat/lon/pixel_spacing/投影说明);SAR 尚无地理编码,真 GeoTIFF 后置 |
-| `WriteHdf5Image(image, meta, filepath)` | HighFive(条件编译) | `/image/real`、`/image/imag` dataset + attrs;`ONEQ_ENABLE_HDF5_OUTPUT` 默认 OFF |
+| `WriteBinaryImage(image, meta, filepath)` | 零依赖 | magic `1QSAR\x01\x00`(**7 字节**)+ header(uint32_le rows/cols)+ float32 **planar**(实部全块 + 虚部全块);升级自 `examples/sar/session_usage.cpp` 的临时格式 |
+| `WriteGeoTiffSidecar(image, meta, base_filepath)` | 零依赖 | `base.raw`(float32 **逐元素交错** real/imag)+ `base.json` manifest(origin_lat/lon/pixel_spacing/格式说明字符串,无真实投影字段);SAR 尚无地理编码,真 GeoTIFF 后置 |
+| `WriteHdf5Image(image, meta, filepath)` | HighFive(条件编译) | `/image/real`、`/image/imag` dataset(存 **double**,非 float32)+ attrs(center_slant_range_m/estimated_snr_db/source);`ONEQ_ENABLE_HDF5_OUTPUT` 默认 OFF |
 
 **依赖决策**:项目当前无 HDF5/TIFF/GeoTIFF 依赖,受 C++11 + Eigen 3.3.9 + VS2015 vendor 约束。采用:`toBinary` 零依赖真做;`toHdf5` 用 HighFive 条件编译(默认 OFF,不污染 vendor 链);`toGeoTiff` 降级为 sidecar manifest(等 SAR 地理编码就绪后再做真 GeoTIFF)。
 
@@ -432,7 +434,7 @@ CSA、Omega-K、`SarFocusingSelector`(Auto 选择)均完整实现但被冻结排
 | **Phase 1** | LFM + 匹配滤波 + 距离压缩 + 点目标回波 + RDA + 脉冲缓冲区 | ✅ 完成(最小可审批闭环达成) |
 | **补齐** | 窗函数 / 斜距 / 多普勒 / 杂波 / 天线 / 输出格式 | ✅ 已实现(批次1-6, 2026-06-22) |
 | **Phase 2** | 相位重参考独立自由函数 + GBP 扩展 + 质量指标闭环 | ✅ 完成(相位重参考抽模块,质量指标米制/对比度/public summary/replay/trace 闭环) |
-| **Phase 3** | BP 增强 + 运动补偿二阶 + 杂波建模深化 | 🟡 部分(BP 合并形式,运动补偿仅一阶) |
+| **Phase 3** | BP 增强 + 运动补偿二阶 + 杂波建模深化 | 🟡 部分(BP 增强与杂波深化已落地;二阶运动补偿按审计结论有意冻结后置,详见运动补偿章节与 `l3_first_order_applicability_matrix.md`) |
 | **Phase 4** | 聚束/扫描 + 多视 + L2/L3 联动 + 真 GeoTIFF | 未启动 |
 | **Phase 5** | OpenMP/GPU 加速 + 实时处理 + 联合仿真 | 未启动 |
 
@@ -493,7 +495,7 @@ CSA、Omega-K、`SarFocusingSelector`(Auto 选择)均完整实现但被冻结排
 
 ---
 
-*文档版本: v2.3*
+*文档版本: v2.5*
 *创建日期: 2026-06-04*
-*更新日期: 2026-06-22*
-*变更摘要: v2.3 同步阶段 4-5 拆分结果:源清单引用由 `CMakeLists.txt` 更正为 `SarSources.cmake`(含 `SAR_ENGINE_SOURCES`/`SAR_CORE_SOURCES` 双清单);session 目录树补全 `SarRawHistoryBuilder`/`SarRuntimeConfigValidation`/`SarImagingExecutor`/`SarFocusedImageAssembler`;`ExportFocusedImage` 归属由 `SarSession` 更正为 `SarImagingExecutor`;补充 `enable_range_compression`/`kRangeCompression` 语义说明(前置条件门,非独立输出);孤儿文件章节补充 `sar_frozen_sources` 合同护栏。v2.2 删除全部 C++ 代码段,改为 struct 字段表 + 自由函数清单的描述性形态;对齐实际架构(自由函数+POD、`sar::{signal,geometry,echo,imaging,output}` 子命名空间、四域配置取代 `SarSimulationConfig`);新增「实施状态总览」「架构约定」「孤儿文件状态」章节;记录 6 个待补模块(窗函数/斜距/多普勒/杂波/天线/输出)的实施计划与目标 API;补充相位重参考和成像质量评估的 public 标量摘要闭环、测试覆盖边界与剩余产品 QA 缺口;记录 `retain_focused_image` 的公共结果导出策略。v2.1 已将 CSA、Omega-K、自适应选择(Auto)与辐射定标标注为【未进行设计需求,不再扩展】。*
+*更新日期: 2026-06-23*
+*变更摘要: v2.5 据跨阶段审计(`phase0/1/backfill/phase2_status_audit.md` + `phase3_status_audit.md`)修正 3 处与代码不符的描述:(1)斜距模型注:L252 的 `sqrt(range²+x²)` 实际抽到 imaging 层 `SarPhaseReference` 模块而非 geometry 层;(2)多普勒模型注 L265 与 RDA 表 L338:`ComputeRdaSamplingDiagnostics` 实际内联 `2v²/(λR0)`,**未改调** `geometry::ComputeDopplerParams`(后者对 RDA 是死代码),原重构承诺标注"未落地";(3)输出层 L403:Binary magic 实为 7 字节(原文写 8 字节)、布局为 **planar** 而非"交错"(交错用于 sidecar .raw),并补 HDF5 dataset 存 double、GeoTIFF 无真实投影字段等细节。Phase 2 与 Phase 0 公共契约经审计确认一致,无修改。v2.4 校正 Phase 3 状态标记:经代码库检索,BP 增强(L3 BP 全链路 public Session 接入:配置/执行器/校验/replay/trace/尺寸门/诊断均齐)与杂波建模深化(生产 Gamma/Sea + 测试层确定性分布式杂波 + SNR/SCR 联合矩阵闭环)均已落地,故 Phase 3 行由 `🟡 部分(BP 合并形式,运动补偿仅一阶)` 更正为反映实际状态的描述;运动补偿章节明确二阶/高阶补偿为**审计冻结后置项而非疏漏**,指向 `l3_first_order_applicability_matrix.md` 与 `l3_first_order_compensation.md` 的结论("不应只归因于残余相位"),恢复前须先开新契约审批。v2.3 同步阶段 4-5 拆分结果:源清单引用由 `CMakeLists.txt` 更正为 `SarSources.cmake`(含 `SAR_ENGINE_SOURCES`/`SAR_CORE_SOURCES` 双清单);session 目录树补全 `SarRawHistoryBuilder`/`SarRuntimeConfigValidation`/`SarImagingExecutor`/`SarFocusedImageAssembler`;`ExportFocusedImage` 归属由 `SarSession` 更正为 `SarImagingExecutor`;补充 `enable_range_compression`/`kRangeCompression` 语义说明(前置条件门,非独立输出);孤儿文件章节补充 `sar_frozen_sources` 合同护栏。v2.2 删除全部 C++ 代码段,改为 struct 字段表 + 自由函数清单的描述性形态;对齐实际架构(自由函数+POD、`sar::{signal,geometry,echo,imaging,output}` 子命名空间、四域配置取代 `SarSimulationConfig`);新增「实施状态总览」「架构约定」「孤儿文件状态」章节;记录 6 个待补模块(窗函数/斜距/多普勒/杂波/天线/输出)的实施计划与目标 API;补充相位重参考和成像质量评估的 public 标量摘要闭环、测试覆盖边界与剩余产品 QA 缺口;记录 `retain_focused_image` 的公共结果导出策略。v2.1 已将 CSA、Omega-K、自适应选择(Auto)与辐射定标标注为【未进行设计需求,不再扩展】。*
