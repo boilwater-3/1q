@@ -7,14 +7,14 @@
 | 目录 | 文档类型 | 数量 |
 |---|---|---|
 | [`design/`](design/) | 核心设计：接口形态 / 算法口径 / 阶段工程契约 | 4 |
-| [`contracts/`](contracts/) | 子能力合约：边界定义与冻结口径 | 44 |
+| [`contracts/`](contracts/) | 子能力合约：边界定义与冻结口径 | 49 |
 | [`acceptance/`](acceptance/) | 验收报告：交付确认 | 51 |
 | [`decisions/`](decisions/) | 决策记录：后续方向 / 选型门 | 32 |
-| [`audits/`](audits/) | 审计 / 研究 / 基线 / 收尾 | 10 |
+| [`audits/`](audits/) | 审计 / 研究 / 基线 / 收尾 | 21 |
 
 ## 核心设计（权威入口）
 
-- [`design/module_design.md`](design/module_design.md) — SAR 模块接口与实现形态（v2.7）
+- [`design/module_design.md`](design/module_design.md) — SAR 模块接口与实现形态（v2.8）
 - [`design/construction_scheme.md`](design/construction_scheme.md) — 算法层数学公式与审批口径
 - [`design/phase1_engineering.md`](design/phase1_engineering.md) — Phase 1 工程契约
 - [`design/phase2_reference_imaging.md`](design/phase2_reference_imaging.md) — Phase 2 参考级成像契约

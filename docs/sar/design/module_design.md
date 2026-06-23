@@ -56,11 +56,12 @@
 
 下列文件**均有实质实现(非空壳)、均已纳入 `SAR_ENGINE_SOURCES` 构建**,但**未接入 `SarSession::StepWithResult` 的数据链路**(raw→focus→quality)。按"为什么没接线"分四类:
 
-- **第 1 类 — 算法未完成(部件就绪但管线未组装)**:
-  - **Omega-K 全管线**(14 文件):Stolt 插值、参考映射、相位补偿、网格缩减、方位逆变换、点目标验收,部件级生产级完整;`SarOmegaKTruth*` 系列含自实现 SHA-256(160 行)的验收链。**缺** `FocusOmegaK` orchestrator 与 raw→2D 波数谱 front-end,需先冻结 `omega_k_math_reference.md §7` 参考相位约定。
-- **第 2 类 — 冻结/零实现**:
-  - **CSA**(2 文件):仅几何 + 中间态真值,主流程(scaling/RCMC/SRC)未实现。**唯一仍被护栏冻结**的项(`check_sar_frozen_sources.cmake`)。
+- **第 1 类 — 算法已实现(部件链 + 编排器)**:
+  - **Omega-K 全管线**(16 文件):Stolt 插值、参考映射、相位补偿、网格缩减、方位逆变换、点目标验收,部件级生产级完整;`SarOmegaKTruth*` 系列含自实现 SHA-256(160 行)的验收链。**已实现** `FocusStripmapOmegaK` 编排器 + `SarOmegaKSpectrumFrontEnd` front-end(`4c1301fc`),串联 8 个部件完成端到端聚焦。GBP 交叉核对通过。未接 public Session(留 Phase 4)。
+- **第 2 类 — 冻结/不实现**:
+  - **CSA**(2 文件):仅几何 + 中间态真值,主流程(scaling/RCMC/SRC)未实现。**唯一仍被护栏冻结**的项(`check_sar_frozen_sources.cmake`)。**经阶段 A 证据判定不实现**(broadside α<0.018 退化为 RDA,Omega-K 已覆盖距离依赖场景),见 `csa_complete_focusing_phase_a_verdict.md`。
   - **二阶运动补偿**:零代码;阶段 A 证据矩阵已运行并**判定不实现**(失效根因是 RDA 转弯假设崩溃,非补偿精度,详见运动补偿章节与 `second_order_motion_compensation_phase_a_verdict.md`)。
+  - **PGA 闭环**:估计+真值链已建(4 部件),闭环未实现。**经阶段 A 证据判定不实现**(MoCo 已完全修复直线散焦,所有扰动档位 NRMS<0.17),见 `pga_autofocus_closure_phase_a_verdict.md`。
 - **第 3 类 — 已解冻、逻辑完整,但定位本不在 focus 链路**:
   - **`SarFocusingSelector`**:L1/L2/L3 × 3 目的纯咨询路由器(刻意不含 CSA/OmegaK 选项,零副作用无回退)。逻辑完整,但 session 当前用 `SarPolicyConfig` 布尔位直接驱动成像分支,**刻意绕过**它。
   - **`SarRadiometricCalibration`**:单/多目标定标 + RCS 反演 + 执行流水线。属**后处理标定链**(输入已聚焦图像 + 已知 RCS 角反),语义上不在 focus pipeline 内。
@@ -400,16 +401,16 @@ examples/sar/    session_usage.cpp
 
 ### 自聚焦 PGA(✅ 估计+真值完整)
 
-`SarPgaPhaseGradientEstimator` + `SarPgaSupportGradientTruth` + `SarPgaGradientTruthComparison` + `SarAutofocusPhaseTruth`。相邻样本共轭乘积取 `arg()` 得 wrapped 梯度,带 support_mask/门槛;真值链注入常数/线性/二次/三次相位并最小二乘分离不可观测分量。**缺**:统一 `Autofocus` 类、`applyCorrection` 闭环、`MapDrift`/`ContrastOptimization` 方法。
+`SarPgaPhaseGradientEstimator` + `SarPgaSupportGradientTruth` + `SarPgaGradientTruthComparison` + `SarAutofocusPhaseTruth`。相邻样本共轭乘积取 `arg()` 得 wrapped 梯度,带 support_mask/门槛;真值链注入常数/线性/二次/三次相位并最小二乘分离不可观测分量。**阶段 A 证据判定闭环不实现**(见下):所有扰动档位(5-50 m/s)MoCo 补偿后 NRMS<0.17,一阶补偿已完全修复直线散焦,PGA 无必要。现有部件(梯度估计+真值链)作算法研究资产保留,详见 `pga_autofocus_closure_phase_a_verdict.md`。
 
 ### 冻结/未完成项
 
-> **口径更正(v2.6)**:原版本称 CSA、Omega-K、`SarFocusingSelector` 三者"完整实现但被冻结排除构建"。经 `68dd8213` 后,**仅 CSA 仍冻结**(`check_sar_frozen_sources.cmake` 唯一拦截面);Omega-K 组件链与 `SarFocusingSelector` 已解冻纳入构建。当前真正的"冻结/未完成"项为:
+> **口径更新(v2.8)**:经 6 项冻结能力全部完成阶段 A 判定,当前已无"待开发"冻结项。仅 CSA 的冻结护栏(`check_sar_frozen_sources.cmake`)保持原样(代码保留,主流程不实现)。各项最终状态:
 
-- **CSA**:主流程(scaling/RCMC/SRC)从零,仍被护栏冻结。仅有几何 + 中间态真值 oracle(半成品)。
-- **二阶运动补偿**:**经实测证据判定不实现**(见运动补偿章节)。阶段 A 矩阵证明转弯失效根因是 RDA 平移不变假设崩溃,非补偿精度不足;二阶补偿无法修复根因,转弯应改用 BP。证据封存,不重开。
-- **Omega-K 端到端聚焦**:部件(14 源)已解冻且生产级完整,但缺 `FocusOmegaK` orchestrator + raw→2D 波数谱 front-end,需先冻结 `omega_k_math_reference.md §7` 参考相位约定。
-- **PGA 闭环**:估计+真值链已建(35%),闭环 0%(缺积分/unwrap/apply/迭代)。
+- **CSA**:**经阶段 A 证据判定不实现**(主流程不开发)。broadside 下 α scaling<0.018(退化为 RDA),Omega-K 已覆盖距离依赖场景。证据见 `csa_complete_focusing_phase_a_verdict.md`。护栏仍冻结 `SarCsa`(代码保留,不进构建)。
+- **二阶运动补偿**:**经实测证据判定不实现**。阶段 A 矩阵证明转弯失效根因是 RDA 平移不变假设崩溃,非补偿精度不足;二阶补偿无法修复根因,转弯应改用 BP。证据封存,不重开。
+- **Omega-K 端到端聚焦**:**已实现**(`FocusStripmapOmegaK` + `SarOmegaKSpectrumFrontEnd`,`4c1301fc`)。front-end = raw 2D FFT + bulk 参考函数;编排器串联 8 个已有部件。GBP 交叉核对通过。未接 public Session(留 Phase 4 聚束/扫描)。
+- **PGA 闭环**:**经阶段 A 证据判定不实现**。MoCo 已完全修复直线场景散焦(所有档位 NRMS<0.17),PGA 无必要。证据见 `pga_autofocus_closure_phase_a_verdict.md`。
 
 注:`SarFocusingSelector`(Auto 选择)与 `SarRadiometricCalibration` 已解冻且逻辑完整,未接入 session 是架构定位(咨询/后处理)所致,非冻结 —— 详见「已实现但未接入数据链路的模块」。
 
@@ -457,11 +458,11 @@ examples/sar/    session_usage.cpp
 | **Phase 1** | LFM + 匹配滤波 + 距离压缩 + 点目标回波 + RDA + 脉冲缓冲区 | ✅ 完成(最小可审批闭环达成) |
 | **补齐** | 窗函数 / 斜距 / 多普勒 / 杂波 / 天线 / 输出格式 | ✅ 已实现(批次1-6, 2026-06-22) |
 | **Phase 2** | 相位重参考独立自由函数 + GBP 扩展 + 质量指标闭环 | ✅ 完成(相位重参考抽模块,质量指标米制/对比度/public summary/replay/trace 闭环) |
-| **Phase 3** | BP 增强 + 运动补偿二阶 + 杂波建模深化 | 🟡 部分(BP 增强与杂波深化已落地;二阶运动补偿经阶段 A 实测判定**不实现**——失效根因是 RDA 转弯假设崩溃而非补偿精度,转弯改用 BP,详见运动补偿章节) |
+| **Phase 3** | BP 增强 + 运动补偿二阶 + 杂波建模深化 | 🟡 部分(BP 增强与杂波深化已落地;二阶运动补偿经阶段 A 实测判定**不实现**——失效根因是 RDA 转弯假设崩溃而非补偿精度,转弯改用 BP,详见运动补偿章节。Omega-K 编排器在此阶段实现) |
 | **Phase 4** | 聚束/扫描 + 多视 + L2/L3 联动 + 真 GeoTIFF | 未启动 |
 | **Phase 5** | OpenMP/GPU 加速 + 实时处理 + 联合仿真 | 未启动 |
 
-**当前冻结/未完成**:仅 **CSA**(主流程从零,护栏仍冻结)。**二阶运动补偿**已有实测证据,判定**不实现**(失效根因是 RDA 转弯假设崩溃,转弯改用 BP,证据封存)。Omega-K 组件链、自适应选择(`SarFocusingSelector`)、辐射定标已于 `68dd8213` 解冻纳入构建(逻辑完整),但未接入 session 数据链路 —— 详见「已实现但未接入数据链路的模块」。
+**当前冻结/未完成**:**6 项冻结能力全部完成判定**。CSA 冻结护栏保持原样(代码保留,主流程不实现)。**二阶运动补偿**、**PGA 闭环**经阶段 A 证据判定**不实现**(证据封存)。**Omega-K 端到端聚焦**已实现(`4c1301fc`)。Omega-K 组件链、自适应选择(`SarFocusingSelector`)、辐射定标已于 `68dd8213` 解冻纳入构建(逻辑完整),但未接入 session 数据链路 —— 详见「已实现但未接入数据链路的模块」。
 
 ---
 
@@ -530,7 +531,7 @@ examples/sar/    session_usage.cpp
 
 ---
 
-*文档版本: v2.7*
+*文档版本: v2.8*
 *创建日期: 2026-06-04*
 *更新日期: 2026-06-24*
-*变更摘要: v2.7 据 `second_order_motion_compensation.md` §3 阶段 A 失效证据矩阵实测结果(2026-06-24,提交 `937ad5da`),将二阶运动补偿状态从"缺失效证据、冻结后置"更正为"**经实测判定不实现**"。阶段 A 在 9×9 固定 PRF 场景证明:参考点自身(二阶相位项严格为零)从 9 m 横向偏移起即失效,决定性排除"残余相位是主要失效来源";失效根因是**非直线轨迹导致 RDA 平移不变聚焦假设崩溃**(二阶补偿试图"把 RDA 转弯时救回来",但零残余的参考点都糊了,二阶项修不了根因),正确路径是转弯改用 BP(已就绪)。据此同步更正 4 处:运动补偿章节(L389-393)、第 2 类冻结零实现(L63)、冻结/未完成项(L404)、Phase 3 阶段表(L460)与章末"当前冻结/未完成"段(L464)。证据封存于 `second_order_motion_compensation_phase_a_verdict.md`。v2.6 据提交 `68dd8213`(2026-06-23 "unfreeze SarFocusingSelector, RadiometricCalibration and Omega-K component chain")系统性更正过时的"冻结/排除构建"描述。该提交逆转了 `ce4aa2d9` 的冻结动作对三组的处理:解冻并重新注册 SarOmegaK*(14 源)、SarFocusingSelector、SarRadiometricCalibration 进 `SAR_ENGINE_SOURCES`;从 `ce4aa2d9^` 恢复 17 个单测;清除 DEPRECATED 横幅;护栏 `check_sar_frozen_sources.cmake` 的 `FROZEN_SAR_SOURCE_PATTERNS` 收窄到**仅剩 `sar/imaging/SarCsa`**。据此:(1)完成度矩阵 L48 辐射定标由 🔒 冻结改 ✅(已解冻纳入构建,未接 session);(2)图例 L51 🔒 口径收窄为"仅 SarCsa*";(3)原「孤儿文件状态」引言(L53-61)+ 章末同名章节(L474-485)整体重写为「已实现但未接入数据链路的模块」,按"为什么没接线"分 4 类(算法未完成/冻结零实现/已解冻逻辑完整但定位不在 focus 链路/内部工具或真值 oracle);(4)目录结构注释 L139-140、公共类型层 L166 selector、成像质量表 L375 辐射定标缺口、冻结项章节 L389-391、阶段表后「已冻结」段 L441 同步更正;(5)修正 Selector "session 刻意用 policy 布尔位绕过" 这一审计盲点(原 v2.x 未记录)。经源码 + git 历史双验:Omega-K 14 源确实回到 manifest、护栏确实只剩 CSA、17 测试确实恢复、3 个抽查头文件 DEPRECATED 横幅确已清除。v2.5 据跨阶段审计(`phase0/1/backfill/phase2_status_audit.md` + `phase3_status_audit.md`)修正 3 处与代码不符的描述:(1)斜距模型注:L252 的 `sqrt(range²+x²)` 实际抽到 imaging 层 `SarPhaseReference` 模块而非 geometry 层;(2)多普勒模型注 L265 与 RDA 表 L338:`ComputeRdaSamplingDiagnostics` 实际内联 `2v²/(λR0)`,**未改调** `geometry::ComputeDopplerParams`(后者对 RDA 是死代码),原重构承诺标注"未落地";(3)输出层 L403:Binary magic 实为 7 字节(原文写 8 字节)、布局为 **planar** 而非"交错"(交错用于 sidecar .raw),并补 HDF5 dataset 存 double、GeoTIFF 无真实投影字段等细节。Phase 2 与 Phase 0 公共契约经审计确认一致,无修改。v2.4 校正 Phase 3 状态标记:经代码库检索,BP 增强(L3 BP 全链路 public Session 接入:配置/执行器/校验/replay/trace/尺寸门/诊断均齐)与杂波建模深化(生产 Gamma/Sea + 测试层确定性分布式杂波 + SNR/SCR 联合矩阵闭环)均已落地,故 Phase 3 行由 `🟡 部分(BP 合并形式,运动补偿仅一阶)` 更正为反映实际状态的描述;运动补偿章节明确二阶/高阶补偿为**审计冻结后置项而非疏漏**,指向 `l3_first_order_applicability_matrix.md` 与 `l3_first_order_compensation.md` 的结论("不应只归因于残余相位"),恢复前须先开新契约审批。v2.3 同步阶段 4-5 拆分结果:源清单引用由 `CMakeLists.txt` 更正为 `SarSources.cmake`(含 `SAR_ENGINE_SOURCES`/`SAR_CORE_SOURCES` 双清单);session 目录树补全 `SarRawHistoryBuilder`/`SarRuntimeConfigValidation`/`SarImagingExecutor`/`SarFocusedImageAssembler`;`ExportFocusedImage` 归属由 `SarSession` 更正为 `SarImagingExecutor`;补充 `enable_range_compression`/`kRangeCompression` 语义说明(前置条件门,非独立输出);孤儿文件章节补充 `sar_frozen_sources` 合同护栏。v2.2 删除全部 C++ 代码段,改为 struct 字段表 + 自由函数清单的描述性形态;对齐实际架构(自由函数+POD、`sar::{signal,geometry,echo,imaging,output}` 子命名空间、四域配置取代 `SarSimulationConfig`);新增「实施状态总览」「架构约定」「孤儿文件状态」章节;记录 6 个待补模块(窗函数/斜距/多普勒/杂波/天线/输出)的实施计划与目标 API;补充相位重参考和成像质量评估的 public 标量摘要闭环、测试覆盖边界与剩余产品 QA 缺口;记录 `retain_focused_image` 的公共结果导出策略。v2.1 已将 CSA、Omega-K、自适应选择(Auto)与辐射定标标注为【未进行设计需求,不再扩展】。*
+*变更摘要: v2.8 完成 6 项冻结能力全部判定后的文档同步。据三项后续工作回灌:(1) Omega-K 编排器已实现(`4c1301fc`,`FocusStripmapOmegaK`+`SarOmegaKSpectrumFrontEnd`,GBP 交叉核对通过),将第 1 类从"缺 orchestrator/front-end"更正为"已实现";(2) PGA 阶段 A 判定不实现(MoCo 已完全修复直线散焦,所有扰动档位 NRMS<0.17,见 `pga_autofocus_closure_phase_a_verdict.md`);(3) CSA 阶段 A 判定不实现(broadside α<0.018 退化为 RDA,Omega-K 已覆盖距离依赖,见 `csa_complete_focusing_phase_a_verdict.md`)。据此同步更正:第 1 类(L59-60)、第 2 类(L62-66)、PGA 章节(L403)、冻结/未完成项章节(L405-414)、Phase 3 阶段表(L460)与章末"当前冻结/未完成"段(L464)。结论:6 项冻结能力全部完成判定,无"待开发"冻结项,仅 CSA 护栏保留(代码保留、主流程不实现)。v2.7 据 `second_order_motion_compensation.md` §3 阶段 A 失效证据矩阵实测结果(2026-06-24,提交 `937ad5da`),将二阶运动补偿状态从"缺失效证据、冻结后置"更正为"**经实测判定不实现**"。阶段 A 在 9×9 固定 PRF 场景证明:参考点自身(二阶相位项严格为零)从 9 m 横向偏移起即失效,决定性排除"残余相位是主要失效来源";失效根因是**非直线轨迹导致 RDA 平移不变聚焦假设崩溃**(二阶补偿试图"把 RDA 转弯时救回来",但零残余的参考点都糊了,二阶项修不了根因),正确路径是转弯改用 BP(已就绪)。据此同步更正 4 处:运动补偿章节(L389-393)、第 2 类冻结零实现(L63)、冻结/未完成项(L404)、Phase 3 阶段表(L460)与章末"当前冻结/未完成"段(L464)。证据封存于 `second_order_motion_compensation_phase_a_verdict.md`。v2.6 据提交 `68dd8213`(2026-06-23 "unfreeze SarFocusingSelector, RadiometricCalibration and Omega-K component chain")系统性更正过时的"冻结/排除构建"描述。该提交逆转了 `ce4aa2d9` 的冻结动作对三组的处理:解冻并重新注册 SarOmegaK*(14 源)、SarFocusingSelector、SarRadiometricCalibration 进 `SAR_ENGINE_SOURCES`;从 `ce4aa2d9^` 恢复 17 个单测;清除 DEPRECATED 横幅;护栏 `check_sar_frozen_sources.cmake` 的 `FROZEN_SAR_SOURCE_PATTERNS` 收窄到**仅剩 `sar/imaging/SarCsa`**。据此:(1)完成度矩阵 L48 辐射定标由 🔒 冻结改 ✅(已解冻纳入构建,未接 session);(2)图例 L51 🔒 口径收窄为"仅 SarCsa*";(3)原「孤儿文件状态」引言(L53-61)+ 章末同名章节(L474-485)整体重写为「已实现但未接入数据链路的模块」,按"为什么没接线"分 4 类(算法未完成/冻结零实现/已解冻逻辑完整但定位不在 focus 链路/内部工具或真值 oracle);(4)目录结构注释 L139-140、公共类型层 L166 selector、成像质量表 L375 辐射定标缺口、冻结项章节 L389-391、阶段表后「已冻结」段 L441 同步更正;(5)修正 Selector "session 刻意用 policy 布尔位绕过" 这一审计盲点(原 v2.x 未记录)。经源码 + git 历史双验:Omega-K 14 源确实回到 manifest、护栏确实只剩 CSA、17 测试确实恢复、3 个抽查头文件 DEPRECATED 横幅确已清除。v2.5 据跨阶段审计(`phase0/1/backfill/phase2_status_audit.md` + `phase3_status_audit.md`)修正 3 处与代码不符的描述:(1)斜距模型注:L252 的 `sqrt(range²+x²)` 实际抽到 imaging 层 `SarPhaseReference` 模块而非 geometry 层;(2)多普勒模型注 L265 与 RDA 表 L338:`ComputeRdaSamplingDiagnostics` 实际内联 `2v²/(λR0)`,**未改调** `geometry::ComputeDopplerParams`(后者对 RDA 是死代码),原重构承诺标注"未落地";(3)输出层 L403:Binary magic 实为 7 字节(原文写 8 字节)、布局为 **planar** 而非"交错"(交错用于 sidecar .raw),并补 HDF5 dataset 存 double、GeoTIFF 无真实投影字段等细节。Phase 2 与 Phase 0 公共契约经审计确认一致,无修改。v2.4 校正 Phase 3 状态标记:经代码库检索,BP 增强(L3 BP 全链路 public Session 接入:配置/执行器/校验/replay/trace/尺寸门/诊断均齐)与杂波建模深化(生产 Gamma/Sea + 测试层确定性分布式杂波 + SNR/SCR 联合矩阵闭环)均已落地,故 Phase 3 行由 `🟡 部分(BP 合并形式,运动补偿仅一阶)` 更正为反映实际状态的描述;运动补偿章节明确二阶/高阶补偿为**审计冻结后置项而非疏漏**,指向 `l3_first_order_applicability_matrix.md` 与 `l3_first_order_compensation.md` 的结论("不应只归因于残余相位"),恢复前须先开新契约审批。v2.3 同步阶段 4-5 拆分结果:源清单引用由 `CMakeLists.txt` 更正为 `SarSources.cmake`(含 `SAR_ENGINE_SOURCES`/`SAR_CORE_SOURCES` 双清单);session 目录树补全 `SarRawHistoryBuilder`/`SarRuntimeConfigValidation`/`SarImagingExecutor`/`SarFocusedImageAssembler`;`ExportFocusedImage` 归属由 `SarSession` 更正为 `SarImagingExecutor`;补充 `enable_range_compression`/`kRangeCompression` 语义说明(前置条件门,非独立输出);孤儿文件章节补充 `sar_frozen_sources` 合同护栏。v2.2 删除全部 C++ 代码段,改为 struct 字段表 + 自由函数清单的描述性形态;对齐实际架构(自由函数+POD、`sar::{signal,geometry,echo,imaging,output}` 子命名空间、四域配置取代 `SarSimulationConfig`);新增「实施状态总览」「架构约定」「孤儿文件状态」章节;记录 6 个待补模块(窗函数/斜距/多普勒/杂波/天线/输出)的实施计划与目标 API;补充相位重参考和成像质量评估的 public 标量摘要闭环、测试覆盖边界与剩余产品 QA 缺口;记录 `retain_focused_image` 的公共结果导出策略。v2.1 已将 CSA、Omega-K、自适应选择(Auto)与辐射定标标注为【未进行设计需求,不再扩展】。*
