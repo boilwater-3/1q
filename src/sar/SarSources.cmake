@@ -12,6 +12,7 @@ set(SAR_ENGINE_SOURCES
     sar/imaging/SarMotionCompensation.cpp
     sar/imaging/SarOmegaKAzimuthInverseTransform.cpp
     sar/imaging/SarOmegaKCommonSupport.cpp
+    sar/imaging/SarOmegaKFocusing.cpp
     sar/imaging/SarOmegaKGeometry.cpp
     sar/imaging/SarOmegaKGridReduction.cpp
     sar/imaging/SarOmegaKPointTargetAcceptance.cpp
@@ -19,6 +20,7 @@ set(SAR_ENGINE_SOURCES
     sar/imaging/SarOmegaKReferenceMapping.cpp
     sar/imaging/SarOmegaKReferencePhaseCompensation.cpp
     sar/imaging/SarOmegaKRelativeDelayTransform.cpp
+    sar/imaging/SarOmegaKSpectrumFrontEnd.cpp
     sar/imaging/SarOmegaKStoltInterpolation.cpp
     sar/imaging/SarOmegaKTruthEligibility.cpp
     sar/imaging/SarOmegaKTruthEvaluationOrchestrator.cpp

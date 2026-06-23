@@ -1,9 +1,16 @@
 # SAR Omega-K 聚焦编排工程契约
 
 Date: 2026-06-24
-状态: 草案(待审批)
+状态: **阶段 A 完成,front-end + 编排器实现并验证通过(310 测试全绿)。**
 实现难度: 🟠 中(部件全就绪 + 真值链就绪;缺口在 front-end 谱生成、参考相位公式冻结、编排接线)
 前置契约: `omega_k_math_reference.md`(§7 明令未批准完整聚焦)
+
+> **实现记录(2026-06-24)**:阶段 A 已落地。front-end = `SarOmegaKSpectrumFrontEnd`
+> (2D FFT + H_bulk),编排器 = `FocusStripmapOmegaK`(串联 8 个已有部件)。验证策略据用户
+> 决策采用 **GBP 独立参考交叉核对**(绕开真值链 physical_evidence 张力):broadside 单点
+> 目标峰值落在方位中心行 + R_ref 距离列,方位剖面峰值能量集中(>均匀分布)。新增 8 个
+> front-end 测试 + 7 个编排器测试,全量 310 个 SAR 测试零回归。距离残余相位 sign 锁定为
+> Positive。编排器处理网格收缩(discarded_column 9/64),输出 9×55 有限图像。
 
 ## 1. 目标
 
