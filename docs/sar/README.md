@@ -14,7 +14,7 @@
 
 ## 核心设计（权威入口）
 
-- [`design/module_design.md`](design/module_design.md) — SAR 模块接口与实现形态（v2.2）
+- [`design/module_design.md`](design/module_design.md) — SAR 模块接口与实现形态（v2.7）
 - [`design/construction_scheme.md`](design/construction_scheme.md) — 算法层数学公式与审批口径
 - [`design/phase1_engineering.md`](design/phase1_engineering.md) — Phase 1 工程契约
 - [`design/phase2_reference_imaging.md`](design/phase2_reference_imaging.md) — Phase 2 参考级成像契约
