@@ -1,13 +1,30 @@
 # SAR source manifest shared by production targets and contract checks.
 
 set(SAR_ENGINE_SOURCES
+    sar/calibration/SarRadiometricCalibration.cpp
     sar/echo/SarEcho.cpp
     sar/geometry/SarAntenna.cpp
     sar/geometry/SarGeometry.cpp
     sar/imaging/SarAutofocusPhaseTruth.cpp
+    sar/imaging/SarFocusingSelector.cpp
     sar/imaging/SarGbp.cpp
     sar/imaging/SarImageQuality.cpp
     sar/imaging/SarMotionCompensation.cpp
+    sar/imaging/SarOmegaKAzimuthInverseTransform.cpp
+    sar/imaging/SarOmegaKCommonSupport.cpp
+    sar/imaging/SarOmegaKGeometry.cpp
+    sar/imaging/SarOmegaKGridReduction.cpp
+    sar/imaging/SarOmegaKPointTargetAcceptance.cpp
+    sar/imaging/SarOmegaKReducedRangeAxis.cpp
+    sar/imaging/SarOmegaKReferenceMapping.cpp
+    sar/imaging/SarOmegaKReferencePhaseCompensation.cpp
+    sar/imaging/SarOmegaKRelativeDelayTransform.cpp
+    sar/imaging/SarOmegaKStoltInterpolation.cpp
+    sar/imaging/SarOmegaKTruthEligibility.cpp
+    sar/imaging/SarOmegaKTruthEvaluationOrchestrator.cpp
+    sar/imaging/SarOmegaKTruthIngestion.cpp
+    sar/imaging/SarOmegaKTruthManifest.cpp
+    sar/imaging/SarOmegaKTruthPayloadDigest.cpp
     sar/imaging/SarPhaseReference.cpp
     sar/imaging/SarPgaSupportGradientTruth.cpp
     sar/imaging/SarPgaPhaseGradientEstimator.cpp

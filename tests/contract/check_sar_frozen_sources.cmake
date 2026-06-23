@@ -10,10 +10,7 @@ set(ACTIVE_SAR_SOURCES
 )
 
 set(FROZEN_SAR_SOURCE_PATTERNS
-    "sar/imaging/SarOmegaK"
     "sar/imaging/SarCsa"
-    "sar/imaging/SarFocusingSelector"
-    "sar/calibration/SarRadiometricCalibration"
 )
 
 foreach(ACTIVE_SOURCE IN LISTS ACTIVE_SAR_SOURCES)

@@ -1,9 +1,11 @@
 # sar 模块源文件与安装清单
 
 # -- engine: 信号处理、几何、回波、成像与输出内核 -----------------------------
-# 注：CSA / Omega-K / 自适应选择（Auto, SarFocusingSelector）/ 辐射定标
-# （SarRadiometricCalibration）已标注【未进行设计需求，不再扩展】，相关源文件
-# 不再纳入构建；如需恢复，参见 git 历史。
+# 注：CSA 已标注【未进行设计需求，不再扩展】，相关源文件不再纳入构建；
+# 如需恢复，参见 git 历史。
+# SarFocusingSelector（内部确定性聚焦算法建议器）、SarRadiometricCalibration
+# （内部图像响应辐射定标）与 Omega-K 部件链（Stolt 插值 / 真值验收 / SHA-256 摘要等）
+# 已解冻并纳入构建。
 include("${CMAKE_CURRENT_LIST_DIR}/SarSources.cmake")
 
 if(MSVC AND MSVC_VERSION EQUAL 1900)
