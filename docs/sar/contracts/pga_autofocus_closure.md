@@ -1,7 +1,8 @@
 # SAR PGA 闭环工程契约
 
 Date: 2026-06-24
-状态: 草案(待审批)
+状态: **阶段 A 完成,阶段 B 否决(MoCo 已完全修复直线场景散焦,PGA 无必要)。详见
+`docs/sar/audits/pga_autofocus_closure_phase_a_verdict.md`。**
 实现难度: 🟠 中(估+真值 35% 已建;缺口在闭环集成 + 1-D→2-D 桥接)
 前置契约: `pga_phase_gradient_estimator.md`、`pga_support_gradient_truth.md`、`pga_gradient_truth_comparison.md`、`autofocus_phase_truth.md`
 
