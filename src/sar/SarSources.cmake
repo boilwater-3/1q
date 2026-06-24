@@ -5,12 +5,14 @@ set(SAR_ENGINE_SOURCES
     sar/echo/SarEcho.cpp
     sar/geometry/SarAntenna.cpp
     sar/geometry/SarGeometry.cpp
+    sar/geometry/SarScanBurst.cpp
     sar/geometry/SarSpotlightBeam.cpp
     sar/imaging/SarAutofocusPhaseTruth.cpp
     sar/imaging/SarFocusingSelector.cpp
     sar/imaging/SarGbp.cpp
     sar/imaging/SarImageQuality.cpp
     sar/imaging/SarMotionCompensation.cpp
+    sar/imaging/SarMultilook.cpp
     sar/imaging/SarOmegaKAzimuthInverseTransform.cpp
     sar/imaging/SarOmegaKCommonSupport.cpp
     sar/imaging/SarOmegaKFocusing.cpp
@@ -34,6 +36,7 @@ set(SAR_ENGINE_SOURCES
     sar/imaging/SarPgaGradientTruthComparison.cpp
     sar/imaging/SarRda.cpp
     sar/output/ImageFormatter.cpp
+    sar/imaging/SarScanSarFocusing.cpp
     sar/imaging/SarSlowTimeResampling.cpp
     sar/imaging/SarSlowTimeResamplingExecutor.cpp
     sar/runtime/PulseRingBuffer.cpp

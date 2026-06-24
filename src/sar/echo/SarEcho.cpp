@@ -189,6 +189,98 @@ bool GeneratePointTargetRawEchoWithAntenna(const RawEchoConfig& config,
   return true;
 }
 
+bool GeneratePointTargetRawEchoWithElevationGate(
+    const RawEchoConfig& config, const ElevationGateConfig& gate_config,
+    const geometry::PlatformPulseState& platform, const std::vector<PointTarget>& targets,
+    const signal::ComplexVector& transmit_waveform, RawEchoResult* result) {
+  // gate_config.enabled=false 时,严格退化为无门控路径(条带兼容,单子带退化不变量)。
+  if (!gate_config.enabled) {
+    return GeneratePointTargetRawEcho(config, platform, targets, transmit_waveform, result);
+  }
+  if (result == nullptr || !IsValid(config, transmit_waveform)) {
+    return false;
+  }
+
+  result->samples.assign(config.range_sample_count, signal::ComplexSample(0.0, 0.0));
+  result->diagnostics.clear();
+  result->has_clipping = false;
+
+  // 门控有效条件:illuminated 且 near < far(子带窗口有效)。
+  const bool gate_active = gate_config.burst_state.illuminated &&
+                           gate_config.burst_state.near_range_m > 0.0 &&
+                           gate_config.burst_state.far_range_m > gate_config.burst_state.near_range_m;
+
+  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  for (std::size_t target_index = 0U; target_index < targets.size(); ++target_index) {
+    const PointTarget& target = targets[target_index];
+    const double slant_range_m = geometry::Distance(platform.position_m, target.position_m);
+    if (slant_range_m <= 0.0 || target.rcs_m2 < 0.0) {
+      continue;
+    }
+
+    EchoTargetDiagnostic diagnostic;
+    diagnostic.target_index = target_index;
+    diagnostic.slant_range_m = slant_range_m;
+    diagnostic.two_way_delay_s = 2.0 * slant_range_m / kSpeedOfLightMps;
+    diagnostic.delay_sample_index =
+        static_cast<std::size_t>(std::llround(diagnostic.two_way_delay_s * config.sample_rate_hz));
+    diagnostic.fractional_delay_samples =
+        diagnostic.two_way_delay_s * config.sample_rate_hz -
+        static_cast<double>(diagnostic.delay_sample_index);
+
+    // elevation 距离门控:目标斜距不在子带 [near, far) 窗口内 → 跳过(零贡献)。
+    if (gate_active && !geometry::IsInSubswath(
+                           geometry::ScanSubswath{gate_config.burst_state.near_range_m,
+                                                  gate_config.burst_state.far_range_m},
+                           slant_range_m)) {
+      // 门控拒绝的目标不入诊断(物理上该脉冲天线根本没看它)。
+      continue;
+    }
+    // gate_active=false(illuminated=false 或窗口无效)→ 该脉冲全程无贡献(天线在别处或无定义)。
+    if (!gate_active) {
+      continue;
+    }
+
+    const std::size_t delay_sample_index = diagnostic.delay_sample_index;
+    if (delay_sample_index >= config.range_sample_count) {
+      diagnostic.clipped = true;
+      diagnostic.clipped_samples = transmit_waveform.size();
+      result->has_clipping = true;
+      result->diagnostics.push_back(diagnostic);
+      continue;
+    }
+
+    const double amplitude = std::sqrt(target.rcs_m2) / (slant_range_m * slant_range_m);
+    const double phase = -4.0 * kPi * slant_range_m / wavelength_m;
+    const signal::ComplexSample propagation(amplitude * std::cos(phase),
+                                            amplitude * std::sin(phase));
+
+    signal::ComplexVector effective_waveform;
+    if (std::abs(diagnostic.fractional_delay_samples) > kFractionalDelayThreshold) {
+      if (!ApplyFractionalDelay(transmit_waveform, diagnostic.fractional_delay_samples,
+                                &effective_waveform)) {
+        return false;
+      }
+    } else {
+      effective_waveform = transmit_waveform;
+    }
+
+    const std::size_t writable_count =
+        std::min(effective_waveform.size(), config.range_sample_count - delay_sample_index);
+    for (std::size_t i = 0U; i < writable_count; ++i) {
+      result->samples[delay_sample_index + i] += effective_waveform[i] * propagation;
+    }
+
+    if (writable_count < transmit_waveform.size()) {
+      diagnostic.clipped = true;
+      diagnostic.clipped_samples = transmit_waveform.size() - writable_count;
+      result->has_clipping = true;
+    }
+    result->diagnostics.push_back(diagnostic);
+  }
+  return true;
+}
+
 // ────────────────────────────────────────────────────────────
 // 频域分数延迟(公开)
 // ────────────────────────────────────────────────────────────

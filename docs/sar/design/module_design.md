@@ -458,9 +458,24 @@ examples/sar/    session_usage.cpp
 | **Phase 1** | LFM + 匹配滤波 + 距离压缩 + 点目标回波 + RDA + 脉冲缓冲区 | ✅ 完成(最小可审批闭环达成) |
 | **补齐** | 窗函数 / 斜距 / 多普勒 / 杂波 / 天线 / 输出格式 | ✅ 已实现(批次1-6, 2026-06-22) |
 | **Phase 2** | 相位重参考独立自由函数 + GBP 扩展 + 质量指标闭环 | ✅ 完成(相位重参考抽模块,质量指标米制/对比度/public summary/replay/trace 闭环) |
-| **Phase 3** | BP 增强 + 运动补偿二阶 + 杂波建模深化 | 🟡 部分(BP 增强与杂波深化已落地;二阶运动补偿经阶段 A 实测判定**不实现**——失效根因是 RDA 转弯假设崩溃而非补偿精度,转弯改用 BP,详见运动补偿章节。Omega-K 编排器在此阶段实现) |
-| **Phase 4** | 聚束/扫描 + 多视 + L2/L3 联动 + 真 GeoTIFF | 未启动 |
+| **Phase 3** | BP 增强 + 运动补偿二阶 + 杂波建模深化 | ✅ 闭环(BP 增强与杂波深化已落地;**二阶运动补偿经阶段 A 实测证据否决**(失效根因是 RDA 平移不变聚焦假设崩溃而非补偿精度,转弯应改用 BP,见 `second_order_motion_compensation_phase_a_verdict.md`)。Omega-K 编排器在此阶段实现。原"部分"标记的缺口经证据判定为"无需实现") |
+| **Phase 4** | 聚束/扫描 + 多视 + L2/L3 联动 + 真 GeoTIFF | 🟡 4/5 完成(聚束 Spotlight ✅ `cb7abc07`;扫描 ScanSAR ✅ 逐 burst Omega-K;多视 ✅ 聚焦后图像域非相干多视;L2/L3 联动 ✅ 多保真度一致性矩阵。子方案冻结见下。**真 GeoTIFF 待启动**——唯一未裁决项,依赖 GDAL/PROJ 引入) |
 | **Phase 5** | OpenMP/GPU 加速 + 实时处理 + 联合仿真 | 未启动 |
+
+> **Phase 3/4 子项裁决汇总**:经阶段 A 证据评估,以下子项判定为**不实现**,理由分两类:
+>
+> **证据否决**(实测证明现有方案已覆盖需求,非收益比问题):
+> - **二阶运动补偿**(Phase 3):转弯失效根因是 RDA 假设崩溃,非补偿精度;转弯改用 BP。证据:`second_order_motion_compensation_phase_a_verdict.md`。
+> - **PGA 自聚焦闭环**:一阶 MoCo 在直线场景已完全修复散焦(NRMS<0.17),无需 PGA。证据:`pga_autofocus_closure_phase_a_verdict.md`。
+> - **CSA 完整聚焦**:Omega-K 已实现且天然处理距离依赖(Stolt),CSA 无独立增量。证据:`csa_complete_focusing_phase_a_verdict.md`。
+>
+> **收益比过低**(子方案与更优等价路径相比代价高/收益低,冻结):
+> - **L2×L3 组合聚焦**:BP 逐脉冲精确投影(`SarGbp.cpp:83`),扰动叠加无算法新增价值;L2/L3 互斥是正确物理约束。证据:`l2_l3_coupling_value_assessment.md`。
+> - **多视 RD 域/raw 域路径**:RD 域多视侵入 RDA 黑盒不通用;raw 域多视与图像域等价但贵 N 倍。证据:`multilook_value_assessment.md`。
+> - **Session 保真度编排**:`SarFocusingSelector` 已完整,保真度本就该显式选择,自动化风险高。证据:`l2_l3_coupling_value_assessment.md`。
+>
+> 三类性质不同:证据否决是"不需要"(现有方案够好),收益比过低是"不值得"(有更优等价路径)。
+> **真 GeoTIFF** 尚未裁决,仍待启动(依赖 GDAL/PROJ,Phase 4 最高难度)。
 
 **当前冻结/未完成**:**6 项冻结能力全部完成判定**。CSA 冻结护栏保持原样(代码保留,主流程不实现)。**二阶运动补偿**、**PGA 闭环**经阶段 A 证据判定**不实现**(证据封存)。**Omega-K 端到端聚焦**已实现(`4c1301fc`)。Omega-K 组件链、自适应选择(`SarFocusingSelector`)、辐射定标已于 `68dd8213` 解冻纳入构建(逻辑完整),但未接入 session 数据链路 —— 详见「已实现但未接入数据链路的模块」。
 
