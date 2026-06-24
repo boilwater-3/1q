@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "sar/geometry/SarAntenna.h"
+
 namespace sar {
 namespace echo {
 
@@ -67,6 +69,101 @@ bool GeneratePointTargetRawEcho(const RawEchoConfig& config,
     }
 
     // Apply sub-sample delay via frequency-domain phase ramp when needed.
+    signal::ComplexVector effective_waveform;
+    if (std::abs(fractional_delay) > kFractionalDelayThreshold) {
+      if (!ApplyFractionalDelay(transmit_waveform, fractional_delay, &effective_waveform)) {
+        return false;
+      }
+    } else {
+      effective_waveform = transmit_waveform;
+    }
+
+    const std::size_t writable_count =
+        std::min(effective_waveform.size(), config.range_sample_count - delay_sample_index);
+    for (std::size_t i = 0U; i < writable_count; ++i) {
+      result->samples[delay_sample_index + i] += effective_waveform[i] * propagation;
+    }
+
+    if (writable_count < transmit_waveform.size()) {
+      diagnostic.clipped = true;
+      diagnostic.clipped_samples = transmit_waveform.size() - writable_count;
+      result->has_clipping = true;
+    }
+    result->diagnostics.push_back(diagnostic);
+  }
+  return true;
+}
+
+bool GeneratePointTargetRawEchoWithAntenna(const RawEchoConfig& config,
+                                           const AntennaModulationConfig& antenna_config,
+                                           const geometry::PlatformPulseState& platform,
+                                           const std::vector<PointTarget>& targets,
+                                           const signal::ComplexVector& transmit_waveform,
+                                           RawEchoResult* result) {
+  // antenna_config.enabled=false 时,严格退化为无调制路径(条带兼容)。
+  if (!antenna_config.enabled) {
+    return GeneratePointTargetRawEcho(config, platform, targets, transmit_waveform, result);
+  }
+  if (result == nullptr || !IsValid(config, transmit_waveform)) {
+    return false;
+  }
+
+  result->samples.assign(config.range_sample_count, signal::ComplexSample(0.0, 0.0));
+  result->diagnostics.clear();
+  result->has_clipping = false;
+
+  const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  const double boresight_rad = antenna_config.beam_state.boresight_azimuth_rad;
+  for (std::size_t target_index = 0U; target_index < targets.size(); ++target_index) {
+    const PointTarget& target = targets[target_index];
+    const double slant_range_m = geometry::Distance(platform.position_m, target.position_m);
+    if (slant_range_m <= 0.0 || target.rcs_m2 < 0.0) {
+      continue;
+    }
+
+    const double two_way_delay_s = 2.0 * slant_range_m / kSpeedOfLightMps;
+    const double delay_samples = two_way_delay_s * config.sample_rate_hz;
+    const std::size_t delay_sample_index =
+        static_cast<std::size_t>(std::llround(delay_samples));
+    const double fractional_delay = delay_samples - static_cast<double>(delay_sample_index);
+
+    // 天线方位调制:off_boresight = 目标方位角 − 波束指向角。
+    const double target_dx = target.position_m.x_m - platform.position_m.x_m;
+    const double target_dy = target.position_m.y_m - platform.position_m.y_m;
+    const double target_azimuth_rad = std::atan2(target_dx, target_dy);
+    double off_boresight_rad = target_azimuth_rad - boresight_rad;
+    while (off_boresight_rad > kPi) {
+      off_boresight_rad -= 2.0 * kPi;
+    }
+    while (off_boresight_rad < -kPi) {
+      off_boresight_rad += 2.0 * kPi;
+    }
+    // 双程方向图:幅度乘 √(pattern)(场强 vs 功率)。
+    const double pattern =
+        geometry::AzimuthPattern(antenna_config.antenna, wavelength_m, off_boresight_rad);
+    const double amplitude_weight = std::sqrt(std::max(0.0, pattern));
+
+    double amplitude = std::sqrt(target.rcs_m2) / (slant_range_m * slant_range_m);
+    amplitude *= amplitude_weight;
+    const double phase = -4.0 * kPi * slant_range_m / wavelength_m;
+    const signal::ComplexSample propagation(amplitude * std::cos(phase),
+                                            amplitude * std::sin(phase));
+
+    EchoTargetDiagnostic diagnostic;
+    diagnostic.target_index = target_index;
+    diagnostic.slant_range_m = slant_range_m;
+    diagnostic.two_way_delay_s = two_way_delay_s;
+    diagnostic.delay_sample_index = delay_sample_index;
+    diagnostic.fractional_delay_samples = fractional_delay;
+
+    if (delay_sample_index >= config.range_sample_count) {
+      diagnostic.clipped = true;
+      diagnostic.clipped_samples = transmit_waveform.size();
+      result->has_clipping = true;
+      result->diagnostics.push_back(diagnostic);
+      continue;
+    }
+
     signal::ComplexVector effective_waveform;
     if (std::abs(fractional_delay) > kFractionalDelayThreshold) {
       if (!ApplyFractionalDelay(transmit_waveform, fractional_delay, &effective_waveform)) {

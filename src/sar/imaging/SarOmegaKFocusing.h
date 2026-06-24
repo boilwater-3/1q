@@ -54,6 +54,29 @@ bool FocusStripmapOmegaK(const OmegaKConfig& config,
                          const signal::ComplexMatrix& raw_pulse_history,
                          FocusedOmegaKImage* output);
 
+/**
+ * @brief 聚束(Spotlight)Omega-K 聚焦配置。
+ *
+ * 沿用全部 OmegaKConfig 物理参数。聚束的 Stolt 几何与条带相同(squint-invariant),
+ * 仅方位坐标原点由 scene_center_azimuth_m 偏移。
+ */
+struct SpotlightOmegaKConfig : OmegaKConfig {
+  double scene_center_azimuth_m{0.0};  ///< 聚束场景中心方位(方位坐标原点偏移)
+};
+
+/**
+ * @brief 聚束 Omega-K 聚焦编排器。
+ *
+ * 与 FocusStripmapOmegaK 共享全部 8 个 Omega-K 部件(front-end/几何/Stolt/参考映射/相位
+ * 补偿/方位逆变换),因 Stolt 映射天然 squint-invariant。仅方位坐标原点用场景中心偏移。
+ *
+ * broadside 退化不变量:scene_center_azimuth_m=0 且 raw history 无天线调制时,
+ * 输出与 FocusStripmapOmegaK 完全一致。
+ */
+bool FocusSpotlightOmegaK(const SpotlightOmegaKConfig& config,
+                          const signal::ComplexMatrix& raw_pulse_history,
+                          FocusedOmegaKImage* output);
+
 }  // namespace imaging
 }  // namespace sar
 

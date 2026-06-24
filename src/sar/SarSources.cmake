@@ -5,6 +5,7 @@ set(SAR_ENGINE_SOURCES
     sar/echo/SarEcho.cpp
     sar/geometry/SarAntenna.cpp
     sar/geometry/SarGeometry.cpp
+    sar/geometry/SarSpotlightBeam.cpp
     sar/imaging/SarAutofocusPhaseTruth.cpp
     sar/imaging/SarFocusingSelector.cpp
     sar/imaging/SarGbp.cpp

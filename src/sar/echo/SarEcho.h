@@ -9,7 +9,9 @@
 #include <cstddef>
 #include <vector>
 
+#include "sar/geometry/SarAntenna.h"
 #include "sar/geometry/SarGeometry.h"
+#include "sar/geometry/SarSpotlightBeam.h"
 #include "sar/signal/SarFft.h"
 
 namespace sar {
@@ -59,6 +61,33 @@ bool GeneratePointTargetRawEcho(const RawEchoConfig& config,
                                 const std::vector<PointTarget>& targets,
                                 const signal::ComplexVector& transmit_waveform,
                                 RawEchoResult* result);
+
+/**
+ * @brief 天线方向图调制配置(聚束/斜视模式)。
+ *
+ * enabled=false 时,回波生成退化为无方向图加权(条带兼容,broadside 退化不变量)。
+ * enabled=true 时,每个目标的幅度乘以方位 sinc² 方向图 AzimuthPattern(off_boresight)。
+ */
+struct AntennaModulationConfig {
+  geometry::AntennaParams antenna{};
+  geometry::SpotlightBeamState beam_state{};  ///< 该脉冲的波束指向
+  bool enabled{false};
+};
+
+/**
+ * @brief 带天线方向图调制的点目标回波生成(聚束/斜视模式)。
+ *
+ * 与 GeneratePointTargetRawEcho 逻辑相同,仅在幅度项增加方位方向图加权:
+ *   off_boresight = target_azimuth − beam_state.boresight_azimuth
+ *   amplitude *= AzimuthPattern(antenna, λ, off_boresight)
+ * antenna_config.enabled=false 时,与 GeneratePointTargetRawEcho 输出完全一致。
+ */
+bool GeneratePointTargetRawEchoWithAntenna(const RawEchoConfig& config,
+                                           const AntennaModulationConfig& antenna_config,
+                                           const geometry::PlatformPulseState& platform,
+                                           const std::vector<PointTarget>& targets,
+                                           const signal::ComplexVector& transmit_waveform,
+                                           RawEchoResult* result);
 
 /**
  * @brief 频域分数延迟:对 input 施加 fractional_delay 样点的子采样时移。

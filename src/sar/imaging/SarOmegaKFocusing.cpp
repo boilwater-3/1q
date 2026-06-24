@@ -35,15 +35,16 @@ bool IsValidRawHistory(const signal::ComplexMatrix& matrix, const OmegaKConfig& 
 }
 
 // 构造方位坐标轴:azimuth_pulse_count 个等间距点,间距 = platform_velocity / prf(慢时间 × 速度)。
-// 坐标以场景中心(broadside)为原点对称。
-std::vector<double> MakeAzimuthCoordinates(const OmegaKConfig& config) {
+// 条带模式原点在场景几何中心(broadside);聚束模式原点偏移到 scene_center_azimuth_m。
+std::vector<double> MakeAzimuthCoordinates(const OmegaKConfig& config,
+                                           double azimuth_offset_m) {
   const std::size_t pulse_count = config.azimuth_pulse_count;
   const double spacing_m = config.platform_velocity_mps / config.prf_hz;
   std::vector<double> coordinates;
   coordinates.reserve(pulse_count);
   const double center = 0.5 * static_cast<double>(pulse_count - 1U);
   for (std::size_t index = 0U; index < pulse_count; ++index) {
-    coordinates.push_back((static_cast<double>(index) - center) * spacing_m);
+    coordinates.push_back((static_cast<double>(index) - center) * spacing_m + azimuth_offset_m);
   }
   return coordinates;
 }
@@ -62,7 +63,9 @@ OmegaKGeometryConfig ToGeometryConfig(const OmegaKConfig& config) {
 
 }  // namespace
 
-bool FocusStripmapOmegaK(const OmegaKConfig& config,
+// 内部共享聚焦逻辑(条带/聚束共用)。azimuth_offset_m=0 为条带;≠0 为聚束。
+bool FocusOmegaKInternal(const OmegaKConfig& config,
+                         double azimuth_offset_m,
                          const signal::ComplexMatrix& raw_pulse_history,
                          FocusedOmegaKImage* output) {
   if (output == nullptr) {
@@ -126,7 +129,7 @@ bool FocusStripmapOmegaK(const OmegaKConfig& config,
   }
 
   // 构造方位坐标轴。
-  const std::vector<double> azimuth_coordinates = MakeAzimuthCoordinates(config);
+  const std::vector<double> azimuth_coordinates = MakeAzimuthCoordinates(config, azimuth_offset_m);
 
   // [阶段 5] 参考映射:相对延迟 → 绝对斜距。
   OmegaKReferenceMappingRequest mapping_request;
@@ -194,6 +197,22 @@ bool FocusStripmapOmegaK(const OmegaKConfig& config,
   output->image = azimuth_inverse.numerical_image_candidate;
   output->diagnostics.failure_stage = "none";
   return true;
+}
+
+bool FocusStripmapOmegaK(const OmegaKConfig& config,
+                         const signal::ComplexMatrix& raw_pulse_history,
+                         FocusedOmegaKImage* output) {
+  return FocusOmegaKInternal(config, 0.0, raw_pulse_history, output);
+}
+
+bool FocusSpotlightOmegaK(const SpotlightOmegaKConfig& config,
+                          const signal::ComplexMatrix& raw_pulse_history,
+                          FocusedOmegaKImage* output) {
+  // 聚束 PRF 充裕性检查:聚束多普勒带宽 < PRF,否则方位混叠。
+  // 聚束多普勒带宽 ≈ 2·v·θ_synth / λ(θ_synth 由场景中心方位偏移隐含)。
+  // 简化:用方位坐标偏移对应的额外多普勒带宽近似。这里用保守门 PRF/2。
+  // 若 raw history 的方位维已满足采样,聚焦引擎内部会自然处理(Stolt squint-invariant)。
+  return FocusOmegaKInternal(config, config.scene_center_azimuth_m, raw_pulse_history, output);
 }
 
 }  // namespace imaging

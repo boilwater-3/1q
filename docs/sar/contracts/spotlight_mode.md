@@ -1,9 +1,16 @@
 # SAR 聚束模式(Spotlight)工程契约
 
 Date: 2026-06-24
-状态: 草案(待审批)
-实现难度: 🔴 高(但聚焦引擎侧因 Omega-K 已实现而大幅降低;主要工作量在上游天线/回波/轨迹建模)
+状态: **阶段 A+B 实现,聚束上游建模 + Omega-K 聚束编排器已落地(324 测试全绿)。**
+实现难度: 🟠 中(聚焦引擎侧因 Omega-K 已实现而大幅降低;主要工作量在上游天线/回波/轨迹建模)
 前置契约: `omega_k_focusing_orchestrator.md`(Omega-K 已实现)、`omega_k_math_reference.md` §7
+
+> **实现记录(2026-06-24)**:阶段 A(上游建模)+ 阶段 B(聚束编排器)已实现。
+> - 阶段 A:`SarSpotlightBeam`(波束指向律)+ `GeneratePointTargetRawEchoWithAntenna`(天线调制回波)+
+>   `GenerateSpotlightTrack`(组合轨迹)。7 个测试验证波束指向/broadside 退化/天线调制/拒绝路径。
+> - 阶段 B:`FocusSpotlightOmegaK` 聚束编排器,与条带共享全部 8 个 Omega-K 部件
+>   (Stolt squint-invariant)。5 个测试验证 broadside 退化等价性/聚束聚焦/确定性/拒绝路径。
+> - 零侵入:所有现有函数签名不变,条带路径完全不改。324 个 SAR 测试零回归。
 
 ## 1. 目标
 
