@@ -1,21 +1,17 @@
-#include "common/validation/ValidationUtils.h"
 #include "1q/electro_optical_sensor/session/EosExternalOutputAdapter.h"
 
 #include <cmath>
 
-#include "common/validation/ValidationUtils.h"
 #include "1q/coordinate/attitude_transform.h"
-#include "common/validation/ValidationUtils.h"
 #include "1q/coordinate/position_transform.h"
 #include "common/numerics/Constants.h"
+#include "common/validation/ValidationUtils.h"
 #include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 
 namespace electro_optical_sensor {
 namespace session {
 
 namespace {
-
-
 
 oneq::coordinate::Vector3d ToPlatformFrameVector(float range_m, float azimuth_deg,
                                                  float elevation_deg) {
@@ -53,7 +49,8 @@ bool TryMakeExternalDetectionFromRecord(const output::EosDetectionRecord& detect
                                         const oneq::coordinate::LocalFrameReference& reference,
                                         const oneq::foundation::PoseState& platform_pose,
                                         EosExternalDetectionRecord* output) {
-  if (output == nullptr || !oneq::internal::validation::IsFinite(detection.range_m) || !oneq::internal::validation::IsFinite(detection.azimuth_deg) ||
+  if (output == nullptr || !oneq::internal::validation::IsFinite(detection.range_m) ||
+      !oneq::internal::validation::IsFinite(detection.azimuth_deg) ||
       !oneq::internal::validation::IsFinite(detection.elevation_deg) || detection.range_m <= 0.0f) {
     return false;
   }
@@ -67,17 +64,16 @@ bool TryMakeExternalDetectionFromRecord(const output::EosDetectionRecord& detect
   target_local.x = static_cast<double>(platform_pose.position_m.x) + relative_local.x;
   target_local.y = static_cast<double>(platform_pose.position_m.y) + relative_local.y;
   target_local.z = static_cast<double>(platform_pose.position_m.z) + relative_local.z;
-  const oneq::coordinate::Vector3d target_enu =
-      oneq::coordinate::RotateLocalToEnu(target_local.x, target_local.y, target_local.z,
-                                         reference.frame_attitude_deg);
+  const oneq::coordinate::Vector3d target_enu = oneq::coordinate::RotateLocalToEnu(
+      target_local.x, target_local.y, target_local.z, reference.frame_attitude_deg);
 
   oneq::coordinate::EcefPositionM target_ecef;
-  if (!oneq::coordinate::TryEnuToEcef(Vector3dToEnuPosition(target_enu),
-                                       reference.origin_lla, &target_ecef)) {
+  if (!oneq::coordinate::TryEnuToEcef(Vector3dToEnuPosition(target_enu), reference.origin_lla,
+                                      &target_ecef)) {
     return false;
   }
 
-  output->target_id = detection.target_id;
+  output->detection_id = detection.detection_id;
   output->target_position_ecef_m = target_ecef;
   output->range_m = detection.range_m;
   output->azimuth_deg = detection.azimuth_deg;

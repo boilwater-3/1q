@@ -7,6 +7,7 @@
 #define ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_SCENE_TYPES_H_
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "1q/api.hpp"
@@ -28,11 +29,12 @@ struct ONEQ_API EosTargetAppearance {
  * @brief EosSceneTarget 描述单目标输入特征。
  */
 struct ONEQ_API EosSceneTarget {
-  std::uint64_t target_id{0U};          /**< 目标标识 */
-  float range_m{0.0f};                  /**< 斜距（单位：m） */
-  float azimuth_deg{0.0f};              /**< 目标方位角（单位：deg） */
-  float elevation_deg{0.0f};            /**< 目标仰角（单位：deg） */
-  EosTargetAppearance appearance{};     /**< 目标辐射与外观参数 */
+  std::uint64_t target_id{0U};      /**< 目标标识 */
+  std::string target_name{};        /**< 可选目标名称，仅用于人读、trace 与调试视图，不参与关联 */
+  float range_m{0.0f};              /**< 斜距（单位：m） */
+  float azimuth_deg{0.0f};          /**< 目标方位角（单位：deg） */
+  float elevation_deg{0.0f};        /**< 目标仰角（单位：deg） */
+  EosTargetAppearance appearance{}; /**< 目标辐射与外观参数 */
 };
 
 /** @brief EosSceneTargetList 表示 EOS 场景目标输入列表。 */

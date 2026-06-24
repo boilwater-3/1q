@@ -8,10 +8,10 @@
 
 #include <memory>
 
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
-#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
+#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "electro_optical_sensor/config/EosInternalExecutionConfig.h"
 
 namespace electro_optical_sensor {
@@ -46,12 +46,11 @@ class EosPipeline {
 
  private:
   void AdvanceScan(float dt_sec);
-  bool IsTargetInCurrentFov(
-      const ::electro_optical_sensor::session::EosSceneTarget& target) const;
+  bool IsTargetInCurrentFov(const ::electro_optical_sensor::session::EosSceneTarget& target) const;
   FrameContext BuildFrameContext(
       const ::electro_optical_sensor::session::EosCycleInput& input) const;
   output::EosDetectionRecord BuildDetectionRecord(
-      const ::electro_optical_sensor::session::EosSceneTarget& target,
+      std::uint64_t detection_id, const ::electro_optical_sensor::session::EosSceneTarget& target,
       const ::electro_optical_sensor::session::EosCycleInput& input,
       const FrameContext& frame_ctx) const;
 

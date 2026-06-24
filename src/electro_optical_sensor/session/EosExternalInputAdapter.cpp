@@ -1,20 +1,21 @@
+#include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
+
 #include <cmath>
 
-#include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
-#include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 #include "common/coordinate/CoordinateUtils.h"
+#include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 
 namespace electro_optical_sensor {
 namespace session {
 
 namespace {
 
-using oneq::internal::coordinate_utils::ToFoundationEuler;
-using oneq::internal::coordinate_utils::ToFoundationVector;
 using oneq::internal::coordinate_utils::RotateEnuPositionToLocal;
 using oneq::internal::coordinate_utils::RotateEnuVelocityToLocal;
+using oneq::internal::coordinate_utils::ToFoundationEuler;
+using oneq::internal::coordinate_utils::ToFoundationVector;
 
 constexpr float kNormFloor = 1.0e-6f;
 
@@ -76,10 +77,10 @@ bool ResolveTargetLookAngles(const oneq::foundation::Vector3f& relative_local,
   platform_attitude.yaw_deg = static_cast<double>(platform_attitude_deg.yaw_deg);
   platform_attitude.pitch_deg = static_cast<double>(platform_attitude_deg.pitch_deg);
   platform_attitude.roll_deg = static_cast<double>(platform_attitude_deg.roll_deg);
-  const oneq::foundation::Vector3f platform_frame_vector = ToFoundationVector(
-      oneq::coordinate::RotateEnuToLocal(static_cast<double>(relative_local.x),
-                                         static_cast<double>(relative_local.y),
-                                         static_cast<double>(relative_local.z), platform_attitude));
+  const oneq::foundation::Vector3f platform_frame_vector =
+      ToFoundationVector(oneq::coordinate::RotateEnuToLocal(
+          static_cast<double>(relative_local.x), static_cast<double>(relative_local.y),
+          static_cast<double>(relative_local.z), platform_attitude));
   const float horizontal_norm = std::sqrt(platform_frame_vector.x * platform_frame_vector.x +
                                           platform_frame_vector.y * platform_frame_vector.y);
   *azimuth_deg = std::atan2(platform_frame_vector.y, platform_frame_vector.x) * 180.0f /
@@ -89,7 +90,7 @@ bool ResolveTargetLookAngles(const oneq::foundation::Vector3f& relative_local,
   return true;
 }
 
-bool FillTargetFromLocalPosition(std::uint64_t target_id,
+bool FillTargetFromLocalPosition(std::uint64_t target_id, const std::string& target_name,
                                  const oneq::foundation::Vector3f& target_local,
                                  const oneq::foundation::PoseState& platform_pose,
                                  const EosTargetAppearance& appearance, EosSceneTarget* target,
@@ -120,6 +121,7 @@ bool FillTargetFromLocalPosition(std::uint64_t target_id,
   }
 
   target->target_id = target_id;
+  target->target_name = target_name;
   target->range_m = range_m;
   target->azimuth_deg = azimuth_deg;
   target->elevation_deg = elevation_deg;
@@ -140,15 +142,14 @@ bool TryMakeEosPoseFromExternalKinematics(const EosExternalPoseInput& input,
   }
 
   oneq::foundation::Vector3f local_position;
-  if (!TryConvertEcefToEosLocalInternal(input.platform_position_ecef_m, reference,
-                                        &local_position, status)) {
+  if (!TryConvertEcefToEosLocalInternal(input.platform_position_ecef_m, reference, &local_position,
+                                        status)) {
     SetStatus(EosCoordinateStatus::kCoordinateTransformFail, status);
     return false;
   }
 
   oneq::coordinate::EnuVelocityMps velocity_enu_mps;
-  if (!oneq::coordinate::TryEcefToEnuVelocity(input.platform_velocity_mps,
-                                              reference.origin_lla,
+  if (!oneq::coordinate::TryEcefToEnuVelocity(input.platform_velocity_mps, reference.origin_lla,
                                               &velocity_enu_mps)) {
     SetStatus(EosCoordinateStatus::kCoordinateTransformFail, status);
     return false;
@@ -163,13 +164,11 @@ bool TryMakeEosPoseFromExternalKinematics(const EosExternalPoseInput& input,
   return true;
 }
 
-bool TryMakeEosSceneTargetFromExternalInput(
-    std::uint64_t target_id,
-    const EosExternalTargetInput& input,
-    const oneq::coordinate::LocalFrameReference& reference,
-    const oneq::foundation::PoseState& platform_pose,
-    EosSceneTarget* target,
-    EosCoordinateStatus* status) {
+bool TryMakeEosSceneTargetFromExternalInput(std::uint64_t target_id,
+                                            const EosExternalTargetInput& input,
+                                            const oneq::coordinate::LocalFrameReference& reference,
+                                            const oneq::foundation::PoseState& platform_pose,
+                                            EosSceneTarget* target, EosCoordinateStatus* status) {
   oneq::foundation::Vector3f target_local;
 
   switch (input.kinematics.position_frame) {
@@ -180,8 +179,8 @@ bool TryMakeEosSceneTargetFromExternalInput(
       }
       break;
     case oneq::coordinate::PositionFrame::kLla:
-      if (!TryConvertLlaToEosLocalInternal(input.kinematics.position_lla_deg_m, reference, &target_local,
-                                           status)) {
+      if (!TryConvertLlaToEosLocalInternal(input.kinematics.position_lla_deg_m, reference,
+                                           &target_local, status)) {
         return false;
       }
       break;
@@ -189,8 +188,8 @@ bool TryMakeEosSceneTargetFromExternalInput(
       SetStatus(EosCoordinateStatus::kCoordinateTransformFail, status);
       return false;
   }
-  return FillTargetFromLocalPosition(target_id, target_local, platform_pose, input.appearance, target,
-                                     status);
+  return FillTargetFromLocalPosition(target_id, input.target_name, target_local, platform_pose,
+                                     input.appearance, target, status);
 }
 
 }  // namespace session

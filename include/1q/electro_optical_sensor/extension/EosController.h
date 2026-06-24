@@ -10,9 +10,9 @@
 #include <memory>
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 
 namespace electro_optical_sensor {
@@ -20,7 +20,7 @@ namespace signal {
 namespace pipeline {
 class EosPipeline;
 }
-}
+}  // namespace signal
 namespace extension {
 
 /**
@@ -30,6 +30,7 @@ struct ONEQ_API EosControllerRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
   session::EosOutputFrame latest_output{};
+  attribution::EosDetectionAttributionRecordList latest_detection_attributions{};
   session::ValidationIssueList last_validation_issues{};
   bool has_latest_output{false};
   bool has_validation_error{false};
@@ -107,7 +108,8 @@ class ONEQ_API EosController {
    * @param[in] input 当前周期输入，仅在无可复用输出时用于回填 cycle_index。
    * @return 当前周期聚合结果。
    */
-  ::electro_optical_sensor::session::EosCycleResult BuildCycleResult(const ::electro_optical_sensor::session::EosCycleInput& input) const;
+  ::electro_optical_sensor::session::EosCycleResult BuildCycleResult(
+      const ::electro_optical_sensor::session::EosCycleInput& input) const;
 
   /**
    * @brief 捕获控制器运行态快照。

@@ -20,7 +20,8 @@ namespace {
 // ---- 辅助构建函数 ----
 
 eos::replay::Vec3 ToFbVec3(const oneq::foundation::Vector3f& v) {
-  return eos::replay::Vec3(static_cast<float>(v.x), static_cast<float>(v.y), static_cast<float>(v.z));
+  return eos::replay::Vec3(static_cast<float>(v.x), static_cast<float>(v.y),
+                           static_cast<float>(v.z));
 }
 
 eos::replay::EulerDeg ToFbEuler(const oneq::foundation::EulerAnglesDeg& e) {
@@ -73,10 +74,11 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
   std::vector<flatbuffers::Offset<eos::replay::EosTargetState>> targets_vec;
   targets_vec.reserve(v.scene.size());
   for (const auto& t : v.scene) {
-    auto b = eos::replay::CreateEosTargetState(
-        fbb, t.target_id, t.range_m, t.azimuth_deg, t.elevation_deg,
-        t.appearance.apparent_temperature_k, t.appearance.emissivity, t.appearance.reflectance,
-        t.appearance.projected_area_m2);
+    const auto target_name = fbb.CreateString(t.target_name);
+    auto b = eos::replay::CreateEosTargetState(fbb, t.target_id, t.range_m, t.azimuth_deg,
+                                               t.elevation_deg, t.appearance.apparent_temperature_k,
+                                               t.appearance.emissivity, t.appearance.reflectance,
+                                               t.appearance.projected_area_m2, target_name);
     targets_vec.push_back(b);
   }
   auto targets = fbb.CreateVector(targets_vec);
@@ -125,6 +127,7 @@ bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
     for (const auto* t : *fb->scene_targets()) {
       EosSceneTarget ts{};
       ts.target_id = t->target_id();
+      ts.target_name = t->target_name() ? t->target_name()->str() : std::string();
       ts.range_m = t->range_m();
       ts.azimuth_deg = t->azimuth_deg();
       ts.elevation_deg = t->elevation_deg();
@@ -146,9 +149,8 @@ std::string EncodeEosOutputFrame(const session::EosOutputFrame& v) {
   det_vec.reserve(v.detections.size());
   for (const auto& d : v.detections) {
     det_vec.push_back(eos::replay::CreateEosDetectionRecord(
-        fbb, d.target_id, d.range_m, d.azimuth_deg, d.elevation_deg,
-        d.infrared_snr_linear, d.visible_snr_linear, d.fused_snr_linear, d.fused_snr_db,
-        d.detected));
+        fbb, d.detection_id, d.range_m, d.azimuth_deg, d.elevation_deg, d.infrared_snr_linear,
+        d.visible_snr_linear, d.fused_snr_linear, d.fused_snr_db, d.detected));
   }
   auto dets = fbb.CreateVector(det_vec);
   auto frame = eos::replay::CreateEosOutputFrame(fbb, v.cycle_index, v.scan_azimuth_deg, dets);
@@ -169,7 +171,7 @@ bool DecodeEosOutputFrame(const std::string& bytes, session::EosOutputFrame* out
   if (fb->detections()) {
     for (const auto* d : *fb->detections()) {
       output::EosDetectionRecord rec{};
-      rec.target_id = d->target_id();
+      rec.detection_id = d->detection_id();
       rec.range_m = d->range_m();
       rec.azimuth_deg = d->azimuth_deg();
       rec.elevation_deg = d->elevation_deg();
@@ -193,12 +195,19 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
   std::vector<flatbuffers::Offset<eos::replay::EosDetectionRecord>> det_vec;
   for (const auto& d : v.output_frame.detections) {
     det_vec.push_back(eos::replay::CreateEosDetectionRecord(
-        fbb, d.target_id, d.range_m, d.azimuth_deg, d.elevation_deg,
-        d.infrared_snr_linear, d.visible_snr_linear, d.fused_snr_linear, d.fused_snr_db,
-        d.detected));
+        fbb, d.detection_id, d.range_m, d.azimuth_deg, d.elevation_deg, d.infrared_snr_linear,
+        d.visible_snr_linear, d.fused_snr_linear, d.fused_snr_db, d.detected));
   }
   auto frame = eos::replay::CreateEosOutputFrame(
       fbb, v.output_frame.cycle_index, v.output_frame.scan_azimuth_deg, fbb.CreateVector(det_vec));
+
+  std::vector<flatbuffers::Offset<eos::replay::EosDetectionAttributionRecord>> attr_vec;
+  attr_vec.reserve(v.detection_attributions.size());
+  for (const auto& attribution : v.detection_attributions) {
+    const auto target_name = fbb.CreateString(attribution.target_name);
+    attr_vec.push_back(eos::replay::CreateEosDetectionAttributionRecord(
+        fbb, attribution.detection_id, attribution.target_id, target_name));
+  }
 
   std::vector<flatbuffers::Offset<eos::replay::ValidationIssue>> issue_vec;
   for (const auto& i : v.validation_issues) {
@@ -215,8 +224,9 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
   }
 
   auto result = eos::replay::CreateEosCycleResult(
-      fbb, v.input_cycle_index, frame, fbb.CreateVector(issue_vec), v.has_validation_error,
-      v.executed_this_cycle, v.reused_previous_output, static_cast<int32_t>(v.abort_reason));
+      fbb, v.input_cycle_index, frame, fbb.CreateVector(attr_vec), fbb.CreateVector(issue_vec),
+      v.has_validation_error, v.executed_this_cycle, v.reused_previous_output,
+      static_cast<int32_t>(v.abort_reason));
   fbb.Finish(result);
   const uint8_t* buf = fbb.GetBufferPointer();
   return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
@@ -239,7 +249,7 @@ bool DecodeEosCycleResult(const std::string& bytes,
     if (frm->detections()) {
       for (const auto* d : *frm->detections()) {
         output::EosDetectionRecord rec{};
-        rec.target_id = d->target_id();
+        rec.detection_id = d->detection_id();
         rec.range_m = d->range_m();
         rec.azimuth_deg = d->azimuth_deg();
         rec.elevation_deg = d->elevation_deg();
@@ -250,6 +260,16 @@ bool DecodeEosCycleResult(const std::string& bytes,
         rec.detected = d->detected();
         out->output_frame.detections.push_back(rec);
       }
+    }
+  }
+  out->detection_attributions.clear();
+  if (fb->detection_attributions()) {
+    for (const auto* attr : *fb->detection_attributions()) {
+      attribution::EosDetectionAttributionRecord record;
+      record.detection_id = attr->detection_id();
+      record.target_id = attr->target_id();
+      record.target_name = attr->target_name() ? attr->target_name()->str() : std::string();
+      out->detection_attributions.push_back(record);
     }
   }
   out->has_validation_error = fb->has_validation_error();
@@ -289,10 +309,8 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
   auto hw = eos::replay::CreateEosHardwareConfig(
       fbb, v.hardware.wavelength_lower_um, v.hardware.wavelength_upper_um,
       v.hardware.optical_aperture_m, v.hardware.focal_length_m,
-      v.hardware.detector_detectivity_cm_sqrt_hz_per_w,
-      v.hardware.detector_area_cm2,
-      v.hardware.min_detection_depression_deg,
-      v.hardware.max_detection_depression_deg);
+      v.hardware.detector_detectivity_cm_sqrt_hz_per_w, v.hardware.detector_area_cm2,
+      v.hardware.min_detection_depression_deg, v.hardware.max_detection_depression_deg);
 
   // mission
   auto mission = eos::replay::CreateEosMissionConfig(
@@ -303,8 +321,7 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
 
   // policy detection
   auto pd = eos::replay::CreateEosPolicyDetectionConfig(
-      fbb, v.policy.detection.minimum_snr_db,
-      v.policy.detection.detection_sensitivity_w,
+      fbb, v.policy.detection.minimum_snr_db, v.policy.detection.detection_sensitivity_w,
       v.policy.detection.visible_reference_irradiance_w_m2);
   auto ps = eos::replay::CreateEosPolicyStrayLightConfig(
       fbb, v.policy.stray_light.enable_straylight_filter,
@@ -330,7 +347,8 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
   auto env = eos::replay::CreateEosEnvironmentConfig(
       fbb, static_cast<int32_t>(sc.model_type), static_cast<int32_t>(sc.preset),
       sc.has_custom_overrides, co, static_cast<int32_t>(model_cfg.radiative_transfer_model),
-      model_cfg.aerosol_density_factor, model_cfg.turbulence_factor, sc.has_atmospheric_observation, atm_obs);
+      model_cfg.aerosol_density_factor, model_cfg.turbulence_factor, sc.has_atmospheric_observation,
+      atm_obs);
 
   fbb.Finish(eos::replay::CreateEosSessionConfig(fbb, hw, mission, policy, env));
   const uint8_t* buf = fbb.GetBufferPointer();
@@ -402,7 +420,8 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
           e->atmospheric_observation()->enable_physical_model();
       sc.atmospheric_observation.pressure_hpa = e->atmospheric_observation()->pressure_hpa();
       sc.atmospheric_observation.temperature_k = e->atmospheric_observation()->temperature_k();
-      sc.atmospheric_observation.relative_humidity = e->atmospheric_observation()->relative_humidity();
+      sc.atmospheric_observation.relative_humidity =
+          e->atmospheric_observation()->relative_humidity();
     }
   }
   return true;
@@ -418,8 +437,7 @@ std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) 
       v.mission.scan_start_az_deg, v.mission.scan_end_az_deg, v.mission.scan_center_el_deg,
       v.mission.boresight_depression_deg);
   auto pd = eos::replay::CreateEosPolicyDetectionConfig(
-      fbb, v.policy.detection.minimum_snr_db,
-      v.policy.detection.detection_sensitivity_w,
+      fbb, v.policy.detection.minimum_snr_db, v.policy.detection.detection_sensitivity_w,
       v.policy.detection.visible_reference_irradiance_w_m2);
   auto ps = eos::replay::CreateEosPolicyStrayLightConfig(
       fbb, v.policy.stray_light.enable_straylight_filter,
@@ -446,7 +464,8 @@ std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) 
     env = eos::replay::CreateEosEnvironmentConfig(
         fbb, static_cast<int32_t>(ep.scenario_config.model_type),
         static_cast<int32_t>(ep.scenario_config.preset), ep.scenario_config.has_custom_overrides,
-        co, 0, 0.0f, 0.0f, ep.scenario_config.has_atmospheric_observation, ep_atm_obs);  // derived fields set to 0/false for patch
+        co, 0, 0.0f, 0.0f, ep.scenario_config.has_atmospheric_observation,
+        ep_atm_obs);  // derived fields set to 0/false for patch
   } else {
     // Write an empty environment config just to satisfy the struct
     auto co = eos::replay::CreateEosEnvironmentCustomOverrides(fbb, 0, 1.0f, 1.0f);
@@ -455,8 +474,8 @@ std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) 
   fbb.Finish(eos::replay::CreateEosRuntimeConfigPatch(
       fbb, v.has_mission, mission, v.has_policy, policy, v.has_environment, env,
       v.environment.has_scenario_config, v.has_work_mode, static_cast<int32_t>(v.work_mode),
-      v.has_scan_rate_deg_per_sec, v.scan_rate_deg_per_sec, v.has_frame_rate_hz,
-      v.frame_rate_hz, v.has_sensor_enabled, v.sensor_enabled));
+      v.has_scan_rate_deg_per_sec, v.scan_rate_deg_per_sec, v.has_frame_rate_hz, v.frame_rate_hz,
+      v.has_sensor_enabled, v.sensor_enabled));
   const uint8_t* buf = fbb.GetBufferPointer();
   return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
 }
@@ -545,10 +564,11 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeCon
 
 std::string EncodeEosFailureMarker(const oneq::replay::ReplayTraceFailure& failure) {
   flatbuffers::FlatBufferBuilder builder;
-  const flatbuffers::Offset<eos::replay::FailureMarker> root = eos::replay::CreateFailureMarkerDirect(
-      builder, failure.error_code.c_str(), failure.message.c_str(), failure.location.c_str(),
-      failure.has_cycle_index, failure.cycle_index, failure.has_sim_time_sec, failure.sim_time_sec,
-      failure.diagnostics_payload.c_str(), false, 0U);
+  const flatbuffers::Offset<eos::replay::FailureMarker> root =
+      eos::replay::CreateFailureMarkerDirect(
+          builder, failure.error_code.c_str(), failure.message.c_str(), failure.location.c_str(),
+          failure.has_cycle_index, failure.cycle_index, failure.has_sim_time_sec,
+          failure.sim_time_sec, failure.diagnostics_payload.c_str(), false, 0U);
   builder.Finish(root);
 
   const std::uint8_t* buffer = builder.GetBufferPointer();

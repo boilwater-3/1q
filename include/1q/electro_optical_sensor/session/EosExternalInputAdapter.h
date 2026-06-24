@@ -7,6 +7,7 @@
 #define ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_EXTERNAL_INPUT_ADAPTER_H_
 
 #include <cstdint>
+#include <string>
 
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
@@ -26,18 +27,19 @@ namespace session {
  * @note 速度固定为 ECEF 坐标系。
  */
 struct ONEQ_API EosExternalPoseInput {
-  oneq::coordinate::EcefPositionM platform_position_ecef_m{};    /**< 平台位置（ECEF，m） */
-  oneq::coordinate::EcefVelocityMps platform_velocity_mps{};     /**< 平台速度（ECEF，单位：m/s） */
-  oneq::coordinate::EulerAnglesDeg platform_attitude_deg{};      /**< 平台姿态角（Body->ENU，deg） */
+  oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 平台位置（ECEF，m） */
+  oneq::coordinate::EcefVelocityMps platform_velocity_mps{};  /**< 平台速度（ECEF，单位：m/s） */
+  oneq::coordinate::EulerAnglesDeg platform_attitude_deg{};   /**< 平台姿态角（Body->ENU，deg） */
 };
 
 /**
  * @brief EOS 外部目标输入（统一入口）。
  */
 struct ONEQ_API EosExternalTargetInput {
-  std::uint64_t target_id{0U};                                  /**< 目标标识 */
-  oneq::coordinate::ExternalKinematics kinematics{};            /**< 外部运动学输入 */
-  EosTargetAppearance appearance{};                             /**< 目标辐射与外观参数 */
+  std::uint64_t target_id{0U}; /**< 目标标识 */
+  std::string target_name{};   /**< 可选目标名称，仅用于人读、trace 与调试视图 */
+  oneq::coordinate::ExternalKinematics kinematics{}; /**< 外部运动学输入 */
+  EosTargetAppearance appearance{};                  /**< 目标辐射与外观参数 */
 };
 
 /**
@@ -58,10 +60,9 @@ enum class ONEQ_API EosCoordinateStatus {
  * @param status 可选输出状态，nullptr 表示不关心失败原因。
  * @return 转换成功返回 true；输入非法、坐标变换失败或输出为空返回 false。
  */
-ONEQ_API bool TryMakeEosPoseFromExternalKinematics(const EosExternalPoseInput& input,
-                                                   const oneq::coordinate::LocalFrameReference& reference,
-                                                   oneq::foundation::PoseState* pose,
-                                                   EosCoordinateStatus* status = nullptr);
+ONEQ_API bool TryMakeEosPoseFromExternalKinematics(
+    const EosExternalPoseInput& input, const oneq::coordinate::LocalFrameReference& reference,
+    oneq::foundation::PoseState* pose, EosCoordinateStatus* status = nullptr);
 
 /**
  * @brief 两步模式第二步：将外部目标输入转换为 EOS 场景目标状态。
@@ -74,11 +75,9 @@ ONEQ_API bool TryMakeEosPoseFromExternalKinematics(const EosExternalPoseInput& i
  * @return 转换成功返回 true；输入非法、坐标变换失败或输出为空返回 false。
  */
 ONEQ_API bool TryMakeEosSceneTargetFromExternalInput(
-    std::uint64_t target_id,
-    const EosExternalTargetInput& input,
+    std::uint64_t target_id, const EosExternalTargetInput& input,
     const oneq::coordinate::LocalFrameReference& reference,
-    const oneq::foundation::PoseState& platform_pose,
-    EosSceneTarget* target,
+    const oneq::foundation::PoseState& platform_pose, EosSceneTarget* target,
     EosCoordinateStatus* status = nullptr);
 
 }  // namespace session

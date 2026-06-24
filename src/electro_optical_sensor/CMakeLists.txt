@@ -43,12 +43,14 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleInputBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleOutputBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosEnvironmentInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosEnvironmentInputPatch.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosEnvironmentInputState.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosExternalInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosExternalOutputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosInputValidation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosOutputDebugView.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSceneTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSessionFactory.h

@@ -46,6 +46,7 @@ TEST(EosCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   ASSERT_TRUE(TryMakeEosPoseFromExternalKinematics(pose_input, reference, &pose_2step));
 
   EosExternalTargetInput ext_target;
+  ext_target.target_name = "eos-builder-target";
   ext_target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
   ext_target.kinematics.position_ecef_m = target_ecef;
   ext_target.appearance.apparent_temperature_k = 300.0f;
@@ -65,6 +66,7 @@ TEST(EosCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
 
   const auto& builder_target = builder_input.scene[0];
   EXPECT_EQ(builder_target.target_id, 0U);  // Builder 使用索引作为 ID
+  EXPECT_EQ(builder_target.target_name, "eos-builder-target");
   EXPECT_NEAR(builder_target.range_m, target_2step.range_m, 1.0e-4f);
   EXPECT_NEAR(builder_target.azimuth_deg, target_2step.azimuth_deg, 1.0e-4f);
   EXPECT_NEAR(builder_target.elevation_deg, target_2step.elevation_deg, 1.0e-4f);

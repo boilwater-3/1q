@@ -54,6 +54,7 @@ TEST(EosReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
 
   EosSceneTarget target;
   target.target_id = 100U;
+  target.target_name = "eos-target-alpha";
   target.range_m = 5000.0f;
   target.azimuth_deg = 10.0f;
   target.elevation_deg = -2.0f;
@@ -86,6 +87,7 @@ TEST(EosReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
 
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].target_id, 100U);
+  EXPECT_EQ(decoded.scene[0].target_name, "eos-target-alpha");
   EXPECT_FLOAT_EQ(decoded.scene[0].range_m, 5000.0f);
   EXPECT_FLOAT_EQ(decoded.scene[0].appearance.apparent_temperature_k, 310.0f);
   EXPECT_FLOAT_EQ(decoded.scene[0].appearance.emissivity, 0.95f);
@@ -116,7 +118,7 @@ TEST(EosReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   frame.scan_azimuth_deg = 15.0f;
 
   output::EosDetectionRecord rec;
-  rec.target_id = 42U;
+  rec.detection_id = 42U;
   rec.range_m = 3000.0f;
   rec.azimuth_deg = 12.5f;
   rec.elevation_deg = -1.5f;
@@ -136,7 +138,7 @@ TEST(EosReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   EXPECT_EQ(decoded.cycle_index, 7U);
   EXPECT_FLOAT_EQ(decoded.scan_azimuth_deg, 15.0f);
   ASSERT_EQ(decoded.detections.size(), 1U);
-  EXPECT_EQ(decoded.detections[0].target_id, 42U);
+  EXPECT_EQ(decoded.detections[0].detection_id, 42U);
   EXPECT_FLOAT_EQ(decoded.detections[0].range_m, 3000.0f);
   EXPECT_FLOAT_EQ(decoded.detections[0].azimuth_deg, 12.5f);
   EXPECT_FLOAT_EQ(decoded.detections[0].infrared_snr_linear, 25.0f);
@@ -155,9 +157,14 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.output_frame.scan_azimuth_deg = 20.0f;
 
   output::EosDetectionRecord rec;
-  rec.target_id = 10U;
+  rec.detection_id = 10U;
   rec.detected = true;
   result.output_frame.detections.push_back(rec);
+  attribution::EosDetectionAttributionRecord attribution;
+  attribution.detection_id = 10U;
+  attribution.target_id = 1001U;
+  attribution.target_name = "eos-result-target";
+  result.detection_attributions.push_back(attribution);
 
   result.has_validation_error = true;
   result.executed_this_cycle = true;
@@ -174,7 +181,12 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_EQ(decoded.output_frame.cycle_index, 5U);
   EXPECT_FLOAT_EQ(decoded.output_frame.scan_azimuth_deg, 20.0f);
   ASSERT_EQ(decoded.output_frame.detections.size(), 1U);
+  EXPECT_EQ(decoded.output_frame.detections[0].detection_id, 10U);
   EXPECT_TRUE(decoded.output_frame.detections[0].detected);
+  ASSERT_EQ(decoded.detection_attributions.size(), 1U);
+  EXPECT_EQ(decoded.detection_attributions[0].detection_id, 10U);
+  EXPECT_EQ(decoded.detection_attributions[0].target_id, 1001U);
+  EXPECT_EQ(decoded.detection_attributions[0].target_name, "eos-result-target");
   EXPECT_TRUE(decoded.has_validation_error);
   EXPECT_TRUE(decoded.executed_this_cycle);
   EXPECT_FALSE(decoded.reused_previous_output);
@@ -225,7 +237,6 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.environment.scenario_config.atmospheric_observation.pressure_hpa = 1010.0f;
   config.environment.scenario_config.atmospheric_observation.temperature_k = 295.0f;
   config.environment.scenario_config.atmospheric_observation.relative_humidity = 0.65f;
-      true;
 
   const std::string bytes = EncodeEosSessionConfig(config);
   ASSERT_FALSE(bytes.empty());
@@ -260,9 +271,12 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
                   1.5f);
   EXPECT_TRUE(decoded.environment.scenario_config.has_atmospheric_observation);
   EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_observation.enable_physical_model);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_observation.pressure_hpa, 1010.0f);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_observation.temperature_k, 295.0f);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_observation.relative_humidity, 0.65f);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_observation.pressure_hpa,
+                  1010.0f);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_observation.temperature_k,
+                  295.0f);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_observation.relative_humidity,
+                  0.65f);
 }
 
 // ---------------------------------------------------------------------------
