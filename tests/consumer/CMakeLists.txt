@@ -25,3 +25,14 @@ target_link_libraries(eos_session_consumer PRIVATE 1q::1q)
 
 add_executable(eos_extension_consumer eos_extension_consumer.cpp)
 target_link_libraries(eos_extension_consumer PRIVATE 1q::1q)
+
+# 三层输出可观测性 consumer：验证 debug view / lifecycle recorder / attribution
+# 在安装后可被外部工程编译链接（阶段 9 Batch F）。
+add_executable(eos_output_observability_consumer eos_output_observability_consumer.cpp)
+target_link_libraries(eos_output_observability_consumer PRIVATE 1q::1q)
+
+add_executable(esr_output_observability_consumer esr_output_observability_consumer.cpp)
+target_link_libraries(esr_output_observability_consumer PRIVATE 1q::1q)
+
+add_executable(sar_output_observability_consumer sar_output_observability_consumer.cpp)
+target_link_libraries(sar_output_observability_consumer PRIVATE 1q::1q)
