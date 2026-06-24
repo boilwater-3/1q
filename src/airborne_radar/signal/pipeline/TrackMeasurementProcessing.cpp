@@ -50,6 +50,7 @@ void BuildTrackMeasurementsPass(const session::RadarSceneTargetList& input,
     tracking::TrackMeasurement measurement;
     measurement.raw_measurement.source_index = i;
     measurement.raw_measurement.external_target_id = input[i].external_target_id;
+    measurement.raw_measurement.target_name = input[i].target_name;
     measurement.raw_measurement.association_key = scratch.association_keys[i];
     measurement.raw_measurement.matched_existing_track = match != nullptr;
     measurement.raw_measurement.association_cost = match != nullptr ? match->cost : 0.0f;

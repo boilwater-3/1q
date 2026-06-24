@@ -153,6 +153,7 @@ bool TryMakeTargetFromExternalKinematics(
                 target_position_local.z * target_position_local.z);
 
   target->external_target_id = target_input.target_id;
+  target->target_name = target_input.target_name;
   target->velocity_x = target_velocity_local.x;
   target->velocity_y = target_velocity_local.y;
   target->velocity_z = target_velocity_local.z;

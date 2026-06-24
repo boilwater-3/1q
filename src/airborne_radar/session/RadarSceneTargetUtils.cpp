@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <utility>
 
 namespace airborne_radar {
 namespace session {
@@ -15,9 +16,10 @@ float ComputeNorm3(float x, float y, float z) { return std::sqrt(x * x + y * y +
 RadarSceneTarget MakeSceneTarget(std::uint64_t external_target_id, float position_x,
                                  float position_y, float position_z, float velocity_x,
                                  float velocity_y, float velocity_z, float rcs,
-                                 int swerling_type) {
+                                 int swerling_type, std::string target_name) {
   RadarSceneTarget target;
   target.external_target_id = external_target_id;
+  target.target_name = std::move(target_name);
   target.velocity_x = velocity_x;
   target.velocity_y = velocity_y;
   target.velocity_z = velocity_z;
@@ -32,17 +34,18 @@ RadarSceneTarget MakeSceneTarget(std::uint64_t external_target_id, float positio
 
 RadarSceneTarget MakeGroundSceneTarget(std::uint64_t external_target_id, float position_x,
                                        float position_y, float rcs, float velocity_x,
-                                       float velocity_y, int swerling_type) {
+                                       float velocity_y, int swerling_type,
+                                       std::string target_name) {
   return MakeSceneTarget(external_target_id, position_x, position_y, 0.0f, velocity_x, velocity_y,
-                         0.0f, rcs, swerling_type);
+                         0.0f, rcs, swerling_type, std::move(target_name));
 }
 
 RadarSceneTarget MakeAirSceneTarget(std::uint64_t external_target_id, float position_x,
                                     float position_y, float position_z, float velocity_x,
                                     float velocity_y, float velocity_z, float rcs,
-                                    int swerling_type) {
+                                    int swerling_type, std::string target_name) {
   return MakeSceneTarget(external_target_id, position_x, position_y, position_z, velocity_x,
-                         velocity_y, velocity_z, rcs, swerling_type);
+                         velocity_y, velocity_z, rcs, swerling_type, std::move(target_name));
 }
 
 void NormalizeSceneTargetGeometry(RadarSceneTarget* target) {

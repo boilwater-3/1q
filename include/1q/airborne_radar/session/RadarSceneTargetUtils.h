@@ -7,6 +7,7 @@
 #define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_SCENE_TARGET_UTILS_H_
 
 #include <cstdint>
+#include <string>
 
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/api.hpp"
@@ -25,12 +26,13 @@ namespace session {
  * @param[in] velocity_z 目标速度 z 分量（m/s）。
  * @param[in] rcs 目标 RCS（平方米）。
  * @param[in] swerling_type 目标起伏模型编号。
+ * @param[in] target_name 可选目标名称，仅用于人读、trace 与调试视图。
  * @return 已写入位置、速度与斜距的公开场景目标。
  */
 ONEQ_API RadarSceneTarget MakeSceneTarget(std::uint64_t external_target_id, float position_x,
                                           float position_y, float position_z, float velocity_x,
                                           float velocity_y, float velocity_z, float rcs,
-                                          int swerling_type = 0);
+                                          int swerling_type = 0, std::string target_name = {});
 
 /**
  * @brief 构造地面场景目标（z=0）。
@@ -41,12 +43,13 @@ ONEQ_API RadarSceneTarget MakeSceneTarget(std::uint64_t external_target_id, floa
  * @param[in] velocity_x 地面目标速度 x 分量（m/s）。
  * @param[in] velocity_y 地面目标速度 y 分量（m/s）。
  * @param[in] swerling_type 目标起伏模型编号。
+ * @param[in] target_name 可选目标名称，仅用于人读、trace 与调试视图。
  * @return z=0 的公开场景目标。
  */
 ONEQ_API RadarSceneTarget MakeGroundSceneTarget(std::uint64_t external_target_id, float position_x,
                                                 float position_y, float rcs = 1.0f,
                                                 float velocity_x = 0.0f, float velocity_y = 0.0f,
-                                                int swerling_type = 0);
+                                                int swerling_type = 0, std::string target_name = {});
 
 /**
  * @brief 构造空中场景目标。
@@ -59,12 +62,13 @@ ONEQ_API RadarSceneTarget MakeGroundSceneTarget(std::uint64_t external_target_id
  * @param[in] velocity_z 目标速度 z 分量（m/s）。
  * @param[in] rcs 目标 RCS（平方米）。
  * @param[in] swerling_type 目标起伏模型编号。
+ * @param[in] target_name 可选目标名称，仅用于人读、trace 与调试视图。
  * @return 已写入三维位置与斜距的公开场景目标。
  */
 ONEQ_API RadarSceneTarget MakeAirSceneTarget(std::uint64_t external_target_id, float position_x,
                                              float position_y, float position_z, float velocity_x,
                                              float velocity_y, float velocity_z, float rcs = 1.0f,
-                                             int swerling_type = 0);
+                                             int swerling_type = 0, std::string target_name = {});
 
 /**
  * @brief 规范化单个场景目标的几何派生量。

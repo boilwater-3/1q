@@ -25,6 +25,7 @@ namespace session {
 struct ONEQ_API RadarExternalTrackKinematics {
   std::uint64_t association_key{0};    /**< 当前快照对应的关联键 */
   std::uint64_t external_target_id{0}; /**< 外部输入原始目标标识符（0 表示未知/未提供） */
+  std::string target_name{};           /**< 可选目标名称，随 external_target_id 透传，仅用于人读与调试 */
   model::TrackStatus status{model::TrackStatus::kTentative}; /**< 轨迹生命周期状态 */
 
   oneq::coordinate::EcefPositionM target_position_ecef_m{}; /**< 目标 ECEF 位置（单位：m） */

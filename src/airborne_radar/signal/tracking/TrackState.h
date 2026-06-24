@@ -8,6 +8,7 @@
 
 #include <Eigen/Core>
 #include <cstdint>
+#include <string>
 
 #include "1q/airborne_radar/model/JammingSemantics.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
@@ -43,6 +44,7 @@ struct TrackState {
   std::uint64_t track_id{0};                         /**< 全局唯一轨迹编号。 */
   std::uint64_t batch_id{0};                         /**< 首次建轨所在发现批号。 */
   std::uint64_t external_target_id{0};               /**< 外部输入原始目标标识，0 表示未知。 */
+  std::string target_name{};                         /**< 可选目标名称，随 external_target_id 透传，仅用于人读/调试。 */
   std::uint32_t generation{0};                       /**< 复用代次，用于识别已回收对象的旧引用。 */
   TrackStatus status{TrackStatus::kTentative};       /**< 当前生命周期状态。 */
   std::uint32_t first_cycle{0};                      /**< 首次创建所在周期编号。 */
