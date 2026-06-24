@@ -20,6 +20,8 @@ set(EOS_CORE_SOURCES
     electro_optical_sensor/session/EosExternalOutputAdapter.cpp
     electro_optical_sensor/session/EosCycleOutputBuilder.cpp
     electro_optical_sensor/session/EosInputValidation.cpp
+    electro_optical_sensor/session/EosDetectionLifecycleRecorder.cpp
+    electro_optical_sensor/session/EosOutputDebugViewBuilder.cpp
     electro_optical_sensor/runtime/EosController.cpp
     electro_optical_sensor/runtime/EosPipelineConfigMapper.cpp
     electro_optical_sensor/runtime/EosRuntimeConfigResolver.cpp

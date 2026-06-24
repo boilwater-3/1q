@@ -45,70 +45,21 @@ struct ONEQ_API SarProductLifecycleRecorderConfig {
   bool emit_no_product_events{false};
 };
 
+/**
+ * @brief 按成像产品生命周期记录图像生成/更新/丢失/处理失败/无产品事件。
+ *
+ * 私有状态与实现见 .cpp，避免在 public header 暴露判定逻辑。
+ */
 class ONEQ_API SarProductLifecycleRecorder {
  public:
   explicit SarProductLifecycleRecorder(
-      SarProductLifecycleRecorderConfig config = SarProductLifecycleRecorderConfig{})
-      : config_(config) {}
+      SarProductLifecycleRecorderConfig config = SarProductLifecycleRecorderConfig{});
 
-  std::vector<SarProductLifecycleEvent> Update(const SarCycleResult& result) {
-    std::vector<SarProductLifecycleEvent> events;
-    const bool has_product = HasImageProduct(result.output_frame);
-    if (result.has_error || !result.executed_this_cycle) {
-      events.push_back(MakeEvent(result, SarProductLifecycleEventKind::kProcessingFailed,
-                                 InferFailureReason(result)));
-      has_product_ = false;
-      return events;
-    }
-    if (has_product) {
-      events.push_back(MakeEvent(result,
-                                 has_product_ ? SarProductLifecycleEventKind::kProductUpdated
-                                              : SarProductLifecycleEventKind::kImageProduced,
-                                 SarProductLifecycleReason::kNone));
-      has_product_ = true;
-      return events;
-    }
-    if (has_product_) {
-      events.push_back(MakeEvent(result, SarProductLifecycleEventKind::kProductLost,
-                                 SarProductLifecycleReason::kNoImageProduct));
-    } else if (config_.emit_no_product_events) {
-      events.push_back(MakeEvent(result, SarProductLifecycleEventKind::kNoProduct,
-                                 SarProductLifecycleReason::kNoImageProduct));
-    }
-    has_product_ = false;
-    return events;
-  }
+  std::vector<SarProductLifecycleEvent> Update(const SarCycleResult& result);
 
-  void Reset() { has_product_ = false; }
+  void Reset();
 
  private:
-  static bool HasImageProduct(const SarOutputFrame& frame) {
-    return frame.has_l1_image || frame.has_l3_bp_image;
-  }
-
-  static SarProductLifecycleReason InferFailureReason(const SarCycleResult& result) {
-    if (!result.executed_this_cycle) {
-      return SarProductLifecycleReason::kCycleNotExecuted;
-    }
-    if (!result.abort_reason.empty()) {
-      return SarProductLifecycleReason::kAbortReason;
-    }
-    return SarProductLifecycleReason::kError;
-  }
-
-  static SarProductLifecycleEvent MakeEvent(const SarCycleResult& result,
-                                            SarProductLifecycleEventKind kind,
-                                            SarProductLifecycleReason reason) {
-    SarProductLifecycleEvent event;
-    event.cycle_index = result.input_cycle_index;
-    event.kind = kind;
-    event.reason = reason;
-    event.completed_stage = result.output_frame.completed_stage;
-    event.abort_reason = result.abort_reason;
-    event.estimated_snr_db = result.output_frame.estimated_snr_db;
-    return event;
-  }
-
   SarProductLifecycleRecorderConfig config_;
   bool has_product_{false};
 };

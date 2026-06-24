@@ -7,16 +7,18 @@
 #define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_EMITTER_LIFECYCLE_RECORDER_H_
 
 #include <cstdint>
+#include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
+
+// 前向声明：Update 参数为 const 引用，header 无需完整类型，避免拉入 EsrCycleInput 重依赖。
+struct EsrCycleInput;
 
 enum class EsrEmitterLifecycleEventKind {
   kFirstObserved = 0,
@@ -48,100 +50,32 @@ struct ONEQ_API EsrEmitterLifecycleRecorderConfig {
   bool emit_not_observed_events{false};
 };
 
+/**
+ * @brief 记录辐射源首次观测/更新/丢失/未观测事件；未观测原因需显式开启。
+ *
+ * 私有状态(含 unordered_map)与判定逻辑见 .cpp，避免在 public header 暴露实现细节。
+ */
 class ONEQ_API EsrEmitterLifecycleRecorder {
  public:
   explicit EsrEmitterLifecycleRecorder(
-      EsrEmitterLifecycleRecorderConfig config = EsrEmitterLifecycleRecorderConfig{})
-      : config_(config) {}
+      EsrEmitterLifecycleRecorderConfig config = EsrEmitterLifecycleRecorderConfig{});
+  ~EsrEmitterLifecycleRecorder();
 
-  std::vector<EsrEmitterLifecycleEvent> Update(const EsrCycleInput& input,
-                                               const EsrCycleResult& result) {
-    std::vector<EsrEmitterLifecycleEvent> events;
-    events.reserve(input.scene.size());
-    for (const EsrSceneEmitter& emitter : input.scene) {
-      AppendEmitterEvents(emitter, result, &events);
-    }
-    return events;
-  }
+  EsrEmitterLifecycleRecorder(const EsrEmitterLifecycleRecorder&) = delete;
+  EsrEmitterLifecycleRecorder& operator=(const EsrEmitterLifecycleRecorder&) = delete;
+  // 移动操作声明在 header、定义在 .cpp：unique_ptr<Impl> 析构需要完整类型，
+  // 不能内联定义否则破坏 PImpl 不透明性。
+  EsrEmitterLifecycleRecorder(EsrEmitterLifecycleRecorder&&) noexcept;
+  EsrEmitterLifecycleRecorder& operator=(EsrEmitterLifecycleRecorder&&) noexcept;
 
-  void Reset() { states_.clear(); }
+  std::vector<EsrEmitterLifecycleEvent> Update(const EsrCycleInput& input, const EsrCycleResult& result);
+
+  void Reset();
 
  private:
-  struct EmitterState {
-    bool observed{false};
-    std::string emitter_name{};
-  };
-
-  void AppendEmitterEvents(const EsrSceneEmitter& emitter, const EsrCycleResult& result,
-                           std::vector<EsrEmitterLifecycleEvent>* events) {
-    EmitterState& state = states_[emitter.emitter_id];
-    const extension::TruthAssociationRecord* association =
-        FindAssociation(emitter.emitter_id, result.output_frame.truth_evaluation_output);
-    const bool observed_now = result.executed_this_cycle && association != nullptr;
-    if (observed_now) {
-      EsrEmitterLifecycleEvent event = MakeBaseEvent(emitter, result);
-      event.kind = state.observed ? EsrEmitterLifecycleEventKind::kUpdated
-                                  : EsrEmitterLifecycleEventKind::kFirstObserved;
-      event.reason = EsrEmitterLifecycleReason::kNone;
-      event.observation_id = association->observation_id;
-      event.confidence = association->confidence;
-      events->push_back(event);
-      state.observed = true;
-      state.emitter_name = emitter.emitter_name;
-      return;
-    }
-
-    const EsrEmitterLifecycleReason reason = InferReason(emitter, result);
-    if (state.observed) {
-      EsrEmitterLifecycleEvent event = MakeBaseEvent(emitter, result);
-      event.kind = EsrEmitterLifecycleEventKind::kLost;
-      event.reason = reason;
-      events->push_back(event);
-    } else if (config_.emit_not_observed_events) {
-      EsrEmitterLifecycleEvent event = MakeBaseEvent(emitter, result);
-      event.kind = EsrEmitterLifecycleEventKind::kNotObserved;
-      event.reason = reason;
-      events->push_back(event);
-    }
-    state.observed = false;
-    state.emitter_name = emitter.emitter_name;
-  }
-
-  static EsrEmitterLifecycleEvent MakeBaseEvent(const EsrSceneEmitter& emitter,
-                                                const EsrCycleResult& result) {
-    EsrEmitterLifecycleEvent event;
-    event.cycle_index = result.input_cycle_index;
-    event.emitter_id = emitter.emitter_id;
-    event.emitter_name = emitter.emitter_name;
-    return event;
-  }
-
-  static EsrEmitterLifecycleReason InferReason(const EsrSceneEmitter& emitter,
-                                               const EsrCycleResult& result) {
-    if (result.has_validation_error) {
-      return EsrEmitterLifecycleReason::kValidationRejected;
-    }
-    if (!result.executed_this_cycle) {
-      return EsrEmitterLifecycleReason::kCycleNotExecuted;
-    }
-    if (!emitter.is_emitting) {
-      return EsrEmitterLifecycleReason::kNotEmitting;
-    }
-    return EsrEmitterLifecycleReason::kNoMatchedObservation;
-  }
-
-  static const extension::TruthAssociationRecord* FindAssociation(
-      std::uint64_t emitter_id, const extension::TruthEvaluationFrame& frame) {
-    for (const extension::TruthAssociationRecord& association : frame.associations) {
-      if (association.matched && association.truth_emitter_id == emitter_id) {
-        return &association;
-      }
-    }
-    return nullptr;
-  }
-
-  EsrEmitterLifecycleRecorderConfig config_;
-  std::unordered_map<std::uint64_t, EmitterState> states_;
+  // 不透明私有状态，定义在 .cpp 中，避免在 header 暴露 <unordered_map> 依赖。
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace session

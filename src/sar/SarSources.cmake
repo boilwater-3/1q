@@ -51,6 +51,8 @@ set(SAR_CORE_SOURCES
     sar/session/SarRuntimeConfigValidation.cpp
     sar/session/SarFocusedImageAssembler.cpp
     sar/session/SarImagingExecutor.cpp
+    sar/session/SarProductDebugViewBuilder.cpp
+    sar/session/SarProductLifecycleRecorder.cpp
     sar/session/SarSession.cpp
     sar/session/SarTraceSession.cpp
     sar/session/SarReplaySession.cpp
