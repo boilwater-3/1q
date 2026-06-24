@@ -47,6 +47,7 @@ TEST(EsrCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
 
   EsrExternalEmitterInput ext_emitter;
   ext_emitter.emitter_id = 1001U;
+  ext_emitter.emitter_name = "esr-builder-emitter";
   ext_emitter.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
   ext_emitter.kinematics.position_ecef_m = emitter_ecef;
   ext_emitter.kinematics.velocity_mps.x_mps = 100.0f;
@@ -70,6 +71,7 @@ TEST(EsrCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
 
   const auto& builder_emitter = builder_input.scene[0];
   EXPECT_EQ(builder_emitter.emitter_id, 1001U);
+  EXPECT_EQ(builder_emitter.emitter_name, "esr-builder-emitter");
   EXPECT_NEAR(builder_emitter.pose.position_m.x, emitter_2step.pose.position_m.x, 1.0e-5f);
   EXPECT_NEAR(builder_emitter.pose.position_m.y, emitter_2step.pose.position_m.y, 1.0e-5f);
   EXPECT_NEAR(builder_emitter.pose.position_m.z, emitter_2step.pose.position_m.z, 1.0e-5f);

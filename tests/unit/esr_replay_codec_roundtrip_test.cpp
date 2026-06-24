@@ -44,6 +44,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
 
   EsrSceneEmitter emitter;
   emitter.emitter_id = 1001U;
+  emitter.emitter_name = "esr-emitter-alpha";
   emitter.carrier_hz = 9.5e9;
   emitter.bandwidth_hz = 5.0e6;
   emitter.tx_power_w = 1000.0;
@@ -91,6 +92,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
 
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].emitter_id, 1001U);
+  EXPECT_EQ(decoded.scene[0].emitter_name, "esr-emitter-alpha");
   EXPECT_DOUBLE_EQ(decoded.scene[0].carrier_hz, 9.5e9);
   EXPECT_DOUBLE_EQ(decoded.scene[0].pulse_width_s, 1.0e-6);
   EXPECT_TRUE(decoded.scene[0].is_emitting);

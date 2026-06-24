@@ -14,6 +14,8 @@
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleOutputBuilder.h"
+#include "1q/electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.h"
+#include "1q/electronic_surveillance_radar/session/EsrOutputDebugView.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 
@@ -182,4 +184,91 @@ TEST(EsrCycleOutputBuilderTest, MultiCycleMovingEmittersKeepExternalBearingsNear
 
     AdvanceEmitters(dt_sec, &emitters);
   }
+}
+
+TEST(EsrCycleOutputBuilderTest, DebugViewMapsTruthAssociationsBackToNamedEmitters) {
+  esr_session::EsrCycleInput input;
+  input.cycle_index = 12U;
+  esr_session::EsrSceneEmitter observed;
+  observed.emitter_id = 101U;
+  observed.emitter_name = "observed-emitter";
+  observed.is_emitting = true;
+  esr_session::EsrSceneEmitter silent;
+  silent.emitter_id = 102U;
+  silent.emitter_name = "silent-emitter";
+  silent.is_emitting = false;
+  esr_session::EsrSceneEmitter missed;
+  missed.emitter_id = 103U;
+  missed.emitter_name = "missed-emitter";
+  missed.is_emitting = true;
+  input.scene = {observed, silent, missed};
+
+  esr_session::EsrCycleResult result;
+  result.input_cycle_index = input.cycle_index;
+  result.executed_this_cycle = true;
+  result.output_frame.cycle_index = input.cycle_index;
+  ::electronic_surveillance_radar::extension::TruthAssociationRecord association;
+  association.observation_id = 9001U;
+  association.truth_emitter_id = 101U;
+  association.matched = true;
+  association.confidence = 0.75f;
+  result.output_frame.truth_evaluation_output.associations.push_back(association);
+
+  const esr_session::EsrOutputDebugView view =
+      esr_session::EsrOutputDebugViewBuilder::Build(input, result);
+  ASSERT_EQ(view.emitters.size(), 3U);
+  EXPECT_EQ(view.emitters[0].status, esr_session::EsrDebugEmitterStatus::kObserved);
+  EXPECT_EQ(view.emitters[0].emitter_name, "observed-emitter");
+  EXPECT_EQ(view.emitters[0].observation_id, 9001U);
+  EXPECT_EQ(view.emitters[1].status, esr_session::EsrDebugEmitterStatus::kNotEmitting);
+  EXPECT_EQ(view.emitters[2].status, esr_session::EsrDebugEmitterStatus::kNotObserved);
+}
+
+TEST(EsrCycleOutputBuilderTest, LifecycleRecorderTracksObservedLostAndOptionalNotObserved) {
+  esr_session::EsrCycleInput input;
+  input.cycle_index = 30U;
+  esr_session::EsrSceneEmitter tracked;
+  tracked.emitter_id = 201U;
+  tracked.emitter_name = "tracked-emitter";
+  tracked.is_emitting = true;
+  esr_session::EsrSceneEmitter missed;
+  missed.emitter_id = 202U;
+  missed.emitter_name = "missed-emitter";
+  missed.is_emitting = true;
+  input.scene = {tracked, missed};
+
+  esr_session::EsrCycleResult first_result;
+  first_result.input_cycle_index = input.cycle_index;
+  first_result.executed_this_cycle = true;
+  first_result.output_frame.cycle_index = input.cycle_index;
+  ::electronic_surveillance_radar::extension::TruthAssociationRecord association;
+  association.observation_id = 8001U;
+  association.truth_emitter_id = 201U;
+  association.matched = true;
+  association.confidence = 0.9f;
+  first_result.output_frame.truth_evaluation_output.associations.push_back(association);
+
+  esr_session::EsrEmitterLifecycleRecorder recorder;
+  std::vector<esr_session::EsrEmitterLifecycleEvent> events = recorder.Update(input, first_result);
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events.front().kind, esr_session::EsrEmitterLifecycleEventKind::kFirstObserved);
+  EXPECT_EQ(events.front().emitter_name, "tracked-emitter");
+  EXPECT_EQ(events.front().observation_id, 8001U);
+
+  esr_session::EsrCycleResult second_result;
+  second_result.input_cycle_index = 31U;
+  second_result.executed_this_cycle = true;
+  second_result.output_frame.cycle_index = 31U;
+  events = recorder.Update(input, second_result);
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events.front().kind, esr_session::EsrEmitterLifecycleEventKind::kLost);
+  EXPECT_EQ(events.front().reason, esr_session::EsrEmitterLifecycleReason::kNoMatchedObservation);
+
+  esr_session::EsrEmitterLifecycleRecorder diagnose_recorder(
+      esr_session::EsrEmitterLifecycleRecorderConfig{true});
+  events = diagnose_recorder.Update(input, second_result);
+  ASSERT_EQ(events.size(), 2U);
+  EXPECT_EQ(events[0].kind, esr_session::EsrEmitterLifecycleEventKind::kNotObserved);
+  EXPECT_EQ(events[0].reason, esr_session::EsrEmitterLifecycleReason::kNoMatchedObservation);
+  EXPECT_EQ(events[1].emitter_name, "missed-emitter");
 }
