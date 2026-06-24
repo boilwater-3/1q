@@ -3,7 +3,7 @@
 #include <cmath>
 #include <string>
 
-#include <spdlog/spdlog.h>
+#include "common/logging/ProjectLog.h"
 
 #include "FGFDMExec.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
@@ -190,7 +190,7 @@ double EngineManager::GetRotationSpeedKts() const {
 
   // --- Input validation ---
   if (weight_lbs < 1.0 || wing_area_ft2 < 1.0 || rho < 1e-9) {
-    spdlog::warn("[ENGINE] GetRotationSpeedKts: invalid inputs "
+    PROJECT_LOG_WARN("[ENGINE] GetRotationSpeedKts: invalid inputs "
                  "weight={:.0f}lbs area={:.1f}ft² rho={:.6f} → fallback {:.0f} kts",
                  weight_lbs, wing_area_ft2, rho, kFallbackVrKts);
     return kFallbackVrKts;
@@ -232,7 +232,7 @@ double EngineManager::GetRotationSpeedKts() const {
 
   // Diagnostic: log CLmax for unusual values (outside realistic bounds).
   if (cl_max < kClMaxLowerBound || cl_max > kClMaxUpperBound) {
-    spdlog::warn("[ENGINE] GetRotationSpeedKts: CLmax={:.2f} out of bounds [{:.1f}, {:.1f}]",
+    PROJECT_LOG_WARN("[ENGINE] GetRotationSpeedKts: CLmax={:.2f} out of bounds [{:.1f}, {:.1f}]",
                  cl_max, kClMaxLowerBound, kClMaxUpperBound);
   }
 
@@ -271,7 +271,7 @@ double EngineManager::GetRotationSpeedKts() const {
 
   const double vr_kts = std::max(vr_factor * v_stall_kts, kMinVrKts);
 
-  spdlog::debug("[ENGINE] Vr={:.1f} kts  V_stall={:.1f} kts  CLmax={:.1f}  "
+  PROJECT_LOG_DEBUG("[ENGINE] Vr={:.1f} kts  V_stall={:.1f} kts  CLmax={:.1f}  "
                 "Vr_factor={:.3f}  Iyy={:.1e}  AR={:.2f}{}  weight={:.0f} lbs  "
                 "S={:.0f} ft²  rho={:.4f}",
                 vr_kts, v_stall_kts, cl_max, vr_factor, iyy, aspect_ratio,
@@ -294,7 +294,7 @@ double EngineManager::GetDefaultApproachSpeedMps() const {
   const double rho = GetProperty("atmosphere/rho-slugs_ft3");
 
   if (weight_lbs < 1.0 || wing_area_ft2 < 1.0 || rho < 1e-9) {
-    spdlog::debug("[ENGINE] DefaultApproachSpeed: invalid inputs → fallback {:.0f} m/s",
+    PROJECT_LOG_DEBUG("[ENGINE] DefaultApproachSpeed: invalid inputs → fallback {:.0f} m/s",
                   kApproachSpeedFallbackMps);
     return kApproachSpeedFallbackMps;
   }
@@ -314,7 +314,7 @@ double EngineManager::GetDefaultApproachSpeedMps() const {
                                   (kRhoSeaLevel * wing_area_ft2 * cl_max));
   double approach_mps = v_stall_ftps * 0.3048 * kApproachSpeedStallFactor;
 
-  spdlog::debug("[ENGINE] DefaultApproachSpeed={:.1f} m/s (V_stall={:.1f} m/s × 1.3)",
+  PROJECT_LOG_DEBUG("[ENGINE] DefaultApproachSpeed={:.1f} m/s (V_stall={:.1f} m/s × 1.3)",
                 approach_mps, v_stall_ftps * 0.3048);
   return approach_mps;
 }
@@ -328,7 +328,7 @@ double EngineManager::GetClimbPitchDeg() const {
     if (node) {
       double xml_pitch = node->getDoubleValue();
       if (xml_pitch > 0.0 && xml_pitch < 45.0) {
-        spdlog::debug("[ENGINE] ClimbPitch={:.0f} deg (XML override)",
+        PROJECT_LOG_DEBUG("[ENGINE] ClimbPitch={:.0f} deg (XML override)",
                       xml_pitch);
         return xml_pitch;
       }
@@ -350,7 +350,7 @@ double EngineManager::GetClimbPitchDeg() const {
     default:
       break;
   }
-  spdlog::debug("[ENGINE] ClimbPitch={:.0f} deg (type={})",
+  PROJECT_LOG_DEBUG("[ENGINE] ClimbPitch={:.0f} deg (type={})",
                 pitch, static_cast<int>(type_));
   return pitch;
 }
@@ -418,7 +418,7 @@ void EngineManager::MeasureRatedThrust() {
     auto* pm = exec_.GetPropertyManager().get();
     auto* node = pm->GetNode("guidance/thrust-to-weight", true);
     if (node) node->setDoubleValue(twr);
-    spdlog::debug("[ENGINE] Rated thrust={:.0f} lbs  weight={:.0f} lbs  TWR={:.3f}",
+    PROJECT_LOG_DEBUG("[ENGINE] Rated thrust={:.0f} lbs  weight={:.0f} lbs  TWR={:.3f}",
                   rated_thrust_lbs_, weight_lbs, twr);
   }
 }

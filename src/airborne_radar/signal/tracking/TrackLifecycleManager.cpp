@@ -553,6 +553,9 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
       if (measurement.raw_measurement.external_target_id != 0U) {
         track.external_target_id = measurement.raw_measurement.external_target_id;
       }
+      if (!measurement.raw_measurement.target_name.empty()) {
+        track.target_name = measurement.raw_measurement.target_name;
+      }
       if (measurement.filtered_feature.velocity != Eigen::Vector3f::Zero()) {
         track.velocity = measurement.filtered_feature.velocity;
       } else {
@@ -703,6 +706,7 @@ void TrackLifecycleManager::ResetForReuse(TrackState& track) const {
   track.track_id = 0;
   track.batch_id = 0;
   track.external_target_id = 0;
+  track.target_name.clear();
   track.status = TrackStatus::kTentative;
   track.first_cycle = 0;
   track.last_update_cycle = 0;

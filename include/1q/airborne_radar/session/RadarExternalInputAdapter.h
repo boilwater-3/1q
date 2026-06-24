@@ -38,6 +38,7 @@ struct ONEQ_API RadarExternalPoseInput {
  */
 struct ONEQ_API RadarExternalTargetInput {
   std::uint64_t target_id{0U};                                  /**< 外部目标标识符。0 视为未设置，将触发 kUnknownExternalTargetId 警告 */
+  std::string target_name{};                                    /**< 可选目标名称，仅用于人读、trace 与调试视图，不参与关联 */
   oneq::coordinate::ExternalKinematics kinematics{};            /**< 外部运动学输入 */
   float rcs{1.0f};                                              /**< 目标 RCS（m^2） */
   int swerling_type{0};                                         /**< 目标起伏模型 */

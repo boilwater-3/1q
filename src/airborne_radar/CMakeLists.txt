@@ -55,6 +55,8 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/session/RadarCycleInputBuilder.cpp
     airborne_radar/session/RadarExternalOutputAdapter.cpp
     airborne_radar/session/RadarCycleOutputBuilder.cpp
+    airborne_radar/session/RadarTrackOutputDebugViewBuilder.cpp
+    airborne_radar/session/RadarTrackLifecycleRecorder.cpp
     airborne_radar/session/RadarSessionConfigBuilder.cpp
     airborne_radar/session/RadarReplaySession.cpp
     airborne_radar/session/RadarSession.cpp
@@ -120,6 +122,8 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSessionFactory.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarReplaySession.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarTrackLifecycleRecorder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarTrackOutputDebugView.h
     )
     set(PUBLIC_HEADERS_DECISION
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/ControlReducerTypes.h

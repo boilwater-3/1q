@@ -36,6 +36,7 @@ table EosTargetState {
   emissivity:            float;
   reflectance:           float;
   projected_area_m2:     float;
+  target_name:           string;
 }
 
 table EosEnvironmentInput {
@@ -63,7 +64,7 @@ file_identifier "EOSC";
 // ---- EosOutputFrame ----
 
 table EosDetectionRecord {
-  target_id:           uint64;
+  detection_id:        uint64;
   range_m:             float;
   azimuth_deg:         float;
   elevation_deg:       float;
@@ -72,6 +73,12 @@ table EosDetectionRecord {
   fused_snr_linear:    float;
   fused_snr_db:        float;
   detected:            bool;
+}
+
+table EosDetectionAttributionRecord {
+  detection_id:        uint64;
+  target_id:           uint64;
+  target_name:         string;
 }
 
 table EosOutputFrame {
@@ -94,6 +101,7 @@ table ValidationIssue {
 table EosCycleResult {
   input_cycle_index:      uint32;
   output_frame:           EosOutputFrame;
+  detection_attributions: [EosDetectionAttributionRecord];
   validation_issues:      [ValidationIssue];
   has_validation_error:   bool;
   executed_this_cycle:    bool;

@@ -50,9 +50,8 @@ flatbuffers::Offset<replay::SarOutputFrame> BuildOutputFrame(flatbuffers::FlatBu
       fbb, value.cycle_index, static_cast<std::int32_t>(value.completed_stage),
       value.range_sample_count, value.azimuth_pulse_count, value.center_slant_range_m,
       value.estimated_snr_db, static_cast<std::int32_t>(value.phase_reference_mode),
-      static_cast<std::int32_t>(value.image_quality_mainlobe_method),
-      value.range_width_3db_bins, value.azimuth_width_3db_bins,
-      value.range_resolution_3db_m, value.azimuth_resolution_3db_m,
+      static_cast<std::int32_t>(value.image_quality_mainlobe_method), value.range_width_3db_bins,
+      value.azimuth_width_3db_bins, value.range_resolution_3db_m, value.azimuth_resolution_3db_m,
       value.image_entropy_nats, value.image_contrast, value.has_raw_echo,
       value.has_range_compressed_echo, value.has_l1_image, value.has_l3_bp_image,
       value.has_image_quality_metrics, value.image_resolution_m_valid,
@@ -224,9 +223,9 @@ std::string EncodeSarCycleInput(const SarCycleInput& value) {
   std::vector<flatbuffers::Offset<replay::SarPointTarget>> target_offsets;
   target_offsets.reserve(value.point_targets.size());
   for (const SarPointTarget& target : value.point_targets) {
-    target_offsets.push_back(replay::CreateSarPointTarget(fbb, target.latitude_deg,
-                                                          target.longitude_deg, target.altitude_m,
-                                                          target.radar_cross_section_dbsm));
+    target_offsets.push_back(replay::CreateSarPointTarget(
+        fbb, target.latitude_deg, target.longitude_deg, target.altitude_m,
+        target.radar_cross_section_dbsm, target.target_id, fbb.CreateString(target.target_name)));
   }
   const auto platform = BuildPlatformState(fbb, value.platform);
   const auto targets = fbb.CreateVector(target_offsets);
@@ -251,6 +250,8 @@ bool DecodeSarCycleInput(const std::string& bytes, SarCycleInput* out) {
   if (fb->point_targets()) {
     for (const auto* target : *fb->point_targets()) {
       SarPointTarget decoded;
+      decoded.target_id = target->target_id();
+      decoded.target_name = target->target_name() ? target->target_name()->str() : std::string();
       decoded.latitude_deg = target->latitude_deg();
       decoded.longitude_deg = target->longitude_deg();
       decoded.altitude_m = target->altitude_m();
@@ -357,8 +358,8 @@ std::string EncodeSarRuntimeConfigPatch(const config::SarRuntimeConfigPatch& val
       value.has_enable_range_compression, value.enable_range_compression,
       value.has_enable_l1_rda_imaging, value.enable_l1_rda_imaging,
       value.has_retain_raw_phase_history, value.retain_raw_phase_history,
-      value.has_retain_focused_image, value.retain_focused_image,
-      value.has_min_valid_snr_db, value.min_valid_snr_db));
+      value.has_retain_focused_image, value.retain_focused_image, value.has_min_valid_snr_db,
+      value.min_valid_snr_db));
   return FinishToString(&fbb);
 }
 

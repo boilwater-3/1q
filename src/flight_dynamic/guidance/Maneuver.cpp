@@ -1,9 +1,9 @@
 #include "1q/flight_dynamic/guidance/Maneuver.h"
 
-#include <spdlog/spdlog.h>
-
 #include <algorithm>
 #include <cmath>
+
+#include "common/logging/ProjectLog.h"
 
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
@@ -306,7 +306,7 @@ void ManeuverExecutor::ExecuteFlyTo(const Waypoint& target) {
   Waypoint clamped_target = target;
   double ceiling = ap_.GetControlProfile().ceiling_m;
   if (ceiling > 0.0 && target.altitude_m > ceiling) {
-    spdlog::info("[FLYTO] Clamping waypoint altitude {:.0f}m → ceiling {:.0f}m",
+    PROJECT_LOG_INFO("[FLYTO] Clamping waypoint altitude {:.0f}m → ceiling {:.0f}m",
                  target.altitude_m, ceiling);
     clamped_target.altitude_m = ceiling;
   }
@@ -357,7 +357,7 @@ void ManeuverExecutor::ExecuteOrbit(const Waypoint& center, double radius_m, dou
   Waypoint clamped_center = center;
   double ceiling = ap_.GetControlProfile().ceiling_m;
   if (ceiling > 0.0 && center.altitude_m > ceiling) {
-    spdlog::info("[ORBIT] Clamping orbit altitude {:.0f}m → ceiling {:.0f}m",
+    PROJECT_LOG_INFO("[ORBIT] Clamping orbit altitude {:.0f}m → ceiling {:.0f}m",
                  center.altitude_m, ceiling);
     clamped_center.altitude_m = ceiling;
   }
@@ -595,7 +595,7 @@ void ManeuverExecutor::ExecuteSetAltitude(double altitude_m, double tolerance_m)
   double ceiling = ap_.GetControlProfile().ceiling_m;
   double clamped_alt = altitude_m;
   if (ceiling > 0.0 && altitude_m > ceiling) {
-    spdlog::info("[SETALT] Clamping target altitude {:.0f}m → ceiling {:.0f}m",
+    PROJECT_LOG_INFO("[SETALT] Clamping target altitude {:.0f}m → ceiling {:.0f}m",
                  altitude_m, ceiling);
     clamped_alt = ceiling;
   }
@@ -656,7 +656,7 @@ void ManeuverExecutor::ExecuteTakeoff(double target_altitude_m, double target_he
   double ceiling = ap_.GetControlProfile().ceiling_m;
   double clamped_alt = target_altitude_m;
   if (ceiling > 0.0 && target_altitude_m > ceiling) {
-    spdlog::info("[TKO] Clamping target altitude {:.0f}m → ceiling {:.0f}m",
+    PROJECT_LOG_INFO("[TKO] Clamping target altitude {:.0f}m → ceiling {:.0f}m",
                  target_altitude_m, ceiling);
     clamped_alt = ceiling;
   }
@@ -946,7 +946,7 @@ void ManeuverExecutor::Update(double dt_sec) {
         double capture_dist = std::max(r * 1.5, 1000.0);
 
         if (best_dist <= capture_dist) {
-          spdlog::debug("[RACETRACK] Approach captured: dist={:.0f}m → segment {}",
+          PROJECT_LOG_DEBUG("[RACETRACK] Approach captured: dist={:.0f}m → segment {}",
                         best_dist, best_seg);
           switch (best_seg) {
             case 0: racetrack_phase_ = RacetrackPhase::kLeg1; break;
@@ -1157,13 +1157,13 @@ void ManeuverExecutor::Update(double dt_sec) {
           double vr_kts = engines_.GetRotationSpeedKts();
           takeoff_vr_kts_ = vr_kts;  // cache for airspeed checks during climb
           if (vc_kts >= vr_kts * 0.79 && vc_kts < vr_kts) {
-            spdlog::info("[TAKEOFF] vc={:.1f} kts  Vr={:.1f} kts  pre-rot el={:.3f}",
+            PROJECT_LOG_INFO("[TAKEOFF] vc={:.1f} kts  Vr={:.1f} kts  pre-rot el={:.3f}",
                          vc_kts, vr_kts,
                          -ap_.GetControlProfile().rotation_max_elevator * 0.8 *
                              std::clamp((vc_kts - vr_kts * 0.80) / (vr_kts * 0.20), 0.0, 1.0));
           }
           if (vc_kts >= vr_kts) {
-            spdlog::info("[TAKEOFF] ROTATE at vc={:.1f} kts (Vr={:.1f}), entering kRotateAndClimb",
+            PROJECT_LOG_INFO("[TAKEOFF] ROTATE at vc={:.1f} kts (Vr={:.1f}), entering kRotateAndClimb",
                          vc_kts, vr_kts);
             // Seed the rotation ramp from the pre-rotation elevator level
             // so there is no step-down at the critical rotation moment.
@@ -1182,7 +1182,7 @@ void ManeuverExecutor::Update(double dt_sec) {
             // complete — the gradual pitch recovery in kRotateAndClimb will
             // gently reduce pitch toward
             // the climb target without a full-elevator step (XB-70, DHC6).
-            spdlog::info("[TAKEOFF] Uncommanded liftoff at vc={:.1f} kts (Vr={:.1f}), "
+            PROJECT_LOG_INFO("[TAKEOFF] Uncommanded liftoff at vc={:.1f} kts (Vr={:.1f}), "
                          "entering climb",
                          vc_kts, vr_kts);
             ConfigureForClimb(takeoff_target_altitude_m_, takeoff_target_heading_rad_,

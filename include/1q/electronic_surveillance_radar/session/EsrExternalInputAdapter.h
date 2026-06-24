@@ -25,45 +25,39 @@ namespace session {
  * @note 速度固定为 ECEF 坐标系。
  */
 struct ONEQ_API EsrExternalPoseInput {
-  oneq::coordinate::EcefPositionM platform_position_ecef_m{};     /**< 平台位置（ECEF，m） */
-  oneq::coordinate::EcefVelocityMps platform_velocity_mps{};      /**< 平台速度（ECEF，单位：m/s） */
-  oneq::coordinate::EulerAnglesDeg platform_attitude_deg{};       /**< 平台姿态角（Body->ENU，deg） */
+  oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 平台位置（ECEF，m） */
+  oneq::coordinate::EcefVelocityMps platform_velocity_mps{};  /**< 平台速度（ECEF，单位：m/s） */
+  oneq::coordinate::EulerAnglesDeg platform_attitude_deg{};   /**< 平台姿态角（Body->ENU，deg） */
 };
 
 /**
  * @brief ESR 外部辐射源输入（统一入口）。
  */
 struct ONEQ_API EsrExternalEmitterInput {
-  std::uint64_t emitter_id{0U};                                  /**< 辐射源标识 */
-  oneq::coordinate::ExternalKinematics kinematics{};            /**< 外部运动学输入 */
-  double carrier_hz{0.0};                                   /**< 发射中心频率（Hz） */
-  double bandwidth_hz{0.0};                                 /**< 发射带宽（Hz） */
-  double tx_power_w{0.0};                                   /**< 发射功率（W） */
-  double pulse_width_s{0.0};                                /**< 脉宽（s） */
-  double pri_s{0.0};                                        /**< 脉冲重复间隔（s） */
-  EsrEmitterBeamState beam_state{};                         /**< 发射波束状态 */
-  bool is_emitting{true};                                   /**< 当前周期是否发射 */
+  std::uint64_t emitter_id{0U}; /**< 辐射源标识 */
+  std::string emitter_name{};   /**< 可选辐射源名称，仅用于人读、trace 与调试视图 */
+  oneq::coordinate::ExternalKinematics kinematics{}; /**< 外部运动学输入 */
+  double carrier_hz{0.0};                            /**< 发射中心频率（Hz） */
+  double bandwidth_hz{0.0};                          /**< 发射带宽（Hz） */
+  double tx_power_w{0.0};                            /**< 发射功率（W） */
+  double pulse_width_s{0.0};                         /**< 脉宽（s） */
+  double pri_s{0.0};                                 /**< 脉冲重复间隔（s） */
+  EsrEmitterBeamState beam_state{};                  /**< 发射波束状态 */
+  bool is_emitting{true};                            /**< 当前周期是否发射 */
 };
 
 /**
  * @brief ESR 坐标适配执行状态。
  */
-enum class ONEQ_API EsrCoordinateStatus {
-  kOk = 0,
-  kNullOutput,
-  kCoordinateTransformFail
-};
+enum class ONEQ_API EsrCoordinateStatus { kOk = 0, kNullOutput, kCoordinateTransformFail };
 
-ONEQ_API bool TryMakeEsrPoseFromExternalKinematics(const EsrExternalPoseInput& input,
-                                                   const oneq::coordinate::LocalFrameReference& reference,
-                                                   oneq::foundation::PoseState* pose,
-                                                   EsrCoordinateStatus* status = nullptr);
+ONEQ_API bool TryMakeEsrPoseFromExternalKinematics(
+    const EsrExternalPoseInput& input, const oneq::coordinate::LocalFrameReference& reference,
+    oneq::foundation::PoseState* pose, EsrCoordinateStatus* status = nullptr);
 
 ONEQ_API bool TryMakeEsrSceneEmitterFromExternalInput(
-    const EsrExternalEmitterInput& input,
-    const oneq::coordinate::LocalFrameReference& reference,
-    EsrSceneEmitter* emitter,
-    EsrCoordinateStatus* status = nullptr);
+    const EsrExternalEmitterInput& input, const oneq::coordinate::LocalFrameReference& reference,
+    EsrSceneEmitter* emitter, EsrCoordinateStatus* status = nullptr);
 
 }  // namespace session
 }  // namespace electronic_surveillance_radar

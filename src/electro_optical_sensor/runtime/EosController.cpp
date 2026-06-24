@@ -34,6 +34,7 @@ struct EosController::Impl {
 
   signal::pipeline::EosPipeline& pipeline;
   session::EosOutputFrame latest_output{};
+  attribution::EosDetectionAttributionRecordList latest_detection_attributions{};
   session::ValidationIssueList last_validation_issues{};
   bool has_latest_output{false};
   bool has_validation_error{false};
@@ -61,6 +62,8 @@ bool IsEosExecuteResultContractValid(
 
 void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInput& input) {
   const session::EosOutputFrame previous_output = impl_->latest_output;
+  const attribution::EosDetectionAttributionRecordList previous_attributions =
+      impl_->latest_detection_attributions;
   const bool had_previous_output = impl_->has_latest_output;
   const extension::EosPipelineRuntimeState previous_pipeline_state =
       impl_->pipeline.CaptureRuntimeState();
@@ -74,6 +77,7 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
     impl_->last_abort_reason = extension::EosPipelineAbortReason::kValidationRejected;
     impl_->last_cycle_reused_previous_output = had_previous_output;
     impl_->latest_output = previous_output;
+    impl_->latest_detection_attributions = previous_attributions;
     impl_->has_latest_output = had_previous_output;
     PROJECT_LOG_ERROR("EOS validation rejected for cycle_index={}", input.cycle_index);
     PROJECT_LOG_DEBUG("[EosController] cycle_index={} reused_previous={}", input.cycle_index,
@@ -87,6 +91,7 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
     const bool restore_ok = impl_->pipeline.RestoreRuntimeState(previous_pipeline_state);
     if (!restore_ok) {
       impl_->latest_output = session::EosOutputFrame{};
+      impl_->latest_detection_attributions.clear();
       impl_->has_latest_output = false;
       impl_->last_cycle_executed = false;
       impl_->last_cycle_reused_previous_output = false;
@@ -95,6 +100,7 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
       return;
     }
     impl_->latest_output = previous_output;
+    impl_->latest_detection_attributions = previous_attributions;
     impl_->has_latest_output = had_previous_output;
     impl_->last_cycle_executed = false;
     impl_->last_cycle_reused_previous_output = had_previous_output;
@@ -110,10 +116,11 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
   assembled_frame.scan_azimuth_deg = execute_result.scan_azimuth_deg;
   assembled_frame.detections = std::move(execute_result.detections);
   impl_->latest_output = assembled_frame;
+  impl_->latest_detection_attributions = std::move(execute_result.detection_attributions);
   impl_->has_latest_output = true;
   impl_->last_cycle_executed = true;
-  PROJECT_LOG_DEBUG("[EosController] cycle_index={} executed detections={}",
-                    input.cycle_index, assembled_frame.detections.size());
+  PROJECT_LOG_DEBUG("[EosController] cycle_index={} executed detections={}", input.cycle_index,
+                    assembled_frame.detections.size());
 }
 
 bool EosController::HasLatestDetectionOutputFrame() const { return impl_->has_latest_output; }
@@ -149,8 +156,10 @@ extension::EosPipelineAbortReason EosController::GetLastDetectionCycleAbortReaso
   result.abort_reason = impl_->last_abort_reason;
   if (impl_->has_latest_output) {
     result.output_frame = impl_->latest_output;
+    result.detection_attributions = impl_->latest_detection_attributions;
   } else {
     result.output_frame.cycle_index = input.cycle_index;
+    result.detection_attributions.clear();
   }
   return result;
 }
@@ -160,6 +169,7 @@ extension::EosControllerRuntimeState EosController::CaptureRuntimeState() const 
   state.owner_identity = this;
   state.schema_version = kControllerRuntimeStateSchemaVersion;
   state.latest_output = impl_->latest_output;
+  state.latest_detection_attributions = impl_->latest_detection_attributions;
   state.last_validation_issues = impl_->last_validation_issues;
   state.has_latest_output = impl_->has_latest_output;
   state.has_validation_error = impl_->has_validation_error;
@@ -178,6 +188,7 @@ bool EosController::RestoreRuntimeState(const extension::EosControllerRuntimeSta
     return false;
   }
   impl_->latest_output = state.latest_output;
+  impl_->latest_detection_attributions = state.latest_detection_attributions;
   impl_->last_validation_issues = state.last_validation_issues;
   impl_->has_latest_output = state.has_latest_output;
   impl_->has_validation_error = state.has_validation_error;

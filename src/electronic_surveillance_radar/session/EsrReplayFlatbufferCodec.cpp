@@ -15,7 +15,8 @@ esr::replay::Vec3 ToV(const oneq::foundation::Vector3f& v) {
   return {static_cast<float>(v.x), static_cast<float>(v.y), static_cast<float>(v.z)};
 }
 esr::replay::EulerDeg ToE(const oneq::foundation::EulerAnglesDeg& e) {
-  return {static_cast<float>(e.yaw_deg), static_cast<float>(e.pitch_deg), static_cast<float>(e.roll_deg)};
+  return {static_cast<float>(e.yaw_deg), static_cast<float>(e.pitch_deg),
+          static_cast<float>(e.roll_deg)};
 }
 
 flatbuffers::Offset<esr::replay::PoseState> BuildPose(flatbuffers::FlatBufferBuilder& b,
@@ -61,11 +62,13 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   std::vector<flatbuffers::Offset<esr::replay::SceneEmitter>> emitters;
   for (const auto& e : v.scene) {
     auto pose = BuildPose(fbb, e.pose);
+    auto emitter_name = fbb.CreateString(e.emitter_name);
     auto beam = esr::replay::CreateEmitterBeamState(
         fbb, e.beam_state.center_az_deg, e.beam_state.center_el_deg, e.beam_state.az_beamwidth_deg,
         e.beam_state.el_beamwidth_deg, e.beam_state.beam_state_valid);
     esr::replay::SceneEmitterBuilder eb(fbb);
     eb.add_emitter_id(e.emitter_id);
+    eb.add_emitter_name(emitter_name);
     eb.add_pose(pose);
     eb.add_beam_state(beam);
     eb.add_carrier_hz(e.carrier_hz);
@@ -121,6 +124,7 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
     for (const auto* e : *fb->scene_emitters()) {
       session::EsrSceneEmitter ts{};
       ts.emitter_id = e->emitter_id();
+      ts.emitter_name = e->emitter_name() ? e->emitter_name()->str() : std::string();
       ts.pose = FromPose(e->pose());
       ts.carrier_hz = e->carrier_hz();
       ts.bandwidth_hz = e->bandwidth_hz();
@@ -179,14 +183,12 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
   std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>> obs_vec;
   for (const auto& o : v.observation_output.observations) {
     obs_vec.push_back(esr::replay::CreateEmitterObservation(
-        fbb, o.observation_id, o.timestamp_s, o.aoa_az_deg,
-        o.aoa_el_deg, o.rf_hz, o.pulse_width_s, o.amplitude_db, o.snr_db,
-        static_cast<int32_t>(o.quality), o.is_jammed));
+        fbb, o.observation_id, o.timestamp_s, o.aoa_az_deg, o.aoa_el_deg, o.rf_hz, o.pulse_width_s,
+        o.amplitude_db, o.snr_db, static_cast<int32_t>(o.quality), o.is_jammed));
   }
   auto obs_out = esr::replay::CreateObservationOutput(
       fbb, static_cast<std::uint32_t>(v.observation_output.raw_observation_count),
-      static_cast<std::uint32_t>(v.observation_output.cluster_count),
-      fbb.CreateVector(obs_vec));
+      static_cast<std::uint32_t>(v.observation_output.cluster_count), fbb.CreateVector(obs_vec));
 
   // emitter output
   std::vector<flatbuffers::Offset<esr::replay::EmitterHypothesis>> hyp_vec;
@@ -196,9 +198,9 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
       cls_vec.push_back(fbb.CreateString(c));
     }
     hyp_vec.push_back(esr::replay::CreateEmitterHypothesis(
-        fbb, h.hypothesis_id, fbb.CreateVector(cls_vec),
-        static_cast<int32_t>(h.mode), static_cast<int32_t>(h.threat_level), h.bearing_az_deg,
-        h.bearing_el_deg, h.bearing_std_deg, h.confidence, h.last_seen_cycle));
+        fbb, h.hypothesis_id, fbb.CreateVector(cls_vec), static_cast<int32_t>(h.mode),
+        static_cast<int32_t>(h.threat_level), h.bearing_az_deg, h.bearing_el_deg, h.bearing_std_deg,
+        h.confidence, h.last_seen_cycle));
   }
   auto em_out = esr::replay::CreateEmitterOutput(fbb, fbb.CreateVector(hyp_vec));
 
@@ -206,8 +208,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
   std::vector<flatbuffers::Offset<esr::replay::TruthAssociationRecord>> ta_vec;
   for (const auto& a : v.truth_evaluation_output.associations) {
     ta_vec.push_back(esr::replay::CreateTruthAssociationRecord(
-        fbb, a.observation_id, a.truth_emitter_id,
-        a.matched, static_cast<float>(a.confidence)));
+        fbb, a.observation_id, a.truth_emitter_id, a.matched, static_cast<float>(a.confidence)));
   }
   auto truth_out = esr::replay::CreateTruthEvaluationOutput(fbb, fbb.CreateVector(ta_vec));
 
@@ -372,8 +373,8 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
       fbb, v.mission.power_on, static_cast<int32_t>(v.mission.work_mode), scan);
   // detection_profile and use_profile_defaults retired in Phase 2; pass defaults for schema compat
   auto policy = esr::replay::CreateEsrPolicyConfig(
-      fbb, 0, false, v.policy.detection.min_detect_snr_db,
-      v.policy.detection.pfa, v.policy.detection.pulse_count, v.policy.detection.threshold_scale,
+      fbb, 0, false, v.policy.detection.min_detect_snr_db, v.policy.detection.pfa,
+      v.policy.detection.pulse_count, v.policy.detection.threshold_scale,
       v.policy.detection.enable_statistical_detection);
   const auto& es = v.environment.scenario_config;
   auto ap = esr::replay::CreateEsrAtmosphericPhysicsConfig(
@@ -475,8 +476,8 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
       ev.atmospheric_context.solar_flux_f107a, ev.atmospheric_context.solar_flux_f107,
       ev.atmospheric_context.geomagnetic_ap);
   auto env_patch = esr::replay::CreateEsrEnvironmentRuntimeConfigPatch(
-      fbb, ev.has_preset, static_cast<int32_t>(ev.preset),
-      ev.has_atmospheric_physics, ap, ev.has_atmospheric_context, ac);
+      fbb, ev.has_preset, static_cast<int32_t>(ev.preset), ev.has_atmospheric_physics, ap,
+      ev.has_atmospheric_context, ac);
   flatbuffers::Offset<esr::replay::EsrMissionConfig> mission;
   if (v.has_mission) {
     const auto& sc = v.mission.scan;
@@ -490,10 +491,11 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
   }
   flatbuffers::Offset<esr::replay::EsrPolicyConfig> policy;
   if (v.has_policy) {
-    // detection_profile and use_profile_defaults retired in Phase 2; pass defaults for schema compat
+    // detection_profile and use_profile_defaults retired in Phase 2; pass defaults for schema
+    // compat
     policy = esr::replay::CreateEsrPolicyConfig(
-        fbb, 0, false, v.policy.detection.min_detect_snr_db,
-        v.policy.detection.pfa, v.policy.detection.pulse_count, v.policy.detection.threshold_scale,
+        fbb, 0, false, v.policy.detection.min_detect_snr_db, v.policy.detection.pfa,
+        v.policy.detection.pulse_count, v.policy.detection.threshold_scale,
         v.policy.detection.enable_statistical_detection);
   }
   const auto& sb = v.explicit_scan_bounds;
@@ -502,11 +504,10 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
       static_cast<int32_t>(v.work_mode), v.has_scan_rate_hz, v.scan_rate_hz,
       v.has_scan_start_position, static_cast<int32_t>(v.scan_start_position), v.has_scan_sequence,
       static_cast<int32_t>(v.scan_sequence), v.has_scan_center_az_deg, v.scan_center_az_deg,
-      v.has_scan_center_el_deg, v.scan_center_el_deg, v.has_explicit_scan_bounds,
-      sb.enabled, v.has_explicit_scan_bounds, sb.scan_start_az_deg,
-      v.has_explicit_scan_bounds, sb.scan_end_az_deg, v.has_explicit_scan_bounds,
-      sb.scan_start_el_deg, v.has_explicit_scan_bounds, sb.scan_end_el_deg,
-      v.has_mission, mission, v.has_policy, policy,
+      v.has_scan_center_el_deg, v.scan_center_el_deg, v.has_explicit_scan_bounds, sb.enabled,
+      v.has_explicit_scan_bounds, sb.scan_start_az_deg, v.has_explicit_scan_bounds,
+      sb.scan_end_az_deg, v.has_explicit_scan_bounds, sb.scan_start_el_deg,
+      v.has_explicit_scan_bounds, sb.scan_end_el_deg, v.has_mission, mission, v.has_policy, policy,
       v.has_environment_runtime_config, env_patch));
   return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
 }
@@ -606,10 +607,11 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeCon
 
 std::string EncodeEsrFailureMarker(const oneq::replay::ReplayTraceFailure& failure) {
   flatbuffers::FlatBufferBuilder builder;
-  const flatbuffers::Offset<esr::replay::FailureMarker> root = esr::replay::CreateFailureMarkerDirect(
-      builder, failure.error_code.c_str(), failure.message.c_str(), failure.location.c_str(),
-      failure.has_cycle_index, failure.cycle_index, failure.has_sim_time_sec, failure.sim_time_sec,
-      failure.diagnostics_payload.c_str(), false, 0U);
+  const flatbuffers::Offset<esr::replay::FailureMarker> root =
+      esr::replay::CreateFailureMarkerDirect(
+          builder, failure.error_code.c_str(), failure.message.c_str(), failure.location.c_str(),
+          failure.has_cycle_index, failure.cycle_index, failure.has_sim_time_sec,
+          failure.sim_time_sec, failure.diagnostics_payload.c_str(), false, 0U);
   builder.Finish(root);
 
   const std::uint8_t* buffer = builder.GetBufferPointer();

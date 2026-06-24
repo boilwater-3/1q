@@ -32,15 +32,16 @@ struct ONEQ_API EsrEmitterBeamState {
 
 /** @brief EsrSceneEmitter 描述 ESR 场景辐射源输入。 */
 struct ONEQ_API EsrSceneEmitter {
-  std::uint64_t emitter_id{0U};      /**< 辐射源标识 */
+  std::uint64_t emitter_id{0U}; /**< 辐射源标识 */
+  std::string emitter_name{};   /**< 可选辐射源名称，仅用于人读、trace 与调试视图，不参与关联 */
   oneq::foundation::PoseState pose{}; /**< 辐射源位置、速度与姿态状态 */
-  double carrier_hz{0.0};            /**< 发射中心频率（单位：Hz） */
-  double bandwidth_hz{0.0};          /**< 发射带宽（单位：Hz） */
-  double tx_power_w{0.0};            /**< 发射功率（单位：W） */
-  double pulse_width_s{0.0};         /**< 脉宽（单位：s） */
-  double pri_s{0.0};                 /**< 脉冲重复间隔（单位：s） */
-  EsrEmitterBeamState beam_state{};  /**< 当前波束状态 */
-  bool is_emitting{true};            /**< 当前周期是否处于发射状态 */
+  double carrier_hz{0.0};             /**< 发射中心频率（单位：Hz） */
+  double bandwidth_hz{0.0};           /**< 发射带宽（单位：Hz） */
+  double tx_power_w{0.0};             /**< 发射功率（单位：W） */
+  double pulse_width_s{0.0};          /**< 脉宽（单位：s） */
+  double pri_s{0.0};                  /**< 脉冲重复间隔（单位：s） */
+  EsrEmitterBeamState beam_state{};   /**< 当前波束状态 */
+  bool is_emitting{true};             /**< 当前周期是否处于发射状态 */
 };
 
 /** @brief EsrSceneEmitterList 表示 ESR 场景辐射源输入列表。 */

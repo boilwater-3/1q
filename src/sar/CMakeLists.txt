@@ -41,6 +41,8 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_SAR_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarCycleInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarProductDebugView.h
+        ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarProductLifecycleRecorder.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarReplaySession.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarSessionFactory.h

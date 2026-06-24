@@ -11,23 +11,56 @@ namespace replay {
 
 struct SarPlatformState;
 struct SarPlatformStateBuilder;
+struct SarPlatformStateT;
 
 struct SarPointTarget;
 struct SarPointTargetBuilder;
+struct SarPointTargetT;
 
 struct SarCycleInput;
 struct SarCycleInputBuilder;
+struct SarCycleInputT;
 
 struct SarOutputFrame;
 struct SarOutputFrameBuilder;
+struct SarOutputFrameT;
 
 struct SarDiagnosticIssue;
 struct SarDiagnosticIssueBuilder;
+struct SarDiagnosticIssueT;
 
 struct SarCycleResult;
 struct SarCycleResultBuilder;
+struct SarCycleResultT;
+
+struct SarPlatformStateT : public flatbuffers::NativeTable {
+  typedef SarPlatformState TableType;
+  double time_s;
+  double latitude_deg;
+  double longitude_deg;
+  double altitude_m;
+  double velocity_north_mps;
+  double velocity_east_mps;
+  double velocity_down_mps;
+  double roll_deg;
+  double pitch_deg;
+  double yaw_deg;
+  SarPlatformStateT()
+      : time_s(0.0),
+        latitude_deg(0.0),
+        longitude_deg(0.0),
+        altitude_m(0.0),
+        velocity_north_mps(0.0),
+        velocity_east_mps(0.0),
+        velocity_down_mps(0.0),
+        roll_deg(0.0),
+        pitch_deg(0.0),
+        yaw_deg(0.0) {
+  }
+};
 
 struct SarPlatformState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarPlatformStateT NativeTableType;
   typedef SarPlatformStateBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TIME_S = 4,
@@ -85,6 +118,9 @@ struct SarPlatformState FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<double>(verifier, VT_YAW_DEG) &&
            verifier.EndTable();
   }
+  SarPlatformStateT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarPlatformStateT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarPlatformState> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarPlatformStateT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarPlatformStateBuilder {
@@ -159,13 +195,35 @@ inline flatbuffers::Offset<SarPlatformState> CreateSarPlatformState(
   return builder_.Finish();
 }
 
+flatbuffers::Offset<SarPlatformState> CreateSarPlatformState(flatbuffers::FlatBufferBuilder &_fbb, const SarPlatformStateT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct SarPointTargetT : public flatbuffers::NativeTable {
+  typedef SarPointTarget TableType;
+  double latitude_deg;
+  double longitude_deg;
+  double altitude_m;
+  double radar_cross_section_dbsm;
+  uint64_t target_id;
+  std::string target_name;
+  SarPointTargetT()
+      : latitude_deg(0.0),
+        longitude_deg(0.0),
+        altitude_m(0.0),
+        radar_cross_section_dbsm(0.0),
+        target_id(0) {
+  }
+};
+
 struct SarPointTarget FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarPointTargetT NativeTableType;
   typedef SarPointTargetBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_LATITUDE_DEG = 4,
     VT_LONGITUDE_DEG = 6,
     VT_ALTITUDE_M = 8,
-    VT_RADAR_CROSS_SECTION_DBSM = 10
+    VT_RADAR_CROSS_SECTION_DBSM = 10,
+    VT_TARGET_ID = 12,
+    VT_TARGET_NAME = 14
   };
   double latitude_deg() const {
     return GetField<double>(VT_LATITUDE_DEG, 0.0);
@@ -179,14 +237,26 @@ struct SarPointTarget FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   double radar_cross_section_dbsm() const {
     return GetField<double>(VT_RADAR_CROSS_SECTION_DBSM, 0.0);
   }
+  uint64_t target_id() const {
+    return GetField<uint64_t>(VT_TARGET_ID, 0);
+  }
+  const flatbuffers::String *target_name() const {
+    return GetPointer<const flatbuffers::String *>(VT_TARGET_NAME);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<double>(verifier, VT_LATITUDE_DEG) &&
            VerifyField<double>(verifier, VT_LONGITUDE_DEG) &&
            VerifyField<double>(verifier, VT_ALTITUDE_M) &&
            VerifyField<double>(verifier, VT_RADAR_CROSS_SECTION_DBSM) &&
+           VerifyField<uint64_t>(verifier, VT_TARGET_ID) &&
+           VerifyOffset(verifier, VT_TARGET_NAME) &&
+           verifier.VerifyString(target_name()) &&
            verifier.EndTable();
   }
+  SarPointTargetT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarPointTargetT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarPointTarget> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarPointTargetT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarPointTargetBuilder {
@@ -205,6 +275,12 @@ struct SarPointTargetBuilder {
   void add_radar_cross_section_dbsm(double radar_cross_section_dbsm) {
     fbb_.AddElement<double>(SarPointTarget::VT_RADAR_CROSS_SECTION_DBSM, radar_cross_section_dbsm, 0.0);
   }
+  void add_target_id(uint64_t target_id) {
+    fbb_.AddElement<uint64_t>(SarPointTarget::VT_TARGET_ID, target_id, 0);
+  }
+  void add_target_name(flatbuffers::Offset<flatbuffers::String> target_name) {
+    fbb_.AddOffset(SarPointTarget::VT_TARGET_NAME, target_name);
+  }
   explicit SarPointTargetBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -222,16 +298,54 @@ inline flatbuffers::Offset<SarPointTarget> CreateSarPointTarget(
     double latitude_deg = 0.0,
     double longitude_deg = 0.0,
     double altitude_m = 0.0,
-    double radar_cross_section_dbsm = 0.0) {
+    double radar_cross_section_dbsm = 0.0,
+    uint64_t target_id = 0,
+    flatbuffers::Offset<flatbuffers::String> target_name = 0) {
   SarPointTargetBuilder builder_(_fbb);
+  builder_.add_target_id(target_id);
   builder_.add_radar_cross_section_dbsm(radar_cross_section_dbsm);
   builder_.add_altitude_m(altitude_m);
   builder_.add_longitude_deg(longitude_deg);
   builder_.add_latitude_deg(latitude_deg);
+  builder_.add_target_name(target_name);
   return builder_.Finish();
 }
 
+inline flatbuffers::Offset<SarPointTarget> CreateSarPointTargetDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    double latitude_deg = 0.0,
+    double longitude_deg = 0.0,
+    double altitude_m = 0.0,
+    double radar_cross_section_dbsm = 0.0,
+    uint64_t target_id = 0,
+    const char *target_name = nullptr) {
+  auto target_name__ = target_name ? _fbb.CreateString(target_name) : 0;
+  return sar::replay::CreateSarPointTarget(
+      _fbb,
+      latitude_deg,
+      longitude_deg,
+      altitude_m,
+      radar_cross_section_dbsm,
+      target_id,
+      target_name__);
+}
+
+flatbuffers::Offset<SarPointTarget> CreateSarPointTarget(flatbuffers::FlatBufferBuilder &_fbb, const SarPointTargetT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct SarCycleInputT : public flatbuffers::NativeTable {
+  typedef SarCycleInput TableType;
+  uint32_t cycle_index;
+  double dt_sec;
+  std::unique_ptr<sar::replay::SarPlatformStateT> platform;
+  std::vector<std::unique_ptr<sar::replay::SarPointTargetT>> point_targets;
+  SarCycleInputT()
+      : cycle_index(0),
+        dt_sec(0.0) {
+  }
+};
+
 struct SarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarCycleInputT NativeTableType;
   typedef SarCycleInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CYCLE_INDEX = 4,
@@ -262,6 +376,9 @@ struct SarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVectorOfTables(point_targets()) &&
            verifier.EndTable();
   }
+  SarCycleInputT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarCycleInputT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarCycleInput> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarCycleInputBuilder {
@@ -321,7 +438,58 @@ inline flatbuffers::Offset<SarCycleInput> CreateSarCycleInputDirect(
       point_targets__);
 }
 
+flatbuffers::Offset<SarCycleInput> CreateSarCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const SarCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct SarOutputFrameT : public flatbuffers::NativeTable {
+  typedef SarOutputFrame TableType;
+  uint32_t cycle_index;
+  int32_t completed_stage;
+  uint32_t range_sample_count;
+  uint32_t azimuth_pulse_count;
+  double center_slant_range_m;
+  double estimated_snr_db;
+  int32_t phase_reference_mode;
+  int32_t image_quality_mainlobe_method;
+  double range_width_3db_bins;
+  double azimuth_width_3db_bins;
+  double range_resolution_3db_m;
+  double azimuth_resolution_3db_m;
+  double image_entropy_nats;
+  double image_contrast;
+  bool has_raw_echo;
+  bool has_range_compressed_echo;
+  bool has_l1_image;
+  bool has_l3_bp_image;
+  bool has_image_quality_metrics;
+  bool image_resolution_m_valid;
+  bool phase_reference_applied;
+  SarOutputFrameT()
+      : cycle_index(0),
+        completed_stage(0),
+        range_sample_count(0),
+        azimuth_pulse_count(0),
+        center_slant_range_m(0.0),
+        estimated_snr_db(0.0),
+        phase_reference_mode(0),
+        image_quality_mainlobe_method(0),
+        range_width_3db_bins(0.0),
+        azimuth_width_3db_bins(0.0),
+        range_resolution_3db_m(0.0),
+        azimuth_resolution_3db_m(0.0),
+        image_entropy_nats(0.0),
+        image_contrast(0.0),
+        has_raw_echo(false),
+        has_range_compressed_echo(false),
+        has_l1_image(false),
+        has_l3_bp_image(false),
+        has_image_quality_metrics(false),
+        image_resolution_m_valid(false),
+        phase_reference_applied(false) {
+  }
+};
+
 struct SarOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarOutputFrameT NativeTableType;
   typedef SarOutputFrameBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CYCLE_INDEX = 4,
@@ -434,6 +602,9 @@ struct SarOutputFrame FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_PHASE_REFERENCE_APPLIED) &&
            verifier.EndTable();
   }
+  SarOutputFrameT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarOutputFrameT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarOutputFrame> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarOutputFrameT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarOutputFrameBuilder {
@@ -563,7 +734,20 @@ inline flatbuffers::Offset<SarOutputFrame> CreateSarOutputFrame(
   return builder_.Finish();
 }
 
+flatbuffers::Offset<SarOutputFrame> CreateSarOutputFrame(flatbuffers::FlatBufferBuilder &_fbb, const SarOutputFrameT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct SarDiagnosticIssueT : public flatbuffers::NativeTable {
+  typedef SarDiagnosticIssue TableType;
+  int32_t severity;
+  std::string code;
+  std::string message;
+  SarDiagnosticIssueT()
+      : severity(0) {
+  }
+};
+
 struct SarDiagnosticIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarDiagnosticIssueT NativeTableType;
   typedef SarDiagnosticIssueBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SEVERITY = 4,
@@ -588,6 +772,9 @@ struct SarDiagnosticIssue FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyString(message()) &&
            verifier.EndTable();
   }
+  SarDiagnosticIssueT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarDiagnosticIssueT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarDiagnosticIssue> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarDiagnosticIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarDiagnosticIssueBuilder {
@@ -641,7 +828,27 @@ inline flatbuffers::Offset<SarDiagnosticIssue> CreateSarDiagnosticIssueDirect(
       message__);
 }
 
+flatbuffers::Offset<SarDiagnosticIssue> CreateSarDiagnosticIssue(flatbuffers::FlatBufferBuilder &_fbb, const SarDiagnosticIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct SarCycleResultT : public flatbuffers::NativeTable {
+  typedef SarCycleResult TableType;
+  uint32_t input_cycle_index;
+  std::unique_ptr<sar::replay::SarOutputFrameT> output_frame;
+  std::vector<std::unique_ptr<sar::replay::SarDiagnosticIssueT>> diagnostics;
+  bool has_error;
+  bool executed_this_cycle;
+  bool reused_previous_output;
+  std::string abort_reason;
+  SarCycleResultT()
+      : input_cycle_index(0),
+        has_error(false),
+        executed_this_cycle(false),
+        reused_previous_output(false) {
+  }
+};
+
 struct SarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarCycleResultT NativeTableType;
   typedef SarCycleResultBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INPUT_CYCLE_INDEX = 4,
@@ -688,6 +895,9 @@ struct SarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyString(abort_reason()) &&
            verifier.EndTable();
   }
+  SarCycleResultT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarCycleResultT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarCycleResult> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarCycleResultT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarCycleResultBuilder {
@@ -769,6 +979,299 @@ inline flatbuffers::Offset<SarCycleResult> CreateSarCycleResultDirect(
       abort_reason__);
 }
 
+flatbuffers::Offset<SarCycleResult> CreateSarCycleResult(flatbuffers::FlatBufferBuilder &_fbb, const SarCycleResultT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+inline SarPlatformStateT *SarPlatformState::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarPlatformStateT> _o = std::unique_ptr<sar::replay::SarPlatformStateT>(new SarPlatformStateT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarPlatformState::UnPackTo(SarPlatformStateT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = time_s(); _o->time_s = _e; }
+  { auto _e = latitude_deg(); _o->latitude_deg = _e; }
+  { auto _e = longitude_deg(); _o->longitude_deg = _e; }
+  { auto _e = altitude_m(); _o->altitude_m = _e; }
+  { auto _e = velocity_north_mps(); _o->velocity_north_mps = _e; }
+  { auto _e = velocity_east_mps(); _o->velocity_east_mps = _e; }
+  { auto _e = velocity_down_mps(); _o->velocity_down_mps = _e; }
+  { auto _e = roll_deg(); _o->roll_deg = _e; }
+  { auto _e = pitch_deg(); _o->pitch_deg = _e; }
+  { auto _e = yaw_deg(); _o->yaw_deg = _e; }
+}
+
+inline flatbuffers::Offset<SarPlatformState> SarPlatformState::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarPlatformStateT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarPlatformState(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarPlatformState> CreateSarPlatformState(flatbuffers::FlatBufferBuilder &_fbb, const SarPlatformStateT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarPlatformStateT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _time_s = _o->time_s;
+  auto _latitude_deg = _o->latitude_deg;
+  auto _longitude_deg = _o->longitude_deg;
+  auto _altitude_m = _o->altitude_m;
+  auto _velocity_north_mps = _o->velocity_north_mps;
+  auto _velocity_east_mps = _o->velocity_east_mps;
+  auto _velocity_down_mps = _o->velocity_down_mps;
+  auto _roll_deg = _o->roll_deg;
+  auto _pitch_deg = _o->pitch_deg;
+  auto _yaw_deg = _o->yaw_deg;
+  return sar::replay::CreateSarPlatformState(
+      _fbb,
+      _time_s,
+      _latitude_deg,
+      _longitude_deg,
+      _altitude_m,
+      _velocity_north_mps,
+      _velocity_east_mps,
+      _velocity_down_mps,
+      _roll_deg,
+      _pitch_deg,
+      _yaw_deg);
+}
+
+inline SarPointTargetT *SarPointTarget::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarPointTargetT> _o = std::unique_ptr<sar::replay::SarPointTargetT>(new SarPointTargetT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarPointTarget::UnPackTo(SarPointTargetT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = latitude_deg(); _o->latitude_deg = _e; }
+  { auto _e = longitude_deg(); _o->longitude_deg = _e; }
+  { auto _e = altitude_m(); _o->altitude_m = _e; }
+  { auto _e = radar_cross_section_dbsm(); _o->radar_cross_section_dbsm = _e; }
+  { auto _e = target_id(); _o->target_id = _e; }
+  { auto _e = target_name(); if (_e) _o->target_name = _e->str(); }
+}
+
+inline flatbuffers::Offset<SarPointTarget> SarPointTarget::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarPointTargetT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarPointTarget(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarPointTarget> CreateSarPointTarget(flatbuffers::FlatBufferBuilder &_fbb, const SarPointTargetT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarPointTargetT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _latitude_deg = _o->latitude_deg;
+  auto _longitude_deg = _o->longitude_deg;
+  auto _altitude_m = _o->altitude_m;
+  auto _radar_cross_section_dbsm = _o->radar_cross_section_dbsm;
+  auto _target_id = _o->target_id;
+  auto _target_name = _o->target_name.empty() ? 0 : _fbb.CreateString(_o->target_name);
+  return sar::replay::CreateSarPointTarget(
+      _fbb,
+      _latitude_deg,
+      _longitude_deg,
+      _altitude_m,
+      _radar_cross_section_dbsm,
+      _target_id,
+      _target_name);
+}
+
+inline SarCycleInputT *SarCycleInput::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarCycleInputT> _o = std::unique_ptr<sar::replay::SarCycleInputT>(new SarCycleInputT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarCycleInput::UnPackTo(SarCycleInputT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = cycle_index(); _o->cycle_index = _e; }
+  { auto _e = dt_sec(); _o->dt_sec = _e; }
+  { auto _e = platform(); if (_e) _o->platform = std::unique_ptr<sar::replay::SarPlatformStateT>(_e->UnPack(_resolver)); }
+  { auto _e = point_targets(); if (_e) { _o->point_targets.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->point_targets[_i] = std::unique_ptr<sar::replay::SarPointTargetT>(_e->Get(_i)->UnPack(_resolver)); } } }
+}
+
+inline flatbuffers::Offset<SarCycleInput> SarCycleInput::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarCycleInputT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarCycleInput(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarCycleInput> CreateSarCycleInput(flatbuffers::FlatBufferBuilder &_fbb, const SarCycleInputT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarCycleInputT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _cycle_index = _o->cycle_index;
+  auto _dt_sec = _o->dt_sec;
+  auto _platform = _o->platform ? CreateSarPlatformState(_fbb, _o->platform.get(), _rehasher) : 0;
+  auto _point_targets = _o->point_targets.size() ? _fbb.CreateVector<flatbuffers::Offset<sar::replay::SarPointTarget>> (_o->point_targets.size(), [](size_t i, _VectorArgs *__va) { return CreateSarPointTarget(*__va->__fbb, __va->__o->point_targets[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return sar::replay::CreateSarCycleInput(
+      _fbb,
+      _cycle_index,
+      _dt_sec,
+      _platform,
+      _point_targets);
+}
+
+inline SarOutputFrameT *SarOutputFrame::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarOutputFrameT> _o = std::unique_ptr<sar::replay::SarOutputFrameT>(new SarOutputFrameT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarOutputFrame::UnPackTo(SarOutputFrameT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = cycle_index(); _o->cycle_index = _e; }
+  { auto _e = completed_stage(); _o->completed_stage = _e; }
+  { auto _e = range_sample_count(); _o->range_sample_count = _e; }
+  { auto _e = azimuth_pulse_count(); _o->azimuth_pulse_count = _e; }
+  { auto _e = center_slant_range_m(); _o->center_slant_range_m = _e; }
+  { auto _e = estimated_snr_db(); _o->estimated_snr_db = _e; }
+  { auto _e = phase_reference_mode(); _o->phase_reference_mode = _e; }
+  { auto _e = image_quality_mainlobe_method(); _o->image_quality_mainlobe_method = _e; }
+  { auto _e = range_width_3db_bins(); _o->range_width_3db_bins = _e; }
+  { auto _e = azimuth_width_3db_bins(); _o->azimuth_width_3db_bins = _e; }
+  { auto _e = range_resolution_3db_m(); _o->range_resolution_3db_m = _e; }
+  { auto _e = azimuth_resolution_3db_m(); _o->azimuth_resolution_3db_m = _e; }
+  { auto _e = image_entropy_nats(); _o->image_entropy_nats = _e; }
+  { auto _e = image_contrast(); _o->image_contrast = _e; }
+  { auto _e = has_raw_echo(); _o->has_raw_echo = _e; }
+  { auto _e = has_range_compressed_echo(); _o->has_range_compressed_echo = _e; }
+  { auto _e = has_l1_image(); _o->has_l1_image = _e; }
+  { auto _e = has_l3_bp_image(); _o->has_l3_bp_image = _e; }
+  { auto _e = has_image_quality_metrics(); _o->has_image_quality_metrics = _e; }
+  { auto _e = image_resolution_m_valid(); _o->image_resolution_m_valid = _e; }
+  { auto _e = phase_reference_applied(); _o->phase_reference_applied = _e; }
+}
+
+inline flatbuffers::Offset<SarOutputFrame> SarOutputFrame::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarOutputFrameT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarOutputFrame(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarOutputFrame> CreateSarOutputFrame(flatbuffers::FlatBufferBuilder &_fbb, const SarOutputFrameT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarOutputFrameT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _cycle_index = _o->cycle_index;
+  auto _completed_stage = _o->completed_stage;
+  auto _range_sample_count = _o->range_sample_count;
+  auto _azimuth_pulse_count = _o->azimuth_pulse_count;
+  auto _center_slant_range_m = _o->center_slant_range_m;
+  auto _estimated_snr_db = _o->estimated_snr_db;
+  auto _phase_reference_mode = _o->phase_reference_mode;
+  auto _image_quality_mainlobe_method = _o->image_quality_mainlobe_method;
+  auto _range_width_3db_bins = _o->range_width_3db_bins;
+  auto _azimuth_width_3db_bins = _o->azimuth_width_3db_bins;
+  auto _range_resolution_3db_m = _o->range_resolution_3db_m;
+  auto _azimuth_resolution_3db_m = _o->azimuth_resolution_3db_m;
+  auto _image_entropy_nats = _o->image_entropy_nats;
+  auto _image_contrast = _o->image_contrast;
+  auto _has_raw_echo = _o->has_raw_echo;
+  auto _has_range_compressed_echo = _o->has_range_compressed_echo;
+  auto _has_l1_image = _o->has_l1_image;
+  auto _has_l3_bp_image = _o->has_l3_bp_image;
+  auto _has_image_quality_metrics = _o->has_image_quality_metrics;
+  auto _image_resolution_m_valid = _o->image_resolution_m_valid;
+  auto _phase_reference_applied = _o->phase_reference_applied;
+  return sar::replay::CreateSarOutputFrame(
+      _fbb,
+      _cycle_index,
+      _completed_stage,
+      _range_sample_count,
+      _azimuth_pulse_count,
+      _center_slant_range_m,
+      _estimated_snr_db,
+      _phase_reference_mode,
+      _image_quality_mainlobe_method,
+      _range_width_3db_bins,
+      _azimuth_width_3db_bins,
+      _range_resolution_3db_m,
+      _azimuth_resolution_3db_m,
+      _image_entropy_nats,
+      _image_contrast,
+      _has_raw_echo,
+      _has_range_compressed_echo,
+      _has_l1_image,
+      _has_l3_bp_image,
+      _has_image_quality_metrics,
+      _image_resolution_m_valid,
+      _phase_reference_applied);
+}
+
+inline SarDiagnosticIssueT *SarDiagnosticIssue::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarDiagnosticIssueT> _o = std::unique_ptr<sar::replay::SarDiagnosticIssueT>(new SarDiagnosticIssueT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarDiagnosticIssue::UnPackTo(SarDiagnosticIssueT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = severity(); _o->severity = _e; }
+  { auto _e = code(); if (_e) _o->code = _e->str(); }
+  { auto _e = message(); if (_e) _o->message = _e->str(); }
+}
+
+inline flatbuffers::Offset<SarDiagnosticIssue> SarDiagnosticIssue::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarDiagnosticIssueT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarDiagnosticIssue(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarDiagnosticIssue> CreateSarDiagnosticIssue(flatbuffers::FlatBufferBuilder &_fbb, const SarDiagnosticIssueT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarDiagnosticIssueT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _severity = _o->severity;
+  auto _code = _o->code.empty() ? 0 : _fbb.CreateString(_o->code);
+  auto _message = _o->message.empty() ? 0 : _fbb.CreateString(_o->message);
+  return sar::replay::CreateSarDiagnosticIssue(
+      _fbb,
+      _severity,
+      _code,
+      _message);
+}
+
+inline SarCycleResultT *SarCycleResult::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarCycleResultT> _o = std::unique_ptr<sar::replay::SarCycleResultT>(new SarCycleResultT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarCycleResult::UnPackTo(SarCycleResultT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = input_cycle_index(); _o->input_cycle_index = _e; }
+  { auto _e = output_frame(); if (_e) _o->output_frame = std::unique_ptr<sar::replay::SarOutputFrameT>(_e->UnPack(_resolver)); }
+  { auto _e = diagnostics(); if (_e) { _o->diagnostics.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->diagnostics[_i] = std::unique_ptr<sar::replay::SarDiagnosticIssueT>(_e->Get(_i)->UnPack(_resolver)); } } }
+  { auto _e = has_error(); _o->has_error = _e; }
+  { auto _e = executed_this_cycle(); _o->executed_this_cycle = _e; }
+  { auto _e = reused_previous_output(); _o->reused_previous_output = _e; }
+  { auto _e = abort_reason(); if (_e) _o->abort_reason = _e->str(); }
+}
+
+inline flatbuffers::Offset<SarCycleResult> SarCycleResult::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarCycleResultT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarCycleResult(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarCycleResult> CreateSarCycleResult(flatbuffers::FlatBufferBuilder &_fbb, const SarCycleResultT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarCycleResultT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _input_cycle_index = _o->input_cycle_index;
+  auto _output_frame = _o->output_frame ? CreateSarOutputFrame(_fbb, _o->output_frame.get(), _rehasher) : 0;
+  auto _diagnostics = _o->diagnostics.size() ? _fbb.CreateVector<flatbuffers::Offset<sar::replay::SarDiagnosticIssue>> (_o->diagnostics.size(), [](size_t i, _VectorArgs *__va) { return CreateSarDiagnosticIssue(*__va->__fbb, __va->__o->diagnostics[i].get(), __va->__rehasher); }, &_va ) : 0;
+  auto _has_error = _o->has_error;
+  auto _executed_this_cycle = _o->executed_this_cycle;
+  auto _reused_previous_output = _o->reused_previous_output;
+  auto _abort_reason = _o->abort_reason.empty() ? 0 : _fbb.CreateString(_o->abort_reason);
+  return sar::replay::CreateSarCycleResult(
+      _fbb,
+      _input_cycle_index,
+      _output_frame,
+      _diagnostics,
+      _has_error,
+      _executed_this_cycle,
+      _reused_previous_output,
+      _abort_reason);
+}
+
 inline const sar::replay::SarCycleInput *GetSarCycleInput(const void *buf) {
   return flatbuffers::GetRoot<sar::replay::SarCycleInput>(buf);
 }
@@ -806,6 +1309,18 @@ inline void FinishSizePrefixedSarCycleInputBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
     flatbuffers::Offset<sar::replay::SarCycleInput> root) {
   fbb.FinishSizePrefixed(root, SarCycleInputIdentifier());
+}
+
+inline std::unique_ptr<sar::replay::SarCycleInputT> UnPackSarCycleInput(
+    const void *buf,
+    const flatbuffers::resolver_function_t *res = nullptr) {
+  return std::unique_ptr<sar::replay::SarCycleInputT>(GetSarCycleInput(buf)->UnPack(res));
+}
+
+inline std::unique_ptr<sar::replay::SarCycleInputT> UnPackSizePrefixedSarCycleInput(
+    const void *buf,
+    const flatbuffers::resolver_function_t *res = nullptr) {
+  return std::unique_ptr<sar::replay::SarCycleInputT>(GetSizePrefixedSarCycleInput(buf)->UnPack(res));
 }
 
 }  // namespace replay

@@ -45,6 +45,7 @@ table SceneEmitter {
   pri_s:        double;
   beam_state:   EmitterBeamState;
   is_emitting:  bool;
+  emitter_name: string;
 }
 
 table EsrJammerSource {

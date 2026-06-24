@@ -129,6 +129,7 @@ session::RadarSceneTargetList TrackStateSnapshotEmitter::BuildSceneTargetSnapsho
     feature.position_y = track.position(1);
     feature.position_z = track.position(2);
     feature.external_target_id = track.external_target_id;
+    feature.target_name = track.target_name;
     features.push_back(feature);
   }
   return features;
@@ -145,6 +146,7 @@ model::TrackStateSnapshotList TrackStateSnapshotEmitter::BuildTrackStateSnapshot
     model::TrackStateSnapshot snapshot;
     snapshot.association_key = key;
     snapshot.external_target_id = track.external_target_id;
+    snapshot.target_name = track.target_name;
     snapshot.velocity_x = track.velocity(0);
     snapshot.velocity_y = track.velocity(1);
     snapshot.velocity_z = track.velocity(2);

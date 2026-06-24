@@ -1,6 +1,7 @@
+#include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
+
 #include <cmath>
 
-#include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
 #include "common/coordinate/CoordinateUtils.h"
@@ -11,10 +12,10 @@ namespace session {
 
 namespace {
 
-using oneq::internal::coordinate_utils::ToFoundationEuler;
-using oneq::internal::coordinate_utils::ToFoundationVector;
 using oneq::internal::coordinate_utils::RotateEnuPositionToLocal;
 using oneq::internal::coordinate_utils::RotateEnuVelocityToLocal;
+using oneq::internal::coordinate_utils::ToFoundationEuler;
+using oneq::internal::coordinate_utils::ToFoundationVector;
 
 void SetStatus(EsrCoordinateStatus value, EsrCoordinateStatus* status) {
   if (status != nullptr) {
@@ -22,9 +23,10 @@ void SetStatus(EsrCoordinateStatus value, EsrCoordinateStatus* status) {
   }
 }
 
-
 bool IsFiniteVector3f(const EsrVector3f& value) {
-  return oneq::internal::validation::IsFinite(value.x) && oneq::internal::validation::IsFinite(value.y) && oneq::internal::validation::IsFinite(value.z);
+  return oneq::internal::validation::IsFinite(value.x) &&
+         oneq::internal::validation::IsFinite(value.y) &&
+         oneq::internal::validation::IsFinite(value.z);
 }
 
 bool TryConvertEcefPositionToLocal(const oneq::coordinate::EcefPositionM& ecef,
@@ -81,8 +83,7 @@ bool TryMakeEsrPoseFromExternalKinematics(const EsrExternalPoseInput& input,
   }
 
   EsrVector3f local_position;
-  if (!TryConvertEcefPositionToLocal(input.platform_position_ecef_m, reference,
-                                     &local_position)) {
+  if (!TryConvertEcefPositionToLocal(input.platform_position_ecef_m, reference, &local_position)) {
     SetStatus(EsrCoordinateStatus::kCoordinateTransformFail, status);
     return false;
   }
@@ -147,6 +148,7 @@ bool TryMakeEsrSceneEmitterFromExternalInput(const EsrExternalEmitterInput& inpu
   }
 
   emitter->emitter_id = input.emitter_id;
+  emitter->emitter_name = input.emitter_name;
   emitter->pose.position_m = local_position;
   emitter->pose.velocity_mps = local_velocity;
   emitter->pose.attitude_deg = ToFoundationEuler(input.kinematics.attitude_deg);

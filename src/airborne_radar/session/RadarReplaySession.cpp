@@ -27,7 +27,8 @@ struct RadarReplayState {
 bool TrackStateSnapshotEqual(const model::TrackStateSnapshot& left,
                              const model::TrackStateSnapshot& right) {
   return left.association_key == right.association_key &&
-         left.external_target_id == right.external_target_id && left.status == right.status &&
+         left.external_target_id == right.external_target_id && left.target_name == right.target_name &&
+         left.status == right.status &&
          left.position_x == right.position_x && left.position_y == right.position_y &&
          left.position_z == right.position_z && left.velocity_x == right.velocity_x &&
          left.velocity_y == right.velocity_y && left.velocity_z == right.velocity_z &&

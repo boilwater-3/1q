@@ -23,6 +23,8 @@ table SarPointTarget {
   longitude_deg: double;
   altitude_m: double;
   radar_cross_section_dbsm: double;
+  target_id: uint64;
+  target_name: string;
 }
 
 table SarCycleInput {

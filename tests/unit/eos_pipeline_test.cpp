@@ -56,7 +56,8 @@ config::execution::EosInternalExecutionConfig MakePipelineConfig() {
   return config;
 }
 
-float ResolveFirstCycleScanAzimuthDeg(const config::execution::EosInternalExecutionConfig& config, float dt_sec) {
+float ResolveFirstCycleScanAzimuthDeg(const config::execution::EosInternalExecutionConfig& config,
+                                      float dt_sec) {
   const float scan_width_deg = config.scan.scan_end_az_deg - config.scan.scan_start_az_deg;
   if (scan_width_deg <= 0.0f) {
     return config.scan.scan_start_az_deg;
@@ -95,7 +96,9 @@ TEST(EosPipelineTest, InFovTargetIsDetectedAndOutOfFovTargetIsFiltered) {
   const auto frame = pipeline.RunCycle(input);
 
   ASSERT_EQ(frame.detections.size(), 1U);
-  EXPECT_EQ(frame.detections[0].target_id, 101U);
+  EXPECT_EQ(frame.detections[0].detection_id, 1U);
+  ASSERT_EQ(frame.detection_attributions.size(), 1U);
+  EXPECT_EQ(frame.detection_attributions[0].target_id, 101U);
 }
 
 TEST(EosPipelineTest, OutOfRangeTargetIsMarkedUndetected) {
@@ -296,7 +299,8 @@ TEST(EosPipelineTest, VisibleReferenceIrradianceAffectsVisibleSnrThroughNoiseMod
   matched_reference_config.scan.work_mode = EosPipelineWorkMode::kVisibleOnly;
   matched_reference_config.detection.visible_reference_irradiance_w_m2 = 400.0f;
 
-  config::execution::EosInternalExecutionConfig mismatched_reference_config = matched_reference_config;
+  config::execution::EosInternalExecutionConfig mismatched_reference_config =
+      matched_reference_config;
   mismatched_reference_config.detection.visible_reference_irradiance_w_m2 = 2000.0f;
 
   EosPipeline matched_reference_pipeline(matched_reference_config);
@@ -323,7 +327,8 @@ TEST(EosPipelineTest, BetterDetectionSensitivityProducesHigherSnr) {
   better_sensitivity_config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
   better_sensitivity_config.detection.detection_sensitivity_w = 5.0e-13f;
 
-  config::execution::EosInternalExecutionConfig worse_sensitivity_config = better_sensitivity_config;
+  config::execution::EosInternalExecutionConfig worse_sensitivity_config =
+      better_sensitivity_config;
   worse_sensitivity_config.detection.detection_sensitivity_w = 5.0e-12f;
 
   EosPipeline better_sensitivity_pipeline(better_sensitivity_config);

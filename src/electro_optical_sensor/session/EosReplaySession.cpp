@@ -24,7 +24,7 @@ struct EosReplayState {
 
 bool EosDetectionRecordEqual(const output::EosDetectionRecord& left,
                              const output::EosDetectionRecord& right) {
-  return left.target_id == right.target_id && left.range_m == right.range_m &&
+  return left.detection_id == right.detection_id && left.range_m == right.range_m &&
          left.azimuth_deg == right.azimuth_deg && left.elevation_deg == right.elevation_deg &&
          left.infrared_snr_linear == right.infrared_snr_linear &&
          left.visible_snr_linear == right.visible_snr_linear &&
@@ -39,6 +39,25 @@ bool EosOutputFrameEqual(const EosOutputFrame& left, const EosOutputFrame& right
   }
   for (std::size_t i = 0; i < left.detections.size(); ++i) {
     if (!EosDetectionRecordEqual(left.detections[i], right.detections[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool EosDetectionAttributionEqual(const attribution::EosDetectionAttributionRecord& left,
+                                  const attribution::EosDetectionAttributionRecord& right) {
+  return left.detection_id == right.detection_id && left.target_id == right.target_id &&
+         left.target_name == right.target_name;
+}
+
+bool EosDetectionAttributionListEqual(const attribution::EosDetectionAttributionRecordList& left,
+                                      const attribution::EosDetectionAttributionRecordList& right) {
+  if (left.size() != right.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.size(); ++i) {
+    if (!EosDetectionAttributionEqual(left[i], right[i])) {
       return false;
     }
   }
@@ -68,6 +87,8 @@ bool EosValidationIssueListEqual(const ValidationIssueList& left,
 bool EosCycleResultEqual(const EosCycleResult& left, const EosCycleResult& right) {
   return left.input_cycle_index == right.input_cycle_index &&
          EosOutputFrameEqual(left.output_frame, right.output_frame) &&
+         EosDetectionAttributionListEqual(left.detection_attributions,
+                                          right.detection_attributions) &&
          EosValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
          left.has_validation_error == right.has_validation_error &&
          left.executed_this_cycle == right.executed_this_cycle &&

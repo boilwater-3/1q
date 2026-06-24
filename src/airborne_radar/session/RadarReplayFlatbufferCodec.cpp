@@ -53,7 +53,7 @@ flatbuffers::Offset<fb::RadarSceneTarget> EncodeSceneTarget(flatbuffers::FlatBuf
   return fb::CreateRadarSceneTarget(*builder, value.external_target_id, value.velocity_x,
                                     value.velocity_y, value.velocity_z, value.rcs, value.range_m,
                                     value.position_x, value.position_y, value.position_z,
-                                    value.target_swerling_type);
+                                    value.target_swerling_type, builder->CreateString(value.target_name));
 }
 
 oneq::foundation::Vector3f DecodeVector3(const fb::Vector3f* value) {
@@ -99,6 +99,9 @@ RadarSceneTarget DecodeSceneTarget(const fb::RadarSceneTarget* value) {
     result.position_y = value->position_y();
     result.position_z = value->position_z();
     result.target_swerling_type = value->target_swerling_type();
+    if (value->target_name() != nullptr) {
+      result.target_name = value->target_name()->str();
+    }
   }
   return result;
 }
@@ -220,7 +223,8 @@ flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
       value.position_x, value.position_y, value.position_z, value.velocity_x, value.velocity_y,
       value.velocity_z, value.speed, value.acceleration_x, value.acceleration_y,
       value.acceleration_z, value.acceleration, value.rcs, value.jamming_detected, value.hit_count,
-      value.miss_count, builder->CreateString(value.target_type), value.target_probability);
+      value.miss_count, builder->CreateString(value.target_type), value.target_probability,
+      builder->CreateString(value.target_name));
 }
 
 flatbuffers::Offset<fb::TrackStateSnapshot> EncodeTrackSnapshot(
@@ -253,6 +257,9 @@ model::TrackStateSnapshot DecodeTrackStateSnapshot(const fb::DecisionTrackStateS
       result.target_type = value->target_type()->str();
     }
     result.target_probability = value->target_probability();
+    if (value->target_name() != nullptr) {
+      result.target_name = value->target_name()->str();
+    }
   }
   return result;
 }

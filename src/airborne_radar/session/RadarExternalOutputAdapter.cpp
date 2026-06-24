@@ -77,6 +77,7 @@ bool TryMakeExternalTrackFromSnapshot(const model::TrackStateSnapshot& snapshot,
 
   output->association_key = snapshot.association_key;
   output->external_target_id = snapshot.external_target_id;
+  output->target_name = snapshot.target_name;
   output->status = snapshot.status;
   output->target_position_ecef_m = position_ecef;
   output->target_velocity_mps = velocity_ecef;

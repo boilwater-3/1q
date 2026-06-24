@@ -184,7 +184,9 @@ TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
 
   EXPECT_FALSE(result.has_validation_error);
   ASSERT_EQ(result.output_frame.detections.size(), 1U);
-  EXPECT_EQ(result.output_frame.detections[0].target_id, 1001U);
+  EXPECT_EQ(result.output_frame.detections[0].detection_id, 1U);
+  ASSERT_EQ(result.detection_attributions.size(), 1U);
+  EXPECT_EQ(result.detection_attributions[0].target_id, 1001U);
 }
 
 TEST(EosInputValidationTest, SessionReturnsValidationErrorsForInvalidInput) {
@@ -246,12 +248,11 @@ TEST(EosInputValidationTest, RuntimeConfigBuilderCanTightenDetectionThresholdAtR
   ASSERT_FALSE(baseline.output_frame.detections.empty());
   EXPECT_TRUE(baseline.output_frame.detections[0].detected);
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder()
-          .WithMinimumSnrDb(60.0f)
-          .WithDetectionSensitivityW(2.0e-12f)
-          .WithVisibleReferenceIrradianceWM2(1000.0f)
-          .Build();
+  const eos_config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
+                                                      .WithMinimumSnrDb(60.0f)
+                                                      .WithDetectionSensitivityW(2.0e-12f)
+                                                      .WithVisibleReferenceIrradianceWM2(1000.0f)
+                                                      .Build();
   eos_session.ApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;
@@ -455,13 +456,12 @@ TEST(EosInputValidationTest, RuntimePatchIsAtomicWhenAnyFieldIsInvalid) {
   ASSERT_EQ(baseline.output_frame.detections.size(), 1U);
   ASSERT_TRUE(baseline.output_frame.detections[0].detected);
 
-  const eos_config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder()
-          .WithFrameRateHz(0.0f)
-          .WithMinimumSnrDb(4.5f)
-          .WithDetectionSensitivityW(0.8e-12f)
-          .WithVisibleReferenceIrradianceWM2(700.0f)
-          .Build();
+  const eos_config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
+                                                      .WithFrameRateHz(0.0f)
+                                                      .WithMinimumSnrDb(4.5f)
+                                                      .WithDetectionSensitivityW(0.8e-12f)
+                                                      .WithVisibleReferenceIrradianceWM2(700.0f)
+                                                      .Build();
   eos_session.ApplyRuntimeConfig(patch);
 
   input.cycle_index += 1U;

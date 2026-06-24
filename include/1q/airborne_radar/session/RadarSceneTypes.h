@@ -7,6 +7,7 @@
 #define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_SCENE_TYPES_H_
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "1q/api.hpp"
@@ -19,6 +20,7 @@ namespace session {
  */
 struct ONEQ_API RadarSceneTarget {
   std::uint64_t external_target_id{0};   /**< 外部输入原始目标标识符（0 表示未知/未提供） */
+  std::string target_name{};             /**< 可选目标名称，仅用于人读、trace 与调试视图，不参与关联 */
   float velocity_x{0.0f};               /**< 雷达局部坐标速度 x 分量（单位：m/s） */
   float velocity_y{0.0f};               /**< 雷达局部坐标速度 y 分量（单位：m/s） */
   float velocity_z{0.0f};               /**< 雷达局部坐标速度 z 分量（单位：m/s） */
@@ -32,8 +34,9 @@ struct ONEQ_API RadarSceneTarget {
   RadarSceneTarget() = default;
   RadarSceneTarget(float velocity_x_mps_in, float velocity_y_mps_in, float velocity_z_mps_in,
                    float rcs_m2_in, float range_m_in = 0.0f, int swerling_type_in = 0,
-                   std::uint64_t external_target_id_in = 0)
+                   std::uint64_t external_target_id_in = 0, std::string target_name_in = {})
       : external_target_id(external_target_id_in),
+        target_name(std::move(target_name_in)),
         velocity_x(velocity_x_mps_in),
         velocity_y(velocity_y_mps_in),
         velocity_z(velocity_z_mps_in),

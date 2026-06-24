@@ -25,8 +25,10 @@ struct ONEQ_API EosOutputFrame {
  * @brief EosCycleResult 描述光学传感器单周期聚合结果。
  */
 struct ONEQ_API EosCycleResult {
-  std::uint32_t input_cycle_index{0U};     /**< 本次调用输入周期号，用于失败结果与 trace 归属 */
-  EosOutputFrame output_frame{};           /**< 当前周期输出帧 */
+  std::uint32_t input_cycle_index{0U}; /**< 本次调用输入周期号，用于失败结果与 trace 归属 */
+  EosOutputFrame output_frame{};       /**< 当前周期原始系统输出帧 */
+  attribution::EosDetectionAttributionRecordList
+      detection_attributions{};            /**< 探测记录到仿真目标的归属映射，非真实传感器输出 */
   ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
   bool has_validation_error{false};        /**< 是否存在 error 级输入问题 */
   bool executed_this_cycle{false};         /**< 当前周期是否实际执行了核心 pipeline */

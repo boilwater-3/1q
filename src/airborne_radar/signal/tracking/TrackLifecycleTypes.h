@@ -9,6 +9,7 @@
 #include <Eigen/Core>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include "1q/airborne_radar/model/JammingSemantics.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
@@ -44,6 +45,7 @@ struct AssociationTrackSeed {
 struct RawTrackMeasurement {
   std::size_t source_index{0};           /**< 原始输入目标索引，用于调试和结果回溯。 */
   std::uint64_t external_target_id{0};   /**< 外部输入原始目标标识符（0 表示未知/未提供）。 */
+  std::string target_name{};             /**< 可选目标名称，随 external_target_id 透传，仅用于人读/调试。 */
   std::uint64_t association_key{0};      /**< 关联键（例如关联模块输出的轨迹键）。 */
   bool matched_existing_track{false};    /**< 是否匹配到了上一周期已有轨迹。 */
   float association_cost{0.0f};          /**< 关联代价；未命中旧轨迹时为 0。 */
