@@ -392,8 +392,24 @@ spdlog::flush_on(spdlog::level::warn);
 
 - 不得通过解析日志判断目标状态。
 - 内部状态判断必须来自 `StepWithResult()`、生命周期事件、Trace/Replay 或显式诊断对象。
-- 后续可新增 `oneq::logging` public helper，降低消费者直接接触 spdlog 的成本。
-- 直接调用 `spdlog::*` 的历史代码应逐步迁移到 `PROJECT_LOG_*` 或 public logging facade。
+- 直接调用 `spdlog::*` 的历史代码应迁移到 `PROJECT_LOG_*`。**已完成**：flight_dynamic
+  是最后一个离群模块，其 16 处 `spdlog::` 调用已迁移到 `PROJECT_LOG_*`；全仓 `src/` 下
+  `spdlog::` 仅剩 `ProjectLog.h` 宏定义本身。
+
+### 是否引入 public logging facade 的决策
+
+**决策：不引入 `oneq::logging` public helper。** 理由：
+
+- spdlog 是 **PRIVATE** 依赖（`target_link_libraries(PRIVATE)` +
+  `target_compile_definitions(PRIVATE)`），且 Windows 构建关闭 spdlog。
+- `ProjectLog.h` 是 src 内部头，不在 `include/1q/` 公共目录。任何 public 头若
+  直接 `#include <spdlog/spdlog.h>` 或 `ProjectLog.h` 会破坏消费者编译
+  （尤其 Windows 无 spdlog 时）。
+- 引入 public logging ABI（pImpl/虚接口抽象）成本高、收益低：静态库消费者启用
+  日志的最小方式已在本节文档化，且 `PROJECT_LOG_*` 在无 spdlog 时编译期消除，
+  消费者无需链接 spdlog 即可使用库。
+- 因此 spdlog 保持 PRIVATE、`ProjectLog.h` 保持内部头、不新增 public logging header。
+  若未来确需 public facade，应作为独立日志专项重新评估 ABI 边界。
 
 ## 分批实施顺序
 
@@ -441,3 +457,4 @@ spdlog::flush_on(spdlog::level::warn);
 | 调试/生命周期是否保持 header-only | 否。实现下沉到 .cpp，public header 只留类型与声明；recorder 用 PImpl 隔离私有状态。 |
 | 输出边界如何防止回归 | 编译期 `static_assert(std::is_trivially_copyable<...>)` 哨兵 + 运行时 pipeline 边界断言双重守护。 |
 | 生命周期事件是否进入 replay trace | 暂不进入。lifecycle recorder 按需调用，避免默认路径 trace 体积膨胀；未来若纳入必须用独立 event type。 |
+| 是否引入 public logging facade | 不引入。spdlog 保持 PRIVATE、`ProjectLog.h` 保持内部头；避免破坏 Windows 构建与 PRIVATE 封装。flight_dynamic 直接 spdlog 调用已迁移到 `PROJECT_LOG_*`。 |
