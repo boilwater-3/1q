@@ -7,6 +7,7 @@
 #define ONEQ_SAR_SESSION_SAR_CYCLE_INPUT_H_
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "1q/api.hpp"
@@ -34,6 +35,8 @@ struct ONEQ_API SarPlatformState {
  * @brief SAR 点目标输入。
  */
 struct ONEQ_API SarPointTarget {
+  std::uint64_t target_id{0U};
+  std::string target_name{};
   double latitude_deg{0.0};
   double longitude_deg{0.0};
   double altitude_m{0.0};

@@ -30,6 +30,8 @@ TEST(SarReplayCodecRoundtripTest, CycleInputPreservesPlatformAndTargets) {
   input.platform.pitch_deg = -2.0;
   input.platform.yaw_deg = 88.0;
   SarPointTarget target;
+  target.target_id = 501U;
+  target.target_name = "sar-point-alpha";
   target.latitude_deg = 31.2001;
   target.longitude_deg = 121.4002;
   target.altitude_m = 15.0;
@@ -47,6 +49,8 @@ TEST(SarReplayCodecRoundtripTest, CycleInputPreservesPlatformAndTargets) {
   EXPECT_DOUBLE_EQ(decoded.platform.velocity_east_mps, input.platform.velocity_east_mps);
   EXPECT_DOUBLE_EQ(decoded.platform.yaw_deg, input.platform.yaw_deg);
   ASSERT_EQ(decoded.point_targets.size(), 1U);
+  EXPECT_EQ(decoded.point_targets[0].target_id, 501U);
+  EXPECT_EQ(decoded.point_targets[0].target_name, "sar-point-alpha");
   EXPECT_DOUBLE_EQ(decoded.point_targets[0].longitude_deg, target.longitude_deg);
   EXPECT_DOUBLE_EQ(decoded.point_targets[0].radar_cross_section_dbsm,
                    target.radar_cross_section_dbsm);
@@ -91,8 +95,7 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   EXPECT_EQ(decoded.output_frame.completed_stage, SarProcessingStage::kL3BpImage);
   EXPECT_EQ(decoded.output_frame.range_sample_count, 64U);
   EXPECT_EQ(decoded.output_frame.phase_reference_mode, SarPhaseReferenceMode::kCenterBroadside);
-  EXPECT_EQ(decoded.output_frame.image_quality_mainlobe_method,
-            SarMainlobeEstimationMethod::k20dB);
+  EXPECT_EQ(decoded.output_frame.image_quality_mainlobe_method, SarMainlobeEstimationMethod::k20dB);
   EXPECT_DOUBLE_EQ(decoded.output_frame.range_width_3db_bins, 3.0);
   EXPECT_DOUBLE_EQ(decoded.output_frame.azimuth_width_3db_bins, 5.0);
   EXPECT_DOUBLE_EQ(decoded.output_frame.range_resolution_3db_m, 4.5);

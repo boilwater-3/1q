@@ -2,6 +2,8 @@
 
 #include <limits>
 
+#include "1q/sar/session/SarProductDebugView.h"
+#include "1q/sar/session/SarProductLifecycleRecorder.h"
 #include "1q/sar/session/SarSessionFactory.h"
 #include "1q/sar/session/SarTraceSession.h"
 #include "sar/session/SarReplayFlatbufferCodec.h"
@@ -158,10 +160,95 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_sample_spacing_m="));
   EXPECT_TRUE(
       HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_phase_curvature_rad_per_pulse2="));
-  EXPECT_TRUE(
-      HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_quadratic_phase_span_rad="));
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_quadratic_phase_span_rad="));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "max_geometric_doppler_hz="));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "doppler_nyquist_margin="));
+}
+
+TEST(SarSessionPipelineTest, ProductDebugViewCarriesProductAndTargetLabels) {
+  session::SarCycleInput input = MakeInput(44U);
+  ASSERT_EQ(input.point_targets.size(), 1U);
+  input.point_targets[0].target_id = 701U;
+  input.point_targets[0].target_name = "sar-debug-point";
+
+  session::SarCycleResult result;
+  result.input_cycle_index = input.cycle_index;
+  result.executed_this_cycle = true;
+  result.output_frame.cycle_index = input.cycle_index;
+  result.output_frame.completed_stage = session::SarProcessingStage::kL1RdaImage;
+  result.output_frame.has_raw_echo = true;
+  result.output_frame.has_range_compressed_echo = true;
+  result.output_frame.has_l1_image = true;
+  result.output_frame.estimated_snr_db = 18.0;
+  result.output_frame.range_sample_count = 64U;
+  result.output_frame.azimuth_pulse_count = 9U;
+  result.focused_image.real_values.push_back(1.0);
+  session::SarDiagnosticIssue diagnostic;
+  diagnostic.code = "sar.test";
+  diagnostic.message = "debug";
+  result.diagnostics.push_back(diagnostic);
+
+  const session::SarProductDebugView view =
+      session::SarProductDebugViewBuilder::Build(input, result);
+  EXPECT_EQ(view.input_cycle_index, 44U);
+  EXPECT_TRUE(view.has_raw_echo);
+  EXPECT_TRUE(view.has_range_compressed_echo);
+  EXPECT_TRUE(view.has_l1_image);
+  EXPECT_TRUE(view.has_focused_pixels);
+  EXPECT_DOUBLE_EQ(view.estimated_snr_db, 18.0);
+  ASSERT_EQ(view.point_targets.size(), 1U);
+  EXPECT_EQ(view.point_targets.front().target_id, 701U);
+  EXPECT_EQ(view.point_targets.front().target_name, "sar-debug-point");
+  ASSERT_EQ(view.diagnostics.size(), 1U);
+  EXPECT_EQ(view.diagnostics.front().code, "sar.test");
+}
+
+TEST(SarSessionPipelineTest, ProductLifecycleRecorderTracksProducedUpdatedLostAndFailure) {
+  session::SarProductLifecycleRecorder recorder;
+
+  session::SarCycleResult produced;
+  produced.input_cycle_index = 1U;
+  produced.executed_this_cycle = true;
+  produced.output_frame.cycle_index = 1U;
+  produced.output_frame.completed_stage = session::SarProcessingStage::kL1RdaImage;
+  produced.output_frame.has_l1_image = true;
+  std::vector<session::SarProductLifecycleEvent> events = recorder.Update(produced);
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kImageProduced);
+
+  session::SarCycleResult updated = produced;
+  updated.input_cycle_index = 2U;
+  updated.output_frame.cycle_index = 2U;
+  events = recorder.Update(updated);
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kProductUpdated);
+
+  session::SarCycleResult lost;
+  lost.input_cycle_index = 3U;
+  lost.executed_this_cycle = true;
+  lost.output_frame.cycle_index = 3U;
+  lost.output_frame.completed_stage = session::SarProcessingStage::kRangeCompression;
+  events = recorder.Update(lost);
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kProductLost);
+  EXPECT_EQ(events.front().reason, session::SarProductLifecycleReason::kNoImageProduct);
+
+  session::SarCycleResult failed;
+  failed.input_cycle_index = 4U;
+  failed.executed_this_cycle = false;
+  failed.has_error = true;
+  failed.abort_reason = "snr_below_minimum";
+  events = recorder.Update(failed);
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kProcessingFailed);
+  EXPECT_EQ(events.front().reason, session::SarProductLifecycleReason::kCycleNotExecuted);
+  EXPECT_EQ(events.front().abort_reason, "snr_below_minimum");
+
+  session::SarProductLifecycleRecorder diagnose_recorder(
+      session::SarProductLifecycleRecorderConfig{true});
+  events = diagnose_recorder.Update(lost);
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kNoProduct);
 }
 
 TEST(SarSessionPipelineTest, RetainFocusedImageFalseProducesPlaceholder) {
@@ -298,8 +385,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqRejectsShapeMismatchAndAdvancedPaths) 
   session::SarCycleInput non_finite = MakeExternalRawIqInput();
   non_finite.raw_iq.q_values[0] = std::numeric_limits<double>::quiet_NaN();
   session::SarSession non_finite_session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
-  const session::SarCycleResult non_finite_result =
-      non_finite_session.StepWithResult(non_finite);
+  const session::SarCycleResult non_finite_result = non_finite_session.StepWithResult(non_finite);
   EXPECT_FALSE(non_finite_result.executed_this_cycle);
   EXPECT_EQ(non_finite_result.abort_reason, "external_raw_iq_non_finite");
 
@@ -365,8 +451,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqL2RejectsMissingOrInvalidIdealTrajecto
   EXPECT_EQ(missing_result.abort_reason, "external_raw_iq_ideal_trajectory_required");
 
   session::SarCycleInput invalid = MakeExternalRawIqInputWithDualTrajectory();
-  invalid.raw_iq.ideal_pulse_states[3].time_s =
-      invalid.raw_iq.ideal_pulse_states[2].time_s;
+  invalid.raw_iq.ideal_pulse_states[3].time_s = invalid.raw_iq.ideal_pulse_states[2].time_s;
   session::SarSession invalid_session = session::SarSessionFactory::Create(config);
   const session::SarCycleResult invalid_result = invalid_session.StepWithResult(invalid);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
@@ -388,12 +473,10 @@ TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
   EXPECT_EQ(invalid_result.abort_reason, "external_raw_iq_invalid_trajectory");
 
   session::SarCycleInput non_finite = MakeExternalRawIqInputWithTrajectory();
-  non_finite.raw_iq.pulse_states[0].position_y_m =
-      std::numeric_limits<double>::infinity();
+  non_finite.raw_iq.pulse_states[0].position_y_m = std::numeric_limits<double>::infinity();
   session::SarSession non_finite_session =
       session::SarSessionFactory::Create(MakeSmallL3BpConfig());
-  const session::SarCycleResult non_finite_result =
-      non_finite_session.StepWithResult(non_finite);
+  const session::SarCycleResult non_finite_result = non_finite_session.StepWithResult(non_finite);
   EXPECT_FALSE(non_finite_result.executed_this_cycle);
   EXPECT_EQ(non_finite_result.abort_reason, "external_raw_iq_invalid_trajectory");
 }
