@@ -36,33 +36,33 @@ class ONEQ_API RadarRuntimeConfigBuilder {
   /** @brief 覆盖整套环境场景输入。 */
   RadarRuntimeConfigBuilder& WithEnvironmentScenarioConfig(
       const environment::EnvironmentScenarioConfig& config) {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config.has_scenario_config = true;
-    patch_.environment_runtime_config.scenario_config = config;
+    patch_.has_environment = true;
+    patch_.environment.has_scenario_config = true;
+    patch_.environment.scenario_config = config;
     return *this;
   }
 
   /** @brief 应用环境运行期补丁。 */
-  RadarRuntimeConfigBuilder& WithEnvironmentRuntimeConfig(
+  RadarRuntimeConfigBuilder& WithEnvironment(
       const environment::EnvironmentRuntimeConfigPatch& patch) {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config = patch;
+    patch_.has_environment = true;
+    patch_.environment = patch;
     return *this;
   }
 
   /** @brief 更新干扰判定灵敏度语义档位。 */
   RadarRuntimeConfigBuilder& WithJammingSensitivityProfile(
       environment::JammingSensitivityProfile profile) {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config.has_jamming_sensitivity_profile = true;
-    patch_.environment_runtime_config.jamming_sensitivity_profile = profile;
+    patch_.has_environment = true;
+    patch_.environment.has_jamming_sensitivity_profile = true;
+    patch_.environment.jamming_sensitivity_profile = profile;
     return *this;
   }
 
-  /** @brief 更新雷达工作子模式。 */
-  RadarRuntimeConfigBuilder& WithRadarWorkSubMode(RadarWorkSubMode work_sub_mode) {
-    patch_.has_work_sub_mode = true;
-    patch_.work_sub_mode = work_sub_mode;
+  /** @brief 更新雷达工作模式（命名对齐 EOS/ESR 的 WithWorkMode）。 */
+  RadarRuntimeConfigBuilder& WithWorkMode(RadarWorkMode work_mode) {
+    patch_.has_work_mode = true;
+    patch_.work_mode = work_mode;
     return *this;
   }
 

@@ -16,7 +16,7 @@ namespace config {
 
 using model::AzimuthElevationDeg;
 using model::CommandedBeamwidthDeg;
-using model::RadarWorkSubMode;
+using model::RadarWorkMode;
 
 /**
  * @brief RadarRuntimeConfigPatch 描述运行期可变参数补丁。
@@ -26,7 +26,7 @@ using model::RadarWorkSubMode;
  * 提交前统一生效。
  *
  * 支持两类运行期更新：
- * 1) 整域覆盖：`mission`、`policy`、`environment_runtime_config`；
+ * 1) 整域覆盖：`mission`、`policy`、`environment`；
  * 2) 叶子覆盖：传感器开关、工作子模式、扫描/驻留指向、指令态波束宽度等。
  * 当整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
  */
@@ -37,11 +37,11 @@ struct ONEQ_API RadarRuntimeConfigPatch {
   bool has_policy{false};
   config::RadarPolicyConfig policy{};
 
-  bool has_environment_runtime_config{false};
-  environment::EnvironmentRuntimeConfigPatch environment_runtime_config{};
+  bool has_environment{false};
+  environment::EnvironmentRuntimeConfigPatch environment{};
 
-  bool has_work_sub_mode{false};
-  RadarWorkSubMode work_sub_mode{RadarWorkSubMode::kTws};
+  bool has_work_mode{false};
+  RadarWorkMode work_mode{RadarWorkMode::kTws};
 
   bool has_scan_center_deg{false};
   AzimuthElevationDeg scan_center_deg{};

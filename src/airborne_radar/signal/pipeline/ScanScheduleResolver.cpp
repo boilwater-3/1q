@@ -65,14 +65,14 @@ model::AzimuthElevationDeg ResolveFiniteScanCenter(
   return center;
 }
 
-float ResolveScanStepScale(model::RadarWorkSubMode mode) {
+float ResolveScanStepScale(model::RadarWorkMode mode) {
   switch (mode) {
-    case model::RadarWorkSubMode::kTas:
+    case model::RadarWorkMode::kTas:
       return 0.5f;
-    case model::RadarWorkSubMode::kTws:
+    case model::RadarWorkMode::kTws:
       return 1.0f;
-    case model::RadarWorkSubMode::kStby:
-    case model::RadarWorkSubMode::kStt:
+    case model::RadarWorkMode::kStby:
+    case model::RadarWorkMode::kStt:
     default:
       return 1.0f;
   }
@@ -183,7 +183,7 @@ model::AzimuthElevationDeg ResolveScheduledBeamPointing(
     fallback_center = utils::ClampAzimuthElevation(fallback_center, effective_limits);
   }
 
-  if (orientation_config.work_sub_mode == model::RadarWorkSubMode::kStby) {
+  if (orientation_config.work_mode == model::RadarWorkMode::kStby) {
     model::AzimuthElevationDeg boresight;
     if (limits_valid) {
       boresight = utils::ClampAzimuthElevation(boresight, effective_limits);
@@ -191,7 +191,7 @@ model::AzimuthElevationDeg ResolveScheduledBeamPointing(
     return boresight;
   }
 
-  if (orientation_config.work_sub_mode == model::RadarWorkSubMode::kStt) {
+  if (orientation_config.work_mode == model::RadarWorkMode::kStt) {
     return normalized_scan_center;
   }
 
@@ -202,8 +202,8 @@ model::AzimuthElevationDeg ResolveScheduledBeamPointing(
     return fallback_center;
   }
 
-  float step_scale = ResolveScanStepScale(orientation_config.work_sub_mode);
-  if (orientation_config.work_sub_mode == model::RadarWorkSubMode::kTas &&
+  float step_scale = ResolveScanStepScale(orientation_config.work_mode);
+  if (orientation_config.work_mode == model::RadarWorkMode::kTas &&
       scheduler_config.prefer_dense_tas_sampling) {
     step_scale *= 0.5f;
   }
@@ -238,7 +238,7 @@ model::AzimuthElevationDeg ResolveScheduledBeamPointing(
 model::AzimuthElevationDeg ResolveScheduledDwellCenter(
     const model::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
-  if (orientation_config.work_sub_mode == model::RadarWorkSubMode::kStt) {
+  if (orientation_config.work_mode == model::RadarWorkMode::kStt) {
     return model::AzimuthElevationDeg();
   }
   const model::AzimuthElevationDeg pointing =

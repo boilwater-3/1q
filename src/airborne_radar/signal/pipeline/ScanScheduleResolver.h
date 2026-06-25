@@ -21,7 +21,7 @@ namespace pipeline {
 model::AzimuthElevationDeg ResolveFiniteScanCenter(
     const model::RadarOrientationConfig& orientation_config);
 
-float ResolveScanStepScale(model::RadarWorkSubMode mode);
+float ResolveScanStepScale(model::RadarWorkMode mode);
 
 std::vector<model::AzimuthElevationDeg> BuildScheduledScanPattern(
     const model::AzimuthElevationLimitsDeg& limits, float az_step_deg, float el_step_deg,
