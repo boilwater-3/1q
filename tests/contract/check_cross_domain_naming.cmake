@@ -1,15 +1,19 @@
 # 跨域命名规约守护：防止四域（airborne_radar / electro_optical_sensor /
 # electronic_surveillance_radar / sar）在演进中重新引入"同概念异名"漂移。
 #
-# 本检查分两层：
-#   - 阻断层（HARD）：已在本轮统一的项，一旦回退立即 FATAL_ERROR。
-#       * 四域 Session/TraceSession 的 Step()/StepWithResult() 签名不得再出现
-#         `session::` 相对限定或 `::域::session::` 全局根限定（类型定义在当前
-#         session 命名空间内，裸名即可解析，多余限定是历史遗留，见
-#         foundation/SensorContract.h 与本轮维度2 清理）。
-#   - 报告层（SOFT）：尚未机械统一、需领域判断的项，仅打印告警供 review。
-#       * 四域"最小 SNR 门限"字段名前缀目前有 minimum_/min_detect_/min_/min_valid_
-#         四种；属步骤4 命名统一范围，此处只统计不阻断。
+# 本检查对"已统一"的项做 HARD 阻断（回退即 FATAL_ERROR）。这些项都经历过跨域
+# 统一改造，再次出现旧名意味着回归：
+#   1) 四域 Session/TraceSession 的 Step()/StepWithResult() 签名不得带 session::/
+#      ::域::session:: 限定（维度2 统一为裸名）。
+#   2) AR 工作模式不得再用 work_sub_mode 字段名或 RadarWorkSubMode enum 类型名
+#      或 WithRadarWorkSubMode/WithRadarWork* 建造方法名（P2-b 统一为 work_mode /
+#      RadarWorkMode / WithWorkMode，对齐 EOS/ESR）。
+#   3) ESR/AR 运行期补丁的环境补丁槽不得再用 environment_runtime_config 字段名
+#      或 has_environment_runtime_config / WithEnvironmentRuntimeConfig（P1-b 统一为
+#      environment / has_environment / WithEnvironment，对齐 EOS）。
+#   4) ESR/SAR 的最小 SNR 门限不得再用 min_detect_snr_db / min_valid_snr_db
+#      前缀（P2-a 统一为 minimum_snr_db，对齐 EOS）。注意 AR 的 min_snr_db 因与
+#      timing model 动态门限同名且语义不同，刻意不在本检查范围（见 P2-a 决策）。
 #
 # 配套：跨域"形状契约"（Step/StepWithResult 返回类型）由编译期
 # foundation/SensorContract.h 的 static_assert 守护，本脚本不重复检查类型形状。
@@ -27,7 +31,7 @@ set(SESSION_DIRS
 
 set(VIOLATIONS)
 
-# ---- 阻断层：Session 签名不得带多余命名空间限定 ----
+# ---- 阻断 1：Session 签名不得带多余命名空间限定 ----
 foreach(SESSION_DIR IN LISTS SESSION_DIRS)
   file(GLOB SESSION_HEADERS "${SESSION_DIR}/*Session.h")
   foreach(HEADER IN LISTS SESSION_HEADERS)
@@ -35,19 +39,70 @@ foreach(SESSION_DIR IN LISTS SESSION_DIRS)
     set(_line_no 0)
     foreach(LINE IN LISTS ALL_LINES)
       math(EXPR _line_no "${_line_no} + 1")
-      # 只看 Step()/StepWithResult() 声明行
       if(LINE MATCHES "(Step|StepWithResult)[ \t]*\\(")
-        # 排除注释/doxygen 行
         string(STRIP "${LINE}" _stripped)
         if(_stripped MATCHES "^(//|/\\*|\\*)")
           continue()
         endif()
-        # 返回类型若以 session:: 或 ::域::session:: 开头 → 违规
         if(LINE MATCHES "(session::|::[A-Za-z_]+::session::)[A-Za-z_]+[ \t]+(Step|StepWithResult)")
           list(APPEND VIOLATIONS
-               "${HEADER}:${_line_no}: Session 签名不得带 session::/::域::session:: 限定（裸名即可解析）: ${LINE}")
+               "${HEADER}:${_line_no}: [签名限定] Session 签名不得带 session::/::域::session:: 限定: ${LINE}")
         endif()
       endif()
+    endforeach()
+  endforeach()
+endforeach()
+
+# ---- 阻断 2/3/4：跨域统一后的旧名不得回归 ----
+# 扫描范围：公共头 + 域实现源码 + 测试。generated/ 与本脚本自身排除。
+set(TOKEN_BANS
+    "work_sub_mode|P2-b work_sub_mode 已统一为 work_mode"
+    "RadarWorkSubMode|P2-b RadarWorkSubMode 已统一为 RadarWorkMode"
+    "WithRadarWorkSubMode|P2-b WithRadarWorkSubMode 已统一为 WithWorkMode"
+    "has_environment_runtime_config|P1-b has_environment_runtime_config 已统一为 has_environment"
+    "environment_runtime_config|P1-b 补丁槽 environment_runtime_config 已统一为 environment（注意：类型名 EnvironmentRuntimeConfigPatch 保留，不在禁列）"
+    "WithEnvironmentRuntimeConfig|P1-b WithEnvironmentRuntimeConfig 已统一为 WithEnvironment"
+    "min_detect_snr_db|P2-a min_detect_snr_db 已统一为 minimum_snr_db"
+    "min_valid_snr_db|P2-a min_valid_snr_db 已统一为 minimum_snr_db")
+
+set(SCAN_DIRS
+    "${PUBLIC_INCLUDE_ROOT}"
+    "${SOURCE_DIR}/src/airborne_radar"
+    "${SOURCE_DIR}/src/electronic_surveillance_radar"
+    "${SOURCE_DIR}/src/sar"
+    "${SOURCE_DIR}/src/electro_optical_sensor"
+    "${SOURCE_DIR}/tests")
+
+foreach(SCAN_DIR IN LISTS SCAN_DIRS)
+  file(GLOB_RECURSE SCAN_FILES
+       "${SCAN_DIR}/*.h" "${SCAN_DIR}/*.hpp" "${SCAN_DIR}/*.cpp" "${SCAN_DIR}/*.cmake")
+  foreach(FILE_PATH IN LISTS SCAN_FILES)
+    # 排除 generated 与本脚本
+    if(FILE_PATH MATCHES "generated/" OR FILE_PATH MATCHES "check_cross_domain_naming")
+      continue()
+    endif()
+    file(STRINGS "${FILE_PATH}" FILE_LINES)
+    set(_line_no 0)
+    foreach(LINE IN LISTS FILE_LINES)
+      math(EXPR _line_no "${_line_no} + 1")
+      foreach(BAN IN LISTS TOKEN_BANS)
+        # 拆 pattern 与描述
+        string(FIND "${BAN}" "|" _sep)
+        math(EXPR _desc_start "${_sep} + 1")
+        string(SUBSTRING "${BAN}" 0 ${_sep} _pattern)
+        string(SUBSTRING "${BAN}" ${_desc_start} -1 _desc)
+        # 跳过含旧名的说明性注释行（如 "已统一为 work_mode"），避免误伤迁移说明
+        string(STRIP "${LINE}" _stripped)
+        if(_stripped MATCHES "^(//|\\*)")
+          continue()
+        endif()
+        # 注意：environment_runtime_config 会匹配 EsrEnvironmentRuntimeConfigPatch
+        # 这类类型名 —— 刻意保留这类类型名，用大小写区分（小写才禁）。
+        string(FIND "${LINE}" "${_pattern}" _pos)
+        if(NOT _pos EQUAL -1)
+          list(APPEND VIOLATIONS "${FILE_PATH}:${_line_no}: [${_desc}]: ${LINE}")
+        endif()
+      endforeach()
     endforeach()
   endforeach()
 endforeach()
@@ -55,35 +110,10 @@ endforeach()
 if(VIOLATIONS)
   list(JOIN VIOLATIONS "\n" VIOLATION_TEXT)
   message(FATAL_ERROR
-          "跨域命名规约守护失败（阻断层）。\n"
-          "规则：四域 Session::Step()/StepWithResult() 签名必须使用裸类型名，\n"
-          "      不得带 session:: 相对限定或 ::域::session:: 全局根限定。\n"
-          "理由：相关类型定义在当前 session 命名空间内，裸名即可解析；多余限定是\n"
-          "      历史遗留（曾因类型归位前的名字查找冲突而添加），现已无必要。\n"
-          "见：foundation/SensorContract.h（形状契约）与本轮维度2 清理记录。\n"
+          "跨域命名规约守护失败。\n"
+          "规则：下列项已跨域统一，旧名不得回归（详见各项说明）。\n"
+          "见：foundation/SensorContract.h（形状契约）、docs 中的统一记录。\n"
           "违规：\n${VIOLATION_TEXT}")
 endif()
 
-# ---- 报告层：SNR 门限前缀异名统计（步骤4 范围，不阻断） ----
-set(SNR_VARIANTS minimum_snr_db min_detect_snr_db min_snr_db min_valid_snr_db)
-set(SNR_REPORT)
-foreach(VARIANT IN LISTS SNR_VARIANTS)
-  file(GLOB_RECURSE _matches
-       LIST_DIRECTORIES FALSE
-       "${PUBLIC_INCLUDE_ROOT}/*${VARIANT}*"
-       "${SOURCE_DIR}/src/*${VARIANT}*")
-  list(LENGTH _matches _count)
-  if(_count GREATER 0)
-    list(APPEND SNR_REPORT "  ${VARIANT}: ${_count} 处")
-  endif()
-endforeach()
-
-if(SNR_REPORT)
-  list(JOIN SNR_REPORT "\n" SNR_TEXT)
-  message(STATUS
-          "[跨域命名守护·报告层] 最小 SNR 门限字段存在多种前缀（步骤4 统一范围，本次不阻断）：\n"
-          "${SNR_TEXT}\n"
-          "建议统一为单一前缀（如 minimum_snr_db），减少跨域认知负担。")
-endif()
-
-message(STATUS "[跨域命名守护] 通过：四域 Session 签名裸名检查无违规。")
+message(STATUS "[跨域命名守护] 通过：Session 签名裸名 + work_mode + 补丁槽 + SNR 前缀均无回退。")
