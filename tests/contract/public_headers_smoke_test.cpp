@@ -234,7 +234,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
                                            session::RadarTraceSessionOptions{nullptr, false});
   const config::RadarRuntimeConfigPatch runtime_patch =
       config::RadarRuntimeConfigBuilder()
-          .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
+          .WithWorkMode(model::RadarWorkMode::kTas)
           .EnableCommandedBeamwidth(true)
           .Build();
   session.ApplyRuntimeConfig(runtime_patch);

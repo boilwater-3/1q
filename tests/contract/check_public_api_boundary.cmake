@@ -372,7 +372,7 @@ set(FORBIDDEN_BUILDER_METHOD_PATTERNS
     "RadarSessionConfigBuilder[ \t]*&[ \t]*WithPrfHz[ \t]*\\("
     "RadarSessionConfigBuilder[ \t]*&[ \t]*WithMainBeamGainDb[ \t]*\\("
     "RadarSessionConfigBuilder[ \t]*&[ \t]*WithNoiseFigureDb[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithRadarWorkSubMode[ \t]*\\("
+    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithWorkMode[ \t]*\\("
     "RadarSessionConfigBuilder[ \t]*&[ \t]*WithScanCenterDeg[ \t]*\\("
     "RadarSessionConfigBuilder[ \t]*&[ \t]*WithDwellCenterDeg[ \t]*\\("
     "RadarSessionConfigBuilder[ \t]*&[ \t]*EnableCommandedBeamwidth[ \t]*\\("

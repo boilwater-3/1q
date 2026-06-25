@@ -202,7 +202,7 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
 
 TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesPolicyBeamControlInputs) {
   config::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
-  session_config.mission.orientation.work_sub_mode = model::RadarWorkSubMode::kTas;
+  session_config.mission.orientation.work_mode = model::RadarWorkMode::kTas;
   session_config.mission.orientation.scan_center_deg.az_deg = 3.0f;
   session_config.mission.orientation.scan_center_deg.el_deg = -1.0f;
   session_config.mission.orientation.mechanical_scan_limits_deg.az_min_deg = -10.0f;
@@ -502,7 +502,7 @@ TEST(ScanScheduleResolverTest, FirstCycleMapsToFirstBeamIndex) {
 
 TEST(ScanScheduleResolverTest, StbyParksAtClampedBoresightWithoutCycleAdvance) {
   model::RadarOrientationConfig orientation;
-  orientation.work_sub_mode = model::RadarWorkSubMode::kStby;
+  orientation.work_mode = model::RadarWorkMode::kStby;
   orientation.scan_center_deg.az_deg = 20.0f;
   orientation.scan_center_deg.el_deg = -8.0f;
   orientation.mechanical_scan_limits_deg.az_min_deg = 5.0f;
@@ -531,7 +531,7 @@ TEST(ScanScheduleResolverTest, StbyParksAtClampedBoresightWithoutCycleAdvance) {
 
 TEST(ScanScheduleResolverTest, SttFixesAtScanCenterAndKeepsZeroDwell) {
   model::RadarOrientationConfig orientation;
-  orientation.work_sub_mode = model::RadarWorkSubMode::kStt;
+  orientation.work_mode = model::RadarWorkMode::kStt;
   orientation.scan_center_deg.az_deg = 12.5f;
   orientation.scan_center_deg.el_deg = -4.5f;
   orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
@@ -560,7 +560,7 @@ TEST(ScanScheduleResolverTest, SttFixesAtScanCenterAndKeepsZeroDwell) {
 
 TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
   model::RadarOrientationConfig tws_orientation;
-  tws_orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
+  tws_orientation.work_mode = model::RadarWorkMode::kTws;
   tws_orientation.scan_start_position = oneq::foundation::ScanStartPosition::kLeftTop;
   tws_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
   tws_orientation.mechanical_scan_limits_deg.az_min_deg = -20.0f;
@@ -569,7 +569,7 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
   tws_orientation.mechanical_scan_limits_deg.el_max_deg = 10.0f;
   tws_orientation.electronic_scan_limits_deg = tws_orientation.mechanical_scan_limits_deg;
   model::RadarOrientationConfig tas_orientation = tws_orientation;
-  tas_orientation.work_sub_mode = model::RadarWorkSubMode::kTas;
+  tas_orientation.work_mode = model::RadarWorkMode::kTas;
 
   signal::detection::EffectiveBeamwidthDeg beamwidth;
   beamwidth.az_beamwidth_deg = 20.0f;
@@ -700,7 +700,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   EXPECT_GE(aligned_detected, misaligned_detected);
 }
 
-TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedToTws) {
+TEST(SignalPipelineScanScheduleTest, WorkModeSttReducesSweepCoverageComparedToTws) {
   config::RadarSessionConfig tws_session;
   tws_session.hardware.detection.enable_physics_detection = true;
   tws_session.hardware.detection.pulse_count = 16;
@@ -711,7 +711,7 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
       config::AntennaPatternModelType::kParabolicMainLobe;
   tws_session.hardware.detection.antenna.pattern.max_sidelobe_level_db = -18.0f;
   tws_session.hardware.detection.antenna.pattern.max_scan_loss_db = 8.0f;
-  tws_session.mission.orientation.work_sub_mode = model::RadarWorkSubMode::kTws;
+  tws_session.mission.orientation.work_mode = model::RadarWorkMode::kTws;
   tws_session.mission.orientation.scan_center_deg.az_deg = -60.0f;
   tws_session.mission.orientation.scan_center_deg.el_deg = 0.0f;
   tws_session.mission.orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
@@ -725,7 +725,7 @@ TEST(SignalPipelineScanScheduleTest, WorkSubModeSttReducesSweepCoverageComparedT
   tws_session.mission.orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
   config::RadarSessionConfig stt_session = tws_session;
-  stt_session.mission.orientation.work_sub_mode = model::RadarWorkSubMode::kStt;
+  stt_session.mission.orientation.work_mode = model::RadarWorkMode::kStt;
 
   signal::pipeline::SignalPipeline tws_pipeline(tws_session);
   signal::pipeline::SignalPipeline stt_pipeline(stt_session);

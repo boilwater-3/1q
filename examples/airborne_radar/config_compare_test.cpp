@@ -32,7 +32,7 @@ ar_config::RadarSessionConfig MakeWideAreaSearchConfig() {
       .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
       .End()
       .Mission()
-      .WithRadarWorkSubMode(ar_model::RadarWorkSubMode::kTas)
+      .WithWorkMode(ar_model::RadarWorkMode::kTas)
       .WithScanCenterDeg(MakeAzEl(0.0f, 0.0f))
       .End()
       .Tracking()
@@ -200,8 +200,8 @@ void CompareConfigs(const ar_config::RadarSessionConfig& a,
             "orientation.scan_start_position");
   CHECK_INT(static_cast<int>(oa.scan_sequence),
             static_cast<int>(ob.scan_sequence), "orientation.scan_sequence");
-  CHECK_INT(static_cast<int>(oa.work_sub_mode),
-            static_cast<int>(ob.work_sub_mode), "orientation.work_sub_mode");
+  CHECK_INT(static_cast<int>(oa.work_mode),
+            static_cast<int>(ob.work_mode), "orientation.work_mode");
   CHECK_BOOL(oa.commanded_beamwidth_enabled, ob.commanded_beamwidth_enabled,
              "orientation.commanded_beamwidth_enabled");
   CheckCmdBeamwidth(oa.commanded_beamwidth_deg, ob.commanded_beamwidth_deg,

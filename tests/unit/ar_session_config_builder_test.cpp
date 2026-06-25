@@ -128,7 +128,7 @@ TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
   const auto config =
       config::RadarSessionConfigBuilder()
           .Mission()
-          .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
+          .WithWorkMode(model::RadarWorkMode::kTas)
           .WithScanCenterDeg(scan_center)
           .End()
           .Environment()
@@ -136,7 +136,7 @@ TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
           .End()
           .Build();
 
-  EXPECT_EQ(config.mission.orientation.work_sub_mode, model::RadarWorkSubMode::kTas);
+  EXPECT_EQ(config.mission.orientation.work_mode, model::RadarWorkMode::kTas);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, 8.0f);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.el_deg, -2.0f);
   EXPECT_EQ(config.environment.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
@@ -169,7 +169,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
 
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
-          .WithRadarWorkSubMode(model::RadarWorkSubMode::kStt)
+          .WithWorkMode(model::RadarWorkMode::kStt)
           .WithScanCenterDeg(scan_center)
           .WithDwellCenterDeg(dwell_center)
           .WithCommandedBeamwidthDeg(commanded_beamwidth)
@@ -177,8 +177,8 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .Build();
 
-  EXPECT_TRUE(patch.has_work_sub_mode);
-  EXPECT_EQ(patch.work_sub_mode, model::RadarWorkSubMode::kStt);
+  EXPECT_TRUE(patch.has_work_mode);
+  EXPECT_EQ(patch.work_mode, model::RadarWorkMode::kStt);
   EXPECT_TRUE(patch.has_scan_center_deg);
   EXPECT_FLOAT_EQ(patch.scan_center_deg.az_deg, 12.0f);
   EXPECT_FLOAT_EQ(patch.scan_center_deg.el_deg, -3.0f);
@@ -190,9 +190,9 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
   EXPECT_FLOAT_EQ(patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg, 2.0f);
   EXPECT_TRUE(patch.has_commanded_beamwidth_enabled);
   EXPECT_TRUE(patch.commanded_beamwidth_enabled);
-  EXPECT_TRUE(patch.has_environment_runtime_config);
-  EXPECT_TRUE(patch.environment_runtime_config.has_jamming_sensitivity_profile);
-  EXPECT_EQ(patch.environment_runtime_config.jamming_sensitivity_profile,
+  EXPECT_TRUE(patch.has_environment);
+  EXPECT_TRUE(patch.environment.has_jamming_sensitivity_profile);
+  EXPECT_EQ(patch.environment.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kStrict);
 }
 
@@ -202,7 +202,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
 
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
-          .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
+          .WithWorkMode(model::RadarWorkMode::kTas)
           .EnableCommandedBeamwidth(true)
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .Build();
@@ -225,7 +225,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   detailed_config.hardware.detection.transmitter.prf_hz = 500.0f;
   detailed_config.hardware.detection.antenna.main_beam_gain_db = 38.0f;
   detailed_config.hardware.detection.receiver.noise_figure_db = 3.5f;
-  detailed_config.mission.orientation.work_sub_mode = model::RadarWorkSubMode::kTas;
+  detailed_config.mission.orientation.work_mode = model::RadarWorkMode::kTas;
   detailed_config.policy.tracking.enable_kalman_filter = true;
   detailed_config.policy.tracking.kalman_measurement_noise_std = 7.5f;
   detailed_config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
@@ -238,7 +238,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   EXPECT_TRUE(detailed_config.hardware.detection.enable_physics_detection);
   EXPECT_FLOAT_EQ(detailed_config.hardware.detection.transmitter.peak_power_w, 5.0e6f);
   EXPECT_FLOAT_EQ(detailed_config.hardware.detection.transmitter.frequency_hz, 9.3e9f);
-  EXPECT_EQ(detailed_config.mission.orientation.work_sub_mode, model::RadarWorkSubMode::kTas);
+  EXPECT_EQ(detailed_config.mission.orientation.work_mode, model::RadarWorkMode::kTas);
   EXPECT_FLOAT_EQ(detailed_config.policy.tracking.kalman_measurement_noise_std, 7.5f);
   EXPECT_EQ(detailed_config.policy.tracking.kalman_update_backend,
             config::KalmanUpdateBackend::kUdKf);

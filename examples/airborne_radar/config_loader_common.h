@@ -21,13 +21,13 @@ inline ar_pro::SwerlingModel SwerlingModelFromString(const std::string& s) {
   return ar_pro::SwerlingModel::kSwerling0;
 }
 
-inline airborne_radar::model::RadarWorkSubMode WorkSubModeFromString(
+inline airborne_radar::model::RadarWorkMode WorkModeFromString(
     const std::string& s) {
-  if (s == "kStby") return airborne_radar::model::RadarWorkSubMode::kStby;
-  if (s == "kTas") return airborne_radar::model::RadarWorkSubMode::kTas;
-  if (s == "kTws") return airborne_radar::model::RadarWorkSubMode::kTws;
-  if (s == "kStt") return airborne_radar::model::RadarWorkSubMode::kStt;
-  return airborne_radar::model::RadarWorkSubMode::kTas;
+  if (s == "kStby") return airborne_radar::model::RadarWorkMode::kStby;
+  if (s == "kTas") return airborne_radar::model::RadarWorkMode::kTas;
+  if (s == "kTws") return airborne_radar::model::RadarWorkMode::kTws;
+  if (s == "kStt") return airborne_radar::model::RadarWorkMode::kStt;
+  return airborne_radar::model::RadarWorkMode::kTas;
 }
 
 inline airborne_radar::model::StabilizationMode StabilizationFromString(

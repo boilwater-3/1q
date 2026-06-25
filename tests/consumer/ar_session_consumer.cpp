@@ -76,7 +76,7 @@ int main() {
   // 8. RuntimeConfigBuilder hot-switch
   const airborne_radar::config::RadarRuntimeConfigPatch runtime_patch =
       airborne_radar::config::RadarRuntimeConfigBuilder()
-          .WithRadarWorkSubMode(airborne_radar::model::RadarWorkSubMode::kTas)
+          .WithWorkMode(airborne_radar::model::RadarWorkMode::kTas)
           .WithScanCenterDeg({15.0f, -5.0f})
           .WithJammingSensitivityProfile(
               airborne_radar::environment::ResolveJammingSensitivityProfile(8.0f))
