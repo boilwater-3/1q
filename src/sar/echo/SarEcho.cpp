@@ -229,12 +229,14 @@ bool GeneratePointTargetRawEchoWithElevationGate(
         static_cast<double>(diagnostic.delay_sample_index);
 
     // elevation 距离门控:目标斜距不在子带 [near, far) 窗口内 → 跳过(零贡献)。
-    if (gate_active && !geometry::IsInSubswath(
-                           geometry::ScanSubswath{gate_config.burst_state.near_range_m,
-                                                  gate_config.burst_state.far_range_m},
-                           slant_range_m)) {
-      // 门控拒绝的目标不入诊断(物理上该脉冲天线根本没看它)。
-      continue;
+    if (gate_active) {
+      geometry::ScanSubswath subswath;
+      subswath.near_range_m = gate_config.burst_state.near_range_m;
+      subswath.far_range_m = gate_config.burst_state.far_range_m;
+      if (!geometry::IsInSubswath(subswath, slant_range_m)) {
+        // 门控拒绝的目标不入诊断(物理上该脉冲天线根本没看它)。
+        continue;
+      }
     }
     // gate_active=false(illuminated=false 或窗口无效)→ 该脉冲全程无贡献(天线在别处或无定义)。
     if (!gate_active) {

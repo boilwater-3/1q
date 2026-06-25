@@ -188,9 +188,9 @@ bool RunMovingTargetsScenario() {
       const auto& det = result.output_frame.detections[j];
       if (det.detected) {
         ++ndetected;
-        detected_ids += std::to_string(det.target_id) + " ";
+        detected_ids += std::to_string(det.detection_id) + " ";
       }
-      std::cout << "    [Target ID " << det.target_id << "] range=" << det.range_m
+      std::cout << "    [Detection ID " << det.detection_id << "] range=" << det.range_m
                 << "m, az=" << det.azimuth_deg << "deg, el=" << det.elevation_deg
                 << "deg, IR_SNR_lin=" << det.infrared_snr_linear
                 << ", Vis_SNR_lin=" << det.visible_snr_linear
