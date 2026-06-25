@@ -31,7 +31,7 @@
     "detection": {
       "profile": "kBalanced",
       "use_profile_defaults": true,
-      "min_detect_snr_db": 6.0,
+      "minimum_snr_db": 6.0,
       "pfa": 1.0e-6,
       "pulse_count": 8,
       "threshold_scale": 1.0,

@@ -300,7 +300,7 @@ TEST(SarSessionPipelineTest, DiagnosticsDisabledSuppressesNonErrorDiagnostics) {
 
 TEST(SarSessionPipelineTest, MinValidSnrRejectsApertureBelowThreshold) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
-  config.policy.min_valid_snr_db = 100.0;
+  config.policy.minimum_snr_db = 100.0;
   session::SarSession session = session::SarSessionFactory::Create(config);
 
   const session::SarCycleResult result = session.StepWithResult(MakeExternalRawIqInput());
@@ -310,7 +310,7 @@ TEST(SarSessionPipelineTest, MinValidSnrRejectsApertureBelowThreshold) {
   EXPECT_EQ(result.abort_reason, "snr_below_minimum");
   EXPECT_TRUE(result.output_frame.has_raw_echo);
   EXPECT_FALSE(result.output_frame.has_l1_image);
-  EXPECT_LT(result.output_frame.estimated_snr_db, config.policy.min_valid_snr_db);
+  EXPECT_LT(result.output_frame.estimated_snr_db, config.policy.minimum_snr_db);
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.snr_below_minimum", "below"));
 }
 

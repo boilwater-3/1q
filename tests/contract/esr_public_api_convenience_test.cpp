@@ -98,13 +98,13 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesDomainFields) {
   EXPECT_EQ(cfg.mission.work_mode, config::EsrWorkMode::kRwr);
   EXPECT_FALSE(cfg.mission.power_on);
   EXPECT_FLOAT_EQ(cfg.mission.scan.scan_rate_hz, 2.0f);
-  EXPECT_FLOAT_EQ(cfg.policy.detection.min_detect_snr_db, 3.0f);
+  EXPECT_FLOAT_EQ(cfg.policy.detection.minimum_snr_db, 3.0f);
   EXPECT_EQ(cfg.environment.scenario_config.preset, config::EsrEnvironmentPreset::kJammed);
 }
 
 TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsDetailedDetectionParams) {
   config::EsrSessionConfig details_cfg{};
-  details_cfg.policy.detection.min_detect_snr_db = 8.0f;
+  details_cfg.policy.detection.minimum_snr_db = 8.0f;
   details_cfg.policy.detection.pfa = 1.0e-5f;
   details_cfg.policy.detection.pulse_count = 16U;
   details_cfg.policy.detection.threshold_scale = 0.9f;
@@ -117,7 +117,7 @@ TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsDetailedDe
   details_cfg.mission.scan.scan_end_el_deg = 5.0f;
   details_cfg.environment.scenario_config.preset = config::EsrEnvironmentPreset::kLowClutter;
 
-  EXPECT_FLOAT_EQ(details_cfg.policy.detection.min_detect_snr_db, 8.0f);
+  EXPECT_FLOAT_EQ(details_cfg.policy.detection.minimum_snr_db, 8.0f);
   EXPECT_FLOAT_EQ(details_cfg.policy.detection.pfa, 1.0e-5f);
   EXPECT_EQ(details_cfg.policy.detection.pulse_count, 16U);
   EXPECT_FLOAT_EQ(details_cfg.policy.detection.threshold_scale, 0.9f);
@@ -133,7 +133,7 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
 
   EXPECT_FALSE(patch.has_mission);
   EXPECT_FALSE(patch.has_policy);
-  EXPECT_FALSE(patch.has_environment_runtime_config);
+  EXPECT_FALSE(patch.has_environment);
   EXPECT_FALSE(patch.has_sensor_enabled);
   EXPECT_FALSE(patch.has_work_mode);
   EXPECT_FALSE(patch.has_scan_rate_hz);
@@ -171,13 +171,13 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
   EXPECT_TRUE(patch.has_scan_center_el_deg);
   EXPECT_TRUE(patch.has_explicit_scan_bounds);
   EXPECT_TRUE(patch.explicit_scan_bounds.enabled);
-  EXPECT_TRUE(patch.has_environment_runtime_config);
-  EXPECT_TRUE(patch.environment_runtime_config.has_atmospheric_physics);
-  EXPECT_TRUE(patch.environment_runtime_config.atmospheric_physics.enable_physical_model);
-  EXPECT_FLOAT_EQ(patch.environment_runtime_config.atmospheric_physics.relative_humidity, 0.65f);
-  EXPECT_TRUE(patch.environment_runtime_config.has_atmospheric_context);
-  EXPECT_TRUE(patch.environment_runtime_config.atmospheric_context.has_day_of_year);
-  EXPECT_EQ(patch.environment_runtime_config.atmospheric_context.day_of_year, 210);
+  EXPECT_TRUE(patch.has_environment);
+  EXPECT_TRUE(patch.environment.has_atmospheric_physics);
+  EXPECT_TRUE(patch.environment.atmospheric_physics.enable_physical_model);
+  EXPECT_FLOAT_EQ(patch.environment.atmospheric_physics.relative_humidity, 0.65f);
+  EXPECT_TRUE(patch.environment.has_atmospheric_context);
+  EXPECT_TRUE(patch.environment.atmospheric_context.has_day_of_year);
+  EXPECT_EQ(patch.environment.atmospheric_context.day_of_year, 210);
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {
@@ -187,7 +187,7 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {
   mission.scan.scan_rate_hz = 5.0f;
 
   config::EsrPolicyConfig policy;
-  policy.detection.min_detect_snr_db = 5.0f;
+  policy.detection.minimum_snr_db = 5.0f;
 
   const config::EsrRuntimeConfigPatch patch =
       config::EsrRuntimeConfigBuilder().WithMission(mission).WithPolicy(policy).Build();
@@ -197,7 +197,7 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {
   EXPECT_EQ(patch.mission.work_mode, config::EsrWorkMode::kRwr);
   EXPECT_FLOAT_EQ(patch.mission.scan.scan_rate_hz, 5.0f);
   EXPECT_TRUE(patch.has_policy);
-  EXPECT_FLOAT_EQ(patch.policy.detection.min_detect_snr_db, 5.0f);
+  EXPECT_FLOAT_EQ(patch.policy.detection.minimum_snr_db, 5.0f);
 }
 
 TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) {

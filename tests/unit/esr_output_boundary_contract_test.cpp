@@ -118,7 +118,7 @@ esr_config::EsrSessionConfig MakeConfig() {
           .WithEnvironmentPreset(esr_config::EsrEnvironmentPreset::kStandard)
           .End()
           .Build();
-  config.policy.detection.min_detect_snr_db = -20.0f;
+  config.policy.detection.minimum_snr_db = -20.0f;
   config.policy.detection.enable_statistical_detection = false;
   config.mission.scan.use_explicit_scan_bounds = true;
   config.mission.scan.scan_start_az_deg = -180.0f;

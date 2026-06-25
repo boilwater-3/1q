@@ -54,13 +54,13 @@ TEST(EsrSessionConfigResolverTest, HardwareAndMissionMapToRuntimeAndScanConfig) 
 
 TEST(EsrSessionConfigResolverTest, DetectionAndEnvironmentPoliciesMapToInternalDefaults) {
   config::EsrSessionConfig config;
-  config.policy.detection.min_detect_snr_db = 3.0f;
+  config.policy.detection.minimum_snr_db = 3.0f;
   config.policy.detection.pfa = 1.0e-5f;
   config.environment.scenario_config.preset = config::EsrEnvironmentPreset::kJammed;
 
   const EsrInternalExecutionConfig exec = MapSessionToInternal(config);
 
-  EXPECT_FLOAT_EQ(exec.detection.min_detect_snr_db, 3.0f);
+  EXPECT_FLOAT_EQ(exec.detection.minimum_snr_db, 3.0f);
   EXPECT_FLOAT_EQ(exec.detection.pfa, 1.0e-5f);
   EXPECT_EQ(exec.environment.preset, config::EsrEnvironmentPreset::kJammed);
 }

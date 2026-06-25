@@ -151,7 +151,7 @@ class ONEQ_API EsrSessionConfigBuilder::DetectionEditor {
   explicit DetectionEditor(EsrSessionConfigBuilder* builder) : builder_(builder) {}
 
   DetectionEditor& WithMinDetectSnrDb(float value) {
-    builder_->config_.policy.detection.min_detect_snr_db = value;
+    builder_->config_.policy.detection.minimum_snr_db = value;
     return *this;
   }
   DetectionEditor& WithPfa(float value) {

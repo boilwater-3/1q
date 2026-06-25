@@ -281,7 +281,7 @@ TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.mission.scan.scan_start_az_deg = -30.0f;
   config.mission.scan.scan_end_az_deg = 30.0f;
   // policy
-  config.policy.detection.min_detect_snr_db = 4.0f;
+  config.policy.detection.minimum_snr_db = 4.0f;
   config.policy.detection.pfa = 1.0e-5f;
   config.policy.detection.pulse_count = 16U;
   config.policy.detection.threshold_scale = 0.8f;
@@ -321,7 +321,7 @@ TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_TRUE(decoded.mission.scan.use_explicit_scan_bounds);
   EXPECT_FLOAT_EQ(decoded.mission.scan.scan_start_az_deg, -30.0f);
   // policy
-  EXPECT_FLOAT_EQ(decoded.policy.detection.min_detect_snr_db, 4.0f);
+  EXPECT_FLOAT_EQ(decoded.policy.detection.minimum_snr_db, 4.0f);
   EXPECT_FLOAT_EQ(decoded.policy.detection.pfa, 1.0e-5f);
   EXPECT_EQ(decoded.policy.detection.pulse_count, 16U);
   EXPECT_FLOAT_EQ(decoded.policy.detection.threshold_scale, 0.8f);
@@ -369,13 +369,13 @@ TEST(EsrReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.mission.scan.scan_center_az_deg = 15.0f;
   patch.mission.scan.scan_rate_hz = 2.0f;
   patch.has_policy = true;
-  patch.policy.detection.min_detect_snr_db = 8.0f;
-  patch.has_environment_runtime_config = true;
-  patch.environment_runtime_config.has_atmospheric_physics = true;
-  patch.environment_runtime_config.atmospheric_physics.relative_humidity = 0.45f;
-  patch.environment_runtime_config.has_atmospheric_context = true;
-  patch.environment_runtime_config.atmospheric_context.has_k_factor = true;
-  patch.environment_runtime_config.atmospheric_context.k_factor = 1.5f;
+  patch.policy.detection.minimum_snr_db = 8.0f;
+  patch.has_environment = true;
+  patch.environment.has_atmospheric_physics = true;
+  patch.environment.atmospheric_physics.relative_humidity = 0.45f;
+  patch.environment.has_atmospheric_context = true;
+  patch.environment.atmospheric_context.has_k_factor = true;
+  patch.environment.atmospheric_context.k_factor = 1.5f;
 
   const std::string bytes = EncodeEsrRuntimeConfigPatch(patch);
   ASSERT_FALSE(bytes.empty());
@@ -409,13 +409,13 @@ TEST(EsrReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.mission.scan.scan_center_az_deg, 15.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan.scan_rate_hz, 2.0f);
   EXPECT_TRUE(decoded.has_policy);
-  EXPECT_FLOAT_EQ(decoded.policy.detection.min_detect_snr_db, 8.0f);
-  EXPECT_TRUE(decoded.has_environment_runtime_config);
-  EXPECT_TRUE(decoded.environment_runtime_config.has_atmospheric_physics);
-  EXPECT_FLOAT_EQ(decoded.environment_runtime_config.atmospheric_physics.relative_humidity, 0.45f);
-  EXPECT_TRUE(decoded.environment_runtime_config.has_atmospheric_context);
-  EXPECT_TRUE(decoded.environment_runtime_config.atmospheric_context.has_k_factor);
-  EXPECT_FLOAT_EQ(decoded.environment_runtime_config.atmospheric_context.k_factor, 1.5f);
+  EXPECT_FLOAT_EQ(decoded.policy.detection.minimum_snr_db, 8.0f);
+  EXPECT_TRUE(decoded.has_environment);
+  EXPECT_TRUE(decoded.environment.has_atmospheric_physics);
+  EXPECT_FLOAT_EQ(decoded.environment.atmospheric_physics.relative_humidity, 0.45f);
+  EXPECT_TRUE(decoded.environment.has_atmospheric_context);
+  EXPECT_TRUE(decoded.environment.atmospheric_context.has_k_factor);
+  EXPECT_FLOAT_EQ(decoded.environment.atmospheric_context.k_factor, 1.5f);
 }
 
 // ---------------------------------------------------------------------------
