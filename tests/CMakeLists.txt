@@ -471,6 +471,16 @@ add_test(
             -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_public_header_cxx11.cmake
 )
 
+# install 清单守护：确保各 src/*/CMakeLists.txt 的 install(FILES) 清单
+# 与 include/1q/ 磁盘头文件一致(无幽灵头、无漏 install)。与
+# check_public_api_boundary.cmake 互补:前者管 whitelist↔磁盘,本守护管 install↔磁盘。
+add_test(
+    NAME install_manifest_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_install_manifest.cmake
+)
+
 set_tests_properties(
     public_api_boundary_guard
     airborne_include_style_guard
@@ -482,6 +492,7 @@ set_tests_properties(
     public_header_external_dependency_isolation_guard
     cross_domain_naming_guard
     public_header_cxx11_guard
+    install_manifest_guard
     PROPERTIES LABELS "contract"
 )
 

@@ -213,7 +213,6 @@ int main() {
 
   airborne_radar::extension::RadarController controller(radar_context, signal_pipeline,
                                                         decision_engine, environment_service);
-  controller.UpdateControlReducerConfig({});
   controller.RunOnce();
 
   return controller.HasLatestTrackOutputFrame() ? 0 : 1;

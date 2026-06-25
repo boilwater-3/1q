@@ -25,7 +25,6 @@
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/environment/airborne_radar_environment.hpp"
-#include "1q/airborne_radar/extension/ControlReducerTypes.h"
 #include "1q/airborne_radar/extension/IRadarCommandBus.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/IRadarContextReader.h"
@@ -188,13 +187,6 @@ static_assert(
         decltype(electro_optical_sensor::session::EosSessionFactory::Create(
             std::declval<const electro_optical_sensor::config::EosSessionConfig&>()))>::value,
     "EosSessionFactory::Create must return EosSession");
-static_assert(
-    std::is_same<
-        electro_optical_sensor::session::EosSession,
-        decltype(electro_optical_sensor::session::EosSessionFactory::CreateWithEnvironmentService(
-            std::declval<const electro_optical_sensor::config::EosSessionConfig&>(),
-            std::declval<electro_optical_sensor::environment::IEosEnvironmentService&>()))>::value,
-    "EosSessionFactory::CreateWithEnvironmentService must return EosSession");
 
 static_assert(
     !std::is_constructible<sar::session::SarSession, sar::config::SarSessionConfig>::value,

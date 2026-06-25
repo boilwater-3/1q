@@ -1,16 +1,15 @@
 /**
  * @file eos_extension_consumer.cpp
- * @brief 验证安装后 EOS 扩展接口可被外部工程实现并接入。
+ * @brief 验证安装后 EOS 扩展接口可被外部工程访问。
  *
  * 覆盖要点：
- *   - IEosEnvironmentService 自定义实现，并通过 EosSessionFactory 注入默认管线
- *   - EosController 可通过 EosSession::StepWithResult 间接访问
- *   - EosSession 构建、Step、StepWithResult、ApplyRuntimeConfig
+ *   - EosSession 构建（SessionFactory::Create 默认装配）、Step、StepWithResult、ApplyRuntimeConfig
  *   - HasValidationError、GetLastValidationIssues 字段可访问
+ *   - EosController 公共类型（RuntimeState / AbortReason）可达
+ *
+ * 注：环境服务与管线已内部化，不再支持外部注入；本 consumer 仅验证安装后公共面可达。
  */
 
-#include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
@@ -18,31 +17,10 @@
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 
-namespace electro_optical_sensor {
-namespace {
-
-class DummyEosEnvironmentService : public environment::IEosEnvironmentService {
- public:
-  environment::EosEnvironmentModelResult ResolveFactors(
-      const environment::EosEnvironmentModelInputs& inputs) const override {
-    (void)inputs;
-    environment::EosEnvironmentModelResult result;
-    result.aerosol_density_factor = 1.0f;
-    result.turbulence_factor = 1.0f;
-    result.path_radiance_scale_bias = 1.0f;
-    return result;
-  }
-};
-
-}  // namespace
-}  // namespace electro_optical_sensor
-
 int main() {
-  // 1. Custom environment service with session factory
-  electro_optical_sensor::DummyEosEnvironmentService environment_service;
+  // 1. Default session assembly
   electro_optical_sensor::session::EosSession session =
-      electro_optical_sensor::session::EosSessionFactory::CreateWithEnvironmentService(
-          {}, environment_service);
+      electro_optical_sensor::session::EosSessionFactory::Create({});
 
   // 2. StepWithResult
   electro_optical_sensor::session::EosCycleInput input;

@@ -1,5 +1,11 @@
 set(PUBLIC_INCLUDE_DIR "${SOURCE_DIR}/include/1q")
 
+# 本守护校验 public header whitelist 与磁盘头逐字一致(HARD 阻断)。
+# whitelist 按 stable_api / deprecated_compat_api 两层组织(见下方
+# EXPECTED_DEPRECATED_HEADERS 及其守护),便于分批收口。两层的完整语义
+# 与迁移策略参见 docs/public_api_customization_boundary_contract.md
+# "已决策记录(2026-06-25)"第 5 条。
+
 # ── AR 推荐公开主路径（四域 + 会话 + Builder + 统一入口） ──────────
 set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/airborne_radar.hpp"
@@ -26,14 +32,12 @@ set(AR_ENVIRONMENT_HEADERS
 
 # ── AR 扩展域 ────────────────────────────────────────────────────────
 set(AR_EXTENSION_HEADERS
-    "airborne_radar/extension/ControlReducerTypes.h"
     "airborne_radar/extension/IRadarCommandBus.h"
     "airborne_radar/extension/IRadarContext.h"
     "airborne_radar/extension/IRadarContextReader.h"
     "airborne_radar/extension/IRadarControlProfileStore.h"
     "airborne_radar/extension/ISignalPipeline.h"
     "airborne_radar/extension/ITacticalDecisionEngine.h"
-    "airborne_radar/extension/IOverrideControlStrategy.h"
     "airborne_radar/extension/RadarController.h"
     "airborne_radar/extension/SignalPipelineResultTypes.h"
     "airborne_radar/extension/airborne_radar_extension.hpp"
@@ -302,6 +306,48 @@ set(EXPECTED_PUBLIC_HEADERS
     ${ENVIRONMENT_HEADERS}
     ${FOUNDATION_HEADERS}
 )
+
+# ── Public header 分层:stable_api 与 deprecated_compat_api ───────────
+#
+# whitelist 按"是否计划移除"分为两层,便于做版本化收口:
+#
+#   stable_api          —— 长期公开、无移除计划的公共头。
+#                          新增需经过 public API contract review。
+#
+#   deprecated_compat_api —— 仅在兼容期保留、计划在后续版本移除的公共头。
+#                          每个条目必须在本文件内配 DEPRECATED_ENTRY 注释,
+#                          说明移除批次与替代方案;无注释即 FATAL。
+#                          本轮收口后此层为空(参见
+#                          docs/public_api_customization_boundary_contract.md
+#                          "已决策记录(2026-06-25)"第 5 条)。
+#
+# 总集仍为 EXPECTED_PUBLIC_HEADERS(两层并集),保持与磁盘头逐字比对不变。
+
+# 当前所有 whitelist 条目均属 stable_api。deprecated_compat_api 占位为空,
+# 待后续批次(如 AR 宽入口收口)引入兼容期条目时填充。
+set(EXPECTED_DEPRECATED_HEADERS "")
+
+# 守护:deprecated 层每个条目必须有对应 DEPRECATED_ENTRY 注释说明移除计划。
+# 这迫使"标记为 deprecated"成为显式、可追溯的动作,而非悄悄留在 whitelist 里。
+file(READ "${CMAKE_CURRENT_LIST_FILE}" _boundary_script_source)
+foreach(_deprecated_header IN LISTS EXPECTED_DEPRECATED_HEADERS)
+    string(FIND "${_boundary_script_source}" "DEPRECATED_ENTRY:${_deprecated_header}" _idx)
+    if(_idx EQUAL -1)
+        message(FATAL_ERROR
+            "deprecated_compat_api 条目缺少移除计划注释:\n"
+            "  ${_deprecated_header}\n"
+            "每个 deprecated 条目必须在本文件内以如下形式标注:\n"
+            "  # DEPRECATED_ENTRY:<header> <批次/替代方案>\n"
+            "无注释的 deprecated 条目不被允许,以避免静默滞留。")
+    endif()
+endforeach()
+
+list(LENGTH EXPECTED_PUBLIC_HEADERS _stable_count)
+list(LENGTH EXPECTED_DEPRECATED_HEADERS _deprecated_count)
+math(EXPR _stable_api_count "${_stable_count} - ${_deprecated_count}")
+message(STATUS
+    "[public-api-boundary] stable_api=${_stable_api_count} "
+    "deprecated_compat_api=${_deprecated_count} (total=${_stable_count})")
 
 file(GLOB_RECURSE ACTUAL_PUBLIC_HEADERS
      RELATIVE "${PUBLIC_INCLUDE_DIR}"

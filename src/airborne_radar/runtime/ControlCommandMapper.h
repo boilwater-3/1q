@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/extension/ControlReducerTypes.h"
+#include "airborne_radar/decision/ControlReducerTypes.h"
 #include "1q/airborne_radar/extension/IRadarCommandBus.h"
 #include "1q/airborne_radar/extension/IRadarControlProfileStore.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"

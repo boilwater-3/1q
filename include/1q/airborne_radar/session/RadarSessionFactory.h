@@ -13,7 +13,6 @@
 namespace airborne_radar {
 namespace extension {
 class RadarController;
-class IOverrideControlStrategy;
 class ISignalPipeline;
 }  // namespace extension
 namespace environment {
@@ -46,18 +45,6 @@ class ONEQ_API RadarSessionFactory {
 
   static RadarSession CreateWithController(const config::RadarSessionConfig& config,
                                            extension::RadarController& controller);
-
-  /**
-   * @brief 使用外部覆盖策略创建会话。
-   *
-   * 内部会自动构建默认为 context/pipeline/environment/controller，
-   * 并将 override_strategy 注入到 TacticalCoordinator。
-   * 注入后内部 LPI/ECCM evaluator 将被跳过，由外部策略全权决策。
-   * @note override_strategy 生命周期必须长于所在会话。
-   */
-  static RadarSession CreateWithOverrideStrategy(
-      const config::RadarSessionConfig& config,
-      extension::IOverrideControlStrategy& override_strategy);
 
   static RadarSession CreateWithAll(
       const config::RadarSessionConfig& config, extension::IRadarContext& radar_context,

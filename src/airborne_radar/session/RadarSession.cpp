@@ -3,7 +3,6 @@
 #include <utility>
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/extension/RadarController.h"
@@ -268,13 +267,6 @@ RadarSession RadarSessionFactory::CreateWithController(const config::RadarSessio
                                                        extension::RadarController& controller) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
       RadarSessionCompositionRoot::ComposeWithController(config, controller))));
-}
-
-RadarSession RadarSessionFactory::CreateWithOverrideStrategy(
-    const config::RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(
-      new RadarSession::Impl(RadarSessionCompositionRoot::ComposeWithOverrideStrategy(
-          config, override_strategy))));
 }
 
 RadarSession RadarSessionFactory::CreateWithAll(

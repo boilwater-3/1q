@@ -3,7 +3,6 @@
 #include <cstdlib>
 #include <utility>
 
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/extension/EosController.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
@@ -60,13 +59,6 @@ EosSession& EosSession::operator=(EosSession&&) noexcept = default;
 EosSession EosSessionFactory::Create(const config::EosSessionConfig& config) {
   return EosSession(std::unique_ptr<EosSession::Impl>(
       new EosSession::Impl(EosSessionCompositionRoot::ComposeDefault(config))));
-}
-
-EosSession EosSessionFactory::CreateWithEnvironmentService(
-    const config::EosSessionConfig& config, environment::IEosEnvironmentService& environment_service) {
-  return EosSession(std::unique_ptr<EosSession::Impl>(
-      new EosSession::Impl(EosSessionCompositionRoot::ComposeWithEnvironmentService(
-          config, environment_service))));
 }
 
 session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {

@@ -4,7 +4,6 @@
 #include <memory>
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 
 namespace airborne_radar {
@@ -42,15 +41,6 @@ class RadarSessionCompositionRoot {
 
   static RadarSessionComposition ComposeWithController(const config::RadarSessionConfig& config,
                                                        extension::RadarController& controller);
-
-  /**
-   * @brief 使用默认会话配置和外部覆盖策略构造会话。
-   *
-   * override_strategy 会经由 RadarController 注入到内部 TacticalCoordinator，
-   * 注入后内部 LPI/ECCM evaluator 将被跳过。
-   */
-  static RadarSessionComposition ComposeWithOverrideStrategy(
-      const config::RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy);
 
   static RadarSessionComposition ComposeAllExternal(
       const config::RadarSessionConfig& config, extension::IRadarContext& radar_context,

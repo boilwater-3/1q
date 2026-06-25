@@ -55,19 +55,6 @@ session::EosSceneTarget MakeTarget(std::uint64_t id, float range_m, float az_deg
   return target;
 }
 
-class FixedEnvironmentService final : public environment::IEosEnvironmentService {
- public:
-  environment::EosEnvironmentModelResult ResolveFactors(
-      const environment::EosEnvironmentModelInputs& inputs) const override {
-    (void)inputs;
-    environment::EosEnvironmentModelResult result;
-    result.aerosol_density_factor = 1.0f;
-    result.turbulence_factor = 1.0f;
-    result.path_radiance_scale_bias = 1.0f;
-    return result;
-  }
-};
-
 }  // namespace
 
 TEST(EosPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchEosSessionConfig) {
@@ -476,23 +463,6 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
   EXPECT_TRUE(result.executed_this_cycle);
   EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
-}
-
-TEST(EosPublicApiConvenienceTest, EosSessionFactoryCanInjectEnvironmentService) {
-  FixedEnvironmentService environment_service;
-  session::EosSession session = session::EosSessionFactory::CreateWithEnvironmentService(
-      config::EosSessionConfig{}, environment_service);
-
-  ::electro_optical_sensor::session::EosCycleInput input;
-  input.cycle_index = 7U;
-  input.dt_sec = 1.0f;
-  input.scene.push_back(MakeTarget(601U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
-
-  const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
-  EXPECT_FALSE(result.has_validation_error);
-  EXPECT_TRUE(result.executed_this_cycle);
-  EXPECT_FALSE(result.reused_previous_output);
-  EXPECT_EQ(result.output_frame.cycle_index, 7U);
 }
 
 TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIndices) {

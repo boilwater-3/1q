@@ -14,7 +14,6 @@
 
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
-#include "1q/airborne_radar/extension/ControlReducerTypes.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/RadarController.h"
@@ -745,41 +744,6 @@ TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline
 
   controller.RunOnce();
   EXPECT_EQ(signal_pipeline.GetControlProfile().version, first_pending_version);
-}
-
-TEST_F(CoreControllerTest, CustomReducerConfigChangesPendingControlProfile) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
-  FakeRadarContext radar_context(input_state);
-
-  environment::EnvironmentService environment_service;
-
-  signal::pipeline::SignalPipeline signal_pipeline;
-  std::vector<extension::TacticalProposal> proposals;
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(
-          extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-          extension::control::ControlDirectiveSource::EMISSION_CONTROL),
-      60, "reduce power"});
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(
-          extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-          extension::control::ControlDirectiveSource::SURVIVABILITY),
-      82, "burnthrough"});
-  FixedProposalDecisionEngine decision_engine(proposals);
-
-  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
-                                        environment_service);
-
-  extension::ControlReducerConfig reducer_config;
-  reducer_config.lpi_power_scale_on_reduction = 0.60f;
-  reducer_config.eccm_burnthrough_gain = 1.8f;
-  reducer_config.burnthrough_lpi_power_floor = 0.95f;
-  controller.UpdateControlReducerConfig(reducer_config);
-
-  controller.RunOnce();
-
-  EXPECT_FLOAT_EQ(radar_context.LatestControlProfile().eccm_burnthrough_gain, 1.8f);
-  EXPECT_FLOAT_EQ(radar_context.LatestControlProfile().lpi_power_scale, 0.95f);
 }
 
 }  // namespace tests

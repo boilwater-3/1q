@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-#include "1q/airborne_radar/extension/ControlReducerTypes.h"
+#include "airborne_radar/decision/ControlReducerTypes.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 
 namespace airborne_radar {

@@ -42,8 +42,6 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_ESR_EXTENSION
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/EsrController.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/IEsrContext.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/IInterceptPipeline.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h
     )
     set(PUBLIC_HEADERS_ESR_SESSION

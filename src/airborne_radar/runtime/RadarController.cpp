@@ -5,7 +5,6 @@
 #include <memory>
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
@@ -69,15 +68,14 @@ struct RadarController::Impl {
   extension::SignalCycleAbortReason last_signal_abort_reason{
       extension::SignalCycleAbortReason::kNone};
 
-  /** @brief 构造使用默认 TacticalCoordinator 的控制器（可选注入 override_strategy）。 */
+  /** @brief 构造使用默认 TacticalCoordinator 的控制器。 */
   Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
-       environment::IEnvironmentService& env,
-       extension::IOverrideControlStrategy* override_strategy)
+       environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
         environment_service(env) {
     owned_decision_components.decision_engine.reset(
-        new decision::TacticalCoordinator(nullptr, override_strategy));
+        new decision::TacticalCoordinator(nullptr));
     owned_decision_components.tactical_state_store.reset(new extension::TacticalStateStore());
     owned_decision_components.control_reducer.reset(new decision::ControlReducer());
     decision_engine = owned_decision_components.decision_engine.get();
@@ -115,13 +113,7 @@ struct RadarController::Impl {
 RadarController::RadarController(extension::IRadarContext& radar_context,
                                  extension::ISignalPipeline& signal_pipeline,
                                  environment::IEnvironmentService& environment_service)
-    : impl_(new Impl(radar_context, signal_pipeline, environment_service, nullptr)) {}
-
-RadarController::RadarController(extension::IRadarContext& radar_context,
-                                 extension::ISignalPipeline& signal_pipeline,
-                                 environment::IEnvironmentService& environment_service,
-                                 extension::IOverrideControlStrategy& override_strategy)
-    : impl_(new Impl(radar_context, signal_pipeline, environment_service, &override_strategy)) {}
+    : impl_(new Impl(radar_context, signal_pipeline, environment_service)) {}
 
 RadarController::RadarController(extension::IRadarContext& radar_context,
                                  extension::ISignalPipeline& signal_pipeline,
@@ -224,25 +216,6 @@ void RadarController::RunCycles(std::size_t cycles) {
   for (std::size_t i = 0; i < cycles; ++i) {
     RunOnce();
   }
-}
-
-void RadarController::UpdateControlReducerConfig(const extension::ControlReducerConfig& config) {
-  if (impl_->owned_decision_components.control_reducer == nullptr) {
-    return;
-  }
-  impl_->owned_decision_components.control_reducer->UpdateConfig(config);
-  PROJECT_LOG_INFO(
-      "[RadarController] control reducer config updated: "
-      "lpi_power_scale={} dwell_scale={} burnthrough_gain={} "
-      "burnthrough_power_floor={} lpi_hold={} eccm_hold={} "
-      "lpi_cooldown={} eccm_cooldown={} prefer_survivability_power={} "
-      "prefer_survivability_beam={}",
-      config.lpi_power_scale_on_reduction, config.lpi_dwell_scale, config.eccm_burnthrough_gain,
-      config.burnthrough_lpi_power_floor, config.lpi_hold_cycles_after_request,
-      config.eccm_hold_cycles_after_request, config.lpi_cooldown_cycles_after_release,
-      config.eccm_cooldown_cycles_after_release,
-      config.prefer_survivability_in_power_conflict ? "true" : "false",
-      config.prefer_survivability_in_beam_conflict ? "true" : "false");
 }
 
 bool RadarController::HasLatestTrackOutputFrame() const {

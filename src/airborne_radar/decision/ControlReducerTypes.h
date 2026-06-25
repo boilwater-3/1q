@@ -1,15 +1,18 @@
 /**
  * @file ControlReducerTypes.h
- * @brief 定义控制归并器对外公开的配置与结果类型。
+ * @brief 定义控制归并器内部使用的配置与结果类型。
+ *
+ * 本头已从 public API 收口为内部实现细节。ControlReducerConfig 的唯一对外
+ * 触点 RadarController::UpdateControlReducerConfig() 已随本次收口移除；
+ * reducer 退回全默认值构造，运行期不再可调参。
  */
 
-#ifndef ONEQ_AIRBORNE_RADAR_EXTENSION_CONTROL_REDUCER_TYPES_H_
-#define ONEQ_AIRBORNE_RADAR_EXTENSION_CONTROL_REDUCER_TYPES_H_
+#ifndef AIRBORNE_RADAR_DECISION_CONTROL_REDUCER_TYPES_H_
+#define AIRBORNE_RADAR_DECISION_CONTROL_REDUCER_TYPES_H_
 
 #include <cstdint>
 #include <vector>
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/extension/control/ControlDirective.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 
@@ -19,7 +22,7 @@ namespace extension {
 /**
  * @brief ControlReducerConfig 描述 proposal -> profile 的固定映射与冲突裁决策略。
  */
-struct ONEQ_API ControlReducerConfig {
+struct ControlReducerConfig {
   float lpi_power_scale_on_reduction{0.5f}; /**< LPI 降功率意图映射到的默认功率比例 */
   float lpi_dwell_scale{0.75f};             /**< LPI 驻留调整意图映射到的默认驻留比例 */
   float eccm_burnthrough_gain{1.5f};        /**< ECCM 烧穿意图映射到的默认增益倍率 */
@@ -37,7 +40,7 @@ struct ONEQ_API ControlReducerConfig {
 /**
  * @brief ControlReductionResult 表示 reducer 的单周期输出。
  */
-struct ONEQ_API ControlReductionResult {
+struct ControlReductionResult {
   extension::control::RadarControlProfile profile; /**< 归并后的下一周期控制真值 */
   std::vector<extension::control::ControlDirective> applied_directives;  /**< 被采纳的控制意图 */
   std::vector<extension::control::ControlDirective> rejected_directives; /**< 被拒绝的控制意图 */

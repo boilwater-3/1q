@@ -8,7 +8,6 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "airborne_radar/decision/EccmEvaluator.h"
@@ -30,11 +29,9 @@ class TacticalCoordinator final : public extension::ITacticalDecisionEngine {
   /**
    * @brief 构造函数。
    * @param feature_repository 供威胁识别使用的特征仓储；可为空。
-   * @param override_strategy  外部策略覆盖接口；非空时将跳过内部 LPI/ECCM 评估。
    */
   explicit TacticalCoordinator(
-      const environment::IFeatureRepository* feature_repository = nullptr,
-      extension::IOverrideControlStrategy* override_strategy = nullptr);
+      const environment::IFeatureRepository* feature_repository = nullptr);
 
   /**
    * @brief 评估单周期输入并输出战术建议。
@@ -85,7 +82,6 @@ class TacticalCoordinator final : public extension::ITacticalDecisionEngine {
   ThreatAssessmentEvaluator threat_assessment_evaluator_;
   LpiEvaluator lpi_evaluator_;
   EccmEvaluator eccm_evaluator_;
-  extension::IOverrideControlStrategy* override_strategy_{nullptr};
 };
 
 }  // namespace decision

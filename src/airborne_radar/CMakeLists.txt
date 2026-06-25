@@ -126,9 +126,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarTrackOutputDebugView.h
     )
     set(PUBLIC_HEADERS_DECISION
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/ControlReducerTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/ITacticalDecisionEngine.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IOverrideControlStrategy.h
     )
     set(PUBLIC_HEADERS_ENVIRONMENT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentConfig.h
