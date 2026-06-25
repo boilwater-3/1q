@@ -130,7 +130,7 @@ int main() {
 
   // 14. RuntimeConfigBuilder: reset to center-driven scan
   const esr::config::EsrRuntimeConfigPatch clear_window_patch =
-      esr::config::EsrRuntimeConfigBuilder().SetUseExplicitScanBounds(false).Build();
+      esr::config::EsrRuntimeConfigBuilder().WithExplicitScanBoundsEnabled(false).Build();
   session.ApplyRuntimeConfig(clear_window_patch);
 
   // 15. RuntimeConfigBuilder: environment atmospheric config via environment runtime config

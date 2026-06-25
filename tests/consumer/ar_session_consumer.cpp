@@ -80,7 +80,7 @@ int main() {
           .WithScanCenterDeg({15.0f, -5.0f})
           .WithJammingSensitivityProfile(
               airborne_radar::environment::ResolveJammingSensitivityProfile(8.0f))
-          .EnableCommandedBeamwidth(true)
+          .WithCommandedBeamwidthEnabled(true)
           .Build();
   session.ApplyRuntimeConfig(runtime_patch);
 

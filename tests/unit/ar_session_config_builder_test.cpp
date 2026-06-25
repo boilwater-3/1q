@@ -173,7 +173,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
           .WithScanCenterDeg(scan_center)
           .WithDwellCenterDeg(dwell_center)
           .WithCommandedBeamwidthDeg(commanded_beamwidth)
-          .EnableCommandedBeamwidth(true)
+          .WithCommandedBeamwidthEnabled(true)
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .Build();
 
@@ -196,6 +196,31 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
             environment::JammingSensitivityProfile::kStrict);
 }
 
+// P3-b：四域 RuntimeConfigBuilder 形状对齐——必须提供 WithRuntimeConfigPatch 整块覆盖入口，
+// 与 EOS/ESR/SAR 一致。本测试锁定 AR 侧的语义：整块覆盖优先于链上逐字段设置。
+TEST(RadarSessionConfigBuilderTest, WithRuntimeConfigPatchOverridesWholePatch) {
+  // 先用链式逐字段构造一份补丁
+  const config::RadarRuntimeConfigPatch seed =
+      config::RadarRuntimeConfigBuilder()
+          .WithWorkMode(model::RadarWorkMode::kStt)
+          .WithSensorEnabled(true)
+          .Build();
+  ASSERT_TRUE(seed.has_work_mode);
+  ASSERT_TRUE(seed.has_sensor_enabled);
+
+  // 再用 WithRuntimeConfigPatch 整块覆盖到一个新 builder，验证整块替换语义
+  config::RadarRuntimeConfigPatch whole;
+  whole.has_work_mode = true;
+  whole.work_mode = model::RadarWorkMode::kTas;
+  const config::RadarRuntimeConfigPatch patch =
+      config::RadarRuntimeConfigBuilder().WithRuntimeConfigPatch(whole).Build();
+
+  EXPECT_TRUE(patch.has_work_mode);
+  EXPECT_EQ(patch.work_mode, model::RadarWorkMode::kTas);
+  // 整块覆盖应清空 seed 里的 sensor_enabled（WithRuntimeConfigPatch 是替换不是合并）
+  EXPECT_FALSE(patch.has_sensor_enabled);
+}
+
 TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
   session::RadarSession session =
       session::RadarSessionFactory::Create(MakeDetectionFocusedConfig());
@@ -203,7 +228,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
           .WithWorkMode(model::RadarWorkMode::kTas)
-          .EnableCommandedBeamwidth(true)
+          .WithCommandedBeamwidthEnabled(true)
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .Build();
 

@@ -21,72 +21,72 @@ class ONEQ_API EsrRuntimeConfigBuilder {
   explicit EsrRuntimeConfigBuilder(const config::EsrRuntimeConfigPatch& patch = {})
       : patch_(patch) {}
 
-  EsrRuntimeConfigBuilder& WithRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& patch) {
+  EsrRuntimeConfigBuilder& WithRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& patch) noexcept {
     patch_ = patch;
     return *this;
   }
 
-  EsrRuntimeConfigBuilder& WithMission(const EsrMissionConfig& mission) {
+  EsrRuntimeConfigBuilder& WithMission(const EsrMissionConfig& mission) noexcept {
     patch_.has_mission = true;
     patch_.mission = mission;
     return *this;
   }
 
-  EsrRuntimeConfigBuilder& WithPolicy(const EsrPolicyConfig& policy) {
+  EsrRuntimeConfigBuilder& WithPolicy(const EsrPolicyConfig& policy) noexcept {
     patch_.has_policy = true;
     patch_.policy = policy;
     return *this;
   }
 
   EsrRuntimeConfigBuilder& WithEnvironment(
-      const environment::EsrEnvironmentRuntimeConfigPatch& env_patch) {
+      const environment::EsrEnvironmentRuntimeConfigPatch& env_patch) noexcept {
     patch_.has_environment = true;
     patch_.environment = env_patch;
     return *this;
   }
 
-  EsrRuntimeConfigBuilder& WithSensorEnabled(bool enable) {
+  EsrRuntimeConfigBuilder& WithSensorEnabled(bool enable) noexcept {
     patch_.has_sensor_enabled = true;
     patch_.sensor_enabled = enable;
     return *this;
   }
-  EsrRuntimeConfigBuilder& WithWorkMode(config::EsrWorkMode mode) {
+  EsrRuntimeConfigBuilder& WithWorkMode(config::EsrWorkMode mode) noexcept {
     patch_.has_work_mode = true;
     patch_.work_mode = mode;
     return *this;
   }
-  EsrRuntimeConfigBuilder& WithScanRateHz(float value) {
+  EsrRuntimeConfigBuilder& WithScanRateHz(float value) noexcept {
     patch_.has_scan_rate_hz = true;
     patch_.scan_rate_hz = value;
     return *this;
   }
-  EsrRuntimeConfigBuilder& WithScanStartPosition(config::EsrScanStartPosition position) {
+  EsrRuntimeConfigBuilder& WithScanStartPosition(config::EsrScanStartPosition position) noexcept {
     patch_.has_scan_start_position = true;
     patch_.scan_start_position = position;
     return *this;
   }
-  EsrRuntimeConfigBuilder& WithScanSequence(config::EsrScanSequence sequence) {
+  EsrRuntimeConfigBuilder& WithScanSequence(config::EsrScanSequence sequence) noexcept {
     patch_.has_scan_sequence = true;
     patch_.scan_sequence = sequence;
     return *this;
   }
-  EsrRuntimeConfigBuilder& WithScanCenterAzDeg(float value) {
+  EsrRuntimeConfigBuilder& WithScanCenterAzDeg(float value) noexcept {
     patch_.has_scan_center_az_deg = true;
     patch_.scan_center_az_deg = value;
     return *this;
   }
-  EsrRuntimeConfigBuilder& WithScanCenterElDeg(float value) {
+  EsrRuntimeConfigBuilder& WithScanCenterElDeg(float value) noexcept {
     patch_.has_scan_center_el_deg = true;
     patch_.scan_center_el_deg = value;
     return *this;
   }
-  EsrRuntimeConfigBuilder& SetUseExplicitScanBounds(bool enable) {
+  EsrRuntimeConfigBuilder& WithExplicitScanBoundsEnabled(bool enable) noexcept {
     patch_.has_explicit_scan_bounds = true;
     patch_.explicit_scan_bounds.enabled = enable;
     return *this;
   }
   EsrRuntimeConfigBuilder& WithExplicitScanBoundsDeg(float start_az, float end_az, float start_el,
-                                                     float end_el) {
+                                                     float end_el) noexcept {
     patch_.has_explicit_scan_bounds = true;
     ExplicitScanBounds sb;
     sb.enabled = true;
@@ -98,20 +98,20 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     return *this;
   }
   EsrRuntimeConfigBuilder& WithAtmosphericPhysicsConfig(
-      const environment::EsrAtmosphericPhysicsConfig& atmospheric_physics) {
+      const environment::EsrAtmosphericPhysicsConfig& atmospheric_physics) noexcept {
     patch_.has_environment = true;
     patch_.environment.has_atmospheric_physics = true;
     patch_.environment.atmospheric_physics = atmospheric_physics;
     return *this;
   }
   EsrRuntimeConfigBuilder& WithAtmosphericContext(
-      const environment::EsrAtmosphericDerivedContext& atmospheric_context) {
+      const environment::EsrAtmosphericDerivedContext& atmospheric_context) noexcept {
     patch_.has_environment = true;
     patch_.environment.has_atmospheric_context = true;
     patch_.environment.atmospheric_context = atmospheric_context;
     return *this;
   }
-  config::EsrRuntimeConfigPatch Build() const { return patch_; }
+  config::EsrRuntimeConfigPatch Build() const noexcept { return patch_; }
 
  private:
   config::EsrRuntimeConfigPatch patch_{};
