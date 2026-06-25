@@ -50,7 +50,7 @@ InterceptPipeline::InterceptPipeline(EsrInternalExecutionConfig config)
 }
 
 void InterceptPipeline::UpdateConfig(extension::InterceptPipelineConfig config) {
-  config_.detection.min_detect_snr_db = config.detection.min_detect_snr_db;
+  config_.detection.minimum_snr_db = config.detection.minimum_snr_db;
   config_.detection.pfa = config.statistical_detection.pfa;
   config_.detection.pulse_count = config.statistical_detection.pulse_count;
   config_.detection.threshold_scale = config.statistical_detection.threshold_scale;

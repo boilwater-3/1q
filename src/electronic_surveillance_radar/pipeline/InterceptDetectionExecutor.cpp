@@ -496,7 +496,7 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
       static_cast<double>(config.detection.receiver_noise_floor_w) +
           static_cast<double>(env_snapshot.clutter_noise_w) + effective_suppression_power_w,
       kNumericFloor);
-  const float static_threshold_snr_db = config.detection.min_detect_snr_db;
+  const float static_threshold_snr_db = config.detection.minimum_snr_db;
   const float dynamic_threshold_snr_db = oneq::internal::timing::ComputeDynamicThresholdSnrDb(
       noise_power_w, emitter_detection_params);
   const float detection_threshold_snr_db =

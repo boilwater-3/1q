@@ -168,7 +168,7 @@ flatbuffers::Offset<replay::SarPolicyConfig> BuildPolicyConfig(
   return replay::CreateSarPolicyConfig(
       fbb, value.enable_raw_echo_generation, value.enable_range_compression,
       value.enable_l1_rda_imaging, value.enable_diagnostics, value.retain_raw_phase_history,
-      value.retain_focused_image, value.max_allowed_squint_angle_deg, value.min_valid_snr_db,
+      value.retain_focused_image, value.max_allowed_squint_angle_deg, value.minimum_snr_db,
       value.enable_l2_motion_compensation, value.enable_l3_bp_imaging);
 }
 
@@ -183,7 +183,7 @@ void FromFbPolicyConfig(const replay::SarPolicyConfig* fb, config::SarPolicyConf
   out->retain_raw_phase_history = fb->retain_raw_phase_history();
   out->retain_focused_image = fb->retain_focused_image();
   out->max_allowed_squint_angle_deg = fb->max_allowed_squint_angle_deg();
-  out->min_valid_snr_db = fb->min_valid_snr_db();
+  out->minimum_snr_db = fb->minimum_snr_db();
   out->enable_l2_motion_compensation = fb->enable_l2_motion_compensation();
   out->enable_l3_bp_imaging = fb->enable_l3_bp_imaging();
 }
@@ -358,8 +358,8 @@ std::string EncodeSarRuntimeConfigPatch(const config::SarRuntimeConfigPatch& val
       value.has_enable_range_compression, value.enable_range_compression,
       value.has_enable_l1_rda_imaging, value.enable_l1_rda_imaging,
       value.has_retain_raw_phase_history, value.retain_raw_phase_history,
-      value.has_retain_focused_image, value.retain_focused_image, value.has_min_valid_snr_db,
-      value.min_valid_snr_db));
+      value.has_retain_focused_image, value.retain_focused_image, value.has_minimum_snr_db,
+      value.minimum_snr_db));
   return FinishToString(&fbb);
 }
 
@@ -382,8 +382,8 @@ bool DecodeSarRuntimeConfigPatch(const std::string& bytes, config::SarRuntimeCon
   out->retain_raw_phase_history = fb->retain_raw_phase_history();
   out->has_retain_focused_image = fb->has_retain_focused_image();
   out->retain_focused_image = fb->retain_focused_image();
-  out->has_min_valid_snr_db = fb->has_min_valid_snr_db();
-  out->min_valid_snr_db = fb->min_valid_snr_db();
+  out->has_minimum_snr_db = fb->has_minimum_snr_db();
+  out->minimum_snr_db = fb->minimum_snr_db();
   return true;
 }
 

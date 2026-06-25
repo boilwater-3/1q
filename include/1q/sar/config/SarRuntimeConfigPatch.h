@@ -32,8 +32,8 @@ struct ONEQ_API SarRuntimeConfigPatch {
   bool has_retain_focused_image{false};
   bool retain_focused_image{true};
 
-  bool has_min_valid_snr_db{false};
-  double min_valid_snr_db{-10.0};
+  bool has_minimum_snr_db{false};
+  double minimum_snr_db{-10.0};
 };
 
 }  // namespace config

@@ -38,10 +38,10 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     return *this;
   }
 
-  EsrRuntimeConfigBuilder& WithEnvironmentRuntimeConfig(
+  EsrRuntimeConfigBuilder& WithEnvironment(
       const environment::EsrEnvironmentRuntimeConfigPatch& env_patch) {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config = env_patch;
+    patch_.has_environment = true;
+    patch_.environment = env_patch;
     return *this;
   }
 
@@ -99,16 +99,16 @@ class ONEQ_API EsrRuntimeConfigBuilder {
   }
   EsrRuntimeConfigBuilder& WithAtmosphericPhysicsConfig(
       const environment::EsrAtmosphericPhysicsConfig& atmospheric_physics) {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config.has_atmospheric_physics = true;
-    patch_.environment_runtime_config.atmospheric_physics = atmospheric_physics;
+    patch_.has_environment = true;
+    patch_.environment.has_atmospheric_physics = true;
+    patch_.environment.atmospheric_physics = atmospheric_physics;
     return *this;
   }
   EsrRuntimeConfigBuilder& WithAtmosphericContext(
       const environment::EsrAtmosphericDerivedContext& atmospheric_context) {
-    patch_.has_environment_runtime_config = true;
-    patch_.environment_runtime_config.has_atmospheric_context = true;
-    patch_.environment_runtime_config.atmospheric_context = atmospheric_context;
+    patch_.has_environment = true;
+    patch_.environment.has_atmospheric_context = true;
+    patch_.environment.atmospheric_context = atmospheric_context;
     return *this;
   }
   config::EsrRuntimeConfigPatch Build() const { return patch_; }

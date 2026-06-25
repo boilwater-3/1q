@@ -24,7 +24,7 @@ namespace {
 bool HasRequestedUpdate(const config::SarRuntimeConfigPatch& patch) {
   return patch.has_enable_raw_echo_generation || patch.has_enable_range_compression ||
          patch.has_enable_l1_rda_imaging || patch.has_retain_raw_phase_history ||
-         patch.has_retain_focused_image || patch.has_min_valid_snr_db;
+         patch.has_retain_focused_image || patch.has_minimum_snr_db;
 }
 
 void ApplyPatchToConfig(config::SarSessionConfig* config,
@@ -44,8 +44,8 @@ void ApplyPatchToConfig(config::SarSessionConfig* config,
   if (patch.has_retain_focused_image) {
     config->policy.retain_focused_image = patch.retain_focused_image;
   }
-  if (patch.has_min_valid_snr_db) {
-    config->policy.min_valid_snr_db = patch.min_valid_snr_db;
+  if (patch.has_minimum_snr_db) {
+    config->policy.minimum_snr_db = patch.minimum_snr_db;
   }
 }
 
@@ -150,7 +150,7 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
     const double estimated_snr_db = EstimateRawHistorySnrDb(raw_history);
     MarkRawEchoStage(&result.output_frame, estimated_snr_db);
     if (std::isfinite(result.output_frame.estimated_snr_db) &&
-        result.output_frame.estimated_snr_db < impl_->runtime_config.policy.min_valid_snr_db) {
+        result.output_frame.estimated_snr_db < impl_->runtime_config.policy.minimum_snr_db) {
       RecordAbort(&result, "snr_below_minimum",
                   "SAR estimated SNR is below the configured minimum valid SNR.");
       return finish();

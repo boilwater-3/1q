@@ -110,9 +110,9 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     resolved.pipeline_config_changed = true;
   }
 
-  if (patch.has_environment_runtime_config) {
+  if (patch.has_environment) {
     has_requested_update = true;
-    ApplyEnvironmentRuntimePatch(patch.environment_runtime_config, &resolved.next_config,
+    ApplyEnvironmentRuntimePatch(patch.environment, &resolved.next_config,
                                  &resolved.environment_model_config_changed);
   }
 
@@ -226,7 +226,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     PROJECT_LOG_INFO(
         "[EsrSession] runtime config patch applied: mission={} policy={} env={} sensor_enabled={} "
         "work_mode={} scan_rate={} scan_bounds={}",
-        patch.has_mission, patch.has_policy, patch.has_environment_runtime_config,
+        patch.has_mission, patch.has_policy, patch.has_environment,
         patch.has_sensor_enabled, patch.has_work_mode, patch.has_scan_rate_hz,
         patch.has_explicit_scan_bounds);
   }

@@ -11,26 +11,62 @@ namespace replay {
 
 struct SarHardwareConfig;
 struct SarHardwareConfigBuilder;
+struct SarHardwareConfigT;
 
 struct SarWaypointConfig;
 struct SarWaypointConfigBuilder;
+struct SarWaypointConfigT;
 
 struct SarMissionConfig;
 struct SarMissionConfigBuilder;
+struct SarMissionConfigT;
 
 struct SarPolicyConfig;
 struct SarPolicyConfigBuilder;
+struct SarPolicyConfigT;
 
 struct SarEnvironmentConfig;
 struct SarEnvironmentConfigBuilder;
+struct SarEnvironmentConfigT;
 
 struct SarSessionConfig;
 struct SarSessionConfigBuilder;
+struct SarSessionConfigT;
 
 struct SarRuntimeConfigPatch;
 struct SarRuntimeConfigPatchBuilder;
+struct SarRuntimeConfigPatchT;
+
+struct SarHardwareConfigT : public flatbuffers::NativeTable {
+  typedef SarHardwareConfig TableType;
+  double carrier_frequency_hz;
+  double bandwidth_hz;
+  double pulse_width_s;
+  double pulse_repetition_frequency_hz;
+  double sample_rate_hz;
+  double peak_power_w;
+  double antenna_length_m;
+  double antenna_width_m;
+  double antenna_gain_db;
+  double receiver_noise_figure_db;
+  double system_loss_db;
+  SarHardwareConfigT()
+      : carrier_frequency_hz(0.0),
+        bandwidth_hz(0.0),
+        pulse_width_s(0.0),
+        pulse_repetition_frequency_hz(0.0),
+        sample_rate_hz(0.0),
+        peak_power_w(0.0),
+        antenna_length_m(0.0),
+        antenna_width_m(0.0),
+        antenna_gain_db(0.0),
+        receiver_noise_figure_db(0.0),
+        system_loss_db(0.0) {
+  }
+};
 
 struct SarHardwareConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarHardwareConfigT NativeTableType;
   typedef SarHardwareConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CARRIER_FREQUENCY_HZ = 4,
@@ -93,6 +129,9 @@ struct SarHardwareConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<double>(verifier, VT_SYSTEM_LOSS_DB) &&
            verifier.EndTable();
   }
+  SarHardwareConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarHardwareConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarHardwareConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarHardwareConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarHardwareConfigBuilder {
@@ -172,7 +211,24 @@ inline flatbuffers::Offset<SarHardwareConfig> CreateSarHardwareConfig(
   return builder_.Finish();
 }
 
+flatbuffers::Offset<SarHardwareConfig> CreateSarHardwareConfig(flatbuffers::FlatBufferBuilder &_fbb, const SarHardwareConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct SarWaypointConfigT : public flatbuffers::NativeTable {
+  typedef SarWaypointConfig TableType;
+  double time_from_session_start_s;
+  double latitude_deg;
+  double longitude_deg;
+  double altitude_m;
+  SarWaypointConfigT()
+      : time_from_session_start_s(0.0),
+        latitude_deg(0.0),
+        longitude_deg(0.0),
+        altitude_m(0.0) {
+  }
+};
+
 struct SarWaypointConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarWaypointConfigT NativeTableType;
   typedef SarWaypointConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TIME_FROM_SESSION_START_S = 4,
@@ -200,6 +256,9 @@ struct SarWaypointConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<double>(verifier, VT_ALTITUDE_M) &&
            verifier.EndTable();
   }
+  SarWaypointConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarWaypointConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarWaypointConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarWaypointConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarWaypointConfigBuilder {
@@ -244,7 +303,45 @@ inline flatbuffers::Offset<SarWaypointConfig> CreateSarWaypointConfig(
   return builder_.Finish();
 }
 
+flatbuffers::Offset<SarWaypointConfig> CreateSarWaypointConfig(flatbuffers::FlatBufferBuilder &_fbb, const SarWaypointConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct SarMissionConfigT : public flatbuffers::NativeTable {
+  typedef SarMissionConfig TableType;
+  double scene_center_latitude_deg;
+  double scene_center_longitude_deg;
+  double scene_center_altitude_m;
+  double nominal_slant_range_m;
+  double synthetic_aperture_time_s;
+  double platform_speed_mps;
+  uint32_t range_sample_count;
+  uint32_t azimuth_pulse_count;
+  double desired_ground_range_resolution_m;
+  double desired_azimuth_resolution_m;
+  double l2_velocity_error_stddev_x_mps;
+  double l2_velocity_error_stddev_y_mps;
+  double l2_velocity_error_stddev_z_mps;
+  uint32_t l2_random_seed;
+  std::vector<std::unique_ptr<sar::replay::SarWaypointConfigT>> l3_waypoints;
+  SarMissionConfigT()
+      : scene_center_latitude_deg(0.0),
+        scene_center_longitude_deg(0.0),
+        scene_center_altitude_m(0.0),
+        nominal_slant_range_m(0.0),
+        synthetic_aperture_time_s(0.0),
+        platform_speed_mps(0.0),
+        range_sample_count(0),
+        azimuth_pulse_count(0),
+        desired_ground_range_resolution_m(0.0),
+        desired_azimuth_resolution_m(0.0),
+        l2_velocity_error_stddev_x_mps(0.0),
+        l2_velocity_error_stddev_y_mps(0.0),
+        l2_velocity_error_stddev_z_mps(0.0),
+        l2_random_seed(0) {
+  }
+};
+
 struct SarMissionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarMissionConfigT NativeTableType;
   typedef SarMissionConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SCENE_CENTER_LATITUDE_DEG = 4,
@@ -329,6 +426,9 @@ struct SarMissionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVectorOfTables(l3_waypoints()) &&
            verifier.EndTable();
   }
+  SarMissionConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarMissionConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarMissionConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarMissionConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarMissionConfigBuilder {
@@ -465,7 +565,36 @@ inline flatbuffers::Offset<SarMissionConfig> CreateSarMissionConfigDirect(
       l3_waypoints__);
 }
 
+flatbuffers::Offset<SarMissionConfig> CreateSarMissionConfig(flatbuffers::FlatBufferBuilder &_fbb, const SarMissionConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct SarPolicyConfigT : public flatbuffers::NativeTable {
+  typedef SarPolicyConfig TableType;
+  bool enable_raw_echo_generation;
+  bool enable_range_compression;
+  bool enable_l1_rda_imaging;
+  bool enable_diagnostics;
+  bool retain_raw_phase_history;
+  bool retain_focused_image;
+  double max_allowed_squint_angle_deg;
+  double minimum_snr_db;
+  bool enable_l2_motion_compensation;
+  bool enable_l3_bp_imaging;
+  SarPolicyConfigT()
+      : enable_raw_echo_generation(false),
+        enable_range_compression(false),
+        enable_l1_rda_imaging(false),
+        enable_diagnostics(false),
+        retain_raw_phase_history(false),
+        retain_focused_image(false),
+        max_allowed_squint_angle_deg(0.0),
+        minimum_snr_db(0.0),
+        enable_l2_motion_compensation(false),
+        enable_l3_bp_imaging(false) {
+  }
+};
+
 struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarPolicyConfigT NativeTableType;
   typedef SarPolicyConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ENABLE_RAW_ECHO_GENERATION = 4,
@@ -475,7 +604,7 @@ struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_RETAIN_RAW_PHASE_HISTORY = 12,
     VT_RETAIN_FOCUSED_IMAGE = 14,
     VT_MAX_ALLOWED_SQUINT_ANGLE_DEG = 16,
-    VT_MIN_VALID_SNR_DB = 18,
+    VT_MINIMUM_SNR_DB = 18,
     VT_ENABLE_L2_MOTION_COMPENSATION = 20,
     VT_ENABLE_L3_BP_IMAGING = 22
   };
@@ -500,8 +629,8 @@ struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   double max_allowed_squint_angle_deg() const {
     return GetField<double>(VT_MAX_ALLOWED_SQUINT_ANGLE_DEG, 0.0);
   }
-  double min_valid_snr_db() const {
-    return GetField<double>(VT_MIN_VALID_SNR_DB, 0.0);
+  double minimum_snr_db() const {
+    return GetField<double>(VT_MINIMUM_SNR_DB, 0.0);
   }
   bool enable_l2_motion_compensation() const {
     return GetField<uint8_t>(VT_ENABLE_L2_MOTION_COMPENSATION, 0) != 0;
@@ -518,11 +647,14 @@ struct SarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_RETAIN_RAW_PHASE_HISTORY) &&
            VerifyField<uint8_t>(verifier, VT_RETAIN_FOCUSED_IMAGE) &&
            VerifyField<double>(verifier, VT_MAX_ALLOWED_SQUINT_ANGLE_DEG) &&
-           VerifyField<double>(verifier, VT_MIN_VALID_SNR_DB) &&
+           VerifyField<double>(verifier, VT_MINIMUM_SNR_DB) &&
            VerifyField<uint8_t>(verifier, VT_ENABLE_L2_MOTION_COMPENSATION) &&
            VerifyField<uint8_t>(verifier, VT_ENABLE_L3_BP_IMAGING) &&
            verifier.EndTable();
   }
+  SarPolicyConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarPolicyConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarPolicyConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarPolicyConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarPolicyConfigBuilder {
@@ -550,8 +682,8 @@ struct SarPolicyConfigBuilder {
   void add_max_allowed_squint_angle_deg(double max_allowed_squint_angle_deg) {
     fbb_.AddElement<double>(SarPolicyConfig::VT_MAX_ALLOWED_SQUINT_ANGLE_DEG, max_allowed_squint_angle_deg, 0.0);
   }
-  void add_min_valid_snr_db(double min_valid_snr_db) {
-    fbb_.AddElement<double>(SarPolicyConfig::VT_MIN_VALID_SNR_DB, min_valid_snr_db, 0.0);
+  void add_minimum_snr_db(double minimum_snr_db) {
+    fbb_.AddElement<double>(SarPolicyConfig::VT_MINIMUM_SNR_DB, minimum_snr_db, 0.0);
   }
   void add_enable_l2_motion_compensation(bool enable_l2_motion_compensation) {
     fbb_.AddElement<uint8_t>(SarPolicyConfig::VT_ENABLE_L2_MOTION_COMPENSATION, static_cast<uint8_t>(enable_l2_motion_compensation), 0);
@@ -580,11 +712,11 @@ inline flatbuffers::Offset<SarPolicyConfig> CreateSarPolicyConfig(
     bool retain_raw_phase_history = false,
     bool retain_focused_image = false,
     double max_allowed_squint_angle_deg = 0.0,
-    double min_valid_snr_db = 0.0,
+    double minimum_snr_db = 0.0,
     bool enable_l2_motion_compensation = false,
     bool enable_l3_bp_imaging = false) {
   SarPolicyConfigBuilder builder_(_fbb);
-  builder_.add_min_valid_snr_db(min_valid_snr_db);
+  builder_.add_minimum_snr_db(minimum_snr_db);
   builder_.add_max_allowed_squint_angle_deg(max_allowed_squint_angle_deg);
   builder_.add_enable_l3_bp_imaging(enable_l3_bp_imaging);
   builder_.add_enable_l2_motion_compensation(enable_l2_motion_compensation);
@@ -597,7 +729,26 @@ inline flatbuffers::Offset<SarPolicyConfig> CreateSarPolicyConfig(
   return builder_.Finish();
 }
 
+flatbuffers::Offset<SarPolicyConfig> CreateSarPolicyConfig(flatbuffers::FlatBufferBuilder &_fbb, const SarPolicyConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct SarEnvironmentConfigT : public flatbuffers::NativeTable {
+  typedef SarEnvironmentConfig TableType;
+  double terrain_reference_altitude_m;
+  double atmospheric_loss_db_per_km;
+  double surface_backscatter_sigma0_db;
+  bool use_flat_earth_geometry;
+  bool enable_atmospheric_attenuation;
+  SarEnvironmentConfigT()
+      : terrain_reference_altitude_m(0.0),
+        atmospheric_loss_db_per_km(0.0),
+        surface_backscatter_sigma0_db(0.0),
+        use_flat_earth_geometry(false),
+        enable_atmospheric_attenuation(false) {
+  }
+};
+
 struct SarEnvironmentConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarEnvironmentConfigT NativeTableType;
   typedef SarEnvironmentConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TERRAIN_REFERENCE_ALTITUDE_M = 4,
@@ -630,6 +781,9 @@ struct SarEnvironmentConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table
            VerifyField<uint8_t>(verifier, VT_ENABLE_ATMOSPHERIC_ATTENUATION) &&
            verifier.EndTable();
   }
+  SarEnvironmentConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarEnvironmentConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarEnvironmentConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarEnvironmentConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarEnvironmentConfigBuilder {
@@ -679,7 +833,20 @@ inline flatbuffers::Offset<SarEnvironmentConfig> CreateSarEnvironmentConfig(
   return builder_.Finish();
 }
 
+flatbuffers::Offset<SarEnvironmentConfig> CreateSarEnvironmentConfig(flatbuffers::FlatBufferBuilder &_fbb, const SarEnvironmentConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct SarSessionConfigT : public flatbuffers::NativeTable {
+  typedef SarSessionConfig TableType;
+  std::unique_ptr<sar::replay::SarHardwareConfigT> hardware;
+  std::unique_ptr<sar::replay::SarMissionConfigT> mission;
+  std::unique_ptr<sar::replay::SarPolicyConfigT> policy;
+  std::unique_ptr<sar::replay::SarEnvironmentConfigT> environment;
+  SarSessionConfigT() {
+  }
+};
+
 struct SarSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarSessionConfigT NativeTableType;
   typedef SarSessionConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HARDWARE = 4,
@@ -711,6 +878,9 @@ struct SarSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyTable(environment()) &&
            verifier.EndTable();
   }
+  SarSessionConfigT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarSessionConfigT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarSessionConfig> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarSessionConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarSessionConfigBuilder {
@@ -755,7 +925,40 @@ inline flatbuffers::Offset<SarSessionConfig> CreateSarSessionConfig(
   return builder_.Finish();
 }
 
+flatbuffers::Offset<SarSessionConfig> CreateSarSessionConfig(flatbuffers::FlatBufferBuilder &_fbb, const SarSessionConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct SarRuntimeConfigPatchT : public flatbuffers::NativeTable {
+  typedef SarRuntimeConfigPatch TableType;
+  bool has_enable_raw_echo_generation;
+  bool enable_raw_echo_generation;
+  bool has_enable_range_compression;
+  bool enable_range_compression;
+  bool has_enable_l1_rda_imaging;
+  bool enable_l1_rda_imaging;
+  bool has_retain_raw_phase_history;
+  bool retain_raw_phase_history;
+  bool has_retain_focused_image;
+  bool retain_focused_image;
+  bool has_minimum_snr_db;
+  double minimum_snr_db;
+  SarRuntimeConfigPatchT()
+      : has_enable_raw_echo_generation(false),
+        enable_raw_echo_generation(false),
+        has_enable_range_compression(false),
+        enable_range_compression(false),
+        has_enable_l1_rda_imaging(false),
+        enable_l1_rda_imaging(false),
+        has_retain_raw_phase_history(false),
+        retain_raw_phase_history(false),
+        has_retain_focused_image(false),
+        retain_focused_image(false),
+        has_minimum_snr_db(false),
+        minimum_snr_db(0.0) {
+  }
+};
+
 struct SarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SarRuntimeConfigPatchT NativeTableType;
   typedef SarRuntimeConfigPatchBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HAS_ENABLE_RAW_ECHO_GENERATION = 4,
@@ -768,8 +971,8 @@ struct SarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
     VT_RETAIN_RAW_PHASE_HISTORY = 18,
     VT_HAS_RETAIN_FOCUSED_IMAGE = 20,
     VT_RETAIN_FOCUSED_IMAGE = 22,
-    VT_HAS_MIN_VALID_SNR_DB = 24,
-    VT_MIN_VALID_SNR_DB = 26
+    VT_HAS_MINIMUM_SNR_DB = 24,
+    VT_MINIMUM_SNR_DB = 26
   };
   bool has_enable_raw_echo_generation() const {
     return GetField<uint8_t>(VT_HAS_ENABLE_RAW_ECHO_GENERATION, 0) != 0;
@@ -801,11 +1004,11 @@ struct SarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
   bool retain_focused_image() const {
     return GetField<uint8_t>(VT_RETAIN_FOCUSED_IMAGE, 0) != 0;
   }
-  bool has_min_valid_snr_db() const {
-    return GetField<uint8_t>(VT_HAS_MIN_VALID_SNR_DB, 0) != 0;
+  bool has_minimum_snr_db() const {
+    return GetField<uint8_t>(VT_HAS_MINIMUM_SNR_DB, 0) != 0;
   }
-  double min_valid_snr_db() const {
-    return GetField<double>(VT_MIN_VALID_SNR_DB, 0.0);
+  double minimum_snr_db() const {
+    return GetField<double>(VT_MINIMUM_SNR_DB, 0.0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -819,10 +1022,13 @@ struct SarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
            VerifyField<uint8_t>(verifier, VT_RETAIN_RAW_PHASE_HISTORY) &&
            VerifyField<uint8_t>(verifier, VT_HAS_RETAIN_FOCUSED_IMAGE) &&
            VerifyField<uint8_t>(verifier, VT_RETAIN_FOCUSED_IMAGE) &&
-           VerifyField<uint8_t>(verifier, VT_HAS_MIN_VALID_SNR_DB) &&
-           VerifyField<double>(verifier, VT_MIN_VALID_SNR_DB) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_MINIMUM_SNR_DB) &&
+           VerifyField<double>(verifier, VT_MINIMUM_SNR_DB) &&
            verifier.EndTable();
   }
+  SarRuntimeConfigPatchT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(SarRuntimeConfigPatchT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<SarRuntimeConfigPatch> Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarRuntimeConfigPatchT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 };
 
 struct SarRuntimeConfigPatchBuilder {
@@ -859,11 +1065,11 @@ struct SarRuntimeConfigPatchBuilder {
   void add_retain_focused_image(bool retain_focused_image) {
     fbb_.AddElement<uint8_t>(SarRuntimeConfigPatch::VT_RETAIN_FOCUSED_IMAGE, static_cast<uint8_t>(retain_focused_image), 0);
   }
-  void add_has_min_valid_snr_db(bool has_min_valid_snr_db) {
-    fbb_.AddElement<uint8_t>(SarRuntimeConfigPatch::VT_HAS_MIN_VALID_SNR_DB, static_cast<uint8_t>(has_min_valid_snr_db), 0);
+  void add_has_minimum_snr_db(bool has_minimum_snr_db) {
+    fbb_.AddElement<uint8_t>(SarRuntimeConfigPatch::VT_HAS_MINIMUM_SNR_DB, static_cast<uint8_t>(has_minimum_snr_db), 0);
   }
-  void add_min_valid_snr_db(double min_valid_snr_db) {
-    fbb_.AddElement<double>(SarRuntimeConfigPatch::VT_MIN_VALID_SNR_DB, min_valid_snr_db, 0.0);
+  void add_minimum_snr_db(double minimum_snr_db) {
+    fbb_.AddElement<double>(SarRuntimeConfigPatch::VT_MINIMUM_SNR_DB, minimum_snr_db, 0.0);
   }
   explicit SarRuntimeConfigPatchBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -889,11 +1095,11 @@ inline flatbuffers::Offset<SarRuntimeConfigPatch> CreateSarRuntimeConfigPatch(
     bool retain_raw_phase_history = false,
     bool has_retain_focused_image = false,
     bool retain_focused_image = false,
-    bool has_min_valid_snr_db = false,
-    double min_valid_snr_db = 0.0) {
+    bool has_minimum_snr_db = false,
+    double minimum_snr_db = 0.0) {
   SarRuntimeConfigPatchBuilder builder_(_fbb);
-  builder_.add_min_valid_snr_db(min_valid_snr_db);
-  builder_.add_has_min_valid_snr_db(has_min_valid_snr_db);
+  builder_.add_minimum_snr_db(minimum_snr_db);
+  builder_.add_has_minimum_snr_db(has_minimum_snr_db);
   builder_.add_retain_focused_image(retain_focused_image);
   builder_.add_has_retain_focused_image(has_retain_focused_image);
   builder_.add_retain_raw_phase_history(retain_raw_phase_history);
@@ -905,6 +1111,352 @@ inline flatbuffers::Offset<SarRuntimeConfigPatch> CreateSarRuntimeConfigPatch(
   builder_.add_enable_raw_echo_generation(enable_raw_echo_generation);
   builder_.add_has_enable_raw_echo_generation(has_enable_raw_echo_generation);
   return builder_.Finish();
+}
+
+flatbuffers::Offset<SarRuntimeConfigPatch> CreateSarRuntimeConfigPatch(flatbuffers::FlatBufferBuilder &_fbb, const SarRuntimeConfigPatchT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+inline SarHardwareConfigT *SarHardwareConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarHardwareConfigT> _o = std::unique_ptr<sar::replay::SarHardwareConfigT>(new SarHardwareConfigT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarHardwareConfig::UnPackTo(SarHardwareConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = carrier_frequency_hz(); _o->carrier_frequency_hz = _e; }
+  { auto _e = bandwidth_hz(); _o->bandwidth_hz = _e; }
+  { auto _e = pulse_width_s(); _o->pulse_width_s = _e; }
+  { auto _e = pulse_repetition_frequency_hz(); _o->pulse_repetition_frequency_hz = _e; }
+  { auto _e = sample_rate_hz(); _o->sample_rate_hz = _e; }
+  { auto _e = peak_power_w(); _o->peak_power_w = _e; }
+  { auto _e = antenna_length_m(); _o->antenna_length_m = _e; }
+  { auto _e = antenna_width_m(); _o->antenna_width_m = _e; }
+  { auto _e = antenna_gain_db(); _o->antenna_gain_db = _e; }
+  { auto _e = receiver_noise_figure_db(); _o->receiver_noise_figure_db = _e; }
+  { auto _e = system_loss_db(); _o->system_loss_db = _e; }
+}
+
+inline flatbuffers::Offset<SarHardwareConfig> SarHardwareConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarHardwareConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarHardwareConfig(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarHardwareConfig> CreateSarHardwareConfig(flatbuffers::FlatBufferBuilder &_fbb, const SarHardwareConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarHardwareConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _carrier_frequency_hz = _o->carrier_frequency_hz;
+  auto _bandwidth_hz = _o->bandwidth_hz;
+  auto _pulse_width_s = _o->pulse_width_s;
+  auto _pulse_repetition_frequency_hz = _o->pulse_repetition_frequency_hz;
+  auto _sample_rate_hz = _o->sample_rate_hz;
+  auto _peak_power_w = _o->peak_power_w;
+  auto _antenna_length_m = _o->antenna_length_m;
+  auto _antenna_width_m = _o->antenna_width_m;
+  auto _antenna_gain_db = _o->antenna_gain_db;
+  auto _receiver_noise_figure_db = _o->receiver_noise_figure_db;
+  auto _system_loss_db = _o->system_loss_db;
+  return sar::replay::CreateSarHardwareConfig(
+      _fbb,
+      _carrier_frequency_hz,
+      _bandwidth_hz,
+      _pulse_width_s,
+      _pulse_repetition_frequency_hz,
+      _sample_rate_hz,
+      _peak_power_w,
+      _antenna_length_m,
+      _antenna_width_m,
+      _antenna_gain_db,
+      _receiver_noise_figure_db,
+      _system_loss_db);
+}
+
+inline SarWaypointConfigT *SarWaypointConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarWaypointConfigT> _o = std::unique_ptr<sar::replay::SarWaypointConfigT>(new SarWaypointConfigT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarWaypointConfig::UnPackTo(SarWaypointConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = time_from_session_start_s(); _o->time_from_session_start_s = _e; }
+  { auto _e = latitude_deg(); _o->latitude_deg = _e; }
+  { auto _e = longitude_deg(); _o->longitude_deg = _e; }
+  { auto _e = altitude_m(); _o->altitude_m = _e; }
+}
+
+inline flatbuffers::Offset<SarWaypointConfig> SarWaypointConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarWaypointConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarWaypointConfig(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarWaypointConfig> CreateSarWaypointConfig(flatbuffers::FlatBufferBuilder &_fbb, const SarWaypointConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarWaypointConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _time_from_session_start_s = _o->time_from_session_start_s;
+  auto _latitude_deg = _o->latitude_deg;
+  auto _longitude_deg = _o->longitude_deg;
+  auto _altitude_m = _o->altitude_m;
+  return sar::replay::CreateSarWaypointConfig(
+      _fbb,
+      _time_from_session_start_s,
+      _latitude_deg,
+      _longitude_deg,
+      _altitude_m);
+}
+
+inline SarMissionConfigT *SarMissionConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarMissionConfigT> _o = std::unique_ptr<sar::replay::SarMissionConfigT>(new SarMissionConfigT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarMissionConfig::UnPackTo(SarMissionConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = scene_center_latitude_deg(); _o->scene_center_latitude_deg = _e; }
+  { auto _e = scene_center_longitude_deg(); _o->scene_center_longitude_deg = _e; }
+  { auto _e = scene_center_altitude_m(); _o->scene_center_altitude_m = _e; }
+  { auto _e = nominal_slant_range_m(); _o->nominal_slant_range_m = _e; }
+  { auto _e = synthetic_aperture_time_s(); _o->synthetic_aperture_time_s = _e; }
+  { auto _e = platform_speed_mps(); _o->platform_speed_mps = _e; }
+  { auto _e = range_sample_count(); _o->range_sample_count = _e; }
+  { auto _e = azimuth_pulse_count(); _o->azimuth_pulse_count = _e; }
+  { auto _e = desired_ground_range_resolution_m(); _o->desired_ground_range_resolution_m = _e; }
+  { auto _e = desired_azimuth_resolution_m(); _o->desired_azimuth_resolution_m = _e; }
+  { auto _e = l2_velocity_error_stddev_x_mps(); _o->l2_velocity_error_stddev_x_mps = _e; }
+  { auto _e = l2_velocity_error_stddev_y_mps(); _o->l2_velocity_error_stddev_y_mps = _e; }
+  { auto _e = l2_velocity_error_stddev_z_mps(); _o->l2_velocity_error_stddev_z_mps = _e; }
+  { auto _e = l2_random_seed(); _o->l2_random_seed = _e; }
+  { auto _e = l3_waypoints(); if (_e) { _o->l3_waypoints.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->l3_waypoints[_i] = std::unique_ptr<sar::replay::SarWaypointConfigT>(_e->Get(_i)->UnPack(_resolver)); } } }
+}
+
+inline flatbuffers::Offset<SarMissionConfig> SarMissionConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarMissionConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarMissionConfig(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarMissionConfig> CreateSarMissionConfig(flatbuffers::FlatBufferBuilder &_fbb, const SarMissionConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarMissionConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _scene_center_latitude_deg = _o->scene_center_latitude_deg;
+  auto _scene_center_longitude_deg = _o->scene_center_longitude_deg;
+  auto _scene_center_altitude_m = _o->scene_center_altitude_m;
+  auto _nominal_slant_range_m = _o->nominal_slant_range_m;
+  auto _synthetic_aperture_time_s = _o->synthetic_aperture_time_s;
+  auto _platform_speed_mps = _o->platform_speed_mps;
+  auto _range_sample_count = _o->range_sample_count;
+  auto _azimuth_pulse_count = _o->azimuth_pulse_count;
+  auto _desired_ground_range_resolution_m = _o->desired_ground_range_resolution_m;
+  auto _desired_azimuth_resolution_m = _o->desired_azimuth_resolution_m;
+  auto _l2_velocity_error_stddev_x_mps = _o->l2_velocity_error_stddev_x_mps;
+  auto _l2_velocity_error_stddev_y_mps = _o->l2_velocity_error_stddev_y_mps;
+  auto _l2_velocity_error_stddev_z_mps = _o->l2_velocity_error_stddev_z_mps;
+  auto _l2_random_seed = _o->l2_random_seed;
+  auto _l3_waypoints = _o->l3_waypoints.size() ? _fbb.CreateVector<flatbuffers::Offset<sar::replay::SarWaypointConfig>> (_o->l3_waypoints.size(), [](size_t i, _VectorArgs *__va) { return CreateSarWaypointConfig(*__va->__fbb, __va->__o->l3_waypoints[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return sar::replay::CreateSarMissionConfig(
+      _fbb,
+      _scene_center_latitude_deg,
+      _scene_center_longitude_deg,
+      _scene_center_altitude_m,
+      _nominal_slant_range_m,
+      _synthetic_aperture_time_s,
+      _platform_speed_mps,
+      _range_sample_count,
+      _azimuth_pulse_count,
+      _desired_ground_range_resolution_m,
+      _desired_azimuth_resolution_m,
+      _l2_velocity_error_stddev_x_mps,
+      _l2_velocity_error_stddev_y_mps,
+      _l2_velocity_error_stddev_z_mps,
+      _l2_random_seed,
+      _l3_waypoints);
+}
+
+inline SarPolicyConfigT *SarPolicyConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarPolicyConfigT> _o = std::unique_ptr<sar::replay::SarPolicyConfigT>(new SarPolicyConfigT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarPolicyConfig::UnPackTo(SarPolicyConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = enable_raw_echo_generation(); _o->enable_raw_echo_generation = _e; }
+  { auto _e = enable_range_compression(); _o->enable_range_compression = _e; }
+  { auto _e = enable_l1_rda_imaging(); _o->enable_l1_rda_imaging = _e; }
+  { auto _e = enable_diagnostics(); _o->enable_diagnostics = _e; }
+  { auto _e = retain_raw_phase_history(); _o->retain_raw_phase_history = _e; }
+  { auto _e = retain_focused_image(); _o->retain_focused_image = _e; }
+  { auto _e = max_allowed_squint_angle_deg(); _o->max_allowed_squint_angle_deg = _e; }
+  { auto _e = minimum_snr_db(); _o->minimum_snr_db = _e; }
+  { auto _e = enable_l2_motion_compensation(); _o->enable_l2_motion_compensation = _e; }
+  { auto _e = enable_l3_bp_imaging(); _o->enable_l3_bp_imaging = _e; }
+}
+
+inline flatbuffers::Offset<SarPolicyConfig> SarPolicyConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarPolicyConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarPolicyConfig(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarPolicyConfig> CreateSarPolicyConfig(flatbuffers::FlatBufferBuilder &_fbb, const SarPolicyConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarPolicyConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _enable_raw_echo_generation = _o->enable_raw_echo_generation;
+  auto _enable_range_compression = _o->enable_range_compression;
+  auto _enable_l1_rda_imaging = _o->enable_l1_rda_imaging;
+  auto _enable_diagnostics = _o->enable_diagnostics;
+  auto _retain_raw_phase_history = _o->retain_raw_phase_history;
+  auto _retain_focused_image = _o->retain_focused_image;
+  auto _max_allowed_squint_angle_deg = _o->max_allowed_squint_angle_deg;
+  auto _minimum_snr_db = _o->minimum_snr_db;
+  auto _enable_l2_motion_compensation = _o->enable_l2_motion_compensation;
+  auto _enable_l3_bp_imaging = _o->enable_l3_bp_imaging;
+  return sar::replay::CreateSarPolicyConfig(
+      _fbb,
+      _enable_raw_echo_generation,
+      _enable_range_compression,
+      _enable_l1_rda_imaging,
+      _enable_diagnostics,
+      _retain_raw_phase_history,
+      _retain_focused_image,
+      _max_allowed_squint_angle_deg,
+      _minimum_snr_db,
+      _enable_l2_motion_compensation,
+      _enable_l3_bp_imaging);
+}
+
+inline SarEnvironmentConfigT *SarEnvironmentConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarEnvironmentConfigT> _o = std::unique_ptr<sar::replay::SarEnvironmentConfigT>(new SarEnvironmentConfigT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarEnvironmentConfig::UnPackTo(SarEnvironmentConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = terrain_reference_altitude_m(); _o->terrain_reference_altitude_m = _e; }
+  { auto _e = atmospheric_loss_db_per_km(); _o->atmospheric_loss_db_per_km = _e; }
+  { auto _e = surface_backscatter_sigma0_db(); _o->surface_backscatter_sigma0_db = _e; }
+  { auto _e = use_flat_earth_geometry(); _o->use_flat_earth_geometry = _e; }
+  { auto _e = enable_atmospheric_attenuation(); _o->enable_atmospheric_attenuation = _e; }
+}
+
+inline flatbuffers::Offset<SarEnvironmentConfig> SarEnvironmentConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarEnvironmentConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarEnvironmentConfig(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarEnvironmentConfig> CreateSarEnvironmentConfig(flatbuffers::FlatBufferBuilder &_fbb, const SarEnvironmentConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarEnvironmentConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _terrain_reference_altitude_m = _o->terrain_reference_altitude_m;
+  auto _atmospheric_loss_db_per_km = _o->atmospheric_loss_db_per_km;
+  auto _surface_backscatter_sigma0_db = _o->surface_backscatter_sigma0_db;
+  auto _use_flat_earth_geometry = _o->use_flat_earth_geometry;
+  auto _enable_atmospheric_attenuation = _o->enable_atmospheric_attenuation;
+  return sar::replay::CreateSarEnvironmentConfig(
+      _fbb,
+      _terrain_reference_altitude_m,
+      _atmospheric_loss_db_per_km,
+      _surface_backscatter_sigma0_db,
+      _use_flat_earth_geometry,
+      _enable_atmospheric_attenuation);
+}
+
+inline SarSessionConfigT *SarSessionConfig::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarSessionConfigT> _o = std::unique_ptr<sar::replay::SarSessionConfigT>(new SarSessionConfigT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarSessionConfig::UnPackTo(SarSessionConfigT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = hardware(); if (_e) _o->hardware = std::unique_ptr<sar::replay::SarHardwareConfigT>(_e->UnPack(_resolver)); }
+  { auto _e = mission(); if (_e) _o->mission = std::unique_ptr<sar::replay::SarMissionConfigT>(_e->UnPack(_resolver)); }
+  { auto _e = policy(); if (_e) _o->policy = std::unique_ptr<sar::replay::SarPolicyConfigT>(_e->UnPack(_resolver)); }
+  { auto _e = environment(); if (_e) _o->environment = std::unique_ptr<sar::replay::SarEnvironmentConfigT>(_e->UnPack(_resolver)); }
+}
+
+inline flatbuffers::Offset<SarSessionConfig> SarSessionConfig::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarSessionConfigT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarSessionConfig(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarSessionConfig> CreateSarSessionConfig(flatbuffers::FlatBufferBuilder &_fbb, const SarSessionConfigT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarSessionConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _hardware = _o->hardware ? CreateSarHardwareConfig(_fbb, _o->hardware.get(), _rehasher) : 0;
+  auto _mission = _o->mission ? CreateSarMissionConfig(_fbb, _o->mission.get(), _rehasher) : 0;
+  auto _policy = _o->policy ? CreateSarPolicyConfig(_fbb, _o->policy.get(), _rehasher) : 0;
+  auto _environment = _o->environment ? CreateSarEnvironmentConfig(_fbb, _o->environment.get(), _rehasher) : 0;
+  return sar::replay::CreateSarSessionConfig(
+      _fbb,
+      _hardware,
+      _mission,
+      _policy,
+      _environment);
+}
+
+inline SarRuntimeConfigPatchT *SarRuntimeConfigPatch::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  std::unique_ptr<sar::replay::SarRuntimeConfigPatchT> _o = std::unique_ptr<sar::replay::SarRuntimeConfigPatchT>(new SarRuntimeConfigPatchT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void SarRuntimeConfigPatch::UnPackTo(SarRuntimeConfigPatchT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = has_enable_raw_echo_generation(); _o->has_enable_raw_echo_generation = _e; }
+  { auto _e = enable_raw_echo_generation(); _o->enable_raw_echo_generation = _e; }
+  { auto _e = has_enable_range_compression(); _o->has_enable_range_compression = _e; }
+  { auto _e = enable_range_compression(); _o->enable_range_compression = _e; }
+  { auto _e = has_enable_l1_rda_imaging(); _o->has_enable_l1_rda_imaging = _e; }
+  { auto _e = enable_l1_rda_imaging(); _o->enable_l1_rda_imaging = _e; }
+  { auto _e = has_retain_raw_phase_history(); _o->has_retain_raw_phase_history = _e; }
+  { auto _e = retain_raw_phase_history(); _o->retain_raw_phase_history = _e; }
+  { auto _e = has_retain_focused_image(); _o->has_retain_focused_image = _e; }
+  { auto _e = retain_focused_image(); _o->retain_focused_image = _e; }
+  { auto _e = has_minimum_snr_db(); _o->has_minimum_snr_db = _e; }
+  { auto _e = minimum_snr_db(); _o->minimum_snr_db = _e; }
+}
+
+inline flatbuffers::Offset<SarRuntimeConfigPatch> SarRuntimeConfigPatch::Pack(flatbuffers::FlatBufferBuilder &_fbb, const SarRuntimeConfigPatchT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateSarRuntimeConfigPatch(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<SarRuntimeConfigPatch> CreateSarRuntimeConfigPatch(flatbuffers::FlatBufferBuilder &_fbb, const SarRuntimeConfigPatchT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const SarRuntimeConfigPatchT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _has_enable_raw_echo_generation = _o->has_enable_raw_echo_generation;
+  auto _enable_raw_echo_generation = _o->enable_raw_echo_generation;
+  auto _has_enable_range_compression = _o->has_enable_range_compression;
+  auto _enable_range_compression = _o->enable_range_compression;
+  auto _has_enable_l1_rda_imaging = _o->has_enable_l1_rda_imaging;
+  auto _enable_l1_rda_imaging = _o->enable_l1_rda_imaging;
+  auto _has_retain_raw_phase_history = _o->has_retain_raw_phase_history;
+  auto _retain_raw_phase_history = _o->retain_raw_phase_history;
+  auto _has_retain_focused_image = _o->has_retain_focused_image;
+  auto _retain_focused_image = _o->retain_focused_image;
+  auto _has_minimum_snr_db = _o->has_minimum_snr_db;
+  auto _minimum_snr_db = _o->minimum_snr_db;
+  return sar::replay::CreateSarRuntimeConfigPatch(
+      _fbb,
+      _has_enable_raw_echo_generation,
+      _enable_raw_echo_generation,
+      _has_enable_range_compression,
+      _enable_range_compression,
+      _has_enable_l1_rda_imaging,
+      _enable_l1_rda_imaging,
+      _has_retain_raw_phase_history,
+      _retain_raw_phase_history,
+      _has_retain_focused_image,
+      _retain_focused_image,
+      _has_minimum_snr_db,
+      _minimum_snr_db);
 }
 
 inline const sar::replay::SarSessionConfig *GetSarSessionConfig(const void *buf) {
@@ -944,6 +1496,18 @@ inline void FinishSizePrefixedSarSessionConfigBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
     flatbuffers::Offset<sar::replay::SarSessionConfig> root) {
   fbb.FinishSizePrefixed(root, SarSessionConfigIdentifier());
+}
+
+inline std::unique_ptr<sar::replay::SarSessionConfigT> UnPackSarSessionConfig(
+    const void *buf,
+    const flatbuffers::resolver_function_t *res = nullptr) {
+  return std::unique_ptr<sar::replay::SarSessionConfigT>(GetSarSessionConfig(buf)->UnPack(res));
+}
+
+inline std::unique_ptr<sar::replay::SarSessionConfigT> UnPackSizePrefixedSarSessionConfig(
+    const void *buf,
+    const flatbuffers::resolver_function_t *res = nullptr) {
+  return std::unique_ptr<sar::replay::SarSessionConfigT>(GetSizePrefixedSarSessionConfig(buf)->UnPack(res));
 }
 
 }  // namespace replay

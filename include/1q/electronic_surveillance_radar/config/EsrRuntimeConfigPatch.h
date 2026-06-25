@@ -34,9 +34,9 @@ struct ExplicitScanBounds {
  * @brief EsrRuntimeConfigPatch 描述运行期可变参数补丁。
  *
  * 支持两类运行期更新：
- * 1) 整域覆盖：mission、policy、environment_runtime_config；
+ * 1) 整域覆盖：mission、policy、environment；
  * 2) 叶子覆盖：传感器开关、工作模式、扫描率、扫描中心、显式扫描边界等。
- * 其中 environment_runtime_config 仅允许模型叶子字段（如 atmospheric_physics/context），
+ * 其中 environment 仅允许模型叶子字段（如 atmospheric_physics/context），
  * 不支持 runtime preset 热更新。
  * 当整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
  */
@@ -47,9 +47,9 @@ struct ONEQ_API EsrRuntimeConfigPatch {
   bool has_policy{false};           /**< [补丁标志] 是否整块覆盖策略域 */
   EsrPolicyConfig policy{}; /**< [可外部调整] 策略域整块覆盖 */
 
-  bool has_environment_runtime_config{false}; /**< [补丁标志] 是否更新环境运行期配置 */
+  bool has_environment{false}; /**< [补丁标志] 是否更新环境运行期配置 */
   environment::EsrEnvironmentRuntimeConfigPatch
-      environment_runtime_config{}; /**< [可外部调整] 环境运行期配置补丁 */
+      environment{}; /**< [可外部调整] 环境运行期配置补丁 */
 
   bool has_sensor_enabled{false}; /**< [补丁标志] 是否显式设置传感器开关状态 */
   bool sensor_enabled{true};      /**< [可外部调整] 传感器开关状态 */

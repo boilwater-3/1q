@@ -24,7 +24,7 @@ namespace extension {
  */
 struct ONEQ_API InterceptDetectionConfig {
   float receiver_noise_floor_w{1.0e-12f};   /**< 接收机等效噪声底（单位：W） */
-  float min_detect_snr_db{6.0f};            /**< 最小截获信噪比门限（单位：dB） */
+  float minimum_snr_db{6.0f};            /**< 最小截获信噪比门限（单位：dB） */
   float max_detect_range_m{450000.0f};      /**< 最大截获距离（单位：m） */
   float min_dynamic_range_margin_db{-3.0f}; /**< 动态范围最小裕量（单位：dB） */
   float boundary_resolution_m{50.0f};       /**< 边界搜索分辨率（单位：m） */

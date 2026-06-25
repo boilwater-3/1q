@@ -461,7 +461,7 @@ struct EsrPolicyConfigT : public flatbuffers::NativeTable {
   typedef EsrPolicyConfig TableType;
   int32_t detection_profile;
   bool use_profile_defaults;
-  float min_detect_snr_db;
+  float minimum_snr_db;
   float pfa;
   uint32_t pulse_count;
   float threshold_scale;
@@ -469,7 +469,7 @@ struct EsrPolicyConfigT : public flatbuffers::NativeTable {
   EsrPolicyConfigT()
       : detection_profile(0),
         use_profile_defaults(false),
-        min_detect_snr_db(0.0f),
+        minimum_snr_db(0.0f),
         pfa(0.0f),
         pulse_count(0),
         threshold_scale(0.0f),
@@ -483,7 +483,7 @@ struct EsrPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_DETECTION_PROFILE = 4,
     VT_USE_PROFILE_DEFAULTS = 6,
-    VT_MIN_DETECT_SNR_DB = 8,
+    VT_MINIMUM_SNR_DB = 8,
     VT_PFA = 10,
     VT_PULSE_COUNT = 12,
     VT_THRESHOLD_SCALE = 14,
@@ -495,8 +495,8 @@ struct EsrPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool use_profile_defaults() const {
     return GetField<uint8_t>(VT_USE_PROFILE_DEFAULTS, 0) != 0;
   }
-  float min_detect_snr_db() const {
-    return GetField<float>(VT_MIN_DETECT_SNR_DB, 0.0f);
+  float minimum_snr_db() const {
+    return GetField<float>(VT_MINIMUM_SNR_DB, 0.0f);
   }
   float pfa() const {
     return GetField<float>(VT_PFA, 0.0f);
@@ -514,7 +514,7 @@ struct EsrPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyField<int32_t>(verifier, VT_DETECTION_PROFILE) &&
            VerifyField<uint8_t>(verifier, VT_USE_PROFILE_DEFAULTS) &&
-           VerifyField<float>(verifier, VT_MIN_DETECT_SNR_DB) &&
+           VerifyField<float>(verifier, VT_MINIMUM_SNR_DB) &&
            VerifyField<float>(verifier, VT_PFA) &&
            VerifyField<uint32_t>(verifier, VT_PULSE_COUNT) &&
            VerifyField<float>(verifier, VT_THRESHOLD_SCALE) &&
@@ -536,8 +536,8 @@ struct EsrPolicyConfigBuilder {
   void add_use_profile_defaults(bool use_profile_defaults) {
     fbb_.AddElement<uint8_t>(EsrPolicyConfig::VT_USE_PROFILE_DEFAULTS, static_cast<uint8_t>(use_profile_defaults), 0);
   }
-  void add_min_detect_snr_db(float min_detect_snr_db) {
-    fbb_.AddElement<float>(EsrPolicyConfig::VT_MIN_DETECT_SNR_DB, min_detect_snr_db, 0.0f);
+  void add_minimum_snr_db(float minimum_snr_db) {
+    fbb_.AddElement<float>(EsrPolicyConfig::VT_MINIMUM_SNR_DB, minimum_snr_db, 0.0f);
   }
   void add_pfa(float pfa) {
     fbb_.AddElement<float>(EsrPolicyConfig::VT_PFA, pfa, 0.0f);
@@ -567,7 +567,7 @@ inline flatbuffers::Offset<EsrPolicyConfig> CreateEsrPolicyConfig(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t detection_profile = 0,
     bool use_profile_defaults = false,
-    float min_detect_snr_db = 0.0f,
+    float minimum_snr_db = 0.0f,
     float pfa = 0.0f,
     uint32_t pulse_count = 0,
     float threshold_scale = 0.0f,
@@ -576,7 +576,7 @@ inline flatbuffers::Offset<EsrPolicyConfig> CreateEsrPolicyConfig(
   builder_.add_threshold_scale(threshold_scale);
   builder_.add_pulse_count(pulse_count);
   builder_.add_pfa(pfa);
-  builder_.add_min_detect_snr_db(min_detect_snr_db);
+  builder_.add_minimum_snr_db(minimum_snr_db);
   builder_.add_detection_profile(detection_profile);
   builder_.add_enable_statistical_detection(enable_statistical_detection);
   builder_.add_use_profile_defaults(use_profile_defaults);
@@ -1099,8 +1099,8 @@ struct EsrRuntimeConfigPatchT : public flatbuffers::NativeTable {
   std::unique_ptr<esr::replay::EsrMissionConfigT> mission;
   bool has_policy;
   std::unique_ptr<esr::replay::EsrPolicyConfigT> policy;
-  bool has_environment_runtime_config;
-  std::unique_ptr<esr::replay::EsrEnvironmentRuntimeConfigPatchT> environment_runtime_config;
+  bool has_environment;
+  std::unique_ptr<esr::replay::EsrEnvironmentRuntimeConfigPatchT> environment;
   EsrRuntimeConfigPatchT()
       : has_sensor_enabled(false),
         sensor_enabled(false),
@@ -1128,7 +1128,7 @@ struct EsrRuntimeConfigPatchT : public flatbuffers::NativeTable {
         scan_end_el_deg(0.0f),
         has_mission(false),
         has_policy(false),
-        has_environment_runtime_config(false) {
+        has_environment(false) {
   }
 };
 
@@ -1164,8 +1164,8 @@ struct EsrRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
     VT_MISSION = 54,
     VT_HAS_POLICY = 56,
     VT_POLICY = 58,
-    VT_HAS_ENVIRONMENT_RUNTIME_CONFIG = 60,
-    VT_ENVIRONMENT_RUNTIME_CONFIG = 62
+    VT_HAS_ENVIRONMENT = 60,
+    VT_ENVIRONMENT = 62
   };
   bool has_sensor_enabled() const {
     return GetField<uint8_t>(VT_HAS_SENSOR_ENABLED, 0) != 0;
@@ -1251,11 +1251,11 @@ struct EsrRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
   const esr::replay::EsrPolicyConfig *policy() const {
     return GetPointer<const esr::replay::EsrPolicyConfig *>(VT_POLICY);
   }
-  bool has_environment_runtime_config() const {
-    return GetField<uint8_t>(VT_HAS_ENVIRONMENT_RUNTIME_CONFIG, 0) != 0;
+  bool has_environment() const {
+    return GetField<uint8_t>(VT_HAS_ENVIRONMENT, 0) != 0;
   }
-  const esr::replay::EsrEnvironmentRuntimeConfigPatch *environment_runtime_config() const {
-    return GetPointer<const esr::replay::EsrEnvironmentRuntimeConfigPatch *>(VT_ENVIRONMENT_RUNTIME_CONFIG);
+  const esr::replay::EsrEnvironmentRuntimeConfigPatch *environment() const {
+    return GetPointer<const esr::replay::EsrEnvironmentRuntimeConfigPatch *>(VT_ENVIRONMENT);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1289,9 +1289,9 @@ struct EsrRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
            VerifyField<uint8_t>(verifier, VT_HAS_POLICY) &&
            VerifyOffset(verifier, VT_POLICY) &&
            verifier.VerifyTable(policy()) &&
-           VerifyField<uint8_t>(verifier, VT_HAS_ENVIRONMENT_RUNTIME_CONFIG) &&
-           VerifyOffset(verifier, VT_ENVIRONMENT_RUNTIME_CONFIG) &&
-           verifier.VerifyTable(environment_runtime_config()) &&
+           VerifyField<uint8_t>(verifier, VT_HAS_ENVIRONMENT) &&
+           VerifyOffset(verifier, VT_ENVIRONMENT) &&
+           verifier.VerifyTable(environment()) &&
            verifier.EndTable();
   }
   EsrRuntimeConfigPatchT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -1387,11 +1387,11 @@ struct EsrRuntimeConfigPatchBuilder {
   void add_policy(flatbuffers::Offset<esr::replay::EsrPolicyConfig> policy) {
     fbb_.AddOffset(EsrRuntimeConfigPatch::VT_POLICY, policy);
   }
-  void add_has_environment_runtime_config(bool has_environment_runtime_config) {
-    fbb_.AddElement<uint8_t>(EsrRuntimeConfigPatch::VT_HAS_ENVIRONMENT_RUNTIME_CONFIG, static_cast<uint8_t>(has_environment_runtime_config), 0);
+  void add_has_environment(bool has_environment) {
+    fbb_.AddElement<uint8_t>(EsrRuntimeConfigPatch::VT_HAS_ENVIRONMENT, static_cast<uint8_t>(has_environment), 0);
   }
-  void add_environment_runtime_config(flatbuffers::Offset<esr::replay::EsrEnvironmentRuntimeConfigPatch> environment_runtime_config) {
-    fbb_.AddOffset(EsrRuntimeConfigPatch::VT_ENVIRONMENT_RUNTIME_CONFIG, environment_runtime_config);
+  void add_environment(flatbuffers::Offset<esr::replay::EsrEnvironmentRuntimeConfigPatch> environment) {
+    fbb_.AddOffset(EsrRuntimeConfigPatch::VT_ENVIRONMENT, environment);
   }
   explicit EsrRuntimeConfigPatchBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1435,10 +1435,10 @@ inline flatbuffers::Offset<EsrRuntimeConfigPatch> CreateEsrRuntimeConfigPatch(
     flatbuffers::Offset<esr::replay::EsrMissionConfig> mission = 0,
     bool has_policy = false,
     flatbuffers::Offset<esr::replay::EsrPolicyConfig> policy = 0,
-    bool has_environment_runtime_config = false,
-    flatbuffers::Offset<esr::replay::EsrEnvironmentRuntimeConfigPatch> environment_runtime_config = 0) {
+    bool has_environment = false,
+    flatbuffers::Offset<esr::replay::EsrEnvironmentRuntimeConfigPatch> environment = 0) {
   EsrRuntimeConfigPatchBuilder builder_(_fbb);
-  builder_.add_environment_runtime_config(environment_runtime_config);
+  builder_.add_environment(environment);
   builder_.add_policy(policy);
   builder_.add_mission(mission);
   builder_.add_scan_end_el_deg(scan_end_el_deg);
@@ -1451,7 +1451,7 @@ inline flatbuffers::Offset<EsrRuntimeConfigPatch> CreateEsrRuntimeConfigPatch(
   builder_.add_scan_start_position(scan_start_position);
   builder_.add_scan_rate_hz(scan_rate_hz);
   builder_.add_work_mode(work_mode);
-  builder_.add_has_environment_runtime_config(has_environment_runtime_config);
+  builder_.add_has_environment(has_environment);
   builder_.add_has_policy(has_policy);
   builder_.add_has_mission(has_mission);
   builder_.add_has_scan_end_el_deg(has_scan_end_el_deg);
@@ -1622,7 +1622,7 @@ inline void EsrPolicyConfig::UnPackTo(EsrPolicyConfigT *_o, const flatbuffers::r
   (void)_resolver;
   { auto _e = detection_profile(); _o->detection_profile = _e; }
   { auto _e = use_profile_defaults(); _o->use_profile_defaults = _e; }
-  { auto _e = min_detect_snr_db(); _o->min_detect_snr_db = _e; }
+  { auto _e = minimum_snr_db(); _o->minimum_snr_db = _e; }
   { auto _e = pfa(); _o->pfa = _e; }
   { auto _e = pulse_count(); _o->pulse_count = _e; }
   { auto _e = threshold_scale(); _o->threshold_scale = _e; }
@@ -1639,7 +1639,7 @@ inline flatbuffers::Offset<EsrPolicyConfig> CreateEsrPolicyConfig(flatbuffers::F
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrPolicyConfigT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   auto _detection_profile = _o->detection_profile;
   auto _use_profile_defaults = _o->use_profile_defaults;
-  auto _min_detect_snr_db = _o->min_detect_snr_db;
+  auto _minimum_snr_db = _o->minimum_snr_db;
   auto _pfa = _o->pfa;
   auto _pulse_count = _o->pulse_count;
   auto _threshold_scale = _o->threshold_scale;
@@ -1648,7 +1648,7 @@ inline flatbuffers::Offset<EsrPolicyConfig> CreateEsrPolicyConfig(flatbuffers::F
       _fbb,
       _detection_profile,
       _use_profile_defaults,
-      _min_detect_snr_db,
+      _minimum_snr_db,
       _pfa,
       _pulse_count,
       _threshold_scale,
@@ -1873,8 +1873,8 @@ inline void EsrRuntimeConfigPatch::UnPackTo(EsrRuntimeConfigPatchT *_o, const fl
   { auto _e = mission(); if (_e) _o->mission = std::unique_ptr<esr::replay::EsrMissionConfigT>(_e->UnPack(_resolver)); }
   { auto _e = has_policy(); _o->has_policy = _e; }
   { auto _e = policy(); if (_e) _o->policy = std::unique_ptr<esr::replay::EsrPolicyConfigT>(_e->UnPack(_resolver)); }
-  { auto _e = has_environment_runtime_config(); _o->has_environment_runtime_config = _e; }
-  { auto _e = environment_runtime_config(); if (_e) _o->environment_runtime_config = std::unique_ptr<esr::replay::EsrEnvironmentRuntimeConfigPatchT>(_e->UnPack(_resolver)); }
+  { auto _e = has_environment(); _o->has_environment = _e; }
+  { auto _e = environment(); if (_e) _o->environment = std::unique_ptr<esr::replay::EsrEnvironmentRuntimeConfigPatchT>(_e->UnPack(_resolver)); }
 }
 
 inline flatbuffers::Offset<EsrRuntimeConfigPatch> EsrRuntimeConfigPatch::Pack(flatbuffers::FlatBufferBuilder &_fbb, const EsrRuntimeConfigPatchT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -1913,8 +1913,8 @@ inline flatbuffers::Offset<EsrRuntimeConfigPatch> CreateEsrRuntimeConfigPatch(fl
   auto _mission = _o->mission ? CreateEsrMissionConfig(_fbb, _o->mission.get(), _rehasher) : 0;
   auto _has_policy = _o->has_policy;
   auto _policy = _o->policy ? CreateEsrPolicyConfig(_fbb, _o->policy.get(), _rehasher) : 0;
-  auto _has_environment_runtime_config = _o->has_environment_runtime_config;
-  auto _environment_runtime_config = _o->environment_runtime_config ? CreateEsrEnvironmentRuntimeConfigPatch(_fbb, _o->environment_runtime_config.get(), _rehasher) : 0;
+  auto _has_environment = _o->has_environment;
+  auto _environment = _o->environment ? CreateEsrEnvironmentRuntimeConfigPatch(_fbb, _o->environment.get(), _rehasher) : 0;
   return esr::replay::CreateEsrRuntimeConfigPatch(
       _fbb,
       _has_sensor_enabled,
@@ -1945,8 +1945,8 @@ inline flatbuffers::Offset<EsrRuntimeConfigPatch> CreateEsrRuntimeConfigPatch(fl
       _mission,
       _has_policy,
       _policy,
-      _has_environment_runtime_config,
-      _environment_runtime_config);
+      _has_environment,
+      _environment);
 }
 
 inline const esr::replay::EsrSessionConfig *GetEsrSessionConfig(const void *buf) {
