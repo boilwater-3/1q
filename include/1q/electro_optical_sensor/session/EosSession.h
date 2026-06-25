@@ -13,6 +13,7 @@
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/foundation/SensorContract.h"
 
 namespace electro_optical_sensor {
 namespace extension {
@@ -49,7 +50,7 @@ class ONEQ_API EosSession {
    *       "本周期实际执行" 与 "复用上一有效输出"，请使用 `StepWithResult()`。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
-  session::EosOutputFrame Step(const EosCycleInput& input);
+  EosOutputFrame Step(const EosCycleInput& input);
 
   /**
    * @brief 执行单周期并返回聚合结果。
@@ -59,7 +60,7 @@ class ONEQ_API EosSession {
    *       提供结构化周期状态语义。
    * @note 非线程安全：会读写会话内部状态；并发调用需外部同步。
    */
-  ::electro_optical_sensor::session::EosCycleResult StepWithResult(const EosCycleInput& input);
+  EosCycleResult StepWithResult(const EosCycleInput& input);
 
   /**
    * @brief 应用运行期可变配置补丁。
@@ -84,6 +85,10 @@ class ONEQ_API EosSession {
 };
 
 }  // namespace session
+
+// 跨域传感器会话形状契约：锚定 Step/StepWithResult 签名，防止伪对称漂移。
+ONEQ_SENSOR_SESSION_CONTRACT(session::EosSession, session::EosCycleInput,
+                             session::EosOutputFrame, session::EosCycleResult);
 
 }  // namespace electro_optical_sensor
 

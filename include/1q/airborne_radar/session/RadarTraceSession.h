@@ -62,7 +62,7 @@ class ONEQ_API RadarTraceSession {
 
   ~RadarTraceSession();
 
-  session::TrackOutputFrame Step(const RadarCycleInput& input);
+  TrackOutputFrame Step(const RadarCycleInput& input);
   RadarCycleResult StepWithResult(const RadarCycleInput& input);
 
   void ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);

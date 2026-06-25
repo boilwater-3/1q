@@ -13,6 +13,7 @@
 #include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sar/session/SarCycleInput.h"
 #include "1q/sar/session/SarCycleResult.h"
+#include "1q/foundation/SensorContract.h"
 
 namespace sar {
 namespace session {
@@ -63,6 +64,11 @@ class ONEQ_API SarSession {
 };
 
 }  // namespace session
+
+// 跨域传感器会话形状契约：锚定 Step/StepWithResult 签名，防止伪对称漂移。
+ONEQ_SENSOR_SESSION_CONTRACT(session::SarSession, session::SarCycleInput,
+                             session::SarOutputFrame, session::SarCycleResult);
+
 }  // namespace sar
 
 #endif  // ONEQ_SAR_SESSION_SAR_SESSION_H_
