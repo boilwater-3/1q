@@ -22,6 +22,7 @@ namespace {
 
 namespace context = ::electro_optical_sensor::session;
 namespace output = ::electro_optical_sensor::output;
+namespace attribution = ::electro_optical_sensor::attribution;
 
 namespace eos_config = ::electro_optical_sensor::config;
 
@@ -78,23 +79,37 @@ std::size_t CountDetectedTargets(const session::EosOutputFrame& frame) {
   return count;
 }
 
-bool HasTargetId(const session::EosOutputFrame& frame, std::uint64_t target_id) {
-  for (std::size_t i = 0; i < frame.detections.size(); ++i) {
-    if (frame.detections[i].target_id == target_id) {
-      return true;
+// 去真值化后：output::EosDetectionRecord 只含 detection_id（传感器探测语义），
+// target_id→target_name 的仿真归属经 attribution::EosDetectionAttributionRecord 承载
+// （挂在 EosCycleResult.detection_attributions）。按 target_id 查 detection 需经归属层中转：
+// 先在 attributions 找 target_id 对应的 detection_id，再在 output_frame.detections 找记录。
+const output::EosDetectionRecord* FindDetectionByTargetId(
+    const session::EosCycleResult& result, std::uint64_t target_id) {
+  const attribution::EosDetectionAttributionRecord* attr = nullptr;
+  for (std::size_t i = 0; i < result.detection_attributions.size(); ++i) {
+    if (result.detection_attributions[i].target_id == target_id) {
+      attr = &result.detection_attributions[i];
+      break;
     }
   }
-  return false;
-}
-
-const output::EosDetectionRecord* FindDetection(const session::EosOutputFrame& frame,
-                                                std::uint64_t target_id) {
-  for (std::size_t i = 0; i < frame.detections.size(); ++i) {
-    if (frame.detections[i].target_id == target_id) {
-      return &frame.detections[i];
+  if (attr == nullptr) {
+    return nullptr;
+  }
+  for (std::size_t i = 0; i < result.output_frame.detections.size(); ++i) {
+    if (result.output_frame.detections[i].detection_id == attr->detection_id) {
+      return &result.output_frame.detections[i];
     }
   }
   return nullptr;
+}
+
+bool HasTargetId(const session::EosCycleResult& result, std::uint64_t target_id) {
+  return FindDetectionByTargetId(result, target_id) != nullptr;
+}
+
+const output::EosDetectionRecord* FindDetection(const session::EosCycleResult& result,
+                                                 std::uint64_t target_id) {
+  return FindDetectionByTargetId(result, target_id);
 }
 
 TEST(EosSessionIntegrationTest, StepWithResultProducesDetectionOutput) {
@@ -131,7 +146,7 @@ TEST(EosSessionIntegrationTest, FusedModeDetectsInFovTarget) {
 
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_GT(CountDetectedTargets(result.output_frame), 0U);
-  EXPECT_TRUE(HasTargetId(result.output_frame, 1U));
+  EXPECT_TRUE(HasTargetId(result, 1U));
 }
 
 TEST(EosSessionIntegrationTest, InfraredOnlyModeProducesInfraredSnr) {
@@ -211,7 +226,7 @@ TEST(EosSessionIntegrationTest, OutOfFovTargetIsFiltered) {
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
 
-  EXPECT_FALSE(HasTargetId(result.output_frame, 10U));
+  EXPECT_FALSE(HasTargetId(result, 10U));
 }
 
 TEST(EosSessionIntegrationTest, HigherCloudCoverageReducesVisibleSnr) {
@@ -471,7 +486,10 @@ TEST(EosSessionIntegrationTest, StepReusesPreviousOutputWhenValidationFailsAfter
   EXPECT_EQ(invalid_frame.cycle_index, valid_frame.cycle_index);
   EXPECT_EQ(invalid_frame.detections.size(), valid_frame.detections.size());
   if (!valid_frame.detections.empty() && !invalid_frame.detections.empty()) {
-    EXPECT_EQ(invalid_frame.detections.front().target_id, valid_frame.detections.front().target_id);
+    // 去真值化后，detection 的稳定标识是 detection_id（传感器探测语义），
+    // target_id 已移入 attribution 层。复用帧时 front detection 的 detection_id 应一致。
+    EXPECT_EQ(invalid_frame.detections.front().detection_id,
+              valid_frame.detections.front().detection_id);
     EXPECT_FLOAT_EQ(invalid_frame.detections.front().fused_snr_linear,
                     valid_frame.detections.front().fused_snr_linear);
   }
@@ -517,12 +535,12 @@ TEST(EosSessionIntegrationTest, MultipleTargetsInFovAllDetected) {
   input.scene.push_back(MakeTarget(102U, 0.0f, 1500.0f, 4.0f));
   input.scene.push_back(MakeTarget(103U, 4.0f, 1800.0f, 5.0f));
 
-  const session::EosOutputFrame frame = session.Step(input);
+  const session::EosCycleResult result = session.StepWithResult(input);
 
-  EXPECT_EQ(frame.detections.size(), 3U);
-  EXPECT_TRUE(HasTargetId(frame, 101U));
-  EXPECT_TRUE(HasTargetId(frame, 102U));
-  EXPECT_TRUE(HasTargetId(frame, 103U));
+  EXPECT_EQ(result.output_frame.detections.size(), 3U);
+  EXPECT_TRUE(HasTargetId(result, 101U));
+  EXPECT_TRUE(HasTargetId(result, 102U));
+  EXPECT_TRUE(HasTargetId(result, 103U));
 }
 
 TEST(EosSessionIntegrationTest, CloserTargetHasHigherSnrAtSameTemperature) {
@@ -539,10 +557,10 @@ TEST(EosSessionIntegrationTest, CloserTargetHasHigherSnrAtSameTemperature) {
   input.scene.push_back(near_target);
   input.scene.push_back(far_target);
 
-  const session::EosOutputFrame frame = session.Step(input);
+  const session::EosCycleResult result = session.StepWithResult(input);
 
-  const output::EosDetectionRecord* near_rec = FindDetection(frame, 201U);
-  const output::EosDetectionRecord* far_rec = FindDetection(frame, 202U);
+  const output::EosDetectionRecord* near_rec = FindDetection(result, 201U);
+  const output::EosDetectionRecord* far_rec = FindDetection(result, 202U);
   ASSERT_NE(near_rec, nullptr);
   ASSERT_NE(far_rec, nullptr);
   EXPECT_GT(near_rec->fused_snr_linear, far_rec->fused_snr_linear);
