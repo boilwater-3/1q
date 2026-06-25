@@ -14,11 +14,12 @@ namespace environment {
 
 /**
  * @brief EsrEnvironmentRuntimeConfigPatch 描述运行期可变环境补丁。
+ *
+ * @note 环境预设（EsrEnvironmentPreset）是会话初始化语义，运行期不支持热更新；
+ *       早期版本的 has_preset/preset 字段已移除（曾导致"置 true 即被 reject"的
+ *       弃用陷阱）。运行期仅可调整基础气象观测参数与时空天气上下文。
  */
 struct ONEQ_API EsrEnvironmentRuntimeConfigPatch {
-  bool has_preset{false}; /**< [已弃用] 运行期不支持更新环境预设语义；若置 true 将被 reject */
-  config::EsrEnvironmentPreset preset{config::EsrEnvironmentPreset::kStandard};
-
   bool has_atmospheric_physics{false}; /**< 是否更新基础气象观测参数 */
   EsrAtmosphericPhysicsConfig atmospheric_physics{};
 

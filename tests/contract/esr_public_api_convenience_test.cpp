@@ -172,7 +172,6 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
   EXPECT_TRUE(patch.has_explicit_scan_bounds);
   EXPECT_TRUE(patch.explicit_scan_bounds.enabled);
   EXPECT_TRUE(patch.has_environment_runtime_config);
-  EXPECT_FALSE(patch.environment_runtime_config.has_preset);
   EXPECT_TRUE(patch.environment_runtime_config.has_atmospheric_physics);
   EXPECT_TRUE(patch.environment_runtime_config.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(patch.environment_runtime_config.atmospheric_physics.relative_humidity, 0.65f);

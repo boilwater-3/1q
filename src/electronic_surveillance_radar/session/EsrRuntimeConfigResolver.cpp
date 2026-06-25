@@ -112,13 +112,6 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
 
   if (patch.has_environment_runtime_config) {
     has_requested_update = true;
-    if (patch.environment_runtime_config.has_preset) {
-      PROJECT_LOG_ERROR(
-          "[EsrSession] Rejecting runtime config patch because environment preset hot update is "
-          "not allowed.");
-      return RejectPatch(current_config, true,
-                         EsrRuntimeConfigApplyStatus::kRejectedUnsupportedEnvironmentPresetPatch);
-    }
     ApplyEnvironmentRuntimePatch(patch.environment_runtime_config, &resolved.next_config,
                                  &resolved.environment_model_config_changed);
   }

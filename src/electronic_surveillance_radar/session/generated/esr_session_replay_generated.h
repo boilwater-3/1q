@@ -979,16 +979,12 @@ flatbuffers::Offset<EsrSessionConfig> CreateEsrSessionConfig(flatbuffers::FlatBu
 
 struct EsrEnvironmentRuntimeConfigPatchT : public flatbuffers::NativeTable {
   typedef EsrEnvironmentRuntimeConfigPatch TableType;
-  bool has_preset;
-  int32_t preset;
   bool has_atmospheric_physics;
   std::unique_ptr<esr::replay::EsrAtmosphericPhysicsConfigT> atmospheric_physics;
   bool has_atmospheric_context;
   std::unique_ptr<esr::replay::EsrAtmosphericDerivedContextT> atmospheric_context;
   EsrEnvironmentRuntimeConfigPatchT()
-      : has_preset(false),
-        preset(0),
-        has_atmospheric_physics(false),
+      : has_atmospheric_physics(false),
         has_atmospheric_context(false) {
   }
 };
@@ -997,19 +993,11 @@ struct EsrEnvironmentRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbu
   typedef EsrEnvironmentRuntimeConfigPatchT NativeTableType;
   typedef EsrEnvironmentRuntimeConfigPatchBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_HAS_PRESET = 4,
-    VT_PRESET = 6,
-    VT_HAS_ATMOSPHERIC_PHYSICS = 8,
-    VT_ATMOSPHERIC_PHYSICS = 10,
-    VT_HAS_ATMOSPHERIC_CONTEXT = 12,
-    VT_ATMOSPHERIC_CONTEXT = 14
+    VT_HAS_ATMOSPHERIC_PHYSICS = 4,
+    VT_ATMOSPHERIC_PHYSICS = 6,
+    VT_HAS_ATMOSPHERIC_CONTEXT = 8,
+    VT_ATMOSPHERIC_CONTEXT = 10
   };
-  bool has_preset() const {
-    return GetField<uint8_t>(VT_HAS_PRESET, 0) != 0;
-  }
-  int32_t preset() const {
-    return GetField<int32_t>(VT_PRESET, 0);
-  }
   bool has_atmospheric_physics() const {
     return GetField<uint8_t>(VT_HAS_ATMOSPHERIC_PHYSICS, 0) != 0;
   }
@@ -1024,8 +1012,6 @@ struct EsrEnvironmentRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbu
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_HAS_PRESET) &&
-           VerifyField<int32_t>(verifier, VT_PRESET) &&
            VerifyField<uint8_t>(verifier, VT_HAS_ATMOSPHERIC_PHYSICS) &&
            VerifyOffset(verifier, VT_ATMOSPHERIC_PHYSICS) &&
            verifier.VerifyTable(atmospheric_physics()) &&
@@ -1043,12 +1029,6 @@ struct EsrEnvironmentRuntimeConfigPatchBuilder {
   typedef EsrEnvironmentRuntimeConfigPatch Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_has_preset(bool has_preset) {
-    fbb_.AddElement<uint8_t>(EsrEnvironmentRuntimeConfigPatch::VT_HAS_PRESET, static_cast<uint8_t>(has_preset), 0);
-  }
-  void add_preset(int32_t preset) {
-    fbb_.AddElement<int32_t>(EsrEnvironmentRuntimeConfigPatch::VT_PRESET, preset, 0);
-  }
   void add_has_atmospheric_physics(bool has_atmospheric_physics) {
     fbb_.AddElement<uint8_t>(EsrEnvironmentRuntimeConfigPatch::VT_HAS_ATMOSPHERIC_PHYSICS, static_cast<uint8_t>(has_atmospheric_physics), 0);
   }
@@ -1075,8 +1055,6 @@ struct EsrEnvironmentRuntimeConfigPatchBuilder {
 
 inline flatbuffers::Offset<EsrEnvironmentRuntimeConfigPatch> CreateEsrEnvironmentRuntimeConfigPatch(
     flatbuffers::FlatBufferBuilder &_fbb,
-    bool has_preset = false,
-    int32_t preset = 0,
     bool has_atmospheric_physics = false,
     flatbuffers::Offset<esr::replay::EsrAtmosphericPhysicsConfig> atmospheric_physics = 0,
     bool has_atmospheric_context = false,
@@ -1084,10 +1062,8 @@ inline flatbuffers::Offset<EsrEnvironmentRuntimeConfigPatch> CreateEsrEnvironmen
   EsrEnvironmentRuntimeConfigPatchBuilder builder_(_fbb);
   builder_.add_atmospheric_context(atmospheric_context);
   builder_.add_atmospheric_physics(atmospheric_physics);
-  builder_.add_preset(preset);
   builder_.add_has_atmospheric_context(has_atmospheric_context);
   builder_.add_has_atmospheric_physics(has_atmospheric_physics);
-  builder_.add_has_preset(has_preset);
   return builder_.Finish();
 }
 
@@ -1834,8 +1810,6 @@ inline EsrEnvironmentRuntimeConfigPatchT *EsrEnvironmentRuntimeConfigPatch::UnPa
 inline void EsrEnvironmentRuntimeConfigPatch::UnPackTo(EsrEnvironmentRuntimeConfigPatchT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = has_preset(); _o->has_preset = _e; }
-  { auto _e = preset(); _o->preset = _e; }
   { auto _e = has_atmospheric_physics(); _o->has_atmospheric_physics = _e; }
   { auto _e = atmospheric_physics(); if (_e) _o->atmospheric_physics = std::unique_ptr<esr::replay::EsrAtmosphericPhysicsConfigT>(_e->UnPack(_resolver)); }
   { auto _e = has_atmospheric_context(); _o->has_atmospheric_context = _e; }
@@ -1850,16 +1824,12 @@ inline flatbuffers::Offset<EsrEnvironmentRuntimeConfigPatch> CreateEsrEnvironmen
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const EsrEnvironmentRuntimeConfigPatchT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _has_preset = _o->has_preset;
-  auto _preset = _o->preset;
   auto _has_atmospheric_physics = _o->has_atmospheric_physics;
   auto _atmospheric_physics = _o->atmospheric_physics ? CreateEsrAtmosphericPhysicsConfig(_fbb, _o->atmospheric_physics.get(), _rehasher) : 0;
   auto _has_atmospheric_context = _o->has_atmospheric_context;
   auto _atmospheric_context = _o->atmospheric_context ? CreateEsrAtmosphericDerivedContext(_fbb, _o->atmospheric_context.get(), _rehasher) : 0;
   return esr::replay::CreateEsrEnvironmentRuntimeConfigPatch(
       _fbb,
-      _has_preset,
-      _preset,
       _has_atmospheric_physics,
       _atmospheric_physics,
       _has_atmospheric_context,

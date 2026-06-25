@@ -476,8 +476,7 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
       ev.atmospheric_context.solar_flux_f107a, ev.atmospheric_context.solar_flux_f107,
       ev.atmospheric_context.geomagnetic_ap);
   auto env_patch = esr::replay::CreateEsrEnvironmentRuntimeConfigPatch(
-      fbb, ev.has_preset, static_cast<int32_t>(ev.preset), ev.has_atmospheric_physics, ap,
-      ev.has_atmospheric_context, ac);
+      fbb, ev.has_atmospheric_physics, ap, ev.has_atmospheric_context, ac);
   flatbuffers::Offset<esr::replay::EsrMissionConfig> mission;
   if (v.has_mission) {
     const auto& sc = v.mission.scan;
@@ -570,9 +569,6 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeCon
   out->has_environment_runtime_config = fb->has_environment_runtime_config();
   if (fb->environment_runtime_config()) {
     const auto* ec = fb->environment_runtime_config();
-    out->environment_runtime_config.has_preset = ec->has_preset();
-    out->environment_runtime_config.preset =
-        static_cast<config::EsrEnvironmentPreset>(ec->preset());
     out->environment_runtime_config.has_atmospheric_physics = ec->has_atmospheric_physics();
     if (ec->atmospheric_physics()) {
       out->environment_runtime_config.atmospheric_physics.enable_physical_model =

@@ -85,8 +85,6 @@ file_identifier "ESRS";
 // ---- EsrRuntimeConfigPatch ----
 
 table EsrEnvironmentRuntimeConfigPatch {
-  has_preset:              bool;
-  preset:                  int32;
   has_atmospheric_physics: bool;
   atmospheric_physics:     EsrAtmosphericPhysicsConfig;
   has_atmospheric_context: bool;
