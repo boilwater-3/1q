@@ -29,7 +29,7 @@ EsrInternalExecutionConfig MakeDefaultConfig() {
   config.resolved_scan.scan_end_el_deg = 10.0f;
   config.resolved_scan.az_step_deg = 5.0f;
   config.resolved_scan.el_step_deg = 5.0f;
-  config.detection.min_detect_snr_db = 6.0f;
+  config.detection.minimum_snr_db = 6.0f;
   config.detection.pfa = 1.0e-6f;
   config.detection.pulse_count = 8U;
   config.hardware.receiver_sensitivity_w = 1.0e-12f;

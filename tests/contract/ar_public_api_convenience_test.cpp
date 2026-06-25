@@ -1194,7 +1194,7 @@ TEST(PublicApiConvenienceTest,
 
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
-          .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
+          .WithWorkMode(model::RadarWorkMode::kTas)
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .Build();
   session.ApplyRuntimeConfig(patch);
@@ -1249,8 +1249,8 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(environment_service.update_scene_state_count(), committed_update_scene_count + 1U);
   EXPECT_EQ(environment_service.update_model_config_count(), committed_update_model_count);
   EXPECT_EQ(environment_service.set_sensitivity_count(), committed_threshold_count + 1U);
-  EXPECT_EQ(signal_pipeline.config().mission.orientation.work_sub_mode,
-            model::RadarWorkSubMode::kTas);
+  EXPECT_EQ(signal_pipeline.config().mission.orientation.work_mode,
+            model::RadarWorkMode::kTas);
   EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
             environment::JammingSensitivityProfile::kStrict);
   EXPECT_EQ(environment_service.GetPendingSceneState().jammer_emitters.size(), 1U);
@@ -1352,7 +1352,7 @@ TEST(PublicApiConvenienceTest,
 
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
-          .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
+          .WithWorkMode(model::RadarWorkMode::kTas)
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .Build();
   session.ApplyRuntimeConfig(patch);
@@ -1382,8 +1382,8 @@ TEST(PublicApiConvenienceTest,
   ASSERT_EQ(radar_context.GetSceneTargets().size(), 1U);
   EXPECT_EQ(radar_context.GetSceneTargets()[0].external_target_id, 960U);
   EXPECT_FLOAT_EQ(radar_context.GetCycleDeltaTimeSec(), 1.0f);
-  EXPECT_EQ(signal_pipeline.config().mission.orientation.work_sub_mode,
-            model::RadarWorkSubMode::kTws);
+  EXPECT_EQ(signal_pipeline.config().mission.orientation.work_mode,
+            model::RadarWorkMode::kTws);
   EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
             environment::JammingSensitivityProfile::kBalanced);
   EXPECT_TRUE(environment_service.GetPendingSceneState().jammer_emitters.empty());
@@ -1394,8 +1394,8 @@ TEST(PublicApiConvenienceTest,
   ApplySceneStateToCycleInput(jammed_scene, &committed_input);
   const session::RadarCycleResult committed = session.StepWithResult(committed_input);
   EXPECT_TRUE(committed.executed_this_cycle);
-  EXPECT_EQ(signal_pipeline.config().mission.orientation.work_sub_mode,
-            model::RadarWorkSubMode::kTas);
+  EXPECT_EQ(signal_pipeline.config().mission.orientation.work_mode,
+            model::RadarWorkMode::kTas);
   EXPECT_EQ(environment_service.jamming_sensitivity_profile(),
             environment::JammingSensitivityProfile::kStrict);
   EXPECT_EQ(environment_service.GetPendingSceneState().jammer_emitters.size(), 1U);
@@ -1485,7 +1485,7 @@ TEST(PublicApiConvenienceTest,
   ASSERT_NE(baseline_key, 0U);
 
   session.ApplyRuntimeConfig(config::RadarRuntimeConfigBuilder()
-                                 .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
+                                 .WithWorkMode(model::RadarWorkMode::kTas)
                                  .Build());
 
   const session::RadarCycleResult cycle_2 =
@@ -1525,7 +1525,7 @@ TEST(PublicApiConvenienceTest,
   const std::size_t committed_update_config_count = signal_pipeline.update_config_count();
 
   session.ApplyRuntimeConfig(config::RadarRuntimeConfigBuilder()
-                                 .WithRadarWorkSubMode(model::RadarWorkSubMode::kTas)
+                                 .WithWorkMode(model::RadarWorkMode::kTas)
                                  .Build());
 
   signal_pipeline.SetShouldAcceptUpdates(false);
@@ -1537,8 +1537,8 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(rejected.abort_reason,
             extension::SignalCycleAbortReason::kRuntimePreparationFailed);
   EXPECT_TRUE(rejected.reused_previous_output);
-  EXPECT_EQ(signal_pipeline.config().mission.orientation.work_sub_mode,
-            model::RadarWorkSubMode::kTws);
+  EXPECT_EQ(signal_pipeline.config().mission.orientation.work_mode,
+            model::RadarWorkMode::kTws);
   EXPECT_EQ(signal_pipeline.update_config_count(), committed_update_config_count);
 
   signal_pipeline.SetShouldAcceptUpdates(true);
@@ -1547,8 +1547,8 @@ TEST(PublicApiConvenienceTest,
           model::MakeAirTarget(982U, 164.0f, 0.0f, 10.0f, 60.0f, 0.0f, 0.0f, 1.0f),
       }));
   EXPECT_TRUE(committed.executed_this_cycle);
-  EXPECT_EQ(signal_pipeline.config().mission.orientation.work_sub_mode,
-            model::RadarWorkSubMode::kTas);
+  EXPECT_EQ(signal_pipeline.config().mission.orientation.work_mode,
+            model::RadarWorkMode::kTas);
 }
 
 TEST(PublicApiConvenienceTest,

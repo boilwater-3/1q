@@ -41,7 +41,7 @@ int main() {
   esr::config::EsrSessionConfig detailed_config{};
   detailed_config.mission.work_mode = esr::config::EsrWorkMode::kEsm;
   detailed_config.mission.scan.scan_rate_hz = 2.0f;
-  detailed_config.policy.detection.min_detect_snr_db = 8.0f;
+  detailed_config.policy.detection.minimum_snr_db = 8.0f;
   detailed_config.policy.detection.pfa = 1.0e-6f;
   detailed_config.policy.detection.pulse_count = 16U;
   detailed_config.policy.detection.threshold_scale = 1.0f;
@@ -130,7 +130,7 @@ int main() {
 
   // 14. RuntimeConfigBuilder: reset to center-driven scan
   const esr::config::EsrRuntimeConfigPatch clear_window_patch =
-      esr::config::EsrRuntimeConfigBuilder().SetUseExplicitScanBounds(false).Build();
+      esr::config::EsrRuntimeConfigBuilder().WithExplicitScanBoundsEnabled(false).Build();
   session.ApplyRuntimeConfig(clear_window_patch);
 
   // 15. RuntimeConfigBuilder: environment atmospheric config via environment runtime config

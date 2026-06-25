@@ -106,8 +106,8 @@ int main() {
   // policy
   const auto& bp = builder_cfg.policy;
   const auto& fp = file_cfg.policy;
-  ReportF("policy.detection.min_detect_snr_db",
-          bp.detection.min_detect_snr_db, fp.detection.min_detect_snr_db);
+  ReportF("policy.detection.minimum_snr_db",
+          bp.detection.minimum_snr_db, fp.detection.minimum_snr_db);
   ReportF("policy.detection.pfa", bp.detection.pfa, fp.detection.pfa);
   ReportI("policy.detection.pulse_count",
           static_cast<int>(bp.detection.pulse_count),

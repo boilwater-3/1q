@@ -54,11 +54,13 @@ struct ONEQ_API CommandedBeamwidthDeg {
 };
 
 /**
- * @brief RadarWorkSubMode 表示机载雷达工作子模式。
+ * @brief RadarWorkMode 表示机载雷达工作模式。
  * @note 该枚举对应运行期可外部调整控制量。
  * @note "可外部调整"定义：调用方可在不重建 `RadarSession` 的前提下，通过公开 API 直接提交修改。
+ * @note 命名对齐 EOS/ESR 的 work_mode / EosWorkMode / EsrWorkMode（原名带 Sub 后缀，
+ *       已去掉以消除跨域"同概念异名"；由 check_cross_domain_naming.cmake 守护不回归）。
  */
-enum class ONEQ_API RadarWorkSubMode {
+enum class ONEQ_API RadarWorkMode {
   kStby = 0, /**< 待机：波束停泊并停止扫描 */
   kTas = 1,  /**< 目标捕获扫描：更高空间采样密度的二维扫描（步进更小） */
   kTws = 2,  /**< 边扫边跟踪：常规二维扫描 */
@@ -98,7 +100,7 @@ struct ONEQ_API RadarOrientationConfig {
       oneq::foundation::ScanStartPosition::kLeftTop}; /**< 扫描起始象限 */
   oneq::foundation::ScanSequence scan_sequence{
       oneq::foundation::ScanSequence::kAzimuthFirst};         /**< 二维扫描推进顺序 */
-  RadarWorkSubMode work_sub_mode{RadarWorkSubMode::kTws}; /**< [可外部调整] 当前工作子模式 */
+  RadarWorkMode work_mode{RadarWorkMode::kTws}; /**< [可外部调整] 当前工作模式 */
   bool commanded_beamwidth_enabled{false};       /**< 指令态波束宽度覆盖使能 */
   CommandedBeamwidthDeg commanded_beamwidth_deg; /**< 当前指令态瞬时波束宽度 */
   StabilizationMode stabilization_mode{StabilizationMode::kBodyStabilized}; /**< 波束稳定方式 */

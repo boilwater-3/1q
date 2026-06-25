@@ -191,7 +191,10 @@ SAR 原始系统输出是成像产品，不是目标航迹。
 - 是否复用上一有效输出？
 - 若失败或中止，结构化原因是什么？
 - 是否有模块诊断摘要？
-- 是否产出了生命周期事件？
+
+> 生命周期事件**不内嵌** `*CycleResult`（阶段 6/9 决策）：调用方若需生命周期事件，
+> 通过独立的 `*LifecycleRecorder::Update()` 获取；`*CycleResult` 不承载事件列表，
+> 以避免默认路径体积膨胀。
 
 字段建议：
 
@@ -204,7 +207,6 @@ bool executed_this_cycle{false};
 bool reused_previous_output{false};
 AbortReason abort_reason{};
 DiagnosticIssueList diagnostics{};
-LifecycleEventList lifecycle_events{};
 ```
 
 兼容要求：
@@ -331,16 +333,35 @@ struct LifecycleEvent {
 实现策略：
 
 - 可先定义模块内类型，后续再提升到 `oneq::foundation`，避免第一批过度抽象。
-- 事件列表可放入 `*CycleResult`，同时由 `*LifecycleRecorder` 提供跨周期 summary。
-- 未发现原因需要配置开启：
+- 生命周期事件**不内嵌** `*CycleResult`（阶段 6/9 决策）：recorder 是独立工具类，
+  由调用方按需调用 `Update()`，避免默认路径 `*CycleResult` 体积膨胀。recorder
+  内部维护跨周期实体状态，提供事件输出；需要跨周期 summary 时由 recorder 而非
+  `*CycleResult` 承载。
+- 未发现/未观测/无产品/未跟踪事件默认关闭，由各域 RecorderConfig 单字段开启。
+  **四域 RecorderConfig 实际落地为单 bool 字段**（无 `enabled` 总开关、无
+  `record_not_detected_reasons`/`include_gate_details` 细粒度门——诊断粒度固定）：
 
 ```cpp
-struct LifecycleDiagnosticsConfig {
-  bool enabled{false};
-  bool record_not_detected_reasons{false};
-  bool include_gate_details{false};
+// EOS: 记录目标探测生命周期
+struct EosDetectionLifecycleRecorderConfig {
+  bool emit_not_detected_events{false};  // 置 true 后为输入中未检测目标产出事件
+};
+// ESR: 记录辐射源观测生命周期
+struct EsrEmitterLifecycleRecorderConfig {
+  bool emit_not_observed_events{false};
+};
+// SAR: 记录成像产品生命周期（产品语义，非目标跟踪）
+struct SarProductLifecycleRecorderConfig {
+  bool emit_no_product_events{false};
+};
+// AR: 记录航迹生命周期
+struct RadarTrackLifecycleRecorderConfig {
+  bool emit_not_tracked_events{false};
 };
 ```
+
+字段名按各域动词变形（detected/observed/product/tracked）是可接受的领域表达，
+默认值统一为 `false`；若需开启诊断，在构造 recorder 时传入对应 config。
 
 ## Trace/Replay 契约
 

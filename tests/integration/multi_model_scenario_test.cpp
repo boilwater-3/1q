@@ -244,7 +244,7 @@ ar_config::RadarSessionConfig MakeArConfigAirToAir() {
       .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
       .End()
       .Mission()
-      .WithRadarWorkSubMode(ar_model::RadarWorkSubMode::kTas)
+      .WithWorkMode(ar_model::RadarWorkMode::kTas)
       .WithScanCenterDeg(ar_model::AzimuthElevationDeg{})
       .End()
       .Tracking()
@@ -293,7 +293,7 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
   config.hardware.el_scan_range_deg = 20.0f;
   config.mission.power_on = true;
   config.mission.work_mode = esr::config::EsrWorkMode::kEsm;
-  config.policy.detection.min_detect_snr_db = 6.0f;
+  config.policy.detection.minimum_snr_db = 6.0f;
   config.policy.detection.enable_statistical_detection = true;
   return config;
 }
@@ -308,7 +308,7 @@ ar_config::RadarSessionConfig MakeArConfigAirToGround() {
       .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
       .End()
       .Mission()
-      .WithRadarWorkSubMode(ar_model::RadarWorkSubMode::kTas)
+      .WithWorkMode(ar_model::RadarWorkMode::kTas)
       .WithScanCenterDeg(ar_model::AzimuthElevationDeg{})
       .End()
       .Tracking()
@@ -358,7 +358,7 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToGround() {
   config.mission.power_on = true;
   config.mission.work_mode = esr::config::EsrWorkMode::kEsm;
   config.mission.scan.scan_center_el_deg = -35.0f;
-  config.policy.detection.min_detect_snr_db = 6.0f;
+  config.policy.detection.minimum_snr_db = 6.0f;
   config.policy.detection.enable_statistical_detection = true;
   return config;
 }

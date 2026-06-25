@@ -46,33 +46,6 @@ TEST(EsrRuntimeConfigResolverTest, ValidPatchUpdatesRuntimePipelineAndEnvironmen
       resolved.next_config.environment.atmospheric_physics.relative_humidity, 0.66f);
 }
 
-TEST(EsrRuntimeConfigResolverTest, PresetPatchIsRejected) {
-  EsrInternalExecutionConfig current_config;
-  current_config.environment.preset = config::EsrEnvironmentPreset::kStandard;
-  current_config.environment.atmospheric_physics.enable_physical_model = true;
-  current_config.environment.atmospheric_physics.relative_humidity = 0.72f;
-  current_config.environment.atmospheric_context.has_day_of_year = true;
-  current_config.environment.atmospheric_context.day_of_year = 130;
-
-  environment::EsrEnvironmentRuntimeConfigPatch environment_patch;
-  environment_patch.has_preset = true;
-  environment_patch.preset = esr_config::EsrEnvironmentPreset::kJammed;
-
-  const config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
-                                          .WithEnvironmentRuntimeConfig(environment_patch)
-                                          .Build();
-  const EsrRuntimeConfigResolveResult resolved =
-      ResolveEsrRuntimeConfigPatch(current_config, patch);
-
-    EXPECT_TRUE(resolved.has_requested_update);
-    EXPECT_FALSE(resolved.is_valid);
-    EXPECT_EQ(resolved.status,
-        EsrRuntimeConfigApplyStatus::kRejectedUnsupportedEnvironmentPresetPatch);
-    EXPECT_FALSE(resolved.environment_model_config_changed);
-    EXPECT_EQ(resolved.next_config.environment.preset,
-        config::EsrEnvironmentPreset::kStandard);
-}
-
 TEST(EsrRuntimeConfigResolverTest, AtmosphericPhysicsOnlyDoesNotOverridePresetOrContext) {
   EsrInternalExecutionConfig current_config;
   current_config.environment.preset = config::EsrEnvironmentPreset::kDenseClutter;

@@ -381,12 +381,12 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.dwell_center_deg.el_deg = -3.5f;
   patch.has_commanded_beamwidth_enabled = true;
   patch.commanded_beamwidth_enabled = true;
-  patch.has_environment_runtime_config = true;
-  patch.environment_runtime_config.has_jamming_sensitivity_profile = true;
-  patch.environment_runtime_config.jamming_sensitivity_profile =
+  patch.has_environment = true;
+  patch.environment.has_jamming_sensitivity_profile = true;
+  patch.environment.jamming_sensitivity_profile =
       environment::JammingSensitivityProfile::kStrict;
-  patch.environment_runtime_config.has_scenario_config = true;
-  patch.environment_runtime_config.scenario_config.atmospheric_physics.relative_humidity = 0.45f;
+  patch.environment.has_scenario_config = true;
+  patch.environment.scenario_config.atmospheric_physics.relative_humidity = 0.45f;
 
   const std::string bytes = EncodeRuntimeConfigPatchFlatbuffer(patch);
   ASSERT_FALSE(bytes.empty());
@@ -406,13 +406,13 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.dwell_center_deg.az_deg, 31.0f);
   EXPECT_TRUE(decoded.has_commanded_beamwidth_enabled);
   EXPECT_TRUE(decoded.commanded_beamwidth_enabled);
-  EXPECT_TRUE(decoded.has_environment_runtime_config);
-  EXPECT_TRUE(decoded.environment_runtime_config.has_jamming_sensitivity_profile);
-  EXPECT_EQ(decoded.environment_runtime_config.jamming_sensitivity_profile,
+  EXPECT_TRUE(decoded.has_environment);
+  EXPECT_TRUE(decoded.environment.has_jamming_sensitivity_profile);
+  EXPECT_EQ(decoded.environment.jamming_sensitivity_profile,
             environment::JammingSensitivityProfile::kStrict);
-  EXPECT_TRUE(decoded.environment_runtime_config.has_scenario_config);
+  EXPECT_TRUE(decoded.environment.has_scenario_config);
   EXPECT_FLOAT_EQ(
-      decoded.environment_runtime_config.scenario_config.atmospheric_physics.relative_humidity,
+      decoded.environment.scenario_config.atmospheric_physics.relative_humidity,
       0.45f);
 }
 

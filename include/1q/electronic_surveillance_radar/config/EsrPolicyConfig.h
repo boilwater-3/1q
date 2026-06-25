@@ -17,7 +17,7 @@ namespace config {
  * @brief EsrDetectionPolicyConfig 描述对外探测策略详细参数。
  */
 struct ONEQ_API EsrDetectionPolicyConfig {
-  float min_detect_snr_db{6.0f};           /**< 最小截获信噪比门限（单位：dB） */
+  float minimum_snr_db{6.0f};           /**< 最小截获信噪比门限（单位：dB） */
   float pfa{1.0e-6f};                      /**< 期望虚警概率，范围 (0, 1) */
   std::uint32_t pulse_count{8U};           /**< 脉冲积累数量 */
   float threshold_scale{1.0f};             /**< 门限缩放系数 */

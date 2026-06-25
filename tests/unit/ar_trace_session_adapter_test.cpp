@@ -227,14 +227,14 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     runtime_patch.scan_center_deg.el_deg = expected_scan_center_el_deg;
     runtime_patch.has_commanded_beamwidth_enabled = true;
     runtime_patch.commanded_beamwidth_enabled = true;
-    runtime_patch.has_environment_runtime_config = true;
-    runtime_patch.environment_runtime_config.has_jamming_sensitivity_profile = true;
-    runtime_patch.environment_runtime_config.jamming_sensitivity_profile =
+    runtime_patch.has_environment = true;
+    runtime_patch.environment.has_jamming_sensitivity_profile = true;
+    runtime_patch.environment.jamming_sensitivity_profile =
         environment::JammingSensitivityProfile::kStrict;
-    runtime_patch.environment_runtime_config.has_scenario_config = true;
-    runtime_patch.environment_runtime_config.scenario_config.atmospheric_physics
+    runtime_patch.environment.has_scenario_config = true;
+    runtime_patch.environment.scenario_config.atmospheric_physics
         .enable_physical_model = true;
-    runtime_patch.environment_runtime_config.scenario_config.atmospheric_physics.relative_humidity =
+    runtime_patch.environment.scenario_config.atmospheric_physics.relative_humidity =
         0.4f;
     session.ApplyRuntimeConfig(runtime_patch);
 
@@ -306,8 +306,8 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
       EXPECT_TRUE(decoded_patch.has_scan_center_deg);
       EXPECT_FLOAT_EQ(decoded_patch.scan_center_deg.az_deg, expected_scan_center_az_deg);
       EXPECT_FLOAT_EQ(decoded_patch.scan_center_deg.el_deg, expected_scan_center_el_deg);
-      EXPECT_TRUE(decoded_patch.has_environment_runtime_config);
-      EXPECT_TRUE(decoded_patch.environment_runtime_config.has_jamming_sensitivity_profile);
+      EXPECT_TRUE(decoded_patch.has_environment);
+      EXPECT_TRUE(decoded_patch.environment.has_jamming_sensitivity_profile);
     }
     if (replay_event.event_type == "cycle_output") {
       saw_cycle_output = true;

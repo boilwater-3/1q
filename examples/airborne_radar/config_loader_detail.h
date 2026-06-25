@@ -104,7 +104,7 @@ inline void LoadOrientation(const oneq::JsonValue& j,
       j["scan_start_position"].AsInt());
   v->scan_sequence = static_cast<oneq::foundation::ScanSequence>(
       j["scan_sequence"].AsInt());
-  v->work_sub_mode = WorkSubModeFromString(j["work_sub_mode"].AsString());
+  v->work_mode = WorkModeFromString(j["work_mode"].AsString());
   v->commanded_beamwidth_enabled = j["commanded_beamwidth_enabled"].AsBool();
   LoadCmdBeamwidth(j["commanded_beamwidth_deg"], &v->commanded_beamwidth_deg);
   v->stabilization_mode = StabilizationFromString(j["stabilization_mode"].AsString());

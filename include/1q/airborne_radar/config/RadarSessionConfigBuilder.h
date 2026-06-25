@@ -17,7 +17,7 @@ namespace config {
 
 using model::AzimuthElevationDeg;
 using model::CommandedBeamwidthDeg;
-using model::RadarWorkSubMode;
+using model::RadarWorkMode;
 
 /**
  * @brief ConfigValidationCode 表示构造器校验问题编码。
@@ -215,9 +215,9 @@ class ONEQ_API RadarSessionConfigBuilder::MissionEditor {
     builder_->base_config_.mission.power_on = power_on;
     return *this;
   }
-  /** @brief 设置雷达工作子模式。 */
-  MissionEditor& WithRadarWorkSubMode(RadarWorkSubMode work_sub_mode) {
-    builder_->orientation_.work_sub_mode = work_sub_mode;
+  /** @brief 设置雷达工作模式（命名对齐 EOS/ESR 的 WithWorkMode）。 */
+  MissionEditor& WithWorkMode(RadarWorkMode work_mode) {
+    builder_->orientation_.work_mode = work_mode;
     return *this;
   }
   /** @brief 设置扫描中心。 */

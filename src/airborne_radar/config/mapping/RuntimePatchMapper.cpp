@@ -47,16 +47,16 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     execution_config_changed = true;
   }
 
-  if (patch.has_environment_runtime_config) {
+  if (patch.has_environment) {
     has_requested_update = true;
-    if (patch.environment_runtime_config.has_scenario_config) {
+    if (patch.environment.has_scenario_config) {
       resolved.next_state.environment_scenario_config =
-          patch.environment_runtime_config.scenario_config;
+          patch.environment.scenario_config;
       resolved.environment_scenario_config_changed = true;
     }
-    if (patch.environment_runtime_config.has_jamming_sensitivity_profile) {
+    if (patch.environment.has_jamming_sensitivity_profile) {
       resolved.next_state.jamming_sensitivity_profile =
-          patch.environment_runtime_config.jamming_sensitivity_profile;
+          patch.environment.jamming_sensitivity_profile;
       resolved.jamming_sensitivity_profile_changed = true;
     }
   }
@@ -78,8 +78,8 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
 
-  if (patch.has_work_sub_mode) {
-    next_execution_config.detection.orientation.work_sub_mode = patch.work_sub_mode;
+  if (patch.has_work_mode) {
+    next_execution_config.detection.orientation.work_mode = patch.work_mode;
     execution_config_changed = true;
     has_requested_update = true;
   }

@@ -21,13 +21,13 @@ TEST(ArRuntimePatchMapperTest, MissionDomainAppliedBeforeLeafPatch) {
   RuntimeConfigState current_state;
   current_state.execution_config.detection.orientation.scan_center_deg.az_deg = 1.0f;
   current_state.execution_config.detection.orientation.scan_center_deg.el_deg = 2.0f;
-  current_state.execution_config.detection.orientation.work_sub_mode =
-      model::RadarWorkSubMode::kTws;
+  current_state.execution_config.detection.orientation.work_mode =
+      model::RadarWorkMode::kTws;
 
   RadarMissionConfig mission_patch;
   mission_patch.orientation.scan_center_deg.az_deg = 10.0f;
   mission_patch.orientation.scan_center_deg.el_deg = 20.0f;
-  mission_patch.orientation.work_sub_mode = model::RadarWorkSubMode::kTas;
+  mission_patch.orientation.work_mode = model::RadarWorkMode::kTas;
 
   RadarRuntimeConfigPatch patch;
   patch.has_mission = true;
@@ -41,8 +41,8 @@ TEST(ArRuntimePatchMapperTest, MissionDomainAppliedBeforeLeafPatch) {
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_TRUE(resolved.is_valid);
   EXPECT_TRUE(resolved.execution_config_changed);
-  EXPECT_EQ(resolved.next_state.execution_config.detection.orientation.work_sub_mode,
-            model::RadarWorkSubMode::kTas);
+  EXPECT_EQ(resolved.next_state.execution_config.detection.orientation.work_mode,
+            model::RadarWorkMode::kTas);
   EXPECT_FLOAT_EQ(resolved.next_state.execution_config.detection.orientation.scan_center_deg.az_deg,
                   30.0f);
   EXPECT_FLOAT_EQ(resolved.next_state.execution_config.detection.orientation.scan_center_deg.el_deg,
@@ -87,7 +87,7 @@ TEST(ArRuntimePatchMapperTest, EnvironmentPatchUpdatesModelAndThreshold) {
           .WithEnvironmentScenarioConfig(environment::EnvironmentScenarioConfig{})
           .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
           .Build();
-  patch.environment_runtime_config.scenario_config.atmospheric_physics.enable_physical_model = true;
+  patch.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
 
   const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
 

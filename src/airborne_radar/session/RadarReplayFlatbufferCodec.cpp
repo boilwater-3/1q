@@ -499,7 +499,7 @@ flatbuffers::Offset<session_fb::RadarOrientationConfig> EncodeSessionOrientation
       EncodeSessionAzElLimits(builder, value.mechanical_scan_limits_deg),
       EncodeSessionAzElLimits(builder, value.electronic_scan_limits_deg),
       static_cast<int>(value.scan_start_position), static_cast<int>(value.scan_sequence),
-      static_cast<int>(value.work_sub_mode), value.commanded_beamwidth_enabled,
+      static_cast<int>(value.work_mode), value.commanded_beamwidth_enabled,
       EncodeSessionCommandedBeamwidth(builder, value.commanded_beamwidth_deg),
       static_cast<int>(value.stabilization_mode));
 }
@@ -682,7 +682,7 @@ model::RadarOrientationConfig DecodeSessionOrientation(
     result.scan_start_position =
         static_cast<oneq::foundation::ScanStartPosition>(value->scan_start_position());
     result.scan_sequence = static_cast<oneq::foundation::ScanSequence>(value->scan_sequence());
-    result.work_sub_mode = static_cast<model::RadarWorkSubMode>(value->work_sub_mode());
+    result.work_mode = static_cast<model::RadarWorkMode>(value->work_mode());
     result.commanded_beamwidth_enabled = value->commanded_beamwidth_enabled();
     result.commanded_beamwidth_deg =
         DecodeSessionCommandedBeamwidth(value->commanded_beamwidth_deg());
@@ -1107,9 +1107,9 @@ std::string EncodeRuntimeConfigPatchFlatbuffer(const config::RadarRuntimeConfigP
       session_fb::CreateRadarRuntimeConfigPatch(
           builder, patch.has_mission, EncodeSessionOrientation(&builder, patch.mission.orientation),
           patch.has_policy, EncodeSessionPolicyConfig(&builder, patch.policy),
-          patch.has_environment_runtime_config,
-          EncodeSessionEnvironmentRuntimeConfigPatch(&builder, patch.environment_runtime_config),
-          patch.has_work_sub_mode, static_cast<int>(patch.work_sub_mode), patch.has_scan_center_deg,
+          patch.has_environment,
+          EncodeSessionEnvironmentRuntimeConfigPatch(&builder, patch.environment),
+          patch.has_work_mode, static_cast<int>(patch.work_mode), patch.has_scan_center_deg,
           EncodeSessionAzEl(&builder, patch.scan_center_deg), patch.has_dwell_center_deg,
           EncodeSessionAzEl(&builder, patch.dwell_center_deg), patch.has_commanded_beamwidth_deg,
           EncodeSessionCommandedBeamwidth(&builder, patch.commanded_beamwidth_deg),
@@ -1153,11 +1153,11 @@ bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
   patch->mission.orientation = DecodeSessionOrientation(root->mission_orientation());
   patch->has_policy = root->has_policy();
   patch->policy = DecodeSessionPolicyConfig(root->policy());
-  patch->has_environment_runtime_config = root->has_environment_runtime_config();
-  patch->environment_runtime_config =
-      DecodeSessionEnvironmentRuntimeConfigPatch(root->environment_runtime_config());
-  patch->has_work_sub_mode = root->has_work_sub_mode();
-  patch->work_sub_mode = static_cast<config::RadarWorkSubMode>(root->work_sub_mode());
+  patch->has_environment = root->has_environment();
+  patch->environment =
+      DecodeSessionEnvironmentRuntimeConfigPatch(root->environment());
+  patch->has_work_mode = root->has_work_mode();
+  patch->work_mode = static_cast<config::RadarWorkMode>(root->work_mode());
   patch->has_scan_center_deg = root->has_scan_center_deg();
   patch->scan_center_deg = DecodeSessionAzEl(root->scan_center_deg());
   patch->has_dwell_center_deg = root->has_dwell_center_deg();

@@ -373,7 +373,7 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
       fbb, v.mission.power_on, static_cast<int32_t>(v.mission.work_mode), scan);
   // detection_profile and use_profile_defaults retired in Phase 2; pass defaults for schema compat
   auto policy = esr::replay::CreateEsrPolicyConfig(
-      fbb, 0, false, v.policy.detection.min_detect_snr_db, v.policy.detection.pfa,
+      fbb, 0, false, v.policy.detection.minimum_snr_db, v.policy.detection.pfa,
       v.policy.detection.pulse_count, v.policy.detection.threshold_scale,
       v.policy.detection.enable_statistical_detection);
   const auto& es = v.environment.scenario_config;
@@ -430,7 +430,7 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
   }
   if (fb->policy()) {
     const auto* p = fb->policy();
-    out->policy.detection.min_detect_snr_db = p->min_detect_snr_db();
+    out->policy.detection.minimum_snr_db = p->minimum_snr_db();
     out->policy.detection.pfa = p->pfa();
     out->policy.detection.pulse_count = p->pulse_count();
     out->policy.detection.threshold_scale = p->threshold_scale();
@@ -466,7 +466,7 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
 
 std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
-  const auto& ev = v.environment_runtime_config;
+  const auto& ev = v.environment;
   auto ap = esr::replay::CreateEsrAtmosphericPhysicsConfig(
       fbb, ev.atmospheric_physics.enable_physical_model, ev.atmospheric_physics.pressure_hpa,
       ev.atmospheric_physics.temperature_k, ev.atmospheric_physics.relative_humidity);
@@ -476,8 +476,7 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
       ev.atmospheric_context.solar_flux_f107a, ev.atmospheric_context.solar_flux_f107,
       ev.atmospheric_context.geomagnetic_ap);
   auto env_patch = esr::replay::CreateEsrEnvironmentRuntimeConfigPatch(
-      fbb, ev.has_preset, static_cast<int32_t>(ev.preset), ev.has_atmospheric_physics, ap,
-      ev.has_atmospheric_context, ac);
+      fbb, ev.has_atmospheric_physics, ap, ev.has_atmospheric_context, ac);
   flatbuffers::Offset<esr::replay::EsrMissionConfig> mission;
   if (v.has_mission) {
     const auto& sc = v.mission.scan;
@@ -494,7 +493,7 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
     // detection_profile and use_profile_defaults retired in Phase 2; pass defaults for schema
     // compat
     policy = esr::replay::CreateEsrPolicyConfig(
-        fbb, 0, false, v.policy.detection.min_detect_snr_db, v.policy.detection.pfa,
+        fbb, 0, false, v.policy.detection.minimum_snr_db, v.policy.detection.pfa,
         v.policy.detection.pulse_count, v.policy.detection.threshold_scale,
         v.policy.detection.enable_statistical_detection);
   }
@@ -508,7 +507,7 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
       v.has_explicit_scan_bounds, sb.scan_start_az_deg, v.has_explicit_scan_bounds,
       sb.scan_end_az_deg, v.has_explicit_scan_bounds, sb.scan_start_el_deg,
       v.has_explicit_scan_bounds, sb.scan_end_el_deg, v.has_mission, mission, v.has_policy, policy,
-      v.has_environment_runtime_config, env_patch));
+      v.has_environment, env_patch));
   return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
 }
 
@@ -561,44 +560,41 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeCon
   out->has_policy = fb->has_policy();
   if (fb->policy()) {
     const auto* p = fb->policy();
-    out->policy.detection.min_detect_snr_db = p->min_detect_snr_db();
+    out->policy.detection.minimum_snr_db = p->minimum_snr_db();
     out->policy.detection.pfa = p->pfa();
     out->policy.detection.pulse_count = p->pulse_count();
     out->policy.detection.threshold_scale = p->threshold_scale();
     out->policy.detection.enable_statistical_detection = p->enable_statistical_detection();
   }
-  out->has_environment_runtime_config = fb->has_environment_runtime_config();
-  if (fb->environment_runtime_config()) {
-    const auto* ec = fb->environment_runtime_config();
-    out->environment_runtime_config.has_preset = ec->has_preset();
-    out->environment_runtime_config.preset =
-        static_cast<config::EsrEnvironmentPreset>(ec->preset());
-    out->environment_runtime_config.has_atmospheric_physics = ec->has_atmospheric_physics();
+  out->has_environment = fb->has_environment();
+  if (fb->environment()) {
+    const auto* ec = fb->environment();
+    out->environment.has_atmospheric_physics = ec->has_atmospheric_physics();
     if (ec->atmospheric_physics()) {
-      out->environment_runtime_config.atmospheric_physics.enable_physical_model =
+      out->environment.atmospheric_physics.enable_physical_model =
           ec->atmospheric_physics()->enable_physical_model();
-      out->environment_runtime_config.atmospheric_physics.pressure_hpa =
+      out->environment.atmospheric_physics.pressure_hpa =
           ec->atmospheric_physics()->pressure_hpa();
-      out->environment_runtime_config.atmospheric_physics.temperature_k =
+      out->environment.atmospheric_physics.temperature_k =
           ec->atmospheric_physics()->temperature_k();
-      out->environment_runtime_config.atmospheric_physics.relative_humidity =
+      out->environment.atmospheric_physics.relative_humidity =
           ec->atmospheric_physics()->relative_humidity();
     }
-    out->environment_runtime_config.has_atmospheric_context = ec->has_atmospheric_context();
+    out->environment.has_atmospheric_context = ec->has_atmospheric_context();
     if (ec->atmospheric_context()) {
-      out->environment_runtime_config.atmospheric_context.has_k_factor =
+      out->environment.atmospheric_context.has_k_factor =
           ec->atmospheric_context()->has_k_factor();
-      out->environment_runtime_config.atmospheric_context.k_factor =
+      out->environment.atmospheric_context.k_factor =
           ec->atmospheric_context()->k_factor();
-      out->environment_runtime_config.atmospheric_context.has_day_of_year =
+      out->environment.atmospheric_context.has_day_of_year =
           ec->atmospheric_context()->has_day_of_year();
-      out->environment_runtime_config.atmospheric_context.day_of_year =
+      out->environment.atmospheric_context.day_of_year =
           ec->atmospheric_context()->day_of_year();
-      out->environment_runtime_config.atmospheric_context.solar_flux_f107a =
+      out->environment.atmospheric_context.solar_flux_f107a =
           ec->atmospheric_context()->solar_flux_f107a();
-      out->environment_runtime_config.atmospheric_context.solar_flux_f107 =
+      out->environment.atmospheric_context.solar_flux_f107 =
           ec->atmospheric_context()->solar_flux_f107();
-      out->environment_runtime_config.atmospheric_context.geomagnetic_ap =
+      out->environment.atmospheric_context.geomagnetic_ap =
           ec->atmospheric_context()->geomagnetic_ap();
     }
   }

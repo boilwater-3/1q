@@ -55,7 +55,7 @@
       "electronic_scan_limits_deg": {"az_min_deg": -60.0, "az_max_deg": 60.0, "el_min_deg": -30.0, "el_max_deg": 30.0},
       "scan_start_position": "kLeftTop",
       "scan_sequence": "kAzimuthFirst",
-      "work_sub_mode": "kTas",
+      "work_mode": "kTas",
       "commanded_beamwidth_enabled": false,
       "commanded_beamwidth_deg": {"commanded_az_beamwidth_deg": 4.0, "commanded_el_beamwidth_deg": 4.0},
       "stabilization_mode": "kBodyStabilized"

@@ -13,6 +13,7 @@
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
+#include "1q/foundation/SensorContract.h"
 
 namespace electronic_surveillance_radar {
 namespace extension {
@@ -37,7 +38,6 @@ enum class EsrRuntimeConfigApplyStatus {
   kRejectedInvalidScanCenterAz,
   kRejectedInvalidScanCenterEl,
   kRejectedInvalidExplicitScanBounds,
-  kRejectedUnsupportedEnvironmentPresetPatch,
 };
 
 /**
@@ -68,14 +68,14 @@ class ONEQ_API EsrSession {
    * @param[in] input 当前周期输入。
    * @return 当前周期输出帧。
    */
-  session::EsrOutputFrame Step(const session::EsrCycleInput& input);
+  EsrOutputFrame Step(const EsrCycleInput& input);
 
   /**
    * @brief 执行单周期并返回聚合结果。
    * @param[in] input 当前周期输入。
    * @return 当前周期聚合结果。
    */
-  EsrCycleResult StepWithResult(const session::EsrCycleInput& input);
+  EsrCycleResult StepWithResult(const EsrCycleInput& input);
 
   /**
    * @brief 应用运行期可变配置补丁。
@@ -105,6 +105,10 @@ class ONEQ_API EsrSession {
 };
 
 }  // namespace session
+
+// 跨域传感器会话形状契约：锚定 Step/StepWithResult 签名，防止伪对称漂移。
+ONEQ_SENSOR_SESSION_CONTRACT(session::EsrSession, session::EsrCycleInput,
+                             session::EsrOutputFrame, session::EsrCycleResult);
 
 }  // namespace electronic_surveillance_radar
 

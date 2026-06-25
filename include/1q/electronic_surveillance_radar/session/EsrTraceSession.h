@@ -58,8 +58,8 @@ class ONEQ_API EsrTraceSession {
   EsrTraceSession(EsrTraceSession&&) noexcept;
   EsrTraceSession& operator=(EsrTraceSession&&) noexcept;
 
-  session::EsrOutputFrame Step(const session::EsrCycleInput& input);
-  session::EsrCycleResult StepWithResult(const session::EsrCycleInput& input);
+  EsrOutputFrame Step(const EsrCycleInput& input);
+  EsrCycleResult StepWithResult(const EsrCycleInput& input);
   void ApplyRuntimeConfig(const config::EsrRuntimeConfigPatch& patch);
 
   session::EsrSession& session();

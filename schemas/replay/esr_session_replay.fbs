@@ -42,7 +42,7 @@ table EsrMissionConfig {
 table EsrPolicyConfig {
   detection_profile:          int32;
   use_profile_defaults:       bool;
-  min_detect_snr_db:          float;
+  minimum_snr_db:          float;
   pfa:                        float;
   pulse_count:                uint32;
   threshold_scale:            float;
@@ -85,8 +85,6 @@ file_identifier "ESRS";
 // ---- EsrRuntimeConfigPatch ----
 
 table EsrEnvironmentRuntimeConfigPatch {
-  has_preset:              bool;
-  preset:                  int32;
   has_atmospheric_physics: bool;
   atmospheric_physics:     EsrAtmosphericPhysicsConfig;
   has_atmospheric_context: bool;
@@ -122,6 +120,6 @@ table EsrRuntimeConfigPatch {
   mission:                     EsrMissionConfig;
   has_policy:                  bool;
   policy:                      EsrPolicyConfig;
-  has_environment_runtime_config: bool;
-  environment_runtime_config:  EsrEnvironmentRuntimeConfigPatch;
+  has_environment: bool;
+  environment:  EsrEnvironmentRuntimeConfigPatch;
 }

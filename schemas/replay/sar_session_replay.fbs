@@ -52,7 +52,7 @@ table SarPolicyConfig {
   retain_raw_phase_history: bool;
   retain_focused_image: bool;
   max_allowed_squint_angle_deg: double;
-  min_valid_snr_db: double;
+  minimum_snr_db: double;
   enable_l2_motion_compensation: bool;
   enable_l3_bp_imaging: bool;
 }
@@ -86,6 +86,6 @@ table SarRuntimeConfigPatch {
   retain_raw_phase_history: bool;
   has_retain_focused_image: bool;
   retain_focused_image: bool;
-  has_min_valid_snr_db: bool;
-  min_valid_snr_db: double;
+  has_minimum_snr_db: bool;
+  minimum_snr_db: double;
 }

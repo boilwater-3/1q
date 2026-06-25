@@ -14,6 +14,7 @@
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/api.hpp"
+#include "1q/foundation/SensorContract.h"
 
 namespace airborne_radar {
 namespace config {
@@ -62,7 +63,7 @@ class ONEQ_API RadarSession {
    *       会以尽力而为出发返回上一周期有效状态，输出帧中
    *       `tracks` 可能为空。
    */
-  session::TrackOutputFrame Step(const RadarCycleInput& input);
+  TrackOutputFrame Step(const RadarCycleInput& input);
 
   /**
    * @brief 执行一个不显式切场景的处理周期，并返回聚合结果。
@@ -124,6 +125,12 @@ class ONEQ_API RadarSession {
 };
 
 }  // namespace session
+
+// 跨域传感器会话形状契约：锚定 Step/StepWithResult 签名，防止伪对称漂移。
+// 注意：AR 主输出帧类型为 TrackOutputFrame（领域历史命名，非 RadarOutputFrame）。
+ONEQ_SENSOR_SESSION_CONTRACT(session::RadarSession, session::RadarCycleInput,
+                             session::TrackOutputFrame, session::RadarCycleResult);
+
 }  // namespace airborne_radar
 
 #endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_SESSION_H_

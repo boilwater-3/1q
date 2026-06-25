@@ -454,6 +454,23 @@ add_test(
             -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_public_header_external_dependency_isolation.cmake
 )
 
+# 跨域命名规约守护：四域 Session 签名裸名 + SNR 门限前缀异名报告。
+add_test(
+    NAME cross_domain_naming_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_cross_domain_naming.cmake
+)
+
+# 公共头 C++11 兼容性守护：扫描 include/1q/ 是否出现 C++14/17 特征
+# （VS2015 消费方兼容）；与 check_sar_cxx11_compat.cmake（编译式）互补。
+add_test(
+    NAME public_header_cxx11_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_public_header_cxx11.cmake
+)
+
 set_tests_properties(
     public_api_boundary_guard
     airborne_include_style_guard
@@ -463,6 +480,8 @@ set_tests_properties(
     esr_include_direction_guard
     eos_include_direction_guard
     public_header_external_dependency_isolation_guard
+    cross_domain_naming_guard
+    public_header_cxx11_guard
     PROPERTIES LABELS "contract"
 )
 

@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "1q/sar/config/SarRuntimeConfigPatch.h"
+#include "1q/sar/config/SarRuntimeConfigBuilder.h"
 #include "1q/sar/config/SarSessionConfig.h"
 #include "1q/sar/session/SarCycleInput.h"
 #include "1q/sar/session/SarCycleResult.h"
@@ -155,7 +156,7 @@ TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.enable_diagnostics = false;
   config.policy.retain_raw_phase_history = true;
   config.policy.max_allowed_squint_angle_deg = 3.0;
-  config.policy.min_valid_snr_db = -5.0;
+  config.policy.minimum_snr_db = -5.0;
   config.environment.terrain_reference_altitude_m = 4.0;
   config.environment.atmospheric_loss_db_per_km = 0.1;
   config.environment.surface_backscatter_sigma0_db = -9.0;
@@ -181,23 +182,21 @@ TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_TRUE(decoded.policy.enable_l2_motion_compensation);
   EXPECT_TRUE(decoded.policy.enable_l3_bp_imaging);
   EXPECT_TRUE(decoded.policy.retain_raw_phase_history);
-  EXPECT_DOUBLE_EQ(decoded.policy.min_valid_snr_db, -5.0);
+  EXPECT_DOUBLE_EQ(decoded.policy.minimum_snr_db, -5.0);
   EXPECT_FALSE(decoded.environment.use_flat_earth_geometry);
   EXPECT_TRUE(decoded.environment.enable_atmospheric_attenuation);
 }
 
 TEST(SarReplayCodecRoundtripTest, RuntimeConfigPatchPreservesHasBitsAndValues) {
-  config::SarRuntimeConfigPatch patch;
-  patch.has_enable_raw_echo_generation = true;
-  patch.enable_raw_echo_generation = false;
-  patch.has_enable_range_compression = true;
-  patch.enable_range_compression = false;
-  patch.has_enable_l1_rda_imaging = true;
-  patch.enable_l1_rda_imaging = true;
-  patch.has_retain_raw_phase_history = true;
-  patch.retain_raw_phase_history = true;
-  patch.has_min_valid_snr_db = true;
-  patch.min_valid_snr_db = 6.5;
+  // 通过 SarRuntimeConfigBuilder 构造补丁（与 EOS/ESR/AR 对齐，避免手写 has_*）。
+  const config::SarRuntimeConfigPatch patch =
+      config::SarRuntimeConfigBuilder()
+          .WithEnableRawEchoGeneration(false)
+          .WithEnableRangeCompression(false)
+          .WithEnableL1RdaImaging(true)
+          .WithRetainRawPhaseHistory(true)
+          .WithMinimumSnrDb(6.5)
+          .Build();
 
   const std::string bytes = EncodeSarRuntimeConfigPatch(patch);
   ASSERT_FALSE(bytes.empty());
@@ -212,8 +211,8 @@ TEST(SarReplayCodecRoundtripTest, RuntimeConfigPatchPreservesHasBitsAndValues) {
   EXPECT_TRUE(decoded.enable_l1_rda_imaging);
   EXPECT_TRUE(decoded.has_retain_raw_phase_history);
   EXPECT_TRUE(decoded.retain_raw_phase_history);
-  EXPECT_TRUE(decoded.has_min_valid_snr_db);
-  EXPECT_DOUBLE_EQ(decoded.min_valid_snr_db, 6.5);
+  EXPECT_TRUE(decoded.has_minimum_snr_db);
+  EXPECT_DOUBLE_EQ(decoded.minimum_snr_db, 6.5);
 }
 
 TEST(SarReplayCodecRoundtripTest, RejectsEmptyPayload) {
