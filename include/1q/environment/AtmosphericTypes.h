@@ -2,8 +2,7 @@
  * @file AtmosphericTypes.h
  * @brief 定义跨模块复用的大气观测与空间天气上下文类型。
  *
- * 统一 AR/ESR/EOS 各模块中重复定义的大气输入类型。
- * 字段与默认值与 foundation::AtmosphericObservation / foundation::SpaceWeatherContext 完全一致。
+ * 统一 AR/ESR/EOS 各模块中重复定义的大气输入类型，作为唯一公开来源。
  */
 
 #ifndef ONEQ_ENVIRONMENT_ATMOSPHERIC_TYPES_H_

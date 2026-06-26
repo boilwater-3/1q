@@ -22,8 +22,8 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
-#include "1q/electronic_surveillance_radar/model/EmitterHypothesis.h"
-#include "1q/electronic_surveillance_radar/model/EmitterObservation.h"
+#include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
+#include "1q/electronic_surveillance_radar/session/EmitterObservation.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleOutputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
@@ -35,7 +35,6 @@
 namespace {
 
 namespace esr_ext = ::electronic_surveillance_radar::session;
-namespace esr_model = ::electronic_surveillance_radar::model;
 namespace esr_session = ::electronic_surveillance_radar::session;
 namespace esr_config = ::electronic_surveillance_radar::config;
 
@@ -43,7 +42,7 @@ namespace esr_config = ::electronic_surveillance_radar::config;
 // EmitterObservation 与 TruthAssociationRecord 当前全部成员为 trivially-copyable
 // 标量；若有人加入 std::string emitter_name 等真值字段，trivially-copyable
 // 性质被破坏，此处编译失败，强制开发者审视是否破坏了真实输出边界。
-static_assert(std::is_trivially_copyable<esr_model::EmitterObservation>::value,
+static_assert(std::is_trivially_copyable<esr_session::EmitterObservation>::value,
               "EmitterObservation must remain a receiver-side record of scalar fields; "
               "emitter identity/name is not allowed.");
 static_assert(std::is_trivially_copyable<esr_ext::TruthAssociationRecord>::value,

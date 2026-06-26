@@ -12,8 +12,8 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/model/EmitterHypothesis.h"
-#include "1q/electronic_surveillance_radar/model/EmitterObservation.h"
+#include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
+#include "1q/electronic_surveillance_radar/session/EmitterObservation.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -37,14 +37,14 @@ using TruthAssociationRecordList = std::vector<TruthAssociationRecord>;
 struct ONEQ_API ObservationOutputFrame {
   std::size_t raw_observation_count{0U};
   std::size_t cluster_count{0U};
-  model::EmitterObservationList observations{};
+  session::EmitterObservationList observations{};
 };
 
 /**
  * @brief EmitterOutputFrame 表示侦察输出通道。
  */
 struct ONEQ_API EmitterOutputFrame {
-  model::EmitterHypothesisList hypotheses{};
+  session::EmitterHypothesisList hypotheses{};
 };
 
 /**

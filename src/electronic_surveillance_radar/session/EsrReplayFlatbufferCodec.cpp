@@ -229,7 +229,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
     out->observation_output.cluster_count = o->cluster_count();
     if (o->observations()) {
       for (const auto* obs : *o->observations()) {
-        model::EmitterObservation rec{};
+        session::EmitterObservation rec{};
         rec.observation_id = obs->observation_id();
         rec.timestamp_s = obs->timestamp_s();
         rec.aoa_az_deg = obs->aoa_az_deg();
@@ -238,7 +238,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
         rec.pulse_width_s = obs->pulse_width_s();
         rec.amplitude_db = obs->amplitude_db();
         rec.snr_db = obs->snr_db();
-        rec.quality = static_cast<model::EsrObservationQuality>(obs->quality());
+        rec.quality = static_cast<session::EsrObservationQuality>(obs->quality());
         rec.is_jammed = obs->is_jammed();
         out->observation_output.observations.push_back(rec);
       }
@@ -248,10 +248,10 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
     const auto* e = fb->emitter_output();
     if (e->hypotheses()) {
       for (const auto* h : *e->hypotheses()) {
-        model::EmitterHypothesis hyp{};
+        session::EmitterHypothesis hyp{};
         hyp.hypothesis_id = h->hypothesis_id();
-        hyp.mode = static_cast<model::EsrEmitterMode>(h->mode());
-        hyp.threat_level = static_cast<model::EsrThreatLevel>(h->threat_level());
+        hyp.mode = static_cast<session::EsrEmitterMode>(h->mode());
+        hyp.threat_level = static_cast<session::EsrThreatLevel>(h->threat_level());
         hyp.bearing_az_deg = h->bearing_az_deg();
         hyp.bearing_el_deg = h->bearing_el_deg();
         hyp.bearing_std_deg = h->bearing_std_deg();

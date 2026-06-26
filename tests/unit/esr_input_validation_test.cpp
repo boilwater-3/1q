@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/model/EmitterHypothesis.h"
+#include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 
@@ -57,7 +57,7 @@ struct HasTruthEmitterId : std::false_type {};
 template <typename T>
 struct HasTruthEmitterId<T, decltype((void)std::declval<T>().truth_emitter_id)> : std::true_type {};
 
-static_assert(!HasTruthEmitterId<model::EmitterHypothesis>::value,
+static_assert(!HasTruthEmitterId<session::EmitterHypothesis>::value,
               "EmitterHypothesis must not expose truth emitter id");
 
 TEST(EsrInputValidationTest, InvalidCycleDeltaTimeIsReportedAsError) {

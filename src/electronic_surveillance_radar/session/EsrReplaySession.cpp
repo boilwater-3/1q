@@ -22,8 +22,8 @@ struct EsrReplayState {
   oneq::replay::ReplayTraceFailure failure_marker_data{};
 };
 
-bool EmitterObservationEqual(const model::EmitterObservation& left,
-                             const model::EmitterObservation& right) {
+bool EmitterObservationEqual(const session::EmitterObservation& left,
+                             const session::EmitterObservation& right) {
   return left.observation_id == right.observation_id && left.timestamp_s == right.timestamp_s &&
          left.aoa_az_deg == right.aoa_az_deg && left.aoa_el_deg == right.aoa_el_deg &&
          left.rf_hz == right.rf_hz && left.pulse_width_s == right.pulse_width_s &&
@@ -31,8 +31,8 @@ bool EmitterObservationEqual(const model::EmitterObservation& left,
          left.quality == right.quality && left.is_jammed == right.is_jammed;
 }
 
-bool EmitterHypothesisEqual(const model::EmitterHypothesis& left,
-                            const model::EmitterHypothesis& right) {
+bool EmitterHypothesisEqual(const session::EmitterHypothesis& left,
+                            const session::EmitterHypothesis& right) {
   if (left.hypothesis_id != right.hypothesis_id || left.mode != right.mode ||
       left.threat_level != right.threat_level || left.bearing_az_deg != right.bearing_az_deg ||
       left.bearing_el_deg != right.bearing_el_deg || left.bearing_std_deg != right.bearing_std_deg ||

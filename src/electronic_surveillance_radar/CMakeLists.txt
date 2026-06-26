@@ -37,13 +37,11 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_MODULE_ENTRY_ESR
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp
     )
-    set(PUBLIC_HEADERS_ESR_MODEL
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterHypothesis.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterObservation.h
-    )
     set(PUBLIC_HEADERS_ESR_EXTENSION
     )
     set(PUBLIC_HEADERS_ESR_SESSION
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EmitterHypothesis.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EmitterObservation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleOutputAdapter.h

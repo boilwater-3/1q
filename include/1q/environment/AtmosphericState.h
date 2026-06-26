@@ -13,9 +13,6 @@ namespace environment {
 
 /**
  * @brief 统一大气状态查询结果（SI 单位制）。
- *
- * @note 字段与默认值与 `foundation::AtmosphericState` 保持同步。
- *       后续迁移完成后，foundation 版本将标记 deprecated。
  */
 struct ONEQ_API AtmosphericState {
   float altitude_m{0.0f};            /**< 查询高度（输入回显，单位：m） */

@@ -128,14 +128,10 @@ set(ESR_ENVIRONMENT_HEADERS
 set(ESR_EXTENSION_HEADERS
 )
 
-# ── ESR 模型域 ────────────────────────────────────────────────────────
-set(ESR_MODEL_HEADERS
-    "electronic_surveillance_radar/model/EmitterHypothesis.h"
-    "electronic_surveillance_radar/model/EmitterObservation.h"
-)
-
 # ── ESR 会话域 ────────────────────────────────────────────────────────
 set(ESR_SESSION_HEADERS
+    "electronic_surveillance_radar/session/EmitterHypothesis.h"
+    "electronic_surveillance_radar/session/EmitterObservation.h"
     "electronic_surveillance_radar/session/EsrCycleInput.h"
     "electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
     "electronic_surveillance_radar/session/EsrCycleOutputAdapter.h"
@@ -209,9 +205,6 @@ set(COORDINATE_HEADERS
 
 # ── 跨域基础 ─────────────────────────────────────────────────────────
 set(FOUNDATION_HEADERS
-    "foundation/atmosphere_provider.h"
-    "foundation/atmosphere_state.h"
-    "foundation/atmospheric_types.h"
     "foundation/json_reader.h"
     "foundation/pose_types.h"
     "foundation/scan_schedule_types.h"
@@ -236,7 +229,6 @@ set(EXPECTED_PUBLIC_HEADERS
     ${ESR_CONFIG_HEADERS}
     ${ESR_ENVIRONMENT_HEADERS}
     ${ESR_EXTENSION_HEADERS}
-    ${ESR_MODEL_HEADERS}
     ${ESR_SESSION_HEADERS}
     ${FD_HEADERS}
     ${SAR_MODULE_ENTRY_HEADERS}

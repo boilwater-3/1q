@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/model/EmitterObservation.h"
+#include "1q/electronic_surveillance_radar/session/EmitterObservation.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
@@ -41,7 +41,7 @@ struct ObservationFeatureScales {
  * @brief RawObservationRecord 表示带真值评估上下文的观测记录。
  */
 struct RawObservationRecord {
-  model::EmitterObservation observation{}; /**< 观测记录 */
+  session::EmitterObservation observation{}; /**< 观测记录 */
   std::uint64_t truth_emitter_id{0U};      /**< 真值辐射源标识 */
   double truth_pri_s{0.0};                  /**< 真值 PRI（单位：s），伪观测为 0 */
   bool matched_truth{true};                 /**< 是否来自真实辐射源链路 */

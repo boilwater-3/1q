@@ -136,7 +136,7 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   frame.cycle_index = 7U;
   frame.batch_id = 42U;
 
-  model::EmitterObservation obs;
+  session::EmitterObservation obs;
   obs.observation_id = 100U;
   obs.timestamp_s = 12.5;
   obs.aoa_az_deg = 45.0;
@@ -145,16 +145,16 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   obs.pulse_width_s = 2.0e-6;
   obs.amplitude_db = -80.0;
   obs.snr_db = 25.0;
-  obs.quality = model::EsrObservationQuality::kHigh;
+  obs.quality = session::EsrObservationQuality::kHigh;
   obs.is_jammed = false;
   frame.observation_output.observations.push_back(obs);
 
-  model::EmitterHypothesis hyp;
+  session::EmitterHypothesis hyp;
   hyp.hypothesis_id = 10U;
   hyp.candidate_classes.push_back("FireControl");
   hyp.candidate_classes.push_back("Surveillance");
-  hyp.mode = model::EsrEmitterMode::kTracking;
-  hyp.threat_level = model::EsrThreatLevel::kHigh;
+  hyp.mode = session::EsrEmitterMode::kTracking;
+  hyp.threat_level = session::EsrThreatLevel::kHigh;
   hyp.bearing_az_deg = 44.5f;
   hyp.bearing_el_deg = -2.8f;
   hyp.bearing_std_deg = 0.5f;
@@ -185,15 +185,15 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   EXPECT_DOUBLE_EQ(decoded.observation_output.observations[0].rf_hz, 9.4e9);
   EXPECT_DOUBLE_EQ(decoded.observation_output.observations[0].snr_db, 25.0);
   EXPECT_EQ(decoded.observation_output.observations[0].quality,
-            model::EsrObservationQuality::kHigh);
+            session::EsrObservationQuality::kHigh);
   EXPECT_FALSE(decoded.observation_output.observations[0].is_jammed);
 
   ASSERT_EQ(decoded.emitter_output.hypotheses.size(), 1U);
   EXPECT_EQ(decoded.emitter_output.hypotheses[0].hypothesis_id, 10U);
   ASSERT_GE(decoded.emitter_output.hypotheses[0].candidate_classes.size(), 1U);
   EXPECT_EQ(decoded.emitter_output.hypotheses[0].candidate_classes[0], "FireControl");
-  EXPECT_EQ(decoded.emitter_output.hypotheses[0].mode, model::EsrEmitterMode::kTracking);
-  EXPECT_EQ(decoded.emitter_output.hypotheses[0].threat_level, model::EsrThreatLevel::kHigh);
+  EXPECT_EQ(decoded.emitter_output.hypotheses[0].mode, session::EsrEmitterMode::kTracking);
+  EXPECT_EQ(decoded.emitter_output.hypotheses[0].threat_level, session::EsrThreatLevel::kHigh);
   EXPECT_FLOAT_EQ(decoded.emitter_output.hypotheses[0].bearing_az_deg, 44.5f);
   EXPECT_FLOAT_EQ(decoded.emitter_output.hypotheses[0].confidence, 0.85f);
   EXPECT_EQ(decoded.emitter_output.hypotheses[0].last_seen_cycle, 7U);
@@ -215,7 +215,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.output_frame.cycle_index = 5U;
   result.output_frame.batch_id = 3U;
 
-  model::EmitterObservation obs;
+  session::EmitterObservation obs;
   obs.observation_id = 1U;
   obs.snr_db = 20.0;
   result.output_frame.observation_output.observations.push_back(obs);

@@ -21,18 +21,18 @@ namespace {
  * @param[in] summary 簇摘要。
  * @return 工作模式。
  */
-model::EsrEmitterMode InferModeFromCluster(const ClusterSummary& summary) {
+session::EsrEmitterMode InferModeFromCluster(const ClusterSummary& summary) {
   const bool has_valid_pri = std::isfinite(summary.mean_pri_s) && summary.mean_pri_s > 0.0;
   if (summary.mean_pulse_width_s < 1.5e-6 && (!has_valid_pri || summary.mean_pri_s >= 1.5e-4)) {
-    return model::EsrEmitterMode::kSearch;
+    return session::EsrEmitterMode::kSearch;
   }
   if (has_valid_pri && summary.mean_pri_s <= 8.0e-5) {
-    return model::EsrEmitterMode::kGuidance;
+    return session::EsrEmitterMode::kGuidance;
   }
   if (summary.mean_pulse_width_s < 3.0e-6 || (has_valid_pri && summary.mean_pri_s <= 3.0e-4)) {
-    return model::EsrEmitterMode::kTracking;
+    return session::EsrEmitterMode::kTracking;
   }
-  return model::EsrEmitterMode::kGuidance;
+  return session::EsrEmitterMode::kGuidance;
 }
 
 /**
@@ -41,14 +41,14 @@ model::EsrEmitterMode InferModeFromCluster(const ClusterSummary& summary) {
  * @param[in] mean_snr_db 簇均值信噪比。
  * @return 威胁等级。
  */
-model::EsrThreatLevel InferThreatFromCluster(model::EsrEmitterMode mode, float mean_snr_db) {
-  if (mode == model::EsrEmitterMode::kGuidance || mean_snr_db >= 20.0f) {
-    return model::EsrThreatLevel::kHigh;
+session::EsrThreatLevel InferThreatFromCluster(session::EsrEmitterMode mode, float mean_snr_db) {
+  if (mode == session::EsrEmitterMode::kGuidance || mean_snr_db >= 20.0f) {
+    return session::EsrThreatLevel::kHigh;
   }
-  if (mode == model::EsrEmitterMode::kTracking || mean_snr_db >= 10.0f) {
-    return model::EsrThreatLevel::kMedium;
+  if (mode == session::EsrEmitterMode::kTracking || mean_snr_db >= 10.0f) {
+    return session::EsrThreatLevel::kMedium;
   }
-  return model::EsrThreatLevel::kLow;
+  return session::EsrThreatLevel::kLow;
 }
 
 /**
@@ -126,7 +126,7 @@ HypothesisAssociator::HypothesisAssociator(extension::InterceptAssociationConfig
 
 void HypothesisAssociator::UpdateConfig(extension::InterceptAssociationConfig config) { config_ = config; }
 
-model::EmitterHypothesisList HypothesisAssociator::Update(
+session::EmitterHypothesisList HypothesisAssociator::Update(
     std::uint32_t cycle_index, const std::vector<ClusterSummary>& clusters,
     std::uint64_t* next_hypothesis_id) {
   const std::size_t original_track_count = tracks_.size();
@@ -239,13 +239,13 @@ model::EmitterHypothesisList HypothesisAssociator::Update(
     return lhs.hypothesis_id < rhs.hypothesis_id;
   });
 
-  model::EmitterHypothesisList hypotheses;
+  session::EmitterHypothesisList hypotheses;
   hypotheses.reserve(tracks_.size());
   for (std::size_t i = 0; i < tracks_.size(); ++i) {
     if (!tracks_[i].confirmed && !config_.output_tentative) {
       continue;
     }
-    model::EmitterHypothesis hypothesis;
+    session::EmitterHypothesis hypothesis;
     hypothesis.hypothesis_id = tracks_[i].hypothesis_id;
     hypothesis.candidate_classes = tracks_[i].candidate_classes;
     hypothesis.mode = tracks_[i].mode;

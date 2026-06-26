@@ -3,8 +3,8 @@
  * @brief 定义电子侦察输出侧的辐射源假设与威胁评估类型。
  */
 
-#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_HYPOTHESIS_H_
-#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_HYPOTHESIS_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_EMITTER_HYPOTHESIS_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_EMITTER_HYPOTHESIS_H_
 
 #include <cstdint>
 #include <string>
@@ -13,7 +13,7 @@
 #include "1q/api.hpp"
 
 namespace electronic_surveillance_radar {
-namespace model {
+namespace session {
 
 /**
  * @brief EsrEmitterMode 表示辐射源工作模式假设。
@@ -53,7 +53,7 @@ struct ONEQ_API EmitterHypothesis {
 /** @brief EmitterHypothesisList 表示辐射源假设列表。 */
 using EmitterHypothesisList = std::vector<EmitterHypothesis>;
 
-}  // namespace model
+}  // namespace session
 }  // namespace electronic_surveillance_radar
 
-#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_HYPOTHESIS_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_EMITTER_HYPOTHESIS_H_

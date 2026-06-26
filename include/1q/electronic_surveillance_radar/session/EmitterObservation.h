@@ -3,8 +3,8 @@
  * @brief 定义接收机视角的辐射源观测记录类型。
  */
 
-#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_OBSERVATION_H_
-#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_OBSERVATION_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_EMITTER_OBSERVATION_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_EMITTER_OBSERVATION_H_
 
 #include <cstdint>
 #include <vector>
@@ -12,7 +12,7 @@
 #include "1q/api.hpp"
 
 namespace electronic_surveillance_radar {
-namespace model {
+namespace session {
 
 /**
  * @brief EsrObservationQuality 表示观测质量等级。
@@ -42,7 +42,7 @@ struct ONEQ_API EmitterObservation {
 /** @brief EmitterObservationList 表示观测记录列表。 */
 using EmitterObservationList = std::vector<EmitterObservation>;
 
-}  // namespace model
+}  // namespace session
 }  // namespace electronic_surveillance_radar
 
-#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_MODEL_EMITTER_OBSERVATION_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_EMITTER_OBSERVATION_H_

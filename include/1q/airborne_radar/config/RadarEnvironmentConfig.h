@@ -14,7 +14,6 @@
 #include "1q/api.hpp"
 #include "1q/airborne_radar/session/DecisionSourceInfo.h"
 #include "1q/environment/AtmosphericTypes.h"
-#include "1q/foundation/atmospheric_types.h"
 
 namespace airborne_radar {
 namespace config {
