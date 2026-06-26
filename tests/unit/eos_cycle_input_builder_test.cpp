@@ -1,6 +1,6 @@
 /**
  * @file eos_cycle_input_builder_test.cpp
- * @brief 验证 EosCycleInputBuilder 一步构建与原始两步适配器的等价一致性。
+ * @brief 验证 EosCycleInputAdapter 一步构建与原始两步适配器的等价一致性。
  */
 
 #include <gtest/gtest.h>
@@ -9,8 +9,8 @@
 #include <cstddef>
 
 #include "1q/coordinate/position_transform.h"
-#include "1q/electro_optical_sensor/session/EosCycleInputBuilder.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInputState.h"
+#include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -60,7 +60,7 @@ TEST(EosCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
 
   // Builder（一步构建）
   EosCycleInput builder_input;
-  ASSERT_TRUE(EosCycleInputBuilder::Build(pose_input, {ext_target}, 1.0f, &builder_input));
+  ASSERT_TRUE(EosCycleInputAdapter::Build(pose_input, {ext_target}, 1.0f, &builder_input));
 
   ASSERT_EQ(builder_input.scene.size(), 1U);
 
@@ -92,7 +92,7 @@ TEST(EosCycleInputBuilderTest, EmptyTargetsProducesValidCycleInput) {
   pose_input.platform_attitude_deg.yaw_deg = 10.0f;
 
   EosCycleInput input;
-  ASSERT_TRUE(EosCycleInputBuilder::Build(pose_input, {}, 2.0f, &input));
+  ASSERT_TRUE(EosCycleInputAdapter::Build(pose_input, {}, 2.0f, &input));
 
   EXPECT_EQ(input.cycle_index, 0U);
   EXPECT_FLOAT_EQ(input.dt_sec, 2.0f);
@@ -119,7 +119,7 @@ TEST(EosCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput) 
   environment.day_night_type = DayNightType::kTwilight;
 
   EosCycleInput input;
-  ASSERT_TRUE(EosCycleInputBuilder::Build(pose_input, {}, 1.0f, environment, &input));
+  ASSERT_TRUE(EosCycleInputAdapter::Build(pose_input, {}, 1.0f, environment, &input));
 
   EXPECT_FLOAT_EQ(input.environment.solar_altitude_deg, 12.0f);
   EXPECT_FLOAT_EQ(input.platform_altitude_m, 1000.0f);
@@ -152,7 +152,7 @@ TEST(EosCycleInputBuilderTest, EnvironmentInputStateAppliesOnlyFlaggedFields) {
 TEST(EosCycleInputBuilderTest, NullOutputReturnsFalse) {
   EosExternalPoseInput pose_input;
   EosCoordinateStatus status = EosCoordinateStatus::kOk;
-  EXPECT_FALSE(EosCycleInputBuilder::Build(pose_input, {}, 1.0f, nullptr, &status));
+  EXPECT_FALSE(EosCycleInputAdapter::Build(pose_input, {}, 1.0f, nullptr, &status));
   EXPECT_EQ(status, EosCoordinateStatus::kNullOutput);
 }
 
@@ -175,7 +175,7 @@ TEST(EosCycleInputBuilderTest, LlaTargetPosition) {
   ext_target.kinematics.position_lla_deg_m.latitude_deg += 0.001;
 
   EosCycleInput input;
-  ASSERT_TRUE(EosCycleInputBuilder::Build(pose_input, {ext_target}, 1.0f, &input));
+  ASSERT_TRUE(EosCycleInputAdapter::Build(pose_input, {ext_target}, 1.0f, &input));
 
   ASSERT_EQ(input.scene.size(), 1U);
   EXPECT_GT(input.scene[0].range_m, 0.0f);

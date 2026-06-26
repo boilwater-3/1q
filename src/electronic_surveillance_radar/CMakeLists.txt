@@ -15,9 +15,9 @@ set(ESR_ENGINE_SOURCES
 set(ESR_CORE_SOURCES
     electronic_surveillance_radar/session/EsrSessionConfigBuilder.cpp
     electronic_surveillance_radar/session/EsrExternalInputAdapter.cpp
-    electronic_surveillance_radar/session/EsrCycleInputBuilder.cpp
+    electronic_surveillance_radar/session/EsrCycleInputAdapter.cpp
     electronic_surveillance_radar/session/EsrExternalOutputAdapter.cpp
-    electronic_surveillance_radar/session/EsrCycleOutputBuilder.cpp
+    electronic_surveillance_radar/session/EsrCycleOutputAdapter.cpp
     electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
     electronic_surveillance_radar/runtime/EsrController.cpp
     electronic_surveillance_radar/runtime/EsrOutputManager.cpp
@@ -45,14 +45,12 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_ESR_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleOutputBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleOutputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleResult.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrOutputTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrEnvironmentInputPatch.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrEnvironmentInputState.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrExternalOutputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrInputValidation.h

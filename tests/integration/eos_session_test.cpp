@@ -625,7 +625,7 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
   env_config.model_type = config::EosEnvironmentModelType::kAdvanced;
   env_config.has_custom_overrides = true;
   env_config.custom_overrides.radiative_transfer_model =
-      foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
+      config::RadiativeTransferModel::kAdaptivePathRadiance;
   env_config.custom_overrides.aerosol_density_factor = 1.3f;
   env_config.custom_overrides.turbulence_factor = 1.8f;
 

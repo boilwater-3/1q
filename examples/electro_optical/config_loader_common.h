@@ -45,10 +45,10 @@ inline electro_optical_sensor::config::EosEnvironmentPreset EosPresetFromString(
   return electro_optical_sensor::config::EosEnvironmentPreset::kStandard;
 }
 
-inline electro_optical_sensor::foundation::radiative_transfer::RadiativeTransferModel
+inline electro_optical_sensor::config::RadiativeTransferModel
 RadiativeModelFromString(const std::string& s) {
   using R =
-      electro_optical_sensor::foundation::radiative_transfer::RadiativeTransferModel;
+      electro_optical_sensor::config::RadiativeTransferModel;
   if (s == "kDerivedBeerLambert") return R::kDerivedBeerLambert;
   if (s == "kHumidityWeighted") return R::kHumidityWeighted;
   if (s == "kAdaptivePathRadiance") return R::kAdaptivePathRadiance;

@@ -7,11 +7,19 @@
 #define ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_ENVIRONMENT_CONFIG_H_
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "1q/environment/AtmosphericTypes.h"
 
 namespace electro_optical_sensor {
 namespace config {
+
+/**
+ * @brief RadiativeTransferModel 描述路径辐射传输模型类型。
+ */
+enum class ONEQ_API RadiativeTransferModel {
+  kDerivedBeerLambert = 0,  /**< 派生 Beer-Lambert（默认，兼容现有逻辑） */
+  kHumidityWeighted,        /**< 云湿主导模型 */
+  kAdaptivePathRadiance     /**< 含路径辐射惩罚的自适应模型 */
+};
 
 /**
  * @brief EosEnvironmentModelType 描述环境模型策略。
@@ -36,8 +44,8 @@ enum class ONEQ_API EosEnvironmentPreset {
  * @brief EosEnvironmentCustomOverrides 描述场景级显式自定义覆盖。
  */
 struct ONEQ_API EosEnvironmentCustomOverrides {
-  foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model{
-      foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
+  RadiativeTransferModel radiative_transfer_model{
+      RadiativeTransferModel::kDerivedBeerLambert};
   float aerosol_density_factor{1.0f};
   float turbulence_factor{1.0f};
 };
@@ -59,8 +67,8 @@ struct ONEQ_API EosEnvironmentScenarioConfig {
  */
 struct ONEQ_API EosEnvironmentModelConfig {
   EosEnvironmentModelType model_type{EosEnvironmentModelType::kSimplified};
-  foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model{
-      foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
+  RadiativeTransferModel radiative_transfer_model{
+      RadiativeTransferModel::kDerivedBeerLambert};
   float aerosol_density_factor{1.0f};
   float turbulence_factor{1.0f};
   bool has_atmospheric_observation{false};

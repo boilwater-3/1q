@@ -1,10 +1,10 @@
 /**
- * @file RadarCycleInputBuilder.h
+ * @file RadarCycleInputAdapter.h
  * @brief 一步法构建 RadarCycleInput，封装 ExternalInputAdapter 的两步调用。
  */
 
-#ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_INPUT_BUILDER_H_
-#define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_INPUT_BUILDER_H_
+#ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_INPUT_ADAPTER_H_
+#define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_INPUT_ADAPTER_H_
 
 #include <cstdint>
 #include <vector>
@@ -17,7 +17,7 @@ namespace airborne_radar {
 namespace session {
 
 /**
- * @brief RadarCycleInput 一步构建器。
+ * @brief RadarCycleInput 一步坐标适配器。
  *
  * 封装 ExternalInputAdapter 的两步调用（TryMakeRadarPose + TryMakeTarget），
  * 调用方只需提供外部坐标系下的平台运动学和目标列表，即可获得可直接传入
@@ -26,7 +26,7 @@ namespace session {
  * @note AR 输入以当前雷达为局部坐标原点，`output.platform_pose.position_m`
  *       因此固定为 `(0,0,0)`；平台 ECEF 位置只用于建立局部参考系并转换目标相对位置。
  */
-struct ONEQ_API RadarCycleInputBuilder {
+struct ONEQ_API RadarCycleInputAdapter {
   /**
    * @brief 从外部坐标系输入一步构建 RadarCycleInput。
    * @param[in] platform 外部平台运动学输入。
@@ -56,10 +56,10 @@ struct ONEQ_API RadarCycleInputBuilder {
                     RadarCoordinateStatus* status = nullptr);
 
  private:
-  RadarCycleInputBuilder() = delete;
+  RadarCycleInputAdapter() = delete;
 };
 
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_INPUT_BUILDER_H_
+#endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_CYCLE_INPUT_ADAPTER_H_

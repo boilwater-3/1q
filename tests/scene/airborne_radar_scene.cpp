@@ -146,7 +146,7 @@ ar_session::RadarCycleResult Step(SceneState& s, float dt) {
   }
 
   ar_session::RadarCycleInput input;
-  if (!ar_session::RadarCycleInputBuilder::Build(
+  if (!ar_session::RadarCycleInputAdapter::Build(
           platform, target_inputs, dt, s.env_state.Snapshot(), &input)) {
     std::cerr << "AR scene: cycle " << s.cycle << " build failed\n";
     std::exit(1);

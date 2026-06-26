@@ -1,6 +1,6 @@
 /**
  * @file esr_cycle_output_builder_test.cpp
- * @brief 验证 EsrCycleOutputBuilder 将内部 ESR 输出转换为外部 ECEF 方位线。
+ * @brief 验证 EsrCycleOutputAdapter 将内部 ESR 输出转换为外部 ECEF 方位线。
  */
 
 #include <gtest/gtest.h>
@@ -12,8 +12,8 @@
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleOutputBuilder.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleOutputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.h"
 #include "1q/electronic_surveillance_radar/session/EsrOutputDebugView.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
@@ -151,7 +151,7 @@ TEST(EsrCycleOutputBuilderTest, MultiCycleMovingEmittersKeepExternalBearingsNear
   const double min_cosine = std::cos(8.0 * kPi / 180.0);
   for (std::size_t cycle = 0; cycle < cycle_count; ++cycle) {
     esr_session::EsrCycleInput input;
-    ASSERT_TRUE(esr_session::EsrCycleInputBuilder::Build(platform, emitters, dt_sec, &input))
+    ASSERT_TRUE(esr_session::EsrCycleInputAdapter::Build(platform, emitters, dt_sec, &input))
         << "cycle=" << cycle;
     input.cycle_index = static_cast<std::uint32_t>(cycle);
 
@@ -160,7 +160,7 @@ TEST(EsrCycleOutputBuilderTest, MultiCycleMovingEmittersKeepExternalBearingsNear
 
     esr_session::EsrExternalOutputFrame external_frame;
     ASSERT_TRUE(
-        esr_session::EsrCycleOutputBuilder::Build(platform, result.output_frame, &external_frame))
+        esr_session::EsrCycleOutputAdapter::Build(platform, result.output_frame, &external_frame))
         << "cycle=" << cycle;
 
     for (std::size_t i = 0; i < result.output_frame.truth_evaluation_output.associations.size();

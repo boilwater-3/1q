@@ -4,7 +4,7 @@
 #include <cmath>
 #include <memory>
 
-#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/ClampUtils.h"
 #include "electro_optical_sensor/environment/EosEnvironmentModel.h"

@@ -1,6 +1,6 @@
 /**
  * @file eos_cycle_output_builder_test.cpp
- * @brief 验证 EosCycleOutputBuilder 将内部 EOS 输出转换回外部 ECEF 输出。
+ * @brief 验证 EosCycleOutputAdapter 将内部 EOS 输出转换回外部 ECEF 输出。
  */
 
 #include <gtest/gtest.h>
@@ -10,8 +10,8 @@
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "1q/electro_optical_sensor/session/EosCycleInputBuilder.h"
-#include "1q/electro_optical_sensor/session/EosCycleOutputBuilder.h"
+#include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
+#include "1q/electro_optical_sensor/session/EosCycleOutputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
@@ -99,7 +99,7 @@ TEST(EosCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
   std::size_t compared_detection_count = 0U;
   for (std::size_t cycle = 0; cycle < cycle_count; ++cycle) {
     eos_session::EosCycleInput input;
-    ASSERT_TRUE(eos_session::EosCycleInputBuilder::Build(platform, targets, dt_sec, &input))
+    ASSERT_TRUE(eos_session::EosCycleInputAdapter::Build(platform, targets, dt_sec, &input))
         << "cycle=" << cycle;
     input.cycle_index = static_cast<std::uint32_t>(cycle);
     input.environment.solar_irradiance_w_m2 = 900.0f;
@@ -113,7 +113,7 @@ TEST(EosCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
 
     eos_session::EosExternalOutputFrame external_frame;
     ASSERT_TRUE(
-        eos_session::EosCycleOutputBuilder::Build(platform, result.output_frame, &external_frame))
+        eos_session::EosCycleOutputAdapter::Build(platform, result.output_frame, &external_frame))
         << "cycle=" << cycle;
 
     for (std::size_t detection_index = 0; detection_index < external_frame.detections.size();
@@ -157,7 +157,7 @@ TEST(EosCycleOutputBuilderTest, ExternalOutputPreservesDetectionIdOnly) {
   frame.detections.push_back(detection);
 
   eos_session::EosExternalOutputFrame output;
-  ASSERT_TRUE(eos_session::EosCycleOutputBuilder::Build(platform, frame, &output));
+  ASSERT_TRUE(eos_session::EosCycleOutputAdapter::Build(platform, frame, &output));
   ASSERT_EQ(output.detections.size(), 1U);
   EXPECT_EQ(output.detections.front().detection_id, 42U);
 }

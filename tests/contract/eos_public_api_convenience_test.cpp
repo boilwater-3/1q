@@ -15,12 +15,10 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-
-namespace rt = ::electro_optical_sensor::foundation::radiative_transfer;
 
 namespace electro_optical_sensor {
 namespace tests {
@@ -152,7 +150,7 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
   env_config.model_type = config::EosEnvironmentModelType::kAdvanced;
   env_config.has_custom_overrides = true;
   env_config.custom_overrides.radiative_transfer_model =
-      rt::RadiativeTransferModel::kAdaptivePathRadiance;
+      config::RadiativeTransferModel::kAdaptivePathRadiance;
   env_config.custom_overrides.aerosol_density_factor = 1.3f;
   env_config.custom_overrides.turbulence_factor = 1.8f;
 
@@ -187,7 +185,7 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
             config::EosEnvironmentModelType::kAdvanced);
   EXPECT_TRUE(patch.environment.scenario_config.has_custom_overrides);
   EXPECT_EQ(patch.environment.scenario_config.custom_overrides.radiative_transfer_model,
-            rt::RadiativeTransferModel::kAdaptivePathRadiance);
+            config::RadiativeTransferModel::kAdaptivePathRadiance);
   EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.aerosol_density_factor, 1.3f,
               1e-5f);
   EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.turbulence_factor, 1.8f, 1e-5f);
@@ -355,7 +353,7 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
 
 TEST(EosPublicApiConvenienceTest, RadiativeTransferEvaluatesModels) {
   foundation::radiative_transfer::RadiativeTransferInputs beer_lambert;
-  beer_lambert.model = foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert;
+  beer_lambert.model = config::RadiativeTransferModel::kDerivedBeerLambert;
   beer_lambert.base_transmittance = 0.85f;
   beer_lambert.path_length_m = 1000.0f;
   const foundation::radiative_transfer::RadiativeTransferResult bl =
@@ -364,7 +362,7 @@ TEST(EosPublicApiConvenienceTest, RadiativeTransferEvaluatesModels) {
   EXPECT_LE(bl.transmittance, 1.0f);
 
   foundation::radiative_transfer::RadiativeTransferInputs adaptive;
-  adaptive.model = foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
+  adaptive.model = config::RadiativeTransferModel::kAdaptivePathRadiance;
   adaptive.base_transmittance = 0.8f;
   adaptive.cloud_coverage_ratio = 0.3f;
   adaptive.path_length_m = 5000.0f;
@@ -495,7 +493,7 @@ TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies
   env_config.model_type = config::EosEnvironmentModelType::kAdvanced;
   env_config.has_custom_overrides = true;
   env_config.custom_overrides.radiative_transfer_model =
-      rt::RadiativeTransferModel::kAdaptivePathRadiance;
+      config::RadiativeTransferModel::kAdaptivePathRadiance;
   env_config.custom_overrides.aerosol_density_factor = 1.3f;
   env_config.custom_overrides.turbulence_factor = 1.8f;
 
@@ -508,7 +506,7 @@ TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies
             config::EosEnvironmentModelType::kAdvanced);
   EXPECT_TRUE(patch.environment.scenario_config.has_custom_overrides);
   EXPECT_EQ(patch.environment.scenario_config.custom_overrides.radiative_transfer_model,
-            rt::RadiativeTransferModel::kAdaptivePathRadiance);
+            config::RadiativeTransferModel::kAdaptivePathRadiance);
   EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.aerosol_density_factor, 1.3f,
               1e-5f);
   EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.turbulence_factor, 1.8f, 1e-5f);

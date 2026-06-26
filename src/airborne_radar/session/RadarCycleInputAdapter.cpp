@@ -1,16 +1,16 @@
-#include "1q/airborne_radar/session/RadarCycleInputBuilder.h"
+#include "1q/airborne_radar/session/RadarCycleInputAdapter.h"
 
 namespace airborne_radar {
 namespace session {
 
-bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
+bool RadarCycleInputAdapter::Build(const RadarExternalPoseInput& platform,
                                    const std::vector<RadarExternalTargetInput>& targets,
                                    float dt_sec, RadarCycleInput* output,
                                    RadarCoordinateStatus* status) {
   return Build(platform, targets, dt_sec, RadarEnvironmentInput{}, output, status);
 }
 
-bool RadarCycleInputBuilder::Build(const RadarExternalPoseInput& platform,
+bool RadarCycleInputAdapter::Build(const RadarExternalPoseInput& platform,
                                    const std::vector<RadarExternalTargetInput>& targets,
                                    float dt_sec, const RadarEnvironmentInput& environment,
                                    RadarCycleInput* output, RadarCoordinateStatus* status) {

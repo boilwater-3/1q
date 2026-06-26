@@ -1,17 +1,17 @@
-#include "1q/electro_optical_sensor/session/EosCycleInputBuilder.h"
+#include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 
 #include "1q/coordinate/position_transform.h"
 
 namespace electro_optical_sensor {
 namespace session {
 
-bool EosCycleInputBuilder::Build(const EosExternalPoseInput& platform,
+bool EosCycleInputAdapter::Build(const EosExternalPoseInput& platform,
                                  const std::vector<EosExternalTargetInput>& targets, float dt_sec,
                                  EosCycleInput* output, EosCoordinateStatus* status) {
   return Build(platform, targets, dt_sec, EosEnvironmentInput{}, output, status);
 }
 
-bool EosCycleInputBuilder::Build(const EosExternalPoseInput& platform,
+bool EosCycleInputAdapter::Build(const EosExternalPoseInput& platform,
                                  const std::vector<EosExternalTargetInput>& targets, float dt_sec,
                                  const EosEnvironmentInput& environment, EosCycleInput* output,
                                  EosCoordinateStatus* status) {

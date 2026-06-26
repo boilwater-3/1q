@@ -29,7 +29,7 @@ EosEnvironmentModelConfig BuildModelConfigFromScenario(
   config::EosEnvironmentModelConfig model_config;
   model_config.model_type = scenario_config.model_type;
 
-  using Model = foundation::radiative_transfer::RadiativeTransferModel;
+  using Model = config::RadiativeTransferModel;
   if (scenario_config.preset == config::EosEnvironmentPreset::kHumid) {
     model_config.radiative_transfer_model = Model::kHumidityWeighted;
     model_config.aerosol_density_factor = 1.1f;

@@ -153,7 +153,7 @@ MovingAirTarget MakeMovingAirTarget(std::uint64_t id, double x_m, double y_m, do
 /// 每个周期：
 ///   1. 构造平台位姿（ECEF 位置 + 速度 + 姿态）
 ///   2. 构造所有目标的运动学输入
-///   3. 通过 RadarCycleInputBuilder 组装完整输入
+///   3. 通过 RadarCycleInputAdapter 组装完整输入
 ///   4. 调用 session.StepWithResult 获得输出
 ///   5. 根据返回的 dt 推进目标位置（简单欧拉积分）
 bool RunMovingTargetsScenario() {
@@ -200,7 +200,7 @@ bool RunMovingTargetsScenario() {
 
     // 组装周期输入：平台位姿 + 目标列表 + 时间步长(秒) + 环境快照
     ar_session::RadarCycleInput input;
-    if (!ar_session::RadarCycleInputBuilder::Build(platform, target_kinematics, 1.0f,
+    if (!ar_session::RadarCycleInputAdapter::Build(platform, target_kinematics, 1.0f,
                                                    environment_state.Snapshot(), &input)) {
       std::cerr << "ar-moving: cycle " << (i + 1) << " build failed\n";
       return false;
@@ -225,9 +225,9 @@ bool RunMovingTargetsScenario() {
     if (ntracks < min_tracks) min_tracks = ntracks;
     PrintResult("ar-moving", result);
 
-    // 使用 RadarCycleOutputBuilder 将内部雷达局部轨迹转换为外部 ECEF 输出
+    // 使用 RadarCycleOutputAdapter 将内部雷达局部轨迹转换为外部 ECEF 输出
     ar_session::RadarExternalTrackOutputFrame external_output;
-    bool external_output_ok = ar_session::RadarCycleOutputBuilder::Build(
+    bool external_output_ok = ar_session::RadarCycleOutputAdapter::Build(
         platform, result.track_output_frame, &external_output);
     if (external_output_ok) {
       PrintExternalOutput(external_output);

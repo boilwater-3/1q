@@ -25,8 +25,8 @@ set(AR_PUBLIC_PRIMARY_HEADERS
 # ── AR 会话域
 set(AR_SESSION_HEADERS
     "airborne_radar/session/RadarCycleInput.h"
-    "airborne_radar/session/RadarCycleInputBuilder.h"
-    "airborne_radar/session/RadarCycleOutputBuilder.h"
+    "airborne_radar/session/RadarCycleInputAdapter.h"
+    "airborne_radar/session/RadarCycleOutputAdapter.h"
     "airborne_radar/session/RadarCycleResult.h"
     "airborne_radar/session/RadarEnvironmentInput.h"
     "airborne_radar/session/RadarExternalInputAdapter.h"
@@ -81,19 +81,16 @@ set(EOS_EXTENSION_HEADERS
 
 # ── EOS 基础域 ────────────────────────────────────────────────────────
 set(EOS_FOUNDATION_HEADERS
-    "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 )
 
 # ── EOS 会话域 ────────────────────────────────────────────────────────
 set(EOS_SESSION_HEADERS
     "electro_optical_sensor/session/EosCycleInput.h"
-    "electro_optical_sensor/session/EosCycleInputBuilder.h"
-    "electro_optical_sensor/session/EosCycleOutputBuilder.h"
+    "electro_optical_sensor/session/EosCycleInputAdapter.h"
+    "electro_optical_sensor/session/EosCycleOutputAdapter.h"
     "electro_optical_sensor/session/EosCycleResult.h"
     "electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
     "electro_optical_sensor/session/EosEnvironmentInput.h"
-    "electro_optical_sensor/session/EosEnvironmentInputPatch.h"
-    "electro_optical_sensor/session/EosEnvironmentInputState.h"
     "electro_optical_sensor/session/EosExternalInputAdapter.h"
     "electro_optical_sensor/session/EosExternalOutputAdapter.h"
     "electro_optical_sensor/session/EosInputValidation.h"
@@ -140,13 +137,11 @@ set(ESR_MODEL_HEADERS
 # ── ESR 会话域 ────────────────────────────────────────────────────────
 set(ESR_SESSION_HEADERS
     "electronic_surveillance_radar/session/EsrCycleInput.h"
-    "electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
-    "electronic_surveillance_radar/session/EsrCycleOutputBuilder.h"
+    "electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
+    "electronic_surveillance_radar/session/EsrCycleOutputAdapter.h"
     "electronic_surveillance_radar/session/EsrCycleResult.h"
     "electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.h"
     "electronic_surveillance_radar/session/EsrEnvironmentInput.h"
-    "electronic_surveillance_radar/session/EsrEnvironmentInputPatch.h"
-    "electronic_surveillance_radar/session/EsrEnvironmentInputState.h"
     "electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
     "electronic_surveillance_radar/session/EsrExternalOutputAdapter.h"
     "electronic_surveillance_radar/session/EsrInputValidation.h"

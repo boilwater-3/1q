@@ -134,7 +134,7 @@ ar_session::RadarCycleInput BuildArInput(
     targets.push_back(ToArTarget(t));
   }
   ar_session::RadarCycleInput input;
-  ar_session::RadarCycleInputBuilder::Build(platform, targets, dt,
+  ar_session::RadarCycleInputAdapter::Build(platform, targets, dt,
                                              env_state.Snapshot(), &input);
   input.cycle_index = cycle_index;
   return input;
@@ -178,7 +178,7 @@ eos_session::EosCycleInput BuildEosInput(
   }
   eos_session::EosCycleInput input;
   eos_session::EosCoordinateStatus status;
-  eos_session::EosCycleInputBuilder::Build(platform, targets, dt, eos_env, &input, &status);
+  eos_session::EosCycleInputAdapter::Build(platform, targets, dt, eos_env, &input, &status);
   input.cycle_index = cycle_index;
   return input;
 }
@@ -225,7 +225,7 @@ esr_session::EsrCycleInput BuildEsrInput(
   }
   esr_session::EsrCycleInput input;
   esr_session::EsrCoordinateStatus status;
-  esr_session::EsrCycleInputBuilder::Build(platform, emitters, dt, esr_env, &input, &status);
+  esr_session::EsrCycleInputAdapter::Build(platform, emitters, dt, esr_env, &input, &status);
   input.cycle_index = cycle_index;
   return input;
 }

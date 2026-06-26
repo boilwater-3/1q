@@ -151,7 +151,7 @@ eos_session::EosCycleResult Step(SceneState& s, double dt) {
 
   eos_session::EosCycleInput input;
   eos_session::EosCoordinateStatus status;
-  if (!eos_session::EosCycleInputBuilder::Build(
+  if (!eos_session::EosCycleInputAdapter::Build(
           platform, target_inputs, static_cast<float>(dt), s.environment,
           &input, &status)) {
     std::cerr << "EOS scene: cycle " << s.cycle

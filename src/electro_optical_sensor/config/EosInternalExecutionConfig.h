@@ -21,7 +21,6 @@
 #include "1q/electro_optical_sensor/config/EosMissionConfig.h"
 #include "1q/electro_optical_sensor/config/EosPolicyConfig.h"
 #include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
-#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace electro_optical_sensor {
 namespace config {
@@ -57,8 +56,8 @@ using StrayLightConfig = config::EosStrayLightPolicyConfig;
 struct EnvironmentConfig {
   config::EosEnvironmentModelType model_type{
       config::EosEnvironmentModelType::kSimplified};
-  foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model{
-      foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
+  config::RadiativeTransferModel radiative_transfer_model{
+      config::RadiativeTransferModel::kDerivedBeerLambert};
   float aerosol_density_factor{1.0f};
   float turbulence_factor{1.0f};
   bool has_atmospheric_observation{false};

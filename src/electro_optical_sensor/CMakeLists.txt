@@ -17,9 +17,9 @@ set(EOS_CORE_SOURCES
     electro_optical_sensor/environment/EosEnvironmentModel.cpp
     electro_optical_sensor/session/EosSessionConfigBuilder.cpp
     electro_optical_sensor/session/EosExternalInputAdapter.cpp
-    electro_optical_sensor/session/EosCycleInputBuilder.cpp
+    electro_optical_sensor/session/EosCycleInputAdapter.cpp
     electro_optical_sensor/session/EosExternalOutputAdapter.cpp
-    electro_optical_sensor/session/EosCycleOutputBuilder.cpp
+    electro_optical_sensor/session/EosCycleOutputAdapter.cpp
     electro_optical_sensor/session/EosInputValidation.cpp
     electro_optical_sensor/session/EosDetectionLifecycleRecorder.cpp
     electro_optical_sensor/session/EosOutputDebugViewBuilder.cpp
@@ -37,19 +37,14 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_MODULE_ENTRY_EOS
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/electro_optical_sensor.hpp
     )
-    set(PUBLIC_HEADERS_EOS_FOUNDATION
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h
-    )
     set(PUBLIC_HEADERS_EOS_MODEL)
     set(PUBLIC_HEADERS_EOS_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleInputBuilder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleOutputBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleInputAdapter.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleOutputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosCycleResult.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosEnvironmentInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosEnvironmentInputPatch.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosEnvironmentInputState.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosExternalInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosExternalOutputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosInputValidation.h
@@ -77,9 +72,6 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_EOS_MODEL}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/model
-    )
-    install(FILES ${PUBLIC_HEADERS_EOS_FOUNDATION}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/foundation
     )
     install(FILES ${PUBLIC_HEADERS_EOS_SESSION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/session

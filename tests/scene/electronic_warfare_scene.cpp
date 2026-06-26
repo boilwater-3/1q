@@ -125,7 +125,7 @@ esr_session::EsrCycleResult Step(SceneState& s, float dt) {
 
   esr_session::EsrCycleInput input;
   esr_session::EsrCoordinateStatus status;
-  if (!esr_session::EsrCycleInputBuilder::Build(
+  if (!esr_session::EsrCycleInputAdapter::Build(
           platform, emitter_inputs, dt, s.environment, &input, &status)) {
     std::cerr << "ESR scene: cycle " << s.cycle
               << " build failed (status=" << static_cast<int>(status) << ")\n";

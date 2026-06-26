@@ -1,17 +1,17 @@
-#include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
 
 #include "1q/coordinate/position_transform.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
 
-bool EsrCycleInputBuilder::Build(const EsrExternalPoseInput& platform,
+bool EsrCycleInputAdapter::Build(const EsrExternalPoseInput& platform,
                                  const std::vector<EsrExternalEmitterInput>& emitters, float dt_sec,
                                  EsrCycleInput* output, EsrCoordinateStatus* status) {
   return Build(platform, emitters, dt_sec, EsrEnvironmentInput{}, output, status);
 }
 
-bool EsrCycleInputBuilder::Build(const EsrExternalPoseInput& platform,
+bool EsrCycleInputAdapter::Build(const EsrExternalPoseInput& platform,
                                  const std::vector<EsrExternalEmitterInput>& emitters, float dt_sec,
                                  const EsrEnvironmentInput& environment, EsrCycleInput* output,
                                  EsrCoordinateStatus* status) {

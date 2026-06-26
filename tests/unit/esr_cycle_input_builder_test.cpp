@@ -1,6 +1,6 @@
 /**
  * @file esr_cycle_input_builder_test.cpp
- * @brief 验证 EsrCycleInputBuilder 一步构建与原始两步适配器的等价一致性。
+ * @brief 验证 EsrCycleInputAdapter 一步构建与原始两步适配器的等价一致性。
  */
 
 #include <gtest/gtest.h>
@@ -9,8 +9,8 @@
 #include <cstddef>
 
 #include "1q/coordinate/position_transform.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
-#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInputState.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -65,7 +65,7 @@ TEST(EsrCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
 
   // Builder（一步构建）
   EsrCycleInput builder_input;
-  ASSERT_TRUE(EsrCycleInputBuilder::Build(pose_input, {ext_emitter}, 1.0f, &builder_input));
+  ASSERT_TRUE(EsrCycleInputAdapter::Build(pose_input, {ext_emitter}, 1.0f, &builder_input));
 
   ASSERT_EQ(builder_input.scene.size(), 1U);
 
@@ -100,7 +100,7 @@ TEST(EsrCycleInputBuilderTest, EmptyEmittersProducesValidCycleInput) {
   pose_input.platform_attitude_deg.yaw_deg = 10.0f;
 
   EsrCycleInput input;
-  ASSERT_TRUE(EsrCycleInputBuilder::Build(pose_input, {}, 2.0f, &input));
+  ASSERT_TRUE(EsrCycleInputAdapter::Build(pose_input, {}, 2.0f, &input));
 
   EXPECT_EQ(input.cycle_index, 0U);
   EXPECT_FLOAT_EQ(input.dt_sec, 2.0f);
@@ -127,7 +127,7 @@ TEST(EsrCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput) 
   environment.atmospheric_observation.visibility_km = 8.0f;
 
   EsrCycleInput input;
-  ASSERT_TRUE(EsrCycleInputBuilder::Build(pose_input, {}, 1.0f, environment, &input));
+  ASSERT_TRUE(EsrCycleInputAdapter::Build(pose_input, {}, 1.0f, environment, &input));
 
   EXPECT_EQ(input.environment.propagation_profile,
             session::EsrPropagationEnvironmentProfile::kComplex);
@@ -161,7 +161,7 @@ TEST(EsrCycleInputBuilderTest, EnvironmentInputStateAppliesOnlyFlaggedFields) {
 TEST(EsrCycleInputBuilderTest, NullOutputReturnsFalse) {
   EsrExternalPoseInput pose_input;
   EsrCoordinateStatus status = EsrCoordinateStatus::kOk;
-  EXPECT_FALSE(EsrCycleInputBuilder::Build(pose_input, {}, 1.0f, nullptr, &status));
+  EXPECT_FALSE(EsrCycleInputAdapter::Build(pose_input, {}, 1.0f, nullptr, &status));
   EXPECT_EQ(status, EsrCoordinateStatus::kNullOutput);
 }
 
@@ -189,7 +189,7 @@ TEST(EsrCycleInputBuilderTest, MultipleEmitters) {
   }
 
   EsrCycleInput input;
-  ASSERT_TRUE(EsrCycleInputBuilder::Build(pose_input, emitters, 0.5f, &input));
+  ASSERT_TRUE(EsrCycleInputAdapter::Build(pose_input, emitters, 0.5f, &input));
 
   ASSERT_EQ(input.scene.size(), 3U);
   EXPECT_FLOAT_EQ(input.dt_sec, 0.5f);

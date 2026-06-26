@@ -34,7 +34,7 @@
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
-#include "1q/airborne_radar/session/RadarCycleInputBuilder.h"
+#include "1q/airborne_radar/session/RadarCycleInputAdapter.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarEnvironmentInput.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
@@ -57,14 +57,11 @@
 #include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
-#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
-#include "1q/electro_optical_sensor/session/EosCycleInputBuilder.h"
+#include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
 #include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInputPatch.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInputState.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
@@ -80,11 +77,8 @@
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.h"
-#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInputPatch.h"
-#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInputState.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrOutputDebugView.h"
@@ -393,15 +387,8 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
   EXPECT_FALSE(session::HasValidationError(issues));
 
-  foundation::radiative_transfer::RadiativeTransferInputs transfer_inputs;
-  transfer_inputs.model =
-      foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
-  transfer_inputs.base_transmittance = 0.8f;
-  transfer_inputs.cloud_coverage_ratio = 0.2f;
-  transfer_inputs.path_length_m = 1500.0f;
-  const foundation::radiative_transfer::RadiativeTransferResult transfer_result =
-      foundation::radiative_transfer::EvaluateRadiativeTransfer(transfer_inputs);
-  EXPECT_GT(transfer_result.transmittance, 0.0f);
+  // RadiativeTransferModel 枚举通过 EosEnvironmentConfig.h 公开
+  EXPECT_NE(static_cast<int>(config::RadiativeTransferModel::kDerivedBeerLambert), -1);
 
   session::EosSession session = session::EosSession::Create(session_config);
   const config::EosRuntimeConfigPatch runtime_patch =

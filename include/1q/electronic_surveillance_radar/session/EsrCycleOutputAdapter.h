@@ -1,10 +1,10 @@
 /**
- * @file EsrCycleOutputBuilder.h
+ * @file EsrCycleOutputAdapter.h
  * @brief 将内部 ESR 输出帧构建为外部世界坐标输出帧。
  */
 
-#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_CYCLE_OUTPUT_BUILDER_H_
-#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_CYCLE_OUTPUT_BUILDER_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_CYCLE_OUTPUT_ADAPTER_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_CYCLE_OUTPUT_ADAPTER_H_
 
 #include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
@@ -25,9 +25,9 @@ struct ONEQ_API EsrExternalOutputFrame {
 };
 
 /**
- * @brief 输出侧 builder：把内部 EsrOutputFrame 转换为外部 ECEF 方位线输出帧。
+ * @brief 输出侧适配器：把内部 EsrOutputFrame 转换为外部 ECEF 方位线输出帧。
  */
-struct ONEQ_API EsrCycleOutputBuilder {
+struct ONEQ_API EsrCycleOutputAdapter {
   static bool Build(const EsrExternalPoseInput& platform, const EsrOutputFrame& frame,
                     EsrExternalOutputFrame* output);
 
@@ -35,10 +35,10 @@ struct ONEQ_API EsrCycleOutputBuilder {
                     const EsrOutputFrame& frame, EsrExternalOutputFrame* output);
 
  private:
-  EsrCycleOutputBuilder() = delete;
+  EsrCycleOutputAdapter() = delete;
 };
 
 }  // namespace session
 }  // namespace electronic_surveillance_radar
 
-#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_CYCLE_OUTPUT_BUILDER_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_CYCLE_OUTPUT_ADAPTER_H_

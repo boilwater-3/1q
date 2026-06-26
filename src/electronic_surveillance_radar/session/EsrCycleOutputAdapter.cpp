@@ -1,11 +1,11 @@
-#include "1q/electronic_surveillance_radar/session/EsrCycleOutputBuilder.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleOutputAdapter.h"
 
 #include "1q/coordinate/position_transform.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
 
-bool EsrCycleOutputBuilder::Build(const EsrExternalPoseInput& platform, const EsrOutputFrame& frame,
+bool EsrCycleOutputAdapter::Build(const EsrExternalPoseInput& platform, const EsrOutputFrame& frame,
                                   EsrExternalOutputFrame* output) {
   if (output == nullptr) {
     return false;
@@ -24,7 +24,7 @@ bool EsrCycleOutputBuilder::Build(const EsrExternalPoseInput& platform, const Es
   return Build(reference, platform_pose, frame, output);
 }
 
-bool EsrCycleOutputBuilder::Build(const oneq::coordinate::LocalFrameReference& reference,
+bool EsrCycleOutputAdapter::Build(const oneq::coordinate::LocalFrameReference& reference,
                                   const oneq::foundation::PoseState& platform_pose, const EsrOutputFrame& frame,
                                   EsrExternalOutputFrame* output) {
   if (output == nullptr) {

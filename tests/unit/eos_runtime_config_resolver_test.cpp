@@ -24,7 +24,7 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
   config::EosEnvironmentScenarioConfig env_config;
   env_config.has_custom_overrides = true;
   env_config.custom_overrides.radiative_transfer_model =
-      ::electro_optical_sensor::foundation::radiative_transfer::
+      ::electro_optical_sensor::config::
           RadiativeTransferModel::kAdaptivePathRadiance;
   env_config.custom_overrides.aerosol_density_factor = 2.0f;
   env_config.custom_overrides.turbulence_factor = 1.2f;
@@ -51,7 +51,7 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
   // environment custom overrides applied
   EXPECT_EQ(
       resolved.next_config.environment.radiative_transfer_model,
-      ::electro_optical_sensor::foundation::radiative_transfer::
+      ::electro_optical_sensor::config::
           RadiativeTransferModel::kAdaptivePathRadiance);
   EXPECT_FLOAT_EQ(
       resolved.next_config.environment.aerosol_density_factor, 2.0f);

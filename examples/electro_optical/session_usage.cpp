@@ -164,7 +164,7 @@ bool RunMovingTargetsScenario() {
 
     eos_session::EosCycleInput input;
     eos_session::EosCoordinateStatus status;
-    if (!eos_session::EosCycleInputBuilder::Build(platform, target_inputs, static_cast<float>(dt), environment,
+    if (!eos_session::EosCycleInputAdapter::Build(platform, target_inputs, static_cast<float>(dt), environment,
                                                   &input, &status)) {
       std::cerr << "eos-moving: cycle " << (i + 1)
                 << " build failed (status=" << static_cast<int>(status) << ")\n";
@@ -180,7 +180,7 @@ bool RunMovingTargetsScenario() {
     output_reference.origin_lla.longitude_deg = 121.0;
     output_reference.origin_lla.altitude_m = 0.0;
     eos_session::EosExternalOutputFrame external_output;
-    const bool external_output_ok = eos_session::EosCycleOutputBuilder::Build(
+    const bool external_output_ok = eos_session::EosCycleOutputAdapter::Build(
         output_reference, input.platform_pose, result.output_frame, &external_output);
 
     std::size_t ndetected = 0;

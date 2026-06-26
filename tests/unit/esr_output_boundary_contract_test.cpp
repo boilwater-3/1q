@@ -24,8 +24,8 @@
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "1q/electronic_surveillance_radar/model/EmitterHypothesis.h"
 #include "1q/electronic_surveillance_radar/model/EmitterObservation.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleOutputBuilder.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleOutputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalOutputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrOutputDebugView.h"
@@ -143,7 +143,7 @@ TEST(EsrOutputBoundaryContractTest, NamedInputDoesNotLeakIntoRawOutputChannels) 
   bool observed_named_cycle = false;
   for (std::uint32_t cycle = 0U; cycle < 30U; ++cycle) {
     esr_session::EsrCycleInput input;
-    ASSERT_TRUE(esr_session::EsrCycleInputBuilder::Build(platform, emitters, dt_sec, &input))
+    ASSERT_TRUE(esr_session::EsrCycleInputAdapter::Build(platform, emitters, dt_sec, &input))
         << "cycle=" << cycle;
     // 输入侧每个周期都带 name，作为回归前提。
     ASSERT_GE(input.scene.size(), 1U);
@@ -170,7 +170,7 @@ TEST(EsrOutputBoundaryContractTest, NamedInputDoesNotLeakIntoRawOutputChannels) 
     // 外部可消费输出经 output adapter 转换，每条记录也不得携带 name。
     esr_session::EsrExternalOutputFrame external_frame;
     ASSERT_TRUE(
-        esr_session::EsrCycleOutputBuilder::Build(platform, result.output_frame, &external_frame))
+        esr_session::EsrCycleOutputAdapter::Build(platform, result.output_frame, &external_frame))
         << "cycle=" << cycle;
     for (const esr_session::EsrExternalObservation& observation : external_frame.observations) {
       // EsrExternalObservation 无 emitter_name 字段；保持接收机传感器语义。
@@ -194,7 +194,7 @@ TEST(EsrOutputBoundaryContractTest, EmitterNameOnlyReachableViaDebugView) {
   esr_session::EsrSession session = esr_session::EsrSession::Create(MakeConfig());
 
   esr_session::EsrCycleInput input;
-  ASSERT_TRUE(esr_session::EsrCycleInputBuilder::Build(platform, emitters, 1.0f, &input));
+  ASSERT_TRUE(esr_session::EsrCycleInputAdapter::Build(platform, emitters, 1.0f, &input));
   input.cycle_index = 6U;
   ASSERT_EQ(input.scene.size(), emitters.size());
 

@@ -1,11 +1,11 @@
-#include "1q/electro_optical_sensor/session/EosCycleOutputBuilder.h"
+#include "1q/electro_optical_sensor/session/EosCycleOutputAdapter.h"
 
 #include "1q/coordinate/position_transform.h"
 
 namespace electro_optical_sensor {
 namespace session {
 
-bool EosCycleOutputBuilder::Build(const EosExternalPoseInput& platform, const EosOutputFrame& frame,
+bool EosCycleOutputAdapter::Build(const EosExternalPoseInput& platform, const EosOutputFrame& frame,
                                   EosExternalOutputFrame* output) {
   if (output == nullptr) {
     return false;
@@ -24,7 +24,7 @@ bool EosCycleOutputBuilder::Build(const EosExternalPoseInput& platform, const Eo
   return Build(reference, platform_pose, frame, output);
 }
 
-bool EosCycleOutputBuilder::Build(const oneq::coordinate::LocalFrameReference& reference,
+bool EosCycleOutputAdapter::Build(const oneq::coordinate::LocalFrameReference& reference,
                                   const oneq::foundation::PoseState& platform_pose,
                                   const EosOutputFrame& frame, EosExternalOutputFrame* output) {
   if (output == nullptr) {

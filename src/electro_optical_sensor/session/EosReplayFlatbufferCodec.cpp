@@ -409,7 +409,7 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
     if (e->custom_overrides()) {
       const auto* co = e->custom_overrides();
       sc.custom_overrides.radiative_transfer_model =
-          static_cast<foundation::radiative_transfer::RadiativeTransferModel>(
+          static_cast<config::RadiativeTransferModel>(
               co->radiative_transfer_model());
       sc.custom_overrides.aerosol_density_factor = co->aerosol_density_factor();
       sc.custom_overrides.turbulence_factor = co->turbulence_factor();
@@ -499,7 +499,7 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeCon
     out->environment.scenario_config.has_custom_overrides = e->has_custom_overrides();
     if (e->custom_overrides()) {
       out->environment.scenario_config.custom_overrides.radiative_transfer_model =
-          static_cast<foundation::radiative_transfer::RadiativeTransferModel>(
+          static_cast<config::RadiativeTransferModel>(
               e->custom_overrides()->radiative_transfer_model());
       out->environment.scenario_config.custom_overrides.aerosol_density_factor =
           e->custom_overrides()->aerosol_density_factor();

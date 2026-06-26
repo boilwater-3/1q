@@ -161,11 +161,11 @@ TEST(EosPipelineTest, AdaptiveRadiativeTransferModelProducesLowerSnrInSameScene)
   config::execution::EosInternalExecutionConfig baseline_config = MakePipelineConfig();
   baseline_config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
   baseline_config.environment.radiative_transfer_model =
-      foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert;
+      config::RadiativeTransferModel::kDerivedBeerLambert;
 
   config::execution::EosInternalExecutionConfig adaptive_config = baseline_config;
   adaptive_config.environment.radiative_transfer_model =
-      foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
+      config::RadiativeTransferModel::kAdaptivePathRadiance;
   adaptive_config.environment.aerosol_density_factor = 1.6f;
   adaptive_config.environment.turbulence_factor = 1.5f;
 
@@ -195,7 +195,7 @@ TEST(EosPipelineTest, AdvancedEnvironmentModelLowersSnrInHighWindScene) {
   config::execution::EosInternalExecutionConfig simplified_config = MakePipelineConfig();
   simplified_config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
   simplified_config.environment.radiative_transfer_model =
-      foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
+      config::RadiativeTransferModel::kAdaptivePathRadiance;
   simplified_config.environment.model_type = EosPipelineEnvironmentModelType::kSimplified;
   simplified_config.environment.aerosol_density_factor = 1.2f;
   simplified_config.environment.turbulence_factor = 1.1f;
@@ -229,7 +229,7 @@ TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFix
   config::execution::EosInternalExecutionConfig config = MakePipelineConfig();
   config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
   config.environment.radiative_transfer_model =
-      foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
+      config::RadiativeTransferModel::kAdaptivePathRadiance;
   config.environment.model_type = EosPipelineEnvironmentModelType::kAdvanced;
   config.environment.aerosol_density_factor = 1.2f;
   config.environment.turbulence_factor = 1.1f;

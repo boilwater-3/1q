@@ -1,10 +1,10 @@
 /**
- * @file EosCycleOutputBuilder.h
+ * @file EosCycleOutputAdapter.h
  * @brief 将内部 EOS 输出帧构建为外部世界坐标输出帧。
  */
 
-#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_OUTPUT_BUILDER_H_
-#define ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_OUTPUT_BUILDER_H_
+#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_OUTPUT_ADAPTER_H_
+#define ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_OUTPUT_ADAPTER_H_
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
@@ -23,9 +23,9 @@ struct ONEQ_API EosExternalOutputFrame {
 };
 
 /**
- * @brief 输出侧 builder：把内部 EosOutputFrame 转换为外部 ECEF 输出帧。
+ * @brief 输出侧适配器：把内部 EosOutputFrame 转换为外部 ECEF 输出帧。
  */
-struct ONEQ_API EosCycleOutputBuilder {
+struct ONEQ_API EosCycleOutputAdapter {
   static bool Build(const EosExternalPoseInput& platform, const EosOutputFrame& frame,
                     EosExternalOutputFrame* output);
 
@@ -34,10 +34,10 @@ struct ONEQ_API EosCycleOutputBuilder {
                     EosExternalOutputFrame* output);
 
  private:
-  EosCycleOutputBuilder() = delete;
+  EosCycleOutputAdapter() = delete;
 };
 
 }  // namespace session
 }  // namespace electro_optical_sensor
 
-#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_OUTPUT_BUILDER_H_
+#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_OUTPUT_ADAPTER_H_

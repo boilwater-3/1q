@@ -18,7 +18,7 @@
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
-#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
@@ -144,7 +144,7 @@ int main() {
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentModelType(eos::config::EosEnvironmentModelType::kAdvanced)
           .WithEnvironmentDetails(
-              eos::foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance,
+              eos::config::RadiativeTransferModel::kAdaptivePathRadiance,
               1.3f, 1.8f)
           .Build();
   session.ApplyRuntimeConfig(env_patch);
@@ -153,7 +153,7 @@ int main() {
   const eos::config::EosRuntimeConfigPatch rt_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentDetails(
-              eos::foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance,
+              eos::config::RadiativeTransferModel::kAdaptivePathRadiance,
               2.0f, 1.2f)
           .Build();
   session.ApplyRuntimeConfig(rt_patch);
@@ -162,7 +162,7 @@ int main() {
   const eos::config::EosRuntimeConfigPatch vis_ref_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentDetails(
-              eos::foundation::radiative_transfer::RadiativeTransferModel::kHumidityWeighted, 1.1f,
+              eos::config::RadiativeTransferModel::kHumidityWeighted, 1.1f,
               1.1f)
           .Build();
   session.ApplyRuntimeConfig(vis_ref_patch);

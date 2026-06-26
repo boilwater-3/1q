@@ -1,10 +1,10 @@
 /**
- * @file EosCycleInputBuilder.h
+ * @file EosCycleInputAdapter.h
  * @brief 一步法构建 EosCycleInput，封装 ExternalInputAdapter 的两步调用。
  */
 
-#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_INPUT_BUILDER_H_
-#define ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_INPUT_BUILDER_H_
+#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_INPUT_ADAPTER_H_
+#define ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_INPUT_ADAPTER_H_
 
 #include <cstdint>
 #include <vector>
@@ -17,13 +17,13 @@ namespace electro_optical_sensor {
 namespace session {
 
 /**
- * @brief EosCycleInput 一步构建器。
+ * @brief EosCycleInput 一步坐标适配器。
  *
  * 封装 ExternalInputAdapter 的两步调用（TryMakeEosPose + TryMakeEosSceneTarget），
  * 调用方只需提供外部坐标系下的平台运动学和目标列表，即可获得可直接传入
  * EosSession::Step() 的 EosCycleInput。
  */
-struct ONEQ_API EosCycleInputBuilder {
+struct ONEQ_API EosCycleInputAdapter {
   /**
    * @brief 从外部坐标系输入一步构建 EosCycleInput。
    * @param[in] platform 外部平台运动学输入。
@@ -53,10 +53,10 @@ struct ONEQ_API EosCycleInputBuilder {
                     EosCoordinateStatus* status = nullptr);
 
  private:
-  EosCycleInputBuilder() = delete;
+  EosCycleInputAdapter() = delete;
 };
 
 }  // namespace session
 }  // namespace electro_optical_sensor
 
-#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_INPUT_BUILDER_H_
+#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_INPUT_ADAPTER_H_

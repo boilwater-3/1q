@@ -1,9 +1,9 @@
-#include "1q/airborne_radar/session/RadarCycleOutputBuilder.h"
+#include "1q/airborne_radar/session/RadarCycleOutputAdapter.h"
 
 namespace airborne_radar {
 namespace session {
 
-bool RadarCycleOutputBuilder::Build(const RadarExternalPoseInput& platform,
+bool RadarCycleOutputAdapter::Build(const RadarExternalPoseInput& platform,
                                     const TrackOutputFrame& frame,
                                     RadarExternalTrackOutputFrame* output) {
   if (output == nullptr) {
@@ -18,7 +18,7 @@ bool RadarCycleOutputBuilder::Build(const RadarExternalPoseInput& platform,
   return Build(reference, platform_pose.velocity_mps, frame, output);
 }
 
-bool RadarCycleOutputBuilder::Build(const oneq::coordinate::LocalFrameReference& reference,
+bool RadarCycleOutputAdapter::Build(const oneq::coordinate::LocalFrameReference& reference,
                                     oneq::foundation::Vector3f radar_local_velocity_mps,
                                     const TrackOutputFrame& frame,
                                     RadarExternalTrackOutputFrame* output) {

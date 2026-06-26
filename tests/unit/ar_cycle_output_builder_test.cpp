@@ -1,6 +1,6 @@
 /**
  * @file ar_cycle_output_builder_test.cpp
- * @brief 验证 RadarCycleOutputBuilder 将内部雷达局部输出转换回外部 ECEF 输出。
+ * @brief 验证 RadarCycleOutputAdapter 将内部雷达局部输出转换回外部 ECEF 输出。
  */
 
 #include <gtest/gtest.h>
@@ -11,16 +11,16 @@
 
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/session/RadarCycleInputBuilder.h"
-#include "1q/airborne_radar/session/RadarCycleOutputBuilder.h"
+#include "1q/airborne_radar/session/RadarCycleInputAdapter.h"
+#include "1q/airborne_radar/session/RadarCycleOutputAdapter.h"
 #include "1q/coordinate/position_transform.h"
 
 namespace {
 
 using airborne_radar::session::TrackStateSnapshot;
 using airborne_radar::session::RadarCycleInput;
-using airborne_radar::session::RadarCycleInputBuilder;
-using airborne_radar::session::RadarCycleOutputBuilder;
+using airborne_radar::session::RadarCycleInputAdapter;
+using airborne_radar::session::RadarCycleOutputAdapter;
 using airborne_radar::session::RadarCycleResult;
 using airborne_radar::session::RadarExternalPoseInput;
 using airborne_radar::session::RadarExternalTrackOutputFrame;
@@ -164,12 +164,12 @@ TEST(RadarCycleOutputBuilderTest, ConvertsInternalLocalFrameBackToExternalEcef) 
   const RadarExternalTargetInput target = MakeTargetInput();
 
   RadarCycleInput input;
-  ASSERT_TRUE(RadarCycleInputBuilder::Build(platform, {target}, 1.0f, &input));
+  ASSERT_TRUE(RadarCycleInputAdapter::Build(platform, {target}, 1.0f, &input));
   ASSERT_EQ(input.scene.size(), 1U);
 
   const TrackOutputFrame frame = MakeFrameFromInternalTarget(input);
   RadarExternalTrackOutputFrame external_frame;
-  ASSERT_TRUE(RadarCycleOutputBuilder::Build(platform, frame, &external_frame));
+  ASSERT_TRUE(RadarCycleOutputAdapter::Build(platform, frame, &external_frame));
 
   ASSERT_EQ(external_frame.cycle_index, frame.cycle_index);
   ASSERT_EQ(external_frame.batch_id, frame.batch_id);
@@ -192,7 +192,7 @@ TEST(RadarCycleOutputBuilderTest, ConvertsInternalLocalFrameBackToExternalEcef) 
 TEST(RadarCycleOutputBuilderTest, NullOutputReturnsFalse) {
   const RadarExternalPoseInput platform = MakePlatformInput();
   const TrackOutputFrame frame;
-  EXPECT_FALSE(RadarCycleOutputBuilder::Build(platform, frame, nullptr));
+  EXPECT_FALSE(RadarCycleOutputAdapter::Build(platform, frame, nullptr));
 }
 
 TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) {
@@ -200,7 +200,7 @@ TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) 
   const RadarExternalTargetInput target = MakeTargetInput();
 
   RadarCycleInput input;
-  ASSERT_TRUE(RadarCycleInputBuilder::Build(platform, {target}, 1.0f, &input));
+  ASSERT_TRUE(RadarCycleInputAdapter::Build(platform, {target}, 1.0f, &input));
 
   RadarSession session =
       airborne_radar::session::RadarSession::Create(MakeDetectionFocusedConfig());
@@ -209,7 +209,7 @@ TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) 
   ASSERT_FALSE(result.track_output_frame.tracks.empty());
 
   RadarExternalTrackOutputFrame external_frame;
-  ASSERT_TRUE(RadarCycleOutputBuilder::Build(platform, result.track_output_frame, &external_frame));
+  ASSERT_TRUE(RadarCycleOutputAdapter::Build(platform, result.track_output_frame, &external_frame));
   ASSERT_FALSE(external_frame.tracks.empty());
 
   const airborne_radar::session::RadarExternalTrackKinematics& estimate = external_frame.tracks[0];
@@ -235,7 +235,7 @@ TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) 
   const float dt_sec = 0.5f;
   for (std::size_t cycle = 0; cycle < cycle_count; ++cycle) {
     RadarCycleInput input;
-    ASSERT_TRUE(RadarCycleInputBuilder::Build(platform, targets, dt_sec, &input))
+    ASSERT_TRUE(RadarCycleInputAdapter::Build(platform, targets, dt_sec, &input))
         << "cycle=" << cycle;
     input.cycle_index = static_cast<std::uint32_t>(cycle);
 
@@ -245,7 +245,7 @@ TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) 
 
     RadarExternalTrackOutputFrame external_frame;
     ASSERT_TRUE(
-        RadarCycleOutputBuilder::Build(platform, result.track_output_frame, &external_frame))
+        RadarCycleOutputAdapter::Build(platform, result.track_output_frame, &external_frame))
         << "cycle=" << cycle;
 
     for (std::size_t target_index = 1U; target_index < targets.size(); ++target_index) {
