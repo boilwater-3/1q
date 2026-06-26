@@ -10,7 +10,7 @@
 
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
@@ -622,8 +622,8 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
 
   const session::EosOutputFrame simplified_frame = session.Step(input);
 
-  environment::EosEnvironmentScenarioConfig env_config;
-  env_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
+  config::EosEnvironmentScenarioConfig env_config;
+  env_config.model_type = config::EosEnvironmentModelType::kAdvanced;
   env_config.has_custom_overrides = true;
   env_config.custom_overrides.radiative_transfer_model =
       foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;

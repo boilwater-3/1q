@@ -9,7 +9,7 @@ namespace electro_optical_sensor {
 namespace runtime {
 namespace session {
 void ApplyEnvironmentModelToInternal(
-    const environment::EosEnvironmentModelConfig& model_config,
+    const config::EosEnvironmentModelConfig& model_config,
     config::execution::EosInternalExecutionConfig* exec) {
   exec->environment.model_type = model_config.model_type;
   exec->environment.radiative_transfer_model = model_config.radiative_transfer_model;
@@ -22,27 +22,27 @@ void ApplyEnvironmentModelToInternal(
 }  // namespace session
 }  // namespace runtime
 
-namespace environment {
+namespace config {
 
-environment::EosEnvironmentModelConfig BuildModelConfigFromScenario(
-    const environment::EosEnvironmentScenarioConfig& scenario_config) {
-  environment::EosEnvironmentModelConfig model_config;
+EosEnvironmentModelConfig BuildModelConfigFromScenario(
+    const config::EosEnvironmentScenarioConfig& scenario_config) {
+  config::EosEnvironmentModelConfig model_config;
   model_config.model_type = scenario_config.model_type;
 
   using Model = foundation::radiative_transfer::RadiativeTransferModel;
-  if (scenario_config.preset == environment::EosEnvironmentPreset::kHumid) {
+  if (scenario_config.preset == config::EosEnvironmentPreset::kHumid) {
     model_config.radiative_transfer_model = Model::kHumidityWeighted;
     model_config.aerosol_density_factor = 1.1f;
     model_config.turbulence_factor = 1.1f;
-  } else if (scenario_config.preset == environment::EosEnvironmentPreset::kDusty) {
+  } else if (scenario_config.preset == config::EosEnvironmentPreset::kDusty) {
     model_config.radiative_transfer_model = Model::kAdaptivePathRadiance;
     model_config.aerosol_density_factor = 2.0f;
     model_config.turbulence_factor = 1.2f;
-  } else if (scenario_config.preset == environment::EosEnvironmentPreset::kTurbulent) {
+  } else if (scenario_config.preset == config::EosEnvironmentPreset::kTurbulent) {
     model_config.radiative_transfer_model = Model::kAdaptivePathRadiance;
     model_config.aerosol_density_factor = 1.3f;
     model_config.turbulence_factor = 1.8f;
-  } else if (scenario_config.preset == environment::EosEnvironmentPreset::kMaritime) {
+  } else if (scenario_config.preset == config::EosEnvironmentPreset::kMaritime) {
     model_config.radiative_transfer_model = Model::kHumidityWeighted;
     model_config.aerosol_density_factor = 1.5f;
     model_config.turbulence_factor = 1.4f;
@@ -67,7 +67,7 @@ environment::EosEnvironmentModelConfig BuildModelConfigFromScenario(
   return model_config;
 }
 
-}  // namespace environment
+}  // namespace config
 
 namespace runtime {
 namespace session {
@@ -75,8 +75,8 @@ namespace session {
 config::execution::EosInternalExecutionConfig MapSessionToInternal(
     const ::electro_optical_sensor::config::EosSessionConfig& config) {
   config::execution::EosInternalExecutionConfig exec;
-  const environment::EosEnvironmentModelConfig environment_model_config =
-      environment::BuildModelConfigFromScenario(config.environment.scenario_config);
+  const config::EosEnvironmentModelConfig environment_model_config =
+      BuildModelConfigFromScenario(config.environment.scenario_config);
 
   exec.sensor_enabled = config.mission.power_on;
   exec.optics = config.hardware;

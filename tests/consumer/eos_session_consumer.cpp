@@ -17,7 +17,7 @@
 
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
@@ -35,7 +35,7 @@ int main() {
           .WithWorkMode(eos::config::EosWorkMode::kFused)
           .End()
           .Environment()
-          .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kSimplified)
+          .WithEnvironmentModelType(eos::config::EosEnvironmentModelType::kSimplified)
           .End()
           .Build();
   auto config = semantic_config;
@@ -143,7 +143,7 @@ int main() {
   // 13. RuntimeConfigBuilder: switch environment model to advanced
   const eos::config::EosRuntimeConfigPatch env_patch =
       eos::config::EosRuntimeConfigBuilder()
-          .WithEnvironmentModelType(eos::environment::EosEnvironmentModelType::kAdvanced)
+          .WithEnvironmentModelType(eos::config::EosEnvironmentModelType::kAdvanced)
           .WithEnvironmentDetails(
               eos::foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance,
               1.3f, 1.8f)

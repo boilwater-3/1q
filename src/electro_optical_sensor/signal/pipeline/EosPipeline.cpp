@@ -35,15 +35,15 @@ struct FrameContext {
   float dmax_m{0.0f};
   foundation::propagation::NepNoiseModelInputs nep_inputs{};
   foundation::noise::BackgroundNoiseModelInputs noise_inputs_base{};
-  environment::EosEnvironmentModelResult environment_result{};
+  session::EosEnvironmentModelResult environment_result{};
 };
 
 namespace {
 
 class DefaultEosEnvironmentService final : public environment::IEosEnvironmentService {
  public:
-  environment::EosEnvironmentModelResult ResolveFactors(
-      const environment::EosEnvironmentModelInputs& inputs) const override {
+  session::EosEnvironmentModelResult ResolveFactors(
+      const session::EosEnvironmentModelInputs& inputs) const override {
     return environment::ResolveEnvironmentFactors(inputs);
   }
 };
@@ -80,7 +80,7 @@ float ResolvePlatformAltitudeM(const ::electro_optical_sensor::session::EosCycle
 foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTransfer(
     const config::execution::EosInternalExecutionConfig& config,
     const ::electro_optical_sensor::session::EosCycleInput& input, float range_m,
-    const environment::EosEnvironmentModelResult& environment_result) {
+    const session::EosEnvironmentModelResult& environment_result) {
   const float cloud_ratio =
       oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
   const float aerosol_excess = std::max(0.0f, environment_result.aerosol_density_factor - 1.0f);
@@ -518,7 +518,7 @@ FrameContext EosPipeline::BuildFrameContext(
   frame.noise_inputs_base.cloud_coverage_ratio = input.environment.cloud_coverage_ratio;
   frame.noise_inputs_base.detector_area_cm2 = frame.nep_inputs.detector_area_cm2;
 
-  environment::EosEnvironmentModelInputs env_inputs;
+  session::EosEnvironmentModelInputs env_inputs;
   env_inputs.model_type = config_.environment.model_type;
   env_inputs.radiative_transfer_model = config_.environment.radiative_transfer_model;
   env_inputs.base_aerosol_density_factor = config_.environment.aerosol_density_factor;

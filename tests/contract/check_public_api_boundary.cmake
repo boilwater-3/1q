@@ -85,6 +85,7 @@ set(EOS_MODULE_ENTRY_HEADERS
 
 # ── EOS 配置域 ────────────────────────────────────────────────────────
 set(EOS_CONFIG_HEADERS
+    "electro_optical_sensor/config/EosEnvironmentConfig.h"
     "electro_optical_sensor/config/EosHardwareConfig.h"
     "electro_optical_sensor/config/EosMissionConfig.h"
     "electro_optical_sensor/config/EosPolicyConfig.h"
@@ -97,10 +98,6 @@ set(EOS_CONFIG_HEADERS
 
 # ── EOS 环境域 ────────────────────────────────────────────────────────
 set(EOS_ENVIRONMENT_HEADERS
-    "electro_optical_sensor/environment/EosEnvironmentConfig.h"
-    "electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
-    "electro_optical_sensor/environment/EosEnvironmentTypes.h"
-    "electro_optical_sensor/environment/electro_optical_sensor_environment.hpp"
 )
 
 # ── EOS 扩展域 ────────────────────────────────────────────────────────

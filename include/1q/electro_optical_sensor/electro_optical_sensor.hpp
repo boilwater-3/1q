@@ -9,13 +9,12 @@
 #define ONEQ_ELECTRO_OPTICAL_SENSOR_ELECTRO_OPTICAL_SENSOR_HPP_
 
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
-#include "1q/electro_optical_sensor/environment/electro_optical_sensor_environment.hpp"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleInputBuilder.h"
 #include "1q/electro_optical_sensor/session/EosCycleOutputBuilder.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosEnvironmentInputPatch.h"
 #include "1q/electro_optical_sensor/session/EosEnvironmentInputState.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"

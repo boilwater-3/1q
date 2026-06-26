@@ -12,7 +12,7 @@
 
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
+#include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
@@ -225,8 +225,8 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.stray_light.hood_min_suppression_ratio = 0.25f;
   config.policy.stray_light.hood_max_suppression_ratio = 0.90f;
   // environment
-  config.environment.scenario_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
-  config.environment.scenario_config.preset = environment::EosEnvironmentPreset::kDusty;
+  config.environment.scenario_config.model_type = config::EosEnvironmentModelType::kAdvanced;
+  config.environment.scenario_config.preset = config::EosEnvironmentPreset::kDusty;
   config.environment.scenario_config.has_custom_overrides = true;
   config.environment.scenario_config.custom_overrides.radiative_transfer_model =
       foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
@@ -262,8 +262,8 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.policy.stray_light.hood_inner_half_angle_deg, 10.0f);
   // environment
   EXPECT_EQ(decoded.environment.scenario_config.model_type,
-            environment::EosEnvironmentModelType::kAdvanced);
-  EXPECT_EQ(decoded.environment.scenario_config.preset, environment::EosEnvironmentPreset::kDusty);
+            config::EosEnvironmentModelType::kAdvanced);
+  EXPECT_EQ(decoded.environment.scenario_config.preset, config::EosEnvironmentPreset::kDusty);
   EXPECT_TRUE(decoded.environment.scenario_config.has_custom_overrides);
   EXPECT_EQ(decoded.environment.scenario_config.custom_overrides.radiative_transfer_model,
             foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance);
@@ -293,7 +293,7 @@ TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.policy.stray_light.enable_straylight_filter = true;
   patch.has_environment = true;
   patch.environment.has_scenario_config = true;
-  patch.environment.scenario_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
+  patch.environment.scenario_config.model_type = config::EosEnvironmentModelType::kAdvanced;
   patch.has_work_mode = true;
   patch.work_mode = config::EosWorkMode::kVisibleOnly;
   patch.has_scan_rate_deg_per_sec = true;

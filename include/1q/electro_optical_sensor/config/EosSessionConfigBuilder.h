@@ -147,16 +147,16 @@ class ONEQ_API EosSessionConfigBuilder::EnvironmentEditor {
   explicit EnvironmentEditor(EosSessionConfigBuilder* builder) noexcept : builder_(builder) {}
 
   EnvironmentEditor& WithEnvironmentDefault(
-      const environment::EosEnvironmentDefaultConfig& config) noexcept {
+      const config::EosEnvironmentConfig& config) noexcept {
     builder_->config_.environment = config;
     return *this;
   }
   EnvironmentEditor& WithEnvironmentModelType(
-      environment::EosEnvironmentModelType model_type) noexcept {
+      config::EosEnvironmentModelType model_type) noexcept {
     builder_->config_.environment.scenario_config.model_type = model_type;
     return *this;
   }
-  EnvironmentEditor& WithEnvironmentPreset(environment::EosEnvironmentPreset preset) noexcept {
+  EnvironmentEditor& WithEnvironmentPreset(config::EosEnvironmentPreset preset) noexcept {
     builder_->config_.environment.scenario_config.preset = preset;
     return *this;
   }

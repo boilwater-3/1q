@@ -1,24 +1,24 @@
 /**
  * @file EosEnvironmentConfig.h
- * @brief EOS 环境配置契约（Scenario/Model/Default）与单入口映射。
+ * @brief EOS 环境配置契约（Scenario/Model/Default）。
  */
 
-#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_EOS_ENVIRONMENT_CONFIG_H_
-#define ONEQ_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_EOS_ENVIRONMENT_CONFIG_H_
+#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_ENVIRONMENT_CONFIG_H_
+#define ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_ENVIRONMENT_CONFIG_H_
 
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "1q/environment/AtmosphericTypes.h"
 
 namespace electro_optical_sensor {
-namespace environment {
+namespace config {
 
 /**
  * @brief EosEnvironmentModelType 描述环境模型策略。
  */
 enum class ONEQ_API EosEnvironmentModelType {
-  kSimplified = 0, /**< 简化模型（固定环境参数） */
-  kAdvanced        /**< 高级模型（高度/风速/云量驱动） */
+  kSimplified = 0,
+  kAdvanced
 };
 
 /**
@@ -50,8 +50,8 @@ struct ONEQ_API EosEnvironmentScenarioConfig {
   EosEnvironmentPreset preset{EosEnvironmentPreset::kStandard};
   bool has_custom_overrides{false};
   EosEnvironmentCustomOverrides custom_overrides{};
-  bool has_atmospheric_observation{false};              /**< 是否提供大气物理观测输入 */
-  oneq::environment::AtmosphericObservation atmospheric_observation{}; /**< 可选大气物理观测 */
+  bool has_atmospheric_observation{false};
+  oneq::environment::AtmosphericObservation atmospheric_observation{};
 };
 
 /**
@@ -63,18 +63,18 @@ struct ONEQ_API EosEnvironmentModelConfig {
       foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
   float aerosol_density_factor{1.0f};
   float turbulence_factor{1.0f};
-  bool has_atmospheric_observation{false};              /**< 是否提供大气物理观测输入 */
-  oneq::environment::AtmosphericObservation atmospheric_observation{}; /**< 可选大气物理观测 */
+  bool has_atmospheric_observation{false};
+  oneq::environment::AtmosphericObservation atmospheric_observation{};
 };
 
 /**
- * @brief EosEnvironmentDefaultConfig 描述初始化阶段默认环境配置。
+ * @brief EosEnvironmentConfig 描述初始化阶段默认环境配置。
  */
-struct ONEQ_API EosEnvironmentDefaultConfig {
+struct ONEQ_API EosEnvironmentConfig {
   EosEnvironmentScenarioConfig scenario_config{};
 };
 
-}  // namespace environment
+}  // namespace config
 }  // namespace electro_optical_sensor
 
-#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_EOS_ENVIRONMENT_CONFIG_H_
+#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_ENVIRONMENT_CONFIG_H_

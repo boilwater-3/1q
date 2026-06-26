@@ -25,8 +25,8 @@ config::EosSessionConfig MakeSessionConfig() {
   config.policy.detection.minimum_snr_db = 60.0f;
   config.policy.detection.detection_sensitivity_w = 2.0e-12f;
   config.policy.detection.visible_reference_irradiance_w_m2 = 1000.0f;
-  config.environment.scenario_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
-  config.environment.scenario_config.preset = environment::EosEnvironmentPreset::kDusty;
+  config.environment.scenario_config.model_type = config::EosEnvironmentModelType::kAdvanced;
+  config.environment.scenario_config.preset = config::EosEnvironmentPreset::kDusty;
   return config;
 }
 

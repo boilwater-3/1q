@@ -75,8 +75,8 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
           .WithWorkMode(config::EosWorkMode::kInfraredOnly)
           .End()
           .Environment()
-          .WithEnvironmentModelType(environment::EosEnvironmentModelType::kAdvanced)
-          .WithEnvironmentPreset(environment::EosEnvironmentPreset::kDusty)
+          .WithEnvironmentModelType(config::EosEnvironmentModelType::kAdvanced)
+          .WithEnvironmentPreset(config::EosEnvironmentPreset::kDusty)
           .End()
           .Build();
   config.policy.detection.minimum_snr_db = 60.0f;
@@ -92,8 +92,8 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
   EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 60.0f);
   EXPECT_TRUE(config.policy.stray_light.enable_straylight_filter);
   EXPECT_EQ(config.environment.scenario_config.model_type,
-            environment::EosEnvironmentModelType::kAdvanced);
-  EXPECT_EQ(config.environment.scenario_config.preset, environment::EosEnvironmentPreset::kDusty);
+            config::EosEnvironmentModelType::kAdvanced);
+  EXPECT_EQ(config.environment.scenario_config.preset, config::EosEnvironmentPreset::kDusty);
 }
 
 TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAndLeafFields) {
@@ -109,8 +109,8 @@ TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAnd
   config.policy.stray_light.hood_outer_half_angle_deg = 55.0f;
   config.policy.stray_light.hood_min_suppression_ratio = 0.35f;
   config.policy.stray_light.hood_max_suppression_ratio = 0.95f;
-  config.environment.scenario_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
-  config.environment.scenario_config.preset = environment::EosEnvironmentPreset::kDusty;
+  config.environment.scenario_config.model_type = config::EosEnvironmentModelType::kAdvanced;
+  config.environment.scenario_config.preset = config::EosEnvironmentPreset::kDusty;
 
   EXPECT_EQ(config.mission.work_mode, config::EosWorkMode::kInfraredOnly);
   EXPECT_NEAR(config.mission.scan_rate_deg_per_sec, 40.0f, 1e-5f);
@@ -118,8 +118,8 @@ TEST(EosPublicApiConvenienceTest, DetailedSessionConfigBuilderOverridesDomainAnd
   EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 60.0f);
   EXPECT_TRUE(config.policy.stray_light.enable_straylight_filter);
   EXPECT_EQ(config.environment.scenario_config.model_type,
-            environment::EosEnvironmentModelType::kAdvanced);
-  EXPECT_EQ(config.environment.scenario_config.preset, environment::EosEnvironmentPreset::kDusty);
+            config::EosEnvironmentModelType::kAdvanced);
+  EXPECT_EQ(config.environment.scenario_config.preset, config::EosEnvironmentPreset::kDusty);
 }
 
 TEST(EosPublicApiConvenienceTest, SessionConfigBuilderPreservesPreconfiguredSessionConfig) {
@@ -149,8 +149,8 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
 }
 
 TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
-  environment::EosEnvironmentScenarioConfig env_config;
-  env_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
+  config::EosEnvironmentScenarioConfig env_config;
+  env_config.model_type = config::EosEnvironmentModelType::kAdvanced;
   env_config.has_custom_overrides = true;
   env_config.custom_overrides.radiative_transfer_model =
       rt::RadiativeTransferModel::kAdaptivePathRadiance;
@@ -185,7 +185,7 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
   EXPECT_TRUE(patch.has_environment);
   EXPECT_TRUE(patch.environment.has_scenario_config);
   EXPECT_EQ(patch.environment.scenario_config.model_type,
-            environment::EosEnvironmentModelType::kAdvanced);
+            config::EosEnvironmentModelType::kAdvanced);
   EXPECT_TRUE(patch.environment.scenario_config.has_custom_overrides);
   EXPECT_EQ(patch.environment.scenario_config.custom_overrides.radiative_transfer_model,
             rt::RadiativeTransferModel::kAdaptivePathRadiance);
@@ -486,14 +486,14 @@ TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIn
 }
 
 TEST(EosPublicApiConvenienceTest, EosEnvironmentDefaultConfigHasReasonableDefaults) {
-  const environment::EosEnvironmentDefaultConfig default_config;
+  const config::EosEnvironmentConfig default_config;
   EXPECT_EQ(default_config.scenario_config.model_type,
-            environment::EosEnvironmentModelType::kSimplified);
+            config::EosEnvironmentModelType::kSimplified);
 }
 
 TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies) {
-  environment::EosEnvironmentScenarioConfig env_config;
-  env_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
+  config::EosEnvironmentScenarioConfig env_config;
+  env_config.model_type = config::EosEnvironmentModelType::kAdvanced;
   env_config.has_custom_overrides = true;
   env_config.custom_overrides.radiative_transfer_model =
       rt::RadiativeTransferModel::kAdaptivePathRadiance;
@@ -506,7 +506,7 @@ TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies
   EXPECT_TRUE(patch.has_environment);
   EXPECT_TRUE(patch.environment.has_scenario_config);
   EXPECT_EQ(patch.environment.scenario_config.model_type,
-            environment::EosEnvironmentModelType::kAdvanced);
+            config::EosEnvironmentModelType::kAdvanced);
   EXPECT_TRUE(patch.environment.scenario_config.has_custom_overrides);
   EXPECT_EQ(patch.environment.scenario_config.custom_overrides.radiative_transfer_model,
             rt::RadiativeTransferModel::kAdaptivePathRadiance);

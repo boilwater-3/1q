@@ -6,7 +6,7 @@
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_BUILDER_H_
 #define ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_RUNTIME_CONFIG_BUILDER_H_
 
-#include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
+#include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 
 namespace electro_optical_sensor {
@@ -41,14 +41,14 @@ class ONEQ_API EosRuntimeConfigBuilder {
   }
 
   EosRuntimeConfigBuilder& WithEnvironment(
-      const environment::EosEnvironmentRuntimeConfigPatch& environment_patch) noexcept {
+      const config::EosEnvironmentRuntimeConfigPatch& environment_patch) noexcept {
     patch_.has_environment = true;
     patch_.environment = environment_patch;
     return *this;
   }
 
   EosRuntimeConfigBuilder& WithEnvironmentScenarioConfig(
-      const environment::EosEnvironmentScenarioConfig& config) noexcept {
+      const config::EosEnvironmentScenarioConfig& config) noexcept {
     patch_.has_environment = true;
     patch_.environment.has_scenario_config = true;
     patch_.environment.scenario_config = config;

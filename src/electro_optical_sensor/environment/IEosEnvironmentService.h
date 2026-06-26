@@ -6,7 +6,7 @@
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_I_EOS_ENVIRONMENT_SERVICE_H_
 #define ONEQ_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_I_EOS_ENVIRONMENT_SERVICE_H_
 
-#include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 
 namespace electro_optical_sensor {
 namespace environment {
@@ -23,8 +23,8 @@ class IEosEnvironmentService {
    * @param[in] inputs 当前目标相关环境输入。
    * @return 环境因子输出。
    */
-  virtual EosEnvironmentModelResult ResolveFactors(
-      const EosEnvironmentModelInputs& inputs) const = 0;
+  virtual session::EosEnvironmentModelResult ResolveFactors(
+      const session::EosEnvironmentModelInputs& inputs) const = 0;
 };
 
 }  // namespace environment

@@ -13,15 +13,15 @@ namespace {
 
 }  // namespace
 
-EosEnvironmentModelResult ResolveEnvironmentFactors(const EosEnvironmentModelInputs& inputs) {
+session::EosEnvironmentModelResult ResolveEnvironmentFactors(const session::EosEnvironmentModelInputs& inputs) {
   const float cloud_ratio = oneq::internal::numerics::Clamp01(inputs.cloud_coverage_ratio);
   const float altitude_km = std::max(0.0f, std::fabs(inputs.platform_altitude_m) / 1000.0f);
   const float wind_speed_mps = std::max(0.0f, inputs.wind_speed_mps);
   const float base_aerosol = oneq::internal::numerics::SafePositive(inputs.base_aerosol_density_factor, 1.0f);
   const float base_turbulence = oneq::internal::numerics::SafePositive(inputs.base_turbulence_factor, 1.0f);
 
-  EosEnvironmentModelResult result;
-  if (inputs.model_type == EosEnvironmentModelType::kAdvanced) {
+  session::EosEnvironmentModelResult result;
+  if (inputs.model_type == config::EosEnvironmentModelType::kAdvanced) {
     result.aerosol_density_factor =
         base_aerosol * (1.0f + 0.25f * cloud_ratio + 0.02f * altitude_km);
     result.turbulence_factor = base_turbulence *

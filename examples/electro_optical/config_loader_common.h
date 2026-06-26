@@ -21,28 +21,28 @@ inline electro_optical_sensor::config::EosWorkMode EosWorkModeFromString(
   return electro_optical_sensor::config::EosWorkMode::kFused;
 }
 
-inline electro_optical_sensor::environment::EosEnvironmentModelType EosModelFromString(
+inline electro_optical_sensor::config::EosEnvironmentModelType EosModelFromString(
     const std::string& s) {
   if (s == "kSimplified")
-    return electro_optical_sensor::environment::EosEnvironmentModelType::kSimplified;
+    return electro_optical_sensor::config::EosEnvironmentModelType::kSimplified;
   if (s == "kAdvanced")
-    return electro_optical_sensor::environment::EosEnvironmentModelType::kAdvanced;
-  return electro_optical_sensor::environment::EosEnvironmentModelType::kSimplified;
+    return electro_optical_sensor::config::EosEnvironmentModelType::kAdvanced;
+  return electro_optical_sensor::config::EosEnvironmentModelType::kSimplified;
 }
 
-inline electro_optical_sensor::environment::EosEnvironmentPreset EosPresetFromString(
+inline electro_optical_sensor::config::EosEnvironmentPreset EosPresetFromString(
     const std::string& s) {
   if (s == "kStandard")
-    return electro_optical_sensor::environment::EosEnvironmentPreset::kStandard;
+    return electro_optical_sensor::config::EosEnvironmentPreset::kStandard;
   if (s == "kHumid")
-    return electro_optical_sensor::environment::EosEnvironmentPreset::kHumid;
+    return electro_optical_sensor::config::EosEnvironmentPreset::kHumid;
   if (s == "kDusty")
-    return electro_optical_sensor::environment::EosEnvironmentPreset::kDusty;
+    return electro_optical_sensor::config::EosEnvironmentPreset::kDusty;
   if (s == "kTurbulent")
-    return electro_optical_sensor::environment::EosEnvironmentPreset::kTurbulent;
+    return electro_optical_sensor::config::EosEnvironmentPreset::kTurbulent;
   if (s == "kMaritime")
-    return electro_optical_sensor::environment::EosEnvironmentPreset::kMaritime;
-  return electro_optical_sensor::environment::EosEnvironmentPreset::kStandard;
+    return electro_optical_sensor::config::EosEnvironmentPreset::kMaritime;
+  return electro_optical_sensor::config::EosEnvironmentPreset::kStandard;
 }
 
 inline electro_optical_sensor::foundation::radiative_transfer::RadiativeTransferModel

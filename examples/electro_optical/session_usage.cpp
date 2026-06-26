@@ -16,7 +16,7 @@
 #include "config_loader.h"
 
 namespace eos_config = electro_optical_sensor::config;
-namespace eos_env = electro_optical_sensor::environment;
+namespace eos_env = electro_optical_sensor::session;
 namespace eos_session = electro_optical_sensor::session;
 
 namespace {

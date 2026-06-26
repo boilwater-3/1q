@@ -21,7 +21,7 @@ TEST(EosRuntimeConfigResolverTest, ValidPatchBuildsRuntimeUpdateAndScanResetFlag
   current_config.scan.scan_rate_deg_per_sec = 20.0f;
   current_config.detection.minimum_snr_db = 6.0f;
 
-  environment::EosEnvironmentScenarioConfig env_config;
+  config::EosEnvironmentScenarioConfig env_config;
   env_config.has_custom_overrides = true;
   env_config.custom_overrides.radiative_transfer_model =
       ::electro_optical_sensor::foundation::radiative_transfer::

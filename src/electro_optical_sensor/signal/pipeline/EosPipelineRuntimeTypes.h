@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "1q/electro_optical_sensor/config/EosMissionConfig.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
+#include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 
 namespace electro_optical_sensor {
@@ -25,9 +25,9 @@ using EosPipelineWorkMode = config::EosWorkMode;
 
 /**
  * @brief EosPipelineEnvironmentModelType 描述环境模型策略。
- * @note 等价于 environment::EosEnvironmentModelType，限定为内部 pipeline 使用。
+ * @note 等价于 config::EosEnvironmentModelType，限定为内部 pipeline 使用。
  */
-using EosPipelineEnvironmentModelType = environment::EosEnvironmentModelType;
+using EosPipelineEnvironmentModelType = config::EosEnvironmentModelType;
 
 /**
  * @brief EosPipelineRuntimeState 描述 EOS 管线运行态快照。
