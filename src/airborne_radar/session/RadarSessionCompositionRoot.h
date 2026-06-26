@@ -9,7 +9,6 @@
 namespace airborne_radar {
 namespace extension {
 class ITacticalDecisionEngine;
-class IRadarContext;
 class ISignalPipeline;
 class RadarController;
 }  // namespace extension
@@ -17,6 +16,7 @@ namespace environment {
 class IEnvironmentService;
 }
 namespace session {
+class MutableRadarContext;
 
 struct RadarSessionComposition {
   config::RadarHardwareConfig runtime_hardware{};
@@ -26,12 +26,12 @@ struct RadarSessionComposition {
   environment::JammingSensitivityProfile runtime_jamming_sensitivity_profile{
       environment::JammingSensitivityProfile::kBalanced};
 
-  std::unique_ptr<extension::IRadarContext> owned_radar_context;
+  std::unique_ptr<MutableRadarContext> owned_radar_context;
   std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::RadarController> owned_controller;
 
-  extension::IRadarContext* radar_context{nullptr};
+  MutableRadarContext* radar_context{nullptr};
   extension::ISignalPipeline* signal_pipeline{nullptr};
   environment::IEnvironmentService* environment_service{nullptr};
   extension::RadarController* controller{nullptr};

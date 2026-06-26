@@ -9,29 +9,46 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "1q/airborne_radar/extension/control/RadarCommand.h"
+#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/foundation/pose_types.h"
 
 namespace airborne_radar {
 namespace session {
 
+struct RadarContextRuntimeState {
+  const void* owner_identity{nullptr};
+  std::uint32_t schema_version{0U};
+  std::shared_ptr<void> opaque{};
+  RadarSceneTargetList scene_targets{};
+  oneq::foundation::PoseState platform_pose{};
+  float platform_altitude_m{0.0f};
+  float cycle_dt_sec{1.0f};
+  std::uint32_t cycle_index{0U};
+  std::vector<extension::control::RadarCommand> submitted_commands{};
+  extension::control::RadarControlProfile latest_control_profile{};
+  bool has_latest_control_profile{false};
+};
+
 /**
  * @brief 提供一个可直接驱动控制器的默认雷达上下文实现。
  */
-class MutableRadarContext final : public extension::IRadarContext {
+class MutableRadarContext final {
  public:
   /**
    * @brief 默认构造函数。
    */
   MutableRadarContext() = default;
-  ~MutableRadarContext() override = default;
+  explicit MutableRadarContext(RadarSceneTargetList scene_targets);
+  ~MutableRadarContext() = default;
 
   /**
    * @brief 以单周期输入刷新上下文，并清空本周期输出缓存。
    * @param input 单周期输入载荷。
    */
-  void BeginCycle(const RadarCycleInput& input) override;
+  void BeginCycle(const RadarCycleInput& input);
 
   /**
    * @brief 更新当前周期场景目标列表。
@@ -52,6 +69,12 @@ class MutableRadarContext final : public extension::IRadarContext {
   void SetCycleDeltaTimeSec(float dt_sec);
 
   /**
+   * @brief 更新当前输入周期号。
+   * @param cycle_index 当前周期号。
+   */
+  void SetCycleIndex(std::uint32_t cycle_index);
+
+  /**
    * @brief 清空本周期输出缓存。
    * @note 当前仅清空已提交指令列表，不重置最近一次控制真值。
    */
@@ -61,60 +84,64 @@ class MutableRadarContext final : public extension::IRadarContext {
    * @brief 获取本周期已提交的控制指令。
    * @return 当前周期命令缓存。
    */
-  const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const override;
+  const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const;
+
+  const std::vector<extension::control::RadarCommand>& SubmittedCommands() const;
 
   /**
    * @brief 判断是否已经收到过控制真值更新。
    * @return 若至少收到过一次 `UpdateRadarControlProfile` 则返回 `true`。
    */
-  bool HasLatestControlProfile() const override;
+  bool HasLatestControlProfile() const;
 
   /**
    * @brief 获取最近一次保存的控制真值。
    * @return 最近一次控制真值；若尚未更新则返回默认值。
    */
-  const extension::control::RadarControlProfile& GetLatestControlProfile() const override;
+  const extension::control::RadarControlProfile& GetLatestControlProfile() const;
 
-  extension::RadarContextRuntimeState CaptureRuntimeState() const override;
+  const extension::control::RadarControlProfile& LatestControlProfile() const;
 
-  void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override;
+  RadarContextRuntimeState CaptureRuntimeState() const;
+
+  void RestoreRuntimeState(const RadarContextRuntimeState& state);
 
   /**
    * @brief 获取当前周期场景目标列表。
    * @return 当前周期场景目标列表只读引用。
    */
-  const RadarSceneTargetList& GetSceneTargets() const override;
+  const RadarSceneTargetList& GetSceneTargets() const;
 
   /**
    * @brief 获取当前平台姿态角。
    * @return 当前平台姿态角。
    */
-  model::PlatformAttitudeDeg GetPlatformAttitude() const override;
-  float GetPlatformAltitudeM() const override;
+  model::PlatformAttitudeDeg GetPlatformAttitude() const;
+  float GetPlatformAltitudeM() const;
 
   /**
    * @brief 获取当前周期时间步长。
    * @return 当前周期步长，单位为秒。
    */
-  float GetCycleDeltaTimeSec() const override;
+  float GetCycleDeltaTimeSec() const;
 
   /**
    * @brief 获取当前输入周期号。
    * @return 当前周期号。
    */
-  std::uint32_t GetCycleIndex() const override;
+  std::uint32_t GetCycleIndex() const;
 
   /**
    * @brief 记录控制器提交的单条控制指令。
    * @param cmd 控制指令。
    */
-  void SubmitControlCommand(extension::control::RadarCommand cmd) override;
+  void SubmitControlCommand(extension::control::RadarCommand cmd);
 
   /**
    * @brief 保存最近一次控制真值。
    * @param profile 下一周期控制真值。
    */
-  void UpdateRadarControlProfile(const extension::control::RadarControlProfile& profile) override;
+  void UpdateRadarControlProfile(const extension::control::RadarControlProfile& profile);
 
  private:
   struct RuntimeSnapshot;

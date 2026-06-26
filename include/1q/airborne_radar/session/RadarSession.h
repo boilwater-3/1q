@@ -23,17 +23,6 @@ struct RadarRuntimeConfigPatch;
 }  // namespace airborne_radar
 
 namespace airborne_radar {
-namespace extension {
-class IRadarContext;
-class RadarController;
-class ISignalPipeline;
-}  // namespace extension
-namespace environment {
-class IEnvironmentService;
-}
-}  // namespace airborne_radar
-
-namespace airborne_radar {
 namespace session {
 class RadarSessionFactory;
 }

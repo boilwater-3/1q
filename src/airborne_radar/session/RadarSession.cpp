@@ -3,7 +3,7 @@
 #include <utility>
 
 #include "airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "airborne_radar/session/MutableRadarContext.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/runtime/RadarController.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
@@ -31,6 +31,7 @@ environment::EnvironmentSceneState BuildSceneStateFromEnvironmentInput(
 struct RadarSession::Impl {
   explicit Impl(RadarSessionComposition composition)
       : runtime_state(),
+        pipeline_config_synced(composition.pipeline_config_synced),
         owned_radar_context(std::move(composition.owned_radar_context)),
         owned_signal_pipeline(std::move(composition.owned_signal_pipeline)),
         owned_environment_service(std::move(composition.owned_environment_service)),
@@ -38,8 +39,7 @@ struct RadarSession::Impl {
         radar_context(*composition.radar_context),
         signal_pipeline(*composition.signal_pipeline),
         environment_service(*composition.environment_service),
-        controller(*composition.controller),
-        pipeline_config_synced(composition.pipeline_config_synced) {
+        controller(*composition.controller) {
     config::RadarSessionConfig initial_session_config;
     initial_session_config.hardware = composition.runtime_hardware;
     initial_session_config.mission = composition.runtime_mission;
@@ -182,7 +182,7 @@ struct RadarSession::Impl {
       return BuildValidationErrorResult(input, issues);
     }
 
-    const extension::RadarContextRuntimeState radar_context_state =
+    const RadarContextRuntimeState radar_context_state =
         radar_context.CaptureRuntimeState();
     const extension::SignalPipelineRuntimeState pipeline_state =
         signal_pipeline.CaptureRuntimeState();
@@ -225,11 +225,11 @@ struct RadarSession::Impl {
   bool pending_environment_scenario_config_changed{false};
   bool pending_jamming_sensitivity_profile_changed{false};
   bool pipeline_config_synced{true};
-  std::unique_ptr<extension::IRadarContext> owned_radar_context;
+  std::unique_ptr<MutableRadarContext> owned_radar_context;
   std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::RadarController> owned_controller;
-  extension::IRadarContext& radar_context;
+  MutableRadarContext& radar_context;
   extension::ISignalPipeline& signal_pipeline;
   environment::IEnvironmentService& environment_service;
   extension::RadarController& controller;

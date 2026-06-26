@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/extension/IRadarContext.h"
+#include "airborne_radar/session/MutableRadarContext.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
@@ -45,7 +45,7 @@ struct OwnedDecisionComponents {
  */
 struct RadarController::Impl {
   // -- 外部引用（生命周期由 Session 管理）
-  extension::IRadarContext& radar_context;
+  session::MutableRadarContext& radar_context;
   extension::ISignalPipeline& signal_pipeline;
   environment::IEnvironmentService& environment_service;
 
@@ -69,7 +69,7 @@ struct RadarController::Impl {
       extension::SignalCycleAbortReason::kNone};
 
   /** @brief 构造使用默认 TacticalCoordinator 的控制器。 */
-  Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
+  Impl(session::MutableRadarContext& ctx, extension::ISignalPipeline& sig,
        environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
@@ -79,14 +79,12 @@ struct RadarController::Impl {
     owned_decision_components.tactical_state_store.reset(new extension::TacticalStateStore());
     owned_decision_components.control_reducer.reset(new decision::ControlReducer());
     decision_engine = owned_decision_components.decision_engine.get();
-    // 显式 upcast 表明 IRadarContext 同时满足两个写入接口
     command_mapper.reset(new extension::ControlCommandMapper(
-        *owned_decision_components.control_reducer, static_cast<extension::IRadarCommandBus&>(ctx),
-        static_cast<extension::IRadarControlProfileStore&>(ctx)));
+        *owned_decision_components.control_reducer, ctx));
   }
 
   /** @brief 构造使用外部决策引擎的控制器。 */
-  Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
+  Impl(session::MutableRadarContext& ctx, extension::ISignalPipeline& sig,
        extension::ITacticalDecisionEngine& ext_engine, environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
@@ -96,8 +94,7 @@ struct RadarController::Impl {
     owned_decision_components.tactical_state_store.reset(new extension::TacticalStateStore());
     owned_decision_components.control_reducer.reset(new decision::ControlReducer());
     command_mapper.reset(new extension::ControlCommandMapper(
-        *owned_decision_components.control_reducer, static_cast<extension::IRadarCommandBus&>(ctx),
-        static_cast<extension::IRadarControlProfileStore&>(ctx)));
+        *owned_decision_components.control_reducer, ctx));
   }
 
   /** @brief 重置每周期可变标志位。 */
@@ -110,12 +107,12 @@ struct RadarController::Impl {
 
 // -- 构造函数
 
-RadarController::RadarController(extension::IRadarContext& radar_context,
+RadarController::RadarController(session::MutableRadarContext& radar_context,
                                  extension::ISignalPipeline& signal_pipeline,
                                  environment::IEnvironmentService& environment_service)
     : impl_(new Impl(radar_context, signal_pipeline, environment_service)) {}
 
-RadarController::RadarController(extension::IRadarContext& radar_context,
+RadarController::RadarController(session::MutableRadarContext& radar_context,
                                  extension::ISignalPipeline& signal_pipeline,
                                  extension::ITacticalDecisionEngine& decision_engine,
                                  environment::IEnvironmentService& environment_service)

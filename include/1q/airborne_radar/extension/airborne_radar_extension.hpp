@@ -6,10 +6,6 @@
 #ifndef ONEQ_AIRBORNE_RADAR_EXTENSION_AIRBORNE_RADAR_EXTENSION_HPP_
 #define ONEQ_AIRBORNE_RADAR_EXTENSION_AIRBORNE_RADAR_EXTENSION_HPP_
 
-#include "1q/airborne_radar/extension/IRadarCommandBus.h"
-#include "1q/airborne_radar/extension/IRadarContext.h"
-#include "1q/airborne_radar/extension/IRadarContextReader.h"
-#include "1q/airborne_radar/extension/IRadarControlProfileStore.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
 #include "1q/airborne_radar/extension/control/ControlDirective.h"

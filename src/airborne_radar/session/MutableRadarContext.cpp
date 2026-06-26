@@ -16,6 +16,9 @@ struct MutableRadarContext::RuntimeSnapshot {
   bool has_latest_control_profile{false};
 };
 
+MutableRadarContext::MutableRadarContext(RadarSceneTargetList scene_targets)
+    : scene_targets_(new RadarSceneTargetList(std::move(scene_targets))), cycle_index_(1U) {}
+
 void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
   SetSceneTargets(input.scene);
   platform_pose_ = input.platform_pose;
@@ -36,6 +39,8 @@ void MutableRadarContext::SetPlatformAttitude(
 
 void MutableRadarContext::SetCycleDeltaTimeSec(float dt_sec) { cycle_dt_sec_ = dt_sec; }
 
+void MutableRadarContext::SetCycleIndex(std::uint32_t cycle_index) { cycle_index_ = cycle_index; }
+
 void MutableRadarContext::ResetCycleOutputs() { submitted_commands_.clear(); }
 
 const std::vector<extension::control::RadarCommand>& MutableRadarContext::GetSubmittedCommands()
@@ -50,8 +55,17 @@ const extension::control::RadarControlProfile& MutableRadarContext::GetLatestCon
   return latest_control_profile_;
 }
 
-extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() const {
-  extension::RadarContextRuntimeState state;
+const std::vector<extension::control::RadarCommand>& MutableRadarContext::SubmittedCommands()
+    const {
+  return submitted_commands_;
+}
+
+const extension::control::RadarControlProfile& MutableRadarContext::LatestControlProfile() const {
+  return latest_control_profile_;
+}
+
+RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() const {
+  RadarContextRuntimeState state;
   std::shared_ptr<RuntimeSnapshot> snapshot(new RuntimeSnapshot());
   snapshot->scene_targets = scene_targets_;
   snapshot->platform_pose = platform_pose_;
@@ -75,7 +89,7 @@ extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() c
   return state;
 }
 
-void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRuntimeState& state) {
+void MutableRadarContext::RestoreRuntimeState(const RadarContextRuntimeState& state) {
   if (state.owner_identity == this && state.schema_version == 1U) {
     const std::shared_ptr<RuntimeSnapshot> snapshot =
         std::static_pointer_cast<RuntimeSnapshot>(state.opaque);

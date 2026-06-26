@@ -37,11 +37,6 @@ namespace {
 using SceneTarget = session::RadarSceneTarget;
 using SceneTargetList = session::RadarSceneTargetList;
 
-float SpeedOf(const SceneTarget& target) {
-  return std::sqrt(target.velocity_x * target.velocity_x + target.velocity_y * target.velocity_y +
-                   target.velocity_z * target.velocity_z);
-}
-
 SceneTarget CloneSceneTarget(const session::RadarSceneTarget& target) {
   SceneTarget out;
   out.external_target_id = target.external_target_id;
@@ -131,36 +126,11 @@ session::RadarSceneTarget ToSceneTarget(const session::RadarSceneTarget& target)
   return out;
 }
 
-session::RadarSceneTarget CloneSceneTarget(const session::RadarSceneTarget& target) {
-  session::RadarSceneTarget out;
-  out.external_target_id = target.external_target_id;
-  out.velocity_x = target.velocity_x;
-  out.velocity_y = target.velocity_y;
-  out.velocity_z = target.velocity_z;
-  out.rcs = target.rcs;
-  out.range_m = target.range_m;
-
-  out.position_x = target.position_x;
-  out.position_y = target.position_y;
-  out.position_z = target.position_z;
-  out.target_swerling_type = target.target_swerling_type;
-  return out;
-}
-
 session::RadarSceneTargetList ToSceneTargets(const session::RadarSceneTargetList& targets) {
   session::RadarSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
     out.push_back(ToSceneTarget(targets[i]));
-  }
-  return out;
-}
-
-session::RadarSceneTargetList CloneSceneTargets(const session::RadarSceneTargetList& targets) {
-  session::RadarSceneTargetList out;
-  out.reserve(targets.size());
-  for (std::size_t i = 0; i < targets.size(); ++i) {
-    out.push_back(CloneSceneTarget(targets[i]));
   }
   return out;
 }
@@ -263,81 +233,6 @@ model::TrackStateSnapshot MakeTrackStateSnapshot(float velocity_x, float velocit
   track.association_key = association_key;
   return track;
 }
-
-class RecordingRadarContext : public extension::IRadarContext {
- public:
-  void BeginCycle(const session::RadarCycleInput& input) override {
-    ++begin_cycle_count_;
-    cycle_index_ = input.cycle_index;
-    scene_targets_ = input.scene;
-    platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
-    platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
-    platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;
-    cycle_dt_sec_ = input.dt_sec;
-    submitted_commands_.clear();
-  }
-
-  const session::RadarSceneTargetList& GetSceneTargets() const override { return scene_targets_; }
-
-  model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_deg_; }
-
-  float GetCycleDeltaTimeSec() const override { return cycle_dt_sec_; }
-
-  std::uint32_t GetCycleIndex() const override { return cycle_index_; }
-
-  void SubmitControlCommand(extension::control::RadarCommand cmd) override {
-    submitted_commands_.push_back(std::move(cmd));
-  }
-
-  void UpdateRadarControlProfile(const extension::control::RadarControlProfile& profile) override {
-    latest_control_profile_ = profile;
-    has_latest_control_profile_ = true;
-  }
-
-  const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const override {
-    return submitted_commands_;
-  }
-
-  bool HasLatestControlProfile() const override { return has_latest_control_profile_; }
-
-  const extension::control::RadarControlProfile& GetLatestControlProfile() const override {
-    return latest_control_profile_;
-  }
-
-  extension::RadarContextRuntimeState CaptureRuntimeState() const override {
-    extension::RadarContextRuntimeState state;
-    state.scene_targets = scene_targets_;
-    state.platform_pose.attitude_deg = platform_attitude_deg_;
-    state.cycle_dt_sec = cycle_dt_sec_;
-    state.cycle_index = cycle_index_;
-    state.submitted_commands = submitted_commands_;
-    state.latest_control_profile = latest_control_profile_;
-    state.has_latest_control_profile = has_latest_control_profile_;
-    return state;
-  }
-
-  void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
-    scene_targets_ = state.scene_targets;
-    platform_attitude_deg_ = state.platform_pose.attitude_deg;
-    cycle_dt_sec_ = state.cycle_dt_sec;
-    cycle_index_ = state.cycle_index;
-    submitted_commands_ = state.submitted_commands;
-    latest_control_profile_ = state.latest_control_profile;
-    has_latest_control_profile_ = state.has_latest_control_profile;
-  }
-
-  std::size_t begin_cycle_count() const { return begin_cycle_count_; }
-
- private:
-  session::RadarSceneTargetList scene_targets_{};
-  model::PlatformAttitudeDeg platform_attitude_deg_{};
-  float cycle_dt_sec_{1.0f};
-  std::uint32_t cycle_index_{0U};
-  std::vector<extension::control::RadarCommand> submitted_commands_{};
-  extension::control::RadarControlProfile latest_control_profile_{};
-  bool has_latest_control_profile_{false};
-  std::size_t begin_cycle_count_{0U};
-};
 
 class RecordingEnvironmentService : public environment::IEnvironmentService {
  public:

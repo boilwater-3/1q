@@ -31,10 +31,6 @@ set(AR_ENVIRONMENT_HEADERS
 
 # ── AR 扩展域 ────────────────────────────────────────────────────────
 set(AR_EXTENSION_HEADERS
-    "airborne_radar/extension/IRadarCommandBus.h"
-    "airborne_radar/extension/IRadarContext.h"
-    "airborne_radar/extension/IRadarContextReader.h"
-    "airborne_radar/extension/IRadarControlProfileStore.h"
     "airborne_radar/extension/ITacticalDecisionEngine.h"
     "airborne_radar/extension/SignalPipelineResultTypes.h"
     "airborne_radar/extension/airborne_radar_extension.hpp"

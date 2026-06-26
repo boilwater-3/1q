@@ -109,10 +109,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarExternalOutputAdapter.h
     )
     set(PUBLIC_HEADERS_CORE_CONTROLLER
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarCommandBus.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarContext.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarContextReader.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarControlProfileStore.h
     )
     set(PUBLIC_HEADERS_CORE_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleResult.h

@@ -18,8 +18,10 @@ namespace airborne_radar {
 namespace environment {
 class IEnvironmentService;
 }
+namespace session {
+class MutableRadarContext;
+}
 namespace extension {
-class IRadarContext;
 class ITacticalDecisionEngine;
 
 struct RadarControllerRuntimeState {
@@ -55,7 +57,7 @@ class RadarController {
    * @param[in] signal_pipeline 信号处理流水线引用。
    * @param[in] environment_service 环境服务引用。
    */
-  RadarController(extension::IRadarContext& radar_context,
+  RadarController(session::MutableRadarContext& radar_context,
                   extension::ISignalPipeline& signal_pipeline,
                   environment::IEnvironmentService& environment_service);
 
@@ -66,7 +68,7 @@ class RadarController {
    * @param[in] decision_engine 战术决策引擎引用。
    * @param[in] environment_service 环境服务引用。
    */
-  RadarController(extension::IRadarContext& radar_context,
+  RadarController(session::MutableRadarContext& radar_context,
                   extension::ISignalPipeline& signal_pipeline,
                   extension::ITacticalDecisionEngine& decision_engine,
                   environment::IEnvironmentService& environment_service);

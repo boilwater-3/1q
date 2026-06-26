@@ -14,9 +14,9 @@
 
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
-#include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "airborne_radar/runtime/RadarController.h"
+#include "airborne_radar/session/MutableRadarContext.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
@@ -34,11 +34,6 @@ namespace airborne_radar {
 namespace tests {
 
 namespace {
-
-float SpeedOf(const session::RadarSceneTarget& target) {
-  return std::sqrt(target.velocity_x * target.velocity_x + target.velocity_y * target.velocity_y +
-                   target.velocity_z * target.velocity_z);
-}
 
 session::RadarSceneTargetList BuildSingleTarget(float speed, float rcs, bool jamming) {
   (void)jamming;
@@ -65,55 +60,6 @@ config::RadarSessionConfig MakeDetectionFocusedConfig() {
       .Build();
 }
 
-session::RadarSceneTarget CloneSceneTarget(const session::RadarSceneTarget& target) {
-  session::RadarSceneTarget out;
-  out.external_target_id = target.external_target_id;
-  out.velocity_x = target.velocity_x;
-  out.velocity_y = target.velocity_y;
-  out.velocity_z = target.velocity_z;
-  out.rcs = target.rcs;
-  out.range_m = target.range_m;
-
-  out.position_x = target.position_x;
-  out.position_y = target.position_y;
-  out.position_z = target.position_z;
-  out.target_swerling_type = target.target_swerling_type;
-  return out;
-}
-
-session::RadarSceneTargetList CloneSceneTargets(const session::RadarSceneTargetList& targets) {
-  session::RadarSceneTargetList out;
-  out.reserve(targets.size());
-  for (std::size_t i = 0; i < targets.size(); ++i) {
-    out.push_back(CloneSceneTarget(targets[i]));
-  }
-  return out;
-}
-
-session::RadarSceneTarget ToSceneTarget(const session::RadarSceneTarget& target) {
-  session::RadarSceneTarget out;
-  out.external_target_id = target.external_target_id;
-  out.velocity_x = target.velocity_x;
-  out.velocity_y = target.velocity_y;
-  out.velocity_z = target.velocity_z;
-  out.rcs = target.rcs;
-  out.range_m = target.range_m;
-  out.position_x = target.position_x;
-  out.position_y = target.position_y;
-  out.position_z = target.position_z;
-  out.target_swerling_type = target.target_swerling_type;
-  return out;
-}
-
-session::RadarSceneTargetList ToSceneTargets(const session::RadarSceneTargetList& targets) {
-  session::RadarSceneTargetList out;
-  out.reserve(targets.size());
-  for (std::size_t i = 0; i < targets.size(); ++i) {
-    out.push_back(ToSceneTarget(targets[i]));
-  }
-  return out;
-}
-
 environment::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_power_db) {
   environment::EnvironmentModelConfig config;
   environment::JammerEmitterState jammer;
@@ -126,113 +72,7 @@ environment::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_p
 
 }  // namespace
 
-/// @brief FakeRadarContext 提供最小化的雷达上下文实现。
-class FakeRadarContext : public extension::IRadarContext {
- public:
-  /// @brief 构造函数，注入固定的输入状态。
-  explicit FakeRadarContext(session::RadarSceneTargetList state)
-      : scene_targets_(ToSceneTargets(state)) {}
-
-  /// @brief 获取当前雷达场景目标输入。
-  const session::RadarSceneTargetList& GetSceneTargets() const override { return scene_targets_; }
-
-  void BeginCycle(const session::RadarCycleInput& input) override {
-    cycle_index_ = input.cycle_index;
-    scene_targets_ = input.scene;
-    platform_attitude_deg_.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
-    platform_attitude_deg_.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
-    platform_attitude_deg_.roll_deg = input.platform_pose.attitude_deg.roll_deg;
-    cycle_dt_sec_ = input.dt_sec;
-    submitted_commands_.clear();
-  }
-
-  /// @brief 获取当前搭载平台姿态角。
-  model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_deg_; }
-
-  /// @brief 获取当前周期时间步长。
-  float GetCycleDeltaTimeSec() const override { return cycle_dt_sec_; }
-
-  /// @brief 获取当前输入周期号。
-  std::uint32_t GetCycleIndex() const override { return cycle_index_; }
-
-  /// @brief 收集控制指令。
-  void SubmitControlCommand(extension::control::RadarCommand cmd) override {
-    submitted_commands_.push_back(cmd);
-  }
-
-  const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const override {
-    return submitted_commands_;
-  }
-
-  /// @brief 获取已提交的指令集合。
-  const std::vector<extension::control::RadarCommand>& SubmittedCommands() const {
-    return submitted_commands_;
-  }
-
-  /// @brief 记录最新控制真值。
-  void UpdateRadarControlProfile(const extension::control::RadarControlProfile& profile) override {
-    latest_control_profile_ = profile;
-    has_latest_control_profile_ = true;
-  }
-
-  bool HasLatestControlProfile() const override { return has_latest_control_profile_; }
-
-  const extension::control::RadarControlProfile& GetLatestControlProfile() const override {
-    return latest_control_profile_;
-  }
-
-  extension::RadarContextRuntimeState CaptureRuntimeState() const override {
-    extension::RadarContextRuntimeState state;
-    state.scene_targets = scene_targets_;
-    state.platform_pose.attitude_deg = platform_attitude_deg_;
-    state.cycle_dt_sec = cycle_dt_sec_;
-    state.cycle_index = cycle_index_;
-    state.submitted_commands = submitted_commands_;
-    state.latest_control_profile = latest_control_profile_;
-    state.has_latest_control_profile = has_latest_control_profile_;
-    return state;
-  }
-
-  void RestoreRuntimeState(const extension::RadarContextRuntimeState& state) override {
-    scene_targets_ = state.scene_targets;
-    platform_attitude_deg_ = state.platform_pose.attitude_deg;
-    cycle_dt_sec_ = state.cycle_dt_sec;
-    cycle_index_ = state.cycle_index;
-    submitted_commands_ = state.submitted_commands;
-    latest_control_profile_ = state.latest_control_profile;
-    has_latest_control_profile_ = state.has_latest_control_profile;
-  }
-
-  /// @brief 获取最新控制真值。
-  const extension::control::RadarControlProfile& LatestControlProfile() const {
-    return latest_control_profile_;
-  }
-
-  /// @brief 设置测试上下文使用的平台姿态角。
-  void SetPlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) {
-    platform_attitude_deg_ = platform_attitude_deg;
-  }
-
-  /// @brief 设置当前周期时间步长。
-  void SetCycleDeltaTimeSec(float cycle_dt_sec) { cycle_dt_sec_ = cycle_dt_sec; }
-
-  /// @brief 设置当前输入周期号。
-  void SetCycleIndex(std::uint32_t cycle_index) { cycle_index_ = cycle_index; }
-
-  /// @brief 设置当前周期目标列表。
-  void SetSceneTargets(session::RadarSceneTargetList state) {
-    scene_targets_ = ToSceneTargets(state);
-  }
-
- private:
-  session::RadarSceneTargetList scene_targets_{};
-  model::PlatformAttitudeDeg platform_attitude_deg_{};
-  float cycle_dt_sec_{1.0f};
-  std::uint32_t cycle_index_{1U};
-  std::vector<extension::control::RadarCommand> submitted_commands_;
-  extension::control::RadarControlProfile latest_control_profile_{};
-  bool has_latest_control_profile_{false};
-};
+using FakeRadarContext = session::MutableRadarContext;
 
 class FixedDirectiveDecisionEngine : public extension::ITacticalDecisionEngine {
  public:
