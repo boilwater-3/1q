@@ -2,7 +2,8 @@
  * @file electro_optical_sensor.hpp
  * @brief 光电传感器模块稳定会话入口。
  * @note 管线结果扩展类型请使用
- *       `electro_optical_sensor/extension/electro_optical_sensor_extension.hpp`。
+ *       `electro_optical_sensor/extension/electro_optical_sensor_extension.hpp`；
+ *       trace/replay 工具头按需单独包含。
  */
 
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_ELECTRO_OPTICAL_SENSOR_HPP_
@@ -25,6 +26,5 @@
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/session/EosSessionFactory.h"
-#include "1q/electro_optical_sensor/session/EosTraceSession.h"
 
 #endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_ELECTRO_OPTICAL_SENSOR_HPP_

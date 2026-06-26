@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <string>
-#include <utility>
 
 #include "1q/sar/session/SarSessionFactory.h"
 #include "SarReplayFlatbufferCodec.h"
@@ -195,14 +194,6 @@ bool OnFailureMarker(const oneq::replay::ReplayTraceReadEvent& event, void* user
 }
 
 }  // namespace
-
-SarReplaySession::SarReplaySession() = default;
-
-SarReplaySession::SarReplaySession(SarSession session) : session_(std::move(session)) {}
-
-SarCycleResult SarReplaySession::StepWithResult(const SarCycleInput& input) {
-  return session_.StepWithResult(input);
-}
 
 SarReplaySessionResult ReplaySarTrace(const std::string& trace_dir) {
   SarReplaySessionResult result;

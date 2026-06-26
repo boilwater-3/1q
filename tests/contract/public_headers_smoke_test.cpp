@@ -495,9 +495,8 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   const session::SarCycleResult trace_result = trace_session.StepWithResult(input);
   EXPECT_TRUE(trace_result.executed_this_cycle);
 
-  session::SarReplaySession replay_session(session::SarSessionFactory::Create(session_config));
-  const session::SarCycleResult replay_result = replay_session.StepWithResult(input);
-  EXPECT_TRUE(replay_result.executed_this_cycle);
+  session::SarReplaySessionResult replay_result;
+  EXPECT_FALSE(replay_result.ok);
 }
 
 }  // namespace

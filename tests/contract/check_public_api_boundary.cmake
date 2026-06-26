@@ -365,6 +365,22 @@ if(NOT ACTUAL_PUBLIC_HEADERS STREQUAL EXPECTED_PUBLIC_HEADERS)
           "Actual: ${ACTUAL_PUBLIC_HEADERS}")
 endif()
 
+# Guardrail: module aggregate headers are the stable session/config/model entry
+# points. Trace/replay tooling remains public, but must be included explicitly.
+set(MODULE_ENTRY_HEADERS_WITH_EXPLICIT_TOOLING
+    "airborne_radar/airborne_radar.hpp"
+    "electro_optical_sensor/electro_optical_sensor.hpp"
+    "electronic_surveillance_radar/electronic_surveillance_radar.hpp"
+    "sar/sar.hpp")
+
+foreach(HEADER IN LISTS MODULE_ENTRY_HEADERS_WITH_EXPLICIT_TOOLING)
+  file(READ "${PUBLIC_INCLUDE_DIR}/${HEADER}" MODULE_ENTRY_HEADER_CONTENT)
+  if(MODULE_ENTRY_HEADER_CONTENT MATCHES "#[ \t]*include[ \t]*[\"<][^\n]*(TraceSession|ReplaySession)\\.h")
+    message(FATAL_ERROR
+            "Module entry header must not aggregate trace/replay tooling: ${HEADER}")
+  endif()
+endforeach()
+
 execute_process(
     COMMAND find "${PUBLIC_INCLUDE_DIR}" -type d -empty
     OUTPUT_VARIABLE EMPTY_DIRS
