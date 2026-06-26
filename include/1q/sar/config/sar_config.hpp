@@ -13,5 +13,6 @@
 #include "1q/sar/config/SarRuntimeConfigBuilder.h"
 #include "1q/sar/config/SarRuntimeConfigPatch.h"
 #include "1q/sar/config/SarSessionConfig.h"
+#include "1q/sar/config/SarSessionConfigBuilder.h"
 
 #endif  // ONEQ_SAR_CONFIG_SAR_CONFIG_HPP_

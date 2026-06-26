@@ -14,7 +14,7 @@ namespace sar {
 namespace geometry {
 
 /**
- * @brief SAR 本地 Cartesian 坐标，x=azimuth, y=ground range, z=altitude。
+ * @brief SAR 本地 Cartesian 坐标，x=East, y=North, z=Up（scene-center-relative ENU）。
  */
 struct LocalPoint {
   double x_m{0.0};

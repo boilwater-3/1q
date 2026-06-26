@@ -182,12 +182,16 @@ set(SAR_CONFIG_HEADERS
     "sar/config/SarRuntimeConfigPatch.h"
     "sar/config/SarRuntimeConfigBuilder.h"
     "sar/config/SarSessionConfig.h"
+    "sar/config/SarSessionConfigBuilder.h"
     "sar/config/sar_config.hpp"
 )
 
 set(SAR_SESSION_HEADERS
     "sar/session/SarCycleInput.h"
+    "sar/session/SarCycleInputAdapter.h"
     "sar/session/SarCycleResult.h"
+    "sar/session/SarExternalInputAdapter.h"
+    "sar/session/SarInputValidation.h"
     "sar/session/SarProductDebugView.h"
     "sar/session/SarProductLifecycleRecorder.h"
     "sar/session/SarReplaySession.h"

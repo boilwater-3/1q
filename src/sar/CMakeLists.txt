@@ -37,11 +37,15 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/sar/config/SarRuntimeConfigPatch.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/config/SarRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/config/SarSessionConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/sar/config/SarSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/config/sar_config.hpp
     )
     set(PUBLIC_HEADERS_SAR_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarCycleInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarCycleInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarExternalInputAdapter.h
+        ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarInputValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarProductDebugView.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarProductLifecycleRecorder.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarReplaySession.h

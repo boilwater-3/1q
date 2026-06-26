@@ -69,10 +69,11 @@
 
 ### Synthetic Aperture Radar (SAR)
 
-- `sar/config/`：四域 Config、RuntimeBuilder、RuntimePatch、SessionConfig。
-- `sar/session/`：会话门面、周期输入/结果、产品调试视图与生命周期记录。
-  SAR 为批处理成像模型，聚合头仅暴露最小会话集（`SarSession`、
-  `SarCycleInput`、`SarCycleResult`），不提供 Cycle/External Adapter。
+- `sar/config/`：含 `SarSessionConfigBuilder`（Mission/Processing 语义档位）。
+- `sar/session/`：会话门面、周期输入/结果、输入校验、脉冲坐标适配器
+  （`SarExternalInputAdapter` / `SarCycleInputAdapter`，把外部 ECEF/LLA 脉冲运动学
+  转换为 scene-center-relative ENU 本地直角坐标）、产品调试视图与生命周期记录。
+  SAR 为批处理成像模型，一个周期对应一次完整合成孔径成像。
 
 ## Recommended Include Strategy
 
