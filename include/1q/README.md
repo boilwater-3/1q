@@ -74,6 +74,9 @@
   （`SarExternalInputAdapter` / `SarCycleInputAdapter`，把外部 ECEF/LLA 脉冲运动学
   转换为 scene-center-relative ENU 本地直角坐标）、产品调试视图与生命周期记录。
   SAR 为批处理成像模型，一个周期对应一次完整合成孔径成像。
+  @note SAR 适配器只覆盖脉冲状态，不像 AR/ESR/EOS 那样适配平台/目标——因为
+  SAR 的 `SarPlatformState`/`SarPointTarget` 内部直接存 LLA，调用方填 LLA 即可；
+  唯独外部 IQ 的 `pulse_states` 要求 scene-center ENU，故适配器聚焦于此。
 
 ## Recommended Include Strategy
 

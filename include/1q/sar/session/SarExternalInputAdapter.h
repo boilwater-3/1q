@@ -6,6 +6,16 @@
  * （见 SarCycleInput.h 的 SarRawIqFrame 坐标系约定）。本头提供从
  * 外部 ECEF/LLA 运动学到该本地直角坐标的转换辅助，避免调用方
  * 自行处理坐标变换细节。
+ *
+ * @par 适配范围说明
+ * 与 AR/ESR/EOS 三模块的 ExternalInputAdapter 不同，本头**只适配脉冲状态
+ * （PulseState），不适配平台/目标**。原因是 SAR 内部坐标结构本就不同：
+ * - AR/ESR/EOS 内部平台/目标统一用局部直角 `PoseState`，故其 adapter 必须把
+ *   外部 ECEF 平台与目标都转换到局部直角；
+ * - SAR 的 `SarPlatformState` / `SarPointTarget` 内部**直接存 LLA**，调用方填 LLA
+ *   即可，无需坐标转换；唯独外部 IQ 数据的 `pulse_states` 要求 scene-center
+ *   ENU 本地直角（上游系统交付的轨迹坐标系），这一段才是真实痛点。
+ * 因此本适配器聚焦脉冲坐标转换，而非照搬三模块的全量 ECEF→局部直角模式。
  */
 
 #ifndef ONEQ_SAR_SESSION_SAR_EXTERNAL_INPUT_ADAPTER_H_
