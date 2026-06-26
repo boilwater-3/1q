@@ -12,6 +12,7 @@
 
 namespace airborne_radar {
 namespace extension {
+class ITacticalDecisionEngine;
 class RadarController;
 class ISignalPipeline;
 }  // namespace extension
@@ -29,6 +30,19 @@ namespace session {
 class ONEQ_API RadarSessionFactory {
  public:
   static RadarSession Create(const config::RadarSessionConfig& config = {});
+
+  /**
+   * @brief 注入自定义决策引擎创建会话。
+   *
+   * 这是 public API 的唯一自定义扩展点：外部实现 ITacticalDecisionEngine 即可替换
+   * AR 决策逻辑，而 context / pipeline / environment service 由工厂内部默认装配，
+   * 不对外暴露。
+   * @param config 会话配置。
+   * @param decision_engine 外部决策引擎，生命周期须长于所创建的会话。
+   */
+  static RadarSession CreateWithDecisionEngine(
+      const config::RadarSessionConfig& config,
+      extension::ITacticalDecisionEngine& decision_engine);
 
   /**
    * @brief 使用外部 signal pipeline 创建会话。

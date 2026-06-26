@@ -7,6 +7,15 @@
 #include "1q/airborne_radar/session/RadarSession.h"
 
 namespace airborne_radar {
+namespace extension {
+class ITacticalDecisionEngine;
+class IRadarContext;
+class ISignalPipeline;
+class RadarController;
+}  // namespace extension
+namespace environment {
+class IEnvironmentService;
+}
 namespace session {
 
 struct RadarSessionComposition {
@@ -32,6 +41,13 @@ struct RadarSessionComposition {
 class RadarSessionCompositionRoot {
  public:
   static RadarSessionComposition ComposeDefault(const config::RadarSessionConfig& config);
+
+  /**
+   * @brief 注入自定义决策引擎装配会话；context/pipeline/environment 由内部默认装配。
+   */
+  static RadarSessionComposition ComposeWithDecisionEngine(
+      const config::RadarSessionConfig& config,
+      extension::ITacticalDecisionEngine& decision_engine);
 
   static RadarSessionComposition ComposeWithSignalPipeline(
       const config::RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline);

@@ -2,6 +2,7 @@
 
 #include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/ISignalPipeline.h"
+#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/RadarController.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -71,6 +72,28 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeDefault(
       environment::BuildModelConfigFromScenario(composition.runtime_environment_scenario_config)));
   composition.owned_controller.reset(new extension::RadarController(
       *composition.owned_radar_context, *composition.owned_signal_pipeline,
+      *composition.owned_environment_service));
+  composition.radar_context = composition.owned_radar_context.get();
+  composition.signal_pipeline = composition.owned_signal_pipeline.get();
+  composition.environment_service = composition.owned_environment_service.get();
+  composition.controller = composition.owned_controller.get();
+  SyncEnvironmentJammingThreshold(&composition);
+  return composition;
+}
+
+RadarSessionComposition RadarSessionCompositionRoot::ComposeWithDecisionEngine(
+    const config::RadarSessionConfig& config,
+    extension::ITacticalDecisionEngine& decision_engine) {
+  RadarSessionComposition composition = BuildCompositionBase(config);
+  composition.owned_radar_context.reset(new MutableRadarContext());
+  const config::execution::InternalExecutionConfig runtime_execution_config =
+      config::mapping::MapSessionToExecution(BuildRuntimeSessionConfig(composition));
+  composition.owned_signal_pipeline.reset(
+      new signal::pipeline::SignalPipeline(runtime_execution_config));
+  composition.owned_environment_service.reset(new environment::EnvironmentService(
+      environment::BuildModelConfigFromScenario(composition.runtime_environment_scenario_config)));
+  composition.owned_controller.reset(new extension::RadarController(
+      *composition.owned_radar_context, *composition.owned_signal_pipeline, decision_engine,
       *composition.owned_environment_service));
   composition.radar_context = composition.owned_radar_context.get();
   composition.signal_pipeline = composition.owned_signal_pipeline.get();

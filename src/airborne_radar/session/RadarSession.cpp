@@ -250,6 +250,13 @@ RadarSession RadarSessionFactory::Create(const config::RadarSessionConfig& confi
       new RadarSession::Impl(RadarSessionCompositionRoot::ComposeDefault(config))));
 }
 
+RadarSession RadarSessionFactory::CreateWithDecisionEngine(
+    const config::RadarSessionConfig& config,
+    extension::ITacticalDecisionEngine& decision_engine) {
+  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
+      RadarSessionCompositionRoot::ComposeWithDecisionEngine(config, decision_engine))));
+}
+
 RadarSession RadarSessionFactory::CreateWithSignalPipeline(
     const config::RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(

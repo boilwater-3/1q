@@ -145,6 +145,13 @@ static_assert(std::is_same<ArSession, decltype(airborne_radar::session::RadarSes
                                           std::declval<const ArConfig&>()))>::value,
               "RadarSessionFactory::Create must return RadarSession");
 static_assert(
+    std::is_same<
+        ArSession,
+        decltype(airborne_radar::session::RadarSessionFactory::CreateWithDecisionEngine(
+            std::declval<const ArConfig&>(),
+            std::declval<airborne_radar::extension::ITacticalDecisionEngine&>()))>::value,
+    "RadarSessionFactory::CreateWithDecisionEngine must return RadarSession");
+static_assert(
     std::is_same<ArSession,
                  decltype(airborne_radar::session::RadarSessionFactory::CreateWithSignalPipeline(
                      std::declval<const ArConfig&>(),
