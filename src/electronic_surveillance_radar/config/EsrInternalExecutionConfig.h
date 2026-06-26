@@ -18,7 +18,7 @@
 #include "1q/electronic_surveillance_radar/config/EsrMissionConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrPolicyConfig.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
 

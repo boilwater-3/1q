@@ -16,7 +16,7 @@
 #include <utility>
 
 #include "electronic_surveillance_radar/pipeline/IEsrContext.h"
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "common/timing/TimingRegimeModel.h"
 #include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
 #include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"

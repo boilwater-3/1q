@@ -1,6 +1,6 @@
 /**
  * @file EosPipelineTypes.h
- * @brief EOS 管线扩展契约类型与输出帧结构。
+ * @brief EOS 公共输出记录、归属记录与周期终止原因类型。
  */
 
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_EXTENSION_EOS_PIPELINE_TYPES_H_
@@ -11,9 +11,6 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/config/EosMissionConfig.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
-
 namespace electro_optical_sensor {
 namespace output {
 
@@ -57,30 +54,6 @@ using EosDetectionAttributionRecordList = std::vector<EosDetectionAttributionRec
 namespace extension {
 
 /**
- * @brief EosPipelineWorkMode 描述核心探测评估模式。
- * @note 等价于 config::EosWorkMode，保留命名以维持扩展层独立性。
- */
-using EosPipelineWorkMode = config::EosWorkMode;
-
-/**
- * @brief EosPipelineEnvironmentModelType 描述环境模型策略。
- * @note 等价于 environment::EosEnvironmentModelType，保留命名以维持扩展层独立性。
- */
-using EosPipelineEnvironmentModelType = environment::EosEnvironmentModelType;
-
-/**
- * @brief EosPipelineRuntimeState 描述 EOS 管线运行态快照。
- */
-struct ONEQ_API EosPipelineRuntimeState {
-  const void* owner_identity{nullptr};
-  std::uint32_t schema_version{0U};
-  float current_scan_azimuth_deg{0.0f};
-  float scan_start_az_deg{0.0f};
-  float scan_end_az_deg{0.0f};
-  float scan_rate_deg_per_sec{0.0f};
-};
-
-/**
  * @brief EosPipelineAbortReason 描述核心管线周期终止原因。
  */
 enum class ONEQ_API EosPipelineAbortReason {
@@ -88,17 +61,6 @@ enum class ONEQ_API EosPipelineAbortReason {
   kValidationRejected,
   kOutputContractViolation,
   kRuntimeStateRestoreRejected
-};
-
-/**
- * @brief EosPipelineExecuteResult 描述核心管线单周期执行结果。
- */
-struct ONEQ_API EosPipelineExecuteResult {
-  output::EosDetectionRecordList detections{};
-  attribution::EosDetectionAttributionRecordList detection_attributions{};
-  float scan_azimuth_deg{0.0f};
-  bool executed_this_cycle{false};
-  EosPipelineAbortReason abort_reason{EosPipelineAbortReason::kNone};
 };
 
 }  // namespace extension

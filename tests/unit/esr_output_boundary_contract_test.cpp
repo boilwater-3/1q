@@ -21,7 +21,7 @@
 
 #include "1q/coordinate/position_transform.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "1q/electronic_surveillance_radar/model/EmitterHypothesis.h"
 #include "1q/electronic_surveillance_radar/model/EmitterObservation.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"

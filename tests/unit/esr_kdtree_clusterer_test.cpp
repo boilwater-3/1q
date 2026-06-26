@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/KdTreeClusterer.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPreprocessor.h"

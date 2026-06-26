@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "common/logging/ProjectLog.h"
 #include "common/validation/ValidationUtils.h"
 
