@@ -378,7 +378,7 @@ extension::control::RadarControlProfile DecodeRadarControlProfile(
 }
 
 flatbuffers::Offset<fb::AssociationQualityMetrics> EncodeAssociationQualityMetrics(
-    flatbuffers::FlatBufferBuilder* builder, const extension::AssociationQualityMetrics& value) {
+    flatbuffers::FlatBufferBuilder* builder, const session::AssociationQualityMetrics& value) {
   return fb::CreateAssociationQualityMetrics(
       *builder, static_cast<std::uint64_t>(value.prior_track_count),
       static_cast<std::uint64_t>(value.detection_count),
@@ -390,9 +390,9 @@ flatbuffers::Offset<fb::AssociationQualityMetrics> EncodeAssociationQualityMetri
       value.association_stress);
 }
 
-extension::AssociationQualityMetrics DecodeAssociationQualityMetrics(
+session::AssociationQualityMetrics DecodeAssociationQualityMetrics(
     const fb::AssociationQualityMetrics* value) {
-  extension::AssociationQualityMetrics result;
+  session::AssociationQualityMetrics result;
   if (value != nullptr) {
     result.prior_track_count = static_cast<std::size_t>(value->prior_track_count());
     result.detection_count = static_cast<std::size_t>(value->detection_count());
@@ -459,7 +459,7 @@ RadarCycleResult DecodeCycleResult(const fb::RadarCycleResult* value) {
     result.has_validation_error = value->has_validation_error();
     result.executed_this_cycle = value->executed_this_cycle();
     result.abort_reason =
-        static_cast<extension::SignalCycleAbortReason>(value->abort_reason());
+        static_cast<session::SignalCycleAbortReason>(value->abort_reason());
     result.reused_previous_output = value->reused_previous_output();
     result.has_control_profile = value->has_control_profile();
     result.control_profile = DecodeRadarControlProfile(value->control_profile());

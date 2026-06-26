@@ -131,7 +131,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/airborne_radar_environment.hpp
     )
     set(PUBLIC_HEADERS_SIGNAL_PIPELINE
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/SignalPipelineResultTypes.h
     )
     set(PUBLIC_HEADERS_EXTENSION_ENTRY
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/airborne_radar_extension.hpp

@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
+#include "1q/airborne_radar/session/RadarOutputTypes.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/TrackStateSnapshot.h"
@@ -90,14 +90,14 @@ struct ONEQ_API RadarCycleResult {
   ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
   bool has_validation_error{false};        /**< 是否存在 error 级输入问题 */
   bool executed_this_cycle{false}; /**< 当前调用是否真正执行了 signal/decision/control 链路 */
-  extension::SignalCycleAbortReason abort_reason{
-      extension::SignalCycleAbortReason::kNone}; /**< 若下游主链路 abort，给出结构化原因 */
+  session::SignalCycleAbortReason abort_reason{
+      session::SignalCycleAbortReason::kNone}; /**< 若下游主链路 abort，给出结构化原因 */
   bool reused_previous_output{
       false};                      /**< 当前 `track_output_frame` 是否复用了上一有效周期输出 */
   bool has_control_profile{false}; /**< 当前周期是否产出了可归属到本周期的控制真值 */
   extension::control::RadarControlProfile
       control_profile{}; /**< 当前周期控制真值；若未执行则保持默认值 */
-  extension::AssociationQualityMetrics
+  session::AssociationQualityMetrics
       association_quality_metrics{}; /**< 当前周期关联质量观测指标；若未执行则保持默认值 */
 };
 

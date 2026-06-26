@@ -223,7 +223,7 @@ const extension::control::RadarControlProfile& RadarTraceSession::GetLatestContr
   return impl_->session.GetLatestControlProfile();
 }
 
-extension::AssociationQualityMetrics RadarTraceSession::GetLastAssociationQualityMetrics() const {
+session::AssociationQualityMetrics RadarTraceSession::GetLastAssociationQualityMetrics() const {
   return impl_->session.GetLastAssociationQualityMetrics();
 }
 

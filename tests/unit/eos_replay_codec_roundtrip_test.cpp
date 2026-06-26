@@ -13,7 +13,7 @@
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
@@ -169,7 +169,7 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.has_validation_error = true;
   result.executed_this_cycle = true;
   result.reused_previous_output = false;
-  result.abort_reason = extension::EosPipelineAbortReason::kValidationRejected;
+  result.abort_reason = session::EosPipelineAbortReason::kValidationRejected;
 
   const std::string bytes = EncodeEosCycleResult(result);
   ASSERT_FALSE(bytes.empty());
@@ -190,7 +190,7 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_TRUE(decoded.has_validation_error);
   EXPECT_TRUE(decoded.executed_this_cycle);
   EXPECT_FALSE(decoded.reused_previous_output);
-  EXPECT_EQ(decoded.abort_reason, extension::EosPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(decoded.abort_reason, session::EosPipelineAbortReason::kValidationRejected);
 }
 
 // ---------------------------------------------------------------------------

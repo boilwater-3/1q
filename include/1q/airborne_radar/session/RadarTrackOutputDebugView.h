@@ -50,7 +50,7 @@ struct ONEQ_API RadarTrackOutputDebugView {
   bool executed_this_cycle{false};
   bool reused_previous_output{false};
   bool has_validation_error{false};
-  extension::SignalCycleAbortReason abort_reason{extension::SignalCycleAbortReason::kNone};
+  session::SignalCycleAbortReason abort_reason{session::SignalCycleAbortReason::kNone};
   std::vector<RadarDebugTrackState> tracks{};
 };
 

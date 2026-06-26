@@ -108,7 +108,7 @@ session::RadarSceneTargetList ToSceneTargets(const session::RadarSceneTargetList
 }
 
 template <typename PipelineType>
-extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
+session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
                                               const session::RadarSceneTargetList& input_state,
                                               environment::EnvironmentService* environment_service,
                                               std::uint32_t cycle_index) {
@@ -688,7 +688,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   std::size_t misaligned_detected = 0U;
   const std::size_t kCycleCount = 64U;
   for (std::size_t i = 0; i < kCycleCount; ++i) {
-    const extension::SignalCycleResult cycle_result = RunPipelineCycle(
+    const session::SignalCycleResult cycle_result = RunPipelineCycle(
         &signal_pipeline, targets, &environment_service, static_cast<std::uint32_t>(i + 1U));
     if ((i % 2U) == 0U) {
       misaligned_detected += cycle_result.association_quality_metrics.detection_count;

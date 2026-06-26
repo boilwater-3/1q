@@ -44,7 +44,7 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @param environment 当前环境服务。
    * @return 当前周期的信号处理输出。
    */
-  extension::SignalCycleResult RunCycle(
+  session::SignalCycleResult RunCycle(
       const session::RadarSceneTargetList& scene_targets,
       const environment::IEnvironmentService& environment) override;
 
@@ -58,7 +58,7 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @brief 获取上一周期的关联质量指标。
    * @return 上一周期缓存的关联质量指标。
    */
-  extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override;
+  session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override;
 
   extension::SignalPipelineRuntimeState CaptureRuntimeState() const override;
 

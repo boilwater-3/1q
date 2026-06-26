@@ -1,8 +1,7 @@
 /**
  * @file electro_optical_sensor.hpp
  * @brief 光电传感器模块稳定会话入口。
- * @note 管线结果扩展类型请使用
- *       `electro_optical_sensor/extension/electro_optical_sensor_extension.hpp`；
+ * @note 输出类型请直接使用 `session/EosOutputTypes.h`；
  *       trace/replay 工具头按需单独包含。
  */
 

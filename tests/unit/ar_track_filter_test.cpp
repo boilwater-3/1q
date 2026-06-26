@@ -46,7 +46,7 @@ environment::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_in
 }
 
 template <typename PipelineType>
-extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
+session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
                                               const session::RadarSceneTargetList& input_state,
                                               environment::EnvironmentService* environment_service,
                                               std::uint32_t cycle_index = 1u) {

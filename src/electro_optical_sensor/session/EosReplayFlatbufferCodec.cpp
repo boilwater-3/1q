@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
@@ -275,7 +275,7 @@ bool DecodeEosCycleResult(const std::string& bytes,
   out->has_validation_error = fb->has_validation_error();
   out->executed_this_cycle = fb->executed_this_cycle();
   out->reused_previous_output = fb->reused_previous_output();
-  out->abort_reason = static_cast<extension::EosPipelineAbortReason>(fb->abort_reason());
+  out->abort_reason = static_cast<session::EosPipelineAbortReason>(fb->abort_reason());
   out->validation_issues.clear();
   if (fb->validation_issues()) {
     for (const auto* i : *fb->validation_issues()) {

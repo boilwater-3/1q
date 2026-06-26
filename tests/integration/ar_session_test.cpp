@@ -311,7 +311,7 @@ CycleStats CaptureCycleStats(const session::TrackOutputFrame& frame,
                              const ScenarioRadarContext& radar_context,
                              const signal::pipeline::SignalPipeline& signal_pipeline,
                              std::size_t previous_command_count) {
-  const extension::AssociationQualityMetrics metrics =
+  const session::AssociationQualityMetrics metrics =
       signal_pipeline.GetLastAssociationQualityMetrics();
   CycleStats stats;
   stats.published_track_count = frame.tracks.size();
@@ -560,7 +560,7 @@ TEST(RadarJointIntegrationTest,
 
   const session::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  const extension::AssociationQualityMetrics cycle_2_metrics =
+  const session::AssociationQualityMetrics cycle_2_metrics =
       signal_pipeline.GetLastAssociationQualityMetrics();
   EXPECT_GT(CountJammingFlaggedTracks(cycle_2_frame), 0U);
   EXPECT_EQ(cycle_2_metrics.dominant_jamming_semantic, model::JammingSemantic::kDeception);
@@ -577,7 +577,7 @@ TEST(RadarJointIntegrationTest,
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   const session::TrackOutputFrame cycle_3_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  const extension::AssociationQualityMetrics cycle_3_metrics =
+  const session::AssociationQualityMetrics cycle_3_metrics =
       signal_pipeline.GetLastAssociationQualityMetrics();
 
   EXPECT_GT(session::CountTracksByStatus(cycle_3_frame, model::TrackStatus::kConfirmed), 0U);

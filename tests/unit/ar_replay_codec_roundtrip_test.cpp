@@ -192,7 +192,7 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.validation_issues.push_back(issue);
   result.has_validation_error = true;
   result.executed_this_cycle = true;
-  result.abort_reason = extension::SignalCycleAbortReason::kRuntimePreparationFailed;
+  result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
   result.reused_previous_output = true;
   result.has_control_profile = true;
   result.control_profile.version = 7U;
@@ -235,7 +235,7 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_TRUE(decoded.executed_this_cycle);
   EXPECT_TRUE(decoded.has_validation_error);
   EXPECT_EQ(decoded.abort_reason,
-            extension::SignalCycleAbortReason::kRuntimePreparationFailed);
+            session::SignalCycleAbortReason::kRuntimePreparationFailed);
   EXPECT_TRUE(decoded.reused_previous_output);
   ASSERT_EQ(decoded.submitted_commands.size(), 1U);
   EXPECT_EQ(decoded.submitted_commands[0].type,

@@ -152,7 +152,7 @@ environment::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_in
 }
 
 template <typename PipelineType>
-extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
+session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
                                               const session::RadarSceneTargetList& input_state,
                                               environment::EnvironmentService* environment_service,
                                               std::uint32_t cycle_index = 1u) {
@@ -364,7 +364,7 @@ TEST(SignalPipelineTest,
 
   environment::EnvironmentService baseline_environment(env_config);
   signal::pipeline::SignalPipeline baseline_pipeline(baseline_config);
-  const extension::SignalCycleResult baseline_result =
+  const session::SignalCycleResult baseline_result =
       RunPipelineCycle(&baseline_pipeline, input_state, &baseline_environment);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
@@ -376,7 +376,7 @@ TEST(SignalPipelineTest,
 
   environment::EnvironmentService disabled_environment(env_config);
   signal::pipeline::SignalPipeline disabled_pipeline(disabled_override_config);
-  const extension::SignalCycleResult disabled_result =
+  const session::SignalCycleResult disabled_result =
       RunPipelineCycle(&disabled_pipeline, input_state, &disabled_environment);
   const auto disabled_measurements = disabled_pipeline.GetLastTrackMeasurements();
 
@@ -426,7 +426,7 @@ TEST(SignalPipelineTest, UsesEnvironmentCycleIndexForExecutionContract) {
   session::RadarSceneTarget target = BuildPhysicsTarget(1500.0f, 4.0f);
   target.external_target_id = 42U;
 
-  const extension::SignalCycleResult result = RunPipelineCycle(
+  const session::SignalCycleResult result = RunPipelineCycle(
       &signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 77U);
 
   ASSERT_TRUE(result.executed_this_cycle);
@@ -439,14 +439,14 @@ TEST(SignalPipelineTest, RestoreRuntimeStatePreservesLifecycleTracks) {
   session::RadarSceneTarget target = BuildPhysicsTarget(1500.0f, 4.0f);
   target.external_target_id = 43U;
 
-  const extension::SignalCycleResult baseline = RunPipelineCycle(
+  const session::SignalCycleResult baseline = RunPipelineCycle(
       &signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 1U);
   ASSERT_TRUE(baseline.executed_this_cycle);
   ASSERT_FALSE(baseline.decision_frame.tracks.empty());
 
   const extension::SignalPipelineRuntimeState snapshot = signal_pipeline.CaptureRuntimeState();
 
-  const extension::SignalCycleResult missed_once =
+  const session::SignalCycleResult missed_once =
       RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList(), &environment_service, 2U);
   ASSERT_TRUE(missed_once.executed_this_cycle);
   ASSERT_FALSE(missed_once.decision_frame.tracks.empty());
@@ -454,7 +454,7 @@ TEST(SignalPipelineTest, RestoreRuntimeStatePreservesLifecycleTracks) {
 
   signal_pipeline.RestoreRuntimeState(snapshot);
 
-  const extension::SignalCycleResult missed_after_restore =
+  const session::SignalCycleResult missed_after_restore =
       RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList(), &environment_service, 2U);
   ASSERT_TRUE(missed_after_restore.executed_this_cycle);
   ASSERT_FALSE(missed_after_restore.decision_frame.tracks.empty());
@@ -654,14 +654,14 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   signal::pipeline::SignalPipeline noise_pipeline(session_config);
   noise_pipeline.SetAssociationSeeds(std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   RunPipelineCycle(&noise_pipeline, input_state, &noise_environment);
-  const extension::AssociationQualityMetrics noise_metrics =
+  const session::AssociationQualityMetrics noise_metrics =
       noise_pipeline.GetLastAssociationQualityMetrics();
 
   signal::pipeline::SignalPipeline deception_pipeline(session_config);
   deception_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   RunPipelineCycle(&deception_pipeline, input_state, &deception_environment);
-  const extension::AssociationQualityMetrics deception_metrics =
+  const session::AssociationQualityMetrics deception_metrics =
       deception_pipeline.GetLastAssociationQualityMetrics();
 
   EXPECT_EQ(noise_metrics.dominant_jamming_semantic, model::JammingSemantic::kNoiseSuppression);
@@ -760,7 +760,7 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   baseline_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   RunPipelineCycle(&baseline_pipeline, input_state, &deception_environment);
-  const extension::AssociationQualityMetrics baseline_metrics =
+  const session::AssociationQualityMetrics baseline_metrics =
       baseline_pipeline.GetLastAssociationQualityMetrics();
 
   extension::control::RadarControlProfile protected_profile;
@@ -771,7 +771,7 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
       std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
   protected_pipeline.SetControlProfile(protected_profile);
   RunPipelineCycle(&protected_pipeline, input_state, &deception_environment);
-  const extension::AssociationQualityMetrics protected_metrics =
+  const session::AssociationQualityMetrics protected_metrics =
       protected_pipeline.GetLastAssociationQualityMetrics();
 
   EXPECT_EQ(baseline_metrics.dominant_jamming_semantic, model::JammingSemantic::kDeception);
@@ -1522,7 +1522,7 @@ TEST(SignalPipelineTest, InvalidManualAssociationSeedsDoNotDisableLifecycleSeeds
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  const extension::SignalCycleResult first_result = RunPipelineCycle(
+  const session::SignalCycleResult first_result = RunPipelineCycle(
       &signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 1u);
   EXPECT_TRUE(first_result.executed_this_cycle);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
@@ -1534,7 +1534,7 @@ TEST(SignalPipelineTest, InvalidManualAssociationSeedsDoNotDisableLifecycleSeeds
 
   target.position_x = 10.1f;
   target.range_m = 10.1f;
-  const extension::SignalCycleResult second_result = RunPipelineCycle(
+  const session::SignalCycleResult second_result = RunPipelineCycle(
       &signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 2u);
   EXPECT_TRUE(second_result.executed_this_cycle);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
@@ -1554,18 +1554,18 @@ TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
   target.position_x = 10.0f;
   target.range_m = 10.0f;
 
-  const extension::SignalCycleResult valid_result = RunPipelineCycle(
+  const session::SignalCycleResult valid_result = RunPipelineCycle(
       &signal_pipeline, session::RadarSceneTargetList{target}, &valid_environment, 1u);
   EXPECT_TRUE(valid_result.executed_this_cycle);
-  EXPECT_EQ(valid_result.abort_reason, extension::SignalCycleAbortReason::kNone);
+  EXPECT_EQ(valid_result.abort_reason, session::SignalCycleAbortReason::kNone);
   ASSERT_EQ(valid_result.updated_scene_targets.size(), 1u);
   ASSERT_EQ(signal_pipeline.GetLastTrackMeasurements().size(), 1u);
 
-  const extension::SignalCycleResult invalid_result = signal_pipeline.RunCycle(
+  const session::SignalCycleResult invalid_result = signal_pipeline.RunCycle(
       ToSceneTargets(session::RadarSceneTargetList{target}), invalid_environment);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
   EXPECT_EQ(invalid_result.abort_reason,
-            extension::SignalCycleAbortReason::kInvalidEnvironmentCycle);
+            session::SignalCycleAbortReason::kInvalidEnvironmentCycle);
   EXPECT_TRUE(invalid_result.updated_scene_targets.empty());
   EXPECT_TRUE(invalid_result.decision_frame.tracks.empty());
   EXPECT_TRUE(signal_pipeline.GetLastTrackMeasurements().empty());

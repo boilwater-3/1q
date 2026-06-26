@@ -9,7 +9,7 @@
 #include <memory>
 
 #include "electro_optical_sensor/environment/IEosEnvironmentService.h"
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "electro_optical_sensor/config/EosInternalExecutionConfig.h"

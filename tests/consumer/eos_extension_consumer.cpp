@@ -10,7 +10,7 @@
  * 注：环境服务与管线已内部化，不再支持外部注入；本 consumer 仅验证安装后公共面可达。
  */
 
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
@@ -58,8 +58,8 @@ int main() {
   (void)issues.size();
 
   // 6. Pipeline result types accessible
-  electro_optical_sensor::extension::EosPipelineAbortReason abort_reason{
-      electro_optical_sensor::extension::EosPipelineAbortReason::kNone};
+  electro_optical_sensor::session::EosPipelineAbortReason abort_reason{
+      electro_optical_sensor::session::EosPipelineAbortReason::kNone};
   (void)abort_reason;
 
   return 0;

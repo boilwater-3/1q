@@ -32,7 +32,6 @@ set(AR_ENVIRONMENT_HEADERS
 # ── AR 扩展域 ────────────────────────────────────────────────────────
 set(AR_EXTENSION_HEADERS
     "airborne_radar/extension/ITacticalDecisionEngine.h"
-    "airborne_radar/extension/SignalPipelineResultTypes.h"
     "airborne_radar/extension/airborne_radar_extension.hpp"
     "airborne_radar/extension/control/ControlDirective.h"
     "airborne_radar/extension/control/RadarCommand.h"
@@ -107,8 +106,6 @@ set(EOS_ENVIRONMENT_HEADERS
 
 # ── EOS 扩展域 ────────────────────────────────────────────────────────
 set(EOS_EXTENSION_HEADERS
-    "electro_optical_sensor/extension/EosPipelineTypes.h"
-    "electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
 )
 
 # ── EOS 基础域 ────────────────────────────────────────────────────────

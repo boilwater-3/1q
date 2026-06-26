@@ -317,17 +317,17 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
 
 class RecordingSignalPipeline : public extension::ISignalPipeline {
  public:
-  extension::SignalCycleResult RunCycle(
+  session::SignalCycleResult RunCycle(
       const session::RadarSceneTargetList& input_state,
       const environment::IEnvironmentService& environment) override {
     (void)input_state;
     (void)environment;
     ++run_cycle_count_;
-    extension::SignalCycleResult result;
+    session::SignalCycleResult result;
     result.executed_this_cycle = should_execute_;
     result.abort_reason = should_execute_
-                              ? extension::SignalCycleAbortReason::kNone
-                              : extension::SignalCycleAbortReason::kRuntimePreparationFailed;
+                              ? session::SignalCycleAbortReason::kNone
+                              : session::SignalCycleAbortReason::kRuntimePreparationFailed;
     return result;
   }
 
@@ -354,7 +354,7 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     return true;
   }
 
-  extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override {
+  session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override {
     return {};
   }
 
@@ -954,9 +954,9 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   ExpectEquivalentProfiles(manual_context.GetLatestControlProfile(),
                            session.GetLatestControlProfile());
 
-  const extension::AssociationQualityMetrics session_metrics =
+  const session::AssociationQualityMetrics session_metrics =
       session.GetLastAssociationQualityMetrics();
-  const extension::AssociationQualityMetrics manual_metrics =
+  const session::AssociationQualityMetrics manual_metrics =
       signal_pipeline.GetLastAssociationQualityMetrics();
   EXPECT_EQ(session_metrics.detection_count, manual_metrics.detection_count);
   EXPECT_NEAR(session_metrics.match_rate, manual_metrics.match_rate, 1e-5f);

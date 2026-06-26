@@ -65,8 +65,8 @@ struct RadarController::Impl {
       cycle_state{};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
-  extension::SignalCycleAbortReason last_signal_abort_reason{
-      extension::SignalCycleAbortReason::kNone};
+  session::SignalCycleAbortReason last_signal_abort_reason{
+      session::SignalCycleAbortReason::kNone};
 
   /** @brief 构造使用默认 TacticalCoordinator 的控制器。 */
   Impl(session::MutableRadarContext& ctx, extension::ISignalPipeline& sig,
@@ -101,7 +101,7 @@ struct RadarController::Impl {
   void ResetPerCycleFlags() {
     last_cycle_executed = false;
     last_cycle_reused_previous_output = false;
-    last_signal_abort_reason = extension::SignalCycleAbortReason::kNone;
+    last_signal_abort_reason = session::SignalCycleAbortReason::kNone;
   }
 };
 
@@ -160,7 +160,7 @@ void RadarController::RunOnce() {
   impl_->signal_pipeline.UpdatePlatformAttitude(platform_attitude);
   impl_->signal_pipeline.UpdatePlatformAltitudeM(platform_altitude_m);
 
-  extension::SignalCycleResult signal_result =
+  session::SignalCycleResult signal_result =
       impl_->signal_pipeline.RunCycle(targets, impl_->environment_service);
 
   impl_->last_cycle_executed = signal_result.executed_this_cycle;
@@ -237,7 +237,7 @@ bool RadarController::ReusedPreviousTrackOutputLatestCycle() const {
   return impl_->last_cycle_reused_previous_output;
 }
 
-extension::SignalCycleAbortReason RadarController::GetLastSignalCycleAbortReason() const {
+session::SignalCycleAbortReason RadarController::GetLastSignalCycleAbortReason() const {
   return impl_->last_signal_abort_reason;
 }
 

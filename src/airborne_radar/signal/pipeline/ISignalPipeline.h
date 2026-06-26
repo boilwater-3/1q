@@ -10,7 +10,7 @@
 #include <memory>
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
+#include "1q/airborne_radar/session/RadarOutputTypes.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
@@ -21,6 +21,11 @@ namespace environment {
 class IEnvironmentService;
 }
 namespace extension {
+
+using session::AssociationQualityMetrics;
+using session::SignalCycleAbortReason;
+using session::SignalCycleResult;
+
 struct SignalPipelineRuntimeState {
   const void* owner_identity{nullptr}; /**< 生成该快照的 pipeline 实例地址 */
   std::uint32_t schema_version{0U};    /**< 运行态快照 schema 版本 */

@@ -102,8 +102,8 @@ bool RadarControlProfileEqual(const extension::control::RadarControlProfile& lef
          left.eccm_burnthrough_gain == right.eccm_burnthrough_gain;
 }
 
-bool AssociationQualityMetricsEqual(const extension::AssociationQualityMetrics& left,
-                                    const extension::AssociationQualityMetrics& right) {
+bool AssociationQualityMetricsEqual(const session::AssociationQualityMetrics& left,
+                                    const session::AssociationQualityMetrics& right) {
   return left.prior_track_count == right.prior_track_count &&
          left.detection_count == right.detection_count &&
          left.matched_count == right.matched_count &&

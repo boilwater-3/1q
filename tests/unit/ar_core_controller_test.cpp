@@ -124,13 +124,13 @@ class CoreControllerTest : public ::testing::Test {};
 
 class AbortingSignalPipeline : public extension::ISignalPipeline {
  public:
-  extension::SignalCycleResult RunCycle(const session::RadarSceneTargetList&,
+  session::SignalCycleResult RunCycle(const session::RadarSceneTargetList&,
                                         const environment::IEnvironmentService&) override {
-    extension::SignalCycleResult result;
+    session::SignalCycleResult result;
     result.executed_this_cycle = should_execute_;
     result.abort_reason = should_execute_
-                              ? extension::SignalCycleAbortReason::kNone
-                              : extension::SignalCycleAbortReason::kRuntimePreparationFailed;
+                              ? session::SignalCycleAbortReason::kNone
+                              : session::SignalCycleAbortReason::kRuntimePreparationFailed;
     return result;
   }
 
@@ -153,7 +153,7 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
     return true;
   }
 
-  extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override {
+  session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override {
     return {};
   }
 

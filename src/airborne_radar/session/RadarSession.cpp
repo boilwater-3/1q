@@ -99,7 +99,7 @@ struct RadarSession::Impl {
   }
 
   RadarCycleResult BuildExecutionAbortResult(const RadarCycleInput& input,
-                                             extension::SignalCycleAbortReason abort_reason) const {
+                                             session::SignalCycleAbortReason abort_reason) const {
     RadarCycleResult result;
     result.input_cycle_index = input.cycle_index;
     if (controller.HasLatestTrackOutputFrame()) {
@@ -197,7 +197,7 @@ struct RadarSession::Impl {
       environment_service.RestoreRuntimeState(environment_state);
       controller.RestoreRuntimeState(controller_state);
       return BuildExecutionAbortResult(
-          input, extension::SignalCycleAbortReason::kRuntimePreparationFailed);
+          input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
     }
 
     environment_service.UpdateSceneState(BuildSceneStateFromEnvironmentInput(input.environment));
@@ -205,7 +205,7 @@ struct RadarSession::Impl {
     controller.RunOnce();
 
     if (!controller.ExecutedLatestCycle()) {
-      const extension::SignalCycleAbortReason abort_reason =
+      const session::SignalCycleAbortReason abort_reason =
           controller.GetLastSignalCycleAbortReason();
       radar_context.RestoreRuntimeState(radar_context_state);
       signal_pipeline.RestoreRuntimeState(pipeline_state);
@@ -277,7 +277,7 @@ const extension::control::RadarControlProfile& RadarSession::GetLatestControlPro
   return impl_->radar_context.GetLatestControlProfile();
 }
 
-extension::AssociationQualityMetrics RadarSession::GetLastAssociationQualityMetrics() const {
+session::AssociationQualityMetrics RadarSession::GetLastAssociationQualityMetrics() const {
   return impl_->signal_pipeline.GetLastAssociationQualityMetrics();
 }
 

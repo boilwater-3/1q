@@ -70,7 +70,7 @@ class ONEQ_API RadarTraceSession {
   const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const;
   bool HasLatestControlProfile() const;
   const extension::control::RadarControlProfile& GetLatestControlProfile() const;
-  extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
+  session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
 
   RadarSession& session();
   const RadarSession& session() const;

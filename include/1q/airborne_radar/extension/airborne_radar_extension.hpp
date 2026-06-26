@@ -7,7 +7,7 @@
 #define ONEQ_AIRBORNE_RADAR_EXTENSION_AIRBORNE_RADAR_EXTENSION_HPP_
 
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
+#include "1q/airborne_radar/session/RadarOutputTypes.h"
 #include "1q/airborne_radar/extension/control/ControlDirective.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"

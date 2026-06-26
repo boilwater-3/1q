@@ -405,7 +405,7 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
   if (!config_.sensor_enabled) {
     extension::EosPipelineExecuteResult result;
     result.executed_this_cycle = false;
-    result.abort_reason = extension::EosPipelineAbortReason::kNone;
+    result.abort_reason = session::EosPipelineAbortReason::kNone;
     return result;
   }
   extension::EosPipelineExecuteResult result;
@@ -437,7 +437,7 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
                    input.scene.size());
 
   result.executed_this_cycle = true;
-  result.abort_reason = extension::EosPipelineAbortReason::kNone;
+  result.abort_reason = session::EosPipelineAbortReason::kNone;
   return result;
 }
 

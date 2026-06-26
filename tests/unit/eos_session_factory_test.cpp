@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "electro_optical_sensor/runtime/EosController.h"
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/session/EosSessionFactory.h"

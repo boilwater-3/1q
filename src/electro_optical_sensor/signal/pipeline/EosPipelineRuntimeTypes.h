@@ -10,10 +10,12 @@
 
 #include "1q/electro_optical_sensor/config/EosMissionConfig.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 
 namespace electro_optical_sensor {
 namespace extension {
+
+using session::EosPipelineAbortReason;
 
 /**
  * @brief EosPipelineWorkMode 描述核心探测评估模式。

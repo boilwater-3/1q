@@ -86,7 +86,7 @@ class ONEQ_API RadarSession {
    * @brief 获取最近一次关联质量观测指标。
    * @return 最近一次成功执行周期留下的关联质量观测指标。
    */
-  extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
+  session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
 
   /**
    * @brief 应用运行期可变配置补丁。

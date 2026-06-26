@@ -72,7 +72,7 @@ struct SignalPipelineSnapshot {
   extension::control::RadarControlProfile control_profile{};
   AssociationSeedState association_seeds{};
   std::vector<tracking::TrackMeasurement> track_measurements{};
-  extension::AssociationQualityMetrics association_quality_metrics{};
+  session::AssociationQualityMetrics association_quality_metrics{};
   std::uint32_t cycle_index{1U};
   std::uint64_t batch_id{1U};
   association::DataAssociationRuntimeState association_runtime{};
@@ -115,7 +115,7 @@ struct SignalPipeline::Impl {
                                         runtime_.config.control_profile_);
   }
 
-  extension::SignalCycleResult RunCycle(const session::RadarSceneTargetList& scene_targets,
+  session::SignalCycleResult RunCycle(const session::RadarSceneTargetList& scene_targets,
                                         const environment::IEnvironmentService& environment) {
     const session::RadarSceneTargetList& input_state = scene_targets;
 
@@ -128,8 +128,8 @@ struct SignalPipeline::Impl {
       PROJECT_LOG_ERROR(
           "[SignalPipeline] RunCycle aborted because auto_lifecycle_manager is unavailable.");
       ResetCycleScratch(&cycle_.scratch);
-      extension::SignalCycleResult result;
-      result.abort_reason = extension::SignalCycleAbortReason::kLifecycleUnavailable;
+      session::SignalCycleResult result;
+      result.abort_reason = session::SignalCycleAbortReason::kLifecycleUnavailable;
       return result;
     }
 
@@ -139,8 +139,8 @@ struct SignalPipeline::Impl {
           "[SignalPipeline] RunCycle aborted because environment cycle is not initialized with a "
           "positive dt_sec.");
       ResetCycleScratch(&cycle_.scratch);
-      extension::SignalCycleResult result;
-      result.abort_reason = extension::SignalCycleAbortReason::kInvalidEnvironmentCycle;
+      session::SignalCycleResult result;
+      result.abort_reason = session::SignalCycleAbortReason::kInvalidEnvironmentCycle;
       return result;
     }
     const CycleExecutionRuntime runtime_execution = BuildExecutionRuntimeView();
@@ -156,14 +156,14 @@ struct SignalPipeline::Impl {
 
     if (!ExecuteCycle(context, runtime_execution, cycle_.scratch)) {
       ResetCycleScratch(&cycle_.scratch);
-      extension::SignalCycleResult result;
-      result.abort_reason = extension::SignalCycleAbortReason::kRuntimePreparationFailed;
+      session::SignalCycleResult result;
+      result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
       return result;
     }
 
-    extension::SignalCycleResult result;
+    session::SignalCycleResult result;
     result.executed_this_cycle = true;
-    result.abort_reason = extension::SignalCycleAbortReason::kNone;
+    result.abort_reason = session::SignalCycleAbortReason::kNone;
     result.updated_scene_targets = scene_targets;
     result.decision_frame = cycle_.scratch.decision_frame;
     result.association_quality_metrics = cycle_.scratch.association_quality_metrics;
@@ -176,7 +176,7 @@ struct SignalPipeline::Impl {
     return cycle_.scratch.track_measurements;
   }
 
-  extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
+  session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const {
     return cycle_.scratch.association_quality_metrics;
   }
 
@@ -319,7 +319,7 @@ SignalPipeline::SignalPipeline(const config::RadarSessionConfig& config)
 
 SignalPipeline::~SignalPipeline() = default;
 
-extension::SignalCycleResult SignalPipeline::RunCycle(
+session::SignalCycleResult SignalPipeline::RunCycle(
     const session::RadarSceneTargetList& scene_targets,
     const environment::IEnvironmentService& environment) {
   return impl_->RunCycle(scene_targets, environment);
@@ -329,7 +329,7 @@ std::vector<tracking::TrackMeasurement> SignalPipeline::GetLastTrackMeasurements
   return impl_->GetLastTrackMeasurements();
 }
 
-extension::AssociationQualityMetrics SignalPipeline::GetLastAssociationQualityMetrics() const {
+session::AssociationQualityMetrics SignalPipeline::GetLastAssociationQualityMetrics() const {
   return impl_->GetLastAssociationQualityMetrics();
 }
 

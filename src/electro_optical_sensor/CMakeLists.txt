@@ -67,8 +67,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/environment/electro_optical_sensor_environment.hpp
     )
     set(PUBLIC_HEADERS_EOS_EXTENSION
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/extension/EosPipelineTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/extension/electro_optical_sensor_extension.hpp
     )
     set(PUBLIC_HEADERS_EOS_CONFIG
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosHardwareConfig.h

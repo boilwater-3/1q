@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
@@ -36,7 +36,7 @@ struct EosControllerRuntimeState {
   bool has_validation_error{false};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
-  EosPipelineAbortReason last_abort_reason{EosPipelineAbortReason::kNone};
+  session::EosPipelineAbortReason last_abort_reason{session::EosPipelineAbortReason::kNone};
   EosPipelineRuntimeState pipeline_state{};
 };
 
@@ -101,7 +101,7 @@ class EosController {
    * @brief 最近一次 RunOnce 的周期终止原因。
    * @return 周期终止原因。
    */
-  EosPipelineAbortReason GetLastDetectionCycleAbortReason() const;
+  session::EosPipelineAbortReason GetLastDetectionCycleAbortReason() const;
 
   /**
    * @brief 基于最近一次 RunOnce 状态构建单周期聚合结果。
