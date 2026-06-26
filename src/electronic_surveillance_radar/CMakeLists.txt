@@ -13,6 +13,7 @@ set(ESR_ENGINE_SOURCES
 
 # -- core: 会话、运行时、环境、输出（粘合层，依赖轻） --------------------------
 set(ESR_CORE_SOURCES
+    electronic_surveillance_radar/session/EsrSessionConfigBuilder.cpp
     electronic_surveillance_radar/session/EsrExternalInputAdapter.cpp
     electronic_surveillance_radar/session/EsrCycleInputBuilder.cpp
     electronic_surveillance_radar/session/EsrExternalOutputAdapter.cpp

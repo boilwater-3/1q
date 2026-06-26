@@ -241,9 +241,9 @@ config::JammerEmitterState BuildJammerEmitter(config::JammingTechnique technique
   emitter.power_db = power_db;
   emitter.confidence = 1.0f;
   emitter.js_db = js_db;
-  emitter.has_direction_deg = true;
-  emitter.azimuth_deg = in_sidelobe ? 20.0f : 0.0f;
-  emitter.elevation_deg = 0.0f;
+  emitter.position_x = in_sidelobe ? 3420.20f : 0.0f;  // sin(20 deg)*10000 or 0
+  emitter.position_y = in_sidelobe ? 9396.93f : 10000.0f;  // cos(20 deg)*10000 or 10000
+  emitter.position_z = 0.0f;  // elevation 0 deg
   emitter.angular_span_deg = 6.0f + 16.0f * frequency_overlap_ratio + 8.0f * prf_lock_risk;
   return emitter;
 }

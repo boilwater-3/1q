@@ -318,9 +318,9 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   jammer.technique = config::JammingTechnique::kNoiseSuppression;
   jammer.power_db = 25.0f;
   jammer.js_db = 8.0f;
-  jammer.has_direction_deg = true;
-  jammer.azimuth_deg = 30.0f;
-  jammer.elevation_deg = 5.0f;
+  jammer.position_x = 5000.0f;     // range 10000m * sin(30 deg)
+  jammer.position_y = 8660.25f;    // range 10000m * cos(30 deg)
+  jammer.position_z = 874.887f;    // range 10000m * tan(5 deg)
   config.environment.scenario_config.jammer_sources.push_back(jammer);
 
   const std::string bytes = EncodeSessionConfigFlatbuffer(config);
@@ -359,8 +359,9 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_EQ(decoded.environment.scenario_config.jammer_sources[0].technique,
             config::JammingTechnique::kNoiseSuppression);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].power_db, 25.0f);
-  EXPECT_TRUE(decoded.environment.scenario_config.jammer_sources[0].has_direction_deg);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].azimuth_deg, 30.0f);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].position_x, 5000.0f);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].position_y, 8660.25f);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].position_z, 874.887f);
 }
 
 // ---------------------------------------------------------------------------

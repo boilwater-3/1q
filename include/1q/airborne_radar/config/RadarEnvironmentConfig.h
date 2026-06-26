@@ -70,9 +70,9 @@ struct ONEQ_API JammerEmitterState {
   JammingTechnique technique{JammingTechnique::kUnknown}; /**< 干扰技术类型 */
   float power_db{0.0f};                                   /**< 干扰功率估计（单位：dB） */
   float js_db{0.0f};                                      /**< 干扰与信号比估计（单位：dB） */
-  bool has_direction_deg{false};                          /**< 是否提供干扰来向方位/俯仰角 */
-  float azimuth_deg{0.0f};                                /**< 干扰来向方位角（单位：deg，可选） */
-  float elevation_deg{0.0f};                              /**< 干扰来向俯仰角（单位：deg，可选） */
+  float position_x{0.0f};                                 /**< 雷达局部笛卡尔坐标 x (m)，与 RadarSceneTarget 同坐标系 */
+  float position_y{0.0f};                                 /**< 雷达局部笛卡尔坐标 y (m) */
+  float position_z{0.0f};                                 /**< 雷达局部笛卡尔坐标 z (m) */
   float angular_span_deg{0.0f};                           /**< 干扰角域宽度（单位：deg） */
   float confidence{1.0f};                                 /**< 干扰事实置信度，范围 [0, 1] */
 };

@@ -956,9 +956,9 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   jammer.technique = ar_env::JammingTechnique::kNoiseSuppression;
   jammer.power_db = 80.0f;  // 100MW in dB
   jammer.js_db = 20.0f;
-  jammer.has_direction_deg = true;
-  jammer.azimuth_deg = 0.0f;
-  jammer.elevation_deg = 0.0f;
+  jammer.position_x = 0.0f;        // azimuth 0 deg (forward)
+  jammer.position_y = 10000.0f;    // forward direction
+  jammer.position_z = 0.0f;        // elevation 0 deg
   jammer.angular_span_deg = 5.0f;
   jammer.confidence = 1.0f;
   ar_env_base.jammer_sources.push_back(jammer);

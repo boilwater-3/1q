@@ -629,9 +629,9 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   noise_source.technique = config::JammingTechnique::kNoiseSuppression;
   noise_source.power_db = 8.0f;
   noise_source.js_db = 8.0f;
-  noise_source.has_direction_deg = true;
-  noise_source.azimuth_deg = 24.0f;
-  noise_source.elevation_deg = 7.0f;
+  noise_source.position_x = 4067.36f;   // range 10000m * sin(24 deg)
+  noise_source.position_y = 9135.45f;   // range 10000m * cos(24 deg)
+  noise_source.position_z = 1227.85f;   // range 10000m * tan(7 deg)
   noise_source.angular_span_deg = 30.0f;
   noise_source.confidence = 1.0f;
   noise_env_config.jammer_sources.push_back(noise_source);
@@ -642,9 +642,9 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   deception_source.technique = config::JammingTechnique::kDeception;
   deception_source.power_db = 8.0f;
   deception_source.js_db = 8.0f;
-  deception_source.has_direction_deg = true;
-  deception_source.azimuth_deg = 2.0f;
-  deception_source.elevation_deg = 1.0f;
+  deception_source.position_x = 348.99f;   // range 10000m * sin(2 deg)
+  deception_source.position_y = 9993.90f;  // range 10000m * cos(2 deg)
+  deception_source.position_z = 174.55f;   // range 10000m * tan(1 deg)
   deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 1.0f;
   deception_env_config.jammer_sources.push_back(deception_source);
@@ -747,9 +747,9 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   deception_source.technique = config::JammingTechnique::kDeception;
   deception_source.power_db = 8.0f;
   deception_source.js_db = 8.0f;
-  deception_source.has_direction_deg = true;
-  deception_source.azimuth_deg = 3.0f;
-  deception_source.elevation_deg = 1.0f;
+  deception_source.position_x = 523.36f;    // range 10000m * sin(3 deg)
+  deception_source.position_y = 9986.30f;   // range 10000m * cos(3 deg)
+  deception_source.position_z = 174.55f;    // range 10000m * tan(1 deg)
   deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 1.0f;
   deception_env_config.jammer_sources.push_back(deception_source);
@@ -836,18 +836,18 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
 
   config::JammerEmitterState favorable_source =
       MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f);
-  favorable_source.has_direction_deg = true;
-  favorable_source.azimuth_deg = 28.0f;
-  favorable_source.elevation_deg = 9.0f;
+  favorable_source.position_x = 4694.72f;   // range 10000m * sin(28 deg)
+  favorable_source.position_y = 8829.48f;   // range 10000m * cos(28 deg)
+  favorable_source.position_z = 1583.84f;   // range 10000m * tan(9 deg)
   favorable_source.angular_span_deg = 30.0f;
   environment::EnvironmentService favorable_environment(
       MakeEnvironmentConfigWithJammers({favorable_source}));
 
   config::JammerEmitterState unfavorable_source =
       MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f);
-  unfavorable_source.has_direction_deg = true;
-  unfavorable_source.azimuth_deg = 0.0f;
-  unfavorable_source.elevation_deg = 0.0f;
+  unfavorable_source.position_x = 0.0f;
+  unfavorable_source.position_y = 10000.0f;
+  unfavorable_source.position_z = 0.0f;       // elevation 0 deg
   unfavorable_source.angular_span_deg = 5.0f;
   environment::EnvironmentService unfavorable_environment(
       MakeEnvironmentConfigWithJammers({unfavorable_source}));
@@ -888,9 +888,9 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   deception_source.technique = config::JammingTechnique::kDeception;
   deception_source.power_db = -20.0f;
   deception_source.js_db = 8.0f;
-  deception_source.has_direction_deg = true;
-  deception_source.azimuth_deg = 3.0f;
-  deception_source.elevation_deg = 1.0f;
+  deception_source.position_x = 523.36f;    // range 10000m * sin(3 deg)
+  deception_source.position_y = 9986.30f;   // range 10000m * cos(3 deg)
+  deception_source.position_z = 174.55f;    // range 10000m * tan(1 deg)
   deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 1.0f;
   env_config.jammer_sources.push_back(deception_source);
@@ -981,9 +981,9 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
 
   config::JammerEmitterState favorable_source =
       MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f);
-  favorable_source.has_direction_deg = true;
-  favorable_source.azimuth_deg = 30.0f;
-  favorable_source.elevation_deg = 10.0f;
+  favorable_source.position_x = 5000.0f;     // range 10000m * sin(30 deg)
+  favorable_source.position_y = 8660.25f;    // range 10000m * cos(30 deg)
+  favorable_source.position_z = 1763.27f;    // range 10000m * tan(10 deg)
   favorable_source.angular_span_deg = 32.0f;
 
   config::EnvironmentModelConfig favorable_env_config =
@@ -992,9 +992,9 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
 
   config::JammerEmitterState unfavorable_source =
       MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f);
-  unfavorable_source.has_direction_deg = true;
-  unfavorable_source.azimuth_deg = 1.0f;
-  unfavorable_source.elevation_deg = 0.0f;
+  unfavorable_source.position_x = 174.55f;   // range 10000m * sin(1 deg)
+  unfavorable_source.position_y = 9998.48f;  // range 10000m * cos(1 deg)
+  unfavorable_source.position_z = 0.0f;      // elevation 0 deg
   unfavorable_source.angular_span_deg = 6.0f;
   config::EnvironmentModelConfig unfavorable_env_config =
       MakeEnvironmentConfigWithJammers({unfavorable_source});
@@ -1194,9 +1194,9 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   noise_source.technique = config::JammingTechnique::kNoiseSuppression;
   noise_source.power_db = -20.0f;
   noise_source.js_db = 8.0f;
-  noise_source.has_direction_deg = true;
-  noise_source.azimuth_deg = 20.0f;
-  noise_source.elevation_deg = 7.0f;
+  noise_source.position_x = 3420.20f;   // range 10000m * sin(20 deg)
+  noise_source.position_y = 9396.93f;   // range 10000m * cos(20 deg)
+  noise_source.position_z = 1227.85f;   // range 10000m * tan(7 deg)
   noise_source.angular_span_deg = 30.0f;
   noise_source.confidence = 1.0f;
   noise_env_config.jammer_sources.push_back(noise_source);
@@ -1207,9 +1207,9 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   deception_source.technique = config::JammingTechnique::kDeception;
   deception_source.power_db = -20.0f;
   deception_source.js_db = 8.0f;
-  deception_source.has_direction_deg = true;
-  deception_source.azimuth_deg = 3.0f;
-  deception_source.elevation_deg = 1.0f;
+  deception_source.position_x = 523.36f;    // range 10000m * sin(3 deg)
+  deception_source.position_y = 9986.30f;   // range 10000m * cos(3 deg)
+  deception_source.position_z = 174.55f;    // range 10000m * tan(1 deg)
   deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 1.0f;
   deception_env_config.jammer_sources.push_back(deception_source);

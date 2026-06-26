@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
 
 namespace electronic_surveillance_radar {
@@ -40,6 +41,30 @@ struct ConfigValidationIssue {
 using ValidationIssueList = std::vector<ConfigValidationIssue>;
 
 /**
+ * @brief EsrMissionProfile 表示 ESR 任务剖面语义档位。
+ *
+ * 选择剖面后 Builder 在 Build() 时自动填写 work_mode、scan_rate_hz
+ * 及扫描角度边界，免去逐项手工配置。
+ */
+enum class ONEQ_API EsrMissionProfile {
+  kElectronicOrderOfBattle = 0,  /**< 电子战斗序列采集：ESM 模式，2Hz 快扫，±60° */
+  kPrecisionEmitterAnalysis,     /**< 精确辐射源分析：HGESM 模式，0.5Hz 慢扫，±30° */
+  kThreatWarning                 /**< 威胁告警：RWR 模式，5Hz 快扫，±60° */
+};
+
+/**
+ * @brief EsrSensitivityProfile 表示探测灵敏度语义档位。
+ *
+ * 选择档位后 Builder 在 Build() 时自动填写 SNR 门限、脉冲积累数、
+ * 虚警概率和门限缩放系数。
+ */
+enum class ONEQ_API EsrSensitivityProfile {
+  kStandard = 0,        /**< 均衡：min_snr=6dB，pulse=8，pfa=1e-6 */
+  kHighSensitivity,     /**< 高灵敏（远距弱信号）：min_snr=3dB，pulse=16，pfa=5e-6 */
+  kRobust               /**< 抗干扰（复杂电磁环境）：min_snr=10dB，pulse=4，pfa=1e-7 */
+};
+
+/**
  * @brief EsrSessionConfigBuilder 提供初始化配置语义积木。
  * @note 推荐路径：
  *       会话初始化优先使用本构造器表达 mission/detection/environment 语义；
@@ -63,7 +88,17 @@ class ONEQ_API EsrSessionConfigBuilder {
   DetectionEditor Detection();
   EnvironmentEditor Environment();
 
-  config::EsrSessionConfig Build() const { return config_; }
+  /**
+   * @brief 将语义档位翻译为配置字段，生成最终会话配置。
+   *
+   * 如果通过 Editor 设置了 Profile 枚举，Build() 会将语义设定翻译为
+   * mission / policy.detection 中的对应字段。直接字段 setter 的赋值
+   * 在 Profile 应用之后被覆盖——Profile 是高层语义入口，直接 setter
+   * 适合在 Profile 未设置的场景下做精细调整。
+   *
+   * @return 构建完成的 `config::EsrSessionConfig`。
+   */
+  config::EsrSessionConfig Build() const;
 
   /**
    * @brief 校验当前 Builder 状态的合法性，用于构造完成前的早期反馈。
@@ -86,6 +121,10 @@ class ONEQ_API EsrSessionConfigBuilder {
   friend class EnvironmentEditor;
 
   config::EsrSessionConfig config_{};
+  EsrMissionProfile mission_profile_{EsrMissionProfile::kElectronicOrderOfBattle};
+  EsrSensitivityProfile sensitivity_profile_{EsrSensitivityProfile::kStandard};
+  bool mission_profile_dirty_{false};
+  bool sensitivity_profile_dirty_{false};
 };
 
 class ONEQ_API EsrSessionConfigBuilder::MissionEditor {
@@ -140,6 +179,12 @@ class ONEQ_API EsrSessionConfigBuilder::MissionEditor {
     builder_->config_.mission.scan.scan_end_el_deg = value;
     return *this;
   }
+  /** @brief 设置任务剖面语义档位。Build() 时自动翻译为 mission 字段。 */
+  MissionEditor& WithMissionProfile(EsrMissionProfile profile) {
+    builder_->mission_profile_ = profile;
+    builder_->mission_profile_dirty_ = true;
+    return *this;
+  }
   EsrSessionConfigBuilder& End() { return *builder_; }
 
  private:
@@ -168,6 +213,12 @@ class ONEQ_API EsrSessionConfigBuilder::DetectionEditor {
   }
   DetectionEditor& EnableStatisticalDetection(bool enable) {
     builder_->config_.policy.detection.enable_statistical_detection = enable;
+    return *this;
+  }
+  /** @brief 设置探测灵敏度语义档位。Build() 时自动翻译为 detection policy 字段。 */
+  DetectionEditor& WithSensitivityProfile(EsrSensitivityProfile profile) {
+    builder_->sensitivity_profile_ = profile;
+    builder_->sensitivity_profile_dirty_ = true;
     return *this;
   }
   EsrSessionConfigBuilder& End() { return *builder_; }
@@ -215,60 +266,6 @@ inline EsrSessionConfigBuilder::DetectionEditor EsrSessionConfigBuilder::Detecti
 
 inline EsrSessionConfigBuilder::EnvironmentEditor EsrSessionConfigBuilder::Environment() {
   return EnvironmentEditor(this);
-}
-
-inline ValidationIssueList EsrSessionConfigBuilder::Validate() const {
-  ValidationIssueList issues;
-
-  if (config_.mission.scan.scan_rate_hz <= 0.0f) {
-    ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kScanRateNotPositive;
-    issue.field = "mission.scan.scan_rate_hz";
-    issue.message = "Scan rate must be positive.";
-    issues.push_back(issue);
-  }
-
-  if (config_.hardware.receiver_band_lower_hz >= config_.hardware.receiver_band_upper_hz) {
-    ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kReceiverBandLowerAboveUpper;
-    issue.field = "hardware.receiver_band_lower_hz / receiver_band_upper_hz";
-    issue.message = "Receiver band lower bound must be below upper bound.";
-    issues.push_back(issue);
-  }
-
-  if (config_.hardware.beam_az_width_deg <= 0.0f) {
-    ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kBeamAzWidthNotPositive;
-    issue.field = "hardware.beam_az_width_deg";
-    issue.message = "Azimuth beamwidth must be positive.";
-    issues.push_back(issue);
-  }
-  if (config_.hardware.beam_el_width_deg <= 0.0f) {
-    ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kBeamElWidthNotPositive;
-    issue.field = "hardware.beam_el_width_deg";
-    issue.message = "Elevation beamwidth must be positive.";
-    issues.push_back(issue);
-  }
-
-  if (config_.mission.scan.use_explicit_scan_bounds) {
-    if (config_.mission.scan.scan_start_az_deg >= config_.mission.scan.scan_end_az_deg) {
-      ConfigValidationIssue issue;
-      issue.code = ConfigValidationCode::kExplicitScanBoundsAzSwapped;
-      issue.field = "mission.scan.scan_start_az_deg / scan_end_az_deg";
-      issue.message = "Scan start azimuth must be less than end azimuth.";
-      issues.push_back(issue);
-    }
-    if (config_.mission.scan.scan_start_el_deg >= config_.mission.scan.scan_end_el_deg) {
-      ConfigValidationIssue issue;
-      issue.code = ConfigValidationCode::kExplicitScanBoundsElSwapped;
-      issue.field = "mission.scan.scan_start_el_deg / scan_end_el_deg";
-      issue.message = "Scan start elevation must be less than end elevation.";
-      issues.push_back(issue);
-    }
-  }
-
-  return issues;
 }
 
 }  // namespace config

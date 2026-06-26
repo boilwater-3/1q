@@ -56,9 +56,9 @@ table JammerSource {
   technique:int;
   power_db:float;
   js_db:float;
-  has_direction_deg:bool;
-  azimuth_deg:float;
-  elevation_deg:float;
+  position_x:float;
+  position_y:float;
+  position_z:float;
   angular_span_deg:float;
   confidence:float;
 }

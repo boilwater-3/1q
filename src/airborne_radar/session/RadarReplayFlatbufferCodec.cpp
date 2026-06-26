@@ -129,8 +129,8 @@ flatbuffers::Offset<fb::SurfaceObservation> EncodeCycleSurfaceObservation(
 flatbuffers::Offset<fb::JammerSource> EncodeCycleJammerSource(
     flatbuffers::FlatBufferBuilder* builder, const config::JammerEmitterState& value) {
   return fb::CreateJammerSource(*builder, static_cast<int>(value.technique), value.power_db,
-                                value.js_db, value.has_direction_deg, value.azimuth_deg,
-                                value.elevation_deg, value.angular_span_deg, value.confidence);
+                                value.js_db, value.position_x, value.position_y, value.position_z,
+                                value.angular_span_deg, value.confidence);
 }
 
 flatbuffers::Offset<fb::RadarCycleEnvironmentInput> EncodeCycleEnvironmentInput(
@@ -188,9 +188,9 @@ config::JammerEmitterState DecodeCycleJammerSource(const fb::JammerSource* value
     result.technique = static_cast<config::JammingTechnique>(value->technique());
     result.power_db = value->power_db();
     result.js_db = value->js_db();
-    result.has_direction_deg = value->has_direction_deg();
-    result.azimuth_deg = value->azimuth_deg();
-    result.elevation_deg = value->elevation_deg();
+    result.position_x = value->position_x();
+    result.position_y = value->position_y();
+    result.position_z = value->position_z();
     result.angular_span_deg = value->angular_span_deg();
     result.confidence = value->confidence();
   }
@@ -595,8 +595,8 @@ EncodeSessionVegetationScatterPhysicsConfig(
 flatbuffers::Offset<session_fb::JammerEmitterState> EncodeSessionJammerEmitterState(
     flatbuffers::FlatBufferBuilder* builder, const config::JammerEmitterState& value) {
   return session_fb::CreateJammerEmitterState(*builder, static_cast<int>(value.technique),
-                                              value.power_db, value.js_db, value.has_direction_deg,
-                                              value.azimuth_deg, value.elevation_deg,
+                                              value.power_db, value.js_db, value.position_x,
+                                              value.position_y, value.position_z,
                                               value.angular_span_deg, value.confidence);
 }
 
@@ -845,9 +845,9 @@ config::JammerEmitterState DecodeSessionJammerEmitterState(
     result.technique = static_cast<config::JammingTechnique>(value->technique());
     result.power_db = value->power_db();
     result.js_db = value->js_db();
-    result.has_direction_deg = value->has_direction_deg();
-    result.azimuth_deg = value->azimuth_deg();
-    result.elevation_deg = value->elevation_deg();
+    result.position_x = value->position_x();
+    result.position_y = value->position_y();
+    result.position_z = value->position_z();
     result.angular_span_deg = value->angular_span_deg();
     result.confidence = value->confidence();
   }

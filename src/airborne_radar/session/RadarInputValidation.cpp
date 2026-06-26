@@ -92,8 +92,9 @@ void ValidateEnvironmentInput(const RadarEnvironmentInput& environment,
   }
   for (std::size_t i = 0; i < environment.jammer_sources.size(); ++i) {
     const config::JammerEmitterState& jammer = environment.jammer_sources[i];
-    if (!IsFinite(jammer.power_db) || !IsFinite(jammer.js_db) || !IsFinite(jammer.azimuth_deg) ||
-        !IsFinite(jammer.elevation_deg) || !IsFinite(jammer.angular_span_deg) ||
+    if (!IsFinite(jammer.power_db) || !IsFinite(jammer.js_db) ||
+        !IsFinite(jammer.position_x) || !IsFinite(jammer.position_y) || !IsFinite(jammer.position_z) ||
+        !IsFinite(jammer.angular_span_deg) ||
         !IsFinite(jammer.confidence) || jammer.power_db < 0.0f || jammer.js_db < 0.0f ||
         jammer.angular_span_deg < 0.0f || !IsRatioValid(jammer.confidence)) {
       issues->push_back(MakeIssue(

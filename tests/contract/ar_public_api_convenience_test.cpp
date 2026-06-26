@@ -244,10 +244,18 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
       source.technique = emitter.technique;
       source.power_db = emitter.power_db;
       source.js_db = emitter.js_db;
-      source.has_direction_deg = emitter.has_direction_deg;
+      source.has_direction_deg =
+          std::isfinite(emitter.position_x) && std::isfinite(emitter.position_y) &&
+          std::isfinite(emitter.position_z);
       if (source.has_direction_deg) {
-        source.direction_deg.azimuth_deg = emitter.azimuth_deg;
-        source.direction_deg.elevation_deg = emitter.elevation_deg;
+        const float ground_range =
+            std::sqrt(emitter.position_x * emitter.position_x + emitter.position_y * emitter.position_y);
+        source.direction_deg.azimuth_deg =
+            std::atan2(emitter.position_x, emitter.position_y) * 180.0f / 3.14159265358979f;
+        source.direction_deg.elevation_deg =
+            (ground_range > 1e-6f)
+                ? std::atan2(emitter.position_z, ground_range) * 180.0f / 3.14159265358979f
+                : 0.0f;
       }
       source.angular_span_deg = emitter.angular_span_deg;
       source.confidence = emitter.confidence;
@@ -727,9 +735,9 @@ TEST(PublicApiConvenienceTest, JammerSceneConstructionPopulatesTypedEmitters) {
   noise_emitter_1.technique = config::JammingTechnique::kNoiseSuppression;
   noise_emitter_1.power_db = 11.0f;
   noise_emitter_1.js_db = 8.0f;
-  noise_emitter_1.has_direction_deg = true;
-  noise_emitter_1.azimuth_deg = 12.0f;
-  noise_emitter_1.elevation_deg = 1.0f;
+  noise_emitter_1.position_x = 2079.12f;   // range 10000m * sin(12 deg)
+  noise_emitter_1.position_y = 9781.48f;   // range 10000m * cos(12 deg)
+  noise_emitter_1.position_z = 174.55f;    // range 10000m * tan(1 deg)
   noise_emitter_1.angular_span_deg = 5.0f;
   noise_emitter_1.confidence = 0.9f;
 
@@ -737,9 +745,9 @@ TEST(PublicApiConvenienceTest, JammerSceneConstructionPopulatesTypedEmitters) {
   deception_emitter.technique = config::JammingTechnique::kDeception;
   deception_emitter.power_db = 9.0f;
   deception_emitter.js_db = 7.5f;
-  deception_emitter.has_direction_deg = true;
-  deception_emitter.azimuth_deg = -8.0f;
-  deception_emitter.elevation_deg = 2.5f;
+  deception_emitter.position_x = -1391.73f;  // range 10000m * sin(-8 deg)
+  deception_emitter.position_y = 9902.68f;    // range 10000m * cos(-8 deg)
+  deception_emitter.position_z = 436.609f;    // range 10000m * tan(2.5 deg)
   deception_emitter.angular_span_deg = 3.0f;
   deception_emitter.confidence = 0.8f;
 
@@ -747,9 +755,9 @@ TEST(PublicApiConvenienceTest, JammerSceneConstructionPopulatesTypedEmitters) {
   repeater_emitter.technique = config::JammingTechnique::kRepeater;
   repeater_emitter.power_db = 8.5f;
   repeater_emitter.js_db = 6.5f;
-  repeater_emitter.has_direction_deg = true;
-  repeater_emitter.azimuth_deg = 4.0f;
-  repeater_emitter.elevation_deg = -1.0f;
+  repeater_emitter.position_x = 697.56f;    // range 10000m * sin(4 deg)
+  repeater_emitter.position_y = 9975.64f;   // range 10000m * cos(4 deg)
+  repeater_emitter.position_z = -174.55f;   // range 10000m * tan(-1 deg)
   repeater_emitter.angular_span_deg = 2.0f;
   repeater_emitter.confidence = 0.7f;
 
@@ -763,11 +771,11 @@ TEST(PublicApiConvenienceTest, JammerSceneConstructionPopulatesTypedEmitters) {
 
   ASSERT_EQ(scene.jammer_emitters.size(), 3U);
   EXPECT_EQ(scene.jammer_emitters[0].technique, config::JammingTechnique::kNoiseSuppression);
-  EXPECT_TRUE(scene.jammer_emitters[0].has_direction_deg);
+  EXPECT_FLOAT_EQ(scene.jammer_emitters[0].position_x, 2079.12f);
   EXPECT_EQ(scene.jammer_emitters[1].technique, config::JammingTechnique::kDeception);
-  EXPECT_NEAR(scene.jammer_emitters[1].azimuth_deg, -8.0f, 1e-5f);
+  EXPECT_FLOAT_EQ(scene.jammer_emitters[1].position_x, -1391.73f);
   EXPECT_EQ(scene.jammer_emitters[2].technique, config::JammingTechnique::kRepeater);
-  EXPECT_NEAR(scene.jammer_emitters[2].elevation_deg, -1.0f, 1e-5f);
+  EXPECT_FLOAT_EQ(scene.jammer_emitters[2].position_z, -174.55f);
 }
 
 TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportUniqueDuplicateAndJammingSearch) {
@@ -914,9 +922,9 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   noise_emitter_2.technique = config::JammingTechnique::kNoiseSuppression;
   noise_emitter_2.power_db = 12.0f;
   noise_emitter_2.js_db = 8.0f;
-  noise_emitter_2.has_direction_deg = true;
-  noise_emitter_2.azimuth_deg = 20.0f;
-  noise_emitter_2.elevation_deg = 1.0f;
+  noise_emitter_2.position_x = 3420.20f;   // range 10000m * sin(20 deg)
+  noise_emitter_2.position_y = 9396.93f;   // range 10000m * cos(20 deg)
+  noise_emitter_2.position_z = 174.55f;    // range 10000m * tan(1 deg)
   noise_emitter_2.angular_span_deg = 10.0f;
 
   const session::EnvironmentSceneState scene =
@@ -1011,9 +1019,9 @@ TEST(PublicApiConvenienceTest,
   noise_emitter_3.technique = config::JammingTechnique::kNoiseSuppression;
   noise_emitter_3.power_db = 12.0f;
   noise_emitter_3.js_db = 8.0f;
-  noise_emitter_3.has_direction_deg = true;
-  noise_emitter_3.azimuth_deg = 20.0f;
-  noise_emitter_3.elevation_deg = 1.0f;
+  noise_emitter_3.position_x = 3420.20f;   // range 10000m * sin(20 deg)
+  noise_emitter_3.position_y = 9396.93f;   // range 10000m * cos(20 deg)
+  noise_emitter_3.position_z = 174.55f;    // range 10000m * tan(1 deg)
   noise_emitter_3.angular_span_deg = 10.0f;
 
   const session::EnvironmentSceneState noise_scene =
@@ -1095,9 +1103,9 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   noise_emitter_5.technique = config::JammingTechnique::kNoiseSuppression;
   noise_emitter_5.power_db = 12.0f;
   noise_emitter_5.js_db = 8.0f;
-  noise_emitter_5.has_direction_deg = true;
-  noise_emitter_5.azimuth_deg = 20.0f;
-  noise_emitter_5.elevation_deg = 1.0f;
+  noise_emitter_5.position_x = 3420.20f;   // range 10000m * sin(20 deg)
+  noise_emitter_5.position_y = 9396.93f;   // range 10000m * cos(20 deg)
+  noise_emitter_5.position_z = 174.55f;    // range 10000m * tan(1 deg)
   noise_emitter_5.angular_span_deg = 10.0f;
 
   const session::EnvironmentSceneState scene =

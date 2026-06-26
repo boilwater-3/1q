@@ -15,6 +15,7 @@ set(EOS_ENGINE_SOURCES
 # -- core: 会话、运行时、环境（粘合层，依赖轻） --------------------------------
 set(EOS_CORE_SOURCES
     electro_optical_sensor/environment/EosEnvironmentModel.cpp
+    electro_optical_sensor/session/EosSessionConfigBuilder.cpp
     electro_optical_sensor/session/EosExternalInputAdapter.cpp
     electro_optical_sensor/session/EosCycleInputBuilder.cpp
     electro_optical_sensor/session/EosExternalOutputAdapter.cpp

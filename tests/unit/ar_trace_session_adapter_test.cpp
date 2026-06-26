@@ -259,9 +259,9 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     jammer.technique = session::JammingTechnique::kNoiseSuppression;
     jammer.power_db = 24.0f;
     jammer.js_db = 7.0f;
-    jammer.has_direction_deg = true;
-    jammer.azimuth_deg = 18.0f;
-    jammer.elevation_deg = 2.0f;
+    jammer.position_x = 3090.17f;    // range 10000m * sin(18 deg)
+    jammer.position_y = 9510.57f;    // range 10000m * cos(18 deg)
+    jammer.position_z = 349.21f;     // range 10000m * tan(2 deg)
     input.environment.jammer_sources.push_back(jammer);
 
     const session::RadarCycleResult result = session.StepWithResult(input);

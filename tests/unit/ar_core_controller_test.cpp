@@ -247,9 +247,9 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
   jammer_source.power_db = 10.0f;
   jammer_source.confidence = 1.0f;
   jammer_source.js_db = 7.0f;
-  jammer_source.has_direction_deg = true;
-  jammer_source.azimuth_deg = 0.0f;
-  jammer_source.elevation_deg = 1.0f;
+  jammer_source.position_x = 0.0f;
+  jammer_source.position_y = 10000.0f;
+  jammer_source.position_z = 174.55f;
   jammer_source.angular_span_deg = 5.0f;
   environment_service.UpdateSceneState(
       [&] {
@@ -302,9 +302,9 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
   jammer_source.technique = config::JammingTechnique::kNoiseSuppression;
   jammer_source.power_db = 9.0f;
   jammer_source.confidence = 1.0f;
-  jammer_source.has_direction_deg = true;
-  jammer_source.azimuth_deg = 22.0f;
-  jammer_source.elevation_deg = 0.0f;
+  jammer_source.position_x = 3746.07f;   // range 10000m * sin(22 deg)
+  jammer_source.position_y = 9271.84f;   // range 10000m * cos(22 deg)
+  jammer_source.position_z = 0.0f;       // elevation 0 deg
   jammer_source.angular_span_deg = 12.0f;
   environment_service.UpdateSceneState(
       [&] {
@@ -330,9 +330,9 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   deception_emitter.technique = config::JammingTechnique::kDeception;
   deception_emitter.power_db = 9.0f;
   deception_emitter.js_db = 7.5f;
-  deception_emitter.has_direction_deg = true;
-  deception_emitter.azimuth_deg = 30.0f;
-  deception_emitter.elevation_deg = 5.0f;
+  deception_emitter.position_x = 5000.0f;     // range 10000m * sin(30 deg)
+  deception_emitter.position_y = 8660.25f;    // range 10000m * cos(30 deg)
+  deception_emitter.position_z = 874.887f;    // range 10000m * tan(5 deg)
   deception_emitter.angular_span_deg = 8.0f;
   deception_emitter.confidence = 0.95f;
   env_config.jammer_sources.push_back(deception_emitter);
@@ -358,7 +358,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   EXPECT_FLOAT_EQ(mapped_source.jammer_to_signal_db, 7.5f);
   EXPECT_FLOAT_EQ(mapped_source.frequency_overlap_ratio, frozen_source.frequency_overlap_ratio);
   EXPECT_FLOAT_EQ(mapped_source.prf_lock_risk, frozen_source.prf_lock_risk);
-  EXPECT_FLOAT_EQ(mapped_source.direction_deg.azimuth_deg, 30.0f);
+  EXPECT_NEAR(mapped_source.direction_deg.azimuth_deg, 30.0f, 1e-4f);
   EXPECT_FLOAT_EQ(mapped_source.angular_span_deg, 8.0f);
   EXPECT_EQ(decision_engine.last_frame.association_quality_info.dominant_jamming_semantic,
             config::JammingSemantic::kDeception);

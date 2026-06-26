@@ -3,6 +3,7 @@
 // @file ar_environment_service_test.cpp
 // @brief 验证环境服务与场景管理的基础行为。
 
+#include <cmath>
 #include <gtest/gtest.h>
 
 #include <initializer_list>
@@ -58,13 +59,16 @@ TEST(EnvironmentServiceTest, KeepsDirectionUnknownWhenExternalDirectionIsMissing
       MakeJammerEmitter(config::JammingTechnique::kDeception, 10.0f);
   jammer_source.js_db = 6.0f;
   jammer_source.angular_span_deg = 15.0f;
-  jammer_source.has_direction_deg = false;
+  // Default position (0,0,0) is at origin, direction is available but angles are 0.
+  // Azimuth at origin: atan2(0, 0) = 0, elevation at origin: atan2(0, 0) = 0.
 
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({jammer_source}));
   const auto snapshot = service.SampleEnvironment();
 
   ASSERT_EQ(snapshot.jammer_sources.size(), 1u);
-  EXPECT_FALSE(snapshot.jammer_sources[0].has_direction_deg);
+  EXPECT_TRUE(snapshot.jammer_sources[0].has_direction_deg);
+  EXPECT_NEAR(snapshot.jammer_sources[0].direction_deg.azimuth_deg, 0.0f, 1e-6f);
+  EXPECT_NEAR(snapshot.jammer_sources[0].direction_deg.elevation_deg, 0.0f, 1e-6f);
   EXPECT_GE(snapshot.jammer_sources[0].frequency_overlap_ratio, 0.0f);
   EXPECT_LE(snapshot.jammer_sources[0].frequency_overlap_ratio, 1.0f);
   EXPECT_GE(snapshot.jammer_sources[0].prf_lock_risk, 0.0f);
@@ -118,9 +122,9 @@ TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
   emitter.technique = config::JammingTechnique::kNoiseSuppression;
   emitter.power_db = 8.0f;
   emitter.confidence = 1.0f;
-  emitter.has_direction_deg = true;
-  emitter.azimuth_deg = 18.0f;
-  emitter.elevation_deg = 1.0f;
+  emitter.position_x = 3090.17f;    // range 10000m * sin(18 deg)
+  emitter.position_y = 9510.57f;    // range 10000m * cos(18 deg)
+  emitter.position_z = 174.55f;     // range 10000m * tan(1 deg)
   emitter.angular_span_deg = 10.0f;
   session::EnvironmentSceneState scene_state;
   scene_state.jammer_emitters.push_back(emitter);
@@ -157,9 +161,9 @@ TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
   noise_source.technique = config::JammingTechnique::kNoiseSuppression;
   noise_source.power_db = 9.0f;
   noise_source.js_db = 7.0f;
-  noise_source.has_direction_deg = true;
-  noise_source.azimuth_deg = 24.0f;
-  noise_source.elevation_deg = 7.0f;
+  noise_source.position_x = 4067.36f;   // range 10000m * sin(24 deg)
+  noise_source.position_y = 9135.45f;   // range 10000m * cos(24 deg)
+  noise_source.position_z = 1227.85f;   // range 10000m * tan(7 deg)
   noise_source.angular_span_deg = 30.0f;
   noise_source.confidence = 0.9f;
 
@@ -167,9 +171,9 @@ TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
   deception_source.technique = config::JammingTechnique::kDeception;
   deception_source.power_db = 4.0f;
   deception_source.js_db = 5.0f;
-  deception_source.has_direction_deg = true;
-  deception_source.azimuth_deg = 2.0f;
-  deception_source.elevation_deg = 1.0f;
+  deception_source.position_x = 348.99f;   // range 10000m * sin(2 deg)
+  deception_source.position_y = 9993.90f;  // range 10000m * cos(2 deg)
+  deception_source.position_z = 174.55f;   // range 10000m * tan(1 deg)
   deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 0.8f;
 
@@ -241,9 +245,9 @@ TEST(EnvironmentServiceTest, EmptyJammerSourcesProduceNoJammingFacts) {
 TEST(EnvironmentServiceTest, StructuredSidelobeFactIsPreservedWithoutDetection) {
   config::JammerEmitterState source =
       MakeJammerEmitter(config::JammingTechnique::kUnknown, 0.0f);
-  source.has_direction_deg = true;
-  source.azimuth_deg = 35.0f;
-  source.elevation_deg = 8.0f;
+  source.position_x = 5735.76f;    // range 10000m * sin(35 deg)
+  source.position_y = 8191.52f;    // range 10000m * cos(35 deg)
+  source.position_z = 1405.41f;    // range 10000m * tan(8 deg)
   source.angular_span_deg = 30.0f;
 
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({source}));
@@ -301,9 +305,9 @@ TEST(EnvironmentServiceTest, EmitterOverlapRatioAboveOneIsClampedToOne) {
   source.technique = config::JammingTechnique::kDeception;
   source.power_db = 5.0f;
   source.js_db = 12.0f;
-  source.has_direction_deg = true;
-  source.azimuth_deg = 0.0f;
-  source.elevation_deg = 0.0f;
+  source.position_x = 0.0f;       // azimuth 0 deg
+  source.position_y = 10000.0f;   // forward
+  source.position_z = 0.0f;       // elevation 0 deg
   source.angular_span_deg = 0.0f;
   source.confidence = 0.8f;
   config.jammer_sources.push_back(source);
