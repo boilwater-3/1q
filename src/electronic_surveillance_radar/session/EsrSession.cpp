@@ -53,7 +53,7 @@ struct EsrSession::Impl {
 
     if (!controller.ExecutedLatestCycle() &&
         controller.GetLastInterceptCycleAbortReason() !=
-            extension::EsrPipelineAbortReason::kValidationRejected) {
+            session::EsrPipelineAbortReason::kValidationRejected) {
       pipeline.RestoreRuntimeState(pipeline_state);
       controller.RestoreRuntimeState(controller_state);
     }

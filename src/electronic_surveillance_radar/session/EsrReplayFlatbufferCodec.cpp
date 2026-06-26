@@ -272,7 +272,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
     const auto* t = fb->truth_evaluation_output();
     if (t->associations()) {
       for (const auto* a : *t->associations()) {
-        extension::TruthAssociationRecord rec{};
+        session::TruthAssociationRecord rec{};
         rec.observation_id = a->observation_id();
         rec.truth_emitter_id = a->truth_emitter_id();
         rec.matched = a->matched();
@@ -330,7 +330,7 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
   out->has_validation_error = fb->has_validation_error();
   out->executed_this_cycle = fb->executed_this_cycle();
   out->reused_previous_output = fb->reused_previous_output();
-  out->abort_reason = static_cast<extension::EsrPipelineAbortReason>(fb->abort_reason());
+  out->abort_reason = static_cast<session::EsrPipelineAbortReason>(fb->abort_reason());
   out->validation_issues.clear();
   if (fb->validation_issues()) {
     for (const auto* i : *fb->validation_issues()) {

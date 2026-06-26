@@ -9,10 +9,14 @@
 #include <cstdint>
 #include <memory>
 
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/session/EsrOutputTypes.h"
 
 namespace electronic_surveillance_radar {
 namespace extension {
+
+using session::EmitterOutputFrame;
+using session::ObservationOutputFrame;
+using session::TruthEvaluationFrame;
 
 /**
  * @brief InterceptDetectionConfig 描述截获判定配置。

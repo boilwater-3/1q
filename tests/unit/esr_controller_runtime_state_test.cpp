@@ -121,7 +121,7 @@ TEST(EsrControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPrev
 
   EXPECT_FALSE(controller.ExecutedLatestCycle());
   EXPECT_TRUE(controller.ReusedPreviousInterceptOutputLatestCycle());
-  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), EsrPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), session::EsrPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 40U);
 }
 
@@ -136,7 +136,7 @@ TEST(EsrControllerRuntimeStateTest, FirstValidationRejectBuildsEmptyOutputFrame)
 
   EXPECT_TRUE(controller.HasLatestInterceptOutputFrame());
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), EsrPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), session::EsrPipelineAbortReason::kValidationRejected);
 }
 
 TEST(EsrControllerRuntimeStateTest,
@@ -156,7 +156,7 @@ TEST(EsrControllerRuntimeStateTest,
   controller.RunOnce(invalid_input);
 
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), EsrPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), session::EsrPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 100U);
   EXPECT_TRUE(controller.ReusedPreviousInterceptOutputLatestCycle());
 }

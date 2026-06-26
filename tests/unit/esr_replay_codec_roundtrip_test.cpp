@@ -162,7 +162,7 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   hyp.last_seen_cycle = 7U;
   frame.emitter_output.hypotheses.push_back(hyp);
 
-  extension::TruthAssociationRecord truth;
+  session::TruthAssociationRecord truth;
   truth.observation_id = 100U;
   truth.truth_emitter_id = 2001U;
   truth.matched = true;
@@ -223,7 +223,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.has_validation_error = true;
   result.executed_this_cycle = true;
   result.reused_previous_output = false;
-  result.abort_reason = extension::EsrPipelineAbortReason::kValidationRejected;
+  result.abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
 
   ValidationIssue issue;
   issue.severity = ValidationSeverity::kError;
@@ -247,7 +247,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_TRUE(decoded.has_validation_error);
   EXPECT_TRUE(decoded.executed_this_cycle);
   EXPECT_FALSE(decoded.reused_previous_output);
-  EXPECT_EQ(decoded.abort_reason, extension::EsrPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(decoded.abort_reason, session::EsrPipelineAbortReason::kValidationRejected);
 
   ASSERT_EQ(decoded.validation_issues.size(), 1U);
   EXPECT_EQ(decoded.validation_issues[0].severity, ValidationSeverity::kError);

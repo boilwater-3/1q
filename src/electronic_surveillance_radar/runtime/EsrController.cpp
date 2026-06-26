@@ -25,7 +25,7 @@ struct EsrController::Impl {
       runtime_state{};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
-  extension::EsrPipelineAbortReason last_abort_reason{extension::EsrPipelineAbortReason::kNone};
+  session::EsrPipelineAbortReason last_abort_reason{session::EsrPipelineAbortReason::kNone};
 };
 
 EsrController::EsrController(pipeline::InterceptPipeline& pipeline,
@@ -45,7 +45,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
 
   if (session::HasValidationError(issues)) {
     impl_->last_cycle_executed = false;
-    impl_->last_abort_reason = extension::EsrPipelineAbortReason::kValidationRejected;
+    impl_->last_abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
     impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
     if (!impl_->runtime_state.has_latest_output) {
       impl_->runtime_state.latest_output =
@@ -80,7 +80,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   impl_->runtime_state.has_latest_output = true;
   impl_->last_cycle_executed = true;
   impl_->last_cycle_reused_previous_output = false;
-  impl_->last_abort_reason = extension::EsrPipelineAbortReason::kNone;
+  impl_->last_abort_reason = session::EsrPipelineAbortReason::kNone;
   ++impl_->runtime_state.next_batch_id;
   PROJECT_LOG_DEBUG(
       "[EsrController] cycle_index={} executed obs={} hyp={}",
@@ -105,7 +105,7 @@ bool EsrController::ReusedPreviousInterceptOutputLatestCycle() const {
   return impl_->last_cycle_reused_previous_output;
 }
 
-extension::EsrPipelineAbortReason EsrController::GetLastInterceptCycleAbortReason() const {
+session::EsrPipelineAbortReason EsrController::GetLastInterceptCycleAbortReason() const {
   return impl_->last_abort_reason;
 }
 
@@ -132,7 +132,7 @@ bool EsrController::RestoreRuntimeState(const EsrControllerRuntimeState& state) 
     return false;
   }
   if (!impl_->pipeline.RestoreRuntimeState(state.pipeline_state)) {
-    impl_->last_abort_reason = EsrPipelineAbortReason::kRuntimeStateRestoreRejected;
+    impl_->last_abort_reason = session::EsrPipelineAbortReason::kRuntimeStateRestoreRejected;
     PROJECT_LOG_ERROR("ESR pipeline runtime state restore rejected");
     return false;
   }

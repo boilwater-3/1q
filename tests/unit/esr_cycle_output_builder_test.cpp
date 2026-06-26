@@ -166,7 +166,7 @@ TEST(EsrCycleOutputBuilderTest, MultiCycleMovingEmittersKeepExternalBearingsNear
 
     for (std::size_t i = 0; i < result.output_frame.truth_evaluation_output.associations.size();
          ++i) {
-      const ::electronic_surveillance_radar::extension::TruthAssociationRecord& association =
+      const ::electronic_surveillance_radar::session::TruthAssociationRecord& association =
           result.output_frame.truth_evaluation_output.associations[i];
       if (!association.matched) {
         continue;
@@ -207,7 +207,7 @@ TEST(EsrCycleOutputBuilderTest, DebugViewMapsTruthAssociationsBackToNamedEmitter
   result.input_cycle_index = input.cycle_index;
   result.executed_this_cycle = true;
   result.output_frame.cycle_index = input.cycle_index;
-  ::electronic_surveillance_radar::extension::TruthAssociationRecord association;
+  ::electronic_surveillance_radar::session::TruthAssociationRecord association;
   association.observation_id = 9001U;
   association.truth_emitter_id = 101U;
   association.matched = true;
@@ -241,7 +241,7 @@ TEST(EsrCycleOutputBuilderTest, LifecycleRecorderTracksObservedLostAndOptionalNo
   first_result.input_cycle_index = input.cycle_index;
   first_result.executed_this_cycle = true;
   first_result.output_frame.cycle_index = input.cycle_index;
-  ::electronic_surveillance_radar::extension::TruthAssociationRecord association;
+  ::electronic_surveillance_radar::session::TruthAssociationRecord association;
   association.observation_id = 8001U;
   association.truth_emitter_id = 201U;
   association.matched = true;

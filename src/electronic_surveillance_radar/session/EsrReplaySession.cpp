@@ -48,15 +48,15 @@ bool EmitterHypothesisEqual(const model::EmitterHypothesis& left,
   return true;
 }
 
-bool TruthAssociationRecordEqual(const extension::TruthAssociationRecord& left,
-                                 const extension::TruthAssociationRecord& right) {
+bool TruthAssociationRecordEqual(const session::TruthAssociationRecord& left,
+                                 const session::TruthAssociationRecord& right) {
   return left.observation_id == right.observation_id &&
          left.truth_emitter_id == right.truth_emitter_id && left.matched == right.matched &&
          left.confidence == right.confidence;
 }
 
-bool ObservationOutputFrameEqual(const extension::ObservationOutputFrame& left,
-                                 const extension::ObservationOutputFrame& right) {
+bool ObservationOutputFrameEqual(const session::ObservationOutputFrame& left,
+                                 const session::ObservationOutputFrame& right) {
   if (left.raw_observation_count != right.raw_observation_count ||
       left.cluster_count != right.cluster_count ||
       left.observations.size() != right.observations.size()) {
@@ -70,8 +70,8 @@ bool ObservationOutputFrameEqual(const extension::ObservationOutputFrame& left,
   return true;
 }
 
-bool EmitterOutputFrameEqual(const extension::EmitterOutputFrame& left,
-                             const extension::EmitterOutputFrame& right) {
+bool EmitterOutputFrameEqual(const session::EmitterOutputFrame& left,
+                             const session::EmitterOutputFrame& right) {
   if (left.hypotheses.size() != right.hypotheses.size()) {
     return false;
   }
@@ -83,8 +83,8 @@ bool EmitterOutputFrameEqual(const extension::EmitterOutputFrame& left,
   return true;
 }
 
-bool TruthEvaluationFrameEqual(const extension::TruthEvaluationFrame& left,
-                               const extension::TruthEvaluationFrame& right) {
+bool TruthEvaluationFrameEqual(const session::TruthEvaluationFrame& left,
+                               const session::TruthEvaluationFrame& right) {
   if (left.associations.size() != right.associations.size()) {
     return false;
   }

@@ -42,7 +42,7 @@ struct ONEQ_API EsrOutputDebugView {
   bool executed_this_cycle{false};
   bool reused_previous_output{false};
   bool has_validation_error{false};
-  extension::EsrPipelineAbortReason abort_reason{extension::EsrPipelineAbortReason::kNone};
+  session::EsrPipelineAbortReason abort_reason{session::EsrPipelineAbortReason::kNone};
   std::vector<EsrDebugEmitterState> emitters{};
 };
 

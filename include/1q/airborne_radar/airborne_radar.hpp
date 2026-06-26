@@ -26,7 +26,6 @@
 #include "1q/airborne_radar/session/RadarExternalInputAdapter.h"
 #include "1q/airborne_radar/session/RadarExternalOutputAdapter.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
-#include "1q/airborne_radar/session/RadarSceneTargetUtils.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 

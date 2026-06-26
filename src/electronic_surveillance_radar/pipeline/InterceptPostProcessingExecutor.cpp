@@ -255,7 +255,7 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
   for (std::size_t i = 0; i < records.size(); ++i) {
     result.observation_output.observations.push_back(records[i].observation);
 
-    extension::TruthAssociationRecord association;
+    session::TruthAssociationRecord association;
     association.observation_id = records[i].observation.observation_id;
     association.truth_emitter_id = records[i].truth_emitter_id;
     association.matched = records[i].matched_truth && records[i].truth_emitter_id != 0U;
@@ -316,7 +316,7 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
     if (observed_truth_ids.find(scene_emitters[i].emitter_id) != observed_truth_ids.end()) {
       continue;
     }
-    extension::TruthAssociationRecord missed_association;
+    session::TruthAssociationRecord missed_association;
     missed_association.observation_id = 0U;
     missed_association.truth_emitter_id = scene_emitters[i].emitter_id;
     missed_association.matched = false;

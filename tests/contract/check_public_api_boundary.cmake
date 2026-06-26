@@ -65,8 +65,8 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/RadarExternalInputAdapter.h"
     "airborne_radar/session/RadarExternalOutputAdapter.h"
     "airborne_radar/session/RadarInputValidation.h"
+    "airborne_radar/session/RadarOutputTypes.h"
     "airborne_radar/session/RadarSceneTypes.h"
-    "airborne_radar/session/RadarSceneTargetUtils.h"
     "airborne_radar/session/RadarReplaySession.h"
     "airborne_radar/session/RadarTrackLifecycleRecorder.h"
     "airborne_radar/session/RadarTrackOutputDebugView.h"
@@ -130,6 +130,7 @@ set(EOS_SESSION_HEADERS
     "electro_optical_sensor/session/EosExternalOutputAdapter.h"
     "electro_optical_sensor/session/EosInputValidation.h"
     "electro_optical_sensor/session/EosOutputDebugView.h"
+    "electro_optical_sensor/session/EosOutputTypes.h"
     "electro_optical_sensor/session/EosSceneTypes.h"
     "electro_optical_sensor/session/EosSession.h"
     "electro_optical_sensor/session/EosSessionFactory.h"
@@ -166,7 +167,6 @@ set(ESR_ENVIRONMENT_HEADERS
 
 # ── ESR 扩展域 ────────────────────────────────────────────────────────
 set(ESR_EXTENSION_HEADERS
-    "electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 )
 
 # ── ESR 模型域 ────────────────────────────────────────────────────────
@@ -189,6 +189,7 @@ set(ESR_SESSION_HEADERS
     "electronic_surveillance_radar/session/EsrExternalOutputAdapter.h"
     "electronic_surveillance_radar/session/EsrInputValidation.h"
     "electronic_surveillance_radar/session/EsrOutputDebugView.h"
+    "electronic_surveillance_radar/session/EsrOutputTypes.h"
     "electronic_surveillance_radar/session/EsrSceneTypes.h"
     "electronic_surveillance_radar/session/EsrSession.h"
     "electronic_surveillance_radar/session/EsrSessionFactory.h"

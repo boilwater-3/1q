@@ -21,7 +21,7 @@ struct ONEQ_API EsrExternalOutputFrame {
   std::uint64_t batch_id{0U};                                /**< 当前批次号 */
   EsrExternalObservationList observations{};                 /**< 外部观测输出 */
   EsrExternalEmitterHypothesisList hypotheses{};             /**< 外部假设输出 */
-  extension::TruthEvaluationFrame truth_evaluation_output{}; /**< 真值评估输出通道 */
+  session::TruthEvaluationFrame truth_evaluation_output{}; /**< 真值评估输出通道 */
 };
 
 /**

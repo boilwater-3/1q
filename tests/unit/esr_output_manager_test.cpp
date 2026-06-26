@@ -41,9 +41,9 @@ model::EmitterHypothesis MakeHypothesis(std::uint64_t hypothesis_id, float confi
   return hypothesis;
 }
 
-extension::TruthAssociationRecord MakeAssociation(std::uint64_t observation_id,
+session::TruthAssociationRecord MakeAssociation(std::uint64_t observation_id,
                                                std::uint64_t truth_emitter_id, bool matched) {
-  extension::TruthAssociationRecord association;
+  session::TruthAssociationRecord association;
   association.observation_id = observation_id;
   association.truth_emitter_id = truth_emitter_id;
   association.matched = matched;

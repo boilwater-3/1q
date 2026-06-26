@@ -1,6 +1,10 @@
 /**
  * @file EsrEnvironmentConfig.h
- * @brief ESR 环境配置聚合别名（真源位于 environment 层）。
+ * @brief ESR 环境配置便利别名入口——真源定义位于 environment/EsrEnvironmentConfig.h。
+ *
+ * 本文件专为 config 命名空间使用者提供便利，将 environment:: 下的环境类型以
+ * using 声明聚合到 config:: 命名空间，避免 config 层代码跨子目录引用。
+ * 不引入新类型定义，所有 using 别名在契约测试中验证与真源类型等价。
  */
 
 #ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_ENVIRONMENT_CONFIG_H_

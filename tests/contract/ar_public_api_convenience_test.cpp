@@ -19,7 +19,6 @@
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarExternalInputAdapter.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
-#include "1q/airborne_radar/session/RadarSceneTargetUtils.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
@@ -37,22 +36,6 @@ namespace {
 using SceneTarget = session::RadarSceneTarget;
 using SceneTargetList = session::RadarSceneTargetList;
 
-SceneTarget CloneSceneTarget(const session::RadarSceneTarget& target) {
-  SceneTarget out;
-  out.external_target_id = target.external_target_id;
-  out.velocity_x = target.velocity_x;
-  out.velocity_y = target.velocity_y;
-  out.velocity_z = target.velocity_z;
-  out.rcs = target.rcs;
-  out.range_m = target.range_m;
-
-  out.position_x = target.position_x;
-  out.position_y = target.position_y;
-  out.position_z = target.position_z;
-  out.target_swerling_type = target.target_swerling_type;
-  return out;
-}
-
 float ComputeNorm3(float x, float y, float z) { return std::sqrt(x * x + y * y + z * z); }
 
 }  // namespace
@@ -61,24 +44,32 @@ SceneTarget MakeTargetFromCartesian(std::uint64_t external_target_id, float posi
                                     float position_y, float position_z, float velocity_x,
                                     float velocity_y, float velocity_z, float rcs,
                                     int swerling_type = 0) {
-  return CloneSceneTarget(session::MakeSceneTarget(external_target_id, position_x, position_y,
-                                                   position_z, velocity_x, velocity_y, velocity_z,
-                                                   rcs, swerling_type));
+  SceneTarget target;
+  target.external_target_id = external_target_id;
+  target.position_x = position_x;
+  target.position_y = position_y;
+  target.position_z = position_z;
+  target.velocity_x = velocity_x;
+  target.velocity_y = velocity_y;
+  target.velocity_z = velocity_z;
+  target.rcs = rcs;
+  target.target_swerling_type = swerling_type;
+  target.range_m = ComputeNorm3(position_x, position_y, position_z);
+  return target;
 }
 
 SceneTarget MakeGroundTarget(std::uint64_t external_target_id, float position_x, float position_y,
                              float rcs = 1.0f, float velocity_x = 0.0f, float velocity_y = 0.0f,
                              int swerling_type = 0) {
-  return CloneSceneTarget(session::MakeGroundSceneTarget(
-      external_target_id, position_x, position_y, rcs, velocity_x, velocity_y, swerling_type));
+  return MakeTargetFromCartesian(external_target_id, position_x, position_y, 0.0f, velocity_x,
+                                 velocity_y, 0.0f, rcs, swerling_type);
 }
 
 SceneTarget MakeAirTarget(std::uint64_t external_target_id, float position_x, float position_y,
                           float position_z, float velocity_x, float velocity_y, float velocity_z,
                           float rcs = 1.0f, int swerling_type = 0) {
-  return CloneSceneTarget(session::MakeAirSceneTarget(external_target_id, position_x, position_y,
-                                                      position_z, velocity_x, velocity_y,
-                                                      velocity_z, rcs, swerling_type));
+  return MakeTargetFromCartesian(external_target_id, position_x, position_y, position_z, velocity_x,
+                                 velocity_y, velocity_z, rcs, swerling_type);
 }
 
 void NormalizeTargetGeometry(SceneTarget* target) {
@@ -86,6 +77,9 @@ void NormalizeTargetGeometry(SceneTarget* target) {
     return;
   }
   if (target->range_m > 0.0f) {
+    return;
+  }
+  if (target->position_x == 0.0f && target->position_y == 0.0f && target->position_z == 0.0f) {
     return;
   }
   target->range_m = ComputeNorm3(target->position_x, target->position_y, target->position_z);

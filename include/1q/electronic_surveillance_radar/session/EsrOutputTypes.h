@@ -1,10 +1,10 @@
 /**
- * @file InterceptPipelineTypes.h
+ * @file EsrOutputTypes.h
  * @brief 定义电子侦察公共输出通道与周期终止原因类型。
  */
 
-#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_EXTENSION_INTERCEPT_PIPELINE_TYPES_H_
-#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_EXTENSION_INTERCEPT_PIPELINE_TYPES_H_
+#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_OUTPUT_TYPES_H_
+#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_OUTPUT_TYPES_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -16,7 +16,7 @@
 #include "1q/electronic_surveillance_radar/model/EmitterObservation.h"
 
 namespace electronic_surveillance_radar {
-namespace extension {
+namespace session {
 
 /**
  * @brief TruthAssociationRecord 表示观测记录与真值辐射源的评估关联。
@@ -64,7 +64,7 @@ enum class EsrPipelineAbortReason {
   kOutputContractViolation      /**< 下游计算返回的契约非法或状态错乱 */
 };
 
-}  // namespace extension
+}  // namespace session
 }  // namespace electronic_surveillance_radar
 
-#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_EXTENSION_INTERCEPT_PIPELINE_TYPES_H_
+#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SESSION_ESR_OUTPUT_TYPES_H_

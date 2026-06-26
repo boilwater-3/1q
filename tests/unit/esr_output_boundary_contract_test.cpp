@@ -35,7 +35,7 @@
 
 namespace {
 
-namespace esr_ext = ::electronic_surveillance_radar::extension;
+namespace esr_ext = ::electronic_surveillance_radar::session;
 namespace esr_model = ::electronic_surveillance_radar::model;
 namespace esr_session = ::electronic_surveillance_radar::session;
 namespace esr_config = ::electronic_surveillance_radar::config;

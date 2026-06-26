@@ -15,9 +15,9 @@ struct EmitterState {
   std::string emitter_name{};
 };
 
-const extension::TruthAssociationRecord* FindAssociation(
-    std::uint64_t emitter_id, const extension::TruthEvaluationFrame& frame) {
-  for (const extension::TruthAssociationRecord& association : frame.associations) {
+const session::TruthAssociationRecord* FindAssociation(
+    std::uint64_t emitter_id, const session::TruthEvaluationFrame& frame) {
+  for (const session::TruthAssociationRecord& association : frame.associations) {
     if (association.matched && association.truth_emitter_id == emitter_id) {
       return &association;
     }
@@ -68,7 +68,7 @@ std::vector<EsrEmitterLifecycleEvent> EsrEmitterLifecycleRecorder::Update(const 
   events.reserve(input.scene.size());
   for (const EsrSceneEmitter& emitter : input.scene) {
     EmitterState& state = impl_->states[emitter.emitter_id];
-    const extension::TruthAssociationRecord* association =
+    const session::TruthAssociationRecord* association =
         FindAssociation(emitter.emitter_id, result.output_frame.truth_evaluation_output);
     const bool observed_now = result.executed_this_cycle && association != nullptr;
     if (observed_now) {

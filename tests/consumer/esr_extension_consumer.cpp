@@ -10,7 +10,7 @@
  * 注：环境服务与控制器已内部化，不再支持外部注入；本 consumer 仅验证安装后公共面可达。
  */
 
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/session/EsrOutputTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
@@ -54,8 +54,8 @@ int main() {
   (void)issues.size();
 
   // 6. EsrPipelineAbortReason accessible
-  electronic_surveillance_radar::extension::EsrPipelineAbortReason abort_reason{
-      electronic_surveillance_radar::extension::EsrPipelineAbortReason::kNone};
+  electronic_surveillance_radar::session::EsrPipelineAbortReason abort_reason{
+      electronic_surveillance_radar::session::EsrPipelineAbortReason::kNone};
   (void)abort_reason;
 
   return 0;

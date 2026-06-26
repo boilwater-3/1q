@@ -32,8 +32,8 @@ struct EsrControllerRuntimeState {
   session::ValidationIssueList last_validation_issues{};
   std::uint64_t next_batch_id{0U};
   bool last_cycle_executed{false};
-  extension::EsrPipelineAbortReason last_abort_reason{
-      extension::EsrPipelineAbortReason::kNone};
+  session::EsrPipelineAbortReason last_abort_reason{
+      session::EsrPipelineAbortReason::kNone};
   extension::InterceptPipelineRuntimeState pipeline_state{};
 };
 
@@ -96,7 +96,7 @@ class EsrController {
    * @brief 最近一次 RunOnce 的周期终止原因。
    * @return 周期终止原因。
    */
-  extension::EsrPipelineAbortReason GetLastInterceptCycleAbortReason() const;
+  session::EsrPipelineAbortReason GetLastInterceptCycleAbortReason() const;
 
   /**
    * @brief 捕获当前控制器运行态快照（含流水线快照）。
