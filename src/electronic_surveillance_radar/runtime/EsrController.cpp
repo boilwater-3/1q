@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+#include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "common/logging/ProjectLog.h"

@@ -3,10 +3,11 @@
  * @brief 验证安装后 ESR 扩展接口可被外部工程实现并访问。
  *
  * 覆盖要点：
- *   - IEsrEnvironmentService 自定义实现，并通过 EsrSessionFactory 注入默认管线
  *   - EsrPipelineAbortReason 公共结果类型可达
  *   - EsrSession 构建、Step、StepWithResult、ApplyRuntimeConfig
  *   - GetLastValidationIssues 字段可访问
+ *
+ * 注：环境服务与控制器已内部化，不再支持外部注入；本 consumer 仅验证安装后公共面可达。
  */
 
 #include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
@@ -16,38 +17,11 @@
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
-#include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
-
-namespace electronic_surveillance_radar {
-namespace {
-
-class DummyEsrEnvironmentService : public environment::IEsrEnvironmentService {
- public:
-  void BeginCycle(const environment::EsrEnvironmentCycleContext& cycle_context) override {
-    snapshot_.cycle_index = cycle_context.cycle_index;
-    snapshot_.dt_sec = cycle_context.dt_sec;
-  }
-
-  environment::EsrEnvironmentSnapshot SampleEnvironment() const override { return snapshot_; }
-
-  void UpdateModelConfig(environment::EsrEnvironmentScenarioConfig config) override {
-    model_config_ = config;
-  }
-
- private:
-  environment::EsrEnvironmentSnapshot snapshot_{};
-  environment::EsrEnvironmentScenarioConfig model_config_{};
-};
-
-}  // namespace
-}  // namespace electronic_surveillance_radar
 
 int main() {
-  // 1. Custom environment service with session factory
-  electronic_surveillance_radar::DummyEsrEnvironmentService environment_service;
+  // 1. Default session assembly
   electronic_surveillance_radar::session::EsrSession session =
-      electronic_surveillance_radar::session::EsrSessionFactory::CreateWithEnvironmentService(
-          {}, environment_service);
+      electronic_surveillance_radar::session::EsrSessionFactory::Create({});
 
   // 2. StepWithResult
   electronic_surveillance_radar::session::EsrCycleInput input;

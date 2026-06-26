@@ -161,7 +161,6 @@ set(ESR_ENVIRONMENT_HEADERS
     "electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
     "electronic_surveillance_radar/environment/EsrEnvironmentSceneBuilder.h"
     "electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
-    "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
     "electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp"
 )
 

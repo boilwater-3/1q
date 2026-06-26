@@ -10,12 +10,6 @@
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
 namespace electronic_surveillance_radar {
-namespace environment {
-class IEsrEnvironmentService;
-}
-}  // namespace electronic_surveillance_radar
-
-namespace electronic_surveillance_radar {
 namespace session {
 
 /**
@@ -29,15 +23,6 @@ class ONEQ_API EsrSessionFactory {
    * @return 新创建的 EsrSession。
    */
   static EsrSession Create(const config::EsrSessionConfig& config = {});
-
-  /**
-   * @brief 使用外部环境服务创建会话。
-   * @param config 会话配置。
-   * @param environment_service 外部提供的环境服务。
-   * @return 新创建的 EsrSession。
-   */
-  static EsrSession CreateWithEnvironmentService(
-      const config::EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service);
 };
 
 }  // namespace session

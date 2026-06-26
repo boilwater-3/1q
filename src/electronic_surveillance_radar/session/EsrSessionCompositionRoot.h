@@ -12,6 +12,9 @@
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 
 namespace electronic_surveillance_radar {
+namespace environment {
+class IEsrEnvironmentService;
+}
 namespace extension {
 class EsrController;
 }
@@ -41,9 +44,6 @@ struct EsrSessionComposition {
 class EsrSessionCompositionRoot {
  public:
   static EsrSessionComposition ComposeDefault(const config::EsrSessionConfig& config);
-
-  static EsrSessionComposition ComposeWithEnvironmentService(
-      const config::EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service);
 };
 
 }  // namespace session

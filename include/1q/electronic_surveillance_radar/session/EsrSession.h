@@ -16,12 +16,6 @@
 #include "1q/foundation/SensorContract.h"
 
 namespace electronic_surveillance_radar {
-namespace environment {
-class IEsrEnvironmentService;
-}
-}  // namespace electronic_surveillance_radar
-
-namespace electronic_surveillance_radar {
 namespace session {
 
 /**

@@ -1,6 +1,6 @@
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
-#include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+#include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "electronic_surveillance_radar/runtime/EsrController.h"
 #include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
@@ -128,13 +128,6 @@ EsrRuntimeConfigApplyResult EsrSession::ApplyRuntimeConfigWithResult(
 EsrSession EsrSessionFactory::Create(const config::EsrSessionConfig& config) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeDefault(config))));
-}
-
-EsrSession EsrSessionFactory::CreateWithEnvironmentService(
-    const config::EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service_ref) {
-  return EsrSession(std::unique_ptr<EsrSession::Impl>(
-      new EsrSession::Impl(EsrSessionCompositionRoot::ComposeWithEnvironmentService(
-          config, environment_service_ref))));
 }
 
 }  // namespace session
