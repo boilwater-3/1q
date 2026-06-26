@@ -121,14 +121,14 @@ TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleSemanticEditorsApplyCorr
 }
 
 TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
-  model::AzimuthElevationDeg scan_center;
+  config::AzimuthElevationDeg scan_center;
   scan_center.az_deg = 8.0f;
   scan_center.el_deg = -2.0f;
 
   const auto config =
       config::RadarSessionConfigBuilder()
           .Mission()
-          .WithWorkMode(model::RadarWorkMode::kTas)
+          .WithWorkMode(config::RadarWorkMode::kTas)
           .WithScanCenterDeg(scan_center)
           .End()
           .Environment()
@@ -136,7 +136,7 @@ TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
           .End()
           .Build();
 
-  EXPECT_EQ(config.mission.orientation.work_mode, model::RadarWorkMode::kTas);
+  EXPECT_EQ(config.mission.orientation.work_mode, config::RadarWorkMode::kTas);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, 8.0f);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.el_deg, -2.0f);
   EXPECT_EQ(config.environment.jamming_sensitivity_profile, config::JammingSensitivityProfile::kStrict);
@@ -155,21 +155,21 @@ TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
 }
 
 TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValues) {
-  model::AzimuthElevationDeg scan_center;
+  config::AzimuthElevationDeg scan_center;
   scan_center.az_deg = 12.0f;
   scan_center.el_deg = -3.0f;
 
-  model::AzimuthElevationDeg dwell_center;
+  config::AzimuthElevationDeg dwell_center;
   dwell_center.az_deg = 5.0f;
   dwell_center.el_deg = 2.0f;
 
-  model::CommandedBeamwidthDeg commanded_beamwidth;
+  config::CommandedBeamwidthDeg commanded_beamwidth;
   commanded_beamwidth.commanded_az_beamwidth_deg = 2.5f;
   commanded_beamwidth.commanded_el_beamwidth_deg = 2.0f;
 
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
-          .WithWorkMode(model::RadarWorkMode::kStt)
+          .WithWorkMode(config::RadarWorkMode::kStt)
           .WithScanCenterDeg(scan_center)
           .WithDwellCenterDeg(dwell_center)
           .WithCommandedBeamwidthDeg(commanded_beamwidth)
@@ -178,7 +178,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
           .Build();
 
   EXPECT_TRUE(patch.has_work_mode);
-  EXPECT_EQ(patch.work_mode, model::RadarWorkMode::kStt);
+  EXPECT_EQ(patch.work_mode, config::RadarWorkMode::kStt);
   EXPECT_TRUE(patch.has_scan_center_deg);
   EXPECT_FLOAT_EQ(patch.scan_center_deg.az_deg, 12.0f);
   EXPECT_FLOAT_EQ(patch.scan_center_deg.el_deg, -3.0f);
@@ -202,7 +202,7 @@ TEST(RadarSessionConfigBuilderTest, WithRuntimeConfigPatchOverridesWholePatch) {
   // 先用链式逐字段构造一份补丁
   const config::RadarRuntimeConfigPatch seed =
       config::RadarRuntimeConfigBuilder()
-          .WithWorkMode(model::RadarWorkMode::kStt)
+          .WithWorkMode(config::RadarWorkMode::kStt)
           .WithSensorEnabled(true)
           .Build();
   ASSERT_TRUE(seed.has_work_mode);
@@ -211,12 +211,12 @@ TEST(RadarSessionConfigBuilderTest, WithRuntimeConfigPatchOverridesWholePatch) {
   // 再用 WithRuntimeConfigPatch 整块覆盖到一个新 builder，验证整块替换语义
   config::RadarRuntimeConfigPatch whole;
   whole.has_work_mode = true;
-  whole.work_mode = model::RadarWorkMode::kTas;
+  whole.work_mode = config::RadarWorkMode::kTas;
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder().WithRuntimeConfigPatch(whole).Build();
 
   EXPECT_TRUE(patch.has_work_mode);
-  EXPECT_EQ(patch.work_mode, model::RadarWorkMode::kTas);
+  EXPECT_EQ(patch.work_mode, config::RadarWorkMode::kTas);
   // 整块覆盖应清空 seed 里的 sensor_enabled（WithRuntimeConfigPatch 是替换不是合并）
   EXPECT_FALSE(patch.has_sensor_enabled);
 }
@@ -227,7 +227,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
 
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
-          .WithWorkMode(model::RadarWorkMode::kTas)
+          .WithWorkMode(config::RadarWorkMode::kTas)
           .WithCommandedBeamwidthEnabled(true)
           .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
           .Build();
@@ -250,7 +250,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   detailed_config.hardware.transmitter.prf_hz = 500.0f;
   detailed_config.hardware.antenna.main_beam_gain_db = 38.0f;
   detailed_config.hardware.receiver.noise_figure_db = 3.5f;
-  detailed_config.mission.orientation.work_mode = model::RadarWorkMode::kTas;
+  detailed_config.mission.orientation.work_mode = config::RadarWorkMode::kTas;
   detailed_config.policy.tracking.enable_kalman_filter = true;
   detailed_config.policy.tracking.kalman_measurement_noise_std = 7.5f;
   detailed_config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
@@ -263,7 +263,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   EXPECT_TRUE(detailed_config.hardware.enable_physics_detection);
   EXPECT_FLOAT_EQ(detailed_config.hardware.transmitter.peak_power_w, 5.0e6f);
   EXPECT_FLOAT_EQ(detailed_config.hardware.transmitter.frequency_hz, 9.3e9f);
-  EXPECT_EQ(detailed_config.mission.orientation.work_mode, model::RadarWorkMode::kTas);
+  EXPECT_EQ(detailed_config.mission.orientation.work_mode, config::RadarWorkMode::kTas);
   EXPECT_FLOAT_EQ(detailed_config.policy.tracking.kalman_measurement_noise_std, 7.5f);
   EXPECT_EQ(detailed_config.policy.tracking.kalman_update_backend,
             config::KalmanUpdateBackend::kUdKf);
@@ -286,10 +286,10 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuiltConfigCanConstructRadarSession)
 }
 
 TEST(RadarSessionConfigBuilderTest, DetailedBeamSchedulerWritesPolicyPath) {
-  model::AzimuthElevationDeg default_scan_center;
+  config::AzimuthElevationDeg default_scan_center;
   default_scan_center.az_deg = 6.0f;
   default_scan_center.el_deg = -1.5f;
-  model::CommandedBeamwidthDeg nominal_beamwidth;
+  config::CommandedBeamwidthDeg nominal_beamwidth;
   nominal_beamwidth.commanded_az_beamwidth_deg = 2.5f;
   nominal_beamwidth.commanded_el_beamwidth_deg = 1.5f;
 

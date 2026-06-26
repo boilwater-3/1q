@@ -21,8 +21,11 @@ class IEnvironmentService;
 namespace session {
 class MutableRadarContext;
 }
-namespace extension {
+namespace session {
 class ITacticalDecisionEngine;
+}  // namespace session
+
+namespace extension {
 
 struct RadarControllerRuntimeState {
   const void* owner_identity{nullptr};
@@ -33,7 +36,7 @@ struct RadarControllerRuntimeState {
   std::uint64_t next_batch_id{1U};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
-  SignalCycleAbortReason last_signal_abort_reason{SignalCycleAbortReason::kNone};
+  session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
   SignalPipelineRuntimeState signal_pipeline_state{};
 };
 }  // namespace extension
@@ -70,7 +73,7 @@ class RadarController {
    */
   RadarController(session::MutableRadarContext& radar_context,
                   extension::ISignalPipeline& signal_pipeline,
-                  extension::ITacticalDecisionEngine& decision_engine,
+                  session::ITacticalDecisionEngine& decision_engine,
                   environment::IEnvironmentService& environment_service);
 
   /** @brief 执行一次雷达处理循环 */
@@ -121,7 +124,7 @@ class RadarController {
   /**
    * @brief 最近一次 RunOnce 若未执行成功，返回 signal pipeline 的 abort 原因。
    */
-  SignalCycleAbortReason GetLastSignalCycleAbortReason() const;
+  session::SignalCycleAbortReason GetLastSignalCycleAbortReason() const;
 
   /**
    * @brief 捕获当前控制器运行态快照。

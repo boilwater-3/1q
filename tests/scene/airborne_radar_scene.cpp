@@ -12,7 +12,7 @@ namespace ar = airborne_radar;
 namespace ar_session = airborne_radar::session;
 namespace ar_config = airborne_radar::config;
 namespace ar_env = airborne_radar::config;
-namespace ar_model = airborne_radar::model;
+namespace ar_model = airborne_radar::session;
 
 namespace {
 
@@ -159,10 +159,10 @@ ar_session::RadarCycleResult Step(SceneState& s, float dt) {
             << " tracks=" << result.track_output_frame.tracks.size()
             << " confirmed="
             << ar_session::CountTracksByStatus(result.track_output_frame,
-                                               ar_model::TrackStatus::kConfirmed)
+                                               ar_session::TrackStatus::kConfirmed)
             << " tentative="
             << ar_session::CountTracksByStatus(result.track_output_frame,
-                                               ar_model::TrackStatus::kTentative)
+                                               ar_session::TrackStatus::kTentative)
             << " commands=" << result.submitted_commands.size()
             << " validation_errors=" << (result.has_validation_error ? "true" : "false")
             << "\n";

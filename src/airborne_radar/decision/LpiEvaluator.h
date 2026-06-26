@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "airborne_radar/decision/LpiSourceInfo.h"
 
 namespace airborne_radar {
@@ -39,7 +39,7 @@ class LpiEvaluator final {
    * @return 本评估周期的 LPI 评估结果
    */
   Result Evaluate(const model::LpiSourceInfo& lpi_source_info,
-                  std::vector<extension::TacticalProposal>* proposals);
+                  std::vector<session::TacticalProposal>* proposals);
 
  private:
   /**

@@ -14,8 +14,8 @@ namespace {
  * @param rhs 右侧 proposal。
  * @return 左侧优先级更高时返回 true。
  */
-bool CompareProposalPriority(const extension::TacticalProposal& lhs,
-                            const extension::TacticalProposal& rhs) {
+bool CompareProposalPriority(const session::TacticalProposal& lhs,
+                            const session::TacticalProposal& rhs) {
   return lhs.priority > rhs.priority;
 }
 /**
@@ -23,18 +23,18 @@ bool CompareProposalPriority(const extension::TacticalProposal& lhs,
  * @param type 控制意图类型。
  * @return 属于 LPI 域时返回 true。
  */
-bool IsLpiDirective(extension::control::ControlDirectiveType type) {
+bool IsLpiDirective(session::ControlDirectiveType type) {
   switch (type) {
-    case extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
-    case extension::control::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
-    case extension::control::ControlDirectiveType::REQUEST_LPI_DWELL:
+    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
+    case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
       return true;
-    case extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
-    case extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
-    case extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
-    case extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER:
-    case extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
-    case extension::control::ControlDirectiveType::NONE:
+    case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
+    case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
+    case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
+    case session::ControlDirectiveType::NONE:
     default:
       return false;
   }
@@ -44,18 +44,18 @@ bool IsLpiDirective(extension::control::ControlDirectiveType type) {
  * @param type 控制意图类型。
  * @return 属于 ECCM 域时返回 true。
  */
-bool IsEccmDirective(extension::control::ControlDirectiveType type) {
+bool IsEccmDirective(session::ControlDirectiveType type) {
   switch (type) {
-    case extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
-    case extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
-    case extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
-    case extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER:
-    case extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
+    case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
+    case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
+    case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
       return true;
-    case extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
-    case extension::control::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
-    case extension::control::ControlDirectiveType::REQUEST_LPI_DWELL:
-    case extension::control::ControlDirectiveType::NONE:
+    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
+    case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
+    case session::ControlDirectiveType::NONE:
     default:
       return false;
   }
@@ -65,7 +65,7 @@ bool IsEccmDirective(extension::control::ControlDirectiveType type) {
  * @param profile 当前控制真值。
  * @return LPI 任一子域生效时返回 true。
  */
-bool IsLpiDomainActive(const extension::control::RadarControlProfile& profile) {
+bool IsLpiDomainActive(const session::RadarControlProfile& profile) {
   return profile.enable_lpi_power_control || profile.enable_lpi_beamforming ||
          profile.lpi_dwell_scale != 1.0f;
 }
@@ -74,7 +74,7 @@ bool IsLpiDomainActive(const extension::control::RadarControlProfile& profile) {
  * @param profile 当前控制真值。
  * @return ECCM 任一子域生效时返回 true。
  */
-bool IsEccmDomainActive(const extension::control::RadarControlProfile& profile) {
+bool IsEccmDomainActive(const session::RadarControlProfile& profile) {
   return profile.enable_agility_frequency || profile.enable_sidelobe_canceller ||
          profile.enable_adaptive_beamforming || profile.enable_eccm_rejitter ||
          profile.eccm_burnthrough_gain > 1.0f;
@@ -83,7 +83,7 @@ bool IsEccmDomainActive(const extension::control::RadarControlProfile& profile) 
  * @brief 将控制真值中的 LPI 域恢复为默认关闭态。
  * @param profile 待修改的控制真值。
  */
-void ResetLpiDomain(extension::control::RadarControlProfile* profile) {
+void ResetLpiDomain(session::RadarControlProfile* profile) {
   if (profile == nullptr) {
     return;
   }
@@ -96,7 +96,7 @@ void ResetLpiDomain(extension::control::RadarControlProfile* profile) {
  * @brief 将控制真值中的 ECCM 域恢复为默认关闭态。
  * @param profile 待修改的控制真值。
  */
-void ResetEccmDomain(extension::control::RadarControlProfile* profile) {
+void ResetEccmDomain(session::RadarControlProfile* profile) {
   if (profile == nullptr) {
     return;
   }
@@ -113,8 +113,8 @@ void ResetEccmDomain(extension::control::RadarControlProfile* profile) {
  * @param from 源控制真值。
  * @param to 目标控制真值。
  */
-void CopyLpiDomain(const extension::control::RadarControlProfile& from,
-                   extension::control::RadarControlProfile* to) {
+void CopyLpiDomain(const session::RadarControlProfile& from,
+                   session::RadarControlProfile* to) {
   if (to == nullptr) {
     return;
   }
@@ -129,8 +129,8 @@ void CopyLpiDomain(const extension::control::RadarControlProfile& from,
  * @param from 源控制真值。
  * @param to 目标控制真值。
  */
-void CopyEccmDomain(const extension::control::RadarControlProfile& from,
-                    extension::control::RadarControlProfile* to) {
+void CopyEccmDomain(const session::RadarControlProfile& from,
+                    session::RadarControlProfile* to) {
   if (to == nullptr) {
     return;
   }
@@ -147,8 +147,8 @@ void CopyEccmDomain(const extension::control::RadarControlProfile& from,
  * @param previous 上一周期控制真值。
  * @param next 当前周期候选控制真值。
  */
-void AdvanceAgilityFrequencyHopPhase(const extension::control::RadarControlProfile& previous,
-                                     extension::control::RadarControlProfile* next) {
+void AdvanceAgilityFrequencyHopPhase(const session::RadarControlProfile& previous,
+                                     session::RadarControlProfile* next) {
   if (next == nullptr || !next->enable_agility_frequency) {
     if (next != nullptr) {
       next->agility_frequency_hop_phase = 0U;
@@ -172,49 +172,49 @@ void AdvanceAgilityFrequencyHopPhase(const extension::control::RadarControlProfi
  * @param rejected 已拒绝的控制意图列表。
  */
 void ApplyDirectiveToProfile(const extension::ControlReducerConfig& config,
-                             const extension::control::ControlDirective& directive,
-                             extension::control::RadarControlProfile* profile,
-                             std::vector<extension::control::ControlDirective>* applied,
-                             std::vector<extension::control::ControlDirective>* rejected) {
+                             const session::ControlDirective& directive,
+                             session::RadarControlProfile* profile,
+                             std::vector<session::ControlDirective>* applied,
+                             std::vector<session::ControlDirective>* rejected) {
   if (profile == nullptr || applied == nullptr || rejected == nullptr) {
     return;
   }
 
   switch (directive.type) {
-    case extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
+    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
       profile->enable_lpi_power_control = true;
       profile->lpi_power_scale = config.lpi_power_scale_on_reduction;
       applied->push_back(directive);
       break;
-    case extension::control::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
       profile->enable_lpi_beamforming = true;
       applied->push_back(directive);
       break;
-    case extension::control::ControlDirectiveType::REQUEST_LPI_DWELL:
+    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
       profile->lpi_dwell_scale = config.lpi_dwell_scale;
       applied->push_back(directive);
       break;
-    case extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
+    case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
       profile->enable_sidelobe_canceller = true;
       applied->push_back(directive);
       break;
-    case extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
       profile->enable_adaptive_beamforming = true;
       applied->push_back(directive);
       break;
-    case extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
+    case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
       profile->enable_agility_frequency = true;
       applied->push_back(directive);
       break;
-    case extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+    case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
       profile->enable_eccm_rejitter = true;
       applied->push_back(directive);
       break;
-    case extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
+    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
       profile->eccm_burnthrough_gain = config.eccm_burnthrough_gain;
       applied->push_back(directive);
       break;
-    case extension::control::ControlDirectiveType::NONE:
+    case session::ControlDirectiveType::NONE:
     default:
       rejected->push_back(directive);
       break;
@@ -227,14 +227,14 @@ void ApplyDirectiveToProfile(const extension::ControlReducerConfig& config,
  * @param applied 已接受的控制意图列表。
  * @param rejected 已拒绝的控制意图列表。
  */
-void MoveAppliedDirectiveToRejected(extension::control::ControlDirectiveType type,
-                                    std::vector<extension::control::ControlDirective>* applied,
-                                    std::vector<extension::control::ControlDirective>* rejected) {
+void MoveAppliedDirectiveToRejected(session::ControlDirectiveType type,
+                                    std::vector<session::ControlDirective>* applied,
+                                    std::vector<session::ControlDirective>* rejected) {
   if (applied == nullptr || rejected == nullptr) {
     return;
   }
-  std::vector<extension::control::ControlDirective>::iterator found = std::find_if(
-      applied->begin(), applied->end(), [type](const extension::control::ControlDirective& directive) {
+  std::vector<session::ControlDirective>::iterator found = std::find_if(
+      applied->begin(), applied->end(), [type](const session::ControlDirective& directive) {
         return directive.type == type;
       });
   if (found == applied->end()) {
@@ -252,9 +252,9 @@ void MoveAppliedDirectiveToRejected(extension::control::ControlDirectiveType typ
  * @param rejected 已拒绝的控制意图列表。
  */
 void ResolveEmissionSurvivabilityConflict(
-    const extension::ControlReducerConfig& config, extension::control::RadarControlProfile* profile,
-    std::vector<extension::control::ControlDirective>* applied,
-    std::vector<extension::control::ControlDirective>* rejected) {
+    const extension::ControlReducerConfig& config, session::RadarControlProfile* profile,
+    std::vector<session::ControlDirective>* applied,
+    std::vector<session::ControlDirective>* rejected) {
   if (profile == nullptr) {
     return;
   }
@@ -270,12 +270,12 @@ void ResolveEmissionSurvivabilityConflict(
   if (profile->enable_lpi_beamforming && profile->enable_adaptive_beamforming) {
     if (config.prefer_survivability_in_beam_conflict) {
       profile->enable_lpi_beamforming = false;
-      MoveAppliedDirectiveToRejected(extension::control::ControlDirectiveType::REQUEST_LPI_BEAMFORMING,
+      MoveAppliedDirectiveToRejected(session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING,
                                      applied, rejected);
     } else {
       profile->enable_adaptive_beamforming = false;
       MoveAppliedDirectiveToRejected(
-          extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING, applied,
+          session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING, applied,
           rejected);
     }
   }
@@ -287,8 +287,8 @@ void ResolveEmissionSurvivabilityConflict(
  * @param next 当前周期控制真值。
  * @return 任一运行时控制字段发生变化时返回 true。
  */
-bool HasOperationalProfileChanged(const extension::control::RadarControlProfile& previous,
-                                  const extension::control::RadarControlProfile& next) {
+bool HasOperationalProfileChanged(const session::RadarControlProfile& previous,
+                                  const session::RadarControlProfile& next) {
   return previous.enable_lpi_power_control != next.enable_lpi_power_control ||
          previous.lpi_power_scale != next.lpi_power_scale ||
          previous.enable_lpi_beamforming != next.enable_lpi_beamforming ||
@@ -318,12 +318,12 @@ ControlReducerRuntimeState ControlReducer::GetRuntimeState() const {
 }
 
 extension::ControlReductionResult ControlReducer::Reduce(
-    const extension::control::RadarControlProfile& previous_profile,
-    const std::vector<extension::TacticalProposal>& proposals) {
+    const session::RadarControlProfile& previous_profile,
+    const std::vector<session::TacticalProposal>& proposals) {
   extension::ControlReductionResult result;
   result.profile = previous_profile;
-  extension::control::RadarControlProfile next_profile = previous_profile;
-  std::vector<extension::TacticalProposal> sorted_proposals = proposals;
+  session::RadarControlProfile next_profile = previous_profile;
+  std::vector<session::TacticalProposal> sorted_proposals = proposals;
   std::stable_sort(sorted_proposals.begin(), sorted_proposals.end(), CompareProposalPriority);
 
   const bool previous_lpi_active = IsLpiDomainActive(previous_profile);
@@ -333,12 +333,12 @@ extension::ControlReductionResult ControlReducer::Reduce(
   std::uint32_t next_lpi_cooldown = lpi_cooldown_cycles_remaining_;
   std::uint32_t next_eccm_cooldown = eccm_cooldown_cycles_remaining_;
 
-  std::set<extension::control::ControlDirectiveType> applied_types;
-  std::vector<extension::control::ControlDirective> accepted_directives;
+  std::set<session::ControlDirectiveType> applied_types;
+  std::vector<session::ControlDirective> accepted_directives;
   bool has_lpi_requests = false;
   bool has_eccm_requests = false;
   for (std::size_t i = 0; i < sorted_proposals.size(); ++i) {
-    const extension::control::ControlDirective& directive = sorted_proposals[i].directive;
+    const session::ControlDirective& directive = sorted_proposals[i].directive;
     if (applied_types.find(directive.type) != applied_types.end()) {
       result.rejected_directives.push_back(directive);
       continue;

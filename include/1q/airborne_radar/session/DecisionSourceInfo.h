@@ -11,7 +11,7 @@
 #include "1q/api.hpp"
 
 namespace airborne_radar {
-namespace model {
+namespace session {
 
 /**
  * @brief JammingTechnique 表示供决策层消费的干扰技术类型。
@@ -67,7 +67,7 @@ struct ONEQ_API EccmSourceInfo {
       : has_jamming_signal(has_jamming) {}
 };
 
-}  // namespace model
+}  // namespace session
 }  // namespace airborne_radar
 
 #endif  // ONEQ_AIRBORNE_RADAR_MODEL_DECISION_SOURCE_INFO_H_

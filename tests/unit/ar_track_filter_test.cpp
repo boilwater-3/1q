@@ -158,12 +158,12 @@ TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression
   signal::tracking::TrackFilterContext noise_context;
   noise_context.detection_succeeded = false;
   noise_context.jamming_detected = true;
-  noise_context.dominant_jamming_semantic = model::JammingSemantic::kNoiseSuppression;
+  noise_context.dominant_jamming_semantic = config::JammingSemantic::kNoiseSuppression;
   noise_context.jamming_severity = 0.8f;
   noise_context.detection_margin_db = -10.0f;
 
   signal::tracking::TrackFilterContext deception_context = noise_context;
-  deception_context.dominant_jamming_semantic = model::JammingSemantic::kDeception;
+  deception_context.dominant_jamming_semantic = config::JammingSemantic::kDeception;
 
   const session::RadarSceneTarget noise_output = filter.Filter(input, noise_context);
   const session::RadarSceneTarget deception_output = filter.Filter(input, deception_context);

@@ -9,9 +9,9 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/extension/control/RadarCommand.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/session/RadarCommand.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/foundation/pose_types.h"
 
@@ -27,8 +27,8 @@ struct RadarContextRuntimeState {
   float platform_altitude_m{0.0f};
   float cycle_dt_sec{1.0f};
   std::uint32_t cycle_index{0U};
-  std::vector<extension::control::RadarCommand> submitted_commands{};
-  extension::control::RadarControlProfile latest_control_profile{};
+  std::vector<session::RadarCommand> submitted_commands{};
+  session::RadarControlProfile latest_control_profile{};
   bool has_latest_control_profile{false};
 };
 
@@ -60,7 +60,7 @@ class MutableRadarContext final {
    * @brief 更新当前平台姿态角。
    * @param platform_attitude_deg 平台姿态角，单位为度。
    */
-  void SetPlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg);
+  void SetPlatformAttitude(const config::PlatformAttitudeDeg& platform_attitude_deg);
 
   /**
    * @brief 更新当前周期时间步长。
@@ -84,9 +84,9 @@ class MutableRadarContext final {
    * @brief 获取本周期已提交的控制指令。
    * @return 当前周期命令缓存。
    */
-  const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const;
+  const std::vector<session::RadarCommand>& GetSubmittedCommands() const;
 
-  const std::vector<extension::control::RadarCommand>& SubmittedCommands() const;
+  const std::vector<session::RadarCommand>& SubmittedCommands() const;
 
   /**
    * @brief 判断是否已经收到过控制真值更新。
@@ -98,9 +98,9 @@ class MutableRadarContext final {
    * @brief 获取最近一次保存的控制真值。
    * @return 最近一次控制真值；若尚未更新则返回默认值。
    */
-  const extension::control::RadarControlProfile& GetLatestControlProfile() const;
+  const session::RadarControlProfile& GetLatestControlProfile() const;
 
-  const extension::control::RadarControlProfile& LatestControlProfile() const;
+  const session::RadarControlProfile& LatestControlProfile() const;
 
   RadarContextRuntimeState CaptureRuntimeState() const;
 
@@ -116,7 +116,7 @@ class MutableRadarContext final {
    * @brief 获取当前平台姿态角。
    * @return 当前平台姿态角。
    */
-  model::PlatformAttitudeDeg GetPlatformAttitude() const;
+  config::PlatformAttitudeDeg GetPlatformAttitude() const;
   float GetPlatformAltitudeM() const;
 
   /**
@@ -135,13 +135,13 @@ class MutableRadarContext final {
    * @brief 记录控制器提交的单条控制指令。
    * @param cmd 控制指令。
    */
-  void SubmitControlCommand(extension::control::RadarCommand cmd);
+  void SubmitControlCommand(session::RadarCommand cmd);
 
   /**
    * @brief 保存最近一次控制真值。
    * @param profile 下一周期控制真值。
    */
-  void UpdateRadarControlProfile(const extension::control::RadarControlProfile& profile);
+  void UpdateRadarControlProfile(const session::RadarControlProfile& profile);
 
  private:
   struct RuntimeSnapshot;
@@ -151,8 +151,8 @@ class MutableRadarContext final {
   float platform_altitude_m_{0.0f};
   float cycle_dt_sec_{1.0f};
   std::uint32_t cycle_index_{0U};
-  std::vector<extension::control::RadarCommand> submitted_commands_{};
-  extension::control::RadarControlProfile latest_control_profile_{};
+  std::vector<session::RadarCommand> submitted_commands_{};
+  session::RadarControlProfile latest_control_profile_{};
   bool has_latest_control_profile_{false};
 };
 

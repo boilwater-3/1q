@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_JAMMING_EFFECTS_H_
 
 #include "1q/airborne_radar/session/RadarEnvironmentInput.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 
@@ -17,7 +17,7 @@ namespace pipeline {
 
 bool HasMultiSourceJammingFacts(const session::EnvironmentSnapshot& environment_snapshot);
 
-float ComputeResidualJammerFactor(const extension::control::RadarControlProfile& control_profile,
+float ComputeResidualJammerFactor(const session::RadarControlProfile& control_profile,
                                   const session::JammerSourceFact& jammer_source);
 
 float ComputeHeuristicSourcePenaltyDb(
@@ -34,19 +34,19 @@ float ComputePhysicalSourceJamContributionW(
 
 float ComputeMeasurementCovarianceInflation(
     const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
-    const extension::control::RadarControlProfile& control_profile,
+    const session::RadarControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot);
 
-model::JammingSemantic ResolveDominantJammingSemantic(
-    const extension::control::RadarControlProfile& control_profile,
+config::JammingSemantic ResolveDominantJammingSemantic(
+    const session::RadarControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot);
 
 float ComputeTrackLevelJammingSeverity(
-    const extension::control::RadarControlProfile& control_profile,
+    const session::RadarControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot);
 
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
-    const extension::control::RadarControlProfile& control_profile,
+    const session::RadarControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot, ExecutionConfig* runtime_config);
 
 

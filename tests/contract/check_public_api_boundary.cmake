@@ -17,33 +17,12 @@ set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/config/RadarRuntimeConfigPatch.h"
     "airborne_radar/config/RadarRuntimeConfigBuilder.h"
     "airborne_radar/config/RadarSessionConfigBuilder.h"
+    "airborne_radar/config/RadarOrientationConfig.h"
+    "airborne_radar/config/JammingSemantics.h"
     "airborne_radar/config/airborne_radar_config.hpp"
 )
 
-# ── AR 扩展域 ────────────────────────────────────────────────────────
-set(AR_EXTENSION_HEADERS
-    "airborne_radar/extension/ITacticalDecisionEngine.h"
-    "airborne_radar/extension/airborne_radar_extension.hpp"
-    "airborne_radar/extension/control/ControlDirective.h"
-    "airborne_radar/extension/control/RadarCommand.h"
-    "airborne_radar/extension/control/RadarControlProfile.h"
-)
-
-# ── AR 模型域 ────────────────────────────────────────────────────────
-set(AR_MODEL_HEADERS
-    "airborne_radar/model/DecisionInputFrame.h"
-    "airborne_radar/model/DecisionSourceInfo.h"
-    "airborne_radar/model/TrackStateSnapshot.h"
-    "airborne_radar/model/JammingSemantics.h"
-    "airborne_radar/model/RadarOrientationConfig.h"
-    "airborne_radar/model/TargetCategory.h"
-)
-
-# ── AR 输出域 ────────────────────────────────────────────────────────
-set(AR_OUTPUT_HEADERS
-)
-
-# ── AR 会话域 ────────────────────────────────────────────────────────
+# ── AR 会话域
 set(AR_SESSION_HEADERS
     "airborne_radar/session/RadarCycleInput.h"
     "airborne_radar/session/RadarCycleInputBuilder.h"
@@ -63,6 +42,14 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/RadarSession.h"
     "airborne_radar/session/RadarSessionFactory.h"
     "airborne_radar/session/RadarTraceSession.h"
+    "airborne_radar/session/ITacticalDecisionEngine.h"
+    "airborne_radar/session/ControlDirective.h"
+    "airborne_radar/session/RadarCommand.h"
+    "airborne_radar/session/RadarControlProfile.h"
+    "airborne_radar/session/DecisionInputFrame.h"
+    "airborne_radar/session/DecisionSourceInfo.h"
+    "airborne_radar/session/TrackStateSnapshot.h"
+    "airborne_radar/session/TargetCategory.h"
 )
 
 # ── 顶层入口 ─────────────────────────────────────────────────────────
@@ -248,8 +235,6 @@ set(FOUNDATION_HEADERS
 
 set(EXPECTED_PUBLIC_HEADERS
     ${AR_PUBLIC_PRIMARY_HEADERS}
-    ${AR_EXTENSION_HEADERS}
-    ${AR_MODEL_HEADERS}
     ${AR_OUTPUT_HEADERS}
     ${AR_SESSION_HEADERS}
     ${ROOT_HEADER}

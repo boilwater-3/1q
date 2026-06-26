@@ -10,19 +10,19 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/extension/control/ControlDirective.h"
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/session/ControlDirective.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/decision/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
 #include "airborne_radar/environment/FeatureRepository.h"
 
 namespace dp = airborne_radar::decision;
 namespace de = airborne_radar::decision;
-namespace acc = airborne_radar::extension::control;
-namespace acm = airborne_radar::model;
+namespace acc = airborne_radar::session;
+namespace acm = airborne_radar::session;
 namespace edb = airborne_radar::environment;
-namespace ext = airborne_radar::extension;
+namespace ext = airborne_radar::session;
 
 namespace {
 

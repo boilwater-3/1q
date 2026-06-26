@@ -252,7 +252,7 @@ RadarSession RadarSessionFactory::Create(const config::RadarSessionConfig& confi
 
 RadarSession RadarSessionFactory::CreateWithDecisionEngine(
     const config::RadarSessionConfig& config,
-    extension::ITacticalDecisionEngine& decision_engine) {
+    session::ITacticalDecisionEngine& decision_engine) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
       RadarSessionCompositionRoot::ComposeWithDecisionEngine(config, decision_engine))));
 }
@@ -265,7 +265,7 @@ RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
   return impl_->RunCycle(input);
 }
 
-const std::vector<extension::control::RadarCommand>& RadarSession::GetSubmittedCommands() const {
+const std::vector<session::RadarCommand>& RadarSession::GetSubmittedCommands() const {
   return impl_->radar_context.GetSubmittedCommands();
 }
 
@@ -273,7 +273,7 @@ bool RadarSession::HasLatestControlProfile() const {
   return impl_->radar_context.HasLatestControlProfile();
 }
 
-const extension::control::RadarControlProfile& RadarSession::GetLatestControlProfile() const {
+const session::RadarControlProfile& RadarSession::GetLatestControlProfile() const {
   return impl_->radar_context.GetLatestControlProfile();
 }
 

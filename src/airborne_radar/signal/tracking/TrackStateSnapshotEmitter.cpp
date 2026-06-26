@@ -18,16 +18,16 @@ namespace {
  * @param status 内部轨迹状态。
  * @return 决策层可见的轨迹状态。
  */
-model::TrackStatus ToTrackStatus(TrackStatus status) {
+session::TrackStatus ToTrackStatus(TrackStatus status) {
   switch (status) {
     case TrackStatus::kConfirmed:
-      return model::TrackStatus::kConfirmed;
+      return session::TrackStatus::kConfirmed;
     case TrackStatus::kLost:
-      return model::TrackStatus::kLost;
+      return session::TrackStatus::kLost;
     case TrackStatus::kTentative:
     case TrackStatus::kRecycled:
     default:
-      return model::TrackStatus::kTentative;
+      return session::TrackStatus::kTentative;
   }
 }
 
@@ -135,15 +135,15 @@ session::RadarSceneTargetList TrackStateSnapshotEmitter::BuildSceneTargetSnapsho
   return features;
 }
 
-model::TrackStateSnapshotList TrackStateSnapshotEmitter::BuildTrackStateSnapshots() const {
+session::TrackStateSnapshotList TrackStateSnapshotEmitter::BuildTrackStateSnapshots() const {
   const std::vector<ActiveTrackEntry> output_tracks = SelectOutputTracks(active_tracks_);
-  model::TrackStateSnapshotList snapshots;
+  session::TrackStateSnapshotList snapshots;
   snapshots.reserve(output_tracks.size());
   for (std::vector<ActiveTrackEntry>::const_iterator it = output_tracks.begin();
        it != output_tracks.end(); ++it) {
     const std::uint64_t key = it->key;
     const TrackState& track = *it->track;
-    model::TrackStateSnapshot snapshot;
+    session::TrackStateSnapshot snapshot;
     snapshot.association_key = key;
     snapshot.external_target_id = track.external_target_id;
     snapshot.target_name = track.target_name;

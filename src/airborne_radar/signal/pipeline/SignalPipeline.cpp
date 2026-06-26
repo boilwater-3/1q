@@ -44,7 +44,7 @@ struct PipelineRuntimeConfig {
 
   ExecutionConfig base_config{};
   float platform_altitude_m{0.0f};
-  extension::control::RadarControlProfile control_profile_{};
+  session::RadarControlProfile control_profile_{};
 };
 
 struct RuntimeOwnedState {
@@ -69,7 +69,7 @@ struct AssociationSeedState {
 struct SignalPipelineSnapshot {
   ExecutionConfig base_config{};
   float platform_altitude_m{0.0f};
-  extension::control::RadarControlProfile control_profile{};
+  session::RadarControlProfile control_profile{};
   AssociationSeedState association_seeds{};
   std::vector<tracking::TrackMeasurement> track_measurements{};
   session::AssociationQualityMetrics association_quality_metrics{};
@@ -276,7 +276,7 @@ struct SignalPipeline::Impl {
     return true;
   }
 
-  void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) {
+  void UpdatePlatformAttitude(const config::PlatformAttitudeDeg& platform_attitude_deg) {
     runtime_.config.base_config.detection.platform_attitude_deg = platform_attitude_deg;
   }
 
@@ -284,16 +284,16 @@ struct SignalPipeline::Impl {
     runtime_.config.platform_altitude_m = platform_altitude_m;
   }
 
-  model::PlatformAttitudeDeg GetPlatformAttitude() const {
+  config::PlatformAttitudeDeg GetPlatformAttitude() const {
     return runtime_.config.base_config.detection.platform_attitude_deg;
   }
 
   float GetPlatformAltitudeM() const { return runtime_.config.platform_altitude_m; }
 
-  void SetControlProfile(const extension::control::RadarControlProfile& control_profile) {
+  void SetControlProfile(const session::RadarControlProfile& control_profile) {
     runtime_.config.control_profile_ = control_profile;
   }
-  extension::control::RadarControlProfile GetControlProfile() const {
+  session::RadarControlProfile GetControlProfile() const {
     return runtime_.config.control_profile_;
   }
 
@@ -353,7 +353,7 @@ std::unique_ptr<tracking::ITrackLifecycleManager> SignalPipeline::CreateAutoLife
 }
 
 void SignalPipeline::UpdatePlatformAttitude(
-    const model::PlatformAttitudeDeg& platform_attitude_deg) {
+    const config::PlatformAttitudeDeg& platform_attitude_deg) {
   impl_->UpdatePlatformAttitude(platform_attitude_deg);
 }
 
@@ -361,18 +361,18 @@ void SignalPipeline::UpdatePlatformAltitudeM(float platform_altitude_m) {
   impl_->UpdatePlatformAltitudeM(platform_altitude_m);
 }
 
-model::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
+config::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
   return impl_->GetPlatformAttitude();
 }
 
 float SignalPipeline::GetPlatformAltitudeM() const { return impl_->GetPlatformAltitudeM(); }
 
 void SignalPipeline::SetControlProfile(
-    const extension::control::RadarControlProfile& control_profile) {
+    const session::RadarControlProfile& control_profile) {
   impl_->SetControlProfile(control_profile);
 }
 
-extension::control::RadarControlProfile SignalPipeline::GetControlProfile() const {
+session::RadarControlProfile SignalPipeline::GetControlProfile() const {
   return impl_->GetControlProfile();
 }
 

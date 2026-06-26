@@ -7,8 +7,10 @@
 #include "1q/airborne_radar/session/RadarSession.h"
 
 namespace airborne_radar {
-namespace extension {
+namespace session {
 class ITacticalDecisionEngine;
+}  // namespace session
+namespace extension {
 class ISignalPipeline;
 class RadarController;
 }  // namespace extension
@@ -47,7 +49,7 @@ class RadarSessionCompositionRoot {
    */
   static RadarSessionComposition ComposeWithDecisionEngine(
       const config::RadarSessionConfig& config,
-      extension::ITacticalDecisionEngine& decision_engine);
+      session::ITacticalDecisionEngine& decision_engine);
 };
 
 }  // namespace session

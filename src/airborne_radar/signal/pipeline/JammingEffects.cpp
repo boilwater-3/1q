@@ -40,7 +40,7 @@ float ResolveJammerConfidenceWeight(const JammingEffectsConfig& cfg,
 }
 
 float ComputeTrackLevelJammingContribution(
-    const extension::control::RadarControlProfile& control_profile,
+    const session::RadarControlProfile& control_profile,
     const session::JammerSourceFact& jammer_source) {
   const float confidence_weight = utils::ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
   const float residual_factor = ComputeResidualJammerFactor(control_profile, jammer_source);
@@ -75,7 +75,7 @@ bool HasMultiSourceJammingFacts(const session::EnvironmentSnapshot& environment_
   return !environment_snapshot.jammer_sources.empty();
 }
 
-float ComputeResidualJammerFactor(const extension::control::RadarControlProfile& control_profile,
+float ComputeResidualJammerFactor(const session::RadarControlProfile& control_profile,
                                   const session::JammerSourceFact& jammer_source) {
   float residual_factor = 1.0f;
 
@@ -204,7 +204,7 @@ float ComputePhysicalSourceJamContributionW(const JammingEffectsConfig& cfg,
 }
 
 float ComputeMeasurementCovarianceInflation(
-    const JammingEffectsConfig& cfg, const extension::control::RadarControlProfile& control_profile,
+    const JammingEffectsConfig& cfg, const session::RadarControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot) {
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
     return 1.0f;
@@ -237,15 +237,15 @@ float ComputeMeasurementCovarianceInflation(
   return utils::ClampFloat(inflation, 1.0f, cfg.covariance_inflation_max);
 }
 
-model::JammingSemantic ResolveDominantJammingSemantic(
-    const extension::control::RadarControlProfile& control_profile,
+config::JammingSemantic ResolveDominantJammingSemantic(
+    const session::RadarControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot) {
   if (!environment_snapshot.jamming_detected) {
-    return model::JammingSemantic::kNone;
+    return config::JammingSemantic::kNone;
   }
 
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
-    return model::JammingSemantic::kNone;
+    return config::JammingSemantic::kNone;
   }
 
   float type_scores[3] = {0.0f, 0.0f, 0.0f};
@@ -282,25 +282,25 @@ model::JammingSemantic ResolveDominantJammingSemantic(
   }
 
   if (type_scores[best_index] <= 1e-6f) {
-    return model::JammingSemantic::kNone;
+    return config::JammingSemantic::kNone;
   }
   if (second_index != best_index &&
       type_scores[second_index] >= kMixedSemanticDominanceRatio * type_scores[best_index] &&
       type_scores[second_index] > kMixedSemanticMinScore) {
-    return model::JammingSemantic::kMixed;
+    return config::JammingSemantic::kMixed;
   }
 
   if (best_index == 0U) {
-    return model::JammingSemantic::kNoiseSuppression;
+    return config::JammingSemantic::kNoiseSuppression;
   }
   if (best_index == 1U) {
-    return model::JammingSemantic::kDeception;
+    return config::JammingSemantic::kDeception;
   }
-  return model::JammingSemantic::kRepeater;
+  return config::JammingSemantic::kRepeater;
 }
 
 float ComputeTrackLevelJammingSeverity(
-    const extension::control::RadarControlProfile& control_profile,
+    const session::RadarControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot) {
   if (!environment_snapshot.jamming_detected) {
     return 0.0f;
@@ -319,7 +319,7 @@ float ComputeTrackLevelJammingSeverity(
 }
 
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
-    const extension::control::RadarControlProfile& control_profile,
+    const session::RadarControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot, ExecutionConfig* runtime_config) {
   if (runtime_config == nullptr || !HasMultiSourceJammingFacts(environment_snapshot)) {
     return;

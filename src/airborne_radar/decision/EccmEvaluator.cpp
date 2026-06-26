@@ -35,10 +35,10 @@ constexpr float kThresholdBurnthroughGain = 1.5f;
 
 // ===== private static helpers =====
 
-extension::control::ControlDirective EccmEvaluator::BuildDirective(
-    extension::control::ControlDirectiveType type) {
-  return extension::control::ControlDirective(
-      type, extension::control::ControlDirectiveSource::SURVIVABILITY);
+session::ControlDirective EccmEvaluator::BuildDirective(
+    session::ControlDirectiveType type) {
+  return session::ControlDirective(
+      type, session::ControlDirectiveSource::SURVIVABILITY);
 }
 
 int EccmEvaluator::ResolvePriorityFromScore(int base_priority, float score) {
@@ -65,7 +65,7 @@ void EccmEvaluator::AccumulateCautiousFallback(
 }
 
 void EccmEvaluator::AccumulateAssociationPressureFacts(
-    const model::AssociationQualityInfo& association_quality,
+    const session::AssociationQualityInfo& association_quality,
     EccmProposalSelection* selection) {
   if (selection == nullptr) {
     return;
@@ -95,18 +95,18 @@ void EccmEvaluator::AccumulateAssociationPressureFacts(
 
   // 干扰语义特化评分
   switch (association_quality.dominant_jamming_semantic) {
-    case model::JammingSemantic::kDeception:
-    case model::JammingSemantic::kMixed:
+    case config::JammingSemantic::kDeception:
+    case config::JammingSemantic::kMixed:
       selection->agility_frequency_score += 1.5f * severity;
       selection->eccm_rejitter_score += 1.8f * severity;
       selection->adaptive_beamforming_score += 0.5f * severity;
       break;
-    case model::JammingSemantic::kRepeater:
+    case config::JammingSemantic::kRepeater:
       selection->eccm_rejitter_score += 1.6f * severity;
       selection->adaptive_beamforming_score += 1.0f * severity;
       selection->agility_frequency_score += 0.6f * severity;
       break;
-    case model::JammingSemantic::kNoiseSuppression:
+    case config::JammingSemantic::kNoiseSuppression:
       selection->adaptive_beamforming_score += 0.7f * severity;
       selection->burnthrough_gain_score += 0.8f * severity;
       break;
@@ -117,7 +117,7 @@ void EccmEvaluator::AccumulateAssociationPressureFacts(
 }
 
 void EccmEvaluator::AccumulateMultiSourceEccmFacts(
-    const model::EccmJammerSourceInfo& source,
+    const session::EccmJammerSourceInfo& source,
     EccmProposalSelection* selection) {
   if (selection == nullptr) {
     return;
@@ -152,24 +152,24 @@ void EccmEvaluator::AccumulateMultiSourceEccmFacts(
   }
 
   switch (source.technique) {
-    case model::JammingTechnique::kNoiseSuppression:
+    case session::JammingTechnique::kNoiseSuppression:
       selection->adaptive_beamforming_score += 0.7f * confidence_weight;
       selection->burnthrough_gain_score += 0.8f * confidence_weight;
       if (source.jammer_in_sidelobe) {
         selection->sidelobe_canceller_score += 1.2f * confidence_weight;
       }
       break;
-    case model::JammingTechnique::kDeception:
+    case session::JammingTechnique::kDeception:
       selection->agility_frequency_score += 1.5f * confidence_weight;
       selection->eccm_rejitter_score += 1.8f * confidence_weight;
       selection->adaptive_beamforming_score += 0.5f * confidence_weight;
       break;
-    case model::JammingTechnique::kRepeater:
+    case session::JammingTechnique::kRepeater:
       selection->eccm_rejitter_score += 1.6f * confidence_weight;
       selection->adaptive_beamforming_score += 1.0f * confidence_weight;
       selection->agility_frequency_score += 0.6f * confidence_weight;
       break;
-    case model::JammingTechnique::kUnknown:
+    case session::JammingTechnique::kUnknown:
     default:
       selection->adaptive_beamforming_score += 0.4f * confidence_weight;
       break;
@@ -177,21 +177,21 @@ void EccmEvaluator::AccumulateMultiSourceEccmFacts(
 }
 
 std::string EccmEvaluator::BuildProposalRationale(
-    extension::control::ControlDirectiveType type,
+    session::ControlDirectiveType type,
     const EccmProposalSelection& selection) {
   (void)selection;
   switch (type) {
-    case extension::control::ControlDirectiveType::
+    case session::ControlDirectiveType::
         REQUEST_ENABLE_SIDELOBE_CANCELLER:
       return "jamming facts favor sidelobe cancellation";
-    case extension::control::ControlDirectiveType::
+    case session::ControlDirectiveType::
         REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
       return "jamming environment requires adaptive beamforming";
-    case extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
+    case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
       return "jamming facts favor agility frequency";
-    case extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+    case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
       return "jamming facts favor rejitter";
-    case extension::control::ControlDirectiveType::
+    case session::ControlDirectiveType::
         REQUEST_ECCM_BURNTHROUGH_GAIN:
       return "jamming facts favor burnthrough gain";
     default:
@@ -200,21 +200,21 @@ std::string EccmEvaluator::BuildProposalRationale(
 }
 
 void EccmEvaluator::AppendProposal(
-    extension::control::ControlDirectiveType type, int priority,
+    session::ControlDirectiveType type, int priority,
     const std::string& rationale,
-    std::vector<extension::TacticalProposal>* proposals) {
+    std::vector<session::TacticalProposal>* proposals) {
   if (proposals == nullptr) {
     return;
   }
   proposals->push_back(
-      extension::TacticalProposal{BuildDirective(type), priority, rationale});
+      session::TacticalProposal{BuildDirective(type), priority, rationale});
 }
 
 // ===== public Evaluate =====
 
 EccmEvaluator::Result EccmEvaluator::Evaluate(
-    const model::EccmSourceInfo& eccm_source_info, bool hold_only,
-    std::vector<extension::TacticalProposal>* proposals) {
+    const session::EccmSourceInfo& eccm_source_info, bool hold_only,
+    std::vector<session::TacticalProposal>* proposals) {
   Result result;
 
   if (proposals == nullptr) {
@@ -243,12 +243,12 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
   // 各项达标时追加 proposal
   if (selection.sidelobe_canceller_score >= kThresholdSidelobeCanceller) {
     AppendProposal(
-        extension::control::ControlDirectiveType::
+        session::ControlDirectiveType::
             REQUEST_ENABLE_SIDELOBE_CANCELLER,
         ResolvePriorityFromScore(kBasePrioritySidelobeCanceller,
                                  selection.sidelobe_canceller_score),
         BuildProposalRationale(
-            extension::control::ControlDirectiveType::
+            session::ControlDirectiveType::
                 REQUEST_ENABLE_SIDELOBE_CANCELLER,
             selection),
         proposals);
@@ -256,12 +256,12 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
   }
   if (selection.adaptive_beamforming_score >= kThresholdAdaptiveBeamforming) {
     AppendProposal(
-        extension::control::ControlDirectiveType::
+        session::ControlDirectiveType::
             REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
         ResolvePriorityFromScore(kBasePriorityAdaptiveBeamforming,
                                  selection.adaptive_beamforming_score),
         BuildProposalRationale(
-            extension::control::ControlDirectiveType::
+            session::ControlDirectiveType::
                 REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
             selection),
         proposals);
@@ -269,34 +269,34 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
   }
   if (selection.agility_frequency_score >= kThresholdAgilityFrequency) {
     AppendProposal(
-        extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+        session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
         ResolvePriorityFromScore(kBasePriorityAgilityFrequency,
                                  selection.agility_frequency_score),
         BuildProposalRationale(
-            extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+            session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
             selection),
         proposals);
     result.eccm_activated = true;
   }
   if (selection.eccm_rejitter_score >= kThresholdEccmRejitter) {
     AppendProposal(
-        extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER,
+        session::ControlDirectiveType::REQUEST_ECCM_REJITTER,
         ResolvePriorityFromScore(kBasePriorityEccmRejitter,
                                  selection.eccm_rejitter_score),
         BuildProposalRationale(
-            extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER,
+            session::ControlDirectiveType::REQUEST_ECCM_REJITTER,
             selection),
         proposals);
     result.eccm_activated = true;
   }
   if (selection.burnthrough_gain_score >= kThresholdBurnthroughGain) {
     AppendProposal(
-        extension::control::ControlDirectiveType::
+        session::ControlDirectiveType::
             REQUEST_ECCM_BURNTHROUGH_GAIN,
         ResolvePriorityFromScore(kBasePriorityBurnthroughGain,
                                  selection.burnthrough_gain_score),
         BuildProposalRationale(
-            extension::control::ControlDirectiveType::
+            session::ControlDirectiveType::
                 REQUEST_ECCM_BURNTHROUGH_GAIN,
             selection),
         proposals);
@@ -308,12 +308,12 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
     AccumulateCautiousFallback(&selection);
     if (selection.adaptive_beamforming_score >= kThresholdAdaptiveBeamforming) {
       AppendProposal(
-          extension::control::ControlDirectiveType::
+          session::ControlDirectiveType::
               REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
           ResolvePriorityFromScore(kBasePriorityAdaptiveBeamforming,
                                    selection.adaptive_beamforming_score),
           BuildProposalRationale(
-              extension::control::ControlDirectiveType::
+              session::ControlDirectiveType::
                   REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
               selection),
           proposals);
@@ -327,9 +327,9 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
 // ===== Evaluate 重载（关联压力路径）=====
 
 EccmEvaluator::Result EccmEvaluator::Evaluate(
-    const model::EccmSourceInfo& eccm_source_info,
-    const model::AssociationQualityInfo& association_quality, bool hold_only,
-    std::vector<extension::TacticalProposal>* proposals) {
+    const session::EccmSourceInfo& eccm_source_info,
+    const session::AssociationQualityInfo& association_quality, bool hold_only,
+    std::vector<session::TacticalProposal>* proposals) {
   if (proposals == nullptr) {
     return Result();
   }
@@ -358,52 +358,52 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
   Result result;
   if (selection.sidelobe_canceller_score >= kThresholdSidelobeCanceller) {
     AppendProposal(
-        extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
+        session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
         ResolvePriorityFromScore(kBasePrioritySidelobeCanceller,
                                  selection.sidelobe_canceller_score),
         BuildProposalRationale(
-            extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
+            session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
             selection),
         proposals);
     result.eccm_activated = true;
   }
   if (selection.adaptive_beamforming_score >= kThresholdAdaptiveBeamforming) {
     AppendProposal(
-        extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+        session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
         ResolvePriorityFromScore(kBasePriorityAdaptiveBeamforming,
                                  selection.adaptive_beamforming_score),
         BuildProposalRationale(
-            extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+            session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
             selection),
         proposals);
     result.eccm_activated = true;
   }
   if (selection.agility_frequency_score >= kThresholdAgilityFrequency) {
     AppendProposal(
-        extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+        session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
         ResolvePriorityFromScore(kBasePriorityAgilityFrequency,
                                  selection.agility_frequency_score),
         BuildProposalRationale(
-            extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY, selection),
+            session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY, selection),
         proposals);
     result.eccm_activated = true;
   }
   if (selection.eccm_rejitter_score >= kThresholdEccmRejitter) {
     AppendProposal(
-        extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER,
+        session::ControlDirectiveType::REQUEST_ECCM_REJITTER,
         ResolvePriorityFromScore(kBasePriorityEccmRejitter, selection.eccm_rejitter_score),
-        BuildProposalRationale(extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER,
+        BuildProposalRationale(session::ControlDirectiveType::REQUEST_ECCM_REJITTER,
                                selection),
         proposals);
     result.eccm_activated = true;
   }
   if (selection.burnthrough_gain_score >= kThresholdBurnthroughGain) {
     AppendProposal(
-        extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+        session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
         ResolvePriorityFromScore(kBasePriorityBurnthroughGain,
                                  selection.burnthrough_gain_score),
         BuildProposalRationale(
-            extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN, selection),
+            session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN, selection),
         proposals);
     result.eccm_activated = true;
   }
@@ -411,11 +411,11 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
     AccumulateCautiousFallback(&selection);
     if (selection.adaptive_beamforming_score >= kThresholdAdaptiveBeamforming) {
       AppendProposal(
-          extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+          session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
           ResolvePriorityFromScore(kBasePriorityAdaptiveBeamforming,
                                    selection.adaptive_beamforming_score),
           BuildProposalRationale(
-              extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+              session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
               selection),
           proposals);
       result.eccm_activated = true;

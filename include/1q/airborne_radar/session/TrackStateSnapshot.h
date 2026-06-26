@@ -13,7 +13,7 @@
 #include "1q/api.hpp"
 
 namespace airborne_radar {
-namespace model {
+namespace session {
 
 /**
  * @brief TrackStatus 表示对外可见的轨迹生命周期状态。
@@ -64,7 +64,7 @@ struct ONEQ_API TrackStateSnapshot {
 /** @brief TrackStateSnapshotList 表示供外部消费的轨迹状态快照集合 */
 using TrackStateSnapshotList = std::vector<TrackStateSnapshot>;
 
-}  // namespace model
+}  // namespace session
 }  // namespace airborne_radar
 
 #endif  // ONEQ_AIRBORNE_RADAR_MODEL_TRACK_STATE_SNAPSHOT_H_

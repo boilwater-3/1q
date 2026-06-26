@@ -11,9 +11,9 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/RadarEnvironmentInput.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/JammingSemantics.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "1q/airborne_radar/config/JammingSemantics.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
@@ -36,7 +36,7 @@ struct CycleExecutionScratch {
   // 最终输出
   session::RadarSceneTargetList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
-  model::DecisionInputFrame decision_frame{};
+  session::DecisionInputFrame decision_frame{};
   AssociationQualityMetrics association_quality_metrics{};
 
   // 检测阶段中间数据
@@ -55,13 +55,13 @@ struct CycleExecutionScratch {
   std::vector<int> measurement_slots;
 
   // 环境阶段输出（各后续阶段共享）
-  model::JammingSemantic dominant_jamming_semantic{model::JammingSemantic::kNone};
+  config::JammingSemantic dominant_jamming_semantic{config::JammingSemantic::kNone};
   float jamming_severity{0.0f};
 };
 
 struct CycleExecutionRuntime {
   CycleExecutionRuntime(const ExecutionConfig& base_config,
-                        const extension::control::RadarControlProfile& control_profile,
+                        const session::RadarControlProfile& control_profile,
                         association::DataAssociationEngine& association_engine,
                         tracking::TrackFilter& track_filter,
                         tracking::ITrackLifecycleManager& auto_lifecycle_manager,
@@ -78,7 +78,7 @@ struct CycleExecutionRuntime {
         has_manual_association_seeds(has_manual_association_seeds) {}
 
   const ExecutionConfig& base_config;
-  const extension::control::RadarControlProfile& control_profile;
+  const session::RadarControlProfile& control_profile;
   association::DataAssociationEngine& association_engine;
   tracking::TrackFilter& track_filter;
   detection::SignalDetector* signal_detector;

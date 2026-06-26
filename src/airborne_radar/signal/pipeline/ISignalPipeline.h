@@ -11,8 +11,8 @@
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/session/RadarOutputTypes.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
 
@@ -53,7 +53,7 @@ class ISignalPipeline {
    * @brief 更新当前搭载平台姿态。
    * @param[in] platform_attitude_deg 平台姿态角（单位：度）。
    */
-  virtual void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) = 0;
+  virtual void UpdatePlatformAttitude(const config::PlatformAttitudeDeg& platform_attitude_deg) = 0;
 
   /**
    * @brief 更新当前雷达平台 WGS84 绝对海拔。
@@ -65,7 +65,7 @@ class ISignalPipeline {
    * @brief 获取当前搭载平台姿态。
    * @return 平台姿态角（单位：度）。
    */
-  virtual model::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
+  virtual config::PlatformAttitudeDeg GetPlatformAttitude() const = 0;
 
   /**
    * @brief 获取当前缓存的雷达平台 WGS84 绝对海拔。
@@ -78,13 +78,13 @@ class ISignalPipeline {
    * @param[in] control_profile 控制真值。
    */
   virtual void SetControlProfile(
-      const extension::control::RadarControlProfile& control_profile) = 0;
+      const session::RadarControlProfile& control_profile) = 0;
 
   /**
    * @brief 获取当前缓存的控制真值。
    * @return 当前缓存的控制真值。
    */
-  virtual extension::control::RadarControlProfile GetControlProfile() const = 0;
+  virtual session::RadarControlProfile GetControlProfile() const = 0;
 
   /**
    * @brief 更新流水线运行配置。

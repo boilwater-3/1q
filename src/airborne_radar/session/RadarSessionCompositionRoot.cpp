@@ -2,7 +2,7 @@
 
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "airborne_radar/runtime/RadarController.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -83,7 +83,7 @@ RadarSessionComposition RadarSessionCompositionRoot::ComposeDefault(
 
 RadarSessionComposition RadarSessionCompositionRoot::ComposeWithDecisionEngine(
     const config::RadarSessionConfig& config,
-    extension::ITacticalDecisionEngine& decision_engine) {
+    session::ITacticalDecisionEngine& decision_engine) {
   RadarSessionComposition composition = BuildCompositionBase(config);
   composition.owned_radar_context.reset(new MutableRadarContext());
   const config::execution::InternalExecutionConfig runtime_execution_config =

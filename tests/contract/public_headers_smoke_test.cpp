@@ -23,18 +23,17 @@
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 
 #include "1q/airborne_radar/session/RadarEnvironmentInput.h"
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/session/RadarOutputTypes.h"
-#include "1q/airborne_radar/extension/airborne_radar_extension.hpp"
-#include "1q/airborne_radar/extension/control/ControlDirective.h"
-#include "1q/airborne_radar/extension/control/RadarCommand.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/DecisionSourceInfo.h"
-#include "1q/airborne_radar/model/JammingSemantics.h"
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
-#include "1q/airborne_radar/model/TargetCategory.h"
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/session/ControlDirective.h"
+#include "1q/airborne_radar/session/RadarCommand.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "1q/airborne_radar/session/DecisionSourceInfo.h"
+#include "1q/airborne_radar/config/JammingSemantics.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/session/TargetCategory.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleInputBuilder.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
@@ -130,7 +129,7 @@ static_assert(
         ArSession,
         decltype(airborne_radar::session::RadarSessionFactory::CreateWithDecisionEngine(
             std::declval<const ArConfig&>(),
-            std::declval<airborne_radar::extension::ITacticalDecisionEngine&>()))>::value,
+            std::declval<airborne_radar::session::ITacticalDecisionEngine&>()))>::value,
     "RadarSessionFactory::CreateWithDecisionEngine must return RadarSession");
 
 static_assert(
@@ -186,14 +185,14 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
                                            session::RadarTraceSessionOptions{nullptr, false});
   const config::RadarRuntimeConfigPatch runtime_patch =
       config::RadarRuntimeConfigBuilder()
-          .WithWorkMode(model::RadarWorkMode::kTas)
+          .WithWorkMode(config::RadarWorkMode::kTas)
           .WithCommandedBeamwidthEnabled(true)
           .Build();
   session.ApplyRuntimeConfig(runtime_patch);
   const session::RadarCycleResult result = session.StepWithResult(input);
   const session::RadarCycleResult trace_result = trace_session.StepWithResult(input);
   const std::size_t confirmed_tracks =
-      session::CountTracksByStatus(result.track_output_frame, model::TrackStatus::kConfirmed);
+      session::CountTracksByStatus(result.track_output_frame, session::TrackStatus::kConfirmed);
 
   EXPECT_GE(confirmed_tracks, 0U);
   EXPECT_GE(result.association_quality_metrics.detection_count, 0U);
@@ -205,7 +204,7 @@ TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
   hardware.pulse_count = 32;
   EXPECT_EQ(hardware.pulse_count, 32);
 
-  model::AzimuthElevationDeg scan_center;
+  config::AzimuthElevationDeg scan_center;
   scan_center.az_deg = 45.0f;
   scan_center.el_deg = -5.0f;
   config::RadarMissionConfig mission{};
@@ -236,7 +235,7 @@ TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
 }
 
 TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields) {
-  model::AzimuthElevationDeg scan_center;
+  config::AzimuthElevationDeg scan_center;
   scan_center.az_deg = -12.0f;
   scan_center.el_deg = 6.0f;
 

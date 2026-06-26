@@ -11,14 +11,14 @@
 #include <unordered_map>
 #include <vector>
 
-#include "1q/airborne_radar/extension/control/ControlDirective.h"
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/DecisionSourceInfo.h"
-#include "1q/airborne_radar/model/TargetCategory.h"
+#include "1q/airborne_radar/session/ControlDirective.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "1q/airborne_radar/session/DecisionSourceInfo.h"
+#include "1q/airborne_radar/session/TargetCategory.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
-namespace extension {
+namespace session {
 
 /**
  * @brief TacticalMode 表示当前战术模式。
@@ -47,7 +47,7 @@ struct ONEQ_API TacticalStateStore {
  * @brief TacticalProposal 表示单个 evaluator 输出的战术建议。
  */
 struct ONEQ_API TacticalProposal {
-  extension::control::ControlDirective directive; /**< 控制意图 */
+  session::ControlDirective directive; /**< 控制意图 */
   int priority{0};                             /**< 建议优先级，数值越大优先级越高 */
   std::string rationale;                       /**< 生成原因 */
 
@@ -59,7 +59,7 @@ struct ONEQ_API TacticalProposal {
    * @param[in] proposal_priority 建议优先级，数值越大优先级越高。
    * @param[in] proposal_rationale 生成原因。
    */
-  TacticalProposal(const extension::control::ControlDirective& proposal_directive,
+  TacticalProposal(const session::ControlDirective& proposal_directive,
                    int proposal_priority, const std::string& proposal_rationale)
       : directive(proposal_directive), priority(proposal_priority), rationale(proposal_rationale) {}
 };
@@ -68,7 +68,7 @@ struct ONEQ_API TacticalProposal {
  * @brief TacticalDecisionResult 表示决策引擎单周期输出。
  */
 struct ONEQ_API TacticalDecisionResult {
-  model::TargetCategoryList target_classification_result; /**< 目标分类结果 */
+  session::TargetCategoryList target_classification_result; /**< 目标分类结果 */
   std::vector<TacticalProposal> proposals;                        /**< 汇总后的战术建议集合 */
   TacticalMode selected_mode{TacticalMode::kBaseline};            /**< 当前选定战术模式 */
 };
@@ -86,11 +86,11 @@ class ONEQ_API ITacticalDecisionEngine {
    * @param[in,out] state_store 跨周期战术内存，决策执行过程中会更新。
    * @return 当前周期决策输出结果。
    */
-  virtual TacticalDecisionResult Evaluate(const model::DecisionInputFrame& input_frame,
+  virtual TacticalDecisionResult Evaluate(const session::DecisionInputFrame& input_frame,
                                           TacticalStateStore& state_store) = 0;
 };
 
-}  // namespace extension
+}  // namespace session
 }  // namespace airborne_radar
 
 #endif  // ONEQ_AIRBORNE_RADAR_EXTENSION_I_TACTICAL_DECISION_ENGINE_H_

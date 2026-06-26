@@ -23,7 +23,7 @@ struct RuntimeConfigState {
   config::EnvironmentScenarioConfig environment_scenario_config{};
   config::JammingSensitivityProfile jamming_sensitivity_profile{
       config::JammingSensitivityProfile::kBalanced};
-  model::AzimuthElevationDeg dwell_center_deg{};
+  config::AzimuthElevationDeg dwell_center_deg{};
 };
 
 /**

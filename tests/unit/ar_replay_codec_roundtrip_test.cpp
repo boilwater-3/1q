@@ -14,7 +14,7 @@
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
 #include "1q/airborne_radar/session/RadarEnvironmentInput.h"
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/replay/ReplayTrace.h"
@@ -104,10 +104,10 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
   frame.cycle_index = 77U;
   frame.batch_id = 5U;
 
-  model::TrackStateSnapshot snap;
+  session::TrackStateSnapshot snap;
   snap.association_key = 999U;
   snap.external_target_id = 42U;
-  snap.status = model::TrackStatus::kConfirmed;
+  snap.status = session::TrackStatus::kConfirmed;
   snap.position_x = 100.0f;
   snap.position_y = 200.0f;
   snap.position_z = 50.0f;
@@ -124,9 +124,9 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
   snap.hit_count = 5U;
   snap.miss_count = 1U;
   frame.tracks.push_back(snap);
-  model::TrackStateSnapshot lost = snap;
+  session::TrackStateSnapshot lost = snap;
   lost.association_key = 1001U;
-  lost.status = model::TrackStatus::kLost;
+  lost.status = session::TrackStatus::kLost;
   frame.tracks.push_back(lost);
 
   const std::string bytes = EncodeTrackOutputFrameFlatbuffer(frame);
@@ -139,14 +139,14 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
   EXPECT_EQ(decoded.cycle_index, 77U);
   EXPECT_EQ(decoded.batch_id, 5U);
   EXPECT_EQ(decoded.tracks.size(), 2U);
-  EXPECT_EQ(session::CountTracksByStatus(decoded, model::TrackStatus::kConfirmed), 1U);
-  EXPECT_TRUE(session::CountTracksByStatus(decoded, model::TrackStatus::kLost) > 0U);
+  EXPECT_EQ(session::CountTracksByStatus(decoded, session::TrackStatus::kConfirmed), 1U);
+  EXPECT_TRUE(session::CountTracksByStatus(decoded, session::TrackStatus::kLost) > 0U);
   ASSERT_EQ(decoded.tracks.size(), 2U);
 
-  const model::TrackStateSnapshot& ds = decoded.tracks[0];
+  const session::TrackStateSnapshot& ds = decoded.tracks[0];
   EXPECT_EQ(ds.association_key, 999U);
   EXPECT_EQ(ds.external_target_id, 42U);
-  EXPECT_EQ(ds.status, model::TrackStatus::kConfirmed);
+  EXPECT_EQ(ds.status, session::TrackStatus::kConfirmed);
   EXPECT_FLOAT_EQ(ds.position_x, 100.0f);
   EXPECT_FLOAT_EQ(ds.position_y, 200.0f);
   EXPECT_FLOAT_EQ(ds.position_z, 50.0f);
@@ -167,11 +167,11 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.track_output_frame.cycle_index = 5U;
   result.track_output_frame.batch_id = 3U;
 
-  model::TrackStateSnapshot snap;
+  session::TrackStateSnapshot snap;
   snap.association_key = 1U;
   snap.position_x = 50.0f;
   snap.rcs = 1.5f;
-  snap.status = model::TrackStatus::kTentative;
+  snap.status = session::TrackStatus::kTentative;
   snap.acceleration_x = 0.4f;
   snap.acceleration_y = 0.5f;
   snap.acceleration_z = 0.6f;
@@ -181,8 +181,8 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.track_output_frame.tracks.push_back(snap);
 
   result.submitted_commands.push_back(
-      extension::control::RadarCommand(extension::control::RadarCommandType::SET_AGILITY_FREQ,
-                                       extension::control::RadarCommandSource::ECCM));
+      session::RadarCommand(session::RadarCommandType::SET_AGILITY_FREQ,
+                                       session::RadarCommandSource::ECCM));
   ValidationIssue issue;
   issue.severity = ValidationSeverity::kError;
   issue.code = ValidationCode::kInvalidCycleDeltaTime;
@@ -217,7 +217,7 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.association_quality_metrics.mean_match_cost = 1.1f;
   result.association_quality_metrics.p95_match_cost = 2.2f;
   result.association_quality_metrics.dominant_jamming_semantic =
-      model::JammingSemantic::kNoiseSuppression;
+      config::JammingSemantic::kNoiseSuppression;
   result.association_quality_metrics.jamming_severity = 0.6f;
   result.association_quality_metrics.association_stress = 0.7f;
 
@@ -239,8 +239,8 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_TRUE(decoded.reused_previous_output);
   ASSERT_EQ(decoded.submitted_commands.size(), 1U);
   EXPECT_EQ(decoded.submitted_commands[0].type,
-            extension::control::RadarCommandType::SET_AGILITY_FREQ);
-  EXPECT_EQ(decoded.submitted_commands[0].source, extension::control::RadarCommandSource::ECCM);
+            session::RadarCommandType::SET_AGILITY_FREQ);
+  EXPECT_EQ(decoded.submitted_commands[0].source, session::RadarCommandSource::ECCM);
   ASSERT_EQ(decoded.validation_issues.size(), 1U);
   EXPECT_EQ(decoded.validation_issues[0].severity, ValidationSeverity::kError);
   EXPECT_EQ(decoded.validation_issues[0].code, ValidationCode::kInvalidCycleDeltaTime);
@@ -270,7 +270,7 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.mean_match_cost, 1.1f);
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.p95_match_cost, 2.2f);
   EXPECT_EQ(decoded.association_quality_metrics.dominant_jamming_semantic,
-            model::JammingSemantic::kNoiseSuppression);
+            config::JammingSemantic::kNoiseSuppression);
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.jamming_severity, 0.6f);
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.association_stress, 0.7f);
   ASSERT_EQ(decoded.track_output_frame.tracks.size(), 1U);

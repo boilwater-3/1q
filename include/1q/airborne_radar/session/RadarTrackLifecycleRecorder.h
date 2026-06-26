@@ -42,7 +42,7 @@ struct ONEQ_API RadarTrackLifecycleEvent {
   RadarTrackLifecycleEventKind kind{RadarTrackLifecycleEventKind::kUpdated};
   RadarTrackLifecycleReason reason{RadarTrackLifecycleReason::kNone};
   std::uint64_t association_key{0U};
-  model::TrackStatus track_status{model::TrackStatus::kTentative};
+  session::TrackStatus track_status{session::TrackStatus::kTentative};
   float speed{0.0f};
 };
 

@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
@@ -35,9 +35,9 @@ RadarSceneTarget MakeTarget(std::uint64_t id, const std::string& name) {
   return target;
 }
 
-model::TrackStateSnapshot MakeSnapshot(std::uint64_t id, const std::string& name,
-                                       model::TrackStatus status) {
-  model::TrackStateSnapshot snapshot;
+session::TrackStateSnapshot MakeSnapshot(std::uint64_t id, const std::string& name,
+                                       session::TrackStatus status) {
+  session::TrackStateSnapshot snapshot;
   snapshot.external_target_id = id;
   snapshot.target_name = name;
   snapshot.status = status;
@@ -45,7 +45,7 @@ model::TrackStateSnapshot MakeSnapshot(std::uint64_t id, const std::string& name
   return snapshot;
 }
 
-RadarCycleResult MakeResult(std::uint32_t cycle_index, std::vector<model::TrackStateSnapshot> tracks) {
+RadarCycleResult MakeResult(std::uint32_t cycle_index, std::vector<session::TrackStateSnapshot> tracks) {
   RadarCycleResult result;
   result.input_cycle_index = cycle_index;
   result.executed_this_cycle = true;
@@ -65,8 +65,8 @@ TEST(RarOutputBoundaryContractTest, SameNameDifferentIdDoesNotBreakAssociation) 
   input.scene = {MakeTarget(1001U, "shared-name"), MakeTarget(1002U, "shared-name")};
 
   RadarCycleResult result =
-      MakeResult(1U, {MakeSnapshot(1001U, "shared-name", model::TrackStatus::kConfirmed),
-                      MakeSnapshot(1002U, "shared-name", model::TrackStatus::kConfirmed)});
+      MakeResult(1U, {MakeSnapshot(1001U, "shared-name", session::TrackStatus::kConfirmed),
+                      MakeSnapshot(1002U, "shared-name", session::TrackStatus::kConfirmed)});
 
   const RadarTrackOutputDebugView view = RadarTrackOutputDebugViewBuilder::Build(input, result);
   ASSERT_EQ(view.tracks.size(), 2U);
@@ -84,7 +84,7 @@ TEST(RarOutputBoundaryContractTest, EmptyNameDoesNotAffectAssociation) {
   input.scene = {MakeTarget(2001U, "")};
 
   RadarCycleResult result =
-      MakeResult(1U, {MakeSnapshot(2001U, "", model::TrackStatus::kConfirmed)});
+      MakeResult(1U, {MakeSnapshot(2001U, "", session::TrackStatus::kConfirmed)});
 
   const RadarTrackOutputDebugView view = RadarTrackOutputDebugViewBuilder::Build(input, result);
   ASSERT_EQ(view.tracks.size(), 1U);

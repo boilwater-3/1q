@@ -7,8 +7,8 @@
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/session/MutableRadarContext.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
@@ -35,8 +35,8 @@ bool IsCompatibleSignalPipelineRuntimeState(const extension::SignalPipelineRunti
  * 统一封装需要默认构建的决策子系统；外部注入决策引擎时此结构为空。
  */
 struct OwnedDecisionComponents {
-  std::unique_ptr<extension::ITacticalDecisionEngine> decision_engine;
-  std::unique_ptr<extension::TacticalStateStore> tactical_state_store;
+  std::unique_ptr<session::ITacticalDecisionEngine> decision_engine;
+  std::unique_ptr<session::TacticalStateStore> tactical_state_store;
   std::unique_ptr<decision::ControlReducer> control_reducer;
 };
 
@@ -51,10 +51,10 @@ struct RadarController::Impl {
 
   // -- 决策子系统（默认路径自建；外部注入路径为空）
   OwnedDecisionComponents owned_decision_components;
-  extension::ITacticalDecisionEngine* decision_engine{nullptr};
+  session::ITacticalDecisionEngine* decision_engine{nullptr};
 
   // -- 控制状态
-  extension::control::RadarControlProfile control_profile{};
+  session::RadarControlProfile control_profile{};
 
   // -- 独立生命周期组件
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
@@ -76,7 +76,7 @@ struct RadarController::Impl {
         environment_service(env) {
     owned_decision_components.decision_engine.reset(
         new decision::TacticalCoordinator(nullptr));
-    owned_decision_components.tactical_state_store.reset(new extension::TacticalStateStore());
+    owned_decision_components.tactical_state_store.reset(new session::TacticalStateStore());
     owned_decision_components.control_reducer.reset(new decision::ControlReducer());
     decision_engine = owned_decision_components.decision_engine.get();
     command_mapper.reset(new extension::ControlCommandMapper(
@@ -85,13 +85,13 @@ struct RadarController::Impl {
 
   /** @brief 构造使用外部决策引擎的控制器。 */
   Impl(session::MutableRadarContext& ctx, extension::ISignalPipeline& sig,
-       extension::ITacticalDecisionEngine& ext_engine, environment::IEnvironmentService& env)
+       session::ITacticalDecisionEngine& ext_engine, environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
         environment_service(env),
         decision_engine(&ext_engine) {
     // 外部注入决策引擎时，仍需内部 ControlReducer 处理归并与指令提交
-    owned_decision_components.tactical_state_store.reset(new extension::TacticalStateStore());
+    owned_decision_components.tactical_state_store.reset(new session::TacticalStateStore());
     owned_decision_components.control_reducer.reset(new decision::ControlReducer());
     command_mapper.reset(new extension::ControlCommandMapper(
         *owned_decision_components.control_reducer, ctx));
@@ -114,7 +114,7 @@ RadarController::RadarController(session::MutableRadarContext& radar_context,
 
 RadarController::RadarController(session::MutableRadarContext& radar_context,
                                  extension::ISignalPipeline& signal_pipeline,
-                                 extension::ITacticalDecisionEngine& decision_engine,
+                                 session::ITacticalDecisionEngine& decision_engine,
                                  environment::IEnvironmentService& environment_service)
     : impl_(new Impl(radar_context, signal_pipeline, decision_engine, environment_service)) {}
 
@@ -124,7 +124,7 @@ void RadarController::RunOnce() {
   impl_->ResetPerCycleFlags();
 
   const session::RadarSceneTargetList& scene_targets = impl_->radar_context.GetSceneTargets();
-  const model::PlatformAttitudeDeg platform_attitude = impl_->radar_context.GetPlatformAttitude();
+  const config::PlatformAttitudeDeg platform_attitude = impl_->radar_context.GetPlatformAttitude();
   const float platform_altitude_m = impl_->radar_context.GetPlatformAltitudeM();
   const float cycle_dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
   const std::uint32_t cycle_index = impl_->radar_context.GetCycleIndex();
@@ -171,7 +171,7 @@ void RadarController::RunOnce() {
     return;
   }
 
-  model::DecisionInputFrame decision_frame = signal_result.decision_frame;
+  session::DecisionInputFrame decision_frame = signal_result.decision_frame;
   decision_frame.cycle_index = stamp.cycle_index;
   decision_frame.batch_id = stamp.batch_id;
 
@@ -180,7 +180,7 @@ void RadarController::RunOnce() {
   track_output_frame.batch_id = stamp.batch_id;
   track_output_frame.tracks = decision_frame.tracks;
 
-  extension::TacticalDecisionResult decision_result;
+  session::TacticalDecisionResult decision_result;
   if (impl_->decision_engine != nullptr &&
       impl_->owned_decision_components.tactical_state_store != nullptr) {
     decision_result = impl_->decision_engine->Evaluate(

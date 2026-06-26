@@ -163,7 +163,7 @@ inline float ComputeMainLobeAttenuationDb(const config::engineering::AntennaPatt
  * @return 扫描损失（单位：dB）。
  */
 inline float ComputeScanLossDb(const config::engineering::AntennaPatternConfig& config,
-                               const model::AzimuthElevationDeg& beam_pointing_deg) {
+                               const config::AzimuthElevationDeg& beam_pointing_deg) {
   const float delta_scan_az_deg = beam_pointing_deg.az_deg - config.boresight_offset_deg.az_deg;
   const float delta_scan_el_deg = beam_pointing_deg.el_deg - config.boresight_offset_deg.el_deg;
   const float raw_scan_loss_db =
@@ -186,7 +186,7 @@ inline float ComputeScanLossDb(const config::engineering::AntennaPatternConfig& 
 inline AntennaPatternSample EvaluateAntennaPattern(
     float peak_gain_dbi, const config::engineering::AntennaPatternConfig& config,
     const AntennaPatternBeamwidthDeg& beamwidth_deg, const AntennaLookOffsetDeg& offset_deg,
-    const model::AzimuthElevationDeg& beam_pointing_deg,
+    const config::AzimuthElevationDeg& beam_pointing_deg,
     float antenna_az_length_m = 0.0f, float antenna_el_width_m = 0.0f,
     float wavelength_m = 0.0f) {
   AntennaPatternSample sample;

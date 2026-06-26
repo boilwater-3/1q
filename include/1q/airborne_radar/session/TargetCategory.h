@@ -13,7 +13,7 @@
 #include "1q/api.hpp"
 
 namespace airborne_radar {
-namespace model {
+namespace session {
 
 /**
  * @brief TargetCategory 封装了单个处理周期的单个目标类别信息。
@@ -42,7 +42,7 @@ struct ONEQ_API TargetCategory {
  */
 using TargetCategoryList = std::vector<TargetCategory>;
 
-}  // namespace model
+}  // namespace session
 }  // namespace airborne_radar
 
 #endif  // ONEQ_AIRBORNE_RADAR_MODEL_TARGET_CATEGORY_H_

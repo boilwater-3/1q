@@ -13,7 +13,7 @@
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/config/InternalExecutionConfig.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
@@ -398,14 +398,14 @@ TEST(SignalPipelineTest,
 
 TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
   signal::pipeline::SignalPipeline signal_pipeline;
-  model::PlatformAttitudeDeg platform_attitude_deg;
+  config::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 12.0f;
   platform_attitude_deg.pitch_deg = -3.0f;
   platform_attitude_deg.roll_deg = 1.5f;
 
   signal_pipeline.UpdatePlatformAttitude(platform_attitude_deg);
 
-  const model::PlatformAttitudeDeg cached_platform_attitude = signal_pipeline.GetPlatformAttitude();
+  const config::PlatformAttitudeDeg cached_platform_attitude = signal_pipeline.GetPlatformAttitude();
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 12.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -3.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 1.5f);
@@ -474,7 +474,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig)
   const std::vector<signal::tracking::TrackMeasurement> measurements;
   lifecycle_manager->Update(cycle, measurements);
 
-  model::DecisionInputFrame decision_frame(lifecycle_manager->BuildTrackStateSnapshots());
+  session::DecisionInputFrame decision_frame(lifecycle_manager->BuildTrackStateSnapshots());
   decision_frame.cycle_index = 1u;
   decision_frame.batch_id = 7u;
   decision_frame.environment_jamming_detected = false;
@@ -510,7 +510,7 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  extension::control::RadarControlProfile reduced_power_profile;
+  session::RadarControlProfile reduced_power_profile;
   reduced_power_profile.enable_lpi_power_control = true;
   reduced_power_profile.lpi_power_scale = 0.20f;
   signal::pipeline::SignalPipeline reduced_pipeline(session_config);
@@ -542,7 +542,7 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  extension::control::RadarControlProfile adaptive_profile;
+  session::RadarControlProfile adaptive_profile;
   adaptive_profile.enable_adaptive_beamforming = true;
   signal::pipeline::SignalPipeline adaptive_pipeline(session_config);
   adaptive_pipeline.SetControlProfile(adaptive_profile);
@@ -586,7 +586,7 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  extension::control::RadarControlProfile eccm_profile;
+  session::RadarControlProfile eccm_profile;
   eccm_profile.enable_agility_frequency = true;
   eccm_profile.enable_eccm_rejitter = true;
   eccm_profile.eccm_burnthrough_gain = 1.5f;
@@ -663,15 +663,15 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   const session::AssociationQualityMetrics deception_metrics =
       deception_pipeline.GetLastAssociationQualityMetrics();
 
-  EXPECT_EQ(noise_metrics.dominant_jamming_semantic, model::JammingSemantic::kNoiseSuppression);
-  EXPECT_EQ(deception_metrics.dominant_jamming_semantic, model::JammingSemantic::kDeception);
+  EXPECT_EQ(noise_metrics.dominant_jamming_semantic, config::JammingSemantic::kNoiseSuppression);
+  EXPECT_EQ(deception_metrics.dominant_jamming_semantic, config::JammingSemantic::kDeception);
   EXPECT_GT(deception_metrics.jamming_severity, noise_metrics.jamming_severity);
   EXPECT_GT(noise_metrics.association_stress, 0.0f);
   EXPECT_GT(deception_metrics.association_stress, 0.0f);
 }
 
 TEST(SignalPipelineTest, DominantJammingSemanticReturnsMixedWhenSecondScoreCloseToNoiseBest) {
-  extension::control::RadarControlProfile control_profile;
+  session::RadarControlProfile control_profile;
   session::EnvironmentSnapshot snapshot;
   snapshot.jamming_detected = true;
 
@@ -693,11 +693,11 @@ TEST(SignalPipelineTest, DominantJammingSemanticReturnsMixedWhenSecondScoreClose
   snapshot.jammer_sources.push_back(deception_source);
 
   EXPECT_EQ(signal::pipeline::ResolveDominantJammingSemantic(control_profile, snapshot),
-            model::JammingSemantic::kMixed);
+            config::JammingSemantic::kMixed);
 }
 
 TEST(SignalPipelineTest, DominantJammingSemanticStaysNoiseWhenSecondScoreBelowThreshold) {
-  extension::control::RadarControlProfile control_profile;
+  session::RadarControlProfile control_profile;
   session::EnvironmentSnapshot snapshot;
   snapshot.jamming_detected = true;
 
@@ -718,7 +718,7 @@ TEST(SignalPipelineTest, DominantJammingSemanticStaysNoiseWhenSecondScoreBelowTh
   snapshot.jammer_sources.push_back(deception_source);
 
   EXPECT_EQ(signal::pipeline::ResolveDominantJammingSemantic(control_profile, snapshot),
-            model::JammingSemantic::kNoiseSuppression);
+            config::JammingSemantic::kNoiseSuppression);
 }
 
 TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) {
@@ -762,7 +762,7 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   const session::AssociationQualityMetrics baseline_metrics =
       baseline_pipeline.GetLastAssociationQualityMetrics();
 
-  extension::control::RadarControlProfile protected_profile;
+  session::RadarControlProfile protected_profile;
   protected_profile.enable_agility_frequency = true;
   protected_profile.enable_eccm_rejitter = true;
   signal::pipeline::SignalPipeline protected_pipeline(session_config);
@@ -773,8 +773,8 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   const session::AssociationQualityMetrics protected_metrics =
       protected_pipeline.GetLastAssociationQualityMetrics();
 
-  EXPECT_EQ(baseline_metrics.dominant_jamming_semantic, model::JammingSemantic::kDeception);
-  EXPECT_EQ(protected_metrics.dominant_jamming_semantic, model::JammingSemantic::kDeception);
+  EXPECT_EQ(baseline_metrics.dominant_jamming_semantic, config::JammingSemantic::kDeception);
+  EXPECT_EQ(protected_metrics.dominant_jamming_semantic, config::JammingSemantic::kDeception);
   EXPECT_LT(protected_metrics.jamming_severity, baseline_metrics.jamming_severity);
   EXPECT_LT(protected_metrics.association_stress, baseline_metrics.association_stress);
 }
@@ -804,7 +804,7 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  extension::control::RadarControlProfile eccm_profile;
+  session::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
   eccm_profile.enable_agility_frequency = true;
   eccm_profile.enable_eccm_rejitter = true;
@@ -854,7 +854,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
 
   const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
-  extension::control::RadarControlProfile eccm_profile;
+  session::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
   eccm_profile.enable_adaptive_beamforming = true;
   eccm_profile.enable_agility_frequency = true;
@@ -902,7 +902,7 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  extension::control::RadarControlProfile protected_profile;
+  session::RadarControlProfile protected_profile;
   protected_profile.enable_agility_frequency = true;
   protected_profile.enable_eccm_rejitter = true;
   signal::pipeline::SignalPipeline protected_pipeline(session_config);
@@ -928,7 +928,7 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
   phase_zero_exec.detection.engineering.transmitter.frequency_hz = 1.0e9f;
   phase_one_exec.detection.engineering.transmitter.frequency_hz = 1.0e9f;
 
-  extension::control::RadarControlProfile profile;
+  session::RadarControlProfile profile;
   profile.enable_agility_frequency = true;
   profile.agility_frequency_hop_phase = 0U;
   signal::pipeline::ApplyControlProfileToConfig(profile, &phase_zero_exec);
@@ -958,7 +958,7 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
       CloneSceneTargets(RunPipelineCycle(&baseline_pipeline, input_state, &environment_service)
                             .updated_scene_targets);
 
-  extension::control::RadarControlProfile eccm_profile;
+  session::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
   eccm_profile.enable_eccm_rejitter = true;
   eccm_profile.eccm_burnthrough_gain = 1.5f;
@@ -1008,7 +1008,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
   target.range_m = 100.0f;
   const session::RadarSceneTargetList input_state{target};
 
-  extension::control::RadarControlProfile eccm_profile;
+  session::RadarControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
   eccm_profile.enable_adaptive_beamforming = true;
   eccm_profile.enable_agility_frequency = true;
@@ -1067,7 +1067,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
   const std::vector<signal::tracking::AssociationTrackSeed> baseline_seeds =
       baseline_manager->BuildAssociationSeeds();
 
-  extension::control::RadarControlProfile adaptive_profile;
+  session::RadarControlProfile adaptive_profile;
   adaptive_profile.enable_adaptive_beamforming = true;
   signal::pipeline::SignalPipeline adaptive_pipeline(session_config);
   adaptive_pipeline.SetControlProfile(adaptive_profile);
@@ -1117,7 +1117,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
   unsynced_manager->Update(MakeLifecycleCycle(1u, 1u), cycle_1_measurements);
   synced_manager->Update(MakeLifecycleCycle(1u, 1u), cycle_1_measurements);
 
-  extension::control::RadarControlProfile agile_profile;
+  session::RadarControlProfile agile_profile;
   agile_profile.enable_agility_frequency = true;
   const signal::pipeline::ResolvedRuntimePipelineConfig agile_runtime_config =
       signal::pipeline::ResolveRuntimePipelineConfig(base_exec_config, agile_profile);
@@ -1255,7 +1255,7 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
   const std::vector<signal::tracking::AssociationTrackSeed> baseline_seeds =
       baseline_manager->BuildAssociationSeeds();
 
-  extension::control::RadarControlProfile protected_profile;
+  session::RadarControlProfile protected_profile;
   protected_profile.enable_eccm_rejitter = true;
   protected_profile.eccm_burnthrough_gain = 1.5f;
   signal::pipeline::SignalPipeline protected_pipeline(session_config);
@@ -1603,7 +1603,7 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
   RunPipelineCycle(&pipeline, input, &environment_service, 1u);
   manager->Update(MakeLifecycleCycle(1u, 1u), pipeline.GetLastTrackMeasurements());
 
-  extension::control::RadarControlProfile baseline_profile;
+  session::RadarControlProfile baseline_profile;
   pipeline.SetControlProfile(baseline_profile);
 
   target.position_x = 101.0f;
@@ -1617,7 +1617,7 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
   ASSERT_EQ(baseline_seeds.size(), 1u);
   const float baseline_cov = baseline_seeds[0].gaussian_state.covariance(0, 0);
 
-  extension::control::RadarControlProfile agile_profile;
+  session::RadarControlProfile agile_profile;
   agile_profile.enable_agility_frequency = true;
   pipeline.SetControlProfile(agile_profile);
 

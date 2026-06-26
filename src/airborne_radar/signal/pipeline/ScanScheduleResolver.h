@@ -18,27 +18,27 @@ namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 
-model::AzimuthElevationDeg ResolveFiniteScanCenter(
-    const model::RadarOrientationConfig& orientation_config);
+config::AzimuthElevationDeg ResolveFiniteScanCenter(
+    const config::RadarOrientationConfig& orientation_config);
 
-float ResolveScanStepScale(model::RadarWorkMode mode);
+float ResolveScanStepScale(config::RadarWorkMode mode);
 
-std::vector<model::AzimuthElevationDeg> BuildScheduledScanPattern(
-    const model::AzimuthElevationLimitsDeg& limits, float az_step_deg, float el_step_deg,
+std::vector<config::AzimuthElevationDeg> BuildScheduledScanPattern(
+    const config::AzimuthElevationLimitsDeg& limits, float az_step_deg, float el_step_deg,
     oneq::foundation::ScanStartPosition start_position, oneq::foundation::ScanSequence sequence);
 
-model::AzimuthElevationDeg ResolveScheduledBeamPointing(
-    const model::RadarOrientationConfig& orientation_config,
+config::AzimuthElevationDeg ResolveScheduledBeamPointing(
+    const config::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index);
 
-model::AzimuthElevationDeg ResolveScheduledBeamPointing(
-    const model::RadarOrientationConfig& orientation_config,
+config::AzimuthElevationDeg ResolveScheduledBeamPointing(
+    const config::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg,
     const config::BeamSchedulerConfig& scheduler_config,
     std::uint32_t cycle_index);
 
-model::AzimuthElevationDeg ResolveScheduledDwellCenter(
-    const model::RadarOrientationConfig& orientation_config,
+config::AzimuthElevationDeg ResolveScheduledDwellCenter(
+    const config::RadarOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index);
 
 void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,

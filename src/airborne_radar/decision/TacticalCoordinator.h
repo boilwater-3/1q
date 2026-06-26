@@ -8,8 +8,8 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "airborne_radar/decision/EccmEvaluator.h"
 #include "airborne_radar/decision/LpiEvaluator.h"
 #include "airborne_radar/decision/ThreatAssessmentEvaluator.h"
@@ -24,7 +24,7 @@ namespace decision {
  * 编排 ThreatAssessment → LPI → ECCM 的评估流水线，
  * 各 evaluator 通过明确的 Result 结构体传递数据，不共享中间状态。
  */
-class TacticalCoordinator final : public extension::ITacticalDecisionEngine {
+class TacticalCoordinator final : public session::ITacticalDecisionEngine {
  public:
   /**
    * @brief 构造函数。
@@ -39,9 +39,9 @@ class TacticalCoordinator final : public extension::ITacticalDecisionEngine {
    * @param[in,out] state_store 跨周期战术状态存储。
    * @return 本周期的战术决策结果。
    */
-  extension::TacticalDecisionResult Evaluate(
-      const model::DecisionInputFrame& input_frame,
-      extension::TacticalStateStore& state_store) override;
+  session::TacticalDecisionResult Evaluate(
+      const session::DecisionInputFrame& input_frame,
+      session::TacticalStateStore& state_store) override;
 
  private:
   /**
@@ -51,7 +51,7 @@ class TacticalCoordinator final : public extension::ITacticalDecisionEngine {
    * 且 severity ≥ 0.35、stress ≥ 0.18。
    */
   static bool ShouldBackfillEccmTrigger(
-      const model::AssociationQualityInfo& association_quality_info);
+      const session::AssociationQualityInfo& association_quality_info);
 
   /**
    * @brief 关联质量驱动的 ECCM 优先级偏置后处理。
@@ -60,14 +60,14 @@ class TacticalCoordinator final : public extension::ITacticalDecisionEngine {
    * 对已生成的 ECCM proposals 进行优先级调整。
    */
   static void ApplyAssociationDrivenPriorityBias(
-      const model::AssociationQualityInfo& association_quality_info,
-      std::vector<extension::TacticalProposal>* proposals);
+      const session::AssociationQualityInfo& association_quality_info,
+      std::vector<session::TacticalProposal>* proposals);
 
   /**
    * @brief 构建决策摘要字符串。
    */
   static std::string BuildDecisionSummary(
-      const model::DecisionInputFrame& input_frame,
+      const session::DecisionInputFrame& input_frame,
       const ThreatAssessmentEvaluator::Result& threat_result,
       const LpiEvaluator::Result& lpi_result,
       const EccmEvaluator::Result& eccm_result);
@@ -76,8 +76,8 @@ class TacticalCoordinator final : public extension::ITacticalDecisionEngine {
    * @brief 清理失效轨迹的状态记忆。
    */
   static void PruneInactiveTrackState(
-      const model::TrackStateSnapshotList& tracks,
-      extension::TacticalStateStore* state_store);
+      const session::TrackStateSnapshotList& tracks,
+      session::TacticalStateStore* state_store);
 
   ThreatAssessmentEvaluator threat_assessment_evaluator_;
   LpiEvaluator lpi_evaluator_;

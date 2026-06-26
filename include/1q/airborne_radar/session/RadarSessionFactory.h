@@ -11,9 +11,9 @@
 #include "1q/api.hpp"
 
 namespace airborne_radar {
-namespace extension {
+namespace session {
 class ITacticalDecisionEngine;
-}  // namespace extension
+}  // namespace session
 }  // namespace airborne_radar
 
 namespace airborne_radar {
@@ -37,7 +37,7 @@ class ONEQ_API RadarSessionFactory {
    */
   static RadarSession CreateWithDecisionEngine(
       const config::RadarSessionConfig& config,
-      extension::ITacticalDecisionEngine& decision_engine);
+      session::ITacticalDecisionEngine& decision_engine);
 
 };
 

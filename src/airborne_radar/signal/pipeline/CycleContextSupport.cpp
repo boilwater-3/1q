@@ -13,7 +13,7 @@ void ResetCycleExecutionScratch(const session::RadarSceneTargetList& input_state
                                 CycleExecutionScratch& scratch) {
   const std::size_t target_count = input_state.size();
   scratch.output_state.resize(target_count);
-  scratch.decision_frame = model::DecisionInputFrame();
+  scratch.decision_frame = session::DecisionInputFrame();
   scratch.association_quality_metrics = AssociationQualityMetrics();
   scratch.track_measurements.clear();
   scratch.signal_term_db.resize(target_count);
@@ -24,7 +24,7 @@ void ResetCycleExecutionScratch(const session::RadarSceneTargetList& input_state
   scratch.measurement_slots.assign(target_count, -1);
   scratch.target_geometry.resize(target_count);
   scratch.association_result = association::AssociationResult();
-  scratch.dominant_jamming_semantic = model::JammingSemantic::kNone;
+  scratch.dominant_jamming_semantic = config::JammingSemantic::kNone;
   scratch.jamming_severity = 0.0f;
 }
 

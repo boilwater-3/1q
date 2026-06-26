@@ -9,12 +9,12 @@
 #define ONEQ_AIRBORNE_RADAR_AIRBORNE_RADAR_HPP_
 
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/DecisionSourceInfo.h"
-#include "1q/airborne_radar/model/JammingSemantics.h"
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
-#include "1q/airborne_radar/model/TargetCategory.h"
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "1q/airborne_radar/session/DecisionSourceInfo.h"
+#include "1q/airborne_radar/config/JammingSemantics.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/session/TargetCategory.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleInputBuilder.h"
 #include "1q/airborne_radar/session/RadarCycleOutputBuilder.h"

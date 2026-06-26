@@ -32,17 +32,17 @@ constexpr std::size_t kMaxStateStoreEntries = 2048U;
 /**
  * @brief 判断关联压力语义是否指向 ECCM 驱动型干扰。
  */
-bool IsAssociationDrivenJammingSemantic(model::JammingSemantic semantic) {
-  return semantic == model::JammingSemantic::kDeception ||
-         semantic == model::JammingSemantic::kRepeater ||
-         semantic == model::JammingSemantic::kMixed;
+bool IsAssociationDrivenJammingSemantic(config::JammingSemantic semantic) {
+  return semantic == config::JammingSemantic::kDeception ||
+         semantic == config::JammingSemantic::kRepeater ||
+         semantic == config::JammingSemantic::kMixed;
 }
 
 /**
  * @brief 判断探测质量是否存在可观测压力。
  */
 bool HasMeaningfulDetectionPressure(
-    const model::PerceptionQualityInfo& perception_quality_info) {
+    const session::PerceptionQualityInfo& perception_quality_info) {
   return perception_quality_info.input_target_count > 0U &&
          perception_quality_info.detection_stress >= kMeaningfulDetectionPressureThreshold;
 }
@@ -57,17 +57,17 @@ float ClampUnit(float value) {
 /**
  * @brief 描述关联语义。
  */
-std::string DescribeAssociationSemantic(model::JammingSemantic semantic) {
+std::string DescribeAssociationSemantic(config::JammingSemantic semantic) {
   switch (semantic) {
-    case model::JammingSemantic::kDeception:
+    case config::JammingSemantic::kDeception:
       return "deception-like association stress";
-    case model::JammingSemantic::kRepeater:
+    case config::JammingSemantic::kRepeater:
       return "repeater-like association stress";
-    case model::JammingSemantic::kMixed:
+    case config::JammingSemantic::kMixed:
       return "mixed association stress";
-    case model::JammingSemantic::kNoiseSuppression:
+    case config::JammingSemantic::kNoiseSuppression:
       return "noise-like association stress";
-    case model::JammingSemantic::kNone:
+    case config::JammingSemantic::kNone:
     default:
       return "association stress";
   }
@@ -84,7 +84,7 @@ TacticalCoordinator::TacticalCoordinator(
 // ===== 私有静态方法 =====
 
 bool TacticalCoordinator::ShouldBackfillEccmTrigger(
-    const model::AssociationQualityInfo& association_quality_info) {
+    const session::AssociationQualityInfo& association_quality_info) {
   if (!IsAssociationDrivenJammingSemantic(
            association_quality_info.dominant_jamming_semantic) ||
       association_quality_info.jamming_severity < kAssociationDrivenEccmMinJammingSeverity ||
@@ -95,8 +95,8 @@ bool TacticalCoordinator::ShouldBackfillEccmTrigger(
 }
 
 void TacticalCoordinator::ApplyAssociationDrivenPriorityBias(
-    const model::AssociationQualityInfo& association_quality_info,
-    std::vector<extension::TacticalProposal>* proposals) {
+    const session::AssociationQualityInfo& association_quality_info,
+    std::vector<session::TacticalProposal>* proposals) {
   if (proposals == nullptr || proposals->empty()) {
     return;
   }
@@ -120,47 +120,47 @@ void TacticalCoordinator::ApplyAssociationDrivenPriorityBias(
   std::string semantic_desc;
 
   switch (association_quality_info.dominant_jamming_semantic) {
-    case model::JammingSemantic::kDeception:
+    case config::JammingSemantic::kDeception:
       agility_boost = static_cast<int>(3.5f * combined_weight * 10.0f);
       rejitter_boost = static_cast<int>(3.8f * combined_weight * 10.0f);
       beam_boost = static_cast<int>(0.8f * combined_weight * 10.0f);
-      semantic_desc = DescribeAssociationSemantic(model::JammingSemantic::kDeception);
+      semantic_desc = DescribeAssociationSemantic(config::JammingSemantic::kDeception);
       break;
-    case model::JammingSemantic::kRepeater:
+    case config::JammingSemantic::kRepeater:
       agility_boost = static_cast<int>(1.8f * combined_weight * 10.0f);
       rejitter_boost = static_cast<int>(3.6f * combined_weight * 10.0f);
       beam_boost = static_cast<int>(0.9f * combined_weight * 10.0f);
-      semantic_desc = DescribeAssociationSemantic(model::JammingSemantic::kRepeater);
+      semantic_desc = DescribeAssociationSemantic(config::JammingSemantic::kRepeater);
       break;
-    case model::JammingSemantic::kMixed:
+    case config::JammingSemantic::kMixed:
       agility_boost = static_cast<int>(2.8f * combined_weight * 10.0f);
       rejitter_boost = static_cast<int>(3.0f * combined_weight * 10.0f);
       beam_boost = static_cast<int>(0.8f * combined_weight * 10.0f);
-      semantic_desc = DescribeAssociationSemantic(model::JammingSemantic::kMixed);
+      semantic_desc = DescribeAssociationSemantic(config::JammingSemantic::kMixed);
       break;
-    case model::JammingSemantic::kNoiseSuppression:
-    case model::JammingSemantic::kNone:
+    case config::JammingSemantic::kNoiseSuppression:
+    case config::JammingSemantic::kNone:
     default:
       return;
   }
 
   for (std::size_t i = 0; i < proposals->size(); ++i) {
-    extension::TacticalProposal& p = (*proposals)[i];
+    session::TacticalProposal& p = (*proposals)[i];
     bool boosted = false;
     switch (p.directive.type) {
-      case extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
+      case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
         if (agility_boost > 0) {
           p.priority += agility_boost;
           boosted = true;
         }
         break;
-      case extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+      case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
         if (rejitter_boost > 0) {
           p.priority += rejitter_boost;
           boosted = true;
         }
         break;
-      case extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
+      case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
         if (beam_boost > 0) {
           p.priority += beam_boost;
           boosted = true;
@@ -178,8 +178,8 @@ void TacticalCoordinator::ApplyAssociationDrivenPriorityBias(
 }
 
 void TacticalCoordinator::PruneInactiveTrackState(
-    const model::TrackStateSnapshotList& tracks,
-    extension::TacticalStateStore* state_store) {
+    const session::TrackStateSnapshotList& tracks,
+    session::TacticalStateStore* state_store) {
   if (state_store == nullptr) {
     return;
   }
@@ -217,7 +217,7 @@ void TacticalCoordinator::PruneInactiveTrackState(
 }
 
 std::string TacticalCoordinator::BuildDecisionSummary(
-    const model::DecisionInputFrame& input_frame,
+    const session::DecisionInputFrame& input_frame,
     const ThreatAssessmentEvaluator::Result& threat_result,
     const LpiEvaluator::Result& lpi_result,
     const EccmEvaluator::Result& eccm_result) {
@@ -260,10 +260,10 @@ std::string TacticalCoordinator::BuildDecisionSummary(
 
 // ===== Evaluate（主入口）=====
 
-extension::TacticalDecisionResult TacticalCoordinator::Evaluate(
-    const model::DecisionInputFrame& input_frame,
-    extension::TacticalStateStore& state_store) {
-  extension::TacticalDecisionResult result;
+session::TacticalDecisionResult TacticalCoordinator::Evaluate(
+    const session::DecisionInputFrame& input_frame,
+    session::TacticalStateStore& state_store) {
+  session::TacticalDecisionResult result;
 
   // ==== [1] 确定 ECCM 触发信号 ====
   // 来源 A：环境干扰事实
@@ -278,7 +278,7 @@ extension::TacticalDecisionResult TacticalCoordinator::Evaluate(
       threat_assessment_evaluator_.Evaluate(input_frame, state_store);
 
   // ==== [3] LPI 发射控制 ====
-  std::vector<extension::TacticalProposal> all_proposals;
+  std::vector<session::TacticalProposal> all_proposals;
   LpiEvaluator::Result lpi_result;
   lpi_result = lpi_evaluator_.Evaluate(threat_result.lpi_source_info, &all_proposals);
 
@@ -286,7 +286,7 @@ extension::TacticalDecisionResult TacticalCoordinator::Evaluate(
   bool should_enable_eccm = eccm_has_jamming;
   EccmEvaluator::Result eccm_result;
   if (should_enable_eccm) {
-    model::EccmSourceInfo eccm_input = input_frame.eccm_source_info;
+    session::EccmSourceInfo eccm_input = input_frame.eccm_source_info;
     if (!eccm_input.has_jamming_signal) {
       eccm_input.has_jamming_signal = true;
     }
@@ -311,16 +311,16 @@ extension::TacticalDecisionResult TacticalCoordinator::Evaluate(
   result.target_classification_result.reserve(threat_result.target_classification_result.size());
   for (std::size_t i = 0; i < threat_result.target_classification_result.size(); ++i) {
     result.target_classification_result.push_back(
-        model::TargetCategory(threat_result.target_classification_result[i].target_type));
+        session::TargetCategory(threat_result.target_classification_result[i].target_type));
   }
   result.proposals = all_proposals;
 
   if (eccm_result.eccm_activated) {
-    result.selected_mode = extension::TacticalMode::kProtectedEmission;
+    result.selected_mode = session::TacticalMode::kProtectedEmission;
   } else if (lpi_result.requests_power_reduction) {
-    result.selected_mode = extension::TacticalMode::kThreatResponse;
+    result.selected_mode = session::TacticalMode::kThreatResponse;
   } else {
-    result.selected_mode = extension::TacticalMode::kBaseline;
+    result.selected_mode = session::TacticalMode::kBaseline;
   }
 
   state_store.current_mode = result.selected_mode;

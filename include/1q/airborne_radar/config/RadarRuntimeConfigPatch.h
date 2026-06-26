@@ -14,9 +14,9 @@
 namespace airborne_radar {
 namespace config {
 
-using model::AzimuthElevationDeg;
-using model::CommandedBeamwidthDeg;
-using model::RadarWorkMode;
+using config::AzimuthElevationDeg;
+using config::CommandedBeamwidthDeg;
+using config::RadarWorkMode;
 
 /**
  * @brief EnvironmentRuntimeConfigPatch 描述运行期可变环境参数补丁。

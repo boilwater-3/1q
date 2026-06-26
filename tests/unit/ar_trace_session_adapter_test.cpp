@@ -256,7 +256,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     input.environment.atmospheric_observation.enable_physical_model = true;
     input.environment.atmospheric_observation.relative_humidity = 0.65f;
     config::JammerEmitterState jammer;
-    jammer.technique = model::JammingTechnique::kNoiseSuppression;
+    jammer.technique = session::JammingTechnique::kNoiseSuppression;
     jammer.power_db = 24.0f;
     jammer.js_db = 7.0f;
     jammer.has_direction_deg = true;

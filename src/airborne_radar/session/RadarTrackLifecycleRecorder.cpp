@@ -15,9 +15,9 @@ struct TargetState {
   std::string target_name{};
 };
 
-const model::TrackStateSnapshot* FindTrackByExternalTargetId(
+const session::TrackStateSnapshot* FindTrackByExternalTargetId(
     const TrackOutputFrame& frame, std::uint64_t external_target_id) {
-  for (const model::TrackStateSnapshot& track : frame.tracks) {
+  for (const session::TrackStateSnapshot& track : frame.tracks) {
     if (track.external_target_id == external_target_id && external_target_id != 0U) {
       return &track;
     }
@@ -25,7 +25,7 @@ const model::TrackStateSnapshot* FindTrackByExternalTargetId(
   return nullptr;
 }
 
-RadarTrackLifecycleReason InferReason(const RadarCycleResult& result, const model::TrackStateSnapshot* track) {
+RadarTrackLifecycleReason InferReason(const RadarCycleResult& result, const session::TrackStateSnapshot* track) {
   if (result.has_validation_error) {
     return RadarTrackLifecycleReason::kValidationRejected;
   }
@@ -72,10 +72,10 @@ std::vector<RadarTrackLifecycleEvent> RadarTrackLifecycleRecorder::Update(
       continue;
     }
     TargetState& state = impl_->states[target.external_target_id];
-    const model::TrackStateSnapshot* track =
+    const session::TrackStateSnapshot* track =
         FindTrackByExternalTargetId(result.track_output_frame, target.external_target_id);
     const bool confirmed_now =
-        result.executed_this_cycle && track != nullptr && track->status == model::TrackStatus::kConfirmed;
+        result.executed_this_cycle && track != nullptr && track->status == session::TrackStatus::kConfirmed;
 
     if (confirmed_now) {
       RadarTrackLifecycleEvent event = MakeBaseEvent(target, result);
@@ -92,7 +92,7 @@ std::vector<RadarTrackLifecycleEvent> RadarTrackLifecycleRecorder::Update(
     }
 
     const bool lost_now =
-        result.executed_this_cycle && track != nullptr && track->status == model::TrackStatus::kLost;
+        result.executed_this_cycle && track != nullptr && track->status == session::TrackStatus::kLost;
     if (lost_now && state.confirmed) {
       RadarTrackLifecycleEvent event = MakeBaseEvent(target, result);
       event.kind = RadarTrackLifecycleEventKind::kLost;

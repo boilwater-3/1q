@@ -3,14 +3,13 @@
  * @brief 定义行为决策层可以下发的指令。
  */
 
-#ifndef ONEQ_AIRBORNE_RADAR_EXTENSION_CONTROL_RADAR_COMMAND_H_
-#define ONEQ_AIRBORNE_RADAR_EXTENSION_CONTROL_RADAR_COMMAND_H_
+#ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_COMMAND_H_
+#define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_COMMAND_H_
 
 #include "1q/api.hpp"
 
 namespace airborne_radar {
-namespace extension {
-namespace control {
+namespace session {
 
 /**
  * @brief RadarCommandSource 表示指令来源模块。
@@ -55,8 +54,7 @@ struct ONEQ_API RadarCommand {
   RadarCommand(RadarCommandType cmd_type, RadarCommandSource cmd_source)
       : type(cmd_type), source(cmd_source) {}
 };
-}  // namespace control
-}  // namespace extension
+}  // namespace session
 }  // namespace airborne_radar
 
-#endif  // ONEQ_AIRBORNE_RADAR_EXTENSION_CONTROL_RADAR_COMMAND_H_
+#endif  // ONEQ_AIRBORNE_RADAR_SESSION_RADAR_COMMAND_H_

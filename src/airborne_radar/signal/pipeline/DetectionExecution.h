@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/RadarEnvironmentInput.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
@@ -34,13 +34,13 @@ struct DetectionExecutionBuffers {
 
 void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input,
                                const ExecutionConfig& config,
-                               const extension::control::RadarControlProfile& control_profile,
+                               const session::RadarControlProfile& control_profile,
                                const session::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers);
 
 void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
                               const ExecutionConfig& config,
-                              const extension::control::RadarControlProfile& control_profile,
+                              const session::RadarControlProfile& control_profile,
                               const session::EnvironmentSnapshot& environment_snapshot,
                               float platform_altitude_m, detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers);

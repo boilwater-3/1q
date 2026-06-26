@@ -11,7 +11,7 @@
 #include "1q/foundation/scan_schedule_types.h"
 
 namespace airborne_radar {
-namespace model {
+namespace config {
 
 /** @brief EulerAnglesDeg 兼容别名：欧拉角姿态（单位：deg）。 */
 using EulerAnglesDeg = oneq::foundation::EulerAnglesDeg;
@@ -106,7 +106,7 @@ struct ONEQ_API RadarOrientationConfig {
   StabilizationMode stabilization_mode{StabilizationMode::kBodyStabilized}; /**< 波束稳定方式 */
 };
 
-}  // namespace model
+}  // namespace config
 }  // namespace airborne_radar
 
 #endif  // ONEQ_AIRBORNE_RADAR_MODEL_RADAR_ORIENTATION_CONFIG_H_

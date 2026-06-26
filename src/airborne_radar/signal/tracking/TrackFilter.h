@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_
 
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
-#include "1q/airborne_radar/model/JammingSemantics.h"
+#include "1q/airborne_radar/config/JammingSemantics.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -25,8 +25,8 @@ struct TrackFilterConfig {
 struct TrackFilterContext {
   bool detection_succeeded{false}; /**< 本周期是否检测成功。 */
   bool jamming_detected{false};    /**< 是否探测到干扰。 */
-  model::JammingSemantic dominant_jamming_semantic{
-      model::JammingSemantic::kNone}; /**< 主要干扰语义类型。 */
+  config::JammingSemantic dominant_jamming_semantic{
+      config::JammingSemantic::kNone}; /**< 主要干扰语义类型。 */
   float jamming_severity{0.0f};               /**< 干扰严重程度。 */
   float detection_margin_db{0.0f};            /**< 检测余量（dB）。 */
 };

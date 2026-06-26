@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/airborne_radar/model/DecisionSourceInfo.h"
+#include "1q/airborne_radar/session/DecisionSourceInfo.h"
 #include "1q/environment/AtmosphericTypes.h"
 #include "1q/foundation/atmospheric_types.h"
 
@@ -49,9 +49,9 @@ enum class ONEQ_API JammingSensitivityProfile {
 ONEQ_API JammingSensitivityProfile ResolveJammingSensitivityProfile(float threshold_db);
 
 /**
- * @brief JammingTechnique 与 `model::JammingTechnique` 保持统一的别名。
+ * @brief JammingTechnique 与 `session::JammingTechnique` 保持统一的别名。
  */
-using JammingTechnique = model::JammingTechnique;
+using JammingTechnique = session::JammingTechnique;
 
 /**
  * @brief JammerEmitterState 表示对外注入的干扰源场景事实输入。

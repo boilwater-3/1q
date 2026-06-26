@@ -9,8 +9,8 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/extension/control/RadarCommand.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/session/RadarCommand.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/api.hpp"
@@ -68,7 +68,7 @@ class ONEQ_API RadarSession {
   /** @brief 获取当前周期已提交的控制指令。
    * @return 最近一次成功执行周期提交的控制指令列表引用。
    */
-  const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const;
+  const std::vector<session::RadarCommand>& GetSubmittedCommands() const;
 
   /**
    * @brief 判断是否已经保存过最新控制真值。
@@ -80,7 +80,7 @@ class ONEQ_API RadarSession {
    * @brief 获取最近一次控制真值。
    * @return 最近一次成功执行周期留下的控制真值引用。
    */
-  const extension::control::RadarControlProfile& GetLatestControlProfile() const;
+  const session::RadarControlProfile& GetLatestControlProfile() const;
 
   /**
    * @brief 获取最近一次关联质量观测指标。

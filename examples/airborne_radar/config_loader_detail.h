@@ -94,7 +94,7 @@ inline void LoadHardware(const oneq::JsonValue& j,
 // -- mission / orientation ---------------------------------------------------
 
 inline void LoadOrientation(const oneq::JsonValue& j,
-                            airborne_radar::model::RadarOrientationConfig* v) {
+                            airborne_radar::config::RadarOrientationConfig* v) {
   if (j.IsNull()) return;
   LoadEulerAngles(j["mount_angles_deg"], &v->mount_angles_deg);
   LoadAzEl(j["scan_center_deg"], &v->scan_center_deg);

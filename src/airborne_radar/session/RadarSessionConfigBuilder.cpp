@@ -12,7 +12,7 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
                                   profiles::RadarHardwareProfile hardware_profile,
                                   profiles::DetectionIntentProfile intent_profile,
                                   profiles::AntennaPatternProfile antenna_profile,
-                                  const model::AzimuthElevationDeg& antenna_boresight_offset_deg,
+                                  const config::AzimuthElevationDeg& antenna_boresight_offset_deg,
                                   profiles::RcsFusionProfile rcs_fusion_profile,
                                   DetectionConfig* detection_config) {
   if (detection_config == nullptr) {
@@ -159,7 +159,7 @@ config::RadarSessionConfig BuildDefaultSemanticSessionConfig() {
   ApplyDetectionSemanticConfig(false, profiles::RadarHardwareProfile::kGenericAirborneXBand,
                                profiles::DetectionIntentProfile::kBalanced,
                                profiles::AntennaPatternProfile::kStandard,
-                               model::AzimuthElevationDeg(), profiles::RcsFusionProfile::kDisabled,
+                               config::AzimuthElevationDeg(), profiles::RcsFusionProfile::kDisabled,
                                &config.hardware);
   ApplyTrackingSemanticConfig(false, profiles::TrackingPolicyProfile::kBalanced,
                               &config.policy.tracking, &config.policy.association);

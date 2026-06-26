@@ -55,10 +55,10 @@ void NormalizeOrFallback(float x, float y, float z, float& nx, float& ny, float&
  * @param semantic 当前主导干扰语义。
  * @return 属于 deception/repeater/mixed 时返回 true。
  */
-bool IsAssociationFragileJamming(model::JammingSemantic semantic) {
-  return semantic == model::JammingSemantic::kDeception ||
-         semantic == model::JammingSemantic::kRepeater ||
-         semantic == model::JammingSemantic::kMixed;
+bool IsAssociationFragileJamming(config::JammingSemantic semantic) {
+  return semantic == config::JammingSemantic::kDeception ||
+         semantic == config::JammingSemantic::kRepeater ||
+         semantic == config::JammingSemantic::kMixed;
 }
 
 }  // namespace

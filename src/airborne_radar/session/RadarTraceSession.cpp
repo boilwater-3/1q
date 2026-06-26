@@ -5,7 +5,7 @@
 #include <utility>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "1q/trace/TraceSink.h"
 #include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
@@ -29,7 +29,7 @@ std::string BuildRadarOutputPayload(const RadarCycleResult& result) {
   const auto& frame = result.track_output_frame;
   std::size_t confirmed_count = 0U;
   for (const auto& track : frame.tracks) {
-    if (track.status == model::TrackStatus::kConfirmed) {
+    if (track.status == session::TrackStatus::kConfirmed) {
       ++confirmed_count;
     }
   }
@@ -210,7 +210,7 @@ void RadarTraceSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch
   impl_->session.ApplyRuntimeConfig(patch);
 }
 
-const std::vector<extension::control::RadarCommand>& RadarTraceSession::GetSubmittedCommands()
+const std::vector<session::RadarCommand>& RadarTraceSession::GetSubmittedCommands()
     const {
   return impl_->session.GetSubmittedCommands();
 }
@@ -219,7 +219,7 @@ bool RadarTraceSession::HasLatestControlProfile() const {
   return impl_->session.HasLatestControlProfile();
 }
 
-const extension::control::RadarControlProfile& RadarTraceSession::GetLatestControlProfile() const {
+const session::RadarControlProfile& RadarTraceSession::GetLatestControlProfile() const {
   return impl_->session.GetLatestControlProfile();
 }
 

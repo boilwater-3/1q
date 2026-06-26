@@ -13,8 +13,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/extension/control/ControlDirective.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/session/ControlDirective.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
 
 namespace airborne_radar {
 namespace extension {
@@ -41,9 +41,9 @@ struct ControlReducerConfig {
  * @brief ControlReductionResult 表示 reducer 的单周期输出。
  */
 struct ControlReductionResult {
-  extension::control::RadarControlProfile profile; /**< 归并后的下一周期控制真值 */
-  std::vector<extension::control::ControlDirective> applied_directives;  /**< 被采纳的控制意图 */
-  std::vector<extension::control::ControlDirective> rejected_directives; /**< 被拒绝的控制意图 */
+  session::RadarControlProfile profile; /**< 归并后的下一周期控制真值 */
+  std::vector<session::ControlDirective> applied_directives;  /**< 被采纳的控制意图 */
+  std::vector<session::ControlDirective> rejected_directives; /**< 被拒绝的控制意图 */
 };
 
 }  // namespace extension

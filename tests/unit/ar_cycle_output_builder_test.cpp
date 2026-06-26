@@ -17,7 +17,7 @@
 
 namespace {
 
-using airborne_radar::model::TrackStateSnapshot;
+using airborne_radar::session::TrackStateSnapshot;
 using airborne_radar::session::RadarCycleInput;
 using airborne_radar::session::RadarCycleInputBuilder;
 using airborne_radar::session::RadarCycleOutputBuilder;
@@ -141,7 +141,7 @@ TrackOutputFrame MakeFrameFromInternalTarget(const RadarCycleInput& input) {
   TrackStateSnapshot snapshot;
   snapshot.association_key = 1001U;
   snapshot.external_target_id = 9001U;
-  snapshot.status = airborne_radar::model::TrackStatus::kConfirmed;
+  snapshot.status = airborne_radar::session::TrackStatus::kConfirmed;
   snapshot.position_x = input.scene[0].position_x;
   snapshot.position_y = input.scene[0].position_y;
   snapshot.position_z = input.scene[0].position_z;
@@ -178,7 +178,7 @@ TEST(RadarCycleOutputBuilderTest, ConvertsInternalLocalFrameBackToExternalEcef) 
   const airborne_radar::session::RadarExternalTrackKinematics& output = external_frame.tracks[0];
   EXPECT_EQ(output.association_key, 1001U);
   EXPECT_EQ(output.external_target_id, 9001U);
-  EXPECT_EQ(output.status, airborne_radar::model::TrackStatus::kConfirmed);
+  EXPECT_EQ(output.status, airborne_radar::session::TrackStatus::kConfirmed);
   EXPECT_NEAR(output.target_position_ecef_m.x_m, target.kinematics.position_ecef_m.x_m, 0.1);
   EXPECT_NEAR(output.target_position_ecef_m.y_m, target.kinematics.position_ecef_m.y_m, 0.1);
   EXPECT_NEAR(output.target_position_ecef_m.z_m, target.kinematics.position_ecef_m.z_m, 0.1);

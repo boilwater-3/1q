@@ -8,7 +8,7 @@
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_HARDWARE_CONFIG_H_
 #define ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_HARDWARE_CONFIG_H_
 
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -126,7 +126,7 @@ struct ONEQ_API AntennaPatternConfig {
   float backlobe_level_db{-35.0f};                   /**< 后瓣电平。 */
   float scan_loss_coeff_db_per_deg2{0.0f};           /**< 扫描损失系数。 */
   float max_scan_loss_db{6.0f};                      /**< 扫描损失上限。 */
-  model::AzimuthElevationDeg boresight_offset_deg{}; /**< 方向图相对安装轴偏置。 */
+  config::AzimuthElevationDeg boresight_offset_deg{}; /**< 方向图相对安装轴偏置。 */
 };
 
 /**

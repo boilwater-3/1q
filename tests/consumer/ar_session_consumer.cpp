@@ -59,7 +59,7 @@ int main() {
 
   // 7. Access result fields
   const std::size_t confirmed_tracks = airborne_radar::session::CountTracksByStatus(
-      result.track_output_frame, airborne_radar::model::TrackStatus::kConfirmed);
+      result.track_output_frame, airborne_radar::session::TrackStatus::kConfirmed);
   if (confirmed_tracks > result.track_output_frame.tracks.size()) {
     return 3;
   }
@@ -76,7 +76,7 @@ int main() {
   // 8. RuntimeConfigBuilder hot-switch
   const airborne_radar::config::RadarRuntimeConfigPatch runtime_patch =
       airborne_radar::config::RadarRuntimeConfigBuilder()
-          .WithWorkMode(airborne_radar::model::RadarWorkMode::kTas)
+          .WithWorkMode(airborne_radar::config::RadarWorkMode::kTas)
           .WithScanCenterDeg({15.0f, -5.0f})
           .WithJammingSensitivityProfile(
               airborne_radar::config::ResolveJammingSensitivityProfile(8.0f))

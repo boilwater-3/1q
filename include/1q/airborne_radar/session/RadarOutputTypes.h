@@ -9,8 +9,8 @@
 #include <cstddef>
 
 #include "1q/api.hpp"
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/JammingSemantics.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "1q/airborne_radar/config/JammingSemantics.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 
 namespace airborne_radar {
@@ -40,8 +40,8 @@ struct ONEQ_API AssociationQualityMetrics {
   float missed_track_rate{0.0f};     /**< 漏失率（missed_track_count / prior_track_count） */
   float mean_match_cost{0.0f};       /**< 命中关联代价均值（仅统计 matches） */
   float p95_match_cost{0.0f};        /**< 命中关联代价 P95（仅统计 matches） */
-  model::JammingSemantic dominant_jamming_semantic{
-      model::JammingSemantic::kNone}; /**< 当前周期关联质量对应的主导干扰摘要类型 */
+  config::JammingSemantic dominant_jamming_semantic{
+      config::JammingSemantic::kNone}; /**< 当前周期关联质量对应的主导干扰摘要类型 */
   float jamming_severity{0.0f};   /**< 当前周期关联质量对应的残余干扰强度摘要，范围 [0, 1] */
   float association_stress{0.0f}; /**< 当前周期的归一化关联压力，范围 [0, 1] */
 };
@@ -54,7 +54,7 @@ struct ONEQ_API SignalCycleResult {
   SignalCycleAbortReason abort_reason{
       SignalCycleAbortReason::kNone};               /**< 若当前调用未执行成功，给出结构化 abort 原因 */
   RadarSceneTargetList updated_scene_targets{};     /**< 当前周期更新后的场景目标列表 */
-  model::DecisionInputFrame decision_frame{};       /**< 当前周期决策输入帧 */
+  session::DecisionInputFrame decision_frame{};       /**< 当前周期决策输入帧 */
   AssociationQualityMetrics association_quality_metrics{}; /**< 当前周期关联质量观测指标 */
 };
 

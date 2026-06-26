@@ -86,27 +86,27 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @brief 更新平台姿态输入。
    * @param platform_attitude_deg 当前平台姿态。
    */
-  void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) override;
+  void UpdatePlatformAttitude(const config::PlatformAttitudeDeg& platform_attitude_deg) override;
   void UpdatePlatformAltitudeM(float platform_altitude_m) override;
 
   /**
    * @brief 获取当前缓存的平台姿态。
    * @return 当前平台姿态。
    */
-  model::PlatformAttitudeDeg GetPlatformAttitude() const override;
+  config::PlatformAttitudeDeg GetPlatformAttitude() const override;
   float GetPlatformAltitudeM() const override;
 
   /**
    * @brief 更新当前生效的控制真值。
    * @param control_profile 控制真值。
    */
-  void SetControlProfile(const extension::control::RadarControlProfile& control_profile) override;
+  void SetControlProfile(const session::RadarControlProfile& control_profile) override;
 
   /**
    * @brief 获取当前缓存的控制真值。
    * @return 当前控制真值。
    */
-  extension::control::RadarControlProfile GetControlProfile() const override;
+  session::RadarControlProfile GetControlProfile() const override;
 
   /**
    * @brief 更新流水线运行配置。

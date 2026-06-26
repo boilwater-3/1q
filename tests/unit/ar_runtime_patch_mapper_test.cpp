@@ -22,12 +22,12 @@ TEST(ArRuntimePatchMapperTest, MissionDomainAppliedBeforeLeafPatch) {
   current_state.execution_config.detection.orientation.scan_center_deg.az_deg = 1.0f;
   current_state.execution_config.detection.orientation.scan_center_deg.el_deg = 2.0f;
   current_state.execution_config.detection.orientation.work_mode =
-      model::RadarWorkMode::kTws;
+      config::RadarWorkMode::kTws;
 
   RadarMissionConfig mission_patch;
   mission_patch.orientation.scan_center_deg.az_deg = 10.0f;
   mission_patch.orientation.scan_center_deg.el_deg = 20.0f;
-  mission_patch.orientation.work_mode = model::RadarWorkMode::kTas;
+  mission_patch.orientation.work_mode = config::RadarWorkMode::kTas;
 
   RadarRuntimeConfigPatch patch;
   patch.has_mission = true;
@@ -42,7 +42,7 @@ TEST(ArRuntimePatchMapperTest, MissionDomainAppliedBeforeLeafPatch) {
   EXPECT_TRUE(resolved.is_valid);
   EXPECT_TRUE(resolved.execution_config_changed);
   EXPECT_EQ(resolved.next_state.execution_config.detection.orientation.work_mode,
-            model::RadarWorkMode::kTas);
+            config::RadarWorkMode::kTas);
   EXPECT_FLOAT_EQ(resolved.next_state.execution_config.detection.orientation.scan_center_deg.az_deg,
                   30.0f);
   EXPECT_FLOAT_EQ(resolved.next_state.execution_config.detection.orientation.scan_center_deg.el_deg,
@@ -54,7 +54,7 @@ TEST(ArRuntimePatchMapperTest, DwellPatchContributesToPipelinePointing) {
   current_state.execution_config.detection.orientation.scan_center_deg.az_deg = 10.0f;
   current_state.execution_config.detection.orientation.scan_center_deg.el_deg = 2.0f;
 
-  model::AzimuthElevationDeg dwell_center;
+  config::AzimuthElevationDeg dwell_center;
   dwell_center.az_deg = 3.0f;
   dwell_center.el_deg = -1.0f;
   const RadarRuntimeConfigPatch patch =

@@ -9,7 +9,7 @@
 #include "1q/api.hpp"
 
 namespace airborne_radar {
-namespace model {
+namespace config {
 
 /**
  * @brief JammingSemantic 表示轨迹级/量测级干扰摘要类型。
@@ -22,7 +22,7 @@ enum class ONEQ_API JammingSemantic {
   kMixed             /**< 多种干扰类型同时显著存在，无法稳定归并到单一类型 */
 };
 
-}  // namespace model
+}  // namespace config
 }  // namespace airborne_radar
 
 #endif  // ONEQ_AIRBORNE_RADAR_MODEL_JAMMING_SEMANTICS_H_

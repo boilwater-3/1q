@@ -28,7 +28,7 @@ namespace ar = airborne_radar;
 namespace ar_session = airborne_radar::session;
 namespace ar_config = airborne_radar::config;
 namespace ar_env = airborne_radar::config;
-namespace ar_model = airborne_radar::model;
+namespace ar_model = airborne_radar::session;
 
 namespace eos = electro_optical_sensor;
 namespace eos_session = electro_optical_sensor::session;
@@ -247,8 +247,8 @@ ar_config::RadarSessionConfig MakeArConfigAirToAir() {
       .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
       .End()
       .Mission()
-      .WithWorkMode(ar_model::RadarWorkMode::kTas)
-      .WithScanCenterDeg(ar_model::AzimuthElevationDeg{})
+      .WithWorkMode(ar_config::RadarWorkMode::kTas)
+      .WithScanCenterDeg(ar_config::AzimuthElevationDeg{})
       .End()
       .Tracking()
       .EnableTrackingFilter(true)
@@ -311,8 +311,8 @@ ar_config::RadarSessionConfig MakeArConfigAirToGround() {
       .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
       .End()
       .Mission()
-      .WithWorkMode(ar_model::RadarWorkMode::kTas)
-      .WithScanCenterDeg(ar_model::AzimuthElevationDeg{})
+      .WithWorkMode(ar_config::RadarWorkMode::kTas)
+      .WithScanCenterDeg(ar_config::AzimuthElevationDeg{})
       .End()
       .Tracking()
       .EnableTrackingFilter(true)

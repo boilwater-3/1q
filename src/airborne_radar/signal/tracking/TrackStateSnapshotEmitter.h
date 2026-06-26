@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 #include "airborne_radar/signal/tracking/TrackState.h"
@@ -43,7 +43,7 @@ class TrackStateSnapshotEmitter {
    * @brief 导出供决策层消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的决策快照列表。
    */
-  model::TrackStateSnapshotList BuildTrackStateSnapshots() const;
+  session::TrackStateSnapshotList BuildTrackStateSnapshots() const;
 
   /**
    * @brief 导出供关联阶段消费的轨迹种子。

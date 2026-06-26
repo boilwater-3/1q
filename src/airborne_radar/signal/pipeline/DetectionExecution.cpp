@@ -169,7 +169,7 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 
 void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input,
                                const ExecutionConfig& config,
-                               const extension::control::RadarControlProfile& control_profile,
+                               const session::RadarControlProfile& control_profile,
                                const session::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers) {
   if (buffers == nullptr || !HasValidBuffers(*buffers)) {
@@ -205,7 +205,7 @@ void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input,
 
 void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
                               const ExecutionConfig& config,
-                              const extension::control::RadarControlProfile& control_profile,
+                              const session::RadarControlProfile& control_profile,
                               const session::EnvironmentSnapshot& environment_snapshot,
                               float platform_altitude_m, detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers) {
@@ -278,7 +278,7 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
     const detection::ResolvedBeamState beam_state = detection::BeamControlResolver::Resolve(
         config.detection.engineering.antenna, config.detection.orientation,
         config.detection.platform_attitude_deg, (*buffers->target_geometry)[i].look_angles_deg,
-        model::AzimuthElevationDeg{}, wavelength_m);
+        config::AzimuthElevationDeg{}, wavelength_m);
     const detection::DetectionResult detection_result = signal_detector->Detect(
         target, env, beam_state.one_way_antenna_gain_db, config.detection.engineering.pulse_count);
     const detection::MeasurementErrorState measurement_error =

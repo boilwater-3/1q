@@ -49,13 +49,13 @@ std::uint32_t ResolveLocalMissToleranceBonus(const TrackState& track) {
   }
 
   switch (track.dominant_jamming_semantic) {
-    case model::JammingSemantic::kDeception:
-    case model::JammingSemantic::kRepeater:
+    case config::JammingSemantic::kDeception:
+    case config::JammingSemantic::kRepeater:
       return 1U;
-    case model::JammingSemantic::kMixed:
+    case config::JammingSemantic::kMixed:
       return track.jamming_severity >= 0.55f ? 1U : 0U;
-    case model::JammingSemantic::kNoiseSuppression:
-    case model::JammingSemantic::kNone:
+    case config::JammingSemantic::kNoiseSuppression:
+    case config::JammingSemantic::kNone:
     default:
       return 0U;
   }
@@ -717,7 +717,7 @@ void TrackLifecycleManager::ResetForReuse(TrackState& track) const {
   track.acceleration.setZero();
   track.rcs = 0.0f;
   track.jamming_detected = false;
-  track.dominant_jamming_semantic = model::JammingSemantic::kNone;
+  track.dominant_jamming_semantic = config::JammingSemantic::kNone;
   track.jamming_severity = 0.0f;
   track.gaussian_state = GaussianTrackState();
 }

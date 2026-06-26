@@ -18,7 +18,7 @@ namespace pipeline {
  * @param[in] environment_snapshot 当前周期环境快照。
  * @return 供决策层消费的 ECCM 输入摘要。
  */
-model::EccmSourceInfo BuildEccmSourceInfo(
+session::EccmSourceInfo BuildEccmSourceInfo(
     const session::EnvironmentSnapshot& environment_snapshot);
 
 /**
@@ -26,7 +26,7 @@ model::EccmSourceInfo BuildEccmSourceInfo(
  * @param[in] metrics Pipeline 对外关联质量指标。
  * @return 决策层消费的关联质量摘要。
  */
-model::AssociationQualityInfo BuildAssociationQualityInfo(
+session::AssociationQualityInfo BuildAssociationQualityInfo(
     const AssociationQualityMetrics& metrics);
 
 /**
@@ -35,7 +35,7 @@ model::AssociationQualityInfo BuildAssociationQualityInfo(
  * @param[in] metrics 当前周期关联质量指标。
  * @return 决策层消费的探测质量摘要。
  */
-model::PerceptionQualityInfo BuildPerceptionQualityInfo(
+session::PerceptionQualityInfo BuildPerceptionQualityInfo(
     std::size_t input_target_count, const AssociationQualityMetrics& metrics);
 
 

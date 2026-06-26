@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAMWIDTH_RESOLUTION_H_
 
 #include "airborne_radar/config/SignalEngineeringConfig.h"
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -47,7 +47,7 @@ inline float DeriveBeamwidthFromApertureRad(float aperture_length_m, float wavel
  */
 inline EffectiveBeamwidthDeg ResolveEffectiveBeamwidth(
     const config::engineering::AntennaConfig& antenna_config,
-    const model::RadarOrientationConfig& orientation_config,
+    const config::RadarOrientationConfig& orientation_config,
     float wavelength_m = 0.0f) {
   EffectiveBeamwidthDeg beamwidth;
   if (orientation_config.commanded_beamwidth_enabled) {

@@ -1,7 +1,7 @@
 #include "airborne_radar/runtime/ControlCommandMapper.h"
 
-#include "1q/airborne_radar/extension/control/RadarCommand.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/session/RadarCommand.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/session/MutableRadarContext.h"
 
@@ -10,49 +10,49 @@ namespace extension {
 
 namespace {
 
-extension::control::RadarCommandType ToRadarCommandType(
-    extension::control::ControlDirectiveType type) {
+session::RadarCommandType ToRadarCommandType(
+    session::ControlDirectiveType type) {
   switch (type) {
-    case extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
-      return extension::control::RadarCommandType::SET_LPI_POWER;
-    case extension::control::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
-      return extension::control::RadarCommandType::SET_LPI_BEAMFORMING;
-    case extension::control::ControlDirectiveType::REQUEST_LPI_DWELL:
-      return extension::control::RadarCommandType::SET_LPI_DWELL;
-    case extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
-      return extension::control::RadarCommandType::ENABLE_SIDELOBE_CANCELLER;
-    case extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
-      return extension::control::RadarCommandType::ENABLE_ADAPTIVE_BEAMFORMING;
-    case extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
-      return extension::control::RadarCommandType::SET_AGILITY_FREQ;
-    case extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER:
-      return extension::control::RadarCommandType::SET_ECCM_REJITTER;
-    case extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
-      return extension::control::RadarCommandType::SET_ECCM_BURNTHROUGH_GAIN;
-    case extension::control::ControlDirectiveType::NONE:
+    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
+      return session::RadarCommandType::SET_LPI_POWER;
+    case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
+      return session::RadarCommandType::SET_LPI_BEAMFORMING;
+    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
+      return session::RadarCommandType::SET_LPI_DWELL;
+    case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
+      return session::RadarCommandType::ENABLE_SIDELOBE_CANCELLER;
+    case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
+      return session::RadarCommandType::ENABLE_ADAPTIVE_BEAMFORMING;
+    case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
+      return session::RadarCommandType::SET_AGILITY_FREQ;
+    case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+      return session::RadarCommandType::SET_ECCM_REJITTER;
+    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
+      return session::RadarCommandType::SET_ECCM_BURNTHROUGH_GAIN;
+    case session::ControlDirectiveType::NONE:
     default:
-      return extension::control::RadarCommandType::NONE;
+      return session::RadarCommandType::NONE;
   }
 }
 
-extension::control::RadarCommandSource ToRadarCommandSource(
-    extension::control::ControlDirectiveSource source) {
+session::RadarCommandSource ToRadarCommandSource(
+    session::ControlDirectiveSource source) {
   switch (source) {
-    case extension::control::ControlDirectiveSource::THREAT_ASSESSMENT:
-      return extension::control::RadarCommandSource::CLASSIFIER;
-    case extension::control::ControlDirectiveSource::EMISSION_CONTROL:
-      return extension::control::RadarCommandSource::LPI;
-    case extension::control::ControlDirectiveSource::SURVIVABILITY:
-      return extension::control::RadarCommandSource::ECCM;
-    case extension::control::ControlDirectiveSource::UNKNOWN:
+    case session::ControlDirectiveSource::THREAT_ASSESSMENT:
+      return session::RadarCommandSource::CLASSIFIER;
+    case session::ControlDirectiveSource::EMISSION_CONTROL:
+      return session::RadarCommandSource::LPI;
+    case session::ControlDirectiveSource::SURVIVABILITY:
+      return session::RadarCommandSource::ECCM;
+    case session::ControlDirectiveSource::UNKNOWN:
     default:
-      return extension::control::RadarCommandSource::UNKNOWN;
+      return session::RadarCommandSource::UNKNOWN;
   }
 }
 
-extension::control::RadarCommand ToRadarCommand(
-    const extension::control::ControlDirective& directive) {
-  return extension::control::RadarCommand(ToRadarCommandType(directive.type),
+session::RadarCommand ToRadarCommand(
+    const session::ControlDirective& directive) {
+  return session::RadarCommand(ToRadarCommandType(directive.type),
                                        ToRadarCommandSource(directive.source));
 }
 
@@ -64,8 +64,8 @@ ControlCommandMapper::ControlCommandMapper(
       radar_context_(radar_context) {}
 
 extension::ControlReductionResult ControlCommandMapper::Apply(
-    extension::control::RadarControlProfile* current_profile,
-    const std::vector<extension::TacticalProposal>& proposals) {
+    session::RadarControlProfile* current_profile,
+    const std::vector<session::TacticalProposal>& proposals) {
   const extension::ControlReductionResult reduction_result =
       control_reducer_.Reduce(*current_profile, proposals);
 
@@ -73,9 +73,9 @@ extension::ControlReductionResult ControlCommandMapper::Apply(
   radar_context_.UpdateRadarControlProfile(*current_profile);
 
   for (std::size_t i = 0; i < reduction_result.applied_directives.size(); ++i) {
-    const extension::control::RadarCommand command =
+    const session::RadarCommand command =
         ToRadarCommand(reduction_result.applied_directives[i]);
-    if (command.type == extension::control::RadarCommandType::NONE) {
+    if (command.type == session::RadarCommandType::NONE) {
       continue;
     }
     radar_context_.SubmitControlCommand(command);

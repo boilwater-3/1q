@@ -10,13 +10,13 @@
 namespace ar = airborne_radar;
 namespace ar_config = airborne_radar::config;
 namespace ar_env = airborne_radar::config;
-namespace ar_model = airborne_radar::model;
+namespace ar_model = airborne_radar::session;
 namespace ar_session = airborne_radar::session;
 
 namespace {
 
-ar_model::AzimuthElevationDeg MakeAzEl(float az_deg, float el_deg) {
-  ar_model::AzimuthElevationDeg v;
+ar_config::AzimuthElevationDeg MakeAzEl(float az_deg, float el_deg) {
+  ar_config::AzimuthElevationDeg v;
   v.az_deg = az_deg;
   v.el_deg = el_deg;
   return v;
@@ -32,7 +32,7 @@ ar_config::RadarSessionConfig MakeWideAreaSearchConfig() {
       .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
       .End()
       .Mission()
-      .WithWorkMode(ar_model::RadarWorkMode::kTas)
+      .WithWorkMode(ar_config::RadarWorkMode::kTas)
       .WithScanCenterDeg(MakeAzEl(0.0f, 0.0f))
       .End()
       .Tracking()
@@ -73,14 +73,14 @@ int failed = 0;
   } \
 } while(0)
 
-void CheckAzEl(const ar_model::AzimuthElevationDeg& a,
-               const ar_model::AzimuthElevationDeg& b, const char* prefix) {
+void CheckAzEl(const ar_config::AzimuthElevationDeg& a,
+               const ar_config::AzimuthElevationDeg& b, const char* prefix) {
   CHECK_EQ(a.az_deg, b.az_deg, (std::string(prefix) + ".az_deg").c_str());
   CHECK_EQ(a.el_deg, b.el_deg, (std::string(prefix) + ".el_deg").c_str());
 }
 
-void CheckAzElLimits(const ar_model::AzimuthElevationLimitsDeg& a,
-                     const ar_model::AzimuthElevationLimitsDeg& b,
+void CheckAzElLimits(const ar_config::AzimuthElevationLimitsDeg& a,
+                     const ar_config::AzimuthElevationLimitsDeg& b,
                      const char* prefix) {
   CHECK_EQ(a.az_min_deg, b.az_min_deg, (std::string(prefix) + ".az_min_deg").c_str());
   CHECK_EQ(a.az_max_deg, b.az_max_deg, (std::string(prefix) + ".az_max_deg").c_str());
@@ -88,8 +88,8 @@ void CheckAzElLimits(const ar_model::AzimuthElevationLimitsDeg& a,
   CHECK_EQ(a.el_max_deg, b.el_max_deg, (std::string(prefix) + ".el_max_deg").c_str());
 }
 
-void CheckCmdBeamwidth(const ar_model::CommandedBeamwidthDeg& a,
-                       const ar_model::CommandedBeamwidthDeg& b,
+void CheckCmdBeamwidth(const ar_config::CommandedBeamwidthDeg& a,
+                       const ar_config::CommandedBeamwidthDeg& b,
                        const char* prefix) {
   CHECK_EQ(a.commanded_az_beamwidth_deg, b.commanded_az_beamwidth_deg,
            (std::string(prefix) + ".commanded_az_beamwidth_deg").c_str());

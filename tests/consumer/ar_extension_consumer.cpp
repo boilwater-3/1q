@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarSession.h"
@@ -19,10 +19,10 @@
 namespace airborne_radar {
 namespace {
 
-class DummyDecisionEngine : public extension::ITacticalDecisionEngine {
+class DummyDecisionEngine : public session::ITacticalDecisionEngine {
  public:
-  extension::TacticalDecisionResult Evaluate(const model::DecisionInputFrame& input_frame,
-                                             extension::TacticalStateStore& state_store) override {
+  session::TacticalDecisionResult Evaluate(const session::DecisionInputFrame& input_frame,
+                                             session::TacticalStateStore& state_store) override {
     (void)input_frame;
     (void)state_store;
     return {};

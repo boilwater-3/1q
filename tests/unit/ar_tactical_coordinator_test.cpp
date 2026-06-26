@@ -10,8 +10,8 @@
 #include <set>
 #include <string>
 
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
 
@@ -20,9 +20,9 @@ namespace tests {
 
 namespace {
 
-model::TrackStateSnapshot BuildTrack(float speed, float rcs, model::TrackStatus status,
+session::TrackStateSnapshot BuildTrack(float speed, float rcs, session::TrackStatus status,
                                 bool jamming_detected = false) {
-  model::TrackStateSnapshot snapshot;
+  session::TrackStateSnapshot snapshot;
   snapshot.velocity_x = speed;
   snapshot.velocity_y = 0.0f;
   snapshot.velocity_z = 0.0f;
@@ -34,30 +34,30 @@ model::TrackStateSnapshot BuildTrack(float speed, float rcs, model::TrackStatus 
   return snapshot;
 }
 
-bool ContainsDirectiveType(const std::vector<extension::TacticalProposal>& proposals,
-                           extension::control::ControlDirectiveType type) {
+bool ContainsDirectiveType(const std::vector<session::TacticalProposal>& proposals,
+                           session::ControlDirectiveType type) {
   return std::find_if(proposals.begin(), proposals.end(),
-                      [type](const extension::TacticalProposal& proposal) {
+                      [type](const session::TacticalProposal& proposal) {
                         return proposal.directive.type == type;
                       }) != proposals.end();
 }
 
-int FindDirectivePriority(const std::vector<extension::TacticalProposal>& proposals,
-                          extension::control::ControlDirectiveType type) {
-  const std::vector<extension::TacticalProposal>::const_iterator found =
+int FindDirectivePriority(const std::vector<session::TacticalProposal>& proposals,
+                          session::ControlDirectiveType type) {
+  const std::vector<session::TacticalProposal>::const_iterator found =
       std::find_if(proposals.begin(), proposals.end(),
-                   [type](const extension::TacticalProposal& proposal) {
+                   [type](const session::TacticalProposal& proposal) {
                      return proposal.directive.type == type;
                    });
   return found == proposals.end() ? -1 : found->priority;
 }
 
 std::string FindDirectiveRationale(
-    const std::vector<extension::TacticalProposal>& proposals,
-    extension::control::ControlDirectiveType type) {
-  const std::vector<extension::TacticalProposal>::const_iterator found =
+    const std::vector<session::TacticalProposal>& proposals,
+    session::ControlDirectiveType type) {
+  const std::vector<session::TacticalProposal>::const_iterator found =
       std::find_if(proposals.begin(), proposals.end(),
-                   [type](const extension::TacticalProposal& proposal) {
+                   [type](const session::TacticalProposal& proposal) {
                      return proposal.directive.type == type;
                    });
   return found == proposals.end() ? std::string() : found->rationale;
@@ -67,49 +67,49 @@ std::string FindDirectiveRationale(
 
 TEST(TacticalCoordinatorTest, HighThreatTrackGeneratesLpiProposal) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame frame;
+  session::DecisionInputFrame frame;
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
-  frame.tracks.push_back(BuildTrack(800.0f, 4.0f, model::TrackStatus::kConfirmed));
+  frame.tracks.push_back(BuildTrack(800.0f, 4.0f, session::TrackStatus::kConfirmed));
 
-  const extension::TacticalDecisionResult result =
+  const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, extension::TacticalMode::kThreatResponse);
+  EXPECT_EQ(result.selected_mode, session::TacticalMode::kThreatResponse);
   ASSERT_FALSE(result.proposals.empty());
   EXPECT_EQ(result.proposals[0].directive.type,
-            extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION);
+            session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION);
 }
 
 TEST(TacticalCoordinatorTest, LowEvidenceTrackDoesNotTriggerAggressiveControl) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame frame;
+  session::DecisionInputFrame frame;
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
-  frame.tracks.push_back(BuildTrack(900.0f, 5.0f, model::TrackStatus::kTentative));
+  frame.tracks.push_back(BuildTrack(900.0f, 5.0f, session::TrackStatus::kTentative));
 
-  const extension::TacticalDecisionResult result =
+  const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, extension::TacticalMode::kBaseline);
+  EXPECT_EQ(result.selected_mode, session::TacticalMode::kBaseline);
   EXPECT_TRUE(result.proposals.empty());
 }
 
 TEST(TacticalCoordinatorTest, JammingEnvironmentGeneratesEccmProposals) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame frame;
+  session::DecisionInputFrame frame;
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
   frame.environment_jamming_detected = true;
   frame.eccm_source_info.has_jamming_signal = true;
-  model::EccmJammerSourceInfo noise_source;
-  noise_source.technique = model::JammingTechnique::kNoiseSuppression;
+  session::EccmJammerSourceInfo noise_source;
+  noise_source.technique = session::JammingTechnique::kNoiseSuppression;
   noise_source.jammer_power_db = 11.0f;
   noise_source.jammer_to_signal_db = 8.0f;
   noise_source.frequency_overlap_ratio = 0.2f;
@@ -117,8 +117,8 @@ TEST(TacticalCoordinatorTest, JammingEnvironmentGeneratesEccmProposals) {
   noise_source.jammer_in_sidelobe = true;
   noise_source.confidence = 1.0f;
 
-  model::EccmJammerSourceInfo deception_source;
-  deception_source.technique = model::JammingTechnique::kDeception;
+  session::EccmJammerSourceInfo deception_source;
+  deception_source.technique = session::JammingTechnique::kDeception;
   deception_source.jammer_power_db = 5.0f;
   deception_source.jammer_to_signal_db = 7.0f;
   deception_source.frequency_overlap_ratio = 0.85f;
@@ -128,41 +128,41 @@ TEST(TacticalCoordinatorTest, JammingEnvironmentGeneratesEccmProposals) {
   frame.eccm_source_info.jammer_sources.push_back(noise_source);
   frame.eccm_source_info.jammer_sources.push_back(deception_source);
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed, true));
+      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed, true));
 
-  const extension::TacticalDecisionResult result =
+  const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, extension::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
   ASSERT_GE(result.proposals.size(), 5u);
 
-  std::set<extension::control::ControlDirectiveType> directive_types;
+  std::set<session::ControlDirectiveType> directive_types;
   for (std::size_t i = 0; i < result.proposals.size(); ++i) {
     directive_types.insert(result.proposals[i].directive.type);
   }
 
-  EXPECT_NE(directive_types.find(extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER),
+  EXPECT_NE(directive_types.find(session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER),
             directive_types.end());
-  EXPECT_NE(directive_types.find(extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING),
+  EXPECT_NE(directive_types.find(session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING),
             directive_types.end());
-  EXPECT_NE(directive_types.find(extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY),
+  EXPECT_NE(directive_types.find(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY),
             directive_types.end());
-  EXPECT_NE(directive_types.find(extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER),
+  EXPECT_NE(directive_types.find(session::ControlDirectiveType::REQUEST_ECCM_REJITTER),
             directive_types.end());
-  EXPECT_NE(directive_types.find(extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN),
+  EXPECT_NE(directive_types.find(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN),
             directive_types.end());
 }
 
 TEST(TacticalCoordinatorTest, DetailedEccmFactsSelectOnlyRelevantProposals) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame frame;
+  session::DecisionInputFrame frame;
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
   frame.eccm_source_info.has_jamming_signal = true;
-  model::EccmJammerSourceInfo source;
-  source.technique = model::JammingTechnique::kUnknown;
+  session::EccmJammerSourceInfo source;
+  source.technique = session::JammingTechnique::kUnknown;
   source.jammer_power_db = 5.0f;
   source.jammer_to_signal_db = 3.0f;
   source.frequency_overlap_ratio = 0.8f;
@@ -171,35 +171,35 @@ TEST(TacticalCoordinatorTest, DetailedEccmFactsSelectOnlyRelevantProposals) {
   source.confidence = 1.0f;
   frame.eccm_source_info.jammer_sources.push_back(source);
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed, true));
+      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed, true));
 
-  const extension::TacticalDecisionResult result =
+  const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, extension::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
   EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals, extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
+      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
   EXPECT_TRUE(ContainsDirectiveType(result.proposals,
-                                    extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
+                                    session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
   EXPECT_FALSE(ContainsDirectiveType(
-      result.proposals, extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
+      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
   EXPECT_FALSE(
-      ContainsDirectiveType(result.proposals, extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER));
+      ContainsDirectiveType(result.proposals, session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
   EXPECT_FALSE(ContainsDirectiveType(result.proposals,
-                                     extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
+                                     session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
 }
 
 TEST(TacticalCoordinatorTest, LowConfidenceEccmSourceDoesNotGetArtificialWeightBoost) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame frame;
+  session::DecisionInputFrame frame;
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
   frame.eccm_source_info.has_jamming_signal = true;
 
-  model::EccmJammerSourceInfo source;
-  source.technique = model::JammingTechnique::kDeception;
+  session::EccmJammerSourceInfo source;
+  source.technique = session::JammingTechnique::kDeception;
   source.jammer_power_db = 4.0f;
   source.jammer_to_signal_db = 3.0f;
   source.frequency_overlap_ratio = 1.0f;
@@ -208,35 +208,35 @@ TEST(TacticalCoordinatorTest, LowConfidenceEccmSourceDoesNotGetArtificialWeightB
   source.confidence = 0.36f;
   frame.eccm_source_info.jammer_sources.push_back(source);
   frame.tracks.push_back(
-      BuildTrack(220.0f, 2.0f, model::TrackStatus::kConfirmed, true));
+      BuildTrack(220.0f, 2.0f, session::TrackStatus::kConfirmed, true));
 
-  const extension::TacticalDecisionResult result =
+  const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, extension::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
   EXPECT_FALSE(ContainsDirectiveType(result.proposals,
-                                     extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
+                                     session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
 }
 
 TEST(TacticalCoordinatorTest, MultiSourceEccmFactsCombineTypeSpecificCountermeasures) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame frame;
+  session::DecisionInputFrame frame;
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
   frame.eccm_source_info.has_jamming_signal = true;
 
-  model::EccmJammerSourceInfo noise_source;
-  noise_source.technique = model::JammingTechnique::kNoiseSuppression;
+  session::EccmJammerSourceInfo noise_source;
+  noise_source.technique = session::JammingTechnique::kNoiseSuppression;
   noise_source.jammer_power_db = 11.0f;
   noise_source.jammer_to_signal_db = 8.0f;
   noise_source.frequency_overlap_ratio = 0.2f;
   noise_source.prf_lock_risk = 0.1f;
   noise_source.jammer_in_sidelobe = true;
 
-  model::EccmJammerSourceInfo deception_source;
-  deception_source.technique = model::JammingTechnique::kDeception;
+  session::EccmJammerSourceInfo deception_source;
+  deception_source.technique = session::JammingTechnique::kDeception;
   deception_source.jammer_power_db = 4.0f;
   deception_source.jammer_to_signal_db = 5.0f;
   deception_source.frequency_overlap_ratio = 0.85f;
@@ -246,41 +246,41 @@ TEST(TacticalCoordinatorTest, MultiSourceEccmFactsCombineTypeSpecificCountermeas
   frame.eccm_source_info.jammer_sources.push_back(noise_source);
   frame.eccm_source_info.jammer_sources.push_back(deception_source);
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed, true));
+      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed, true));
 
-  const extension::TacticalDecisionResult result =
+  const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, extension::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
   EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals, extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
+      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
   EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals, extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
+      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
   EXPECT_TRUE(ContainsDirectiveType(result.proposals,
-                                    extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
+                                    session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
   EXPECT_TRUE(
-      ContainsDirectiveType(result.proposals, extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER));
+      ContainsDirectiveType(result.proposals, session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
   EXPECT_TRUE(ContainsDirectiveType(result.proposals,
-                                    extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
+                                    session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
   EXPECT_GT(
       FindDirectivePriority(result.proposals,
-                            extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER),
+                            session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER),
       FindDirectivePriority(result.proposals,
-                            extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
+                            session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
 }
 
 TEST(TacticalCoordinatorTest,
      LowConfidenceMultiSourceFactsDoNotTriggerAggressiveTypeSpecificActions) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame frame;
+  session::DecisionInputFrame frame;
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
   frame.eccm_source_info.has_jamming_signal = true;
 
-  model::EccmJammerSourceInfo low_confidence_deception;
-  low_confidence_deception.technique = model::JammingTechnique::kDeception;
+  session::EccmJammerSourceInfo low_confidence_deception;
+  low_confidence_deception.technique = session::JammingTechnique::kDeception;
   low_confidence_deception.jammer_power_db = 9.0f;
   low_confidence_deception.jammer_to_signal_db = 8.0f;
   low_confidence_deception.frequency_overlap_ratio = 0.95f;
@@ -289,63 +289,63 @@ TEST(TacticalCoordinatorTest,
 
   frame.eccm_source_info.jammer_sources.push_back(low_confidence_deception);
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed, true));
+      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed, true));
 
-  const extension::TacticalDecisionResult result =
+  const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, extension::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
   EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals, extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
+      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
   EXPECT_FALSE(ContainsDirectiveType(result.proposals,
-                                     extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
+                                     session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
   EXPECT_FALSE(
-      ContainsDirectiveType(result.proposals, extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER));
+      ContainsDirectiveType(result.proposals, session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
   EXPECT_FALSE(ContainsDirectiveType(result.proposals,
-                                     extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
+                                     session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
 }
 
 TEST(TacticalCoordinatorTest, AssociationStressCanBackfillDeceptionDrivenEccmTrigger) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame frame;
+  session::DecisionInputFrame frame;
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
-  frame.association_quality_info.dominant_jamming_semantic = model::JammingSemantic::kDeception;
+  frame.association_quality_info.dominant_jamming_semantic = config::JammingSemantic::kDeception;
   frame.association_quality_info.jamming_severity = 0.7f;
   frame.association_quality_info.association_stress = 0.35f;
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed));
+      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
 
-  const extension::TacticalDecisionResult result =
+  const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, extension::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
   EXPECT_TRUE(ContainsDirectiveType(result.proposals,
-                                    extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
+                                    session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
   EXPECT_TRUE(
-      ContainsDirectiveType(result.proposals, extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER));
+      ContainsDirectiveType(result.proposals, session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
   EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals, extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
+      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
   EXPECT_FALSE(ContainsDirectiveType(
-      result.proposals, extension::control::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
+      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
   EXPECT_FALSE(ContainsDirectiveType(result.proposals,
-                                     extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
+                                     session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
   EXPECT_EQ(state_store.last_decision_summary, "protected-emission(association-pressure)");
 }
 
 TEST(TacticalCoordinatorTest, AssociationStressRaisesTypeSpecificEccmPriorityWithoutMutatingFacts) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore baseline_state_store;
-  extension::TacticalStateStore stressed_state_store;
+  session::TacticalStateStore baseline_state_store;
+  session::TacticalStateStore stressed_state_store;
 
-  model::DecisionInputFrame baseline_frame;
+  session::DecisionInputFrame baseline_frame;
   baseline_frame.cycle_index = 1u;
   baseline_frame.batch_id = 1u;
   baseline_frame.eccm_source_info.has_jamming_signal = true;
-  model::EccmJammerSourceInfo baseline_source;
-  baseline_source.technique = model::JammingTechnique::kDeception;
+  session::EccmJammerSourceInfo baseline_source;
+  baseline_source.technique = session::JammingTechnique::kDeception;
   baseline_source.jammer_power_db = 6.0f;
   baseline_source.jammer_to_signal_db = 7.0f;
   baseline_source.frequency_overlap_ratio = 0.7f;
@@ -353,40 +353,40 @@ TEST(TacticalCoordinatorTest, AssociationStressRaisesTypeSpecificEccmPriorityWit
   baseline_source.confidence = 1.0f;
   baseline_frame.eccm_source_info.jammer_sources.push_back(baseline_source);
   baseline_frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed));
+      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
 
-  model::DecisionInputFrame stressed_frame = baseline_frame;
+  session::DecisionInputFrame stressed_frame = baseline_frame;
   stressed_frame.association_quality_info.dominant_jamming_semantic =
-      model::JammingSemantic::kDeception;
+      config::JammingSemantic::kDeception;
   stressed_frame.association_quality_info.jamming_severity = 0.8f;
   stressed_frame.association_quality_info.association_stress = 0.5f;
   stressed_frame.association_quality_info.mean_match_cost = 1.2f;
   stressed_frame.association_quality_info.p95_match_cost = 2.4f;
 
-  const extension::TacticalDecisionResult baseline_result =
+  const session::TacticalDecisionResult baseline_result =
       coordinator.Evaluate(baseline_frame, baseline_state_store);
-  const extension::TacticalDecisionResult stressed_result =
+  const session::TacticalDecisionResult stressed_result =
       coordinator.Evaluate(stressed_frame, stressed_state_store);
 
   EXPECT_GT(FindDirectivePriority(stressed_result.proposals,
-                                  extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY),
+                                  session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY),
             FindDirectivePriority(baseline_result.proposals,
-                                  extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
+                                  session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
   EXPECT_GT(FindDirectivePriority(stressed_result.proposals,
-                                  extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER),
+                                  session::ControlDirectiveType::REQUEST_ECCM_REJITTER),
             FindDirectivePriority(baseline_result.proposals,
-                                  extension::control::ControlDirectiveType::REQUEST_ECCM_REJITTER));
+                                  session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
   EXPECT_NE(FindDirectiveRationale(stressed_result.proposals,
-                                   extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY)
+                                   session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY)
                 .find("association stress"),
             std::string::npos);
 }
 
 TEST(TacticalCoordinatorTest, PoorAssociationQualityWithoutJammingSemanticDoesNotTriggerEccm) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame frame;
+  session::DecisionInputFrame frame;
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
   frame.association_quality_info.match_rate = 0.1f;
@@ -395,32 +395,32 @@ TEST(TacticalCoordinatorTest, PoorAssociationQualityWithoutJammingSemanticDoesNo
   frame.association_quality_info.p95_match_cost = 3.5f;
   frame.association_quality_info.association_stress = 0.45f;
   frame.association_quality_info.jamming_severity = 0.0f;
-  frame.association_quality_info.dominant_jamming_semantic = model::JammingSemantic::kNone;
+  frame.association_quality_info.dominant_jamming_semantic = config::JammingSemantic::kNone;
   frame.perception_quality_info.input_target_count = 4u;
   frame.perception_quality_info.detection_count = 1u;
   frame.perception_quality_info.detection_rate = 0.25f;
   frame.perception_quality_info.detection_stress = 0.75f;
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed));
+      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
 
-  const extension::TacticalDecisionResult result =
+  const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, extension::TacticalMode::kBaseline);
+  EXPECT_EQ(result.selected_mode, session::TacticalMode::kBaseline);
   EXPECT_TRUE(result.proposals.empty());
   EXPECT_EQ(state_store.last_decision_summary, "baseline(detection-pressure)");
 }
 
 TEST(TacticalCoordinatorTest, EnvironmentJammingAndAssociationPressureAreBothReflectedInSummary) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame frame;
+  session::DecisionInputFrame frame;
   frame.cycle_index = 1u;
   frame.batch_id = 1u;
   frame.environment_jamming_detected = true;
   frame.eccm_source_info.has_jamming_signal = true;
-  frame.association_quality_info.dominant_jamming_semantic = model::JammingSemantic::kMixed;
+  frame.association_quality_info.dominant_jamming_semantic = config::JammingSemantic::kMixed;
   frame.association_quality_info.jamming_severity = 0.8f;
   frame.association_quality_info.association_stress = 0.5f;
   frame.perception_quality_info.input_target_count = 4u;
@@ -428,62 +428,62 @@ TEST(TacticalCoordinatorTest, EnvironmentJammingAndAssociationPressureAreBothRef
   frame.perception_quality_info.detection_rate = 0.5f;
   frame.perception_quality_info.detection_stress = 0.5f;
   frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, model::TrackStatus::kConfirmed, true));
+      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed, true));
 
-  const extension::TacticalDecisionResult result =
+  const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, extension::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
   EXPECT_EQ(state_store.last_decision_summary,
             "protected-emission(environment-jamming+association-pressure+detection-pressure)");
 }
 
 TEST(TacticalCoordinatorTest, LpiProposalStopsWithoutFreshThreatEvidence) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame trigger_frame;
+  session::DecisionInputFrame trigger_frame;
   trigger_frame.cycle_index = 1u;
   trigger_frame.batch_id = 1u;
   trigger_frame.tracks.push_back(
-      BuildTrack(820.0f, 4.5f, model::TrackStatus::kConfirmed));
-  const extension::TacticalDecisionResult trigger_result =
+      BuildTrack(820.0f, 4.5f, session::TrackStatus::kConfirmed));
+  const session::TacticalDecisionResult trigger_result =
       coordinator.Evaluate(trigger_frame, state_store);
-  EXPECT_EQ(trigger_result.selected_mode, extension::TacticalMode::kThreatResponse);
+  EXPECT_EQ(trigger_result.selected_mode, session::TacticalMode::kThreatResponse);
   EXPECT_TRUE(ContainsDirectiveType(
-      trigger_result.proposals, extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
+      trigger_result.proposals, session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
 
-  model::DecisionInputFrame next_frame;
+  session::DecisionInputFrame next_frame;
   next_frame.cycle_index = 2u;
   next_frame.batch_id = 2u;
-  const extension::TacticalDecisionResult next_result =
+  const session::TacticalDecisionResult next_result =
       coordinator.Evaluate(next_frame, state_store);
-  EXPECT_EQ(next_result.selected_mode, extension::TacticalMode::kBaseline);
+  EXPECT_EQ(next_result.selected_mode, session::TacticalMode::kBaseline);
   EXPECT_FALSE(ContainsDirectiveType(
-      next_result.proposals, extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
+      next_result.proposals, session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
 }
 
 TEST(TacticalCoordinatorTest, EccmProposalStopsWithoutFreshJammingEvidence) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame trigger_frame;
+  session::DecisionInputFrame trigger_frame;
   trigger_frame.cycle_index = 1u;
   trigger_frame.batch_id = 1u;
   trigger_frame.environment_jamming_detected = true;
   trigger_frame.eccm_source_info.has_jamming_signal = true;
   trigger_frame.tracks.push_back(
-      BuildTrack(260.0f, 2.2f, model::TrackStatus::kConfirmed, true));
-  const extension::TacticalDecisionResult trigger_result =
+      BuildTrack(260.0f, 2.2f, session::TrackStatus::kConfirmed, true));
+  const session::TacticalDecisionResult trigger_result =
       coordinator.Evaluate(trigger_frame, state_store);
-  EXPECT_EQ(trigger_result.selected_mode, extension::TacticalMode::kProtectedEmission);
+  EXPECT_EQ(trigger_result.selected_mode, session::TacticalMode::kProtectedEmission);
 
-  model::DecisionInputFrame next_frame;
+  session::DecisionInputFrame next_frame;
   next_frame.cycle_index = 2u;
   next_frame.batch_id = 2u;
-  const extension::TacticalDecisionResult next_result =
+  const session::TacticalDecisionResult next_result =
       coordinator.Evaluate(next_frame, state_store);
-  EXPECT_EQ(next_result.selected_mode, extension::TacticalMode::kBaseline);
+  EXPECT_EQ(next_result.selected_mode, session::TacticalMode::kBaseline);
 }
 
 TEST(TacticalCoordinatorTest, ControlHoldIsOwnedByReducerAfterProposalStops) {
@@ -491,19 +491,19 @@ TEST(TacticalCoordinatorTest, ControlHoldIsOwnedByReducerAfterProposalStops) {
   extension::ControlReducerConfig reducer_config;
   reducer_config.lpi_hold_cycles_after_request = 2u;
   decision::ControlReducer reducer(reducer_config);
-  extension::TacticalStateStore state_store;
-  extension::control::RadarControlProfile profile;
+  session::TacticalStateStore state_store;
+  session::RadarControlProfile profile;
 
-  model::DecisionInputFrame trigger_frame;
+  session::DecisionInputFrame trigger_frame;
   trigger_frame.cycle_index = 1u;
   trigger_frame.batch_id = 1u;
   trigger_frame.tracks.push_back(
-      BuildTrack(820.0f, 4.5f, model::TrackStatus::kConfirmed));
+      BuildTrack(820.0f, 4.5f, session::TrackStatus::kConfirmed));
 
-  const extension::TacticalDecisionResult trigger_result =
+  const session::TacticalDecisionResult trigger_result =
       coordinator.Evaluate(trigger_frame, state_store);
   ASSERT_TRUE(ContainsDirectiveType(
-      trigger_result.proposals, extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
+      trigger_result.proposals, session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
 
   const extension::ControlReductionResult activated =
       reducer.Reduce(profile, trigger_result.proposals);
@@ -511,14 +511,14 @@ TEST(TacticalCoordinatorTest, ControlHoldIsOwnedByReducerAfterProposalStops) {
   ASSERT_TRUE(profile.enable_lpi_power_control);
   EXPECT_EQ(reducer.GetRuntimeState().lpi_hold_cycles_remaining, 2u);
 
-  model::DecisionInputFrame next_frame;
+  session::DecisionInputFrame next_frame;
   next_frame.cycle_index = 2u;
   next_frame.batch_id = 2u;
-  const extension::TacticalDecisionResult next_result =
+  const session::TacticalDecisionResult next_result =
       coordinator.Evaluate(next_frame, state_store);
-  EXPECT_EQ(next_result.selected_mode, extension::TacticalMode::kBaseline);
+  EXPECT_EQ(next_result.selected_mode, session::TacticalMode::kBaseline);
   EXPECT_FALSE(ContainsDirectiveType(
-      next_result.proposals, extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
+      next_result.proposals, session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION));
 
   const extension::ControlReductionResult held =
       reducer.Reduce(profile, next_result.proposals);
@@ -528,13 +528,13 @@ TEST(TacticalCoordinatorTest, ControlHoldIsOwnedByReducerAfterProposalStops) {
 
 TEST(TacticalCoordinatorTest, PrunesInactiveTrackStateMemoryByActiveTrackKeys) {
   decision::TacticalCoordinator coordinator;
-  extension::TacticalStateStore state_store;
+  session::TacticalStateStore state_store;
 
-  model::DecisionInputFrame frame_a;
+  session::DecisionInputFrame frame_a;
   frame_a.cycle_index = 1u;
   frame_a.batch_id = 1u;
   frame_a.tracks.push_back(
-      BuildTrack(780.0f, 3.8f, model::TrackStatus::kConfirmed));
+      BuildTrack(780.0f, 3.8f, session::TrackStatus::kConfirmed));
   frame_a.tracks.back().association_key = 1001u;
   coordinator.Evaluate(frame_a, state_store);
   ASSERT_EQ(state_store.confidence_memory.size(), 1u);
@@ -542,11 +542,11 @@ TEST(TacticalCoordinatorTest, PrunesInactiveTrackStateMemoryByActiveTrackKeys) {
   EXPECT_EQ(state_store.confidence_memory.count(1001u), 1u);
   EXPECT_EQ(state_store.threat_memory.count(1001u), 1u);
 
-  model::DecisionInputFrame frame_b;
+  session::DecisionInputFrame frame_b;
   frame_b.cycle_index = 2u;
   frame_b.batch_id = 2u;
   frame_b.tracks.push_back(
-      BuildTrack(260.0f, 1.8f, model::TrackStatus::kConfirmed));
+      BuildTrack(260.0f, 1.8f, session::TrackStatus::kConfirmed));
   frame_b.tracks.back().association_key = 2002u;
   coordinator.Evaluate(frame_b, state_store);
 
@@ -560,20 +560,20 @@ TEST(TacticalCoordinatorTest, PrunesInactiveTrackStateMemoryByActiveTrackKeys) {
 
 TEST(ControlReducerTest, ReducerBuildsNextControlProfileAndRejectsDuplicates) {
   decision::ControlReducer reducer;
-  extension::control::RadarControlProfile previous_profile;
+  session::RadarControlProfile previous_profile;
 
-  std::vector<extension::TacticalProposal> proposals;
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                               extension::control::ControlDirectiveSource::EMISSION_CONTROL),
+  std::vector<session::TacticalProposal> proposals;
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                               session::ControlDirectiveSource::EMISSION_CONTROL),
       60, "reduce power"});
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                               extension::control::ControlDirectiveSource::UNKNOWN),
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                               session::ControlDirectiveSource::UNKNOWN),
       10, "duplicate reduce power"});
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                               extension::control::ControlDirectiveSource::SURVIVABILITY),
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+                               session::ControlDirectiveSource::SURVIVABILITY),
       84, "enable agility"});
 
   const extension::ControlReductionResult result =
@@ -589,12 +589,12 @@ TEST(ControlReducerTest, ReducerBuildsNextControlProfileAndRejectsDuplicates) {
 
 TEST(ControlReducerTest, AgilityFrequencyHopPhaseAlternatesAcrossConsecutiveEnabledCycles) {
   decision::ControlReducer reducer;
-  extension::control::RadarControlProfile previous_profile;
+  session::RadarControlProfile previous_profile;
 
-  const std::vector<extension::TacticalProposal> proposals{
-      extension::TacticalProposal{
-          extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                                            extension::control::ControlDirectiveSource::SURVIVABILITY),
+  const std::vector<session::TacticalProposal> proposals{
+      session::TacticalProposal{
+          session::ControlDirective(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+                                            session::ControlDirectiveSource::SURVIVABILITY),
           84, "enable agility"}};
 
   const extension::ControlReductionResult first = reducer.Reduce(previous_profile, proposals);
@@ -612,7 +612,7 @@ TEST(ControlReducerTest, AgilityFrequencyHopPhaseAlternatesAcrossConsecutiveEnab
   EXPECT_EQ(third.profile.version, first.profile.version);
 
   const extension::ControlReductionResult released =
-      reducer.Reduce(third.profile, std::vector<extension::TacticalProposal>());
+      reducer.Reduce(third.profile, std::vector<session::TacticalProposal>());
   EXPECT_FALSE(released.profile.enable_agility_frequency);
   EXPECT_EQ(released.profile.agility_frequency_hop_phase, 0u);
 }
@@ -622,11 +622,11 @@ TEST(ControlReducerTest, HopPhaseTogglingDuringHoldDoesNotIncreaseProfileVersion
   config.eccm_hold_cycles_after_request = 2u;
   decision::ControlReducer reducer(config);
 
-  extension::control::RadarControlProfile previous_profile;
-  const std::vector<extension::TacticalProposal> proposals{
-      extension::TacticalProposal{
-          extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
-                                            extension::control::ControlDirectiveSource::SURVIVABILITY),
+  session::RadarControlProfile previous_profile;
+  const std::vector<session::TacticalProposal> proposals{
+      session::TacticalProposal{
+          session::ControlDirective(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+                                            session::ControlDirectiveSource::SURVIVABILITY),
           84, "enable agility"}};
 
   const extension::ControlReductionResult activated = reducer.Reduce(previous_profile, proposals);
@@ -634,13 +634,13 @@ TEST(ControlReducerTest, HopPhaseTogglingDuringHoldDoesNotIncreaseProfileVersion
   EXPECT_EQ(activated.profile.agility_frequency_hop_phase, 0u);
 
   const extension::ControlReductionResult held_once =
-      reducer.Reduce(activated.profile, std::vector<extension::TacticalProposal>());
+      reducer.Reduce(activated.profile, std::vector<session::TacticalProposal>());
   EXPECT_TRUE(held_once.profile.enable_agility_frequency);
   EXPECT_EQ(held_once.profile.agility_frequency_hop_phase, 1u);
   EXPECT_EQ(held_once.profile.version, activated.profile.version);
 
   const extension::ControlReductionResult held_twice =
-      reducer.Reduce(held_once.profile, std::vector<extension::TacticalProposal>());
+      reducer.Reduce(held_once.profile, std::vector<session::TacticalProposal>());
   EXPECT_TRUE(held_twice.profile.enable_agility_frequency);
   EXPECT_EQ(held_twice.profile.agility_frequency_hop_phase, 0u);
   EXPECT_EQ(held_twice.profile.version, activated.profile.version);
@@ -648,16 +648,16 @@ TEST(ControlReducerTest, HopPhaseTogglingDuringHoldDoesNotIncreaseProfileVersion
 
 TEST(ControlReducerTest, BurnthroughGainFloorsLpiPowerReductionForSurvivability) {
   decision::ControlReducer reducer;
-  extension::control::RadarControlProfile previous_profile;
+  session::RadarControlProfile previous_profile;
 
-  std::vector<extension::TacticalProposal> proposals;
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                               extension::control::ControlDirectiveSource::EMISSION_CONTROL),
+  std::vector<session::TacticalProposal> proposals;
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                               session::ControlDirectiveSource::EMISSION_CONTROL),
       60, "reduce power"});
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                               extension::control::ControlDirectiveSource::SURVIVABILITY),
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+                               session::ControlDirectiveSource::SURVIVABILITY),
       82, "increase burnthrough"});
 
   const extension::ControlReductionResult result =
@@ -676,20 +676,20 @@ TEST(ControlReducerTest, ReducerSupportsCustomConfigPolicyTable) {
   config.burnthrough_lpi_power_floor = 0.92f;
 
   decision::ControlReducer reducer(config);
-  extension::control::RadarControlProfile previous_profile;
+  session::RadarControlProfile previous_profile;
 
-  std::vector<extension::TacticalProposal> proposals;
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                               extension::control::ControlDirectiveSource::EMISSION_CONTROL),
+  std::vector<session::TacticalProposal> proposals;
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                               session::ControlDirectiveSource::EMISSION_CONTROL),
       60, "reduce power"});
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_LPI_DWELL,
-                               extension::control::ControlDirectiveSource::EMISSION_CONTROL),
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_DWELL,
+                               session::ControlDirectiveSource::EMISSION_CONTROL),
       55, "reduce dwell"});
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                               extension::control::ControlDirectiveSource::SURVIVABILITY),
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+                               session::ControlDirectiveSource::SURVIVABILITY),
       82, "increase burnthrough"});
 
   const extension::ControlReductionResult result =
@@ -702,13 +702,13 @@ TEST(ControlReducerTest, ReducerSupportsCustomConfigPolicyTable) {
 
 TEST(ControlReducerTest, ReducerClearsExpiredDomainWhenNoProposalArrives) {
   decision::ControlReducer reducer;
-  extension::control::RadarControlProfile previous_profile;
+  session::RadarControlProfile previous_profile;
   previous_profile.version = 3u;
   previous_profile.enable_lpi_power_control = true;
   previous_profile.lpi_power_scale = 0.5f;
 
   const extension::ControlReductionResult result =
-      reducer.Reduce(previous_profile, std::vector<extension::TacticalProposal>());
+      reducer.Reduce(previous_profile, std::vector<session::TacticalProposal>());
 
   EXPECT_EQ(result.profile.version, 4u);
   EXPECT_FALSE(result.profile.enable_lpi_power_control);
@@ -719,12 +719,12 @@ TEST(ControlReducerTest, ReducerPreservesDomainDuringConfiguredHoldWindow) {
   extension::ControlReducerConfig config;
   config.eccm_hold_cycles_after_request = 1u;
   decision::ControlReducer reducer(config);
-  extension::control::RadarControlProfile previous_profile;
+  session::RadarControlProfile previous_profile;
 
-  std::vector<extension::TacticalProposal> proposals;
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                               extension::control::ControlDirectiveSource::SURVIVABILITY),
+  std::vector<session::TacticalProposal> proposals;
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+                               session::ControlDirectiveSource::SURVIVABILITY),
       82, "increase burnthrough"});
 
   const extension::ControlReductionResult first =
@@ -733,13 +733,13 @@ TEST(ControlReducerTest, ReducerPreservesDomainDuringConfiguredHoldWindow) {
   EXPECT_EQ(reducer.GetRuntimeState().eccm_hold_cycles_remaining, 1u);
 
   const extension::ControlReductionResult held =
-      reducer.Reduce(first.profile, std::vector<extension::TacticalProposal>());
+      reducer.Reduce(first.profile, std::vector<session::TacticalProposal>());
   EXPECT_FLOAT_EQ(held.profile.eccm_burnthrough_gain, 1.5f);
   EXPECT_EQ(reducer.GetRuntimeState().eccm_hold_cycles_remaining, 0u);
   EXPECT_EQ(held.profile.version, first.profile.version);
 
   const extension::ControlReductionResult released =
-      reducer.Reduce(held.profile, std::vector<extension::TacticalProposal>());
+      reducer.Reduce(held.profile, std::vector<session::TacticalProposal>());
   EXPECT_FLOAT_EQ(released.profile.eccm_burnthrough_gain, 1.0f);
   EXPECT_EQ(released.profile.version, held.profile.version + 1u);
 }
@@ -749,19 +749,19 @@ TEST(ControlReducerTest, ReducerRejectsReentryDuringConfiguredCooldown) {
   config.eccm_cooldown_cycles_after_release = 2u;
   decision::ControlReducer reducer(config);
 
-  extension::control::RadarControlProfile active_profile;
+  session::RadarControlProfile active_profile;
   active_profile.version = 7u;
   active_profile.eccm_burnthrough_gain = 1.5f;
 
   const extension::ControlReductionResult released =
-      reducer.Reduce(active_profile, std::vector<extension::TacticalProposal>());
+      reducer.Reduce(active_profile, std::vector<session::TacticalProposal>());
   EXPECT_FLOAT_EQ(released.profile.eccm_burnthrough_gain, 1.0f);
   EXPECT_EQ(reducer.GetRuntimeState().eccm_cooldown_cycles_remaining, 2u);
 
-  std::vector<extension::TacticalProposal> proposals;
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                               extension::control::ControlDirectiveSource::SURVIVABILITY),
+  std::vector<session::TacticalProposal> proposals;
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+                               session::ControlDirectiveSource::SURVIVABILITY),
       82, "increase burnthrough"});
 
   const extension::ControlReductionResult blocked_once =
@@ -786,16 +786,16 @@ TEST(ControlReducerTest, ReducerRejectsReentryDuringConfiguredCooldown) {
 
 TEST(ControlReducerTest, BeamConflictPrefersSurvivabilityByDefault) {
   decision::ControlReducer reducer;
-  extension::control::RadarControlProfile previous_profile;
+  session::RadarControlProfile previous_profile;
 
-  std::vector<extension::TacticalProposal> proposals;
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_LPI_BEAMFORMING,
-                               extension::control::ControlDirectiveSource::EMISSION_CONTROL),
+  std::vector<session::TacticalProposal> proposals;
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING,
+                               session::ControlDirectiveSource::EMISSION_CONTROL),
       65, "beamforming for lpi"});
-  proposals.push_back(extension::TacticalProposal{
-      extension::control::ControlDirective(extension::control::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
-                               extension::control::ControlDirectiveSource::SURVIVABILITY),
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
+                               session::ControlDirectiveSource::SURVIVABILITY),
       85, "adaptive beamforming for eccm"});
 
   const extension::ControlReductionResult result =
@@ -806,7 +806,7 @@ TEST(ControlReducerTest, BeamConflictPrefersSurvivabilityByDefault) {
   EXPECT_EQ(result.applied_directives.size(), 1u);
   EXPECT_EQ(result.rejected_directives.size(), 1u);
   EXPECT_EQ(result.rejected_directives[0].type,
-            extension::control::ControlDirectiveType::REQUEST_LPI_BEAMFORMING);
+            session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING);
 }
 
 }  // namespace tests

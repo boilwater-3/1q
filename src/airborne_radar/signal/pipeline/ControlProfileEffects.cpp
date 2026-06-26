@@ -85,7 +85,7 @@ float ToDbDelta(float linear_scale) {
 }
 
 oneq::internal::timing::ResolvedCycleTimingState ResolveDetectionTimingState(
-    const extension::control::RadarControlProfile& control_profile,
+    const session::RadarControlProfile& control_profile,
     const config::engineering::DetectionConfig& detection_config) {
   oneq::internal::timing::CycleTimingBaseParams base_params;
   base_params.base_pulse_count = detection_config.pulse_count;
@@ -99,7 +99,7 @@ oneq::internal::timing::ResolvedCycleTimingState ResolveDetectionTimingState(
 }
 
 float ResolveBeamwidthScale(const ControlProfileEffectsConfig& cfg,
-                            const extension::control::RadarControlProfile& control_profile) {
+                            const session::RadarControlProfile& control_profile) {
   float beamwidth_scale = 1.0f;
   if (control_profile.enable_lpi_beamforming) {
     beamwidth_scale = std::min(beamwidth_scale, cfg.lpi_beamwidth_scale);
@@ -114,7 +114,7 @@ float ResolveBeamwidthScale(const ControlProfileEffectsConfig& cfg,
 
 float ComputeHeuristicSignalAdjustmentDb(
     const ControlProfileEffectsConfig& cfg,
-    const extension::control::RadarControlProfile& control_profile) {
+    const session::RadarControlProfile& control_profile) {
   float adjustment_db = 0.0f;
   if (control_profile.enable_lpi_power_control) {
     adjustment_db += ToDbDelta(control_profile.lpi_power_scale);
@@ -129,7 +129,7 @@ float ComputeHeuristicSignalAdjustmentDb(
 }
 
 float ComputeHeuristicEnvironmentReliefDb(
-    const JammingEffectsConfig& cfg, const extension::control::RadarControlProfile& control_profile,
+    const JammingEffectsConfig& cfg, const session::RadarControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot) {
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
     return 0.0f;
@@ -144,7 +144,7 @@ float ComputeHeuristicEnvironmentReliefDb(
   return relief_db;
 }
 
-void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& control_profile,
+void ApplyControlProfileToConfig(const session::RadarControlProfile& control_profile,
                                  ExecutionConfig* config) {
   if (config == nullptr) {
     return;

@@ -3,19 +3,19 @@
  * @brief 定义供决策引擎消费的单周期输入帧。
  */
 
-#ifndef ONEQ_AIRBORNE_RADAR_MODEL_DECISION_INPUT_FRAME_H_
-#define ONEQ_AIRBORNE_RADAR_MODEL_DECISION_INPUT_FRAME_H_
+#ifndef ONEQ_AIRBORNE_RADAR_SESSION_DECISION_INPUT_FRAME_H_
+#define ONEQ_AIRBORNE_RADAR_SESSION_DECISION_INPUT_FRAME_H_
 
 #include <cstddef>
 #include <cstdint>
 
 #include "1q/api.hpp"
-#include "1q/airborne_radar/model/DecisionSourceInfo.h"
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
-#include "1q/airborne_radar/model/JammingSemantics.h"
+#include "1q/airborne_radar/session/DecisionSourceInfo.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
+#include "1q/airborne_radar/config/JammingSemantics.h"
 
 namespace airborne_radar {
-namespace model {
+namespace session {
 
 /**
  * @brief AssociationQualityInfo 表示供决策层消费的关联质量摘要。
@@ -26,8 +26,8 @@ struct ONEQ_API AssociationQualityInfo {
   float missed_track_rate{0.0f}; /**< 当前周期漏失率 */
   float mean_match_cost{0.0f};   /**< 当前周期命中关联代价均值 */
   float p95_match_cost{0.0f};    /**< 当前周期命中关联代价 P95 */
-  JammingSemantic dominant_jamming_semantic{
-      JammingSemantic::kNone}; /**< 当前周期关联压力对应的主导干扰摘要类型 */
+  config::JammingSemantic dominant_jamming_semantic{
+      config::JammingSemantic::kNone}; /**< 当前周期关联压力对应的主导干扰摘要类型 */
   float jamming_severity{0.0f};       /**< 当前周期关联压力对应的残余干扰强度摘要，范围 [0, 1] */
   float association_stress{0.0f};     /**< 当前周期关联压力摘要，范围 [0, 1] */
 };
@@ -64,7 +64,7 @@ struct ONEQ_API DecisionInputFrame {
       : tracks(track_snapshots) {}
 };
 
-}  // namespace model
+}  // namespace session
 }  // namespace airborne_radar
 
 #endif  // ONEQ_AIRBORNE_RADAR_MODEL_DECISION_INPUT_FRAME_H_

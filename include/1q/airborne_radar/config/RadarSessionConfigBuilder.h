@@ -15,9 +15,9 @@
 namespace airborne_radar {
 namespace config {
 
-using model::AzimuthElevationDeg;
-using model::CommandedBeamwidthDeg;
-using model::RadarWorkMode;
+using config::AzimuthElevationDeg;
+using config::CommandedBeamwidthDeg;
+using config::RadarWorkMode;
 
 /**
  * @brief ConfigValidationCode 表示构造器校验问题编码。
@@ -142,7 +142,7 @@ class ONEQ_API RadarSessionConfigBuilder {
       profiles::RadarHardwareProfile::kGenericAirborneXBand};
   profiles::DetectionIntentProfile intent_profile_{profiles::DetectionIntentProfile::kBalanced};
   profiles::AntennaPatternProfile antenna_profile_{profiles::AntennaPatternProfile::kStandard};
-  model::AzimuthElevationDeg antenna_boresight_offset_deg_{};
+  config::AzimuthElevationDeg antenna_boresight_offset_deg_{};
   profiles::RcsFusionProfile rcs_fusion_profile_{profiles::RcsFusionProfile::kDisabled};
 
   bool enable_tracking_filter_{false};
@@ -152,7 +152,7 @@ class ONEQ_API RadarSessionConfigBuilder {
   profiles::LifecyclePolicyProfile lifecycle_profile_{profiles::LifecyclePolicyProfile::kBalanced};
 
   config::RadarSessionConfig base_config_{};
-  model::RadarOrientationConfig orientation_{};
+  config::RadarOrientationConfig orientation_{};
   config::RadarEnvironmentConfig env_{};
   bool detection_dirty_{false};
   bool tracking_dirty_{false};

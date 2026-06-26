@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "airborne_radar/decision/ControlReducerTypes.h"
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -55,8 +55,8 @@ class ControlReducer {
    * @return 归并后的控制真值与采纳结果。
    */
   extension::ControlReductionResult Reduce(
-      const extension::control::RadarControlProfile& previous_profile,
-      const std::vector<extension::TacticalProposal>& proposals);
+      const session::RadarControlProfile& previous_profile,
+      const std::vector<session::TacticalProposal>& proposals);
 
   /**
    * @brief 获取 reducer 当前内部运行态（供调试/测试使用）。

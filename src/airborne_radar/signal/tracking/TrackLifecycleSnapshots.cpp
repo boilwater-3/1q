@@ -23,7 +23,7 @@ session::RadarSceneTargetList TrackLifecycleManager::BuildSceneTargetSnapshot() 
   return snapshot_emitter_.BuildSceneTargetSnapshot();
 }
 
-model::TrackStateSnapshotList TrackLifecycleManager::BuildTrackStateSnapshots() const {
+session::TrackStateSnapshotList TrackLifecycleManager::BuildTrackStateSnapshots() const {
   return snapshot_emitter_.BuildTrackStateSnapshots();
 }
 

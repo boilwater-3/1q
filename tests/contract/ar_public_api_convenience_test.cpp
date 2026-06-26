@@ -13,7 +13,7 @@
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "airborne_radar/runtime/RadarController.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarExternalInputAdapter.h"
@@ -169,8 +169,8 @@ void ApplySceneStateToCycleInput(const session::EnvironmentSceneState& scene_sta
 /// @brief 比较两组控制命令的类型和来源是否一致。
 /// @param expected 期望命令列表。
 /// @param actual 实际命令列表。
-void ExpectEquivalentCommands(const std::vector<extension::control::RadarCommand>& expected,
-                              const std::vector<extension::control::RadarCommand>& actual) {
+void ExpectEquivalentCommands(const std::vector<session::RadarCommand>& expected,
+                              const std::vector<session::RadarCommand>& actual) {
   ASSERT_EQ(expected.size(), actual.size());
   for (std::size_t i = 0; i < expected.size(); ++i) {
     EXPECT_EQ(expected[i].type, actual[i].type);
@@ -181,8 +181,8 @@ void ExpectEquivalentCommands(const std::vector<extension::control::RadarCommand
 /// @brief 比较两份控制真值的公开语义字段。
 /// @param expected 期望控制真值。
 /// @param actual 实际控制真值。
-void ExpectEquivalentProfiles(const extension::control::RadarControlProfile& expected,
-                              const extension::control::RadarControlProfile& actual) {
+void ExpectEquivalentProfiles(const session::RadarControlProfile& expected,
+                              const session::RadarControlProfile& actual) {
   EXPECT_EQ(expected.version, actual.version);
   EXPECT_EQ(expected.enable_lpi_power_control, actual.enable_lpi_power_control);
   EXPECT_NEAR(expected.lpi_power_scale, actual.lpi_power_scale, 1e-5f);
@@ -210,11 +210,11 @@ bool ContainsIssueCode(const std::vector<session::ValidationIssue>& issues,
   return false;
 }
 
-model::TrackStateSnapshot MakeTrackStateSnapshot(float velocity_x, float velocity_y,
+session::TrackStateSnapshot MakeTrackStateSnapshot(float velocity_x, float velocity_y,
                                                  float velocity_z, float rcs, bool jamming_detected,
                                                  std::uint64_t external_target_id,
                                                  std::uint64_t association_key) {
-  model::TrackStateSnapshot track;
+  session::TrackStateSnapshot track;
   track.velocity_x = velocity_x;
   track.velocity_y = velocity_y;
   track.velocity_z = velocity_z;
@@ -330,17 +330,17 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     return result;
   }
 
-  void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) override {
+  void UpdatePlatformAttitude(const config::PlatformAttitudeDeg& platform_attitude_deg) override {
     platform_attitude_deg_ = platform_attitude_deg;
   }
 
-  model::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_deg_; }
+  config::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_deg_; }
 
-  void SetControlProfile(const extension::control::RadarControlProfile& control_profile) override {
+  void SetControlProfile(const session::RadarControlProfile& control_profile) override {
     control_profile_ = control_profile;
   }
 
-  extension::control::RadarControlProfile GetControlProfile() const override {
+  session::RadarControlProfile GetControlProfile() const override {
     return control_profile_;
   }
 
@@ -401,8 +401,8 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
 
  private:
   struct RuntimeState {
-    model::PlatformAttitudeDeg platform_attitude_deg{};
-    extension::control::RadarControlProfile control_profile{};
+    config::PlatformAttitudeDeg platform_attitude_deg{};
+    session::RadarControlProfile control_profile{};
     config::RadarSessionConfig config{};
     bool should_execute{true};
     bool should_accept_updates{true};
@@ -410,8 +410,8 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     std::size_t update_config_count{0U};
   };
 
-  model::PlatformAttitudeDeg platform_attitude_deg_{};
-  extension::control::RadarControlProfile control_profile_{};
+  config::PlatformAttitudeDeg platform_attitude_deg_{};
+  session::RadarControlProfile control_profile_{};
   config::RadarSessionConfig config_{};
   bool should_execute_{true};
   bool should_accept_updates_{true};
@@ -419,10 +419,10 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
   std::size_t update_config_count_{0U};
 };
 
-class NoopDecisionEngine : public extension::ITacticalDecisionEngine {
+class NoopDecisionEngine : public session::ITacticalDecisionEngine {
  public:
-  extension::TacticalDecisionResult Evaluate(const model::DecisionInputFrame& input_frame,
-                                             extension::TacticalStateStore& state_store) override {
+  session::TacticalDecisionResult Evaluate(const session::DecisionInputFrame& input_frame,
+                                             session::TacticalStateStore& state_store) override {
     (void)input_frame;
     (void)state_store;
     return {};
@@ -446,9 +446,9 @@ TEST(PublicApiConvenienceTest, MutableRadarContextBeginsCycleAndResetsPerCycleCo
   EXPECT_TRUE(context.GetSubmittedCommands().empty());
 
   context.SubmitControlCommand(
-      extension::control::RadarCommand(extension::control::RadarCommandType::SET_AGILITY_FREQ,
-                                       extension::control::RadarCommandSource::ECCM));
-  extension::control::RadarControlProfile profile;
+      session::RadarCommand(session::RadarCommandType::SET_AGILITY_FREQ,
+                                       session::RadarCommandSource::ECCM));
+  session::RadarControlProfile profile;
   profile.enable_agility_frequency = true;
   profile.version = 4U;
   context.UpdateRadarControlProfile(profile);
@@ -784,26 +784,26 @@ TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportUniqueDuplicateAndJammin
   ASSERT_NE(track_map.count(402U), 0U);
   EXPECT_EQ(track_map.at(402U).association_key, 3U);
 
-  const model::TrackStateSnapshotList duplicate_tracks =
+  const session::TrackStateSnapshotList duplicate_tracks =
       session::CollectTracksByExternalTargetId(frame, 402U);
   EXPECT_EQ(duplicate_tracks.size(), 2U);
   EXPECT_TRUE(session::ContainsExternalTargetId(frame, 401U));
   EXPECT_TRUE(session::ContainsExternalTargetId(frame, 0U));
   EXPECT_FALSE(session::ContainsExternalTargetId(frame, 999U));
   EXPECT_EQ(session::CountJammingTracks(frame), 2U);
-  EXPECT_EQ(session::CountTracksByStatus(frame, model::TrackStatus::kTentative), 4U);
+  EXPECT_EQ(session::CountTracksByStatus(frame, session::TrackStatus::kTentative), 4U);
 }
 
 TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportAssociationKeyStatusAndJammingCollections) {
   session::TrackOutputFrame frame;
-  model::TrackStateSnapshot confirmed =
+  session::TrackStateSnapshot confirmed =
       MakeTrackStateSnapshot(20.0f, 0.0f, 0.0f, 1.0f, false, 410U, 11U);
-  confirmed.status = model::TrackStatus::kConfirmed;
-  model::TrackStateSnapshot lost = MakeTrackStateSnapshot(5.0f, 0.0f, 0.0f, 0.8f, false, 411U, 12U);
-  lost.status = model::TrackStatus::kLost;
-  model::TrackStateSnapshot jammed =
+  confirmed.status = session::TrackStatus::kConfirmed;
+  session::TrackStateSnapshot lost = MakeTrackStateSnapshot(5.0f, 0.0f, 0.0f, 0.8f, false, 411U, 12U);
+  lost.status = session::TrackStatus::kLost;
+  session::TrackStateSnapshot jammed =
       MakeTrackStateSnapshot(18.0f, 0.0f, 0.0f, 1.2f, true, 412U, 13U);
-  jammed.status = model::TrackStatus::kConfirmed;
+  jammed.status = session::TrackStatus::kConfirmed;
   frame.tracks.push_back(confirmed);
   frame.tracks.push_back(lost);
   frame.tracks.push_back(jammed);
@@ -814,7 +814,7 @@ TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportAssociationKeyStatusAndJ
   EXPECT_EQ(session::CollectConfirmedTracks(frame).size(), 2U);
   EXPECT_EQ(session::CollectLostTracks(frame).size(), 1U);
   EXPECT_EQ(session::CollectJammingTracks(frame).size(), 1U);
-  EXPECT_EQ(session::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), 2U);
+  EXPECT_EQ(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed), 2U);
 }
 
 TEST(PublicApiConvenienceTest, RadarInputValidationReportsWarningsAndErrorsForCommonBoundaryCases) {
@@ -863,7 +863,7 @@ TEST(PublicApiConvenienceTest, BuilderProvidesExpectedDetectionFocusedDefaults) 
   const session::TrackOutputFrame frame = session.Step(MakeCycleInput(session::RadarSceneTargetList{
       model::MakeGroundTarget(901U, 20.0f, 5.0f, 0.8f),
   }));
-  EXPECT_EQ(session::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), 1U);
+  EXPECT_EQ(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed), 1U);
 }
 
 TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
@@ -874,8 +874,8 @@ TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
 
   ASSERT_EQ(frame.tracks.size(), 1U);
   EXPECT_EQ(frame.tracks.size(), 1U);
-  EXPECT_EQ(session::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), 0U);
-  EXPECT_EQ(frame.tracks[0].status, model::TrackStatus::kTentative);
+  EXPECT_EQ(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed), 0U);
+  EXPECT_EQ(frame.tracks[0].status, session::TrackStatus::kTentative);
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInterference) {
@@ -888,7 +888,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInte
 
   const session::TrackOutputFrame frame = session.Step(input);
   EXPECT_EQ(frame.tracks.size(), 2U);
-  EXPECT_EQ(session::CountTracksByStatus(frame, model::TrackStatus::kConfirmed), 2U);
+  EXPECT_EQ(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed), 2U);
   EXPECT_TRUE(session::ContainsExternalTargetId(frame, 501U));
   EXPECT_TRUE(session::ContainsExternalTargetId(frame, 502U));
   EXPECT_EQ(session::CountJammingTracks(frame), 0U);
@@ -934,8 +934,8 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   const session::TrackOutputFrame manual_frame = controller.GetLatestTrackOutputFrame();
 
   EXPECT_EQ(session_frame.tracks.size(), manual_frame.tracks.size());
-  EXPECT_EQ(session::CountTracksByStatus(session_frame, model::TrackStatus::kConfirmed),
-            session::CountTracksByStatus(manual_frame, model::TrackStatus::kConfirmed));
+  EXPECT_EQ(session::CountTracksByStatus(session_frame, session::TrackStatus::kConfirmed),
+            session::CountTracksByStatus(manual_frame, session::TrackStatus::kConfirmed));
   EXPECT_EQ(session::CountJammingTracks(session_frame), session::CountJammingTracks(manual_frame));
 
   const auto session_track_map = session::BuildTrackMapByExternalTargetId(session_frame);

@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "airborne_radar/decision/ControlReducerTypes.h"
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -49,8 +49,8 @@ class ControlCommandMapper {
    * @return 归并结果（包含新 profile、采纳与拒绝的 directives）。
    */
   extension::ControlReductionResult Apply(
-      extension::control::RadarControlProfile* current_profile,
-      const std::vector<extension::TacticalProposal>& proposals);
+      session::RadarControlProfile* current_profile,
+      const std::vector<session::TacticalProposal>& proposals);
 
  private:
   decision::ControlReducer& control_reducer_;

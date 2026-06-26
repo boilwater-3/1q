@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -21,8 +21,8 @@ namespace beam {
  * @brief 波束指向基线配置。
  */
 struct ONEQ_API BeamPointingConfig {
-  model::AzimuthElevationDeg default_scan_center_deg{}; /**< 默认扫描中心。 */
-  model::CommandedBeamwidthDeg nominal_beamwidth_deg{}; /**< 名义指令态波束宽度。 */
+  config::AzimuthElevationDeg default_scan_center_deg{}; /**< 默认扫描中心。 */
+  config::CommandedBeamwidthDeg nominal_beamwidth_deg{}; /**< 名义指令态波束宽度。 */
 };
 
 /**
