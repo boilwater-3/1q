@@ -1,18 +1,18 @@
 /**
  * @file RadarController.h
- * @brief 定义核心处理层的雷达调度控制器接口。
+ * @brief 核心处理层雷达调度控制器（内部实现细节，不对外暴露）。
  */
 
-#ifndef ONEQ_AIRBORNE_RADAR_EXTENSION_RADAR_CONTROLLER_H_
-#define ONEQ_AIRBORNE_RADAR_EXTENSION_RADAR_CONTROLLER_H_
+#ifndef AIRBORNE_RADAR_RUNTIME_RADAR_CONTROLLER_H_
+#define AIRBORNE_RADAR_RUNTIME_RADAR_CONTROLLER_H_
 
 #include <cstddef>
 #include <memory>
 
-#include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
-#include "1q/api.hpp"
+#include "airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -22,7 +22,7 @@ namespace extension {
 class IRadarContext;
 class ITacticalDecisionEngine;
 
-struct ONEQ_API RadarControllerRuntimeState {
+struct RadarControllerRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
   session::TrackOutputFrame latest_output{};
@@ -45,7 +45,7 @@ namespace extension {
  * @details 采用 PIMPL 模式隐藏实现细节，保证 ABI 稳定性；
  *          内部状态变更不会触发外部项目重编。
  */
-class ONEQ_API RadarController {
+class RadarController {
  public:
   ~RadarController();
 
@@ -133,21 +133,6 @@ class ONEQ_API RadarController {
    */
   bool RestoreRuntimeState(const RadarControllerRuntimeState& state);
 
-  /**
-   * @brief 获取当前控制器绑定的上下文实例。
-   */
-  extension::IRadarContext& GetRadarContext();
-
-  /**
-   * @brief 获取当前控制器绑定的信号流水线实例。
-   */
-  extension::ISignalPipeline& GetSignalPipeline();
-
-  /**
-   * @brief 获取当前控制器绑定的环境服务实例。
-   */
-  environment::IEnvironmentService& GetEnvironmentService();
-
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
@@ -156,4 +141,4 @@ class ONEQ_API RadarController {
 }  // namespace extension
 }  // namespace airborne_radar
 
-#endif  // ONEQ_AIRBORNE_RADAR_EXTENSION_RADAR_CONTROLLER_H_
+#endif  // AIRBORNE_RADAR_RUNTIME_RADAR_CONTROLLER_H_

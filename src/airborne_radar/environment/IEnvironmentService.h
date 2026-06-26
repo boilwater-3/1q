@@ -1,18 +1,17 @@
 /**
  * @file IEnvironmentService.h
- * @brief 定义环境建模层对外暴露的环境服务接口。
+ * @brief 环境服务接口（内部实现细节，不对外暴露）。
  */
 
-#ifndef ONEQ_AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
-#define ONEQ_AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
+#ifndef AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
+#define AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace environment {
 
-struct ONEQ_API EnvironmentServiceRuntimeState {
+struct EnvironmentServiceRuntimeState {
   EnvironmentSceneState active_scene_state{};
   EnvironmentSceneState pending_scene_state{};
   EnvironmentCycleContext active_cycle_context{};
@@ -22,7 +21,7 @@ struct ONEQ_API EnvironmentServiceRuntimeState {
 /**
  * @brief IEnvironmentService 为信号处理与决策层提供环境查询与运行态更新能力。
  */
-class ONEQ_API IEnvironmentService {
+class IEnvironmentService {
  public:
   virtual ~IEnvironmentService() = default;
 
@@ -78,4 +77,4 @@ class ONEQ_API IEnvironmentService {
 }  // namespace environment
 }  // namespace airborne_radar
 
-#endif  // ONEQ_AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
+#endif  // AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_

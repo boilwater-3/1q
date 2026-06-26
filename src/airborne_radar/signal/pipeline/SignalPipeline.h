@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/extension/ISignalPipeline.h"
+#include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"

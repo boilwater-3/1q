@@ -16,7 +16,7 @@
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/extension/RadarController.h"
+#include "airborne_radar/runtime/RadarController.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
@@ -607,40 +607,6 @@ TEST_F(CoreControllerTest, FirstCycleSignalPipelineAbortDoesNotPublishSyntheticL
 
   EXPECT_FALSE(controller.HasValidationError());
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
-}
-
-TEST_F(CoreControllerTest, FailedCycleDoesNotAdvanceEnvironmentStampOrOutputSequence) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
-  FakeRadarContext radar_context(input_state);
-  environment::EnvironmentService environment_service;
-  AbortingSignalPipeline signal_pipeline;
-  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
-  session::RadarSession session = session::RadarSessionFactory::CreateWithController(
-      MakeDetectionFocusedConfig(), controller);
-
-  EXPECT_FLOAT_EQ(environment_service.SampleEnvironment().cycle_dt_sec, 0.0f);
-
-  session::RadarCycleInput input;
-  input.cycle_index = 1U;
-  input.dt_sec = 1.0f;
-  input.scene = input_state;
-  const session::RadarCycleResult result = session.StepWithResult(input);
-
-  EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
-  EXPECT_FLOAT_EQ(environment_service.SampleEnvironment().cycle_dt_sec, 0.0f);
-
-  signal_pipeline.SetShouldExecute(true);
-  const session::RadarCycleResult result2 = session.StepWithResult(input);
-
-  EXPECT_TRUE(result2.executed_this_cycle);
-  EXPECT_TRUE(controller.ExecutedLatestCycle());
-  ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
-  const session::TrackOutputFrame& latest_track_output_frame =
-      controller.GetLatestTrackOutputFrame();
-  EXPECT_EQ(latest_track_output_frame.cycle_index, 1U);
-  EXPECT_EQ(latest_track_output_frame.batch_id, 1U);
 }
 
 TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {

@@ -13,12 +13,7 @@
 namespace airborne_radar {
 namespace extension {
 class ITacticalDecisionEngine;
-class RadarController;
-class ISignalPipeline;
 }  // namespace extension
-namespace environment {
-class IEnvironmentService;
-}
 }  // namespace airborne_radar
 
 namespace airborne_radar {
@@ -44,27 +39,6 @@ class ONEQ_API RadarSessionFactory {
       const config::RadarSessionConfig& config,
       extension::ITacticalDecisionEngine& decision_engine);
 
-  /**
-   * @brief 使用外部 signal pipeline 创建会话。
-   * @param config 会话配置。
-   * @param signal_pipeline 外部提供的 signal pipeline。
-   * @note 会话在下游执行失败时会回滚已提交的运行态，因此外部 pipeline 必须正确实现
-   *       `CaptureRuntimeState()` / `RestoreRuntimeState()`，并保证恢复后不遗留内部副作用。
-   */
-  static RadarSession CreateWithSignalPipeline(
-      const config::RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline);
-
-  static RadarSession CreateWithEnvironmentService(
-      const config::RadarSessionConfig& config, environment::IEnvironmentService& environment_service);
-
-  static RadarSession CreateWithController(const config::RadarSessionConfig& config,
-                                           extension::RadarController& controller);
-
-  static RadarSession CreateWithAll(
-      const config::RadarSessionConfig& config, extension::IRadarContext& radar_context,
-      extension::ISignalPipeline& signal_pipeline,
-      environment::IEnvironmentService& environment_service,
-      extension::RadarController& controller);
 };
 
 }  // namespace session

@@ -1,12 +1,12 @@
-#include "1q/airborne_radar/extension/RadarController.h"
+#include "airborne_radar/runtime/RadarController.h"
 
 #include <cstdint>
 #include <functional>
 #include <memory>
 
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
-#include "1q/airborne_radar/extension/ISignalPipeline.h"
+#include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
@@ -282,14 +282,6 @@ bool RadarController::RestoreRuntimeState(const extension::RadarControllerRuntim
   impl_->last_signal_abort_reason = state.last_signal_abort_reason;
   impl_->signal_pipeline.RestoreRuntimeState(state.signal_pipeline_state);
   return true;
-}
-
-extension::IRadarContext& RadarController::GetRadarContext() { return impl_->radar_context; }
-
-extension::ISignalPipeline& RadarController::GetSignalPipeline() { return impl_->signal_pipeline; }
-
-environment::IEnvironmentService& RadarController::GetEnvironmentService() {
-  return impl_->environment_service;
 }
 
 }  // namespace extension

@@ -48,21 +48,6 @@ class RadarSessionCompositionRoot {
   static RadarSessionComposition ComposeWithDecisionEngine(
       const config::RadarSessionConfig& config,
       extension::ITacticalDecisionEngine& decision_engine);
-
-  static RadarSessionComposition ComposeWithSignalPipeline(
-      const config::RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline);
-
-  static RadarSessionComposition ComposeWithEnvironmentService(
-      const config::RadarSessionConfig& config, environment::IEnvironmentService& environment_service);
-
-  static RadarSessionComposition ComposeWithController(const config::RadarSessionConfig& config,
-                                                       extension::RadarController& controller);
-
-  static RadarSessionComposition ComposeAllExternal(
-      const config::RadarSessionConfig& config, extension::IRadarContext& radar_context,
-      extension::ISignalPipeline& signal_pipeline,
-      environment::IEnvironmentService& environment_service,
-      extension::RadarController& controller);
 };
 
 }  // namespace session

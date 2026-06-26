@@ -9,7 +9,7 @@
 #include <memory>
 
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/environment/JammingThresholdUtils.h"
 
 namespace airborne_radar {

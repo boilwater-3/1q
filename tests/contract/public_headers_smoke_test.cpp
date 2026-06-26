@@ -23,15 +23,12 @@
 #include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/environment/airborne_radar_environment.hpp"
 #include "1q/airborne_radar/extension/IRadarCommandBus.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
 #include "1q/airborne_radar/extension/IRadarContextReader.h"
 #include "1q/airborne_radar/extension/IRadarControlProfileStore.h"
-#include "1q/airborne_radar/extension/ISignalPipeline.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/extension/RadarController.h"
 #include "1q/airborne_radar/extension/SignalPipelineResultTypes.h"
 #include "1q/airborne_radar/extension/airborne_radar_extension.hpp"
 #include "1q/airborne_radar/extension/control/ControlDirective.h"
@@ -126,21 +123,6 @@ using ArSession = airborne_radar::session::RadarSession;
 using ArConfig = airborne_radar::config::RadarSessionConfig;
 static_assert(!std::is_constructible<ArSession, const ArConfig&>::value,
               "RadarSession direct construction must be disabled");
-static_assert(!std::is_constructible<ArSession, const ArConfig&,
-                                     airborne_radar::extension::ISignalPipeline&>::value,
-              "RadarSession direct pipeline injection construction must be disabled");
-static_assert(!std::is_constructible<ArSession, const ArConfig&,
-                                     airborne_radar::environment::IEnvironmentService&>::value,
-              "RadarSession direct environment injection construction must be disabled");
-static_assert(!std::is_constructible<ArSession, const ArConfig&,
-                                     airborne_radar::extension::RadarController&>::value,
-              "RadarSession direct controller injection construction must be disabled");
-static_assert(
-    !std::is_constructible<ArSession, const ArConfig&, airborne_radar::extension::IRadarContext&,
-                           airborne_radar::extension::ISignalPipeline&,
-                           airborne_radar::environment::IEnvironmentService&,
-                           airborne_radar::extension::RadarController&>::value,
-    "RadarSession direct full-chain injection construction must be disabled");
 static_assert(std::is_same<ArSession, decltype(airborne_radar::session::RadarSessionFactory::Create(
                                           std::declval<const ArConfig&>()))>::value,
               "RadarSessionFactory::Create must return RadarSession");
@@ -151,25 +133,6 @@ static_assert(
             std::declval<const ArConfig&>(),
             std::declval<airborne_radar::extension::ITacticalDecisionEngine&>()))>::value,
     "RadarSessionFactory::CreateWithDecisionEngine must return RadarSession");
-static_assert(
-    std::is_same<ArSession,
-                 decltype(airborne_radar::session::RadarSessionFactory::CreateWithSignalPipeline(
-                     std::declval<const ArConfig&>(),
-                     std::declval<airborne_radar::extension::ISignalPipeline&>()))>::value,
-    "RadarSessionFactory::CreateWithSignalPipeline must return RadarSession");
-static_assert(
-    std::is_same<
-        ArSession,
-        decltype(airborne_radar::session::RadarSessionFactory::CreateWithEnvironmentService(
-            std::declval<const ArConfig&>(),
-            std::declval<airborne_radar::environment::IEnvironmentService&>()))>::value,
-    "RadarSessionFactory::CreateWithEnvironmentService must return RadarSession");
-static_assert(
-    std::is_same<ArSession,
-                 decltype(airborne_radar::session::RadarSessionFactory::CreateWithController(
-                     std::declval<const ArConfig&>(),
-                     std::declval<airborne_radar::extension::RadarController&>()))>::value,
-    "RadarSessionFactory::CreateWithController must return RadarSession");
 
 static_assert(
     !std::is_constructible<electronic_surveillance_radar::session::EsrSession,

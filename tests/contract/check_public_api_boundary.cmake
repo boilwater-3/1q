@@ -26,7 +26,6 @@ set(AR_ENVIRONMENT_HEADERS
     "airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
     "airborne_radar/environment/EnvironmentSceneBuilder.h"
     "airborne_radar/environment/EnvironmentTypes.h"
-    "airborne_radar/environment/IEnvironmentService.h"
     "airborne_radar/environment/airborne_radar_environment.hpp"
 )
 
@@ -36,9 +35,7 @@ set(AR_EXTENSION_HEADERS
     "airborne_radar/extension/IRadarContext.h"
     "airborne_radar/extension/IRadarContextReader.h"
     "airborne_radar/extension/IRadarControlProfileStore.h"
-    "airborne_radar/extension/ISignalPipeline.h"
     "airborne_radar/extension/ITacticalDecisionEngine.h"
-    "airborne_radar/extension/RadarController.h"
     "airborne_radar/extension/SignalPipelineResultTypes.h"
     "airborne_radar/extension/airborne_radar_extension.hpp"
     "airborne_radar/extension/control/ControlDirective.h"

@@ -1,10 +1,10 @@
 /**
  * @file ISignalPipeline.h
- * @brief 定义信号处理层的流水线抽象接口。
+ * @brief 信号处理流水线抽象接口（内部实现细节，不对外暴露）。
  */
 
-#ifndef ONEQ_AIRBORNE_RADAR_EXTENSION_I_SIGNAL_PIPELINE_H_
-#define ONEQ_AIRBORNE_RADAR_EXTENSION_I_SIGNAL_PIPELINE_H_
+#ifndef AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
+#define AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
 
 #include <cstdint>
 #include <memory>
@@ -14,14 +14,14 @@
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/RadarOrientationConfig.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
-#include "1q/api.hpp"
+#include "airborne_radar/environment/IEnvironmentService.h"
 
 namespace airborne_radar {
 namespace environment {
 class IEnvironmentService;
 }
 namespace extension {
-struct ONEQ_API SignalPipelineRuntimeState {
+struct SignalPipelineRuntimeState {
   const void* owner_identity{nullptr}; /**< 生成该快照的 pipeline 实例地址 */
   std::uint32_t schema_version{0U};    /**< 运行态快照 schema 版本 */
   std::shared_ptr<void> opaque{};      /**< 由具体 pipeline 实现解释的运行态快照 */
@@ -30,7 +30,7 @@ struct ONEQ_API SignalPipelineRuntimeState {
 /**
  * @brief ISignalPipeline 定义单周期内的探测与跟踪处理流程。
  */
-class ONEQ_API ISignalPipeline {
+class ISignalPipeline {
  public:
   virtual ~ISignalPipeline() = default;
 
@@ -114,4 +114,4 @@ class ONEQ_API ISignalPipeline {
 }  // namespace extension
 }  // namespace airborne_radar
 
-#endif  // ONEQ_AIRBORNE_RADAR_EXTENSION_I_SIGNAL_PIPELINE_H_
+#endif  // AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_

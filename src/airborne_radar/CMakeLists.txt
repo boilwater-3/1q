@@ -113,7 +113,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarContext.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarContextReader.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/IRadarControlProfileStore.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/RadarController.h
     )
     set(PUBLIC_HEADERS_CORE_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleResult.h
@@ -133,11 +132,9 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentSceneBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/IEnvironmentService.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/airborne_radar_environment.hpp
     )
     set(PUBLIC_HEADERS_SIGNAL_PIPELINE
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/ISignalPipeline.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/SignalPipelineResultTypes.h
     )
     set(PUBLIC_HEADERS_EXTENSION_ENTRY

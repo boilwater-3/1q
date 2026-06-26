@@ -2,10 +2,10 @@
 
 #include <utility>
 
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/environment/IEnvironmentService.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
-#include "1q/airborne_radar/extension/ISignalPipeline.h"
-#include "1q/airborne_radar/extension/RadarController.h"
+#include "airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "airborne_radar/runtime/RadarController.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
@@ -255,35 +255,6 @@ RadarSession RadarSessionFactory::CreateWithDecisionEngine(
     extension::ITacticalDecisionEngine& decision_engine) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
       RadarSessionCompositionRoot::ComposeWithDecisionEngine(config, decision_engine))));
-}
-
-RadarSession RadarSessionFactory::CreateWithSignalPipeline(
-    const config::RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
-      RadarSessionCompositionRoot::ComposeWithSignalPipeline(config, signal_pipeline))));
-}
-
-RadarSession RadarSessionFactory::CreateWithEnvironmentService(
-    const config::RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(
-      new RadarSession::Impl(RadarSessionCompositionRoot::ComposeWithEnvironmentService(
-          config, environment_service))));
-}
-
-RadarSession RadarSessionFactory::CreateWithController(const config::RadarSessionConfig& config,
-                                                       extension::RadarController& controller) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
-      RadarSessionCompositionRoot::ComposeWithController(config, controller))));
-}
-
-RadarSession RadarSessionFactory::CreateWithAll(
-    const config::RadarSessionConfig& config, extension::IRadarContext& radar_context,
-    extension::ISignalPipeline& signal_pipeline,
-    environment::IEnvironmentService& environment_service,
-    extension::RadarController& controller) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
-      RadarSessionCompositionRoot::ComposeAllExternal(config, radar_context, signal_pipeline,
-                                                       environment_service, controller))));
 }
 
 session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {

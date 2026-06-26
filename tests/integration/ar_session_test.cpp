@@ -17,7 +17,7 @@
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/IRadarContext.h"
-#include "1q/airborne_radar/extension/RadarController.h"
+#include "airborne_radar/runtime/RadarController.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
