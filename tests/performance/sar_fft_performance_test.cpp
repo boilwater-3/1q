@@ -4,7 +4,7 @@
 #include <cmath>
 #include <string>
 
-#include "1q/sar/session/SarSessionFactory.h"
+#include "1q/sar/session/SarSession.h"
 #include "sar/echo/SarEcho.h"
 #include "sar/geometry/SarGeometry.h"
 #include "sar/imaging/SarGbp.h"
@@ -366,7 +366,7 @@ TEST(SarPerformanceTest, PublicSessionCompletes1024SquarePointTargetScene) {
   target.radar_cross_section_dbsm = 80.0;
   input.point_targets.push_back(target);
 
-  session::SarSession sar_session = session::SarSessionFactory::Create(config);
+  session::SarSession sar_session = session::SarSession::Create(config);
   const auto start = std::chrono::steady_clock::now();
   const session::SarCycleResult result = sar_session.StepWithResult(input);
   const double elapsed_seconds =

@@ -18,7 +18,6 @@
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
 #include "1q/airborne_radar/session/RadarSession.h"
-#include "1q/airborne_radar/session/RadarSessionFactory.h"
 
 int main() {
   // 1. Builder config construction
@@ -37,7 +36,7 @@ int main() {
 
   // 3. Session construction from builder config
   airborne_radar::session::RadarSession session =
-      airborne_radar::session::RadarSessionFactory::Create(built_config);
+      airborne_radar::session::RadarSession::Create(built_config);
 
   // 4. Input construction + validation
   airborne_radar::session::RadarCycleInput input;

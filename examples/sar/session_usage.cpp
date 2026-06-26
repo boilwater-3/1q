@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 
+#include "1q/sar/session/SarSession.h"
 #include "1q/sar/sar.hpp"
 
 namespace {
@@ -90,7 +91,7 @@ const char* SeverityName(sar::session::SarDiagnosticSeverity severity) {
 
 int main() {
   sar::session::SarSession session =
-      sar::session::SarSessionFactory::Create(MakeConfig());
+      sar::session::SarSession::Create(MakeConfig());
   const sar::session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   if (result.has_error) {

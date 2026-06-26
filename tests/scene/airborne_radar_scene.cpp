@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/coordinate/types.h"
 #include "config_loader.h"
@@ -95,7 +96,7 @@ SceneState InitScene() {
   }
 
   SceneState s;
-  s.session = ar_session::RadarSessionFactory::Create(config);
+  s.session = ar_session::RadarSession::Create(config);
   s.env_state = ar_session::RadarEnvironmentInputState(MakeEnvironment());
 
   s.platform_pos.x_m = -2289512.0;

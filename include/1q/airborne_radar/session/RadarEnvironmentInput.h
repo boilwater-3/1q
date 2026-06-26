@@ -44,6 +44,24 @@ struct ONEQ_API JammerSourceFact {
 using JammerSourceFactList = std::vector<JammerSourceFact>;
 
 /**
+ * @brief RadarEnvironmentInputPatch 表示调用方侧环境事实状态的局部更新。
+ *
+ * @note 本类型不直接进入 RadarSession::StepWithResult()。调用方应先用
+ *       RadarEnvironmentInputState 合成完整 RadarEnvironmentInput 快照，再写入
+ *       RadarCycleInput::environment。
+ */
+struct ONEQ_API RadarEnvironmentInputPatch {
+  bool has_atmospheric_observation{false};                         /**< 是否更新气象/电离层输入 */
+  config::AtmosphericPhysicsConfig atmospheric_observation{}; /**< 新气象/电离层输入 */
+  bool has_atmospheric_context{false};                             /**< 是否更新时间/空间天气输入 */
+  config::AtmosphericDerivedContext atmospheric_context{};    /**< 新时间/空间天气输入 */
+  bool has_surface_observation{false};                             /**< 是否更新地表/植被输入 */
+  config::VegetationScatterPhysicsConfig surface_observation{}; /**< 新地表/植被输入 */
+  bool has_jammer_sources{false};                                    /**< 是否更新干扰源列表 */
+  config::JammerEmitterStateList jammer_sources{};              /**< 新干扰源列表 */
+};
+
+/**
  * @brief EnvironmentCycleContext 描述环境层周期冻结上下文。
  */
 struct ONEQ_API EnvironmentCycleContext {
@@ -86,6 +104,42 @@ struct ONEQ_API RadarEnvironmentInput {
   config::AtmosphericDerivedContext atmospheric_context{};    /**< 当前周期时间/空间天气输入 */
   config::VegetationScatterPhysicsConfig surface_observation{}; /**< 当前周期地表/植被输入 */
   config::JammerEmitterStateList jammer_sources{};              /**< 当前周期干扰源事实输入 */
+};
+
+/**
+ * @brief RadarEnvironmentInputState 维护调用方侧当前环境事实状态。
+ */
+class ONEQ_API RadarEnvironmentInputState {
+ public:
+  RadarEnvironmentInputState() = default;
+  explicit RadarEnvironmentInputState(const RadarEnvironmentInput& snapshot)
+      : snapshot_(snapshot) {}
+
+  RadarEnvironmentInputState& Reset(const RadarEnvironmentInput& snapshot) {
+    snapshot_ = snapshot;
+    return *this;
+  }
+
+  RadarEnvironmentInputState& Update(const RadarEnvironmentInputPatch& patch) {
+    if (patch.has_atmospheric_observation) {
+      snapshot_.atmospheric_observation = patch.atmospheric_observation;
+    }
+    if (patch.has_atmospheric_context) {
+      snapshot_.atmospheric_context = patch.atmospheric_context;
+    }
+    if (patch.has_surface_observation) {
+      snapshot_.surface_observation = patch.surface_observation;
+    }
+    if (patch.has_jammer_sources) {
+      snapshot_.jammer_sources = patch.jammer_sources;
+    }
+    return *this;
+  }
+
+  RadarEnvironmentInput Snapshot() const { return snapshot_; }
+
+ private:
+  RadarEnvironmentInput snapshot_{};
 };
 
 }  // namespace session

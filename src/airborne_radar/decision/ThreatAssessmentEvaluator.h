@@ -12,7 +12,6 @@
 #include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "airborne_radar/decision/LpiSourceInfo.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
-#include "1q/airborne_radar/session/TargetCategory.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/environment/IFeatureRepository.h"
 

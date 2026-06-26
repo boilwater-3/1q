@@ -31,7 +31,6 @@
 #include "1q/electronic_surveillance_radar/session/EsrOutputDebugView.h"
 #include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 
 namespace {
 
@@ -138,7 +137,7 @@ esr_config::EsrSessionConfig MakeConfig() {
 TEST(EsrOutputBoundaryContractTest, NamedInputDoesNotLeakIntoRawOutputChannels) {
   const esr_session::EsrExternalPoseInput platform = MakePlatformInput();
   std::vector<esr_session::EsrExternalEmitterInput> emitters = MakeNamedEmitters();
-  esr_session::EsrSession session = esr_session::EsrSessionFactory::Create(MakeConfig());
+  esr_session::EsrSession session = esr_session::EsrSession::Create(MakeConfig());
 
   const float dt_sec = 1.0f;
   bool observed_named_cycle = false;
@@ -192,7 +191,7 @@ TEST(EsrOutputBoundaryContractTest, NamedInputDoesNotLeakIntoRawOutputChannels) 
 TEST(EsrOutputBoundaryContractTest, EmitterNameOnlyReachableViaDebugView) {
   const esr_session::EsrExternalPoseInput platform = MakePlatformInput();
   std::vector<esr_session::EsrExternalEmitterInput> emitters = MakeNamedEmitters();
-  esr_session::EsrSession session = esr_session::EsrSessionFactory::Create(MakeConfig());
+  esr_session::EsrSession session = esr_session::EsrSession::Create(MakeConfig());
 
   esr_session::EsrCycleInput input;
   ASSERT_TRUE(esr_session::EsrCycleInputBuilder::Build(platform, emitters, 1.0f, &input));

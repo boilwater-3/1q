@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 
+#include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/coordinate/types.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "config_loader.h"
@@ -57,7 +58,7 @@ SceneState InitScene() {
   }
 
   SceneState s;
-  s.session = esr_session::EsrSessionFactory::Create(config);
+  s.session = esr_session::EsrSession::Create(config);
 
   // 平台位置（空中）
   s.platform_pos.x_m = -2289512.0;

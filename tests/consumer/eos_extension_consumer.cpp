@@ -15,12 +15,11 @@
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 
 int main() {
   // 1. Default session assembly
   electro_optical_sensor::session::EosSession session =
-      electro_optical_sensor::session::EosSessionFactory::Create({});
+      electro_optical_sensor::session::EosSession::Create({});
 
   // 2. StepWithResult
   electro_optical_sensor::session::EosCycleInput input;

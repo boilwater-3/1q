@@ -15,7 +15,6 @@
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 
 namespace {
 
@@ -93,7 +92,7 @@ eos_config::EosSessionConfig MakeConfig() {
 TEST(EosCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
   const eos_session::EosExternalPoseInput platform = MakePlatformInput();
   std::vector<eos_session::EosExternalTargetInput> targets = MakeMovingTargets(10U);
-  eos_session::EosSession session = eos_session::EosSessionFactory::Create(MakeConfig());
+  eos_session::EosSession session = eos_session::EosSession::Create(MakeConfig());
 
   const std::size_t cycle_count = 36U;
   const float dt_sec = 0.5f;

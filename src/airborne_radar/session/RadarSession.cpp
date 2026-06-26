@@ -6,7 +6,6 @@
 #include "airborne_radar/session/MutableRadarContext.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/runtime/RadarController.h"
-#include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/session/RadarSessionCompositionRoot.h"
@@ -245,12 +244,12 @@ RadarSession::~RadarSession() = default;
 RadarSession::RadarSession(RadarSession&&) noexcept = default;
 RadarSession& RadarSession::operator=(RadarSession&&) noexcept = default;
 
-RadarSession RadarSessionFactory::Create(const config::RadarSessionConfig& config) {
+RadarSession RadarSession::Create(const config::RadarSessionConfig& config) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(
       new RadarSession::Impl(RadarSessionCompositionRoot::ComposeDefault(config))));
 }
 
-RadarSession RadarSessionFactory::CreateWithDecisionEngine(
+RadarSession RadarSession::CreateWithDecisionEngine(
     const config::RadarSessionConfig& config,
     session::ITacticalDecisionEngine& decision_engine) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(

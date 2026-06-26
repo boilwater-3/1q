@@ -46,7 +46,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarProductLifecycleRecorder.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarReplaySession.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarSession.h
-        ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarSessionFactory.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/session/SarTraceSession.h
     )
 

@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 
+#include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/coordinate/types.h"
 #include "config_loader.h"
@@ -46,7 +47,7 @@ ar_config::RadarSessionConfig LoadConfigFromFile() {
 /// 使用工厂从配置创建 Session。
 /// Session 本身管理内部状态，支持多次 StepWithResult 调用。
 ar_session::RadarSession CreateWideAreaSearchSession() {
-  return ar_session::RadarSessionFactory::Create(LoadConfigFromFile());
+  return ar_session::RadarSession::Create(LoadConfigFromFile());
 }
 
 /// 构造平台（载机）位姿输入。

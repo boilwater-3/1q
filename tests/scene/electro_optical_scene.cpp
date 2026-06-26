@@ -4,6 +4,7 @@
 #include <string>
 #include <cmath>
 
+#include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/coordinate/types.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/velocity_transform.h"
@@ -77,7 +78,7 @@ SceneState InitScene() {
   }
 
   SceneState s;
-  s.session = eos_session::EosSessionFactory::Create(config);
+  s.session = eos_session::EosSession::Create(config);
 
   // 平台高度 7000m
   s.platform_lla.latitude_deg = 35.0;

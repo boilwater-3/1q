@@ -9,7 +9,7 @@
 #include <cstddef>
 
 #include "1q/airborne_radar/session/RadarCycleInputBuilder.h"
-#include "1q/airborne_radar/session/RadarEnvironmentInputState.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
 #include "1q/coordinate/position_transform.h"
 
 namespace airborne_radar {

@@ -1,11 +1,11 @@
 #include "1q/sar/session/SarTraceSession.h"
+#include "1q/sar/session/SarSession.h"
 
 #include <sstream>
 #include <string>
 #include <utility>
 
 #include "1q/replay/ReplayTrace.h"
-#include "1q/sar/session/SarSessionFactory.h"
 #include "1q/trace/TraceSink.h"
 #include "SarReplayFlatbufferCodec.h"
 
@@ -66,7 +66,7 @@ struct SarTraceSession::Impl {
         replay_writer(std::move(session_options.replay_writer)) {}
 
   Impl(config::SarSessionConfig config, SarTraceSessionOptions session_options)
-      : session(SarSessionFactory::Create(config)),
+      : session(SarSession::Create(config)),
         sink(std::move(session_options.sink)),
         replay_writer(std::move(session_options.replay_writer)) {
     if (sink && session_options.trace_config_on_construct) {

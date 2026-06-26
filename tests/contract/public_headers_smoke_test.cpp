@@ -32,18 +32,14 @@
 #include "1q/airborne_radar/session/DecisionSourceInfo.h"
 #include "1q/airborne_radar/config/JammingSemantics.h"
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
-#include "1q/airborne_radar/session/TargetCategory.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleInputBuilder.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarEnvironmentInput.h"
-#include "1q/airborne_radar/session/RadarEnvironmentInputPatch.h"
-#include "1q/airborne_radar/session/RadarEnvironmentInputState.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
 
 #include "1q/airborne_radar/session/RadarSession.h"
-#include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
 #include "1q/airborne_radar/session/RadarTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/RadarTrackOutputDebugView.h"
@@ -73,7 +69,6 @@
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
@@ -94,7 +89,6 @@
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrOutputDebugView.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/foundation/atmospheric_types.h"
 #include "1q/foundation/pose_types.h"
@@ -113,7 +107,6 @@
 #include "1q/sar/session/SarProductLifecycleRecorder.h"
 #include "1q/sar/session/SarReplaySession.h"
 #include "1q/sar/session/SarSession.h"
-#include "1q/sar/session/SarSessionFactory.h"
 #include "1q/sar/session/SarTraceSession.h"
 #include "1q/trace/TraceSink.h"
 
@@ -121,13 +114,13 @@ using ArSession = airborne_radar::session::RadarSession;
 using ArConfig = airborne_radar::config::RadarSessionConfig;
 static_assert(!std::is_constructible<ArSession, const ArConfig&>::value,
               "RadarSession direct construction must be disabled");
-static_assert(std::is_same<ArSession, decltype(airborne_radar::session::RadarSessionFactory::Create(
+static_assert(std::is_same<ArSession, decltype(airborne_radar::session::RadarSession::Create(
                                           std::declval<const ArConfig&>()))>::value,
               "RadarSessionFactory::Create must return RadarSession");
 static_assert(
     std::is_same<
         ArSession,
-        decltype(airborne_radar::session::RadarSessionFactory::CreateWithDecisionEngine(
+        decltype(airborne_radar::session::RadarSession::CreateWithDecisionEngine(
             std::declval<const ArConfig&>(),
             std::declval<airborne_radar::session::ITacticalDecisionEngine&>()))>::value,
     "RadarSessionFactory::CreateWithDecisionEngine must return RadarSession");
@@ -143,7 +136,7 @@ static_assert(!std::is_constructible<electro_optical_sensor::session::EosSession
 static_assert(
     std::is_same<
         electro_optical_sensor::session::EosSession,
-        decltype(electro_optical_sensor::session::EosSessionFactory::Create(
+        decltype(electro_optical_sensor::session::EosSession::Create(
             std::declval<const electro_optical_sensor::config::EosSessionConfig&>()))>::value,
     "EosSessionFactory::Create must return EosSession");
 
@@ -151,7 +144,7 @@ static_assert(
     !std::is_constructible<sar::session::SarSession, sar::config::SarSessionConfig>::value,
     "SarSession direct construction must be disabled");
 static_assert(std::is_same<sar::session::SarSession,
-                           decltype(sar::session::SarSessionFactory::Create(
+                           decltype(sar::session::SarSession::Create(
                                std::declval<const sar::config::SarSessionConfig&>()))>::value,
               "SarSessionFactory::Create must return SarSession");
 
@@ -180,7 +173,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
 
   EXPECT_FALSE(session::HasValidationError(issues));
 
-  session::RadarSession session = session::RadarSessionFactory::Create(session_config);
+  session::RadarSession session = session::RadarSession::Create(session_config);
   session::RadarTraceSession trace_session(session_config,
                                            session::RadarTraceSessionOptions{nullptr, false});
   const config::RadarRuntimeConfigPatch runtime_patch =
@@ -333,7 +326,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   const session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
   EXPECT_FALSE(session::HasValidationError(issues));
 
-  auto session = session::EsrSessionFactory::Create(session_config);
+  auto session = session::EsrSession::Create(session_config);
   const config::EsrRuntimeConfigPatch runtime_patch =
       config::EsrRuntimeConfigBuilder().WithWorkMode(config::EsrWorkMode::kRwr).Build();
   session.ApplyRuntimeConfig(runtime_patch);
@@ -410,7 +403,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
       foundation::radiative_transfer::EvaluateRadiativeTransfer(transfer_inputs);
   EXPECT_GT(transfer_result.transmittance, 0.0f);
 
-  session::EosSession session = session::EosSessionFactory::Create(session_config);
+  session::EosSession session = session::EosSession::Create(session_config);
   const config::EosRuntimeConfigPatch runtime_patch =
       config::EosRuntimeConfigBuilder().WithFrameRateHz(15.0f).Build();
   session.ApplyRuntimeConfig(runtime_patch);
@@ -475,7 +468,7 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   EXPECT_EQ(raw_iq.pulse_states.size(), 1U);
   EXPECT_EQ(raw_iq.ideal_pulse_states.size(), 1U);
 
-  session::SarSession session = session::SarSessionFactory::Create(session_config);
+  session::SarSession session = session::SarSession::Create(session_config);
   config::SarRuntimeConfigPatch patch;
   patch.has_retain_raw_phase_history = true;
   patch.retain_raw_phase_history = true;
@@ -496,7 +489,7 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   EXPECT_EQ(result.focused_image.imaginary_values.size(), 9U * 64U);
   EXPECT_FALSE(result.focused_image.is_placeholder);
 
-  session::SarTraceSession trace_session(session::SarSessionFactory::Create(session_config));
+  session::SarTraceSession trace_session(session::SarSession::Create(session_config));
   const session::SarCycleResult trace_result = trace_session.StepWithResult(input);
   EXPECT_TRUE(trace_result.executed_this_cycle);
 

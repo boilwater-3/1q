@@ -55,8 +55,10 @@ class ONEQ_API SarSession {
    */
   bool TryApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch);
 
+  /** @brief 使用四域配置创建会话（推荐入口）。 */
+  static SarSession Create(const config::SarSessionConfig& config = {});
+
  private:
-  friend class SarSessionFactory;
 
   struct Impl;
   explicit SarSession(std::unique_ptr<Impl> impl);

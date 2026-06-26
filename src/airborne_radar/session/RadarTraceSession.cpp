@@ -1,4 +1,5 @@
 #include "1q/airborne_radar/session/RadarTraceSession.h"
+#include "1q/airborne_radar/session/RadarSession.h"
 
 #include <sstream>
 #include <string>
@@ -6,7 +7,6 @@
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
-#include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "1q/trace/TraceSink.h"
 #include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
 
@@ -131,7 +131,7 @@ struct RadarTraceSession::Impl {
 
 RadarTraceSession::RadarTraceSession(const config::RadarSessionConfig& config,
                                      RadarTraceSessionOptions options)
-    : impl_(new Impl(RadarSessionFactory::Create(config), std::move(options.sink),
+    : impl_(new Impl(RadarSession::Create(config), std::move(options.sink),
                      std::move(options.replay_writer))) {
   if (options.trace_config_on_construct) {
     if (impl_->sink) {

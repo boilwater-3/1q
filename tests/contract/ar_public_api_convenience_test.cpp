@@ -20,7 +20,6 @@
 #include "1q/airborne_radar/session/RadarInputValidation.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/airborne_radar/session/RadarSession.h"
-#include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "1q/coordinate/position_transform.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/session/MutableRadarContext.h"
@@ -859,7 +858,7 @@ TEST(PublicApiConvenienceTest, BuilderProvidesExpectedDetectionFocusedDefaults) 
   EXPECT_EQ(detection_config.hardware.pulse_count, 16);
   EXPECT_FLOAT_EQ(detection_config.hardware.detection_policy.min_snr_db, -12.0f);
 
-  session::RadarSession session = session::RadarSessionFactory::Create(detection_config);
+  session::RadarSession session = session::RadarSession::Create(detection_config);
   const session::TrackOutputFrame frame = session.Step(MakeCycleInput(session::RadarSceneTargetList{
       model::MakeGroundTarget(901U, 20.0f, 5.0f, 0.8f),
   }));
@@ -867,7 +866,7 @@ TEST(PublicApiConvenienceTest, BuilderProvidesExpectedDetectionFocusedDefaults) 
 }
 
 TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
-  session::RadarSession session = session::RadarSessionFactory::Create();
+  session::RadarSession session = session::RadarSession::Create();
   const session::TrackOutputFrame frame = session.Step(MakeCycleInput(session::RadarSceneTargetList{
       model::MakeGroundTarget(902U, 15.0f, -3.0f, 0.8f),
   }));
@@ -880,7 +879,7 @@ TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
 
 TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInterference) {
   session::RadarSession session =
-      session::RadarSessionFactory::Create(MakeConvenienceSessionConfig());
+      session::RadarSession::Create(MakeConvenienceSessionConfig());
   const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{
       model::MakeGroundTarget(501U, 25.0f, -5.0f, 0.7f),
       model::MakeAirTarget(502U, 150.0f, 6.0f, 18.0f, 72.0f, 1.0f, 0.0f, 1.0f),
@@ -898,7 +897,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInte
 
 TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualControllerChain) {
   const config::RadarSessionConfig config = MakeConvenienceSessionConfig();
-  session::RadarSession session = session::RadarSessionFactory::Create(config);
+  session::RadarSession session = session::RadarSession::Create(config);
 
   session::MutableRadarContext manual_context;
   signal::pipeline::SignalPipeline signal_pipeline(config);
@@ -967,7 +966,7 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
 TEST(PublicApiConvenienceTest,
      RadarSessionRejectsDuplicateIdsAndRetainsPreviousOutputAcrossInvalidCycles) {
   session::RadarSession session =
-      session::RadarSessionFactory::Create(MakeConvenienceSessionConfig());
+      session::RadarSession::Create(MakeConvenienceSessionConfig());
 
   session::RadarCycleInput cycle_1 = MakeCycleInput(
       session::RadarSceneTargetList{
@@ -1053,7 +1052,7 @@ TEST(PublicApiConvenienceTest,
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationErrors) {
   session::RadarSession session =
-      session::RadarSessionFactory::Create(MakeConvenienceSessionConfig());
+      session::RadarSession::Create(MakeConvenienceSessionConfig());
 
   session::RadarCycleInput input;
   input.cycle_index = 88U;
@@ -1080,7 +1079,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnderJammedScene) {
   const config::RadarSessionConfig config = MakeConvenienceSessionConfig();
-  session::RadarSession session = session::RadarSessionFactory::Create(config);
+  session::RadarSession session = session::RadarSession::Create(config);
 
   session::MutableRadarContext manual_context;
   signal::pipeline::SignalPipeline signal_pipeline(config);

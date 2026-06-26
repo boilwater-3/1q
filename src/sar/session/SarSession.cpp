@@ -6,7 +6,6 @@
 #include <memory>
 #include <utility>
 
-#include "1q/sar/session/SarSessionFactory.h"
 #include "sar/geometry/SarGeometry.h"
 #include "sar/runtime/PulseRingBuffer.h"
 #include "sar/session/SarFocusedImageAssembler.h"
@@ -87,7 +86,7 @@ SarSession::~SarSession() noexcept = default;
 SarSession::SarSession(SarSession&&) noexcept = default;
 SarSession& SarSession::operator=(SarSession&&) noexcept = default;
 
-SarSession SarSessionFactory::Create(const config::SarSessionConfig& config) {
+SarSession SarSession::Create(const config::SarSessionConfig& config) {
   return SarSession(std::unique_ptr<SarSession::Impl>(new SarSession::Impl(config)));
 }
 

@@ -23,7 +23,6 @@
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 
 namespace eos = electro_optical_sensor;
 
@@ -45,7 +44,7 @@ int main() {
   config.policy.detection.visible_reference_irradiance_w_m2 = 720.0f;
 
   // 3. Session construction
-  eos::session::EosSession session = eos::session::EosSessionFactory::Create(config);
+  eos::session::EosSession session = eos::session::EosSession::Create(config);
 
   // 4. CycleInput with a target
   eos::session::EosCycleInput input;

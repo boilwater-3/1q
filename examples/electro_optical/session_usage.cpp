@@ -9,6 +9,7 @@
 #include <string>
 #include <cmath>
 
+#include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/coordinate/types.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/velocity_transform.h"
@@ -33,7 +34,7 @@ eos_config::EosSessionConfig LoadConfigFromFile() {
 }
 
 eos_session::EosSession CreateFusedSearchSession() {
-  return eos_session::EosSessionFactory::Create(LoadConfigFromFile());
+  return eos_session::EosSession::Create(LoadConfigFromFile());
 }
 
 eos_session::EosExternalTargetInput MakeTargetLlaWithVelocity(

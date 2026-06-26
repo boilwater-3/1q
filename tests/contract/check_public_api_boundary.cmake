@@ -29,8 +29,6 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/RadarCycleOutputBuilder.h"
     "airborne_radar/session/RadarCycleResult.h"
     "airborne_radar/session/RadarEnvironmentInput.h"
-    "airborne_radar/session/RadarEnvironmentInputPatch.h"
-    "airborne_radar/session/RadarEnvironmentInputState.h"
     "airborne_radar/session/RadarExternalInputAdapter.h"
     "airborne_radar/session/RadarExternalOutputAdapter.h"
     "airborne_radar/session/RadarInputValidation.h"
@@ -40,7 +38,6 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/RadarTrackLifecycleRecorder.h"
     "airborne_radar/session/RadarTrackOutputDebugView.h"
     "airborne_radar/session/RadarSession.h"
-    "airborne_radar/session/RadarSessionFactory.h"
     "airborne_radar/session/RadarTraceSession.h"
     "airborne_radar/session/ITacticalDecisionEngine.h"
     "airborne_radar/session/ControlDirective.h"
@@ -49,7 +46,6 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/DecisionInputFrame.h"
     "airborne_radar/session/DecisionSourceInfo.h"
     "airborne_radar/session/TrackStateSnapshot.h"
-    "airborne_radar/session/TargetCategory.h"
 )
 
 # ── 顶层入口 ─────────────────────────────────────────────────────────
@@ -105,7 +101,6 @@ set(EOS_SESSION_HEADERS
     "electro_optical_sensor/session/EosOutputTypes.h"
     "electro_optical_sensor/session/EosSceneTypes.h"
     "electro_optical_sensor/session/EosSession.h"
-    "electro_optical_sensor/session/EosSessionFactory.h"
     "electro_optical_sensor/session/EosTraceSession.h"
     "electro_optical_sensor/session/EosReplaySession.h"
 )
@@ -159,7 +154,6 @@ set(ESR_SESSION_HEADERS
     "electronic_surveillance_radar/session/EsrOutputTypes.h"
     "electronic_surveillance_radar/session/EsrSceneTypes.h"
     "electronic_surveillance_radar/session/EsrSession.h"
-    "electronic_surveillance_radar/session/EsrSessionFactory.h"
     "electronic_surveillance_radar/session/EsrTraceSession.h"
     "electronic_surveillance_radar/session/EsrReplaySession.h"
 )
@@ -207,7 +201,6 @@ set(SAR_SESSION_HEADERS
     "sar/session/SarProductLifecycleRecorder.h"
     "sar/session/SarReplaySession.h"
     "sar/session/SarSession.h"
-    "sar/session/SarSessionFactory.h"
     "sar/session/SarTraceSession.h"
 )
 

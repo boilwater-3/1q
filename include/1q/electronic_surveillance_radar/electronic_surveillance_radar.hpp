@@ -19,6 +19,5 @@
 #include "1q/electronic_surveillance_radar/session/EsrExternalOutputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 
 #endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_ELECTRONIC_SURVEILLANCE_RADAR_HPP_

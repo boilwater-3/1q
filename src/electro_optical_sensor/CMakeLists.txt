@@ -56,7 +56,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosOutputTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSceneTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSession.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosSessionFactory.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosTraceSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosReplaySession.h
     )

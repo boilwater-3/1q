@@ -1,4 +1,5 @@
 #include "1q/airborne_radar/session/RadarReplaySession.h"
+#include "1q/airborne_radar/session/RadarSession.h"
 
 #include <memory>
 #include <string>
@@ -6,7 +7,6 @@
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
-#include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
 
 namespace airborne_radar {
@@ -162,7 +162,7 @@ bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user
   if (!DecodeSessionConfigFlatbuffer(event.payload_bytes, &config, error)) {
     return false;
   }
-  state->session.reset(new RadarSession(RadarSessionFactory::Create(config)));
+  state->session.reset(new RadarSession(RadarSession::Create(config)));
   return true;
 }
 

@@ -8,7 +8,6 @@
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/RadarSession.h"
-#include "1q/airborne_radar/session/RadarSessionFactory.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -149,7 +148,7 @@ TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
           .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
           .End()
           .Build();
-  session::RadarSession session = session::RadarSessionFactory::Create(config);
+  session::RadarSession session = session::RadarSession::Create(config);
   EXPECT_TRUE(session.HasLatestControlProfile() == false ||
               session.HasLatestControlProfile() == true);
 }
@@ -223,7 +222,7 @@ TEST(RadarSessionConfigBuilderTest, WithRuntimeConfigPatchOverridesWholePatch) {
 
 TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
   session::RadarSession session =
-      session::RadarSessionFactory::Create(MakeDetectionFocusedConfig());
+      session::RadarSession::Create(MakeDetectionFocusedConfig());
 
   const config::RadarRuntimeConfigPatch patch =
       config::RadarRuntimeConfigBuilder()
@@ -280,7 +279,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuiltConfigCanConstructRadarSession)
   config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
   config.policy.lifecycle.enable_imm_lifecycle = true;
 
-  session::RadarSession session = session::RadarSessionFactory::Create(config);
+  session::RadarSession session = session::RadarSession::Create(config);
   EXPECT_TRUE(session.HasLatestControlProfile() == false ||
               session.HasLatestControlProfile() == true);
 }

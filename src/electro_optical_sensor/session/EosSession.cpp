@@ -6,7 +6,6 @@
 #include "electro_optical_sensor/runtime/EosController.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 #include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
 #include "electro_optical_sensor/pipeline/EosPipeline.h"
 
@@ -56,7 +55,7 @@ EosSession::~EosSession() noexcept = default;
 EosSession::EosSession(EosSession&&) noexcept = default;
 EosSession& EosSession::operator=(EosSession&&) noexcept = default;
 
-EosSession EosSessionFactory::Create(const config::EosSessionConfig& config) {
+EosSession EosSession::Create(const config::EosSessionConfig& config) {
   return EosSession(std::unique_ptr<EosSession::Impl>(
       new EosSession::Impl(EosSessionCompositionRoot::ComposeDefault(config))));
 }

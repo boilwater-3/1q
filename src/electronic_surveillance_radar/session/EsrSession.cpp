@@ -2,7 +2,6 @@
 
 #include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "electronic_surveillance_radar/runtime/EsrController.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 #include "electronic_surveillance_radar/session/EsrRuntimeConfigResolver.h"
@@ -123,9 +122,9 @@ EsrRuntimeConfigApplyResult EsrSession::ApplyRuntimeConfigWithResult(
   return apply_result;
 }
 
-// ── EsrSessionFactory ──────────────────────────────────────────────────────
+// ── EsrSession static factory ──────────────────────────────────────────────────────
 
-EsrSession EsrSessionFactory::Create(const config::EsrSessionConfig& config) {
+EsrSession EsrSession::Create(const config::EsrSessionConfig& config) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeDefault(config))));
 }

@@ -70,8 +70,10 @@ class ONEQ_API EosSession {
    */
   bool TryApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch);
 
+  /** @brief 使用四域配置创建会话（推荐入口）。 */
+  static EosSession Create(const config::EosSessionConfig& config = {});
+
  private:
-  friend class EosSessionFactory;
 
   struct Impl;
   explicit EosSession(std::unique_ptr<Impl> impl);

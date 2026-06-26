@@ -1,11 +1,11 @@
 #include "1q/electro_optical_sensor/session/EosReplaySession.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 #include "electro_optical_sensor/session/EosReplayFlatbufferCodec.h"
 
 namespace electro_optical_sensor {
@@ -125,7 +125,7 @@ bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user
     *error = "EOS replay failed to decode session_config";
     return false;
   }
-  state->session.reset(new EosSession(EosSessionFactory::Create(config)));
+  state->session.reset(new EosSession(EosSession::Create(config)));
   return true;
 }
 

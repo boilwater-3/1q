@@ -15,7 +15,6 @@
 #include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -46,7 +45,7 @@ EosCycleInput MakeValidInput(std::uint32_t cycle_index) {
 }
 
 TEST(EosSessionFactoryTest, CreateUsesDefaultPipelineAndProducesResult) {
-  EosSession session = EosSessionFactory::Create(MakeSessionConfig());
+  EosSession session = EosSession::Create(MakeSessionConfig());
 
   EosCycleInput input = MakeValidInput(10U);
   input.scene.clear();

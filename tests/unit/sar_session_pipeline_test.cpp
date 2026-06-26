@@ -2,9 +2,9 @@
 
 #include <limits>
 
+#include "1q/sar/session/SarSession.h"
 #include "1q/sar/session/SarProductDebugView.h"
 #include "1q/sar/session/SarProductLifecycleRecorder.h"
-#include "1q/sar/session/SarSessionFactory.h"
 #include "1q/sar/session/SarTraceSession.h"
 #include "sar/session/SarReplayFlatbufferCodec.h"
 
@@ -115,7 +115,7 @@ session::SarCycleInput MakeExternalRawIqInputWithDualTrajectory() {
 }
 
 TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
-  session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
 
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
@@ -254,7 +254,7 @@ TEST(SarSessionPipelineTest, ProductLifecycleRecorderTracksProducedUpdatedLostAn
 TEST(SarSessionPipelineTest, RetainFocusedImageFalseProducesPlaceholder) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.retain_focused_image = false;
-  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarSession session = session::SarSession::Create(config);
 
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
@@ -273,7 +273,7 @@ TEST(SarSessionPipelineTest, RetainFocusedImageFalseProducesPlaceholder) {
 TEST(SarSessionPipelineTest, RetainFocusedImageFalseAppliesToL3Bp) {
   config::SarSessionConfig config = MakeSmallL3BpConfig();
   config.policy.retain_focused_image = false;
-  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarSession session = session::SarSession::Create(config);
 
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
@@ -288,7 +288,7 @@ TEST(SarSessionPipelineTest, RetainFocusedImageFalseAppliesToL3Bp) {
 TEST(SarSessionPipelineTest, DiagnosticsDisabledSuppressesNonErrorDiagnostics) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.enable_diagnostics = false;
-  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarSession session = session::SarSession::Create(config);
 
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
@@ -301,7 +301,7 @@ TEST(SarSessionPipelineTest, DiagnosticsDisabledSuppressesNonErrorDiagnostics) {
 TEST(SarSessionPipelineTest, MinValidSnrRejectsApertureBelowThreshold) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.minimum_snr_db = 100.0;
-  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarSession session = session::SarSession::Create(config);
 
   const session::SarCycleResult result = session.StepWithResult(MakeExternalRawIqInput());
 
@@ -316,7 +316,7 @@ TEST(SarSessionPipelineTest, MinValidSnrRejectsApertureBelowThreshold) {
 
 TEST(SarSessionPipelineTest, EmptySceneDoesNotTripMinSnrGate) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
-  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarSession session = session::SarSession::Create(config);
   session::SarCycleInput input = MakeInput();
   input.point_targets.clear();
 
@@ -330,7 +330,7 @@ TEST(SarSessionPipelineTest, EmptySceneDoesNotTripMinSnrGate) {
 }
 
 TEST(SarSessionPipelineTest, RawPulseHistoryUsesCrossCycleRingBuffer) {
-  session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
 
   const session::SarCycleResult first = session.StepWithResult(MakeInput(1U));
   ASSERT_TRUE(first.executed_this_cycle);
@@ -345,7 +345,7 @@ TEST(SarSessionPipelineTest, RawPulseHistoryUsesCrossCycleRingBuffer) {
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqRunsL1RdaAndReturnsFocusedImage) {
-  session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
 
   const session::SarCycleResult result = session.StepWithResult(MakeExternalRawIqInput());
 
@@ -377,28 +377,28 @@ TEST(SarSessionPipelineTest, SummaryReplayCodecRejectsExternalRawIq) {
 TEST(SarSessionPipelineTest, ExternalRawIqRejectsShapeMismatchAndAdvancedPaths) {
   session::SarCycleInput malformed = MakeExternalRawIqInput();
   malformed.raw_iq.i_values.pop_back();
-  session::SarSession malformed_session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+  session::SarSession malformed_session = session::SarSession::Create(MakeSmallRdaConfig());
   const session::SarCycleResult malformed_result = malformed_session.StepWithResult(malformed);
   EXPECT_FALSE(malformed_result.executed_this_cycle);
   EXPECT_EQ(malformed_result.abort_reason, "external_raw_iq_shape_mismatch");
 
   session::SarCycleInput non_finite = MakeExternalRawIqInput();
   non_finite.raw_iq.q_values[0] = std::numeric_limits<double>::quiet_NaN();
-  session::SarSession non_finite_session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+  session::SarSession non_finite_session = session::SarSession::Create(MakeSmallRdaConfig());
   const session::SarCycleResult non_finite_result = non_finite_session.StepWithResult(non_finite);
   EXPECT_FALSE(non_finite_result.executed_this_cycle);
   EXPECT_EQ(non_finite_result.abort_reason, "external_raw_iq_non_finite");
 
   config::SarSessionConfig l2_config = MakeSmallRdaConfig();
   l2_config.policy.enable_l2_motion_compensation = true;
-  session::SarSession l2_session = session::SarSessionFactory::Create(l2_config);
+  session::SarSession l2_session = session::SarSession::Create(l2_config);
   const session::SarCycleResult l2_result = l2_session.StepWithResult(MakeExternalRawIqInput());
   EXPECT_FALSE(l2_result.executed_this_cycle);
   EXPECT_EQ(l2_result.abort_reason, "external_raw_iq_trajectory_required");
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqWithPulseStatesRunsL3Bp) {
-  session::SarSession session = session::SarSessionFactory::Create(MakeSmallL3BpConfig());
+  session::SarSession session = session::SarSession::Create(MakeSmallL3BpConfig());
 
   const session::SarCycleResult result =
       session.StepWithResult(MakeExternalRawIqInputWithTrajectory());
@@ -413,7 +413,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqWithPulseStatesRunsL3Bp) {
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqL1ExplicitlyIgnoresPulseStates) {
-  session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
 
   const session::SarCycleResult result =
       session.StepWithResult(MakeExternalRawIqInputWithTrajectory());
@@ -427,7 +427,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqL1ExplicitlyIgnoresPulseStates) {
 TEST(SarSessionPipelineTest, ExternalRawIqDualTrajectoryRunsL2MotionCompensation) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.enable_l2_motion_compensation = true;
-  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarSession session = session::SarSession::Create(config);
 
   const session::SarCycleResult result =
       session.StepWithResult(MakeExternalRawIqInputWithDualTrajectory());
@@ -444,7 +444,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqL2RejectsMissingOrInvalidIdealTrajecto
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.enable_l2_motion_compensation = true;
 
-  session::SarSession missing_session = session::SarSessionFactory::Create(config);
+  session::SarSession missing_session = session::SarSession::Create(config);
   const session::SarCycleResult missing_result =
       missing_session.StepWithResult(MakeExternalRawIqInputWithTrajectory());
   EXPECT_FALSE(missing_result.executed_this_cycle);
@@ -452,14 +452,14 @@ TEST(SarSessionPipelineTest, ExternalRawIqL2RejectsMissingOrInvalidIdealTrajecto
 
   session::SarCycleInput invalid = MakeExternalRawIqInputWithDualTrajectory();
   invalid.raw_iq.ideal_pulse_states[3].time_s = invalid.raw_iq.ideal_pulse_states[2].time_s;
-  session::SarSession invalid_session = session::SarSessionFactory::Create(config);
+  session::SarSession invalid_session = session::SarSession::Create(config);
   const session::SarCycleResult invalid_result = invalid_session.StepWithResult(invalid);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
   EXPECT_EQ(invalid_result.abort_reason, "external_raw_iq_invalid_ideal_trajectory");
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
-  session::SarSession missing_session = session::SarSessionFactory::Create(MakeSmallL3BpConfig());
+  session::SarSession missing_session = session::SarSession::Create(MakeSmallL3BpConfig());
   const session::SarCycleResult missing_result =
       missing_session.StepWithResult(MakeExternalRawIqInput());
   EXPECT_FALSE(missing_result.executed_this_cycle);
@@ -467,7 +467,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
 
   session::SarCycleInput invalid = MakeExternalRawIqInputWithTrajectory();
   invalid.raw_iq.pulse_states[2].pulse_id = invalid.raw_iq.pulse_states[1].pulse_id;
-  session::SarSession invalid_session = session::SarSessionFactory::Create(MakeSmallL3BpConfig());
+  session::SarSession invalid_session = session::SarSession::Create(MakeSmallL3BpConfig());
   const session::SarCycleResult invalid_result = invalid_session.StepWithResult(invalid);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
   EXPECT_EQ(invalid_result.abort_reason, "external_raw_iq_invalid_trajectory");
@@ -475,7 +475,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
   session::SarCycleInput non_finite = MakeExternalRawIqInputWithTrajectory();
   non_finite.raw_iq.pulse_states[0].position_y_m = std::numeric_limits<double>::infinity();
   session::SarSession non_finite_session =
-      session::SarSessionFactory::Create(MakeSmallL3BpConfig());
+      session::SarSession::Create(MakeSmallL3BpConfig());
   const session::SarCycleResult non_finite_result = non_finite_session.StepWithResult(non_finite);
   EXPECT_FALSE(non_finite_result.executed_this_cycle);
   EXPECT_EQ(non_finite_result.abort_reason, "external_raw_iq_invalid_trajectory");
@@ -485,7 +485,7 @@ TEST(SarSessionPipelineTest, RuntimeSizeGateRejectsUnapprovedLargeRda) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.mission.range_sample_count = 2048U;
   config.mission.azimuth_pulse_count = 1024U;
-  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarSession session = session::SarSession::Create(config);
 
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
@@ -498,7 +498,7 @@ TEST(SarSessionPipelineTest, RuntimeSizeGateRejectsUnapprovedLargeRda) {
 TEST(SarSessionPipelineTest, RdaRequiresRawEchoGenerationInPhase1Pipeline) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.enable_raw_echo_generation = false;
-  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarSession session = session::SarSession::Create(config);
 
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
@@ -511,7 +511,7 @@ TEST(SarSessionPipelineTest, RdaRequiresRawEchoGenerationInPhase1Pipeline) {
 TEST(SarSessionPipelineTest, L2MotionCompensationIsDefaultOffAndRunsWhenExplicitlyEnabled) {
   config::SarSessionConfig l1_config = MakeSmallRdaConfig();
   EXPECT_FALSE(l1_config.policy.enable_l2_motion_compensation);
-  session::SarSession l1_session = session::SarSessionFactory::Create(l1_config);
+  session::SarSession l1_session = session::SarSession::Create(l1_config);
   const session::SarCycleResult l1_result = l1_session.StepWithResult(MakeInput());
   ASSERT_TRUE(l1_result.executed_this_cycle);
   EXPECT_FALSE(HasDiagnosticContaining(l1_result, "sar.l2_trajectory", ""));
@@ -522,7 +522,7 @@ TEST(SarSessionPipelineTest, L2MotionCompensationIsDefaultOffAndRunsWhenExplicit
   l2_config.mission.l2_velocity_error_stddev_y_mps = 30.0;
   l2_config.mission.l2_velocity_error_stddev_z_mps = 10.0;
   l2_config.mission.l2_random_seed = 2026U;
-  session::SarSession l2_session = session::SarSessionFactory::Create(l2_config);
+  session::SarSession l2_session = session::SarSession::Create(l2_config);
   const session::SarCycleResult l2_result = l2_session.StepWithResult(MakeInput());
 
   EXPECT_TRUE(l2_result.executed_this_cycle);
@@ -534,13 +534,13 @@ TEST(SarSessionPipelineTest, L2MotionCompensationIsDefaultOffAndRunsWhenExplicit
 }
 
 TEST(SarSessionPipelineTest, ZeroPerturbationL2StrictlyDegradesToL1Trajectory) {
-  session::SarSession l1_session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+  session::SarSession l1_session = session::SarSession::Create(MakeSmallRdaConfig());
   const session::SarCycleResult l1_result = l1_session.StepWithResult(MakeInput());
   ASSERT_TRUE(l1_result.executed_this_cycle);
 
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.enable_l2_motion_compensation = true;
-  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarSession session = session::SarSession::Create(config);
 
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
@@ -573,7 +573,7 @@ TEST(SarSessionPipelineTest, L2TrajectoryHistoryRemainsAlignedAcrossCycles) {
   config.mission.l2_velocity_error_stddev_y_mps = 30.0;
   config.mission.l2_velocity_error_stddev_z_mps = 10.0;
   config.mission.l2_random_seed = 2026U;
-  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarSession session = session::SarSession::Create(config);
 
   const session::SarCycleResult first = session.StepWithResult(MakeInput(1U));
   ASSERT_TRUE(first.executed_this_cycle);
@@ -595,7 +595,7 @@ TEST(SarSessionPipelineTest, L2MotionCompensationRequiresRawEchoAndRda) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.enable_l2_motion_compensation = true;
   config.policy.enable_l1_rda_imaging = false;
-  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarSession session = session::SarSession::Create(config);
 
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
@@ -605,7 +605,7 @@ TEST(SarSessionPipelineTest, L2MotionCompensationRequiresRawEchoAndRda) {
 }
 
 TEST(SarSessionPipelineTest, L3BpRunsOnlyWhenExplicitlyEnabled) {
-  session::SarSession session = session::SarSessionFactory::Create(MakeSmallL3BpConfig());
+  session::SarSession session = session::SarSession::Create(MakeSmallL3BpConfig());
 
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
@@ -641,14 +641,14 @@ TEST(SarSessionPipelineTest, L3BpRunsOnlyWhenExplicitlyEnabled) {
 TEST(SarSessionPipelineTest, L3BpRejectsMutualExclusionAndSizeViolations) {
   config::SarSessionConfig mutual_exclusion = MakeSmallL3BpConfig();
   mutual_exclusion.policy.enable_l1_rda_imaging = true;
-  session::SarSession mutual_session = session::SarSessionFactory::Create(mutual_exclusion);
+  session::SarSession mutual_session = session::SarSession::Create(mutual_exclusion);
   const session::SarCycleResult mutual_result = mutual_session.StepWithResult(MakeInput());
   EXPECT_FALSE(mutual_result.executed_this_cycle);
   EXPECT_EQ(mutual_result.abort_reason, "invalid_l3_bp_config");
 
   config::SarSessionConfig oversized = MakeSmallL3BpConfig();
   oversized.mission.range_sample_count = 129U;
-  session::SarSession oversized_session = session::SarSessionFactory::Create(oversized);
+  session::SarSession oversized_session = session::SarSession::Create(oversized);
   const session::SarCycleResult oversized_result = oversized_session.StepWithResult(MakeInput());
   EXPECT_FALSE(oversized_result.executed_this_cycle);
   EXPECT_EQ(oversized_result.abort_reason, "l3_bp_size_gate");
@@ -657,14 +657,14 @@ TEST(SarSessionPipelineTest, L3BpRejectsMutualExclusionAndSizeViolations) {
 TEST(SarSessionPipelineTest, L3BpRequiresRawEchoAndRangeCompression) {
   config::SarSessionConfig no_raw = MakeSmallL3BpConfig();
   no_raw.policy.enable_raw_echo_generation = false;
-  session::SarSession no_raw_session = session::SarSessionFactory::Create(no_raw);
+  session::SarSession no_raw_session = session::SarSession::Create(no_raw);
   const session::SarCycleResult no_raw_result = no_raw_session.StepWithResult(MakeInput());
   EXPECT_FALSE(no_raw_result.executed_this_cycle);
   EXPECT_EQ(no_raw_result.abort_reason, "invalid_l3_bp_config");
 
   config::SarSessionConfig no_range_compression = MakeSmallL3BpConfig();
   no_range_compression.policy.enable_range_compression = false;
-  session::SarSession no_range_session = session::SarSessionFactory::Create(no_range_compression);
+  session::SarSession no_range_session = session::SarSession::Create(no_range_compression);
   const session::SarCycleResult no_range_result = no_range_session.StepWithResult(MakeInput());
   EXPECT_FALSE(no_range_result.executed_this_cycle);
   EXPECT_EQ(no_range_result.abort_reason, "invalid_l3_bp_config");
@@ -673,7 +673,7 @@ TEST(SarSessionPipelineTest, L3BpRequiresRawEchoAndRangeCompression) {
 TEST(SarSessionPipelineTest, L3BpRejectsInvalidWaypointStructure) {
   config::SarSessionConfig nonzero_start = MakeSmallL3BpConfig();
   nonzero_start.mission.l3_waypoints.front().time_from_session_start_s = 0.01;
-  session::SarSession nonzero_start_session = session::SarSessionFactory::Create(nonzero_start);
+  session::SarSession nonzero_start_session = session::SarSession::Create(nonzero_start);
   const session::SarCycleResult nonzero_start_result =
       nonzero_start_session.StepWithResult(MakeInput());
   EXPECT_FALSE(nonzero_start_result.executed_this_cycle);
@@ -682,7 +682,7 @@ TEST(SarSessionPipelineTest, L3BpRejectsInvalidWaypointStructure) {
   config::SarSessionConfig nonmonotonic = MakeSmallL3BpConfig();
   nonmonotonic.mission.l3_waypoints.back().time_from_session_start_s =
       nonmonotonic.mission.l3_waypoints[1].time_from_session_start_s;
-  session::SarSession nonmonotonic_session = session::SarSessionFactory::Create(nonmonotonic);
+  session::SarSession nonmonotonic_session = session::SarSession::Create(nonmonotonic);
   const session::SarCycleResult nonmonotonic_result =
       nonmonotonic_session.StepWithResult(MakeInput());
   EXPECT_FALSE(nonmonotonic_result.executed_this_cycle);
@@ -690,7 +690,7 @@ TEST(SarSessionPipelineTest, L3BpRejectsInvalidWaypointStructure) {
 }
 
 TEST(SarSessionPipelineTest, L3BpTrajectoryHistoryRemainsAlignedAcrossCycles) {
-  session::SarSession session = session::SarSessionFactory::Create(MakeSmallL3BpConfig());
+  session::SarSession session = session::SarSession::Create(MakeSmallL3BpConfig());
 
   const session::SarCycleResult first = session.StepWithResult(MakeInput(1U));
   ASSERT_TRUE(first.executed_this_cycle);
@@ -714,7 +714,7 @@ TEST(SarSessionPipelineTest, L3BpRejectsWaypointCoverageGap) {
   config::SarSessionConfig config = MakeSmallL3BpConfig();
   config.mission.l3_waypoints.back().time_from_session_start_s = 0.2;
   config.mission.l3_waypoints[1].time_from_session_start_s = 0.1;
-  session::SarSession session = session::SarSessionFactory::Create(config);
+  session::SarSession session = session::SarSession::Create(config);
 
   const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
@@ -724,7 +724,7 @@ TEST(SarSessionPipelineTest, L3BpRejectsWaypointCoverageGap) {
 }
 
 TEST(SarSessionPipelineTest, InvalidCycleReusesPreviousOutput) {
-  session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
 
   const session::SarCycleResult first = session.StepWithResult(MakeInput(3U));
   ASSERT_TRUE(first.executed_this_cycle);

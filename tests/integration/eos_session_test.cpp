@@ -14,7 +14,6 @@
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -113,7 +112,7 @@ const output::EosDetectionRecord* FindDetection(const session::EosCycleResult& r
 }
 
 TEST(EosSessionIntegrationTest, StepWithResultProducesDetectionOutput) {
-  EosSession session = EosSessionFactory::Create(MakeSessionConfig());
+  EosSession session = EosSession::Create(MakeSessionConfig());
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
@@ -124,7 +123,7 @@ TEST(EosSessionIntegrationTest, StepWithResultProducesDetectionOutput) {
 }
 
 TEST(EosSessionIntegrationTest, StepReturnsSameCycleIndexAsStepWithResult) {
-  EosSession session = EosSessionFactory::Create(MakeSessionConfig());
+  EosSession session = EosSession::Create(MakeSessionConfig());
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
 
   const session::EosOutputFrame step_frame = session.Step(input);
@@ -136,7 +135,7 @@ TEST(EosSessionIntegrationTest, StepReturnsSameCycleIndexAsStepWithResult) {
 
 TEST(EosSessionIntegrationTest, FusedModeDetectsInFovTarget) {
   config::EosSessionConfig config = MakeSessionConfig();
-  EosSession session = EosSessionFactory::Create(config);
+  EosSession session = EosSession::Create(config);
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.scene.front().range_m = 1700.0f;
   input.scene.front().appearance.apparent_temperature_k = 600.0f;
@@ -152,7 +151,7 @@ TEST(EosSessionIntegrationTest, FusedModeDetectsInFovTarget) {
 TEST(EosSessionIntegrationTest, InfraredOnlyModeProducesInfraredSnr) {
   config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
-  EosSession session = EosSessionFactory::Create(config);
+  EosSession session = EosSession::Create(config);
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
@@ -166,7 +165,7 @@ TEST(EosSessionIntegrationTest, InfraredOnlyModeProducesInfraredSnr) {
 TEST(EosSessionIntegrationTest, VisibleOnlyModeProducesVisibleSnr) {
   config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
-  EosSession session = EosSessionFactory::Create(config);
+  EosSession session = EosSession::Create(config);
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
 
   const ::electro_optical_sensor::session::EosCycleResult result = session.StepWithResult(input);
@@ -187,9 +186,9 @@ TEST(EosSessionIntegrationTest, FusedSnrExceedsBothSingleChannelSnrInDay) {
   config::EosSessionConfig vis_config = fused_config;
   vis_config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
 
-  EosSession fused_session = EosSessionFactory::Create(fused_config);
-  EosSession ir_session = EosSessionFactory::Create(ir_config);
-  EosSession vis_session = EosSessionFactory::Create(vis_config);
+  EosSession fused_session = EosSession::Create(fused_config);
+  EosSession ir_session = EosSession::Create(ir_config);
+  EosSession vis_session = EosSession::Create(vis_config);
 
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
 
@@ -208,7 +207,7 @@ TEST(EosSessionIntegrationTest, FusedSnrExceedsBothSingleChannelSnrInDay) {
 }
 
 TEST(EosSessionIntegrationTest, EmptyTargetSceneProducesEmptyDetections) {
-  EosSession session = EosSessionFactory::Create(MakeSessionConfig());
+  EosSession session = EosSession::Create(MakeSessionConfig());
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.scene.clear();
 
@@ -219,7 +218,7 @@ TEST(EosSessionIntegrationTest, EmptyTargetSceneProducesEmptyDetections) {
 }
 
 TEST(EosSessionIntegrationTest, OutOfFovTargetIsFiltered) {
-  EosSession session = EosSessionFactory::Create(MakeSessionConfig());
+  EosSession session = EosSession::Create(MakeSessionConfig());
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.scene.clear();
   input.scene.push_back(MakeTarget(10U, 50.0f, 1500.0f));
@@ -233,8 +232,8 @@ TEST(EosSessionIntegrationTest, HigherCloudCoverageReducesVisibleSnr) {
   config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
 
-  EosSession clear_session = EosSessionFactory::Create(config);
-  EosSession cloudy_session = EosSessionFactory::Create(config);
+  EosSession clear_session = EosSession::Create(config);
+  EosSession cloudy_session = EosSession::Create(config);
 
   ::electro_optical_sensor::session::EosCycleInput clear_input = MakeBaseInput();
   clear_input.environment.cloud_coverage_ratio = 0.0f;
@@ -255,8 +254,8 @@ TEST(EosSessionIntegrationTest, WorseAtmosphereObservationReducesInfraredSnr) {
   config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
 
-  EosSession good_atm_session = EosSessionFactory::Create(config);
-  EosSession poor_atm_session = EosSessionFactory::Create(config);
+  EosSession good_atm_session = EosSession::Create(config);
+  EosSession poor_atm_session = EosSession::Create(config);
 
   ::electro_optical_sensor::session::EosCycleInput good_input = MakeBaseInput();
   good_input.environment.cloud_coverage_ratio = 0.1f;
@@ -283,9 +282,9 @@ TEST(EosSessionIntegrationTest, NightShiftsFusedWeightTowardInfrared) {
   config::EosSessionConfig vis_config = fused_config;
   vis_config.mission.work_mode = config::EosWorkMode::kVisibleOnly;
 
-  EosSession day_fused = EosSessionFactory::Create(fused_config);
-  EosSession day_ir = EosSessionFactory::Create(ir_config);
-  EosSession day_vis = EosSessionFactory::Create(vis_config);
+  EosSession day_fused = EosSession::Create(fused_config);
+  EosSession day_ir = EosSession::Create(ir_config);
+  EosSession day_vis = EosSession::Create(vis_config);
 
   ::electro_optical_sensor::session::EosCycleInput day_input = MakeBaseInput();
   day_input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kDay;
@@ -302,9 +301,9 @@ TEST(EosSessionIntegrationTest, NightShiftsFusedWeightTowardInfrared) {
                                          day_ir_frame.detections.front().fused_snr_linear);
   EXPECT_LT(day_dist_to_vis, day_dist_to_ir);
 
-  EosSession night_fused = EosSessionFactory::Create(fused_config);
-  EosSession night_ir = EosSessionFactory::Create(ir_config);
-  EosSession night_vis = EosSessionFactory::Create(vis_config);
+  EosSession night_fused = EosSession::Create(fused_config);
+  EosSession night_ir = EosSession::Create(ir_config);
+  EosSession night_vis = EosSession::Create(vis_config);
 
   ::electro_optical_sensor::session::EosCycleInput night_input = MakeBaseInput();
   night_input.environment.day_night_type = ::electro_optical_sensor::session::DayNightType::kNight;
@@ -323,7 +322,7 @@ TEST(EosSessionIntegrationTest, NightShiftsFusedWeightTowardInfrared) {
 }
 
 TEST(EosSessionIntegrationTest, MultiCycleScanAdvancesAzimuth) {
-  EosSession session = EosSessionFactory::Create(MakeSessionConfig());
+  EosSession session = EosSession::Create(MakeSessionConfig());
 
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   const session::EosOutputFrame frame_1 = session.Step(input);
@@ -336,7 +335,7 @@ TEST(EosSessionIntegrationTest, MultiCycleScanAdvancesAzimuth) {
 }
 
 TEST(EosSessionIntegrationTest, RuntimeConfigWorkModeSwitchTakesEffectImmediately) {
-  EosSession session = EosSessionFactory::Create(MakeSessionConfig());
+  EosSession session = EosSession::Create(MakeSessionConfig());
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
 
   const session::EosOutputFrame fused_frame = session.Step(input);
@@ -358,7 +357,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigWorkModeSwitchTakesEffectImmediatel
 }
 
 TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
-  EosSession session = EosSessionFactory::Create(MakeSessionConfig());
+  EosSession session = EosSession::Create(MakeSessionConfig());
 
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   const session::EosOutputFrame frame_1 = session.Step(input);
@@ -373,7 +372,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
 
   const float delta_fast = std::fabs(frame_2.scan_azimuth_deg - frame_1.scan_azimuth_deg);
 
-  EosSession slow_session = EosSessionFactory::Create(MakeSessionConfig());
+  EosSession slow_session = EosSession::Create(MakeSessionConfig());
   const session::EosOutputFrame slow_1 = slow_session.Step(input);
   ::electro_optical_sensor::session::EosCycleInput input_3 = MakeBaseInput();
   input_3.cycle_index = 2U;
@@ -385,7 +384,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigScanRateChangeUpdatesAdvance) {
 
 TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
   config::EosSessionConfig config = MakeSessionConfig();
-  EosSession session = EosSessionFactory::Create(config);
+  EosSession session = EosSession::Create(config);
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.scene.front().range_m = 1700.0f;
   input.scene.front().appearance.apparent_temperature_k = 600.0f;
@@ -421,8 +420,8 @@ TEST(EosSessionIntegrationTest, SessionConfigBuilderProducesSameResultAsDirectCo
           .End()
           .Build();
 
-  EosSession direct_session = EosSessionFactory::Create(direct_config);
-  EosSession built_session = EosSessionFactory::Create(built_config);
+  EosSession direct_session = EosSession::Create(direct_config);
+  EosSession built_session = EosSession::Create(built_config);
 
   const ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   const session::EosOutputFrame direct_frame = direct_session.Step(input);
@@ -436,7 +435,7 @@ TEST(EosSessionIntegrationTest, SessionConfigBuilderProducesSameResultAsDirectCo
 }
 
 TEST(EosSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvancesCycleIndex) {
-  EosSession session = EosSessionFactory::Create(MakeSessionConfig());
+  EosSession session = EosSession::Create(MakeSessionConfig());
   ::electro_optical_sensor::session::EosCycleInput invalid_input = MakeBaseInput();
   invalid_input.dt_sec = 0.0f;
 
@@ -472,7 +471,7 @@ TEST(EosSessionIntegrationTest, ValidationFailureReturnsEmptyFrameAndStillAdvanc
 }
 
 TEST(EosSessionIntegrationTest, StepReusesPreviousOutputWhenValidationFailsAfterSuccessfulCycle) {
-  EosSession session = EosSessionFactory::Create(MakeSessionConfig());
+  EosSession session = EosSession::Create(MakeSessionConfig());
 
   ::electro_optical_sensor::session::EosCycleInput valid_input = MakeBaseInput();
   valid_input.cycle_index = 10U;
@@ -507,8 +506,8 @@ TEST(EosSessionIntegrationTest, StraylightFilterReducesOffAxisTargetSnr) {
   filter_config.policy.stray_light.hood_min_suppression_ratio = 0.35f;
   filter_config.policy.stray_light.hood_max_suppression_ratio = 0.95f;
 
-  EosSession no_filter_session = EosSessionFactory::Create(no_filter_config);
-  EosSession filter_session = EosSessionFactory::Create(filter_config);
+  EosSession no_filter_session = EosSession::Create(no_filter_config);
+  EosSession filter_session = EosSession::Create(filter_config);
 
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.scene.clear();
@@ -528,7 +527,7 @@ TEST(EosSessionIntegrationTest, StraylightFilterReducesOffAxisTargetSnr) {
 }
 
 TEST(EosSessionIntegrationTest, MultipleTargetsInFovAllDetected) {
-  EosSession session = EosSessionFactory::Create(MakeSessionConfig());
+  EosSession session = EosSession::Create(MakeSessionConfig());
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.scene.clear();
   input.scene.push_back(MakeTarget(101U, -3.0f, 1200.0f, 3.0f));
@@ -546,7 +545,7 @@ TEST(EosSessionIntegrationTest, MultipleTargetsInFovAllDetected) {
 TEST(EosSessionIntegrationTest, CloserTargetHasHigherSnrAtSameTemperature) {
   config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
-  EosSession session = EosSessionFactory::Create(config);
+  EosSession session = EosSession::Create(config);
 
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.scene.clear();
@@ -570,7 +569,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
   config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   config.policy.stray_light.enable_straylight_filter = false;
-  EosSession session = EosSessionFactory::Create(config);
+  EosSession session = EosSession::Create(config);
 
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.environment.solar_altitude_deg = 75.0f;
@@ -610,7 +609,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
 TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
   config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
-  EosSession session = EosSessionFactory::Create(config);
+  EosSession session = EosSession::Create(config);
 
   ::electro_optical_sensor::session::EosCycleInput input = MakeBaseInput();
   input.environment.cloud_coverage_ratio = 0.6f;

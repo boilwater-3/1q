@@ -88,8 +88,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleInputBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleOutputBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarEnvironmentInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarEnvironmentInputPatch.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarEnvironmentInputState.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarInputValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarExternalInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarExternalOutputAdapter.h
@@ -98,7 +96,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleResult.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarOutputTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSceneTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSessionFactory.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarReplaySession.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarTrackLifecycleRecorder.h
@@ -110,7 +107,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/DecisionInputFrame.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/DecisionSourceInfo.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/TrackStateSnapshot.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/TargetCategory.h
     )
     set(PUBLIC_HEADERS_MODULE_ENTRY_AIRBORNE
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/airborne_radar.hpp

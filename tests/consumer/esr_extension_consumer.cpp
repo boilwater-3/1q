@@ -15,13 +15,12 @@
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 
 int main() {
   // 1. Default session assembly
   electronic_surveillance_radar::session::EsrSession session =
-      electronic_surveillance_radar::session::EsrSessionFactory::Create({});
+      electronic_surveillance_radar::session::EsrSession::Create({});
 
   // 2. StepWithResult
   electronic_surveillance_radar::session::EsrCycleInput input;

@@ -9,10 +9,10 @@
 #include <cstddef>
 #include <vector>
 
+#include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/RadarCycleInputBuilder.h"
 #include "1q/airborne_radar/session/RadarCycleOutputBuilder.h"
-#include "1q/airborne_radar/session/RadarSessionFactory.h"
 #include "1q/coordinate/position_transform.h"
 
 namespace {
@@ -203,7 +203,7 @@ TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) 
   ASSERT_TRUE(RadarCycleInputBuilder::Build(platform, {target}, 1.0f, &input));
 
   RadarSession session =
-      airborne_radar::session::RadarSessionFactory::Create(MakeDetectionFocusedConfig());
+      airborne_radar::session::RadarSession::Create(MakeDetectionFocusedConfig());
   const RadarCycleResult result = session.StepWithResult(input);
   ASSERT_FALSE(result.has_validation_error);
   ASSERT_FALSE(result.track_output_frame.tracks.empty());
@@ -229,7 +229,7 @@ TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) 
 
   std::vector<RadarExternalTargetInput> targets = MakeMovingTargetInputs(12U);
   RadarSession session =
-      airborne_radar::session::RadarSessionFactory::Create(MakeDetectionFocusedConfig());
+      airborne_radar::session::RadarSession::Create(MakeDetectionFocusedConfig());
 
   const std::size_t cycle_count = 40U;
   const float dt_sec = 0.5f;

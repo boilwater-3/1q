@@ -9,6 +9,7 @@
 #include <memory>
 #include <vector>
 
+#include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/session/RadarCommand.h"
 #include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
@@ -20,12 +21,9 @@ namespace airborne_radar {
 namespace config {
 struct RadarRuntimeConfigPatch;
 }  // namespace config
-}  // namespace airborne_radar
-
-namespace airborne_radar {
 namespace session {
-class RadarSessionFactory;
-}
+class ITacticalDecisionEngine;
+}  // namespace session
 }  // namespace airborne_radar
 
 namespace airborne_radar {
@@ -105,8 +103,13 @@ class ONEQ_API RadarSession {
    */
   bool TryApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
 
+  /** @brief 使用四域配置创建会话（推荐入口）。 */
+  static RadarSession Create(const config::RadarSessionConfig& config = {});
+  static RadarSession CreateWithDecisionEngine(
+      const config::RadarSessionConfig& config,
+      session::ITacticalDecisionEngine& decision_engine);
+
  private:
-  friend class RadarSessionFactory;
 
   struct Impl;
   explicit RadarSession(std::unique_ptr<Impl> impl);

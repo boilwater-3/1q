@@ -19,7 +19,6 @@
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 
 namespace rt = ::electro_optical_sensor::foundation::radiative_transfer;
 
@@ -384,7 +383,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepProducesDetectionOutput) {
   config.policy.detection.detection_sensitivity_w = 0.8e-12f;
   config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
 
-  session::EosSession session = session::EosSessionFactory::Create(config);
+  session::EosSession session = session::EosSession::Create(config);
 
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 0U;
@@ -403,7 +402,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultAggregatesOutputAndVal
   config.policy.detection.detection_sensitivity_w = 0.8e-12f;
   config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
 
-  session::EosSession session = session::EosSessionFactory::Create(config);
+  session::EosSession session = session::EosSession::Create(config);
 
   ::electro_optical_sensor::session::EosCycleInput input;
   input.cycle_index = 1U;
@@ -421,7 +420,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultAggregatesOutputAndVal
 
 TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultSurfacesValidationErrors) {
   config::EosSessionConfig session_config;
-  session::EosSession session = session::EosSessionFactory::Create(session_config);
+  session::EosSession session = session::EosSession::Create(session_config);
 
   ::electro_optical_sensor::session::EosCycleInput input;
   input.dt_sec = std::numeric_limits<float>::quiet_NaN();
@@ -440,7 +439,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionStepWithResultSurfacesValidationErro
 
 TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
   config::EosSessionConfig session_config;
-  session::EosSession session = session::EosSessionFactory::Create(session_config);
+  session::EosSession session = session::EosSession::Create(session_config);
 
   const config::EosRuntimeConfigPatch patch =
       config::EosRuntimeConfigBuilder()
@@ -472,7 +471,7 @@ TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIn
   config.policy.detection.detection_sensitivity_w = 0.8e-12f;
   config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;
 
-  session::EosSession session = session::EosSessionFactory::Create(config);
+  session::EosSession session = session::EosSession::Create(config);
 
   for (std::uint32_t i = 0U; i < 3U; ++i) {
     ::electro_optical_sensor::session::EosCycleInput input;

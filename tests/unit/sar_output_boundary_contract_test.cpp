@@ -19,7 +19,6 @@
 
 #include "1q/sar/session/SarCycleResult.h"
 #include "1q/sar/session/SarProductDebugView.h"
-#include "1q/sar/session/SarSessionFactory.h"
 #include "1q/sar/session/SarSession.h"
 
 namespace sar {
@@ -73,7 +72,7 @@ session::SarCycleInput MakeNamedPointTargetInput() {
 // 合同：带 name/id 的点目标输入经过真实聚焦 pipeline 后，
 // 产品输出帧(SarOutputFrame)不得携带点目标真值标识。
 TEST(SarOutputBoundaryContractTest, NamedPointTargetDoesNotLeakIntoProductOutput) {
-  session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
   const session::SarCycleInput input = MakeNamedPointTargetInput();
   // 输入侧确实带 name/id，作为回归前提。
   ASSERT_EQ(input.point_targets.size(), 1U);
@@ -96,7 +95,7 @@ TEST(SarOutputBoundaryContractTest, NamedPointTargetDoesNotLeakIntoProductOutput
 // 合同：点目标 name 只能经 debug view 通过输入表回填，
 // 不得作为产品输出字段直接出现。
 TEST(SarOutputBoundaryContractTest, PointTargetNameOnlyReachableViaDebugView) {
-  session::SarSession session = session::SarSessionFactory::Create(MakeSmallRdaConfig());
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
   const session::SarCycleInput input = MakeNamedPointTargetInput();
   const session::SarCycleResult result = session.StepWithResult(input);
   ASSERT_FALSE(result.has_error);

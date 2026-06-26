@@ -11,6 +11,5 @@
 #include "1q/sar/session/SarCycleInput.h"
 #include "1q/sar/session/SarCycleResult.h"
 #include "1q/sar/session/SarSession.h"
-#include "1q/sar/session/SarSessionFactory.h"
 
 #endif  // ONEQ_SAR_SAR_HPP_

@@ -14,7 +14,6 @@
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarSession.h"
-#include "1q/airborne_radar/session/RadarSessionFactory.h"
 
 namespace airborne_radar {
 namespace {
@@ -37,7 +36,7 @@ int main() {
 
   // 注入自定义决策引擎创建会话;context/pipeline/environment 由工厂内部装配。
   airborne_radar::session::RadarSession session =
-      airborne_radar::session::RadarSessionFactory::CreateWithDecisionEngine(
+      airborne_radar::session::RadarSession::CreateWithDecisionEngine(
           airborne_radar::config::RadarSessionConfig{}, decision_engine);
 
   airborne_radar::session::RadarCycleInput input;

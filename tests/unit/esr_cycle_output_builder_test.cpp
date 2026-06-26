@@ -17,7 +17,6 @@
 #include "1q/electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.h"
 #include "1q/electronic_surveillance_radar/session/EsrOutputDebugView.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 
 namespace {
 
@@ -145,7 +144,7 @@ double Dot(const oneq::coordinate::Vector3d& lhs, const oneq::coordinate::Vector
 TEST(EsrCycleOutputBuilderTest, MultiCycleMovingEmittersKeepExternalBearingsNearTruth) {
   const esr_session::EsrExternalPoseInput platform = MakePlatformInput();
   std::vector<esr_session::EsrExternalEmitterInput> emitters = MakeEmitters(6U);
-  esr_session::EsrSession session = esr_session::EsrSessionFactory::Create(MakeConfig());
+  esr_session::EsrSession session = esr_session::EsrSession::Create(MakeConfig());
 
   const std::size_t cycle_count = 30U;
   const float dt_sec = 1.0f;

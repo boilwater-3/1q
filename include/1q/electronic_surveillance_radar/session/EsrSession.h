@@ -87,8 +87,10 @@ class ONEQ_API EsrSession {
    */
   EsrRuntimeConfigApplyResult ApplyRuntimeConfigWithResult(const config::EsrRuntimeConfigPatch& patch);
 
+  /** @brief 使用四域配置创建会话（推荐入口）。 */
+  static EsrSession Create(const config::EsrSessionConfig& config = {});
+
  private:
-  friend class EsrSessionFactory;
   struct Impl;
   explicit EsrSession(std::unique_ptr<Impl> impl);
   std::unique_ptr<Impl> impl_;

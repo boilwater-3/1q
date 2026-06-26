@@ -8,6 +8,7 @@
 #include <iostream>
 #include <string>
 
+#include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/coordinate/types.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "config_loader.h"
@@ -30,7 +31,7 @@ esr_config::EsrSessionConfig LoadConfigFromFile() {
 }
 
 esr_session::EsrSession CreateEmitterSearchSession() {
-  return esr_session::EsrSessionFactory::Create(LoadConfigFromFile());
+  return esr_session::EsrSession::Create(LoadConfigFromFile());
 }
 
 esr_session::EsrExternalEmitterInput MakeEmitterInput(std::uint64_t id,

@@ -1,11 +1,11 @@
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
+#include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
 
 namespace electronic_surveillance_radar {
@@ -162,7 +162,7 @@ bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user
     *error = "ESR replay failed to decode session_config";
     return false;
   }
-  state->session.reset(new EsrSession(EsrSessionFactory::Create(config)));
+  state->session.reset(new EsrSession(EsrSession::Create(config)));
   return true;
 }
 
