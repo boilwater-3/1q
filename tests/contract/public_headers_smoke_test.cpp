@@ -21,7 +21,7 @@
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
-#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
+
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/environment/airborne_radar_environment.hpp"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
@@ -83,7 +83,7 @@
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentSceneBuilder.h"
+
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
 #include "1q/electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"

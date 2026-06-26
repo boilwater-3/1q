@@ -61,7 +61,6 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/session/RadarReplaySession.cpp
     airborne_radar/session/RadarSession.cpp
     airborne_radar/environment/FeatureRepository.cpp
-    airborne_radar/environment/EnvironmentSceneBuilder.cpp
     airborne_radar/environment/EnvironmentService.cpp
     airborne_radar/environment/EnvironmentPhysics.cpp
     airborne_radar/environment/SceneManager.cpp
@@ -126,7 +125,6 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_ENVIRONMENT
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentSceneBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/airborne_radar_environment.hpp
     )

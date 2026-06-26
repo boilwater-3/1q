@@ -24,7 +24,6 @@ set(AR_PUBLIC_PRIMARY_HEADERS
 set(AR_ENVIRONMENT_HEADERS
     "airborne_radar/environment/EnvironmentConfig.h"
     "airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
-    "airborne_radar/environment/EnvironmentSceneBuilder.h"
     "airborne_radar/environment/EnvironmentTypes.h"
     "airborne_radar/environment/airborne_radar_environment.hpp"
 )
@@ -157,7 +156,6 @@ set(ESR_CONFIG_HEADERS
 set(ESR_ENVIRONMENT_HEADERS
     "electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
     "electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
-    "electronic_surveillance_radar/environment/EsrEnvironmentSceneBuilder.h"
     "electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
     "electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp"
 )
@@ -209,11 +207,9 @@ set(FD_HEADERS
 set(ENVIRONMENT_HEADERS
     "environment/AtmosphericState.h"
     "environment/AtmosphericTypes.h"
-    "environment/EnvironmentCycleContext.h"
     "environment/IAtmosphereProvider.h"
     "environment/JsbsimAtmosphereAdapter.h"
     "environment/PropagationPhysics.h"
-    "environment/StandardAtmosphere.h"
 )
 
 # ── SAR 公开头 ──────────────────────────────────────────────────────

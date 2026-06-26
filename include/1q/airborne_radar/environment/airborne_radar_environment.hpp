@@ -8,7 +8,6 @@
 
 #include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
-#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/environment/EnvironmentTypes.h"
 
 #endif  // ONEQ_AIRBORNE_RADAR_ENVIRONMENT_AIRBORNE_RADAR_ENVIRONMENT_HPP_

@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
 #include "airborne_radar/runtime/RadarController.h"
 #include "airborne_radar/session/MutableRadarContext.h"
@@ -254,7 +253,11 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
   jammer_source.elevation_deg = 1.0f;
   jammer_source.angular_span_deg = 5.0f;
   environment_service.UpdateSceneState(
-      environment::EnvironmentSceneBuilder().AddJammer(jammer_source).Build());
+      [&] {
+        environment::EnvironmentSceneState s;
+        s.jammer_emitters.push_back(jammer_source);
+        return s;
+      }());
 
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
@@ -305,7 +308,11 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
   jammer_source.elevation_deg = 0.0f;
   jammer_source.angular_span_deg = 12.0f;
   environment_service.UpdateSceneState(
-      environment::EnvironmentSceneBuilder().AddJammer(jammer_source).Build());
+      [&] {
+        environment::EnvironmentSceneState s;
+        s.jammer_emitters.push_back(jammer_source);
+        return s;
+      }());
 
   EXPECT_FALSE(environment_service.SampleEnvironment().jamming_detected);
 

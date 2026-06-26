@@ -15,7 +15,6 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "airborne_radar/runtime/RadarController.h"
 #include "airborne_radar/session/MutableRadarContext.h"
 #include "1q/airborne_radar/extension/control/RadarCommand.h"
@@ -250,37 +249,39 @@ environment::JammerEmitterState BuildJammerEmitter(environment::JammingTechnique
 }
 
 environment::EnvironmentSceneState MakeClearScene() {
-  return environment::EnvironmentSceneBuilder().Build();
+  return environment::EnvironmentSceneState{};
 }
 
 environment::EnvironmentSceneState MakeNoiseScene() {
-  return environment::EnvironmentSceneBuilder()
-      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 11.0f, 8.0f,
-                                    0.20f, 0.10f, true))
-      .Build();
+  environment::EnvironmentSceneState scene;
+  scene.jammer_emitters.push_back(
+      BuildJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 11.0f, 8.0f, 0.20f, 0.10f,
+                         true));
+  return scene;
 }
 
 environment::EnvironmentSceneState MakeDeceptionScene() {
-  return environment::EnvironmentSceneBuilder()
-      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kDeception, 8.0f, 8.0f, 0.90f,
-                                    0.90f, false))
-      .Build();
+  environment::EnvironmentSceneState scene;
+  scene.jammer_emitters.push_back(BuildJammerEmitter(environment::JammingTechnique::kDeception, 8.0f,
+                                                     8.0f, 0.90f, 0.90f, false));
+  return scene;
 }
 
 environment::EnvironmentSceneState MakeRepeaterScene() {
-  return environment::EnvironmentSceneBuilder()
-      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kRepeater, 8.5f, 7.0f, 0.15f,
-                                    0.95f, false))
-      .Build();
+  environment::EnvironmentSceneState scene;
+  scene.jammer_emitters.push_back(BuildJammerEmitter(environment::JammingTechnique::kRepeater, 8.5f,
+                                                     7.0f, 0.15f, 0.95f, false));
+  return scene;
 }
 
 environment::EnvironmentSceneState MakeMixedScene() {
-  return environment::EnvironmentSceneBuilder()
-      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f,
-                                    0.18f, 0.10f, true))
-      .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kDeception, 9.0f, 7.5f, 0.90f,
-                                    0.90f, false))
-      .Build();
+  environment::EnvironmentSceneState scene;
+  scene.jammer_emitters.push_back(
+      BuildJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f, 0.18f, 0.10f,
+                         true));
+  scene.jammer_emitters.push_back(BuildJammerEmitter(environment::JammingTechnique::kDeception, 9.0f,
+                                                     7.5f, 0.90f, 0.90f, false));
+  return scene;
 }
 
 void ExpectFrameContainsTargets(const session::TrackOutputFrame& frame,
@@ -506,10 +507,12 @@ TEST(RadarJointIntegrationTest,
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
-      environment::EnvironmentSceneBuilder()
-          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 12.0f,
-                                        8.0f, 0.20f, 0.10f, true))
-          .Build());
+      [&] {
+        environment::EnvironmentSceneState s;
+        s.jammer_emitters.push_back(BuildJammerEmitter(
+            environment::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f, 0.20f, 0.10f, true));
+        return s;
+      }());
 
   const session::TrackOutputFrame jammed_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
@@ -553,10 +556,12 @@ TEST(RadarJointIntegrationTest,
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
-      environment::EnvironmentSceneBuilder()
-          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kDeception, 8.0f, 8.0f,
-                                        0.90f, 0.90f, false))
-          .Build());
+      [&] {
+        environment::EnvironmentSceneState s;
+        s.jammer_emitters.push_back(BuildJammerEmitter(
+            environment::JammingTechnique::kDeception, 8.0f, 8.0f, 0.90f, 0.90f, false));
+        return s;
+      }());
 
   const session::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
@@ -605,10 +610,12 @@ TEST(RadarJointIntegrationTest, StageTwoRepeaterInterferenceKeepsTrackOutputAndS
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
-      environment::EnvironmentSceneBuilder()
-          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kRepeater, 7.5f, 7.0f, 0.10f,
-                                        0.95f, false))
-          .Build());
+      [&] {
+        environment::EnvironmentSceneState s;
+        s.jammer_emitters.push_back(BuildJammerEmitter(
+            environment::JammingTechnique::kRepeater, 7.5f, 7.0f, 0.10f, 0.95f, false));
+        return s;
+      }());
 
   const session::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
@@ -650,13 +657,14 @@ TEST(RadarJointIntegrationTest,
             targets.size());
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
-  environment_service.UpdateSceneState(
-      environment::EnvironmentSceneBuilder()
-          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 12.0f,
-                                        8.0f, 0.15f, 0.10f, true))
-          .AddJammer(BuildJammerEmitter(environment::JammingTechnique::kDeception, 9.0f, 7.5f,
-                                        0.90f, 0.90f, false))
-          .Build());
+  {
+    environment::EnvironmentSceneState s;
+    s.jammer_emitters.push_back(BuildJammerEmitter(
+        environment::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f, 0.15f, 0.10f, true));
+    s.jammer_emitters.push_back(BuildJammerEmitter(
+        environment::JammingTechnique::kDeception, 9.0f, 7.5f, 0.90f, 0.90f, false));
+    environment_service.UpdateSceneState(s);
+  }
 
   const session::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);

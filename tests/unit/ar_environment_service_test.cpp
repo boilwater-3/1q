@@ -8,7 +8,6 @@
 #include <initializer_list>
 #include <vector>
 
-#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/environment/SceneManager.h"
@@ -123,8 +122,8 @@ TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
   emitter.azimuth_deg = 18.0f;
   emitter.elevation_deg = 1.0f;
   emitter.angular_span_deg = 10.0f;
-  const environment::EnvironmentSceneState scene_state =
-      environment::EnvironmentSceneBuilder().AddJammer(emitter).Build();
+  environment::EnvironmentSceneState scene_state;
+  scene_state.jammer_emitters.push_back(emitter);
 
   service.UpdateSceneState(scene_state);
 
@@ -194,10 +193,10 @@ TEST(EnvironmentServiceTest, AppliesPendingSceneJammerOnNextCycleOnly) {
 
   EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
 
-  service.UpdateSceneState(
-      environment::EnvironmentSceneBuilder()
-          .AddJammer(MakeJammerEmitter(environment::JammingTechnique::kUnknown, 7.0f))
-          .Build());
+  environment::EnvironmentSceneState jammer_scene;
+  jammer_scene.jammer_emitters.push_back(
+      MakeJammerEmitter(environment::JammingTechnique::kUnknown, 7.0f));
+  service.UpdateSceneState(jammer_scene);
 
   EXPECT_FALSE(service.SampleEnvironment().jamming_detected);
 

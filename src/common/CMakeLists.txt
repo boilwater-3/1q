@@ -3,7 +3,6 @@
 set(ONEQ_COMMON_SOURCES
     common/atmosphere/AtmospherePhysics.cpp
     common/atmosphere/StandardAtmosphere.cpp
-    common/environment/StandardAtmosphereImpl.cpp
     common/environment/PropagationPhysicsImpl.cpp
     common/environment/JsbsimAtmosphereAdapter.cpp
     common/geometry/GeometryTransform.cpp
@@ -38,11 +37,9 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_ENVIRONMENT
         ${CMAKE_SOURCE_DIR}/include/1q/environment/AtmosphericState.h
         ${CMAKE_SOURCE_DIR}/include/1q/environment/AtmosphericTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/environment/EnvironmentCycleContext.h
         ${CMAKE_SOURCE_DIR}/include/1q/environment/IAtmosphereProvider.h
         ${CMAKE_SOURCE_DIR}/include/1q/environment/JsbsimAtmosphereAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/environment/PropagationPhysics.h
-        ${CMAKE_SOURCE_DIR}/include/1q/environment/StandardAtmosphere.h
     )
     set(PUBLIC_HEADERS_REPLAY
         ${CMAKE_SOURCE_DIR}/include/1q/replay/ReplayTrace.h
