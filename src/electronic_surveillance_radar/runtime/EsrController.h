@@ -3,12 +3,11 @@
  * @brief 定义电子侦察核心调度控制器接口。
  */
 
-#ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_EXTENSION_ESR_CONTROLLER_H_
-#define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_EXTENSION_ESR_CONTROLLER_H_
+#ifndef ELECTRONIC_SURVEILLANCE_RADAR_RUNTIME_ESR_CONTROLLER_H_
+#define ELECTRONIC_SURVEILLANCE_RADAR_RUNTIME_ESR_CONTROLLER_H_
 
 #include <memory>
 
-#include "1q/api.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
@@ -25,7 +24,7 @@ class IEsrEnvironmentService;
 /**
  * @brief EsrControllerRuntimeState 描述 ESR 控制器运行态快照。
  */
-struct ONEQ_API EsrControllerRuntimeState {
+struct EsrControllerRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
   bool has_latest_output{false};
@@ -43,7 +42,7 @@ namespace extension {
 /**
  * @brief EsrController 负责调度环境冻结、侦察流水线执行与输出缓存。
  */
-class ONEQ_API EsrController {
+class EsrController {
  public:
   /**
    * @brief 构造电子侦察控制器。
@@ -126,4 +125,4 @@ class ONEQ_API EsrController {
 
 }  // namespace electronic_surveillance_radar
 
-#endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_EXTENSION_ESR_CONTROLLER_H_
+#endif  // ELECTRONIC_SURVEILLANCE_RADAR_RUNTIME_ESR_CONTROLLER_H_

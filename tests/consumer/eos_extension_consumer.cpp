@@ -5,12 +5,12 @@
  * 覆盖要点：
  *   - EosSession 构建（SessionFactory::Create 默认装配）、Step、StepWithResult、ApplyRuntimeConfig
  *   - HasValidationError、GetLastValidationIssues 字段可访问
- *   - EosController 公共类型（RuntimeState / AbortReason）可达
+ *   - EosPipelineAbortReason 公共结果类型可达
  *
  * 注：环境服务与管线已内部化，不再支持外部注入；本 consumer 仅验证安装后公共面可达。
  */
 
-#include "1q/electro_optical_sensor/extension/EosController.h"
+#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
@@ -57,13 +57,7 @@ int main() {
       result.validation_issues;
   (void)issues.size();
 
-  // 6. EosController is accessible through the public header
-  // (construction is done internally by session factory)
-  electro_optical_sensor::extension::EosControllerRuntimeState controller_state;
-  controller_state.owner_identity = nullptr;
-  (void)controller_state;
-
-  // 7. EosController types accessible
+  // 6. Pipeline result types accessible
   electro_optical_sensor::extension::EosPipelineAbortReason abort_reason{
       electro_optical_sensor::extension::EosPipelineAbortReason::kNone};
   (void)abort_reason;

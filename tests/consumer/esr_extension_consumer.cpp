@@ -4,17 +4,17 @@
  *
  * 覆盖要点：
  *   - IEsrEnvironmentService 自定义实现，并通过 EsrSessionFactory 注入默认管线
- *   - EsrController 可通过 EsrSession::StepWithResult 间接访问
+ *   - EsrPipelineAbortReason 公共结果类型可达
  *   - EsrSession 构建、Step、StepWithResult、ApplyRuntimeConfig
  *   - GetLastValidationIssues 字段可访问
  */
 
+#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
-#include "1q/electronic_surveillance_radar/extension/EsrController.h"
 #include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 
@@ -79,12 +79,7 @@ int main() {
       result.validation_issues;
   (void)issues.size();
 
-  // 6. EsrController types accessible through public header
-  electronic_surveillance_radar::extension::EsrControllerRuntimeState controller_state;
-  controller_state.owner_identity = nullptr;
-  (void)controller_state;
-
-  // 7. EsrPipelineAbortReason accessible
+  // 6. EsrPipelineAbortReason accessible
   electronic_surveillance_radar::extension::EsrPipelineAbortReason abort_reason{
       electronic_surveillance_radar::extension::EsrPipelineAbortReason::kNone};
   (void)abort_reason;

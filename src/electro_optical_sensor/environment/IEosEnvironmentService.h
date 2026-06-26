@@ -6,7 +6,6 @@
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_I_EOS_ENVIRONMENT_SERVICE_H_
 #define ONEQ_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_I_EOS_ENVIRONMENT_SERVICE_H_
 
-#include "1q/api.hpp"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
 
 namespace electro_optical_sensor {
@@ -15,7 +14,7 @@ namespace environment {
 /**
  * @brief IEosEnvironmentService 定义 EOS 环境建模扩展点。
  */
-class ONEQ_API IEosEnvironmentService {
+class IEosEnvironmentService {
  public:
   virtual ~IEosEnvironmentService() = default;
 

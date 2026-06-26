@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "1q/electro_optical_sensor/extension/EosController.h"
+#include "electro_optical_sensor/runtime/EosController.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
 

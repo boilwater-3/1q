@@ -1,4 +1,4 @@
-#include "1q/electro_optical_sensor/extension/EosController.h"
+#include "electro_optical_sensor/runtime/EosController.h"
 
 #include <cstddef>
 #include <memory>

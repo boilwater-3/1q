@@ -59,9 +59,7 @@
 #include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 #include "1q/electro_optical_sensor/environment/electro_optical_sensor_environment.hpp"
-#include "1q/electro_optical_sensor/extension/EosController.h"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
 #include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
@@ -138,15 +136,6 @@ static_assert(
 static_assert(!std::is_constructible<electro_optical_sensor::session::EosSession,
                                      electro_optical_sensor::config::EosSessionConfig>::value,
               "EosSession direct construction must be disabled");
-static_assert(
-    !std::is_constructible<electro_optical_sensor::session::EosSession,
-                           electro_optical_sensor::config::EosSessionConfig,
-                           electro_optical_sensor::environment::IEosEnvironmentService&>::value,
-    "EosSession direct environment injection construction must be disabled");
-static_assert(!std::is_constructible<electro_optical_sensor::session::EosSession,
-                                     electro_optical_sensor::config::EosSessionConfig,
-                                     electro_optical_sensor::extension::EosController&>::value,
-              "EosSession direct controller injection construction must be disabled");
 static_assert(
     std::is_same<
         electro_optical_sensor::session::EosSession,

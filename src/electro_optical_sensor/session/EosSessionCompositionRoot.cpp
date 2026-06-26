@@ -10,7 +10,7 @@
 #include <memory>
 #include <utility>
 
-#include "1q/electro_optical_sensor/extension/EosController.h"
+#include "electro_optical_sensor/runtime/EosController.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"

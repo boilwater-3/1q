@@ -1,7 +1,7 @@
 /**
  * @file electro_optical_sensor.hpp
  * @brief 光电传感器模块稳定会话入口。
- * @note 扩展接口（controller/pipeline seam）请使用
+ * @note 管线结果扩展类型请使用
  *       `electro_optical_sensor/extension/electro_optical_sensor_extension.hpp`。
  */
 

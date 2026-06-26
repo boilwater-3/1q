@@ -16,12 +16,6 @@
 #include "1q/foundation/SensorContract.h"
 
 namespace electro_optical_sensor {
-namespace extension {
-class EosController;
-}  // namespace extension
-namespace environment {
-class IEosEnvironmentService;
-}
 namespace session {
 
 class EosSessionFactory;

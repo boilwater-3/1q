@@ -9,6 +9,5 @@
 #include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
 
 #endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_HPP_

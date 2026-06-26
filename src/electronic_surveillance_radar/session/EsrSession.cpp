@@ -1,7 +1,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
-#include "1q/electronic_surveillance_radar/extension/EsrController.h"
+#include "electronic_surveillance_radar/runtime/EsrController.h"
 #include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"

@@ -12,14 +12,14 @@
 #include "electro_optical_sensor/config/EosInternalExecutionConfig.h"
 
 namespace electro_optical_sensor {
+namespace extension {
+class EosController;
+}
 namespace signal {
 namespace pipeline {
 class EosPipeline;
 }  // namespace pipeline
 }  // namespace signal
-}  // namespace electro_optical_sensor
-
-namespace electro_optical_sensor {
 namespace session {
 
 /**

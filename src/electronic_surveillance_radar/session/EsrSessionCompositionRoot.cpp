@@ -1,6 +1,6 @@
 #include "electronic_surveillance_radar/session/EsrSessionCompositionRoot.h"
 
-#include "1q/electronic_surveillance_radar/extension/EsrController.h"
+#include "electronic_surveillance_radar/runtime/EsrController.h"
 #include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "electronic_surveillance_radar/session/EsrSessionConfigResolver.h"
 #include "electronic_surveillance_radar/environment/EsrEnvironmentService.h"
@@ -16,16 +16,6 @@ EsrSessionComposition BuildCompositionBase(const config::EsrSessionConfig& confi
   EsrSessionComposition composition;
   composition.execution_config = std::move(exec);
   return composition;
-}
-
-void SyncPipelineConfig(EsrSessionComposition* composition) {
-  if (composition == nullptr || composition->pipeline == nullptr) {
-    return;
-  }
-  composition->pipeline->UpdateConfig(
-      BuildPipelineConfig(composition->execution_config));
-  composition->pipeline->UpdateRuntimeConfig(
-      BuildRuntimeConfig(composition->execution_config));
 }
 
 void SyncEnvironmentModelConfig(EsrSessionComposition* composition) {

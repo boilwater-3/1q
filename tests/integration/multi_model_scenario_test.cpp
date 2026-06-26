@@ -12,6 +12,8 @@
 #include <gtest/gtest.h>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
+#include "1q/airborne_radar/session/RadarReplaySession.h"
+#include "1q/airborne_radar/session/RadarTraceSession.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/velocity_transform.h"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"

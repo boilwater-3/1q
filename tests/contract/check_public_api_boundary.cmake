@@ -102,13 +102,11 @@ set(EOS_ENVIRONMENT_HEADERS
     "electro_optical_sensor/environment/EosEnvironmentConfig.h"
     "electro_optical_sensor/environment/EosEnvironmentRuntimeConfigPatch.h"
     "electro_optical_sensor/environment/EosEnvironmentTypes.h"
-    "electro_optical_sensor/environment/IEosEnvironmentService.h"
     "electro_optical_sensor/environment/electro_optical_sensor_environment.hpp"
 )
 
 # ── EOS 扩展域 ────────────────────────────────────────────────────────
 set(EOS_EXTENSION_HEADERS
-    "electro_optical_sensor/extension/EosController.h"
     "electro_optical_sensor/extension/EosPipelineTypes.h"
     "electro_optical_sensor/extension/electro_optical_sensor_extension.hpp"
 )
@@ -169,7 +167,6 @@ set(ESR_ENVIRONMENT_HEADERS
 
 # ── ESR 扩展域 ────────────────────────────────────────────────────────
 set(ESR_EXTENSION_HEADERS
-    "electronic_surveillance_radar/extension/EsrController.h"
     "electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
 )
 
@@ -346,6 +343,18 @@ file(GLOB_RECURSE ACTUAL_PUBLIC_HEADERS
      RELATIVE "${PUBLIC_INCLUDE_DIR}"
      "${PUBLIC_INCLUDE_DIR}/*.h"
      "${PUBLIC_INCLUDE_DIR}/*.hpp")
+
+execute_process(
+    COMMAND find "${PUBLIC_INCLUDE_DIR}" -type f
+            ! -name "*.h" ! -name "*.hpp" ! -name "README.md"
+    OUTPUT_VARIABLE PUBLIC_INCLUDE_NON_HEADER_FILES
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+if(NOT "${PUBLIC_INCLUDE_NON_HEADER_FILES}" STREQUAL "")
+  message(FATAL_ERROR
+          "Non-header artifacts are not allowed under include/1q:\n"
+          "${PUBLIC_INCLUDE_NON_HEADER_FILES}")
+endif()
 
 list(SORT EXPECTED_PUBLIC_HEADERS)
 list(SORT ACTUAL_PUBLIC_HEADERS)

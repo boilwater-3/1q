@@ -12,6 +12,9 @@
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 
 namespace electronic_surveillance_radar {
+namespace extension {
+class EsrController;
+}
 namespace pipeline {
 class InterceptPipeline;
 }

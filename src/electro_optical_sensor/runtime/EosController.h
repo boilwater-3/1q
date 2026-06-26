@@ -3,13 +3,12 @@
  * @brief 定义光学传感器核心调度控制器接口。
  */
 
-#ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_EXTENSION_EOS_CONTROLLER_H_
-#define ONEQ_ELECTRO_OPTICAL_SENSOR_EXTENSION_EOS_CONTROLLER_H_
+#ifndef ELECTRO_OPTICAL_SENSOR_RUNTIME_EOS_CONTROLLER_H_
+#define ELECTRO_OPTICAL_SENSOR_RUNTIME_EOS_CONTROLLER_H_
 
 #include <cstdint>
 #include <memory>
 
-#include "1q/api.hpp"
 #include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
@@ -26,7 +25,7 @@ namespace extension {
 /**
  * @brief EosControllerRuntimeState 描述控制器运行态快照。
  */
-struct ONEQ_API EosControllerRuntimeState {
+struct EosControllerRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
   session::EosOutputFrame latest_output{};
@@ -43,7 +42,7 @@ struct ONEQ_API EosControllerRuntimeState {
 /**
  * @brief EosController 负责调度输入校验、核心管线执行与输出缓存。
  */
-class ONEQ_API EosController {
+class EosController {
  public:
   /**
    * @brief 构造光学传感器控制器。
@@ -132,4 +131,4 @@ class ONEQ_API EosController {
 
 }  // namespace electro_optical_sensor
 
-#endif  // ONEQ_ELECTRO_OPTICAL_SENSOR_EXTENSION_EOS_CONTROLLER_H_
+#endif  // ELECTRO_OPTICAL_SENSOR_RUNTIME_EOS_CONTROLLER_H_
