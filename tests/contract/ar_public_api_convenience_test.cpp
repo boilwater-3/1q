@@ -155,7 +155,7 @@ session::RadarCycleInput MakeCycleInput(session::RadarSceneTargetList targets, f
   return input;
 }
 
-void ApplySceneStateToCycleInput(const environment::EnvironmentSceneState& scene_state,
+void ApplySceneStateToCycleInput(const session::EnvironmentSceneState& scene_state,
                                  session::RadarCycleInput* input) {
   if (input == nullptr) {
     return;
@@ -229,19 +229,19 @@ model::TrackStateSnapshot MakeTrackStateSnapshot(float velocity_x, float velocit
 
 class RecordingEnvironmentService : public environment::IEnvironmentService {
  public:
-  void BeginCycle(const environment::EnvironmentCycleContext& cycle_context) override {
+  void BeginCycle(const session::EnvironmentCycleContext& cycle_context) override {
     ++begin_cycle_count_;
     cycle_context_ = cycle_context;
     active_scene_state_ = pending_scene_state_;
   }
 
-  environment::EnvironmentSnapshot SampleEnvironment() const override {
-    environment::EnvironmentSnapshot snapshot;
+  session::EnvironmentSnapshot SampleEnvironment() const override {
+    session::EnvironmentSnapshot snapshot;
     snapshot.cycle_dt_sec = cycle_context_.dt_sec;
     snapshot.jammer_sources.reserve(active_scene_state_.jammer_emitters.size());
     for (std::size_t i = 0; i < active_scene_state_.jammer_emitters.size(); ++i) {
-      const environment::JammerEmitterState& emitter = active_scene_state_.jammer_emitters[i];
-      environment::JammerSourceFact source;
+      const config::JammerEmitterState& emitter = active_scene_state_.jammer_emitters[i];
+      session::JammerSourceFact source;
       source.technique = emitter.technique;
       source.power_db = emitter.power_db;
       source.js_db = emitter.js_db;
@@ -258,21 +258,21 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
     return snapshot;
   }
 
-  void UpdateSceneState(const environment::EnvironmentSceneState& scene_state) override {
+  void UpdateSceneState(const session::EnvironmentSceneState& scene_state) override {
     ++update_scene_state_count_;
     pending_scene_state_ = scene_state;
   }
 
-  environment::EnvironmentSceneState GetPendingSceneState() const override {
+  session::EnvironmentSceneState GetPendingSceneState() const override {
     return pending_scene_state_;
   }
 
-  void UpdateModelConfig(const environment::EnvironmentModelConfig& config) override {
+  void UpdateModelConfig(const config::EnvironmentModelConfig& config) override {
     ++update_model_config_count_;
     model_config_ = config;
   }
 
-  void SetJammingSensitivityProfile(environment::JammingSensitivityProfile profile) override {
+  void SetJammingSensitivityProfile(config::JammingSensitivityProfile profile) override {
     ++set_sensitivity_count_;
     jamming_sensitivity_profile_ = profile;
   }
@@ -297,17 +297,17 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
   std::size_t update_scene_state_count() const { return update_scene_state_count_; }
   std::size_t update_model_config_count() const { return update_model_config_count_; }
   std::size_t set_sensitivity_count() const { return set_sensitivity_count_; }
-  environment::JammingSensitivityProfile jamming_sensitivity_profile() const {
+  config::JammingSensitivityProfile jamming_sensitivity_profile() const {
     return jamming_sensitivity_profile_;
   }
 
  private:
-  environment::EnvironmentSceneState active_scene_state_{};
-  environment::EnvironmentSceneState pending_scene_state_{};
-  environment::EnvironmentModelConfig model_config_{};
-  environment::EnvironmentCycleContext cycle_context_{};
-  environment::JammingSensitivityProfile jamming_sensitivity_profile_{
-      environment::JammingSensitivityProfile::kBalanced};
+  session::EnvironmentSceneState active_scene_state_{};
+  session::EnvironmentSceneState pending_scene_state_{};
+  config::EnvironmentModelConfig model_config_{};
+  session::EnvironmentCycleContext cycle_context_{};
+  config::JammingSensitivityProfile jamming_sensitivity_profile_{
+      config::JammingSensitivityProfile::kBalanced};
   std::size_t begin_cycle_count_{0U};
   std::size_t update_scene_state_count_{0U};
   std::size_t update_model_config_count_{0U};
@@ -714,9 +714,9 @@ TEST(PublicApiConvenienceTest, TwoStepApiPlatformPoseFeedsDirectlyIntoCycleInput
 }
 
 TEST(PublicApiConvenienceTest, EnvironmentSceneStateDefaults) {
-  const environment::EnvironmentSceneState built_scene =
-      environment::EnvironmentSceneState{};
-  const environment::EnvironmentSceneState default_scene;
+  const session::EnvironmentSceneState built_scene =
+      session::EnvironmentSceneState{};
+  const session::EnvironmentSceneState default_scene;
 
   EXPECT_EQ(built_scene.atmospheric_physics.enable_physical_model,
             default_scene.atmospheric_physics.enable_physical_model);
@@ -724,8 +724,8 @@ TEST(PublicApiConvenienceTest, EnvironmentSceneStateDefaults) {
 }
 
 TEST(PublicApiConvenienceTest, JammerSceneConstructionPopulatesTypedEmitters) {
-  environment::JammerEmitterState noise_emitter_1;
-  noise_emitter_1.technique = environment::JammingTechnique::kNoiseSuppression;
+  config::JammerEmitterState noise_emitter_1;
+  noise_emitter_1.technique = config::JammingTechnique::kNoiseSuppression;
   noise_emitter_1.power_db = 11.0f;
   noise_emitter_1.js_db = 8.0f;
   noise_emitter_1.has_direction_deg = true;
@@ -734,8 +734,8 @@ TEST(PublicApiConvenienceTest, JammerSceneConstructionPopulatesTypedEmitters) {
   noise_emitter_1.angular_span_deg = 5.0f;
   noise_emitter_1.confidence = 0.9f;
 
-  environment::JammerEmitterState deception_emitter;
-  deception_emitter.technique = environment::JammingTechnique::kDeception;
+  config::JammerEmitterState deception_emitter;
+  deception_emitter.technique = config::JammingTechnique::kDeception;
   deception_emitter.power_db = 9.0f;
   deception_emitter.js_db = 7.5f;
   deception_emitter.has_direction_deg = true;
@@ -744,8 +744,8 @@ TEST(PublicApiConvenienceTest, JammerSceneConstructionPopulatesTypedEmitters) {
   deception_emitter.angular_span_deg = 3.0f;
   deception_emitter.confidence = 0.8f;
 
-  environment::JammerEmitterState repeater_emitter;
-  repeater_emitter.technique = environment::JammingTechnique::kRepeater;
+  config::JammerEmitterState repeater_emitter;
+  repeater_emitter.technique = config::JammingTechnique::kRepeater;
   repeater_emitter.power_db = 8.5f;
   repeater_emitter.js_db = 6.5f;
   repeater_emitter.has_direction_deg = true;
@@ -754,20 +754,20 @@ TEST(PublicApiConvenienceTest, JammerSceneConstructionPopulatesTypedEmitters) {
   repeater_emitter.angular_span_deg = 2.0f;
   repeater_emitter.confidence = 0.7f;
 
-  environment::EnvironmentSceneState scene;
+  session::EnvironmentSceneState scene;
   scene.jammer_emitters.push_back(noise_emitter_1);
-  scene.jammer_emitters.back().technique = environment::JammingTechnique::kNoiseSuppression;
+  scene.jammer_emitters.back().technique = config::JammingTechnique::kNoiseSuppression;
   scene.jammer_emitters.push_back(deception_emitter);
-  scene.jammer_emitters.back().technique = environment::JammingTechnique::kDeception;
+  scene.jammer_emitters.back().technique = config::JammingTechnique::kDeception;
   scene.jammer_emitters.push_back(repeater_emitter);
-  scene.jammer_emitters.back().technique = environment::JammingTechnique::kRepeater;
+  scene.jammer_emitters.back().technique = config::JammingTechnique::kRepeater;
 
   ASSERT_EQ(scene.jammer_emitters.size(), 3U);
-  EXPECT_EQ(scene.jammer_emitters[0].technique, environment::JammingTechnique::kNoiseSuppression);
+  EXPECT_EQ(scene.jammer_emitters[0].technique, config::JammingTechnique::kNoiseSuppression);
   EXPECT_TRUE(scene.jammer_emitters[0].has_direction_deg);
-  EXPECT_EQ(scene.jammer_emitters[1].technique, environment::JammingTechnique::kDeception);
+  EXPECT_EQ(scene.jammer_emitters[1].technique, config::JammingTechnique::kDeception);
   EXPECT_NEAR(scene.jammer_emitters[1].azimuth_deg, -8.0f, 1e-5f);
-  EXPECT_EQ(scene.jammer_emitters[2].technique, environment::JammingTechnique::kRepeater);
+  EXPECT_EQ(scene.jammer_emitters[2].technique, config::JammingTechnique::kRepeater);
   EXPECT_NEAR(scene.jammer_emitters[2].elevation_deg, -1.0f, 1e-5f);
 }
 
@@ -856,8 +856,8 @@ TEST(PublicApiConvenienceTest, BuilderProvidesExpectedDetectionFocusedDefaults) 
   const config::RadarSessionConfig detection_config = MakeConvenienceSessionConfig();
   EXPECT_EQ(detection_config.policy.lifecycle.confirm_hits, 1U);
   EXPECT_EQ(detection_config.policy.lifecycle.max_miss_before_lost, 1U);
-  EXPECT_EQ(detection_config.hardware.detection.pulse_count, 16);
-  EXPECT_FLOAT_EQ(detection_config.hardware.detection.detection_policy.min_snr_db, -12.0f);
+  EXPECT_EQ(detection_config.hardware.pulse_count, 16);
+  EXPECT_FLOAT_EQ(detection_config.hardware.detection_policy.min_snr_db, -12.0f);
 
   session::RadarSession session = session::RadarSessionFactory::Create(detection_config);
   const session::TrackOutputFrame frame = session.Step(MakeCycleInput(session::RadarSceneTargetList{
@@ -903,7 +903,7 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   session::MutableRadarContext manual_context;
   signal::pipeline::SignalPipeline signal_pipeline(config);
   environment::EnvironmentService environment_service(
-      environment::BuildModelConfigFromScenario(config.environment.scenario_config));
+      config::BuildModelConfigFromScenario(config.environment.scenario_config));
   environment_service.SetJammingSensitivityProfile(config.environment.jamming_sensitivity_profile);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
 
@@ -911,8 +911,8 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
       model::MakeAirTarget(601U, 180.0f, -4.0f, 16.0f, 60.0f, 0.0f, 0.0f, 1.0f),
       model::MakeAirTarget(602U, 240.0f, 8.0f, 18.0f, 76.0f, 0.5f, 0.0f, 1.1f),
   });
-  environment::JammerEmitterState noise_emitter_2;
-  noise_emitter_2.technique = environment::JammingTechnique::kNoiseSuppression;
+  config::JammerEmitterState noise_emitter_2;
+  noise_emitter_2.technique = config::JammingTechnique::kNoiseSuppression;
   noise_emitter_2.power_db = 12.0f;
   noise_emitter_2.js_db = 8.0f;
   noise_emitter_2.has_direction_deg = true;
@@ -920,8 +920,8 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   noise_emitter_2.elevation_deg = 1.0f;
   noise_emitter_2.angular_span_deg = 10.0f;
 
-  const environment::EnvironmentSceneState scene =
-      [&] { environment::EnvironmentSceneState s; s.jammer_emitters.push_back(noise_emitter_2); s.jammer_emitters.back().technique = environment::JammingTechnique::kNoiseSuppression; return s; }();
+  const session::EnvironmentSceneState scene =
+      [&] { session::EnvironmentSceneState s; s.jammer_emitters.push_back(noise_emitter_2); s.jammer_emitters.back().technique = config::JammingTechnique::kNoiseSuppression; return s; }();
 
   session::RadarCycleInput session_input = input;
   ApplySceneStateToCycleInput(scene, &session_input);
@@ -1008,8 +1008,8 @@ TEST(PublicApiConvenienceTest,
   for (std::size_t i = 0; i < cycle_2.scene.size(); ++i) {
     cycle_2.scene[i].position_x += 5.0f;
   }
-  environment::JammerEmitterState noise_emitter_3;
-  noise_emitter_3.technique = environment::JammingTechnique::kNoiseSuppression;
+  config::JammerEmitterState noise_emitter_3;
+  noise_emitter_3.technique = config::JammingTechnique::kNoiseSuppression;
   noise_emitter_3.power_db = 12.0f;
   noise_emitter_3.js_db = 8.0f;
   noise_emitter_3.has_direction_deg = true;
@@ -1017,8 +1017,8 @@ TEST(PublicApiConvenienceTest,
   noise_emitter_3.elevation_deg = 1.0f;
   noise_emitter_3.angular_span_deg = 10.0f;
 
-  const environment::EnvironmentSceneState noise_scene =
-      [&] { environment::EnvironmentSceneState s; s.jammer_emitters.push_back(noise_emitter_3); s.jammer_emitters.back().technique = environment::JammingTechnique::kNoiseSuppression; return s; }();
+  const session::EnvironmentSceneState noise_scene =
+      [&] { session::EnvironmentSceneState s; s.jammer_emitters.push_back(noise_emitter_3); s.jammer_emitters.back().technique = config::JammingTechnique::kNoiseSuppression; return s; }();
   ApplySceneStateToCycleInput(noise_scene, &cycle_2);
   const session::RadarCycleResult result_2 = session.StepWithResult(cycle_2);
   const session::TrackOutputFrame& frame_2 = result_2.track_output_frame;
@@ -1041,8 +1041,8 @@ TEST(PublicApiConvenienceTest,
   cycle_3.dt_sec = 1.0f;
   cycle_3.scene[1].external_target_id = 703U;
   cycle_3.scene[2].external_target_id = 704U;
-  const environment::EnvironmentSceneState clear_scene =
-      environment::EnvironmentSceneState{};
+  const session::EnvironmentSceneState clear_scene =
+      session::EnvironmentSceneState{};
   ApplySceneStateToCycleInput(clear_scene, &cycle_3);
   const session::TrackOutputFrame frame_3 = session.Step(cycle_3);
   EXPECT_GT(frame_3.tracks.size(), 0U);
@@ -1085,15 +1085,15 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   session::MutableRadarContext manual_context;
   signal::pipeline::SignalPipeline signal_pipeline(config);
   environment::EnvironmentService environment_service(
-      environment::BuildModelConfigFromScenario(config.environment.scenario_config));
+      config::BuildModelConfigFromScenario(config.environment.scenario_config));
   environment_service.SetJammingSensitivityProfile(config.environment.jamming_sensitivity_profile);
   extension::RadarController controller(manual_context, signal_pipeline, environment_service);
 
   const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{
       model::MakeAirTarget(960U, 180.0f, -4.0f, 16.0f, 60.0f, 0.0f, 0.0f, 1.0f),
   });
-  environment::JammerEmitterState noise_emitter_5;
-  noise_emitter_5.technique = environment::JammingTechnique::kNoiseSuppression;
+  config::JammerEmitterState noise_emitter_5;
+  noise_emitter_5.technique = config::JammingTechnique::kNoiseSuppression;
   noise_emitter_5.power_db = 12.0f;
   noise_emitter_5.js_db = 8.0f;
   noise_emitter_5.has_direction_deg = true;
@@ -1101,8 +1101,8 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   noise_emitter_5.elevation_deg = 1.0f;
   noise_emitter_5.angular_span_deg = 10.0f;
 
-  const environment::EnvironmentSceneState scene =
-      [&] { environment::EnvironmentSceneState s; s.jammer_emitters.push_back(noise_emitter_5); s.jammer_emitters.back().technique = environment::JammingTechnique::kNoiseSuppression; return s; }();
+  const session::EnvironmentSceneState scene =
+      [&] { session::EnvironmentSceneState s; s.jammer_emitters.push_back(noise_emitter_5); s.jammer_emitters.back().technique = config::JammingTechnique::kNoiseSuppression; return s; }();
 
   session::RadarCycleInput session_input = input;
   ApplySceneStateToCycleInput(scene, &session_input);

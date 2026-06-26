@@ -6,10 +6,18 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
 
 namespace airborne_radar {
 namespace environment {
+
+// Using declarations for types migrated to config:: and session::
+using config::EnvironmentModelConfig;
+using config::JammingSensitivityProfile;
+using session::EnvironmentCycleContext;
+using session::EnvironmentSnapshot;
+using session::EnvironmentSceneState;
 
 struct EnvironmentServiceRuntimeState {
   EnvironmentSceneState active_scene_state{};

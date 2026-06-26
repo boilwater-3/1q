@@ -27,13 +27,13 @@ int main() {
 
   // 2. 直接字段赋值构造会话配置
   auto built_config = preset_config;
-  built_config.hardware.detection.transmitter.peak_power_w = 5.0e6f;
-  built_config.hardware.detection.transmitter.frequency_hz = 9.3e9f;
+  built_config.hardware.transmitter.peak_power_w = 5.0e6f;
+  built_config.hardware.transmitter.frequency_hz = 9.3e9f;
   built_config.mission.orientation.scan_center_deg = {0.0f, 0.0f};
   built_config.policy.tracking.enable_kalman_filter = true;
   built_config.policy.lifecycle.confirm_hits = 3;
   built_config.environment.jamming_sensitivity_profile =
-      airborne_radar::environment::ResolveJammingSensitivityProfile(5.0f);
+      airborne_radar::config::ResolveJammingSensitivityProfile(5.0f);
 
   // 3. Session construction from builder config
   airborne_radar::session::RadarSession session =
@@ -79,7 +79,7 @@ int main() {
           .WithWorkMode(airborne_radar::model::RadarWorkMode::kTas)
           .WithScanCenterDeg({15.0f, -5.0f})
           .WithJammingSensitivityProfile(
-              airborne_radar::environment::ResolveJammingSensitivityProfile(8.0f))
+              airborne_radar::config::ResolveJammingSensitivityProfile(8.0f))
           .WithCommandedBeamwidthEnabled(true)
           .Build();
   session.ApplyRuntimeConfig(runtime_patch);

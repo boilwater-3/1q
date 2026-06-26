@@ -18,8 +18,8 @@
 #include "electronic_surveillance_radar/pipeline/IEsrContext.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "common/timing/TimingRegimeModel.h"
-#include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
-#include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"
+#include "electronic_surveillance_radar/pipeline/AngleErrorModel.h"
+#include "electronic_surveillance_radar/pipeline/ScanPatternGenerator.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
 
 namespace electronic_surveillance_radar {

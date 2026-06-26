@@ -14,7 +14,7 @@
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
-#include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
+#include "electro_optical_sensor/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace session {

@@ -9,7 +9,7 @@
 
 namespace ar = airborne_radar;
 namespace ar_config = airborne_radar::config;
-namespace ar_env = airborne_radar::environment;
+namespace ar_env = airborne_radar::config;
 namespace ar_model = airborne_radar::model;
 namespace ar_session = airborne_radar::session;
 
@@ -167,9 +167,9 @@ void CompareConfigs(const ar_config::RadarSessionConfig& a,
                     const ar_config::RadarSessionConfig& b) {
   std::cout << "=== Comparing SessionConfig ===\n";
 
-  // hardware.detection
-  const auto& da = a.hardware.detection;
-  const auto& db = b.hardware.detection;
+  // hardware
+  const auto& da = a.hardware;
+  const auto& db = b.hardware;
   CHECK_BOOL(da.enable_physics_detection, db.enable_physics_detection,
              "detection.enable_physics_detection");
   CheckTransmitter(da.transmitter, db.transmitter);

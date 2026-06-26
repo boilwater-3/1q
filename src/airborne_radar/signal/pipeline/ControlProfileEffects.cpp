@@ -130,14 +130,14 @@ float ComputeHeuristicSignalAdjustmentDb(
 
 float ComputeHeuristicEnvironmentReliefDb(
     const JammingEffectsConfig& cfg, const extension::control::RadarControlProfile& control_profile,
-    const environment::EnvironmentSnapshot& environment_snapshot) {
+    const session::EnvironmentSnapshot& environment_snapshot) {
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
     return 0.0f;
   }
 
   float relief_db = 0.0f;
   for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
+    const session::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
     const float residual_factor = ComputeResidualJammerFactor(control_profile, source);
     relief_db += ComputeHeuristicSourcePenaltyDb(cfg, source) * (1.0f - residual_factor);
   }

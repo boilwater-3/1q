@@ -19,7 +19,7 @@ set(ESR_CORE_SOURCES
     electronic_surveillance_radar/session/EsrCycleOutputBuilder.cpp
     electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
     electronic_surveillance_radar/runtime/EsrController.cpp
-    electronic_surveillance_radar/output/EsrOutputManager.cpp
+    electronic_surveillance_radar/runtime/EsrOutputManager.cpp
     electronic_surveillance_radar/session/EsrInputValidation.cpp
     electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.cpp
     electronic_surveillance_radar/session/EsrOutputDebugViewBuilder.cpp
@@ -62,8 +62,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrTraceSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrReplaySession.h
     )
-    set(PUBLIC_HEADERS_ESR_ENVIRONMENT
-    )
     set(PUBLIC_HEADERS_ESR_CONFIG
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrHardwareConfig.h
@@ -87,9 +85,6 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_ESR_SESSION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/session
-    )
-    install(FILES ${PUBLIC_HEADERS_ESR_ENVIRONMENT}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/environment
     )
     install(FILES ${PUBLIC_HEADERS_ESR_CONFIG}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/config

@@ -22,9 +22,9 @@ struct RadarSessionComposition {
   config::RadarHardwareConfig runtime_hardware{};
   config::RadarMissionConfig runtime_mission{};
   config::RadarPolicyConfig runtime_policy{};
-  environment::EnvironmentScenarioConfig runtime_environment_scenario_config{};
-  environment::JammingSensitivityProfile runtime_jamming_sensitivity_profile{
-      environment::JammingSensitivityProfile::kBalanced};
+  config::EnvironmentScenarioConfig runtime_environment_scenario_config{};
+  config::JammingSensitivityProfile runtime_jamming_sensitivity_profile{
+      config::JammingSensitivityProfile::kBalanced};
 
   std::unique_ptr<MutableRadarContext> owned_radar_context;
   std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;

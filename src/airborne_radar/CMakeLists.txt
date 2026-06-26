@@ -123,10 +123,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/extension/ITacticalDecisionEngine.h
     )
     set(PUBLIC_HEADERS_ENVIRONMENT
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentRuntimeConfigPatch.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/EnvironmentTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/environment/airborne_radar_environment.hpp
     )
     set(PUBLIC_HEADERS_SIGNAL_PIPELINE
     )
@@ -167,9 +163,6 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_DECISION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/extension
-    )
-    install(FILES ${PUBLIC_HEADERS_ENVIRONMENT}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/environment
     )
     install(FILES ${PUBLIC_HEADERS_SIGNAL_PIPELINE}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/airborne_radar/extension

@@ -68,7 +68,7 @@ using ValidationIssueList = std::vector<ConfigValidationIssue>;
  *                   .End()
  *                   .Environment()
  *                   .WithJammingSensitivityProfile(
- *                       environment::JammingSensitivityProfile::kStrict)
+ *                       config::JammingSensitivityProfile::kStrict)
  *                   .End()
  *                   .Build();
  * @endcode
@@ -153,7 +153,7 @@ class ONEQ_API RadarSessionConfigBuilder {
 
   config::RadarSessionConfig base_config_{};
   model::RadarOrientationConfig orientation_{};
-  environment::EnvironmentDefaultConfig env_{};
+  config::RadarEnvironmentConfig env_{};
   bool detection_dirty_{false};
   bool tracking_dirty_{false};
   bool lifecycle_dirty_{false};
@@ -302,12 +302,12 @@ class ONEQ_API RadarSessionConfigBuilder::EnvironmentEditor {
   explicit EnvironmentEditor(RadarSessionConfigBuilder* builder) : builder_(builder) {}
 
   /** @brief 整块替换环境默认配置。 */
-  EnvironmentEditor& WithEnvironmentDefault(const environment::EnvironmentDefaultConfig& env) {
+  EnvironmentEditor& WithEnvironmentDefault(const config::RadarEnvironmentConfig& env) {
     builder_->env_ = env;
     return *this;
   }
   /** @brief 设置干扰判定灵敏度语义档位。 */
-  EnvironmentEditor& WithJammingSensitivityProfile(environment::JammingSensitivityProfile profile) {
+  EnvironmentEditor& WithJammingSensitivityProfile(config::JammingSensitivityProfile profile) {
     builder_->env_.jamming_sensitivity_profile = profile;
     return *this;
   }

@@ -7,7 +7,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
-#include "electronic_surveillance_radar/output/EsrOutputManager.h"
+#include "electronic_surveillance_radar/runtime/EsrOutputManager.h"
 
 namespace electronic_surveillance_radar {
 namespace extension {

@@ -107,13 +107,13 @@ RadarSceneTarget DecodeSceneTarget(const fb::RadarSceneTarget* value) {
 }
 
 flatbuffers::Offset<fb::AtmosphericObservation> EncodeCycleAtmosphericObservation(
-    flatbuffers::FlatBufferBuilder* builder, const environment::AtmosphericPhysicsConfig& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::AtmosphericPhysicsConfig& value) {
   return fb::CreateAtmosphericObservation(*builder, value.enable_physical_model, value.pressure_hpa,
                                           value.temperature_k, value.relative_humidity);
 }
 
 flatbuffers::Offset<fb::AtmosphericContext> EncodeCycleAtmosphericContext(
-    flatbuffers::FlatBufferBuilder* builder, const environment::AtmosphericDerivedContext& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::AtmosphericDerivedContext& value) {
   return fb::CreateAtmosphericContext(*builder, value.has_simulation_unix_seconds,
                                       value.simulation_unix_seconds, value.solar_flux_f107a,
                                       value.solar_flux_f107, value.geomagnetic_ap);
@@ -121,13 +121,13 @@ flatbuffers::Offset<fb::AtmosphericContext> EncodeCycleAtmosphericContext(
 
 flatbuffers::Offset<fb::SurfaceObservation> EncodeCycleSurfaceObservation(
     flatbuffers::FlatBufferBuilder* builder,
-    const environment::VegetationScatterPhysicsConfig& value) {
+    const config::VegetationScatterPhysicsConfig& value) {
   return fb::CreateSurfaceObservation(*builder, static_cast<int>(value.cover_profile),
                                       value.enable_physical_model);
 }
 
 flatbuffers::Offset<fb::JammerSource> EncodeCycleJammerSource(
-    flatbuffers::FlatBufferBuilder* builder, const environment::JammerEmitterState& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::JammerEmitterState& value) {
   return fb::CreateJammerSource(*builder, static_cast<int>(value.technique), value.power_db,
                                 value.js_db, value.has_direction_deg, value.azimuth_deg,
                                 value.elevation_deg, value.angular_span_deg, value.confidence);
@@ -147,9 +147,9 @@ flatbuffers::Offset<fb::RadarCycleEnvironmentInput> EncodeCycleEnvironmentInput(
       builder->CreateVector(jammer_sources));
 }
 
-environment::AtmosphericPhysicsConfig DecodeCycleAtmosphericObservation(
+config::AtmosphericPhysicsConfig DecodeCycleAtmosphericObservation(
     const fb::AtmosphericObservation* value) {
-  environment::AtmosphericPhysicsConfig result;
+  config::AtmosphericPhysicsConfig result;
   if (value != nullptr) {
     result.enable_physical_model = value->enable_physical_model();
     result.pressure_hpa = value->pressure_hpa();
@@ -159,9 +159,9 @@ environment::AtmosphericPhysicsConfig DecodeCycleAtmosphericObservation(
   return result;
 }
 
-environment::AtmosphericDerivedContext DecodeCycleAtmosphericContext(
+config::AtmosphericDerivedContext DecodeCycleAtmosphericContext(
     const fb::AtmosphericContext* value) {
-  environment::AtmosphericDerivedContext result;
+  config::AtmosphericDerivedContext result;
   if (value != nullptr) {
     result.has_simulation_unix_seconds = value->has_simulation_unix_seconds();
     result.simulation_unix_seconds = value->simulation_unix_seconds();
@@ -172,20 +172,20 @@ environment::AtmosphericDerivedContext DecodeCycleAtmosphericContext(
   return result;
 }
 
-environment::VegetationScatterPhysicsConfig DecodeCycleSurfaceObservation(
+config::VegetationScatterPhysicsConfig DecodeCycleSurfaceObservation(
     const fb::SurfaceObservation* value) {
-  environment::VegetationScatterPhysicsConfig result;
+  config::VegetationScatterPhysicsConfig result;
   if (value != nullptr) {
-    result.cover_profile = static_cast<environment::VegetationCoverProfile>(value->cover_profile());
+    result.cover_profile = static_cast<config::VegetationCoverProfile>(value->cover_profile());
     result.enable_physical_model = value->enable_physical_model();
   }
   return result;
 }
 
-environment::JammerEmitterState DecodeCycleJammerSource(const fb::JammerSource* value) {
-  environment::JammerEmitterState result;
+config::JammerEmitterState DecodeCycleJammerSource(const fb::JammerSource* value) {
+  config::JammerEmitterState result;
   if (value != nullptr) {
-    result.technique = static_cast<environment::JammingTechnique>(value->technique());
+    result.technique = static_cast<config::JammingTechnique>(value->technique());
     result.power_db = value->power_db();
     result.js_db = value->js_db();
     result.has_direction_deg = value->has_direction_deg();
@@ -571,14 +571,14 @@ flatbuffers::Offset<session_fb::RadarPolicyConfig> EncodeSessionPolicyConfig(
 }
 
 flatbuffers::Offset<session_fb::AtmosphericPhysicsConfig> EncodeSessionAtmosphericPhysicsConfig(
-    flatbuffers::FlatBufferBuilder* builder, const environment::AtmosphericPhysicsConfig& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::AtmosphericPhysicsConfig& value) {
   return session_fb::CreateAtmosphericPhysicsConfig(*builder, value.enable_physical_model,
                                                     value.pressure_hpa, value.temperature_k,
                                                     value.relative_humidity);
 }
 
 flatbuffers::Offset<session_fb::AtmosphericDerivedContext> EncodeSessionAtmosphericDerivedContext(
-    flatbuffers::FlatBufferBuilder* builder, const environment::AtmosphericDerivedContext& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::AtmosphericDerivedContext& value) {
   return session_fb::CreateAtmosphericDerivedContext(
       *builder, value.has_simulation_unix_seconds, value.simulation_unix_seconds,
       value.solar_flux_f107a, value.solar_flux_f107, value.geomagnetic_ap);
@@ -587,13 +587,13 @@ flatbuffers::Offset<session_fb::AtmosphericDerivedContext> EncodeSessionAtmosphe
 flatbuffers::Offset<session_fb::VegetationScatterPhysicsConfig>
 EncodeSessionVegetationScatterPhysicsConfig(
     flatbuffers::FlatBufferBuilder* builder,
-    const environment::VegetationScatterPhysicsConfig& value) {
+    const config::VegetationScatterPhysicsConfig& value) {
   return session_fb::CreateVegetationScatterPhysicsConfig(
       *builder, static_cast<int>(value.cover_profile), value.enable_physical_model);
 }
 
 flatbuffers::Offset<session_fb::JammerEmitterState> EncodeSessionJammerEmitterState(
-    flatbuffers::FlatBufferBuilder* builder, const environment::JammerEmitterState& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::JammerEmitterState& value) {
   return session_fb::CreateJammerEmitterState(*builder, static_cast<int>(value.technique),
                                               value.power_db, value.js_db, value.has_direction_deg,
                                               value.azimuth_deg, value.elevation_deg,
@@ -601,7 +601,7 @@ flatbuffers::Offset<session_fb::JammerEmitterState> EncodeSessionJammerEmitterSt
 }
 
 flatbuffers::Offset<session_fb::EnvironmentScenarioConfig> EncodeSessionEnvironmentScenarioConfig(
-    flatbuffers::FlatBufferBuilder* builder, const environment::EnvironmentScenarioConfig& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::EnvironmentScenarioConfig& value) {
   std::vector<flatbuffers::Offset<session_fb::JammerEmitterState>> jammer_sources;
   jammer_sources.reserve(value.jammer_sources.size());
   for (std::size_t i = 0; i < value.jammer_sources.size(); ++i) {
@@ -621,7 +621,7 @@ flatbuffers::Offset<session_fb::EnvironmentScenarioConfig> EncodeSessionEnvironm
 flatbuffers::Offset<session_fb::EnvironmentRuntimeConfigPatch>
 EncodeSessionEnvironmentRuntimeConfigPatch(
     flatbuffers::FlatBufferBuilder* builder,
-    const environment::EnvironmentRuntimeConfigPatch& value) {
+    const config::EnvironmentRuntimeConfigPatch& value) {
   return session_fb::CreateEnvironmentRuntimeConfigPatch(
       *builder, value.has_scenario_config,
       EncodeSessionEnvironmentScenarioConfig(builder, value.scenario_config),
@@ -803,9 +803,9 @@ config::RadarPolicyConfig DecodeSessionPolicyConfig(const session_fb::RadarPolic
   return result;
 }
 
-environment::AtmosphericPhysicsConfig DecodeSessionAtmosphericPhysicsConfig(
+config::AtmosphericPhysicsConfig DecodeSessionAtmosphericPhysicsConfig(
     const session_fb::AtmosphericPhysicsConfig* value) {
-  environment::AtmosphericPhysicsConfig result;
+  config::AtmosphericPhysicsConfig result;
   if (value != nullptr) {
     result.enable_physical_model = value->enable_physical_model();
     result.pressure_hpa = value->pressure_hpa();
@@ -815,9 +815,9 @@ environment::AtmosphericPhysicsConfig DecodeSessionAtmosphericPhysicsConfig(
   return result;
 }
 
-environment::AtmosphericDerivedContext DecodeSessionAtmosphericDerivedContext(
+config::AtmosphericDerivedContext DecodeSessionAtmosphericDerivedContext(
     const session_fb::AtmosphericDerivedContext* value) {
-  environment::AtmosphericDerivedContext result;
+  config::AtmosphericDerivedContext result;
   if (value != nullptr) {
     result.has_simulation_unix_seconds = value->has_simulation_unix_seconds();
     result.simulation_unix_seconds = value->simulation_unix_seconds();
@@ -828,21 +828,21 @@ environment::AtmosphericDerivedContext DecodeSessionAtmosphericDerivedContext(
   return result;
 }
 
-environment::VegetationScatterPhysicsConfig DecodeSessionVegetationScatterPhysicsConfig(
+config::VegetationScatterPhysicsConfig DecodeSessionVegetationScatterPhysicsConfig(
     const session_fb::VegetationScatterPhysicsConfig* value) {
-  environment::VegetationScatterPhysicsConfig result;
+  config::VegetationScatterPhysicsConfig result;
   if (value != nullptr) {
-    result.cover_profile = static_cast<environment::VegetationCoverProfile>(value->cover_profile());
+    result.cover_profile = static_cast<config::VegetationCoverProfile>(value->cover_profile());
     result.enable_physical_model = value->enable_physical_model();
   }
   return result;
 }
 
-environment::JammerEmitterState DecodeSessionJammerEmitterState(
+config::JammerEmitterState DecodeSessionJammerEmitterState(
     const session_fb::JammerEmitterState* value) {
-  environment::JammerEmitterState result;
+  config::JammerEmitterState result;
   if (value != nullptr) {
-    result.technique = static_cast<environment::JammingTechnique>(value->technique());
+    result.technique = static_cast<config::JammingTechnique>(value->technique());
     result.power_db = value->power_db();
     result.js_db = value->js_db();
     result.has_direction_deg = value->has_direction_deg();
@@ -854,9 +854,9 @@ environment::JammerEmitterState DecodeSessionJammerEmitterState(
   return result;
 }
 
-environment::EnvironmentScenarioConfig DecodeSessionEnvironmentScenarioConfig(
+config::EnvironmentScenarioConfig DecodeSessionEnvironmentScenarioConfig(
     const session_fb::EnvironmentScenarioConfig* value) {
-  environment::EnvironmentScenarioConfig result;
+  config::EnvironmentScenarioConfig result;
   if (value != nullptr) {
     result.atmospheric_physics =
         DecodeSessionAtmosphericPhysicsConfig(value->atmospheric_physics());
@@ -877,28 +877,28 @@ environment::EnvironmentScenarioConfig DecodeSessionEnvironmentScenarioConfig(
   return result;
 }
 
-environment::EnvironmentRuntimeConfigPatch DecodeSessionEnvironmentRuntimeConfigPatch(
+config::EnvironmentRuntimeConfigPatch DecodeSessionEnvironmentRuntimeConfigPatch(
     const session_fb::EnvironmentRuntimeConfigPatch* value) {
-  environment::EnvironmentRuntimeConfigPatch result;
+  config::EnvironmentRuntimeConfigPatch result;
   if (value != nullptr) {
     result.has_scenario_config = value->has_scenario_config();
     result.scenario_config = DecodeSessionEnvironmentScenarioConfig(value->scenario_config());
     result.has_jamming_sensitivity_profile = value->has_jamming_sensitivity_profile();
     result.jamming_sensitivity_profile =
-        static_cast<environment::JammingSensitivityProfile>(value->jamming_sensitivity_profile());
+        static_cast<config::JammingSensitivityProfile>(value->jamming_sensitivity_profile());
   }
   return result;
 }
 
 flatbuffers::Offset<session_fb::EnvironmentDefaultConfig> EncodeEnvironmentDefaultConfig(
-    flatbuffers::FlatBufferBuilder* builder, const environment::EnvironmentDefaultConfig& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::RadarEnvironmentConfig& value) {
   return session_fb::CreateEnvironmentDefaultConfig(
       *builder, EncodeSessionEnvironmentScenarioConfig(builder, value.scenario_config));
 }
 
-environment::EnvironmentDefaultConfig DecodeEnvironmentDefaultConfig(
+config::RadarEnvironmentConfig DecodeEnvironmentDefaultConfig(
     const session_fb::EnvironmentDefaultConfig* value) {
-  environment::EnvironmentDefaultConfig result;
+  config::RadarEnvironmentConfig result;
   if (value != nullptr) {
     result.scenario_config = DecodeSessionEnvironmentScenarioConfig(value->scenario_config());
   }
@@ -1053,7 +1053,7 @@ std::string EncodeSessionConfigFlatbuffer(const config::RadarSessionConfig& conf
   flatbuffers::FlatBufferBuilder builder;
   const flatbuffers::Offset<session_fb::RadarSessionConfig> root =
       session_fb::CreateRadarSessionConfig(
-          builder, EncodeSessionDetectionConfig(&builder, config.hardware.detection),
+          builder, EncodeSessionDetectionConfig(&builder, config.hardware),
           EncodeSessionOrientation(&builder, config.mission.orientation),
           EncodeSessionPolicyConfig(&builder, config.policy),
           static_cast<int>(config.environment.jamming_sensitivity_profile),
@@ -1091,13 +1091,13 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, config::Rad
   }
 
   const session_fb::RadarSessionConfig* root = session_fb::GetRadarSessionConfig(data);
-  config->hardware.detection = DecodeSessionDetectionConfig(root->hardware_detection());
+  config->hardware = DecodeSessionDetectionConfig(root->hardware_detection());
   config->mission.orientation = DecodeSessionOrientation(root->mission_orientation());
   config->mission.power_on = root->power_on();
   config->policy = DecodeSessionPolicyConfig(root->policy());
   config->environment = DecodeEnvironmentDefaultConfig(root->environment_default_config());
   config->environment.jamming_sensitivity_profile =
-      static_cast<environment::JammingSensitivityProfile>(root->jamming_sensitivity_profile());
+      static_cast<config::JammingSensitivityProfile>(root->jamming_sensitivity_profile());
   return true;
 }
 

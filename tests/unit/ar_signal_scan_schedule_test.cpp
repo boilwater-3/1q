@@ -70,15 +70,15 @@ std::size_t CountUniqueScheduledPoints(const model::RadarOrientationConfig& orie
   return unique_points.size();
 }
 
-environment::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_index) {
-  environment::EnvironmentCycleContext cycle;
+session::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_index) {
+  session::EnvironmentCycleContext cycle;
   cycle.cycle_index = cycle_index;
   cycle.dt_sec = 1.0f;
   return cycle;
 }
 
-environment::EnvironmentSnapshot MakeEnvironmentSnapshot(std::uint32_t cycle_index) {
-  environment::EnvironmentSnapshot snapshot;
+session::EnvironmentSnapshot MakeEnvironmentSnapshot(std::uint32_t cycle_index) {
+  session::EnvironmentSnapshot snapshot;
   snapshot.cycle_dt_sec = MakeEnvironmentCycle(cycle_index).dt_sec;
   return snapshot;
 }
@@ -149,7 +149,7 @@ signal::pipeline::CycleExecutionRuntime BuildMinimalValidRuntime(
 
 signal::pipeline::CycleExecutionContext BuildContext(
     const session::RadarSceneTargetList& input_state,
-    const environment::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
+    const session::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
     std::uint64_t batch_id, const signal::pipeline::CycleExecutionRuntime& runtime,
     float platform_altitude_m = 0.0f) {
   const signal::pipeline::ResolvedRuntimePipelineConfig resolved =
@@ -304,7 +304,7 @@ TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
   exec_config.detection.orientation.electronic_scan_limits_deg =
       exec_config.detection.orientation.mechanical_scan_limits_deg;
 
-  environment::EnvironmentSnapshot environment_snapshot = MakeEnvironmentSnapshot(1U);
+  session::EnvironmentSnapshot environment_snapshot = MakeEnvironmentSnapshot(1U);
   environment_snapshot.atmospheric_physics.enable_physical_model = true;
   environment_snapshot.atmospheric_physics.pressure_hpa = 1013.25f;
   environment_snapshot.atmospheric_physics.temperature_k = 288.15f;
@@ -363,7 +363,7 @@ TEST(CycleExecutorTest, PhysicalDetectionTreatsClutterDbAsThermalRelativeNoise) 
   exec_config.detection.orientation.electronic_scan_limits_deg =
       exec_config.detection.orientation.mechanical_scan_limits_deg;
 
-  environment::EnvironmentSnapshot environment_snapshot = MakeEnvironmentSnapshot(1U);
+  session::EnvironmentSnapshot environment_snapshot = MakeEnvironmentSnapshot(1U);
   environment_snapshot.propagation_loss_db = 6.5f;
   environment_snapshot.clutter_power_db = 3.0f;
 
@@ -599,15 +599,15 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
 
 TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutcome) {
   config::RadarSessionConfig session_config;
-  session_config.hardware.detection.enable_physics_detection = true;
-  session_config.hardware.detection.pulse_count = 16;
-  session_config.hardware.detection.detection_policy.cfar_pfa = 2.0e-6f;
-  session_config.hardware.detection.detection_policy.min_snr_db = -12.0f;
-  session_config.hardware.detection.min_detection_margin_db = -100.0f;
-  session_config.hardware.detection.antenna.pattern.model_type =
+  session_config.hardware.enable_physics_detection = true;
+  session_config.hardware.pulse_count = 16;
+  session_config.hardware.detection_policy.cfar_pfa = 2.0e-6f;
+  session_config.hardware.detection_policy.min_snr_db = -12.0f;
+  session_config.hardware.min_detection_margin_db = -100.0f;
+  session_config.hardware.antenna.pattern.model_type =
       config::AntennaPatternModelType::kParabolicMainLobe;
-  session_config.hardware.detection.antenna.pattern.max_sidelobe_level_db = -18.0f;
-  session_config.hardware.detection.antenna.pattern.max_scan_loss_db = 8.0f;
+  session_config.hardware.antenna.pattern.max_sidelobe_level_db = -18.0f;
+  session_config.hardware.antenna.pattern.max_scan_loss_db = 8.0f;
 
   ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
   exec_config.detection.engineering.pulse_count = 4096;
@@ -631,13 +631,13 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
   session_config.mission.orientation = exec_config.detection.orientation;
-  session_config.hardware.detection = exec_config.detection.engineering;
+  session_config.hardware = exec_config.detection.engineering;
   session_config.policy.beam_control = exec_config.detection.beam_control;
   session_config.policy.association = exec_config.association.policy;
   session_config.policy.tracking = exec_config.tracking.policy;
   session_config.policy.lifecycle = exec_config.lifecycle.policy;
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
-  environment::EnvironmentModelConfig environment_config;
+  config::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
 
   session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
@@ -702,15 +702,15 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
 
 TEST(SignalPipelineScanScheduleTest, WorkModeSttReducesSweepCoverageComparedToTws) {
   config::RadarSessionConfig tws_session;
-  tws_session.hardware.detection.enable_physics_detection = true;
-  tws_session.hardware.detection.pulse_count = 16;
-  tws_session.hardware.detection.detection_policy.cfar_pfa = 2.0e-6f;
-  tws_session.hardware.detection.detection_policy.min_snr_db = -12.0f;
-  tws_session.hardware.detection.min_detection_margin_db = -100.0f;
-  tws_session.hardware.detection.antenna.pattern.model_type =
+  tws_session.hardware.enable_physics_detection = true;
+  tws_session.hardware.pulse_count = 16;
+  tws_session.hardware.detection_policy.cfar_pfa = 2.0e-6f;
+  tws_session.hardware.detection_policy.min_snr_db = -12.0f;
+  tws_session.hardware.min_detection_margin_db = -100.0f;
+  tws_session.hardware.antenna.pattern.model_type =
       config::AntennaPatternModelType::kParabolicMainLobe;
-  tws_session.hardware.detection.antenna.pattern.max_sidelobe_level_db = -18.0f;
-  tws_session.hardware.detection.antenna.pattern.max_scan_loss_db = 8.0f;
+  tws_session.hardware.antenna.pattern.max_sidelobe_level_db = -18.0f;
+  tws_session.hardware.antenna.pattern.max_scan_loss_db = 8.0f;
   tws_session.mission.orientation.work_mode = model::RadarWorkMode::kTws;
   tws_session.mission.orientation.scan_center_deg.az_deg = -60.0f;
   tws_session.mission.orientation.scan_center_deg.el_deg = 0.0f;
@@ -730,7 +730,7 @@ TEST(SignalPipelineScanScheduleTest, WorkModeSttReducesSweepCoverageComparedToTw
   signal::pipeline::SignalPipeline tws_pipeline(tws_session);
   signal::pipeline::SignalPipeline stt_pipeline(stt_session);
 
-  environment::EnvironmentModelConfig environment_config;
+  config::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
 
   session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);

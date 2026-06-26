@@ -20,14 +20,6 @@ set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/config/airborne_radar_config.hpp"
 )
 
-# ── AR 环境域 ────────────────────────────────────────────────────────
-set(AR_ENVIRONMENT_HEADERS
-    "airborne_radar/environment/EnvironmentConfig.h"
-    "airborne_radar/environment/EnvironmentRuntimeConfigPatch.h"
-    "airborne_radar/environment/EnvironmentTypes.h"
-    "airborne_radar/environment/airborne_radar_environment.hpp"
-)
-
 # ── AR 扩展域 ────────────────────────────────────────────────────────
 set(AR_EXTENSION_HEADERS
     "airborne_radar/extension/ITacticalDecisionEngine.h"
@@ -256,7 +248,6 @@ set(FOUNDATION_HEADERS
 
 set(EXPECTED_PUBLIC_HEADERS
     ${AR_PUBLIC_PRIMARY_HEADERS}
-    ${AR_ENVIRONMENT_HEADERS}
     ${AR_EXTENSION_HEADERS}
     ${AR_MODEL_HEADERS}
     ${AR_OUTPUT_HEADERS}

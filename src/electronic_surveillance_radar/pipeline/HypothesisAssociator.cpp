@@ -7,8 +7,8 @@
 #include <utility>
 #include <vector>
 
-#include "electronic_surveillance_radar/utils/EsrSharedUtils.h"
-#include "electronic_surveillance_radar/intercept/BandClassifier.h"
+#include "electronic_surveillance_radar/environment/EsrSharedUtils.h"
+#include "electronic_surveillance_radar/pipeline/BandClassifier.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
 
 namespace electronic_surveillance_radar {

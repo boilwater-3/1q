@@ -189,7 +189,7 @@ std::uint32_t ResolveLifecycleExtraMissTolerance(
 void CollectCycleOutputs(const extension::control::RadarControlProfile& control_profile,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
                          const ExecutionConfig& runtime_config,
-                         const environment::EnvironmentSnapshot& environment_snapshot,
+                         const session::EnvironmentSnapshot& environment_snapshot,
                          const session::RadarSceneTargetList& input_state,
                          tracking::ITrackLifecycleManager* auto_lifecycle_manager,
                          CycleExecutionScratch& scratch) {

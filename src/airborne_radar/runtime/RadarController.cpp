@@ -148,7 +148,7 @@ void RadarController::RunOnce() {
   }
 
   // 冻结环境
-  environment::EnvironmentCycleContext environment_cycle_context;
+  session::EnvironmentCycleContext environment_cycle_context;
   environment_cycle_context.cycle_index = stamp.cycle_index;
   environment_cycle_context.dt_sec = cycle_dt_sec;
   impl_->environment_service.BeginCycle(environment_cycle_context);

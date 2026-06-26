@@ -124,8 +124,8 @@ TEST(RadarCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput
   environment.atmospheric_observation.temperature_k = 301.0f;
   environment.atmospheric_context.solar_flux_f107 = 180.0f;
   environment.surface_observation.cover_profile =
-      environment::VegetationCoverProfile::kSparseWoodland;
-  environment.jammer_sources.push_back(environment::JammerEmitterState{});
+      config::VegetationCoverProfile::kSparseWoodland;
+  environment.jammer_sources.push_back(config::JammerEmitterState{});
   environment.jammer_sources[0].power_db = 12.0f;
 
   RadarCycleInput input;
@@ -136,7 +136,7 @@ TEST(RadarCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput
   EXPECT_FLOAT_EQ(input.environment.atmospheric_observation.temperature_k, 301.0f);
   EXPECT_FLOAT_EQ(input.environment.atmospheric_context.solar_flux_f107, 180.0f);
   EXPECT_EQ(input.environment.surface_observation.cover_profile,
-            environment::VegetationCoverProfile::kSparseWoodland);
+            config::VegetationCoverProfile::kSparseWoodland);
   ASSERT_EQ(input.environment.jammer_sources.size(), 1U);
   EXPECT_FLOAT_EQ(input.environment.jammer_sources[0].power_db, 12.0f);
 }

@@ -34,7 +34,7 @@ void ResetCycleScratch(CycleExecutionScratch* scratch) {
   *scratch = CycleExecutionScratch();
 }
 
-bool HasValidEnvironmentCycle(const environment::EnvironmentSnapshot& snapshot) {
+bool HasValidEnvironmentCycle(const session::EnvironmentSnapshot& snapshot) {
   return std::isfinite(snapshot.cycle_dt_sec) != 0 && snapshot.cycle_dt_sec > 0.0f;
 }
 
@@ -133,7 +133,7 @@ struct SignalPipeline::Impl {
       return result;
     }
 
-    const environment::EnvironmentSnapshot environment_snapshot = environment.SampleEnvironment();
+    const session::EnvironmentSnapshot environment_snapshot = environment.SampleEnvironment();
     if (!HasValidEnvironmentCycle(environment_snapshot)) {
       PROJECT_LOG_ERROR(
           "[SignalPipeline] RunCycle aborted because environment cycle is not initialized with a "

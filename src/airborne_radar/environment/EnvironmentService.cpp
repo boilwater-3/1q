@@ -12,6 +12,17 @@
 namespace airborne_radar {
 namespace environment {
 
+// Using declarations for types migrated to config:: and session::
+using config::EnvironmentModelConfig;
+using config::JammerEmitterState;
+using config::JammingSensitivityProfile;
+using config::JammingTechnique;
+using session::EnvironmentCycleContext;
+using session::EnvironmentSceneState;
+using session::EnvironmentSnapshot;
+using session::JammerDirectionDeg;
+using session::JammerSourceFact;
+
 namespace {
 
 float WrapAzimuthDeg(float azimuth_deg) {

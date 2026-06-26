@@ -11,7 +11,7 @@
 namespace ar = airborne_radar;
 namespace ar_session = airborne_radar::session;
 namespace ar_config = airborne_radar::config;
-namespace ar_env = airborne_radar::environment;
+namespace ar_env = airborne_radar::config;
 namespace ar_model = airborne_radar::model;
 
 namespace {

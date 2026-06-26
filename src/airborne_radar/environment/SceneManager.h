@@ -6,10 +6,13 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_SCENE_SCENE_MANAGER_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_SCENE_SCENE_MANAGER_H_
 
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
 
 namespace airborne_radar {
 namespace environment {
+
+using session::EnvironmentCycleContext;
+using session::EnvironmentSceneState;
 
 /**
  * @brief 管理环境场景的 pending/active 双态。

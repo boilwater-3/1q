@@ -59,10 +59,10 @@ config::RadarSessionConfig MakeDetectionFocusedConfig() {
       .Build();
 }
 
-environment::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_power_db) {
-  environment::EnvironmentModelConfig config;
-  environment::JammerEmitterState jammer;
-  jammer.technique = environment::JammingTechnique::kUnknown;
+config::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_power_db) {
+  config::EnvironmentModelConfig config;
+  config::JammerEmitterState jammer;
+  jammer.technique = config::JammingTechnique::kUnknown;
   jammer.power_db = jammer_power_db;
   jammer.confidence = 1.0f;
   config.jammer_sources.push_back(jammer);
@@ -243,8 +243,8 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
-  environment::JammerEmitterState jammer_source;
-  jammer_source.technique = environment::JammingTechnique::kDeception;
+  config::JammerEmitterState jammer_source;
+  jammer_source.technique = config::JammingTechnique::kDeception;
   jammer_source.power_db = 10.0f;
   jammer_source.confidence = 1.0f;
   jammer_source.js_db = 7.0f;
@@ -254,7 +254,7 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
   jammer_source.angular_span_deg = 5.0f;
   environment_service.UpdateSceneState(
       [&] {
-        environment::EnvironmentSceneState s;
+        session::EnvironmentSceneState s;
         s.jammer_emitters.push_back(jammer_source);
         return s;
       }());
@@ -266,7 +266,7 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
 
   controller.RunOnce();
 
-  const environment::EnvironmentSnapshot frozen_snapshot = environment_service.SampleEnvironment();
+  const session::EnvironmentSnapshot frozen_snapshot = environment_service.SampleEnvironment();
   const std::vector<signal::tracking::TrackMeasurement> measurements =
       signal_pipeline.GetLastTrackMeasurements();
 
@@ -299,8 +299,8 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
   controller.RunOnce();
   EXPECT_FALSE(decision_engine.last_frame.environment_jamming_detected);
 
-  environment::JammerEmitterState jammer_source;
-  jammer_source.technique = environment::JammingTechnique::kNoiseSuppression;
+  config::JammerEmitterState jammer_source;
+  jammer_source.technique = config::JammingTechnique::kNoiseSuppression;
   jammer_source.power_db = 9.0f;
   jammer_source.confidence = 1.0f;
   jammer_source.has_direction_deg = true;
@@ -309,7 +309,7 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
   jammer_source.angular_span_deg = 12.0f;
   environment_service.UpdateSceneState(
       [&] {
-        environment::EnvironmentSceneState s;
+        session::EnvironmentSceneState s;
         s.jammer_emitters.push_back(jammer_source);
         return s;
       }());
@@ -326,9 +326,9 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
-  environment::EnvironmentModelConfig env_config;
-  environment::JammerEmitterState deception_emitter;
-  deception_emitter.technique = environment::JammingTechnique::kDeception;
+  config::EnvironmentModelConfig env_config;
+  config::JammerEmitterState deception_emitter;
+  deception_emitter.technique = config::JammingTechnique::kDeception;
   deception_emitter.power_db = 9.0f;
   deception_emitter.js_db = 7.5f;
   deception_emitter.has_direction_deg = true;
@@ -346,14 +346,14 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
 
   controller.RunOnce();
 
-  const environment::EnvironmentSnapshot frozen_snapshot = environment_service.SampleEnvironment();
+  const session::EnvironmentSnapshot frozen_snapshot = environment_service.SampleEnvironment();
   ASSERT_EQ(decision_engine.evaluate_count, 1u);
   EXPECT_TRUE(decision_engine.last_frame.environment_jamming_detected);
   ASSERT_EQ(decision_engine.last_frame.eccm_source_info.jammer_sources.size(), 1u);
   ASSERT_EQ(frozen_snapshot.jammer_sources.size(), 1u);
   const model::EccmJammerSourceInfo& mapped_source =
       decision_engine.last_frame.eccm_source_info.jammer_sources.front();
-  const environment::JammerSourceFact& frozen_source = frozen_snapshot.jammer_sources.front();
+  const session::JammerSourceFact& frozen_source = frozen_snapshot.jammer_sources.front();
   EXPECT_EQ(mapped_source.technique, model::JammingTechnique::kDeception);
   EXPECT_FLOAT_EQ(mapped_source.jammer_power_db, 9.0f);
   EXPECT_FLOAT_EQ(mapped_source.jammer_to_signal_db, 7.5f);

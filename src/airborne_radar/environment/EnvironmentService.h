@@ -8,12 +8,19 @@
 
 #include <memory>
 
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/environment/JammingThresholdUtils.h"
 
 namespace airborne_radar {
 namespace environment {
+
+// Using declarations for types migrated to config:: and session::
+using config::EnvironmentModelConfig;
+using config::JammingSensitivityProfile;
+using session::EnvironmentCycleContext;
+using session::EnvironmentSnapshot;
+using session::EnvironmentSceneState;
 
 class SceneManager;
 class PropagationModel;

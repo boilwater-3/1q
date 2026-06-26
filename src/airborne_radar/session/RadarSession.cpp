@@ -16,9 +16,9 @@ namespace airborne_radar {
 namespace session {
 namespace {
 
-environment::EnvironmentSceneState BuildSceneStateFromEnvironmentInput(
+session::EnvironmentSceneState BuildSceneStateFromEnvironmentInput(
     const RadarEnvironmentInput& environment_input) {
-  environment::EnvironmentSceneState scene_state;
+  session::EnvironmentSceneState scene_state;
   scene_state.atmospheric_physics = environment_input.atmospheric_observation;
   scene_state.atmospheric_context = environment_input.atmospheric_context;
   scene_state.vegetation_scatter_physics = environment_input.surface_observation;
@@ -155,7 +155,7 @@ struct RadarSession::Impl {
     }
 
     if (should_sync_environment_model) {
-      environment_service.UpdateModelConfig(environment::BuildModelConfigFromScenario(
+      environment_service.UpdateModelConfig(config::BuildModelConfigFromScenario(
           pending_runtime_state.environment_scenario_config));
     }
     if (should_sync_jamming_sensitivity) {

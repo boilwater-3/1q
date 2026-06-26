@@ -201,14 +201,8 @@ struct ONEQ_API DetectionConfig {
 using detection::AntennaPatternModelType;
 using detection::DetectionConfig;
 
-/**
- * @brief 雷达硬件域配置。
- *
- * 当前阶段硬件域承载探测链路固有能力参数。
- */
-struct ONEQ_API RadarHardwareConfig {
-  DetectionConfig detection{};
-};
+/** @brief 雷达硬件域配置——DetectionConfig 别名。 */
+using RadarHardwareConfig = detection::DetectionConfig;
 
 }  // namespace config
 }  // namespace airborne_radar

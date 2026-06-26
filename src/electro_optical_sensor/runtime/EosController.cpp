@@ -6,7 +6,7 @@
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
-#include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
+#include "electro_optical_sensor/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace extension {

@@ -9,7 +9,7 @@ set(EOS_ENGINE_SOURCES
     electro_optical_sensor/foundation/EosRadiometry.cpp
     electro_optical_sensor/foundation/EosSpatialSpectrum.cpp
     electro_optical_sensor/foundation/EosStrayLight.cpp
-    electro_optical_sensor/signal/pipeline/EosPipeline.cpp
+    electro_optical_sensor/pipeline/EosPipeline.cpp
 )
 
 # -- core: 会话、运行时、环境（粘合层，依赖轻） --------------------------------
@@ -60,10 +60,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosTraceSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/session/EosReplaySession.h
     )
-    set(PUBLIC_HEADERS_EOS_ENVIRONMENT
-    )
-    set(PUBLIC_HEADERS_EOS_EXTENSION
-    )
     set(PUBLIC_HEADERS_EOS_CONFIG
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosEnvironmentConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosHardwareConfig.h
@@ -87,12 +83,6 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_EOS_SESSION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/session
-    )
-    install(FILES ${PUBLIC_HEADERS_EOS_ENVIRONMENT}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/environment
-    )
-    install(FILES ${PUBLIC_HEADERS_EOS_EXTENSION}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/extension
     )
     install(FILES ${PUBLIC_HEADERS_EOS_CONFIG}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electro_optical_sensor/config

@@ -21,13 +21,13 @@ namespace session {
  */
 struct ONEQ_API RadarEnvironmentInputPatch {
   bool has_atmospheric_observation{false};                         /**< 是否更新气象/电离层输入 */
-  environment::AtmosphericPhysicsConfig atmospheric_observation{}; /**< 新气象/电离层输入 */
+  config::AtmosphericPhysicsConfig atmospheric_observation{}; /**< 新气象/电离层输入 */
   bool has_atmospheric_context{false};                             /**< 是否更新时间/空间天气输入 */
-  environment::AtmosphericDerivedContext atmospheric_context{};    /**< 新时间/空间天气输入 */
+  config::AtmosphericDerivedContext atmospheric_context{};    /**< 新时间/空间天气输入 */
   bool has_surface_observation{false};                             /**< 是否更新地表/植被输入 */
-  environment::VegetationScatterPhysicsConfig surface_observation{}; /**< 新地表/植被输入 */
+  config::VegetationScatterPhysicsConfig surface_observation{}; /**< 新地表/植被输入 */
   bool has_jammer_sources{false};                                    /**< 是否更新干扰源列表 */
-  environment::JammerEmitterStateList jammer_sources{};              /**< 新干扰源列表 */
+  config::JammerEmitterStateList jammer_sources{};              /**< 新干扰源列表 */
 };
 
 }  // namespace session

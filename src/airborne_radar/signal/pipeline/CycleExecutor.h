@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "1q/airborne_radar/model/DecisionInputFrame.h"
 #include "1q/airborne_radar/model/JammingSemantics.h"
@@ -89,7 +89,7 @@ struct CycleExecutionRuntime {
 
 struct CycleExecutionContext {
   CycleExecutionContext(const session::RadarSceneTargetList& input_state,
-                        const environment::EnvironmentSnapshot& environment_snapshot,
+                        const session::EnvironmentSnapshot& environment_snapshot,
                         std::uint32_t cycle_index, std::uint64_t batch_id,
                         ExecutionConfig runtime_config, float platform_altitude_m)
       : input_state(input_state),
@@ -100,7 +100,7 @@ struct CycleExecutionContext {
         runtime_config(std::move(runtime_config)) {}
 
   const session::RadarSceneTargetList& input_state;
-  const environment::EnvironmentSnapshot& environment_snapshot;
+  const session::EnvironmentSnapshot& environment_snapshot;
   std::uint32_t cycle_index{0U};
   std::uint64_t batch_id{0U};
   float platform_altitude_m{0.0f};

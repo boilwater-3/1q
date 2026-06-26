@@ -4,7 +4,7 @@
 #include <cstddef>
 
 #include "1q/environment/PropagationPhysics.h"
-#include "electronic_surveillance_radar/utils/EsrSharedUtils.h"
+#include "electronic_surveillance_radar/environment/EsrSharedUtils.h"
 
 namespace electronic_surveillance_radar {
 namespace environment {

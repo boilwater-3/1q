@@ -12,6 +12,10 @@
 namespace airborne_radar {
 namespace environment {
 
+using config::VegetationCoverProfile;
+using config::VegetationScatterPhysicsConfig;
+using session::EnvironmentSceneState;
+
 namespace {
 
 constexpr float kInternalBasePropagationLossDb = 4.0f;

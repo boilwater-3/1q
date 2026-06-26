@@ -6,6 +6,10 @@
 #ifndef ONEQ_SRC_SAR_GEOMETRY_SAR_ANTENNA_H_
 #define ONEQ_SRC_SAR_GEOMETRY_SAR_ANTENNA_H_
 
+#include <cmath>
+
+#include "1q/sar/config/SarHardwareConfig.h"
+
 namespace sar {
 namespace geometry {
 
@@ -13,13 +17,38 @@ namespace geometry {
  * @brief 天线物理参数。
  */
 struct AntennaParams {
-  double length_m{0.0};              ///< 方位向天线长度
-  double width_m{0.0};               ///< 距离向天线宽度
-  double peak_gain_linear{1.0};      ///< 峰值增益(线性)
+  double length_m{0.0};               ///< 方位向天线长度
+  double width_m{0.0};                ///< 距离向天线宽度
+  double peak_gain_linear{1.0};       ///< 峰值增益(线性)
   double beam_width_azimuth_rad{0.0}; ///< 方位波束宽度(rad)
   double beam_width_range_rad{0.0};   ///< 距离波束宽度(rad)
   double boresight_azimuth_rad{0.0};  ///< 方位角指向(rad)
 };
+
+/**
+ * @brief 从硬件配置构造天线物理参数。
+ *
+ * 从 SarHardwareConfig 的物理尺寸和增益推导派生量：
+ * - peak_gain_linear = 10^(antenna_gain_db/10)
+ * - beam_width_azimuth_rad = λ / length_m
+ * - beam_width_range_rad  = λ / width_m
+ *
+ * @param[in] config SAR 硬件配置。
+ * @param[in] wavelength_m 载波波长（单位：m）。
+ * @return 填充派生量的 AntennaParams。
+ */
+inline AntennaParams MakeAntennaParams(const config::SarHardwareConfig& config,
+                                       double wavelength_m) {
+  AntennaParams params;
+  params.length_m = config.antenna_length_m;
+  params.width_m = config.antenna_width_m;
+  params.peak_gain_linear = std::pow(10.0, config.antenna_gain_db / 10.0);
+  params.beam_width_azimuth_rad =
+      (params.length_m > 0.0) ? (wavelength_m / params.length_m) : 0.0;
+  params.beam_width_range_rad =
+      (params.width_m > 0.0) ? (wavelength_m / params.width_m) : 0.0;
+  return params;
+}
 
 /**
  * @brief 天线增益 G = 4π·A_eff/λ², 有效面积 A_eff = peak_gain·λ²/(4π)·(L·W)/(peak_aperture)。

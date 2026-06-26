@@ -6,10 +6,12 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_JAMMING_THRESHOLD_UTILS_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_JAMMING_THRESHOLD_UTILS_H_
 
-#include "1q/airborne_radar/environment/EnvironmentConfig.h"
+#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
 
 namespace airborne_radar {
 namespace environment {
+
+using config::JammingSensitivityProfile;
 
 inline float ResolveJammingDetectionThresholdDb(JammingSensitivityProfile profile) {
   switch (profile) {

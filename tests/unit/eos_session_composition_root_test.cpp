@@ -10,7 +10,7 @@
 
 #include "electro_optical_sensor/runtime/EosController.h"
 #include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
-#include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
+#include "electro_optical_sensor/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace session {

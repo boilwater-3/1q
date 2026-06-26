@@ -51,7 +51,7 @@ float ComputeEquivalentClutterNoiseW(
 
 float ComputeTargetSpecificAtmosphericLossDb(
     const ExecutionConfig& exec_config,
-    const environment::EnvironmentSnapshot& environment_snapshot, float platform_altitude_m,
+    const session::EnvironmentSnapshot& environment_snapshot, float platform_altitude_m,
     const detection::ResolvedTargetGeometry& geometry) {
   if (!environment_snapshot.atmospheric_physics.enable_physical_model) {
     return 0.0f;
@@ -170,7 +170,7 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input,
                                const ExecutionConfig& config,
                                const extension::control::RadarControlProfile& control_profile,
-                               const environment::EnvironmentSnapshot& environment_snapshot,
+                               const session::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers) {
   if (buffers == nullptr || !HasValidBuffers(*buffers)) {
     return;
@@ -206,7 +206,7 @@ void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input,
 void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
                               const ExecutionConfig& config,
                               const extension::control::RadarControlProfile& control_profile,
-                              const environment::EnvironmentSnapshot& environment_snapshot,
+                              const session::EnvironmentSnapshot& environment_snapshot,
                               float platform_altitude_m, detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers) {
   if (signal_detector == nullptr || buffers == nullptr || !HasValidBuffers(*buffers)) {
@@ -221,7 +221,7 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
       HasMultiSourceJammingFacts(environment_snapshot)) {
     const bool has_sidelobe_source = std::find_if(environment_snapshot.jammer_sources.begin(),
                                                   environment_snapshot.jammer_sources.end(),
-                                                  [](const environment::JammerSourceFact& source) {
+                                                  [](const session::JammerSourceFact& source) {
                                                     return source.in_sidelobe;
                                                   }) != environment_snapshot.jammer_sources.end();
     clutter_w *= has_sidelobe_source ? 0.55f : 0.80f;
@@ -230,7 +230,7 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
   float jam_w = 0.0f;
   if (HasMultiSourceJammingFacts(environment_snapshot)) {
     for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-      const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
+      const session::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
       jam_w += ComputePhysicalSourceJamContributionW(config.jamming_effects, source) *
                ComputeResidualJammerFactor(control_profile, source);
     }

@@ -149,7 +149,7 @@ config::RadarSessionConfig MapExecutionToSession(
     const execution::InternalExecutionConfig& execution_config) {
   config::RadarSessionConfig config;
   config.mission.power_on = execution_config.sensor_enabled;
-  config.hardware.detection = execution_config.detection.engineering;
+  config.hardware = execution_config.detection.engineering;
   config.mission.orientation = execution_config.detection.orientation;
   config.policy.beam_control = execution_config.detection.beam_control;
   config.policy.association = execution_config.association.policy;

@@ -11,7 +11,7 @@
 
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/SpectralNumerics.h"
-#include "electronic_surveillance_radar/utils/EsrSharedUtils.h"
+#include "electronic_surveillance_radar/environment/EsrSharedUtils.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
 
 namespace electronic_surveillance_radar {

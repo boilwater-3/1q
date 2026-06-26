@@ -41,10 +41,10 @@ struct CycleStats {
 };
 
 struct SceneScriptStep {
-  environment::EnvironmentSceneState scene_state{};
+  session::EnvironmentSceneState scene_state{};
   bool expect_jamming{false};
 
-  SceneScriptStep(const environment::EnvironmentSceneState& scene_state_in, bool expect_jamming_in)
+  SceneScriptStep(const session::EnvironmentSceneState& scene_state_in, bool expect_jamming_in)
       : scene_state(scene_state_in), expect_jamming(expect_jamming_in) {}
 };
 
@@ -65,15 +65,15 @@ config::RadarSessionConfig MakeJointIntegrationSessionConfig() {
 
 config::RadarSessionConfig MakeJointIntegrationPhysicsSessionConfig(float pulse_width_s) {
   config::RadarSessionConfig config = MakeJointIntegrationSessionConfig();
-  config.hardware.detection.enable_physics_detection = true;
-  config.hardware.detection.transmitter.pulse_width_s = pulse_width_s;
+  config.hardware.enable_physics_detection = true;
+  config.hardware.transmitter.pulse_width_s = pulse_width_s;
   if (pulse_width_s > 15e-6f) {
-    config.hardware.detection.transmitter.peak_power_w = 5.0e6f;
-    config.hardware.detection.transmitter.frequency_hz = 9.3e9f;
-    config.hardware.detection.transmitter.bandwidth_hz = 3.0e6f;
-    config.hardware.detection.transmitter.prf_hz = 220.0f;
-    config.hardware.detection.antenna.main_beam_gain_db = 38.0f;
-    config.hardware.detection.receiver.noise_figure_db = 3.0f;
+    config.hardware.transmitter.peak_power_w = 5.0e6f;
+    config.hardware.transmitter.frequency_hz = 9.3e9f;
+    config.hardware.transmitter.bandwidth_hz = 3.0e6f;
+    config.hardware.transmitter.prf_hz = 220.0f;
+    config.hardware.antenna.main_beam_gain_db = 38.0f;
+    config.hardware.receiver.noise_figure_db = 3.0f;
   }
   return config;
 }
@@ -232,11 +232,11 @@ std::size_t CountJammingFlaggedTracks(const session::TrackOutputFrame& frame) {
   return count;
 }
 
-environment::JammerEmitterState BuildJammerEmitter(environment::JammingTechnique technique,
+config::JammerEmitterState BuildJammerEmitter(config::JammingTechnique technique,
                                                    float power_db, float js_db,
                                                    float frequency_overlap_ratio,
                                                    float prf_lock_risk, bool in_sidelobe) {
-  environment::JammerEmitterState emitter;
+  config::JammerEmitterState emitter;
   emitter.technique = technique;
   emitter.power_db = power_db;
   emitter.confidence = 1.0f;
@@ -248,38 +248,38 @@ environment::JammerEmitterState BuildJammerEmitter(environment::JammingTechnique
   return emitter;
 }
 
-environment::EnvironmentSceneState MakeClearScene() {
-  return environment::EnvironmentSceneState{};
+session::EnvironmentSceneState MakeClearScene() {
+  return session::EnvironmentSceneState{};
 }
 
-environment::EnvironmentSceneState MakeNoiseScene() {
-  environment::EnvironmentSceneState scene;
+session::EnvironmentSceneState MakeNoiseScene() {
+  session::EnvironmentSceneState scene;
   scene.jammer_emitters.push_back(
-      BuildJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 11.0f, 8.0f, 0.20f, 0.10f,
+      BuildJammerEmitter(config::JammingTechnique::kNoiseSuppression, 11.0f, 8.0f, 0.20f, 0.10f,
                          true));
   return scene;
 }
 
-environment::EnvironmentSceneState MakeDeceptionScene() {
-  environment::EnvironmentSceneState scene;
-  scene.jammer_emitters.push_back(BuildJammerEmitter(environment::JammingTechnique::kDeception, 8.0f,
+session::EnvironmentSceneState MakeDeceptionScene() {
+  session::EnvironmentSceneState scene;
+  scene.jammer_emitters.push_back(BuildJammerEmitter(config::JammingTechnique::kDeception, 8.0f,
                                                      8.0f, 0.90f, 0.90f, false));
   return scene;
 }
 
-environment::EnvironmentSceneState MakeRepeaterScene() {
-  environment::EnvironmentSceneState scene;
-  scene.jammer_emitters.push_back(BuildJammerEmitter(environment::JammingTechnique::kRepeater, 8.5f,
+session::EnvironmentSceneState MakeRepeaterScene() {
+  session::EnvironmentSceneState scene;
+  scene.jammer_emitters.push_back(BuildJammerEmitter(config::JammingTechnique::kRepeater, 8.5f,
                                                      7.0f, 0.15f, 0.95f, false));
   return scene;
 }
 
-environment::EnvironmentSceneState MakeMixedScene() {
-  environment::EnvironmentSceneState scene;
+session::EnvironmentSceneState MakeMixedScene() {
+  session::EnvironmentSceneState scene;
   scene.jammer_emitters.push_back(
-      BuildJammerEmitter(environment::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f, 0.18f, 0.10f,
+      BuildJammerEmitter(config::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f, 0.18f, 0.10f,
                          true));
-  scene.jammer_emitters.push_back(BuildJammerEmitter(environment::JammingTechnique::kDeception, 9.0f,
+  scene.jammer_emitters.push_back(BuildJammerEmitter(config::JammingTechnique::kDeception, 9.0f,
                                                      7.5f, 0.90f, 0.90f, false));
   return scene;
 }
@@ -508,9 +508,9 @@ TEST(RadarJointIntegrationTest,
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
       [&] {
-        environment::EnvironmentSceneState s;
+        session::EnvironmentSceneState s;
         s.jammer_emitters.push_back(BuildJammerEmitter(
-            environment::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f, 0.20f, 0.10f, true));
+            config::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f, 0.20f, 0.10f, true));
         return s;
       }());
 
@@ -557,9 +557,9 @@ TEST(RadarJointIntegrationTest,
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
       [&] {
-        environment::EnvironmentSceneState s;
+        session::EnvironmentSceneState s;
         s.jammer_emitters.push_back(BuildJammerEmitter(
-            environment::JammingTechnique::kDeception, 8.0f, 8.0f, 0.90f, 0.90f, false));
+            config::JammingTechnique::kDeception, 8.0f, 8.0f, 0.90f, 0.90f, false));
         return s;
       }());
 
@@ -611,9 +611,9 @@ TEST(RadarJointIntegrationTest, StageTwoRepeaterInterferenceKeepsTrackOutputAndS
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   environment_service.UpdateSceneState(
       [&] {
-        environment::EnvironmentSceneState s;
+        session::EnvironmentSceneState s;
         s.jammer_emitters.push_back(BuildJammerEmitter(
-            environment::JammingTechnique::kRepeater, 7.5f, 7.0f, 0.10f, 0.95f, false));
+            config::JammingTechnique::kRepeater, 7.5f, 7.0f, 0.10f, 0.95f, false));
         return s;
       }());
 
@@ -658,11 +658,11 @@ TEST(RadarJointIntegrationTest,
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   {
-    environment::EnvironmentSceneState s;
+    session::EnvironmentSceneState s;
     s.jammer_emitters.push_back(BuildJammerEmitter(
-        environment::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f, 0.15f, 0.10f, true));
+        config::JammingTechnique::kNoiseSuppression, 12.0f, 8.0f, 0.15f, 0.10f, true));
     s.jammer_emitters.push_back(BuildJammerEmitter(
-        environment::JammingTechnique::kDeception, 9.0f, 7.5f, 0.90f, 0.90f, false));
+        config::JammingTechnique::kDeception, 9.0f, 7.5f, 0.90f, 0.90f, false));
     environment_service.UpdateSceneState(s);
   }
 

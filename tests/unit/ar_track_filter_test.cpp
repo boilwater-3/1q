@@ -37,8 +37,8 @@ signal::tracking::CycleContext MakeLifecycleCycle(std::uint32_t cycle_index,
   return cycle;
 }
 
-environment::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_index) {
-  environment::EnvironmentCycleContext cycle;
+session::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_index) {
+  session::EnvironmentCycleContext cycle;
   cycle.cycle_index = cycle_index;
   cycle.dt_sec = 1.0f;
   return cycle;
@@ -53,18 +53,18 @@ session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
   return pipeline->RunCycle(input_state, *environment_service);
 }
 
-environment::JammerEmitterState MakeJammerEmitter(environment::JammingTechnique technique,
+config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique,
                                                   float power_db) {
-  environment::JammerEmitterState jammer;
+  config::JammerEmitterState jammer;
   jammer.technique = technique;
   jammer.power_db = power_db;
   jammer.confidence = 1.0f;
   return jammer;
 }
 
-environment::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
-    std::initializer_list<environment::JammerEmitterState> jammer_sources) {
-  environment::EnvironmentModelConfig config;
+config::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
+    std::initializer_list<config::JammerEmitterState> jammer_sources) {
+  config::EnvironmentModelConfig config;
   config.jammer_sources.insert(config.jammer_sources.end(), jammer_sources.begin(),
                                jammer_sources.end());
   return config;
@@ -75,7 +75,7 @@ void ApplyDetectionIntentProfile(config::RadarSessionConfig* config,
   if (config == nullptr) {
     return;
   }
-  auto& d = config->hardware.detection;
+  auto& d = config->hardware;
   switch (profile) {
     case config::profiles::DetectionIntentProfile::kDetectionPriority:
       d.pulse_count = 16;

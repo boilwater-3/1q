@@ -160,7 +160,7 @@ config::RadarSessionConfig BuildDefaultSemanticSessionConfig() {
                                profiles::DetectionIntentProfile::kBalanced,
                                profiles::AntennaPatternProfile::kStandard,
                                model::AzimuthElevationDeg(), profiles::RcsFusionProfile::kDisabled,
-                               &config.hardware.detection);
+                               &config.hardware);
   ApplyTrackingSemanticConfig(false, profiles::TrackingPolicyProfile::kBalanced,
                               &config.policy.tracking, &config.policy.association);
   ApplyLifecycleSemanticConfig(false, profiles::LifecyclePolicyProfile::kBalanced,
@@ -187,10 +187,10 @@ config::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   result.environment = env_;
 
   if (detection_dirty_) {
-    result.hardware.detection = default_semantic.hardware.detection;
+    result.hardware = default_semantic.hardware;
     ApplyDetectionSemanticConfig(enable_physics_detection_, hardware_profile_, intent_profile_,
                                  antenna_profile_, antenna_boresight_offset_deg_,
-                                 rcs_fusion_profile_, &result.hardware.detection);
+                                 rcs_fusion_profile_, &result.hardware);
   }
 
   if (tracking_dirty_) {

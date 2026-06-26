@@ -6,10 +6,12 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_SIMULATION_PROPAGATION_MODEL_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_SIMULATION_PROPAGATION_MODEL_H_
 
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
 
 namespace airborne_radar {
 namespace environment {
+
+using session::EnvironmentSceneState;
 /**
  * @brief PropagationResult 表示传播与杂波组合输出。
  */

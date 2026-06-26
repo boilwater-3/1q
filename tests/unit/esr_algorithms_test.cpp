@@ -11,12 +11,12 @@
 #include <vector>
 
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
-#include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
-#include "electronic_surveillance_radar/intercept/BandClassifier.h"
-#include "electronic_surveillance_radar/intercept/BoundarySearchSolver.h"
-#include "electronic_surveillance_radar/intercept/InterceptGate.h"
-#include "electronic_surveillance_radar/intercept/JammingAggregator.h"
-#include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"
+#include "electronic_surveillance_radar/pipeline/AngleErrorModel.h"
+#include "electronic_surveillance_radar/pipeline/BandClassifier.h"
+#include "electronic_surveillance_radar/pipeline/BoundarySearchSolver.h"
+#include "electronic_surveillance_radar/pipeline/InterceptGate.h"
+#include "electronic_surveillance_radar/pipeline/JammingAggregator.h"
+#include "electronic_surveillance_radar/pipeline/ScanPatternGenerator.h"
 
 namespace electronic_surveillance_radar {
 namespace intercept {

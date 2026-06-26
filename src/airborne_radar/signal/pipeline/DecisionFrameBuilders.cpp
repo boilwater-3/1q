@@ -12,7 +12,7 @@ namespace {
  *  @param environment_source 环境快照中的干扰源事实。
  *  @return 填充后的 ECCM 干扰源信息。 */
 model::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
-    const environment::JammerSourceFact& environment_source) {
+    const session::JammerSourceFact& environment_source) {
   model::EccmJammerSourceInfo source_info;
   source_info.technique = environment_source.technique;
   source_info.jammer_power_db = environment_source.power_db;
@@ -33,7 +33,7 @@ model::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
 }  // namespace
 
 model::EccmSourceInfo BuildEccmSourceInfo(
-    const environment::EnvironmentSnapshot& environment_snapshot) {
+    const session::EnvironmentSnapshot& environment_snapshot) {
   model::EccmSourceInfo source_info;
   source_info.has_jamming_signal = environment_snapshot.jamming_detected;
   source_info.jammer_sources.reserve(environment_snapshot.jammer_sources.size());

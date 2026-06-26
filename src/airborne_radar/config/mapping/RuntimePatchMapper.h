@@ -8,7 +8,7 @@
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/environment/EnvironmentConfig.h"
+#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
 #include "airborne_radar/config/InternalExecutionConfig.h"
 
 namespace airborne_radar {
@@ -20,9 +20,9 @@ namespace mapping {
  */
 struct RuntimeConfigState {
   execution::InternalExecutionConfig execution_config{};
-  environment::EnvironmentScenarioConfig environment_scenario_config{};
-  environment::JammingSensitivityProfile jamming_sensitivity_profile{
-      environment::JammingSensitivityProfile::kBalanced};
+  config::EnvironmentScenarioConfig environment_scenario_config{};
+  config::JammingSensitivityProfile jamming_sensitivity_profile{
+      config::JammingSensitivityProfile::kBalanced};
   model::AzimuthElevationDeg dwell_center_deg{};
 };
 

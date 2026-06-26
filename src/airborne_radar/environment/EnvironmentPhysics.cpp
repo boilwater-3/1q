@@ -1,9 +1,9 @@
 #include <cmath>
 
-#include "1q/airborne_radar/environment/EnvironmentConfig.h"
+#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
 
 namespace airborne_radar {
-namespace environment {
+namespace config {
 
 JammingSensitivityProfile ResolveJammingSensitivityProfile(float threshold_db) {
   if (threshold_db <= 5.0f) {
@@ -15,5 +15,5 @@ JammingSensitivityProfile ResolveJammingSensitivityProfile(float threshold_db) {
   return JammingSensitivityProfile::kBalanced;
 }
 
-}  // namespace environment
+}  // namespace config
 }  // namespace airborne_radar

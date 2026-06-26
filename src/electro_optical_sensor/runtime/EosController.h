@@ -13,7 +13,7 @@
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
-#include "electro_optical_sensor/signal/pipeline/EosPipelineRuntimeTypes.h"
+#include "electro_optical_sensor/pipeline/EosPipelineRuntimeTypes.h"
 
 namespace electro_optical_sensor {
 namespace signal {

@@ -12,7 +12,7 @@ namespace airborne_radar {
 namespace tests {
 
 TEST(PropagationModelTest, NegativeTerrainReflectionYieldsNetGainPassesThroughUnchanged) {
-  environment::EnvironmentSceneState scene_state;
+  session::EnvironmentSceneState scene_state;
 
   environment::PropagationModel propagation_model;
   const environment::PropagationResult result = propagation_model.Evaluate(scene_state);
@@ -22,9 +22,9 @@ TEST(PropagationModelTest, NegativeTerrainReflectionYieldsNetGainPassesThroughUn
 }
 
 TEST(PropagationModelTest, OptionalAtmosphericPhysicsAddsExtraLossWhenEnabled) {
-  environment::EnvironmentSceneState baseline_scene;
+  session::EnvironmentSceneState baseline_scene;
 
-  environment::EnvironmentSceneState physics_scene = baseline_scene;
+  session::EnvironmentSceneState physics_scene = baseline_scene;
   physics_scene.atmospheric_physics.enable_physical_model = true;
   physics_scene.atmospheric_physics.relative_humidity = 0.75f;
 
@@ -36,12 +36,12 @@ TEST(PropagationModelTest, OptionalAtmosphericPhysicsAddsExtraLossWhenEnabled) {
 }
 
 TEST(PropagationModelTest, OptionalVegetationScatterPhysicsRaisesClutterWhenEnabled) {
-  environment::EnvironmentSceneState baseline_scene;
+  session::EnvironmentSceneState baseline_scene;
 
-  environment::EnvironmentSceneState physics_scene = baseline_scene;
+  session::EnvironmentSceneState physics_scene = baseline_scene;
   physics_scene.vegetation_scatter_physics.enable_physical_model = true;
   physics_scene.vegetation_scatter_physics.cover_profile =
-      environment::VegetationCoverProfile::kTropicalDense;
+      config::VegetationCoverProfile::kTropicalDense;
 
   environment::PropagationModel propagation_model;
   const environment::PropagationResult baseline_result = propagation_model.Evaluate(baseline_scene);
@@ -52,7 +52,7 @@ TEST(PropagationModelTest, OptionalVegetationScatterPhysicsRaisesClutterWhenEnab
 }
 
 TEST(PropagationModelTest, ClutterPowerUsesInternalBaselineWhenVegetationModelDisabled) {
-  environment::EnvironmentSceneState scene_state;
+  session::EnvironmentSceneState scene_state;
 
   environment::PropagationModel model;
   const environment::PropagationResult result = model.Evaluate(scene_state);
@@ -64,7 +64,7 @@ TEST(PropagationModelTest, ClutterPowerUsesInternalBaselineWhenVegetationModelDi
 /// @brief 关闭植被物理模型时，杂波保持内部默认值。
 
 TEST(PropagationModelTest, BaselineClutterRemainsStableAcrossDefaultScenes) {
-  environment::EnvironmentSceneState scene_state;
+  session::EnvironmentSceneState scene_state;
 
   environment::PropagationModel model;
   EXPECT_FLOAT_EQ(model.Evaluate(scene_state).clutter_power_db, 3.0f);
@@ -73,10 +73,10 @@ TEST(PropagationModelTest, BaselineClutterRemainsStableAcrossDefaultScenes) {
 /// @brief 启用植被散射物理模型后，杂波高于内部基线。
 
 TEST(PropagationModelTest, VegetationScatterRaisesClutterFromInternalBaseline) {
-  environment::EnvironmentSceneState scene_state;
+  session::EnvironmentSceneState scene_state;
   scene_state.vegetation_scatter_physics.enable_physical_model = true;
   scene_state.vegetation_scatter_physics.cover_profile =
-      environment::VegetationCoverProfile::kSparseWoodland;
+      config::VegetationCoverProfile::kSparseWoodland;
 
   environment::PropagationModel model;
   EXPECT_GT(model.Evaluate(scene_state).clutter_power_db, 3.0f);
@@ -85,7 +85,7 @@ TEST(PropagationModelTest, VegetationScatterRaisesClutterFromInternalBaseline) {
 /// @brief 传播损耗由内部基线组成。
 
 TEST(PropagationModelTest, PositivePropagationLossIsRetained) {
-  environment::EnvironmentSceneState scene_state;
+  session::EnvironmentSceneState scene_state;
 
   environment::PropagationModel model;
   const environment::PropagationResult result = model.Evaluate(scene_state);
@@ -96,7 +96,7 @@ TEST(PropagationModelTest, PositivePropagationLossIsRetained) {
 /// @brief 默认场景下，传播损耗与杂波均回到内部基线。
 
 TEST(PropagationModelTest, ZeroAtmosphericAttenuationKeepsInternalPropagationBaseline) {
-  environment::EnvironmentSceneState scene_state;
+  session::EnvironmentSceneState scene_state;
 
   environment::PropagationModel model;
   const environment::PropagationResult result = model.Evaluate(scene_state);

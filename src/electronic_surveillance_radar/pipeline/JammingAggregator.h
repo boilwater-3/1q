@@ -11,7 +11,7 @@
 
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 #include "common/numerics/ClampUtils.h"
-#include "electronic_surveillance_radar/intercept/InterceptGate.h"
+#include "electronic_surveillance_radar/pipeline/InterceptGate.h"
 
 namespace electronic_surveillance_radar {
 namespace intercept {

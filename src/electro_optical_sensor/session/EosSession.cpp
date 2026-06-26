@@ -8,7 +8,7 @@
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
 #include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 #include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
-#include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
+#include "electro_optical_sensor/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace session {

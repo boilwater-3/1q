@@ -10,7 +10,6 @@
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarMissionConfig.h"
 #include "1q/airborne_radar/config/RadarPolicyConfig.h"
-#include "1q/airborne_radar/environment/EnvironmentConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {

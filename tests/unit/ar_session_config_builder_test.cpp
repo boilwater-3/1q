@@ -34,9 +34,9 @@ config::RadarSessionConfig MakeDetectionFocusedConfig() {
 TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults) {
   const auto config = config::RadarSessionConfigBuilder().Build();
 
-  EXPECT_FALSE(config.hardware.detection.enable_physics_detection);
-  EXPECT_FLOAT_EQ(config.hardware.detection.min_detection_margin_db, -2.0f);
-  EXPECT_EQ(config.hardware.detection.pulse_count, 10);
+  EXPECT_FALSE(config.hardware.enable_physics_detection);
+  EXPECT_FLOAT_EQ(config.hardware.min_detection_margin_db, -2.0f);
+  EXPECT_EQ(config.hardware.pulse_count, 10);
   EXPECT_FALSE(config.policy.tracking.enable_kalman_filter);
   EXPECT_EQ(config.policy.lifecycle.confirm_hits, 3U);
   EXPECT_EQ(config.policy.lifecycle.max_miss_before_lost, 2U);
@@ -46,17 +46,17 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults
 TEST(RadarSessionConfigBuilderTest, ExistingBuilderBasePreservesSemanticValues) {
   const auto config = config::RadarSessionConfigBuilder(MakeDetectionFocusedConfig()).Build();
 
-  EXPECT_EQ(config.hardware.detection.pulse_count, 16);
-  EXPECT_FLOAT_EQ(config.hardware.detection.detection_policy.min_snr_db, -12.0f);
+  EXPECT_EQ(config.hardware.pulse_count, 16);
+  EXPECT_FLOAT_EQ(config.hardware.detection_policy.min_snr_db, -12.0f);
   EXPECT_FLOAT_EQ(config.policy.tracking.kalman_measurement_noise_std, 6.0f);
   EXPECT_EQ(config.policy.lifecycle.confirm_hits, 1U);
 }
 
 TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEditingEnvironment) {
   config::RadarSessionConfig base_config{};
-  base_config.hardware.detection.enable_physics_detection = true;
-  base_config.hardware.detection.transmitter.peak_power_w = 7.5e6f;
-  base_config.hardware.detection.transmitter.frequency_hz = 9.7e9f;
+  base_config.hardware.enable_physics_detection = true;
+  base_config.hardware.transmitter.peak_power_w = 7.5e6f;
+  base_config.hardware.transmitter.frequency_hz = 9.7e9f;
   base_config.policy.tracking.enable_kalman_filter = true;
   base_config.policy.tracking.kalman_measurement_noise_std = 4.5f;
   base_config.policy.lifecycle.enable_imm_lifecycle = true;
@@ -65,18 +65,18 @@ TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEdi
   const config::RadarSessionConfig rebuilt =
       config::RadarSessionConfigBuilder(base_config)
           .Environment()
-          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
+          .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
           .End()
           .Build();
 
-  EXPECT_TRUE(rebuilt.hardware.detection.enable_physics_detection);
-  EXPECT_FLOAT_EQ(rebuilt.hardware.detection.transmitter.peak_power_w, 7.5e6f);
-  EXPECT_FLOAT_EQ(rebuilt.hardware.detection.transmitter.frequency_hz, 9.7e9f);
+  EXPECT_TRUE(rebuilt.hardware.enable_physics_detection);
+  EXPECT_FLOAT_EQ(rebuilt.hardware.transmitter.peak_power_w, 7.5e6f);
+  EXPECT_FLOAT_EQ(rebuilt.hardware.transmitter.frequency_hz, 9.7e9f);
   EXPECT_TRUE(rebuilt.policy.tracking.enable_kalman_filter);
   EXPECT_FLOAT_EQ(rebuilt.policy.tracking.kalman_measurement_noise_std, 4.5f);
   EXPECT_TRUE(rebuilt.policy.lifecycle.enable_imm_lifecycle);
   EXPECT_EQ(rebuilt.policy.lifecycle.confirm_hits, 2U);
-  EXPECT_EQ(rebuilt.environment.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
+  EXPECT_EQ(rebuilt.environment.jamming_sensitivity_profile, config::JammingSensitivityProfile::kStrict);
 }
 
 TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
@@ -92,12 +92,12 @@ TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
           .End()
           .Build();
 
-  EXPECT_TRUE(config.hardware.detection.enable_physics_detection);
-  EXPECT_FLOAT_EQ(config.hardware.detection.transmitter.peak_power_w, 5.0e6f);
-  EXPECT_EQ(config.hardware.detection.pulse_count, 8);
-  EXPECT_FLOAT_EQ(config.hardware.detection.antenna.pattern.max_sidelobe_level_db, -30.0f);
-  EXPECT_TRUE(config.hardware.detection.rcs_physics.enable_physical_rcs);
-  EXPECT_FLOAT_EQ(config.hardware.detection.rcs_physics.physics_mix_ratio, 0.60f);
+  EXPECT_TRUE(config.hardware.enable_physics_detection);
+  EXPECT_FLOAT_EQ(config.hardware.transmitter.peak_power_w, 5.0e6f);
+  EXPECT_EQ(config.hardware.pulse_count, 8);
+  EXPECT_FLOAT_EQ(config.hardware.antenna.pattern.max_sidelobe_level_db, -30.0f);
+  EXPECT_TRUE(config.hardware.rcs_physics.enable_physical_rcs);
+  EXPECT_FLOAT_EQ(config.hardware.rcs_physics.physics_mix_ratio, 0.60f);
 }
 
 TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleSemanticEditorsApplyCorrectly) {
@@ -132,21 +132,21 @@ TEST(RadarSessionConfigBuilderTest, BeamAndEnvironmentEditorsApplyCorrectly) {
           .WithScanCenterDeg(scan_center)
           .End()
           .Environment()
-          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
+          .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
           .End()
           .Build();
 
   EXPECT_EQ(config.mission.orientation.work_mode, model::RadarWorkMode::kTas);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, 8.0f);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.el_deg, -2.0f);
-  EXPECT_EQ(config.environment.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
+  EXPECT_EQ(config.environment.jamming_sensitivity_profile, config::JammingSensitivityProfile::kStrict);
 }
 
 TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
   const auto config =
       config::RadarSessionConfigBuilder(MakeDetectionFocusedConfig())
           .Environment()
-          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
+          .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
           .End()
           .Build();
   session::RadarSession session = session::RadarSessionFactory::Create(config);
@@ -174,7 +174,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
           .WithDwellCenterDeg(dwell_center)
           .WithCommandedBeamwidthDeg(commanded_beamwidth)
           .WithCommandedBeamwidthEnabled(true)
-          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
+          .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
           .Build();
 
   EXPECT_TRUE(patch.has_work_mode);
@@ -193,7 +193,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
   EXPECT_TRUE(patch.has_environment);
   EXPECT_TRUE(patch.environment.has_jamming_sensitivity_profile);
   EXPECT_EQ(patch.environment.jamming_sensitivity_profile,
-            environment::JammingSensitivityProfile::kStrict);
+            config::JammingSensitivityProfile::kStrict);
 }
 
 // P3-b：四域 RuntimeConfigBuilder 形状对齐——必须提供 WithRuntimeConfigPatch 整块覆盖入口，
@@ -229,7 +229,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
       config::RadarRuntimeConfigBuilder()
           .WithWorkMode(model::RadarWorkMode::kTas)
           .WithCommandedBeamwidthEnabled(true)
-          .WithJammingSensitivityProfile(environment::JammingSensitivityProfile::kStrict)
+          .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
           .Build();
 
   session.ApplyRuntimeConfig(patch);
@@ -242,14 +242,14 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
 
 TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig) {
   config::RadarSessionConfig detailed_config{};
-  detailed_config.hardware.detection.enable_physics_detection = true;
-  detailed_config.hardware.detection.transmitter.peak_power_w = 5.0e6f;
-  detailed_config.hardware.detection.transmitter.frequency_hz = 9.3e9f;
-  detailed_config.hardware.detection.transmitter.bandwidth_hz = 10.0e6f;
-  detailed_config.hardware.detection.transmitter.pulse_width_s = 20e-6f;
-  detailed_config.hardware.detection.transmitter.prf_hz = 500.0f;
-  detailed_config.hardware.detection.antenna.main_beam_gain_db = 38.0f;
-  detailed_config.hardware.detection.receiver.noise_figure_db = 3.5f;
+  detailed_config.hardware.enable_physics_detection = true;
+  detailed_config.hardware.transmitter.peak_power_w = 5.0e6f;
+  detailed_config.hardware.transmitter.frequency_hz = 9.3e9f;
+  detailed_config.hardware.transmitter.bandwidth_hz = 10.0e6f;
+  detailed_config.hardware.transmitter.pulse_width_s = 20e-6f;
+  detailed_config.hardware.transmitter.prf_hz = 500.0f;
+  detailed_config.hardware.antenna.main_beam_gain_db = 38.0f;
+  detailed_config.hardware.receiver.noise_figure_db = 3.5f;
   detailed_config.mission.orientation.work_mode = model::RadarWorkMode::kTas;
   detailed_config.policy.tracking.enable_kalman_filter = true;
   detailed_config.policy.tracking.kalman_measurement_noise_std = 7.5f;
@@ -258,11 +258,11 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   detailed_config.policy.lifecycle.confirm_hits = 2U;
   detailed_config.policy.lifecycle.max_miss_before_lost = 1U;
   detailed_config.policy.lifecycle.max_lost_cycles = 4U;
-  detailed_config.environment.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
+  detailed_config.environment.jamming_sensitivity_profile = config::JammingSensitivityProfile::kStrict;
 
-  EXPECT_TRUE(detailed_config.hardware.detection.enable_physics_detection);
-  EXPECT_FLOAT_EQ(detailed_config.hardware.detection.transmitter.peak_power_w, 5.0e6f);
-  EXPECT_FLOAT_EQ(detailed_config.hardware.detection.transmitter.frequency_hz, 9.3e9f);
+  EXPECT_TRUE(detailed_config.hardware.enable_physics_detection);
+  EXPECT_FLOAT_EQ(detailed_config.hardware.transmitter.peak_power_w, 5.0e6f);
+  EXPECT_FLOAT_EQ(detailed_config.hardware.transmitter.frequency_hz, 9.3e9f);
   EXPECT_EQ(detailed_config.mission.orientation.work_mode, model::RadarWorkMode::kTas);
   EXPECT_FLOAT_EQ(detailed_config.policy.tracking.kalman_measurement_noise_std, 7.5f);
   EXPECT_EQ(detailed_config.policy.tracking.kalman_update_backend,
@@ -270,13 +270,13 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   EXPECT_EQ(detailed_config.policy.lifecycle.confirm_hits, 2U);
   EXPECT_TRUE(detailed_config.policy.lifecycle.enable_imm_lifecycle);
   EXPECT_EQ(detailed_config.environment.jamming_sensitivity_profile,
-            environment::JammingSensitivityProfile::kStrict);
+            config::JammingSensitivityProfile::kStrict);
 }
 
 TEST(RadarSessionConfigBuilderTest, DetailedBuiltConfigCanConstructRadarSession) {
   config::RadarSessionConfig config{};
-  config.hardware.detection.transmitter.peak_power_w = 5.0e6f;
-  config.hardware.detection.transmitter.frequency_hz = 9.3e9f;
+  config.hardware.transmitter.peak_power_w = 5.0e6f;
+  config.hardware.transmitter.frequency_hz = 9.3e9f;
   config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
   config.policy.lifecycle.enable_imm_lifecycle = true;
 

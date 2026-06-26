@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_CONTROL_PROFILE_EFFECTS_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_CONTROL_PROFILE_EFFECTS_H_
 
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
 #include "1q/airborne_radar/extension/control/RadarControlProfile.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
@@ -22,7 +22,7 @@ float ComputeHeuristicSignalAdjustmentDb(
 float ComputeHeuristicEnvironmentReliefDb(
     const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
     const extension::control::RadarControlProfile& control_profile,
-    const environment::EnvironmentSnapshot& environment_snapshot);
+    const session::EnvironmentSnapshot& environment_snapshot);
 
 void ApplyControlProfileToConfig(const extension::control::RadarControlProfile& control_profile,
                                  ExecutionConfig* config);

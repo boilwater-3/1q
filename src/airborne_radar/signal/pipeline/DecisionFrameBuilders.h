@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_DECISION_FRAME_BUILDERS_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_DECISION_FRAME_BUILDERS_H_
 
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 
 namespace airborne_radar {
@@ -19,7 +19,7 @@ namespace pipeline {
  * @return 供决策层消费的 ECCM 输入摘要。
  */
 model::EccmSourceInfo BuildEccmSourceInfo(
-    const environment::EnvironmentSnapshot& environment_snapshot);
+    const session::EnvironmentSnapshot& environment_snapshot);
 
 /**
  * @brief 将 Pipeline 关联质量指标转换为决策层质量摘要。

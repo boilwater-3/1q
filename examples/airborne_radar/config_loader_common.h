@@ -51,18 +51,18 @@ inline airborne_radar::config::KalmanUpdateBackend KalmanBackendFromString(
   return airborne_radar::config::KalmanUpdateBackend::kStandardKfJoseph;
 }
 
-inline airborne_radar::environment::JammingSensitivityProfile JammingSensFromString(
+inline airborne_radar::config::JammingSensitivityProfile JammingSensFromString(
     const std::string& s) {
-  using namespace airborne_radar::environment;
+  using namespace airborne_radar::config;
   if (s == "kRelaxed") return JammingSensitivityProfile::kRelaxed;
   if (s == "kBalanced") return JammingSensitivityProfile::kBalanced;
   if (s == "kStrict") return JammingSensitivityProfile::kStrict;
   return JammingSensitivityProfile::kBalanced;
 }
 
-inline airborne_radar::environment::VegetationCoverProfile VegCoverFromString(
+inline airborne_radar::config::VegetationCoverProfile VegCoverFromString(
     const std::string& s) {
-  using namespace airborne_radar::environment;
+  using namespace airborne_radar::config;
   if (s == "kDisabled") return VegetationCoverProfile::kDisabled;
   if (s == "kOpenGrassland") return VegetationCoverProfile::kOpenGrassland;
   if (s == "kSparseWoodland") return VegetationCoverProfile::kSparseWoodland;
