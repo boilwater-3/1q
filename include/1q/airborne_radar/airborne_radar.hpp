@@ -29,7 +29,5 @@
 #include "1q/airborne_radar/session/RadarSceneTargetUtils.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/session/RadarSessionFactory.h"
-#include "1q/airborne_radar/session/RadarTrackLifecycleRecorder.h"
-#include "1q/airborne_radar/session/RadarTrackOutputDebugView.h"
 
 #endif  // ONEQ_AIRBORNE_RADAR_AIRBORNE_RADAR_HPP_

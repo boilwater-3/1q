@@ -366,7 +366,7 @@ if(NOT ACTUAL_PUBLIC_HEADERS STREQUAL EXPECTED_PUBLIC_HEADERS)
 endif()
 
 # Guardrail: module aggregate headers are the stable session/config/model entry
-# points. Trace/replay tooling remains public, but must be included explicitly.
+# points. Observability tooling remains public, but must be included explicitly.
 set(MODULE_ENTRY_HEADERS_WITH_EXPLICIT_TOOLING
     "airborne_radar/airborne_radar.hpp"
     "electro_optical_sensor/electro_optical_sensor.hpp"
@@ -375,9 +375,9 @@ set(MODULE_ENTRY_HEADERS_WITH_EXPLICIT_TOOLING
 
 foreach(HEADER IN LISTS MODULE_ENTRY_HEADERS_WITH_EXPLICIT_TOOLING)
   file(READ "${PUBLIC_INCLUDE_DIR}/${HEADER}" MODULE_ENTRY_HEADER_CONTENT)
-  if(MODULE_ENTRY_HEADER_CONTENT MATCHES "#[ \t]*include[ \t]*[\"<][^\n]*(TraceSession|ReplaySession)\\.h")
+  if(MODULE_ENTRY_HEADER_CONTENT MATCHES "#[ \t]*include[ \t]*[\"<][^\n]*(TraceSession|ReplaySession|DebugView|LifecycleRecorder)\\.h")
     message(FATAL_ERROR
-            "Module entry header must not aggregate trace/replay tooling: ${HEADER}")
+            "Module entry header must not aggregate observability tooling: ${HEADER}")
   endif()
 endforeach()
 
