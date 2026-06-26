@@ -112,7 +112,8 @@ namespace detection {
 enum class ONEQ_API AntennaPatternModelType {
   kGaussianMainLobe = 0,  /**< 高斯主瓣近似。 */
   kParabolicMainLobe = 1, /**< 抛物线主瓣近似。 */
-  kCosinePower = 2        /**< 余弦幂方向图近似。 */
+  kCosinePower = 2,       /**< 余弦幂方向图近似。 */
+  kSincPattern = 3        /**< sinc² 方向图（均匀孔径理论解，需物理孔径尺寸）。 */
 };
 
 /**
@@ -133,8 +134,10 @@ struct ONEQ_API AntennaPatternConfig {
  */
 struct ONEQ_API AntennaConfig {
   float main_beam_gain_db{35.0f};         /**< 主瓣峰值增益。 */
-  float nominal_az_beamwidth_deg{4.0f};   /**< 名义方位波束宽度。 */
-  float nominal_el_beamwidth_deg{4.0f};   /**< 名义俯仰波束宽度。 */
+  float nominal_az_beamwidth_deg{4.0f};   /**< 名义方位波束宽度（为 0 且 antenna_length_m>0 时从物理尺寸推导）。 */
+  float nominal_el_beamwidth_deg{4.0f};   /**< 名义俯仰波束宽度（为 0 且 antenna_width_m>0 时从物理尺寸推导）。 */
+  float antenna_length_m{0.0f};           /**< 物理方位孔径尺寸（0=不使用物理推导，非0时用于 beamwidth 推导和 sinc² 模式）。 */
+  float antenna_width_m{0.0f};            /**< 物理俯仰孔径尺寸（0=不使用物理推导）。 */
   AntennaPatternConfig pattern{};         /**< 方向图参数。 */
   bool enable_directional_pattern{false}; /**< 是否启用离轴方向图评估。 */
 };

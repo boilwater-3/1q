@@ -247,6 +247,12 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
   const float measurement_covariance_inflation = ComputeMeasurementCovarianceInflation(
       config.jamming_effects, control_profile, environment_snapshot);
 
+  constexpr float kSpeedOfLightMps = 299792458.0f;
+  const float wavelength_m =
+      config.detection.engineering.transmitter.frequency_hz > 0.0f
+          ? kSpeedOfLightMps / config.detection.engineering.transmitter.frequency_hz
+          : 0.0f;
+
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
     env.propagation_loss_db =
@@ -271,7 +277,8 @@ void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
 
     const detection::ResolvedBeamState beam_state = detection::BeamControlResolver::Resolve(
         config.detection.engineering.antenna, config.detection.orientation,
-        config.detection.platform_attitude_deg, (*buffers->target_geometry)[i].look_angles_deg);
+        config.detection.platform_attitude_deg, (*buffers->target_geometry)[i].look_angles_deg,
+        model::AzimuthElevationDeg{}, wavelength_m);
     const detection::DetectionResult detection_result = signal_detector->Detect(
         target, env, beam_state.one_way_antenna_gain_db, config.detection.engineering.pulse_count);
     const detection::MeasurementErrorState measurement_error =
