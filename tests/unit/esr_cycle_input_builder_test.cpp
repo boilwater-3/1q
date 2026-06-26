@@ -122,7 +122,7 @@ TEST(EsrCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput) 
   pose_input.platform_position_ecef_m = origin_ecef;
 
   EsrEnvironmentInput environment;
-  environment.propagation_profile = environment::EsrPropagationEnvironmentProfile::kComplex;
+  environment.propagation_profile = session::EsrPropagationEnvironmentProfile::kComplex;
   environment.spectrum_occupancy_ratio = 0.6f;
   environment.atmospheric_observation.visibility_km = 8.0f;
 
@@ -130,7 +130,7 @@ TEST(EsrCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput) 
   ASSERT_TRUE(EsrCycleInputBuilder::Build(pose_input, {}, 1.0f, environment, &input));
 
   EXPECT_EQ(input.environment.propagation_profile,
-            environment::EsrPropagationEnvironmentProfile::kComplex);
+            session::EsrPropagationEnvironmentProfile::kComplex);
   EXPECT_FLOAT_EQ(input.platform_altitude_m, 1000.0f);
   EXPECT_FLOAT_EQ(input.environment.spectrum_occupancy_ratio, 0.6f);
   EXPECT_FLOAT_EQ(input.environment.atmospheric_observation.visibility_km, 8.0f);
@@ -139,7 +139,7 @@ TEST(EsrCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput) 
 /// @brief 环境输入状态只更新 patch 标记过的字段。
 TEST(EsrCycleInputBuilderTest, EnvironmentInputStateAppliesOnlyFlaggedFields) {
   EsrEnvironmentInput initial;
-  initial.propagation_profile = environment::EsrPropagationEnvironmentProfile::kOpen;
+  initial.propagation_profile = session::EsrPropagationEnvironmentProfile::kOpen;
   initial.spectrum_occupancy_ratio = 0.1f;
   initial.atmospheric_observation.visibility_km = 30.0f;
 
@@ -152,7 +152,7 @@ TEST(EsrCycleInputBuilderTest, EnvironmentInputStateAppliesOnlyFlaggedFields) {
   state.Update(patch);
 
   const EsrEnvironmentInput snapshot = state.Snapshot();
-  EXPECT_EQ(snapshot.propagation_profile, environment::EsrPropagationEnvironmentProfile::kOpen);
+  EXPECT_EQ(snapshot.propagation_profile, session::EsrPropagationEnvironmentProfile::kOpen);
   EXPECT_FLOAT_EQ(snapshot.spectrum_occupancy_ratio, 0.9f);
   EXPECT_FLOAT_EQ(snapshot.atmospheric_observation.visibility_km, 30.0f);
 }

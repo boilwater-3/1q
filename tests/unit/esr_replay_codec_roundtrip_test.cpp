@@ -12,7 +12,7 @@
 
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
@@ -60,15 +60,15 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   emitter.beam_state.beam_state_valid = true;
   input.scene.push_back(emitter);
 
-  input.environment.propagation_profile = environment::EsrPropagationEnvironmentProfile::kComplex;
-  input.environment.clutter_density = environment::EsrClutterDensityLevel::kHigh;
+  input.environment.propagation_profile = session::EsrPropagationEnvironmentProfile::kComplex;
+  input.environment.clutter_density = session::EsrClutterDensityLevel::kHigh;
   input.environment.spectrum_occupancy_ratio = 0.45f;
   input.environment.atmospheric_observation.relative_humidity_ratio = 0.6f;
   input.environment.atmospheric_observation.precipitation_rate_mmph = 2.5f;
   input.environment.atmospheric_observation.visibility_km = 8.0f;
 
-  environment::EsrJammerSource jammer;
-  jammer.technique = environment::EsrJammingTechnique::kNoiseSuppression;
+  session::EsrJammerSource jammer;
+  jammer.technique = session::EsrJammingTechnique::kNoiseSuppression;
   jammer.active = true;
   jammer.center_hz = 9.5e9;
   jammer.bandwidth_hz = 20.0e6;
@@ -100,14 +100,14 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_TRUE(decoded.scene[0].beam_state.beam_state_valid);
 
   EXPECT_EQ(decoded.environment.propagation_profile,
-            environment::EsrPropagationEnvironmentProfile::kComplex);
-  EXPECT_EQ(decoded.environment.clutter_density, environment::EsrClutterDensityLevel::kHigh);
+            session::EsrPropagationEnvironmentProfile::kComplex);
+  EXPECT_EQ(decoded.environment.clutter_density, session::EsrClutterDensityLevel::kHigh);
   EXPECT_FLOAT_EQ(decoded.environment.spectrum_occupancy_ratio, 0.45f);
   EXPECT_FLOAT_EQ(decoded.environment.atmospheric_observation.relative_humidity_ratio, 0.6f);
 
   ASSERT_EQ(decoded.environment.jammer_sources.size(), 1U);
   EXPECT_EQ(decoded.environment.jammer_sources[0].technique,
-            environment::EsrJammingTechnique::kNoiseSuppression);
+            session::EsrJammingTechnique::kNoiseSuppression);
   EXPECT_TRUE(decoded.environment.jammer_sources[0].active);
   EXPECT_DOUBLE_EQ(decoded.environment.jammer_sources[0].center_hz, 9.5e9);
 }

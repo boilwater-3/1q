@@ -17,7 +17,7 @@
 #include "1q/electronic_surveillance_radar/config/EsrHardwareConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrMissionConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrPolicyConfig.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
@@ -127,7 +127,7 @@ struct RuntimeConfig {
 // ── 内部环境子配置 ───────────────────────────────────────────────
 
 /** @brief 内部环境执行态配置（独立 ModelConfig，由 BuildModelConfigFromScenario 映射）。 */
-using EnvironmentConfig = environment::EsrEnvironmentModelConfig;
+using EnvironmentConfig = config::EsrEnvironmentModelConfig;
 
 /**
  * @brief EsrInternalExecutionConfig 描述会话装配前的统一内部解析结果。

@@ -146,9 +146,9 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   if (fb->environment()) {
     const auto* e = fb->environment();
     out->environment.propagation_profile =
-        static_cast<environment::EsrPropagationEnvironmentProfile>(e->propagation_profile());
+        static_cast<EsrPropagationEnvironmentProfile>(e->propagation_profile());
     out->environment.clutter_density =
-        static_cast<environment::EsrClutterDensityLevel>(e->clutter_density());
+        static_cast<EsrClutterDensityLevel>(e->clutter_density());
     out->environment.spectrum_occupancy_ratio = e->spectrum_occupancy_ratio();
     if (e->atmospheric_observation()) {
       out->environment.atmospheric_observation.relative_humidity_ratio =
@@ -160,8 +160,8 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
     }
     if (e->jammer_sources()) {
       for (const auto* j : *e->jammer_sources()) {
-        environment::EsrJammerSource js{};
-        js.technique = static_cast<environment::EsrJammingTechnique>(j->technique());
+        EsrJammerSource js{};
+        js.technique = static_cast<EsrJammingTechnique>(j->technique());
         js.active = j->active();
         js.center_hz = j->center_hz();
         js.bandwidth_hz = j->bandwidth_hz();

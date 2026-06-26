@@ -13,7 +13,7 @@
 #include "config_loader.h"
 
 namespace esr_config = electronic_surveillance_radar::config;
-namespace esr_env = electronic_surveillance_radar::environment;
+namespace esr_env = electronic_surveillance_radar::session;
 namespace esr_session = electronic_surveillance_radar::session;
 
 namespace {

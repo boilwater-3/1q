@@ -154,10 +154,6 @@ set(ESR_CONFIG_HEADERS
 
 # ── ESR 环境域 ────────────────────────────────────────────────────────
 set(ESR_ENVIRONMENT_HEADERS
-    "electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
-    "electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
-    "electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
-    "electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp"
 )
 
 # ── ESR 扩展域 ────────────────────────────────────────────────────────

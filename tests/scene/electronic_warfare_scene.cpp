@@ -9,7 +9,7 @@
 
 namespace esr_session = electronic_surveillance_radar::session;
 namespace esr_config = electronic_surveillance_radar::config;
-namespace esr_env = electronic_surveillance_radar::environment;
+namespace esr_env = electronic_surveillance_radar::session;
 
 namespace {
 
@@ -69,8 +69,8 @@ SceneState InitScene() {
   s.platform_vel.z_mps = 30.0;
 
   s.environment.spectrum_occupancy_ratio = 0.25f;
-  s.environment.clutter_density = esr_env::EsrClutterDensityLevel::kMedium;
-  s.environment.propagation_profile = esr_env::EsrPropagationEnvironmentProfile::kOpen;
+  s.environment.clutter_density = esr_session::EsrClutterDensityLevel::kMedium;
+  s.environment.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   // 3 个敌方辐射源（地面发射台）
   EmitterState e1;

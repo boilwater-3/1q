@@ -36,7 +36,7 @@ namespace eos_config = electro_optical_sensor::config;
 
 namespace esr = electronic_surveillance_radar;
 namespace esr_session = electronic_surveillance_radar::session;
-namespace esr_env = electronic_surveillance_radar::environment;
+namespace esr_env = electronic_surveillance_radar::session;
 namespace esr_config = electronic_surveillance_radar::config;
 
 namespace {
@@ -528,8 +528,8 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
 
   esr_session::EsrEnvironmentInput esr_env;
   esr_env.spectrum_occupancy_ratio = 0.1f;
-  esr_env.clutter_density = esr_env::EsrClutterDensityLevel::kLow;
-  esr_env.propagation_profile = esr_env::EsrPropagationEnvironmentProfile::kOpen;
+  esr_env.clutter_density = esr_session::EsrClutterDensityLevel::kLow;
+  esr_env.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   std::uint32_t ar_tracks_max = 0;
   std::uint32_t esr_hyp_max = 0;
@@ -747,8 +747,8 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
 
   esr_session::EsrEnvironmentInput esr_env;
   esr_env.spectrum_occupancy_ratio = 0.2f;
-  esr_env.clutter_density = esr_env::EsrClutterDensityLevel::kMedium;
-  esr_env.propagation_profile = esr_env::EsrPropagationEnvironmentProfile::kOpen;
+  esr_env.clutter_density = esr_session::EsrClutterDensityLevel::kMedium;
+  esr_env.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   // 物理验证累积器
   bool ar_has_track = false;
@@ -973,8 +973,8 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
 
   esr_session::EsrEnvironmentInput esr_env;
   esr_env.spectrum_occupancy_ratio = 0.4f;
-  esr_env.clutter_density = esr_env::EsrClutterDensityLevel::kHigh;
-  esr_env.propagation_profile = esr_env::EsrPropagationEnvironmentProfile::kOpen;
+  esr_env.clutter_density = esr_session::EsrClutterDensityLevel::kHigh;
+  esr_env.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   // 物理验证累积器
   bool ar_jamming_detected = false;
@@ -1149,8 +1149,8 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
 
   esr_session::EsrEnvironmentInput esr_env;
   esr_env.spectrum_occupancy_ratio = 0.15f;
-  esr_env.clutter_density = esr_env::EsrClutterDensityLevel::kLow;
-  esr_env.propagation_profile = esr_env::EsrPropagationEnvironmentProfile::kOpen;
+  esr_env.clutter_density = esr_session::EsrClutterDensityLevel::kLow;
+  esr_env.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   // 物理验证累积器
   bool ar_nan_detected = false;

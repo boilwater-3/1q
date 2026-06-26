@@ -10,7 +10,6 @@
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrMissionConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrPolicyConfig.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h"
 
 namespace electronic_surveillance_radar {
 namespace config {
@@ -31,6 +30,18 @@ struct ExplicitScanBounds {
 };
 
 /**
+ * @brief EsrEnvironmentRuntimeConfigPatch 描述运行期可变环境补丁。
+ *
+ * @note 环境预设（EsrEnvironmentPreset）是会话初始化语义，运行期不支持热更新。
+ */
+struct ONEQ_API EsrEnvironmentRuntimeConfigPatch {
+  bool has_atmospheric_physics{false};
+  EsrAtmosphericPhysicsConfig atmospheric_physics{};
+  bool has_atmospheric_context{false};
+  EsrAtmosphericDerivedContext atmospheric_context{};
+};
+
+/**
  * @brief EsrRuntimeConfigPatch 描述运行期可变参数补丁。
  *
  * 支持两类运行期更新：
@@ -48,8 +59,7 @@ struct ONEQ_API EsrRuntimeConfigPatch {
   EsrPolicyConfig policy{}; /**< [可外部调整] 策略域整块覆盖 */
 
   bool has_environment{false}; /**< [补丁标志] 是否更新环境运行期配置 */
-  environment::EsrEnvironmentRuntimeConfigPatch
-      environment{}; /**< [可外部调整] 环境运行期配置补丁 */
+  EsrEnvironmentRuntimeConfigPatch environment{};
 
   bool has_sensor_enabled{false}; /**< [补丁标志] 是否显式设置传感器开关状态 */
   bool sensor_enabled{true};      /**< [可外部调整] 传感器开关状态 */

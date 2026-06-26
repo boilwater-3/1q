@@ -181,7 +181,7 @@ class ONEQ_API EsrSessionConfigBuilder::EnvironmentEditor {
   explicit EnvironmentEditor(EsrSessionConfigBuilder* builder) : builder_(builder) {}
 
   EnvironmentEditor& WithEnvironmentDefault(
-      const environment::EsrEnvironmentDefaultConfig& config) {
+      const config::EsrEnvironmentConfig& config) {
     builder_->config_.environment = config;
     return *this;
   }
@@ -190,12 +190,12 @@ class ONEQ_API EsrSessionConfigBuilder::EnvironmentEditor {
     return *this;
   }
   EnvironmentEditor& WithAtmosphericPhysics(
-      const environment::EsrAtmosphericPhysicsConfig& config) {
+      const config::EsrAtmosphericPhysicsConfig& config) {
     builder_->config_.environment.scenario_config.atmospheric_physics = config;
     return *this;
   }
   EnvironmentEditor& WithAtmosphericContext(
-      const environment::EsrAtmosphericDerivedContext& context) {
+      const config::EsrAtmosphericDerivedContext& context) {
     builder_->config_.environment.scenario_config.atmospheric_context = context;
     return *this;
   }

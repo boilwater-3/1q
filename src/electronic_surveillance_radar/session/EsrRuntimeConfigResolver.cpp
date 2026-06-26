@@ -67,7 +67,7 @@ void ApplyWorkModeAdjustment(config::EsrWorkMode mode,
   }
 }
 
-void ApplyEnvironmentRuntimePatch(const environment::EsrEnvironmentRuntimeConfigPatch& env_patch,
+void ApplyEnvironmentRuntimePatch(const config::EsrEnvironmentRuntimeConfigPatch& env_patch,
                                   EsrInternalExecutionConfig* resolved, bool* env_changed) {
   if (env_patch.has_atmospheric_physics) {
     resolved->environment.atmospheric_physics = env_patch.atmospheric_physics;

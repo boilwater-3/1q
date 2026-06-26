@@ -16,7 +16,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 
 int main() {
   // 1. Default session assembly

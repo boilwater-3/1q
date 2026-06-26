@@ -59,7 +59,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
 
   // 冻结环境
   {
-    environment::EsrEnvironmentCycleContext env_ctx;
+    session::EsrEnvironmentCycleContext env_ctx;
     env_ctx.cycle_index = stamp.cycle_index;
     env_ctx.dt_sec = input.dt_sec;
     env_ctx.observation = input.environment;

@@ -520,6 +520,9 @@ FrameContext EosPipeline::BuildFrameContext(
 
   environment::EosEnvironmentModelInputs env_inputs;
   env_inputs.model_type = config_.environment.model_type;
+  env_inputs.radiative_transfer_model = config_.environment.radiative_transfer_model;
+  env_inputs.base_aerosol_density_factor = config_.environment.aerosol_density_factor;
+  env_inputs.base_turbulence_factor = config_.environment.turbulence_factor;
   env_inputs.platform_altitude_m = ResolvePlatformAltitudeM(input);
   env_inputs.cloud_coverage_ratio =
       oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);

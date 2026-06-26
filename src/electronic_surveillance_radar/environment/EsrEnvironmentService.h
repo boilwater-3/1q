@@ -20,29 +20,29 @@ class EsrEnvironmentService final : public IEsrEnvironmentService {
    * @brief 使用模型配置初始化环境服务。
    * @param[in] config 环境模型配置。
    */
-  explicit EsrEnvironmentService(EsrEnvironmentModelConfig config = {});
+  explicit EsrEnvironmentService(config::EsrEnvironmentModelConfig config = {});
 
   /**
    * @brief 冻结当前周期环境输入。
    * @param[in] cycle_context 单周期上下文。
    */
-  void BeginCycle(const EsrEnvironmentCycleContext& cycle_context) override;
+  void BeginCycle(const session::EsrEnvironmentCycleContext& cycle_context) override;
 
   /**
    * @brief 采样当前冻结快照。
    * @return 冻结的环境快照。
    */
-  EsrEnvironmentSnapshot SampleEnvironment() const override;
+  session::EsrEnvironmentSnapshot SampleEnvironment() const override;
 
   /**
    * @brief 更新环境模型配置。
    * @param[in] config 新的内部模型配置。
    */
-  void UpdateModelConfig(EsrEnvironmentModelConfig config) override;
+  void UpdateModelConfig(config::EsrEnvironmentModelConfig config) override;
 
  private:
-  EsrEnvironmentModelConfig config_{};
-  EsrEnvironmentSnapshot frozen_snapshot_{};
+  config::EsrEnvironmentModelConfig config_{};
+  session::EsrEnvironmentSnapshot frozen_snapshot_{};
 };
 
 }  // namespace environment

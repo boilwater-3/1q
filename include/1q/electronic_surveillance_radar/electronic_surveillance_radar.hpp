@@ -7,7 +7,7 @@
 #define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_ELECTRONIC_SURVEILLANCE_RADAR_HPP_
 
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
-#include "1q/electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp"
+#include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleOutputBuilder.h"

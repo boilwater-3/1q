@@ -10,7 +10,7 @@
 #define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_I_ESR_CONTEXT_H_
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 
@@ -40,7 +40,7 @@ class ONEQ_API IEsrContext {
   virtual const session::EsrSceneEmitterList& GetSceneEmitters() const = 0;
 
   /** @brief 获取当前周期环境快照。 */
-  virtual const environment::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const = 0;
+  virtual const session::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const = 0;
 
   /** @brief 获取当前流水线配置。 */
   virtual const InterceptPipelineConfig& GetPipelineConfig() const = 0;

@@ -39,7 +39,7 @@ class ONEQ_API EsrRuntimeConfigBuilder {
   }
 
   EsrRuntimeConfigBuilder& WithEnvironment(
-      const environment::EsrEnvironmentRuntimeConfigPatch& env_patch) noexcept {
+      const config::EsrEnvironmentRuntimeConfigPatch& env_patch) noexcept {
     patch_.has_environment = true;
     patch_.environment = env_patch;
     return *this;
@@ -98,14 +98,14 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     return *this;
   }
   EsrRuntimeConfigBuilder& WithAtmosphericPhysicsConfig(
-      const environment::EsrAtmosphericPhysicsConfig& atmospheric_physics) noexcept {
+      const config::EsrAtmosphericPhysicsConfig& atmospheric_physics) noexcept {
     patch_.has_environment = true;
     patch_.environment.has_atmospheric_physics = true;
     patch_.environment.atmospheric_physics = atmospheric_physics;
     return *this;
   }
   EsrRuntimeConfigBuilder& WithAtmosphericContext(
-      const environment::EsrAtmosphericDerivedContext& atmospheric_context) noexcept {
+      const config::EsrAtmosphericDerivedContext& atmospheric_context) noexcept {
     patch_.has_environment = true;
     patch_.environment.has_atmospheric_context = true;
     patch_.environment.atmospheric_context = atmospheric_context;

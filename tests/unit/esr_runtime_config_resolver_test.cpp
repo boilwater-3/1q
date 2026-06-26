@@ -21,7 +21,7 @@ TEST(EsrRuntimeConfigResolverTest, ValidPatchUpdatesRuntimePipelineAndEnvironmen
   EsrInternalExecutionConfig current_config;
   current_config.mission.scan.scan_rate_hz = 1.0f;
 
-  environment::EsrAtmosphericPhysicsConfig atmospheric_physics;
+  config::EsrAtmosphericPhysicsConfig atmospheric_physics;
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.relative_humidity = 0.66f;
 
@@ -52,7 +52,7 @@ TEST(EsrRuntimeConfigResolverTest, AtmosphericPhysicsOnlyDoesNotOverridePresetOr
   current_config.environment.atmospheric_context.has_k_factor = true;
   current_config.environment.atmospheric_context.k_factor = 1.45f;
 
-  environment::EsrAtmosphericPhysicsConfig atmospheric_physics;
+  config::EsrAtmosphericPhysicsConfig atmospheric_physics;
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.pressure_hpa = 950.0f;
   atmospheric_physics.temperature_k = 295.0f;
@@ -79,7 +79,7 @@ TEST(EsrRuntimeConfigResolverTest, AtmosphericContextOnlyDoesNotOverridePresetOr
   current_config.environment.atmospheric_physics.enable_physical_model = true;
   current_config.environment.atmospheric_physics.relative_humidity = 0.42f;
 
-  environment::EsrAtmosphericDerivedContext atmospheric_context;
+  config::EsrAtmosphericDerivedContext atmospheric_context;
   atmospheric_context.has_day_of_year = true;
   atmospheric_context.day_of_year = 245;
   atmospheric_context.solar_flux_f107 = 180.0f;
@@ -106,10 +106,10 @@ TEST(EsrRuntimeConfigResolverTest, MultiEnvironmentSubdomainsCanBeUpdatedInSingl
   EsrInternalExecutionConfig current_config;
   current_config.environment.preset = config::EsrEnvironmentPreset::kStandard;
 
-  environment::EsrAtmosphericPhysicsConfig atmospheric_physics;
+  config::EsrAtmosphericPhysicsConfig atmospheric_physics;
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.relative_humidity = 0.9f;
-  environment::EsrAtmosphericDerivedContext atmospheric_context;
+  config::EsrAtmosphericDerivedContext atmospheric_context;
   atmospheric_context.has_k_factor = true;
   atmospheric_context.k_factor = 1.37f;
 

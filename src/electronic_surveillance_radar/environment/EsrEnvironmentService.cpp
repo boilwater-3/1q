@@ -9,6 +9,21 @@
 namespace electronic_surveillance_radar {
 namespace environment {
 
+using config::BuildModelConfigFromScenario;
+using config::EsrAtmosphericDerivedContext;
+using config::EsrAtmosphericPhysicsConfig;
+using config::EsrEnvironmentConfig;
+using config::EsrEnvironmentModelConfig;
+using config::EsrEnvironmentScenarioConfig;
+using session::EsrAtmosphericObservation;
+using session::EsrClutterDensityLevel;
+using session::EsrEnvironmentCycleContext;
+using session::EsrEnvironmentInput;
+using session::EsrEnvironmentSnapshot;
+using session::EsrJammerSource;
+using session::EsrJammingTechnique;
+using session::EsrPropagationEnvironmentProfile;
+
 namespace {
 
 constexpr float kDefaultAtmosphereFrequencyHz = 10.0e9f;
@@ -17,19 +32,19 @@ constexpr float kDefaultAtmosphereRadarAltitudeM = 1.0e3f;
 constexpr float kDefaultAtmosphereTargetAltitudeM = 1.0e3f;
 constexpr float kDefaultAtmosphereElevationDeg = 5.0f;
 
-float ResolvePropagationProfileLossDb(EsrPropagationEnvironmentProfile profile) {
+float ResolvePropagationProfileLossDb(session::EsrPropagationEnvironmentProfile profile) {
   switch (profile) {
-    case EsrPropagationEnvironmentProfile::kOpen:
+    case session::EsrPropagationEnvironmentProfile::kOpen:
       return 2.0f;
-    case EsrPropagationEnvironmentProfile::kComplex:
+    case session::EsrPropagationEnvironmentProfile::kComplex:
       return 7.0f;
-    case EsrPropagationEnvironmentProfile::kTypical:
+    case session::EsrPropagationEnvironmentProfile::kTypical:
     default:
       return 4.0f;
   }
 }
 
-float ResolveWeatherLossDb(const EsrAtmosphericObservation& observation) {
+float ResolveWeatherLossDb(const session::EsrAtmosphericObservation& observation) {
   const float humidity = utils::Clamp01(observation.relative_humidity_ratio);
   const float precipitation = utils::ClampNonNegative(observation.precipitation_rate_mmph);
   const float visibility_km = std::max(0.5f, observation.visibility_km);
@@ -39,8 +54,8 @@ float ResolveWeatherLossDb(const EsrAtmosphericObservation& observation) {
   return utils::ClampNonNegative(humidity_loss_db + precipitation_loss_db + visibility_loss_db);
 }
 
-float ResolveClutterNoiseW(const EsrEnvironmentObservation& observation,
-                           const EsrEnvironmentModelConfig& config) {
+float ResolveClutterNoiseW(const session::EsrEnvironmentInput& observation,
+                           const config::EsrEnvironmentModelConfig& config) {
   float reference_noise = 1.0e-12f;
   switch (config.preset) {
     case config::EsrEnvironmentPreset::kLowClutter:
@@ -56,17 +71,17 @@ float ResolveClutterNoiseW(const EsrEnvironmentObservation& observation,
       break;
   }
   switch (observation.clutter_density) {
-    case EsrClutterDensityLevel::kLow:
+    case session::EsrClutterDensityLevel::kLow:
       return reference_noise * 0.6f;
-    case EsrClutterDensityLevel::kHigh:
+    case session::EsrClutterDensityLevel::kHigh:
       return reference_noise * 2.0f;
-    case EsrClutterDensityLevel::kMedium:
+    case session::EsrClutterDensityLevel::kMedium:
     default:
       return reference_noise;
   }
 }
 
-float ResolveJammingDetectionThresholdW(const EsrEnvironmentModelConfig& config) {
+float ResolveJammingDetectionThresholdW(const config::EsrEnvironmentModelConfig& config) {
   switch (config.preset) {
     case config::EsrEnvironmentPreset::kLowClutter:
       return 8.0e-10f;
@@ -102,15 +117,15 @@ EsrJammerSource NormalizeJammerSource(const EsrJammerSource& raw_source) {
  * @param[in] config 环境模型配置。
  * @return 冻结环境快照。
  */
-EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_context,
-                                     const EsrEnvironmentModelConfig& config) {
-  EsrEnvironmentSnapshot snapshot;
+session::EsrEnvironmentSnapshot BuildSnapshot(const session::EsrEnvironmentCycleContext& cycle_context,
+                                     const config::EsrEnvironmentModelConfig& config) {
+  session::EsrEnvironmentSnapshot snapshot;
   snapshot.cycle_index = cycle_context.cycle_index;
   snapshot.dt_sec = cycle_context.dt_sec;
-  const EsrEnvironmentObservation& observation = cycle_context.observation;
-  const EsrAtmosphericPhysicsConfig& atmospheric_physics =
+  const session::EsrEnvironmentInput& observation = cycle_context.observation;
+  const config::EsrAtmosphericPhysicsConfig& atmospheric_physics =
       config.atmospheric_physics;
-  const EsrAtmosphericDerivedContext& atmospheric_context =
+  const config::EsrAtmosphericDerivedContext& atmospheric_context =
       config.atmospheric_context;
   float physical_loss_db = 0.0f;
   if (atmospheric_physics.enable_physical_model) {
@@ -166,15 +181,15 @@ EsrEnvironmentSnapshot BuildSnapshot(const EsrEnvironmentCycleContext& cycle_con
 
 }  // namespace
 
-EsrEnvironmentService::EsrEnvironmentService(EsrEnvironmentModelConfig config) : config_(config) {}
+EsrEnvironmentService::EsrEnvironmentService(config::EsrEnvironmentModelConfig config) : config_(config) {}
 
-void EsrEnvironmentService::BeginCycle(const EsrEnvironmentCycleContext& cycle_context) {
+void EsrEnvironmentService::BeginCycle(const session::EsrEnvironmentCycleContext& cycle_context) {
   frozen_snapshot_ = BuildSnapshot(cycle_context, config_);
 }
 
-EsrEnvironmentSnapshot EsrEnvironmentService::SampleEnvironment() const { return frozen_snapshot_; }
+session::EsrEnvironmentSnapshot EsrEnvironmentService::SampleEnvironment() const { return frozen_snapshot_; }
 
-void EsrEnvironmentService::UpdateModelConfig(EsrEnvironmentModelConfig config) {
+void EsrEnvironmentService::UpdateModelConfig(config::EsrEnvironmentModelConfig config) {
   config_ = config;
 }
 

@@ -9,7 +9,7 @@
 #include <cmath>
 #include <cstddef>
 
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 #include "common/numerics/ClampUtils.h"
 #include "electronic_surveillance_radar/intercept/InterceptGate.h"
 
@@ -41,7 +41,7 @@ class JammingAggregator final {
    * @param[in] target_bandwidth_hz 目标带宽（单位：Hz）。
    * @return 干扰聚合结果。
    */
-  static JammingAggregateResult Aggregate(const environment::EsrJammerSourceList& jammer_sources,
+  static JammingAggregateResult Aggregate(const session::EsrJammerSourceList& jammer_sources,
                                           double target_center_hz, double target_bandwidth_hz) {
     JammingAggregateResult result;
     if (!std::isfinite(target_center_hz) || !std::isfinite(target_bandwidth_hz) ||
@@ -74,7 +74,7 @@ class JammingAggregator final {
           oneq::internal::numerics::Clamp01(jammer_sources[i].confidence);
       const float deception_risk =
           oneq::internal::numerics::Clamp01(jammer_sources[i].deception_risk);
-      const environment::EsrJammingTechnique technique = ResolveTechnique(jammer_sources[i]);
+      const session::EsrJammingTechnique technique = ResolveTechnique(jammer_sources[i]);
 
       bool contributed = false;
       if (HasSuppressionEffect(technique)) {
@@ -124,15 +124,15 @@ class JammingAggregator final {
    * @param[in] source 干扰源输入。
    * @return 解析后的干扰技术类型。
    */
-  static environment::EsrJammingTechnique ResolveTechnique(
-      const environment::EsrJammerSource& source) {
-    if (source.technique != environment::EsrJammingTechnique::kUnknown) {
+  static session::EsrJammingTechnique ResolveTechnique(
+      const session::EsrJammerSource& source) {
+    if (source.technique != session::EsrJammingTechnique::kUnknown) {
       return source.technique;
     }
     if (source.deception_risk > 0.0f) {
-      return environment::EsrJammingTechnique::kMixed;
+      return session::EsrJammingTechnique::kMixed;
     }
-    return environment::EsrJammingTechnique::kNoiseSuppression;
+    return session::EsrJammingTechnique::kNoiseSuppression;
   }
 
   /**
@@ -140,9 +140,9 @@ class JammingAggregator final {
    * @param[in] technique 干扰技术类型。
    * @return 包含压制分量时返回 `true`。
    */
-  static bool HasSuppressionEffect(environment::EsrJammingTechnique technique) {
-    return technique == environment::EsrJammingTechnique::kNoiseSuppression ||
-           technique == environment::EsrJammingTechnique::kMixed;
+  static bool HasSuppressionEffect(session::EsrJammingTechnique technique) {
+    return technique == session::EsrJammingTechnique::kNoiseSuppression ||
+           technique == session::EsrJammingTechnique::kMixed;
   }
 
   /**
@@ -150,9 +150,9 @@ class JammingAggregator final {
    * @param[in] technique 干扰技术类型。
    * @return 包含欺骗分量时返回 `true`。
    */
-  static bool HasDeceptionEffect(environment::EsrJammingTechnique technique) {
-    return technique == environment::EsrJammingTechnique::kDeception ||
-           technique == environment::EsrJammingTechnique::kMixed;
+  static bool HasDeceptionEffect(session::EsrJammingTechnique technique) {
+    return technique == session::EsrJammingTechnique::kDeception ||
+           technique == session::EsrJammingTechnique::kMixed;
   }
 
 };

@@ -39,6 +39,10 @@ struct ONEQ_API EosEnvironmentObservation {
  */
 struct ONEQ_API EosEnvironmentModelInputs {
   EosEnvironmentModelType model_type{EosEnvironmentModelType::kSimplified};
+  foundation::radiative_transfer::RadiativeTransferModel radiative_transfer_model{
+      foundation::radiative_transfer::RadiativeTransferModel::kDerivedBeerLambert};
+  float base_aerosol_density_factor{1.0f};              /**< 预设/自定义气溶胶密度因子 */
+  float base_turbulence_factor{1.0f};                   /**< 预设/自定义湍流因子 */
   float platform_altitude_m{0.0f};
   float cloud_coverage_ratio{0.0f};
   float wind_speed_mps{0.0f};

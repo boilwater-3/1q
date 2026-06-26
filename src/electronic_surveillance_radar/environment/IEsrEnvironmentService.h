@@ -6,7 +6,7 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_ENVIRONMENT_I_ESR_ENVIRONMENT_SERVICE_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_ENVIRONMENT_I_ESR_ENVIRONMENT_SERVICE_H_
 
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 
 namespace electronic_surveillance_radar {
 namespace environment {
@@ -22,19 +22,19 @@ class IEsrEnvironmentService {
    * @brief 冻结当前周期环境事实。
    * @param[in] cycle_context 当前周期上下文。
    */
-  virtual void BeginCycle(const EsrEnvironmentCycleContext& cycle_context) = 0;
+  virtual void BeginCycle(const session::EsrEnvironmentCycleContext& cycle_context) = 0;
 
   /**
    * @brief 采样当前周期环境快照。
    * @return 当前周期环境快照。
    */
-  virtual EsrEnvironmentSnapshot SampleEnvironment() const = 0;
+  virtual session::EsrEnvironmentSnapshot SampleEnvironment() const = 0;
 
   /**
    * @brief 更新环境模型配置。
    * @param[in] config 新的内部模型配置。
    */
-  virtual void UpdateModelConfig(EsrEnvironmentModelConfig config) = 0;
+  virtual void UpdateModelConfig(config::EsrEnvironmentModelConfig config) = 0;
 };
 
 }  // namespace environment

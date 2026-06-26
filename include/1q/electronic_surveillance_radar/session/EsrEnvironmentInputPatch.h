@@ -21,17 +21,17 @@ namespace session {
  */
 struct ONEQ_API EsrEnvironmentInputPatch {
   bool has_propagation_profile{false}; /**< 是否更新传播环境类型 */
-  environment::EsrPropagationEnvironmentProfile propagation_profile{
-      environment::EsrPropagationEnvironmentProfile::kTypical}; /**< 新传播环境类型 */
+  session::EsrPropagationEnvironmentProfile propagation_profile{
+      session::EsrPropagationEnvironmentProfile::kTypical}; /**< 新传播环境类型 */
   bool has_clutter_density{false};                              /**< 是否更新杂波密度 */
-  environment::EsrClutterDensityLevel clutter_density{
-      environment::EsrClutterDensityLevel::kMedium}; /**< 新杂波密度 */
+  session::EsrClutterDensityLevel clutter_density{
+      session::EsrClutterDensityLevel::kMedium}; /**< 新杂波密度 */
   bool has_spectrum_occupancy_ratio{false};          /**< 是否更新频谱占用率 */
   float spectrum_occupancy_ratio{0.0f};              /**< 新频谱占用率，范围 [0, 1] */
   bool has_atmospheric_observation{false};           /**< 是否更新天气观测 */
-  environment::EsrAtmosphericObservation atmospheric_observation{}; /**< 新天气观测 */
+  session::EsrAtmosphericObservation atmospheric_observation{}; /**< 新天气观测 */
   bool has_jammer_sources{false};                                   /**< 是否更新干扰源列表 */
-  environment::EsrJammerSourceList jammer_sources{};                /**< 新干扰源列表 */
+  session::EsrJammerSourceList jammer_sources{};                /**< 新干扰源列表 */
 };
 
 }  // namespace session
