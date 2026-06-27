@@ -19,6 +19,28 @@ namespace {
 
 // ---- 辅助构建函数 ----
 
+// 单条 detection record 的 encode/decode 单一源。
+// EncodeEosOutputFrame / EncodeEosCycleResult 与对应的 decode 都复用这两个 helper，
+// 避免同一份 9 字段映射在四处重复（加字段时只改这里）。
+flatbuffers::Offset<eos::replay::EosDetectionRecord> EncodeOneDetection(
+    flatbuffers::FlatBufferBuilder& fbb, const output::EosDetectionRecord& d) {
+  return eos::replay::CreateEosDetectionRecord(
+      fbb, d.detection_id, d.range_m, d.azimuth_deg, d.elevation_deg, d.infrared_snr_linear,
+      d.visible_snr_linear, d.fused_snr_linear, d.fused_snr_db, d.detected);
+}
+
+void DecodeOneDetection(const eos::replay::EosDetectionRecord& d, output::EosDetectionRecord* out) {
+  out->detection_id = d.detection_id();
+  out->range_m = d.range_m();
+  out->azimuth_deg = d.azimuth_deg();
+  out->elevation_deg = d.elevation_deg();
+  out->infrared_snr_linear = d.infrared_snr_linear();
+  out->visible_snr_linear = d.visible_snr_linear();
+  out->fused_snr_linear = d.fused_snr_linear();
+  out->fused_snr_db = d.fused_snr_db();
+  out->detected = d.detected();
+}
+
 eos::replay::Vec3 ToFbVec3(const oneq::foundation::Vector3f& v) {
   return eos::replay::Vec3(static_cast<float>(v.x), static_cast<float>(v.y),
                            static_cast<float>(v.z));
@@ -148,9 +170,7 @@ std::string EncodeEosOutputFrame(const session::EosOutputFrame& v) {
   std::vector<flatbuffers::Offset<eos::replay::EosDetectionRecord>> det_vec;
   det_vec.reserve(v.detections.size());
   for (const auto& d : v.detections) {
-    det_vec.push_back(eos::replay::CreateEosDetectionRecord(
-        fbb, d.detection_id, d.range_m, d.azimuth_deg, d.elevation_deg, d.infrared_snr_linear,
-        d.visible_snr_linear, d.fused_snr_linear, d.fused_snr_db, d.detected));
+    det_vec.push_back(EncodeOneDetection(fbb, d));
   }
   auto dets = fbb.CreateVector(det_vec);
   auto frame = eos::replay::CreateEosOutputFrame(fbb, v.cycle_index, v.scan_azimuth_deg, dets);
@@ -171,15 +191,7 @@ bool DecodeEosOutputFrame(const std::string& bytes, session::EosOutputFrame* out
   if (fb->detections()) {
     for (const auto* d : *fb->detections()) {
       output::EosDetectionRecord rec{};
-      rec.detection_id = d->detection_id();
-      rec.range_m = d->range_m();
-      rec.azimuth_deg = d->azimuth_deg();
-      rec.elevation_deg = d->elevation_deg();
-      rec.infrared_snr_linear = d->infrared_snr_linear();
-      rec.visible_snr_linear = d->visible_snr_linear();
-      rec.fused_snr_linear = d->fused_snr_linear();
-      rec.fused_snr_db = d->fused_snr_db();
-      rec.detected = d->detected();
+      DecodeOneDetection(*d, &rec);
       out->detections.push_back(rec);
     }
   }
@@ -194,9 +206,7 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
   // 先编码 output_frame
   std::vector<flatbuffers::Offset<eos::replay::EosDetectionRecord>> det_vec;
   for (const auto& d : v.output_frame.detections) {
-    det_vec.push_back(eos::replay::CreateEosDetectionRecord(
-        fbb, d.detection_id, d.range_m, d.azimuth_deg, d.elevation_deg, d.infrared_snr_linear,
-        d.visible_snr_linear, d.fused_snr_linear, d.fused_snr_db, d.detected));
+    det_vec.push_back(EncodeOneDetection(fbb, d));
   }
   auto frame = eos::replay::CreateEosOutputFrame(
       fbb, v.output_frame.cycle_index, v.output_frame.scan_azimuth_deg, fbb.CreateVector(det_vec));
@@ -249,15 +259,7 @@ bool DecodeEosCycleResult(const std::string& bytes,
     if (frm->detections()) {
       for (const auto* d : *frm->detections()) {
         output::EosDetectionRecord rec{};
-        rec.detection_id = d->detection_id();
-        rec.range_m = d->range_m();
-        rec.azimuth_deg = d->azimuth_deg();
-        rec.elevation_deg = d->elevation_deg();
-        rec.infrared_snr_linear = d->infrared_snr_linear();
-        rec.visible_snr_linear = d->visible_snr_linear();
-        rec.fused_snr_linear = d->fused_snr_linear();
-        rec.fused_snr_db = d->fused_snr_db();
-        rec.detected = d->detected();
+        DecodeOneDetection(*d, &rec);
         out->output_frame.detections.push_back(rec);
       }
     }

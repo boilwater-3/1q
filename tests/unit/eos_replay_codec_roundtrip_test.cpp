@@ -158,6 +158,9 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
 
   output::EosDetectionRecord rec;
   rec.detection_id = 10U;
+  rec.range_m = 4500.0f;
+  rec.azimuth_deg = -7.5f;
+  rec.fused_snr_db = 22.0f;
   rec.detected = true;
   result.output_frame.detections.push_back(rec);
   attribution::EosDetectionAttributionRecord attribution;
@@ -182,6 +185,9 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.output_frame.scan_azimuth_deg, 20.0f);
   ASSERT_EQ(decoded.output_frame.detections.size(), 1U);
   EXPECT_EQ(decoded.output_frame.detections[0].detection_id, 10U);
+  EXPECT_FLOAT_EQ(decoded.output_frame.detections[0].range_m, 4500.0f);
+  EXPECT_FLOAT_EQ(decoded.output_frame.detections[0].azimuth_deg, -7.5f);
+  EXPECT_FLOAT_EQ(decoded.output_frame.detections[0].fused_snr_db, 22.0f);
   EXPECT_TRUE(decoded.output_frame.detections[0].detected);
   ASSERT_EQ(decoded.detection_attributions.size(), 1U);
   EXPECT_EQ(decoded.detection_attributions[0].detection_id, 10U);
