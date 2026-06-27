@@ -32,8 +32,7 @@ struct FrameContext;
 class EosPipeline {
  public:
   explicit EosPipeline(
-      const config::execution::EosInternalExecutionConfig& config,
-      std::shared_ptr<environment::IEosEnvironmentService> environment_service = nullptr);
+      const config::execution::EosInternalExecutionConfig& config);
 
   // ---- 内部接口 (直接操作 EosInternalExecutionConfig, 无转换开销) ----
   void ApplyInternalConfig(const config::execution::EosInternalExecutionConfig& config,

@@ -361,15 +361,10 @@ bool IsCompatiblePipelineRuntimeState(const extension::EosPipelineRuntimeState& 
 
 }  // namespace
 
-EosPipeline::EosPipeline(const config::execution::EosInternalExecutionConfig& config,
-                         std::shared_ptr<environment::IEosEnvironmentService> environment_service)
+EosPipeline::EosPipeline(const config::execution::EosInternalExecutionConfig& config)
     : config_(config),
       current_scan_azimuth_deg_(config.scan.scan_start_az_deg),
-      environment_service_(std::move(environment_service)) {
-  if (environment_service_ == nullptr) {
-    environment_service_.reset(new DefaultEosEnvironmentService());
-  }
-}
+      environment_service_(new DefaultEosEnvironmentService()) {}
 
 void EosPipeline::ApplyInternalConfig(const config::execution::EosInternalExecutionConfig& config,
                                       bool reset_scan_phase) {

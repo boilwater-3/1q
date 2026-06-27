@@ -1,6 +1,10 @@
 /**
  * @file IEosEnvironmentService.h
- * @brief EOS 环境扩展接口，允许外部接管环境因子建模。
+ * @brief EOS 内部环境建模抽象。
+ *
+ * 这是 EOS pipeline 内部用于解耦环境因子计算的抽象（默认实现 DefaultEosEnvironmentService
+ * 在 EosPipeline.cpp 内部）。当前 public boundary 不支持外部替换 environment service
+ * （见 design.md §公开边界），故本接口不是外部扩展点。
  */
 
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_I_EOS_ENVIRONMENT_SERVICE_H_
@@ -12,7 +16,7 @@ namespace electro_optical_sensor {
 namespace environment {
 
 /**
- * @brief IEosEnvironmentService 定义 EOS 环境建模扩展点。
+ * @brief IEosEnvironmentService 是 EOS 内部环境建模抽象（非外部扩展点）。
  */
 class IEosEnvironmentService {
  public:
