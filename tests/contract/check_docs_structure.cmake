@@ -2,10 +2,14 @@
 #
 # Guard repository documentation shape:
 #   - docs/ has exactly common plus the five module directories
-#   - each business module uses the five-file model
-#   - common uses the approved common-document set
+#   - each business module uses the single-file design.md model
+#   - common uses the approved common-document set (contract.md only)
 #   - top-level loose Markdown files and legacy archive/review/migration folders
 #     do not reappear
+#
+# Per docs/common/contract.md §文档结构, each business module keeps only
+# design.md as its design authority; the prior README/contract/decisions/history
+# set has been collapsed into design.md, and common keeps only contract.md.
 
 cmake_minimum_required(VERSION 3.16)
 
@@ -29,17 +33,10 @@ set(BUSINESS_MODULE_DIRS
     "sar")
 
 set(MODULE_DOC_FILES
-    "README.md"
-    "design.md"
-    "contract.md"
-    "decisions.md"
-    "history.md")
+    "design.md")
 
 set(COMMON_DOC_FILES
-    "README.md"
-    "contract.md"
-    "decisions.md"
-    "history.md")
+    "contract.md")
 
 set(VIOLATIONS "")
 
@@ -79,7 +76,7 @@ foreach(module ${BUSINESS_MODULE_DIRS})
   foreach(rel_doc ${_module_docs})
     list(FIND MODULE_DOC_FILES "${rel_doc}" _allowed_doc_idx)
     if(_allowed_doc_idx EQUAL -1)
-      list(APPEND VIOLATIONS "docs/${module}/${rel_doc}: module docs must use README/design/contract/decisions/history only")
+      list(APPEND VIOLATIONS "docs/${module}/${rel_doc}: module docs must use design.md only")
     endif()
   endforeach()
 endforeach()
@@ -118,5 +115,9 @@ if(VIOLATIONS)
   message(FATAL_ERROR "${_err}")
 endif()
 
-message(STATUS "[docs-structure] common=4, modules=5, module_docs=25, violations=0")
+list(LENGTH COMMON_DOC_FILES _common_count)
+list(LENGTH MODULE_DOC_FILES _module_doc_count)
+list(LENGTH BUSINESS_MODULE_DIRS _module_count)
+math(EXPR _module_doc_total "${_module_count} * ${_module_doc_count}")
+message(STATUS "[docs-structure] common=${_common_count}, modules=${_module_count}, module_docs=${_module_doc_total}, violations=0")
 

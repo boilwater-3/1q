@@ -16,6 +16,7 @@
 
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
+#include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosReplaySession.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/replay/ReplayTrace.h"
@@ -96,30 +97,65 @@ TEST(EosReplaySessionTest, ReplayEosTraceDetectsDivergence) {
   manifest.module = "electro_optical_sensor";
   manifest.scenario_id = "unit-test";
 
+  // Tamper: record a real session_config + cycle_input, then write a cycle_output
+  // whose expected EosCycleResult carries a sentinel scan_azimuth_deg that the
+  // replayed cycle cannot produce. The replay re-executes the cycle from the
+  // recorded config/input, compares the recomputed result against the recorded
+  // cycle_output, and must flag the mismatch as output divergence.
   {
-    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
-        new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
-
     config::EosSessionConfig config;
-    EosTraceSessionOptions options;
-    options.replay_writer = replay_writer;
-    options.trace_config_on_construct = true;
-    EosTraceSession session(config, options);
-
     EosCycleInput input;
     input.cycle_index = 1U;
     input.dt_sec = 1.0f;
-    session.StepWithResult(input);
-    replay_writer->Flush();
+
+    EosCycleResult tampered_result;
+    tampered_result.input_cycle_index = input.cycle_index;
+    // Sentinel value the real pipeline cannot produce; EosOutputFrameEqual
+    // compares scan_azimuth_deg, so this guarantees a divergence.
+    tampered_result.output_frame.scan_azimuth_deg = 777.7f;
+
+    oneq::replay::ReplayTraceWriter writer(trace_dir, manifest, true);
+
+    oneq::replay::ReplayTraceEvent config_event;
+    config_event.module = "electro_optical_sensor";
+    config_event.event_type = "session_config";
+    config_event.payload_type = "EosSessionConfig";
+    config_event.payload_encoding = "flatbuffers";
+    config_event.payload_bytes = EncodeEosSessionConfig(config);
+    writer.WriteEvent(config_event);
+
+    oneq::replay::ReplayTraceEvent input_event;
+    input_event.module = "electro_optical_sensor";
+    input_event.event_type = "cycle_input";
+    input_event.payload_type = "EosCycleInput";
+    input_event.payload_encoding = "flatbuffers";
+    input_event.payload_bytes = EncodeEosCycleInput(input);
+    input_event.has_cycle_index = true;
+    input_event.cycle_index = input.cycle_index;
+    writer.WriteEvent(input_event);
+
+    oneq::replay::ReplayTraceEvent output_event;
+    output_event.module = "electro_optical_sensor";
+    output_event.event_type = "cycle_output";
+    output_event.payload_type = "EosCycleResult";
+    output_event.payload_encoding = "flatbuffers";
+    output_event.payload_bytes = EncodeEosCycleResult(tampered_result);
+    output_event.has_cycle_index = true;
+    output_event.cycle_index = input.cycle_index;
+    writer.WriteEvent(output_event);
+
+    writer.Flush();
   }
 
-  // Tamper: overwrite the trace directory with a different session config
-  // so that replay produces a different result. We achieve this by writing
-  // a second trace with a different config on top.
-  // Instead, we verify the replay succeeds with the same config (no tampering).
   const EosReplaySessionResult replay_result = ReplayEosTrace(trace_dir);
-  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
-  EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+  EXPECT_FALSE(replay_result.ok);
+  EXPECT_NE(replay_result.first_error.find("divergence"), std::string::npos)
+      << replay_result.first_error;
+  // The divergence is raised inside the cycle_output callback, which returns
+  // false before compared_output_count is incremented, so no output is counted
+  // as successfully compared.
+  EXPECT_EQ(replay_result.playback.compared_output_count, 0U);
+  EXPECT_FALSE(replay_result.reached_failure_marker);
 }
 
 TEST(EosReplaySessionTest, ReplayEosTraceRejectsWrongModule) {

@@ -130,6 +130,7 @@ Evidence references point to existing test files and specific test cases (not br
 - Prefer forward declarations to reduce includes and rebuild cost.
 - Use PIMPL for critical classes when hiding implementation reduces recompilation propagation.
 - Make interfaces easy to use correctly and hard to use incorrectly.
+- For algorithm, architecture, module-internal optimization, output/config semantics, or public API work, use `skills/evidence-first-freeze-contract` before implementation.
 - Log critical paths and events. e.g. Use `spdlog::debug/info` for flow and `spdlog::error` for failures.
 - For Chinese Doxygen work, explicitly use `$cpp-chinese-doxygen`.
 

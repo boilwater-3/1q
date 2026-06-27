@@ -1,10 +1,14 @@
 # check_sar_doc_governance.cmake
 #
 # Guard SAR documentation shape:
-#   - docs/sar uses the five-file model only
-#   - each required file declares Status: active near the top
+#   - docs/sar uses the single-file design.md model only
+#   - design.md declares Status: active near the top
 #   - legacy archive/contracts/audits/design/decisions/workflow directories do
 #     not reappear under docs/sar
+#
+# Per docs/common/contract.md §文档结构, each business module keeps only
+# design.md as its design authority; the prior README/contract/decisions/history
+# set has been collapsed into design.md.
 
 cmake_minimum_required(VERSION 3.16)
 
@@ -13,11 +17,7 @@ if(NOT DEFINED SOURCE_DIR)
 endif()
 
 set(REQUIRED_ACTIVE_DOCS
-    "docs/sar/README.md"
-    "docs/sar/design.md"
-    "docs/sar/contract.md"
-    "docs/sar/decisions.md"
-    "docs/sar/history.md")
+    "docs/sar/design.md")
 
 set(FORBIDDEN_SAR_PATHS
     "docs/sar/archive"
@@ -54,7 +54,7 @@ foreach(doc_file ${SAR_DOCS})
   file(RELATIVE_PATH rel_path "${SOURCE_DIR}" "${doc_file}")
   list(FIND REQUIRED_ACTIVE_DOCS "${rel_path}" _allowed_idx)
   if(_allowed_idx EQUAL -1)
-    list(APPEND VIOLATIONS "${rel_path}: SAR docs must use the five-file model")
+    list(APPEND VIOLATIONS "${rel_path}: SAR docs must use the single-file design.md model")
   endif()
 endforeach()
 
@@ -82,5 +82,5 @@ if(VIOLATIONS)
 endif()
 
 list(LENGTH REQUIRED_ACTIVE_DOCS _active_count)
-message(STATUS "[sar-doc-governance] active=${_active_count}, shape=five-file, violations=0")
+message(STATUS "[sar-doc-governance] active=${_active_count}, shape=single-design, violations=0")
 

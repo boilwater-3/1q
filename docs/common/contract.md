@@ -6,6 +6,21 @@ Authority: common contract for all modules
 
 本文合并原顶层 public API customization、session config builder、三层输出可观测性和文档治理契约。模块级文档不得与本文冲突。
 
+## 证据优先开发模式
+
+对算法、架构、模块内部优化、输出语义、配置语义和 public API 相关改动，默认采用
+`skills/evidence-first-freeze-contract` 定义的证据优先模式。
+
+强制规则：
+
+1. 先判定，再契约，再实现。
+2. Stage A 未得到 `pass` 或 `narrow` 判定时，不进入生产代码实现。
+3. Stage B 前必须冻结实现契约，明确允许范围、禁止范围、行为边界、验收条件和非目标。
+4. 实现只能覆盖已被证据证明的最小边界；不得借机扩大 public API、跨模块抽象、schema、trace/replay 或兼容层。
+5. 验收失败时回到证据矩阵重新拆分原因；不得通过放宽阈值、扩大 skip 或弱化测试制造通过。
+
+具体 evidence matrix、契约模板、输出格式和回写要求由 repo skill 维护；公共契约只规定该流程是高风险开发的默认门禁。
+
 ## Public API 边界
 
 默认 public API 只允许稳定门面和稳定 DTO：
@@ -66,7 +81,6 @@ Authority: common contract for all modules
 - `electronic_surveillance_radar`
 - `flight_dynamic`
 - `sar`
-- `finding`
 
 每个业务模块只保留 `design.md` 作为设计权威文档。历史决策记录（旧版 `decisions.md`、`history.md`、`contract.md`）和模块入口（`README.md`）的内容已内聚到 `design.md` 中。
 
@@ -139,4 +153,3 @@ flowchart LR
 - 没有传感器模块之间的直接数据流——各传感器独立处理平台状态和外部输入。
 - `common/` 层提供坐标转换、大气物理、数值方法等跨模块共享类型，不作为独立运行时层。
 - `flight_dynamic` 是唯一的平台状态生产者；传感器模块不反向影响飞行动力学。
-
