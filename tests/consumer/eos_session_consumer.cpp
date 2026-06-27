@@ -3,7 +3,7 @@
  * @brief 验证安装后 EOS 公共 API 路径可被外部工程编译链接。
  *
  * 覆盖要点：
- *   - EosSessionConfigBuilder 语义化会话配置构造
+ *   - EosSessionConfigBuilder 语义 profile 配置构造
  *   - 直接字段赋值覆盖四域详细参数（hardware/mission/policy/environment）
  *   - EosCycleInput + EosSceneTarget 构造场景输入
  *   - EosInputValidation 输入校验
@@ -17,12 +17,12 @@
 
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
-#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace eos = electro_optical_sensor;
 
@@ -31,7 +31,7 @@ int main() {
   const eos::config::EosSessionConfig semantic_config =
       eos::config::EosSessionConfigBuilder()
           .Mission()
-          .WithWorkMode(eos::config::EosWorkMode::kFused)
+          .WithMissionProfile(eos::config::EosMissionProfile::kWideAreaSearch)
           .End()
           .Environment()
           .WithEnvironmentModelType(eos::config::EosEnvironmentModelType::kSimplified)
@@ -143,27 +143,24 @@ int main() {
   const eos::config::EosRuntimeConfigPatch env_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentModelType(eos::config::EosEnvironmentModelType::kAdvanced)
-          .WithEnvironmentDetails(
-              eos::config::RadiativeTransferModel::kAdaptivePathRadiance,
-              1.3f, 1.8f)
+          .WithEnvironmentDetails(eos::config::RadiativeTransferModel::kAdaptivePathRadiance, 1.3f,
+                                  1.8f)
           .Build();
   session.ApplyRuntimeConfig(env_patch);
 
   // 14. RuntimeConfigBuilder: tune environment model details
   const eos::config::EosRuntimeConfigPatch rt_patch =
       eos::config::EosRuntimeConfigBuilder()
-          .WithEnvironmentDetails(
-              eos::config::RadiativeTransferModel::kAdaptivePathRadiance,
-              2.0f, 1.2f)
+          .WithEnvironmentDetails(eos::config::RadiativeTransferModel::kAdaptivePathRadiance, 2.0f,
+                                  1.2f)
           .Build();
   session.ApplyRuntimeConfig(rt_patch);
 
   // 15. RuntimeConfigBuilder: change environment model details again
   const eos::config::EosRuntimeConfigPatch vis_ref_patch =
       eos::config::EosRuntimeConfigBuilder()
-          .WithEnvironmentDetails(
-              eos::config::RadiativeTransferModel::kHumidityWeighted, 1.1f,
-              1.1f)
+          .WithEnvironmentDetails(eos::config::RadiativeTransferModel::kHumidityWeighted, 1.1f,
+                                  1.1f)
           .Build();
   session.ApplyRuntimeConfig(vis_ref_patch);
 

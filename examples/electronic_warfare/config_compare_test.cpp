@@ -12,21 +12,23 @@ namespace esr_session = electronic_surveillance_radar::session;
 
 namespace {
 
-esr_config::EsrSessionConfig MakeEmitterSearchConfig() {
-  esr_config::EsrSessionConfig config =
+esr_cfg::EsrSessionConfig MakeEmitterSearchConfig() {
+  esr_cfg::EsrSessionConfig config =
       esr_cfg::EsrSessionConfigBuilder()
           .Mission()
-          .WithWorkMode(esr_cfg::EsrWorkMode::kEsm)
-          .WithPowerOn(true)
-          .WithScanRateHz(1.0f)
+          .WithMissionProfile(esr_cfg::EsrMissionProfile::kElectronicOrderOfBattle)
           .End()
           .Detection()
-          .WithMinDetectSnrDb(6.0f)
+          .WithSensitivityProfile(esr_cfg::EsrSensitivityProfile::kStandard)
           .End()
           .Environment()
           .WithEnvironmentPreset(esr_cfg::EsrEnvironmentPreset::kStandard)
           .End()
           .Build();
+  config.mission.power_on = true;
+  config.mission.work_mode = esr_cfg::EsrWorkMode::kEsm;
+  config.mission.scan.scan_rate_hz = 1.0f;
+  config.policy.detection.minimum_snr_db = 6.0f;
   config.hardware.beam_az_width_deg = 120.0f;
   config.hardware.beam_el_width_deg = 40.0f;
   return config;
@@ -58,13 +60,13 @@ void ReportB(const char* name, bool a, bool b) {
 }  // namespace
 
 int main() {
-  const esr_config::EsrSessionConfig builder_cfg = MakeEmitterSearchConfig();
+  const esr_cfg::EsrSessionConfig builder_cfg = MakeEmitterSearchConfig();
 
-  esr_config::EsrSessionConfig file_cfg;
+  esr_cfg::EsrSessionConfig file_cfg;
   {
     std::string error;
-    if (!examples::LoadEsrSessionConfigFromFile("configs/electronic_warfare.json",
-                                                 &file_cfg, &error)) {
+    if (!examples::LoadEsrSessionConfigFromFile("configs/electronic_warfare.json", &file_cfg,
+                                                &error)) {
       std::cerr << "FAIL: " << error << "\n";
       return 1;
     }
@@ -78,7 +80,8 @@ int main() {
   ReportF("hardware.receiver_band_lower_hz", bh.receiver_band_lower_hz, fh.receiver_band_lower_hz);
   ReportF("hardware.receiver_band_upper_hz", bh.receiver_band_upper_hz, fh.receiver_band_upper_hz);
   ReportF("hardware.receiver_sensitivity_w", bh.receiver_sensitivity_w, fh.receiver_sensitivity_w);
-  ReportF("hardware.integrated_receive_loss_db", bh.integrated_receive_loss_db, fh.integrated_receive_loss_db);
+  ReportF("hardware.integrated_receive_loss_db", bh.integrated_receive_loss_db,
+          fh.integrated_receive_loss_db);
   ReportF("hardware.beam_az_width_deg", bh.beam_az_width_deg, fh.beam_az_width_deg);
   ReportF("hardware.beam_el_width_deg", bh.beam_el_width_deg, fh.beam_el_width_deg);
   ReportF("hardware.az_scan_range_deg", bh.az_scan_range_deg, fh.az_scan_range_deg);
@@ -97,7 +100,8 @@ int main() {
   ReportF("mission.scan.scan_center_az_deg", bs.scan_center_az_deg, fs.scan_center_az_deg);
   ReportF("mission.scan.scan_center_el_deg", bs.scan_center_el_deg, fs.scan_center_el_deg);
   ReportF("mission.scan.scan_rate_hz", bs.scan_rate_hz, fs.scan_rate_hz);
-  ReportB("mission.scan.use_explicit_scan_bounds", bs.use_explicit_scan_bounds, fs.use_explicit_scan_bounds);
+  ReportB("mission.scan.use_explicit_scan_bounds", bs.use_explicit_scan_bounds,
+          fs.use_explicit_scan_bounds);
   ReportF("mission.scan.scan_start_az_deg", bs.scan_start_az_deg, fs.scan_start_az_deg);
   ReportF("mission.scan.scan_end_az_deg", bs.scan_end_az_deg, fs.scan_end_az_deg);
   ReportF("mission.scan.scan_start_el_deg", bs.scan_start_el_deg, fs.scan_start_el_deg);
@@ -106,23 +110,20 @@ int main() {
   // policy
   const auto& bp = builder_cfg.policy;
   const auto& fp = file_cfg.policy;
-  ReportF("policy.detection.minimum_snr_db",
-          bp.detection.minimum_snr_db, fp.detection.minimum_snr_db);
+  ReportF("policy.detection.minimum_snr_db", bp.detection.minimum_snr_db,
+          fp.detection.minimum_snr_db);
   ReportF("policy.detection.pfa", bp.detection.pfa, fp.detection.pfa);
-  ReportI("policy.detection.pulse_count",
-          static_cast<int>(bp.detection.pulse_count),
+  ReportI("policy.detection.pulse_count", static_cast<int>(bp.detection.pulse_count),
           static_cast<int>(fp.detection.pulse_count));
-  ReportF("policy.detection.threshold_scale",
-          bp.detection.threshold_scale, fp.detection.threshold_scale);
+  ReportF("policy.detection.threshold_scale", bp.detection.threshold_scale,
+          fp.detection.threshold_scale);
   ReportB("policy.detection.enable_statistical_detection",
-          bp.detection.enable_statistical_detection,
-          fp.detection.enable_statistical_detection);
+          bp.detection.enable_statistical_detection, fp.detection.enable_statistical_detection);
 
   // environment
   const auto& be = builder_cfg.environment;
   const auto& fe = file_cfg.environment;
-  ReportI("environment.scenario_config.preset",
-          static_cast<int>(be.scenario_config.preset),
+  ReportI("environment.scenario_config.preset", static_cast<int>(be.scenario_config.preset),
           static_cast<int>(fe.scenario_config.preset));
   ReportB("environment.scenario_config.atmospheric_physics.enable_physical_model",
           be.scenario_config.atmospheric_physics.enable_physical_model,

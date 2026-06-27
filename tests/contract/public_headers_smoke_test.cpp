@@ -10,53 +10,45 @@
 #include <utility>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
+#include "1q/airborne_radar/config/JammingSemantics.h"
 #include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarMissionConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/airborne_radar/config/RadarPolicyConfig.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
-#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
-#include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
-
-#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/session/RadarOutputTypes.h"
 #include "1q/airborne_radar/session/ControlDirective.h"
-#include "1q/airborne_radar/session/RadarCommand.h"
-#include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/DecisionSourceInfo.h"
-#include "1q/airborne_radar/config/JammingSemantics.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
-#include "1q/airborne_radar/session/TrackStateSnapshot.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/RadarCommand.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleInputAdapter.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarEnvironmentInput.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
-
+#include "1q/airborne_radar/session/RadarOutputTypes.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/session/RadarTraceSession.h"
 #include "1q/airborne_radar/session/RadarTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/RadarTrackOutputDebugView.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/api.hpp"
 #include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
 #include "1q/coordinate/velocity_transform.h"
+#include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
-#include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
-#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
-#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
@@ -65,20 +57,19 @@
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosOutputDebugView.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
+#include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
-#include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
-#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
-
-#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
-#include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrOutputDebugView.h"
@@ -112,11 +103,10 @@ static_assert(std::is_same<ArSession, decltype(airborne_radar::session::RadarSes
                                           std::declval<const ArConfig&>()))>::value,
               "RadarSessionFactory::Create must return RadarSession");
 static_assert(
-    std::is_same<
-        ArSession,
-        decltype(airborne_radar::session::RadarSession::CreateWithDecisionEngine(
-            std::declval<const ArConfig&>(),
-            std::declval<airborne_radar::session::ITacticalDecisionEngine&>()))>::value,
+    std::is_same<ArSession,
+                 decltype(airborne_radar::session::RadarSession::CreateWithDecisionEngine(
+                     std::declval<const ArConfig&>(),
+                     std::declval<airborne_radar::session::ITacticalDecisionEngine&>()))>::value,
     "RadarSessionFactory::CreateWithDecisionEngine must return RadarSession");
 
 static_assert(
@@ -226,16 +216,13 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
   scan_center.az_deg = -12.0f;
   scan_center.el_deg = 6.0f;
 
-  const config::RadarSessionConfig config =
+  config::RadarSessionConfig config =
       config::RadarSessionConfigBuilder()
           .Detection()
           .EnablePhysicsDetection(true)
           .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
           .WithHardwareProfile(config::profiles::RadarHardwareProfile::kLongRangeHighPower)
           .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kLowSidelobe)
-          .End()
-          .Mission()
-          .WithScanCenterDeg(scan_center)
           .End()
           .Lifecycle()
           .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
@@ -244,13 +231,15 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
           .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kRelaxed)
           .End()
           .Build();
+  config.mission.orientation.scan_center_deg = scan_center;
   EXPECT_TRUE(config.hardware.enable_physics_detection);
   EXPECT_EQ(config.hardware.pulse_count, 16);
   EXPECT_FLOAT_EQ(config.hardware.transmitter.peak_power_w, 5.0e6f);
   EXPECT_FLOAT_EQ(config.hardware.antenna.pattern.max_sidelobe_level_db, -30.0f);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, -12.0f);
   EXPECT_EQ(config.policy.lifecycle.confirm_hits, 1U);
-  EXPECT_EQ(config.environment.jamming_sensitivity_profile, config::JammingSensitivityProfile::kRelaxed);
+  EXPECT_EQ(config.environment.jamming_sensitivity_profile,
+            config::JammingSensitivityProfile::kRelaxed);
 
   config::EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
@@ -273,12 +262,13 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   config::EsrSessionConfig session_config =
       config::EsrSessionConfigBuilder()
           .Mission()
-          .WithScanRateHz(1.0f)
+          .WithMissionProfile(config::EsrMissionProfile::kElectronicOrderOfBattle)
           .End()
           .Detection()
-          .WithMinDetectSnrDb(6.0f)
+          .WithSensitivityProfile(config::EsrSensitivityProfile::kStandard)
           .End()
           .Build();
+  session_config.mission.scan.scan_rate_hz = 1.0f;
   session_config.mission.scan.use_explicit_scan_bounds = true;
   session_config.mission.scan.scan_start_az_deg = -60.0f;
   session_config.mission.scan.scan_end_az_deg = 60.0f;
@@ -344,7 +334,7 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   config::EosSessionConfig session_config =
       config::EosSessionConfigBuilder()
           .Mission()
-          .WithWorkMode(config::EosWorkMode::kFused)
+          .WithMissionProfile(config::EosMissionProfile::kWideAreaSearch)
           .End()
           .Build();
   session_config.policy.detection.minimum_snr_db = 4.5f;

@@ -3,7 +3,7 @@
  * @brief 验证安装后 ESR 公共 API 路径可被外部工程编译链接。
  *
  * 覆盖要点：
- *   - EsrSessionConfigBuilder 构造会话配置
+ *   - EsrSessionConfigBuilder 语义 profile 构造会话配置
  *   - 直接字段赋值构造详细会话配置
  *   - EsrCycleInput + EsrSceneEmitter 构造场景输入
  *   - EsrInputValidation 输入校验
@@ -29,12 +29,13 @@ int main() {
   esr::config::EsrSessionConfig config =
       esr::config::EsrSessionConfigBuilder()
           .Detection()
-          .WithMinDetectSnrDb(6.0f)
+          .WithSensitivityProfile(esr::config::EsrSensitivityProfile::kStandard)
           .End()
           .Mission()
-          .WithScanRateHz(1.0f)
+          .WithMissionProfile(esr::config::EsrMissionProfile::kElectronicOrderOfBattle)
           .End()
           .Build();
+  config.mission.scan.scan_rate_hz = 1.0f;
 
   // 2. 直接字段赋值构造详细会话配置
   esr::config::EsrSessionConfig detailed_config{};

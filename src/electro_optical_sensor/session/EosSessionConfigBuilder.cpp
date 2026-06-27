@@ -3,15 +3,14 @@
 
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 
-#include "common/logging/ProjectLog.h"
+#include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
 
 namespace electro_optical_sensor {
 namespace config {
 
 namespace {
 
-void ApplyEosMissionSemanticConfig(EosMissionProfile profile,
-                                   EosMissionConfig* mission,
+void ApplyEosMissionSemanticConfig(EosMissionProfile profile, EosMissionConfig* mission,
                                    EosDetectionPolicyConfig* detection) {
   if (mission == nullptr || detection == nullptr) {
     return;
@@ -47,8 +46,7 @@ void ApplyEosMissionSemanticConfig(EosMissionProfile profile,
   }
 }
 
-void ApplyEosHardwareSemanticConfig(EosHardwareProfile profile,
-                                    EosHardwareConfig* hardware) {
+void ApplyEosHardwareSemanticConfig(EosHardwareProfile profile, EosHardwareConfig* hardware) {
   if (hardware == nullptr) {
     return;
   }
@@ -82,8 +80,7 @@ config::EosSessionConfig EosSessionConfigBuilder::Build() const noexcept {
   config::EosSessionConfig result = config_;
 
   if (mission_profile_dirty_) {
-    ApplyEosMissionSemanticConfig(mission_profile_, &result.mission,
-                                  &result.policy.detection);
+    ApplyEosMissionSemanticConfig(mission_profile_, &result.mission, &result.policy.detection);
   }
   if (hardware_profile_dirty_) {
     ApplyEosHardwareSemanticConfig(hardware_profile_, &result.hardware);
@@ -92,43 +89,35 @@ config::EosSessionConfig EosSessionConfigBuilder::Build() const noexcept {
   return result;
 }
 
-ValidationIssueList EosSessionConfigBuilder::Validate() const noexcept {
+ValidationIssueList ValidateEosSessionConfig(const config::EosSessionConfig& config) noexcept {
   ValidationIssueList issues;
+  const auto push = [&issues](ConfigValidationCode code, const char* field, const char* msg) {
+    ConfigValidationIssue issue;
+    issue.code = code;
+    issue.field = field;
+    issue.message = msg;
+    issues.push_back(issue);
+  };
 
-  if (config_.mission.horizontal_fov_deg <= 0.0f) {
-    ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kHorizontalFovNotPositive;
-    issue.field = "mission.horizontal_fov_deg";
-    issue.message = "Horizontal FOV must be positive.";
-    issues.push_back(issue);
+  if (config.mission.horizontal_fov_deg <= 0.0f) {
+    push(ConfigValidationCode::kHorizontalFovNotPositive, "mission.horizontal_fov_deg",
+         "Horizontal FOV must be positive.");
   }
-  if (config_.mission.vertical_fov_deg <= 0.0f) {
-    ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kVerticalFovNotPositive;
-    issue.field = "mission.vertical_fov_deg";
-    issue.message = "Vertical FOV must be positive.";
-    issues.push_back(issue);
+  if (config.mission.vertical_fov_deg <= 0.0f) {
+    push(ConfigValidationCode::kVerticalFovNotPositive, "mission.vertical_fov_deg",
+         "Vertical FOV must be positive.");
   }
-  if (config_.mission.scan_rate_deg_per_sec <= 0.0f) {
-    ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kScanRateNotPositive;
-    issue.field = "mission.scan_rate_deg_per_sec";
-    issue.message = "Scan rate must be positive.";
-    issues.push_back(issue);
+  if (config.mission.scan_rate_deg_per_sec <= 0.0f) {
+    push(ConfigValidationCode::kScanRateNotPositive, "mission.scan_rate_deg_per_sec",
+         "Scan rate must be positive.");
   }
-  if (config_.mission.frame_rate_hz <= 0.0f) {
-    ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kFrameRateNotPositive;
-    issue.field = "mission.frame_rate_hz";
-    issue.message = "Frame rate must be positive.";
-    issues.push_back(issue);
+  if (config.mission.frame_rate_hz <= 0.0f) {
+    push(ConfigValidationCode::kFrameRateNotPositive, "mission.frame_rate_hz",
+         "Frame rate must be positive.");
   }
-  if (config_.mission.scan_start_az_deg >= config_.mission.scan_end_az_deg) {
-    ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kScanRangeAzSwapped;
-    issue.field = "mission.scan_start_az_deg / scan_end_az_deg";
-    issue.message = "Scan start azimuth must be less than end azimuth.";
-    issues.push_back(issue);
+  if (config.mission.scan_start_az_deg >= config.mission.scan_end_az_deg) {
+    push(ConfigValidationCode::kScanRangeAzSwapped, "mission.scan_start_az_deg / scan_end_az_deg",
+         "Scan start azimuth must be less than end azimuth.");
   }
 
   return issues;

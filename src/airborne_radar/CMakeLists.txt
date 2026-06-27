@@ -79,6 +79,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarOrientationConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/JammingSemantics.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/airborne_radar_config.hpp

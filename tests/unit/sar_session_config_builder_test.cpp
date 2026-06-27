@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "1q/sar/config/SarSessionConfigBuilder.h"
+#include "1q/sar/config/SarSessionConfigValidation.h"
 
 namespace sar {
 namespace config {
@@ -63,20 +64,23 @@ TEST(SarSessionConfigBuilderTest, ProcessingProfileFullPipelineL3) {
   EXPECT_TRUE(config.policy.retain_focused_image);
 }
 
-TEST(SarSessionConfigBuilderTest, SceneCenterViaEditor) {
-  SarSessionConfigBuilder builder;
-  builder.Mission().WithSceneCenter(35.0, 120.0, 500.0).End();
-  const SarSessionConfig config = builder.Build();
+TEST(SarSessionConfigBuilderTest, DirectConfigOwnsSceneCenterFields) {
+  SarSessionConfig config;
+  config.mission.scene_center_latitude_deg = 35.0;
+  config.mission.scene_center_longitude_deg = 120.0;
+  config.mission.scene_center_altitude_m = 500.0;
 
   EXPECT_DOUBLE_EQ(config.mission.scene_center_latitude_deg, 35.0);
   EXPECT_DOUBLE_EQ(config.mission.scene_center_longitude_deg, 120.0);
   EXPECT_DOUBLE_EQ(config.mission.scene_center_altitude_m, 500.0);
 }
 
-TEST(SarSessionConfigBuilderTest, WithSessionConfigBaseline) {
+TEST(SarSessionConfigBuilderTest, ProfileOverlayPreservesUnrelatedBaselineFields) {
   SarSessionConfig baseline;
   baseline.hardware.carrier_frequency_hz = 9.6e9;
   baseline.mission.scene_center_latitude_deg = 40.0;
+  baseline.policy.minimum_snr_db = 6.5;
+  baseline.environment.atmospheric_loss_db_per_km = 0.02;
 
   SarSessionConfigBuilder builder(baseline);
   builder.Mission().WithMissionProfile(SarMissionProfile::kStripmapSurvey).End();
@@ -88,15 +92,30 @@ TEST(SarSessionConfigBuilderTest, WithSessionConfigBaseline) {
   // Profile 翻译的字段应用。
   EXPECT_DOUBLE_EQ(config.mission.nominal_slant_range_m, 15000.0);
   EXPECT_EQ(config.mission.azimuth_pulse_count, 1024U);
+  // 非 profile 字段仍由四域 config 直接负责。
+  EXPECT_DOUBLE_EQ(config.policy.minimum_snr_db, 6.5);
+  EXPECT_DOUBLE_EQ(config.environment.atmospheric_loss_db_per_km, 0.02);
 }
 
-TEST(SarSessionConfigBuilderTest, ValidateDetectsNonPositiveFrequency) {
+TEST(SarSessionConfigBuilderTest, ProcessingProfileDoesNotOwnMinimumSnr) {
+  SarSessionConfig baseline;
+  baseline.policy.minimum_snr_db = 7.25;
+
+  SarSessionConfigBuilder builder(baseline);
+  builder.Processing().WithProcessingProfile(SarProcessingProfile::kFullPipelineL3).End();
+  const SarSessionConfig config = builder.Build();
+
+  EXPECT_TRUE(config.policy.enable_l3_bp_imaging);
+  EXPECT_TRUE(config.policy.retain_focused_image);
+  EXPECT_DOUBLE_EQ(config.policy.minimum_snr_db, 7.25);
+}
+
+TEST(SarSessionConfigValidationTest, DetectsNonPositiveFrequency) {
   SarSessionConfig config;
   config.hardware.carrier_frequency_hz = 0.0;
   config.hardware.bandwidth_hz = 0.0;
 
-  SarSessionConfigBuilder builder(config);
-  const ValidationIssueList issues = builder.Validate();
+  const ValidationIssueList issues = ValidateSarSessionConfig(config);
 
   EXPECT_FALSE(issues.empty());
   bool found_frequency = false;
@@ -113,10 +132,10 @@ TEST(SarSessionConfigBuilderTest, ValidateDetectsNonPositiveFrequency) {
   EXPECT_TRUE(found_bandwidth);
 }
 
-TEST(SarSessionConfigBuilderTest, ValidatePassesOnHealthyConfig) {
+TEST(SarSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {
   SarSessionConfigBuilder builder;
   builder.Mission().WithMissionProfile(SarMissionProfile::kStripmapSurvey).End();
-  const ValidationIssueList issues = builder.Validate();
+  const ValidationIssueList issues = ValidateSarSessionConfig(builder.Build());
   EXPECT_TRUE(issues.empty());
 }
 

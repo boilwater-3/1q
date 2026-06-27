@@ -17,6 +17,7 @@ set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/config/RadarRuntimeConfigPatch.h"
     "airborne_radar/config/RadarRuntimeConfigBuilder.h"
     "airborne_radar/config/RadarSessionConfigBuilder.h"
+    "airborne_radar/config/RadarSessionConfigValidation.h"
     "airborne_radar/config/RadarOrientationConfig.h"
     "airborne_radar/config/JammingSemantics.h"
     "airborne_radar/config/airborne_radar_config.hpp"
@@ -48,17 +49,14 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/TrackStateSnapshot.h"
 )
 
-# ── 顶层入口 ─────────────────────────────────────────────────────────
 set(ROOT_HEADER
     "api.hpp"
 )
 
-# ── EOS 模块入口 ─────────────────────────────────────────────────────
 set(EOS_MODULE_ENTRY_HEADERS
     "electro_optical_sensor/electro_optical_sensor.hpp"
 )
 
-# ── EOS 配置域 ────────────────────────────────────────────────────────
 set(EOS_CONFIG_HEADERS
     "electro_optical_sensor/config/EosEnvironmentConfig.h"
     "electro_optical_sensor/config/EosHardwareConfig.h"
@@ -68,22 +66,14 @@ set(EOS_CONFIG_HEADERS
     "electro_optical_sensor/config/EosRuntimeConfigPatch.h"
     "electro_optical_sensor/config/EosSessionConfig.h"
     "electro_optical_sensor/config/EosSessionConfigBuilder.h"
+    "electro_optical_sensor/config/EosSessionConfigValidation.h"
     "electro_optical_sensor/config/electro_optical_sensor_config.hpp"
 )
 
-# ── EOS 环境域 ────────────────────────────────────────────────────────
-set(EOS_ENVIRONMENT_HEADERS
-)
+set(EOS_ENVIRONMENT_HEADERS)
+set(EOS_EXTENSION_HEADERS)
+set(EOS_FOUNDATION_HEADERS)
 
-# ── EOS 扩展域 ────────────────────────────────────────────────────────
-set(EOS_EXTENSION_HEADERS
-)
-
-# ── EOS 基础域 ────────────────────────────────────────────────────────
-set(EOS_FOUNDATION_HEADERS
-)
-
-# ── EOS 会话域 ────────────────────────────────────────────────────────
 set(EOS_SESSION_HEADERS
     "electro_optical_sensor/session/EosCycleInput.h"
     "electro_optical_sensor/session/EosCycleInputAdapter.h"
@@ -102,12 +92,10 @@ set(EOS_SESSION_HEADERS
     "electro_optical_sensor/session/EosReplaySession.h"
 )
 
-# ── ESR 公开头 ──────────────────────────────────────────────────────
 set(ESR_MODULE_ENTRY_HEADERS
     "electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 )
 
-# ── ESR 配置域 ────────────────────────────────────────────────────────
 set(ESR_CONFIG_HEADERS
     "electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
     "electronic_surveillance_radar/config/EsrHardwareConfig.h"
@@ -117,18 +105,13 @@ set(ESR_CONFIG_HEADERS
     "electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
     "electronic_surveillance_radar/config/EsrSessionConfig.h"
     "electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
+    "electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
     "electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
 )
 
-# ── ESR 环境域 ────────────────────────────────────────────────────────
-set(ESR_ENVIRONMENT_HEADERS
-)
+set(ESR_ENVIRONMENT_HEADERS)
+set(ESR_EXTENSION_HEADERS)
 
-# ── ESR 扩展域 ────────────────────────────────────────────────────────
-set(ESR_EXTENSION_HEADERS
-)
-
-# ── ESR 会话域 ────────────────────────────────────────────────────────
 set(ESR_SESSION_HEADERS
     "electronic_surveillance_radar/session/EmitterHypothesis.h"
     "electronic_surveillance_radar/session/EmitterObservation.h"
@@ -149,7 +132,6 @@ set(ESR_SESSION_HEADERS
     "electronic_surveillance_radar/session/EsrReplaySession.h"
 )
 
-# ── 飞行动力学 ───────────────────────────────────────────────────────
 set(FD_HEADERS
     "flight_dynamic/FlightManager.h"
     "flight_dynamic/autopilot/Autopilot.h"
@@ -160,7 +142,6 @@ set(FD_HEADERS
     "flight_dynamic/model/VehicleState.h"
 )
 
-# ── 统一环境模块 ─────────────────────────────────────────────────────
 set(ENVIRONMENT_HEADERS
     "environment/AtmosphericState.h"
     "environment/AtmosphericTypes.h"
@@ -169,7 +150,6 @@ set(ENVIRONMENT_HEADERS
     "environment/PropagationPhysics.h"
 )
 
-# ── SAR 公开头 ──────────────────────────────────────────────────────
 set(SAR_MODULE_ENTRY_HEADERS
     "sar/sar.hpp"
 )
@@ -183,6 +163,7 @@ set(SAR_CONFIG_HEADERS
     "sar/config/SarRuntimeConfigBuilder.h"
     "sar/config/SarSessionConfig.h"
     "sar/config/SarSessionConfigBuilder.h"
+    "sar/config/SarSessionConfigValidation.h"
     "sar/config/sar_config.hpp"
 )
 
@@ -199,7 +180,6 @@ set(SAR_SESSION_HEADERS
     "sar/session/SarTraceSession.h"
 )
 
-# ── 坐标工具 ─────────────────────────────────────────────────────────
 set(COORDINATE_HEADERS
     "coordinate/attitude_transform.h"
     "coordinate/position_transform.h"
@@ -207,7 +187,6 @@ set(COORDINATE_HEADERS
     "coordinate/velocity_transform.h"
 )
 
-# ── 跨域基础 ─────────────────────────────────────────────────────────
 set(FOUNDATION_HEADERS
     "foundation/json_reader.h"
     "foundation/pose_types.h"
@@ -243,28 +222,8 @@ set(EXPECTED_PUBLIC_HEADERS
     ${FOUNDATION_HEADERS}
 )
 
-# ── Public header 分层:stable_api 与 deprecated_compat_api ───────────
-#
-# whitelist 按"是否计划移除"分为两层,便于做版本化收口:
-#
-#   stable_api          —— 长期公开、无移除计划的公共头。
-#                          新增需经过 public API contract review。
-#
-#   deprecated_compat_api —— 仅在兼容期保留、计划在后续版本移除的公共头。
-#                          每个条目必须在本文件内配 DEPRECATED_ENTRY 注释,
-#                          说明移除批次与替代方案;无注释即 FATAL。
-#                          本轮收口后此层为空(参见
-#                          docs/public_api_customization_boundary_contract.md
-#                          "已决策记录(2026-06-25)"第 5 条)。
-#
-# 总集仍为 EXPECTED_PUBLIC_HEADERS(两层并集),保持与磁盘头逐字比对不变。
-
-# 当前所有 whitelist 条目均属 stable_api。deprecated_compat_api 占位为空,
-# 待后续批次(如 AR 宽入口收口)引入兼容期条目时填充。
 set(EXPECTED_DEPRECATED_HEADERS "")
 
-# 守护:deprecated 层每个条目必须有对应 DEPRECATED_ENTRY 注释说明移除计划。
-# 这迫使"标记为 deprecated"成为显式、可追溯的动作,而非悄悄留在 whitelist 里。
 file(READ "${CMAKE_CURRENT_LIST_FILE}" _boundary_script_source)
 foreach(_deprecated_header IN LISTS EXPECTED_DEPRECATED_HEADERS)
     string(FIND "${_boundary_script_source}" "DEPRECATED_ENTRY:${_deprecated_header}" _idx)
@@ -312,8 +271,6 @@ if(NOT ACTUAL_PUBLIC_HEADERS STREQUAL EXPECTED_PUBLIC_HEADERS)
           "Actual: ${ACTUAL_PUBLIC_HEADERS}")
 endif()
 
-# Guardrail: module aggregate headers are the stable session/config/model entry
-# points. Observability tooling remains public, but must be included explicitly.
 set(MODULE_ENTRY_HEADERS_WITH_EXPLICIT_TOOLING
     "airborne_radar/airborne_radar.hpp"
     "electro_optical_sensor/electro_optical_sensor.hpp"
@@ -353,7 +310,6 @@ foreach(HEADER IN LISTS ACTUAL_PUBLIC_HEADERS)
   endif()
 endforeach()
 
-# Guardrail: AR 公开配置头不能重新引入 expert 命名空间，避免公开语义回退。
 set(AR_CONFIG_HEADERS_NO_EXPERT_NAMESPACE
     "airborne_radar/config/RadarHardwareConfig.h"
     "airborne_radar/config/RadarPolicyConfig.h")
@@ -366,8 +322,6 @@ foreach(HEADER IN LISTS AR_CONFIG_HEADERS_NO_EXPERT_NAMESPACE)
   endif()
 endforeach()
 
-# Guardrail: prevent legacy top-level WithXxx/EnableXxx APIs from returning to
-# RadarSessionConfigBuilder. Only grouped editors are allowed.
 set(RADAR_SESSION_BUILDER_HEADER
     "${PUBLIC_INCLUDE_DIR}/airborne_radar/config/RadarSessionConfigBuilder.h")
 file(READ "${RADAR_SESSION_BUILDER_HEADER}" RADAR_SESSION_BUILDER_CONTENT)
@@ -410,8 +364,23 @@ foreach(FORBIDDEN_PATTERN IN LISTS FORBIDDEN_BUILDER_METHOD_PATTERNS)
   endif()
 endforeach()
 
-# Guardrail: ESR Session builder keeps semantic-only surface; domain-level
-# whole-config setters must use direct field assignment.
+set(AR_FORBIDDEN_SESSION_METHOD_PATTERNS
+    "WithWorkMode[ \t]*\\("
+    "WithScanCenterDeg[ \t]*\\("
+    "WithDwellCenterDeg[ \t]*\\("
+    "EnableCommandedBeamwidth[ \t]*\\("
+    "WithCommandedBeamwidthDeg[ \t]*\\("
+    "WithEnvironmentDefault[ \t]*\\("
+    "Validate[ \t]*\\(")
+
+foreach(FORBIDDEN_PATTERN IN LISTS AR_FORBIDDEN_SESSION_METHOD_PATTERNS)
+  if(RADAR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
+    message(FATAL_ERROR
+            "Direct RadarSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
+            "Use semantic profiles in RadarSessionConfigBuilder and direct RadarSessionConfig fields for leaf overrides.")
+  endif()
+endforeach()
+
 set(ESR_SESSION_BUILDER_HEADER
     "${PUBLIC_INCLUDE_DIR}/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h")
 file(READ "${ESR_SESSION_BUILDER_HEADER}" ESR_SESSION_BUILDER_CONTENT)
@@ -420,26 +389,123 @@ set(ESR_FORBIDDEN_SESSION_METHOD_PATTERNS
     "EsrSessionConfigBuilder[ \t]*&[ \t]*WithHardwareConfig[ \t]*\\("
     "EsrSessionConfigBuilder[ \t]*&[ \t]*WithMissionConfig[ \t]*\\("
     "EsrSessionConfigBuilder[ \t]*&[ \t]*WithPolicyConfig[ \t]*\\("
-    "EsrSessionConfigBuilder[ \t]*&[ \t]*WithEnvironmentConfig[ \t]*\\(")
+    "EsrSessionConfigBuilder[ \t]*&[ \t]*WithEnvironmentConfig[ \t]*\\("
+    "WithWorkMode[ \t]*\\("
+    "WithPowerOn[ \t]*\\("
+    "WithScanRateHz[ \t]*\\("
+    "WithScanCenterAzDeg[ \t]*\\("
+    "WithScanCenterElDeg[ \t]*\\("
+    "WithScanStartPosition[ \t]*\\("
+    "WithScanSequence[ \t]*\\("
+    "WithUseExplicitScanBounds[ \t]*\\("
+    "WithScanStartAzDeg[ \t]*\\("
+    "WithScanEndAzDeg[ \t]*\\("
+    "WithScanStartElDeg[ \t]*\\("
+    "WithScanEndElDeg[ \t]*\\("
+    "WithMinDetectSnrDb[ \t]*\\("
+    "WithPfa[ \t]*\\("
+    "WithPulseCount[ \t]*\\("
+    "WithThresholdScale[ \t]*\\("
+    "EnableStatisticalDetection[ \t]*\\("
+    "WithEnvironmentDefault[ \t]*\\("
+    "WithAtmosphericPhysics[ \t]*\\("
+    "WithAtmosphericContext[ \t]*\\("
+    "Validate[ \t]*\\(")
 
 foreach(FORBIDDEN_PATTERN IN LISTS ESR_FORBIDDEN_SESSION_METHOD_PATTERNS)
   if(ESR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
     message(FATAL_ERROR
-            "Legacy ESR session-builder domain setter reintroduced: ${FORBIDDEN_PATTERN}\n"
-            "Use direct field assignment for domain-level overrides.")
+            "Direct EsrSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
+            "Use semantic profiles in EsrSessionConfigBuilder and direct EsrSessionConfig fields for leaf overrides.")
   endif()
 endforeach()
 
-# Guardrail (M7-F): deleted internal legacy config shells must not reappear.
+set(EOS_SESSION_BUILDER_HEADER
+    "${PUBLIC_INCLUDE_DIR}/electro_optical_sensor/config/EosSessionConfigBuilder.h")
+file(READ "${EOS_SESSION_BUILDER_HEADER}" EOS_SESSION_BUILDER_CONTENT)
+
+set(EOS_FORBIDDEN_SESSION_METHOD_PATTERNS
+    "WithWorkMode[ \t]*\\("
+    "WithScanRateDegPerSec[ \t]*\\("
+    "WithFrameRateHz[ \t]*\\("
+    "WithPowerOn[ \t]*\\("
+    "WithHorizontalFovDeg[ \t]*\\("
+    "WithVerticalFovDeg[ \t]*\\("
+    "WithScanStartAzDeg[ \t]*\\("
+    "WithScanEndAzDeg[ \t]*\\("
+    "WithScanCenterElDeg[ \t]*\\("
+    "WithBoresightDepressionDeg[ \t]*\\("
+    "WithEnvironmentDefault[ \t]*\\("
+    "WithMinSnrDb[ \t]*\\("
+    "WithDetectionSensitivityW[ \t]*\\("
+    "WithVisibleReferenceIrradianceWM2[ \t]*\\("
+    "WithEnableStraylightFilter[ \t]*\\("
+    "WithHoodInnerHalfAngleDeg[ \t]*\\("
+    "WithHoodOuterHalfAngleDeg[ \t]*\\("
+    "WithHoodMinSuppressionRatio[ \t]*\\("
+    "WithHoodMaxSuppressionRatio[ \t]*\\("
+    "WithWavelengthLowerUm[ \t]*\\("
+    "WithWavelengthUpperUm[ \t]*\\("
+    "WithOpticalApertureM[ \t]*\\("
+    "WithFocalLengthM[ \t]*\\("
+    "WithDetectorDetectivity[ \t]*\\("
+    "WithDetectorAreaCm2[ \t]*\\("
+    "WithMinDetectionDepressionDeg[ \t]*\\("
+    "WithMaxDetectionDepressionDeg[ \t]*\\("
+    "Validate[ \t]*\\(")
+
+foreach(FORBIDDEN_PATTERN IN LISTS EOS_FORBIDDEN_SESSION_METHOD_PATTERNS)
+  if(EOS_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
+    message(FATAL_ERROR
+            "Direct EosSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
+            "Use semantic profiles in EosSessionConfigBuilder and direct EosSessionConfig fields for leaf overrides.")
+  endif()
+endforeach()
+
+set(SAR_SESSION_BUILDER_HEADER
+    "${PUBLIC_INCLUDE_DIR}/sar/config/SarSessionConfigBuilder.h")
+file(READ "${SAR_SESSION_BUILDER_HEADER}" SAR_SESSION_BUILDER_CONTENT)
+
+set(SAR_FORBIDDEN_SESSION_METHOD_PATTERNS
+    "WithSceneCenter[ \t]*\\("
+    "WithNominalSlantRangeM[ \t]*\\("
+    "WithSyntheticApertureTimeS[ \t]*\\("
+    "WithPlatformSpeedMps[ \t]*\\("
+    "WithAzimuthPulseCount[ \t]*\\("
+    "WithRangeSampleCount[ \t]*\\("
+    "WithDesiredGroundRangeResolutionM[ \t]*\\("
+    "WithDesiredAzimuthResolutionM[ \t]*\\("
+    "EnableRawEchoGeneration[ \t]*\\("
+    "EnableRangeCompression[ \t]*\\("
+    "EnableL1RdaImaging[ \t]*\\("
+    "EnableL2MotionCompensation[ \t]*\\("
+    "EnableL3BpImaging[ \t]*\\("
+    "RetainFocusedImage[ \t]*\\("
+    "WithMinimumSnrDb[ \t]*\\("
+    "WithEnvironmentDefault[ \t]*\\("
+    "WithTerrainReferenceAltitudeM[ \t]*\\("
+    "WithAtmosphericLossDbPerKm[ \t]*\\("
+    "WithSurfaceBackscatterSigma0Db[ \t]*\\("
+    "EnableAtmosphericAttenuation[ \t]*\\("
+    "Validate[ \t]*\\(")
+
+foreach(FORBIDDEN_PATTERN IN LISTS SAR_FORBIDDEN_SESSION_METHOD_PATTERNS)
+  if(SAR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
+    message(FATAL_ERROR
+            "Direct SarSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
+            "Use semantic profiles in SarSessionConfigBuilder and direct SarSessionConfig fields for leaf overrides.")
+  endif()
+endforeach()
+
 set(AR_FORBIDDEN_INTERNAL_PATHS
-        "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/legacy"
+    "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/legacy"
     "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/internal/SessionConfigPipelineMapper.h"
     "${CMAKE_SOURCE_DIR}/src/airborne_radar/config/internal/ExpertToEngineeringMapping.h")
 
 foreach(FORBIDDEN_PATH IN LISTS AR_FORBIDDEN_INTERNAL_PATHS)
-    if(EXISTS "${FORBIDDEN_PATH}")
-        message(FATAL_ERROR
-                        "Forbidden internal legacy path reintroduced: ${FORBIDDEN_PATH}\n"
-                        "M7-F requires legacy config shells, SessionConfigPipelineMapper, and ExpertToEngineeringMapping to stay removed.")
-    endif()
+  if(EXISTS "${FORBIDDEN_PATH}")
+    message(FATAL_ERROR
+            "Forbidden internal legacy path reintroduced: ${FORBIDDEN_PATH}\n"
+            "M7-F requires legacy config shells, SessionConfigPipelineMapper, and ExpertToEngineeringMapping to stay removed.")
+  endif()
 endforeach()

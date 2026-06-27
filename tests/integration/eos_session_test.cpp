@@ -10,9 +10,9 @@
 
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
 
 namespace electro_optical_sensor {
@@ -82,8 +82,8 @@ std::size_t CountDetectedTargets(const session::EosOutputFrame& frame) {
 // target_id→target_name 的仿真归属经 attribution::EosDetectionAttributionRecord 承载
 // （挂在 EosCycleResult.detection_attributions）。按 target_id 查 detection 需经归属层中转：
 // 先在 attributions 找 target_id 对应的 detection_id，再在 output_frame.detections 找记录。
-const output::EosDetectionRecord* FindDetectionByTargetId(
-    const session::EosCycleResult& result, std::uint64_t target_id) {
+const output::EosDetectionRecord* FindDetectionByTargetId(const session::EosCycleResult& result,
+                                                          std::uint64_t target_id) {
   const attribution::EosDetectionAttributionRecord* attr = nullptr;
   for (std::size_t i = 0; i < result.detection_attributions.size(); ++i) {
     if (result.detection_attributions[i].target_id == target_id) {
@@ -107,7 +107,7 @@ bool HasTargetId(const session::EosCycleResult& result, std::uint64_t target_id)
 }
 
 const output::EosDetectionRecord* FindDetection(const session::EosCycleResult& result,
-                                                 std::uint64_t target_id) {
+                                                std::uint64_t target_id) {
   return FindDetectionByTargetId(result, target_id);
 }
 
@@ -344,8 +344,8 @@ TEST(EosSessionIntegrationTest, RuntimeConfigWorkModeSwitchTakesEffectImmediatel
   EXPECT_GT(fused_frame.detections.front().visible_snr_linear, 0.0f);
 
   const config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
-                                          .WithWorkMode(config::EosWorkMode::kInfraredOnly)
-                                          .Build();
+                                                  .WithWorkMode(config::EosWorkMode::kInfraredOnly)
+                                                  .Build();
   session.ApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();
@@ -393,12 +393,11 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
   const session::EosOutputFrame baseline_frame = session.Step(input);
   ASSERT_GT(CountDetectedTargets(baseline_frame), 0U);
 
-  const config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder()
-          .WithMinimumSnrDb(60.0f)
-          .WithDetectionSensitivityW(2.0e-12f)
-          .WithVisibleReferenceIrradianceWM2(1000.0f)
-          .Build();
+  const config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
+                                                  .WithMinimumSnrDb(60.0f)
+                                                  .WithDetectionSensitivityW(2.0e-12f)
+                                                  .WithVisibleReferenceIrradianceWM2(1000.0f)
+                                                  .Build();
   session.ApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = input;
@@ -411,14 +410,10 @@ TEST(EosSessionIntegrationTest, RuntimeConfigSnrThresholdFiltersWeakTargets) {
             baseline_frame.detections.front().fused_snr_db);
 }
 
-TEST(EosSessionIntegrationTest, SessionConfigBuilderProducesSameResultAsDirectConfig) {
+TEST(EosSessionIntegrationTest, SessionConfigBuilderPreservesDirectConfigBaseline) {
   const config::EosSessionConfig direct_config = MakeSessionConfig();
   const config::EosSessionConfig built_config =
-      eos_config::EosSessionConfigBuilder(MakeSessionConfig())
-          .Mission()
-          .WithWorkMode(config::EosWorkMode::kFused)
-          .End()
-          .Build();
+      eos_config::EosSessionConfigBuilder(MakeSessionConfig()).Build();
 
   EosSession direct_session = EosSession::Create(direct_config);
   EosSession built_session = EosSession::Create(built_config);
@@ -581,14 +576,13 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
 
   const session::EosOutputFrame baseline_frame = session.Step(input);
 
-  const config::EosRuntimeConfigPatch patch =
-      eos_config::EosRuntimeConfigBuilder()
-          .WithEnableStraylightFilter(true)
-          .WithHoodInnerHalfAngleDeg(8.0f)
-          .WithHoodOuterHalfAngleDeg(55.0f)
-          .WithHoodMinSuppressionRatio(0.35f)
-          .WithHoodMaxSuppressionRatio(0.95f)
-          .Build();
+  const config::EosRuntimeConfigPatch patch = eos_config::EosRuntimeConfigBuilder()
+                                                  .WithEnableStraylightFilter(true)
+                                                  .WithHoodInnerHalfAngleDeg(8.0f)
+                                                  .WithHoodOuterHalfAngleDeg(55.0f)
+                                                  .WithHoodMinSuppressionRatio(0.35f)
+                                                  .WithHoodMaxSuppressionRatio(0.95f)
+                                                  .Build();
   session.ApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input_2 = MakeBaseInput();

@@ -3,15 +3,14 @@
 
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 
-#include "common/logging/ProjectLog.h"
+#include "1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
 
 namespace electronic_surveillance_radar {
 namespace config {
 
 namespace {
 
-void ApplyEsrMissionSemanticConfig(EsrMissionProfile profile,
-                                   EsrMissionConfig* mission) {
+void ApplyEsrMissionSemanticConfig(EsrMissionProfile profile, EsrMissionConfig* mission) {
   if (mission == nullptr) {
     return;
   }
@@ -86,61 +85,52 @@ config::EsrSessionConfig EsrSessionConfigBuilder::Build() const {
     ApplyEsrMissionSemanticConfig(mission_profile_, &result.mission);
   }
   if (sensitivity_profile_dirty_) {
-    ApplyEsrSensitivitySemanticConfig(sensitivity_profile_,
-                                      &result.policy.detection);
+    ApplyEsrSensitivitySemanticConfig(sensitivity_profile_, &result.policy.detection);
   }
 
   return result;
 }
 
-ValidationIssueList EsrSessionConfigBuilder::Validate() const {
+ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& config) noexcept {
   ValidationIssueList issues;
-
-  if (config_.mission.scan.scan_rate_hz <= 0.0f) {
+  const auto push = [&issues](ConfigValidationCode code, const char* field, const char* msg) {
     ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kScanRateNotPositive;
-    issue.field = "mission.scan.scan_rate_hz";
-    issue.message = "Scan rate must be positive.";
+    issue.code = code;
+    issue.field = field;
+    issue.message = msg;
     issues.push_back(issue);
+  };
+
+  if (config.mission.scan.scan_rate_hz <= 0.0f) {
+    push(ConfigValidationCode::kScanRateNotPositive, "mission.scan.scan_rate_hz",
+         "Scan rate must be positive.");
   }
 
-  if (config_.hardware.receiver_band_lower_hz >= config_.hardware.receiver_band_upper_hz) {
-    ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kReceiverBandLowerAboveUpper;
-    issue.field = "hardware.receiver_band_lower_hz / receiver_band_upper_hz";
-    issue.message = "Receiver band lower bound must be below upper bound.";
-    issues.push_back(issue);
+  if (config.hardware.receiver_band_lower_hz >= config.hardware.receiver_band_upper_hz) {
+    push(ConfigValidationCode::kReceiverBandLowerAboveUpper,
+         "hardware.receiver_band_lower_hz / receiver_band_upper_hz",
+         "Receiver band lower bound must be below upper bound.");
   }
 
-  if (config_.hardware.beam_az_width_deg <= 0.0f) {
-    ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kBeamAzWidthNotPositive;
-    issue.field = "hardware.beam_az_width_deg";
-    issue.message = "Azimuth beamwidth must be positive.";
-    issues.push_back(issue);
+  if (config.hardware.beam_az_width_deg <= 0.0f) {
+    push(ConfigValidationCode::kBeamAzWidthNotPositive, "hardware.beam_az_width_deg",
+         "Azimuth beamwidth must be positive.");
   }
-  if (config_.hardware.beam_el_width_deg <= 0.0f) {
-    ConfigValidationIssue issue;
-    issue.code = ConfigValidationCode::kBeamElWidthNotPositive;
-    issue.field = "hardware.beam_el_width_deg";
-    issue.message = "Elevation beamwidth must be positive.";
-    issues.push_back(issue);
+  if (config.hardware.beam_el_width_deg <= 0.0f) {
+    push(ConfigValidationCode::kBeamElWidthNotPositive, "hardware.beam_el_width_deg",
+         "Elevation beamwidth must be positive.");
   }
 
-  if (config_.mission.scan.use_explicit_scan_bounds) {
-    if (config_.mission.scan.scan_start_az_deg >= config_.mission.scan.scan_end_az_deg) {
-      ConfigValidationIssue issue;
-      issue.code = ConfigValidationCode::kExplicitScanBoundsAzSwapped;
-      issue.field = "mission.scan.scan_start_az_deg / scan_end_az_deg";
-      issue.message = "Scan start azimuth must be less than end azimuth.";
-      issues.push_back(issue);
+  if (config.mission.scan.use_explicit_scan_bounds) {
+    if (config.mission.scan.scan_start_az_deg >= config.mission.scan.scan_end_az_deg) {
+      push(ConfigValidationCode::kExplicitScanBoundsAzSwapped,
+           "mission.scan.scan_start_az_deg / scan_end_az_deg",
+           "Scan start azimuth must be less than end azimuth.");
     }
-    if (config_.mission.scan.scan_start_el_deg >= config_.mission.scan.scan_end_el_deg) {
-      ConfigValidationIssue issue;
-      issue.code = ConfigValidationCode::kExplicitScanBoundsElSwapped;
-      issue.field = "mission.scan.scan_start_el_deg / scan_end_el_deg";
-      issue.message = "Scan start elevation must be less than end elevation.";
-      issues.push_back(issue);
+    if (config.mission.scan.scan_start_el_deg >= config.mission.scan.scan_end_el_deg) {
+      push(ConfigValidationCode::kExplicitScanBoundsElSwapped,
+           "mission.scan.scan_start_el_deg / scan_end_el_deg",
+           "Scan start elevation must be less than end elevation.");
     }
   }
 

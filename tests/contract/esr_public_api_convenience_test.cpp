@@ -14,6 +14,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
@@ -49,10 +50,10 @@ config::EsrSessionConfig MakeSessionConfig() {
   config::EsrSessionConfig config =
       config::EsrSessionConfigBuilder()
           .Mission()
-          .WithWorkMode(config::EsrWorkMode::kEsm)
+          .WithMissionProfile(config::EsrMissionProfile::kElectronicOrderOfBattle)
           .End()
           .Detection()
-          .WithMinDetectSnrDb(6.0f)
+          .WithSensitivityProfile(config::EsrSensitivityProfile::kStandard)
           .End()
           .Environment()
           .WithEnvironmentPreset(config::EsrEnvironmentPreset::kStandard)
@@ -78,25 +79,24 @@ TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchDefaultConfig
   EXPECT_EQ(built.environment.scenario_config.preset, defaults.environment.scenario_config.preset);
 }
 
-TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderOverridesDomainFields) {
-  const config::EsrSessionConfig cfg =
+TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderAppliesSemanticProfiles) {
+  config::EsrSessionConfig cfg =
       config::EsrSessionConfigBuilder()
           .Mission()
-          .WithWorkMode(config::EsrWorkMode::kRwr)
-          .WithPowerOn(false)
-          .WithScanRateHz(2.0f)
+          .WithMissionProfile(config::EsrMissionProfile::kThreatWarning)
           .End()
           .Detection()
-          .WithMinDetectSnrDb(3.0f)
+          .WithSensitivityProfile(config::EsrSensitivityProfile::kHighSensitivity)
           .End()
           .Environment()
           .WithEnvironmentPreset(config::EsrEnvironmentPreset::kJammed)
           .End()
           .Build();
+  cfg.mission.power_on = false;
 
   EXPECT_EQ(cfg.mission.work_mode, config::EsrWorkMode::kRwr);
   EXPECT_FALSE(cfg.mission.power_on);
-  EXPECT_FLOAT_EQ(cfg.mission.scan.scan_rate_hz, 2.0f);
+  EXPECT_FLOAT_EQ(cfg.mission.scan.scan_rate_hz, 5.0f);
   EXPECT_FLOAT_EQ(cfg.policy.detection.minimum_snr_db, 3.0f);
   EXPECT_EQ(cfg.environment.scenario_config.preset, config::EsrEnvironmentPreset::kJammed);
 }
@@ -125,6 +125,52 @@ TEST(EsrPublicApiConvenienceTest, DetailedSessionConfigBuilderSupportsDetailedDe
   EXPECT_TRUE(details_cfg.mission.scan.use_explicit_scan_bounds);
   EXPECT_EQ(details_cfg.environment.scenario_config.preset,
             config::EsrEnvironmentPreset::kLowClutter);
+}
+
+TEST(EsrPublicApiConvenienceTest, SessionConfigBuilderWithSessionConfigResetsProfiles) {
+  config::EsrSessionConfig baseline;
+  baseline.mission.work_mode = config::EsrWorkMode::kHgesm;
+  baseline.mission.scan.scan_rate_hz = 0.25f;
+  baseline.policy.detection.minimum_snr_db = 12.0f;
+
+  const config::EsrSessionConfig config =
+      config::EsrSessionConfigBuilder()
+          .Mission()
+          .WithMissionProfile(config::EsrMissionProfile::kThreatWarning)
+          .End()
+          .Detection()
+          .WithSensitivityProfile(config::EsrSensitivityProfile::kHighSensitivity)
+          .End()
+          .WithSessionConfig(baseline)
+          .Build();
+
+  EXPECT_EQ(config.mission.work_mode, config::EsrWorkMode::kHgesm);
+  EXPECT_FLOAT_EQ(config.mission.scan.scan_rate_hz, 0.25f);
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 12.0f);
+}
+
+TEST(EsrPublicApiConvenienceTest, SessionConfigValidatorReportsFinalConfigIssues) {
+  config::EsrSessionConfig invalid_config;
+  invalid_config.mission.scan.scan_rate_hz = 0.0f;
+  invalid_config.hardware.receiver_band_lower_hz = 10.0e9;
+  invalid_config.hardware.receiver_band_upper_hz = 9.0e9;
+  invalid_config.hardware.beam_az_width_deg = 0.0f;
+  invalid_config.hardware.beam_el_width_deg = -1.0f;
+  invalid_config.mission.scan.use_explicit_scan_bounds = true;
+  invalid_config.mission.scan.scan_start_az_deg = 10.0f;
+  invalid_config.mission.scan.scan_end_az_deg = 10.0f;
+  invalid_config.mission.scan.scan_start_el_deg = 5.0f;
+  invalid_config.mission.scan.scan_end_el_deg = 5.0f;
+
+  const config::ValidationIssueList issues = config::ValidateEsrSessionConfig(invalid_config);
+
+  ASSERT_EQ(issues.size(), 6U);
+  EXPECT_EQ(issues[0].code, config::ConfigValidationCode::kScanRateNotPositive);
+  EXPECT_EQ(issues[1].code, config::ConfigValidationCode::kReceiverBandLowerAboveUpper);
+  EXPECT_EQ(issues[2].code, config::ConfigValidationCode::kBeamAzWidthNotPositive);
+  EXPECT_EQ(issues[3].code, config::ConfigValidationCode::kBeamElWidthNotPositive);
+  EXPECT_EQ(issues[4].code, config::ConfigValidationCode::kExplicitScanBoundsAzSwapped);
+  EXPECT_EQ(issues[5].code, config::ConfigValidationCode::kExplicitScanBoundsElSwapped);
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {

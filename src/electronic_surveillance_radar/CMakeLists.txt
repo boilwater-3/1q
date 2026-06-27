@@ -67,6 +67,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrSessionConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp
     )
 

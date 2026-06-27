@@ -14,5 +14,6 @@
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
 
 #endif  // ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_HPP_

@@ -3,6 +3,8 @@
 
 #include "1q/sar/config/SarSessionConfigBuilder.h"
 
+#include "1q/sar/config/SarSessionConfigValidation.h"
+
 namespace sar {
 namespace config {
 
@@ -94,7 +96,7 @@ config::SarSessionConfig SarSessionConfigBuilder::Build() const noexcept {
   return result;
 }
 
-ValidationIssueList SarSessionConfigBuilder::Validate() const noexcept {
+ValidationIssueList ValidateSarSessionConfig(const config::SarSessionConfig& config) noexcept {
   ValidationIssueList issues;
   const auto push = [&issues](ConfigValidationCode code, const char* field, const char* msg) {
     ConfigValidationIssue issue;
@@ -104,48 +106,48 @@ ValidationIssueList SarSessionConfigBuilder::Validate() const noexcept {
     issues.push_back(issue);
   };
 
-  if (config_.hardware.carrier_frequency_hz <= 0.0) {
+  if (config.hardware.carrier_frequency_hz <= 0.0) {
     push(ConfigValidationCode::kCarrierFrequencyNotPositive,
          "hardware.carrier_frequency_hz", "Carrier frequency must be positive.");
   }
-  if (config_.hardware.bandwidth_hz <= 0.0) {
+  if (config.hardware.bandwidth_hz <= 0.0) {
     push(ConfigValidationCode::kBandwidthNotPositive,
          "hardware.bandwidth_hz", "Bandwidth must be positive.");
   }
-  if (config_.hardware.pulse_repetition_frequency_hz <= 0.0) {
+  if (config.hardware.pulse_repetition_frequency_hz <= 0.0) {
     push(ConfigValidationCode::kPulseRepetitionFrequencyNotPositive,
          "hardware.pulse_repetition_frequency_hz", "Pulse repetition frequency must be positive.");
   }
-  if (config_.hardware.sample_rate_hz <= 0.0) {
+  if (config.hardware.sample_rate_hz <= 0.0) {
     push(ConfigValidationCode::kSampleRateNotPositive,
          "hardware.sample_rate_hz", "Sample rate must be positive.");
   }
-  if (config_.hardware.antenna_length_m <= 0.0) {
+  if (config.hardware.antenna_length_m <= 0.0) {
     push(ConfigValidationCode::kAntennaLengthNotPositive,
          "hardware.antenna_length_m", "Antenna length must be positive.");
   }
-  if (config_.mission.nominal_slant_range_m <= 0.0) {
+  if (config.mission.nominal_slant_range_m <= 0.0) {
     push(ConfigValidationCode::kNominalSlantRangeNotPositive,
          "mission.nominal_slant_range_m", "Nominal slant range must be positive.");
   }
-  if (config_.mission.platform_speed_mps <= 0.0) {
+  if (config.mission.platform_speed_mps <= 0.0) {
     push(ConfigValidationCode::kPlatformSpeedNotPositive,
          "mission.platform_speed_mps", "Platform speed must be positive.");
   }
-  if (config_.mission.azimuth_pulse_count == 0U) {
+  if (config.mission.azimuth_pulse_count == 0U) {
     push(ConfigValidationCode::kAzimuthPulseCountZero,
          "mission.azimuth_pulse_count", "Azimuth pulse count must be non-zero.");
   }
-  if (config_.mission.range_sample_count == 0U) {
+  if (config.mission.range_sample_count == 0U) {
     push(ConfigValidationCode::kRangeSampleCountZero,
          "mission.range_sample_count", "Range sample count must be non-zero.");
   }
-  if (config_.mission.desired_ground_range_resolution_m <= 0.0) {
+  if (config.mission.desired_ground_range_resolution_m <= 0.0) {
     push(ConfigValidationCode::kDesiredResolutionNotPositive,
          "mission.desired_ground_range_resolution_m",
          "Desired ground range resolution must be positive.");
   }
-  if (config_.mission.desired_azimuth_resolution_m <= 0.0) {
+  if (config.mission.desired_azimuth_resolution_m <= 0.0) {
     push(ConfigValidationCode::kDesiredResolutionNotPositive,
          "mission.desired_azimuth_resolution_m",
          "Desired azimuth resolution must be positive.");

@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "1q/coordinate/position_transform.h"
-#include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleOutputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosDetectionLifecycleRecorder.h"
@@ -71,12 +71,9 @@ void AdvanceTargets(double dt_sec, std::vector<eos_session::EosExternalTargetInp
 }
 
 eos_config::EosSessionConfig MakeConfig() {
-  eos_config::EosSessionConfig config = eos_config::EosSessionConfigBuilder()
-                                            .Mission()
-                                            .WithWorkMode(eos_config::EosWorkMode::kFused)
-                                            .WithScanRateDegPerSec(1.0f)
-                                            .End()
-                                            .Build();
+  eos_config::EosSessionConfig config;
+  config.mission.work_mode = eos_config::EosWorkMode::kFused;
+  config.mission.scan_rate_deg_per_sec = 1.0f;
   config.policy.detection.minimum_snr_db = 4.5f;
   config.policy.detection.detection_sensitivity_w = 0.8e-12f;
   config.policy.detection.visible_reference_irradiance_w_m2 = 700.0f;

@@ -15,16 +15,16 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
-#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+#include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
+#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace electro_optical_sensor {
 namespace tests {
 
 namespace {
-
 
 bool ContainsEosIssueCode(const std::vector<session::ValidationIssue>& issues,
                           session::ValidationCode code) {
@@ -62,14 +62,15 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderDefaultsMatchEosSessionCon
               1e-5f);
   EXPECT_NEAR(built.hardware.wavelength_upper_um, default_config.hardware.wavelength_upper_um,
               1e-5f);
-  EXPECT_FLOAT_EQ(built.policy.detection.minimum_snr_db, default_config.policy.detection.minimum_snr_db);
+  EXPECT_FLOAT_EQ(built.policy.detection.minimum_snr_db,
+                  default_config.policy.detection.minimum_snr_db);
 }
 
 TEST(EosPublicApiConvenienceTest, SessionConfigBuilderOverridesSemanticFields) {
   config::EosSessionConfig config =
       config::EosSessionConfigBuilder()
           .Mission()
-          .WithWorkMode(config::EosWorkMode::kInfraredOnly)
+          .WithMissionProfile(config::EosMissionProfile::kLongRangeSurveillance)
           .End()
           .Environment()
           .WithEnvironmentModelType(config::EosEnvironmentModelType::kAdvanced)
@@ -134,6 +135,25 @@ TEST(EosPublicApiConvenienceTest, SessionConfigBuilderPreservesPreconfiguredSess
   EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, 4.5f);
 }
 
+TEST(EosPublicApiConvenienceTest, SessionConfigValidatorReportsFinalConfigIssues) {
+  config::EosSessionConfig invalid_config;
+  invalid_config.mission.horizontal_fov_deg = 0.0f;
+  invalid_config.mission.vertical_fov_deg = -1.0f;
+  invalid_config.mission.scan_rate_deg_per_sec = 0.0f;
+  invalid_config.mission.frame_rate_hz = -5.0f;
+  invalid_config.mission.scan_start_az_deg = 10.0f;
+  invalid_config.mission.scan_end_az_deg = 10.0f;
+
+  const config::ValidationIssueList issues = config::ValidateEosSessionConfig(invalid_config);
+
+  ASSERT_EQ(issues.size(), 5U);
+  EXPECT_EQ(issues[0].code, config::ConfigValidationCode::kHorizontalFovNotPositive);
+  EXPECT_EQ(issues[1].code, config::ConfigValidationCode::kVerticalFovNotPositive);
+  EXPECT_EQ(issues[2].code, config::ConfigValidationCode::kScanRateNotPositive);
+  EXPECT_EQ(issues[3].code, config::ConfigValidationCode::kFrameRateNotPositive);
+  EXPECT_EQ(issues[4].code, config::ConfigValidationCode::kScanRangeAzSwapped);
+}
+
 TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreUnset) {
   const config::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder().Build();
 
@@ -154,21 +174,20 @@ TEST(EosPublicApiConvenienceTest, RuntimeConfigBuilderSetsAllFields) {
   env_config.custom_overrides.aerosol_density_factor = 1.3f;
   env_config.custom_overrides.turbulence_factor = 1.8f;
 
-  const config::EosRuntimeConfigPatch patch =
-      config::EosRuntimeConfigBuilder()
-          .WithWorkMode(config::EosWorkMode::kVisibleOnly)
-          .WithScanRateDegPerSec(50.0f)
-          .WithFrameRateHz(120.0f)
-          .WithMinimumSnrDb(60.0f)
-          .WithDetectionSensitivityW(2.0e-12f)
-          .WithVisibleReferenceIrradianceWM2(1000.0f)
-          .WithEnableStraylightFilter(true)
-          .WithHoodInnerHalfAngleDeg(8.0f)
-          .WithHoodOuterHalfAngleDeg(55.0f)
-          .WithHoodMinSuppressionRatio(0.35f)
-          .WithHoodMaxSuppressionRatio(0.95f)
-          .WithEnvironmentScenarioConfig(env_config)
-          .Build();
+  const config::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder()
+                                                  .WithWorkMode(config::EosWorkMode::kVisibleOnly)
+                                                  .WithScanRateDegPerSec(50.0f)
+                                                  .WithFrameRateHz(120.0f)
+                                                  .WithMinimumSnrDb(60.0f)
+                                                  .WithDetectionSensitivityW(2.0e-12f)
+                                                  .WithVisibleReferenceIrradianceWM2(1000.0f)
+                                                  .WithEnableStraylightFilter(true)
+                                                  .WithHoodInnerHalfAngleDeg(8.0f)
+                                                  .WithHoodOuterHalfAngleDeg(55.0f)
+                                                  .WithHoodMinSuppressionRatio(0.35f)
+                                                  .WithHoodMaxSuppressionRatio(0.95f)
+                                                  .WithEnvironmentScenarioConfig(env_config)
+                                                  .Build();
 
   EXPECT_TRUE(patch.has_work_mode);
   EXPECT_EQ(patch.work_mode, config::EosWorkMode::kVisibleOnly);
@@ -439,16 +458,15 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
   config::EosSessionConfig session_config;
   session::EosSession session = session::EosSession::Create(session_config);
 
-  const config::EosRuntimeConfigPatch patch =
-      config::EosRuntimeConfigBuilder()
-          .WithWorkMode(config::EosWorkMode::kInfraredOnly)
-          .WithFrameRateHz(15.0f)
-          .WithEnableStraylightFilter(true)
-          .WithHoodInnerHalfAngleDeg(8.0f)
-          .WithHoodOuterHalfAngleDeg(55.0f)
-          .WithHoodMinSuppressionRatio(0.35f)
-          .WithHoodMaxSuppressionRatio(0.95f)
-          .Build();
+  const config::EosRuntimeConfigPatch patch = config::EosRuntimeConfigBuilder()
+                                                  .WithWorkMode(config::EosWorkMode::kInfraredOnly)
+                                                  .WithFrameRateHz(15.0f)
+                                                  .WithEnableStraylightFilter(true)
+                                                  .WithHoodInnerHalfAngleDeg(8.0f)
+                                                  .WithHoodOuterHalfAngleDeg(55.0f)
+                                                  .WithHoodMinSuppressionRatio(0.35f)
+                                                  .WithHoodMaxSuppressionRatio(0.95f)
+                                                  .Build();
   session.ApplyRuntimeConfig(patch);
 
   ::electro_optical_sensor::session::EosCycleInput input;

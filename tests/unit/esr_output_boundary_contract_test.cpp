@@ -20,8 +20,7 @@
 #include <vector>
 
 #include "1q/coordinate/position_transform.h"
-#include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
-#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
 #include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
 #include "1q/electronic_surveillance_radar/session/EmitterObservation.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
@@ -31,6 +30,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrOutputDebugView.h"
 #include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 
 namespace {
 
@@ -107,15 +107,8 @@ void AdvanceEmitters(double dt_sec, std::vector<esr_session::EsrExternalEmitterI
 }
 
 esr_config::EsrSessionConfig MakeConfig() {
-  esr_config::EsrSessionConfig config =
-      esr_config::EsrSessionConfigBuilder()
-          .Detection()
-          .WithMinDetectSnrDb(3.0f)
-          .End()
-          .Environment()
-          .WithEnvironmentPreset(esr_config::EsrEnvironmentPreset::kStandard)
-          .End()
-          .Build();
+  esr_config::EsrSessionConfig config;
+  config.environment.scenario_config.preset = esr_config::EsrEnvironmentPreset::kStandard;
   config.policy.detection.minimum_snr_db = -20.0f;
   config.policy.detection.enable_statistical_detection = false;
   config.mission.scan.use_explicit_scan_bounds = true;

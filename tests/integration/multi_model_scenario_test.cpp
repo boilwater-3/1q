@@ -1,15 +1,15 @@
+#include <gtest/gtest.h>
+
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
-#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/airborne_radar/session/RadarReplaySession.h"
@@ -51,8 +51,8 @@ std::string MakeTempTraceDir(const char* prefix) {
   s << tmp;
   if (tmp[0] != '\0' && tmp[std::string(tmp).size() - 1] != '/') s << "/";
   auto ticks = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  s << prefix << "-" << std::time(nullptr) << "-" << ticks << "-" << std::rand()
-    << "-" << counter++ << ".trace";
+  s << prefix << "-" << std::time(nullptr) << "-" << ticks << "-" << std::rand() << "-" << counter++
+    << ".trace";
   return s.str();
 }
 
@@ -86,9 +86,8 @@ struct WorldState {
 
 // --- AR input conversion ---
 
-ar_session::RadarExternalPoseInput ToArPlatform(
-    const oneq::coordinate::EcefPositionM& pos,
-    const oneq::coordinate::EcefVelocityMps& vel) {
+ar_session::RadarExternalPoseInput ToArPlatform(const oneq::coordinate::EcefPositionM& pos,
+                                                const oneq::coordinate::EcefVelocityMps& vel) {
   ar_session::RadarExternalPoseInput p;
   p.platform_position_ecef_m = pos;
   p.platform_velocity_mps = vel;
@@ -124,9 +123,8 @@ ar_session::RadarEnvironmentInput MakeArEnvironment() {
   return env;
 }
 
-ar_session::RadarCycleInput BuildArInput(
-    const WorldState& ws, float dt, std::uint32_t cycle_index,
-    const ar_session::RadarEnvironmentInputState& env_state) {
+ar_session::RadarCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
+                                         const ar_session::RadarEnvironmentInputState& env_state) {
   ar_session::RadarExternalPoseInput platform = ToArPlatform(ws.platform_pos, ws.platform_vel);
   std::vector<ar_session::RadarExternalTargetInput> targets;
   targets.reserve(ws.targets.size());
@@ -134,17 +132,15 @@ ar_session::RadarCycleInput BuildArInput(
     targets.push_back(ToArTarget(t));
   }
   ar_session::RadarCycleInput input;
-  ar_session::RadarCycleInputAdapter::Build(platform, targets, dt,
-                                             env_state.Snapshot(), &input);
+  ar_session::RadarCycleInputAdapter::Build(platform, targets, dt, env_state.Snapshot(), &input);
   input.cycle_index = cycle_index;
   return input;
 }
 
 // --- EOS input conversion ---
 
-eos_session::EosExternalPoseInput ToEosPlatform(
-    const oneq::coordinate::EcefPositionM& pos,
-    const oneq::coordinate::EcefVelocityMps& vel) {
+eos_session::EosExternalPoseInput ToEosPlatform(const oneq::coordinate::EcefPositionM& pos,
+                                                const oneq::coordinate::EcefVelocityMps& vel) {
   eos_session::EosExternalPoseInput p;
   p.platform_position_ecef_m = pos;
   p.platform_velocity_mps = vel;
@@ -167,9 +163,8 @@ eos_session::EosExternalTargetInput ToEosTarget(const WorldTarget& t) {
   return input;
 }
 
-eos_session::EosCycleInput BuildEosInput(
-    const WorldState& ws, float dt, std::uint32_t cycle_index,
-    const eos_session::EosEnvironmentInput& eos_env) {
+eos_session::EosCycleInput BuildEosInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
+                                         const eos_session::EosEnvironmentInput& eos_env) {
   eos_session::EosExternalPoseInput platform = ToEosPlatform(ws.platform_pos, ws.platform_vel);
   std::vector<eos_session::EosExternalTargetInput> targets;
   targets.reserve(ws.targets.size());
@@ -185,9 +180,8 @@ eos_session::EosCycleInput BuildEosInput(
 
 // --- ESR input conversion ---
 
-esr_session::EsrExternalPoseInput ToEsrPlatform(
-    const oneq::coordinate::EcefPositionM& pos,
-    const oneq::coordinate::EcefVelocityMps& vel) {
+esr_session::EsrExternalPoseInput ToEsrPlatform(const oneq::coordinate::EcefPositionM& pos,
+                                                const oneq::coordinate::EcefVelocityMps& vel) {
   esr_session::EsrExternalPoseInput p;
   p.platform_position_ecef_m = pos;
   p.platform_velocity_mps = vel;
@@ -214,9 +208,8 @@ esr_session::EsrExternalEmitterInput ToEsrEmitter(const WorldTarget& t) {
   return input;
 }
 
-esr_session::EsrCycleInput BuildEsrInput(
-    const WorldState& ws, float dt, std::uint32_t cycle_index,
-    const esr_session::EsrEnvironmentInput& esr_env) {
+esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
+                                         const esr_session::EsrEnvironmentInput& esr_env) {
   esr_session::EsrExternalPoseInput platform = ToEsrPlatform(ws.platform_pos, ws.platform_vel);
   std::vector<esr_session::EsrExternalEmitterInput> emitters;
   emitters.reserve(ws.targets.size());
@@ -239,28 +232,29 @@ esr_session::EsrCycleInput BuildEsrInput(
 
 // -- 空对空通用 AR 配置 --
 ar_config::RadarSessionConfig MakeArConfigAirToAir() {
-  return ar_config::RadarSessionConfigBuilder()
-      .Detection()
-      .EnablePhysicsDetection(false)
-      .WithHardwareProfile(ar_config::profiles::RadarHardwareProfile::kLongRangeHighPower)
-      .WithDetectionIntentProfile(ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
-      .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
-      .End()
-      .Mission()
-      .WithWorkMode(ar_config::RadarWorkMode::kTas)
-      .WithScanCenterDeg(ar_config::AzimuthElevationDeg{})
-      .End()
-      .Tracking()
-      .EnableTrackingFilter(true)
-      .WithTrackingPolicyProfile(ar_config::profiles::TrackingPolicyProfile::kFastAssociation)
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
-      .End()
-      .Environment()
-      .WithJammingSensitivityProfile(ar_env::JammingSensitivityProfile::kBalanced)
-      .End()
-      .Build();
+  ar_config::RadarSessionConfig config =
+      ar_config::RadarSessionConfigBuilder()
+          .Detection()
+          .EnablePhysicsDetection(false)
+          .WithHardwareProfile(ar_config::profiles::RadarHardwareProfile::kLongRangeHighPower)
+          .WithDetectionIntentProfile(
+              ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
+          .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
+          .End()
+          .Tracking()
+          .EnableTrackingFilter(true)
+          .WithTrackingPolicyProfile(ar_config::profiles::TrackingPolicyProfile::kFastAssociation)
+          .End()
+          .Lifecycle()
+          .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
+          .End()
+          .Environment()
+          .WithJammingSensitivityProfile(ar_env::JammingSensitivityProfile::kBalanced)
+          .End()
+          .Build();
+  config.mission.orientation.work_mode = ar_config::RadarWorkMode::kTas;
+  config.mission.orientation.scan_center_deg = ar_config::AzimuthElevationDeg{};
+  return config;
 }
 
 // -- 空对空通用 EOS 配置 --
@@ -303,28 +297,29 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
 
 // -- 空对地 AR 配置 --
 ar_config::RadarSessionConfig MakeArConfigAirToGround() {
-  return ar_config::RadarSessionConfigBuilder()
-      .Detection()
-      .EnablePhysicsDetection(false)
-      .WithHardwareProfile(ar_config::profiles::RadarHardwareProfile::kLongRangeHighPower)
-      .WithDetectionIntentProfile(ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
-      .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
-      .End()
-      .Mission()
-      .WithWorkMode(ar_config::RadarWorkMode::kTas)
-      .WithScanCenterDeg(ar_config::AzimuthElevationDeg{})
-      .End()
-      .Tracking()
-      .EnableTrackingFilter(true)
-      .WithTrackingPolicyProfile(ar_config::profiles::TrackingPolicyProfile::kFastAssociation)
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
-      .End()
-      .Environment()
-      .WithJammingSensitivityProfile(ar_env::JammingSensitivityProfile::kBalanced)
-      .End()
-      .Build();
+  ar_config::RadarSessionConfig config =
+      ar_config::RadarSessionConfigBuilder()
+          .Detection()
+          .EnablePhysicsDetection(false)
+          .WithHardwareProfile(ar_config::profiles::RadarHardwareProfile::kLongRangeHighPower)
+          .WithDetectionIntentProfile(
+              ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
+          .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
+          .End()
+          .Tracking()
+          .EnableTrackingFilter(true)
+          .WithTrackingPolicyProfile(ar_config::profiles::TrackingPolicyProfile::kFastAssociation)
+          .End()
+          .Lifecycle()
+          .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
+          .End()
+          .Environment()
+          .WithJammingSensitivityProfile(ar_env::JammingSensitivityProfile::kBalanced)
+          .End()
+          .Build();
+  config.mission.orientation.work_mode = ar_config::RadarWorkMode::kTas;
+  config.mission.orientation.scan_center_deg = ar_config::AzimuthElevationDeg{};
+  return config;
 }
 
 // -- 空对地 EOS 配置：俯视 45° --
@@ -384,18 +379,17 @@ void AdvanceWorld(WorldState& ws, double dt) {
 void ExpectReplayOk(const ar_session::RadarReplaySessionResult& r, const std::string& label) {
   EXPECT_TRUE(r.report.replay_ready) << label << " AR replay not ready: " << r.first_error;
   EXPECT_FALSE(r.reached_failure_marker) << label << " AR replay hit failure marker";
-  EXPECT_FALSE(r.playback.divergence_found) << label << " AR replay divergence at seq "
-                                             << r.playback.divergence_sequence << ": "
-                                             << r.first_error;
+  EXPECT_FALSE(r.playback.divergence_found)
+      << label << " AR replay divergence at seq " << r.playback.divergence_sequence << ": "
+      << r.first_error;
 }
 
 void ExpectReplayOk(const eos_session::EosReplaySessionResult& r, const std::string& label) {
   EXPECT_TRUE(r.report.replay_ready) << label << " EOS replay not ready: " << r.first_error;
   EXPECT_FALSE(r.reached_failure_marker) << label << " EOS replay hit failure marker";
   if (r.playback.divergence_found) {
-    std::cout << "[  INFO   ] " << label
-              << " EOS replay divergence at seq " << r.playback.divergence_sequence
-              << ": " << r.first_error << "\n";
+    std::cout << "[  INFO   ] " << label << " EOS replay divergence at seq "
+              << r.playback.divergence_sequence << ": " << r.first_error << "\n";
   }
 }
 
@@ -403,9 +397,8 @@ void ExpectReplayOk(const esr_session::EsrReplaySessionResult& r, const std::str
   EXPECT_TRUE(r.report.replay_ready) << label << " ESR replay not ready: " << r.first_error;
   EXPECT_FALSE(r.reached_failure_marker) << label << " ESR replay hit failure marker";
   if (r.playback.divergence_found) {
-    std::cout << "[  INFO   ] " << label
-              << " ESR replay divergence at seq " << r.playback.divergence_sequence
-              << ": " << r.first_error << "\n";
+    std::cout << "[  INFO   ] " << label << " ESR replay divergence at seq "
+              << r.playback.divergence_sequence << ": " << r.first_error << "\n";
   }
 }
 
@@ -559,12 +552,11 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
       ar_tracks_max = static_cast<std::uint32_t>(ar_result.track_output_frame.tracks.size());
     }
     for (const auto& trk : ar_result.track_output_frame.tracks) {
-      if (std::isnan(trk.position_x) || std::isnan(trk.position_y) ||
-          std::isnan(trk.position_z) || std::isnan(trk.speed)) {
+      if (std::isnan(trk.position_x) || std::isnan(trk.position_y) || std::isnan(trk.position_z) ||
+          std::isnan(trk.speed)) {
         ar_nan_detected = true;
       }
-      float range = std::sqrt(trk.position_x * trk.position_x +
-                              trk.position_y * trk.position_y +
+      float range = std::sqrt(trk.position_x * trk.position_x + trk.position_y * trk.position_y +
                               trk.position_z * trk.position_z);
       if (!ar_has_track) {
         ar_range_first = range;
@@ -593,8 +585,8 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
     auto esr_result = esr_trace_sess.StepWithResult(esr_input);
     EXPECT_FALSE(esr_result.has_validation_error) << "ESR validation error at cycle " << cycle;
     if (esr_result.output_frame.emitter_output.hypotheses.size() > esr_hyp_max) {
-      esr_hyp_max = static_cast<std::uint32_t>(
-          esr_result.output_frame.emitter_output.hypotheses.size());
+      esr_hyp_max =
+          static_cast<std::uint32_t>(esr_result.output_frame.emitter_output.hypotheses.size());
     }
     if (!esr_result.output_frame.emitter_output.hypotheses.empty()) {
       esr_has_hypothesis = true;
@@ -632,8 +624,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
   EXPECT_GT(ar_tracks_max, 0U) << "AR should track head-on target";
   EXPECT_FALSE(ar_nan_detected) << "AR track positions must not contain NaN";
   if (ar_has_track) {
-    EXPECT_LT(ar_range_last, ar_range_first)
-        << "Head-on: track range should decrease over time";
+    EXPECT_LT(ar_range_last, ar_range_first) << "Head-on: track range should decrease over time";
     EXPECT_GT(ar_speed_max, 0.0f) << "AR track speed should be positive";
     EXPECT_LT(ar_speed_max, 2000.0f) << "AR track speed should be physically reasonable (< Mach 6)";
   }
@@ -685,9 +676,9 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
   target.vel.x_mps = 0.0;
   target.vel.y_mps = 0.0;
   target.vel.z_mps = 0.0;
-  target.rcs = 100.0f;         // 大型地面设施 RCS
+  target.rcs = 100.0f;            // 大型地面设施 RCS
   target.temperature_k = 600.0f;  // 热点（发动机/雷达散热）
-  target.area_m2 = 50.0f;     // 大型目标
+  target.area_m2 = 50.0f;         // 大型目标
   target.carrier_hz = 9.0e9;
   target.tx_power_w = 1.0e6;
   target.is_emitting = true;
@@ -865,11 +856,11 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   tgt_a.id = 3001;
   tgt_a.pos = tgt_a_ecef;
   tgt_a.vel = tgt_a_vel;
-  tgt_a.rcs = 25.0f;           // 大型轰炸机
-  tgt_a.temperature_k = 400.0f; // 强红外
+  tgt_a.rcs = 25.0f;             // 大型轰炸机
+  tgt_a.temperature_k = 400.0f;  // 强红外
   tgt_a.area_m2 = 80.0f;
   tgt_a.carrier_hz = 9.5e9;
-  tgt_a.tx_power_w = 1.0e5;   // 弱辐射
+  tgt_a.tx_power_w = 1.0e5;  // 弱辐射
   tgt_a.is_emitting = true;
 
   // 目标 B: 伴随干扰机在 A 附近 500m
@@ -890,11 +881,11 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   tgt_b.id = 3002;
   tgt_b.pos = tgt_b_ecef;
   tgt_b.vel = tgt_b_vel;
-  tgt_b.rcs = 3.0f;            // 小型电子战机
+  tgt_b.rcs = 3.0f;  // 小型电子战机
   tgt_b.temperature_k = 350.0f;
   tgt_b.area_m2 = 10.0f;
   tgt_b.carrier_hz = 9.3e9;
-  tgt_b.tx_power_w = 1.0e8;   // 强干扰辐射
+  tgt_b.tx_power_w = 1.0e8;  // 强干扰辐射
   tgt_b.is_emitting = true;
 
   WorldState ws;
@@ -956,9 +947,9 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   jammer.technique = ar_env::JammingTechnique::kNoiseSuppression;
   jammer.power_db = 80.0f;  // 100MW in dB
   jammer.js_db = 20.0f;
-  jammer.position_x = 0.0f;        // azimuth 0 deg (forward)
-  jammer.position_y = 10000.0f;    // forward direction
-  jammer.position_z = 0.0f;        // elevation 0 deg
+  jammer.position_x = 0.0f;      // azimuth 0 deg (forward)
+  jammer.position_y = 10000.0f;  // forward direction
+  jammer.position_z = 0.0f;      // elevation 0 deg
   jammer.angular_span_deg = 5.0f;
   jammer.confidence = 1.0f;
   ar_env_base.jammer_sources.push_back(jammer);
@@ -1004,10 +995,8 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
     for (const auto& det : eos_res.output_frame.detections) {
       if (det.detected) {
         eos_ir_detected++;
-        if (det.infrared_snr_linear > eos_ir_snr_max)
-          eos_ir_snr_max = det.infrared_snr_linear;
-        if (det.visible_snr_linear > eos_vis_snr_max)
-          eos_vis_snr_max = det.visible_snr_linear;
+        if (det.infrared_snr_linear > eos_ir_snr_max) eos_ir_snr_max = det.infrared_snr_linear;
+        if (det.visible_snr_linear > eos_vis_snr_max) eos_vis_snr_max = det.visible_snr_linear;
       }
     }
 
@@ -1016,8 +1005,8 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
     EXPECT_FALSE(esr_res.has_validation_error) << "ESR validation error at cycle " << cycle;
     esr_obs_total += esr_res.output_frame.observation_output.observations.size();
     if (esr_res.output_frame.emitter_output.hypotheses.size() > esr_hyp_max) {
-      esr_hyp_max = static_cast<std::uint32_t>(
-          esr_res.output_frame.emitter_output.hypotheses.size());
+      esr_hyp_max =
+          static_cast<std::uint32_t>(esr_res.output_frame.emitter_output.hypotheses.size());
     }
 
     AdvanceWorld(ws, dt);
@@ -1034,7 +1023,8 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   // ---- 物理逻辑验证 ----
 
   // AR: 100MW 伴随干扰机 + kStrict 灵敏度 + 显式干扰源环境输入 → 应检测到干扰
-  EXPECT_TRUE(ar_jamming_detected) << "AR should detect jamming from 100MW escort jammer (explicit env input)";
+  EXPECT_TRUE(ar_jamming_detected)
+      << "AR should detect jamming from 100MW escort jammer (explicit env input)";
 
   // EOS: 夜间红外模式 → 可见光 SNR 应远低于红外 SNR
   if (eos_ir_detected > 0) {
@@ -1171,12 +1161,12 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
     EXPECT_FALSE(ar_res.has_validation_error) << "AR validation error at cycle " << cycle;
     for (const auto& trk : ar_res.track_output_frame.tracks) {
       ar_track_count++;
-      if (std::isnan(trk.position_x) || std::isnan(trk.position_y) ||
-          std::isnan(trk.position_z) || std::isnan(trk.speed)) {
+      if (std::isnan(trk.position_x) || std::isnan(trk.position_y) || std::isnan(trk.position_z) ||
+          std::isnan(trk.speed)) {
         ar_nan_detected = true;
       }
-      if (std::isinf(trk.position_x) || std::isinf(trk.position_y) ||
-          std::isinf(trk.position_z) || std::isinf(trk.speed)) {
+      if (std::isinf(trk.position_x) || std::isinf(trk.position_y) || std::isinf(trk.position_z) ||
+          std::isinf(trk.speed)) {
         ar_inf_detected = true;
       }
       if (trk.speed > ar_speed_max) ar_speed_max = trk.speed;

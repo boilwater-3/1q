@@ -63,6 +63,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosSessionConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosSessionConfigValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electro_optical_sensor/config/electro_optical_sensor_config.hpp
     )

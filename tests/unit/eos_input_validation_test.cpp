@@ -9,7 +9,7 @@
 #include <limits>
 
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
-#include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
+#include "1q/electro_optical_sensor/config/EosSessionConfig.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"

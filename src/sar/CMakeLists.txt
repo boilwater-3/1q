@@ -38,6 +38,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/sar/config/SarRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/config/SarSessionConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/config/SarSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/sar/config/SarSessionConfigValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/sar/config/sar_config.hpp
     )
     set(PUBLIC_HEADERS_SAR_SESSION
