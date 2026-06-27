@@ -7,6 +7,7 @@
 
 #include "1q/flight_dynamic/autopilot/Autopilot.h"
 #include "1q/flight_dynamic/guidance/WaypointManager.h"
+#include "flight_dynamic/AngleNormalization.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "flight_dynamic/adapter/PropertyNames.h"
 #include "flight_dynamic/propulsion/EngineManager.h"
@@ -150,12 +151,6 @@ double ScheduledTakeoffThrottle(propulsion::EngineType type, double elapsed_sec)
   double duration = TakeoffRampDurationSec(type);
   double progress = duration > 0.0 ? std::clamp(elapsed_sec / duration, 0.0, 1.0) : 1.0;
   return start + (target - start) * progress;
-}
-
-double NormalizeRad(double angle_rad) {
-  while (angle_rad > M_PI) angle_rad -= 2.0 * M_PI;
-  while (angle_rad < -M_PI) angle_rad += 2.0 * M_PI;
-  return angle_rad;
 }
 
 double ComputeClockwiseOrbitHeadingRad(const JSBSim::FGLocation& location, const Waypoint& center,

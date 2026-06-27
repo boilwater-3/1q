@@ -6,6 +6,7 @@
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "flight_dynamic/adapter/PropertyNames.h"
 #include "flight_dynamic/AircraftPerformanceDerivation.h"
+#include "flight_dynamic/AngleNormalization.h"
 #include "math/FGLocation.h"
 #include "models/FGPropagate.h"
 #include "models/FGPropulsion.h"
@@ -24,19 +25,6 @@ double Clamp(double value, double min_value, double max_value) {
   if (value < min_value) return min_value;
   if (value > max_value) return max_value;
   return value;
-}
-
-double NormalizeRad(double angle_rad) {
-  while (angle_rad > M_PI) angle_rad -= 2.0 * M_PI;
-  while (angle_rad < -M_PI) angle_rad += 2.0 * M_PI;
-  return angle_rad;
-}
-
-double RadToDeg360(double angle_rad) {
-  double deg = angle_rad * 180.0 / M_PI;
-  while (deg < 0.0) deg += 360.0;
-  while (deg >= 360.0) deg -= 360.0;
-  return deg;
 }
 
 constexpr double kFtToM = 0.3048;

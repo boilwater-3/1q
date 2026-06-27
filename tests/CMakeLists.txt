@@ -138,6 +138,7 @@ endfunction()
 # --------------------------------------------------------------------------
 set(FD_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_performance_derivation_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_angle_normalization_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_adapter_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_maneuver_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_probe_test.cpp
