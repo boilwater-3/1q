@@ -530,33 +530,33 @@ TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies
   EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.turbulence_factor, 1.8f, 1e-5f);
 }
 
-TEST(EosPublicApiConvenienceTest, TryCreateBuildsSessionAndReportsNoIssuesForHealthyConfig) {
+TEST(EosPublicApiConvenienceTest, CreateWithValidationBuildsSessionAndReportsNoIssuesForHealthyConfig) {
   config::EosSessionConfig config;
 
   config::ValidationIssueList issues;
-  const session::EosSession session = session::EosSession::TryCreate(config, &issues);
+  const session::EosSession session = session::EosSession::CreateWithValidation(config, &issues);
 
   EXPECT_TRUE(issues.empty());
   (void)session;
 }
 
-TEST(EosPublicApiConvenienceTest, TryCreateReportsIssuesButStillConstructsSession) {
+TEST(EosPublicApiConvenienceTest, CreateWithValidationReportsIssuesButStillConstructsSession) {
   config::EosSessionConfig invalid;
   invalid.mission.horizontal_fov_deg = 0.0f;
 
   config::ValidationIssueList issues;
-  const session::EosSession session = session::EosSession::TryCreate(invalid, &issues);
+  const session::EosSession session = session::EosSession::CreateWithValidation(invalid, &issues);
 
   ASSERT_EQ(issues.size(), 1U);
   EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kHorizontalFovNotPositive);
   (void)session;  // 会话仍被构造，调用方据 issues 决策
 }
 
-TEST(EosPublicApiConvenienceTest, TryCreateAcceptsNullIssuesWithoutCrash) {
+TEST(EosPublicApiConvenienceTest, CreateWithValidationAcceptsNullIssuesWithoutCrash) {
   config::EosSessionConfig invalid;
   invalid.mission.horizontal_fov_deg = 0.0f;
 
-  const session::EosSession session = session::EosSession::TryCreate(invalid, nullptr);
+  const session::EosSession session = session::EosSession::CreateWithValidation(invalid, nullptr);
   (void)session;  // nullptr 时仅构造，不写回 issues
 }
 

@@ -256,8 +256,8 @@ RadarSession RadarSession::CreateWithDecisionEngine(
       RadarSessionCompositionRoot::ComposeWithDecisionEngine(config, decision_engine))));
 }
 
-RadarSession RadarSession::TryCreate(const config::RadarSessionConfig& config,
-                                     config::ValidationIssueList* issues) {
+RadarSession RadarSession::CreateWithValidation(const config::RadarSessionConfig& config,
+                                                config::ValidationIssueList* issues) {
   const config::ValidationIssueList found = config::ValidateRadarSessionConfig(config);
   if (issues != nullptr) {
     *issues = found;

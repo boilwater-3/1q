@@ -1,5 +1,7 @@
 # SAR Phase 0 现状审计报告
 
+> **历史快照（historical snapshot, not current API）。** 本审计记录 2026-06-23 当时的实现状态，其中提到的 `SarSessionFactory`（friend 模式）已在后续收口中移除——创建入口现为 `SarSession::Create` / `SarSession::CreateWithValidation` 静态成员。审计结论作为历史记录保留，不代表当前 API。
+
 Date: 2026-06-23
 
 ## 1. 审计目的

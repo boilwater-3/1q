@@ -69,8 +69,8 @@ class ONEQ_API SarSession {
    * @return 构造完成的会话。
    * @note `ValidateSarSessionConfig` 由此路径被实调用，构成真实契约。
    */
-  static SarSession TryCreate(const config::SarSessionConfig& config,
-                              config::ValidationIssueList* issues);
+  static SarSession CreateWithValidation(const config::SarSessionConfig& config,
+                                         config::ValidationIssueList* issues);
 
  private:
 

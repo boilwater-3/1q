@@ -84,8 +84,8 @@ class ONEQ_API EosSession {
    * @return 构造完成的会话。
    * @note `ValidateEosSessionConfig` 由此路径被实调用，构成真实契约。
    */
-  static EosSession TryCreate(const config::EosSessionConfig& config,
-                              config::ValidationIssueList* issues);
+  static EosSession CreateWithValidation(const config::EosSessionConfig& config,
+                                         config::ValidationIssueList* issues);
 
  private:
 

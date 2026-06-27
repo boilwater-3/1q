@@ -122,8 +122,8 @@ class ONEQ_API RadarSession {
    * @return 构造完成的会话。
    * @note `ValidateRadarSessionConfig` 由此路径被实调用，构成真实契约。
    */
-  static RadarSession TryCreate(const config::RadarSessionConfig& config,
-                                config::ValidationIssueList* issues);
+  static RadarSession CreateWithValidation(const config::RadarSessionConfig& config,
+                                           config::ValidationIssueList* issues);
 
  private:
 

@@ -103,8 +103,8 @@ class ONEQ_API EsrSession {
    * @return 构造完成的会话。
    * @note `ValidateEsrSessionConfig` 由此路径被实调用，构成真实契约。
    */
-  static EsrSession TryCreate(const config::EsrSessionConfig& config,
-                              config::ValidationIssueList* issues);
+  static EsrSession CreateWithValidation(const config::EsrSessionConfig& config,
+                                         config::ValidationIssueList* issues);
 
  private:
   struct Impl;

@@ -142,35 +142,35 @@ TEST(SarSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {
 
 }  // namespace
 
-TEST(SarSessionTryCreateTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {
+TEST(SarSessionCreateWithValidationTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {
   SarSessionConfigBuilder builder;
   builder.Mission().WithMissionProfile(SarMissionProfile::kStripmapSurvey).End();
   const SarSessionConfig config = builder.Build();
 
   ValidationIssueList issues;
-  const session::SarSession session = session::SarSession::TryCreate(config, &issues);
+  const session::SarSession session = session::SarSession::CreateWithValidation(config, &issues);
 
   EXPECT_TRUE(issues.empty());
   (void)session;
 }
 
-TEST(SarSessionTryCreateTest, ReportsIssuesButStillConstructsSession) {
+TEST(SarSessionCreateWithValidationTest, ReportsIssuesButStillConstructsSession) {
   SarSessionConfig invalid;
   invalid.hardware.carrier_frequency_hz = 0.0;
 
   ValidationIssueList issues;
-  const session::SarSession session = session::SarSession::TryCreate(invalid, &issues);
+  const session::SarSession session = session::SarSession::CreateWithValidation(invalid, &issues);
 
   EXPECT_FALSE(issues.empty());
   EXPECT_EQ(issues.front().code, ConfigValidationCode::kCarrierFrequencyNotPositive);
   (void)session;  // 会话仍被构造，调用方据 issues 决策
 }
 
-TEST(SarSessionTryCreateTest, AcceptsNullIssuesWithoutCrash) {
+TEST(SarSessionCreateWithValidationTest, AcceptsNullIssuesWithoutCrash) {
   SarSessionConfig invalid;
   invalid.hardware.carrier_frequency_hz = 0.0;
 
-  const session::SarSession session = session::SarSession::TryCreate(invalid, nullptr);
+  const session::SarSession session = session::SarSession::CreateWithValidation(invalid, nullptr);
   (void)session;  // nullptr 时仅构造，不写回 issues
 }
 

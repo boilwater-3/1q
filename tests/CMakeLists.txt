@@ -481,6 +481,15 @@ add_test(
             -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_install_manifest.cmake
 )
 
+# 守护规范性文档不残留已收口的旧入口术语(SessionFactory / extension:: SPI 等)。
+# 历史审查目录(docs/review, docs/sar/audits)已加 historical snapshot 标记,故排除。
+add_test(
+    NAME doc_legacy_term_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_doc_legacy_term_guard.cmake
+)
+
 set_tests_properties(
     public_api_boundary_guard
     airborne_include_style_guard
@@ -493,6 +502,7 @@ set_tests_properties(
     cross_domain_naming_guard
     public_header_cxx11_guard
     install_manifest_guard
+    doc_legacy_term_guard
     PROPERTIES LABELS "contract"
 )
 

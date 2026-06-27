@@ -67,7 +67,7 @@ TEST(SarPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
   EXPECT_FALSE(config.policy.enable_l3_bp_imaging);
 }
 
-TEST(SarPublicApiConvenienceTest, SessionFactoryCreatesSessionFromConfig) {
+TEST(SarPublicApiConvenienceTest, SessionCreatesFromConfig) {
   session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
   const session::SarCycleResult result = session.StepWithResult(MakeMinimalInput());
 
