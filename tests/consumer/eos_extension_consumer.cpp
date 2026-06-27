@@ -3,7 +3,7 @@
  * @brief 验证安装后 EOS 扩展接口可被外部工程访问。
  *
  * 覆盖要点：
- *   - EosSession 构建（SessionFactory::Create 默认装配）、Step、StepWithResult、ApplyRuntimeConfig
+ *   - EosSession 构建（EosSession::Create 默认装配）、Step、StepWithResult、ApplyRuntimeConfig
  *   - HasValidationError、GetLastValidationIssues 字段可访问
  *   - EosPipelineAbortReason 公共结果类型可达
  *

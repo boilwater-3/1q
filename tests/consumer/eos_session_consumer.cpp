@@ -7,7 +7,7 @@
  *   - 直接字段赋值覆盖四域详细参数（hardware/mission/policy/environment）
  *   - EosCycleInput + EosSceneTarget 构造场景输入
  *   - EosInputValidation 输入校验
- *   - EosSessionFactory 创建会话，Step、StepWithResult 调用
+ *   - EosSession::Create 创建会话，Step、StepWithResult 调用
  *   - EosOutputFrame 探测输出字段可访问
  *   - EosRuntimeConfigBuilder 热切换（工作模式、扫描率、探测/杂散光/环境策略）
  */

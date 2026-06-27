@@ -3,7 +3,7 @@
  * @brief 验证 EOS 会话的周期执行、配置提交与运行期补丁契约。
  *
  * 原测试通过 EosCycleOrchestrator 直接测试 RunCycle + ApplyRuntimeConfig。
- * Orchestrator 内联到 EosSession::Impl 后，通过 EosSessionFactory::Create 测试等效行为。
+ * Orchestrator 内联到 EosSession::Impl 后，通过 EosSession::Create 测试等效行为。
  */
 
 #include <gtest/gtest.h>

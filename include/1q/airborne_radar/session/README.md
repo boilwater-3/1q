@@ -25,8 +25,7 @@
 - RadarExternalOutputAdapter.h — 外部输出适配器（雷达航迹 → 平台坐标系）
 
 ## 会话
-- RadarSession.h — 主会话（PIMPL）
-- RadarSessionFactory.h — 会话工厂（Create / CreateWithDecisionEngine）
+- RadarSession.h — 主会话（PIMPL，静态工厂 Create / CreateWithDecisionEngine）
 - RadarReplaySession.h — 回放会话
 - RadarTraceSession.h — 跟踪会话
 

@@ -4,7 +4,7 @@
  *
  * 本 consumer 演示 public API 的唯一自定义扩展点:外部实现 ITacticalDecisionEngine
  * 替换 AR 决策逻辑,其余组件(context / pipeline / environment service)由
- * RadarSessionFactory 内部默认装配,不对外暴露。
+ * RadarSession::Create 内部默认装配,不对外暴露。
  */
 
 #include <vector>

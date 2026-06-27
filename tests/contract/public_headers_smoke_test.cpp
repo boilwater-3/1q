@@ -101,13 +101,13 @@ static_assert(!std::is_constructible<ArSession, const ArConfig&>::value,
               "RadarSession direct construction must be disabled");
 static_assert(std::is_same<ArSession, decltype(airborne_radar::session::RadarSession::Create(
                                           std::declval<const ArConfig&>()))>::value,
-              "RadarSessionFactory::Create must return RadarSession");
+              "RadarSession::Create must return RadarSession");
 static_assert(
     std::is_same<ArSession,
                  decltype(airborne_radar::session::RadarSession::CreateWithDecisionEngine(
                      std::declval<const ArConfig&>(),
                      std::declval<airborne_radar::session::ITacticalDecisionEngine&>()))>::value,
-    "RadarSessionFactory::CreateWithDecisionEngine must return RadarSession");
+    "RadarSession::CreateWithDecisionEngine must return RadarSession");
 
 static_assert(
     !std::is_constructible<electronic_surveillance_radar::session::EsrSession,
@@ -122,7 +122,7 @@ static_assert(
         electro_optical_sensor::session::EosSession,
         decltype(electro_optical_sensor::session::EosSession::Create(
             std::declval<const electro_optical_sensor::config::EosSessionConfig&>()))>::value,
-    "EosSessionFactory::Create must return EosSession");
+    "EosSession::Create must return EosSession");
 
 static_assert(
     !std::is_constructible<sar::session::SarSession, sar::config::SarSessionConfig>::value,
@@ -130,7 +130,7 @@ static_assert(
 static_assert(std::is_same<sar::session::SarSession,
                            decltype(sar::session::SarSession::Create(
                                std::declval<const sar::config::SarSessionConfig&>()))>::value,
-              "SarSessionFactory::Create must return SarSession");
+              "SarSession::Create must return SarSession");
 
 namespace airborne_radar {
 namespace {

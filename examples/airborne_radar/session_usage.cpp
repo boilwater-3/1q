@@ -8,7 +8,7 @@
  *
  * 典型流程：
  *   1. 使用 RadarSessionConfigBuilder 构建会话配置
- *   2. 通过 RadarSessionFactory 创建 Session
+ *   2. 通过 RadarSession::Create 创建 Session
  *   3. 每个仿真周期构造 RadarCycleInput，调用 StepWithResult 执行
  *   4. 从 RadarCycleResult 中读取航迹、指令等输出
  */

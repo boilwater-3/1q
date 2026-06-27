@@ -83,7 +83,7 @@ legacy 装配类型已下沉到 `src/airborne_radar/config/legacy/*`，不在公
 
 - 业务/任务层优先：`RadarSessionConfigBuilder`
 - 常见场景推荐配置应在调用方业务层以具名函数封装，并返回 `RadarSessionConfig` 传入
-  `RadarSessionFactory::Create`
+  `RadarSession::Create`
 - 细粒度建模优先：直接字段赋值
 
 ## 推荐入口

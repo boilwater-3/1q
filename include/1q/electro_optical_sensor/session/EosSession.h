@@ -18,11 +18,9 @@
 namespace electro_optical_sensor {
 namespace session {
 
-class EosSessionFactory;
-
 /**
  * @brief EosSession 提供单周期步进执行入口。
- * @note 通过 `EosSessionFactory` 创建，避免外部直接拼装不一致依赖图。
+ * @note 通过静态工厂 `EosSession::Create` 创建，避免外部直接拼装不一致依赖图。
  * @note 线程模型：会话内部维护可变运行态，非线程安全；并发调用需外部串行化或加锁。
  */
 class ONEQ_API EosSession {
