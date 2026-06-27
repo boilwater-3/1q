@@ -25,6 +25,7 @@ set(ESR_CORE_SOURCES
     electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.cpp
     electronic_surveillance_radar/session/EsrOutputDebugViewBuilder.cpp
     electronic_surveillance_radar/session/EsrSessionCompositionRoot.cpp
+    electronic_surveillance_radar/session/EsrResolutionRules.cpp
     electronic_surveillance_radar/session/EsrSessionConfigResolver.cpp
     electronic_surveillance_radar/session/EsrRuntimeConfigResolver.cpp
     electronic_surveillance_radar/session/EsrSession.cpp
