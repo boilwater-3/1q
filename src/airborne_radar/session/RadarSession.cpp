@@ -199,7 +199,9 @@ struct RadarSession::Impl {
           input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
     }
 
-    environment_service.UpdateSceneState(BuildSceneStateFromEnvironmentInput(input.environment));
+    if (input.has_environment) {
+      environment_service.UpdateSceneState(BuildSceneStateFromEnvironmentInput(input.environment));
+    }
     radar_context.BeginCycle(input);
     controller.RunOnce();
 

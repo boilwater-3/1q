@@ -7,7 +7,11 @@ bool RadarCycleInputAdapter::Build(const RadarExternalPoseInput& platform,
                                    const std::vector<RadarExternalTargetInput>& targets,
                                    float dt_sec, RadarCycleInput* output,
                                    RadarCoordinateStatus* status) {
-  return Build(platform, targets, dt_sec, RadarEnvironmentInput{}, output, status);
+  if (!Build(platform, targets, dt_sec, RadarEnvironmentInput{}, output, status)) {
+    return false;
+  }
+  output->has_environment = false;
+  return true;
 }
 
 bool RadarCycleInputAdapter::Build(const RadarExternalPoseInput& platform,
@@ -33,6 +37,7 @@ bool RadarCycleInputAdapter::Build(const RadarExternalPoseInput& platform,
   output->cycle_index = 0U;
   output->dt_sec = dt_sec;
   output->platform_altitude_m = static_cast<float>(reference.origin_lla.altitude_m);
+  output->has_environment = true;
   output->environment = environment;
   output->scene.clear();
 

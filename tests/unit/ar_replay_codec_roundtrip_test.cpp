@@ -42,6 +42,9 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   input.platform_pose.attitude_deg.yaw_deg = 45.0f;
   input.platform_pose.attitude_deg.pitch_deg = -5.0f;
   input.platform_pose.attitude_deg.roll_deg = 2.0f;
+  input.has_environment = true;
+  input.environment.atmospheric_observation.enable_physical_model = true;
+  input.environment.atmospheric_observation.temperature_k = 300.0f;
 
   RadarSceneTarget target;
   target.external_target_id = 42U;
@@ -69,6 +72,9 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.platform_pose.position_m.x, 100.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.velocity_mps.y, 20.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.attitude_deg.yaw_deg, 45.0f);
+  EXPECT_TRUE(decoded.has_environment);
+  EXPECT_TRUE(decoded.environment.atmospheric_observation.enable_physical_model);
+  EXPECT_FLOAT_EQ(decoded.environment.atmospheric_observation.temperature_k, 300.0f);
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].external_target_id, 42U);
   EXPECT_FLOAT_EQ(decoded.scene[0].rcs, 3.0f);

@@ -20,6 +20,7 @@ std::string BuildRadarInputPayload(const RadarCycleInput& input) {
      << "\"cycle_index\":" << input.cycle_index << ","
      << "\"dt_sec\":" << input.dt_sec << ","
      << "\"platform_altitude_m\":" << input.platform_altitude_m << ","
+     << "\"has_environment\":" << (input.has_environment ? "true" : "false") << ","
      << "\"scene_target_count\":" << input.scene.size()
      << "}";
   return os.str();

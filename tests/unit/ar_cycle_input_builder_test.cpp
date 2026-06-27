@@ -62,6 +62,7 @@ TEST(RadarCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   RadarCycleInput builder_input;
   ASSERT_TRUE(RadarCycleInputAdapter::Build(pose_input, {target_input}, 1.0f, &builder_input));
 
+  EXPECT_FALSE(builder_input.has_environment);
   ASSERT_EQ(builder_input.scene.size(), 1U);
 
   const auto& builder_target = builder_input.scene[0];
@@ -131,6 +132,7 @@ TEST(RadarCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput
   ASSERT_TRUE(RadarCycleInputAdapter::Build(pose_input, {}, 1.0f, environment, &input));
 
   EXPECT_FLOAT_EQ(input.platform_altitude_m, 1000.0f);
+  EXPECT_TRUE(input.has_environment);
   EXPECT_TRUE(input.environment.atmospheric_observation.enable_physical_model);
   EXPECT_FLOAT_EQ(input.environment.atmospheric_observation.temperature_k, 301.0f);
   EXPECT_FLOAT_EQ(input.environment.atmospheric_context.solar_flux_f107, 180.0f);

@@ -203,9 +203,6 @@ void CompareConfigs(const ar_config::RadarSessionConfig& a,
 
   // policy subtree
   // beam_control.pointing
-  CheckAzEl(a.policy.beam_control.pointing.default_scan_center_deg,
-            b.policy.beam_control.pointing.default_scan_center_deg,
-            "beam_control.pointing.default_scan_center");
   CheckCmdBeamwidth(a.policy.beam_control.pointing.nominal_beamwidth_deg,
                     b.policy.beam_control.pointing.nominal_beamwidth_deg,
                     "beam_control.pointing.nominal_beamwidth");
@@ -224,10 +221,6 @@ void CompareConfigs(const ar_config::RadarSessionConfig& a,
   // association
   CHECK_EQ(a.policy.association.unassigned_cost, b.policy.association.unassigned_cost,
            "association.unassigned_cost");
-  CHECK_BOOL(a.policy.association.use_distance_gate_hint,
-             b.policy.association.use_distance_gate_hint, "association.use_distance_gate_hint");
-  CHECK_EQ(a.policy.association.distance_gate_sigma_hint,
-           b.policy.association.distance_gate_sigma_hint, "association.distance_gate_sigma_hint");
 
   // tracking
   CHECK_BOOL(a.policy.tracking.enable_kalman_filter, b.policy.tracking.enable_kalman_filter,

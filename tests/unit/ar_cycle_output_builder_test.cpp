@@ -221,6 +221,50 @@ TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) 
   EXPECT_NEAR(estimate.target_velocity_mps.z_mps, target.kinematics.velocity_mps.z_mps, 0.5);
 }
 
+TEST(RadarCycleOutputBuilderTest, OmittedCycleEnvironmentPreservesStaticEnvironment) {
+  const RadarExternalPoseInput platform = MakePlatformInput();
+  const RadarExternalTargetInput target = MakeTargetInput();
+
+  airborne_radar::config::RadarSessionConfig config = MakeDetectionFocusedConfig();
+  config.environment.jamming_sensitivity_profile =
+      airborne_radar::config::JammingSensitivityProfile::kStrict;
+  airborne_radar::config::JammerEmitterState jammer;
+  jammer.technique = airborne_radar::config::JammingTechnique::kNoiseSuppression;
+  jammer.power_db = 12.0f;
+  jammer.js_db = 12.0f;
+  jammer.angular_span_deg = 10.0f;
+  config.environment.scenario_config.jammer_sources.push_back(jammer);
+
+  RadarCycleInput static_environment_input;
+  ASSERT_TRUE(RadarCycleInputAdapter::Build(platform, {target}, 1.0f,
+                                            &static_environment_input));
+  ASSERT_FALSE(static_environment_input.has_environment);
+
+  RadarSession static_environment_session = RadarSession::Create(config);
+  const RadarCycleResult static_environment_result =
+      static_environment_session.StepWithResult(static_environment_input);
+  ASSERT_FALSE(static_environment_result.has_validation_error);
+  ASSERT_FALSE(static_environment_result.track_output_frame.tracks.empty());
+  EXPECT_TRUE(static_environment_result.track_output_frame.tracks[0].jamming_detected);
+
+  airborne_radar::session::RadarEnvironmentInput no_jammer_environment;
+  no_jammer_environment.atmospheric_observation.pressure_hpa = 1013.25f;
+  no_jammer_environment.atmospheric_observation.temperature_k = 288.15f;
+  no_jammer_environment.atmospheric_observation.relative_humidity = 0.5f;
+
+  RadarCycleInput explicit_environment_input;
+  ASSERT_TRUE(RadarCycleInputAdapter::Build(platform, {target}, 1.0f, no_jammer_environment,
+                                            &explicit_environment_input));
+  ASSERT_TRUE(explicit_environment_input.has_environment);
+
+  RadarSession explicit_environment_session = RadarSession::Create(config);
+  const RadarCycleResult explicit_environment_result =
+      explicit_environment_session.StepWithResult(explicit_environment_input);
+  ASSERT_FALSE(explicit_environment_result.has_validation_error);
+  ASSERT_FALSE(explicit_environment_result.track_output_frame.tracks.empty());
+  EXPECT_FALSE(explicit_environment_result.track_output_frame.tracks[0].jamming_detected);
+}
+
 TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
   RadarExternalPoseInput platform = MakePlatformInput();
   platform.platform_velocity_mps.x_mps = 0.0;

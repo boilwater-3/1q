@@ -121,7 +121,6 @@ inline void LoadMission(const oneq::JsonValue& j,
 inline void LoadBeamPointing(const oneq::JsonValue& j,
                              airborne_radar::config::BeamPointingConfig* v) {
   if (j.IsNull()) return;
-  LoadAzEl(j["default_scan_center_deg"], &v->default_scan_center_deg);
   LoadCmdBeamwidth(j["nominal_beamwidth_deg"], &v->nominal_beamwidth_deg);
 }
 
@@ -146,9 +145,6 @@ inline void LoadAssociation(const oneq::JsonValue& j,
                             airborne_radar::config::AssociationConfig* v) {
   if (j.IsNull()) return;
   v->unassigned_cost = static_cast<float>(j["unassigned_cost"].AsDouble());
-  v->use_distance_gate_hint = j["use_distance_gate_hint"].AsBool();
-  v->distance_gate_sigma_hint =
-      static_cast<float>(j["distance_gate_sigma_hint"].AsDouble());
 }
 
 inline void LoadTracking(const oneq::JsonValue& j,
