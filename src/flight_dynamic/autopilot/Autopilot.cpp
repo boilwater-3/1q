@@ -5,6 +5,7 @@
 
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "flight_dynamic/adapter/PropertyNames.h"
+#include "flight_dynamic/AircraftPerformanceDerivation.h"
 #include "math/FGLocation.h"
 #include "models/FGPropagate.h"
 #include "models/FGPropulsion.h"
@@ -338,23 +339,26 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
     if (weight_lbs > 1.0 && wing_ft2 > 1.0) {
       control_profile_.wing_loading_lbs_ft2 = weight_lbs / wing_ft2;
 
-      // CLmax for takeoff — mirrors EngineManager logic.
-      double cl_max = 1.6;
+      // CLmax + V_stall derivation via shared single source (mirrors EngineManager).
+      // Autopilot uses the sea-level ρ constant (its historical behavior).
+      bool is_turboprop = false;
       if (propulsion) {
         int n = propulsion->GetNumEngines();
         if (n > 0 && propulsion->GetEngine(0)->GetType() == JSBSim::FGEngine::etTurboprop) {
-          cl_max = 2.0;
+          is_turboprop = true;
         }
       }
-      if (span_ft > 1.0 && wing_ft2 > 1.0) {
-        double ar = (span_ft * span_ft) / wing_ft2;
-        if (ar < 2.5) cl_max = 2.5;  // delta wing vortex lift
-      }
-
       constexpr double kRhoSeaLevel = 0.002377;  // slugs/ft³
-      double v_stall_ftps = std::sqrt((2.0 * weight_lbs) /
-                                      (kRhoSeaLevel * wing_ft2 * cl_max));
-      control_profile_.v_stall_mps = v_stall_ftps * 0.3048;
+      PerformanceDerivationInputs perf_inputs;
+      perf_inputs.weight_lbs = weight_lbs;
+      perf_inputs.wing_area_ft2 = wing_ft2;
+      perf_inputs.wingspan_ft = span_ft;
+      perf_inputs.is_turboprop = is_turboprop;
+      perf_inputs.has_cl_max_override = false;
+      perf_inputs.cl_max_override = 0.0;
+      const PerformanceDerivationResult perf =
+          DeriveStallAndWingLoading(perf_inputs, kRhoSeaLevel);
+      control_profile_.v_stall_mps = perf.v_stall_ftps * 0.3048;
 
       // Thrust-to-weight ratio: read from property tree.
       // EngineManager publishes this during construction via InitRunning()

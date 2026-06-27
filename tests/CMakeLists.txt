@@ -137,6 +137,7 @@ endfunction()
 # flight_dynamic 测试（含 JSBSim）独立二进制，可并行构建与执行
 # --------------------------------------------------------------------------
 set(FD_TEST_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_performance_derivation_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_adapter_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_maneuver_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_probe_test.cpp

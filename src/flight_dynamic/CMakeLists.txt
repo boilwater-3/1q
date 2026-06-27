@@ -5,6 +5,7 @@ set(FD_ENGINE_SOURCES
 
 set(FD_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/flight_dynamic/model/VehicleStateMapper.cpp
+    ${CMAKE_SOURCE_DIR}/src/flight_dynamic/AircraftPerformanceDerivation.cpp
     ${CMAKE_SOURCE_DIR}/src/flight_dynamic/autopilot/Autopilot.cpp
     ${CMAKE_SOURCE_DIR}/src/flight_dynamic/propulsion/EngineManager.cpp
     ${CMAKE_SOURCE_DIR}/src/flight_dynamic/guidance/WaypointManager.cpp

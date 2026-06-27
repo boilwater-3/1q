@@ -6,6 +6,7 @@
 #include "common/logging/ProjectLog.h"
 
 #include "FGFDMExec.h"
+#include "flight_dynamic/AircraftPerformanceDerivation.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "flight_dynamic/adapter/PropertyNames.h"
 #include "models/FGFCS.h"
@@ -17,16 +18,11 @@ namespace propulsion {
 
 namespace {
 
-// --- CLmax takeoff defaults (aircraft capability) ---
-// These are wing-physics parameters that vary by planform and high-lift devices.
-// They feed Vr = Vr_factor × sqrt(2W / (ρ × S × CLmax)).
-constexpr double kClMaxTakeoffDefault = 1.6;    // clean wing / simple flaps
-constexpr double kClMaxTakeoffTurboprop = 2.0;   // high-lift wings, takeoff flaps ≥33%
-constexpr double kClMaxTakeoffDeltaWing = 2.5;   // vortex lift at high AoA
-
 // --- Delta-wing detection (aerodynamic classification) ---
 // Aspect ratio = span² / area.  AR < 2.5 is the conventional boundary
 // for delta / low-AR planforms that generate significant vortex lift.
+// CLmax defaults themselves now live in AircraftPerformanceDerivation (single
+// source); this threshold is kept only for the is_delta_wing diagnostic flag.
 constexpr double kDeltaWingArThreshold = 2.5;
 
 // --- Vr multiplier (aircraft capability × safety margin) ---
@@ -199,30 +195,30 @@ double EngineManager::GetRotationSpeedKts() const {
   // --- CLmax selection (aircraft capability, wing physics) ---
   // These are wing-planform parameters, not control-law tuning knobs.
   // XML override: guidance/takeoff-cl-max allows per-aircraft tuning.
-  double cl_max = kClMaxTakeoffDefault;
+  bool has_cl_max_override = false;
+  double cl_max_override = 0.0;
   {
     auto pm = exec_.GetPropertyManager();
     auto* cl_node = pm ? pm->GetNode("guidance/takeoff-cl-max") : nullptr;
     if (cl_node) {
       double xml_cl = cl_node->getDoubleValue();
-      if (xml_cl > 0.5) cl_max = xml_cl;  // sanity: must be physically reasonable
-    }
-  }
-  if (cl_max == kClMaxTakeoffDefault) {
-    // No XML override — apply automatic detection.
-    if (type_ == EngineType::kTurboprop) {
-      cl_max = kClMaxTakeoffTurboprop;
-    }
-    // Detect delta-wing / low-aspect-ratio planforms via wing geometry.
-    const double wingspan_ft = GetProperty("metrics/bw-ft");
-    if (wingspan_ft > 1.0 && wing_area_ft2 > 1.0) {
-      double ar = (wingspan_ft * wingspan_ft) / wing_area_ft2;
-      if (ar < kDeltaWingArThreshold) {
-        cl_max = kClMaxTakeoffDeltaWing;
+      if (xml_cl > 0.5) {  // sanity: must be physically reasonable
+        has_cl_max_override = true;
+        cl_max_override = xml_cl;
       }
     }
   }
   const double wingspan_ft = GetProperty("metrics/bw-ft");
+  PerformanceDerivationInputs perf_inputs;
+  perf_inputs.weight_lbs = weight_lbs;
+  perf_inputs.wing_area_ft2 = wing_area_ft2;
+  perf_inputs.wingspan_ft = wingspan_ft;
+  perf_inputs.is_turboprop = (type_ == EngineType::kTurboprop);
+  perf_inputs.has_cl_max_override = has_cl_max_override;
+  perf_inputs.cl_max_override = cl_max_override;
+  const PerformanceDerivationResult perf = DeriveStallAndWingLoading(perf_inputs, rho);
+  const double cl_max = perf.cl_max;
+
   bool is_delta_wing = false;
   double aspect_ratio = 0.0;
   if (wingspan_ft > 1.0 && wing_area_ft2 > 1.0) {
@@ -236,7 +232,7 @@ double EngineManager::GetRotationSpeedKts() const {
                  cl_max, kClMaxLowerBound, kClMaxUpperBound);
   }
 
-  const double v_stall_ftps = std::sqrt((2.0 * weight_lbs) / (rho * wing_area_ft2 * cl_max));
+  const double v_stall_ftps = perf.v_stall_ftps;
   const double v_stall_kts = v_stall_ftps * 0.592484;
 
   // --- Vr factor (aircraft capability × safety margin) ---
@@ -299,19 +295,23 @@ double EngineManager::GetDefaultApproachSpeedMps() const {
     return kApproachSpeedFallbackMps;
   }
 
-  double cl_max = kClMaxTakeoffDefault;
-  if (type_ == EngineType::kTurboprop) {
-    cl_max = kClMaxTakeoffTurboprop;
-  }
   const double wingspan_ft = GetProperty("metrics/bw-ft");
-  if (wingspan_ft > 1.0 && wing_area_ft2 > 1.0) {
-    double ar = (wingspan_ft * wingspan_ft) / wing_area_ft2;
-    if (ar < kDeltaWingArThreshold) cl_max = kClMaxTakeoffDeltaWing;
-  }
+  PerformanceDerivationInputs perf_inputs;
+  perf_inputs.weight_lbs = weight_lbs;
+  perf_inputs.wing_area_ft2 = wing_area_ft2;
+  perf_inputs.wingspan_ft = wingspan_ft;
+  perf_inputs.is_turboprop = (type_ == EngineType::kTurboprop);
+  perf_inputs.has_cl_max_override = false;
+  perf_inputs.cl_max_override = 0.0;
 
+  // NOTE: this fallback path historically uses the sea-level ρ constant for
+  // V_stall (even though it reads property-tree ρ above for validation). That
+  // divergence is preserved verbatim — fixing it is out of scope (no failing
+  // test evidence; behavior-change requires its own contract).
   constexpr double kRhoSeaLevel = 0.002377;  // slugs/ft³
-  double v_stall_ftps = std::sqrt((2.0 * weight_lbs) /
-                                  (kRhoSeaLevel * wing_area_ft2 * cl_max));
+  const PerformanceDerivationResult perf = DeriveStallAndWingLoading(perf_inputs, kRhoSeaLevel);
+  const double cl_max = perf.cl_max;
+  double v_stall_ftps = perf.v_stall_ftps;
   double approach_mps = v_stall_ftps * 0.3048 * kApproachSpeedStallFactor;
 
   PROJECT_LOG_DEBUG("[ENGINE] DefaultApproachSpeed={:.1f} m/s (V_stall={:.1f} m/s × 1.3)",
