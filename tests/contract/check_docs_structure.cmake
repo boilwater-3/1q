@@ -3,13 +3,14 @@
 # Guard repository documentation shape:
 #   - docs/ has exactly common plus the five module directories
 #   - each business module uses the single-file design.md model
-#   - common uses the approved common-document set (contract.md only)
+#   - common uses the approved common-document set (contract.md + open_questions.md)
 #   - top-level loose Markdown files and legacy archive/review/migration folders
 #     do not reappear
 #
 # Per docs/common/contract.md §文档结构, each business module keeps only
 # design.md as its design authority; the prior README/contract/decisions/history
-# set has been collapsed into design.md, and common keeps only contract.md.
+# set has been collapsed into design.md, and common keeps contract.md (public
+# contract) plus open_questions.md (non-normative cross-module open questions).
 
 cmake_minimum_required(VERSION 3.16)
 
@@ -36,7 +37,8 @@ set(MODULE_DOC_FILES
     "design.md")
 
 set(COMMON_DOC_FILES
-    "contract.md")
+    "contract.md"
+    "open_questions.md")
 
 set(VIOLATIONS "")
 
