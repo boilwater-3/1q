@@ -484,12 +484,26 @@ add_test(
 )
 
 # 守护规范性文档不残留已收口的旧入口术语(SessionFactory / extension:: SPI 等)。
-# 历史审查目录(docs/review, docs/sar/audits)已加 historical snapshot 标记,故排除。
+# 本守护只扫描 docs/common 与五个模块目录下的规范性文档。
 add_test(
     NAME doc_legacy_term_guard
     COMMAND ${CMAKE_COMMAND}
             -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_doc_legacy_term_guard.cmake
+)
+
+add_test(
+    NAME sar_doc_governance_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_sar_doc_governance.cmake
+)
+
+add_test(
+    NAME docs_structure_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_docs_structure.cmake
 )
 
 set_tests_properties(
@@ -505,8 +519,12 @@ set_tests_properties(
     public_header_cxx11_guard
     install_manifest_guard
     doc_legacy_term_guard
+    sar_doc_governance_guard
+    docs_structure_guard
     PROPERTIES LABELS "contract"
 )
+
+set_tests_properties(sar_doc_governance_guard PROPERTIES LABELS "contract;sar_contract;sar_ci")
 
 # Scene programs — standalone executables that exercise full module pipelines
 file(GLOB SCENE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/scene/*.cpp")

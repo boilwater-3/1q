@@ -21,9 +21,10 @@ Testing/
 .vscode/
 imgui.ini
 
-# Local docs
+# Local documentation scratch space
 doc/
-docs/
+docs/local/
+docs/tmp/
 
 # Planning workspace (not tracked)
 plan/

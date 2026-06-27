@@ -7,15 +7,14 @@
 # 决策 SPI 命名空间从 extension:: 收口为 session::。代码与安装/白名单
 # 守护已很强,但规范性文档仍可能漂移回旧术语,误导后续维护者。
 #
-# 本守护扫描"规范性文档"(docs/ 顶层 + docs/sar/contracts + docs/migration),
+# 本守护扫描"规范性文档"(docs/common + 五个模块文档),
 # 禁止出现以下已收口入口:
 #   - RadarSessionFactory::CreateWithDecisionEngine
 #   - RadarSessionFactory::Create
 #   - extension::ITacticalDecisionEngine  (现为 session::ITacticalDecisionEngine)
 #   - EosSessionFactory / SarSessionFactory / EsrSessionFactory  (ghost 类,已删)
 #
-# 历史审查快照(docs/review/, docs/sar/audits/)已各自加 "historical snapshot"
-# 标记,明确其内容为过程记录,故排除在扫描之外。
+# 当前 docs 结构只允许 docs/common 与五个模块目录;历史审查快照不再常驻 docs。
 
 cmake_minimum_required(VERSION 3.16)
 
@@ -28,16 +27,20 @@ set(LEGACY_TERMS
     "EsrSessionFactory"
 )
 
-# 规范性文档(显式列举,非递归扫 docs/,避免误入 review/audits 历史目录):
-#   - docs/ 顶层 .md（合同、ADR、observability）
-#   - docs/sar/contracts/、docs/migration/
+# 规范性文档(显式列举,不扫描历史目录):
+#   - docs/common/*.md
+#   - docs/<module>/*.md
 set(NORMATIVE_DOC_FILES "")
-file(GLOB _top_level_docs "${SOURCE_DIR}/docs/*.md")
-list(APPEND NORMATIVE_DOC_FILES ${_top_level_docs})
-file(GLOB_RECURSE _sar_contracts "${SOURCE_DIR}/docs/sar/contracts/*.md")
-list(APPEND NORMATIVE_DOC_FILES ${_sar_contracts})
-file(GLOB_RECURSE _migration_docs "${SOURCE_DIR}/docs/migration/*.md")
-list(APPEND NORMATIVE_DOC_FILES ${_migration_docs})
+foreach(_doc_dir
+        common
+        airborne_radar
+        electro_optical_sensor
+        electronic_surveillance_radar
+        flight_dynamic
+        sar)
+    file(GLOB _docs_in_dir "${SOURCE_DIR}/docs/${_doc_dir}/*.md")
+    list(APPEND NORMATIVE_DOC_FILES ${_docs_in_dir})
+endforeach()
 
 set(VIOLATIONS "")
 foreach(doc_file ${NORMATIVE_DOC_FILES})
@@ -64,8 +67,7 @@ if(VIOLATIONS)
         "  - extension::ITacticalDecisionEngine → session::ITacticalDecisionEngine\n"
         "  - Eos/Sar/Esr SessionFactory → 已删除(ghost 类)\n\n"
         "修复:将规范性文档中的旧入口同步为当前 API。\n"
-        "若是历史审查记录,应放在 docs/review/ 或 docs/sar/audits/(已排除),\n"
-        "并在文件顶部标注 'historical snapshot, not current API'。")
+        "若是历史审查记录,不应常驻当前 docs 结构;请压缩为 history.md 结论或从 git 历史追溯。")
 endif()
 
 list(LENGTH VIOLATIONS _violation_count)

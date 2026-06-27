@@ -1,0 +1,503 @@
+# SAR 当前设计
+
+Status: active
+Last-reviewed: 2026-06-27
+Authority: current SAR module design
+
+本文是 SAR 模块当前设计权威。它只描述当前 main 中仍成立的架构、数据流和算法边界；历史验收日志、旧合同、旧审计和被删除的 archive 原文不覆盖本文。
+
+## 1. 架构设计说明
+
+### 1.1 模块定位
+
+SAR 模块负责合成孔径雷达的回波仿真、完整孔径 raw IQ 消费、距离压缩、聚焦成像、图像质量摘要、trace/replay 和运行期配置。模块对外提供稳定 `SarSession` 门面；算法部件、truth oracle、聚焦中间态和证据矩阵保持 internal。
+
+当前设计目标：
+
+- 对外保持窄 public API：配置、输入、会话、输出、trace/replay、输入适配和校验。
+- 对内允许算法链持续演进：RDA、BP/GBP、Omega-K、Spotlight、ScanSAR、Multilook、MoCo、quality、calibration 等都在 `src/sar/` 内部组织。
+- 让 session 数据流可验证：每一步失败必须能落到结构化 abort reason 或 diagnostic，而不是依赖日志文本。
+
+### 1.2 Public API 与内部实现边界
+
+公共头位于 `include/1q/sar/`：
+
+| 区域 | 职责 |
+|---|---|
+| `sar.hpp` | 收窄后的稳定会话便利入口；只聚合 `sar_config.hpp`、cycle input/result、input adapter、external input adapter、input validation 和 `SarSession` |
+| `config/` | `SarSessionConfig` 四域配置、semantic builder、runtime patch、配置校验 |
+| `session/` | `SarSession`、`SarCycleInput`、`SarCycleResult`、输入适配、trace/replay、debug/lifecycle |
+
+`sar.hpp` 不是 SAR 全量 public header 汇总。trace/replay、debug view、lifecycle recorder 等工具头按需单独包含；算法部件和聚焦中间态不通过 `sar.hpp` 暴露。
+
+内部实现位于 `src/sar/`：
+
+| 目录 | 职责 |
+|---|---|
+| `signal/` | FFT、LFM 波形、匹配滤波、距离压缩基础 |
+| `geometry/` | L1/L2/L3 平台轨迹、天线、Spotlight beam、ScanSAR burst |
+| `echo/` | 点目标 raw echo、分布式 clutter、天线门控回波 |
+| `runtime/` | `PulseRingBuffer` 和跨周期 aperture 拼接 |
+| `imaging/` | RDA、BP/GBP、MoCo、phase reference、quality、Omega-K、Spotlight、ScanSAR、Multilook、PGA/CSA evidence |
+| `calibration/` | 辐射定标后处理 |
+| `session/` | session 装配、输入校验、raw history builder、imaging executor、focused image assembler、trace/replay |
+| `session/generated/` | FlatBuffers replay/trace 生成头 |
+| `output/` | Binary / sidecar / HDF5 条件输出 |
+| `smoke/` | 编译/链接烟雾测试 |
+
+`src/sar/SarSources.cmake` 是 SAR 源清单的集中入口。新增生产源必须进入该清单，并通过 SAR C++11/冻结源/contract guard。
+
+### 1.3 新开发者视角的分层图
+
+```mermaid
+flowchart TB
+  subgraph Public["Public API\n公共 API：include/1q/sar"]
+    Entry["sar.hpp\n稳定会话便利入口"]
+    Config["config/*\n会话配置 / 运行期补丁\n语义 Builder / 配置校验"]
+    Input["session input/result\n单周期输入 / 单周期结果 / 输出帧"]
+    Tools["optional tools\nTrace / Replay / 调试视图 / 生命周期"]
+  end
+
+  subgraph Session["Session orchestration\n会话编排层：src/sar/session"]
+    Sess["SarSession\n会话门面：Step / StepWithResult"]
+    Validate["Validation\n输入校验 / 运行期策略校验"]
+    RawBuilder["SarRawHistoryBuilder\nRaw history 构造"]
+    Exec["SarImagingExecutor\n成像执行器"]
+    Export["FocusedImageAssembler\n聚焦图像组装 / 输出元数据"]
+  end
+
+  subgraph Domain["Domain algorithms\n领域算法层：src/sar/*"]
+    Signal["signal\nLFM / FFT / 匹配滤波"]
+    Geometry["geometry\nL1/L2/L3 轨迹 / 聚束 / 扫描几何"]
+    Echo["echo\n点目标 / 杂波 raw echo"]
+    Runtime["runtime\nPulseRingBuffer / 脉冲环形缓冲"]
+    Imaging["imaging\nRDA / BP / MoCo\nOmega-K / 质量评估 / 多视"]
+    Output["output\nBinary / sidecar / HDF5"]
+  end
+
+  Entry --> Config
+  Entry --> Input
+  Config --> Sess
+  Input --> Sess
+  Tools -. "wrap or consume\n包装或消费" .-> Sess
+  Sess --> Validate
+  Sess --> RawBuilder
+  RawBuilder --> Signal
+  RawBuilder --> Geometry
+  RawBuilder --> Echo
+  RawBuilder --> Runtime
+  Sess --> Exec
+  Exec --> Imaging
+  Exec --> Export
+  Export --> Output
+```
+
+这张图的阅读方式：
+
+- 新调用方从 `sar.hpp`、`SarSessionConfig`、`SarCycleInput` 和 `SarSession` 开始。
+- 需要记录或回放时，再单独包含 trace/replay 头。
+- `src/sar/session` 是 public API 和算法部件之间的唯一编排层。
+- `src/sar/imaging` 等目录可以被内部测试直接覆盖，但不构成 public customization surface。
+
+### 1.4 执行时序图
+
+```mermaid
+sequenceDiagram
+  participant Caller as Caller 调用方
+  participant Session as SarSession SAR 会话
+  participant Validator as Validation 校验层
+  participant Raw as RawHistoryBuilder Raw history 构造
+  participant Rda as RdaCore RDA 核心
+  participant Bp as BpCore BP 遍历
+  participant Quality as ImageQuality 质量评估
+  participant Result as SarCycleResult 单周期结果
+
+  Caller->>Session: StepWithResult 提交单周期输入
+  Session->>Validator: Validate input/policy 校验输入与运行期策略
+  alt invalid input/policy 输入或策略无效
+    Validator-->>Session: abort reason + diagnostics 中止原因与诊断
+    Session-->>Caller: previous output 返回上一有效输出（如存在）
+  else valid input 输入有效
+    Session->>Raw: build/consume raw_history 构造或消费 raw history
+
+    alt L1 RDA path (broadside stripmap)
+      Raw-->>Rda: raw_history + matched filter + trajectories 原始回波 / 匹配滤波 / 轨迹
+      Note over Rda: ——— 距离压缩 ———
+      Rda->>Rda: Range compression 距离向匹配滤波
+      Note over Rda: ——— 方位处理 ———
+      Rda->>Rda: Azimuth FFT 方位向 FFT
+      Rda->>Rda: RCMC (interpolation) 距离徙动校正
+      Rda->>Rda: Azimuth compression 方位压缩
+      Rda->>Rda: Broadside phase reference 相位重参考
+      Rda-->>Quality: focused image (L1 RDA)
+
+    else L3 BP path (turning / small scene)
+      Raw-->>Bp: raw_history + actual trajectory 原始回波 / 实际轨迹
+      Note over Bp: ——— 后向投影 ———
+      Bp->>Bp: Grid generation 成像网格生成
+      Bp->>Bp: Backprojection traversal 逐脉冲逐像素后向投影
+      Bp-->>Quality: focused image (L3 BP)
+    end
+
+    Quality->>Quality: EvaluateImageQuality 质量评估<br/>(峰值 / 分辨率 / 熵 / 对比度)
+    Quality-->>Result: image metadata + quality diagnostics 图像元数据与质量诊断
+    Session-->>Caller: SarCycleResult 返回单周期结果
+  end
+```
+
+### 1.5 数据流
+
+主链路只展示“数据对象如何逐层变成结果”，不展开每个算法内部细节：
+
+```mermaid
+flowchart LR
+  subgraph Input["输入层 Input"]
+    Config["SarSessionConfig\n硬件 / 任务 / 策略 / 环境"]
+    Cycle["SarCycleInput\n平台 / 点目标 / 外部 raw IQ"]
+    Patch["SarRuntimeConfigPatch\n运行期策略变更"]
+  end
+
+  subgraph Gate["边界校验 Gate"]
+    ConfigCheck["ValidateSarSessionConfig\n初始化配置校验"]
+    StepCheck["SarInputValidation\n单周期输入校验"]
+    PolicyCheck["Runtime policy validation\n运行期策略校验"]
+  end
+
+  subgraph Aperture["孔径数据 Aperture"]
+    Waveform["LFM waveform\n匹配滤波器"]
+    RawHistory["raw_history\n完整孔径复数矩阵"]
+    Trajectory["trajectory buffers\nideal / actual pulse states"]
+  end
+
+  subgraph Imaging["成像层 Imaging"]
+    Rda["L1 RDA path\n可选一阶 MoCo + RDA"]
+    Bp["L3 BP path\n实际轨迹 backprojection"]
+    Quality["Image quality\n峰值 / 分辨率 / 熵 / 对比度"]
+  end
+
+  subgraph Output["输出层 Output"]
+    Frame["SarOutputFrame\n系统产品摘要"]
+    Result["SarCycleResult\n执行状态 / 诊断 / focused image"]
+    Observability["Trace / Replay / Debug view\n可观测性工具"]
+  end
+
+  Config --> ConfigCheck
+  Patch --> PolicyCheck
+  Cycle --> StepCheck
+  ConfigCheck --> Waveform
+  StepCheck --> RawHistory
+  PolicyCheck --> RawHistory
+  Waveform --> RawHistory
+  RawHistory --> Rda
+  Trajectory --> Rda
+  RawHistory --> Bp
+  Trajectory --> Bp
+  Rda --> Quality
+  Bp --> Quality
+  Quality --> Frame
+  Quality --> Result
+  Frame --> Result
+  Result --> Observability
+```
+
+`raw_history` 本身有两种来源。下面这张图只解释孔径数据如何进入统一成像入口：
+
+```mermaid
+flowchart TB
+  subgraph Internal["内部生成路径 Internal echo generation"]
+    Platform["SarPlatformState\n平台 LLA / 速度 / 姿态"]
+    Targets["SarPointTarget[]\n点目标 LLA / RCS"]
+    Track["GenerateCycleTrajectory\nL1 直线 / L2 扰动 / L3 航路点"]
+    Echo["GeneratePointTargetRawEcho\n点目标回波生成"]
+    Ring["PulseRingBuffer\n跨周期 aperture 拼接"]
+  end
+
+  subgraph External["外部 IQ 路径 External raw IQ"]
+    RawIq["SarRawIqFrame\n行主序 I/Q 样本"]
+    PulseState["PulseState[]\nscene-center-relative ENU"]
+    Adapter["SarExternalInputAdapter\n外部运动学到 ENU pulse state"]
+  end
+
+  subgraph Common["统一成像输入 Common imaging input"]
+    History["raw_history\nrows = pulses\ncols = samples"]
+    Ideal["ideal trajectory\nL2 补偿参考轨迹"]
+    Actual["actual trajectory\n实际脉冲轨迹"]
+  end
+
+  Platform --> Track
+  Targets --> Echo
+  Track --> Echo
+  Echo --> Ring
+  Ring --> History
+  Track --> Ideal
+  Track --> Actual
+
+  Adapter --> PulseState
+  RawIq --> History
+  PulseState --> Actual
+  PulseState -. "optional ideal states\n可选理想轨迹" .-> Ideal
+
+  History --> Next["SarImagingExecutor\nRDA / BP / 后续成像"]
+  Ideal --> Next
+  Actual --> Next
+```
+
+读图规则：
+
+- `SarSession` 只让两条 raw history 来源在 `raw_history + trajectory buffers` 处汇合。
+- RDA、BP 和后续成像算法不关心 raw history 是内部 echo 生成还是外部 IQ 输入。
+- external adapter 只服务 raw IQ pulse state 坐标适配，不负责平台/点目标 public 输入的批量转换。
+
+### 1.6 生命周期与状态
+
+`SarSession` 的内部状态包括：
+
+- 当前 runtime config。
+- `PulseRingBuffer`：缓存跨周期 raw pulse，形成完整 aperture。
+- ideal / actual trajectory buffer：支撑 L2 MoCo、L3 BP 和 external raw IQ 轨迹消费。
+- `next_pulse_id` 与 `pulse_fraction_carry`：维持固定 PRF 下跨周期脉冲连续性。
+- `previous_output`：输入或配置失败时允许复用上一有效输出。
+
+`Step()` 只返回 `SarOutputFrame`；`StepWithResult()` 返回结构化执行状态、abort reason、diagnostics 和 focused image。日志不作为状态判断依据。
+
+### 1.7 与 common 契约的关系
+
+SAR 遵守 `docs/common/contract.md`：
+
+- public API 只暴露稳定 session/config/input/output/trace/replay 门面。
+- `SarSessionConfigBuilder` 是 semantic builder，不承担 leaf setter 或隐式 validation。
+- SAR 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
+- historical/raw evidence 不常驻 `docs/sar/`；当前事实只由五文件模型承载。
+
+## 2. 本模块使用的算法
+
+### 2.1 算法总览
+
+| 算法/部件 | 入口 | 当前角色 | Public 默认 |
+|---|---|---|---|
+| LFM waveform / matched filter | `GenerateLfmWaveform` / `BuildMatchedFilter` | 基础发射波形和距离压缩匹配滤波器 | session 内部使用 |
+| 点目标 raw echo | `GeneratePointTargetRawEcho*` | 从平台轨迹和点目标生成 raw history | session 内部使用 |
+| Pulse ring buffer | `PulseRingBuffer` | 跨周期累计 aperture | session 内部使用 |
+| RDA | `FocusStripmapRda` | L1 broadside stripmap 基础聚焦路径 | 受 policy 控制 |
+| First-order MoCo | `ApplyFirstOrderMotionCompensation` | L2 扰动轨迹补偿 | 受 policy 控制 |
+| BP/GBP | `FocusSmallSceneBp` / `FocusSmallSceneGbp` | L3 转弯/小场景参考成像 | 受 policy 和尺寸门控制 |
+| Image quality | `EvaluateImageQuality` | 峰值、3dB 宽度、熵、对比度等摘要 | 输出摘要 |
+| Phase reference | `ApplyBroadsideCenterPhaseReference` | RDA 全局相位重参考 | RDA 内部使用 |
+| Omega-K | `FocusStripmapOmegaK` 及部件链 | 聚束/宽波束友好聚焦路径和证据链 | internal/受控 |
+| Spotlight / ScanSAR | `FocusSpotlightOmegaK` / `FocusScanSarOmegaK` | 模式编排路径 | internal/受控 |
+| Multilook | `ApplyMultilook` | 聚焦后图像域非相干多视 | internal/受控 |
+| Radiometric calibration | `ExecuteCalibrationRequests` / `CalibrateMultiple` | 后处理标量定标：从已知 RCS 观测求解定标因子 | internal/受控 |
+
+### 2.2 LFM、匹配滤波与距离压缩
+
+SAR session 每周期先由 hardware config 生成 LFM waveform：
+
+- bandwidth：`SarHardwareConfig::bandwidth_hz`
+- sample rate：`SarHardwareConfig::sample_rate_hz`
+- pulse width：`SarHardwareConfig::pulse_width_s`
+- time-bandwidth product：`max(bandwidth * pulse_width, 1.0)`
+
+匹配滤波器由发射波形构造。距离压缩是 RDA/BP 前的基础处理，不作为 public 算法对象暴露。
+
+适用边界：
+
+- waveform 生成失败会中止周期。
+- range compression 可通过 policy 记录阶段，但完整聚焦仍依赖 raw history 和 matched filter。
+
+验证入口：
+
+- `tests/unit/sar_signal_chain_test.cpp`
+- `tests/unit/sar_fft_backend_test.cpp`
+- `tests/unit/sar_rda_test.cpp`
+
+### 2.3 Raw history 构造
+
+SAR 支持两条 raw history 来源：
+
+1. 内部生成：由平台状态、点目标、L1/L2/L3 轨迹和 LFM 波形生成 raw echo，并通过 `PulseRingBuffer` 组成 aperture。
+2. 外部 raw IQ：调用方提供完整孔径 IQ 样本和 pulse state，session 只校验与转换轨迹，不重新生成 echo。
+
+内部轨迹分层：
+
+- L1：匀速直线 stripmap 轨迹。
+- L2：在 L1 ideal 轨迹上叠加确定性速度扰动，保留 ideal/actual 轨迹对。
+- L3：由显式时间航路点生成 actual 轨迹，BP 使用 actual 轨迹逐脉冲聚焦。
+
+坐标边界：
+
+- 平台和点目标 public 输入使用 LLA/NED 语义。
+- raw IQ pulse state 使用 scene-center-relative ENU。
+- ECEF/LLA 到 ENU 的适配集中在 `SarExternalInputAdapter`，不能散落进 imaging 算法。
+
+验证入口：
+
+- `tests/unit/sar_cycle_input_adapter_test.cpp`
+- `tests/unit/sar_external_input_adapter_test.cpp`
+- `tests/unit/sar_input_validation_test.cpp`
+- `tests/unit/sar_raw_history_external_iq_predicate_test.cpp`
+
+### 2.4 RDA 聚焦
+
+RDA 是当前 L1 broadside stripmap 的基础聚焦路径。session 中 `ExecuteL1RdaImaging` 将 hardware/mission 字段映射为 `RdaConfig`：
+
+- sample rate
+- carrier frequency
+- PRF
+- platform velocity
+- reference slant range
+- RCMC interpolation
+
+处理步骤概念上包括：
+
+1. 距离压缩。
+2. 方位向频域处理。
+3. RCMC。
+4. 方位压缩。
+5. broadside center phase reference。
+6. image quality diagnostics。
+
+设计限制：
+
+- 当前 RDA 是 broadside 基础路径，不把所有 squint/spotlight/turning 场景都硬塞进 RDA。\
+  [evidence: `sar_rda_test.cpp` — RDA zero-squint 实现，单脉冲 Fallback 等 11 个用例覆盖率定语义]
+- RDA 误差用相位曲率、Doppler margin、3dB 宽度、entropy、contrast 等诊断解释，不通过放宽阈值掩盖。\
+  [evidence: `sar_image_quality_test.cpp` — 9 个用例覆盖 entropy/contrast/PSLR/ISLR/3dB width;\
+   `sar_rda_test.cpp:DiagnosticsPreserveEquivalentAzimuthSpacingAndPhaseCurvature` — 相位曲率与 Doppler Nyquist margin 诊断]
+- RDA focused image 是否完整保留由 `retain_focused_image` policy 控制；关闭时只输出占位元数据。
+
+验证入口：
+
+- `tests/unit/sar_rda_test.cpp`
+- `tests/unit/sar_phase_reference_test.cpp`
+- `tests/unit/sar_image_quality_test.cpp`
+- `tests/unit/sar_reference_scenario_matrix_test.cpp`
+
+### 2.5 一阶运动补偿
+
+L2 MoCo 在 RDA 前对 raw history 施加一阶运动补偿：
+
+- 输入：ideal trajectory、actual trajectory、raw history、reference point。
+- 输出：补偿后的 raw history。
+- 诊断：最大/RMS range error、envelope shift bins。
+
+补偿参考点由 nominal slant range 给出。该算法解决直线轨迹扰动下的一部分相位误差，不授权二阶补偿或自动算法选择。\
+[evidence: `sar_second_order_motion_compensation_evidence_test.cpp:PhaseAFailureEvidenceMatrix` — NRMS<0.25 且 Coherence>0.97 门限; 6m 偏移通过, 9m 起失效; DO_NOT_TRIGGER_PHASE_B;\
+ `sar_l2_l3_fidelity_matrix_test.cpp` — L2/L3 一阶适用性矩阵]
+
+限制：
+
+- ideal/actual 轨迹长度必须等于 raw history 行数。
+- 对强转弯场景，失效根因通常是 RDA 轨迹假设，不应简单归因为二阶残余相位。\
+  [evidence: `sar_second_order_motion_compensation_evidence_test.cpp:PhaseAFailureEvidenceMatrix` — 参考点(二阶残余恒为零)从 9m 起已失效, 排除了"残余相位是主因"假设;\
+   同文件 `SecondOrderPhaseIsZeroWhenTargetEqualsReference` — 不变量验证参考点二阶相位严格为零]
+
+验证入口：
+
+- `tests/unit/sar_motion_compensation_test.cpp`
+- `tests/unit/sar_l2_l3_fidelity_matrix_test.cpp`
+- `tests/unit/sar_second_order_motion_compensation_evidence_test.cpp`
+
+### 2.6 BP/GBP 小场景聚焦
+
+BP/GBP 共享 backprojection 内核，区别主要是遍历顺序。session 的 L3 路径使用 `FocusSmallSceneBp`：
+
+- 输入 actual trajectory、raw history、matched filter。
+- 网格由 mission 的 pulse/sample 数和 hardware sample rate 推导。
+- 输出 focused image 与 traversal diagnostics。
+
+BP 的价值是用实际逐脉冲几何承接 L3 航路点/转弯小场景，而不是对 RDA 做越来越多补丁。
+
+限制：
+
+- 受尺寸门约束，不作为无限规模生产聚焦器。\
+  [evidence: `sar_gbp_test.cpp:RejectsSceneBeyondApproved128SquareGate` — kMaxApprovedDimension=128, azimuth+range pixel count 超 128 被拒绝;\
+   `sar_rda_test.cpp` — RDA size gate: 1024×1024]
+- 不默认引入并行、GPU 或快速 BP。
+- BP quality summary 只输出当前可稳定承诺的摘要；米制分辨率有效性与 RDA 不完全相同。
+
+验证入口：
+
+- `tests/unit/sar_gbp_test.cpp`
+- `tests/unit/sar_l2_l3_fidelity_matrix_test.cpp`
+- `tests/unit/sar_session_pipeline_test.cpp`
+
+### 2.7 Omega-K、Spotlight 与 ScanSAR
+
+Omega-K 部件链包括 spectrum front-end、Stolt geometry/interpolation、common support、grid reduction、relative delay、reference mapping、reference phase compensation 和 azimuth inverse transform。完整编排入口用于 stripmap/spotlight/scansar 受控路径。
+
+设计判断：
+
+- Omega-K 更适合聚束和宽波束类路径，优先于重新扩展完整 CSA。\
+  [evidence: `sar_csa_complete_focusing_evidence_test.cpp:RdaBroadsideApproximationDegradationMatrix` — 所有孔径 |alpha| max<0.018, RDA worst NRMS=1.38; Omega-K 全覆盖; DO_NOT_TRIGGER_PHASE_B;\
+   `tests/unit/sar_omega_k_*_test.cpp` — 12+ 测试覆盖 Omega-K 各部件链]
+- Spotlight 通过时变 beam 建模和 Omega-K 编排承接。
+- ScanSAR 通过 burst schedule、逐 burst Omega-K 和拼接承接。
+
+限制：
+
+- 这些路径不自动变成 public/session 默认行为。\
+  [evidence: `src/sar/imaging/` 目录结构 — Omega-K: 多个部件文件, 无单入口编排器;\
+   `sar_session_pipeline_test.cpp` — session 默认只启用 RDA/BP, 不包含 Omega-K/Spotlight/ScanSAR]
+- truth ingestion、manifest、payload digest 和 eligibility gate 属于证据链，不是普通 public API。\
+  [evidence: `src/sar/` 中无 `public` 路径暴露 truth oracle 或 eligibility 类型;\
+   `sar_csa_complete_focusing_evidence_test.cpp` — CSA 否决证据;\
+   `sar_pga_autofocus_closure_evidence_test.md` — PGA 否决证据]
+
+验证入口：
+
+- `tests/unit/sar_omega_k_*_test.cpp`
+- `tests/unit/sar_omega_k_spotlight_test.cpp`
+- `tests/unit/sar_omega_k_scansar_test.cpp`
+- `tests/unit/sar_scan_burst_test.cpp`
+- `tests/unit/sar_spotlight_beam_test.cpp`
+
+### 2.8 Multilook、radiometric calibration 与受限能力
+
+Multilook 是聚焦后图像域非相干多视，消费任意 focused complex image，不侵入聚焦器主链路。
+
+Radiometric calibration 是后处理标量定标能力，当前不扩大为完整生产级雷达方程 public contract。定标入口为 `ExecuteCalibrationRequests`（批量请求执行），底层使用 `CalibrateSingle`/`CalibrateMultiple` 从已知 RCS 观测求解定标因子。\
+[evidence: `sar_radiometric_calibration_test.cpp` — 覆盖 CalibrateSingle/Multiple/ExecuteCalibrationRequests;\
+ `src/sar/calibration/` — 2 文件约 340 行, 按当前契约不扩展为 public API]
+
+受限或否决方向：
+
+- 完整 CSA：当前无独立增量，Omega-K 覆盖主要需求。\
+  [evidence: `sar_csa_complete_focusing_evidence_test.cpp:RdaBroadsideApproximationDegradationMatrix` — 所有孔径 |alpha| max<0.018, RDA worst NRMS=1.38 均显著超阈值; DO_NOT_TRIGGER_PHASE_B;\
+   `src/sar/imaging/SarCsaGeometry.h` — CSA 仅 geometry+oracle, main flow 0% implemented]
+- PGA closure：当前 MoCo 已覆盖直线扰动场景，PGA 闭环不进入默认生产路径。\
+  [evidence: `sar_pga_autofocus_closure_evidence_test.cpp:MotionCompensationResidualDefocusMatrix` — 所有 MoCo 补偿后 NRMS<0.17 (阈值 0.25), Coherence>0.985; DO_NOT_TRIGGER_PHASE_B]
+- 二阶 MoCo：强转弯失败主因是 RDA 轨迹假设，不是简单二阶相位补偿。\
+  [evidence: `sar_second_order_motion_compensation_evidence_test.cpp:PhaseAFailureEvidenceMatrix` — NRMS 6m=0.177/通过, 9m=0.273/失效, 12m~18m 持续恶化;\
+   `grep -r 'SecondOrder\|second_order' src/sar/` 返回零命中]
+- 缺失脉冲修复、NUFFT、生产 RDA 自动接入：保留诊断和拒绝矩阵，不默认启用自动修复。\
+  [evidence: `sar_missing_pulse_rejection_matrix_test.cpp` — 3 个用例覆盖 baseline/single-missing/separate-missing 路径, gap_ratio≥1.5 硬拒绝]
+
+验证入口：
+
+- `tests/unit/sar_multilook_test.cpp`
+- `tests/unit/sar_radiometric_calibration_test.cpp`
+- `tests/unit/sar_csa_complete_focusing_evidence_test.cpp`
+- `tests/unit/sar_pga_autofocus_closure_evidence_test.cpp`
+- `tests/unit/sar_missing_pulse_*_test.cpp`
+
+## 3. 非目标与边界
+
+- 不恢复旧会话工厂或旧文档树。
+- 不把 internal algorithm object 变成 public 替代入口。
+- 不把历史 evidence 文档重新常驻 `docs/sar/`。
+- 不为形式对称把 SAR 输入改造成其它模块的 external adapter 模型。
+- 不用测试阈值放宽替代模型、坐标、算法和契约问题的拆分。
+
+上述边界由当前 `docs/sar/` 五文件模型和 public API 契约测试守护。\
+[evidence: `tests/contract/check_sar_doc_governance.cmake` — 文档结构守护;\
+ `tests/contract/check_public_api_boundary.cmake` — public header 边界守护;\
+ `sar.hpp` — PIMPL + private ctor + factory friend 阻止外部构造;\
+ `include/1q/sar/` — public headers 不暴露 imaging/calibration/echo 等内部类型]
+
+## 4. 设计变更规则
+
+1. public header、session/config/input/output 变化必须同步本文和 public API contract 测试。
+2. pipeline、轨迹、raw history、聚焦路径或算法限制变化必须同步本文。
+3. 能力启用、否决或替代关系必须在本文 `[evidence: ...]` 标注中记录依据。
+4. 历史原因只保留本文的摘要说明，不恢复被删除的旧审计文档目录。
+5. 验证优先使用 `sar_ci`、`sar_contract`、`sar_cxx11_compat` 和 focused SAR unit tests。

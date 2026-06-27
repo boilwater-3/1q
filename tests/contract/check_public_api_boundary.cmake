@@ -3,8 +3,7 @@ set(PUBLIC_INCLUDE_DIR "${SOURCE_DIR}/include/1q")
 # 本守护校验 public header whitelist 与磁盘头逐字一致(HARD 阻断)。
 # whitelist 按 stable_api / deprecated_compat_api 两层组织(见下方
 # EXPECTED_DEPRECATED_HEADERS 及其守护),便于分批收口。两层的完整语义
-# 与迁移策略参见 docs/public_api_customization_boundary_contract.md
-# "已决策记录(2026-06-25)"第 5 条。
+# 与迁移策略参见 docs/common/contract.md 的 Public API 边界章节。
 
 # ── AR 推荐公开主路径（四域 + 会话 + Builder + 统一入口） ──────────
 set(AR_PUBLIC_PRIMARY_HEADERS
