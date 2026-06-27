@@ -50,6 +50,10 @@ bool SarCycleInputAdapter::Build(const SarPlatformState& platform,
     pulse_states.push_back(std::move(pulse));
   }
 
+  // 仅写入伴随轨迹，不提供 IQ 样本。当前 SAR 内部回波路径会从 config + platform
+  // 重算轨迹，故此处的外部轨迹不进入成像——该写入为未来“外部轨迹覆盖”入口预留，
+  // 且因 HasExternalRawIq 以 IQ 样本为充要条件，不会把本输出误判为外部 IQ。
+  // 详见 SarCycleInputAdapter.h 的契约说明。
   output->raw_iq.pulse_states = std::move(pulse_states);
   output->raw_iq.pulse_count = static_cast<std::uint32_t>(external_pulses.size());
   return true;

@@ -322,6 +322,8 @@ set(_sar_unit_filter
     "SarMotionCompensationTest.*:"
     "SarRdaTest.*:"
     "SarSessionPipelineTest.*:"
+    "SarCycleInputAdapterBridgeTest.*:"
+    "SarRawHistoryExternalIqPredicateTest.*:"
     "SarReplayCodecRoundtripTest.*:"
     "SarReplaySessionTest.*"
 )
