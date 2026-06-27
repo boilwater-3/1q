@@ -1,6 +1,7 @@
 /**
  * @file sar.hpp
- * @brief SAR 模块公共入口头。
+ * @brief SAR 模块稳定会话入口头。
+ * @note trace/replay 工具头按需单独包含。
  */
 
 #ifndef ONEQ_SAR_SAR_HPP_
@@ -8,12 +9,10 @@
 
 #include "1q/sar/config/sar_config.hpp"
 #include "1q/sar/session/SarCycleInput.h"
+#include "1q/sar/session/SarCycleInputAdapter.h"
 #include "1q/sar/session/SarCycleResult.h"
-#include "1q/sar/session/SarProductDebugView.h"
-#include "1q/sar/session/SarProductLifecycleRecorder.h"
-#include "1q/sar/session/SarReplaySession.h"
+#include "1q/sar/session/SarExternalInputAdapter.h"
+#include "1q/sar/session/SarInputValidation.h"
 #include "1q/sar/session/SarSession.h"
-#include "1q/sar/session/SarSessionFactory.h"
-#include "1q/sar/session/SarTraceSession.h"
 
 #endif  // ONEQ_SAR_SAR_HPP_

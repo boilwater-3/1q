@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/session/EsrOutputTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.h"
@@ -38,7 +38,7 @@ int main() {
   result.input_cycle_index = input.cycle_index;
   result.executed_this_cycle = true;
   result.output_frame.cycle_index = input.cycle_index;
-  esr::extension::TruthAssociationRecord association;
+  esr::session::TruthAssociationRecord association;
   association.observation_id = 100U;
   association.truth_emitter_id = 7U;
   association.matched = true;

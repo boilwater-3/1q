@@ -21,7 +21,7 @@ TEST(EsrRuntimeConfigResolverTest, ValidPatchUpdatesRuntimePipelineAndEnvironmen
   EsrInternalExecutionConfig current_config;
   current_config.mission.scan.scan_rate_hz = 1.0f;
 
-  environment::EsrAtmosphericPhysicsConfig atmospheric_physics;
+  config::EsrAtmosphericPhysicsConfig atmospheric_physics;
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.relative_humidity = 0.66f;
 
@@ -52,7 +52,7 @@ TEST(EsrRuntimeConfigResolverTest, AtmosphericPhysicsOnlyDoesNotOverridePresetOr
   current_config.environment.atmospheric_context.has_k_factor = true;
   current_config.environment.atmospheric_context.k_factor = 1.45f;
 
-  environment::EsrAtmosphericPhysicsConfig atmospheric_physics;
+  config::EsrAtmosphericPhysicsConfig atmospheric_physics;
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.pressure_hpa = 950.0f;
   atmospheric_physics.temperature_k = 295.0f;
@@ -79,7 +79,7 @@ TEST(EsrRuntimeConfigResolverTest, AtmosphericContextOnlyDoesNotOverridePresetOr
   current_config.environment.atmospheric_physics.enable_physical_model = true;
   current_config.environment.atmospheric_physics.relative_humidity = 0.42f;
 
-  environment::EsrAtmosphericDerivedContext atmospheric_context;
+  config::EsrAtmosphericDerivedContext atmospheric_context;
   atmospheric_context.has_day_of_year = true;
   atmospheric_context.day_of_year = 245;
   atmospheric_context.solar_flux_f107 = 180.0f;
@@ -106,10 +106,10 @@ TEST(EsrRuntimeConfigResolverTest, MultiEnvironmentSubdomainsCanBeUpdatedInSingl
   EsrInternalExecutionConfig current_config;
   current_config.environment.preset = config::EsrEnvironmentPreset::kStandard;
 
-  environment::EsrAtmosphericPhysicsConfig atmospheric_physics;
+  config::EsrAtmosphericPhysicsConfig atmospheric_physics;
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.relative_humidity = 0.9f;
-  environment::EsrAtmosphericDerivedContext atmospheric_context;
+  config::EsrAtmosphericDerivedContext atmospheric_context;
   atmospheric_context.has_k_factor = true;
   atmospheric_context.k_factor = 1.37f;
 
@@ -128,6 +128,85 @@ TEST(EsrRuntimeConfigResolverTest, MultiEnvironmentSubdomainsCanBeUpdatedInSingl
                   0.9f);
   EXPECT_TRUE(resolved.next_config.environment.atmospheric_context.has_k_factor);
   EXPECT_FLOAT_EQ(resolved.next_config.environment.atmospheric_context.k_factor, 1.37f);
+}
+
+TEST(EsrRuntimeConfigResolverTest, MissionDomainPatchUpdatesMissionAndResolvedScan) {
+  EsrInternalExecutionConfig current_config;
+  current_config.hardware.az_scan_range_deg = 80.0f;
+  current_config.hardware.el_scan_range_deg = 20.0f;
+  current_config.hardware.antenna_mount_az_deg = 3.0f;
+  current_config.hardware.antenna_mount_el_deg = -2.0f;
+  current_config.mission.power_on = false;
+  current_config.mission.work_mode = config::EsrWorkMode::kEsm;
+  current_config.mission.scan.scan_rate_hz = 1.0f;
+  current_config.mission.scan.scan_start_position = config::EsrScanStartPosition::kLeftTop;
+  current_config.mission.scan.scan_sequence = config::EsrScanSequence::kAzimuthFirst;
+  current_config.detection.pulse_count = 8U;
+  current_config.detection.threshold_scale = 1.0f;
+
+  config::EsrMissionConfig mission;
+  mission.power_on = true;
+  mission.work_mode = config::EsrWorkMode::kHgesm;
+  mission.scan.scan_rate_hz = 6.0f;
+  mission.scan.scan_start_position = config::EsrScanStartPosition::kRightBottom;
+  mission.scan.scan_sequence = config::EsrScanSequence::kElevationFirst;
+  mission.scan.scan_center_az_deg = 20.0f;
+  mission.scan.scan_center_el_deg = 4.0f;
+
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = mission;
+
+  const EsrRuntimeConfigResolveResult resolved =
+      ResolveEsrRuntimeConfigPatch(current_config, patch);
+
+  EXPECT_TRUE(resolved.has_requested_update);
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_EQ(resolved.status, EsrRuntimeConfigApplyStatus::kApplied);
+  EXPECT_TRUE(resolved.runtime_config_changed);
+  EXPECT_TRUE(resolved.pipeline_config_changed);
+  EXPECT_TRUE(resolved.next_config.mission.power_on);
+  EXPECT_EQ(resolved.next_config.mission.work_mode, config::EsrWorkMode::kHgesm);
+  EXPECT_FLOAT_EQ(resolved.next_config.mission.scan.scan_rate_hz, 6.0f);
+  EXPECT_EQ(resolved.next_config.resolved_scan.scan_start_pos,
+            static_cast<int>(config::EsrScanStartPosition::kRightBottom));
+  EXPECT_EQ(resolved.next_config.resolved_scan.scan_sequence,
+            static_cast<int>(config::EsrScanSequence::kElevationFirst));
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_start_az_deg, -23.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_end_az_deg, 57.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_start_el_deg, -4.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_end_el_deg, 16.0f);
+  EXPECT_EQ(resolved.next_config.detection.pulse_count, 32U);
+  EXPECT_FLOAT_EQ(resolved.next_config.detection.threshold_scale, 0.85f);
+}
+
+TEST(EsrRuntimeConfigResolverTest, MissionAndPolicyPatchAppliesWorkModeAfterPolicy) {
+  EsrInternalExecutionConfig current_config;
+  current_config.mission.work_mode = config::EsrWorkMode::kEsm;
+  current_config.detection.pulse_count = 8U;
+  current_config.detection.threshold_scale = 1.0f;
+
+  config::EsrMissionConfig mission;
+  mission.work_mode = config::EsrWorkMode::kRwr;
+  mission.scan.scan_rate_hz = 2.0f;
+
+  config::EsrPolicyConfig policy;
+  policy.detection.pulse_count = 9U;
+  policy.detection.threshold_scale = 1.0f;
+
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = mission;
+  patch.has_policy = true;
+  patch.policy = policy;
+
+  const EsrRuntimeConfigResolveResult resolved =
+      ResolveEsrRuntimeConfigPatch(current_config, patch);
+
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_EQ(resolved.next_config.mission.work_mode, config::EsrWorkMode::kRwr);
+  EXPECT_EQ(resolved.next_config.detection.pulse_count, 4U);
+  EXPECT_FLOAT_EQ(resolved.next_config.detection.threshold_scale, 1.25f);
 }
 
 TEST(EsrRuntimeConfigResolverTest, InvalidExplicitBoundsRejectWholePatch) {

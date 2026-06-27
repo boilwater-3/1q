@@ -146,9 +146,9 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   if (fb->environment()) {
     const auto* e = fb->environment();
     out->environment.propagation_profile =
-        static_cast<environment::EsrPropagationEnvironmentProfile>(e->propagation_profile());
+        static_cast<EsrPropagationEnvironmentProfile>(e->propagation_profile());
     out->environment.clutter_density =
-        static_cast<environment::EsrClutterDensityLevel>(e->clutter_density());
+        static_cast<EsrClutterDensityLevel>(e->clutter_density());
     out->environment.spectrum_occupancy_ratio = e->spectrum_occupancy_ratio();
     if (e->atmospheric_observation()) {
       out->environment.atmospheric_observation.relative_humidity_ratio =
@@ -160,8 +160,8 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
     }
     if (e->jammer_sources()) {
       for (const auto* j : *e->jammer_sources()) {
-        environment::EsrJammerSource js{};
-        js.technique = static_cast<environment::EsrJammingTechnique>(j->technique());
+        EsrJammerSource js{};
+        js.technique = static_cast<EsrJammingTechnique>(j->technique());
         js.active = j->active();
         js.center_hz = j->center_hz();
         js.bandwidth_hz = j->bandwidth_hz();
@@ -229,7 +229,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
     out->observation_output.cluster_count = o->cluster_count();
     if (o->observations()) {
       for (const auto* obs : *o->observations()) {
-        model::EmitterObservation rec{};
+        session::EmitterObservation rec{};
         rec.observation_id = obs->observation_id();
         rec.timestamp_s = obs->timestamp_s();
         rec.aoa_az_deg = obs->aoa_az_deg();
@@ -238,7 +238,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
         rec.pulse_width_s = obs->pulse_width_s();
         rec.amplitude_db = obs->amplitude_db();
         rec.snr_db = obs->snr_db();
-        rec.quality = static_cast<model::EsrObservationQuality>(obs->quality());
+        rec.quality = static_cast<session::EsrObservationQuality>(obs->quality());
         rec.is_jammed = obs->is_jammed();
         out->observation_output.observations.push_back(rec);
       }
@@ -248,10 +248,10 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
     const auto* e = fb->emitter_output();
     if (e->hypotheses()) {
       for (const auto* h : *e->hypotheses()) {
-        model::EmitterHypothesis hyp{};
+        session::EmitterHypothesis hyp{};
         hyp.hypothesis_id = h->hypothesis_id();
-        hyp.mode = static_cast<model::EsrEmitterMode>(h->mode());
-        hyp.threat_level = static_cast<model::EsrThreatLevel>(h->threat_level());
+        hyp.mode = static_cast<session::EsrEmitterMode>(h->mode());
+        hyp.threat_level = static_cast<session::EsrThreatLevel>(h->threat_level());
         hyp.bearing_az_deg = h->bearing_az_deg();
         hyp.bearing_el_deg = h->bearing_el_deg();
         hyp.bearing_std_deg = h->bearing_std_deg();
@@ -272,7 +272,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
     const auto* t = fb->truth_evaluation_output();
     if (t->associations()) {
       for (const auto* a : *t->associations()) {
-        extension::TruthAssociationRecord rec{};
+        session::TruthAssociationRecord rec{};
         rec.observation_id = a->observation_id();
         rec.truth_emitter_id = a->truth_emitter_id();
         rec.matched = a->matched();
@@ -330,7 +330,7 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
   out->has_validation_error = fb->has_validation_error();
   out->executed_this_cycle = fb->executed_this_cycle();
   out->reused_previous_output = fb->reused_previous_output();
-  out->abort_reason = static_cast<extension::EsrPipelineAbortReason>(fb->abort_reason());
+  out->abort_reason = static_cast<session::EsrPipelineAbortReason>(fb->abort_reason());
   out->validation_issues.clear();
   if (fb->validation_issues()) {
     for (const auto* i : *fb->validation_issues()) {

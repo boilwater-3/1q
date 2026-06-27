@@ -9,14 +9,14 @@
 
 namespace ar = airborne_radar;
 namespace ar_config = airborne_radar::config;
-namespace ar_env = airborne_radar::environment;
-namespace ar_model = airborne_radar::model;
+namespace ar_env = airborne_radar::config;
+namespace ar_model = airborne_radar::session;
 namespace ar_session = airborne_radar::session;
 
 namespace {
 
-ar_model::AzimuthElevationDeg MakeAzEl(float az_deg, float el_deg) {
-  ar_model::AzimuthElevationDeg v;
+ar_config::AzimuthElevationDeg MakeAzEl(float az_deg, float el_deg) {
+  ar_config::AzimuthElevationDeg v;
   v.az_deg = az_deg;
   v.el_deg = el_deg;
   return v;
@@ -24,73 +24,72 @@ ar_model::AzimuthElevationDeg MakeAzEl(float az_deg, float el_deg) {
 
 /// Original hardcoded builder from git history.
 ar_config::RadarSessionConfig MakeWideAreaSearchConfig() {
-  return ar_config::RadarSessionConfigBuilder()
-      .Detection()
-      .EnablePhysicsDetection(false)
-      .WithHardwareProfile(ar_config::profiles::RadarHardwareProfile::kLongRangeHighPower)
-      .WithDetectionIntentProfile(ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
-      .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
-      .End()
-      .Mission()
-      .WithWorkMode(ar_model::RadarWorkMode::kTas)
-      .WithScanCenterDeg(MakeAzEl(0.0f, 0.0f))
-      .End()
-      .Tracking()
-      .EnableTrackingFilter(true)
-      .WithTrackingPolicyProfile(
-          ar_config::profiles::TrackingPolicyProfile::kFastAssociation)
-      .End()
-      .Lifecycle()
-      .WithLifecyclePolicyProfile(
-          ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
-      .End()
-      .Environment()
-      .WithJammingSensitivityProfile(
-          ar_env::JammingSensitivityProfile::kBalanced)
-      .End()
-      .Build();
+  ar_config::RadarSessionConfig config =
+      ar_config::RadarSessionConfigBuilder()
+          .Detection()
+          .EnablePhysicsDetection(false)
+          .WithHardwareProfile(ar_config::profiles::RadarHardwareProfile::kLongRangeHighPower)
+          .WithDetectionIntentProfile(
+              ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
+          .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
+          .End()
+          .Tracking()
+          .EnableTrackingFilter(true)
+          .WithTrackingPolicyProfile(ar_config::profiles::TrackingPolicyProfile::kFastAssociation)
+          .End()
+          .Lifecycle()
+          .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
+          .End()
+          .Environment()
+          .WithJammingSensitivityProfile(ar_env::JammingSensitivityProfile::kBalanced)
+          .End()
+          .Build();
+  config.mission.orientation.work_mode = ar_config::RadarWorkMode::kTas;
+  config.mission.orientation.scan_center_deg = MakeAzEl(0.0f, 0.0f);
+  return config;
 }
 
 int failed = 0;
-#define CHECK_EQ(a, b, name) do { \
-  if (std::abs((a) - (b)) > 0.0001f) { \
-    std::cerr << "  FAIL " << (name) << ": " << (a) << " != " << (b) << "\n"; \
-    ++failed; \
-  } \
-} while(0)
+#define CHECK_EQ(a, b, name)                                                    \
+  do {                                                                          \
+    if (std::abs((a) - (b)) > 0.0001f) {                                        \
+      std::cerr << "  FAIL " << (name) << ": " << (a) << " != " << (b) << "\n"; \
+      ++failed;                                                                 \
+    }                                                                           \
+  } while (0)
 
-#define CHECK_BOOL(a, b, name) do { \
-  if ((a) != (b)) { \
-    std::cerr << "  FAIL " << (name) << ": " << (a) << " != " << (b) << "\n"; \
-    ++failed; \
-  } \
-} while(0)
+#define CHECK_BOOL(a, b, name)                                                  \
+  do {                                                                          \
+    if ((a) != (b)) {                                                           \
+      std::cerr << "  FAIL " << (name) << ": " << (a) << " != " << (b) << "\n"; \
+      ++failed;                                                                 \
+    }                                                                           \
+  } while (0)
 
-#define CHECK_INT(a, b, name) do { \
-  if ((a) != (b)) { \
-    std::cerr << "  FAIL " << (name) << ": " << (a) << " != " << (b) << "\n"; \
-    ++failed; \
-  } \
-} while(0)
+#define CHECK_INT(a, b, name)                                                   \
+  do {                                                                          \
+    if ((a) != (b)) {                                                           \
+      std::cerr << "  FAIL " << (name) << ": " << (a) << " != " << (b) << "\n"; \
+      ++failed;                                                                 \
+    }                                                                           \
+  } while (0)
 
-void CheckAzEl(const ar_model::AzimuthElevationDeg& a,
-               const ar_model::AzimuthElevationDeg& b, const char* prefix) {
+void CheckAzEl(const ar_config::AzimuthElevationDeg& a, const ar_config::AzimuthElevationDeg& b,
+               const char* prefix) {
   CHECK_EQ(a.az_deg, b.az_deg, (std::string(prefix) + ".az_deg").c_str());
   CHECK_EQ(a.el_deg, b.el_deg, (std::string(prefix) + ".el_deg").c_str());
 }
 
-void CheckAzElLimits(const ar_model::AzimuthElevationLimitsDeg& a,
-                     const ar_model::AzimuthElevationLimitsDeg& b,
-                     const char* prefix) {
+void CheckAzElLimits(const ar_config::AzimuthElevationLimitsDeg& a,
+                     const ar_config::AzimuthElevationLimitsDeg& b, const char* prefix) {
   CHECK_EQ(a.az_min_deg, b.az_min_deg, (std::string(prefix) + ".az_min_deg").c_str());
   CHECK_EQ(a.az_max_deg, b.az_max_deg, (std::string(prefix) + ".az_max_deg").c_str());
   CHECK_EQ(a.el_min_deg, b.el_min_deg, (std::string(prefix) + ".el_min_deg").c_str());
   CHECK_EQ(a.el_max_deg, b.el_max_deg, (std::string(prefix) + ".el_max_deg").c_str());
 }
 
-void CheckCmdBeamwidth(const ar_model::CommandedBeamwidthDeg& a,
-                       const ar_model::CommandedBeamwidthDeg& b,
-                       const char* prefix) {
+void CheckCmdBeamwidth(const ar_config::CommandedBeamwidthDeg& a,
+                       const ar_config::CommandedBeamwidthDeg& b, const char* prefix) {
   CHECK_EQ(a.commanded_az_beamwidth_deg, b.commanded_az_beamwidth_deg,
            (std::string(prefix) + ".commanded_az_beamwidth_deg").c_str());
   CHECK_EQ(a.commanded_el_beamwidth_deg, b.commanded_el_beamwidth_deg,
@@ -113,14 +112,11 @@ void CheckAntennaPattern(const ar_config::detection::AntennaPatternConfig& a,
             "antenna_pattern.model_type");
   CHECK_EQ(a.max_sidelobe_level_db, b.max_sidelobe_level_db,
            "antenna_pattern.max_sidelobe_level_db");
-  CHECK_EQ(a.backlobe_level_db, b.backlobe_level_db,
-           "antenna_pattern.backlobe_level_db");
+  CHECK_EQ(a.backlobe_level_db, b.backlobe_level_db, "antenna_pattern.backlobe_level_db");
   CHECK_EQ(a.scan_loss_coeff_db_per_deg2, b.scan_loss_coeff_db_per_deg2,
            "antenna_pattern.scan_loss_coeff_db_per_deg2");
-  CHECK_EQ(a.max_scan_loss_db, b.max_scan_loss_db,
-           "antenna_pattern.max_scan_loss_db");
-  CheckAzEl(a.boresight_offset_deg, b.boresight_offset_deg,
-            "antenna_pattern.boresight_offset_deg");
+  CHECK_EQ(a.max_scan_loss_db, b.max_scan_loss_db, "antenna_pattern.max_scan_loss_db");
+  CheckAzEl(a.boresight_offset_deg, b.boresight_offset_deg, "antenna_pattern.boresight_offset_deg");
 }
 
 void CheckAntenna(const ar_config::detection::AntennaConfig& a,
@@ -153,23 +149,20 @@ void CheckRcsPhysics(const ar_config::detection::RcsPhysicsConfig& a,
   CHECK_EQ(a.frequency_hz, b.frequency_hz, "rcs.frequency_hz");
   CHECK_EQ(a.physics_mix_ratio, b.physics_mix_ratio, "rcs.physics_mix_ratio");
   CHECK_EQ(a.cylinder_weight, b.cylinder_weight, "rcs.cylinder_weight");
-  CHECK_EQ(a.min_equivalent_radius_m, b.min_equivalent_radius_m,
-           "rcs.min_equivalent_radius_m");
-  CHECK_EQ(a.max_equivalent_radius_m, b.max_equivalent_radius_m,
-           "rcs.max_equivalent_radius_m");
+  CHECK_EQ(a.min_equivalent_radius_m, b.min_equivalent_radius_m, "rcs.min_equivalent_radius_m");
+  CHECK_EQ(a.max_equivalent_radius_m, b.max_equivalent_radius_m, "rcs.max_equivalent_radius_m");
   CHECK_EQ(a.min_rcs_m2, b.min_rcs_m2, "rcs.min_rcs_m2");
   CHECK_EQ(a.max_rcs_m2, b.max_rcs_m2, "rcs.max_rcs_m2");
-  CHECK_EQ(a.bistatic_psi_offset_deg, b.bistatic_psi_offset_deg,
-           "rcs.bistatic_psi_offset_deg");
+  CHECK_EQ(a.bistatic_psi_offset_deg, b.bistatic_psi_offset_deg, "rcs.bistatic_psi_offset_deg");
 }
 
 void CompareConfigs(const ar_config::RadarSessionConfig& a,
                     const ar_config::RadarSessionConfig& b) {
   std::cout << "=== Comparing SessionConfig ===\n";
 
-  // hardware.detection
-  const auto& da = a.hardware.detection;
-  const auto& db = b.hardware.detection;
+  // hardware
+  const auto& da = a.hardware;
+  const auto& db = b.hardware;
   CHECK_BOOL(da.enable_physics_detection, db.enable_physics_detection,
              "detection.enable_physics_detection");
   CheckTransmitter(da.transmitter, db.transmitter);
@@ -195,26 +188,21 @@ void CompareConfigs(const ar_config::RadarSessionConfig& a,
                   "orientation.mechanical_scan_limits");
   CheckAzElLimits(oa.electronic_scan_limits_deg, ob.electronic_scan_limits_deg,
                   "orientation.electronic_scan_limits");
-  CHECK_INT(static_cast<int>(oa.scan_start_position),
-            static_cast<int>(ob.scan_start_position),
+  CHECK_INT(static_cast<int>(oa.scan_start_position), static_cast<int>(ob.scan_start_position),
             "orientation.scan_start_position");
-  CHECK_INT(static_cast<int>(oa.scan_sequence),
-            static_cast<int>(ob.scan_sequence), "orientation.scan_sequence");
-  CHECK_INT(static_cast<int>(oa.work_mode),
-            static_cast<int>(ob.work_mode), "orientation.work_mode");
+  CHECK_INT(static_cast<int>(oa.scan_sequence), static_cast<int>(ob.scan_sequence),
+            "orientation.scan_sequence");
+  CHECK_INT(static_cast<int>(oa.work_mode), static_cast<int>(ob.work_mode),
+            "orientation.work_mode");
   CHECK_BOOL(oa.commanded_beamwidth_enabled, ob.commanded_beamwidth_enabled,
              "orientation.commanded_beamwidth_enabled");
   CheckCmdBeamwidth(oa.commanded_beamwidth_deg, ob.commanded_beamwidth_deg,
                     "orientation.commanded_beamwidth_deg");
-  CHECK_INT(static_cast<int>(oa.stabilization_mode),
-            static_cast<int>(ob.stabilization_mode),
+  CHECK_INT(static_cast<int>(oa.stabilization_mode), static_cast<int>(ob.stabilization_mode),
             "orientation.stabilization_mode");
 
   // policy subtree
   // beam_control.pointing
-  CheckAzEl(a.policy.beam_control.pointing.default_scan_center_deg,
-            b.policy.beam_control.pointing.default_scan_center_deg,
-            "beam_control.pointing.default_scan_center");
   CheckCmdBeamwidth(a.policy.beam_control.pointing.nominal_beamwidth_deg,
                     b.policy.beam_control.pointing.nominal_beamwidth_deg,
                     "beam_control.pointing.nominal_beamwidth");
@@ -231,45 +219,32 @@ void CompareConfigs(const ar_config::RadarSessionConfig& a,
              "beam_control.scheduler.prefer_dense_tas_sampling");
 
   // association
-  CHECK_EQ(a.policy.association.unassigned_cost,
-           b.policy.association.unassigned_cost, "association.unassigned_cost");
-  CHECK_BOOL(a.policy.association.use_distance_gate_hint,
-             b.policy.association.use_distance_gate_hint,
-             "association.use_distance_gate_hint");
-  CHECK_EQ(a.policy.association.distance_gate_sigma_hint,
-           b.policy.association.distance_gate_sigma_hint,
-           "association.distance_gate_sigma_hint");
+  CHECK_EQ(a.policy.association.unassigned_cost, b.policy.association.unassigned_cost,
+           "association.unassigned_cost");
 
   // tracking
-  CHECK_BOOL(a.policy.tracking.enable_kalman_filter,
-             b.policy.tracking.enable_kalman_filter,
+  CHECK_BOOL(a.policy.tracking.enable_kalman_filter, b.policy.tracking.enable_kalman_filter,
              "tracking.enable_kalman_filter");
   CHECK_EQ(a.policy.tracking.kalman_measurement_noise_std,
-           b.policy.tracking.kalman_measurement_noise_std,
-           "tracking.kalman_measurement_noise_std");
+           b.policy.tracking.kalman_measurement_noise_std, "tracking.kalman_measurement_noise_std");
   CHECK_INT(static_cast<int>(a.policy.tracking.kalman_update_backend),
             static_cast<int>(b.policy.tracking.kalman_update_backend),
             "tracking.kalman_update_backend");
-  CHECK_EQ(a.policy.tracking.speed_decay_ratio_on_loss,
-           b.policy.tracking.speed_decay_ratio_on_loss,
+  CHECK_EQ(a.policy.tracking.speed_decay_ratio_on_loss, b.policy.tracking.speed_decay_ratio_on_loss,
            "tracking.speed_decay_ratio_on_loss");
-  CHECK_EQ(a.policy.tracking.rcs_decay_ratio_on_loss,
-           b.policy.tracking.rcs_decay_ratio_on_loss,
+  CHECK_EQ(a.policy.tracking.rcs_decay_ratio_on_loss, b.policy.tracking.rcs_decay_ratio_on_loss,
            "tracking.rcs_decay_ratio_on_loss");
 
   // lifecycle
   CHECK_INT(a.policy.lifecycle.confirm_hits, b.policy.lifecycle.confirm_hits,
             "lifecycle.confirm_hits");
-  CHECK_INT(a.policy.lifecycle.max_miss_before_lost,
-            b.policy.lifecycle.max_miss_before_lost,
+  CHECK_INT(a.policy.lifecycle.max_miss_before_lost, b.policy.lifecycle.max_miss_before_lost,
             "lifecycle.max_miss_before_lost");
-  CHECK_INT(a.policy.lifecycle.max_lost_cycles,
-            b.policy.lifecycle.max_lost_cycles, "lifecycle.max_lost_cycles");
-  CHECK_BOOL(a.policy.lifecycle.enable_imm_lifecycle,
-             b.policy.lifecycle.enable_imm_lifecycle,
+  CHECK_INT(a.policy.lifecycle.max_lost_cycles, b.policy.lifecycle.max_lost_cycles,
+            "lifecycle.max_lost_cycles");
+  CHECK_BOOL(a.policy.lifecycle.enable_imm_lifecycle, b.policy.lifecycle.enable_imm_lifecycle,
              "lifecycle.enable_imm_lifecycle");
-  CHECK_INT(a.policy.lifecycle.model_count_hint,
-            b.policy.lifecycle.model_count_hint,
+  CHECK_INT(a.policy.lifecycle.model_count_hint, b.policy.lifecycle.model_count_hint,
             "lifecycle.model_count_hint");
 
   // environment
@@ -277,11 +252,9 @@ void CompareConfigs(const ar_config::RadarSessionConfig& a,
              b.environment.scenario_config.atmospheric_physics.enable_physical_model,
              "atmos.enable_physical_model");
   CHECK_EQ(a.environment.scenario_config.atmospheric_physics.pressure_hpa,
-           b.environment.scenario_config.atmospheric_physics.pressure_hpa,
-           "atmos.pressure_hpa");
+           b.environment.scenario_config.atmospheric_physics.pressure_hpa, "atmos.pressure_hpa");
   CHECK_EQ(a.environment.scenario_config.atmospheric_physics.temperature_k,
-           b.environment.scenario_config.atmospheric_physics.temperature_k,
-           "atmos.temperature_k");
+           b.environment.scenario_config.atmospheric_physics.temperature_k, "atmos.temperature_k");
   CHECK_EQ(a.environment.scenario_config.atmospheric_physics.relative_humidity,
            b.environment.scenario_config.atmospheric_physics.relative_humidity,
            "atmos.relative_humidity");
@@ -302,9 +275,10 @@ void CompareConfigs(const ar_config::RadarSessionConfig& a,
            b.environment.scenario_config.atmospheric_context.geomagnetic_ap,
            "atmos_ctx.geomagnetic_ap");
 
-  CHECK_INT(static_cast<int>(a.environment.scenario_config.vegetation_scatter_physics.cover_profile),
-            static_cast<int>(b.environment.scenario_config.vegetation_scatter_physics.cover_profile),
-            "veg.cover_profile");
+  CHECK_INT(
+      static_cast<int>(a.environment.scenario_config.vegetation_scatter_physics.cover_profile),
+      static_cast<int>(b.environment.scenario_config.vegetation_scatter_physics.cover_profile),
+      "veg.cover_profile");
   CHECK_BOOL(a.environment.scenario_config.vegetation_scatter_physics.enable_physical_model,
              b.environment.scenario_config.vegetation_scatter_physics.enable_physical_model,
              "veg.enable_physical_model");
@@ -323,8 +297,8 @@ int main() {
   ar_config::RadarSessionConfig file_config;
   {
     std::string error;
-    if (!examples::LoadArSessionConfigFromFile("configs/airborne_radar.json",
-                                                &file_config, &error)) {
+    if (!examples::LoadArSessionConfigFromFile("configs/airborne_radar.json", &file_config,
+                                               &error)) {
       std::cerr << "FAIL: could not load JSON config: " << error << "\n";
       return 1;
     }

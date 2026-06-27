@@ -310,6 +310,32 @@ TEST(RadarInputValidationTest, NonFinitePlatformPoseIsError) {
   EXPECT_NE(FindIssue(issues, ValidationCode::kNonFinitePlatformNumericField), nullptr);
 }
 
+/// @brief 未提供环境快照时，不应校验默认构造的 environment 字段。
+TEST(RadarInputValidationTest, OmittedEnvironmentSnapshotDoesNotValidateEnvironmentDefaults) {
+  session::RadarCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = false;
+  input.environment.atmospheric_observation.pressure_hpa = -1.0f;
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateRadarCycleInput(input);
+  EXPECT_EQ(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
+  EXPECT_FALSE(HasValidationError(issues));
+}
+
+/// @brief 显式提供环境快照时，环境字段仍应按原规则校验。
+TEST(RadarInputValidationTest, ExplicitEnvironmentSnapshotIsValidated) {
+  session::RadarCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.environment.atmospheric_observation.pressure_hpa = -1.0f;
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateRadarCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
+  EXPECT_TRUE(HasValidationError(issues));
+}
+
 // ===========================================================================
 // 完全有效输入 — 基线 Smoke Test
 // ===========================================================================

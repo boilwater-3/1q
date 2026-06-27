@@ -3,13 +3,11 @@
 #include <cstdlib>
 #include <utility>
 
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
-#include "1q/electro_optical_sensor/extension/EosController.h"
+#include "electro_optical_sensor/runtime/EosController.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 #include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
-#include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
+#include "electro_optical_sensor/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -57,16 +55,18 @@ EosSession::~EosSession() noexcept = default;
 EosSession::EosSession(EosSession&&) noexcept = default;
 EosSession& EosSession::operator=(EosSession&&) noexcept = default;
 
-EosSession EosSessionFactory::Create(const config::EosSessionConfig& config) {
+EosSession EosSession::Create(const config::EosSessionConfig& config) {
   return EosSession(std::unique_ptr<EosSession::Impl>(
       new EosSession::Impl(EosSessionCompositionRoot::ComposeDefault(config))));
 }
 
-EosSession EosSessionFactory::CreateWithEnvironmentService(
-    const config::EosSessionConfig& config, environment::IEosEnvironmentService& environment_service) {
-  return EosSession(std::unique_ptr<EosSession::Impl>(
-      new EosSession::Impl(EosSessionCompositionRoot::ComposeWithEnvironmentService(
-          config, environment_service))));
+EosSession EosSession::CreateWithValidation(const config::EosSessionConfig& config,
+                                            config::ValidationIssueList* issues) {
+  const config::ValidationIssueList found = config::ValidateEosSessionConfig(config);
+  if (issues != nullptr) {
+    *issues = found;
+  }
+  return Create(config);
 }
 
 session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {

@@ -177,11 +177,11 @@ TEST(TrackLifecycleManagerTest, TrackStateSnapshotsPublishSingleBestKnownExterna
   manager.Update(MakeCycle(1u, 2201u), {MakeCartesianMeasurement(21u, 100.0f, 0.0f, false, 7001u),
                                         MakeCartesianMeasurement(22u, 140.0f, 0.0f, false, 7001u)});
 
-  const model::TrackStateSnapshotList snapshots = manager.BuildTrackStateSnapshots();
+  const session::TrackStateSnapshotList snapshots = manager.BuildTrackStateSnapshots();
   ASSERT_EQ(snapshots.size(), 1U);
   EXPECT_EQ(snapshots[0].external_target_id, 7001u);
   EXPECT_EQ(snapshots[0].association_key, 22u);
-  EXPECT_EQ(snapshots[0].status, model::TrackStatus::kConfirmed);
+  EXPECT_EQ(snapshots[0].status, session::TrackStatus::kConfirmed);
 }
 
 TEST(TrackLifecycleManagerTest, LostTrackRehitUsesMeasurementVelocityWithoutSpeedSpike) {
@@ -209,10 +209,10 @@ TEST(TrackLifecycleManagerTest, LostTrackRehitUsesMeasurementVelocityWithoutSpee
 
   manager.Update(MakeCycle(3u, 2303u), {MakeCartesianMeasurement(31u, 300.0f, 0.2f, true, 8001u)});
 
-  const model::TrackStateSnapshotList snapshots = manager.BuildTrackStateSnapshots();
+  const session::TrackStateSnapshotList snapshots = manager.BuildTrackStateSnapshots();
   ASSERT_EQ(snapshots.size(), 1U);
   EXPECT_EQ(snapshots[0].external_target_id, 8001u);
-  EXPECT_EQ(snapshots[0].status, model::TrackStatus::kConfirmed);
+  EXPECT_EQ(snapshots[0].status, session::TrackStatus::kConfirmed);
   EXPECT_LT(snapshots[0].speed, 1.0f);
 }
 
@@ -308,7 +308,7 @@ TEST(TrackLifecycleManagerTest, DeceptionSummaryExtendsLocalMissToleranceOnMiss)
       MakeCartesianMeasurement(41u, 100.0f, 10.0f);
   deception_measurement.filtered_feature.jamming_detected = true;
   deception_measurement.filtered_feature.dominant_jamming_semantic =
-      model::JammingSemantic::kDeception;
+      config::JammingSemantic::kDeception;
   deception_measurement.filtered_feature.jamming_severity = 0.8f;
 
   deception_manager.Update(MakeCycle(1u, 4101u), {deception_measurement});
@@ -330,7 +330,7 @@ TEST(TrackLifecycleManagerTest, DeceptionSummaryExtendsLocalMissToleranceOnMiss)
       MakeCartesianMeasurement(42u, 100.0f, 10.0f);
   noise_measurement.filtered_feature.jamming_detected = true;
   noise_measurement.filtered_feature.dominant_jamming_semantic =
-      model::JammingSemantic::kNoiseSuppression;
+      config::JammingSemantic::kNoiseSuppression;
   noise_measurement.filtered_feature.jamming_severity = 0.8f;
 
   noise_manager.Update(MakeCycle(1u, 4201u), {noise_measurement});

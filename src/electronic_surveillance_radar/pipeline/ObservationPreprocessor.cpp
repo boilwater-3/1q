@@ -25,7 +25,7 @@ bool LessOrNearEqual(double lhs, double rhs, double epsilon) {
  * @param[in] observation 输入观测。
  * @return 合法时返回 `true`。
  */
-bool IsValidObservation(const model::EmitterObservation& observation) {
+bool IsValidObservation(const session::EmitterObservation& observation) {
   if (!std::isfinite(observation.timestamp_s) || !std::isfinite(observation.aoa_az_deg) ||
       !std::isfinite(observation.aoa_el_deg) || !std::isfinite(observation.rf_hz) ||
       !std::isfinite(observation.pulse_width_s) || !std::isfinite(observation.amplitude_db) ||
@@ -40,14 +40,14 @@ bool IsValidObservation(const model::EmitterObservation& observation) {
  * @param[in] snr_db 观测信噪比（单位：dB）。
  * @return 重标定后的质量等级。
  */
-model::EsrObservationQuality NormalizeQuality(double snr_db) {
+session::EsrObservationQuality NormalizeQuality(double snr_db) {
   if (snr_db >= 18.0) {
-    return model::EsrObservationQuality::kHigh;
+    return session::EsrObservationQuality::kHigh;
   }
   if (snr_db >= 10.0) {
-    return model::EsrObservationQuality::kMedium;
+    return session::EsrObservationQuality::kMedium;
   }
-  return model::EsrObservationQuality::kLow;
+  return session::EsrObservationQuality::kLow;
 }
 
 /**
@@ -57,8 +57,8 @@ model::EsrObservationQuality NormalizeQuality(double snr_db) {
  * @param[in] config 预处理配置。
  * @return 满足去重条件时返回 `true`。
  */
-bool IsDuplicateObservation(const model::EmitterObservation& lhs,
-                            const model::EmitterObservation& rhs,
+bool IsDuplicateObservation(const session::EmitterObservation& lhs,
+                            const session::EmitterObservation& rhs,
                             const extension::InterceptPreprocessConfig& config) {
   const double dedup_time_window_sec = static_cast<double>(config.dedup_time_window_sec);
   const double az_diff = std::fabs(static_cast<double>(

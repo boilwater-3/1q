@@ -35,31 +35,31 @@ constexpr float kPhysicalWeightRepeater = 0.40f;
 constexpr float kPhysicalWeightUnknown = 0.70f;
 
 float ResolveJammerConfidenceWeight(const JammingEffectsConfig& cfg,
-                                    const environment::JammerSourceFact& jammer_source) {
+                                    const session::JammerSourceFact& jammer_source) {
   return utils::ClampFloat(jammer_source.confidence, cfg.confidence_weight_min, 1.0f);
 }
 
 float ComputeTrackLevelJammingContribution(
-    const extension::control::RadarControlProfile& control_profile,
-    const environment::JammerSourceFact& jammer_source) {
+    const session::RadarControlProfile& control_profile,
+    const session::JammerSourceFact& jammer_source) {
   const float confidence_weight = utils::ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
   const float residual_factor = ComputeResidualJammerFactor(control_profile, jammer_source);
   float contribution = 0.10f + 0.020f * utils::ClampFloat(jammer_source.power_db, 0.0f, 20.0f) +
                        0.015f * utils::ClampFloat(jammer_source.js_db, 0.0f, 12.0f);
 
   switch (jammer_source.technique) {
-    case environment::JammingTechnique::kNoiseSuppression:
+    case config::JammingTechnique::kNoiseSuppression:
       contribution += jammer_source.in_sidelobe ? 0.14f : 0.08f;
       break;
-    case environment::JammingTechnique::kDeception:
+    case config::JammingTechnique::kDeception:
       contribution += 0.25f * utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       contribution += 0.22f * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       break;
-    case environment::JammingTechnique::kRepeater:
+    case config::JammingTechnique::kRepeater:
       contribution += 0.18f * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       contribution += 0.14f * utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       break;
-    case environment::JammingTechnique::kUnknown:
+    case config::JammingTechnique::kUnknown:
     default:
       contribution += 0.15f * utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       contribution += 0.12f * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
@@ -71,12 +71,12 @@ float ComputeTrackLevelJammingContribution(
 
 }  // namespace
 
-bool HasMultiSourceJammingFacts(const environment::EnvironmentSnapshot& environment_snapshot) {
+bool HasMultiSourceJammingFacts(const session::EnvironmentSnapshot& environment_snapshot) {
   return !environment_snapshot.jammer_sources.empty();
 }
 
-float ComputeResidualJammerFactor(const extension::control::RadarControlProfile& control_profile,
-                                  const environment::JammerSourceFact& jammer_source) {
+float ComputeResidualJammerFactor(const session::RadarControlProfile& control_profile,
+                                  const session::JammerSourceFact& jammer_source) {
   float residual_factor = 1.0f;
 
   if (control_profile.enable_sidelobe_canceller && jammer_source.in_sidelobe) {
@@ -102,12 +102,12 @@ float ComputeResidualJammerFactor(const extension::control::RadarControlProfile&
   }
 
   switch (jammer_source.technique) {
-    case environment::JammingTechnique::kNoiseSuppression:
+    case config::JammingTechnique::kNoiseSuppression:
       if (control_profile.enable_sidelobe_canceller && jammer_source.in_sidelobe) {
         residual_factor *= kNoiseSidelobeCancellerFactor;
       }
       break;
-    case environment::JammingTechnique::kDeception:
+    case config::JammingTechnique::kDeception:
       if (control_profile.enable_agility_frequency) {
         residual_factor *= kDeceptionAgilityFactor;
       }
@@ -115,12 +115,12 @@ float ComputeResidualJammerFactor(const extension::control::RadarControlProfile&
         residual_factor *= kDeceptionRejitterFactor;
       }
       break;
-    case environment::JammingTechnique::kRepeater:
+    case config::JammingTechnique::kRepeater:
       if (control_profile.enable_eccm_rejitter) {
         residual_factor *= kRepeaterRejitterFactor;
       }
       break;
-    case environment::JammingTechnique::kUnknown:
+    case config::JammingTechnique::kUnknown:
     default:
       break;
   }
@@ -129,32 +129,32 @@ float ComputeResidualJammerFactor(const extension::control::RadarControlProfile&
 }
 
 float ComputeHeuristicSourcePenaltyDb(const JammingEffectsConfig& cfg,
-                                      const environment::JammerSourceFact& jammer_source) {
+                                      const session::JammerSourceFact& jammer_source) {
   const float confidence_weight = ResolveJammerConfidenceWeight(cfg, jammer_source);
   float penalty_db =
       cfg.heuristic_base_penalty_db +
       cfg.heuristic_power_penalty_slope * utils::ClampFloat(jammer_source.power_db, 0.0f, 20.0f);
 
   switch (jammer_source.technique) {
-    case environment::JammingTechnique::kNoiseSuppression:
+    case config::JammingTechnique::kNoiseSuppression:
       penalty_db += cfg.heuristic_noise_sidelobe_penalty *
                     (jammer_source.in_sidelobe ? 1.0f : cfg.heuristic_noise_frontlobe_ratio);
       penalty_db +=
           cfg.heuristic_noise_js_slope * utils::ClampFloat(jammer_source.js_db, 0.0f, 12.0f) / 6.0f;
       break;
-    case environment::JammingTechnique::kDeception:
+    case config::JammingTechnique::kDeception:
       penalty_db += cfg.heuristic_deception_freq_penalty *
                     utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       penalty_db += cfg.heuristic_deception_prf_penalty *
                     utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       break;
-    case environment::JammingTechnique::kRepeater:
+    case config::JammingTechnique::kRepeater:
       penalty_db += cfg.heuristic_repeater_prf_penalty *
                     utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
       penalty_db += cfg.heuristic_repeater_freq_penalty *
                     utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
       break;
-    case environment::JammingTechnique::kUnknown:
+    case config::JammingTechnique::kUnknown:
     default:
       penalty_db += cfg.heuristic_unknown_freq_penalty *
                     utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
@@ -169,7 +169,7 @@ float ComputeHeuristicSourcePenaltyDb(const JammingEffectsConfig& cfg,
 }
 
 float ComputeHeuristicJammingPenaltyDb(
-    const JammingEffectsConfig& cfg, const environment::EnvironmentSnapshot& environment_snapshot) {
+    const JammingEffectsConfig& cfg, const session::EnvironmentSnapshot& environment_snapshot) {
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
     return 0.0f;
   }
@@ -182,19 +182,19 @@ float ComputeHeuristicJammingPenaltyDb(
 }
 
 float ComputePhysicalSourceJamContributionW(const JammingEffectsConfig& cfg,
-                                            const environment::JammerSourceFact& jammer_source) {
+                                            const session::JammerSourceFact& jammer_source) {
   float source_weight = 1.0f;
   switch (jammer_source.technique) {
-    case environment::JammingTechnique::kNoiseSuppression:
+    case config::JammingTechnique::kNoiseSuppression:
       source_weight = kPhysicalWeightNoise;
       break;
-    case environment::JammingTechnique::kDeception:
+    case config::JammingTechnique::kDeception:
       source_weight = kPhysicalWeightDeception;
       break;
-    case environment::JammingTechnique::kRepeater:
+    case config::JammingTechnique::kRepeater:
       source_weight = kPhysicalWeightRepeater;
       break;
-    case environment::JammingTechnique::kUnknown:
+    case config::JammingTechnique::kUnknown:
     default:
       source_weight = kPhysicalWeightUnknown;
       break;
@@ -204,31 +204,31 @@ float ComputePhysicalSourceJamContributionW(const JammingEffectsConfig& cfg,
 }
 
 float ComputeMeasurementCovarianceInflation(
-    const JammingEffectsConfig& cfg, const extension::control::RadarControlProfile& control_profile,
-    const environment::EnvironmentSnapshot& environment_snapshot) {
+    const JammingEffectsConfig& cfg, const session::RadarControlProfile& control_profile,
+    const session::EnvironmentSnapshot& environment_snapshot) {
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
     return 1.0f;
   }
 
   float inflation = 1.0f;
   for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
+    const session::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
     const float residual_factor = ComputeResidualJammerFactor(control_profile, source);
     const float confidence_weight = ResolveJammerConfidenceWeight(cfg, source);
     switch (source.technique) {
-      case environment::JammingTechnique::kDeception:
+      case config::JammingTechnique::kDeception:
         inflation += cfg.covariance_deception_inflation_step * confidence_weight * residual_factor *
                      (1.0f + source.frequency_overlap_ratio);
         break;
-      case environment::JammingTechnique::kRepeater:
+      case config::JammingTechnique::kRepeater:
         inflation += cfg.covariance_repeater_inflation_step * confidence_weight * residual_factor *
                      (1.0f + source.prf_lock_risk);
         break;
-      case environment::JammingTechnique::kNoiseSuppression:
+      case config::JammingTechnique::kNoiseSuppression:
         inflation += cfg.covariance_noise_inflation_step * confidence_weight * residual_factor *
                      (source.in_sidelobe ? 1.0f : 0.5f);
         break;
-      case environment::JammingTechnique::kUnknown:
+      case config::JammingTechnique::kUnknown:
       default:
         inflation += cfg.covariance_unknown_inflation_step * confidence_weight * residual_factor;
         break;
@@ -237,32 +237,32 @@ float ComputeMeasurementCovarianceInflation(
   return utils::ClampFloat(inflation, 1.0f, cfg.covariance_inflation_max);
 }
 
-model::JammingSemantic ResolveDominantJammingSemantic(
-    const extension::control::RadarControlProfile& control_profile,
-    const environment::EnvironmentSnapshot& environment_snapshot) {
+config::JammingSemantic ResolveDominantJammingSemantic(
+    const session::RadarControlProfile& control_profile,
+    const session::EnvironmentSnapshot& environment_snapshot) {
   if (!environment_snapshot.jamming_detected) {
-    return model::JammingSemantic::kNone;
+    return config::JammingSemantic::kNone;
   }
 
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
-    return model::JammingSemantic::kNone;
+    return config::JammingSemantic::kNone;
   }
 
   float type_scores[3] = {0.0f, 0.0f, 0.0f};
   for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
+    const session::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
     const float contribution = ComputeTrackLevelJammingContribution(control_profile, source);
     switch (source.technique) {
-      case environment::JammingTechnique::kNoiseSuppression:
+      case config::JammingTechnique::kNoiseSuppression:
         type_scores[0] += contribution;
         break;
-      case environment::JammingTechnique::kDeception:
+      case config::JammingTechnique::kDeception:
         type_scores[1] += contribution;
         break;
-      case environment::JammingTechnique::kRepeater:
+      case config::JammingTechnique::kRepeater:
         type_scores[2] += contribution;
         break;
-      case environment::JammingTechnique::kUnknown:
+      case config::JammingTechnique::kUnknown:
       default:
         type_scores[0] += kUnknownNoiseSplitWeight * contribution;
         type_scores[1] += kUnknownNoiseSplitWeight * contribution;
@@ -282,26 +282,26 @@ model::JammingSemantic ResolveDominantJammingSemantic(
   }
 
   if (type_scores[best_index] <= 1e-6f) {
-    return model::JammingSemantic::kNone;
+    return config::JammingSemantic::kNone;
   }
   if (second_index != best_index &&
       type_scores[second_index] >= kMixedSemanticDominanceRatio * type_scores[best_index] &&
       type_scores[second_index] > kMixedSemanticMinScore) {
-    return model::JammingSemantic::kMixed;
+    return config::JammingSemantic::kMixed;
   }
 
   if (best_index == 0U) {
-    return model::JammingSemantic::kNoiseSuppression;
+    return config::JammingSemantic::kNoiseSuppression;
   }
   if (best_index == 1U) {
-    return model::JammingSemantic::kDeception;
+    return config::JammingSemantic::kDeception;
   }
-  return model::JammingSemantic::kRepeater;
+  return config::JammingSemantic::kRepeater;
 }
 
 float ComputeTrackLevelJammingSeverity(
-    const extension::control::RadarControlProfile& control_profile,
-    const environment::EnvironmentSnapshot& environment_snapshot) {
+    const session::RadarControlProfile& control_profile,
+    const session::EnvironmentSnapshot& environment_snapshot) {
   if (!environment_snapshot.jamming_detected) {
     return 0.0f;
   }
@@ -319,8 +319,8 @@ float ComputeTrackLevelJammingSeverity(
 }
 
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
-    const extension::control::RadarControlProfile& control_profile,
-    const environment::EnvironmentSnapshot& environment_snapshot, ExecutionConfig* runtime_config) {
+    const session::RadarControlProfile& control_profile,
+    const session::EnvironmentSnapshot& environment_snapshot, ExecutionConfig* runtime_config) {
   if (runtime_config == nullptr || !HasMultiSourceJammingFacts(environment_snapshot)) {
     return;
   }
@@ -331,12 +331,12 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
   float measurement_noise_scale = 1.0f;
 
   for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    const environment::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
+    const session::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
     const float residual_factor = ComputeResidualJammerFactor(control_profile, source);
     const float confidence_weight = ResolveJammerConfidenceWeight(cfg, source);
 
     switch (source.technique) {
-      case environment::JammingTechnique::kDeception:
+      case config::JammingTechnique::kDeception:
         association_scale += cfg.deception_association_step * confidence_weight * residual_factor *
                              (1.0f + source.frequency_overlap_ratio);
         tracking_noise_scale += cfg.deception_tracking_step * confidence_weight * residual_factor *
@@ -344,7 +344,7 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
         measurement_noise_scale +=
             cfg.deception_measurement_step * confidence_weight * residual_factor;
         break;
-      case environment::JammingTechnique::kRepeater:
+      case config::JammingTechnique::kRepeater:
         association_scale += cfg.repeater_association_step * confidence_weight * residual_factor *
                              (1.0f + source.prf_lock_risk);
         tracking_noise_scale += cfg.repeater_tracking_step * confidence_weight * residual_factor *
@@ -352,10 +352,10 @@ void ApplyEnvironmentJammingFactsToRuntimeConfig(
         measurement_noise_scale +=
             cfg.repeater_measurement_step * confidence_weight * residual_factor;
         break;
-      case environment::JammingTechnique::kNoiseSuppression:
+      case config::JammingTechnique::kNoiseSuppression:
         measurement_noise_scale += cfg.noise_measurement_step * confidence_weight * residual_factor;
         break;
-      case environment::JammingTechnique::kUnknown:
+      case config::JammingTechnique::kUnknown:
       default:
         association_scale += cfg.unknown_association_step * confidence_weight * residual_factor;
         tracking_noise_scale += cfg.unknown_tracking_step * confidence_weight * residual_factor;

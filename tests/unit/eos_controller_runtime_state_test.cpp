@@ -8,9 +8,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "1q/electro_optical_sensor/extension/EosController.h"
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
-#include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
+#include "electro_optical_sensor/runtime/EosController.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
+#include "electro_optical_sensor/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace extension {

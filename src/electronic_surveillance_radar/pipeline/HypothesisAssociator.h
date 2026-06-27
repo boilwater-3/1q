@@ -10,8 +10,8 @@
 #include <string>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/model/EmitterHypothesis.h"
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
@@ -26,8 +26,8 @@ class HypothesisAssociator final {
     std::uint64_t hypothesis_id{0U};
     ObservationFeatureVector feature{};
     std::vector<std::string> candidate_classes{};
-    model::EsrEmitterMode mode{model::EsrEmitterMode::kUnknown};
-    model::EsrThreatLevel threat_level{model::EsrThreatLevel::kLow};
+    session::EsrEmitterMode mode{session::EsrEmitterMode::kUnknown};
+    session::EsrThreatLevel threat_level{session::EsrThreatLevel::kLow};
     float bearing_az_deg{0.0f};
     float bearing_el_deg{0.0f};
     float bearing_std_deg{8.0f};
@@ -59,7 +59,7 @@ class HypothesisAssociator final {
    * @param[in,out] next_hypothesis_id 假设 ID 分配器。
    * @return 当前周期对外导出的假设列表。
    */
-  model::EmitterHypothesisList Update(std::uint32_t cycle_index,
+  session::EmitterHypothesisList Update(std::uint32_t cycle_index,
                                        const std::vector<ClusterSummary>& clusters,
                                        std::uint64_t* next_hypothesis_id);
 

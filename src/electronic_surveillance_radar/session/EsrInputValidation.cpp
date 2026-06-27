@@ -74,12 +74,12 @@ void ValidatePlatformAltitude(float platform_altitude_m, ValidationIssueList* is
                               "platform_altitude_m", "platform altitude must be finite"));
 }
 
-void ValidateEnvironmentObservation(const environment::EsrEnvironmentObservation& observation,
+void ValidateEnvironmentObservation(const EsrEnvironmentInput& observation,
                                     ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
-  const environment::EsrAtmosphericObservation& atmosphere = observation.atmospheric_observation;
+  const EsrAtmosphericObservation& atmosphere = observation.atmospheric_observation;
   if (!IsRatioValid(observation.spectrum_occupancy_ratio) ||
       !IsRatioValid(atmosphere.relative_humidity_ratio) ||
       !IsFinite(atmosphere.precipitation_rate_mmph) || !IsFinite(atmosphere.visibility_km) ||
@@ -90,7 +90,7 @@ void ValidateEnvironmentObservation(const environment::EsrEnvironmentObservation
         "environment observation must contain finite ratios in [0, 1] and positive visibility"));
   }
   for (std::size_t i = 0; i < observation.jammer_sources.size(); ++i) {
-    const environment::EsrJammerSource& jammer = observation.jammer_sources[i];
+    const session::EsrJammerSource& jammer = observation.jammer_sources[i];
     if (!IsFinite(jammer.center_hz) || !IsFinite(jammer.bandwidth_hz) ||
         !IsFinite(jammer.power_w) || !IsFinite(jammer.deception_risk) ||
         !IsFinite(jammer.confidence) || jammer.center_hz < 0.0 || jammer.bandwidth_hz < 0.0 ||

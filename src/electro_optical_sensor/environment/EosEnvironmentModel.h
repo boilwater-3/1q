@@ -6,7 +6,7 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_EOS_ENVIRONMENT_MODEL_H_
 #define ELECTRO_OPTICAL_SENSOR_ENVIRONMENT_EOS_ENVIRONMENT_MODEL_H_
 
-#include "1q/electro_optical_sensor/environment/EosEnvironmentTypes.h"
+#include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 
 namespace electro_optical_sensor {
 namespace environment {
@@ -16,7 +16,7 @@ namespace environment {
  * @param[in] inputs 环境模型输入。
  * @return 环境模型输出。
  */
-EosEnvironmentModelResult ResolveEnvironmentFactors(const EosEnvironmentModelInputs& inputs);
+session::EosEnvironmentModelResult ResolveEnvironmentFactors(const session::EosEnvironmentModelInputs& inputs);
 
 }  // namespace environment
 }  // namespace electro_optical_sensor

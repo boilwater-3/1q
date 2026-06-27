@@ -91,7 +91,7 @@ double ComputePressure(int layer, double delta_h) {
 
 }  // namespace
 
-foundation::AtmosphericState StandardAtmosphere::GetState(float altitude_m) const {
+environment::AtmosphericState StandardAtmosphere::GetState(float altitude_m) const {
   const double safe_alt = std::max(0.0, static_cast<double>(altitude_m));
 
   // 几何高度 → 位势高度
@@ -108,7 +108,7 @@ foundation::AtmosphericState StandardAtmosphere::GetState(float altitude_m) cons
   const double rho = p / (kRSpecific * t);
   const double a = std::sqrt(kGamma * kRSpecific * t);
 
-  foundation::AtmosphericState state;
+  environment::AtmosphericState state;
   state.altitude_m = altitude_m;
   state.temperature_k = static_cast<float>(t);
   state.pressure_pa = static_cast<float>(p);
@@ -118,7 +118,7 @@ foundation::AtmosphericState StandardAtmosphere::GetState(float altitude_m) cons
   return state;
 }
 
-foundation::AtmosphericState StandardAtmosphere::GetSeaLevelState() const {
+environment::AtmosphericState StandardAtmosphere::GetSeaLevelState() const {
   return GetState(0.0f);
 }
 

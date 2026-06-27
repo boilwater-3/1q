@@ -31,15 +31,8 @@ foreach(IMPL_FILE IN LISTS ESR_IMPL_FILES)
       endif()
     endif()
 
-    if(IMPL_FILE MATCHES "/src/electronic_surveillance_radar/intercept/")
-      if(INCLUDE_PATH MATCHES "^electronic_surveillance_radar/(runtime|session|pipeline)/")
-        list(APPEND HARD_VIOLATIONS
-             "${IMPL_FILE}: intercept must not include '${INCLUDE_PATH}'")
-      endif()
-    endif()
-
     if(IMPL_FILE MATCHES "/src/electronic_surveillance_radar/environment/")
-      if(INCLUDE_PATH MATCHES "^electronic_surveillance_radar/(intercept|pipeline|runtime|session|output)/")
+      if(INCLUDE_PATH MATCHES "^electronic_surveillance_radar/(pipeline|runtime|session|output)/")
         list(APPEND HARD_VIOLATIONS
              "${IMPL_FILE}: environment must not include '${INCLUDE_PATH}'")
       endif()
@@ -86,8 +79,7 @@ if(HARD_VIOLATIONS)
           "ESR include direction check failed.\n"
           "Hard rules:\n"
           "1) src/electronic_surveillance_radar/pipeline/** must not include electronic_surveillance_radar/runtime/** or electronic_surveillance_radar/session/**.\n"
-          "2) src/electronic_surveillance_radar/intercept/** must not include electronic_surveillance_radar/runtime/**, electronic_surveillance_radar/session/**, or electronic_surveillance_radar/pipeline/**.\n"
-          "3) src/electronic_surveillance_radar/environment/** must not include electronic_surveillance_radar/intercept/**, electronic_surveillance_radar/pipeline/**, electronic_surveillance_radar/runtime/**, electronic_surveillance_radar/session/**, or electronic_surveillance_radar/output/**.\n"
+          "2) src/electronic_surveillance_radar/environment/** must not include electronic_surveillance_radar/pipeline/**, electronic_surveillance_radar/runtime/**, electronic_surveillance_radar/session/**, or electronic_surveillance_radar/output/**.\n"
           "Soft rule (warning-only in current stage):\n"
           "- src/electronic_surveillance_radar/runtime/** and src/electronic_surveillance_radar/session/** should prefer extension interfaces over concrete impl headers.\n"
           "Violations:\n${VIOLATION_TEXT}")

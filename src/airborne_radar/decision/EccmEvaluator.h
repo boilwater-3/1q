@@ -8,9 +8,9 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/DecisionSourceInfo.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "1q/airborne_radar/session/DecisionSourceInfo.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -40,9 +40,9 @@ class EccmEvaluator final {
    * @param proposals         [out] 追加 ECCM 提案
    * @return 本评估周期的 ECCM 评估结果
    */
-  Result Evaluate(const model::EccmSourceInfo& eccm_source_info,
+  Result Evaluate(const session::EccmSourceInfo& eccm_source_info,
                   bool hold_only,
-                  std::vector<extension::TacticalProposal>* proposals);
+                  std::vector<session::TacticalProposal>* proposals);
 
   /**
    * @brief 基于关联质量压力生成 ECCM 战术提案（无实际干扰源时的路径）。
@@ -56,10 +56,10 @@ class EccmEvaluator final {
    * @param proposals           [out] 追加 ECCM 提案
    * @return 本评估周期的 ECCM 评估结果
    */
-  Result Evaluate(const model::EccmSourceInfo& eccm_source_info,
-                  const model::AssociationQualityInfo& association_quality,
+  Result Evaluate(const session::EccmSourceInfo& eccm_source_info,
+                  const session::AssociationQualityInfo& association_quality,
                   bool hold_only,
-                  std::vector<extension::TacticalProposal>* proposals);
+                  std::vector<session::TacticalProposal>* proposals);
 
  private:
   /** @brief ECCM 提案评分中间累加状态。 */
@@ -73,8 +73,8 @@ class EccmEvaluator final {
   };
 
   /** @brief 构造生存性域控制意图。 */
-  static extension::control::ControlDirective BuildDirective(
-      extension::control::ControlDirectiveType type);
+  static session::ControlDirective BuildDirective(
+      session::ControlDirectiveType type);
 
   /** @brief 根据评分增益确定优先级。 */
   static int ResolvePriorityFromScore(int base_priority, float score);
@@ -96,24 +96,24 @@ class EccmEvaluator final {
    * 按干扰语义选择技术特化评分项，以 jamming_severity 作为置信度尺度。
    */
   static void AccumulateAssociationPressureFacts(
-      const model::AssociationQualityInfo& association_quality,
+      const session::AssociationQualityInfo& association_quality,
       EccmProposalSelection* selection);
 
   /** @brief 累加单个可信干扰源事实对五种 ECCM 措施的评分。 */
   static void AccumulateMultiSourceEccmFacts(
-      const model::EccmJammerSourceInfo& source,
+      const session::EccmJammerSourceInfo& source,
       EccmProposalSelection* selection);
 
   /** @brief 构建提案解释文本。 */
   static std::string BuildProposalRationale(
-      extension::control::ControlDirectiveType type,
+      session::ControlDirectiveType type,
       const EccmProposalSelection& selection);
 
   /** @brief 向提案列表追加一条 ECCM 提案。 */
   static void AppendProposal(
-      extension::control::ControlDirectiveType type, int priority,
+      session::ControlDirectiveType type, int priority,
       const std::string& rationale,
-      std::vector<extension::TacticalProposal>* proposals);
+      std::vector<session::TacticalProposal>* proposals);
 };
 
 }  // namespace decision

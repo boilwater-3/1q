@@ -64,7 +64,6 @@
   "policy": {
     "beam_control": {
       "pointing": {
-        "default_scan_center_deg": {"az_deg": 0.0, "el_deg": 0.0},
         "nominal_beamwidth_deg": {"commanded_az_beamwidth_deg": 4.0, "commanded_el_beamwidth_deg": 4.0}
       },
       "scheduler": {
@@ -74,9 +73,7 @@
       }
     },
     "association": {
-      "unassigned_cost": 9.0,
-      "use_distance_gate_hint": false,
-      "distance_gate_sigma_hint": 0.0
+      "unassigned_cost": 9.0
     },
     "tracking": {
       "enable_kalman_filter": true,

@@ -9,6 +9,7 @@
 #include <string>
 #include <cmath>
 
+#include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/coordinate/types.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/velocity_transform.h"
@@ -16,7 +17,7 @@
 #include "config_loader.h"
 
 namespace eos_config = electro_optical_sensor::config;
-namespace eos_env = electro_optical_sensor::environment;
+namespace eos_env = electro_optical_sensor::session;
 namespace eos_session = electro_optical_sensor::session;
 
 namespace {
@@ -33,7 +34,7 @@ eos_config::EosSessionConfig LoadConfigFromFile() {
 }
 
 eos_session::EosSession CreateFusedSearchSession() {
-  return eos_session::EosSessionFactory::Create(LoadConfigFromFile());
+  return eos_session::EosSession::Create(LoadConfigFromFile());
 }
 
 eos_session::EosExternalTargetInput MakeTargetLlaWithVelocity(
@@ -163,7 +164,7 @@ bool RunMovingTargetsScenario() {
 
     eos_session::EosCycleInput input;
     eos_session::EosCoordinateStatus status;
-    if (!eos_session::EosCycleInputBuilder::Build(platform, target_inputs, static_cast<float>(dt), environment,
+    if (!eos_session::EosCycleInputAdapter::Build(platform, target_inputs, static_cast<float>(dt), environment,
                                                   &input, &status)) {
       std::cerr << "eos-moving: cycle " << (i + 1)
                 << " build failed (status=" << static_cast<int>(status) << ")\n";
@@ -179,7 +180,7 @@ bool RunMovingTargetsScenario() {
     output_reference.origin_lla.longitude_deg = 121.0;
     output_reference.origin_lla.altitude_m = 0.0;
     eos_session::EosExternalOutputFrame external_output;
-    const bool external_output_ok = eos_session::EosCycleOutputBuilder::Build(
+    const bool external_output_ok = eos_session::EosCycleOutputAdapter::Build(
         output_reference, input.platform_pose, result.output_frame, &external_output);
 
     std::size_t ndetected = 0;
@@ -188,9 +189,9 @@ bool RunMovingTargetsScenario() {
       const auto& det = result.output_frame.detections[j];
       if (det.detected) {
         ++ndetected;
-        detected_ids += std::to_string(det.target_id) + " ";
+        detected_ids += std::to_string(det.detection_id) + " ";
       }
-      std::cout << "    [Target ID " << det.target_id << "] range=" << det.range_m
+      std::cout << "    [Detection ID " << det.detection_id << "] range=" << det.range_m
                 << "m, az=" << det.azimuth_deg << "deg, el=" << det.elevation_deg
                 << "deg, IR_SNR_lin=" << det.infrared_snr_linear
                 << ", Vis_SNR_lin=" << det.visible_snr_linear

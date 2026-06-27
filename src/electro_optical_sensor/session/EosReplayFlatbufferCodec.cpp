@@ -4,8 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
@@ -275,7 +275,7 @@ bool DecodeEosCycleResult(const std::string& bytes,
   out->has_validation_error = fb->has_validation_error();
   out->executed_this_cycle = fb->executed_this_cycle();
   out->reused_previous_output = fb->reused_previous_output();
-  out->abort_reason = static_cast<extension::EosPipelineAbortReason>(fb->abort_reason());
+  out->abort_reason = static_cast<session::EosPipelineAbortReason>(fb->abort_reason());
   out->validation_issues.clear();
   if (fb->validation_issues()) {
     for (const auto* i : *fb->validation_issues()) {
@@ -333,7 +333,7 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
 
   // environment
   const auto& sc = v.environment.scenario_config;
-  const auto model_cfg = environment::BuildModelConfigFromScenario(sc);
+  const auto model_cfg = config::BuildModelConfigFromScenario(sc);
   auto co = eos::replay::CreateEosEnvironmentCustomOverrides(
       fbb, static_cast<int32_t>(sc.custom_overrides.radiative_transfer_model),
       sc.custom_overrides.aerosol_density_factor, sc.custom_overrides.turbulence_factor);
@@ -403,13 +403,13 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
   if (fb->environment()) {
     const auto* e = fb->environment();
     auto& sc = out->environment.scenario_config;
-    sc.model_type = static_cast<environment::EosEnvironmentModelType>(e->model_type());
-    sc.preset = static_cast<environment::EosEnvironmentPreset>(e->preset());
+    sc.model_type = static_cast<config::EosEnvironmentModelType>(e->model_type());
+    sc.preset = static_cast<config::EosEnvironmentPreset>(e->preset());
     sc.has_custom_overrides = e->has_custom_overrides();
     if (e->custom_overrides()) {
       const auto* co = e->custom_overrides();
       sc.custom_overrides.radiative_transfer_model =
-          static_cast<foundation::radiative_transfer::RadiativeTransferModel>(
+          static_cast<config::RadiativeTransferModel>(
               co->radiative_transfer_model());
       sc.custom_overrides.aerosol_density_factor = co->aerosol_density_factor();
       sc.custom_overrides.turbulence_factor = co->turbulence_factor();
@@ -493,13 +493,13 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeCon
     const auto* e = fb->environment();
     out->environment.has_scenario_config = fb->has_scenario_config_in_environment();
     out->environment.scenario_config.model_type =
-        static_cast<environment::EosEnvironmentModelType>(e->model_type());
+        static_cast<config::EosEnvironmentModelType>(e->model_type());
     out->environment.scenario_config.preset =
-        static_cast<environment::EosEnvironmentPreset>(e->preset());
+        static_cast<config::EosEnvironmentPreset>(e->preset());
     out->environment.scenario_config.has_custom_overrides = e->has_custom_overrides();
     if (e->custom_overrides()) {
       out->environment.scenario_config.custom_overrides.radiative_transfer_model =
-          static_cast<foundation::radiative_transfer::RadiativeTransferModel>(
+          static_cast<config::RadiativeTransferModel>(
               e->custom_overrides()->radiative_transfer_model());
       out->environment.scenario_config.custom_overrides.aerosol_density_factor =
           e->custom_overrides()->aerosol_density_factor();

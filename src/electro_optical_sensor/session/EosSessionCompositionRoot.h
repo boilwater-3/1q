@@ -12,14 +12,14 @@
 #include "electro_optical_sensor/config/EosInternalExecutionConfig.h"
 
 namespace electro_optical_sensor {
+namespace extension {
+class EosController;
+}
 namespace signal {
 namespace pipeline {
 class EosPipeline;
 }  // namespace pipeline
 }  // namespace signal
-}  // namespace electro_optical_sensor
-
-namespace electro_optical_sensor {
 namespace session {
 
 /**
@@ -39,7 +39,7 @@ struct EosSessionComposition {
 
 /**
  * @brief EosSessionCompositionRoot 负责 EOS 会话依赖装配。
- * @note 管线已完全内部化，不再支持外部注入。
+ * @note 管线与环境服务已完全内部化，不再支持外部注入。
  */
 class EosSessionCompositionRoot {
  public:
@@ -49,16 +49,6 @@ class EosSessionCompositionRoot {
    * @return 完整的会话组合结果。
    */
   static EosSessionComposition ComposeDefault(const config::EosSessionConfig& config);
-
-  /**
-   * @brief 使用外部注入环境服务装配会话。
-    * @param[in] config 会话初始化配置。
-   * @param[in] environment_service 外部注入环境服务。
-   * @return 完整的会话组合结果。
-   */
-  static EosSessionComposition ComposeWithEnvironmentService(
-      const config::EosSessionConfig& config,
-      environment::IEosEnvironmentService& environment_service);
 };
 
 }  // namespace session

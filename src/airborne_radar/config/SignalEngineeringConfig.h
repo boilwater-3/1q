@@ -10,7 +10,7 @@
 
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarPolicyConfig.h"
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 
 namespace airborne_radar {
 namespace config {

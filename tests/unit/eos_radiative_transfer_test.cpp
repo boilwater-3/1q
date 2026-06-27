@@ -5,7 +5,7 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/electro_optical_sensor/foundation/EosRadiativeTransfer.h"
+#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace electro_optical_sensor {
 namespace foundation {
@@ -14,7 +14,7 @@ namespace {
 
 TEST(EosRadiativeTransferTest, TransmittanceDecreasesWithPathLength) {
   RadiativeTransferInputs short_path_inputs;
-  short_path_inputs.model = RadiativeTransferModel::kDerivedBeerLambert;
+  short_path_inputs.model = config::RadiativeTransferModel::kDerivedBeerLambert;
   short_path_inputs.base_transmittance = 0.82f;
   short_path_inputs.cloud_coverage_ratio = 0.2f;
   short_path_inputs.path_length_m = 1200.0f;
@@ -32,7 +32,7 @@ TEST(EosRadiativeTransferTest, TransmittanceDecreasesWithPathLength) {
 
 TEST(EosRadiativeTransferTest, AdaptiveModelHasHigherExtinctionThanBaseline) {
   RadiativeTransferInputs baseline_inputs;
-  baseline_inputs.model = RadiativeTransferModel::kDerivedBeerLambert;
+  baseline_inputs.model = config::RadiativeTransferModel::kDerivedBeerLambert;
   baseline_inputs.base_transmittance = 0.80f;
   baseline_inputs.cloud_coverage_ratio = 0.45f;
   baseline_inputs.path_length_m = 3000.0f;
@@ -40,7 +40,7 @@ TEST(EosRadiativeTransferTest, AdaptiveModelHasHigherExtinctionThanBaseline) {
   baseline_inputs.turbulence_factor = 1.4f;
 
   RadiativeTransferInputs adaptive_inputs = baseline_inputs;
-  adaptive_inputs.model = RadiativeTransferModel::kAdaptivePathRadiance;
+  adaptive_inputs.model = config::RadiativeTransferModel::kAdaptivePathRadiance;
 
   const RadiativeTransferResult baseline_result =
       EvaluateRadiativeTransfer(baseline_inputs);

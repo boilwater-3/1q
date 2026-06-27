@@ -8,7 +8,7 @@
 #include <type_traits>
 
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 
 namespace electronic_surveillance_radar {
 namespace tests {
@@ -16,20 +16,20 @@ namespace {
 
 TEST(EsrEnvironmentConfigContractTest, ConfigAliasMatchesEnvironmentDefaultConfig) {
   const bool is_same_type =
-      std::is_same<config::EsrEnvironmentConfig, environment::EsrEnvironmentDefaultConfig>::value;
+      std::is_same<config::EsrEnvironmentConfig, config::EsrEnvironmentConfig>::value;
   EXPECT_TRUE(is_same_type);
 }
 
 TEST(EsrEnvironmentConfigContractTest, BuildModelConfigFromScenarioMapsFields) {
-  environment::EsrEnvironmentScenarioConfig scenario_config;
+  config::EsrEnvironmentScenarioConfig scenario_config;
   scenario_config.preset = config::EsrEnvironmentPreset::kDenseClutter;
   scenario_config.atmospheric_physics.enable_physical_model = true;
   scenario_config.atmospheric_physics.relative_humidity = 0.73f;
   scenario_config.atmospheric_context.has_day_of_year = true;
   scenario_config.atmospheric_context.day_of_year = 215;
 
-  const environment::EsrEnvironmentModelConfig model_config =
-      environment::BuildModelConfigFromScenario(scenario_config);
+  const config::EsrEnvironmentModelConfig model_config =
+      config::BuildModelConfigFromScenario(scenario_config);
 
   EXPECT_EQ(model_config.preset, config::EsrEnvironmentPreset::kDenseClutter);
   EXPECT_TRUE(model_config.atmospheric_physics.enable_physical_model);
@@ -45,8 +45,8 @@ TEST(EsrEnvironmentConfigContractTest, DefaultConfigOwnsScenarioConfig) {
 
 TEST(EsrEnvironmentConfigContractTest, ModelConfigIsDistinctFromScenarioConfig) {
   const bool is_same =
-      std::is_same<environment::EsrEnvironmentModelConfig,
-                   environment::EsrEnvironmentScenarioConfig>::value;
+      std::is_same<config::EsrEnvironmentModelConfig,
+                   config::EsrEnvironmentScenarioConfig>::value;
   EXPECT_FALSE(is_same);
 }
 

@@ -6,7 +6,7 @@
 // 补齐 SAR 与 EOS/ESR/AR 对称的 public api convenience test 缺口。
 // SAR 没有语义化 SessionConfigBuilder（用直接字段赋值），故聚焦：
 //   - SarSessionConfig 字段可达与默认值
-//   - SarSessionFactory + StepWithResult 主路径
+//   - SarSession::Create + StepWithResult 主路径
 //   - SarCycleInput/Result 结构化执行结果字段
 //   - 三层输出（debug view / lifecycle recorder）类型可达
 
@@ -19,7 +19,6 @@
 #include "1q/sar/session/SarCycleResult.h"
 #include "1q/sar/session/SarProductDebugView.h"
 #include "1q/sar/session/SarProductLifecycleRecorder.h"
-#include "1q/sar/session/SarSessionFactory.h"
 #include "1q/sar/session/SarSession.h"
 
 namespace sar {
@@ -68,8 +67,8 @@ TEST(SarPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
   EXPECT_FALSE(config.policy.enable_l3_bp_imaging);
 }
 
-TEST(SarPublicApiConvenienceTest, SessionFactoryCreatesSessionFromConfig) {
-  session::SarSession session = session::SarSessionFactory::Create(MakeMinimalConfig());
+TEST(SarPublicApiConvenienceTest, SessionCreatesFromConfig) {
+  session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
   const session::SarCycleResult result = session.StepWithResult(MakeMinimalInput());
 
   // 结构化执行结果字段可达。
@@ -80,7 +79,7 @@ TEST(SarPublicApiConvenienceTest, SessionFactoryCreatesSessionFromConfig) {
 }
 
 TEST(SarPublicApiConvenienceTest, StepWithResultProducesL1RdaImageProduct) {
-  session::SarSession session = session::SarSessionFactory::Create(MakeMinimalConfig());
+  session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
   const session::SarCycleResult result = session.StepWithResult(MakeMinimalInput());
 
   EXPECT_TRUE(result.output_frame.has_raw_echo);
@@ -91,7 +90,7 @@ TEST(SarPublicApiConvenienceTest, StepWithResultProducesL1RdaImageProduct) {
 
 TEST(SarPublicApiConvenienceTest, ProductDebugViewAndLifecycleRecorderAreReachable) {
   // 三层输出类型在 public API 可达（阶段 9 三层模型）。
-  session::SarSession session = session::SarSessionFactory::Create(MakeMinimalConfig());
+  session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
   const session::SarCycleInput input = MakeMinimalInput();
   const session::SarCycleResult result = session.StepWithResult(input);
 
@@ -108,7 +107,7 @@ TEST(SarPublicApiConvenienceTest, ProductDebugViewAndLifecycleRecorderAreReachab
 
 TEST(SarPublicApiConvenienceTest, StepResultExposesStructuredExecutionState) {
   // 结构化执行结果字段可达：executed/reused/has_error/abort_reason/阶段。
-  session::SarSession session = session::SarSessionFactory::Create(MakeMinimalConfig());
+  session::SarSession session = session::SarSession::Create(MakeMinimalConfig());
   const session::SarCycleResult result = session.StepWithResult(MakeMinimalInput());
   (void)result.executed_this_cycle;
   (void)result.reused_previous_output;

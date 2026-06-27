@@ -7,7 +7,7 @@
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_SESSION_ESR_SESSION_CONFIG_RESOLVER_H_
 
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h"
+#include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 
 namespace electronic_surveillance_radar {

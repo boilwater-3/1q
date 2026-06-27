@@ -3,7 +3,7 @@
  * @brief 验证安装后 ESR 公共 API 路径可被外部工程编译链接。
  *
  * 覆盖要点：
- *   - EsrSessionConfigBuilder 构造会话配置
+ *   - EsrSessionConfigBuilder 语义 profile 构造会话配置
  *   - 直接字段赋值构造详细会话配置
  *   - EsrCycleInput + EsrSceneEmitter 构造场景输入
  *   - EsrInputValidation 输入校验
@@ -21,7 +21,6 @@
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 
 namespace esr = electronic_surveillance_radar;
 
@@ -30,12 +29,13 @@ int main() {
   esr::config::EsrSessionConfig config =
       esr::config::EsrSessionConfigBuilder()
           .Detection()
-          .WithMinDetectSnrDb(6.0f)
+          .WithSensitivityProfile(esr::config::EsrSensitivityProfile::kStandard)
           .End()
           .Mission()
-          .WithScanRateHz(1.0f)
+          .WithMissionProfile(esr::config::EsrMissionProfile::kElectronicOrderOfBattle)
           .End()
           .Build();
+  config.mission.scan.scan_rate_hz = 1.0f;
 
   // 2. 直接字段赋值构造详细会话配置
   esr::config::EsrSessionConfig detailed_config{};
@@ -49,7 +49,7 @@ int main() {
   detailed_config.environment.scenario_config.preset = esr::config::EsrEnvironmentPreset::kStandard;
 
   // 3. Session construction
-  auto session = esr::session::EsrSessionFactory::Create(config);
+  auto session = esr::session::EsrSession::Create(config);
 
   // 4. CycleInput with a valid emitter
   esr::session::EsrCycleInput input;

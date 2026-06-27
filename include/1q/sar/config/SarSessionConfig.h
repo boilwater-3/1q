@@ -22,6 +22,8 @@ struct ONEQ_API SarSessionConfig {
   SarHardwareConfig hardware{};
   SarMissionConfig mission{};
   SarPolicyConfig policy{};
+  /// 保留域：environment 当前不进入计算链路，仅用于 replay/config 保真。
+  /// 详见 SarEnvironmentConfig 的保留域说明。
   SarEnvironmentConfig environment{};
 };
 

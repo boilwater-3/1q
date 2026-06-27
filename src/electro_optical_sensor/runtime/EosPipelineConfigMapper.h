@@ -10,16 +10,16 @@
 #include "electro_optical_sensor/config/EosInternalExecutionConfig.h"
 
 namespace electro_optical_sensor {
-namespace environment {
+namespace config {
 
 /**
  * @brief 将场景配置映射为环境模型配置（单入口）。
  * @note 已从公开头文件移入 src/，仅限内部使用。
  */
-environment::EosEnvironmentModelConfig BuildModelConfigFromScenario(
-    const environment::EosEnvironmentScenarioConfig& scenario_config);
+EosEnvironmentModelConfig BuildModelConfigFromScenario(
+    const EosEnvironmentScenarioConfig& scenario_config);
 
-}  // namespace environment
+}  // namespace config
 }  // namespace electro_optical_sensor
 
 namespace electro_optical_sensor {
@@ -38,7 +38,7 @@ config::execution::EosInternalExecutionConfig MapSessionToInternal(
  * @brief 将环境模型配置写入内部环境配置。
  */
 void ApplyEnvironmentModelToInternal(
-    const environment::EosEnvironmentModelConfig& model_config,
+    const config::EosEnvironmentModelConfig& model_config,
     config::execution::EosInternalExecutionConfig* exec);
 
 }  // namespace session

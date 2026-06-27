@@ -12,12 +12,12 @@
 #include "common/numerics/Constants.h"
 #include "common/numerics/SpectralNumerics.h"
 #include "common/timing/TimingRegimeModel.h"
-#include "electronic_surveillance_radar/utils/EsrSharedUtils.h"
-#include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
-#include "electronic_surveillance_radar/intercept/BoundarySearchSolver.h"
-#include "electronic_surveillance_radar/intercept/InterceptGate.h"
-#include "electronic_surveillance_radar/intercept/JammingAggregator.h"
-#include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"
+#include "electronic_surveillance_radar/environment/EsrSharedUtils.h"
+#include "electronic_surveillance_radar/pipeline/AngleErrorModel.h"
+#include "electronic_surveillance_radar/pipeline/BoundarySearchSolver.h"
+#include "electronic_surveillance_radar/pipeline/InterceptGate.h"
+#include "electronic_surveillance_radar/pipeline/JammingAggregator.h"
+#include "electronic_surveillance_radar/pipeline/ScanPatternGenerator.h"
 #include "electronic_surveillance_radar/pipeline/InterceptComponentFactory.h"
 #include "common/validation/ValidationUtils.h"
 #include "common/numerics/NumericGuard.h"
@@ -307,14 +307,14 @@ std::size_t ResolveActiveBeamIndex(std::uint32_t cycle_index, float dt_sec,
  * @param[in] is_jammed 是否受干扰显著影响。
  * @return 观测质量等级。
  */
-model::EsrObservationQuality ClassifyObservationQuality(float snr_db, bool is_jammed) {
+session::EsrObservationQuality ClassifyObservationQuality(float snr_db, bool is_jammed) {
   if (!is_jammed && snr_db >= 18.0f) {
-    return model::EsrObservationQuality::kHigh;
+    return session::EsrObservationQuality::kHigh;
   }
   if (snr_db >= 10.0f) {
-    return model::EsrObservationQuality::kMedium;
+    return session::EsrObservationQuality::kMedium;
   }
-  return model::EsrObservationQuality::kLow;
+  return session::EsrObservationQuality::kLow;
 }
 
 /**
@@ -386,7 +386,7 @@ RawObservationRecord BuildDeceptionRecord(
         std::max(record.observation.pulse_width_s, 1.0e-9);
     record.observation.snr_db -= static_cast<double>(snr_loss_dist(*rng));
   }
-  record.observation.quality = model::EsrObservationQuality::kLow;
+  record.observation.quality = session::EsrObservationQuality::kLow;
   record.observation.is_jammed = false;
   record.truth_emitter_id = 0U;
   record.truth_pri_s = 0.0;

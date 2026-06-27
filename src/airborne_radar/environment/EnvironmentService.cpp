@@ -12,6 +12,17 @@
 namespace airborne_radar {
 namespace environment {
 
+// Using declarations for types migrated to config:: and session::
+using config::EnvironmentModelConfig;
+using config::JammerEmitterState;
+using config::JammingSensitivityProfile;
+using config::JammingTechnique;
+using session::EnvironmentCycleContext;
+using session::EnvironmentSceneState;
+using session::EnvironmentSnapshot;
+using session::JammerDirectionDeg;
+using session::JammerSourceFact;
+
 namespace {
 
 float WrapAzimuthDeg(float azimuth_deg) {
@@ -22,7 +33,10 @@ float WrapAzimuthDeg(float azimuth_deg) {
   return wrapped - 180.0f;
 }
 
-bool HasExternalDirection(const JammerEmitterState& source) { return source.has_direction_deg; }
+bool HasExternalDirection(const JammerEmitterState& source) {
+  return std::isfinite(source.position_x) && std::isfinite(source.position_y) &&
+         std::isfinite(source.position_z);
+}
 
 bool DeriveInSidelobeWithoutDirection(const JammerSourceFact& source) {
   float technique_bias = 0.40f;
@@ -128,10 +142,19 @@ JammerSourceFact NormalizeEmitterState(const JammerEmitterState& raw_source) {
       utils::ClampFloat(raw_source.angular_span_deg, 0.0f, std::numeric_limits<float>::max());
   normalized.confidence = utils::ClampFloat(raw_source.confidence, 0.0f, 1.0f);
   if (HasExternalDirection(raw_source)) {
+    const float dx = raw_source.position_x;
+    const float dy = raw_source.position_y;
+    const float dz = raw_source.position_z;
+    const float ground_range = std::sqrt(dx * dx + dy * dy);
+    const float azimuth_rad = std::atan2(dx, dy);
+    const float azimuth_deg = azimuth_rad * 180.0f / 3.14159265358979f;
+    const float elevation_rad =
+        (ground_range > 1e-6f) ? std::atan2(dz, ground_range) : 0.0f;
+    const float elevation_deg = elevation_rad * 180.0f / 3.14159265358979f;
     normalized.has_direction_deg = true;
-    normalized.direction_deg.azimuth_deg = WrapAzimuthDeg(raw_source.azimuth_deg);
+    normalized.direction_deg.azimuth_deg = WrapAzimuthDeg(azimuth_deg);
     normalized.direction_deg.elevation_deg =
-        utils::ClampFloat(raw_source.elevation_deg, -20.0f, 80.0f);
+        utils::ClampFloat(elevation_deg, -90.0f, 90.0f);
   } else {
     normalized.has_direction_deg = false;
   }

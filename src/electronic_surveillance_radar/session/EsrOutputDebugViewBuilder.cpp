@@ -7,9 +7,9 @@ namespace session {
 
 namespace {
 
-const extension::TruthAssociationRecord* FindAssociation(
-    std::uint64_t emitter_id, const extension::TruthEvaluationFrame& frame) {
-  for (const extension::TruthAssociationRecord& association : frame.associations) {
+const session::TruthAssociationRecord* FindAssociation(
+    std::uint64_t emitter_id, const session::TruthEvaluationFrame& frame) {
+  for (const session::TruthAssociationRecord& association : frame.associations) {
     if (association.matched && association.truth_emitter_id == emitter_id) {
       return &association;
     }
@@ -30,7 +30,7 @@ EsrDebugEmitterState BuildEmitterState(const EsrSceneEmitter& emitter, const Esr
     state.status = EsrDebugEmitterStatus::kNotEmitting;
     return state;
   }
-  const extension::TruthAssociationRecord* association =
+  const session::TruthAssociationRecord* association =
       FindAssociation(emitter.emitter_id, result.output_frame.truth_evaluation_output);
   if (association == nullptr) {
     state.status = EsrDebugEmitterStatus::kNotObserved;

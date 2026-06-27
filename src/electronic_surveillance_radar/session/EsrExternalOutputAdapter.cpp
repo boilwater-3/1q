@@ -50,7 +50,7 @@ bool TryBearingToEcefUnit(double az_deg, double el_deg, const oneq::coordinate::
 
 }  // namespace
 
-bool TryMakeExternalObservationFromRecord(const model::EmitterObservation& observation,
+bool TryMakeExternalObservationFromRecord(const session::EmitterObservation& observation,
                                           const oneq::coordinate::LocalFrameReference& reference,
                                           const oneq::foundation::PoseState& platform_pose,
                                           EsrExternalObservation* output) {
@@ -77,7 +77,7 @@ bool TryMakeExternalObservationFromRecord(const model::EmitterObservation& obser
   return true;
 }
 
-bool TryMakeExternalHypothesisFromRecord(const model::EmitterHypothesis& hypothesis,
+bool TryMakeExternalHypothesisFromRecord(const session::EmitterHypothesis& hypothesis,
                                          const oneq::coordinate::LocalFrameReference& reference,
                                          const oneq::foundation::PoseState& platform_pose,
                                          EsrExternalEmitterHypothesis* output) {

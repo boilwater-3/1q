@@ -20,23 +20,21 @@
 #include <vector>
 
 #include "1q/coordinate/position_transform.h"
-#include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
-#include "1q/electronic_surveillance_radar/model/EmitterHypothesis.h"
-#include "1q/electronic_surveillance_radar/model/EmitterObservation.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleOutputBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
+#include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
+#include "1q/electronic_surveillance_radar/session/EmitterObservation.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleOutputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalOutputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrOutputDebugView.h"
 #include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 
 namespace {
 
-namespace esr_ext = ::electronic_surveillance_radar::extension;
-namespace esr_model = ::electronic_surveillance_radar::model;
+namespace esr_ext = ::electronic_surveillance_radar::session;
 namespace esr_session = ::electronic_surveillance_radar::session;
 namespace esr_config = ::electronic_surveillance_radar::config;
 
@@ -44,7 +42,7 @@ namespace esr_config = ::electronic_surveillance_radar::config;
 // EmitterObservation 与 TruthAssociationRecord 当前全部成员为 trivially-copyable
 // 标量；若有人加入 std::string emitter_name 等真值字段，trivially-copyable
 // 性质被破坏，此处编译失败，强制开发者审视是否破坏了真实输出边界。
-static_assert(std::is_trivially_copyable<esr_model::EmitterObservation>::value,
+static_assert(std::is_trivially_copyable<esr_session::EmitterObservation>::value,
               "EmitterObservation must remain a receiver-side record of scalar fields; "
               "emitter identity/name is not allowed.");
 static_assert(std::is_trivially_copyable<esr_ext::TruthAssociationRecord>::value,
@@ -109,15 +107,8 @@ void AdvanceEmitters(double dt_sec, std::vector<esr_session::EsrExternalEmitterI
 }
 
 esr_config::EsrSessionConfig MakeConfig() {
-  esr_config::EsrSessionConfig config =
-      esr_config::EsrSessionConfigBuilder()
-          .Detection()
-          .WithMinDetectSnrDb(3.0f)
-          .End()
-          .Environment()
-          .WithEnvironmentPreset(esr_config::EsrEnvironmentPreset::kStandard)
-          .End()
-          .Build();
+  esr_config::EsrSessionConfig config;
+  config.environment.scenario_config.preset = esr_config::EsrEnvironmentPreset::kStandard;
   config.policy.detection.minimum_snr_db = -20.0f;
   config.policy.detection.enable_statistical_detection = false;
   config.mission.scan.use_explicit_scan_bounds = true;
@@ -138,13 +129,13 @@ esr_config::EsrSessionConfig MakeConfig() {
 TEST(EsrOutputBoundaryContractTest, NamedInputDoesNotLeakIntoRawOutputChannels) {
   const esr_session::EsrExternalPoseInput platform = MakePlatformInput();
   std::vector<esr_session::EsrExternalEmitterInput> emitters = MakeNamedEmitters();
-  esr_session::EsrSession session = esr_session::EsrSessionFactory::Create(MakeConfig());
+  esr_session::EsrSession session = esr_session::EsrSession::Create(MakeConfig());
 
   const float dt_sec = 1.0f;
   bool observed_named_cycle = false;
   for (std::uint32_t cycle = 0U; cycle < 30U; ++cycle) {
     esr_session::EsrCycleInput input;
-    ASSERT_TRUE(esr_session::EsrCycleInputBuilder::Build(platform, emitters, dt_sec, &input))
+    ASSERT_TRUE(esr_session::EsrCycleInputAdapter::Build(platform, emitters, dt_sec, &input))
         << "cycle=" << cycle;
     // 输入侧每个周期都带 name，作为回归前提。
     ASSERT_GE(input.scene.size(), 1U);
@@ -171,7 +162,7 @@ TEST(EsrOutputBoundaryContractTest, NamedInputDoesNotLeakIntoRawOutputChannels) 
     // 外部可消费输出经 output adapter 转换，每条记录也不得携带 name。
     esr_session::EsrExternalOutputFrame external_frame;
     ASSERT_TRUE(
-        esr_session::EsrCycleOutputBuilder::Build(platform, result.output_frame, &external_frame))
+        esr_session::EsrCycleOutputAdapter::Build(platform, result.output_frame, &external_frame))
         << "cycle=" << cycle;
     for (const esr_session::EsrExternalObservation& observation : external_frame.observations) {
       // EsrExternalObservation 无 emitter_name 字段；保持接收机传感器语义。
@@ -192,10 +183,10 @@ TEST(EsrOutputBoundaryContractTest, NamedInputDoesNotLeakIntoRawOutputChannels) 
 TEST(EsrOutputBoundaryContractTest, EmitterNameOnlyReachableViaDebugView) {
   const esr_session::EsrExternalPoseInput platform = MakePlatformInput();
   std::vector<esr_session::EsrExternalEmitterInput> emitters = MakeNamedEmitters();
-  esr_session::EsrSession session = esr_session::EsrSessionFactory::Create(MakeConfig());
+  esr_session::EsrSession session = esr_session::EsrSession::Create(MakeConfig());
 
   esr_session::EsrCycleInput input;
-  ASSERT_TRUE(esr_session::EsrCycleInputBuilder::Build(platform, emitters, 1.0f, &input));
+  ASSERT_TRUE(esr_session::EsrCycleInputAdapter::Build(platform, emitters, 1.0f, &input));
   input.cycle_index = 6U;
   ASSERT_EQ(input.scene.size(), emitters.size());
 

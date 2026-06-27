@@ -27,7 +27,7 @@ class MutableEsrContext final : public extension::IEsrContext {
    * @param runtime_config 运行态配置。
    */
   void BeginCycle(const session::EsrCycleInput& input,
-                  const environment::EsrEnvironmentSnapshot& environment_snapshot,
+                  const session::EsrEnvironmentSnapshot& environment_snapshot,
                   const extension::InterceptPipelineConfig& pipeline_config,
                   const extension::InterceptRuntimeConfig& runtime_config);
 
@@ -35,7 +35,7 @@ class MutableEsrContext final : public extension::IEsrContext {
   float GetCycleDeltaTimeSec() const override;
   const oneq::foundation::PoseState& GetPlatformPose() const override;
   const session::EsrSceneEmitterList& GetSceneEmitters() const override;
-  const environment::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const override;
+  const session::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const override;
   const extension::InterceptPipelineConfig& GetPipelineConfig() const override;
   const extension::InterceptRuntimeConfig& GetRuntimeConfig() const override;
 
@@ -44,7 +44,7 @@ class MutableEsrContext final : public extension::IEsrContext {
   float dt_sec_{1.0f};
   oneq::foundation::PoseState platform_pose_{};
   session::EsrSceneEmitterList scene_emitters_{};
-  environment::EsrEnvironmentSnapshot environment_snapshot_{};
+  session::EsrEnvironmentSnapshot environment_snapshot_{};
   extension::InterceptPipelineConfig pipeline_config_{};
   extension::InterceptRuntimeConfig runtime_config_{};
 };

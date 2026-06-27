@@ -12,9 +12,9 @@
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/environment/EnvironmentConfig.h"
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/replay/ReplayTrace.h"
@@ -42,6 +42,9 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   input.platform_pose.attitude_deg.yaw_deg = 45.0f;
   input.platform_pose.attitude_deg.pitch_deg = -5.0f;
   input.platform_pose.attitude_deg.roll_deg = 2.0f;
+  input.has_environment = true;
+  input.environment.atmospheric_observation.enable_physical_model = true;
+  input.environment.atmospheric_observation.temperature_k = 300.0f;
 
   RadarSceneTarget target;
   target.external_target_id = 42U;
@@ -69,6 +72,9 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.platform_pose.position_m.x, 100.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.velocity_mps.y, 20.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.attitude_deg.yaw_deg, 45.0f);
+  EXPECT_TRUE(decoded.has_environment);
+  EXPECT_TRUE(decoded.environment.atmospheric_observation.enable_physical_model);
+  EXPECT_FLOAT_EQ(decoded.environment.atmospheric_observation.temperature_k, 300.0f);
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].external_target_id, 42U);
   EXPECT_FLOAT_EQ(decoded.scene[0].rcs, 3.0f);
@@ -104,10 +110,10 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
   frame.cycle_index = 77U;
   frame.batch_id = 5U;
 
-  model::TrackStateSnapshot snap;
+  session::TrackStateSnapshot snap;
   snap.association_key = 999U;
   snap.external_target_id = 42U;
-  snap.status = model::TrackStatus::kConfirmed;
+  snap.status = session::TrackStatus::kConfirmed;
   snap.position_x = 100.0f;
   snap.position_y = 200.0f;
   snap.position_z = 50.0f;
@@ -124,9 +130,9 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
   snap.hit_count = 5U;
   snap.miss_count = 1U;
   frame.tracks.push_back(snap);
-  model::TrackStateSnapshot lost = snap;
+  session::TrackStateSnapshot lost = snap;
   lost.association_key = 1001U;
-  lost.status = model::TrackStatus::kLost;
+  lost.status = session::TrackStatus::kLost;
   frame.tracks.push_back(lost);
 
   const std::string bytes = EncodeTrackOutputFrameFlatbuffer(frame);
@@ -139,14 +145,14 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
   EXPECT_EQ(decoded.cycle_index, 77U);
   EXPECT_EQ(decoded.batch_id, 5U);
   EXPECT_EQ(decoded.tracks.size(), 2U);
-  EXPECT_EQ(session::CountTracksByStatus(decoded, model::TrackStatus::kConfirmed), 1U);
-  EXPECT_TRUE(session::CountTracksByStatus(decoded, model::TrackStatus::kLost) > 0U);
+  EXPECT_EQ(session::CountTracksByStatus(decoded, session::TrackStatus::kConfirmed), 1U);
+  EXPECT_TRUE(session::CountTracksByStatus(decoded, session::TrackStatus::kLost) > 0U);
   ASSERT_EQ(decoded.tracks.size(), 2U);
 
-  const model::TrackStateSnapshot& ds = decoded.tracks[0];
+  const session::TrackStateSnapshot& ds = decoded.tracks[0];
   EXPECT_EQ(ds.association_key, 999U);
   EXPECT_EQ(ds.external_target_id, 42U);
-  EXPECT_EQ(ds.status, model::TrackStatus::kConfirmed);
+  EXPECT_EQ(ds.status, session::TrackStatus::kConfirmed);
   EXPECT_FLOAT_EQ(ds.position_x, 100.0f);
   EXPECT_FLOAT_EQ(ds.position_y, 200.0f);
   EXPECT_FLOAT_EQ(ds.position_z, 50.0f);
@@ -167,11 +173,11 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.track_output_frame.cycle_index = 5U;
   result.track_output_frame.batch_id = 3U;
 
-  model::TrackStateSnapshot snap;
+  session::TrackStateSnapshot snap;
   snap.association_key = 1U;
   snap.position_x = 50.0f;
   snap.rcs = 1.5f;
-  snap.status = model::TrackStatus::kTentative;
+  snap.status = session::TrackStatus::kTentative;
   snap.acceleration_x = 0.4f;
   snap.acceleration_y = 0.5f;
   snap.acceleration_z = 0.6f;
@@ -181,8 +187,8 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.track_output_frame.tracks.push_back(snap);
 
   result.submitted_commands.push_back(
-      extension::control::RadarCommand(extension::control::RadarCommandType::SET_AGILITY_FREQ,
-                                       extension::control::RadarCommandSource::ECCM));
+      session::RadarCommand(session::RadarCommandType::SET_AGILITY_FREQ,
+                                       session::RadarCommandSource::ECCM));
   ValidationIssue issue;
   issue.severity = ValidationSeverity::kError;
   issue.code = ValidationCode::kInvalidCycleDeltaTime;
@@ -192,7 +198,7 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.validation_issues.push_back(issue);
   result.has_validation_error = true;
   result.executed_this_cycle = true;
-  result.abort_reason = extension::SignalCycleAbortReason::kRuntimePreparationFailed;
+  result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
   result.reused_previous_output = true;
   result.has_control_profile = true;
   result.control_profile.version = 7U;
@@ -217,7 +223,7 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.association_quality_metrics.mean_match_cost = 1.1f;
   result.association_quality_metrics.p95_match_cost = 2.2f;
   result.association_quality_metrics.dominant_jamming_semantic =
-      model::JammingSemantic::kNoiseSuppression;
+      config::JammingSemantic::kNoiseSuppression;
   result.association_quality_metrics.jamming_severity = 0.6f;
   result.association_quality_metrics.association_stress = 0.7f;
 
@@ -235,12 +241,12 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_TRUE(decoded.executed_this_cycle);
   EXPECT_TRUE(decoded.has_validation_error);
   EXPECT_EQ(decoded.abort_reason,
-            extension::SignalCycleAbortReason::kRuntimePreparationFailed);
+            session::SignalCycleAbortReason::kRuntimePreparationFailed);
   EXPECT_TRUE(decoded.reused_previous_output);
   ASSERT_EQ(decoded.submitted_commands.size(), 1U);
   EXPECT_EQ(decoded.submitted_commands[0].type,
-            extension::control::RadarCommandType::SET_AGILITY_FREQ);
-  EXPECT_EQ(decoded.submitted_commands[0].source, extension::control::RadarCommandSource::ECCM);
+            session::RadarCommandType::SET_AGILITY_FREQ);
+  EXPECT_EQ(decoded.submitted_commands[0].source, session::RadarCommandSource::ECCM);
   ASSERT_EQ(decoded.validation_issues.size(), 1U);
   EXPECT_EQ(decoded.validation_issues[0].severity, ValidationSeverity::kError);
   EXPECT_EQ(decoded.validation_issues[0].code, ValidationCode::kInvalidCycleDeltaTime);
@@ -270,7 +276,7 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.mean_match_cost, 1.1f);
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.p95_match_cost, 2.2f);
   EXPECT_EQ(decoded.association_quality_metrics.dominant_jamming_semantic,
-            model::JammingSemantic::kNoiseSuppression);
+            config::JammingSemantic::kNoiseSuppression);
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.jamming_severity, 0.6f);
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.association_stress, 0.7f);
   ASSERT_EQ(decoded.track_output_frame.tracks.size(), 1U);
@@ -291,9 +297,9 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
 TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config::RadarSessionConfig config;
   // hardware
-  config.hardware.detection.transmitter.peak_power_w = 50000.0f;
-  config.hardware.detection.transmitter.frequency_hz = 9.5e9f;
-  config.hardware.detection.min_detection_margin_db = -20.0f;
+  config.hardware.transmitter.peak_power_w = 50000.0f;
+  config.hardware.transmitter.frequency_hz = 9.5e9f;
+  config.hardware.min_detection_margin_db = -20.0f;
   // mission
   config.mission.orientation.scan_center_deg.az_deg = 15.0f;
   config.mission.orientation.scan_center_deg.el_deg = -2.0f;
@@ -303,7 +309,7 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.tracking.enable_kalman_filter = true;
   config.policy.tracking.kalman_measurement_noise_std = 5.5f;
   // jamming_sensitivity_profile
-  config.environment.jamming_sensitivity_profile = environment::JammingSensitivityProfile::kStrict;
+  config.environment.jamming_sensitivity_profile = config::JammingSensitivityProfile::kStrict;
   // environment (previously missing from codec!)
   config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
   config.environment.scenario_config.atmospheric_physics.pressure_hpa = 1010.0f;
@@ -313,14 +319,14 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.environment.scenario_config.atmospheric_context.simulation_unix_seconds = 1700000000LL;
   config.environment.scenario_config.vegetation_scatter_physics.enable_physical_model = true;
   config.environment.scenario_config.vegetation_scatter_physics.cover_profile =
-      environment::VegetationCoverProfile::kSparseWoodland;
-  environment::JammerEmitterState jammer;
-  jammer.technique = environment::JammingTechnique::kNoiseSuppression;
+      config::VegetationCoverProfile::kSparseWoodland;
+  config::JammerEmitterState jammer;
+  jammer.technique = config::JammingTechnique::kNoiseSuppression;
   jammer.power_db = 25.0f;
   jammer.js_db = 8.0f;
-  jammer.has_direction_deg = true;
-  jammer.azimuth_deg = 30.0f;
-  jammer.elevation_deg = 5.0f;
+  jammer.position_x = 5000.0f;     // range 10000m * sin(30 deg)
+  jammer.position_y = 8660.25f;    // range 10000m * cos(30 deg)
+  jammer.position_z = 874.887f;    // range 10000m * tan(5 deg)
   config.environment.scenario_config.jammer_sources.push_back(jammer);
 
   const std::string bytes = EncodeSessionConfigFlatbuffer(config);
@@ -331,9 +337,9 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   ASSERT_TRUE(DecodeSessionConfigFlatbuffer(bytes, &decoded, &error)) << error;
 
   // hardware
-  EXPECT_FLOAT_EQ(decoded.hardware.detection.transmitter.peak_power_w, 50000.0f);
-  EXPECT_FLOAT_EQ(decoded.hardware.detection.transmitter.frequency_hz, 9.5e9f);
-  EXPECT_FLOAT_EQ(decoded.hardware.detection.min_detection_margin_db, -20.0f);
+  EXPECT_FLOAT_EQ(decoded.hardware.transmitter.peak_power_w, 50000.0f);
+  EXPECT_FLOAT_EQ(decoded.hardware.transmitter.frequency_hz, 9.5e9f);
+  EXPECT_FLOAT_EQ(decoded.hardware.min_detection_margin_db, -20.0f);
   // mission
   EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.az_deg, 15.0f);
   EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.el_deg, -2.0f);
@@ -343,7 +349,7 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_TRUE(decoded.policy.tracking.enable_kalman_filter);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.kalman_measurement_noise_std, 5.5f);
   // jamming_sensitivity_profile
-  EXPECT_EQ(decoded.environment.jamming_sensitivity_profile, environment::JammingSensitivityProfile::kStrict);
+  EXPECT_EQ(decoded.environment.jamming_sensitivity_profile, config::JammingSensitivityProfile::kStrict);
   // environment (previously broken!)
   EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.pressure_hpa, 1010.0f);
@@ -354,13 +360,14 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
             1700000000LL);
   EXPECT_TRUE(decoded.environment.scenario_config.vegetation_scatter_physics.enable_physical_model);
   EXPECT_EQ(decoded.environment.scenario_config.vegetation_scatter_physics.cover_profile,
-            environment::VegetationCoverProfile::kSparseWoodland);
+            config::VegetationCoverProfile::kSparseWoodland);
   ASSERT_EQ(decoded.environment.scenario_config.jammer_sources.size(), 1U);
   EXPECT_EQ(decoded.environment.scenario_config.jammer_sources[0].technique,
-            environment::JammingTechnique::kNoiseSuppression);
+            config::JammingTechnique::kNoiseSuppression);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].power_db, 25.0f);
-  EXPECT_TRUE(decoded.environment.scenario_config.jammer_sources[0].has_direction_deg);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].azimuth_deg, 30.0f);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].position_x, 5000.0f);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].position_y, 8660.25f);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].position_z, 874.887f);
 }
 
 // ---------------------------------------------------------------------------
@@ -384,7 +391,7 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.has_environment = true;
   patch.environment.has_jamming_sensitivity_profile = true;
   patch.environment.jamming_sensitivity_profile =
-      environment::JammingSensitivityProfile::kStrict;
+      config::JammingSensitivityProfile::kStrict;
   patch.environment.has_scenario_config = true;
   patch.environment.scenario_config.atmospheric_physics.relative_humidity = 0.45f;
 
@@ -409,7 +416,7 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_TRUE(decoded.has_environment);
   EXPECT_TRUE(decoded.environment.has_jamming_sensitivity_profile);
   EXPECT_EQ(decoded.environment.jamming_sensitivity_profile,
-            environment::JammingSensitivityProfile::kStrict);
+            config::JammingSensitivityProfile::kStrict);
   EXPECT_TRUE(decoded.environment.has_scenario_config);
   EXPECT_FLOAT_EQ(
       decoded.environment.scenario_config.atmospheric_physics.relative_humidity,

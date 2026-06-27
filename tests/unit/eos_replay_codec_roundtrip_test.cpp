@@ -12,8 +12,8 @@
 
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
-#include "1q/electro_optical_sensor/environment/EosEnvironmentConfig.h"
-#include "1q/electro_optical_sensor/extension/EosPipelineTypes.h"
+#include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
@@ -169,7 +169,7 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.has_validation_error = true;
   result.executed_this_cycle = true;
   result.reused_previous_output = false;
-  result.abort_reason = extension::EosPipelineAbortReason::kValidationRejected;
+  result.abort_reason = session::EosPipelineAbortReason::kValidationRejected;
 
   const std::string bytes = EncodeEosCycleResult(result);
   ASSERT_FALSE(bytes.empty());
@@ -190,7 +190,7 @@ TEST(EosReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_TRUE(decoded.has_validation_error);
   EXPECT_TRUE(decoded.executed_this_cycle);
   EXPECT_FALSE(decoded.reused_previous_output);
-  EXPECT_EQ(decoded.abort_reason, extension::EosPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(decoded.abort_reason, session::EosPipelineAbortReason::kValidationRejected);
 }
 
 // ---------------------------------------------------------------------------
@@ -225,11 +225,11 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.stray_light.hood_min_suppression_ratio = 0.25f;
   config.policy.stray_light.hood_max_suppression_ratio = 0.90f;
   // environment
-  config.environment.scenario_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
-  config.environment.scenario_config.preset = environment::EosEnvironmentPreset::kDusty;
+  config.environment.scenario_config.model_type = config::EosEnvironmentModelType::kAdvanced;
+  config.environment.scenario_config.preset = config::EosEnvironmentPreset::kDusty;
   config.environment.scenario_config.has_custom_overrides = true;
   config.environment.scenario_config.custom_overrides.radiative_transfer_model =
-      foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance;
+      config::RadiativeTransferModel::kAdaptivePathRadiance;
   config.environment.scenario_config.custom_overrides.aerosol_density_factor = 1.5f;
   config.environment.scenario_config.custom_overrides.turbulence_factor = 2.0f;
   config.environment.scenario_config.has_atmospheric_observation = true;
@@ -262,11 +262,11 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.policy.stray_light.hood_inner_half_angle_deg, 10.0f);
   // environment
   EXPECT_EQ(decoded.environment.scenario_config.model_type,
-            environment::EosEnvironmentModelType::kAdvanced);
-  EXPECT_EQ(decoded.environment.scenario_config.preset, environment::EosEnvironmentPreset::kDusty);
+            config::EosEnvironmentModelType::kAdvanced);
+  EXPECT_EQ(decoded.environment.scenario_config.preset, config::EosEnvironmentPreset::kDusty);
   EXPECT_TRUE(decoded.environment.scenario_config.has_custom_overrides);
   EXPECT_EQ(decoded.environment.scenario_config.custom_overrides.radiative_transfer_model,
-            foundation::radiative_transfer::RadiativeTransferModel::kAdaptivePathRadiance);
+            config::RadiativeTransferModel::kAdaptivePathRadiance);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.custom_overrides.aerosol_density_factor,
                   1.5f);
   EXPECT_TRUE(decoded.environment.scenario_config.has_atmospheric_observation);
@@ -293,7 +293,7 @@ TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.policy.stray_light.enable_straylight_filter = true;
   patch.has_environment = true;
   patch.environment.has_scenario_config = true;
-  patch.environment.scenario_config.model_type = environment::EosEnvironmentModelType::kAdvanced;
+  patch.environment.scenario_config.model_type = config::EosEnvironmentModelType::kAdvanced;
   patch.has_work_mode = true;
   patch.work_mode = config::EosWorkMode::kVisibleOnly;
   patch.has_scan_rate_deg_per_sec = true;

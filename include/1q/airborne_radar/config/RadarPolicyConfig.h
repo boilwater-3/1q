@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -21,8 +21,14 @@ namespace beam {
  * @brief 波束指向基线配置。
  */
 struct ONEQ_API BeamPointingConfig {
-  model::AzimuthElevationDeg default_scan_center_deg{}; /**< 默认扫描中心。 */
-  model::CommandedBeamwidthDeg nominal_beamwidth_deg{}; /**< 名义指令态波束宽度。 */
+  /**
+   * @brief 兼容保留字段：历史默认扫描中心。
+   *
+   * @note 当前真实扫描中心唯一来源是 RadarMissionConfig::orientation.scan_center_deg。
+   *       本字段不进入扫描调度计算链路，保留仅用于旧配置/replay 结构兼容。
+   */
+  config::AzimuthElevationDeg default_scan_center_deg{};
+  config::CommandedBeamwidthDeg nominal_beamwidth_deg{}; /**< 名义指令态波束宽度。 */
 };
 
 /**
@@ -87,8 +93,18 @@ struct ONEQ_API TrackingConfig {
  */
 struct ONEQ_API AssociationConfig {
   float unassigned_cost{9.0f}; /**< 未分配量测代价。 */
-  bool use_distance_gate_hint{false}; /**< 是否启用距离门限 sigma 提示。为 false 时库内自适应计算门限。 */
-  float distance_gate_sigma_hint{0.0f}; /**< 距离门限 sigma 提示值（单位：m）。仅当 use_distance_gate_hint=true 时生效。 */
+  /**
+   * @brief 兼容保留字段：历史距离门限提示开关。
+   *
+   * @note 当前关联门限由库内关联器自适应管理，本字段不进入计算链路。
+   */
+  bool use_distance_gate_hint{false};
+  /**
+   * @brief 兼容保留字段：历史距离门限 sigma 提示。
+   *
+   * @note 当前关联门限由库内关联器自适应管理，本字段不进入计算链路。
+   */
+  float distance_gate_sigma_hint{0.0f};
 };
 
 }  // namespace tracking

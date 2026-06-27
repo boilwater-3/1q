@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/coordinate/types.h"
 #include "config_loader.h"
@@ -11,8 +12,8 @@
 namespace ar = airborne_radar;
 namespace ar_session = airborne_radar::session;
 namespace ar_config = airborne_radar::config;
-namespace ar_env = airborne_radar::environment;
-namespace ar_model = airborne_radar::model;
+namespace ar_env = airborne_radar::config;
+namespace ar_model = airborne_radar::session;
 
 namespace {
 
@@ -95,7 +96,7 @@ SceneState InitScene() {
   }
 
   SceneState s;
-  s.session = ar_session::RadarSessionFactory::Create(config);
+  s.session = ar_session::RadarSession::Create(config);
   s.env_state = ar_session::RadarEnvironmentInputState(MakeEnvironment());
 
   s.platform_pos.x_m = -2289512.0;
@@ -145,7 +146,7 @@ ar_session::RadarCycleResult Step(SceneState& s, float dt) {
   }
 
   ar_session::RadarCycleInput input;
-  if (!ar_session::RadarCycleInputBuilder::Build(
+  if (!ar_session::RadarCycleInputAdapter::Build(
           platform, target_inputs, dt, s.env_state.Snapshot(), &input)) {
     std::cerr << "AR scene: cycle " << s.cycle << " build failed\n";
     std::exit(1);
@@ -159,10 +160,10 @@ ar_session::RadarCycleResult Step(SceneState& s, float dt) {
             << " tracks=" << result.track_output_frame.tracks.size()
             << " confirmed="
             << ar_session::CountTracksByStatus(result.track_output_frame,
-                                               ar_model::TrackStatus::kConfirmed)
+                                               ar_session::TrackStatus::kConfirmed)
             << " tentative="
             << ar_session::CountTracksByStatus(result.track_output_frame,
-                                               ar_model::TrackStatus::kTentative)
+                                               ar_session::TrackStatus::kTentative)
             << " commands=" << result.submitted_commands.size()
             << " validation_errors=" << (result.has_validation_error ? "true" : "false")
             << "\n";

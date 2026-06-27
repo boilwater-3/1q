@@ -322,6 +322,8 @@ set(_sar_unit_filter
     "SarMotionCompensationTest.*:"
     "SarRdaTest.*:"
     "SarSessionPipelineTest.*:"
+    "SarCycleInputAdapterBridgeTest.*:"
+    "SarRawHistoryExternalIqPredicateTest.*:"
     "SarReplayCodecRoundtripTest.*:"
     "SarReplaySessionTest.*"
 )
@@ -471,6 +473,39 @@ add_test(
             -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_public_header_cxx11.cmake
 )
 
+# install 清单守护：确保各 src/*/CMakeLists.txt 的 install(FILES) 清单
+# 与 include/1q/ 磁盘头文件一致(无幽灵头、无漏 install)。与
+# check_public_api_boundary.cmake 互补:前者管 whitelist↔磁盘,本守护管 install↔磁盘。
+add_test(
+    NAME install_manifest_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_install_manifest.cmake
+)
+
+# 守护规范性文档不残留已收口的旧入口术语(SessionFactory / extension:: SPI 等)。
+# 本守护只扫描 docs/common 与五个模块目录下的规范性文档。
+add_test(
+    NAME doc_legacy_term_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_doc_legacy_term_guard.cmake
+)
+
+add_test(
+    NAME sar_doc_governance_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_sar_doc_governance.cmake
+)
+
+add_test(
+    NAME docs_structure_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_docs_structure.cmake
+)
+
 set_tests_properties(
     public_api_boundary_guard
     airborne_include_style_guard
@@ -482,8 +517,14 @@ set_tests_properties(
     public_header_external_dependency_isolation_guard
     cross_domain_naming_guard
     public_header_cxx11_guard
+    install_manifest_guard
+    doc_legacy_term_guard
+    sar_doc_governance_guard
+    docs_structure_guard
     PROPERTIES LABELS "contract"
 )
+
+set_tests_properties(sar_doc_governance_guard PROPERTIES LABELS "contract;sar_contract;sar_ci")
 
 # Scene programs — standalone executables that exercise full module pipelines
 file(GLOB SCENE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/scene/*.cpp")

@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstdint>
 
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "common/logging/ProjectLog.h"
 #include "common/validation/ValidationUtils.h"
 
@@ -67,7 +67,80 @@ void ApplyWorkModeAdjustment(config::EsrWorkMode mode,
   }
 }
 
-void ApplyEnvironmentRuntimePatch(const environment::EsrEnvironmentRuntimeConfigPatch& env_patch,
+void ApplyScanPolicy(const config::EsrHardwareConfig& hardware,
+                     const config::EsrScanPolicyConfig& scan_policy,
+                     extension::InterceptScanConfig* scan_config) {
+  if (scan_config == nullptr) {
+    return;
+  }
+
+  const float mount_az = oneq::internal::validation::IsFinite(hardware.antenna_mount_az_deg)
+                             ? hardware.antenna_mount_az_deg
+                             : 0.0f;
+  const float mount_el = oneq::internal::validation::IsFinite(hardware.antenna_mount_el_deg)
+                             ? hardware.antenna_mount_el_deg
+                             : 0.0f;
+  scan_config->scan_start_pos = static_cast<int>(scan_policy.scan_start_position);
+  scan_config->scan_sequence = static_cast<int>(scan_policy.scan_sequence);
+
+  if (oneq::internal::validation::IsFinite(hardware.beam_az_width_deg) &&
+      hardware.beam_az_width_deg > 0.0f) {
+    scan_config->az_step_deg = hardware.beam_az_width_deg;
+  }
+  if (oneq::internal::validation::IsFinite(hardware.beam_el_width_deg) &&
+      hardware.beam_el_width_deg > 0.0f) {
+    scan_config->el_step_deg = hardware.beam_el_width_deg;
+  }
+
+  const bool explicit_bounds_valid =
+      scan_policy.use_explicit_scan_bounds &&
+      oneq::internal::validation::IsFinite(scan_policy.scan_start_az_deg) &&
+      oneq::internal::validation::IsFinite(scan_policy.scan_end_az_deg) &&
+      oneq::internal::validation::IsFinite(scan_policy.scan_start_el_deg) &&
+      oneq::internal::validation::IsFinite(scan_policy.scan_end_el_deg);
+  if (explicit_bounds_valid) {
+    float start_az = scan_policy.scan_start_az_deg - mount_az;
+    float end_az = scan_policy.scan_end_az_deg - mount_az;
+    float start_el = scan_policy.scan_start_el_deg - mount_el;
+    float end_el = scan_policy.scan_end_el_deg - mount_el;
+    NormalizeScanBounds(&start_az, &end_az);
+    NormalizeScanBounds(&start_el, &end_el);
+    scan_config->scan_start_az_deg = start_az;
+    scan_config->scan_end_az_deg = end_az;
+    scan_config->scan_start_el_deg = start_el;
+    scan_config->scan_end_el_deg = end_el;
+    return;
+  }
+
+  const bool has_center_az = oneq::internal::validation::IsFinite(scan_policy.scan_center_az_deg);
+  const bool has_center_el = oneq::internal::validation::IsFinite(scan_policy.scan_center_el_deg);
+  if (has_center_az) {
+    float half_az_span =
+        0.5f * std::fabs(scan_config->scan_end_az_deg - scan_config->scan_start_az_deg);
+    if (oneq::internal::validation::IsFinite(hardware.az_scan_range_deg) &&
+        hardware.az_scan_range_deg > 0.0f) {
+      half_az_span = 0.5f * hardware.az_scan_range_deg;
+    }
+    const float center_az = scan_policy.scan_center_az_deg - mount_az;
+    scan_config->scan_start_az_deg = center_az - half_az_span;
+    scan_config->scan_end_az_deg = center_az + half_az_span;
+  }
+  if (has_center_el) {
+    float half_el_span =
+        0.5f * std::fabs(scan_config->scan_end_el_deg - scan_config->scan_start_el_deg);
+    if (oneq::internal::validation::IsFinite(hardware.el_scan_range_deg) &&
+        hardware.el_scan_range_deg > 0.0f) {
+      half_el_span = 0.5f * hardware.el_scan_range_deg;
+    }
+    const float center_el = scan_policy.scan_center_el_deg - mount_el;
+    scan_config->scan_start_el_deg = center_el - half_el_span;
+    scan_config->scan_end_el_deg = center_el + half_el_span;
+  }
+  NormalizeScanBounds(&scan_config->scan_start_az_deg, &scan_config->scan_end_az_deg);
+  NormalizeScanBounds(&scan_config->scan_start_el_deg, &scan_config->scan_end_el_deg);
+}
+
+void ApplyEnvironmentRuntimePatch(const config::EsrEnvironmentRuntimeConfigPatch& env_patch,
                                   EsrInternalExecutionConfig* resolved, bool* env_changed) {
   if (env_patch.has_atmospheric_physics) {
     resolved->environment.atmospheric_physics = env_patch.atmospheric_physics;
@@ -93,13 +166,14 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
 
   if (patch.has_mission) {
     has_requested_update = true;
-    resolved.next_config.mission.power_on = patch.mission.power_on;
-    resolved.next_config.mission.scan.scan_rate_hz =
-        (oneq::internal::validation::IsFinite(patch.mission.scan.scan_rate_hz) &&
-         patch.mission.scan.scan_rate_hz > 0.0f)
-            ? patch.mission.scan.scan_rate_hz
-            : 1.0f;
-    ApplyWorkModeAdjustment(patch.mission.work_mode, &resolved.next_config.detection);
+    resolved.next_config.mission = patch.mission;
+    if (!oneq::internal::validation::IsFinite(
+            resolved.next_config.mission.scan.scan_rate_hz) ||
+        resolved.next_config.mission.scan.scan_rate_hz <= 0.0f) {
+      resolved.next_config.mission.scan.scan_rate_hz = 1.0f;
+    }
+    ApplyScanPolicy(resolved.next_config.hardware, resolved.next_config.mission.scan,
+                    &resolved.next_config.resolved_scan);
     resolved.runtime_config_changed = true;
     resolved.pipeline_config_changed = true;
   }
@@ -108,6 +182,11 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     has_requested_update = true;
     resolved.next_config.detection = patch.policy.detection;
     resolved.pipeline_config_changed = true;
+  }
+
+  if (patch.has_mission || patch.has_policy) {
+    ApplyWorkModeAdjustment(resolved.next_config.mission.work_mode,
+                            &resolved.next_config.detection);
   }
 
   if (patch.has_environment) {
@@ -125,6 +204,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   }
 
   if (patch.has_work_mode) {
+    resolved.next_config.mission.work_mode = patch.work_mode;
     ApplyWorkModeAdjustment(patch.work_mode, &resolved.next_config.detection);
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
@@ -145,12 +225,14 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   }
 
   if (patch.has_scan_start_position) {
+    resolved.next_config.mission.scan.scan_start_position = patch.scan_start_position;
     resolved.next_config.resolved_scan.scan_start_pos =
         static_cast<int>(patch.scan_start_position);
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
   if (patch.has_scan_sequence) {
+    resolved.next_config.mission.scan.scan_sequence = patch.scan_sequence;
     resolved.next_config.resolved_scan.scan_sequence =
         static_cast<int>(patch.scan_sequence);
     resolved.pipeline_config_changed = true;
@@ -168,6 +250,8 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     const float half_az_span =
         0.5f * std::fabs(resolved.next_config.resolved_scan.scan_end_az_deg -
                          resolved.next_config.resolved_scan.scan_start_az_deg);
+    resolved.next_config.mission.scan.scan_center_az_deg = patch.scan_center_az_deg;
+    resolved.next_config.mission.scan.use_explicit_scan_bounds = false;
     resolved.next_config.resolved_scan.scan_start_az_deg =
         patch.scan_center_az_deg - half_az_span;
     resolved.next_config.resolved_scan.scan_end_az_deg =
@@ -186,6 +270,8 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     const float half_el_span =
         0.5f * std::fabs(resolved.next_config.resolved_scan.scan_end_el_deg -
                          resolved.next_config.resolved_scan.scan_start_el_deg);
+    resolved.next_config.mission.scan.scan_center_el_deg = patch.scan_center_el_deg;
+    resolved.next_config.mission.scan.use_explicit_scan_bounds = false;
     resolved.next_config.resolved_scan.scan_start_el_deg =
         patch.scan_center_el_deg - half_el_span;
     resolved.next_config.resolved_scan.scan_end_el_deg =
@@ -212,6 +298,11 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
       float end_el = sb.scan_end_el_deg;
       NormalizeScanBounds(&start_az, &end_az);
       NormalizeScanBounds(&start_el, &end_el);
+      resolved.next_config.mission.scan.use_explicit_scan_bounds = true;
+      resolved.next_config.mission.scan.scan_start_az_deg = start_az;
+      resolved.next_config.mission.scan.scan_end_az_deg = end_az;
+      resolved.next_config.mission.scan.scan_start_el_deg = start_el;
+      resolved.next_config.mission.scan.scan_end_el_deg = end_el;
       resolved.next_config.resolved_scan.scan_start_az_deg = start_az;
       resolved.next_config.resolved_scan.scan_end_az_deg = end_az;
       resolved.next_config.resolved_scan.scan_start_el_deg = start_el;

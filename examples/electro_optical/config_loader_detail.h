@@ -67,7 +67,7 @@ inline void LoadEosPolicy(const oneq::JsonValue& j,
 
 inline void LoadEosCustomOverrides(
     const oneq::JsonValue& j,
-    electro_optical_sensor::environment::EosEnvironmentCustomOverrides* v) {
+    electro_optical_sensor::config::EosEnvironmentCustomOverrides* v) {
   if (j.IsNull()) return;
   v->radiative_transfer_model =
       RadiativeModelFromString(j["radiative_transfer_model"].AsString());
@@ -78,7 +78,7 @@ inline void LoadEosCustomOverrides(
 
 inline void LoadEosScenario(
     const oneq::JsonValue& j,
-    electro_optical_sensor::environment::EosEnvironmentScenarioConfig* v) {
+    electro_optical_sensor::config::EosEnvironmentScenarioConfig* v) {
   if (j.IsNull()) return;
   v->model_type = EosModelFromString(j["model_type"].AsString());
   v->preset = EosPresetFromString(j["preset"].AsString());
@@ -88,7 +88,7 @@ inline void LoadEosScenario(
 
 inline void LoadEosEnvironment(
     const oneq::JsonValue& j,
-    electro_optical_sensor::environment::EosEnvironmentDefaultConfig* v) {
+    electro_optical_sensor::config::EosEnvironmentConfig* v) {
   if (j.IsNull()) return;
   LoadEosScenario(j["scenario_config"], &v->scenario_config);
 }

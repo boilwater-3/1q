@@ -11,7 +11,6 @@
 
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/environment/EnvironmentSceneBuilder.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
@@ -38,15 +37,15 @@ signal::tracking::CycleContext MakeLifecycleCycle(std::uint32_t cycle_index,
   return cycle;
 }
 
-environment::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_index) {
-  environment::EnvironmentCycleContext cycle;
+session::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_index) {
+  session::EnvironmentCycleContext cycle;
   cycle.cycle_index = cycle_index;
   cycle.dt_sec = 1.0f;
   return cycle;
 }
 
 template <typename PipelineType>
-extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
+session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
                                               const session::RadarSceneTargetList& input_state,
                                               environment::EnvironmentService* environment_service,
                                               std::uint32_t cycle_index = 1u) {
@@ -54,18 +53,18 @@ extension::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
   return pipeline->RunCycle(input_state, *environment_service);
 }
 
-environment::JammerEmitterState MakeJammerEmitter(environment::JammingTechnique technique,
+config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique,
                                                   float power_db) {
-  environment::JammerEmitterState jammer;
+  config::JammerEmitterState jammer;
   jammer.technique = technique;
   jammer.power_db = power_db;
   jammer.confidence = 1.0f;
   return jammer;
 }
 
-environment::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
-    std::initializer_list<environment::JammerEmitterState> jammer_sources) {
-  environment::EnvironmentModelConfig config;
+config::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
+    std::initializer_list<config::JammerEmitterState> jammer_sources) {
+  config::EnvironmentModelConfig config;
   config.jammer_sources.insert(config.jammer_sources.end(), jammer_sources.begin(),
                                jammer_sources.end());
   return config;
@@ -76,7 +75,7 @@ void ApplyDetectionIntentProfile(config::RadarSessionConfig* config,
   if (config == nullptr) {
     return;
   }
-  auto& d = config->hardware.detection;
+  auto& d = config->hardware;
   switch (profile) {
     case config::profiles::DetectionIntentProfile::kDetectionPriority:
       d.pulse_count = 16;
@@ -159,12 +158,12 @@ TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression
   signal::tracking::TrackFilterContext noise_context;
   noise_context.detection_succeeded = false;
   noise_context.jamming_detected = true;
-  noise_context.dominant_jamming_semantic = model::JammingSemantic::kNoiseSuppression;
+  noise_context.dominant_jamming_semantic = config::JammingSemantic::kNoiseSuppression;
   noise_context.jamming_severity = 0.8f;
   noise_context.detection_margin_db = -10.0f;
 
   signal::tracking::TrackFilterContext deception_context = noise_context;
-  deception_context.dominant_jamming_semantic = model::JammingSemantic::kDeception;
+  deception_context.dominant_jamming_semantic = config::JammingSemantic::kDeception;
 
   const session::RadarSceneTarget noise_output = filter.Filter(input, noise_context);
   const session::RadarSceneTarget deception_output = filter.Filter(input, deception_context);

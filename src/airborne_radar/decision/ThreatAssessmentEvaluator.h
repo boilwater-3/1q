@@ -9,11 +9,10 @@
 #include <cmath>
 #include <string>
 
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "airborne_radar/decision/LpiSourceInfo.h"
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/TargetCategory.h"
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/environment/IFeatureRepository.h"
 
 namespace airborne_radar {
@@ -35,7 +34,7 @@ class ThreatAssessmentEvaluator final {
    * @brief 单周期评估结果。
    */
   struct Result {
-    model::TargetCategoryList target_classification_result; /**< 目标分类结果 */
+    session::TargetCategoryList target_classification_result; /**< 目标分类结果 */
     model::LpiSourceInfo lpi_source_info;                   /**< 供 LPI 模块消费的来源信息 */
   };
 
@@ -45,8 +44,8 @@ class ThreatAssessmentEvaluator final {
    * @param[in,out] state_store 跨周期决策状态存储。
    * @return 本周期威胁评估结果。
    */
-  Result Evaluate(const model::DecisionInputFrame& input_frame,
-                  extension::TacticalStateStore& state_store) const;
+  Result Evaluate(const session::DecisionInputFrame& input_frame,
+                  session::TacticalStateStore& state_store) const;
 
  private:
   /**
@@ -54,15 +53,15 @@ class ThreatAssessmentEvaluator final {
    * @param track_snapshot 单条轨迹快照。
    * @return 含类型标签及归一化概率的 TargetCategory；启发式路径时 probability 为 0。
    */
-  model::TargetCategory IdentifyTarget(
-      const model::TrackStateSnapshot& track_snapshot) const;
+  session::TargetCategory IdentifyTarget(
+      const session::TrackStateSnapshot& track_snapshot) const;
 
   /**
    * @brief 计算威胁评分。
    * @param track_snapshot 单条轨迹快照。
    * @return 轨迹的威胁评分。
    */
-  float ComputeThreatScore(const model::TrackStateSnapshot& track_snapshot) const;
+  float ComputeThreatScore(const session::TrackStateSnapshot& track_snapshot) const;
 
   /**
    * @brief 更新供 LPI 使用的来源信息。
@@ -71,7 +70,7 @@ class ThreatAssessmentEvaluator final {
    * @param classification 当前识别出的分类标签。
    */
   void UpdateLpiSourceInfo(model::LpiSourceInfo* source_info,
-                           const model::TrackStateSnapshot& track_snapshot,
+                           const session::TrackStateSnapshot& track_snapshot,
                            const std::string& classification) const;
 
   /**
@@ -87,7 +86,7 @@ class ThreatAssessmentEvaluator final {
    * @param previous_confidence 上一周期保留的置信度。
    * @return 更新后的置信度。
    */
-  float UpdateConfidence(const model::TrackStateSnapshot& track_snapshot,
+  float UpdateConfidence(const session::TrackStateSnapshot& track_snapshot,
                          float previous_confidence) const;
 
   /**

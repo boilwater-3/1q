@@ -3,13 +3,14 @@
 #include <iostream>
 #include <string>
 
+#include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/coordinate/types.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "config_loader.h"
 
 namespace esr_session = electronic_surveillance_radar::session;
 namespace esr_config = electronic_surveillance_radar::config;
-namespace esr_env = electronic_surveillance_radar::environment;
+namespace esr_env = electronic_surveillance_radar::session;
 
 namespace {
 
@@ -57,7 +58,7 @@ SceneState InitScene() {
   }
 
   SceneState s;
-  s.session = esr_session::EsrSessionFactory::Create(config);
+  s.session = esr_session::EsrSession::Create(config);
 
   // 平台位置（空中）
   s.platform_pos.x_m = -2289512.0;
@@ -69,8 +70,8 @@ SceneState InitScene() {
   s.platform_vel.z_mps = 30.0;
 
   s.environment.spectrum_occupancy_ratio = 0.25f;
-  s.environment.clutter_density = esr_env::EsrClutterDensityLevel::kMedium;
-  s.environment.propagation_profile = esr_env::EsrPropagationEnvironmentProfile::kOpen;
+  s.environment.clutter_density = esr_session::EsrClutterDensityLevel::kMedium;
+  s.environment.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   // 3 个敌方辐射源（地面发射台）
   EmitterState e1;
@@ -124,7 +125,7 @@ esr_session::EsrCycleResult Step(SceneState& s, float dt) {
 
   esr_session::EsrCycleInput input;
   esr_session::EsrCoordinateStatus status;
-  if (!esr_session::EsrCycleInputBuilder::Build(
+  if (!esr_session::EsrCycleInputAdapter::Build(
           platform, emitter_inputs, dt, s.environment, &input, &status)) {
     std::cerr << "ESR scene: cycle " << s.cycle
               << " build failed (status=" << static_cast<int>(status) << ")\n";

@@ -3,7 +3,7 @@
  * @brief 验证 EOS 会话的周期执行、配置提交与运行期补丁契约。
  *
  * 原测试通过 EosCycleOrchestrator 直接测试 RunCycle + ApplyRuntimeConfig。
- * Orchestrator 内联到 EosSession::Impl 后，通过 EosSessionFactory::Create 测试等效行为。
+ * Orchestrator 内联到 EosSession::Impl 后，通过 EosSession::Create 测试等效行为。
  */
 
 #include <gtest/gtest.h>
@@ -13,7 +13,6 @@
 
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 
 namespace electro_optical_sensor {
 namespace {
@@ -49,7 +48,7 @@ eos_session::EosCycleInput MakeCycleInput(std::uint32_t cycle_index, float dt_se
 
 TEST(EosSessionTest, RunCycleProducesOutputAndPreservesCycleIndex) {
   const eos_config::EosSessionConfig config = MakeSessionConfig();
-  eos_session::EosSession session = eos_session::EosSessionFactory::Create(config);
+  eos_session::EosSession session = eos_session::EosSession::Create(config);
 
   const eos_session::EosCycleResult result = session.StepWithResult(MakeCycleInput(7U, 1.0f));
 
@@ -60,7 +59,7 @@ TEST(EosSessionTest, RunCycleProducesOutputAndPreservesCycleIndex) {
 
 TEST(EosSessionTest, ValidRuntimePatchTakesEffectOnNextStep) {
   const eos_config::EosSessionConfig config = MakeSessionConfig();
-  eos_session::EosSession session = eos_session::EosSessionFactory::Create(config);
+  eos_session::EosSession session = eos_session::EosSession::Create(config);
 
   const eos_session::EosCycleResult baseline =
       session.StepWithResult(MakeCycleInput(1U, 1.0f));
@@ -79,7 +78,7 @@ TEST(EosSessionTest, ValidRuntimePatchTakesEffectOnNextStep) {
 
 TEST(EosSessionTest, InvalidRuntimePatchDoesNotChangeUpdateBehavior) {
   const eos_config::EosSessionConfig config = MakeSessionConfig();
-  eos_session::EosSession session = eos_session::EosSessionFactory::Create(config);
+  eos_session::EosSession session = eos_session::EosSession::Create(config);
 
   session.ApplyRuntimeConfig(
       eos_config::EosRuntimeConfigBuilder().WithFrameRateHz(0.0f).Build());

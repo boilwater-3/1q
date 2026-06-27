@@ -8,9 +8,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "1q/electronic_surveillance_radar/extension/EsrController.h"
-#include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
+#include "electronic_surveillance_radar/runtime/EsrController.h"
+#include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
@@ -41,11 +41,11 @@ EsrInternalExecutionConfig MakeDefaultConfig() {
 
 class StubEnvironmentService final : public environment::IEsrEnvironmentService {
  public:
-  void BeginCycle(const environment::EsrEnvironmentCycleContext&) override {}
-  environment::EsrEnvironmentSnapshot SampleEnvironment() const override {
-    return environment::EsrEnvironmentSnapshot{};
+  void BeginCycle(const session::EsrEnvironmentCycleContext&) override {}
+  session::EsrEnvironmentSnapshot SampleEnvironment() const override {
+    return session::EsrEnvironmentSnapshot{};
   }
-  void UpdateModelConfig(environment::EsrEnvironmentModelConfig) override {}
+  void UpdateModelConfig(config::EsrEnvironmentModelConfig) override {}
 };
 
 session::EsrCycleInput MakeValidInput(std::uint32_t cycle_index) {
@@ -121,7 +121,7 @@ TEST(EsrControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPrev
 
   EXPECT_FALSE(controller.ExecutedLatestCycle());
   EXPECT_TRUE(controller.ReusedPreviousInterceptOutputLatestCycle());
-  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), EsrPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), session::EsrPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 40U);
 }
 
@@ -136,7 +136,7 @@ TEST(EsrControllerRuntimeStateTest, FirstValidationRejectBuildsEmptyOutputFrame)
 
   EXPECT_TRUE(controller.HasLatestInterceptOutputFrame());
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), EsrPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), session::EsrPipelineAbortReason::kValidationRejected);
 }
 
 TEST(EsrControllerRuntimeStateTest,
@@ -156,7 +156,7 @@ TEST(EsrControllerRuntimeStateTest,
   controller.RunOnce(invalid_input);
 
   EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), EsrPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), session::EsrPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 100U);
   EXPECT_TRUE(controller.ReusedPreviousInterceptOutputLatestCycle());
 }

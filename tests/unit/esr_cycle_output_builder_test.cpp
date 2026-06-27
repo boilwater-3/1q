@@ -1,6 +1,6 @@
 /**
  * @file esr_cycle_output_builder_test.cpp
- * @brief 验证 EsrCycleOutputBuilder 将内部 ESR 输出转换为外部 ECEF 方位线。
+ * @brief 验证 EsrCycleOutputAdapter 将内部 ESR 输出转换为外部 ECEF 方位线。
  */
 
 #include <gtest/gtest.h>
@@ -11,13 +11,12 @@
 #include <vector>
 
 #include "1q/coordinate/position_transform.h"
-#include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleOutputBuilder.h"
+#include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleOutputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.h"
 #include "1q/electronic_surveillance_radar/session/EsrOutputDebugView.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 
 namespace {
 
@@ -81,15 +80,8 @@ void AdvanceEmitters(double dt_sec, std::vector<esr_session::EsrExternalEmitterI
 }
 
 esr_config::EsrSessionConfig MakeConfig() {
-  esr_config::EsrSessionConfig config =
-      esr_config::EsrSessionConfigBuilder()
-          .Detection()
-          .WithMinDetectSnrDb(3.0f)
-          .End()
-          .Environment()
-          .WithEnvironmentPreset(esr_config::EsrEnvironmentPreset::kStandard)
-          .End()
-          .Build();
+  esr_config::EsrSessionConfig config;
+  config.environment.scenario_config.preset = esr_config::EsrEnvironmentPreset::kStandard;
   config.policy.detection.minimum_snr_db = -20.0f;
   config.policy.detection.enable_statistical_detection = false;
   config.mission.scan.use_explicit_scan_bounds = true;
@@ -145,14 +137,14 @@ double Dot(const oneq::coordinate::Vector3d& lhs, const oneq::coordinate::Vector
 TEST(EsrCycleOutputBuilderTest, MultiCycleMovingEmittersKeepExternalBearingsNearTruth) {
   const esr_session::EsrExternalPoseInput platform = MakePlatformInput();
   std::vector<esr_session::EsrExternalEmitterInput> emitters = MakeEmitters(6U);
-  esr_session::EsrSession session = esr_session::EsrSessionFactory::Create(MakeConfig());
+  esr_session::EsrSession session = esr_session::EsrSession::Create(MakeConfig());
 
   const std::size_t cycle_count = 30U;
   const float dt_sec = 1.0f;
   const double min_cosine = std::cos(8.0 * kPi / 180.0);
   for (std::size_t cycle = 0; cycle < cycle_count; ++cycle) {
     esr_session::EsrCycleInput input;
-    ASSERT_TRUE(esr_session::EsrCycleInputBuilder::Build(platform, emitters, dt_sec, &input))
+    ASSERT_TRUE(esr_session::EsrCycleInputAdapter::Build(platform, emitters, dt_sec, &input))
         << "cycle=" << cycle;
     input.cycle_index = static_cast<std::uint32_t>(cycle);
 
@@ -161,12 +153,12 @@ TEST(EsrCycleOutputBuilderTest, MultiCycleMovingEmittersKeepExternalBearingsNear
 
     esr_session::EsrExternalOutputFrame external_frame;
     ASSERT_TRUE(
-        esr_session::EsrCycleOutputBuilder::Build(platform, result.output_frame, &external_frame))
+        esr_session::EsrCycleOutputAdapter::Build(platform, result.output_frame, &external_frame))
         << "cycle=" << cycle;
 
     for (std::size_t i = 0; i < result.output_frame.truth_evaluation_output.associations.size();
          ++i) {
-      const ::electronic_surveillance_radar::extension::TruthAssociationRecord& association =
+      const ::electronic_surveillance_radar::session::TruthAssociationRecord& association =
           result.output_frame.truth_evaluation_output.associations[i];
       if (!association.matched) {
         continue;
@@ -207,7 +199,7 @@ TEST(EsrCycleOutputBuilderTest, DebugViewMapsTruthAssociationsBackToNamedEmitter
   result.input_cycle_index = input.cycle_index;
   result.executed_this_cycle = true;
   result.output_frame.cycle_index = input.cycle_index;
-  ::electronic_surveillance_radar::extension::TruthAssociationRecord association;
+  ::electronic_surveillance_radar::session::TruthAssociationRecord association;
   association.observation_id = 9001U;
   association.truth_emitter_id = 101U;
   association.matched = true;
@@ -241,7 +233,7 @@ TEST(EsrCycleOutputBuilderTest, LifecycleRecorderTracksObservedLostAndOptionalNo
   first_result.input_cycle_index = input.cycle_index;
   first_result.executed_this_cycle = true;
   first_result.output_frame.cycle_index = input.cycle_index;
-  ::electronic_surveillance_radar::extension::TruthAssociationRecord association;
+  ::electronic_surveillance_radar::session::TruthAssociationRecord association;
   association.observation_id = 8001U;
   association.truth_emitter_id = 201U;
   association.matched = true;

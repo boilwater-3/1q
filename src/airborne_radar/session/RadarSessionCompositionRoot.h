@@ -4,26 +4,36 @@
 #include <memory>
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
 #include "1q/airborne_radar/session/RadarSession.h"
 
 namespace airborne_radar {
 namespace session {
+class ITacticalDecisionEngine;
+}  // namespace session
+namespace extension {
+class ISignalPipeline;
+class RadarController;
+}  // namespace extension
+namespace environment {
+class IEnvironmentService;
+}
+namespace session {
+class MutableRadarContext;
 
 struct RadarSessionComposition {
   config::RadarHardwareConfig runtime_hardware{};
   config::RadarMissionConfig runtime_mission{};
   config::RadarPolicyConfig runtime_policy{};
-  environment::EnvironmentScenarioConfig runtime_environment_scenario_config{};
-  environment::JammingSensitivityProfile runtime_jamming_sensitivity_profile{
-      environment::JammingSensitivityProfile::kBalanced};
+  config::EnvironmentScenarioConfig runtime_environment_scenario_config{};
+  config::JammingSensitivityProfile runtime_jamming_sensitivity_profile{
+      config::JammingSensitivityProfile::kBalanced};
 
-  std::unique_ptr<extension::IRadarContext> owned_radar_context;
+  std::unique_ptr<MutableRadarContext> owned_radar_context;
   std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::RadarController> owned_controller;
 
-  extension::IRadarContext* radar_context{nullptr};
+  MutableRadarContext* radar_context{nullptr};
   extension::ISignalPipeline* signal_pipeline{nullptr};
   environment::IEnvironmentService* environment_service{nullptr};
   extension::RadarController* controller{nullptr};
@@ -34,29 +44,12 @@ class RadarSessionCompositionRoot {
  public:
   static RadarSessionComposition ComposeDefault(const config::RadarSessionConfig& config);
 
-  static RadarSessionComposition ComposeWithSignalPipeline(
-      const config::RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline);
-
-  static RadarSessionComposition ComposeWithEnvironmentService(
-      const config::RadarSessionConfig& config, environment::IEnvironmentService& environment_service);
-
-  static RadarSessionComposition ComposeWithController(const config::RadarSessionConfig& config,
-                                                       extension::RadarController& controller);
-
   /**
-   * @brief 使用默认会话配置和外部覆盖策略构造会话。
-   *
-   * override_strategy 会经由 RadarController 注入到内部 TacticalCoordinator，
-   * 注入后内部 LPI/ECCM evaluator 将被跳过。
+   * @brief 注入自定义决策引擎装配会话；context/pipeline/environment 由内部默认装配。
    */
-  static RadarSessionComposition ComposeWithOverrideStrategy(
-      const config::RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy);
-
-  static RadarSessionComposition ComposeAllExternal(
-      const config::RadarSessionConfig& config, extension::IRadarContext& radar_context,
-      extension::ISignalPipeline& signal_pipeline,
-      environment::IEnvironmentService& environment_service,
-      extension::RadarController& controller);
+  static RadarSessionComposition ComposeWithDecisionEngine(
+      const config::RadarSessionConfig& config,
+      session::ITacticalDecisionEngine& decision_engine);
 };
 
 }  // namespace session

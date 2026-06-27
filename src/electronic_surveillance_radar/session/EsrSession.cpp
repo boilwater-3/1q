@@ -1,8 +1,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
-#include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
-#include "1q/electronic_surveillance_radar/extension/EsrController.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
+#include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+#include "electronic_surveillance_radar/runtime/EsrController.h"
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 #include "electronic_surveillance_radar/session/EsrRuntimeConfigResolver.h"
@@ -53,7 +52,7 @@ struct EsrSession::Impl {
 
     if (!controller.ExecutedLatestCycle() &&
         controller.GetLastInterceptCycleAbortReason() !=
-            extension::EsrPipelineAbortReason::kValidationRejected) {
+            session::EsrPipelineAbortReason::kValidationRejected) {
       pipeline.RestoreRuntimeState(pipeline_state);
       controller.RestoreRuntimeState(controller_state);
     }
@@ -123,18 +122,20 @@ EsrRuntimeConfigApplyResult EsrSession::ApplyRuntimeConfigWithResult(
   return apply_result;
 }
 
-// ── EsrSessionFactory ──────────────────────────────────────────────────────
+// ── EsrSession static factory ──────────────────────────────────────────────────────
 
-EsrSession EsrSessionFactory::Create(const config::EsrSessionConfig& config) {
+EsrSession EsrSession::Create(const config::EsrSessionConfig& config) {
   return EsrSession(std::unique_ptr<EsrSession::Impl>(
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeDefault(config))));
 }
 
-EsrSession EsrSessionFactory::CreateWithEnvironmentService(
-    const config::EsrSessionConfig& config, environment::IEsrEnvironmentService& environment_service_ref) {
-  return EsrSession(std::unique_ptr<EsrSession::Impl>(
-      new EsrSession::Impl(EsrSessionCompositionRoot::ComposeWithEnvironmentService(
-          config, environment_service_ref))));
+EsrSession EsrSession::CreateWithValidation(const config::EsrSessionConfig& config,
+                                            config::ValidationIssueList* issues) {
+  const config::ValidationIssueList found = config::ValidateEsrSessionConfig(config);
+  if (issues != nullptr) {
+    *issues = found;
+  }
+  return Create(config);
 }
 
 }  // namespace session

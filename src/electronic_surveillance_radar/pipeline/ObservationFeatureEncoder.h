@@ -25,7 +25,7 @@ class ObservationFeatureEncoder final {
    * @param[in] scales 特征尺度。
    * @return 特征向量。
    */
-  static ObservationFeatureVector Encode(const model::EmitterObservation& observation,
+  static ObservationFeatureVector Encode(const session::EmitterObservation& observation,
                                          const ObservationFeatureScales& scales) {
     ObservationFeatureVector feature;
     const double rf_scale = ResolveScale(scales.rf_scale_hz, 1.0);

@@ -13,13 +13,14 @@ set(ESR_ENGINE_SOURCES
 
 # -- core: 会话、运行时、环境、输出（粘合层，依赖轻） --------------------------
 set(ESR_CORE_SOURCES
+    electronic_surveillance_radar/session/EsrSessionConfigBuilder.cpp
     electronic_surveillance_radar/session/EsrExternalInputAdapter.cpp
-    electronic_surveillance_radar/session/EsrCycleInputBuilder.cpp
+    electronic_surveillance_radar/session/EsrCycleInputAdapter.cpp
     electronic_surveillance_radar/session/EsrExternalOutputAdapter.cpp
-    electronic_surveillance_radar/session/EsrCycleOutputBuilder.cpp
+    electronic_surveillance_radar/session/EsrCycleOutputAdapter.cpp
     electronic_surveillance_radar/environment/EsrEnvironmentService.cpp
     electronic_surveillance_radar/runtime/EsrController.cpp
-    electronic_surveillance_radar/output/EsrOutputManager.cpp
+    electronic_surveillance_radar/runtime/EsrOutputManager.cpp
     electronic_surveillance_radar/session/EsrInputValidation.cpp
     electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.cpp
     electronic_surveillance_radar/session/EsrOutputDebugViewBuilder.cpp
@@ -36,42 +37,26 @@ if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_MODULE_ENTRY_ESR
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp
     )
-    set(PUBLIC_HEADERS_ESR_MODEL
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterHypothesis.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/model/EmitterObservation.h
-    )
     set(PUBLIC_HEADERS_ESR_EXTENSION
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/EsrController.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/IEsrContext.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/IInterceptPipeline.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h
     )
     set(PUBLIC_HEADERS_ESR_SESSION
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EmitterHypothesis.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EmitterObservation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInputBuilder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleOutputBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleOutputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrOutputTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrEnvironmentInputPatch.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrEnvironmentInputState.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrExternalOutputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrInputValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrOutputDebugView.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrSceneTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrSession.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrSessionFactory.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrTraceSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/session/EsrReplaySession.h
-    )
-    set(PUBLIC_HEADERS_ESR_ENVIRONMENT
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/EsrEnvironmentConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/EsrEnvironmentRuntimeConfigPatch.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/EsrEnvironmentSceneBuilder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h
-        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/environment/electronic_surveillance_radar_environment.hpp
     )
     set(PUBLIC_HEADERS_ESR_CONFIG
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h
@@ -82,6 +67,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrSessionConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp
     )
 
@@ -96,9 +82,6 @@ if(ENABLE_INSTALL)
     )
     install(FILES ${PUBLIC_HEADERS_ESR_SESSION}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/session
-    )
-    install(FILES ${PUBLIC_HEADERS_ESR_ENVIRONMENT}
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/environment
     )
     install(FILES ${PUBLIC_HEADERS_ESR_CONFIG}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/electronic_surveillance_radar/config

@@ -1,13 +1,13 @@
-#include "1q/electronic_surveillance_radar/extension/EsrController.h"
+#include "electronic_surveillance_radar/runtime/EsrController.h"
 
 #include <memory>
 
-#include "1q/electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
+#include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
-#include "electronic_surveillance_radar/output/EsrOutputManager.h"
+#include "electronic_surveillance_radar/runtime/EsrOutputManager.h"
 
 namespace electronic_surveillance_radar {
 namespace extension {
@@ -25,7 +25,7 @@ struct EsrController::Impl {
       runtime_state{};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
-  extension::EsrPipelineAbortReason last_abort_reason{extension::EsrPipelineAbortReason::kNone};
+  session::EsrPipelineAbortReason last_abort_reason{session::EsrPipelineAbortReason::kNone};
 };
 
 EsrController::EsrController(pipeline::InterceptPipeline& pipeline,
@@ -45,7 +45,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
 
   if (session::HasValidationError(issues)) {
     impl_->last_cycle_executed = false;
-    impl_->last_abort_reason = extension::EsrPipelineAbortReason::kValidationRejected;
+    impl_->last_abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
     impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
     if (!impl_->runtime_state.has_latest_output) {
       impl_->runtime_state.latest_output =
@@ -59,7 +59,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
 
   // 冻结环境
   {
-    environment::EsrEnvironmentCycleContext env_ctx;
+    session::EsrEnvironmentCycleContext env_ctx;
     env_ctx.cycle_index = stamp.cycle_index;
     env_ctx.dt_sec = input.dt_sec;
     env_ctx.observation = input.environment;
@@ -80,7 +80,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   impl_->runtime_state.has_latest_output = true;
   impl_->last_cycle_executed = true;
   impl_->last_cycle_reused_previous_output = false;
-  impl_->last_abort_reason = extension::EsrPipelineAbortReason::kNone;
+  impl_->last_abort_reason = session::EsrPipelineAbortReason::kNone;
   ++impl_->runtime_state.next_batch_id;
   PROJECT_LOG_DEBUG(
       "[EsrController] cycle_index={} executed obs={} hyp={}",
@@ -105,7 +105,7 @@ bool EsrController::ReusedPreviousInterceptOutputLatestCycle() const {
   return impl_->last_cycle_reused_previous_output;
 }
 
-extension::EsrPipelineAbortReason EsrController::GetLastInterceptCycleAbortReason() const {
+session::EsrPipelineAbortReason EsrController::GetLastInterceptCycleAbortReason() const {
   return impl_->last_abort_reason;
 }
 
@@ -132,7 +132,7 @@ bool EsrController::RestoreRuntimeState(const EsrControllerRuntimeState& state) 
     return false;
   }
   if (!impl_->pipeline.RestoreRuntimeState(state.pipeline_state)) {
-    impl_->last_abort_reason = EsrPipelineAbortReason::kRuntimeStateRestoreRejected;
+    impl_->last_abort_reason = session::EsrPipelineAbortReason::kRuntimeStateRestoreRejected;
     PROJECT_LOG_ERROR("ESR pipeline runtime state restore rejected");
     return false;
   }

@@ -1,12 +1,12 @@
 #include "1q/airborne_radar/session/RadarReplaySession.h"
+#include "1q/airborne_radar/session/RadarSession.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
-#include "1q/airborne_radar/session/RadarSessionFactory.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
 
 namespace airborne_radar {
@@ -24,8 +24,8 @@ struct RadarReplayState {
   oneq::replay::ReplayTraceFailure failure_marker_data{};
 };
 
-bool TrackStateSnapshotEqual(const model::TrackStateSnapshot& left,
-                             const model::TrackStateSnapshot& right) {
+bool TrackStateSnapshotEqual(const session::TrackStateSnapshot& left,
+                             const session::TrackStateSnapshot& right) {
   return left.association_key == right.association_key &&
          left.external_target_id == right.external_target_id && left.target_name == right.target_name &&
          left.status == right.status &&
@@ -74,8 +74,8 @@ bool ValidationIssueListEqual(const ValidationIssueList& left, const ValidationI
   return true;
 }
 
-bool RadarCommandsEqual(const std::vector<extension::control::RadarCommand>& left,
-                        const std::vector<extension::control::RadarCommand>& right) {
+bool RadarCommandsEqual(const std::vector<session::RadarCommand>& left,
+                        const std::vector<session::RadarCommand>& right) {
   if (left.size() != right.size()) {
     return false;
   }
@@ -87,8 +87,8 @@ bool RadarCommandsEqual(const std::vector<extension::control::RadarCommand>& lef
   return true;
 }
 
-bool RadarControlProfileEqual(const extension::control::RadarControlProfile& left,
-                              const extension::control::RadarControlProfile& right) {
+bool RadarControlProfileEqual(const session::RadarControlProfile& left,
+                              const session::RadarControlProfile& right) {
   return left.version == right.version &&
          left.enable_lpi_power_control == right.enable_lpi_power_control &&
          left.lpi_power_scale == right.lpi_power_scale &&
@@ -102,8 +102,8 @@ bool RadarControlProfileEqual(const extension::control::RadarControlProfile& lef
          left.eccm_burnthrough_gain == right.eccm_burnthrough_gain;
 }
 
-bool AssociationQualityMetricsEqual(const extension::AssociationQualityMetrics& left,
-                                    const extension::AssociationQualityMetrics& right) {
+bool AssociationQualityMetricsEqual(const session::AssociationQualityMetrics& left,
+                                    const session::AssociationQualityMetrics& right) {
   return left.prior_track_count == right.prior_track_count &&
          left.detection_count == right.detection_count &&
          left.matched_count == right.matched_count &&
@@ -162,7 +162,7 @@ bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user
   if (!DecodeSessionConfigFlatbuffer(event.payload_bytes, &config, error)) {
     return false;
   }
-  state->session.reset(new RadarSession(RadarSessionFactory::Create(config)));
+  state->session.reset(new RadarSession(RadarSession::Create(config)));
   return true;
 }
 

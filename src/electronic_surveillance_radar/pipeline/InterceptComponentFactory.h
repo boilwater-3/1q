@@ -6,9 +6,9 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_INTERCEPT_COMPONENT_FACTORY_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_INTERCEPT_COMPONENT_FACTORY_H_
 
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
-#include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
-#include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
+#include "electronic_surveillance_radar/pipeline/AngleErrorModel.h"
+#include "electronic_surveillance_radar/pipeline/ScanPatternGenerator.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {

@@ -42,7 +42,7 @@ class ONEQ_API RadarRuntimeConfigBuilder {
 
   /** @brief 覆盖整套环境场景输入。 */
   RadarRuntimeConfigBuilder& WithEnvironmentScenarioConfig(
-      const environment::EnvironmentScenarioConfig& config) noexcept {
+      const config::EnvironmentScenarioConfig& config) noexcept {
     patch_.has_environment = true;
     patch_.environment.has_scenario_config = true;
     patch_.environment.scenario_config = config;
@@ -51,7 +51,7 @@ class ONEQ_API RadarRuntimeConfigBuilder {
 
   /** @brief 应用环境运行期补丁。 */
   RadarRuntimeConfigBuilder& WithEnvironment(
-      const environment::EnvironmentRuntimeConfigPatch& patch) noexcept {
+      const config::EnvironmentRuntimeConfigPatch& patch) noexcept {
     patch_.has_environment = true;
     patch_.environment = patch;
     return *this;
@@ -59,7 +59,7 @@ class ONEQ_API RadarRuntimeConfigBuilder {
 
   /** @brief 更新干扰判定灵敏度语义档位。 */
   RadarRuntimeConfigBuilder& WithJammingSensitivityProfile(
-      environment::JammingSensitivityProfile profile) noexcept {
+      config::JammingSensitivityProfile profile) noexcept {
     patch_.has_environment = true;
     patch_.environment.has_jamming_sensitivity_profile = true;
     patch_.environment.jamming_sensitivity_profile = profile;

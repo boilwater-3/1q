@@ -4,7 +4,7 @@ namespace electronic_surveillance_radar {
 namespace pipeline {
 
 void MutableEsrContext::BeginCycle(const session::EsrCycleInput& input,
-                                   const environment::EsrEnvironmentSnapshot& environment_snapshot,
+                                   const session::EsrEnvironmentSnapshot& environment_snapshot,
                                    const extension::InterceptPipelineConfig& pipeline_config,
                                    const extension::InterceptRuntimeConfig& runtime_config) {
   cycle_index_ = input.cycle_index;
@@ -26,7 +26,7 @@ const session::EsrSceneEmitterList& MutableEsrContext::GetSceneEmitters() const 
   return scene_emitters_;
 }
 
-const environment::EsrEnvironmentSnapshot& MutableEsrContext::GetEnvironmentSnapshot() const {
+const session::EsrEnvironmentSnapshot& MutableEsrContext::GetEnvironmentSnapshot() const {
   return environment_snapshot_;
 }
 

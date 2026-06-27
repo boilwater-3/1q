@@ -8,7 +8,7 @@
 
 #include <memory>
 
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
@@ -28,7 +28,7 @@ struct ResolvedRuntimePipelineConfig {
 
 ResolvedRuntimePipelineConfig ResolveRuntimePipelineConfig(
     const ExecutionConfig& base_config,
-    const extension::control::RadarControlProfile& control_profile);
+    const session::RadarControlProfile& control_profile);
 
 std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
     const ExecutionConfig& runtime_config);
@@ -45,7 +45,7 @@ struct OwnedComponentSlots {
 
 void RebuildOwnedComponentsForPipeline(
     const ExecutionConfig& base_config,
-    const extension::control::RadarControlProfile& control_profile, OwnedComponentSlots* slots);
+    const session::RadarControlProfile& control_profile, OwnedComponentSlots* slots);
 
 bool SyncAutoLifecycleManagerForResolvedRuntimeConfig(
     const ResolvedRuntimePipelineConfig& resolved_runtime_config,

@@ -11,9 +11,9 @@ namespace {
 /** @brief 将环境层干扰源事实转换为 ECCM 干扰源信息。
  *  @param environment_source 环境快照中的干扰源事实。
  *  @return 填充后的 ECCM 干扰源信息。 */
-model::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
-    const environment::JammerSourceFact& environment_source) {
-  model::EccmJammerSourceInfo source_info;
+session::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
+    const session::JammerSourceFact& environment_source) {
+  session::EccmJammerSourceInfo source_info;
   source_info.technique = environment_source.technique;
   source_info.jammer_power_db = environment_source.power_db;
   source_info.jammer_to_signal_db = environment_source.js_db;
@@ -32,9 +32,9 @@ model::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
 
 }  // namespace
 
-model::EccmSourceInfo BuildEccmSourceInfo(
-    const environment::EnvironmentSnapshot& environment_snapshot) {
-  model::EccmSourceInfo source_info;
+session::EccmSourceInfo BuildEccmSourceInfo(
+    const session::EnvironmentSnapshot& environment_snapshot) {
+  session::EccmSourceInfo source_info;
   source_info.has_jamming_signal = environment_snapshot.jamming_detected;
   source_info.jammer_sources.reserve(environment_snapshot.jammer_sources.size());
   for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
@@ -44,9 +44,9 @@ model::EccmSourceInfo BuildEccmSourceInfo(
   return source_info;
 }
 
-model::AssociationQualityInfo BuildAssociationQualityInfo(
+session::AssociationQualityInfo BuildAssociationQualityInfo(
     const AssociationQualityMetrics& metrics) {
-  model::AssociationQualityInfo info;
+  session::AssociationQualityInfo info;
   info.match_rate = metrics.match_rate;
   info.new_track_rate = metrics.new_track_rate;
   info.missed_track_rate = metrics.missed_track_rate;
@@ -58,9 +58,9 @@ model::AssociationQualityInfo BuildAssociationQualityInfo(
   return info;
 }
 
-model::PerceptionQualityInfo BuildPerceptionQualityInfo(
+session::PerceptionQualityInfo BuildPerceptionQualityInfo(
     std::size_t input_target_count, const AssociationQualityMetrics& metrics) {
-  model::PerceptionQualityInfo info;
+  session::PerceptionQualityInfo info;
   info.input_target_count = input_target_count;
   info.detection_count = metrics.detection_count;
   if (input_target_count == 0U) {

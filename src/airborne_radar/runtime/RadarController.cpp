@@ -1,15 +1,14 @@
-#include "1q/airborne_radar/extension/RadarController.h"
+#include "airborne_radar/runtime/RadarController.h"
 
 #include <cstdint>
 #include <functional>
 #include <memory>
 
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
-#include "1q/airborne_radar/extension/IRadarContext.h"
-#include "1q/airborne_radar/extension/ISignalPipeline.h"
-#include "1q/airborne_radar/extension/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/session/MutableRadarContext.h"
+#include "airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
@@ -36,8 +35,8 @@ bool IsCompatibleSignalPipelineRuntimeState(const extension::SignalPipelineRunti
  * 统一封装需要默认构建的决策子系统；外部注入决策引擎时此结构为空。
  */
 struct OwnedDecisionComponents {
-  std::unique_ptr<extension::ITacticalDecisionEngine> decision_engine;
-  std::unique_ptr<extension::TacticalStateStore> tactical_state_store;
+  std::unique_ptr<session::ITacticalDecisionEngine> decision_engine;
+  std::unique_ptr<session::TacticalStateStore> tactical_state_store;
   std::unique_ptr<decision::ControlReducer> control_reducer;
 };
 
@@ -46,16 +45,16 @@ struct OwnedDecisionComponents {
  */
 struct RadarController::Impl {
   // -- 外部引用（生命周期由 Session 管理）
-  extension::IRadarContext& radar_context;
+  session::MutableRadarContext& radar_context;
   extension::ISignalPipeline& signal_pipeline;
   environment::IEnvironmentService& environment_service;
 
   // -- 决策子系统（默认路径自建；外部注入路径为空）
   OwnedDecisionComponents owned_decision_components;
-  extension::ITacticalDecisionEngine* decision_engine{nullptr};
+  session::ITacticalDecisionEngine* decision_engine{nullptr};
 
   // -- 控制状态
-  extension::control::RadarControlProfile control_profile{};
+  session::RadarControlProfile control_profile{};
 
   // -- 独立生命周期组件
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
@@ -66,66 +65,56 @@ struct RadarController::Impl {
       cycle_state{};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
-  extension::SignalCycleAbortReason last_signal_abort_reason{
-      extension::SignalCycleAbortReason::kNone};
+  session::SignalCycleAbortReason last_signal_abort_reason{
+      session::SignalCycleAbortReason::kNone};
 
-  /** @brief 构造使用默认 TacticalCoordinator 的控制器（可选注入 override_strategy）。 */
-  Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
-       environment::IEnvironmentService& env,
-       extension::IOverrideControlStrategy* override_strategy)
+  /** @brief 构造使用默认 TacticalCoordinator 的控制器。 */
+  Impl(session::MutableRadarContext& ctx, extension::ISignalPipeline& sig,
+       environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
         environment_service(env) {
     owned_decision_components.decision_engine.reset(
-        new decision::TacticalCoordinator(nullptr, override_strategy));
-    owned_decision_components.tactical_state_store.reset(new extension::TacticalStateStore());
+        new decision::TacticalCoordinator(nullptr));
+    owned_decision_components.tactical_state_store.reset(new session::TacticalStateStore());
     owned_decision_components.control_reducer.reset(new decision::ControlReducer());
     decision_engine = owned_decision_components.decision_engine.get();
-    // 显式 upcast 表明 IRadarContext 同时满足两个写入接口
     command_mapper.reset(new extension::ControlCommandMapper(
-        *owned_decision_components.control_reducer, static_cast<extension::IRadarCommandBus&>(ctx),
-        static_cast<extension::IRadarControlProfileStore&>(ctx)));
+        *owned_decision_components.control_reducer, ctx));
   }
 
   /** @brief 构造使用外部决策引擎的控制器。 */
-  Impl(extension::IRadarContext& ctx, extension::ISignalPipeline& sig,
-       extension::ITacticalDecisionEngine& ext_engine, environment::IEnvironmentService& env)
+  Impl(session::MutableRadarContext& ctx, extension::ISignalPipeline& sig,
+       session::ITacticalDecisionEngine& ext_engine, environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
         environment_service(env),
         decision_engine(&ext_engine) {
     // 外部注入决策引擎时，仍需内部 ControlReducer 处理归并与指令提交
-    owned_decision_components.tactical_state_store.reset(new extension::TacticalStateStore());
+    owned_decision_components.tactical_state_store.reset(new session::TacticalStateStore());
     owned_decision_components.control_reducer.reset(new decision::ControlReducer());
     command_mapper.reset(new extension::ControlCommandMapper(
-        *owned_decision_components.control_reducer, static_cast<extension::IRadarCommandBus&>(ctx),
-        static_cast<extension::IRadarControlProfileStore&>(ctx)));
+        *owned_decision_components.control_reducer, ctx));
   }
 
   /** @brief 重置每周期可变标志位。 */
   void ResetPerCycleFlags() {
     last_cycle_executed = false;
     last_cycle_reused_previous_output = false;
-    last_signal_abort_reason = extension::SignalCycleAbortReason::kNone;
+    last_signal_abort_reason = session::SignalCycleAbortReason::kNone;
   }
 };
 
 // -- 构造函数
 
-RadarController::RadarController(extension::IRadarContext& radar_context,
+RadarController::RadarController(session::MutableRadarContext& radar_context,
                                  extension::ISignalPipeline& signal_pipeline,
                                  environment::IEnvironmentService& environment_service)
-    : impl_(new Impl(radar_context, signal_pipeline, environment_service, nullptr)) {}
+    : impl_(new Impl(radar_context, signal_pipeline, environment_service)) {}
 
-RadarController::RadarController(extension::IRadarContext& radar_context,
+RadarController::RadarController(session::MutableRadarContext& radar_context,
                                  extension::ISignalPipeline& signal_pipeline,
-                                 environment::IEnvironmentService& environment_service,
-                                 extension::IOverrideControlStrategy& override_strategy)
-    : impl_(new Impl(radar_context, signal_pipeline, environment_service, &override_strategy)) {}
-
-RadarController::RadarController(extension::IRadarContext& radar_context,
-                                 extension::ISignalPipeline& signal_pipeline,
-                                 extension::ITacticalDecisionEngine& decision_engine,
+                                 session::ITacticalDecisionEngine& decision_engine,
                                  environment::IEnvironmentService& environment_service)
     : impl_(new Impl(radar_context, signal_pipeline, decision_engine, environment_service)) {}
 
@@ -135,7 +124,7 @@ void RadarController::RunOnce() {
   impl_->ResetPerCycleFlags();
 
   const session::RadarSceneTargetList& scene_targets = impl_->radar_context.GetSceneTargets();
-  const model::PlatformAttitudeDeg platform_attitude = impl_->radar_context.GetPlatformAttitude();
+  const config::PlatformAttitudeDeg platform_attitude = impl_->radar_context.GetPlatformAttitude();
   const float platform_altitude_m = impl_->radar_context.GetPlatformAltitudeM();
   const float cycle_dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
   const std::uint32_t cycle_index = impl_->radar_context.GetCycleIndex();
@@ -159,7 +148,7 @@ void RadarController::RunOnce() {
   }
 
   // 冻结环境
-  environment::EnvironmentCycleContext environment_cycle_context;
+  session::EnvironmentCycleContext environment_cycle_context;
   environment_cycle_context.cycle_index = stamp.cycle_index;
   environment_cycle_context.dt_sec = cycle_dt_sec;
   impl_->environment_service.BeginCycle(environment_cycle_context);
@@ -171,7 +160,7 @@ void RadarController::RunOnce() {
   impl_->signal_pipeline.UpdatePlatformAttitude(platform_attitude);
   impl_->signal_pipeline.UpdatePlatformAltitudeM(platform_altitude_m);
 
-  extension::SignalCycleResult signal_result =
+  session::SignalCycleResult signal_result =
       impl_->signal_pipeline.RunCycle(targets, impl_->environment_service);
 
   impl_->last_cycle_executed = signal_result.executed_this_cycle;
@@ -182,7 +171,7 @@ void RadarController::RunOnce() {
     return;
   }
 
-  model::DecisionInputFrame decision_frame = signal_result.decision_frame;
+  session::DecisionInputFrame decision_frame = signal_result.decision_frame;
   decision_frame.cycle_index = stamp.cycle_index;
   decision_frame.batch_id = stamp.batch_id;
 
@@ -191,7 +180,7 @@ void RadarController::RunOnce() {
   track_output_frame.batch_id = stamp.batch_id;
   track_output_frame.tracks = decision_frame.tracks;
 
-  extension::TacticalDecisionResult decision_result;
+  session::TacticalDecisionResult decision_result;
   if (impl_->decision_engine != nullptr &&
       impl_->owned_decision_components.tactical_state_store != nullptr) {
     decision_result = impl_->decision_engine->Evaluate(
@@ -226,25 +215,6 @@ void RadarController::RunCycles(std::size_t cycles) {
   }
 }
 
-void RadarController::UpdateControlReducerConfig(const extension::ControlReducerConfig& config) {
-  if (impl_->owned_decision_components.control_reducer == nullptr) {
-    return;
-  }
-  impl_->owned_decision_components.control_reducer->UpdateConfig(config);
-  PROJECT_LOG_INFO(
-      "[RadarController] control reducer config updated: "
-      "lpi_power_scale={} dwell_scale={} burnthrough_gain={} "
-      "burnthrough_power_floor={} lpi_hold={} eccm_hold={} "
-      "lpi_cooldown={} eccm_cooldown={} prefer_survivability_power={} "
-      "prefer_survivability_beam={}",
-      config.lpi_power_scale_on_reduction, config.lpi_dwell_scale, config.eccm_burnthrough_gain,
-      config.burnthrough_lpi_power_floor, config.lpi_hold_cycles_after_request,
-      config.eccm_hold_cycles_after_request, config.lpi_cooldown_cycles_after_release,
-      config.eccm_cooldown_cycles_after_release,
-      config.prefer_survivability_in_power_conflict ? "true" : "false",
-      config.prefer_survivability_in_beam_conflict ? "true" : "false");
-}
-
 bool RadarController::HasLatestTrackOutputFrame() const {
   return impl_->cycle_state.has_latest_output;
 }
@@ -267,7 +237,7 @@ bool RadarController::ReusedPreviousTrackOutputLatestCycle() const {
   return impl_->last_cycle_reused_previous_output;
 }
 
-extension::SignalCycleAbortReason RadarController::GetLastSignalCycleAbortReason() const {
+session::SignalCycleAbortReason RadarController::GetLastSignalCycleAbortReason() const {
   return impl_->last_signal_abort_reason;
 }
 
@@ -309,14 +279,6 @@ bool RadarController::RestoreRuntimeState(const extension::RadarControllerRuntim
   impl_->last_signal_abort_reason = state.last_signal_abort_reason;
   impl_->signal_pipeline.RestoreRuntimeState(state.signal_pipeline_state);
   return true;
-}
-
-extension::IRadarContext& RadarController::GetRadarContext() { return impl_->radar_context; }
-
-extension::ISignalPipeline& RadarController::GetSignalPipeline() { return impl_->signal_pipeline; }
-
-environment::IEnvironmentService& RadarController::GetEnvironmentService() {
-  return impl_->environment_service;
 }
 
 }  // namespace extension

@@ -25,7 +25,7 @@
 #include "1q/airborne_radar/config/RadarHardwareConfig.h"
 #include "1q/airborne_radar/config/RadarMissionConfig.h"
 #include "1q/airborne_radar/config/RadarPolicyConfig.h"
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "airborne_radar/config/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
 
@@ -84,8 +84,8 @@ struct ControlProfileEffectsConfig {
  */
 struct DetectionExecutionConfig {
   BeamControlConfig beam_control{};
-  model::RadarOrientationConfig orientation{};
-  model::PlatformAttitudeDeg platform_attitude_deg{};
+  config::RadarOrientationConfig orientation{};
+  config::PlatformAttitudeDeg platform_attitude_deg{};
   engineering::DetectionConfig engineering{};
 };
 

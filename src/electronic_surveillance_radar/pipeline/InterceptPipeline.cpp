@@ -148,7 +148,7 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
     return result;
   }
 
-  const environment::EsrEnvironmentSnapshot environment_snapshot =
+  const session::EsrEnvironmentSnapshot environment_snapshot =
       environment_service.SampleEnvironment();
 
   MutableEsrContext ctx;

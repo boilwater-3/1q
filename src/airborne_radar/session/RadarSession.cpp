@@ -2,12 +2,10 @@
 
 #include <utility>
 
-#include "1q/airborne_radar/environment/IEnvironmentService.h"
-#include "1q/airborne_radar/extension/IOverrideControlStrategy.h"
-#include "1q/airborne_radar/extension/IRadarContext.h"
-#include "1q/airborne_radar/extension/ISignalPipeline.h"
-#include "1q/airborne_radar/extension/RadarController.h"
-#include "1q/airborne_radar/session/RadarSessionFactory.h"
+#include "airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/session/MutableRadarContext.h"
+#include "airborne_radar/signal/pipeline/ISignalPipeline.h"
+#include "airborne_radar/runtime/RadarController.h"
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/session/RadarSessionCompositionRoot.h"
@@ -17,9 +15,9 @@ namespace airborne_radar {
 namespace session {
 namespace {
 
-environment::EnvironmentSceneState BuildSceneStateFromEnvironmentInput(
+session::EnvironmentSceneState BuildSceneStateFromEnvironmentInput(
     const RadarEnvironmentInput& environment_input) {
-  environment::EnvironmentSceneState scene_state;
+  session::EnvironmentSceneState scene_state;
   scene_state.atmospheric_physics = environment_input.atmospheric_observation;
   scene_state.atmospheric_context = environment_input.atmospheric_context;
   scene_state.vegetation_scatter_physics = environment_input.surface_observation;
@@ -32,6 +30,7 @@ environment::EnvironmentSceneState BuildSceneStateFromEnvironmentInput(
 struct RadarSession::Impl {
   explicit Impl(RadarSessionComposition composition)
       : runtime_state(),
+        pipeline_config_synced(composition.pipeline_config_synced),
         owned_radar_context(std::move(composition.owned_radar_context)),
         owned_signal_pipeline(std::move(composition.owned_signal_pipeline)),
         owned_environment_service(std::move(composition.owned_environment_service)),
@@ -39,8 +38,7 @@ struct RadarSession::Impl {
         radar_context(*composition.radar_context),
         signal_pipeline(*composition.signal_pipeline),
         environment_service(*composition.environment_service),
-        controller(*composition.controller),
-        pipeline_config_synced(composition.pipeline_config_synced) {
+        controller(*composition.controller) {
     config::RadarSessionConfig initial_session_config;
     initial_session_config.hardware = composition.runtime_hardware;
     initial_session_config.mission = composition.runtime_mission;
@@ -100,7 +98,7 @@ struct RadarSession::Impl {
   }
 
   RadarCycleResult BuildExecutionAbortResult(const RadarCycleInput& input,
-                                             extension::SignalCycleAbortReason abort_reason) const {
+                                             session::SignalCycleAbortReason abort_reason) const {
     RadarCycleResult result;
     result.input_cycle_index = input.cycle_index;
     if (controller.HasLatestTrackOutputFrame()) {
@@ -156,7 +154,7 @@ struct RadarSession::Impl {
     }
 
     if (should_sync_environment_model) {
-      environment_service.UpdateModelConfig(environment::BuildModelConfigFromScenario(
+      environment_service.UpdateModelConfig(config::BuildModelConfigFromScenario(
           pending_runtime_state.environment_scenario_config));
     }
     if (should_sync_jamming_sensitivity) {
@@ -183,7 +181,7 @@ struct RadarSession::Impl {
       return BuildValidationErrorResult(input, issues);
     }
 
-    const extension::RadarContextRuntimeState radar_context_state =
+    const RadarContextRuntimeState radar_context_state =
         radar_context.CaptureRuntimeState();
     const extension::SignalPipelineRuntimeState pipeline_state =
         signal_pipeline.CaptureRuntimeState();
@@ -198,15 +196,17 @@ struct RadarSession::Impl {
       environment_service.RestoreRuntimeState(environment_state);
       controller.RestoreRuntimeState(controller_state);
       return BuildExecutionAbortResult(
-          input, extension::SignalCycleAbortReason::kRuntimePreparationFailed);
+          input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
     }
 
-    environment_service.UpdateSceneState(BuildSceneStateFromEnvironmentInput(input.environment));
+    if (input.has_environment) {
+      environment_service.UpdateSceneState(BuildSceneStateFromEnvironmentInput(input.environment));
+    }
     radar_context.BeginCycle(input);
     controller.RunOnce();
 
     if (!controller.ExecutedLatestCycle()) {
-      const extension::SignalCycleAbortReason abort_reason =
+      const session::SignalCycleAbortReason abort_reason =
           controller.GetLastSignalCycleAbortReason();
       radar_context.RestoreRuntimeState(radar_context_state);
       signal_pipeline.RestoreRuntimeState(pipeline_state);
@@ -226,11 +226,11 @@ struct RadarSession::Impl {
   bool pending_environment_scenario_config_changed{false};
   bool pending_jamming_sensitivity_profile_changed{false};
   bool pipeline_config_synced{true};
-  std::unique_ptr<extension::IRadarContext> owned_radar_context;
+  std::unique_ptr<MutableRadarContext> owned_radar_context;
   std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::RadarController> owned_controller;
-  extension::IRadarContext& radar_context;
+  MutableRadarContext& radar_context;
   extension::ISignalPipeline& signal_pipeline;
   environment::IEnvironmentService& environment_service;
   extension::RadarController& controller;
@@ -246,45 +246,25 @@ RadarSession::~RadarSession() = default;
 RadarSession::RadarSession(RadarSession&&) noexcept = default;
 RadarSession& RadarSession::operator=(RadarSession&&) noexcept = default;
 
-RadarSession RadarSessionFactory::Create(const config::RadarSessionConfig& config) {
+RadarSession RadarSession::Create(const config::RadarSessionConfig& config) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(
       new RadarSession::Impl(RadarSessionCompositionRoot::ComposeDefault(config))));
 }
 
-RadarSession RadarSessionFactory::CreateWithSignalPipeline(
-    const config::RadarSessionConfig& config, extension::ISignalPipeline& signal_pipeline) {
+RadarSession RadarSession::CreateWithDecisionEngine(
+    const config::RadarSessionConfig& config,
+    session::ITacticalDecisionEngine& decision_engine) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
-      RadarSessionCompositionRoot::ComposeWithSignalPipeline(config, signal_pipeline))));
+      RadarSessionCompositionRoot::ComposeWithDecisionEngine(config, decision_engine))));
 }
 
-RadarSession RadarSessionFactory::CreateWithEnvironmentService(
-    const config::RadarSessionConfig& config, environment::IEnvironmentService& environment_service) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(
-      new RadarSession::Impl(RadarSessionCompositionRoot::ComposeWithEnvironmentService(
-          config, environment_service))));
-}
-
-RadarSession RadarSessionFactory::CreateWithController(const config::RadarSessionConfig& config,
-                                                       extension::RadarController& controller) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
-      RadarSessionCompositionRoot::ComposeWithController(config, controller))));
-}
-
-RadarSession RadarSessionFactory::CreateWithOverrideStrategy(
-    const config::RadarSessionConfig& config, extension::IOverrideControlStrategy& override_strategy) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(
-      new RadarSession::Impl(RadarSessionCompositionRoot::ComposeWithOverrideStrategy(
-          config, override_strategy))));
-}
-
-RadarSession RadarSessionFactory::CreateWithAll(
-    const config::RadarSessionConfig& config, extension::IRadarContext& radar_context,
-    extension::ISignalPipeline& signal_pipeline,
-    environment::IEnvironmentService& environment_service,
-    extension::RadarController& controller) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
-      RadarSessionCompositionRoot::ComposeAllExternal(config, radar_context, signal_pipeline,
-                                                       environment_service, controller))));
+RadarSession RadarSession::CreateWithValidation(const config::RadarSessionConfig& config,
+                                                config::ValidationIssueList* issues) {
+  const config::ValidationIssueList found = config::ValidateRadarSessionConfig(config);
+  if (issues != nullptr) {
+    *issues = found;
+  }
+  return Create(config);
 }
 
 session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
@@ -295,7 +275,7 @@ RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
   return impl_->RunCycle(input);
 }
 
-const std::vector<extension::control::RadarCommand>& RadarSession::GetSubmittedCommands() const {
+const std::vector<session::RadarCommand>& RadarSession::GetSubmittedCommands() const {
   return impl_->radar_context.GetSubmittedCommands();
 }
 
@@ -303,11 +283,11 @@ bool RadarSession::HasLatestControlProfile() const {
   return impl_->radar_context.HasLatestControlProfile();
 }
 
-const extension::control::RadarControlProfile& RadarSession::GetLatestControlProfile() const {
+const session::RadarControlProfile& RadarSession::GetLatestControlProfile() const {
   return impl_->radar_context.GetLatestControlProfile();
 }
 
-extension::AssociationQualityMetrics RadarSession::GetLastAssociationQualityMetrics() const {
+session::AssociationQualityMetrics RadarSession::GetLastAssociationQualityMetrics() const {
   return impl_->signal_pipeline.GetLastAssociationQualityMetrics();
 }
 

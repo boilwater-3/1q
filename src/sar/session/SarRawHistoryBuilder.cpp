@@ -179,9 +179,13 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
 }  // namespace
 
 bool HasExternalRawIq(const SarCycleInput& input) {
-  return input.raw_iq.pulse_count != 0U || input.raw_iq.samples_per_pulse != 0U ||
-         !input.raw_iq.i_values.empty() || !input.raw_iq.q_values.empty() ||
-         !input.raw_iq.pulse_states.empty() || !input.raw_iq.ideal_pulse_states.empty();
+  // 外部完整孔径 IQ 的定义性内容是 IQ 样本（参见 SarRawIqFrame 的契约：完整孔径
+  // 行主序复数 IQ 帧）。仅提供伴随轨迹（pulse_states/pulse_count/ideal_pulse_states）
+  // 而无样本时，不视为外部 IQ——避免把仅轨迹的输入（如 SarCycleInputAdapter 产物）
+  // 误判为外部 IQ 并在 shape 校验处中止。轨迹字段仍由 BuildExternalRawIqHistory 在
+  // 进入外部路径后单独校验，见 pulse_states/ideal_pulse_states 的前置断言。
+  return input.raw_iq.samples_per_pulse != 0U && !input.raw_iq.i_values.empty() &&
+         !input.raw_iq.q_values.empty();
 }
 
 bool BuildWaveformAndFilter(const config::SarSessionConfig& config, signal::LfmWaveform* waveform,

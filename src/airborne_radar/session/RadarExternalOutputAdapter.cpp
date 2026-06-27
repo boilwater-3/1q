@@ -38,7 +38,7 @@ oneq::coordinate::EnuVelocityMps Vector3dToEnuVelocity(const oneq::coordinate::V
 
 }  // namespace
 
-bool TryMakeExternalTrackFromSnapshot(const model::TrackStateSnapshot& snapshot,
+bool TryMakeExternalTrackFromSnapshot(const session::TrackStateSnapshot& snapshot,
                                       const oneq::coordinate::LocalFrameReference& reference,
                                       oneq::foundation::Vector3f radar_local_velocity_mps,
                                       RadarExternalTrackKinematics* output) {

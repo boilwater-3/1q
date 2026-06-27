@@ -65,7 +65,7 @@ bool IsValidPolicy(const config::EosPolicyConfig& policy) {
 }
 
 bool IsValidEnvironmentPatch(
-    const environment::EosEnvironmentRuntimeConfigPatch& environment_patch) {
+    const config::EosEnvironmentRuntimeConfigPatch& environment_patch) {
   if (environment_patch.has_scenario_config) {
     if (environment_patch.scenario_config.has_custom_overrides) {
       if (!oneq::internal::validation::IsFinite(
@@ -135,8 +135,8 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
     }
 
     if (patch.environment.has_scenario_config) {
-      const environment::EosEnvironmentModelConfig model_config =
-          environment::BuildModelConfigFromScenario(patch.environment.scenario_config);
+      const config::EosEnvironmentModelConfig model_config =
+          config::BuildModelConfigFromScenario(patch.environment.scenario_config);
       ApplyEnvironmentModelToInternal(model_config, &resolved.next_config);
     }
   }

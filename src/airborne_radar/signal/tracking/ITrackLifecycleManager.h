@@ -10,7 +10,7 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -47,7 +47,7 @@ class ITrackLifecycleManager {
    * @brief 导出供决策引擎消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的轨迹列表。
    */
-  virtual model::TrackStateSnapshotList BuildTrackStateSnapshots() const = 0;
+  virtual session::TrackStateSnapshotList BuildTrackStateSnapshots() const = 0;
   /**
    * @brief 导出供关联阶段使用的上一周期轨迹种子。
    * @return 由当前未回收轨迹（tentative/confirmed/lost）组成的关联候选列表。

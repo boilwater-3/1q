@@ -27,8 +27,8 @@ ThreatAssessmentEvaluator::ThreatAssessmentEvaluator(
     : feature_repository_(feature_repository) {}
 
 ThreatAssessmentEvaluator::Result ThreatAssessmentEvaluator::Evaluate(
-    const model::DecisionInputFrame& input_frame,
-    extension::TacticalStateStore& state_store) const {
+    const session::DecisionInputFrame& input_frame,
+    session::TacticalStateStore& state_store) const {
   Result result;
   result.target_classification_result.reserve(input_frame.tracks.size());
 
@@ -36,8 +36,8 @@ ThreatAssessmentEvaluator::Result ThreatAssessmentEvaluator::Evaluate(
   float nearest_threat_range_km = 1e6f;
 
   for (std::size_t i = 0; i < input_frame.tracks.size(); ++i) {
-    const model::TrackStateSnapshot& track_snapshot = input_frame.tracks[i];
-    const model::TargetCategory category = IdentifyTarget(track_snapshot);
+    const session::TrackStateSnapshot& track_snapshot = input_frame.tracks[i];
+    const session::TargetCategory category = IdentifyTarget(track_snapshot);
     result.target_classification_result.push_back(category);
 
     // 更新 LPI 来源信息
@@ -83,8 +83,8 @@ ThreatAssessmentEvaluator::Result ThreatAssessmentEvaluator::Evaluate(
   return result;
 }
 
-model::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
-    const model::TrackStateSnapshot& track_snapshot) const {
+session::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
+    const session::TrackStateSnapshot& track_snapshot) const {
   if (feature_repository_ != nullptr) {
     environment::FeatureVector input;
     input.Set("speed", track_snapshot.speed);
@@ -94,7 +94,7 @@ model::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
     environment::MatchResult match_result;
     if (feature_repository_->QueryBestMatch(input, match_result)) {
       if (ShouldAcceptRepositoryMatch(match_result)) {
-        model::TargetCategory result(match_result.target_type);
+        session::TargetCategory result(match_result.target_type);
         result.probability = match_result.probability;
         return result;
       }
@@ -107,16 +107,16 @@ model::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
 
   const float threat_score = ComputeThreatScore(track_snapshot);
   if (threat_score >= 2.0f) {
-    return model::TargetCategory("HIGH_THREAT_FIGHTER");
+    return session::TargetCategory("HIGH_THREAT_FIGHTER");
   }
   if (threat_score >= 0.8f) {
-    return model::TargetCategory("LOW_THREAT_TARGET");
+    return session::TargetCategory("LOW_THREAT_TARGET");
   }
-  return model::TargetCategory("UNKNOWN");
+  return session::TargetCategory("UNKNOWN");
 }
 
 float ThreatAssessmentEvaluator::ComputeThreatScore(
-    const model::TrackStateSnapshot& track_snapshot) const {
+    const session::TrackStateSnapshot& track_snapshot) const {
   float threat_score = 0.0f;
   const float track_speed = track_snapshot.speed;
   const float track_rcs = track_snapshot.rcs;
@@ -138,7 +138,7 @@ float ThreatAssessmentEvaluator::ComputeThreatScore(
     threat_score += 1.0f;
   }
 
-  if (track_snapshot.status == model::TrackStatus::kConfirmed) {
+  if (track_snapshot.status == session::TrackStatus::kConfirmed) {
     threat_score += 0.25f;
   }
 
@@ -147,14 +147,14 @@ float ThreatAssessmentEvaluator::ComputeThreatScore(
 
 void ThreatAssessmentEvaluator::UpdateLpiSourceInfo(
     model::LpiSourceInfo* source_info,
-    const model::TrackStateSnapshot& track_snapshot,
+    const session::TrackStateSnapshot& track_snapshot,
     const std::string& classification) const {
   if (source_info == nullptr) {
     return;
   }
 
   if (IsHighThreatCategory(classification) &&
-      track_snapshot.status == model::TrackStatus::kConfirmed) {
+      track_snapshot.status == session::TrackStatus::kConfirmed) {
     source_info->has_recon_platform = true;
   }
 }
@@ -172,11 +172,11 @@ bool ThreatAssessmentEvaluator::ShouldAcceptRepositoryMatch(
 }
 
 float ThreatAssessmentEvaluator::UpdateConfidence(
-    const model::TrackStateSnapshot& track_snapshot, float previous_confidence) const {
-  if (track_snapshot.status == model::TrackStatus::kConfirmed) {
+    const session::TrackStateSnapshot& track_snapshot, float previous_confidence) const {
+  if (track_snapshot.status == session::TrackStatus::kConfirmed) {
     return std::max(0.70f, std::min(1.0f, previous_confidence + 0.20f));
   }
-  if (track_snapshot.status == model::TrackStatus::kTentative) {
+  if (track_snapshot.status == session::TrackStatus::kTentative) {
     return std::min(0.45f, std::max(0.20f, previous_confidence + 0.10f));
   }
   return previous_confidence * 0.50f;

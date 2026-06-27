@@ -12,7 +12,7 @@
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
 #include "common/geometry/GeometryTransform.h"
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -22,7 +22,7 @@ namespace detection {
  */
 struct ResolvedBeamState {
   EffectiveBeamwidthDeg effective_beamwidth_deg;         /**< 生效方位/俯仰波束宽度。 */
-  model::AzimuthElevationDeg beam_pointing_deg; /**< 挂架坐标系下的当前波束中心。 */
+  config::AzimuthElevationDeg beam_pointing_deg; /**< 挂架坐标系下的当前波束中心。 */
   float one_way_antenna_gain_db{0.0f}; /**< 当前目标方向上的单程天线增益（dB）。 */
 };
 /**
@@ -34,17 +34,22 @@ class BeamControlResolver {
    * @brief 解析当前探测使用的波束状态。
    * @param antenna_config 天线配置。
    * @param orientation_config 雷达方向与控制配置。
+   * @param platform_attitude_deg 当前平台姿态角。
    * @param target_look_angles 目标在雷达局部坐标系中的 look angle。
+   * @param dwell_center_deg 当前周期的驻留偏移量；未提供时按零偏处理。
+   * @param wavelength_m 载波波长（单位：m），用于物理尺寸→波束宽度推导和 sinc² 模式（0=不使用）。
    * @return 当前探测使用的波束状态。
    */
   static ResolvedBeamState Resolve(const config::engineering::AntennaConfig& antenna_config,
-                                   const model::RadarOrientationConfig& orientation_config,
-                                   const model::PlatformAttitudeDeg& platform_attitude_deg,
+                                   const config::RadarOrientationConfig& orientation_config,
+                                   const config::PlatformAttitudeDeg& platform_attitude_deg,
                      const TargetLookAnglesDeg& target_look_angles,
-                     const model::AzimuthElevationDeg& dwell_center_deg =
-                       model::AzimuthElevationDeg()) {
+                     const config::AzimuthElevationDeg& dwell_center_deg =
+                       config::AzimuthElevationDeg(),
+                     float wavelength_m = 0.0f) {
     ResolvedBeamState state;
-    state.effective_beamwidth_deg = ResolveEffectiveBeamwidth(antenna_config, orientation_config);
+    state.effective_beamwidth_deg =
+        ResolveEffectiveBeamwidth(antenna_config, orientation_config, wavelength_m);
     state.beam_pointing_deg =
       ResolveMountFrameBeamPointing(orientation_config, platform_attitude_deg,
                       dwell_center_deg);
@@ -62,9 +67,10 @@ class BeamControlResolver {
     offset_deg.delta_az_deg = target_look_angles.look_az_deg - state.beam_pointing_deg.az_deg;
     offset_deg.delta_el_deg = target_look_angles.look_el_deg - state.beam_pointing_deg.el_deg;
 
-    const AntennaPatternSample sample =
-        EvaluateAntennaPattern(antenna_config.main_beam_gain_db, antenna_config.pattern,
-                               pattern_beamwidth, offset_deg, state.beam_pointing_deg);
+    const AntennaPatternSample sample = EvaluateAntennaPattern(
+        antenna_config.main_beam_gain_db, antenna_config.pattern, pattern_beamwidth, offset_deg,
+        state.beam_pointing_deg, antenna_config.antenna_length_m, antenna_config.antenna_width_m,
+        wavelength_m);
     state.one_way_antenna_gain_db = sample.gain_dbi;
     return state;
   }
@@ -78,19 +84,19 @@ class BeamControlResolver {
    * @return 挂架坐标系下的波束指向。
    * @note 对地稳定当前无地理参考输入，代码上显式等同于对惯性空间稳定。
    */
-  static model::AzimuthElevationDeg ResolveMountFrameBeamPointing(
-      const model::RadarOrientationConfig& orientation_config,
-      const model::PlatformAttitudeDeg& platform_attitude_deg,
-      const model::AzimuthElevationDeg& dwell_center_deg = model::AzimuthElevationDeg()) {
-    const model::AzimuthElevationLimitsDeg effective_limits =
+  static config::AzimuthElevationDeg ResolveMountFrameBeamPointing(
+      const config::RadarOrientationConfig& orientation_config,
+      const config::PlatformAttitudeDeg& platform_attitude_deg,
+      const config::AzimuthElevationDeg& dwell_center_deg = config::AzimuthElevationDeg()) {
+    const config::AzimuthElevationLimitsDeg effective_limits =
         utils::IntersectScanLimits(orientation_config.mechanical_scan_limits_deg,
                                            orientation_config.electronic_scan_limits_deg);
     if (orientation_config.stabilization_mode ==
-        model::StabilizationMode::kBodyStabilized) {
+        config::StabilizationMode::kBodyStabilized) {
       return utils::ComputeMountFrameBeamPointing(orientation_config, dwell_center_deg);
     }
 
-    model::AzimuthElevationDeg desired_platform_pointing_deg;
+    config::AzimuthElevationDeg desired_platform_pointing_deg;
     desired_platform_pointing_deg.az_deg = orientation_config.scan_center_deg.az_deg +
                                           dwell_center_deg.az_deg;
     desired_platform_pointing_deg.el_deg = orientation_config.scan_center_deg.el_deg +
@@ -110,7 +116,7 @@ class BeamControlResolver {
     const oneq::internal::geometry::AzimuthElevationDeg stabilized_mount_pointing =
         oneq::internal::geometry::ResolveStabilizedMountFramePointing(
             desired_platform_pointing, platform_attitude, mount_angles);
-    model::AzimuthElevationDeg stabilized_mount_frame_pointing;
+    config::AzimuthElevationDeg stabilized_mount_frame_pointing;
     stabilized_mount_frame_pointing.az_deg = stabilized_mount_pointing.az_deg;
     stabilized_mount_frame_pointing.el_deg = stabilized_mount_pointing.el_deg;
     return utils::ClampAzimuthElevation(stabilized_mount_frame_pointing, effective_limits);

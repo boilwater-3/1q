@@ -1,11 +1,11 @@
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
+#include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
-#include "1q/electronic_surveillance_radar/session/EsrSessionFactory.h"
 #include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
 
 namespace electronic_surveillance_radar {
@@ -22,8 +22,8 @@ struct EsrReplayState {
   oneq::replay::ReplayTraceFailure failure_marker_data{};
 };
 
-bool EmitterObservationEqual(const model::EmitterObservation& left,
-                             const model::EmitterObservation& right) {
+bool EmitterObservationEqual(const session::EmitterObservation& left,
+                             const session::EmitterObservation& right) {
   return left.observation_id == right.observation_id && left.timestamp_s == right.timestamp_s &&
          left.aoa_az_deg == right.aoa_az_deg && left.aoa_el_deg == right.aoa_el_deg &&
          left.rf_hz == right.rf_hz && left.pulse_width_s == right.pulse_width_s &&
@@ -31,8 +31,8 @@ bool EmitterObservationEqual(const model::EmitterObservation& left,
          left.quality == right.quality && left.is_jammed == right.is_jammed;
 }
 
-bool EmitterHypothesisEqual(const model::EmitterHypothesis& left,
-                            const model::EmitterHypothesis& right) {
+bool EmitterHypothesisEqual(const session::EmitterHypothesis& left,
+                            const session::EmitterHypothesis& right) {
   if (left.hypothesis_id != right.hypothesis_id || left.mode != right.mode ||
       left.threat_level != right.threat_level || left.bearing_az_deg != right.bearing_az_deg ||
       left.bearing_el_deg != right.bearing_el_deg || left.bearing_std_deg != right.bearing_std_deg ||
@@ -48,15 +48,15 @@ bool EmitterHypothesisEqual(const model::EmitterHypothesis& left,
   return true;
 }
 
-bool TruthAssociationRecordEqual(const extension::TruthAssociationRecord& left,
-                                 const extension::TruthAssociationRecord& right) {
+bool TruthAssociationRecordEqual(const session::TruthAssociationRecord& left,
+                                 const session::TruthAssociationRecord& right) {
   return left.observation_id == right.observation_id &&
          left.truth_emitter_id == right.truth_emitter_id && left.matched == right.matched &&
          left.confidence == right.confidence;
 }
 
-bool ObservationOutputFrameEqual(const extension::ObservationOutputFrame& left,
-                                 const extension::ObservationOutputFrame& right) {
+bool ObservationOutputFrameEqual(const session::ObservationOutputFrame& left,
+                                 const session::ObservationOutputFrame& right) {
   if (left.raw_observation_count != right.raw_observation_count ||
       left.cluster_count != right.cluster_count ||
       left.observations.size() != right.observations.size()) {
@@ -70,8 +70,8 @@ bool ObservationOutputFrameEqual(const extension::ObservationOutputFrame& left,
   return true;
 }
 
-bool EmitterOutputFrameEqual(const extension::EmitterOutputFrame& left,
-                             const extension::EmitterOutputFrame& right) {
+bool EmitterOutputFrameEqual(const session::EmitterOutputFrame& left,
+                             const session::EmitterOutputFrame& right) {
   if (left.hypotheses.size() != right.hypotheses.size()) {
     return false;
   }
@@ -83,8 +83,8 @@ bool EmitterOutputFrameEqual(const extension::EmitterOutputFrame& left,
   return true;
 }
 
-bool TruthEvaluationFrameEqual(const extension::TruthEvaluationFrame& left,
-                               const extension::TruthEvaluationFrame& right) {
+bool TruthEvaluationFrameEqual(const session::TruthEvaluationFrame& left,
+                               const session::TruthEvaluationFrame& right) {
   if (left.associations.size() != right.associations.size()) {
     return false;
   }
@@ -162,7 +162,7 @@ bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user
     *error = "ESR replay failed to decode session_config";
     return false;
   }
-  state->session.reset(new EsrSession(EsrSessionFactory::Create(config)));
+  state->session.reset(new EsrSession(EsrSession::Create(config)));
   return true;
 }
 

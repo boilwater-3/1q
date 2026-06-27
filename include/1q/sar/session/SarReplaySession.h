@@ -10,8 +10,6 @@
 
 #include "1q/api.hpp"
 #include "1q/replay/ReplayTrace.h"
-#include "1q/sar/session/SarSession.h"
-
 namespace sar {
 namespace session {
 
@@ -23,20 +21,6 @@ struct ONEQ_API SarReplaySessionResult {
   std::string failure_marker_payload{};
   oneq::replay::ReplayTraceFailure failure_marker_data{};
   std::string first_error{};
-};
-
-/**
- * @brief SAR replay 会话。
- */
-class ONEQ_API SarReplaySession {
- public:
-  SarReplaySession();
-  explicit SarReplaySession(SarSession session);
-
-  SarCycleResult StepWithResult(const SarCycleInput& input);
-
- private:
-  SarSession session_;
 };
 
 ONEQ_API SarReplaySessionResult ReplaySarTrace(const std::string& trace_dir);

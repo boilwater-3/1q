@@ -11,10 +11,13 @@ struct MutableRadarContext::RuntimeSnapshot {
   float platform_altitude_m{0.0f};
   float cycle_dt_sec{1.0f};
   std::uint32_t cycle_index{0U};
-  std::vector<extension::control::RadarCommand> submitted_commands{};
-  extension::control::RadarControlProfile latest_control_profile{};
+  std::vector<session::RadarCommand> submitted_commands{};
+  session::RadarControlProfile latest_control_profile{};
   bool has_latest_control_profile{false};
 };
+
+MutableRadarContext::MutableRadarContext(RadarSceneTargetList scene_targets)
+    : scene_targets_(new RadarSceneTargetList(std::move(scene_targets))), cycle_index_(1U) {}
 
 void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
   SetSceneTargets(input.scene);
@@ -30,28 +33,39 @@ void MutableRadarContext::SetSceneTargets(RadarSceneTargetList scene_targets) {
 }
 
 void MutableRadarContext::SetPlatformAttitude(
-    const model::PlatformAttitudeDeg& platform_attitude_deg) {
+    const config::PlatformAttitudeDeg& platform_attitude_deg) {
   platform_pose_.attitude_deg = platform_attitude_deg;
 }
 
 void MutableRadarContext::SetCycleDeltaTimeSec(float dt_sec) { cycle_dt_sec_ = dt_sec; }
 
+void MutableRadarContext::SetCycleIndex(std::uint32_t cycle_index) { cycle_index_ = cycle_index; }
+
 void MutableRadarContext::ResetCycleOutputs() { submitted_commands_.clear(); }
 
-const std::vector<extension::control::RadarCommand>& MutableRadarContext::GetSubmittedCommands()
+const std::vector<session::RadarCommand>& MutableRadarContext::GetSubmittedCommands()
     const {
   return submitted_commands_;
 }
 
 bool MutableRadarContext::HasLatestControlProfile() const { return has_latest_control_profile_; }
 
-const extension::control::RadarControlProfile& MutableRadarContext::GetLatestControlProfile()
+const session::RadarControlProfile& MutableRadarContext::GetLatestControlProfile()
     const {
   return latest_control_profile_;
 }
 
-extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() const {
-  extension::RadarContextRuntimeState state;
+const std::vector<session::RadarCommand>& MutableRadarContext::SubmittedCommands()
+    const {
+  return submitted_commands_;
+}
+
+const session::RadarControlProfile& MutableRadarContext::LatestControlProfile() const {
+  return latest_control_profile_;
+}
+
+RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() const {
+  RadarContextRuntimeState state;
   std::shared_ptr<RuntimeSnapshot> snapshot(new RuntimeSnapshot());
   snapshot->scene_targets = scene_targets_;
   snapshot->platform_pose = platform_pose_;
@@ -75,7 +89,7 @@ extension::RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() c
   return state;
 }
 
-void MutableRadarContext::RestoreRuntimeState(const extension::RadarContextRuntimeState& state) {
+void MutableRadarContext::RestoreRuntimeState(const RadarContextRuntimeState& state) {
   if (state.owner_identity == this && state.schema_version == 1U) {
     const std::shared_ptr<RuntimeSnapshot> snapshot =
         std::static_pointer_cast<RuntimeSnapshot>(state.opaque);
@@ -107,7 +121,7 @@ const RadarSceneTargetList& MutableRadarContext::GetSceneTargets() const {
   return scene_targets_ != nullptr ? *scene_targets_ : kEmptySceneTargets;
 }
 
-model::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {
+config::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {
   return platform_pose_.attitude_deg;
 }
 
@@ -117,12 +131,12 @@ float MutableRadarContext::GetCycleDeltaTimeSec() const { return cycle_dt_sec_; 
 
 std::uint32_t MutableRadarContext::GetCycleIndex() const { return cycle_index_; }
 
-void MutableRadarContext::SubmitControlCommand(extension::control::RadarCommand cmd) {
+void MutableRadarContext::SubmitControlCommand(session::RadarCommand cmd) {
   submitted_commands_.push_back(std::move(cmd));
 }
 
 void MutableRadarContext::UpdateRadarControlProfile(
-    const extension::control::RadarControlProfile& profile) {
+    const session::RadarControlProfile& profile) {
   latest_control_profile_ = profile;
   has_latest_control_profile_ = true;
 }

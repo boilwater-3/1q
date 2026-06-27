@@ -88,7 +88,10 @@ inline bool IsInsideMainLobe(const AntennaPatternBeamwidthDeg& beamwidth_deg,
  */
 inline float ComputeMainLobeAttenuationDb(const config::engineering::AntennaPatternConfig& config,
                                           const AntennaPatternBeamwidthDeg& beamwidth_deg,
-                                          const AntennaLookOffsetDeg& offset_deg) {
+                                          const AntennaLookOffsetDeg& offset_deg,
+                                          float antenna_az_length_m = 0.0f,
+                                          float antenna_el_width_m = 0.0f,
+                                          float wavelength_m = 0.0f) {
   const float half_az_beamwidth_deg =
       0.5f * antenna_pattern_internal::ClampLowerBound(beamwidth_deg.az_beamwidth_deg, 1e-3f);
   const float half_el_beamwidth_deg =
@@ -122,6 +125,31 @@ inline float ComputeMainLobeAttenuationDb(const config::engineering::AntennaPatt
              std::log10(antenna_pattern_internal::ClampLowerBound(az_gain * el_gain, 1e-6f));
     }
 
+    case config::engineering::AntennaPatternModelType::kSincPattern: {
+      float attenuation_db = 0.0f;
+      if (antenna_az_length_m > 0.0f && wavelength_m > 0.0f) {
+        const float kDeg2Rad = 3.14159265358979f / 180.0f;
+        const float az_offset_rad = offset_deg.delta_az_deg * kDeg2Rad;
+        const float arg =
+            3.14159265358979f * antenna_az_length_m * std::sin(az_offset_rad) / wavelength_m;
+        const float sinc_val = (std::fabs(arg) < 1e-6f) ? 1.0f : std::sin(arg) / arg;
+        const float safe_val =
+            antenna_pattern_internal::ClampLowerBound(std::fabs(sinc_val), 1e-6f);
+        attenuation_db += -20.0f * std::log10(safe_val);
+      }
+      if (antenna_el_width_m > 0.0f && wavelength_m > 0.0f) {
+        const float kDeg2Rad = 3.14159265358979f / 180.0f;
+        const float el_offset_rad = offset_deg.delta_el_deg * kDeg2Rad;
+        const float arg =
+            3.14159265358979f * antenna_el_width_m * std::sin(el_offset_rad) / wavelength_m;
+        const float sinc_val = (std::fabs(arg) < 1e-6f) ? 1.0f : std::sin(arg) / arg;
+        const float safe_val =
+            antenna_pattern_internal::ClampLowerBound(std::fabs(sinc_val), 1e-6f);
+        attenuation_db += -20.0f * std::log10(safe_val);
+      }
+      return attenuation_db;
+    }
+
     case config::engineering::AntennaPatternModelType::kGaussianMainLobe:
     default:
       return 3.0f * (normalized_az * normalized_az + normalized_el * normalized_el);
@@ -135,7 +163,7 @@ inline float ComputeMainLobeAttenuationDb(const config::engineering::AntennaPatt
  * @return 扫描损失（单位：dB）。
  */
 inline float ComputeScanLossDb(const config::engineering::AntennaPatternConfig& config,
-                               const model::AzimuthElevationDeg& beam_pointing_deg) {
+                               const config::AzimuthElevationDeg& beam_pointing_deg) {
   const float delta_scan_az_deg = beam_pointing_deg.az_deg - config.boresight_offset_deg.az_deg;
   const float delta_scan_el_deg = beam_pointing_deg.el_deg - config.boresight_offset_deg.el_deg;
   const float raw_scan_loss_db =
@@ -158,7 +186,9 @@ inline float ComputeScanLossDb(const config::engineering::AntennaPatternConfig& 
 inline AntennaPatternSample EvaluateAntennaPattern(
     float peak_gain_dbi, const config::engineering::AntennaPatternConfig& config,
     const AntennaPatternBeamwidthDeg& beamwidth_deg, const AntennaLookOffsetDeg& offset_deg,
-    const model::AzimuthElevationDeg& beam_pointing_deg) {
+    const config::AzimuthElevationDeg& beam_pointing_deg,
+    float antenna_az_length_m = 0.0f, float antenna_el_width_m = 0.0f,
+    float wavelength_m = 0.0f) {
   AntennaPatternSample sample;
   sample.scan_loss_db = ComputeScanLossDb(config, beam_pointing_deg);
   sample.inside_back_lobe = antenna_pattern_internal::IsInsideBackLobe(offset_deg);
@@ -168,7 +198,9 @@ inline AntennaPatternSample EvaluateAntennaPattern(
     return sample;
   }
 
-  sample.main_lobe_attenuation_db = ComputeMainLobeAttenuationDb(config, beamwidth_deg, offset_deg);
+  sample.main_lobe_attenuation_db =
+      ComputeMainLobeAttenuationDb(config, beamwidth_deg, offset_deg, antenna_az_length_m,
+                                   antenna_el_width_m, wavelength_m);
   if (sample.inside_main_lobe) {
     sample.gain_dbi = peak_gain_dbi - sample.main_lobe_attenuation_db - sample.scan_loss_db;
     return sample;

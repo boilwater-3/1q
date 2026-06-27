@@ -67,10 +67,10 @@ class ONEQ_API RadarTraceSession {
 
   void ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
 
-  const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const;
+  const std::vector<session::RadarCommand>& GetSubmittedCommands() const;
   bool HasLatestControlProfile() const;
-  const extension::control::RadarControlProfile& GetLatestControlProfile() const;
-  extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
+  const session::RadarControlProfile& GetLatestControlProfile() const;
+  session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
 
   RadarSession& session();
   const RadarSession& session() const;

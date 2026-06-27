@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/model/TrackStateSnapshot.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
@@ -24,7 +24,7 @@ namespace airborne_radar {
 namespace session {
 namespace {
 
-namespace ar_model = ::airborne_radar::model;
+namespace ar_model = ::airborne_radar::session;
 
 RadarSceneTarget MakeNamedTarget(std::uint64_t id, const std::string& name) {
   RadarSceneTarget target;
@@ -34,9 +34,9 @@ RadarSceneTarget MakeNamedTarget(std::uint64_t id, const std::string& name) {
   return target;
 }
 
-model::TrackStateSnapshot MakeTrackSnapshot(std::uint64_t external_target_id, const std::string& name,
-                                            model::TrackStatus status, float speed = 100.0f) {
-  model::TrackStateSnapshot snapshot;
+session::TrackStateSnapshot MakeTrackSnapshot(std::uint64_t external_target_id, const std::string& name,
+                                            session::TrackStatus status, float speed = 100.0f) {
+  session::TrackStateSnapshot snapshot;
   snapshot.external_target_id = external_target_id;
   snapshot.target_name = name;
   snapshot.status = status;
@@ -50,7 +50,7 @@ model::TrackStateSnapshot MakeTrackSnapshot(std::uint64_t external_target_id, co
 }
 
 RadarCycleResult MakeCycleResult(std::uint32_t cycle_index, bool executed,
-                                 std::vector<model::TrackStateSnapshot> tracks) {
+                                 std::vector<session::TrackStateSnapshot> tracks) {
   RadarCycleResult result;
   result.input_cycle_index = cycle_index;
   result.executed_this_cycle = executed;
@@ -70,8 +70,8 @@ TEST(RadarTrackOutputDebugViewTest, BuildMapsTracksBackToNamedTargets) {
 
   RadarCycleResult result = MakeCycleResult(
       5U, /*executed=*/true,
-      {MakeTrackSnapshot(701U, "alpha", model::TrackStatus::kConfirmed),
-       MakeTrackSnapshot(702U, "beta", model::TrackStatus::kTentative)});
+      {MakeTrackSnapshot(701U, "alpha", session::TrackStatus::kConfirmed),
+       MakeTrackSnapshot(702U, "beta", session::TrackStatus::kTentative)});
 
   const RadarTrackOutputDebugView view = RadarTrackOutputDebugViewBuilder::Build(input, result);
   EXPECT_EQ(view.input_cycle_index, 5U);
@@ -117,7 +117,7 @@ TEST(RadarTrackLifecycleRecorderTest, TracksFirstConfirmedUpdatedLost) {
 
   // 周期 1：首次确认。
   RadarCycleResult first = MakeCycleResult(1U, /*executed=*/true,
-                                           {MakeTrackSnapshot(800U, "gamma", model::TrackStatus::kConfirmed)});
+                                           {MakeTrackSnapshot(800U, "gamma", session::TrackStatus::kConfirmed)});
   std::vector<RadarTrackLifecycleEvent> events = recorder.Update(input, first);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events[0].kind, RadarTrackLifecycleEventKind::kFirstConfirmed);
@@ -125,14 +125,14 @@ TEST(RadarTrackLifecycleRecorderTest, TracksFirstConfirmedUpdatedLost) {
 
   // 周期 2：已确认 → 更新。
   RadarCycleResult second = MakeCycleResult(2U, /*executed=*/true,
-                                            {MakeTrackSnapshot(800U, "gamma", model::TrackStatus::kConfirmed)});
+                                            {MakeTrackSnapshot(800U, "gamma", session::TrackStatus::kConfirmed)});
   events = recorder.Update(input, second);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events[0].kind, RadarTrackLifecycleEventKind::kUpdated);
 
   // 周期 3：丢失。
   RadarCycleResult lost = MakeCycleResult(3U, /*executed=*/true,
-                                          {MakeTrackSnapshot(800U, "gamma", model::TrackStatus::kLost)});
+                                          {MakeTrackSnapshot(800U, "gamma", session::TrackStatus::kLost)});
   events = recorder.Update(input, lost);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events[0].kind, RadarTrackLifecycleEventKind::kLost);

@@ -7,14 +7,14 @@
 
 #include <string>
 
-#include "electronic_surveillance_radar/output/EsrOutputManager.h"
+#include "electronic_surveillance_radar/runtime/EsrOutputManager.h"
 
 namespace electronic_surveillance_radar {
 namespace output {
 namespace {
 
-model::EmitterObservation MakeObservation(std::uint64_t observation_id, float snr_db) {
-  model::EmitterObservation observation;
+session::EmitterObservation MakeObservation(std::uint64_t observation_id, float snr_db) {
+  session::EmitterObservation observation;
   observation.observation_id = observation_id;
   observation.timestamp_s = 12.0;
   observation.aoa_az_deg = 5.0f;
@@ -23,16 +23,16 @@ model::EmitterObservation MakeObservation(std::uint64_t observation_id, float sn
   observation.pulse_width_s = 2.0e-6f;
   observation.amplitude_db = 18.0f;
   observation.snr_db = snr_db;
-  observation.quality = model::EsrObservationQuality::kHigh;
+  observation.quality = session::EsrObservationQuality::kHigh;
   return observation;
 }
 
-model::EmitterHypothesis MakeHypothesis(std::uint64_t hypothesis_id, float confidence) {
-  model::EmitterHypothesis hypothesis;
+session::EmitterHypothesis MakeHypothesis(std::uint64_t hypothesis_id, float confidence) {
+  session::EmitterHypothesis hypothesis;
   hypothesis.hypothesis_id = hypothesis_id;
   hypothesis.candidate_classes.push_back("SAM");
-  hypothesis.mode = model::EsrEmitterMode::kTracking;
-  hypothesis.threat_level = model::EsrThreatLevel::kHigh;
+  hypothesis.mode = session::EsrEmitterMode::kTracking;
+  hypothesis.threat_level = session::EsrThreatLevel::kHigh;
   hypothesis.bearing_az_deg = 11.0f;
   hypothesis.bearing_el_deg = 2.5f;
   hypothesis.bearing_std_deg = 0.8f;
@@ -41,9 +41,9 @@ model::EmitterHypothesis MakeHypothesis(std::uint64_t hypothesis_id, float confi
   return hypothesis;
 }
 
-extension::TruthAssociationRecord MakeAssociation(std::uint64_t observation_id,
+session::TruthAssociationRecord MakeAssociation(std::uint64_t observation_id,
                                                std::uint64_t truth_emitter_id, bool matched) {
-  extension::TruthAssociationRecord association;
+  session::TruthAssociationRecord association;
   association.observation_id = observation_id;
   association.truth_emitter_id = truth_emitter_id;
   association.matched = matched;

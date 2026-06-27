@@ -71,7 +71,7 @@ void ValidateEnvironmentInput(const RadarEnvironmentInput& environment,
   if (issues == nullptr) {
     return;
   }
-  const environment::AtmosphericPhysicsConfig& atmosphere = environment.atmospheric_observation;
+  const config::AtmosphericPhysicsConfig& atmosphere = environment.atmospheric_observation;
   if (!IsFinite(atmosphere.pressure_hpa) || !IsFinite(atmosphere.temperature_k) ||
       !IsFinite(atmosphere.relative_humidity) || atmosphere.pressure_hpa <= 0.0f ||
       atmosphere.temperature_k <= 0.0f || !IsRatioValid(atmosphere.relative_humidity)) {
@@ -82,7 +82,7 @@ void ValidateEnvironmentInput(const RadarEnvironmentInput& environment,
                                 "atmospheric observation must contain positive "
                                 "pressure/temperature and humidity in [0, 1]"));
   }
-  const environment::AtmosphericDerivedContext& context = environment.atmospheric_context;
+  const config::AtmosphericDerivedContext& context = environment.atmospheric_context;
   if (!IsFinite(context.solar_flux_f107a) || !IsFinite(context.solar_flux_f107) ||
       !IsFinite(context.geomagnetic_ap)) {
     issues->push_back(MakeIssue(
@@ -91,9 +91,10 @@ void ValidateEnvironmentInput(const RadarEnvironmentInput& environment,
         "environment.atmospheric_context", "atmospheric context numeric fields must be finite"));
   }
   for (std::size_t i = 0; i < environment.jammer_sources.size(); ++i) {
-    const environment::JammerEmitterState& jammer = environment.jammer_sources[i];
-    if (!IsFinite(jammer.power_db) || !IsFinite(jammer.js_db) || !IsFinite(jammer.azimuth_deg) ||
-        !IsFinite(jammer.elevation_deg) || !IsFinite(jammer.angular_span_deg) ||
+    const config::JammerEmitterState& jammer = environment.jammer_sources[i];
+    if (!IsFinite(jammer.power_db) || !IsFinite(jammer.js_db) ||
+        !IsFinite(jammer.position_x) || !IsFinite(jammer.position_y) || !IsFinite(jammer.position_z) ||
+        !IsFinite(jammer.angular_span_deg) ||
         !IsFinite(jammer.confidence) || jammer.power_db < 0.0f || jammer.js_db < 0.0f ||
         jammer.angular_span_deg < 0.0f || !IsRatioValid(jammer.confidence)) {
       issues->push_back(MakeIssue(
@@ -174,7 +175,9 @@ ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& input) {
   ValidationIssueList issues = ValidateRadarCycleDeltaTime(input.dt_sec);
   ValidatePlatformPose(input.platform_pose, &issues);
   ValidatePlatformAltitude(input.platform_altitude_m, &issues);
-  ValidateEnvironmentInput(input.environment, &issues);
+  if (input.has_environment) {
+    ValidateEnvironmentInput(input.environment, &issues);
+  }
 
   const ValidationIssueList target_issues = ValidateRadarSceneTargets(input.scene);
   issues.insert(issues.end(), target_issues.begin(), target_issues.end());

@@ -1,11 +1,11 @@
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
 
 #include <sstream>
 #include <string>
 #include <utility>
 
 #include "1q/replay/ReplayTrace.h"
-#include "1q/electro_optical_sensor/session/EosSessionFactory.h"
 #include "1q/trace/TraceSink.h"
 #include "EosReplayFlatbufferCodec.h"
 
@@ -41,7 +41,7 @@ std::string BuildEosOutputPayload(const EosCycleResult& result) {
 
 struct EosTraceSession::Impl {
   Impl(config::EosSessionConfig config, EosTraceSessionOptions options)
-      : session(EosSessionFactory::Create(config)),
+      : session(EosSession::Create(config)),
         sink(std::move(options.sink)),
         replay_writer(std::move(options.replay_writer)) {
     if (sink && options.trace_config_on_construct) {

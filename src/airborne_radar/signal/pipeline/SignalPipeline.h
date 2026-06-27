@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/extension/ISignalPipeline.h"
+#include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -44,7 +44,7 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @param environment 当前环境服务。
    * @return 当前周期的信号处理输出。
    */
-  extension::SignalCycleResult RunCycle(
+  session::SignalCycleResult RunCycle(
       const session::RadarSceneTargetList& scene_targets,
       const environment::IEnvironmentService& environment) override;
 
@@ -58,7 +58,7 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @brief 获取上一周期的关联质量指标。
    * @return 上一周期缓存的关联质量指标。
    */
-  extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override;
+  session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override;
 
   extension::SignalPipelineRuntimeState CaptureRuntimeState() const override;
 
@@ -86,27 +86,27 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @brief 更新平台姿态输入。
    * @param platform_attitude_deg 当前平台姿态。
    */
-  void UpdatePlatformAttitude(const model::PlatformAttitudeDeg& platform_attitude_deg) override;
+  void UpdatePlatformAttitude(const config::PlatformAttitudeDeg& platform_attitude_deg) override;
   void UpdatePlatformAltitudeM(float platform_altitude_m) override;
 
   /**
    * @brief 获取当前缓存的平台姿态。
    * @return 当前平台姿态。
    */
-  model::PlatformAttitudeDeg GetPlatformAttitude() const override;
+  config::PlatformAttitudeDeg GetPlatformAttitude() const override;
   float GetPlatformAltitudeM() const override;
 
   /**
    * @brief 更新当前生效的控制真值。
    * @param control_profile 控制真值。
    */
-  void SetControlProfile(const extension::control::RadarControlProfile& control_profile) override;
+  void SetControlProfile(const session::RadarControlProfile& control_profile) override;
 
   /**
    * @brief 获取当前缓存的控制真值。
    * @return 当前控制真值。
    */
-  extension::control::RadarControlProfile GetControlProfile() const override;
+  session::RadarControlProfile GetControlProfile() const override;
 
   /**
    * @brief 更新流水线运行配置。

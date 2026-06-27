@@ -9,8 +9,10 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/extension/control/RadarCommand.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
+#include "1q/airborne_radar/config/RadarSessionConfig.h"
+#include "1q/airborne_radar/config/RadarSessionConfigValidation.h"
+#include "1q/airborne_radar/session/RadarCommand.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/api.hpp"
@@ -20,23 +22,9 @@ namespace airborne_radar {
 namespace config {
 struct RadarRuntimeConfigPatch;
 }  // namespace config
-}  // namespace airborne_radar
-
-namespace airborne_radar {
-namespace extension {
-class IRadarContext;
-class RadarController;
-class ISignalPipeline;
-}  // namespace extension
-namespace environment {
-class IEnvironmentService;
-}
-}  // namespace airborne_radar
-
-namespace airborne_radar {
 namespace session {
-class RadarSessionFactory;
-}
+class ITacticalDecisionEngine;
+}  // namespace session
 }  // namespace airborne_radar
 
 namespace airborne_radar {
@@ -79,7 +67,7 @@ class ONEQ_API RadarSession {
   /** @brief 获取当前周期已提交的控制指令。
    * @return 最近一次成功执行周期提交的控制指令列表引用。
    */
-  const std::vector<extension::control::RadarCommand>& GetSubmittedCommands() const;
+  const std::vector<session::RadarCommand>& GetSubmittedCommands() const;
 
   /**
    * @brief 判断是否已经保存过最新控制真值。
@@ -91,13 +79,13 @@ class ONEQ_API RadarSession {
    * @brief 获取最近一次控制真值。
    * @return 最近一次成功执行周期留下的控制真值引用。
    */
-  const extension::control::RadarControlProfile& GetLatestControlProfile() const;
+  const session::RadarControlProfile& GetLatestControlProfile() const;
 
   /**
    * @brief 获取最近一次关联质量观测指标。
    * @return 最近一次成功执行周期留下的关联质量观测指标。
    */
-  extension::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
+  session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
 
   /**
    * @brief 应用运行期可变配置补丁。
@@ -116,8 +104,28 @@ class ONEQ_API RadarSession {
    */
   bool TryApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
 
+  /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
+  static RadarSession Create(const config::RadarSessionConfig& config = {});
+  static RadarSession CreateWithDecisionEngine(
+      const config::RadarSessionConfig& config,
+      session::ITacticalDecisionEngine& decision_engine);
+
+  /**
+   * @brief 创建会话并报告配置校验结果（校验路径）。
+   *
+   * 与 `Create()` 唯一区别：构造前调用 `config::ValidateRadarSessionConfig`
+   * 校验配置合法性，将发现的问题写入 @p issues。无论 @p issues 是否为空，
+   * 都会构造并返回会话（不阻断），调用方据 `issues->empty()` 决定后续。
+   *
+   * @param[in] config 四域会话配置。
+   * @param[out] issues 校验问题输出；传入 nullptr 则不写回但仍构造会话。
+   * @return 构造完成的会话。
+   * @note `ValidateRadarSessionConfig` 由此路径被实调用，构成真实契约。
+   */
+  static RadarSession CreateWithValidation(const config::RadarSessionConfig& config,
+                                           config::ValidationIssueList* issues);
+
  private:
-  friend class RadarSessionFactory;
 
   struct Impl;
   explicit RadarSession(std::unique_ptr<Impl> impl);

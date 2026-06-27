@@ -1,7 +1,6 @@
-// fix file
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 
-#include "common/logging/ProjectLog.h"
+#include "1q/airborne_radar/config/RadarSessionConfigValidation.h"
 
 namespace airborne_radar {
 namespace config {
@@ -12,7 +11,7 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
                                   profiles::RadarHardwareProfile hardware_profile,
                                   profiles::DetectionIntentProfile intent_profile,
                                   profiles::AntennaPatternProfile antenna_profile,
-                                  const model::AzimuthElevationDeg& antenna_boresight_offset_deg,
+                                  const config::AzimuthElevationDeg& antenna_boresight_offset_deg,
                                   profiles::RcsFusionProfile rcs_fusion_profile,
                                   DetectionConfig* detection_config) {
   if (detection_config == nullptr) {
@@ -156,11 +155,10 @@ void ApplyLifecycleSemanticConfig(bool enable_imm_fusion,
 
 config::RadarSessionConfig BuildDefaultSemanticSessionConfig() {
   config::RadarSessionConfig config;
-  ApplyDetectionSemanticConfig(false, profiles::RadarHardwareProfile::kGenericAirborneXBand,
-                               profiles::DetectionIntentProfile::kBalanced,
-                               profiles::AntennaPatternProfile::kStandard,
-                               model::AzimuthElevationDeg(), profiles::RcsFusionProfile::kDisabled,
-                               &config.hardware.detection);
+  ApplyDetectionSemanticConfig(
+      false, profiles::RadarHardwareProfile::kGenericAirborneXBand,
+      profiles::DetectionIntentProfile::kBalanced, profiles::AntennaPatternProfile::kStandard,
+      config::AzimuthElevationDeg(), profiles::RcsFusionProfile::kDisabled, &config.hardware);
   ApplyTrackingSemanticConfig(false, profiles::TrackingPolicyProfile::kBalanced,
                               &config.policy.tracking, &config.policy.association);
   ApplyLifecycleSemanticConfig(false, profiles::LifecyclePolicyProfile::kBalanced,
@@ -171,26 +169,20 @@ config::RadarSessionConfig BuildDefaultSemanticSessionConfig() {
 }  // namespace
 
 RadarSessionConfigBuilder::RadarSessionConfigBuilder()
-    : base_config_(BuildDefaultSemanticSessionConfig()),
-      orientation_(base_config_.mission.orientation),
-      env_(base_config_.environment) {}
+    : base_config_(BuildDefaultSemanticSessionConfig()) {}
 
 RadarSessionConfigBuilder::RadarSessionConfigBuilder(const config::RadarSessionConfig& config)
-    : base_config_(config),
-      orientation_(config.mission.orientation),
-      env_(config.environment) {}
+    : base_config_(config) {}
 
 config::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   config::RadarSessionConfig result = base_config_;
   const config::RadarSessionConfig default_semantic = BuildDefaultSemanticSessionConfig();
-  result.mission.orientation = orientation_;
-  result.environment = env_;
 
   if (detection_dirty_) {
-    result.hardware.detection = default_semantic.hardware.detection;
+    result.hardware = default_semantic.hardware;
     ApplyDetectionSemanticConfig(enable_physics_detection_, hardware_profile_, intent_profile_,
                                  antenna_profile_, antenna_boresight_offset_deg_,
-                                 rcs_fusion_profile_, &result.hardware.detection);
+                                 rcs_fusion_profile_, &result.hardware);
   }
 
   if (tracking_dirty_) {
@@ -205,81 +197,64 @@ config::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
     ApplyLifecycleSemanticConfig(enable_imm_fusion_, lifecycle_profile_, &result.policy.lifecycle);
   }
 
-  if (tracking_dirty_ && tracking_profile_ == profiles::TrackingPolicyProfile::kRobustAntiJamming &&
-      !enable_imm_fusion_) {
-    PROJECT_LOG_WARN(
-        "[RadarSessionConfigBuilder] robust tracking policy is set while IMM fusion is disabled; "
-        "consider enabling IMM for stronger anti-jamming stability.");
-  }
-
-  // 构造期校验提醒：仅记录日志，不改变构建行为
-  {
-    ValidationIssueList pre_issues = Validate();
-    if (!pre_issues.empty()) {
-      PROJECT_LOG_WARN("[RadarSessionConfigBuilder] Validate() found {} issue(s); call Validate() "
-                       "before Build() for early feedback.",
-                       pre_issues.size());
-    }
-  }
-
   return result;
 }
 
-ValidationIssueList RadarSessionConfigBuilder::Validate() const {
+ValidationIssueList ValidateRadarSessionConfig(const config::RadarSessionConfig& config) noexcept {
   ValidationIssueList issues;
+  const auto push = [&issues](ConfigValidationCode code, const char* field, const char* msg) {
+    ConfigValidationIssue issue;
+    issue.code = code;
+    issue.field = field;
+    issue.message = msg;
+    issues.push_back(issue);
+  };
+  const config::RadarOrientationConfig& orientation = config.mission.orientation;
 
-  // 检查指令态波束宽度：启用时必须为正
-  if (orientation_.commanded_beamwidth_enabled) {
-    if (orientation_.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f) {
-      ConfigValidationIssue it;
-      it.code = ConfigValidationCode::kCommandedBeamwidthAzNotPositive;
-      it.field = "orientation_.commanded_beamwidth_deg.commanded_az_beamwidth_deg";
-      it.message = "Commanded azimuth beamwidth must be positive when enabled.";
-      issues.push_back(it);
+  if (orientation.commanded_beamwidth_enabled) {
+    if (orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f) {
+      push(ConfigValidationCode::kCommandedBeamwidthAzNotPositive,
+           "mission.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg",
+           "Commanded azimuth beamwidth must be positive when enabled.");
     }
-    if (orientation_.commanded_beamwidth_deg.commanded_el_beamwidth_deg <= 0.0f) {
-      ConfigValidationIssue it;
-      it.code = ConfigValidationCode::kCommandedBeamwidthElNotPositive;
-      it.field = "orientation_.commanded_beamwidth_deg.commanded_el_beamwidth_deg";
-      it.message = "Commanded elevation beamwidth must be positive when enabled.";
-      issues.push_back(it);
+    if (orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg <= 0.0f) {
+      push(ConfigValidationCode::kCommandedBeamwidthElNotPositive,
+           "mission.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg",
+           "Commanded elevation beamwidth must be positive when enabled.");
     }
   }
 
-  // 检查机械扫描限位一致性
-  if (orientation_.mechanical_scan_limits_deg.az_min_deg >
-      orientation_.mechanical_scan_limits_deg.az_max_deg) {
-    ConfigValidationIssue it;
-    it.code = ConfigValidationCode::kMechanicalScanLimitsSwappedAz;
-    it.field = "mechanical_scan_limits_deg";
-    it.message = "Mechanical azimuth scan min exceeds max.";
-    issues.push_back(it);
+  if (orientation.mechanical_scan_limits_deg.az_min_deg >
+      orientation.mechanical_scan_limits_deg.az_max_deg) {
+    push(ConfigValidationCode::kMechanicalScanLimitsSwappedAz,
+         "mission.orientation.mechanical_scan_limits_deg",
+         "Mechanical azimuth scan min exceeds max.");
   }
-  if (orientation_.mechanical_scan_limits_deg.el_min_deg >
-      orientation_.mechanical_scan_limits_deg.el_max_deg) {
-    ConfigValidationIssue it;
-    it.code = ConfigValidationCode::kMechanicalScanLimitsSwappedEl;
-    it.field = "mechanical_scan_limits_deg";
-    it.message = "Mechanical elevation scan min exceeds max.";
-    issues.push_back(it);
+  if (orientation.mechanical_scan_limits_deg.el_min_deg >
+      orientation.mechanical_scan_limits_deg.el_max_deg) {
+    push(ConfigValidationCode::kMechanicalScanLimitsSwappedEl,
+         "mission.orientation.mechanical_scan_limits_deg",
+         "Mechanical elevation scan min exceeds max.");
   }
 
-  // 检查电子扫描限位一致性
-  if (orientation_.electronic_scan_limits_deg.az_min_deg >
-      orientation_.electronic_scan_limits_deg.az_max_deg) {
-    ConfigValidationIssue it;
-    it.code = ConfigValidationCode::kElectronicScanLimitsSwappedAz;
-    it.field = "electronic_scan_limits_deg";
-    it.message = "Electronic azimuth scan min exceeds max.";
-    issues.push_back(it);
+  if (orientation.electronic_scan_limits_deg.az_min_deg >
+      orientation.electronic_scan_limits_deg.az_max_deg) {
+    push(ConfigValidationCode::kElectronicScanLimitsSwappedAz,
+         "mission.orientation.electronic_scan_limits_deg",
+         "Electronic azimuth scan min exceeds max.");
   }
-  if (orientation_.electronic_scan_limits_deg.el_min_deg >
-      orientation_.electronic_scan_limits_deg.el_max_deg) {
-    ConfigValidationIssue it;
-    it.code = ConfigValidationCode::kElectronicScanLimitsSwappedEl;
-    it.field = "electronic_scan_limits_deg";
-    it.message = "Electronic elevation scan min exceeds max.";
-    issues.push_back(it);
+  if (orientation.electronic_scan_limits_deg.el_min_deg >
+      orientation.electronic_scan_limits_deg.el_max_deg) {
+    push(ConfigValidationCode::kElectronicScanLimitsSwappedEl,
+         "mission.orientation.electronic_scan_limits_deg",
+         "Electronic elevation scan min exceeds max.");
+  }
+
+  if (config.policy.tracking.kalman_update_backend == config::KalmanUpdateBackend::kUdKf &&
+      !config.policy.lifecycle.enable_imm_lifecycle) {
+    push(ConfigValidationCode::kRobustTrackingWithoutImm,
+         "policy.tracking.kalman_update_backend / policy.lifecycle.enable_imm_lifecycle",
+         "Robust anti-jamming tracking should enable IMM lifecycle fusion.");
   }
 
   return issues;

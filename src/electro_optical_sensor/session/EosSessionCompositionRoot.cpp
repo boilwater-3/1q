@@ -1,7 +1,7 @@
 /**
  * @file EosSessionCompositionRoot.cpp
  * @brief 实现 EOS 会话组合根，统一装配 pipeline 与 controller 依赖。
- * @note 管线已完全内部化，仅支持 ComposeDefault 和 ComposeWithEnvironmentService。
+ * @note 管线与环境服务已完全内部化，仅支持 ComposeDefault。
  */
 
 #include "electro_optical_sensor/session/EosSessionCompositionRoot.h"
@@ -10,12 +10,11 @@
 #include <memory>
 #include <utility>
 
-#include "1q/electro_optical_sensor/extension/EosController.h"
-#include "1q/electro_optical_sensor/environment/IEosEnvironmentService.h"
+#include "electro_optical_sensor/runtime/EosController.h"
 #include "common/logging/ProjectLog.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/runtime/EosRuntimeConfigResolver.h"
-#include "electro_optical_sensor/signal/pipeline/EosPipeline.h"
+#include "electro_optical_sensor/pipeline/EosPipeline.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -36,12 +35,6 @@ void FinalizeComposition(EosSessionComposition& composition) {
   static_cast<void>(RequireComposedDependency(composition.owned_controller, "controller"));
 }
 
-std::shared_ptr<environment::IEosEnvironmentService> MakeNonOwningEnvironmentServiceHandle(
-    environment::IEosEnvironmentService& environment_service) {
-  return std::shared_ptr<environment::IEosEnvironmentService>(
-      &environment_service, [](environment::IEosEnvironmentService*) {});
-}
-
 }  // namespace
 
 EosSessionComposition EosSessionCompositionRoot::ComposeDefault(
@@ -51,22 +44,6 @@ EosSessionComposition EosSessionCompositionRoot::ComposeDefault(
   composition.internal_config = internal_config;
   composition.owned_pipeline.reset(
       new signal::pipeline::EosPipeline(internal_config));
-  composition.owned_controller.reset(
-      new extension::EosController(*composition.owned_pipeline));
-  composition.initial_reset_scan_phase = true;
-  FinalizeComposition(composition);
-  return composition;
-}
-
-EosSessionComposition EosSessionCompositionRoot::ComposeWithEnvironmentService(
-    const config::EosSessionConfig& config,
-    environment::IEosEnvironmentService& environment_service) {
-  auto internal_config = runtime::session::MapSessionToInternal(config);
-  EosSessionComposition composition;
-  composition.internal_config = internal_config;
-  composition.owned_pipeline.reset(new signal::pipeline::EosPipeline(
-      internal_config,
-      MakeNonOwningEnvironmentServiceHandle(environment_service)));
   composition.owned_controller.reset(
       new extension::EosController(*composition.owned_pipeline));
   composition.initial_reset_scan_phase = true;

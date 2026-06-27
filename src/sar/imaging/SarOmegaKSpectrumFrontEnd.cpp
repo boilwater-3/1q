@@ -7,9 +7,6 @@ namespace imaging {
 
 namespace {
 
-constexpr double kPi = 3.141592653589793238462643383279502884;
-constexpr double kSpeedOfLightMps = 299792458.0;
-
 OmegaKSpectrumFrontEndResult Reject(const OmegaKSpectrumFrontEndRequest& request,
                                     OmegaKSpectrumFrontEndReason reason) {
   OmegaKSpectrumFrontEndResult result;

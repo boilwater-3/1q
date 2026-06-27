@@ -3,6 +3,9 @@
 namespace airborne_radar {
 namespace environment {
 
+using session::EnvironmentCycleContext;
+using session::EnvironmentSceneState;
+
 SceneManager::SceneManager(const EnvironmentSceneState& initial_scene)
     : active_scene_(initial_scene), pending_scene_(initial_scene) {}
 

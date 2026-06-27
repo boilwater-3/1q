@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/KdTreeClusterer.h"
 #include "electronic_surveillance_radar/pipeline/ObservationFeatureEncoder.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPreprocessor.h"
@@ -72,7 +72,7 @@ TEST(EsrKdTreeClustererTest, PreprocessorSortsFiltersAndDeduplicates) {
   ASSERT_EQ(output.size(), 2U);
   EXPECT_LT(output[0].observation.timestamp_s, output[1].observation.timestamp_s);
   EXPECT_EQ(output[1].observation.observation_id, 11U);
-  EXPECT_EQ(output[1].observation.quality, model::EsrObservationQuality::kMedium);
+  EXPECT_EQ(output[1].observation.quality, session::EsrObservationQuality::kMedium);
 }
 
 TEST(EsrKdTreeClustererTest, ClustererGroupsNearbyFeatures) {
@@ -182,7 +182,7 @@ TEST(EsrKdTreeClustererTest, MinPointsLargerThanDatasetIsClamped) {
 }
 
 TEST(EsrKdTreeClustererTest, ObservationFeatureEncoderFallsBackForNonFiniteScales) {
-  model::EmitterObservation observation;
+  session::EmitterObservation observation;
   observation.rf_hz = 12.0e9f;
   observation.pulse_width_s = 2.0e-6f;
   observation.aoa_az_deg = 10.0f;

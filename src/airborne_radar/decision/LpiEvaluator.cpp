@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "1q/airborne_radar/extension/control/ControlDirective.h"
+#include "1q/airborne_radar/session/ControlDirective.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
@@ -10,17 +10,17 @@ namespace decision {
 
 namespace {
 
-extension::control::ControlDirective BuildLpiPowerDirective() {
-  return extension::control::ControlDirective(
-      extension::control::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-      extension::control::ControlDirectiveSource::EMISSION_CONTROL);
+session::ControlDirective BuildLpiPowerDirective() {
+  return session::ControlDirective(
+      session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+      session::ControlDirectiveSource::EMISSION_CONTROL);
 }
 
 }  // namespace
 
 LpiEvaluator::Result LpiEvaluator::Evaluate(
     const model::LpiSourceInfo& lpi_source_info,
-    std::vector<extension::TacticalProposal>* proposals) {
+    std::vector<session::TacticalProposal>* proposals) {
   Result result;
 
   if (proposals == nullptr) {
@@ -53,7 +53,7 @@ LpiEvaluator::Result LpiEvaluator::Evaluate(
   }
   rationale += " requires reduced emission";
 
-  proposals->push_back(extension::TacticalProposal{
+  proposals->push_back(session::TacticalProposal{
       BuildLpiPowerDirective(), 60, rationale});
 
   PROJECT_LOG_INFO(

@@ -25,6 +25,7 @@ struct ONEQ_API RadarCycleInput {
   float platform_altitude_m{0.0f};             /**< 当前雷达平台 WGS84 绝对海拔（单位：m） */
   oneq::foundation::PoseState platform_pose{}; /**< 当前周期平台局部位姿状态 */
   RadarSceneTargetList scene{};                /**< 当前周期场景目标输入列表 */
+  bool has_environment{false};                 /**< 是否提供当前周期环境高层观测快照 */
   RadarEnvironmentInput environment{};         /**< 当前周期环境高层观测输入 */
 };
 

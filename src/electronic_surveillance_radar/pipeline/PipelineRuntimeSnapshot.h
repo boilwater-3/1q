@@ -15,7 +15,7 @@
 #include <random>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
 
 namespace electronic_surveillance_radar {

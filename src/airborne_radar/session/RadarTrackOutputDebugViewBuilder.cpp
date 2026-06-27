@@ -7,21 +7,21 @@ namespace session {
 
 namespace {
 
-RadarDebugTrackStatus ToDebugStatus(model::TrackStatus status) {
+RadarDebugTrackStatus ToDebugStatus(session::TrackStatus status) {
   switch (status) {
-    case model::TrackStatus::kConfirmed:
+    case session::TrackStatus::kConfirmed:
       return RadarDebugTrackStatus::kConfirmed;
-    case model::TrackStatus::kLost:
+    case session::TrackStatus::kLost:
       return RadarDebugTrackStatus::kLost;
-    case model::TrackStatus::kTentative:
+    case session::TrackStatus::kTentative:
     default:
       return RadarDebugTrackStatus::kTentative;
   }
 }
 
-const model::TrackStateSnapshot* FindTrackByExternalTargetId(
+const session::TrackStateSnapshot* FindTrackByExternalTargetId(
     const TrackOutputFrame& frame, std::uint64_t external_target_id) {
-  for (const model::TrackStateSnapshot& track : frame.tracks) {
+  for (const session::TrackStateSnapshot& track : frame.tracks) {
     if (track.external_target_id == external_target_id && external_target_id != 0U) {
       return &track;
     }
@@ -38,7 +38,7 @@ RadarDebugTrackState BuildTrackState(const RadarSceneTarget& target, const Radar
     state.status = RadarDebugTrackStatus::kCycleNotExecuted;
     return state;
   }
-  const model::TrackStateSnapshot* track =
+  const session::TrackStateSnapshot* track =
       FindTrackByExternalTargetId(cycle_result.track_output_frame, target.external_target_id);
   if (track == nullptr) {
     // external_target_id 为 0（未知）的输入目标无法按 ID 关联到 track。

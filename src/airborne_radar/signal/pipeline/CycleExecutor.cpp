@@ -122,17 +122,17 @@ void RunTrackFilterPhase(const CycleExecutionContext& context,
 
 namespace {
 
-float ResolveAssociationFragilityWeight(model::JammingSemantic semantic) {
+float ResolveAssociationFragilityWeight(config::JammingSemantic semantic) {
   switch (semantic) {
-    case model::JammingSemantic::kDeception:
+    case config::JammingSemantic::kDeception:
       return 1.00f;
-    case model::JammingSemantic::kRepeater:
+    case config::JammingSemantic::kRepeater:
       return 0.88f;
-    case model::JammingSemantic::kMixed:
+    case config::JammingSemantic::kMixed:
       return 0.94f;
-    case model::JammingSemantic::kNoiseSuppression:
+    case config::JammingSemantic::kNoiseSuppression:
       return 0.60f;
-    case model::JammingSemantic::kNone:
+    case config::JammingSemantic::kNone:
     default:
       return 0.0f;
   }
@@ -140,7 +140,7 @@ float ResolveAssociationFragilityWeight(model::JammingSemantic semantic) {
 
 AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
     const association::AssociationQualityMetrics& source,
-    model::JammingSemantic dominant_jamming_semantic, float jamming_severity,
+    config::JammingSemantic dominant_jamming_semantic, float jamming_severity,
     float association_unassigned_cost) {
   AssociationQualityMetrics metrics;
   metrics.prior_track_count = source.prior_track_count;
@@ -172,7 +172,7 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
 }
 
 std::uint32_t ResolveLifecycleExtraMissTolerance(
-    const extension::control::RadarControlProfile& control_profile) {
+    const session::RadarControlProfile& control_profile) {
   std::uint32_t extra_miss_tolerance = 0U;
   if (control_profile.enable_sidelobe_canceller || control_profile.enable_agility_frequency ||
       control_profile.enable_eccm_rejitter) {
@@ -186,10 +186,10 @@ std::uint32_t ResolveLifecycleExtraMissTolerance(
 
 }  // namespace
 
-void CollectCycleOutputs(const extension::control::RadarControlProfile& control_profile,
+void CollectCycleOutputs(const session::RadarControlProfile& control_profile,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
                          const ExecutionConfig& runtime_config,
-                         const environment::EnvironmentSnapshot& environment_snapshot,
+                         const session::EnvironmentSnapshot& environment_snapshot,
                          const session::RadarSceneTargetList& input_state,
                          tracking::ITrackLifecycleManager* auto_lifecycle_manager,
                          CycleExecutionScratch& scratch) {
@@ -203,10 +203,10 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
       scratch.association_result.quality_metrics, scratch.dominant_jamming_semantic,
       scratch.jamming_severity, runtime_config.association.policy.unassigned_cost);
 
-  const model::EccmSourceInfo eccm_source_info = BuildEccmSourceInfo(environment_snapshot);
-  const model::AssociationQualityInfo association_quality_info =
+  const session::EccmSourceInfo eccm_source_info = BuildEccmSourceInfo(environment_snapshot);
+  const session::AssociationQualityInfo association_quality_info =
       BuildAssociationQualityInfo(scratch.association_quality_metrics);
-  const model::PerceptionQualityInfo perception_quality_info =
+  const session::PerceptionQualityInfo perception_quality_info =
       BuildPerceptionQualityInfo(input_state.size(), scratch.association_quality_metrics);
 
   tracking::CycleContext cycle;
@@ -216,7 +216,7 @@ void CollectCycleOutputs(const extension::control::RadarControlProfile& control_
   cycle.extra_miss_tolerance = ResolveLifecycleExtraMissTolerance(control_profile);
   auto_lifecycle_manager->Update(cycle, scratch.track_measurements);
   scratch.decision_frame =
-      model::DecisionInputFrame(auto_lifecycle_manager->BuildTrackStateSnapshots());
+      session::DecisionInputFrame(auto_lifecycle_manager->BuildTrackStateSnapshots());
   scratch.decision_frame.cycle_index = cycle_index;
   scratch.decision_frame.batch_id = batch_id;
   scratch.decision_frame.environment_jamming_detected = eccm_source_info.has_jamming_signal;

@@ -15,5 +15,6 @@
 #include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/RadarSessionConfigValidation.h"
 
 #endif  // ONEQ_AIRBORNE_RADAR_CONFIG_AIRBORNE_RADAR_CONFIG_HPP_

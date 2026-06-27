@@ -10,13 +10,13 @@
 #include <random>
 #include <vector>
 
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
-#include "electronic_surveillance_radar/intercept/AngleErrorModel.h"
-#include "electronic_surveillance_radar/intercept/BandClassifier.h"
-#include "electronic_surveillance_radar/intercept/BoundarySearchSolver.h"
-#include "electronic_surveillance_radar/intercept/InterceptGate.h"
-#include "electronic_surveillance_radar/intercept/JammingAggregator.h"
-#include "electronic_surveillance_radar/intercept/ScanPatternGenerator.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
+#include "electronic_surveillance_radar/pipeline/AngleErrorModel.h"
+#include "electronic_surveillance_radar/pipeline/BandClassifier.h"
+#include "electronic_surveillance_radar/pipeline/BoundarySearchSolver.h"
+#include "electronic_surveillance_radar/pipeline/InterceptGate.h"
+#include "electronic_surveillance_radar/pipeline/JammingAggregator.h"
+#include "electronic_surveillance_radar/pipeline/ScanPatternGenerator.h"
 
 namespace electronic_surveillance_radar {
 namespace intercept {
@@ -156,9 +156,9 @@ TEST(EsrAlgorithmsTest, InterceptGateAcceptsBoundaryValuesWithinEpsilon) {
 }
 
 TEST(EsrAlgorithmsTest, JammingAggregatorSeparatesSuppressionChannel) {
-  environment::EsrJammerSourceList sources;
-  environment::EsrJammerSource source_a;
-  source_a.technique = environment::EsrJammingTechnique::kNoiseSuppression;
+  session::EsrJammerSourceList sources;
+  session::EsrJammerSource source_a;
+  source_a.technique = session::EsrJammingTechnique::kNoiseSuppression;
   source_a.active = true;
   source_a.center_hz = 10.0e9;
   source_a.bandwidth_hz = 2.0e9;
@@ -167,8 +167,8 @@ TEST(EsrAlgorithmsTest, JammingAggregatorSeparatesSuppressionChannel) {
   source_a.deception_risk = 0.9f;
   sources.push_back(source_a);
 
-  environment::EsrJammerSource source_b;
-  source_b.technique = environment::EsrJammingTechnique::kNoiseSuppression;
+  session::EsrJammerSource source_b;
+  source_b.technique = session::EsrJammingTechnique::kNoiseSuppression;
   source_b.active = true;
   source_b.center_hz = 11.0e9;
   source_b.bandwidth_hz = 4.0e9;
@@ -187,8 +187,8 @@ TEST(EsrAlgorithmsTest, JammingAggregatorSeparatesSuppressionChannel) {
 }
 
 TEST(EsrAlgorithmsTest, JammingAggregatorSeparatesDeceptionChannel) {
-  environment::EsrJammerSource source;
-  source.technique = environment::EsrJammingTechnique::kDeception;
+  session::EsrJammerSource source;
+  source.technique = session::EsrJammingTechnique::kDeception;
   source.active = true;
   source.center_hz = 10.0e9;
   source.bandwidth_hz = 2.0e9;
@@ -207,8 +207,8 @@ TEST(EsrAlgorithmsTest, JammingAggregatorSeparatesDeceptionChannel) {
 }
 
 TEST(EsrAlgorithmsTest, JammingAggregatorUnknownTechniqueFallsBackToMixed) {
-  environment::EsrJammerSource source_mixed;
-  source_mixed.technique = environment::EsrJammingTechnique::kMixed;
+  session::EsrJammerSource source_mixed;
+  source_mixed.technique = session::EsrJammingTechnique::kMixed;
   source_mixed.active = true;
   source_mixed.center_hz = 12.0e9;
   source_mixed.bandwidth_hz = 4.0e9;
@@ -216,8 +216,8 @@ TEST(EsrAlgorithmsTest, JammingAggregatorUnknownTechniqueFallsBackToMixed) {
   source_mixed.deception_risk = 0.5f;
   source_mixed.confidence = 1.0f;
 
-  environment::EsrJammerSource source_unknown;
-  source_unknown.technique = environment::EsrJammingTechnique::kUnknown;
+  session::EsrJammerSource source_unknown;
+  source_unknown.technique = session::EsrJammingTechnique::kUnknown;
   source_unknown.active = true;
   source_unknown.center_hz = 10.0e9;
   source_unknown.bandwidth_hz = 2.0e9;

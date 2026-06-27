@@ -8,7 +8,7 @@
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_HARDWARE_CONFIG_H_
 #define ONEQ_AIRBORNE_RADAR_CONFIG_RADAR_HARDWARE_CONFIG_H_
 
-#include "1q/airborne_radar/model/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -112,7 +112,8 @@ namespace detection {
 enum class ONEQ_API AntennaPatternModelType {
   kGaussianMainLobe = 0,  /**< 高斯主瓣近似。 */
   kParabolicMainLobe = 1, /**< 抛物线主瓣近似。 */
-  kCosinePower = 2        /**< 余弦幂方向图近似。 */
+  kCosinePower = 2,       /**< 余弦幂方向图近似。 */
+  kSincPattern = 3        /**< sinc² 方向图（均匀孔径理论解，需物理孔径尺寸）。 */
 };
 
 /**
@@ -125,7 +126,7 @@ struct ONEQ_API AntennaPatternConfig {
   float backlobe_level_db{-35.0f};                   /**< 后瓣电平。 */
   float scan_loss_coeff_db_per_deg2{0.0f};           /**< 扫描损失系数。 */
   float max_scan_loss_db{6.0f};                      /**< 扫描损失上限。 */
-  model::AzimuthElevationDeg boresight_offset_deg{}; /**< 方向图相对安装轴偏置。 */
+  config::AzimuthElevationDeg boresight_offset_deg{}; /**< 方向图相对安装轴偏置。 */
 };
 
 /**
@@ -133,8 +134,10 @@ struct ONEQ_API AntennaPatternConfig {
  */
 struct ONEQ_API AntennaConfig {
   float main_beam_gain_db{35.0f};         /**< 主瓣峰值增益。 */
-  float nominal_az_beamwidth_deg{4.0f};   /**< 名义方位波束宽度。 */
-  float nominal_el_beamwidth_deg{4.0f};   /**< 名义俯仰波束宽度。 */
+  float nominal_az_beamwidth_deg{4.0f};   /**< 名义方位波束宽度（为 0 且 antenna_length_m>0 时从物理尺寸推导）。 */
+  float nominal_el_beamwidth_deg{4.0f};   /**< 名义俯仰波束宽度（为 0 且 antenna_width_m>0 时从物理尺寸推导）。 */
+  float antenna_length_m{0.0f};           /**< 物理方位孔径尺寸（0=不使用物理推导，非0时用于 beamwidth 推导和 sinc² 模式）。 */
+  float antenna_width_m{0.0f};            /**< 物理俯仰孔径尺寸（0=不使用物理推导）。 */
   AntennaPatternConfig pattern{};         /**< 方向图参数。 */
   bool enable_directional_pattern{false}; /**< 是否启用离轴方向图评估。 */
 };
@@ -201,14 +204,8 @@ struct ONEQ_API DetectionConfig {
 using detection::AntennaPatternModelType;
 using detection::DetectionConfig;
 
-/**
- * @brief 雷达硬件域配置。
- *
- * 当前阶段硬件域承载探测链路固有能力参数。
- */
-struct ONEQ_API RadarHardwareConfig {
-  DetectionConfig detection{};
-};
+/** @brief 雷达硬件域配置——DetectionConfig 别名。 */
+using RadarHardwareConfig = detection::DetectionConfig;
 
 }  // namespace config
 }  // namespace airborne_radar

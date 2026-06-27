@@ -8,7 +8,7 @@
  *
  * 典型流程：
  *   1. 使用 RadarSessionConfigBuilder 构建会话配置
- *   2. 通过 RadarSessionFactory 创建 Session
+ *   2. 通过 RadarSession::Create 创建 Session
  *   3. 每个仿真周期构造 RadarCycleInput，调用 StepWithResult 执行
  *   4. 从 RadarCycleResult 中读取航迹、指令等输出
  */
@@ -19,14 +19,15 @@
 #include <string>
 #include <vector>
 
+#include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/coordinate/types.h"
 #include "config_loader.h"
 
 namespace ar = airborne_radar;
 namespace ar_config = airborne_radar::config;
-namespace ar_env = airborne_radar::environment;
-namespace ar_model = airborne_radar::model;
+namespace ar_env = airborne_radar::config;
+namespace ar_model = airborne_radar::session;
 namespace ar_session = airborne_radar::session;
 
 namespace {
@@ -46,7 +47,7 @@ ar_config::RadarSessionConfig LoadConfigFromFile() {
 /// 使用工厂从配置创建 Session。
 /// Session 本身管理内部状态，支持多次 StepWithResult 调用。
 ar_session::RadarSession CreateWideAreaSearchSession() {
-  return ar_session::RadarSessionFactory::Create(LoadConfigFromFile());
+  return ar_session::RadarSession::Create(LoadConfigFromFile());
 }
 
 /// 构造平台（载机）位姿输入。
@@ -104,10 +105,10 @@ void PrintResult(const char* label, const ar_session::RadarCycleResult& result) 
   std::cout << label << ": cycle=" << result.input_cycle_index
             << " tracks=" << result.track_output_frame.tracks.size() << " confirmed="
             << ar_session::CountTracksByStatus(result.track_output_frame,
-                                               ar_model::TrackStatus::kConfirmed)
+                                               ar_session::TrackStatus::kConfirmed)
             << " tentative="
             << ar_session::CountTracksByStatus(result.track_output_frame,
-                                               ar_model::TrackStatus::kTentative)
+                                               ar_session::TrackStatus::kTentative)
             << " commands=" << result.submitted_commands.size()
             << " validation_errors=" << (result.has_validation_error ? "true" : "false") << "\n";
 }
@@ -152,7 +153,7 @@ MovingAirTarget MakeMovingAirTarget(std::uint64_t id, double x_m, double y_m, do
 /// 每个周期：
 ///   1. 构造平台位姿（ECEF 位置 + 速度 + 姿态）
 ///   2. 构造所有目标的运动学输入
-///   3. 通过 RadarCycleInputBuilder 组装完整输入
+///   3. 通过 RadarCycleInputAdapter 组装完整输入
 ///   4. 调用 session.StepWithResult 获得输出
 ///   5. 根据返回的 dt 推进目标位置（简单欧拉积分）
 bool RunMovingTargetsScenario() {
@@ -199,7 +200,7 @@ bool RunMovingTargetsScenario() {
 
     // 组装周期输入：平台位姿 + 目标列表 + 时间步长(秒) + 环境快照
     ar_session::RadarCycleInput input;
-    if (!ar_session::RadarCycleInputBuilder::Build(platform, target_kinematics, 1.0f,
+    if (!ar_session::RadarCycleInputAdapter::Build(platform, target_kinematics, 1.0f,
                                                    environment_state.Snapshot(), &input)) {
       std::cerr << "ar-moving: cycle " << (i + 1) << " build failed\n";
       return false;
@@ -224,9 +225,9 @@ bool RunMovingTargetsScenario() {
     if (ntracks < min_tracks) min_tracks = ntracks;
     PrintResult("ar-moving", result);
 
-    // 使用 RadarCycleOutputBuilder 将内部雷达局部轨迹转换为外部 ECEF 输出
+    // 使用 RadarCycleOutputAdapter 将内部雷达局部轨迹转换为外部 ECEF 输出
     ar_session::RadarExternalTrackOutputFrame external_output;
-    bool external_output_ok = ar_session::RadarCycleOutputBuilder::Build(
+    bool external_output_ok = ar_session::RadarCycleOutputAdapter::Build(
         platform, result.track_output_frame, &external_output);
     if (external_output_ok) {
       PrintExternalOutput(external_output);

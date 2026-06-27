@@ -11,8 +11,8 @@
 
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
-#include "1q/electronic_surveillance_radar/model/EmitterHypothesis.h"
-#include "1q/electronic_surveillance_radar/model/EmitterObservation.h"
+#include "1q/electronic_surveillance_radar/session/EmitterHypothesis.h"
+#include "1q/electronic_surveillance_radar/session/EmitterObservation.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 
 namespace electronic_surveillance_radar {
@@ -32,7 +32,7 @@ struct ONEQ_API EsrExternalObservation {
   double pulse_width_s{0.0};                      /**< 测得脉宽（单位：s） */
   double amplitude_db{0.0};                       /**< 接收幅度（单位：dB） */
   double snr_db{0.0};                             /**< 观测信噪比（单位：dB） */
-  model::EsrObservationQuality quality{model::EsrObservationQuality::kLow}; /**< 观测质量 */
+  session::EsrObservationQuality quality{session::EsrObservationQuality::kLow}; /**< 观测质量 */
   bool is_jammed{false}; /**< 是否受干扰显著影响 */
 };
 
@@ -50,19 +50,19 @@ struct ONEQ_API EsrExternalEmitterHypothesis {
   float bearing_std_deg{0.0f};                                 /**< 方位测量标准差（单位：deg） */
   float confidence{0.0f};                                      /**< 假设置信度 */
   std::uint32_t last_seen_cycle{0U};                           /**< 最近命中周期号 */
-  model::EsrEmitterMode mode{model::EsrEmitterMode::kUnknown}; /**< 工作模式假设 */
-  model::EsrThreatLevel threat_level{model::EsrThreatLevel::kLow}; /**< 威胁等级 */
+  session::EsrEmitterMode mode{session::EsrEmitterMode::kUnknown}; /**< 工作模式假设 */
+  session::EsrThreatLevel threat_level{session::EsrThreatLevel::kLow}; /**< 威胁等级 */
 };
 
 /** @brief EsrExternalEmitterHypothesisList 表示外部假设输出集合。 */
 using EsrExternalEmitterHypothesisList = std::vector<EsrExternalEmitterHypothesis>;
 
-ONEQ_API bool TryMakeExternalObservationFromRecord(const model::EmitterObservation& observation,
+ONEQ_API bool TryMakeExternalObservationFromRecord(const session::EmitterObservation& observation,
                                                    const oneq::coordinate::LocalFrameReference& reference,
                                                    const oneq::foundation::PoseState& platform_pose,
                                                    EsrExternalObservation* output);
 
-ONEQ_API bool TryMakeExternalHypothesisFromRecord(const model::EmitterHypothesis& hypothesis,
+ONEQ_API bool TryMakeExternalHypothesisFromRecord(const session::EmitterHypothesis& hypothesis,
                                                   const oneq::coordinate::LocalFrameReference& reference,
                                                   const oneq::foundation::PoseState& platform_pose,
                                                   EsrExternalEmitterHypothesis* output);

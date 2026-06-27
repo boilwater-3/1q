@@ -12,8 +12,8 @@
 
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
-#include "1q/electronic_surveillance_radar/environment/EsrEnvironmentTypes.h"
-#include "1q/electronic_surveillance_radar/extension/InterceptPipelineTypes.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
@@ -60,15 +60,15 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   emitter.beam_state.beam_state_valid = true;
   input.scene.push_back(emitter);
 
-  input.environment.propagation_profile = environment::EsrPropagationEnvironmentProfile::kComplex;
-  input.environment.clutter_density = environment::EsrClutterDensityLevel::kHigh;
+  input.environment.propagation_profile = session::EsrPropagationEnvironmentProfile::kComplex;
+  input.environment.clutter_density = session::EsrClutterDensityLevel::kHigh;
   input.environment.spectrum_occupancy_ratio = 0.45f;
   input.environment.atmospheric_observation.relative_humidity_ratio = 0.6f;
   input.environment.atmospheric_observation.precipitation_rate_mmph = 2.5f;
   input.environment.atmospheric_observation.visibility_km = 8.0f;
 
-  environment::EsrJammerSource jammer;
-  jammer.technique = environment::EsrJammingTechnique::kNoiseSuppression;
+  session::EsrJammerSource jammer;
+  jammer.technique = session::EsrJammingTechnique::kNoiseSuppression;
   jammer.active = true;
   jammer.center_hz = 9.5e9;
   jammer.bandwidth_hz = 20.0e6;
@@ -100,14 +100,14 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_TRUE(decoded.scene[0].beam_state.beam_state_valid);
 
   EXPECT_EQ(decoded.environment.propagation_profile,
-            environment::EsrPropagationEnvironmentProfile::kComplex);
-  EXPECT_EQ(decoded.environment.clutter_density, environment::EsrClutterDensityLevel::kHigh);
+            session::EsrPropagationEnvironmentProfile::kComplex);
+  EXPECT_EQ(decoded.environment.clutter_density, session::EsrClutterDensityLevel::kHigh);
   EXPECT_FLOAT_EQ(decoded.environment.spectrum_occupancy_ratio, 0.45f);
   EXPECT_FLOAT_EQ(decoded.environment.atmospheric_observation.relative_humidity_ratio, 0.6f);
 
   ASSERT_EQ(decoded.environment.jammer_sources.size(), 1U);
   EXPECT_EQ(decoded.environment.jammer_sources[0].technique,
-            environment::EsrJammingTechnique::kNoiseSuppression);
+            session::EsrJammingTechnique::kNoiseSuppression);
   EXPECT_TRUE(decoded.environment.jammer_sources[0].active);
   EXPECT_DOUBLE_EQ(decoded.environment.jammer_sources[0].center_hz, 9.5e9);
 }
@@ -136,7 +136,7 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   frame.cycle_index = 7U;
   frame.batch_id = 42U;
 
-  model::EmitterObservation obs;
+  session::EmitterObservation obs;
   obs.observation_id = 100U;
   obs.timestamp_s = 12.5;
   obs.aoa_az_deg = 45.0;
@@ -145,16 +145,16 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   obs.pulse_width_s = 2.0e-6;
   obs.amplitude_db = -80.0;
   obs.snr_db = 25.0;
-  obs.quality = model::EsrObservationQuality::kHigh;
+  obs.quality = session::EsrObservationQuality::kHigh;
   obs.is_jammed = false;
   frame.observation_output.observations.push_back(obs);
 
-  model::EmitterHypothesis hyp;
+  session::EmitterHypothesis hyp;
   hyp.hypothesis_id = 10U;
   hyp.candidate_classes.push_back("FireControl");
   hyp.candidate_classes.push_back("Surveillance");
-  hyp.mode = model::EsrEmitterMode::kTracking;
-  hyp.threat_level = model::EsrThreatLevel::kHigh;
+  hyp.mode = session::EsrEmitterMode::kTracking;
+  hyp.threat_level = session::EsrThreatLevel::kHigh;
   hyp.bearing_az_deg = 44.5f;
   hyp.bearing_el_deg = -2.8f;
   hyp.bearing_std_deg = 0.5f;
@@ -162,7 +162,7 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   hyp.last_seen_cycle = 7U;
   frame.emitter_output.hypotheses.push_back(hyp);
 
-  extension::TruthAssociationRecord truth;
+  session::TruthAssociationRecord truth;
   truth.observation_id = 100U;
   truth.truth_emitter_id = 2001U;
   truth.matched = true;
@@ -185,15 +185,15 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   EXPECT_DOUBLE_EQ(decoded.observation_output.observations[0].rf_hz, 9.4e9);
   EXPECT_DOUBLE_EQ(decoded.observation_output.observations[0].snr_db, 25.0);
   EXPECT_EQ(decoded.observation_output.observations[0].quality,
-            model::EsrObservationQuality::kHigh);
+            session::EsrObservationQuality::kHigh);
   EXPECT_FALSE(decoded.observation_output.observations[0].is_jammed);
 
   ASSERT_EQ(decoded.emitter_output.hypotheses.size(), 1U);
   EXPECT_EQ(decoded.emitter_output.hypotheses[0].hypothesis_id, 10U);
   ASSERT_GE(decoded.emitter_output.hypotheses[0].candidate_classes.size(), 1U);
   EXPECT_EQ(decoded.emitter_output.hypotheses[0].candidate_classes[0], "FireControl");
-  EXPECT_EQ(decoded.emitter_output.hypotheses[0].mode, model::EsrEmitterMode::kTracking);
-  EXPECT_EQ(decoded.emitter_output.hypotheses[0].threat_level, model::EsrThreatLevel::kHigh);
+  EXPECT_EQ(decoded.emitter_output.hypotheses[0].mode, session::EsrEmitterMode::kTracking);
+  EXPECT_EQ(decoded.emitter_output.hypotheses[0].threat_level, session::EsrThreatLevel::kHigh);
   EXPECT_FLOAT_EQ(decoded.emitter_output.hypotheses[0].bearing_az_deg, 44.5f);
   EXPECT_FLOAT_EQ(decoded.emitter_output.hypotheses[0].confidence, 0.85f);
   EXPECT_EQ(decoded.emitter_output.hypotheses[0].last_seen_cycle, 7U);
@@ -215,7 +215,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.output_frame.cycle_index = 5U;
   result.output_frame.batch_id = 3U;
 
-  model::EmitterObservation obs;
+  session::EmitterObservation obs;
   obs.observation_id = 1U;
   obs.snr_db = 20.0;
   result.output_frame.observation_output.observations.push_back(obs);
@@ -223,7 +223,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.has_validation_error = true;
   result.executed_this_cycle = true;
   result.reused_previous_output = false;
-  result.abort_reason = extension::EsrPipelineAbortReason::kValidationRejected;
+  result.abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
 
   ValidationIssue issue;
   issue.severity = ValidationSeverity::kError;
@@ -247,7 +247,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_TRUE(decoded.has_validation_error);
   EXPECT_TRUE(decoded.executed_this_cycle);
   EXPECT_FALSE(decoded.reused_previous_output);
-  EXPECT_EQ(decoded.abort_reason, extension::EsrPipelineAbortReason::kValidationRejected);
+  EXPECT_EQ(decoded.abort_reason, session::EsrPipelineAbortReason::kValidationRejected);
 
   ASSERT_EQ(decoded.validation_issues.size(), 1U);
   EXPECT_EQ(decoded.validation_issues[0].severity, ValidationSeverity::kError);

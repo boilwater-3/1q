@@ -215,7 +215,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     config.policy.lifecycle.max_miss_before_lost = 1U;
     config.policy.tracking.enable_kalman_filter = false;
     config.mission.orientation.scan_center_deg.az_deg = 12.5f;
-    config.hardware.detection.min_detection_margin_db = -25.0f;
+    config.hardware.min_detection_margin_db = -25.0f;
     session::RadarTraceSession session(config, options);
 
     config::RadarRuntimeConfigPatch runtime_patch;
@@ -230,7 +230,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     runtime_patch.has_environment = true;
     runtime_patch.environment.has_jamming_sensitivity_profile = true;
     runtime_patch.environment.jamming_sensitivity_profile =
-        environment::JammingSensitivityProfile::kStrict;
+        config::JammingSensitivityProfile::kStrict;
     runtime_patch.environment.has_scenario_config = true;
     runtime_patch.environment.scenario_config.atmospheric_physics
         .enable_physical_model = true;
@@ -255,13 +255,13 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
 
     input.environment.atmospheric_observation.enable_physical_model = true;
     input.environment.atmospheric_observation.relative_humidity = 0.65f;
-    environment::JammerEmitterState jammer;
-    jammer.technique = model::JammingTechnique::kNoiseSuppression;
+    config::JammerEmitterState jammer;
+    jammer.technique = session::JammingTechnique::kNoiseSuppression;
     jammer.power_db = 24.0f;
     jammer.js_db = 7.0f;
-    jammer.has_direction_deg = true;
-    jammer.azimuth_deg = 18.0f;
-    jammer.elevation_deg = 2.0f;
+    jammer.position_x = 3090.17f;    // range 10000m * sin(18 deg)
+    jammer.position_y = 9510.57f;    // range 10000m * cos(18 deg)
+    jammer.position_z = 349.21f;     // range 10000m * tan(2 deg)
     input.environment.jammer_sources.push_back(jammer);
 
     const session::RadarCycleResult result = session.StepWithResult(input);

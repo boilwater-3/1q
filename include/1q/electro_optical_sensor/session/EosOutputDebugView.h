@@ -45,7 +45,7 @@ struct ONEQ_API EosOutputDebugView {
   bool executed_this_cycle{false};
   bool reused_previous_output{false};
   bool has_validation_error{false};
-  extension::EosPipelineAbortReason abort_reason{extension::EosPipelineAbortReason::kNone};
+  session::EosPipelineAbortReason abort_reason{session::EosPipelineAbortReason::kNone};
   std::vector<EosDebugTargetState> targets{};
 };
 

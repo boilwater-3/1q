@@ -88,13 +88,13 @@ inline void LoadDetectionConfig(const oneq::JsonValue& j,
 inline void LoadHardware(const oneq::JsonValue& j,
                          airborne_radar::config::RadarHardwareConfig* v) {
   if (j.IsNull()) return;
-  LoadDetectionConfig(j["detection"], &v->detection);
+  LoadDetectionConfig(j["detection"], v);
 }
 
 // -- mission / orientation ---------------------------------------------------
 
 inline void LoadOrientation(const oneq::JsonValue& j,
-                            airborne_radar::model::RadarOrientationConfig* v) {
+                            airborne_radar::config::RadarOrientationConfig* v) {
   if (j.IsNull()) return;
   LoadEulerAngles(j["mount_angles_deg"], &v->mount_angles_deg);
   LoadAzEl(j["scan_center_deg"], &v->scan_center_deg);
@@ -121,7 +121,6 @@ inline void LoadMission(const oneq::JsonValue& j,
 inline void LoadBeamPointing(const oneq::JsonValue& j,
                              airborne_radar::config::BeamPointingConfig* v) {
   if (j.IsNull()) return;
-  LoadAzEl(j["default_scan_center_deg"], &v->default_scan_center_deg);
   LoadCmdBeamwidth(j["nominal_beamwidth_deg"], &v->nominal_beamwidth_deg);
 }
 
@@ -146,9 +145,6 @@ inline void LoadAssociation(const oneq::JsonValue& j,
                             airborne_radar::config::AssociationConfig* v) {
   if (j.IsNull()) return;
   v->unassigned_cost = static_cast<float>(j["unassigned_cost"].AsDouble());
-  v->use_distance_gate_hint = j["use_distance_gate_hint"].AsBool();
-  v->distance_gate_sigma_hint =
-      static_cast<float>(j["distance_gate_sigma_hint"].AsDouble());
 }
 
 inline void LoadTracking(const oneq::JsonValue& j,
@@ -199,7 +195,7 @@ inline void LoadAtmosObservation(const oneq::JsonValue& j,
 }
 
 inline void LoadAtmosContext(const oneq::JsonValue& j,
-                             airborne_radar::environment::AtmosphericDerivedContext* v) {
+                             airborne_radar::config::AtmosphericDerivedContext* v) {
   if (j.IsNull()) return;
   v->has_simulation_unix_seconds = j["has_simulation_unix_seconds"].AsBool();
   v->simulation_unix_seconds =
@@ -211,14 +207,14 @@ inline void LoadAtmosContext(const oneq::JsonValue& j,
 
 inline void LoadVegScatter(
     const oneq::JsonValue& j,
-    airborne_radar::environment::VegetationScatterPhysicsConfig* v) {
+    airborne_radar::config::VegetationScatterPhysicsConfig* v) {
   if (j.IsNull()) return;
   v->cover_profile = VegCoverFromString(j["cover_profile"].AsString());
   v->enable_physical_model = j["enable_physical_model"].AsBool();
 }
 
 inline void LoadScenario(const oneq::JsonValue& j,
-                         airborne_radar::environment::EnvironmentScenarioConfig* v) {
+                         airborne_radar::config::EnvironmentScenarioConfig* v) {
   if (j.IsNull()) return;
   LoadAtmosObservation(j["atmospheric_physics"], &v->atmospheric_physics);
   LoadAtmosContext(j["atmospheric_context"], &v->atmospheric_context);

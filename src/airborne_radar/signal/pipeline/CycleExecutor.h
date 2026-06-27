@@ -10,10 +10,10 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/environment/EnvironmentTypes.h"
-#include "1q/airborne_radar/extension/control/RadarControlProfile.h"
-#include "1q/airborne_radar/model/DecisionInputFrame.h"
-#include "1q/airborne_radar/model/JammingSemantics.h"
+#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "1q/airborne_radar/config/JammingSemantics.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
@@ -36,7 +36,7 @@ struct CycleExecutionScratch {
   // 最终输出
   session::RadarSceneTargetList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
-  model::DecisionInputFrame decision_frame{};
+  session::DecisionInputFrame decision_frame{};
   AssociationQualityMetrics association_quality_metrics{};
 
   // 检测阶段中间数据
@@ -55,13 +55,13 @@ struct CycleExecutionScratch {
   std::vector<int> measurement_slots;
 
   // 环境阶段输出（各后续阶段共享）
-  model::JammingSemantic dominant_jamming_semantic{model::JammingSemantic::kNone};
+  config::JammingSemantic dominant_jamming_semantic{config::JammingSemantic::kNone};
   float jamming_severity{0.0f};
 };
 
 struct CycleExecutionRuntime {
   CycleExecutionRuntime(const ExecutionConfig& base_config,
-                        const extension::control::RadarControlProfile& control_profile,
+                        const session::RadarControlProfile& control_profile,
                         association::DataAssociationEngine& association_engine,
                         tracking::TrackFilter& track_filter,
                         tracking::ITrackLifecycleManager& auto_lifecycle_manager,
@@ -78,7 +78,7 @@ struct CycleExecutionRuntime {
         has_manual_association_seeds(has_manual_association_seeds) {}
 
   const ExecutionConfig& base_config;
-  const extension::control::RadarControlProfile& control_profile;
+  const session::RadarControlProfile& control_profile;
   association::DataAssociationEngine& association_engine;
   tracking::TrackFilter& track_filter;
   detection::SignalDetector* signal_detector;
@@ -89,7 +89,7 @@ struct CycleExecutionRuntime {
 
 struct CycleExecutionContext {
   CycleExecutionContext(const session::RadarSceneTargetList& input_state,
-                        const environment::EnvironmentSnapshot& environment_snapshot,
+                        const session::EnvironmentSnapshot& environment_snapshot,
                         std::uint32_t cycle_index, std::uint64_t batch_id,
                         ExecutionConfig runtime_config, float platform_altitude_m)
       : input_state(input_state),
@@ -100,7 +100,7 @@ struct CycleExecutionContext {
         runtime_config(std::move(runtime_config)) {}
 
   const session::RadarSceneTargetList& input_state;
-  const environment::EnvironmentSnapshot& environment_snapshot;
+  const session::EnvironmentSnapshot& environment_snapshot;
   std::uint32_t cycle_index{0U};
   std::uint64_t batch_id{0U};
   float platform_altitude_m{0.0f};

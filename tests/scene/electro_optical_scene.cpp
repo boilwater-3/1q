@@ -4,6 +4,7 @@
 #include <string>
 #include <cmath>
 
+#include "1q/electro_optical_sensor/session/EosSession.h"
 #include "1q/coordinate/types.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/velocity_transform.h"
@@ -12,7 +13,7 @@
 
 namespace eos_session = electro_optical_sensor::session;
 namespace eos_config = electro_optical_sensor::config;
-namespace eos_env = electro_optical_sensor::environment;
+namespace eos_env = electro_optical_sensor::session;
 
 namespace {
 
@@ -77,7 +78,7 @@ SceneState InitScene() {
   }
 
   SceneState s;
-  s.session = eos_session::EosSessionFactory::Create(config);
+  s.session = eos_session::EosSession::Create(config);
 
   // 平台高度 7000m
   s.platform_lla.latitude_deg = 35.0;
@@ -150,7 +151,7 @@ eos_session::EosCycleResult Step(SceneState& s, double dt) {
 
   eos_session::EosCycleInput input;
   eos_session::EosCoordinateStatus status;
-  if (!eos_session::EosCycleInputBuilder::Build(
+  if (!eos_session::EosCycleInputAdapter::Build(
           platform, target_inputs, static_cast<float>(dt), s.environment,
           &input, &status)) {
     std::cerr << "EOS scene: cycle " << s.cycle

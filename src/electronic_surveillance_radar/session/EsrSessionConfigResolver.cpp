@@ -185,7 +185,7 @@ EsrInternalExecutionConfig MapSessionToInternal(const config::EsrSessionConfig& 
   exec.runtime.track.output_tentative = true;
 
   // Environment: scenario → model config explicit mapping
-  exec.environment = environment::BuildModelConfigFromScenario(session_config.environment.scenario_config);
+  exec.environment = config::BuildModelConfigFromScenario(session_config.environment.scenario_config);
 
   return exec;
 }

@@ -8,7 +8,7 @@
 
 namespace examples {
 
-namespace esr_env = electronic_surveillance_radar::environment;
+namespace esr_env = electronic_surveillance_radar::session;
 
 // -- struct loaders ----------------------------------------------------------
 
@@ -81,7 +81,7 @@ inline void LoadEsrAtmosCtx(const oneq::JsonValue& j,
 }
 
 inline void LoadEsrScenario(const oneq::JsonValue& j,
-                            esr_env::EsrEnvironmentScenarioConfig* v) {
+                            electronic_surveillance_radar::config::EsrEnvironmentScenarioConfig* v) {
   if (j.IsNull()) return;
   v->preset = EsrPresetFromString(j["preset"].AsString());
   LoadEsrAtmosObs(j["atmospheric_physics"], &v->atmospheric_physics);
