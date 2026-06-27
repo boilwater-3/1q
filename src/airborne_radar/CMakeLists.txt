@@ -13,6 +13,7 @@ set(AIRBORNE_ENGINE_SOURCES
     airborne_radar/signal/pipeline/CycleExecutor.cpp
     airborne_radar/signal/pipeline/DecisionFrameBuilders.cpp
     airborne_radar/signal/pipeline/DetectionExecution.cpp
+    airborne_radar/signal/pipeline/ImmMatrixDefaults.cpp
     airborne_radar/signal/pipeline/JammingEffects.cpp
     airborne_radar/signal/pipeline/SignalPipeline.cpp
     airborne_radar/signal/pipeline/TrackMeasurementProcessing.cpp

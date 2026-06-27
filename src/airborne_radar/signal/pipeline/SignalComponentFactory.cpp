@@ -7,9 +7,10 @@
 
 #include <Eigen/Core>
 #include <algorithm>
-#include <cmath>
 #include <memory>
 #include <vector>
+
+#include "airborne_radar/signal/pipeline/ImmMatrixDefaults.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -215,72 +216,18 @@ std::unique_ptr<tracking::IKalmanUpdater> SignalComponentFactory::CreateKalmanUp
 
 Eigen::MatrixXf SignalComponentFactory::BuildImmTransitionProbability(const ExecutionConfig& config,
                                                                       std::size_t model_count) {
-  if (config.lifecycle.imm_transition_probability.empty()) {
-    Eigen::MatrixXf matrix = Eigen::MatrixXf::Constant(
-        static_cast<Eigen::Index>(model_count), static_cast<Eigen::Index>(model_count),
-        model_count > 1U ? 0.05f / static_cast<float>(model_count - 1U) : 1.0f);
-    matrix.diagonal().setConstant(model_count > 1U ? 0.95f : 1.0f);
-    return matrix;
-  }
-
-  if (config.lifecycle.imm_transition_probability.size() != model_count * model_count) {
-    LogLifecycleAssemblyConfigViolation(
-        "lifecycle.imm_transition_probability size must equal model_count*model_count",
-        config.lifecycle.imm_transition_probability.size());
-    return Eigen::MatrixXf();
-  }
-
-  Eigen::MatrixXf matrix(static_cast<Eigen::Index>(model_count),
-                         static_cast<Eigen::Index>(model_count));
-  for (std::size_t r = 0; r < model_count; ++r) {
-    float row_sum = 0.0f;
-    for (std::size_t c = 0; c < model_count; ++c) {
-      const float value = config.lifecycle.imm_transition_probability[r * model_count + c];
-      if (value < 0.0f || value > 1.0f) {
-        LogLifecycleAssemblyConfigViolation("IMM transition probability must be in [0,1]", value);
-        return Eigen::MatrixXf();
-      }
-      matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(c)) = value;
-      row_sum += value;
-    }
-    if (std::fabs(row_sum - 1.0f) > 1e-3f) {
-      LogLifecycleAssemblyConfigViolation("each IMM transition matrix row must sum to 1", row_sum);
-      return Eigen::MatrixXf();
-    }
-  }
-  return matrix;
+  const imm_defaults::ViolationReporter report = [](const char* message, float value) {
+    LogLifecycleAssemblyConfigViolation(message, value);
+  };
+  return imm_defaults::BuildTransitionProbability(config, model_count, report);
 }
 
 Eigen::VectorXf SignalComponentFactory::BuildImmInitialWeights(const ExecutionConfig& config,
                                                                std::size_t model_count) {
-  if (config.lifecycle.imm_initial_weights.empty()) {
-    return Eigen::VectorXf::Constant(static_cast<Eigen::Index>(model_count),
-                                     1.0f / static_cast<float>(model_count));
-  }
-
-  if (config.lifecycle.imm_initial_weights.size() != model_count) {
-    LogLifecycleAssemblyConfigViolation("lifecycle.imm_initial_weights size must equal model_count",
-                                        config.lifecycle.imm_initial_weights.size());
-    return Eigen::VectorXf();
-  }
-
-  Eigen::VectorXf weights(static_cast<Eigen::Index>(model_count));
-  float sum = 0.0f;
-  for (std::size_t i = 0; i < model_count; ++i) {
-    const float value = config.lifecycle.imm_initial_weights[i];
-    if (value < 0.0f || value > 1.0f) {
-      LogLifecycleAssemblyConfigViolation("IMM initial weight must be in [0,1]", value);
-      return Eigen::VectorXf();
-    }
-    weights(static_cast<Eigen::Index>(i)) = value;
-    sum += value;
-  }
-
-  if (std::fabs(sum - 1.0f) > 1e-3f) {
-    LogLifecycleAssemblyConfigViolation("IMM initial weights must sum to 1", sum);
-    return Eigen::VectorXf();
-  }
-  return weights;
+  const imm_defaults::ViolationReporter report = [](const char* message, float value) {
+    LogLifecycleAssemblyConfigViolation(message, value);
+  };
+  return imm_defaults::BuildInitialWeights(config, model_count, report);
 }
 
 

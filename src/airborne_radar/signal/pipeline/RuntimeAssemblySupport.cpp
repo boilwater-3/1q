@@ -1,10 +1,10 @@
 #include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
 
-#include <cmath>
 #include <utility>
 
 #include "airborne_radar/config/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
+#include "airborne_radar/signal/pipeline/ImmMatrixDefaults.h"
 #include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
 #include "common/logging/ProjectLog.h"
@@ -24,68 +24,16 @@ struct LifecycleConfigSignature {
       tracking::TrackPoolThreadSafetyMode::kSingleThreadNoLock};
 };
 
-bool IsNearOne(float value) { return std::fabs(value - 1.0f) <= 1.0e-3f; }
-
+// Thin wrappers over the shared imm_defaults unit. The runtime rebuild path
+// keeps its original silent behavior by passing a null violation reporter.
 Eigen::MatrixXf BuildImmTransitionProbabilityOrDefault(const ExecutionConfig& config,
                                                        std::size_t model_count) {
-  if (model_count == 0U) {
-    return Eigen::MatrixXf();
-  }
-  if (config.lifecycle.imm_transition_probability.empty()) {
-    Eigen::MatrixXf matrix = Eigen::MatrixXf::Constant(
-        static_cast<Eigen::Index>(model_count), static_cast<Eigen::Index>(model_count),
-        model_count > 1U ? 0.05f / static_cast<float>(model_count - 1U) : 1.0f);
-    matrix.diagonal().setConstant(model_count > 1U ? 0.95f : 1.0f);
-    return matrix;
-  }
-  if (config.lifecycle.imm_transition_probability.size() != model_count * model_count) {
-    return Eigen::MatrixXf();
-  }
-  Eigen::MatrixXf matrix(static_cast<Eigen::Index>(model_count),
-                         static_cast<Eigen::Index>(model_count));
-  for (std::size_t r = 0; r < model_count; ++r) {
-    float row_sum = 0.0f;
-    for (std::size_t c = 0; c < model_count; ++c) {
-      const float value = config.lifecycle.imm_transition_probability[r * model_count + c];
-      if (std::isfinite(value) == 0 || value < 0.0f || value > 1.0f) {
-        return Eigen::MatrixXf();
-      }
-      matrix(static_cast<Eigen::Index>(r), static_cast<Eigen::Index>(c)) = value;
-      row_sum += value;
-    }
-    if (!IsNearOne(row_sum)) {
-      return Eigen::MatrixXf();
-    }
-  }
-  return matrix;
+  return imm_defaults::BuildTransitionProbability(config, model_count, /*report_violation=*/{});
 }
 
 Eigen::VectorXf BuildImmInitialWeightsOrDefault(const ExecutionConfig& config,
                                                 std::size_t model_count) {
-  if (model_count == 0U) {
-    return Eigen::VectorXf();
-  }
-  if (config.lifecycle.imm_initial_weights.empty()) {
-    return Eigen::VectorXf::Constant(static_cast<Eigen::Index>(model_count),
-                                     1.0f / static_cast<float>(model_count));
-  }
-  if (config.lifecycle.imm_initial_weights.size() != model_count) {
-    return Eigen::VectorXf();
-  }
-  Eigen::VectorXf weights(static_cast<Eigen::Index>(model_count));
-  float sum = 0.0f;
-  for (std::size_t i = 0; i < model_count; ++i) {
-    const float value = config.lifecycle.imm_initial_weights[i];
-    if (std::isfinite(value) == 0 || value < 0.0f || value > 1.0f) {
-      return Eigen::VectorXf();
-    }
-    weights(static_cast<Eigen::Index>(i)) = value;
-    sum += value;
-  }
-  if (!IsNearOne(sum)) {
-    return Eigen::VectorXf();
-  }
-  return weights;
+  return imm_defaults::BuildInitialWeights(config, model_count, /*report_violation=*/{});
 }
 
 LifecycleConfigSignature BuildLifecycleConfigSignature(const ExecutionConfig& config) {
