@@ -60,6 +60,15 @@ EosSession EosSession::Create(const config::EosSessionConfig& config) {
       new EosSession::Impl(EosSessionCompositionRoot::ComposeDefault(config))));
 }
 
+EosSession EosSession::TryCreate(const config::EosSessionConfig& config,
+                                 config::ValidationIssueList* issues) {
+  const config::ValidationIssueList found = config::ValidateEosSessionConfig(config);
+  if (issues != nullptr) {
+    *issues = found;
+  }
+  return Create(config);
+}
+
 session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
   return impl_->controller.RunOnce(input), impl_->controller.BuildCycleResult(input).output_frame;
 }

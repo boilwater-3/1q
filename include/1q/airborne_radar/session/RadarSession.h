@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/RadarSessionConfig.h"
+#include "1q/airborne_radar/config/RadarSessionConfigValidation.h"
 #include "1q/airborne_radar/session/RadarCommand.h"
 #include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleInput.h"
@@ -103,11 +104,26 @@ class ONEQ_API RadarSession {
    */
   bool TryApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
 
-  /** @brief 使用四域配置创建会话（推荐入口）。 */
+  /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
   static RadarSession Create(const config::RadarSessionConfig& config = {});
   static RadarSession CreateWithDecisionEngine(
       const config::RadarSessionConfig& config,
       session::ITacticalDecisionEngine& decision_engine);
+
+  /**
+   * @brief 创建会话并报告配置校验结果（校验路径）。
+   *
+   * 与 `Create()` 唯一区别：构造前调用 `config::ValidateRadarSessionConfig`
+   * 校验配置合法性，将发现的问题写入 @p issues。无论 @p issues 是否为空，
+   * 都会构造并返回会话（不阻断），调用方据 `issues->empty()` 决定后续。
+   *
+   * @param[in] config 四域会话配置。
+   * @param[out] issues 校验问题输出；传入 nullptr 则不写回但仍构造会话。
+   * @return 构造完成的会话。
+   * @note `ValidateRadarSessionConfig` 由此路径被实调用，构成真实契约。
+   */
+  static RadarSession TryCreate(const config::RadarSessionConfig& config,
+                                config::ValidationIssueList* issues);
 
  private:
 

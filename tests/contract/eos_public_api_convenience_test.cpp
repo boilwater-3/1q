@@ -530,5 +530,35 @@ TEST(EosPublicApiConvenienceTest, EosRuntimeConfigBuilderWithEnvironmentPolicies
   EXPECT_NEAR(patch.environment.scenario_config.custom_overrides.turbulence_factor, 1.8f, 1e-5f);
 }
 
+TEST(EosPublicApiConvenienceTest, TryCreateBuildsSessionAndReportsNoIssuesForHealthyConfig) {
+  config::EosSessionConfig config;
+
+  config::ValidationIssueList issues;
+  const session::EosSession session = session::EosSession::TryCreate(config, &issues);
+
+  EXPECT_TRUE(issues.empty());
+  (void)session;
+}
+
+TEST(EosPublicApiConvenienceTest, TryCreateReportsIssuesButStillConstructsSession) {
+  config::EosSessionConfig invalid;
+  invalid.mission.horizontal_fov_deg = 0.0f;
+
+  config::ValidationIssueList issues;
+  const session::EosSession session = session::EosSession::TryCreate(invalid, &issues);
+
+  ASSERT_EQ(issues.size(), 1U);
+  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kHorizontalFovNotPositive);
+  (void)session;  // 会话仍被构造，调用方据 issues 决策
+}
+
+TEST(EosPublicApiConvenienceTest, TryCreateAcceptsNullIssuesWithoutCrash) {
+  config::EosSessionConfig invalid;
+  invalid.mission.horizontal_fov_deg = 0.0f;
+
+  const session::EosSession session = session::EosSession::TryCreate(invalid, nullptr);
+  (void)session;  // nullptr 时仅构造，不写回 issues
+}
+
 }  // namespace tests
 }  // namespace electro_optical_sensor

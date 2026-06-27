@@ -90,6 +90,15 @@ SarSession SarSession::Create(const config::SarSessionConfig& config) {
   return SarSession(std::unique_ptr<SarSession::Impl>(new SarSession::Impl(config)));
 }
 
+SarSession SarSession::TryCreate(const config::SarSessionConfig& config,
+                                 config::ValidationIssueList* issues) {
+  const config::ValidationIssueList found = config::ValidateSarSessionConfig(config);
+  if (issues != nullptr) {
+    *issues = found;
+  }
+  return Create(config);
+}
+
 SarOutputFrame SarSession::Step(const SarCycleInput& input) {
   return StepWithResult(input).output_frame;
 }

@@ -371,5 +371,35 @@ TEST(EsrPublicApiConvenienceTest, TryApplyRuntimeConfigExposesRejectFeedback) {
   EXPECT_TRUE(session.TryApplyRuntimeConfig(valid_patch));
 }
 
+TEST(EsrPublicApiConvenienceTest, TryCreateBuildsSessionAndReportsNoIssuesForHealthyConfig) {
+  config::EsrSessionConfig config;
+
+  config::ValidationIssueList issues;
+  const session::EsrSession session = session::EsrSession::TryCreate(config, &issues);
+
+  EXPECT_TRUE(issues.empty());
+  (void)session;
+}
+
+TEST(EsrPublicApiConvenienceTest, TryCreateReportsIssuesButStillConstructsSession) {
+  config::EsrSessionConfig invalid;
+  invalid.mission.scan.scan_rate_hz = 0.0f;
+
+  config::ValidationIssueList issues;
+  const session::EsrSession session = session::EsrSession::TryCreate(invalid, &issues);
+
+  ASSERT_EQ(issues.size(), 1U);
+  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kScanRateNotPositive);
+  (void)session;  // 会话仍被构造，调用方据 issues 决策
+}
+
+TEST(EsrPublicApiConvenienceTest, TryCreateAcceptsNullIssuesWithoutCrash) {
+  config::EsrSessionConfig invalid;
+  invalid.mission.scan.scan_rate_hz = 0.0f;
+
+  const session::EsrSession session = session::EsrSession::TryCreate(invalid, nullptr);
+  (void)session;  // nullptr 时仅构造，不写回 issues
+}
+
 }  // namespace tests
 }  // namespace electronic_surveillance_radar

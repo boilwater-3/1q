@@ -331,5 +331,40 @@ TEST(RadarSessionConfigValidationTest, ReportsRobustTrackingWithoutImm) {
   EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kRobustTrackingWithoutImm);
 }
 
+TEST(RadarSessionTryCreateTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {
+  config::RadarSessionConfig config;
+  config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
+  config.policy.lifecycle.enable_imm_lifecycle = false;
+
+  config::ValidationIssueList issues;
+  const session::RadarSession session = session::RadarSession::TryCreate(config, &issues);
+
+  EXPECT_TRUE(issues.empty());
+  (void)session;
+}
+
+TEST(RadarSessionTryCreateTest, ReportsIssuesButStillConstructsSession) {
+  config::RadarSessionConfig invalid;
+  invalid.mission.orientation.mechanical_scan_limits_deg.az_min_deg = 10.0f;
+  invalid.mission.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
+
+  config::ValidationIssueList issues;
+  const session::RadarSession session = session::RadarSession::TryCreate(invalid, &issues);
+
+  ASSERT_EQ(issues.size(), 1U);
+  EXPECT_EQ(issues.front().code,
+            config::ConfigValidationCode::kMechanicalScanLimitsSwappedAz);
+  (void)session;  // 会话仍被构造，调用方据 issues 决策
+}
+
+TEST(RadarSessionTryCreateTest, AcceptsNullIssuesWithoutCrash) {
+  config::RadarSessionConfig invalid;
+  invalid.mission.orientation.mechanical_scan_limits_deg.az_min_deg = 10.0f;
+  invalid.mission.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
+
+  const session::RadarSession session = session::RadarSession::TryCreate(invalid, nullptr);
+  (void)session;  // nullptr 时仅构造，不写回 issues
+}
+
 }  // namespace tests
 }  // namespace airborne_radar

@@ -11,6 +11,7 @@
 #include "1q/api.hpp"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfig.h"
+#include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/foundation/SensorContract.h"
@@ -68,8 +69,23 @@ class ONEQ_API EosSession {
    */
   bool TryApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch);
 
-  /** @brief 使用四域配置创建会话（推荐入口）。 */
+  /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
   static EosSession Create(const config::EosSessionConfig& config = {});
+
+  /**
+   * @brief 创建会话并报告配置校验结果（校验路径）。
+   *
+   * 与 `Create()` 唯一区别：构造前调用 `config::ValidateEosSessionConfig`
+   * 校验配置合法性，将发现的问题写入 @p issues。无论 @p issues 是否为空，
+   * 都会构造并返回会话（不阻断），调用方据 `issues->empty()` 决定后续。
+   *
+   * @param[in] config 四域会话配置。
+   * @param[out] issues 校验问题输出；传入 nullptr 则不写回但仍构造会话。
+   * @return 构造完成的会话。
+   * @note `ValidateEosSessionConfig` 由此路径被实调用，构成真实契约。
+   */
+  static EosSession TryCreate(const config::EosSessionConfig& config,
+                              config::ValidationIssueList* issues);
 
  private:
 

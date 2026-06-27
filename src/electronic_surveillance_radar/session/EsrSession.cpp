@@ -129,6 +129,15 @@ EsrSession EsrSession::Create(const config::EsrSessionConfig& config) {
       new EsrSession::Impl(EsrSessionCompositionRoot::ComposeDefault(config))));
 }
 
+EsrSession EsrSession::TryCreate(const config::EsrSessionConfig& config,
+                                 config::ValidationIssueList* issues) {
+  const config::ValidationIssueList found = config::ValidateEsrSessionConfig(config);
+  if (issues != nullptr) {
+    *issues = found;
+  }
+  return Create(config);
+}
+
 }  // namespace session
 
 }  // namespace electronic_surveillance_radar
