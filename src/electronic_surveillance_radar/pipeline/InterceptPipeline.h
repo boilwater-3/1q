@@ -38,16 +38,14 @@ class InterceptPipeline final {
   explicit InterceptPipeline(EsrInternalExecutionConfig config = {});
 
   /**
-   * @brief 更新流水线配置。
-   * @param[in] config 新配置。
+   * @brief 更新流水线配置（直接接收内部执行态配置）。
+   *
+   * 整块赋值 config_ 后重建派生状态（feature_scales、associator）。
+   * 写路径直接吃 internal config，避免 internal→extension→internal 的往返；
+   * RunCycle 的 per-cycle extension 投影（满足 IEsrContext 契约）不受影响。
+   * @param[in] config 新的内部执行态配置。
    */
-  void UpdateConfig(extension::InterceptPipelineConfig config);
-
-  /**
-   * @brief 更新运行态配置。
-   * @param[in] runtime_config 新运行态配置。
-   */
-  void UpdateRuntimeConfig(extension::InterceptRuntimeConfig runtime_config);
+  void UpdateConfig(const EsrInternalExecutionConfig& config);
 
   extension::InterceptPipelineRuntimeState CaptureRuntimeState() const;
   bool RestoreRuntimeState(const extension::InterceptPipelineRuntimeState& state);

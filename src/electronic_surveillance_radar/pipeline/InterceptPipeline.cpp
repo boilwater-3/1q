@@ -49,93 +49,11 @@ InterceptPipeline::InterceptPipeline(EsrInternalExecutionConfig config)
   feature_scales_ = BuildFeatureScales(config_.intercept.cluster);
 }
 
-void InterceptPipeline::UpdateConfig(extension::InterceptPipelineConfig config) {
-  config_.detection.minimum_snr_db = config.detection.minimum_snr_db;
-  config_.detection.pfa = config.statistical_detection.pfa;
-  config_.detection.pulse_count = config.statistical_detection.pulse_count;
-  config_.detection.threshold_scale = config.statistical_detection.threshold_scale;
-  config_.detection.enable_statistical_detection =
-      config.statistical_detection.enable_statistical_detection;
-
-  config_.intercept.detection.max_detect_range_m = config.detection.max_detect_range_m;
-  config_.intercept.detection.min_dynamic_range_margin_db = config.detection.min_dynamic_range_margin_db;
-  config_.intercept.detection.boundary_resolution_m = config.detection.boundary_resolution_m;
-  config_.intercept.detection.boundary_max_iterations = config.detection.boundary_max_iterations;
-
-  config_.intercept.algorithm.random_seed = config.algorithm.random_seed;
-  config_.intercept.algorithm.angle_error_coefficient = config.algorithm.angle_error_coefficient;
-
-  config_.intercept.preprocess = InterceptPreprocessConfig();
-  config_.intercept.preprocess.dedup_time_window_sec = config.preprocess.dedup_time_window_sec;
-  config_.intercept.preprocess.dedup_rf_window_hz = config.preprocess.dedup_rf_window_hz;
-  config_.intercept.preprocess.dedup_pw_window_sec = config.preprocess.dedup_pw_window_sec;
-  config_.intercept.preprocess.dedup_az_window_deg = config.preprocess.dedup_az_window_deg;
-  config_.intercept.preprocess.dedup_el_window_deg = config.preprocess.dedup_el_window_deg;
-  config_.intercept.preprocess.normalize_quality = config.preprocess.normalize_quality;
-
-  config_.intercept.cluster.radius = config.cluster.radius;
-  config_.intercept.cluster.min_points = config.cluster.min_points;
-  config_.intercept.cluster.rf_scale_hz = config.cluster.rf_scale_hz;
-  config_.intercept.cluster.pw_scale_sec = config.cluster.pw_scale_sec;
-  config_.intercept.cluster.az_scale_deg = config.cluster.az_scale_deg;
-  config_.intercept.cluster.el_scale_deg = config.cluster.el_scale_deg;
-  config_.intercept.cluster.snr_scale_db = config.cluster.snr_scale_db;
-
-  config_.intercept.spectral_analysis.enable = config.spectral_analysis.enable;
-  config_.intercept.spectral_analysis.min_sequence_length =
-      config.spectral_analysis.min_sequence_length;
-  config_.intercept.spectral_analysis.fft_length = config.spectral_analysis.fft_length;
-  config_.intercept.spectral_analysis.broadband_occupancy_threshold =
-      config.spectral_analysis.broadband_occupancy_threshold;
-  config_.intercept.spectral_analysis.agile_stability_threshold_hz =
-      config.spectral_analysis.agile_stability_threshold_hz;
-  config_.intercept.spectral_analysis.agile_peak_sparsity_threshold =
-      config.spectral_analysis.agile_peak_sparsity_threshold;
-  config_.intercept.spectral_analysis.occupancy_peak_floor_ratio =
-      config.spectral_analysis.occupancy_peak_floor_ratio;
-
-  config_.intercept.suppression.suppression_noise_scale =
-      config.suppression_model.suppression_noise_scale;
-  config_.intercept.suppression.suppression_mark_threshold_w =
-      config.suppression_model.suppression_mark_threshold_w;
-
-  config_.intercept.deception.false_alarm_probability_scale =
-      config.deception_model.false_alarm_probability_scale;
-  config_.intercept.deception.confusion_probability_scale =
-      config.deception_model.confusion_probability_scale;
-  config_.intercept.deception.max_false_observations_per_emitter =
-      config.deception_model.max_false_observations_per_emitter;
-  config_.intercept.deception.aoa_confusion_std_deg =
-      config.deception_model.aoa_confusion_std_deg;
-  config_.intercept.deception.rf_confusion_ratio = config.deception_model.rf_confusion_ratio;
-  config_.intercept.deception.pw_confusion_ratio = config.deception_model.pw_confusion_ratio;
-  config_.intercept.deception.cluster_confidence_penalty_scale =
-      config.deception_model.cluster_confidence_penalty_scale;
-
-  config_.runtime.track.gate_distance = config.association.gate_distance;
-  config_.runtime.track.confirm_hits = config.association.confirm_hits;
-  config_.runtime.track.max_missed_cycles = config.association.max_missed_cycles;
-  config_.runtime.track.confidence_alpha = config.association.confidence_alpha;
-  config_.runtime.track.output_tentative = config.association.output_tentative;
-
-  config_.runtime.integrator.integration_mode = config.statistical_detection.integration_mode;
-
-  config_.resolved_scan = std::move(config.scan);
-
+void InterceptPipeline::UpdateConfig(const EsrInternalExecutionConfig& config) {
+  config_ = config;
+  // 重建依赖 config_ 的派生状态（feature_scales、associator）。
   feature_scales_ = BuildFeatureScales(config_.intercept.cluster);
   associator_.UpdateConfig(BuildAssociationConfig(config_.runtime.track));
-}
-
-void InterceptPipeline::UpdateRuntimeConfig(extension::InterceptRuntimeConfig runtime_config) {
-  config_.mission.power_on = runtime_config.sensor_enabled;
-  config_.mission.scan.scan_rate_hz = runtime_config.scan_rate_hz;
-  config_.hardware.antenna_mount_az_deg = runtime_config.antenna_mount_az_deg;
-  config_.hardware.antenna_mount_el_deg = runtime_config.antenna_mount_el_deg;
-  config_.hardware.integrated_receive_loss_db = runtime_config.integrated_receive_loss_db;
-  if (runtime_config.use_fixed_receiver_window) {
-    config_.hardware.receiver_band_lower_hz = runtime_config.receiver_lower_hz;
-    config_.hardware.receiver_band_upper_hz = runtime_config.receiver_upper_hz;
-  }
 }
 
 extension::InterceptPipelineResult InterceptPipeline::RunCycle(

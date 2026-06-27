@@ -109,10 +109,9 @@ EsrRuntimeConfigApplyResult EsrSession::ApplyRuntimeConfigWithResult(
 
   impl_->resolved_config = resolved.next_config;
   if (resolved.runtime_config_changed || resolved.pipeline_config_changed) {
-    impl_->pipeline.UpdateConfig(
-        BuildPipelineConfig(impl_->resolved_config));
-    impl_->pipeline.UpdateRuntimeConfig(
-        BuildRuntimeConfig(impl_->resolved_config));
+    // 写路径直接吃 internal config（与 EOS/AR 一致），避免 internal→extension→internal
+    // 往返。RunCycle 的 per-cycle extension 投影（IEsrContext 契约）仍在 RunCycle 内进行。
+    impl_->pipeline.UpdateConfig(impl_->resolved_config);
   }
   if (resolved.environment_model_config_changed) {
     impl_->environment_service.UpdateModelConfig(
