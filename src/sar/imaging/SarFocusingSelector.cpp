@@ -5,9 +5,6 @@ namespace imaging {
 
 namespace {
 
-constexpr std::size_t kRdaLimit = 1024U;
-constexpr std::size_t kBackprojectionLimit = 128U;
-
 FocusingSelectionResult Reject(const FocusingSelectionRequest& request,
                                FocusingSelectionRejection rejection) {
   FocusingSelectionResult result;
@@ -31,10 +28,6 @@ FocusingSelectionResult Recommend(const FocusingSelectionRequest& request,
   return result;
 }
 
-bool Exceeds(std::size_t rows, std::size_t cols, std::size_t limit) {
-  return rows > limit || cols > limit;
-}
-
 }  // namespace
 
 FocusingSelectionResult RecommendFocusingAlgorithm(const FocusingSelectionRequest& request) {
@@ -46,7 +39,8 @@ FocusingSelectionResult RecommendFocusingAlgorithm(const FocusingSelectionReques
     if (!request.gbp_available) {
       return Reject(request, FocusingSelectionRejection::kAlgorithmUnavailable);
     }
-    if (Exceeds(request.range_sample_count, request.azimuth_pulse_count, kBackprojectionLimit)) {
+    if (ExceedsFocusingSizeLimit(request.range_sample_count, request.azimuth_pulse_count,
+                                 kFocusingBackprojectionSizeLimit)) {
       return Reject(request, FocusingSelectionRejection::kAlgorithmSizeExceeded);
     }
     return Recommend(request, RecommendedFocusingAlgorithm::kGbp,
@@ -63,7 +57,8 @@ FocusingSelectionResult RecommendFocusingAlgorithm(const FocusingSelectionReques
     if (!request.bp_available) {
       return Reject(request, FocusingSelectionRejection::kAlgorithmUnavailable);
     }
-    if (Exceeds(request.range_sample_count, request.azimuth_pulse_count, kBackprojectionLimit)) {
+    if (ExceedsFocusingSizeLimit(request.range_sample_count, request.azimuth_pulse_count,
+                                 kFocusingBackprojectionSizeLimit)) {
       return Reject(request, FocusingSelectionRejection::kAlgorithmSizeExceeded);
     }
     return Recommend(request, RecommendedFocusingAlgorithm::kBp,
@@ -83,7 +78,8 @@ FocusingSelectionResult RecommendFocusingAlgorithm(const FocusingSelectionReques
   if (!request.rda_available) {
     return Reject(request, FocusingSelectionRejection::kAlgorithmUnavailable);
   }
-  if (Exceeds(request.range_sample_count, request.azimuth_pulse_count, kRdaLimit)) {
+  if (ExceedsFocusingSizeLimit(request.range_sample_count, request.azimuth_pulse_count,
+                               kFocusingRdaSizeLimit)) {
     return Reject(request, FocusingSelectionRejection::kAlgorithmSizeExceeded);
   }
   const FocusingSelectionReason reason =

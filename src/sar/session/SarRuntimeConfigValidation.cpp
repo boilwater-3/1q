@@ -3,16 +3,13 @@
 #include <cmath>
 #include <cstdint>
 
+#include "sar/imaging/SarFocusingSelector.h"
 #include "sar/session/SarDiagnosticUtils.h"
 
 namespace sar {
 namespace session {
 
 namespace {
-
-constexpr std::uint32_t kMaxSessionRdaRangeSamples = 1024U;
-constexpr std::uint32_t kMaxSessionRdaPulses = 1024U;
-constexpr std::uint32_t kMaxSessionBpDimension = 128U;
 
 bool HasValidL3Waypoints(const config::SarMissionConfig& mission) {
   if (mission.l3_waypoints.size() < 2U) {
@@ -46,8 +43,9 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
   }
 
   if (config.policy.enable_l1_rda_imaging &&
-      (config.mission.range_sample_count > kMaxSessionRdaRangeSamples ||
-       config.mission.azimuth_pulse_count > kMaxSessionRdaPulses)) {
+      imaging::ExceedsFocusingSizeLimit(config.mission.range_sample_count,
+                                        config.mission.azimuth_pulse_count,
+                                        imaging::kFocusingRdaSizeLimit)) {
     RecordAbort(result, "rda_size_gate",
                 "SAR session RDA size exceeds current Phase 1 runtime gate; use smaller "
                 "validation scenes until performance approval.");
@@ -78,8 +76,9 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
     return false;
   }
   if (config.policy.enable_l3_bp_imaging &&
-      (config.mission.range_sample_count > kMaxSessionBpDimension ||
-       config.mission.azimuth_pulse_count > kMaxSessionBpDimension)) {
+      imaging::ExceedsFocusingSizeLimit(config.mission.range_sample_count,
+                                        config.mission.azimuth_pulse_count,
+                                        imaging::kFocusingBackprojectionSizeLimit)) {
     RecordAbort(result, "l3_bp_size_gate",
                 "SAR L3 BP size exceeds the approved 128x128 runtime gate.");
     return false;

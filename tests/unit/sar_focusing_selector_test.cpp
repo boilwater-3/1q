@@ -97,6 +97,37 @@ TEST(SarFocusingSelectorTest, IsDeterministicAndDoesNotModifyRequest) {
   EXPECT_EQ(request.azimuth_pulse_count, 64U);
 }
 
+// ---- 共享 size 常量与边界判定的独立护栏 -----------------------------------
+// 这些常量同时被 focusing selector 与 session runtime validation 消费；本组用例
+// 直接锁定其值与严格 `>` 边界语义（上限值放行、上限+1 拒绝），任何一侧被改动都会
+// 立即报红，而不必依赖两条调用路径间接捕获。
+
+TEST(SarFocusingSelectorTest, SharedSizeLimitsHoldApprovedValues) {
+  EXPECT_EQ(kFocusingRdaSizeLimit, 1024U);
+  EXPECT_EQ(kFocusingBackprojectionSizeLimit, 128U);
+}
+
+TEST(SarFocusingSelectorTest, ExceedsFocusingSizeLimitAllowsBoundaryAndRejectsOverflow) {
+  // 边界值本身放行（严格 > 语义）。
+  EXPECT_FALSE(ExceedsFocusingSizeLimit(kFocusingRdaSizeLimit, kFocusingRdaSizeLimit,
+                                        kFocusingRdaSizeLimit));
+  EXPECT_FALSE(ExceedsFocusingSizeLimit(kFocusingBackprojectionSizeLimit,
+                                        kFocusingBackprojectionSizeLimit,
+                                        kFocusingBackprojectionSizeLimit));
+  // 任一维度超出即拒绝。
+  EXPECT_TRUE(ExceedsFocusingSizeLimit(kFocusingRdaSizeLimit + 1U, kFocusingRdaSizeLimit,
+                                       kFocusingRdaSizeLimit));
+  EXPECT_TRUE(ExceedsFocusingSizeLimit(kFocusingRdaSizeLimit, kFocusingRdaSizeLimit + 1U,
+                                       kFocusingRdaSizeLimit));
+  EXPECT_TRUE(ExceedsFocusingSizeLimit(kFocusingBackprojectionSizeLimit + 1U, 0U,
+                                       kFocusingBackprojectionSizeLimit));
+}
+
+TEST(SarFocusingSelectorTest, ExceedsFocusingSizeLimitAllowsZeroAndSmallDimensions) {
+  EXPECT_FALSE(ExceedsFocusingSizeLimit(0U, 0U, kFocusingBackprojectionSizeLimit));
+  EXPECT_FALSE(ExceedsFocusingSizeLimit(1U, 1U, kFocusingRdaSizeLimit));
+}
+
 }  // namespace
 }  // namespace imaging
 }  // namespace sar

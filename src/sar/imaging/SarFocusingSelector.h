@@ -11,6 +11,32 @@
 namespace sar {
 namespace imaging {
 
+/**
+ * @name 聚焦算法批准的尺寸上限（单一决策源）。
+ *
+ * session runtime validation 与 focusing selector 共用这两个上限，避免两份副本
+ * 各自维护导致漂移。语义为严格 `>`：等于上限值放行，超出才拒绝。
+ * @{
+ */
+constexpr std::size_t kFocusingRdaSizeLimit = 1024U;
+constexpr std::size_t kFocusingBackprojectionSizeLimit = 128U;
+/** @} */
+
+/**
+ * @brief 判定 range/azimuth 维度是否超出给定聚焦尺寸上限。
+ *
+ * 任一维度严格大于 @p limit 即视为超出（边界值 limit 本身放行）。
+ *
+ * @param range_samples 距离向采样数。
+ * @param azimuth_pulses 方位向脉冲数。
+ * @param limit          允许的最大维度（含）。
+ * @return 超出返回 true。
+ */
+inline bool ExceedsFocusingSizeLimit(std::size_t range_samples, std::size_t azimuth_pulses,
+                                    std::size_t limit) {
+  return range_samples > limit || azimuth_pulses > limit;
+}
+
 enum class SelectorTrajectoryFidelity {
   kL1 = 1,
   kL2 = 2,
