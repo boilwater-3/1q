@@ -18,6 +18,7 @@ include/
     |-- flight_dynamic/                     flight dynamics & maneuver public API surface
     |-- foundation/                         cross-domain public foundation types
     |-- replay/                             replay public interfaces
+    |-- sar/                                SAR public API surface
     `-- trace/                              cross-domain trace interfaces
 src/
 |-- airborne_radar/
@@ -57,12 +58,22 @@ src/
 |   |-- runtime/                            ESR controller and runtime telemetry
 |   |-- session/                            ESR session composition/config/runtime resolvers
 |   `-- utils/                              ESR utility helpers
-`-- flight_dynamic/
-    |-- adapter/                            JSBSim FDM adapter (property-tree bridge)
-    |-- autopilot/                          multi-channel autopilot (heading/alt/speed/pitch/roll)
-    |-- guidance/                           maneuver executor FSM and waypoint sequencing
-    |-- model/                              vehicle state mapping from JSBSim
-    `-- propulsion/                         engine and throttle management
+|-- flight_dynamic/
+|   |-- adapter/                            JSBSim FDM adapter (property-tree bridge)
+|   |-- autopilot/                          multi-channel autopilot (heading/alt/speed/pitch/roll)
+|   |-- guidance/                           maneuver executor FSM and waypoint sequencing
+|   |-- model/                              vehicle state mapping from JSBSim
+|   `-- propulsion/                         engine and throttle management
+`-- sar/
+    |-- calibration/                        radiometric calibration
+    |-- echo/                               point target raw echo generation
+    |-- geometry/                           L1/L2/L3 trajectory, spotlight/scansar geometry
+    |-- imaging/                            RDA, BP/GBP, MoCo, Omega-K, quality, multilook
+    |-- output/                             binary/sidecar/HDF5 output
+    |-- runtime/                            PulseRingBuffer and aperture stitching
+    |-- session/                            session assembly, input validation, imaging executor
+    |-- signal/                             FFT, LFM waveform, matched filter
+    `-- smoke/                              PGA toolchain compile/link smoke test
 tests/                              unit and integration tests
 examples/                           usage examples
 tools/                              helper scripts
@@ -97,6 +108,20 @@ cmake --build --preset "$preset" >"${log_prefix}-build.log" 2>&1 || { tail -n 80
 ctest --preset "$preset" --output-on-failure -j 4
 ```
 
+## Documentation
+
+Design documentation lives in `docs/` and follows a minimal structure:
+
+- `docs/common/contract.md` — cross-module contracts, public API rules, output model, document governance
+- One `design.md` per module — architecture, algorithms, data flow, limitations with inline `[evidence: ...]` references
+
+Each `design.md` is the sole design authority for its module. It contains:
+- Architecture overview (mermaid component/sequence/data-flow diagrams)
+- Algorithm descriptions with test-backed `[evidence: ...]` inline annotations
+- Limitations and veto decisions with quantified thresholds
+
+Evidence references point to existing test files and specific test cases (not branch paths or external docs).
+
 ## Engineering Conventions
 - Follow the Google C++ Style Guide.
 - Keep namespace-directory mapping consistent.
@@ -107,7 +132,6 @@ ctest --preset "$preset" --output-on-failure -j 4
 - Make interfaces easy to use correctly and hard to use incorrectly.
 - Log critical paths and events. e.g. Use `spdlog::debug/info` for flow and `spdlog::error` for failures.
 - For Chinese Doxygen work, explicitly use `$cpp-chinese-doxygen`.
-- 
 
 ## Constraints
 - Never introduce C++ exceptions.
@@ -123,7 +147,7 @@ ctest --preset "$preset" --output-on-failure -j 4
 - The chosen preset builds successfully.
 - Relevant tests pass for the chosen preset.
 - New public API or significant logic changes include new or updated tests under `tests/`.
-- Documentation stays accurate for changed behavior.
+- Documentation stays accurate for changed behavior: update the relevant `design.md` and its inline `[evidence: ...]` references if thresholds, limitations, or veto decisions change.
 
 note: Your mileage may vary. Not all of these rules are necessarily optimal for every setup. Like anything else, feel free to break the rules once...
 - you understand when & why it's okay to break them.
