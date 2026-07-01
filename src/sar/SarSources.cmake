@@ -51,6 +51,7 @@ set(SAR_CORE_SOURCES
     sar/session/SarInputValidation.cpp
     sar/session/SarRawHistoryBuilder.cpp
     sar/session/SarReplayFlatbufferCodec.cpp
+    sar/session/SarRuntimeConfigResolver.cpp
     sar/session/SarRuntimeConfigValidation.cpp
     sar/session/SarSessionConfigBuilder.cpp
     sar/session/SarFocusedImageAssembler.cpp

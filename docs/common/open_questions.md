@@ -11,26 +11,50 @@ Authority: 非规定性记录
 
 各传感器模块对"runtime 配置修改如何安全生效"采用了四种不同策略，没有统一范式。这不是 bug——每个策略单独看都自洽——但是跨模块阅读时的主要认知负担来源，且新模块/新维护者缺少明确的基准。
 
-| 模块 | 配置提交时机 | 提交失败处理 | 周期执行失败处理 |
-| --- | --- | --- | --- |
-| airborne_radar | 延迟到下个周期边界（`StepWithResult` 开头） | 4 子系统快照回滚 | 4 子系统快照回滚 |
-| electronic_surveillance_radar | 立即（调用即生效） | 无回滚 | pipeline + controller 快照回滚 |
-| electro_optical_sensor | 立即（调用即生效） | 无回滚 | 无回滚 |
-| sar | 立即 patch 到 `runtime_config` | 无回滚 | 执行前 gate（`ValidateRuntimeConfigForStep`） |
+| 模块 | patch 校验入口 | 配置提交时机 | 提交失败处理 | 周期执行失败处理 |
+| --- | --- | --- | --- | --- |
+| airborne_radar | resolver（`has_requested_update`+`is_valid`） | 延迟到下个周期边界（`StepWithResult` 开头） | 4 子系统快照回滚 | 4 子系统快照回滚 |
+| electronic_surveillance_radar | resolver | 立即（调用即生效） | **无回滚**（commit 与 rollback 状态空间不重合，见 OQ-1a） | pipeline + controller 快照回滚 |
+| electro_optical_sensor | resolver | 立即（调用即生效） | 无回滚 | pipeline 快照回滚（封装在 `EosController::RunOnce` 内，非 session 层） |
+| sar | **无 resolver**（`ApplyPatchToConfig` 盲写 `has_*`） | 立即 patch 到 `runtime_config` | 无回滚 | 执行前 gate（`ValidateRuntimeConfigForStep`） |
 
 证据：
-- AR 延迟提交 + 回滚：`src/airborne_radar/session/RadarSession.cpp:117`（`CommitPendingRuntimeConfig`，在 `controller.RunOnce` 之前）、`:185-197`（快照 capture + 失败 restore）。
-- ESR 立即提交 + 执行失败回滚：`src/electronic_surveillance_radar/session/EsrSession.cpp:94`（`TryApplyRuntimeConfig` 立即调 `UpdateConfig`）、`:48-58`（`RunCycle` 内 capture/restore）。
-- EOS 立即提交无回滚：`src/electro_optical_sensor/session/EosSession.cpp:86`（`TryApplyRuntimeConfig` 立即 `ApplyInternalConfig`，无 capture/restore）。
-- SAR 立即 patch + 执行前 gate：`src/sar/session/SarSession.cpp:191`（`TryApplyRuntimeConfig` 直接 patch）、`:127`（`ValidateRuntimeConfigForStep`）。
+- AR 延迟提交 + 回滚：`src/airborne_radar/session/RadarSession.cpp:117`（`CommitPendingRuntimeConfig`，在 `controller.RunOnce` 之前）、`:185-197`（快照 capture + 失败 restore）。patch 经 `ApplyRuntimePatch` resolver 校验（`:298-317`）。
+- ESR 立即提交 + 执行失败回滚：`src/electronic_surveillance_radar/session/EsrSession.cpp:98`（`ApplyRuntimeConfigWithResult` 立即调 `UpdateConfig`）、`:48-58`（`RunCycle` 内 capture/restore）。patch 经 `ResolveEsrRuntimeConfigPatch` resolver 校验（`:101`）。
+- EOS 立即提交（session 层无事务，但执行回滚在 controller 内）：`src/electro_optical_sensor/session/EosSession.cpp:86`（`TryApplyRuntimeConfig` 立即 `ApplyInternalConfig`，无 capture/restore）；`src/electro_optical_sensor/runtime/EosController.cpp:68-69,88,90-111`（`RunOnce` 内 capture → execute → 失败 `RestoreRuntimeState` + 复原 `latest_output`）。patch 经 `ResolveEosRuntimeConfigPatch` resolver 校验（`:88`）。
+- SAR 立即 patch + 执行前 gate：`src/sar/session/SarSession.cpp:194`（`TryApplyRuntimeConfig` 直接 `ApplyPatchToConfig` 盲写 `has_*`，**无 resolver、无 `is_valid` 校验，只要 `HasRequestedUpdate` 即恒返回 true**）、`:127`（`ValidateRuntimeConfigForStep`，校验整体推迟到 step）。
 
-为何未决：四种策略各有合理性（AR 谨慎因信号 pipeline 状态多；EOS/SAR 轻量因 pipeline 相对简单），没有失败/竞态证据指向某一策略错误。统一需要先论证"哪种策略该作为基准"，属于架构级决策。
+为何未决：真正的分叉在两个正交维度——(A) patch 校验入口（SAR 是唯一离群点，无 resolver）；(B)/(C) 提交时机与事务性。B/C 维度各有合理性（AR 谨慎因信号 pipeline 状态多；EOS 把执行回滚下沉到 controller 内；SAR 无累积运行期状态，gate + 无回滚结构上正确），没有失败/竞态证据指向某一策略错误。但 A 维度是收敛且低风险的：让 SAR 的 `TryApplyRuntimeConfig` 也过 resolver 校验，不触碰任何模块的事务模型。
 
 推进需要：
 - 一个真实的失败案例（如某模块立即提交导致周期内配置中途变化、产生不可预料结果），或
 - 明确的架构方向选择（如统一为 AR 式延迟提交 + 回滚，或统一为 EOS 式立即提交）。
 
+**已推进（A 维度，SAR resolver）**：见下"推进记录"。
+
+**未推进（B/C 维度，架构级决策）**：维持本节"为何未决"判断，等待真实失败案例或明确架构方向。
+
+### 推进记录
+
+- **A 维度已闭环（SAR resolver）**：新增 `src/sar/session/SarRuntimeConfigResolver.{h,cpp}`，对齐 ESR/EOS 的"写之前校验"范式（boolean-only reject）。`SarSession::TryApplyRuntimeConfig` 改走 `ResolveSarRuntimeConfigPatch`：对有效补丁行为零变化（仍写 `policy` 字段、返回 true）；对无效补丁（`minimum_snr_db` 非有限、`enable_l1_rda_imaging` 无 `enable_raw_echo_generation`）从原先的"静默接受→step 时 abort"前置为"apply 时拒绝并返回 false"。后者把原 step-time gate（`SarRuntimeConfigValidation.cpp:54-58`）的静态可判定子集前置，消除"SAR `TryApplyRuntimeConfig` 恒真"的隐式契约。测试：`tests/unit/sar_runtime_config_resolver_test.cpp`（6 用例）；既有 `SarSessionPipelineTest`/`SarReplaySessionTest`/`SarPublicApiConvenienceTest` 全量通过，零回归。状态：SAR 的 patch 校验入口现已与 AR/ESR/EOS 对齐；B/C 维度（时机与事务性）仍维持本节未决判断。
+
+
 注：P2.3（commit `a83928b3`）只收拢了 ESR 写路径绕 extension 的往返，未触碰任何模块的提交时机/安全策略。
+
+## OQ-1a ESR commit 与 rollback 的状态空间不重合
+
+OQ-1 的细化：ESR 的 runtime config 提交（`ApplyRuntimeConfigWithResult`）与周期执行回滚（`RunCycle` 内 capture/restore）作用于**不同的状态机部件**，给人"提交也受保护"的错觉，实则不然。
+
+- 提交路径（立即写，无 capture）：`src/electronic_surveillance_radar/session/EsrSession.cpp:110`（写 `impl_->resolved_config`）、`:114`（`pipeline.UpdateConfig` 改 pipeline 的 config 视图）、`:116-119`（`environment_service.UpdateModelConfig`）。
+- 回滚路径（capture/restore）只保存关联器运行期状态：`src/electronic_surveillance_radar/pipeline/InterceptPipeline.cpp:94-106`（`CaptureRuntimeState` 快照 = `rng_` + `next_observation_id_` + `next_hypothesis_id_` + `tracks`）、`:108-122`（`RestoreRuntimeState` 只还原这四项）。
+- 因此若 `UpdateConfig` 成功、随后 `controller.RunOnce` 因非配置原因 abort：pipeline 配置与 `resolved_config` 已被**永久改动**，`RestoreRuntimeState` 不会把配置改回去。
+
+对比 AR：AR 的 `CommitPendingRuntimeConfig`（`RadarSession.cpp:117`）失败时 restore 含 pipeline 在内的 4 个子系统，且只在执行成功的 `FinalizePendingRuntimeConfig`（`:167-176`）才把 `pending → runtime` 落定——配置语义状态与 pipeline 物理状态始终对齐。ESR 没有这层对齐。
+
+为何未决：当前不是 bug（无失败测试指向它），且 ESR pipeline 的 config 视图与关联器状态是独立演化部件。但它是 OQ-1"认知负担"的具象——阅读者会误以为 `CaptureRuntimeState` 覆盖了配置。
+
+推进需要：
+- ESR owner 确认：pipeline config 是否应纳入 `CaptureRuntimeState` 快照（使提交与回滚状态空间重合），还是显式记录"两者有意分离"并在 `CaptureRuntimeState` doc 注明不含 config。
 
 ## OQ-2 飞行动力学局部 NE 投影 cos-lat 约定分叉
 
@@ -78,3 +102,35 @@ Authority: 非规定性记录
 - 在测试兜底下统一 ρ 来源。
 
 注：P2.4（commit `65cc7fc4`）把 CLmax + V_stall 公式收拢为单一 `AircraftPerformanceDerivation` helper，但 ρ 作为入参透传，严格保留了三处现状——漂移本身未修。
+
+## OQ-5 "extension point" 抽象基类去留审查（四 seam cluster）
+
+取消用户高度自定义后，"为扩展点而存在"的抽象需逐个审判。保留抽象基类只应满足至少一个条件：(1) 明确 public SPI；(2) 跨模块稳定能力接口（sink/provider）；(3) 内部算法族策略点（当前有多实现或运行时选择）；(4) 内部测试/故障注入 seam（验证回滚、失败路径、复杂状态机，且无更低成本替代）；(5) 解耦大型内部层的稳定 internal port。据此审查四个 `I*` 接口，结论：仅 `ISignalPipeline` 通过（标准 4），其余三个不过——但当前最危险的不是虚函数本身，而是 namespace、导出宏、文档仍暗示"可扩展"，与新 public boundary（`docs/electro_optical_sensor/design.md:400,404`）冲突。
+
+| seam | 生产实现 | 测试 double | namespace | 导出宏 | 公开头 | 落点 |
+| --- | --- | --- | --- | --- | --- | --- |
+| AR `ISignalPipeline` | 1 (`SignalPipeline`) | 2（rollback+abort） | `extension::` | 无 | 否 | 标准 4：保留 |
+| ESR `IEsrContext` | 1 (`MutableEsrContext`,`final`) | 0 | `extension::` | **`ONEQ_API`** | 否 | 全不满足 |
+| EOS `IEosEnvironmentService` | 1（匿名 ns 一行 forwarder） | 0 | `environment` | 无 | 否 | 全不满足 |
+| AR `IAssignmentSolver`/`IHypothesiser` | 各 1 | 0 | `signal::association` | 无 | 否 | 全不满足 |
+| AR `IDistanceMetric` | 1（+1 prod 死 + 子接口） | 0（1 null 契约） | `signal::association` | 无 | 否 | 半满足，单独审 |
+
+证据（逐个）：
+
+(a) **AR `ISignalPipeline` — 保留，仅清 namespace/doc**：声明于 `src/airborne_radar/signal/pipeline/ISignalPipeline.h:38`，namespace `extension::`（`:23`），无导出宏，文件 doc（`:3`）自称"内部实现细节，不对外暴露"。唯一生产实现 `SignalPipeline`（`SignalPipeline.h:23`，`final`），在 `RadarSessionCompositionRoot.cpp:69-70` 与 `:91-92` 两处硬编码 `new`，无 factory/无运行时选择。被 `RadarController` 以 `ISignalPipeline&` 持有（`RadarController.h:64`）。**两个 test double 专测 rollback/abort**：`RecordingSignalPipeline`（`tests/contract/ar_public_api_convenience_test.cpp:324`，覆盖 `CaptureRuntimeState`/`RestoreRuntimeState` 回滚 `:367-396`、config 拒收 `:356-360`、`kRuntimePreparationFailed` 注入 `:333-337`）；`AbortingSignalPipeline`（`tests/unit/ar_core_controller_test.cpp:123`，rollback round-trip `:160-186`）。误导点：`CaptureRuntimeState`/`RestoreRuntimeState` 的 `@note`（`:105-107`、`:113-115`）描述"when injected into RadarSession/RadarController"，与文件 doc 的"内部"自相矛盾。
+
+(b) **ESR `IEsrContext` — 误导信号最全，去 `ONEQ_API` + 移出 `extension::`**：声明于 `src/electronic_surveillance_radar/pipeline/IEsrContext.h:26`，`class ONEQ_API IEsrContext`（`ONEQ_API` 见 `include/1q/api.hpp:36`，即 dllexport），namespace `electronic_surveillance_radar::extension`。唯一实现 `MutableEsrContext`（`MutableEsrContext.h:17`，`final`，无导出宏——基类导出、实现不导出，自相矛盾）。栈上单点构造（`InterceptPipeline.cpp:72`），`const&` 透传（`:80`、`:82`），无 factory、无多态派发。**纯只读 context bag**：7 个 const getter（`IEsrContext.h:28-49`），写方法在接口外（`MutableEsrContext::BeginCycle`）。零 test double。无任何 `PUBLIC_HEADERS_*` 引用（`src/electronic_surveillance_radar/CMakeLists.txt:41-42` 的 `PUBLIC_HEADERS_ESR_EXTENSION` 为空），外部 consumer 测试 `tests/consumer/esr_extension_consumer.cpp` 不引用它。doc 自称"依赖倒置"（`:20-25`）。**三重信号**（dllexport + `extension::` + 依赖倒置）叠加撞 `design.md:400/404`。
+
+(c) **EOS `IEosEnvironmentService` — 可 devirtualize**：声明于 `src/electro_optical_sensor/environment/IEosEnvironmentService.h:21`，单方法 `ResolveFactors`（`:30-31`）。唯一实现 `DefaultEosEnvironmentService` 在 `EosPipeline.cpp:43` 的匿名 namespace 内，是 `return ResolveEnvironmentFactors(inputs)` 的一行 forwarder。构造于 `EosPipeline.cpp:364-367`（无条件 `new`，DI 注入点已删），`shared_ptr<IEosEnvironmentService>` 成员（`EosPipeline.h:59`）只在 `EosPipeline.cpp:527` 解引用一次。零 test double（`tests/unit/eos_environment_model_test.cpp` 测底层 free function，不测接口）。commit `babd75bc` 已删"外部接管"doc 与 DI 注入参数，commit 自述保留接口理由是"合理的内部多态"——但该多态从不发生。
+
+(d) **AR association 三联 — 拆两批**：均在 `src/airborne_radar/signal/association/`，namespace `airborne_radar::signal::association`（**非** `extension::`），无导出宏、无 public 头、无 factory/无 config 选择，唯 `DataAssociationEngine` 消费，`DataAssociation.cpp:121-130` 同一构造块硬连。
+- `IAssignmentSolver`（`AssignmentSolver.h:19`）/`IHypothesiser`（`Hypothesiser.h:39`）：各 1 实现（`LapjvSolver.h:18`、`DenseCostHypothesiser.h:54`，均 `final`），consumer 以**具体类型**持有（`DataAssociation.h:228`、`:227`），接口类型在 consumer 处**从不出现**——零成本折叠。
+- `IDistanceMetric`（`DistanceMetric.h:18`）：通过 `ICovarianceAwareDistanceMetric*` 派发（`DataAssociation.cpp:125`、`:137` → `Hypothesiser.cpp:9-11,38,75,122`）；prod 死实现 `MahalanobisDistanceMetric`（`DistanceMetric.h:33`，仅测试构造）；唯一活实现 `FullMahalanobisDistanceMetric`（`:75`）；子接口 `ICovarianceAwareDistanceMetric`（`:60`，doc `:54-59` 自述"消除 dynamic_cast"）；`ar_signal_association_test.cpp:537` 有 `static_cast<IDistanceMetric*>(nullptr)` null 契约测试。**真有算法族影子但无运行时选择**，单独审。
+
+为何未决：审查为静态代码分析，未执行任何重构。判断标准本身尚未进 contract.md，是提案级框架（已对照代码验证）。`IDistanceMetric` 的 `ICovarianceAwareDistanceMetric` 子接口去留是真未决项（它只为消除一次 dynamic_cast 而存）。对四个"保留/降级"的结论是推荐，需各模块 owner 确认无计划内第二实现。
+
+推进需要（两阶段，对齐"先删语义、再审单实现"）：
+- **Phase 1（语义/导出清理，并行低风险）**：① ESR `IEsrContext` 去 `ONEQ_API` + 移出 `extension::` + doc 去依赖倒置措辞——优先级最高，因唯一物理导出且撞 public boundary；② AR `ISignalPipeline` 移出 `extension::` → internal port 语义，重写 `@note` 为 rollback 单测 seam，**保留接口**；③ association 三联 doc 去暗示（namespace 已正确，仅措辞）。
+- **Phase 2（去虚化审查，逐个定，不打包）**：① EOS `IEosEnvironmentService` → devirtualize（`EosPipeline` 直接持值成员或调 free function，`babd75bc` 已铺路）；② ESR `IEsrContext` → devirtualize（塌缩为具体只读 struct）；③ `IAssignmentSolver`+`IHypothesiser` → 折叠（consumer 已用具体类型）；④ `IDistanceMetric` → 单独审，倾向连 prod 死 `MahalanobisDistanceMetric` 一起清，`ICovarianceAwareDistanceMetric` 改 concrete 持有；⑤ `ISignalPipeline` 不动。
+
+注：本审查基于代码静态分析，未触碰任何代码；`ISignalPipeline` 的 rollback/abort test double 是其保留的核心证据，`IEsrContext` 的 `ONEQ_API` 是当前唯一编译进 ABI 的误导信号。

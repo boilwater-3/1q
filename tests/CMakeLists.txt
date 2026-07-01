@@ -327,7 +327,8 @@ set(_sar_unit_filter
     "SarCycleInputAdapterBridgeTest.*:"
     "SarRawHistoryExternalIqPredicateTest.*:"
     "SarReplayCodecRoundtripTest.*:"
-    "SarReplaySessionTest.*"
+    "SarReplaySessionTest.*:"
+    "SarRuntimeConfigResolverTest.*"
 )
 string(REPLACE ";" "" _sar_unit_filter_str "${_sar_unit_filter}")
 add_test(NAME "sar_unit::1q_unit_tests"

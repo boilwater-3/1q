@@ -12,6 +12,7 @@
 #include "sar/session/SarImagingExecutor.h"
 #include "sar/session/SarDiagnosticUtils.h"
 #include "sar/session/SarRawHistoryBuilder.h"
+#include "sar/session/SarRuntimeConfigResolver.h"
 #include "sar/session/SarRuntimeConfigValidation.h"
 #include "sar/signal/SarWaveform.h"
 
@@ -19,34 +20,6 @@ namespace sar {
 namespace session {
 
 namespace {
-
-bool HasRequestedUpdate(const config::SarRuntimeConfigPatch& patch) {
-  return patch.has_enable_raw_echo_generation || patch.has_enable_range_compression ||
-         patch.has_enable_l1_rda_imaging || patch.has_retain_raw_phase_history ||
-         patch.has_retain_focused_image || patch.has_minimum_snr_db;
-}
-
-void ApplyPatchToConfig(config::SarSessionConfig* config,
-                        const config::SarRuntimeConfigPatch& patch) {
-  if (patch.has_enable_raw_echo_generation) {
-    config->policy.enable_raw_echo_generation = patch.enable_raw_echo_generation;
-  }
-  if (patch.has_enable_range_compression) {
-    config->policy.enable_range_compression = patch.enable_range_compression;
-  }
-  if (patch.has_enable_l1_rda_imaging) {
-    config->policy.enable_l1_rda_imaging = patch.enable_l1_rda_imaging;
-  }
-  if (patch.has_retain_raw_phase_history) {
-    config->policy.retain_raw_phase_history = patch.retain_raw_phase_history;
-  }
-  if (patch.has_retain_focused_image) {
-    config->policy.retain_focused_image = patch.retain_focused_image;
-  }
-  if (patch.has_minimum_snr_db) {
-    config->policy.minimum_snr_db = patch.minimum_snr_db;
-  }
-}
 
 void ApplyDiagnosticsPolicy(const config::SarPolicyConfig& policy, SarCycleResult* result) {
   if (policy.enable_diagnostics || result == nullptr) {
@@ -192,10 +165,12 @@ void SarSession::ApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch) 
 }
 
 bool SarSession::TryApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch) {
-  if (!HasRequestedUpdate(patch)) {
+  const SarRuntimeConfigResolveResult resolved =
+      ResolveSarRuntimeConfigPatch(impl_->runtime_config, patch);
+  if (!resolved.has_requested_update || !resolved.is_valid) {
     return false;
   }
-  ApplyPatchToConfig(&impl_->runtime_config, patch);
+  impl_->runtime_config = resolved.next_config;
   return true;
 }
 
