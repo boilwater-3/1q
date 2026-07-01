@@ -41,7 +41,7 @@ class BeamControlResolver {
    * @return 当前探测使用的波束状态。
    */
   static ResolvedBeamState Resolve(const config::engineering::AntennaConfig& antenna_config,
-                                   const config::RadarOrientationConfig& orientation_config,
+                                   const config::ArOrientationConfig& orientation_config,
                                    const config::PlatformAttitudeDeg& platform_attitude_deg,
                      const TargetLookAnglesDeg& target_look_angles,
                      const config::AzimuthElevationDeg& dwell_center_deg =
@@ -85,7 +85,7 @@ class BeamControlResolver {
    * @note 对地稳定当前无地理参考输入，代码上显式等同于对惯性空间稳定。
    */
   static config::AzimuthElevationDeg ResolveMountFrameBeamPointing(
-      const config::RadarOrientationConfig& orientation_config,
+      const config::ArOrientationConfig& orientation_config,
       const config::PlatformAttitudeDeg& platform_attitude_deg,
       const config::AzimuthElevationDeg& dwell_center_deg = config::AzimuthElevationDeg()) {
     const config::AzimuthElevationLimitsDeg effective_limits =

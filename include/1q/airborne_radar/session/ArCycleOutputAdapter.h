@@ -3,7 +3,6 @@
  * @brief AR module primary cycle output builder.
  *
  * Primary header for cycle output adaptation.
- * Include this for new code; RadarCycleOutputAdapter.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CYCLE_OUTPUT_ADAPTER_H_
@@ -57,9 +56,6 @@ struct ONEQ_API ArCycleOutputAdapter {
   ArCycleOutputAdapter() = delete;
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarExternalTrackOutputFrame = ArExternalTrackOutputFrame;
-using RadarCycleOutputAdapter = ArCycleOutputAdapter;
 
 }  // namespace session
 }  // namespace airborne_radar

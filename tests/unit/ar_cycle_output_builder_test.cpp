@@ -1,6 +1,6 @@
 /**
  * @file ar_cycle_output_builder_test.cpp
- * @brief 验证 RadarCycleOutputAdapter 将内部雷达局部输出转换回外部 ECEF 输出。
+ * @brief 验证 ArCycleOutputAdapter 将内部雷达局部输出转换回外部 ECEF 输出。
  */
 
 #include <gtest/gtest.h>
@@ -9,27 +9,27 @@
 #include <cstddef>
 #include <vector>
 
-#include "1q/airborne_radar/session/RadarSession.h"
-#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/session/RadarCycleInputAdapter.h"
-#include "1q/airborne_radar/session/RadarCycleOutputAdapter.h"
+#include "1q/airborne_radar/session/ArSession.h"
+#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+#include "1q/airborne_radar/session/ArCycleInputAdapter.h"
+#include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
 #include "1q/coordinate/position_transform.h"
 
 namespace {
 
 using airborne_radar::session::TrackStateSnapshot;
-using airborne_radar::session::RadarCycleInput;
-using airborne_radar::session::RadarCycleInputAdapter;
-using airborne_radar::session::RadarCycleOutputAdapter;
-using airborne_radar::session::RadarCycleResult;
-using airborne_radar::session::RadarExternalPoseInput;
-using airborne_radar::session::RadarExternalTrackOutputFrame;
-using airborne_radar::session::RadarSession;
-using airborne_radar::session::RadarExternalTargetInput;
+using airborne_radar::session::ArCycleInput;
+using airborne_radar::session::ArCycleInputAdapter;
+using airborne_radar::session::ArCycleOutputAdapter;
+using airborne_radar::session::ArCycleResult;
+using airborne_radar::session::ArExternalPoseInput;
+using airborne_radar::session::ArExternalTrackOutputFrame;
+using airborne_radar::session::ArSession;
+using airborne_radar::session::ArExternalTargetInput;
 using airborne_radar::session::TrackOutputFrame;
 
-airborne_radar::config::RadarSessionConfig MakeDetectionFocusedConfig() {
-  return airborne_radar::config::RadarSessionConfigBuilder()
+airborne_radar::config::ArSessionConfig MakeDetectionFocusedConfig() {
+  return airborne_radar::config::ArSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(
           airborne_radar::config::profiles::DetectionIntentProfile::kDetectionPriority)
@@ -45,7 +45,7 @@ airborne_radar::config::RadarSessionConfig MakeDetectionFocusedConfig() {
       .Build();
 }
 
-RadarExternalPoseInput MakePlatformInput() {
+ArExternalPoseInput MakePlatformInput() {
   oneq::coordinate::EcefPositionM platform_ecef;
   oneq::coordinate::LlaPositionDegM platform_lla;
   platform_lla.latitude_deg = 30.0;
@@ -53,7 +53,7 @@ RadarExternalPoseInput MakePlatformInput() {
   platform_lla.altitude_m = 1000.0;
   EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(platform_lla, &platform_ecef));
 
-  RadarExternalPoseInput platform;
+  ArExternalPoseInput platform;
   platform.platform_position_ecef_m = platform_ecef;
   platform.platform_velocity_mps.x_mps = -20.0;
   platform.platform_velocity_mps.y_mps = 35.0;
@@ -67,7 +67,7 @@ RadarExternalPoseInput MakePlatformInput() {
   return platform;
 }
 
-RadarExternalTargetInput MakeTargetInput() {
+ArExternalTargetInput MakeTargetInput() {
   oneq::coordinate::EcefPositionM target_ecef;
   oneq::coordinate::LlaPositionDegM target_lla;
   target_lla.latitude_deg = 30.0007;
@@ -75,7 +75,7 @@ RadarExternalTargetInput MakeTargetInput() {
   target_lla.altitude_m = 1035.0;
   EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
-  RadarExternalTargetInput target;
+  ArExternalTargetInput target;
   target.target_id = 9001U;
   target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
   target.kinematics.position_ecef_m = target_ecef;
@@ -87,8 +87,8 @@ RadarExternalTargetInput MakeTargetInput() {
   return target;
 }
 
-std::vector<RadarExternalTargetInput> MakeMovingTargetInputs(std::size_t target_count) {
-  std::vector<RadarExternalTargetInput> targets;
+std::vector<ArExternalTargetInput> MakeMovingTargetInputs(std::size_t target_count) {
+  std::vector<ArExternalTargetInput> targets;
   targets.reserve(target_count);
 
   for (std::size_t i = 0; i < target_count; ++i) {
@@ -99,7 +99,7 @@ std::vector<RadarExternalTargetInput> MakeMovingTargetInputs(std::size_t target_
     target_lla.altitude_m = 1010.0 + static_cast<double>(i % 5U) * 8.0;
     EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
 
-    RadarExternalTargetInput target;
+    ArExternalTargetInput target;
     target.target_id = static_cast<std::uint64_t>(i) + 1U;
     target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
     target.kinematics.position_ecef_m = target_ecef;
@@ -113,18 +113,18 @@ std::vector<RadarExternalTargetInput> MakeMovingTargetInputs(std::size_t target_
   return targets;
 }
 
-void AdvanceExternalTargets(double dt_sec, std::vector<RadarExternalTargetInput>* targets) {
+void AdvanceExternalTargets(double dt_sec, std::vector<ArExternalTargetInput>* targets) {
   ASSERT_NE(targets, nullptr);
   for (std::size_t i = 0; i < targets->size(); ++i) {
-    RadarExternalTargetInput& target = (*targets)[i];
+    ArExternalTargetInput& target = (*targets)[i];
     target.kinematics.position_ecef_m.x_m += target.kinematics.velocity_mps.x_mps * dt_sec;
     target.kinematics.position_ecef_m.y_m += target.kinematics.velocity_mps.y_mps * dt_sec;
     target.kinematics.position_ecef_m.z_m += target.kinematics.velocity_mps.z_mps * dt_sec;
   }
 }
 
-const airborne_radar::session::RadarExternalTrackKinematics* FindExternalTrackByTargetId(
-    const RadarExternalTrackOutputFrame& frame, std::uint64_t external_target_id) {
+const airborne_radar::session::ArExternalTrackKinematics* FindExternalTrackByTargetId(
+    const ArExternalTrackOutputFrame& frame, std::uint64_t external_target_id) {
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
     if (frame.tracks[i].external_target_id == external_target_id) {
       return &frame.tracks[i];
@@ -133,7 +133,7 @@ const airborne_radar::session::RadarExternalTrackKinematics* FindExternalTrackBy
   return nullptr;
 }
 
-TrackOutputFrame MakeFrameFromInternalTarget(const RadarCycleInput& input) {
+TrackOutputFrame MakeFrameFromInternalTarget(const ArCycleInput& input) {
   TrackOutputFrame frame;
   frame.cycle_index = 7U;
   frame.batch_id = 11U;
@@ -160,22 +160,22 @@ TrackOutputFrame MakeFrameFromInternalTarget(const RadarCycleInput& input) {
 }  // namespace
 
 TEST(RadarCycleOutputBuilderTest, ConvertsInternalLocalFrameBackToExternalEcef) {
-  const RadarExternalPoseInput platform = MakePlatformInput();
-  const RadarExternalTargetInput target = MakeTargetInput();
+  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArExternalTargetInput target = MakeTargetInput();
 
-  RadarCycleInput input;
-  ASSERT_TRUE(RadarCycleInputAdapter::Build(platform, {target}, 1.0f, &input));
+  ArCycleInput input;
+  ASSERT_TRUE(ArCycleInputAdapter::Build(platform, {target}, 1.0f, &input));
   ASSERT_EQ(input.scene.size(), 1U);
 
   const TrackOutputFrame frame = MakeFrameFromInternalTarget(input);
-  RadarExternalTrackOutputFrame external_frame;
-  ASSERT_TRUE(RadarCycleOutputAdapter::Build(platform, frame, &external_frame));
+  ArExternalTrackOutputFrame external_frame;
+  ASSERT_TRUE(ArCycleOutputAdapter::Build(platform, frame, &external_frame));
 
   ASSERT_EQ(external_frame.cycle_index, frame.cycle_index);
   ASSERT_EQ(external_frame.batch_id, frame.batch_id);
   ASSERT_EQ(external_frame.tracks.size(), 1U);
 
-  const airborne_radar::session::RadarExternalTrackKinematics& output = external_frame.tracks[0];
+  const airborne_radar::session::ArExternalTrackKinematics& output = external_frame.tracks[0];
   EXPECT_EQ(output.association_key, 1001U);
   EXPECT_EQ(output.external_target_id, 9001U);
   EXPECT_EQ(output.status, airborne_radar::session::TrackStatus::kConfirmed);
@@ -190,29 +190,29 @@ TEST(RadarCycleOutputBuilderTest, ConvertsInternalLocalFrameBackToExternalEcef) 
 }
 
 TEST(RadarCycleOutputBuilderTest, NullOutputReturnsFalse) {
-  const RadarExternalPoseInput platform = MakePlatformInput();
+  const ArExternalPoseInput platform = MakePlatformInput();
   const TrackOutputFrame frame;
-  EXPECT_FALSE(RadarCycleOutputAdapter::Build(platform, frame, nullptr));
+  EXPECT_FALSE(ArCycleOutputAdapter::Build(platform, frame, nullptr));
 }
 
 TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) {
-  const RadarExternalPoseInput platform = MakePlatformInput();
-  const RadarExternalTargetInput target = MakeTargetInput();
+  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArExternalTargetInput target = MakeTargetInput();
 
-  RadarCycleInput input;
-  ASSERT_TRUE(RadarCycleInputAdapter::Build(platform, {target}, 1.0f, &input));
+  ArCycleInput input;
+  ASSERT_TRUE(ArCycleInputAdapter::Build(platform, {target}, 1.0f, &input));
 
-  RadarSession session =
-      airborne_radar::session::RadarSession::Create(MakeDetectionFocusedConfig());
-  const RadarCycleResult result = session.StepWithResult(input);
+  ArSession session =
+      airborne_radar::session::ArSession::Create(MakeDetectionFocusedConfig());
+  const ArCycleResult result = session.StepWithResult(input);
   ASSERT_FALSE(result.has_validation_error);
   ASSERT_FALSE(result.track_output_frame.tracks.empty());
 
-  RadarExternalTrackOutputFrame external_frame;
-  ASSERT_TRUE(RadarCycleOutputAdapter::Build(platform, result.track_output_frame, &external_frame));
+  ArExternalTrackOutputFrame external_frame;
+  ASSERT_TRUE(ArCycleOutputAdapter::Build(platform, result.track_output_frame, &external_frame));
   ASSERT_FALSE(external_frame.tracks.empty());
 
-  const airborne_radar::session::RadarExternalTrackKinematics& estimate = external_frame.tracks[0];
+  const airborne_radar::session::ArExternalTrackKinematics& estimate = external_frame.tracks[0];
   EXPECT_NEAR(estimate.target_position_ecef_m.x_m, target.kinematics.position_ecef_m.x_m, 5.0);
   EXPECT_NEAR(estimate.target_position_ecef_m.y_m, target.kinematics.position_ecef_m.y_m, 5.0);
   EXPECT_NEAR(estimate.target_position_ecef_m.z_m, target.kinematics.position_ecef_m.z_m, 5.0);
@@ -222,10 +222,10 @@ TEST(RadarCycleOutputBuilderTest, FullSessionEstimateConvertsNearExternalTruth) 
 }
 
 TEST(RadarCycleOutputBuilderTest, OmittedCycleEnvironmentPreservesStaticEnvironment) {
-  const RadarExternalPoseInput platform = MakePlatformInput();
-  const RadarExternalTargetInput target = MakeTargetInput();
+  const ArExternalPoseInput platform = MakePlatformInput();
+  const ArExternalTargetInput target = MakeTargetInput();
 
-  airborne_radar::config::RadarSessionConfig config = MakeDetectionFocusedConfig();
+  airborne_radar::config::ArSessionConfig config = MakeDetectionFocusedConfig();
   config.environment.jamming_sensitivity_profile =
       airborne_radar::config::JammingSensitivityProfile::kStrict;
   airborne_radar::config::JammerEmitterState jammer;
@@ -235,30 +235,30 @@ TEST(RadarCycleOutputBuilderTest, OmittedCycleEnvironmentPreservesStaticEnvironm
   jammer.angular_span_deg = 10.0f;
   config.environment.scenario_config.jammer_sources.push_back(jammer);
 
-  RadarCycleInput static_environment_input;
-  ASSERT_TRUE(RadarCycleInputAdapter::Build(platform, {target}, 1.0f,
+  ArCycleInput static_environment_input;
+  ASSERT_TRUE(ArCycleInputAdapter::Build(platform, {target}, 1.0f,
                                             &static_environment_input));
   ASSERT_FALSE(static_environment_input.has_environment);
 
-  RadarSession static_environment_session = RadarSession::Create(config);
-  const RadarCycleResult static_environment_result =
+  ArSession static_environment_session = ArSession::Create(config);
+  const ArCycleResult static_environment_result =
       static_environment_session.StepWithResult(static_environment_input);
   ASSERT_FALSE(static_environment_result.has_validation_error);
   ASSERT_FALSE(static_environment_result.track_output_frame.tracks.empty());
   EXPECT_TRUE(static_environment_result.track_output_frame.tracks[0].jamming_detected);
 
-  airborne_radar::session::RadarEnvironmentInput no_jammer_environment;
+  airborne_radar::session::ArEnvironmentInput no_jammer_environment;
   no_jammer_environment.atmospheric_observation.pressure_hpa = 1013.25f;
   no_jammer_environment.atmospheric_observation.temperature_k = 288.15f;
   no_jammer_environment.atmospheric_observation.relative_humidity = 0.5f;
 
-  RadarCycleInput explicit_environment_input;
-  ASSERT_TRUE(RadarCycleInputAdapter::Build(platform, {target}, 1.0f, no_jammer_environment,
+  ArCycleInput explicit_environment_input;
+  ASSERT_TRUE(ArCycleInputAdapter::Build(platform, {target}, 1.0f, no_jammer_environment,
                                             &explicit_environment_input));
   ASSERT_TRUE(explicit_environment_input.has_environment);
 
-  RadarSession explicit_environment_session = RadarSession::Create(config);
-  const RadarCycleResult explicit_environment_result =
+  ArSession explicit_environment_session = ArSession::Create(config);
+  const ArCycleResult explicit_environment_result =
       explicit_environment_session.StepWithResult(explicit_environment_input);
   ASSERT_FALSE(explicit_environment_result.has_validation_error);
   ASSERT_FALSE(explicit_environment_result.track_output_frame.tracks.empty());
@@ -266,38 +266,38 @@ TEST(RadarCycleOutputBuilderTest, OmittedCycleEnvironmentPreservesStaticEnvironm
 }
 
 TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
-  RadarExternalPoseInput platform = MakePlatformInput();
+  ArExternalPoseInput platform = MakePlatformInput();
   platform.platform_velocity_mps.x_mps = 0.0;
   platform.platform_velocity_mps.y_mps = 0.0;
   platform.platform_velocity_mps.z_mps = 0.0;
 
-  std::vector<RadarExternalTargetInput> targets = MakeMovingTargetInputs(12U);
-  RadarSession session =
-      airborne_radar::session::RadarSession::Create(MakeDetectionFocusedConfig());
+  std::vector<ArExternalTargetInput> targets = MakeMovingTargetInputs(12U);
+  ArSession session =
+      airborne_radar::session::ArSession::Create(MakeDetectionFocusedConfig());
 
   const std::size_t cycle_count = 40U;
   const float dt_sec = 0.5f;
   for (std::size_t cycle = 0; cycle < cycle_count; ++cycle) {
-    RadarCycleInput input;
-    ASSERT_TRUE(RadarCycleInputAdapter::Build(platform, targets, dt_sec, &input))
+    ArCycleInput input;
+    ASSERT_TRUE(ArCycleInputAdapter::Build(platform, targets, dt_sec, &input))
         << "cycle=" << cycle;
     input.cycle_index = static_cast<std::uint32_t>(cycle);
 
-    const RadarCycleResult result = session.StepWithResult(input);
+    const ArCycleResult result = session.StepWithResult(input);
     ASSERT_FALSE(result.has_validation_error) << "cycle=" << cycle;
     ASSERT_FALSE(result.track_output_frame.tracks.empty()) << "cycle=" << cycle;
 
-    RadarExternalTrackOutputFrame external_frame;
+    ArExternalTrackOutputFrame external_frame;
     ASSERT_TRUE(
-        RadarCycleOutputAdapter::Build(platform, result.track_output_frame, &external_frame))
+        ArCycleOutputAdapter::Build(platform, result.track_output_frame, &external_frame))
         << "cycle=" << cycle;
 
     for (std::size_t target_index = 1U; target_index < targets.size(); ++target_index) {
-      const airborne_radar::session::RadarExternalTrackKinematics* estimate =
+      const airborne_radar::session::ArExternalTrackKinematics* estimate =
           FindExternalTrackByTargetId(external_frame, static_cast<std::uint64_t>(target_index) + 1U);
       ASSERT_NE(estimate, nullptr) << "cycle=" << cycle << " target_index=" << target_index;
 
-      const RadarExternalTargetInput& truth = targets[target_index];
+      const ArExternalTargetInput& truth = targets[target_index];
       EXPECT_NEAR(estimate->target_position_ecef_m.x_m, truth.kinematics.position_ecef_m.x_m, 10.0)
           << "cycle=" << cycle << " target_index=" << target_index;
       EXPECT_NEAR(estimate->target_position_ecef_m.y_m, truth.kinematics.position_ecef_m.y_m, 10.0)

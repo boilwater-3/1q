@@ -3,7 +3,6 @@
  * @brief AR module primary session config builder type.
  *
  * Primary header for session config chain builder.
- * Include this for new code; RadarSessionConfigBuilder.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_SESSION_CONFIG_BUILDER_H_
@@ -238,8 +237,6 @@ inline ArSessionConfigBuilder::EnvironmentEditor ArSessionConfigBuilder::Environ
   return EnvironmentEditor(this);
 }
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarSessionConfigBuilder = ArSessionConfigBuilder;
 using RadarSessionConfigBuilder_DetectionEditor = ArSessionConfigBuilder::DetectionEditor;
 
 }  // namespace config

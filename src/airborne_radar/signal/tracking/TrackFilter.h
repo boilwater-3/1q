@@ -59,7 +59,7 @@ class IdentityTrackPredictor final {
    * @param input 输入目标特征。
    * @return 预测后的轨迹状态。
    */
-  PredictedTrackState Predict(const session::RadarSceneTarget& input) const;
+  PredictedTrackState Predict(const session::ArSceneTarget& input) const;
 };
 /**
  * @brief 简单轨迹更新器实现。
@@ -77,7 +77,7 @@ class SimpleTrackUpdater final {
    * @param context 处理上下文。
    * @return 更新后的目标特征。
    */
-  session::RadarSceneTarget Update(const PredictedTrackState& predicted,
+  session::ArSceneTarget Update(const PredictedTrackState& predicted,
                                       const TrackFilterContext& context) const;
   /**
    * @brief 更新配置参数。
@@ -104,7 +104,7 @@ class TrackFilter final {
    * @param context 当前周期的传感器处理上下文。
    * @return 滤波后的平滑目标特征。
    */
-  session::RadarSceneTarget Filter(const session::RadarSceneTarget& input,
+  session::ArSceneTarget Filter(const session::ArSceneTarget& input,
                                       const TrackFilterContext& context) const;
   /**
    * @brief 更新配置参数。

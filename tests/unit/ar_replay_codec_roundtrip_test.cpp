@@ -10,13 +10,13 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
-#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
+#include "1q/airborne_radar/config/ArEnvironmentConfig.h"
+#include "1q/airborne_radar/session/ArEnvironmentInput.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
-#include "1q/airborne_radar/session/RadarCycleInput.h"
-#include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/replay/ReplayTrace.h"
 #include "airborne_radar/session/ArReplayFlatbufferCodec.h"
 
@@ -25,11 +25,11 @@ namespace session {
 namespace tests {
 
 // ---------------------------------------------------------------------------
-// RadarCycleInput
+// ArCycleInput
 // ---------------------------------------------------------------------------
 
 TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
-  RadarCycleInput input;
+  ArCycleInput input;
   input.cycle_index = 7U;
   input.dt_sec = 0.5f;
   input.platform_altitude_m = 1200.0f;
@@ -46,7 +46,7 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   input.environment.atmospheric_observation.enable_physical_model = true;
   input.environment.atmospheric_observation.temperature_k = 300.0f;
 
-  RadarSceneTarget target;
+  ArSceneTarget target;
   target.external_target_id = 42U;
   target.velocity_x = 80.0f;
   target.velocity_y = 1.5f;
@@ -62,7 +62,7 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   const std::string bytes = EncodeCycleInputFlatbuffer(input);
   ASSERT_FALSE(bytes.empty());
 
-  RadarCycleInput decoded;
+  ArCycleInput decoded;
   std::string error;
   ASSERT_TRUE(DecodeCycleInputFlatbuffer(bytes, &decoded, &error)) << error;
 
@@ -84,18 +84,18 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
 }
 
 TEST(ArReplayCodecRoundtripTest, CycleInputDecodesEmptyTargetList) {
-  RadarCycleInput input;
+  ArCycleInput input;
   input.dt_sec = 1.0f;
 
   const std::string bytes = EncodeCycleInputFlatbuffer(input);
-  RadarCycleInput decoded;
+  ArCycleInput decoded;
   std::string error;
   ASSERT_TRUE(DecodeCycleInputFlatbuffer(bytes, &decoded, &error)) << error;
   EXPECT_TRUE(decoded.scene.empty());
 }
 
 TEST(ArReplayCodecRoundtripTest, CycleInputRejectsEmptyPayload) {
-  RadarCycleInput decoded;
+  ArCycleInput decoded;
   std::string error;
   EXPECT_FALSE(DecodeCycleInputFlatbuffer("", &decoded, &error));
   EXPECT_FALSE(error.empty());
@@ -164,11 +164,11 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
 }
 
 // ---------------------------------------------------------------------------
-// RadarCycleResult
+// ArCycleResult
 // ---------------------------------------------------------------------------
 
 TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
-  RadarCycleResult result;
+  ArCycleResult result;
   result.input_cycle_index = 55U;
   result.track_output_frame.cycle_index = 5U;
   result.track_output_frame.batch_id = 3U;
@@ -187,8 +187,8 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.track_output_frame.tracks.push_back(snap);
 
   result.submitted_commands.push_back(
-      session::RadarCommand(session::RadarCommandType::SET_AGILITY_FREQ,
-                                       session::RadarCommandSource::ECCM));
+      session::ArCommand(session::ArCommandType::SET_AGILITY_FREQ,
+                                       session::ArCommandSource::ECCM));
   ValidationIssue issue;
   issue.severity = ValidationSeverity::kError;
   issue.code = ValidationCode::kInvalidCycleDeltaTime;
@@ -230,7 +230,7 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   const std::string bytes = EncodeCycleResultFlatbuffer(result);
   ASSERT_FALSE(bytes.empty());
 
-  RadarCycleResult decoded;
+  ArCycleResult decoded;
   std::string error;
   ASSERT_TRUE(DecodeCycleResultFlatbuffer(bytes, &decoded, &error)) << error;
 
@@ -245,8 +245,8 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_TRUE(decoded.reused_previous_output);
   ASSERT_EQ(decoded.submitted_commands.size(), 1U);
   EXPECT_EQ(decoded.submitted_commands[0].type,
-            session::RadarCommandType::SET_AGILITY_FREQ);
-  EXPECT_EQ(decoded.submitted_commands[0].source, session::RadarCommandSource::ECCM);
+            session::ArCommandType::SET_AGILITY_FREQ);
+  EXPECT_EQ(decoded.submitted_commands[0].source, session::ArCommandSource::ECCM);
   ASSERT_EQ(decoded.validation_issues.size(), 1U);
   EXPECT_EQ(decoded.validation_issues[0].severity, ValidationSeverity::kError);
   EXPECT_EQ(decoded.validation_issues[0].code, ValidationCode::kInvalidCycleDeltaTime);
@@ -291,11 +291,11 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
 }
 
 // ---------------------------------------------------------------------------
-// config::RadarSessionConfig（含 environment 域）
+// config::ArSessionConfig（含 environment 域）
 // ---------------------------------------------------------------------------
 
 TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
-  config::RadarSessionConfig config;
+  config::ArSessionConfig config;
   // hardware
   config.hardware.transmitter.peak_power_w = 50000.0f;
   config.hardware.transmitter.frequency_hz = 9.5e9f;
@@ -332,7 +332,7 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   const std::string bytes = EncodeSessionConfigFlatbuffer(config);
   ASSERT_FALSE(bytes.empty());
 
-  config::RadarSessionConfig decoded;
+  config::ArSessionConfig decoded;
   std::string error;
   ASSERT_TRUE(DecodeSessionConfigFlatbuffer(bytes, &decoded, &error)) << error;
 
@@ -371,11 +371,11 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
 }
 
 // ---------------------------------------------------------------------------
-// RadarRuntimeConfigPatch
+// ArRuntimeConfigPatch
 // ---------------------------------------------------------------------------
 
 TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
-  config::RadarRuntimeConfigPatch patch;
+  config::ArRuntimeConfigPatch patch;
   patch.has_policy = true;
   patch.policy.tracking.enable_kalman_filter = true;
   patch.policy.tracking.kalman_measurement_noise_std = 7.5f;
@@ -398,7 +398,7 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   const std::string bytes = EncodeRuntimeConfigPatchFlatbuffer(patch);
   ASSERT_FALSE(bytes.empty());
 
-  config::RadarRuntimeConfigPatch decoded;
+  config::ArRuntimeConfigPatch decoded;
   std::string error;
   ASSERT_TRUE(DecodeRuntimeConfigPatchFlatbuffer(bytes, &decoded, &error)) << error;
 
@@ -431,7 +431,7 @@ TEST(ArReplayCodecRoundtripTest, FailureMarkerPreservesAllFields) {
   oneq::replay::ReplayTraceFailure failure;
   failure.error_code = "AR_ASSERT";
   failure.message = "track pool overflow";
-  failure.location = "RadarController::RunOnce";
+  failure.location = "ArController::RunOnce";
   failure.has_cycle_index = true;
   failure.cycle_index = 42U;
   failure.has_sim_time_sec = true;
@@ -447,7 +447,7 @@ TEST(ArReplayCodecRoundtripTest, FailureMarkerPreservesAllFields) {
 
   EXPECT_EQ(decoded.error_code, "AR_ASSERT");
   EXPECT_EQ(decoded.message, "track pool overflow");
-  EXPECT_EQ(decoded.location, "RadarController::RunOnce");
+  EXPECT_EQ(decoded.location, "ArController::RunOnce");
   EXPECT_TRUE(decoded.has_cycle_index);
   EXPECT_EQ(decoded.cycle_index, 42U);
   EXPECT_TRUE(decoded.has_sim_time_sec);

@@ -3,7 +3,6 @@
  * @brief AR module primary replay entry point.
  *
  * Primary header for replay session.
- * Include this for new code; RadarReplaySession.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_REPLAY_SESSION_H_
@@ -29,8 +28,6 @@ struct ONEQ_API ArReplaySessionResult {
 
 ONEQ_API ArReplaySessionResult ReplayArTrace(const std::string& trace_dir);
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarReplaySessionResult = ArReplaySessionResult;
 
 }  // namespace session
 }  // namespace airborne_radar

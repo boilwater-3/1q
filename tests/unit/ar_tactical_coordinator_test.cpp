@@ -492,7 +492,7 @@ TEST(TacticalCoordinatorTest, ControlHoldIsOwnedByReducerAfterProposalStops) {
   reducer_config.lpi_hold_cycles_after_request = 2u;
   decision::ControlReducer reducer(reducer_config);
   session::TacticalStateStore state_store;
-  session::RadarControlProfile profile;
+  session::ArControlProfile profile;
 
   session::DecisionInputFrame trigger_frame;
   trigger_frame.cycle_index = 1u;
@@ -560,7 +560,7 @@ TEST(TacticalCoordinatorTest, PrunesInactiveTrackStateMemoryByActiveTrackKeys) {
 
 TEST(ControlReducerTest, ReducerBuildsNextControlProfileAndRejectsDuplicates) {
   decision::ControlReducer reducer;
-  session::RadarControlProfile previous_profile;
+  session::ArControlProfile previous_profile;
 
   std::vector<session::TacticalProposal> proposals;
   proposals.push_back(session::TacticalProposal{
@@ -589,7 +589,7 @@ TEST(ControlReducerTest, ReducerBuildsNextControlProfileAndRejectsDuplicates) {
 
 TEST(ControlReducerTest, AgilityFrequencyHopPhaseAlternatesAcrossConsecutiveEnabledCycles) {
   decision::ControlReducer reducer;
-  session::RadarControlProfile previous_profile;
+  session::ArControlProfile previous_profile;
 
   const std::vector<session::TacticalProposal> proposals{
       session::TacticalProposal{
@@ -622,7 +622,7 @@ TEST(ControlReducerTest, HopPhaseTogglingDuringHoldDoesNotIncreaseProfileVersion
   config.eccm_hold_cycles_after_request = 2u;
   decision::ControlReducer reducer(config);
 
-  session::RadarControlProfile previous_profile;
+  session::ArControlProfile previous_profile;
   const std::vector<session::TacticalProposal> proposals{
       session::TacticalProposal{
           session::ControlDirective(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
@@ -648,7 +648,7 @@ TEST(ControlReducerTest, HopPhaseTogglingDuringHoldDoesNotIncreaseProfileVersion
 
 TEST(ControlReducerTest, BurnthroughGainFloorsLpiPowerReductionForSurvivability) {
   decision::ControlReducer reducer;
-  session::RadarControlProfile previous_profile;
+  session::ArControlProfile previous_profile;
 
   std::vector<session::TacticalProposal> proposals;
   proposals.push_back(session::TacticalProposal{
@@ -676,7 +676,7 @@ TEST(ControlReducerTest, ReducerSupportsCustomConfigPolicyTable) {
   config.burnthrough_lpi_power_floor = 0.92f;
 
   decision::ControlReducer reducer(config);
-  session::RadarControlProfile previous_profile;
+  session::ArControlProfile previous_profile;
 
   std::vector<session::TacticalProposal> proposals;
   proposals.push_back(session::TacticalProposal{
@@ -702,7 +702,7 @@ TEST(ControlReducerTest, ReducerSupportsCustomConfigPolicyTable) {
 
 TEST(ControlReducerTest, ReducerClearsExpiredDomainWhenNoProposalArrives) {
   decision::ControlReducer reducer;
-  session::RadarControlProfile previous_profile;
+  session::ArControlProfile previous_profile;
   previous_profile.version = 3u;
   previous_profile.enable_lpi_power_control = true;
   previous_profile.lpi_power_scale = 0.5f;
@@ -719,7 +719,7 @@ TEST(ControlReducerTest, ReducerPreservesDomainDuringConfiguredHoldWindow) {
   extension::ControlReducerConfig config;
   config.eccm_hold_cycles_after_request = 1u;
   decision::ControlReducer reducer(config);
-  session::RadarControlProfile previous_profile;
+  session::ArControlProfile previous_profile;
 
   std::vector<session::TacticalProposal> proposals;
   proposals.push_back(session::TacticalProposal{
@@ -749,7 +749,7 @@ TEST(ControlReducerTest, ReducerRejectsReentryDuringConfiguredCooldown) {
   config.eccm_cooldown_cycles_after_release = 2u;
   decision::ControlReducer reducer(config);
 
-  session::RadarControlProfile active_profile;
+  session::ArControlProfile active_profile;
   active_profile.version = 7u;
   active_profile.eccm_burnthrough_gain = 1.5f;
 
@@ -786,7 +786,7 @@ TEST(ControlReducerTest, ReducerRejectsReentryDuringConfiguredCooldown) {
 
 TEST(ControlReducerTest, BeamConflictPrefersSurvivabilityByDefault) {
   decision::ControlReducer reducer;
-  session::RadarControlProfile previous_profile;
+  session::ArControlProfile previous_profile;
 
   std::vector<session::TacticalProposal> proposals;
   proposals.push_back(session::TacticalProposal{

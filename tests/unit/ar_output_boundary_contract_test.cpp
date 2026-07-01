@@ -7,7 +7,7 @@
  * 本合同锁定的边界是：
  * - external_target_id 是唯一稳定关联键；target_name 不参与关联。
  * - 同名不同 ID 是合法输入，不会互相干扰。
- * - name 可经 RadarTrackOutputDebugViewBuilder 回填。
+ * - name 可经 ArTrackOutputDebugViewBuilder 回填。
  * - 未提供 name（空字符串）不影响 track 关联与输出。
  */
 
@@ -18,17 +18,17 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
-#include "1q/airborne_radar/session/RadarCycleInput.h"
-#include "1q/airborne_radar/session/RadarCycleResult.h"
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
-#include "1q/airborne_radar/session/RadarTrackOutputDebugView.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
+#include "1q/airborne_radar/session/ArSceneTypes.h"
+#include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 
 namespace airborne_radar {
 namespace session {
 namespace {
 
-RadarSceneTarget MakeTarget(std::uint64_t id, const std::string& name) {
-  RadarSceneTarget target;
+ArSceneTarget MakeTarget(std::uint64_t id, const std::string& name) {
+  ArSceneTarget target;
   target.external_target_id = id;
   target.target_name = name;
   target.rcs = 1.0f;
@@ -45,8 +45,8 @@ session::TrackStateSnapshot MakeSnapshot(std::uint64_t id, const std::string& na
   return snapshot;
 }
 
-RadarCycleResult MakeResult(std::uint32_t cycle_index, std::vector<session::TrackStateSnapshot> tracks) {
-  RadarCycleResult result;
+ArCycleResult MakeResult(std::uint32_t cycle_index, std::vector<session::TrackStateSnapshot> tracks) {
+  ArCycleResult result;
   result.input_cycle_index = cycle_index;
   result.executed_this_cycle = true;
   result.track_output_frame.cycle_index = cycle_index;
@@ -59,16 +59,16 @@ RadarCycleResult MakeResult(std::uint32_t cycle_index, std::vector<session::Trac
 // 合同：同名不同 ID 是合法输入，两个 track 互不干扰，name 各自回填。
 // 这锁定 name 不参与关联——若 name 误入关联键，同名目标会冲突。
 TEST(RarOutputBoundaryContractTest, SameNameDifferentIdDoesNotBreakAssociation) {
-  RadarCycleInput input;
+  ArCycleInput input;
   input.cycle_index = 1U;
   // 两个同名目标，不同 ID。
   input.scene = {MakeTarget(1001U, "shared-name"), MakeTarget(1002U, "shared-name")};
 
-  RadarCycleResult result =
+  ArCycleResult result =
       MakeResult(1U, {MakeSnapshot(1001U, "shared-name", session::TrackStatus::kConfirmed),
                       MakeSnapshot(1002U, "shared-name", session::TrackStatus::kConfirmed)});
 
-  const RadarTrackOutputDebugView view = RadarTrackOutputDebugViewBuilder::Build(input, result);
+  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(input, result);
   ASSERT_EQ(view.tracks.size(), 2U);
   // 两个同名目标各自关联到不同 ID 的 track，不互相吞并。
   EXPECT_EQ(view.tracks[0].external_target_id, 1001U);
@@ -79,14 +79,14 @@ TEST(RarOutputBoundaryContractTest, SameNameDifferentIdDoesNotBreakAssociation) 
 
 // 合同：空 name 不影响 track 关联与 debug view 回填（name 是可选标签）。
 TEST(RarOutputBoundaryContractTest, EmptyNameDoesNotAffectAssociation) {
-  RadarCycleInput input;
+  ArCycleInput input;
   input.cycle_index = 1U;
   input.scene = {MakeTarget(2001U, "")};
 
-  RadarCycleResult result =
+  ArCycleResult result =
       MakeResult(1U, {MakeSnapshot(2001U, "", session::TrackStatus::kConfirmed)});
 
-  const RadarTrackOutputDebugView view = RadarTrackOutputDebugViewBuilder::Build(input, result);
+  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(input, result);
   ASSERT_EQ(view.tracks.size(), 1U);
   EXPECT_TRUE(view.tracks[0].has_track);
   EXPECT_TRUE(view.tracks[0].target_name.empty());

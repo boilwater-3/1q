@@ -45,14 +45,14 @@ struct RuntimeConfigResolveResult {
  * @return 解析结果与更新计划。
  */
 RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_state,
-                                             const RadarRuntimeConfigPatch& patch);
+                                             const ArRuntimeConfigPatch& patch);
 
 /**
  * @brief 将内部执行配置反向映射为四域会话配置。
  * @param execution_config 内部执行配置。
  * @return 对应的四域会话配置。
  */
-config::RadarSessionConfig MapExecutionToSession(
+config::ArSessionConfig MapExecutionToSession(
     const execution::InternalExecutionConfig& execution_config);
 
 /**
@@ -60,7 +60,7 @@ config::RadarSessionConfig MapExecutionToSession(
  * @param runtime_state 当前运行期状态。
  * @return 已叠加运行期驻留偏移的四域会话配置。
  */
-config::RadarSessionConfig MapRuntimeStateToPipelineSession(
+config::ArSessionConfig MapRuntimeStateToPipelineSession(
     const RuntimeConfigState& runtime_state);
 
 }  // namespace mapping

@@ -127,7 +127,7 @@ set(BOUNDARY_SCRIPT "${SOURCE_DIR}/tests/contract/check_public_api_boundary.cmak
 file(STRINGS "${BOUNDARY_SCRIPT}" _boundary_lines)
 set(BOUNDARY_HEADERS "")
 foreach(line ${_boundary_lines})
-    # 匹配形如 "airborne_radar/config/RadarHardwareConfig.h" 或根级 "api.hpp"
+    # 匹配形如 "airborne_radar/config/ArHardwareConfig.h" 或根级 "api.hpp"
     # 的带引号相对路径。路径段可含 0 个或多个 '/',扩展名为 .h/.hpp。
     # 小写/大写字母开头避免误匹配纯消息字符串。
     string(REGEX MATCHALL "\"[A-Za-z][A-Za-z0-9_/]+\\.(hpp|h)\"" _path_matches "${line}")

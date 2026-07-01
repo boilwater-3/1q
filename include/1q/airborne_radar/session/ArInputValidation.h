@@ -3,7 +3,6 @@
  * @brief AR module primary validation entry points for cycle inputs.
  *
  * Primary header for input validation.
- * Include this for new code; RadarInputValidation.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_INPUT_VALIDATION_H_

@@ -3,7 +3,6 @@
  * @brief AR module primary output support types.
  *
  * Primary header for output support types (SignalCycleResult, etc.).
- * Include this for new code; RadarOutputTypes.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_OUTPUT_TYPES_H_

@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
 #include "airborne_radar/utils/ArOrientationUtils.h"
@@ -75,7 +75,7 @@ TEST(RadarOrientationUtilsTest, IntersectScanLimitsReturnsOverlapWindow) {
 }
 
 TEST(RadarOrientationUtilsTest, ComputeMountFrameBeamPointingClampsToOverlap) {
-  config::RadarOrientationConfig config;
+  config::ArOrientationConfig config;
   config.scan_center_deg.az_deg = 55.0f;
   config.scan_center_deg.el_deg = -20.0f;
   config.mechanical_scan_limits_deg.az_min_deg = -60.0f;
@@ -94,7 +94,7 @@ TEST(RadarOrientationUtilsTest, ComputeMountFrameBeamPointingClampsToOverlap) {
 }
 
 TEST(RadarOrientationUtilsTest, ComputeBodyFrameBeamPointingUsesRotationComposition) {
-  config::RadarOrientationConfig config;
+  config::ArOrientationConfig config;
   config.mount_angles_deg.yaw_deg = 10.0f;
   config.mount_angles_deg.pitch_deg = 5.0f;
   config.mount_angles_deg.roll_deg = 2.0f;
@@ -128,7 +128,7 @@ TEST(RadarOrientationUtilsTest, ComputeBodyFrameBeamPointingUsesRotationComposit
 }
 
 TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingUsesRotationComposition) {
-  config::RadarOrientationConfig config;
+  config::ArOrientationConfig config;
   config.mount_angles_deg.yaw_deg = 10.0f;
   config.mount_angles_deg.pitch_deg = 5.0f;
   config.mount_angles_deg.roll_deg = 2.0f;
@@ -168,7 +168,7 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingUsesRotationComp
 }
 
 TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingCapturesLargeAttitudeCoupling) {
-  config::RadarOrientationConfig config;
+  config::ArOrientationConfig config;
   config.mount_angles_deg.yaw_deg = 35.0f;
   config.mount_angles_deg.pitch_deg = 20.0f;
   config.mount_angles_deg.roll_deg = 15.0f;
@@ -206,7 +206,7 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingCapturesLargeAtt
 }
 
 TEST(RadarOrientationUtilsTest, BeamControlResolverPreservesInertialStabilizedPointing) {
-  config::RadarOrientationConfig config;
+  config::ArOrientationConfig config;
   config.stabilization_mode = config::StabilizationMode::kInertialStabilized;
   config.mechanical_scan_limits_deg.az_min_deg = -120.0f;
   config.mechanical_scan_limits_deg.az_max_deg = 120.0f;

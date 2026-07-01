@@ -19,26 +19,26 @@ namespace signal {
 namespace pipeline {
 
 config::AzimuthElevationDeg ResolveFiniteScanCenter(
-    const config::RadarOrientationConfig& orientation_config);
+    const config::ArOrientationConfig& orientation_config);
 
-float ResolveScanStepScale(config::RadarWorkMode mode);
+float ResolveScanStepScale(config::ArWorkMode mode);
 
 std::vector<config::AzimuthElevationDeg> BuildScheduledScanPattern(
     const config::AzimuthElevationLimitsDeg& limits, float az_step_deg, float el_step_deg,
     oneq::foundation::ScanStartPosition start_position, oneq::foundation::ScanSequence sequence);
 
 config::AzimuthElevationDeg ResolveScheduledBeamPointing(
-    const config::RadarOrientationConfig& orientation_config,
+    const config::ArOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index);
 
 config::AzimuthElevationDeg ResolveScheduledBeamPointing(
-    const config::RadarOrientationConfig& orientation_config,
+    const config::ArOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg,
     const config::BeamSchedulerConfig& scheduler_config,
     std::uint32_t cycle_index);
 
 config::AzimuthElevationDeg ResolveScheduledDwellCenter(
-    const config::RadarOrientationConfig& orientation_config,
+    const config::ArOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index);
 
 void ApplyScanScheduleToRuntimeConfig(std::uint32_t cycle_index,

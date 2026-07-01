@@ -3,7 +3,6 @@
  * @brief AR module primary one-step cycle input builder.
  *
  * Primary header for cycle input adaptation.
- * Include this for new code; RadarCycleInputAdapter.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CYCLE_INPUT_ADAPTER_H_
@@ -62,8 +61,6 @@ struct ONEQ_API ArCycleInputAdapter {
   ArCycleInputAdapter() = delete;
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarCycleInputAdapter = ArCycleInputAdapter;
 
 }  // namespace session
 }  // namespace airborne_radar

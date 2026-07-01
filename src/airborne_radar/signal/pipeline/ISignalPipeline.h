@@ -46,7 +46,7 @@ class ISignalPipeline {
    *                        `BeginCycle(...)`，并确保其冻结快照携带正的 `cycle_dt_sec`。
    * @return 当前周期信号流水线输出结果。
    */
-  virtual SignalCycleResult RunCycle(const session::RadarSceneTargetList& scene_targets,
+  virtual SignalCycleResult RunCycle(const session::ArSceneTargetList& scene_targets,
                                      const environment::IEnvironmentService& environment) = 0;
 
   /**
@@ -77,20 +77,20 @@ class ISignalPipeline {
    * @brief 设置下一周期生效的控制真值。
    * @param[in] control_profile 控制真值。
    */
-  virtual void SetControlProfile(const session::RadarControlProfile& control_profile) = 0;
+  virtual void SetControlProfile(const session::ArControlProfile& control_profile) = 0;
 
   /**
    * @brief 获取当前缓存的控制真值。
    * @return 当前缓存的控制真值。
    */
-  virtual session::RadarControlProfile GetControlProfile() const = 0;
+  virtual session::ArControlProfile GetControlProfile() const = 0;
 
   /**
    * @brief 更新流水线运行配置。
    * @param[in] config 四域会话配置。
    * @return 配置已被接受并同步成功时返回 true；若当前实例拒绝该配置则返回 false。
    */
-  virtual bool UpdateConfig(const config::RadarSessionConfig& config) = 0;
+  virtual bool UpdateConfig(const config::ArSessionConfig& config) = 0;
 
   /**
    * @brief 获取上一周期关联质量指标。

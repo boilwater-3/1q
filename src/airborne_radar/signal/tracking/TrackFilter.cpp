@@ -64,7 +64,7 @@ bool IsAssociationFragileJamming(config::JammingSemantic semantic) {
 }  // namespace
 
 PredictedTrackState IdentityTrackPredictor::Predict(
-    const session::RadarSceneTarget& input) const {
+    const session::ArSceneTarget& input) const {
   const bool has_velocity_axis =
       HasNonZero3(input.velocity_x, input.velocity_y, input.velocity_z);
   const float speed =
@@ -79,9 +79,9 @@ PredictedTrackState IdentityTrackPredictor::Predict(
 
 SimpleTrackUpdater::SimpleTrackUpdater(TrackFilterConfig config) : config_(config) {}
 
-session::RadarSceneTarget SimpleTrackUpdater::Update(const PredictedTrackState& predicted,
+session::ArSceneTarget SimpleTrackUpdater::Update(const PredictedTrackState& predicted,
                                                         const TrackFilterContext& context) const {
-  session::RadarSceneTarget output(predicted.velocity_x, predicted.velocity_y,
+  session::ArSceneTarget output(predicted.velocity_x, predicted.velocity_y,
                                       predicted.velocity_z, predicted.rcs);
   output.velocity_x = predicted.velocity_x;
   output.velocity_y = predicted.velocity_y;
@@ -116,7 +116,7 @@ void SimpleTrackUpdater::UpdateConfig(TrackFilterConfig config) { config_ = conf
 
 TrackFilter::TrackFilter(TrackFilterConfig config) : updater_(config) {}
 
-session::RadarSceneTarget TrackFilter::Filter(const session::RadarSceneTarget& input,
+session::ArSceneTarget TrackFilter::Filter(const session::ArSceneTarget& input,
                                                  const TrackFilterContext& context) const {
   const PredictedTrackState predicted = predictor_.Predict(input);
   return updater_.Update(predicted, context);

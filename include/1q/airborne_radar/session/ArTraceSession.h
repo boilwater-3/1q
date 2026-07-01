@@ -3,7 +3,6 @@
  * @brief AR module primary trace session types.
  *
  * Primary header for trace sessions.
- * Include this for new code; RadarTraceSession.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_TRACE_SESSION_H_
@@ -83,9 +82,6 @@ class ONEQ_API ArTraceSession {
   std::unique_ptr<Impl> impl_;
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarTraceSessionOptions = ArTraceSessionOptions;
-using RadarTraceSession = ArTraceSession;
 
 }  // namespace session
 }  // namespace airborne_radar

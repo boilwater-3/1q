@@ -84,7 +84,7 @@ struct ControlProfileEffectsConfig {
  */
 struct DetectionExecutionConfig {
   BeamControlConfig beam_control{};
-  config::RadarOrientationConfig orientation{};
+  config::ArOrientationConfig orientation{};
   config::PlatformAttitudeDeg platform_attitude_deg{};
   engineering::DetectionConfig engineering{};
 };

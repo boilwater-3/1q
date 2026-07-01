@@ -10,8 +10,8 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
+#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "airborne_radar/config/InternalExecutionConfig.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -30,8 +30,8 @@ namespace {
 
 using ExecutionConfig = config::execution::InternalExecutionConfig;
 
-config::RadarSessionConfig MakeDetectionFocusedConfig() {
-  return config::RadarSessionConfigBuilder()
+config::ArSessionConfig MakeDetectionFocusedConfig() {
+  return config::ArSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
       .End()
@@ -49,7 +49,7 @@ bool AlmostSamePoint(const config::AzimuthElevationDeg& lhs, const config::Azimu
          std::fabs(lhs.el_deg - rhs.el_deg) <= 1.0e-4f;
 }
 
-std::size_t CountUniqueScheduledPoints(const config::RadarOrientationConfig& orientation,
+std::size_t CountUniqueScheduledPoints(const config::ArOrientationConfig& orientation,
                                        const signal::detection::EffectiveBeamwidthDeg& beamwidth,
                                        std::uint32_t cycle_count) {
   std::vector<config::AzimuthElevationDeg> unique_points;
@@ -83,8 +83,8 @@ session::EnvironmentSnapshot MakeEnvironmentSnapshot(std::uint32_t cycle_index) 
   return snapshot;
 }
 
-session::RadarSceneTarget ToSceneTarget(const session::RadarSceneTarget& target) {
-  session::RadarSceneTarget out;
+session::ArSceneTarget ToSceneTarget(const session::ArSceneTarget& target) {
+  session::ArSceneTarget out;
   out.external_target_id = target.external_target_id;
   out.velocity_x = target.velocity_x;
   out.velocity_y = target.velocity_y;
@@ -98,8 +98,8 @@ session::RadarSceneTarget ToSceneTarget(const session::RadarSceneTarget& target)
   return out;
 }
 
-session::RadarSceneTargetList ToSceneTargets(const session::RadarSceneTargetList& targets) {
-  session::RadarSceneTargetList out;
+session::ArSceneTargetList ToSceneTargets(const session::ArSceneTargetList& targets) {
+  session::ArSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
     out.push_back(ToSceneTarget(targets[i]));
@@ -109,7 +109,7 @@ session::RadarSceneTargetList ToSceneTargets(const session::RadarSceneTargetList
 
 template <typename PipelineType>
 session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
-                                              const session::RadarSceneTargetList& input_state,
+                                              const session::ArSceneTargetList& input_state,
                                               environment::EnvironmentService* environment_service,
                                               std::uint32_t cycle_index) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
@@ -121,8 +121,8 @@ class NonAutoLifecycleManager final : public signal::tracking::ITrackLifecycleMa
   void Update(const signal::tracking::CycleContext&,
               const std::vector<signal::tracking::TrackMeasurement>&) override {}
 
-  session::RadarSceneTargetList BuildSceneTargetSnapshot() const override {
-    return session::RadarSceneTargetList();
+  session::ArSceneTargetList BuildSceneTargetSnapshot() const override {
+    return session::ArSceneTargetList();
   }
 
   session::TrackStateSnapshotList BuildTrackStateSnapshots() const override {
@@ -136,7 +136,7 @@ class NonAutoLifecycleManager final : public signal::tracking::ITrackLifecycleMa
 
 signal::pipeline::CycleExecutionRuntime BuildMinimalValidRuntime(
     const ExecutionConfig& exec_config,
-    const session::RadarControlProfile& control_profile,
+    const session::ArControlProfile& control_profile,
     signal::association::DataAssociationEngine* association_engine,
     signal::tracking::TrackFilter* track_filter,
     signal::tracking::ITrackLifecycleManager* lifecycle_manager,
@@ -148,7 +148,7 @@ signal::pipeline::CycleExecutionRuntime BuildMinimalValidRuntime(
 }
 
 signal::pipeline::CycleExecutionContext BuildContext(
-    const session::RadarSceneTargetList& input_state,
+    const session::ArSceneTargetList& input_state,
     const session::EnvironmentSnapshot& environment_snapshot, std::uint32_t cycle_index,
     std::uint64_t batch_id, const signal::pipeline::CycleExecutionRuntime& runtime,
     float platform_altitude_m = 0.0f) {
@@ -201,8 +201,8 @@ TEST(ScanScheduleResolverTest, StartPositionControlsFirstBeamQuadrant) {
 }
 
 TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesPolicyBeamControlInputs) {
-  config::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
-  session_config.mission.orientation.work_mode = config::RadarWorkMode::kTas;
+  config::ArSessionConfig session_config = MakeDetectionFocusedConfig();
+  session_config.mission.orientation.work_mode = config::ArWorkMode::kTas;
   session_config.mission.orientation.scan_center_deg.az_deg = 3.0f;
   session_config.mission.orientation.scan_center_deg.el_deg = -1.0f;
   session_config.mission.orientation.mechanical_scan_limits_deg.az_min_deg = -10.0f;
@@ -229,7 +229,7 @@ TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesPolicyBeamControlInputs) {
 TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
   const ExecutionConfig exec_config =
       config::mapping::MapSessionToExecution(MakeDetectionFocusedConfig());
-  const session::RadarControlProfile control_profile{};
+  const session::ArControlProfile control_profile{};
 
   signal::association::DataAssociationEngine association_engine;
   signal::tracking::TrackFilter track_filter;
@@ -239,15 +239,15 @@ TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
   const signal::pipeline::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
       exec_config, control_profile, &association_engine, &track_filter, lifecycle_manager.get());
 
-  session::RadarSceneTarget target_a(1000.0f, 0.0f, 0.0f, 2.0f);
+  session::ArSceneTarget target_a(1000.0f, 0.0f, 0.0f, 2.0f);
 
   target_a.position_x = 1000.0f;
   target_a.range_m = 1000.0f;
-  session::RadarSceneTarget target_b(1500.0f, 0.0f, 0.0f, 3.0f);
+  session::ArSceneTarget target_b(1500.0f, 0.0f, 0.0f, 3.0f);
 
   target_b.position_x = 1500.0f;
   target_b.range_m = 1500.0f;
-  const session::RadarSceneTargetList input_state{target_a, target_b};
+  const session::ArSceneTargetList input_state{target_a, target_b};
 
   environment::EnvironmentService environment_service;
   signal::pipeline::CycleExecutionScratch scratch;
@@ -269,7 +269,7 @@ TEST(CycleExecutorTest, ValidRuntimeProducesInputAlignedStageBuffers) {
 
 TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
   ExecutionConfig exec_config;
-  const session::RadarControlProfile control_profile{};
+  const session::ArControlProfile control_profile{};
 
   signal::association::DataAssociationEngine association_engine;
   signal::tracking::TrackFilter track_filter;
@@ -279,7 +279,7 @@ TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
   const signal::pipeline::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
       exec_config, control_profile, &association_engine, &track_filter, lifecycle_manager.get());
 
-  const session::RadarSceneTargetList input_state;
+  const session::ArSceneTargetList input_state;
   signal::pipeline::CycleExecutionScratch scratch;
   auto context = BuildContext(input_state, MakeEnvironmentSnapshot(1U), 1U, 1U, runtime);
   EXPECT_TRUE(signal::pipeline::ExecuteCycle(context, runtime, scratch));
@@ -312,14 +312,14 @@ TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
   environment_snapshot.effective_k_factor = 4.0f / 3.0f;
   environment_snapshot.effective_day_of_year = 172;
 
-  session::RadarSceneTarget target(220.0f, 0.0f, 0.0f, 1.0e6f);
+  session::ArSceneTarget target(220.0f, 0.0f, 0.0f, 1.0e6f);
   target.position_x = 50000.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 50000.0f;
-  const session::RadarSceneTargetList input_state{target};
+  const session::ArSceneTargetList input_state{target};
 
-  const session::RadarControlProfile control_profile{};
+  const session::ArControlProfile control_profile{};
   signal::association::DataAssociationEngine association_engine;
   signal::tracking::TrackFilter track_filter;
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
@@ -344,11 +344,11 @@ TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
 }
 
 TEST(CycleExecutorTest, PhysicalDetectionTreatsClutterDbAsThermalRelativeNoise) {
-  const config::RadarSessionConfig session_config =
-      config::RadarSessionConfigBuilder()
+  const config::ArSessionConfig session_config =
+      config::ArSessionConfigBuilder()
           .Detection()
           .EnablePhysicsDetection(true)
-          .WithHardwareProfile(config::profiles::RadarHardwareProfile::kLongRangeHighPower)
+          .WithHardwareProfile(config::profiles::ArHardwareProfile::kLongRangeHighPower)
           .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
           .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kStandard)
           .End()
@@ -367,13 +367,13 @@ TEST(CycleExecutorTest, PhysicalDetectionTreatsClutterDbAsThermalRelativeNoise) 
   environment_snapshot.propagation_loss_db = 6.5f;
   environment_snapshot.clutter_power_db = 3.0f;
 
-  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 10.0f, 80000.0f, 0, 80001U);
+  session::ArSceneTarget target(0.0f, 0.0f, 0.0f, 10.0f, 80000.0f, 0, 80001U);
   target.position_x = 80000.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
-  const session::RadarSceneTargetList input_state{target};
+  const session::ArSceneTargetList input_state{target};
 
-  const session::RadarControlProfile control_profile{};
+  const session::ArControlProfile control_profile{};
   signal::association::DataAssociationEngine association_engine;
   signal::tracking::TrackFilter track_filter;
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> lifecycle_manager =
@@ -397,7 +397,7 @@ TEST(CycleExecutorTest, PhysicalDetectionTreatsClutterDbAsThermalRelativeNoise) 
 
 TEST(CycleExecutorTest, NonAutoLifecycleManagerCausesRuntimeSyncFailure) {
   ExecutionConfig exec_config;
-  const session::RadarControlProfile control_profile{};
+  const session::ArControlProfile control_profile{};
 
   signal::association::DataAssociationEngine association_engine;
   signal::tracking::TrackFilter track_filter;
@@ -405,13 +405,13 @@ TEST(CycleExecutorTest, NonAutoLifecycleManagerCausesRuntimeSyncFailure) {
   const signal::pipeline::CycleExecutionRuntime runtime = BuildMinimalValidRuntime(
       exec_config, control_profile, &association_engine, &track_filter, &lifecycle_manager);
 
-  session::RadarSceneTarget target(1000.0f, 0.0f, 0.0f, 2.0f);
+  session::ArSceneTarget target(1000.0f, 0.0f, 0.0f, 2.0f);
 
   target.position_x = 1000.0f;
   target.range_m = 1000.0f;
 
   signal::pipeline::CycleExecutionScratch scratch;
-  auto context = BuildContext(session::RadarSceneTargetList{target}, MakeEnvironmentSnapshot(1U), 1U, 1U, runtime);
+  auto context = BuildContext(session::ArSceneTargetList{target}, MakeEnvironmentSnapshot(1U), 1U, 1U, runtime);
   EXPECT_FALSE(signal::pipeline::ExecuteCycle(context, runtime, scratch));
   EXPECT_TRUE(scratch.track_measurements.empty());
   EXPECT_EQ(scratch.decision_frame.cycle_index, 0U);
@@ -452,7 +452,7 @@ TEST(ScanScheduleResolverTest, SequenceControlsFastScanAxisWithSerpentine) {
 }
 
 TEST(ScanScheduleResolverTest, InvalidStepFallsBackToClampedScanCenter) {
-  config::RadarOrientationConfig orientation;
+  config::ArOrientationConfig orientation;
   orientation.scan_center_deg.az_deg = 80.0f;
   orientation.scan_center_deg.el_deg = 40.0f;
   orientation.mechanical_scan_limits_deg.az_min_deg = -30.0f;
@@ -477,7 +477,7 @@ TEST(ScanScheduleResolverTest, InvalidStepFallsBackToClampedScanCenter) {
 }
 
 TEST(ScanScheduleResolverTest, FirstCycleMapsToFirstBeamIndex) {
-  config::RadarOrientationConfig orientation;
+  config::ArOrientationConfig orientation;
   orientation.scan_center_deg.az_deg = 0.0f;
   orientation.scan_center_deg.el_deg = 0.0f;
   orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
@@ -501,8 +501,8 @@ TEST(ScanScheduleResolverTest, FirstCycleMapsToFirstBeamIndex) {
 }
 
 TEST(ScanScheduleResolverTest, StbyParksAtClampedBoresightWithoutCycleAdvance) {
-  config::RadarOrientationConfig orientation;
-  orientation.work_mode = config::RadarWorkMode::kStby;
+  config::ArOrientationConfig orientation;
+  orientation.work_mode = config::ArWorkMode::kStby;
   orientation.scan_center_deg.az_deg = 20.0f;
   orientation.scan_center_deg.el_deg = -8.0f;
   orientation.mechanical_scan_limits_deg.az_min_deg = 5.0f;
@@ -530,8 +530,8 @@ TEST(ScanScheduleResolverTest, StbyParksAtClampedBoresightWithoutCycleAdvance) {
 }
 
 TEST(ScanScheduleResolverTest, SttFixesAtScanCenterAndKeepsZeroDwell) {
-  config::RadarOrientationConfig orientation;
-  orientation.work_mode = config::RadarWorkMode::kStt;
+  config::ArOrientationConfig orientation;
+  orientation.work_mode = config::ArWorkMode::kStt;
   orientation.scan_center_deg.az_deg = 12.5f;
   orientation.scan_center_deg.el_deg = -4.5f;
   orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
@@ -559,8 +559,8 @@ TEST(ScanScheduleResolverTest, SttFixesAtScanCenterAndKeepsZeroDwell) {
 }
 
 TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
-  config::RadarOrientationConfig tws_orientation;
-  tws_orientation.work_mode = config::RadarWorkMode::kTws;
+  config::ArOrientationConfig tws_orientation;
+  tws_orientation.work_mode = config::ArWorkMode::kTws;
   tws_orientation.scan_start_position = oneq::foundation::ScanStartPosition::kLeftTop;
   tws_orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
   tws_orientation.mechanical_scan_limits_deg.az_min_deg = -20.0f;
@@ -568,8 +568,8 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
   tws_orientation.mechanical_scan_limits_deg.el_min_deg = -10.0f;
   tws_orientation.mechanical_scan_limits_deg.el_max_deg = 10.0f;
   tws_orientation.electronic_scan_limits_deg = tws_orientation.mechanical_scan_limits_deg;
-  config::RadarOrientationConfig tas_orientation = tws_orientation;
-  tas_orientation.work_mode = config::RadarWorkMode::kTas;
+  config::ArOrientationConfig tas_orientation = tws_orientation;
+  tas_orientation.work_mode = config::ArWorkMode::kTas;
 
   signal::detection::EffectiveBeamwidthDeg beamwidth;
   beamwidth.az_beamwidth_deg = 20.0f;
@@ -598,7 +598,7 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
 }
 
 TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutcome) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   session_config.hardware.enable_physics_detection = true;
   session_config.hardware.pulse_count = 16;
   session_config.hardware.detection_policy.cfar_pfa = 2.0e-6f;
@@ -619,7 +619,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   exec_config.detection.engineering.antenna.pattern.max_sidelobe_level_db = -80.0f;
   exec_config.detection.engineering.antenna.pattern.backlobe_level_db = -80.0f;
 
-  config::RadarOrientationConfig& orientation = exec_config.detection.orientation;
+  config::ArOrientationConfig& orientation = exec_config.detection.orientation;
   orientation.scan_center_deg.az_deg = 0.0f;
   orientation.scan_center_deg.el_deg = 0.0f;
   orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
@@ -640,12 +640,12 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   config::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
 
-  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
+  session::ArSceneTarget target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
 
   target.position_x = 120.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
-  const session::RadarSceneTargetList targets(1U, target);
+  const session::ArSceneTargetList targets(1U, target);
 
   const signal::detection::TargetLookAnglesDeg look_angles =
       signal::detection::TargetLookResolver::Resolve(target);
@@ -701,7 +701,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
 }
 
 TEST(SignalPipelineScanScheduleTest, WorkModeSttReducesSweepCoverageComparedToTws) {
-  config::RadarSessionConfig tws_session;
+  config::ArSessionConfig tws_session;
   tws_session.hardware.enable_physics_detection = true;
   tws_session.hardware.pulse_count = 16;
   tws_session.hardware.detection_policy.cfar_pfa = 2.0e-6f;
@@ -711,7 +711,7 @@ TEST(SignalPipelineScanScheduleTest, WorkModeSttReducesSweepCoverageComparedToTw
       config::AntennaPatternModelType::kParabolicMainLobe;
   tws_session.hardware.antenna.pattern.max_sidelobe_level_db = -18.0f;
   tws_session.hardware.antenna.pattern.max_scan_loss_db = 8.0f;
-  tws_session.mission.orientation.work_mode = config::RadarWorkMode::kTws;
+  tws_session.mission.orientation.work_mode = config::ArWorkMode::kTws;
   tws_session.mission.orientation.scan_center_deg.az_deg = -60.0f;
   tws_session.mission.orientation.scan_center_deg.el_deg = 0.0f;
   tws_session.mission.orientation.mechanical_scan_limits_deg.az_min_deg = -60.0f;
@@ -724,8 +724,8 @@ TEST(SignalPipelineScanScheduleTest, WorkModeSttReducesSweepCoverageComparedToTw
       oneq::foundation::ScanStartPosition::kLeftTop;
   tws_session.mission.orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
-  config::RadarSessionConfig stt_session = tws_session;
-  stt_session.mission.orientation.work_mode = config::RadarWorkMode::kStt;
+  config::ArSessionConfig stt_session = tws_session;
+  stt_session.mission.orientation.work_mode = config::ArWorkMode::kStt;
 
   signal::pipeline::SignalPipeline tws_pipeline(tws_session);
   signal::pipeline::SignalPipeline stt_pipeline(stt_session);
@@ -733,12 +733,12 @@ TEST(SignalPipelineScanScheduleTest, WorkModeSttReducesSweepCoverageComparedToTw
   config::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
 
-  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
+  session::ArSceneTarget target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
 
   target.position_x = 120.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
-  const session::RadarSceneTargetList targets(1U, target);
+  const session::ArSceneTargetList targets(1U, target);
 
   std::size_t tws_detected = 0U;
   std::size_t stt_detected = 0U;

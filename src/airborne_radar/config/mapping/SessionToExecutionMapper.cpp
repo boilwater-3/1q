@@ -7,7 +7,7 @@ namespace config {
 namespace mapping {
 
 execution::InternalExecutionConfig MapSessionToExecution(
-    const config::RadarSessionConfig& session_config) {
+    const config::ArSessionConfig& session_config) {
   execution::InternalExecutionConfig exec;
 
   exec.sensor_enabled = session_config.mission.power_on;

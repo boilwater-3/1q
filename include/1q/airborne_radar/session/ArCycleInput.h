@@ -3,7 +3,6 @@
  * @brief AR module primary cycle input type.
  *
  * Primary header for cycle input.
- * Include this for new code; RadarCycleInput.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CYCLE_INPUT_H_
@@ -32,8 +31,6 @@ struct ONEQ_API ArCycleInput {
   ArEnvironmentInput environment{};         /**< 当前周期环境高层观测输入 */
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarCycleInput = ArCycleInput;
 
 }  // namespace session
 }  // namespace airborne_radar

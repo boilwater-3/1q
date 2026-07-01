@@ -143,9 +143,6 @@ class ArController {
   std::unique_ptr<Impl> impl_;
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarController = ArController;
-using RadarControllerRuntimeState = ArControllerRuntimeState;
 
 }  // namespace extension
 }  // namespace airborne_radar

@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/coordinate/types.h"
 #include "config_loader.h"
@@ -25,11 +25,11 @@ struct TargetState {
 };
 
 struct SceneState {
-  ar_session::RadarSession session;
+  ar_session::ArSession session;
   oneq::coordinate::EcefPositionM platform_pos;
   oneq::coordinate::EcefVelocityMps platform_vel;
   std::vector<TargetState> targets;
-  ar_session::RadarEnvironmentInputState env_state;
+  ar_session::ArEnvironmentInputState env_state;
   std::uint32_t cycle{0};
   std::uint32_t validation_errors{0};
 };
@@ -44,8 +44,8 @@ TargetState MakeTarget(std::uint64_t id, double x, double y, double z,
   return t;
 }
 
-ar_session::RadarExternalTargetInput ToTargetInput(const TargetState& t) {
-  ar_session::RadarExternalTargetInput input;
+ar_session::ArExternalTargetInput ToTargetInput(const TargetState& t) {
+  ar_session::ArExternalTargetInput input;
   input.target_id = t.id;
   input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
   input.kinematics.position_ecef_m = t.pos;
@@ -55,10 +55,10 @@ ar_session::RadarExternalTargetInput ToTargetInput(const TargetState& t) {
   return input;
 }
 
-ar_session::RadarExternalPoseInput MakePlatformPose(
+ar_session::ArExternalPoseInput MakePlatformPose(
     const oneq::coordinate::EcefPositionM& pos,
     const oneq::coordinate::EcefVelocityMps& vel) {
-  ar_session::RadarExternalPoseInput platform;
+  ar_session::ArExternalPoseInput platform;
   platform.platform_position_ecef_m = pos;
   platform.platform_velocity_mps = vel;
   platform.platform_attitude_deg.yaw_deg = 0.0;
@@ -70,8 +70,8 @@ ar_session::RadarExternalPoseInput MakePlatformPose(
   return platform;
 }
 
-ar_session::RadarEnvironmentInput MakeEnvironment() {
-  ar_session::RadarEnvironmentInput env;
+ar_session::ArEnvironmentInput MakeEnvironment() {
+  ar_session::ArEnvironmentInput env;
   env.atmospheric_observation.enable_physical_model = true;
   env.atmospheric_observation.pressure_hpa = 1010.0f;
   env.atmospheric_observation.temperature_k = 290.0f;
@@ -87,7 +87,7 @@ ar_session::RadarEnvironmentInput MakeEnvironment() {
 }
 
 SceneState InitScene() {
-  ar_config::RadarSessionConfig config;
+  ar_config::ArSessionConfig config;
   std::string error;
   if (!examples::LoadArSessionConfigFromFile(SCENE_CONFIG_DIR "/airborne_radar.json",
                                               &config, &error)) {
@@ -96,8 +96,8 @@ SceneState InitScene() {
   }
 
   SceneState s;
-  s.session = ar_session::RadarSession::Create(config);
-  s.env_state = ar_session::RadarEnvironmentInputState(MakeEnvironment());
+  s.session = ar_session::ArSession::Create(config);
+  s.env_state = ar_session::ArEnvironmentInputState(MakeEnvironment());
 
   s.platform_pos.x_m = -2289512.0;
   s.platform_pos.y_m = 4909946.0;
@@ -122,7 +122,7 @@ SceneState InitScene() {
 }
 
 /// 执行一个仿真周期：推进敌方目标和平台位置，执行检测跟踪。
-ar_session::RadarCycleResult Step(SceneState& s, float dt) {
+ar_session::ArCycleResult Step(SceneState& s, float dt) {
   ++s.cycle;
 
   // 推进敌方目标位置（欧拉积分）
@@ -137,23 +137,23 @@ ar_session::RadarCycleResult Step(SceneState& s, float dt) {
   s.platform_pos.y_m += s.platform_vel.y_mps * dt;
   s.platform_pos.z_m += s.platform_vel.z_mps * dt;
 
-  ar_session::RadarExternalPoseInput platform = MakePlatformPose(s.platform_pos, s.platform_vel);
+  ar_session::ArExternalPoseInput platform = MakePlatformPose(s.platform_pos, s.platform_vel);
 
-  std::vector<ar_session::RadarExternalTargetInput> target_inputs;
+  std::vector<ar_session::ArExternalTargetInput> target_inputs;
   target_inputs.reserve(s.targets.size());
   for (const auto& t : s.targets) {
     target_inputs.push_back(ToTargetInput(t));
   }
 
-  ar_session::RadarCycleInput input;
-  if (!ar_session::RadarCycleInputAdapter::Build(
+  ar_session::ArCycleInput input;
+  if (!ar_session::ArCycleInputAdapter::Build(
           platform, target_inputs, dt, s.env_state.Snapshot(), &input)) {
     std::cerr << "AR scene: cycle " << s.cycle << " build failed\n";
     std::exit(1);
   }
   input.cycle_index = s.cycle;
 
-  ar_session::RadarCycleResult result = s.session.StepWithResult(input);
+  ar_session::ArCycleResult result = s.session.StepWithResult(input);
   if (result.has_validation_error) ++s.validation_errors;
 
   std::cout << "ar-scene: cycle=" << result.input_cycle_index

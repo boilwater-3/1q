@@ -12,8 +12,8 @@
 #include <vector>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
-#include "1q/airborne_radar/session/RadarReplaySession.h"
-#include "1q/airborne_radar/session/RadarTraceSession.h"
+#include "1q/airborne_radar/session/ArReplaySession.h"
+#include "1q/airborne_radar/session/ArTraceSession.h"
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/velocity_transform.h"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
@@ -86,9 +86,9 @@ struct WorldState {
 
 // --- AR input conversion ---
 
-ar_session::RadarExternalPoseInput ToArPlatform(const oneq::coordinate::EcefPositionM& pos,
+ar_session::ArExternalPoseInput ToArPlatform(const oneq::coordinate::EcefPositionM& pos,
                                                 const oneq::coordinate::EcefVelocityMps& vel) {
-  ar_session::RadarExternalPoseInput p;
+  ar_session::ArExternalPoseInput p;
   p.platform_position_ecef_m = pos;
   p.platform_velocity_mps = vel;
   p.platform_attitude_deg.yaw_deg = 0.0;
@@ -100,8 +100,8 @@ ar_session::RadarExternalPoseInput ToArPlatform(const oneq::coordinate::EcefPosi
   return p;
 }
 
-ar_session::RadarExternalTargetInput ToArTarget(const WorldTarget& t) {
-  ar_session::RadarExternalTargetInput input;
+ar_session::ArExternalTargetInput ToArTarget(const WorldTarget& t) {
+  ar_session::ArExternalTargetInput input;
   input.target_id = t.id;
   input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
   input.kinematics.position_ecef_m = t.pos;
@@ -111,8 +111,8 @@ ar_session::RadarExternalTargetInput ToArTarget(const WorldTarget& t) {
   return input;
 }
 
-ar_session::RadarEnvironmentInput MakeArEnvironment() {
-  ar_session::RadarEnvironmentInput env;
+ar_session::ArEnvironmentInput MakeArEnvironment() {
+  ar_session::ArEnvironmentInput env;
   env.atmospheric_observation.enable_physical_model = false;
   env.atmospheric_observation.pressure_hpa = 1010.0f;
   env.atmospheric_observation.temperature_k = 290.0f;
@@ -123,16 +123,16 @@ ar_session::RadarEnvironmentInput MakeArEnvironment() {
   return env;
 }
 
-ar_session::RadarCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
-                                         const ar_session::RadarEnvironmentInputState& env_state) {
-  ar_session::RadarExternalPoseInput platform = ToArPlatform(ws.platform_pos, ws.platform_vel);
-  std::vector<ar_session::RadarExternalTargetInput> targets;
+ar_session::ArCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
+                                         const ar_session::ArEnvironmentInputState& env_state) {
+  ar_session::ArExternalPoseInput platform = ToArPlatform(ws.platform_pos, ws.platform_vel);
+  std::vector<ar_session::ArExternalTargetInput> targets;
   targets.reserve(ws.targets.size());
   for (const auto& t : ws.targets) {
     targets.push_back(ToArTarget(t));
   }
-  ar_session::RadarCycleInput input;
-  ar_session::RadarCycleInputAdapter::Build(platform, targets, dt, env_state.Snapshot(), &input);
+  ar_session::ArCycleInput input;
+  ar_session::ArCycleInputAdapter::Build(platform, targets, dt, env_state.Snapshot(), &input);
   input.cycle_index = cycle_index;
   return input;
 }
@@ -231,12 +231,12 @@ esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::ui
 // 干扰场景：AR 启用干扰检测，环境输入含干扰源
 
 // -- 空对空通用 AR 配置 --
-ar_config::RadarSessionConfig MakeArConfigAirToAir() {
-  ar_config::RadarSessionConfig config =
-      ar_config::RadarSessionConfigBuilder()
+ar_config::ArSessionConfig MakeArConfigAirToAir() {
+  ar_config::ArSessionConfig config =
+      ar_config::ArSessionConfigBuilder()
           .Detection()
           .EnablePhysicsDetection(false)
-          .WithHardwareProfile(ar_config::profiles::RadarHardwareProfile::kLongRangeHighPower)
+          .WithHardwareProfile(ar_config::profiles::ArHardwareProfile::kLongRangeHighPower)
           .WithDetectionIntentProfile(
               ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
           .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
@@ -252,7 +252,7 @@ ar_config::RadarSessionConfig MakeArConfigAirToAir() {
           .WithJammingSensitivityProfile(ar_env::JammingSensitivityProfile::kBalanced)
           .End()
           .Build();
-  config.mission.orientation.work_mode = ar_config::RadarWorkMode::kTas;
+  config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
   config.mission.orientation.scan_center_deg = ar_config::AzimuthElevationDeg{};
   return config;
 }
@@ -296,12 +296,12 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
 }
 
 // -- 空对地 AR 配置 --
-ar_config::RadarSessionConfig MakeArConfigAirToGround() {
-  ar_config::RadarSessionConfig config =
-      ar_config::RadarSessionConfigBuilder()
+ar_config::ArSessionConfig MakeArConfigAirToGround() {
+  ar_config::ArSessionConfig config =
+      ar_config::ArSessionConfigBuilder()
           .Detection()
           .EnablePhysicsDetection(false)
-          .WithHardwareProfile(ar_config::profiles::RadarHardwareProfile::kLongRangeHighPower)
+          .WithHardwareProfile(ar_config::profiles::ArHardwareProfile::kLongRangeHighPower)
           .WithDetectionIntentProfile(
               ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
           .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
@@ -317,7 +317,7 @@ ar_config::RadarSessionConfig MakeArConfigAirToGround() {
           .WithJammingSensitivityProfile(ar_env::JammingSensitivityProfile::kBalanced)
           .End()
           .Build();
-  config.mission.orientation.work_mode = ar_config::RadarWorkMode::kTas;
+  config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
   config.mission.orientation.scan_center_deg = ar_config::AzimuthElevationDeg{};
   return config;
 }
@@ -376,7 +376,7 @@ void AdvanceWorld(WorldState& ws, double dt) {
 
 // --- Replay validation helpers ---
 
-void ExpectReplayOk(const ar_session::RadarReplaySessionResult& r, const std::string& label) {
+void ExpectReplayOk(const ar_session::ArReplaySessionResult& r, const std::string& label) {
   EXPECT_TRUE(r.report.replay_ready) << label << " AR replay not ready: " << r.first_error;
   EXPECT_FALSE(r.reached_failure_marker) << label << " AR replay hit failure marker";
   EXPECT_FALSE(r.playback.divergence_found)
@@ -477,10 +477,10 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
 
   std::shared_ptr<oneq::replay::ReplayTraceWriter> ar_writer(
       new oneq::replay::ReplayTraceWriter(ar_trace, ar_manifest, true));
-  ar_session::RadarTraceSessionOptions ar_opts;
+  ar_session::ArTraceSessionOptions ar_opts;
   ar_opts.replay_writer = ar_writer;
   ar_opts.trace_config_on_construct = true;
-  ar_session::RadarTraceSession ar_session(MakeArConfigAirToAir(), ar_opts);
+  ar_session::ArTraceSession ar_session(MakeArConfigAirToAir(), ar_opts);
 
   // EOS TraceSession
   const std::string eos_trace = MakeTempTraceDir("multi-scene1-eos");
@@ -510,7 +510,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
   esr_opts.trace_config_on_construct = true;
   esr_session::EsrTraceSession esr_trace_sess(MakeEsrConfigAirToAir(), esr_opts);
 
-  ar_session::RadarEnvironmentInputState ar_env_state(MakeArEnvironment());
+  ar_session::ArEnvironmentInputState ar_env_state(MakeArEnvironment());
   eos_session::EosEnvironmentInput eos_env;
   eos_env.solar_altitude_deg = 60.0f;
   eos_env.solar_azimuth_deg = 180.0f;
@@ -607,7 +607,7 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
   esr_writer->Flush();
 
   // Replay 验证
-  const auto ar_replay = ar_session::ReplayRadarTrace(ar_trace);
+  const auto ar_replay = ar_session::ReplayArTrace(ar_trace);
   ExpectReplayOk(ar_replay, "Scene1");
   EXPECT_EQ(ar_replay.playback.applied_input_count, num_cycles);
   EXPECT_EQ(ar_replay.playback.compared_output_count, num_cycles);
@@ -698,10 +698,10 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
   ar_mf.scenario_id = "look-down";
 
   auto ar_wr = std::make_shared<oneq::replay::ReplayTraceWriter>(ar_trace, ar_mf, true);
-  ar_session::RadarTraceSessionOptions ar_opts;
+  ar_session::ArTraceSessionOptions ar_opts;
   ar_opts.replay_writer = ar_wr;
   ar_opts.trace_config_on_construct = true;
-  ar_session::RadarTraceSession ar_sess(MakeArConfigAirToGround(), ar_opts);
+  ar_session::ArTraceSession ar_sess(MakeArConfigAirToGround(), ar_opts);
 
   const std::string eos_trace = MakeTempTraceDir("multi-scene2-eos");
   oneq::replay::ReplayTraceManifest eos_mf;
@@ -727,7 +727,7 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
   esr_opts.trace_config_on_construct = true;
   esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToGround(), esr_opts);
 
-  ar_session::RadarEnvironmentInputState ar_env_st(MakeArEnvironment());
+  ar_session::ArEnvironmentInputState ar_env_st(MakeArEnvironment());
   eos_session::EosEnvironmentInput eos_env;
   eos_env.solar_altitude_deg = 55.0f;
   eos_env.solar_azimuth_deg = 170.0f;
@@ -793,7 +793,7 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
   eos_wr->Flush();
   esr_wr->Flush();
 
-  ExpectReplayOk(ar_session::ReplayRadarTrace(ar_trace), "Scene2-AR");
+  ExpectReplayOk(ar_session::ReplayArTrace(ar_trace), "Scene2-AR");
   ExpectReplayOk(eos_session::ReplayEosTrace(eos_trace), "Scene2-EOS");
   ExpectReplayOk(esr_session::ReplayEsrTrace(esr_trace), "Scene2-ESR");
 
@@ -908,10 +908,10 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   ar_mf.scenario_id = "jamming";
 
   auto ar_wr = std::make_shared<oneq::replay::ReplayTraceWriter>(ar_trace, ar_mf, true);
-  ar_session::RadarTraceSessionOptions ar_opts;
+  ar_session::ArTraceSessionOptions ar_opts;
   ar_opts.replay_writer = ar_wr;
   ar_opts.trace_config_on_construct = true;
-  ar_session::RadarTraceSession ar_sess(ar_cfg, ar_opts);
+  ar_session::ArTraceSession ar_sess(ar_cfg, ar_opts);
 
   const std::string eos_trace = MakeTempTraceDir("multi-scene3-eos");
   oneq::replay::ReplayTraceManifest eos_mf;
@@ -942,7 +942,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToAir(), esr_opts);
 
   // AR 环境含干扰源（目标 B 为 100MW 伴随干扰机）
-  ar_session::RadarEnvironmentInput ar_env_base = MakeArEnvironment();
+  ar_session::ArEnvironmentInput ar_env_base = MakeArEnvironment();
   ar_env::JammerEmitterState jammer;
   jammer.technique = ar_env::JammingTechnique::kNoiseSuppression;
   jammer.power_db = 80.0f;  // 100MW in dB
@@ -953,7 +953,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   jammer.angular_span_deg = 5.0f;
   jammer.confidence = 1.0f;
   ar_env_base.jammer_sources.push_back(jammer);
-  ar_session::RadarEnvironmentInputState ar_env_st(ar_env_base);
+  ar_session::ArEnvironmentInputState ar_env_st(ar_env_base);
   eos_session::EosEnvironmentInput eos_env;
   eos_env.solar_altitude_deg = -15.0f;  // 夜间
   eos_env.solar_azimuth_deg = 0.0f;
@@ -1016,7 +1016,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   eos_wr->Flush();
   esr_wr->Flush();
 
-  ExpectReplayOk(ar_session::ReplayRadarTrace(ar_trace), "Scene3-AR");
+  ExpectReplayOk(ar_session::ReplayArTrace(ar_trace), "Scene3-AR");
   ExpectReplayOk(eos_session::ReplayEosTrace(eos_trace), "Scene3-EOS");
   ExpectReplayOk(esr_session::ReplayEsrTrace(esr_trace), "Scene3-ESR");
 
@@ -1099,10 +1099,10 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
   ar_mf.scenario_id = "crossing";
 
   auto ar_wr = std::make_shared<oneq::replay::ReplayTraceWriter>(ar_trace, ar_mf, true);
-  ar_session::RadarTraceSessionOptions ar_opts;
+  ar_session::ArTraceSessionOptions ar_opts;
   ar_opts.replay_writer = ar_wr;
   ar_opts.trace_config_on_construct = true;
-  ar_session::RadarTraceSession ar_sess(MakeArConfigAirToAir(), ar_opts);
+  ar_session::ArTraceSession ar_sess(MakeArConfigAirToAir(), ar_opts);
 
   const std::string eos_trace = MakeTempTraceDir("multi-scene4-eos");
   oneq::replay::ReplayTraceManifest eos_mf;
@@ -1128,7 +1128,7 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
   esr_opts.trace_config_on_construct = true;
   esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToAir(), esr_opts);
 
-  ar_session::RadarEnvironmentInputState ar_env_st(MakeArEnvironment());
+  ar_session::ArEnvironmentInputState ar_env_st(MakeArEnvironment());
   eos_session::EosEnvironmentInput eos_env;
   eos_env.solar_altitude_deg = 40.0f;
   eos_env.solar_azimuth_deg = 165.0f;
@@ -1196,7 +1196,7 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
   eos_wr->Flush();
   esr_wr->Flush();
 
-  ExpectReplayOk(ar_session::ReplayRadarTrace(ar_trace), "Scene4-AR");
+  ExpectReplayOk(ar_session::ReplayArTrace(ar_trace), "Scene4-AR");
   ExpectReplayOk(eos_session::ReplayEosTrace(eos_trace), "Scene4-EOS");
   ExpectReplayOk(esr_session::ReplayEsrTrace(esr_trace), "Scene4-ESR");
 

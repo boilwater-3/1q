@@ -1,9 +1,8 @@
-# Airborne Radar Config （Ar* 推荐命名）
+# Airborne Radar Config （Ar* 命名）
 
-> 本目录所有公开配置类型已迁移到 `Ar*` 命名。
-> `Radar*` 头文件保留为兼容 wrapper，新代码必须使用 `Ar*`。
+> 本目录所有公开配置类型使用 `Ar*` 命名。
 
-## 推荐公开主路径
+## 公开主路径
 
 调用方应仅通过以下头文件完成配置：
 
@@ -26,16 +25,16 @@ config/
 
 ### 四域公开配置
 
-| 域 | 推荐头 | 兼容头 | 说明 |
-| --- | --- | --- | --- |
-| `hardware` | `ArHardwareConfig.h` | `RadarHardwareConfig.h` | 硬件固有能力（探测链路参数） |
-| `mission` | `ArMissionConfig.h` | `RadarMissionConfig.h` | 任务态与波束运行态（工作子模式、指向与扫描） |
-| `policy` | `ArPolicyConfig.h` | `RadarPolicyConfig.h` | 调度/关联/跟踪/生命周期策略 |
-| `environment` | `ArEnvironmentConfig.h` | `RadarEnvironmentConfig.h` | 环境默认参数 |
+| 域 | 头文件 | 说明 |
+| --- | --- | --- |
+| `hardware` | `ArHardwareConfig.h` | 硬件固有能力（探测链路参数） |
+| `mission` | `ArMissionConfig.h` | 任务态与波束运行态（工作模式、指向与扫描） |
+| `policy` | `ArPolicyConfig.h` | 调度/关联/跟踪/生命周期策略 |
+| `environment` | `ArEnvironmentConfig.h` | 环境默认参数 |
 
 ### ArSessionConfig
 
-[`ArSessionConfig.h`](ArSessionConfig.h) / 兼容 [`RadarSessionConfig.h`](RadarSessionConfig.h)
+[`ArSessionConfig.h`](ArSessionConfig.h)
 
 会话初始化配置壳（四域聚合）：
 
@@ -48,7 +47,7 @@ config/
 
 ### 语义 Builder
 
-[`ArSessionConfigBuilder.h`](ArSessionConfigBuilder.h) / 兼容 [`RadarSessionConfigBuilder.h`](RadarSessionConfigBuilder.h)
+[`ArSessionConfigBuilder.h`](ArSessionConfigBuilder.h)
 
 - 输入：`profiles::...Profile` 枚举
 - 输出：`ArSessionConfig`（落到 `hardware/mission/policy/environment`）
@@ -62,7 +61,7 @@ config/
 支持运行期在不重建 `ArSession` 的前提下热更新参数：
 
 - 整域覆盖：`mission`、`policy`、`environment_runtime_config`
-- 叶子覆盖：工作子模式、扫描中心、驻留中心、指令态波束宽度
+- 叶子覆盖：工作模式、扫描中心、驻留中心、指令态波束宽度
 
 规则：
 
@@ -78,5 +77,5 @@ config/
 ## 推荐入口
 
 - [`airborne_radar_config.hpp`](airborne_radar_config.hpp)
-- [`ArSessionConfig.h`](ArSessionConfig.h) （兼容 `RadarSessionConfig.h`）
-- [`ArSessionConfigBuilder.h`](ArSessionConfigBuilder.h) （兼容 `RadarSessionConfigBuilder.h`）
+- [`ArSessionConfig.h`](ArSessionConfig.h)
+- [`ArSessionConfigBuilder.h`](ArSessionConfigBuilder.h)

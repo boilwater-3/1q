@@ -34,7 +34,7 @@ namespace pipeline {
  */
 struct CycleExecutionScratch {
   // 最终输出
-  session::RadarSceneTargetList output_state;
+  session::ArSceneTargetList output_state;
   std::vector<tracking::TrackMeasurement> track_measurements;
   session::DecisionInputFrame decision_frame{};
   AssociationQualityMetrics association_quality_metrics{};
@@ -61,7 +61,7 @@ struct CycleExecutionScratch {
 
 struct CycleExecutionRuntime {
   CycleExecutionRuntime(const ExecutionConfig& base_config,
-                        const session::RadarControlProfile& control_profile,
+                        const session::ArControlProfile& control_profile,
                         association::DataAssociationEngine& association_engine,
                         tracking::TrackFilter& track_filter,
                         tracking::ITrackLifecycleManager& auto_lifecycle_manager,
@@ -78,7 +78,7 @@ struct CycleExecutionRuntime {
         has_manual_association_seeds(has_manual_association_seeds) {}
 
   const ExecutionConfig& base_config;
-  const session::RadarControlProfile& control_profile;
+  const session::ArControlProfile& control_profile;
   association::DataAssociationEngine& association_engine;
   tracking::TrackFilter& track_filter;
   detection::SignalDetector* signal_detector;
@@ -88,7 +88,7 @@ struct CycleExecutionRuntime {
 };
 
 struct CycleExecutionContext {
-  CycleExecutionContext(const session::RadarSceneTargetList& input_state,
+  CycleExecutionContext(const session::ArSceneTargetList& input_state,
                         const session::EnvironmentSnapshot& environment_snapshot,
                         std::uint32_t cycle_index, std::uint64_t batch_id,
                         ExecutionConfig runtime_config, float platform_altitude_m)
@@ -99,7 +99,7 @@ struct CycleExecutionContext {
         platform_altitude_m(platform_altitude_m),
         runtime_config(std::move(runtime_config)) {}
 
-  const session::RadarSceneTargetList& input_state;
+  const session::ArSceneTargetList& input_state;
   const session::EnvironmentSnapshot& environment_snapshot;
   std::uint32_t cycle_index{0U};
   std::uint64_t batch_id{0U};

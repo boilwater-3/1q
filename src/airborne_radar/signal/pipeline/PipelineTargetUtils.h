@@ -19,7 +19,7 @@ namespace pipeline {
  * @param target 场景目标数据。
  * @return 速度矢量模长。
  */
-inline float ResolveSpeedMagnitude(const session::RadarSceneTarget& target) {
+inline float ResolveSpeedMagnitude(const session::ArSceneTarget& target) {
   const Eigen::Vector3f velocity(target.velocity_x, target.velocity_y, target.velocity_z);
   return velocity.norm();
 }

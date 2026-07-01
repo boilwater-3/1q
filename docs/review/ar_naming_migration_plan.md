@@ -164,11 +164,18 @@ Stage 3：trace/replay schema 与 payload 单向干净迁移。
 - codec（`ArReplayFlatbufferCodec.{cpp,h}`）已全部改用 `fb::Ar*`/`session_fb::Ar*` 与 `Create/Get/Verify Ar*` API；诊断字符串与内部 helper（`EncodeArCommand` 等）同步。
 - payload type string 在 writer（`ArTraceSession.cpp`）与 reader（`ArReplaySession.cpp`）双向统一为 `Ar*`（`"ArSessionConfig"`/`"ArCycleInput"`/`"ArCycleResult"`/`"ArRuntimeConfigPatch"`）；测试中 raw-JSON payload 扫描同步。
 
-Stage 4：收口旧名。
+Stage 4：收口旧名（彻底删除）。
 
-- 将 `Radar*` wrapper 移入 deprecated compat whitelist。
-- 新增 guard 禁止 primary API、规范性文档、示例和新测试继续使用旧模块前缀。
-- 在 open question 或 contract 中写明旧名移除条件：至少一个发布/集成窗口后，且外部 consumer 无旧名依赖。
+- 状态：已完成（彻底删除旧名，不保留兼容期）。
+- 前提：当前没有外部 consumer、没有可回放文件、项目未上线，因此旧 `Radar*` 命名一次性删除，不留 deprecated compat whitelist。
+- 删除全部 27 个 `Radar*.h` public wrapper（config/session）；install manifest、`check_public_api_boundary` whitelist 同步移除。
+- 删除所有 `using RadarX = ArX` 兼容别名（primary header + internal header）。
+- 删除 `ar_compat_consumer.cpp` 及其 CMake target。
+- internal/test/example 代码全部改用 `Ar*` 主类型名与主函数名（含 `MutableArContext`、`ReplayArTrace`、`TryMakeArPoseFromExternalKinematics`、`ValidateArCycleInput` 等）。
+- `check_public_api_boundary` 的 forbidden-builder 守护从 `RadarSessionConfigBuilder` 切到 `ArSessionConfigBuilder`，保持对旧式 top-level API 的回归阻断。
+- 文档（design.md、contract.md、config/session README）去掉兼容措辞。
+
+迁移四阶段全部完成。领域名仍保留：`RadarEquations`、`RadarBand`、`radar_cross_section`、`radar_mount_angles_deg`、`ComposeRadarAttitudeDeg`、`UpdateRadarControlProfile`、`airborne_radar` namespace。
 
 ## 6. 验收测试
 

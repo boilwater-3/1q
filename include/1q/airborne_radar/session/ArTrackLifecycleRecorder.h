@@ -3,7 +3,6 @@
  * @brief AR module primary track lifecycle recording types.
  *
  * Primary header for track lifecycle recording.
- * Include this for new code; RadarTrackLifecycleRecorder.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_TRACK_LIFECYCLE_RECORDER_H_
@@ -84,12 +83,6 @@ class ONEQ_API ArTrackLifecycleRecorder {
   std::unique_ptr<Impl> impl_;
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarTrackLifecycleEventKind = ArTrackLifecycleEventKind;
-using RadarTrackLifecycleReason = ArTrackLifecycleReason;
-using RadarTrackLifecycleEvent = ArTrackLifecycleEvent;
-using RadarTrackLifecycleRecorderConfig = ArTrackLifecycleRecorderConfig;
-using RadarTrackLifecycleRecorder = ArTrackLifecycleRecorder;
 
 }  // namespace session
 }  // namespace airborne_radar

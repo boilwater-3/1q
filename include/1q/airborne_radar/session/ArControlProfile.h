@@ -3,7 +3,6 @@
  * @brief AR module primary control profile state type.
  *
  * Primary header for control profile state.
- * Include this for new code; RadarControlProfile.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CONTROL_PROFILE_H_
@@ -33,8 +32,6 @@ struct ONEQ_API ArControlProfile {
   float eccm_burnthrough_gain{1.0f};           /**< ECCM 烧穿增益倍率 */
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarControlProfile = ArControlProfile;
 
 }  // namespace session
 }  // namespace airborne_radar

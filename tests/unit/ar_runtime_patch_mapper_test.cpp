@@ -7,8 +7,8 @@
 
 #include <limits>
 
-#include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 
@@ -22,14 +22,14 @@ TEST(ArRuntimePatchMapperTest, MissionDomainAppliedBeforeLeafPatch) {
   current_state.execution_config.detection.orientation.scan_center_deg.az_deg = 1.0f;
   current_state.execution_config.detection.orientation.scan_center_deg.el_deg = 2.0f;
   current_state.execution_config.detection.orientation.work_mode =
-      config::RadarWorkMode::kTws;
+      config::ArWorkMode::kTws;
 
-  RadarMissionConfig mission_patch;
+  ArMissionConfig mission_patch;
   mission_patch.orientation.scan_center_deg.az_deg = 10.0f;
   mission_patch.orientation.scan_center_deg.el_deg = 20.0f;
-  mission_patch.orientation.work_mode = config::RadarWorkMode::kTas;
+  mission_patch.orientation.work_mode = config::ArWorkMode::kTas;
 
-  RadarRuntimeConfigPatch patch;
+  ArRuntimeConfigPatch patch;
   patch.has_mission = true;
   patch.mission = mission_patch;
   patch.has_scan_center_deg = true;
@@ -42,7 +42,7 @@ TEST(ArRuntimePatchMapperTest, MissionDomainAppliedBeforeLeafPatch) {
   EXPECT_TRUE(resolved.is_valid);
   EXPECT_TRUE(resolved.execution_config_changed);
   EXPECT_EQ(resolved.next_state.execution_config.detection.orientation.work_mode,
-            config::RadarWorkMode::kTas);
+            config::ArWorkMode::kTas);
   EXPECT_FLOAT_EQ(resolved.next_state.execution_config.detection.orientation.scan_center_deg.az_deg,
                   30.0f);
   EXPECT_FLOAT_EQ(resolved.next_state.execution_config.detection.orientation.scan_center_deg.el_deg,
@@ -57,11 +57,11 @@ TEST(ArRuntimePatchMapperTest, DwellPatchContributesToPipelinePointing) {
   config::AzimuthElevationDeg dwell_center;
   dwell_center.az_deg = 3.0f;
   dwell_center.el_deg = -1.0f;
-  const RadarRuntimeConfigPatch patch =
-      RadarRuntimeConfigBuilder().WithDwellCenterDeg(dwell_center).Build();
+  const ArRuntimeConfigPatch patch =
+      ArRuntimeConfigBuilder().WithDwellCenterDeg(dwell_center).Build();
 
   const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
-  const config::RadarSessionConfig pipeline_config =
+  const config::ArSessionConfig pipeline_config =
       MapRuntimeStateToPipelineSession(resolved.next_state);
 
   EXPECT_TRUE(resolved.has_requested_update);
@@ -82,8 +82,8 @@ TEST(ArRuntimePatchMapperTest, EnvironmentPatchUpdatesModelAndThreshold) {
   current_state.environment_scenario_config.atmospheric_physics.enable_physical_model = false;
   current_state.jamming_sensitivity_profile = config::JammingSensitivityProfile::kBalanced;
 
-  RadarRuntimeConfigPatch patch =
-      RadarRuntimeConfigBuilder()
+  ArRuntimeConfigPatch patch =
+      ArRuntimeConfigBuilder()
           .WithEnvironmentScenarioConfig(config::EnvironmentScenarioConfig{})
           .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
           .Build();
@@ -107,8 +107,8 @@ TEST(ArRuntimePatchMapperTest, InvalidPatchIsRejectedAtomically) {
   current_state.execution_config.detection.orientation.scan_center_deg.el_deg = 2.0f;
   current_state.jamming_sensitivity_profile = config::JammingSensitivityProfile::kBalanced;
 
-  RadarRuntimeConfigPatch patch =
-      RadarRuntimeConfigBuilder()
+  ArRuntimeConfigPatch patch =
+      ArRuntimeConfigBuilder()
           .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
           .Build();
   patch.has_scan_center_deg = true;
@@ -129,7 +129,7 @@ TEST(ArRuntimePatchMapperTest, InvalidPatchIsRejectedAtomically) {
 }
 
 TEST(ArRuntimePatchMapperTest, MapExecutionToSessionRoundTripsFields) {
-  config::RadarSessionConfig original;
+  config::ArSessionConfig original;
   original.hardware.min_detection_margin_db = -3.0f;
   original.hardware.pulse_count = 20;
   original.mission.orientation.scan_center_deg.az_deg = 45.0f;
@@ -138,7 +138,7 @@ TEST(ArRuntimePatchMapperTest, MapExecutionToSessionRoundTripsFields) {
   original.policy.association.unassigned_cost = 12.0f;
 
   const execution::InternalExecutionConfig mapped = mapping::MapSessionToExecution(original);
-  const config::RadarSessionConfig round_tripped = mapping::MapExecutionToSession(mapped);
+  const config::ArSessionConfig round_tripped = mapping::MapExecutionToSession(mapped);
 
   EXPECT_FLOAT_EQ(round_tripped.hardware.min_detection_margin_db, -3.0f);
   EXPECT_EQ(round_tripped.hardware.pulse_count, 20);

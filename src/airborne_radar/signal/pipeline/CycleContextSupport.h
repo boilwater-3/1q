@@ -25,7 +25,7 @@ namespace pipeline {
  * @param input_state  本周期输入目标列表（用于确定 target_count）。
  * @param scratch      待初始化的周期暂存区。
  */
-void ResetCycleExecutionScratch(const session::RadarSceneTargetList& input_state,
+void ResetCycleExecutionScratch(const session::ArSceneTargetList& input_state,
                                 CycleExecutionScratch& scratch);
 
 /**

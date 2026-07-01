@@ -9,7 +9,7 @@
 #include <cmath>
 #include <limits>
 
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/RadarEquations.h"
@@ -385,7 +385,7 @@ TEST(SignalDetectorTest, HigherPulseCountYieldsHigherPd) {
 
 /// @brief 雷达局部坐标应能解析出稳定的目标方位/俯仰角。
 TEST(TargetLookResolverTest, ResolvesRadarLocalLookAngles) {
-  session::RadarSceneTarget target;
+  session::ArSceneTarget target;
   target.position_x = 10.0f;
   target.position_y = 10.0f;
   target.position_z = 10.0f;
@@ -405,7 +405,7 @@ TEST(MeasurementErrorModelTest, ElevationBeamwidthAffectsEquivalentAngleStdDev) 
   AntennaConfig wide_el_antenna = narrow_antenna;
   wide_el_antenna.nominal_el_beamwidth_deg = 8.0f;
 
-  config::RadarOrientationConfig orientation;
+  config::ArOrientationConfig orientation;
   config::PlatformAttitudeDeg platform_attitude_deg;
   signal::detection::TargetLookAnglesDeg look_angles;
   look_angles.has_look_angles = true;
@@ -431,11 +431,11 @@ TEST(MeasurementErrorModelTest, CommandedBeamwidthOverrideAffectsAngleStdDev) {
   antenna.nominal_az_beamwidth_deg = 2.0f;
   antenna.nominal_el_beamwidth_deg = 2.0f;
 
-  config::RadarOrientationConfig nominal_orientation;
+  config::ArOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
   config::PlatformAttitudeDeg platform_attitude_deg;
 
-  config::RadarOrientationConfig commanded_orientation;
+  config::ArOrientationConfig commanded_orientation;
   commanded_orientation.commanded_beamwidth_enabled = true;
   commanded_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 8.0f;
@@ -466,11 +466,11 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
   config.antenna.enable_directional_pattern = true;
   config.antenna.pattern.max_sidelobe_level_db = -25.0f;
 
-  config::RadarOrientationConfig nominal_orientation;
+  config::ArOrientationConfig nominal_orientation;
   nominal_orientation.commanded_beamwidth_enabled = false;
   config::PlatformAttitudeDeg platform_attitude_deg;
 
-  config::RadarOrientationConfig commanded_orientation;
+  config::ArOrientationConfig commanded_orientation;
   commanded_orientation.commanded_beamwidth_enabled = true;
   commanded_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   commanded_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 8.0f;
@@ -511,7 +511,7 @@ TEST(BeamControlResolverTest, CommandedBeamwidthAffectsDirectionalPatternGain) {
 /// @brief 对惯性稳定模式应补偿平台姿态变化。
 TEST(BeamControlResolverTest, InertialStabilizedCompensatesPlatformAttitude) {
   AntennaConfig antenna;
-  config::RadarOrientationConfig orientation;
+  config::ArOrientationConfig orientation;
   orientation.stabilization_mode = config::StabilizationMode::kInertialStabilized;
 
   config::PlatformAttitudeDeg platform_attitude_deg;
@@ -533,7 +533,7 @@ TEST(BeamControlResolverTest, InertialStabilizedCompensatesPlatformAttitude) {
 /// @brief 对惯性稳定模式应显式补偿平台滚转角。
 TEST(BeamControlResolverTest, InertialStabilizedAccountsForPlatformRoll) {
   AntennaConfig antenna;
-  config::RadarOrientationConfig orientation;
+  config::ArOrientationConfig orientation;
   orientation.stabilization_mode = config::StabilizationMode::kInertialStabilized;
   orientation.scan_center_deg.el_deg = 30.0f;
 
@@ -554,12 +554,12 @@ TEST(BeamControlResolverTest, InertialStabilizedAccountsForPlatformRoll) {
 /// @brief 对地稳定当前无地理参考输入，代码上显式等同于惯性稳定。
 TEST(BeamControlResolverTest, GroundStabilizedCurrentlyMatchesInertialStabilized) {
   AntennaConfig antenna;
-  config::RadarOrientationConfig inertial_orientation;
+  config::ArOrientationConfig inertial_orientation;
   inertial_orientation.stabilization_mode = config::StabilizationMode::kInertialStabilized;
   inertial_orientation.scan_center_deg.az_deg = 5.0f;
   inertial_orientation.scan_center_deg.el_deg = 20.0f;
 
-  config::RadarOrientationConfig ground_orientation = inertial_orientation;
+  config::ArOrientationConfig ground_orientation = inertial_orientation;
   ground_orientation.stabilization_mode = config::StabilizationMode::kGroundStabilized;
 
   config::PlatformAttitudeDeg platform_attitude_deg;

@@ -25,7 +25,7 @@ RuntimeConfigResolveResult RejectPatch(const RuntimeConfigState& current_state,
 }  // namespace
 
 RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_state,
-                                             const RadarRuntimeConfigPatch& patch) {
+                                             const ArRuntimeConfigPatch& patch) {
   RuntimeConfigResolveResult resolved;
   resolved.next_state = current_state;
 
@@ -38,7 +38,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
     if (!oneq::internal::validation::IsFinite(patch.dwell_center_deg.az_deg) || !oneq::internal::validation::IsFinite(patch.dwell_center_deg.el_deg)) {
       PROJECT_LOG_ERROR(
-          "[RadarSession] Rejecting runtime config patch due to non-finite dwell_center_deg "
+          "[ArSession] Rejecting runtime config patch due to non-finite dwell_center_deg "
           "(az_deg={}, el_deg={}).",
           patch.dwell_center_deg.az_deg, patch.dwell_center_deg.el_deg);
       return RejectPatch(current_state, true);
@@ -86,7 +86,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
   if (patch.has_scan_center_deg) {
     if (!oneq::internal::validation::IsFinite(patch.scan_center_deg.az_deg) || !oneq::internal::validation::IsFinite(patch.scan_center_deg.el_deg)) {
       PROJECT_LOG_ERROR(
-          "[RadarSession] Rejecting runtime config patch due to non-finite scan_center_deg "
+          "[ArSession] Rejecting runtime config patch due to non-finite scan_center_deg "
           "(az_deg={}, el_deg={}).",
           patch.scan_center_deg.az_deg, patch.scan_center_deg.el_deg);
       return RejectPatch(current_state, true);
@@ -99,7 +99,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     if (!oneq::internal::validation::IsFinite(patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg) ||
         !oneq::internal::validation::IsFinite(patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg)) {
       PROJECT_LOG_ERROR(
-          "[RadarSession] Rejecting runtime config patch due to non-finite "
+          "[ArSession] Rejecting runtime config patch due to non-finite "
           "commanded_beamwidth_deg (az_deg={}, el_deg={}).",
           patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg,
           patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg);
@@ -145,9 +145,9 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
   return resolved;
 }
 
-config::RadarSessionConfig MapExecutionToSession(
+config::ArSessionConfig MapExecutionToSession(
     const execution::InternalExecutionConfig& execution_config) {
-  config::RadarSessionConfig config;
+  config::ArSessionConfig config;
   config.mission.power_on = execution_config.sensor_enabled;
   config.hardware = execution_config.detection.engineering;
   config.mission.orientation = execution_config.detection.orientation;
@@ -158,9 +158,9 @@ config::RadarSessionConfig MapExecutionToSession(
   return config;
 }
 
-config::RadarSessionConfig MapRuntimeStateToPipelineSession(
+config::ArSessionConfig MapRuntimeStateToPipelineSession(
     const RuntimeConfigState& runtime_state) {
-  config::RadarSessionConfig config = MapExecutionToSession(runtime_state.execution_config);
+  config::ArSessionConfig config = MapExecutionToSession(runtime_state.execution_config);
   config.mission.orientation.scan_center_deg.az_deg += runtime_state.dwell_center_deg.az_deg;
   config.mission.orientation.scan_center_deg.el_deg += runtime_state.dwell_center_deg.el_deg;
   return config;

@@ -44,7 +44,7 @@ struct PipelineRuntimeConfig {
 
   ExecutionConfig base_config{};
   float platform_altitude_m{0.0f};
-  session::RadarControlProfile control_profile_{};
+  session::ArControlProfile control_profile_{};
 };
 
 struct RuntimeOwnedState {
@@ -69,7 +69,7 @@ struct AssociationSeedState {
 struct SignalPipelineSnapshot {
   ExecutionConfig base_config{};
   float platform_altitude_m{0.0f};
-  session::RadarControlProfile control_profile{};
+  session::ArControlProfile control_profile{};
   AssociationSeedState association_seeds{};
   std::vector<tracking::TrackMeasurement> track_measurements{};
   session::AssociationQualityMetrics association_quality_metrics{};
@@ -115,9 +115,9 @@ struct SignalPipeline::Impl {
                                         runtime_.config.control_profile_);
   }
 
-  session::SignalCycleResult RunCycle(const session::RadarSceneTargetList& scene_targets,
+  session::SignalCycleResult RunCycle(const session::ArSceneTargetList& scene_targets,
                                       const environment::IEnvironmentService& environment) {
-    const session::RadarSceneTargetList& input_state = scene_targets;
+    const session::ArSceneTargetList& input_state = scene_targets;
 
     if (!runtime_.config.base_config.sensor_enabled) {
       ResetCycleScratch(&cycle_.scratch);
@@ -290,10 +290,10 @@ struct SignalPipeline::Impl {
 
   float GetPlatformAltitudeM() const { return runtime_.config.platform_altitude_m; }
 
-  void SetControlProfile(const session::RadarControlProfile& control_profile) {
+  void SetControlProfile(const session::ArControlProfile& control_profile) {
     runtime_.config.control_profile_ = control_profile;
   }
-  session::RadarControlProfile GetControlProfile() const {
+  session::ArControlProfile GetControlProfile() const {
     return runtime_.config.control_profile_;
   }
 
@@ -314,13 +314,13 @@ struct SignalPipeline::Impl {
 SignalPipeline::SignalPipeline(const ExecutionConfig& config)
     : impl_(std::unique_ptr<Impl>(new Impl(config))) {}
 
-SignalPipeline::SignalPipeline(const config::RadarSessionConfig& config)
+SignalPipeline::SignalPipeline(const config::ArSessionConfig& config)
     : SignalPipeline(::airborne_radar::config::mapping::MapSessionToExecution(config)) {}
 
 SignalPipeline::~SignalPipeline() = default;
 
 session::SignalCycleResult SignalPipeline::RunCycle(
-    const session::RadarSceneTargetList& scene_targets,
+    const session::ArSceneTargetList& scene_targets,
     const environment::IEnvironmentService& environment) {
   return impl_->RunCycle(scene_targets, environment);
 }
@@ -367,15 +367,15 @@ config::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
 
 float SignalPipeline::GetPlatformAltitudeM() const { return impl_->GetPlatformAltitudeM(); }
 
-void SignalPipeline::SetControlProfile(const session::RadarControlProfile& control_profile) {
+void SignalPipeline::SetControlProfile(const session::ArControlProfile& control_profile) {
   impl_->SetControlProfile(control_profile);
 }
 
-session::RadarControlProfile SignalPipeline::GetControlProfile() const {
+session::ArControlProfile SignalPipeline::GetControlProfile() const {
   return impl_->GetControlProfile();
 }
 
-bool SignalPipeline::UpdateConfig(const config::RadarSessionConfig& config) {
+bool SignalPipeline::UpdateConfig(const config::ArSessionConfig& config) {
   return UpdateExecutionConfig(::airborne_radar::config::mapping::MapSessionToExecution(config));
 }
 

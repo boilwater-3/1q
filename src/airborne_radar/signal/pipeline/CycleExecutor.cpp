@@ -172,7 +172,7 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
 }
 
 std::uint32_t ResolveLifecycleExtraMissTolerance(
-    const session::RadarControlProfile& control_profile) {
+    const session::ArControlProfile& control_profile) {
   std::uint32_t extra_miss_tolerance = 0U;
   if (control_profile.enable_sidelobe_canceller || control_profile.enable_agility_frequency ||
       control_profile.enable_eccm_rejitter) {
@@ -186,11 +186,11 @@ std::uint32_t ResolveLifecycleExtraMissTolerance(
 
 }  // namespace
 
-void CollectCycleOutputs(const session::RadarControlProfile& control_profile,
+void CollectCycleOutputs(const session::ArControlProfile& control_profile,
                          std::uint32_t cycle_index, std::uint64_t batch_id,
                          const ExecutionConfig& runtime_config,
                          const session::EnvironmentSnapshot& environment_snapshot,
-                         const session::RadarSceneTargetList& input_state,
+                         const session::ArSceneTargetList& input_state,
                          tracking::ITrackLifecycleManager* auto_lifecycle_manager,
                          CycleExecutionScratch& scratch) {
   if (auto_lifecycle_manager == nullptr) {

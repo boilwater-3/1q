@@ -21,7 +21,7 @@ const association::AssociationMatch* FindAssociationMatch(
   return nullptr;
 }
 
-Eigen::Vector3f ResolveVelocityVector(const session::RadarSceneTarget& target) {
+Eigen::Vector3f ResolveVelocityVector(const session::ArSceneTarget& target) {
   const Eigen::Vector3f velocity(target.velocity_x, target.velocity_y, target.velocity_z);
   if (velocity.squaredNorm() > 0.0f) {
     return velocity;
@@ -31,7 +31,7 @@ Eigen::Vector3f ResolveVelocityVector(const session::RadarSceneTarget& target) {
 
 }  // namespace
 
-void BuildTrackMeasurementsPass(const session::RadarSceneTargetList& input,
+void BuildTrackMeasurementsPass(const session::ArSceneTargetList& input,
                                 bool jamming_detected,
                                 CycleExecutionScratch& scratch) {
   const std::size_t count = input.size();
@@ -70,7 +70,7 @@ void BuildTrackMeasurementsPass(const session::RadarSceneTargetList& input,
   }
 }
 
-void ApplyTrackFilterPass(const session::RadarSceneTargetList& input,
+void ApplyTrackFilterPass(const session::ArSceneTargetList& input,
                           bool jamming_detected,
                           tracking::TrackFilter& track_filter,
                           CycleExecutionScratch& scratch) {

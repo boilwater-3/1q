@@ -19,7 +19,7 @@ std::vector<const TrackState*> TrackLifecycleManager::GetActiveTracks() const {
   return result;
 }
 
-session::RadarSceneTargetList TrackLifecycleManager::BuildSceneTargetSnapshot() const {
+session::ArSceneTargetList TrackLifecycleManager::BuildSceneTargetSnapshot() const {
   return snapshot_emitter_.BuildSceneTargetSnapshot();
 }
 

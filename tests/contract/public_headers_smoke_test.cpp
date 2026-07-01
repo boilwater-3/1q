@@ -11,32 +11,32 @@
 
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/airborne_radar/config/JammingSemantics.h"
-#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
-#include "1q/airborne_radar/config/RadarHardwareConfig.h"
-#include "1q/airborne_radar/config/RadarMissionConfig.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
-#include "1q/airborne_radar/config/RadarPolicyConfig.h"
-#include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/ArEnvironmentConfig.h"
+#include "1q/airborne_radar/config/ArHardwareConfig.h"
+#include "1q/airborne_radar/config/ArMissionConfig.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
+#include "1q/airborne_radar/config/ArPolicyConfig.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
+#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/session/ControlDirective.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/DecisionSourceInfo.h"
 #include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/session/RadarCommand.h"
-#include "1q/airborne_radar/session/RadarControlProfile.h"
-#include "1q/airborne_radar/session/RadarCycleInput.h"
-#include "1q/airborne_radar/session/RadarCycleInputAdapter.h"
-#include "1q/airborne_radar/session/RadarCycleResult.h"
-#include "1q/airborne_radar/session/RadarEnvironmentInput.h"
-#include "1q/airborne_radar/session/RadarInputValidation.h"
-#include "1q/airborne_radar/session/RadarOutputTypes.h"
-#include "1q/airborne_radar/session/RadarSession.h"
-#include "1q/airborne_radar/session/RadarTraceSession.h"
-#include "1q/airborne_radar/session/RadarTrackLifecycleRecorder.h"
-#include "1q/airborne_radar/session/RadarTrackOutputDebugView.h"
+#include "1q/airborne_radar/session/ArCommand.h"
+#include "1q/airborne_radar/session/ArControlProfile.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
+#include "1q/airborne_radar/session/ArCycleInputAdapter.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
+#include "1q/airborne_radar/session/ArEnvironmentInput.h"
+#include "1q/airborne_radar/session/ArInputValidation.h"
+#include "1q/airborne_radar/session/ArOutputTypes.h"
+#include "1q/airborne_radar/session/ArSession.h"
+#include "1q/airborne_radar/session/ArTraceSession.h"
+#include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
+#include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/api.hpp"
 #include "1q/coordinate/attitude_transform.h"
@@ -95,19 +95,19 @@
 #include "1q/sar/session/SarTraceSession.h"
 #include "1q/trace/TraceSink.h"
 
-using ArSession = airborne_radar::session::RadarSession;
-using ArConfig = airborne_radar::config::RadarSessionConfig;
+using ArSession = airborne_radar::session::ArSession;
+using ArConfig = airborne_radar::config::ArSessionConfig;
 static_assert(!std::is_constructible<ArSession, const ArConfig&>::value,
-              "RadarSession direct construction must be disabled");
-static_assert(std::is_same<ArSession, decltype(airborne_radar::session::RadarSession::Create(
+              "ArSession direct construction must be disabled");
+static_assert(std::is_same<ArSession, decltype(airborne_radar::session::ArSession::Create(
                                           std::declval<const ArConfig&>()))>::value,
-              "RadarSession::Create must return RadarSession");
+              "ArSession::Create must return ArSession");
 static_assert(
     std::is_same<ArSession,
-                 decltype(airborne_radar::session::RadarSession::CreateWithDecisionEngine(
+                 decltype(airborne_radar::session::ArSession::CreateWithDecisionEngine(
                      std::declval<const ArConfig&>(),
                      std::declval<airborne_radar::session::ITacticalDecisionEngine&>()))>::value,
-    "RadarSession::CreateWithDecisionEngine must return RadarSession");
+    "ArSession::CreateWithDecisionEngine must return ArSession");
 
 static_assert(
     !std::is_constructible<electronic_surveillance_radar::session::EsrSession,
@@ -143,31 +143,31 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   oneq::coordinate::EcefPositionM origin_ecef;
   ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(origin_lla, &origin_ecef));
 
-  config::RadarSessionConfig session_config = config::RadarSessionConfigBuilder().Build();
+  config::ArSessionConfig session_config = config::ArSessionConfigBuilder().Build();
   session_config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
 
-  session::RadarCycleInput input;
+  session::ArCycleInput input;
   input.dt_sec = 1.0f;
-  session::RadarEnvironmentInputState environment_state(input.environment);
-  session::RadarEnvironmentInputPatch environment_patch;
+  session::ArEnvironmentInputState environment_state(input.environment);
+  session::ArEnvironmentInputPatch environment_patch;
   environment_patch.has_jammer_sources = true;
   environment_patch.jammer_sources.push_back(config::JammerEmitterState{});
   input.environment = environment_state.Update(environment_patch).Snapshot();
-  const std::vector<session::ValidationIssue> issues = session::ValidateRadarCycleInput(input);
+  const std::vector<session::ValidationIssue> issues = session::ValidateArCycleInput(input);
 
   EXPECT_FALSE(session::HasValidationError(issues));
 
-  session::RadarSession session = session::RadarSession::Create(session_config);
-  session::RadarTraceSession trace_session(session_config,
-                                           session::RadarTraceSessionOptions{nullptr, false});
-  const config::RadarRuntimeConfigPatch runtime_patch =
-      config::RadarRuntimeConfigBuilder()
-          .WithWorkMode(config::RadarWorkMode::kTas)
+  session::ArSession session = session::ArSession::Create(session_config);
+  session::ArTraceSession trace_session(session_config,
+                                           session::ArTraceSessionOptions{nullptr, false});
+  const config::ArRuntimeConfigPatch runtime_patch =
+      config::ArRuntimeConfigBuilder()
+          .WithWorkMode(config::ArWorkMode::kTas)
           .WithCommandedBeamwidthEnabled(true)
           .Build();
   session.ApplyRuntimeConfig(runtime_patch);
-  const session::RadarCycleResult result = session.StepWithResult(input);
-  const session::RadarCycleResult trace_result = trace_session.StepWithResult(input);
+  const session::ArCycleResult result = session.StepWithResult(input);
+  const session::ArCycleResult trace_result = trace_session.StepWithResult(input);
   const std::size_t confirmed_tracks =
       session::CountTracksByStatus(result.track_output_frame, session::TrackStatus::kConfirmed);
 
@@ -177,28 +177,28 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
 }
 
 TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
-  config::RadarHardwareConfig hardware{};
+  config::ArHardwareConfig hardware{};
   hardware.pulse_count = 32;
   EXPECT_EQ(hardware.pulse_count, 32);
 
   config::AzimuthElevationDeg scan_center;
   scan_center.az_deg = 45.0f;
   scan_center.el_deg = -5.0f;
-  config::RadarMissionConfig mission{};
+  config::ArMissionConfig mission{};
   mission.orientation.scan_center_deg = scan_center;
   EXPECT_FLOAT_EQ(mission.orientation.scan_center_deg.az_deg, 45.0f);
 
-  config::RadarPolicyConfig policy{};
+  config::ArPolicyConfig policy{};
   policy.lifecycle.confirm_hits = 2U;
   policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
   EXPECT_EQ(policy.lifecycle.confirm_hits, 2U);
   EXPECT_EQ(policy.tracking.kalman_update_backend, config::KalmanUpdateBackend::kUdKf);
 
-  config::RadarEnvironmentConfig env{};
+  config::ArEnvironmentConfig env{};
   env.scenario_config.atmospheric_physics.enable_physical_model = true;
   EXPECT_TRUE(env.scenario_config.atmospheric_physics.enable_physical_model);
 
-  config::RadarSessionConfig session_cfg;
+  config::ArSessionConfig session_cfg;
   session_cfg.hardware = hardware;
   session_cfg.mission = mission;
   session_cfg.policy = policy;
@@ -216,12 +216,12 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
   scan_center.az_deg = -12.0f;
   scan_center.el_deg = 6.0f;
 
-  config::RadarSessionConfig config =
-      config::RadarSessionConfigBuilder()
+  config::ArSessionConfig config =
+      config::ArSessionConfigBuilder()
           .Detection()
           .EnablePhysicsDetection(true)
           .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
-          .WithHardwareProfile(config::profiles::RadarHardwareProfile::kLongRangeHighPower)
+          .WithHardwareProfile(config::profiles::ArHardwareProfile::kLongRangeHighPower)
           .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kLowSidelobe)
           .End()
           .Lifecycle()
@@ -243,7 +243,7 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
 
   config::EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
-  config::RadarEnvironmentConfig env;
+  config::ArEnvironmentConfig env;
   env.scenario_config = scenario;
   EXPECT_TRUE(env.scenario_config.atmospheric_physics.enable_physical_model);
 }

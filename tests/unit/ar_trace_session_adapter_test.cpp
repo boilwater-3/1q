@@ -18,11 +18,11 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
-#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/session/RadarCycleInput.h"
-#include "1q/airborne_radar/session/RadarReplaySession.h"
-#include "1q/airborne_radar/session/RadarTraceSession.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
+#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
+#include "1q/airborne_radar/session/ArReplaySession.h"
+#include "1q/airborne_radar/session/ArTraceSession.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
@@ -116,17 +116,17 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
       new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-  config::RadarSessionConfig config = config::RadarSessionConfigBuilder().Build();
-  session::RadarTraceSessionOptions options;
+  config::ArSessionConfig config = config::ArSessionConfigBuilder().Build();
+  session::ArTraceSessionOptions options;
   options.replay_writer = replay_writer;
   options.trace_config_on_construct = true;
 
-  session::RadarTraceSession session(config, options);
-  session::RadarCycleInput input;
+  session::ArTraceSession session(config, options);
+  session::ArCycleInput input;
   input.cycle_index = 11U;
   input.dt_sec = 1.0f;
 
-  session::RadarSceneTarget target;
+  session::ArSceneTarget target;
   target.external_target_id = 2001U;
   target.velocity_x = 120.0f;
   target.velocity_y = 0.0f;
@@ -138,7 +138,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   target.position_z = 100.0f;
   input.scene.push_back(target);
 
-  const session::RadarCycleResult result = session.StepWithResult(input);
+  const session::ArCycleResult result = session.StepWithResult(input);
   EXPECT_GE(result.track_output_frame.tracks.size(), 0U);
 
   const std::string content = ReadFile(trace_dir + "/events/000000.events.jsonl");
@@ -174,7 +174,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
       EXPECT_EQ(event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(event.payload_bytes.empty());
       EXPECT_TRUE(event.payload_hash_matches);
-      session::RadarCycleResult decoded_result;
+      session::ArCycleResult decoded_result;
       std::string decode_error;
       EXPECT_TRUE(
           session::DecodeCycleResultFlatbuffer(event.payload_bytes, &decoded_result, &decode_error))
@@ -206,19 +206,19 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-    session::RadarTraceSessionOptions options;
+    session::ArTraceSessionOptions options;
     options.replay_writer = replay_writer;
     options.trace_config_on_construct = true;
 
-    config::RadarSessionConfig config;
+    config::ArSessionConfig config;
     config.policy.lifecycle.confirm_hits = 1U;
     config.policy.lifecycle.max_miss_before_lost = 1U;
     config.policy.tracking.enable_kalman_filter = false;
     config.mission.orientation.scan_center_deg.az_deg = 12.5f;
     config.hardware.min_detection_margin_db = -25.0f;
-    session::RadarTraceSession session(config, options);
+    session::ArTraceSession session(config, options);
 
-    config::RadarRuntimeConfigPatch runtime_patch;
+    config::ArRuntimeConfigPatch runtime_patch;
     runtime_patch.has_policy = true;
     runtime_patch.policy = config.policy;
     runtime_patch.policy.tracking.kalman_measurement_noise_std = expected_kalman_noise_std;
@@ -238,10 +238,10 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
         0.4f;
     session.ApplyRuntimeConfig(runtime_patch);
 
-    session::RadarCycleInput input;
+    session::ArCycleInput input;
     input.dt_sec = 1.0f;
 
-    session::RadarSceneTarget target;
+    session::ArSceneTarget target;
     target.external_target_id = 2002U;
     target.velocity_x = 80.0f;
     target.velocity_y = 1.0f;
@@ -264,7 +264,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     jammer.position_z = 349.21f;     // range 10000m * tan(2 deg)
     input.environment.jammer_sources.push_back(jammer);
 
-    const session::RadarCycleResult result = session.StepWithResult(input);
+    const session::ArCycleResult result = session.StepWithResult(input);
     EXPECT_GE(result.track_output_frame.tracks.size(), 0U);
     replay_writer->Flush();
   }
@@ -295,7 +295,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
       EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(replay_event.payload_bytes.empty());
       EXPECT_TRUE(replay_event.payload_hash_matches);
-      config::RadarRuntimeConfigPatch decoded_patch;
+      config::ArRuntimeConfigPatch decoded_patch;
       std::string decode_error;
       EXPECT_TRUE(session::DecodeRuntimeConfigPatchFlatbuffer(replay_event.payload_bytes,
                                                               &decoded_patch, &decode_error))
@@ -315,7 +315,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
       EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(replay_event.payload_bytes.empty());
       EXPECT_TRUE(replay_event.payload_hash_matches);
-      session::RadarCycleResult decoded_result;
+      session::ArCycleResult decoded_result;
       std::string decode_error;
       EXPECT_TRUE(session::DecodeCycleResultFlatbuffer(replay_event.payload_bytes, &decoded_result,
                                                        &decode_error))
@@ -329,7 +329,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   EXPECT_TRUE(saw_runtime_patch);
   EXPECT_TRUE(saw_cycle_output);
 
-  const session::RadarReplaySessionResult replay_result = session::ReplayRadarTrace(trace_dir);
+  const session::ArReplaySessionResult replay_result = session::ReplayArTrace(trace_dir);
   EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
   EXPECT_TRUE(replay_result.report.replay_ready);
   EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
@@ -350,17 +350,17 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionUsesInputCycleIndexForValidationF
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
       new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-  session::RadarTraceSessionOptions options;
+  session::ArTraceSessionOptions options;
   options.replay_writer = replay_writer;
   options.trace_config_on_construct = true;
 
-  config::RadarSessionConfig config;
-  session::RadarTraceSession session(config, options);
+  config::ArSessionConfig config;
+  session::ArTraceSession session(config, options);
 
-  session::RadarCycleInput input;
+  session::ArCycleInput input;
   input.cycle_index = 77U;
   input.dt_sec = -1.0f;
-  const session::RadarCycleResult result = session.StepWithResult(input);
+  const session::ArCycleResult result = session.StepWithResult(input);
   EXPECT_TRUE(result.has_validation_error);
   EXPECT_EQ(result.input_cycle_index, 77U);
   replay_writer->Flush();
@@ -380,7 +380,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionUsesInputCycleIndexForValidationF
       saw_cycle_output = true;
       EXPECT_TRUE(replay_event.has_cycle_index);
       EXPECT_EQ(replay_event.cycle_index, 77U);
-      session::RadarCycleResult decoded_result;
+      session::ArCycleResult decoded_result;
       std::string decode_error;
       EXPECT_TRUE(session::DecodeCycleResultFlatbuffer(replay_event.payload_bytes, &decoded_result,
                                                        &decode_error))
@@ -415,16 +415,16 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
     std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
         new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-    session::RadarTraceSessionOptions options;
+    session::ArTraceSessionOptions options;
     options.replay_writer = replay_writer;
     options.trace_config_on_construct = true;
 
-    config::RadarSessionConfig config;
-    session::RadarTraceSession session(config, options);
+    config::ArSessionConfig config;
+    session::ArTraceSession session(config, options);
 
-    session::RadarCycleInput input;
+    session::ArCycleInput input;
     input.dt_sec = 1.0f;
-    const session::RadarCycleResult result = session.StepWithResult(input);
+    const session::ArCycleResult result = session.StepWithResult(input);
     EXPECT_GE(result.track_output_frame.tracks.size(), 0U);
 
     oneq::replay::ReplayTraceFailure failure;
@@ -437,7 +437,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
     replay_writer->Flush();
   }
 
-  const session::RadarReplaySessionResult replay_result = session::ReplayRadarTrace(trace_dir);
+  const session::ArReplaySessionResult replay_result = session::ReplayArTrace(trace_dir);
   EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
   EXPECT_TRUE(replay_result.report.has_failure_marker);
   EXPECT_TRUE(replay_result.reached_failure_marker);
@@ -458,12 +458,12 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionStepWritesResultFailureMarker) {
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
       new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-  session::RadarTraceSessionOptions options;
+  session::ArTraceSessionOptions options;
   options.replay_writer = replay_writer;
   options.trace_config_on_construct = true;
-  session::RadarTraceSession session(config::RadarSessionConfig(), options);
+  session::ArTraceSession session(config::ArSessionConfig(), options);
 
-  session::RadarCycleInput input;
+  session::ArCycleInput input;
   input.cycle_index = 91U;
   input.dt_sec = -1.0f;
   (void)session.Step(input);
@@ -476,7 +476,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionStepWritesResultFailureMarker) {
   while (replay_reader.ReadNextEvent(&replay_event)) {
     if (replay_event.event_type == "cycle_output") {
       EXPECT_EQ(replay_event.payload_type, "ArCycleResult");
-      session::RadarCycleResult decoded_result;
+      session::ArCycleResult decoded_result;
       std::string decode_error;
       ASSERT_TRUE(session::DecodeCycleResultFlatbuffer(replay_event.payload_bytes, &decoded_result,
                                                        &decode_error))
@@ -504,21 +504,21 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionConsecutiveStepWithResultDoesNotE
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
       new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
 
-  session::RadarTraceSessionOptions options;
+  session::ArTraceSessionOptions options;
   options.replay_writer = replay_writer;
   options.trace_config_on_construct = true;
-  session::RadarTraceSession session(config::RadarSessionConfig(), options);
+  session::ArTraceSession session(config::ArSessionConfig(), options);
 
-  session::RadarCycleInput input1;
+  session::ArCycleInput input1;
   input1.cycle_index = 1U;
   input1.dt_sec = 1.0f;
-  const session::RadarCycleResult result1 = session.StepWithResult(input1);
+  const session::ArCycleResult result1 = session.StepWithResult(input1);
   EXPECT_GE(result1.track_output_frame.tracks.size(), 0U);
 
-  session::RadarCycleInput input2;
+  session::ArCycleInput input2;
   input2.cycle_index = 2U;
   input2.dt_sec = 1.0f;
-  const session::RadarCycleResult result2 = session.StepWithResult(input2);
+  const session::ArCycleResult result2 = session.StepWithResult(input2);
   EXPECT_GE(result2.track_output_frame.tracks.size(), 0U);
 
   replay_writer->Flush();
@@ -561,10 +561,10 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionRejectsTrailingCycleInput) {
   config_event.payload_type = "ArSessionConfig";
   config_event.payload_encoding = "flatbuffers";
   config_event.payload_bytes =
-      session::EncodeSessionConfigFlatbuffer(config::RadarSessionConfig());
+      session::EncodeSessionConfigFlatbuffer(config::ArSessionConfig());
   writer.WriteEvent(config_event);
 
-  session::RadarCycleInput input;
+  session::ArCycleInput input;
   input.cycle_index = 3U;
   input.dt_sec = 1.0f;
   oneq::replay::ReplayTraceEvent input_event;
@@ -578,7 +578,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionRejectsTrailingCycleInput) {
   writer.WriteEvent(input_event);
   writer.Flush();
 
-  const session::RadarReplaySessionResult replay_result = session::ReplayRadarTrace(trace_dir);
+  const session::ArReplaySessionResult replay_result = session::ReplayArTrace(trace_dir);
 
   EXPECT_FALSE(replay_result.ok);
   EXPECT_NE(replay_result.first_error.find("pending cycle_input"), std::string::npos);

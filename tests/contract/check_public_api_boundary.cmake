@@ -18,16 +18,6 @@ set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/config/ArSessionConfigBuilder.h"
     "airborne_radar/config/ArSessionConfigValidation.h"
     "airborne_radar/config/ArOrientationConfig.h"
-    "airborne_radar/config/RadarHardwareConfig.h"
-    "airborne_radar/config/RadarMissionConfig.h"
-    "airborne_radar/config/RadarPolicyConfig.h"
-    "airborne_radar/config/RadarEnvironmentConfig.h"
-    "airborne_radar/config/RadarSessionConfig.h"
-    "airborne_radar/config/RadarRuntimeConfigPatch.h"
-    "airborne_radar/config/RadarRuntimeConfigBuilder.h"
-    "airborne_radar/config/RadarSessionConfigBuilder.h"
-    "airborne_radar/config/RadarSessionConfigValidation.h"
-    "airborne_radar/config/RadarOrientationConfig.h"
     "airborne_radar/config/JammingSemantics.h"
     "airborne_radar/config/airborne_radar_config.hpp"
 )
@@ -51,25 +41,8 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/ArTraceSession.h"
     "airborne_radar/session/ArCommand.h"
     "airborne_radar/session/ArControlProfile.h"
-    "airborne_radar/session/RadarCycleInput.h"
-    "airborne_radar/session/RadarCycleInputAdapter.h"
-    "airborne_radar/session/RadarCycleOutputAdapter.h"
-    "airborne_radar/session/RadarCycleResult.h"
-    "airborne_radar/session/RadarEnvironmentInput.h"
-    "airborne_radar/session/RadarExternalInputAdapter.h"
-    "airborne_radar/session/RadarExternalOutputAdapter.h"
-    "airborne_radar/session/RadarInputValidation.h"
-    "airborne_radar/session/RadarOutputTypes.h"
-    "airborne_radar/session/RadarSceneTypes.h"
-    "airborne_radar/session/RadarReplaySession.h"
-    "airborne_radar/session/RadarTrackLifecycleRecorder.h"
-    "airborne_radar/session/RadarTrackOutputDebugView.h"
-    "airborne_radar/session/RadarSession.h"
-    "airborne_radar/session/RadarTraceSession.h"
     "airborne_radar/session/ITacticalDecisionEngine.h"
     "airborne_radar/session/ControlDirective.h"
-    "airborne_radar/session/RadarCommand.h"
-    "airborne_radar/session/RadarControlProfile.h"
     "airborne_radar/session/DecisionInputFrame.h"
     "airborne_radar/session/DecisionSourceInfo.h"
     "airborne_radar/session/TrackStateSnapshot.h"
@@ -337,8 +310,8 @@ foreach(HEADER IN LISTS ACTUAL_PUBLIC_HEADERS)
 endforeach()
 
 set(AR_CONFIG_HEADERS_NO_EXPERT_NAMESPACE
-    "airborne_radar/config/RadarHardwareConfig.h"
-    "airborne_radar/config/RadarPolicyConfig.h")
+    "airborne_radar/config/ArHardwareConfig.h"
+    "airborne_radar/config/ArPolicyConfig.h")
 
 foreach(HEADER IN LISTS AR_CONFIG_HEADERS_NO_EXPERT_NAMESPACE)
   file(READ "${PUBLIC_INCLUDE_DIR}/${HEADER}" AR_CONFIG_HEADER_CONTENT)
@@ -348,44 +321,44 @@ foreach(HEADER IN LISTS AR_CONFIG_HEADERS_NO_EXPERT_NAMESPACE)
   endif()
 endforeach()
 
-set(RADAR_SESSION_BUILDER_HEADER
-    "${PUBLIC_INCLUDE_DIR}/airborne_radar/config/RadarSessionConfigBuilder.h")
-file(READ "${RADAR_SESSION_BUILDER_HEADER}" RADAR_SESSION_BUILDER_CONTENT)
+set(AR_SESSION_BUILDER_HEADER
+    "${PUBLIC_INCLUDE_DIR}/airborne_radar/config/ArSessionConfigBuilder.h")
+file(READ "${AR_SESSION_BUILDER_HEADER}" AR_SESSION_BUILDER_CONTENT)
 
 set(FORBIDDEN_BUILDER_METHOD_PATTERNS
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithDetection[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithBeamControl[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithTracking[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithLifecycle[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithEnvironmentDefault[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*EnablePhysicsDetection[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithMinDetectionMarginDb[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithPulseCount[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithTransmitterConfig[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithAntennaConfig[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithReceiverConfig[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithDetectionPolicy[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithPeakPowerW[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithFrequencyHz[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithBandwidthHz[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithPulseWidthS[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithPrfHz[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithMainBeamGainDb[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithNoiseFigureDb[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithWorkMode[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithScanCenterDeg[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithDwellCenterDeg[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*EnableCommandedBeamwidth[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithCommandedBeamwidthDeg[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithLifecycleConfirmHits[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithLifecycleMaxMissBeforeLost[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithLifecycleMaxLostCycles[ \t]*\\("
-    "RadarSessionConfigBuilder[ \t]*&[ \t]*WithJammingDetectionThresholdDb[ \t]*\\(")
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithDetection[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithBeamControl[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithTracking[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithLifecycle[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithEnvironmentDefault[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*EnablePhysicsDetection[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithMinDetectionMarginDb[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithPulseCount[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithTransmitterConfig[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithAntennaConfig[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithReceiverConfig[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithDetectionPolicy[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithPeakPowerW[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithFrequencyHz[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithBandwidthHz[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithPulseWidthS[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithPrfHz[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithMainBeamGainDb[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithNoiseFigureDb[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithWorkMode[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithScanCenterDeg[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithDwellCenterDeg[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*EnableCommandedBeamwidth[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithCommandedBeamwidthDeg[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithLifecycleConfirmHits[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithLifecycleMaxMissBeforeLost[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithLifecycleMaxLostCycles[ \t]*\\("
+    "ArSessionConfigBuilder[ \t]*&[ \t]*WithJammingDetectionThresholdDb[ \t]*\\(")
 
 foreach(FORBIDDEN_PATTERN IN LISTS FORBIDDEN_BUILDER_METHOD_PATTERNS)
-  if(RADAR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
+  if(AR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
     message(FATAL_ERROR
-            "Legacy top-level RadarSessionConfigBuilder API reintroduced: ${FORBIDDEN_PATTERN}\n"
+            "Legacy top-level ArSessionConfigBuilder API reintroduced: ${FORBIDDEN_PATTERN}\n"
             "Use grouped editors only: Detection()/Beam()/Tracking()/Lifecycle()/Environment().")
   endif()
 endforeach()
@@ -400,10 +373,10 @@ set(AR_FORBIDDEN_SESSION_METHOD_PATTERNS
     "Validate[ \t]*\\(")
 
 foreach(FORBIDDEN_PATTERN IN LISTS AR_FORBIDDEN_SESSION_METHOD_PATTERNS)
-  if(RADAR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
+  if(AR_SESSION_BUILDER_CONTENT MATCHES "${FORBIDDEN_PATTERN}")
     message(FATAL_ERROR
-            "Direct RadarSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
-            "Use semantic profiles in RadarSessionConfigBuilder and direct RadarSessionConfig fields for leaf overrides.")
+            "Direct ArSessionConfigBuilder editor reintroduced: ${FORBIDDEN_PATTERN}\n"
+            "Use semantic profiles in ArSessionConfigBuilder and direct ArSessionConfig fields for leaf overrides.")
   endif()
 endforeach()
 

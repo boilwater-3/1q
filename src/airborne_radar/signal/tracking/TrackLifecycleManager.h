@@ -74,7 +74,7 @@ class TrackLifecycleManager : public ITrackLifecycleManager {
    * @brief 导出供外围事件链路消费的轻量目标特征快照。
    * @return 可直接用于外部状态广播的目标特征列表。
    */
-  session::RadarSceneTargetList BuildSceneTargetSnapshot() const override;
+  session::ArSceneTargetList BuildSceneTargetSnapshot() const override;
   /**
    * @brief 导出供决策层消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的决策快照列表。

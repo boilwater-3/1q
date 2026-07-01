@@ -17,7 +17,7 @@ namespace pipeline {
 
 bool HasMultiSourceJammingFacts(const session::EnvironmentSnapshot& environment_snapshot);
 
-float ComputeResidualJammerFactor(const session::RadarControlProfile& control_profile,
+float ComputeResidualJammerFactor(const session::ArControlProfile& control_profile,
                                   const session::JammerSourceFact& jammer_source);
 
 float ComputeHeuristicSourcePenaltyDb(
@@ -34,19 +34,19 @@ float ComputePhysicalSourceJamContributionW(
 
 float ComputeMeasurementCovarianceInflation(
     const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
-    const session::RadarControlProfile& control_profile,
+    const session::ArControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot);
 
 config::JammingSemantic ResolveDominantJammingSemantic(
-    const session::RadarControlProfile& control_profile,
+    const session::ArControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot);
 
 float ComputeTrackLevelJammingSeverity(
-    const session::RadarControlProfile& control_profile,
+    const session::ArControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot);
 
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
-    const session::RadarControlProfile& control_profile,
+    const session::ArControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot, ExecutionConfig* runtime_config);
 
 

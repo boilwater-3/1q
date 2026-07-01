@@ -12,14 +12,14 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/session/RadarCommand.h"
-#include "1q/airborne_radar/session/RadarControlProfile.h"
-#include "1q/airborne_radar/session/RadarCycleResult.h"
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
-#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/session/ArCommand.h"
+#include "1q/airborne_radar/session/ArControlProfile.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
+#include "1q/airborne_radar/session/ArSceneTypes.h"
+#include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/runtime/ArController.h"
@@ -33,19 +33,19 @@ namespace tests {
 
 namespace {
 
-session::RadarSceneTargetList BuildSingleTarget(float speed, float rcs, bool jamming) {
+session::ArSceneTargetList BuildSingleTarget(float speed, float rcs, bool jamming) {
   (void)jamming;
-  session::RadarSceneTarget target(speed, 0.0f, 0.0f, rcs);
+  session::ArSceneTarget target(speed, 0.0f, 0.0f, rcs);
 
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  return session::RadarSceneTargetList{target};
+  return session::ArSceneTargetList{target};
 }
 
-config::RadarSessionConfig MakeDetectionFocusedConfig() {
-  return config::RadarSessionConfigBuilder()
+config::ArSessionConfig MakeDetectionFocusedConfig() {
+  return config::ArSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
       .End()
@@ -70,7 +70,7 @@ config::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_power_
 
 }  // namespace
 
-using FakeRadarContext = session::MutableRadarContext;
+using FakeRadarContext = session::MutableArContext;
 
 class FixedDirectiveDecisionEngine : public session::ITacticalDecisionEngine {
  public:
@@ -122,7 +122,7 @@ class CoreControllerTest : public ::testing::Test {};
 
 class AbortingSignalPipeline : public signal::ISignalPipeline {
  public:
-  session::SignalCycleResult RunCycle(const session::RadarSceneTargetList&,
+  session::SignalCycleResult RunCycle(const session::ArSceneTargetList&,
                                       const environment::IEnvironmentService&) override {
     session::SignalCycleResult result;
     result.executed_this_cycle = should_execute_;
@@ -140,13 +140,13 @@ class AbortingSignalPipeline : public signal::ISignalPipeline {
     return platform_attitude_deg_;
   }
 
-  void SetControlProfile(const session::RadarControlProfile& control_profile) override {
+  void SetControlProfile(const session::ArControlProfile& control_profile) override {
     control_profile_ = control_profile;
   }
 
-  session::RadarControlProfile GetControlProfile() const override { return control_profile_; }
+  session::ArControlProfile GetControlProfile() const override { return control_profile_; }
 
-  bool UpdateConfig(const config::RadarSessionConfig& config) override {
+  bool UpdateConfig(const config::ArSessionConfig& config) override {
     config_ = config;
     return true;
   }
@@ -188,26 +188,26 @@ class AbortingSignalPipeline : public signal::ISignalPipeline {
  private:
   struct RuntimeState {
     config::PlatformAttitudeDeg platform_attitude_deg{};
-    session::RadarControlProfile control_profile{};
-    config::RadarSessionConfig config{};
+    session::ArControlProfile control_profile{};
+    config::ArSessionConfig config{};
     bool should_execute{false};
   };
 
   config::PlatformAttitudeDeg platform_attitude_deg_{};
-  session::RadarControlProfile control_profile_{};
-  config::RadarSessionConfig config_{};
+  session::ArControlProfile control_profile_{};
+  config::ArSessionConfig config_{};
   bool should_execute_{false};
 };
 
 TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service(BuildJammingEnvironmentConfig(12.0f));
 
   signal::pipeline::SignalPipeline signal_pipeline;
 
-  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
 
@@ -216,7 +216,7 @@ TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
 }
 
 TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
   config::PlatformAttitudeDeg platform_attitude_deg;
   platform_attitude_deg.yaw_deg = 18.0f;
@@ -227,7 +227,7 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
 
@@ -239,7 +239,7 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
 }
 
 TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecision) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
@@ -260,7 +260,7 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
 
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
-  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
+  extension::ArController controller(radar_context, signal_pipeline, decision_engine,
                                         environment_service);
 
   controller.RunOnce();
@@ -286,13 +286,13 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
 }
 
 TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
-  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
+  extension::ArController controller(radar_context, signal_pipeline, decision_engine,
                                         environment_service);
 
   controller.RunOnce();
@@ -321,7 +321,7 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
 }
 
 TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   config::EnvironmentModelConfig env_config;
@@ -339,7 +339,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
 
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
-  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
+  extension::ArController controller(radar_context, signal_pipeline, decision_engine,
                                         environment_service);
 
   controller.RunOnce();
@@ -370,7 +370,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
 }
 
 TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFirstCycle) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(640.0f, 1.5f, false);
+  const session::ArSceneTargetList input_state = BuildSingleTarget(640.0f, 1.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
@@ -378,7 +378,7 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
 
-  extension::RadarController controller(radar_context, signal_pipeline, decision_engine,
+  extension::ArController controller(radar_context, signal_pipeline, decision_engine,
                                         environment_service);
 
   controller.RunOnce();
@@ -399,13 +399,13 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
 }
 
 TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const session::ArSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   EXPECT_FALSE(controller.HasLatestTrackOutputFrame());
 
@@ -422,14 +422,14 @@ TEST_F(CoreControllerTest, PublicOutputReaderApiExposesLatestTrackOutputFrame) {
 }
 
 TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmission) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const session::ArSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
   radar_context.SetCycleDeltaTimeSec(std::numeric_limits<float>::quiet_NaN());
 
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
 
@@ -443,11 +443,11 @@ TEST_F(CoreControllerTest, RuntimeValidationErrorsAreExposedAndSkipCommandSubmis
 }
 
 TEST_F(CoreControllerTest, FirstCycleSignalPipelineAbortDoesNotPublishSyntheticLatestFrame) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const session::ArSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
   environment::EnvironmentService environment_service;
   AbortingSignalPipeline signal_pipeline;
-  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
 
@@ -456,20 +456,20 @@ TEST_F(CoreControllerTest, FirstCycleSignalPipelineAbortDoesNotPublishSyntheticL
 }
 
 TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const session::ArSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
 
-  const config::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
+  const config::ArSessionConfig session_config = MakeDetectionFocusedConfig();
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
-  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
   ASSERT_GT(previous_frame.tracks.size(), 0U);
-  const std::vector<session::RadarCommand> previous_commands = radar_context.SubmittedCommands();
+  const std::vector<session::ArCommand> previous_commands = radar_context.SubmittedCommands();
 
   radar_context.SetCycleDeltaTimeSec(0.0f);
   controller.RunOnce();
@@ -494,27 +494,27 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
 }
 
 TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFrame) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
+  const session::ArSceneTargetList input_state = BuildSingleTarget(510.0f, 1.0f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service;
 
-  const config::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
+  const config::ArSessionConfig session_config = MakeDetectionFocusedConfig();
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
-  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
   ASSERT_GT(previous_frame.tracks.size(), 0U);
-  const std::vector<session::RadarCommand> previous_commands = radar_context.SubmittedCommands();
+  const std::vector<session::ArCommand> previous_commands = radar_context.SubmittedCommands();
 
-  session::RadarSceneTarget duplicate_a = input_state.front();
+  session::ArSceneTarget duplicate_a = input_state.front();
   duplicate_a.external_target_id = 42U;
-  session::RadarSceneTarget duplicate_b = duplicate_a;
+  session::ArSceneTarget duplicate_b = duplicate_a;
   duplicate_b.position_x += 50.0f;
   duplicate_b.range_m += 50.0f;
-  radar_context.SetSceneTargets(session::RadarSceneTargetList{duplicate_a, duplicate_b});
+  radar_context.SetSceneTargets(session::ArSceneTargetList{duplicate_a, duplicate_b});
 
   controller.RunOnce();
 
@@ -538,14 +538,14 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
 }
 
 TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline) {
-  const session::RadarSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
+  const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
   environment::EnvironmentService environment_service(BuildJammingEnvironmentConfig(12.0f));
 
   signal::pipeline::SignalPipeline signal_pipeline;
 
-  extension::RadarController controller(radar_context, signal_pipeline, environment_service);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
   EXPECT_EQ(signal_pipeline.GetControlProfile().version, 0u);

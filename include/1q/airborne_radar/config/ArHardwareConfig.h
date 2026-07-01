@@ -3,7 +3,6 @@
  * @brief AR module primary hardware configuration types.
  *
  * Primary header for hardware domain configuration.
- * Include this for new code; RadarHardwareConfig.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_HARDWARE_CONFIG_H_
@@ -207,12 +206,6 @@ using detection::DetectionConfig;
 
 /** @brief 雷达硬件域配置——DetectionConfig 别名。 */
 using ArHardwareConfig = detection::DetectionConfig;
-
-// 兼容别名：旧名称在 wrapper 阶段保留。
-namespace profiles {
-using RadarHardwareProfile = ArHardwareProfile;
-}  // namespace profiles
-using RadarHardwareConfig = ArHardwareConfig;
 
 }  // namespace config
 }  // namespace airborne_radar

@@ -65,7 +65,7 @@ bool IsEccmDirective(session::ControlDirectiveType type) {
  * @param profile 当前控制真值。
  * @return LPI 任一子域生效时返回 true。
  */
-bool IsLpiDomainActive(const session::RadarControlProfile& profile) {
+bool IsLpiDomainActive(const session::ArControlProfile& profile) {
   return profile.enable_lpi_power_control || profile.enable_lpi_beamforming ||
          profile.lpi_dwell_scale != 1.0f;
 }
@@ -74,7 +74,7 @@ bool IsLpiDomainActive(const session::RadarControlProfile& profile) {
  * @param profile 当前控制真值。
  * @return ECCM 任一子域生效时返回 true。
  */
-bool IsEccmDomainActive(const session::RadarControlProfile& profile) {
+bool IsEccmDomainActive(const session::ArControlProfile& profile) {
   return profile.enable_agility_frequency || profile.enable_sidelobe_canceller ||
          profile.enable_adaptive_beamforming || profile.enable_eccm_rejitter ||
          profile.eccm_burnthrough_gain > 1.0f;
@@ -83,7 +83,7 @@ bool IsEccmDomainActive(const session::RadarControlProfile& profile) {
  * @brief 将控制真值中的 LPI 域恢复为默认关闭态。
  * @param profile 待修改的控制真值。
  */
-void ResetLpiDomain(session::RadarControlProfile* profile) {
+void ResetLpiDomain(session::ArControlProfile* profile) {
   if (profile == nullptr) {
     return;
   }
@@ -96,7 +96,7 @@ void ResetLpiDomain(session::RadarControlProfile* profile) {
  * @brief 将控制真值中的 ECCM 域恢复为默认关闭态。
  * @param profile 待修改的控制真值。
  */
-void ResetEccmDomain(session::RadarControlProfile* profile) {
+void ResetEccmDomain(session::ArControlProfile* profile) {
   if (profile == nullptr) {
     return;
   }
@@ -113,8 +113,8 @@ void ResetEccmDomain(session::RadarControlProfile* profile) {
  * @param from 源控制真值。
  * @param to 目标控制真值。
  */
-void CopyLpiDomain(const session::RadarControlProfile& from,
-                   session::RadarControlProfile* to) {
+void CopyLpiDomain(const session::ArControlProfile& from,
+                   session::ArControlProfile* to) {
   if (to == nullptr) {
     return;
   }
@@ -129,8 +129,8 @@ void CopyLpiDomain(const session::RadarControlProfile& from,
  * @param from 源控制真值。
  * @param to 目标控制真值。
  */
-void CopyEccmDomain(const session::RadarControlProfile& from,
-                    session::RadarControlProfile* to) {
+void CopyEccmDomain(const session::ArControlProfile& from,
+                    session::ArControlProfile* to) {
   if (to == nullptr) {
     return;
   }
@@ -147,8 +147,8 @@ void CopyEccmDomain(const session::RadarControlProfile& from,
  * @param previous 上一周期控制真值。
  * @param next 当前周期候选控制真值。
  */
-void AdvanceAgilityFrequencyHopPhase(const session::RadarControlProfile& previous,
-                                     session::RadarControlProfile* next) {
+void AdvanceAgilityFrequencyHopPhase(const session::ArControlProfile& previous,
+                                     session::ArControlProfile* next) {
   if (next == nullptr || !next->enable_agility_frequency) {
     if (next != nullptr) {
       next->agility_frequency_hop_phase = 0U;
@@ -173,7 +173,7 @@ void AdvanceAgilityFrequencyHopPhase(const session::RadarControlProfile& previou
  */
 void ApplyDirectiveToProfile(const extension::ControlReducerConfig& config,
                              const session::ControlDirective& directive,
-                             session::RadarControlProfile* profile,
+                             session::ArControlProfile* profile,
                              std::vector<session::ControlDirective>* applied,
                              std::vector<session::ControlDirective>* rejected) {
   if (profile == nullptr || applied == nullptr || rejected == nullptr) {
@@ -252,7 +252,7 @@ void MoveAppliedDirectiveToRejected(session::ControlDirectiveType type,
  * @param rejected 已拒绝的控制意图列表。
  */
 void ResolveEmissionSurvivabilityConflict(
-    const extension::ControlReducerConfig& config, session::RadarControlProfile* profile,
+    const extension::ControlReducerConfig& config, session::ArControlProfile* profile,
     std::vector<session::ControlDirective>* applied,
     std::vector<session::ControlDirective>* rejected) {
   if (profile == nullptr) {
@@ -287,8 +287,8 @@ void ResolveEmissionSurvivabilityConflict(
  * @param next 当前周期控制真值。
  * @return 任一运行时控制字段发生变化时返回 true。
  */
-bool HasOperationalProfileChanged(const session::RadarControlProfile& previous,
-                                  const session::RadarControlProfile& next) {
+bool HasOperationalProfileChanged(const session::ArControlProfile& previous,
+                                  const session::ArControlProfile& next) {
   return previous.enable_lpi_power_control != next.enable_lpi_power_control ||
          previous.lpi_power_scale != next.lpi_power_scale ||
          previous.enable_lpi_beamforming != next.enable_lpi_beamforming ||
@@ -318,11 +318,11 @@ ControlReducerRuntimeState ControlReducer::GetRuntimeState() const {
 }
 
 extension::ControlReductionResult ControlReducer::Reduce(
-    const session::RadarControlProfile& previous_profile,
+    const session::ArControlProfile& previous_profile,
     const std::vector<session::TacticalProposal>& proposals) {
   extension::ControlReductionResult result;
   result.profile = previous_profile;
-  session::RadarControlProfile next_profile = previous_profile;
+  session::ArControlProfile next_profile = previous_profile;
   std::vector<session::TacticalProposal> sorted_proposals = proposals;
   std::stable_sort(sorted_proposals.begin(), sorted_proposals.end(), CompareProposalPriority);
 

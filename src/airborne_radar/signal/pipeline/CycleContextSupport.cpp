@@ -9,7 +9,7 @@ namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 
-void ResetCycleExecutionScratch(const session::RadarSceneTargetList& input_state,
+void ResetCycleExecutionScratch(const session::ArSceneTargetList& input_state,
                                 CycleExecutionScratch& scratch) {
   const std::size_t target_count = input_state.size();
   scratch.output_state.resize(target_count);

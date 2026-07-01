@@ -9,9 +9,9 @@
 #include <initializer_list>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarHardwareConfig.h"
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
+#include "1q/airborne_radar/config/ArHardwareConfig.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
+#include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
@@ -22,7 +22,7 @@ namespace tests {
 
 namespace {
 
-float SpeedOf(const session::RadarSceneTarget& target) {
+float SpeedOf(const session::ArSceneTarget& target) {
   return std::sqrt(target.velocity_x * target.velocity_x + target.velocity_y * target.velocity_y +
                    target.velocity_z * target.velocity_z);
 }
@@ -46,7 +46,7 @@ session::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_index)
 
 template <typename PipelineType>
 session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
-                                              const session::RadarSceneTargetList& input_state,
+                                              const session::ArSceneTargetList& input_state,
                                               environment::EnvironmentService* environment_service,
                                               std::uint32_t cycle_index = 1u) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
@@ -70,7 +70,7 @@ config::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
   return config;
 }
 
-void ApplyDetectionIntentProfile(config::RadarSessionConfig* config,
+void ApplyDetectionIntentProfile(config::ArSessionConfig* config,
                                  config::profiles::DetectionIntentProfile profile) {
   if (config == nullptr) {
     return;
@@ -96,7 +96,7 @@ void ApplyDetectionIntentProfile(config::RadarSessionConfig* config,
   }
 }
 
-void ApplyLifecyclePolicyProfile(config::RadarSessionConfig* config,
+void ApplyLifecyclePolicyProfile(config::ArSessionConfig* config,
                                  config::profiles::LifecyclePolicyProfile profile) {
   if (config == nullptr) {
     return;
@@ -123,14 +123,14 @@ void ApplyLifecyclePolicyProfile(config::RadarSessionConfig* config,
 
 TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
   signal::tracking::TrackFilter filter;
-  const session::RadarSceneTarget input(800.0f, 0.0f, 0.0f, 2.5f);
+  const session::ArSceneTarget input(800.0f, 0.0f, 0.0f, 2.5f);
 
   signal::tracking::TrackFilterContext context;
   context.detection_succeeded = true;
   context.jamming_detected = false;
   context.detection_margin_db = 0.0f;
 
-  const session::RadarSceneTarget output = filter.Filter(input, context);
+  const session::ArSceneTarget output = filter.Filter(input, context);
 
   EXPECT_FLOAT_EQ(SpeedOf(output), SpeedOf(input));
   EXPECT_FLOAT_EQ(output.rcs, input.rcs);
@@ -138,14 +138,14 @@ TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
 
 TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
   signal::tracking::TrackFilter filter;
-  const session::RadarSceneTarget input(800.0f, 0.0f, 0.0f, 2.5f);
+  const session::ArSceneTarget input(800.0f, 0.0f, 0.0f, 2.5f);
 
   signal::tracking::TrackFilterContext context;
   context.detection_succeeded = false;
   context.jamming_detected = true;
   context.detection_margin_db = -10.0f;
 
-  const session::RadarSceneTarget output = filter.Filter(input, context);
+  const session::ArSceneTarget output = filter.Filter(input, context);
 
   EXPECT_LT(SpeedOf(output), SpeedOf(input));
   EXPECT_LT(output.rcs, input.rcs);
@@ -153,7 +153,7 @@ TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
 
 TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression) {
   signal::tracking::TrackFilter filter;
-  const session::RadarSceneTarget input(800.0f, 0.0f, 0.0f, 2.5f);
+  const session::ArSceneTarget input(800.0f, 0.0f, 0.0f, 2.5f);
 
   signal::tracking::TrackFilterContext noise_context;
   noise_context.detection_succeeded = false;
@@ -165,8 +165,8 @@ TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression
   signal::tracking::TrackFilterContext deception_context = noise_context;
   deception_context.dominant_jamming_semantic = config::JammingSemantic::kDeception;
 
-  const session::RadarSceneTarget noise_output = filter.Filter(input, noise_context);
-  const session::RadarSceneTarget deception_output = filter.Filter(input, deception_context);
+  const session::ArSceneTarget noise_output = filter.Filter(input, noise_context);
+  const session::ArSceneTarget deception_output = filter.Filter(input, deception_context);
 
   EXPECT_GT(SpeedOf(deception_output), SpeedOf(noise_output));
   EXPECT_GT(deception_output.rcs, noise_output.rcs);
@@ -175,7 +175,7 @@ TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression
 TEST(TrackFilterTest, DetectionSuccessPreservesSpeedAndRcs) {
   signal::tracking::TrackFilter filter;
 
-  session::RadarSceneTarget input(300.0f, 0.0f, 0.0f, 2.0f);
+  session::ArSceneTarget input(300.0f, 0.0f, 0.0f, 2.0f);
 
   input.position_x = 1000.0f;
   input.range_m = 1000.0f;
@@ -183,7 +183,7 @@ TEST(TrackFilterTest, DetectionSuccessPreservesSpeedAndRcs) {
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = true;
 
-  const session::RadarSceneTarget output = filter.Filter(input, ctx);
+  const session::ArSceneTarget output = filter.Filter(input, ctx);
 
   EXPECT_FLOAT_EQ(SpeedOf(output), 300.0f);
   EXPECT_FLOAT_EQ(output.rcs, 2.0f);
@@ -197,11 +197,11 @@ TEST(TrackFilterTest, DetectionMissDecaysSpeedByConfiguredRatio) {
   cfg.rcs_decay_ratio_on_loss = 1.0f;  // RCS 不衰减，隔离速度分支
   signal::tracking::TrackFilter filter(cfg);
 
-  session::RadarSceneTarget input(500.0f, 0.0f, 0.0f, 2.0f);
+  session::ArSceneTarget input(500.0f, 0.0f, 0.0f, 2.0f);
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const session::RadarSceneTarget output = filter.Filter(input, ctx);
+  const session::ArSceneTarget output = filter.Filter(input, ctx);
 
   EXPECT_FLOAT_EQ(SpeedOf(output), 400.0f);  // 500 * 0.8
 }
@@ -214,11 +214,11 @@ TEST(TrackFilterTest, DetectionMissDecaysRcsByConfiguredRatio) {
   cfg.rcs_decay_ratio_on_loss = 0.70f;
   signal::tracking::TrackFilter filter(cfg);
 
-  session::RadarSceneTarget input(100.0f, 0.0f, 0.0f, 2.0f);
+  session::ArSceneTarget input(100.0f, 0.0f, 0.0f, 2.0f);
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const session::RadarSceneTarget output = filter.Filter(input, ctx);
+  const session::ArSceneTarget output = filter.Filter(input, ctx);
 
   EXPECT_NEAR(output.rcs, 1.40f, 1e-4f);  // 2.0 * 0.7
 }
@@ -234,7 +234,7 @@ TEST(TrackFilterTest, ConsecutiveMissesMonotonicallyReduceSpeed) {
   signal::tracking::TrackFilterContext miss_ctx;
   miss_ctx.detection_succeeded = false;
 
-  session::RadarSceneTarget state(500.0f, 0.0f, 0.0f, 1.0f);
+  session::ArSceneTarget state(500.0f, 0.0f, 0.0f, 1.0f);
   float prev_speed = 500.0f;
   for (int i = 0; i < 5; ++i) {
     state = filter.Filter(state, miss_ctx);
@@ -252,11 +252,11 @@ TEST(TrackFilterTest, DecayRatioOnePreservesSpeedOnMiss) {
   cfg.rcs_decay_ratio_on_loss = 1.0f;
   signal::tracking::TrackFilter filter(cfg);
 
-  session::RadarSceneTarget input(400.0f, 0.0f, 0.0f, 1.5f);
+  session::ArSceneTarget input(400.0f, 0.0f, 0.0f, 1.5f);
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const session::RadarSceneTarget output = filter.Filter(input, ctx);
+  const session::ArSceneTarget output = filter.Filter(input, ctx);
 
   EXPECT_FLOAT_EQ(SpeedOf(output), 400.0f);
 }
@@ -269,11 +269,11 @@ TEST(TrackFilterTest, SpeedNeverGoesNegativeOnMiss) {
   cfg.rcs_decay_ratio_on_loss = 1.0f;
   signal::tracking::TrackFilter filter(cfg);
 
-  session::RadarSceneTarget input(300.0f, 0.0f, 0.0f, 1.0f);
+  session::ArSceneTarget input(300.0f, 0.0f, 0.0f, 1.0f);
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const session::RadarSceneTarget output = filter.Filter(input, ctx);
+  const session::ArSceneTarget output = filter.Filter(input, ctx);
 
   EXPECT_GE(SpeedOf(output), 0.0f);
 }
@@ -286,11 +286,11 @@ TEST(TrackFilterTest, RcsNeverGoesBelowMinimumOnMiss) {
   cfg.rcs_decay_ratio_on_loss = 0.0f;  // 衰减至 0
   signal::tracking::TrackFilter filter(cfg);
 
-  session::RadarSceneTarget input(100.0f, 0.0f, 0.0f, 0.01f);  // 极小 RCS
+  session::ArSceneTarget input(100.0f, 0.0f, 0.0f, 0.01f);  // 极小 RCS
   signal::tracking::TrackFilterContext ctx;
   ctx.detection_succeeded = false;
 
-  const session::RadarSceneTarget output = filter.Filter(input, ctx);
+  const session::ArSceneTarget output = filter.Filter(input, ctx);
 
   EXPECT_GE(output.rcs, 0.05f);
 }

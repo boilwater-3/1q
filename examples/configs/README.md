@@ -6,7 +6,7 @@
 
 | 文件 | 对应模块 | 说明 |
 | --- | --- | --- |
-| `airborne_radar.json` | 机载雷达 | 完整 `RadarSessionConfig`，约 85 个叶子字段 |
+| `airborne_radar.json` | 机载雷达 | 完整 `ArSessionConfig`，约 85 个叶子字段 |
 | `electro_optical.json` | 光电传感器 | 完整 `EosSessionConfig`，约 30 个叶子字段 |
 | `electronic_warfare.json` | 电子侦察 | 完整 `EsrSessionConfig`，约 40 个叶子字段 |
 

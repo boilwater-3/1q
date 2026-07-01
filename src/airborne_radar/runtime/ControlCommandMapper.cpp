@@ -59,7 +59,7 @@ session::ArCommand ToArCommand(
 }  // namespace
 
 ControlCommandMapper::ControlCommandMapper(
-    decision::ControlReducer& control_reducer, session::MutableRadarContext& radar_context)
+    decision::ControlReducer& control_reducer, session::MutableArContext& radar_context)
     : control_reducer_(control_reducer),
       radar_context_(radar_context) {}
 

@@ -54,7 +54,7 @@ float ResolveAxisStepDeg(float min_deg, float max_deg, float default_step_deg,
 }  // namespace
 
 config::AzimuthElevationDeg ResolveFiniteScanCenter(
-    const config::RadarOrientationConfig& orientation_config) {
+    const config::ArOrientationConfig& orientation_config) {
   config::AzimuthElevationDeg center = orientation_config.scan_center_deg;
   if (!std::isfinite(center.az_deg)) {
     center.az_deg = 0.0f;
@@ -65,14 +65,14 @@ config::AzimuthElevationDeg ResolveFiniteScanCenter(
   return center;
 }
 
-float ResolveScanStepScale(config::RadarWorkMode mode) {
+float ResolveScanStepScale(config::ArWorkMode mode) {
   switch (mode) {
-    case config::RadarWorkMode::kTas:
+    case config::ArWorkMode::kTas:
       return 0.5f;
-    case config::RadarWorkMode::kTws:
+    case config::ArWorkMode::kTws:
       return 1.0f;
-    case config::RadarWorkMode::kStby:
-    case config::RadarWorkMode::kStt:
+    case config::ArWorkMode::kStby:
+    case config::ArWorkMode::kStt:
     default:
       return 1.0f;
   }
@@ -165,7 +165,7 @@ std::vector<config::AzimuthElevationDeg> BuildScheduledScanPattern(
 }
 
 config::AzimuthElevationDeg ResolveScheduledBeamPointing(
-    const config::RadarOrientationConfig& orientation_config,
+    const config::ArOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg,
     const config::BeamSchedulerConfig& scheduler_config, std::uint32_t cycle_index) {
   config::AzimuthElevationLimitsDeg effective_limits = utils::IntersectScanLimits(
@@ -183,7 +183,7 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointing(
     fallback_center = utils::ClampAzimuthElevation(fallback_center, effective_limits);
   }
 
-  if (orientation_config.work_mode == config::RadarWorkMode::kStby) {
+  if (orientation_config.work_mode == config::ArWorkMode::kStby) {
     config::AzimuthElevationDeg boresight;
     if (limits_valid) {
       boresight = utils::ClampAzimuthElevation(boresight, effective_limits);
@@ -191,7 +191,7 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointing(
     return boresight;
   }
 
-  if (orientation_config.work_mode == config::RadarWorkMode::kStt) {
+  if (orientation_config.work_mode == config::ArWorkMode::kStt) {
     return normalized_scan_center;
   }
 
@@ -203,7 +203,7 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointing(
   }
 
   float step_scale = ResolveScanStepScale(orientation_config.work_mode);
-  if (orientation_config.work_mode == config::RadarWorkMode::kTas &&
+  if (orientation_config.work_mode == config::ArWorkMode::kTas &&
       scheduler_config.prefer_dense_tas_sampling) {
     step_scale *= 0.5f;
   }
@@ -229,16 +229,16 @@ config::AzimuthElevationDeg ResolveScheduledBeamPointing(
 }
 
 config::AzimuthElevationDeg ResolveScheduledBeamPointing(
-    const config::RadarOrientationConfig& orientation_config,
+    const config::ArOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
   return ResolveScheduledBeamPointing(orientation_config, effective_beamwidth_deg,
                                       config::BeamSchedulerConfig(), cycle_index);
 }
 
 config::AzimuthElevationDeg ResolveScheduledDwellCenter(
-    const config::RadarOrientationConfig& orientation_config,
+    const config::ArOrientationConfig& orientation_config,
     const detection::EffectiveBeamwidthDeg& effective_beamwidth_deg, std::uint32_t cycle_index) {
-  if (orientation_config.work_mode == config::RadarWorkMode::kStt) {
+  if (orientation_config.work_mode == config::ArWorkMode::kStt) {
     return config::AzimuthElevationDeg();
   }
   const config::AzimuthElevationDeg pointing =

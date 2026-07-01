@@ -3,7 +3,6 @@
  * @brief AR module primary session config validation entry points.
  *
  * Primary header for session configuration validation.
- * Include this for new code; RadarSessionConfigValidation.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_SESSION_CONFIG_VALIDATION_H_

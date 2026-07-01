@@ -3,7 +3,6 @@
  * @brief AR module primary runtime configuration patch types.
  *
  * Primary header for runtime configuration patches.
- * Include this for new code; RadarRuntimeConfigPatch.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_RUNTIME_CONFIG_PATCH_H_
@@ -79,8 +78,6 @@ struct ONEQ_API ArRuntimeConfigPatch {
   bool sensor_enabled{true};
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarRuntimeConfigPatch = ArRuntimeConfigPatch;
 
 }  // namespace config
 }  // namespace airborne_radar

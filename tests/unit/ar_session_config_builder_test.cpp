@@ -1,22 +1,22 @@
 // Copyright 2026. All Rights Reserved.
 //
 // @file radar_session_config_builder_test.cpp
-// @brief 验证 RadarSessionConfigBuilder 语义化配置接口。
+// @brief 验证 ArSessionConfigBuilder 语义化配置接口。
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarSessionConfigValidation.h"
-#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/ArSessionConfigValidation.h"
+#include "1q/airborne_radar/session/ArSession.h"
 
 namespace airborne_radar {
 namespace tests {
 
 namespace {
 
-config::RadarSessionConfig MakeDetectionFocusedConfig() {
-  return config::RadarSessionConfigBuilder()
+config::ArSessionConfig MakeDetectionFocusedConfig() {
+  return config::ArSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
       .End()
@@ -32,7 +32,7 @@ config::RadarSessionConfig MakeDetectionFocusedConfig() {
 }  // namespace
 
 TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults) {
-  const auto config = config::RadarSessionConfigBuilder().Build();
+  const auto config = config::ArSessionConfigBuilder().Build();
 
   EXPECT_FALSE(config.hardware.enable_physics_detection);
   EXPECT_FLOAT_EQ(config.hardware.min_detection_margin_db, -2.0f);
@@ -44,7 +44,7 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults
 }
 
 TEST(RadarSessionConfigBuilderTest, ExistingBuilderBasePreservesSemanticValues) {
-  const auto config = config::RadarSessionConfigBuilder(MakeDetectionFocusedConfig()).Build();
+  const auto config = config::ArSessionConfigBuilder(MakeDetectionFocusedConfig()).Build();
 
   EXPECT_EQ(config.hardware.pulse_count, 16);
   EXPECT_FLOAT_EQ(config.hardware.detection_policy.min_snr_db, -12.0f);
@@ -53,7 +53,7 @@ TEST(RadarSessionConfigBuilderTest, ExistingBuilderBasePreservesSemanticValues) 
 }
 
 TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEditingEnvironment) {
-  config::RadarSessionConfig base_config{};
+  config::ArSessionConfig base_config{};
   base_config.hardware.enable_physics_detection = true;
   base_config.hardware.transmitter.peak_power_w = 7.5e6f;
   base_config.hardware.transmitter.frequency_hz = 9.7e9f;
@@ -62,8 +62,8 @@ TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEdi
   base_config.policy.lifecycle.enable_imm_lifecycle = true;
   base_config.policy.lifecycle.confirm_hits = 2U;
 
-  const config::RadarSessionConfig rebuilt =
-      config::RadarSessionConfigBuilder(base_config)
+  const config::ArSessionConfig rebuilt =
+      config::ArSessionConfigBuilder(base_config)
           .Environment()
           .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
           .End()
@@ -82,10 +82,10 @@ TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEdi
 
 TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
   const auto config =
-      config::RadarSessionConfigBuilder()
+      config::ArSessionConfigBuilder()
           .Detection()
           .EnablePhysicsDetection(true)
-          .WithHardwareProfile(config::profiles::RadarHardwareProfile::kLongRangeHighPower)
+          .WithHardwareProfile(config::profiles::ArHardwareProfile::kLongRangeHighPower)
           .WithDetectionIntentProfile(
               config::profiles::DetectionIntentProfile::kTrackStabilityPriority)
           .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kLowSidelobe)
@@ -103,7 +103,7 @@ TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
 
 TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleSemanticEditorsApplyCorrectly) {
   const auto config =
-      config::RadarSessionConfigBuilder()
+      config::ArSessionConfigBuilder()
           .Tracking()
           .EnableTrackingFilter(true)
           .WithTrackingPolicyProfile(config::profiles::TrackingPolicyProfile::kRobustAntiJamming)
@@ -126,15 +126,15 @@ TEST(RadarSessionConfigBuilderTest, EnvironmentEditorAppliesSemanticProfile) {
   scan_center.az_deg = 8.0f;
   scan_center.el_deg = -2.0f;
 
-  auto config = config::RadarSessionConfigBuilder()
+  auto config = config::ArSessionConfigBuilder()
                     .Environment()
                     .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
                     .End()
                     .Build();
-  config.mission.orientation.work_mode = config::RadarWorkMode::kTas;
+  config.mission.orientation.work_mode = config::ArWorkMode::kTas;
   config.mission.orientation.scan_center_deg = scan_center;
 
-  EXPECT_EQ(config.mission.orientation.work_mode, config::RadarWorkMode::kTas);
+  EXPECT_EQ(config.mission.orientation.work_mode, config::ArWorkMode::kTas);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, 8.0f);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.el_deg, -2.0f);
   EXPECT_EQ(config.environment.jamming_sensitivity_profile,
@@ -142,12 +142,12 @@ TEST(RadarSessionConfigBuilderTest, EnvironmentEditorAppliesSemanticProfile) {
 }
 
 TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
-  const auto config = config::RadarSessionConfigBuilder(MakeDetectionFocusedConfig())
+  const auto config = config::ArSessionConfigBuilder(MakeDetectionFocusedConfig())
                           .Environment()
                           .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
                           .End()
                           .Build();
-  session::RadarSession session = session::RadarSession::Create(config);
+  session::ArSession session = session::ArSession::Create(config);
   EXPECT_TRUE(session.HasLatestControlProfile() == false ||
               session.HasLatestControlProfile() == true);
 }
@@ -165,9 +165,9 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
   commanded_beamwidth.commanded_az_beamwidth_deg = 2.5f;
   commanded_beamwidth.commanded_el_beamwidth_deg = 2.0f;
 
-  const config::RadarRuntimeConfigPatch patch =
-      config::RadarRuntimeConfigBuilder()
-          .WithWorkMode(config::RadarWorkMode::kStt)
+  const config::ArRuntimeConfigPatch patch =
+      config::ArRuntimeConfigBuilder()
+          .WithWorkMode(config::ArWorkMode::kStt)
           .WithScanCenterDeg(scan_center)
           .WithDwellCenterDeg(dwell_center)
           .WithCommandedBeamwidthDeg(commanded_beamwidth)
@@ -176,7 +176,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
           .Build();
 
   EXPECT_TRUE(patch.has_work_mode);
-  EXPECT_EQ(patch.work_mode, config::RadarWorkMode::kStt);
+  EXPECT_EQ(patch.work_mode, config::ArWorkMode::kStt);
   EXPECT_TRUE(patch.has_scan_center_deg);
   EXPECT_FLOAT_EQ(patch.scan_center_deg.az_deg, 12.0f);
   EXPECT_FLOAT_EQ(patch.scan_center_deg.el_deg, -3.0f);
@@ -198,46 +198,46 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
 // 与 EOS/ESR/SAR 一致。本测试锁定 AR 侧的语义：整块覆盖优先于链上逐字段设置。
 TEST(RadarSessionConfigBuilderTest, WithRuntimeConfigPatchOverridesWholePatch) {
   // 先用链式逐字段构造一份补丁
-  const config::RadarRuntimeConfigPatch seed = config::RadarRuntimeConfigBuilder()
-                                                   .WithWorkMode(config::RadarWorkMode::kStt)
+  const config::ArRuntimeConfigPatch seed = config::ArRuntimeConfigBuilder()
+                                                   .WithWorkMode(config::ArWorkMode::kStt)
                                                    .WithSensorEnabled(true)
                                                    .Build();
   ASSERT_TRUE(seed.has_work_mode);
   ASSERT_TRUE(seed.has_sensor_enabled);
 
   // 再用 WithRuntimeConfigPatch 整块覆盖到一个新 builder，验证整块替换语义
-  config::RadarRuntimeConfigPatch whole;
+  config::ArRuntimeConfigPatch whole;
   whole.has_work_mode = true;
-  whole.work_mode = config::RadarWorkMode::kTas;
-  const config::RadarRuntimeConfigPatch patch =
-      config::RadarRuntimeConfigBuilder().WithRuntimeConfigPatch(whole).Build();
+  whole.work_mode = config::ArWorkMode::kTas;
+  const config::ArRuntimeConfigPatch patch =
+      config::ArRuntimeConfigBuilder().WithRuntimeConfigPatch(whole).Build();
 
   EXPECT_TRUE(patch.has_work_mode);
-  EXPECT_EQ(patch.work_mode, config::RadarWorkMode::kTas);
+  EXPECT_EQ(patch.work_mode, config::ArWorkMode::kTas);
   // 整块覆盖应清空 seed 里的 sensor_enabled（WithRuntimeConfigPatch 是替换不是合并）
   EXPECT_FALSE(patch.has_sensor_enabled);
 }
 
 TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructingSession) {
-  session::RadarSession session = session::RadarSession::Create(MakeDetectionFocusedConfig());
+  session::ArSession session = session::ArSession::Create(MakeDetectionFocusedConfig());
 
-  const config::RadarRuntimeConfigPatch patch =
-      config::RadarRuntimeConfigBuilder()
-          .WithWorkMode(config::RadarWorkMode::kTas)
+  const config::ArRuntimeConfigPatch patch =
+      config::ArRuntimeConfigBuilder()
+          .WithWorkMode(config::ArWorkMode::kTas)
           .WithCommandedBeamwidthEnabled(true)
           .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
           .Build();
 
   session.ApplyRuntimeConfig(patch);
 
-  session::RadarCycleInput input;
+  session::ArCycleInput input;
   input.dt_sec = 1.0f;
-  const session::RadarCycleResult result = session.StepWithResult(input);
+  const session::ArCycleResult result = session.StepWithResult(input);
   EXPECT_FALSE(result.has_validation_error);
 }
 
 TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig) {
-  config::RadarSessionConfig detailed_config{};
+  config::ArSessionConfig detailed_config{};
   detailed_config.hardware.enable_physics_detection = true;
   detailed_config.hardware.transmitter.peak_power_w = 5.0e6f;
   detailed_config.hardware.transmitter.frequency_hz = 9.3e9f;
@@ -246,7 +246,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   detailed_config.hardware.transmitter.prf_hz = 500.0f;
   detailed_config.hardware.antenna.main_beam_gain_db = 38.0f;
   detailed_config.hardware.receiver.noise_figure_db = 3.5f;
-  detailed_config.mission.orientation.work_mode = config::RadarWorkMode::kTas;
+  detailed_config.mission.orientation.work_mode = config::ArWorkMode::kTas;
   detailed_config.policy.tracking.enable_kalman_filter = true;
   detailed_config.policy.tracking.kalman_measurement_noise_std = 7.5f;
   detailed_config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
@@ -260,7 +260,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   EXPECT_TRUE(detailed_config.hardware.enable_physics_detection);
   EXPECT_FLOAT_EQ(detailed_config.hardware.transmitter.peak_power_w, 5.0e6f);
   EXPECT_FLOAT_EQ(detailed_config.hardware.transmitter.frequency_hz, 9.3e9f);
-  EXPECT_EQ(detailed_config.mission.orientation.work_mode, config::RadarWorkMode::kTas);
+  EXPECT_EQ(detailed_config.mission.orientation.work_mode, config::ArWorkMode::kTas);
   EXPECT_FLOAT_EQ(detailed_config.policy.tracking.kalman_measurement_noise_std, 7.5f);
   EXPECT_EQ(detailed_config.policy.tracking.kalman_update_backend,
             config::KalmanUpdateBackend::kUdKf);
@@ -271,13 +271,13 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
 }
 
 TEST(RadarSessionConfigBuilderTest, DetailedBuiltConfigCanConstructRadarSession) {
-  config::RadarSessionConfig config{};
+  config::ArSessionConfig config{};
   config.hardware.transmitter.peak_power_w = 5.0e6f;
   config.hardware.transmitter.frequency_hz = 9.3e9f;
   config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
   config.policy.lifecycle.enable_imm_lifecycle = true;
 
-  session::RadarSession session = session::RadarSession::Create(config);
+  session::ArSession session = session::ArSession::Create(config);
   EXPECT_TRUE(session.HasLatestControlProfile() == false ||
               session.HasLatestControlProfile() == true);
 }
@@ -290,7 +290,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBeamSchedulerWritesPolicyPath) {
   nominal_beamwidth.commanded_az_beamwidth_deg = 2.5f;
   nominal_beamwidth.commanded_el_beamwidth_deg = 1.5f;
 
-  config::RadarSessionConfig detailed_config{};
+  config::ArSessionConfig detailed_config{};
   detailed_config.policy.beam_control.scheduler.azimuth_step_count_hint = 8U;
   detailed_config.policy.beam_control.scheduler.elevation_step_count_hint = 4U;
   detailed_config.policy.beam_control.scheduler.prefer_dense_tas_sampling = true;
@@ -311,47 +311,47 @@ TEST(RadarSessionConfigBuilderTest, DetailedBeamSchedulerWritesPolicyPath) {
 }
 
 TEST(RadarSessionConfigValidationTest, ReportsInvalidCommandedBeamwidth) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   session_config.mission.orientation.commanded_beamwidth_enabled = true;
   session_config.mission.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 0.0f;
   session_config.mission.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 1.0f;
 
-  const auto issues = config::ValidateRadarSessionConfig(session_config);
+  const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 1U);
   EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kCommandedBeamwidthAzNotPositive);
 }
 
 TEST(RadarSessionConfigValidationTest, ReportsRobustTrackingWithoutImm) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   session_config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
   session_config.policy.lifecycle.enable_imm_lifecycle = false;
 
-  const auto issues = config::ValidateRadarSessionConfig(session_config);
+  const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 1U);
   EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kRobustTrackingWithoutImm);
 }
 
 TEST(RadarSessionCreateWithValidationTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {
-  config::RadarSessionConfig config;
+  config::ArSessionConfig config;
   config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
   config.policy.lifecycle.enable_imm_lifecycle = false;
 
   config::ValidationIssueList issues;
-  const session::RadarSession session =
-      session::RadarSession::CreateWithValidation(config, &issues);
+  const session::ArSession session =
+      session::ArSession::CreateWithValidation(config, &issues);
 
   EXPECT_TRUE(issues.empty());
   (void)session;
 }
 
 TEST(RadarSessionCreateWithValidationTest, ReportsIssuesButStillConstructsSession) {
-  config::RadarSessionConfig invalid;
+  config::ArSessionConfig invalid;
   invalid.mission.orientation.mechanical_scan_limits_deg.az_min_deg = 10.0f;
   invalid.mission.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
 
   config::ValidationIssueList issues;
-  const session::RadarSession session =
-      session::RadarSession::CreateWithValidation(invalid, &issues);
+  const session::ArSession session =
+      session::ArSession::CreateWithValidation(invalid, &issues);
 
   ASSERT_EQ(issues.size(), 1U);
   EXPECT_EQ(issues.front().code,
@@ -360,12 +360,12 @@ TEST(RadarSessionCreateWithValidationTest, ReportsIssuesButStillConstructsSessio
 }
 
 TEST(RadarSessionCreateWithValidationTest, AcceptsNullIssuesWithoutCrash) {
-  config::RadarSessionConfig invalid;
+  config::ArSessionConfig invalid;
   invalid.mission.orientation.mechanical_scan_limits_deg.az_min_deg = 10.0f;
   invalid.mission.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
 
-  const session::RadarSession session =
-      session::RadarSession::CreateWithValidation(invalid, nullptr);
+  const session::ArSession session =
+      session::ArSession::CreateWithValidation(invalid, nullptr);
   (void)session;  // nullptr 时仅构造，不写回 issues
 }
 

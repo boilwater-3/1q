@@ -3,7 +3,6 @@
  * @brief AR module primary cycle result type.
  *
  * Primary header for cycle result and related helpers.
- * Include this for new code; RadarCycleResult.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CYCLE_RESULT_H_
@@ -104,8 +103,6 @@ struct ONEQ_API ArCycleResult {
       association_quality_metrics{}; /**< 当前周期关联质量观测指标；若未执行则保持默认值 */
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarCycleResult = ArCycleResult;
 
 }  // namespace session
 }  // namespace airborne_radar

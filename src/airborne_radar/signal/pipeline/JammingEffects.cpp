@@ -40,7 +40,7 @@ float ResolveJammerConfidenceWeight(const JammingEffectsConfig& cfg,
 }
 
 float ComputeTrackLevelJammingContribution(
-    const session::RadarControlProfile& control_profile,
+    const session::ArControlProfile& control_profile,
     const session::JammerSourceFact& jammer_source) {
   const float confidence_weight = utils::ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
   const float residual_factor = ComputeResidualJammerFactor(control_profile, jammer_source);
@@ -75,7 +75,7 @@ bool HasMultiSourceJammingFacts(const session::EnvironmentSnapshot& environment_
   return !environment_snapshot.jammer_sources.empty();
 }
 
-float ComputeResidualJammerFactor(const session::RadarControlProfile& control_profile,
+float ComputeResidualJammerFactor(const session::ArControlProfile& control_profile,
                                   const session::JammerSourceFact& jammer_source) {
   float residual_factor = 1.0f;
 
@@ -204,7 +204,7 @@ float ComputePhysicalSourceJamContributionW(const JammingEffectsConfig& cfg,
 }
 
 float ComputeMeasurementCovarianceInflation(
-    const JammingEffectsConfig& cfg, const session::RadarControlProfile& control_profile,
+    const JammingEffectsConfig& cfg, const session::ArControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot) {
   if (!HasMultiSourceJammingFacts(environment_snapshot)) {
     return 1.0f;
@@ -238,7 +238,7 @@ float ComputeMeasurementCovarianceInflation(
 }
 
 config::JammingSemantic ResolveDominantJammingSemantic(
-    const session::RadarControlProfile& control_profile,
+    const session::ArControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot) {
   if (!environment_snapshot.jamming_detected) {
     return config::JammingSemantic::kNone;
@@ -300,7 +300,7 @@ config::JammingSemantic ResolveDominantJammingSemantic(
 }
 
 float ComputeTrackLevelJammingSeverity(
-    const session::RadarControlProfile& control_profile,
+    const session::ArControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot) {
   if (!environment_snapshot.jamming_detected) {
     return 0.0f;
@@ -319,7 +319,7 @@ float ComputeTrackLevelJammingSeverity(
 }
 
 void ApplyEnvironmentJammingFactsToRuntimeConfig(
-    const session::RadarControlProfile& control_profile,
+    const session::ArControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot, ExecutionConfig* runtime_config) {
   if (runtime_config == nullptr || !HasMultiSourceJammingFacts(environment_snapshot)) {
     return;

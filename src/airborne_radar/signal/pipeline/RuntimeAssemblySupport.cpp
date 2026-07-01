@@ -92,9 +92,9 @@ class AutoConfiguredLifecycleManager final : public tracking::ITrackLifecycleMan
     assembly_.lifecycle_manager->Update(cycle, measurements);
   }
 
-  session::RadarSceneTargetList BuildSceneTargetSnapshot() const override {
+  session::ArSceneTargetList BuildSceneTargetSnapshot() const override {
     if (assembly_.lifecycle_manager == nullptr) {
-      return session::RadarSceneTargetList();
+      return session::ArSceneTargetList();
     }
     return assembly_.lifecycle_manager->BuildSceneTargetSnapshot();
   }
@@ -198,7 +198,7 @@ bool HasValidOwnedComponentSlots(const OwnedComponentSlots& slots) {
 
 ResolvedRuntimePipelineConfig ResolveRuntimePipelineConfig(
     const ExecutionConfig& base_config,
-    const session::RadarControlProfile& control_profile) {
+    const session::ArControlProfile& control_profile) {
   ResolvedRuntimePipelineConfig resolved;
   resolved.config = base_config;
   ApplyControlProfileToConfig(control_profile, &resolved.config);
@@ -217,7 +217,7 @@ std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForR
 
 void RebuildOwnedComponentsForPipeline(
     const ExecutionConfig& base_config,
-    const session::RadarControlProfile& control_profile, OwnedComponentSlots* slots) {
+    const session::ArControlProfile& control_profile, OwnedComponentSlots* slots) {
   if (slots == nullptr || !HasValidOwnedComponentSlots(*slots)) {
     return;
   }

@@ -160,7 +160,7 @@ inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(
  * @return 相对雷达安装基准轴的方位/俯仰指向。
  */
 inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(
-    const config::RadarOrientationConfig& config) {
+    const config::ArOrientationConfig& config) {
   return ComputeMountFrameBeamPointing(config, config::AzimuthElevationDeg());
 }
 
@@ -190,7 +190,7 @@ inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
  * @return 机体系下的欧拉角；由安装姿态与挂架波束指向做旋转合成得到。
  */
 inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
-    const config::RadarOrientationConfig& config) {
+    const config::ArOrientationConfig& config) {
   return ComputeBodyFrameBeamPointing(config, config::AzimuthElevationDeg());
 }
 
@@ -228,7 +228,7 @@ inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(
  */
 inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(
     const config::EulerAnglesDeg& platform_attitude_deg,
-    const config::RadarOrientationConfig& config) {
+    const config::ArOrientationConfig& config) {
   return ComputePlatformFrameBeamPointing(platform_attitude_deg, config,
                                           config::AzimuthElevationDeg());
 }

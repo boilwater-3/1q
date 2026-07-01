@@ -37,7 +37,7 @@ class TrackStateSnapshotEmitter {
    * @brief 导出供外围事件链路消费的轻量目标特征快照。
    * @return 可直接用于外部状态广播的目标特征列表。
    */
-  session::RadarSceneTargetList BuildSceneTargetSnapshot() const;
+  session::ArSceneTargetList BuildSceneTargetSnapshot() const;
 
   /**
    * @brief 导出供决策层消费的活跃轨迹快照。

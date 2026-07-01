@@ -7,7 +7,7 @@
 #      ::域::session:: 限定（维度2 统一为裸名）。
 #   2) AR 工作模式不得再用 work_sub_mode 字段名或 RadarWorkSubMode enum 类型名
 #      或 WithRadarWorkSubMode/WithRadarWork* 建造方法名（P2-b 统一为 work_mode /
-#      RadarWorkMode / WithWorkMode，对齐 EOS/ESR）。
+#      ArWorkMode / WithWorkMode，对齐 EOS/ESR）。
 #   3) ESR/AR 运行期补丁的环境补丁槽不得再用 environment_runtime_config 字段名
 #      或 has_environment_runtime_config / WithEnvironmentRuntimeConfig（P1-b 统一为
 #      environment / has_environment / WithEnvironment，对齐 EOS）。
@@ -16,7 +16,7 @@
 #      timing model 动态门限同名且语义不同，刻意不在本检查范围（见 P2-a 决策）。
 #   5) 四域 RuntimeConfigBuilder 的链式方法统一以 With* 动词开头，不得回归
 #      Set*/Enable* 旧动词（P3-b 统一）。仅约束 *RuntimeConfigBuilder.h 公共头，
-#      不影响 RadarSessionConfigBuilder::MissionEditor 等其它建造者类。
+#      不影响 ArSessionConfigBuilder::MissionEditor 等其它建造者类。
 #   6) 四域 RuntimeConfigBuilder 必须提供 WithRuntimeConfigPatch 整块覆盖入口
 #      （P3-b 对齐，四域形状一致）。
 #
@@ -62,7 +62,7 @@ endforeach()
 # 扫描范围：公共头 + 域实现源码 + 测试。generated/ 与本脚本自身排除。
 set(TOKEN_BANS
     "work_sub_mode|P2-b work_sub_mode 已统一为 work_mode"
-    "RadarWorkSubMode|P2-b RadarWorkSubMode 已统一为 RadarWorkMode"
+    "RadarWorkSubMode|P2-b RadarWorkSubMode 已统一为 ArWorkMode"
     "WithRadarWorkSubMode|P2-b WithRadarWorkSubMode 已统一为 WithWorkMode"
     "has_environment_runtime_config|P1-b has_environment_runtime_config 已统一为 has_environment"
     "environment_runtime_config|P1-b 补丁槽 environment_runtime_config 已统一为 environment（注意：类型名 EnvironmentRuntimeConfigPatch 保留，不在禁列）"
@@ -114,7 +114,7 @@ endforeach()
 
 # ---- 阻断 5：RuntimeConfigBuilder 链式方法统一 With* 动词 ----
 # 仅扫描四域 *RuntimeConfigBuilder.h 公共头，避免误伤 SessionConfigBuilder 等
-# 其它合法持有 Set*/Enable* 动词的建造者类（如 RadarSessionConfigBuilder::MissionEditor）。
+# 其它合法持有 Set*/Enable* 动词的建造者类（如 ArSessionConfigBuilder::MissionEditor）。
 set(RUNTIME_BUILDER_HEADERS
     "${PUBLIC_INCLUDE_ROOT}/airborne_radar/config/ArRuntimeConfigBuilder.h"
     "${PUBLIC_INCLUDE_ROOT}/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"

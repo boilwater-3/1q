@@ -24,7 +24,7 @@ struct ResolvedTargetGeometry {
 
 class TargetGeometryResolver {
  public:
-  static ResolvedTargetGeometry Resolve(const session::RadarSceneTarget& target) {
+  static ResolvedTargetGeometry Resolve(const session::ArSceneTarget& target) {
     ResolvedTargetGeometry geometry;
     geometry.position_m =
         Eigen::Vector3f(target.position_x, target.position_y, target.position_z);

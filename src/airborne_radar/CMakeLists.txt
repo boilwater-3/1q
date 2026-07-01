@@ -82,16 +82,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArSessionConfigBuilder.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArSessionConfigValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArOrientationConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarEnvironmentConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarHardwareConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarMissionConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarPolicyConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarRuntimeConfigPatch.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfig.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarRuntimeConfigBuilder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigBuilder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarSessionConfigValidation.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarOrientationConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/JammingSemantics.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/airborne_radar_config.hpp
     )
@@ -103,13 +93,6 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArInputValidation.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArExternalInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArExternalOutputAdapter.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleInputAdapter.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleOutputAdapter.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarEnvironmentInput.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarInputValidation.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarExternalInputAdapter.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarExternalOutputAdapter.h
     )
     set(PUBLIC_HEADERS_CORE_SESSION
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArCycleResult.h
@@ -121,17 +104,8 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArTrackOutputDebugView.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArCommand.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArControlProfile.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleResult.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarOutputTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSceneTypes.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSession.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarReplaySession.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarTrackLifecycleRecorder.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarTrackOutputDebugView.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ITacticalDecisionEngine.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ControlDirective.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCommand.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarControlProfile.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/DecisionInputFrame.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/DecisionSourceInfo.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/TrackStateSnapshot.h
@@ -141,7 +115,6 @@ if(ENABLE_INSTALL)
     )
     set(PUBLIC_HEADERS_AIRBORNE_TOOLS
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArTraceSession.h
-        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarTraceSession.h
     )
 
     install(FILES ${PUBLIC_HEADERS_MODULE_ENTRY_AIRBORNE}

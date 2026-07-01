@@ -5,13 +5,13 @@
 
 #include <gtest/gtest.h>
 
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 
 namespace airborne_radar {
 namespace tests {
 
-using config::RadarOrientationConfig;
+using config::ArOrientationConfig;
 using config::engineering::AntennaConfig;
 using signal::detection::EffectiveBeamwidthDeg;
 using signal::detection::ResolveEffectiveBeamwidth;
@@ -21,7 +21,7 @@ TEST(BeamwidthResolutionTest, FallsBackToNominalWhenCommandedDisabled) {
   antenna_config.nominal_az_beamwidth_deg = 3.5f;
   antenna_config.nominal_el_beamwidth_deg = 5.5f;
 
-  RadarOrientationConfig orientation_config;
+  ArOrientationConfig orientation_config;
   orientation_config.commanded_beamwidth_enabled = false;
   orientation_config.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   orientation_config.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 9.0f;
@@ -38,7 +38,7 @@ TEST(BeamwidthResolutionTest, UsesCommandedBeamwidthWhenEnabled) {
   antenna_config.nominal_az_beamwidth_deg = 3.5f;
   antenna_config.nominal_el_beamwidth_deg = 5.5f;
 
-  RadarOrientationConfig orientation_config;
+  ArOrientationConfig orientation_config;
   orientation_config.commanded_beamwidth_enabled = true;
   orientation_config.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 8.0f;
   orientation_config.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 9.0f;

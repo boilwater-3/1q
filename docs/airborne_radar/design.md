@@ -27,7 +27,7 @@ Authority: current airborne_radar module design
 4. 如需自定义战术逻辑，使用 `ArSession::CreateWithDecisionEngine()` 注入 `ITacticalDecisionEngine`。
 5. 如需调整运行期参数，使用 runtime patch；patch 提交失败时必须保持各子系统状态一致。
 
-`Ar*` 是当前推荐 public API 前缀。迁移期保留 `Radar*` public 头和类型别名作为兼容入口；新代码、示例和 consumer 覆盖应优先使用 `Ar*`。`RadarEquations`、`radar_cross_section` 等领域术语不属于模块前缀迁移范围。
+`Ar*` 是 AR 模块的 public API 前缀（config/session/cycle/result/adapter/trace/replay/debug/lifecycle 等 DTO 与门面）。`RadarEquations`、`radar_cross_section`、`radar_mount_angles_deg`、`ComposeRadarAttitudeDeg` 等领域术语与领域函数不属于模块前缀范围，保留原名。
 
 ### 1.2 Public API 与内部实现边界
 
@@ -36,8 +36,8 @@ Authority: current airborne_radar module design
 | 区域 | 职责 | 设计约束 |
 |---|---|---|
 | `airborne_radar.hpp` | 模块聚合入口 | 聚合稳定 public API，不暴露内部 signal/environment/runtime 类型 |
-| `config/` | `ArSessionConfig`、runtime patch、semantic builder、validation、jamming semantics | 表达硬件、任务、策略、环境和干扰敏感性；`Radar*` 名称仅作兼容 |
-| `session/` | `ArSession`、cycle input/result、scene target、output types、trace/replay、debug/lifecycle、decision SPI | 是调用方主要使用面；`ITacticalDecisionEngine` 是唯一 public SPI；`Radar*` 名称仅作兼容 |
+| `config/` | `ArSessionConfig`、runtime patch、semantic builder、validation、jamming semantics | 表达硬件、任务、策略、环境和干扰敏感性 |
+| `session/` | `ArSession`、cycle input/result、scene target、output types、trace/replay、debug/lifecycle、decision SPI | 是调用方主要使用面；`ITacticalDecisionEngine` 是唯一 public SPI |
 
 内部实现位于 `src/airborne_radar/`：
 

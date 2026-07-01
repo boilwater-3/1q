@@ -9,7 +9,7 @@
 #include <initializer_list>
 #include <vector>
 
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
+#include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/environment/SceneManager.h"
 

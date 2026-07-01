@@ -3,7 +3,6 @@
  * @brief AR module primary policy configuration type.
  *
  * Primary header for policy domain configuration.
- * Include this for new code; RadarPolicyConfig.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_POLICY_CONFIG_H_
@@ -130,8 +129,6 @@ struct ONEQ_API ArPolicyConfig {
   LifecycleConfig lifecycle{};
 };
 
-// 兼容别名：旧 RadarPolicyConfig 名称在 wrapper 阶段保留。
-using RadarPolicyConfig = ArPolicyConfig;
 
 }  // namespace config
 }  // namespace airborne_radar

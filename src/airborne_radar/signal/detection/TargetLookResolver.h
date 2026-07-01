@@ -32,7 +32,7 @@ class TargetLookResolver {
    * @return 目标 look angle 结果。
    * @note 本函数只接受雷达局部笛卡尔坐标；缺失位置时返回 has_look_angles=false。
    */
-  static TargetLookAnglesDeg Resolve(const session::RadarSceneTarget& target) {
+  static TargetLookAnglesDeg Resolve(const session::ArSceneTarget& target) {
     TargetLookAnglesDeg result;
     const float position_x = target.position_x;
     const float position_y = target.position_y;

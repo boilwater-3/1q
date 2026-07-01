@@ -3,7 +3,6 @@
  * @brief AR module primary scene entity input types.
  *
  * Primary header for scene entity input types.
- * Include this for new code; RadarSceneTypes.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_SCENE_TYPES_H_
@@ -51,9 +50,6 @@ struct ONEQ_API ArSceneTarget {
 /** @brief ArSceneTargetList 表示雷达场景目标输入列表。 */
 using ArSceneTargetList = std::vector<ArSceneTarget>;
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarSceneTarget = ArSceneTarget;
-using RadarSceneTargetList = ArSceneTargetList;
 
 }  // namespace session
 }  // namespace airborne_radar

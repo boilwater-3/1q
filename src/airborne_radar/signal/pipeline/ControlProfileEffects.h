@@ -17,14 +17,14 @@ namespace pipeline {
 
 float ComputeHeuristicSignalAdjustmentDb(
     const ::airborne_radar::config::execution::ControlProfileEffectsConfig& cfg,
-    const session::RadarControlProfile& control_profile);
+    const session::ArControlProfile& control_profile);
 
 float ComputeHeuristicEnvironmentReliefDb(
     const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
-    const session::RadarControlProfile& control_profile,
+    const session::ArControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot);
 
-void ApplyControlProfileToConfig(const session::RadarControlProfile& control_profile,
+void ApplyControlProfileToConfig(const session::ArControlProfile& control_profile,
                                  ExecutionConfig* config);
 
 

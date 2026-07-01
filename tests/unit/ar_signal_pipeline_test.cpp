@@ -10,11 +10,11 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarHardwareConfig.h"
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "1q/airborne_radar/session/RadarControlProfile.h"
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
+#include "1q/airborne_radar/config/ArHardwareConfig.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
+#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+#include "1q/airborne_radar/session/ArControlProfile.h"
+#include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/config/InternalExecutionConfig.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -33,8 +33,8 @@ namespace {
 
 using ExecutionConfig = config::execution::InternalExecutionConfig;
 
-config::RadarSessionConfig MakeDetectionFocusedConfig() {
-  return config::RadarSessionConfigBuilder()
+config::ArSessionConfig MakeDetectionFocusedConfig() {
+  return config::ArSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
       .End()
@@ -47,16 +47,16 @@ config::RadarSessionConfig MakeDetectionFocusedConfig() {
       .Build();
 }
 
-config::RadarSessionConfig MakeTrackingFocusedConfig() {
-  return config::RadarSessionConfigBuilder()
+config::ArSessionConfig MakeTrackingFocusedConfig() {
+  return config::ArSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kTrackStabilityPriority)
       .End()
       .Build();
 }
 
-config::RadarSessionConfig MakeRobustTrackingConfig() {
-  return config::RadarSessionConfigBuilder()
+config::ArSessionConfig MakeRobustTrackingConfig() {
+  return config::ArSessionConfigBuilder()
       .Detection()
       .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kTrackStabilityPriority)
       .End()
@@ -69,13 +69,13 @@ config::RadarSessionConfig MakeRobustTrackingConfig() {
       .Build();
 }
 
-float SpeedOf(const session::RadarSceneTarget& target) {
+float SpeedOf(const session::ArSceneTarget& target) {
   return std::sqrt(target.velocity_x * target.velocity_x + target.velocity_y * target.velocity_y +
                    target.velocity_z * target.velocity_z);
 }
 
-session::RadarSceneTarget BuildPhysicsTarget(float range_m, float rcs) {
-  session::RadarSceneTarget target(220.0f, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f);
+session::ArSceneTarget BuildPhysicsTarget(float range_m, float rcs) {
+  session::ArSceneTarget target(220.0f, 0.0f, 0.0f, rcs, 0.0f, 0.0f, 0.0f);
 
   target.position_x = range_m;
   target.position_y = 0.0f;
@@ -84,8 +84,8 @@ session::RadarSceneTarget BuildPhysicsTarget(float range_m, float rcs) {
   return target;
 }
 
-session::RadarSceneTarget ToSceneTarget(const session::RadarSceneTarget& target) {
-  session::RadarSceneTarget out;
+session::ArSceneTarget ToSceneTarget(const session::ArSceneTarget& target) {
+  session::ArSceneTarget out;
   out.external_target_id = target.external_target_id;
   out.velocity_x = target.velocity_x;
   out.velocity_y = target.velocity_y;
@@ -99,8 +99,8 @@ session::RadarSceneTarget ToSceneTarget(const session::RadarSceneTarget& target)
   return out;
 }
 
-session::RadarSceneTargetList ToSceneTargets(const session::RadarSceneTargetList& targets) {
-  session::RadarSceneTargetList out;
+session::ArSceneTargetList ToSceneTargets(const session::ArSceneTargetList& targets) {
+  session::ArSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
     out.push_back(ToSceneTarget(targets[i]));
@@ -108,8 +108,8 @@ session::RadarSceneTargetList ToSceneTargets(const session::RadarSceneTargetList
   return out;
 }
 
-session::RadarSceneTarget CloneSceneTarget(const session::RadarSceneTarget& target) {
-  session::RadarSceneTarget out;
+session::ArSceneTarget CloneSceneTarget(const session::ArSceneTarget& target) {
+  session::ArSceneTarget out;
   out.external_target_id = target.external_target_id;
   out.velocity_x = target.velocity_x;
   out.velocity_y = target.velocity_y;
@@ -124,8 +124,8 @@ session::RadarSceneTarget CloneSceneTarget(const session::RadarSceneTarget& targ
   return out;
 }
 
-session::RadarSceneTargetList CloneSceneTargets(const session::RadarSceneTargetList& targets) {
-  session::RadarSceneTargetList out;
+session::ArSceneTargetList CloneSceneTargets(const session::ArSceneTargetList& targets) {
+  session::ArSceneTargetList out;
   out.reserve(targets.size());
   for (std::size_t i = 0; i < targets.size(); ++i) {
     out.push_back(CloneSceneTarget(targets[i]));
@@ -152,7 +152,7 @@ session::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_index)
 
 template <typename PipelineType>
 session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
-                                            const session::RadarSceneTargetList& input_state,
+                                            const session::ArSceneTargetList& input_state,
                                             environment::EnvironmentService* environment_service,
                                             std::uint32_t cycle_index = 1u) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
@@ -175,14 +175,14 @@ config::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
   return config;
 }
 
-void ApplyHardwareProfile(config::RadarSessionConfig* config,
-                          config::profiles::RadarHardwareProfile profile) {
+void ApplyHardwareProfile(config::ArSessionConfig* config,
+                          config::profiles::ArHardwareProfile profile) {
   if (config == nullptr) {
     return;
   }
   auto& d = config->hardware;
   switch (profile) {
-    case config::profiles::RadarHardwareProfile::kLongRangeHighPower:
+    case config::profiles::ArHardwareProfile::kLongRangeHighPower:
       d.transmitter.peak_power_w = 5.0e6f;
       d.transmitter.frequency_hz = 9.3e9f;
       d.transmitter.bandwidth_hz = 3.0e6f;
@@ -191,7 +191,7 @@ void ApplyHardwareProfile(config::RadarSessionConfig* config,
       d.antenna.main_beam_gain_db = 38.0f;
       d.receiver.noise_figure_db = 3.0f;
       break;
-    case config::profiles::RadarHardwareProfile::kLightweightLpi:
+    case config::profiles::ArHardwareProfile::kLightweightLpi:
       d.transmitter.peak_power_w = 3.5e5f;
       d.transmitter.frequency_hz = 10.0e9f;
       d.transmitter.bandwidth_hz = 8.0e6f;
@@ -202,13 +202,13 @@ void ApplyHardwareProfile(config::RadarSessionConfig* config,
       d.antenna.nominal_el_beamwidth_deg = 5.0f;
       d.receiver.noise_figure_db = 5.0f;
       break;
-    case config::profiles::RadarHardwareProfile::kGenericAirborneXBand:
+    case config::profiles::ArHardwareProfile::kGenericAirborneXBand:
     default:
       break;
   }
 }
 
-void ApplyDetectionIntentProfile(config::RadarSessionConfig* config,
+void ApplyDetectionIntentProfile(config::ArSessionConfig* config,
                                  config::profiles::DetectionIntentProfile profile) {
   if (config == nullptr) {
     return;
@@ -234,7 +234,7 @@ void ApplyDetectionIntentProfile(config::RadarSessionConfig* config,
   }
 }
 
-void ApplyRcsFusionProfile(config::RadarSessionConfig* config,
+void ApplyRcsFusionProfile(config::ArSessionConfig* config,
                            config::profiles::RcsFusionProfile profile) {
   if (config == nullptr) {
     return;
@@ -258,7 +258,7 @@ void ApplyRcsFusionProfile(config::RadarSessionConfig* config,
   }
 }
 
-void ApplyTrackingPolicyProfile(config::RadarSessionConfig* config,
+void ApplyTrackingPolicyProfile(config::ArSessionConfig* config,
                                 config::profiles::TrackingPolicyProfile profile) {
   if (config == nullptr) {
     return;
@@ -284,7 +284,7 @@ void ApplyTrackingPolicyProfile(config::RadarSessionConfig* config,
   }
 }
 
-void ApplyLifecyclePolicyProfile(config::RadarSessionConfig* config,
+void ApplyLifecyclePolicyProfile(config::ArSessionConfig* config,
                                  config::profiles::LifecyclePolicyProfile profile) {
   if (config == nullptr) {
     return;
@@ -313,13 +313,13 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  session::RadarSceneTarget target(800.0f, 0.0f, 0.0f, 2.5f, 0.0f, 0.0f, 0.0f);
+  session::ArSceneTarget target(800.0f, 0.0f, 0.0f, 2.5f, 0.0f, 0.0f, 0.0f);
 
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const session::RadarSceneTargetList input_state{target};
+  const session::ArSceneTargetList input_state{target};
 
   const auto output_state = CloneSceneTargets(
       RunPipelineCycle(&signal_pipeline, input_state, &environment_service).updated_scene_targets);
@@ -335,8 +335,8 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const session::RadarSceneTargetList input_state{
-      session::RadarSceneTarget(800.0f, 0.0f, 0.0f, 2.5f)};
+  const session::ArSceneTargetList input_state{
+      session::ArSceneTarget(800.0f, 0.0f, 0.0f, 2.5f)};
 
   const auto output_state = CloneSceneTargets(
       RunPipelineCycle(&signal_pipeline, input_state, &environment_service).updated_scene_targets);
@@ -348,16 +348,16 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
 
 TEST(SignalPipelineTest,
      RcsPhysicsOverrideChangesMarginalHeuristicDetectionWhileDisabledPathStaysSame) {
-  config::RadarSessionConfig baseline_config;
+  config::ArSessionConfig baseline_config;
   baseline_config.hardware.enable_physics_detection = false;
   ApplyDetectionIntentProfile(&baseline_config,
                               config::profiles::DetectionIntentProfile::kBalanced);
   ApplyHardwareProfile(&baseline_config,
-                       config::profiles::RadarHardwareProfile::kLongRangeHighPower);
+                       config::profiles::ArHardwareProfile::kLongRangeHighPower);
 
   config::EnvironmentModelConfig env_config;
 
-  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(4500.0f, 0.2f)};
+  const session::ArSceneTargetList input_state{BuildPhysicsTarget(4500.0f, 0.2f)};
 
   environment::EnvironmentService baseline_environment(env_config);
   signal::pipeline::SignalPipeline baseline_pipeline(baseline_config);
@@ -368,7 +368,7 @@ TEST(SignalPipelineTest,
   ASSERT_EQ(baseline_result.updated_scene_targets.size(), 1u);
   EXPECT_FALSE(baseline_measurements.empty());
 
-  config::RadarSessionConfig disabled_override_config = baseline_config;
+  config::ArSessionConfig disabled_override_config = baseline_config;
   ApplyRcsFusionProfile(&disabled_override_config, config::profiles::RcsFusionProfile::kDisabled);
 
   environment::EnvironmentService disabled_environment(env_config);
@@ -382,7 +382,7 @@ TEST(SignalPipelineTest,
   EXPECT_FLOAT_EQ(disabled_result.updated_scene_targets[0].rcs,
                   baseline_result.updated_scene_targets[0].rcs);
 
-  config::RadarSessionConfig enabled_override_config = disabled_override_config;
+  config::ArSessionConfig enabled_override_config = disabled_override_config;
   ApplyRcsFusionProfile(&enabled_override_config, config::profiles::RcsFusionProfile::kEnhanced);
 
   environment::EnvironmentService enabled_environment(env_config);
@@ -421,11 +421,11 @@ TEST(SignalPipelineTest, ExposesPublicPlatformAltitudeUpdateApi) {
 TEST(SignalPipelineTest, UsesEnvironmentCycleIndexForExecutionContract) {
   signal::pipeline::SignalPipeline signal_pipeline;
   environment::EnvironmentService environment_service;
-  session::RadarSceneTarget target = BuildPhysicsTarget(1500.0f, 4.0f);
+  session::ArSceneTarget target = BuildPhysicsTarget(1500.0f, 4.0f);
   target.external_target_id = 42U;
 
   const session::SignalCycleResult result = RunPipelineCycle(
-      &signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 77U);
+      &signal_pipeline, session::ArSceneTargetList{target}, &environment_service, 77U);
 
   ASSERT_TRUE(result.executed_this_cycle);
   EXPECT_EQ(result.decision_frame.cycle_index, 77U);
@@ -434,18 +434,18 @@ TEST(SignalPipelineTest, UsesEnvironmentCycleIndexForExecutionContract) {
 TEST(SignalPipelineTest, RestoreRuntimeStatePreservesLifecycleTracks) {
   signal::pipeline::SignalPipeline signal_pipeline;
   environment::EnvironmentService environment_service;
-  session::RadarSceneTarget target = BuildPhysicsTarget(1500.0f, 4.0f);
+  session::ArSceneTarget target = BuildPhysicsTarget(1500.0f, 4.0f);
   target.external_target_id = 43U;
 
   const session::SignalCycleResult baseline = RunPipelineCycle(
-      &signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 1U);
+      &signal_pipeline, session::ArSceneTargetList{target}, &environment_service, 1U);
   ASSERT_TRUE(baseline.executed_this_cycle);
   ASSERT_FALSE(baseline.decision_frame.tracks.empty());
 
   const signal::SignalPipelineRuntimeState snapshot = signal_pipeline.CaptureRuntimeState();
 
   const session::SignalCycleResult missed_once =
-      RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList(), &environment_service, 2U);
+      RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList(), &environment_service, 2U);
   ASSERT_TRUE(missed_once.executed_this_cycle);
   ASSERT_FALSE(missed_once.decision_frame.tracks.empty());
   EXPECT_EQ(missed_once.decision_frame.tracks[0].miss_count, 1U);
@@ -453,14 +453,14 @@ TEST(SignalPipelineTest, RestoreRuntimeStatePreservesLifecycleTracks) {
   signal_pipeline.RestoreRuntimeState(snapshot);
 
   const session::SignalCycleResult missed_after_restore =
-      RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList(), &environment_service, 2U);
+      RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList(), &environment_service, 2U);
   ASSERT_TRUE(missed_after_restore.executed_this_cycle);
   ASSERT_FALSE(missed_after_restore.decision_frame.tracks.empty());
   EXPECT_EQ(missed_after_restore.decision_frame.tracks[0].miss_count, 1U);
 }
 
 TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig) {
-  config::RadarSessionConfig session_runtime_config;
+  config::ArSessionConfig session_runtime_config;
   session_runtime_config.policy.lifecycle.enable_imm_lifecycle = true;
   const ExecutionConfig exec_config =
       config::mapping::MapSessionToExecution(session_runtime_config);
@@ -482,7 +482,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerBuildsWithDefaultInternalImmConfig)
 }
 
 TEST(SignalPipelineTest, AutoLifecycleManagerCreationFailsWhenImmAssemblyIsInvalid) {
-  config::RadarSessionConfig session_runtime_config;
+  config::ArSessionConfig session_runtime_config;
   session_runtime_config.policy.tracking.enable_kalman_filter = true;
   session_runtime_config.policy.lifecycle.enable_imm_lifecycle = true;
   ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_runtime_config);
@@ -496,20 +496,20 @@ TEST(SignalPipelineTest, AutoLifecycleManagerCreationFailsWhenImmAssemblyIsInval
 }
 
 TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMargin) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   session_config.hardware.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
 
   environment::EnvironmentService environment_service;
 
-  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  const session::ArSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(session_config);
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  session::RadarControlProfile reduced_power_profile;
+  session::ArControlProfile reduced_power_profile;
   reduced_power_profile.enable_lpi_power_control = true;
   reduced_power_profile.lpi_power_scale = 0.20f;
   signal::pipeline::SignalPipeline reduced_pipeline(session_config);
@@ -524,7 +524,7 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
 }
 
 TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   session_config.hardware.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -535,13 +535,13 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
 
   environment::EnvironmentService environment_service;
 
-  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  const session::ArSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(session_config);
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  session::RadarControlProfile adaptive_profile;
+  session::ArControlProfile adaptive_profile;
   adaptive_profile.enable_adaptive_beamforming = true;
   signal::pipeline::SignalPipeline adaptive_pipeline(session_config);
   adaptive_pipeline.SetControlProfile(adaptive_profile);
@@ -557,19 +557,19 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
 }
 
 TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTracks) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   ApplyTrackingPolicyProfile(&session_config,
                              config::profiles::TrackingPolicyProfile::kFastAssociation);
 
   environment::EnvironmentService environment_service;
 
-  session::RadarSceneTarget target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+  session::ArSceneTarget target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
 
   target.position_x = 4.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 4.0f;
-  const session::RadarSceneTargetList input_state{target};
+  const session::ArSceneTargetList input_state{target};
 
   signal::tracking::AssociationTrackSeed seed;
   seed.association_key = 7u;
@@ -585,7 +585,7 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  session::RadarControlProfile eccm_profile;
+  session::ArControlProfile eccm_profile;
   eccm_profile.enable_agility_frequency = true;
   eccm_profile.enable_eccm_rejitter = true;
   eccm_profile.eccm_burnthrough_gain = 1.5f;
@@ -603,17 +603,17 @@ TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTrac
 }
 
 TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummary) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   ApplyTrackingPolicyProfile(&session_config,
                              config::profiles::TrackingPolicyProfile::kFastAssociation);
 
-  session::RadarSceneTarget target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+  session::ArSceneTarget target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
 
   target.position_x = 4.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 4.0f;
-  const session::RadarSceneTargetList input_state{target};
+  const session::ArSceneTargetList input_state{target};
 
   signal::tracking::AssociationTrackSeed seed;
   seed.association_key = 11u;
@@ -670,7 +670,7 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
 }
 
 TEST(SignalPipelineTest, DominantJammingSemanticReturnsMixedWhenSecondScoreCloseToNoiseBest) {
-  session::RadarControlProfile control_profile;
+  session::ArControlProfile control_profile;
   session::EnvironmentSnapshot snapshot;
   snapshot.jamming_detected = true;
 
@@ -696,7 +696,7 @@ TEST(SignalPipelineTest, DominantJammingSemanticReturnsMixedWhenSecondScoreClose
 }
 
 TEST(SignalPipelineTest, DominantJammingSemanticStaysNoiseWhenSecondScoreBelowThreshold) {
-  session::RadarControlProfile control_profile;
+  session::ArControlProfile control_profile;
   session::EnvironmentSnapshot snapshot;
   snapshot.jamming_detected = true;
 
@@ -721,17 +721,17 @@ TEST(SignalPipelineTest, DominantJammingSemanticStaysNoiseWhenSecondScoreBelowTh
 }
 
 TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   ApplyTrackingPolicyProfile(&session_config,
                              config::profiles::TrackingPolicyProfile::kFastAssociation);
 
-  session::RadarSceneTarget target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
+  session::ArSceneTarget target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
 
   target.position_x = 4.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 4.0f;
-  const session::RadarSceneTargetList input_state{target};
+  const session::ArSceneTargetList input_state{target};
 
   signal::tracking::AssociationTrackSeed seed;
   seed.association_key = 12u;
@@ -761,7 +761,7 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   const session::AssociationQualityMetrics baseline_metrics =
       baseline_pipeline.GetLastAssociationQualityMetrics();
 
-  session::RadarControlProfile protected_profile;
+  session::ArControlProfile protected_profile;
   protected_profile.enable_agility_frequency = true;
   protected_profile.enable_eccm_rejitter = true;
   signal::pipeline::SignalPipeline protected_pipeline(session_config);
@@ -779,7 +779,7 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
 }
 
 TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   session_config.hardware.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -796,13 +796,13 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
   env_config.jammer_sources.push_back(MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f));
   environment::EnvironmentService environment_service(env_config);
 
-  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  const session::ArSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(session_config);
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  session::RadarControlProfile eccm_profile;
+  session::ArControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
   eccm_profile.enable_agility_frequency = true;
   eccm_profile.enable_eccm_rejitter = true;
@@ -819,7 +819,7 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
 }
 
 TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   session_config.hardware.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -850,9 +850,9 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
   environment::EnvironmentService unfavorable_environment(
       MakeEnvironmentConfigWithJammers({unfavorable_source}));
 
-  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  const session::ArSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
-  session::RadarControlProfile eccm_profile;
+  session::ArControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
   eccm_profile.enable_adaptive_beamforming = true;
   eccm_profile.enable_agility_frequency = true;
@@ -876,7 +876,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
 }
 
 TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatchedEccmEnabled) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   session_config.hardware.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -894,13 +894,13 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   env_config.jammer_sources.push_back(deception_source);
   environment::EnvironmentService environment_service(env_config);
 
-  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  const session::ArSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
   signal::pipeline::SignalPipeline baseline_pipeline(session_config);
   RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
   const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
 
-  session::RadarControlProfile protected_profile;
+  session::ArControlProfile protected_profile;
   protected_profile.enable_agility_frequency = true;
   protected_profile.enable_eccm_rejitter = true;
   signal::pipeline::SignalPipeline protected_pipeline(session_config);
@@ -917,16 +917,16 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
 }
 
 TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
-  config::RadarSessionConfig phase_zero_config;
+  config::ArSessionConfig phase_zero_config;
   ApplyHardwareProfile(&phase_zero_config,
-                       config::profiles::RadarHardwareProfile::kGenericAirborneXBand);
-  config::RadarSessionConfig phase_one_config = phase_zero_config;
+                       config::profiles::ArHardwareProfile::kGenericAirborneXBand);
+  config::ArSessionConfig phase_one_config = phase_zero_config;
   ExecutionConfig phase_zero_exec = config::mapping::MapSessionToExecution(phase_zero_config);
   ExecutionConfig phase_one_exec = config::mapping::MapSessionToExecution(phase_one_config);
   phase_zero_exec.detection.engineering.transmitter.frequency_hz = 1.0e9f;
   phase_one_exec.detection.engineering.transmitter.frequency_hz = 1.0e9f;
 
-  session::RadarControlProfile profile;
+  session::ArControlProfile profile;
   profile.enable_agility_frequency = true;
   profile.agility_frequency_hop_phase = 0U;
   signal::pipeline::ApplyControlProfileToConfig(profile, &phase_zero_exec);
@@ -942,20 +942,20 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   env_config.jammer_sources.push_back(MakeJammerEmitter(config::JammingTechnique::kUnknown, 45.0f));
   environment::EnvironmentService environment_service(env_config);
 
-  session::RadarSceneTarget target(800.0f, 0.0f, 0.0f, 2.5f);
+  session::ArSceneTarget target(800.0f, 0.0f, 0.0f, 2.5f);
 
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const session::RadarSceneTargetList input_state{target};
+  const session::ArSceneTargetList input_state{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline;
   const auto baseline_output =
       CloneSceneTargets(RunPipelineCycle(&baseline_pipeline, input_state, &environment_service)
                             .updated_scene_targets);
 
-  session::RadarControlProfile eccm_profile;
+  session::ArControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
   eccm_profile.enable_eccm_rejitter = true;
   eccm_profile.eccm_burnthrough_gain = 1.5f;
@@ -972,7 +972,7 @@ TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
 }
 
 TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
 
@@ -997,15 +997,15 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
       MakeEnvironmentConfigWithJammers({unfavorable_source});
   environment::EnvironmentService unfavorable_environment(unfavorable_env_config);
 
-  session::RadarSceneTarget target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
+  session::ArSceneTarget target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
 
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const session::RadarSceneTargetList input_state{target};
+  const session::ArSceneTargetList input_state{target};
 
-  session::RadarControlProfile eccm_profile;
+  session::ArControlProfile eccm_profile;
   eccm_profile.enable_sidelobe_canceller = true;
   eccm_profile.enable_adaptive_beamforming = true;
   eccm_profile.enable_agility_frequency = true;
@@ -1029,7 +1029,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
 }
 
 TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUpdater) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   ApplyLifecyclePolicyProfile(&session_config,
@@ -1038,13 +1038,13 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
 
   environment::EnvironmentService environment_service;
 
-  session::RadarSceneTarget target(1.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f, 0.0f);
+  session::ArSceneTarget target(1.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f, 0.0f);
 
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const session::RadarSceneTargetList cycle_1_input{target};
+  const session::ArSceneTargetList cycle_1_input{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline(session_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> baseline_manager =
@@ -1056,7 +1056,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
 
   target.position_x = 101.0f;
   target.range_m = 101.0f;
-  const session::RadarSceneTargetList cycle_2_input{target};
+  const session::ArSceneTargetList cycle_2_input{target};
   baseline_pipeline.SetAssociationSeeds(baseline_manager->BuildAssociationSeeds());
   RunPipelineCycle(&baseline_pipeline, cycle_2_input, &environment_service, 2u);
   baseline_manager->Update(MakeLifecycleCycle(2u, 2u),
@@ -1064,7 +1064,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
   const std::vector<signal::tracking::AssociationTrackSeed> baseline_seeds =
       baseline_manager->BuildAssociationSeeds();
 
-  session::RadarControlProfile adaptive_profile;
+  session::ArControlProfile adaptive_profile;
   adaptive_profile.enable_adaptive_beamforming = true;
   signal::pipeline::SignalPipeline adaptive_pipeline(session_config);
   adaptive_pipeline.SetControlProfile(adaptive_profile);
@@ -1088,7 +1088,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
 }
 
 TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   ApplyLifecyclePolicyProfile(&session_config,
@@ -1105,7 +1105,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
 
   environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline measurement_source_pipeline(session_config);
-  const session::RadarSceneTargetList cycle_1_input{BuildPhysicsTarget(100.0f, 4.0f)};
+  const session::ArSceneTargetList cycle_1_input{BuildPhysicsTarget(100.0f, 4.0f)};
   RunPipelineCycle(&measurement_source_pipeline, cycle_1_input, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> cycle_1_measurements =
       measurement_source_pipeline.GetLastTrackMeasurements();
@@ -1114,7 +1114,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
   unsynced_manager->Update(MakeLifecycleCycle(1u, 1u), cycle_1_measurements);
   synced_manager->Update(MakeLifecycleCycle(1u, 1u), cycle_1_measurements);
 
-  session::RadarControlProfile agile_profile;
+  session::ArControlProfile agile_profile;
   agile_profile.enable_agility_frequency = true;
   const signal::pipeline::ResolvedRuntimePipelineConfig agile_runtime_config =
       signal::pipeline::ResolveRuntimePipelineConfig(base_exec_config, agile_profile);
@@ -1135,7 +1135,7 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
 }
 
 TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOperational) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   ApplyLifecyclePolicyProfile(&session_config,
@@ -1149,7 +1149,7 @@ TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOpe
 
   environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline measurement_source_pipeline(session_config);
-  const session::RadarSceneTargetList cycle_1_input{BuildPhysicsTarget(100.0f, 4.0f)};
+  const session::ArSceneTargetList cycle_1_input{BuildPhysicsTarget(100.0f, 4.0f)};
   RunPipelineCycle(&measurement_source_pipeline, cycle_1_input, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> cycle_1_measurements =
       measurement_source_pipeline.GetLastTrackMeasurements();
@@ -1181,7 +1181,7 @@ TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOpe
 }
 
 TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoiseSuppression) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   session_config.hardware.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -1212,7 +1212,7 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   deception_env_config.jammer_sources.push_back(deception_source);
   environment::EnvironmentService deception_environment(deception_env_config);
 
-  const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  const session::ArSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
 
   signal::pipeline::SignalPipeline noise_pipeline(session_config);
   RunPipelineCycle(&noise_pipeline, input_state, &noise_environment);
@@ -1229,7 +1229,7 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
 }
 
 TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmParameters) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   session_config.policy.lifecycle.enable_imm_lifecycle = true;
@@ -1238,8 +1238,8 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
 
   environment::EnvironmentService environment_service;
 
-  session::RadarSceneTarget target = BuildPhysicsTarget(120.0f, 4.0f);
-  const session::RadarSceneTargetList cycle_1_input{target};
+  session::ArSceneTarget target = BuildPhysicsTarget(120.0f, 4.0f);
+  const session::ArSceneTargetList cycle_1_input{target};
 
   signal::pipeline::SignalPipeline baseline_pipeline(session_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> baseline_manager =
@@ -1252,7 +1252,7 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
   const std::vector<signal::tracking::AssociationTrackSeed> baseline_seeds =
       baseline_manager->BuildAssociationSeeds();
 
-  session::RadarControlProfile protected_profile;
+  session::ArControlProfile protected_profile;
   protected_profile.enable_eccm_rejitter = true;
   protected_profile.eccm_burnthrough_gain = 1.5f;
   signal::pipeline::SignalPipeline protected_pipeline(session_config);
@@ -1277,15 +1277,15 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  session::RadarSceneTarget first(100.0f, 0.0f, 0.0f, 2.0f);
+  session::ArSceneTarget first(100.0f, 0.0f, 0.0f, 2.0f);
 
   first.position_x = 10.0f;
   first.range_m = 10.0f;
-  session::RadarSceneTarget second(220.0f, 0.0f, 0.0f, 5.0f);
+  session::ArSceneTarget second(220.0f, 0.0f, 0.0f, 5.0f);
 
   second.position_x = 100.0f;
   second.range_m = 100.0f;
-  const session::RadarSceneTargetList cycle_1{first, second};
+  const session::ArSceneTargetList cycle_1{first, second};
 
   RunPipelineCycle(&signal_pipeline, cycle_1, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
@@ -1332,7 +1332,7 @@ TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
 
   signal_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>{first_seed, second_seed});
-  const session::RadarSceneTargetList cycle_2{first, second};
+  const session::ArSceneTargetList cycle_2{first, second};
   RunPipelineCycle(&signal_pipeline, cycle_2, &environment_service, 2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1349,8 +1349,8 @@ TEST(SignalPipelineTest, CompletesWithoutCrashWhenDetectedTargetUsesDefaultPosit
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const session::RadarSceneTargetList input_state{
-      session::RadarSceneTarget(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f)};
+  const session::ArSceneTargetList input_state{
+      session::ArSceneTarget(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f)};
 
   RunPipelineCycle(&signal_pipeline, input_state, &environment_service);
 }
@@ -1359,21 +1359,21 @@ TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionEx
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  session::RadarSceneTarget first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  session::ArSceneTarget first(100.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
 
   first.position_x = 10.0f;
   first.position_y = 0.0f;
   first.position_z = 0.0f;
   first.range_m = 10.0f;
 
-  session::RadarSceneTarget second(220.0f, 0.0f, 0.0f, 5.0f, 3.0f, 0.0f, 0.0f);
+  session::ArSceneTarget second(220.0f, 0.0f, 0.0f, 5.0f, 3.0f, 0.0f, 0.0f);
 
   second.position_x = 100.0f;
   second.position_y = 0.0f;
   second.position_z = 0.0f;
   second.range_m = 100.0f;
 
-  RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{first, second},
+  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{first, second},
                    &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1405,7 +1405,7 @@ TEST(SignalPipelineTest, UsesPositionAssociationByDefaultWhenCartesianPositionEx
 
   first.position_x = 11.0f;
   second.position_x = 101.0f;
-  RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{second, first},
+  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{second, first},
                    &environment_service, 2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1421,14 +1421,14 @@ TEST(SignalPipelineTest, UsesLifecycleAssociationSeedsByDefault) {
   environment_service.BeginCycle(MakeEnvironmentCycle(1u));
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  session::ArSceneTarget target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
 
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{target}, &environment_service,
+  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{target}, &environment_service,
                    1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1439,7 +1439,7 @@ TEST(SignalPipelineTest, UsesLifecycleAssociationSeedsByDefault) {
 
   target.position_x = 10.2f;
   target.range_m = 10.2f;
-  RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{target}, &environment_service,
+  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{target}, &environment_service,
                    2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1467,14 +1467,14 @@ TEST(SignalPipelineTest, ClearManualAssociationSeedsKeepsLifecycleSeedsActive) {
       std::vector<signal::tracking::AssociationTrackSeed>(1, side_channel_seed));
   signal_pipeline.ClearManualAssociationSeeds();
 
-  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  session::ArSceneTarget target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
 
   target.position_x = 10.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{target}, &environment_service,
+  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{target}, &environment_service,
                    1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1485,7 +1485,7 @@ TEST(SignalPipelineTest, ClearManualAssociationSeedsKeepsLifecycleSeedsActive) {
 
   target.position_x = 10.1f;
   target.range_m = 10.1f;
-  RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList{target}, &environment_service,
+  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{target}, &environment_service,
                    2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1511,7 +1511,7 @@ TEST(SignalPipelineTest, InvalidManualAssociationSeedsDoNotDisableLifecycleSeeds
   signal_pipeline.SetAssociationSeeds(
       std::vector<signal::tracking::AssociationTrackSeed>(1, invalid_seed));
 
-  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  session::ArSceneTarget target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
 
   target.position_x = 10.0f;
   target.position_y = 0.0f;
@@ -1519,7 +1519,7 @@ TEST(SignalPipelineTest, InvalidManualAssociationSeedsDoNotDisableLifecycleSeeds
   target.range_m = 10.0f;
 
   const session::SignalCycleResult first_result = RunPipelineCycle(
-      &signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 1u);
+      &signal_pipeline, session::ArSceneTargetList{target}, &environment_service, 1u);
   EXPECT_TRUE(first_result.executed_this_cycle);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1531,7 +1531,7 @@ TEST(SignalPipelineTest, InvalidManualAssociationSeedsDoNotDisableLifecycleSeeds
   target.position_x = 10.1f;
   target.range_m = 10.1f;
   const session::SignalCycleResult second_result = RunPipelineCycle(
-      &signal_pipeline, session::RadarSceneTargetList{target}, &environment_service, 2u);
+      &signal_pipeline, session::ArSceneTargetList{target}, &environment_service, 2u);
   EXPECT_TRUE(second_result.executed_this_cycle);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
@@ -1545,20 +1545,20 @@ TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
   environment::EnvironmentService valid_environment;
   environment::EnvironmentService invalid_environment;
 
-  session::RadarSceneTarget target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
+  session::ArSceneTarget target(0.0f, 0.0f, 0.0f, 2.0f, 1.0f, 0.0f, 0.0f);
 
   target.position_x = 10.0f;
   target.range_m = 10.0f;
 
   const session::SignalCycleResult valid_result = RunPipelineCycle(
-      &signal_pipeline, session::RadarSceneTargetList{target}, &valid_environment, 1u);
+      &signal_pipeline, session::ArSceneTargetList{target}, &valid_environment, 1u);
   EXPECT_TRUE(valid_result.executed_this_cycle);
   EXPECT_EQ(valid_result.abort_reason, session::SignalCycleAbortReason::kNone);
   ASSERT_EQ(valid_result.updated_scene_targets.size(), 1u);
   ASSERT_EQ(signal_pipeline.GetLastTrackMeasurements().size(), 1u);
 
   const session::SignalCycleResult invalid_result = signal_pipeline.RunCycle(
-      ToSceneTargets(session::RadarSceneTargetList{target}), invalid_environment);
+      ToSceneTargets(session::ArSceneTargetList{target}), invalid_environment);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
   EXPECT_EQ(invalid_result.abort_reason, session::SignalCycleAbortReason::kInvalidEnvironmentCycle);
   EXPECT_TRUE(invalid_result.updated_scene_targets.empty());
@@ -1574,7 +1574,7 @@ TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
 /// @brief 杂波功率由内部模型统一给出，不再由外部场景直填。
 
 TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecycleCovariance) {
-  config::RadarSessionConfig session_config;
+  config::ArSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   ApplyLifecyclePolicyProfile(&session_config,
@@ -1583,13 +1583,13 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
 
   environment::EnvironmentService environment_service;
 
-  session::RadarSceneTarget target(1.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f, 0.0f);
+  session::ArSceneTarget target(1.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f, 0.0f);
 
   target.position_x = 100.0f;
   target.position_y = 0.0f;
   target.position_z = 0.0f;
   target.range_m = 100.0f;
-  const session::RadarSceneTargetList input{target};
+  const session::ArSceneTargetList input{target};
 
   signal::pipeline::SignalPipeline pipeline(session_config);
   std::unique_ptr<signal::tracking::ITrackLifecycleManager> manager =
@@ -1599,12 +1599,12 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
   RunPipelineCycle(&pipeline, input, &environment_service, 1u);
   manager->Update(MakeLifecycleCycle(1u, 1u), pipeline.GetLastTrackMeasurements());
 
-  session::RadarControlProfile baseline_profile;
+  session::ArControlProfile baseline_profile;
   pipeline.SetControlProfile(baseline_profile);
 
   target.position_x = 101.0f;
   target.range_m = 101.0f;
-  const session::RadarSceneTargetList input2{target};
+  const session::ArSceneTargetList input2{target};
   pipeline.SetAssociationSeeds(manager->BuildAssociationSeeds());
   RunPipelineCycle(&pipeline, input2, &environment_service, 2u);
   manager->Update(MakeLifecycleCycle(2u, 2u), pipeline.GetLastTrackMeasurements());
@@ -1613,13 +1613,13 @@ TEST(SignalPipelineTest, SameInstanceControlProfileSwitchAcrossCyclesSyncsLifecy
   ASSERT_EQ(baseline_seeds.size(), 1u);
   const float baseline_cov = baseline_seeds[0].gaussian_state.covariance(0, 0);
 
-  session::RadarControlProfile agile_profile;
+  session::ArControlProfile agile_profile;
   agile_profile.enable_agility_frequency = true;
   pipeline.SetControlProfile(agile_profile);
 
   target.position_x = 102.0f;
   target.range_m = 102.0f;
-  const session::RadarSceneTargetList input3{target};
+  const session::ArSceneTargetList input3{target};
   pipeline.SetAssociationSeeds(manager->BuildAssociationSeeds());
   RunPipelineCycle(&pipeline, input3, &environment_service, 3u);
   manager->Update(MakeLifecycleCycle(3u, 3u), pipeline.GetLastTrackMeasurements());
@@ -1662,7 +1662,7 @@ TEST(SignalPipelineInternalConfigTest, RobustBuilderProfileMapsToRobustProfile) 
 
 TEST(SignalPipelineInternalConfigTest,
      NonDefaultRcsPhysicsBreaksTrackingProfileSignatureAndFallsBackToBaseline) {
-  config::RadarSessionConfig session_config = MakeTrackingFocusedConfig();
+  config::ArSessionConfig session_config = MakeTrackingFocusedConfig();
   ApplyRcsFusionProfile(&session_config, config::profiles::RcsFusionProfile::kEnhanced);
   const ExecutionConfig exec_config = config::mapping::MapSessionToExecution(session_config);
 
@@ -1673,7 +1673,7 @@ TEST(SignalPipelineInternalConfigTest,
 }
 
 TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLifecycleThresholds) {
-  config::RadarSessionConfig session_config = MakeDetectionFocusedConfig();
+  config::ArSessionConfig session_config = MakeDetectionFocusedConfig();
   ApplyDetectionIntentProfile(&session_config, config::profiles::DetectionIntentProfile::kBalanced);
   ApplyLifecyclePolicyProfile(&session_config, config::profiles::LifecyclePolicyProfile::kBalanced);
   ApplyTrackingPolicyProfile(&session_config, config::profiles::TrackingPolicyProfile::kBalanced);
@@ -1686,7 +1686,7 @@ TEST(SignalPipelineInternalConfigTest, CustomConfigStaysBaselineEvenWithHighLife
 }
 
 TEST(SignalPipelineInternalConfigTest, ImmToggleOnlyControlsImmInternalDefaults) {
-  config::RadarSessionConfig session_config = MakeTrackingFocusedConfig();
+  config::ArSessionConfig session_config = MakeTrackingFocusedConfig();
   const ExecutionConfig imm_disabled_exec = config::mapping::MapSessionToExecution(session_config);
   EXPECT_TRUE(imm_disabled_exec.lifecycle.imm_model_noise_diff_coeffs.empty());
   EXPECT_FLOAT_EQ(imm_disabled_exec.tracking.engineering.speed_decay_ratio_on_loss, 1.0f);

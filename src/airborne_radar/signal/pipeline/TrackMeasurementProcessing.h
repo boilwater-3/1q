@@ -26,7 +26,7 @@ namespace pipeline {
  * @param jamming_detected 环境是否探测到干扰。
  * @param scratch        周期暂存区（读取探测/关联结果，写入量测）。
  */
-void BuildTrackMeasurementsPass(const session::RadarSceneTargetList& input,
+void BuildTrackMeasurementsPass(const session::ArSceneTargetList& input,
                                 bool jamming_detected,
                                 CycleExecutionScratch& scratch);
 
@@ -43,7 +43,7 @@ void BuildTrackMeasurementsPass(const session::RadarSceneTargetList& input,
  * @param track_filter   轨迹滤波器引用。
  * @param scratch        周期暂存区。
  */
-void ApplyTrackFilterPass(const session::RadarSceneTargetList& input,
+void ApplyTrackFilterPass(const session::ArSceneTargetList& input,
                           bool jamming_detected,
                           tracking::TrackFilter& track_filter,
                           CycleExecutionScratch& scratch);

@@ -7,8 +7,8 @@
 
 #include <type_traits>
 
-#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
-#include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
+#include "1q/airborne_radar/config/ArEnvironmentConfig.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 
 namespace airborne_radar {
 namespace environment {
@@ -23,7 +23,7 @@ using config::EnvironmentScenarioConfig;
 using config::JammerEmitterState;
 using config::JammingSensitivityProfile;
 using config::JammingTechnique;
-using config::RadarEnvironmentConfig;
+using config::ArEnvironmentConfig;
 using config::ResolveJammingSensitivityProfile;
 using config::VegetationCoverProfile;
 using config::VegetationScatterPhysicsConfig;
@@ -59,12 +59,12 @@ TEST(ArEnvironmentTypeContractTest, ModelConfigHasSameFieldStructureAsScenarioCo
 }
 
 TEST(ArEnvironmentTypeContractTest, DefaultConfigContainsOnlyScenarioConfig) {
-  RadarEnvironmentConfig defaults;
+  ArEnvironmentConfig defaults;
   (void)defaults.scenario_config;
 }
 
 TEST(ArEnvironmentTypeContractTest, DefaultConfigScenarioDefaultsToEmpty) {
-  RadarEnvironmentConfig defaults;
+  ArEnvironmentConfig defaults;
   EXPECT_TRUE(defaults.scenario_config.jammer_sources.empty());
   EXPECT_FALSE(defaults.scenario_config.atmospheric_physics.enable_physical_model);
   EXPECT_EQ(defaults.scenario_config.vegetation_scatter_physics.cover_profile,
@@ -129,8 +129,8 @@ TEST(ArEnvironmentDefaultStabilityTest, JammerEmitterStateDefaults) {
 }
 
 TEST(ArEnvironmentDefaultStabilityTest, DefaultConfigDefaultConstructedProducesDefaults) {
-  const RadarEnvironmentConfig built;
-  const RadarEnvironmentConfig defaults;
+  const ArEnvironmentConfig built;
+  const ArEnvironmentConfig defaults;
   EXPECT_EQ(built.scenario_config.jammer_sources.size(),
             defaults.scenario_config.jammer_sources.size());
 }
@@ -140,7 +140,7 @@ TEST(ArEnvironmentDefaultStabilityTest, DefaultConfigPreservesOverride) {
   scenario.atmospheric_physics.enable_physical_model = true;
   scenario.atmospheric_physics.temperature_k = 300.0f;
 
-  RadarEnvironmentConfig built;
+  ArEnvironmentConfig built;
   built.scenario_config = scenario;
 
   EXPECT_TRUE(built.scenario_config.atmospheric_physics.enable_physical_model);

@@ -3,7 +3,6 @@
  * @brief AR module primary track output debug view types.
  *
  * Primary header for track debug views.
- * Include this for new code; RadarTrackOutputDebugView.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_TRACK_OUTPUT_DEBUG_VIEW_H_
@@ -69,11 +68,6 @@ class ONEQ_API ArTrackOutputDebugViewBuilder {
   static ArTrackOutputDebugView Build(const ArCycleInput& input, const ArCycleResult& result);
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarDebugTrackStatus = ArDebugTrackStatus;
-using RadarDebugTrackState = ArDebugTrackState;
-using RadarTrackOutputDebugView = ArTrackOutputDebugView;
-using RadarTrackOutputDebugViewBuilder = ArTrackOutputDebugViewBuilder;
 
 }  // namespace session
 }  // namespace airborne_radar

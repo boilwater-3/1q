@@ -42,7 +42,7 @@ class ITrackLifecycleManager {
    * @brief 导出供事件广播和外围观测消费的目标特征快照。
    * @return 获取到的轻量级目标特征列表。
    */
-  virtual session::RadarSceneTargetList BuildSceneTargetSnapshot() const = 0;
+  virtual session::ArSceneTargetList BuildSceneTargetSnapshot() const = 0;
   /**
    * @brief 导出供决策引擎消费的活跃轨迹快照。
    * @return 包含 tentative/confirmed/lost 状态且未回收的轨迹列表。

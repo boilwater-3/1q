@@ -23,12 +23,12 @@ ar_config::AzimuthElevationDeg MakeAzEl(float az_deg, float el_deg) {
 }
 
 /// Original hardcoded builder from git history.
-ar_config::RadarSessionConfig MakeWideAreaSearchConfig() {
-  ar_config::RadarSessionConfig config =
-      ar_config::RadarSessionConfigBuilder()
+ar_config::ArSessionConfig MakeWideAreaSearchConfig() {
+  ar_config::ArSessionConfig config =
+      ar_config::ArSessionConfigBuilder()
           .Detection()
           .EnablePhysicsDetection(false)
-          .WithHardwareProfile(ar_config::profiles::RadarHardwareProfile::kLongRangeHighPower)
+          .WithHardwareProfile(ar_config::profiles::ArHardwareProfile::kLongRangeHighPower)
           .WithDetectionIntentProfile(
               ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
           .WithAntennaPatternProfile(ar_config::profiles::AntennaPatternProfile::kStandard)
@@ -44,7 +44,7 @@ ar_config::RadarSessionConfig MakeWideAreaSearchConfig() {
           .WithJammingSensitivityProfile(ar_env::JammingSensitivityProfile::kBalanced)
           .End()
           .Build();
-  config.mission.orientation.work_mode = ar_config::RadarWorkMode::kTas;
+  config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
   config.mission.orientation.scan_center_deg = MakeAzEl(0.0f, 0.0f);
   return config;
 }
@@ -156,8 +156,8 @@ void CheckRcsPhysics(const ar_config::detection::RcsPhysicsConfig& a,
   CHECK_EQ(a.bistatic_psi_offset_deg, b.bistatic_psi_offset_deg, "rcs.bistatic_psi_offset_deg");
 }
 
-void CompareConfigs(const ar_config::RadarSessionConfig& a,
-                    const ar_config::RadarSessionConfig& b) {
+void CompareConfigs(const ar_config::ArSessionConfig& a,
+                    const ar_config::ArSessionConfig& b) {
   std::cout << "=== Comparing SessionConfig ===\n";
 
   // hardware
@@ -292,9 +292,9 @@ void CompareConfigs(const ar_config::RadarSessionConfig& a,
 }  // namespace
 
 int main() {
-  const ar_config::RadarSessionConfig builder_config = MakeWideAreaSearchConfig();
+  const ar_config::ArSessionConfig builder_config = MakeWideAreaSearchConfig();
 
-  ar_config::RadarSessionConfig file_config;
+  ar_config::ArSessionConfig file_config;
   {
     std::string error;
     if (!examples::LoadArSessionConfigFromFile("configs/airborne_radar.json", &file_config,

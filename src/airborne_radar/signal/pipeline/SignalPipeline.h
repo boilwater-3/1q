@@ -32,7 +32,7 @@ class SignalPipeline final : public ISignalPipeline {
    * @brief 构造信号处理流水线（会话配置桥接入口）。
    * @param config 四域会话配置。
    */
-  explicit SignalPipeline(const config::RadarSessionConfig& config);
+  explicit SignalPipeline(const config::ArSessionConfig& config);
   /**
    * @brief 析构信号处理流水线。
    */
@@ -44,7 +44,7 @@ class SignalPipeline final : public ISignalPipeline {
    * @param environment 当前环境服务。
    * @return 当前周期的信号处理输出。
    */
-  session::SignalCycleResult RunCycle(const session::RadarSceneTargetList& scene_targets,
+  session::SignalCycleResult RunCycle(const session::ArSceneTargetList& scene_targets,
                                       const environment::IEnvironmentService& environment) override;
 
   /**
@@ -99,19 +99,19 @@ class SignalPipeline final : public ISignalPipeline {
    * @brief 更新当前生效的控制真值。
    * @param control_profile 控制真值。
    */
-  void SetControlProfile(const session::RadarControlProfile& control_profile) override;
+  void SetControlProfile(const session::ArControlProfile& control_profile) override;
 
   /**
    * @brief 获取当前缓存的控制真值。
    * @return 当前控制真值。
    */
-  session::RadarControlProfile GetControlProfile() const override;
+  session::ArControlProfile GetControlProfile() const override;
 
   /**
    * @brief 更新流水线运行配置。
    * @param config 四域会话配置。
    */
-  bool UpdateConfig(const config::RadarSessionConfig& config) override;
+  bool UpdateConfig(const config::ArSessionConfig& config) override;
 
   /**
    * @brief 以 execution 配置直接更新流水线运行配置。

@@ -26,7 +26,7 @@ namespace extension {
  *
  * 封装两个内聚职责：
  *   1. 调用 ControlReducer 归并 proposals -> profile；
- *   2. 将被采纳的 directives 转换为 RadarCommand 并提交到 MutableRadarContext，
+ *   2. 将被采纳的 directives 转换为 ArCommand 并提交到 MutableArContext，
  *      同时更新控制真值。
  */
 class ControlCommandMapper {
@@ -49,7 +49,7 @@ class ControlCommandMapper {
    * @return 归并结果（包含新 profile、采纳与拒绝的 directives）。
    */
   extension::ControlReductionResult Apply(
-      session::RadarControlProfile* current_profile,
+      session::ArControlProfile* current_profile,
       const std::vector<session::TacticalProposal>& proposals);
 
  private:

@@ -53,9 +53,6 @@ class ArSessionCompositionRoot {
       const config::ArSessionConfig& config, session::ITacticalDecisionEngine& decision_engine);
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarSessionComposition = ArSessionComposition;
-using RadarSessionCompositionRoot = ArSessionCompositionRoot;
 
 }  // namespace session
 }  // namespace airborne_radar

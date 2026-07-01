@@ -28,7 +28,7 @@ struct ResolvedRuntimePipelineConfig {
 
 ResolvedRuntimePipelineConfig ResolveRuntimePipelineConfig(
     const ExecutionConfig& base_config,
-    const session::RadarControlProfile& control_profile);
+    const session::ArControlProfile& control_profile);
 
 std::unique_ptr<tracking::ITrackLifecycleManager> CreateAutoLifecycleManagerForRuntimeConfig(
     const ExecutionConfig& runtime_config);
@@ -45,7 +45,7 @@ struct OwnedComponentSlots {
 
 void RebuildOwnedComponentsForPipeline(
     const ExecutionConfig& base_config,
-    const session::RadarControlProfile& control_profile, OwnedComponentSlots* slots);
+    const session::ArControlProfile& control_profile, OwnedComponentSlots* slots);
 
 bool SyncAutoLifecycleManagerForResolvedRuntimeConfig(
     const ResolvedRuntimePipelineConfig& resolved_runtime_config,

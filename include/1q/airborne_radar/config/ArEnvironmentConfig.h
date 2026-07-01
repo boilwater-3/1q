@@ -3,7 +3,6 @@
  * @brief AR module primary environment configuration types.
  *
  * Primary header for environment domain configuration.
- * Include this for new code; RadarEnvironmentConfig.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_ENVIRONMENT_CONFIG_H_
@@ -188,8 +187,6 @@ inline ONEQ_API EnvironmentModelConfig BuildModelConfigFromScenario(
   return model_config;
 }
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarEnvironmentConfig = ArEnvironmentConfig;
 
 }  // namespace config
 }  // namespace airborne_radar

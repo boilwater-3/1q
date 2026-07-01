@@ -47,7 +47,7 @@ inline float DeriveBeamwidthFromApertureRad(float aperture_length_m, float wavel
  */
 inline EffectiveBeamwidthDeg ResolveEffectiveBeamwidth(
     const config::engineering::AntennaConfig& antenna_config,
-    const config::RadarOrientationConfig& orientation_config,
+    const config::ArOrientationConfig& orientation_config,
     float wavelength_m = 0.0f) {
   EffectiveBeamwidthDeg beamwidth;
   if (orientation_config.commanded_beamwidth_enabled) {

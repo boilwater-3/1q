@@ -117,13 +117,13 @@ void TrackStateSnapshotEmitter::Refresh(
   }
 }
 
-session::RadarSceneTargetList TrackStateSnapshotEmitter::BuildSceneTargetSnapshot() const {
-  session::RadarSceneTargetList features;
+session::ArSceneTargetList TrackStateSnapshotEmitter::BuildSceneTargetSnapshot() const {
+  session::ArSceneTargetList features;
   features.reserve(active_tracks_.size());
   for (std::vector<ActiveTrackEntry>::const_iterator it = active_tracks_.begin();
        it != active_tracks_.end(); ++it) {
     const TrackState& track = *it->track;
-    session::RadarSceneTarget feature(track.velocity(0), track.velocity(1), track.velocity(2),
+    session::ArSceneTarget feature(track.velocity(0), track.velocity(1), track.velocity(2),
                                       track.rcs);
     feature.position_x = track.position(0);
     feature.position_y = track.position(1);

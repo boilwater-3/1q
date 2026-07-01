@@ -372,7 +372,7 @@ TEST(ReplayTraceWriterTest, WritesFailureMarkerAndLastWindowPackage) {
     ReplayTraceFailure failure;
     failure.error_code = "ASSERTION_FAILED";
     failure.message = "track diverged";
-    failure.location = "RadarTraceSession::Step";
+    failure.location = "ArTraceSession::Step";
     failure.has_cycle_index = true;
     failure.cycle_index = 1U;
     failure.has_sim_time_sec = true;

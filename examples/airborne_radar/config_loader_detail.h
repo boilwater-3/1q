@@ -86,7 +86,7 @@ inline void LoadDetectionConfig(const oneq::JsonValue& j,
 }
 
 inline void LoadHardware(const oneq::JsonValue& j,
-                         airborne_radar::config::RadarHardwareConfig* v) {
+                         airborne_radar::config::ArHardwareConfig* v) {
   if (j.IsNull()) return;
   LoadDetectionConfig(j["detection"], v);
 }
@@ -94,7 +94,7 @@ inline void LoadHardware(const oneq::JsonValue& j,
 // -- mission / orientation ---------------------------------------------------
 
 inline void LoadOrientation(const oneq::JsonValue& j,
-                            airborne_radar::config::RadarOrientationConfig* v) {
+                            airborne_radar::config::ArOrientationConfig* v) {
   if (j.IsNull()) return;
   LoadEulerAngles(j["mount_angles_deg"], &v->mount_angles_deg);
   LoadAzEl(j["scan_center_deg"], &v->scan_center_deg);
@@ -111,7 +111,7 @@ inline void LoadOrientation(const oneq::JsonValue& j,
 }
 
 inline void LoadMission(const oneq::JsonValue& j,
-                        airborne_radar::config::RadarMissionConfig* v) {
+                        airborne_radar::config::ArMissionConfig* v) {
   if (j.IsNull()) return;
   LoadOrientation(j["orientation"], &v->orientation);
 }
@@ -175,7 +175,7 @@ inline void LoadLifecycle(const oneq::JsonValue& j,
 }
 
 inline void LoadPolicy(const oneq::JsonValue& j,
-                       airborne_radar::config::RadarPolicyConfig* v) {
+                       airborne_radar::config::ArPolicyConfig* v) {
   if (j.IsNull()) return;
   LoadBeamControl(j["beam_control"], &v->beam_control);
   LoadAssociation(j["association"], &v->association);
@@ -222,7 +222,7 @@ inline void LoadScenario(const oneq::JsonValue& j,
 }
 
 inline void LoadEnvironment(const oneq::JsonValue& j,
-                            airborne_radar::config::RadarEnvironmentConfig* v) {
+                            airborne_radar::config::ArEnvironmentConfig* v) {
   if (j.IsNull()) return;
   LoadScenario(j["scenario_config"], &v->scenario_config);
 }

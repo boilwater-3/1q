@@ -55,7 +55,7 @@ class ControlReducer {
    * @return 归并后的控制真值与采纳结果。
    */
   extension::ControlReductionResult Reduce(
-      const session::RadarControlProfile& previous_profile,
+      const session::ArControlProfile& previous_profile,
       const std::vector<session::TacticalProposal>& proposals);
 
   /**

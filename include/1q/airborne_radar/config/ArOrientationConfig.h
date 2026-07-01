@@ -3,7 +3,6 @@
  * @brief AR module primary orientation and scan configuration types.
  *
  * Primary header for orientation, work mode, and scan configuration.
- * Include this for new code; RadarOrientationConfig.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_ORIENTATION_CONFIG_H_
@@ -109,9 +108,6 @@ struct ONEQ_API ArOrientationConfig {
   StabilizationMode stabilization_mode{StabilizationMode::kBodyStabilized}; /**< 波束稳定方式 */
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarWorkMode = ArWorkMode;
-using RadarOrientationConfig = ArOrientationConfig;
 
 }  // namespace config
 }  // namespace airborne_radar

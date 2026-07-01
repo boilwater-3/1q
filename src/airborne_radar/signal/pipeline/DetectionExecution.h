@@ -32,15 +32,15 @@ struct DetectionExecutionBuffers {
   std::vector<tracking::MeasurementCovariance>* measurement_covariances{nullptr};
 };
 
-void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input,
+void RunHeuristicDetectionPass(const session::ArSceneTargetList& input,
                                const ExecutionConfig& config,
-                               const session::RadarControlProfile& control_profile,
+                               const session::ArControlProfile& control_profile,
                                const session::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers);
 
-void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
+void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
                               const ExecutionConfig& config,
-                              const session::RadarControlProfile& control_profile,
+                              const session::ArControlProfile& control_profile,
                               const session::EnvironmentSnapshot& environment_snapshot,
                               float platform_altitude_m, detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers);

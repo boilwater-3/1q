@@ -3,7 +3,6 @@
  * @brief AR module primary external output adaptation types.
  *
  * Primary header for external output adaptation.
- * Include this for new code; RadarExternalOutputAdapter.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_EXTERNAL_OUTPUT_ADAPTER_H_
@@ -58,9 +57,6 @@ ONEQ_API bool TryMakeExternalTrackFromSnapshot(const session::TrackStateSnapshot
                                                oneq::foundation::Vector3f radar_local_velocity_mps,
                                                ArExternalTrackKinematics* output);
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarExternalTrackKinematics = ArExternalTrackKinematics;
-using RadarExternalTrackKinematicsList = ArExternalTrackKinematicsList;
 
 }  // namespace session
 }  // namespace airborne_radar

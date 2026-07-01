@@ -7,10 +7,10 @@
  * 获取航迹输出与控制指令。
  *
  * 典型流程：
- *   1. 使用 RadarSessionConfigBuilder 构建会话配置
- *   2. 通过 RadarSession::Create 创建 Session
- *   3. 每个仿真周期构造 RadarCycleInput，调用 StepWithResult 执行
- *   4. 从 RadarCycleResult 中读取航迹、指令等输出
+ *   1. 使用 ArSessionConfigBuilder 构建会话配置
+ *   2. 通过 ArSession::Create 创建 Session
+ *   3. 每个仿真周期构造 ArCycleInput，调用 StepWithResult 执行
+ *   4. 从 ArCycleResult 中读取航迹、指令等输出
  */
 
 #include <cstddef>
@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/coordinate/types.h"
 #include "config_loader.h"
@@ -33,8 +33,8 @@ namespace ar_session = airborne_radar::session;
 namespace {
 
 /// 从 JSON 配置文件加载会话配置。
-ar_config::RadarSessionConfig LoadConfigFromFile() {
-  ar_config::RadarSessionConfig config;
+ar_config::ArSessionConfig LoadConfigFromFile() {
+  ar_config::ArSessionConfig config;
   std::string error;
   if (!examples::LoadArSessionConfigFromFile("configs/airborne_radar.json",
                                               &config, &error)) {
@@ -46,15 +46,15 @@ ar_config::RadarSessionConfig LoadConfigFromFile() {
 
 /// 使用工厂从配置创建 Session。
 /// Session 本身管理内部状态，支持多次 StepWithResult 调用。
-ar_session::RadarSession CreateWideAreaSearchSession() {
-  return ar_session::RadarSession::Create(LoadConfigFromFile());
+ar_session::ArSession CreateWideAreaSearchSession() {
+  return ar_session::ArSession::Create(LoadConfigFromFile());
 }
 
 /// 构造平台（载机）位姿输入。
 /// 位置和速度使用 ECEF 坐标系；姿态和雷达安装角使用角度制。
-ar_session::RadarExternalPoseInput MakePlatformPose(const oneq::coordinate::EcefPositionM& pos,
+ar_session::ArExternalPoseInput MakePlatformPose(const oneq::coordinate::EcefPositionM& pos,
                                                     const oneq::coordinate::EcefVelocityMps& vel) {
-  ar_session::RadarExternalPoseInput platform;
+  ar_session::ArExternalPoseInput platform;
   platform.platform_position_ecef_m = pos;
   platform.platform_velocity_mps = vel;
   platform.platform_attitude_deg.yaw_deg = 0.0;
@@ -69,10 +69,10 @@ ar_session::RadarExternalPoseInput MakePlatformPose(const oneq::coordinate::Ecef
 /// 构造目标外部运动学输入。
 /// external_target_id 为调用方分配的唯一目标标识（不可为 0，否则触发校验警告）。
 /// rcs 为雷达截面积（m²），swerling_type 表示 Swerling 起伏模型编号。
-ar_session::RadarExternalTargetInput MakeTargetKinematics(
+ar_session::ArExternalTargetInput MakeTargetKinematics(
     std::uint64_t target_id, const oneq::coordinate::EcefPositionM& pos,
     const oneq::coordinate::EcefVelocityMps& vel, float rcs) {
-  ar_session::RadarExternalTargetInput target;
+  ar_session::ArExternalTargetInput target;
   target.target_id = target_id;
   target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
   target.kinematics.position_ecef_m = pos;
@@ -84,8 +84,8 @@ ar_session::RadarExternalTargetInput MakeTargetKinematics(
 
 /// 构造环境输入，包括大气观测、空间天气和地表覆盖信息。
 /// 大气物理模型启用后，气压/温度/湿度等参数将参与传播衰减计算。
-ar_session::RadarEnvironmentInput MakeInitialEnvironmentInput() {
-  ar_session::RadarEnvironmentInput environment;
+ar_session::ArEnvironmentInput MakeInitialEnvironmentInput() {
+  ar_session::ArEnvironmentInput environment;
   environment.atmospheric_observation.enable_physical_model = true;
   environment.atmospheric_observation.pressure_hpa = 1010.0f;
   environment.atmospheric_observation.temperature_k = 290.0f;
@@ -101,7 +101,7 @@ ar_session::RadarEnvironmentInput MakeInitialEnvironmentInput() {
 }
 
 /// 打印单周期结果摘要：航迹数、确认/暂定航迹统计、指令数及是否校验出错。
-void PrintResult(const char* label, const ar_session::RadarCycleResult& result) {
+void PrintResult(const char* label, const ar_session::ArCycleResult& result) {
   std::cout << label << ": cycle=" << result.input_cycle_index
             << " tracks=" << result.track_output_frame.tracks.size() << " confirmed="
             << ar_session::CountTracksByStatus(result.track_output_frame,
@@ -114,7 +114,7 @@ void PrintResult(const char* label, const ar_session::RadarCycleResult& result) 
 }
 
 /// 打印外部 ECEF 轨迹输出：将雷达局部坐标转换后的世界坐标轨迹摘要。
-void PrintExternalOutput(const ar_session::RadarExternalTrackOutputFrame& output) {
+void PrintExternalOutput(const ar_session::ArExternalTrackOutputFrame& output) {
   std::cout << "  external_tracks=" << output.tracks.size();
   for (std::size_t j = 0; j < output.tracks.size(); ++j) {
     const auto& t = output.tracks[j];
@@ -153,12 +153,12 @@ MovingAirTarget MakeMovingAirTarget(std::uint64_t id, double x_m, double y_m, do
 /// 每个周期：
 ///   1. 构造平台位姿（ECEF 位置 + 速度 + 姿态）
 ///   2. 构造所有目标的运动学输入
-///   3. 通过 RadarCycleInputAdapter 组装完整输入
+///   3. 通过 ArCycleInputAdapter 组装完整输入
 ///   4. 调用 session.StepWithResult 获得输出
 ///   5. 根据返回的 dt 推进目标位置（简单欧拉积分）
 bool RunMovingTargetsScenario() {
-  ar_session::RadarSession session = CreateWideAreaSearchSession();
-  ar_session::RadarEnvironmentInputState environment_state(MakeInitialEnvironmentInput());
+  ar_session::ArSession session = CreateWideAreaSearchSession();
+  ar_session::ArEnvironmentInputState environment_state(MakeInitialEnvironmentInput());
 
   // 平台初始位置：ECEF 坐标（约对应中纬度某空域）
   oneq::coordinate::EcefPositionM platform_pos;
@@ -189,18 +189,18 @@ bool RunMovingTargetsScenario() {
 
   for (std::uint32_t i = 0; i < num_cycles; ++i) {
     // 构造本周期平台位姿
-    ar_session::RadarExternalPoseInput platform = MakePlatformPose(platform_pos, platform_vel);
+    ar_session::ArExternalPoseInput platform = MakePlatformPose(platform_pos, platform_vel);
 
     // 构造所有目标的运动学输入
-    std::vector<ar_session::RadarExternalTargetInput> target_kinematics;
+    std::vector<ar_session::ArExternalTargetInput> target_kinematics;
     target_kinematics.reserve(targets.size());
     for (const auto& mt : targets) {
       target_kinematics.push_back(MakeTargetKinematics(mt.id, mt.pos, mt.vel, mt.rcs));
     }
 
     // 组装周期输入：平台位姿 + 目标列表 + 时间步长(秒) + 环境快照
-    ar_session::RadarCycleInput input;
-    if (!ar_session::RadarCycleInputAdapter::Build(platform, target_kinematics, 1.0f,
+    ar_session::ArCycleInput input;
+    if (!ar_session::ArCycleInputAdapter::Build(platform, target_kinematics, 1.0f,
                                                    environment_state.Snapshot(), &input)) {
       std::cerr << "ar-moving: cycle " << (i + 1) << " build failed\n";
       return false;
@@ -216,7 +216,7 @@ bool RunMovingTargetsScenario() {
     }
 
     // 执行一个仿真周期
-    ar_session::RadarCycleResult result = session.StepWithResult(input);
+    ar_session::ArCycleResult result = session.StepWithResult(input);
     if (result.has_validation_error) {
       ++validation_error_count;
     }
@@ -225,9 +225,9 @@ bool RunMovingTargetsScenario() {
     if (ntracks < min_tracks) min_tracks = ntracks;
     PrintResult("ar-moving", result);
 
-    // 使用 RadarCycleOutputAdapter 将内部雷达局部轨迹转换为外部 ECEF 输出
-    ar_session::RadarExternalTrackOutputFrame external_output;
-    bool external_output_ok = ar_session::RadarCycleOutputAdapter::Build(
+    // 使用 ArCycleOutputAdapter 将内部雷达局部轨迹转换为外部 ECEF 输出
+    ar_session::ArExternalTrackOutputFrame external_output;
+    bool external_output_ok = ar_session::ArCycleOutputAdapter::Build(
         platform, result.track_output_frame, &external_output);
     if (external_output_ok) {
       PrintExternalOutput(external_output);

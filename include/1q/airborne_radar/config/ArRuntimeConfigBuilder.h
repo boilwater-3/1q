@@ -3,7 +3,6 @@
  * @brief AR module primary runtime patch builder type.
  *
  * Primary header for runtime patch builder.
- * Include this for new code; RadarRuntimeConfigBuilder.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_RUNTIME_CONFIG_BUILDER_H_
@@ -119,8 +118,6 @@ class ONEQ_API ArRuntimeConfigBuilder {
   ArRuntimeConfigPatch patch_{};
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarRuntimeConfigBuilder = ArRuntimeConfigBuilder;
 
 }  // namespace config
 }  // namespace airborne_radar

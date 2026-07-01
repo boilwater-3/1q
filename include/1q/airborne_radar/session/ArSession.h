@@ -3,7 +3,6 @@
  * @brief 定义面向外部接入的高层机载雷达会话门面。
  *
  * Primary header for the AR module session facade.
- * Include this for new code; RadarSession.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_SESSION_H_

@@ -3,7 +3,6 @@
  * @brief AR module primary environment input types.
  *
  * Primary header for environment input types.
- * Include this for new code; RadarEnvironmentInput.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_ENVIRONMENT_INPUT_H_
@@ -145,10 +144,6 @@ class ONEQ_API ArEnvironmentInputState {
   ArEnvironmentInput snapshot_{};
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarEnvironmentInputPatch = ArEnvironmentInputPatch;
-using RadarEnvironmentInput = ArEnvironmentInput;
-using RadarEnvironmentInputState = ArEnvironmentInputState;
 
 }  // namespace session
 }  // namespace airborne_radar

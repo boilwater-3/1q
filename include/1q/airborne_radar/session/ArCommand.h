@@ -3,7 +3,6 @@
  * @brief AR module primary command types.
  *
  * Primary header for tactical command types.
- * Include this for new code; RadarCommand.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_COMMAND_H_
@@ -58,10 +57,6 @@ struct ONEQ_API ArCommand {
       : type(cmd_type), source(cmd_source) {}
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using RadarCommandSource = ArCommandSource;
-using RadarCommandType = ArCommandType;
-using RadarCommand = ArCommand;
 
 }  // namespace session
 }  // namespace airborne_radar

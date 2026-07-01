@@ -8,7 +8,7 @@
 #include <cmath>
 #include <vector>
 
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
+#include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/signal/tracking/BoostTrackPool.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
@@ -21,7 +21,7 @@ namespace tests {
 
 namespace {
 
-float SpeedOf(const session::RadarSceneTarget& target) {
+float SpeedOf(const session::ArSceneTarget& target) {
   return std::sqrt(target.velocity_x * target.velocity_x + target.velocity_y * target.velocity_y +
                    target.velocity_z * target.velocity_z);
 }
@@ -129,7 +129,7 @@ TEST(TrackLifecycleManagerTest, ConfirmsTrackAfterConfiguredHits) {
   ASSERT_EQ(active_tracks.size(), 1u);
   EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kConfirmed);
 
-  const session::RadarSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
+  const session::ArSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
   EXPECT_FLOAT_EQ(SpeedOf(snapshot[0]), 5.0f);
   EXPECT_FLOAT_EQ(snapshot[0].rcs, 1.5f);
@@ -161,7 +161,7 @@ TEST(TrackLifecycleManagerTest, RecyclesTrackAfterLostTimeout) {
   active_tracks = manager.GetActiveTracks();
   EXPECT_TRUE(active_tracks.empty());
 
-  const session::RadarSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
+  const session::ArSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
   EXPECT_TRUE(snapshot.empty());
 }
 
@@ -521,7 +521,7 @@ TEST(TrackLifecycleManagerTest, ImmPathPredictsConfirmedTrackAcrossMissedCycles)
   EXPECT_GE(active_tracks[0]->position(0), 109.0f);
   EXPECT_GT(active_tracks[0]->gaussian_state.covariance(0, 0), covariance_before_miss);
 
-  const session::RadarSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
+  const session::ArSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
   EXPECT_FLOAT_EQ(snapshot[0].position_x, active_tracks[0]->position(0));
 }
@@ -854,7 +854,7 @@ TEST(TrackLifecycleManagerTest, FilterWritebackUpdatesAccelerationFromVelocityDe
   ASSERT_EQ(active.size(), 1u);
   EXPECT_GT(active[0]->acceleration.norm(), 0.0f);
 
-  const session::RadarSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
+  const session::ArSceneTargetList snapshot = manager.BuildSceneTargetSnapshot();
   ASSERT_EQ(snapshot.size(), 1u);
   EXPECT_NEAR(SpeedOf(snapshot[0]),
               std::sqrt(snapshot[0].velocity_x * snapshot[0].velocity_x +

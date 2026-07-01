@@ -83,7 +83,7 @@ float ComputeEquivalentRadiusM(float input_rcs_m2,
   return oneq::internal::numerics::Clamp(equivalent_radius_m, min_radius_m, max_radius_m);
 }
 
-float ComputeEffectiveTargetRcsM2(const session::RadarSceneTarget& target,
+float ComputeEffectiveTargetRcsM2(const session::ArSceneTarget& target,
                                   const detection::ResolvedTargetGeometry& geometry,
                                   const ExecutionConfig& exec_config) {
   const float input_rcs_m2 = std::max(target.rcs, 0.0f);
@@ -167,9 +167,9 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 
 }  // namespace
 
-void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input,
+void RunHeuristicDetectionPass(const session::ArSceneTargetList& input,
                                const ExecutionConfig& config,
-                               const session::RadarControlProfile& control_profile,
+                               const session::ArControlProfile& control_profile,
                                const session::EnvironmentSnapshot& environment_snapshot,
                                DetectionExecutionBuffers* buffers) {
   if (buffers == nullptr || !HasValidBuffers(*buffers)) {
@@ -203,9 +203,9 @@ void RunHeuristicDetectionPass(const session::RadarSceneTargetList& input,
   }
 }
 
-void RunPhysicalDetectionPass(const session::RadarSceneTargetList& input,
+void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
                               const ExecutionConfig& config,
-                              const session::RadarControlProfile& control_profile,
+                              const session::ArControlProfile& control_profile,
                               const session::EnvironmentSnapshot& environment_snapshot,
                               float platform_altitude_m, detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers) {

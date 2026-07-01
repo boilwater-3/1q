@@ -156,10 +156,6 @@ class MutableArContext final {
   bool has_latest_control_profile_{false};
 };
 
-// 兼容别名：旧名称在 wrapper 阶段保留。
-using MutableRadarContext = MutableArContext;
-using RadarContextRuntimeState = ArContextRuntimeState;
-
 }  // namespace session
 }  // namespace airborne_radar
 

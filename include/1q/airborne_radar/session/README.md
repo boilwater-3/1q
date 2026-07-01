@@ -1,7 +1,6 @@
-# AR Session 公开接口 （Ar* 推荐命名）
+# AR Session 公开接口 （Ar* 命名）
 
-> 本模块所有公开类型同时提供 `Ar*`（主头）与 `Radar*`（兼容 wrapper）两套命名。
-> **新代码必须使用 `Ar*`**。`Radar*` 仅为旧 consumer 兼容阶段保留。
+> 本模块所有公开类型使用 `Ar*` 命名。
 
 ## 决策域
 - ITacticalDecisionEngine.h — 决策引擎抽象接口（唯一的公共扩展点），含 TacticalDecisionResult、TargetCategory

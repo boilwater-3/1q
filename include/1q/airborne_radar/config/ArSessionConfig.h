@@ -3,7 +3,6 @@
  * @brief AR module primary session configuration type.
  *
  * Primary header for session initialization configuration.
- * Include this for new code; RadarSessionConfig.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_SESSION_CONFIG_H_
@@ -28,8 +27,6 @@ struct ONEQ_API ArSessionConfig {
   ArEnvironmentConfig environment{};
 };
 
-// 兼容别名：旧 RadarSessionConfig 名称在 wrapper 阶段保留。
-using RadarSessionConfig = ArSessionConfig;
 
 }  // namespace config
 }  // namespace airborne_radar
