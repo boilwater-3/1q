@@ -1,30 +1,19 @@
 /**
  * @file RadarReplaySession.h
- * @brief Provides an AR replay entry point backed by replay trace events.
+ * @brief Deprecated compat wrapper — include ArReplaySession.h instead.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_RADAR_REPLAY_SESSION_H_
 #define ONEQ_AIRBORNE_RADAR_SESSION_RADAR_REPLAY_SESSION_H_
 
-#include <string>
-
-#include "1q/api.hpp"
-#include "1q/replay/ReplayTrace.h"
+#include "1q/airborne_radar/session/ArReplaySession.h"
 
 namespace airborne_radar {
 namespace session {
 
-struct ONEQ_API RadarReplaySessionResult {
-  oneq::replay::ReplayTraceReplayReport report{};
-  oneq::replay::ReplayTracePlaybackResult playback{};
-  bool ok{false};
-  bool reached_failure_marker{false};
-  std::string failure_marker_payload{};
-  oneq::replay::ReplayTraceFailure failure_marker_data{};
-  std::string first_error{};
-};
-
-ONEQ_API RadarReplaySessionResult ReplayRadarTrace(const std::string& trace_dir);
+inline RadarReplaySessionResult ReplayRadarTrace(const std::string& trace_dir) {
+  return ReplayArTrace(trace_dir);
+}
 
 }  // namespace session
 }  // namespace airborne_radar

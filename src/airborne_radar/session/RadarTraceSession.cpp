@@ -1,11 +1,11 @@
-#include "1q/airborne_radar/session/RadarTraceSession.h"
-#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/session/ArTraceSession.h"
+#include "1q/airborne_radar/session/ArSession.h"
 
 #include <sstream>
 #include <string>
 #include <utility>
 
-#include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/trace/TraceSink.h"
 #include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
@@ -14,7 +14,7 @@ namespace airborne_radar {
 namespace session {
 namespace {
 
-std::string BuildRadarInputPayload(const RadarCycleInput& input) {
+std::string BuildRadarInputPayload(const ArCycleInput& input) {
   std::ostringstream os;
   os << "{"
      << "\"cycle_index\":" << input.cycle_index << ","
@@ -26,7 +26,7 @@ std::string BuildRadarInputPayload(const RadarCycleInput& input) {
   return os.str();
 }
 
-std::string BuildRadarOutputPayload(const RadarCycleResult& result) {
+std::string BuildRadarOutputPayload(const ArCycleResult& result) {
   const auto& frame = result.track_output_frame;
   std::size_t confirmed_count = 0U;
   for (const auto& track : frame.tracks) {
@@ -54,7 +54,7 @@ std::string BuildRadarOutputPayload(const RadarCycleResult& result) {
 }
 
 void WriteSessionConfigReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
-                              const config::RadarSessionConfig& config) {
+                              const config::ArSessionConfig& config) {
   oneq::replay::ReplayTraceEvent event;
   event.module = "airborne_radar";
   event.event_type = "session_config";
@@ -65,7 +65,7 @@ void WriteSessionConfigReplay(const std::shared_ptr<oneq::replay::ReplayTraceWri
 }
 
 void WriteRuntimeConfigPatchReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
-                                   const config::RadarRuntimeConfigPatch& patch) {
+                                   const config::ArRuntimeConfigPatch& patch) {
   oneq::replay::ReplayTraceEvent event;
   event.module = "airborne_radar";
   event.event_type = "runtime_config_patch";
@@ -76,7 +76,7 @@ void WriteRuntimeConfigPatchReplay(const std::shared_ptr<oneq::replay::ReplayTra
 }
 
 void WriteCycleResultReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
-                            const RadarCycleResult& result) {
+                            const ArCycleResult& result) {
   oneq::replay::ReplayTraceEvent event;
   event.module = "airborne_radar";
   event.event_type = "cycle_output";
@@ -90,14 +90,14 @@ void WriteCycleResultReplay(const std::shared_ptr<oneq::replay::ReplayTraceWrite
 
 void MaybeWriteValidationFailureMarker(
     const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
-    const RadarCycleResult& result) {
+    const ArCycleResult& result) {
   if (!writer || !result.has_validation_error) {
     return;
   }
   oneq::replay::ReplayTraceFailure failure;
   failure.error_code = "AR_VALIDATION_ERROR";
-  failure.message = "RadarCycleResult has_validation_error set";
-  failure.location = "RadarTraceSession::StepWithResult";
+  failure.message = "ArCycleResult has_validation_error set";
+  failure.location = "ArTraceSession::StepWithResult";
   failure.has_cycle_index = true;
   failure.cycle_index = result.input_cycle_index;
   const std::string failure_bytes = EncodeFailureMarkerFlatbuffer(failure, false, 0U);
@@ -105,7 +105,7 @@ void MaybeWriteValidationFailureMarker(
 }
 
 void WriteCycleInputEvent(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
-                          const RadarCycleInput& input) {
+                          const ArCycleInput& input) {
   oneq::replay::ReplayTraceEvent ev;
   ev.module = "airborne_radar";
   ev.event_type = "cycle_input";
@@ -119,20 +119,20 @@ void WriteCycleInputEvent(const std::shared_ptr<oneq::replay::ReplayTraceWriter>
 
 }  // namespace
 
-struct RadarTraceSession::Impl {
-  Impl(RadarSession s, std::shared_ptr<oneq::trace::TraceSink> sk,
+struct ArTraceSession::Impl {
+  Impl(ArSession s, std::shared_ptr<oneq::trace::TraceSink> sk,
        std::shared_ptr<oneq::replay::ReplayTraceWriter> rw)
       : session(std::move(s)), sink(std::move(sk)), replay_writer(std::move(rw)) {}
 
-  RadarSession session;
+  ArSession session;
   std::shared_ptr<oneq::trace::TraceSink> sink;
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer;
   bool pending_input_written{false};
 };
 
-RadarTraceSession::RadarTraceSession(const config::RadarSessionConfig& config,
-                                     RadarTraceSessionOptions options)
-    : impl_(new Impl(RadarSession::Create(config), std::move(options.sink),
+ArTraceSession::ArTraceSession(const config::ArSessionConfig& config,
+                               ArTraceSessionOptions options)
+    : impl_(new Impl(ArSession::Create(config), std::move(options.sink),
                      std::move(options.replay_writer))) {
   if (options.trace_config_on_construct) {
     if (impl_->sink) {
@@ -144,11 +144,11 @@ RadarTraceSession::RadarTraceSession(const config::RadarSessionConfig& config,
   }
 }
 
-RadarTraceSession::RadarTraceSession(RadarTraceSession&& other) noexcept = default;
-RadarTraceSession& RadarTraceSession::operator=(RadarTraceSession&& other) noexcept = default;
-RadarTraceSession::~RadarTraceSession() = default;
+ArTraceSession::ArTraceSession(ArTraceSession&& other) noexcept = default;
+ArTraceSession& ArTraceSession::operator=(ArTraceSession&& other) noexcept = default;
+ArTraceSession::~ArTraceSession() = default;
 
-session::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) {
+session::TrackOutputFrame ArTraceSession::Step(const ArCycleInput& input) {
   if (impl_->sink) {
     impl_->sink->Record("airborne_radar", "input", BuildRadarInputPayload(input));
   }
@@ -164,7 +164,7 @@ session::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) 
     WriteCycleInputEvent(impl_->replay_writer, input);
     impl_->pending_input_written = true;
   }
-  const RadarCycleResult result = impl_->session.StepWithResult(input);
+  const ArCycleResult result = impl_->session.StepWithResult(input);
   if (impl_->sink) {
     impl_->sink->Record("airborne_radar", "output", BuildRadarOutputPayload(result));
   }
@@ -176,7 +176,7 @@ session::TrackOutputFrame RadarTraceSession::Step(const RadarCycleInput& input) 
   return result.track_output_frame;
 }
 
-RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input) {
+ArCycleResult ArTraceSession::StepWithResult(const ArCycleInput& input) {
   if (impl_->sink) {
     impl_->sink->Record("airborne_radar", "input", BuildRadarInputPayload(input));
   }
@@ -192,7 +192,7 @@ RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input)
     WriteCycleInputEvent(impl_->replay_writer, input);
     impl_->pending_input_written = true;
   }
-  const RadarCycleResult output = impl_->session.StepWithResult(input);
+  const ArCycleResult output = impl_->session.StepWithResult(input);
   if (impl_->sink) {
     impl_->sink->Record("airborne_radar", "output", BuildRadarOutputPayload(output));
   }
@@ -204,33 +204,33 @@ RadarCycleResult RadarTraceSession::StepWithResult(const RadarCycleInput& input)
   return output;
 }
 
-void RadarTraceSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
+void ArTraceSession::ApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch) {
   if (impl_->replay_writer) {
     WriteRuntimeConfigPatchReplay(impl_->replay_writer, patch);
   }
   impl_->session.ApplyRuntimeConfig(patch);
 }
 
-const std::vector<session::RadarCommand>& RadarTraceSession::GetSubmittedCommands()
+const std::vector<session::ArCommand>& ArTraceSession::GetSubmittedCommands()
     const {
   return impl_->session.GetSubmittedCommands();
 }
 
-bool RadarTraceSession::HasLatestControlProfile() const {
+bool ArTraceSession::HasLatestControlProfile() const {
   return impl_->session.HasLatestControlProfile();
 }
 
-const session::RadarControlProfile& RadarTraceSession::GetLatestControlProfile() const {
+const session::ArControlProfile& ArTraceSession::GetLatestControlProfile() const {
   return impl_->session.GetLatestControlProfile();
 }
 
-session::AssociationQualityMetrics RadarTraceSession::GetLastAssociationQualityMetrics() const {
+session::AssociationQualityMetrics ArTraceSession::GetLastAssociationQualityMetrics() const {
   return impl_->session.GetLastAssociationQualityMetrics();
 }
 
-RadarSession& RadarTraceSession::session() { return impl_->session; }
+ArSession& ArTraceSession::session() { return impl_->session; }
 
-const RadarSession& RadarTraceSession::session() const { return impl_->session; }
+const ArSession& ArTraceSession::session() const { return impl_->session; }
 
 }  // namespace session
 }  // namespace airborne_radar

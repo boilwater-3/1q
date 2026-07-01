@@ -282,8 +282,8 @@ bool OnFailureMarker(const oneq::replay::ReplayTraceReadEvent& event, void* user
 
 }  // namespace
 
-RadarReplaySessionResult ReplayRadarTrace(const std::string& trace_dir) {
-  RadarReplaySessionResult result;
+ArReplaySessionResult ReplayArTrace(const std::string& trace_dir) {
+  ArReplaySessionResult result;
 
   oneq::replay::ReplayTraceCompatibilityExpectation expectation;
   expectation.module = "airborne_radar";
