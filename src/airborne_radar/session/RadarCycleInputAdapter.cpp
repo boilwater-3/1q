@@ -1,36 +1,36 @@
-#include "1q/airborne_radar/session/RadarCycleInputAdapter.h"
+#include "1q/airborne_radar/session/ArCycleInputAdapter.h"
 
 namespace airborne_radar {
 namespace session {
 
-bool RadarCycleInputAdapter::Build(const RadarExternalPoseInput& platform,
-                                   const std::vector<RadarExternalTargetInput>& targets,
-                                   float dt_sec, RadarCycleInput* output,
-                                   RadarCoordinateStatus* status) {
-  if (!Build(platform, targets, dt_sec, RadarEnvironmentInput{}, output, status)) {
+bool ArCycleInputAdapter::Build(const ArExternalPoseInput& platform,
+                                const std::vector<ArExternalTargetInput>& targets,
+                                float dt_sec, ArCycleInput* output,
+                                ArCoordinateStatus* status) {
+  if (!Build(platform, targets, dt_sec, ArEnvironmentInput{}, output, status)) {
     return false;
   }
   output->has_environment = false;
   return true;
 }
 
-bool RadarCycleInputAdapter::Build(const RadarExternalPoseInput& platform,
-                                   const std::vector<RadarExternalTargetInput>& targets,
-                                   float dt_sec, const RadarEnvironmentInput& environment,
-                                   RadarCycleInput* output, RadarCoordinateStatus* status) {
+bool ArCycleInputAdapter::Build(const ArExternalPoseInput& platform,
+                                const std::vector<ArExternalTargetInput>& targets,
+                                float dt_sec, const ArEnvironmentInput& environment,
+                                ArCycleInput* output, ArCoordinateStatus* status) {
   if (status != nullptr) {
-    *status = RadarCoordinateStatus::kOk;
+    *status = ArCoordinateStatus::kOk;
   }
 
   if (output == nullptr) {
     if (status != nullptr) {
-      *status = RadarCoordinateStatus::kNullOutput;
+      *status = ArCoordinateStatus::kNullOutput;
     }
     return false;
   }
 
   oneq::coordinate::LocalFrameReference reference;
-  if (!TryMakeRadarPoseFromExternalKinematics(platform, &reference, &output->platform_pose, status)) {
+  if (!TryMakeArPoseFromExternalKinematics(platform, &reference, &output->platform_pose, status)) {
     return false;
   }
 
@@ -42,9 +42,9 @@ bool RadarCycleInputAdapter::Build(const RadarExternalPoseInput& platform,
   output->scene.clear();
 
   for (std::size_t i = 0; i < targets.size(); ++i) {
-    RadarSceneTarget target;
-    if (!TryMakeTargetFromExternalKinematics(targets[i], reference,
-                                             output->platform_pose.velocity_mps, &target, status)) {
+    ArSceneTarget target;
+    if (!TryMakeArTargetFromExternalKinematics(targets[i], reference,
+                                               output->platform_pose.velocity_mps, &target, status)) {
       return false;
     }
     output->scene.push_back(target);

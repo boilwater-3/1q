@@ -30,18 +30,18 @@ oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
   return oneq::coordinate::ComposeAttitudeDeg(platform_attitude_deg, radar_mount_angles_deg);
 }
 
-bool TryMakeRadarPoseFromExternalKinematics(
-    const RadarExternalPoseInput& input,
+bool TryMakeArPoseFromExternalKinematics(
+    const ArExternalPoseInput& input,
     oneq::coordinate::LocalFrameReference* reference,
     oneq::foundation::PoseState* platform_pose,
-    RadarCoordinateStatus* status) {
+    ArCoordinateStatus* status) {
   if (status != nullptr) {
-    *status = RadarCoordinateStatus::kOk;
+    *status = ArCoordinateStatus::kOk;
   }
 
   if (reference == nullptr || platform_pose == nullptr) {
     if (status != nullptr) {
-      *status = RadarCoordinateStatus::kNullOutput;
+      *status = ArCoordinateStatus::kNullOutput;
     }
     return false;
   }
@@ -49,7 +49,7 @@ bool TryMakeRadarPoseFromExternalKinematics(
   oneq::coordinate::LlaPositionDegM radar_lla;
   if (!oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m, &radar_lla)) {
     if (status != nullptr) {
-      *status = RadarCoordinateStatus::kCoordinateTransformFail;
+      *status = ArCoordinateStatus::kCoordinateTransformFail;
     }
     return false;
   }
@@ -66,7 +66,7 @@ bool TryMakeRadarPoseFromExternalKinematics(
     if (!oneq::coordinate::TryEcefToEnuVelocity(
             input.platform_velocity_mps, reference->origin_lla, &velocity_enu)) {
       if (status != nullptr) {
-        *status = RadarCoordinateStatus::kCoordinateTransformFail;
+        *status = ArCoordinateStatus::kCoordinateTransformFail;
       }
       return false;
     }
@@ -78,19 +78,19 @@ bool TryMakeRadarPoseFromExternalKinematics(
   return true;
 }
 
-bool TryMakeTargetFromExternalKinematics(
-    const RadarExternalTargetInput& target_input,
+bool TryMakeArTargetFromExternalKinematics(
+    const ArExternalTargetInput& target_input,
     const oneq::coordinate::LocalFrameReference& reference,
     oneq::foundation::Vector3f radar_local_velocity_mps,
-    RadarSceneTarget* target,
-    RadarCoordinateStatus* status) {
+    ArSceneTarget* target,
+    ArCoordinateStatus* status) {
   if (status != nullptr) {
-    *status = RadarCoordinateStatus::kOk;
+    *status = ArCoordinateStatus::kOk;
   }
 
   if (target == nullptr) {
     if (status != nullptr) {
-      *status = RadarCoordinateStatus::kNullOutput;
+      *status = ArCoordinateStatus::kNullOutput;
     }
     return false;
   }
@@ -98,7 +98,7 @@ bool TryMakeTargetFromExternalKinematics(
   if (!oneq::coordinate::IsFinite(target_input.kinematics.velocity_mps) ||
       !IsFiniteVector3f(radar_local_velocity_mps)) {
     if (status != nullptr) {
-      *status = RadarCoordinateStatus::kCoordinateTransformFail;
+      *status = ArCoordinateStatus::kCoordinateTransformFail;
     }
     return false;
   }
@@ -109,7 +109,7 @@ bool TryMakeTargetFromExternalKinematics(
       if (!oneq::coordinate::TryEcefToEnu(
               target_input.kinematics.position_ecef_m, reference.origin_lla, &target_position_enu)) {
         if (status != nullptr) {
-          *status = RadarCoordinateStatus::kCoordinateTransformFail;
+          *status = ArCoordinateStatus::kCoordinateTransformFail;
         }
         return false;
       }
@@ -118,14 +118,14 @@ bool TryMakeTargetFromExternalKinematics(
       if (!oneq::coordinate::TryLlaToEnu(
               target_input.kinematics.position_lla_deg_m, reference.origin_lla, &target_position_enu)) {
         if (status != nullptr) {
-          *status = RadarCoordinateStatus::kCoordinateTransformFail;
+          *status = ArCoordinateStatus::kCoordinateTransformFail;
         }
         return false;
       }
       break;
     default:
       if (status != nullptr) {
-        *status = RadarCoordinateStatus::kCoordinateTransformFail;
+        *status = ArCoordinateStatus::kCoordinateTransformFail;
       }
       return false;
   }
@@ -137,7 +137,7 @@ bool TryMakeTargetFromExternalKinematics(
   if (!oneq::coordinate::TryEcefToEnuVelocity(
           target_input.kinematics.velocity_mps, reference.origin_lla, &velocity_enu)) {
     if (status != nullptr) {
-      *status = RadarCoordinateStatus::kCoordinateTransformFail;
+      *status = ArCoordinateStatus::kCoordinateTransformFail;
     }
     return false;
   }
