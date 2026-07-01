@@ -1,4 +1,7 @@
-# AR Session 公开接口
+# AR Session 公开接口 （Ar* 推荐命名）
+
+> 本模块所有公开类型同时提供 `Ar*`（主头）与 `Radar*`（兼容 wrapper）两套命名。
+> **新代码必须使用 `Ar*`**。`Radar*` 仅为旧 consumer 兼容阶段保留。
 
 ## 决策域
 - ITacticalDecisionEngine.h — 决策引擎抽象接口（唯一的公共扩展点），含 TacticalDecisionResult、TargetCategory
@@ -8,32 +11,32 @@
 - ControlDirective.h — 决策层输出的控制意图类型
 
 ## 控制域
-- RadarCommand.h — 行为决策层下发的战术指令（类型 + 来源）
-- RadarControlProfile.h — 信号层下一周期生效的控制真值（LPI/ECCM 开关）
+- [ArCommand](ArCommand.h) — 行为决策层下发的战术指令（类型 + 来源）
+- [ArControlProfile](ArControlProfile.h) — 信号层下一周期生效的控制真值（LPI/ECCM 开关）
 
 ## 周期 IO
-- RadarCycleInput.h — 单周期输入
-- RadarCycleInputBuilder.h — 周期输入构造器
-- RadarCycleOutputBuilder.h — 周期输出构造器
-- RadarCycleResult.h — 周期结果 + TrackOutputFrame
+- [ArCycleInput](ArCycleInput.h) — 单周期输入
+- [ArCycleResult](ArCycleResult.h) — 周期结果 + TrackOutputFrame
 
 ## 环境域
-- RadarEnvironmentInput.h — 环境运行时输入 + 补丁 + 状态（三合一）
+- [ArEnvironmentInput](ArEnvironmentInput.h) — 环境运行时输入 + 补丁 + 状态（三合一）
 
 ## 适配器
-- RadarExternalInputAdapter.h — 外部输入适配器（平台姿态 → 雷达坐标系）
-- RadarExternalOutputAdapter.h — 外部输出适配器（雷达航迹 → 平台坐标系）
+- [ArExternalInputAdapter](ArExternalInputAdapter.h) — 外部输入适配器（平台姿态 → 雷达坐标系）
+- [ArExternalOutputAdapter](ArExternalOutputAdapter.h) — 外部输出适配器（雷达航迹 → 平台坐标系）
+- [ArCycleInputAdapter](ArCycleInputAdapter.h) — 周期输入一步构造器
+- [ArCycleOutputAdapter](ArCycleOutputAdapter.h) — 周期输出适配器（内部帧 → ECEF 输出帧）
 
 ## 会话
-- RadarSession.h — 主会话（PIMPL，静态工厂 Create / CreateWithDecisionEngine）
-- RadarReplaySession.h — 回放会话
-- RadarTraceSession.h — 跟踪会话
+- [ArSession](ArSession.h) — 主会话（PIMPL，静态工厂 Create / CreateWithDecisionEngine）
+- [ArReplaySession](ArReplaySession.h) — 回放会话
+- [ArTraceSession](ArTraceSession.h) — 跟踪会话
 
 ## 基础类型
-- RadarInputValidation.h — 输入校验
-- RadarOutputTypes.h — 输出类型（SignalCycleAbortReason、AssociationQualityMetrics 等）
-- RadarSceneTypes.h — 场景类型（RadarSceneTarget 等）
+- [ArInputValidation](ArInputValidation.h) — 输入校验
+- [ArOutputTypes](ArOutputTypes.h) — 输出类型（SignalCycleAbortReason、AssociationQualityMetrics 等）
+- [ArSceneTypes](ArSceneTypes.h) — 场景类型（ArSceneTarget 等）
 
 ## 调试/观测
-- RadarTrackLifecycleRecorder.h — 航迹生命周期记录器
-- RadarTrackOutputDebugView.h — 调试视图
+- [ArTrackLifecycleRecorder](ArTrackLifecycleRecorder.h) — 航迹生命周期记录器
+- [ArTrackOutputDebugView](ArTrackOutputDebugView.h) — 调试视图
