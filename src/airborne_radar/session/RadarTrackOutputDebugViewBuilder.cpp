@@ -1,21 +1,21 @@
-#include "1q/airborne_radar/session/RadarTrackOutputDebugView.h"
+#include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 
-#include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
 
 namespace airborne_radar {
 namespace session {
 
 namespace {
 
-RadarDebugTrackStatus ToDebugStatus(session::TrackStatus status) {
+ArDebugTrackStatus ToDebugStatus(session::TrackStatus status) {
   switch (status) {
     case session::TrackStatus::kConfirmed:
-      return RadarDebugTrackStatus::kConfirmed;
+      return ArDebugTrackStatus::kConfirmed;
     case session::TrackStatus::kLost:
-      return RadarDebugTrackStatus::kLost;
+      return ArDebugTrackStatus::kLost;
     case session::TrackStatus::kTentative:
     default:
-      return RadarDebugTrackStatus::kTentative;
+      return ArDebugTrackStatus::kTentative;
   }
 }
 
@@ -29,20 +29,20 @@ const session::TrackStateSnapshot* FindTrackByExternalTargetId(
   return nullptr;
 }
 
-RadarDebugTrackState BuildTrackState(const RadarSceneTarget& target, const RadarCycleResult& cycle_result) {
-  RadarDebugTrackState state;
+ArDebugTrackState BuildTrackState(const ArSceneTarget& target, const ArCycleResult& cycle_result) {
+  ArDebugTrackState state;
   state.external_target_id = target.external_target_id;
   state.target_name = target.target_name;
   state.present_in_input = true;
   if (!cycle_result.executed_this_cycle) {
-    state.status = RadarDebugTrackStatus::kCycleNotExecuted;
+    state.status = ArDebugTrackStatus::kCycleNotExecuted;
     return state;
   }
   const session::TrackStateSnapshot* track =
       FindTrackByExternalTargetId(cycle_result.track_output_frame, target.external_target_id);
   if (track == nullptr) {
     // external_target_id 为 0（未知）的输入目标无法按 ID 关联到 track。
-    state.status = RadarDebugTrackStatus::kNotInOutput;
+    state.status = ArDebugTrackStatus::kNotInOutput;
     return state;
   }
   state.has_track = true;
@@ -61,9 +61,9 @@ RadarDebugTrackState BuildTrackState(const RadarSceneTarget& target, const Radar
 
 }  // namespace
 
-RadarTrackOutputDebugView RadarTrackOutputDebugViewBuilder::Build(const RadarCycleInput& input,
-                                                                   const RadarCycleResult& result) {
-  RadarTrackOutputDebugView view;
+ArTrackOutputDebugView ArTrackOutputDebugViewBuilder::Build(const ArCycleInput& input,
+                                                             const ArCycleResult& result) {
+  ArTrackOutputDebugView view;
   view.input_cycle_index = result.input_cycle_index;
   view.output_cycle_index = result.track_output_frame.cycle_index;
   view.executed_this_cycle = result.executed_this_cycle;
@@ -71,7 +71,7 @@ RadarTrackOutputDebugView RadarTrackOutputDebugViewBuilder::Build(const RadarCyc
   view.has_validation_error = result.has_validation_error;
   view.abort_reason = result.abort_reason;
   view.tracks.reserve(input.scene.size());
-  for (const RadarSceneTarget& target : input.scene) {
+  for (const ArSceneTarget& target : input.scene) {
     view.tracks.push_back(BuildTrackState(target, result));
   }
   return view;

@@ -1,9 +1,9 @@
-#include "1q/airborne_radar/session/RadarTrackLifecycleRecorder.h"
+#include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 
 #include <unordered_map>
 #include <utility>
 
-#include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
 
 namespace airborne_radar {
 namespace session {
@@ -25,21 +25,21 @@ const session::TrackStateSnapshot* FindTrackByExternalTargetId(
   return nullptr;
 }
 
-RadarTrackLifecycleReason InferReason(const RadarCycleResult& result, const session::TrackStateSnapshot* track) {
+ArTrackLifecycleReason InferReason(const ArCycleResult& result, const session::TrackStateSnapshot* track) {
   if (result.has_validation_error) {
-    return RadarTrackLifecycleReason::kValidationRejected;
+    return ArTrackLifecycleReason::kValidationRejected;
   }
   if (!result.executed_this_cycle) {
-    return RadarTrackLifecycleReason::kCycleNotExecuted;
+    return ArTrackLifecycleReason::kCycleNotExecuted;
   }
   if (track == nullptr) {
-    return RadarTrackLifecycleReason::kNoTrack;
+    return ArTrackLifecycleReason::kNoTrack;
   }
-  return RadarTrackLifecycleReason::kUnknown;
+  return ArTrackLifecycleReason::kUnknown;
 }
 
-RadarTrackLifecycleEvent MakeBaseEvent(const RadarSceneTarget& target, const RadarCycleResult& result) {
-  RadarTrackLifecycleEvent event;
+ArTrackLifecycleEvent MakeBaseEvent(const ArSceneTarget& target, const ArCycleResult& result) {
+  ArTrackLifecycleEvent event;
   event.cycle_index = result.input_cycle_index;
   event.external_target_id = target.external_target_id;
   event.target_name = target.target_name;
@@ -48,25 +48,25 @@ RadarTrackLifecycleEvent MakeBaseEvent(const RadarSceneTarget& target, const Rad
 
 }  // namespace
 
-struct RadarTrackLifecycleRecorder::Impl {
-  RadarTrackLifecycleRecorderConfig config;
+struct ArTrackLifecycleRecorder::Impl {
+  ArTrackLifecycleRecorderConfig config;
   std::unordered_map<std::uint64_t, TargetState> states;
 };
 
-RadarTrackLifecycleRecorder::RadarTrackLifecycleRecorder(RadarTrackLifecycleRecorderConfig config)
+ArTrackLifecycleRecorder::ArTrackLifecycleRecorder(ArTrackLifecycleRecorderConfig config)
     : impl_(new Impl{config, {}}) {}
 
-RadarTrackLifecycleRecorder::~RadarTrackLifecycleRecorder() = default;
+ArTrackLifecycleRecorder::~ArTrackLifecycleRecorder() = default;
 
-RadarTrackLifecycleRecorder::RadarTrackLifecycleRecorder(RadarTrackLifecycleRecorder&&) noexcept = default;
-RadarTrackLifecycleRecorder& RadarTrackLifecycleRecorder::operator=(RadarTrackLifecycleRecorder&&) noexcept =
+ArTrackLifecycleRecorder::ArTrackLifecycleRecorder(ArTrackLifecycleRecorder&&) noexcept = default;
+ArTrackLifecycleRecorder& ArTrackLifecycleRecorder::operator=(ArTrackLifecycleRecorder&&) noexcept =
     default;
 
-std::vector<RadarTrackLifecycleEvent> RadarTrackLifecycleRecorder::Update(
-    const RadarCycleInput& input, const RadarCycleResult& result) {
-  std::vector<RadarTrackLifecycleEvent> events;
+std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
+    const ArCycleInput& input, const ArCycleResult& result) {
+  std::vector<ArTrackLifecycleEvent> events;
   events.reserve(input.scene.size());
-  for (const RadarSceneTarget& target : input.scene) {
+  for (const ArSceneTarget& target : input.scene) {
     // external_target_id 为 0 的输入目标无法按 ID 关联，跳过生命周期记录。
     if (target.external_target_id == 0U) {
       continue;
@@ -78,10 +78,10 @@ std::vector<RadarTrackLifecycleEvent> RadarTrackLifecycleRecorder::Update(
         result.executed_this_cycle && track != nullptr && track->status == session::TrackStatus::kConfirmed;
 
     if (confirmed_now) {
-      RadarTrackLifecycleEvent event = MakeBaseEvent(target, result);
-      event.kind = state.confirmed ? RadarTrackLifecycleEventKind::kUpdated
-                                   : RadarTrackLifecycleEventKind::kFirstConfirmed;
-      event.reason = RadarTrackLifecycleReason::kNone;
+      ArTrackLifecycleEvent event = MakeBaseEvent(target, result);
+      event.kind = state.confirmed ? ArTrackLifecycleEventKind::kUpdated
+                                   : ArTrackLifecycleEventKind::kFirstConfirmed;
+      event.reason = ArTrackLifecycleReason::kNone;
       event.association_key = track->association_key;
       event.track_status = track->status;
       event.speed = track->speed;
@@ -94,16 +94,16 @@ std::vector<RadarTrackLifecycleEvent> RadarTrackLifecycleRecorder::Update(
     const bool lost_now =
         result.executed_this_cycle && track != nullptr && track->status == session::TrackStatus::kLost;
     if (lost_now && state.confirmed) {
-      RadarTrackLifecycleEvent event = MakeBaseEvent(target, result);
-      event.kind = RadarTrackLifecycleEventKind::kLost;
-      event.reason = RadarTrackLifecycleReason::kNone;
+      ArTrackLifecycleEvent event = MakeBaseEvent(target, result);
+      event.kind = ArTrackLifecycleEventKind::kLost;
+      event.reason = ArTrackLifecycleReason::kNone;
       event.association_key = track->association_key;
       event.track_status = track->status;
       event.speed = track->speed;
       events.push_back(event);
     } else if (!state.confirmed && impl_->config.emit_not_tracked_events) {
-      RadarTrackLifecycleEvent event = MakeBaseEvent(target, result);
-      event.kind = RadarTrackLifecycleEventKind::kNotTracked;
+      ArTrackLifecycleEvent event = MakeBaseEvent(target, result);
+      event.kind = ArTrackLifecycleEventKind::kNotTracked;
       event.reason = InferReason(result, track);
       if (track != nullptr) {
         event.association_key = track->association_key;
@@ -122,7 +122,7 @@ std::vector<RadarTrackLifecycleEvent> RadarTrackLifecycleRecorder::Update(
   return events;
 }
 
-void RadarTrackLifecycleRecorder::Reset() { impl_->states.clear(); }
+void ArTrackLifecycleRecorder::Reset() { impl_->states.clear(); }
 
 }  // namespace session
 }  // namespace airborne_radar
