@@ -47,7 +47,26 @@ class InterceptPipeline final {
    */
   void UpdateConfig(const EsrInternalExecutionConfig& config);
 
+  /**
+   * @brief 捕获 pipeline 累积运行期状态快照。
+   *
+   * 快照仅含累积量（rng、next_observation_id、next_hypothesis_id、tracks），
+   * **不含 config_ / feature_scales_**。配置是无累积的派生源（每 RunCycle 从
+   * config_ 重新派生 pipeline_config/runtime_config），且 UpdateConfig 换 config
+   * 时有意保留 tracks，故 config 与累积状态是独立状态空间。
+   *
+   * 按 docs/common/contract.md「运行期配置提交策略」，ESR 属立即提交类：配置不在
+   * session 层回滚。本 capture/restore 针对累积状态，详见 open_questions.md OQ-1a。
+   */
   extension::InterceptPipelineRuntimeState CaptureRuntimeState() const;
+
+  /**
+   * @brief 从快照恢复 pipeline 累积运行期状态。
+   * @param[in] state CaptureRuntimeState 产生的快照。
+   * @return owner_identity/schema 不匹配或快照损坏时返回 false。
+   *
+   * 只恢复累积量（rng/id/tracks），不恢复配置。参见 CaptureRuntimeState doc。
+   */
   bool RestoreRuntimeState(const extension::InterceptPipelineRuntimeState& state);
 
   /**

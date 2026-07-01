@@ -1,7 +1,7 @@
 # 跨模块契约
 
 Status: active
-Last-reviewed: 2026-06-27
+Last-reviewed: 2026-07-01
 Authority: common contract for all modules
 
 本文合并原顶层 public API customization、session config builder、三层输出可观测性和文档治理契约。模块级文档不得与本文冲突。
@@ -52,6 +52,26 @@ Authority: common contract for all modules
 5. 配置合法性由独立 validator 检查最终 config。
 
 不得重新引入 leaf setter，例如 frame rate、scene center、minimum SNR、atmospheric loss 这类直接字段编辑器。
+
+## 运行期配置提交策略
+
+`*RuntimeConfigPatch` 的提交（commit）与周期内失败回滚（rollback）按 pipeline 的状态空间复杂度分两类。每个 `*Session` 必须显式归属其中一类，且实际行为不得与所属类的承诺冲突。四模块当前归属固定如下——这是对已实现行为的契约化，不是行为变更要求。
+
+| 类别 | 承诺 | 归属模块 |
+|---|---|---|
+| **事务性提交** | patch 经 resolver 校验；配置延迟到下个周期边界原子落定；commit 或周期执行失败时，对持有跨周期累积状态的子系统做 capture/restore 完整恢复。 | `airborne_radar` |
+| **立即提交** | patch 经 resolver 校验；`TryApplyRuntimeConfig` 调用即生效，配置单向落定、不在 session 层回滚。若 pipeline 持有累积状态且执行可能失败，回滚边界由该模块在内部层（如 controller）声明，不上升为 session 层契约。 | `electronic_surveillance_radar`、`electro_optical_sensor`、`sar` |
+
+规则：
+
+1. **归属由状态空间决定，不由风格偏好决定。** 仅当 pipeline 同时满足"有跨周期累积状态"且"commit/执行存在真实失败路径"时，才采用事务性提交。两者缺一即为立即提交。
+   - `airborne_radar`：4 个子系统各有独立 runtime state，`UpdateConfig`/`UpdateExecutionConfig` 可返回 false，故需事务对齐（`RadarSession.cpp:117` CommitPendingRuntimeConfig、`:185-197` capture/restore、`:167-176` 成功后才 FinalizePendingRuntimeConfig）。
+   - `electronic_surveillance_radar`：config 无累积（每 RunCycle 重新派生），`UpdateConfig` 走换 config 留 tracks（`InterceptPipeline.cpp:52-57`），无执行失败 abort 路径（见 `open_questions.md` OQ-1a 结案）。
+   - `electro_optical_sensor`：执行回滚封装在 `EosController::RunOnce`（`EosController.cpp:68-111`），不上升为 session 层事务。
+   - `sar`：每 Step 从 `runtime_config` 全量重建，无累积状态可回滚；以执行前 gate（`ValidateRuntimeConfigForStep`）兜底。
+2. **所有四模块的 patch 必须经 resolver 校验**（`is_valid`/`has_requested_update`），不得盲写。`sar` 已在 OQ-1 A 维度对齐（commit `774eaafc`）。
+3. **立即提交类不得声称 session 层回滚。** 若其内部存在 capture/restore 机制（如 ESR），必须在代码 doc 注明该机制的触发条件与边界，避免阅读者误以为 session 层提供配置回滚。
+4. **事务性提交类不得在执行成功前落定配置语义状态。** 配置的"逻辑当前值"（如 AR 的 `runtime_state`）与"已推送到子系统的物理状态"必须在对齐点之后才一致。
 
 ## 三层输出模型
 

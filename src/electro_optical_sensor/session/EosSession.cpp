@@ -84,6 +84,9 @@ void EosSession::ApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch) 
 }
 
 bool EosSession::TryApplyRuntimeConfig(const config::EosRuntimeConfigPatch& patch) {
+  // 立即提交类（见 docs/common/contract.md「运行期配置提交策略」）：调用即生效、
+  // 配置单向落定、不在 session 层回滚。执行期的 pipeline 状态回滚边界在
+  // EosController::RunOnce 内（EosController.cpp:68-111），不上升为本方法契约。
   const ::electro_optical_sensor::runtime::session::EosRuntimeConfigResolveResult
       resolved = ::electro_optical_sensor::runtime::session::ResolveEosRuntimeConfigPatch(
           impl_->internal_config_, patch);

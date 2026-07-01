@@ -296,6 +296,10 @@ void RadarSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& pat
 }
 
 bool RadarSession::TryApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
+  // 事务性提交类（见 docs/common/contract.md「运行期配置提交策略」）：本方法只写入
+  // pending_runtime_state，不触碰 runtime_state；配置延迟到下个 StepWithResult 边界
+  // 由 CommitPendingRuntimeConfig 原子提交，失败时 4 子系统 capture/restore 回滚，
+  // 执行成功后才由 FinalizePendingRuntimeConfig 落定 pending→runtime。
   const config::mapping::RuntimeConfigState& patch_base_state =
       impl_->has_pending_runtime_update ? impl_->pending_runtime_state : impl_->runtime_state;
   const config::mapping::RuntimeConfigResolveResult resolved =

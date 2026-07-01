@@ -7,7 +7,7 @@ Authority: 非规定性记录
 
 ---
 
-## OQ-1 四模块 runtime 配置提交策略不一致
+## OQ-1 四模块 runtime 配置提交策略不一致（已结案：A 维度闭环 + B/C 维度契约化）
 
 各传感器模块对"runtime 配置修改如何安全生效"采用了四种不同策略，没有统一范式。这不是 bug——每个策略单独看都自洽——但是跨模块阅读时的主要认知负担来源，且新模块/新维护者缺少明确的基准。
 
@@ -32,11 +32,13 @@ Authority: 非规定性记录
 
 **已推进（A 维度，SAR resolver）**：见下"推进记录"。
 
-**未推进（B/C 维度，架构级决策）**：维持本节"为何未决"判断，等待真实失败案例或明确架构方向。
+**已契约化（B/C 维度，提交时机与事务性）**：经论证，行为统一（把四模块拉成同一 commit/rollback 实现）有害——SAR 无累积状态会得到空操作事务，ESR 的 restore 当前是不可达死分支（见 OQ-1a）。真正的认知负担病因是"实现暗示了不存在的语义"，而非"四实现不同"。故采用**契约分类统一**（零行为风险）：在 `docs/common/contract.md` 新增「运行期配置提交策略」节，按 pipeline 状态空间复杂度分两类——**事务性提交**（仅 `airborne_radar`：有累积状态且 commit/执行存在真实失败路径）与**立即提交**（`electronic_surveillance_radar`/`electro_optical_sensor`/`sar`：调用即生效、单向不回滚）。各模块 `TryApplyRuntimeConfig`/capture-restore 处补 doc 声明所属类别与边界；ESR 的不可达 restore 分支显式注明现状。详见下"推进记录"。本条随契约化结案，仅保留作背景溯源。
 
 ### 推进记录
 
-- **A 维度已闭环（SAR resolver）**：新增 `src/sar/session/SarRuntimeConfigResolver.{h,cpp}`，对齐 ESR/EOS 的"写之前校验"范式（boolean-only reject）。`SarSession::TryApplyRuntimeConfig` 改走 `ResolveSarRuntimeConfigPatch`：对有效补丁行为零变化（仍写 `policy` 字段、返回 true）；对无效补丁（`minimum_snr_db` 非有限、`enable_l1_rda_imaging` 无 `enable_raw_echo_generation`）从原先的"静默接受→step 时 abort"前置为"apply 时拒绝并返回 false"。后者把原 step-time gate（`SarRuntimeConfigValidation.cpp:54-58`）的静态可判定子集前置，消除"SAR `TryApplyRuntimeConfig` 恒真"的隐式契约。测试：`tests/unit/sar_runtime_config_resolver_test.cpp`（6 用例）；既有 `SarSessionPipelineTest`/`SarReplaySessionTest`/`SarPublicApiConvenienceTest` 全量通过，零回归。状态：SAR 的 patch 校验入口现已与 AR/ESR/EOS 对齐；B/C 维度（时机与事务性）仍维持本节未决判断。
+- **A 维度已闭环（SAR resolver，commit `774eaafc`）**：新增 `src/sar/session/SarRuntimeConfigResolver.{h,cpp}`，对齐 ESR/EOS 的"写之前校验"范式（boolean-only reject）。`SarSession::TryApplyRuntimeConfig` 改走 `ResolveSarRuntimeConfigPatch`：对有效补丁行为零变化（仍写 `policy` 字段、返回 true）；对无效补丁（`minimum_snr_db` 非有限、`enable_l1_rda_imaging` 无 `enable_raw_echo_generation`）从原先的"静默接受→step 时 abort"前置为"apply 时拒绝并返回 false"。后者把原 step-time gate（`SarRuntimeConfigValidation.cpp:54-58`）的静态可判定子集前置，消除"SAR `TryApplyRuntimeConfig` 恒真"的隐式契约。测试：`tests/unit/sar_runtime_config_resolver_test.cpp`（6 用例）；既有 `SarSessionPipelineTest`/`SarReplaySessionTest`/`SarPublicApiConvenienceTest` 全量通过，零回归。状态：SAR 的 patch 校验入口现已与 AR/ESR/EOS 对齐。
+
+- **B/C 维度已契约化（提交时机与事务性）**：未改变任何模块行为。在 `docs/common/contract.md` 新增「运行期配置提交策略」契约节，确立两类分类与四模块固定归属，规则要求归属由状态空间决定（非风格偏好）、所有模块须经 resolver 校验、立即提交类不得声称 session 层回滚、事务性提交类不得在执行成功前落定配置。代码侧：`InterceptPipeline::CaptureRuntimeState`/`RestoreRuntimeState` 补 doc 注明快照不含 config 及 ESR 立即提交归属；`EsrSession::RunCycle` restore 分支注明当前不可达（待 `kOutputContractViolation` 接线）；`RadarSession`/`EosSession`/`SarSession` 的 `TryApplyRuntimeConfig` 各注明所属提交类别。测试：`sar_session_pipeline_test.cpp` 新增 3 用例（有效 patch 立即生效、无效 patch 拒绝不污染、L1-RDA 依赖违反拒绝），与既有 ESR/EOS integration apply 测试形成跨模块对等覆盖。
 
 
 注：P2.3（commit `a83928b3`）只收拢了 ESR 写路径绕 extension 的往返，未触碰任何模块的提交时机/安全策略。

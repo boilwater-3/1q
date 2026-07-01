@@ -2,6 +2,7 @@
 
 #include <limits>
 
+#include "1q/sar/config/SarRuntimeConfigBuilder.h"
 #include "1q/sar/session/SarSession.h"
 #include "1q/sar/session/SarProductDebugView.h"
 #include "1q/sar/session/SarProductLifecycleRecorder.h"
@@ -740,6 +741,60 @@ TEST(SarSessionPipelineTest, InvalidCycleReusesPreviousOutput) {
   EXPECT_EQ(second.focused_image.source, session::SarFocusedImageSource::kNone);
   EXPECT_TRUE(second.focused_image.real_values.empty());
   EXPECT_TRUE(second.focused_image.imaginary_values.empty());
+}
+
+// 运行期配置提交策略契约（docs/common/contract.md）：SAR 属立即提交类——
+// TryApplyRuntimeConfig 调用即生效、单向落定、无 session 层回滚。有效 patch 在
+// 下个 Step 立即生效；无效 patch 经 resolver 拒绝且不污染 runtime_config。
+
+TEST(SarSessionPipelineTest, ValidRuntimePatchTakesEffectImmediately) {
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
+  const session::SarCycleResult baseline = session.StepWithResult(MakeInput());
+  ASSERT_TRUE(baseline.executed_this_cycle);
+  // 默认 retain_focused_image=true，基线输出应含非占位聚焦图像。
+  ASSERT_FALSE(baseline.focused_image.is_placeholder);
+
+  // 立即提交：关闭 retain_focused_image，下个 Step 立即反映。
+  const config::SarRuntimeConfigPatch patch =
+      config::SarRuntimeConfigBuilder().WithRetainFocusedImage(false).Build();
+  EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
+
+  const session::SarCycleResult updated = session.StepWithResult(MakeInput(2U));
+  EXPECT_TRUE(updated.executed_this_cycle);
+  EXPECT_TRUE(updated.focused_image.is_placeholder);
+}
+
+TEST(SarSessionPipelineTest, InvalidRuntimePatchRejectedWithoutPollutingConfig) {
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
+  const session::SarCycleResult baseline = session.StepWithResult(MakeInput());
+  ASSERT_TRUE(baseline.executed_this_cycle);
+  ASSERT_FALSE(baseline.focused_image.is_placeholder);
+
+  // 无效 patch（NaN minimum_snr_db）应被 resolver 拒绝。
+  const config::SarRuntimeConfigPatch invalid_patch =
+      config::SarRuntimeConfigBuilder()
+          .WithMinimumSnrDb(std::numeric_limits<double>::quiet_NaN())
+          .Build();
+  EXPECT_FALSE(session.TryApplyRuntimeConfig(invalid_patch));
+
+  // 拒绝后 runtime_config 不被污染：retain_focused_image 仍为默认 true。
+  const session::SarCycleResult after_invalid = session.StepWithResult(MakeInput(2U));
+  EXPECT_TRUE(after_invalid.executed_this_cycle);
+  EXPECT_FALSE(after_invalid.focused_image.is_placeholder);
+}
+
+TEST(SarSessionPipelineTest, RuntimePatchViolatingL1RdaDependencyRejected) {
+  // 当前 config 启用 L1 RDA（依赖 raw echo）。补丁显式关闭 raw echo 应被拒绝，
+  // 因 resolver 前置了 L1-RDA-requires-raw-echo 不变式。
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
+  const config::SarRuntimeConfigPatch patch =
+      config::SarRuntimeConfigBuilder().WithEnableRawEchoGeneration(false).Build();
+  EXPECT_FALSE(session.TryApplyRuntimeConfig(patch));
+
+  // 拒绝后配置不变，仍能正常执行 RDA 成像。
+  const session::SarCycleResult result = session.StepWithResult(MakeInput());
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_TRUE(result.output_frame.has_l1_image);
 }
 
 }  // namespace
