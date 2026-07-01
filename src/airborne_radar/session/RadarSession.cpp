@@ -27,19 +27,19 @@ session::EnvironmentSceneState BuildSceneStateFromEnvironmentInput(
 
 }  // namespace
 
-struct RadarSession::Impl {
+struct ArSession::Impl {
   explicit Impl(RadarSessionComposition composition)
       : runtime_state(),
         pipeline_config_synced(composition.pipeline_config_synced),
-        owned_radar_context(std::move(composition.owned_radar_context)),
+        owned_ar_context(std::move(composition.owned_ar_context)),
         owned_signal_pipeline(std::move(composition.owned_signal_pipeline)),
         owned_environment_service(std::move(composition.owned_environment_service)),
         owned_controller(std::move(composition.owned_controller)),
-        radar_context(*composition.radar_context),
+        radar_context(*composition.ar_context),
         signal_pipeline(*composition.signal_pipeline),
         environment_service(*composition.environment_service),
         controller(*composition.controller) {
-    config::RadarSessionConfig initial_session_config;
+    config::ArSessionConfig initial_session_config;
     initial_session_config.hardware = composition.runtime_hardware;
     initial_session_config.mission = composition.runtime_mission;
     initial_session_config.policy = composition.runtime_policy;
@@ -82,7 +82,7 @@ struct RadarSession::Impl {
   }
 
   ValidationIssueList ValidateInput(const RadarCycleInput& input) const {
-    return ValidateRadarCycleInput(input);
+    return ValidateArCycleInput(input);
   }
 
   RadarCycleResult BuildValidationErrorResult(const RadarCycleInput& input,
@@ -144,7 +144,7 @@ struct RadarSession::Impl {
         }
       } else {
         // 外部路径：通过公开接口合约传递，由外部 pipeline 自行管理内部配置
-        const config::RadarSessionConfig pipeline_config =
+        const config::ArSessionConfig pipeline_config =
             config::mapping::MapRuntimeStateToPipelineSession(state_to_commit);
         if (!signal_pipeline.UpdateConfig(pipeline_config)) {
           return false;
@@ -181,11 +181,11 @@ struct RadarSession::Impl {
       return BuildValidationErrorResult(input, issues);
     }
 
-    const RadarContextRuntimeState radar_context_state = radar_context.CaptureRuntimeState();
+    const ArContextRuntimeState radar_context_state = radar_context.CaptureRuntimeState();
     const signal::SignalPipelineRuntimeState pipeline_state = signal_pipeline.CaptureRuntimeState();
     const environment::EnvironmentServiceRuntimeState environment_state =
         environment_service.CaptureRuntimeState();
-    const extension::RadarControllerRuntimeState controller_state =
+    const extension::ArControllerRuntimeState controller_state =
         controller.CaptureRuntimeState();
 
     if (!CommitPendingRuntimeConfig()) {
@@ -224,75 +224,75 @@ struct RadarSession::Impl {
   bool pending_environment_scenario_config_changed{false};
   bool pending_jamming_sensitivity_profile_changed{false};
   bool pipeline_config_synced{true};
-  std::unique_ptr<MutableRadarContext> owned_radar_context;
+  std::unique_ptr<MutableArContext> owned_ar_context;
   std::unique_ptr<signal::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
-  std::unique_ptr<extension::RadarController> owned_controller;
-  MutableRadarContext& radar_context;
+  std::unique_ptr<extension::ArController> owned_controller;
+  MutableArContext& radar_context;
   signal::ISignalPipeline& signal_pipeline;
   environment::IEnvironmentService& environment_service;
-  extension::RadarController& controller;
+  extension::ArController& controller;
   signal::pipeline::SignalPipeline* concrete_signal_pipeline_{nullptr};
 };
 
-RadarSession::RadarSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
+ArSession::ArSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 
-RadarSession::RadarSession()
-    : impl_(new Impl(RadarSessionCompositionRoot::ComposeDefault(config::RadarSessionConfig{}))) {}
+ArSession::ArSession()
+    : impl_(new Impl(RadarSessionCompositionRoot::ComposeDefault(config::ArSessionConfig{}))) {}
 
-RadarSession::~RadarSession() = default;
-RadarSession::RadarSession(RadarSession&&) noexcept = default;
-RadarSession& RadarSession::operator=(RadarSession&&) noexcept = default;
+ArSession::~ArSession() = default;
+ArSession::ArSession(ArSession&&) noexcept = default;
+ArSession& ArSession::operator=(ArSession&&) noexcept = default;
 
-RadarSession RadarSession::Create(const config::RadarSessionConfig& config) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(
-      new RadarSession::Impl(RadarSessionCompositionRoot::ComposeDefault(config))));
+ArSession ArSession::Create(const config::ArSessionConfig& config) {
+  return ArSession(std::unique_ptr<ArSession::Impl>(
+      new ArSession::Impl(RadarSessionCompositionRoot::ComposeDefault(config))));
 }
 
-RadarSession RadarSession::CreateWithDecisionEngine(
-    const config::RadarSessionConfig& config, session::ITacticalDecisionEngine& decision_engine) {
-  return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
+ArSession ArSession::CreateWithDecisionEngine(
+    const config::ArSessionConfig& config, session::ITacticalDecisionEngine& decision_engine) {
+  return ArSession(std::unique_ptr<ArSession::Impl>(new ArSession::Impl(
       RadarSessionCompositionRoot::ComposeWithDecisionEngine(config, decision_engine))));
 }
 
-RadarSession RadarSession::CreateWithValidation(const config::RadarSessionConfig& config,
+ArSession ArSession::CreateWithValidation(const config::ArSessionConfig& config,
                                                 config::ValidationIssueList* issues) {
-  const config::ValidationIssueList found = config::ValidateRadarSessionConfig(config);
+  const config::ValidationIssueList found = config::ValidateArSessionConfig(config);
   if (issues != nullptr) {
     *issues = found;
   }
   return Create(config);
 }
 
-session::TrackOutputFrame RadarSession::Step(const RadarCycleInput& input) {
+session::TrackOutputFrame ArSession::Step(const RadarCycleInput& input) {
   return impl_->RunCycle(input).track_output_frame;
 }
 
-RadarCycleResult RadarSession::StepWithResult(const RadarCycleInput& input) {
+RadarCycleResult ArSession::StepWithResult(const RadarCycleInput& input) {
   return impl_->RunCycle(input);
 }
 
-const std::vector<session::RadarCommand>& RadarSession::GetSubmittedCommands() const {
+const std::vector<session::RadarCommand>& ArSession::GetSubmittedCommands() const {
   return impl_->radar_context.GetSubmittedCommands();
 }
 
-bool RadarSession::HasLatestControlProfile() const {
+bool ArSession::HasLatestControlProfile() const {
   return impl_->radar_context.HasLatestControlProfile();
 }
 
-const session::RadarControlProfile& RadarSession::GetLatestControlProfile() const {
+const session::RadarControlProfile& ArSession::GetLatestControlProfile() const {
   return impl_->radar_context.GetLatestControlProfile();
 }
 
-session::AssociationQualityMetrics RadarSession::GetLastAssociationQualityMetrics() const {
+session::AssociationQualityMetrics ArSession::GetLastAssociationQualityMetrics() const {
   return impl_->signal_pipeline.GetLastAssociationQualityMetrics();
 }
 
-void RadarSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
+void ArSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
   (void)TryApplyRuntimeConfig(patch);
 }
 
-bool RadarSession::TryApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
+bool ArSession::TryApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
   // 事务性提交类（见 docs/common/contract.md「运行期配置提交策略」）：本方法只写入
   // pending_runtime_state，不触碰 runtime_state；配置延迟到下个 StepWithResult 边界
   // 由 CommitPendingRuntimeConfig 原子提交，失败时 4 子系统 capture/restore 回滚，

@@ -43,7 +43,7 @@ struct OwnedDecisionComponents {
 /**
  * @brief RadarController 内部实现体，持有所有运行时状态。
  */
-struct RadarController::Impl {
+struct ArController::Impl {
   // -- 外部引用（生命周期由 Session 管理）
   session::MutableRadarContext& radar_context;
   signal::ISignalPipeline& signal_pipeline;
@@ -103,20 +103,20 @@ struct RadarController::Impl {
 
 // -- 构造函数
 
-RadarController::RadarController(session::MutableRadarContext& radar_context,
-                                 signal::ISignalPipeline& signal_pipeline,
-                                 environment::IEnvironmentService& environment_service)
+ArController::ArController(session::MutableArContext& radar_context,
+                           signal::ISignalPipeline& signal_pipeline,
+                           environment::IEnvironmentService& environment_service)
     : impl_(new Impl(radar_context, signal_pipeline, environment_service)) {}
 
-RadarController::RadarController(session::MutableRadarContext& radar_context,
-                                 signal::ISignalPipeline& signal_pipeline,
-                                 session::ITacticalDecisionEngine& decision_engine,
-                                 environment::IEnvironmentService& environment_service)
+ArController::ArController(session::MutableArContext& radar_context,
+                           signal::ISignalPipeline& signal_pipeline,
+                           session::ITacticalDecisionEngine& decision_engine,
+                           environment::IEnvironmentService& environment_service)
     : impl_(new Impl(radar_context, signal_pipeline, decision_engine, environment_service)) {}
 
-RadarController::~RadarController() = default;
+ArController::~ArController() = default;
 
-void RadarController::RunOnce() {
+void ArController::RunOnce() {
   impl_->ResetPerCycleFlags();
 
   const session::RadarSceneTargetList& scene_targets = impl_->radar_context.GetSceneTargets();
@@ -129,10 +129,10 @@ void RadarController::RunOnce() {
       oneq::internal::runtime::MakeRuntimeCycleStamp(cycle_index, impl_->cycle_state.next_batch_id);
 
   // 校验
-  session::ValidationIssueList issues = session::ValidateRadarCycleDeltaTime(cycle_dt_sec);
+  session::ValidationIssueList issues = session::ValidateArCycleDeltaTime(cycle_dt_sec);
   {
     const session::ValidationIssueList target_issues =
-        session::ValidateRadarSceneTargets(scene_targets);
+        session::ValidateArSceneTargets(scene_targets);
     issues.insert(issues.end(), target_issues.begin(), target_issues.end());
   }
   impl_->cycle_state.last_validation_issues = issues;
@@ -204,40 +204,40 @@ void RadarController::RunOnce() {
   ++impl_->cycle_state.next_batch_id;
 }
 
-void RadarController::RunCycles(std::size_t cycles) {
+void ArController::RunCycles(std::size_t cycles) {
   for (std::size_t i = 0; i < cycles; ++i) {
     RunOnce();
   }
 }
 
-bool RadarController::HasLatestTrackOutputFrame() const {
+bool ArController::HasLatestTrackOutputFrame() const {
   return impl_->cycle_state.has_latest_output;
 }
 
-const session::TrackOutputFrame& RadarController::GetLatestTrackOutputFrame() const {
+const session::TrackOutputFrame& ArController::GetLatestTrackOutputFrame() const {
   return impl_->cycle_state.latest_output;
 }
 
-const session::ValidationIssueList& RadarController::GetLastValidationIssues() const {
+const session::ValidationIssueList& ArController::GetLastValidationIssues() const {
   return impl_->cycle_state.last_validation_issues;
 }
 
-bool RadarController::HasValidationError() const {
+bool ArController::HasValidationError() const {
   return session::HasValidationError(impl_->cycle_state.last_validation_issues);
 }
 
-bool RadarController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
+bool ArController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
 
-bool RadarController::ReusedPreviousTrackOutputLatestCycle() const {
+bool ArController::ReusedPreviousTrackOutputLatestCycle() const {
   return impl_->last_cycle_reused_previous_output;
 }
 
-session::SignalCycleAbortReason RadarController::GetLastSignalCycleAbortReason() const {
+session::SignalCycleAbortReason ArController::GetLastSignalCycleAbortReason() const {
   return impl_->last_signal_abort_reason;
 }
 
-extension::RadarControllerRuntimeState RadarController::CaptureRuntimeState() const {
-  extension::RadarControllerRuntimeState state;
+extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
+  extension::ArControllerRuntimeState state;
   state.owner_identity = this;
   state.schema_version = 1U;
   state.latest_output = impl_->cycle_state.latest_output;
@@ -251,7 +251,7 @@ extension::RadarControllerRuntimeState RadarController::CaptureRuntimeState() co
   return state;
 }
 
-bool RadarController::RestoreRuntimeState(const extension::RadarControllerRuntimeState& state) {
+bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState& state) {
   if (state.owner_identity != this || state.schema_version != 1U) {
     PROJECT_LOG_ERROR(
         "[RadarController] controller runtime state restore rejected: "

@@ -3,8 +3,8 @@
 
 #include <memory>
 
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
+#include "1q/airborne_radar/session/ArSession.h"
 
 namespace airborne_radar {
 namespace session {
@@ -14,7 +14,7 @@ namespace signal {
 class ISignalPipeline;
 }  // namespace signal
 namespace extension {
-class RadarController;
+class ArController;
 }  // namespace extension
 namespace environment {
 class IEnvironmentService;
@@ -22,36 +22,40 @@ class IEnvironmentService;
 namespace session {
 class MutableArContext;
 
-struct RadarSessionComposition {
-  config::RadarHardwareConfig runtime_hardware{};
-  config::RadarMissionConfig runtime_mission{};
-  config::RadarPolicyConfig runtime_policy{};
+struct ArSessionComposition {
+  config::ArHardwareConfig runtime_hardware{};
+  config::ArMissionConfig runtime_mission{};
+  config::ArPolicyConfig runtime_policy{};
   config::EnvironmentScenarioConfig runtime_environment_scenario_config{};
   config::JammingSensitivityProfile runtime_jamming_sensitivity_profile{
       config::JammingSensitivityProfile::kBalanced};
 
-  std::unique_ptr<MutableArContext> owned_radar_context;
+  std::unique_ptr<MutableArContext> owned_ar_context;
   std::unique_ptr<signal::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
-  std::unique_ptr<extension::RadarController> owned_controller;
+  std::unique_ptr<extension::ArController> owned_controller;
 
-  MutableArContext* radar_context{nullptr};
+  MutableArContext* ar_context{nullptr};
   signal::ISignalPipeline* signal_pipeline{nullptr};
   environment::IEnvironmentService* environment_service{nullptr};
-  extension::RadarController* controller{nullptr};
+  extension::ArController* controller{nullptr};
   bool pipeline_config_synced{true};
 };
 
-class RadarSessionCompositionRoot {
+class ArSessionCompositionRoot {
  public:
-  static RadarSessionComposition ComposeDefault(const config::RadarSessionConfig& config);
+  static ArSessionComposition ComposeDefault(const config::ArSessionConfig& config);
 
   /**
    * @brief 注入自定义决策引擎装配会话；context/pipeline/environment 由内部默认装配。
    */
-  static RadarSessionComposition ComposeWithDecisionEngine(
-      const config::RadarSessionConfig& config, session::ITacticalDecisionEngine& decision_engine);
+  static ArSessionComposition ComposeWithDecisionEngine(
+      const config::ArSessionConfig& config, session::ITacticalDecisionEngine& decision_engine);
 };
+
+// 兼容别名：旧名称在 wrapper 阶段保留。
+using RadarSessionComposition = ArSessionComposition;
+using RadarSessionCompositionRoot = ArSessionCompositionRoot;
 
 }  // namespace session
 }  // namespace airborne_radar
