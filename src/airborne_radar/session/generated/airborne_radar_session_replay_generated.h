@@ -24,8 +24,8 @@ struct AzimuthElevationLimitsDegBuilder;
 struct CommandedBeamwidthDeg;
 struct CommandedBeamwidthDegBuilder;
 
-struct RadarOrientationConfig;
-struct RadarOrientationConfigBuilder;
+struct ArOrientationConfig;
+struct ArOrientationConfigBuilder;
 
 struct TransmitterConfig;
 struct TransmitterConfigBuilder;
@@ -69,8 +69,8 @@ struct LifecycleConfigBuilder;
 struct ImmConfig;
 struct ImmConfigBuilder;
 
-struct RadarPolicyConfig;
-struct RadarPolicyConfigBuilder;
+struct ArPolicyConfig;
+struct ArPolicyConfigBuilder;
 
 struct AtmosphericPhysicsConfig;
 struct AtmosphericPhysicsConfigBuilder;
@@ -93,11 +93,11 @@ struct EnvironmentDefaultConfigBuilder;
 struct EnvironmentRuntimeConfigPatch;
 struct EnvironmentRuntimeConfigPatchBuilder;
 
-struct RadarRuntimeConfigPatch;
-struct RadarRuntimeConfigPatchBuilder;
+struct ArRuntimeConfigPatch;
+struct ArRuntimeConfigPatchBuilder;
 
-struct RadarSessionConfig;
-struct RadarSessionConfigBuilder;
+struct ArSessionConfig;
+struct ArSessionConfigBuilder;
 
 struct EulerAnglesDeg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef EulerAnglesDegBuilder Builder;
@@ -337,8 +337,8 @@ inline flatbuffers::Offset<CommandedBeamwidthDeg> CreateCommandedBeamwidthDeg(
   return builder_.Finish();
 }
 
-struct RadarOrientationConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarOrientationConfigBuilder Builder;
+struct ArOrientationConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ArOrientationConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MOUNT_ANGLES_DEG = 4,
     VT_SCAN_CENTER_DEG = 6,
@@ -402,53 +402,53 @@ struct RadarOrientationConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tab
   }
 };
 
-struct RadarOrientationConfigBuilder {
-  typedef RadarOrientationConfig Table;
+struct ArOrientationConfigBuilder {
+  typedef ArOrientationConfig Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_mount_angles_deg(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EulerAnglesDeg> mount_angles_deg) {
-    fbb_.AddOffset(RadarOrientationConfig::VT_MOUNT_ANGLES_DEG, mount_angles_deg);
+    fbb_.AddOffset(ArOrientationConfig::VT_MOUNT_ANGLES_DEG, mount_angles_deg);
   }
   void add_scan_center_deg(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AzimuthElevationDeg> scan_center_deg) {
-    fbb_.AddOffset(RadarOrientationConfig::VT_SCAN_CENTER_DEG, scan_center_deg);
+    fbb_.AddOffset(ArOrientationConfig::VT_SCAN_CENTER_DEG, scan_center_deg);
   }
   void add_mechanical_scan_limits_deg(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AzimuthElevationLimitsDeg> mechanical_scan_limits_deg) {
-    fbb_.AddOffset(RadarOrientationConfig::VT_MECHANICAL_SCAN_LIMITS_DEG, mechanical_scan_limits_deg);
+    fbb_.AddOffset(ArOrientationConfig::VT_MECHANICAL_SCAN_LIMITS_DEG, mechanical_scan_limits_deg);
   }
   void add_electronic_scan_limits_deg(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AzimuthElevationLimitsDeg> electronic_scan_limits_deg) {
-    fbb_.AddOffset(RadarOrientationConfig::VT_ELECTRONIC_SCAN_LIMITS_DEG, electronic_scan_limits_deg);
+    fbb_.AddOffset(ArOrientationConfig::VT_ELECTRONIC_SCAN_LIMITS_DEG, electronic_scan_limits_deg);
   }
   void add_scan_start_position(int32_t scan_start_position) {
-    fbb_.AddElement<int32_t>(RadarOrientationConfig::VT_SCAN_START_POSITION, scan_start_position, 0);
+    fbb_.AddElement<int32_t>(ArOrientationConfig::VT_SCAN_START_POSITION, scan_start_position, 0);
   }
   void add_scan_sequence(int32_t scan_sequence) {
-    fbb_.AddElement<int32_t>(RadarOrientationConfig::VT_SCAN_SEQUENCE, scan_sequence, 0);
+    fbb_.AddElement<int32_t>(ArOrientationConfig::VT_SCAN_SEQUENCE, scan_sequence, 0);
   }
   void add_work_mode(int32_t work_mode) {
-    fbb_.AddElement<int32_t>(RadarOrientationConfig::VT_WORK_MODE, work_mode, 0);
+    fbb_.AddElement<int32_t>(ArOrientationConfig::VT_WORK_MODE, work_mode, 0);
   }
   void add_commanded_beamwidth_enabled(bool commanded_beamwidth_enabled) {
-    fbb_.AddElement<uint8_t>(RadarOrientationConfig::VT_COMMANDED_BEAMWIDTH_ENABLED, static_cast<uint8_t>(commanded_beamwidth_enabled), 0);
+    fbb_.AddElement<uint8_t>(ArOrientationConfig::VT_COMMANDED_BEAMWIDTH_ENABLED, static_cast<uint8_t>(commanded_beamwidth_enabled), 0);
   }
   void add_commanded_beamwidth_deg(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::CommandedBeamwidthDeg> commanded_beamwidth_deg) {
-    fbb_.AddOffset(RadarOrientationConfig::VT_COMMANDED_BEAMWIDTH_DEG, commanded_beamwidth_deg);
+    fbb_.AddOffset(ArOrientationConfig::VT_COMMANDED_BEAMWIDTH_DEG, commanded_beamwidth_deg);
   }
   void add_stabilization_mode(int32_t stabilization_mode) {
-    fbb_.AddElement<int32_t>(RadarOrientationConfig::VT_STABILIZATION_MODE, stabilization_mode, 0);
+    fbb_.AddElement<int32_t>(ArOrientationConfig::VT_STABILIZATION_MODE, stabilization_mode, 0);
   }
-  explicit RadarOrientationConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ArOrientationConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RadarOrientationConfigBuilder &operator=(const RadarOrientationConfigBuilder &);
-  flatbuffers::Offset<RadarOrientationConfig> Finish() {
+  ArOrientationConfigBuilder &operator=(const ArOrientationConfigBuilder &);
+  flatbuffers::Offset<ArOrientationConfig> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RadarOrientationConfig>(end);
+    auto o = flatbuffers::Offset<ArOrientationConfig>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<RadarOrientationConfig> CreateRadarOrientationConfig(
+inline flatbuffers::Offset<ArOrientationConfig> CreateArOrientationConfig(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EulerAnglesDeg> mount_angles_deg = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AzimuthElevationDeg> scan_center_deg = 0,
@@ -460,7 +460,7 @@ inline flatbuffers::Offset<RadarOrientationConfig> CreateRadarOrientationConfig(
     bool commanded_beamwidth_enabled = false,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::CommandedBeamwidthDeg> commanded_beamwidth_deg = 0,
     int32_t stabilization_mode = 0) {
-  RadarOrientationConfigBuilder builder_(_fbb);
+  ArOrientationConfigBuilder builder_(_fbb);
   builder_.add_stabilization_mode(stabilization_mode);
   builder_.add_commanded_beamwidth_deg(commanded_beamwidth_deg);
   builder_.add_work_mode(work_mode);
@@ -1533,8 +1533,8 @@ inline flatbuffers::Offset<ImmConfig> CreateImmConfig(
   return builder_.Finish();
 }
 
-struct RadarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarPolicyConfigBuilder Builder;
+struct ArPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ArPolicyConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_BEAM_CONTROL = 4,
     VT_ASSOCIATION = 6,
@@ -1573,45 +1573,45 @@ struct RadarPolicyConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct RadarPolicyConfigBuilder {
-  typedef RadarPolicyConfig Table;
+struct ArPolicyConfigBuilder {
+  typedef ArPolicyConfig Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_beam_control(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::BeamControlConfig> beam_control) {
-    fbb_.AddOffset(RadarPolicyConfig::VT_BEAM_CONTROL, beam_control);
+    fbb_.AddOffset(ArPolicyConfig::VT_BEAM_CONTROL, beam_control);
   }
   void add_association(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AssociationConfig> association) {
-    fbb_.AddOffset(RadarPolicyConfig::VT_ASSOCIATION, association);
+    fbb_.AddOffset(ArPolicyConfig::VT_ASSOCIATION, association);
   }
   void add_tracking(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::TrackingConfig> tracking) {
-    fbb_.AddOffset(RadarPolicyConfig::VT_TRACKING, tracking);
+    fbb_.AddOffset(ArPolicyConfig::VT_TRACKING, tracking);
   }
   void add_lifecycle(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::LifecycleConfig> lifecycle) {
-    fbb_.AddOffset(RadarPolicyConfig::VT_LIFECYCLE, lifecycle);
+    fbb_.AddOffset(ArPolicyConfig::VT_LIFECYCLE, lifecycle);
   }
   void add_imm(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::ImmConfig> imm) {
-    fbb_.AddOffset(RadarPolicyConfig::VT_IMM, imm);
+    fbb_.AddOffset(ArPolicyConfig::VT_IMM, imm);
   }
-  explicit RadarPolicyConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ArPolicyConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RadarPolicyConfigBuilder &operator=(const RadarPolicyConfigBuilder &);
-  flatbuffers::Offset<RadarPolicyConfig> Finish() {
+  ArPolicyConfigBuilder &operator=(const ArPolicyConfigBuilder &);
+  flatbuffers::Offset<ArPolicyConfig> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RadarPolicyConfig>(end);
+    auto o = flatbuffers::Offset<ArPolicyConfig>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<RadarPolicyConfig> CreateRadarPolicyConfig(
+inline flatbuffers::Offset<ArPolicyConfig> CreateArPolicyConfig(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::BeamControlConfig> beam_control = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AssociationConfig> association = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::TrackingConfig> tracking = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::LifecycleConfig> lifecycle = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::ImmConfig> imm = 0) {
-  RadarPolicyConfigBuilder builder_(_fbb);
+  ArPolicyConfigBuilder builder_(_fbb);
   builder_.add_imm(imm);
   builder_.add_lifecycle(lifecycle);
   builder_.add_tracking(tracking);
@@ -2146,8 +2146,8 @@ inline flatbuffers::Offset<EnvironmentRuntimeConfigPatch> CreateEnvironmentRunti
   return builder_.Finish();
 }
 
-struct RadarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarRuntimeConfigPatchBuilder Builder;
+struct ArRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ArRuntimeConfigPatchBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HAS_MISSION = 4,
     VT_MISSION_ORIENTATION = 6,
@@ -2171,14 +2171,14 @@ struct RadarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
   bool has_mission() const {
     return GetField<uint8_t>(VT_HAS_MISSION, 0) != 0;
   }
-  const oneq::replay::airborne_radar::session::fb::RadarOrientationConfig *mission_orientation() const {
-    return GetPointer<const oneq::replay::airborne_radar::session::fb::RadarOrientationConfig *>(VT_MISSION_ORIENTATION);
+  const oneq::replay::airborne_radar::session::fb::ArOrientationConfig *mission_orientation() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::ArOrientationConfig *>(VT_MISSION_ORIENTATION);
   }
   bool has_policy() const {
     return GetField<uint8_t>(VT_HAS_POLICY, 0) != 0;
   }
-  const oneq::replay::airborne_radar::session::fb::RadarPolicyConfig *policy() const {
-    return GetPointer<const oneq::replay::airborne_radar::session::fb::RadarPolicyConfig *>(VT_POLICY);
+  const oneq::replay::airborne_radar::session::fb::ArPolicyConfig *policy() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::ArPolicyConfig *>(VT_POLICY);
   }
   bool has_environment() const {
     return GetField<uint8_t>(VT_HAS_ENVIRONMENT, 0) != 0;
@@ -2252,82 +2252,82 @@ struct RadarRuntimeConfigPatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
   }
 };
 
-struct RadarRuntimeConfigPatchBuilder {
-  typedef RadarRuntimeConfigPatch Table;
+struct ArRuntimeConfigPatchBuilder {
+  typedef ArRuntimeConfigPatch Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_has_mission(bool has_mission) {
-    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_MISSION, static_cast<uint8_t>(has_mission), 0);
+    fbb_.AddElement<uint8_t>(ArRuntimeConfigPatch::VT_HAS_MISSION, static_cast<uint8_t>(has_mission), 0);
   }
-  void add_mission_orientation(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarOrientationConfig> mission_orientation) {
-    fbb_.AddOffset(RadarRuntimeConfigPatch::VT_MISSION_ORIENTATION, mission_orientation);
+  void add_mission_orientation(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::ArOrientationConfig> mission_orientation) {
+    fbb_.AddOffset(ArRuntimeConfigPatch::VT_MISSION_ORIENTATION, mission_orientation);
   }
   void add_has_policy(bool has_policy) {
-    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_POLICY, static_cast<uint8_t>(has_policy), 0);
+    fbb_.AddElement<uint8_t>(ArRuntimeConfigPatch::VT_HAS_POLICY, static_cast<uint8_t>(has_policy), 0);
   }
-  void add_policy(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarPolicyConfig> policy) {
-    fbb_.AddOffset(RadarRuntimeConfigPatch::VT_POLICY, policy);
+  void add_policy(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::ArPolicyConfig> policy) {
+    fbb_.AddOffset(ArRuntimeConfigPatch::VT_POLICY, policy);
   }
   void add_has_environment(bool has_environment) {
-    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_ENVIRONMENT, static_cast<uint8_t>(has_environment), 0);
+    fbb_.AddElement<uint8_t>(ArRuntimeConfigPatch::VT_HAS_ENVIRONMENT, static_cast<uint8_t>(has_environment), 0);
   }
   void add_environment(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentRuntimeConfigPatch> environment) {
-    fbb_.AddOffset(RadarRuntimeConfigPatch::VT_ENVIRONMENT, environment);
+    fbb_.AddOffset(ArRuntimeConfigPatch::VT_ENVIRONMENT, environment);
   }
   void add_has_work_mode(bool has_work_mode) {
-    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_WORK_MODE, static_cast<uint8_t>(has_work_mode), 0);
+    fbb_.AddElement<uint8_t>(ArRuntimeConfigPatch::VT_HAS_WORK_MODE, static_cast<uint8_t>(has_work_mode), 0);
   }
   void add_work_mode(int32_t work_mode) {
-    fbb_.AddElement<int32_t>(RadarRuntimeConfigPatch::VT_WORK_MODE, work_mode, 0);
+    fbb_.AddElement<int32_t>(ArRuntimeConfigPatch::VT_WORK_MODE, work_mode, 0);
   }
   void add_has_scan_center_deg(bool has_scan_center_deg) {
-    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_SCAN_CENTER_DEG, static_cast<uint8_t>(has_scan_center_deg), 0);
+    fbb_.AddElement<uint8_t>(ArRuntimeConfigPatch::VT_HAS_SCAN_CENTER_DEG, static_cast<uint8_t>(has_scan_center_deg), 0);
   }
   void add_scan_center_deg(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AzimuthElevationDeg> scan_center_deg) {
-    fbb_.AddOffset(RadarRuntimeConfigPatch::VT_SCAN_CENTER_DEG, scan_center_deg);
+    fbb_.AddOffset(ArRuntimeConfigPatch::VT_SCAN_CENTER_DEG, scan_center_deg);
   }
   void add_has_dwell_center_deg(bool has_dwell_center_deg) {
-    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_DWELL_CENTER_DEG, static_cast<uint8_t>(has_dwell_center_deg), 0);
+    fbb_.AddElement<uint8_t>(ArRuntimeConfigPatch::VT_HAS_DWELL_CENTER_DEG, static_cast<uint8_t>(has_dwell_center_deg), 0);
   }
   void add_dwell_center_deg(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::AzimuthElevationDeg> dwell_center_deg) {
-    fbb_.AddOffset(RadarRuntimeConfigPatch::VT_DWELL_CENTER_DEG, dwell_center_deg);
+    fbb_.AddOffset(ArRuntimeConfigPatch::VT_DWELL_CENTER_DEG, dwell_center_deg);
   }
   void add_has_commanded_beamwidth_deg(bool has_commanded_beamwidth_deg) {
-    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_COMMANDED_BEAMWIDTH_DEG, static_cast<uint8_t>(has_commanded_beamwidth_deg), 0);
+    fbb_.AddElement<uint8_t>(ArRuntimeConfigPatch::VT_HAS_COMMANDED_BEAMWIDTH_DEG, static_cast<uint8_t>(has_commanded_beamwidth_deg), 0);
   }
   void add_commanded_beamwidth_deg(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::CommandedBeamwidthDeg> commanded_beamwidth_deg) {
-    fbb_.AddOffset(RadarRuntimeConfigPatch::VT_COMMANDED_BEAMWIDTH_DEG, commanded_beamwidth_deg);
+    fbb_.AddOffset(ArRuntimeConfigPatch::VT_COMMANDED_BEAMWIDTH_DEG, commanded_beamwidth_deg);
   }
   void add_has_commanded_beamwidth_enabled(bool has_commanded_beamwidth_enabled) {
-    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_COMMANDED_BEAMWIDTH_ENABLED, static_cast<uint8_t>(has_commanded_beamwidth_enabled), 0);
+    fbb_.AddElement<uint8_t>(ArRuntimeConfigPatch::VT_HAS_COMMANDED_BEAMWIDTH_ENABLED, static_cast<uint8_t>(has_commanded_beamwidth_enabled), 0);
   }
   void add_commanded_beamwidth_enabled(bool commanded_beamwidth_enabled) {
-    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_COMMANDED_BEAMWIDTH_ENABLED, static_cast<uint8_t>(commanded_beamwidth_enabled), 0);
+    fbb_.AddElement<uint8_t>(ArRuntimeConfigPatch::VT_COMMANDED_BEAMWIDTH_ENABLED, static_cast<uint8_t>(commanded_beamwidth_enabled), 0);
   }
   void add_has_sensor_enabled(bool has_sensor_enabled) {
-    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_HAS_SENSOR_ENABLED, static_cast<uint8_t>(has_sensor_enabled), 0);
+    fbb_.AddElement<uint8_t>(ArRuntimeConfigPatch::VT_HAS_SENSOR_ENABLED, static_cast<uint8_t>(has_sensor_enabled), 0);
   }
   void add_sensor_enabled(bool sensor_enabled) {
-    fbb_.AddElement<uint8_t>(RadarRuntimeConfigPatch::VT_SENSOR_ENABLED, static_cast<uint8_t>(sensor_enabled), 1);
+    fbb_.AddElement<uint8_t>(ArRuntimeConfigPatch::VT_SENSOR_ENABLED, static_cast<uint8_t>(sensor_enabled), 1);
   }
-  explicit RadarRuntimeConfigPatchBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ArRuntimeConfigPatchBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RadarRuntimeConfigPatchBuilder &operator=(const RadarRuntimeConfigPatchBuilder &);
-  flatbuffers::Offset<RadarRuntimeConfigPatch> Finish() {
+  ArRuntimeConfigPatchBuilder &operator=(const ArRuntimeConfigPatchBuilder &);
+  flatbuffers::Offset<ArRuntimeConfigPatch> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RadarRuntimeConfigPatch>(end);
+    auto o = flatbuffers::Offset<ArRuntimeConfigPatch>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<RadarRuntimeConfigPatch> CreateRadarRuntimeConfigPatch(
+inline flatbuffers::Offset<ArRuntimeConfigPatch> CreateArRuntimeConfigPatch(
     flatbuffers::FlatBufferBuilder &_fbb,
     bool has_mission = false,
-    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarOrientationConfig> mission_orientation = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::ArOrientationConfig> mission_orientation = 0,
     bool has_policy = false,
-    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarPolicyConfig> policy = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::ArPolicyConfig> policy = 0,
     bool has_environment = false,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentRuntimeConfigPatch> environment = 0,
     bool has_work_mode = false,
@@ -2342,7 +2342,7 @@ inline flatbuffers::Offset<RadarRuntimeConfigPatch> CreateRadarRuntimeConfigPatc
     bool commanded_beamwidth_enabled = false,
     bool has_sensor_enabled = false,
     bool sensor_enabled = true) {
-  RadarRuntimeConfigPatchBuilder builder_(_fbb);
+  ArRuntimeConfigPatchBuilder builder_(_fbb);
   builder_.add_commanded_beamwidth_deg(commanded_beamwidth_deg);
   builder_.add_dwell_center_deg(dwell_center_deg);
   builder_.add_scan_center_deg(scan_center_deg);
@@ -2364,8 +2364,8 @@ inline flatbuffers::Offset<RadarRuntimeConfigPatch> CreateRadarRuntimeConfigPatc
   return builder_.Finish();
 }
 
-struct RadarSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarSessionConfigBuilder Builder;
+struct ArSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ArSessionConfigBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_HARDWARE_DETECTION = 4,
     VT_MISSION_ORIENTATION = 6,
@@ -2377,11 +2377,11 @@ struct RadarSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const oneq::replay::airborne_radar::session::fb::DetectionConfig *hardware_detection() const {
     return GetPointer<const oneq::replay::airborne_radar::session::fb::DetectionConfig *>(VT_HARDWARE_DETECTION);
   }
-  const oneq::replay::airborne_radar::session::fb::RadarOrientationConfig *mission_orientation() const {
-    return GetPointer<const oneq::replay::airborne_radar::session::fb::RadarOrientationConfig *>(VT_MISSION_ORIENTATION);
+  const oneq::replay::airborne_radar::session::fb::ArOrientationConfig *mission_orientation() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::ArOrientationConfig *>(VT_MISSION_ORIENTATION);
   }
-  const oneq::replay::airborne_radar::session::fb::RadarPolicyConfig *policy() const {
-    return GetPointer<const oneq::replay::airborne_radar::session::fb::RadarPolicyConfig *>(VT_POLICY);
+  const oneq::replay::airborne_radar::session::fb::ArPolicyConfig *policy() const {
+    return GetPointer<const oneq::replay::airborne_radar::session::fb::ArPolicyConfig *>(VT_POLICY);
   }
   int32_t jamming_sensitivity_profile() const {
     return GetField<int32_t>(VT_JAMMING_SENSITIVITY_PROFILE, 0);
@@ -2408,49 +2408,49 @@ struct RadarSessionConfig FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct RadarSessionConfigBuilder {
-  typedef RadarSessionConfig Table;
+struct ArSessionConfigBuilder {
+  typedef ArSessionConfig Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_hardware_detection(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::DetectionConfig> hardware_detection) {
-    fbb_.AddOffset(RadarSessionConfig::VT_HARDWARE_DETECTION, hardware_detection);
+    fbb_.AddOffset(ArSessionConfig::VT_HARDWARE_DETECTION, hardware_detection);
   }
-  void add_mission_orientation(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarOrientationConfig> mission_orientation) {
-    fbb_.AddOffset(RadarSessionConfig::VT_MISSION_ORIENTATION, mission_orientation);
+  void add_mission_orientation(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::ArOrientationConfig> mission_orientation) {
+    fbb_.AddOffset(ArSessionConfig::VT_MISSION_ORIENTATION, mission_orientation);
   }
-  void add_policy(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarPolicyConfig> policy) {
-    fbb_.AddOffset(RadarSessionConfig::VT_POLICY, policy);
+  void add_policy(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::ArPolicyConfig> policy) {
+    fbb_.AddOffset(ArSessionConfig::VT_POLICY, policy);
   }
   void add_jamming_sensitivity_profile(int32_t jamming_sensitivity_profile) {
-    fbb_.AddElement<int32_t>(RadarSessionConfig::VT_JAMMING_SENSITIVITY_PROFILE, jamming_sensitivity_profile, 0);
+    fbb_.AddElement<int32_t>(ArSessionConfig::VT_JAMMING_SENSITIVITY_PROFILE, jamming_sensitivity_profile, 0);
   }
   void add_environment_default_config(flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentDefaultConfig> environment_default_config) {
-    fbb_.AddOffset(RadarSessionConfig::VT_ENVIRONMENT_DEFAULT_CONFIG, environment_default_config);
+    fbb_.AddOffset(ArSessionConfig::VT_ENVIRONMENT_DEFAULT_CONFIG, environment_default_config);
   }
   void add_power_on(bool power_on) {
-    fbb_.AddElement<uint8_t>(RadarSessionConfig::VT_POWER_ON, static_cast<uint8_t>(power_on), 1);
+    fbb_.AddElement<uint8_t>(ArSessionConfig::VT_POWER_ON, static_cast<uint8_t>(power_on), 1);
   }
-  explicit RadarSessionConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ArSessionConfigBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RadarSessionConfigBuilder &operator=(const RadarSessionConfigBuilder &);
-  flatbuffers::Offset<RadarSessionConfig> Finish() {
+  ArSessionConfigBuilder &operator=(const ArSessionConfigBuilder &);
+  flatbuffers::Offset<ArSessionConfig> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RadarSessionConfig>(end);
+    auto o = flatbuffers::Offset<ArSessionConfig>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<RadarSessionConfig> CreateRadarSessionConfig(
+inline flatbuffers::Offset<ArSessionConfig> CreateArSessionConfig(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::DetectionConfig> hardware_detection = 0,
-    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarOrientationConfig> mission_orientation = 0,
-    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarPolicyConfig> policy = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::ArOrientationConfig> mission_orientation = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::ArPolicyConfig> policy = 0,
     int32_t jamming_sensitivity_profile = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::EnvironmentDefaultConfig> environment_default_config = 0,
     bool power_on = true) {
-  RadarSessionConfigBuilder builder_(_fbb);
+  ArSessionConfigBuilder builder_(_fbb);
   builder_.add_environment_default_config(environment_default_config);
   builder_.add_jamming_sensitivity_profile(jamming_sensitivity_profile);
   builder_.add_policy(policy);
@@ -2460,43 +2460,43 @@ inline flatbuffers::Offset<RadarSessionConfig> CreateRadarSessionConfig(
   return builder_.Finish();
 }
 
-inline const oneq::replay::airborne_radar::session::fb::RadarSessionConfig *GetRadarSessionConfig(const void *buf) {
-  return flatbuffers::GetRoot<oneq::replay::airborne_radar::session::fb::RadarSessionConfig>(buf);
+inline const oneq::replay::airborne_radar::session::fb::ArSessionConfig *GetArSessionConfig(const void *buf) {
+  return flatbuffers::GetRoot<oneq::replay::airborne_radar::session::fb::ArSessionConfig>(buf);
 }
 
-inline const oneq::replay::airborne_radar::session::fb::RadarSessionConfig *GetSizePrefixedRadarSessionConfig(const void *buf) {
-  return flatbuffers::GetSizePrefixedRoot<oneq::replay::airborne_radar::session::fb::RadarSessionConfig>(buf);
+inline const oneq::replay::airborne_radar::session::fb::ArSessionConfig *GetSizePrefixedArSessionConfig(const void *buf) {
+  return flatbuffers::GetSizePrefixedRoot<oneq::replay::airborne_radar::session::fb::ArSessionConfig>(buf);
 }
 
-inline const char *RadarSessionConfigIdentifier() {
+inline const char *ArSessionConfigIdentifier() {
   return "ARSC";
 }
 
-inline bool RadarSessionConfigBufferHasIdentifier(const void *buf) {
+inline bool ArSessionConfigBufferHasIdentifier(const void *buf) {
   return flatbuffers::BufferHasIdentifier(
-      buf, RadarSessionConfigIdentifier());
+      buf, ArSessionConfigIdentifier());
 }
 
-inline bool VerifyRadarSessionConfigBuffer(
+inline bool VerifyArSessionConfigBuffer(
     flatbuffers::Verifier &verifier) {
-  return verifier.VerifyBuffer<oneq::replay::airborne_radar::session::fb::RadarSessionConfig>(RadarSessionConfigIdentifier());
+  return verifier.VerifyBuffer<oneq::replay::airborne_radar::session::fb::ArSessionConfig>(ArSessionConfigIdentifier());
 }
 
-inline bool VerifySizePrefixedRadarSessionConfigBuffer(
+inline bool VerifySizePrefixedArSessionConfigBuffer(
     flatbuffers::Verifier &verifier) {
-  return verifier.VerifySizePrefixedBuffer<oneq::replay::airborne_radar::session::fb::RadarSessionConfig>(RadarSessionConfigIdentifier());
+  return verifier.VerifySizePrefixedBuffer<oneq::replay::airborne_radar::session::fb::ArSessionConfig>(ArSessionConfigIdentifier());
 }
 
-inline void FinishRadarSessionConfigBuffer(
+inline void FinishArSessionConfigBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarSessionConfig> root) {
-  fbb.Finish(root, RadarSessionConfigIdentifier());
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::ArSessionConfig> root) {
+  fbb.Finish(root, ArSessionConfigIdentifier());
 }
 
-inline void FinishSizePrefixedRadarSessionConfigBuffer(
+inline void FinishSizePrefixedArSessionConfigBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::RadarSessionConfig> root) {
-  fbb.FinishSizePrefixed(root, RadarSessionConfigIdentifier());
+    flatbuffers::Offset<oneq::replay::airborne_radar::session::fb::ArSessionConfig> root) {
+  fbb.FinishSizePrefixed(root, ArSessionConfigIdentifier());
 }
 
 }  // namespace fb

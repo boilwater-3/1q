@@ -23,7 +23,7 @@ table CommandedBeamwidthDeg {
   commanded_el_beamwidth_deg:float;
 }
 
-table RadarOrientationConfig {
+table ArOrientationConfig {
   mount_angles_deg:EulerAnglesDeg;
   scan_center_deg:AzimuthElevationDeg;
   mechanical_scan_limits_deg:AzimuthElevationLimitsDeg;
@@ -138,7 +138,7 @@ table ImmConfig {
   model_count_hint:uint;
 }
 
-table RadarPolicyConfig {
+table ArPolicyConfig {
   beam_control:BeamControlConfig;
   association:AssociationConfig;
   tracking:TrackingConfig;
@@ -195,11 +195,11 @@ table EnvironmentRuntimeConfigPatch {
   jamming_sensitivity_profile:int;
 }
 
-table RadarRuntimeConfigPatch {
+table ArRuntimeConfigPatch {
   has_mission:bool;
-  mission_orientation:RadarOrientationConfig;
+  mission_orientation:ArOrientationConfig;
   has_policy:bool;
-  policy:RadarPolicyConfig;
+  policy:ArPolicyConfig;
   has_environment:bool;
   environment:EnvironmentRuntimeConfigPatch;
   has_work_mode:bool;
@@ -216,14 +216,14 @@ table RadarRuntimeConfigPatch {
   sensor_enabled:bool = true;
 }
 
-table RadarSessionConfig {
+table ArSessionConfig {
   hardware_detection:DetectionConfig;
-  mission_orientation:RadarOrientationConfig;
-  policy:RadarPolicyConfig;
+  mission_orientation:ArOrientationConfig;
+  policy:ArPolicyConfig;
   jamming_sensitivity_profile:int;
   environment_default_config:EnvironmentDefaultConfig;
   power_on:bool = true;
 }
 
-root_type RadarSessionConfig;
+root_type ArSessionConfig;
 file_identifier "ARSC";

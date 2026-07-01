@@ -145,7 +145,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   EXPECT_NE(content.find("\"event_type\":\"session_config\""), std::string::npos);
   EXPECT_NE(content.find("\"event_type\":\"cycle_input\""), std::string::npos);
   EXPECT_NE(content.find("\"event_type\":\"cycle_output\""), std::string::npos);
-  EXPECT_NE(content.find("\"payload_type\":\"RadarCycleInput\""), std::string::npos);
+  EXPECT_NE(content.find("\"payload_type\":\"ArCycleInput\""), std::string::npos);
   EXPECT_NE(content.find("\"payload_encoding\":\"flatbuffers\""), std::string::npos);
   EXPECT_NE(content.find("\"payload_base64\":\""), std::string::npos);
 
@@ -271,7 +271,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
 
   const std::string content = ReadFile(trace_dir + "/events/000000.events.jsonl");
   EXPECT_NE(content.find("\"event_type\":\"runtime_config_patch\""), std::string::npos);
-  EXPECT_NE(content.find("\"payload_type\":\"RadarRuntimeConfigPatch\""), std::string::npos);
+  EXPECT_NE(content.find("\"payload_type\":\"ArRuntimeConfigPatch\""), std::string::npos);
   EXPECT_EQ(content.find("\"event_type\":\"scene_state\""), std::string::npos);
   EXPECT_NE(content.find("\"payload_encoding\":\"flatbuffers\""), std::string::npos);
   EXPECT_NE(content.find("\"payload_base64\":\""), std::string::npos);
@@ -284,14 +284,14 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   while (replay_reader.ReadNextEvent(&replay_event)) {
     if (replay_event.event_type == "session_config") {
       saw_session_config = true;
-      EXPECT_EQ(replay_event.payload_type, "RadarSessionConfig");
+      EXPECT_EQ(replay_event.payload_type, "ArSessionConfig");
       EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(replay_event.payload_bytes.empty());
       EXPECT_TRUE(replay_event.payload_hash_matches);
     }
     if (replay_event.event_type == "runtime_config_patch") {
       saw_runtime_patch = true;
-      EXPECT_EQ(replay_event.payload_type, "RadarRuntimeConfigPatch");
+      EXPECT_EQ(replay_event.payload_type, "ArRuntimeConfigPatch");
       EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(replay_event.payload_bytes.empty());
       EXPECT_TRUE(replay_event.payload_hash_matches);
@@ -311,7 +311,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     }
     if (replay_event.event_type == "cycle_output") {
       saw_cycle_output = true;
-      EXPECT_EQ(replay_event.payload_type, "RadarCycleResult");
+      EXPECT_EQ(replay_event.payload_type, "ArCycleResult");
       EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(replay_event.payload_bytes.empty());
       EXPECT_TRUE(replay_event.payload_hash_matches);
@@ -475,7 +475,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionStepWritesResultFailureMarker) {
   bool saw_failure_marker = false;
   while (replay_reader.ReadNextEvent(&replay_event)) {
     if (replay_event.event_type == "cycle_output") {
-      EXPECT_EQ(replay_event.payload_type, "RadarCycleResult");
+      EXPECT_EQ(replay_event.payload_type, "ArCycleResult");
       session::RadarCycleResult decoded_result;
       std::string decode_error;
       ASSERT_TRUE(session::DecodeCycleResultFlatbuffer(replay_event.payload_bytes, &decoded_result,
@@ -558,7 +558,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionRejectsTrailingCycleInput) {
   oneq::replay::ReplayTraceEvent config_event;
   config_event.module = "airborne_radar";
   config_event.event_type = "session_config";
-  config_event.payload_type = "RadarSessionConfig";
+  config_event.payload_type = "ArSessionConfig";
   config_event.payload_encoding = "flatbuffers";
   config_event.payload_bytes =
       session::EncodeSessionConfigFlatbuffer(config::RadarSessionConfig());
@@ -570,7 +570,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionRejectsTrailingCycleInput) {
   oneq::replay::ReplayTraceEvent input_event;
   input_event.module = "airborne_radar";
   input_event.event_type = "cycle_input";
-  input_event.payload_type = "RadarCycleInput";
+  input_event.payload_type = "ArCycleInput";
   input_event.payload_encoding = "flatbuffers";
   input_event.payload_bytes = session::EncodeCycleInputFlatbuffer(input);
   input_event.has_cycle_index = true;

@@ -48,9 +48,9 @@ flatbuffers::Offset<fb::PoseState> EncodePoseState(flatbuffers::FlatBufferBuilde
                              EncodeEulerAngles(builder, value.attitude_deg));
 }
 
-flatbuffers::Offset<fb::RadarSceneTarget> EncodeSceneTarget(flatbuffers::FlatBufferBuilder* builder,
+flatbuffers::Offset<fb::ArSceneTarget> EncodeSceneTarget(flatbuffers::FlatBufferBuilder* builder,
                                                             const ArSceneTarget& value) {
-  return fb::CreateRadarSceneTarget(*builder, value.external_target_id, value.velocity_x,
+  return fb::CreateArSceneTarget(*builder, value.external_target_id, value.velocity_x,
                                     value.velocity_y, value.velocity_z, value.rcs, value.range_m,
                                     value.position_x, value.position_y, value.position_z,
                                     value.target_swerling_type, builder->CreateString(value.target_name));
@@ -86,7 +86,7 @@ oneq::foundation::PoseState DecodePoseState(const fb::PoseState* value) {
   return result;
 }
 
-ArSceneTarget DecodeSceneTarget(const fb::RadarSceneTarget* value) {
+ArSceneTarget DecodeSceneTarget(const fb::ArSceneTarget* value) {
   ArSceneTarget result;
   if (value != nullptr) {
     result.external_target_id = value->external_target_id();
@@ -133,14 +133,14 @@ flatbuffers::Offset<fb::JammerSource> EncodeCycleJammerSource(
                                 value.angular_span_deg, value.confidence);
 }
 
-flatbuffers::Offset<fb::RadarCycleEnvironmentInput> EncodeCycleEnvironmentInput(
+flatbuffers::Offset<fb::ArCycleEnvironmentInput> EncodeCycleEnvironmentInput(
     flatbuffers::FlatBufferBuilder* builder, const ArEnvironmentInput& value) {
   std::vector<flatbuffers::Offset<fb::JammerSource>> jammer_sources;
   jammer_sources.reserve(value.jammer_sources.size());
   for (std::size_t i = 0; i < value.jammer_sources.size(); ++i) {
     jammer_sources.push_back(EncodeCycleJammerSource(builder, value.jammer_sources[i]));
   }
-  return fb::CreateRadarCycleEnvironmentInput(
+  return fb::CreateArCycleEnvironmentInput(
       *builder, EncodeCycleAtmosphericObservation(builder, value.atmospheric_observation),
       EncodeCycleAtmosphericContext(builder, value.atmospheric_context),
       EncodeCycleSurfaceObservation(builder, value.surface_observation),
@@ -197,7 +197,7 @@ config::JammerEmitterState DecodeCycleJammerSource(const fb::JammerSource* value
   return result;
 }
 
-ArEnvironmentInput DecodeCycleEnvironmentInput(const fb::RadarCycleEnvironmentInput* value) {
+ArEnvironmentInput DecodeCycleEnvironmentInput(const fb::ArCycleEnvironmentInput* value) {
   ArEnvironmentInput result;
   if (value != nullptr) {
     result.atmospheric_observation =
@@ -334,13 +334,13 @@ ValidationIssue DecodeValidationIssue(const fb::ValidationIssue* value) {
   return result;
 }
 
-flatbuffers::Offset<fb::RadarCommand> EncodeRadarCommand(
+flatbuffers::Offset<fb::ArCommand> EncodeArCommand(
     flatbuffers::FlatBufferBuilder* builder, const session::ArCommand& value) {
-  return fb::CreateRadarCommand(*builder, static_cast<int>(value.type),
+  return fb::CreateArCommand(*builder, static_cast<int>(value.type),
                                 static_cast<int>(value.source));
 }
 
-session::ArCommand DecodeRadarCommand(const fb::RadarCommand* value) {
+session::ArCommand DecodeArCommand(const fb::ArCommand* value) {
   session::ArCommand result;
   if (value != nullptr) {
     result.type = static_cast<session::ArCommandType>(value->type());
@@ -349,17 +349,17 @@ session::ArCommand DecodeRadarCommand(const fb::RadarCommand* value) {
   return result;
 }
 
-flatbuffers::Offset<fb::RadarControlProfile> EncodeRadarControlProfile(
+flatbuffers::Offset<fb::ArControlProfile> EncodeArControlProfile(
     flatbuffers::FlatBufferBuilder* builder, const session::ArControlProfile& value) {
-  return fb::CreateRadarControlProfile(
+  return fb::CreateArControlProfile(
       *builder, value.version, value.enable_lpi_power_control, value.lpi_power_scale,
       value.enable_lpi_beamforming, value.lpi_dwell_scale, value.enable_agility_frequency,
       value.agility_frequency_hop_phase, value.enable_sidelobe_canceller,
       value.enable_adaptive_beamforming, value.enable_eccm_rejitter, value.eccm_burnthrough_gain);
 }
 
-session::ArControlProfile DecodeRadarControlProfile(
-    const fb::RadarControlProfile* value) {
+session::ArControlProfile DecodeArControlProfile(
+    const fb::ArControlProfile* value) {
   session::ArControlProfile result;
   if (value != nullptr) {
     result.version = value->version();
@@ -412,12 +412,12 @@ session::AssociationQualityMetrics DecodeAssociationQualityMetrics(
   return result;
 }
 
-flatbuffers::Offset<fb::RadarCycleResult> EncodeCycleResult(flatbuffers::FlatBufferBuilder* builder,
+flatbuffers::Offset<fb::ArCycleResult> EncodeCycleResult(flatbuffers::FlatBufferBuilder* builder,
                                                             const ArCycleResult& value) {
-  std::vector<flatbuffers::Offset<fb::RadarCommand>> command_offsets;
+  std::vector<flatbuffers::Offset<fb::ArCommand>> command_offsets;
   command_offsets.reserve(value.submitted_commands.size());
   for (std::size_t i = 0; i < value.submitted_commands.size(); ++i) {
-    command_offsets.push_back(EncodeRadarCommand(builder, value.submitted_commands[i]));
+    command_offsets.push_back(EncodeArCommand(builder, value.submitted_commands[i]));
   }
 
   std::vector<flatbuffers::Offset<fb::ValidationIssue>> issue_offsets;
@@ -426,26 +426,26 @@ flatbuffers::Offset<fb::RadarCycleResult> EncodeCycleResult(flatbuffers::FlatBuf
     issue_offsets.push_back(EncodeValidationIssue(builder, value.validation_issues[i]));
   }
 
-  return fb::CreateRadarCycleResult(
+  return fb::CreateArCycleResult(
       *builder, value.input_cycle_index, EncodeTrackOutputFrame(builder, value.track_output_frame),
       builder->CreateVector(command_offsets), builder->CreateVector(issue_offsets),
       value.has_validation_error, value.executed_this_cycle,
       static_cast<int>(value.abort_reason), value.reused_previous_output,
-      value.has_control_profile, EncodeRadarControlProfile(builder, value.control_profile),
+      value.has_control_profile, EncodeArControlProfile(builder, value.control_profile),
       EncodeAssociationQualityMetrics(builder, value.association_quality_metrics));
 }
 
-ArCycleResult DecodeCycleResult(const fb::RadarCycleResult* value) {
+ArCycleResult DecodeCycleResult(const fb::ArCycleResult* value) {
   ArCycleResult result;
   if (value != nullptr) {
     result.input_cycle_index = value->input_cycle_index();
     result.track_output_frame = DecodeTrackOutputFrame(value->track_output_frame());
-    const flatbuffers::Vector<flatbuffers::Offset<fb::RadarCommand>>* commands =
+    const flatbuffers::Vector<flatbuffers::Offset<fb::ArCommand>>* commands =
         value->submitted_commands();
     if (commands != nullptr) {
       result.submitted_commands.reserve(commands->size());
       for (flatbuffers::uoffset_t i = 0; i < commands->size(); ++i) {
-        result.submitted_commands.push_back(DecodeRadarCommand(commands->Get(i)));
+        result.submitted_commands.push_back(DecodeArCommand(commands->Get(i)));
       }
     }
     const flatbuffers::Vector<flatbuffers::Offset<fb::ValidationIssue>>* issues =
@@ -462,7 +462,7 @@ ArCycleResult DecodeCycleResult(const fb::RadarCycleResult* value) {
         static_cast<session::SignalCycleAbortReason>(value->abort_reason());
     result.reused_previous_output = value->reused_previous_output();
     result.has_control_profile = value->has_control_profile();
-    result.control_profile = DecodeRadarControlProfile(value->control_profile());
+    result.control_profile = DecodeArControlProfile(value->control_profile());
     result.association_quality_metrics =
         DecodeAssociationQualityMetrics(value->association_quality_metrics());
   }
@@ -491,9 +491,9 @@ flatbuffers::Offset<session_fb::CommandedBeamwidthDeg> EncodeSessionCommandedBea
                                                  value.commanded_el_beamwidth_deg);
 }
 
-flatbuffers::Offset<session_fb::RadarOrientationConfig> EncodeSessionOrientation(
+flatbuffers::Offset<session_fb::ArOrientationConfig> EncodeSessionOrientation(
     flatbuffers::FlatBufferBuilder* builder, const config::ArOrientationConfig& value) {
-  return session_fb::CreateRadarOrientationConfig(
+  return session_fb::CreateArOrientationConfig(
       *builder, EncodeSessionEulerAngles(builder, value.mount_angles_deg),
       EncodeSessionAzEl(builder, value.scan_center_deg),
       EncodeSessionAzElLimits(builder, value.mechanical_scan_limits_deg),
@@ -538,7 +538,7 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
       antenna, receiver, policy, rcs_physics, value.min_detection_margin_db, value.pulse_count);
 }
 
-flatbuffers::Offset<session_fb::RadarPolicyConfig> EncodeSessionPolicyConfig(
+flatbuffers::Offset<session_fb::ArPolicyConfig> EncodeSessionPolicyConfig(
     flatbuffers::FlatBufferBuilder* builder, const config::ArPolicyConfig& value) {
   const flatbuffers::Offset<session_fb::BeamPointingConfig> pointing =
       session_fb::CreateBeamPointingConfig(
@@ -566,7 +566,7 @@ flatbuffers::Offset<session_fb::RadarPolicyConfig> EncodeSessionPolicyConfig(
           value.lifecycle.max_lost_cycles, value.lifecycle.enable_imm_lifecycle);
   const flatbuffers::Offset<session_fb::ImmConfig> imm = session_fb::CreateImmConfig(
       *builder, value.lifecycle.enable_imm_lifecycle, value.lifecycle.model_count_hint);
-  return session_fb::CreateRadarPolicyConfig(*builder, beam_control, association, tracking,
+  return session_fb::CreateArPolicyConfig(*builder, beam_control, association, tracking,
                                              lifecycle, imm);
 }
 
@@ -670,7 +670,7 @@ config::CommandedBeamwidthDeg DecodeSessionCommandedBeamwidth(
 }
 
 config::ArOrientationConfig DecodeSessionOrientation(
-    const session_fb::RadarOrientationConfig* value) {
+    const session_fb::ArOrientationConfig* value) {
   config::ArOrientationConfig result;
   if (value != nullptr) {
     result.mount_angles_deg = DecodeSessionEulerAngles(value->mount_angles_deg());
@@ -750,7 +750,7 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
   return result;
 }
 
-config::ArPolicyConfig DecodeSessionPolicyConfig(const session_fb::RadarPolicyConfig* value) {
+config::ArPolicyConfig DecodeSessionPolicyConfig(const session_fb::ArPolicyConfig* value) {
   config::ArPolicyConfig result;
   if (value != nullptr) {
     const session_fb::BeamControlConfig* beam_control = value->beam_control();
@@ -909,20 +909,20 @@ config::ArEnvironmentConfig DecodeEnvironmentDefaultConfig(
 
 std::string EncodeCycleInputFlatbuffer(const ArCycleInput& input) {
   flatbuffers::FlatBufferBuilder builder;
-  std::vector<flatbuffers::Offset<fb::RadarSceneTarget>> targets;
+  std::vector<flatbuffers::Offset<fb::ArSceneTarget>> targets;
   targets.reserve(input.scene.size());
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
     targets.push_back(EncodeSceneTarget(&builder, input.scene[i]));
   }
 
-  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::RadarSceneTarget>>>
+  const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::ArSceneTarget>>>
       scene_vector = builder.CreateVector(targets);
-  const flatbuffers::Offset<fb::RadarCycleEnvironmentInput> env =
+  const flatbuffers::Offset<fb::ArCycleEnvironmentInput> env =
       EncodeCycleEnvironmentInput(&builder, input.environment);
-  const flatbuffers::Offset<fb::RadarCycleInput> root = fb::CreateRadarCycleInput(
+  const flatbuffers::Offset<fb::ArCycleInput> root = fb::CreateArCycleInput(
       builder, input.cycle_index, input.dt_sec, EncodePoseState(&builder, input.platform_pose),
       scene_vector, input.has_environment, env, input.platform_altitude_m);
-  builder.Finish(root, fb::RadarCycleInputIdentifier());
+  builder.Finish(root, fb::ArCycleInputIdentifier());
 
   const std::uint8_t* buffer = builder.GetBufferPointer();
   return std::string(reinterpret_cast<const char*>(buffer),
@@ -933,27 +933,27 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, ArCycleInput* 
                                 std::string* error) {
   if (input == nullptr) {
     if (error != nullptr) {
-      *error = "null RadarCycleInput output";
+      *error = "null ArCycleInput output";
     }
     return false;
   }
   if (payload_bytes.empty()) {
     if (error != nullptr) {
-      *error = "empty RadarCycleInput flatbuffers payload";
+      *error = "empty ArCycleInput flatbuffers payload";
     }
     return false;
   }
 
   const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
   flatbuffers::Verifier verifier(data, payload_bytes.size());
-  if (!fb::VerifyRadarCycleInputBuffer(verifier)) {
+  if (!fb::VerifyArCycleInputBuffer(verifier)) {
     if (error != nullptr) {
-      *error = "invalid RadarCycleInput flatbuffers payload";
+      *error = "invalid ArCycleInput flatbuffers payload";
     }
     return false;
   }
 
-  const fb::RadarCycleInput* root = fb::GetRadarCycleInput(data);
+  const fb::ArCycleInput* root = fb::GetArCycleInput(data);
   input->cycle_index = root->cycle_index();
   input->dt_sec = root->dt_sec();
   input->platform_altitude_m = root->platform_altitude_m();
@@ -961,7 +961,7 @@ bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, ArCycleInput* 
   input->has_environment = root->has_environment();
   input->environment = DecodeCycleEnvironmentInput(root->environment());
   input->scene.clear();
-  const flatbuffers::Vector<flatbuffers::Offset<fb::RadarSceneTarget>>* scene = root->scene();
+  const flatbuffers::Vector<flatbuffers::Offset<fb::ArSceneTarget>>* scene = root->scene();
   if (scene != nullptr) {
     input->scene.reserve(scene->size());
     for (flatbuffers::uoffset_t i = 0; i < scene->size(); ++i) {
@@ -1013,7 +1013,7 @@ bool DecodeTrackOutputFrameFlatbuffer(const std::string& payload_bytes,
 
 std::string EncodeCycleResultFlatbuffer(const ArCycleResult& result) {
   flatbuffers::FlatBufferBuilder builder;
-  const flatbuffers::Offset<fb::RadarCycleResult> root = EncodeCycleResult(&builder, result);
+  const flatbuffers::Offset<fb::ArCycleResult> root = EncodeCycleResult(&builder, result);
   builder.Finish(root);
 
   const std::uint8_t* buffer = builder.GetBufferPointer();
@@ -1025,23 +1025,23 @@ bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, ArCycleResult
                                  std::string* error) {
   if (result == nullptr) {
     if (error != nullptr) {
-      *error = "null RadarCycleResult output";
+      *error = "null ArCycleResult output";
     }
     return false;
   }
   if (payload_bytes.empty()) {
     if (error != nullptr) {
-      *error = "empty RadarCycleResult flatbuffers payload";
+      *error = "empty ArCycleResult flatbuffers payload";
     }
     return false;
   }
 
   const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
   flatbuffers::Verifier verifier(data, payload_bytes.size());
-  const fb::RadarCycleResult* root = flatbuffers::GetRoot<fb::RadarCycleResult>(data);
+  const fb::ArCycleResult* root = flatbuffers::GetRoot<fb::ArCycleResult>(data);
   if (root == nullptr || !root->Verify(verifier)) {
     if (error != nullptr) {
-      *error = "invalid RadarCycleResult flatbuffers payload";
+      *error = "invalid ArCycleResult flatbuffers payload";
     }
     return false;
   }
@@ -1052,15 +1052,15 @@ bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, ArCycleResult
 
 std::string EncodeSessionConfigFlatbuffer(const config::ArSessionConfig& config) {
   flatbuffers::FlatBufferBuilder builder;
-  const flatbuffers::Offset<session_fb::RadarSessionConfig> root =
-      session_fb::CreateRadarSessionConfig(
+  const flatbuffers::Offset<session_fb::ArSessionConfig> root =
+      session_fb::CreateArSessionConfig(
           builder, EncodeSessionDetectionConfig(&builder, config.hardware),
           EncodeSessionOrientation(&builder, config.mission.orientation),
           EncodeSessionPolicyConfig(&builder, config.policy),
           static_cast<int>(config.environment.jamming_sensitivity_profile),
           EncodeEnvironmentDefaultConfig(&builder, config.environment),
           config.mission.power_on);
-  builder.Finish(root, session_fb::RadarSessionConfigIdentifier());
+  builder.Finish(root, session_fb::ArSessionConfigIdentifier());
 
   const std::uint8_t* buffer = builder.GetBufferPointer();
   return std::string(reinterpret_cast<const char*>(buffer),
@@ -1071,27 +1071,27 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, config::ArS
                                    std::string* error) {
   if (config == nullptr) {
     if (error != nullptr) {
-      *error = "null config::RadarSessionConfig output";
+      *error = "null config::ArSessionConfig output";
     }
     return false;
   }
   if (payload_bytes.empty()) {
     if (error != nullptr) {
-      *error = "empty config::RadarSessionConfig flatbuffers payload";
+      *error = "empty config::ArSessionConfig flatbuffers payload";
     }
     return false;
   }
 
   const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
   flatbuffers::Verifier verifier(data, payload_bytes.size());
-  if (!session_fb::VerifyRadarSessionConfigBuffer(verifier)) {
+  if (!session_fb::VerifyArSessionConfigBuffer(verifier)) {
     if (error != nullptr) {
-      *error = "invalid config::RadarSessionConfig flatbuffers payload";
+      *error = "invalid config::ArSessionConfig flatbuffers payload";
     }
     return false;
   }
 
-  const session_fb::RadarSessionConfig* root = session_fb::GetRadarSessionConfig(data);
+  const session_fb::ArSessionConfig* root = session_fb::GetArSessionConfig(data);
   config->hardware = DecodeSessionDetectionConfig(root->hardware_detection());
   config->mission.orientation = DecodeSessionOrientation(root->mission_orientation());
   config->mission.power_on = root->power_on();
@@ -1104,8 +1104,8 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, config::ArS
 
 std::string EncodeRuntimeConfigPatchFlatbuffer(const config::ArRuntimeConfigPatch& patch) {
   flatbuffers::FlatBufferBuilder builder;
-  const flatbuffers::Offset<session_fb::RadarRuntimeConfigPatch> root =
-      session_fb::CreateRadarRuntimeConfigPatch(
+  const flatbuffers::Offset<session_fb::ArRuntimeConfigPatch> root =
+      session_fb::CreateArRuntimeConfigPatch(
           builder, patch.has_mission, EncodeSessionOrientation(&builder, patch.mission.orientation),
           patch.has_policy, EncodeSessionPolicyConfig(&builder, patch.policy),
           patch.has_environment,
@@ -1128,24 +1128,24 @@ bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
                                         std::string* error) {
   if (patch == nullptr) {
     if (error != nullptr) {
-      *error = "null RadarRuntimeConfigPatch output";
+      *error = "null ArRuntimeConfigPatch output";
     }
     return false;
   }
   if (payload_bytes.empty()) {
     if (error != nullptr) {
-      *error = "empty RadarRuntimeConfigPatch flatbuffers payload";
+      *error = "empty ArRuntimeConfigPatch flatbuffers payload";
     }
     return false;
   }
 
   const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
   flatbuffers::Verifier verifier(data, payload_bytes.size());
-  const session_fb::RadarRuntimeConfigPatch* root =
-      flatbuffers::GetRoot<session_fb::RadarRuntimeConfigPatch>(data);
+  const session_fb::ArRuntimeConfigPatch* root =
+      flatbuffers::GetRoot<session_fb::ArRuntimeConfigPatch>(data);
   if (root == nullptr || !root->Verify(verifier)) {
     if (error != nullptr) {
-      *error = "invalid RadarRuntimeConfigPatch flatbuffers payload";
+      *error = "invalid ArRuntimeConfigPatch flatbuffers payload";
     }
     return false;
   }

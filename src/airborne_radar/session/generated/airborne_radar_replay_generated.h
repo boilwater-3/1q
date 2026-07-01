@@ -20,8 +20,8 @@ struct EulerAnglesDegBuilder;
 struct PoseState;
 struct PoseStateBuilder;
 
-struct RadarSceneTarget;
-struct RadarSceneTargetBuilder;
+struct ArSceneTarget;
+struct ArSceneTargetBuilder;
 
 struct AtmosphericObservation;
 struct AtmosphericObservationBuilder;
@@ -35,11 +35,11 @@ struct SurfaceObservationBuilder;
 struct JammerSource;
 struct JammerSourceBuilder;
 
-struct RadarCycleEnvironmentInput;
-struct RadarCycleEnvironmentInputBuilder;
+struct ArCycleEnvironmentInput;
+struct ArCycleEnvironmentInputBuilder;
 
-struct RadarCycleInput;
-struct RadarCycleInputBuilder;
+struct ArCycleInput;
+struct ArCycleInputBuilder;
 
 struct TrackOutputFrame;
 struct TrackOutputFrameBuilder;
@@ -53,17 +53,17 @@ struct TrackStateSnapshotBuilder;
 struct ValidationIssue;
 struct ValidationIssueBuilder;
 
-struct RadarCommand;
-struct RadarCommandBuilder;
+struct ArCommand;
+struct ArCommandBuilder;
 
-struct RadarControlProfile;
-struct RadarControlProfileBuilder;
+struct ArControlProfile;
+struct ArControlProfileBuilder;
 
 struct AssociationQualityMetrics;
 struct AssociationQualityMetricsBuilder;
 
-struct RadarCycleResult;
-struct RadarCycleResultBuilder;
+struct ArCycleResult;
+struct ArCycleResultBuilder;
 
 struct FailureMarker;
 struct FailureMarkerBuilder;
@@ -257,8 +257,8 @@ inline flatbuffers::Offset<PoseState> CreatePoseState(
   return builder_.Finish();
 }
 
-struct RadarSceneTarget FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarSceneTargetBuilder Builder;
+struct ArSceneTarget FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ArSceneTargetBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_EXTERNAL_TARGET_ID = 4,
     VT_VELOCITY_X = 6,
@@ -323,56 +323,56 @@ struct RadarSceneTarget FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct RadarSceneTargetBuilder {
-  typedef RadarSceneTarget Table;
+struct ArSceneTargetBuilder {
+  typedef ArSceneTarget Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_external_target_id(uint64_t external_target_id) {
-    fbb_.AddElement<uint64_t>(RadarSceneTarget::VT_EXTERNAL_TARGET_ID, external_target_id, 0);
+    fbb_.AddElement<uint64_t>(ArSceneTarget::VT_EXTERNAL_TARGET_ID, external_target_id, 0);
   }
   void add_velocity_x(float velocity_x) {
-    fbb_.AddElement<float>(RadarSceneTarget::VT_VELOCITY_X, velocity_x, 0.0f);
+    fbb_.AddElement<float>(ArSceneTarget::VT_VELOCITY_X, velocity_x, 0.0f);
   }
   void add_velocity_y(float velocity_y) {
-    fbb_.AddElement<float>(RadarSceneTarget::VT_VELOCITY_Y, velocity_y, 0.0f);
+    fbb_.AddElement<float>(ArSceneTarget::VT_VELOCITY_Y, velocity_y, 0.0f);
   }
   void add_velocity_z(float velocity_z) {
-    fbb_.AddElement<float>(RadarSceneTarget::VT_VELOCITY_Z, velocity_z, 0.0f);
+    fbb_.AddElement<float>(ArSceneTarget::VT_VELOCITY_Z, velocity_z, 0.0f);
   }
   void add_rcs(float rcs) {
-    fbb_.AddElement<float>(RadarSceneTarget::VT_RCS, rcs, 0.0f);
+    fbb_.AddElement<float>(ArSceneTarget::VT_RCS, rcs, 0.0f);
   }
   void add_range_m(float range_m) {
-    fbb_.AddElement<float>(RadarSceneTarget::VT_RANGE_M, range_m, 0.0f);
+    fbb_.AddElement<float>(ArSceneTarget::VT_RANGE_M, range_m, 0.0f);
   }
   void add_position_x(float position_x) {
-    fbb_.AddElement<float>(RadarSceneTarget::VT_POSITION_X, position_x, 0.0f);
+    fbb_.AddElement<float>(ArSceneTarget::VT_POSITION_X, position_x, 0.0f);
   }
   void add_position_y(float position_y) {
-    fbb_.AddElement<float>(RadarSceneTarget::VT_POSITION_Y, position_y, 0.0f);
+    fbb_.AddElement<float>(ArSceneTarget::VT_POSITION_Y, position_y, 0.0f);
   }
   void add_position_z(float position_z) {
-    fbb_.AddElement<float>(RadarSceneTarget::VT_POSITION_Z, position_z, 0.0f);
+    fbb_.AddElement<float>(ArSceneTarget::VT_POSITION_Z, position_z, 0.0f);
   }
   void add_target_swerling_type(int32_t target_swerling_type) {
-    fbb_.AddElement<int32_t>(RadarSceneTarget::VT_TARGET_SWERLING_TYPE, target_swerling_type, 0);
+    fbb_.AddElement<int32_t>(ArSceneTarget::VT_TARGET_SWERLING_TYPE, target_swerling_type, 0);
   }
   void add_target_name(flatbuffers::Offset<flatbuffers::String> target_name) {
-    fbb_.AddOffset(RadarSceneTarget::VT_TARGET_NAME, target_name);
+    fbb_.AddOffset(ArSceneTarget::VT_TARGET_NAME, target_name);
   }
-  explicit RadarSceneTargetBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ArSceneTargetBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RadarSceneTargetBuilder &operator=(const RadarSceneTargetBuilder &);
-  flatbuffers::Offset<RadarSceneTarget> Finish() {
+  ArSceneTargetBuilder &operator=(const ArSceneTargetBuilder &);
+  flatbuffers::Offset<ArSceneTarget> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RadarSceneTarget>(end);
+    auto o = flatbuffers::Offset<ArSceneTarget>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTarget(
+inline flatbuffers::Offset<ArSceneTarget> CreateArSceneTarget(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t external_target_id = 0,
     float velocity_x = 0.0f,
@@ -385,7 +385,7 @@ inline flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTarget(
     float position_z = 0.0f,
     int32_t target_swerling_type = 0,
     flatbuffers::Offset<flatbuffers::String> target_name = 0) {
-  RadarSceneTargetBuilder builder_(_fbb);
+  ArSceneTargetBuilder builder_(_fbb);
   builder_.add_external_target_id(external_target_id);
   builder_.add_target_name(target_name);
   builder_.add_target_swerling_type(target_swerling_type);
@@ -400,7 +400,7 @@ inline flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTarget(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTargetDirect(
+inline flatbuffers::Offset<ArSceneTarget> CreateArSceneTargetDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t external_target_id = 0,
     float velocity_x = 0.0f,
@@ -414,7 +414,7 @@ inline flatbuffers::Offset<RadarSceneTarget> CreateRadarSceneTargetDirect(
     int32_t target_swerling_type = 0,
     const char *target_name = nullptr) {
   auto target_name__ = target_name ? _fbb.CreateString(target_name) : 0;
-  return oneq::replay::airborne_radar::fb::CreateRadarSceneTarget(
+  return oneq::replay::airborne_radar::fb::CreateArSceneTarget(
       _fbb,
       external_target_id,
       velocity_x,
@@ -747,8 +747,8 @@ inline flatbuffers::Offset<JammerSource> CreateJammerSource(
   return builder_.Finish();
 }
 
-struct RadarCycleEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarCycleEnvironmentInputBuilder Builder;
+struct ArCycleEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ArCycleEnvironmentInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ATMOSPHERIC_OBSERVATION = 4,
     VT_ATMOSPHERIC_CONTEXT = 6,
@@ -782,41 +782,41 @@ struct RadarCycleEnvironmentInput FLATBUFFERS_FINAL_CLASS : private flatbuffers:
   }
 };
 
-struct RadarCycleEnvironmentInputBuilder {
-  typedef RadarCycleEnvironmentInput Table;
+struct ArCycleEnvironmentInputBuilder {
+  typedef ArCycleEnvironmentInput Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_atmospheric_observation(flatbuffers::Offset<oneq::replay::airborne_radar::fb::AtmosphericObservation> atmospheric_observation) {
-    fbb_.AddOffset(RadarCycleEnvironmentInput::VT_ATMOSPHERIC_OBSERVATION, atmospheric_observation);
+    fbb_.AddOffset(ArCycleEnvironmentInput::VT_ATMOSPHERIC_OBSERVATION, atmospheric_observation);
   }
   void add_atmospheric_context(flatbuffers::Offset<oneq::replay::airborne_radar::fb::AtmosphericContext> atmospheric_context) {
-    fbb_.AddOffset(RadarCycleEnvironmentInput::VT_ATMOSPHERIC_CONTEXT, atmospheric_context);
+    fbb_.AddOffset(ArCycleEnvironmentInput::VT_ATMOSPHERIC_CONTEXT, atmospheric_context);
   }
   void add_surface_observation(flatbuffers::Offset<oneq::replay::airborne_radar::fb::SurfaceObservation> surface_observation) {
-    fbb_.AddOffset(RadarCycleEnvironmentInput::VT_SURFACE_OBSERVATION, surface_observation);
+    fbb_.AddOffset(ArCycleEnvironmentInput::VT_SURFACE_OBSERVATION, surface_observation);
   }
   void add_jammer_sources(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::JammerSource>>> jammer_sources) {
-    fbb_.AddOffset(RadarCycleEnvironmentInput::VT_JAMMER_SOURCES, jammer_sources);
+    fbb_.AddOffset(ArCycleEnvironmentInput::VT_JAMMER_SOURCES, jammer_sources);
   }
-  explicit RadarCycleEnvironmentInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ArCycleEnvironmentInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RadarCycleEnvironmentInputBuilder &operator=(const RadarCycleEnvironmentInputBuilder &);
-  flatbuffers::Offset<RadarCycleEnvironmentInput> Finish() {
+  ArCycleEnvironmentInputBuilder &operator=(const ArCycleEnvironmentInputBuilder &);
+  flatbuffers::Offset<ArCycleEnvironmentInput> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RadarCycleEnvironmentInput>(end);
+    auto o = flatbuffers::Offset<ArCycleEnvironmentInput>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironmentInput(
+inline flatbuffers::Offset<ArCycleEnvironmentInput> CreateArCycleEnvironmentInput(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::AtmosphericObservation> atmospheric_observation = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::AtmosphericContext> atmospheric_context = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::SurfaceObservation> surface_observation = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::JammerSource>>> jammer_sources = 0) {
-  RadarCycleEnvironmentInputBuilder builder_(_fbb);
+  ArCycleEnvironmentInputBuilder builder_(_fbb);
   builder_.add_jammer_sources(jammer_sources);
   builder_.add_surface_observation(surface_observation);
   builder_.add_atmospheric_context(atmospheric_context);
@@ -824,14 +824,14 @@ inline flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironme
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironmentInputDirect(
+inline flatbuffers::Offset<ArCycleEnvironmentInput> CreateArCycleEnvironmentInputDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::AtmosphericObservation> atmospheric_observation = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::AtmosphericContext> atmospheric_context = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::SurfaceObservation> surface_observation = 0,
     const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::JammerSource>> *jammer_sources = nullptr) {
   auto jammer_sources__ = jammer_sources ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::JammerSource>>(*jammer_sources) : 0;
-  return oneq::replay::airborne_radar::fb::CreateRadarCycleEnvironmentInput(
+  return oneq::replay::airborne_radar::fb::CreateArCycleEnvironmentInput(
       _fbb,
       atmospheric_observation,
       atmospheric_context,
@@ -839,8 +839,8 @@ inline flatbuffers::Offset<RadarCycleEnvironmentInput> CreateRadarCycleEnvironme
       jammer_sources__);
 }
 
-struct RadarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarCycleInputBuilder Builder;
+struct ArCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ArCycleInputBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CYCLE_INDEX = 4,
     VT_DT_SEC = 6,
@@ -859,14 +859,14 @@ struct RadarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const oneq::replay::airborne_radar::fb::PoseState *platform_pose() const {
     return GetPointer<const oneq::replay::airborne_radar::fb::PoseState *>(VT_PLATFORM_POSE);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>> *scene() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>> *>(VT_SCENE);
+  const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArSceneTarget>> *scene() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArSceneTarget>> *>(VT_SCENE);
   }
   bool has_environment() const {
     return GetField<uint8_t>(VT_HAS_ENVIRONMENT, 0) != 0;
   }
-  const oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput *environment() const {
-    return GetPointer<const oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput *>(VT_ENVIRONMENT);
+  const oneq::replay::airborne_radar::fb::ArCycleEnvironmentInput *environment() const {
+    return GetPointer<const oneq::replay::airborne_radar::fb::ArCycleEnvironmentInput *>(VT_ENVIRONMENT);
   }
   float platform_altitude_m() const {
     return GetField<float>(VT_PLATFORM_ALTITUDE_M, 0.0f);
@@ -888,53 +888,53 @@ struct RadarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct RadarCycleInputBuilder {
-  typedef RadarCycleInput Table;
+struct ArCycleInputBuilder {
+  typedef ArCycleInput Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_cycle_index(uint32_t cycle_index) {
-    fbb_.AddElement<uint32_t>(RadarCycleInput::VT_CYCLE_INDEX, cycle_index, 0);
+    fbb_.AddElement<uint32_t>(ArCycleInput::VT_CYCLE_INDEX, cycle_index, 0);
   }
   void add_dt_sec(float dt_sec) {
-    fbb_.AddElement<float>(RadarCycleInput::VT_DT_SEC, dt_sec, 1.0f);
+    fbb_.AddElement<float>(ArCycleInput::VT_DT_SEC, dt_sec, 1.0f);
   }
   void add_platform_pose(flatbuffers::Offset<oneq::replay::airborne_radar::fb::PoseState> platform_pose) {
-    fbb_.AddOffset(RadarCycleInput::VT_PLATFORM_POSE, platform_pose);
+    fbb_.AddOffset(ArCycleInput::VT_PLATFORM_POSE, platform_pose);
   }
-  void add_scene(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>>> scene) {
-    fbb_.AddOffset(RadarCycleInput::VT_SCENE, scene);
+  void add_scene(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArSceneTarget>>> scene) {
+    fbb_.AddOffset(ArCycleInput::VT_SCENE, scene);
   }
   void add_has_environment(bool has_environment) {
-    fbb_.AddElement<uint8_t>(RadarCycleInput::VT_HAS_ENVIRONMENT, static_cast<uint8_t>(has_environment), 0);
+    fbb_.AddElement<uint8_t>(ArCycleInput::VT_HAS_ENVIRONMENT, static_cast<uint8_t>(has_environment), 0);
   }
-  void add_environment(flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput> environment) {
-    fbb_.AddOffset(RadarCycleInput::VT_ENVIRONMENT, environment);
+  void add_environment(flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArCycleEnvironmentInput> environment) {
+    fbb_.AddOffset(ArCycleInput::VT_ENVIRONMENT, environment);
   }
   void add_platform_altitude_m(float platform_altitude_m) {
-    fbb_.AddElement<float>(RadarCycleInput::VT_PLATFORM_ALTITUDE_M, platform_altitude_m, 0.0f);
+    fbb_.AddElement<float>(ArCycleInput::VT_PLATFORM_ALTITUDE_M, platform_altitude_m, 0.0f);
   }
-  explicit RadarCycleInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ArCycleInputBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RadarCycleInputBuilder &operator=(const RadarCycleInputBuilder &);
-  flatbuffers::Offset<RadarCycleInput> Finish() {
+  ArCycleInputBuilder &operator=(const ArCycleInputBuilder &);
+  flatbuffers::Offset<ArCycleInput> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RadarCycleInput>(end);
+    auto o = flatbuffers::Offset<ArCycleInput>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInput(
+inline flatbuffers::Offset<ArCycleInput> CreateArCycleInput(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t cycle_index = 0,
     float dt_sec = 1.0f,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::PoseState> platform_pose = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>>> scene = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArSceneTarget>>> scene = 0,
     bool has_environment = false,
-    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput> environment = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArCycleEnvironmentInput> environment = 0,
     float platform_altitude_m = 0.0f) {
-  RadarCycleInputBuilder builder_(_fbb);
+  ArCycleInputBuilder builder_(_fbb);
   builder_.add_platform_altitude_m(platform_altitude_m);
   builder_.add_environment(environment);
   builder_.add_scene(scene);
@@ -945,17 +945,17 @@ inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInput(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<RadarCycleInput> CreateRadarCycleInputDirect(
+inline flatbuffers::Offset<ArCycleInput> CreateArCycleInputDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t cycle_index = 0,
     float dt_sec = 1.0f,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::PoseState> platform_pose = 0,
-    const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>> *scene = nullptr,
+    const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArSceneTarget>> *scene = nullptr,
     bool has_environment = false,
-    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleEnvironmentInput> environment = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArCycleEnvironmentInput> environment = 0,
     float platform_altitude_m = 0.0f) {
-  auto scene__ = scene ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarSceneTarget>>(*scene) : 0;
-  return oneq::replay::airborne_radar::fb::CreateRadarCycleInput(
+  auto scene__ = scene ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArSceneTarget>>(*scene) : 0;
+  return oneq::replay::airborne_radar::fb::CreateArCycleInput(
       _fbb,
       cycle_index,
       dt_sec,
@@ -1530,8 +1530,8 @@ inline flatbuffers::Offset<ValidationIssue> CreateValidationIssueDirect(
       message__);
 }
 
-struct RadarCommand FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarCommandBuilder Builder;
+struct ArCommand FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ArCommandBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TYPE = 4,
     VT_SOURCE = 6
@@ -1550,40 +1550,40 @@ struct RadarCommand FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct RadarCommandBuilder {
-  typedef RadarCommand Table;
+struct ArCommandBuilder {
+  typedef ArCommand Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_type(int32_t type) {
-    fbb_.AddElement<int32_t>(RadarCommand::VT_TYPE, type, 0);
+    fbb_.AddElement<int32_t>(ArCommand::VT_TYPE, type, 0);
   }
   void add_source(int32_t source) {
-    fbb_.AddElement<int32_t>(RadarCommand::VT_SOURCE, source, 0);
+    fbb_.AddElement<int32_t>(ArCommand::VT_SOURCE, source, 0);
   }
-  explicit RadarCommandBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ArCommandBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RadarCommandBuilder &operator=(const RadarCommandBuilder &);
-  flatbuffers::Offset<RadarCommand> Finish() {
+  ArCommandBuilder &operator=(const ArCommandBuilder &);
+  flatbuffers::Offset<ArCommand> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RadarCommand>(end);
+    auto o = flatbuffers::Offset<ArCommand>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<RadarCommand> CreateRadarCommand(
+inline flatbuffers::Offset<ArCommand> CreateArCommand(
     flatbuffers::FlatBufferBuilder &_fbb,
     int32_t type = 0,
     int32_t source = 0) {
-  RadarCommandBuilder builder_(_fbb);
+  ArCommandBuilder builder_(_fbb);
   builder_.add_source(source);
   builder_.add_type(type);
   return builder_.Finish();
 }
 
-struct RadarControlProfile FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarControlProfileBuilder Builder;
+struct ArControlProfile FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ArControlProfileBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_VERSION = 4,
     VT_ENABLE_LPI_POWER_CONTROL = 6,
@@ -1647,56 +1647,56 @@ struct RadarControlProfile FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table 
   }
 };
 
-struct RadarControlProfileBuilder {
-  typedef RadarControlProfile Table;
+struct ArControlProfileBuilder {
+  typedef ArControlProfile Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_version(uint64_t version) {
-    fbb_.AddElement<uint64_t>(RadarControlProfile::VT_VERSION, version, 0);
+    fbb_.AddElement<uint64_t>(ArControlProfile::VT_VERSION, version, 0);
   }
   void add_enable_lpi_power_control(bool enable_lpi_power_control) {
-    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_ENABLE_LPI_POWER_CONTROL, static_cast<uint8_t>(enable_lpi_power_control), 0);
+    fbb_.AddElement<uint8_t>(ArControlProfile::VT_ENABLE_LPI_POWER_CONTROL, static_cast<uint8_t>(enable_lpi_power_control), 0);
   }
   void add_lpi_power_scale(float lpi_power_scale) {
-    fbb_.AddElement<float>(RadarControlProfile::VT_LPI_POWER_SCALE, lpi_power_scale, 0.0f);
+    fbb_.AddElement<float>(ArControlProfile::VT_LPI_POWER_SCALE, lpi_power_scale, 0.0f);
   }
   void add_enable_lpi_beamforming(bool enable_lpi_beamforming) {
-    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_ENABLE_LPI_BEAMFORMING, static_cast<uint8_t>(enable_lpi_beamforming), 0);
+    fbb_.AddElement<uint8_t>(ArControlProfile::VT_ENABLE_LPI_BEAMFORMING, static_cast<uint8_t>(enable_lpi_beamforming), 0);
   }
   void add_lpi_dwell_scale(float lpi_dwell_scale) {
-    fbb_.AddElement<float>(RadarControlProfile::VT_LPI_DWELL_SCALE, lpi_dwell_scale, 0.0f);
+    fbb_.AddElement<float>(ArControlProfile::VT_LPI_DWELL_SCALE, lpi_dwell_scale, 0.0f);
   }
   void add_enable_agility_frequency(bool enable_agility_frequency) {
-    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_ENABLE_AGILITY_FREQUENCY, static_cast<uint8_t>(enable_agility_frequency), 0);
+    fbb_.AddElement<uint8_t>(ArControlProfile::VT_ENABLE_AGILITY_FREQUENCY, static_cast<uint8_t>(enable_agility_frequency), 0);
   }
   void add_agility_frequency_hop_phase(uint8_t agility_frequency_hop_phase) {
-    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_AGILITY_FREQUENCY_HOP_PHASE, agility_frequency_hop_phase, 0);
+    fbb_.AddElement<uint8_t>(ArControlProfile::VT_AGILITY_FREQUENCY_HOP_PHASE, agility_frequency_hop_phase, 0);
   }
   void add_enable_sidelobe_canceller(bool enable_sidelobe_canceller) {
-    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_ENABLE_SIDELOBE_CANCELLER, static_cast<uint8_t>(enable_sidelobe_canceller), 0);
+    fbb_.AddElement<uint8_t>(ArControlProfile::VT_ENABLE_SIDELOBE_CANCELLER, static_cast<uint8_t>(enable_sidelobe_canceller), 0);
   }
   void add_enable_adaptive_beamforming(bool enable_adaptive_beamforming) {
-    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_ENABLE_ADAPTIVE_BEAMFORMING, static_cast<uint8_t>(enable_adaptive_beamforming), 0);
+    fbb_.AddElement<uint8_t>(ArControlProfile::VT_ENABLE_ADAPTIVE_BEAMFORMING, static_cast<uint8_t>(enable_adaptive_beamforming), 0);
   }
   void add_enable_eccm_rejitter(bool enable_eccm_rejitter) {
-    fbb_.AddElement<uint8_t>(RadarControlProfile::VT_ENABLE_ECCM_REJITTER, static_cast<uint8_t>(enable_eccm_rejitter), 0);
+    fbb_.AddElement<uint8_t>(ArControlProfile::VT_ENABLE_ECCM_REJITTER, static_cast<uint8_t>(enable_eccm_rejitter), 0);
   }
   void add_eccm_burnthrough_gain(float eccm_burnthrough_gain) {
-    fbb_.AddElement<float>(RadarControlProfile::VT_ECCM_BURNTHROUGH_GAIN, eccm_burnthrough_gain, 0.0f);
+    fbb_.AddElement<float>(ArControlProfile::VT_ECCM_BURNTHROUGH_GAIN, eccm_burnthrough_gain, 0.0f);
   }
-  explicit RadarControlProfileBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ArControlProfileBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RadarControlProfileBuilder &operator=(const RadarControlProfileBuilder &);
-  flatbuffers::Offset<RadarControlProfile> Finish() {
+  ArControlProfileBuilder &operator=(const ArControlProfileBuilder &);
+  flatbuffers::Offset<ArControlProfile> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RadarControlProfile>(end);
+    auto o = flatbuffers::Offset<ArControlProfile>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<RadarControlProfile> CreateRadarControlProfile(
+inline flatbuffers::Offset<ArControlProfile> CreateArControlProfile(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t version = 0,
     bool enable_lpi_power_control = false,
@@ -1709,7 +1709,7 @@ inline flatbuffers::Offset<RadarControlProfile> CreateRadarControlProfile(
     bool enable_adaptive_beamforming = false,
     bool enable_eccm_rejitter = false,
     float eccm_burnthrough_gain = 0.0f) {
-  RadarControlProfileBuilder builder_(_fbb);
+  ArControlProfileBuilder builder_(_fbb);
   builder_.add_version(version);
   builder_.add_eccm_burnthrough_gain(eccm_burnthrough_gain);
   builder_.add_lpi_dwell_scale(lpi_dwell_scale);
@@ -1886,8 +1886,8 @@ inline flatbuffers::Offset<AssociationQualityMetrics> CreateAssociationQualityMe
   return builder_.Finish();
 }
 
-struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef RadarCycleResultBuilder Builder;
+struct ArCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef ArCycleResultBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INPUT_CYCLE_INDEX = 4,
     VT_TRACK_OUTPUT_FRAME = 6,
@@ -1907,8 +1907,8 @@ struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const oneq::replay::airborne_radar::fb::TrackOutputFrame *track_output_frame() const {
     return GetPointer<const oneq::replay::airborne_radar::fb::TrackOutputFrame *>(VT_TRACK_OUTPUT_FRAME);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCommand>> *submitted_commands() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCommand>> *>(VT_SUBMITTED_COMMANDS);
+  const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArCommand>> *submitted_commands() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArCommand>> *>(VT_SUBMITTED_COMMANDS);
   }
   const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>> *validation_issues() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>> *>(VT_VALIDATION_ISSUES);
@@ -1928,8 +1928,8 @@ struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool has_control_profile() const {
     return GetField<uint8_t>(VT_HAS_CONTROL_PROFILE, 0) != 0;
   }
-  const oneq::replay::airborne_radar::fb::RadarControlProfile *control_profile() const {
-    return GetPointer<const oneq::replay::airborne_radar::fb::RadarControlProfile *>(VT_CONTROL_PROFILE);
+  const oneq::replay::airborne_radar::fb::ArControlProfile *control_profile() const {
+    return GetPointer<const oneq::replay::airborne_radar::fb::ArControlProfile *>(VT_CONTROL_PROFILE);
   }
   const oneq::replay::airborne_radar::fb::AssociationQualityMetrics *association_quality_metrics() const {
     return GetPointer<const oneq::replay::airborne_radar::fb::AssociationQualityMetrics *>(VT_ASSOCIATION_QUALITY_METRICS);
@@ -1958,69 +1958,69 @@ struct RadarCycleResult FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct RadarCycleResultBuilder {
-  typedef RadarCycleResult Table;
+struct ArCycleResultBuilder {
+  typedef ArCycleResult Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_input_cycle_index(uint32_t input_cycle_index) {
-    fbb_.AddElement<uint32_t>(RadarCycleResult::VT_INPUT_CYCLE_INDEX, input_cycle_index, 0);
+    fbb_.AddElement<uint32_t>(ArCycleResult::VT_INPUT_CYCLE_INDEX, input_cycle_index, 0);
   }
   void add_track_output_frame(flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackOutputFrame> track_output_frame) {
-    fbb_.AddOffset(RadarCycleResult::VT_TRACK_OUTPUT_FRAME, track_output_frame);
+    fbb_.AddOffset(ArCycleResult::VT_TRACK_OUTPUT_FRAME, track_output_frame);
   }
-  void add_submitted_commands(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCommand>>> submitted_commands) {
-    fbb_.AddOffset(RadarCycleResult::VT_SUBMITTED_COMMANDS, submitted_commands);
+  void add_submitted_commands(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArCommand>>> submitted_commands) {
+    fbb_.AddOffset(ArCycleResult::VT_SUBMITTED_COMMANDS, submitted_commands);
   }
   void add_validation_issues(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>>> validation_issues) {
-    fbb_.AddOffset(RadarCycleResult::VT_VALIDATION_ISSUES, validation_issues);
+    fbb_.AddOffset(ArCycleResult::VT_VALIDATION_ISSUES, validation_issues);
   }
   void add_has_validation_error(bool has_validation_error) {
-    fbb_.AddElement<uint8_t>(RadarCycleResult::VT_HAS_VALIDATION_ERROR, static_cast<uint8_t>(has_validation_error), 0);
+    fbb_.AddElement<uint8_t>(ArCycleResult::VT_HAS_VALIDATION_ERROR, static_cast<uint8_t>(has_validation_error), 0);
   }
   void add_executed_this_cycle(bool executed_this_cycle) {
-    fbb_.AddElement<uint8_t>(RadarCycleResult::VT_EXECUTED_THIS_CYCLE, static_cast<uint8_t>(executed_this_cycle), 0);
+    fbb_.AddElement<uint8_t>(ArCycleResult::VT_EXECUTED_THIS_CYCLE, static_cast<uint8_t>(executed_this_cycle), 0);
   }
   void add_abort_reason(int32_t abort_reason) {
-    fbb_.AddElement<int32_t>(RadarCycleResult::VT_ABORT_REASON, abort_reason, 0);
+    fbb_.AddElement<int32_t>(ArCycleResult::VT_ABORT_REASON, abort_reason, 0);
   }
   void add_reused_previous_output(bool reused_previous_output) {
-    fbb_.AddElement<uint8_t>(RadarCycleResult::VT_REUSED_PREVIOUS_OUTPUT, static_cast<uint8_t>(reused_previous_output), 0);
+    fbb_.AddElement<uint8_t>(ArCycleResult::VT_REUSED_PREVIOUS_OUTPUT, static_cast<uint8_t>(reused_previous_output), 0);
   }
   void add_has_control_profile(bool has_control_profile) {
-    fbb_.AddElement<uint8_t>(RadarCycleResult::VT_HAS_CONTROL_PROFILE, static_cast<uint8_t>(has_control_profile), 0);
+    fbb_.AddElement<uint8_t>(ArCycleResult::VT_HAS_CONTROL_PROFILE, static_cast<uint8_t>(has_control_profile), 0);
   }
-  void add_control_profile(flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarControlProfile> control_profile) {
-    fbb_.AddOffset(RadarCycleResult::VT_CONTROL_PROFILE, control_profile);
+  void add_control_profile(flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArControlProfile> control_profile) {
+    fbb_.AddOffset(ArCycleResult::VT_CONTROL_PROFILE, control_profile);
   }
   void add_association_quality_metrics(flatbuffers::Offset<oneq::replay::airborne_radar::fb::AssociationQualityMetrics> association_quality_metrics) {
-    fbb_.AddOffset(RadarCycleResult::VT_ASSOCIATION_QUALITY_METRICS, association_quality_metrics);
+    fbb_.AddOffset(ArCycleResult::VT_ASSOCIATION_QUALITY_METRICS, association_quality_metrics);
   }
-  explicit RadarCycleResultBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ArCycleResultBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RadarCycleResultBuilder &operator=(const RadarCycleResultBuilder &);
-  flatbuffers::Offset<RadarCycleResult> Finish() {
+  ArCycleResultBuilder &operator=(const ArCycleResultBuilder &);
+  flatbuffers::Offset<ArCycleResult> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<RadarCycleResult>(end);
+    auto o = flatbuffers::Offset<ArCycleResult>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(
+inline flatbuffers::Offset<ArCycleResult> CreateArCycleResult(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t input_cycle_index = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackOutputFrame> track_output_frame = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCommand>>> submitted_commands = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArCommand>>> submitted_commands = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>>> validation_issues = 0,
     bool has_validation_error = false,
     bool executed_this_cycle = false,
     int32_t abort_reason = 0,
     bool reused_previous_output = false,
     bool has_control_profile = false,
-    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarControlProfile> control_profile = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArControlProfile> control_profile = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::AssociationQualityMetrics> association_quality_metrics = 0) {
-  RadarCycleResultBuilder builder_(_fbb);
+  ArCycleResultBuilder builder_(_fbb);
   builder_.add_association_quality_metrics(association_quality_metrics);
   builder_.add_control_profile(control_profile);
   builder_.add_abort_reason(abort_reason);
@@ -2035,22 +2035,22 @@ inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResult(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<RadarCycleResult> CreateRadarCycleResultDirect(
+inline flatbuffers::Offset<ArCycleResult> CreateArCycleResultDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t input_cycle_index = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::TrackOutputFrame> track_output_frame = 0,
-    const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCommand>> *submitted_commands = nullptr,
+    const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArCommand>> *submitted_commands = nullptr,
     const std::vector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>> *validation_issues = nullptr,
     bool has_validation_error = false,
     bool executed_this_cycle = false,
     int32_t abort_reason = 0,
     bool reused_previous_output = false,
     bool has_control_profile = false,
-    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarControlProfile> control_profile = 0,
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArControlProfile> control_profile = 0,
     flatbuffers::Offset<oneq::replay::airborne_radar::fb::AssociationQualityMetrics> association_quality_metrics = 0) {
-  auto submitted_commands__ = submitted_commands ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCommand>>(*submitted_commands) : 0;
+  auto submitted_commands__ = submitted_commands ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArCommand>>(*submitted_commands) : 0;
   auto validation_issues__ = validation_issues ? _fbb.CreateVector<flatbuffers::Offset<oneq::replay::airborne_radar::fb::ValidationIssue>>(*validation_issues) : 0;
-  return oneq::replay::airborne_radar::fb::CreateRadarCycleResult(
+  return oneq::replay::airborne_radar::fb::CreateArCycleResult(
       _fbb,
       input_cycle_index,
       track_output_frame,
@@ -2231,43 +2231,43 @@ inline flatbuffers::Offset<FailureMarker> CreateFailureMarkerDirect(
       last_event_sequence);
 }
 
-inline const oneq::replay::airborne_radar::fb::RadarCycleInput *GetRadarCycleInput(const void *buf) {
-  return flatbuffers::GetRoot<oneq::replay::airborne_radar::fb::RadarCycleInput>(buf);
+inline const oneq::replay::airborne_radar::fb::ArCycleInput *GetArCycleInput(const void *buf) {
+  return flatbuffers::GetRoot<oneq::replay::airborne_radar::fb::ArCycleInput>(buf);
 }
 
-inline const oneq::replay::airborne_radar::fb::RadarCycleInput *GetSizePrefixedRadarCycleInput(const void *buf) {
-  return flatbuffers::GetSizePrefixedRoot<oneq::replay::airborne_radar::fb::RadarCycleInput>(buf);
+inline const oneq::replay::airborne_radar::fb::ArCycleInput *GetSizePrefixedArCycleInput(const void *buf) {
+  return flatbuffers::GetSizePrefixedRoot<oneq::replay::airborne_radar::fb::ArCycleInput>(buf);
 }
 
-inline const char *RadarCycleInputIdentifier() {
+inline const char *ArCycleInputIdentifier() {
   return "ARCI";
 }
 
-inline bool RadarCycleInputBufferHasIdentifier(const void *buf) {
+inline bool ArCycleInputBufferHasIdentifier(const void *buf) {
   return flatbuffers::BufferHasIdentifier(
-      buf, RadarCycleInputIdentifier());
+      buf, ArCycleInputIdentifier());
 }
 
-inline bool VerifyRadarCycleInputBuffer(
+inline bool VerifyArCycleInputBuffer(
     flatbuffers::Verifier &verifier) {
-  return verifier.VerifyBuffer<oneq::replay::airborne_radar::fb::RadarCycleInput>(RadarCycleInputIdentifier());
+  return verifier.VerifyBuffer<oneq::replay::airborne_radar::fb::ArCycleInput>(ArCycleInputIdentifier());
 }
 
-inline bool VerifySizePrefixedRadarCycleInputBuffer(
+inline bool VerifySizePrefixedArCycleInputBuffer(
     flatbuffers::Verifier &verifier) {
-  return verifier.VerifySizePrefixedBuffer<oneq::replay::airborne_radar::fb::RadarCycleInput>(RadarCycleInputIdentifier());
+  return verifier.VerifySizePrefixedBuffer<oneq::replay::airborne_radar::fb::ArCycleInput>(ArCycleInputIdentifier());
 }
 
-inline void FinishRadarCycleInputBuffer(
+inline void FinishArCycleInputBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleInput> root) {
-  fbb.Finish(root, RadarCycleInputIdentifier());
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArCycleInput> root) {
+  fbb.Finish(root, ArCycleInputIdentifier());
 }
 
-inline void FinishSizePrefixedRadarCycleInputBuffer(
+inline void FinishSizePrefixedArCycleInputBuffer(
     flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<oneq::replay::airborne_radar::fb::RadarCycleInput> root) {
-  fbb.FinishSizePrefixed(root, RadarCycleInputIdentifier());
+    flatbuffers::Offset<oneq::replay::airborne_radar::fb::ArCycleInput> root) {
+  fbb.FinishSizePrefixed(root, ArCycleInputIdentifier());
 }
 
 }  // namespace fb

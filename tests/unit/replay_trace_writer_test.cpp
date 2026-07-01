@@ -94,7 +94,7 @@ bool CountSessionConfigCallback(const oneq::replay::ReplayTraceReadEvent& event,
   (void)error;
   PlaybackDispatchState* state = static_cast<PlaybackDispatchState*>(user_data);
   ++state->session_config_calls;
-  return event.payload_type == "RadarSessionConfig";
+  return event.payload_type == "ArSessionConfig";
 }
 
 bool CountCycleInputCallback(const oneq::replay::ReplayTraceReadEvent& event,
@@ -103,7 +103,7 @@ bool CountCycleInputCallback(const oneq::replay::ReplayTraceReadEvent& event,
   (void)error;
   PlaybackDispatchState* state = static_cast<PlaybackDispatchState*>(user_data);
   ++state->cycle_input_calls;
-  return event.payload_type == "RadarCycleInput";
+  return event.payload_type == "ArCycleInput";
 }
 
 bool EchoOutputCallback(const oneq::replay::ReplayTraceReadEvent& event,
@@ -150,7 +150,7 @@ TEST(ReplayTraceWriterTest, WritesManifestAndReplayEventEnvelope) {
   ReplayTraceEvent event;
   event.module = "airborne_radar";
   event.event_type = "cycle_input";
-  event.payload_type = "RadarCycleInput";
+  event.payload_type = "ArCycleInput";
   event.payload_encoding = "flatbuffers";
   event.payload_bytes = MakeFlatbuffersPayloadBytes("manifest-envelope");
   event.has_cycle_index = true;
@@ -174,7 +174,7 @@ TEST(ReplayTraceWriterTest, WritesManifestAndReplayEventEnvelope) {
   const std::string event_content = ReadFile(event_path);
   EXPECT_NE(event_content.find("\"event_type\":\"cycle_input\""), std::string::npos);
   EXPECT_NE(event_content.find("\"cycle_index\":7"), std::string::npos);
-  EXPECT_NE(event_content.find("\"payload_type\":\"RadarCycleInput\""), std::string::npos);
+  EXPECT_NE(event_content.find("\"payload_type\":\"ArCycleInput\""), std::string::npos);
   EXPECT_NE(event_content.find("\"payload\":null"), std::string::npos);
   EXPECT_NE(event_content.find("\"payload_base64\":\""), std::string::npos);
   EXPECT_NE(event_content.find("\"payload_hash\":\"fnv1a64:"), std::string::npos);
@@ -194,7 +194,7 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
     ReplayTraceEvent config_event;
     config_event.module = "airborne_radar";
     config_event.event_type = "session_config";
-    config_event.payload_type = "RadarSessionConfig";
+    config_event.payload_type = "ArSessionConfig";
     config_event.payload_encoding = "flatbuffers";
     config_event.payload_bytes = MakeFlatbuffersPayloadBytes("reader-config");
     writer.WriteEvent(config_event);
@@ -202,7 +202,7 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
     ReplayTraceEvent input_event;
     input_event.module = "airborne_radar";
     input_event.event_type = "cycle_input";
-    input_event.payload_type = "RadarCycleInput";
+    input_event.payload_type = "ArCycleInput";
     input_event.payload_encoding = "flatbuffers";
     input_event.payload_bytes = MakeFlatbuffersPayloadBytes("reader-input");
     input_event.has_cycle_index = true;
@@ -221,7 +221,7 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
   ASSERT_TRUE(reader.ReadNextEvent(&event));
   EXPECT_EQ(event.sequence, 0U);
   EXPECT_EQ(event.event_type, "session_config");
-  EXPECT_EQ(event.payload_type, "RadarSessionConfig");
+  EXPECT_EQ(event.payload_type, "ArSessionConfig");
   EXPECT_EQ(event.payload_encoding, "flatbuffers");
   EXPECT_EQ(event.payload_inline, "null");
   EXPECT_EQ(event.payload_bytes, MakeFlatbuffersPayloadBytes("reader-config"));
@@ -233,7 +233,7 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
   ASSERT_TRUE(reader.ReadNextEvent(&event));
   EXPECT_EQ(event.sequence, 1U);
   EXPECT_EQ(event.event_type, "cycle_input");
-  EXPECT_EQ(event.payload_type, "RadarCycleInput");
+  EXPECT_EQ(event.payload_type, "ArCycleInput");
   EXPECT_TRUE(event.has_cycle_index);
   EXPECT_EQ(event.cycle_index, 9U);
   EXPECT_TRUE(event.has_sim_time_sec);
@@ -263,7 +263,7 @@ TEST(ReplayTraceWriterTest, ReaderRestoresBinaryPayloadBytes) {
     ReplayTraceEvent event;
     event.module = "airborne_radar";
     event.event_type = "cycle_input";
-    event.payload_type = "RadarCycleInput";
+    event.payload_type = "ArCycleInput";
     event.payload_encoding = "flatbuffers";
     event.payload_inline = "{}";
     event.payload_bytes = payload_bytes;
@@ -303,7 +303,7 @@ TEST(ReplayTraceWriterTest, ScanReportsEventCountAndDetectsTampering) {
     ReplayTraceEvent first;
     first.module = "airborne_radar";
     first.event_type = "cycle_input";
-    first.payload_type = "RadarCycleInput";
+    first.payload_type = "ArCycleInput";
     first.payload_encoding = "flatbuffers";
     first.payload_bytes = MakeFlatbuffersPayloadBytes("scan-input");
     writer.WriteEvent(first);
@@ -311,7 +311,7 @@ TEST(ReplayTraceWriterTest, ScanReportsEventCountAndDetectsTampering) {
     ReplayTraceEvent second;
     second.module = "airborne_radar";
     second.event_type = "cycle_output";
-    second.payload_type = "RadarCycleResult";
+    second.payload_type = "ArCycleResult";
     second.payload_encoding = "flatbuffers";
     second.payload_bytes = MakeFlatbuffersPayloadBytes("scan-output");
     writer.WriteEvent(second);
@@ -356,7 +356,7 @@ TEST(ReplayTraceWriterTest, WritesFailureMarkerAndLastWindowPackage) {
     ReplayTraceEvent first;
     first.module = "airborne_radar";
     first.event_type = "cycle_input";
-    first.payload_type = "RadarCycleInput";
+    first.payload_type = "ArCycleInput";
     first.payload_encoding = "flatbuffers";
     first.payload_bytes = MakeFlatbuffersPayloadBytes("window-input");
     writer.WriteEvent(first);
@@ -364,7 +364,7 @@ TEST(ReplayTraceWriterTest, WritesFailureMarkerAndLastWindowPackage) {
     ReplayTraceEvent second;
     second.module = "airborne_radar";
     second.event_type = "cycle_output";
-    second.payload_type = "RadarCycleResult";
+    second.payload_type = "ArCycleResult";
     second.payload_encoding = "flatbuffers";
     second.payload_bytes = MakeFlatbuffersPayloadBytes("window-output");
     writer.WriteEvent(second);
@@ -421,7 +421,7 @@ TEST(ReplayTraceWriterTest, SplitsEventChunksAndWritesCycleIndex) {
       ReplayTraceEvent event;
       event.module = "airborne_radar";
       event.event_type = "cycle_input";
-      event.payload_type = "RadarCycleInput";
+      event.payload_type = "ArCycleInput";
       event.payload_encoding = "flatbuffers";
       std::ostringstream payload_tag;
       payload_tag << "chunk-cycle-" << i;
@@ -485,7 +485,7 @@ TEST(ReplayTraceWriterTest, ChecksManifestCompatibilityBeforeReplay) {
     ReplayTraceEvent event;
     event.module = "airborne_radar";
     event.event_type = "session_config";
-    event.payload_type = "RadarSessionConfig";
+    event.payload_type = "ArSessionConfig";
     event.payload_encoding = "flatbuffers";
     event.payload_bytes = MakeFlatbuffersPayloadBytes("compat");
     writer.WriteEvent(event);
@@ -539,7 +539,7 @@ TEST(ReplayTraceWriterTest, BuildsReplayReportForBComputerEntry) {
     ReplayTraceEvent config;
     config.module = "airborne_radar";
     config.event_type = "session_config";
-    config.payload_type = "RadarSessionConfig";
+    config.payload_type = "ArSessionConfig";
     config.payload_encoding = "flatbuffers";
     config.payload_bytes = MakeFlatbuffersPayloadBytes("report-config");
     writer.WriteEvent(config);
@@ -547,7 +547,7 @@ TEST(ReplayTraceWriterTest, BuildsReplayReportForBComputerEntry) {
     ReplayTraceEvent input;
     input.module = "airborne_radar";
     input.event_type = "cycle_input";
-    input.payload_type = "RadarCycleInput";
+    input.payload_type = "ArCycleInput";
     input.payload_encoding = "flatbuffers";
     input.payload_bytes = MakeFlatbuffersPayloadBytes("report-input");
     input.has_cycle_index = true;
@@ -557,7 +557,7 @@ TEST(ReplayTraceWriterTest, BuildsReplayReportForBComputerEntry) {
     ReplayTraceEvent output;
     output.module = "airborne_radar";
     output.event_type = "cycle_output";
-    output.payload_type = "RadarCycleResult";
+    output.payload_type = "ArCycleResult";
     output.payload_encoding = "flatbuffers";
     output.payload_bytes = MakeFlatbuffersPayloadBytes("report-output");
     output.has_cycle_index = true;
@@ -619,7 +619,7 @@ TEST(ReplayTraceWriterTest, ReplayReportRejectsMissingSessionConfig) {
     ReplayTraceEvent input;
     input.module = "airborne_radar";
     input.event_type = "cycle_input";
-    input.payload_type = "RadarCycleInput";
+    input.payload_type = "ArCycleInput";
     input.payload_encoding = "flatbuffers";
     input.payload_bytes = MakeFlatbuffersPayloadBytes("missing-config-input");
     writer.WriteEvent(input);
@@ -649,7 +649,7 @@ TEST(ReplayTraceWriterTest, ReplayReportTreatsWarningEventAsNonBlocking) {
     ReplayTraceEvent config;
     config.module = "airborne_radar";
     config.event_type = "session_config";
-    config.payload_type = "RadarSessionConfig";
+    config.payload_type = "ArSessionConfig";
     config.payload_encoding = "flatbuffers";
     config.payload_bytes = MakeFlatbuffersPayloadBytes("warning-config");
     writer.WriteEvent(config);
@@ -695,7 +695,7 @@ TEST(ReplayTraceWriterTest, PlaybackDispatchesEventsAndComparesOutput) {
     ReplayTraceEvent config;
     config.module = "airborne_radar";
     config.event_type = "session_config";
-    config.payload_type = "RadarSessionConfig";
+    config.payload_type = "ArSessionConfig";
     config.payload_encoding = "flatbuffers";
     config.payload_bytes = MakeFlatbuffersPayloadBytes("playback-config");
     writer.WriteEvent(config);
@@ -703,7 +703,7 @@ TEST(ReplayTraceWriterTest, PlaybackDispatchesEventsAndComparesOutput) {
     ReplayTraceEvent input;
     input.module = "airborne_radar";
     input.event_type = "cycle_input";
-    input.payload_type = "RadarCycleInput";
+    input.payload_type = "ArCycleInput";
     input.payload_encoding = "flatbuffers";
     input.payload_bytes = MakeFlatbuffersPayloadBytes("playback-input");
     writer.WriteEvent(input);
@@ -711,7 +711,7 @@ TEST(ReplayTraceWriterTest, PlaybackDispatchesEventsAndComparesOutput) {
     ReplayTraceEvent output;
     output.module = "airborne_radar";
     output.event_type = "cycle_output";
-    output.payload_type = "RadarCycleResult";
+    output.payload_type = "ArCycleResult";
     output.payload_encoding = "flatbuffers";
     output.payload_bytes = MakeFlatbuffersPayloadBytes("playback-output");
     writer.WriteEvent(output);
@@ -748,7 +748,7 @@ TEST(ReplayTraceWriterTest, PlaybackStopsOnFirstDivergenceWhenEnabled) {
     ReplayTraceEvent config;
     config.module = "airborne_radar";
     config.event_type = "session_config";
-    config.payload_type = "RadarSessionConfig";
+    config.payload_type = "ArSessionConfig";
     config.payload_encoding = "flatbuffers";
     config.payload_bytes = MakeFlatbuffersPayloadBytes("div-stop-config");
     writer.WriteEvent(config);
@@ -756,7 +756,7 @@ TEST(ReplayTraceWriterTest, PlaybackStopsOnFirstDivergenceWhenEnabled) {
     ReplayTraceEvent input;
     input.module = "airborne_radar";
     input.event_type = "cycle_input";
-    input.payload_type = "RadarCycleInput";
+    input.payload_type = "ArCycleInput";
     input.payload_encoding = "flatbuffers";
     input.payload_bytes = MakeFlatbuffersPayloadBytes("div-stop-input");
     writer.WriteEvent(input);
@@ -764,7 +764,7 @@ TEST(ReplayTraceWriterTest, PlaybackStopsOnFirstDivergenceWhenEnabled) {
     ReplayTraceEvent output;
     output.module = "airborne_radar";
     output.event_type = "cycle_output";
-    output.payload_type = "RadarCycleResult";
+    output.payload_type = "ArCycleResult";
     output.payload_encoding = "flatbuffers";
     output.payload_bytes = MakeFlatbuffersPayloadBytes("div-stop-output");
     writer.WriteEvent(output);
@@ -802,7 +802,7 @@ TEST(ReplayTraceWriterTest, PlaybackContinuesAfterDivergenceWhenDisabled) {
     ReplayTraceEvent config;
     config.module = "airborne_radar";
     config.event_type = "session_config";
-    config.payload_type = "RadarSessionConfig";
+    config.payload_type = "ArSessionConfig";
     config.payload_encoding = "flatbuffers";
     config.payload_bytes = MakeFlatbuffersPayloadBytes("div-continue-config");
     writer.WriteEvent(config);
@@ -810,7 +810,7 @@ TEST(ReplayTraceWriterTest, PlaybackContinuesAfterDivergenceWhenDisabled) {
     ReplayTraceEvent input_a;
     input_a.module = "airborne_radar";
     input_a.event_type = "cycle_input";
-    input_a.payload_type = "RadarCycleInput";
+    input_a.payload_type = "ArCycleInput";
     input_a.payload_encoding = "flatbuffers";
     input_a.payload_bytes = MakeFlatbuffersPayloadBytes("div-continue-input-a");
     writer.WriteEvent(input_a);
@@ -818,7 +818,7 @@ TEST(ReplayTraceWriterTest, PlaybackContinuesAfterDivergenceWhenDisabled) {
     ReplayTraceEvent output_a;
     output_a.module = "airborne_radar";
     output_a.event_type = "cycle_output";
-    output_a.payload_type = "RadarCycleResult";
+    output_a.payload_type = "ArCycleResult";
     output_a.payload_encoding = "flatbuffers";
     output_a.payload_bytes = MakeFlatbuffersPayloadBytes("div-continue-output-a");
     writer.WriteEvent(output_a);
@@ -826,7 +826,7 @@ TEST(ReplayTraceWriterTest, PlaybackContinuesAfterDivergenceWhenDisabled) {
     ReplayTraceEvent input_b;
     input_b.module = "airborne_radar";
     input_b.event_type = "cycle_input";
-    input_b.payload_type = "RadarCycleInput";
+    input_b.payload_type = "ArCycleInput";
     input_b.payload_encoding = "flatbuffers";
     input_b.payload_bytes = MakeFlatbuffersPayloadBytes("div-continue-input-b");
     writer.WriteEvent(input_b);
@@ -834,7 +834,7 @@ TEST(ReplayTraceWriterTest, PlaybackContinuesAfterDivergenceWhenDisabled) {
     ReplayTraceEvent output_b;
     output_b.module = "airborne_radar";
     output_b.event_type = "cycle_output";
-    output_b.payload_type = "RadarCycleResult";
+    output_b.payload_type = "ArCycleResult";
     output_b.payload_encoding = "flatbuffers";
     output_b.payload_bytes = MakeFlatbuffersPayloadBytes("div-continue-output-b");
     writer.WriteEvent(output_b);
@@ -873,7 +873,7 @@ TEST(ReplayTraceWriterTest, PlaybackRejectsMissingRequiredCallback) {
     ReplayTraceEvent config;
     config.module = "airborne_radar";
     config.event_type = "session_config";
-    config.payload_type = "RadarSessionConfig";
+    config.payload_type = "ArSessionConfig";
     config.payload_encoding = "flatbuffers";
     config.payload_bytes = MakeFlatbuffersPayloadBytes("missing-callback-config");
     writer.WriteEvent(config);

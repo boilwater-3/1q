@@ -14,7 +14,7 @@ namespace airborne_radar {
 namespace session {
 namespace {
 
-std::string BuildRadarInputPayload(const ArCycleInput& input) {
+std::string BuildArInputPayload(const ArCycleInput& input) {
   std::ostringstream os;
   os << "{"
      << "\"cycle_index\":" << input.cycle_index << ","
@@ -26,7 +26,7 @@ std::string BuildRadarInputPayload(const ArCycleInput& input) {
   return os.str();
 }
 
-std::string BuildRadarOutputPayload(const ArCycleResult& result) {
+std::string BuildArOutputPayload(const ArCycleResult& result) {
   const auto& frame = result.track_output_frame;
   std::size_t confirmed_count = 0U;
   for (const auto& track : frame.tracks) {
@@ -58,7 +58,7 @@ void WriteSessionConfigReplay(const std::shared_ptr<oneq::replay::ReplayTraceWri
   oneq::replay::ReplayTraceEvent event;
   event.module = "airborne_radar";
   event.event_type = "session_config";
-  event.payload_type = "RadarSessionConfig";
+  event.payload_type = "ArSessionConfig";
   event.payload_encoding = "flatbuffers";
   event.payload_bytes = EncodeSessionConfigFlatbuffer(config);
   writer->WriteEvent(event);
@@ -69,7 +69,7 @@ void WriteRuntimeConfigPatchReplay(const std::shared_ptr<oneq::replay::ReplayTra
   oneq::replay::ReplayTraceEvent event;
   event.module = "airborne_radar";
   event.event_type = "runtime_config_patch";
-  event.payload_type = "RadarRuntimeConfigPatch";
+  event.payload_type = "ArRuntimeConfigPatch";
   event.payload_encoding = "flatbuffers";
   event.payload_bytes = EncodeRuntimeConfigPatchFlatbuffer(patch);
   writer->WriteEvent(event);
@@ -80,7 +80,7 @@ void WriteCycleResultReplay(const std::shared_ptr<oneq::replay::ReplayTraceWrite
   oneq::replay::ReplayTraceEvent event;
   event.module = "airborne_radar";
   event.event_type = "cycle_output";
-  event.payload_type = "RadarCycleResult";
+  event.payload_type = "ArCycleResult";
   event.payload_encoding = "flatbuffers";
   event.payload_bytes = EncodeCycleResultFlatbuffer(result);
   event.has_cycle_index = true;
@@ -109,7 +109,7 @@ void WriteCycleInputEvent(const std::shared_ptr<oneq::replay::ReplayTraceWriter>
   oneq::replay::ReplayTraceEvent ev;
   ev.module = "airborne_radar";
   ev.event_type = "cycle_input";
-  ev.payload_type = "RadarCycleInput";
+  ev.payload_type = "ArCycleInput";
   ev.payload_encoding = "flatbuffers";
   ev.payload_bytes = EncodeCycleInputFlatbuffer(input);
   ev.has_cycle_index = true;
@@ -150,7 +150,7 @@ ArTraceSession::~ArTraceSession() = default;
 
 session::TrackOutputFrame ArTraceSession::Step(const ArCycleInput& input) {
   if (impl_->sink) {
-    impl_->sink->Record("airborne_radar", "input", BuildRadarInputPayload(input));
+    impl_->sink->Record("airborne_radar", "input", BuildArInputPayload(input));
   }
   if (impl_->replay_writer) {
     if (impl_->pending_input_written) {
@@ -166,7 +166,7 @@ session::TrackOutputFrame ArTraceSession::Step(const ArCycleInput& input) {
   }
   const ArCycleResult result = impl_->session.StepWithResult(input);
   if (impl_->sink) {
-    impl_->sink->Record("airborne_radar", "output", BuildRadarOutputPayload(result));
+    impl_->sink->Record("airborne_radar", "output", BuildArOutputPayload(result));
   }
   if (impl_->replay_writer) {
     WriteCycleResultReplay(impl_->replay_writer, result);
@@ -178,7 +178,7 @@ session::TrackOutputFrame ArTraceSession::Step(const ArCycleInput& input) {
 
 ArCycleResult ArTraceSession::StepWithResult(const ArCycleInput& input) {
   if (impl_->sink) {
-    impl_->sink->Record("airborne_radar", "input", BuildRadarInputPayload(input));
+    impl_->sink->Record("airborne_radar", "input", BuildArInputPayload(input));
   }
   if (impl_->replay_writer) {
     if (impl_->pending_input_written) {
@@ -194,7 +194,7 @@ ArCycleResult ArTraceSession::StepWithResult(const ArCycleInput& input) {
   }
   const ArCycleResult output = impl_->session.StepWithResult(input);
   if (impl_->sink) {
-    impl_->sink->Record("airborne_radar", "output", BuildRadarOutputPayload(output));
+    impl_->sink->Record("airborne_radar", "output", BuildArOutputPayload(output));
   }
   if (impl_->replay_writer) {
     WriteCycleResultReplay(impl_->replay_writer, output);

@@ -152,8 +152,8 @@ bool ExecutePendingCycle(ArReplayState* state, std::string* error) {
 
 bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
                      std::string* error) {
-  if (event.payload_type != "RadarSessionConfig") {
-    *error = "AR replay expected RadarSessionConfig session_config";
+  if (event.payload_type != "ArSessionConfig") {
+    *error = "AR replay expected ArSessionConfig session_config";
     return false;
   }
 
@@ -168,8 +168,8 @@ bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user
 
 bool OnCycleInput(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
                   std::string* error) {
-  if (event.payload_type != "RadarCycleInput") {
-    *error = "AR replay expected RadarCycleInput cycle_input";
+  if (event.payload_type != "ArCycleInput") {
+    *error = "AR replay expected ArCycleInput cycle_input";
     return false;
   }
 
@@ -197,8 +197,8 @@ bool OnCycleInput(const oneq::replay::ReplayTraceReadEvent& event, void* user_da
 
 bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
                           std::string* error) {
-  if (event.payload_type != "RadarRuntimeConfigPatch") {
-    *error = "AR replay expected RadarRuntimeConfigPatch runtime_config_patch";
+  if (event.payload_type != "ArRuntimeConfigPatch") {
+    *error = "AR replay expected ArRuntimeConfigPatch runtime_config_patch";
     return false;
   }
 
@@ -223,7 +223,7 @@ bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_d
   bool has_expected_result = false;
   bool has_expected_frame = false;
 
-  if (event.payload_type == "RadarCycleResult") {
+  if (event.payload_type == "ArCycleResult") {
     if (!DecodeCycleResultFlatbuffer(event.payload_bytes, &expected_result, error)) {
       return false;
     }
@@ -243,11 +243,11 @@ bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_d
     return false;
   }
 
-  if (event.payload_type == "RadarCycleResult") {
+  if (event.payload_type == "ArCycleResult") {
     const bool match =
         has_expected_result && CycleResultEqual(expected_result, state->latest_result);
     if (!match) {
-      *error = "AR replay output divergence (RadarCycleResult)";
+      *error = "AR replay output divergence (ArCycleResult)";
       return false;
     }
     actual_output->clear();

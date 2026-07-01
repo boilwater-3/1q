@@ -18,7 +18,7 @@ table PoseState {
   attitude_deg:EulerAnglesDeg;
 }
 
-table RadarSceneTarget {
+table ArSceneTarget {
   external_target_id:ulong;
   velocity_x:float;
   velocity_y:float;
@@ -63,20 +63,20 @@ table JammerSource {
   confidence:float;
 }
 
-table RadarCycleEnvironmentInput {
+table ArCycleEnvironmentInput {
   atmospheric_observation:AtmosphericObservation;
   atmospheric_context:AtmosphericContext;
   surface_observation:SurfaceObservation;
   jammer_sources:[JammerSource];
 }
 
-table RadarCycleInput {
+table ArCycleInput {
   cycle_index:uint = 0;
   dt_sec:float = 1.0;
   platform_pose:PoseState;
-  scene:[RadarSceneTarget];
+  scene:[ArSceneTarget];
   has_environment:bool = false;
-  environment:RadarCycleEnvironmentInput;
+  environment:ArCycleEnvironmentInput;
   platform_altitude_m:float = 0.0;
 }
 
@@ -126,12 +126,12 @@ table ValidationIssue {
   message:string;
 }
 
-table RadarCommand {
+table ArCommand {
   type:int;
   source:int;
 }
 
-table RadarControlProfile {
+table ArControlProfile {
   version:ulong;
   enable_lpi_power_control:bool;
   lpi_power_scale:float;
@@ -161,17 +161,17 @@ table AssociationQualityMetrics {
   association_stress:float;
 }
 
-table RadarCycleResult {
+table ArCycleResult {
   input_cycle_index:uint;
   track_output_frame:TrackOutputFrame;
-  submitted_commands:[RadarCommand];
+  submitted_commands:[ArCommand];
   validation_issues:[ValidationIssue];
   has_validation_error:bool;
   executed_this_cycle:bool;
   abort_reason:int;
   reused_previous_output:bool;
   has_control_profile:bool;
-  control_profile:RadarControlProfile;
+  control_profile:ArControlProfile;
   association_quality_metrics:AssociationQualityMetrics;
 }
 
@@ -188,5 +188,5 @@ table FailureMarker {
   last_event_sequence:ulong;
 }
 
-root_type RadarCycleInput;
+root_type ArCycleInput;
 file_identifier "ARCI";

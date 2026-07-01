@@ -95,9 +95,10 @@ include/1q/airborne_radar/config/RadarSessionConfig.h
 - `airborne_radar` namespace 和目录名：它是模块标识，不改成 `ar`。
 - `radar_cross_section_dbsm`、`rcs`、`radar_mount_angles_deg` 等物理或输入字段：这是领域语义。
 - `RadarEquations`：雷达方程是领域算法名，可保留；若未来抽到 common radar physics 层，再单独契约化。
+- `ComposeRadarAttitudeDeg`（public ONEQ_API 函数）、`UpdateRadarControlProfile`（mutable context 方法）：领域描述名，非模块所有权前缀。
 - 文档中的中文“机载雷达”“雷达探测”“雷达方程”等自然语言。
-- FlatBuffers schema 文件名 `airborne_radar_replay.fbs` / `airborne_radar_session_replay.fbs`：文件名已经带模块名。schema 内 table/type 名是否改为 `Ar*` 需要单独评估 replay 兼容策略。
-- trace/replay payload string 的历史值，如 `"RadarCycleInput"`：不能无迁移策略直接改，否则旧 trace 读取会断。
+- FlatBuffers schema 文件名 `airborne_radar_replay.fbs` / `airborne_radar_session_replay.fbs`：文件名已经带模块名，保留。
+- schema 内 table/type 名与 payload type string：因无历史可回放文件、项目未上线，已随 Stage 3 一次性迁移到 `Ar*`（详见 Stage 3）。
 
 ## 4. 兼容期守护
 
@@ -151,15 +152,17 @@ Stage 2：更新 internal session/config/runtime 命名。
 - 内部实现代码已统一改用 `Ar*` 主类型名（session/cycle/result/adapter/scene/command/control profile/runtime patch/config 等）。
 - `src/airborne_radar/` 内部 include 已优先指向 `Ar*` public 主头；`AIRBORNE_CORE_SOURCES`、`check_airborne_include_direction.cmake`、`tests/README.md` 同步更新。
 - 领域名保留：`RadarEquations`、`radar_cross_section`、`radar_mount_angles_deg`、public 函数 `ComposeRadarAttitudeDeg`。
-- replay 兼容边界保留：FlatBuffers generated schema 类型（`fb::Radar*`/`session_fb::Radar*`）、payload type string（`"RadarCycleInput"` 等）、file identifier 常量均未改，留给 Stage 3 评估。
 - 已修复迁移引入的 `cross_domain_naming_guard` 回归（guard 改扫 `ArRuntimeConfigBuilder.h` 主头）。
 - 不改 `RadarEquations` 和领域字段。
 
-Stage 3：trace/replay schema 与 payload 兼容。
+Stage 3：trace/replay schema 与 payload 单向干净迁移。
 
-- 评估 FlatBuffers table/type 是否改名。若改名，decoder 必须同时识别旧 `Radar*` 和新 `Ar*` payload type。
-- 旧 trace 文件的 payload string 必须继续通过 `ReplayRadarTrace`。
-- generated headers 只通过项目固定 `flatc` 重新生成，不手写。
+- 状态：已完成（单向迁移，无需双向兼容）。
+- 前提：当前没有可回放文件、项目未上线，因此 replay 边界一次性迁移干净，不保留旧 `Radar*` payload/schema 双识别。
+- `schemas/replay/airborne_radar_replay.fbs`、`airborne_radar_session_replay.fbs` 的 table/type 已从 `Radar*` 改为 `Ar*`（`ArSceneTarget`/`ArCycleInput`/`ArCycleResult`/`ArCommand`/`ArControlProfile`/`ArCycleEnvironmentInput`/`ArOrientationConfig`/`ArPolicyConfig`/`ArRuntimeConfigPatch`/`ArSessionConfig`），`root_type` 同步。
+- generated headers 用项目固定 `conan flatc 1.12.0` 重新生成（不手写），namespace 与 file identifier（`"ARCI"`/`"ARSC"`）不变。
+- codec（`ArReplayFlatbufferCodec.{cpp,h}`）已全部改用 `fb::Ar*`/`session_fb::Ar*` 与 `Create/Get/Verify Ar*` API；诊断字符串与内部 helper（`EncodeArCommand` 等）同步。
+- payload type string 在 writer（`ArTraceSession.cpp`）与 reader（`ArReplaySession.cpp`）双向统一为 `Ar*`（`"ArSessionConfig"`/`"ArCycleInput"`/`"ArCycleResult"`/`"ArRuntimeConfigPatch"`）；测试中 raw-JSON payload 扫描同步。
 
 Stage 4：收口旧名。
 
