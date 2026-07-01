@@ -1,17 +1,40 @@
 /**
  * @file ArControlProfile.h
- * @brief AR module primary aliases for control profile state.
+ * @brief AR module primary control profile state type.
+ *
+ * Primary header for control profile state.
+ * Include this for new code; RadarControlProfile.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CONTROL_PROFILE_H_
 #define ONEQ_AIRBORNE_RADAR_SESSION_AR_CONTROL_PROFILE_H_
 
-#include "1q/airborne_radar/session/RadarControlProfile.h"
+#include <cstdint>
+
+#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace session {
 
-using ArControlProfile = RadarControlProfile;
+/**
+ * @brief ArControlProfile 表示下一周期生效的雷达控制状态。
+ */
+struct ONEQ_API ArControlProfile {
+  std::uint64_t version{0};             /**< 配置版本号，每次 reducer 生成新 profile 时递增 */
+  bool enable_lpi_power_control{false}; /**< 是否启用 LPI 功率控制 */
+  float lpi_power_scale{1.0f};          /**< LPI 功率比例 */
+  bool enable_lpi_beamforming{false};   /**< 是否启用 LPI 波束形成 */
+  float lpi_dwell_scale{1.0f};          /**< LPI 驻留比例 */
+  bool enable_agility_frequency{false}; /**< 是否启用频率捷变 */
+  std::uint8_t agility_frequency_hop_phase{0}; /**< 频率捷变相位（0/1），用于解耦跳频方向与版本号 */
+  bool enable_sidelobe_canceller{false};       /**< 是否启用旁瓣对消 */
+  bool enable_adaptive_beamforming{false};     /**< 是否启用自适应波束形成 */
+  bool enable_eccm_rejitter{false};            /**< 是否启用 ECCM 重频抖动 */
+  float eccm_burnthrough_gain{1.0f};           /**< ECCM 烧穿增益倍率 */
+};
+
+// 兼容别名：旧名称在 wrapper 阶段保留。
+using RadarControlProfile = ArControlProfile;
 
 }  // namespace session
 }  // namespace airborne_radar

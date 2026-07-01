@@ -65,7 +65,7 @@ class ONEQ_API RadarTraceSession {
   TrackOutputFrame Step(const RadarCycleInput& input);
   RadarCycleResult StepWithResult(const RadarCycleInput& input);
 
-  void ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
+  void ApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 
   const std::vector<session::RadarCommand>& GetSubmittedCommands() const;
   bool HasLatestControlProfile() const;

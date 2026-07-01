@@ -20,7 +20,7 @@
 
 namespace airborne_radar {
 namespace config {
-struct RadarRuntimeConfigPatch;
+struct ArRuntimeConfigPatch;
 }  // namespace config
 namespace session {
 class ITacticalDecisionEngine;
@@ -95,14 +95,14 @@ class ONEQ_API RadarSession {
    *       `Step()/StepWithResult()` 调用中最终提交；若本次调用在下游执行阶段失败，
    *       补丁仍保持 staged 状态。
    */
-  void ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
+  void ApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 
   /**
    * @brief 尝试应用运行期可变配置补丁。
    * @param[in] patch 运行期可变配置补丁。
    * @return 补丁被接受并暂存成功时返回 true；补丁无效或无变更时返回 false。
    */
-  bool TryApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch);
+  bool TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 
   /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
   static RadarSession Create(const config::RadarSessionConfig& config = {});

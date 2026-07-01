@@ -157,7 +157,7 @@ void ValidateSingleTarget(const RadarSceneTarget& target, std::size_t target_ind
 
 }  // namespace
 
-ValidationIssueList ValidateRadarCycleDeltaTime(float dt_sec) {
+ValidationIssueList ValidateArCycleDeltaTime(float dt_sec) {
   ValidationIssueList issues;
   if (!IsFinite(dt_sec)) {
     issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kNonFiniteCycleDeltaTime,
@@ -171,20 +171,20 @@ ValidationIssueList ValidateRadarCycleDeltaTime(float dt_sec) {
   return issues;
 }
 
-ValidationIssueList ValidateRadarCycleInput(const RadarCycleInput& input) {
-  ValidationIssueList issues = ValidateRadarCycleDeltaTime(input.dt_sec);
+ValidationIssueList ValidateArCycleInput(const ArCycleInput& input) {
+  ValidationIssueList issues = ValidateArCycleDeltaTime(input.dt_sec);
   ValidatePlatformPose(input.platform_pose, &issues);
   ValidatePlatformAltitude(input.platform_altitude_m, &issues);
   if (input.has_environment) {
     ValidateEnvironmentInput(input.environment, &issues);
   }
 
-  const ValidationIssueList target_issues = ValidateRadarSceneTargets(input.scene);
+  const ValidationIssueList target_issues = ValidateArSceneTargets(input.scene);
   issues.insert(issues.end(), target_issues.begin(), target_issues.end());
   return issues;
 }
 
-ValidationIssueList ValidateRadarSceneTargets(const RadarSceneTargetList& targets) {
+ValidationIssueList ValidateArSceneTargets(const ArSceneTargetList& targets) {
   ValidationIssueList issues;
   std::unordered_map<std::uint64_t, std::size_t> first_seen_target_index;
 

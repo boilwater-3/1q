@@ -17,8 +17,8 @@
 namespace airborne_radar {
 namespace session {
 
-// 前向声明：Update 参数为 const 引用，header 无需完整类型，避免拉入 RadarCycleInput 重依赖。
-struct RadarCycleInput;
+// 前向声明：Update 参数为 const 引用，header 无需完整类型，避免拉入 ArCycleInput 重依赖。
+struct ArCycleInput;
 
 enum class RadarTrackLifecycleEventKind {
   kFirstConfirmed = 0,

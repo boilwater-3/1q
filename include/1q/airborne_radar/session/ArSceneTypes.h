@@ -1,18 +1,59 @@
 /**
  * @file ArSceneTypes.h
- * @brief AR module primary aliases for scene input types.
+ * @brief AR module primary scene entity input types.
+ *
+ * Primary header for scene entity input types.
+ * Include this for new code; RadarSceneTypes.h is the deprecated compat wrapper.
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_SCENE_TYPES_H_
 #define ONEQ_AIRBORNE_RADAR_SESSION_AR_SCENE_TYPES_H_
 
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace session {
 
-using ArSceneTarget = RadarSceneTarget;
-using ArSceneTargetList = RadarSceneTargetList;
+/**
+ * @brief ArSceneTarget 描述雷达单周期场景目标输入。
+ */
+struct ONEQ_API ArSceneTarget {
+  std::uint64_t external_target_id{0};   /**< 外部输入原始目标标识符（0 表示未知/未提供） */
+  std::string target_name{};             /**< 可选目标名称，仅用于人读、trace 与调试视图，不参与关联 */
+  float velocity_x{0.0f};               /**< 雷达局部坐标速度 x 分量（单位：m/s） */
+  float velocity_y{0.0f};               /**< 雷达局部坐标速度 y 分量（单位：m/s） */
+  float velocity_z{0.0f};               /**< 雷达局部坐标速度 z 分量（单位：m/s） */
+  float rcs{0.0f};                       /**< 目标雷达散射截面积（单位：m^2） */
+  float range_m{0.0f};                   /**< 目标到雷达的斜距（单位：m） */
+  float position_x{0.0f};                /**< 雷达局部笛卡尔坐标 x（单位：m） */
+  float position_y{0.0f};                /**< 雷达局部笛卡尔坐标 y（单位：m） */
+  float position_z{0.0f};                /**< 雷达局部笛卡尔坐标 z（单位：m） */
+  int target_swerling_type{0};           /**< 目标起伏模型 */
+
+  ArSceneTarget() = default;
+  ArSceneTarget(float velocity_x_mps_in, float velocity_y_mps_in, float velocity_z_mps_in,
+                float rcs_m2_in, float range_m_in = 0.0f, int swerling_type_in = 0,
+                std::uint64_t external_target_id_in = 0, std::string target_name_in = {})
+      : external_target_id(external_target_id_in),
+        target_name(std::move(target_name_in)),
+        velocity_x(velocity_x_mps_in),
+        velocity_y(velocity_y_mps_in),
+        velocity_z(velocity_z_mps_in),
+        rcs(rcs_m2_in),
+        range_m(range_m_in),
+        target_swerling_type(swerling_type_in) {}
+};
+
+/** @brief ArSceneTargetList 表示雷达场景目标输入列表。 */
+using ArSceneTargetList = std::vector<ArSceneTarget>;
+
+// 兼容别名：旧名称在 wrapper 阶段保留。
+using RadarSceneTarget = ArSceneTarget;
+using RadarSceneTargetList = ArSceneTargetList;
 
 }  // namespace session
 }  // namespace airborne_radar

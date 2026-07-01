@@ -1,6 +1,6 @@
-#include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 
-#include "1q/airborne_radar/config/RadarSessionConfigValidation.h"
+#include "1q/airborne_radar/config/ArSessionConfigValidation.h"
 
 namespace airborne_radar {
 namespace config {
@@ -8,7 +8,7 @@ namespace config {
 namespace {
 
 void ApplyDetectionSemanticConfig(bool enable_physics_detection,
-                                  profiles::RadarHardwareProfile hardware_profile,
+                                  profiles::ArHardwareProfile hardware_profile,
                                   profiles::DetectionIntentProfile intent_profile,
                                   profiles::AntennaPatternProfile antenna_profile,
                                   const config::AzimuthElevationDeg& antenna_boresight_offset_deg,
@@ -21,7 +21,7 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
   d.enable_physics_detection = enable_physics_detection;
 
   switch (hardware_profile) {
-    case profiles::RadarHardwareProfile::kLongRangeHighPower:
+    case profiles::ArHardwareProfile::kLongRangeHighPower:
       d.transmitter.peak_power_w = 5.0e6f;
       d.transmitter.frequency_hz = 9.3e9f;
       d.transmitter.bandwidth_hz = 3.0e6f;
@@ -30,7 +30,7 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
       d.antenna.main_beam_gain_db = 38.0f;
       d.receiver.noise_figure_db = 3.0f;
       break;
-    case profiles::RadarHardwareProfile::kLightweightLpi:
+    case profiles::ArHardwareProfile::kLightweightLpi:
       d.transmitter.peak_power_w = 3.5e5f;
       d.transmitter.frequency_hz = 10.0e9f;
       d.transmitter.bandwidth_hz = 8.0e6f;
@@ -41,7 +41,7 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
       d.antenna.nominal_el_beamwidth_deg = 5.0f;
       d.receiver.noise_figure_db = 5.0f;
       break;
-    case profiles::RadarHardwareProfile::kGenericAirborneXBand:
+    case profiles::ArHardwareProfile::kGenericAirborneXBand:
     default:
       break;
   }
@@ -153,10 +153,10 @@ void ApplyLifecycleSemanticConfig(bool enable_imm_fusion,
   }
 }
 
-config::RadarSessionConfig BuildDefaultSemanticSessionConfig() {
-  config::RadarSessionConfig config;
+config::ArSessionConfig BuildDefaultSemanticSessionConfig() {
+  config::ArSessionConfig config;
   ApplyDetectionSemanticConfig(
-      false, profiles::RadarHardwareProfile::kGenericAirborneXBand,
+      false, profiles::ArHardwareProfile::kGenericAirborneXBand,
       profiles::DetectionIntentProfile::kBalanced, profiles::AntennaPatternProfile::kStandard,
       config::AzimuthElevationDeg(), profiles::RcsFusionProfile::kDisabled, &config.hardware);
   ApplyTrackingSemanticConfig(false, profiles::TrackingPolicyProfile::kBalanced,
@@ -168,15 +168,15 @@ config::RadarSessionConfig BuildDefaultSemanticSessionConfig() {
 
 }  // namespace
 
-RadarSessionConfigBuilder::RadarSessionConfigBuilder()
+ArSessionConfigBuilder::ArSessionConfigBuilder()
     : base_config_(BuildDefaultSemanticSessionConfig()) {}
 
-RadarSessionConfigBuilder::RadarSessionConfigBuilder(const config::RadarSessionConfig& config)
+ArSessionConfigBuilder::ArSessionConfigBuilder(const config::ArSessionConfig& config)
     : base_config_(config) {}
 
-config::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
-  config::RadarSessionConfig result = base_config_;
-  const config::RadarSessionConfig default_semantic = BuildDefaultSemanticSessionConfig();
+config::ArSessionConfig ArSessionConfigBuilder::Build() const {
+  config::ArSessionConfig result = base_config_;
+  const config::ArSessionConfig default_semantic = BuildDefaultSemanticSessionConfig();
 
   if (detection_dirty_) {
     result.hardware = default_semantic.hardware;
@@ -200,7 +200,7 @@ config::RadarSessionConfig RadarSessionConfigBuilder::Build() const {
   return result;
 }
 
-ValidationIssueList ValidateRadarSessionConfig(const config::RadarSessionConfig& config) noexcept {
+ValidationIssueList ValidateArSessionConfig(const config::ArSessionConfig& config) noexcept {
   ValidationIssueList issues;
   const auto push = [&issues](ConfigValidationCode code, const char* field, const char* msg) {
     ConfigValidationIssue issue;
@@ -209,7 +209,7 @@ ValidationIssueList ValidateRadarSessionConfig(const config::RadarSessionConfig&
     issue.message = msg;
     issues.push_back(issue);
   };
-  const config::RadarOrientationConfig& orientation = config.mission.orientation;
+  const config::ArOrientationConfig& orientation = config.mission.orientation;
 
   if (orientation.commanded_beamwidth_enabled) {
     if (orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f) {
