@@ -41,20 +41,20 @@ Authority: 非规定性记录
 
 注：P2.3（commit `a83928b3`）只收拢了 ESR 写路径绕 extension 的往返，未触碰任何模块的提交时机/安全策略。
 
-## OQ-1a ESR commit 与 rollback 的状态空间不重合
+## OQ-1a ESR commit 与 rollback 的状态空间不重合（已结案：原命题证伪）
 
-OQ-1 的细化：ESR 的 runtime config 提交（`ApplyRuntimeConfigWithResult`）与周期执行回滚（`RunCycle` 内 capture/restore）作用于**不同的状态机部件**，给人"提交也受保护"的错觉，实则不然。
+OQ-1 的细化：ESR 的 runtime config 提交（`ApplyRuntimeConfigWithResult`）与周期执行回滚（`RunCycle` 内 capture/restore）作用于**不同的状态机部件**。
 
-- 提交路径（立即写，无 capture）：`src/electronic_surveillance_radar/session/EsrSession.cpp:110`（写 `impl_->resolved_config`）、`:114`（`pipeline.UpdateConfig` 改 pipeline 的 config 视图）、`:116-119`（`environment_service.UpdateModelConfig`）。
-- 回滚路径（capture/restore）只保存关联器运行期状态：`src/electronic_surveillance_radar/pipeline/InterceptPipeline.cpp:94-106`（`CaptureRuntimeState` 快照 = `rng_` + `next_observation_id_` + `next_hypothesis_id_` + `tracks`）、`:108-122`（`RestoreRuntimeState` 只还原这四项）。
-- 因此若 `UpdateConfig` 成功、随后 `controller.RunOnce` 因非配置原因 abort：pipeline 配置与 `resolved_config` 已被**永久改动**，`RestoreRuntimeState` 不会把配置改回去。
+**已结案（经代码证伪，原命题不成立）**：原担心"commit 后执行失败回滚不恢复 config"。但代码事实证明 ESR **当前没有任何 pipeline 执行失败的 abort 路径**：
 
-对比 AR：AR 的 `CommitPendingRuntimeConfig`（`RadarSession.cpp:117`）失败时 restore 含 pipeline 在内的 4 个子系统，且只在执行成功的 `FinalizePendingRuntimeConfig`（`:167-176`）才把 `pending → runtime` 落定——配置语义状态与 pipeline 物理状态始终对齐。ESR 没有这层对齐。
+- `EsrPipelineAbortReason` 枚举（`include/1q/electronic_surveillance_radar/session/EsrOutputTypes.h:60-64`）有 4 值，但全代码赋值点（`rg EsrPipelineAbortReason::` src/）只用到 3 个：`kNone`（成功，`EsrController.cpp:83`）、`kValidationRejected`（校验失败，`:48`，在 `pipeline.RunCycle` **之前** return）、`kRuntimeStateRestoreRejected`（restore 自身失败，`:135`）。`kOutputContractViolation` **从未被赋值**——pipeline 结果契约校验在 ESR controller 里没有接线（对比 EOS `EosController.cpp:90-111` 的 `IsEosExecuteResultContractValid` 是接了的）。
+- 因此 `EsrSession::RunCycle:53-55` 的 restore 条件 `!ExecutedLatestCycle() && abort != kValidationRejected` 在当前实现下**永假**——`controller.RunOnce` 拿到 `pipeline_result` 后无条件 move 进 output 并标记 executed（`EsrController.cpp:79-84`），不存在"执行了但失败"的结局。restore 分支是死代码。
 
-为何未决：当前不是 bug（无失败测试指向它），且 ESR pipeline 的 config 视图与关联器状态是独立演化部件。但它是 OQ-1"认知负担"的具象——阅读者会误以为 `CaptureRuntimeState` 覆盖了配置。
+**降级结论**：ESR 的 config 实际是**单向立即生效、永不回滚**的设计。`InterceptPipeline::UpdateConfig`（`InterceptPipeline.cpp:52-57`）走 `associator_.UpdateConfig`（换 config 留 tracks），而非重建 associator——证明 config（无累积，每次 RunCycle 从 `config_` 重新派生 `pipeline_config`/`runtime_config`）与累积状态（`rng_`/`next_*_id`/`tracks`）是**有意分离**的两个状态空间，不是疏漏。
 
-推进需要：
-- ESR owner 确认：pipeline config 是否应纳入 `CaptureRuntimeState` 快照（使提交与回滚状态空间重合），还是显式记录"两者有意分离"并在 `CaptureRuntimeState` doc 注明不含 config。
+对比 AR：AR 的 `CommitPendingRuntimeConfig`（`RadarSession.cpp:117`）失败时 restore 含 pipeline 在内的 4 个子系统，且只在执行成功的 `FinalizePendingRuntimeConfig`（`:167-176`）才落定——AR 有真实的 commit 失败路径（`UpdateExecutionConfig`/`UpdateConfig` 可返回 false），故需要事务对齐。ESR 没有这种失败路径，故不需要。
+
+**残留可清理项（非 bug，认知负担来源）**：`EsrSession::RunCycle` 的 capture/restore 机制 + `kOutputContractViolation` 枚举值给人"存在执行失败回滚"的错觉，实则当前不可达。是否接线 pipeline 结果契约校验（激活该路径）或删除死分支，留给后续按需决定——但当前 OQ-1a 的"config 回滚裂缝"命题已不成立。
 
 ## OQ-2 飞行动力学局部 NE 投影 cos-lat 约定分叉
 
