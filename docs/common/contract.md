@@ -32,6 +32,8 @@ Authority: common contract for all modules
 - `*OutputFrame`、`*CycleResult` 等输出和结构化执行结果 DTO。
 - trace/replay、debug view、lifecycle recorder 等已经形成外部消费合同的工具。
 
+业务模块 public 类型使用模块所有权前缀：`Ar*`、`Eos*`、`Esr*`、`Sar*`。领域术语不受该规则机械约束，例如 `radar_cross_section`、`RadarEquations` 这类物理概念可保留领域名；但 session/config/cycle/result/adapter/trace/replay/debug/lifecycle 等 public DTO 和门面不得把通用领域词误用为模块前缀。
+
 默认禁止公开：
 
 - pipeline/controller/context/environment service 等内部装配 seam。
@@ -96,11 +98,14 @@ Authority: common contract for all modules
 `docs/` 只允许以下一级目录：
 
 - `common`
+- `review`
 - `airborne_radar`
 - `electro_optical_sensor`
 - `electronic_surveillance_radar`
 - `flight_dynamic`
 - `sar`
+
+`review/` 是唯一允许的评审和迁移草案目录，只能存放扁平 Markdown 草案文件。每个草案必须在文件头声明 `Status: draft`，不得作为当前权威文档引用；结论落定后，应迁入 `common/contract.md`、`common/open_questions.md` 或对应模块 `design.md`，再删除草案。
 
 每个业务模块只保留 `design.md` 作为设计权威文档。历史决策记录（旧版 `decisions.md`、`history.md`、`contract.md`）和模块入口（`README.md`）的内容已内聚到 `design.md` 中。
 

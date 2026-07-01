@@ -72,6 +72,16 @@ set(AIRBORNE_CORE_SOURCES
 
 if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_CONFIG_ENTRY
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArEnvironmentConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArHardwareConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArMissionConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArPolicyConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArRuntimeConfigPatch.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArSessionConfig.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArRuntimeConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArSessionConfigBuilder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArSessionConfigValidation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/ArOrientationConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarEnvironmentConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarHardwareConfig.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/RadarMissionConfig.h
@@ -86,6 +96,13 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/config/airborne_radar_config.hpp
     )
     set(PUBLIC_HEADERS_CORE_CONTEXT
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArCycleInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArCycleInputAdapter.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArCycleOutputAdapter.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArEnvironmentInput.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArInputValidation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArExternalInputAdapter.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArExternalOutputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleOutputAdapter.h
@@ -95,6 +112,15 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarExternalOutputAdapter.h
     )
     set(PUBLIC_HEADERS_CORE_SESSION
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArOutputTypes.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArSceneTypes.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArSession.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArReplaySession.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArTrackLifecycleRecorder.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArTrackOutputDebugView.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArCommand.h
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArControlProfile.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarCycleResult.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarOutputTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarSceneTypes.h
@@ -114,6 +140,7 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/airborne_radar.hpp
     )
     set(PUBLIC_HEADERS_AIRBORNE_TOOLS
+        ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/ArTraceSession.h
         ${CMAKE_SOURCE_DIR}/include/1q/airborne_radar/session/RadarTraceSession.h
     )
 

@@ -4,16 +4,16 @@
  *
  * 本 consumer 演示 public API 的唯一自定义扩展点:外部实现 ITacticalDecisionEngine
  * 替换 AR 决策逻辑,其余组件(context / pipeline / environment service)由
- * RadarSession::Create 内部默认装配,不对外暴露。
+ * ArSession::Create 内部默认装配,不对外暴露。
  */
 
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/session/RadarCycleInput.h"
-#include "1q/airborne_radar/session/RadarCycleResult.h"
-#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
+#include "1q/airborne_radar/session/ArSession.h"
 
 namespace airborne_radar {
 namespace {
@@ -35,11 +35,11 @@ int main() {
   airborne_radar::DummyDecisionEngine decision_engine;
 
   // 注入自定义决策引擎创建会话;context/pipeline/environment 由工厂内部装配。
-  airborne_radar::session::RadarSession session =
-      airborne_radar::session::RadarSession::CreateWithDecisionEngine(
-          airborne_radar::config::RadarSessionConfig{}, decision_engine);
+  airborne_radar::session::ArSession session =
+      airborne_radar::session::ArSession::CreateWithDecisionEngine(
+          airborne_radar::config::ArSessionConfig{}, decision_engine);
 
-  airborne_radar::session::RadarCycleInput input;
-  const airborne_radar::session::RadarCycleResult result = session.StepWithResult(input);
+  airborne_radar::session::ArCycleInput input;
+  const airborne_radar::session::ArCycleResult result = session.StepWithResult(input);
   return result.executed_this_cycle ? 0 : 1;
 }

@@ -29,8 +29,7 @@ docs/tmp/
 # Planning workspace (not tracked)
 plan/
 
-# Engineering review and planning artifacts (not tracked)
-docs/review/
+# Engineering planning artifacts (not tracked)
 task_plan.md
 findings.md
 progress.md

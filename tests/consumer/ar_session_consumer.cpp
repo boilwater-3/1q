@@ -3,52 +3,53 @@
  * @brief 验证安装后机载雷达公共 API 路径可被外部工程编译链接。
  *
  * 覆盖要点：
- *   - RadarSessionConfigBuilder/直接字段赋值 构造会话配置
- *   - RadarCycleInput 构造 + RadarInputValidation 校验
- *   - RadarSession 构造、StepWithResult、Step 调用
- *   - RadarRuntimeConfigBuilder 热切换（工作子模式、扫描中心）
- *   - RadarCycleResult 各字段可访问
+ *   - ArSessionConfigBuilder/直接字段赋值 构造会话配置
+ *   - ArCycleInput 构造 + ArInputValidation 校验
+ *   - ArSession 构造、StepWithResult、Step 调用
+ *   - ArRuntimeConfigBuilder 热切换（工作模式、扫描中心）
+ *   - ArCycleResult 各字段可访问
  *   - TrackOutputQueries 输出查询工具
  */
 
 #include <cstddef>
 
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
-#include "1q/airborne_radar/session/RadarCycleInput.h"
-#include "1q/airborne_radar/session/RadarCycleResult.h"
-#include "1q/airborne_radar/session/RadarInputValidation.h"
-#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
+#include "1q/airborne_radar/session/ArInputValidation.h"
+#include "1q/airborne_radar/session/ArSession.h"
 
 int main() {
   // 1. Builder config construction
-  airborne_radar::config::RadarSessionConfig preset_config =
-      airborne_radar::config::RadarSessionConfigBuilder().Build();
+  airborne_radar::config::ArSessionConfig preset_config =
+      airborne_radar::config::ArSessionConfigBuilder().Build();
 
   // 2. 直接字段赋值构造会话配置
   auto built_config = preset_config;
   built_config.hardware.transmitter.peak_power_w = 5.0e6f;
   built_config.hardware.transmitter.frequency_hz = 9.3e9f;
-  built_config.mission.orientation.scan_center_deg = {0.0f, 0.0f};
+  built_config.mission.orientation.scan_center_deg.az_deg = 0.0f;
+  built_config.mission.orientation.scan_center_deg.el_deg = 0.0f;
   built_config.policy.tracking.enable_kalman_filter = true;
   built_config.policy.lifecycle.confirm_hits = 3;
   built_config.environment.jamming_sensitivity_profile =
       airborne_radar::config::ResolveJammingSensitivityProfile(5.0f);
 
   // 3. Session construction from builder config
-  airborne_radar::session::RadarSession session =
-      airborne_radar::session::RadarSession::Create(built_config);
+  airborne_radar::session::ArSession session =
+      airborne_radar::session::ArSession::Create(built_config);
 
   // 4. Input construction + validation
-  airborne_radar::session::RadarCycleInput input;
+  airborne_radar::session::ArCycleInput input;
   input.dt_sec = 1.0f;
   const std::vector<airborne_radar::session::ValidationIssue> issues =
-      airborne_radar::session::ValidateRadarCycleInput(input);
+      airborne_radar::session::ValidateArCycleInput(input);
   if (airborne_radar::session::HasValidationError(issues)) {
     return 1;
   }
 
   // 5. StepWithResult
-  const airborne_radar::session::RadarCycleResult result = session.StepWithResult(input);
+  const airborne_radar::session::ArCycleResult result = session.StepWithResult(input);
   if (result.has_validation_error) {
     return 2;
   }
@@ -73,10 +74,13 @@ int main() {
   (void)reused_previous_output;
 
   // 8. RuntimeConfigBuilder hot-switch
-  const airborne_radar::config::RadarRuntimeConfigPatch runtime_patch =
-      airborne_radar::config::RadarRuntimeConfigBuilder()
-          .WithWorkMode(airborne_radar::config::RadarWorkMode::kTas)
-          .WithScanCenterDeg({15.0f, -5.0f})
+  airborne_radar::config::AzimuthElevationDeg scan_center_deg;
+  scan_center_deg.az_deg = 15.0f;
+  scan_center_deg.el_deg = -5.0f;
+  const airborne_radar::config::ArRuntimeConfigPatch runtime_patch =
+      airborne_radar::config::ArRuntimeConfigBuilder()
+          .WithWorkMode(airborne_radar::config::ArWorkMode::kTas)
+          .WithScanCenterDeg(scan_center_deg)
           .WithJammingSensitivityProfile(
               airborne_radar::config::ResolveJammingSensitivityProfile(8.0f))
           .WithCommandedBeamwidthEnabled(true)
@@ -84,9 +88,9 @@ int main() {
   session.ApplyRuntimeConfig(runtime_patch);
 
   // 9. Second cycle after runtime config change
-  airborne_radar::session::RadarCycleInput input_2;
+  airborne_radar::session::ArCycleInput input_2;
   input_2.dt_sec = 1.0f;
-  const airborne_radar::session::RadarCycleResult result_2 = session.StepWithResult(input_2);
+  const airborne_radar::session::ArCycleResult result_2 = session.StepWithResult(input_2);
   if (result_2.has_validation_error) {
     return 4;
   }

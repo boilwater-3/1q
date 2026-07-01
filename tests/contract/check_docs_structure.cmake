@@ -1,16 +1,17 @@
 # check_docs_structure.cmake
 #
 # Guard repository documentation shape:
-#   - docs/ has exactly common plus the five module directories
+#   - docs/ has common, review, and the five module directories
 #   - each business module uses the single-file design.md model
 #   - common uses the approved common-document set (contract.md + open_questions.md)
-#   - top-level loose Markdown files and legacy archive/review/migration folders
-#     do not reappear
+#   - review uses draft Markdown files only, with no nested directory tree
+#   - top-level loose Markdown files and legacy archive/migration folders do not reappear
 #
 # Per docs/common/contract.md §文档结构, each business module keeps only
 # design.md as its design authority; the prior README/contract/decisions/history
 # set has been collapsed into design.md, and common keeps contract.md (public
 # contract) plus open_questions.md (non-normative cross-module open questions).
+# docs/review is the only approved draft/review holding area.
 
 cmake_minimum_required(VERSION 3.16)
 
@@ -24,6 +25,7 @@ set(ALLOWED_DOC_DIRS
     "electro_optical_sensor"
     "electronic_surveillance_radar"
     "flight_dynamic"
+    "review"
     "sar")
 
 set(BUSINESS_MODULE_DIRS
@@ -109,6 +111,31 @@ else()
   endforeach()
 endif()
 
+set(review_dir "${SOURCE_DIR}/docs/review")
+if(IS_DIRECTORY "${review_dir}")
+  file(GLOB_RECURSE _review_docs RELATIVE "${review_dir}" "${review_dir}/*.md")
+  foreach(rel_doc ${_review_docs})
+    if(rel_doc MATCHES "/")
+      list(APPEND VIOLATIONS "docs/review/${rel_doc}: review docs must stay flat")
+    endif()
+    set(doc_file "${review_dir}/${rel_doc}")
+    file(STRINGS "${doc_file}" _head LIMIT_COUNT 6)
+    list(FIND _head "Status: draft" _draft_idx)
+    if(_draft_idx EQUAL -1)
+      list(APPEND VIOLATIONS "docs/review/${rel_doc}: review docs must declare 'Status: draft' near the top")
+    endif()
+  endforeach()
+
+  file(GLOB _review_children RELATIVE "${review_dir}" "${review_dir}/*")
+  foreach(child ${_review_children})
+    if(IS_DIRECTORY "${review_dir}/${child}")
+      list(APPEND VIOLATIONS "docs/review/${child}: review subdirectories are not allowed")
+    elseif(NOT child MATCHES "\\.md$")
+      list(APPEND VIOLATIONS "docs/review/${child}: review entries must be Markdown files")
+    endif()
+  endforeach()
+endif()
+
 if(VIOLATIONS)
   set(_err "Documentation structure violations:\n\n")
   foreach(v ${VIOLATIONS})
@@ -120,6 +147,11 @@ endif()
 list(LENGTH COMMON_DOC_FILES _common_count)
 list(LENGTH MODULE_DOC_FILES _module_doc_count)
 list(LENGTH BUSINESS_MODULE_DIRS _module_count)
+if(IS_DIRECTORY "${SOURCE_DIR}/docs/review")
+  file(GLOB _review_docs_count "${SOURCE_DIR}/docs/review/*.md")
+  list(LENGTH _review_docs_count _review_count)
+else()
+  set(_review_count 0)
+endif()
 math(EXPR _module_doc_total "${_module_count} * ${_module_doc_count}")
-message(STATUS "[docs-structure] common=${_common_count}, modules=${_module_count}, module_docs=${_module_doc_total}, violations=0")
-
+message(STATUS "[docs-structure] common=${_common_count}, modules=${_module_count}, module_docs=${_module_doc_total}, review=${_review_count}, violations=0")

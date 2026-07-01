@@ -14,6 +14,9 @@ target_link_libraries(ar_session_consumer PRIVATE 1q::1q)
 add_executable(ar_extension_consumer ar_extension_consumer.cpp)
 target_link_libraries(ar_extension_consumer PRIVATE 1q::1q)
 
+add_executable(ar_compat_consumer ar_compat_consumer.cpp)
+target_link_libraries(ar_compat_consumer PRIVATE 1q::1q)
+
 add_executable(esr_session_consumer esr_session_consumer.cpp)
 target_link_libraries(esr_session_consumer PRIVATE 1q::1q)
 

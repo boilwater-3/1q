@@ -17,15 +17,17 @@ Authority: current airborne_radar module design
 - 可以替换战术决策引擎，改变 LPI/ECCM/威胁响应策略。
 - 不可以替换 public 层之外的 signal pipeline、controller、environment service、mutable context 或 tracking lifecycle。
 - 自定义决策引擎消费稳定 DTO：`DecisionInputFrame`、`TacticalStateStore`、`TacticalDecisionResult`。
-- 决策输出仍由内部 `ControlReducer` 和 `ControlCommandMapper` 归约为下一周期 `RadarControlProfile`。
+- 决策输出仍由内部 `ControlReducer` 和 `ControlCommandMapper` 归约为下一周期 `ArControlProfile`。
 
 当前模块的稳定外部使用方式是：
 
-1. 用 `RadarSessionConfig` 或 builder 描述硬件、任务、策略、环境四域配置。
-2. 用 `RadarCycleInput` 或 adapter 提供平台姿态、高度、目标、环境和干扰源。
-3. 调用 `RadarSession::Step()` 获取 track output，或调用 `RadarSession::StepWithResult()` 获取结构化执行结果。
-4. 如需自定义战术逻辑，使用 `RadarSession::CreateWithDecisionEngine()` 注入 `ITacticalDecisionEngine`。
+1. 用 `ArSessionConfig` 或 builder 描述硬件、任务、策略、环境四域配置。
+2. 用 `ArCycleInput` 或 adapter 提供平台姿态、高度、目标、环境和干扰源。
+3. 调用 `ArSession::Step()` 获取 track output，或调用 `ArSession::StepWithResult()` 获取结构化执行结果。
+4. 如需自定义战术逻辑，使用 `ArSession::CreateWithDecisionEngine()` 注入 `ITacticalDecisionEngine`。
 5. 如需调整运行期参数，使用 runtime patch；patch 提交失败时必须保持各子系统状态一致。
+
+`Ar*` 是当前推荐 public API 前缀。迁移期保留 `Radar*` public 头和类型别名作为兼容入口；新代码、示例和 consumer 覆盖应优先使用 `Ar*`。`RadarEquations`、`radar_cross_section` 等领域术语不属于模块前缀迁移范围。
 
 ### 1.2 Public API 与内部实现边界
 
@@ -34,8 +36,8 @@ Authority: current airborne_radar module design
 | 区域 | 职责 | 设计约束 |
 |---|---|---|
 | `airborne_radar.hpp` | 模块聚合入口 | 聚合稳定 public API，不暴露内部 signal/environment/runtime 类型 |
-| `config/` | `RadarSessionConfig`、runtime patch、semantic builder、validation、jamming semantics | 表达硬件、任务、策略、环境和干扰敏感性 |
-| `session/` | `RadarSession`、cycle input/result、scene target、output types、trace/replay、debug/lifecycle、decision SPI | 是调用方主要使用面；`ITacticalDecisionEngine` 是唯一 public SPI |
+| `config/` | `ArSessionConfig`、runtime patch、semantic builder、validation、jamming semantics | 表达硬件、任务、策略、环境和干扰敏感性；`Radar*` 名称仅作兼容 |
+| `session/` | `ArSession`、cycle input/result、scene target、output types、trace/replay、debug/lifecycle、decision SPI | 是调用方主要使用面；`ITacticalDecisionEngine` 是唯一 public SPI；`Radar*` 名称仅作兼容 |
 
 内部实现位于 `src/airborne_radar/`：
 
@@ -49,7 +51,7 @@ Authority: current airborne_radar module design
 | `signal/tracking/` | Kalman/EKF/UDKF/SRIF/IMM、track pool、生命周期 | `TrackFilter`、`TrackLifecycleManager`、`ImmFilter` |
 | `decision/` | 默认战术协调、威胁评估、LPI、ECCM、控制归约 | `TacticalCoordinator`、`ThreatAssessmentEvaluator`、`LpiEvaluator`、`EccmEvaluator`、`ControlReducer` |
 | `runtime/` | controller 和控制指令映射 | `RadarController`、`ControlCommandMapper` |
-| `session/` | public session 装配、context、输入输出适配、trace/replay | `RadarSession`、`MutableRadarContext`、`RadarSessionCompositionRoot` |
+| `session/` | public session 装配、context、输入输出适配、trace/replay | `ArSession`、`MutableRadarContext`、`RadarSessionCompositionRoot` |
 | `output/` | track output 查询 | `TrackOutputQueries` |
 | `utils/` | 数学和方位工具 | `MathUtils`、`RadarOrientationUtils` |
 
@@ -60,13 +62,13 @@ flowchart TB
   subgraph Public["Public API / 公共调用面"]
     Entry["airborne_radar.hpp\n稳定聚合入口"]
     Config["config/*\nHardware / Mission / Policy / Environment\nRuntimePatch / Builder / Validation"]
-    SessionApi["session/*\nRadarSession / CycleInput / CycleResult\nTrackOutputFrame / SceneTarget"]
+    SessionApi["session/*\nArSession / ArCycleInput / ArCycleResult\nTrackOutputFrame / SceneTarget"]
     DecisionSpi["ITacticalDecisionEngine\n唯一用户可定制 SPI"]
     Tools["Trace / Replay / Debug / Lifecycle\n追踪 / 回放 / 调试 / 生命周期"]
   end
 
   subgraph Session["Session orchestration / 会话编排层"]
-    RadarSession["RadarSession\nStep / StepWithResult / RuntimePatch"]
+    ArSession["ArSession\nStep / StepWithResult / RuntimePatch"]
     Composition["RadarSessionCompositionRoot\n默认依赖图 / 可注入 DecisionEngine"]
     Context["MutableRadarContext\n周期输入 / 命令 / 最新控制配置"]
     Rollback["runtime snapshots\nContext / Pipeline / Environment / Controller 快照回滚"]
@@ -99,16 +101,16 @@ flowchart TB
 
   Entry --> Config
   Entry --> SessionApi
-  SessionApi --> RadarSession
+  SessionApi --> ArSession
   DecisionSpi --> Composition
-  Config --> RadarSession
-  RadarSession --> Composition
+  Config --> ArSession
+  ArSession --> Composition
   Composition --> Context
   Composition --> Controller
-  RadarSession --> Rollback
-  RadarSession --> Patch
+  ArSession --> Rollback
+  ArSession --> Patch
   Patch --> Mapper
-  Mapper --> RadarSession
+  Mapper --> ArSession
   Controller --> Env
   Controller --> Detect
   Env --> Schedule
@@ -124,15 +126,15 @@ flowchart TB
   Tactical --> Reducer
   Reducer --> Command
   Command --> Context
-  Adapters --> RadarSession
-  Tools -. "observe / consume\n观测与消费" .-> RadarSession
+  Adapters --> ArSession
+  Tools -. "observe / consume\n观测与消费" .-> ArSession
 ```
 
 读图顺序：
 
 1. 外部只从 Public API 进入。除 `ITacticalDecisionEngine` 外，不应依赖内部类型。
 2. `RadarSessionCompositionRoot` 默认装配 context、pipeline、environment service、controller 和默认 `TacticalCoordinator`。
-3. `RadarSession` 在运行期配置提交前捕获四类快照；提交或执行失败时回滚，避免 pipeline/environment/controller 状态部分生效。
+3. `ArSession` 在运行期配置提交前捕获四类快照；提交或执行失败时回滚，避免 pipeline/environment/controller 状态部分生效。
 4. `RadarController` 每周期冻结环境快照，再让 signal pipeline 和 decision engine 看到同一份环境事实。
 5. 决策 proposal 不直接修改 signal pipeline，而是经 `ControlReducer`/`ControlCommandMapper` 形成下一周期控制配置。
 
@@ -141,7 +143,7 @@ flowchart TB
 ```mermaid
 sequenceDiagram
   participant Caller as Caller / 调用方
-  participant Session as RadarSession / 会话门面
+  participant Session as ArSession / 会话门面
   participant Context as MutableRadarContext / 周期上下文
   participant Env as EnvironmentService / 环境服务
   participant Controller as RadarController / 控制器
@@ -153,9 +155,9 @@ sequenceDiagram
   Session->>Session: stage pending runtime state\n暂存新运行期状态
 
   Caller->>Session: StepWithResult(input)\n提交单周期输入
-  Session->>Session: ValidateRadarCycleInput\n校验输入
+  Session->>Session: ValidateArCycleInput\n校验输入
   alt validation error / 输入校验失败
-    Session-->>Caller: RadarCycleResult(reused previous output if any)\n返回校验状态和可复用输出
+    Session-->>Caller: ArCycleResult(reused previous output if any)\n返回校验状态和可复用输出
   else valid input / 输入有效
     Session->>Context: CaptureRuntimeState\n捕获上下文快照
     Session->>Pipe: CaptureRuntimeState\n捕获流水线快照
@@ -180,7 +182,7 @@ sequenceDiagram
       Decision-->>Controller: TacticalDecisionResult\n分类与 proposals
       Controller->>Mapper: Apply(proposals)\n归约到控制配置
       Mapper->>Context: Submit commands / update control profile\n提交命令并更新控制配置
-      Session-->>Caller: RadarCycleResult\n输出帧 / 指令 / 质量指标
+      Session-->>Caller: ArCycleResult\n输出帧 / 指令 / 质量指标
     end
   end
 ```
@@ -190,9 +192,9 @@ sequenceDiagram
 ```mermaid
 flowchart LR
   subgraph Input["Input / 输入"]
-    Config["RadarSessionConfig\n硬件 / 任务 / 策略 / 环境"]
-    Cycle["RadarCycleInput\n平台姿态 / 高度 / 目标 / 环境输入"]
-    Patch["RadarRuntimeConfigPatch\n运行期工程参数 / 环境 / 干扰敏感性"]
+    Config["ArSessionConfig\n硬件 / 任务 / 策略 / 环境"]
+    Cycle["ArCycleInput\n平台姿态 / 高度 / 目标 / 环境输入"]
+    Patch["ArRuntimeConfigPatch\n运行期工程参数 / 环境 / 干扰敏感性"]
     Spi["ITacticalDecisionEngine\n可选外部决策引擎"]
   end
 
@@ -214,12 +216,12 @@ flowchart LR
     Default["TacticalCoordinator\n默认威胁 / LPI / ECCM"]
     External["External decision engine\n外部 SPI 实现"]
     Reduce["ControlReducer\n优先级 / 冲突 / 保持 / 冷却"]
-    Profile["RadarControlProfile\n下一周期控制配置"]
+    Profile["ArControlProfile\n下一周期控制配置"]
   end
 
   subgraph Output["Output / 输出"]
     TrackOut["TrackOutputFrame\n系统侧航迹输出"]
-    Result["RadarCycleResult\n执行状态 / commands / metrics"]
+    Result["ArCycleResult\n执行状态 / commands / metrics"]
     Debug["Debug / Lifecycle / Replay\n调试 / 生命周期 / 回放"]
   end
 
@@ -265,10 +267,10 @@ flowchart TB
   end
 
   subgraph Diagnostics["Diagnostics / 诊断辅助"]
-    Result["RadarCycleResult\n执行状态 / 控制配置 / 提交命令"]
-    Debug["RadarTrackOutputDebugView\n人读排查视图"]
-    Lifecycle["RadarTrackLifecycleRecorder\nconfirmed / lost / recycled"]
-    Replay["RadarTraceSession / RadarReplaySession\n回放输入输出和失败标记"]
+    Result["ArCycleResult\n执行状态 / 控制配置 / 提交命令"]
+    Debug["ArTrackOutputDebugView\n人读排查视图"]
+    Lifecycle["ArTrackLifecycleRecorder\nconfirmed / lost / recycled"]
+    Replay["ArTraceSession / ArReplaySession\n回放输入输出和失败标记"]
   end
 
   Tracks --> Frame
@@ -287,7 +289,7 @@ flowchart TB
 
 - `TrackOutputFrame` 是系统输出；debug/lifecycle/replay 是仿真和开发辅助视图。
 - output query 可以辅助按关联键、状态、干扰条件查询，但不改变输出语义。
-- `RadarCycleResult` 承载执行状态、validation issues、abort reason、submitted commands、control profile 和 association quality metrics。
+- `ArCycleResult` 承载执行状态、validation issues、abort reason、submitted commands、control profile 和 association quality metrics。
 - 决策 SPI 不拥有输出结构，也不能绕过内部 output adapter 写系统输出。
 
 ## 2. 本模块使用的算法
@@ -311,7 +313,7 @@ flowchart TB
 
 ### 2.2 配置映射、运行期提交和回滚
 
-AR 的 public config 是语义配置，signal pipeline 使用的是内部工程配置。`RadarSession` 构造时通过 `MapSessionToExecution` 初始化 runtime state；runtime patch 到达后先暂存到 `pending_runtime_state`。
+AR 的 public config 是语义配置，signal pipeline 使用的是内部工程配置。`ArSession` 构造时通过 `MapSessionToExecution` 初始化 runtime state；runtime patch 到达后先暂存到 `pending_runtime_state`。
 
 真正提交发生在下一次 `RunCycle` 前：
 
@@ -433,7 +435,7 @@ selected mode 规则：
 
 ### 2.8 控制归约和跨周期反馈
 
-decision engine 输出的是 tactical proposal，不是直接生效的硬件控制。`ControlReducer` 和 `ControlCommandMapper` 负责把 proposal 变成下一周期 `RadarControlProfile`：
+decision engine 输出的是 tactical proposal，不是直接生效的硬件控制。`ControlReducer` 和 `ControlCommandMapper` 负责把 proposal 变成下一周期 `ArControlProfile`：
 
 - 不同域 proposal 会按优先级、策略表和冲突规则归并。
 - beam 类冲突默认偏向生存性。
@@ -445,9 +447,9 @@ controller 在一个周期开始时把当前 control profile 传给 signal pipel
 
 ### 2.9 输出、输入校验和失败行为
 
-`RadarSession` 和 `RadarController` 都有明确的失败语义：
+`ArSession` 和 `RadarController` 都有明确的失败语义：
 
-- cycle input 校验失败时不执行 pipeline，`RadarCycleResult` 携带 validation issues。
+- cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues。
 - 已有有效输出时，校验失败可以复用上一帧输出，并标记 `reused_previous_output`。
 - signal pipeline abort 时不会发布合成的最新输出。
 - controller 暴露 `executed_this_cycle`、`abort_reason`、`has_validation_error`、`submitted_commands`、`control_profile` 和 association quality metrics。
@@ -475,4 +477,4 @@ controller 在一个周期开始时把当前 control profile 传给 signal pipel
 3. 探测路径如改变 RCS、大气、干扰、波束、SNR、检测概率或量测协方差语义，必须同步本文和相关 signal/detection tests。
 4. 数据关联和 lifecycle 行为变化，必须同步 association quality metrics、decision frame 说明和对应测试。
 5. 战术决策或控制归约策略变化，必须补充 LPI/ECCM/ControlReducer 测试，并在 `[evidence: ...]` 标注中记录决策依据。
-6. 输出字段变化必须保持 `TrackOutputFrame`、`RadarCycleResult`、debug/lifecycle/replay 三层分离。
+6. 输出字段变化必须保持 `TrackOutputFrame`、`ArCycleResult`、debug/lifecycle/replay 三层分离。
