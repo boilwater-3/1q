@@ -116,7 +116,7 @@ endforeach()
 # 仅扫描四域 *RuntimeConfigBuilder.h 公共头，避免误伤 SessionConfigBuilder 等
 # 其它合法持有 Set*/Enable* 动词的建造者类（如 RadarSessionConfigBuilder::MissionEditor）。
 set(RUNTIME_BUILDER_HEADERS
-    "${PUBLIC_INCLUDE_ROOT}/airborne_radar/config/RadarRuntimeConfigBuilder.h"
+    "${PUBLIC_INCLUDE_ROOT}/airborne_radar/config/ArRuntimeConfigBuilder.h"
     "${PUBLIC_INCLUDE_ROOT}/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
     "${PUBLIC_INCLUDE_ROOT}/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
     "${PUBLIC_INCLUDE_ROOT}/sar/config/SarRuntimeConfigBuilder.h")

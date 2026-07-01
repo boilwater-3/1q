@@ -1,23 +1,23 @@
-#include "1q/airborne_radar/session/RadarReplaySession.h"
-#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/session/ArReplaySession.h"
+#include "1q/airborne_radar/session/ArSession.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarRuntimeConfigPatch.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
-#include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
+#include "airborne_radar/session/ArReplayFlatbufferCodec.h"
 
 namespace airborne_radar {
 namespace session {
 namespace {
 
-struct RadarReplayState {
-  std::unique_ptr<RadarSession> session{};
-  RadarCycleInput pending_input{};
+struct ArReplayState {
+  std::unique_ptr<ArSession> session{};
+  ArCycleInput pending_input{};
   bool has_pending_input{false};
-  RadarCycleResult latest_result{};
+  ArCycleResult latest_result{};
   session::TrackOutputFrame latest_frame{};
   bool reached_failure_marker{false};
   std::string failure_marker_payload{};
@@ -74,8 +74,8 @@ bool ValidationIssueListEqual(const ValidationIssueList& left, const ValidationI
   return true;
 }
 
-bool RadarCommandsEqual(const std::vector<session::RadarCommand>& left,
-                        const std::vector<session::RadarCommand>& right) {
+bool ArCommandsEqual(const std::vector<session::ArCommand>& left,
+                    const std::vector<session::ArCommand>& right) {
   if (left.size() != right.size()) {
     return false;
   }
@@ -87,8 +87,8 @@ bool RadarCommandsEqual(const std::vector<session::RadarCommand>& left,
   return true;
 }
 
-bool RadarControlProfileEqual(const session::RadarControlProfile& left,
-                              const session::RadarControlProfile& right) {
+bool ArControlProfileEqual(const session::ArControlProfile& left,
+                           const session::ArControlProfile& right) {
   return left.version == right.version &&
          left.enable_lpi_power_control == right.enable_lpi_power_control &&
          left.lpi_power_scale == right.lpi_power_scale &&
@@ -118,22 +118,22 @@ bool AssociationQualityMetricsEqual(const session::AssociationQualityMetrics& le
          left.association_stress == right.association_stress;
 }
 
-bool CycleResultEqual(const RadarCycleResult& left, const RadarCycleResult& right) {
+bool CycleResultEqual(const ArCycleResult& left, const ArCycleResult& right) {
   return left.input_cycle_index == right.input_cycle_index &&
          TrackOutputFrameEqual(left.track_output_frame, right.track_output_frame) &&
-         RadarCommandsEqual(left.submitted_commands, right.submitted_commands) &&
+         ArCommandsEqual(left.submitted_commands, right.submitted_commands) &&
          ValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
          left.has_validation_error == right.has_validation_error &&
          left.executed_this_cycle == right.executed_this_cycle &&
          left.abort_reason == right.abort_reason &&
          left.reused_previous_output == right.reused_previous_output &&
          left.has_control_profile == right.has_control_profile &&
-         RadarControlProfileEqual(left.control_profile, right.control_profile) &&
+         ArControlProfileEqual(left.control_profile, right.control_profile) &&
          AssociationQualityMetricsEqual(left.association_quality_metrics,
                                         right.association_quality_metrics);
 }
 
-bool ExecutePendingCycle(RadarReplayState* state, std::string* error) {
+bool ExecutePendingCycle(ArReplayState* state, std::string* error) {
   if (!state->session) {
     *error = "AR replay cannot execute before session_config";
     return false;
@@ -143,7 +143,7 @@ bool ExecutePendingCycle(RadarReplayState* state, std::string* error) {
     return false;
   }
 
-  RadarCycleResult result = state->session->StepWithResult(state->pending_input);
+  ArCycleResult result = state->session->StepWithResult(state->pending_input);
   state->latest_result = result;
   state->latest_frame = result.track_output_frame;
   state->has_pending_input = false;
@@ -157,12 +157,12 @@ bool OnSessionConfig(const oneq::replay::ReplayTraceReadEvent& event, void* user
     return false;
   }
 
-  RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
-  config::RadarSessionConfig config;
+  ArReplayState* state = static_cast<ArReplayState*>(user_data);
+  config::ArSessionConfig config;
   if (!DecodeSessionConfigFlatbuffer(event.payload_bytes, &config, error)) {
     return false;
   }
-  state->session.reset(new RadarSession(RadarSession::Create(config)));
+  state->session.reset(new ArSession(ArSession::Create(config)));
   return true;
 }
 
@@ -173,7 +173,7 @@ bool OnCycleInput(const oneq::replay::ReplayTraceReadEvent& event, void* user_da
     return false;
   }
 
-  RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
+  ArReplayState* state = static_cast<ArReplayState*>(user_data);
   if (!state->session) {
     *error = "AR replay received cycle_input before session_config";
     return false;
@@ -185,7 +185,7 @@ bool OnCycleInput(const oneq::replay::ReplayTraceReadEvent& event, void* user_da
     return false;
   }
 
-  RadarCycleInput input;
+  ArCycleInput input;
   if (!DecodeCycleInputFlatbuffer(event.payload_bytes, &input, error)) {
     return false;
   }
@@ -202,13 +202,13 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
     return false;
   }
 
-  RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
+  ArReplayState* state = static_cast<ArReplayState*>(user_data);
   if (!state->session) {
     *error = "AR replay received runtime_config_patch before session_config";
     return false;
   }
 
-  config::RadarRuntimeConfigPatch patch;
+  config::ArRuntimeConfigPatch patch;
   if (!DecodeRuntimeConfigPatchFlatbuffer(event.payload_bytes, &patch, error)) {
     return false;
   }
@@ -218,7 +218,7 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
 
 bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
                    std::string* actual_output, std::string* error) {
-  RadarCycleResult expected_result;
+  ArCycleResult expected_result;
   session::TrackOutputFrame expected_frame;
   bool has_expected_result = false;
   bool has_expected_frame = false;
@@ -238,7 +238,7 @@ bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_d
     return false;
   }
 
-  RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
+  ArReplayState* state = static_cast<ArReplayState*>(user_data);
   if (!ExecutePendingCycle(state, error)) {
     return false;
   }
@@ -269,7 +269,7 @@ bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_d
 
 bool OnFailureMarker(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
                      std::string* error) {
-  RadarReplayState* state = static_cast<RadarReplayState*>(user_data);
+  ArReplayState* state = static_cast<ArReplayState*>(user_data);
   state->reached_failure_marker = true;
   state->failure_marker_payload = event.payload_bytes;
   oneq::replay::ReplayTraceFailure decoded;
@@ -296,7 +296,7 @@ ArReplaySessionResult ReplayArTrace(const std::string& trace_dir) {
     return result;
   }
 
-  RadarReplayState state;
+  ArReplayState state;
   oneq::replay::ReplayTracePlaybackCallbacks callbacks;
   callbacks.user_data = &state;
   callbacks.on_session_config = OnSessionConfig;

@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/ControlDirective.h"
-#include "1q/airborne_radar/session/RadarControlProfile.h"
+#include "1q/airborne_radar/session/ArControlProfile.h"
 
 namespace airborne_radar {
 namespace extension {

@@ -4,7 +4,7 @@ endif()
 
 set(AIRBORNE_SRC_DIR "${SOURCE_DIR}/src/airborne_radar")
 set(CORE_COMPOSITION_ROOT_FILE
-    "${SOURCE_DIR}/src/airborne_radar/session/RadarSessionCompositionRoot.cpp")
+    "${SOURCE_DIR}/src/airborne_radar/session/ArSessionCompositionRoot.cpp")
 
 file(GLOB_RECURSE AIRBORNE_IMPL_FILES
      "${AIRBORNE_SRC_DIR}/*.h"

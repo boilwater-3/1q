@@ -1,4 +1,4 @@
-#include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
+#include "airborne_radar/session/ArReplayFlatbufferCodec.h"
 
 #include <cstdint>
 #include <string>
@@ -49,7 +49,7 @@ flatbuffers::Offset<fb::PoseState> EncodePoseState(flatbuffers::FlatBufferBuilde
 }
 
 flatbuffers::Offset<fb::RadarSceneTarget> EncodeSceneTarget(flatbuffers::FlatBufferBuilder* builder,
-                                                            const RadarSceneTarget& value) {
+                                                            const ArSceneTarget& value) {
   return fb::CreateRadarSceneTarget(*builder, value.external_target_id, value.velocity_x,
                                     value.velocity_y, value.velocity_z, value.rcs, value.range_m,
                                     value.position_x, value.position_y, value.position_z,
@@ -86,8 +86,8 @@ oneq::foundation::PoseState DecodePoseState(const fb::PoseState* value) {
   return result;
 }
 
-RadarSceneTarget DecodeSceneTarget(const fb::RadarSceneTarget* value) {
-  RadarSceneTarget result;
+ArSceneTarget DecodeSceneTarget(const fb::RadarSceneTarget* value) {
+  ArSceneTarget result;
   if (value != nullptr) {
     result.external_target_id = value->external_target_id();
     result.velocity_x = value->velocity_x();
@@ -134,7 +134,7 @@ flatbuffers::Offset<fb::JammerSource> EncodeCycleJammerSource(
 }
 
 flatbuffers::Offset<fb::RadarCycleEnvironmentInput> EncodeCycleEnvironmentInput(
-    flatbuffers::FlatBufferBuilder* builder, const RadarEnvironmentInput& value) {
+    flatbuffers::FlatBufferBuilder* builder, const ArEnvironmentInput& value) {
   std::vector<flatbuffers::Offset<fb::JammerSource>> jammer_sources;
   jammer_sources.reserve(value.jammer_sources.size());
   for (std::size_t i = 0; i < value.jammer_sources.size(); ++i) {
@@ -197,8 +197,8 @@ config::JammerEmitterState DecodeCycleJammerSource(const fb::JammerSource* value
   return result;
 }
 
-RadarEnvironmentInput DecodeCycleEnvironmentInput(const fb::RadarCycleEnvironmentInput* value) {
-  RadarEnvironmentInput result;
+ArEnvironmentInput DecodeCycleEnvironmentInput(const fb::RadarCycleEnvironmentInput* value) {
+  ArEnvironmentInput result;
   if (value != nullptr) {
     result.atmospheric_observation =
         DecodeCycleAtmosphericObservation(value->atmospheric_observation());
@@ -335,22 +335,22 @@ ValidationIssue DecodeValidationIssue(const fb::ValidationIssue* value) {
 }
 
 flatbuffers::Offset<fb::RadarCommand> EncodeRadarCommand(
-    flatbuffers::FlatBufferBuilder* builder, const session::RadarCommand& value) {
+    flatbuffers::FlatBufferBuilder* builder, const session::ArCommand& value) {
   return fb::CreateRadarCommand(*builder, static_cast<int>(value.type),
                                 static_cast<int>(value.source));
 }
 
-session::RadarCommand DecodeRadarCommand(const fb::RadarCommand* value) {
-  session::RadarCommand result;
+session::ArCommand DecodeRadarCommand(const fb::RadarCommand* value) {
+  session::ArCommand result;
   if (value != nullptr) {
-    result.type = static_cast<session::RadarCommandType>(value->type());
-    result.source = static_cast<session::RadarCommandSource>(value->source());
+    result.type = static_cast<session::ArCommandType>(value->type());
+    result.source = static_cast<session::ArCommandSource>(value->source());
   }
   return result;
 }
 
 flatbuffers::Offset<fb::RadarControlProfile> EncodeRadarControlProfile(
-    flatbuffers::FlatBufferBuilder* builder, const session::RadarControlProfile& value) {
+    flatbuffers::FlatBufferBuilder* builder, const session::ArControlProfile& value) {
   return fb::CreateRadarControlProfile(
       *builder, value.version, value.enable_lpi_power_control, value.lpi_power_scale,
       value.enable_lpi_beamforming, value.lpi_dwell_scale, value.enable_agility_frequency,
@@ -358,9 +358,9 @@ flatbuffers::Offset<fb::RadarControlProfile> EncodeRadarControlProfile(
       value.enable_adaptive_beamforming, value.enable_eccm_rejitter, value.eccm_burnthrough_gain);
 }
 
-session::RadarControlProfile DecodeRadarControlProfile(
+session::ArControlProfile DecodeRadarControlProfile(
     const fb::RadarControlProfile* value) {
-  session::RadarControlProfile result;
+  session::ArControlProfile result;
   if (value != nullptr) {
     result.version = value->version();
     result.enable_lpi_power_control = value->enable_lpi_power_control();
@@ -413,7 +413,7 @@ session::AssociationQualityMetrics DecodeAssociationQualityMetrics(
 }
 
 flatbuffers::Offset<fb::RadarCycleResult> EncodeCycleResult(flatbuffers::FlatBufferBuilder* builder,
-                                                            const RadarCycleResult& value) {
+                                                            const ArCycleResult& value) {
   std::vector<flatbuffers::Offset<fb::RadarCommand>> command_offsets;
   command_offsets.reserve(value.submitted_commands.size());
   for (std::size_t i = 0; i < value.submitted_commands.size(); ++i) {
@@ -435,8 +435,8 @@ flatbuffers::Offset<fb::RadarCycleResult> EncodeCycleResult(flatbuffers::FlatBuf
       EncodeAssociationQualityMetrics(builder, value.association_quality_metrics));
 }
 
-RadarCycleResult DecodeCycleResult(const fb::RadarCycleResult* value) {
-  RadarCycleResult result;
+ArCycleResult DecodeCycleResult(const fb::RadarCycleResult* value) {
+  ArCycleResult result;
   if (value != nullptr) {
     result.input_cycle_index = value->input_cycle_index();
     result.track_output_frame = DecodeTrackOutputFrame(value->track_output_frame());
@@ -492,7 +492,7 @@ flatbuffers::Offset<session_fb::CommandedBeamwidthDeg> EncodeSessionCommandedBea
 }
 
 flatbuffers::Offset<session_fb::RadarOrientationConfig> EncodeSessionOrientation(
-    flatbuffers::FlatBufferBuilder* builder, const config::RadarOrientationConfig& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::ArOrientationConfig& value) {
   return session_fb::CreateRadarOrientationConfig(
       *builder, EncodeSessionEulerAngles(builder, value.mount_angles_deg),
       EncodeSessionAzEl(builder, value.scan_center_deg),
@@ -539,7 +539,7 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
 }
 
 flatbuffers::Offset<session_fb::RadarPolicyConfig> EncodeSessionPolicyConfig(
-    flatbuffers::FlatBufferBuilder* builder, const config::RadarPolicyConfig& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::ArPolicyConfig& value) {
   const flatbuffers::Offset<session_fb::BeamPointingConfig> pointing =
       session_fb::CreateBeamPointingConfig(
           *builder, EncodeSessionAzEl(builder, value.beam_control.pointing.default_scan_center_deg),
@@ -669,9 +669,9 @@ config::CommandedBeamwidthDeg DecodeSessionCommandedBeamwidth(
   return result;
 }
 
-config::RadarOrientationConfig DecodeSessionOrientation(
+config::ArOrientationConfig DecodeSessionOrientation(
     const session_fb::RadarOrientationConfig* value) {
-  config::RadarOrientationConfig result;
+  config::ArOrientationConfig result;
   if (value != nullptr) {
     result.mount_angles_deg = DecodeSessionEulerAngles(value->mount_angles_deg());
     result.scan_center_deg = DecodeSessionAzEl(value->scan_center_deg());
@@ -682,7 +682,7 @@ config::RadarOrientationConfig DecodeSessionOrientation(
     result.scan_start_position =
         static_cast<oneq::foundation::ScanStartPosition>(value->scan_start_position());
     result.scan_sequence = static_cast<oneq::foundation::ScanSequence>(value->scan_sequence());
-    result.work_mode = static_cast<config::RadarWorkMode>(value->work_mode());
+    result.work_mode = static_cast<config::ArWorkMode>(value->work_mode());
     result.commanded_beamwidth_enabled = value->commanded_beamwidth_enabled();
     result.commanded_beamwidth_deg =
         DecodeSessionCommandedBeamwidth(value->commanded_beamwidth_deg());
@@ -750,8 +750,8 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
   return result;
 }
 
-config::RadarPolicyConfig DecodeSessionPolicyConfig(const session_fb::RadarPolicyConfig* value) {
-  config::RadarPolicyConfig result;
+config::ArPolicyConfig DecodeSessionPolicyConfig(const session_fb::RadarPolicyConfig* value) {
+  config::ArPolicyConfig result;
   if (value != nullptr) {
     const session_fb::BeamControlConfig* beam_control = value->beam_control();
     if (beam_control != nullptr) {
@@ -891,14 +891,14 @@ config::EnvironmentRuntimeConfigPatch DecodeSessionEnvironmentRuntimeConfigPatch
 }
 
 flatbuffers::Offset<session_fb::EnvironmentDefaultConfig> EncodeEnvironmentDefaultConfig(
-    flatbuffers::FlatBufferBuilder* builder, const config::RadarEnvironmentConfig& value) {
+    flatbuffers::FlatBufferBuilder* builder, const config::ArEnvironmentConfig& value) {
   return session_fb::CreateEnvironmentDefaultConfig(
       *builder, EncodeSessionEnvironmentScenarioConfig(builder, value.scenario_config));
 }
 
-config::RadarEnvironmentConfig DecodeEnvironmentDefaultConfig(
+config::ArEnvironmentConfig DecodeEnvironmentDefaultConfig(
     const session_fb::EnvironmentDefaultConfig* value) {
-  config::RadarEnvironmentConfig result;
+  config::ArEnvironmentConfig result;
   if (value != nullptr) {
     result.scenario_config = DecodeSessionEnvironmentScenarioConfig(value->scenario_config());
   }
@@ -907,7 +907,7 @@ config::RadarEnvironmentConfig DecodeEnvironmentDefaultConfig(
 
 }  // namespace
 
-std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input) {
+std::string EncodeCycleInputFlatbuffer(const ArCycleInput& input) {
   flatbuffers::FlatBufferBuilder builder;
   std::vector<flatbuffers::Offset<fb::RadarSceneTarget>> targets;
   targets.reserve(input.scene.size());
@@ -929,7 +929,7 @@ std::string EncodeCycleInputFlatbuffer(const RadarCycleInput& input) {
                      reinterpret_cast<const char*>(buffer) + builder.GetSize());
 }
 
-bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, RadarCycleInput* input,
+bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, ArCycleInput* input,
                                 std::string* error) {
   if (input == nullptr) {
     if (error != nullptr) {
@@ -1011,7 +1011,7 @@ bool DecodeTrackOutputFrameFlatbuffer(const std::string& payload_bytes,
   return true;
 }
 
-std::string EncodeCycleResultFlatbuffer(const RadarCycleResult& result) {
+std::string EncodeCycleResultFlatbuffer(const ArCycleResult& result) {
   flatbuffers::FlatBufferBuilder builder;
   const flatbuffers::Offset<fb::RadarCycleResult> root = EncodeCycleResult(&builder, result);
   builder.Finish(root);
@@ -1021,7 +1021,7 @@ std::string EncodeCycleResultFlatbuffer(const RadarCycleResult& result) {
                      reinterpret_cast<const char*>(buffer) + builder.GetSize());
 }
 
-bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, RadarCycleResult* result,
+bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, ArCycleResult* result,
                                  std::string* error) {
   if (result == nullptr) {
     if (error != nullptr) {
@@ -1050,7 +1050,7 @@ bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, RadarCycleRes
   return true;
 }
 
-std::string EncodeSessionConfigFlatbuffer(const config::RadarSessionConfig& config) {
+std::string EncodeSessionConfigFlatbuffer(const config::ArSessionConfig& config) {
   flatbuffers::FlatBufferBuilder builder;
   const flatbuffers::Offset<session_fb::RadarSessionConfig> root =
       session_fb::CreateRadarSessionConfig(
@@ -1067,7 +1067,7 @@ std::string EncodeSessionConfigFlatbuffer(const config::RadarSessionConfig& conf
                      reinterpret_cast<const char*>(buffer) + builder.GetSize());
 }
 
-bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, config::RadarSessionConfig* config,
+bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, config::ArSessionConfig* config,
                                    std::string* error) {
   if (config == nullptr) {
     if (error != nullptr) {
@@ -1102,7 +1102,7 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, config::Rad
   return true;
 }
 
-std::string EncodeRuntimeConfigPatchFlatbuffer(const config::RadarRuntimeConfigPatch& patch) {
+std::string EncodeRuntimeConfigPatchFlatbuffer(const config::ArRuntimeConfigPatch& patch) {
   flatbuffers::FlatBufferBuilder builder;
   const flatbuffers::Offset<session_fb::RadarRuntimeConfigPatch> root =
       session_fb::CreateRadarRuntimeConfigPatch(
@@ -1124,7 +1124,7 @@ std::string EncodeRuntimeConfigPatchFlatbuffer(const config::RadarRuntimeConfigP
 }
 
 bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
-                                        config::RadarRuntimeConfigPatch* patch,
+                                        config::ArRuntimeConfigPatch* patch,
                                         std::string* error) {
   if (patch == nullptr) {
     if (error != nullptr) {
@@ -1158,7 +1158,7 @@ bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
   patch->environment =
       DecodeSessionEnvironmentRuntimeConfigPatch(root->environment());
   patch->has_work_mode = root->has_work_mode();
-  patch->work_mode = static_cast<config::RadarWorkMode>(root->work_mode());
+  patch->work_mode = static_cast<config::ArWorkMode>(root->work_mode());
   patch->has_scan_center_deg = root->has_scan_center_deg();
   patch->scan_center_deg = DecodeSessionAzEl(root->scan_center_deg());
   patch->has_dwell_center_deg = root->has_dwell_center_deg();

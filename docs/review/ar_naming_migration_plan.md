@@ -146,9 +146,13 @@ Stage 1：新增 `Ar*` public primary API，不删除旧名。
 
 Stage 2：更新 internal session/config/runtime 命名。
 
-- 迁移 `src/airborne_radar/session/RadarSession.cpp`、`RadarSessionCompositionRoot`、`MutableRadarContext`、adapter、debug builder、replay codec。
-- 迁移 `src/airborne_radar/runtime/RadarController.*`。
-- 更新 internal tests 中直接引用的 ownership 类型。
+- 状态：已完成（文件名 + 内部类型引用翻转）。
+- 所有 internal `Radar*.{cpp,h}` 已 `git mv` 为 `Ar*.{cpp,h}`：`ArController`、`MutableArContext`、`ArSession`、`ArSessionCompositionRoot`、`ArSessionConfigBuilder`、各 adapter、`ArInputValidation`、`ArReplayFlatbufferCodec`、`ArReplaySession`、`ArSceneTargetUtils`、`ArTraceSession`、`ArTrackLifecycleRecorder`、`ArTrackOutputDebugViewBuilder`、`ArOrientationUtils`。
+- 内部实现代码已统一改用 `Ar*` 主类型名（session/cycle/result/adapter/scene/command/control profile/runtime patch/config 等）。
+- `src/airborne_radar/` 内部 include 已优先指向 `Ar*` public 主头；`AIRBORNE_CORE_SOURCES`、`check_airborne_include_direction.cmake`、`tests/README.md` 同步更新。
+- 领域名保留：`RadarEquations`、`radar_cross_section`、`radar_mount_angles_deg`、public 函数 `ComposeRadarAttitudeDeg`。
+- replay 兼容边界保留：FlatBuffers generated schema 类型（`fb::Radar*`/`session_fb::Radar*`）、payload type string（`"RadarCycleInput"` 等）、file identifier 常量均未改，留给 Stage 3 评估。
+- 已修复迁移引入的 `cross_domain_naming_guard` 回归（guard 改扫 `ArRuntimeConfigBuilder.h` 主头）。
 - 不改 `RadarEquations` 和领域字段。
 
 Stage 3：trace/replay schema 与 payload 兼容。

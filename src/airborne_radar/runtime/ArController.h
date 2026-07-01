@@ -1,10 +1,10 @@
 /**
- * @file RadarController.h
+ * @file ArController.h
  * @brief 核心处理层 AR 调度控制器（内部实现细节，不对外暴露）。
  */
 
-#ifndef AIRBORNE_RADAR_RUNTIME_RADAR_CONTROLLER_H_
-#define AIRBORNE_RADAR_RUNTIME_RADAR_CONTROLLER_H_
+#ifndef AIRBORNE_RADAR_RUNTIME_AR_CONTROLLER_H_
+#define AIRBORNE_RADAR_RUNTIME_AR_CONTROLLER_H_
 
 #include <cstddef>
 #include <memory>
@@ -150,4 +150,4 @@ using RadarControllerRuntimeState = ArControllerRuntimeState;
 }  // namespace extension
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_RUNTIME_RADAR_CONTROLLER_H_
+#endif  // AIRBORNE_RADAR_RUNTIME_AR_CONTROLLER_H_

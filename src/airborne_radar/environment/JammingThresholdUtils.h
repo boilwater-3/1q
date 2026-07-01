@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_ENVIRONMENT_JAMMING_THRESHOLD_UTILS_H_
 #define AIRBORNE_RADAR_ENVIRONMENT_JAMMING_THRESHOLD_UTILS_H_
 
-#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
+#include "1q/airborne_radar/config/ArEnvironmentConfig.h"
 
 namespace airborne_radar {
 namespace environment {

@@ -1,6 +1,6 @@
 #include <cmath>
 
-#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
+#include "1q/airborne_radar/config/ArEnvironmentConfig.h"
 
 namespace airborne_radar {
 namespace config {

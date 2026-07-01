@@ -1,4 +1,4 @@
-#include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
 
 namespace airborne_radar {
 namespace session {

@@ -7,12 +7,12 @@
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 
 #include "airborne_radar/config/SignalEngineeringConfig.h"
-#include "airborne_radar/utils/RadarOrientationUtils.h"
+#include "airborne_radar/utils/ArOrientationUtils.h"
 #include "airborne_radar/signal/detection/AntennaPatternRuntime.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
 #include "common/geometry/GeometryTransform.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
 
 namespace airborne_radar {
 namespace signal {

@@ -18,7 +18,7 @@
 #include "1q/airborne_radar/session/RadarCycleInput.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/replay/ReplayTrace.h"
-#include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
+#include "airborne_radar/session/ArReplayFlatbufferCodec.h"
 
 namespace airborne_radar {
 namespace session {

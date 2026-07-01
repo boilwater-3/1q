@@ -1,12 +1,12 @@
-#include "airborne_radar/session/RadarSessionCompositionRoot.h"
+#include "airborne_radar/session/ArSessionCompositionRoot.h"
 
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
-#include "airborne_radar/runtime/RadarController.h"
+#include "airborne_radar/runtime/ArController.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
-#include "airborne_radar/session/MutableRadarContext.h"
+#include "airborne_radar/session/MutableArContext.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
 namespace airborne_radar {

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "airborne_radar/session/RadarSceneTargetUtils.h"
+#include "airborne_radar/session/ArSceneTargetUtils.h"
 
 using namespace airborne_radar::session;
 

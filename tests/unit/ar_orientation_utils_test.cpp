@@ -10,7 +10,7 @@
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
-#include "airborne_radar/utils/RadarOrientationUtils.h"
+#include "airborne_radar/utils/ArOrientationUtils.h"
 #include "common/geometry/GeometryTransform.h"
 
 namespace airborne_radar {

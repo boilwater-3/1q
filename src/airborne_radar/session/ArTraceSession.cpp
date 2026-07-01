@@ -8,7 +8,7 @@
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/trace/TraceSink.h"
-#include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
+#include "airborne_radar/session/ArReplayFlatbufferCodec.h"
 
 namespace airborne_radar {
 namespace session {

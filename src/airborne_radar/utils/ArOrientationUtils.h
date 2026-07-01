@@ -1,16 +1,16 @@
 /**
- * @file RadarOrientationUtils.h
+ * @file ArOrientationUtils.h
  * @brief 定义机载雷达方向配置的组合、限幅与校验工具函数。
  */
 
-#ifndef AIRBORNE_RADAR_UTILS_RADAR_ORIENTATION_UTILS_H_
-#define AIRBORNE_RADAR_UTILS_RADAR_ORIENTATION_UTILS_H_
+#ifndef AIRBORNE_RADAR_UTILS_AR_ORIENTATION_UTILS_H_
+#define AIRBORNE_RADAR_UTILS_AR_ORIENTATION_UTILS_H_
 
 #include <algorithm>
 #include <cmath>
 
 #include "airborne_radar/utils/MathUtils.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "common/numerics/Constants.h"
 
 namespace airborne_radar {
@@ -138,13 +138,13 @@ inline config::AzimuthElevationLimitsDeg IntersectScanLimits(
 /**
  * @brief 计算挂架坐标系下的实际波束指向，并按扫描窗口限幅。
  * @param[in] config 雷达方向配置。
- * @param[in] dwell_center_deg 运行期驻留偏移；该偏移不属于 RadarOrientationConfig 的静态字段。
+ * @param[in] dwell_center_deg 运行期驻留偏移；该偏移不属于 ArOrientationConfig 的静态字段。
  * @return 相对雷达安装基准轴的方位/俯仰指向。
  * @note 当 dwell_center_deg 为零时，该函数对应静态基准关系；
  *       非零时表示在静态基准上叠加运行期偏移。
  */
 inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(
-    const config::RadarOrientationConfig& config,
+    const config::ArOrientationConfig& config,
     const config::AzimuthElevationDeg& dwell_center_deg) {
   config::AzimuthElevationDeg unclamped;
   unclamped.az_deg = config.scan_center_deg.az_deg + dwell_center_deg.az_deg;
@@ -171,7 +171,7 @@ inline config::AzimuthElevationDeg ComputeMountFrameBeamPointing(
  * @return 机体系下的欧拉角；由安装姿态与挂架波束指向做旋转合成得到。
  */
 inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
-    const config::RadarOrientationConfig& config,
+    const config::ArOrientationConfig& config,
     const config::AzimuthElevationDeg& dwell_center_deg) {
   const config::AzimuthElevationDeg mount_frame_pointing =
       ComputeMountFrameBeamPointing(config, dwell_center_deg);
@@ -205,7 +205,7 @@ inline config::EulerAnglesDeg ComputeBodyFrameBeamPointing(
  */
 inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(
     const config::EulerAnglesDeg& platform_attitude_deg,
-    const config::RadarOrientationConfig& config,
+    const config::ArOrientationConfig& config,
     const config::AzimuthElevationDeg& dwell_center_deg) {
   const config::AzimuthElevationDeg mount_frame_pointing =
       ComputeMountFrameBeamPointing(config, dwell_center_deg);
@@ -236,4 +236,4 @@ inline config::EulerAnglesDeg ComputePlatformFrameBeamPointing(
 }  // namespace utils
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_UTILS_RADAR_ORIENTATION_UTILS_H_
+#endif  // AIRBORNE_RADAR_UTILS_AR_ORIENTATION_UTILS_H_

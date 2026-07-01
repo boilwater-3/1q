@@ -8,9 +8,9 @@
 
 #include <cstdint>
 
-#include "1q/airborne_radar/config/RadarHardwareConfig.h"
-#include "1q/airborne_radar/config/RadarPolicyConfig.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/ArHardwareConfig.h"
+#include "1q/airborne_radar/config/ArPolicyConfig.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
 
 namespace airborne_radar {
 namespace config {

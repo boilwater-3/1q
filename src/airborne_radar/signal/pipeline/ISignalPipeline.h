@@ -9,11 +9,11 @@
 #include <cstdint>
 #include <memory>
 
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/session/RadarControlProfile.h"
-#include "1q/airborne_radar/session/RadarOutputTypes.h"
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
+#include "1q/airborne_radar/session/ArControlProfile.h"
+#include "1q/airborne_radar/session/ArOutputTypes.h"
+#include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
 
 namespace airborne_radar {

@@ -9,8 +9,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarPolicyConfig.h"
-#include "airborne_radar/utils/RadarOrientationUtils.h"
+#include "1q/airborne_radar/config/ArPolicyConfig.h"
+#include "airborne_radar/utils/ArOrientationUtils.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 

@@ -1,10 +1,10 @@
 /**
- * @file MutableRadarContext.h
+ * @file MutableArContext.h
  * @brief 定义面向外部接入的可变 AR 上下文默认实现。
  */
 
-#ifndef AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_RADAR_CONTEXT_H_
-#define AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_RADAR_CONTEXT_H_
+#ifndef AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_AR_CONTEXT_H_
+#define AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_AR_CONTEXT_H_
 
 #include <memory>
 #include <vector>
@@ -163,4 +163,4 @@ using RadarContextRuntimeState = ArContextRuntimeState;
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_RADAR_CONTEXT_H_
+#endif  // AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_AR_CONTEXT_H_

@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAMWIDTH_RESOLUTION_H_
 
 #include "airborne_radar/config/SignalEngineeringConfig.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
 
 namespace airborne_radar {
 namespace signal {

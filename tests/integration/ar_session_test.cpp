@@ -15,8 +15,8 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
-#include "airborne_radar/runtime/RadarController.h"
-#include "airborne_radar/session/MutableRadarContext.h"
+#include "airborne_radar/runtime/ArController.h"
+#include "airborne_radar/session/MutableArContext.h"
 #include "1q/airborne_radar/session/RadarCommand.h"
 #include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"

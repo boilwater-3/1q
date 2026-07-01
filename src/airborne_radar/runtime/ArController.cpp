@@ -1,4 +1,4 @@
-#include "airborne_radar/runtime/RadarController.h"
+#include "airborne_radar/runtime/ArController.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -6,13 +6,13 @@
 #include <memory>
 
 #include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
-#include "1q/airborne_radar/session/RadarControlProfile.h"
-#include "1q/airborne_radar/session/RadarCycleResult.h"
+#include "1q/airborne_radar/session/ArControlProfile.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/runtime/ControlCommandMapper.h"
-#include "airborne_radar/session/MutableRadarContext.h"
+#include "airborne_radar/session/MutableArContext.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
@@ -41,11 +41,11 @@ struct OwnedDecisionComponents {
 };
 
 /**
- * @brief RadarController 内部实现体，持有所有运行时状态。
+ * @brief ArController 内部实现体，持有所有运行时状态。
  */
 struct ArController::Impl {
   // -- 外部引用（生命周期由 Session 管理）
-  session::MutableRadarContext& radar_context;
+  session::MutableArContext& radar_context;
   signal::ISignalPipeline& signal_pipeline;
   environment::IEnvironmentService& environment_service;
 
@@ -54,7 +54,7 @@ struct ArController::Impl {
   session::ITacticalDecisionEngine* decision_engine{nullptr};
 
   // -- 控制状态
-  session::RadarControlProfile control_profile{};
+  session::ArControlProfile control_profile{};
 
   // -- 独立生命周期组件
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
@@ -68,7 +68,7 @@ struct ArController::Impl {
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
 
   /** @brief 构造使用默认 TacticalCoordinator 的控制器。 */
-  Impl(session::MutableRadarContext& ctx, signal::ISignalPipeline& sig,
+  Impl(session::MutableArContext& ctx, signal::ISignalPipeline& sig,
        environment::IEnvironmentService& env)
       : radar_context(ctx), signal_pipeline(sig), environment_service(env) {
     owned_decision_components.decision_engine.reset(new decision::TacticalCoordinator(nullptr));
@@ -80,7 +80,7 @@ struct ArController::Impl {
   }
 
   /** @brief 构造使用外部决策引擎的控制器。 */
-  Impl(session::MutableRadarContext& ctx, signal::ISignalPipeline& sig,
+  Impl(session::MutableArContext& ctx, signal::ISignalPipeline& sig,
        session::ITacticalDecisionEngine& ext_engine, environment::IEnvironmentService& env)
       : radar_context(ctx),
         signal_pipeline(sig),
@@ -119,7 +119,7 @@ ArController::~ArController() = default;
 void ArController::RunOnce() {
   impl_->ResetPerCycleFlags();
 
-  const session::RadarSceneTargetList& scene_targets = impl_->radar_context.GetSceneTargets();
+  const session::ArSceneTargetList& scene_targets = impl_->radar_context.GetSceneTargets();
   const config::PlatformAttitudeDeg platform_attitude = impl_->radar_context.GetPlatformAttitude();
   const float platform_altitude_m = impl_->radar_context.GetPlatformAltitudeM();
   const float cycle_dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
@@ -149,7 +149,7 @@ void ArController::RunOnce() {
   impl_->environment_service.BeginCycle(environment_cycle_context);
 
   // 执行信号流水线与决策引擎
-  const session::RadarSceneTargetList& targets = scene_targets;
+  const session::ArSceneTargetList& targets = scene_targets;
 
   impl_->signal_pipeline.SetControlProfile(impl_->control_profile);
   impl_->signal_pipeline.UpdatePlatformAttitude(platform_attitude);
@@ -254,14 +254,14 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
 bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState& state) {
   if (state.owner_identity != this || state.schema_version != 1U) {
     PROJECT_LOG_ERROR(
-        "[RadarController] controller runtime state restore rejected: "
+        "[ArController] controller runtime state restore rejected: "
         "owner/schema mismatch.");
     return false;
   }
   if (!IsCompatibleSignalPipelineRuntimeState(state.signal_pipeline_state,
                                               impl_->signal_pipeline)) {
     PROJECT_LOG_ERROR(
-        "[RadarController] signal pipeline runtime state restore rejected because "
+        "[ArController] signal pipeline runtime state restore rejected because "
         "snapshot owner or schema does not match the bound pipeline instance.");
     return false;
   }

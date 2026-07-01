@@ -46,28 +46,28 @@ set(AIRBORNE_CORE_SOURCES
     airborne_radar/decision/TacticalCoordinator.cpp
     airborne_radar/config/mapping/SessionToExecutionMapper.cpp
     airborne_radar/config/mapping/RuntimePatchMapper.cpp
-    airborne_radar/session/MutableRadarContext.cpp
-    airborne_radar/session/RadarInputValidation.cpp
-    airborne_radar/session/RadarSceneTargetUtils.cpp
+    airborne_radar/session/MutableArContext.cpp
+    airborne_radar/session/ArInputValidation.cpp
+    airborne_radar/session/ArSceneTargetUtils.cpp
     airborne_radar/runtime/ControlCommandMapper.cpp
-    airborne_radar/runtime/RadarController.cpp
-    airborne_radar/session/RadarSessionCompositionRoot.cpp
-    airborne_radar/session/RadarExternalInputAdapter.cpp
-    airborne_radar/session/RadarCycleInputAdapter.cpp
-    airborne_radar/session/RadarExternalOutputAdapter.cpp
-    airborne_radar/session/RadarCycleOutputAdapter.cpp
-    airborne_radar/session/RadarTrackOutputDebugViewBuilder.cpp
-    airborne_radar/session/RadarTrackLifecycleRecorder.cpp
-    airborne_radar/session/RadarSessionConfigBuilder.cpp
-    airborne_radar/session/RadarReplaySession.cpp
-    airborne_radar/session/RadarSession.cpp
+    airborne_radar/runtime/ArController.cpp
+    airborne_radar/session/ArSessionCompositionRoot.cpp
+    airborne_radar/session/ArExternalInputAdapter.cpp
+    airborne_radar/session/ArCycleInputAdapter.cpp
+    airborne_radar/session/ArExternalOutputAdapter.cpp
+    airborne_radar/session/ArCycleOutputAdapter.cpp
+    airborne_radar/session/ArTrackOutputDebugViewBuilder.cpp
+    airborne_radar/session/ArTrackLifecycleRecorder.cpp
+    airborne_radar/session/ArSessionConfigBuilder.cpp
+    airborne_radar/session/ArReplaySession.cpp
+    airborne_radar/session/ArSession.cpp
     airborne_radar/environment/FeatureRepository.cpp
     airborne_radar/environment/EnvironmentService.cpp
     airborne_radar/environment/EnvironmentPhysics.cpp
     airborne_radar/environment/SceneManager.cpp
     airborne_radar/environment/PropagationModel.cpp
-    airborne_radar/session/RadarReplayFlatbufferCodec.cpp
-    airborne_radar/session/RadarTraceSession.cpp
+    airborne_radar/session/ArReplayFlatbufferCodec.cpp
+    airborne_radar/session/ArTraceSession.cpp
 )
 
 if(ENABLE_INSTALL)

@@ -29,7 +29,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/replay/ReplayTrace.h"
 #include "1q/trace/TraceSink.h"
-#include "airborne_radar/session/RadarReplayFlatbufferCodec.h"
+#include "airborne_radar/session/ArReplayFlatbufferCodec.h"
 #include "electro_optical_sensor/session/EosReplayFlatbufferCodec.h"
 #include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
 

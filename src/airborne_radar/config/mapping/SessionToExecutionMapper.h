@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_SRC_CONFIG_MAPPING_SESSION_TO_EXECUTION_MAPPER_H_
 #define AIRBORNE_RADAR_SRC_CONFIG_MAPPING_SESSION_TO_EXECUTION_MAPPER_H_
 
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "airborne_radar/config/InternalExecutionConfig.h"
 
 namespace airborne_radar {

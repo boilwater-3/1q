@@ -1,13 +1,13 @@
-#include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/session/ArSession.h"
 
 #include <utility>
 
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
-#include "airborne_radar/runtime/RadarController.h"
-#include "airborne_radar/session/MutableRadarContext.h"
-#include "airborne_radar/session/RadarSessionCompositionRoot.h"
+#include "airborne_radar/runtime/ArController.h"
+#include "airborne_radar/session/MutableArContext.h"
+#include "airborne_radar/session/ArSessionCompositionRoot.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
@@ -16,7 +16,7 @@ namespace session {
 namespace {
 
 session::EnvironmentSceneState BuildSceneStateFromEnvironmentInput(
-    const RadarEnvironmentInput& environment_input) {
+    const ArEnvironmentInput& environment_input) {
   session::EnvironmentSceneState scene_state;
   scene_state.atmospheric_physics = environment_input.atmospheric_observation;
   scene_state.atmospheric_context = environment_input.atmospheric_context;
@@ -28,7 +28,7 @@ session::EnvironmentSceneState BuildSceneStateFromEnvironmentInput(
 }  // namespace
 
 struct ArSession::Impl {
-  explicit Impl(RadarSessionComposition composition)
+  explicit Impl(ArSessionComposition composition)
       : runtime_state(),
         pipeline_config_synced(composition.pipeline_config_synced),
         owned_ar_context(std::move(composition.owned_ar_context)),
@@ -56,8 +56,8 @@ struct ArSession::Impl {
         static_cast<signal::pipeline::SignalPipeline*>(owned_signal_pipeline.get());
   }
 
-  RadarCycleResult BuildCycleResult(const RadarCycleInput& input) const {
-    RadarCycleResult result;
+  ArCycleResult BuildCycleResult(const ArCycleInput& input) const {
+    ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     if (controller.HasLatestTrackOutputFrame()) {
       result.track_output_frame = controller.GetLatestTrackOutputFrame();
@@ -81,13 +81,13 @@ struct ArSession::Impl {
     return result;
   }
 
-  ValidationIssueList ValidateInput(const RadarCycleInput& input) const {
+  ValidationIssueList ValidateInput(const ArCycleInput& input) const {
     return ValidateArCycleInput(input);
   }
 
-  RadarCycleResult BuildValidationErrorResult(const RadarCycleInput& input,
+  ArCycleResult BuildValidationErrorResult(const ArCycleInput& input,
                                               const ValidationIssueList& issues) const {
-    RadarCycleResult result;
+    ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     if (controller.HasLatestTrackOutputFrame()) {
       result.track_output_frame = controller.GetLatestTrackOutputFrame();
@@ -98,9 +98,9 @@ struct ArSession::Impl {
     return result;
   }
 
-  RadarCycleResult BuildExecutionAbortResult(const RadarCycleInput& input,
+  ArCycleResult BuildExecutionAbortResult(const ArCycleInput& input,
                                              session::SignalCycleAbortReason abort_reason) const {
-    RadarCycleResult result;
+    ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     if (controller.HasLatestTrackOutputFrame()) {
       result.track_output_frame = controller.GetLatestTrackOutputFrame();
@@ -175,7 +175,7 @@ struct ArSession::Impl {
     pending_jamming_sensitivity_profile_changed = false;
   }
 
-  RadarCycleResult RunCycle(const RadarCycleInput& input) {
+  ArCycleResult RunCycle(const ArCycleInput& input) {
     const ValidationIssueList issues = ValidateInput(input);
     if (HasValidationError(issues)) {
       return BuildValidationErrorResult(input, issues);
@@ -238,7 +238,7 @@ struct ArSession::Impl {
 ArSession::ArSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 
 ArSession::ArSession()
-    : impl_(new Impl(RadarSessionCompositionRoot::ComposeDefault(config::ArSessionConfig{}))) {}
+    : impl_(new Impl(ArSessionCompositionRoot::ComposeDefault(config::ArSessionConfig{}))) {}
 
 ArSession::~ArSession() = default;
 ArSession::ArSession(ArSession&&) noexcept = default;
@@ -246,13 +246,13 @@ ArSession& ArSession::operator=(ArSession&&) noexcept = default;
 
 ArSession ArSession::Create(const config::ArSessionConfig& config) {
   return ArSession(std::unique_ptr<ArSession::Impl>(
-      new ArSession::Impl(RadarSessionCompositionRoot::ComposeDefault(config))));
+      new ArSession::Impl(ArSessionCompositionRoot::ComposeDefault(config))));
 }
 
 ArSession ArSession::CreateWithDecisionEngine(
     const config::ArSessionConfig& config, session::ITacticalDecisionEngine& decision_engine) {
   return ArSession(std::unique_ptr<ArSession::Impl>(new ArSession::Impl(
-      RadarSessionCompositionRoot::ComposeWithDecisionEngine(config, decision_engine))));
+      ArSessionCompositionRoot::ComposeWithDecisionEngine(config, decision_engine))));
 }
 
 ArSession ArSession::CreateWithValidation(const config::ArSessionConfig& config,
@@ -264,15 +264,15 @@ ArSession ArSession::CreateWithValidation(const config::ArSessionConfig& config,
   return Create(config);
 }
 
-session::TrackOutputFrame ArSession::Step(const RadarCycleInput& input) {
+session::TrackOutputFrame ArSession::Step(const ArCycleInput& input) {
   return impl_->RunCycle(input).track_output_frame;
 }
 
-RadarCycleResult ArSession::StepWithResult(const RadarCycleInput& input) {
+ArCycleResult ArSession::StepWithResult(const ArCycleInput& input) {
   return impl_->RunCycle(input);
 }
 
-const std::vector<session::RadarCommand>& ArSession::GetSubmittedCommands() const {
+const std::vector<session::ArCommand>& ArSession::GetSubmittedCommands() const {
   return impl_->radar_context.GetSubmittedCommands();
 }
 
@@ -280,7 +280,7 @@ bool ArSession::HasLatestControlProfile() const {
   return impl_->radar_context.HasLatestControlProfile();
 }
 
-const session::RadarControlProfile& ArSession::GetLatestControlProfile() const {
+const session::ArControlProfile& ArSession::GetLatestControlProfile() const {
   return impl_->radar_context.GetLatestControlProfile();
 }
 
@@ -288,11 +288,11 @@ session::AssociationQualityMetrics ArSession::GetLastAssociationQualityMetrics()
   return impl_->signal_pipeline.GetLastAssociationQualityMetrics();
 }
 
-void ArSession::ApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
+void ArSession::ApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch) {
   (void)TryApplyRuntimeConfig(patch);
 }
 
-bool ArSession::TryApplyRuntimeConfig(const config::RadarRuntimeConfigPatch& patch) {
+bool ArSession::TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch) {
   // 事务性提交类（见 docs/common/contract.md「运行期配置提交策略」）：本方法只写入
   // pending_runtime_state，不触碰 runtime_state；配置延迟到下个 StepWithResult 边界
   // 由 CommitPendingRuntimeConfig 原子提交，失败时 4 子系统 capture/restore 回滚，

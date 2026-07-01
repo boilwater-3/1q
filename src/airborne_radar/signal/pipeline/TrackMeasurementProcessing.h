@@ -6,7 +6,7 @@
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_TRACK_MEASUREMENT_PROCESSING_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_TRACK_MEASUREMENT_PROCESSING_H_
 
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
+#include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/signal/pipeline/CycleExecutor.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 

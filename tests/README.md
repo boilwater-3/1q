@@ -28,4 +28,4 @@
 - `airborne_include_direction_guard` 强制 `src/airborne_radar/signal/**` 不得 include `airborne_radar/runtime/**` 或 `airborne_radar/session/**`。
 - `airborne_include_direction_guard` 强制 `src/airborne_radar/environment/**` 不得 include `airborne_radar/decision/**` 或 `airborne_radar/signal/**`。
 - 当前阶段把“core 只能依赖抽象接口”按 `runtime + session` 落地为告警清单，不作为失败条件。
-- 组合根豁免：`src/airborne_radar/session/RadarSessionCompositionRoot.cpp` 允许依赖具体实现用于默认装配。
+- 组合根豁免：`src/airborne_radar/session/ArSessionCompositionRoot.cpp` 允许依赖具体实现用于默认装配。

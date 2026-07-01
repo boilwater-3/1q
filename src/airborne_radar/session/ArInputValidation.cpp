@@ -1,4 +1,4 @@
-#include "1q/airborne_radar/session/RadarInputValidation.h"
+#include "1q/airborne_radar/session/ArInputValidation.h"
 
 #include <sstream>
 #include <unordered_map>
@@ -66,7 +66,7 @@ void ValidatePlatformAltitude(float platform_altitude_m, ValidationIssueList* is
                               "platform_altitude_m", "platform altitude must be finite"));
 }
 
-void ValidateEnvironmentInput(const RadarEnvironmentInput& environment,
+void ValidateEnvironmentInput(const ArEnvironmentInput& environment,
                               ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
@@ -110,7 +110,7 @@ void ValidateEnvironmentInput(const RadarEnvironmentInput& environment,
  * @param target 目标特征。
  * @return 存在非零笛卡尔位置分量时返回 `true`。
  */
-bool HasCartesianPosition(const RadarSceneTarget& target) {
+bool HasCartesianPosition(const ArSceneTarget& target) {
   return target.position_x != 0.0f || target.position_y != 0.0f || target.position_z != 0.0f;
 }
 
@@ -120,7 +120,7 @@ bool HasCartesianPosition(const RadarSceneTarget& target) {
  * @param target_index 目标索引。
  * @param[out] issues 输出问题列表。
  */
-void ValidateSingleTarget(const RadarSceneTarget& target, std::size_t target_index,
+void ValidateSingleTarget(const ArSceneTarget& target, std::size_t target_index,
                           ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;

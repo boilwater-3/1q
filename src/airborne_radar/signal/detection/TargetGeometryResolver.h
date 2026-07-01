@@ -9,7 +9,7 @@
 #include <Eigen/Core>
 #include <algorithm>
 
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
+#include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
 
 namespace airborne_radar {

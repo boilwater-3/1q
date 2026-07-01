@@ -22,10 +22,10 @@
 #include <cstddef>
 #include <vector>
 
-#include "1q/airborne_radar/config/RadarHardwareConfig.h"
-#include "1q/airborne_radar/config/RadarMissionConfig.h"
-#include "1q/airborne_radar/config/RadarPolicyConfig.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/ArHardwareConfig.h"
+#include "1q/airborne_radar/config/ArMissionConfig.h"
+#include "1q/airborne_radar/config/ArPolicyConfig.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "airborne_radar/config/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
 

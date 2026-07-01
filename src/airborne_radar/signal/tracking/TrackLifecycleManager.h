@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
+#include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/ITrackPool.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"

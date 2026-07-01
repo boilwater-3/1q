@@ -1,4 +1,4 @@
-#include "airborne_radar/session/RadarSceneTargetUtils.h"
+#include "airborne_radar/session/ArSceneTargetUtils.h"
 
 #include <cmath>
 #include <cstddef>
@@ -13,11 +13,11 @@ float ComputeNorm3(float x, float y, float z) { return std::sqrt(x * x + y * y +
 
 }  // namespace
 
-RadarSceneTarget MakeSceneTarget(std::uint64_t external_target_id, float position_x,
-                                 float position_y, float position_z, float velocity_x,
-                                 float velocity_y, float velocity_z, float rcs,
-                                 int swerling_type, std::string target_name) {
-  RadarSceneTarget target;
+ArSceneTarget MakeSceneTarget(std::uint64_t external_target_id, float position_x,
+                             float position_y, float position_z, float velocity_x,
+                             float velocity_y, float velocity_z, float rcs,
+                             int swerling_type, std::string target_name) {
+  ArSceneTarget target;
   target.external_target_id = external_target_id;
   target.target_name = std::move(target_name);
   target.velocity_x = velocity_x;
@@ -32,7 +32,7 @@ RadarSceneTarget MakeSceneTarget(std::uint64_t external_target_id, float positio
   return target;
 }
 
-void NormalizeSceneTargetGeometry(RadarSceneTarget* target) {
+void NormalizeSceneTargetGeometry(ArSceneTarget* target) {
   if (target == nullptr) {
     return;
   }
@@ -45,7 +45,7 @@ void NormalizeSceneTargetGeometry(RadarSceneTarget* target) {
   target->range_m = ComputeNorm3(target->position_x, target->position_y, target->position_z);
 }
 
-void NormalizeSceneTargetGeometry(RadarSceneTargetList* targets) {
+void NormalizeSceneTargetGeometry(ArSceneTargetList* targets) {
   if (targets == nullptr) {
     return;
   }

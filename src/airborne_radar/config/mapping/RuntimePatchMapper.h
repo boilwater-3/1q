@@ -6,9 +6,9 @@
 #ifndef AIRBORNE_RADAR_SRC_CONFIG_MAPPING_RUNTIME_PATCH_MAPPER_H_
 #define AIRBORNE_RADAR_SRC_CONFIG_MAPPING_RUNTIME_PATCH_MAPPER_H_
 
-#include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/config/RadarEnvironmentConfig.h"
+#include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
+#include "1q/airborne_radar/config/ArSessionConfig.h"
+#include "1q/airborne_radar/config/ArEnvironmentConfig.h"
 #include "airborne_radar/config/InternalExecutionConfig.h"
 
 namespace airborne_radar {

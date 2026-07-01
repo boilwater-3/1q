@@ -8,7 +8,7 @@
 
 #include <Eigen/Core>
 
-#include "1q/airborne_radar/session/RadarSceneTypes.h"
+#include "1q/airborne_radar/session/ArSceneTypes.h"
 
 namespace airborne_radar {
 namespace signal {
