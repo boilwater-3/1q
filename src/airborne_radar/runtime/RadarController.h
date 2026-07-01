@@ -19,7 +19,7 @@ namespace environment {
 class IEnvironmentService;
 }
 namespace session {
-class MutableRadarContext;
+class MutableArContext;
 }
 namespace session {
 class ITacticalDecisionEngine;
@@ -60,7 +60,7 @@ class RadarController {
    * @param[in] signal_pipeline 信号处理流水线引用。
    * @param[in] environment_service 环境服务引用。
    */
-  RadarController(session::MutableRadarContext& radar_context,
+  RadarController(session::MutableArContext& radar_context,
                   signal::ISignalPipeline& signal_pipeline,
                   environment::IEnvironmentService& environment_service);
 
@@ -71,7 +71,7 @@ class RadarController {
    * @param[in] decision_engine 战术决策引擎引用。
    * @param[in] environment_service 环境服务引用。
    */
-  RadarController(session::MutableRadarContext& radar_context,
+  RadarController(session::MutableArContext& radar_context,
                   signal::ISignalPipeline& signal_pipeline,
                   session::ITacticalDecisionEngine& decision_engine,
                   environment::IEnvironmentService& environment_service);

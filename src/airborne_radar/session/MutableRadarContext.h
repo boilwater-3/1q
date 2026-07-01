@@ -1,6 +1,6 @@
 /**
  * @file MutableRadarContext.h
- * @brief 定义面向外部接入的可变雷达上下文默认实现。
+ * @brief 定义面向外部接入的可变 AR 上下文默认实现。
  */
 
 #ifndef AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_RADAR_CONTEXT_H_
@@ -9,52 +9,52 @@
 #include <memory>
 #include <vector>
 
-#include "1q/airborne_radar/session/RadarCommand.h"
-#include "1q/airborne_radar/session/RadarControlProfile.h"
-#include "1q/airborne_radar/config/RadarOrientationConfig.h"
-#include "1q/airborne_radar/session/RadarCycleInput.h"
+#include "1q/airborne_radar/session/ArCommand.h"
+#include "1q/airborne_radar/session/ArControlProfile.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/foundation/pose_types.h"
 
 namespace airborne_radar {
 namespace session {
 
-struct RadarContextRuntimeState {
+struct ArContextRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
   std::shared_ptr<void> opaque{};
-  RadarSceneTargetList scene_targets{};
+  ArSceneTargetList scene_targets{};
   oneq::foundation::PoseState platform_pose{};
   float platform_altitude_m{0.0f};
   float cycle_dt_sec{1.0f};
   std::uint32_t cycle_index{0U};
-  std::vector<session::RadarCommand> submitted_commands{};
-  session::RadarControlProfile latest_control_profile{};
+  std::vector<session::ArCommand> submitted_commands{};
+  session::ArControlProfile latest_control_profile{};
   bool has_latest_control_profile{false};
 };
 
 /**
- * @brief 提供一个可直接驱动控制器的默认雷达上下文实现。
+ * @brief 提供一个可直接驱动控制器的默认 AR 上下文实现。
  */
-class MutableRadarContext final {
+class MutableArContext final {
  public:
   /**
    * @brief 默认构造函数。
    */
-  MutableRadarContext() = default;
-  explicit MutableRadarContext(RadarSceneTargetList scene_targets);
-  ~MutableRadarContext() = default;
+  MutableArContext() = default;
+  explicit MutableArContext(ArSceneTargetList scene_targets);
+  ~MutableArContext() = default;
 
   /**
    * @brief 以单周期输入刷新上下文，并清空本周期输出缓存。
    * @param input 单周期输入载荷。
    */
-  void BeginCycle(const RadarCycleInput& input);
+  void BeginCycle(const ArCycleInput& input);
 
   /**
    * @brief 更新当前周期场景目标列表。
    * @param scene_targets 新的场景目标列表。
    */
-  void SetSceneTargets(RadarSceneTargetList scene_targets);
+  void SetSceneTargets(ArSceneTargetList scene_targets);
 
   /**
    * @brief 更新当前平台姿态角。
@@ -84,9 +84,9 @@ class MutableRadarContext final {
    * @brief 获取本周期已提交的控制指令。
    * @return 当前周期命令缓存。
    */
-  const std::vector<session::RadarCommand>& GetSubmittedCommands() const;
+  const std::vector<session::ArCommand>& GetSubmittedCommands() const;
 
-  const std::vector<session::RadarCommand>& SubmittedCommands() const;
+  const std::vector<session::ArCommand>& SubmittedCommands() const;
 
   /**
    * @brief 判断是否已经收到过控制真值更新。
@@ -98,19 +98,19 @@ class MutableRadarContext final {
    * @brief 获取最近一次保存的控制真值。
    * @return 最近一次控制真值；若尚未更新则返回默认值。
    */
-  const session::RadarControlProfile& GetLatestControlProfile() const;
+  const session::ArControlProfile& GetLatestControlProfile() const;
 
-  const session::RadarControlProfile& LatestControlProfile() const;
+  const session::ArControlProfile& LatestControlProfile() const;
 
-  RadarContextRuntimeState CaptureRuntimeState() const;
+  ArContextRuntimeState CaptureRuntimeState() const;
 
-  void RestoreRuntimeState(const RadarContextRuntimeState& state);
+  void RestoreRuntimeState(const ArContextRuntimeState& state);
 
   /**
    * @brief 获取当前周期场景目标列表。
    * @return 当前周期场景目标列表只读引用。
    */
-  const RadarSceneTargetList& GetSceneTargets() const;
+  const ArSceneTargetList& GetSceneTargets() const;
 
   /**
    * @brief 获取当前平台姿态角。
@@ -135,26 +135,30 @@ class MutableRadarContext final {
    * @brief 记录控制器提交的单条控制指令。
    * @param cmd 控制指令。
    */
-  void SubmitControlCommand(session::RadarCommand cmd);
+  void SubmitControlCommand(session::ArCommand cmd);
 
   /**
    * @brief 保存最近一次控制真值。
    * @param profile 下一周期控制真值。
    */
-  void UpdateRadarControlProfile(const session::RadarControlProfile& profile);
+  void UpdateRadarControlProfile(const session::ArControlProfile& profile);
 
  private:
   struct RuntimeSnapshot;
 
-  std::shared_ptr<RadarSceneTargetList> scene_targets_{new RadarSceneTargetList()};
+  std::shared_ptr<ArSceneTargetList> scene_targets_{new ArSceneTargetList()};
   oneq::foundation::PoseState platform_pose_{};
   float platform_altitude_m_{0.0f};
   float cycle_dt_sec_{1.0f};
   std::uint32_t cycle_index_{0U};
-  std::vector<session::RadarCommand> submitted_commands_{};
-  session::RadarControlProfile latest_control_profile_{};
+  std::vector<session::ArCommand> submitted_commands_{};
+  session::ArControlProfile latest_control_profile_{};
   bool has_latest_control_profile_{false};
 };
+
+// 兼容别名：旧名称在 wrapper 阶段保留。
+using MutableRadarContext = MutableArContext;
+using RadarContextRuntimeState = ArContextRuntimeState;
 
 }  // namespace session
 }  // namespace airborne_radar

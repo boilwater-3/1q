@@ -5,21 +5,21 @@
 namespace airborne_radar {
 namespace session {
 
-struct MutableRadarContext::RuntimeSnapshot {
-  std::shared_ptr<RadarSceneTargetList> scene_targets;
+struct MutableArContext::RuntimeSnapshot {
+  std::shared_ptr<ArSceneTargetList> scene_targets;
   oneq::foundation::PoseState platform_pose{};
   float platform_altitude_m{0.0f};
   float cycle_dt_sec{1.0f};
   std::uint32_t cycle_index{0U};
-  std::vector<session::RadarCommand> submitted_commands{};
-  session::RadarControlProfile latest_control_profile{};
+  std::vector<session::ArCommand> submitted_commands{};
+  session::ArControlProfile latest_control_profile{};
   bool has_latest_control_profile{false};
 };
 
-MutableRadarContext::MutableRadarContext(RadarSceneTargetList scene_targets)
-    : scene_targets_(new RadarSceneTargetList(std::move(scene_targets))), cycle_index_(1U) {}
+MutableArContext::MutableArContext(ArSceneTargetList scene_targets)
+    : scene_targets_(new ArSceneTargetList(std::move(scene_targets))), cycle_index_(1U) {}
 
-void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
+void MutableArContext::BeginCycle(const ArCycleInput& input) {
   SetSceneTargets(input.scene);
   platform_pose_ = input.platform_pose;
   platform_altitude_m_ = input.platform_altitude_m;
@@ -28,44 +28,44 @@ void MutableRadarContext::BeginCycle(const RadarCycleInput& input) {
   ResetCycleOutputs();
 }
 
-void MutableRadarContext::SetSceneTargets(RadarSceneTargetList scene_targets) {
-  scene_targets_.reset(new RadarSceneTargetList(std::move(scene_targets)));
+void MutableArContext::SetSceneTargets(ArSceneTargetList scene_targets) {
+  scene_targets_.reset(new ArSceneTargetList(std::move(scene_targets)));
 }
 
-void MutableRadarContext::SetPlatformAttitude(
+void MutableArContext::SetPlatformAttitude(
     const config::PlatformAttitudeDeg& platform_attitude_deg) {
   platform_pose_.attitude_deg = platform_attitude_deg;
 }
 
-void MutableRadarContext::SetCycleDeltaTimeSec(float dt_sec) { cycle_dt_sec_ = dt_sec; }
+void MutableArContext::SetCycleDeltaTimeSec(float dt_sec) { cycle_dt_sec_ = dt_sec; }
 
-void MutableRadarContext::SetCycleIndex(std::uint32_t cycle_index) { cycle_index_ = cycle_index; }
+void MutableArContext::SetCycleIndex(std::uint32_t cycle_index) { cycle_index_ = cycle_index; }
 
-void MutableRadarContext::ResetCycleOutputs() { submitted_commands_.clear(); }
+void MutableArContext::ResetCycleOutputs() { submitted_commands_.clear(); }
 
-const std::vector<session::RadarCommand>& MutableRadarContext::GetSubmittedCommands()
+const std::vector<session::ArCommand>& MutableArContext::GetSubmittedCommands()
     const {
   return submitted_commands_;
 }
 
-bool MutableRadarContext::HasLatestControlProfile() const { return has_latest_control_profile_; }
+bool MutableArContext::HasLatestControlProfile() const { return has_latest_control_profile_; }
 
-const session::RadarControlProfile& MutableRadarContext::GetLatestControlProfile()
+const session::ArControlProfile& MutableArContext::GetLatestControlProfile()
     const {
   return latest_control_profile_;
 }
 
-const std::vector<session::RadarCommand>& MutableRadarContext::SubmittedCommands()
+const std::vector<session::ArCommand>& MutableArContext::SubmittedCommands()
     const {
   return submitted_commands_;
 }
 
-const session::RadarControlProfile& MutableRadarContext::LatestControlProfile() const {
+const session::ArControlProfile& MutableArContext::LatestControlProfile() const {
   return latest_control_profile_;
 }
 
-RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() const {
-  RadarContextRuntimeState state;
+ArContextRuntimeState MutableArContext::CaptureRuntimeState() const {
+  ArContextRuntimeState state;
   std::shared_ptr<RuntimeSnapshot> snapshot(new RuntimeSnapshot());
   snapshot->scene_targets = scene_targets_;
   snapshot->platform_pose = platform_pose_;
@@ -78,7 +78,7 @@ RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() const {
   state.owner_identity = this;
   state.schema_version = 1U;
   state.opaque = snapshot;
-  state.scene_targets = scene_targets_ != nullptr ? *scene_targets_ : RadarSceneTargetList();
+  state.scene_targets = scene_targets_ != nullptr ? *scene_targets_ : ArSceneTargetList();
   state.platform_pose = platform_pose_;
   state.platform_altitude_m = platform_altitude_m_;
   state.cycle_dt_sec = cycle_dt_sec_;
@@ -89,7 +89,7 @@ RadarContextRuntimeState MutableRadarContext::CaptureRuntimeState() const {
   return state;
 }
 
-void MutableRadarContext::RestoreRuntimeState(const RadarContextRuntimeState& state) {
+void MutableArContext::RestoreRuntimeState(const ArContextRuntimeState& state) {
   if (state.owner_identity == this && state.schema_version == 1U) {
     const std::shared_ptr<RuntimeSnapshot> snapshot =
         std::static_pointer_cast<RuntimeSnapshot>(state.opaque);
@@ -106,7 +106,7 @@ void MutableRadarContext::RestoreRuntimeState(const RadarContextRuntimeState& st
     }
   }
 
-  scene_targets_.reset(new RadarSceneTargetList(state.scene_targets));
+  scene_targets_.reset(new ArSceneTargetList(state.scene_targets));
   platform_pose_ = state.platform_pose;
   platform_altitude_m_ = state.platform_altitude_m;
   cycle_dt_sec_ = state.cycle_dt_sec;
@@ -116,27 +116,27 @@ void MutableRadarContext::RestoreRuntimeState(const RadarContextRuntimeState& st
   has_latest_control_profile_ = state.has_latest_control_profile;
 }
 
-const RadarSceneTargetList& MutableRadarContext::GetSceneTargets() const {
-  static const RadarSceneTargetList kEmptySceneTargets;
+const ArSceneTargetList& MutableArContext::GetSceneTargets() const {
+  static const ArSceneTargetList kEmptySceneTargets;
   return scene_targets_ != nullptr ? *scene_targets_ : kEmptySceneTargets;
 }
 
-config::PlatformAttitudeDeg MutableRadarContext::GetPlatformAttitude() const {
+config::PlatformAttitudeDeg MutableArContext::GetPlatformAttitude() const {
   return platform_pose_.attitude_deg;
 }
 
-float MutableRadarContext::GetPlatformAltitudeM() const { return platform_altitude_m_; }
+float MutableArContext::GetPlatformAltitudeM() const { return platform_altitude_m_; }
 
-float MutableRadarContext::GetCycleDeltaTimeSec() const { return cycle_dt_sec_; }
+float MutableArContext::GetCycleDeltaTimeSec() const { return cycle_dt_sec_; }
 
-std::uint32_t MutableRadarContext::GetCycleIndex() const { return cycle_index_; }
+std::uint32_t MutableArContext::GetCycleIndex() const { return cycle_index_; }
 
-void MutableRadarContext::SubmitControlCommand(session::RadarCommand cmd) {
+void MutableArContext::SubmitControlCommand(session::ArCommand cmd) {
   submitted_commands_.push_back(std::move(cmd));
 }
 
-void MutableRadarContext::UpdateRadarControlProfile(
-    const session::RadarControlProfile& profile) {
+void MutableArContext::UpdateRadarControlProfile(
+    const session::ArControlProfile& profile) {
   latest_control_profile_ = profile;
   has_latest_control_profile_ = true;
 }

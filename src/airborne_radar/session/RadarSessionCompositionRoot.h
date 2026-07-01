@@ -20,7 +20,7 @@ namespace environment {
 class IEnvironmentService;
 }
 namespace session {
-class MutableRadarContext;
+class MutableArContext;
 
 struct RadarSessionComposition {
   config::RadarHardwareConfig runtime_hardware{};
@@ -30,12 +30,12 @@ struct RadarSessionComposition {
   config::JammingSensitivityProfile runtime_jamming_sensitivity_profile{
       config::JammingSensitivityProfile::kBalanced};
 
-  std::unique_ptr<MutableRadarContext> owned_radar_context;
+  std::unique_ptr<MutableArContext> owned_radar_context;
   std::unique_ptr<signal::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::RadarController> owned_controller;
 
-  MutableRadarContext* radar_context{nullptr};
+  MutableArContext* radar_context{nullptr};
   signal::ISignalPipeline* signal_pipeline{nullptr};
   environment::IEnvironmentService* environment_service{nullptr};
   extension::RadarController* controller{nullptr};

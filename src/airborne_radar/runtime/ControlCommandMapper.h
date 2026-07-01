@@ -16,7 +16,7 @@ namespace decision {
 class ControlReducer;
 }  // namespace decision
 namespace session {
-class MutableRadarContext;
+class MutableArContext;
 }  // namespace session
 
 namespace extension {
@@ -37,7 +37,7 @@ class ControlCommandMapper {
    * @param radar_context    内部上下文，用于提交命令并更新 profile。
    */
   ControlCommandMapper(decision::ControlReducer& control_reducer,
-                       session::MutableRadarContext& radar_context);
+                       session::MutableArContext& radar_context);
 
   /**
    * @brief 执行归并和命令提交。
@@ -54,7 +54,7 @@ class ControlCommandMapper {
 
  private:
   decision::ControlReducer& control_reducer_;
-  session::MutableRadarContext& radar_context_;
+  session::MutableArContext& radar_context_;
 };
 
 }  // namespace extension
