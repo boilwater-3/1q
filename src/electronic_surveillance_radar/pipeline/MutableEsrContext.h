@@ -6,18 +6,20 @@
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_MUTABLE_ESR_CONTEXT_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_MUTABLE_ESR_CONTEXT_H_
 
-#include "electronic_surveillance_radar/pipeline/IEsrContext.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
 
 /**
- * @brief MutableEsrContext 提供一个可直接驱动流水线的默认上下文实现。
+ * @brief MutableEsrContext 提供一个可直接驱动流水线的周期上下文。
  */
-class MutableEsrContext final : public extension::IEsrContext {
+class MutableEsrContext final {
  public:
   MutableEsrContext() = default;
-  ~MutableEsrContext() override = default;
+  ~MutableEsrContext() = default;
 
   /**
    * @brief 使用周期输入和环境快照初始化上下文。
@@ -31,13 +33,13 @@ class MutableEsrContext final : public extension::IEsrContext {
                   const extension::InterceptPipelineConfig& pipeline_config,
                   const extension::InterceptRuntimeConfig& runtime_config);
 
-  std::uint32_t GetCycleIndex() const override;
-  float GetCycleDeltaTimeSec() const override;
-  const oneq::foundation::PoseState& GetPlatformPose() const override;
-  const session::EsrSceneEmitterList& GetSceneEmitters() const override;
-  const session::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const override;
-  const extension::InterceptPipelineConfig& GetPipelineConfig() const override;
-  const extension::InterceptRuntimeConfig& GetRuntimeConfig() const override;
+  std::uint32_t GetCycleIndex() const;
+  float GetCycleDeltaTimeSec() const;
+  const oneq::foundation::PoseState& GetPlatformPose() const;
+  const session::EsrSceneEmitterList& GetSceneEmitters() const;
+  const session::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const;
+  const extension::InterceptPipelineConfig& GetPipelineConfig() const;
+  const extension::InterceptRuntimeConfig& GetRuntimeConfig() const;
 
  private:
   std::uint32_t cycle_index_{0U};

@@ -13,10 +13,10 @@
 #include <cstdint>
 #include <vector>
 
-#include "electronic_surveillance_radar/pipeline/IEsrContext.h"
-#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/KdTreeClusterer.h"
+#include "electronic_surveillance_radar/pipeline/MutableEsrContext.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPreprocessor.h"
 
@@ -48,7 +48,7 @@ class InterceptPostProcessingExecutor {
    * @return 单周期流水线输出。
    */
   extension::InterceptPipelineResult Execute(const std::vector<RawObservationRecord>& raw_records,
-                                             const extension::IEsrContext& ctx,
+                                             const MutableEsrContext& ctx,
                                              ObservationPreprocessor& preprocessor,
                                              KdTreeClusterer& clusterer,
                                              HypothesisAssociator& associator,

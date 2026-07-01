@@ -302,7 +302,7 @@ flowchart TB
 | 扫描和波束控制 | `ScanScheduleResolver`、`BeamControlResolver`、orientation utils | 解析扫描中心、安装/机体/平台坐标、波束增益和波束宽度 | `ar_signal_scan_schedule_test`、`ar_orientation_utils_test`、`ar_antenna_pattern_utils_test` |
 | 探测执行 | `RunHeuristicDetectionPass`、`RunPhysicalDetectionPass`、`SignalDetector` | 生成探测成功标志、SNR/margin、量测协方差 | `ar_signal_detection_test`、`ar_signal_pipeline_test` |
 | RCS 与大气物理 | `ComputeEffectiveTargetRcsM2`、`ComputeTargetSpecificAtmosphericLossDb` | 可选物理 RCS、大气传播损失、目标相关损失修正 | `ar_rcs_physics_test`、`ar_atmosphere_physics_test` |
-| 数据关联 | `DataAssociationEngine`、`Hypothesiser`、`LapjvSolver` | 基于位置量测、协方差和 track seeds 进行 assignment | `ar_signal_association_test`、`ar_lapjv_solver_test` |
+| 数据关联 | `DataAssociationEngine`、`DenseCostHypothesiser`、`LapjvSolver` | 默认生产路径；基于位置量测、协方差和 track seeds 进行 assignment | `ar_signal_association_test`、`ar_lapjv_solver_test` |
 | 航迹过滤与生命周期 | `TrackFilter`、`TrackLifecycleManager`、Kalman/EKF/UDKF/SRIF/IMM | 更新航迹、处理 missed detection、确认/丢失/回收 | `ar_track_filter_test`、`ar_track_lifecycle_test`、`ar_advanced_filter_test` |
 | 决策帧构造 | `DecisionFrameBuilders` | 汇总 tracks、感知质量、关联质量、ECCM source info | `ar_core_controller_test`、`ar_signal_pipeline_test` |
 | 战术协调 | `TacticalCoordinator` | 威胁评估、LPI、ECCM、关联压力补触发、状态清理 | `ar_decision_layer_test`、`ar_tactical_coordinator_test` |
@@ -393,10 +393,14 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 
 1. 过滤未探测目标和缺失位置量测的目标。
 2. 基于外部/lifecycle seeds 预测先验 track。
-3. 使用 Mahalanobis 距离和量测协方差生成关联假设。
+3. 使用 `FullMahalanobisDistanceMetric`、`DenseCostHypothesiser` 和量测协方差生成关联假设。
 4. 构造方阵代价矩阵，使用 LAPJV assignment。
 5. 小于等于 unassigned cost 的匹配复用原 track key，其余生成新 track key。
 6. 计算 association quality metrics：prior、detection、matched、new、missed、match rate、new track rate、missed track rate、mean/p95 match cost。
+
+当前 association 不是 public 算法族扩展点。生产链路只有一条默认路径：`FullMahalanobisDistanceMetric` + `DenseCostHypothesiser` + `LapjvSolver`，没有 factory、runtime config 选择或用户可替换接口。`MahalanobisDistanceMetric` 等保留的具体类用于局部测试和算法对比，不代表已接入第二条生产实现。
+
+只有当未来出现至少两个已接入生产路径、具备测试覆盖且语义稳定的 association 实现时，才允许新增用户可见配置来选择算法；在此之前，新增配置项不得只为“可能扩展”而暴露内部类或抽象基类。
 
 航迹层进一步处理 confirmed/lost/recycled 状态：
 
@@ -459,6 +463,7 @@ controller 在一个周期开始时把当前 control profile 传给 signal pipel
 
 - 不恢复宽 public customization surface。
 - 不把 `EnvironmentService`、`SignalPipeline`、`RadarController`、`MutableRadarContext`、tracking lifecycle 或 foundation 工程算法暴露为用户可替换 API。
+- 不把单一默认 association 路径包装成 public algorithm family；只有存在多个生产实现时，才通过受控配置暴露选择。
 - 不把测试 mock 便利接口升级为 public SPI。
 - 不让外部 decision engine 绕过内部 control reducer 和 command mapper。
 - 不把 debug/lifecycle/replay 字段混入系统输出语义。

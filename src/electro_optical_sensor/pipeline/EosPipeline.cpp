@@ -2,9 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <memory>
 
-#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/ClampUtils.h"
 #include "electro_optical_sensor/environment/EosEnvironmentModel.h"
@@ -12,6 +10,7 @@
 #include "electro_optical_sensor/foundation/EosOpticalCharacteristics.h"
 #include "electro_optical_sensor/foundation/EosPhysicalConstants.h"
 #include "electro_optical_sensor/foundation/EosPropagation.h"
+#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 #include "electro_optical_sensor/foundation/EosRadiometry.h"
 #include "electro_optical_sensor/foundation/EosSpatialSpectrum.h"
 #include "electro_optical_sensor/foundation/EosStrayLight.h"
@@ -39,14 +38,6 @@ struct FrameContext {
 };
 
 namespace {
-
-class DefaultEosEnvironmentService final : public environment::IEosEnvironmentService {
- public:
-  session::EosEnvironmentModelResult ResolveFactors(
-      const session::EosEnvironmentModelInputs& inputs) const override {
-    return environment::ResolveEnvironmentFactors(inputs);
-  }
-};
 
 bool WorkModeIncludesInfrared(EosPipelineWorkMode mode) {
   return mode == EosPipelineWorkMode::kInfraredOnly || mode == EosPipelineWorkMode::kFused;
@@ -362,9 +353,7 @@ bool IsCompatiblePipelineRuntimeState(const extension::EosPipelineRuntimeState& 
 }  // namespace
 
 EosPipeline::EosPipeline(const config::execution::EosInternalExecutionConfig& config)
-    : config_(config),
-      current_scan_azimuth_deg_(config.scan.scan_start_az_deg),
-      environment_service_(new DefaultEosEnvironmentService()) {}
+    : config_(config), current_scan_azimuth_deg_(config.scan.scan_start_az_deg) {}
 
 void EosPipeline::ApplyInternalConfig(const config::execution::EosInternalExecutionConfig& config,
                                       bool reset_scan_phase) {
@@ -524,7 +513,7 @@ FrameContext EosPipeline::BuildFrameContext(
   env_inputs.wind_speed_mps = std::max(0.0f, input.environment.ambient_wind_speed_mps);
   env_inputs.has_atmospheric_observation = config_.environment.has_atmospheric_observation;
   env_inputs.atmospheric_observation = config_.environment.atmospheric_observation;
-  frame.environment_result = environment_service_->ResolveFactors(env_inputs);
+  frame.environment_result = environment::ResolveEnvironmentFactors(env_inputs);
 
   return frame;
 }

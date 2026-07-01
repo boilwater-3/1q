@@ -20,7 +20,7 @@ namespace pipeline {
 /**
  * @brief SignalPipeline 提供可配置的信号处理默认实现。
  */
-class SignalPipeline final : public extension::ISignalPipeline {
+class SignalPipeline final : public ISignalPipeline {
  public:
   /**
    * @brief 构造信号处理流水线。
@@ -44,9 +44,8 @@ class SignalPipeline final : public extension::ISignalPipeline {
    * @param environment 当前环境服务。
    * @return 当前周期的信号处理输出。
    */
-  session::SignalCycleResult RunCycle(
-      const session::RadarSceneTargetList& scene_targets,
-      const environment::IEnvironmentService& environment) override;
+  session::SignalCycleResult RunCycle(const session::RadarSceneTargetList& scene_targets,
+                                      const environment::IEnvironmentService& environment) override;
 
   /**
    * @brief 获取上一周期生成的跟踪量测列表。
@@ -60,9 +59,9 @@ class SignalPipeline final : public extension::ISignalPipeline {
    */
   session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const override;
 
-  extension::SignalPipelineRuntimeState CaptureRuntimeState() const override;
+  SignalPipelineRuntimeState CaptureRuntimeState() const override;
 
-  void RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) override;
+  void RestoreRuntimeState(const SignalPipelineRuntimeState& state) override;
 
   /**
    * @brief 进入 manual association seed override 模式。

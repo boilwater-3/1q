@@ -37,7 +37,7 @@ Authority: current electro_optical_sensor module design
 |---|---|---|
 | `config/` | 内部执行配置 | `EosInternalExecutionConfig` |
 | `foundation/` | 光学、传播、辐射、噪声、空间频谱、杂散光基础算法 | `ComputePlanckRadiance`、`EvaluateRadiativeTransfer`、`ComputeBackgroundNoiseStatistics`、`EvaluateSpatialResolvability` |
-| `environment/` | 环境模型和环境 service | `ResolveEnvironmentFactors` |
+| `environment/` | 环境模型 | `ResolveEnvironmentFactors` |
 | `pipeline/` | 红外/可见光/fused 探测流水线 | `EosPipeline`、`FrameContext`、`DetectionComputationContext` |
 | `runtime/` | controller、config mapper、runtime config resolver | `EosController`、`MapSessionToInternal`、`ResolveEosRuntimeConfigPatch` |
 | `session/` | public session 装配、输入输出适配、trace/replay、debug/lifecycle | `EosSessionCompositionRoot`、`EosCycleOutputAdapter`、`EosReplayFlatbufferCodec` |
@@ -118,7 +118,7 @@ flowchart TB
 读图顺序：
 
 1. 外部只从 Public API 进入，不直接构造 `EosPipeline` 或 foundation 类型。
-2. `EosSessionCompositionRoot` 负责默认依赖图；当前没有用户替换 controller/pipeline/environment service 的 public API。
+2. `EosSessionCompositionRoot` 负责默认依赖图；当前没有用户替换 controller、pipeline 或环境模型的 public API。
 3. `EosController` 处理输入校验、运行期状态、失败输出复用和周期执行。
 4. `EosPipeline` 把一个周期拆成帧级上下文和目标级上下文，再运行红外、可见光和融合逻辑。
 5. foundation 算法是内部可测试实现，不是模块间契约。
@@ -397,7 +397,7 @@ pipeline 先得到红外 SNR 和可见光 SNR，再依据工作模式生成最�
 
 ## 3. 非目标与边界
 
-- 不暴露用户自定义 pipeline、controller、environment service 或 foundation algorithm 类型。
+- 不暴露用户自定义 pipeline、controller、环境模型或 foundation algorithm 类型。
 - 不把仿真目标 ID/name 混入 `EosOutputFrame` 的 raw detection。
 - 不把 debug view、lifecycle 或 replay 当作真实传感器输出。
 - 不把环境 preset 简化为无语义 flat 参数；preset 到物理参数的映射是设计内容。

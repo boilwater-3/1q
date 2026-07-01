@@ -1,6 +1,6 @@
 /**
  * @file ISignalPipeline.h
- * @brief 信号处理流水线抽象接口（内部实现细节，不对外暴露）。
+ * @brief 信号处理流水线内部端口（内部实现细节，不对外暴露）。
  */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_
@@ -9,10 +9,10 @@
 #include <cstdint>
 #include <memory>
 
-#include "1q/airborne_radar/config/RadarSessionConfig.h"
-#include "1q/airborne_radar/session/RadarOutputTypes.h"
-#include "1q/airborne_radar/session/RadarControlProfile.h"
 #include "1q/airborne_radar/config/RadarOrientationConfig.h"
+#include "1q/airborne_radar/config/RadarSessionConfig.h"
+#include "1q/airborne_radar/session/RadarControlProfile.h"
+#include "1q/airborne_radar/session/RadarOutputTypes.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
 
@@ -20,7 +20,7 @@ namespace airborne_radar {
 namespace environment {
 class IEnvironmentService;
 }
-namespace extension {
+namespace signal {
 
 using session::AssociationQualityMetrics;
 using session::SignalCycleAbortReason;
@@ -33,7 +33,7 @@ struct SignalPipelineRuntimeState {
 };
 
 /**
- * @brief ISignalPipeline 定义单周期内的探测与跟踪处理流程。
+ * @brief ISignalPipeline 定义单周期内的探测与跟踪处理内部端口。
  */
 class ISignalPipeline {
  public:
@@ -77,8 +77,7 @@ class ISignalPipeline {
    * @brief 设置下一周期生效的控制真值。
    * @param[in] control_profile 控制真值。
    */
-  virtual void SetControlProfile(
-      const session::RadarControlProfile& control_profile) = 0;
+  virtual void SetControlProfile(const session::RadarControlProfile& control_profile) = 0;
 
   /**
    * @brief 获取当前缓存的控制真值。
@@ -102,8 +101,8 @@ class ISignalPipeline {
   /**
    * @brief 捕获当前 pipeline 运行态快照。
    * @return 可用于失败回滚的 pipeline 运行态快照。
-   * @note 当该接口被注入 `RadarSession` / `RadarController` 使用时，快照必须完整覆盖会影响
-   *       后续周期行为的运行态；失败周期会依赖该快照执行无损回滚。
+   * @note 该内部端口用于控制器失败路径和回滚测试；快照必须完整覆盖会影响后续周期行为的
+   *       运行态，失败周期会依赖该快照执行无损回滚。
    */
   virtual SignalPipelineRuntimeState CaptureRuntimeState() const = 0;
 
@@ -116,7 +115,7 @@ class ISignalPipeline {
   virtual void RestoreRuntimeState(const SignalPipelineRuntimeState& state) = 0;
 };
 
-}  // namespace extension
+}  // namespace signal
 }  // namespace airborne_radar
 
 #endif  // AIRBORNE_RADAR_SIGNAL_PIPELINE_I_SIGNAL_PIPELINE_H_

@@ -26,8 +26,7 @@ namespace {
  * @return 置信度，范围 [0, 1]。
  */
 double ComputeObservationConfidence(double snr_db, bool is_jammed) {
-  const float snr_score = utils::Clamp01(
-      static_cast<float>((snr_db + 5.0) / 30.0));
+  const float snr_score = utils::Clamp01(static_cast<float>((snr_db + 5.0) / 30.0));
   const float jam_penalty = is_jammed ? 0.75f : 1.0f;
   return static_cast<double>(utils::Clamp01(snr_score * jam_penalty));
 }
@@ -62,10 +61,10 @@ double ComputeStandardDeviation(const std::vector<double>& values) {
  * @param[in] spectral_config 频谱配置。
  * @param[out] summary 簇摘要。
  */
-void PopulateClusterSpectralSummary(const std::vector<std::size_t>& cluster_indices,
-                                    const std::vector<RawObservationRecord>& records,
-                                    const extension::InterceptSpectralAnalysisConfig& spectral_config,
-                                    ClusterSummary* summary) {
+void PopulateClusterSpectralSummary(
+    const std::vector<std::size_t>& cluster_indices,
+    const std::vector<RawObservationRecord>& records,
+    const extension::InterceptSpectralAnalysisConfig& spectral_config, ClusterSummary* summary) {
   if (summary == nullptr || !spectral_config.enable) {
     return;
   }
@@ -221,8 +220,9 @@ ClusterSummary BuildClusterSummary(
   }
   summary.deception_support_ratio = static_cast<float>(deception_affected_count) * inv_count;
   summary.false_alarm_ratio = static_cast<float>(false_alarm_count) * inv_count;
-  const float deception_penalty = 1.0f - utils::Clamp01(deception_config.cluster_confidence_penalty_scale *
-                                                 summary.deception_support_ratio);
+  const float deception_penalty =
+      1.0f - utils::Clamp01(deception_config.cluster_confidence_penalty_scale *
+                            summary.deception_support_ratio);
   summary.confidence_score = utils::Clamp01(
       static_cast<float>(confidence_acc * inv_count_d * static_cast<double>(deception_penalty)));
   summary.representative_index = representative;
@@ -233,7 +233,7 @@ ClusterSummary BuildClusterSummary(
 }  // namespace
 
 extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
-    const std::vector<RawObservationRecord>& raw_records, const extension::IEsrContext& ctx,
+    const std::vector<RawObservationRecord>& raw_records, const MutableEsrContext& ctx,
     ObservationPreprocessor& preprocessor, KdTreeClusterer& clusterer,
     HypothesisAssociator& associator, const ObservationFeatureScales& feature_scales,
     std::uint64_t& next_hypothesis_id) {
@@ -245,8 +245,8 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
   // Preprocess
   const std::vector<RawObservationRecord> records =
       preprocessor.Run(raw_records, config.preprocess);
-  PROJECT_LOG_DEBUG("[InterceptPostProcess] raw={} preprocessed={}",
-                    raw_records.size(), records.size());
+  PROJECT_LOG_DEBUG("[InterceptPostProcess] raw={} preprocessed={}", raw_records.size(),
+                    records.size());
 
   // Extract observations & truth evaluation (merged single pass)
   result.observation_output.observations.reserve(records.size());
@@ -259,11 +259,10 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
     association.observation_id = records[i].observation.observation_id;
     association.truth_emitter_id = records[i].truth_emitter_id;
     association.matched = records[i].matched_truth && records[i].truth_emitter_id != 0U;
-    association.confidence = association.matched
-                                 ? static_cast<float>(ComputeObservationConfidence(
-                                       records[i].observation.snr_db,
-                                       records[i].observation.is_jammed))
-                                 : 0.1f;
+    association.confidence =
+        association.matched ? static_cast<float>(ComputeObservationConfidence(
+                                  records[i].observation.snr_db, records[i].observation.is_jammed))
+                            : 0.1f;
     result.truth_evaluation_output.associations.push_back(association);
     if (association.matched) {
       observed_truth_ids.insert(records[i].truth_emitter_id);

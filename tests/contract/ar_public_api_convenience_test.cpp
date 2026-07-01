@@ -14,7 +14,6 @@
 #include "1q/airborne_radar/config/RadarRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
-#include "airborne_radar/runtime/RadarController.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarExternalInputAdapter.h"
 #include "1q/airborne_radar/session/RadarInputValidation.h"
@@ -22,6 +21,7 @@
 #include "1q/airborne_radar/session/RadarSession.h"
 #include "1q/coordinate/position_transform.h"
 #include "airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/runtime/RadarController.h"
 #include "airborne_radar/session/MutableRadarContext.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "common/geometry/GeometryTransform.h"
@@ -210,9 +210,10 @@ bool ContainsIssueCode(const std::vector<session::ValidationIssue>& issues,
 }
 
 session::TrackStateSnapshot MakeTrackStateSnapshot(float velocity_x, float velocity_y,
-                                                 float velocity_z, float rcs, bool jamming_detected,
-                                                 std::uint64_t external_target_id,
-                                                 std::uint64_t association_key) {
+                                                   float velocity_z, float rcs,
+                                                   bool jamming_detected,
+                                                   std::uint64_t external_target_id,
+                                                   std::uint64_t association_key) {
   session::TrackStateSnapshot track;
   track.velocity_x = velocity_x;
   track.velocity_y = velocity_y;
@@ -244,12 +245,12 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
       source.technique = emitter.technique;
       source.power_db = emitter.power_db;
       source.js_db = emitter.js_db;
-      source.has_direction_deg =
-          std::isfinite(emitter.position_x) && std::isfinite(emitter.position_y) &&
-          std::isfinite(emitter.position_z);
+      source.has_direction_deg = std::isfinite(emitter.position_x) &&
+                                 std::isfinite(emitter.position_y) &&
+                                 std::isfinite(emitter.position_z);
       if (source.has_direction_deg) {
-        const float ground_range =
-            std::sqrt(emitter.position_x * emitter.position_x + emitter.position_y * emitter.position_y);
+        const float ground_range = std::sqrt(emitter.position_x * emitter.position_x +
+                                             emitter.position_y * emitter.position_y);
         source.direction_deg.azimuth_deg =
             std::atan2(emitter.position_x, emitter.position_y) * 180.0f / 3.14159265358979f;
         source.direction_deg.elevation_deg =
@@ -321,7 +322,7 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
   std::size_t set_sensitivity_count_{0U};
 };
 
-class RecordingSignalPipeline : public extension::ISignalPipeline {
+class RecordingSignalPipeline : public signal::ISignalPipeline {
  public:
   session::SignalCycleResult RunCycle(
       const session::RadarSceneTargetList& input_state,
@@ -341,15 +342,15 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     platform_attitude_deg_ = platform_attitude_deg;
   }
 
-  config::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_deg_; }
+  config::PlatformAttitudeDeg GetPlatformAttitude() const override {
+    return platform_attitude_deg_;
+  }
 
   void SetControlProfile(const session::RadarControlProfile& control_profile) override {
     control_profile_ = control_profile;
   }
 
-  session::RadarControlProfile GetControlProfile() const override {
-    return control_profile_;
-  }
+  session::RadarControlProfile GetControlProfile() const override { return control_profile_; }
 
   bool UpdateConfig(const config::RadarSessionConfig& config) override {
     ++update_config_count_;
@@ -364,7 +365,7 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     return {};
   }
 
-  extension::SignalPipelineRuntimeState CaptureRuntimeState() const override {
+  signal::SignalPipelineRuntimeState CaptureRuntimeState() const override {
     std::shared_ptr<RuntimeState> state(new RuntimeState());
     state->platform_attitude_deg = platform_attitude_deg_;
     state->control_profile = control_profile_;
@@ -373,14 +374,14 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
     state->should_accept_updates = should_accept_updates_;
     state->run_cycle_count = run_cycle_count_;
     state->update_config_count = update_config_count_;
-    extension::SignalPipelineRuntimeState runtime_state;
+    signal::SignalPipelineRuntimeState runtime_state;
     runtime_state.owner_identity = this;
     runtime_state.schema_version = 1U;
     runtime_state.opaque = state;
     return runtime_state;
   }
 
-  void RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) override {
+  void RestoreRuntimeState(const signal::SignalPipelineRuntimeState& state) override {
     if (state.owner_identity != this || state.schema_version != 1U) {
       return;
     }
@@ -429,7 +430,7 @@ class RecordingSignalPipeline : public extension::ISignalPipeline {
 class NoopDecisionEngine : public session::ITacticalDecisionEngine {
  public:
   session::TacticalDecisionResult Evaluate(const session::DecisionInputFrame& input_frame,
-                                             session::TacticalStateStore& state_store) override {
+                                           session::TacticalStateStore& state_store) override {
     (void)input_frame;
     (void)state_store;
     return {};
@@ -452,9 +453,8 @@ TEST(PublicApiConvenienceTest, MutableRadarContextBeginsCycleAndResetsPerCycleCo
   EXPECT_NEAR(context.GetCycleDeltaTimeSec(), 0.5f, 1e-5f);
   EXPECT_TRUE(context.GetSubmittedCommands().empty());
 
-  context.SubmitControlCommand(
-      session::RadarCommand(session::RadarCommandType::SET_AGILITY_FREQ,
-                                       session::RadarCommandSource::ECCM));
+  context.SubmitControlCommand(session::RadarCommand(session::RadarCommandType::SET_AGILITY_FREQ,
+                                                     session::RadarCommandSource::ECCM));
   session::RadarControlProfile profile;
   profile.enable_agility_frequency = true;
   profile.version = 4U;
@@ -721,8 +721,7 @@ TEST(PublicApiConvenienceTest, TwoStepApiPlatformPoseFeedsDirectlyIntoCycleInput
 }
 
 TEST(PublicApiConvenienceTest, EnvironmentSceneStateDefaults) {
-  const session::EnvironmentSceneState built_scene =
-      session::EnvironmentSceneState{};
+  const session::EnvironmentSceneState built_scene = session::EnvironmentSceneState{};
   const session::EnvironmentSceneState default_scene;
 
   EXPECT_EQ(built_scene.atmospheric_physics.enable_physical_model,
@@ -735,9 +734,9 @@ TEST(PublicApiConvenienceTest, JammerSceneConstructionPopulatesTypedEmitters) {
   noise_emitter_1.technique = config::JammingTechnique::kNoiseSuppression;
   noise_emitter_1.power_db = 11.0f;
   noise_emitter_1.js_db = 8.0f;
-  noise_emitter_1.position_x = 2079.12f;   // range 10000m * sin(12 deg)
-  noise_emitter_1.position_y = 9781.48f;   // range 10000m * cos(12 deg)
-  noise_emitter_1.position_z = 174.55f;    // range 10000m * tan(1 deg)
+  noise_emitter_1.position_x = 2079.12f;  // range 10000m * sin(12 deg)
+  noise_emitter_1.position_y = 9781.48f;  // range 10000m * cos(12 deg)
+  noise_emitter_1.position_z = 174.55f;   // range 10000m * tan(1 deg)
   noise_emitter_1.angular_span_deg = 5.0f;
   noise_emitter_1.confidence = 0.9f;
 
@@ -746,8 +745,8 @@ TEST(PublicApiConvenienceTest, JammerSceneConstructionPopulatesTypedEmitters) {
   deception_emitter.power_db = 9.0f;
   deception_emitter.js_db = 7.5f;
   deception_emitter.position_x = -1391.73f;  // range 10000m * sin(-8 deg)
-  deception_emitter.position_y = 9902.68f;    // range 10000m * cos(-8 deg)
-  deception_emitter.position_z = 436.609f;    // range 10000m * tan(2.5 deg)
+  deception_emitter.position_y = 9902.68f;   // range 10000m * cos(-8 deg)
+  deception_emitter.position_z = 436.609f;   // range 10000m * tan(2.5 deg)
   deception_emitter.angular_span_deg = 3.0f;
   deception_emitter.confidence = 0.8f;
 
@@ -755,9 +754,9 @@ TEST(PublicApiConvenienceTest, JammerSceneConstructionPopulatesTypedEmitters) {
   repeater_emitter.technique = config::JammingTechnique::kRepeater;
   repeater_emitter.power_db = 8.5f;
   repeater_emitter.js_db = 6.5f;
-  repeater_emitter.position_x = 697.56f;    // range 10000m * sin(4 deg)
-  repeater_emitter.position_y = 9975.64f;   // range 10000m * cos(4 deg)
-  repeater_emitter.position_z = -174.55f;   // range 10000m * tan(-1 deg)
+  repeater_emitter.position_x = 697.56f;   // range 10000m * sin(4 deg)
+  repeater_emitter.position_y = 9975.64f;  // range 10000m * cos(4 deg)
+  repeater_emitter.position_z = -174.55f;  // range 10000m * tan(-1 deg)
   repeater_emitter.angular_span_deg = 2.0f;
   repeater_emitter.confidence = 0.7f;
 
@@ -806,7 +805,8 @@ TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportAssociationKeyStatusAndJ
   session::TrackStateSnapshot confirmed =
       MakeTrackStateSnapshot(20.0f, 0.0f, 0.0f, 1.0f, false, 410U, 11U);
   confirmed.status = session::TrackStatus::kConfirmed;
-  session::TrackStateSnapshot lost = MakeTrackStateSnapshot(5.0f, 0.0f, 0.0f, 0.8f, false, 411U, 12U);
+  session::TrackStateSnapshot lost =
+      MakeTrackStateSnapshot(5.0f, 0.0f, 0.0f, 0.8f, false, 411U, 12U);
   lost.status = session::TrackStatus::kLost;
   session::TrackStateSnapshot jammed =
       MakeTrackStateSnapshot(18.0f, 0.0f, 0.0f, 1.2f, true, 412U, 13U);
@@ -886,8 +886,7 @@ TEST(PublicApiConvenienceTest, DefaultSessionConfigUsesLifecycleManagedTracks) {
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInterference) {
-  session::RadarSession session =
-      session::RadarSession::Create(MakeConvenienceSessionConfig());
+  session::RadarSession session = session::RadarSession::Create(MakeConvenienceSessionConfig());
   const session::RadarCycleInput input = MakeCycleInput(session::RadarSceneTargetList{
       model::MakeGroundTarget(501U, 25.0f, -5.0f, 0.7f),
       model::MakeAirTarget(502U, 150.0f, 6.0f, 18.0f, 72.0f, 1.0f, 0.0f, 1.0f),
@@ -922,13 +921,17 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   noise_emitter_2.technique = config::JammingTechnique::kNoiseSuppression;
   noise_emitter_2.power_db = 12.0f;
   noise_emitter_2.js_db = 8.0f;
-  noise_emitter_2.position_x = 3420.20f;   // range 10000m * sin(20 deg)
-  noise_emitter_2.position_y = 9396.93f;   // range 10000m * cos(20 deg)
-  noise_emitter_2.position_z = 174.55f;    // range 10000m * tan(1 deg)
+  noise_emitter_2.position_x = 3420.20f;  // range 10000m * sin(20 deg)
+  noise_emitter_2.position_y = 9396.93f;  // range 10000m * cos(20 deg)
+  noise_emitter_2.position_z = 174.55f;   // range 10000m * tan(1 deg)
   noise_emitter_2.angular_span_deg = 10.0f;
 
-  const session::EnvironmentSceneState scene =
-      [&] { session::EnvironmentSceneState s; s.jammer_emitters.push_back(noise_emitter_2); s.jammer_emitters.back().technique = config::JammingTechnique::kNoiseSuppression; return s; }();
+  const session::EnvironmentSceneState scene = [&] {
+    session::EnvironmentSceneState s;
+    s.jammer_emitters.push_back(noise_emitter_2);
+    s.jammer_emitters.back().technique = config::JammingTechnique::kNoiseSuppression;
+    return s;
+  }();
 
   session::RadarCycleInput session_input = input;
   ApplySceneStateToCycleInput(scene, &session_input);
@@ -973,8 +976,7 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
 
 TEST(PublicApiConvenienceTest,
      RadarSessionRejectsDuplicateIdsAndRetainsPreviousOutputAcrossInvalidCycles) {
-  session::RadarSession session =
-      session::RadarSession::Create(MakeConvenienceSessionConfig());
+  session::RadarSession session = session::RadarSession::Create(MakeConvenienceSessionConfig());
 
   session::RadarCycleInput cycle_1 = MakeCycleInput(
       session::RadarSceneTargetList{
@@ -1019,13 +1021,17 @@ TEST(PublicApiConvenienceTest,
   noise_emitter_3.technique = config::JammingTechnique::kNoiseSuppression;
   noise_emitter_3.power_db = 12.0f;
   noise_emitter_3.js_db = 8.0f;
-  noise_emitter_3.position_x = 3420.20f;   // range 10000m * sin(20 deg)
-  noise_emitter_3.position_y = 9396.93f;   // range 10000m * cos(20 deg)
-  noise_emitter_3.position_z = 174.55f;    // range 10000m * tan(1 deg)
+  noise_emitter_3.position_x = 3420.20f;  // range 10000m * sin(20 deg)
+  noise_emitter_3.position_y = 9396.93f;  // range 10000m * cos(20 deg)
+  noise_emitter_3.position_z = 174.55f;   // range 10000m * tan(1 deg)
   noise_emitter_3.angular_span_deg = 10.0f;
 
-  const session::EnvironmentSceneState noise_scene =
-      [&] { session::EnvironmentSceneState s; s.jammer_emitters.push_back(noise_emitter_3); s.jammer_emitters.back().technique = config::JammingTechnique::kNoiseSuppression; return s; }();
+  const session::EnvironmentSceneState noise_scene = [&] {
+    session::EnvironmentSceneState s;
+    s.jammer_emitters.push_back(noise_emitter_3);
+    s.jammer_emitters.back().technique = config::JammingTechnique::kNoiseSuppression;
+    return s;
+  }();
   ApplySceneStateToCycleInput(noise_scene, &cycle_2);
   const session::RadarCycleResult result_2 = session.StepWithResult(cycle_2);
   const session::TrackOutputFrame& frame_2 = result_2.track_output_frame;
@@ -1048,8 +1054,7 @@ TEST(PublicApiConvenienceTest,
   cycle_3.dt_sec = 1.0f;
   cycle_3.scene[1].external_target_id = 703U;
   cycle_3.scene[2].external_target_id = 704U;
-  const session::EnvironmentSceneState clear_scene =
-      session::EnvironmentSceneState{};
+  const session::EnvironmentSceneState clear_scene = session::EnvironmentSceneState{};
   ApplySceneStateToCycleInput(clear_scene, &cycle_3);
   const session::TrackOutputFrame frame_3 = session.Step(cycle_3);
   EXPECT_GT(frame_3.tracks.size(), 0U);
@@ -1059,8 +1064,7 @@ TEST(PublicApiConvenienceTest,
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationErrors) {
-  session::RadarSession session =
-      session::RadarSession::Create(MakeConvenienceSessionConfig());
+  session::RadarSession session = session::RadarSession::Create(MakeConvenienceSessionConfig());
 
   session::RadarCycleInput input;
   input.cycle_index = 88U;
@@ -1103,13 +1107,17 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   noise_emitter_5.technique = config::JammingTechnique::kNoiseSuppression;
   noise_emitter_5.power_db = 12.0f;
   noise_emitter_5.js_db = 8.0f;
-  noise_emitter_5.position_x = 3420.20f;   // range 10000m * sin(20 deg)
-  noise_emitter_5.position_y = 9396.93f;   // range 10000m * cos(20 deg)
-  noise_emitter_5.position_z = 174.55f;    // range 10000m * tan(1 deg)
+  noise_emitter_5.position_x = 3420.20f;  // range 10000m * sin(20 deg)
+  noise_emitter_5.position_y = 9396.93f;  // range 10000m * cos(20 deg)
+  noise_emitter_5.position_z = 174.55f;   // range 10000m * tan(1 deg)
   noise_emitter_5.angular_span_deg = 10.0f;
 
-  const session::EnvironmentSceneState scene =
-      [&] { session::EnvironmentSceneState s; s.jammer_emitters.push_back(noise_emitter_5); s.jammer_emitters.back().technique = config::JammingTechnique::kNoiseSuppression; return s; }();
+  const session::EnvironmentSceneState scene = [&] {
+    session::EnvironmentSceneState s;
+    s.jammer_emitters.push_back(noise_emitter_5);
+    s.jammer_emitters.back().technique = config::JammingTechnique::kNoiseSuppression;
+    return s;
+  }();
 
   session::RadarCycleInput session_input = input;
   ApplySceneStateToCycleInput(scene, &session_input);

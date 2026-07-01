@@ -11,16 +11,15 @@
 
 #include <cstdint>
 #include <random>
+#include <utility>
 #include <vector>
 
-#include <utility>
-
-#include "electronic_surveillance_radar/pipeline/IEsrContext.h"
-#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "common/timing/TimingRegimeModel.h"
 #include "electronic_surveillance_radar/pipeline/AngleErrorModel.h"
-#include "electronic_surveillance_radar/pipeline/ScanPatternGenerator.h"
+#include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
+#include "electronic_surveillance_radar/pipeline/MutableEsrContext.h"
 #include "electronic_surveillance_radar/pipeline/ObservationPipelineTypes.h"
+#include "electronic_surveillance_radar/pipeline/ScanPatternGenerator.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
@@ -51,7 +50,7 @@ class InterceptDetectionExecutor {
    * @param[in,out] next_observation_id 观测 ID 分配器。
    * @return 检测阶段输出。
    */
-  InterceptDetectionOutput Execute(const extension::IEsrContext& ctx, std::mt19937& rng,
+  InterceptDetectionOutput Execute(const MutableEsrContext& ctx, std::mt19937& rng,
                                    std::uint64_t& next_observation_id);
 
  private:
@@ -69,15 +68,11 @@ class InterceptDetectionExecutor {
    * @param raw_records 产出观测记录列表。
    */
   void ProcessSingleEmitter(
-      const session::EsrSceneEmitter& emitter,
-      const intercept::BeamPointingDeg& active_beam,
-      const std::pair<double, double>& receiver_window,
-      double receive_loss_scale,
+      const session::EsrSceneEmitter& emitter, const intercept::BeamPointingDeg& active_beam,
+      const std::pair<double, double>& receiver_window, double receive_loss_scale,
       const intercept::AngleErrorModelConfig& angle_error_config,
       const oneq::internal::timing::StatisticalDetectionParams& base_statistical_detection_params,
-      const extension::IEsrContext& ctx,
-      std::mt19937& rng,
-      std::uint64_t& next_observation_id,
+      const MutableEsrContext& ctx, std::mt19937& rng, std::uint64_t& next_observation_id,
       std::vector<RawObservationRecord>& raw_records) const;
 };
 

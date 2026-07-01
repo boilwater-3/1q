@@ -6,12 +6,9 @@
 #ifndef ELECTRO_OPTICAL_SENSOR_SIGNAL_PIPELINE_EOS_PIPELINE_H_
 #define ELECTRO_OPTICAL_SENSOR_SIGNAL_PIPELINE_EOS_PIPELINE_H_
 
-#include <memory>
-
-#include "electro_optical_sensor/environment/IEosEnvironmentService.h"
-#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "electro_optical_sensor/config/EosInternalExecutionConfig.h"
 #include "electro_optical_sensor/pipeline/EosPipelineRuntimeTypes.h"
 
@@ -31,8 +28,7 @@ struct FrameContext;
  */
 class EosPipeline {
  public:
-  explicit EosPipeline(
-      const config::execution::EosInternalExecutionConfig& config);
+  explicit EosPipeline(const config::execution::EosInternalExecutionConfig& config);
 
   // ---- 内部接口 (直接操作 EosInternalExecutionConfig, 无转换开销) ----
   void ApplyInternalConfig(const config::execution::EosInternalExecutionConfig& config,
@@ -56,7 +52,6 @@ class EosPipeline {
 
   config::execution::EosInternalExecutionConfig config_{};
   float current_scan_azimuth_deg_{0.0f};
-  std::shared_ptr<environment::IEosEnvironmentService> environment_service_;
 };
 
 }  // namespace pipeline

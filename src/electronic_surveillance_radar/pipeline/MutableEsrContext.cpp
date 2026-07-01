@@ -20,7 +20,9 @@ std::uint32_t MutableEsrContext::GetCycleIndex() const { return cycle_index_; }
 
 float MutableEsrContext::GetCycleDeltaTimeSec() const { return dt_sec_; }
 
-const oneq::foundation::PoseState& MutableEsrContext::GetPlatformPose() const { return platform_pose_; }
+const oneq::foundation::PoseState& MutableEsrContext::GetPlatformPose() const {
+  return platform_pose_;
+}
 
 const session::EsrSceneEmitterList& MutableEsrContext::GetSceneEmitters() const {
   return scene_emitters_;

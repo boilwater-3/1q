@@ -2,13 +2,13 @@
 
 #include <utility>
 
-#include "airborne_radar/environment/IEnvironmentService.h"
-#include "airborne_radar/session/MutableRadarContext.h"
-#include "airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "airborne_radar/runtime/RadarController.h"
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
+#include "airborne_radar/environment/IEnvironmentService.h"
+#include "airborne_radar/runtime/RadarController.h"
+#include "airborne_radar/session/MutableRadarContext.h"
 #include "airborne_radar/session/RadarSessionCompositionRoot.h"
+#include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 
 namespace airborne_radar {
@@ -43,7 +43,8 @@ struct RadarSession::Impl {
     initial_session_config.hardware = composition.runtime_hardware;
     initial_session_config.mission = composition.runtime_mission;
     initial_session_config.policy = composition.runtime_policy;
-    initial_session_config.environment.scenario_config = composition.runtime_environment_scenario_config;
+    initial_session_config.environment.scenario_config =
+        composition.runtime_environment_scenario_config;
     initial_session_config.environment.jamming_sensitivity_profile =
         composition.runtime_jamming_sensitivity_profile;
     runtime_state.execution_config = config::mapping::MapSessionToExecution(initial_session_config);
@@ -133,8 +134,7 @@ struct RadarSession::Impl {
 
       if (concrete_signal_pipeline_ != nullptr) {
         // 内部路径：直接传递 InternalExecutionConfig，避免经过公开类型的 round-trip 信息损失
-        config::execution::InternalExecutionConfig exec_config =
-            state_to_commit.execution_config;
+        config::execution::InternalExecutionConfig exec_config = state_to_commit.execution_config;
         exec_config.detection.orientation.scan_center_deg.az_deg +=
             state_to_commit.dwell_center_deg.az_deg;
         exec_config.detection.orientation.scan_center_deg.el_deg +=
@@ -154,8 +154,8 @@ struct RadarSession::Impl {
     }
 
     if (should_sync_environment_model) {
-      environment_service.UpdateModelConfig(config::BuildModelConfigFromScenario(
-          pending_runtime_state.environment_scenario_config));
+      environment_service.UpdateModelConfig(
+          config::BuildModelConfigFromScenario(pending_runtime_state.environment_scenario_config));
     }
     if (should_sync_jamming_sensitivity) {
       environment_service.SetJammingSensitivityProfile(
@@ -181,10 +181,8 @@ struct RadarSession::Impl {
       return BuildValidationErrorResult(input, issues);
     }
 
-    const RadarContextRuntimeState radar_context_state =
-        radar_context.CaptureRuntimeState();
-    const extension::SignalPipelineRuntimeState pipeline_state =
-        signal_pipeline.CaptureRuntimeState();
+    const RadarContextRuntimeState radar_context_state = radar_context.CaptureRuntimeState();
+    const signal::SignalPipelineRuntimeState pipeline_state = signal_pipeline.CaptureRuntimeState();
     const environment::EnvironmentServiceRuntimeState environment_state =
         environment_service.CaptureRuntimeState();
     const extension::RadarControllerRuntimeState controller_state =
@@ -195,8 +193,8 @@ struct RadarSession::Impl {
       signal_pipeline.RestoreRuntimeState(pipeline_state);
       environment_service.RestoreRuntimeState(environment_state);
       controller.RestoreRuntimeState(controller_state);
-      return BuildExecutionAbortResult(
-          input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
+      return BuildExecutionAbortResult(input,
+                                       session::SignalCycleAbortReason::kRuntimePreparationFailed);
     }
 
     if (input.has_environment) {
@@ -227,11 +225,11 @@ struct RadarSession::Impl {
   bool pending_jamming_sensitivity_profile_changed{false};
   bool pipeline_config_synced{true};
   std::unique_ptr<MutableRadarContext> owned_radar_context;
-  std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;
+  std::unique_ptr<signal::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::RadarController> owned_controller;
   MutableRadarContext& radar_context;
-  extension::ISignalPipeline& signal_pipeline;
+  signal::ISignalPipeline& signal_pipeline;
   environment::IEnvironmentService& environment_service;
   extension::RadarController& controller;
   signal::pipeline::SignalPipeline* concrete_signal_pipeline_{nullptr};
@@ -252,8 +250,7 @@ RadarSession RadarSession::Create(const config::RadarSessionConfig& config) {
 }
 
 RadarSession RadarSession::CreateWithDecisionEngine(
-    const config::RadarSessionConfig& config,
-    session::ITacticalDecisionEngine& decision_engine) {
+    const config::RadarSessionConfig& config, session::ITacticalDecisionEngine& decision_engine) {
   return RadarSession(std::unique_ptr<RadarSession::Impl>(new RadarSession::Impl(
       RadarSessionCompositionRoot::ComposeWithDecisionEngine(config, decision_engine))));
 }

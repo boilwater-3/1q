@@ -10,8 +10,10 @@ namespace airborne_radar {
 namespace session {
 class ITacticalDecisionEngine;
 }  // namespace session
-namespace extension {
+namespace signal {
 class ISignalPipeline;
+}  // namespace signal
+namespace extension {
 class RadarController;
 }  // namespace extension
 namespace environment {
@@ -29,12 +31,12 @@ struct RadarSessionComposition {
       config::JammingSensitivityProfile::kBalanced};
 
   std::unique_ptr<MutableRadarContext> owned_radar_context;
-  std::unique_ptr<extension::ISignalPipeline> owned_signal_pipeline;
+  std::unique_ptr<signal::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::RadarController> owned_controller;
 
   MutableRadarContext* radar_context{nullptr};
-  extension::ISignalPipeline* signal_pipeline{nullptr};
+  signal::ISignalPipeline* signal_pipeline{nullptr};
   environment::IEnvironmentService* environment_service{nullptr};
   extension::RadarController* controller{nullptr};
   bool pipeline_config_synced{true};
@@ -48,8 +50,7 @@ class RadarSessionCompositionRoot {
    * @brief 注入自定义决策引擎装配会话；context/pipeline/environment 由内部默认装配。
    */
   static RadarSessionComposition ComposeWithDecisionEngine(
-      const config::RadarSessionConfig& config,
-      session::ITacticalDecisionEngine& decision_engine);
+      const config::RadarSessionConfig& config, session::ITacticalDecisionEngine& decision_engine);
 };
 
 }  // namespace session

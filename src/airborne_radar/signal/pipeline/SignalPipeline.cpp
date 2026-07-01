@@ -6,14 +6,14 @@
 #include <utility>
 #include <vector>
 
-#include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
+#include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/pipeline/CycleContextSupport.h"
 #include "airborne_radar/signal/pipeline/CycleExecutor.h"
-#include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
 #include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
+#include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
 #include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/IKalmanPredictor.h"
 #include "airborne_radar/signal/tracking/IKalmanUpdater.h"
@@ -116,7 +116,7 @@ struct SignalPipeline::Impl {
   }
 
   session::SignalCycleResult RunCycle(const session::RadarSceneTargetList& scene_targets,
-                                        const environment::IEnvironmentService& environment) {
+                                      const environment::IEnvironmentService& environment) {
     const session::RadarSceneTargetList& input_state = scene_targets;
 
     if (!runtime_.config.base_config.sensor_enabled) {
@@ -145,14 +145,14 @@ struct SignalPipeline::Impl {
     }
     const CycleExecutionRuntime runtime_execution = BuildExecutionRuntimeView();
 
-    const ResolvedRuntimePipelineConfig resolved =
-        ResolveRuntimePipelineConfig(runtime_execution.base_config, runtime_execution.control_profile);
+    const ResolvedRuntimePipelineConfig resolved = ResolveRuntimePipelineConfig(
+        runtime_execution.base_config, runtime_execution.control_profile);
     ExecutionConfig runtime_config = resolved.config;
     ApplyScanScheduleToRuntimeConfig(environment_snapshot.cycle_index, &runtime_config);
 
-    CycleExecutionContext context(input_state, environment_snapshot, environment_snapshot.cycle_index,
-                                  cycle_.batch_id, std::move(runtime_config),
-                                  runtime_.config.platform_altitude_m);
+    CycleExecutionContext context(input_state, environment_snapshot,
+                                  environment_snapshot.cycle_index, cycle_.batch_id,
+                                  std::move(runtime_config), runtime_.config.platform_altitude_m);
 
     if (!ExecuteCycle(context, runtime_execution, cycle_.scratch)) {
       ResetCycleScratch(&cycle_.scratch);
@@ -180,7 +180,7 @@ struct SignalPipeline::Impl {
     return cycle_.scratch.association_quality_metrics;
   }
 
-  extension::SignalPipelineRuntimeState CaptureRuntimeState() const {
+  SignalPipelineRuntimeState CaptureRuntimeState() const {
     std::shared_ptr<SignalPipelineSnapshot> snapshot(new SignalPipelineSnapshot());
     snapshot->base_config = runtime_.config.base_config;
     snapshot->platform_altitude_m = runtime_.config.platform_altitude_m;
@@ -195,14 +195,14 @@ struct SignalPipeline::Impl {
       snapshot->lifecycle_runtime = runtime_.owned.auto_lifecycle_manager->CaptureRuntimeState();
     }
 
-    extension::SignalPipelineRuntimeState state;
+    SignalPipelineRuntimeState state;
     state.owner_identity = this;
     state.schema_version = 1U;
     state.opaque = snapshot;
     return state;
   }
 
-  void RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) {
+  void RestoreRuntimeState(const SignalPipelineRuntimeState& state) {
     if (state.owner_identity != this || state.schema_version != 1U) {
       PROJECT_LOG_ERROR(
           "[SignalPipeline] runtime state restore rejected because snapshot owner "
@@ -333,11 +333,11 @@ session::AssociationQualityMetrics SignalPipeline::GetLastAssociationQualityMetr
   return impl_->GetLastAssociationQualityMetrics();
 }
 
-extension::SignalPipelineRuntimeState SignalPipeline::CaptureRuntimeState() const {
+SignalPipelineRuntimeState SignalPipeline::CaptureRuntimeState() const {
   return impl_->CaptureRuntimeState();
 }
 
-void SignalPipeline::RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) {
+void SignalPipeline::RestoreRuntimeState(const SignalPipelineRuntimeState& state) {
   impl_->RestoreRuntimeState(state);
 }
 
@@ -367,8 +367,7 @@ config::PlatformAttitudeDeg SignalPipeline::GetPlatformAttitude() const {
 
 float SignalPipeline::GetPlatformAltitudeM() const { return impl_->GetPlatformAltitudeM(); }
 
-void SignalPipeline::SetControlProfile(
-    const session::RadarControlProfile& control_profile) {
+void SignalPipeline::SetControlProfile(const session::RadarControlProfile& control_profile) {
   impl_->SetControlProfile(control_profile);
 }
 

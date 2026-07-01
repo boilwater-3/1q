@@ -10,17 +10,17 @@
 #include "common/geometry/GeometryTransform.h"
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
+#include "common/numerics/NumericGuard.h"
 #include "common/numerics/SpectralNumerics.h"
 #include "common/timing/TimingRegimeModel.h"
+#include "common/validation/ValidationUtils.h"
 #include "electronic_surveillance_radar/environment/EsrSharedUtils.h"
 #include "electronic_surveillance_radar/pipeline/AngleErrorModel.h"
 #include "electronic_surveillance_radar/pipeline/BoundarySearchSolver.h"
+#include "electronic_surveillance_radar/pipeline/InterceptComponentFactory.h"
 #include "electronic_surveillance_radar/pipeline/InterceptGate.h"
 #include "electronic_surveillance_radar/pipeline/JammingAggregator.h"
 #include "electronic_surveillance_radar/pipeline/ScanPatternGenerator.h"
-#include "electronic_surveillance_radar/pipeline/InterceptComponentFactory.h"
-#include "common/validation/ValidationUtils.h"
-#include "common/numerics/NumericGuard.h"
 
 namespace electronic_surveillance_radar {
 namespace pipeline {
@@ -78,7 +78,8 @@ float ToDb(double ratio) {
  * @param[in] mode ESR 统计检测积累模式。
  * @return 共享时序体制积累模式。
  */
-oneq::internal::timing::IntegrationMode ToTimingIntegrationMode(extension::InterceptIntegrationMode mode) {
+oneq::internal::timing::IntegrationMode ToTimingIntegrationMode(
+    extension::InterceptIntegrationMode mode) {
   if (mode == extension::InterceptIntegrationMode::kCoherent) {
     return oneq::internal::timing::IntegrationMode::kCoherent;
   }
@@ -149,7 +150,8 @@ oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(const session::EsrEuler
  * @return 接收机参考系下的方位/俯仰角（单位：deg）。
  */
 oneq::internal::geometry::AzimuthElevationDeg ComputeEmitterLookAngles(
-    const oneq::foundation::PoseState& platform_pose, const session::EsrSceneEmitter& emitter_state) {
+    const oneq::foundation::PoseState& platform_pose,
+    const session::EsrSceneEmitter& emitter_state) {
   return oneq::internal::geometry::ComputeRelativeLineOfSightAzEl(
       ToGeometryVector(platform_pose.position_m), ToGeometryEuler(platform_pose.attitude_deg),
       ToGeometryVector(emitter_state.pose.position_m));
@@ -188,13 +190,11 @@ float ComputeEmitterBeamOverlapRatio(const oneq::foundation::PoseState& platform
           ToGeometryVector(emitter_state.pose.position_m),
           ToGeometryEuler(emitter_state.pose.attitude_deg),
           ToGeometryVector(platform_pose.position_m));
-  const double az_diff = std::fabs(static_cast<double>(
-      oneq::internal::geometry::ComputeAzimuthDifferenceDeg(
-          emitter_to_platform.az_deg,
-          static_cast<float>(emitter_state.beam_state.center_az_deg))));
-  const double el_diff =
-      std::fabs(static_cast<double>(emitter_to_platform.el_deg) -
-                emitter_state.beam_state.center_el_deg);
+  const double az_diff =
+      std::fabs(static_cast<double>(oneq::internal::geometry::ComputeAzimuthDifferenceDeg(
+          emitter_to_platform.az_deg, static_cast<float>(emitter_state.beam_state.center_az_deg))));
+  const double el_diff = std::fabs(static_cast<double>(emitter_to_platform.el_deg) -
+                                   emitter_state.beam_state.center_el_deg);
   const double half_az_width = std::max(1.0e-6, 0.5 * emitter_state.beam_state.az_beamwidth_deg);
   const double half_el_width = std::max(1.0e-6, 0.5 * emitter_state.beam_state.el_beamwidth_deg);
   const double normalized_az = az_diff / half_az_width;
@@ -243,7 +243,8 @@ double ComputeReceivedPowerW(double tx_power_w, double carrier_hz, float range_m
   }
   const double safe_range = std::max(static_cast<double>(range_m), 1.0);
   const double wavelength = static_cast<double>(oneq::internal::numerics::kLightSpeed) / carrier_hz;
-  const double fspl_linear = std::pow((4.0 * static_cast<double>(oneq::internal::numerics::kPi) * safe_range) / wavelength, 2.0);
+  const double fspl_linear = std::pow(
+      (4.0 * static_cast<double>(oneq::internal::numerics::kPi) * safe_range) / wavelength, 2.0);
   const double propagation_loss_linear =
       std::pow(10.0, static_cast<double>(std::max(0.0f, propagation_loss_db)) / 10.0);
   return tx_power_w / (fspl_linear * propagation_loss_linear);
@@ -255,9 +256,10 @@ double ComputeReceivedPowerW(double tx_power_w, double carrier_hz, float range_m
  * @param[in] runtime_config 会话运行态配置。
  * @return 接收机频段 `[lower, upper]`，单位 Hz。
  */
-std::pair<double, double> BuildReceiverWindow(std::uint32_t cycle_index,
-                                              const extension::InterceptRuntimeConfig& runtime_config) {
-  if (runtime_config.use_fixed_receiver_window && oneq::internal::validation::IsFinite(runtime_config.receiver_lower_hz) &&
+std::pair<double, double> BuildReceiverWindow(
+    std::uint32_t cycle_index, const extension::InterceptRuntimeConfig& runtime_config) {
+  if (runtime_config.use_fixed_receiver_window &&
+      oneq::internal::validation::IsFinite(runtime_config.receiver_lower_hz) &&
       oneq::internal::validation::IsFinite(runtime_config.receiver_upper_hz) &&
       runtime_config.receiver_upper_hz > runtime_config.receiver_lower_hz) {
     return std::make_pair(runtime_config.receiver_lower_hz, runtime_config.receiver_upper_hz);
@@ -324,7 +326,8 @@ session::EsrObservationQuality ClassifyObservationQuality(float snr_db, bool is_
  * @param[in,out] rng 随机引擎。
  * @param[in,out] record 待扰动观测。
  */
-void ApplyDeceptionConfusion(float deception_strength, const extension::InterceptDeceptionModelConfig& config,
+void ApplyDeceptionConfusion(float deception_strength,
+                             const extension::InterceptDeceptionModelConfig& config,
                              std::mt19937* rng, RawObservationRecord* record) {
   if (rng == nullptr || record == nullptr) {
     return;
@@ -344,8 +347,7 @@ void ApplyDeceptionConfusion(float deception_strength, const extension::Intercep
                                static_cast<double>(rf_ratio_dist(*rng) * strength);
   record->observation.pulse_width_s += static_cast<double>(record->observation.pulse_width_s) *
                                        static_cast<double>(pw_ratio_dist(*rng) * strength);
-  record->observation.pulse_width_s =
-      std::max(record->observation.pulse_width_s, 1.0e-9);
+  record->observation.pulse_width_s = std::max(record->observation.pulse_width_s, 1.0e-9);
   record->deception_affected = true;
 }
 
@@ -358,10 +360,10 @@ void ApplyDeceptionConfusion(float deception_strength, const extension::Intercep
  * @param[in,out] next_observation_id 观测 ID 分配器。
  * @return 伪观测记录。
  */
-RawObservationRecord BuildDeceptionRecord(
-    const RawObservationRecord& template_record, float deception_strength,
-    const extension::InterceptDeceptionModelConfig& config, std::mt19937* rng,
-    std::uint64_t* next_observation_id) {
+RawObservationRecord BuildDeceptionRecord(const RawObservationRecord& template_record,
+                                          float deception_strength,
+                                          const extension::InterceptDeceptionModelConfig& config,
+                                          std::mt19937* rng, std::uint64_t* next_observation_id) {
   RawObservationRecord record = template_record;
   if (next_observation_id != nullptr) {
     record.observation.observation_id = (*next_observation_id)++;
@@ -382,8 +384,7 @@ RawObservationRecord BuildDeceptionRecord(
     record.observation.pulse_width_s +=
         static_cast<double>(template_record.observation.pulse_width_s) *
         static_cast<double>(pw_shift_dist(*rng));
-    record.observation.pulse_width_s =
-        std::max(record.observation.pulse_width_s, 1.0e-9);
+    record.observation.pulse_width_s = std::max(record.observation.pulse_width_s, 1.0e-9);
     record.observation.snr_db -= static_cast<double>(snr_loss_dist(*rng));
   }
   record.observation.quality = session::EsrObservationQuality::kLow;
@@ -398,7 +399,7 @@ RawObservationRecord BuildDeceptionRecord(
 
 }  // namespace
 
-InterceptDetectionOutput InterceptDetectionExecutor::Execute(const extension::IEsrContext& ctx,
+InterceptDetectionOutput InterceptDetectionExecutor::Execute(const MutableEsrContext& ctx,
                                                              std::mt19937& rng,
                                                              std::uint64_t& next_observation_id) {
   InterceptDetectionOutput output;
@@ -445,22 +446,18 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const extension::IE
                          next_observation_id, output.raw_records);
   }
 
-  PROJECT_LOG_DEBUG("[InterceptDetection] cycle_index={} raw_records={}",
-                    ctx.GetCycleIndex(), output.raw_records.size());
+  PROJECT_LOG_DEBUG("[InterceptDetection] cycle_index={} raw_records={}", ctx.GetCycleIndex(),
+                    output.raw_records.size());
 
   return output;
 }
 
 void InterceptDetectionExecutor::ProcessSingleEmitter(
-    const session::EsrSceneEmitter& emitter,
-    const intercept::BeamPointingDeg& active_beam,
-    const std::pair<double, double>& receiver_window,
-    double receive_loss_scale,
+    const session::EsrSceneEmitter& emitter, const intercept::BeamPointingDeg& active_beam,
+    const std::pair<double, double>& receiver_window, double receive_loss_scale,
     const intercept::AngleErrorModelConfig& angle_error_config,
     const oneq::internal::timing::StatisticalDetectionParams& base_statistical_detection_params,
-    const extension::IEsrContext& ctx,
-    std::mt19937& rng,
-    std::uint64_t& next_observation_id,
+    const MutableEsrContext& ctx, std::mt19937& rng, std::uint64_t& next_observation_id,
     std::vector<RawObservationRecord>& raw_records) const {
   const auto& platform_pose = ctx.GetPlatformPose();
   const auto& env_snapshot = ctx.GetEnvironmentSnapshot();
@@ -475,8 +472,8 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
   const float target_el_deg = target_look_angles.el_deg;
   const float emitter_beam_overlap_ratio = ComputeEmitterBeamOverlapRatio(platform_pose, emitter);
   const bool emitter_beam_covered = emitter_beam_overlap_ratio > 0.0f;
-  const oneq::internal::timing::ResolvedCycleTimingState timing_state =
-      ResolveEmitterTimingState(ctx.GetCycleDeltaTimeSec(), emitter, base_statistical_detection_params);
+  const oneq::internal::timing::ResolvedCycleTimingState timing_state = ResolveEmitterTimingState(
+      ctx.GetCycleDeltaTimeSec(), emitter, base_statistical_detection_params);
   const bool has_available_pulses = timing_state.effective_pulse_count > 0U;
   oneq::internal::timing::StatisticalDetectionParams emitter_detection_params =
       base_statistical_detection_params;
@@ -484,9 +481,8 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
     emitter_detection_params.pulse_count = std::max(1U, timing_state.effective_pulse_count);
   }
 
-  const intercept::JammingAggregateResult jamming_result =
-      intercept::JammingAggregator::Aggregate(env_snapshot.jammer_sources, emitter.carrier_hz,
-                                              emitter.bandwidth_hz);
+  const intercept::JammingAggregateResult jamming_result = intercept::JammingAggregator::Aggregate(
+      env_snapshot.jammer_sources, emitter.carrier_hz, emitter.bandwidth_hz);
   const float suppression_noise_scale =
       std::max(0.0f, config.suppression_model.suppression_noise_scale);
   const double effective_suppression_power_w =
@@ -497,8 +493,8 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
           static_cast<double>(env_snapshot.clutter_noise_w) + effective_suppression_power_w,
       kNumericFloor);
   const float static_threshold_snr_db = config.detection.minimum_snr_db;
-  const float dynamic_threshold_snr_db = oneq::internal::timing::ComputeDynamicThresholdSnrDb(
-      noise_power_w, emitter_detection_params);
+  const float dynamic_threshold_snr_db =
+      oneq::internal::timing::ComputeDynamicThresholdSnrDb(noise_power_w, emitter_detection_params);
   const float detection_threshold_snr_db =
       config.statistical_detection.enable_statistical_detection
           ? std::max(static_threshold_snr_db, dynamic_threshold_snr_db)
@@ -514,10 +510,10 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
         const float candidate_snr_db = ToDb(candidate_received_power_w / noise_power_w);
         return candidate_snr_db >= detection_threshold_snr_db;
       });
-  const double received_power_w =
-      ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz, range_m,
-                            env_snapshot.propagation_loss_db) *
-      static_cast<double>(emitter_beam_overlap_ratio) * receive_loss_scale;
+  const double received_power_w = ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz,
+                                                        range_m, env_snapshot.propagation_loss_db) *
+                                  static_cast<double>(emitter_beam_overlap_ratio) *
+                                  receive_loss_scale;
   const float snr_db = ToDb(received_power_w / noise_power_w);
 
   intercept::InterceptGateInput gate_input;
@@ -543,24 +539,23 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
   const intercept::InterceptGateDecision gate_decision =
       intercept::InterceptGate::Evaluate(gate_input);
   PROJECT_LOG_DEBUG(
-      "[InterceptDetection] emitter_id={} range={:.0f} snr={:.1f} gate_passed={} beam_overlap={:.2f}",
+      "[InterceptDetection] emitter_id={} range={:.0f} snr={:.1f} gate_passed={} "
+      "beam_overlap={:.2f}",
       emitter.emitter_id, range_m, snr_db, gate_decision.passed, emitter_beam_overlap_ratio);
   const float effective_beamwidth_deg =
       std::max(1.0f, 0.5f * (gate_input.beam_az_width_deg + gate_input.beam_el_width_deg));
-  const double measured_az_deg =
-      static_cast<double>(target_az_deg) +
-      static_cast<double>(intercept::AngleErrorModel::SampleErrorDeg(
-          snr_db, effective_beamwidth_deg, &rng, angle_error_config));
-  const double measured_el_deg =
-      static_cast<double>(target_el_deg) +
-      static_cast<double>(intercept::AngleErrorModel::SampleErrorDeg(
-          snr_db, effective_beamwidth_deg, &rng, angle_error_config));
+  const double measured_az_deg = static_cast<double>(target_az_deg) +
+                                 static_cast<double>(intercept::AngleErrorModel::SampleErrorDeg(
+                                     snr_db, effective_beamwidth_deg, &rng, angle_error_config));
+  const double measured_el_deg = static_cast<double>(target_el_deg) +
+                                 static_cast<double>(intercept::AngleErrorModel::SampleErrorDeg(
+                                     snr_db, effective_beamwidth_deg, &rng, angle_error_config));
   const bool is_jammed =
       effective_suppression_power_w >=
       static_cast<double>(std::max(0.0f, config.suppression_model.suppression_mark_threshold_w));
-  const float deception_probability =
-      utils::Clamp01(jamming_result.deception_risk * jamming_result.deception_weighted_overlap_ratio *
-              std::max(0.0f, config.deception_model.false_alarm_probability_scale));
+  const float deception_probability = utils::Clamp01(
+      jamming_result.deception_risk * jamming_result.deception_weighted_overlap_ratio *
+      std::max(0.0f, config.deception_model.false_alarm_probability_scale));
 
   RawObservationRecord base_record;
   base_record.observation.observation_id = next_observation_id++;
@@ -588,9 +583,8 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
       if (uniform_01(rng) >= deception_probability) {
         continue;
       }
-      raw_records.push_back(BuildDeceptionRecord(base_record, deception_probability,
-                                                 config.deception_model, &rng,
-                                                 &next_observation_id));
+      raw_records.push_back(BuildDeceptionRecord(
+          base_record, deception_probability, config.deception_model, &rng, &next_observation_id));
     }
     return;
   }

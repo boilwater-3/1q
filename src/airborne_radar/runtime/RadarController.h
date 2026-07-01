@@ -37,7 +37,7 @@ struct RadarControllerRuntimeState {
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
-  SignalPipelineRuntimeState signal_pipeline_state{};
+  signal::SignalPipelineRuntimeState signal_pipeline_state{};
 };
 }  // namespace extension
 }  // namespace airborne_radar
@@ -61,7 +61,7 @@ class RadarController {
    * @param[in] environment_service 环境服务引用。
    */
   RadarController(session::MutableRadarContext& radar_context,
-                  extension::ISignalPipeline& signal_pipeline,
+                  signal::ISignalPipeline& signal_pipeline,
                   environment::IEnvironmentService& environment_service);
 
   /**
@@ -72,7 +72,7 @@ class RadarController {
    * @param[in] environment_service 环境服务引用。
    */
   RadarController(session::MutableRadarContext& radar_context,
-                  extension::ISignalPipeline& signal_pipeline,
+                  signal::ISignalPipeline& signal_pipeline,
                   session::ITacticalDecisionEngine& decision_engine,
                   environment::IEnvironmentService& environment_service);
 

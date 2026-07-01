@@ -152,15 +152,14 @@ session::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_index)
 
 template <typename PipelineType>
 session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
-                                              const session::RadarSceneTargetList& input_state,
-                                              environment::EnvironmentService* environment_service,
-                                              std::uint32_t cycle_index = 1u) {
+                                            const session::RadarSceneTargetList& input_state,
+                                            environment::EnvironmentService* environment_service,
+                                            std::uint32_t cycle_index = 1u) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
   return pipeline->RunCycle(ToSceneTargets(input_state), *environment_service);
 }
 
-config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique,
-                                                  float power_db) {
+config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique, float power_db) {
   config::JammerEmitterState jammer;
   jammer.technique = technique;
   jammer.power_db = power_db;
@@ -332,8 +331,7 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
 
 TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   config::EnvironmentModelConfig env_config;
-  env_config.jammer_sources.push_back(
-      MakeJammerEmitter(config::JammingTechnique::kUnknown, 40.0f));
+  env_config.jammer_sources.push_back(MakeJammerEmitter(config::JammingTechnique::kUnknown, 40.0f));
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
@@ -405,7 +403,8 @@ TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
 
   signal_pipeline.UpdatePlatformAttitude(platform_attitude_deg);
 
-  const config::PlatformAttitudeDeg cached_platform_attitude = signal_pipeline.GetPlatformAttitude();
+  const config::PlatformAttitudeDeg cached_platform_attitude =
+      signal_pipeline.GetPlatformAttitude();
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 12.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -3.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 1.5f);
@@ -443,7 +442,7 @@ TEST(SignalPipelineTest, RestoreRuntimeStatePreservesLifecycleTracks) {
   ASSERT_TRUE(baseline.executed_this_cycle);
   ASSERT_FALSE(baseline.decision_frame.tracks.empty());
 
-  const extension::SignalPipelineRuntimeState snapshot = signal_pipeline.CaptureRuntimeState();
+  const signal::SignalPipelineRuntimeState snapshot = signal_pipeline.CaptureRuntimeState();
 
   const session::SignalCycleResult missed_once =
       RunPipelineCycle(&signal_pipeline, session::RadarSceneTargetList(), &environment_service, 2U);
@@ -629,9 +628,9 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   noise_source.technique = config::JammingTechnique::kNoiseSuppression;
   noise_source.power_db = 8.0f;
   noise_source.js_db = 8.0f;
-  noise_source.position_x = 4067.36f;   // range 10000m * sin(24 deg)
-  noise_source.position_y = 9135.45f;   // range 10000m * cos(24 deg)
-  noise_source.position_z = 1227.85f;   // range 10000m * tan(7 deg)
+  noise_source.position_x = 4067.36f;  // range 10000m * sin(24 deg)
+  noise_source.position_y = 9135.45f;  // range 10000m * cos(24 deg)
+  noise_source.position_z = 1227.85f;  // range 10000m * tan(7 deg)
   noise_source.angular_span_deg = 30.0f;
   noise_source.confidence = 1.0f;
   noise_env_config.jammer_sources.push_back(noise_source);
@@ -747,9 +746,9 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   deception_source.technique = config::JammingTechnique::kDeception;
   deception_source.power_db = 8.0f;
   deception_source.js_db = 8.0f;
-  deception_source.position_x = 523.36f;    // range 10000m * sin(3 deg)
-  deception_source.position_y = 9986.30f;   // range 10000m * cos(3 deg)
-  deception_source.position_z = 174.55f;    // range 10000m * tan(1 deg)
+  deception_source.position_x = 523.36f;   // range 10000m * sin(3 deg)
+  deception_source.position_y = 9986.30f;  // range 10000m * cos(3 deg)
+  deception_source.position_z = 174.55f;   // range 10000m * tan(1 deg)
   deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 1.0f;
   deception_env_config.jammer_sources.push_back(deception_source);
@@ -794,8 +793,7 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
       session_config.mission.orientation.mechanical_scan_limits_deg;
 
   config::EnvironmentModelConfig env_config;
-  env_config.jammer_sources.push_back(
-      MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f));
+  env_config.jammer_sources.push_back(MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f));
   environment::EnvironmentService environment_service(env_config);
 
   const session::RadarSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
@@ -836,9 +834,9 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
 
   config::JammerEmitterState favorable_source =
       MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f);
-  favorable_source.position_x = 4694.72f;   // range 10000m * sin(28 deg)
-  favorable_source.position_y = 8829.48f;   // range 10000m * cos(28 deg)
-  favorable_source.position_z = 1583.84f;   // range 10000m * tan(9 deg)
+  favorable_source.position_x = 4694.72f;  // range 10000m * sin(28 deg)
+  favorable_source.position_y = 8829.48f;  // range 10000m * cos(28 deg)
+  favorable_source.position_z = 1583.84f;  // range 10000m * tan(9 deg)
   favorable_source.angular_span_deg = 30.0f;
   environment::EnvironmentService favorable_environment(
       MakeEnvironmentConfigWithJammers({favorable_source}));
@@ -847,7 +845,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
       MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f);
   unfavorable_source.position_x = 0.0f;
   unfavorable_source.position_y = 10000.0f;
-  unfavorable_source.position_z = 0.0f;       // elevation 0 deg
+  unfavorable_source.position_z = 0.0f;  // elevation 0 deg
   unfavorable_source.angular_span_deg = 5.0f;
   environment::EnvironmentService unfavorable_environment(
       MakeEnvironmentConfigWithJammers({unfavorable_source}));
@@ -888,9 +886,9 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   deception_source.technique = config::JammingTechnique::kDeception;
   deception_source.power_db = -20.0f;
   deception_source.js_db = 8.0f;
-  deception_source.position_x = 523.36f;    // range 10000m * sin(3 deg)
-  deception_source.position_y = 9986.30f;   // range 10000m * cos(3 deg)
-  deception_source.position_z = 174.55f;    // range 10000m * tan(1 deg)
+  deception_source.position_x = 523.36f;   // range 10000m * sin(3 deg)
+  deception_source.position_y = 9986.30f;  // range 10000m * cos(3 deg)
+  deception_source.position_z = 174.55f;   // range 10000m * tan(1 deg)
   deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 1.0f;
   env_config.jammer_sources.push_back(deception_source);
@@ -941,8 +939,7 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
 
 TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
   config::EnvironmentModelConfig env_config;
-  env_config.jammer_sources.push_back(
-      MakeJammerEmitter(config::JammingTechnique::kUnknown, 45.0f));
+  env_config.jammer_sources.push_back(MakeJammerEmitter(config::JammingTechnique::kUnknown, 45.0f));
   environment::EnvironmentService environment_service(env_config);
 
   session::RadarSceneTarget target(800.0f, 0.0f, 0.0f, 2.5f);
@@ -981,9 +978,9 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
 
   config::JammerEmitterState favorable_source =
       MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f);
-  favorable_source.position_x = 5000.0f;     // range 10000m * sin(30 deg)
-  favorable_source.position_y = 8660.25f;    // range 10000m * cos(30 deg)
-  favorable_source.position_z = 1763.27f;    // range 10000m * tan(10 deg)
+  favorable_source.position_x = 5000.0f;   // range 10000m * sin(30 deg)
+  favorable_source.position_y = 8660.25f;  // range 10000m * cos(30 deg)
+  favorable_source.position_z = 1763.27f;  // range 10000m * tan(10 deg)
   favorable_source.angular_span_deg = 32.0f;
 
   config::EnvironmentModelConfig favorable_env_config =
@@ -1194,9 +1191,9 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   noise_source.technique = config::JammingTechnique::kNoiseSuppression;
   noise_source.power_db = -20.0f;
   noise_source.js_db = 8.0f;
-  noise_source.position_x = 3420.20f;   // range 10000m * sin(20 deg)
-  noise_source.position_y = 9396.93f;   // range 10000m * cos(20 deg)
-  noise_source.position_z = 1227.85f;   // range 10000m * tan(7 deg)
+  noise_source.position_x = 3420.20f;  // range 10000m * sin(20 deg)
+  noise_source.position_y = 9396.93f;  // range 10000m * cos(20 deg)
+  noise_source.position_z = 1227.85f;  // range 10000m * tan(7 deg)
   noise_source.angular_span_deg = 30.0f;
   noise_source.confidence = 1.0f;
   noise_env_config.jammer_sources.push_back(noise_source);
@@ -1207,9 +1204,9 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   deception_source.technique = config::JammingTechnique::kDeception;
   deception_source.power_db = -20.0f;
   deception_source.js_db = 8.0f;
-  deception_source.position_x = 523.36f;    // range 10000m * sin(3 deg)
-  deception_source.position_y = 9986.30f;   // range 10000m * cos(3 deg)
-  deception_source.position_z = 174.55f;    // range 10000m * tan(1 deg)
+  deception_source.position_x = 523.36f;   // range 10000m * sin(3 deg)
+  deception_source.position_y = 9986.30f;  // range 10000m * cos(3 deg)
+  deception_source.position_z = 174.55f;   // range 10000m * tan(1 deg)
   deception_source.angular_span_deg = 8.0f;
   deception_source.confidence = 1.0f;
   deception_env_config.jammer_sources.push_back(deception_source);
@@ -1563,8 +1560,7 @@ TEST(SignalPipelineTest, InvalidEnvironmentCycleAbortsAndClearsLastCycleCache) {
   const session::SignalCycleResult invalid_result = signal_pipeline.RunCycle(
       ToSceneTargets(session::RadarSceneTargetList{target}), invalid_environment);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
-  EXPECT_EQ(invalid_result.abort_reason,
-            session::SignalCycleAbortReason::kInvalidEnvironmentCycle);
+  EXPECT_EQ(invalid_result.abort_reason, session::SignalCycleAbortReason::kInvalidEnvironmentCycle);
   EXPECT_TRUE(invalid_result.updated_scene_targets.empty());
   EXPECT_TRUE(invalid_result.decision_frame.tracks.empty());
   EXPECT_TRUE(signal_pipeline.GetLastTrackMeasurements().empty());

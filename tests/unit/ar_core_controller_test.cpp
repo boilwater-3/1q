@@ -13,17 +13,17 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/RadarSessionConfigBuilder.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
-#include "airborne_radar/runtime/RadarController.h"
-#include "airborne_radar/session/MutableRadarContext.h"
 #include "1q/airborne_radar/session/RadarCommand.h"
 #include "1q/airborne_radar/session/RadarControlProfile.h"
-#include "1q/airborne_radar/session/DecisionInputFrame.h"
-#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/RadarCycleResult.h"
 #include "1q/airborne_radar/session/RadarSceneTypes.h"
 #include "1q/airborne_radar/session/RadarSession.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/environment/EnvironmentService.h"
+#include "airborne_radar/runtime/RadarController.h"
+#include "airborne_radar/session/MutableRadarContext.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
@@ -78,7 +78,7 @@ class FixedDirectiveDecisionEngine : public session::ITacticalDecisionEngine {
       : directive_(std::move(directive)) {}
 
   session::TacticalDecisionResult Evaluate(const session::DecisionInputFrame&,
-                                             session::TacticalStateStore&) override {
+                                           session::TacticalStateStore&) override {
     session::TacticalDecisionResult result;
     result.proposals.push_back(session::TacticalProposal(directive_, 10, "test directive"));
     return result;
@@ -94,7 +94,7 @@ class FixedProposalDecisionEngine : public session::ITacticalDecisionEngine {
       : proposals_(std::move(proposals)) {}
 
   session::TacticalDecisionResult Evaluate(const session::DecisionInputFrame&,
-                                             session::TacticalStateStore&) override {
+                                           session::TacticalStateStore&) override {
     session::TacticalDecisionResult result;
     result.proposals = proposals_;
     return result;
@@ -107,7 +107,7 @@ class FixedProposalDecisionEngine : public session::ITacticalDecisionEngine {
 class CapturingDecisionEngine : public session::ITacticalDecisionEngine {
  public:
   session::TacticalDecisionResult Evaluate(const session::DecisionInputFrame& frame,
-                                             session::TacticalStateStore&) override {
+                                           session::TacticalStateStore&) override {
     last_frame = frame;
     ++evaluate_count;
     return session::TacticalDecisionResult();
@@ -120,10 +120,10 @@ class CapturingDecisionEngine : public session::ITacticalDecisionEngine {
 /// @brief CoreControllerTest 覆盖核心调度与指令下发路径。
 class CoreControllerTest : public ::testing::Test {};
 
-class AbortingSignalPipeline : public extension::ISignalPipeline {
+class AbortingSignalPipeline : public signal::ISignalPipeline {
  public:
   session::SignalCycleResult RunCycle(const session::RadarSceneTargetList&,
-                                        const environment::IEnvironmentService&) override {
+                                      const environment::IEnvironmentService&) override {
     session::SignalCycleResult result;
     result.executed_this_cycle = should_execute_;
     result.abort_reason = should_execute_
@@ -136,15 +136,15 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
     platform_attitude_deg_ = platform_attitude_deg;
   }
 
-  config::PlatformAttitudeDeg GetPlatformAttitude() const override { return platform_attitude_deg_; }
+  config::PlatformAttitudeDeg GetPlatformAttitude() const override {
+    return platform_attitude_deg_;
+  }
 
   void SetControlProfile(const session::RadarControlProfile& control_profile) override {
     control_profile_ = control_profile;
   }
 
-  session::RadarControlProfile GetControlProfile() const override {
-    return control_profile_;
-  }
+  session::RadarControlProfile GetControlProfile() const override { return control_profile_; }
 
   bool UpdateConfig(const config::RadarSessionConfig& config) override {
     config_ = config;
@@ -157,20 +157,20 @@ class AbortingSignalPipeline : public extension::ISignalPipeline {
 
   void SetShouldExecute(bool should_execute) { should_execute_ = should_execute; }
 
-  extension::SignalPipelineRuntimeState CaptureRuntimeState() const override {
+  signal::SignalPipelineRuntimeState CaptureRuntimeState() const override {
     std::shared_ptr<RuntimeState> state(new RuntimeState());
     state->platform_attitude_deg = platform_attitude_deg_;
     state->control_profile = control_profile_;
     state->config = config_;
     state->should_execute = should_execute_;
-    extension::SignalPipelineRuntimeState runtime_state;
+    signal::SignalPipelineRuntimeState runtime_state;
     runtime_state.owner_identity = this;
     runtime_state.schema_version = 1U;
     runtime_state.opaque = state;
     return runtime_state;
   }
 
-  void RestoreRuntimeState(const extension::SignalPipelineRuntimeState& state) override {
+  void RestoreRuntimeState(const signal::SignalPipelineRuntimeState& state) override {
     if (state.owner_identity != this || state.schema_version != 1U) {
       return;
     }
@@ -231,7 +231,8 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
 
   controller.RunOnce();
 
-  const config::PlatformAttitudeDeg cached_platform_attitude = signal_pipeline.GetPlatformAttitude();
+  const config::PlatformAttitudeDeg cached_platform_attitude =
+      signal_pipeline.GetPlatformAttitude();
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 18.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -4.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 2.0f);
@@ -251,12 +252,11 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
   jammer_source.position_y = 10000.0f;
   jammer_source.position_z = 174.55f;
   jammer_source.angular_span_deg = 5.0f;
-  environment_service.UpdateSceneState(
-      [&] {
-        session::EnvironmentSceneState s;
-        s.jammer_emitters.push_back(jammer_source);
-        return s;
-      }());
+  environment_service.UpdateSceneState([&] {
+    session::EnvironmentSceneState s;
+    s.jammer_emitters.push_back(jammer_source);
+    return s;
+  }());
 
   signal::pipeline::SignalPipeline signal_pipeline;
   CapturingDecisionEngine decision_engine;
@@ -302,16 +302,15 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
   jammer_source.technique = config::JammingTechnique::kNoiseSuppression;
   jammer_source.power_db = 9.0f;
   jammer_source.confidence = 1.0f;
-  jammer_source.position_x = 3746.07f;   // range 10000m * sin(22 deg)
-  jammer_source.position_y = 9271.84f;   // range 10000m * cos(22 deg)
-  jammer_source.position_z = 0.0f;       // elevation 0 deg
+  jammer_source.position_x = 3746.07f;  // range 10000m * sin(22 deg)
+  jammer_source.position_y = 9271.84f;  // range 10000m * cos(22 deg)
+  jammer_source.position_z = 0.0f;      // elevation 0 deg
   jammer_source.angular_span_deg = 12.0f;
-  environment_service.UpdateSceneState(
-      [&] {
-        session::EnvironmentSceneState s;
-        s.jammer_emitters.push_back(jammer_source);
-        return s;
-      }());
+  environment_service.UpdateSceneState([&] {
+    session::EnvironmentSceneState s;
+    s.jammer_emitters.push_back(jammer_source);
+    return s;
+  }());
 
   EXPECT_FALSE(environment_service.SampleEnvironment().jamming_detected);
 
@@ -330,9 +329,9 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   deception_emitter.technique = config::JammingTechnique::kDeception;
   deception_emitter.power_db = 9.0f;
   deception_emitter.js_db = 7.5f;
-  deception_emitter.position_x = 5000.0f;     // range 10000m * sin(30 deg)
-  deception_emitter.position_y = 8660.25f;    // range 10000m * cos(30 deg)
-  deception_emitter.position_z = 874.887f;    // range 10000m * tan(5 deg)
+  deception_emitter.position_x = 5000.0f;   // range 10000m * sin(30 deg)
+  deception_emitter.position_y = 8660.25f;  // range 10000m * cos(30 deg)
+  deception_emitter.position_z = 874.887f;  // range 10000m * tan(5 deg)
   deception_emitter.angular_span_deg = 8.0f;
   deception_emitter.confidence = 0.95f;
   env_config.jammer_sources.push_back(deception_emitter);
@@ -388,10 +387,11 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
   const session::TrackOutputFrame& latest_track_output_frame =
       controller.GetLatestTrackOutputFrame();
   EXPECT_EQ(latest_track_output_frame.tracks.size(), 1U);
-  EXPECT_EQ(session::CountTracksByStatus(latest_track_output_frame, session::TrackStatus::kConfirmed),
-            0U);
-  EXPECT_FALSE(session::CountTracksByStatus(latest_track_output_frame, session::TrackStatus::kLost) >
-               0U);
+  EXPECT_EQ(
+      session::CountTracksByStatus(latest_track_output_frame, session::TrackStatus::kConfirmed),
+      0U);
+  EXPECT_FALSE(
+      session::CountTracksByStatus(latest_track_output_frame, session::TrackStatus::kLost) > 0U);
   ASSERT_EQ(decision_engine.last_frame.tracks.size(), 1U);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].status, session::TrackStatus::kTentative);
   EXPECT_EQ(decision_engine.last_frame.tracks[0].association_key,
@@ -469,8 +469,7 @@ TEST_F(CoreControllerTest, InvalidDeltaTimeRetainsPreviousValidOutputFrame) {
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
   ASSERT_GT(previous_frame.tracks.size(), 0U);
-  const std::vector<session::RadarCommand> previous_commands =
-      radar_context.SubmittedCommands();
+  const std::vector<session::RadarCommand> previous_commands = radar_context.SubmittedCommands();
 
   radar_context.SetCycleDeltaTimeSec(0.0f);
   controller.RunOnce();
@@ -508,8 +507,7 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame previous_frame = controller.GetLatestTrackOutputFrame();
   ASSERT_GT(previous_frame.tracks.size(), 0U);
-  const std::vector<session::RadarCommand> previous_commands =
-      radar_context.SubmittedCommands();
+  const std::vector<session::RadarCommand> previous_commands = radar_context.SubmittedCommands();
 
   session::RadarSceneTarget duplicate_a = input_state.front();
   duplicate_a.external_target_id = 42U;

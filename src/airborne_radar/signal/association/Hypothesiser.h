@@ -1,6 +1,6 @@
 /**
  * @file Hypothesiser.h
- * @brief 定义数据关联阶段的候选假设生成接口与实现。
+ * @brief 定义数据关联阶段的候选假设生成内部端口与实现。
  */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_ASSOCIATION_HYPOTHESISER_H_
@@ -34,37 +34,28 @@ struct AssociationHypothesis {
  */
 using FeatureVectorList = std::vector<Eigen::Vector3f>;
 /**
- * @brief 关联候选假设生成器抽象接口。
- */
-class IHypothesiser {
- public:
-  virtual ~IHypothesiser() = default;
-  /**
-   * @brief 生成轨迹与量测之间的候选关联假设。
-   * @param predicted_tracks 历史轨迹预测特征集合。
-   * @param measurements 当前量测特征集合。
-   * @return 满足波门约束的候选假设列表。
-   */
-  virtual std::vector<AssociationHypothesis> Generate(
-      const FeatureVectorList& predicted_tracks, const FeatureVectorList& measurements) const = 0;
-};
-/**
  * @brief 稠密代价矩阵假设生成器。
  */
-class DenseCostHypothesiser final : public IHypothesiser {
+class DenseCostHypothesiser final {
  public:
   /**
    * @brief 构造候选假设生成器（协方差注入路径）。
-   * @param distance_metric 支持协方差注入的距离度量器，用于带新息协方差的 Generate() 重载。
+   * @param distance_metric 完整协方差距离度量器，用于带新息协方差的 Generate() 重载。
    * @param max_cost 最大允许代价值阈值。
    */
-  DenseCostHypothesiser(ICovarianceAwareDistanceMetric* distance_metric, float max_cost);
+  DenseCostHypothesiser(FullMahalanobisDistanceMetric* distance_metric, float max_cost);
   /**
-   * @brief 构造候选假设生成器（只读基础路径）。
+   * @brief 构造候选假设生成器（只读完整协方差路径）。
    * @param distance_metric 距离度量器，仅支持基础 Generate() 重载。
    * @param max_cost 最大允许代价值阈值。
    */
-  DenseCostHypothesiser(const IDistanceMetric* distance_metric, float max_cost);
+  DenseCostHypothesiser(const FullMahalanobisDistanceMetric* distance_metric, float max_cost);
+  /**
+   * @brief 构造候选假设生成器（只读对角协方差路径）。
+   * @param distance_metric 距离度量器，仅支持基础 Generate() 重载。
+   * @param max_cost 最大允许代价值阈值。
+   */
+  DenseCostHypothesiser(const MahalanobisDistanceMetric* distance_metric, float max_cost);
   /**
    * @brief 生成所有通过波门的轨迹-量测候选。
    * @param predicted_tracks 历史轨迹预测特征集合。
@@ -72,7 +63,7 @@ class DenseCostHypothesiser final : public IHypothesiser {
    * @return 候选假设列表。
    */
   std::vector<AssociationHypothesis> Generate(const FeatureVectorList& predicted_tracks,
-                                              const FeatureVectorList& measurements) const override;
+                                              const FeatureVectorList& measurements) const;
   /**
    * @brief 使用逐轨迹新息协方差生成候选假设。
    * @param predicted_tracks 历史轨迹预测特征集合。
@@ -97,9 +88,12 @@ class DenseCostHypothesiser final : public IHypothesiser {
       const std::vector<Eigen::Matrix3f>& measurement_covariances) const;
 
  private:
-  const IDistanceMetric* distance_metric_{nullptr};            /**< 距离度量器（基础路径）。 */
-  ICovarianceAwareDistanceMetric* covariance_metric_{nullptr}; /**< 协方差注入度量器（可空）。 */
-  float max_cost_{0.0f};                                       /**< 最大允许代价阈值。 */
+  float ComputeCost(const Eigen::Vector3f& predicted, const Eigen::Vector3f& measurement) const;
+
+  const MahalanobisDistanceMetric* simple_metric_{nullptr};     /**< 对角协方差度量器。 */
+  const FullMahalanobisDistanceMetric* full_metric_{nullptr};   /**< 完整协方差度量器。 */
+  FullMahalanobisDistanceMetric* mutable_full_metric_{nullptr}; /**< 可注入协方差度量器。 */
+  float max_cost_{0.0f};                                        /**< 最大允许代价阈值。 */
 };
 
 }  // namespace association

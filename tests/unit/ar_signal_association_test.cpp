@@ -534,7 +534,7 @@ TEST(DenseCostHypothesiserTest, NullDependenciesReturnNoHypotheses) {
   const float max_cost = 9.0f;
 
   const signal::association::DenseCostHypothesiser hypothesiser(
-      static_cast<signal::association::IDistanceMetric*>(nullptr), max_cost);
+      static_cast<const signal::association::MahalanobisDistanceMetric*>(nullptr), max_cost);
   const std::vector<signal::association::AssociationHypothesis> hypotheses = hypothesiser.Generate(
       signal::association::FeatureVectorList{Eigen::Vector3f(0.0f, 0.0f, 0.0f)},
       signal::association::FeatureVectorList{Eigen::Vector3f(1.0f, 0.0f, 0.0f)});

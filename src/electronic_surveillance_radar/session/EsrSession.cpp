@@ -1,9 +1,9 @@
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
-#include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
-#include "electronic_surveillance_radar/runtime/EsrController.h"
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
+#include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
+#include "electronic_surveillance_radar/runtime/EsrController.h"
 #include "electronic_surveillance_radar/session/EsrRuntimeConfigResolver.h"
 #include "electronic_surveillance_radar/session/EsrSessionCompositionRoot.h"
 
@@ -52,8 +52,8 @@ struct EsrSession::Impl {
 
     // 按 docs/common/contract.md「运行期配置提交策略」，ESR 属立即提交类，配置不在
     // session 层回滚。此处的累积状态 capture/restore 针对非配置的运行期状态
-    //（rng/id/tracks）。当前 controller.RunOnce 无"执行失败"abort 路径
-    //（kOutputContractViolation 未接线，见 open_questions.md OQ-1a），故该 restore
+    // （rng/id/tracks）。当前 controller.RunOnce 无"执行失败"abort 路径
+    // （kOutputContractViolation 未接线，见 open_questions.md OQ-1a），故该 restore
     // 分支当前不可达；保留以备 pipeline 结果契约校验接线后激活。
     if (!controller.ExecutedLatestCycle() &&
         controller.GetLastInterceptCycleAbortReason() !=
@@ -115,12 +115,11 @@ EsrRuntimeConfigApplyResult EsrSession::ApplyRuntimeConfigWithResult(
   impl_->resolved_config = resolved.next_config;
   if (resolved.runtime_config_changed || resolved.pipeline_config_changed) {
     // 写路径直接吃 internal config（与 EOS/AR 一致），避免 internal→extension→internal
-    // 往返。RunCycle 的 per-cycle extension 投影（IEsrContext 契约）仍在 RunCycle 内进行。
+    // 往返。RunCycle 的 per-cycle MutableEsrContext 投影仍在 RunCycle 内进行。
     impl_->pipeline.UpdateConfig(impl_->resolved_config);
   }
   if (resolved.environment_model_config_changed) {
-    impl_->environment_service.UpdateModelConfig(
-        impl_->resolved_config.environment);
+    impl_->environment_service.UpdateModelConfig(impl_->resolved_config.environment);
   }
   apply_result.applied = true;
   return apply_result;
