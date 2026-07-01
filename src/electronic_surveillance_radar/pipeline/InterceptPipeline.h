@@ -56,7 +56,8 @@ class InterceptPipeline final {
    * 时有意保留 tracks，故 config 与累积状态是独立状态空间。
    *
    * 按 docs/common/contract.md「运行期配置提交策略」，ESR 属立即提交类：配置不在
-   * session 层回滚。本 capture/restore 针对累积状态，详见 open_questions.md OQ-1a。
+   * session 层回滚。本 capture/restore 只描述累积状态能力，不代表当前存在
+   * pipeline 自报失败后的执行回滚路径。
    */
   extension::InterceptPipelineRuntimeState CaptureRuntimeState() const;
 

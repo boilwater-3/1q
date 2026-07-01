@@ -1,10 +1,10 @@
 # Electronic Surveillance Radar 当前设计
 
 Status: active
-Last-reviewed: 2026-06-27
+Last-reviewed: 2026-07-01
 Authority: current electronic_surveillance_radar module design
 
-本文是 `electronic_surveillance_radar` 当前设计权威。它描述 ESR 的会话门面、拦截 pipeline、观测预处理、聚类、辐射源假设关联、输出三通道和运行期回滚边界。
+本文是 `electronic_surveillance_radar` 当前设计权威。它描述 ESR 的会话门面、拦截 pipeline、观测预处理、聚类、辐射源假设关联、输出三通道和运行期状态边界。
 
 ## 1. 架构设计说明
 
@@ -19,7 +19,7 @@ ESR 模块模拟电子侦察接收机对辐射源的观测和估计。它的核�
 当前设计目标：
 
 - 对外提供稳定 `EsrSession` 门面和四域配置。
-- 内部保持可回滚 pipeline，运行期 patch 失败时不污染状态。
+- runtime patch 经 resolver 校验后立即提交；配置不提供 session 层回滚。
 - 保持真实侦察输出与仿真 truth evaluation 分离。
 - 不暴露用户自定义 pipeline/controller/environment service。
 
@@ -59,7 +59,7 @@ flowchart TB
     EsrSession["EsrSession\n电子侦察会话门面"]
     Composition["EsrSessionCompositionRoot\n默认内部装配"]
     Resolver["Session/Runtime resolvers\n配置解析与运行期 patch"]
-    Rollback["Runtime snapshots\npipeline/controller 状态回滚"]
+    Snapshots["Runtime snapshots\npipeline/controller 累积状态快照"]
   end
 
   subgraph Runtime["Runtime layer\n运行期层"]
@@ -87,7 +87,7 @@ flowchart TB
   Controller --> OutputManager
   Controller --> Pipeline
   EsrSession --> Resolver
-  EsrSession --> Rollback
+  EsrSession --> Snapshots
   Detect --> Preprocess
   Preprocess --> Cluster
   Cluster --> Associate
@@ -111,15 +111,17 @@ sequenceDiagram
   Caller->>Session: StepWithResult(EsrCycleInput) 提交单周期输入
   Session->>Pipeline: CaptureRuntimeState 捕获 pipeline 状态
   Session->>Controller: CaptureRuntimeState 捕获 controller 状态
+  Session->>Controller: RunOnce 执行单周期控制
+  alt validation rejected 输入校验失败
+    Controller-->>Session: not executed + validation rejection
+  else validation accepted 输入校验通过
   Controller->>Pipeline: RunCycle 执行拦截流水线
   Pipeline->>Env: SampleEnvironment 采样电磁环境
   Pipeline->>Pipeline: detection / preprocess / cluster 检测、预处理、聚类
   Pipeline->>Assoc: Update clusters 更新辐射源假设
   Assoc-->>Pipeline: hypotheses 假设列表
   Pipeline-->>Controller: observation / emitter / truth outputs 三通道输出
-  alt aborted after partial mutation 非校验类中止
-    Session->>Pipeline: RestoreRuntimeState 回滚 pipeline
-    Session->>Controller: RestoreRuntimeState 回滚 controller
+  note over Pipeline,Controller: InterceptPipelineResult 是纯三通道数据载体；当前无 pipeline 自报失败状态
   end
   Session-->>Result: output frame + validation + abort reason
   Session-->>Caller: EsrCycleResult 返回结构化结果
@@ -225,7 +227,7 @@ flowchart TB
 限制：
 
 - detection 输出是设备观测，不直接等同于 truth emitter。
-- 随机量必须受 config seed 和 runtime snapshot 管理，支持回滚。
+- 随机量必须受 config seed 和 runtime snapshot 管理；snapshot 只覆盖累积运行态，不覆盖配置。
 
 验证入口：
 
@@ -286,15 +288,23 @@ flowchart TB
 
 - `tests/unit/esr_hypothesis_associator_test.cpp`
 
-### 2.6 运行期配置与回滚
+### 2.6 运行期配置与状态边界
 
-`EsrSession::RunCycle()` 在执行前捕获 pipeline 和 controller runtime state。若周期未执行且 abort reason 不是 validation rejection，则恢复两者状态。
+`ApplyRuntimeConfigWithResult()` 通过 `ResolveEsrRuntimeConfigPatch()` 校验 patch。有效 patch 立即写入 `resolved_config`，并同步到 pipeline/environment；无效 patch 拒绝且不污染现有配置。ESR 属于 `docs/common/contract.md` 定义的立即提交类，配置单向落定，不提供 session 层回滚。
+
+`InterceptPipeline::RunCycle()` 返回 `InterceptPipelineResult`，该结果只包含 observation、emitter、truth evaluation 三通道输出，不包含 `executed_this_cycle` 或 `abort_reason`。因此 ESR controller 当前没有 EOS 式的 pipeline 自报失败状态可校验；一旦输入校验通过并进入 pipeline，空输出也是合法数据结果。
+
+pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描述累积运行态能力：
+
+- pipeline 快照含 RNG、observation/hypothesis id、hypothesis associator tracks。
+- pipeline 快照不含 config、feature scales 或环境配置。
+- controller 快照含 latest output、validation issues、batch id 和最近一次执行状态。
 
 设计含义：
 
-- validation rejection 可以保留“输入被拒绝”的状态记录。
-- 中途失败不能消耗 RNG、observation id、hypothesis id 或 track state。
-- runtime patch 必须原子应用；非法 patch 不应部分修改 pipeline/environment/controller。
+- validation rejection 在进入 pipeline 前发生，`EsrCycleResult` 记录 `executed_this_cycle=false` 和 `kValidationRejected`。
+- 当前没有“pipeline 执行后自报失败并触发回滚”的路径；不要把 `kOutputContractViolation` 理解为 ESR 输出契约校验的预留占位。
+- 新增 ESR pipeline 失败语义前，必须先扩展 `InterceptPipelineResult` 或等价内部结果结构，使失败状态成为显式接口契约。
 
 验证入口：
 
@@ -330,6 +340,5 @@ ESR 输出保持三通道：
 
 1. Observation/hypothesis 字段变化必须同步 replay roundtrip 测试。
 2. Gate、preprocess、cluster、association 语义变化必须同步本文和对应 focused tests。
-3. Runtime patch、snapshot 或 rollback 变化必须同步控制器状态测试。
+3. Runtime patch、snapshot 或状态边界变化必须同步控制器状态测试。
 4. 输出通道边界变化必须同步 output boundary contract 测试。
-
