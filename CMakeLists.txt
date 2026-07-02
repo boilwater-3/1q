@@ -97,6 +97,7 @@ include(cmake/FeatureCCache.cmake)
 include(cmake/FeaturePrecompiledHeaders.cmake)
 include(cmake/FeatureClangTidy.cmake)
 include(cmake/FeatureClangFormat.cmake)
+include(cmake/FeatureCoverage.cmake)
 
 # 编译器特定配置
 if(MSVC)
@@ -156,6 +157,7 @@ message(STATUS "  └─ C++ Standard: C++${CMAKE_CXX_STANDARD}")
 message(STATUS "  └─ Build shared libs: ${BUILD_SHARED_LIBS}")
 message(STATUS "  └─ Build examples: ${ENABLE_EXAMPLES}")
 message(STATUS "  └─ Build tests: ${ENABLE_TESTING}")
+message(STATUS "  └─ Coverage: ${ENABLE_COVERAGE}")
 message(STATUS "  └─ Install support: ${ENABLE_INSTALL}")
 
 # VS2015 行尾兼容处理
