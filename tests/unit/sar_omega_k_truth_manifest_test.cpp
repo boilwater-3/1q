@@ -71,6 +71,143 @@ TEST(SarOmegaKTruthManifestTest, RejectsReorderedOrTrailingContentAtomically) {
             OmegaKTruthManifestReason::kUnexpectedContent);
 }
 
+// =============================================================================
+// schema_version / ReadBool 失败路径
+// =============================================================================
+
+TEST(SarOmegaKTruthManifestTest, RejectsUnsupportedSchemaVersion) {
+  std::string manifest = ValidSyntheticManifest();
+  // schema_version 1 -> schema_version 2
+  manifest.replace(manifest.find("schema_version 1"), 17U, "schema_version 2");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kUnsupportedVersion);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsInvalidBoolValueForPhysicalEvidence) {
+  std::string manifest = ValidSyntheticManifest();
+  // physical_evidence false -> physical_evidence maybe
+  manifest.replace(manifest.find("false\nsource"), 5U, "maybe");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidField);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsInvalidBoolValueForIndependentlyGenerated) {
+  std::string manifest = ValidSyntheticManifest();
+  // independently_generated false -> independently_generated 1
+  manifest.replace(manifest.find("false\ninside"), 5U, "1");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidField);
+}
+
+// =============================================================================
+// 数值有限性 / 非负校验（逐字段触发 IsFiniteNonnegative）
+// =============================================================================
+
+TEST(SarOmegaKTruthManifestTest, RejectsNanSlantRange) {
+  std::string manifest = ValidSyntheticManifest();
+  manifest.replace(manifest.find("absolute_slant_range_m 1000"), 25U,
+                   "absolute_slant_range_m nan");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidField);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsNegativeSlantRange) {
+  std::string manifest = ValidSyntheticManifest();
+  manifest.replace(manifest.find("absolute_slant_range_m 1000"), 25U,
+                   "absolute_slant_range_m -1");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidField);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsNanAzimuthCoordinate) {
+  std::string manifest = ValidSyntheticManifest();
+  manifest.replace(manifest.find("azimuth_coordinate 0"), 21U,
+                   "azimuth_coordinate nan");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidField);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsNanPeakPhase) {
+  std::string manifest = ValidSyntheticManifest();
+  manifest.replace(manifest.find("peak_phase_rad 0"), 16U, "peak_phase_rad nan");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidField);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsNanPeakMagnitude) {
+  std::string manifest = ValidSyntheticManifest();
+  manifest.replace(manifest.find("peak_magnitude 1"), 16U, "peak_magnitude nan");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidField);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsZeroPeakMagnitude) {
+  std::string manifest = ValidSyntheticManifest();
+  manifest.replace(manifest.find("peak_magnitude 1"), 16U, "peak_magnitude 0");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidField);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsNanRangeErrorTolerance) {
+  std::string manifest = ValidSyntheticManifest();
+  manifest.replace(manifest.find("maximum_range_error_m 1"), 23U,
+                   "maximum_range_error_m nan");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidField);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsNegativeAzimuthErrorTolerance) {
+  std::string manifest = ValidSyntheticManifest();
+  manifest.replace(manifest.find("maximum_azimuth_error 0.1"), 25U,
+                   "maximum_azimuth_error -0.1");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidField);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsNanPslrTolerance) {
+  std::string manifest = ValidSyntheticManifest();
+  manifest.replace(manifest.find("maximum_range_pslr_db -20"), 25U,
+                   "maximum_range_pslr_db nan");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidField);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsNanIslrTolerance) {
+  std::string manifest = ValidSyntheticManifest();
+  manifest.replace(manifest.find("maximum_range_islr_db -15"), 25U,
+                   "maximum_range_islr_db nan");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidField);
+}
+
+// =============================================================================
+// digest / END 标记的边界路径
+// =============================================================================
+
+TEST(SarOmegaKTruthManifestTest, RejectsDigestWithNonHexChars) {
+  std::string manifest = ValidSyntheticManifest();
+  // 替换 64 字符 digest 为含非 hex 字符的 64 字符串
+  manifest.replace(manifest.find("0123456789abcdef"), 64U,
+                   "zz23456789abcdef0123456789abcdef0123456789abcdef0123456789abczz");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kInvalidDigest);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsMutatedEndToken) {
+  std::string manifest = ValidSyntheticManifest();
+  // END -> DONE
+  manifest.replace(manifest.find("END\n"), 3U, "DONE");
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kUnexpectedContent);
+}
+
+TEST(SarOmegaKTruthManifestTest, RejectsTruncatedManifestMissingEnd) {
+  std::string manifest = ValidSyntheticManifest();
+  manifest.erase(manifest.find("END\n"));
+  EXPECT_EQ(ParseOmegaKTruthManifest(manifest).reason,
+            OmegaKTruthManifestReason::kUnexpectedContent);
+}
+
 }  // namespace
 }  // namespace imaging
 }  // namespace sar
