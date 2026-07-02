@@ -60,6 +60,7 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 - `CLAUDE.md`: 工程约束、构建测试规则与重构策略。
 - `docs/<module>/design.md`: 各模块当前设计（AR / ESR / SAR / EOS / Flight Dynamic）。
 - `docs/common/`: 跨模块契约与开放问题（`contract.md`、`open_questions.md`）。
+- `docs/practice/`: 工程实践与基础设施类设计文档（覆盖率、批量场景验证框架等）。
 - `docs/review/`: 模块评审与迁移计划。
 - `include/1q/README.md`: 公共头文件导航与对外接入建议。
 - `tests/README.md`: 测试分层约定与运行建议。

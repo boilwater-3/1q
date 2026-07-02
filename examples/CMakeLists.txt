@@ -95,3 +95,23 @@ add_executable(figure8_approach_trace flight_dynamic/figure8_approach_trace.cpp)
 setup_fd_example(figure8_approach_trace)
 
 endif()  # ONEQ_ENABLE_FLIGHT_DYNAMIC
+
+# =============================================================================
+# 批量场景验证：多场景参数扫描 + CSV 指标 + trace 录制/回放回归。
+# 每个模块一个独立可执行程序，证明模块在多场景下的泛用性。
+# 共享工具头文件位于 batch_validation/，配置目录通过 BATCH_CONFIG_DIR 注入。
+# =============================================================================
+function(add_batch_validation name module_dir src)
+    add_executable(${name} "batch_validation/${src}")
+    target_link_libraries(${name} PRIVATE ${PROJECT_ALIAS})
+    target_include_directories(${name} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/batch_validation"
+        "${CMAKE_CURRENT_SOURCE_DIR}/${module_dir}")
+    target_compile_definitions(${name} PRIVATE
+        BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")
+endfunction()
+
+add_batch_validation(ar_batch_validation airborne_radar ar_batch_validation.cpp)
+add_batch_validation(eos_batch_validation electro_optical eos_batch_validation.cpp)
+add_batch_validation(esr_batch_validation electronic_warfare esr_batch_validation.cpp)
+add_batch_validation(sar_batch_validation sar sar_batch_validation.cpp)

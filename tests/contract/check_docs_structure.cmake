@@ -1,17 +1,19 @@
 # check_docs_structure.cmake
 #
 # Guard repository documentation shape:
-#   - docs/ has common, review, and the five module directories
+#   - docs/ has common, review, practice, and the five module directories
 #   - each business module uses the single-file design.md model
 #   - common uses the approved common-document set (contract.md + open_questions.md)
 #   - review uses draft Markdown files only, with no nested directory tree
+#   - practice holds flat active-status Markdown for engineering/infra topics
 #   - top-level loose Markdown files and legacy archive/migration folders do not reappear
 #
 # Per docs/common/contract.md §文档结构, each business module keeps only
 # design.md as its design authority; the prior README/contract/decisions/history
 # set has been collapsed into design.md, and common keeps contract.md (public
 # contract) plus open_questions.md (non-normative cross-module open questions).
-# docs/review is the only approved draft/review holding area.
+# docs/review is the only approved draft/review holding area; docs/practice holds
+# active engineering-practice docs (build, test, coverage, examples, batch validation).
 
 cmake_minimum_required(VERSION 3.16)
 
@@ -25,6 +27,7 @@ set(ALLOWED_DOC_DIRS
     "electro_optical_sensor"
     "electronic_surveillance_radar"
     "flight_dynamic"
+    "practice"
     "review"
     "sar")
 
@@ -136,6 +139,32 @@ if(IS_DIRECTORY "${review_dir}")
   endforeach()
 endif()
 
+# docs/practice: flat active-status Markdown for engineering/infra topics.
+set(practice_dir "${SOURCE_DIR}/docs/practice")
+if(IS_DIRECTORY "${practice_dir}")
+  file(GLOB_RECURSE _practice_docs RELATIVE "${practice_dir}" "${practice_dir}/*.md")
+  foreach(rel_doc ${_practice_docs})
+    if(rel_doc MATCHES "/")
+      list(APPEND VIOLATIONS "docs/practice/${rel_doc}: practice docs must stay flat")
+    endif()
+    set(doc_file "${practice_dir}/${rel_doc}")
+    file(STRINGS "${doc_file}" _head LIMIT_COUNT 6)
+    list(FIND _head "Status: active" _active_idx)
+    if(_active_idx EQUAL -1)
+      list(APPEND VIOLATIONS "docs/practice/${rel_doc}: practice docs must declare 'Status: active' near the top")
+    endif()
+  endforeach()
+
+  file(GLOB _practice_children RELATIVE "${practice_dir}" "${practice_dir}/*")
+  foreach(child ${_practice_children})
+    if(IS_DIRECTORY "${practice_dir}/${child}")
+      list(APPEND VIOLATIONS "docs/practice/${child}: practice subdirectories are not allowed")
+    elseif(NOT child MATCHES "\\.md$")
+      list(APPEND VIOLATIONS "docs/practice/${child}: practice entries must be Markdown files")
+    endif()
+  endforeach()
+endif()
+
 if(VIOLATIONS)
   set(_err "Documentation structure violations:\n\n")
   foreach(v ${VIOLATIONS})
@@ -153,5 +182,11 @@ if(IS_DIRECTORY "${SOURCE_DIR}/docs/review")
 else()
   set(_review_count 0)
 endif()
+if(IS_DIRECTORY "${SOURCE_DIR}/docs/practice")
+  file(GLOB _practice_docs_count "${SOURCE_DIR}/docs/practice/*.md")
+  list(LENGTH _practice_docs_count _practice_count)
+else()
+  set(_practice_count 0)
+endif()
 math(EXPR _module_doc_total "${_module_count} * ${_module_doc_count}")
-message(STATUS "[docs-structure] common=${_common_count}, modules=${_module_count}, module_docs=${_module_doc_total}, review=${_review_count}, violations=0")
+message(STATUS "[docs-structure] common=${_common_count}, modules=${_module_count}, module_docs=${_module_doc_total}, review=${_review_count}, practice=${_practice_count}, violations=0")

@@ -1,7 +1,7 @@
 # 跨模块契约
 
 Status: active
-Last-reviewed: 2026-07-01
+Last-reviewed: 2026-07-02
 Authority: common contract for all modules
 
 本文合并原顶层 public API customization、session config builder、三层输出可观测性和文档治理契约。模块级文档不得与本文冲突。
@@ -99,13 +99,18 @@ Authority: common contract for all modules
 
 - `common`
 - `review`
+- `practice`
 - `airborne_radar`
 - `electro_optical_sensor`
 - `electronic_surveillance_radar`
 - `flight_dynamic`
 - `sar`
 
+`docs/` 顶层不保留散落的 Markdown 文件。所有文档必须落在上述某个一级目录内。
+
 `review/` 是唯一允许的评审和迁移草案目录，只能存放扁平 Markdown 草案文件。每个草案必须在文件头声明 `Status: draft`，不得作为当前权威文档引用；结论落定后，应迁入 `common/contract.md`、`common/open_questions.md` 或对应模块 `design.md`，再删除草案。
+
+`practice/` 存放工程实践与基础设施类设计文档（非业务模块设计）：构建、测试策略、覆盖率、示例程序、批量验证框架等跨模块工程产物。每份文档为扁平 Markdown，文件头声明 `Status: active` 与 `Authority:`（如 `build infrastructure`、`test infrastructure`、`examples`）。`practice/` 不存放业务模块设计——模块设计归各自 `design.md`；也不存放契约规则——规定性规则归 `common/contract.md`。
 
 每个业务模块只保留 `design.md` 作为设计权威文档。历史决策记录（旧版 `decisions.md`、`history.md`、`contract.md`）和模块入口（`README.md`）的内容已内聚到 `design.md` 中。
 
