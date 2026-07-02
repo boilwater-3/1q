@@ -259,5 +259,186 @@ TEST(SarEchoClutterTest, ClutterSceneTotalEnergyIsFinite) {
   }
 }
 
+// =============================================================================
+// Antenna modulation / elevation gate 边界分支
+// =============================================================================
+
+TEST(SarEchoClutterTest, AntennaDisabledMatchesPlainEcho) {
+  const RawEchoConfig config = MakeConfig();
+  const geometry::PlatformPulseState platform = MakePlatform();
+  const signal::ComplexVector waveform = MakeSimplePulse(16);
+  PointTarget target;
+  target.position_m = {0.0, 1500.0, 0.0};
+  target.rcs_m2 = 1.0;
+
+  AntennaModulationConfig antenna_config;
+  antenna_config.enabled = false;
+
+  RawEchoResult result;
+  ASSERT_TRUE(GeneratePointTargetRawEchoWithAntenna(
+      config, antenna_config, platform, {target}, waveform, &result));
+  EXPECT_FALSE(result.samples.empty());
+}
+
+TEST(SarEchoClutterTest, AntennaEnabledProducesFiniteEcho) {
+  const RawEchoConfig config = MakeConfig();
+  const geometry::PlatformPulseState platform = MakePlatform();
+  const signal::ComplexVector waveform = MakeSimplePulse(16);
+  PointTarget target;
+  target.position_m = {0.0, 1500.0, 0.0};
+  target.rcs_m2 = 1.0;
+
+  AntennaModulationConfig antenna_config;
+  antenna_config.enabled = true;
+  antenna_config.antenna.length_m = 2.0;
+  antenna_config.antenna.width_m = 0.3;
+  antenna_config.antenna.beam_width_azimuth_rad = 0.015;
+  antenna_config.beam_state.boresight_azimuth_rad = 0.0;
+
+  RawEchoResult result;
+  ASSERT_TRUE(GeneratePointTargetRawEchoWithAntenna(
+      config, antenna_config, platform, {target}, waveform, &result));
+  for (const auto& v : result.samples) {
+    EXPECT_TRUE(std::isfinite(v.real()));
+  }
+}
+
+TEST(SarEchoClutterTest, ElevationGateDisabledMatchesPlainEcho) {
+  const RawEchoConfig config = MakeConfig();
+  const geometry::PlatformPulseState platform = MakePlatform();
+  const signal::ComplexVector waveform = MakeSimplePulse(16);
+  PointTarget target;
+  target.position_m = {0.0, 1500.0, 0.0};
+  target.rcs_m2 = 1.0;
+
+  ElevationGateConfig gate_config;
+  gate_config.enabled = false;
+
+  RawEchoResult result;
+  ASSERT_TRUE(GeneratePointTargetRawEchoWithElevationGate(
+      config, gate_config, platform, {target}, waveform, &result));
+  EXPECT_FALSE(result.samples.empty());
+}
+
+TEST(SarEchoClutterTest, ElevationGateIlluminatedIncludesTarget) {
+  const RawEchoConfig config = MakeConfig();
+  const geometry::PlatformPulseState platform = MakePlatform();
+  const signal::ComplexVector waveform = MakeSimplePulse(16);
+  PointTarget target;
+  target.position_m = {0.0, 1500.0, 0.0};
+  target.rcs_m2 = 1.0;
+
+  ElevationGateConfig gate_config;
+  gate_config.enabled = true;
+  gate_config.burst_state.illuminated = true;
+  gate_config.burst_state.near_range_m = 1000.0;
+  gate_config.burst_state.far_range_m = 2000.0;
+
+  RawEchoResult result;
+  ASSERT_TRUE(GeneratePointTargetRawEchoWithElevationGate(
+      config, gate_config, platform, {target}, waveform, &result));
+  EXPECT_FALSE(result.samples.empty());
+}
+
+TEST(SarEchoClutterTest, ElevationGateNotIlluminatedExcludesTarget) {
+  const RawEchoConfig config = MakeConfig();
+  const geometry::PlatformPulseState platform = MakePlatform();
+  const signal::ComplexVector waveform = MakeSimplePulse(16);
+  PointTarget target;
+  target.position_m = {0.0, 1500.0, 0.0};
+  target.rcs_m2 = 1.0;
+
+  ElevationGateConfig gate_config;
+  gate_config.enabled = true;
+  gate_config.burst_state.illuminated = false;  // 不照射 → 跳过
+  gate_config.burst_state.near_range_m = 1000.0;
+  gate_config.burst_state.far_range_m = 2000.0;
+
+  RawEchoResult result;
+  ASSERT_TRUE(GeneratePointTargetRawEchoWithElevationGate(
+      config, gate_config, platform, {target}, waveform, &result));
+  // 目标被门控跳过，但结果仍有效
+}
+
+TEST(SarEchoClutterTest, ElevationGateOutOfRangeExcludesTarget) {
+  const RawEchoConfig config = MakeConfig();
+  const geometry::PlatformPulseState platform = MakePlatform();
+  const signal::ComplexVector waveform = MakeSimplePulse(16);
+  PointTarget target;
+  target.position_m = {0.0, 5000.0, 0.0};  // 在 [1000,2000] 范围外
+  target.rcs_m2 = 1.0;
+
+  ElevationGateConfig gate_config;
+  gate_config.enabled = true;
+  gate_config.burst_state.illuminated = true;
+  gate_config.burst_state.near_range_m = 1000.0;
+  gate_config.burst_state.far_range_m = 2000.0;
+
+  RawEchoResult result;
+  ASSERT_TRUE(GeneratePointTargetRawEchoWithElevationGate(
+      config, gate_config, platform, {target}, waveform, &result));
+}
+
+// =============================================================================
+// ApplyFractionalDelay / AddNoise 边界
+// =============================================================================
+
+TEST(SarEchoClutterTest, ApplyFractionalDelayRejectsNullOutput) {
+  const signal::ComplexVector input(8, signal::ComplexSample(1.0, 0.0));
+  EXPECT_FALSE(ApplyFractionalDelay(input, 0.5, nullptr));
+}
+
+TEST(SarEchoClutterTest, ApplyFractionalDelayRejectsEmptyInput) {
+  signal::ComplexVector output;
+  EXPECT_FALSE(ApplyFractionalDelay({}, 0.5, &output));
+}
+
+TEST(SarEchoClutterTest, ApplyFractionalDelayZeroDelayReturnsFalse) {
+  const signal::ComplexVector input(8, signal::ComplexSample(1.0, 0.0));
+  signal::ComplexVector output;
+  EXPECT_FALSE(ApplyFractionalDelay(input, 0.0, &output));
+}
+
+TEST(SarEchoClutterTest, AddNoiseRejectsNullSamples) {
+  EXPECT_FALSE(AddNoise(NoiseSpec{10.0, 42U}, nullptr));
+}
+
+TEST(SarEchoClutterTest, AddNoiseRejectsEmptySamples) {
+  signal::ComplexVector empty;
+  EXPECT_FALSE(AddNoise(NoiseSpec{10.0, 42U}, &empty));
+}
+
+// =============================================================================
+// GenerateClutterScene 边界分支
+// =============================================================================
+
+TEST(SarEchoClutterTest, ClutterSceneRejectsNullResult) {
+  const RawEchoConfig config = MakeConfig();
+  const geometry::PlatformPulseState platform = MakePlatform();
+  const signal::ComplexVector waveform = MakeSimplePulse(16);
+  SceneDescription scene;
+  EXPECT_FALSE(GenerateClutterScene(config, platform, scene, waveform, nullptr));
+}
+
+TEST(SarEchoClutterTest, ClutterSceneWithZeroSpacingSkipsClutter) {
+  const RawEchoConfig config = MakeConfig();
+  const geometry::PlatformPulseState platform = MakePlatform();
+  const signal::ComplexVector waveform = MakeSimplePulse(16);
+  SceneDescription scene;
+  scene.scene_extent_x_m = 100.0;
+  scene.scene_extent_y_m = 100.0;
+  scene.clutter_grid_spacing_m = 0.0;  // 跳过杂波
+  RawEchoResult result;
+  EXPECT_TRUE(GenerateClutterScene(config, platform, scene, waveform, &result));
+}
+
+TEST(SarEchoClutterTest, ClutterSceneRejectsNullWaveform) {
+  const RawEchoConfig config = MakeConfig();
+  const geometry::PlatformPulseState platform = MakePlatform();
+  SceneDescription scene;
+  RawEchoResult result;
+  EXPECT_FALSE(GenerateClutterScene(config, platform, scene, {}, &result));
+}
+
 }  // namespace echo
 }  // namespace sar

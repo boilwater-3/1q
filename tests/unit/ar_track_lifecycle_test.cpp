@@ -863,5 +863,72 @@ TEST(TrackLifecycleManagerTest, FilterWritebackUpdatesAccelerationFromVelocityDe
               1e-4f);
 }
 
+// ===========================================================================
+// RuntimeState 捕获/恢复 + SyncRuntimeTuning（此前 50% 分支覆盖）
+// ===========================================================================
+
+TEST(TrackLifecycleManagerTest, CaptureAndRestoreRoundTripsState) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 2;
+  config.max_miss_before_lost = 1;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  signal::tracking::TrackMeasurement measurement;
+  measurement.raw_measurement.association_key = 42;
+  measurement.filtered_feature.velocity = Eigen::Vector3f(3.0f, 4.0f, 0.0f);
+
+  manager.Update(MakeCycle(1u, 100u), {measurement});
+  manager.Update(MakeCycle(2u, 101u), {measurement});
+  ASSERT_EQ(manager.GetActiveTracks().size(), 1u);
+
+  // 捕获当前状态（已确认轨迹）
+  const signal::tracking::TrackLifecycleRuntimeState state = manager.CaptureRuntimeState();
+  EXPECT_NE(state.owner_identity, nullptr);
+
+  // 恢复到同一状态：轨迹仍应存在
+  manager.RestoreRuntimeState(state);
+  auto tracks = manager.GetActiveTracks();
+  ASSERT_EQ(tracks.size(), 1u);
+  EXPECT_EQ(tracks[0]->status, signal::tracking::TrackStatus::kConfirmed);
+}
+
+TEST(TrackLifecycleManagerTest, RestoreRejectsMismatchedSchemaVersion) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 1;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  signal::tracking::TrackMeasurement measurement;
+  measurement.raw_measurement.association_key = 1;
+  manager.Update(MakeCycle(1u, 1u), {measurement});
+  ASSERT_EQ(manager.GetActiveTracks().size(), 1u);
+
+  // schema_version != 1 → 拒绝恢复，轨迹保留不变
+  signal::tracking::TrackLifecycleRuntimeState bad_state;
+  bad_state.schema_version = 0U;
+  manager.RestoreRuntimeState(bad_state);
+  EXPECT_EQ(manager.GetActiveTracks().size(), 1u);
+}
+
+TEST(TrackLifecycleManagerTest, SyncRuntimeTuningUpdatesConfigWithoutCrash) {
+  signal::tracking::BoostTrackPool pool(4, 16);
+  signal::tracking::LifecycleConfig config;
+  config.confirm_hits = 2;
+  config.max_miss_before_lost = 1;
+
+  signal::tracking::TrackLifecycleManager manager(pool, config);
+
+  signal::tracking::LifecycleConfig new_config = config;
+  new_config.confirm_hits = 3;
+  new_config.max_miss_before_lost = 2;
+
+  manager.SyncRuntimeTuning(new_config, 1.5f, 0.5f, {0.1f}, Eigen::MatrixXf::Identity(1, 1),
+                            Eigen::VectorXf::Ones(1));
+  SUCCEED();
+}
+
 }  // namespace tests
 }  // namespace airborne_radar
