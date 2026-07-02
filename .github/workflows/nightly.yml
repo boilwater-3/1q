@@ -1,0 +1,162 @@
+# Nightly 慢任务 — 定时触发 + 手动触发
+#
+# 承载 CI 快速门禁（ci.yml）放不下的高成本/低频任务:
+#   1. performance     — Release 构建 + 性能/cxx11 兼容 gate
+#   2. flight-dynamic  — FD 模块（默认 OFF）的 CI 子集
+#   3. coverage        — 覆盖率测量 + HTML 报告 artifact
+#
+# 为什么放 nightly 而非 PR:
+#   - performance 需 Release 构建（独立编译产物，~数分钟）
+#   - flight-dynamic 需 FD=ON + 额外 git clone JSBSim 数据（third_party 被 gitignore）
+#   - coverage 需插桩构建（llvm-ninja-coverage，独立编译产物）+ 全量测试 + 报告生成
+#   这些任务单次 10-20 分钟，放 PR 会拖慢反馈。nightly 跑足够频繁以捕捉回归。
+#
+# 手动触发: Actions 页 → nightly → Run workflow（便于随时验证修复）
+# 详见 docs/ci.md。
+
+name: Nightly
+
+on:
+  schedule:
+    # UTC 18:00 = 北京时间 02:00，避开工作时间；每天跑一次
+    - cron: '0 18 * * *'
+  workflow_dispatch: # 手动触发
+
+# nightly 不取消旧运行（无 PR 抢资源场景），让其完整跑完留档
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CONAN_CACHE_KEY: ${{ hashFiles('conanfile.py') }}
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────
+  # Job 1: performance — Release 构建 + 性能/cxx11 gate
+  # Release 构建性能更接近生产；JSBSim 仿真 ~6× 快于 debug（见 CLAUDE.md）。
+  # 跑三类慢测试:
+  #   - performance / sar_performance: FFT 等数值性能基线
+  #   - sar_cxx11_compat: 把 SAR 源码逐文件用 -std=c++11 -Werror 重编译（label 独立）
+  # ─────────────────────────────────────────────────────────────────────
+  performance:
+    name: Performance & C++11 compat
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Conan 2.x
+        run: pip install conan
+
+      - name: Cache Conan
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ env.CONAN_CACHE_KEY }}-release
+
+      - name: Configure (Release)
+        run: cmake --preset llvm-ninja-release
+
+      - name: Build
+        run: cmake --build --preset llvm-ninja-release -j 4
+
+      - name: Run performance tests
+        run: |
+          ctest --test-dir build/llvm-ninja-release \
+                -L 'performance|sar_performance' \
+                --output-on-failure -j 4
+
+      - name: Run SAR C++11 compatibility gate
+        # sar_cxx11_compat label 独立，逐文件重编译 SAR 源码为 C++11（VS2015 消费方兼容）
+        run: |
+          ctest --test-dir build/llvm-ninja-release \
+                -R sar_cxx11_compat \
+                --output-on-failure -j 4
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Job 2: flight-dynamic — FD 模块 CI 子集（默认 OFF 的机动模块）
+  # 需额外步骤获取 JSBSim 数据文件:
+  #   - third_party/jsbsim 被 .gitignore，CI checkout 缺失
+  #   - fd_* 测试读 FD_JSBSIM_ROOT_DIR（=third_party/jsbsim）的 aircraft/*.xml
+  # 只跑 fd_ci（smoke+contract+controllability 三层），fd_performance/fd_known_limit
+  # 更慢且按需，此处不跑。
+  # ─────────────────────────────────────────────────────────────────────
+  flight-dynamic:
+    name: Flight Dynamic (fd_ci)
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Conan 2.x
+        run: pip install conan
+
+      - name: Cache Conan
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ env.CONAN_CACHE_KEY }}-debug-fd
+
+      # fd_* 测试需要 JSBSim aircraft 数据文件（third_party/jsbsim 被 gitignore）
+      # 浅克隆官方仓库即可；JSBSim 源码本身由 Conan 提供（jsbsim/1.3.1 预编译）
+      - name: Fetch JSBSim data files
+        run: |
+          git clone --depth 1 https://github.com/JSBSim-Team/jsbsim.git third_party/jsbsim
+
+      - name: Configure (with flight_dynamic)
+        run: cmake --preset llvm-ninja-debug -D ONEQ_ENABLE_FLIGHT_DYNAMIC=ON
+
+      - name: Build
+        run: cmake --build --preset llvm-ninja-debug -j 4
+
+      - name: Run fd_ci tests
+        run: |
+          ctest --test-dir build/llvm-ninja-debug-local \
+                -L fd_ci \
+                --output-on-failure -j 4
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Job 3: coverage — LLVM source-based 覆盖率测量 + HTML 报告
+  # 用 llvm-ninja-coverage preset（ENABLE_COVERAGE=ON）+ tools/coverage_report.sh。
+  # 全量测试合并后生成 HTML 报告，作为 artifact 上传（保留 14 天）。
+  # 主指标: Branch 覆盖率（数值密集代码看重分支覆盖，见 docs/coverage.md）。
+  # ─────────────────────────────────────────────────────────────────────
+  coverage:
+    name: Coverage report
+    runs-on: macos-14
+    timeout-minutes: 40
+    # coverage 失败不应阻断 nightly 其它 job（performance/fd 独立判定）
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Conan 2.x
+        run: pip install conan
+
+      - name: Cache Conan
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ env.CONAN_CACHE_KEY }}-coverage
+
+      - name: Configure (Coverage)
+        run: cmake --preset llvm-ninja-coverage
+
+      - name: Build
+        run: cmake --build --preset llvm-ninja-coverage -j 4
+
+      - name: Generate coverage report
+        # 脚本自动: ctest 全量 → profraw merge → llvm-cov 多二进制合并 → HTML + 摘要
+        # unit label 的 2 个已知失败不影响覆盖率数据完整性（脚本会 warn 但继续）
+        run: bash tools/coverage_report.sh
+
+      - name: Print coverage summary
+        # 把文本摘要打印到 GitHub Actions 日志，便于直接查看 Branch 覆盖率
+        run: cat build/llvm-ninja-coverage-local/coverage_report/summary.txt
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build/llvm-ninja-coverage-local/coverage_report/
+          retention-days: 14

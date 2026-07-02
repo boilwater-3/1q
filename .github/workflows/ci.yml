@@ -1,0 +1,116 @@
+# CI 快速门禁 — 每次 push / pull_request 触发
+#
+# 设计目标: 在 ~5 分钟内给出 PR 是否可合并的信号。按成本/风险分两个 job:
+#   1. guard      — 纯源码扫描的架构守护，编译前先跑（最快反馈，~30s）
+#   2. build-test — Debug 构建 + 绿色 label 硬门禁 + unit advisory（非阻断）
+#
+# job 间解耦: guard 不依赖编译产物，即使 build-test 挂了 guard 的结果仍可见，
+# 便于快速定位是架构问题还是代码问题。build-test 内编译一次，先跑绿色门禁
+# （阻断），再跑 unit（advisory 不阻断），避免重复编译。
+#
+# 平台: 仅 macOS（macos-14, arm64）。Windows conan 路径 JSBSim 来源待核实，留后续。
+# 详见 docs/ci.md。
+#
+# 本地复现（见 docs/ci.md "本地复现" 一节）:
+#   cmake --preset llvm-ninja-debug && cmake --build --preset llvm-ninja-debug
+#   ctest --test-dir build/llvm-ninja-debug-local -L contract --output-on-failure -j4
+#   ctest --test-dir build/llvm-ninja-debug-local -L 'sar_ci|integration|replay_fast' --output-on-failure -j4
+
+name: CI
+
+on:
+  push:
+    branches: [main, codex/optimize]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # 允许手动触发，便于调试
+
+# 同一分支新提交时取消旧的运行，节省 runner 资源
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Conan 缓存 key 基于此文件的依赖清单哈希；改动 conanfile.py 会自动重建缓存
+  CONAN_CACHE_KEY: ${{ hashFiles('conanfile.py') }}
+  PRESET: llvm-ninja-debug
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────
+  # Job 1: guard — 架构守护，编译前先跑（最快反馈）
+  # 跑 -L contract: 17 个 cmake 守护脚本（include 方向/命名/API 边界等）+ contract gtest
+  # 这些检查只读源码，不依赖编译产物，是项目"可执行架构规则"的核心。
+  # ─────────────────────────────────────────────────────────────────────
+  guard:
+    name: Guard (contract)
+    runs-on: macos-14
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Conan 2.x
+        run: pip install conan
+
+      - name: Cache Conan
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ env.CONAN_CACHE_KEY }}-debug
+
+      - name: Configure
+        run: cmake --preset ${{ env.PRESET }}
+
+      - name: Run contract guards
+        run: ctest --test-dir build/llvm-ninja-debug-local -L contract --output-on-failure -j 4
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Job 2: build-test — Debug 构建 + 测试门禁
+  # 编译一次，分两轮跑测试:
+  #   (a) 绿色硬门禁: sar_ci / integration / replay_fast — 失败则 job 红
+  #   (b) unit advisory: 全量 unit — 当前有 2 个确定性失败（commit 545ac428），
+  #       用 if: always() + continue-on-error 语义，失败只 warn 不阻断 PR。
+  # 待 SAR 默认配置修复后，将 unit 从 advisory 移入硬门禁。
+  # ─────────────────────────────────────────────────────────────────────
+  build-test:
+    name: Build & Test
+    runs-on: macos-14
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Conan 2.x
+        run: pip install conan
+
+      - name: Cache Conan
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ env.CONAN_CACHE_KEY }}-debug
+
+      - name: Configure
+        run: cmake --preset ${{ env.PRESET }}
+
+      - name: Build
+        run: cmake --build --preset ${{ env.PRESET }} -j 4
+
+      # ── (a) 绿色硬门禁: 失败则整个 job 失败 ──
+      - name: Run green-label tests (blocking)
+        run: |
+          ctest --test-dir build/llvm-ninja-debug-local \
+                -L 'sar_ci|integration|replay_fast' \
+                --output-on-failure -j 4
+
+      # ── (b) unit advisory: 当前已知 2 个失败，不阻断 ──
+      # id: unit-result 让下一步可引用其结论
+      - name: Run unit tests (advisory)
+        id: unit-result
+        continue-on-error: true
+        run: |
+          ctest --test-dir build/llvm-ninja-debug-local \
+                -L unit \
+                --output-on-failure -j 4
+
+      - name: Unit advisory summary
+        if: steps.unit-result.outcome == 'failure'
+        run: |
+          echo "::warning file=tests/unit/sar_session_config_builder_test.cpp::unit label 有已知失败（commit 545ac428 引入的物理校验，默认 config 不自洽）。暂不阻断，待修复后升级为硬门禁。详见 docs/ci.md。"

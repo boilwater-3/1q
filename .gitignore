@@ -37,12 +37,15 @@ progress.md
 # Remember plugin workspace (not tracked)
 .remember/
 
-# project prompts
-.github/
+# project prompts (local AI agent configs, not for version control)
+# 例外：.github/workflows/ 是 CI 配置，必须纳入版本控制。
 GEMINI.md
 AGENTS.md
 CLAUDE.md
 .claude/skills/debug-cpp-bug/
+# 忽略 .github/ 下除 workflows/ 外的本地配置
+.github/*
+!.github/workflows/
 
 # JSBSim output side effects
 JSBout*.csv
