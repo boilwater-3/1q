@@ -11,11 +11,23 @@
  * - 配置平铺 (Config Flattening)：层次化 SarSessionConfig 展开为私有扁平成员
  * - 订阅者模式：registerConfigPatchCallback 注册回调，stepImp 每周期自动收集
  * - 平台使用 LLA+NED 大地坐标（SarPlatformState），不同于 AR 的 ECEF 位姿
- * - 输入直接构造 SarCycleInput（填 platform/point_targets/raw_iq），无需 Adapter：
- *   SAR 内部 SarPlatformState/SarPointTarget 本就存 LLA+NED，SarCycleInputAdapter 只在
- *   提供外部脉冲（SarExternalPulseInput）时转换脉冲坐标到 scene-center ENU，不转换
- *   平台/目标。本 demo 不提供外部脉冲，走内部 raw echo 生成路径。
+ * - 输入直接构造 SarCycleInput（填 platform/point_targets，raw_iq 留空），无需 Adapter。
+ *   原因：SAR 内部 SarPlatformState/SarPointTarget 本就存 LLA+NED，调用方填什么格式、
+ *   内部就用什么格式，平台/目标无需任何坐标转换。这跟 AR/EOS/ESR 不同——那三个模块
+ *   内部存局部直角坐标（雷达为原点的 x/y/z），外部却给 ECEF，所以它们的 Adapter 是
+ *   "ECEF→局部直角"的必经转换。SAR 的 Adapter 唯一的活儿是转换【脉冲】坐标
+ *   （外部 ECEF/LLA → scene-center ENU），且只在提供外部脉冲（SarExternalPulseInput）
+ *   时才做；它从不转换平台/目标。本 demo 不提供外部脉冲（raw_iq 留空），系统据此判定
+ *   "无外部 IQ"，走内部 raw echo 生成路径（根据 platform+target 合成回波），所以根本
+ *   用不到 Adapter。详见 @par 为何 SAR 不需要 Adapter。
  * - SAR 输出为聚焦图像而非轨迹/检测，无外部 ECEF 坐标转换适配器
+ *
+ * @par 为何 SAR 不需要 Adapter
+ * 对比可厘清"何时需要 Adapter"：
+ *   AR/EOS/ESR：外部 ECEF 位姿 → Adapter 转成内部局部直角 → Adapter 是刚需
+ *   SAR：外部 LLA → 内部也存 LLA（格式一致）→ Adapter 对平台/目标无事可做
+ * SAR 的 Adapter 仅在外部脉冲输入时把脉冲坐标转到 scene-center ENU 局部直角；
+ * 不提供外部脉冲时（本 demo），Adapter::Build 与直接构造结果完全一致，故直接构造。
  *
  * @par 运行方式
  *   cd build/llvm-ninja-release-local/
