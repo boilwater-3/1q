@@ -71,9 +71,9 @@ class JammingAggregator final {
         continue;
       }
       const float confidence =
-          oneq::internal::numerics::Clamp01(jammer_sources[i].confidence);
+          oneq::common::numerics::Clamp01(jammer_sources[i].confidence);
       const float deception_risk =
-          oneq::internal::numerics::Clamp01(jammer_sources[i].deception_risk);
+          oneq::common::numerics::Clamp01(jammer_sources[i].deception_risk);
       const session::EsrJammingTechnique technique = ResolveTechnique(jammer_sources[i]);
 
       bool contributed = false;
@@ -88,12 +88,12 @@ class JammingAggregator final {
 
       if (HasDeceptionEffect(technique)) {
         const float deception_effect =
-            oneq::internal::numerics::Clamp01(deception_risk * overlap_ratio * confidence);
+            oneq::common::numerics::Clamp01(deception_risk * overlap_ratio * confidence);
         const float safe_deception_effect =
             std::isfinite(deception_effect) ? deception_effect : 0.0f;
         deception_clear_probability *= (1.0f - safe_deception_effect);
         deception_clear_probability =
-            oneq::internal::numerics::Clamp01(deception_clear_probability);
+            oneq::common::numerics::Clamp01(deception_clear_probability);
         deception_overlap_weighted_sum += overlap_ratio * deception_effect;
         deception_effect_weight_sum += deception_effect;
         ++result.deception_source_count;
@@ -114,7 +114,7 @@ class JammingAggregator final {
           deception_overlap_weighted_sum / deception_effect_weight_sum;
     }
     result.deception_risk =
-        oneq::internal::numerics::Clamp01(1.0f - deception_clear_probability);
+        oneq::common::numerics::Clamp01(1.0f - deception_clear_probability);
     return result;
   }
 

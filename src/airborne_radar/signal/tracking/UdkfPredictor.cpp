@@ -11,7 +11,7 @@ namespace airborne_radar {
 namespace signal {
 namespace tracking {
 
-using oneq::internal::numerics::kCovarianceFloor;
+using oneq::common::numerics::kCovarianceFloor;
 
 UdkfPredictor::UdkfPredictor(KalmanPredictorConfig config) : config_(config) {}
 

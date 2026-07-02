@@ -18,8 +18,8 @@ constexpr float kReferenceAtmosphericPathM = 5000.0f;
 }  // namespace
 
 RadiativeTransferResult EvaluateRadiativeTransfer(const RadiativeTransferInputs& inputs) {
-  const float base_transmittance = oneq::internal::numerics::Clamp01(inputs.base_transmittance);
-  const float cloud_ratio = oneq::internal::numerics::Clamp01(inputs.cloud_coverage_ratio);
+  const float base_transmittance = oneq::common::numerics::Clamp01(inputs.base_transmittance);
+  const float cloud_ratio = oneq::common::numerics::Clamp01(inputs.cloud_coverage_ratio);
   const float path_length_m = std::max(0.0f, inputs.path_length_m);
   const float aerosol_density_factor = std::max(1.0f, inputs.aerosol_density_factor);
   const float turbulence_factor = std::max(1.0f, inputs.turbulence_factor);
@@ -51,7 +51,7 @@ RadiativeTransferResult EvaluateRadiativeTransfer(const RadiativeTransferInputs&
   result.total_extinction_coeff_per_m = std::max(0.0f, total_extinction_coeff_per_m);
   result.transmittance = propagation::ComputeBeerLambertTransmittance(
       result.total_extinction_coeff_per_m, path_length_m);
-  result.path_radiance_penalty_scale = oneq::internal::numerics::SafePositive(path_radiance_penalty_scale, 1.0f);
+  result.path_radiance_penalty_scale = oneq::common::numerics::SafePositive(path_radiance_penalty_scale, 1.0f);
   return result;
 }
 

@@ -16,9 +16,8 @@
 namespace airborne_radar {
 namespace tests {
 
-oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(
-    const config::EulerAnglesDeg& euler_deg) {
-  oneq::internal::geometry::EulerAnglesDeg geometry_euler;
+oneq::common::geometry::EulerAnglesDeg ToGeometryEuler(const config::EulerAnglesDeg& euler_deg) {
+  oneq::common::geometry::EulerAnglesDeg geometry_euler;
   geometry_euler.yaw_deg = euler_deg.yaw_deg;
   geometry_euler.pitch_deg = euler_deg.pitch_deg;
   geometry_euler.roll_deg = euler_deg.roll_deg;
@@ -116,10 +115,10 @@ TEST(RadarOrientationUtilsTest, ComputeBodyFrameBeamPointingUsesRotationComposit
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
   const Eigen::Matrix3f expected_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(config.mount_angles_deg)) *
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(mount_frame_euler));
+      oneq::common::geometry::BuildRotationMatrix(ToGeometryEuler(config.mount_angles_deg)) *
+      oneq::common::geometry::BuildRotationMatrix(ToGeometryEuler(mount_frame_euler));
   const Eigen::Matrix3f actual_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(pointing));
+      oneq::common::geometry::BuildRotationMatrix(ToGeometryEuler(pointing));
 
   ExpectMatricesNear(expected_rotation, actual_rotation, 1.0e-5f);
   EXPECT_NEAR(pointing.yaw_deg, 45.0361f, 1.0e-3f);
@@ -155,11 +154,11 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingUsesRotationComp
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
   const Eigen::Matrix3f expected_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(platform_attitude)) *
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(config.mount_angles_deg)) *
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(mount_frame_euler));
+      oneq::common::geometry::BuildRotationMatrix(ToGeometryEuler(platform_attitude)) *
+      oneq::common::geometry::BuildRotationMatrix(ToGeometryEuler(config.mount_angles_deg)) *
+      oneq::common::geometry::BuildRotationMatrix(ToGeometryEuler(mount_frame_euler));
   const Eigen::Matrix3f actual_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(pointing));
+      oneq::common::geometry::BuildRotationMatrix(ToGeometryEuler(pointing));
 
   ExpectMatricesNear(expected_rotation, actual_rotation, 1.0e-5f);
   EXPECT_NEAR(pointing.yaw_deg, 135.1033f, 1.0e-3f);
@@ -192,11 +191,11 @@ TEST(RadarOrientationUtilsTest, ComputePlatformFrameBeamPointingCapturesLargeAtt
   mount_frame_euler.yaw_deg = mount_frame_pointing.az_deg;
   mount_frame_euler.pitch_deg = mount_frame_pointing.el_deg;
   const Eigen::Matrix3f expected_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(platform_attitude)) *
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(config.mount_angles_deg)) *
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(mount_frame_euler));
+      oneq::common::geometry::BuildRotationMatrix(ToGeometryEuler(platform_attitude)) *
+      oneq::common::geometry::BuildRotationMatrix(ToGeometryEuler(config.mount_angles_deg)) *
+      oneq::common::geometry::BuildRotationMatrix(ToGeometryEuler(mount_frame_euler));
   const Eigen::Matrix3f actual_rotation =
-      oneq::internal::geometry::BuildRotationMatrix(ToGeometryEuler(pointing));
+      oneq::common::geometry::BuildRotationMatrix(ToGeometryEuler(pointing));
 
   ExpectMatricesNear(expected_rotation, actual_rotation, 1.0e-5f);
   EXPECT_NEAR(pointing.yaw_deg, 103.5743f, 1.0e-3f);
@@ -216,9 +215,9 @@ TEST(RadarOrientationUtilsTest, BeamControlResolverPreservesInertialStabilizedPo
   config::EulerAnglesDeg platform_attitude;
   platform_attitude.yaw_deg = 90.0f;
   const signal::detection::ResolvedBeamState beam_state =
-      signal::detection::BeamControlResolver::Resolve(
-          config::engineering::AntennaConfig(), config, platform_attitude,
-          signal::detection::TargetLookAnglesDeg());
+      signal::detection::BeamControlResolver::Resolve(config::engineering::AntennaConfig(), config,
+                                                      platform_attitude,
+                                                      signal::detection::TargetLookAnglesDeg());
 
   EXPECT_NEAR(beam_state.beam_pointing_deg.az_deg, -90.0f, 1.0e-5f);
   EXPECT_NEAR(beam_state.beam_pointing_deg.el_deg, 0.0f, 1.0e-5f);

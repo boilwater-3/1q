@@ -182,7 +182,7 @@ float ComputeStatisticalDetectionProbability(float snr_db, float threshold_snr_d
   const double normalized_metric =
       (snr_linear / std::max(threshold_linear, numerics::kNumericFloor)) * ComputeIntegrationGain(params);
   const double pd = -std::expm1(-std::max(normalized_metric, 0.0));
-  return oneq::internal::numerics::Clamp01(static_cast<float>(pd));
+  return oneq::common::numerics::Clamp01(static_cast<float>(pd));
 }
 
 }  // namespace timing

@@ -1,6 +1,7 @@
 #include "1q/trace/TraceSink.h"
 
-#include <chrono>
+#include <flatbuffers/flexbuffers.h>
+
 #include <cstdint>
 #include <fstream>
 #include <memory>
@@ -8,38 +9,26 @@
 #include <utility>
 #include <vector>
 
-#include <flatbuffers/flexbuffers.h>
-
 #include "common/logging/ProjectLog.h"
+#include "common/trace/TimeUtils.h"
 
 namespace oneq {
 namespace trace {
 
 TraceSink::~TraceSink() = default;
 
-namespace {
-
-std::int64_t CurrentTimestampMs() {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(
-             std::chrono::system_clock::now().time_since_epoch())
-      .count();
-}
-
-}  // namespace
-
 FlatbufferFileTraceSink::FlatbufferFileTraceSink(std::string file_path, bool append)
     : file_path_(std::move(file_path)),
-      output_(file_path_.c_str(),
-              append ? (std::ios::out | std::ios::app | std::ios::binary)
-                     : (std::ios::out | std::ios::trunc | std::ios::binary)) {
+      output_(file_path_.c_str(), append ? (std::ios::out | std::ios::app | std::ios::binary)
+                                         : (std::ios::out | std::ios::trunc | std::ios::binary)) {
   if (!output_.is_open()) {
     PROJECT_LOG_ERROR("failed to open flatbuffer trace file: {}", file_path_);
   }
 }
 
 void FlatbufferFileTraceSink::Record(const std::string& module, const std::string& phase,
-                                   const std::string& payload_json) {
-  const std::int64_t timestamp_ms = CurrentTimestampMs();
+                                     const std::string& payload_json) {
+  const std::int64_t timestamp_ms = oneq::internal::trace::CurrentTimestampMs();
 
   flexbuffers::Builder builder;
   builder.Map([&]() {
@@ -71,7 +60,7 @@ void FlatbufferFileTraceSink::Record(const std::string& module, const std::strin
   }
   output_.write(reinterpret_cast<const char*>(header), sizeof(header));
   output_.write(reinterpret_cast<const char*>(payload.data()),
-                       static_cast<std::streamsize>(payload.size()));
+                static_cast<std::streamsize>(payload.size()));
   output_.flush();
   if (output_.fail() || output_.bad()) {
     PROJECT_LOG_ERROR("failed to write flatbuffer trace frame: {}", file_path_);

@@ -16,9 +16,7 @@ constexpr double kRfCompareEpsilonHz = 1.0e-3;
 constexpr double kPwCompareEpsilonSec = 1.0e-12;
 constexpr double kAngleCompareEpsilonDeg = 1.0e-6;
 
-bool LessOrNearEqual(double lhs, double rhs, double epsilon) {
-  return lhs <= rhs + epsilon;
-}
+bool LessOrNearEqual(double lhs, double rhs, double epsilon) { return lhs <= rhs + epsilon; }
 
 /**
  * @brief 判断观测字段是否满足有限值与范围约束。
@@ -61,9 +59,9 @@ bool IsDuplicateObservation(const session::EmitterObservation& lhs,
                             const session::EmitterObservation& rhs,
                             const extension::InterceptPreprocessConfig& config) {
   const double dedup_time_window_sec = static_cast<double>(config.dedup_time_window_sec);
-  const double az_diff = std::fabs(static_cast<double>(
-      oneq::internal::geometry::ComputeAzimuthDifferenceDeg(static_cast<float>(lhs.aoa_az_deg),
-                                                            static_cast<float>(rhs.aoa_az_deg))));
+  const double az_diff =
+      std::fabs(static_cast<double>(oneq::common::geometry::ComputeAzimuthDifferenceDeg(
+          static_cast<float>(lhs.aoa_az_deg), static_cast<float>(rhs.aoa_az_deg))));
   return LessOrNearEqual(std::fabs(lhs.timestamp_s - rhs.timestamp_s), dedup_time_window_sec,
                          kTimeCompareEpsilonSec) &&
          LessOrNearEqual(static_cast<double>(std::fabs(lhs.rf_hz - rhs.rf_hz)),
@@ -73,8 +71,7 @@ bool IsDuplicateObservation(const session::EmitterObservation& lhs,
          LessOrNearEqual(az_diff, static_cast<double>(config.dedup_az_window_deg),
                          kAngleCompareEpsilonDeg) &&
          LessOrNearEqual(static_cast<double>(std::fabs(lhs.aoa_el_deg - rhs.aoa_el_deg)),
-                         static_cast<double>(config.dedup_el_window_deg),
-                         kAngleCompareEpsilonDeg);
+                         static_cast<double>(config.dedup_el_window_deg), kAngleCompareEpsilonDeg);
 }
 
 /**

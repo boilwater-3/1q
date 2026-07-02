@@ -12,10 +12,10 @@ namespace session {
 
 namespace {
 
-using oneq::internal::coordinate_utils::RotateEnuPositionToLocal;
-using oneq::internal::coordinate_utils::RotateEnuVelocityToLocal;
-using oneq::internal::coordinate_utils::ToFoundationEuler;
-using oneq::internal::coordinate_utils::ToFoundationVector;
+using oneq::common::coordinate_utils::RotateEnuPositionToLocal;
+using oneq::common::coordinate_utils::RotateEnuVelocityToLocal;
+using oneq::common::coordinate_utils::ToFoundationEuler;
+using oneq::common::coordinate_utils::ToFoundationVector;
 
 constexpr float kNormFloor = 1.0e-6f;
 

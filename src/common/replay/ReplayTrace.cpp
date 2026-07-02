@@ -1,7 +1,6 @@
 #include "1q/replay/ReplayTrace.h"
 
 #include <cerrno>
-#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <deque>
@@ -21,20 +20,15 @@
 #include <sys/types.h>
 #endif
 
-#include "common/trace/JsonFormatUtils.h"
 #include "common/logging/ProjectLog.h"
+#include "common/trace/JsonFormatUtils.h"
+#include "common/trace/TimeUtils.h"
 
 namespace oneq {
 namespace replay {
 namespace {
 
 constexpr std::uint64_t kMaxReplayTraceFileBytes = 0xFFFFFFFFull;
-
-std::int64_t CurrentTimestampMs() {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(
-             std::chrono::system_clock::now().time_since_epoch())
-      .count();
-}
 
 bool IsPathSeparator(char value) { return value == '/' || value == '\\'; }
 
@@ -137,7 +131,7 @@ bool GzipCompressFile(const std::string& src_path, const std::string& dst_gz_pat
     return false;
   }
   const std::string contents((std::istreambuf_iterator<char>(src)),
-                              std::istreambuf_iterator<char>());
+                             std::istreambuf_iterator<char>());
   src.close();
 
   // 写入 .gz
@@ -302,7 +296,7 @@ bool WriteManifestFile(const std::string& path, const ReplayTraceManifest& manif
 
   output << "{";
   WriteJsonStringField(output, "trace_id", manifest.trace_id, true);
-  output << "\"created_wall_time_ms\":" << CurrentTimestampMs() << ",";
+  output << "\"created_wall_time_ms\":" << oneq::internal::trace::CurrentTimestampMs() << ",";
   WriteJsonStringField(output, "module", manifest.module, true);
   WriteJsonStringField(output, "scenario_id", manifest.scenario_id, true);
   output << "\"schema_version\":" << manifest.schema_version << ",";
@@ -318,7 +312,8 @@ bool WriteManifestFile(const std::string& path, const ReplayTraceManifest& manif
   WriteJsonRawField(output, "dependency_versions", manifest.dependency_versions_payload, true);
   WriteJsonStringField(output, "float_policy", manifest.float_policy, true);
   WriteJsonRawField(output, "default_tolerances", manifest.default_tolerances_payload, true);
-  output << "\"compress_closed_chunks\":" << trace::internal::BoolToJson(manifest.compress_closed_chunks) << ",";
+  output << "\"compress_closed_chunks\":"
+         << trace::internal::BoolToJson(manifest.compress_closed_chunks) << ",";
   output << "\"checkpoint_interval_cycles\":" << manifest.checkpoint_interval_cycles << ",";
   output << "\"event_chunk_size\":" << manifest.event_chunk_size << ",";
   output << "\"failure_window_event_count\":" << manifest.failure_window_event_count;
@@ -387,7 +382,7 @@ bool WriteFailureFile(const std::string& path, const ReplayTraceManifest& manife
   output << "\"schema_version\":" << manifest.schema_version << ",";
   WriteJsonStringField(output, "trace_id", manifest.trace_id, true);
   WriteJsonStringField(output, "module", manifest.module, true);
-  output << "\"created_wall_time_ms\":" << CurrentTimestampMs() << ",";
+  output << "\"created_wall_time_ms\":" << oneq::internal::trace::CurrentTimestampMs() << ",";
   output << "\"failure_marker_sequence\":" << failure_marker_sequence << ",";
   WriteOptionalUInt64Field(output, "last_event_sequence", has_last_event_sequence,
                            last_event_sequence, true);
@@ -514,8 +509,8 @@ bool WriteReportFile(const std::string& path, const ReplayTraceReplayReport& rep
   output << "\"warning_event_count\":" << report.warning_event_count << ",";
   output << "\"unsupported_event_count\":" << report.unsupported_event_count << ",";
   output << "\"first_failure_sequence\":" << report.first_failure_sequence << ",";
-  WriteJsonStringField(output, "first_failure_payload_base64",
-                       report.first_failure_payload_base64, true);
+  WriteJsonStringField(output, "first_failure_payload_base64", report.first_failure_payload_base64,
+                       true);
   WriteJsonStringField(output, "first_failure_payload_encoding",
                        report.first_failure_payload_encoding, true);
   WriteJsonStringField(output, "first_failure_payload_type", report.first_failure_payload_type,
@@ -793,7 +788,7 @@ struct ReplayTraceWriter::Impl {
 #if ONEQ_HAVE_ZLIB
     if (manifest.compress_closed_chunks) {
       const std::string plain_path = EventChunkPath(trace_dir, sealed_index);
-      const std::string gz_path    = EventChunkGzPath(trace_dir, sealed_index);
+      const std::string gz_path = EventChunkGzPath(trace_dir, sealed_index);
       if (!GzipCompressFile(plain_path, gz_path, &first_error)) {
         writable = false;
         PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
@@ -918,7 +913,7 @@ void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
   } else {
     line << "\"sim_time_sec\":null,";
   }
-  line << "\"wall_time_ms\":" << CurrentTimestampMs() << ",";
+  line << "\"wall_time_ms\":" << oneq::internal::trace::CurrentTimestampMs() << ",";
   WriteJsonStringField(line, "payload_type", event.payload_type, true);
   WriteJsonStringField(line, "payload_encoding", event.payload_encoding, true);
   line << "\"payload\":null,";
@@ -977,9 +972,7 @@ void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure,
   }
 }
 
-void ReplayTraceWriter::Flush() {
-  (void)impl_->Flush();
-}
+void ReplayTraceWriter::Flush() { (void)impl_->Flush(); }
 
 const std::string& ReplayTraceWriter::trace_dir() const { return impl_->trace_dir; }
 
@@ -1330,7 +1323,8 @@ ReplayTracePlaybackResult PlaybackReplayTrace(const std::string& trace_dir,
         if (callback_ok) {
           ++result.compared_output_count;
           // Optional generic divergence check:
-          // - callback may leave actual_output_payload empty to signal "comparison handled by module".
+          // - callback may leave actual_output_payload empty to signal "comparison handled by
+          // module".
           // - when non-empty, compare with event payload inline JSON and fill divergence fields.
           if (!actual_output_payload.empty() && actual_output_payload != event.payload_inline) {
             result.divergence_found = true;

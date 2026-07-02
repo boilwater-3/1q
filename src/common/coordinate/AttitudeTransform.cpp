@@ -29,9 +29,9 @@ bool IsFinite(const RotationMatrix3d& rotation) {
 }
 
 RotationMatrix3d BuildRotationMatrix(const EulerAnglesDeg& attitude_deg) {
-  const double yaw_rad = oneq::internal::numerics::DegToRad(attitude_deg.yaw_deg);
-  const double pitch_rad = oneq::internal::numerics::DegToRad(-attitude_deg.pitch_deg);
-  const double roll_rad = oneq::internal::numerics::DegToRad(attitude_deg.roll_deg);
+  const double yaw_rad = oneq::common::numerics::DegToRad(attitude_deg.yaw_deg);
+  const double pitch_rad = oneq::common::numerics::DegToRad(-attitude_deg.pitch_deg);
+  const double roll_rad = oneq::common::numerics::DegToRad(attitude_deg.roll_deg);
 
   const double cy = std::cos(yaw_rad);
   const double sy = std::sin(yaw_rad);
@@ -69,9 +69,9 @@ EulerAnglesDeg ToEulerAnglesDeg(const RotationMatrix3d& rotation) {
   }
 
   EulerAnglesDeg attitude;
-  attitude.yaw_deg = oneq::internal::numerics::RadToDeg(yaw_rad);
-  attitude.pitch_deg = -oneq::internal::numerics::RadToDeg(pitch_rad_internal);
-  attitude.roll_deg = oneq::internal::numerics::RadToDeg(roll_rad);
+  attitude.yaw_deg = oneq::common::numerics::RadToDeg(yaw_rad);
+  attitude.pitch_deg = -oneq::common::numerics::RadToDeg(pitch_rad_internal);
+  attitude.roll_deg = oneq::common::numerics::RadToDeg(roll_rad);
   return attitude;
 }
 

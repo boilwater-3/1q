@@ -10,7 +10,7 @@
 #include "common/geometry/GeometryTransform.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace geometry {
 namespace {
 
@@ -140,5 +140,5 @@ TEST(GeometryTransformTest, ResolveStabilizedMountFramePointingPreservesLegacyIn
 
 }  // namespace
 }  // namespace geometry
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq

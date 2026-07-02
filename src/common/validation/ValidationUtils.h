@@ -26,6 +26,33 @@ inline bool IsFinite(T value) {
   return std::isfinite(value) != 0;
 }
 
+template <typename T>
+inline bool IsRatio01(T value) {
+  return IsFinite(value) && value >= static_cast<T>(0) && value <= static_cast<T>(1);
+}
+
+template <typename LocationT, typename LocationKindT>
+inline LocationT MakeLocation(LocationKindT kind, std::size_t entity_index) {
+  LocationT location;
+  location.kind = kind;
+  location.entity_index = entity_index;
+  return location;
+}
+
+template <typename IssueT, typename LocationT, typename SeverityT, typename CodeT,
+          typename LocationKindT>
+inline IssueT MakeLocatedIssue(SeverityT severity, CodeT code, LocationKindT location_kind,
+                               std::size_t entity_index, const std::string& field,
+                               const std::string& message) {
+  IssueT issue;
+  issue.severity = severity;
+  issue.code = code;
+  issue.location = MakeLocation<LocationT>(location_kind, entity_index);
+  issue.field = field;
+  issue.message = message;
+  return issue;
+}
+
 /**
  * @brief 构造带索引字段的结构化校验问题。
  * @tparam IssueT 问题结构类型。

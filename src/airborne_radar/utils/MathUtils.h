@@ -21,7 +21,7 @@ namespace utils {
  * @return 限幅后的结果：[min_value, max_value]。
  */
 inline float ClampFloat(float value, float min_value, float max_value) {
-  return oneq::internal::numerics::Clamp(value, min_value, max_value);
+  return oneq::common::numerics::Clamp(value, min_value, max_value);
 }
 
 /**

@@ -40,10 +40,10 @@ double blake_atmos_loss_r8_1(double h_a_m, double f_hz, double theta_deg, double
   const double safe_altitude_m = std::max(h_a_m, 0.0);
   const double safe_k = std::max(k, 0.2);
   const double safe_elevation_deg =
-      oneq::internal::numerics::Clamp(std::abs(theta_deg), kMinElevationForPathFactorDeg, 90.0);
-  const double elevation_rad = oneq::internal::numerics::DegToRad(safe_elevation_deg);
+      oneq::common::numerics::Clamp(std::abs(theta_deg), kMinElevationForPathFactorDeg, 90.0);
+  const double elevation_rad = oneq::common::numerics::DegToRad(safe_elevation_deg);
   const double elevation_path_factor =
-      oneq::internal::numerics::Clamp(1.0 / std::sin(elevation_rad), 1.0,
+      oneq::common::numerics::Clamp(1.0 / std::sin(elevation_rad), 1.0,
                                       kMaxElevationPathFactor);
 
   const double pressure_ratio =
@@ -70,11 +70,11 @@ float refractivity_index_n_r4(float tc_celsius, float tk_kelvin, float pd_hpa, f
 double refractivity_index_n_r8(double tc_celsius, double tk_kelvin, double pd_hpa, double p_hpa,
                                double h_rel, int water_or_ice) {
   const double safe_tk = std::max(tk_kelvin, kMinKelvin);
-  const double safe_rh = oneq::internal::numerics::Clamp(h_rel, 0.0, 1.0);
+  const double safe_rh = oneq::common::numerics::Clamp(h_rel, 0.0, 1.0);
   const double safe_pressure_hpa = std::max(p_hpa, 0.0);
   const double saturation_vapor_hpa =
       6.112 * std::exp((17.67 * tc_celsius) / std::max(tc_celsius + 243.5, 1.0));
-  const double vapor_pressure_hpa = oneq::internal::numerics::Clamp(safe_rh * saturation_vapor_hpa, 0.0, safe_pressure_hpa);
+  const double vapor_pressure_hpa = oneq::common::numerics::Clamp(safe_rh * saturation_vapor_hpa, 0.0, safe_pressure_hpa);
   const double safe_dry_pressure_hpa = std::max(pd_hpa, safe_pressure_hpa - vapor_pressure_hpa);
 
   const double dry_refractivity = 77.6 * safe_dry_pressure_hpa / safe_tk;
@@ -136,7 +136,7 @@ AtmosphericPropagationResult EvaluateAtmosphericPropagation(
                                   ? static_cast<double>(inputs.pressure_hpa)
                                   : EstimatePressureFromAltitudeHpa(mid_altitude_m);
   const double dry_pressure_hpa =
-      pressure_hpa * (1.0 - 0.15 * oneq::internal::numerics::Clamp(inputs.relative_humidity, 0.0f, 1.0f));
+      pressure_hpa * (1.0 - 0.15 * oneq::common::numerics::Clamp(inputs.relative_humidity, 0.0f, 1.0f));
   const double temperature_k = inputs.temperature_k > 0.0f
                                    ? static_cast<double>(inputs.temperature_k)
                                    : profile.temperature_k;
@@ -154,7 +154,7 @@ AtmosphericPropagationResult EvaluateAtmosphericPropagation(
                                static_cast<float>(kRefractivityScaleHeightM));
   const double refractivity_gradient_db =
       std::max(0.0, (n_index - static_cast<double>(n_index_h)) * 1.0e6 * 1.0e-3);
-  const double density_factor = oneq::internal::numerics::Clamp(profile.density_kg_m3 / kSeaLevelDensity, 0.05, 4.0);
+  const double density_factor = oneq::common::numerics::Clamp(profile.density_kg_m3 / kSeaLevelDensity, 0.05, 4.0);
   const double total_loss_db =
       std::max(0.0, blake_loss_db * (0.85 + 0.15 * density_factor) + refractivity_gradient_db);
 

@@ -59,7 +59,7 @@ foundation::radiometry::IlluminationCondition ToIlluminationCondition(
 }
 
 float ComputeApertureAreaM2(float optical_aperture_m) {
-  const float safe_diameter_m = oneq::internal::numerics::SafePositive(optical_aperture_m, 0.2f);
+  const float safe_diameter_m = oneq::common::numerics::SafePositive(optical_aperture_m, 0.2f);
   const float radius_m = 0.5f * safe_diameter_m;
   return foundation::constants::kPi * radius_m * radius_m;
 }
@@ -73,7 +73,7 @@ foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTran
     const ::electro_optical_sensor::session::EosCycleInput& input, float range_m,
     const session::EosEnvironmentModelResult& environment_result) {
   const float cloud_ratio =
-      oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
+      oneq::common::numerics::Clamp01(input.environment.cloud_coverage_ratio);
   const float aerosol_excess = std::max(0.0f, environment_result.aerosol_density_factor - 1.0f);
   const float turbulence_excess = std::max(0.0f, environment_result.turbulence_factor - 1.0f);
   const float path_km = std::max(0.0f, range_m) * 1.0e-3f;
@@ -81,15 +81,15 @@ foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTran
   const float attenuation_per_km =
       0.03f + 0.02f * cloud_ratio + 0.035f * aerosol_excess + 0.015f * turbulence_excess;
   const float altitude_relief_scale =
-      oneq::internal::numerics::Clamp(1.0f + 0.04f * altitude_km, 1.0f, 1.12f);
-  const float derived_base_transmittance = oneq::internal::numerics::Clamp(
+      oneq::common::numerics::Clamp(1.0f + 0.04f * altitude_km, 1.0f, 1.12f);
+  const float derived_base_transmittance = oneq::common::numerics::Clamp(
       std::exp(-attenuation_per_km * path_km) * altitude_relief_scale, 0.05f, 0.98f);
 
   foundation::radiative_transfer::RadiativeTransferInputs transfer_inputs;
   transfer_inputs.model = config.environment.radiative_transfer_model;
   transfer_inputs.base_transmittance = derived_base_transmittance;
   transfer_inputs.cloud_coverage_ratio =
-      oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
+      oneq::common::numerics::Clamp01(input.environment.cloud_coverage_ratio);
   transfer_inputs.path_length_m = std::max(0.0f, range_m);
   transfer_inputs.aerosol_density_factor =
       std::max(1.0f, environment_result.aerosol_density_factor);
@@ -110,33 +110,33 @@ float ComputeSensorIntegrationTimeSec(
     const ::electro_optical_sensor::session::EosCycleInput& input) {
   const float frame_period_sec =
       1.0f /
-      std::max(oneq::internal::numerics::SafePositive(config.scan.frame_rate_hz, 30.0f), 1.0f);
-  const float cycle_dt_sec = oneq::internal::numerics::SafePositive(input.dt_sec, frame_period_sec);
+      std::max(oneq::common::numerics::SafePositive(config.scan.frame_rate_hz, 30.0f), 1.0f);
+  const float cycle_dt_sec = oneq::common::numerics::SafePositive(input.dt_sec, frame_period_sec);
   const float base_integration_sec = std::min(cycle_dt_sec, frame_period_sec);
   const float scan_blur_penalty =
       1.0f +
-      oneq::internal::numerics::SafePositive(config.scan.scan_rate_deg_per_sec, 20.0f) / 120.0f;
+      oneq::common::numerics::SafePositive(config.scan.scan_rate_deg_per_sec, 20.0f) / 120.0f;
   return std::max(1.0e-4f, base_integration_sec / scan_blur_penalty);
 }
 
 float ComputeVisiblePhotonNoiseEnhancement(
     const config::execution::EosInternalExecutionConfig& config,
     const ::electro_optical_sensor::session::EosCycleInput& input) {
-  const float reference_irradiance = oneq::internal::numerics::SafePositive(
+  const float reference_irradiance = oneq::common::numerics::SafePositive(
       config.detection.visible_reference_irradiance_w_m2, 800.0f);
   const float observed_irradiance = std::max(0.0f, input.environment.solar_irradiance_w_m2);
   const float irradiance_ratio = std::max(observed_irradiance, 1.0e-3f) / reference_irradiance;
   const float irradiance_mismatch = std::fabs(std::log2(std::max(irradiance_ratio, 1.0e-6f)));
   const float cloud_factor =
-      1.0f + 0.5f * oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
-  return oneq::internal::numerics::Clamp(1.0f + 0.12f * irradiance_mismatch * cloud_factor, 1.0f,
+      1.0f + 0.5f * oneq::common::numerics::Clamp01(input.environment.cloud_coverage_ratio);
+  return oneq::common::numerics::Clamp(1.0f + 0.12f * irradiance_mismatch * cloud_factor, 1.0f,
                                          2.5f);
 }
 
 float ComputeSystemNoiseFactorFromSensitivity(float detection_sensitivity_w) {
   const float kReferenceSensitivityW = 1.0e-12f;
   const float safe_sensitivity_w =
-      oneq::internal::numerics::SafePositive(detection_sensitivity_w, kReferenceSensitivityW);
+      oneq::common::numerics::SafePositive(detection_sensitivity_w, kReferenceSensitivityW);
   return std::max(1.0f, safe_sensitivity_w / kReferenceSensitivityW);
 }
 
@@ -181,7 +181,7 @@ DetectionComputationContext BuildDetectionComputationContext(
   // 目标相关字段
   const foundation::radiative_transfer::RadiativeTransferResult transfer_result =
       ComputePathRadiativeTransfer(config, input,
-                                   oneq::internal::numerics::SafePositive(target.range_m, 1000.0f),
+                                   oneq::common::numerics::SafePositive(target.range_m, 1000.0f),
                                    frame_ctx.environment_result);
   context_values.path_transmittance = transfer_result.transmittance;
   context_values.path_radiance_penalty_scale =
@@ -194,7 +194,7 @@ DetectionComputationContext BuildDetectionComputationContext(
   const float gsd_m = foundation::optics::ComputeGroundSampleDistanceM(
       target.range_m, frame_ctx.diffraction_resolution_rad);
   const float target_linear_size_m =
-      std::sqrt(oneq::internal::numerics::SafePositive(target.appearance.projected_area_m2, 1.0f));
+      std::sqrt(oneq::common::numerics::SafePositive(target.appearance.projected_area_m2, 1.0f));
   const float geometric_quality_gain = target_linear_size_m / (target_linear_size_m + gsd_m);
   foundation::spatial_spectrum::SpatialSpectrumInputs spectrum_inputs;
   spectrum_inputs.target_characteristic_size_m = target_linear_size_m;
@@ -202,11 +202,11 @@ DetectionComputationContext BuildDetectionComputationContext(
   spectrum_inputs.optical_mtf_reference = 0.65f;
   spectrum_inputs.sampling_efficiency = 0.9f;
   spectrum_inputs.scene_contrast_ratio =
-      oneq::internal::numerics::Clamp01(0.5f * (std::max(0.0f, target.appearance.reflectance) +
+      oneq::common::numerics::Clamp01(0.5f * (std::max(0.0f, target.appearance.reflectance) +
                                                 std::max(0.0f, target.appearance.emissivity)));
   const foundation::spatial_spectrum::SpatialSpectrumResult spectrum_result =
       foundation::spatial_spectrum::EvaluateSpatialResolvability(spectrum_inputs);
-  context_values.imaging_quality_gain = oneq::internal::numerics::Clamp(
+  context_values.imaging_quality_gain = oneq::common::numerics::Clamp(
       0.5f * geometric_quality_gain + 0.5f * spectrum_result.spectrum_quality_gain, 0.05f, 1.0f);
 
   context_values.noise_inputs.scene_complexity_factor =
@@ -234,7 +234,7 @@ float ComputeInfraredSnrLinear(const ::electro_optical_sensor::session::EosScene
   const float background_spectral_radiance = context_values.background_spectral_radiance_w_sr_m3;
   const float target_spectral_radiance = foundation::radiometry::ComputePlanckRadiance(
       context_values.wavelength_center_um, target.appearance.apparent_temperature_k);
-  const float emissivity = oneq::internal::numerics::Clamp01(target.appearance.emissivity);
+  const float emissivity = oneq::common::numerics::Clamp01(target.appearance.emissivity);
   const float infrared_delta_spectral_radiance =
       emissivity * target_spectral_radiance - background_spectral_radiance;
   const float infrared_delta_radiance = foundation::radiometry::IntegrateSpectralRadianceOverBand(
@@ -443,7 +443,7 @@ void EosPipeline::AdvanceScan(float dt_sec) {
 bool EosPipeline::IsTargetInCurrentFov(
     const ::electro_optical_sensor::session::EosSceneTarget& target) const {
   const float azimuth_delta_deg = std::fabs(
-      oneq::internal::numerics::NormalizeAngle180(target.azimuth_deg - current_scan_azimuth_deg_));
+      oneq::common::numerics::NormalizeAngle180(target.azimuth_deg - current_scan_azimuth_deg_));
   const float elevation_delta_deg =
       std::fabs(target.elevation_deg - config_.scan.scan_center_el_deg);
   return azimuth_delta_deg <= 0.5f * config_.scan.horizontal_fov_deg &&
@@ -460,9 +460,9 @@ FrameContext EosPipeline::BuildFrameContext(
       ComputeFovSolidAngleSr(config_.scan.horizontal_fov_deg, config_.scan.vertical_fov_deg);
 
   const float wl_lower =
-      oneq::internal::numerics::SafePositive(config_.optics.wavelength_lower_um, 3.0f);
+      oneq::common::numerics::SafePositive(config_.optics.wavelength_lower_um, 3.0f);
   const float wl_upper =
-      oneq::internal::numerics::SafePositive(config_.optics.wavelength_upper_um, 5.0f);
+      oneq::common::numerics::SafePositive(config_.optics.wavelength_upper_um, 5.0f);
   frame.wavelength_center_um = 0.5f * (wl_lower + wl_upper);
   frame.wavelength_bandwidth_um = std::max(std::fabs(wl_upper - wl_lower), 0.1f);
 
@@ -484,14 +484,14 @@ FrameContext EosPipeline::BuildFrameContext(
   frame.dmin_m = foundation::optics::ComputeMinimumDetectionRangeM(range_inputs);
   frame.dmax_m = foundation::optics::ComputeMaximumDetectionRangeM(range_inputs);
 
-  frame.nep_inputs.detector_detectivity_cm_sqrt_hz_per_w = oneq::internal::numerics::SafePositive(
+  frame.nep_inputs.detector_detectivity_cm_sqrt_hz_per_w = oneq::common::numerics::SafePositive(
       config_.detector.detector_detectivity_cm_sqrt_hz_per_w, 1.0e10f);
   frame.nep_inputs.detector_area_cm2 =
-      oneq::internal::numerics::SafePositive(config_.detector.detector_area_cm2, 0.25f);
+      oneq::common::numerics::SafePositive(config_.detector.detector_area_cm2, 0.25f);
   frame.nep_inputs.optical_transmittance = frame.optical_transmittance;
   frame.nep_inputs.integration_time_sec = ComputeSensorIntegrationTimeSec(config_, input);
   const float scan_bw =
-      oneq::internal::numerics::SafePositive(config_.scan.scan_rate_deg_per_sec, 20.0f) * 100.0f;
+      oneq::common::numerics::SafePositive(config_.scan.scan_rate_deg_per_sec, 20.0f) * 100.0f;
   const float frame_bw = 0.5f / frame.nep_inputs.integration_time_sec;
   frame.nep_inputs.electrical_bandwidth_hz = std::max(100.0f, std::max(scan_bw, frame_bw));
   frame.nep_inputs.system_noise_factor =
@@ -509,7 +509,7 @@ FrameContext EosPipeline::BuildFrameContext(
   env_inputs.base_turbulence_factor = config_.environment.turbulence_factor;
   env_inputs.platform_altitude_m = ResolvePlatformAltitudeM(input);
   env_inputs.cloud_coverage_ratio =
-      oneq::internal::numerics::Clamp01(input.environment.cloud_coverage_ratio);
+      oneq::common::numerics::Clamp01(input.environment.cloud_coverage_ratio);
   env_inputs.wind_speed_mps = std::max(0.0f, input.environment.ambient_wind_speed_mps);
   env_inputs.has_atmospheric_observation = config_.environment.has_atmospheric_observation;
   env_inputs.atmospheric_observation = config_.environment.atmospheric_observation;

@@ -10,7 +10,7 @@
 #include <cmath>
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace numerics {
 
 /**
@@ -79,6 +79,17 @@ inline float NormalizeAngle180(float angle_deg) {
   normalized -= 180.0f;
   return normalized;
 }
+
+}  // namespace numerics
+}  // namespace common
+namespace internal {
+namespace numerics {
+
+using ::oneq::common::numerics::Clamp;
+using ::oneq::common::numerics::Clamp01;
+using ::oneq::common::numerics::ClampNonNegative;
+using ::oneq::common::numerics::NormalizeAngle180;
+using ::oneq::common::numerics::SafePositive;
 
 }  // namespace numerics
 }  // namespace internal

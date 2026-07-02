@@ -5,7 +5,7 @@
 #include "common/numerics/ClampUtils.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace numerics {
 namespace {
 
@@ -26,5 +26,5 @@ TEST(NumericClampUtilsTest, NormalizeAngle180KeepsExpectedWrappedValues) {
 
 }  // namespace
 }  // namespace numerics
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq

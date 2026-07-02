@@ -7,7 +7,7 @@
 #include "1q/foundation/pose_types.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace coordinate_utils {
 
 inline oneq::foundation::EulerAnglesDeg ToFoundationEuler(
@@ -19,8 +19,7 @@ inline oneq::foundation::EulerAnglesDeg ToFoundationEuler(
   return output;
 }
 
-inline oneq::foundation::Vector3f ToFoundationVector(
-    const oneq::coordinate::Vector3d& v) {
+inline oneq::foundation::Vector3f ToFoundationVector(const oneq::coordinate::Vector3d& v) {
   oneq::foundation::Vector3f out;
   out.x = v.x;
   out.y = v.y;
@@ -38,9 +37,19 @@ inline oneq::foundation::Vector3f RotateEnuPositionToLocal(
 inline oneq::foundation::Vector3f RotateEnuVelocityToLocal(
     const oneq::coordinate::EnuVelocityMps& enu,
     const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
-  return ToFoundationVector(oneq::coordinate::RotateEnuToLocal(
-      enu.east_mps, enu.north_mps, enu.up_mps, local_attitude_deg));
+  return ToFoundationVector(oneq::coordinate::RotateEnuToLocal(enu.east_mps, enu.north_mps,
+                                                               enu.up_mps, local_attitude_deg));
 }
+
+}  // namespace coordinate_utils
+}  // namespace common
+namespace internal {
+namespace coordinate_utils {
+
+using ::oneq::common::coordinate_utils::RotateEnuPositionToLocal;
+using ::oneq::common::coordinate_utils::RotateEnuVelocityToLocal;
+using ::oneq::common::coordinate_utils::ToFoundationEuler;
+using ::oneq::common::coordinate_utils::ToFoundationVector;
 
 }  // namespace coordinate_utils
 }  // namespace internal

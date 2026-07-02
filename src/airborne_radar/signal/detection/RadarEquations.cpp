@@ -41,7 +41,7 @@ const float kRefTemperature = 290.0f;
  * @note 取配置默认值，确保默认参数下行为连续。
  */
 const float kReferencePulseWidthS = 13.0e-6f;
-using oneq::internal::numerics::kLog10Floor;
+using oneq::common::numerics::kLog10Floor;
 /**
  * @brief 将线性值转为 dB。
  * @param linear 线性值。
@@ -97,7 +97,7 @@ float RadarEquations::ComputeEchoPowerWithGain_dBW(const config::engineering::Tr
   }
 
   /* 计算波长、对数域参数和总损耗 */
-  const float wavelength_m = static_cast<float>(oneq::internal::numerics::kLightSpeed) / tx.frequency_hz;
+  const float wavelength_m = static_cast<float>(oneq::common::numerics::kLightSpeed) / tx.frequency_hz;
   /* pt_db = 10·log10(Pt)，标准雷达方程中 Pt 为线性值 */
   const float pt_db = LinearToDb(tx.peak_power_w);
   const float pulse_energy_scale_db = LinearToDb(ComputePulseEnergyScale(tx));
@@ -111,7 +111,7 @@ float RadarEquations::ComputeEchoPowerWithGain_dBW(const config::engineering::Tr
   const float total_loss_db = tx.transmit_loss_db + propagation_loss_db;
 
   const float pr_dbw = pt_db + pulse_energy_scale_db + one_way_gain_db + one_way_gain_db +
-                       2.0f * lambda_db + rcs_db - 30.0f * std::log10(4.0f * static_cast<float>(oneq::internal::numerics::kPi)) - 4.0f * r_db -
+                       2.0f * lambda_db + rcs_db - 30.0f * std::log10(4.0f * static_cast<float>(oneq::common::numerics::kPi)) - 4.0f * r_db -
                        total_loss_db;
 
   return pr_dbw;
@@ -127,7 +127,7 @@ float RadarEquations::ComputeEchoPower_dBW(const config::engineering::Transmitte
 float RadarEquations::ComputeThermalNoisePower_W(const config::engineering::TransmitterConfig& tx,
                                                  const config::engineering::ReceiverConfig& rx) {
   const float noise_figure_linear = DbToLinear(rx.noise_figure_db);
-  return static_cast<float>(oneq::internal::numerics::kBoltzmann) * kRefTemperature * tx.bandwidth_hz * noise_figure_linear;
+  return static_cast<float>(oneq::common::numerics::kBoltzmann) * kRefTemperature * tx.bandwidth_hz * noise_figure_linear;
 }
 
 float RadarEquations::ComputeIntegrationGain(int pulse_count) {
@@ -138,7 +138,7 @@ float RadarEquations::ComputeIntegrationGain(int pulse_count) {
 }
 
 float RadarEquations::ComputeRangeErrorStdDev(float snr_db, float bandwidth_hz) {
-  const float range_resolution = 0.5f * static_cast<float>(oneq::internal::numerics::kLightSpeed) / bandwidth_hz;
+  const float range_resolution = 0.5f * static_cast<float>(oneq::common::numerics::kLightSpeed) / bandwidth_hz;
   const float kMinSnrDb = -10.0f;
   if (snr_db < kMinSnrDb) {
     return range_resolution * 1.5777f;

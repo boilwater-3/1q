@@ -15,13 +15,13 @@ namespace utils {
 /**
  * @brief 将输入裁剪到 [0, 1]。
  */
-inline float Clamp01(float value) { return oneq::internal::numerics::Clamp01(value); }
+inline float Clamp01(float value) { return oneq::common::numerics::Clamp01(value); }
 
 /**
  * @brief 将输入裁剪到非负区间。
  */
 inline float ClampNonNegative(float value) {
-  return oneq::internal::numerics::ClampNonNegative(value);
+  return oneq::common::numerics::ClampNonNegative(value);
 }
 
 /**

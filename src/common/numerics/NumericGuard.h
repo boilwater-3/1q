@@ -12,7 +12,7 @@
 #include "common/numerics/ClampUtils.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace numerics {
 
 /** @brief 对数域输入防护下限，防止 log10(0) 产生 -inf。 */
@@ -29,18 +29,25 @@ constexpr float kCovarianceFloor = 1.0e-6f;
  * @param value 输入值。
  * @return 10 * log10(std::max(value, kLog10Floor))。
  */
-inline double SafeLog10(double value) {
-  return 10.0 * std::log10(std::max(value, kLog10Floor));
-}
+inline double SafeLog10(double value) { return 10.0 * std::log10(std::max(value, kLog10Floor)); }
 
 /**
  * @brief 安全的倒数运算，分母钳制到下限。
  * @param value 输入值。
  * @return 1.0 / std::max(value, kNumericFloor)。
  */
-inline double SafeInverse(double value) {
-  return 1.0 / std::max(value, kNumericFloor);
-}
+inline double SafeInverse(double value) { return 1.0 / std::max(value, kNumericFloor); }
+
+}  // namespace numerics
+}  // namespace common
+namespace internal {
+namespace numerics {
+
+using ::oneq::common::numerics::kCovarianceFloor;
+using ::oneq::common::numerics::kLog10Floor;
+using ::oneq::common::numerics::kNumericFloor;
+using ::oneq::common::numerics::SafeInverse;
+using ::oneq::common::numerics::SafeLog10;
 
 }  // namespace numerics
 }  // namespace internal

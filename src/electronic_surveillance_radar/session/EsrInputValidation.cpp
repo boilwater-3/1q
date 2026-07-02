@@ -11,43 +11,22 @@ namespace session {
 
 namespace {
 
-ValidationLocation MakeLocation(ValidationLocationKind kind, std::size_t entity_index) {
-  ValidationLocation location;
-  location.kind = kind;
-  location.entity_index = entity_index;
-  return location;
-}
+using oneq::internal::validation::IsFinite;
 
 ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
                           ValidationLocationKind location_kind, std::size_t entity_index,
                           const std::string& field, const std::string& message) {
-  ValidationIssue issue;
-  issue.severity = severity;
-  issue.code = code;
-  issue.location = MakeLocation(location_kind, entity_index);
-  issue.field = field;
-  issue.message = message;
-  return issue;
+  return oneq::internal::validation::MakeLocatedIssue<ValidationIssue, ValidationLocation>(
+      severity, code, location_kind, entity_index, field, message);
 }
-
-/**
- * @brief 判断浮点输入是否有限。
- * @param[in] value 输入标量。
- * @return 当输入为有限数时返回 `true`。
- */
-template <typename T>
-bool IsFinite(T value) {
-  return oneq::internal::validation::IsFinite(value);
-}
-
-bool IsRatioValid(float value) { return IsFinite(value) && value >= 0.0f && value <= 1.0f; }
 
 /**
  * @brief 校验平台位姿输入字段。
  * @param[in] platform_pose 平台位姿输入。
  * @param[out] issues 校验问题列表。
  */
-void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose, ValidationIssueList* issues) {
+void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
+                          ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
@@ -80,8 +59,8 @@ void ValidateEnvironmentObservation(const EsrEnvironmentInput& observation,
     return;
   }
   const EsrAtmosphericObservation& atmosphere = observation.atmospheric_observation;
-  if (!IsRatioValid(observation.spectrum_occupancy_ratio) ||
-      !IsRatioValid(atmosphere.relative_humidity_ratio) ||
+  if (!oneq::internal::validation::IsRatio01(observation.spectrum_occupancy_ratio) ||
+      !oneq::internal::validation::IsRatio01(atmosphere.relative_humidity_ratio) ||
       !IsFinite(atmosphere.precipitation_rate_mmph) || !IsFinite(atmosphere.visibility_km) ||
       atmosphere.precipitation_rate_mmph < 0.0f || atmosphere.visibility_km <= 0.0f) {
     issues->push_back(MakeIssue(
@@ -94,8 +73,8 @@ void ValidateEnvironmentObservation(const EsrEnvironmentInput& observation,
     if (!IsFinite(jammer.center_hz) || !IsFinite(jammer.bandwidth_hz) ||
         !IsFinite(jammer.power_w) || !IsFinite(jammer.deception_risk) ||
         !IsFinite(jammer.confidence) || jammer.center_hz < 0.0 || jammer.bandwidth_hz < 0.0 ||
-        jammer.power_w < 0.0f || !IsRatioValid(jammer.deception_risk) ||
-        !IsRatioValid(jammer.confidence)) {
+        jammer.power_w < 0.0f || !oneq::internal::validation::IsRatio01(jammer.deception_risk) ||
+        !oneq::internal::validation::IsRatio01(jammer.confidence)) {
       issues->push_back(MakeIssue(
           ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
           ValidationLocationKind::kEnvironment, i, "environment.jammer_sources",

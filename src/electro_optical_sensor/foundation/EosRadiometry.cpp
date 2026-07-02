@@ -28,16 +28,16 @@ float ComputeIlluminationScale(IlluminationCondition illumination) {
 }  // namespace
 
 float ComputePlanckRadiance(float wavelength_um, float temperature_k) {
-  const float safe_wavelength_m = oneq::internal::numerics::SafePositive(wavelength_um * 1.0e-6f, 4.0e-6f);
-  const float safe_temperature_k = oneq::internal::numerics::SafePositive(temperature_k, 290.0f);
+  const float safe_wavelength_m = oneq::common::numerics::SafePositive(wavelength_um * 1.0e-6f, 4.0e-6f);
+  const float safe_temperature_k = oneq::common::numerics::SafePositive(temperature_k, 290.0f);
   const float lambda5 = std::pow(safe_wavelength_m, 5.0f);
   if (!std::isfinite(lambda5) || lambda5 <= 0.0f) {
     return 0.0f;
   }
 
-  const float c1 = 2.0f * kPlanckConstant * oneq::internal::numerics::kLightSpeed * oneq::internal::numerics::kLightSpeed;
+  const float c1 = 2.0f * kPlanckConstant * oneq::common::numerics::kLightSpeed * oneq::common::numerics::kLightSpeed;
   const float exponent =
-      (kPlanckConstant * oneq::internal::numerics::kLightSpeed) / (safe_wavelength_m * oneq::internal::numerics::kBoltzmann * safe_temperature_k);
+      (kPlanckConstant * oneq::common::numerics::kLightSpeed) / (safe_wavelength_m * oneq::common::numerics::kBoltzmann * safe_temperature_k);
   const float exp_value = std::exp(std::min(exponent, 80.0f));
   const float denominator = lambda5 * std::max(exp_value - 1.0f, 1.0e-12f);
   if (!std::isfinite(denominator) || denominator <= 0.0f) {
@@ -49,12 +49,12 @@ float ComputePlanckRadiance(float wavelength_um, float temperature_k) {
 float IntegrateSpectralRadianceOverBand(float spectral_radiance_w_sr_m3,
                                         float wavelength_bandwidth_um) {
   const float safe_spectral_radiance = std::max(0.0f, spectral_radiance_w_sr_m3);
-  const float safe_bandwidth_m = oneq::internal::numerics::SafePositive(wavelength_bandwidth_um * 1.0e-6f, 1.0e-6f);
+  const float safe_bandwidth_m = oneq::common::numerics::SafePositive(wavelength_bandwidth_um * 1.0e-6f, 1.0e-6f);
   return safe_spectral_radiance * safe_bandwidth_m;
 }
 
 float ComputeInfraredRadianceDelta(const InfraredRadianceInputs& inputs) {
-  const float emissivity = oneq::internal::numerics::Clamp01(inputs.emissivity);
+  const float emissivity = oneq::common::numerics::Clamp01(inputs.emissivity);
   const float target_radiance =
       emissivity * ComputePlanckRadiance(inputs.wavelength_um, inputs.target_temperature_k);
   const float background_radiance =
@@ -63,8 +63,8 @@ float ComputeInfraredRadianceDelta(const InfraredRadianceInputs& inputs) {
 }
 
 float ComputeVisibleLambertianRadiance(const VisibleRadianceInputs& inputs) {
-  const float reflectance = oneq::internal::numerics::Clamp01(inputs.reflectance);
-  const float cloud_coverage = oneq::internal::numerics::Clamp01(inputs.cloud_coverage_ratio);
+  const float reflectance = oneq::common::numerics::Clamp01(inputs.reflectance);
+  const float cloud_coverage = oneq::common::numerics::Clamp01(inputs.cloud_coverage_ratio);
   const float effective_irradiance =
       std::max(0.0f, inputs.solar_irradiance_w_m2) * ComputeIlluminationScale(inputs.illumination);
   const float solar_altitude_rad =
@@ -82,7 +82,7 @@ VisibleChannelResult ComputeVisibleChannelResult(const VisibleChannelInputs& inp
 
   VisibleRadianceInputs background_inputs = inputs.target;
   background_inputs.reflectance =
-      oneq::internal::numerics::Clamp01(inputs.background_reflectance);
+      oneq::common::numerics::Clamp01(inputs.background_reflectance);
   result.background_radiance = ComputeVisibleLambertianRadiance(background_inputs);
   result.normalized_contrast =
       ComputeRelativeContrast(result.target_radiance, result.background_radiance);

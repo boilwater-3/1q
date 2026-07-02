@@ -27,6 +27,7 @@ Authority: proposed remediation plan for src architecture and safety issues
 - 2026-07-02：已修复 M7 的内部 RCS 命名误导：新增语义化函数名并将生产调用切换过去，旧 REOS/SIMD 名称仅保留为兼容 wrapper。
 - 2026-07-02：已推进 H2 第一批迁移：SAR 新增内部 `sar::extension::SarController` 与 `SarSessionCompositionRoot`，`SarSession` 退回对外门面。
 - 2026-07-02：已推进 H2 第二批迁移：SAR 新增内部 `SarProcessingPipeline`，并补齐 controller/pipeline runtime state 快照与恢复边界。
+- 2026-07-02：已推进 M3/M4：合并 trace/replay 时间戳工具，下沉 AR/ESR/EOS validation issue/ratio helper，并将 `common/numerics`、`common/geometry`、`common/coordinate` 私有工具主命名空间统一到 `oneq::common::*`。
 
 ## 高优先级问题
 
@@ -146,23 +147,27 @@ Status: verified, deferred as non-local ownership refactor.
 
 ### M3. 工具函数重复实现并已发生漂移
 
+- 2026-07-02 更新：已新增 `common/trace/TimeUtils.h`，`TraceSink.cpp` 与 `ReplayTrace.cpp` 复用同一 `CurrentTimestampMs()`。
+- 2026-07-02 更新：已扩展 `common/validation/ValidationUtils.h` 的 `MakeLocation` / `MakeLocatedIssue` / `IsRatio01`，AR/ESR/EOS 输入校验不再各自复制 location/issue/ratio helper，并补充单元测试冻结边界与字段填充语义。
 - `SafePositive` 曾在 `ClampUtils.h` 与 `NumericGuard.h` 各有一份；已修复为
   `NumericGuard.h` 复用 `ClampUtils.h` 的共享模板。
-- `CurrentTimestampMs` 在 `TraceSink.cpp` 与 `ReplayTrace.cpp` 各有一份；已验证，待后续 trace/replay 公共时间工具收敛。
+- `CurrentTimestampMs` 在 `TraceSink.cpp` 与 `ReplayTrace.cpp` 各有一份；已修复为共用 `oneq::internal::trace::CurrentTimestampMs()`。
 - `kNormFloor` / `kNumericFloor` 散落多处，阈值不一致；已验证，待后续按数值语义分层收敛。
 - 角度归一化曾存在 while 循环版本与 `fmod` 版本；while 版本对极大输入可能近似死循环。已于 2026-07-02 将 `NormalizeAngle180` 改为 `std::fmod` 常数时间实现，并补充大输入回归测试。
-- `MakeIssue` / `MakeLocation` / `IsFinite` / `IsRatioValid` 在 AR/ESR/EOS 输入校验中复制；已验证，待后续 common validation helper 收敛。
+- `MakeIssue` / `MakeLocation` / `IsFinite` / `IsRatioValid` 在 AR/ESR/EOS 输入校验中复制；`MakeLocation` / `MakeIssue` / ratio helper 已下沉，`IsFinite` 直接复用 common validation helper。SAR 成像内部仍有若干领域专用 finite-vector/matrix helper，保持局部语义。
 - `target_id=0` 严重级别在 AR/EOS/ESR 间不一致；已验证，因各模块 ID 语义不同，需先形成公共 contract 再统一。
 
 建议：下沉到 `src/common/validation/` 与 `src/common/numerics/`，并用单元测试冻结共享语义。
 
 ### M4. 命名空间与目录映射混乱
 
-Status: verified, deferred as namespace migration.
+Status: fixed on 2026-07-02.
 
-同一 `numerics/` 目录下并存 `oneq::internal::numerics` 与 `oneq::common::numerics`；coordinate 相关能力散落在 `oneq::coordinate`、`oneq::internal::coordinate_utils`、`oneq::internal::geometry`。
+同一 `numerics/` 目录下曾并存 `oneq::internal::numerics` 与 `oneq::common::numerics`；当前已将 `src/common/numerics/*` 的主命名空间统一为 `oneq::common::numerics`，并保留 `oneq::internal::numerics` 兼容别名以避免破坏旧内部调用。当前源码显式调用点已切换到 `oneq::common::numerics`。
 
-建议：按 `CLAUDE.md` 的 namespace-directory mapping 约束统一命名空间归属，并在迁移前先定义保留/迁移规则。
+coordinate 迁移规则已收敛为：公开坐标 API 继续使用 `oneq::coordinate`，`src/common/geometry/*` 主命名空间改为 `oneq::common::geometry`，`src/common/coordinate/CoordinateUtils.h` 主命名空间改为 `oneq::common::coordinate_utils`。源码与测试显式调用点已切换到 `oneq::common::*`，旧 `oneq::internal::{numerics,geometry,coordinate_utils}` 仅保留兼容 alias。
+
+后续建议：待下游调用点稳定后，另行删除 `oneq::internal::{numerics,geometry,coordinate_utils}` 兼容 alias。
 
 ### M5. 外部 trace 文件读取无大小上限
 
@@ -232,7 +237,7 @@ Status: verified, deferred as flight_dynamic public-boundary migration.
 | P1 | 修复 H6：Blake 仰角生效 | 已修复 |
 | P1 | 修复 H5：JSON 解析器加固或替换 | 已修复主要加固缺口 |
 | P2 | 推进 H2：SAR Controller 层迁移 | 已完成 Controller/CompositionRoot/Pipeline 迁移 |
-| P2 | 推进 M3 与 M4：剩余工具下沉、命名空间统一 | M3 已部分修复，M4 需迁移计划 |
+| P2 | 推进 M3 与 M4：剩余工具下沉、命名空间统一 | 已完成，旧 internal 入口仅保留兼容 alias |
 | P3 | 处理 M2、M8、L1/L3/L4/L6 | 已验证，均不与本轮语义修复混批 |
 
 ## 总体结论
@@ -242,4 +247,4 @@ Status: verified, deferred as flight_dynamic public-boundary migration.
 1. 异常使用违反项目硬性约束，影响构建模型和失败语义一致性。
 2. “数据存在但不被消费、错误发生但无信号”的静默跳过模式，会显著降低仿真结果的可解释性和可调试性。
 
-本轮已优先处理会导致异常穿透、输入污染、静默跳过或错误结果解释的项；剩余 M2/M4/M8/L1/L3/L4/L6 属架构迁移、public API 迁移或纯样式治理，应进入独立批次并配套契约文档。H2 已完成 Controller/CompositionRoot/Pipeline 分层与快照边界迁移。
+本轮已优先处理会导致异常穿透、输入污染、静默跳过或错误结果解释的项；剩余 M2/M8/L1/L3/L4/L6 属架构迁移、public API 迁移或纯样式治理，应进入独立批次并配套契约文档。H2 已完成 Controller/CompositionRoot/Pipeline 分层与快照边界迁移；M3/M4 已完成时间戳、validation helper 与 `oneq::common::*` 命名空间收敛。

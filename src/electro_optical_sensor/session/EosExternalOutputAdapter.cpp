@@ -16,8 +16,8 @@ namespace {
 oneq::coordinate::Vector3d ToPlatformFrameVector(float range_m, float azimuth_deg,
                                                  float elevation_deg) {
   const double range = static_cast<double>(range_m);
-  const double az_rad = oneq::internal::numerics::DegToRad(static_cast<double>(azimuth_deg));
-  const double el_rad = oneq::internal::numerics::DegToRad(static_cast<double>(elevation_deg));
+  const double az_rad = oneq::common::numerics::DegToRad(static_cast<double>(azimuth_deg));
+  const double el_rad = oneq::common::numerics::DegToRad(static_cast<double>(elevation_deg));
   const double horizontal = range * std::cos(el_rad);
   oneq::coordinate::Vector3d vector;
   vector.x = horizontal * std::cos(az_rad);

@@ -6,13 +6,13 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 #define AIRBORNE_RADAR_SIGNAL_DETECTION_BEAM_CONTROL_RESOLVER_H_
 
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "airborne_radar/config/SignalEngineeringConfig.h"
-#include "airborne_radar/utils/ArOrientationUtils.h"
 #include "airborne_radar/signal/detection/AntennaPatternRuntime.h"
 #include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/signal/detection/TargetLookResolver.h"
+#include "airborne_radar/utils/ArOrientationUtils.h"
 #include "common/geometry/GeometryTransform.h"
-#include "1q/airborne_radar/config/ArOrientationConfig.h"
 
 namespace airborne_radar {
 namespace signal {
@@ -21,9 +21,9 @@ namespace detection {
  * @brief ResolvedBeamState 表示当前探测使用的波束状态。
  */
 struct ResolvedBeamState {
-  EffectiveBeamwidthDeg effective_beamwidth_deg;         /**< 生效方位/俯仰波束宽度。 */
+  EffectiveBeamwidthDeg effective_beamwidth_deg; /**< 生效方位/俯仰波束宽度。 */
   config::AzimuthElevationDeg beam_pointing_deg; /**< 挂架坐标系下的当前波束中心。 */
-  float one_way_antenna_gain_db{0.0f}; /**< 当前目标方向上的单程天线增益（dB）。 */
+  float one_way_antenna_gain_db{0.0f};           /**< 当前目标方向上的单程天线增益（dB）。 */
 };
 /**
  * @brief BeamControlResolver 负责组合波束宽度、指向与方向图增益。
@@ -40,19 +40,18 @@ class BeamControlResolver {
    * @param wavelength_m 载波波长（单位：m），用于物理尺寸→波束宽度推导和 sinc² 模式（0=不使用）。
    * @return 当前探测使用的波束状态。
    */
-  static ResolvedBeamState Resolve(const config::engineering::AntennaConfig& antenna_config,
-                                   const config::ArOrientationConfig& orientation_config,
-                                   const config::PlatformAttitudeDeg& platform_attitude_deg,
-                     const TargetLookAnglesDeg& target_look_angles,
-                     const config::AzimuthElevationDeg& dwell_center_deg =
-                       config::AzimuthElevationDeg(),
-                     float wavelength_m = 0.0f) {
+  static ResolvedBeamState Resolve(
+      const config::engineering::AntennaConfig& antenna_config,
+      const config::ArOrientationConfig& orientation_config,
+      const config::PlatformAttitudeDeg& platform_attitude_deg,
+      const TargetLookAnglesDeg& target_look_angles,
+      const config::AzimuthElevationDeg& dwell_center_deg = config::AzimuthElevationDeg(),
+      float wavelength_m = 0.0f) {
     ResolvedBeamState state;
     state.effective_beamwidth_deg =
         ResolveEffectiveBeamwidth(antenna_config, orientation_config, wavelength_m);
     state.beam_pointing_deg =
-      ResolveMountFrameBeamPointing(orientation_config, platform_attitude_deg,
-                      dwell_center_deg);
+        ResolveMountFrameBeamPointing(orientation_config, platform_attitude_deg, dwell_center_deg);
     state.one_way_antenna_gain_db = antenna_config.main_beam_gain_db;
 
     if (!antenna_config.enable_directional_pattern || !target_look_angles.has_look_angles) {
@@ -80,7 +79,7 @@ class BeamControlResolver {
    * @brief 解析当前稳定模式下的挂架坐标系波束指向。
    * @param orientation_config 雷达方向与控制配置。
    * @param platform_attitude_deg 当前平台姿态角。
-     * @param dwell_center_deg 当前周期的驻留偏移量；未提供时按零偏处理。
+   * @param dwell_center_deg 当前周期的驻留偏移量；未提供时按零偏处理。
    * @return 挂架坐标系下的波束指向。
    * @note 对地稳定当前无地理参考输入，代码上显式等同于对惯性空间稳定。
    */
@@ -90,31 +89,30 @@ class BeamControlResolver {
       const config::AzimuthElevationDeg& dwell_center_deg = config::AzimuthElevationDeg()) {
     const config::AzimuthElevationLimitsDeg effective_limits =
         utils::IntersectScanLimits(orientation_config.mechanical_scan_limits_deg,
-                                           orientation_config.electronic_scan_limits_deg);
-    if (orientation_config.stabilization_mode ==
-        config::StabilizationMode::kBodyStabilized) {
+                                   orientation_config.electronic_scan_limits_deg);
+    if (orientation_config.stabilization_mode == config::StabilizationMode::kBodyStabilized) {
       return utils::ComputeMountFrameBeamPointing(orientation_config, dwell_center_deg);
     }
 
     config::AzimuthElevationDeg desired_platform_pointing_deg;
-    desired_platform_pointing_deg.az_deg = orientation_config.scan_center_deg.az_deg +
-                                          dwell_center_deg.az_deg;
-    desired_platform_pointing_deg.el_deg = orientation_config.scan_center_deg.el_deg +
-                                          dwell_center_deg.el_deg;
+    desired_platform_pointing_deg.az_deg =
+        orientation_config.scan_center_deg.az_deg + dwell_center_deg.az_deg;
+    desired_platform_pointing_deg.el_deg =
+        orientation_config.scan_center_deg.el_deg + dwell_center_deg.el_deg;
 
-    oneq::internal::geometry::AzimuthElevationDeg desired_platform_pointing;
+    oneq::common::geometry::AzimuthElevationDeg desired_platform_pointing;
     desired_platform_pointing.az_deg = desired_platform_pointing_deg.az_deg;
     desired_platform_pointing.el_deg = desired_platform_pointing_deg.el_deg;
-    oneq::internal::geometry::EulerAnglesDeg platform_attitude;
+    oneq::common::geometry::EulerAnglesDeg platform_attitude;
     platform_attitude.yaw_deg = platform_attitude_deg.yaw_deg;
     platform_attitude.pitch_deg = platform_attitude_deg.pitch_deg;
     platform_attitude.roll_deg = platform_attitude_deg.roll_deg;
-    oneq::internal::geometry::EulerAnglesDeg mount_angles;
+    oneq::common::geometry::EulerAnglesDeg mount_angles;
     mount_angles.yaw_deg = orientation_config.mount_angles_deg.yaw_deg;
     mount_angles.pitch_deg = orientation_config.mount_angles_deg.pitch_deg;
     mount_angles.roll_deg = orientation_config.mount_angles_deg.roll_deg;
-    const oneq::internal::geometry::AzimuthElevationDeg stabilized_mount_pointing =
-        oneq::internal::geometry::ResolveStabilizedMountFramePointing(
+    const oneq::common::geometry::AzimuthElevationDeg stabilized_mount_pointing =
+        oneq::common::geometry::ResolveStabilizedMountFramePointing(
             desired_platform_pointing, platform_attitude, mount_angles);
     config::AzimuthElevationDeg stabilized_mount_frame_pointing;
     stabilized_mount_frame_pointing.az_deg = stabilized_mount_pointing.az_deg;

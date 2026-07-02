@@ -26,12 +26,12 @@ constexpr float kSuppressionUpperBound = 0.60f;
 BackgroundNoiseStatistics ComputeBackgroundNoiseStatistics(
     const BackgroundNoiseModelInputs& inputs) {
   const float background_flux_w = std::max(0.0f, inputs.background_flux_w);
-  const float cloud_ratio = oneq::internal::numerics::Clamp01(inputs.cloud_coverage_ratio);
+  const float cloud_ratio = oneq::common::numerics::Clamp01(inputs.cloud_coverage_ratio);
   const float scene_complexity = std::max(1.0f, inputs.scene_complexity_factor);
   const float photon_noise_factor = std::max(1.0f, inputs.photon_noise_enhancement_factor);
-  const float detector_area_cm2 = oneq::internal::numerics::SafePositive(inputs.detector_area_cm2, 0.25f);
-  const float integration_time_sec = oneq::internal::numerics::SafePositive(inputs.integration_time_sec, 1.0f / 30.0f);
-  const float electrical_bandwidth_hz = oneq::internal::numerics::SafePositive(inputs.electrical_bandwidth_hz, 1000.0f);
+  const float detector_area_cm2 = oneq::common::numerics::SafePositive(inputs.detector_area_cm2, 0.25f);
+  const float integration_time_sec = oneq::common::numerics::SafePositive(inputs.integration_time_sec, 1.0f / 30.0f);
+  const float electrical_bandwidth_hz = oneq::common::numerics::SafePositive(inputs.electrical_bandwidth_hz, 1000.0f);
   // Equivalent noise bandwidth of a first-order RC low-pass (single pole). This approximation
   // assumes stationary noise in the frame integration window and is intended for frame-level
   // EOS detection modeling, not high-fidelity transient front-end simulation.
@@ -51,7 +51,7 @@ BackgroundNoiseStatistics ComputeBackgroundNoiseStatistics(
 
   const float suppression_reference = background_flux_w + kEquivalentNoiseGuardW;
   const float adaptive_term = stats.equivalent_noise_power_w / suppression_reference;
-  stats.suppression_weight = oneq::internal::numerics::Clamp(
+  stats.suppression_weight = oneq::common::numerics::Clamp(
       kSuppressionBase + kSuppressionAdaptiveGain * adaptive_term, kSuppressionLowerBound,
       kSuppressionUpperBound);
   return stats;
@@ -62,7 +62,7 @@ float ComputeEffectiveSignalPowerW(float received_power_w, float background_flux
   const float safe_received_power_w = std::max(0.0f, received_power_w);
   const float safe_background_flux_w = std::max(0.0f, background_flux_w);
   const float suppression_weight =
-      oneq::internal::numerics::Clamp(stats.suppression_weight, kSuppressionLowerBound,
+      oneq::common::numerics::Clamp(stats.suppression_weight, kSuppressionLowerBound,
                                       kSuppressionUpperBound);
 
   const float suppressed_background_budget_w = suppression_weight * safe_background_flux_w;

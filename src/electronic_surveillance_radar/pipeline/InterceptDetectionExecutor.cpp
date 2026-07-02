@@ -25,7 +25,7 @@
 namespace electronic_surveillance_radar {
 namespace pipeline {
 
-using oneq::internal::numerics::kNumericFloor;
+using oneq::common::numerics::kNumericFloor;
 
 namespace {
 
@@ -122,8 +122,8 @@ float ComputeRangeM(const oneq::foundation::PoseState& platform_pose,
  * @param[in] vector ESR 三维向量。
  * @return 共享几何三维向量。
  */
-oneq::internal::geometry::Vector3f ToGeometryVector(const session::EsrVector3f& vector) {
-  oneq::internal::geometry::Vector3f result;
+oneq::common::geometry::Vector3f ToGeometryVector(const session::EsrVector3f& vector) {
+  oneq::common::geometry::Vector3f result;
   result.x = vector.x;
   result.y = vector.y;
   result.z = vector.z;
@@ -135,8 +135,8 @@ oneq::internal::geometry::Vector3f ToGeometryVector(const session::EsrVector3f& 
  * @param[in] angle ESR 欧拉角。
  * @return 共享几何欧拉角。
  */
-oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(const session::EsrEulerAngleDeg& angle) {
-  oneq::internal::geometry::EulerAnglesDeg result;
+oneq::common::geometry::EulerAnglesDeg ToGeometryEuler(const session::EsrEulerAngleDeg& angle) {
+  oneq::common::geometry::EulerAnglesDeg result;
   result.yaw_deg = angle.yaw_deg;
   result.pitch_deg = angle.pitch_deg;
   result.roll_deg = angle.roll_deg;
@@ -149,10 +149,10 @@ oneq::internal::geometry::EulerAnglesDeg ToGeometryEuler(const session::EsrEuler
  * @param[in] emitter_state 辐射源状态。
  * @return 接收机参考系下的方位/俯仰角（单位：deg）。
  */
-oneq::internal::geometry::AzimuthElevationDeg ComputeEmitterLookAngles(
+oneq::common::geometry::AzimuthElevationDeg ComputeEmitterLookAngles(
     const oneq::foundation::PoseState& platform_pose,
     const session::EsrSceneEmitter& emitter_state) {
-  return oneq::internal::geometry::ComputeRelativeLineOfSightAzEl(
+  return oneq::common::geometry::ComputeRelativeLineOfSightAzEl(
       ToGeometryVector(platform_pose.position_m), ToGeometryEuler(platform_pose.attitude_deg),
       ToGeometryVector(emitter_state.pose.position_m));
 }
@@ -163,11 +163,11 @@ oneq::internal::geometry::AzimuthElevationDeg ComputeEmitterLookAngles(
  * @param[in] runtime_config 会话运行态配置。
  * @return 天线参考系方位/俯仰角。
  */
-oneq::internal::geometry::AzimuthElevationDeg ApplyAntennaMountOffset(
-    const oneq::internal::geometry::AzimuthElevationDeg& look_angles,
+oneq::common::geometry::AzimuthElevationDeg ApplyAntennaMountOffset(
+    const oneq::common::geometry::AzimuthElevationDeg& look_angles,
     const extension::InterceptRuntimeConfig& runtime_config) {
-  oneq::internal::geometry::AzimuthElevationDeg adjusted = look_angles;
-  adjusted.az_deg = oneq::internal::geometry::ComputeAzimuthDifferenceDeg(
+  oneq::common::geometry::AzimuthElevationDeg adjusted = look_angles;
+  adjusted.az_deg = oneq::common::geometry::ComputeAzimuthDifferenceDeg(
       look_angles.az_deg, runtime_config.antenna_mount_az_deg);
   adjusted.el_deg = look_angles.el_deg - runtime_config.antenna_mount_el_deg;
   return adjusted;
@@ -185,13 +185,13 @@ float ComputeEmitterBeamOverlapRatio(const oneq::foundation::PoseState& platform
     return 1.0f;
   }
 
-  const oneq::internal::geometry::AzimuthElevationDeg emitter_to_platform =
-      oneq::internal::geometry::ComputeRelativeLineOfSightAzEl(
+  const oneq::common::geometry::AzimuthElevationDeg emitter_to_platform =
+      oneq::common::geometry::ComputeRelativeLineOfSightAzEl(
           ToGeometryVector(emitter_state.pose.position_m),
           ToGeometryEuler(emitter_state.pose.attitude_deg),
           ToGeometryVector(platform_pose.position_m));
   const double az_diff =
-      std::fabs(static_cast<double>(oneq::internal::geometry::ComputeAzimuthDifferenceDeg(
+      std::fabs(static_cast<double>(oneq::common::geometry::ComputeAzimuthDifferenceDeg(
           emitter_to_platform.az_deg, static_cast<float>(emitter_state.beam_state.center_az_deg))));
   const double el_diff = std::fabs(static_cast<double>(emitter_to_platform.el_deg) -
                                    emitter_state.beam_state.center_el_deg);
@@ -242,9 +242,9 @@ double ComputeReceivedPowerW(double tx_power_w, double carrier_hz, float range_m
     return 0.0;
   }
   const double safe_range = std::max(static_cast<double>(range_m), 1.0);
-  const double wavelength = static_cast<double>(oneq::internal::numerics::kLightSpeed) / carrier_hz;
+  const double wavelength = static_cast<double>(oneq::common::numerics::kLightSpeed) / carrier_hz;
   const double fspl_linear = std::pow(
-      (4.0 * static_cast<double>(oneq::internal::numerics::kPi) * safe_range) / wavelength, 2.0);
+      (4.0 * static_cast<double>(oneq::common::numerics::kPi) * safe_range) / wavelength, 2.0);
   const double propagation_loss_linear =
       std::pow(10.0, static_cast<double>(std::max(0.0f, propagation_loss_db)) / 10.0);
   return tx_power_w / (fspl_linear * propagation_loss_linear);
@@ -466,7 +466,7 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
   std::uniform_real_distribution<float> uniform_01(0.0f, 1.0f);
 
   const float range_m = ComputeRangeM(platform_pose, emitter);
-  const oneq::internal::geometry::AzimuthElevationDeg target_look_angles =
+  const oneq::common::geometry::AzimuthElevationDeg target_look_angles =
       ApplyAntennaMountOffset(ComputeEmitterLookAngles(platform_pose, emitter), runtime_config);
   const float target_az_deg = target_look_angles.az_deg;
   const float target_el_deg = target_look_angles.el_deg;

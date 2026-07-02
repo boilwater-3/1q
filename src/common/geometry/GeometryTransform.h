@@ -11,7 +11,7 @@
 #include "1q/foundation/pose_types.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace geometry {
 
 using Vector3f = oneq::foundation::Vector3f;
@@ -112,6 +112,25 @@ AzimuthElevationDeg ComputeRelativeLineOfSightAzEl(const Vector3f& observer_posi
 AzimuthElevationDeg ResolveStabilizedMountFramePointing(
     const AzimuthElevationDeg& desired_platform_pointing_deg,
     const EulerAnglesDeg& platform_attitude_deg, const EulerAnglesDeg& mount_angles_deg);
+
+}  // namespace geometry
+}  // namespace common
+namespace internal {
+namespace geometry {
+
+using ::oneq::common::geometry::AzimuthElevationDeg;
+using ::oneq::common::geometry::AzimuthElevationLimitsDeg;
+using ::oneq::common::geometry::AzimuthElevationToUnitVector;
+using ::oneq::common::geometry::BuildRotationMatrix;
+using ::oneq::common::geometry::ClampAzimuthElevation;
+using ::oneq::common::geometry::ComputeAzimuthDifferenceDeg;
+using ::oneq::common::geometry::ComputeRelativeLineOfSightAzEl;
+using ::oneq::common::geometry::EulerAnglesDeg;
+using ::oneq::common::geometry::IntersectScanLimits;
+using ::oneq::common::geometry::ResolveStabilizedMountFramePointing;
+using ::oneq::common::geometry::RotateVectorToLocalFrame;
+using ::oneq::common::geometry::UnitVectorToAzimuthElevation;
+using ::oneq::common::geometry::Vector3f;
 
 }  // namespace geometry
 }  // namespace internal

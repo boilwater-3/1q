@@ -113,11 +113,11 @@ class InterceptGate final {
         ComputeFrequencyOverlapRatio(input.receiver_lower_hz, input.receiver_upper_hz,
                                      input.signal_center_hz, input.signal_bandwidth_hz);
     const float min_overlap_ratio =
-        oneq::internal::numerics::Clamp01(input.min_frequency_overlap_ratio);
+        oneq::common::numerics::Clamp01(input.min_frequency_overlap_ratio);
     decision.frequency_covered =
         decision.frequency_overlap_ratio + kGateEpsilon >= min_overlap_ratio;
 
-    const float az_diff = std::fabs(oneq::internal::geometry::ComputeAzimuthDifferenceDeg(
+    const float az_diff = std::fabs(oneq::common::geometry::ComputeAzimuthDifferenceDeg(
         input.target_az_deg, input.beam_az_deg));
     const float el_diff = std::fabs(input.target_el_deg - input.beam_el_deg);
     const float guard_factor = std::max(0.0f, input.beam_guard_factor);
@@ -131,7 +131,7 @@ class InterceptGate final {
         std::sqrt(normalized_az * normalized_az + normalized_el * normalized_el);
 
     decision.in_beam = normalized_distance <= 1.0f + kGateEpsilon;
-    decision.beam_overlap_ratio = oneq::internal::numerics::Clamp01(1.0f - normalized_distance);
+    decision.beam_overlap_ratio = oneq::common::numerics::Clamp01(1.0f - normalized_distance);
     decision.in_range = input.max_range_m > kGateEpsilon && input.range_m >= -kGateEpsilon &&
                         input.range_m <= input.max_range_m + kGateEpsilon;
     decision.dynamic_range_ok =

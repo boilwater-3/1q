@@ -10,33 +10,14 @@ namespace session {
 
 namespace {
 
-ValidationLocation MakeLocation(ValidationLocationKind kind, std::size_t entity_index) {
-  ValidationLocation location;
-  location.kind = kind;
-  location.entity_index = entity_index;
-  return location;
-}
+using oneq::internal::validation::IsFinite;
 
 ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
                           ValidationLocationKind location_kind, std::size_t entity_index,
                           const std::string& field, const std::string& message) {
-  ValidationIssue issue;
-  issue.severity = severity;
-  issue.code = code;
-  issue.location = MakeLocation(location_kind, entity_index);
-  issue.field = field;
-  issue.message = message;
-  return issue;
+  return oneq::internal::validation::MakeLocatedIssue<ValidationIssue, ValidationLocation>(
+      severity, code, location_kind, entity_index, field, message);
 }
-
-/**
- * @brief 判断输入浮点值是否为有限数。
- * @param value 输入浮点值。
- * @return 有限数时返回 `true`。
- */
-bool IsFinite(float value) { return oneq::internal::validation::IsFinite(value); }
-
-bool IsRatioValid(float value) { return IsFinite(value) && value >= 0.0f && value <= 1.0f; }
 
 bool IsDefaultEnvironmentInput(const ArEnvironmentInput& environment) {
   const ArEnvironmentInput defaults;
@@ -53,8 +34,7 @@ bool IsDefaultEnvironmentInput(const ArEnvironmentInput& environment) {
          environment.atmospheric_context.k_factor == defaults.atmospheric_context.k_factor &&
          environment.atmospheric_context.has_day_of_year ==
              defaults.atmospheric_context.has_day_of_year &&
-         environment.atmospheric_context.day_of_year ==
-             defaults.atmospheric_context.day_of_year &&
+         environment.atmospheric_context.day_of_year == defaults.atmospheric_context.day_of_year &&
          environment.atmospheric_context.solar_flux_f107a ==
              defaults.atmospheric_context.solar_flux_f107a &&
          environment.atmospheric_context.solar_flux_f107 ==
@@ -100,15 +80,15 @@ void ValidatePlatformAltitude(float platform_altitude_m, ValidationIssueList* is
                               "platform_altitude_m", "platform altitude must be finite"));
 }
 
-void ValidateEnvironmentInput(const ArEnvironmentInput& environment,
-                              ValidationIssueList* issues) {
+void ValidateEnvironmentInput(const ArEnvironmentInput& environment, ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
   const config::AtmosphericPhysicsConfig& atmosphere = environment.atmospheric_observation;
   if (!IsFinite(atmosphere.pressure_hpa) || !IsFinite(atmosphere.temperature_k) ||
       !IsFinite(atmosphere.relative_humidity) || atmosphere.pressure_hpa <= 0.0f ||
-      atmosphere.temperature_k <= 0.0f || !IsRatioValid(atmosphere.relative_humidity)) {
+      atmosphere.temperature_k <= 0.0f ||
+      !oneq::internal::validation::IsRatio01(atmosphere.relative_humidity)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kInvalidEnvironmentObservation,
                                 ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
@@ -126,11 +106,11 @@ void ValidateEnvironmentInput(const ArEnvironmentInput& environment,
   }
   for (std::size_t i = 0; i < environment.jammer_sources.size(); ++i) {
     const config::JammerEmitterState& jammer = environment.jammer_sources[i];
-    if (!IsFinite(jammer.power_db) || !IsFinite(jammer.js_db) ||
-        !IsFinite(jammer.position_x) || !IsFinite(jammer.position_y) || !IsFinite(jammer.position_z) ||
-        !IsFinite(jammer.angular_span_deg) ||
-        !IsFinite(jammer.confidence) || jammer.power_db < 0.0f || jammer.js_db < 0.0f ||
-        jammer.angular_span_deg < 0.0f || !IsRatioValid(jammer.confidence)) {
+    if (!IsFinite(jammer.power_db) || !IsFinite(jammer.js_db) || !IsFinite(jammer.position_x) ||
+        !IsFinite(jammer.position_y) || !IsFinite(jammer.position_z) ||
+        !IsFinite(jammer.angular_span_deg) || !IsFinite(jammer.confidence) ||
+        jammer.power_db < 0.0f || jammer.js_db < 0.0f || jammer.angular_span_deg < 0.0f ||
+        !oneq::internal::validation::IsRatio01(jammer.confidence)) {
       issues->push_back(MakeIssue(
           ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
           ValidationLocationKind::kEnvironment, i, "environment.jammer_sources",
@@ -212,11 +192,10 @@ ValidationIssueList ValidateArCycleInput(const ArCycleInput& input) {
   if (input.has_environment) {
     ValidateEnvironmentInput(input.environment, &issues);
   } else if (!IsDefaultEnvironmentInput(input.environment)) {
-    issues.push_back(MakeIssue(ValidationSeverity::kError,
-                               ValidationCode::kEnvironmentSnapshotFlagMismatch,
-                               ValidationLocationKind::kEnvironment,
-                               static_cast<std::size_t>(-1), "has_environment",
-                               "environment data is present but has_environment is false"));
+    issues.push_back(
+        MakeIssue(ValidationSeverity::kError, ValidationCode::kEnvironmentSnapshotFlagMismatch,
+                  ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
+                  "has_environment", "environment data is present but has_environment is false"));
   }
 
   const ValidationIssueList target_issues = ValidateArSceneTargets(input.scene);

@@ -13,12 +13,12 @@
 
 #include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArExternalInputAdapter.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/airborne_radar/session/ArSession.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "1q/coordinate/position_transform.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/runtime/ArController.h"
@@ -142,7 +142,7 @@ config::ArSessionConfig MakeConvenienceSessionConfig() {
 }
 
 session::ArCycleInput MakeCycleInput(session::ArSceneTargetList targets, float dt_sec = 1.0f,
-                                        std::uint32_t cycle_index = 0U) {
+                                     std::uint32_t cycle_index = 0U) {
   static std::uint32_t next_cycle_index = 1U;
   session::ArCycleInput input;
   input.cycle_index = cycle_index == 0U ? next_cycle_index++ : cycle_index;
@@ -454,8 +454,8 @@ TEST(PublicApiConvenienceTest, MutableRadarContextBeginsCycleAndResetsPerCycleCo
   EXPECT_NEAR(context.GetCycleDeltaTimeSec(), 0.5f, 1e-5f);
   EXPECT_TRUE(context.GetSubmittedCommands().empty());
 
-  context.SubmitControlCommand(session::ArCommand(session::ArCommandType::SET_AGILITY_FREQ,
-                                                     session::ArCommandSource::ECCM));
+  context.SubmitControlCommand(
+      session::ArCommand(session::ArCommandType::SET_AGILITY_FREQ, session::ArCommandSource::ECCM));
   session::ArControlProfile profile;
   profile.enable_agility_frequency = true;
   profile.version = 4U;
@@ -482,8 +482,7 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildCartesianGroundAndAirTargets
   EXPECT_NEAR(SpeedOf(cartesian_target), std::sqrt(105.0f), 1e-5f);
   EXPECT_EQ(cartesian_target.target_swerling_type, 2);
 
-  const session::ArSceneTarget ground_target =
-      model::MakeGroundTarget(202U, 20.0f, -15.0f, 0.8f);
+  const session::ArSceneTarget ground_target = model::MakeGroundTarget(202U, 20.0f, -15.0f, 0.8f);
   EXPECT_NEAR(ground_target.position_z, 0.0f, 1e-5f);
   EXPECT_NEAR(ground_target.velocity_z, 0.0f, 1e-5f);
   EXPECT_NEAR(ground_target.range_m, 25.0f, 1e-5f);
@@ -530,23 +529,22 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsComposeRadarAttitudeUsesRotationC
   const oneq::coordinate::EulerAnglesDeg composed =
       session::ComposeRadarAttitudeDeg(platform_attitude, mount_angles);
 
-  oneq::internal::geometry::EulerAnglesDeg platform_geometry;
+  oneq::common::geometry::EulerAnglesDeg platform_geometry;
   platform_geometry.yaw_deg = platform_attitude.yaw_deg;
   platform_geometry.pitch_deg = platform_attitude.pitch_deg;
   platform_geometry.roll_deg = platform_attitude.roll_deg;
-  oneq::internal::geometry::EulerAnglesDeg mount_geometry;
+  oneq::common::geometry::EulerAnglesDeg mount_geometry;
   mount_geometry.yaw_deg = mount_angles.yaw_deg;
   mount_geometry.pitch_deg = mount_angles.pitch_deg;
   mount_geometry.roll_deg = mount_angles.roll_deg;
-  oneq::internal::geometry::EulerAnglesDeg composed_geometry;
+  oneq::common::geometry::EulerAnglesDeg composed_geometry;
   composed_geometry.yaw_deg = composed.yaw_deg;
   composed_geometry.pitch_deg = composed.pitch_deg;
   composed_geometry.roll_deg = composed.roll_deg;
 
-  const Eigen::Matrix3f expected =
-      oneq::internal::geometry::BuildRotationMatrix(platform_geometry) *
-      oneq::internal::geometry::BuildRotationMatrix(mount_geometry);
-  const Eigen::Matrix3f actual = oneq::internal::geometry::BuildRotationMatrix(composed_geometry);
+  const Eigen::Matrix3f expected = oneq::common::geometry::BuildRotationMatrix(platform_geometry) *
+                                   oneq::common::geometry::BuildRotationMatrix(mount_geometry);
+  const Eigen::Matrix3f actual = oneq::common::geometry::BuildRotationMatrix(composed_geometry);
 
   for (int row = 0; row < 3; ++row) {
     for (int col = 0; col < 3; ++col) {
@@ -576,8 +574,7 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalCoordinat
 
   oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
-  ASSERT_TRUE(
-      session::TryMakeArPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
+  ASSERT_TRUE(session::TryMakeArPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
   session::ArExternalTargetInput input;
   input.target_id = 403U;
@@ -622,8 +619,7 @@ TEST(PublicApiConvenienceTest, SceneTargetUtilsBuildsTargetFromExternalKinematic
 
   oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
-  ASSERT_TRUE(
-      session::TryMakeArPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
+  ASSERT_TRUE(session::TryMakeArPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
   session::ArExternalTargetInput input;
   input.target_id = 501U;
@@ -666,8 +662,7 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
 
   oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
-  ASSERT_TRUE(
-      session::TryMakeArPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
+  ASSERT_TRUE(session::TryMakeArPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
   session::ArExternalTargetInput target_input;
   target_input.target_id = 600U;
@@ -680,12 +675,12 @@ TEST(PublicApiConvenienceTest, TwoStepExternalKinematicsProducesStableTarget) {
   target_input.swerling_type = 0;
 
   session::ArSceneTarget target_1;
-  ASSERT_TRUE(session::TryMakeArTargetFromExternalKinematics(target_input, reference,
-                                                           platform_pose.velocity_mps, &target_1));
+  ASSERT_TRUE(session::TryMakeArTargetFromExternalKinematics(
+      target_input, reference, platform_pose.velocity_mps, &target_1));
 
   session::ArSceneTarget target_2;
-  ASSERT_TRUE(session::TryMakeArTargetFromExternalKinematics(target_input, reference,
-                                                           platform_pose.velocity_mps, &target_2));
+  ASSERT_TRUE(session::TryMakeArTargetFromExternalKinematics(
+      target_input, reference, platform_pose.velocity_mps, &target_2));
 
   EXPECT_EQ(target_1.external_target_id, target_2.external_target_id);
   EXPECT_NEAR(target_1.position_x, target_2.position_x, 1.0e-6f);
@@ -710,8 +705,7 @@ TEST(PublicApiConvenienceTest, TwoStepApiPlatformPoseFeedsDirectlyIntoCycleInput
 
   oneq::coordinate::LocalFrameReference reference;
   oneq::foundation::PoseState platform_pose;
-  ASSERT_TRUE(
-      session::TryMakeArPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
+  ASSERT_TRUE(session::TryMakeArPoseFromExternalKinematics(pose_input, &reference, &platform_pose));
 
   // platform_pose 可直接赋给 ArCycleInput::platform_pose，无需手动复制姿态
   session::ArCycleInput cycle_input;

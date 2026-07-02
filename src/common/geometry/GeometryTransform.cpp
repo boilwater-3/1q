@@ -7,7 +7,7 @@
 #include "common/numerics/Constants.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace geometry {
 
 namespace {
@@ -19,8 +19,10 @@ constexpr float kVectorNormFloor = 1.0e-6f;
 AzimuthElevationDeg ClampAzimuthElevation(const AzimuthElevationDeg& angle,
                                           const AzimuthElevationLimitsDeg& limits) {
   AzimuthElevationDeg clamped;
-  clamped.az_deg = oneq::internal::numerics::Clamp(angle.az_deg, limits.az_min_deg, limits.az_max_deg);
-  clamped.el_deg = oneq::internal::numerics::Clamp(angle.el_deg, limits.el_min_deg, limits.el_max_deg);
+  clamped.az_deg =
+      oneq::common::numerics::Clamp(angle.az_deg, limits.az_min_deg, limits.az_max_deg);
+  clamped.el_deg =
+      oneq::common::numerics::Clamp(angle.el_deg, limits.el_min_deg, limits.el_max_deg);
   return clamped;
 }
 
@@ -50,8 +52,8 @@ float ComputeAzimuthDifferenceDeg(float lhs_deg, float rhs_deg) {
 }
 
 Eigen::Vector3f AzimuthElevationToUnitVector(const AzimuthElevationDeg& pointing_deg) {
-  const float az_rad = oneq::internal::numerics::DegToRad(pointing_deg.az_deg);
-  const float el_rad = oneq::internal::numerics::DegToRad(pointing_deg.el_deg);
+  const float az_rad = oneq::common::numerics::DegToRad(pointing_deg.az_deg);
+  const float el_rad = oneq::common::numerics::DegToRad(pointing_deg.el_deg);
   const float cos_el = std::cos(el_rad);
   return Eigen::Vector3f(cos_el * std::cos(az_rad), cos_el * std::sin(az_rad), std::sin(el_rad));
 }
@@ -59,17 +61,18 @@ Eigen::Vector3f AzimuthElevationToUnitVector(const AzimuthElevationDeg& pointing
 AzimuthElevationDeg UnitVectorToAzimuthElevation(const Eigen::Vector3f& vector) {
   AzimuthElevationDeg pointing_deg;
   const float horizontal_norm = std::sqrt(vector.x() * vector.x() + vector.y() * vector.y());
-  pointing_deg.az_deg = oneq::internal::numerics::RadToDeg(std::atan2(vector.y(), vector.x()));
-  pointing_deg.el_deg = oneq::internal::numerics::RadToDeg(std::atan2(vector.z(), horizontal_norm));
+  pointing_deg.az_deg = oneq::common::numerics::RadToDeg(std::atan2(vector.y(), vector.x()));
+  pointing_deg.el_deg = oneq::common::numerics::RadToDeg(std::atan2(vector.z(), horizontal_norm));
   return pointing_deg;
 }
 
 Eigen::Matrix3f BuildRotationMatrix(const EulerAnglesDeg& euler_deg) {
-  const float yaw_rad = static_cast<float>(oneq::internal::numerics::DegToRad(euler_deg.yaw_deg));
+  const float yaw_rad = static_cast<float>(oneq::common::numerics::DegToRad(euler_deg.yaw_deg));
   // 仓库内约定正 pitch 表示正仰角；在当前 z-up 右手系下，
   // 旋转矩阵需使用绕 y 轴的负角，才能与 az/el 语义保持一致。
-  const float pitch_rad = static_cast<float>(oneq::internal::numerics::DegToRad(-euler_deg.pitch_deg));
-  const float roll_rad = static_cast<float>(oneq::internal::numerics::DegToRad(euler_deg.roll_deg));
+  const float pitch_rad =
+      static_cast<float>(oneq::common::numerics::DegToRad(-euler_deg.pitch_deg));
+  const float roll_rad = static_cast<float>(oneq::common::numerics::DegToRad(euler_deg.roll_deg));
 
   const float cy = std::cos(yaw_rad);
   const float sy = std::sin(yaw_rad);
@@ -102,9 +105,10 @@ Vector3f RotateVectorToLocalFrame(const Vector3f& world_vector,
 AzimuthElevationDeg ComputeRelativeLineOfSightAzEl(const Vector3f& observer_position_m,
                                                    const EulerAnglesDeg& observer_attitude_deg,
                                                    const Vector3f& target_position_m) {
-  Eigen::Vector3f line_of_sight_world(static_cast<float>(target_position_m.x - observer_position_m.x),
-                                      static_cast<float>(target_position_m.y - observer_position_m.y),
-                                      static_cast<float>(target_position_m.z - observer_position_m.z));
+  Eigen::Vector3f line_of_sight_world(
+      static_cast<float>(target_position_m.x - observer_position_m.x),
+      static_cast<float>(target_position_m.y - observer_position_m.y),
+      static_cast<float>(target_position_m.z - observer_position_m.z));
   const float norm = line_of_sight_world.norm();
   if (norm <= kVectorNormFloor) {
     return AzimuthElevationDeg();
@@ -117,10 +121,9 @@ AzimuthElevationDeg ComputeRelativeLineOfSightAzEl(const Vector3f& observer_posi
   normalized_world_vector.z = line_of_sight_world.z();
   const Vector3f observer_frame_vector =
       RotateVectorToLocalFrame(normalized_world_vector, observer_attitude_deg);
-  return UnitVectorToAzimuthElevation(
-      Eigen::Vector3f(static_cast<float>(observer_frame_vector.x),
-                      static_cast<float>(observer_frame_vector.y),
-                      static_cast<float>(observer_frame_vector.z)));
+  return UnitVectorToAzimuthElevation(Eigen::Vector3f(static_cast<float>(observer_frame_vector.x),
+                                                      static_cast<float>(observer_frame_vector.y),
+                                                      static_cast<float>(observer_frame_vector.z)));
 }
 
 AzimuthElevationDeg ResolveStabilizedMountFramePointing(
@@ -136,5 +139,5 @@ AzimuthElevationDeg ResolveStabilizedMountFramePointing(
 }
 
 }  // namespace geometry
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq

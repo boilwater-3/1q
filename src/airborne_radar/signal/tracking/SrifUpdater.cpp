@@ -12,7 +12,7 @@ namespace airborne_radar {
 namespace signal {
 namespace tracking {
 
-using oneq::internal::numerics::kCovarianceFloor;
+using oneq::common::numerics::kCovarianceFloor;
 
 SrifUpdater::SrifUpdater(KalmanUpdaterConfig config)
     : config_(config),

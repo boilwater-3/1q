@@ -7,7 +7,7 @@
 #define COMMON_NUMERICS_CONSTANTS_H_
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace numerics {
 
 /** @brief 圆周率 (π) */
@@ -28,6 +28,17 @@ template <typename T>
 inline T RadToDeg(T angle_rad) {
   return angle_rad * static_cast<T>(180) / static_cast<T>(kPi);
 }
+
+}  // namespace numerics
+}  // namespace common
+namespace internal {
+namespace numerics {
+
+using ::oneq::common::numerics::DegToRad;
+using ::oneq::common::numerics::kBoltzmann;
+using ::oneq::common::numerics::kLightSpeed;
+using ::oneq::common::numerics::kPi;
+using ::oneq::common::numerics::RadToDeg;
 
 }  // namespace numerics
 }  // namespace internal

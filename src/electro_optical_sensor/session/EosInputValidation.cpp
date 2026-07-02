@@ -11,31 +11,14 @@ using ::electro_optical_sensor::session::EosSceneTarget;
 
 namespace {
 
-ValidationLocation MakeLocation(ValidationLocationKind kind, std::size_t entity_index) {
-  ValidationLocation location;
-  location.kind = kind;
-  location.entity_index = entity_index;
-  return location;
-}
+using oneq::internal::validation::IsFinite;
 
 ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
                           ValidationLocationKind location_kind, std::size_t entity_index,
                           const std::string& field, const std::string& message) {
-  ValidationIssue issue;
-  issue.severity = severity;
-  issue.code = code;
-  issue.location = MakeLocation(location_kind, entity_index);
-  issue.field = field;
-  issue.message = message;
-  return issue;
+  return oneq::internal::validation::MakeLocatedIssue<ValidationIssue, ValidationLocation>(
+      severity, code, location_kind, entity_index, field, message);
 }
-
-template <typename T>
-bool IsFinite(T value) {
-  return oneq::internal::validation::IsFinite(value);
-}
-
-bool IsRatioValid(float value) { return IsFinite(value) && value >= 0.0f && value <= 1.0f; }
 
 void ValidateDayNightConsistency(const EosCycleInput& input, ValidationIssueList* issues) {
   if (issues == nullptr || !IsFinite(input.environment.solar_altitude_deg)) {
@@ -122,13 +105,13 @@ void ValidateTarget(const EosSceneTarget& target, std::size_t target_index,
                                 ValidationLocationKind::kSceneEntity, target_index,
                                 "apparent_temperature_k", "target temperature must be positive"));
   }
-  if (!IsRatioValid(target.appearance.emissivity)) {
+  if (!oneq::internal::validation::IsRatio01(target.appearance.emissivity)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kInvalidTargetEmissivity,
                                 ValidationLocationKind::kSceneEntity, target_index, "emissivity",
                                 "target emissivity must be in [0, 1]"));
   }
-  if (!IsRatioValid(target.appearance.reflectance)) {
+  if (!oneq::internal::validation::IsRatio01(target.appearance.reflectance)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kInvalidTargetReflectance,
                                 ValidationLocationKind::kSceneEntity, target_index, "reflectance",
@@ -190,7 +173,7 @@ ValidationIssueList ValidateEosCycleInput(
                                "environment.solar_irradiance_w_m2",
                                "solar irradiance must be finite and non-negative"));
   }
-  if (!IsRatioValid(input.environment.cloud_coverage_ratio)) {
+  if (!oneq::internal::validation::IsRatio01(input.environment.cloud_coverage_ratio)) {
     issues.push_back(
         MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidCloudCoverageRatio,
                   ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
