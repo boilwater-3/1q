@@ -120,11 +120,11 @@ float ComputeEffectiveTargetRcsM2(const session::ArSceneTarget& target,
       oneq::internal::numerics::Clamp(psi_i_deg + std::fabs(rcs_config.bistatic_psi_offset_deg), 0.0f, 89.0f);
 
   const float cylinder_rcs_m2 =
-      oneq::internal::rcs::rcs_f419_xmm4r4(equivalent_radius_m, wavenumber_k0);
-  const float bistatic_rcs_m2 = oneq::internal::rcs::rcs_f4322_xmm4r4(
+      oneq::internal::rcs::ComputeCylinderRcs(equivalent_radius_m, wavenumber_k0);
+  const float bistatic_rcs_m2 = oneq::internal::rcs::ComputeBistaticCylinderRcs(
       wavenumber_k0, equivalent_radius_m, psi_i_deg, psi_s_deg, azimuth_deg);
   const float planar_rcs_m2 =
-      oneq::internal::rcs::RCS_f743_v128b_ps(wavenumber_k0, equivalent_radius_m, elevation_deg);
+      oneq::internal::rcs::ComputePlanarPlateRcs(wavenumber_k0, equivalent_radius_m, elevation_deg);
 
   const float cylinder_weight = oneq::internal::numerics::Clamp(rcs_config.cylinder_weight, 0.0f, 1.0f);
   const float physical_rcs_m2 = cylinder_weight * (0.5f * (cylinder_rcs_m2 + bistatic_rcs_m2)) +

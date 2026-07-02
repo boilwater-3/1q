@@ -153,6 +153,7 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   environment_patch.has_jammer_sources = true;
   environment_patch.jammer_sources.push_back(config::JammerEmitterState{});
   input.environment = environment_state.Update(environment_patch).Snapshot();
+  input.has_environment = true;
   const std::vector<session::ValidationIssue> issues = session::ValidateArCycleInput(input);
 
   EXPECT_FALSE(session::HasValidationError(issues));

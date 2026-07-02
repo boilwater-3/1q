@@ -37,7 +37,8 @@ enum class ONEQ_API ValidationCode {
   kUnknownExternalTargetId,          /**< 目标外部标识符未知 */
   kDuplicateExternalTargetId,        /**< 外部标识符重复 */
   kNegativeRcs,                      /**< 目标 RCS 为负值 */
-  kInvalidEnvironmentObservation     /**< 环境观测字段非法 */
+  kInvalidEnvironmentObservation,    /**< 环境观测字段非法 */
+  kEnvironmentSnapshotFlagMismatch   /**< 环境数据非默认但 has_environment=false */
 };
 
 /**

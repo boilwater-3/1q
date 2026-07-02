@@ -2,9 +2,9 @@
 
 #include <filesystem>
 #include <iostream>
-#include <stdexcept>
 
 #include "1q/coordinate/position_transform.h"
+#include "common/logging/ProjectLog.h"
 #include "FGFDMExec.h"
 #include "flight_dynamic/adapter/PropertyNames.h"
 #include "flight_dynamic/model/VehicleStateMapper.h"
@@ -19,6 +19,16 @@ namespace flight_dynamic {
 namespace adapter {
 
 namespace {
+
+bool MarkInitializationFailure(JsbsimAdapter::InitDiagnostics* diagnostics,
+                               const std::string& reason) {
+  if (diagnostics != nullptr) {
+    diagnostics->initialization_failed = true;
+    diagnostics->failure_reason = reason;
+  }
+  PROJECT_LOG_ERROR("JsbsimAdapter initialization failed: {}", reason);
+  return false;
+}
 
 void SetPropertyIfPresent(JSBSim::FGFDMExec& fdm_exec, const std::string& name, double value) {
   if (fdm_exec.GetPropertyManager()->GetNode(name) != nullptr) {
@@ -183,7 +193,9 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
   PrepareXmlOutputPath(*fdm_exec_);
 
   if (!LoadAircraft(config)) {
-    throw std::runtime_error("JsbsimAdapter: failed to load aircraft: " + config.aircraft_model);
+    MarkInitializationFailure(&init_diag_,
+                              "failed to load aircraft: " + config.aircraft_model);
+    return;
   }
   init_diag_.model_loaded = true;
 
@@ -211,7 +223,8 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
   init_diag_.ic_applied = true;
 
   if (!RunIC()) {
-    throw std::runtime_error("JsbsimAdapter: RunIC() failed");
+    MarkInitializationFailure(&init_diag_, "RunIC() failed");
+    return;
   }
   init_diag_.run_ic_ok = true;
 
@@ -268,7 +281,8 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
                                                         config.initial_velocity_frame);
       RotateXmlOutputBeforeRepeatedRunIC(*fdm_exec_);
       if (!RunIC()) {
-        throw std::runtime_error("JsbsimAdapter: RunIC() failed after trim recovery");
+        MarkInitializationFailure(&init_diag_, "RunIC() failed after trim recovery");
+        return;
       }
       SetPropellerAdvanceState(*fdm_exec_, 1.0);
       fdm_exec_->GetPropulsion()->InitRunning(-1);
@@ -286,13 +300,27 @@ JsbsimAdapter::JsbsimAdapter(const config::FlightDynamicConfig& config) {
 
 JsbsimAdapter::~JsbsimAdapter() = default;
 
-bool JsbsimAdapter::Run() { return fdm_exec_->Run(); }
+bool JsbsimAdapter::Run() {
+  if (!IsValid()) {
+    return false;
+  }
+  return fdm_exec_->Run();
+}
 
-bool JsbsimAdapter::RunIC() { return fdm_exec_->RunIC(); }
+bool JsbsimAdapter::RunIC() {
+  if (fdm_exec_ == nullptr) {
+    return false;
+  }
+  return fdm_exec_->RunIC();
+}
 
-void JsbsimAdapter::SetDeltaT(double dt_sec) { fdm_exec_->Setdt(dt_sec); }
+void JsbsimAdapter::SetDeltaT(double dt_sec) {
+  if (fdm_exec_ != nullptr) {
+    fdm_exec_->Setdt(dt_sec);
+  }
+}
 
-double JsbsimAdapter::GetDeltaT() const { return fdm_exec_->GetDeltaT(); }
+double JsbsimAdapter::GetDeltaT() const { return fdm_exec_ != nullptr ? fdm_exec_->GetDeltaT() : 0.0; }
 
 double JsbsimAdapter::GetProperty(const std::string& name) const {
   return fdm_exec_->GetPropertyValue(name);

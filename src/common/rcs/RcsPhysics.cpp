@@ -10,11 +10,7 @@ namespace oneq {
 namespace internal {
 namespace rcs {
 
-namespace {
-
-}  // namespace
-
-float rcs_f419_xmm4r4(float radius_m, float wavenumber_k0) {
+float ComputeCylinderRcs(float radius_m, float wavenumber_k0) {
   const float safe_radius_m = std::max(radius_m, 0.0f);
   const float safe_k0 = std::max(wavenumber_k0, 0.0f);
   const float k0a = safe_k0 * safe_radius_m;
@@ -26,9 +22,9 @@ float rcs_f419_xmm4r4(float radius_m, float wavenumber_k0) {
   return area_m2 * shaping;
 }
 
-float rcs_f4322_xmm4r4(float wavenumber_k0, float radius_m, float psi_i_deg, float psi_s_deg,
-                       float phi_deg) {
-  const float base_rcs = rcs_f419_xmm4r4(radius_m, wavenumber_k0);
+float ComputeBistaticCylinderRcs(float wavenumber_k0, float radius_m, float psi_i_deg,
+                                 float psi_s_deg, float phi_deg) {
+  const float base_rcs = ComputeCylinderRcs(radius_m, wavenumber_k0);
   if (base_rcs <= 0.0f) {
     return 0.0f;
   }
@@ -40,7 +36,7 @@ float rcs_f4322_xmm4r4(float wavenumber_k0, float radius_m, float psi_i_deg, flo
   return base_rcs * angle_gain * std::max(0.0f, phase_gain);
 }
 
-float RCS_f743_v128b_ps(float wavenumber_k0, float radius_m, float theta_deg) {
+float ComputePlanarPlateRcs(float wavenumber_k0, float radius_m, float theta_deg) {
   const float safe_radius_m = std::max(radius_m, 0.0f);
   const float safe_k0 = std::max(wavenumber_k0, 0.0f);
   if (safe_radius_m <= 0.0f || safe_k0 <= 0.0f) {
@@ -72,7 +68,7 @@ LeafPhaseMatrices compute_leaf_phase_matrices(float leaf_size_m, float dielectri
   return matrices;
 }
 
-TreeScattererState InitTreeScatterer_AVX(const TreeScattererConfig& config) {
+TreeScattererState InitializeTreeScatterer(const TreeScattererConfig& config) {
   TreeScattererState state;
   if (config.leaf_count == 0U) {
     return state;
@@ -91,9 +87,9 @@ TreeScattererState InitTreeScatterer_AVX(const TreeScattererConfig& config) {
   return state;
 }
 
-void ComputeLeavesParamEq_ymm8r4(const TreeScattererState& state, float va, float vb,
-                                 std::vector<float>* out_x_param,
-                                 std::vector<float>* out_y_param) {
+void ComputeLeavesParametricEquation(const TreeScattererState& state, float va, float vb,
+                                     std::vector<float>* out_x_param,
+                                     std::vector<float>* out_y_param) {
   if (out_x_param == nullptr || out_y_param == nullptr) {
     return;
   }

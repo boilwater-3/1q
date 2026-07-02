@@ -48,6 +48,7 @@ class ONEQ_API FlatbufferFileTraceSink final : public TraceSink {
               const std::string& payload_json) override;
 
   const std::string& file_path() const;
+  bool is_open() const;
 
  private:
   std::string file_path_;

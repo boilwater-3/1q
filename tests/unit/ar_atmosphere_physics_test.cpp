@@ -21,13 +21,13 @@ TEST(AtmospherePhysicsTest, BlakeLossGrowsWithPathLength) {
   EXPECT_GT(long_path_loss_db, short_path_loss_db);
 }
 
-TEST(AtmospherePhysicsTest, BlakeLossUsesProvidedSlantPathWithoutLowElevationAmplification) {
+TEST(AtmospherePhysicsTest, BlakeLossIncreasesAtLowElevation) {
   const float low_elevation_loss_db =
-      blake_atmos_loss_r4_1(1000.0f, 10.0e9f, 0.0f, 50000.0f, 4.0f / 3.0f);
+      blake_atmos_loss_r4_1(1000.0f, 10.0e9f, 2.0f, 50000.0f, 4.0f / 3.0f);
   const float moderate_elevation_loss_db =
-      blake_atmos_loss_r4_1(1000.0f, 10.0e9f, 8.0f, 50000.0f, 4.0f / 3.0f);
+      blake_atmos_loss_r4_1(1000.0f, 10.0e9f, 30.0f, 50000.0f, 4.0f / 3.0f);
 
-  EXPECT_NEAR(low_elevation_loss_db, moderate_elevation_loss_db, 1.0e-5f);
+  EXPECT_GT(low_elevation_loss_db, moderate_elevation_loss_db);
 }
 
 TEST(AtmospherePhysicsTest, RefractivityIndexRemainsAboveUnity) {

@@ -93,6 +93,7 @@ struct ArSession::Impl {
       result.track_output_frame = controller.GetLatestTrackOutputFrame();
     }
     result.reused_previous_output = controller.HasLatestTrackOutputFrame();
+    result.abort_reason = session::SignalCycleAbortReason::kValidationRejected;
     result.validation_issues = issues;
     result.has_validation_error = HasValidationError(issues);
     return result;

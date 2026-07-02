@@ -248,6 +248,16 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
   EXPECT_FALSE(reader.ReadNextEvent(&event));
 }
 
+TEST(ReplayTraceWriterTest, ReaderMissingTraceDirectoryDoesNotThrow) {
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceReader reader(trace_dir);
+  EXPECT_TRUE(reader.manifest_json().empty());
+
+  ReplayTraceReadEvent event;
+  EXPECT_FALSE(reader.ReadNextEvent(&event));
+}
+
 TEST(ReplayTraceWriterTest, ReaderRestoresBinaryPayloadBytes) {
   const std::string trace_dir = MakeTempTraceDir();
 

@@ -15,21 +15,21 @@ namespace rcs {
 namespace {
 
 TEST(RcsPhysicsTest, CylinderRcsIncreasesWithRadius) {
-  const float sigma_small = rcs_f419_xmm4r4(0.1f, 120.0f);
-  const float sigma_large = rcs_f419_xmm4r4(0.3f, 120.0f);
+  const float sigma_small = ComputeCylinderRcs(0.1f, 120.0f);
+  const float sigma_large = ComputeCylinderRcs(0.3f, 120.0f);
   EXPECT_GT(sigma_small, 0.0f);
   EXPECT_GT(sigma_large, sigma_small);
 }
 
 TEST(RcsPhysicsTest, BistaticRcsDropsWithLargeScatteringAngles) {
-  const float sigma_near_forward = rcs_f4322_xmm4r4(120.0f, 0.2f, 5.0f, 5.0f, 10.0f);
-  const float sigma_off_axis = rcs_f4322_xmm4r4(120.0f, 0.2f, 70.0f, 70.0f, 170.0f);
+  const float sigma_near_forward = ComputeBistaticCylinderRcs(120.0f, 0.2f, 5.0f, 5.0f, 10.0f);
+  const float sigma_off_axis = ComputeBistaticCylinderRcs(120.0f, 0.2f, 70.0f, 70.0f, 170.0f);
   EXPECT_GT(sigma_near_forward, sigma_off_axis);
 }
 
 TEST(RcsPhysicsTest, PlanarRcsFallsAsIncidenceApproachesGrazing) {
-  const float sigma_normal = RCS_f743_v128b_ps(120.0f, 0.3f, 5.0f);
-  const float sigma_grazing = RCS_f743_v128b_ps(120.0f, 0.3f, 85.0f);
+  const float sigma_normal = ComputePlanarPlateRcs(120.0f, 0.3f, 5.0f);
+  const float sigma_grazing = ComputePlanarPlateRcs(120.0f, 0.3f, 85.0f);
   EXPECT_GT(sigma_normal, sigma_grazing);
 }
 
@@ -45,13 +45,13 @@ TEST(RcsPhysicsTest, TreeScattererInitializationAndParamEqKeepVectorSizesConsist
   config.leaf_count = 32U;
   config.canopy_radius_m = 1.2f;
   config.canopy_height_m = 3.5f;
-  const TreeScattererState state = InitTreeScatterer_AVX(config);
+  const TreeScattererState state = InitializeTreeScatterer(config);
   ASSERT_EQ(state.leaf_azimuth_deg.size(), config.leaf_count);
   ASSERT_EQ(state.leaf_elevation_deg.size(), config.leaf_count);
 
   std::vector<float> x_param;
   std::vector<float> y_param;
-  ComputeLeavesParamEq_ymm8r4(state, 0.8f, 0.5f, &x_param, &y_param);
+  ComputeLeavesParametricEquation(state, 0.8f, 0.5f, &x_param, &y_param);
   EXPECT_EQ(x_param.size(), config.leaf_count);
   EXPECT_EQ(y_param.size(), config.leaf_count);
 }

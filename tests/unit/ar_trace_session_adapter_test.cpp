@@ -255,6 +255,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
 
     input.environment.atmospheric_observation.enable_physical_model = true;
     input.environment.atmospheric_observation.relative_humidity = 0.65f;
+    input.has_environment = true;
     config::JammerEmitterState jammer;
     jammer.technique = session::JammingTechnique::kNoiseSuppression;
     jammer.power_db = 24.0f;
@@ -827,6 +828,15 @@ TEST(TraceSessionAdapterTest, FlatbufferFileTraceSinkWritesBinaryFrame) {
   ExpectFlatbufferRecord(content, "platform_module", "input");
 
   std::remove(trace_path.c_str());
+}
+
+TEST(TraceSessionAdapterTest, FlatbufferFileTraceSinkOpenFailureDoesNotThrow) {
+  const std::string trace_path = MakeTempTracePath("oneq-missing-trace-parent") + "/trace.bin";
+  FlatbufferFileTraceSink sink(trace_path, false);
+
+  EXPECT_FALSE(sink.is_open());
+  sink.Record("platform_module", "input", "{\"value\":1}");
+  EXPECT_TRUE(ReadBinaryFile(trace_path).empty());
 }
 
 }  // namespace tests

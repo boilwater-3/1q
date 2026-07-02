@@ -114,11 +114,11 @@ float ComputeVegetationClutterMultiplier(
   scatterer_config.canopy_radius_m = std::max(parameters.canopy_radius_m, 0.1f);
   scatterer_config.canopy_height_m = std::max(parameters.canopy_height_m, 0.1f);
   const oneq::internal::rcs::TreeScattererState scatterer_state =
-      oneq::internal::rcs::InitTreeScatterer_AVX(scatterer_config);
+      oneq::internal::rcs::InitializeTreeScatterer(scatterer_config);
 
   std::vector<float> x_param;
   std::vector<float> y_param;
-  oneq::internal::rcs::ComputeLeavesParamEq_ymm8r4(
+  oneq::internal::rcs::ComputeLeavesParametricEquation(
       scatterer_state, 0.8f, 0.5f,
       &x_param, &y_param);
 

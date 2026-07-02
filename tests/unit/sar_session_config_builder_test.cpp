@@ -15,6 +15,7 @@ TEST(SarSessionConfigBuilderTest, DefaultBuildKeepsConfigDefaults) {
   // 未设置任何 Profile，应保持 struct 默认值。
   EXPECT_DOUBLE_EQ(config.mission.nominal_slant_range_m, 15000.0);
   EXPECT_EQ(config.mission.azimuth_pulse_count, 1024U);
+  EXPECT_EQ(config.mission.range_sample_count, 4096U);
   EXPECT_FALSE(config.policy.enable_l1_rda_imaging);
 }
 
@@ -93,6 +94,7 @@ TEST(SarSessionConfigBuilderTest, ProfileOverlayPreservesUnrelatedBaselineFields
   // Profile 翻译的字段应用。
   EXPECT_DOUBLE_EQ(config.mission.nominal_slant_range_m, 15000.0);
   EXPECT_EQ(config.mission.azimuth_pulse_count, 1024U);
+  EXPECT_EQ(config.mission.range_sample_count, 4096U);
   // 非 profile 字段仍由四域 config 直接负责。
   EXPECT_DOUBLE_EQ(config.policy.minimum_snr_db, 6.5);
   EXPECT_DOUBLE_EQ(config.environment.atmospheric_loss_db_per_km, 0.02);

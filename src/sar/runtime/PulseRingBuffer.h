@@ -21,6 +21,14 @@ struct PulseRecord {
   signal::ComplexVector samples{};
 };
 
+struct PulseRingBufferRuntimeState {
+  const void* owner_identity{nullptr};
+  std::uint32_t schema_version{0U};
+  std::size_t capacity{0U};
+  std::deque<PulseRecord> records{};
+  bool overflow_sticky{false};
+};
+
 class PulseRingBuffer {
  public:
   explicit PulseRingBuffer(std::size_t capacity);
@@ -33,6 +41,8 @@ class PulseRingBuffer {
   std::size_t size() const;
   std::size_t capacity() const;
   bool overflow_sticky() const;
+  PulseRingBufferRuntimeState CaptureRuntimeState() const;
+  bool RestoreRuntimeState(const PulseRingBufferRuntimeState& state);
 
  private:
   bool Contains(std::uint64_t pulse_id) const;

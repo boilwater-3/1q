@@ -8,7 +8,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
+
+#include "common/numerics/ClampUtils.h"
 
 namespace oneq {
 namespace internal {
@@ -39,19 +40,6 @@ inline double SafeLog10(double value) {
  */
 inline double SafeInverse(double value) {
   return 1.0 / std::max(value, kNumericFloor);
-}
-
-/**
- * @brief 数值安全的正值钳制。
- * @param value 输入值。
- * @param fallback 无效输入时的回退值。
- * @return 有限正数时返回原值，否则返回 fallback。
- */
-inline double SafePositive(double value, double fallback) {
-  if (!std::isfinite(value) || value <= 0.0) {
-    return fallback;
-  }
-  return value;
 }
 
 }  // namespace numerics

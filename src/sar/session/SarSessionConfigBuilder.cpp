@@ -25,7 +25,7 @@ void ApplySarMissionSemanticConfig(SarMissionProfile profile, SarMissionConfig* 
       m.synthetic_aperture_time_s = 2.0;
       m.platform_speed_mps = 180.0;
       m.azimuth_pulse_count = 1024U;
-      m.range_sample_count = 2048U;
+      m.range_sample_count = 4096U;
       m.desired_ground_range_resolution_m = 1.5;
       m.desired_azimuth_resolution_m = 1.5;
       break;

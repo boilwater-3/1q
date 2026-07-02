@@ -53,6 +53,24 @@ TEST_F(FlightDynamicTest, AdapterCreatesAndRuns) {
   EXPECT_DOUBLE_EQ(fm.GetVehicleState().sim_time_sec, kDt);
 }
 
+TEST_F(FlightDynamicTest, InvalidAircraftModelDoesNotThrow) {
+  config_.aircraft_model = "missing_aircraft_model";
+
+  adapter::JsbsimAdapter adapter(config_);
+  EXPECT_FALSE(adapter.IsValid());
+  EXPECT_TRUE(adapter.GetInitDiagnostics().initialization_failed);
+  EXPECT_NE(adapter.GetInitDiagnostics().failure_reason.find("failed to load aircraft"),
+            std::string::npos);
+  EXPECT_FALSE(adapter.Run());
+
+  FlightManager fm(config_);
+  EXPECT_EQ(fm.GetState(), FlightManagerState::kAborted);
+  EXPECT_EQ(fm.GetDiagnostics().outcome, ManeuverOutcome::kAborted);
+  EXPECT_NE(fm.GetDiagnostics().last_failure_reason.find("failed to load aircraft"),
+            std::string::npos);
+  EXPECT_FALSE(fm.Step(kDt));
+}
+
 TEST_F(FlightDynamicTest, VehicleStatePopulated) {
   FlightManager fm(config_);
   RunSteps(fm, 100);

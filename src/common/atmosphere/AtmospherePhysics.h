@@ -10,6 +10,8 @@ namespace oneq {
 namespace internal {
 namespace atmosphere {
 
+constexpr float kDefaultEffectiveEarthRadiusFactor = 4.0f / 3.0f;
+
 /**
  * @brief GTD7 近似输出。
  */
@@ -31,7 +33,8 @@ struct AtmosphericPropagationInputs {
   float pressure_hpa{1013.25f};      /**< 大气压（单位：hPa） */
   float temperature_k{288.15f};      /**< 温度（单位：K） */
   float relative_humidity{0.5f};     /**< 相对湿度 [0, 1] */
-  float k_factor{4.0f / 3.0f};       /**< 地球有效半径因子 */
+  float k_factor{
+      kDefaultEffectiveEarthRadiusFactor}; /**< 地球有效半径因子 */
   int day_of_year{172};              /**< 年积日 */
   float solar_flux_f107a{150.0f};    /**< 平滑太阳流量指数 */
   float solar_flux_f107{150.0f};     /**< 当日太阳流量指数 */
@@ -99,7 +102,7 @@ struct AtmosphericObservationRef {
   float pressure_hpa{1013.25f};
   float temperature_k{288.15f};
   float relative_humidity{0.5f};
-  float k_factor{4.0f / 3.0f};
+  float k_factor{kDefaultEffectiveEarthRadiusFactor};
   int day_of_year{172};
   float solar_flux_f107a{150.0f};
   float solar_flux_f107{150.0f};

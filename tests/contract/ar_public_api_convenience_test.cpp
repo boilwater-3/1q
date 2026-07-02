@@ -1008,6 +1008,7 @@ TEST(PublicApiConvenienceTest,
                                 session::ValidationCode::kDuplicateExternalTargetId));
   EXPECT_TRUE(duplicate_result.has_validation_error);
   EXPECT_FALSE(duplicate_result.executed_this_cycle);
+  EXPECT_EQ(duplicate_result.abort_reason, session::SignalCycleAbortReason::kValidationRejected);
   EXPECT_TRUE(duplicate_result.reused_previous_output);
   EXPECT_EQ(duplicate_result.track_output_frame.cycle_index, frame_1.cycle_index);
   EXPECT_EQ(duplicate_result.track_output_frame.batch_id, frame_1.batch_id);
@@ -1039,6 +1040,7 @@ TEST(PublicApiConvenienceTest,
 
   EXPECT_TRUE(result_2.has_validation_error);
   EXPECT_FALSE(result_2.executed_this_cycle);
+  EXPECT_EQ(result_2.abort_reason, session::SignalCycleAbortReason::kValidationRejected);
   EXPECT_TRUE(result_2.reused_previous_output);
   EXPECT_TRUE(ContainsIssueCode(result_2.validation_issues,
                                 session::ValidationCode::kInvalidCycleDeltaTime));
@@ -1080,6 +1082,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
   EXPECT_TRUE(result.has_validation_error);
   EXPECT_EQ(result.input_cycle_index, 88U);
   EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_EQ(result.abort_reason, session::SignalCycleAbortReason::kValidationRejected);
   EXPECT_FALSE(result.reused_previous_output);
   EXPECT_TRUE(result.submitted_commands.empty());
   EXPECT_FALSE(result.has_control_profile);

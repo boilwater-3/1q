@@ -69,13 +69,14 @@ inline T SafePositive(T value, T fallback) {
  * @return 规范化后的角度（单位：deg）。
  */
 inline float NormalizeAngle180(float angle_deg) {
-  float normalized = angle_deg;
-  while (normalized > 180.0f) {
-    normalized -= 360.0f;
+  if (!std::isfinite(angle_deg)) {
+    return 0.0f;
   }
-  while (normalized < -180.0f) {
+  float normalized = std::fmod(angle_deg + 180.0f, 360.0f);
+  if (normalized < 0.0f) {
     normalized += 360.0f;
   }
+  normalized -= 180.0f;
   return normalized;
 }
 

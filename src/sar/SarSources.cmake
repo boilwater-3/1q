@@ -58,7 +58,10 @@ set(SAR_CORE_SOURCES
     sar/session/SarImagingExecutor.cpp
     sar/session/SarProductDebugViewBuilder.cpp
     sar/session/SarProductLifecycleRecorder.cpp
+    sar/pipeline/SarProcessingPipeline.cpp
+    sar/runtime/SarController.cpp
     sar/session/SarSession.cpp
+    sar/session/SarSessionCompositionRoot.cpp
     sar/session/SarTraceSession.cpp
     sar/session/SarReplaySession.cpp
 )
@@ -70,5 +73,8 @@ set(SAR_CXX11_COMPAT_SOURCES
     sar/session/SarRawHistoryBuilder.cpp
     sar/session/SarFocusedImageAssembler.cpp
     sar/session/SarImagingExecutor.cpp
+    sar/pipeline/SarProcessingPipeline.cpp
+    sar/runtime/SarController.cpp
     sar/session/SarSession.cpp
+    sar/session/SarSessionCompositionRoot.cpp
 )

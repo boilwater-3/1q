@@ -47,12 +47,6 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
     impl_->last_cycle_executed = false;
     impl_->last_abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
     impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
-    if (!impl_->runtime_state.has_latest_output) {
-      impl_->runtime_state.latest_output =
-          impl_->output_manager.BuildEmptyFrame(stamp.cycle_index, stamp.batch_id);
-    }
-    impl_->runtime_state.has_latest_output = true;
-    ++impl_->runtime_state.next_batch_id;
     PROJECT_LOG_ERROR("ESR validation rejected for cycle_index={}", stamp.cycle_index);
     return;
   }

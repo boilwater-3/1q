@@ -23,9 +23,10 @@ namespace session {
  */
 enum class ONEQ_API SignalCycleAbortReason {
   kNone = 0,
-  kLifecycleUnavailable,
-  kInvalidEnvironmentCycle,
-  kRuntimePreparationFailed,
+  kLifecycleUnavailable = 1,
+  kInvalidEnvironmentCycle = 2,
+  kRuntimePreparationFailed = 3,
+  kValidationRejected = 4,
 };
 
 /**

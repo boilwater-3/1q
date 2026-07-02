@@ -5,11 +5,12 @@
 #include <fstream>
 #include <memory>
 #include <mutex>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
 #include <flatbuffers/flexbuffers.h>
+
+#include "common/logging/ProjectLog.h"
 
 namespace oneq {
 namespace trace {
@@ -32,7 +33,7 @@ FlatbufferFileTraceSink::FlatbufferFileTraceSink(std::string file_path, bool app
               append ? (std::ios::out | std::ios::app | std::ios::binary)
                      : (std::ios::out | std::ios::trunc | std::ios::binary)) {
   if (!output_.is_open()) {
-    throw std::runtime_error("failed to open flatbuffer trace file: " + file_path_);
+    PROJECT_LOG_ERROR("failed to open flatbuffer trace file: {}", file_path_);
   }
 }
 
@@ -51,7 +52,8 @@ void FlatbufferFileTraceSink::Record(const std::string& module, const std::strin
 
   const std::vector<std::uint8_t>& payload = builder.GetBuffer();
   if (payload.size() > 0xFFFFFFFFull) {
-    throw std::runtime_error("flatbuffer trace frame is too large");
+    PROJECT_LOG_ERROR("flatbuffer trace frame is too large: {} bytes", payload.size());
+    return;
   }
 
   const std::uint32_t frame_size = static_cast<std::uint32_t>(payload.size());
@@ -63,13 +65,22 @@ void FlatbufferFileTraceSink::Record(const std::string& module, const std::strin
   };
 
   std::lock_guard<std::mutex> lock(mutex_);
+  if (!output_.is_open()) {
+    PROJECT_LOG_ERROR("flatbuffer trace file is not open: {}", file_path_);
+    return;
+  }
   output_.write(reinterpret_cast<const char*>(header), sizeof(header));
   output_.write(reinterpret_cast<const char*>(payload.data()),
                        static_cast<std::streamsize>(payload.size()));
   output_.flush();
+  if (output_.fail() || output_.bad()) {
+    PROJECT_LOG_ERROR("failed to write flatbuffer trace frame: {}", file_path_);
+  }
 }
 
 const std::string& FlatbufferFileTraceSink::file_path() const { return file_path_; }
+
+bool FlatbufferFileTraceSink::is_open() const { return output_.is_open(); }
 
 }  // namespace trace
 }  // namespace oneq

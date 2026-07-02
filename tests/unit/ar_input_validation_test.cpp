@@ -315,12 +315,25 @@ TEST(RadarInputValidationTest, OmittedEnvironmentSnapshotDoesNotValidateEnvironm
   session::ArCycleInput input;
   input.dt_sec = 1.0f;
   input.has_environment = false;
-  input.environment.atmospheric_observation.pressure_hpa = -1.0f;
   input.scene.push_back(MakeValidTarget());
 
   const auto issues = ValidateArCycleInput(input);
   EXPECT_EQ(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
+  EXPECT_EQ(FindIssue(issues, ValidationCode::kEnvironmentSnapshotFlagMismatch), nullptr);
   EXPECT_FALSE(HasValidationError(issues));
+}
+
+/// @brief 填入环境数据却漏置 has_environment 时，应显式报错，避免静默跳过环境链路。
+TEST(RadarInputValidationTest, EnvironmentDataWithoutPresenceFlagIsError) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = false;
+  input.environment.atmospheric_observation.pressure_hpa = 900.0f;
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kEnvironmentSnapshotFlagMismatch), nullptr);
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 /// @brief 显式提供环境快照时，环境字段仍应按原规则校验。

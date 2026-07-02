@@ -138,6 +138,7 @@ void ArController::RunOnce() {
   impl_->cycle_state.last_validation_issues = issues;
 
   if (session::HasValidationError(issues)) {
+    impl_->last_signal_abort_reason = session::SignalCycleAbortReason::kValidationRejected;
     impl_->last_cycle_reused_previous_output = impl_->cycle_state.has_latest_output;
     return;
   }

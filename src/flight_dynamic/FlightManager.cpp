@@ -11,14 +11,43 @@
 namespace oneq {
 namespace flight_dynamic {
 
+namespace {
+
+bool BuildFlightDynamicComponents(
+    const config::FlightDynamicConfig& config,
+    std::unique_ptr<adapter::JsbsimAdapter>* adapter,
+    std::unique_ptr<propulsion::EngineManager>* engines,
+    std::unique_ptr<autopilot::Autopilot>* ap,
+    std::unique_ptr<guidance::WaypointManager>* waypoint_manager,
+    std::unique_ptr<guidance::ManeuverExecutor>* maneuver_executor) {
+  adapter->reset(new adapter::JsbsimAdapter(config));
+  if (!(*adapter)->IsValid()) {
+    engines->reset();
+    ap->reset();
+    waypoint_manager->reset();
+    maneuver_executor->reset();
+    return false;
+  }
+  engines->reset(new propulsion::EngineManager(**adapter));
+  ap->reset(new autopilot::Autopilot(**adapter));
+  waypoint_manager->reset(new guidance::WaypointManager(**adapter));
+  maneuver_executor->reset(new guidance::ManeuverExecutor(
+      **adapter, **ap, **waypoint_manager, **engines));
+  return true;
+}
+
+}  // namespace
+
 FlightManager::FlightManager(const config::FlightDynamicConfig& config) {
-  adapter_.reset(new adapter::JsbsimAdapter(config));
-  engines_.reset(new propulsion::EngineManager(*adapter_));
-  ap_.reset(new autopilot::Autopilot(*adapter_));
-  wp_manager_.reset(new guidance::WaypointManager(*adapter_));
-  maneuver_exec_.reset(new guidance::ManeuverExecutor(
-      *adapter_, *ap_, *wp_manager_, *engines_));
-  state_ = FlightManagerState::kReady;
+  if (BuildFlightDynamicComponents(config, &adapter_, &engines_, &ap_, &wp_manager_,
+                                   &maneuver_exec_)) {
+    state_ = FlightManagerState::kReady;
+    return;
+  }
+  diagnostics_.outcome = ManeuverOutcome::kAborted;
+  diagnostics_.last_failure_reason = adapter_ ? adapter_->GetInitDiagnostics().failure_reason
+                                              : "adapter allocation failed";
+  state_ = FlightManagerState::kAborted;
 }
 
 FlightManager::~FlightManager() = default;
@@ -26,6 +55,12 @@ FlightManager::~FlightManager() = default;
 bool FlightManager::Step(double dt_sec) {
   if (state_ == FlightManagerState::kAborted ||
       state_ == FlightManagerState::kCompleted) {
+    return false;
+  }
+  if (!adapter_ || !ap_ || !maneuver_exec_) {
+    state_ = FlightManagerState::kAborted;
+    diagnostics_.outcome = ManeuverOutcome::kAborted;
+    diagnostics_.last_failure_reason = "flight dynamic components are not initialized";
     return false;
   }
 
@@ -81,28 +116,41 @@ bool FlightManager::Step(double dt_sec) {
 }
 
 void FlightManager::Reset(const config::FlightDynamicConfig& config) {
-  adapter_.reset(new adapter::JsbsimAdapter(config));
-  engines_.reset(new propulsion::EngineManager(*adapter_));
-  ap_.reset(new autopilot::Autopilot(*adapter_));
-  wp_manager_.reset(new guidance::WaypointManager(*adapter_));
-  maneuver_exec_.reset(new guidance::ManeuverExecutor(
-      *adapter_, *ap_, *wp_manager_, *engines_));
   maneuver_queue_.clear();
   current_maneuver_index_ = 0;
   sim_time_sec_ = 0.0;
-  state_ = FlightManagerState::kReady;
+  diagnostics_ = ManeuverDiagnostics();
+  if (BuildFlightDynamicComponents(config, &adapter_, &engines_, &ap_, &wp_manager_,
+                                   &maneuver_exec_)) {
+    state_ = FlightManagerState::kReady;
+    return;
+  }
+  diagnostics_.outcome = ManeuverOutcome::kAborted;
+  diagnostics_.last_failure_reason = adapter_ ? adapter_->GetInitDiagnostics().failure_reason
+                                              : "adapter allocation failed";
+  state_ = FlightManagerState::kAborted;
 }
 
 void FlightManager::Abort() {
   state_ = FlightManagerState::kAborted;
   diagnostics_.outcome = ManeuverOutcome::kAborted;
-  maneuver_exec_->Abort();
-  ap_->ReleaseHolds();
+  if (maneuver_exec_) {
+    maneuver_exec_->Abort();
+  }
+  if (ap_) {
+    ap_->ReleaseHolds();
+  }
 }
 
 void FlightManager::PushManeuver(const ManeuverCommand& cmd) {
   maneuver_queue_.push_back(cmd);
   if (state_ == FlightManagerState::kReady) {
+    if (!maneuver_exec_) {
+      state_ = FlightManagerState::kAborted;
+      diagnostics_.outcome = ManeuverOutcome::kAborted;
+      diagnostics_.last_failure_reason = "flight dynamic components are not initialized";
+      return;
+    }
     state_ = FlightManagerState::kExecuting;
     ExecuteNextManeuver();
   }

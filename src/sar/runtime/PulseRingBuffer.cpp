@@ -3,6 +3,21 @@
 namespace sar {
 namespace runtime {
 
+namespace {
+
+constexpr std::uint32_t kPulseRingBufferRuntimeStateSchemaVersion = 1U;
+
+bool IsStrictlyIncreasing(const std::deque<PulseRecord>& records) {
+  for (std::size_t i = 1U; i < records.size(); ++i) {
+    if (records[i].pulse_id <= records[i - 1U].pulse_id) {
+      return false;
+    }
+  }
+  return true;
+}
+
+}  // namespace
+
 PulseRingBuffer::PulseRingBuffer(std::size_t capacity) : capacity_(capacity) {}
 
 bool PulseRingBuffer::Push(const PulseRecord& pulse) {
@@ -58,6 +73,28 @@ std::size_t PulseRingBuffer::size() const { return records_.size(); }
 std::size_t PulseRingBuffer::capacity() const { return capacity_; }
 
 bool PulseRingBuffer::overflow_sticky() const { return overflow_sticky_; }
+
+PulseRingBufferRuntimeState PulseRingBuffer::CaptureRuntimeState() const {
+  PulseRingBufferRuntimeState state;
+  state.owner_identity = this;
+  state.schema_version = kPulseRingBufferRuntimeStateSchemaVersion;
+  state.capacity = capacity_;
+  state.records = records_;
+  state.overflow_sticky = overflow_sticky_;
+  return state;
+}
+
+bool PulseRingBuffer::RestoreRuntimeState(const PulseRingBufferRuntimeState& state) {
+  if (state.owner_identity != this ||
+      state.schema_version != kPulseRingBufferRuntimeStateSchemaVersion ||
+      state.records.size() > state.capacity || !IsStrictlyIncreasing(state.records)) {
+    return false;
+  }
+  capacity_ = state.capacity;
+  records_ = state.records;
+  overflow_sticky_ = state.overflow_sticky;
+  return true;
+}
 
 bool PulseRingBuffer::Contains(std::uint64_t pulse_id) const {
   for (const PulseRecord& record : records_) {

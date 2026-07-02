@@ -70,7 +70,8 @@ EosSession EosSession::CreateWithValidation(const config::EosSessionConfig& conf
 }
 
 session::EosOutputFrame EosSession::Step(const EosCycleInput& input) {
-  return impl_->controller.RunOnce(input), impl_->controller.BuildCycleResult(input).output_frame;
+  impl_->controller.RunOnce(input);
+  return impl_->controller.BuildCycleResult(input).output_frame;
 }
 
 ::electro_optical_sensor::session::EosCycleResult EosSession::StepWithResult(

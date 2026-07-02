@@ -8,7 +8,6 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
-#include <stdexcept>
 #include <utility>
 
 #if ONEQ_HAVE_ZLIB
@@ -23,10 +22,13 @@
 #endif
 
 #include "common/trace/JsonFormatUtils.h"
+#include "common/logging/ProjectLog.h"
 
 namespace oneq {
 namespace replay {
 namespace {
+
+constexpr std::uint64_t kMaxReplayTraceFileBytes = 0xFFFFFFFFull;
 
 std::int64_t CurrentTimestampMs() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -36,9 +38,9 @@ std::int64_t CurrentTimestampMs() {
 
 bool IsPathSeparator(char value) { return value == '/' || value == '\\'; }
 
-void CreateDirectoryIfMissing(const std::string& path) {
+bool CreateDirectoryIfMissing(const std::string& path, std::string* error) {
   if (path.empty()) {
-    return;
+    return true;
   }
 
 #if defined(_WIN32)
@@ -47,11 +49,15 @@ void CreateDirectoryIfMissing(const std::string& path) {
   const int result = mkdir(path.c_str(), 0777);
 #endif
   if (result != 0 && errno != EEXIST) {
-    throw std::runtime_error("failed to create replay trace directory: " + path);
+    if (error != nullptr) {
+      *error = "failed to create replay trace directory: " + path;
+    }
+    return false;
   }
+  return true;
 }
 
-void CreateDirectoryRecursive(const std::string& path) {
+bool CreateDirectoryRecursive(const std::string& path, std::string* error) {
   std::string current;
   for (std::size_t i = 0; i < path.size(); ++i) {
     const char c = path[i];
@@ -64,10 +70,12 @@ void CreateDirectoryRecursive(const std::string& path) {
       if (current.size() == 3U && current[1] == ':') {
         continue;
       }
-      CreateDirectoryIfMissing(current);
+      if (!CreateDirectoryIfMissing(current, error)) {
+        return false;
+      }
     }
   }
-  CreateDirectoryIfMissing(path);
+  return CreateDirectoryIfMissing(path, error);
 }
 
 std::string JoinPath(const std::string& left, const std::string& right) {
@@ -117,12 +125,16 @@ bool FileExists(const std::string& path) {
 
 #if ONEQ_HAVE_ZLIB
 // 将 src_path 内容压缩写入 dst_gz_path，成功后删除 src_path。
-// 若任意步骤失败则抛出 std::runtime_error。
-void GzipCompressFile(const std::string& src_path, const std::string& dst_gz_path) {
+// 返回 false 表示压缩失败，error 写入原因。
+bool GzipCompressFile(const std::string& src_path, const std::string& dst_gz_path,
+                      std::string* error) {
   // 读取原文件
   std::ifstream src(src_path.c_str(), std::ios::in | std::ios::binary);
   if (!src.is_open()) {
-    throw std::runtime_error("gzip: failed to open source: " + src_path);
+    if (error != nullptr) {
+      *error = "gzip: failed to open source: " + src_path;
+    }
+    return false;
   }
   const std::string contents((std::istreambuf_iterator<char>(src)),
                               std::istreambuf_iterator<char>());
@@ -131,19 +143,26 @@ void GzipCompressFile(const std::string& src_path, const std::string& dst_gz_pat
   // 写入 .gz
   gzFile gz = gzopen(dst_gz_path.c_str(), "wb");
   if (gz == Z_NULL) {
-    throw std::runtime_error("gzip: failed to create gz file: " + dst_gz_path);
+    if (error != nullptr) {
+      *error = "gzip: failed to create gz file: " + dst_gz_path;
+    }
+    return false;
   }
   if (!contents.empty()) {
     const int written = gzwrite(gz, contents.data(), static_cast<unsigned int>(contents.size()));
     if (written <= 0) {
       gzclose(gz);
-      throw std::runtime_error("gzip: write failed: " + dst_gz_path);
+      if (error != nullptr) {
+        *error = "gzip: write failed: " + dst_gz_path;
+      }
+      return false;
     }
   }
   gzclose(gz);
 
   // 删除原始文件
   std::remove(src_path.c_str());
+  return true;
 }
 
 // 从 gzFile 中读取一行（不含换行符）。返回 false 表示 EOF 或错误。
@@ -271,10 +290,14 @@ void WriteJsonRawField(std::ostream& output, const char* name, const std::string
   }
 }
 
-void WriteManifestFile(const std::string& path, const ReplayTraceManifest& manifest) {
+bool WriteManifestFile(const std::string& path, const ReplayTraceManifest& manifest,
+                       std::string* error) {
   std::ofstream output(path.c_str(), std::ios::out | std::ios::trunc);
   if (!output.is_open()) {
-    throw std::runtime_error("failed to open replay manifest: " + path);
+    if (error != nullptr) {
+      *error = "failed to open replay manifest: " + path;
+    }
+    return false;
   }
 
   output << "{";
@@ -300,6 +323,13 @@ void WriteManifestFile(const std::string& path, const ReplayTraceManifest& manif
   output << "\"event_chunk_size\":" << manifest.event_chunk_size << ",";
   output << "\"failure_window_event_count\":" << manifest.failure_window_event_count;
   output << "}\n";
+  if (output.fail() || output.bad()) {
+    if (error != nullptr) {
+      *error = "failed to write replay manifest: " + path;
+    }
+    return false;
+  }
+  return true;
 }
 
 void WriteOptionalUInt32Field(std::ostream& output, const char* name, bool has_value,
@@ -341,12 +371,16 @@ void WriteOptionalDoubleField(std::ostream& output, const char* name, bool has_v
   }
 }
 
-void WriteFailureFile(const std::string& path, const ReplayTraceManifest& manifest,
+bool WriteFailureFile(const std::string& path, const ReplayTraceManifest& manifest,
                       const ReplayTraceFailure& failure, std::uint64_t failure_marker_sequence,
-                      bool has_last_event_sequence, std::uint64_t last_event_sequence) {
+                      bool has_last_event_sequence, std::uint64_t last_event_sequence,
+                      std::string* error) {
   std::ofstream output(path.c_str(), std::ios::out | std::ios::trunc);
   if (!output.is_open()) {
-    throw std::runtime_error("failed to open replay failure file: " + path);
+    if (error != nullptr) {
+      *error = "failed to open replay failure file: " + path;
+    }
+    return false;
   }
 
   output << "{";
@@ -366,18 +400,36 @@ void WriteFailureFile(const std::string& path, const ReplayTraceManifest& manife
                            true);
   WriteJsonRawField(output, "diagnostics", failure.diagnostics_payload, false);
   output << "}\n";
+  if (output.fail() || output.bad()) {
+    if (error != nullptr) {
+      *error = "failed to write replay failure file: " + path;
+    }
+    return false;
+  }
+  return true;
 }
 
-void WriteLastWindowFile(const std::string& path, const std::deque<std::string>& last_window) {
+bool WriteLastWindowFile(const std::string& path, const std::deque<std::string>& last_window,
+                         std::string* error) {
   std::ofstream output(path.c_str(), std::ios::out | std::ios::trunc);
   if (!output.is_open()) {
-    throw std::runtime_error("failed to open replay last-window file: " + path);
+    if (error != nullptr) {
+      *error = "failed to open replay last-window file: " + path;
+    }
+    return false;
   }
 
   for (std::deque<std::string>::const_iterator it = last_window.begin(); it != last_window.end();
        ++it) {
     output << *it << '\n';
   }
+  if (output.fail() || output.bad()) {
+    if (error != nullptr) {
+      *error = "failed to write replay last-window file: " + path;
+    }
+    return false;
+  }
+  return true;
 }
 
 void WriteCycleIndexLine(std::ostream& output, const ReplayTraceEvent& event,
@@ -398,10 +450,14 @@ void WriteCycleIndexLine(std::ostream& output, const ReplayTraceEvent& event,
   output << "}\n";
 }
 
-void WriteReportFile(const std::string& path, const ReplayTraceReplayReport& report) {
+bool WriteReportFile(const std::string& path, const ReplayTraceReplayReport& report,
+                     std::string* error) {
   std::ofstream output(path.c_str(), std::ios::out | std::ios::trunc);
   if (!output.is_open()) {
-    throw std::runtime_error("failed to open replay report file: " + path);
+    if (error != nullptr) {
+      *error = "failed to open replay report file: " + path;
+    }
+    return false;
   }
 
   output << "{";
@@ -466,6 +522,13 @@ void WriteReportFile(const std::string& path, const ReplayTraceReplayReport& rep
                        false);
   output << "}";
   output << "}\n";
+  if (output.fail() || output.bad()) {
+    if (error != nullptr) {
+      *error = "failed to write replay report file: " + path;
+    }
+    return false;
+  }
+  return true;
 }
 
 bool InvokeReplayCallback(ReplayTraceEventCallback callback, const ReplayTraceReadEvent& event,
@@ -481,14 +544,36 @@ bool InvokeReplayCallback(ReplayTraceEventCallback callback, const ReplayTraceRe
   return callback(event, user_data, error);
 }
 
-std::string ReadWholeFile(const std::string& path) {
+bool ReadWholeFile(const std::string& path, std::string* content, std::string* error) {
   std::ifstream input(path.c_str(), std::ios::in);
   if (!input.is_open()) {
-    throw std::runtime_error("failed to open replay trace file: " + path);
+    if (error != nullptr) {
+      *error = "failed to open replay trace file: " + path;
+    }
+    return false;
   }
+  input.seekg(0, std::ios::end);
+  const std::ifstream::pos_type size = input.tellg();
+  if (size != std::ifstream::pos_type(-1) &&
+      static_cast<std::uint64_t>(size) > kMaxReplayTraceFileBytes) {
+    if (error != nullptr) {
+      *error = "replay trace file is too large: " + path;
+    }
+    return false;
+  }
+  input.seekg(0, std::ios::beg);
   std::ostringstream buffer;
   buffer << input.rdbuf();
-  return buffer.str();
+  if (input.bad()) {
+    if (error != nullptr) {
+      *error = "failed to read replay trace file: " + path;
+    }
+    return false;
+  }
+  if (content != nullptr) {
+    *content = buffer.str();
+  }
+  return true;
 }
 
 std::size_t FindFieldValueStart(const std::string& json, const std::string& field_name) {
@@ -642,25 +727,39 @@ std::string ExtractRawJsonValue(const std::string& json, const std::string& fiel
 struct ReplayTraceWriter::Impl {
   Impl(std::string path, ReplayTraceManifest manifest_value, bool overwrite)
       : trace_dir(std::move(path)), manifest(std::move(manifest_value)) {
-    CreateDirectoryRecursive(trace_dir);
-    CreateDirectoryRecursive(JoinPath(trace_dir, "events"));
-    CreateDirectoryRecursive(JoinPath(trace_dir, "checkpoints"));
-    CreateDirectoryRecursive(JoinPath(trace_dir, "crash"));
-    CreateDirectoryRecursive(JoinPath(trace_dir, "indexes"));
+    if (!CreateDirectoryRecursive(trace_dir, &first_error) ||
+        !CreateDirectoryRecursive(JoinPath(trace_dir, "events"), &first_error) ||
+        !CreateDirectoryRecursive(JoinPath(trace_dir, "checkpoints"), &first_error) ||
+        !CreateDirectoryRecursive(JoinPath(trace_dir, "crash"), &first_error) ||
+        !CreateDirectoryRecursive(JoinPath(trace_dir, "indexes"), &first_error)) {
+      writable = false;
+      PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
+      return;
+    }
 
-    WriteManifestFile(JoinPath(trace_dir, "manifest.json"), manifest);
+    if (!WriteManifestFile(JoinPath(trace_dir, "manifest.json"), manifest, &first_error)) {
+      writable = false;
+      PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
+      return;
+    }
 
-    OpenEventChunk(0U, overwrite);
+    if (!OpenEventChunk(0U, overwrite)) {
+      writable = false;
+      PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
+      return;
+    }
 
     const std::string cycle_index_path = JoinPath(JoinPath(trace_dir, "indexes"), "cycles.idx");
     cycles_index.open(cycle_index_path.c_str(), overwrite ? (std::ios::out | std::ios::trunc)
                                                           : (std::ios::out | std::ios::app));
     if (!cycles_index.is_open()) {
-      throw std::runtime_error("failed to open replay cycle index: " + cycle_index_path);
+      first_error = "failed to open replay cycle index: " + cycle_index_path;
+      writable = false;
+      PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
     }
   }
 
-  void OpenEventChunk(std::uint32_t chunk_index, bool truncate) {
+  bool OpenEventChunk(std::uint32_t chunk_index, bool truncate) {
     if (events.is_open()) {
       events.close();
     }
@@ -669,33 +768,116 @@ struct ReplayTraceWriter::Impl {
     events.open(event_path.c_str(),
                 truncate ? (std::ios::out | std::ios::trunc) : (std::ios::out | std::ios::app));
     if (!events.is_open()) {
-      throw std::runtime_error("failed to open replay event file: " + event_path);
+      first_error = "failed to open replay event file: " + event_path;
+      writable = false;
+      return false;
     }
     current_chunk_index = chunk_index;
+    return true;
   }
 
-  void RotateEventChunkIfNeeded() {
-    if (manifest.event_chunk_size == 0U || next_sequence == 0U) {
+  bool RotateEventChunkIfNeeded() {
+    if (!writable || manifest.event_chunk_size == 0U || next_sequence == 0U) {
+      return writable;
+    }
+    if ((next_sequence % manifest.event_chunk_size) != 0U) {
+      return true;
+    }
+
+    // Seal the current chunk before opening the next one.
+    const std::uint32_t sealed_index = current_chunk_index;
+    if (!OpenEventChunk(current_chunk_index + 1U, true)) {
+      PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
+      return false;
+    }
+#if ONEQ_HAVE_ZLIB
+    if (manifest.compress_closed_chunks) {
+      const std::string plain_path = EventChunkPath(trace_dir, sealed_index);
+      const std::string gz_path    = EventChunkGzPath(trace_dir, sealed_index);
+      if (!GzipCompressFile(plain_path, gz_path, &first_error)) {
+        writable = false;
+        PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
+        return false;
+      }
+    }
+#endif
+    return true;
+  }
+
+  bool CheckWritable() {
+    if (!writable) {
+      if (!first_error.empty()) {
+        PROJECT_LOG_ERROR("ReplayTraceWriter is not writable: {}", first_error);
+      }
+      return false;
+    }
+    if (!events.is_open() || !cycles_index.is_open()) {
+      first_error = "replay trace output stream is not open";
+      writable = false;
+      PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
+      return false;
+    }
+    return true;
+  }
+
+  bool MarkWriteFailure(const std::string& message) {
+    first_error = message;
+    writable = false;
+    PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
+    return false;
+  }
+
+  bool WriteLine(const std::string& serialized, const ReplayTraceEvent& event) {
+    if (!CheckWritable()) {
+      return false;
+    }
+    const std::ostream::pos_type position = events.tellp();
+    std::uint64_t byte_offset = 0U;
+    if (position != std::ostream::pos_type(-1)) {
+      byte_offset = static_cast<std::uint64_t>(position);
+    }
+    events << serialized << '\n';
+    events.flush();
+    if (events.fail() || events.bad()) {
+      return MarkWriteFailure("failed to write replay event file");
+    }
+    WriteCycleIndexLine(cycles_index, event, next_sequence, current_chunk_index, byte_offset);
+    cycles_index.flush();
+    if (cycles_index.fail() || cycles_index.bad()) {
+      return MarkWriteFailure("failed to write replay cycle index");
+    }
+    return true;
+  }
+
+  bool Flush() {
+    if (!CheckWritable()) {
+      return false;
+    }
+    events.flush();
+    cycles_index.flush();
+    if (events.fail() || events.bad() || cycles_index.fail() || cycles_index.bad()) {
+      return MarkWriteFailure("failed to flush replay trace streams");
+    }
+    return true;
+  }
+
+  void RememberWindow(const std::string& serialized) {
+    const std::uint32_t window_limit = manifest.failure_window_event_count;
+    if (window_limit == 0U) {
       return;
     }
-    if ((next_sequence % manifest.event_chunk_size) == 0U) {
-      // Seal the current chunk before opening the next one.
-      const std::uint32_t sealed_index = current_chunk_index;
-      OpenEventChunk(current_chunk_index + 1U, true);
-#if ONEQ_HAVE_ZLIB
-      if (manifest.compress_closed_chunks) {
-        const std::string plain_path = EventChunkPath(trace_dir, sealed_index);
-        const std::string gz_path    = EventChunkGzPath(trace_dir, sealed_index);
-        GzipCompressFile(plain_path, gz_path);
-      }
-#endif
+    while (last_window.size() >= window_limit) {
+      last_window.pop_front();
     }
+    last_window.push_back(serialized);
   }
 
   std::string trace_dir;
   ReplayTraceManifest manifest;
   std::ofstream events;
   std::ofstream cycles_index;
+  bool writable{true};
+  std::string first_error{};
   std::uint64_t next_sequence{0U};
   std::uint32_t current_chunk_index{0U};
   std::string previous_event_hash{};
@@ -709,7 +891,12 @@ ReplayTraceWriter::ReplayTraceWriter(std::string trace_dir, ReplayTraceManifest 
 ReplayTraceWriter::~ReplayTraceWriter() = default;
 
 void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
-  impl_->RotateEventChunkIfNeeded();
+  if (!impl_->RotateEventChunkIfNeeded()) {
+    return;
+  }
+  if (!impl_->CheckWritable()) {
+    return;
+  }
 
   const std::string payload_hash = HashString(PayloadBytesForHash(event));
   const std::string previous_hash = impl_->previous_event_hash;
@@ -741,26 +928,12 @@ void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
   line << "}";
 
   const std::string serialized = line.str();
-  const std::ostream::pos_type position = impl_->events.tellp();
-  std::uint64_t byte_offset = 0U;
-  if (position != std::ostream::pos_type(-1)) {
-    byte_offset = static_cast<std::uint64_t>(position);
+  if (!impl_->WriteLine(serialized, event)) {
+    return;
   }
-  impl_->events << serialized << '\n';
-  impl_->events.flush();
-  WriteCycleIndexLine(impl_->cycles_index, event, impl_->next_sequence, impl_->current_chunk_index,
-                      byte_offset);
-  impl_->cycles_index.flush();
   impl_->previous_event_hash = HashString(serialized);
   ++impl_->next_sequence;
-
-  const std::uint32_t window_limit = impl_->manifest.failure_window_event_count;
-  if (window_limit > 0U) {
-    while (impl_->last_window.size() >= window_limit) {
-      impl_->last_window.pop_front();
-    }
-    impl_->last_window.push_back(serialized);
-  }
+  impl_->RememberWindow(serialized);
 }
 
 void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure) {
@@ -787,14 +960,25 @@ void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure,
   WriteEvent(event);
 
   const std::string crash_dir = JoinPath(impl_->trace_dir, "crash");
-  WriteFailureFile(JoinPath(crash_dir, "failure.json"), impl_->manifest, failure,
-                   failure_marker_sequence, has_last_event_sequence, last_event_sequence);
-  WriteLastWindowFile(JoinPath(crash_dir, "last-window.events.jsonl"), impl_->last_window);
+  if (!impl_->writable) {
+    return;
+  }
+  if (!WriteFailureFile(JoinPath(crash_dir, "failure.json"), impl_->manifest, failure,
+                        failure_marker_sequence, has_last_event_sequence, last_event_sequence,
+                        &impl_->first_error)) {
+    impl_->writable = false;
+    PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", impl_->first_error);
+    return;
+  }
+  if (!WriteLastWindowFile(JoinPath(crash_dir, "last-window.events.jsonl"), impl_->last_window,
+                           &impl_->first_error)) {
+    impl_->writable = false;
+    PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", impl_->first_error);
+  }
 }
 
 void ReplayTraceWriter::Flush() {
-  impl_->events.flush();
-  impl_->cycles_index.flush();
+  (void)impl_->Flush();
 }
 
 const std::string& ReplayTraceWriter::trace_dir() const { return impl_->trace_dir; }
@@ -802,12 +986,16 @@ const std::string& ReplayTraceWriter::trace_dir() const { return impl_->trace_di
 const ReplayTraceManifest& ReplayTraceWriter::manifest() const { return impl_->manifest; }
 
 struct ReplayTraceReader::Impl {
-  explicit Impl(std::string path)
-      : trace_dir(std::move(path)),
-        manifest_json(ReadWholeFile(JoinPath(trace_dir, "manifest.json"))) {
+  explicit Impl(std::string path) : trace_dir(std::move(path)) {
+    if (!ReadWholeFile(JoinPath(trace_dir, "manifest.json"), &manifest_json, &first_error)) {
+      readable = false;
+      PROJECT_LOG_ERROR("ReplayTraceReader disabled: {}", first_error);
+      return;
+    }
     if (!OpenEventChunk(0U)) {
-      throw std::runtime_error("failed to open replay event file: " +
-                               EventChunkPath(trace_dir, 0U));
+      first_error = "failed to open replay event file: " + EventChunkPath(trace_dir, 0U);
+      readable = false;
+      PROJECT_LOG_ERROR("ReplayTraceReader disabled: {}", first_error);
     }
   }
 
@@ -849,6 +1037,9 @@ struct ReplayTraceReader::Impl {
   }
 
   bool ReadNextLine(std::string* line) {
+    if (!readable) {
+      return false;
+    }
     while (true) {
 #if ONEQ_HAVE_ZLIB
       if (gz_events != Z_NULL) {
@@ -872,6 +1063,8 @@ struct ReplayTraceReader::Impl {
 
   std::string trace_dir;
   std::string manifest_json;
+  bool readable{true};
+  std::string first_error{};
   std::ifstream events;
 #if ONEQ_HAVE_ZLIB
   gzFile gz_events{Z_NULL};
@@ -1079,7 +1272,10 @@ ReplayTraceReplayReport BuildReplayTraceReport(
 }
 
 void WriteReplayTraceReport(const ReplayTraceReplayReport& report, const std::string& report_path) {
-  WriteReportFile(report_path, report);
+  std::string error;
+  if (!WriteReportFile(report_path, report, &error)) {
+    PROJECT_LOG_ERROR("failed to write replay trace report: {}", error);
+  }
 }
 
 ReplayTracePlaybackResult PlaybackReplayTrace(const std::string& trace_dir,

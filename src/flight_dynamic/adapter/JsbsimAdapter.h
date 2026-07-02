@@ -37,7 +37,7 @@ class JsbsimAdapter {
   JSBSim::FGFDMExec& GetFdmExec();
   const JSBSim::FGFDMExec& GetFdmExec() const;
 
-  bool IsValid() const { return fdm_exec_ != nullptr; }
+  bool IsValid() const { return fdm_exec_ != nullptr && init_diag_.run_ic_ok; }
 
   struct InitDiagnostics {
     bool model_loaded = false;
@@ -49,6 +49,8 @@ class JsbsimAdapter {
     bool trim_attempted = false;
     bool trim_succeeded = false;
     bool trim_recovery_applied = false;
+    bool initialization_failed = false;
+    std::string failure_reason;
   };
 
   const InitDiagnostics& GetInitDiagnostics() const { return init_diag_; }

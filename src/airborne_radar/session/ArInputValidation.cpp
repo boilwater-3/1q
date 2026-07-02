@@ -38,6 +38,40 @@ bool IsFinite(float value) { return oneq::internal::validation::IsFinite(value);
 
 bool IsRatioValid(float value) { return IsFinite(value) && value >= 0.0f && value <= 1.0f; }
 
+bool IsDefaultEnvironmentInput(const ArEnvironmentInput& environment) {
+  const ArEnvironmentInput defaults;
+  return environment.atmospheric_observation.enable_physical_model ==
+             defaults.atmospheric_observation.enable_physical_model &&
+         environment.atmospheric_observation.pressure_hpa ==
+             defaults.atmospheric_observation.pressure_hpa &&
+         environment.atmospheric_observation.temperature_k ==
+             defaults.atmospheric_observation.temperature_k &&
+         environment.atmospheric_observation.relative_humidity ==
+             defaults.atmospheric_observation.relative_humidity &&
+         environment.atmospheric_context.has_k_factor ==
+             defaults.atmospheric_context.has_k_factor &&
+         environment.atmospheric_context.k_factor == defaults.atmospheric_context.k_factor &&
+         environment.atmospheric_context.has_day_of_year ==
+             defaults.atmospheric_context.has_day_of_year &&
+         environment.atmospheric_context.day_of_year ==
+             defaults.atmospheric_context.day_of_year &&
+         environment.atmospheric_context.solar_flux_f107a ==
+             defaults.atmospheric_context.solar_flux_f107a &&
+         environment.atmospheric_context.solar_flux_f107 ==
+             defaults.atmospheric_context.solar_flux_f107 &&
+         environment.atmospheric_context.geomagnetic_ap ==
+             defaults.atmospheric_context.geomagnetic_ap &&
+         environment.atmospheric_context.has_simulation_unix_seconds ==
+             defaults.atmospheric_context.has_simulation_unix_seconds &&
+         environment.atmospheric_context.simulation_unix_seconds ==
+             defaults.atmospheric_context.simulation_unix_seconds &&
+         environment.surface_observation.cover_profile ==
+             defaults.surface_observation.cover_profile &&
+         environment.surface_observation.enable_physical_model ==
+             defaults.surface_observation.enable_physical_model &&
+         environment.jammer_sources.empty();
+}
+
 void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
                           ValidationIssueList* issues) {
   if (issues == nullptr) {
@@ -177,6 +211,12 @@ ValidationIssueList ValidateArCycleInput(const ArCycleInput& input) {
   ValidatePlatformAltitude(input.platform_altitude_m, &issues);
   if (input.has_environment) {
     ValidateEnvironmentInput(input.environment, &issues);
+  } else if (!IsDefaultEnvironmentInput(input.environment)) {
+    issues.push_back(MakeIssue(ValidationSeverity::kError,
+                               ValidationCode::kEnvironmentSnapshotFlagMismatch,
+                               ValidationLocationKind::kEnvironment,
+                               static_cast<std::size_t>(-1), "has_environment",
+                               "environment data is present but has_environment is false"));
   }
 
   const ValidationIssueList target_issues = ValidateArSceneTargets(input.scene);

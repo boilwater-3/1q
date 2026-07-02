@@ -471,7 +471,9 @@ TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
   session::SarSession invalid_session = session::SarSession::Create(MakeSmallL3BpConfig());
   const session::SarCycleResult invalid_result = invalid_session.StepWithResult(invalid);
   EXPECT_FALSE(invalid_result.executed_this_cycle);
-  EXPECT_EQ(invalid_result.abort_reason, "external_raw_iq_invalid_trajectory");
+  EXPECT_EQ(invalid_result.abort_reason, "invalid_cycle_input");
+  EXPECT_TRUE(HasDiagnosticContaining(invalid_result, "sar.invalid_cycle_input",
+                                      "raw_iq.pulse_states"));
 
   session::SarCycleInput non_finite = MakeExternalRawIqInputWithTrajectory();
   non_finite.raw_iq.pulse_states[0].position_y_m = std::numeric_limits<double>::infinity();
@@ -479,7 +481,9 @@ TEST(SarSessionPipelineTest, ExternalRawIqBpRejectsMissingOrInvalidTrajectory) {
       session::SarSession::Create(MakeSmallL3BpConfig());
   const session::SarCycleResult non_finite_result = non_finite_session.StepWithResult(non_finite);
   EXPECT_FALSE(non_finite_result.executed_this_cycle);
-  EXPECT_EQ(non_finite_result.abort_reason, "external_raw_iq_invalid_trajectory");
+  EXPECT_EQ(non_finite_result.abort_reason, "invalid_cycle_input");
+  EXPECT_TRUE(HasDiagnosticContaining(non_finite_result, "sar.invalid_cycle_input",
+                                      "raw_iq.pulse_states"));
 }
 
 TEST(SarSessionPipelineTest, RuntimeSizeGateRejectsUnapprovedLargeRda) {
@@ -741,6 +745,21 @@ TEST(SarSessionPipelineTest, InvalidCycleReusesPreviousOutput) {
   EXPECT_EQ(second.focused_image.source, session::SarFocusedImageSource::kNone);
   EXPECT_TRUE(second.focused_image.real_values.empty());
   EXPECT_TRUE(second.focused_image.imaginary_values.empty());
+}
+
+TEST(SarSessionPipelineTest, InvalidTargetInputAbortsBeforeImaging) {
+  session::SarSession session = session::SarSession::Create(MakeSmallRdaConfig());
+  session::SarCycleInput input = MakeInput();
+  input.point_targets[0].radar_cross_section_dbsm = std::numeric_limits<double>::quiet_NaN();
+
+  const session::SarCycleResult result = session.StepWithResult(input);
+
+  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_TRUE(result.has_error);
+  EXPECT_EQ(result.abort_reason, "invalid_cycle_input");
+  EXPECT_FALSE(result.output_frame.has_l1_image);
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.invalid_cycle_input", "point_targets"));
+  EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kNone);
 }
 
 // 运行期配置提交策略契约（docs/common/contract.md）：SAR 属立即提交类——

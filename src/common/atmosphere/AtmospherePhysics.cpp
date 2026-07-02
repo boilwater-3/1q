@@ -18,6 +18,8 @@ constexpr double kSeaLevelPressureHpa = 1013.25;
 constexpr double kSeaLevelDensity = 1.225;
 constexpr double kPressureScaleHeightM = 8434.5;
 constexpr double kRefractivityScaleHeightM = 7350.0;
+constexpr double kMinElevationForPathFactorDeg = 1.0;
+constexpr double kMaxElevationPathFactor = 10.0;
 
 double EstimatePressureFromAltitudeHpa(double altitude_m) {
   const double safe_altitude_m = std::max(0.0, altitude_m);
@@ -37,7 +39,12 @@ double blake_atmos_loss_r8_1(double h_a_m, double f_hz, double theta_deg, double
   const double safe_range_m = std::max(r_m, 0.0);
   const double safe_altitude_m = std::max(h_a_m, 0.0);
   const double safe_k = std::max(k, 0.2);
-  (void)theta_deg;
+  const double safe_elevation_deg =
+      oneq::internal::numerics::Clamp(std::abs(theta_deg), kMinElevationForPathFactorDeg, 90.0);
+  const double elevation_rad = oneq::internal::numerics::DegToRad(safe_elevation_deg);
+  const double elevation_path_factor =
+      oneq::internal::numerics::Clamp(1.0 / std::sin(elevation_rad), 1.0,
+                                      kMaxElevationPathFactor);
 
   const double pressure_ratio =
       EstimatePressureFromAltitudeHpa(safe_altitude_m) / kSeaLevelPressureHpa;
@@ -49,7 +56,7 @@ double blake_atmos_loss_r8_1(double h_a_m, double f_hz, double theta_deg, double
       0.008 * std::pow(f_ghz, 1.1) * std::exp(-safe_altitude_m / 2000.0);
   const double specific_attenuation_db_per_km =
       oxygen_specific_db_per_km + vapor_specific_db_per_km;
-  const double path_km = safe_range_m * 1.0e-3;
+  const double path_km = safe_range_m * elevation_path_factor * 1.0e-3;
   return std::max(0.0, specific_attenuation_db_per_km * path_km / safe_k);
 }
 

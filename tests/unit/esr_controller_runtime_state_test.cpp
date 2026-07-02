@@ -125,7 +125,7 @@ TEST(EsrControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPrev
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 40U);
 }
 
-TEST(EsrControllerRuntimeStateTest, FirstValidationRejectBuildsEmptyOutputFrame) {
+TEST(EsrControllerRuntimeStateTest, FirstValidationRejectDoesNotCreateOutputFrame) {
   pipeline::InterceptPipeline pipeline(MakeDefaultConfig());
   StubEnvironmentService env;
   EsrController controller(pipeline, env);
@@ -134,8 +134,9 @@ TEST(EsrControllerRuntimeStateTest, FirstValidationRejectBuildsEmptyOutputFrame)
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
 
-  EXPECT_TRUE(controller.HasLatestInterceptOutputFrame());
+  EXPECT_FALSE(controller.HasLatestInterceptOutputFrame());
   EXPECT_FALSE(controller.ExecutedLatestCycle());
+  EXPECT_FALSE(controller.ReusedPreviousInterceptOutputLatestCycle());
   EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), session::EsrPipelineAbortReason::kValidationRejected);
 }
 
