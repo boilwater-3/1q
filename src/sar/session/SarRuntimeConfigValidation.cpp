@@ -1,7 +1,9 @@
 #include "sar/session/SarRuntimeConfigValidation.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include "sar/imaging/SarFocusingSelector.h"
 #include "sar/session/SarDiagnosticUtils.h"
@@ -40,6 +42,24 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
       config.mission.range_sample_count == 0U || config.mission.azimuth_pulse_count == 0U) {
     RecordAbort(result, "invalid_config", "SAR runtime config contains non-positive fields.");
     return false;
+  }
+
+  // 跨字段物理约束：LFM 脉冲的完整回波需要覆盖整个脉冲持续时间。波形样本数 =
+  // ceil(pulse_width_s * sample_rate_hz)（与 SarWaveform.cpp:68 一致），若它超过
+  // range_sample_count，采样窗口根本装不下脉冲，回波会被裁剪（silent clip），成像必失败。
+  // 在 config 层早失败，而不是让它走到 degenerate_image_peak。
+  if (config.hardware.pulse_width_s > 0.0) {
+    const std::size_t waveform_samples = static_cast<std::size_t>(
+        std::ceil(config.hardware.pulse_width_s * config.hardware.sample_rate_hz));
+    if (waveform_samples > config.mission.range_sample_count) {
+      RecordAbort(result, "sample_window_too_small_for_pulse",
+                  "SAR range sample window (" + std::to_string(config.mission.range_sample_count) +
+                      " samples) cannot hold the full LFM pulse (" +
+                      std::to_string(waveform_samples) +
+                      " samples = pulse_width_s * sample_rate_hz). Increase range_sample_count "
+                      "or reduce pulse_width_s / sample_rate_hz.");
+      return false;
+    }
   }
 
   if (config.policy.enable_l1_rda_imaging &&

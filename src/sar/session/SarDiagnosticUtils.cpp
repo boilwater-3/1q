@@ -13,6 +13,14 @@ SarDiagnosticIssue MakeInfoDiagnostic(const char* code, const std::string& messa
   return issue;
 }
 
+SarDiagnosticIssue MakeWarningDiagnostic(const char* code, const std::string& message) {
+  SarDiagnosticIssue issue;
+  issue.severity = SarDiagnosticSeverity::kWarning;
+  issue.code = code;
+  issue.message = message;
+  return issue;
+}
+
 void RecordAbort(SarCycleResult* result, const std::string& tag, const std::string& message) {
   result->has_error = true;
   result->abort_reason = tag;

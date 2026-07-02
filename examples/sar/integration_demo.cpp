@@ -11,7 +11,10 @@
  * - 配置平铺 (Config Flattening)：层次化 SarSessionConfig 展开为私有扁平成员
  * - 订阅者模式：registerConfigPatchCallback 注册回调，stepImp 每周期自动收集
  * - 平台使用 LLA+NED 大地坐标（SarPlatformState），不同于 AR 的 ECEF 位姿
- * - SarCycleInputAdapter::Build 需额外传入 SarMissionConfig
+ * - 输入直接构造 SarCycleInput（填 platform/point_targets/raw_iq），无需 Adapter：
+ *   SAR 内部 SarPlatformState/SarPointTarget 本就存 LLA+NED，SarCycleInputAdapter 只在
+ *   提供外部脉冲（SarExternalPulseInput）时转换脉冲坐标到 scene-center ENU，不转换
+ *   平台/目标。本 demo 不提供外部脉冲，走内部 raw echo 生成路径。
  * - SAR 输出为聚焦图像而非轨迹/检测，无外部 ECEF 坐标转换适配器
  *
  * @par 运行方式
@@ -50,6 +53,8 @@ constexpr double kSceneCenterLonDeg = -105.0;
 constexpr double kTargetRcsDbsm = 10.0;     ///< 点目标 RCS（dBsm，对应 10 m^2）
 constexpr std::uint32_t kPulseCount = 33U;    ///< 孔径脉冲数（匹配原始 session_usage 验证参数）
 constexpr std::uint32_t kRangeSamples = 1024U; ///< 距离向采样点数
+constexpr double kPulseRepetitionFrequencyHz = 100.0;  ///< PRF（与下方 JSON hardware 配置一致）
+constexpr double kSampleRateHz = 1.0e6;        ///< 采样率（与下方 JSON hardware 配置一致）
 constexpr double kDefaultDtSec = 0.1;          ///< 每周期步长（适配 100 Hz PRF）
 const char* kTempConfigPath = "/tmp/1q_sar_integration_demo_config.json";
 
@@ -87,7 +92,7 @@ void WriteTempConfig() {
       << "    \"scene_center_altitude_m\": " << kTargetAltitudeM << ",\n"
       << "    \"nominal_slant_range_m\": " << kNominalSlantRangeM << ",\n"
       << "    \"synthetic_aperture_time_s\": "
-      << (static_cast<double>(kPulseCount) / 1500.0) << ",\n"
+      << (static_cast<double>(kPulseCount) / kPulseRepetitionFrequencyHz) << ",\n"
       << "    \"platform_speed_mps\": " << kPlatformSpeedMps << ",\n"
       << "    \"range_sample_count\": " << kRangeSamples << ",\n"
       << "    \"azimuth_pulse_count\": " << kPulseCount << ",\n"
@@ -129,8 +134,9 @@ void WriteTempConfig() {
  * @brief 构建单周期 SAR 输入（平台 + 点目标）。
  *
  * 平台以恒定速度沿经度方向匀速运动；点目标静止位于场景中心。
- * 通过 SarCycleInputAdapter::Build 一步构造，不提供外部脉冲，
- * 走内部原始回波生成路径。
+ * 直接填充 SarCycleInput（platform/point_targets），不提供外部脉冲，
+ * 走内部原始回波生成路径。SarPlatformState/SarPointTarget 本就存 LLA+NED，
+ * 无需 SarCycleInputAdapter 做坐标转换（该 Adapter 仅在外部脉冲输入时转换脉冲坐标）。
  */
 sar::session::SarCycleInput MakeCycleInput(
     std::uint32_t cycle_index,
@@ -172,11 +178,9 @@ sar::session::SarCycleInput MakeCycleInput(
 
   input.point_targets = {target};
 
-  // 注入 mission 元数据（原始 session_usage 模式需手动传递处理参数）
-  // 注意：mission 中的 range_sample_count / azimuth_pulse_count 等不由 Adapter
-  // 自动同步，需通过 setter 或构造时传入。这里沿用 Adapter 模式的后处理。
-  // 采用直接构造方式后，这些参数由 session 从 config 中读取，input 仅负责
-  // 提供平台状态和点目标列表。
+  // 直接构造 SarCycleInput：input 仅负责提供平台状态和点目标列表；
+  // range_sample_count / azimuth_pulse_count 等处理参数由 session 从 config 读取，
+  // 不在 input 中重复传递。
   return input;
 }
 
@@ -338,8 +342,8 @@ int main() {
   // 以区分 AR 的 "policy" 命名。详见 config_loader_detail.h 的
   // LoadSarProcessing 函数。
   //
-  // SarCycleInputAdapter::Build 还需要 mission 参数用于脉冲坐标转换，
-  // 因此额外保留 mission 副本供循环中使用。
+  // 保留 mission 副本供循环中构造 SarCycleInput 使用（场景中心坐标、目标位置等）。
+  // 直接构造路径无需 Adapter，但 mission 元数据用于确定目标在场景中的放置。
   std::cout << "[3/6] 写入临时配置文件并调用 preStart...\n";
   WriteTempConfig();
   std::cout << "   配置文件: " << kTempConfigPath << "\n";
@@ -358,7 +362,7 @@ int main() {
   mission_config.scene_center_altitude_m = kTargetAltitudeM;
   mission_config.nominal_slant_range_m = kNominalSlantRangeM;
   mission_config.synthetic_aperture_time_s =
-      static_cast<double>(kPulseCount) / 1500.0;
+      static_cast<double>(kPulseCount) / kPulseRepetitionFrequencyHz;
   mission_config.platform_speed_mps = kPlatformSpeedMps;
   mission_config.range_sample_count = kRangeSamples;
   mission_config.azimuth_pulse_count = kPulseCount;
@@ -543,7 +547,7 @@ int main() {
     const std::size_t peak_col =
         peak_idx % final_result.focused_image.column_count;
     const double range_bin_spacing_m =
-        kSpeedOfLightMps / (2.0 * 120.0e6);
+        kSpeedOfLightMps / (2.0 * kSampleRateHz);
     const double observed_slant_range_m =
         static_cast<double>(peak_col) * range_bin_spacing_m;
     std::cout << "  峰值像素: row=" << peak_row << " col=" << peak_col

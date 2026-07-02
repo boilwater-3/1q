@@ -3,6 +3,9 @@
 
 #include "1q/sar/config/SarSessionConfigBuilder.h"
 
+#include <cmath>
+#include <cstddef>
+
 #include "1q/sar/config/SarSessionConfigValidation.h"
 
 namespace sar {
@@ -151,6 +154,19 @@ ValidationIssueList ValidateSarSessionConfig(const config::SarSessionConfig& con
     push(ConfigValidationCode::kDesiredResolutionNotPositive,
          "mission.desired_azimuth_resolution_m",
          "Desired azimuth resolution must be positive.");
+  }
+
+  // 跨字段物理约束：距离采样窗口必须能容纳完整 LFM 脉冲宽度（与 SarWaveform.cpp:68 的
+  // 波形样本数公式 ceil(pulse_width_s * sample_rate_hz) 一致）。窗口过小会导致回波被
+  // 裁剪、成像失败。
+  if (config.hardware.pulse_width_s > 0.0 && config.hardware.sample_rate_hz > 0.0) {
+    const std::size_t waveform_samples = static_cast<std::size_t>(
+        std::ceil(config.hardware.pulse_width_s * config.hardware.sample_rate_hz));
+    if (waveform_samples > config.mission.range_sample_count) {
+      push(ConfigValidationCode::kSampleWindowTooSmallForPulse,
+           "mission.range_sample_count",
+           "Range sample window cannot hold the full LFM pulse width.");
+    }
   }
 
   return issues;

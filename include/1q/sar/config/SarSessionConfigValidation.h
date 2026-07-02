@@ -29,7 +29,8 @@ enum class ConfigValidationCode {
   kPlatformSpeedNotPositive,             /**< 平台速度 <= 0 */
   kAzimuthPulseCountZero,                /**< 方位脉冲数为 0 */
   kRangeSampleCountZero,                 /**< 距离采样点数为 0 */
-  kDesiredResolutionNotPositive          /**< 期望分辨率 <= 0 */
+  kDesiredResolutionNotPositive,         /**< 期望分辨率 <= 0 */
+  kSampleWindowTooSmallForPulse          /**< 距离采样窗口装不下脉冲宽度（ceil(pulse_width*sample_rate) > range_sample_count）*/
 };
 
 /**
@@ -51,7 +52,8 @@ using ValidationIssueList = std::vector<ConfigValidationIssue>;
  * - 载频、带宽、PRF、采样率为正；
  * - 方位孔径长度、标称斜距、平台速度为正；
  * - 方位脉冲数、距离采样点数非零；
- * - 期望分辨率（方位/地距）为正。
+ * - 期望分辨率（方位/地距）为正；
+ * - 距离采样窗口能容纳完整脉冲宽度（ceil(pulse_width*sample_rate) <= range_sample_count）。
  *
  * @param config 待校验的最终会话配置。
  * @return 按发现顺序返回的校验问题列表。

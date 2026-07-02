@@ -325,6 +325,7 @@ set(_sar_unit_filter
     "SarRdaTest.*:"
     "SarSessionPipelineTest.*:"
     "SarCycleInputAdapterBridgeTest.*:"
+    "SarDegenerateDiagnosticsTest.*:"
     "SarRawHistoryExternalIqPredicateTest.*:"
     "SarReplayCodecRoundtripTest.*:"
     "SarReplaySessionTest.*:"

@@ -34,6 +34,35 @@ void ApplyDiagnosticsPolicy(const config::SarPolicyConfig& policy, SarCycleResul
   result->diagnostics.swap(errors);
 }
 
+// 检测聚焦图像峰值退化：若本周期产出了聚焦图像但峰值功率 <= 0，说明回波/聚焦完全失败
+// （如目标全部落在采样窗外、斜距严重错配导致回波空、采样窗口根本装不下脉冲宽度）。
+// 防御 SarRawHistoryBuilder 已发的 sar.raw_echo_clipping / sar.slant_range_mismatch
+// warning 的下游后果。退化图像不应被下游消费，故 abort（语义与 snr_below_minimum 一致）。
+//
+// 排除两类合法的非退化场景：
+//   - is_placeholder=true：成像器产出了信号，只是 retain_focused_image=false 未保留像素。
+//   - 空场景（无目标）：合法的信号缺失（与 EmptySceneDoesNotTripMinSnrGate 一致）。
+bool HasDegenerateImagePeak(const SarCycleResult& result, const SarCycleInput& input) {
+  if (result.focused_image.is_placeholder) {
+    return false;
+  }
+  if (input.point_targets.empty()) {
+    return false;
+  }
+  if (result.output_frame.has_l1_image || result.output_frame.has_l3_bp_image) {
+    for (std::size_t i = 0U; i < result.focused_image.real_values.size(); ++i) {
+      const double power = result.focused_image.real_values[i] * result.focused_image.real_values[i] +
+                           result.focused_image.imaginary_values[i] *
+                               result.focused_image.imaginary_values[i];
+      if (power > 0.0) {
+        return false;  // 至少一个非零像素 → 非退化
+      }
+    }
+    return true;  // 有目标但全部像素功率为 0 → 退化
+  }
+  return false;
+}
+
 }  // namespace
 
 struct SarSession::Impl {
@@ -152,6 +181,15 @@ SarCycleResult SarSession::StepWithResult(const SarCycleInput& input) {
                             impl_->actual_trajectory_buffer, &result)) {
       return finish();
     }
+  }
+
+  // 峰值退化检测：聚焦图像全零功率说明回波/聚焦完全失败（回波落窗外、采样窗口装不下
+  // 脉冲宽度、或斜距严重错配）。退化图像不应被下游消费，abort 并复用上一帧。
+  if (HasDegenerateImagePeak(result, input)) {
+    RecordAbort(&result, "degenerate_image_peak",
+                "SAR focused image has zero peak power; the echo/focusing pipeline produced no "
+                "signal. Check sar.raw_echo_clipping and sar.slant_range_mismatch diagnostics.");
+    return finish();
   }
 
   result.executed_this_cycle = true;

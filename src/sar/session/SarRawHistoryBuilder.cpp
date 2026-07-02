@@ -346,6 +346,33 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   echo_config.carrier_frequency_hz = config.hardware.carrier_frequency_hz;
   echo_config.range_sample_count = config.mission.range_sample_count;
 
+  // 逐目标几何一致性检查：nominal_slant_range_m 不参与回波接收窗口定时（定时用真实
+  // 几何距离，见 SarEcho.cpp），它只是 RDA 参考聚焦距离。但若实际斜距与标称值严重错配，
+  // 通常意味着配置与场景几何脱节（如平台-目标同点但 nominal 很大），会让回波完全落在
+  // 采样窗口外、RDA 参考严重失配，最终全黑图。容差 20%（相对），合法 stripmap 的斜距
+  // 变化不触发，但严重错配立刻可见。不 abort——合法 stripmap 本就有斜距变化。
+  if (!actual_pulses.empty() && config.mission.nominal_slant_range_m > 0.0) {
+    const geometry::LocalPoint& platform_pos = actual_pulses.front().position_m;
+    constexpr double kSlantRangeMismatchTolerance = 0.20;
+    for (std::size_t t = 0U; t < targets.size(); ++t) {
+      const double actual_slant_range_m =
+          geometry::Distance(platform_pos, targets[t].position_m);
+      const double nominal = config.mission.nominal_slant_range_m;
+      const double rel_error = std::abs(actual_slant_range_m - nominal) / nominal;
+      if (rel_error > kSlantRangeMismatchTolerance) {
+        std::string msg =
+            "SAR target " + std::to_string(t) + " actual slant range=" +
+            std::to_string(actual_slant_range_m) +
+            " m mismatches nominal_slant_range_m=" + std::to_string(nominal) + " m (" +
+            std::to_string(rel_error * 100.0) + "%); nominal is RDA reference range, not the "
+            "echo receive-window gate — check scene geometry vs mission config.";
+        result->diagnostics.push_back(
+            MakeWarningDiagnostic("sar.slant_range_mismatch", msg));
+      }
+    }
+  }
+
+
   history->rows = actual_pulses.size();
   history->cols = config.mission.range_sample_count;
   history->values.assign(history->rows * history->cols, signal::ComplexSample(0.0, 0.0));
@@ -379,9 +406,21 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   }
 
   if (clipping_count > 0U) {
-    result->diagnostics.push_back(MakeInfoDiagnostic(
+    const std::size_t waveform_samples = transmit_waveform.size();
+    const std::size_t window_samples = config.mission.range_sample_count;
+    // 采样窗口是否根本装不下脉冲宽度是判断"严重 clip"vs"边缘溢出"的关键。
+    const std::string ratio = (waveform_samples > 0U && window_samples < waveform_samples)
+                                  ? (" window/pulse=" + std::to_string(window_samples) + "/" +
+                                     std::to_string(waveform_samples) +
+                                     " (window too small for pulse width)")
+                                  : (" waveform=" + std::to_string(waveform_samples) +
+                                     " samples");
+    result->diagnostics.push_back(MakeWarningDiagnostic(
         "sar.raw_echo_clipping",
-        "SAR raw echo clipping observed in " + std::to_string(clipping_count) + " pulses."));
+        "SAR raw echo clipping observed in " + std::to_string(clipping_count) + " of " +
+            std::to_string(actual_pulses.size()) + " pulses;" + ratio +
+            ". This often indicates the range sample window cannot hold the full pulse, or "
+            "target slant range places the echo tail outside the window."));
   }
 
   std::vector<runtime::PulseRecord> latest_pulses;
