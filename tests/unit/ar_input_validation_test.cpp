@@ -14,6 +14,7 @@
 #include <limits>
 #include <vector>
 
+#include "1q/airborne_radar/config/ArEnvironmentConfig.h"
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
 
@@ -347,6 +348,171 @@ TEST(RadarInputValidationTest, ExplicitEnvironmentSnapshotIsValidated) {
   const auto issues = ValidateArCycleInput(input);
   EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
   EXPECT_TRUE(HasValidationError(issues));
+}
+
+// ===========================================================================
+// 环境观测校验补充分支（atmospheric context / jammer_sources）
+// ===========================================================================
+
+/// @brief 大气温度非正时应报 kInvalidEnvironmentObservation。
+TEST(RadarInputValidationTest, NonPositiveAtmosphericTemperatureIsError) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
+  input.environment.atmospheric_observation.temperature_k = 0.0f;
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
+  EXPECT_TRUE(HasValidationError(issues));
+}
+
+/// @brief 湿度超出 [0,1] 应报错。
+TEST(RadarInputValidationTest, HumidityOutOfRangeIsError) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
+  input.environment.atmospheric_observation.temperature_k = 288.0f;
+  input.environment.atmospheric_observation.relative_humidity = 1.5f;
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
+}
+
+/// @brief 非有限大气气压应报错。
+TEST(RadarInputValidationTest, NonFinitePressureIsError) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.environment.atmospheric_observation.pressure_hpa =
+      std::numeric_limits<float>::quiet_NaN();
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
+}
+
+/// @brief 大气派生上下文字段非有限时应报错。
+TEST(RadarInputValidationTest, NonFiniteAtmosphericContextIsError) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
+  input.environment.atmospheric_observation.temperature_k = 288.0f;
+  input.environment.atmospheric_context.solar_flux_f107 =
+      std::numeric_limits<float>::quiet_NaN();
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
+}
+
+/// @brief 干扰源功率为负时应报错。
+TEST(RadarInputValidationTest, NegativeJammerPowerIsError) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
+  input.environment.atmospheric_observation.temperature_k = 288.0f;
+  config::JammerEmitterState jammer;
+  jammer.power_db = -10.0f;
+  input.environment.jammer_sources.push_back(jammer);
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
+}
+
+/// @brief 干扰源置信度超出 [0,1] 应报错。
+TEST(RadarInputValidationTest, JammerConfidenceOutOfRangeIsError) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
+  input.environment.atmospheric_observation.temperature_k = 288.0f;
+  config::JammerEmitterState jammer;
+  jammer.power_db = 10.0f;
+  jammer.js_db = 5.0f;
+  jammer.confidence = 1.5f;
+  input.environment.jammer_sources.push_back(jammer);
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
+}
+
+/// @brief 干扰源角度跨度为负应报错。
+TEST(RadarInputValidationTest, NegativeJammerAngularSpanIsError) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
+  input.environment.atmospheric_observation.temperature_k = 288.0f;
+  config::JammerEmitterState jammer;
+  jammer.power_db = 10.0f;
+  jammer.js_db = 5.0f;
+  jammer.angular_span_deg = -5.0f;
+  input.environment.jammer_sources.push_back(jammer);
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
+}
+
+/// @brief 干扰源位置非有限应报错。
+TEST(RadarInputValidationTest, NonFiniteJammerPositionIsError) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
+  input.environment.atmospheric_observation.temperature_k = 288.0f;
+  config::JammerEmitterState jammer;
+  jammer.power_db = 10.0f;
+  jammer.js_db = 5.0f;
+  jammer.position_z = std::numeric_limits<float>::infinity();
+  input.environment.jammer_sources.push_back(jammer);
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
+}
+
+/// @brief 平台高度非有限应报错。
+TEST(RadarInputValidationTest, NonFinitePlatformAltitudeIsError) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.platform_altitude_m = std::numeric_limits<float>::quiet_NaN();
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kNonFinitePlatformNumericField), nullptr);
+}
+
+/// @brief 完整有效的环境输入不产生错误。
+TEST(RadarInputValidationTest, FullyValidEnvironmentProducesNoError) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
+  input.environment.atmospheric_observation.temperature_k = 288.0f;
+  input.environment.atmospheric_observation.relative_humidity = 0.5f;
+  input.environment.atmospheric_context.solar_flux_f107 = 150.0f;
+  input.environment.atmospheric_context.solar_flux_f107a = 120.0f;
+  input.environment.atmospheric_context.geomagnetic_ap = 10.0f;
+  config::JammerEmitterState jammer;
+  jammer.power_db = 10.0f;
+  jammer.js_db = 5.0f;
+  jammer.angular_span_deg = 30.0f;
+  jammer.confidence = 0.9f;
+  input.environment.jammer_sources.push_back(jammer);
+  input.scene.push_back(MakeValidTarget());
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_EQ(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
+  EXPECT_FALSE(HasValidationError(issues));
 }
 
 // ===========================================================================
