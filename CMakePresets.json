@@ -49,19 +49,6 @@
             }
         },
         {
-            "name": "llvm-ninja-debug-eigen339",
-            "inherits": "macos-base",
-            "displayName": "macOS LLVM Ninja Debug with Conan Eigen 3.3.9",
-            "binaryDir": "${sourceDir}/build/llvm-ninja-debug-eigen339-local",
-            "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake",
-                "CMAKE_BUILD_TYPE": "Debug",
-                "ENABLE_TESTING": "ON",
-                "BUILD_SHARED_LIBS": "OFF",
-                "CONAN_EIGEN_VERSION": "3.3.9"
-            }
-        },
-        {
             "name": "llvm-ninja-release",
             "inherits": "macos-base",
             "displayName": "macOS LLVM Ninja Release",
@@ -70,21 +57,6 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTING": "ON",
                 "BUILD_SHARED_LIBS": "OFF"
-            }
-        },
-        {
-            "name": "macos-jsbsim-debug-base",
-            "hidden": true,
-            "inherits": "macos-base",
-            "displayName": "macOS JSBSim Debug Base (hidden — inherit for LLDB source debugging)",
-            "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake",
-                "CMAKE_BUILD_TYPE": "Debug",
-                "ENABLE_TESTING": "ON",
-                "BUILD_SHARED_LIBS": "OFF",
-                "USE_CCACHE": "ON",
-                "ENABLE_PCH": "ON",
-                "ENABLE_UNITY_BUILD": "OFF"
             }
         },
         {
@@ -211,10 +183,6 @@
             "configurePreset": "llvm-ninja-debug"
         },
         {
-            "name": "llvm-ninja-debug-eigen339",
-            "configurePreset": "llvm-ninja-debug-eigen339"
-        },
-        {
             "name": "llvm-ninja-release",
             "configurePreset": "llvm-ninja-release"
         },
@@ -276,11 +244,6 @@
             "name": "llvm-ninja-debug",
             "inherits": "test-base",
             "configurePreset": "llvm-ninja-debug"
-        },
-        {
-            "name": "llvm-ninja-debug-eigen339",
-            "inherits": "test-base",
-            "configurePreset": "llvm-ninja-debug-eigen339"
         },
         {
             "name": "llvm-ninja-release",
