@@ -1,35 +1,39 @@
 # 1q
 
-`1q` 是一个面向外部服务模块的雷达仿真模型库，当前包含机载雷达和电子侦察雷达两套主模块。项目重点在于稳定的公共 API、可替换的内部组件，以及可测试的仿真链路编排。
+`1q` 是一个面向外部服务模块的仿真模型库，当前覆盖机载雷达（AR）、电子侦察雷达（ESR）、合成孔径雷达（SAR）、光电传感器（EOS）以及飞行动力学（Flight Dynamic）五套主模块。项目重点在于稳定的公共 API、可替换的内部组件，以及可测试的仿真链路编排。
 
 ## 模块概览
 
-- `include/1q/airborne_radar/`: 机载雷达公共 API。
-- `include/1q/electronic_surveillance_radar/`: 电子侦察雷达公共 API。
-- `src/airborne_radar/`: 机载雷达实现，覆盖环境、决策、信号处理、跟踪与会话编排。
-- `src/electronic_surveillance_radar/`: ESR 实现，覆盖环境、截获与流水线编排。
-- `tests/`: 单元测试、集成测试、安装消费测试。
-- `examples/`: 从快速上手到高级注入、可视化的示例程序。
+- `include/1q/airborne_radar/`、`src/airborne_radar/`: 机载雷达公共 API 与实现，覆盖环境、决策、信号处理、跟踪与会话编排。
+- `include/1q/electronic_surveillance_radar/`、`src/electronic_surveillance_radar/`: ESR 公共 API 与实现，覆盖环境、截获与流水线编排。
+- `include/1q/sar/`、`src/sar/`: 合成孔径雷达公共 API 与实现。
+- `include/1q/electro_optical_sensor/`、`src/electro_optical_sensor/`: 光电传感器公共 API 与实现。
+- `include/1q/flight_dynamic/`、`src/flight_dynamic/`: 飞行动力学、制导与机动模型。
+- `include/1q/{coordinate,environment,foundation,replay,trace}/`: 跨模块共享的坐标、环境、基础类型、回放与追踪接口。
+- `tests/`: 单元测试、集成测试、契约测试、性能测试与安装消费测试。
+- `examples/`: 各模块的快速上手、会话用法与集成示例。
 
 ## 依赖
 
-- C++11
-- CMake
-- Conan
-- GTest / GMock
-- Eigen
-- Sophus
-- nanoflann
-- eventpp
-- spdlog
+- C++17（CMake 默认 `PROJECT_DEFAULT_CXX_STANDARD = 17`，最低要求 C++11）
+- CMake / Conan
+- GTest / GMock（测试）
+- Eigen、nanoflann、Boost
+- FlatBuffers、zlib
+- spdlog / fmt（日志，Windows 以外的默认依赖）
+- JSBSim、HighFive（可选，由 Conan 选项控制）
 
 ## 构建
 
-仓库约定优先使用 CMake preset。常用 preset：
+仓库约定优先使用 CMake preset。本地开发常用 preset（定义于 `CMakeUserPresets.json`）：
 
 - `llvm-ninja-debug-local`
 - `llvm-ninja-release-local`
-- `llvm-ninja-release-local-stress`
+
+CI / 跨平台 preset（定义于 `CMakePresets.json`）：
+
+- `llvm-ninja-debug`、`llvm-ninja-release`（macOS / LLVM + Ninja）
+- `vendor-{debug,release}-windows-local-vs{2015,2017,2019}`（Windows + VS）
 
 示例命令：
 
@@ -43,23 +47,26 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 
 ## 示例
 
-示例代码位于 `examples/`：
+每个业务模块在 `examples/` 下提供一致的接入范式：
 
-- `ar/ar_quick_start.cpp`: 最小接入示例。
-- `ar/ar_radar_session.cpp`: 会话接口与一帧驱动示例。
-- `ar/ar_advanced_injection.cpp`: 高级注入与定制装配示例。
-- `ar/ar_*_visualizer.cpp`: 检测距离、战术模式、多目标、航迹和 ECM 场景可视化示例。
+- `<module>/integration_demo.cpp`: 端到端集成示例。
+- `<module>/session_usage.cpp`: 会话接口与一帧驱动示例。
+- `<module>/config_loader*.h`、`<module>/<Module>Module.h`: 配置加载与模块装配样板。
+- `examples/flight_dynamic/`: 飞行动力学轨迹生成、机动扫描与 CSV/可视化脚本。
+- `examples/configs/`: 跨模块共享的配置样例。
 
 ## 文档
 
-- `AGENTS.md`: 工程约束、构建测试规则与重构策略。
+- `CLAUDE.md`: 工程约束、构建测试规则与重构策略。
+- `docs/<module>/design.md`: 各模块当前设计（AR / ESR / SAR / EOS / Flight Dynamic）。
+- `docs/common/`: 跨模块契约与开放问题（`contract.md`、`open_questions.md`）。
+- `docs/review/`: 模块评审与迁移计划。
 - `include/1q/README.md`: 公共头文件导航与对外接入建议。
 - `tests/README.md`: 测试分层约定与运行建议。
-- `docs/README.md`: 文档区总索引与导航（公共手册 / 模块评审 / SAR 设计·合约·验收·决策）。
 
 ## 测试
 
-测试覆盖关联、跟踪、环境、决策、会话编排和安装消费路径。修改公共 API 或关键逻辑时，应同步补充或更新 `tests/` 下的测试。
+测试覆盖关联、跟踪、环境、决策、会话编排、契约、性能和安装消费路径（见 `tests/{unit,integration,contract,performance,scene,consumer}/`）。修改公共 API 或关键逻辑时，应同步补充或更新 `tests/` 下的测试。
 
 ## 约束
 
