@@ -127,6 +127,28 @@ Caveats:
 - `fd_*` unit test sources are always removed from `1q_unit_tests` regardless of this option, so the module's tests never leak into the generic unit-test binary.
 - No `CMakePresets.json` preset sets this option today, so every preset inherits the OFF default. If CI or a release needs the module, the preset must set `ONEQ_ENABLE_FLIGHT_DYNAMIC=ON` explicitly.
 
+### Code coverage
+
+LLVM source-based coverage measures how much of `src/` and `include/` the test suite actually exercises. It is gated behind a CMake option and a dedicated preset so it never touches the regular debug/release builds:
+
+- `ENABLE_COVERAGE` (default **OFF**, `mark_as_advanced`) — when ON, `cmake/FeatureCoverage.cmake` injects `-fprofile-instr-generate -fcoverage-mapping`. Clang-only; configuring with another compiler is a hard error.
+- `llvm-ninja-coverage` preset — the supported way to enable it. `binaryDir` is `build/llvm-ninja-coverage-local`. Independent of `llvm-ninja-debug` / `llvm-ninja-release`; those presets stay coverage-free (verified: zero coverage symbols).
+
+Generate a report after building:
+
+```bash
+cmake --preset llvm-ninja-coverage
+cmake --build --preset llvm-ninja-coverage
+./tools/coverage_report.sh                       # full test suite, all instrumented binaries merged
+./tools/coverage_report.sh --label unit          # only the unit-test layer
+./tools/coverage_report.sh --label sar_ci        # any CTest label subset
+./tools/coverage_report.sh --open                # open HTML in browser
+```
+
+The script merges every instrumented test binary (`-object`) into one report, so the numbers reflect the whole test pyramid, not a single binary. Output lands under `build/llvm-ninja-coverage-local/coverage_report/` (already covered by `.gitignore`'s `build/` rule).
+
+Read coverage as a diagnostic, not a KPI. **Branch coverage is the primary metric here** — this is a numerically dense radar/ESR simulation where line coverage can read 100% while whole `else` branches stay untested. Current full-suite baseline: Region 85.8%, Function 83.4%, Line 78.8%, **Branch 63.2%**. See `docs/coverage.md` for metric definitions, report reading, and troubleshooting.
+
 ## Documentation
 
 Design documentation lives in `docs/` and follows a minimal structure:
