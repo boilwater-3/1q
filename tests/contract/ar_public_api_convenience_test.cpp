@@ -163,6 +163,7 @@ void ApplySceneStateToCycleInput(const session::EnvironmentSceneState& scene_sta
   input->environment.atmospheric_context = scene_state.atmospheric_context;
   input->environment.surface_observation = scene_state.vegetation_scatter_physics;
   input->environment.jammer_sources = scene_state.jammer_emitters;
+  input->has_environment = true;
 }
 
 /// @brief 比较两组控制命令的类型和来源是否一致。
