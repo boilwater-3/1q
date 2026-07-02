@@ -43,6 +43,9 @@ target_link_libraries(sar_integration_demo PRIVATE ${PROJECT_ALIAS})
 target_include_directories(sar_integration_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/sar")
 
+# flight_dynamic 示例：依赖机动模块，仅在 ONEQ_ENABLE_FLIGHT_DYNAMIC 开启时构建。
+if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
+
 # Shared config for flight_dynamic example targets
 macro(setup_fd_example target)
     target_link_libraries(${target} PRIVATE ${PROJECT_ALIAS})
@@ -90,3 +93,5 @@ setup_fd_example(racetrack_approach_trace)
 
 add_executable(figure8_approach_trace flight_dynamic/figure8_approach_trace.cpp)
 setup_fd_example(figure8_approach_trace)
+
+endif()  # ONEQ_ENABLE_FLIGHT_DYNAMIC

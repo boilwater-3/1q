@@ -108,6 +108,25 @@ cmake --build --preset "$preset" >"${log_prefix}-build.log" 2>&1 || { tail -n 80
 ctest --preset "$preset" --output-on-failure -j 4
 ```
 
+### flight_dynamic module build switch
+
+The maneuver module (`src/flight_dynamic/`) is gated behind a CMake option:
+
+- `ONEQ_ENABLE_FLIGHT_DYNAMIC` (default **OFF**) — when OFF, the module is excluded from compilation: `fd_engine`/`fd_core` OBJECT targets, the `1q_fd_tests` binary, its five CTest tiers (`fd_smoke`/`fd_contract`/`fd_controllability`/`fd_performance`/`fd_known_limit`), and the `flight_dynamic` examples are all skipped.
+
+The option defaults to OFF because the module is not yet in a stable testing stage. To build or test it, pass it explicitly:
+
+```bash
+cmake --preset "$preset" -D ONEQ_ENABLE_FLIGHT_DYNAMIC=ON
+cmake --build --preset "$preset"
+ctest --preset "$preset" -L fd_ci        # CI subset (smoke + contract + controllability)
+```
+
+Caveats:
+- Disabling this module does **not** drop the JSBSim dependency — `1q::core` still links JSBSim because `src/common/environment/JsbsimAtmosphereAdapter` uses it. Dropping JSBSim entirely is a separate decision.
+- `fd_*` unit test sources are always removed from `1q_unit_tests` regardless of this option, so the module's tests never leak into the generic unit-test binary.
+- No `CMakePresets.json` preset sets this option today, so every preset inherits the OFF default. If CI or a release needs the module, the preset must set `ONEQ_ENABLE_FLIGHT_DYNAMIC=ON` explicitly.
+
 ## Documentation
 
 Design documentation lives in `docs/` and follows a minimal structure:

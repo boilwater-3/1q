@@ -65,6 +65,27 @@ option(ENABLE_WARNINGS "Enable additional compiler warnings" ON)
 # 开启后: 需通过 Conan 拉取 highfive/2.x, CMake find_package HighFive。
 option(ONEQ_ENABLE_HDF5_OUTPUT "Enable SAR HDF5 image output (requires HighFive)" OFF)
 
+# ONEQ_ENABLE_FLIGHT_DYNAMIC: 构建机动模块 (flight_dynamic)
+# 默认 OFF: 机动模块尚未进入稳定测试环节，默认排除以减少构建面与依赖耦合。
+# 开启后: 编译 fd_engine/fd_core OBJECT 库，并参与 1q::core 聚合；
+#         对应的 fd 单元测试与 flight_dynamic 示例随之启用。
+# 注意: 关闭该模块不会移除 JSBSim 依赖——common 模块的 JsbsimAtmosphereAdapter 仍需它。
+option(ONEQ_ENABLE_FLIGHT_DYNAMIC "Build the flight_dynamic (maneuver) module" OFF)
+if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
+    message(STATUS "flight_dynamic module: ENABLED")
+else()
+    message(STATUS "flight_dynamic module: disabled (set -DONEQ_ENABLE_FLIGHT_DYNAMIC=ON to enable)")
+endif()
+
+# ENABLE_COVERAGE: 启用代码覆盖率插桩 (LLVM source-based coverage)
+# 开启后注入 -fprofile-instr-generate -fcoverage-mapping 编译/链接标志
+# (见 FeatureCoverage.cmake 的编译器校验)。
+# 仅支持 Clang/LLVM toolchain；会显著增加编译产物体积与运行开销，
+# 仅用于本地/CI 覆盖率测量，不要用于发布构建。
+# 配套 preset 为 llvm-ninja-coverage；报告生成见 tools/coverage_report.sh。
+option(ENABLE_COVERAGE "Enable LLVM source-based coverage instrumentation (Clang only)" OFF)
+mark_as_advanced(ENABLE_COVERAGE)
+
 # ENABLE_CLANG_TIDY: 启用clang-tidy静态分析
 # 在编译时执行代码检查，发现潜在bug、代码风格问题、现代化建议
 # 会显著增加编译时间，建议仅在开发时开启

@@ -151,7 +151,11 @@ if(TARGET sar_engine)
 endif()
 
 # flight_dynamic 模块依赖 JSBSim 飞行动力学引擎。
-target_link_libraries(fd_engine PRIVATE JSBSim::JSBSim)
+# 注意: 即使 flight_dynamic 关闭，PROJECT_CORE_TARGET 仍链接 JSBSim，
+# 因为 common 模块的 JsbsimAtmosphereAdapter 使用它。
+if(TARGET fd_engine)
+  target_link_libraries(fd_engine PRIVATE JSBSim::JSBSim)
+endif()
 if(TARGET fd_core)
   target_link_libraries(fd_core PRIVATE JSBSim::JSBSim)
 endif()

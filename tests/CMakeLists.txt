@@ -151,7 +151,9 @@ set(FD_TEST_SOURCES
 list(REMOVE_ITEM UNIT_TEST_SOURCES ${FD_TEST_SOURCES})
 
 add_1q_gtest(${PROJECT_NAME}_unit_tests unit 60 ${UNIT_TEST_SOURCES})
-add_1q_gtest(${PROJECT_NAME}_fd_tests fd 180 ${FD_TEST_SOURCES})
+if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
+    add_1q_gtest(${PROJECT_NAME}_fd_tests fd 180 ${FD_TEST_SOURCES})
+endif()
 add_1q_gtest(${PROJECT_NAME}_performance_tests performance 180 ${PERFORMANCE_TEST_SOURCES})
 
 # --------------------------------------------------------------------------
@@ -169,6 +171,7 @@ add_1q_gtest(${PROJECT_NAME}_performance_tests performance 180 ${PERFORMANCE_TES
 #   ctest --preset <p> -L fd_ci                # CI 默认 (1+2+3)
 #   ctest --preset <p> -L fd                   # 全部
 # --------------------------------------------------------------------------
+if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
 
 # Tier 1: smoke — 库能否加载、初始化、单步运行？
 # ~20 tests, <5s
@@ -261,8 +264,6 @@ string(REPLACE ";" "" _fd_limit_filter_str "${_fd_limit_filter}")
 add_test(NAME "fd_known_limit::1q_fd_tests"
          COMMAND ${PROJECT_NAME}_fd_tests --gtest_filter=${_fd_limit_filter_str})
 set_tests_properties("fd_known_limit::1q_fd_tests" PROPERTIES LABELS "fd_known_limit")
-add_1q_gtest(${PROJECT_NAME}_integration_tests integration 120 ${INTEGRATION_TEST_SOURCES})
-add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES})
 
 # flight_dynamic 测试需要 JSBSim 数据文件路径
 if(DEFINED ONEQ_JSBSIM_DATA_ROOT_DIR AND NOT ONEQ_JSBSIM_DATA_ROOT_DIR STREQUAL "")
@@ -278,6 +279,11 @@ if(TARGET JSBSim::JSBSim)
 endif()
 target_compile_definitions(${PROJECT_NAME}_fd_tests
     PRIVATE FD_JSBSIM_ROOT_DIR="${FD_JSBSIM_ROOT_DIR}")
+
+endif()  # ONEQ_ENABLE_FLIGHT_DYNAMIC
+
+add_1q_gtest(${PROJECT_NAME}_integration_tests integration 120 ${INTEGRATION_TEST_SOURCES})
+add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES})
 
 set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_writer_test.cpp
@@ -394,13 +400,17 @@ endif()
 set_tests_properties(sar_cxx11_compat PROPERTIES LABELS "sar_cxx11_compat")
 
 add_custom_target(${PROJECT_NAME}_tests)
-add_dependencies(${PROJECT_NAME}_tests
+set(_oneq_test_deps
     ${PROJECT_NAME}_unit_tests
-    ${PROJECT_NAME}_fd_tests
     ${PROJECT_NAME}_performance_tests
     ${PROJECT_NAME}_integration_tests
     ${PROJECT_NAME}_contract_tests
 )
+if(TARGET ${PROJECT_NAME}_fd_tests)
+    list(APPEND _oneq_test_deps ${PROJECT_NAME}_fd_tests)
+endif()
+add_dependencies(${PROJECT_NAME}_tests ${_oneq_test_deps})
+unset(_oneq_test_deps)
 
 add_custom_target(${PROJECT_NAME}_tests_fast)
 add_dependencies(${PROJECT_NAME}_tests_fast
