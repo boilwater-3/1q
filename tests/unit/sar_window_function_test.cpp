@@ -175,5 +175,200 @@ TEST(SarWindowFunctionTest, Compress2DWithAzimuthCompressionProducesFiniteOutput
   }
 }
 
+// ── GenerateWindow 边界 ─────────────────────────────────────
+
+TEST(SarWindowFunctionTest, GenerateWindowRejectsZeroLength) {
+  ComplexVector w;
+  EXPECT_FALSE(GenerateWindow(WindowSpec{WindowType::kNone, 0.0}, 0, &w));
+}
+
+TEST(SarWindowFunctionTest, GenerateWindowSingleSampleIsOne) {
+  ComplexVector w;
+  ASSERT_TRUE(GenerateWindow(WindowSpec{WindowType::kNone, 0.0}, 1, &w));
+  ASSERT_EQ(w.size(), 1u);
+  EXPECT_NEAR(w[0].real(), 1.0, 1.0e-12);
+}
+
+TEST(SarWindowFunctionTest, HanningWindowSymmetricAndPeaksNearCenter) {
+  ComplexVector w;
+  ASSERT_TRUE(GenerateWindow(WindowSpec{WindowType::kHanning, 0.0}, 32, &w));
+  EXPECT_NEAR(w.front().real(), w.back().real(), 1.0e-12);
+  EXPECT_NEAR(w[16].real(), 1.0, 0.01);
+}
+
+TEST(SarWindowFunctionTest, BlackmanWindowSymmetricAndPeaksNearCenter) {
+  ComplexVector w;
+  ASSERT_TRUE(GenerateWindow(WindowSpec{WindowType::kBlackman, 0.0}, 32, &w));
+  EXPECT_NEAR(w.front().real(), w.back().real(), 1.0e-12);
+  EXPECT_GT(w[16].real(), 0.9);
+}
+
+// ── Compress2D 验证分支 ─────────────────────────────────────
+
+TEST(SarWindowFunctionTest, Compress2DRejectsNullOutput) {
+  const LfmWaveform wf = MakeReferenceWaveform();
+  ComplexMatrix history;
+  history.rows = 2;
+  history.cols = 4;
+  history.values.assign(8, ComplexSample(0.0, 0.0));
+  RangeAzimuthCompressionConfig config;
+  config.sample_rate_hz = wf.config.sample_rate_hz;
+  EXPECT_FALSE(Compress2D(history, wf.samples, config, nullptr));
+}
+
+TEST(SarWindowFunctionTest, Compress2DRejectsEmptyDimensions) {
+  const LfmWaveform wf = MakeReferenceWaveform();
+  ComplexMatrix history;
+  history.rows = 0;
+  history.cols = 0;
+  RangeAzimuthCompressionConfig config;
+  config.sample_rate_hz = wf.config.sample_rate_hz;
+  ComplexMatrix out;
+  EXPECT_FALSE(Compress2D(history, wf.samples, config, &out));
+}
+
+TEST(SarWindowFunctionTest, Compress2DRejectsSizeMismatch) {
+  const LfmWaveform wf = MakeReferenceWaveform();
+  ComplexMatrix history;
+  history.rows = 2;
+  history.cols = 2;
+  history.values.assign(3, ComplexSample(0.0, 0.0));  // 3 != 2*2
+  RangeAzimuthCompressionConfig config;
+  config.sample_rate_hz = wf.config.sample_rate_hz;
+  ComplexMatrix out;
+  EXPECT_FALSE(Compress2D(history, wf.samples, config, &out));
+}
+
+TEST(SarWindowFunctionTest, Compress2DRejectsInvalidSampleRate) {
+  const LfmWaveform wf = MakeReferenceWaveform();
+  ComplexMatrix history;
+  history.rows = 2;
+  history.cols = 4;
+  history.values.assign(8, ComplexSample(0.0, 0.0));
+  RangeAzimuthCompressionConfig config;
+  config.sample_rate_hz = std::numeric_limits<double>::quiet_NaN();
+  ComplexMatrix out;
+  EXPECT_FALSE(Compress2D(history, wf.samples, config, &out));
+
+  config.sample_rate_hz = -1.0;
+  EXPECT_FALSE(Compress2D(history, wf.samples, config, &out));
+}
+
+TEST(SarWindowFunctionTest, Compress2DRejectsEmptyMatchedFilter) {
+  ComplexMatrix history;
+  history.rows = 2;
+  history.cols = 4;
+  history.values.assign(8, ComplexSample(0.0, 0.0));
+  RangeAzimuthCompressionConfig config;
+  config.sample_rate_hz = 20.0e6;
+  ComplexMatrix out;
+  EXPECT_FALSE(Compress2D(history, {}, config, &out));
+}
+
+TEST(SarWindowFunctionTest, Compress2DRangeOnlyWithSingleRow) {
+  const LfmWaveform wf = MakeReferenceWaveform();
+  ComplexMatrix history;
+  history.rows = 1;
+  history.cols = wf.samples.size();
+  history.values = wf.samples;
+  RangeAzimuthCompressionConfig config;
+  config.sample_rate_hz = wf.config.sample_rate_hz;
+  config.prf_hz = 0.0;  // 触发 !apply_azimuth
+  ComplexMatrix out;
+  EXPECT_TRUE(Compress2D(history, wf.samples, config, &out));
+}
+
+// ── EstimatePulseQuality 边界 ────────────────────────────────
+
+TEST(SarWindowFunctionTest, EstimatePulseQualityRejectsNullMetrics) {
+  const ComplexVector pulse(8, ComplexSample(1.0, 0.0));
+  EXPECT_FALSE(EstimatePulseQuality(pulse, nullptr));
+}
+
+TEST(SarWindowFunctionTest, EstimatePulseQualityRejectsEmptyInput) {
+  PulseQualityMetrics metrics;
+  EXPECT_FALSE(EstimatePulseQuality({}, &metrics));
+}
+
+TEST(SarWindowFunctionTest, EstimatePulseQualityRejectsZeroMagnitude) {
+  const ComplexVector zeros(8, ComplexSample(0.0, 0.0));
+  PulseQualityMetrics metrics;
+  EXPECT_FALSE(EstimatePulseQuality(zeros, &metrics));
+}
+
+TEST(SarWindowFunctionTest, EstimatePulseQualityHandlesDeltaPeak) {
+  ComplexVector delta(16, ComplexSample(0.0, 0.0));
+  delta[8] = ComplexSample(1.0, 0.0);
+  PulseQualityMetrics metrics;
+  EXPECT_TRUE(EstimatePulseQuality(delta, &metrics));
+}
+
+// ── RangeCompress 验证分支 ───────────────────────────────────
+
+TEST(SarWindowFunctionTest, RangeCompressRejectsNullOutput) {
+  const LfmWaveform wf = MakeReferenceWaveform();
+  EXPECT_FALSE(RangeCompress(wf.samples, wf.samples, wf.config.sample_rate_hz,
+                             WindowSpec{WindowType::kNone, 0.0}, nullptr));
+}
+
+TEST(SarWindowFunctionTest, RangeCompressRejectsInvalidSampleRate) {
+  const LfmWaveform wf = MakeReferenceWaveform();
+  RangeCompressionResult result;
+  EXPECT_FALSE(RangeCompress(wf.samples, wf.samples,
+                             std::numeric_limits<double>::quiet_NaN(),
+                             WindowSpec{WindowType::kNone, 0.0}, &result));
+  EXPECT_FALSE(RangeCompress(wf.samples, wf.samples, -1.0,
+                             WindowSpec{WindowType::kNone, 0.0}, &result));
+}
+
+TEST(SarWindowFunctionTest, RangeCompressRejectsEmptyInputs) {
+  RangeCompressionResult result;
+  EXPECT_FALSE(RangeCompress({}, {ComplexSample(1.0, 0.0)}, 20.0e6,
+                             WindowSpec{WindowType::kNone, 0.0}, &result));
+  const LfmWaveform wf = MakeReferenceWaveform();
+  EXPECT_FALSE(RangeCompress(wf.samples, {}, wf.config.sample_rate_hz,
+                             WindowSpec{WindowType::kNone, 0.0}, &result));
+}
+
+// ── BuildMatchedFilter (windowed) 边界 ───────────────────────
+
+TEST(SarWindowFunctionTest, BuildMatchedFilterRejectsEmptyWaveform) {
+  const LfmWaveform empty;
+  ComplexVector filter;
+  EXPECT_FALSE(BuildMatchedFilter(empty.samples,
+                                  WindowSpec{WindowType::kHamming, 0.0}, &filter));
+}
+
+TEST(SarWindowFunctionTest, BuildMatchedFilterRejectsNullFilter) {
+  const LfmWaveform wf = MakeReferenceWaveform();
+  EXPECT_FALSE(BuildMatchedFilter(wf.samples,
+                                  WindowSpec{WindowType::kHamming, 0.0}, nullptr));
+}
+
+// ── GenerateLfmWaveform 验证补充分支 ─────────────────────────
+
+TEST(SarWindowFunctionTest, GenerateLfmWaveformRejectsInvalidConfig) {
+  LfmWaveformConfig config;
+  LfmWaveform wf;
+  // NaN bandwidth
+  config.bandwidth_hz = std::numeric_limits<double>::quiet_NaN();
+  config.time_bandwidth_product = 100.0;
+  config.sample_rate_hz = 20.0e6;
+  EXPECT_FALSE(GenerateLfmWaveform(config, &wf));
+
+  // zero time-bandwidth product
+  config.bandwidth_hz = 10.0e6;
+  config.time_bandwidth_product = 0.0;
+  EXPECT_FALSE(GenerateLfmWaveform(config, &wf));
+
+  // negative sample rate
+  config.time_bandwidth_product = 100.0;
+  config.sample_rate_hz = -1.0;
+  EXPECT_FALSE(GenerateLfmWaveform(config, &wf));
+
+  // null output
+  EXPECT_FALSE(GenerateLfmWaveform(config, nullptr));
+}
+
 }  // namespace signal
 }  // namespace sar

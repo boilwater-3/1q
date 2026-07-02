@@ -755,6 +755,109 @@ TEST(SignalPipelineScanScheduleTest, WorkModeSttReducesSweepCoverageComparedToTw
   EXPECT_GE(tws_detected, stt_detected);
 }
 
+// ===========================================================================
+// BuildScheduledScanPattern / ResolveFiniteScanCenter / Apply 边界校验
+// ===========================================================================
+
+TEST(ScanScheduleResolverTest, BuildPatternRejectsAzMinGreaterThanAzMax) {
+  config::AzimuthElevationLimitsDeg limits;
+  limits.az_min_deg = 10.0f;
+  limits.az_max_deg = -10.0f;
+  limits.el_min_deg = -5.0f;
+  limits.el_max_deg = 5.0f;
+  const auto pattern = signal::pipeline::BuildScheduledScanPattern(
+      limits, 2.0f, 2.0f, oneq::foundation::ScanStartPosition::kLeftTop,
+      oneq::foundation::ScanSequence::kAzimuthFirst);
+  EXPECT_TRUE(pattern.empty());
+}
+
+TEST(ScanScheduleResolverTest, BuildPatternRejectsElMinGreaterThanElMax) {
+  config::AzimuthElevationLimitsDeg limits;
+  limits.az_min_deg = -10.0f;
+  limits.az_max_deg = 10.0f;
+  limits.el_min_deg = 5.0f;
+  limits.el_max_deg = -5.0f;
+  const auto pattern = signal::pipeline::BuildScheduledScanPattern(
+      limits, 2.0f, 2.0f, oneq::foundation::ScanStartPosition::kLeftTop,
+      oneq::foundation::ScanSequence::kAzimuthFirst);
+  EXPECT_TRUE(pattern.empty());
+}
+
+TEST(ScanScheduleResolverTest, BuildPatternRejectsNonFiniteLimits) {
+  config::AzimuthElevationLimitsDeg limits;
+  limits.az_min_deg = std::numeric_limits<float>::quiet_NaN();
+  limits.az_max_deg = 10.0f;
+  limits.el_min_deg = -5.0f;
+  limits.el_max_deg = 5.0f;
+  const auto pattern = signal::pipeline::BuildScheduledScanPattern(
+      limits, 2.0f, 2.0f, oneq::foundation::ScanStartPosition::kLeftTop,
+      oneq::foundation::ScanSequence::kAzimuthFirst);
+  EXPECT_TRUE(pattern.empty());
+}
+
+TEST(ScanScheduleResolverTest, BuildPatternRejectsNonPositiveStep) {
+  config::AzimuthElevationLimitsDeg limits;
+  limits.az_min_deg = -10.0f;
+  limits.az_max_deg = 10.0f;
+  limits.el_min_deg = -5.0f;
+  limits.el_max_deg = 5.0f;
+  EXPECT_TRUE(signal::pipeline::BuildScheduledScanPattern(
+      limits, 0.0f, 2.0f, oneq::foundation::ScanStartPosition::kLeftTop,
+      oneq::foundation::ScanSequence::kAzimuthFirst).empty());
+  EXPECT_TRUE(signal::pipeline::BuildScheduledScanPattern(
+      limits, 2.0f, -1.0f, oneq::foundation::ScanStartPosition::kLeftTop,
+      oneq::foundation::ScanSequence::kAzimuthFirst).empty());
+}
+
+TEST(ScanScheduleResolverTest, ResolveFiniteScanCenterReturnsZeroForNan) {
+  config::ArOrientationConfig orientation;
+  orientation.scan_center_deg.az_deg = std::numeric_limits<float>::quiet_NaN();
+  orientation.scan_center_deg.el_deg = std::numeric_limits<float>::quiet_NaN();
+  const config::AzimuthElevationDeg center =
+      signal::pipeline::ResolveFiniteScanCenter(orientation);
+  EXPECT_FLOAT_EQ(center.az_deg, 0.0f);
+  EXPECT_FLOAT_EQ(center.el_deg, 0.0f);
+}
+
+TEST(ScanScheduleResolverTest, ResolveFiniteScanCenterReturnsValidCenter) {
+  config::ArOrientationConfig orientation;
+  orientation.scan_center_deg.az_deg = 15.0f;
+  orientation.scan_center_deg.el_deg = -5.0f;
+  const config::AzimuthElevationDeg center =
+      signal::pipeline::ResolveFiniteScanCenter(orientation);
+  EXPECT_FLOAT_EQ(center.az_deg, 15.0f);
+  EXPECT_FLOAT_EQ(center.el_deg, -5.0f);
+}
+
+TEST(ScanScheduleResolverTest, ApplyScanScheduleHandlesNullConfig) {
+  signal::pipeline::ApplyScanScheduleToRuntimeConfig(1U, nullptr);
+  SUCCEED();
+}
+
+TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesOrientationBeamwidthFallback) {
+  ExecutionConfig runtime_config =
+      config::mapping::MapSessionToExecution(MakeDetectionFocusedConfig());
+  runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg = 0.0f;
+  runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg.commanded_el_beamwidth_deg = 0.0f;
+  runtime_config.detection.orientation.commanded_beamwidth_enabled = true;
+  runtime_config.detection.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 4.0f;
+  runtime_config.detection.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 2.0f;
+  signal::pipeline::ApplyScanScheduleToRuntimeConfig(1U, &runtime_config);
+  SUCCEED();
+}
+
+TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesAntennaFallback) {
+  ExecutionConfig runtime_config =
+      config::mapping::MapSessionToExecution(MakeDetectionFocusedConfig());
+  runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg = 0.0f;
+  runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg.commanded_el_beamwidth_deg = 0.0f;
+  runtime_config.detection.orientation.commanded_beamwidth_enabled = false;
+  runtime_config.detection.engineering.antenna.nominal_az_beamwidth_deg = 3.0f;
+  runtime_config.detection.engineering.antenna.nominal_el_beamwidth_deg = 1.5f;
+  signal::pipeline::ApplyScanScheduleToRuntimeConfig(1U, &runtime_config);
+  SUCCEED();
+}
+
 }  // namespace
 }  // namespace tests
 }  // namespace airborne_radar
