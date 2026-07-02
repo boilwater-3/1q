@@ -237,8 +237,6 @@ inline ArSessionConfigBuilder::EnvironmentEditor ArSessionConfigBuilder::Environ
   return EnvironmentEditor(this);
 }
 
-using RadarSessionConfigBuilder_DetectionEditor = ArSessionConfigBuilder::DetectionEditor;
-
 }  // namespace config
 }  // namespace airborne_radar
 

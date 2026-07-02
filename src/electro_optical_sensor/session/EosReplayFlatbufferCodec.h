@@ -2,7 +2,7 @@
  * @file EosReplayFlatbufferCodec.h
  * @brief EOS replay payload 的 FlatBuffers encode/decode 接口。
  *
- * 与 AR 模块的 RadarReplayFlatbufferCodec 对应，统一使用 payload_bytes +
+ * 与 AR 模块的 ArReplayFlatbufferCodec 对应，统一使用 payload_bytes +
  * payload_encoding="flatbuffers"，不依赖 nlohmann::json 或平台特定代码。
  */
 
