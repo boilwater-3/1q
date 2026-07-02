@@ -19,6 +19,30 @@ target_link_libraries(ar_config_compare_test PRIVATE ${PROJECT_ALIAS})
 target_include_directories(ar_config_compare_test PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/airborne_radar")
 
+# 集成模式示例：展示 RadarModule 在外部引擎中的使用方式。
+add_executable(radar_integration_demo airborne_radar/integration_demo.cpp)
+target_link_libraries(radar_integration_demo PRIVATE ${PROJECT_ALIAS})
+target_include_directories(radar_integration_demo PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/airborne_radar")
+
+# EOS 集成模式示例：展示 EosModule 在外部引擎中的使用方式。
+add_executable(eos_integration_demo electro_optical/integration_demo.cpp)
+target_link_libraries(eos_integration_demo PRIVATE ${PROJECT_ALIAS})
+target_include_directories(eos_integration_demo PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/electro_optical")
+
+# ESR 集成模式示例：展示 EsrModule 在外部引擎中的使用方式。
+add_executable(esr_integration_demo electronic_warfare/integration_demo.cpp)
+target_link_libraries(esr_integration_demo PRIVATE ${PROJECT_ALIAS})
+target_include_directories(esr_integration_demo PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/electronic_warfare")
+
+# SAR 集成模式示例：展示 SarModule 在外部引擎中的使用方式。
+add_executable(sar_integration_demo sar/integration_demo.cpp)
+target_link_libraries(sar_integration_demo PRIVATE ${PROJECT_ALIAS})
+target_include_directories(sar_integration_demo PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/sar")
+
 # Shared config for flight_dynamic example targets
 macro(setup_fd_example target)
     target_link_libraries(${target} PRIVATE ${PROJECT_ALIAS})
