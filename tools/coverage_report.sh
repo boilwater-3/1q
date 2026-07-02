@@ -13,8 +13,9 @@
 # 流程:
 #   1. 校验指定 preset 的构建目录存在且 ENABLE_COVERAGE=ON
 #   2. (可选) 运行 ctest 执行插桩后的测试二进制，产出 .profraw
+#      （所有测试层 unit/integration/replay/performance 全跑，profraw 取并集）
 #   3. llvm-profdata merge 合并所有 .profraw → 1q.profdata
-#   4. llvm-cov export 生成 JSON / llvm-cov show 生成文本摘要
+#   4. llvm-cov show/report 用单二进制解读（避免多 -object 的 mismatched-data）
 #   5. llvm-cov show -format=html 生成目录式 HTML 报告
 #   6. 打印顶层覆盖率摘要表 (Region/Branch/Function/Line)
 #
@@ -155,15 +156,22 @@ if ! grep -q "ENABLE_COVERAGE:BOOL=ON\|ENABLE_COVERAGE:UNINITIALIZED=ON\|ENABLE_
     fi
 fi
 
-# 收集所有插桩测试二进制作为 llvm-cov 入口。
-# llvm-cov 支持多 -object 参数：合并不同二进制（unit/contract/integration/
-# replay/performance）各自的覆盖率，得到覆盖全测试层的真实总览。
-# 第一个二进制同时作为 llvm-cov 命令的主 target（-instr-profile 配对）。
-COV_BINS=()
+# 收集所有插桩测试二进制：每个都要跑（收集各自的 .profraw），
+# 但只用第一个存在的二进制作为 llvm-cov 解读入口。
+#
+# 为什么不用多 -object？同一份 .cpp 会被链接进多个测试二进制（如 SarController.cpp
+# 同时存在于 unit 和 integration），各二进制 coverage mapping 的 region hash 偶有
+# 冲突，llvm-profdata 会丢弃冲突函数并报 "warning: N functions have mismatched
+# data"，导致受影响文件显示虚假 0%。改用单二进制解读可消除绝大多数冲突。
+#
+# 单二进制（1q_unit_tests）通过静态库链接了全部 src 的 coverage mapping，且 profraw
+# 仍来自所有测试层（unit/integration/replay/performance 全跑），因此并集覆盖不丢失。
+# 实测：mismatched 从 317 降到个位数，5 个假性 0% 文件全部恢复真实数值。
+TEST_BINS=()
 PRIMARY_COV_BIN=""
 for candidate in 1q_unit_tests 1q_contract_tests 1q_integration_tests 1q_replay_fast_tests 1q_performance_tests 1q_fd_tests; do
     if [[ -x "${BUILD_DIR}/bin/${candidate}" ]]; then
-        COV_BINS+=("${BUILD_DIR}/bin/${candidate}")
+        TEST_BINS+=("${BUILD_DIR}/bin/${candidate}")
         if [[ -z "${PRIMARY_COV_BIN}" ]]; then
             PRIMARY_COV_BIN="${BUILD_DIR}/bin/${candidate}"
         fi
@@ -174,12 +182,6 @@ if [[ -z "${PRIMARY_COV_BIN}" ]]; then
     echo "  请先编译: cmake --build --preset ${PRESET}" >&2
     exit 1
 fi
-
-# 构造 llvm-cov 的 -object 参数序列：第一个用 -object <bin>，其余用 -object <bin>
-COV_OBJECT_ARGS=()
-for bin in "${COV_BINS[@]}"; do
-    COV_OBJECT_ARGS+=(-object "${bin}")
-done
 
 # ----------------------------------------------------------------------------
 # 步骤 2: 运行测试（产出 .profraw）
@@ -232,12 +234,12 @@ HTML_DIR="${REPORT_DIR}/html"
 echo "==> [3/4] 生成 HTML 报告..."
 
 # 只统计 src/ 与 include/ 下的项目源码，排除测试自身、第三方、构建产物。
-# 通过 -object 传入所有插桩二进制，合并 unit/contract/integration/replay/
-# performance 各测试层的覆盖率，得到覆盖全测试体系的真实总览。
+# 用单二进制（PRIMARY_COV_BIN）作为 llvm-cov 解读入口——它链接了全部 src 的
+# coverage mapping；profraw 已在步骤 2 由所有测试层贡献，merge 进同一份 profdata，
+# 因此并集覆盖不丢失，且避免了多 -object 触发的 mismatched-data 数据失真。
 SOURCE_DIRS=$(find "${REPO_ROOT}/src" "${REPO_ROOT}/include" -type d 2>/dev/null | sort -u | head -200)
 
 "${LLVM_COV}" show "${PRIMARY_COV_BIN}" \
-    "${COV_OBJECT_ARGS[@]}" \
     -instr-profile="${PROFDATA}" \
     -format=html \
     -project-title "1q" \
@@ -248,7 +250,6 @@ SOURCE_DIRS=$(find "${REPO_ROOT}/src" "${REPO_ROOT}/include" -type d 2>/dev/null
 # 同时生成文本摘要（终端可读，且便于 CI 日志归档）
 SUMMARY_TXT="${REPORT_DIR}/summary.txt"
 "${LLVM_COV}" report "${PRIMARY_COV_BIN}" \
-    "${COV_OBJECT_ARGS[@]}" \
     -instr-profile="${PROFDATA}" \
     ${SOURCE_DIRS} \
     > "${SUMMARY_TXT}" 2>&1 || true
