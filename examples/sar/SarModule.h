@@ -32,7 +32,7 @@
  *
  * @par 与 RadarModule/EosModule/EsrModule 的差异
  * - SAR 不需要环境输入（SarCycleInput 无 environment 字段），因此无 environment_state_
- * - SAR 无外部输出适配（buildExternalOutput 返回 false，SAR 产品是图像而非轨迹/航迹/辐射源）
+ * - SAR 产品是图像而非轨迹/航迹/辐射源，因此不暴露外部坐标输出适配
  * - SarProductLifecycleRecorder::Update 仅接受结果（单参），不接收输入
  *
  * @par 配置平铺（Config Flattening）
@@ -69,7 +69,7 @@ namespace sar_session = sar::session;
  *   - 四域配置平铺至扁平私有成员
  *   - 基于回调的订阅者模式支持运行期配置修改
  *
- * @note SAR 无需环境输入（environment_state_），无外部输出适配。
+ * @note SAR 无需环境输入（environment_state_），输出面为系统结果、调试视图与产品生命周期。
  */
 class SarModule {
  public:
@@ -238,8 +238,6 @@ class SarModule {
   //   3. SarProductLifecycleRecorder（生命周期）— 图像生成/更新/丢失/失败事件，
   //      通过 lifecycleEvents() 获取
   //
-  // 注：buildExternalOutput() 不可用于 SAR（SAR 产品是聚焦图像，无需坐标转换）。
-
   /** @brief 返回最近一次 stepImp 输入的缓存（供三视图构建使用）。 */
   const sar_session::SarCycleInput& lastInput() const { return last_input_; }
 
@@ -256,19 +254,6 @@ class SarModule {
   /** @brief 返回最近一次的产品生命周期事件列表（三视图之一）。 */
   const std::vector<sar_session::SarProductLifecycleEvent>& lifecycleEvents() const {
     return lifecycle_events_;
-  }
-
-  /**
-   * @brief 构建外部坐标输出（辅助视图）。
-   *
-   * @note SAR 不提供外部输出适配。SAR 产品是聚焦图像（行主序复数矩阵），
-   * 无需 ECEF 坐标转换。本方法始终返回 false。
-   *
-   * @return false  （不可用）
-   */
-  bool buildExternalOutput() const {
-    std::cerr << "[SarModule] buildExternalOutput: NOT available for SAR (returns false)\n";
-    return false;
   }
 
   // ==================== 回放 (Replay) ====================

@@ -43,7 +43,7 @@ config::SarSessionConfig MakeMinimalConfig() {
 session::SarCycleInput MakeMinimalInput() {
   session::SarCycleInput input;
   input.cycle_index = 1U;
-  input.dt_sec = 0.1;
+  input.dt_sec = 0.1f;
   session::SarPointTarget target;
   target.target_id = 1U;
   target.target_name = "convenience-target";

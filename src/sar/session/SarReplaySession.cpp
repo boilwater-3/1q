@@ -146,43 +146,47 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
   return true;
 }
 
-bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
-                   std::string* actual_output, std::string* error) {
+oneq::replay::ReplayTraceOutputStatus OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event,
+                                                     void* user_data, std::string* actual_output,
+                                                     std::string* error) {
+  using oneq::replay::ReplayTraceOutputStatus;
   if (event.payload_type != "SarCycleResult" && event.payload_type != "SarOutputFrame") {
     *error = "SAR replay does not support cycle_output payload type: " + event.payload_type;
-    return false;
+    return ReplayTraceOutputStatus::kOtherFailure;
   }
 
   SarReplayState* state = static_cast<SarReplayState*>(user_data);
   if (!ExecutePendingCycle(state, error)) {
-    return false;
+    return ReplayTraceOutputStatus::kOtherFailure;
   }
 
   if (event.payload_type == "SarCycleResult") {
     SarCycleResult expected;
     if (!DecodeSarCycleResult(event.payload_bytes, &expected)) {
       *error = "SAR replay failed to decode SarCycleResult";
-      return false;
+      return ReplayTraceOutputStatus::kOtherFailure;
     }
     if (!SarCycleResultEqual(expected, state->latest_result)) {
       *error = "SAR replay output divergence (SarCycleResult)";
-      return false;
+      actual_output->clear();
+      return ReplayTraceOutputStatus::kDivergence;
     }
     actual_output->clear();
-    return true;
+    return ReplayTraceOutputStatus::kHandledByModule;
   }
 
   SarOutputFrame expected_frame;
   if (!DecodeSarOutputFrame(event.payload_bytes, &expected_frame)) {
     *error = "SAR replay failed to decode SarOutputFrame";
-    return false;
+    return ReplayTraceOutputStatus::kOtherFailure;
   }
   if (!SarOutputFrameEqual(expected_frame, state->latest_result.output_frame)) {
     *error = "SAR replay output divergence (SarOutputFrame)";
-    return false;
+    actual_output->clear();
+    return ReplayTraceOutputStatus::kDivergence;
   }
   actual_output->clear();
-  return true;
+  return ReplayTraceOutputStatus::kHandledByModule;
 }
 
 bool OnFailureMarker(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,

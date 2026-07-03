@@ -12,7 +12,7 @@ namespace {
 
 TEST(SarInputValidationTest, ValidInputHasNoErrors) {
   SarCycleInput input;
-  input.dt_sec = 1.0;
+  input.dt_sec = 1.0f;
   input.platform.latitude_deg = 30.0;
   input.platform.altitude_m = 8000.0;
 
@@ -22,7 +22,7 @@ TEST(SarInputValidationTest, ValidInputHasNoErrors) {
 
 TEST(SarInputValidationTest, NonPositiveDtIsError) {
   SarCycleInput input;
-  input.dt_sec = 0.0;
+  input.dt_sec = 0.0f;
 
   const ValidationIssueList issues = ValidateSarCycleInput(input);
   bool found = false;
@@ -38,7 +38,7 @@ TEST(SarInputValidationTest, NonPositiveDtIsError) {
 
 TEST(SarInputValidationTest, NonFiniteDtIsError) {
   SarCycleInput input;
-  input.dt_sec = std::numeric_limits<double>::quiet_NaN();
+  input.dt_sec = std::numeric_limits<float>::quiet_NaN();
 
   const ValidationIssueList issues = ValidateSarCycleInput(input);
   bool found = false;
@@ -52,7 +52,7 @@ TEST(SarInputValidationTest, NonFiniteDtIsError) {
 
 TEST(SarInputValidationTest, NonFinitePlatformFieldIsError) {
   SarCycleInput input;
-  input.dt_sec = 1.0;
+  input.dt_sec = 1.0f;
   input.platform.latitude_deg = std::numeric_limits<double>::infinity();
 
   const ValidationIssueList issues = ValidateSarCycleInput(input);
@@ -67,7 +67,7 @@ TEST(SarInputValidationTest, NonFinitePlatformFieldIsError) {
 
 TEST(SarInputValidationTest, NonFiniteTargetFieldIsError) {
   SarCycleInput input;
-  input.dt_sec = 1.0;
+  input.dt_sec = 1.0f;
   SarPointTarget target;
   target.radar_cross_section_dbsm = std::numeric_limits<double>::quiet_NaN();
   input.point_targets.push_back(target);
@@ -85,7 +85,7 @@ TEST(SarInputValidationTest, NonFiniteTargetFieldIsError) {
 
 TEST(SarInputValidationTest, PulseCountMismatchIsError) {
   SarCycleInput input;
-  input.dt_sec = 1.0;
+  input.dt_sec = 1.0f;
   input.raw_iq.pulse_count = 5U;
   SarRawIqFrame::PulseState pulse;
   pulse.pulse_id = 1U;
@@ -104,7 +104,7 @@ TEST(SarInputValidationTest, PulseCountMismatchIsError) {
 
 TEST(SarInputValidationTest, NonContiguousPulseIdIsError) {
   SarCycleInput input;
-  input.dt_sec = 1.0;
+  input.dt_sec = 1.0f;
   input.raw_iq.pulse_count = 2U;
 
   SarRawIqFrame::PulseState pulse1;
@@ -129,7 +129,7 @@ TEST(SarInputValidationTest, NonContiguousPulseIdIsError) {
 
 TEST(SarInputValidationTest, EmptyPulsesProduceNoPulseErrors) {
   SarCycleInput input;
-  input.dt_sec = 1.0;
+  input.dt_sec = 1.0f;
   // raw_iq 保持默认空值
 
   const ValidationIssueList issues = ValidateSarCycleInput(input);

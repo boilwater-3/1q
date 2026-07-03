@@ -17,6 +17,10 @@ namespace trace {
 
 /**
  * @brief TraceSink 定义结构化记录写入接口。
+ *
+ * @note TraceSink 面向调试与观测日志，不是 replay 输入格式。若需要生成可被
+ *       `ReplayXxxTrace()` 回放的目录，请使用 `oneq::replay::ReplayTraceWriter`
+ *       并传入对应 `*TraceSessionOptions::replay_writer`。
  */
 class ONEQ_API TraceSink {
  public:
@@ -39,6 +43,8 @@ class ONEQ_API TraceSink {
  *   - 每条记录按 `uint32_le length + payload bytes` 顺序写入。
  *   - payload 为一条 FlexBuffers map，键包括 timestamp_ms/module/phase/payload_json。
  *   - 跨平台统一使用此实现。
+ *   - 该文件不能直接被 `ReplayXxxTrace()` 回放；可回放 trace 使用
+ *     `ReplayTraceWriter` 生成 `manifest.json` 与 events JSONL 目录。
  */
 class ONEQ_API FlatbufferFileTraceSink final : public TraceSink {
  public:

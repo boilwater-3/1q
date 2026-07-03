@@ -1318,22 +1318,32 @@ ReplayTracePlaybackResult PlaybackReplayTrace(const std::string& trace_dir,
         }
       } else {
         std::string actual_output_payload;
-        callback_ok = callbacks.on_cycle_output(event, callbacks.user_data, &actual_output_payload,
-                                                &callback_error);
-        if (callback_ok) {
+        const ReplayTraceOutputStatus status =
+            callbacks.on_cycle_output(event, callbacks.user_data, &actual_output_payload,
+                                      &callback_error);
+        if (status == ReplayTraceOutputStatus::kOtherFailure) {
+          // 解码失败 / cycle 执行失败 / 入口 payload 类型不匹配：非分叉，记为回放失败。
+          callback_ok = false;
+        } else {
+          // kHandledByModule 与 kDivergence 都表示模块已逐字段比较（一致或不一致），
+          // 计入 compared_output_count，口径与旧的 generic 路径对齐。
           ++result.compared_output_count;
-          // Optional generic divergence check:
-          // - callback may leave actual_output_payload empty to signal "comparison handled by
-          // module".
-          // - when non-empty, compare with event payload inline JSON and fill divergence fields.
-          if (!actual_output_payload.empty() && actual_output_payload != event.payload_inline) {
+          // Generic divergence check（向后兼容）：
+          // - kHandledByModule 且 actual_output_payload 非空时，与 event.payload_inline 比较。
+          // - kDivergence 直接置分叉，使用模块携带的 actual_output_payload。
+          const bool divergence =
+              (status == ReplayTraceOutputStatus::kDivergence) ||
+              (!actual_output_payload.empty() && actual_output_payload != event.payload_inline);
+          if (divergence) {
             result.divergence_found = true;
             if (result.divergence_sequence == 0U) {
               result.divergence_sequence = event.sequence;
               result.expected_output_payload = event.payload_inline;
               result.actual_output_payload = actual_output_payload;
               if (result.first_error.empty()) {
-                result.first_error = "replay cycle_output divergence";
+                result.first_error = callback_error.empty()
+                                         ? std::string("replay cycle_output divergence")
+                                         : callback_error;
               }
             }
             result.ok = false;

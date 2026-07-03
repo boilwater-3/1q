@@ -151,10 +151,8 @@ TEST(EosReplaySessionTest, ReplayEosTraceDetectsDivergence) {
   EXPECT_FALSE(replay_result.ok);
   EXPECT_NE(replay_result.first_error.find("divergence"), std::string::npos)
       << replay_result.first_error;
-  // The divergence is raised inside the cycle_output callback, which returns
-  // false before compared_output_count is incremented, so no output is counted
-  // as successfully compared.
-  EXPECT_EQ(replay_result.playback.compared_output_count, 0U);
+  EXPECT_TRUE(replay_result.playback.divergence_found);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
   EXPECT_FALSE(replay_result.reached_failure_marker);
 }
 

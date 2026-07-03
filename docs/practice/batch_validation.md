@@ -182,10 +182,10 @@ flowchart LR
 
 为使距离 / RCS / 带宽等参数真正驱动输出（而非被简化路径掩盖），批量程序按模块调整 config：
 
-- **AR**：强制启用 `hardware.enable_physics_detection` + `rcs_physics.enable_physical_rcs`（示例配置默认关闭，会导致所有目标被确定性检出，无法体现距离/RCS 差异）。
+- **AR**：示例配置默认启用 `hardware.enable_physics_detection` + `rcs_physics.enable_physical_rcs`，批量程序启动时仍显式确认这两个物理开关处于开启状态，确保距离/RCS 趋势不会被简化检出路径掩盖。
 - **EOS**：物理链路本身基于辐射度学，无需开关；距离通过几何影响 SNR，目标用 LLA 经度偏移（相对传感器足印中心）落在探测俯仰角范围内。平台 LLA→ECEF 用项目精确转换 `oneq::coordinate::TryLlaToEcef`（手写近似会导致几何失真、目标落出视场）。
 - **ESR**：辐射源功率取与 `examples/electronic_warfare/integration_demo.cpp` 一致的 50 MW 量级，确保 10–100km 可被截获（1 kW 在远距离无法达到接收机灵敏度）。
-- **SAR**：以 `examples/sar/integration_demo.cpp` 验证过的参数集为基准（sample_rate=1MHz、pulse_width=20us、PRF=100Hz、slant=100km），仅在保持自洽的前提下扫描带宽 / 斜距 / 方位脉冲数。`sar.json` 默认值（120MHz 采样 + 20us 脉宽需 2400 点 > 2048）本身违反采样窗口约束 `ceil(pulse_width × sample_rate) ≤ range_sample_count`，故批量程序不复用该默认值。
+- **SAR**：以 `examples/configs/sar.json` 与 `examples/sar/integration_demo.cpp` 共享的验证参数集为基准（sample_rate=1MHz、pulse_width=20us、PRF=100Hz、slant=100km），仅在保持采样窗口与孔径时间自洽的前提下扫描带宽 / 斜距 / 方位脉冲数。采样窗口约束为 `ceil(pulse_width × sample_rate) ≤ range_sample_count`。
 
 ### 2.4 验证基线（已观测的量化结果）
 
@@ -203,7 +203,7 @@ flowchart LR
 
 1. **不修改任何 `include/` 或 `src/`**。框架是纯 examples 层；若需新公开能力，走模块自身的 evidence-first 流程，不在本框架内扩大 public API。
 2. **不取代 GTest 矩阵测试**。`tests/unit/*_matrix_test.cpp` 是 CI 硬性回归门控（`EXPECT_*` 失败即红）；本框架是软断言的数据采集与趋势分析工具，两者互补，不互替。
-3. **不为 SAR 增加 ECEF 外部输出**。SAR 产品是聚焦图像（复数矩阵），模块本就不提供 ECEF 坐标转换（`buildExternalOutput` 恒 false），框架不试图弥补。
+3. **不为 SAR 增加 ECEF 外部输出**。SAR 产品是聚焦图像（复数矩阵），模块本就不提供 ECEF 坐标转换；示例包装层不再暴露恒 false 的占位输出接口，框架也不试图弥补。
 4. **不把 SAR 复数像素写入 CSV**。`focused_image.real_values/imaginary_values` 不入 CSV（单图像可达百万像素）；只记录图像质量摘要（SNR / 主瓣宽 / 分辨率 / 熵 / 对比度）。需原始像素时手动回放对应 trace。
 5. **回放分叉不阻塞批量运行**。模块在边界场景（如 ESR 近距离高功率）的确定性漂移属模块属性，记为 warning 高亮，不视为框架失败，也不修改模块输出语义以求"通过"。
 6. **不引入新依赖**。CSV 写入仿 `examples/flight_dynamic/orbit_quality_csv.cpp` 的 `fprintf` 风格；Python 分析脚本仅用标准库 + 可选 matplotlib（无则跳过绘图），不引入 pandas/numpy。

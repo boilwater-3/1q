@@ -25,6 +25,9 @@ namespace session {
 
 /**
  * @brief SAR trace 会话配置。
+ * @note `sink` 产出调试/观测记录，不能直接回放；`replay_writer` 产出可被
+ *       `ReplaySarTrace()` 消费的 replay trace 目录。需要可复现实验时应同时配置
+ *       `replay_writer`。
  */
 struct ONEQ_API SarTraceSessionOptions {
   std::shared_ptr<oneq::trace::TraceSink> sink{};

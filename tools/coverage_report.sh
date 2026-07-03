@@ -233,25 +233,28 @@ echo "    → ${PROFDATA}"
 HTML_DIR="${REPORT_DIR}/html"
 echo "==> [3/4] 生成 HTML 报告..."
 
-# 只统计 src/ 与 include/ 下的项目源码，排除测试自身、第三方、构建产物。
+# 只统计 src/ 与 include/ 下的项目源码，排除测试自身、第三方、构建产物与生成代码。
 # 用单二进制（PRIMARY_COV_BIN）作为 llvm-cov 解读入口——它链接了全部 src 的
 # coverage mapping；profraw 已在步骤 2 由所有测试层贡献，merge 进同一份 profdata，
 # 因此并集覆盖不丢失，且避免了多 -object 触发的 mismatched-data 数据失真。
-SOURCE_DIRS=$(find "${REPO_ROOT}/src" "${REPO_ROOT}/include" -type d 2>/dev/null | sort -u | head -200)
+SOURCE_DIRS=("${REPO_ROOT}/src" "${REPO_ROOT}/include")
+COVERAGE_FILTER_ARGS=("-ignore-filename-regex=.*/generated/.*")
 
 "${LLVM_COV}" show "${PRIMARY_COV_BIN}" \
     -instr-profile="${PROFDATA}" \
     -format=html \
     -project-title "1q" \
     -output-dir="${HTML_DIR}" \
-    ${SOURCE_DIRS} \
+    "${COVERAGE_FILTER_ARGS[@]}" \
+    "${SOURCE_DIRS[@]}" \
     > /dev/null 2>&1 || true
 
 # 同时生成文本摘要（终端可读，且便于 CI 日志归档）
 SUMMARY_TXT="${REPORT_DIR}/summary.txt"
 "${LLVM_COV}" report "${PRIMARY_COV_BIN}" \
     -instr-profile="${PROFDATA}" \
-    ${SOURCE_DIRS} \
+    "${COVERAGE_FILTER_ARGS[@]}" \
+    "${SOURCE_DIRS[@]}" \
     > "${SUMMARY_TXT}" 2>&1 || true
 
 echo "    → ${HTML_DIR}/index.html"

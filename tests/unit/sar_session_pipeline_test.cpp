@@ -67,7 +67,7 @@ config::SarSessionConfig MakeSmallL3BpConfig() {
 session::SarCycleInput MakeInput(std::uint32_t cycle_index = 1U) {
   session::SarCycleInput input;
   input.cycle_index = cycle_index;
-  input.dt_sec = 0.1;
+  input.dt_sec = 0.1f;
   input.platform.latitude_deg = 0.0;
   input.platform.longitude_deg = 0.0;
   input.platform.altitude_m = 0.0;
@@ -734,7 +734,7 @@ TEST(SarSessionPipelineTest, InvalidCycleReusesPreviousOutput) {
   const session::SarCycleResult first = session.StepWithResult(MakeInput(3U));
   ASSERT_TRUE(first.executed_this_cycle);
   session::SarCycleInput invalid = MakeInput(4U);
-  invalid.dt_sec = 0.0;
+  invalid.dt_sec = 0.0f;
   const session::SarCycleResult second = session.StepWithResult(invalid);
 
   EXPECT_FALSE(second.executed_this_cycle);

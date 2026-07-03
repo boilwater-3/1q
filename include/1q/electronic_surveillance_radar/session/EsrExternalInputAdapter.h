@@ -22,7 +22,8 @@ namespace session {
 
 /**
  * @brief ESR 外部平台运动学输入。
- * @note 速度固定为 ECEF 坐标系。
+ * @note 速度固定为 ECEF 坐标系；ESR 没有独立 mount 字段，示例适配器按传感器视轴与
+ *       机体系对齐处理。AR 的 Pose 结构多出 radar_mount_angles_deg 是雷达安装角需求。
  */
 struct ONEQ_API EsrExternalPoseInput {
   oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 平台位置（ECEF，m） */
@@ -32,6 +33,7 @@ struct ONEQ_API EsrExternalPoseInput {
 
 /**
  * @brief ESR 外部辐射源输入（统一入口）。
+ * @note `kinematics.velocity_mps` 始终为 ECEF 速度；LLA 位置输入不改变速度坐标系。
  */
 struct ONEQ_API EsrExternalEmitterInput {
   std::uint64_t emitter_id{0U}; /**< 辐射源标识 */

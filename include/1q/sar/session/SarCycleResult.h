@@ -38,27 +38,17 @@ enum class SarDiagnosticSeverity { kInfo = 0, kWarning = 1, kError = 2 };
 /**
  * @brief 公共聚焦图像的生成来源。
  */
-enum class SarFocusedImageSource {
-  kNone = 0,
-  kL1Rda = 1,
-  kL3Bp = 2
-};
+enum class SarFocusedImageSource { kNone = 0, kL1Rda = 1, kL3Bp = 2 };
 
 /**
  * @brief SAR 聚焦图像相位参考摘要。
  */
-enum class SarPhaseReferenceMode {
-  kNative = 0,
-  kCenterBroadside = 1
-};
+enum class SarPhaseReferenceMode { kNative = 0, kCenterBroadside = 1 };
 
 /**
  * @brief SAR 图像质量主瓣判定方法摘要。
  */
-enum class SarMainlobeEstimationMethod {
-  k3dB = 0,
-  k20dB = 1
-};
+enum class SarMainlobeEstimationMethod { k3dB = 0, k20dB = 1 };
 
 /**
  * @brief SAR 诊断条目。
@@ -116,6 +106,9 @@ struct ONEQ_API SarOutputFrame {
 
 /**
  * @brief SAR 单周期聚合结果。
+ * @note `output_frame`、`focused_image` 与质量指标只有在 `executed_this_cycle=true`
+ *       时才代表本周期有效计算结果；失败/abort 周期会保留默认值或上一有效输出，
+ *       不能按真实零值参与统计。
  */
 struct ONEQ_API SarCycleResult {
   std::uint32_t input_cycle_index{0U};

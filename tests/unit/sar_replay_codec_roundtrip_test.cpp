@@ -19,7 +19,7 @@ namespace tests {
 TEST(SarReplayCodecRoundtripTest, CycleInputPreservesPlatformAndTargets) {
   SarCycleInput input;
   input.cycle_index = 7U;
-  input.dt_sec = 0.25;
+  input.dt_sec = 0.25f;
   input.platform.time_s = 12.5;
   input.platform.latitude_deg = 31.2;
   input.platform.longitude_deg = 121.4;
@@ -45,7 +45,7 @@ TEST(SarReplayCodecRoundtripTest, CycleInputPreservesPlatformAndTargets) {
   ASSERT_TRUE(DecodeSarCycleInput(bytes, &decoded));
 
   EXPECT_EQ(decoded.cycle_index, input.cycle_index);
-  EXPECT_DOUBLE_EQ(decoded.dt_sec, input.dt_sec);
+  EXPECT_FLOAT_EQ(decoded.dt_sec, input.dt_sec);
   EXPECT_DOUBLE_EQ(decoded.platform.latitude_deg, input.platform.latitude_deg);
   EXPECT_DOUBLE_EQ(decoded.platform.velocity_east_mps, input.platform.velocity_east_mps);
   EXPECT_DOUBLE_EQ(decoded.platform.yaw_deg, input.platform.yaw_deg);

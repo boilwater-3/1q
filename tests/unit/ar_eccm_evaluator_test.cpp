@@ -1,7 +1,18 @@
 /**
  * @file ar_eccm_evaluator_test.cpp
  * @brief 验证 EccmEvaluator::Evaluate 的全部分支（基础重载此前 0% 覆盖）。
+ *
+ * @note 基础 Evaluate 重载已标记为 `[[deprecated]]`（生产路径已迁移到带
+ *       AssociationQualityInfo 的关联重载，见 EccmEvaluator.h）。本文件作为历史
+ *       API 的回归覆盖仍需调用基础重载，故对整个文件抑制 deprecated 警告；
+ *       关联重载的测试不受影响（其调用本身不触发该警告）。
  */
+
+// 基础重载已 [[deprecated]]，但本文件作为历史回归覆盖仍需调用，整文件抑制。
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 #include <gtest/gtest.h>
 
@@ -19,6 +30,7 @@ namespace {
 using session::EccmSourceInfo;
 using session::EccmJammerSourceInfo;
 using session::TacticalProposal;
+using ActivationSource = EccmEvaluator::ActivationSource;
 
 EccmJammerSourceInfo MakeCredibleSource() {
   EccmJammerSourceInfo source;
@@ -42,6 +54,7 @@ TEST(EccmEvaluatorTest, NullProposalsReturnsResultWithoutCrash) {
   info.has_jamming_signal = true;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, false, nullptr);
   EXPECT_FALSE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kNone);
 }
 
 TEST(EccmEvaluatorTest, HoldOnlyProducesCautiousFallback) {
@@ -51,6 +64,7 @@ TEST(EccmEvaluatorTest, HoldOnlyProducesCautiousFallback) {
   std::vector<TacticalProposal> proposals;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, true, &proposals);
   EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kCautiousFallback);
 }
 
 TEST(EccmEvaluatorTest, EmptyJammerSourcesWithNoHoldProducesFallback) {
@@ -61,6 +75,7 @@ TEST(EccmEvaluatorTest, EmptyJammerSourcesWithNoHoldProducesFallback) {
   std::vector<TacticalProposal> proposals;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, false, &proposals);
   EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kCautiousFallback);
 }
 
 TEST(EccmEvaluatorTest, LowConfidenceSourceProducesFallback) {
@@ -73,6 +88,7 @@ TEST(EccmEvaluatorTest, LowConfidenceSourceProducesFallback) {
   std::vector<TacticalProposal> proposals;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, false, &proposals);
   EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kCautiousFallback);
 }
 
 TEST(EccmEvaluatorTest, CredibleDeceptionSourceActivatesEccm) {
@@ -83,6 +99,7 @@ TEST(EccmEvaluatorTest, CredibleDeceptionSourceActivatesEccm) {
   std::vector<TacticalProposal> proposals;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, false, &proposals);
   EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kEvidenceBased);
   EXPECT_FALSE(proposals.empty());
 }
 
@@ -96,6 +113,7 @@ TEST(EccmEvaluatorTest, NoiseSuppressionTechniqueActivatesEccm) {
   std::vector<TacticalProposal> proposals;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, false, &proposals);
   EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kEvidenceBased);
 }
 
 TEST(EccmEvaluatorTest, RepeaterTechniqueActivatesEccm) {
@@ -108,6 +126,7 @@ TEST(EccmEvaluatorTest, RepeaterTechniqueActivatesEccm) {
   std::vector<TacticalProposal> proposals;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, false, &proposals);
   EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kEvidenceBased);
 }
 
 TEST(EccmEvaluatorTest, UnknownTechniqueActivatesEccm) {
@@ -120,6 +139,7 @@ TEST(EccmEvaluatorTest, UnknownTechniqueActivatesEccm) {
   std::vector<TacticalProposal> proposals;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, false, &proposals);
   EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kEvidenceBased);
 }
 
 // =============================================================================
@@ -137,6 +157,7 @@ TEST(EccmEvaluatorTest, AssociationPressureNoiseSuppressionActivatesEccm) {
   std::vector<TacticalProposal> proposals;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, assoc, false, &proposals);
   EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kAssociationPressure);
 }
 
 TEST(EccmEvaluatorTest, AssociationPressureDeceptionActivatesEccm) {
@@ -150,6 +171,7 @@ TEST(EccmEvaluatorTest, AssociationPressureDeceptionActivatesEccm) {
   std::vector<TacticalProposal> proposals;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, assoc, false, &proposals);
   EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kAssociationPressure);
 }
 
 TEST(EccmEvaluatorTest, AssociationPressureRepeaterActivatesEccm) {
@@ -163,6 +185,7 @@ TEST(EccmEvaluatorTest, AssociationPressureRepeaterActivatesEccm) {
   std::vector<TacticalProposal> proposals;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, assoc, false, &proposals);
   EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kAssociationPressure);
 }
 
 TEST(EccmEvaluatorTest, AssociationPressureMixedActivatesEccm) {
@@ -176,6 +199,7 @@ TEST(EccmEvaluatorTest, AssociationPressureMixedActivatesEccm) {
   std::vector<TacticalProposal> proposals;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, assoc, false, &proposals);
   EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kAssociationPressure);
 }
 
 TEST(EccmEvaluatorTest, LowSeverityAssociationPressureProducesFallback) {
@@ -189,8 +213,76 @@ TEST(EccmEvaluatorTest, LowSeverityAssociationPressureProducesFallback) {
   std::vector<TacticalProposal> proposals;
   const EccmEvaluator::Result result = evaluator.Evaluate(info, assoc, false, &proposals);
   EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kCautiousFallback);
+}
+
+// =============================================================================
+// credible 证据但评分全部不达标 → 走最低保底（activation_source 应为 kCautiousFallback）
+//
+// 覆盖一条此前无测试的混合路径：has_credible_multisource_evidence=true（confidence
+// 刚过 kMinimumCredibleConfidence），但五项评分累加后全部低于各自阈值，控制流进入
+// 末尾「最低保底」分支强制激活自适应波束形成。此时实际达标的 proposal 来自保底路径，
+// 故 activation_source 标记为 kCautiousFallback 而非 kEvidenceBased。
+// 见 EccmEvaluator.h 的 ActivationSource 枚举注释。
+// =============================================================================
+
+namespace {
+
+/// 构造一个 credible（confidence 刚过阈值）但各项评分都被压低的干扰源：
+/// - confidence = 0.35f（== kMinimumCredibleConfidence）→ has_credible=true，但
+///   confidence_weight 小，累加后 adaptive_beamforming_score 仅 0.8*0.35=0.28 < 0.8 阈值；
+/// - frequency_overlap_ratio / prf_lock_risk / jammer_power / jammer_to_signal 均低于
+///   high 阈值，且 jammer_in_sidelobe=false，其余四项评分分支不触发；
+/// - technique=kUnknown 仅 +0.4*0.35=0.14，不足以翻盘。
+EccmJammerSourceInfo MakeCredibleButLowScoreSource() {
+  EccmJammerSourceInfo source;
+  source.technique = session::JammingTechnique::kUnknown;
+  source.jammer_power_db = 1.0f;       // < kHighJammerPowerDb(8.0)
+  source.jammer_to_signal_db = 1.0f;   // < kHighJammerToSignalDb(6.0)
+  source.frequency_overlap_ratio = 0.1f;  // < kHighFrequencyOverlapRatio(0.5)
+  source.prf_lock_risk = 0.1f;            // < kHighPrfLockRisk(0.5)
+  source.jammer_in_sidelobe = false;
+  source.confidence = 0.35f;  // == kMinimumCredibleConfidence
+  return source;
+}
+
+}  // namespace
+
+TEST(EccmEvaluatorTest, CredibleEvidenceButScoresBelowThresholdProducesFallback) {
+  EccmEvaluator evaluator;
+  EccmSourceInfo info;
+  info.has_jamming_signal = true;
+  info.jammer_sources.push_back(MakeCredibleButLowScoreSource());
+
+  std::vector<TacticalProposal> proposals;
+  // 基础重载：五项评分全不达标 → 末尾保底分支强制激活自适应波束形成。
+  const EccmEvaluator::Result result = evaluator.Evaluate(info, false, &proposals);
+  EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kCautiousFallback);
+}
+
+TEST(EccmEvaluatorTest, CredibleEvidenceButScoresBelowThresholdProducesFallbackAssoc) {
+  EccmEvaluator evaluator;
+  EccmSourceInfo info;
+  info.has_jamming_signal = true;
+  info.jammer_sources.push_back(MakeCredibleButLowScoreSource());
+  // 关联重载：jammer_sources 非空走多源证据路径，逻辑与基础重载一致；
+  // 这里关联压力为低（不触发 association 分支），验证同一保底语义。
+  session::AssociationQualityInfo assoc;
+  assoc.dominant_jamming_semantic = config::JammingSemantic::kNone;
+  assoc.jamming_severity = 0.1f;
+  assoc.association_stress = 0.05f;
+
+  std::vector<TacticalProposal> proposals;
+  const EccmEvaluator::Result result = evaluator.Evaluate(info, assoc, false, &proposals);
+  EXPECT_TRUE(result.eccm_activated);
+  EXPECT_EQ(result.activation_source, ActivationSource::kCautiousFallback);
 }
 
 }  // namespace
 }  // namespace decision
 }  // namespace airborne_radar
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

@@ -36,10 +36,10 @@ std::string MakeTempTraceDir() {
   if (!base.empty() && base[base.size() - 1U] != '/' && base[base.size() - 1U] != '\\') {
     stream << "/";
   }
-  const long long ticks = static_cast<long long>(
-      std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  stream << "oneq-replay-trace-" << std::time(nullptr) << "-" << ticks << "-"
-         << std::rand() << "-" << unique_counter++;
+  const long long ticks =
+      static_cast<long long>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  stream << "oneq-replay-trace-" << std::time(nullptr) << "-" << ticks << "-" << std::rand() << "-"
+         << unique_counter++;
   return stream.str();
 }
 
@@ -70,8 +70,7 @@ void WriteFile(const std::string& path, const std::string& content) {
   output << content;
 }
 
-std::string ReplaceFirst(std::string content, const std::string& from,
-                         const std::string& to) {
+std::string ReplaceFirst(std::string content, const std::string& from, const std::string& to) {
   const std::size_t pos = content.find(from);
   if (pos != std::string::npos) {
     content.replace(pos, from.size(), to);
@@ -79,17 +78,14 @@ std::string ReplaceFirst(std::string content, const std::string& from,
   return content;
 }
 
-std::string MakeFlatbuffersPayloadBytes(const std::string& tag) {
-  return std::string("fb:") + tag;
-}
+std::string MakeFlatbuffersPayloadBytes(const std::string& tag) { return std::string("fb:") + tag; }
 
 struct PlaybackDispatchState {
   std::uint64_t session_config_calls{0U};
   std::uint64_t cycle_input_calls{0U};
 };
 
-bool CountSessionConfigCallback(const oneq::replay::ReplayTraceReadEvent& event,
-                                void* user_data,
+bool CountSessionConfigCallback(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
                                 std::string* error) {
   (void)error;
   PlaybackDispatchState* state = static_cast<PlaybackDispatchState*>(user_data);
@@ -97,8 +93,7 @@ bool CountSessionConfigCallback(const oneq::replay::ReplayTraceReadEvent& event,
   return event.payload_type == "ArSessionConfig";
 }
 
-bool CountCycleInputCallback(const oneq::replay::ReplayTraceReadEvent& event,
-                             void* user_data,
+bool CountCycleInputCallback(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
                              std::string* error) {
   (void)error;
   PlaybackDispatchState* state = static_cast<PlaybackDispatchState*>(user_data);
@@ -106,25 +101,51 @@ bool CountCycleInputCallback(const oneq::replay::ReplayTraceReadEvent& event,
   return event.payload_type == "ArCycleInput";
 }
 
-bool EchoOutputCallback(const oneq::replay::ReplayTraceReadEvent& event,
-                        void* user_data,
-                        std::string* actual_output_payload,
-                        std::string* error) {
+using oneq::replay::ReplayTraceOutputStatus;
+
+ReplayTraceOutputStatus EchoOutputCallback(const oneq::replay::ReplayTraceReadEvent& event,
+                                           void* user_data, std::string* actual_output_payload,
+                                           std::string* error) {
   (void)user_data;
   (void)error;
   *actual_output_payload = event.payload_inline;
-  return true;
+  return ReplayTraceOutputStatus::kHandledByModule;
 }
 
-bool DivergentOutputCallback(const oneq::replay::ReplayTraceReadEvent& event,
-                             void* user_data,
-                             std::string* actual_output_payload,
-                             std::string* error) {
+ReplayTraceOutputStatus DivergentOutputCallback(const oneq::replay::ReplayTraceReadEvent& event,
+                                                void* user_data,
+                                                std::string* actual_output_payload,
+                                                std::string* error) {
   (void)event;
   (void)user_data;
   (void)error;
+  // 返回 kHandledByModule 但填入与 payload_inline 不一致的内容，
+  // 覆盖 generic 路径的分叉检测（与模块显式 kDivergence 路径互补）。
   *actual_output_payload = "{\"mismatch\":true}";
-  return true;
+  return ReplayTraceOutputStatus::kHandledByModule;
+}
+
+ReplayTraceOutputStatus ModuleHandledDivergenceCallback(
+    const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
+    std::string* actual_output_payload, std::string* error) {
+  (void)event;
+  (void)user_data;
+  // 模块逐字段比较后显式声明分叉：填 error 说明 + 留空 actual_output_payload，
+  // 验证框架不再依赖解析 error 文本判断分叉。
+  actual_output_payload->clear();
+  *error = "ESR replay output divergence (EsrCycleResult)";
+  return ReplayTraceOutputStatus::kDivergence;
+}
+
+ReplayTraceOutputStatus OtherFailureCallback(const oneq::replay::ReplayTraceReadEvent& event,
+                                             void* user_data,
+                                             std::string* actual_output_payload,
+                                             std::string* error) {
+  (void)event;
+  (void)user_data;
+  actual_output_payload->clear();
+  *error = "decode failed: corrupt payload";
+  return ReplayTraceOutputStatus::kOtherFailure;
 }
 
 }  // namespace
@@ -166,11 +187,9 @@ TEST(ReplayTraceWriterTest, WritesManifestAndReplayEventEnvelope) {
   EXPECT_NE(manifest_content.find("\"scenario_id\":\"scenario-a\""), std::string::npos);
   EXPECT_NE(manifest_content.find("\"default_tolerances\":{\"float_abs\":0.001}"),
             std::string::npos);
-  EXPECT_NE(manifest_content.find("\"failure_window_event_count\":64"),
-            std::string::npos);
+  EXPECT_NE(manifest_content.find("\"failure_window_event_count\":64"), std::string::npos);
 
-  const std::string event_path = JoinPath(JoinPath(trace_dir, "events"),
-                                         "000000.events.jsonl");
+  const std::string event_path = JoinPath(JoinPath(trace_dir, "events"), "000000.events.jsonl");
   const std::string event_content = ReadFile(event_path);
   EXPECT_NE(event_content.find("\"event_type\":\"cycle_input\""), std::string::npos);
   EXPECT_NE(event_content.find("\"cycle_index\":7"), std::string::npos);
@@ -214,8 +233,7 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
   }
 
   ReplayTraceReader reader(trace_dir);
-  EXPECT_NE(reader.manifest_json().find("\"trace_id\":\"reader-trace-test\""),
-            std::string::npos);
+  EXPECT_NE(reader.manifest_json().find("\"trace_id\":\"reader-trace-test\""), std::string::npos);
 
   ReplayTraceReadEvent event;
   ASSERT_TRUE(reader.ReadNextEvent(&event));
@@ -283,11 +301,9 @@ TEST(ReplayTraceWriterTest, ReaderRestoresBinaryPayloadBytes) {
 
   const std::string event_content =
       ReadFile(JoinPath(JoinPath(trace_dir, "events"), "000000.events.jsonl"));
-  EXPECT_NE(event_content.find("\"payload_encoding\":\"flatbuffers\""),
-            std::string::npos);
+  EXPECT_NE(event_content.find("\"payload_encoding\":\"flatbuffers\""), std::string::npos);
   EXPECT_NE(event_content.find("\"payload\":null"), std::string::npos);
-  EXPECT_NE(event_content.find("\"payload_base64\":\"ZmIAAQ==\""),
-            std::string::npos);
+  EXPECT_NE(event_content.find("\"payload_base64\":\"ZmIAAQ==\""), std::string::npos);
 
   ReplayTraceReader reader(trace_dir);
   ReplayTraceReadEvent event;
@@ -336,11 +352,10 @@ TEST(ReplayTraceWriterTest, ScanReportsEventCountAndDetectsTampering) {
   EXPECT_TRUE(scan.sequences_contiguous);
   EXPECT_TRUE(scan.first_error.empty());
 
-  const std::string event_path = JoinPath(JoinPath(trace_dir, "events"),
-                                         "000000.events.jsonl");
-  const std::string tampered = ReplaceFirst(ReadFile(event_path),
-                                           "\"payload_hash\":\"fnv1a64:",
-                                           "\"payload_hash\":\"fnv1a64:0000000000000000");
+  const std::string event_path = JoinPath(JoinPath(trace_dir, "events"), "000000.events.jsonl");
+  const std::string tampered =
+      ReplaceFirst(ReadFile(event_path),
+                   "\"payload_hash\":\"fnv1a64:", "\"payload_hash\":\"fnv1a64:0000000000000000");
   WriteFile(event_path, tampered);
 
   scan = ScanReplayTrace(trace_dir);
@@ -392,23 +407,18 @@ TEST(ReplayTraceWriterTest, WritesFailureMarkerAndLastWindowPackage) {
     writer.Flush();
   }
 
-  const std::string failure_path = JoinPath(JoinPath(trace_dir, "crash"),
-                                           "failure.json");
+  const std::string failure_path = JoinPath(JoinPath(trace_dir, "crash"), "failure.json");
   const std::string failure_content = ReadFile(failure_path);
   EXPECT_NE(failure_content.find("\"failure_marker_sequence\":2"), std::string::npos);
   EXPECT_NE(failure_content.find("\"last_event_sequence\":1"), std::string::npos);
-  EXPECT_NE(failure_content.find("\"error_code\":\"ASSERTION_FAILED\""),
-            std::string::npos);
-  EXPECT_NE(failure_content.find("\"diagnostics\":{\"track_id\":17}"),
-            std::string::npos);
+  EXPECT_NE(failure_content.find("\"error_code\":\"ASSERTION_FAILED\""), std::string::npos);
+  EXPECT_NE(failure_content.find("\"diagnostics\":{\"track_id\":17}"), std::string::npos);
 
-  const std::string window_path = JoinPath(JoinPath(trace_dir, "crash"),
-                                          "last-window.events.jsonl");
+  const std::string window_path =
+      JoinPath(JoinPath(trace_dir, "crash"), "last-window.events.jsonl");
   const std::string window_content = ReadFile(window_path);
-  EXPECT_NE(window_content.find("\"event_type\":\"cycle_output\""),
-            std::string::npos);
-  EXPECT_NE(window_content.find("\"event_type\":\"failure_marker\""),
-            std::string::npos);
+  EXPECT_NE(window_content.find("\"event_type\":\"cycle_output\""), std::string::npos);
+  EXPECT_NE(window_content.find("\"event_type\":\"failure_marker\""), std::string::npos);
   EXPECT_NE(window_content.find("\"payload_base64\":\""), std::string::npos);
 
   ReplayTraceScanResult scan = ScanReplayTrace(trace_dir);
@@ -445,12 +455,12 @@ TEST(ReplayTraceWriterTest, SplitsEventChunksAndWritesCycleIndex) {
     writer.Flush();
   }
 
-  const std::string first_chunk = ReadFile(JoinPath(JoinPath(trace_dir, "events"),
-                                                   "000000.events.jsonl"));
-  const std::string second_chunk = ReadFile(JoinPath(JoinPath(trace_dir, "events"),
-                                                    "000001.events.jsonl"));
-  const std::string third_chunk = ReadFile(JoinPath(JoinPath(trace_dir, "events"),
-                                                   "000002.events.jsonl"));
+  const std::string first_chunk =
+      ReadFile(JoinPath(JoinPath(trace_dir, "events"), "000000.events.jsonl"));
+  const std::string second_chunk =
+      ReadFile(JoinPath(JoinPath(trace_dir, "events"), "000001.events.jsonl"));
+  const std::string third_chunk =
+      ReadFile(JoinPath(JoinPath(trace_dir, "events"), "000002.events.jsonl"));
   EXPECT_NE(first_chunk.find("\"sequence\":0"), std::string::npos);
   EXPECT_NE(first_chunk.find("\"sequence\":1"), std::string::npos);
   EXPECT_NE(second_chunk.find("\"sequence\":2"), std::string::npos);
@@ -467,8 +477,7 @@ TEST(ReplayTraceWriterTest, SplitsEventChunksAndWritesCycleIndex) {
   }
   EXPECT_FALSE(reader.ReadNextEvent(&read_event));
 
-  const std::string cycle_index = ReadFile(JoinPath(JoinPath(trace_dir, "indexes"),
-                                                   "cycles.idx"));
+  const std::string cycle_index = ReadFile(JoinPath(JoinPath(trace_dir, "indexes"), "cycles.idx"));
   EXPECT_NE(cycle_index.find("\"cycle_index\":4"), std::string::npos);
   EXPECT_NE(cycle_index.find("\"sequence\":4"), std::string::npos);
   EXPECT_TRUE(cycle_index.find("events\\\\000002.events.jsonl") != std::string::npos ||
@@ -510,8 +519,7 @@ TEST(ReplayTraceWriterTest, ChecksManifestCompatibilityBeforeReplay) {
   expectation.git_commit = "abc123";
   expectation.require_git_commit_match = true;
 
-  ReplayTraceCompatibilityResult result =
-      CheckReplayTraceCompatibility(trace_dir, expectation);
+  ReplayTraceCompatibilityResult result = CheckReplayTraceCompatibility(trace_dir, expectation);
   EXPECT_TRUE(result.compatible);
   EXPECT_TRUE(result.schema_version_matches);
   EXPECT_TRUE(result.serializer_version_matches);
@@ -799,6 +807,191 @@ TEST(ReplayTraceWriterTest, PlaybackStopsOnFirstDivergenceWhenEnabled) {
   EXPECT_EQ(result.compared_output_count, 1U);
 }
 
+TEST(ReplayTraceWriterTest, PlaybackMapsModuleHandledOutputDivergence) {
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "playback-module-divergence";
+  manifest.module = "electronic_surveillance_radar";
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+
+    ReplayTraceEvent config;
+    config.module = "electronic_surveillance_radar";
+    config.event_type = "session_config";
+    config.payload_type = "ArSessionConfig";
+    config.payload_encoding = "flatbuffers";
+    config.payload_bytes = MakeFlatbuffersPayloadBytes("module-div-config");
+    writer.WriteEvent(config);
+
+    ReplayTraceEvent input;
+    input.module = "electronic_surveillance_radar";
+    input.event_type = "cycle_input";
+    input.payload_type = "ArCycleInput";
+    input.payload_encoding = "flatbuffers";
+    input.payload_bytes = MakeFlatbuffersPayloadBytes("module-div-input");
+    writer.WriteEvent(input);
+
+    ReplayTraceEvent output;
+    output.module = "electronic_surveillance_radar";
+    output.event_type = "cycle_output";
+    output.payload_type = "EsrCycleResult";
+    output.payload_encoding = "flatbuffers";
+    output.payload_bytes = MakeFlatbuffersPayloadBytes("module-div-output");
+    writer.WriteEvent(output);
+    writer.Flush();
+  }
+
+  PlaybackDispatchState state;
+  ReplayTracePlaybackCallbacks callbacks;
+  callbacks.user_data = &state;
+  callbacks.on_session_config = CountSessionConfigCallback;
+  callbacks.on_cycle_input = CountCycleInputCallback;
+  callbacks.on_cycle_output = ModuleHandledDivergenceCallback;
+
+  ReplayTracePlaybackResult result = PlaybackReplayTrace(trace_dir, callbacks);
+  EXPECT_FALSE(result.ok);
+  EXPECT_TRUE(result.divergence_found);
+  EXPECT_EQ(result.divergence_sequence, 2U);
+  EXPECT_EQ(result.expected_output_payload, "null");
+  EXPECT_TRUE(result.actual_output_payload.empty());
+  // 结构化分叉检测：框架不再解析 first_error 文本判断分叉，divergence_found 即权威信号。
+  // first_error 仍透传模块填写的说明文本，便于人读排查。
+  EXPECT_FALSE(result.first_error.empty());
+  EXPECT_EQ(result.first_error, "ESR replay output divergence (EsrCycleResult)");
+  EXPECT_EQ(result.processed_event_count, 3U);
+  EXPECT_EQ(result.compared_output_count, 1U);
+}
+
+TEST(ReplayTraceWriterTest, PlaybackOtherFailureIsNotDivergence) {
+  // kOtherFailure（解码/执行失败）不应被误判为输出分叉：
+  // 仅 result.ok=false + first_error，divergence_found 保持 false。
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "playback-other-failure";
+  manifest.module = "airborne_radar";
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+
+    ReplayTraceEvent config;
+    config.module = "airborne_radar";
+    config.event_type = "session_config";
+    config.payload_type = "ArSessionConfig";
+    config.payload_encoding = "flatbuffers";
+    config.payload_bytes = MakeFlatbuffersPayloadBytes("other-fail-config");
+    writer.WriteEvent(config);
+
+    ReplayTraceEvent input;
+    input.module = "airborne_radar";
+    input.event_type = "cycle_input";
+    input.payload_type = "ArCycleInput";
+    input.payload_encoding = "flatbuffers";
+    input.payload_bytes = MakeFlatbuffersPayloadBytes("other-fail-input");
+    writer.WriteEvent(input);
+
+    ReplayTraceEvent output;
+    output.module = "airborne_radar";
+    output.event_type = "cycle_output";
+    output.payload_type = "ArCycleResult";
+    output.payload_encoding = "flatbuffers";
+    output.payload_bytes = MakeFlatbuffersPayloadBytes("other-fail-output");
+    writer.WriteEvent(output);
+    writer.Flush();
+  }
+
+  PlaybackDispatchState state;
+  ReplayTracePlaybackCallbacks callbacks;
+  callbacks.user_data = &state;
+  callbacks.on_session_config = CountSessionConfigCallback;
+  callbacks.on_cycle_input = CountCycleInputCallback;
+  callbacks.on_cycle_output = OtherFailureCallback;
+
+  ReplayTracePlaybackResult result = PlaybackReplayTrace(trace_dir, callbacks);
+  EXPECT_FALSE(result.ok);
+  EXPECT_FALSE(result.divergence_found);
+  EXPECT_EQ(result.divergence_sequence, 0U);
+  EXPECT_EQ(result.first_error, "decode failed: corrupt payload");
+  EXPECT_EQ(result.processed_event_count, 3U);
+  // kOtherFailure 不计入 compared_output_count（未发生比较）。
+  EXPECT_EQ(result.compared_output_count, 0U);
+}
+
+TEST(ReplayTraceWriterTest, PlaybackModuleDivergenceRespectsStopOption) {
+  // 模块显式声明的分叉（kDivergence）也应尊重 stop_on_first_divergence=false：
+  // 旧实现无视该选项直接 return，本轮已统一两套分叉路径的 stop 语义。
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "playback-module-div-continue";
+  manifest.module = "airborne_radar";
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+
+    ReplayTraceEvent config;
+    config.module = "airborne_radar";
+    config.event_type = "session_config";
+    config.payload_type = "ArSessionConfig";
+    config.payload_encoding = "flatbuffers";
+    config.payload_bytes = MakeFlatbuffersPayloadBytes("mod-div-cont-config");
+    writer.WriteEvent(config);
+
+    ReplayTraceEvent input_a;
+    input_a.module = "airborne_radar";
+    input_a.event_type = "cycle_input";
+    input_a.payload_type = "ArCycleInput";
+    input_a.payload_encoding = "flatbuffers";
+    input_a.payload_bytes = MakeFlatbuffersPayloadBytes("mod-div-cont-input-a");
+    writer.WriteEvent(input_a);
+
+    ReplayTraceEvent output_a;
+    output_a.module = "airborne_radar";
+    output_a.event_type = "cycle_output";
+    output_a.payload_type = "ArCycleResult";
+    output_a.payload_encoding = "flatbuffers";
+    output_a.payload_bytes = MakeFlatbuffersPayloadBytes("mod-div-cont-output-a");
+    writer.WriteEvent(output_a);
+
+    ReplayTraceEvent input_b;
+    input_b.module = "airborne_radar";
+    input_b.event_type = "cycle_input";
+    input_b.payload_type = "ArCycleInput";
+    input_b.payload_encoding = "flatbuffers";
+    input_b.payload_bytes = MakeFlatbuffersPayloadBytes("mod-div-cont-input-b");
+    writer.WriteEvent(input_b);
+
+    ReplayTraceEvent output_b;
+    output_b.module = "airborne_radar";
+    output_b.event_type = "cycle_output";
+    output_b.payload_type = "ArCycleResult";
+    output_b.payload_encoding = "flatbuffers";
+    output_b.payload_bytes = MakeFlatbuffersPayloadBytes("mod-div-cont-output-b");
+    writer.WriteEvent(output_b);
+    writer.Flush();
+  }
+
+  PlaybackDispatchState state;
+  ReplayTracePlaybackCallbacks callbacks;
+  callbacks.user_data = &state;
+  callbacks.on_session_config = CountSessionConfigCallback;
+  callbacks.on_cycle_input = CountCycleInputCallback;
+  callbacks.on_cycle_output = ModuleHandledDivergenceCallback;
+
+  ReplayTracePlaybackOptions options;
+  options.stop_on_first_divergence = false;
+  ReplayTracePlaybackResult result = PlaybackReplayTrace(trace_dir, callbacks, options);
+  EXPECT_FALSE(result.ok);
+  EXPECT_TRUE(result.divergence_found);
+  EXPECT_EQ(result.divergence_sequence, 2U);  // 首个分叉仍记录
+  // stop=false 时继续处理后续事件：
+  EXPECT_EQ(result.processed_event_count, 5U);
+  EXPECT_EQ(result.applied_input_count, 2U);
+  EXPECT_EQ(result.compared_output_count, 2U);
+}
+
 TEST(ReplayTraceWriterTest, PlaybackContinuesAfterDivergenceWhenDisabled) {
   const std::string trace_dir = MakeTempTraceDir();
 
@@ -976,8 +1169,7 @@ TEST(ReplayTraceWriterTest, CompatibilityCheckRejectsModuleMismatch) {
   expectation.module = "electronic_surveillance_radar";  // 不匹配
   expectation.require_module_match = true;
 
-  ReplayTraceCompatibilityResult result =
-      CheckReplayTraceCompatibility(trace_dir, expectation);
+  ReplayTraceCompatibilityResult result = CheckReplayTraceCompatibility(trace_dir, expectation);
   EXPECT_FALSE(result.compatible);
 }
 

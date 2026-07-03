@@ -426,7 +426,7 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
 
   session::SarCycleInput input;
   input.cycle_index = 8U;
-  input.dt_sec = 0.5;
+  input.dt_sec = 0.5f;
   input.platform.altitude_m = 0.0;
   session::SarPointTarget target;
   target.latitude_deg = 29.9792458 / 6378137.0 * 180.0 / 3.14159265358979323846;

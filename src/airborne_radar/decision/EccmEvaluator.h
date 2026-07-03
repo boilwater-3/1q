@@ -29,17 +29,45 @@ class EccmEvaluator final {
   /**
    * @brief ECCM 评估结果。
    */
+  /**
+   * @brief ECCM 实际激活来源。
+   *
+   * @note 该枚举反映「本周期真正达标的 proposal 来自哪条路径」，即**实际激活来源**，
+   *       而非「证据本身的有无」。例如：即使存在 credible 多源干扰证据
+   *       (`has_credible_multisource_evidence=true`)，但若五项评分全部未跨过阈值，
+   *       控制流会进入末尾「最低保底」分支强制激活自适应波束形成——此时实际达标的
+   *       是保底 proposal，故 `activation_source` 标记为 `kCautiousFallback`，
+   *       而非 `kEvidenceBased`。消费方若需要区分「有证据但不足以触发具体措施」与
+   *       「完全无证据」，应结合 proposals 列表内容判断。
+   */
+  enum class ActivationSource {
+    kNone = 0,             /**< 未激活任何 ECCM 措施 */
+    kEvidenceBased,        /**< 由可信干扰源事实直接驱动评分达标而激活 */
+    kCautiousFallback,     /**< 由保守保底路径激活（含「有证据但评分不达标→走保底」） */
+    kAssociationPressure   /**< 由关联质量压力驱动评分达标而激活 */
+  };
+
   struct Result {
     bool eccm_activated{false}; /**< 本周期是否激活了任何 ECCM 措施 */
+    ActivationSource activation_source{
+        ActivationSource::kNone}; /**< 本周期 ECCM 实际激活来源 */
   };
 
   /**
-   * @brief 基于环境干扰事实生成 ECCM 战术提案。
+   * @brief 基于环境干扰事实生成 ECCM 战术提案（基础重载）。
+   *
+   * @deprecated 生产路径已迁移到带 `AssociationQualityInfo` 的关联重载：
+   *   `Evaluate(eccm_source_info, association_quality, hold_only, proposals)`。
+   *   `TacticalCoordinator` 当前仅调用关联重载；本基础重载保留以兼容历史单元测试，
+   *   新代码请勿使用。
+   *
    * @param eccm_source_info  环境干扰来源信息（has_jamming_signal + jammer_sources）
    * @param hold_only         true 表示仅输出保守保底提案（持有期路径）
    * @param proposals         [out] 追加 ECCM 提案
    * @return 本评估周期的 ECCM 评估结果
    */
+  [[deprecated("生产路径已迁移到带 AssociationQualityInfo 的关联重载；"
+               "新代码请使用 Evaluate(eccm_source_info, association_quality, hold_only, proposals)")]]
   Result Evaluate(const session::EccmSourceInfo& eccm_source_info,
                   bool hold_only,
                   std::vector<session::TacticalProposal>* proposals);

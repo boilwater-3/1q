@@ -1,11 +1,11 @@
 #include "1q/airborne_radar/session/ArReplaySession.h"
-#include "1q/airborne_radar/session/ArSession.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
+#include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/session/ArReplayFlatbufferCodec.h"
 
@@ -27,8 +27,8 @@ struct ArReplayState {
 bool TrackStateSnapshotEqual(const session::TrackStateSnapshot& left,
                              const session::TrackStateSnapshot& right) {
   return left.association_key == right.association_key &&
-         left.external_target_id == right.external_target_id && left.target_name == right.target_name &&
-         left.status == right.status &&
+         left.external_target_id == right.external_target_id &&
+         left.target_name == right.target_name && left.status == right.status &&
          left.position_x == right.position_x && left.position_y == right.position_y &&
          left.position_z == right.position_z && left.velocity_x == right.velocity_x &&
          left.velocity_y == right.velocity_y && left.velocity_z == right.velocity_z &&
@@ -75,7 +75,7 @@ bool ValidationIssueListEqual(const ValidationIssueList& left, const ValidationI
 }
 
 bool ArCommandsEqual(const std::vector<session::ArCommand>& left,
-                    const std::vector<session::ArCommand>& right) {
+                     const std::vector<session::ArCommand>& right) {
   if (left.size() != right.size()) {
     return false;
   }
@@ -216,8 +216,10 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
   return true;
 }
 
-bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
-                   std::string* actual_output, std::string* error) {
+oneq::replay::ReplayTraceOutputStatus OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event,
+                                                     void* user_data, std::string* actual_output,
+                                                     std::string* error) {
+  using oneq::replay::ReplayTraceOutputStatus;
   ArCycleResult expected_result;
   session::TrackOutputFrame expected_frame;
   bool has_expected_result = false;
@@ -225,22 +227,22 @@ bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_d
 
   if (event.payload_type == "ArCycleResult") {
     if (!DecodeCycleResultFlatbuffer(event.payload_bytes, &expected_result, error)) {
-      return false;
+      return ReplayTraceOutputStatus::kOtherFailure;
     }
     has_expected_result = true;
   } else if (event.payload_type == "TrackOutputFrame") {
     if (!DecodeTrackOutputFrameFlatbuffer(event.payload_bytes, &expected_frame, error)) {
-      return false;
+      return ReplayTraceOutputStatus::kOtherFailure;
     }
     has_expected_frame = true;
   } else {
     *error = "AR replay does not support cycle_output payload type: " + event.payload_type;
-    return false;
+    return ReplayTraceOutputStatus::kOtherFailure;
   }
 
   ArReplayState* state = static_cast<ArReplayState*>(user_data);
   if (!ExecutePendingCycle(state, error)) {
-    return false;
+    return ReplayTraceOutputStatus::kOtherFailure;
   }
 
   if (event.payload_type == "ArCycleResult") {
@@ -248,23 +250,23 @@ bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_d
         has_expected_result && CycleResultEqual(expected_result, state->latest_result);
     if (!match) {
       *error = "AR replay output divergence (ArCycleResult)";
-      return false;
+      actual_output->clear();
+      return ReplayTraceOutputStatus::kDivergence;
     }
     actual_output->clear();
-    return true;
+    return ReplayTraceOutputStatus::kHandledByModule;
   }
-  if (event.payload_type == "TrackOutputFrame") {
+  {
     const bool match =
         has_expected_frame && TrackOutputFrameEqual(expected_frame, state->latest_frame);
     if (!match) {
       *error = "AR replay output divergence (TrackOutputFrame)";
-      return false;
+      actual_output->clear();
+      return ReplayTraceOutputStatus::kDivergence;
     }
     actual_output->clear();
-    return true;
+    return ReplayTraceOutputStatus::kHandledByModule;
   }
-  *error = "AR replay does not support cycle_output payload type: " + event.payload_type;
-  return false;
 }
 
 bool OnFailureMarker(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,

@@ -360,7 +360,7 @@ TEST(SarPerformanceTest, PublicSessionCompletes1024SquarePointTargetScene) {
 
   session::SarCycleInput input;
   input.cycle_index = 1U;
-  input.dt_sec = 0.1;
+  input.dt_sec = 0.1f;
   session::SarPointTarget target;
   target.latitude_deg = target_range_m / 6378137.0 * 180.0 / 3.14159265358979323846;
   target.radar_cross_section_dbsm = 80.0;

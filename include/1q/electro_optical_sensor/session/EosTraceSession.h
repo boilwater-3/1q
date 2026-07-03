@@ -26,18 +26,19 @@ namespace session {
 
 /**
  * @brief EosTraceSessionOptions 描述记录包装器配置。
+ * @note `sink` 产出调试/观测记录，不能直接回放；`replay_writer` 产出可被
+ *       `ReplayEosTrace()` 消费的 replay trace 目录。需要可复现实验时应同时配置
+ *       `replay_writer`。
  */
 struct ONEQ_API EosTraceSessionOptions {
   std::shared_ptr<oneq::trace::TraceSink> sink{}; /**< 记录输出 sink */
   std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer{};
-  bool trace_config_on_construct{true};                   /**< 构造时是否记录配置 */
+  bool trace_config_on_construct{true}; /**< 构造时是否记录配置 */
 
   EosTraceSessionOptions() = default;
-  EosTraceSessionOptions(std::shared_ptr<oneq::trace::TraceSink> trace_sink,
-                         bool trace_config)
+  EosTraceSessionOptions(std::shared_ptr<oneq::trace::TraceSink> trace_sink, bool trace_config)
       : sink(std::move(trace_sink)), trace_config_on_construct(trace_config) {}
-  EosTraceSessionOptions(std::shared_ptr<oneq::trace::TraceSink> trace_sink,
-                         bool trace_config,
+  EosTraceSessionOptions(std::shared_ptr<oneq::trace::TraceSink> trace_sink, bool trace_config,
                          std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_trace_writer)
       : sink(std::move(trace_sink)),
         replay_writer(std::move(replay_trace_writer)),

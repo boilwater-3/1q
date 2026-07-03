@@ -29,7 +29,7 @@ table SarPointTarget {
 
 table SarCycleInput {
   cycle_index: uint32;
-  dt_sec: double;
+  dt_sec: float;
   platform: SarPlatformState;
   point_targets: [SarPointTarget];
 }

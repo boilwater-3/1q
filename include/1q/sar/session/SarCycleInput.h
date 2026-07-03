@@ -99,7 +99,7 @@ struct ONEQ_API SarRawIqFrame {
  */
 struct ONEQ_API SarCycleInput {
   std::uint32_t cycle_index{0U};
-  double dt_sec{1.0};
+  float dt_sec{1.0f};
   SarPlatformState platform{};
   SarPointTargetList point_targets{};
   SarRawIqFrame raw_iq{};

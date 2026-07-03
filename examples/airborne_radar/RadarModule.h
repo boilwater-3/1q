@@ -252,6 +252,8 @@ class RadarModule {
   //   3. ArTrackLifecycleRecorder（生命周期） — 确认/丢失/回收事件，通过 lifecycleEvents() 获取
   //
   // 此外将通过 buildExternalOutput() 提供 ECEF 外部坐标转换。
+  // （跨模块差异：AR/EOS/ESR 均提供 buildExternalOutput()；SAR 因产品为聚焦图像、
+  // 无需 ECEF 坐标转换，不暴露此能力，见 examples/sar/SarModule.h。）
 
   /** @brief 返回最近一次 stepImp 输入的缓存（供三视图构建使用）。 */
   const ar_session::ArCycleInput& lastInput() const { return last_input_; }

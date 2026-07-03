@@ -1,11 +1,11 @@
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
-#include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
+#include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "electronic_surveillance_radar/session/EsrReplayFlatbufferCodec.h"
 
 namespace electronic_surveillance_radar {
@@ -35,8 +35,9 @@ bool EmitterHypothesisEqual(const session::EmitterHypothesis& left,
                             const session::EmitterHypothesis& right) {
   if (left.hypothesis_id != right.hypothesis_id || left.mode != right.mode ||
       left.threat_level != right.threat_level || left.bearing_az_deg != right.bearing_az_deg ||
-      left.bearing_el_deg != right.bearing_el_deg || left.bearing_std_deg != right.bearing_std_deg ||
-      left.confidence != right.confidence || left.last_seen_cycle != right.last_seen_cycle ||
+      left.bearing_el_deg != right.bearing_el_deg ||
+      left.bearing_std_deg != right.bearing_std_deg || left.confidence != right.confidence ||
+      left.last_seen_cycle != right.last_seen_cycle ||
       left.candidate_classes.size() != right.candidate_classes.size()) {
     return false;
   }
@@ -217,48 +218,49 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
   return true;
 }
 
-bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
-                   std::string* actual_output, std::string* error) {
+oneq::replay::ReplayTraceOutputStatus OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event,
+                                                     void* user_data, std::string* actual_output,
+                                                     std::string* error) {
+  using oneq::replay::ReplayTraceOutputStatus;
   if (event.payload_type != "EsrCycleResult" && event.payload_type != "EsrOutputFrame") {
     *error = "ESR replay does not support cycle_output payload type: " + event.payload_type;
-    return false;
+    return ReplayTraceOutputStatus::kOtherFailure;
   }
 
   EsrReplayState* state = static_cast<EsrReplayState*>(user_data);
   if (!ExecutePendingCycle(state, error)) {
-    return false;
+    return ReplayTraceOutputStatus::kOtherFailure;
   }
 
   if (event.payload_type == "EsrCycleResult") {
     EsrCycleResult expected_result;
     if (!DecodeEsrCycleResult(event.payload_bytes, &expected_result)) {
       *error = "ESR replay failed to decode EsrCycleResult";
-      return false;
+      return ReplayTraceOutputStatus::kOtherFailure;
     }
     if (!EsrCycleResultEqual(expected_result, state->latest_result)) {
       *error = "ESR replay output divergence (EsrCycleResult)";
-      return false;
+      actual_output->clear();
+      return ReplayTraceOutputStatus::kDivergence;
     }
     actual_output->clear();
-    return true;
+    return ReplayTraceOutputStatus::kHandledByModule;
   }
 
-  if (event.payload_type == "EsrOutputFrame") {
+  {
     EsrOutputFrame expected_frame;
     if (!DecodeEsrOutputFrame(event.payload_bytes, &expected_frame)) {
       *error = "ESR replay failed to decode EsrOutputFrame";
-      return false;
+      return ReplayTraceOutputStatus::kOtherFailure;
     }
     if (!EsrOutputFrameEqual(expected_frame, state->latest_result.output_frame)) {
       *error = "ESR replay output divergence (EsrOutputFrame)";
-      return false;
+      actual_output->clear();
+      return ReplayTraceOutputStatus::kDivergence;
     }
     actual_output->clear();
-    return true;
+    return ReplayTraceOutputStatus::kHandledByModule;
   }
-
-  *error = "ESR replay does not support cycle_output payload type: " + event.payload_type;
-  return false;
 }
 
 bool OnFailureMarker(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,

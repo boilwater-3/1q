@@ -6,8 +6,8 @@
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_RESULT_H_
 #define ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_CYCLE_RESULT_H_
 
-#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
+#include "1q/electro_optical_sensor/session/EosOutputTypes.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -23,6 +23,9 @@ struct ONEQ_API EosOutputFrame {
 
 /**
  * @brief EosCycleResult 描述光学传感器单周期聚合结果。
+ * @note `output_frame` 与 `detection_attributions` 只有在 `executed_this_cycle=true`
+ *       时才代表本周期有效计算结果；失败/abort 周期会保留默认值或上一有效输出，
+ *       不能按真实零值参与统计。
  */
 struct ONEQ_API EosCycleResult {
   std::uint32_t input_cycle_index{0U}; /**< 本次调用输入周期号，用于失败结果与 trace 归属 */

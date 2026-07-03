@@ -36,7 +36,6 @@
 #include "1q/sar/session/SarReplaySession.h"
 #include "1q/sar/session/SarSession.h"
 #include "1q/sar/session/SarTraceSession.h"
-
 #include "batch_assertions.h"
 #include "batch_csv_writer.h"
 #include "batch_replay.h"
@@ -75,8 +74,8 @@ constexpr double kTargetRcsDbsm = 10.0;
 
 struct SarCase {
   std::string scenario_id;
-  double bandwidth_mhz;        ///< 信号带宽（MHz）→ 影响距离分辨率
-  double slant_range_km;       ///< 标称斜距（km）
+  double bandwidth_mhz;          ///< 信号带宽（MHz）→ 影响距离分辨率
+  double slant_range_km;         ///< 标称斜距（km）
   std::uint32_t azimuth_pulses;  ///< 方位向脉冲数 → 影响方位分辨率 / 孔径长度
 };
 
@@ -84,9 +83,9 @@ std::vector<SarCase> BuildSarCases() {
   std::vector<SarCase> cases;
   // 带宽扫描：保持在 sample_rate(1MHz) 以下，满足奈奎斯特。
   // 距离分辨率 = c/(2*B)，带宽↑ → 分辨率数值↓（更精细）。
-  const double bws[] = {0.2, 0.5, 1.0, 2.0};  // MHz（最后两档接近/达采样率上限）
-  const double ranges[] = {100.0, 120.0, 150.0};  // km（标称斜距）
-  const std::uint32_t pulses[] = {17U, 33U, 65U};   // 方位脉冲数（孔径长度）
+  const double bws[] = {0.2, 0.5, 1.0, 2.0};       // MHz（最后两档接近/达采样率上限）
+  const double ranges[] = {100.0, 120.0, 150.0};   // km（标称斜距）
+  const std::uint32_t pulses[] = {17U, 33U, 65U};  // 方位脉冲数（孔径长度）
   char buf[128];
   // 带宽扫描（固定中等斜距 + 中孔径）
   for (double bw : bws) {
@@ -128,10 +127,9 @@ std::vector<SarCase> BuildSarCases() {
 /// 把场景参数写入 SarSessionConfig。
 ///
 /// @note SAR 参数强耦合（PRF / 平台速度 / 孔径时间 / 斜距 / 波长 / 采样窗口），
-///   且 sar.json 默认值（120MHz 采样 + 20us 脉宽需 2400 点 > 2048）本身违反
-///   采样窗口约束。这里以 sar/integration_demo.cpp 验证过的参数集为基准
+///   这里以 sar.json / sar/integration_demo.cpp 共享的验证参数集为基准
 ///  （sample_rate=1MHz, pulse_width=20us, range_sample=1024, PRF=100Hz, slant=100km），
-///   仅在保持自洽的前提下小幅扫描带宽 / 斜距 / 方位脉冲数：
+///   仅在保持采样窗口与孔径时间自洽的前提下小幅扫描带宽 / 斜距 / 方位脉冲数：
 ///   - 保持 sample_rate=1MHz、pulse_width=20us 固定（满足 ceil(20) << 1024）。
 ///   - 合成孔径时间 = azimuth_pulses / PRF，与孔径长度自洽。
 void ApplyCaseToConfig(const SarCase& c, sar_config::SarSessionConfig& config) {
@@ -406,7 +404,8 @@ void CheckCrossScenarioTrends(std::vector<ScenarioSummary>& summaries) {
   if (res.size() >= 2 && !batch_validation::IsMonotonicNonIncreasing(res)) {
     for (auto& s : summaries) {
       if (std::abs(s.slant_range_km - 100.0) < 1e-9 && s.azimuth_pulses == 33U) {
-        s.warnings.Warn("cross-scenario: range_resolution not improving (decreasing) with bandwidth");
+        s.warnings.Warn(
+            "cross-scenario: range_resolution not improving (decreasing) with bandwidth");
         break;
       }
     }
@@ -432,7 +431,8 @@ int main(int argc, char** argv) {
   std::error_code ec;
   std::filesystem::create_directories(output_dir, ec);
   if (ec) {
-    std::fprintf(stderr, "FATAL: 无法创建输出目录 %s: %s\n", output_dir.c_str(), ec.message().c_str());
+    std::fprintf(stderr, "FATAL: 无法创建输出目录 %s: %s\n", output_dir.c_str(),
+                 ec.message().c_str());
     return 1;
   }
   const std::string cycles_csv = output_dir + "/cycles.csv";

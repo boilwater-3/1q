@@ -34,7 +34,7 @@ TEST(SarCycleInputAdapterTest, EmptyPulsesProducesNoRawIq) {
 
   SarCycleInput output;
   SarCoordinateStatus status;
-  ASSERT_TRUE(SarCycleInputAdapter::Build(platform, targets, mission, 1.0, {}, &output, &status));
+  ASSERT_TRUE(SarCycleInputAdapter::Build(platform, targets, mission, 1.0f, {}, &output, &status));
   EXPECT_EQ(status, SarCoordinateStatus::kOk);
 
   // 平台/目标透传。
@@ -64,7 +64,7 @@ TEST(SarCycleInputAdapterTest, PulsesConvertedToSceneCenterEnu) {
   }
 
   SarCycleInput output;
-  ASSERT_TRUE(SarCycleInputAdapter::Build(platform, {}, mission, 1.0, pulses, &output, nullptr));
+  ASSERT_TRUE(SarCycleInputAdapter::Build(platform, {}, mission, 1.0f, pulses, &output, nullptr));
 
   EXPECT_EQ(output.raw_iq.pulse_count, 2U);
   ASSERT_EQ(output.raw_iq.pulse_states.size(), 2U);
@@ -82,7 +82,7 @@ TEST(SarCycleInputAdapterTest, NullOutputFailsWithNullStatus) {
   const auto platform = MakePlatformAtOrigin();
 
   SarCoordinateStatus status;
-  EXPECT_FALSE(SarCycleInputAdapter::Build(platform, {}, mission, 1.0, {}, nullptr, &status));
+  EXPECT_FALSE(SarCycleInputAdapter::Build(platform, {}, mission, 1.0f, {}, nullptr, &status));
   EXPECT_EQ(status, SarCoordinateStatus::kNullOutput);
 }
 
@@ -108,7 +108,7 @@ TEST(SarCycleInputAdapterTest, FailingPulseStopsBuild) {
 
   SarCycleInput output;
   SarCoordinateStatus status;
-  EXPECT_FALSE(SarCycleInputAdapter::Build(platform, {}, mission, 1.0, pulses, &output, &status));
+  EXPECT_FALSE(SarCycleInputAdapter::Build(platform, {}, mission, 1.0f, pulses, &output, &status));
   EXPECT_EQ(status, SarCoordinateStatus::kCoordinateTransformFail);
 }
 

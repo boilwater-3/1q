@@ -44,7 +44,8 @@ config::ArSessionConfig MakeDetectionFocusedConfig() {
       .Build();
 }
 
-bool AlmostSamePoint(const config::AzimuthElevationDeg& lhs, const config::AzimuthElevationDeg& rhs) {
+bool AlmostSamePoint(const config::AzimuthElevationDeg& lhs,
+                     const config::AzimuthElevationDeg& rhs) {
   return std::fabs(lhs.az_deg - rhs.az_deg) <= 1.0e-4f &&
          std::fabs(lhs.el_deg - rhs.el_deg) <= 1.0e-4f;
 }
@@ -109,9 +110,9 @@ session::ArSceneTargetList ToSceneTargets(const session::ArSceneTargetList& targ
 
 template <typename PipelineType>
 session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
-                                              const session::ArSceneTargetList& input_state,
-                                              environment::EnvironmentService* environment_service,
-                                              std::uint32_t cycle_index) {
+                                            const session::ArSceneTargetList& input_state,
+                                            environment::EnvironmentService* environment_service,
+                                            std::uint32_t cycle_index) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
   return pipeline->RunCycle(ToSceneTargets(input_state), *environment_service);
 }
@@ -135,8 +136,7 @@ class NonAutoLifecycleManager final : public signal::tracking::ITrackLifecycleMa
 };
 
 signal::pipeline::CycleExecutionRuntime BuildMinimalValidRuntime(
-    const ExecutionConfig& exec_config,
-    const session::ArControlProfile& control_profile,
+    const ExecutionConfig& exec_config, const session::ArControlProfile& control_profile,
     signal::association::DataAssociationEngine* association_engine,
     signal::tracking::TrackFilter* track_filter,
     signal::tracking::ITrackLifecycleManager* lifecycle_manager,
@@ -390,7 +390,8 @@ TEST(CycleExecutorTest, PhysicalDetectionTreatsClutterDbAsThermalRelativeNoise) 
   ASSERT_EQ(scratch.signal_term_db.size(), 1U);
   ASSERT_EQ(scratch.detection_succeeded.size(), 1U);
 
-  EXPECT_GT(scratch.signal_term_db[0], exec_config.detection.engineering.detection_policy.min_snr_db);
+  EXPECT_GT(scratch.signal_term_db[0],
+            exec_config.detection.engineering.detection_policy.min_snr_db);
   EXPECT_GT(scratch.signal_term_db[0], 5.0f);
   EXPECT_EQ(scratch.detection_succeeded[0], 1U);
 }
@@ -411,7 +412,8 @@ TEST(CycleExecutorTest, NonAutoLifecycleManagerCausesRuntimeSyncFailure) {
   target.range_m = 1000.0f;
 
   signal::pipeline::CycleExecutionScratch scratch;
-  auto context = BuildContext(session::ArSceneTargetList{target}, MakeEnvironmentSnapshot(1U), 1U, 1U, runtime);
+  auto context = BuildContext(session::ArSceneTargetList{target}, MakeEnvironmentSnapshot(1U), 1U,
+                              1U, runtime);
   EXPECT_FALSE(signal::pipeline::ExecuteCycle(context, runtime, scratch));
   EXPECT_TRUE(scratch.track_measurements.empty());
   EXPECT_EQ(scratch.decision_frame.cycle_index, 0U);
@@ -556,6 +558,15 @@ TEST(ScanScheduleResolverTest, SttFixesAtScanCenterAndKeepsZeroDwell) {
       signal::pipeline::ResolveScheduledDwellCenter(orientation, beamwidth, 7U);
   EXPECT_FLOAT_EQ(dwell.az_deg, 0.0f);
   EXPECT_FLOAT_EQ(dwell.el_deg, 0.0f);
+}
+
+TEST(ScanScheduleResolverTest, ResolveScanStepScaleDefinesDirectCallFallbacks) {
+  EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kTas), 0.5f);
+  EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kTws), 1.0f);
+  EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kStby), 1.0f);
+  EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(config::ArWorkMode::kStt), 1.0f);
+  EXPECT_FLOAT_EQ(signal::pipeline::ResolveScanStepScale(static_cast<config::ArWorkMode>(999)),
+                  1.0f);
 }
 
 TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
@@ -802,19 +813,20 @@ TEST(ScanScheduleResolverTest, BuildPatternRejectsNonPositiveStep) {
   limits.el_min_deg = -5.0f;
   limits.el_max_deg = 5.0f;
   EXPECT_TRUE(signal::pipeline::BuildScheduledScanPattern(
-      limits, 0.0f, 2.0f, oneq::foundation::ScanStartPosition::kLeftTop,
-      oneq::foundation::ScanSequence::kAzimuthFirst).empty());
+                  limits, 0.0f, 2.0f, oneq::foundation::ScanStartPosition::kLeftTop,
+                  oneq::foundation::ScanSequence::kAzimuthFirst)
+                  .empty());
   EXPECT_TRUE(signal::pipeline::BuildScheduledScanPattern(
-      limits, 2.0f, -1.0f, oneq::foundation::ScanStartPosition::kLeftTop,
-      oneq::foundation::ScanSequence::kAzimuthFirst).empty());
+                  limits, 2.0f, -1.0f, oneq::foundation::ScanStartPosition::kLeftTop,
+                  oneq::foundation::ScanSequence::kAzimuthFirst)
+                  .empty());
 }
 
 TEST(ScanScheduleResolverTest, ResolveFiniteScanCenterReturnsZeroForNan) {
   config::ArOrientationConfig orientation;
   orientation.scan_center_deg.az_deg = std::numeric_limits<float>::quiet_NaN();
   orientation.scan_center_deg.el_deg = std::numeric_limits<float>::quiet_NaN();
-  const config::AzimuthElevationDeg center =
-      signal::pipeline::ResolveFiniteScanCenter(orientation);
+  const config::AzimuthElevationDeg center = signal::pipeline::ResolveFiniteScanCenter(orientation);
   EXPECT_FLOAT_EQ(center.az_deg, 0.0f);
   EXPECT_FLOAT_EQ(center.el_deg, 0.0f);
 }
@@ -823,8 +835,7 @@ TEST(ScanScheduleResolverTest, ResolveFiniteScanCenterReturnsValidCenter) {
   config::ArOrientationConfig orientation;
   orientation.scan_center_deg.az_deg = 15.0f;
   orientation.scan_center_deg.el_deg = -5.0f;
-  const config::AzimuthElevationDeg center =
-      signal::pipeline::ResolveFiniteScanCenter(orientation);
+  const config::AzimuthElevationDeg center = signal::pipeline::ResolveFiniteScanCenter(orientation);
   EXPECT_FLOAT_EQ(center.az_deg, 15.0f);
   EXPECT_FLOAT_EQ(center.el_deg, -5.0f);
 }
@@ -837,8 +848,10 @@ TEST(ScanScheduleResolverTest, ApplyScanScheduleHandlesNullConfig) {
 TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesOrientationBeamwidthFallback) {
   ExecutionConfig runtime_config =
       config::mapping::MapSessionToExecution(MakeDetectionFocusedConfig());
-  runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg = 0.0f;
-  runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg.commanded_el_beamwidth_deg = 0.0f;
+  runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg =
+      0.0f;
+  runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg.commanded_el_beamwidth_deg =
+      0.0f;
   runtime_config.detection.orientation.commanded_beamwidth_enabled = true;
   runtime_config.detection.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 4.0f;
   runtime_config.detection.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg = 2.0f;
@@ -849,8 +862,10 @@ TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesOrientationBeamwidthFallback
 TEST(ScanScheduleResolverTest, ApplyScanScheduleUsesAntennaFallback) {
   ExecutionConfig runtime_config =
       config::mapping::MapSessionToExecution(MakeDetectionFocusedConfig());
-  runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg = 0.0f;
-  runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg.commanded_el_beamwidth_deg = 0.0f;
+  runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg =
+      0.0f;
+  runtime_config.detection.beam_control.pointing.nominal_beamwidth_deg.commanded_el_beamwidth_deg =
+      0.0f;
   runtime_config.detection.orientation.commanded_beamwidth_enabled = false;
   runtime_config.detection.engineering.antenna.nominal_az_beamwidth_deg = 3.0f;
   runtime_config.detection.engineering.antenna.nominal_el_beamwidth_deg = 1.5f;

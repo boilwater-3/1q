@@ -13,10 +13,10 @@
 #include <unordered_map>
 #include <vector>
 
-#include "1q/airborne_radar/session/ArInputValidation.h"
-#include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArCommand.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
+#include "1q/airborne_radar/session/ArInputValidation.h"
+#include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/api.hpp"
 
@@ -27,8 +27,8 @@ namespace session {
  * @brief TrackOutputFrame 表示单周期稳定的中性轨迹输出帧。
  */
 struct ONEQ_API TrackOutputFrame {
-  std::uint32_t cycle_index{0};           /**< 当前周期号 */
-  std::uint64_t batch_id{0};              /**< 当前批号 */
+  std::uint32_t cycle_index{0};             /**< 当前周期号 */
+  std::uint64_t batch_id{0};                /**< 当前批号 */
   session::TrackStateSnapshotList tracks{}; /**< 当前周期发布的轨迹快照列表 */
 };
 
@@ -41,8 +41,8 @@ BuildTrackMapByExternalTargetId(const TrackOutputFrame& frame);
 /**
  * @brief 按关联键构造轨迹映射。
  */
-ONEQ_API std::unordered_map<std::uint64_t, session::TrackStateSnapshot> BuildTrackMapByAssociationKey(
-    const TrackOutputFrame& frame);
+ONEQ_API std::unordered_map<std::uint64_t, session::TrackStateSnapshot>
+BuildTrackMapByAssociationKey(const TrackOutputFrame& frame);
 
 /**
  * @brief 收集指定外部目标 ID 对应的全部轨迹。
@@ -79,10 +79,14 @@ ONEQ_API std::size_t CountJammingTracks(const TrackOutputFrame& frame);
 /**
  * @brief 按生命周期状态统计轨迹数量。
  */
-ONEQ_API std::size_t CountTracksByStatus(const TrackOutputFrame& frame, session::TrackStatus status);
+ONEQ_API std::size_t CountTracksByStatus(const TrackOutputFrame& frame,
+                                         session::TrackStatus status);
 
 /**
  * @brief ArCycleResult 描述单周期执行后的聚合观测结果。
+ * @note `track_output_frame`、`submitted_commands`、`control_profile` 与
+ *       `association_quality_metrics` 只有在 `executed_this_cycle=true` 时才代表本周期
+ *       有效计算结果；失败/abort 周期会保留默认值或上一有效输出，不能按真实零值参与统计。
  */
 struct ONEQ_API ArCycleResult {
   std::uint32_t input_cycle_index{0U};   /**< 本次调用输入周期号，用于失败结果与 trace 归属 */
@@ -94,15 +98,12 @@ struct ONEQ_API ArCycleResult {
   bool executed_this_cycle{false}; /**< 当前调用是否真正执行了 signal/decision/control 链路 */
   session::SignalCycleAbortReason abort_reason{
       session::SignalCycleAbortReason::kNone}; /**< 若下游主链路 abort，给出结构化原因 */
-  bool reused_previous_output{
-      false};                      /**< 当前 `track_output_frame` 是否复用了上一有效周期输出 */
-  bool has_control_profile{false}; /**< 当前周期是否产出了可归属到本周期的控制真值 */
-  session::ArControlProfile
-      control_profile{}; /**< 当前周期控制真值；若未执行则保持默认值 */
+  bool reused_previous_output{false}; /**< 当前 `track_output_frame` 是否复用了上一有效周期输出 */
+  bool has_control_profile{false};    /**< 当前周期是否产出了可归属到本周期的控制真值 */
+  session::ArControlProfile control_profile{}; /**< 当前周期控制真值；若未执行则保持默认值 */
   session::AssociationQualityMetrics
       association_quality_metrics{}; /**< 当前周期关联质量观测指标；若未执行则保持默认值 */
 };
-
 
 }  // namespace session
 }  // namespace airborne_radar

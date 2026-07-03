@@ -11,16 +11,14 @@ namespace decision {
 namespace {
 
 session::ControlDirective BuildLpiPowerDirective() {
-  return session::ControlDirective(
-      session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-      session::ControlDirectiveSource::EMISSION_CONTROL);
+  return session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                   session::ControlDirectiveSource::EMISSION_CONTROL);
 }
 
 }  // namespace
 
-LpiEvaluator::Result LpiEvaluator::Evaluate(
-    const model::LpiSourceInfo& lpi_source_info,
-    std::vector<session::TacticalProposal>* proposals) {
+LpiEvaluator::Result LpiEvaluator::Evaluate(const model::LpiSourceInfo& lpi_source_info,
+                                            std::vector<session::TacticalProposal>* proposals) {
   Result result;
 
   if (proposals == nullptr) {
@@ -28,16 +26,15 @@ LpiEvaluator::Result LpiEvaluator::Evaluate(
   }
 
   if (!lpi_source_info.has_recon_platform) {
-    PROJECT_LOG_INFO("[LpiEvaluator] No reconnaissance platform. LPI remains inactive.");
+    PROJECT_LOG_DEBUG("[LpiEvaluator] No reconnaissance platform. LPI remains inactive.");
     return result;
   }
 
   // 距离大于 100km 且无接近趋势时暂不触发 LPI
   if (lpi_source_info.threat_range_km > 100.0f &&
       lpi_source_info.threat_closure_speed_mps < 50.0f) {
-    PROJECT_LOG_INFO(
-        "[LpiEvaluator] Recon platform at {:.1f}km is beyond effective LPI range.",
-        lpi_source_info.threat_range_km);
+    PROJECT_LOG_DEBUG("[LpiEvaluator] Recon platform at {:.1f}km is beyond effective LPI range.",
+                      lpi_source_info.threat_range_km);
     return result;
   }
 
@@ -53,14 +50,12 @@ LpiEvaluator::Result LpiEvaluator::Evaluate(
   }
   rationale += " requires reduced emission";
 
-  proposals->push_back(session::TacticalProposal{
-      BuildLpiPowerDirective(), 60, rationale});
+  proposals->push_back(session::TacticalProposal{BuildLpiPowerDirective(), 60, rationale});
 
-  PROJECT_LOG_INFO(
+  PROJECT_LOG_DEBUG(
       "[LpiEvaluator] Recon platform detected. Appending LPI power reduction proposal "
       "(power_scale={:.2f}, range={:.1f}km, closure_speed={:.1f}m/s).",
-      power_scale, lpi_source_info.threat_range_km,
-      lpi_source_info.threat_closure_speed_mps);
+      power_scale, lpi_source_info.threat_range_km, lpi_source_info.threat_closure_speed_mps);
 
   return result;
 }

@@ -44,7 +44,7 @@ session::SarCycleInput MakeMatchingGeometryInput(std::uint32_t cycle_index = 1U)
   constexpr double kEarthRadiusM = 6378137.0;
   session::SarCycleInput input;
   input.cycle_index = cycle_index;
-  input.dt_sec = 0.1;
+  input.dt_sec = 0.1f;
   input.platform.latitude_deg = 0.0;
   input.platform.longitude_deg = 0.0;
   input.platform.altitude_m = 0.0;

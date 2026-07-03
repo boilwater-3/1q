@@ -335,12 +335,12 @@ flatbuffers::Offset<SarPointTarget> CreateSarPointTarget(flatbuffers::FlatBuffer
 struct SarCycleInputT : public flatbuffers::NativeTable {
   typedef SarCycleInput TableType;
   uint32_t cycle_index;
-  double dt_sec;
+  float dt_sec;
   std::unique_ptr<sar::replay::SarPlatformStateT> platform;
   std::vector<std::unique_ptr<sar::replay::SarPointTargetT>> point_targets;
   SarCycleInputT()
       : cycle_index(0),
-        dt_sec(0.0) {
+        dt_sec(0.0f) {
   }
 };
 
@@ -356,8 +356,8 @@ struct SarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   uint32_t cycle_index() const {
     return GetField<uint32_t>(VT_CYCLE_INDEX, 0);
   }
-  double dt_sec() const {
-    return GetField<double>(VT_DT_SEC, 0.0);
+  float dt_sec() const {
+    return GetField<float>(VT_DT_SEC, 0.0f);
   }
   const sar::replay::SarPlatformState *platform() const {
     return GetPointer<const sar::replay::SarPlatformState *>(VT_PLATFORM);
@@ -368,7 +368,7 @@ struct SarCycleInput FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_CYCLE_INDEX) &&
-           VerifyField<double>(verifier, VT_DT_SEC) &&
+           VerifyField<float>(verifier, VT_DT_SEC) &&
            VerifyOffset(verifier, VT_PLATFORM) &&
            verifier.VerifyTable(platform()) &&
            VerifyOffset(verifier, VT_POINT_TARGETS) &&
@@ -388,8 +388,8 @@ struct SarCycleInputBuilder {
   void add_cycle_index(uint32_t cycle_index) {
     fbb_.AddElement<uint32_t>(SarCycleInput::VT_CYCLE_INDEX, cycle_index, 0);
   }
-  void add_dt_sec(double dt_sec) {
-    fbb_.AddElement<double>(SarCycleInput::VT_DT_SEC, dt_sec, 0.0);
+  void add_dt_sec(float dt_sec) {
+    fbb_.AddElement<float>(SarCycleInput::VT_DT_SEC, dt_sec, 0.0f);
   }
   void add_platform(flatbuffers::Offset<sar::replay::SarPlatformState> platform) {
     fbb_.AddOffset(SarCycleInput::VT_PLATFORM, platform);
@@ -412,7 +412,7 @@ struct SarCycleInputBuilder {
 inline flatbuffers::Offset<SarCycleInput> CreateSarCycleInput(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t cycle_index = 0,
-    double dt_sec = 0.0,
+    float dt_sec = 0.0f,
     flatbuffers::Offset<sar::replay::SarPlatformState> platform = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<sar::replay::SarPointTarget>>> point_targets = 0) {
   SarCycleInputBuilder builder_(_fbb);
@@ -426,7 +426,7 @@ inline flatbuffers::Offset<SarCycleInput> CreateSarCycleInput(
 inline flatbuffers::Offset<SarCycleInput> CreateSarCycleInputDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t cycle_index = 0,
-    double dt_sec = 0.0,
+    float dt_sec = 0.0f,
     flatbuffers::Offset<sar::replay::SarPlatformState> platform = 0,
     const std::vector<flatbuffers::Offset<sar::replay::SarPointTarget>> *point_targets = nullptr) {
   auto point_targets__ = point_targets ? _fbb.CreateVector<flatbuffers::Offset<sar::replay::SarPointTarget>>(*point_targets) : 0;

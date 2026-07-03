@@ -22,6 +22,8 @@ namespace session {
 /**
  * @brief 外部平台运动学输入。
  * @note 速度固定为 ECEF 坐标系，姿态角采用 Body->ENU 约定。
+ * @note AR 需要额外的 `radar_mount_angles_deg` 来复合平台姿态与雷达安装角；EOS/ESR
+ *       外部 Pose 结构没有该字段，因为对应示例适配器按传感器视轴与机体系对齐处理。
  */
 struct ONEQ_API ArExternalPoseInput {
   oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 平台位置（ECEF，m） */
@@ -32,13 +34,15 @@ struct ONEQ_API ArExternalPoseInput {
 
 /**
  * @brief 外部目标输入（统一入口）。
+ * @note `kinematics.velocity_mps` 始终为 ECEF 速度；LLA 位置输入不改变速度坐标系。
  */
 struct ONEQ_API ArExternalTargetInput {
-  std::uint64_t target_id{0U};                                  /**< 外部目标标识符。0 视为未设置，将触发 kUnknownExternalTargetId 警告 */
-  std::string target_name{};                                    /**< 可选目标名称，仅用于人读、trace 与调试视图，不参与关联 */
-  oneq::coordinate::ExternalKinematics kinematics{};            /**< 外部运动学输入 */
-  float rcs{1.0f};                                              /**< 目标 RCS（m^2） */
-  int swerling_type{0};                                         /**< 目标起伏模型 */
+  std::uint64_t target_id{
+      0U}; /**< 外部目标标识符。0 视为未设置，将触发 kUnknownExternalTargetId 警告 */
+  std::string target_name{}; /**< 可选目标名称，仅用于人读、trace 与调试视图，不参与关联 */
+  oneq::coordinate::ExternalKinematics kinematics{}; /**< 外部运动学输入 */
+  float rcs{1.0f};                                   /**< 目标 RCS（m^2） */
+  int swerling_type{0};                              /**< 目标起伏模型 */
 };
 
 /**
@@ -55,13 +59,10 @@ ONEQ_API oneq::coordinate::EulerAnglesDeg ComposeRadarAttitudeDeg(
 /**
  * @brief 雷达坐标适配执行状态。
  * @note 当前 `kCoordinateTransformFail` 统一覆盖了 "输入 NaN/Inf" 和 "坐标变换数值失败"
- *       两种不同的失败原因。未来可考虑拆分为更细粒度的枚举值（如 kInvalidInput、kTransformFailed）。
+ *       两种不同的失败原因。未来可考虑拆分为更细粒度的枚举值（如
+ * kInvalidInput、kTransformFailed）。
  */
-enum class ONEQ_API ArCoordinateStatus {
-  kOk = 0,
-  kNullOutput,
-  kCoordinateTransformFail
-};
+enum class ONEQ_API ArCoordinateStatus { kOk = 0, kNullOutput, kCoordinateTransformFail };
 
 /**
  * @brief 两步模式——第一步：将外部平台运动学转换为雷达局部位姿。
@@ -75,9 +76,9 @@ enum class ONEQ_API ArCoordinateStatus {
  *       会写入 `reference.origin_lla`，用于把目标位置转换为相对雷达的局部坐标。
  */
 ONEQ_API bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& input,
-                                                   oneq::coordinate::LocalFrameReference* reference,
-                                                   oneq::foundation::PoseState* platform_pose,
-                                                   ArCoordinateStatus* status = nullptr);
+                                                  oneq::coordinate::LocalFrameReference* reference,
+                                                  oneq::foundation::PoseState* platform_pose,
+                                                  ArCoordinateStatus* status = nullptr);
 
 /**
  * @brief 两步模式——第二步：使用预计算的参考系将外部目标转换为 ArSceneTarget。
@@ -90,9 +91,9 @@ ONEQ_API bool TryMakeArPoseFromExternalKinematics(const ArExternalPoseInput& inp
  */
 ONEQ_API bool TryMakeArTargetFromExternalKinematics(
     const ArExternalTargetInput& target_input,
-    const oneq::coordinate::LocalFrameReference& reference, oneq::foundation::Vector3f radar_local_velocity_mps,
-    ArSceneTarget* target, ArCoordinateStatus* status = nullptr);
-
+    const oneq::coordinate::LocalFrameReference& reference,
+    oneq::foundation::Vector3f radar_local_velocity_mps, ArSceneTarget* target,
+    ArCoordinateStatus* status = nullptr);
 
 }  // namespace session
 }  // namespace airborne_radar

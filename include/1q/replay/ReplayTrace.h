@@ -35,7 +35,8 @@ struct ONEQ_API ReplayTraceManifest {
   std::uint32_t checkpoint_interval_cycles{0U};
   std::uint32_t event_chunk_size{10000U};
   std::uint32_t failure_window_event_count{128U};
-  bool compress_closed_chunks{false}; /**< 若为 true，Writer 关闭 chunk 后将其压缩为 .gz 并删除原文件；Reader 自动透明解压 */
+  bool compress_closed_chunks{false}; /**< 若为 true，Writer 关闭 chunk 后将其压缩为 .gz
+                                         并删除原文件；Reader 自动透明解压 */
 };
 
 struct ONEQ_API ReplayTraceEvent {
@@ -141,10 +142,32 @@ struct ONEQ_API ReplayTraceFailure {
 };
 
 using ReplayTraceEventCallback = bool (*)(const ReplayTraceReadEvent& event, void* user_data,
-                                         std::string* error);
-using ReplayTraceOutputCallback = bool (*)(const ReplayTraceReadEvent& event, void* user_data,
-                                          std::string* actual_output_payload,
                                           std::string* error);
+
+/**
+ * @brief cycle_output 回调返回的结构化比较状态。
+ *
+ * 替代旧的 bool 返回值，让模块在回调中显式区分三类结果，避免回放框架靠解析
+ * `error` 文本字符串来判断是否发生输出分叉（参见
+ * `docs/review/batch_validation_consumer_friction.md` §1）。
+ *
+ * - `kHandledByModule`：模块已逐字段比较，输出一致。`actual_output_payload` 应留空
+ *   （表示比较由模块内部完成），或填入模块自行生成的诊断 JSON。
+ * - `kDivergence`：模块检测到输出分叉（逐字段比较不一致）。模块应同时通过
+ *   `actual_output_payload` 携带实际输出摘要，供消费方结构化读取。
+ * - `kOtherFailure`：解码失败、入口 payload 类型不匹配、cycle 执行失败等。
+ *   这类失败**不**视为输出分叉，仅记为回放失败。
+ */
+enum class ReplayTraceOutputStatus {
+  kHandledByModule = 0, /**< 模块已比较且输出一致 */
+  kDivergence = 1,      /**< 模块检测到输出分叉 */
+  kOtherFailure = 2     /**< 解码/执行/类型不匹配等失败，非分叉 */
+};
+
+using ReplayTraceOutputCallback = ReplayTraceOutputStatus (*)(const ReplayTraceReadEvent& event,
+                                                              void* user_data,
+                                                              std::string* actual_output_payload,
+                                                              std::string* error);
 
 struct ONEQ_API ReplayTracePlaybackCallbacks {
   void* user_data{nullptr};
@@ -164,13 +187,14 @@ struct ONEQ_API ReplayTracePlaybackOptions {
 
 struct ONEQ_API ReplayTracePlaybackResult {
   bool ok{true};
-  std::uint64_t processed_event_count{0U};
-  std::uint64_t applied_input_count{0U};
-  std::uint64_t applied_scene_state_count{0U};
-  std::uint64_t applied_runtime_patch_count{0U};
-  std::uint64_t compared_output_count{0U};
-  std::uint64_t skipped_output_count{0U};
-  std::uint64_t failure_marker_count{0U};
+  std::uint64_t processed_event_count{0U}; /**< 已读取的 trace event 数，使用 64-bit 以支持长回放 */
+  std::uint64_t applied_input_count{0U};   /**< 已应用的 cycle_input 数，使用 64-bit 以支持长回放 */
+  std::uint64_t applied_scene_state_count{0U};   /**< 已应用的 scene_state 数 */
+  std::uint64_t applied_runtime_patch_count{0U}; /**< 已应用的 runtime_config_patch 数 */
+  std::uint64_t compared_output_count{
+      0U};                                /**< 已比较的 cycle_output 数，使用 64-bit 以支持长回放 */
+  std::uint64_t skipped_output_count{0U}; /**< 未要求输出回调时跳过的 cycle_output 数 */
+  std::uint64_t failure_marker_count{0U}; /**< 已遇到的 failure_marker 数 */
   bool divergence_found{false};
   std::uint64_t divergence_sequence{0U};
   std::string expected_output_payload{};

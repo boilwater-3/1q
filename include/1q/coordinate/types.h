@@ -107,9 +107,9 @@ struct ONEQ_API EulerAnglesDeg {
  * @note 用于坐标转换中间结果；与 foundation::Vector3f 语义等价但精度不同。
  */
 struct ONEQ_API Vector3d {
-  double x{0.0};  /**< X 分量 */
-  double y{0.0};  /**< Y 分量 */
-  double z{0.0};  /**< Z 分量 */
+  double x{0.0}; /**< X 分量 */
+  double y{0.0}; /**< Y 分量 */
+  double z{0.0}; /**< Z 分量 */
 };
 
 /**
@@ -117,7 +117,7 @@ struct ONEQ_API Vector3d {
  * @note 各传感器模块（AR/EOS/ESR）直接复用本类型作为局部坐标参考系定义。
  */
 struct ONEQ_API LocalFrameReference {
-  LlaPositionDegM origin_lla{};      /**< 局部坐标参考原点 */
+  LlaPositionDegM origin_lla{};        /**< 局部坐标参考原点 */
   EulerAnglesDeg frame_attitude_deg{}; /**< 局部坐标系相对 ENU 的姿态角 */
 };
 
@@ -133,14 +133,16 @@ enum class PositionFrame {
  * @brief 外部运动学输入结构体。
  * @note 仅 `position_frame` 对应的位置字段被读取：`kEcef` 时读取 `position_ecef_m`，
  *       `kLla` 时读取 `position_lla_deg_m`。调用方应只填写与 `position_frame` 匹配的
- *       位置字段，另一个位置字段的值会被忽略。速度固定为 ECEF 坐标系。
+ *       位置字段，另一个位置字段的值会被忽略。
+ * @note `velocity_mps` 始终是 ECEF 速度；即使 `position_frame==kLla`，也不要直接填
+ *       ENU/NED 速度。若输入速度来自局部 ENU，请先用 `TryEnuToEcefVelocity()` 转换。
  */
 struct ONEQ_API ExternalKinematics {
-  PositionFrame position_frame{PositionFrame::kEcef};     /**< 位置参考系 */
-  EcefPositionM position_ecef_m{};                        /**< ECEF 位置（position_frame==kEcef 时使用） */
-  LlaPositionDegM position_lla_deg_m{};                   /**< LLA 位置（position_frame==kLla 时使用） */
-  EcefVelocityMps velocity_mps{};                         /**< 速度（ECEF，m/s） */
-  EulerAnglesDeg attitude_deg{};                          /**< 姿态角（Body->ENU，deg） */
+  PositionFrame position_frame{PositionFrame::kEcef}; /**< 位置参考系 */
+  EcefPositionM position_ecef_m{};      /**< ECEF 位置（position_frame==kEcef 时使用） */
+  LlaPositionDegM position_lla_deg_m{}; /**< LLA 位置（position_frame==kLla 时使用） */
+  EcefVelocityMps velocity_mps{};       /**< 速度（ECEF，m/s） */
+  EulerAnglesDeg attitude_deg{};        /**< 姿态角（Body->ENU，deg） */
 };
 
 }  // namespace coordinate

@@ -1,11 +1,11 @@
 #include "1q/electro_optical_sensor/session/EosReplaySession.h"
-#include "1q/electro_optical_sensor/session/EosSession.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
+#include "1q/electro_optical_sensor/session/EosSession.h"
 #include "electro_optical_sensor/session/EosReplayFlatbufferCodec.h"
 
 namespace electro_optical_sensor {
@@ -180,48 +180,49 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
   return true;
 }
 
-bool OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
-                   std::string* actual_output, std::string* error) {
+oneq::replay::ReplayTraceOutputStatus OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event,
+                                                     void* user_data, std::string* actual_output,
+                                                     std::string* error) {
+  using oneq::replay::ReplayTraceOutputStatus;
   if (event.payload_type != "EosCycleResult" && event.payload_type != "EosOutputFrame") {
     *error = "EOS replay does not support cycle_output payload type: " + event.payload_type;
-    return false;
+    return ReplayTraceOutputStatus::kOtherFailure;
   }
 
   EosReplayState* state = static_cast<EosReplayState*>(user_data);
   if (!ExecutePendingCycle(state, error)) {
-    return false;
+    return ReplayTraceOutputStatus::kOtherFailure;
   }
 
   if (event.payload_type == "EosCycleResult") {
     EosCycleResult expected_result;
     if (!DecodeEosCycleResult(event.payload_bytes, &expected_result)) {
       *error = "EOS replay failed to decode EosCycleResult";
-      return false;
+      return ReplayTraceOutputStatus::kOtherFailure;
     }
     if (!EosCycleResultEqual(expected_result, state->latest_result)) {
       *error = "EOS replay output divergence (EosCycleResult)";
-      return false;
+      actual_output->clear();
+      return ReplayTraceOutputStatus::kDivergence;
     }
     actual_output->clear();
-    return true;
+    return ReplayTraceOutputStatus::kHandledByModule;
   }
 
-  if (event.payload_type == "EosOutputFrame") {
+  {
     EosOutputFrame expected_frame;
     if (!DecodeEosOutputFrame(event.payload_bytes, &expected_frame)) {
       *error = "EOS replay failed to decode EosOutputFrame";
-      return false;
+      return ReplayTraceOutputStatus::kOtherFailure;
     }
     if (!EosOutputFrameEqual(expected_frame, state->latest_result.output_frame)) {
       *error = "EOS replay output divergence (EosOutputFrame)";
-      return false;
+      actual_output->clear();
+      return ReplayTraceOutputStatus::kDivergence;
     }
     actual_output->clear();
-    return true;
+    return ReplayTraceOutputStatus::kHandledByModule;
   }
-
-  *error = "EOS replay does not support cycle_output payload type: " + event.payload_type;
-  return false;
 }
 
 bool OnFailureMarker(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,

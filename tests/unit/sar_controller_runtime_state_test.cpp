@@ -32,7 +32,7 @@ config::SarSessionConfig MakeSmallRdaConfig() {
 session::SarCycleInput MakeInput(std::uint32_t cycle_index) {
   session::SarCycleInput input;
   input.cycle_index = cycle_index;
-  input.dt_sec = 0.1;
+  input.dt_sec = 0.1f;
   input.platform.latitude_deg = 0.0;
   input.platform.longitude_deg = 0.0;
   input.platform.altitude_m = 0.0;
@@ -89,7 +89,7 @@ TEST(SarControllerRuntimeStateTest, ValidationRejectReusesPreviousOutput) {
   ASSERT_TRUE(controller.BuildCycleResult(MakeInput(40U)).executed_this_cycle);
 
   session::SarCycleInput invalid_input = MakeInput(41U);
-  invalid_input.dt_sec = 0.0;
+  invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
   const session::SarCycleResult result = controller.BuildCycleResult(invalid_input);
 

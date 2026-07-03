@@ -51,7 +51,7 @@ config::SarSessionConfig MakeSmallRdaConfig() {
 session::SarCycleInput MakeNamedPointTargetInput() {
   session::SarCycleInput input;
   input.cycle_index = 7U;
-  input.dt_sec = 0.1;
+  input.dt_sec = 0.1f;
   input.platform.latitude_deg = 0.0;
   input.platform.longitude_deg = 0.0;
   input.platform.altitude_m = 0.0;

@@ -55,7 +55,7 @@ ValidationIssueList ValidateSarCycleInput(const SarCycleInput& input) {
     add(ValidationSeverity::kError, ValidationCode::kNonFiniteCycleDeltaTime,
         ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1), "dt_sec",
         "Cycle delta time must be finite.");
-  } else if (input.dt_sec <= 0.0) {
+  } else if (input.dt_sec <= 0.0f) {
     add(ValidationSeverity::kError, ValidationCode::kInvalidCycleDeltaTime,
         ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1), "dt_sec",
         "Cycle delta time must be positive.");

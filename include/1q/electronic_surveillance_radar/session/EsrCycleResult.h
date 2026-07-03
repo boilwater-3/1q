@@ -12,8 +12,8 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/electronic_surveillance_radar/session/EsrOutputTypes.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
+#include "1q/electronic_surveillance_radar/session/EsrOutputTypes.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -23,8 +23,8 @@ namespace session {
  * @warning `emitter_output` 不应包含任何真值直通字段。
  */
 struct ONEQ_API EsrOutputFrame {
-  std::uint32_t cycle_index{0U};                             /**< 当前周期号 */
-  std::uint64_t batch_id{0U};                                /**< 当前批次号 */
+  std::uint32_t cycle_index{0U};                           /**< 当前周期号 */
+  std::uint64_t batch_id{0U};                              /**< 当前批次号 */
   session::ObservationOutputFrame observation_output{};    /**< 传感器观测输出通道 */
   session::EmitterOutputFrame emitter_output{};            /**< 侦察假设输出通道 */
   session::TruthEvaluationFrame truth_evaluation_output{}; /**< 真值评估输出通道 */
@@ -32,6 +32,8 @@ struct ONEQ_API EsrOutputFrame {
 
 /**
  * @brief EsrCycleResult 描述电子侦察会话单周期聚合结果。
+ * @note `output_frame` 只有在 `executed_this_cycle=true` 时才代表本周期有效计算结果；
+ *       失败/abort 周期会保留默认值或上一有效输出，不能按真实零值参与统计。
  */
 struct ONEQ_API EsrCycleResult {
   std::uint32_t input_cycle_index{0U}; /**< 本次调用输入周期号，用于失败结果与 trace 归属 */

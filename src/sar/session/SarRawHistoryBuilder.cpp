@@ -318,7 +318,8 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   }
 
   const double requested_pulses =
-      input.dt_sec * config.hardware.pulse_repetition_frequency_hz + *pulse_fraction_carry;
+      static_cast<double>(input.dt_sec) * config.hardware.pulse_repetition_frequency_hz +
+      *pulse_fraction_carry;
   std::size_t pulse_count_to_generate = static_cast<std::size_t>(std::floor(requested_pulses));
   *pulse_fraction_carry = requested_pulses - static_cast<double>(pulse_count_to_generate);
   if (pulse_buffer->size() < config.mission.azimuth_pulse_count) {

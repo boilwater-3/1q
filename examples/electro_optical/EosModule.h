@@ -250,6 +250,8 @@ class EosModule {
   //   3. EosDetectionLifecycleRecorder（生命周期） — 首次发现/更新/丢失事件，通过 lifecycleEvents() 获取
   //
   // 此外将通过 buildExternalOutput() 提供 ECEF 外部坐标转换。
+  // （跨模块差异：AR/EOS/ESR 均提供 buildExternalOutput()；SAR 因产品为聚焦图像、
+  // 无需 ECEF 坐标转换，不暴露此能力，见 examples/sar/SarModule.h。）
 
   /** @brief 返回最近一次 stepImp 输入的缓存（供三视图构建使用）。 */
   const eos_session::EosCycleInput& lastInput() const { return last_input_; }

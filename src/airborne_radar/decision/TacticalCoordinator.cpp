@@ -41,8 +41,7 @@ bool IsAssociationDrivenJammingSemantic(config::JammingSemantic semantic) {
 /**
  * @brief 判断探测质量是否存在可观测压力。
  */
-bool HasMeaningfulDetectionPressure(
-    const session::PerceptionQualityInfo& perception_quality_info) {
+bool HasMeaningfulDetectionPressure(const session::PerceptionQualityInfo& perception_quality_info) {
   return perception_quality_info.input_target_count > 0U &&
          perception_quality_info.detection_stress >= kMeaningfulDetectionPressureThreshold;
 }
@@ -50,9 +49,7 @@ bool HasMeaningfulDetectionPressure(
 /**
  * @brief 将浮点值裁剪到 [0, 1]。
  */
-float ClampUnit(float value) {
-  return std::max(0.0f, std::min(1.0f, value));
-}
+float ClampUnit(float value) { return std::max(0.0f, std::min(1.0f, value)); }
 
 /**
  * @brief 描述关联语义。
@@ -77,16 +74,14 @@ std::string DescribeAssociationSemantic(config::JammingSemantic semantic) {
 
 // ===== 构造函数 =====
 
-TacticalCoordinator::TacticalCoordinator(
-    const environment::IFeatureRepository* feature_repository)
+TacticalCoordinator::TacticalCoordinator(const environment::IFeatureRepository* feature_repository)
     : threat_assessment_evaluator_(feature_repository) {}
 
 // ===== 私有静态方法 =====
 
 bool TacticalCoordinator::ShouldBackfillEccmTrigger(
     const session::AssociationQualityInfo& association_quality_info) {
-  if (!IsAssociationDrivenJammingSemantic(
-           association_quality_info.dominant_jamming_semantic) ||
+  if (!IsAssociationDrivenJammingSemantic(association_quality_info.dominant_jamming_semantic) ||
       association_quality_info.jamming_severity < kAssociationDrivenEccmMinJammingSeverity ||
       association_quality_info.association_stress < kAssociationDrivenEccmMinAssociationStress) {
     return false;
@@ -108,9 +103,8 @@ void TacticalCoordinator::ApplyAssociationDrivenPriorityBias(
 
   const float severity = ClampUnit(association_quality_info.jamming_severity);
   const float stress = ClampUnit(association_quality_info.association_stress);
-  const float cost_pressure = ClampUnit(
-      std::max(association_quality_info.mean_match_cost / 3.0f,
-               association_quality_info.p95_match_cost / 4.0f));
+  const float cost_pressure = ClampUnit(std::max(association_quality_info.mean_match_cost / 3.0f,
+                                                 association_quality_info.p95_match_cost / 4.0f));
   const float combined_weight = 0.45f * severity + 0.40f * stress + 0.15f * cost_pressure;
 
   // 按语义类型计算各措施优先级增加值
@@ -177,9 +171,8 @@ void TacticalCoordinator::ApplyAssociationDrivenPriorityBias(
   }
 }
 
-void TacticalCoordinator::PruneInactiveTrackState(
-    const session::TrackStateSnapshotList& tracks,
-    session::TacticalStateStore* state_store) {
+void TacticalCoordinator::PruneInactiveTrackState(const session::TrackStateSnapshotList& tracks,
+                                                  session::TacticalStateStore* state_store) {
   if (state_store == nullptr) {
     return;
   }
@@ -206,8 +199,7 @@ void TacticalCoordinator::PruneInactiveTrackState(
     }
   }
 
-  for (auto it = state_store->threat_memory.begin();
-       it != state_store->threat_memory.end();) {
+  for (auto it = state_store->threat_memory.begin(); it != state_store->threat_memory.end();) {
     if (active_keys.count(it->first) == 0U) {
       it = state_store->threat_memory.erase(it);
     } else {
@@ -218,13 +210,11 @@ void TacticalCoordinator::PruneInactiveTrackState(
 
 std::string TacticalCoordinator::BuildDecisionSummary(
     const session::DecisionInputFrame& input_frame,
-    const ThreatAssessmentEvaluator::Result& threat_result,
-    const LpiEvaluator::Result& lpi_result,
+    const ThreatAssessmentEvaluator::Result& threat_result, const LpiEvaluator::Result& lpi_result,
     const EccmEvaluator::Result& eccm_result) {
   (void)threat_result;
   std::vector<std::string> causes;
-  if (input_frame.environment_jamming_detected ||
-      input_frame.eccm_source_info.has_jamming_signal) {
+  if (input_frame.environment_jamming_detected || input_frame.eccm_source_info.has_jamming_signal) {
     causes.push_back("environment-jamming");
   }
   if (ShouldBackfillEccmTrigger(input_frame.association_quality_info)) {
@@ -261,8 +251,7 @@ std::string TacticalCoordinator::BuildDecisionSummary(
 // ===== Evaluate（主入口）=====
 
 session::TacticalDecisionResult TacticalCoordinator::Evaluate(
-    const session::DecisionInputFrame& input_frame,
-    session::TacticalStateStore& state_store) {
+    const session::DecisionInputFrame& input_frame, session::TacticalStateStore& state_store) {
   session::TacticalDecisionResult result;
 
   // ==== [1] 确定 ECCM 触发信号 ====
@@ -290,13 +279,11 @@ session::TacticalDecisionResult TacticalCoordinator::Evaluate(
     if (!eccm_input.has_jamming_signal) {
       eccm_input.has_jamming_signal = true;
     }
-    eccm_result = eccm_evaluator_.Evaluate(eccm_input, input_frame.association_quality_info,
-                                           false, &all_proposals);
-    PROJECT_LOG_INFO(
-        "[TacticalCoordinator] Active jamming detected. Appending ECCM proposals.");
+    eccm_result = eccm_evaluator_.Evaluate(eccm_input, input_frame.association_quality_info, false,
+                                           &all_proposals);
+    PROJECT_LOG_DEBUG("[TacticalCoordinator] Active jamming detected. Appending ECCM proposals.");
   } else {
-    PROJECT_LOG_INFO(
-        "[TacticalCoordinator] Environment is clear. Continuing nominal operation.");
+    PROJECT_LOG_DEBUG("[TacticalCoordinator] Environment is clear. Continuing nominal operation.");
   }
 
   // ==== [5] 关联质量优先级偏置后处理 ====

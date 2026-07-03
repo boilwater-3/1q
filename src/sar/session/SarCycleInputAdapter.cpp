@@ -12,7 +12,7 @@ namespace session {
 bool SarCycleInputAdapter::Build(const SarPlatformState& platform,
                                  const SarPointTargetList& targets,
                                  const config::SarMissionConfig& mission,
-                                 double dt_sec,
+                                 float dt_sec,
                                  const std::vector<SarExternalPulseInput>& external_pulses,
                                  SarCycleInput* output,
                                  SarCoordinateStatus* status) {

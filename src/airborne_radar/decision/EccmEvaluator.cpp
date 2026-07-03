@@ -31,6 +31,17 @@ constexpr float kThresholdAgilityFrequency = 1.5f;
 constexpr float kThresholdEccmRejitter = 1.5f;
 constexpr float kThresholdBurnthroughGain = 1.5f;
 
+void MarkActivated(EccmEvaluator::Result* result,
+                   EccmEvaluator::ActivationSource activation_source) {
+  if (result == nullptr) {
+    return;
+  }
+  result->eccm_activated = true;
+  if (result->activation_source == EccmEvaluator::ActivationSource::kNone) {
+    result->activation_source = activation_source;
+  }
+}
+
 }  // namespace
 
 // ===== private static helpers =====
@@ -222,10 +233,12 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
   }
 
   EccmProposalSelection selection;
+  ActivationSource activation_source = ActivationSource::kNone;
 
   if (hold_only) {
     // 持有期路径：仅保守回退，评分权重低于新鲜证据
     AccumulateCautiousFallback(&selection);
+    activation_source = ActivationSource::kCautiousFallback;
   } else {
     if (!eccm_source_info.jammer_sources.empty()) {
       for (std::size_t i = 0; i < eccm_source_info.jammer_sources.size(); ++i) {
@@ -234,9 +247,13 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
       }
       if (!selection.has_credible_multisource_evidence) {
         AccumulateCautiousFallback(&selection);
+        activation_source = ActivationSource::kCautiousFallback;
+      } else {
+        activation_source = ActivationSource::kEvidenceBased;
       }
     } else {
       AccumulateCautiousFallback(&selection);
+      activation_source = ActivationSource::kCautiousFallback;
     }
   }
 
@@ -252,7 +269,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
                 REQUEST_ENABLE_SIDELOBE_CANCELLER,
             selection),
         proposals);
-    result.eccm_activated = true;
+    MarkActivated(&result, activation_source);
   }
   if (selection.adaptive_beamforming_score >= kThresholdAdaptiveBeamforming) {
     AppendProposal(
@@ -265,7 +282,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
                 REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
             selection),
         proposals);
-    result.eccm_activated = true;
+    MarkActivated(&result, activation_source);
   }
   if (selection.agility_frequency_score >= kThresholdAgilityFrequency) {
     AppendProposal(
@@ -276,7 +293,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
             session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
             selection),
         proposals);
-    result.eccm_activated = true;
+    MarkActivated(&result, activation_source);
   }
   if (selection.eccm_rejitter_score >= kThresholdEccmRejitter) {
     AppendProposal(
@@ -287,7 +304,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
             session::ControlDirectiveType::REQUEST_ECCM_REJITTER,
             selection),
         proposals);
-    result.eccm_activated = true;
+    MarkActivated(&result, activation_source);
   }
   if (selection.burnthrough_gain_score >= kThresholdBurnthroughGain) {
     AppendProposal(
@@ -300,7 +317,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
                 REQUEST_ECCM_BURNTHROUGH_GAIN,
             selection),
         proposals);
-    result.eccm_activated = true;
+    MarkActivated(&result, activation_source);
   }
 
   // 有干扰事实但未生成任何达标提案时，最低激活自适应波束形成作为回退
@@ -317,7 +334,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
                   REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
               selection),
           proposals);
-      result.eccm_activated = true;
+      MarkActivated(&result, ActivationSource::kCautiousFallback);
     }
   }
 
@@ -335,9 +352,11 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
   }
 
   EccmProposalSelection selection;
+  ActivationSource activation_source = ActivationSource::kNone;
 
   if (hold_only) {
     AccumulateCautiousFallback(&selection);
+    activation_source = ActivationSource::kCautiousFallback;
   } else {
     if (!eccm_source_info.jammer_sources.empty()) {
       for (std::size_t i = 0; i < eccm_source_info.jammer_sources.size(); ++i) {
@@ -345,12 +364,17 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
       }
       if (!selection.has_credible_multisource_evidence) {
         AccumulateCautiousFallback(&selection);
+        activation_source = ActivationSource::kCautiousFallback;
+      } else {
+        activation_source = ActivationSource::kEvidenceBased;
       }
     } else if (HasMeaningfulAssociationPressure(association_quality.jamming_severity,
                                                 association_quality.association_stress)) {
       AccumulateAssociationPressureFacts(association_quality, &selection);
+      activation_source = ActivationSource::kAssociationPressure;
     } else {
       AccumulateCautiousFallback(&selection);
+      activation_source = ActivationSource::kCautiousFallback;
     }
   }
 
@@ -365,7 +389,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
             session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER,
             selection),
         proposals);
-    result.eccm_activated = true;
+    MarkActivated(&result, activation_source);
   }
   if (selection.adaptive_beamforming_score >= kThresholdAdaptiveBeamforming) {
     AppendProposal(
@@ -376,7 +400,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
             session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
             selection),
         proposals);
-    result.eccm_activated = true;
+    MarkActivated(&result, activation_source);
   }
   if (selection.agility_frequency_score >= kThresholdAgilityFrequency) {
     AppendProposal(
@@ -386,7 +410,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
         BuildProposalRationale(
             session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY, selection),
         proposals);
-    result.eccm_activated = true;
+    MarkActivated(&result, activation_source);
   }
   if (selection.eccm_rejitter_score >= kThresholdEccmRejitter) {
     AppendProposal(
@@ -395,7 +419,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
         BuildProposalRationale(session::ControlDirectiveType::REQUEST_ECCM_REJITTER,
                                selection),
         proposals);
-    result.eccm_activated = true;
+    MarkActivated(&result, activation_source);
   }
   if (selection.burnthrough_gain_score >= kThresholdBurnthroughGain) {
     AppendProposal(
@@ -405,7 +429,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
         BuildProposalRationale(
             session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN, selection),
         proposals);
-    result.eccm_activated = true;
+    MarkActivated(&result, activation_source);
   }
   if (!result.eccm_activated && !hold_only) {
     AccumulateCautiousFallback(&selection);
@@ -418,7 +442,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
               session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING,
               selection),
           proposals);
-      result.eccm_activated = true;
+      MarkActivated(&result, ActivationSource::kCautiousFallback);
     }
   }
   return result;

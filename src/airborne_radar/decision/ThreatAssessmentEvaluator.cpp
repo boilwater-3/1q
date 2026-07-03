@@ -44,20 +44,18 @@ ThreatAssessmentEvaluator::Result ThreatAssessmentEvaluator::Evaluate(
     UpdateLpiSourceInfo(&result.lpi_source_info, track_snapshot, category.target_type);
 
     const std::uint64_t track_key = track_snapshot.association_key;
-    const float previous_confidence =
-        state_store.confidence_memory.count(track_key) != 0U
-            ? state_store.confidence_memory[track_key]
-            : 0.0f;
+    const float previous_confidence = state_store.confidence_memory.count(track_key) != 0U
+                                          ? state_store.confidence_memory[track_key]
+                                          : 0.0f;
     const float confidence = UpdateConfidence(track_snapshot, previous_confidence);
     state_store.confidence_memory[track_key] = confidence;
     state_store.threat_memory[track_key] = ComputeThreatScore(track_snapshot);
 
     // 追踪最近的高威胁目标距离
     if (IsHighThreatCategory(category.target_type)) {
-      const float range_m = std::sqrt(
-          track_snapshot.position_x * track_snapshot.position_x +
-          track_snapshot.position_y * track_snapshot.position_y +
-          track_snapshot.position_z * track_snapshot.position_z);
+      const float range_m = std::sqrt(track_snapshot.position_x * track_snapshot.position_x +
+                                      track_snapshot.position_y * track_snapshot.position_y +
+                                      track_snapshot.position_z * track_snapshot.position_z);
       const float range_km = range_m / 1000.0f;
       if (range_km < nearest_threat_range_km) {
         nearest_threat_range_km = range_km;
@@ -71,8 +69,8 @@ ThreatAssessmentEvaluator::Result ThreatAssessmentEvaluator::Evaluate(
       }
     }
 
-    PROJECT_LOG_INFO("[ThreatAssessmentEvaluator] Target[{}] -> Classification: {}", i,
-                     category.target_type);
+    PROJECT_LOG_DEBUG("[ThreatAssessmentEvaluator] Target[{}] -> Classification: {}", i,
+                      category.target_type);
   }
 
   if (input_frame.tracks.empty()) {
@@ -146,8 +144,7 @@ float ThreatAssessmentEvaluator::ComputeThreatScore(
 }
 
 void ThreatAssessmentEvaluator::UpdateLpiSourceInfo(
-    model::LpiSourceInfo* source_info,
-    const session::TrackStateSnapshot& track_snapshot,
+    model::LpiSourceInfo* source_info, const session::TrackStateSnapshot& track_snapshot,
     const std::string& classification) const {
   if (source_info == nullptr) {
     return;
@@ -171,8 +168,8 @@ bool ThreatAssessmentEvaluator::ShouldAcceptRepositoryMatch(
          match_result.distance <= kMaxRepositoryMatchDistance;
 }
 
-float ThreatAssessmentEvaluator::UpdateConfidence(
-    const session::TrackStateSnapshot& track_snapshot, float previous_confidence) const {
+float ThreatAssessmentEvaluator::UpdateConfidence(const session::TrackStateSnapshot& track_snapshot,
+                                                  float previous_confidence) const {
   if (track_snapshot.status == session::TrackStatus::kConfirmed) {
     return std::max(0.70f, std::min(1.0f, previous_confidence + 0.20f));
   }
