@@ -450,6 +450,47 @@ TEST(EsrReplayCodecRoundtripTest, FailureMarkerPreservesAllFields) {
   EXPECT_EQ(decoded.diagnostics_payload, "{\"hypothesis_count\":128}");
 }
 
+// ===========================================================================
+// Decode 失败路径（null output / 损坏 payload）
+// ===========================================================================
+
+TEST(EsrReplayCodecRoundtripTest, DecodeCycleInputRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeEsrCycleInput("", nullptr));
+  EsrCycleInput input;
+  EXPECT_FALSE(DecodeEsrCycleInput("corrupt", &input));
+}
+
+TEST(EsrReplayCodecRoundtripTest, DecodeOutputFrameRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeEsrOutputFrame("", nullptr));
+  EsrOutputFrame frame;
+  EXPECT_FALSE(DecodeEsrOutputFrame("bad", &frame));
+}
+
+TEST(EsrReplayCodecRoundtripTest, DecodeCycleResultRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeEsrCycleResult("", nullptr));
+  EsrCycleResult result;
+  EXPECT_FALSE(DecodeEsrCycleResult("bad", &result));
+}
+
+TEST(EsrReplayCodecRoundtripTest, DecodeSessionConfigRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeEsrSessionConfig("", nullptr));
+  config::EsrSessionConfig config;
+  EXPECT_FALSE(DecodeEsrSessionConfig("bad", &config));
+}
+
+TEST(EsrReplayCodecRoundtripTest, DecodeRuntimeConfigPatchRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeEsrRuntimeConfigPatch("", nullptr));
+  config::EsrRuntimeConfigPatch patch;
+  EXPECT_FALSE(DecodeEsrRuntimeConfigPatch("bad", &patch));
+}
+
+TEST(EsrReplayCodecRoundtripTest, DecodeFailureMarkerRejectsNullAndCorrupted) {
+  std::string error;
+  EXPECT_FALSE(DecodeEsrFailureMarker("", nullptr, &error));
+  oneq::replay::ReplayTraceFailure failure;
+  EXPECT_FALSE(DecodeEsrFailureMarker("bad", &failure, &error));
+}
+
 }  // namespace tests
 }  // namespace session
 }  // namespace electronic_surveillance_radar

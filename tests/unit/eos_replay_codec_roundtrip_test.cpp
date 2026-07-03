@@ -359,6 +359,47 @@ TEST(EosReplayCodecRoundtripTest, FailureMarkerPreservesAllFields) {
   EXPECT_EQ(decoded.diagnostics_payload, "{\"detection_count\":128}");
 }
 
+// ===========================================================================
+// Decode 失败路径（null output / 损坏 payload）
+// ===========================================================================
+
+TEST(EosReplayCodecRoundtripTest, DecodeCycleInputRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeEosCycleInput("", nullptr));
+  EosCycleInput input;
+  EXPECT_FALSE(DecodeEosCycleInput("corrupt", &input));
+}
+
+TEST(EosReplayCodecRoundtripTest, DecodeOutputFrameRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeEosOutputFrame("", nullptr));
+  EosOutputFrame frame;
+  EXPECT_FALSE(DecodeEosOutputFrame("bad", &frame));
+}
+
+TEST(EosReplayCodecRoundtripTest, DecodeCycleResultRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeEosCycleResult("", nullptr));
+  EosCycleResult result;
+  EXPECT_FALSE(DecodeEosCycleResult("bad", &result));
+}
+
+TEST(EosReplayCodecRoundtripTest, DecodeSessionConfigRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeEosSessionConfig("", nullptr));
+  config::EosSessionConfig config;
+  EXPECT_FALSE(DecodeEosSessionConfig("bad", &config));
+}
+
+TEST(EosReplayCodecRoundtripTest, DecodeRuntimeConfigPatchRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeEosRuntimeConfigPatch("", nullptr));
+  config::EosRuntimeConfigPatch patch;
+  EXPECT_FALSE(DecodeEosRuntimeConfigPatch("bad", &patch));
+}
+
+TEST(EosReplayCodecRoundtripTest, DecodeFailureMarkerRejectsNullAndCorrupted) {
+  std::string error;
+  EXPECT_FALSE(DecodeEosFailureMarker("", nullptr, &error));
+  oneq::replay::ReplayTraceFailure failure;
+  EXPECT_FALSE(DecodeEosFailureMarker("bad", &failure, &error));
+}
+
 }  // namespace tests
 }  // namespace session
 }  // namespace electro_optical_sensor
