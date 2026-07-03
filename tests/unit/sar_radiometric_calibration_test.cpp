@@ -176,6 +176,145 @@ TEST(SarRadiometricCalibrationTest, InternalExecutorMatchesPathAndFailsAtomicall
   EXPECT_EQ(result.failure, CalibrationExecutionFailure::kEmptyRequestList);
 }
 
+// ===========================================================================
+// 校验分支补全（BuildCalibrationObservation / InvertRcs / Evaluate / Calibrate）
+// ===========================================================================
+
+TEST(SarRadiometricCalibrationTest, BuildObservationRejectsNullOutput) {
+  signal::ComplexMatrix image;
+  image.rows = 1U;
+  image.cols = 1U;
+  image.values = {signal::ComplexSample(1.0, 0.0)};
+  CalibrationObservationRequest request;
+  request.observation_id = "x";
+  request.known_rcs_m2 = 1.0;
+  request.slant_range_m = 10.0;
+  EXPECT_FALSE(BuildCalibrationObservation(request, image, nullptr));
+}
+
+TEST(SarRadiometricCalibrationTest, BuildObservationRejectsZeroRcs) {
+  signal::ComplexMatrix image;
+  image.rows = 1U;
+  image.cols = 1U;
+  image.values = {signal::ComplexSample(1.0, 0.0)};
+  CalibrationObservationRequest request;
+  request.observation_id = "x";
+  request.known_rcs_m2 = 0.0;
+  request.slant_range_m = 10.0;
+  CalibrationObservation obs;
+  EXPECT_FALSE(BuildCalibrationObservation(request, image, &obs));
+}
+
+TEST(SarRadiometricCalibrationTest, BuildObservationRejectsZeroSlantRange) {
+  signal::ComplexMatrix image;
+  image.rows = 1U;
+  image.cols = 1U;
+  image.values = {signal::ComplexSample(1.0, 0.0)};
+  CalibrationObservationRequest request;
+  request.observation_id = "x";
+  request.known_rcs_m2 = 1.0;
+  request.slant_range_m = 0.0;
+  CalibrationObservation obs;
+  EXPECT_FALSE(BuildCalibrationObservation(request, image, &obs));
+}
+
+TEST(SarRadiometricCalibrationTest, BuildObservationRejectsZeroWeight) {
+  signal::ComplexMatrix image;
+  image.rows = 1U;
+  image.cols = 1U;
+  image.values = {signal::ComplexSample(1.0, 0.0)};
+  CalibrationObservationRequest request;
+  request.observation_id = "x";
+  request.known_rcs_m2 = 1.0;
+  request.slant_range_m = 10.0;
+  request.weight = 0.0;
+  CalibrationObservation obs;
+  EXPECT_FALSE(BuildCalibrationObservation(request, image, &obs));
+}
+
+TEST(SarRadiometricCalibrationTest, BuildObservationRejectsSwappedApertureIds) {
+  signal::ComplexMatrix image;
+  image.rows = 1U;
+  image.cols = 1U;
+  image.values = {signal::ComplexSample(1.0, 0.0)};
+  CalibrationObservationRequest request;
+  request.observation_id = "x";
+  request.known_rcs_m2 = 1.0;
+  request.slant_range_m = 10.0;
+  request.aperture_start_pulse_id = 20U;
+  request.aperture_end_pulse_id = 10U;
+  CalibrationObservation obs;
+  EXPECT_FALSE(BuildCalibrationObservation(request, image, &obs));
+}
+
+TEST(SarRadiometricCalibrationTest, BuildObservationRejectsEmptyImage) {
+  signal::ComplexMatrix image;  // rows=0, cols=0
+  CalibrationObservationRequest request;
+  request.observation_id = "x";
+  request.known_rcs_m2 = 1.0;
+  request.slant_range_m = 10.0;
+  CalibrationObservation obs;
+  EXPECT_FALSE(BuildCalibrationObservation(request, image, &obs));
+}
+
+TEST(SarRadiometricCalibrationTest, BuildObservationRejectsZeroPixelPower) {
+  signal::ComplexMatrix image;
+  image.rows = 1U;
+  image.cols = 1U;
+  image.values = {signal::ComplexSample(0.0, 0.0)};  // 零功率像素
+  CalibrationObservationRequest request;
+  request.observation_id = "x";
+  request.known_rcs_m2 = 1.0;
+  request.slant_range_m = 10.0;
+  CalibrationObservation obs;
+  EXPECT_FALSE(BuildCalibrationObservation(request, image, &obs));
+}
+
+TEST(SarRadiometricCalibrationTest, InvertRcsRejectsInvalidInputs) {
+  RadiometricCalibration calibration;
+  calibration.valid = true;
+  calibration.image_calibration_factor = 0.25;
+  double value;
+  EXPECT_FALSE(InvertRcs(1.0, 10.0, calibration, nullptr));  // null output
+  EXPECT_FALSE(InvertRcs(0.0, 10.0, calibration, &value));   // zero power
+  EXPECT_FALSE(InvertRcs(1.0, 0.0, calibration, &value));    // zero range
+  RadiometricCalibration invalid_factor = calibration;
+  invalid_factor.image_calibration_factor = -1.0;
+  EXPECT_FALSE(InvertRcs(1.0, 10.0, invalid_factor, &value));
+}
+
+TEST(SarRadiometricCalibrationTest, EvaluateRadiometricErrorRejectsInvalidInputs) {
+  double value;
+  EXPECT_FALSE(EvaluateRadiometricErrorDb(1.0, 1.0, nullptr));
+  EXPECT_FALSE(EvaluateRadiometricErrorDb(1.0, 0.0, &value));  // zero theoretical
+  EXPECT_FALSE(EvaluateRadiometricErrorDb(
+      std::numeric_limits<double>::quiet_NaN(), 1.0, &value));
+}
+
+TEST(SarRadiometricCalibrationTest, CalibrateRejectsNullCalibration) {
+  CalibrationSample sample = MakeSample(1.0, 10.0, 4.0);
+  EXPECT_FALSE(CalibrateSingle(sample, nullptr));
+  std::vector<CalibrationSample> samples = {sample};
+  EXPECT_FALSE(CalibrateMultiple(samples, nullptr));
+}
+
+TEST(SarRadiometricCalibrationTest, ConvertObservationsRejectsNullSamples) {
+  CalibrationObservation obs;
+  obs.observation_id = "x";
+  obs.known_rcs_m2 = 1.0;
+  obs.image_power = 1.0;
+  obs.slant_range_m = 10.0;
+  EXPECT_FALSE(ConvertObservationsToSamples({obs}, nullptr));
+}
+
+TEST(SarRadiometricCalibrationTest, ExecuteRequestsRejectsNullResult) {
+  signal::ComplexMatrix image;
+  image.rows = 1U;
+  image.cols = 1U;
+  image.values = {signal::ComplexSample(1.0, 0.0)};
+  EXPECT_FALSE(ExecuteCalibrationRequests(CalibrationImagePath::kGbp, image, {}, nullptr));
+}
+
 }  // namespace
 }  // namespace calibration
 }  // namespace sar
