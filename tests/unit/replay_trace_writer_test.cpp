@@ -896,6 +896,108 @@ TEST(ReplayTraceWriterTest, PlaybackRejectsMissingRequiredCallback) {
   EXPECT_NE(result.first_error.find("session_config"), std::string::npos);
 }
 
+// ===========================================================================
+// Accessor 方法 + WriteFailureMarker payload 重载 + 兼容性检查边界
+// ===========================================================================
+
+TEST(ReplayTraceWriterTest, AccessorsReturnConstructorArguments) {
+  const std::string trace_dir = MakeTempTraceDir();
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "accessor-test";
+  manifest.module = "airborne_radar";
+
+  ReplayTraceWriter writer(trace_dir, manifest, true);
+  EXPECT_EQ(writer.trace_dir(), trace_dir);
+  EXPECT_EQ(writer.manifest().trace_id, "accessor-test");
+}
+
+TEST(ReplayTraceWriterTest, WriteFailureMarkerWithExplicitPayloadBytes) {
+  const std::string trace_dir = MakeTempTraceDir();
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "failure-payload-test";
+  manifest.module = "airborne_radar";
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+    ReplayTraceFailure failure;
+    failure.error_code = "ASSERT";
+    failure.message = "test failure";
+    failure.location = "TestFunc";
+    // 显式 payload_bytes 重载
+    writer.WriteFailureMarker(failure, std::string("custom-failure-payload"));
+    writer.Flush();
+  }
+
+  // 验证 trace 可被 Scan 读取（含 failure marker）
+  ReplayTraceScanResult scan = ScanReplayTrace(trace_dir);
+  EXPECT_TRUE(scan.ok);
+}
+
+TEST(ReplayTraceWriterTest, WriteFailureMarkerWithoutExplicitPayload) {
+  const std::string trace_dir = MakeTempTraceDir();
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "failure-no-payload-test";
+  manifest.module = "airborne_radar";
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+    ReplayTraceFailure failure;
+    failure.error_code = "ABORT";
+    failure.message = "abort test";
+    failure.location = "AbortFunc";
+    // 无 payload_bytes 重载（空 payload 路径）
+    writer.WriteFailureMarker(failure);
+    writer.Flush();
+  }
+
+  ReplayTraceScanResult scan = ScanReplayTrace(trace_dir);
+  EXPECT_TRUE(scan.ok);
+}
+
+TEST(ReplayTraceWriterTest, CompatibilityCheckRejectsModuleMismatch) {
+  const std::string trace_dir = MakeTempTraceDir();
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "compat-mismatch-test";
+  manifest.module = "airborne_radar";
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+    ReplayTraceEvent event;
+    event.module = "airborne_radar";
+    event.event_type = "session_config";
+    event.payload_type = "ArSessionConfig";
+    event.payload_encoding = "flatbuffers";
+    event.payload_bytes = MakeFlatbuffersPayloadBytes("compat-config");
+    writer.WriteEvent(event);
+    writer.Flush();
+  }
+
+  ReplayTraceCompatibilityExpectation expectation;
+  expectation.module = "electronic_surveillance_radar";  // 不匹配
+  expectation.require_module_match = true;
+
+  ReplayTraceCompatibilityResult result =
+      CheckReplayTraceCompatibility(trace_dir, expectation);
+  EXPECT_FALSE(result.compatible);
+}
+
+TEST(ReplayTraceWriterTest, CompatibilityCheckRejectsMissingTraceDir) {
+  ReplayTraceCompatibilityExpectation expectation;
+  expectation.module = "airborne_radar";
+  expectation.require_module_match = true;
+
+  ReplayTraceCompatibilityResult result =
+      CheckReplayTraceCompatibility("/nonexistent/path/oneq-test-99999", expectation);
+  EXPECT_FALSE(result.compatible);
+}
+
+TEST(ReplayTraceWriterTest, ScanHandlesMissingTraceDirAsEmpty) {
+  // ScanReplayTrace 对缺失目录返回 ok=true（空 trace）而非错误
+  ReplayTraceScanResult result = ScanReplayTrace("/nonexistent/path/oneq-scan-99999");
+  EXPECT_TRUE(result.ok);
+  EXPECT_EQ(result.event_count, 0U);
+}
+
 }  // namespace tests
 }  // namespace replay
 }  // namespace oneq
