@@ -158,6 +158,98 @@ TEST(EosInputValidationTest, InvalidAmbientWindSpeedIsReportedAsError) {
   EXPECT_TRUE(HasValidationError(issues));
 }
 
+// ===========================================================================
+// 目标校验补充分支
+// ===========================================================================
+
+TEST(EosInputValidationTest, ZeroTargetIdIsReportedAsWarning) {
+  EosCycleInput input = MakeValidInput();
+  input.scene[0].target_id = 0U;
+
+  const ValidationIssueList issues = ValidateEosCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidTargetId));
+}
+
+TEST(EosInputValidationTest, NonFiniteTargetFieldIsReportedAsError) {
+  EosCycleInput input = MakeValidInput();
+  input.scene[0].azimuth_deg = std::numeric_limits<float>::quiet_NaN();
+
+  const ValidationIssueList issues = ValidateEosCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFiniteTargetNumericField));
+  EXPECT_TRUE(HasValidationError(issues));
+}
+
+TEST(EosInputValidationTest, NonFiniteTargetTemperatureIsReportedAsError) {
+  EosCycleInput input = MakeValidInput();
+  input.scene[0].appearance.apparent_temperature_k =
+      std::numeric_limits<float>::quiet_NaN();
+
+  const ValidationIssueList issues = ValidateEosCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFiniteTargetNumericField));
+}
+
+TEST(EosInputValidationTest, NonPositiveTargetTemperatureIsReportedAsError) {
+  EosCycleInput input = MakeValidInput();
+  input.scene[0].appearance.apparent_temperature_k = 0.0f;
+
+  const ValidationIssueList issues = ValidateEosCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidTargetTemperature));
+}
+
+TEST(EosInputValidationTest, InvalidTargetReflectanceIsReportedAsError) {
+  EosCycleInput input = MakeValidInput();
+  input.scene[0].appearance.reflectance = 1.5f;  // 超出 [0,1]
+
+  const ValidationIssueList issues = ValidateEosCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidTargetReflectance));
+}
+
+TEST(EosInputValidationTest, NonPositiveProjectedAreaIsReportedAsError) {
+  EosCycleInput input = MakeValidInput();
+  input.scene[0].appearance.projected_area_m2 = 0.0f;
+
+  const ValidationIssueList issues = ValidateEosCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidTargetProjectedArea));
+}
+
+TEST(EosInputValidationTest, NonFiniteCycleDeltaTimeIsReportedAsError) {
+  EosCycleInput input = MakeValidInput();
+  input.dt_sec = std::numeric_limits<float>::quiet_NaN();
+
+  const ValidationIssueList issues = ValidateEosCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kNonFiniteCycleDeltaTime));
+}
+
+TEST(EosInputValidationTest, InvalidBackgroundTemperatureIsReportedAsError) {
+  EosCycleInput input = MakeValidInput();
+  input.environment.background_temperature_k = -1.0f;
+
+  const ValidationIssueList issues = ValidateEosCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidBackgroundTemperature));
+}
+
+TEST(EosInputValidationTest, InvalidCloudCoverageRatioIsReportedAsError) {
+  EosCycleInput input = MakeValidInput();
+  input.environment.cloud_coverage_ratio = 1.5f;  // 超出 [0,1]
+
+  const ValidationIssueList issues = ValidateEosCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidCloudCoverageRatio));
+}
+
+TEST(EosInputValidationTest, InvalidSolarIrradianceIsReportedAsError) {
+  EosCycleInput input = MakeValidInput();
+  input.environment.solar_irradiance_w_m2 = -10.0f;
+
+  const ValidationIssueList issues = ValidateEosCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidSolarIrradiance));
+}
+
+TEST(EosInputValidationTest, ValidInputProducesNoErrors) {
+  EosCycleInput input = MakeValidInput();
+  const ValidationIssueList issues = ValidateEosCycleInput(input);
+  EXPECT_FALSE(HasValidationError(issues));
+}
+
 TEST(EosInputValidationTest, SessionProducesInFovDetectionsOnly) {
   config::EosSessionConfig config;
   config.mission.work_mode = config::EosWorkMode::kFused;

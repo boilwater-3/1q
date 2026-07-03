@@ -455,6 +455,57 @@ TEST(ArReplayCodecRoundtripTest, FailureMarkerPreservesAllFields) {
   EXPECT_EQ(decoded.diagnostics_payload, "{\"track_count\":128}");
 }
 
+// ===========================================================================
+// Decode 失败路径（null output / 空 payload / 损坏 payload）
+// ===========================================================================
+
+TEST(ArReplayCodecRoundtripTest, DecodeCycleInputRejectsNullOutput) {
+  std::string error;
+  EXPECT_FALSE(DecodeCycleInputFlatbuffer("", nullptr, &error));
+}
+
+TEST(ArReplayCodecRoundtripTest, DecodeCycleInputRejectsCorruptedPayload) {
+  ArCycleInput input;
+  std::string error;
+  EXPECT_FALSE(DecodeCycleInputFlatbuffer("garbage", &input, &error));
+  EXPECT_FALSE(error.empty());
+}
+
+TEST(ArReplayCodecRoundtripTest, DecodeTrackOutputFrameRejectsNullAndCorrupted) {
+  std::string error;
+  EXPECT_FALSE(DecodeTrackOutputFrameFlatbuffer("", nullptr, &error));
+  TrackOutputFrame frame;
+  EXPECT_FALSE(DecodeTrackOutputFrameFlatbuffer("corrupt", &frame, &error));
+}
+
+TEST(ArReplayCodecRoundtripTest, DecodeCycleResultRejectsNullAndCorrupted) {
+  std::string error;
+  EXPECT_FALSE(DecodeCycleResultFlatbuffer("", nullptr, &error));
+  ArCycleResult result;
+  EXPECT_FALSE(DecodeCycleResultFlatbuffer("xyz", &result, &error));
+}
+
+TEST(ArReplayCodecRoundtripTest, DecodeSessionConfigRejectsNullAndCorrupted) {
+  std::string error;
+  EXPECT_FALSE(DecodeSessionConfigFlatbuffer("", nullptr, &error));
+  config::ArSessionConfig config;
+  EXPECT_FALSE(DecodeSessionConfigFlatbuffer("bad", &config, &error));
+}
+
+TEST(ArReplayCodecRoundtripTest, DecodeRuntimeConfigPatchRejectsNullAndCorrupted) {
+  std::string error;
+  EXPECT_FALSE(DecodeRuntimeConfigPatchFlatbuffer("", nullptr, &error));
+  config::ArRuntimeConfigPatch patch;
+  EXPECT_FALSE(DecodeRuntimeConfigPatchFlatbuffer("bad", &patch, &error));
+}
+
+TEST(ArReplayCodecRoundtripTest, DecodeFailureMarkerRejectsNullAndCorrupted) {
+  std::string error;
+  EXPECT_FALSE(DecodeFailureMarkerFlatbuffer("", nullptr, &error));
+  oneq::replay::ReplayTraceFailure failure;
+  EXPECT_FALSE(DecodeFailureMarkerFlatbuffer("bad", &failure, &error));
+}
+
 }  // namespace tests
 }  // namespace session
 }  // namespace airborne_radar
