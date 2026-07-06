@@ -10,8 +10,8 @@
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "flatbuffers/flatbuffers.h"
-#include "generated/eos_replay_generated.h"
-#include "generated/eos_session_replay_generated.h"
+#include "electro_optical_sensor/session/generated/eos_replay_generated.h"
+#include "electro_optical_sensor/session/generated/eos_session_replay_generated.h"
 
 namespace electro_optical_sensor {
 namespace session {

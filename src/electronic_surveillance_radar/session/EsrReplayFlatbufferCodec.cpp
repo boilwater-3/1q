@@ -4,8 +4,8 @@
 #include <string>
 
 #include "flatbuffers/flatbuffers.h"
-#include "generated/esr_replay_generated.h"
-#include "generated/esr_session_replay_generated.h"
+#include "electronic_surveillance_radar/session/generated/esr_replay_generated.h"
+#include "electronic_surveillance_radar/session/generated/esr_session_replay_generated.h"
 
 namespace electronic_surveillance_radar {
 namespace session {

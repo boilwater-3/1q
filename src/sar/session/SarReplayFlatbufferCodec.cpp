@@ -5,8 +5,8 @@
 #include <vector>
 
 #include "flatbuffers/flatbuffers.h"
-#include "generated/sar_replay_generated.h"
-#include "generated/sar_session_replay_generated.h"
+#include "sar/session/generated/sar_replay_generated.h"
+#include "sar/session/generated/sar_session_replay_generated.h"
 
 namespace sar {
 namespace session {

@@ -98,6 +98,7 @@ include(cmake/FeaturePrecompiledHeaders.cmake)
 include(cmake/FeatureClangTidy.cmake)
 include(cmake/FeatureClangFormat.cmake)
 include(cmake/FeatureCoverage.cmake)
+include(cmake/FeatureFlatBuffers.cmake)
 
 # 编译器特定配置
 if(MSVC)

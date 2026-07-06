@@ -79,6 +79,11 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}
     )
+    # 构建期生成的 FlatBuffers 头（src/CMakeLists.txt 在构建期 set 此变量）。
+    if(DEFINED ONEQ_FLATBUFFERS_GENERATED_DIR)
+        target_include_directories(${target_name} PRIVATE
+            ${ONEQ_FLATBUFFERS_GENERATED_DIR})
+    endif()
     if(DEFINED flatbuffers_INCLUDE_DIRS_RELEASE)
         # Conan multi-config can omit header-only include dirs for tests.
         # Mirror Release include dirs so flexbuffers headers are always resolvable.
@@ -305,6 +310,11 @@ set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_compression_test.cpp
 )
 add_1q_gtest(${PROJECT_NAME}_replay_fast_tests replay_fast 90 ${REPLAY_FAST_TEST_SOURCES})
+# replay codec 测试直接 #include 构建期生成的 FlatBuffers 头，需在编译前
+# 确保生成头就绪（object 库的 custom command 依赖不会自动传递到本可执行）。
+if(TARGET oneq_flatbuffers_headers)
+    add_dependencies(${PROJECT_NAME}_replay_fast_tests oneq_flatbuffers_headers)
+endif()
 
 # --------------------------------------------------------------------------
 # SAR Phase 1/2 验收入口。Phase 2 性能项只记录 Sinc RCMC 独立代价，

@@ -62,6 +62,10 @@ JSBout*.csv
 # Vendored third-party dependencies
 third_party/
 
+# FlatBuffers 构建期生成的 replay 头（由 flatc 从 schemas/replay/*.fbs 产生，
+# 见 cmake/FeatureFlatBuffers.cmake。不再手工提交，防止 schema 与生成头漂移。）
+src/*/session/generated/*_generated.h
+
 # Local analysis artifacts
 jsbsim_aircraft_analysis.md
 
