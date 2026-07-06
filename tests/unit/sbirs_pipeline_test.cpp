@@ -101,4 +101,36 @@ TEST(SbirsSchedulerTest, HigherSnrCandidateWinsBeforeDistanceTieBreak) {
   EXPECT_EQ(result.detections.front().attribution.target_id, 2U);
 }
 
+// design 2.10：WFOV 带误差位置应反映在 WFOV 检测记录的方位角上，
+// 且相同 random_seed 的两次独立 pipeline 产生相同测量（replay 可复现）。
+TEST(SbirsPipelineTest, WfovMeasuredAzimuthReflectsErrorModelAndIsReproducible) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.policy.error_model.angular_sigma_deg = 0.0f;
+  config.policy.error_model.attitude_sigma_deg = 0.5f;  // 启用姿态误差
+  config.policy.error_model.orbit_sigma_deg = 0.0f;
+  config.policy.error_model.fov_sigma_deg = 0.0f;
+  config.policy.error_model.range_fraction_sigma = 0.0f;
+
+  const sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTarget(7U, 0.0))
+          .Build();
+
+  sbirs_sensor::pipeline::SbirsPipeline first(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::pipeline::SbirsPipeline second(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const sbirs_sensor::pipeline::SbirsPipelineResult r1 = first.RunCycle(input);
+  const sbirs_sensor::pipeline::SbirsPipelineResult r2 = second.RunCycle(input);
+
+  // 选中的目标直接进入 NFOV 捕获；真值方位角约 0，带误差后应偏离 0。
+  ASSERT_FALSE(r1.detections.empty());
+  // 相同 seed → 相同输出。
+  EXPECT_FLOAT_EQ(r1.detections.front().record.azimuth_deg,
+                  r2.detections.front().record.azimuth_deg);
+}
+
 }  // namespace

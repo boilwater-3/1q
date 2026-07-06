@@ -5,7 +5,9 @@
 #include <limits>
 
 #include "sbirs_sensor/environment/SbirsEnvironmentModel.h"
+#include "sbirs_sensor/foundation/SbirsErrorModel.h"
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
+#include "sbirs_sensor/foundation/SbirsNoiseModel.h"
 #include "sbirs_sensor/foundation/SbirsRadiometry.h"
 
 namespace sbirs_sensor {
@@ -39,7 +41,13 @@ double ComputeSnr(const config::SbirsInternalExecutionConfig& config,
       band_radiance * std::max(0.0f, target.emissivity), target.projected_area_m2, range_m,
       hardware.optical_aperture_m, hardware.optical_transmission, transmittance,
       hardware.detector_quantum_efficiency);
-  return foundation::ComputeInfraredSnrLinear(received_power, hardware);
+  // 2.8 噪声分解：背景/热/读出三项 RMS 合成；默认全 0 时回退到 NEP 标量。
+  const foundation::SbirsNoiseStatistics noise =
+      foundation::ComputeBackgroundNoiseStatistics(hardware);
+  const double effective_noise = foundation::ResolveEffectiveNoiseW(hardware, noise);
+  const double signal_energy =
+      std::max(0.0, received_power) * std::max(0.0f, hardware.integration_time_sec);
+  return signal_energy / effective_noise;
 }
 
 struct Candidate {
@@ -48,17 +56,22 @@ struct Candidate {
   float elevation_deg{0.0f};
   float measured_azimuth_deg{0.0f};
   float measured_elevation_deg{0.0f};
-  double range_m{0.0};
+  double range_m{0.0};        // 真值距离（调度优先级用）
+  double measured_range_m{0.0};  // 带误差距离（NFOV cue 与 attribution 诊断用）
   double snr{0.0};
 };
 
 }  // namespace
 
 SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
-    : config_(config), scan_azimuth_deg_(config.session.mission.scan_start_az_deg) {}
+    : config_(config),
+      scan_azimuth_deg_(config.session.mission.scan_start_az_deg),
+      random_source_(config.session.policy.error_model.random_seed) {}
 
 void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& config) {
   config_ = config;
+  // 配置变更后重置随机源种子，保证 runtime patch 后的 replay 可复现。
+  random_source_ = foundation::SbirsRandomSource(config.session.policy.error_model.random_seed);
 }
 
 SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& input) {
@@ -147,9 +160,15 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     candidate.target = &target;
     candidate.azimuth_deg = azimuth_deg;
     candidate.elevation_deg = elevation_deg;
-    candidate.measured_azimuth_deg = azimuth_deg + policy.error_model.angular_sigma_deg;
-    candidate.measured_elevation_deg = elevation_deg;
-    candidate.range_m = range_m;
+    candidate.range_m = range_m;  // 真值距离：调度优先级用（design 2.6）
+    // 2.10 WFOV 带误差位置：施加 5 类物理误差（高斯随机 + 折射 + 滞后）。
+    // 目标角速度未知时按 0 处理（动态滞后项为 0）。
+    const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
+        policy.error_model, &random_source_, azimuth_deg, elevation_deg, range_m,
+        /*target_angular_rate_deg_per_sec=*/0.0f);
+    candidate.measured_azimuth_deg = bearing.azimuth_deg;
+    candidate.measured_elevation_deg = bearing.elevation_deg;
+    candidate.measured_range_m = bearing.range_m;
     candidate.snr = snr;
     candidates.push_back(candidate);
     target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
@@ -224,6 +243,7 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   snapshot.target_states = target_states_;
   snapshot.has_locked_target = has_locked_target_;
   snapshot.locked_target_id = locked_target_id_;
+  snapshot.random_state = random_source_.Capture();
   return snapshot;
 }
 
@@ -233,6 +253,7 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
   target_states_ = snapshot.target_states;
   has_locked_target_ = snapshot.has_locked_target;
   locked_target_id_ = snapshot.locked_target_id;
+  random_source_.Restore(snapshot.random_state);
   return true;
 }
 
