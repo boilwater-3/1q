@@ -539,7 +539,7 @@ occulted = (0 < s_closest && s_closest < range && d_closest² <= R_E²)
 | Planck 辐射 | `ComputePlanckRadiance`（`src/electro_optical_sensor/foundation/EosRadiometry.cpp`） | `docs/review/sbirs_infrared_model_1205_v3.md:208-214`（斯特藩-玻尔兹曼简化） | 目标谱辐射，Stefan-Boltzmann 常数使用 `σ≈5.670374419e-8 W/(m²·K⁴)`；原始需求中的 `5.76e-8` 视为近似/笔误 |
 | 大气衰减（Beer-Lambert） | `EvaluateRadiativeTransfer`（`EosRadiativeTransfer.cpp`） | `docs/review/sbirs_infrared_model_1205_v3.md:216-222` | `Φ_atm = Φ_tar · τ(λ,d)`，`τ` 依赖波段和距离 |
 | 探测器接收功率 | `ComputeReceivedPowerW` | `docs/review/sbirs_infrared_model_1205_v3.md:224-230` | `P_sig = Φ_atm · A_det · η_det / d²` |
-| 噪声模型 | `ComputeBackgroundNoiseStatistics`（`EosNoiseModel.cpp`） | `docs/review/sbirs_infrared_model_1205_v3.md:232-240` | 光子噪声、热噪声、读出噪声均方根合成 |
+| 噪声模型 | `ComputeBackgroundNoiseStatistics`（`EosNoiseModel.cpp`） | `docs/review/sbirs_infrared_model_1205_v3.md:232-240` | 光子噪声、热噪声、读出噪声均方根合成。实现见 `SbirsNoiseModel`：`background_radiance_w_sr_m2`/`detector_temperature_k`/`readout_noise_rms_w` 三项 RMS 合成，三项默认全 0 时回退到 `noise_equivalent_power_w` 标量 |
 | SNR 与可探测性 | `ComputeInfraredSnrLinear` | `docs/review/sbirs_infrared_model_1205_v3.md:242-246` | `SNR = P_sig · t_int / N_total`，`SNR ≥ SNR_th` 可探测 |
 | 方位角/俯仰角计算 | EOS pipeline 内部 | `docs/review/sbirs_infrared_model_1205_v3.md:148-186` | `El = RADTODEG(-arcsin(XLOS_z/LOSRange))`，`Az = RADTODEG(arctan2(XLOS_y, XLOS_x))` |
 | 探测阈值调整 | EOS policy 映射 | `docs/review/sbirs_infrared_model_1205_v3.md:121-142` | `T = μ + k·σ`，k 值按虚警率选取（WFOV k≈4，NFOV k≈5~6） |
@@ -582,6 +582,10 @@ A_total = Σ(w_i · A_i) + Σ(k_j · A_p · A_q) + C
 
 其中 `w_i` 为参数权重（`Σw_i = 1`），`k_j · A_p · A_q` 为参数交互项（如湿度与能见度联合影响），
 `C` 为常数修正项。`A_total ∈ [0, 1]`，1 表示完全衰减。
+
+> 实现状态：第一版固定权重实现独立项 `Σ(w_i · A_i)` 与温度修正；交互项 `k_j · A_p · A_q`
+> 通过 `humidity_visibility_interaction_weight`（湿度×能见度）与 `rain_humidity_interaction_weight`
+> （雨×湿度，仅雨天）两个可配置系数启用，默认 0 即关闭交互项（向后兼容）。
 
 **进入 SNR 链路的方式**：`A_total` 作用于路径透过率，即有效透过率
 
@@ -627,6 +631,13 @@ WFOV 输出的带误差位置是 NFOV 首次捕获的输入，误差模型直接
 
 误差叠加作用于 WFOV 输出层、NFOV cue 指向生成和 NFOV 首次捕获判定层；真值辅助跟踪阶段（2.5）
 不受后续测量误差影响。高斯随机误差的采样应使用可注入的随机数源，保证 replay 可复现。
+
+> 实现状态：`SbirsErrorModel` 实现 5 类误差的加法/乘法合成。轨道/姿态/视场为高斯随机
+> （`orbit_sigma_deg`/`attitude_sigma_deg`/`fov_sigma_deg`，Box-Muller），折射与滞后为确定性公式
+> （`RefractionErrorDeg`/`DynamicLagErrorDeg`）。随机源 `SbirsRandomSource` 为 xorshift32 + Box-Muller，
+> 由 `random_seed` 初始化，状态经 `SbirsPipelineSnapshot::random_state` 随 capture/restore 持久化，
+> 保证 replay 可复现。当三项高斯 sigma 均为 0 时回退到合并 `angular_sigma_deg`（向后兼容）。
+> 目标角速度当前固定按 0 处理（动态滞后项为 0），后续接入运动估计后再启用。
 
 适用边界：
 
