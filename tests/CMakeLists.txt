@@ -155,6 +155,17 @@ set(FD_TEST_SOURCES
 # 从单元测试源列表中排除 FD 测试
 list(REMOVE_ITEM UNIT_TEST_SOURCES ${FD_TEST_SOURCES})
 
+# replay codec roundtrip 测试由 REPLAY_FAST_TEST_SOURCES 显式收录，
+# 从 unit glob 中排除以避免双重编译（1q_unit_tests 与 1q_replay_fast_tests
+# 各编译一次）。与 FD 测试的排除模式一致。
+set(REPLAY_CODEC_ROUNDTRIP_TEST_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/eos_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/esr_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sar_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_replay_codec_roundtrip_test.cpp")
+list(REMOVE_ITEM UNIT_TEST_SOURCES ${REPLAY_CODEC_ROUNDTRIP_TEST_SOURCES})
+
 add_1q_gtest(${PROJECT_NAME}_unit_tests unit 60 ${UNIT_TEST_SOURCES})
 
 # JsonReader 单测下沉后属于 examples 层，链接 examples/common 的实现。
@@ -307,6 +318,7 @@ set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/esr_replay_session_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/sar_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/sar_replay_session_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_compression_test.cpp
 )
 add_1q_gtest(${PROJECT_NAME}_replay_fast_tests replay_fast 90 ${REPLAY_FAST_TEST_SOURCES})

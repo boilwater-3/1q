@@ -1,24 +1,49 @@
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <limits>
 #include <string>
 
+#include "1q/replay/ReplayTrace.h"
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
+#include "1q/sbirs_sensor/session/SbirsCycleResult.h"
+#include "1q/sbirs_sensor/session/SbirsOutputTypes.h"
 #include "sbirs_sensor/session/SbirsReplayFlatbufferCodec.h"
 
+namespace sbirs_sensor {
+namespace session {
+namespace tests {
 namespace {
 
-sbirs_sensor::session::SbirsVector3M Vector(double x, double y, double z) {
-  sbirs_sensor::session::SbirsVector3M value;
+using config::SbirsEnvironmentConfig;
+using config::SbirsHardwareConfig;
+using config::SbirsMissionConfig;
+using config::SbirsPolicyConfig;
+using config::SbirsRuntimeConfigBuilder;
+using config::SbirsRuntimeConfigPatch;
+using config::SbirsSeaState;
+using config::SbirsSessionConfig;
+using config::SbirsWeatherType;
+using config::SbirsWorkMode;
+using output::SbirsDetectionRecord;
+using output::SbirsObservationStage;
+
+SbirsVector3M Vector(double x, double y, double z) {
+  SbirsVector3M value;
   value.x = x;
   value.y = y;
   value.z = z;
   return value;
 }
 
+}  // namespace
+
+// --- CycleInput ---
+
 TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
-  sbirs_sensor::session::SbirsSceneTarget target;
+  SbirsSceneTarget target;
   target.target_id = 9U;
   target.target_name = "boost";
   target.position_ecef_m = Vector(8000000.0, 2.0, 3.0);
@@ -27,14 +52,14 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   target.projected_area_m2 = 42.0f;
   target.active = false;
 
-  sbirs_sensor::session::SbirsEnvironmentInput environment;
+  SbirsEnvironmentInput environment;
   environment.has_environment_override = true;
-  environment.environment.weather_type = sbirs_sensor::config::SbirsWeatherType::kFog;
-  environment.environment.sea_state = sbirs_sensor::config::SbirsSeaState::kHigh;
+  environment.environment.weather_type = SbirsWeatherType::kFog;
+  environment.environment.sea_state = SbirsSeaState::kHigh;
   environment.environment.visibility_km = 4.0f;
 
-  const sbirs_sensor::session::SbirsCycleInput input =
-      sbirs_sensor::session::SbirsCycleInputBuilder()
+  const SbirsCycleInput input =
+      SbirsCycleInputBuilder()
           .WithCycleIndex(3U)
           .WithDeltaTimeSec(0.25f)
           .WithSatellitePosition(Vector(7000000.0, 4.0, 5.0))
@@ -42,43 +67,89 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
           .AddTarget(target)
           .Build();
 
-  const std::string bytes = sbirs_sensor::session::EncodeSbirsCycleInput(input);
+  const std::string bytes = EncodeSbirsCycleInput(input);
   ASSERT_FALSE(bytes.empty());
-  sbirs_sensor::session::SbirsCycleInput decoded;
-  ASSERT_TRUE(sbirs_sensor::session::DecodeSbirsCycleInput(bytes, &decoded));
+  SbirsCycleInput decoded;
+  ASSERT_TRUE(DecodeSbirsCycleInput(bytes, &decoded));
 
   EXPECT_EQ(decoded.cycle_index, 3U);
   EXPECT_FLOAT_EQ(decoded.dt_sec, 0.25f);
   EXPECT_TRUE(decoded.has_satellite_position);
   EXPECT_DOUBLE_EQ(decoded.satellite_position_ecef_m.x, 7000000.0);
   EXPECT_TRUE(decoded.environment.has_environment_override);
-  EXPECT_EQ(decoded.environment.environment.weather_type,
-            sbirs_sensor::config::SbirsWeatherType::kFog);
+  EXPECT_EQ(decoded.environment.environment.weather_type, SbirsWeatherType::kFog);
+  EXPECT_EQ(decoded.environment.environment.sea_state, SbirsSeaState::kHigh);
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].target_id, 9U);
   EXPECT_EQ(decoded.scene[0].target_name, "boost");
   EXPECT_DOUBLE_EQ(decoded.scene[0].position_ecef_m.y, 2.0);
   EXPECT_FLOAT_EQ(decoded.scene[0].temperature_k, 2300.0f);
+  EXPECT_FLOAT_EQ(decoded.scene[0].emissivity, 0.91f);
+  EXPECT_FLOAT_EQ(decoded.scene[0].projected_area_m2, 42.0f);
   EXPECT_FALSE(decoded.scene[0].active);
 }
 
-TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFields) {
-  sbirs_sensor::session::SbirsCycleResult result;
-  result.input_cycle_index = 5U;
-  result.output_frame.cycle_index = 5U;
-  result.output_frame.scan_azimuth_deg = 12.0f;
-  result.executed_this_cycle = true;
+TEST(SbirsReplayCodecRoundtripTest, CycleInputDecodesEmptyScene) {
+  const SbirsCycleInput input =
+      SbirsCycleInputBuilder().WithCycleIndex(1U).Build();
+  const std::string bytes = EncodeSbirsCycleInput(input);
+  SbirsCycleInput decoded;
+  ASSERT_TRUE(DecodeSbirsCycleInput(bytes, &decoded));
+  EXPECT_EQ(decoded.cycle_index, 1U);
+  EXPECT_TRUE(decoded.scene.empty());
+}
 
-  sbirs_sensor::output::SbirsDetectionRecord detection;
+// --- OutputFrame ---
+
+TEST(SbirsReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
+  SbirsOutputFrame frame;
+  frame.cycle_index = 7U;
+  frame.scan_azimuth_deg = -15.5f;
+
+  SbirsDetectionRecord detection;
   detection.detection_id = 33U;
   detection.azimuth_deg = 1.5f;
   detection.elevation_deg = -2.5f;
   detection.infrared_snr_linear = 9.0f;
-  detection.observation_stage = sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack;
+  detection.observation_stage = SbirsObservationStage::kNarrowFieldTrack;
+  detection.detected = true;
+  frame.detections.push_back(detection);
+
+  const std::string bytes = EncodeSbirsOutputFrame(frame);
+  ASSERT_FALSE(bytes.empty());
+  SbirsOutputFrame decoded;
+  ASSERT_TRUE(DecodeSbirsOutputFrame(bytes, &decoded));
+
+  EXPECT_EQ(decoded.cycle_index, 7U);
+  EXPECT_FLOAT_EQ(decoded.scan_azimuth_deg, -15.5f);
+  ASSERT_EQ(decoded.detections.size(), 1U);
+  EXPECT_EQ(decoded.detections[0].detection_id, 33U);
+  EXPECT_FLOAT_EQ(decoded.detections[0].azimuth_deg, 1.5f);
+  EXPECT_FLOAT_EQ(decoded.detections[0].elevation_deg, -2.5f);
+  EXPECT_FLOAT_EQ(decoded.detections[0].infrared_snr_linear, 9.0f);
+  EXPECT_EQ(decoded.detections[0].observation_stage, SbirsObservationStage::kNarrowFieldTrack);
+  EXPECT_TRUE(decoded.detections[0].detected);
+}
+
+// --- CycleResult ---
+
+TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFields) {
+  SbirsCycleResult result;
+  result.input_cycle_index = 5U;
+  result.output_frame.cycle_index = 5U;
+  result.output_frame.scan_azimuth_deg = 12.0f;
+  result.executed_this_cycle = true;
+  result.reused_previous_output = true;
+  result.has_validation_error = true;
+  result.abort_reason = SbirsPipelineAbortReason::kValidationRejected;
+
+  SbirsDetectionRecord detection;
+  detection.detection_id = 33U;
+  detection.observation_stage = SbirsObservationStage::kNarrowFieldTrack;
   detection.detected = true;
   result.output_frame.detections.push_back(detection);
 
-  sbirs_sensor::attribution::SbirsDetectionAttributionRecord attribution;
+  attribution::SbirsDetectionAttributionRecord attribution;
   attribution.detection_id = 33U;
   attribution.target_id = 44U;
   attribution.target_name = "truth";
@@ -86,70 +157,209 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   attribution.used_truth_assist = true;
   result.detection_attributions.push_back(attribution);
 
-  sbirs_sensor::session::ValidationIssue issue;
-  issue.severity = sbirs_sensor::session::ValidationSeverity::kWarning;
-  issue.location.kind = sbirs_sensor::session::ValidationLocationKind::kSceneEntity;
-  issue.location.entity_index = 1U;
-  issue.message = "warn";
-  result.validation_issues.push_back(issue);
+  // 带 entity_index 的 scene 级 issue
+  ValidationIssue scene_issue;
+  scene_issue.severity = ValidationSeverity::kWarning;
+  scene_issue.location.kind = ValidationLocationKind::kSceneEntity;
+  scene_issue.location.entity_index = 1U;
+  scene_issue.message = "warn";
+  result.validation_issues.push_back(scene_issue);
 
-  const std::string bytes = sbirs_sensor::session::EncodeSbirsCycleResult(result);
-  sbirs_sensor::session::SbirsCycleResult decoded;
-  ASSERT_TRUE(sbirs_sensor::session::DecodeSbirsCycleResult(bytes, &decoded));
+  // kGlobal location（entity_index 哨兵值 size_t::max ↔ int64 -1）
+  ValidationIssue global_issue;
+  global_issue.severity = ValidationSeverity::kError;
+  global_issue.location.kind = ValidationLocationKind::kGlobal;
+  global_issue.location.entity_index = std::numeric_limits<std::size_t>::max();
+  global_issue.message = "global";
+  result.validation_issues.push_back(global_issue);
+
+  const std::string bytes = EncodeSbirsCycleResult(result);
+  SbirsCycleResult decoded;
+  ASSERT_TRUE(DecodeSbirsCycleResult(bytes, &decoded));
 
   EXPECT_EQ(decoded.input_cycle_index, 5U);
   EXPECT_TRUE(decoded.executed_this_cycle);
+  EXPECT_TRUE(decoded.reused_previous_output);
+  EXPECT_TRUE(decoded.has_validation_error);
+  EXPECT_EQ(decoded.abort_reason, SbirsPipelineAbortReason::kValidationRejected);
   ASSERT_EQ(decoded.output_frame.detections.size(), 1U);
   EXPECT_EQ(decoded.output_frame.detections[0].observation_stage,
-            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
+            SbirsObservationStage::kNarrowFieldTrack);
   ASSERT_EQ(decoded.detection_attributions.size(), 1U);
   EXPECT_FLOAT_EQ(decoded.detection_attributions[0].estimated_range_m, 1234.0f);
   EXPECT_TRUE(decoded.detection_attributions[0].used_truth_assist);
-  ASSERT_EQ(decoded.validation_issues.size(), 1U);
+  ASSERT_EQ(decoded.validation_issues.size(), 2U);
   EXPECT_EQ(decoded.validation_issues[0].location.entity_index, 1U);
+  // 哨兵值经 size_t::max → int64(-1) → size_t::max 的往返
+  EXPECT_EQ(decoded.validation_issues[1].location.kind, ValidationLocationKind::kGlobal);
+  EXPECT_EQ(decoded.validation_issues[1].location.entity_index,
+            std::numeric_limits<std::size_t>::max());
 }
 
-TEST(SbirsReplayCodecRoundtripTest, SessionConfigAndRuntimePatchPreserveFields) {
-  sbirs_sensor::config::SbirsSessionConfig config;
+// --- SessionConfig ---
+
+TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
+  SbirsSessionConfig config;
+  config.hardware.wavelength_lower_um = 2.0f;
+  config.hardware.wavelength_upper_um = 5.0f;
   config.hardware.optical_aperture_m = 0.9f;
+  config.hardware.detector_area_m2 = 2.0e-4f;
+  config.hardware.optical_transmission = 0.75f;
+  config.hardware.detector_quantum_efficiency = 0.65f;
+  config.hardware.integration_time_sec = 0.04f;
+  config.hardware.noise_equivalent_power_w = 2.0e-12f;
+  config.mission.work_mode = SbirsWorkMode::kWideSearch;
+  config.mission.sensor_enabled = true;
   config.mission.scan_rate_deg_per_sec = 3.0f;
+  config.mission.narrow_cue_latency_s = 0.05f;
+  config.policy.detection.wide_min_snr_linear = 3.5f;
   config.policy.detection.narrow_min_snr_linear = 7.0f;
-  config.environment.weather_type = sbirs_sensor::config::SbirsWeatherType::kRain;
+  config.policy.error_model.angular_sigma_deg = 0.08f;
+  config.policy.error_model.range_fraction_sigma = 0.002f;
+  config.policy.error_model.random_seed = 42U;
+  config.policy.scheduler.single_narrow_resource = false;
+  config.environment.weather_type = SbirsWeatherType::kRain;
+  config.environment.sea_state = SbirsSeaState::kMedium;
+  config.environment.temperature_c = 25.0f;
+  config.environment.base_atmospheric_transmittance = 0.7f;
 
-  sbirs_sensor::config::SbirsSessionConfig decoded_config;
-  ASSERT_TRUE(sbirs_sensor::session::DecodeSbirsSessionConfig(
-      sbirs_sensor::session::EncodeSbirsSessionConfig(config), &decoded_config));
-  EXPECT_FLOAT_EQ(decoded_config.hardware.optical_aperture_m, 0.9f);
-  EXPECT_FLOAT_EQ(decoded_config.mission.scan_rate_deg_per_sec, 3.0f);
-  EXPECT_FLOAT_EQ(decoded_config.policy.detection.narrow_min_snr_linear, 7.0f);
-  EXPECT_EQ(decoded_config.environment.weather_type, sbirs_sensor::config::SbirsWeatherType::kRain);
+  SbirsSessionConfig decoded;
+  ASSERT_TRUE(DecodeSbirsSessionConfig(EncodeSbirsSessionConfig(config), &decoded));
+  EXPECT_FLOAT_EQ(decoded.hardware.optical_aperture_m, 0.9f);
+  EXPECT_FLOAT_EQ(decoded.hardware.noise_equivalent_power_w, 2.0e-12f);
+  EXPECT_EQ(decoded.mission.work_mode, SbirsWorkMode::kWideSearch);
+  EXPECT_TRUE(decoded.mission.sensor_enabled);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_rate_deg_per_sec, 3.0f);
+  EXPECT_FLOAT_EQ(decoded.policy.detection.narrow_min_snr_linear, 7.0f);
+  EXPECT_FLOAT_EQ(decoded.policy.error_model.angular_sigma_deg, 0.08f);
+  EXPECT_EQ(decoded.policy.error_model.random_seed, 42U);
+  EXPECT_FALSE(decoded.policy.scheduler.single_narrow_resource);
+  EXPECT_EQ(decoded.environment.weather_type, SbirsWeatherType::kRain);
+  EXPECT_EQ(decoded.environment.sea_state, SbirsSeaState::kMedium);
+  EXPECT_FLOAT_EQ(decoded.environment.base_atmospheric_transmittance, 0.7f);
+}
 
-  const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
-      sbirs_sensor::config::SbirsRuntimeConfigBuilder()
-          .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kWideSearch)
+// --- RuntimeConfigPatch ---
+
+TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
+  SbirsMissionConfig mission;
+  mission.work_mode = SbirsWorkMode::kStandby;
+  SbirsPolicyConfig policy;
+  policy.detection.wide_min_snr_linear = 5.0f;
+  SbirsEnvironmentConfig environment;
+  environment.weather_type = SbirsWeatherType::kCloudy;
+
+  const SbirsRuntimeConfigPatch patch =
+      SbirsRuntimeConfigBuilder()
+          .WithMission(mission)
+          .WithPolicy(policy)
+          .WithEnvironment(environment)
+          .WithWorkMode(SbirsWorkMode::kWideSearch)
           .WithScanRateDegPerSec(4.0f)
           .WithSensorEnabled(false)
           .Build();
-  sbirs_sensor::config::SbirsRuntimeConfigPatch decoded_patch;
-  ASSERT_TRUE(sbirs_sensor::session::DecodeSbirsRuntimeConfigPatch(
-      sbirs_sensor::session::EncodeSbirsRuntimeConfigPatch(patch), &decoded_patch));
-  EXPECT_TRUE(decoded_patch.has_work_mode);
-  EXPECT_EQ(decoded_patch.work_mode, sbirs_sensor::config::SbirsWorkMode::kWideSearch);
-  EXPECT_TRUE(decoded_patch.has_scan_rate_deg_per_sec);
-  EXPECT_FLOAT_EQ(decoded_patch.scan_rate_deg_per_sec, 4.0f);
-  EXPECT_TRUE(decoded_patch.has_sensor_enabled);
-  EXPECT_FALSE(decoded_patch.sensor_enabled);
+  SbirsRuntimeConfigPatch decoded;
+  ASSERT_TRUE(DecodeSbirsRuntimeConfigPatch(EncodeSbirsRuntimeConfigPatch(patch), &decoded));
+
+  EXPECT_TRUE(decoded.has_mission);
+  EXPECT_EQ(decoded.mission.work_mode, SbirsWorkMode::kStandby);
+  EXPECT_TRUE(decoded.has_policy);
+  EXPECT_FLOAT_EQ(decoded.policy.detection.wide_min_snr_linear, 5.0f);
+  EXPECT_TRUE(decoded.has_environment);
+  EXPECT_EQ(decoded.environment.weather_type, SbirsWeatherType::kCloudy);
+  EXPECT_TRUE(decoded.has_work_mode);
+  EXPECT_EQ(decoded.work_mode, SbirsWorkMode::kWideSearch);
+  EXPECT_TRUE(decoded.has_scan_rate_deg_per_sec);
+  EXPECT_FLOAT_EQ(decoded.scan_rate_deg_per_sec, 4.0f);
+  EXPECT_TRUE(decoded.has_sensor_enabled);
+  EXPECT_FALSE(decoded.sensor_enabled);
 }
 
-TEST(SbirsReplayCodecRoundtripTest, RejectsEmptyPayloads) {
-  sbirs_sensor::session::SbirsCycleInput input;
-  sbirs_sensor::session::SbirsCycleResult result;
-  sbirs_sensor::config::SbirsSessionConfig config;
-  sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
-  EXPECT_FALSE(sbirs_sensor::session::DecodeSbirsCycleInput("", &input));
-  EXPECT_FALSE(sbirs_sensor::session::DecodeSbirsCycleResult("", &result));
-  EXPECT_FALSE(sbirs_sensor::session::DecodeSbirsSessionConfig("", &config));
-  EXPECT_FALSE(sbirs_sensor::session::DecodeSbirsRuntimeConfigPatch("", &patch));
+TEST(SbirsReplayCodecRoundtripTest, EmptyRuntimeConfigPatchKeepsAllFlagsFalse) {
+  const SbirsRuntimeConfigPatch patch;  // 默认构造：全部 has_* 为 false
+  SbirsRuntimeConfigPatch decoded;
+  ASSERT_TRUE(DecodeSbirsRuntimeConfigPatch(EncodeSbirsRuntimeConfigPatch(patch), &decoded));
+  EXPECT_FALSE(decoded.has_mission);
+  EXPECT_FALSE(decoded.has_policy);
+  EXPECT_FALSE(decoded.has_environment);
+  EXPECT_FALSE(decoded.has_work_mode);
+  EXPECT_FALSE(decoded.has_scan_rate_deg_per_sec);
+  EXPECT_FALSE(decoded.has_sensor_enabled);
 }
 
-}  // namespace
+// --- FailureMarker ---
+
+TEST(SbirsReplayCodecRoundtripTest, FailureMarkerPreservesAllFields) {
+  oneq::replay::ReplayTraceFailure failure;
+  failure.error_code = "E_TIMEOUT";
+  failure.message = "narrow cue exceeded latency budget";
+  failure.location = "SbirsSession::ExecuteCycle";
+  failure.has_cycle_index = true;
+  failure.cycle_index = 88U;
+  failure.has_sim_time_sec = true;
+  failure.sim_time_sec = 12.5;
+  failure.diagnostics_payload = "{\"retry\":3}";
+
+  const std::string bytes = EncodeSbirsFailureMarker(failure);
+  ASSERT_FALSE(bytes.empty());
+
+  oneq::replay::ReplayTraceFailure decoded;
+  std::string error;
+  ASSERT_TRUE(DecodeSbirsFailureMarker(bytes, &decoded, &error)) << error;
+
+  EXPECT_EQ(decoded.error_code, "E_TIMEOUT");
+  EXPECT_EQ(decoded.message, "narrow cue exceeded latency budget");
+  EXPECT_EQ(decoded.location, "SbirsSession::ExecuteCycle");
+  EXPECT_TRUE(decoded.has_cycle_index);
+  EXPECT_EQ(decoded.cycle_index, 88U);
+  EXPECT_TRUE(decoded.has_sim_time_sec);
+  EXPECT_DOUBLE_EQ(decoded.sim_time_sec, 12.5);
+  EXPECT_EQ(decoded.diagnostics_payload, "{\"retry\":3}");
+}
+
+// --- 负路径：null out / 空 payload / 损坏 payload ---
+
+TEST(SbirsReplayCodecRoundtripTest, DecodeCycleInputRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeSbirsCycleInput("", nullptr));
+  SbirsCycleInput input;
+  EXPECT_FALSE(DecodeSbirsCycleInput("corrupt", &input));
+}
+
+TEST(SbirsReplayCodecRoundtripTest, DecodeOutputFrameRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeSbirsOutputFrame("", nullptr));
+  SbirsOutputFrame frame;
+  EXPECT_FALSE(DecodeSbirsOutputFrame("bad", &frame));
+}
+
+TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeSbirsCycleResult("", nullptr));
+  SbirsCycleResult result;
+  EXPECT_FALSE(DecodeSbirsCycleResult("bad", &result));
+}
+
+TEST(SbirsReplayCodecRoundtripTest, DecodeSessionConfigRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeSbirsSessionConfig("", nullptr));
+  SbirsSessionConfig config;
+  EXPECT_FALSE(DecodeSbirsSessionConfig("bad", &config));
+}
+
+TEST(SbirsReplayCodecRoundtripTest, DecodeRuntimeConfigPatchRejectsNullAndCorrupted) {
+  EXPECT_FALSE(DecodeSbirsRuntimeConfigPatch("", nullptr));
+  SbirsRuntimeConfigPatch patch;
+  EXPECT_FALSE(DecodeSbirsRuntimeConfigPatch("bad", &patch));
+}
+
+TEST(SbirsReplayCodecRoundtripTest, DecodeFailureMarkerRejectsNullAndCorrupted) {
+  std::string error;
+  // null out
+  EXPECT_FALSE(DecodeSbirsFailureMarker("", nullptr, &error));
+  // 空 payload
+  oneq::replay::ReplayTraceFailure failure;
+  EXPECT_FALSE(DecodeSbirsFailureMarker("", &failure, &error));
+  // 损坏 payload
+  EXPECT_FALSE(DecodeSbirsFailureMarker("bad", &failure, &error));
+}
+
+}  // namespace tests
+}  // namespace session
+}  // namespace sbirs_sensor
