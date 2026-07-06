@@ -32,7 +32,7 @@ Authority: common contract for all modules
 - `*OutputFrame`、`*CycleResult` 等输出和结构化执行结果 DTO。
 - trace/replay、debug view、lifecycle recorder 等已经形成外部消费合同的工具。
 
-业务模块 public 类型使用模块所有权前缀：`Ar*`、`Eos*`、`Esr*`、`Sar*`。领域术语不受该规则机械约束，例如 `radar_cross_section`、`RadarEquations` 这类物理概念可保留领域名；但 session/config/cycle/result/adapter/trace/replay/debug/lifecycle 等 public DTO 和门面不得把通用领域词误用为模块前缀。
+业务模块 public 类型使用模块所有权前缀：`Ar*`、`Eos*`、`Esr*`、`Sar*`、`Sbirs*`。领域术语不受该规则机械约束，例如 `radar_cross_section`、`RadarEquations` 这类物理概念可保留领域名；但 session/config/cycle/result/adapter/trace/replay/debug/lifecycle 等 public DTO 和门面不得把通用领域词误用为模块前缀。
 
 默认禁止公开：
 
@@ -118,7 +118,7 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
 | 类别 | 承诺 | 归属模块 |
 |---|---|---|
 | **事务性提交** | patch 经 resolver 校验；配置延迟到下个周期边界原子落定；commit 或周期执行失败时，对持有跨周期累积状态的子系统做 capture/restore 完整恢复。 | `airborne_radar` |
-| **立即提交** | patch 经 resolver 校验；`TryApplyRuntimeConfig` 调用即生效，配置单向落定、不在 session 层回滚。若 pipeline 持有累积状态且执行可能失败，回滚边界由该模块在内部层（如 controller）声明，不上升为 session 层契约。 | `electronic_surveillance_radar`、`electro_optical_sensor`、`sar` |
+| **立即提交** | patch 经 resolver 校验；`TryApplyRuntimeConfig` 调用即生效，配置单向落定、不在 session 层回滚。若 pipeline 持有累积状态且执行可能失败，回滚边界由该模块在内部层（如 controller）声明，不上升为 session 层契约。 | `electronic_surveillance_radar`、`electro_optical_sensor`、`sar`、`sbirs_sensor` |
 
 规则：
 
@@ -127,6 +127,7 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
    - `electronic_surveillance_radar`：config 无累积（每 RunCycle 重新派生），`UpdateConfig` 走换 config 留 tracks（`InterceptPipeline.cpp:52-57`）；`InterceptPipelineResult` 是三通道纯数据载体，不含 pipeline 自报执行状态，因此当前无 pipeline 执行失败 abort 路径。
    - `electro_optical_sensor`：执行回滚封装在 `EosController::RunOnce`（`EosController.cpp:68-111`），不上升为 session 层事务。
    - `sar`：每 Step 从 `runtime_config` 全量重建，无累积状态可回滚；以执行前 gate（`ValidateRuntimeConfigForStep`）兜底。
+   - `sbirs_sensor`：pipeline 持有跨周期目标状态机，但 capture/restore 封装在 `SbirsController::RunOnce` 内部（参照 `EosController.cpp:64-112` 同构实现），不在 session 层暴露事务语义。归属立即提交类。
 2. **所有四模块的 patch 必须经 resolver 校验**（`is_valid`/`has_requested_update`），不得盲写。`sar` 已通过 `SarRuntimeConfigResolver` 对齐该规则。
 3. **立即提交类不得声称 session 层回滚。** 若其内部存在 capture/restore 能力（如 ESR 的累积状态快照），必须在代码 doc 注明该机制的实际边界，避免阅读者误以为 session 层提供配置回滚或已激活的执行失败回滚。
 4. **事务性提交类不得在执行成功前落定配置语义状态。** 配置的"逻辑当前值"（如 AR 的 `runtime_state`）与"已推送到子系统的物理状态"必须在对齐点之后才一致。
@@ -164,6 +165,7 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
 - `electronic_surveillance_radar`
 - `flight_dynamic`
 - `sar`
+- `space_based_infrared_sensor`
 
 `docs/` 顶层不保留散落的 Markdown 文件。所有文档必须落在上述某个一级目录内。
 
@@ -211,6 +213,7 @@ flowchart LR
     EO[electro_optical_sensor\n光电传感器]
     ESR[electronic_surveillance_radar\n电子侦察]
     SAR[sar\n合成孔径雷达]
+    SBIRS[space_based_infrared_sensor\n天基红外]
   end
 
   subgraph OUT["模块独立输出"]
@@ -227,12 +230,15 @@ flowchart LR
   STATE -->|平台状态| EO
   STATE -->|平台状态| ESR
   STATE -->|平台状态| SAR
+  STATE -->|平台状态| SBIRS
 
   ENV --> AR
   ENV --> EO
+  ENV --> SBIRS
   TGT --> AR
   TGT --> EO
   TGT --> SAR
+  TGT --> SBIRS
   IQ -.->|可选的| SAR
   EMIT --> ESR
 
@@ -240,6 +246,7 @@ flowchart LR
   EO --> O2
   ESR --> O3
   SAR --> O4
+  SBIRS --> O2
 ```
 
 读图规则：
