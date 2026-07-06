@@ -3,6 +3,8 @@
 set(SBIRS_ENGINE_SOURCES
     sbirs_sensor/foundation/SbirsGeometry.cpp
     sbirs_sensor/foundation/SbirsRadiometry.cpp
+    sbirs_sensor/foundation/SbirsErrorModel.cpp
+    sbirs_sensor/foundation/SbirsNoiseModel.cpp
     sbirs_sensor/environment/SbirsEnvironmentModel.cpp
     sbirs_sensor/pipeline/SbirsPipeline.cpp
 )
