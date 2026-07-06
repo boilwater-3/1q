@@ -34,11 +34,7 @@ struct ArSession::Impl {
         owned_ar_context(std::move(composition.owned_ar_context)),
         owned_signal_pipeline(std::move(composition.owned_signal_pipeline)),
         owned_environment_service(std::move(composition.owned_environment_service)),
-        owned_controller(std::move(composition.owned_controller)),
-        radar_context(*composition.ar_context),
-        signal_pipeline(*composition.signal_pipeline),
-        environment_service(*composition.environment_service),
-        controller(*composition.controller) {
+        owned_controller(std::move(composition.owned_controller)) {
     config::ArSessionConfig initial_session_config;
     initial_session_config.hardware = composition.runtime_hardware;
     initial_session_config.mission = composition.runtime_mission;
@@ -59,24 +55,24 @@ struct ArSession::Impl {
   ArCycleResult BuildCycleResult(const ArCycleInput& input) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    if (controller.HasLatestTrackOutputFrame()) {
-      result.track_output_frame = controller.GetLatestTrackOutputFrame();
+    if (Controller().HasLatestTrackOutputFrame()) {
+      result.track_output_frame = Controller().GetLatestTrackOutputFrame();
     }
-    result.executed_this_cycle = controller.ExecutedLatestCycle();
-    result.abort_reason = controller.GetLastSignalCycleAbortReason();
-    result.reused_previous_output = controller.ReusedPreviousTrackOutputLatestCycle();
+    result.executed_this_cycle = Controller().ExecutedLatestCycle();
+    result.abort_reason = Controller().GetLastSignalCycleAbortReason();
+    result.reused_previous_output = Controller().ReusedPreviousTrackOutputLatestCycle();
     if (result.executed_this_cycle) {
-      result.submitted_commands = radar_context.GetSubmittedCommands();
+      result.submitted_commands = RadarContext().GetSubmittedCommands();
     }
-    result.validation_issues = controller.GetLastValidationIssues();
-    result.has_validation_error = controller.HasValidationError();
+    result.validation_issues = Controller().GetLastValidationIssues();
+    result.has_validation_error = Controller().HasValidationError();
     result.has_control_profile =
-        result.executed_this_cycle && radar_context.HasLatestControlProfile();
+        result.executed_this_cycle && RadarContext().HasLatestControlProfile();
     if (result.has_control_profile) {
-      result.control_profile = radar_context.GetLatestControlProfile();
+      result.control_profile = RadarContext().GetLatestControlProfile();
     }
     if (result.executed_this_cycle) {
-      result.association_quality_metrics = signal_pipeline.GetLastAssociationQualityMetrics();
+      result.association_quality_metrics = SignalPipeline().GetLastAssociationQualityMetrics();
     }
     return result;
   }
@@ -89,10 +85,10 @@ struct ArSession::Impl {
                                               const ValidationIssueList& issues) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    if (controller.HasLatestTrackOutputFrame()) {
-      result.track_output_frame = controller.GetLatestTrackOutputFrame();
+    if (Controller().HasLatestTrackOutputFrame()) {
+      result.track_output_frame = Controller().GetLatestTrackOutputFrame();
     }
-    result.reused_previous_output = controller.HasLatestTrackOutputFrame();
+    result.reused_previous_output = Controller().HasLatestTrackOutputFrame();
     result.abort_reason = session::SignalCycleAbortReason::kValidationRejected;
     result.validation_issues = issues;
     result.has_validation_error = HasValidationError(issues);
@@ -103,10 +99,10 @@ struct ArSession::Impl {
                                              session::SignalCycleAbortReason abort_reason) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    if (controller.HasLatestTrackOutputFrame()) {
-      result.track_output_frame = controller.GetLatestTrackOutputFrame();
+    if (Controller().HasLatestTrackOutputFrame()) {
+      result.track_output_frame = Controller().GetLatestTrackOutputFrame();
     }
-    result.reused_previous_output = controller.HasLatestTrackOutputFrame();
+    result.reused_previous_output = Controller().HasLatestTrackOutputFrame();
     result.abort_reason = abort_reason;
     return result;
   }
@@ -147,7 +143,7 @@ struct ArSession::Impl {
         // 外部路径：通过公开接口合约传递，由外部 pipeline 自行管理内部配置
         const config::ArSessionConfig pipeline_config =
             config::mapping::MapRuntimeStateToPipelineSession(state_to_commit);
-        if (!signal_pipeline.UpdateConfig(pipeline_config)) {
+        if (!SignalPipeline().UpdateConfig(pipeline_config)) {
           return false;
         }
       }
@@ -155,11 +151,11 @@ struct ArSession::Impl {
     }
 
     if (should_sync_environment_model) {
-      environment_service.UpdateModelConfig(
+      EnvironmentService().UpdateModelConfig(
           config::BuildModelConfigFromScenario(pending_runtime_state.environment_scenario_config));
     }
     if (should_sync_jamming_sensitivity) {
-      environment_service.SetJammingSensitivityProfile(
+      EnvironmentService().SetJammingSensitivityProfile(
           pending_runtime_state.jamming_sensitivity_profile);
     }
     return true;
@@ -182,35 +178,35 @@ struct ArSession::Impl {
       return BuildValidationErrorResult(input, issues);
     }
 
-    const ArContextRuntimeState radar_context_state = radar_context.CaptureRuntimeState();
-    const signal::SignalPipelineRuntimeState pipeline_state = signal_pipeline.CaptureRuntimeState();
+    const ArContextRuntimeState radar_context_state = RadarContext().CaptureRuntimeState();
+    const signal::SignalPipelineRuntimeState pipeline_state = SignalPipeline().CaptureRuntimeState();
     const environment::EnvironmentServiceRuntimeState environment_state =
-        environment_service.CaptureRuntimeState();
+        EnvironmentService().CaptureRuntimeState();
     const extension::ArControllerRuntimeState controller_state =
-        controller.CaptureRuntimeState();
+        Controller().CaptureRuntimeState();
 
     if (!CommitPendingRuntimeConfig()) {
-      radar_context.RestoreRuntimeState(radar_context_state);
-      signal_pipeline.RestoreRuntimeState(pipeline_state);
-      environment_service.RestoreRuntimeState(environment_state);
-      controller.RestoreRuntimeState(controller_state);
+      RadarContext().RestoreRuntimeState(radar_context_state);
+      SignalPipeline().RestoreRuntimeState(pipeline_state);
+      EnvironmentService().RestoreRuntimeState(environment_state);
+      Controller().RestoreRuntimeState(controller_state);
       return BuildExecutionAbortResult(input,
                                        session::SignalCycleAbortReason::kRuntimePreparationFailed);
     }
 
     if (input.has_environment) {
-      environment_service.UpdateSceneState(BuildSceneStateFromEnvironmentInput(input.environment));
+      EnvironmentService().UpdateSceneState(BuildSceneStateFromEnvironmentInput(input.environment));
     }
-    radar_context.BeginCycle(input);
-    controller.RunOnce();
+    RadarContext().BeginCycle(input);
+    Controller().RunOnce();
 
-    if (!controller.ExecutedLatestCycle()) {
+    if (!Controller().ExecutedLatestCycle()) {
       const session::SignalCycleAbortReason abort_reason =
-          controller.GetLastSignalCycleAbortReason();
-      radar_context.RestoreRuntimeState(radar_context_state);
-      signal_pipeline.RestoreRuntimeState(pipeline_state);
-      environment_service.RestoreRuntimeState(environment_state);
-      controller.RestoreRuntimeState(controller_state);
+          Controller().GetLastSignalCycleAbortReason();
+      RadarContext().RestoreRuntimeState(radar_context_state);
+      SignalPipeline().RestoreRuntimeState(pipeline_state);
+      EnvironmentService().RestoreRuntimeState(environment_state);
+      Controller().RestoreRuntimeState(controller_state);
       return BuildExecutionAbortResult(input, abort_reason);
     }
 
@@ -229,11 +225,14 @@ struct ArSession::Impl {
   std::unique_ptr<signal::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::ArController> owned_controller;
-  MutableArContext& radar_context;
-  signal::ISignalPipeline& signal_pipeline;
-  environment::IEnvironmentService& environment_service;
-  extension::ArController& controller;
   signal::pipeline::SignalPipeline* concrete_signal_pipeline_{nullptr};
+
+  MutableArContext& RadarContext() const { return *owned_ar_context; }
+  signal::ISignalPipeline& SignalPipeline() const { return *owned_signal_pipeline; }
+  environment::IEnvironmentService& EnvironmentService() const {
+    return *owned_environment_service;
+  }
+  extension::ArController& Controller() const { return *owned_controller; }
 };
 
 ArSession::ArSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -274,19 +273,19 @@ ArCycleResult ArSession::StepWithResult(const ArCycleInput& input) {
 }
 
 const std::vector<session::ArCommand>& ArSession::GetSubmittedCommands() const {
-  return impl_->radar_context.GetSubmittedCommands();
+  return impl_->RadarContext().GetSubmittedCommands();
 }
 
 bool ArSession::HasLatestControlProfile() const {
-  return impl_->radar_context.HasLatestControlProfile();
+  return impl_->RadarContext().HasLatestControlProfile();
 }
 
 const session::ArControlProfile& ArSession::GetLatestControlProfile() const {
-  return impl_->radar_context.GetLatestControlProfile();
+  return impl_->RadarContext().GetLatestControlProfile();
 }
 
 session::AssociationQualityMetrics ArSession::GetLastAssociationQualityMetrics() const {
-  return impl_->signal_pipeline.GetLastAssociationQualityMetrics();
+  return impl_->SignalPipeline().GetLastAssociationQualityMetrics();
 }
 
 void ArSession::ApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch) {

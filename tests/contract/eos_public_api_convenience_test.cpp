@@ -235,7 +235,7 @@ TEST(EosPublicApiConvenienceTest, InputValidationReportsErrorsForCommonBoundaryC
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidCloudCoverageRatio));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidAmbientWindSpeed));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidBackgroundTemperature));
-  EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetId));
+  EXPECT_FALSE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetId));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetRange));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetTemperature));
   EXPECT_TRUE(ContainsEosIssueCode(issues, session::ValidationCode::kInvalidTargetEmissivity));

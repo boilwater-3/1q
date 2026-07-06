@@ -30,7 +30,7 @@ enum class ONEQ_API ValidationCode {
   kInvalidCycleDeltaTime,         /**< 周期步长非法（<= 0） */
   kNonFiniteCycleDeltaTime,       /**< 周期步长非有限值 */
   kNonFinitePlatformNumericField, /**< 平台存在非有限数值字段 */
-  kEmptyEmitterId,                /**< 辐射源标识为空 */
+  kEmptyEmitterId,                /**< 保留兼容：当前 public DTO 不再因 emitter_id == 0 报错 */
   kInvalidEmitterFrequency,       /**< 辐射源频率非法（<= 0） */
   kInvalidEmitterBandwidth,       /**< 辐射源带宽非法（<= 0） */
   kInvalidEmitterPower,           /**< 辐射源功率非法（<= 0） */

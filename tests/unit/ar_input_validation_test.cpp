@@ -5,7 +5,7 @@
 //   - 笛卡尔位置与斜距的组合有效性语义
 //   - 负距离 / 零距离的错误判定
 //   - 非有限数（NaN / Inf）全字段检测
-//   - 重复外部 ID、零 ID、负 RCS 的级别判定
+//   - 重复外部关联键、未知外部关联键、负 RCS 的级别判定
 //   - 周期步长 (dt) 的有效性校验
 
 #include <gtest/gtest.h>
@@ -29,7 +29,7 @@ using session::ValidationSeverity;
 
 namespace {
 
-// 构造一个最简有效目标（位于 X 轴方向 1000m，有速度有 ID）
+// 构造一个最简有效目标（位于 X 轴方向 1000m，有速度和外部关联键）
 session::ArSceneTarget MakeValidTarget(std::uint64_t id = 1u) {
   session::ArSceneTarget t(100.0f, 0.0f, 0.0f, 1.0f);
   t.external_target_id = id;
@@ -191,10 +191,10 @@ TEST(RadarInputValidationTest, NegativeInfRangeFieldIsError) {
 }
 
 // ===========================================================================
-// 外部 ID 与 RCS 级别判定
+// 外部关联键与 RCS 级别判定
 // ===========================================================================
 
-/// @brief external_target_id == 0 → kInfo 级别（不阻断执行）。
+/// @brief external_target_id == 0 表示外部关联键未知 → kInfo 级别（不阻断执行）。
 TEST(RadarInputValidationTest, ZeroExternalIdIsInfo) {
   session::ArSceneTarget target = MakeValidTarget(0u);
 
@@ -206,7 +206,7 @@ TEST(RadarInputValidationTest, ZeroExternalIdIsInfo) {
   EXPECT_FALSE(HasValidationError(issues));
 }
 
-/// @brief 同一 external_target_id 出现两次 → Error 级别。
+/// @brief 同一非零 external_target_id 出现两次 → Error 级别。
 TEST(RadarInputValidationTest, DuplicateExternalIdIsError) {
   session::ArSceneTarget t1 = MakeValidTarget(42u);
   session::ArSceneTarget t2 = MakeValidTarget(42u);

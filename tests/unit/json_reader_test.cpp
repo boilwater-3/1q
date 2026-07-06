@@ -176,6 +176,27 @@ TEST(JsonReaderTest, RejectsInvalidNumberLoneMinus) {
   EXPECT_NE(error.find("number"), std::string::npos);
 }
 
+TEST(JsonReaderTest, RejectsInvalidNumberTrailingDecimalPoint) {
+  JsonValue root;
+  std::string error;
+  EXPECT_FALSE(ParseContent("1.", &root, &error));
+  EXPECT_NE(error.find("number"), std::string::npos);
+}
+
+TEST(JsonReaderTest, RejectsInvalidNumberMissingExponentDigits) {
+  JsonValue root;
+  std::string error;
+  EXPECT_FALSE(ParseContent("1e+", &root, &error));
+  EXPECT_NE(error.find("number"), std::string::npos);
+}
+
+TEST(JsonReaderTest, RejectsInvalidNumberWithLeadingZero) {
+  JsonValue root;
+  std::string error;
+  EXPECT_FALSE(ParseContent("01", &root, &error));
+  EXPECT_NE(error.find("number"), std::string::npos);
+}
+
 TEST(JsonReaderTest, ParsesStringWithBasicEscapes) {
   JsonValue root;
   std::string error;

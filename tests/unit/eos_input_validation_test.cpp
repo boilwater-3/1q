@@ -162,12 +162,13 @@ TEST(EosInputValidationTest, InvalidAmbientWindSpeedIsReportedAsError) {
 // 目标校验补充分支
 // ===========================================================================
 
-TEST(EosInputValidationTest, ZeroTargetIdIsReportedAsWarning) {
+TEST(EosInputValidationTest, ZeroTargetIdDoesNotProduceValidationError) {
   EosCycleInput input = MakeValidInput();
   input.scene[0].target_id = 0U;
 
   const ValidationIssueList issues = ValidateEosCycleInput(input);
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidTargetId));
+  EXPECT_FALSE(ContainsCode(issues, ValidationCode::kInvalidTargetId));
+  EXPECT_FALSE(HasValidationError(issues));
 }
 
 TEST(EosInputValidationTest, NonFiniteTargetFieldIsReportedAsError) {

@@ -56,7 +56,8 @@ table EosEnvironmentConfig {
   preset:               int32;
   has_custom_overrides: bool;
   custom_overrides:     EosEnvironmentCustomOverrides;
-  // 派生的 ModelConfig 字段（冗余记录以支持精确比对）
+  // 派生的 ModelConfig 快照。decode 以 scenario_config 为 source of truth，
+  // 这些字段用于编码侧 characterization / 漂移检查。
   radiative_transfer_model_derived:                int32;
   aerosol_density_factor_derived:                  float;
   turbulence_factor_derived:                       float;

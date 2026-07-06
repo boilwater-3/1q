@@ -78,12 +78,6 @@ void ValidateTarget(const EosSceneTarget& target, std::size_t target_index,
     return;
   }
 
-  if (target.target_id == 0U) {
-    issues->push_back(MakeIssue(ValidationSeverity::kWarning, ValidationCode::kInvalidTargetId,
-                                ValidationLocationKind::kSceneEntity, target_index, "target_id",
-                                "target id is zero"));
-  }
-
   if (!IsFinite(target.range_m) || !IsFinite(target.azimuth_deg) ||
       !IsFinite(target.elevation_deg) || !IsFinite(target.appearance.apparent_temperature_k) ||
       !IsFinite(target.appearance.emissivity) || !IsFinite(target.appearance.reflectance) ||

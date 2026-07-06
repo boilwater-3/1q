@@ -280,6 +280,12 @@ flowchart TB
 - `policy` 映射为检测阈值、融合策略、杂散光过滤策略。
 - `environment.scenario_config` 经 `BuildModelConfigFromScenario` 映射为辐射传输模型、气溶胶系数、湍流系数和可选大气观测。
 
+EOS replay 的 session-config payload 以 `scenario_config` 为 decode 后的环境 source of truth。
+FlatBuffer 中的 `radiative_transfer_model_derived`、`aerosol_density_factor_derived` 和
+`turbulence_factor_derived` 是编码时 `BuildModelConfigFromScenario` 的派生快照，用于
+characterization/漂移检查；`DecodeEosSessionConfig` 不从这些派生字段反写配置。
+`EosReplayCodecRoundtripTest.SessionConfigPreservesAllDomains` 直接检查快照字段与当前 mapper 输出一致。
+
 当前 preset 语义：
 
 | Preset | 辐射传输模型 | 气溶胶因子 | 湍流因子 | 设计含义 |

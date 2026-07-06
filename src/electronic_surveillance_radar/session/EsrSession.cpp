@@ -1,5 +1,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
+#include <utility>
+
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 #include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
@@ -14,10 +16,7 @@ struct EsrSession::Impl {
   explicit Impl(EsrSessionComposition composition)
       : owned_pipeline(std::move(composition.owned_pipeline)),
         owned_environment_service(std::move(composition.owned_environment_service)),
-        owned_controller(std::move(composition.owned_controller)),
-        pipeline(*composition.pipeline),
-        environment_service(*composition.environment_service),
-        controller(*composition.controller) {
+        owned_controller(std::move(composition.owned_controller)) {
     resolved_config = std::move(composition.execution_config);
   }
 
@@ -28,14 +27,14 @@ struct EsrSession::Impl {
   EsrCycleResult BuildCycleResult(const session::EsrCycleInput& input) const {
     EsrCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    if (controller.HasLatestInterceptOutputFrame()) {
-      result.output_frame = controller.GetLatestInterceptOutputFrame();
+    if (Controller().HasLatestInterceptOutputFrame()) {
+      result.output_frame = Controller().GetLatestInterceptOutputFrame();
     }
-    result.validation_issues = controller.GetLastValidationIssues();
+    result.validation_issues = Controller().GetLastValidationIssues();
     result.has_validation_error = session::HasValidationError(result.validation_issues);
-    result.executed_this_cycle = controller.ExecutedLatestCycle();
-    result.reused_previous_output = controller.ReusedPreviousInterceptOutputLatestCycle();
-    result.abort_reason = controller.GetLastInterceptCycleAbortReason();
+    result.executed_this_cycle = Controller().ExecutedLatestCycle();
+    result.reused_previous_output = Controller().ReusedPreviousInterceptOutputLatestCycle();
+    result.abort_reason = Controller().GetLastInterceptCycleAbortReason();
     return result;
   }
 
@@ -45,19 +44,19 @@ struct EsrSession::Impl {
    * @return 当前周期聚合结果。
    */
   EsrCycleResult RunCycle(const session::EsrCycleInput& input) {
-    const auto pipeline_state = pipeline.CaptureRuntimeState();
-    const auto controller_state = controller.CaptureRuntimeState();
+    const auto pipeline_state = Pipeline().CaptureRuntimeState();
+    const auto controller_state = Controller().CaptureRuntimeState();
 
-    controller.RunOnce(input);
+    Controller().RunOnce(input);
 
     // 按 docs/common/contract.md「运行期配置提交策略」，ESR 属立即提交类，配置不在
     // session 层回滚。InterceptPipelineResult 是纯三通道数据载体，当前没有
     // pipeline 自报失败状态；此分支仅保留为非 validation abort 的防御边界。
-    if (!controller.ExecutedLatestCycle() &&
-        controller.GetLastInterceptCycleAbortReason() !=
+    if (!Controller().ExecutedLatestCycle() &&
+        Controller().GetLastInterceptCycleAbortReason() !=
             session::EsrPipelineAbortReason::kValidationRejected) {
-      pipeline.RestoreRuntimeState(pipeline_state);
-      controller.RestoreRuntimeState(controller_state);
+      Pipeline().RestoreRuntimeState(pipeline_state);
+      Controller().RestoreRuntimeState(controller_state);
     }
     return BuildCycleResult(input);
   }
@@ -66,9 +65,12 @@ struct EsrSession::Impl {
   std::unique_ptr<pipeline::InterceptPipeline> owned_pipeline;
   std::unique_ptr<environment::IEsrEnvironmentService> owned_environment_service;
   std::unique_ptr<extension::EsrController> owned_controller;
-  pipeline::InterceptPipeline& pipeline;
-  environment::IEsrEnvironmentService& environment_service;
-  extension::EsrController& controller;
+
+  pipeline::InterceptPipeline& Pipeline() const { return *owned_pipeline; }
+  environment::IEsrEnvironmentService& EnvironmentService() const {
+    return *owned_environment_service;
+  }
+  extension::EsrController& Controller() const { return *owned_controller; }
 };
 
 EsrSession::EsrSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
@@ -114,10 +116,10 @@ EsrRuntimeConfigApplyResult EsrSession::ApplyRuntimeConfigWithResult(
   if (resolved.runtime_config_changed || resolved.pipeline_config_changed) {
     // 写路径直接吃 internal config（与 EOS/AR 一致），避免 internal→extension→internal
     // 往返。RunCycle 的 per-cycle MutableEsrContext 投影仍在 RunCycle 内进行。
-    impl_->pipeline.UpdateConfig(impl_->resolved_config);
+    impl_->Pipeline().UpdateConfig(impl_->resolved_config);
   }
   if (resolved.environment_model_config_changed) {
-    impl_->environment_service.UpdateModelConfig(impl_->resolved_config.environment);
+    impl_->EnvironmentService().UpdateModelConfig(impl_->resolved_config.environment);
   }
   apply_result.applied = true;
   return apply_result;

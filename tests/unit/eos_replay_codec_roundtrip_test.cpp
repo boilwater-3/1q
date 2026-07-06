@@ -19,7 +19,9 @@
 #include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosSceneTypes.h"
 #include "1q/foundation/pose_types.h"
+#include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
 #include "electro_optical_sensor/session/EosReplayFlatbufferCodec.h"
+#include "electro_optical_sensor/session/generated/eos_session_replay_generated.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -246,6 +248,18 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
 
   const std::string bytes = EncodeEosSessionConfig(config);
   ASSERT_FALSE(bytes.empty());
+
+  const auto* encoded = eos::replay::GetEosSessionConfig(bytes.data());
+  ASSERT_NE(encoded, nullptr);
+  ASSERT_NE(encoded->environment(), nullptr);
+  const auto derived_model =
+      config::BuildModelConfigFromScenario(config.environment.scenario_config);
+  EXPECT_EQ(encoded->environment()->radiative_transfer_model_derived(),
+            static_cast<int32_t>(derived_model.radiative_transfer_model));
+  EXPECT_FLOAT_EQ(encoded->environment()->aerosol_density_factor_derived(),
+                  derived_model.aerosol_density_factor);
+  EXPECT_FLOAT_EQ(encoded->environment()->turbulence_factor_derived(),
+                  derived_model.turbulence_factor);
 
   config::EosSessionConfig decoded;
   ASSERT_TRUE(DecodeEosSessionConfig(bytes, &decoded));

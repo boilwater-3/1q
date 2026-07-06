@@ -24,6 +24,10 @@ int HexValue(int c) {
   return -1;
 }
 
+bool IsDigit(int c) {
+  return c >= '0' && c <= '9';
+}
+
 }  // anonymous namespace
 
 // -- JsonInternalParser (friend of JsonValue, so can access private members) --
@@ -116,24 +120,39 @@ struct JsonInternalParser {
     const int first = in.peek();
     if (first == '0') {
       buf += static_cast<char>(in.get());
+      if (IsDigit(in.peek())) {
+        *error = "invalid number";
+        return false;
+      }
     } else if (first >= '1' && first <= '9') {
       buf += static_cast<char>(in.get());
       int c;
-      while ((c = in.peek()) >= '0' && c <= '9') { buf += static_cast<char>(in.get()); }
+      while (IsDigit(c = in.peek())) { buf += static_cast<char>(in.get()); }
+    } else {
+      *error = "invalid number";
+      return false;
     }
     bool is_double = false;
     if (in.peek() == '.') {
       is_double = true;
       buf += static_cast<char>(in.get());
+      if (!IsDigit(in.peek())) {
+        *error = "invalid number";
+        return false;
+      }
       int c;
-      while ((c = in.peek()) >= '0' && c <= '9') { buf += static_cast<char>(in.get()); }
+      while (IsDigit(c = in.peek())) { buf += static_cast<char>(in.get()); }
     }
     if (in.peek() == 'e' || in.peek() == 'E') {
       is_double = true;
       buf += static_cast<char>(in.get());
       if (in.peek() == '+' || in.peek() == '-') buf += static_cast<char>(in.get());
+      if (!IsDigit(in.peek())) {
+        *error = "invalid number";
+        return false;
+      }
       int c;
-      while ((c = in.peek()) >= '0' && c <= '9') { buf += static_cast<char>(in.get()); }
+      while (IsDigit(c = in.peek())) { buf += static_cast<char>(in.get()); }
     }
     if (buf.empty() || buf == "-") { *error = "invalid number"; return false; }
     if (is_double) {

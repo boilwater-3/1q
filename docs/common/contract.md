@@ -74,6 +74,18 @@ Authority: common contract for all modules
 
 5. **数值归一化必须是常数时间。** 角度/周期归一化等可能接受无界输入的工具函数必须用 `std::fmod` 等常数时间实现，不得用 `while` 循环减/加周期，避免极大输入近似死循环。
 
+## 数值下限语义
+
+数值下限常量不得只因命名相似而合并。当前允许三类边界：
+
+1. **通用数值防护下限**：防除零、对数域、阈值归一化等纯数值保护使用
+   `oneq::common::numerics::kNumericFloor` 或更专门的 common numerics helper。
+2. **坐标/姿态退化阈值**：ECEF 原点、方向向量零范数、接近姿态奇异点等几何退化判断保留在
+   `common/coordinate` 局部实现内，阈值应按坐标算法精度选择，不与功率/概率数值下限共享。
+3. **模块局部几何阈值**：例如 EOS 外部输入适配中目标与平台几乎重合的 range gate，属于模块输入几何退化判断，应保留模块局部阈值和状态码。
+
+新增 floor 常量前必须先归入上述语义桶；不能把物理/几何阈值机械改为 `kNumericFloor`，也不能把通用除零保护散落成模块私有常量。
+
 ## SessionConfigBuilder
 
 所有 `*SessionConfigBuilder` 都是 semantic builder：
@@ -85,6 +97,19 @@ Authority: common contract for all modules
 5. 配置合法性由独立 validator 检查最终 config。
 
 不得重新引入 leaf setter，例如 frame rate、scene center、minimum SNR、atmospheric loss 这类直接字段编辑器。
+
+## Session composition ownership
+
+AR/EOS/ESR/SAR 的 `Session::Impl` 是 session 依赖图的所有权边界。组合根可以在装配过程中使用
+raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存 `std::unique_ptr<X>` 与同一对象的
+`X&` 成员。`Impl` 应只保存 owning member，并在使用点通过 accessor 或局部引用派生依赖引用。
+
+规则：
+
+1. `Session` public move 语义由外层 `std::unique_ptr<Impl>` 承担；不得让 `Impl` 内部的冗余引用成为移动/所有权重构的隐藏前提。
+2. 组合根创建的默认 controller、pipeline、context、environment service 由对应 session 唯一拥有。
+3. 外部注入的 public SPI 只能出现在已声明的 seam 上；当前只有 `airborne_radar::session::ITacticalDecisionEngine` 是 public 决策注入 seam。
+4. 若未来新增非 owned 依赖，必须先在模块 design 或本契约声明其生命周期边界，不能通过 `Impl` 冗余引用隐式表达。
 
 ## 运行期配置提交策略
 
@@ -122,6 +147,9 @@ Authority: common contract for all modules
 - `StepWithResult()` 是状态判断入口。
 - 日志只用于人读运行信息，状态判断不得依赖解析日志文本。
 - 数值 ID 是稳定关联键，名称只用于人读、trace/replay、报告和调试视图。
+- `external_target_id` 与模块实体 ID 当前都允许 `0` 作为合法值；`0` 不得触发
+  validation error。若未来引入可表达负数的外部输入入口，负数 ID 必须在转换为
+  public `std::uint64_t` DTO 前被拒绝。
 - 仿真真值不得混入面向外部系统的真实输出通道。
 
 ## 文档结构

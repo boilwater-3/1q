@@ -318,7 +318,7 @@ TEST(EsrInputValidationTest, ValidEnvironmentProducesNoError) {
 // 辐射源校验补充分支
 // =============================================================================
 
-TEST(EsrInputValidationTest, EmptyEmitterIdIsReportedAsError) {
+TEST(EsrInputValidationTest, ZeroEmitterIdDoesNotProduceValidationError) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
   session::EsrSceneEmitter emitter = MakeValidEmitter();
@@ -326,7 +326,8 @@ TEST(EsrInputValidationTest, EmptyEmitterIdIsReportedAsError) {
   input.scene.push_back(emitter);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
-  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kEmptyEmitterId));
+  EXPECT_FALSE(ContainsCode(issues, ValidationCode::kEmptyEmitterId));
+  EXPECT_FALSE(HasValidationError(issues));
 }
 
 TEST(EsrInputValidationTest, InvalidEmitterBandwidthIsReportedAsError) {
