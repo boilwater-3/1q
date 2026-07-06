@@ -1,6 +1,6 @@
 # Space-Based Infrared Sensor (SBIRS-inspired) 目标设计
 
-Status: draft
+Status: active
 Last-reviewed: 2026-07-06
 Authority: target design for the new `sbirs_sensor` module
 
@@ -12,8 +12,8 @@ Authority: target design for the new `sbirs_sensor` module
 但不声称复刻真实 SBIRS 设备、保密载荷或地面处理链路。本文中的 WFOV / NFOV 是面向仿真实现的
 宽域搜索 / 窄域凝视抽象：WFOV 对应扫描搜索能力，NFOV 对应可任务化凝视与高灵敏度区域覆盖能力。
 
-原始需求见同目录 `红外模型1205-V3.0.md`（pandoc 转换自同名 docx，下文引用其行号）。
-实现计划草案见 `filter.md`；历史审查结论见第 5 节。
+原始需求草案见 `docs/review/sbirs_infrared_model_1205_v3.md`（pandoc 转换自原始 docx，下文引用其行号）。
+实现计划草案见 `docs/review/sbirs_filter.md`；历史审查结论见第 5 节。
 
 ## 1. 架构设计说明
 
@@ -312,7 +312,7 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 
 #### 2.2.1 目标状态机（5 状态统一版）
 
-每个目标独立维护一个状态机实例，以 `target_id` 为键。状态枚举（解决 `filter.md` 两套状态机
+每个目标独立维护一个状态机实例，以 `target_id` 为键。状态枚举（解决 `docs/review/sbirs_filter.md` 两套状态机
 不一致问题，见第 5 节修正 #2）：
 
 | 状态 | 含义 | 该状态下本周期输出 |
@@ -356,13 +356,13 @@ stateDiagram-v2
 
 设计要点：
 
-- 首次 NFOV 捕获**必须**使用 WFOV 输出的带误差位置，不得直接用真值位置（`filter.md:121` 假设）。
+- 首次 NFOV 捕获**必须**使用 WFOV 输出的带误差位置，不得直接用真值位置（`docs/review/sbirs_filter.md:121` 假设）。
 - 捕获成功后的真值辅助跟踪**只**受"目标是否存在"和"传感器是否开启"影响，不受后续测量误差影响。
   这是第一版的仿真简化，不是真实 SBIRS 设备行为：真实传感器只能产生测量、事件和辐射数据，不知道
   目标真值。第一版不实现 EKF/CKF 滤波，先用真值辅助指向避免把跟踪估计复杂度引入首批开发。
-- 状态机是跨周期累积状态。`SbirsController` 在执行前 snapshot、失败时 restore（见 1.5 时序图），
-  与 EOS controller 的 `CaptureRuntimeState`/`RestoreRuntimeState`
-  （`src/electro_optical_sensor/runtime/EosController.cpp:64-112`）同构。
+- 状态机是跨周期累积状态。`SbirsController` 在执行前 snapshot、失败时 restore（见 1.5 时序图）。
+  这是 SBIRS controller 的内部失败回滚约束，不是 session 层事务接口，也不要求与其他模块输出或
+  controller 形状保持一致。
 
 适用边界：
 
@@ -415,7 +415,7 @@ stateDiagram-v2
 3. **窗口判定**：判断目标真实 LOS `u_true` 是否落入以 `u_cmd` 为中心的 NFOV 搜索窗口。这样捕获判定
    仍受 WFOV 误差、目标运动、cue 延迟和 NFOV 视场大小影响，不会因为窗口中心直接取测量值而恒成立。
 4. **SNR 门限**：判断 NFOV IR SNR 是否 ≥ NFOV 捕获门限。NFOV 门限通常高于 WFOV（窄视场虚警率
-   要求更低，对应 `k=5~6`，见原始需求 `红外模型1205-V3.0.md:137-142` 的 k 值表）。
+   要求更低，对应 `k=5~6`，见原始需求 `docs/review/sbirs_infrared_model_1205_v3.md:137-142` 的 k 值表）。
 5. **成功**：进入 `TruthAssistedTracking`。后续周期不再使用 WFOV 带误差位置重新捕获。
 6. **失败**：清除该目标本次交接状态，回退 `WideCandidate`，等待后续周期重新发现和交接。不输出该
    目标本周期 NFOV 成功记录。
@@ -481,8 +481,8 @@ stateDiagram-v2
 
 ### 2.7 地球遮挡与几何门控
 
-天基传感器视线穿过地球时目标不可观测，这是 `filter.md` 缺失、但原始需求明确要求的天基必备
-几何门控（`红外模型1205-V3.0.md:864-880`）。
+天基传感器视线穿过地球时目标不可观测，这是 `docs/review/sbirs_filter.md` 缺失、但原始需求明确要求的天基必备
+几何门控（`docs/review/sbirs_infrared_model_1205_v3.md:864-880`）。
 
 **遮挡角计算**：
 
@@ -532,17 +532,17 @@ occulted = (0 < s_closest && s_closest < range && d_closest² <= R_E²)
 ### 2.8 Foundation 物理链路
 
 以下 foundation 算法参照 EOS foundation 层复制并改为 `sbirs_sensor` 命名空间，原始公式见
-`红外模型1205-V3.0.md`：
+`docs/review/sbirs_infrared_model_1205_v3.md`：
 
 | 算法 | EOS 参照 | 原始需求公式 | 说明 |
 |---|---|---|---|
-| Planck 辐射 | `ComputePlanckRadiance`（`src/electro_optical_sensor/foundation/EosRadiometry.cpp`） | `红外模型1205-V3.0.md:208-214`（斯特藩-玻尔兹曼简化） | 目标谱辐射，Stefan-Boltzmann 常数使用 `σ≈5.670374419e-8 W/(m²·K⁴)`；原始需求中的 `5.76e-8` 视为近似/笔误 |
-| 大气衰减（Beer-Lambert） | `EvaluateRadiativeTransfer`（`EosRadiativeTransfer.cpp`） | `红外模型1205-V3.0.md:216-222` | `Φ_atm = Φ_tar · τ(λ,d)`，`τ` 依赖波段和距离 |
-| 探测器接收功率 | `ComputeReceivedPowerW` | `红外模型1205-V3.0.md:224-230` | `P_sig = Φ_atm · A_det · η_det / d²` |
-| 噪声模型 | `ComputeBackgroundNoiseStatistics`（`EosNoiseModel.cpp`） | `红外模型1205-V3.0.md:232-240` | 光子噪声、热噪声、读出噪声均方根合成 |
-| SNR 与可探测性 | `ComputeInfraredSnrLinear` | `红外模型1205-V3.0.md:242-246` | `SNR = P_sig · t_int / N_total`，`SNR ≥ SNR_th` 可探测 |
-| 方位角/俯仰角计算 | EOS pipeline 内部 | `红外模型1205-V3.0.md:148-186` | `El = RADTODEG(-arcsin(XLOS_z/LOSRange))`，`Az = RADTODEG(arctan2(XLOS_y, XLOS_x))` |
-| 探测阈值调整 | EOS policy 映射 | `红外模型1205-V3.0.md:121-142` | `T = μ + k·σ`，k 值按虚警率选取（WFOV k≈4，NFOV k≈5~6） |
+| Planck 辐射 | `ComputePlanckRadiance`（`src/electro_optical_sensor/foundation/EosRadiometry.cpp`） | `docs/review/sbirs_infrared_model_1205_v3.md:208-214`（斯特藩-玻尔兹曼简化） | 目标谱辐射，Stefan-Boltzmann 常数使用 `σ≈5.670374419e-8 W/(m²·K⁴)`；原始需求中的 `5.76e-8` 视为近似/笔误 |
+| 大气衰减（Beer-Lambert） | `EvaluateRadiativeTransfer`（`EosRadiativeTransfer.cpp`） | `docs/review/sbirs_infrared_model_1205_v3.md:216-222` | `Φ_atm = Φ_tar · τ(λ,d)`，`τ` 依赖波段和距离 |
+| 探测器接收功率 | `ComputeReceivedPowerW` | `docs/review/sbirs_infrared_model_1205_v3.md:224-230` | `P_sig = Φ_atm · A_det · η_det / d²` |
+| 噪声模型 | `ComputeBackgroundNoiseStatistics`（`EosNoiseModel.cpp`） | `docs/review/sbirs_infrared_model_1205_v3.md:232-240` | 光子噪声、热噪声、读出噪声均方根合成 |
+| SNR 与可探测性 | `ComputeInfraredSnrLinear` | `docs/review/sbirs_infrared_model_1205_v3.md:242-246` | `SNR = P_sig · t_int / N_total`，`SNR ≥ SNR_th` 可探测 |
+| 方位角/俯仰角计算 | EOS pipeline 内部 | `docs/review/sbirs_infrared_model_1205_v3.md:148-186` | `El = RADTODEG(-arcsin(XLOS_z/LOSRange))`，`Az = RADTODEG(arctan2(XLOS_y, XLOS_x))` |
+| 探测阈值调整 | EOS policy 映射 | `docs/review/sbirs_infrared_model_1205_v3.md:121-142` | `T = μ + k·σ`，k 值按虚警率选取（WFOV k≈4，NFOV k≈5~6） |
 
 这些算法是内部可测试实现，不是 public 契约。复制时改命名空间为 `sbirs_sensor`，类型前缀改
 `Sbirs*`，并允许为天基红外场景修正物理常数、波段参数、背景项和几何门控。若与 EOS 逻辑不等价，
@@ -562,7 +562,7 @@ occulted = (0 < s_closest && s_closest < range && d_closest² <= R_E²)
 
 ### 2.9 气象衰减模型
 
-气象影响是 SBIRS SNR 链路的必要组成，原始需求 `红外模型1205-V3.0.md:35-103` 有完整定义。
+气象影响是 SBIRS SNR 链路的必要组成，原始需求 `docs/review/sbirs_infrared_model_1205_v3.md:35-103` 有完整定义。
 
 **气象影响列表**（查表得各参数独立衰减比例 `A_i`）：
 
@@ -574,7 +574,7 @@ occulted = (0 < s_closest && s_closest < range && d_closest² <= R_E²)
 | 湿度 | 每增加 20% 衰减增加 5% |
 | 能见度 | >10km 0% / 5-10km 5% / 1-5km 10% / <1km 20% |
 
-**加权叠加公式**（`红外模型1205-V3.0.md:87-103`）：
+**加权叠加公式**（`docs/review/sbirs_infrared_model_1205_v3.md:87-103`）：
 
 ```
 A_total = Σ(w_i · A_i) + Σ(k_j · A_p · A_q) + C
@@ -606,7 +606,7 @@ A_total = Σ(w_i · A_i) + Σ(k_j · A_p · A_q) + C
 ### 2.10 误差模型（WFOV 带误差位置）
 
 WFOV 输出的带误差位置是 NFOV 首次捕获的输入，误差模型直接影响首次捕获成功率。原始需求
-`红外模型1205-V3.0.md:1052-1115` 定义 5 类误差：
+`docs/review/sbirs_infrared_model_1205_v3.md:1052-1115` 定义 5 类误差：
 
 | 误差类型 | 物理成因 | 建模方法 |
 |---|---|---|
@@ -616,7 +616,7 @@ WFOV 输出的带误差位置是 NFOV 首次捕获的输入，误差模型直接
 | 大气折射误差 | 大气密度梯度导致的光线偏折 | 标准大气模型，红外波段 `Δθ_refr = 1.5e-6 / (d·cosβ)`，β 为目标俯仰角 |
 | 动态滞后误差 | 探测器响应延迟（高速目标运动快） | 一阶系统滞后，`Δθ_lag = ω_tar / (2π·f_det)`，`ω_tar` 为目标角速度，`f_det` 为探测器带宽 |
 
-**加法合成**（角度误差）到真值方位角/俯仰角（`红外模型1205-V3.0.md:1111-1113`）：
+**加法合成**（角度误差）到真值方位角/俯仰角（`docs/review/sbirs_infrared_model_1205_v3.md:1111-1113`）：
 
 ```
 α_meas = α_true + Δα_orb + Δα_att + Δα_refr + Δα_lag
@@ -632,7 +632,8 @@ WFOV 输出的带误差位置是 NFOV 首次捕获的输入，误差模型直接
 
 - 误差模型生成的是观测/cue 误差，不改变输入目标真值。
 - 随机源必须可注入、可 snapshot 或可由 replay 固定，避免同一 trace 回放产生不同捕获结果。
-- 距离误差字段是仿真兼容输出；不能由此推导真实单星被动红外具备直接测距能力。
+- 距离误差只用于内部 cue/诊断链路；不能由此推导真实单星被动红外具备直接测距能力，也不得进入
+  `SbirsOutputFrame` raw output。
 
 验证入口：
 
@@ -649,19 +650,16 @@ SBIRS 遵守三层输出模型（`docs/common/contract.md` 三层输出模型表
 | 结构化执行结果层 | `StepWithResult()` 返回的 `SbirsCycleResult` | 输出帧、执行状态、校验、abort reason、诊断摘要 |
 | 开发调试视图层 | `SbirsOutputDebugViewBuilder` / `SbirsLifecycleRecorder` | 人读状态、生命周期事件、输入实体回填 |
 
-**`SbirsOutputFrame` 字段**（第一版为兼容 1q 现有传感器输出，与 `EosDetectionRecord` 同构，
-`include/1q/electro_optical_sensor/session/EosOutputTypes.h:21-31`）：
+**`SbirsOutputFrame` 字段**（第一版使用原生 SBIRS-inspired 观测契约，不继承
+EOS 检测记录形状）：
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `detection_id` | `std::uint64_t` | 本输出帧内的探测记录标识 |
-| `range_m` | `float` | 仿真估计斜距（m）；被动红外单星不天然直接测距，真实系统解释必须走融合/估计层 |
 | `azimuth_deg` | `float` | 方位角（deg） |
 | `elevation_deg` | `float` | 仰角（deg） |
 | `infrared_snr_linear` | `float` | 红外通道线性 SNR |
-| `visible_snr_linear` | `float` | 兼容字段；SBIRS 第一版可置 0 或映射为非红外辅助通道，不代表真实 SBIRS 可见光载荷 |
-| `fused_snr_linear` | `float` | 兼容字段；第一版可由红外 SNR 派生 |
-| `fused_snr_db` | `float` | 兼容字段；第一版可由红外 SNR 派生 |
+| `observation_stage` | enum | 原生观测阶段：WFOV 搜索、NFOV 首次捕获或 NFOV 真值辅助跟踪 |
 | `detected` | `bool` | 是否通过探测门限判决 |
 
 输出规则（WFOV/NFOV 状态仅决定当前周期哪些目标输出检测记录，不进 raw output 字段）。这里的 raw
@@ -680,7 +678,8 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 
 - `SbirsOutputFrame` 是 1q 仿真传感器主输出层，不是 debug view，也不是真实 SBIRS 下传辐射图像。
 - `target_id`、输入目标名称、状态机枚举、capture attribution 和生命周期事件只能进入 result/debug/replay 层。
-- 如果后续新增真实 OPIR 风格事件消息或辐射帧，应新增独立 DTO，不得塞入 EOS 兼容字段。
+- `range_m`、visible/fused SNR 不属于首批 raw output；距离估计只进入 `SbirsCycleResult` 的 attribution/诊断层。
+- 如果后续新增真实 OPIR 风格事件消息或辐射帧，应新增独立 DTO，不得把字段塞回其他模块的输出形状。
 
 验证入口：
 
@@ -690,7 +689,7 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 
 ## 3. 非目标与边界
 
-以下算法和能力出现在原始需求 `红外模型1205-V3.0.md` 中，但第一版不实现。每项给出理由。
+以下算法和能力出现在原始需求 `docs/review/sbirs_infrared_model_1205_v3.md` 中，但第一版不实现。每项给出理由。
 
 - **图像级 TBD（Track-Before-Detect）**——管道滤波能量累积（`:268-294`）、动态规划 TBD
   （`:296-310`）。第一版用 WFOV 单帧 SNR 门控判定可探测性，不做帧间能量累积。理由：TBD 需要
@@ -726,7 +725,7 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 ## 4. 设计变更规则
 
 1. `SbirsOutputFrame`、检测记录字段、`SbirsCycleResult` 或 attribution/debug/lifecycle 语义变化，
-   必须同步本文和输出边界测试，并检查与 `EosDetectionRecord` 的字段一致性是否仍是有意为之。
+   必须同步本文和输出边界测试；不得为复用 EOS consumer 而把 range、visible/fused SNR 塞进 raw output。
 2. 状态机状态集合、转移条件、优先级规则变化，必须同步本文 2.2 状态转移图、转移条件表和
    `sbirs_state_machine_test`、`sbirs_scheduler_test`。
 3. 气象影响列表、加权叠加公式 `A_total`、衰减进入 SNR 链路的方式变化，必须同步本文 2.9 和
@@ -736,18 +735,18 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 5. runtime patch 的可变字段、立即提交策略或状态机 capture/restore 规则变化，必须同步本文 1.5、
    `docs/common/contract.md` 运行期配置提交策略表和 runtime resolver 测试。
 6. foundation 算法如果从 internal 变成 public API，必须在本文 `[evidence: ...]` 标注中记录扩展
-   理由和兼容策略，并检查与 EOS 对应算法的偏离是否有意。
+   理由、稳定性约束和迁移影响，并检查与 EOS 对应算法的偏离是否有意。
 7. 新增 debug/replay 字段时，必须保持真实输出、结构化结果和仿真辅助视图三层分离。
 
-## 5. `filter.md` 审查记录
+## 5. `docs/review/sbirs_filter.md` 审查记录
 
-`filter.md` 是历史实现计划草案，不再作为当前设计权威。它经与原始需求、`docs/common/contract.md`
+`docs/review/sbirs_filter.md` 是历史实现计划草案，不再作为当前设计权威。它经与原始需求、`docs/common/contract.md`
 和现有 `electro_optical_sensor`（EOS）代码核对后，保留以下结论：
 
 通过项：
 
-- 输出字段与现有红外传感器一致：`filter.md` 列出的 8 个字段与 `EosDetectionRecord`
-  的字段完全吻合（`include/1q/electro_optical_sensor/session/EosOutputTypes.h:21-31`）。
+- `docs/review/sbirs_filter.md` 曾提议输出字段与现有红外传感器一致；本文已废弃该方案，首批 raw output 使用原生
+  SBIRS-inspired 观测契约。
 - 三层输出模型：内部 WFOV/NFOV 状态不进 raw output，符合 `docs/common/contract.md`
   三层输出规则。
 - public API 边界：不在公开头暴露 `Eos*` / `electro_optical_sensor`。
@@ -755,10 +754,11 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 
 修正项：
 
-| # | 主题 | filter.md 问题 | 本文结论 | 理由 |
+| # | 主题 | 历史草案问题 | 本文结论 | 理由 |
 |---|---|---|---|---|
 | 1 | 迁移源头 | 草案称从当前 `space_based_infrared_sensor` 迁移，但仓库中不存在该实现模块 | 真实源头是 `electro_optical_sensor`；参照复制 EOS foundation 层算法，pipeline/controller/session 独立实现 | 全仓库搜索 `sbirs`/`space_based_infrared` 仅命中草案和本文 |
 | 2 | 内部状态机 | 草案同时给出两套状态，数量和语义不对齐 | 统一为本文 2.2 的 5 状态；捕获失败回退是转移，不是独立状态 | 同一对象不能有两套状态机 |
 | 3 | 地球遮挡门控 | 草案未覆盖天基几何遮挡 | 本文 2.7 要求地球遮挡与大气边界过滤，并以有限 LOS 线段与地球球体相交作为实现判定 | 天基传感器视线穿地不可观测 |
 | 4 | 契约注册 | 草案提议 `sbirs_sensor` 命名空间和 `Sbirs*` 前缀，但未同步公共契约 | `docs/common/contract.md` 需同步文档目录、模块前缀、运行期提交策略和模块关系图 | 公共契约是模块边界权威 |
-| 5 | 气象衰减 | 草案只笼统提环境 | 本文 2.9 明确气象影响列表查表 + 加权叠加公式 `A_total`，作用于路径透过率并进入 SNR 链路 | 原始需求 `红外模型1205-V3.0.md:35-103` 有完整定义 |
+| 5 | 气象衰减 | 草案只笼统提环境 | 本文 2.9 明确气象影响列表查表 + 加权叠加公式 `A_total`，作用于路径透过率并进入 SNR 链路 | 原始需求 `docs/review/sbirs_infrared_model_1205_v3.md:35-103` 有完整定义 |
+| 6 | 输出字段 | 草案要求复用 EOS 检测记录形状 | 本文改为原生 SBIRS 输出，不包含必填 range、visible SNR 或 fused SNR | 新模块没有复用 EOS 输出形状的约束，被动红外 raw output 不应伪装成可见光/融合/直接测距输出 |

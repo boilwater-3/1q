@@ -1,9 +1,9 @@
 # 天基红外传感器 SBIRS 实现计划
 
-Status: superseded by design.md（2026-07-06）
+Status: draft
 Authority: historical implementation plan draft
 
-本文是 SBIRS 模块的早期实现计划草案。权威设计已迁入同目录 `design.md`；本文第 0 节
+本文是 SBIRS 模块的早期实现计划草案。权威设计已迁入 `docs/space_based_infrared_sensor/design.md`；本文第 0 节
 "与 filter.md 的差异"记录了对本草案的审查修正（迁移源头、状态机统一、地球遮挡补充、
 契约注册、气象衰减模型）。本草案保留作为历史记录，不再作为当前设计引用。
 

@@ -10,7 +10,6 @@
 #include <utility>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
-#include "1q/airborne_radar/config/JammingSemantics.h"
 #include "1q/airborne_radar/config/ArEnvironmentConfig.h"
 #include "1q/airborne_radar/config/ArHardwareConfig.h"
 #include "1q/airborne_radar/config/ArMissionConfig.h"
@@ -20,11 +19,8 @@
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
+#include "1q/airborne_radar/config/JammingSemantics.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
-#include "1q/airborne_radar/session/ControlDirective.h"
-#include "1q/airborne_radar/session/DecisionInputFrame.h"
-#include "1q/airborne_radar/session/DecisionSourceInfo.h"
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/session/ArCommand.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/ArCycleInput.h"
@@ -37,6 +33,10 @@
 #include "1q/airborne_radar/session/ArTraceSession.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
+#include "1q/airborne_radar/session/ControlDirective.h"
+#include "1q/airborne_radar/session/DecisionInputFrame.h"
+#include "1q/airborne_radar/session/DecisionSourceInfo.h"
+#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/api.hpp"
 #include "1q/coordinate/attitude_transform.h"
@@ -93,6 +93,20 @@
 #include "1q/sar/session/SarReplaySession.h"
 #include "1q/sar/session/SarSession.h"
 #include "1q/sar/session/SarTraceSession.h"
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
+#include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
+#include "1q/sbirs_sensor/config/SbirsSessionConfigBuilder.h"
+#include "1q/sbirs_sensor/config/sbirs_sensor_config.hpp"
+#include "1q/sbirs_sensor/sbirs_sensor.hpp"
+#include "1q/sbirs_sensor/session/SbirsCycleInput.h"
+#include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
+#include "1q/sbirs_sensor/session/SbirsCycleResult.h"
+#include "1q/sbirs_sensor/session/SbirsEnvironmentInput.h"
+#include "1q/sbirs_sensor/session/SbirsExternalInputAdapter.h"
+#include "1q/sbirs_sensor/session/SbirsInputValidation.h"
+#include "1q/sbirs_sensor/session/SbirsOutputTypes.h"
+#include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "1q/trace/TraceSink.h"
 
 using ArSession = airborne_radar::session::ArSession;
@@ -132,6 +146,15 @@ static_assert(std::is_same<sar::session::SarSession,
                                std::declval<const sar::config::SarSessionConfig&>()))>::value,
               "SarSession::Create must return SarSession");
 
+static_assert(!std::is_constructible<sbirs_sensor::session::SbirsSession,
+                                     sbirs_sensor::config::SbirsSessionConfig>::value,
+              "SbirsSession direct construction must be disabled");
+static_assert(
+    std::is_same<sbirs_sensor::session::SbirsSession,
+                 decltype(sbirs_sensor::session::SbirsSession::Create(
+                     std::declval<const sbirs_sensor::config::SbirsSessionConfig&>()))>::value,
+    "SbirsSession::Create must return SbirsSession");
+
 namespace airborne_radar {
 namespace {
 
@@ -160,12 +183,11 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
 
   session::ArSession session = session::ArSession::Create(session_config);
   session::ArTraceSession trace_session(session_config,
-                                           session::ArTraceSessionOptions{nullptr, false});
-  const config::ArRuntimeConfigPatch runtime_patch =
-      config::ArRuntimeConfigBuilder()
-          .WithWorkMode(config::ArWorkMode::kTas)
-          .WithCommandedBeamwidthEnabled(true)
-          .Build();
+                                        session::ArTraceSessionOptions{nullptr, false});
+  const config::ArRuntimeConfigPatch runtime_patch = config::ArRuntimeConfigBuilder()
+                                                         .WithWorkMode(config::ArWorkMode::kTas)
+                                                         .WithCommandedBeamwidthEnabled(true)
+                                                         .Build();
   session.ApplyRuntimeConfig(runtime_patch);
   const session::ArCycleResult result = session.StepWithResult(input);
   const session::ArCycleResult trace_result = trace_session.StepWithResult(input);
@@ -175,6 +197,43 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   EXPECT_GE(confirmed_tracks, 0U);
   EXPECT_GE(result.association_quality_metrics.detection_count, 0U);
   EXPECT_GE(trace_result.association_quality_metrics.detection_count, 0U);
+}
+
+TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
+  sbirs_sensor::config::SbirsSessionConfig config =
+      sbirs_sensor::config::SbirsSessionConfigBuilder().Build();
+  sbirs_sensor::session::SbirsSession session = sbirs_sensor::session::SbirsSession::Create(config);
+
+  sbirs_sensor::session::SbirsVector3M satellite;
+  satellite.x = 7000000.0;
+  satellite.y = 0.0;
+  satellite.z = 0.0;
+  sbirs_sensor::session::SbirsSceneTarget target;
+  target.target_id = 1U;
+  target.position_ecef_m.x = 8000000.0;
+  target.position_ecef_m.y = 0.0;
+  target.position_ecef_m.z = 0.0;
+  target.temperature_k = 1800.0f;
+  target.projected_area_m2 = 100.0f;
+
+  sbirs_sensor::session::SbirsCycleInput input = sbirs_sensor::session::SbirsCycleInputBuilder()
+                                                     .WithCycleIndex(1U)
+                                                     .WithDeltaTimeSec(1.0f)
+                                                     .WithSatellitePosition(satellite)
+                                                     .AddTarget(target)
+                                                     .Build();
+  const sbirs_sensor::session::ValidationIssueList issues =
+      sbirs_sensor::session::ValidateSbirsCycleInput(input);
+  EXPECT_FALSE(sbirs_sensor::session::HasValidationError(issues));
+
+  const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
+      sbirs_sensor::config::SbirsRuntimeConfigBuilder()
+          .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kSearchAndStare)
+          .Build();
+  EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
+  const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(input);
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_TRUE(sbirs_sensor::session::SbirsOutputFrameContainsOnlyNativeFields(result.output_frame));
 }
 
 TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {

@@ -91,6 +91,37 @@ set(EOS_SESSION_HEADERS
     "electro_optical_sensor/session/EosReplaySession.h"
 )
 
+set(SBIRS_MODULE_ENTRY_HEADERS
+    "sbirs_sensor/sbirs_sensor.hpp"
+)
+
+set(SBIRS_CONFIG_HEADERS
+    "sbirs_sensor/config/SbirsEnvironmentConfig.h"
+    "sbirs_sensor/config/SbirsHardwareConfig.h"
+    "sbirs_sensor/config/SbirsMissionConfig.h"
+    "sbirs_sensor/config/SbirsPolicyConfig.h"
+    "sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
+    "sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
+    "sbirs_sensor/config/SbirsSessionConfig.h"
+    "sbirs_sensor/config/SbirsSessionConfigBuilder.h"
+    "sbirs_sensor/config/SbirsSessionConfigValidation.h"
+    "sbirs_sensor/config/sbirs_sensor_config.hpp"
+)
+
+set(SBIRS_SESSION_HEADERS
+    "sbirs_sensor/session/SbirsCycleInput.h"
+    "sbirs_sensor/session/SbirsCycleInputAdapter.h"
+    "sbirs_sensor/session/SbirsCycleOutputAdapter.h"
+    "sbirs_sensor/session/SbirsCycleResult.h"
+    "sbirs_sensor/session/SbirsEnvironmentInput.h"
+    "sbirs_sensor/session/SbirsExternalInputAdapter.h"
+    "sbirs_sensor/session/SbirsExternalOutputAdapter.h"
+    "sbirs_sensor/session/SbirsInputValidation.h"
+    "sbirs_sensor/session/SbirsOutputTypes.h"
+    "sbirs_sensor/session/SbirsSceneTypes.h"
+    "sbirs_sensor/session/SbirsSession.h"
+)
+
 set(ESR_MODULE_ENTRY_HEADERS
     "electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 )
@@ -206,6 +237,9 @@ set(EXPECTED_PUBLIC_HEADERS
     ${EOS_EXTENSION_HEADERS}
     ${EOS_FOUNDATION_HEADERS}
     ${EOS_SESSION_HEADERS}
+    ${SBIRS_MODULE_ENTRY_HEADERS}
+    ${SBIRS_CONFIG_HEADERS}
+    ${SBIRS_SESSION_HEADERS}
     ${ESR_MODULE_ENTRY_HEADERS}
     ${ESR_CONFIG_HEADERS}
     ${ESR_ENVIRONMENT_HEADERS}

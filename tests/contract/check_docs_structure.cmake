@@ -1,7 +1,7 @@
 # check_docs_structure.cmake
 #
 # Guard repository documentation shape:
-#   - docs/ has common, review, practice, and the five module directories
+#   - docs/ has common, review, practice, and the module directories
 #   - each business module uses the single-file design.md model
 #   - common uses the approved common-document set (contract.md + open_questions.md)
 #   - review uses draft Markdown files only, with no nested directory tree
@@ -29,14 +29,16 @@ set(ALLOWED_DOC_DIRS
     "flight_dynamic"
     "practice"
     "review"
-    "sar")
+    "sar"
+    "space_based_infrared_sensor")
 
 set(BUSINESS_MODULE_DIRS
     "airborne_radar"
     "electro_optical_sensor"
     "electronic_surveillance_radar"
     "flight_dynamic"
-    "sar")
+    "sar"
+    "space_based_infrared_sensor")
 
 set(MODULE_DOC_FILES
     "design.md")

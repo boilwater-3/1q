@@ -1,5 +1,8 @@
 # 宽窄视场探测传感器-----★★★
 
+Status: draft
+Authority: historical source requirement draft for `docs/space_based_infrared_sensor/design.md`
+
 ## 功能概述
 
 宽窄视场探测传感器模型是一个基于红外探测技术的传感器模型，用于模拟红外传感器在复杂环境下的目标扫描、探测功能。其主要任务包括：
