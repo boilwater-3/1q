@@ -1,7 +1,7 @@
 # Airborne Radar 当前设计
 
 Status: active
-Last-reviewed: 2026-06-27
+Last-reviewed: 2026-07-06
 Authority: current airborne_radar module design
 
 本文描述 `airborne_radar` 当前架构、数据流和算法边界。跨模块 public API、builder、输出三层模型等共同规则见 `docs/common/contract.md`。
@@ -29,6 +29,8 @@ Authority: current airborne_radar module design
 
 `Ar*` 是 AR 模块的 public API 前缀（config/session/cycle/result/adapter/trace/replay/debug/lifecycle 等 DTO 与门面）。`RadarEquations`、`radar_cross_section`、`radar_mount_angles_deg`、`ComposeRadarAttitudeDeg` 等领域术语与领域函数不属于模块前缀范围，保留原名。
 
+历史上的 `Radar*` 模块前缀已一次性迁移到 `Ar*`，不保留 deprecated compat 层：旧 `Radar*.h` public wrapper、`using RadarX = ArX` 别名和 `ar_compat_consumer` 均已删除，`cross_domain_naming_guard` 与 `check_public_api_boundary` 守护目标已切到 `Ar*` 主头。trace/replay schema 与 payload type string 同步迁移到 `Ar*`（namespace 与 file identifier 不变）。新增 public primary 类型不得再使用 `Radar*` 作为模块所有权前缀；`Radar*` 只允许出现在领域术语白名单内。
+
 ### 1.2 Public API 与内部实现边界
 
 公共头位于 `include/1q/airborne_radar/`：
@@ -50,10 +52,10 @@ Authority: current airborne_radar module design
 | `signal/association/` | 数据关联、代价矩阵、LAPJV assignment、关联质量指标 | `DataAssociationEngine`、`LapjvSolver` |
 | `signal/tracking/` | Kalman/EKF/UDKF/SRIF/IMM、track pool、生命周期 | `TrackFilter`、`TrackLifecycleManager`、`ImmFilter` |
 | `decision/` | 默认战术协调、威胁评估、LPI、ECCM、控制归约 | `TacticalCoordinator`、`ThreatAssessmentEvaluator`、`LpiEvaluator`、`EccmEvaluator`、`ControlReducer` |
-| `runtime/` | controller 和控制指令映射 | `RadarController`、`ControlCommandMapper` |
-| `session/` | public session 装配、context、输入输出适配、trace/replay | `ArSession`、`MutableRadarContext`、`RadarSessionCompositionRoot` |
+| `runtime/` | controller 和控制指令映射 | `ArController`、`ControlCommandMapper` |
+| `session/` | public session 装配、context、输入输出适配、trace/replay | `ArSession`、`MutableArContext`、`ArSessionCompositionRoot` |
 | `output/` | track output 查询 | `TrackOutputQueries` |
-| `utils/` | 数学和方位工具 | `MathUtils`、`RadarOrientationUtils` |
+| `utils/` | 数学和方位工具 | `MathUtils`、`ArOrientationUtils` |
 
 ### 1.3 新开发者视角的分层组件图
 
@@ -69,14 +71,14 @@ flowchart TB
 
   subgraph Session["Session orchestration / 会话编排层"]
     ArSession["ArSession\nStep / StepWithResult / RuntimePatch"]
-    Composition["RadarSessionCompositionRoot\n默认依赖图 / 可注入 DecisionEngine"]
-    Context["MutableRadarContext\n周期输入 / 命令 / 最新控制配置"]
+    Composition["ArSessionCompositionRoot\n默认依赖图 / 可注入 DecisionEngine"]
+    Context["MutableArContext\n周期输入 / 命令 / 最新控制配置"]
     Rollback["runtime snapshots\nContext / Pipeline / Environment / Controller 快照回滚"]
     Adapters["Input/Output adapters\n外部输入输出适配"]
   end
 
   subgraph Runtime["Runtime control / 运行期控制层"]
-    Controller["RadarController\n校验 / 冻结环境 / 执行 pipeline / 调用决策"]
+    Controller["ArController\n校验 / 冻结环境 / 执行 pipeline / 调用决策"]
     Mapper["SessionToExecutionMapper\n公开配置到内部工程配置"]
     Patch["RuntimePatchMapper\n运行期变更解析"]
     Command["ControlCommandMapper\n决策 proposal 到控制配置"]
@@ -133,9 +135,9 @@ flowchart TB
 读图顺序：
 
 1. 外部只从 Public API 进入。除 `ITacticalDecisionEngine` 外，不应依赖内部类型。
-2. `RadarSessionCompositionRoot` 默认装配 context、pipeline、environment service、controller 和默认 `TacticalCoordinator`。
+2. `ArSessionCompositionRoot` 默认装配 context、pipeline、environment service、controller 和默认 `TacticalCoordinator`。
 3. `ArSession` 在运行期配置提交前捕获四类快照；提交或执行失败时回滚，避免 pipeline/environment/controller 状态部分生效。
-4. `RadarController` 每周期冻结环境快照，再让 signal pipeline 和 decision engine 看到同一份环境事实。
+4. `ArController` 每周期冻结环境快照，再让 signal pipeline 和 decision engine 看到同一份环境事实。
 5. 决策 proposal 不直接修改 signal pipeline，而是经 `ControlReducer`/`ControlCommandMapper` 形成下一周期控制配置。
 
 ### 1.4 执行时序图
@@ -144,9 +146,9 @@ flowchart TB
 sequenceDiagram
   participant Caller as Caller / 调用方
   participant Session as ArSession / 会话门面
-  participant Context as MutableRadarContext / 周期上下文
+  participant Context as MutableArContext / 周期上下文
   participant Env as EnvironmentService / 环境服务
-  participant Controller as RadarController / 控制器
+  participant Controller as ArController / 控制器
   participant Pipe as SignalPipeline / 信号流水线
   participant Decision as DecisionEngine / 战术决策
   participant Mapper as CommandMapper / 控制映射
@@ -318,7 +320,7 @@ AR 的 public config 是语义配置，signal pipeline 使用的是内部工程�
 真正提交发生在下一次 `RunCycle` 前：
 
 1. 校验输入。
-2. 捕获 `MutableRadarContext`、`ISignalPipeline`、`EnvironmentService`、`RadarController` 四类快照。
+2. 捕获 `MutableArContext`、`ISignalPipeline`、`EnvironmentService`、`ArController` 四类快照。
 3. 将 pending runtime state 同步到 signal pipeline。
 4. 将环境 scenario 和 jamming sensitivity 同步到 environment service。
 5. 任一提交失败则恢复所有快照，并返回 `kRuntimePreparationFailed`。
@@ -415,7 +417,7 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 
 ### 2.7 决策帧、威胁评估、LPI 和 ECCM
 
-`RadarController` 从 signal pipeline 得到 `DecisionInputFrame` 后调用 decision engine。默认实现是 `TacticalCoordinator`，其流程为：
+`ArController` 从 signal pipeline 得到 `DecisionInputFrame` 后调用 decision engine。默认实现是 `TacticalCoordinator`，其流程为：
 
 1. 确定 ECCM 触发信号。来源包括环境干扰事实，以及 association quality 异常时的后备触发。
 2. 调用 `ThreatAssessmentEvaluator` 评估 tracks，生成威胁分类和 LPI source info。
@@ -447,7 +449,7 @@ controller 在一个周期开始时把当前 control profile 传给 signal pipel
 
 ### 2.9 输出、输入校验和失败行为
 
-`ArSession` 和 `RadarController` 都有明确的失败语义：
+`ArSession` 和 `ArController` 都有明确的失败语义：
 
 - cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues。
 - 已有有效输出时，校验失败可以复用上一帧输出，并标记 `reused_previous_output`。
@@ -464,7 +466,7 @@ controller 在一个周期开始时把当前 control profile 传给 signal pipel
 ## 3. 非目标与边界
 
 - 不恢复宽 public customization surface。
-- 不把 `EnvironmentService`、`SignalPipeline`、`RadarController`、`MutableRadarContext`、tracking lifecycle 或 foundation 工程算法暴露为用户可替换 API。
+- 不把 `EnvironmentService`、`SignalPipeline`、`ArController`、`MutableArContext`、tracking lifecycle 或 foundation 工程算法暴露为用户可替换 API。
 - 不把单一默认 association 路径包装成 public algorithm family；只有存在多个生产实现时，才通过受控配置暴露选择。
 - 不把测试 mock 便利接口升级为 public SPI。
 - 不让外部 decision engine 绕过内部 control reducer 和 command mapper。
