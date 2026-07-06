@@ -60,6 +60,20 @@ Authority: common contract for all modules
 4. 若某工具需要成为外部消费者合同，应通过 `include/1q/` 公开并补充 public API
    边界测试，而不是从 `src/common/` 泄漏。
 
+## 实现安全与失败语义
+
+下列规则源自 `src/` 架构与安全审查，是所有模块共享的规定性约束。
+
+1. **禁止 C++ 异常。** `CLAUDE.md` 已规定 "Never introduce C++ exceptions."。`src/` 与 `include/` 不得引入 `throw`、`std::runtime_error`/`std::invalid_argument` 等异常类型或 `<stdexcept>`。I/O 失败、构造失败、解析失败必须以无异常的错误状态、空 reader 或诊断字段表达（如 `ReplayTrace`/`TraceSink`/`JsbsimAdapter` 的现行做法）。该约束同时保证 `-fno-exceptions` 构建成立，并避免异常穿透构造函数导致仿真流程中途终止。
+
+2. **冗余标志必须与数据一致，且由校验层断言。** 任何 `has_xxx` 布尔标志若用于表达"是否提供某可选数据"，当 `has_xxx=false` 但对应数据非默认值时，输入校验必须报 error 级问题并 abort，不得让数据静默跳过。典型反例是 AR 的 `has_environment`：环境快照已写入但因漏置 flag 不被消费，会让杂波/干扰/大气数据完全不进入信号链且无任何信号。
+
+3. **校验拒绝必须产生结构化 abort reason，不得静默或合成有效输出。** 输入校验失败时，controller 必须设置显式 abort reason（如 `kValidationRejected`），不执行 pipeline，不合成空输出帧，不把非法输入记作新的有效 batch/帧。已有有效输出时可复用上一帧并标记 `reused_previous_output`。新增 abort reason 以显式数值追加，保留已有 replay/trace 中既有数值语义。
+
+4. **外部输入解析与 trace 读取必须有上限与完整性校验。** 自研解析器（如 JSON）必须有最大嵌套深度限制、顶层 value 后的 EOF 校验与转义完整性校验。trace/replay 文件读取必须在读入前检查大小上限（与写入侧守卫对齐）。磁盘写失败必须检查流状态并记录，不得静默丢失。
+
+5. **数值归一化必须是常数时间。** 角度/周期归一化等可能接受无界输入的工具函数必须用 `std::fmod` 等常数时间实现，不得用 `while` 循环减/加周期，避免极大输入近似死循环。
+
 ## SessionConfigBuilder
 
 所有 `*SessionConfigBuilder` 都是 semantic builder：

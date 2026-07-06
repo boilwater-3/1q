@@ -451,7 +451,8 @@ controller 在一个周期开始时把当前 control profile 传给 signal pipel
 
 `ArSession` 和 `ArController` 都有明确的失败语义：
 
-- cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues。
+- cycle input 校验失败时不执行 pipeline，`ArCycleResult` 携带 validation issues，且 controller 设置显式 abort reason `SignalCycleAbortReason::kValidationRejected`（数值 4，追加于既有 `kLifecycleUnavailable=1`/`kInvalidEnvironmentCycle=2`/`kRuntimePreparationFailed=3` 之后，保留 replay/trace 数值语义）。
+- 冗余 `has_environment` 标志与数据必须一致：`has_environment=false` 且 `environment` 为默认值视为省略快照；`has_environment=false` 但 `environment` 含非默认数据时校验报 `kEnvironmentSnapshotFlagMismatch` error 并 abort，避免环境事实（杂波/干扰/大气）被静默跳过（见 contract.md §实现安全与失败语义规则 2）。
 - 已有有效输出时，校验失败可以复用上一帧输出，并标记 `reused_previous_output`。
 - signal pipeline abort 时不会发布合成的最新输出。
 - controller 暴露 `executed_this_cycle`、`abort_reason`、`has_validation_error`、`submitted_commands`、`control_profile` 和 association quality metrics。

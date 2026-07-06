@@ -1,7 +1,7 @@
 # SAR 当前设计
 
 Status: active
-Last-reviewed: 2026-06-27
+Last-reviewed: 2026-07-06
 Authority: current SAR module design
 
 本文是 SAR 模块当前设计权威。它只描述当前 main 中仍成立的架构、数据流和算法边界；历史验收日志、旧合同、旧审计和被删除的 archive 原文不覆盖本文。
@@ -37,10 +37,11 @@ SAR 模块负责合成孔径雷达的回波仿真、完整孔径 raw IQ 消费�
 | `signal/` | FFT、LFM 波形、匹配滤波、距离压缩基础 |
 | `geometry/` | L1/L2/L3 平台轨迹、天线、Spotlight beam、ScanSAR burst |
 | `echo/` | 点目标 raw echo、分布式 clutter、天线门控回波 |
-| `runtime/` | `PulseRingBuffer` 和跨周期 aperture 拼接 |
+| `runtime/` | `SarController`（单周期调度、输入校验 gate、runtime state 快照/恢复）、`PulseRingBuffer` 和跨周期 aperture 拼接 |
+| `pipeline/` | `SarProcessingPipeline`（raw history 构造、LFM/匹配滤波、L1/L3 imaging、退化图像检测、raw pulse/trajectory 累积状态快照） |
 | `imaging/` | RDA、BP/GBP、MoCo、phase reference、quality、Omega-K、Spotlight、ScanSAR、Multilook、PGA/CSA evidence |
 | `calibration/` | 辐射定标后处理 |
-| `session/` | session 装配、输入校验、raw history builder、imaging executor、focused image assembler、trace/replay |
+| `session/` | `SarSession`（对外门面，只委托 controller）、`SarSessionCompositionRoot`（统一装配 pipeline 与 controller）、输入校验、focused image assembler、trace/replay |
 | `session/generated/` | FlatBuffers replay/trace 生成头 |
 | `output/` | Binary / sidecar / HDF5 条件输出 |
 | `smoke/` | 编译/链接烟雾测试 |
@@ -59,11 +60,16 @@ flowchart TB
   end
 
   subgraph Session["Session orchestration\n会话编排层：src/sar/session"]
-    Sess["SarSession\n会话门面：Step / StepWithResult"]
-    Validate["Validation\n输入校验 / 运行期策略校验"]
-    RawBuilder["SarRawHistoryBuilder\nRaw history 构造"]
-    Exec["SarImagingExecutor\n成像执行器"]
-    Export["FocusedImageAssembler\n聚焦图像组装 / 输出元数据"]
+    Sess["SarSession\n会话门面：只委托 controller"]
+    Composition["SarSessionCompositionRoot\n统一装配 Pipeline + Controller"]
+  end
+
+  subgraph Runtime["Runtime control\n运行期控制层：src/sar/runtime"]
+    Controller["SarController\n单周期调度 / 输入校验 gate\nruntime state 快照恢复"]
+  end
+
+  subgraph Pipeline["Processing pipeline\n成像流水线层：src/sar/pipeline"]
+    ProcPipe["SarProcessingPipeline\nRaw history / LFM / 匹配滤波\nL1/L3 imaging / 退化检测"]
   end
 
   subgraph Domain["Domain algorithms\n领域算法层：src/sar/*"]
@@ -80,16 +86,16 @@ flowchart TB
   Config --> Sess
   Input --> Sess
   Tools -. "wrap or consume\n包装或消费" .-> Sess
-  Sess --> Validate
-  Sess --> RawBuilder
-  RawBuilder --> Signal
-  RawBuilder --> Geometry
-  RawBuilder --> Echo
-  RawBuilder --> Runtime
-  Sess --> Exec
-  Exec --> Imaging
-  Exec --> Export
-  Export --> Output
+  Sess --> Controller
+  Sess --> Composition
+  Composition --> Controller
+  Composition --> ProcPipe
+  Controller --> ProcPipe
+  ProcPipe --> Signal
+  ProcPipe --> Geometry
+  ProcPipe --> Echo
+  ProcPipe --> Runtime
+  ProcPipe --> Imaging
 ```
 
 这张图的阅读方式：
@@ -104,43 +110,28 @@ flowchart TB
 ```mermaid
 sequenceDiagram
   participant Caller as Caller 调用方
-  participant Session as SarSession SAR 会话
-  participant Validator as Validation 校验层
-  participant Raw as RawHistoryBuilder Raw history 构造
-  participant Rda as RdaCore RDA 核心
-  participant Bp as BpCore BP 遍历
-  participant Quality as ImageQuality 质量评估
+  participant Session as SarSession SAR 会话门面
+  participant Controller as SarController 运行期控制
+  participant Pipeline as SarProcessingPipeline 成像流水线
   participant Result as SarCycleResult 单周期结果
 
   Caller->>Session: StepWithResult 提交单周期输入
-  Session->>Validator: Validate input/policy 校验输入与运行期策略
-  alt invalid input/policy 输入或策略无效
-    Validator-->>Session: abort reason + diagnostics 中止原因与诊断
-    Session-->>Caller: previous output 返回上一有效输出（如存在）
+  Session->>Controller: RunOnce(input) 委托单周期调度
+  Controller->>Controller: ValidateSarCycleInput 校验输入
+  alt invalid input 输入无效
+    Controller-->>Session: invalid_cycle_input abort + 复用上一帧
+    Session-->>Caller: SarCycleResult (reused previous output) 返回上一有效输出（如存在）
   else valid input 输入有效
-    Session->>Raw: build/consume raw_history 构造或消费 raw history
-
+    Controller->>Pipeline: RunCycle 构造 raw history 并成像
     alt L1 RDA path (broadside stripmap)
-      Raw-->>Rda: raw_history + matched filter + trajectories 原始回波 / 匹配滤波 / 轨迹
-      Note over Rda: ——— 距离压缩 ———
-      Rda->>Rda: Range compression 距离向匹配滤波
-      Note over Rda: ——— 方位处理 ———
-      Rda->>Rda: Azimuth FFT 方位向 FFT
-      Rda->>Rda: RCMC (interpolation) 距离徙动校正
-      Rda->>Rda: Azimuth compression 方位压缩
-      Rda->>Rda: Broadside phase reference 相位重参考
-      Rda-->>Quality: focused image (L1 RDA)
-
+      Pipeline->>Pipeline: Range compression / Azimuth FFT / RCMC / 方位压缩 / 相位重参考
     else L3 BP path (turning / small scene)
-      Raw-->>Bp: raw_history + actual trajectory 原始回波 / 实际轨迹
-      Note over Bp: ——— 后向投影 ———
-      Bp->>Bp: Grid generation 成像网格生成
-      Bp->>Bp: Backprojection traversal 逐脉冲逐像素后向投影
-      Bp-->>Quality: focused image (L3 BP)
+      Pipeline->>Pipeline: Grid generation / Backprojection traversal
     end
-
-    Quality->>Quality: EvaluateImageQuality 质量评估<br/>(峰值 / 分辨率 / 熵 / 对比度)
-    Quality-->>Result: image metadata + quality diagnostics 图像元数据与质量诊断
+    Pipeline->>Pipeline: EvaluateImageQuality 质量评估<br/>(峰值 / 分辨率 / 熵 / 对比度)
+    Pipeline->>Pipeline: 退化图像检测
+    Pipeline-->>Controller: focused image + quality diagnostics
+    Controller-->>Session: BuildCycleResult 构造单周期结果
     Session-->>Caller: SarCycleResult 返回单周期结果
   end
 ```
@@ -237,7 +228,7 @@ flowchart TB
   PulseState --> Actual
   PulseState -. "optional ideal states\n可选理想轨迹" .-> Ideal
 
-  History --> Next["SarImagingExecutor\nRDA / BP / 后续成像"]
+  History --> Next["SarProcessingPipeline\nRDA / BP / 后续成像"]
   Ideal --> Next
   Actual --> Next
 ```
@@ -264,9 +255,11 @@ flowchart TB
 
 SAR 遵守 `docs/common/contract.md`：
 
-- public API 只暴露稳定 session/config/input/output/trace/replay 门面。
+- public API 只暴露稳定 session/config/input/output/trace/replay 门面。`SarSession` 是对外门面，只委托内部 `SarController`；Controller、ProcessingPipeline、CompositionRoot 不通过 public header 暴露。
 - `SarSessionConfigBuilder` 是 semantic builder，不承担 leaf setter 或隐式 validation。
 - SAR 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
+- `SarSession::StepWithResult` 在运行期配置和成像链路前调用 `ValidateSarCycleInput`；存在 error 级问题时记录 `invalid_cycle_input` abort 并按既有语义复用上一帧（符合 contract.md §实现安全与失败语义规则 3）。
+- `SarController` 与 `SarProcessingPipeline` 各自持有 runtime state / raw pulse / trajectory 累积状态快照（capture/restore），与事务性提交语义对齐。
 - historical/raw evidence 不常驻 `docs/sar/`；当前事实只由五文件模型承载。
 
 ## 2. 本模块使用的算法
