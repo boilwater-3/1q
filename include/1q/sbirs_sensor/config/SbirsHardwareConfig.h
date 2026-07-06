@@ -20,6 +20,10 @@ struct ONEQ_API SbirsHardwareConfig {
   float detector_quantum_efficiency{0.7f};
   float integration_time_sec{0.02f};
   float noise_equivalent_power_w{1.0e-12f};
+  // 2.8 噪声分解：背景/热项参数（默认 0 表示只使用 NEP 标量）。
+  float background_radiance_w_sr_m2{0.0f};   // 背景辐射亮度（用于光子噪声）
+  float detector_temperature_k{80.0f};        // 探测器工作温度（热噪声）
+  float readout_noise_rms_w{0.0f};            // 读出噪声 RMS（W 等效）
 };
 
 }  // namespace config

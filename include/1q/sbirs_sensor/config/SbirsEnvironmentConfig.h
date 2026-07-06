@@ -22,6 +22,10 @@ struct ONEQ_API SbirsEnvironmentConfig {
   float relative_humidity_percent{50.0f};
   float visibility_km{20.0f};
   float base_atmospheric_transmittance{0.8f};
+  // 2.9 气象交互项权重：A_total 加权叠加中的交互项系数 k_j（默认 0 = 无交互项，
+  // 保持向后兼容）。单位：无量纲。当前仅 humidity×visibility 与 rain×humidity 两项。
+  float humidity_visibility_interaction_weight{0.0f};
+  float rain_humidity_interaction_weight{0.0f};
 };
 
 }  // namespace config

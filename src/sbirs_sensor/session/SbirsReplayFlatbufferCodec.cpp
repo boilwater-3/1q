@@ -37,7 +37,8 @@ flatbuffers::Offset<sbirs::replay::SbirsCycleEnvironmentConfig> EncodeCycleEnvir
   return sbirs::replay::CreateSbirsCycleEnvironmentConfig(
       fbb, static_cast<std::int32_t>(value.weather_type),
       static_cast<std::int32_t>(value.sea_state), value.temperature_c,
-      value.relative_humidity_percent, value.visibility_km, value.base_atmospheric_transmittance);
+      value.relative_humidity_percent, value.visibility_km, value.base_atmospheric_transmittance,
+      value.humidity_visibility_interaction_weight, value.rain_humidity_interaction_weight);
 }
 
 config::SbirsEnvironmentConfig DecodeCycleEnvironmentConfig(
@@ -50,6 +51,8 @@ config::SbirsEnvironmentConfig DecodeCycleEnvironmentConfig(
     out.relative_humidity_percent = fb->relative_humidity_percent();
     out.visibility_km = fb->visibility_km();
     out.base_atmospheric_transmittance = fb->base_atmospheric_transmittance();
+    out.humidity_visibility_interaction_weight = fb->humidity_visibility_interaction_weight();
+    out.rain_humidity_interaction_weight = fb->rain_humidity_interaction_weight();
   }
   return out;
 }
@@ -59,7 +62,8 @@ flatbuffers::Offset<sbirs::replay::SbirsEnvironmentConfig> EncodeSessionEnvironm
   return sbirs::replay::CreateSbirsEnvironmentConfig(
       fbb, static_cast<std::int32_t>(value.weather_type),
       static_cast<std::int32_t>(value.sea_state), value.temperature_c,
-      value.relative_humidity_percent, value.visibility_km, value.base_atmospheric_transmittance);
+      value.relative_humidity_percent, value.visibility_km, value.base_atmospheric_transmittance,
+      value.humidity_visibility_interaction_weight, value.rain_humidity_interaction_weight);
 }
 
 config::SbirsEnvironmentConfig DecodeSessionEnvironmentConfig(
@@ -72,6 +76,8 @@ config::SbirsEnvironmentConfig DecodeSessionEnvironmentConfig(
     out.relative_humidity_percent = fb->relative_humidity_percent();
     out.visibility_km = fb->visibility_km();
     out.base_atmospheric_transmittance = fb->base_atmospheric_transmittance();
+    out.humidity_visibility_interaction_weight = fb->humidity_visibility_interaction_weight();
+    out.rain_humidity_interaction_weight = fb->rain_humidity_interaction_weight();
   }
   return out;
 }
@@ -125,7 +131,8 @@ flatbuffers::Offset<sbirs::replay::SbirsHardwareConfig> EncodeHardwareConfig(
   return sbirs::replay::CreateSbirsHardwareConfig(
       fbb, value.wavelength_lower_um, value.wavelength_upper_um, value.optical_aperture_m,
       value.detector_area_m2, value.optical_transmission, value.detector_quantum_efficiency,
-      value.integration_time_sec, value.noise_equivalent_power_w);
+      value.integration_time_sec, value.noise_equivalent_power_w,
+      value.background_radiance_w_sr_m2, value.detector_temperature_k, value.readout_noise_rms_w);
 }
 
 void DecodeHardwareConfig(const sbirs::replay::SbirsHardwareConfig* fb,
@@ -141,6 +148,9 @@ void DecodeHardwareConfig(const sbirs::replay::SbirsHardwareConfig* fb,
   out->detector_quantum_efficiency = fb->detector_quantum_efficiency();
   out->integration_time_sec = fb->integration_time_sec();
   out->noise_equivalent_power_w = fb->noise_equivalent_power_w();
+  out->background_radiance_w_sr_m2 = fb->background_radiance_w_sr_m2();
+  out->detector_temperature_k = fb->detector_temperature_k();
+  out->readout_noise_rms_w = fb->readout_noise_rms_w();
 }
 
 flatbuffers::Offset<sbirs::replay::SbirsMissionConfig> EncodeMissionConfig(
@@ -181,9 +191,11 @@ flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
       sbirs::replay::CreateSbirsDetectionPolicyConfig(fbb, value.detection.wide_min_snr_linear,
                                                       value.detection.narrow_min_snr_linear);
   const flatbuffers::Offset<sbirs::replay::SbirsErrorModelConfig> error =
-      sbirs::replay::CreateSbirsErrorModelConfig(fbb, value.error_model.angular_sigma_deg,
-                                                 value.error_model.range_fraction_sigma,
-                                                 value.error_model.random_seed);
+      sbirs::replay::CreateSbirsErrorModelConfig(
+          fbb, value.error_model.angular_sigma_deg, value.error_model.range_fraction_sigma,
+          value.error_model.random_seed, value.error_model.orbit_sigma_deg,
+          value.error_model.attitude_sigma_deg, value.error_model.fov_sigma_deg,
+          value.error_model.detector_bandwidth_hz);
   const flatbuffers::Offset<sbirs::replay::SbirsSchedulerConfig> scheduler =
       sbirs::replay::CreateSbirsSchedulerConfig(fbb, value.scheduler.single_narrow_resource);
   return sbirs::replay::CreateSbirsPolicyConfig(fbb, detection, error, scheduler);
@@ -202,6 +214,10 @@ void DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
     out->error_model.angular_sigma_deg = fb->error_model()->angular_sigma_deg();
     out->error_model.range_fraction_sigma = fb->error_model()->range_fraction_sigma();
     out->error_model.random_seed = fb->error_model()->random_seed();
+    out->error_model.orbit_sigma_deg = fb->error_model()->orbit_sigma_deg();
+    out->error_model.attitude_sigma_deg = fb->error_model()->attitude_sigma_deg();
+    out->error_model.fov_sigma_deg = fb->error_model()->fov_sigma_deg();
+    out->error_model.detector_bandwidth_hz = fb->error_model()->detector_bandwidth_hz();
   }
   if (fb->scheduler() != nullptr) {
     out->scheduler.single_narrow_resource = fb->scheduler()->single_narrow_resource();

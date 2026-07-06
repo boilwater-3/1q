@@ -12,6 +12,9 @@ table SbirsHardwareConfig {
   detector_quantum_efficiency: float;
   integration_time_sec: float;
   noise_equivalent_power_w: float;
+  background_radiance_w_sr_m2: float;
+  detector_temperature_k: float;
+  readout_noise_rms_w: float;
 }
 
 table SbirsMissionConfig {
@@ -41,6 +44,10 @@ table SbirsErrorModelConfig {
   angular_sigma_deg: float;
   range_fraction_sigma: float;
   random_seed: uint32;
+  orbit_sigma_deg: float;
+  attitude_sigma_deg: float;
+  fov_sigma_deg: float;
+  detector_bandwidth_hz: float;
 }
 
 table SbirsSchedulerConfig {
@@ -60,6 +67,8 @@ table SbirsEnvironmentConfig {
   relative_humidity_percent: float;
   visibility_km: float;
   base_atmospheric_transmittance: float;
+  humidity_visibility_interaction_weight: float;
+  rain_humidity_interaction_weight: float;
 }
 
 table SbirsSessionConfig {

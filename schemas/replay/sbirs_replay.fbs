@@ -16,6 +16,8 @@ table SbirsCycleEnvironmentConfig {
   relative_humidity_percent: float;
   visibility_km: float;
   base_atmospheric_transmittance: float;
+  humidity_visibility_interaction_weight: float;
+  rain_humidity_interaction_weight: float;
 }
 
 table SbirsEnvironmentInput {
