@@ -1,18 +1,20 @@
-#ifndef ONEQ_FOUNDATION_JSON_READER_H_
-#define ONEQ_FOUNDATION_JSON_READER_H_
+#ifndef EXAMPLES_COMMON_JSON_READER_H_
+#define EXAMPLES_COMMON_JSON_READER_H_
 
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
-#include "1q/api.hpp"
-
-namespace oneq {
+namespace examples {
 
 /// Lightweight JSON value tree. Supports the subset of JSON needed for config
 /// loading: objects, arrays, strings, numbers (int/double), booleans, null.
-class ONEQ_API JsonValue {
+///
+/// 本工具属于 examples 层，不是 oneq 库的 public surface。库内部不消费 JSON；
+/// 配置文件解析是 example 便利层的能力。详见 docs/common/open_questions.md
+/// 的 OQ-7 收口记录。
+class JsonValue {
  public:
   enum Type { kNull, kBool, kInt, kDouble, kString, kArray, kObject };
 
@@ -54,12 +56,12 @@ class ONEQ_API JsonValue {
 };
 
 /// Minimal recursive-descent JSON parser. No exceptions; errors via status string.
-class ONEQ_API JsonReader {
+class JsonReader {
  public:
   /// Parse a UTF-8 JSON file. Returns false and sets @p error on failure.
   static bool ParseFile(const char* path, JsonValue* root, std::string* error);
 };
 
-}  // namespace oneq
+}  // namespace examples
 
-#endif  // ONEQ_FOUNDATION_JSON_READER_H_
+#endif  // EXAMPLES_COMMON_JSON_READER_H_

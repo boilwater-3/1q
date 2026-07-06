@@ -4,10 +4,21 @@ if(NOT TARGET ${PROJECT_ALIAS})
     message(FATAL_ERROR "${PROJECT_ALIAS} target not found. Ensure src/CMakeLists.txt is processed first")
 endif()
 
+# examples 层共享工具（如 JSON 配置解析）。这些不属于 oneq 库的 public surface，
+# 库内部不消费 JSON；JSON 解析是 example 便利层的能力（见 OQ-7 收口记录）。
+set(ONEQ_EXAMPLE_COMMON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/common")
+set(ONEQ_EXAMPLE_COMMON_SOURCES
+    "${ONEQ_EXAMPLE_COMMON_DIR}/json_reader.cpp")
+function(_oneq_example_link_common target)
+    target_sources(${target} PRIVATE ${ONEQ_EXAMPLE_COMMON_SOURCES})
+    target_include_directories(${target} PRIVATE "${ONEQ_EXAMPLE_COMMON_DIR}")
+endfunction()
+
 function(add_domain_example name dir)
     add_executable(${name} "${dir}/session_usage.cpp")
     target_link_libraries(${name} PRIVATE ${PROJECT_ALIAS})
     target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/${dir}")
+    _oneq_example_link_common(${name})
 endfunction()
 
 add_domain_example(airborne_radar_session_usage airborne_radar)
@@ -18,30 +29,35 @@ add_executable(ar_config_compare_test airborne_radar/config_compare_test.cpp)
 target_link_libraries(ar_config_compare_test PRIVATE ${PROJECT_ALIAS})
 target_include_directories(ar_config_compare_test PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/airborne_radar")
+_oneq_example_link_common(ar_config_compare_test)
 
 # 集成模式示例：展示 RadarModule 在外部引擎中的使用方式。
 add_executable(radar_integration_demo airborne_radar/integration_demo.cpp)
 target_link_libraries(radar_integration_demo PRIVATE ${PROJECT_ALIAS})
 target_include_directories(radar_integration_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/airborne_radar")
+_oneq_example_link_common(radar_integration_demo)
 
 # EOS 集成模式示例：展示 EosModule 在外部引擎中的使用方式。
 add_executable(eos_integration_demo electro_optical/integration_demo.cpp)
 target_link_libraries(eos_integration_demo PRIVATE ${PROJECT_ALIAS})
 target_include_directories(eos_integration_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/electro_optical")
+_oneq_example_link_common(eos_integration_demo)
 
 # ESR 集成模式示例：展示 EsrModule 在外部引擎中的使用方式。
 add_executable(esr_integration_demo electronic_warfare/integration_demo.cpp)
 target_link_libraries(esr_integration_demo PRIVATE ${PROJECT_ALIAS})
 target_include_directories(esr_integration_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/electronic_warfare")
+_oneq_example_link_common(esr_integration_demo)
 
 # SAR 集成模式示例：展示 SarModule 在外部引擎中的使用方式。
 add_executable(sar_integration_demo sar/integration_demo.cpp)
 target_link_libraries(sar_integration_demo PRIVATE ${PROJECT_ALIAS})
 target_include_directories(sar_integration_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/sar")
+_oneq_example_link_common(sar_integration_demo)
 
 # flight_dynamic 示例：依赖机动模块，仅在 ONEQ_ENABLE_FLIGHT_DYNAMIC 开启时构建。
 if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
@@ -109,6 +125,7 @@ function(add_batch_validation name module_dir src)
         "${CMAKE_CURRENT_SOURCE_DIR}/${module_dir}")
     target_compile_definitions(${name} PRIVATE
         BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")
+    _oneq_example_link_common(${name})
 endfunction()
 
 add_batch_validation(ar_batch_validation airborne_radar ar_batch_validation.cpp)

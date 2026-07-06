@@ -65,6 +65,10 @@ JSON parser 当前已经有深度、尾随内容、`\uXXXX` 完整性和 surroga
 
 本轮后续推进结果：已补 `1.`、`1e+`、`01` 负例，并在 `JsonReader::ParseNumber` 中拒绝小数点后无数字、指数后无数字和前导零。成熟 JSON 库替换仍未被证明为最小必要变更，继续保留为策略开放项。
 
+归属下沉收口（OQ-7 消解）：复查调用点证据后发现，OQ-7 的真正问题不是「换不换成熟库」，而是 `JsonReader`/`JsonValue` 的归属。原始设计意图是「JSON 不应放库内部」（配置文件解析是 example 便利层的能力），但实际状态存在矛盾：库 `src/` 内部不消费 JSON（符合意图），`JsonReader`/`JsonValue` 却以 `include/1q/foundation/json_reader.h` + `ONEQ_API` 导出符号的形态作为库的 public surface 存在（违背意图）。调用点扫描确认：实际消费者只有 `examples/{airborne_radar,electro_optical,electronic_warfare,sar}/config_loader*.h` 与 `tests/unit/json_reader_test.cpp`；`tests/consumer/`（模拟下游 SDK 消费者，只链接 `1q::1q`）不引用 `JsonReader`，因此下沉对安装后的库无破坏。
+
+基于此，OQ-7 的解法是把 `JsonReader`/`JsonValue` 从库的 public surface 下沉为 example 层本地工具：实现平移到 `examples/common/json_reader.{h,cpp}`，namespace 由 `oneq::` 改为 `examples::`，去掉 `ONEQ_API` 与 `1q/api.hpp` 依赖；4 套 config_loader 与单测改 include 路径与 namespace 限定；`src/common/CMakeLists.txt` 移除源与 install 清单条目；`check_public_api_boundary.cmake` whitelist 同步移除（`install_manifest` 守卫自动跟随）。下沉后，JSON 解析不再是库的 public 契约，example 层未来是否替换为成熟库（`nlohmann_json` 等）都是 example 局部决策，不再牵动库 ABI 或 public API；OQ-7 因此从 `open_questions.md` 移除。
+
 ### OQ-8：L3/L4 可独立收尾，L6 必须单独契约化
 
 L3 Eigen include 与 L4 `reset(new T)` 是低风险维护项，可以拆成小 commit，用编译和相关单测证明零语义变化。L4 需要注意 C++11 环境：若没有 `std::make_unique`，应使用 repo 内兼容 helper 或保持 `reset(new)`，不要为了样式引入 C++14 依赖。
@@ -114,7 +118,7 @@ Implemented scope:
 - OQ-2：EOS replay session-config 测试直接 inspect FlatBuffer 派生字段，断言其等于 `BuildModelConfigFromScenario` 当前输出；EOS design 与 schema 注释明确 decode 仍以 `scenario_config` 为 source of truth，派生字段是编码侧快照。
 - OQ-4：AR/ESR `Session::Impl` 去掉 `owned_x` + `X&` 并存成员，改为 owning member + accessor；`docs/common/contract.md` 增加 session composition ownership 规则。OQ-2/OQ-4 已从 `open_questions.md` 移除。
 - OQ-6A：数值 floor 归类为通用数值防护、坐标/姿态退化、模块局部几何退化三类；`docs/common/contract.md` 规定不得机械合并不同语义 floor，OQ-6 已从 `open_questions.md` 移除。
-- OQ-7：补 JSON 数字语法负例并 harden `JsonReader::ParseNumber`，拒绝 `1.`、`1e+`、`01` 等非法数字；成熟库替换策略仍保留为 OQ-7。
+- OQ-7：补 JSON 数字语法负例并 harden `JsonReader::ParseNumber`，拒绝 `1.`、`1e+`、`01` 等非法数字；随后复查调用点证据，确认 OQ-7 真正问题是归属而非替换：`JsonReader`/`JsonValue` 从库的 public surface（`include/1q/foundation/json_reader.h` + `ONEQ_API`）下沉为 example 层本地工具（`examples/common/json_reader.{h,cpp}`，namespace `examples::`），符合「JSON 不放库内部」的原始设计意图。OQ-7 已从 `open_questions.md` 移除。
 
 Validation:
 - `cmake --build build/llvm-ninja-release-local --target 1q_unit_tests 1q_contract_tests -j 4`: pass。
@@ -129,9 +133,14 @@ Validation:
 - `cmake --build build/llvm-ninja-release-local --target 1q_unit_tests 1q_contract_tests -j 4`: pass after JSON hardening。
 - `ctest --test-dir build/llvm-ninja-release-local -L '^unit$' --output-on-failure -j 4`: pass after JSON hardening。
 - `ctest --test-dir build/llvm-ninja-release-local -L '^contract$' --output-on-failure -j 4`: pass after JSON hardening。
+- OQ-7 归属下沉收口：`cmake --build build/llvm-ninja-release-local --target 1q_unit_tests 1q_contract_tests -j 4`: pass。
+- `./build/llvm-ninja-release-local/bin/1q_unit_tests --gtest_filter='JsonReaderTest.*'`: pass，35 tests（下沉后链接 `examples/common/json_reader.cpp`）。
+- `ctest --test-dir build/llvm-ninja-release-local -L '^contract$' --output-on-failure -j 4`: pass（含 `public_api_boundary_guard`、`install_manifest_guard` 三方一致性）。
+- `cmake --build build/llvm-ninja-release-local --target ar_config_compare_test airborne_radar_session_usage eos_integration_demo esr_integration_demo sar_integration_demo -j 4`: pass（example targets CMake 接线有效）。
+- `git diff --check`: pass。
 
 Residual risks:
-- OQ-7 JSON parser 成熟库替换策略仍未进入实现；数字语法负例已在本轮补齐。
+- OQ-7 归属下沉是仓库内可控的 breaking change：若 install 后有外部下游实际依赖 `oneq::JsonValue` 符号，则受影响；`tests/consumer/` 已证明仓库内无此类消费者。下沉后 JSON 解析不再是库 public 契约，未来 example 层若替换为成熟库属 example 局部决策。
 - OQ-8 的 L3/L4/L6 仍需独立批次；L4 因 C++11 与缺少 repo-local helper 暂缓。
 
 Follow-up freeze items:

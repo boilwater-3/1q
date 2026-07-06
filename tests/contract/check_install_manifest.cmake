@@ -56,7 +56,7 @@ set(INSTALLED_HEADERS "")
 foreach(cmake_file ${MANIFEST_SOURCES})
     file(STRINGS "${cmake_file}" lines)
     foreach(line ${lines})
-        # 匹配形如 include/1q/foundation/json_reader.h 的路径。
+        # 匹配形如 include/1q/foundation/pose_types.h 的路径。
         # 字符类 [A-Za-z0-9_/] 不含 '.',确保不跨越扩展名点号;
         # 这样 'airborne_radar.hpp' 只会被整体匹配,不会误匹配出 'airborne_radar.h'。
         # hpp 须在 h 之前,保证优先匹配长扩展名。

@@ -3,7 +3,7 @@
 
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/environment/AtmosphericTypes.h"
-#include "1q/foundation/json_reader.h"
+#include "json_reader.h"
 #include "config_loader_common.h"
 
 namespace examples {
@@ -12,7 +12,7 @@ namespace esr_env = electronic_surveillance_radar::session;
 
 // -- struct loaders ----------------------------------------------------------
 
-inline void LoadEsrHardware(const oneq::JsonValue& j,
+inline void LoadEsrHardware(const examples::JsonValue& j,
                             esr_cfg::EsrHardwareConfig* v) {
   if (j.IsNull()) return;
   v->receiver_band_lower_hz = j["receiver_band_lower_hz"].AsDouble();
@@ -28,7 +28,7 @@ inline void LoadEsrHardware(const oneq::JsonValue& j,
   v->antenna_mount_el_deg = static_cast<float>(j["antenna_mount_el_deg"].AsDouble());
 }
 
-inline void LoadEsrScanPolicy(const oneq::JsonValue& j,
+inline void LoadEsrScanPolicy(const examples::JsonValue& j,
                               esr_cfg::EsrScanPolicyConfig* v) {
   if (j.IsNull()) return;
   v->scan_center_az_deg = static_cast<float>(j["scan_center_az_deg"].AsDouble());
@@ -41,14 +41,14 @@ inline void LoadEsrScanPolicy(const oneq::JsonValue& j,
   v->scan_end_el_deg = static_cast<float>(j["scan_end_el_deg"].AsDouble());
 }
 
-inline void LoadEsrMission(const oneq::JsonValue& j, esr_cfg::EsrMissionConfig* v) {
+inline void LoadEsrMission(const examples::JsonValue& j, esr_cfg::EsrMissionConfig* v) {
   if (j.IsNull()) return;
   v->power_on = j["power_on"].AsBool();
   v->work_mode = EsrWorkModeFromString(j["work_mode"].AsString());
   LoadEsrScanPolicy(j["scan"], &v->scan);
 }
 
-inline void LoadEsrDetection(const oneq::JsonValue& j,
+inline void LoadEsrDetection(const examples::JsonValue& j,
                              esr_cfg::EsrDetectionPolicyConfig* v) {
   if (j.IsNull()) return;
   v->minimum_snr_db = static_cast<float>(j["minimum_snr_db"].AsDouble());
@@ -58,12 +58,12 @@ inline void LoadEsrDetection(const oneq::JsonValue& j,
   v->enable_statistical_detection = j["enable_statistical_detection"].AsBool();
 }
 
-inline void LoadEsrPolicy(const oneq::JsonValue& j, esr_cfg::EsrPolicyConfig* v) {
+inline void LoadEsrPolicy(const examples::JsonValue& j, esr_cfg::EsrPolicyConfig* v) {
   if (j.IsNull()) return;
   LoadEsrDetection(j["detection"], &v->detection);
 }
 
-inline void LoadEsrAtmosObs(const oneq::JsonValue& j,
+inline void LoadEsrAtmosObs(const examples::JsonValue& j,
                             oneq::environment::AtmosphericObservation* v) {
   if (j.IsNull()) return;
   v->enable_physical_model = j["enable_physical_model"].AsBool();
@@ -72,7 +72,7 @@ inline void LoadEsrAtmosObs(const oneq::JsonValue& j,
   v->relative_humidity = static_cast<float>(j["relative_humidity"].AsDouble());
 }
 
-inline void LoadEsrAtmosCtx(const oneq::JsonValue& j,
+inline void LoadEsrAtmosCtx(const examples::JsonValue& j,
                             oneq::environment::SpaceWeatherContext* v) {
   if (j.IsNull()) return;
   v->solar_flux_f107a = static_cast<float>(j["solar_flux_f107a"].AsDouble());
@@ -80,7 +80,7 @@ inline void LoadEsrAtmosCtx(const oneq::JsonValue& j,
   v->geomagnetic_ap = static_cast<float>(j["geomagnetic_ap"].AsDouble());
 }
 
-inline void LoadEsrScenario(const oneq::JsonValue& j,
+inline void LoadEsrScenario(const examples::JsonValue& j,
                             electronic_surveillance_radar::config::EsrEnvironmentScenarioConfig* v) {
   if (j.IsNull()) return;
   v->preset = EsrPresetFromString(j["preset"].AsString());
@@ -88,7 +88,7 @@ inline void LoadEsrScenario(const oneq::JsonValue& j,
   LoadEsrAtmosCtx(j["atmospheric_context"], &v->atmospheric_context);
 }
 
-inline void LoadEsrEnvironment(const oneq::JsonValue& j,
+inline void LoadEsrEnvironment(const examples::JsonValue& j,
                                esr_cfg::EsrEnvironmentConfig* v) {
   if (j.IsNull()) return;
   LoadEsrScenario(j["scenario_config"], &v->scenario_config);

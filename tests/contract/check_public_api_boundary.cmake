@@ -187,7 +187,6 @@ set(COORDINATE_HEADERS
 )
 
 set(FOUNDATION_HEADERS
-    "foundation/json_reader.h"
     "foundation/pose_types.h"
     "foundation/scan_schedule_types.h"
     "foundation/SensorContract.h"

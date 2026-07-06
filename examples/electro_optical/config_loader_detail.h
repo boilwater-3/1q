@@ -2,14 +2,14 @@
 #define EXAMPLES_EOS_CONFIG_LOADER_DETAIL_H_
 
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
-#include "1q/foundation/json_reader.h"
+#include "json_reader.h"
 #include "config_loader_common.h"
 
 namespace examples {
 
 // -- struct loaders ----------------------------------------------------------
 
-inline void LoadEosHardware(const oneq::JsonValue& j,
+inline void LoadEosHardware(const examples::JsonValue& j,
                             electro_optical_sensor::config::EosHardwareConfig* v) {
   if (j.IsNull()) return;
   v->wavelength_lower_um = static_cast<float>(j["wavelength_lower_um"].AsDouble());
@@ -18,7 +18,7 @@ inline void LoadEosHardware(const oneq::JsonValue& j,
   v->focal_length_m = static_cast<float>(j["focal_length_m"].AsDouble());
 }
 
-inline void LoadEosMission(const oneq::JsonValue& j,
+inline void LoadEosMission(const examples::JsonValue& j,
                            electro_optical_sensor::config::EosMissionConfig* v) {
   if (j.IsNull()) return;
   v->work_mode = EosWorkModeFromString(j["work_mode"].AsString());
@@ -34,7 +34,7 @@ inline void LoadEosMission(const oneq::JsonValue& j,
       static_cast<float>(j["boresight_depression_deg"].AsDouble());
 }
 
-inline void LoadEosDetection(const oneq::JsonValue& j,
+inline void LoadEosDetection(const examples::JsonValue& j,
                              electro_optical_sensor::config::EosDetectionPolicyConfig* v) {
   if (j.IsNull()) return;
   v->minimum_snr_db = static_cast<float>(j["minimum_snr_db"].AsDouble());
@@ -44,7 +44,7 @@ inline void LoadEosDetection(const oneq::JsonValue& j,
       static_cast<float>(j["visible_reference_irradiance_w_m2"].AsDouble());
 }
 
-inline void LoadEosStrayLight(const oneq::JsonValue& j,
+inline void LoadEosStrayLight(const examples::JsonValue& j,
                               electro_optical_sensor::config::EosStrayLightPolicyConfig* v) {
   if (j.IsNull()) return;
   v->enable_straylight_filter = j["enable_straylight_filter"].AsBool();
@@ -58,7 +58,7 @@ inline void LoadEosStrayLight(const oneq::JsonValue& j,
       static_cast<float>(j["hood_max_suppression_ratio"].AsDouble());
 }
 
-inline void LoadEosPolicy(const oneq::JsonValue& j,
+inline void LoadEosPolicy(const examples::JsonValue& j,
                           electro_optical_sensor::config::EosPolicyConfig* v) {
   if (j.IsNull()) return;
   LoadEosDetection(j["detection"], &v->detection);
@@ -66,7 +66,7 @@ inline void LoadEosPolicy(const oneq::JsonValue& j,
 }
 
 inline void LoadEosCustomOverrides(
-    const oneq::JsonValue& j,
+    const examples::JsonValue& j,
     electro_optical_sensor::config::EosEnvironmentCustomOverrides* v) {
   if (j.IsNull()) return;
   v->radiative_transfer_model =
@@ -77,7 +77,7 @@ inline void LoadEosCustomOverrides(
 }
 
 inline void LoadEosScenario(
-    const oneq::JsonValue& j,
+    const examples::JsonValue& j,
     electro_optical_sensor::config::EosEnvironmentScenarioConfig* v) {
   if (j.IsNull()) return;
   v->model_type = EosModelFromString(j["model_type"].AsString());
@@ -87,7 +87,7 @@ inline void LoadEosScenario(
 }
 
 inline void LoadEosEnvironment(
-    const oneq::JsonValue& j,
+    const examples::JsonValue& j,
     electro_optical_sensor::config::EosEnvironmentConfig* v) {
   if (j.IsNull()) return;
   LoadEosScenario(j["scenario_config"], &v->scenario_config);

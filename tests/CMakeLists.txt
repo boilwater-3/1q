@@ -151,6 +151,13 @@ set(FD_TEST_SOURCES
 list(REMOVE_ITEM UNIT_TEST_SOURCES ${FD_TEST_SOURCES})
 
 add_1q_gtest(${PROJECT_NAME}_unit_tests unit 60 ${UNIT_TEST_SOURCES})
+
+# JsonReader 单测下沉后属于 examples 层，链接 examples/common 的实现。
+# 仅给 1q_unit_tests 补 include 与源，不污染其它 test target。
+target_sources(${PROJECT_NAME}_unit_tests PRIVATE
+    "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp")
+target_include_directories(${PROJECT_NAME}_unit_tests PRIVATE
+    "${CMAKE_SOURCE_DIR}/examples/common")
 if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
     add_1q_gtest(${PROJECT_NAME}_fd_tests fd 180 ${FD_TEST_SOURCES})
 endif()

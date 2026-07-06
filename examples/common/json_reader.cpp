@@ -1,10 +1,10 @@
-#include "1q/foundation/json_reader.h"
+#include "json_reader.h"
 
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
 
-namespace oneq {
+namespace examples {
 
 namespace {
 
@@ -314,4 +314,4 @@ bool JsonReader::ParseFile(const char* path, JsonValue* root, std::string* error
   return true;
 }
 
-}  // namespace oneq
+}  // namespace examples

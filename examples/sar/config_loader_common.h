@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "1q/foundation/json_reader.h"
+#include "json_reader.h"
 #include "1q/sar/sar.hpp"
 
 namespace examples {

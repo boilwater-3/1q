@@ -8,9 +8,9 @@
 #include <sstream>
 #include <string>
 
-#include "1q/foundation/json_reader.h"
+#include "json_reader.h"
 
-namespace oneq {
+namespace examples {
 namespace {
 
 std::string MakeTempJsonPath(const char* prefix) {

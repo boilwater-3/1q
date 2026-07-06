@@ -4,7 +4,7 @@
 #include <string>
 
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
-#include "1q/foundation/json_reader.h"
+#include "json_reader.h"
 
 namespace examples {
 

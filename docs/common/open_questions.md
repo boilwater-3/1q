@@ -53,19 +53,6 @@ Authority: 非规定性记录
 
 注：源自 `src/` 架构与安全审查的 M8，原状态 verified-deferred。
 
-## OQ-7 自研 JSON 解析器的 long-term 替换决策
-
-`src/common/config/JsonReader.cpp` 的主要加固已完成（最大嵌套深度、尾随内容拒绝、`\uXXXX` 完整性校验、surrogate escape 拒绝、数字语法负例拒绝）。剩余的是是否长期替换为成熟 JSON 库的策略决策。
-
-- 缺失键返回静态全局 `kNullValue` 引用（`src/common/config/JsonReader.cpp:11`/`:253-262`），改为 `optional`/指针会改变 `JsonValue` public API。
-- 完整 surrogate pair 合成仍可补充，但当前加固已阻断主要解析风险。
-
-为何未决：替换/重写 `JsonValue` public API 是独立的 public-surface 变更，须单独契约化，不应与安全加固混批。当前自研解析器的剩余缺口不影响已加固的路径。
-
-推进需要：评估引入成熟 JSON 库 vs 继续 harden 自研解析器，若替换则需同步 `JsonValue` consumer 与 public API 契约。
-
-注：源自 `src/` 架构与安全审查的 H5 残余与 L1。
-
 ## OQ-8 common 层局部代码质量收尾
 
 若干低风险样式/编译成本项已验证但未在本轮修复，列出以便独立批次处理，避免与语义修复混批。

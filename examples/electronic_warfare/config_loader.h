@@ -4,7 +4,7 @@
 #include <string>
 
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
-#include "1q/foundation/json_reader.h"
+#include "json_reader.h"
 #include "config_loader_common.h"
 #include "config_loader_detail.h"
 
@@ -12,7 +12,7 @@ namespace examples {
 
 /// Load an config::EsrSessionConfig from a parsed JSON object.
 inline void LoadEsrSessionConfig(
-    const oneq::JsonValue& root,
+    const examples::JsonValue& root,
     electronic_surveillance_radar::config::EsrSessionConfig* config) {
   LoadEsrHardware(root["hardware"], &config->hardware);
   LoadEsrMission(root["mission"], &config->mission);
@@ -24,9 +24,9 @@ inline void LoadEsrSessionConfig(
 inline bool LoadEsrSessionConfigFromFile(
     const char* path, electronic_surveillance_radar::config::EsrSessionConfig* config,
     std::string* error_msg) {
-  oneq::JsonValue root;
-  if (!oneq::JsonReader::ParseFile(path, &root, error_msg)) return false;
-  if (root.type() != oneq::JsonValue::kObject) {
+  examples::JsonValue root;
+  if (!examples::JsonReader::ParseFile(path, &root, error_msg)) return false;
+  if (root.type() != examples::JsonValue::kObject) {
     *error_msg = "root value must be a JSON object";
     return false;
   }

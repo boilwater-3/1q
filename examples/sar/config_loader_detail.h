@@ -1,7 +1,7 @@
 #ifndef EXAMPLES_SAR_CONFIG_LOADER_DETAIL_H_
 #define EXAMPLES_SAR_CONFIG_LOADER_DETAIL_H_
 
-#include "1q/foundation/json_reader.h"
+#include "json_reader.h"
 #include "1q/sar/sar.hpp"
 #include "config_loader_common.h"
 
@@ -9,7 +9,7 @@ namespace examples {
 
 // -- SarHardwareConfig loader -------------------------------------------------
 
-inline void LoadSarHardware(const oneq::JsonValue& j,
+inline void LoadSarHardware(const examples::JsonValue& j,
                             sar::config::SarHardwareConfig* v) {
   if (j.IsNull()) return;
   v->carrier_frequency_hz = j["carrier_frequency_hz"].AsDouble();
@@ -28,9 +28,9 @@ inline void LoadSarHardware(const oneq::JsonValue& j,
 
 // -- SarMissionConfig loader --------------------------------------------------
 
-inline void LoadSarWaypoints(const oneq::JsonValue& j,
+inline void LoadSarWaypoints(const examples::JsonValue& j,
                              sar::config::SarWaypointConfigList* v) {
-  if (j.IsNull() || j.type() != oneq::JsonValue::kArray) return;
+  if (j.IsNull() || j.type() != examples::JsonValue::kArray) return;
   v->clear();
   for (std::size_t i = 0; i < j.Size(); ++i) {
     const auto& item = j[i];
@@ -44,7 +44,7 @@ inline void LoadSarWaypoints(const oneq::JsonValue& j,
   }
 }
 
-inline void LoadSarMission(const oneq::JsonValue& j,
+inline void LoadSarMission(const examples::JsonValue& j,
                            sar::config::SarMissionConfig* v) {
   if (j.IsNull()) return;
   v->scene_center_latitude_deg = j["scene_center_latitude_deg"].AsDouble();
@@ -74,7 +74,7 @@ inline void LoadSarMission(const oneq::JsonValue& j,
 
 // -- SarPolicyConfig loader ---------------------------------------------------
 
-inline void LoadSarProcessing(const oneq::JsonValue& j,
+inline void LoadSarProcessing(const examples::JsonValue& j,
                               sar::config::SarPolicyConfig* v) {
   if (j.IsNull()) return;
   v->enable_raw_echo_generation = j["enable_raw_echo_generation"].AsBool();
@@ -92,7 +92,7 @@ inline void LoadSarProcessing(const oneq::JsonValue& j,
 
 // -- SarEnvironmentConfig loader (placeholder, future-proofing) ---------------
 
-inline void LoadSarEnvironment(const oneq::JsonValue& j,
+inline void LoadSarEnvironment(const examples::JsonValue& j,
                                sar::config::SarEnvironmentConfig* v) {
   if (j.IsNull()) return;
   v->terrain_reference_altitude_m = j["terrain_reference_altitude_m"].AsDouble();

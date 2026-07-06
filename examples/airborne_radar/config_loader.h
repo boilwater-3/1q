@@ -4,15 +4,15 @@
 #include <string>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
-#include "1q/foundation/json_reader.h"
 #include "config_loader_common.h"
 #include "config_loader_detail.h"
+#include "json_reader.h"
 
 namespace examples {
 
 /// Load an airborne_radar::config::ArSessionConfig from a parsed JSON object.
 inline void LoadArSessionConfig(
-    const oneq::JsonValue& root,
+    const examples::JsonValue& root,
     airborne_radar::config::ArSessionConfig* config) {
   LoadHardware(root["hardware"], &config->hardware);
   LoadMission(root["mission"], &config->mission);
@@ -26,9 +26,9 @@ inline void LoadArSessionConfig(
 inline bool LoadArSessionConfigFromFile(
     const char* path, airborne_radar::config::ArSessionConfig* config,
     std::string* error_msg) {
-  oneq::JsonValue root;
-  if (!oneq::JsonReader::ParseFile(path, &root, error_msg)) return false;
-  if (root.type() != oneq::JsonValue::kObject) {
+  examples::JsonValue root;
+  if (!examples::JsonReader::ParseFile(path, &root, error_msg)) return false;
+  if (root.type() != examples::JsonValue::kObject) {
     *error_msg = "root value must be a JSON object";
     return false;
   }

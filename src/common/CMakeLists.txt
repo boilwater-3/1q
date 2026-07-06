@@ -14,14 +14,12 @@ set(ONEQ_COMMON_SOURCES
     common/replay/ReplayTrace.cpp
     common/trace/TraceSink.cpp
     common/timing/TimingRegimeModel.cpp
-    common/config/JsonReader.cpp
 )
 
 if(ENABLE_INSTALL)
     set(PUBLIC_HEADERS_FOUNDATION
         ${CMAKE_SOURCE_DIR}/include/1q/foundation/pose_types.h
         ${CMAKE_SOURCE_DIR}/include/1q/foundation/scan_schedule_types.h
-        ${CMAKE_SOURCE_DIR}/include/1q/foundation/json_reader.h
         ${CMAKE_SOURCE_DIR}/include/1q/foundation/SensorContract.h
         ${CMAKE_SOURCE_DIR}/include/1q/foundation/validation_types.h
     )

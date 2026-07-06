@@ -4,7 +4,7 @@
 #include <string>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
-#include "1q/foundation/json_reader.h"
+#include "json_reader.h"
 
 namespace examples {
 
@@ -74,14 +74,14 @@ inline airborne_radar::config::VegetationCoverProfile VegCoverFromString(
 
 // -- common geometry helpers -------------------------------------------------
 
-inline void LoadAzEl(const oneq::JsonValue& j,
+inline void LoadAzEl(const examples::JsonValue& j,
                      airborne_radar::config::AzimuthElevationDeg* v) {
   if (j.IsNull()) return;
   v->az_deg = static_cast<float>(j["az_deg"].AsDouble());
   v->el_deg = static_cast<float>(j["el_deg"].AsDouble());
 }
 
-inline void LoadAzElLimits(const oneq::JsonValue& j,
+inline void LoadAzElLimits(const examples::JsonValue& j,
                            airborne_radar::config::AzimuthElevationLimitsDeg* v) {
   if (j.IsNull()) return;
   v->az_min_deg = static_cast<float>(j["az_min_deg"].AsDouble());
@@ -90,7 +90,7 @@ inline void LoadAzElLimits(const oneq::JsonValue& j,
   v->el_max_deg = static_cast<float>(j["el_max_deg"].AsDouble());
 }
 
-inline void LoadCmdBeamwidth(const oneq::JsonValue& j,
+inline void LoadCmdBeamwidth(const examples::JsonValue& j,
                              airborne_radar::config::CommandedBeamwidthDeg* v) {
   if (j.IsNull()) return;
   v->commanded_az_beamwidth_deg =
@@ -99,7 +99,7 @@ inline void LoadCmdBeamwidth(const oneq::JsonValue& j,
       static_cast<float>(j["commanded_el_beamwidth_deg"].AsDouble());
 }
 
-inline void LoadEulerAngles(const oneq::JsonValue& j,
+inline void LoadEulerAngles(const examples::JsonValue& j,
                             airborne_radar::config::EulerAnglesDeg* v) {
   if (j.IsNull()) return;
   v->yaw_deg = static_cast<float>(j["yaw_deg"].AsDouble());

@@ -4,7 +4,7 @@
 #include <string>
 
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
-#include "1q/foundation/json_reader.h"
+#include "json_reader.h"
 
 namespace examples {
 
