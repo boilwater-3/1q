@@ -102,11 +102,15 @@
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
+#include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
 #include "1q/sbirs_sensor/session/SbirsEnvironmentInput.h"
 #include "1q/sbirs_sensor/session/SbirsExternalInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsInputValidation.h"
+#include "1q/sbirs_sensor/session/SbirsOutputDebugView.h"
 #include "1q/sbirs_sensor/session/SbirsOutputTypes.h"
+#include "1q/sbirs_sensor/session/SbirsReplaySession.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
+#include "1q/sbirs_sensor/session/SbirsTraceSession.h"
 #include "1q/trace/TraceSink.h"
 
 using ArSession = airborne_radar::session::ArSession;

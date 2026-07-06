@@ -1,0 +1,89 @@
+// sbirs_session_replay.fbs
+// SBIRS-inspired replay FlatBuffers schema: session_config and runtime patches.
+
+namespace sbirs.replay;
+
+table SbirsHardwareConfig {
+  wavelength_lower_um: float;
+  wavelength_upper_um: float;
+  optical_aperture_m: float;
+  detector_area_m2: float;
+  optical_transmission: float;
+  detector_quantum_efficiency: float;
+  integration_time_sec: float;
+  noise_equivalent_power_w: float;
+}
+
+table SbirsMissionConfig {
+  work_mode: int32;
+  sensor_enabled: bool;
+  wide_field_fov_az_deg: float;
+  wide_field_fov_el_deg: float;
+  narrow_field_fov_az_deg: float;
+  narrow_field_fov_el_deg: float;
+  scan_start_az_deg: float;
+  scan_end_az_deg: float;
+  scan_center_el_deg: float;
+  scan_rate_deg_per_sec: float;
+  min_range_m: float;
+  max_range_m: float;
+  frame_rate_hz: float;
+  narrow_cue_latency_s: float;
+  narrow_pointing_settle_error_deg: float;
+}
+
+table SbirsDetectionPolicyConfig {
+  wide_min_snr_linear: float;
+  narrow_min_snr_linear: float;
+}
+
+table SbirsErrorModelConfig {
+  angular_sigma_deg: float;
+  range_fraction_sigma: float;
+  random_seed: uint32;
+}
+
+table SbirsSchedulerConfig {
+  single_narrow_resource: bool;
+}
+
+table SbirsPolicyConfig {
+  detection: SbirsDetectionPolicyConfig;
+  error_model: SbirsErrorModelConfig;
+  scheduler: SbirsSchedulerConfig;
+}
+
+table SbirsEnvironmentConfig {
+  weather_type: int32;
+  sea_state: int32;
+  temperature_c: float;
+  relative_humidity_percent: float;
+  visibility_km: float;
+  base_atmospheric_transmittance: float;
+}
+
+table SbirsSessionConfig {
+  hardware: SbirsHardwareConfig;
+  mission: SbirsMissionConfig;
+  policy: SbirsPolicyConfig;
+  environment: SbirsEnvironmentConfig;
+}
+
+root_type SbirsSessionConfig;
+file_identifier "SBIS";
+
+table SbirsRuntimeConfigPatch {
+  has_mission: bool;
+  mission: SbirsMissionConfig;
+  has_policy: bool;
+  policy: SbirsPolicyConfig;
+  has_environment: bool;
+  environment: SbirsEnvironmentConfig;
+  has_work_mode: bool;
+  work_mode: int32;
+  has_scan_rate_deg_per_sec: bool;
+  scan_rate_deg_per_sec: float;
+  has_sensor_enabled: bool;
+  sensor_enabled: bool;
+}
+

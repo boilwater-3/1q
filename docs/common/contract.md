@@ -127,7 +127,7 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
    - `electronic_surveillance_radar`：config 无累积（每 RunCycle 重新派生），`UpdateConfig` 走换 config 留 tracks（`InterceptPipeline.cpp:52-57`）；`InterceptPipelineResult` 是三通道纯数据载体，不含 pipeline 自报执行状态，因此当前无 pipeline 执行失败 abort 路径。
    - `electro_optical_sensor`：执行回滚封装在 `EosController::RunOnce`（`EosController.cpp:68-111`），不上升为 session 层事务。
    - `sar`：每 Step 从 `runtime_config` 全量重建，无累积状态可回滚；以执行前 gate（`ValidateRuntimeConfigForStep`）兜底。
-   - `sbirs_sensor`：pipeline 持有跨周期目标状态机，但 capture/restore 封装在 `SbirsController::RunOnce` 内部（参照 `EosController.cpp:64-112` 同构实现），不在 session 层暴露事务语义。归属立即提交类。
+   - `sbirs_sensor`：pipeline 持有跨周期目标状态机，但 capture/restore 封装在 `SbirsController::RunOnce` 内部，是 SBIRS controller 的内部失败回滚边界，不在 session 层暴露事务语义。归属立即提交类。
 2. **所有四模块的 patch 必须经 resolver 校验**（`is_valid`/`has_requested_update`），不得盲写。`sar` 已通过 `SarRuntimeConfigResolver` 对齐该规则。
 3. **立即提交类不得声称 session 层回滚。** 若其内部存在 capture/restore 能力（如 ESR 的累积状态快照），必须在代码 doc 注明该机制的实际边界，避免阅读者误以为 session 层提供配置回滚或已激活的执行失败回滚。
 4. **事务性提交类不得在执行成功前落定配置语义状态。** 配置的"逻辑当前值"（如 AR 的 `runtime_state`）与"已推送到子系统的物理状态"必须在对齐点之后才一致。

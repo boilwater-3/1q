@@ -1,0 +1,160 @@
+#include "1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
+
+#include <unordered_map>
+#include <unordered_set>
+
+#include "1q/sbirs_sensor/session/SbirsCycleInput.h"
+
+namespace sbirs_sensor {
+namespace session {
+namespace {
+
+struct TargetState {
+  bool detected{false};
+  std::string target_name{};
+};
+
+const output::SbirsDetectionRecord* FindRecord(std::uint64_t detection_id,
+                                               const SbirsOutputFrame& frame) {
+  for (const output::SbirsDetectionRecord& record : frame.detections) {
+    if (record.detection_id == detection_id) {
+      return &record;
+    }
+  }
+  return nullptr;
+}
+
+const attribution::SbirsDetectionAttributionRecord* FindAttribution(
+    std::uint64_t target_id, const attribution::SbirsDetectionAttributionRecordList& attributions) {
+  for (const attribution::SbirsDetectionAttributionRecord& attribution : attributions) {
+    if (attribution.target_id == target_id) {
+      return &attribution;
+    }
+  }
+  return nullptr;
+}
+
+SbirsDetectionLifecycleReason InferReason(const SbirsCycleResult& result,
+                                          const output::SbirsDetectionRecord* record) {
+  if (result.has_validation_error) {
+    return SbirsDetectionLifecycleReason::kValidationRejected;
+  }
+  if (!result.executed_this_cycle) {
+    return SbirsDetectionLifecycleReason::kCycleNotExecuted;
+  }
+  if (record == nullptr) {
+    return SbirsDetectionLifecycleReason::kOutOfFieldOfView;
+  }
+  if (!record->detected) {
+    return SbirsDetectionLifecycleReason::kBelowSnrThreshold;
+  }
+  return SbirsDetectionLifecycleReason::kUnknown;
+}
+
+SbirsDetectionLifecycleEvent MakeBaseEvent(const SbirsSceneTarget& target,
+                                           const SbirsCycleResult& result) {
+  SbirsDetectionLifecycleEvent event;
+  event.cycle_index = result.input_cycle_index;
+  event.target_id = target.target_id;
+  event.target_name = target.target_name;
+  return event;
+}
+
+void FillObservationFields(const output::SbirsDetectionRecord& record,
+                           const attribution::SbirsDetectionAttributionRecord& attribution,
+                           SbirsDetectionLifecycleEvent* event) {
+  event->observation_stage = record.observation_stage;
+  event->infrared_snr_linear = record.infrared_snr_linear;
+  event->estimated_range_m = attribution.estimated_range_m;
+  event->used_truth_assist = attribution.used_truth_assist;
+}
+
+}  // namespace
+
+struct SbirsDetectionLifecycleRecorder::Impl {
+  SbirsDetectionLifecycleRecorderConfig config;
+  std::unordered_map<std::uint64_t, TargetState> states;
+};
+
+SbirsDetectionLifecycleRecorder::SbirsDetectionLifecycleRecorder(
+    SbirsDetectionLifecycleRecorderConfig config)
+    : impl_(new Impl{config, {}}) {}
+
+SbirsDetectionLifecycleRecorder::~SbirsDetectionLifecycleRecorder() = default;
+SbirsDetectionLifecycleRecorder::SbirsDetectionLifecycleRecorder(
+    SbirsDetectionLifecycleRecorder&&) noexcept = default;
+SbirsDetectionLifecycleRecorder& SbirsDetectionLifecycleRecorder::operator=(
+    SbirsDetectionLifecycleRecorder&&) noexcept = default;
+
+std::vector<SbirsDetectionLifecycleEvent> SbirsDetectionLifecycleRecorder::Update(
+    const SbirsCycleInput& input, const SbirsCycleResult& result) {
+  std::vector<SbirsDetectionLifecycleEvent> events;
+  std::unordered_set<std::uint64_t> present_target_ids;
+  events.reserve(input.scene.size());
+
+  for (const SbirsSceneTarget& target : input.scene) {
+    present_target_ids.insert(target.target_id);
+    TargetState& state = impl_->states[target.target_id];
+    const attribution::SbirsDetectionAttributionRecord* attribution =
+        FindAttribution(target.target_id, result.detection_attributions);
+    const output::SbirsDetectionRecord* record =
+        attribution == nullptr ? nullptr
+                               : FindRecord(attribution->detection_id, result.output_frame);
+    const bool detected_now = result.executed_this_cycle && record != nullptr && record->detected;
+    if (detected_now) {
+      SbirsDetectionLifecycleEvent event = MakeBaseEvent(target, result);
+      event.kind = state.detected ? SbirsDetectionLifecycleEventKind::kUpdated
+                                  : SbirsDetectionLifecycleEventKind::kFirstDetected;
+      event.reason = SbirsDetectionLifecycleReason::kNone;
+      FillObservationFields(*record, *attribution, &event);
+      events.push_back(event);
+      state.detected = true;
+      state.target_name = target.target_name;
+      continue;
+    }
+
+    const SbirsDetectionLifecycleReason reason = InferReason(result, record);
+    if (state.detected) {
+      SbirsDetectionLifecycleEvent event = MakeBaseEvent(target, result);
+      event.kind = SbirsDetectionLifecycleEventKind::kLost;
+      event.reason = reason;
+      if (record != nullptr && attribution != nullptr) {
+        FillObservationFields(*record, *attribution, &event);
+      }
+      events.push_back(event);
+    } else if (impl_->config.emit_not_detected_events) {
+      SbirsDetectionLifecycleEvent event = MakeBaseEvent(target, result);
+      event.kind = SbirsDetectionLifecycleEventKind::kNotDetected;
+      event.reason = reason;
+      if (record != nullptr && attribution != nullptr) {
+        FillObservationFields(*record, *attribution, &event);
+      }
+      events.push_back(event);
+    }
+    state.detected = false;
+    state.target_name = target.target_name;
+  }
+
+  for (std::unordered_map<std::uint64_t, TargetState>::iterator it = impl_->states.begin();
+       it != impl_->states.end();) {
+    if (present_target_ids.count(it->first) == 0U && it->second.detected) {
+      SbirsDetectionLifecycleEvent event;
+      event.cycle_index = result.input_cycle_index;
+      event.target_id = it->first;
+      event.target_name = it->second.target_name;
+      event.kind = SbirsDetectionLifecycleEventKind::kLost;
+      event.reason = SbirsDetectionLifecycleReason::kTargetMissingFromInput;
+      events.push_back(event);
+      it = impl_->states.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  return events;
+}
+
+void SbirsDetectionLifecycleRecorder::Reset() { impl_->states.clear(); }
+
+}  // namespace session
+}  // namespace sbirs_sensor

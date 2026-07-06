@@ -132,6 +132,7 @@ target_link_libraries(esr_engine PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(esr_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(eos_engine PRIVATE flatbuffers::flatbuffers)
 target_link_libraries(eos_core PRIVATE flatbuffers::flatbuffers)
+target_link_libraries(sbirs_core PRIVATE flatbuffers::flatbuffers)
 target_link_libraries(sar_core PRIVATE flatbuffers::flatbuffers)
 
 # ── SAR HDF5 输出(可选, 默认 OFF) ──

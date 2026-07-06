@@ -648,7 +648,7 @@ SBIRS 遵守三层输出模型（`docs/common/contract.md` 三层输出模型表
 |---|---|---|
 | 原始系统输出层 | `Step()` 返回的 `SbirsOutputFrame` | 1q 仿真传感器主输出 |
 | 结构化执行结果层 | `StepWithResult()` 返回的 `SbirsCycleResult` | 输出帧、执行状态、校验、abort reason、诊断摘要 |
-| 开发调试视图层 | `SbirsOutputDebugViewBuilder` / `SbirsLifecycleRecorder` | 人读状态、生命周期事件、输入实体回填 |
+| 开发调试视图层 | `SbirsOutputDebugViewBuilder` / `SbirsDetectionLifecycleRecorder` | 人读状态、生命周期事件、输入实体回填 |
 
 **`SbirsOutputFrame` 字段**（第一版使用原生 SBIRS-inspired 观测契约，不继承
 EOS 检测记录形状）：
@@ -686,6 +686,7 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 - `sbirs_cycle_output_builder_test`
 - `sbirs_output_boundary_contract_test`
 - `sbirs_replay_codec_roundtrip_test`
+- `sbirs_replay_session_test`
 
 ## 3. 非目标与边界
 
@@ -721,6 +722,14 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 - **不把 debug view、lifecycle 或 replay 当作 1q 仿真传感器主输出。**
 
 - **不为测试 mock 便利新增 public 扩展点。**
+
+已实现但仍受边界约束的辅助面：
+
+- `SbirsOutputDebugViewBuilder` / `SbirsDetectionLifecycleRecorder` 只消费输入与 `SbirsCycleResult`，
+  用于人读诊断和生命周期事件，不改变 raw output。
+- `SbirsTraceSession` / `ReplaySbirsTrace` / `SbirsReplayFlatbufferCodec` 记录和回放的是 1q SBIRS 仿真
+  DTO。schema 位于 `schemas/replay/sbirs_replay.fbs` 与
+  `schemas/replay/sbirs_session_replay.fbs`，payload type 使用 `Sbirs*`，不复用 EOS schema。
 
 ## 4. 设计变更规则
 

@@ -14,6 +14,11 @@ set(SBIRS_CORE_SOURCES
     sbirs_sensor/session/SbirsInputValidation.cpp
     sbirs_sensor/session/SbirsCycleInputAdapter.cpp
     sbirs_sensor/session/SbirsCycleOutputAdapter.cpp
+    sbirs_sensor/session/SbirsOutputDebugViewBuilder.cpp
+    sbirs_sensor/session/SbirsDetectionLifecycleRecorder.cpp
+    sbirs_sensor/session/SbirsReplayFlatbufferCodec.cpp
+    sbirs_sensor/session/SbirsTraceSession.cpp
+    sbirs_sensor/session/SbirsReplaySession.cpp
     sbirs_sensor/session/SbirsExternalInputAdapter.cpp
     sbirs_sensor/session/SbirsExternalOutputAdapter.cpp
     sbirs_sensor/runtime/SbirsPipelineConfigMapper.cpp
@@ -44,13 +49,17 @@ if(ENABLE_INSTALL)
         ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsCycleInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsCycleOutputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsCycleResult.h
+        ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h
         ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsEnvironmentInput.h
         ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsExternalInputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsExternalOutputAdapter.h
         ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsInputValidation.h
+        ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsOutputDebugView.h
         ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsOutputTypes.h
+        ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsReplaySession.h
         ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsSceneTypes.h
         ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsSession.h
+        ${CMAKE_SOURCE_DIR}/include/1q/sbirs_sensor/session/SbirsTraceSession.h
     )
 
     install(FILES ${PUBLIC_HEADERS_MODULE_ENTRY_SBIRS}
@@ -63,4 +72,3 @@ if(ENABLE_INSTALL)
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q/sbirs_sensor/session
     )
 endif()
-

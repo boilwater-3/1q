@@ -1,0 +1,100 @@
+// sbirs_replay.fbs
+// SBIRS-inspired replay FlatBuffers schema: cycle_input and cycle_output payloads.
+
+namespace sbirs.replay;
+
+struct Vec3d {
+  x: double;
+  y: double;
+  z: double;
+}
+
+table SbirsCycleEnvironmentConfig {
+  weather_type: int32;
+  sea_state: int32;
+  temperature_c: float;
+  relative_humidity_percent: float;
+  visibility_km: float;
+  base_atmospheric_transmittance: float;
+}
+
+table SbirsEnvironmentInput {
+  has_environment_override: bool;
+  environment: SbirsCycleEnvironmentConfig;
+}
+
+table SbirsSceneTarget {
+  target_id: uint64;
+  target_name: string;
+  position_ecef_m: Vec3d;
+  temperature_k: float;
+  emissivity: float;
+  projected_area_m2: float;
+  active: bool;
+}
+
+table SbirsCycleInput {
+  cycle_index: uint32;
+  dt_sec: float;
+  has_satellite_position: bool;
+  satellite_position_ecef_m: Vec3d;
+  environment: SbirsEnvironmentInput;
+  scene_targets: [SbirsSceneTarget];
+}
+
+root_type SbirsCycleInput;
+file_identifier "SBIC";
+
+table SbirsDetectionRecord {
+  detection_id: uint64;
+  azimuth_deg: float;
+  elevation_deg: float;
+  infrared_snr_linear: float;
+  observation_stage: int32;
+  detected: bool;
+}
+
+table SbirsDetectionAttributionRecord {
+  detection_id: uint64;
+  target_id: uint64;
+  target_name: string;
+  estimated_range_m: float;
+  used_truth_assist: bool;
+}
+
+table SbirsOutputFrame {
+  cycle_index: uint32;
+  scan_azimuth_deg: float;
+  detections: [SbirsDetectionRecord];
+}
+
+table ValidationIssue {
+  severity: int32;
+  location_kind: int32;
+  entity_index: int64;
+  message: string;
+}
+
+table SbirsCycleResult {
+  input_cycle_index: uint32;
+  output_frame: SbirsOutputFrame;
+  detection_attributions: [SbirsDetectionAttributionRecord];
+  validation_issues: [ValidationIssue];
+  has_validation_error: bool;
+  executed_this_cycle: bool;
+  reused_previous_output: bool;
+  abort_reason: int32;
+}
+
+table FailureMarker {
+  error_code: string;
+  message: string;
+  location: string;
+  has_cycle_index: bool;
+  cycle_index: uint32;
+  has_sim_time_sec: bool;
+  sim_time_sec: double;
+  diagnostics: string;
+  has_last_event_sequence: bool;
+  last_event_sequence: uint64;
+}

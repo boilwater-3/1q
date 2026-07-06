@@ -113,13 +113,17 @@ set(SBIRS_SESSION_HEADERS
     "sbirs_sensor/session/SbirsCycleInputAdapter.h"
     "sbirs_sensor/session/SbirsCycleOutputAdapter.h"
     "sbirs_sensor/session/SbirsCycleResult.h"
+    "sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h"
     "sbirs_sensor/session/SbirsEnvironmentInput.h"
     "sbirs_sensor/session/SbirsExternalInputAdapter.h"
     "sbirs_sensor/session/SbirsExternalOutputAdapter.h"
     "sbirs_sensor/session/SbirsInputValidation.h"
+    "sbirs_sensor/session/SbirsOutputDebugView.h"
     "sbirs_sensor/session/SbirsOutputTypes.h"
+    "sbirs_sensor/session/SbirsReplaySession.h"
     "sbirs_sensor/session/SbirsSceneTypes.h"
     "sbirs_sensor/session/SbirsSession.h"
+    "sbirs_sensor/session/SbirsTraceSession.h"
 )
 
 set(ESR_MODULE_ENTRY_HEADERS
