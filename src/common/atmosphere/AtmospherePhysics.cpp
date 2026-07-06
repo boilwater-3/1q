@@ -8,7 +8,7 @@
 #include "common/numerics/Constants.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace atmosphere {
 
 namespace {
@@ -188,5 +188,5 @@ AtmosphericPropagationInputs BuildPropagationInputs(
 }
 
 }  // namespace atmosphere
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq

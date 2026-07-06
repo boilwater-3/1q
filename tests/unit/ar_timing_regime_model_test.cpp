@@ -11,7 +11,7 @@
 #include "common/timing/TimingRegimeModel.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace timing {
 namespace {
 
@@ -145,5 +145,5 @@ TEST(TimingRegimeModelTest, DynamicThresholdAndPdKeepMonotonicBehavior) {
 
 }  // namespace
 }  // namespace timing
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq

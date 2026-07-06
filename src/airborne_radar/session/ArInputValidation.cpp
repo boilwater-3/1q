@@ -10,12 +10,12 @@ namespace session {
 
 namespace {
 
-using oneq::internal::validation::IsFinite;
+using oneq::common::validation::IsFinite;
 
 ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
                           ValidationLocationKind location_kind, std::size_t entity_index,
                           const std::string& field, const std::string& message) {
-  return oneq::internal::validation::MakeLocatedIssue<ValidationIssue, ValidationLocation>(
+  return oneq::common::validation::MakeLocatedIssue<ValidationIssue, ValidationLocation>(
       severity, code, location_kind, entity_index, field, message);
 }
 
@@ -88,7 +88,7 @@ void ValidateEnvironmentInput(const ArEnvironmentInput& environment, ValidationI
   if (!IsFinite(atmosphere.pressure_hpa) || !IsFinite(atmosphere.temperature_k) ||
       !IsFinite(atmosphere.relative_humidity) || atmosphere.pressure_hpa <= 0.0f ||
       atmosphere.temperature_k <= 0.0f ||
-      !oneq::internal::validation::IsRatio01(atmosphere.relative_humidity)) {
+      !oneq::common::validation::IsRatio01(atmosphere.relative_humidity)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kInvalidEnvironmentObservation,
                                 ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
@@ -110,7 +110,7 @@ void ValidateEnvironmentInput(const ArEnvironmentInput& environment, ValidationI
         !IsFinite(jammer.position_y) || !IsFinite(jammer.position_z) ||
         !IsFinite(jammer.angular_span_deg) || !IsFinite(jammer.confidence) ||
         jammer.power_db < 0.0f || jammer.js_db < 0.0f || jammer.angular_span_deg < 0.0f ||
-        !oneq::internal::validation::IsRatio01(jammer.confidence)) {
+        !oneq::common::validation::IsRatio01(jammer.confidence)) {
       issues->push_back(MakeIssue(
           ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
           ValidationLocationKind::kEnvironment, i, "environment.jammer_sources",
@@ -233,7 +233,7 @@ ValidationIssueList ValidateArSceneTargets(const ArSceneTargetList& targets) {
 }
 
 bool HasValidationError(const ValidationIssueList& issues) {
-  return oneq::internal::validation::HasSeverity<ValidationIssueList, ValidationSeverity,
+  return oneq::common::validation::HasSeverity<ValidationIssueList, ValidationSeverity,
                                                  &ValidationIssue::severity>(
       issues, ValidationSeverity::kError);
 }

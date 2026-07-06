@@ -82,17 +82,6 @@ inline float NormalizeAngle180(float angle_deg) {
 
 }  // namespace numerics
 }  // namespace common
-namespace internal {
-namespace numerics {
-
-using ::oneq::common::numerics::Clamp;
-using ::oneq::common::numerics::Clamp01;
-using ::oneq::common::numerics::ClampNonNegative;
-using ::oneq::common::numerics::NormalizeAngle180;
-using ::oneq::common::numerics::SafePositive;
-
-}  // namespace numerics
-}  // namespace internal
 }  // namespace oneq
 
 #endif  // COMMON_NUMERICS_CLAMP_UTILS_H_

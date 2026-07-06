@@ -40,17 +40,6 @@ inline double SafeInverse(double value) { return 1.0 / std::max(value, kNumericF
 
 }  // namespace numerics
 }  // namespace common
-namespace internal {
-namespace numerics {
-
-using ::oneq::common::numerics::kCovarianceFloor;
-using ::oneq::common::numerics::kLog10Floor;
-using ::oneq::common::numerics::kNumericFloor;
-using ::oneq::common::numerics::SafeInverse;
-using ::oneq::common::numerics::SafeLog10;
-
-}  // namespace numerics
-}  // namespace internal
 }  // namespace oneq
 
 #endif  // COMMON_NUMERICS_NUMERIC_GUARD_H_

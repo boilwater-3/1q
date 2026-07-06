@@ -7,13 +7,13 @@ namespace output {
 
 void EsrOutputManager::StampOutputFrame(std::uint32_t cycle_index, std::uint64_t batch_id,
                                          session::EsrOutputFrame& frame) const {
-  oneq::internal::output::SetCycleAndBatch(frame, cycle_index, batch_id);
+  oneq::common::output::SetCycleAndBatch(frame, cycle_index, batch_id);
 }
 
 session::EsrOutputFrame EsrOutputManager::BuildEmptyFrame(std::uint32_t cycle_index,
                                                          std::uint64_t batch_id) const {
   session::EsrOutputFrame frame;
-  oneq::internal::output::SetCycleAndBatch(frame, cycle_index, batch_id);
+  oneq::common::output::SetCycleAndBatch(frame, cycle_index, batch_id);
   return frame;
 }
 

@@ -9,7 +9,7 @@
 #include "1q/environment/IAtmosphereProvider.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace atmosphere {
 
 /**
@@ -22,7 +22,7 @@ class StandardAtmosphere : public environment::IAtmosphereProvider {
 };
 
 }  // namespace atmosphere
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq
 
 #endif  // COMMON_ATMOSPHERE_STANDARD_ATMOSPHERE_H_

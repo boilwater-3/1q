@@ -10,7 +10,7 @@
 #include "common/rcs/RcsPhysics.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace rcs {
 namespace {
 
@@ -58,5 +58,5 @@ TEST(RcsPhysicsTest, TreeScattererInitializationAndParamEqKeepVectorSizesConsist
 
 }  // namespace
 }  // namespace rcs
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq

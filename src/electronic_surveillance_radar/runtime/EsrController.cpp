@@ -20,8 +20,8 @@ struct EsrController::Impl {
   pipeline::InterceptPipeline& pipeline;
   environment::IEsrEnvironmentService& environment_service;
   output::EsrOutputManager output_manager;
-  oneq::internal::runtime::RuntimeCycleState<session::EsrOutputFrame,
-                                             session::ValidationIssueList>
+  oneq::common::runtime::RuntimeCycleState<session::EsrOutputFrame,
+                                          session::ValidationIssueList>
       runtime_state{};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
@@ -35,8 +35,8 @@ EsrController::EsrController(pipeline::InterceptPipeline& pipeline,
 EsrController::~EsrController() = default;
 
 void EsrController::RunOnce(const session::EsrCycleInput& input) {
-  const oneq::internal::runtime::RuntimeCycleStamp stamp =
-      oneq::internal::runtime::MakeRuntimeCycleStamp(
+  const oneq::common::runtime::RuntimeCycleStamp stamp =
+      oneq::common::runtime::MakeRuntimeCycleStamp(
           input.cycle_index, impl_->runtime_state.next_batch_id);
 
   // 校验

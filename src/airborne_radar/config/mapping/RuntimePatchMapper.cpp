@@ -36,7 +36,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
 
   if (patch.has_dwell_center_deg) {
     has_requested_update = true;
-    if (!oneq::internal::validation::IsFinite(patch.dwell_center_deg.az_deg) || !oneq::internal::validation::IsFinite(patch.dwell_center_deg.el_deg)) {
+    if (!oneq::common::validation::IsFinite(patch.dwell_center_deg.az_deg) || !oneq::common::validation::IsFinite(patch.dwell_center_deg.el_deg)) {
       PROJECT_LOG_ERROR(
           "[ArSession] Rejecting runtime config patch due to non-finite dwell_center_deg "
           "(az_deg={}, el_deg={}).",
@@ -84,7 +84,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
   if (patch.has_scan_center_deg) {
-    if (!oneq::internal::validation::IsFinite(patch.scan_center_deg.az_deg) || !oneq::internal::validation::IsFinite(patch.scan_center_deg.el_deg)) {
+    if (!oneq::common::validation::IsFinite(patch.scan_center_deg.az_deg) || !oneq::common::validation::IsFinite(patch.scan_center_deg.el_deg)) {
       PROJECT_LOG_ERROR(
           "[ArSession] Rejecting runtime config patch due to non-finite scan_center_deg "
           "(az_deg={}, el_deg={}).",
@@ -96,8 +96,8 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
   if (patch.has_commanded_beamwidth_deg) {
-    if (!oneq::internal::validation::IsFinite(patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg) ||
-        !oneq::internal::validation::IsFinite(patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg)) {
+    if (!oneq::common::validation::IsFinite(patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg) ||
+        !oneq::common::validation::IsFinite(patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg)) {
       PROJECT_LOG_ERROR(
           "[ArSession] Rejecting runtime config patch due to non-finite "
           "commanded_beamwidth_deg (az_deg={}, el_deg={}).",

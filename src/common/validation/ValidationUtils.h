@@ -12,7 +12,7 @@
 #include <string>
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace validation {
 
 /**
@@ -120,7 +120,7 @@ inline bool HasSeverity(const IssueListT& issues, SeverityT expected) {
 }
 
 }  // namespace validation
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq
 
 #endif  // COMMON_VALIDATION_VALIDATION_UTILS_H_

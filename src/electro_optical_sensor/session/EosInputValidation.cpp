@@ -11,12 +11,12 @@ using ::electro_optical_sensor::session::EosSceneTarget;
 
 namespace {
 
-using oneq::internal::validation::IsFinite;
+using oneq::common::validation::IsFinite;
 
 ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
                           ValidationLocationKind location_kind, std::size_t entity_index,
                           const std::string& field, const std::string& message) {
-  return oneq::internal::validation::MakeLocatedIssue<ValidationIssue, ValidationLocation>(
+  return oneq::common::validation::MakeLocatedIssue<ValidationIssue, ValidationLocation>(
       severity, code, location_kind, entity_index, field, message);
 }
 
@@ -105,13 +105,13 @@ void ValidateTarget(const EosSceneTarget& target, std::size_t target_index,
                                 ValidationLocationKind::kSceneEntity, target_index,
                                 "apparent_temperature_k", "target temperature must be positive"));
   }
-  if (!oneq::internal::validation::IsRatio01(target.appearance.emissivity)) {
+  if (!oneq::common::validation::IsRatio01(target.appearance.emissivity)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kInvalidTargetEmissivity,
                                 ValidationLocationKind::kSceneEntity, target_index, "emissivity",
                                 "target emissivity must be in [0, 1]"));
   }
-  if (!oneq::internal::validation::IsRatio01(target.appearance.reflectance)) {
+  if (!oneq::common::validation::IsRatio01(target.appearance.reflectance)) {
     issues->push_back(MakeIssue(ValidationSeverity::kError,
                                 ValidationCode::kInvalidTargetReflectance,
                                 ValidationLocationKind::kSceneEntity, target_index, "reflectance",
@@ -173,7 +173,7 @@ ValidationIssueList ValidateEosCycleInput(
                                "environment.solar_irradiance_w_m2",
                                "solar irradiance must be finite and non-negative"));
   }
-  if (!oneq::internal::validation::IsRatio01(input.environment.cloud_coverage_ratio)) {
+  if (!oneq::common::validation::IsRatio01(input.environment.cloud_coverage_ratio)) {
     issues.push_back(
         MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidCloudCoverageRatio,
                   ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
@@ -203,7 +203,7 @@ ValidationIssueList ValidateEosCycleInput(
 }
 
 bool HasValidationError(const ValidationIssueList& issues) {
-  return oneq::internal::validation::HasSeverity<ValidationIssueList, ValidationSeverity,
+  return oneq::common::validation::HasSeverity<ValidationIssueList, ValidationSeverity,
                                                  &ValidationIssue::severity>(
       issues, ValidationSeverity::kError);
 }

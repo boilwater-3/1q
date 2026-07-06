@@ -10,7 +10,7 @@
 #include <vector>
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace rcs {
 
 /**
@@ -108,7 +108,7 @@ inline void ComputeLeavesParamEq_ymm8r4(const TreeScattererState& state, float v
 }
 
 }  // namespace rcs
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq
 
 #endif  // COMMON_RCS_RCS_PHYSICS_H_

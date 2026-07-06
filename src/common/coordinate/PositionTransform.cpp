@@ -23,8 +23,8 @@ constexpr double kNormFloor = 1.0e-9;
 }  // namespace
 
 bool IsValid(const LlaPositionDegM& lla) {
-  if (!oneq::internal::validation::IsFinite(lla.latitude_deg) || !oneq::internal::validation::IsFinite(lla.longitude_deg) ||
-      !oneq::internal::validation::IsFinite(lla.altitude_m)) {
+  if (!oneq::common::validation::IsFinite(lla.latitude_deg) || !oneq::common::validation::IsFinite(lla.longitude_deg) ||
+      !oneq::common::validation::IsFinite(lla.altitude_m)) {
     return false;
   }
   if (lla.latitude_deg < -90.0 || lla.latitude_deg > 90.0) {
@@ -37,22 +37,22 @@ bool IsValid(const LlaPositionDegM& lla) {
 }
 
 bool IsFinite(const EcefPositionM& ecef) {
-  return oneq::internal::validation::IsFinite(ecef.x_m) && oneq::internal::validation::IsFinite(ecef.y_m) && oneq::internal::validation::IsFinite(ecef.z_m);
+  return oneq::common::validation::IsFinite(ecef.x_m) && oneq::common::validation::IsFinite(ecef.y_m) && oneq::common::validation::IsFinite(ecef.z_m);
 }
 
 bool IsFinite(const EnuPositionM& enu) {
-  return oneq::internal::validation::IsFinite(enu.east_m) && oneq::internal::validation::IsFinite(enu.north_m) &&
-         oneq::internal::validation::IsFinite(enu.up_m);
+  return oneq::common::validation::IsFinite(enu.east_m) && oneq::common::validation::IsFinite(enu.north_m) &&
+         oneq::common::validation::IsFinite(enu.up_m);
 }
 
 bool IsFinite(const NedPositionM& ned) {
-  return oneq::internal::validation::IsFinite(ned.north_m) && oneq::internal::validation::IsFinite(ned.east_m) &&
-         oneq::internal::validation::IsFinite(ned.down_m);
+  return oneq::common::validation::IsFinite(ned.north_m) && oneq::common::validation::IsFinite(ned.east_m) &&
+         oneq::common::validation::IsFinite(ned.down_m);
 }
 
 bool IsFinite(const NuePositionM& nue) {
-  return oneq::internal::validation::IsFinite(nue.north_m) && oneq::internal::validation::IsFinite(nue.up_m) &&
-         oneq::internal::validation::IsFinite(nue.east_m);
+  return oneq::common::validation::IsFinite(nue.north_m) && oneq::common::validation::IsFinite(nue.up_m) &&
+         oneq::common::validation::IsFinite(nue.east_m);
 }
 
 bool TryLlaToEcef(const LlaPositionDegM& lla, EcefPositionM* ecef) {
@@ -320,8 +320,8 @@ bool TryEnuToEcefDirection(const Vector3d& enu_dir,
   ecef_dir->x /= norm;
   ecef_dir->y /= norm;
   ecef_dir->z /= norm;
-  return oneq::internal::validation::IsFinite(ecef_dir->x) && oneq::internal::validation::IsFinite(ecef_dir->y) &&
-         oneq::internal::validation::IsFinite(ecef_dir->z);
+  return oneq::common::validation::IsFinite(ecef_dir->x) && oneq::common::validation::IsFinite(ecef_dir->y) &&
+         oneq::common::validation::IsFinite(ecef_dir->z);
 }
 
 }  // namespace coordinate

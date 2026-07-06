@@ -5,7 +5,7 @@
 #include "common/atmosphere/StandardAtmosphere.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace atmosphere {
 namespace {
 
@@ -225,5 +225,5 @@ TEST(StandardAtmosphereTest, ISAReferenceValues) {
 
 }  // namespace
 }  // namespace atmosphere
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq

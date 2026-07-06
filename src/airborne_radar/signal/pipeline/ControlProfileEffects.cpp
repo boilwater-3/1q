@@ -84,18 +84,18 @@ float ToDbDelta(float linear_scale) {
   return 10.0f * std::log10(clamped_scale);
 }
 
-oneq::internal::timing::ResolvedCycleTimingState ResolveDetectionTimingState(
+oneq::common::timing::ResolvedCycleTimingState ResolveDetectionTimingState(
     const session::ArControlProfile& control_profile,
     const config::engineering::DetectionConfig& detection_config) {
-  oneq::internal::timing::CycleTimingBaseParams base_params;
+  oneq::common::timing::CycleTimingBaseParams base_params;
   base_params.base_pulse_count = detection_config.pulse_count;
   base_params.base_prf_hz = detection_config.transmitter.prf_hz;
-  base_params.integration_mode = oneq::internal::timing::IntegrationMode::kCoherent;
+  base_params.integration_mode = oneq::common::timing::IntegrationMode::kCoherent;
 
-  oneq::internal::timing::CycleTimingControlAdjustments adjustments;
+  oneq::common::timing::CycleTimingControlAdjustments adjustments;
   adjustments.dwell_scale = control_profile.lpi_dwell_scale;
   adjustments.enable_rejitter = control_profile.enable_eccm_rejitter;
-  return oneq::internal::timing::ResolveCycleTimingState(base_params, adjustments);
+  return oneq::common::timing::ResolveCycleTimingState(base_params, adjustments);
 }
 
 float ResolveBeamwidthScale(const ControlProfileEffectsConfig& cfg,
@@ -149,7 +149,7 @@ void ApplyControlProfileToConfig(const session::ArControlProfile& control_profil
   if (config == nullptr) {
     return;
   }
-  const oneq::internal::timing::ResolvedCycleTimingState timing_state =
+  const oneq::common::timing::ResolvedCycleTimingState timing_state =
       ResolveDetectionTimingState(control_profile, config->detection.engineering);
 
   const ControlProfileEffectsConfig& cfg = config->control_profile_effects;

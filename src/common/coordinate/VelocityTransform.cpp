@@ -16,23 +16,23 @@ namespace {
 }  // namespace
 
 bool IsFinite(const EcefVelocityMps& velocity) {
-  return oneq::internal::validation::IsFinite(velocity.x_mps) && oneq::internal::validation::IsFinite(velocity.y_mps) &&
-         oneq::internal::validation::IsFinite(velocity.z_mps);
+  return oneq::common::validation::IsFinite(velocity.x_mps) && oneq::common::validation::IsFinite(velocity.y_mps) &&
+         oneq::common::validation::IsFinite(velocity.z_mps);
 }
 
 bool IsFinite(const EnuVelocityMps& velocity) {
-  return oneq::internal::validation::IsFinite(velocity.east_mps) && oneq::internal::validation::IsFinite(velocity.north_mps) &&
-         oneq::internal::validation::IsFinite(velocity.up_mps);
+  return oneq::common::validation::IsFinite(velocity.east_mps) && oneq::common::validation::IsFinite(velocity.north_mps) &&
+         oneq::common::validation::IsFinite(velocity.up_mps);
 }
 
 bool IsFinite(const NedVelocityMps& velocity) {
-  return oneq::internal::validation::IsFinite(velocity.north_mps) && oneq::internal::validation::IsFinite(velocity.east_mps) &&
-         oneq::internal::validation::IsFinite(velocity.down_mps);
+  return oneq::common::validation::IsFinite(velocity.north_mps) && oneq::common::validation::IsFinite(velocity.east_mps) &&
+         oneq::common::validation::IsFinite(velocity.down_mps);
 }
 
 bool IsFinite(const NueVelocityMps& velocity) {
-  return oneq::internal::validation::IsFinite(velocity.north_mps) && oneq::internal::validation::IsFinite(velocity.up_mps) &&
-         oneq::internal::validation::IsFinite(velocity.east_mps);
+  return oneq::common::validation::IsFinite(velocity.north_mps) && oneq::common::validation::IsFinite(velocity.up_mps) &&
+         oneq::common::validation::IsFinite(velocity.east_mps);
 }
 
 bool TryEcefToEnuVelocity(const EcefVelocityMps& ecef_velocity,

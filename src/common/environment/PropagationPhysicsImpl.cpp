@@ -13,9 +13,9 @@ namespace environment {
 
 namespace {
 
-internal::atmosphere::AtmosphericObservationRef ToInternalRef(
+common::atmosphere::AtmosphericObservationRef ToInternalRef(
     const AtmosphericObservation& obs, const SpaceWeatherContext* ctx) {
-  internal::atmosphere::AtmosphericObservationRef ref;
+  common::atmosphere::AtmosphericObservationRef ref;
   ref.pressure_hpa = obs.pressure_hpa;
   ref.temperature_k = obs.temperature_k;
   ref.relative_humidity = obs.relative_humidity;
@@ -70,11 +70,11 @@ PropagationResult EvaluatePropagation(const PropagationInputs& inputs) {
   const auto ref = ToInternalRef(
       inputs.observation,
       inputs.has_space_weather_context ? &inputs.space_weather_context : nullptr);
-  const auto internal_inputs = internal::atmosphere::BuildPropagationInputs(
+  const auto internal_inputs = common::atmosphere::BuildPropagationInputs(
       inputs.frequency_hz, inputs.path_length_m, inputs.radar_altitude_m,
       inputs.target_altitude_m, inputs.elevation_deg, ref);
   const auto internal_result =
-      internal::atmosphere::EvaluateAtmosphericPropagation(internal_inputs);
+      common::atmosphere::EvaluateAtmosphericPropagation(internal_inputs);
 
   PropagationResult result;
   result.blake_loss_db = internal_result.blake_loss_db;
@@ -101,13 +101,13 @@ PropagationInputs BuildPropagationInputs(
 
 float BlakeAtmosphericLoss(float altitude_m, float frequency_hz,
                            float elevation_deg, float range_m, float k_factor) {
-  return internal::atmosphere::blake_atmos_loss_r4_1(
+  return common::atmosphere::blake_atmos_loss_r4_1(
       altitude_m, frequency_hz, elevation_deg, range_m, k_factor);
 }
 
 float RefractivityIndex(float tc_celsius, float tk_kelvin, float pd_hpa,
                         float p_hpa, float h_rel, int water_or_ice) {
-  return internal::atmosphere::refractivity_index_n_r4(
+  return common::atmosphere::refractivity_index_n_r4(
       tc_celsius, tk_kelvin, pd_hpa, p_hpa, h_rel, water_or_ice);
 }
 

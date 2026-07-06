@@ -109,23 +109,23 @@ float ResolveVegetationScatterDeg(const VegetationPhysicsParameters& parameters,
 float ComputeVegetationClutterMultiplier(
     const VegetationScatterPhysicsConfig& config) {
   const VegetationPhysicsParameters parameters = ResolveVegetationPhysicsParameters(config.cover_profile);
-  oneq::internal::rcs::TreeScattererConfig scatterer_config;
+  oneq::common::rcs::TreeScattererConfig scatterer_config;
   scatterer_config.leaf_count = std::max(parameters.leaf_count, std::size_t(1U));
   scatterer_config.canopy_radius_m = std::max(parameters.canopy_radius_m, 0.1f);
   scatterer_config.canopy_height_m = std::max(parameters.canopy_height_m, 0.1f);
-  const oneq::internal::rcs::TreeScattererState scatterer_state =
-      oneq::internal::rcs::InitializeTreeScatterer(scatterer_config);
+  const oneq::common::rcs::TreeScattererState scatterer_state =
+      oneq::common::rcs::InitializeTreeScatterer(scatterer_config);
 
   std::vector<float> x_param;
   std::vector<float> y_param;
-  oneq::internal::rcs::ComputeLeavesParametricEquation(
+  oneq::common::rcs::ComputeLeavesParametricEquation(
       scatterer_state, 0.8f, 0.5f,
       &x_param, &y_param);
 
   const float incidence_deg = ResolveVegetationIncidenceDeg(parameters);
   const float scatter_deg = ResolveVegetationScatterDeg(parameters, incidence_deg);
-  const oneq::internal::rcs::LeafPhaseMatrices phase_matrices =
-      oneq::internal::rcs::compute_leaf_phase_matrices(
+  const oneq::common::rcs::LeafPhaseMatrices phase_matrices =
+      oneq::common::rcs::compute_leaf_phase_matrices(
           std::max(parameters.leaf_size_m, 0.0f),
           std::max(parameters.dielectric_constant_real, 1.0f),
           incidence_deg, scatter_deg);

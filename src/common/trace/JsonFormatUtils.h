@@ -5,8 +5,8 @@
 #include <string>
 
 namespace oneq {
+namespace common {
 namespace trace {
-namespace internal {
 
 inline std::string EscapeJsonString(const std::string& input) {
   std::ostringstream stream;
@@ -46,8 +46,8 @@ inline std::string QuoteString(const std::string& input) {
 
 inline std::string BoolToJson(bool value) { return value ? "true" : "false"; }
 
-}  // namespace internal
 }  // namespace trace
+}  // namespace common
 }  // namespace oneq
 
 #endif  // ONEQ_TRACE_JSON_FORMAT_UTILS_H_

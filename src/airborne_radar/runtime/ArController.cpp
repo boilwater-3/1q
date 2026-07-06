@@ -60,8 +60,8 @@ struct ArController::Impl {
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
 
   // -- 周期运行时状态
-  oneq::internal::runtime::RuntimeCycleState<session::TrackOutputFrame,
-                                             session::ValidationIssueList>
+  oneq::common::runtime::RuntimeCycleState<session::TrackOutputFrame,
+                                          session::ValidationIssueList>
       cycle_state{};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
@@ -125,8 +125,8 @@ void ArController::RunOnce() {
   const float cycle_dt_sec = impl_->radar_context.GetCycleDeltaTimeSec();
   const std::uint32_t cycle_index = impl_->radar_context.GetCycleIndex();
 
-  const oneq::internal::runtime::RuntimeCycleStamp stamp =
-      oneq::internal::runtime::MakeRuntimeCycleStamp(cycle_index, impl_->cycle_state.next_batch_id);
+  const oneq::common::runtime::RuntimeCycleStamp stamp =
+      oneq::common::runtime::MakeRuntimeCycleStamp(cycle_index, impl_->cycle_state.next_batch_id);
 
   // 校验
   session::ValidationIssueList issues = session::ValidateArCycleDeltaTime(cycle_dt_sec);

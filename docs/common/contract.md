@@ -1,7 +1,7 @@
 # 跨模块契约
 
 Status: active
-Last-reviewed: 2026-07-02
+Last-reviewed: 2026-07-06
 Authority: common contract for all modules
 
 本文合并原顶层 public API customization、session config builder、三层输出可观测性和文档治理契约。模块级文档不得与本文冲突。
@@ -42,6 +42,23 @@ Authority: common contract for all modules
 - 仅有单一生产实现且没有外部替换需求的虚接口。
 
 唯一允许的用户自定义 SPI 是 `airborne_radar` 的 decision engine。其它模块默认只提供稳定 session 门面。
+
+## 内部共享命名空间
+
+`src/common/` 是库内部实现层的跨模块共享设施目录，对应命名空间必须使用
+`oneq::common::*`。这些类型和函数可被 AR / ESR / EOS / SAR / common
+内部代码复用，但不构成 `include/1q/` public API。
+
+规则：
+
+1. `src/common/` 下的共享工具不得放在 `oneq::internal::*` 或
+   `oneq::trace::internal` 这类跨模块内部命名空间中。
+2. 不得为 `oneq::common::*` 工具新增 `oneq::internal::*` dual-alias 或
+   兼容 using 块；迁移期 alias 只能作为同一批次内的临时编译过渡，最终提交前必须删除。
+3. `namespace internal` 只可用于测试或翻译单元局部辅助语义；跨文件、跨模块消费的
+   `src/common/` 设施必须有明确的 `oneq::common::<domain>` 所属域。
+4. 若某工具需要成为外部消费者合同，应通过 `include/1q/` 公开并补充 public API
+   边界测试，而不是从 `src/common/` 泄漏。
 
 ## SessionConfigBuilder
 

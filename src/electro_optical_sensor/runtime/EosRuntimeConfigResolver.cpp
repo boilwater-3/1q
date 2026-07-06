@@ -17,33 +17,33 @@ namespace session {
 namespace {
 
 bool IsValidMission(const config::EosMissionConfig& mission) {
-  return oneq::internal::validation::IsFinite(mission.scan_rate_deg_per_sec) &&
+  return oneq::common::validation::IsFinite(mission.scan_rate_deg_per_sec) &&
          mission.scan_rate_deg_per_sec > 0.0f &&
-         oneq::internal::validation::IsFinite(mission.frame_rate_hz) &&
+         oneq::common::validation::IsFinite(mission.frame_rate_hz) &&
          mission.frame_rate_hz > 0.0f &&
-         oneq::internal::validation::IsFinite(mission.horizontal_fov_deg) &&
+         oneq::common::validation::IsFinite(mission.horizontal_fov_deg) &&
          mission.horizontal_fov_deg > 0.0f &&
-         oneq::internal::validation::IsFinite(mission.vertical_fov_deg) &&
+         oneq::common::validation::IsFinite(mission.vertical_fov_deg) &&
          mission.vertical_fov_deg > 0.0f &&
-         oneq::internal::validation::IsFinite(mission.scan_start_az_deg) &&
-         oneq::internal::validation::IsFinite(mission.scan_end_az_deg) &&
-         oneq::internal::validation::IsFinite(mission.scan_center_el_deg) &&
-         oneq::internal::validation::IsFinite(mission.boresight_depression_deg);
+         oneq::common::validation::IsFinite(mission.scan_start_az_deg) &&
+         oneq::common::validation::IsFinite(mission.scan_end_az_deg) &&
+         oneq::common::validation::IsFinite(mission.scan_center_el_deg) &&
+         oneq::common::validation::IsFinite(mission.boresight_depression_deg);
 }
 
 bool IsValidDetectionPolicy(const config::EosDetectionPolicyConfig& detection) {
-  return oneq::internal::validation::IsFinite(detection.minimum_snr_db) &&
-         oneq::internal::validation::IsFinite(detection.detection_sensitivity_w) &&
+  return oneq::common::validation::IsFinite(detection.minimum_snr_db) &&
+         oneq::common::validation::IsFinite(detection.detection_sensitivity_w) &&
          detection.detection_sensitivity_w > 0.0f &&
-         oneq::internal::validation::IsFinite(detection.visible_reference_irradiance_w_m2) &&
+         oneq::common::validation::IsFinite(detection.visible_reference_irradiance_w_m2) &&
          detection.visible_reference_irradiance_w_m2 > 0.0f;
 }
 
 bool IsValidStrayLightPolicy(const config::EosStrayLightPolicyConfig& stray_light) {
-  if (!oneq::internal::validation::IsFinite(stray_light.hood_inner_half_angle_deg) ||
-      !oneq::internal::validation::IsFinite(stray_light.hood_outer_half_angle_deg) ||
-      !oneq::internal::validation::IsFinite(stray_light.hood_min_suppression_ratio) ||
-      !oneq::internal::validation::IsFinite(stray_light.hood_max_suppression_ratio)) {
+  if (!oneq::common::validation::IsFinite(stray_light.hood_inner_half_angle_deg) ||
+      !oneq::common::validation::IsFinite(stray_light.hood_outer_half_angle_deg) ||
+      !oneq::common::validation::IsFinite(stray_light.hood_min_suppression_ratio) ||
+      !oneq::common::validation::IsFinite(stray_light.hood_max_suppression_ratio)) {
     return false;
   }
   if (stray_light.hood_inner_half_angle_deg <= 0.0f ||
@@ -68,12 +68,12 @@ bool IsValidEnvironmentPatch(
     const config::EosEnvironmentRuntimeConfigPatch& environment_patch) {
   if (environment_patch.has_scenario_config) {
     if (environment_patch.scenario_config.has_custom_overrides) {
-      if (!oneq::internal::validation::IsFinite(
+      if (!oneq::common::validation::IsFinite(
               environment_patch.scenario_config.custom_overrides.aerosol_density_factor) ||
           environment_patch.scenario_config.custom_overrides.aerosol_density_factor <= 0.0f) {
         return false;
       }
-      if (!oneq::internal::validation::IsFinite(
+      if (!oneq::common::validation::IsFinite(
               environment_patch.scenario_config.custom_overrides.turbulence_factor) ||
           environment_patch.scenario_config.custom_overrides.turbulence_factor <= 0.0f) {
         return false;
@@ -146,7 +146,7 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
   }
 
   if (patch.has_scan_rate_deg_per_sec) {
-    if (!oneq::internal::validation::IsFinite(patch.scan_rate_deg_per_sec) ||
+    if (!oneq::common::validation::IsFinite(patch.scan_rate_deg_per_sec) ||
         patch.scan_rate_deg_per_sec <= 0.0f) {
       PROJECT_LOG_ERROR(
           "[EosSession] Rejecting invalid scan_rate_deg_per_sec={}; "
@@ -159,7 +159,7 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
   }
 
   if (patch.has_frame_rate_hz) {
-    if (!oneq::internal::validation::IsFinite(patch.frame_rate_hz) ||
+    if (!oneq::common::validation::IsFinite(patch.frame_rate_hz) ||
         patch.frame_rate_hz <= 0.0f) {
       PROJECT_LOG_ERROR(
           "[EosSession] Rejecting invalid frame_rate_hz={}; "

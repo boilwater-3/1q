@@ -115,25 +115,6 @@ AzimuthElevationDeg ResolveStabilizedMountFramePointing(
 
 }  // namespace geometry
 }  // namespace common
-namespace internal {
-namespace geometry {
-
-using ::oneq::common::geometry::AzimuthElevationDeg;
-using ::oneq::common::geometry::AzimuthElevationLimitsDeg;
-using ::oneq::common::geometry::AzimuthElevationToUnitVector;
-using ::oneq::common::geometry::BuildRotationMatrix;
-using ::oneq::common::geometry::ClampAzimuthElevation;
-using ::oneq::common::geometry::ComputeAzimuthDifferenceDeg;
-using ::oneq::common::geometry::ComputeRelativeLineOfSightAzEl;
-using ::oneq::common::geometry::EulerAnglesDeg;
-using ::oneq::common::geometry::IntersectScanLimits;
-using ::oneq::common::geometry::ResolveStabilizedMountFramePointing;
-using ::oneq::common::geometry::RotateVectorToLocalFrame;
-using ::oneq::common::geometry::UnitVectorToAzimuthElevation;
-using ::oneq::common::geometry::Vector3f;
-
-}  // namespace geometry
-}  // namespace internal
 }  // namespace oneq
 
 #endif  // COMMON_GEOMETRY_GEOMETRY_TRANSFORM_H_

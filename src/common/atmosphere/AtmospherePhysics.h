@@ -7,7 +7,7 @@
 #define COMMON_ATMOSPHERE_ATMOSPHERE_PHYSICS_H_
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace atmosphere {
 
 constexpr float kDefaultEffectiveEarthRadiusFactor = 4.0f / 3.0f;
@@ -114,7 +114,7 @@ AtmosphericPropagationInputs BuildPropagationInputs(
     float elevation_deg, const AtmosphericObservationRef& observation);
 
 }  // namespace atmosphere
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq
 
 #endif  // COMMON_ATMOSPHERE_ATMOSPHERE_PHYSICS_H_

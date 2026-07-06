@@ -28,7 +28,7 @@ FlatbufferFileTraceSink::FlatbufferFileTraceSink(std::string file_path, bool app
 
 void FlatbufferFileTraceSink::Record(const std::string& module, const std::string& phase,
                                      const std::string& payload_json) {
-  const std::int64_t timestamp_ms = oneq::internal::trace::CurrentTimestampMs();
+  const std::int64_t timestamp_ms = oneq::common::trace::CurrentTimestampMs();
 
   flexbuffers::Builder builder;
   builder.Map([&]() {

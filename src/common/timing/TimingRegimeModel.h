@@ -9,7 +9,7 @@
 #include <cstdint>
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace timing {
 
 /**
@@ -153,7 +153,7 @@ float ComputeStatisticalDetectionProbability(float snr_db, float threshold_snr_d
                                              const StatisticalDetectionParams& params);
 
 }  // namespace timing
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq
 
 #endif  // COMMON_TIMING_TIMING_REGIME_MODEL_H_

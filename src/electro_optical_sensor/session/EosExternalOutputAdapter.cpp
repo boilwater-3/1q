@@ -49,9 +49,9 @@ bool TryMakeExternalDetectionFromRecord(const output::EosDetectionRecord& detect
                                         const oneq::coordinate::LocalFrameReference& reference,
                                         const oneq::foundation::PoseState& platform_pose,
                                         EosExternalDetectionRecord* output) {
-  if (output == nullptr || !oneq::internal::validation::IsFinite(detection.range_m) ||
-      !oneq::internal::validation::IsFinite(detection.azimuth_deg) ||
-      !oneq::internal::validation::IsFinite(detection.elevation_deg) || detection.range_m <= 0.0f) {
+  if (output == nullptr || !oneq::common::validation::IsFinite(detection.range_m) ||
+      !oneq::common::validation::IsFinite(detection.azimuth_deg) ||
+      !oneq::common::validation::IsFinite(detection.elevation_deg) || detection.range_m <= 0.0f) {
     return false;
   }
 

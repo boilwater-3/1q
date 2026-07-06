@@ -8,7 +8,7 @@
 #include "common/atmosphere/AtmospherePhysics.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace atmosphere {
 namespace {
 
@@ -135,5 +135,5 @@ TEST(AtmospherePhysicsTest, BuildPropagationInputsProducesPositiveLoss) {
 
 }  // namespace
 }  // namespace atmosphere
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq

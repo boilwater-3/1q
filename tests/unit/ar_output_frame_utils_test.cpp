@@ -10,7 +10,7 @@
 #include "common/output/OutputFrameUtils.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace output {
 namespace {
 
@@ -46,5 +46,5 @@ TEST(OutputFrameUtilsTest, SetCycleAndBatchWritesFrameHeaderFields) {
 
 }  // namespace
 }  // namespace output
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq

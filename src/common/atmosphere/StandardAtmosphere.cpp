@@ -4,7 +4,7 @@
 #include <cmath>
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace atmosphere {
 
 namespace {
@@ -123,5 +123,5 @@ environment::AtmosphericState StandardAtmosphere::GetSeaLevelState() const {
 }
 
 }  // namespace atmosphere
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq

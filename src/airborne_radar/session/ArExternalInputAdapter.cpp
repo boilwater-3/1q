@@ -16,7 +16,7 @@ using oneq::common::coordinate_utils::RotateEnuPositionToLocal;
 using oneq::common::coordinate_utils::RotateEnuVelocityToLocal;
 using oneq::common::coordinate_utils::ToFoundationEuler;
 using oneq::common::coordinate_utils::ToFoundationVector;
-using oneq::internal::validation::IsFinite;
+using oneq::common::validation::IsFinite;
 
 bool IsFiniteVector3f(const oneq::foundation::Vector3f& value) {
   return IsFinite(value.x) && IsFinite(value.y) && IsFinite(value.z);

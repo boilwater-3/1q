@@ -43,16 +43,6 @@ inline oneq::foundation::Vector3f RotateEnuVelocityToLocal(
 
 }  // namespace coordinate_utils
 }  // namespace common
-namespace internal {
-namespace coordinate_utils {
-
-using ::oneq::common::coordinate_utils::RotateEnuPositionToLocal;
-using ::oneq::common::coordinate_utils::RotateEnuVelocityToLocal;
-using ::oneq::common::coordinate_utils::ToFoundationEuler;
-using ::oneq::common::coordinate_utils::ToFoundationVector;
-
-}  // namespace coordinate_utils
-}  // namespace internal
 }  // namespace oneq
 
 #endif  // COMMON_COORDINATE_COORDINATE_UTILS_H_

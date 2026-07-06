@@ -57,7 +57,7 @@ float ComputeTargetSpecificAtmosphericLossDb(
     return 0.0f;
   }
 
-  oneq::internal::atmosphere::AtmosphericObservationRef obs;
+  oneq::common::atmosphere::AtmosphericObservationRef obs;
   obs.pressure_hpa = environment_snapshot.atmospheric_physics.pressure_hpa;
   obs.temperature_k = environment_snapshot.atmospheric_physics.temperature_k;
   obs.relative_humidity = environment_snapshot.atmospheric_physics.relative_humidity;
@@ -66,12 +66,12 @@ float ComputeTargetSpecificAtmosphericLossDb(
   obs.solar_flux_f107a = environment_snapshot.atmospheric_context.solar_flux_f107a;
   obs.solar_flux_f107 = environment_snapshot.atmospheric_context.solar_flux_f107;
   obs.geomagnetic_ap = environment_snapshot.atmospheric_context.geomagnetic_ap;
-  const auto inputs = oneq::internal::atmosphere::BuildPropagationInputs(
+  const auto inputs = oneq::common::atmosphere::BuildPropagationInputs(
       exec_config.detection.engineering.transmitter.frequency_hz,
       std::max(geometry.range_m, 0.1f), platform_altitude_m,
       std::max(platform_altitude_m + geometry.position_m.z(), 0.0f),
       geometry.look_angles_deg.has_look_angles ? geometry.look_angles_deg.look_el_deg : 0.0f, obs);
-  return oneq::internal::atmosphere::EvaluateAtmosphericPropagation(inputs).total_physics_loss_db;
+  return oneq::common::atmosphere::EvaluateAtmosphericPropagation(inputs).total_physics_loss_db;
 }
 
 float ComputeEquivalentRadiusM(float input_rcs_m2,
@@ -120,11 +120,11 @@ float ComputeEffectiveTargetRcsM2(const session::ArSceneTarget& target,
       oneq::common::numerics::Clamp(psi_i_deg + std::fabs(rcs_config.bistatic_psi_offset_deg), 0.0f, 89.0f);
 
   const float cylinder_rcs_m2 =
-      oneq::internal::rcs::ComputeCylinderRcs(equivalent_radius_m, wavenumber_k0);
-  const float bistatic_rcs_m2 = oneq::internal::rcs::ComputeBistaticCylinderRcs(
+      oneq::common::rcs::ComputeCylinderRcs(equivalent_radius_m, wavenumber_k0);
+  const float bistatic_rcs_m2 = oneq::common::rcs::ComputeBistaticCylinderRcs(
       wavenumber_k0, equivalent_radius_m, psi_i_deg, psi_s_deg, azimuth_deg);
   const float planar_rcs_m2 =
-      oneq::internal::rcs::ComputePlanarPlateRcs(wavenumber_k0, equivalent_radius_m, elevation_deg);
+      oneq::common::rcs::ComputePlanarPlateRcs(wavenumber_k0, equivalent_radius_m, elevation_deg);
 
   const float cylinder_weight = oneq::common::numerics::Clamp(rcs_config.cylinder_weight, 0.0f, 1.0f);
   const float physical_rcs_m2 = cylinder_weight * (0.5f * (cylinder_rcs_m2 + bistatic_rcs_m2)) +

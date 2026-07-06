@@ -270,7 +270,7 @@ const std::string& PayloadBytesForHash(const ReplayTraceReadEvent& event) {
 
 void WriteJsonStringField(std::ostream& output, const char* name, const std::string& value,
                           bool trailing_comma) {
-  output << "\"" << name << "\":" << trace::internal::QuoteString(value);
+  output << "\"" << name << "\":" << oneq::common::trace::QuoteString(value);
   if (trailing_comma) {
     output << ",";
   }
@@ -296,13 +296,13 @@ bool WriteManifestFile(const std::string& path, const ReplayTraceManifest& manif
 
   output << "{";
   WriteJsonStringField(output, "trace_id", manifest.trace_id, true);
-  output << "\"created_wall_time_ms\":" << oneq::internal::trace::CurrentTimestampMs() << ",";
+  output << "\"created_wall_time_ms\":" << oneq::common::trace::CurrentTimestampMs() << ",";
   WriteJsonStringField(output, "module", manifest.module, true);
   WriteJsonStringField(output, "scenario_id", manifest.scenario_id, true);
   output << "\"schema_version\":" << manifest.schema_version << ",";
   WriteJsonStringField(output, "serializer_version", manifest.serializer_version, true);
   WriteJsonStringField(output, "git_commit", manifest.git_commit, true);
-  output << "\"git_dirty\":" << trace::internal::BoolToJson(manifest.git_dirty) << ",";
+  output << "\"git_dirty\":" << oneq::common::trace::BoolToJson(manifest.git_dirty) << ",";
   WriteJsonStringField(output, "build_type", manifest.build_type, true);
   WriteJsonStringField(output, "compiler", manifest.compiler, true);
   WriteJsonStringField(output, "compiler_version", manifest.compiler_version, true);
@@ -313,7 +313,7 @@ bool WriteManifestFile(const std::string& path, const ReplayTraceManifest& manif
   WriteJsonStringField(output, "float_policy", manifest.float_policy, true);
   WriteJsonRawField(output, "default_tolerances", manifest.default_tolerances_payload, true);
   output << "\"compress_closed_chunks\":"
-         << trace::internal::BoolToJson(manifest.compress_closed_chunks) << ",";
+         << oneq::common::trace::BoolToJson(manifest.compress_closed_chunks) << ",";
   output << "\"checkpoint_interval_cycles\":" << manifest.checkpoint_interval_cycles << ",";
   output << "\"event_chunk_size\":" << manifest.event_chunk_size << ",";
   output << "\"failure_window_event_count\":" << manifest.failure_window_event_count;
@@ -382,7 +382,7 @@ bool WriteFailureFile(const std::string& path, const ReplayTraceManifest& manife
   output << "\"schema_version\":" << manifest.schema_version << ",";
   WriteJsonStringField(output, "trace_id", manifest.trace_id, true);
   WriteJsonStringField(output, "module", manifest.module, true);
-  output << "\"created_wall_time_ms\":" << oneq::internal::trace::CurrentTimestampMs() << ",";
+  output << "\"created_wall_time_ms\":" << oneq::common::trace::CurrentTimestampMs() << ",";
   output << "\"failure_marker_sequence\":" << failure_marker_sequence << ",";
   WriteOptionalUInt64Field(output, "last_event_sequence", has_last_event_sequence,
                            last_event_sequence, true);
@@ -456,23 +456,23 @@ bool WriteReportFile(const std::string& path, const ReplayTraceReplayReport& rep
   }
 
   output << "{";
-  output << "\"replay_ready\":" << trace::internal::BoolToJson(report.replay_ready) << ",";
+  output << "\"replay_ready\":" << oneq::common::trace::BoolToJson(report.replay_ready) << ",";
   WriteJsonStringField(output, "first_error", report.first_error, true);
   WriteJsonStringField(output, "warning", report.warning, true);
 
   output << "\"compatibility\":{";
-  output << "\"compatible\":" << trace::internal::BoolToJson(report.compatibility.compatible)
+  output << "\"compatible\":" << oneq::common::trace::BoolToJson(report.compatibility.compatible)
          << ",";
   output << "\"schema_version_matches\":"
-         << trace::internal::BoolToJson(report.compatibility.schema_version_matches) << ",";
+         << oneq::common::trace::BoolToJson(report.compatibility.schema_version_matches) << ",";
   output << "\"serializer_version_matches\":"
-         << trace::internal::BoolToJson(report.compatibility.serializer_version_matches) << ",";
+         << oneq::common::trace::BoolToJson(report.compatibility.serializer_version_matches) << ",";
   output << "\"git_commit_matches\":"
-         << trace::internal::BoolToJson(report.compatibility.git_commit_matches) << ",";
+         << oneq::common::trace::BoolToJson(report.compatibility.git_commit_matches) << ",";
   output << "\"module_matches\":"
-         << trace::internal::BoolToJson(report.compatibility.module_matches) << ",";
+         << oneq::common::trace::BoolToJson(report.compatibility.module_matches) << ",";
   output << "\"manifest_git_dirty\":"
-         << trace::internal::BoolToJson(report.compatibility.manifest_git_dirty) << ",";
+         << oneq::common::trace::BoolToJson(report.compatibility.manifest_git_dirty) << ",";
   WriteJsonStringField(output, "manifest_trace_id", report.compatibility.manifest_trace_id, true);
   WriteJsonStringField(output, "manifest_module", report.compatibility.manifest_module, true);
   output << "\"manifest_schema_version\":" << report.compatibility.manifest_schema_version << ",";
@@ -485,20 +485,20 @@ bool WriteReportFile(const std::string& path, const ReplayTraceReplayReport& rep
   output << "},";
 
   output << "\"scan\":{";
-  output << "\"ok\":" << trace::internal::BoolToJson(report.scan.ok) << ",";
+  output << "\"ok\":" << oneq::common::trace::BoolToJson(report.scan.ok) << ",";
   output << "\"event_count\":" << report.scan.event_count << ",";
-  output << "\"payload_hashes_ok\":" << trace::internal::BoolToJson(report.scan.payload_hashes_ok)
+  output << "\"payload_hashes_ok\":" << oneq::common::trace::BoolToJson(report.scan.payload_hashes_ok)
          << ",";
-  output << "\"event_chain_ok\":" << trace::internal::BoolToJson(report.scan.event_chain_ok) << ",";
+  output << "\"event_chain_ok\":" << oneq::common::trace::BoolToJson(report.scan.event_chain_ok) << ",";
   output << "\"sequences_contiguous\":"
-         << trace::internal::BoolToJson(report.scan.sequences_contiguous) << ",";
+         << oneq::common::trace::BoolToJson(report.scan.sequences_contiguous) << ",";
   WriteJsonStringField(output, "first_error", report.scan.first_error, false);
   output << "},";
 
   output << "\"events\":{";
-  output << "\"has_session_config\":" << trace::internal::BoolToJson(report.has_session_config)
+  output << "\"has_session_config\":" << oneq::common::trace::BoolToJson(report.has_session_config)
          << ",";
-  output << "\"has_failure_marker\":" << trace::internal::BoolToJson(report.has_failure_marker)
+  output << "\"has_failure_marker\":" << oneq::common::trace::BoolToJson(report.has_failure_marker)
          << ",";
   output << "\"session_config_count\":" << report.session_config_count << ",";
   output << "\"cycle_input_count\":" << report.cycle_input_count << ",";
@@ -913,7 +913,7 @@ void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
   } else {
     line << "\"sim_time_sec\":null,";
   }
-  line << "\"wall_time_ms\":" << oneq::internal::trace::CurrentTimestampMs() << ",";
+  line << "\"wall_time_ms\":" << oneq::common::trace::CurrentTimestampMs() << ",";
   WriteJsonStringField(line, "payload_type", event.payload_type, true);
   WriteJsonStringField(line, "payload_encoding", event.payload_encoding, true);
   line << "\"payload\":null,";

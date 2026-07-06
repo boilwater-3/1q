@@ -11,12 +11,12 @@ namespace session {
 
 namespace {
 
-using oneq::internal::validation::IsFinite;
+using oneq::common::validation::IsFinite;
 
 ValidationIssue MakeIssue(ValidationSeverity severity, ValidationCode code,
                           ValidationLocationKind location_kind, std::size_t entity_index,
                           const std::string& field, const std::string& message) {
-  return oneq::internal::validation::MakeLocatedIssue<ValidationIssue, ValidationLocation>(
+  return oneq::common::validation::MakeLocatedIssue<ValidationIssue, ValidationLocation>(
       severity, code, location_kind, entity_index, field, message);
 }
 
@@ -59,8 +59,8 @@ void ValidateEnvironmentObservation(const EsrEnvironmentInput& observation,
     return;
   }
   const EsrAtmosphericObservation& atmosphere = observation.atmospheric_observation;
-  if (!oneq::internal::validation::IsRatio01(observation.spectrum_occupancy_ratio) ||
-      !oneq::internal::validation::IsRatio01(atmosphere.relative_humidity_ratio) ||
+  if (!oneq::common::validation::IsRatio01(observation.spectrum_occupancy_ratio) ||
+      !oneq::common::validation::IsRatio01(atmosphere.relative_humidity_ratio) ||
       !IsFinite(atmosphere.precipitation_rate_mmph) || !IsFinite(atmosphere.visibility_km) ||
       atmosphere.precipitation_rate_mmph < 0.0f || atmosphere.visibility_km <= 0.0f) {
     issues->push_back(MakeIssue(
@@ -73,8 +73,8 @@ void ValidateEnvironmentObservation(const EsrEnvironmentInput& observation,
     if (!IsFinite(jammer.center_hz) || !IsFinite(jammer.bandwidth_hz) ||
         !IsFinite(jammer.power_w) || !IsFinite(jammer.deception_risk) ||
         !IsFinite(jammer.confidence) || jammer.center_hz < 0.0 || jammer.bandwidth_hz < 0.0 ||
-        jammer.power_w < 0.0f || !oneq::internal::validation::IsRatio01(jammer.deception_risk) ||
-        !oneq::internal::validation::IsRatio01(jammer.confidence)) {
+        jammer.power_w < 0.0f || !oneq::common::validation::IsRatio01(jammer.deception_risk) ||
+        !oneq::common::validation::IsRatio01(jammer.confidence)) {
       issues->push_back(MakeIssue(
           ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
           ValidationLocationKind::kEnvironment, i, "environment.jammer_sources",
@@ -190,7 +190,7 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
 }
 
 bool HasValidationError(const ValidationIssueList& issues) {
-  return oneq::internal::validation::HasSeverity<ValidationIssueList, ValidationSeverity,
+  return oneq::common::validation::HasSeverity<ValidationIssueList, ValidationSeverity,
                                                  &ValidationIssue::severity>(
       issues, ValidationSeverity::kError);
 }

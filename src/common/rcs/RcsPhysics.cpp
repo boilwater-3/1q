@@ -7,7 +7,7 @@
 #include "common/numerics/Constants.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace rcs {
 
 float ComputeCylinderRcs(float radius_m, float wavenumber_k0) {
@@ -105,5 +105,5 @@ void ComputeLeavesParametricEquation(const TreeScattererState& state, float va, 
 }
 
 }  // namespace rcs
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq

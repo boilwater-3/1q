@@ -17,7 +17,7 @@ namespace {
 
 
 bool IsFiniteVector3f(const oneq::foundation::Vector3f& value) {
-  return oneq::internal::validation::IsFinite(value.x) && oneq::internal::validation::IsFinite(value.y) && oneq::internal::validation::IsFinite(value.z);
+  return oneq::common::validation::IsFinite(value.x) && oneq::common::validation::IsFinite(value.y) && oneq::common::validation::IsFinite(value.z);
 }
 
 oneq::coordinate::EnuPositionM Vector3dToEnuPosition(const oneq::coordinate::Vector3d& enu) {
@@ -43,9 +43,9 @@ bool TryMakeExternalTrackFromSnapshot(const session::TrackStateSnapshot& snapsho
                                       oneq::foundation::Vector3f radar_local_velocity_mps,
                                       ArExternalTrackKinematics* output) {
   if (output == nullptr || !IsFiniteVector3f(radar_local_velocity_mps) ||
-      !oneq::internal::validation::IsFinite(snapshot.position_x) || !oneq::internal::validation::IsFinite(snapshot.position_y) ||
-      !oneq::internal::validation::IsFinite(snapshot.position_z) || !oneq::internal::validation::IsFinite(snapshot.velocity_x) ||
-      !oneq::internal::validation::IsFinite(snapshot.velocity_y) || !oneq::internal::validation::IsFinite(snapshot.velocity_z)) {
+      !oneq::common::validation::IsFinite(snapshot.position_x) || !oneq::common::validation::IsFinite(snapshot.position_y) ||
+      !oneq::common::validation::IsFinite(snapshot.position_z) || !oneq::common::validation::IsFinite(snapshot.velocity_x) ||
+      !oneq::common::validation::IsFinite(snapshot.velocity_y) || !oneq::common::validation::IsFinite(snapshot.velocity_z)) {
     return false;
   }
 

@@ -36,7 +36,7 @@ oneq::coordinate::Vector3d BearingVectorFromAngles(double az_deg, double el_deg)
 bool TryBearingToEcefUnit(double az_deg, double el_deg, const oneq::coordinate::LocalFrameReference& reference,
                           const oneq::foundation::PoseState& platform_pose,
                           oneq::coordinate::Vector3d* ecef_unit) {
-  if (!oneq::internal::validation::IsFinite(az_deg) || !oneq::internal::validation::IsFinite(el_deg)) {
+  if (!oneq::common::validation::IsFinite(az_deg) || !oneq::common::validation::IsFinite(el_deg)) {
     return false;
   }
   const oneq::coordinate::Vector3d platform_frame = BearingVectorFromAngles(az_deg, el_deg);

@@ -244,18 +244,18 @@ TEST(SignalDetectorTest, SharedTimingStatePulseCountStillImprovesDetectionProbab
   env.clutter_noise_w = 1.0e-14f;
   env.jam_noise_w = 0.0f;
 
-  oneq::internal::timing::CycleTimingBaseParams base_params;
+  oneq::common::timing::CycleTimingBaseParams base_params;
   base_params.base_pulse_count = 8;
   base_params.base_prf_hz = config.transmitter.prf_hz;
 
-  oneq::internal::timing::CycleTimingControlAdjustments baseline_adjustments;
-  const oneq::internal::timing::ResolvedCycleTimingState baseline_state =
-      oneq::internal::timing::ResolveCycleTimingState(base_params, baseline_adjustments);
+  oneq::common::timing::CycleTimingControlAdjustments baseline_adjustments;
+  const oneq::common::timing::ResolvedCycleTimingState baseline_state =
+      oneq::common::timing::ResolveCycleTimingState(base_params, baseline_adjustments);
 
-  oneq::internal::timing::CycleTimingControlAdjustments dwell_adjustments;
+  oneq::common::timing::CycleTimingControlAdjustments dwell_adjustments;
   dwell_adjustments.dwell_scale = 2.0f;
-  const oneq::internal::timing::ResolvedCycleTimingState dwell_state =
-      oneq::internal::timing::ResolveCycleTimingState(base_params, dwell_adjustments);
+  const oneq::common::timing::ResolvedCycleTimingState dwell_state =
+      oneq::common::timing::ResolveCycleTimingState(base_params, dwell_adjustments);
 
   const DetectionResult baseline_result =
       detector.Detect(target, env, std::numeric_limits<float>::quiet_NaN(),

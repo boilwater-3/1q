@@ -34,7 +34,7 @@ SarRuntimeConfigResolveResult ResolveSarRuntimeConfigPatch(
   const bool has_requested_update = HasRequestedUpdate(patch);
 
   if (patch.has_minimum_snr_db) {
-    if (!oneq::internal::validation::IsFinite(patch.minimum_snr_db)) {
+    if (!oneq::common::validation::IsFinite(patch.minimum_snr_db)) {
       PROJECT_LOG_ERROR("[SarSession] Rejecting invalid minimum_snr_db; must be finite.");
       return RejectPatch(current_config, true);
     }

@@ -13,7 +13,7 @@
 #include "common/validation/ValidationUtils.h"
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace validation {
 namespace {
 
@@ -127,5 +127,5 @@ TEST(ValidationUtilsTest, HasSeverityReturnsTrueWhenExpectedSeverityExists) {
 
 }  // namespace
 }  // namespace validation
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq

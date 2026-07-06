@@ -10,7 +10,7 @@
 #include <cstdint>
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace output {
 
 /**
@@ -46,7 +46,7 @@ inline void SetCycleAndBatch(FrameT& frame, std::uint32_t cycle_index, std::uint
 }
 
 }  // namespace output
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq
 
 #endif  // COMMON_OUTPUT_OUTPUT_FRAME_UTILS_H_

@@ -24,9 +24,9 @@ void SetStatus(EsrCoordinateStatus value, EsrCoordinateStatus* status) {
 }
 
 bool IsFiniteVector3f(const EsrVector3f& value) {
-  return oneq::internal::validation::IsFinite(value.x) &&
-         oneq::internal::validation::IsFinite(value.y) &&
-         oneq::internal::validation::IsFinite(value.z);
+  return oneq::common::validation::IsFinite(value.x) &&
+         oneq::common::validation::IsFinite(value.y) &&
+         oneq::common::validation::IsFinite(value.z);
 }
 
 bool TryConvertEcefPositionToLocal(const oneq::coordinate::EcefPositionM& ecef,

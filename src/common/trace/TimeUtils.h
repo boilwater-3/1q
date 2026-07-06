@@ -5,7 +5,7 @@
 #include <cstdint>
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace trace {
 
 inline std::int64_t CurrentTimestampMs() {
@@ -15,7 +15,7 @@ inline std::int64_t CurrentTimestampMs() {
 }
 
 }  // namespace trace
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq
 
 #endif  // ONEQ_SRC_COMMON_TRACE_TIME_UTILS_H_

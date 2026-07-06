@@ -16,16 +16,16 @@ constexpr double kNormFloor = 1.0e-9;
 }  // namespace
 
 bool IsFinite(const EulerAnglesDeg& attitude) {
-  return oneq::internal::validation::IsFinite(attitude.yaw_deg) && oneq::internal::validation::IsFinite(attitude.pitch_deg) &&
-         oneq::internal::validation::IsFinite(attitude.roll_deg);
+  return oneq::common::validation::IsFinite(attitude.yaw_deg) && oneq::common::validation::IsFinite(attitude.pitch_deg) &&
+         oneq::common::validation::IsFinite(attitude.roll_deg);
 }
 
 bool IsFinite(const RotationMatrix3d& rotation) {
-  return oneq::internal::validation::IsFinite(rotation.m00) && oneq::internal::validation::IsFinite(rotation.m01) &&
-         oneq::internal::validation::IsFinite(rotation.m02) && oneq::internal::validation::IsFinite(rotation.m10) &&
-         oneq::internal::validation::IsFinite(rotation.m11) && oneq::internal::validation::IsFinite(rotation.m12) &&
-         oneq::internal::validation::IsFinite(rotation.m20) && oneq::internal::validation::IsFinite(rotation.m21) &&
-         oneq::internal::validation::IsFinite(rotation.m22);
+  return oneq::common::validation::IsFinite(rotation.m00) && oneq::common::validation::IsFinite(rotation.m01) &&
+         oneq::common::validation::IsFinite(rotation.m02) && oneq::common::validation::IsFinite(rotation.m10) &&
+         oneq::common::validation::IsFinite(rotation.m11) && oneq::common::validation::IsFinite(rotation.m12) &&
+         oneq::common::validation::IsFinite(rotation.m20) && oneq::common::validation::IsFinite(rotation.m21) &&
+         oneq::common::validation::IsFinite(rotation.m22);
 }
 
 RotationMatrix3d BuildRotationMatrix(const EulerAnglesDeg& attitude_deg) {

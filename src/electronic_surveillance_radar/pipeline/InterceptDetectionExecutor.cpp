@@ -78,12 +78,12 @@ float ToDb(double ratio) {
  * @param[in] mode ESR 统计检测积累模式。
  * @return 共享时序体制积累模式。
  */
-oneq::internal::timing::IntegrationMode ToTimingIntegrationMode(
+oneq::common::timing::IntegrationMode ToTimingIntegrationMode(
     extension::InterceptIntegrationMode mode) {
   if (mode == extension::InterceptIntegrationMode::kCoherent) {
-    return oneq::internal::timing::IntegrationMode::kCoherent;
+    return oneq::common::timing::IntegrationMode::kCoherent;
   }
-  return oneq::internal::timing::IntegrationMode::kNonCoherent;
+  return oneq::common::timing::IntegrationMode::kNonCoherent;
 }
 
 /**
@@ -91,9 +91,9 @@ oneq::internal::timing::IntegrationMode ToTimingIntegrationMode(
  * @param[in] config ESR 统计检测配置。
  * @return 共享时序体制参数。
  */
-oneq::internal::timing::StatisticalDetectionParams ToTimingDetectionParams(
+oneq::common::timing::StatisticalDetectionParams ToTimingDetectionParams(
     const extension::InterceptStatisticalDetectionConfig& config) {
-  oneq::internal::timing::StatisticalDetectionParams params;
+  oneq::common::timing::StatisticalDetectionParams params;
   params.pfa = config.pfa;
   params.min_snr_db = config.min_snr_db;
   params.pulse_count = config.pulse_count;
@@ -214,18 +214,18 @@ float ComputeEmitterBeamOverlapRatio(const oneq::foundation::PoseState& platform
  * @param[in] base_params ESR 统计检测基线参数。
  * @return 发射源在当前周期的统一时序体制状态。
  */
-oneq::internal::timing::ResolvedCycleTimingState ResolveEmitterTimingState(
+oneq::common::timing::ResolvedCycleTimingState ResolveEmitterTimingState(
     float dt_sec, const session::EsrSceneEmitter& emitter,
-    const oneq::internal::timing::StatisticalDetectionParams& base_params) {
-  oneq::internal::timing::CycleTimingBaseParams timing_base_params;
+    const oneq::common::timing::StatisticalDetectionParams& base_params) {
+  oneq::common::timing::CycleTimingBaseParams timing_base_params;
   timing_base_params.base_pulse_count = static_cast<int>(base_params.pulse_count);
   timing_base_params.base_prf_hz =
       emitter.pri_s > 0.0 ? static_cast<float>(1.0 / emitter.pri_s) : 0.0f;
   timing_base_params.cycle_dt_sec = dt_sec;
   timing_base_params.pri_s = emitter.pri_s;
   timing_base_params.integration_mode = base_params.integration_mode;
-  return oneq::internal::timing::ResolveCycleTimingState(
-      timing_base_params, oneq::internal::timing::CycleTimingControlAdjustments());
+  return oneq::common::timing::ResolveCycleTimingState(
+      timing_base_params, oneq::common::timing::CycleTimingControlAdjustments());
 }
 
 /**
@@ -259,8 +259,8 @@ double ComputeReceivedPowerW(double tx_power_w, double carrier_hz, float range_m
 std::pair<double, double> BuildReceiverWindow(
     std::uint32_t cycle_index, const extension::InterceptRuntimeConfig& runtime_config) {
   if (runtime_config.use_fixed_receiver_window &&
-      oneq::internal::validation::IsFinite(runtime_config.receiver_lower_hz) &&
-      oneq::internal::validation::IsFinite(runtime_config.receiver_upper_hz) &&
+      oneq::common::validation::IsFinite(runtime_config.receiver_lower_hz) &&
+      oneq::common::validation::IsFinite(runtime_config.receiver_upper_hz) &&
       runtime_config.receiver_upper_hz > runtime_config.receiver_lower_hz) {
     return std::make_pair(runtime_config.receiver_lower_hz, runtime_config.receiver_upper_hz);
   }
@@ -421,7 +421,7 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const MutableEsrCon
       BuildReceiverWindow(ctx.GetCycleIndex(), ctx.GetRuntimeConfig());
   const double receive_loss_scale =
       ComputeReceiveLossScale(ctx.GetRuntimeConfig().integrated_receive_loss_db);
-  const oneq::internal::timing::StatisticalDetectionParams base_statistical_detection_params =
+  const oneq::common::timing::StatisticalDetectionParams base_statistical_detection_params =
       ToTimingDetectionParams(ctx.GetPipelineConfig().statistical_detection);
 
   const auto& scene_emitters = ctx.GetSceneEmitters();
@@ -456,7 +456,7 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
     const session::EsrSceneEmitter& emitter, const intercept::BeamPointingDeg& active_beam,
     const std::pair<double, double>& receiver_window, double receive_loss_scale,
     const intercept::AngleErrorModelConfig& angle_error_config,
-    const oneq::internal::timing::StatisticalDetectionParams& base_statistical_detection_params,
+    const oneq::common::timing::StatisticalDetectionParams& base_statistical_detection_params,
     const MutableEsrContext& ctx, std::mt19937& rng, std::uint64_t& next_observation_id,
     std::vector<RawObservationRecord>& raw_records) const {
   const auto& platform_pose = ctx.GetPlatformPose();
@@ -472,10 +472,10 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
   const float target_el_deg = target_look_angles.el_deg;
   const float emitter_beam_overlap_ratio = ComputeEmitterBeamOverlapRatio(platform_pose, emitter);
   const bool emitter_beam_covered = emitter_beam_overlap_ratio > 0.0f;
-  const oneq::internal::timing::ResolvedCycleTimingState timing_state = ResolveEmitterTimingState(
+  const oneq::common::timing::ResolvedCycleTimingState timing_state = ResolveEmitterTimingState(
       ctx.GetCycleDeltaTimeSec(), emitter, base_statistical_detection_params);
   const bool has_available_pulses = timing_state.effective_pulse_count > 0U;
-  oneq::internal::timing::StatisticalDetectionParams emitter_detection_params =
+  oneq::common::timing::StatisticalDetectionParams emitter_detection_params =
       base_statistical_detection_params;
   if (has_available_pulses) {
     emitter_detection_params.pulse_count = std::max(1U, timing_state.effective_pulse_count);
@@ -494,7 +494,7 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
       kNumericFloor);
   const float static_threshold_snr_db = config.detection.minimum_snr_db;
   const float dynamic_threshold_snr_db =
-      oneq::internal::timing::ComputeDynamicThresholdSnrDb(noise_power_w, emitter_detection_params);
+      oneq::common::timing::ComputeDynamicThresholdSnrDb(noise_power_w, emitter_detection_params);
   const float detection_threshold_snr_db =
       config.statistical_detection.enable_statistical_detection
           ? std::max(static_threshold_snr_db, dynamic_threshold_snr_db)
@@ -574,7 +574,7 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
   bool detection_passed = gate_decision.passed && has_available_pulses;
   if (detection_passed && config.statistical_detection.enable_statistical_detection) {
     const float detection_probability =
-        oneq::internal::timing::ComputeStatisticalDetectionProbability(
+        oneq::common::timing::ComputeStatisticalDetectionProbability(
             snr_db, detection_threshold_snr_db, emitter_detection_params);
     detection_passed = uniform_01(rng) < detection_probability;
   }

@@ -55,7 +55,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   if (patch.has_mission) {
     has_requested_update = true;
     resolved.next_config.mission = patch.mission;
-    if (!oneq::internal::validation::IsFinite(
+    if (!oneq::common::validation::IsFinite(
             resolved.next_config.mission.scan.scan_rate_hz) ||
         resolved.next_config.mission.scan.scan_rate_hz <= 0.0f) {
       resolved.next_config.mission.scan.scan_rate_hz = 1.0f;
@@ -100,7 +100,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
 
   if (patch.has_scan_rate_hz) {
     has_requested_update = true;
-    if (!oneq::internal::validation::IsFinite(patch.scan_rate_hz) || patch.scan_rate_hz <= 0.0f) {
+    if (!oneq::common::validation::IsFinite(patch.scan_rate_hz) || patch.scan_rate_hz <= 0.0f) {
       PROJECT_LOG_ERROR(
           "[EsrSession] Rejecting runtime config patch due to invalid scan_rate_hz={}; "
           "must be finite and positive.",
@@ -128,7 +128,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   }
   if (patch.has_scan_center_az_deg) {
     has_requested_update = true;
-    if (!oneq::internal::validation::IsFinite(patch.scan_center_az_deg)) {
+    if (!oneq::common::validation::IsFinite(patch.scan_center_az_deg)) {
       PROJECT_LOG_ERROR(
           "[EsrSession] Rejecting runtime config patch due to non-finite scan_center_az_deg={} .",
           patch.scan_center_az_deg);
@@ -148,7 +148,7 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
   }
   if (patch.has_scan_center_el_deg) {
     has_requested_update = true;
-    if (!oneq::internal::validation::IsFinite(patch.scan_center_el_deg)) {
+    if (!oneq::common::validation::IsFinite(patch.scan_center_el_deg)) {
       PROJECT_LOG_ERROR(
           "[EsrSession] Rejecting runtime config patch due to non-finite scan_center_el_deg={} .",
           patch.scan_center_el_deg);
@@ -170,10 +170,10 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     has_requested_update = true;
     if (patch.explicit_scan_bounds.enabled) {
       const auto& sb = patch.explicit_scan_bounds;
-      if (!oneq::internal::validation::IsFinite(sb.scan_start_az_deg) ||
-          !oneq::internal::validation::IsFinite(sb.scan_end_az_deg) ||
-          !oneq::internal::validation::IsFinite(sb.scan_start_el_deg) ||
-          !oneq::internal::validation::IsFinite(sb.scan_end_el_deg)) {
+      if (!oneq::common::validation::IsFinite(sb.scan_start_az_deg) ||
+          !oneq::common::validation::IsFinite(sb.scan_end_az_deg) ||
+          !oneq::common::validation::IsFinite(sb.scan_start_el_deg) ||
+          !oneq::common::validation::IsFinite(sb.scan_end_el_deg)) {
         PROJECT_LOG_ERROR(
             "[EsrSession] Rejecting runtime config patch due to invalid explicit scan bounds "
             "payload.");

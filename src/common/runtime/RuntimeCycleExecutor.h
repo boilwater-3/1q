@@ -9,7 +9,7 @@
 #include <cstdint>
 
 namespace oneq {
-namespace internal {
+namespace common {
 namespace runtime {
 
 /**
@@ -84,7 +84,7 @@ inline void AdvanceBatchId(std::uint64_t* batch_id) {
 
 
 }  // namespace runtime
-}  // namespace internal
+}  // namespace common
 }  // namespace oneq
 
 #endif  // COMMON_RUNTIME_RUNTIME_CYCLE_EXECUTOR_H_

@@ -71,7 +71,7 @@ class InterceptDetectionExecutor {
       const session::EsrSceneEmitter& emitter, const intercept::BeamPointingDeg& active_beam,
       const std::pair<double, double>& receiver_window, double receive_loss_scale,
       const intercept::AngleErrorModelConfig& angle_error_config,
-      const oneq::internal::timing::StatisticalDetectionParams& base_statistical_detection_params,
+      const oneq::common::timing::StatisticalDetectionParams& base_statistical_detection_params,
       const MutableEsrContext& ctx, std::mt19937& rng, std::uint64_t& next_observation_id,
       std::vector<RawObservationRecord>& raw_records) const;
 };
