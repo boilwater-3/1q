@@ -1,8 +1,8 @@
 /**
  * @file ArCycleOutputAdapter.h
- * @brief AR module primary cycle output builder.
+ * @brief 机载雷达周期输出适配器。
  *
- * Primary header for cycle output adaptation.
+ * 周期输出适配（内部轨迹帧转 ECEF 输出帧）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CYCLE_OUTPUT_ADAPTER_H_

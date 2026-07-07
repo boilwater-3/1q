@@ -1,8 +1,8 @@
 /**
  * @file ArCycleResult.h
- * @brief AR module primary cycle result type.
+ * @brief 机载雷达单周期执行结果类型。
  *
- * Primary header for cycle result and related helpers.
+ * 单周期结果及轨迹输出查询辅助函数的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CYCLE_RESULT_H_
@@ -34,50 +34,71 @@ struct ONEQ_API TrackOutputFrame {
 
 /**
  * @brief 按外部目标 ID 构造轨迹映射。
+ * @param[in] frame 轨迹输出帧。
+ * @return 以外部目标 ID 为键的轨迹快照映射；external_target_id 为 0 的轨迹会被跳过。
  */
 ONEQ_API std::unordered_map<std::uint64_t, session::TrackStateSnapshot>
 BuildTrackMapByExternalTargetId(const TrackOutputFrame& frame);
 
 /**
  * @brief 按关联键构造轨迹映射。
+ * @param[in] frame 轨迹输出帧。
+ * @return 以 association_key 为键的轨迹快照映射。
  */
 ONEQ_API std::unordered_map<std::uint64_t, session::TrackStateSnapshot>
 BuildTrackMapByAssociationKey(const TrackOutputFrame& frame);
 
 /**
  * @brief 收集指定外部目标 ID 对应的全部轨迹。
+ * @param[in] frame 轨迹输出帧。
+ * @param[in] external_target_id 目标外部 ID。
+ * @return 匹配外部目标 ID 的轨迹快照拷贝列表。
  */
 ONEQ_API session::TrackStateSnapshotList CollectTracksByExternalTargetId(
     const TrackOutputFrame& frame, std::uint64_t external_target_id);
 
 /**
  * @brief 收集所有已确认轨迹。
+ * @param[in] frame 轨迹输出帧。
+ * @return 状态为 kConfirmed 的轨迹快照拷贝列表。
  */
 ONEQ_API session::TrackStateSnapshotList CollectConfirmedTracks(const TrackOutputFrame& frame);
 
 /**
  * @brief 收集所有 lost 轨迹。
+ * @param[in] frame 轨迹输出帧。
+ * @return 状态为 kLost 的轨迹快照拷贝列表。
  */
 ONEQ_API session::TrackStateSnapshotList CollectLostTracks(const TrackOutputFrame& frame);
 
 /**
  * @brief 收集所有带干扰标记的轨迹。
+ * @param[in] frame 轨迹输出帧。
+ * @return jamming_detected 为 true 的轨迹快照拷贝列表。
  */
 ONEQ_API session::TrackStateSnapshotList CollectJammingTracks(const TrackOutputFrame& frame);
 
 /**
  * @brief 判断输出帧中是否包含指定外部目标 ID。
+ * @param[in] frame 轨迹输出帧。
+ * @param[in] external_target_id 目标外部 ID。
+ * @return 命中返回 true，否则返回 false。
  */
 ONEQ_API bool ContainsExternalTargetId(const TrackOutputFrame& frame,
                                        std::uint64_t external_target_id);
 
 /**
  * @brief 统计携带干扰标记的轨迹数量。
+ * @param[in] frame 轨迹输出帧。
+ * @return jamming_detected 为 true 的轨迹条数。
  */
 ONEQ_API std::size_t CountJammingTracks(const TrackOutputFrame& frame);
 
 /**
  * @brief 按生命周期状态统计轨迹数量。
+ * @param[in] frame 轨迹输出帧。
+ * @param[in] status 目标生命周期状态。
+ * @return 匹配状态 status 的轨迹条数。
  */
 ONEQ_API std::size_t CountTracksByStatus(const TrackOutputFrame& frame,
                                          session::TrackStatus status);

@@ -36,6 +36,8 @@ class PropagationModel {
  public:
   /**
    * @brief 根据场景状态计算传播与杂波输出。
+   * @param[in] scene_state 当前周期场景状态（含植被覆盖、地形反射等物理量）。
+   * @return 包含传播损耗、大气物理附加损耗与杂波功率的 PropagationResult。
    */
   PropagationResult Evaluate(const EnvironmentSceneState& scene_state) const;
 };

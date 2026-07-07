@@ -1,3 +1,12 @@
+/**
+ * @file ProjectLog.h
+ * @brief 定义项目统一的日志宏门面，按编译期后端开关在 spdlog 实现与空操作之间切换。
+ *
+ * 启用 PROJECT_LOG_BACKEND_SPDLOG 时转发到 spdlog；否则全部展开为空操作，
+ * 便于在不依赖 spdlog 的构建中完全消除日志开销。
+ * @note 本头仅提供宏，不包含可链接符号。
+ */
+
 #pragma once
 
 #if defined(PROJECT_LOG_BACKEND_SPDLOG) && PROJECT_LOG_BACKEND_SPDLOG

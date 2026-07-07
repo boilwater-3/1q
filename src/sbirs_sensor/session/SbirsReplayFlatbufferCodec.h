@@ -17,18 +17,61 @@
 namespace sbirs_sensor {
 namespace session {
 
+/** @brief 将单周期输入编码为 FlatBuffers payload 字节串。 */
 std::string EncodeSbirsCycleInput(const SbirsCycleInput& value);
+/** @brief 将原始输出帧编码为 FlatBuffers payload 字节串。 */
 std::string EncodeSbirsOutputFrame(const SbirsOutputFrame& value);
+/** @brief 将结构化周期结果编码为 FlatBuffers payload 字节串。 */
 std::string EncodeSbirsCycleResult(const SbirsCycleResult& value);
+/** @brief 将会话配置编码为 FlatBuffers payload 字节串。 */
 std::string EncodeSbirsSessionConfig(const config::SbirsSessionConfig& value);
+/** @brief 将 runtime patch 编码为 FlatBuffers payload 字节串。 */
 std::string EncodeSbirsRuntimeConfigPatch(const config::SbirsRuntimeConfigPatch& value);
+/** @brief 将 failure marker 编码为 FlatBuffers payload 字节串。 */
 std::string EncodeSbirsFailureMarker(const oneq::replay::ReplayTraceFailure& failure);
 
+/**
+ * @brief 解码单周期输入。
+ * @param[in] bytes payload 字节串
+ * @param[out] out 接收解码结果
+ * @return 解码成功返回 true，否则返回 false
+ */
 bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out);
+/**
+ * @brief 解码原始输出帧。
+ * @param[in] bytes payload 字节串
+ * @param[out] out 接收解码结果
+ * @return 解码成功返回 true，否则返回 false
+ */
 bool DecodeSbirsOutputFrame(const std::string& bytes, SbirsOutputFrame* out);
+/**
+ * @brief 解码结构化周期结果。
+ * @param[in] bytes payload 字节串
+ * @param[out] out 接收解码结果
+ * @return 解码成功返回 true，否则返回 false
+ */
 bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out);
+/**
+ * @brief 解码会话配置。
+ * @param[in] bytes payload 字节串
+ * @param[out] out 接收解码结果
+ * @return 解码成功返回 true，否则返回 false
+ */
 bool DecodeSbirsSessionConfig(const std::string& bytes, config::SbirsSessionConfig* out);
+/**
+ * @brief 解码 runtime patch。
+ * @param[in] bytes payload 字节串
+ * @param[out] out 接收解码结果
+ * @return 解码成功返回 true，否则返回 false
+ */
 bool DecodeSbirsRuntimeConfigPatch(const std::string& bytes, config::SbirsRuntimeConfigPatch* out);
+/**
+ * @brief 解码 failure marker。
+ * @param[in] bytes payload 字节串
+ * @param[out] failure 接收解码出的 failure marker
+ * @param[out] error 接收解码错误信息
+ * @return 解码成功返回 true，否则返回 false 并写入 error
+ */
 bool DecodeSbirsFailureMarker(const std::string& bytes, oneq::replay::ReplayTraceFailure* failure,
                               std::string* error);
 

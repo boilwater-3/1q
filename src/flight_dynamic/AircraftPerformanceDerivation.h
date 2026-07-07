@@ -23,28 +23,30 @@ namespace flight_dynamic {
  * helper 仅做纯计算，不接触 property tree / JSBSim。
  */
 struct PerformanceDerivationInputs {
-  double weight_lbs;        ///< 重量（lbs）。
-  double wing_area_ft2;     ///< 机翼面积（ft²）。
-  double wingspan_ft;       ///< 翼展（ft）。
-  bool is_turboprop;        ///< 是否涡桨（调用方据发动机类型判定）。
-  bool has_cl_max_override; ///< cl_max_override 是否有效。
-  double cl_max_override;   ///< 可选 CLmax override（如 XML 节点）；has_cl_max_override 为真时才采用。
+  double weight_lbs;        /**< 重量（单位：lbs） */
+  double wing_area_ft2;     /**< 机翼面积（单位：ft²） */
+  double wingspan_ft;       /**< 翼展（单位：ft） */
+  bool is_turboprop;        /**< 是否涡桨（调用方据发动机类型判定） */
+  bool has_cl_max_override; /**< cl_max_override 是否有效 */
+  double cl_max_override;   /**< 可选 CLmax override（如 XML 节点）；has_cl_max_override 为真时才采用 */
 };
 
 /**
  * @brief 飞机性能推导结果。
  */
 struct PerformanceDerivationResult {
-  double cl_max;       ///< 选定的 CLmax（含 override 与 planform 检测）。
-  double v_stall_ftps; ///< 海平面/给定 ρ 下的失速速度（ft/s）；输入非法时为 0。
+  double cl_max;       /**< 选定的 CLmax（含 override 与 planform 检测） */
+  double v_stall_ftps; /**< 海平面/给定 ρ 下的失速速度（单位：ft/s）；输入非法时为 0 */
 };
 
-// CLmax 默认值（planform 物理参数，非控制调参）。
-constexpr double kClMaxTakeoffDefault = 1.6;      ///< 干净机翼 / 简单襟翼。
-constexpr double kClMaxTakeoffTurboprop = 2.0;    ///< 高升力机翼，起飞襟翼 ≥33%。
-constexpr double kClMaxTakeoffDeltaWing = 2.5;    ///< 高 AoA 涡升力。
+/** @brief CLmax 默认值（planform 物理参数，非控制调参）：干净机翼 / 简单襟翼。 */
+constexpr double kClMaxTakeoffDefault = 1.6;
+/** @brief CLmax 默认值：高升力机翼，起飞襟翼 ≥33%。 */
+constexpr double kClMaxTakeoffTurboprop = 2.0;
+/** @brief CLmax 默认值：高 AoA 涡升力。 */
+constexpr double kClMaxTakeoffDeltaWing = 2.5;
 
-// delta 翼检测阈值：展弦比 = 翼展²/面积，AR < 2.5 为 delta / 低 AR 翼型。
+/** @brief delta 翼检测阈值：展弦比 = 翼展²/面积，AR < 2.5 为 delta / 低 AR 翼型。 */
 constexpr double kDeltaWingArThreshold = 2.5;
 
 /**
@@ -55,7 +57,7 @@ constexpr double kDeltaWingArThreshold = 2.5;
  *   kClMaxTakeoffDeltaWing；其余用 kClMaxTakeoffDefault。
  *   （delta 检测优先于 turboprop，与既有 EngineManager 行为一致。）
  *
- * @param inputs 推导输入。
+ * @param[in] inputs 推导输入。
  * @return 选定的 CLmax。
  */
 double SelectClMax(const PerformanceDerivationInputs& inputs);
@@ -66,8 +68,8 @@ double SelectClMax(const PerformanceDerivationInputs& inputs);
  * CLmax 由 SelectClMax 选定；V_stall 使用调用方传入的 rho_slugs_ft3。
  * helper 不固定 ρ 来源，以保留各调用方现状。
  *
- * @param inputs         推导输入。
- * @param rho_slugs_ft3  空气密度（slugs/ft³），由调用方提供。
+ * @param[in] inputs 推导输入。
+ * @param[in] rho_slugs_ft3 空气密度（单位：slugs/ft³），由调用方提供。
  * @return 推导结果；当输入非法（weight/area/ρ 非正）时 v_stall_ftps 为 0。
  */
 PerformanceDerivationResult DeriveStallAndWingLoading(const PerformanceDerivationInputs& inputs,

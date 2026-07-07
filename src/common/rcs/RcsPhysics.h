@@ -42,28 +42,48 @@ struct TreeScattererState {
 
 /**
  * @brief 圆柱体 RCS 近似（公式 4.1.9）。
+ * @param[in] radius_m 圆柱半径（单位：m）。
+ * @param[in] wavenumber_k0 自由空间波数 k0。
+ * @return 圆柱体 RCS（单位：m^2）。
  */
 float ComputeCylinderRcs(float radius_m, float wavenumber_k0);
 
 /**
  * @brief 圆柱体双角散射 RCS 近似（公式 4.3.22）。
+ * @param[in] wavenumber_k0 自由空间波数 k0。
+ * @param[in] radius_m 圆柱半径（单位：m）。
+ * @param[in] psi_i_deg 入射角（单位：deg）。
+ * @param[in] psi_s_deg 散射角（单位：deg）。
+ * @param[in] phi_deg 方位角差（单位：deg）。
+ * @return 双站圆柱体 RCS（单位：m^2）。
  */
 float ComputeBistaticCylinderRcs(float wavenumber_k0, float radius_m, float psi_i_deg,
                                  float psi_s_deg, float phi_deg);
 
 /**
  * @brief 平面散射 RCS 近似（公式 7.4.3）。
+ * @param[in] wavenumber_k0 自由空间波数 k0。
+ * @param[in] radius_m 平面圆盘半径（单位：m）。
+ * @param[in] theta_deg 入射角（单位：deg）。
+ * @return 平面 RCS（单位：m^2）。
  */
 float ComputePlanarPlateRcs(float wavenumber_k0, float radius_m, float theta_deg);
 
 /**
  * @brief REOS 对齐入口：计算叶片相位矩阵。
+ * @param[in] leaf_size_m 叶片特征尺寸（单位：m）。
+ * @param[in] dielectric_constant_real 介电常数实部。
+ * @param[in] incidence_deg 入射角（单位：deg）。
+ * @param[in] scatter_deg 散射角（单位：deg）。
+ * @return 2x2 叶片相位矩阵。
  */
 LeafPhaseMatrices compute_leaf_phase_matrices(float leaf_size_m, float dielectric_constant_real,
                                               float incidence_deg, float scatter_deg);
 
 /**
  * @brief 初始化树体散射器。
+ * @param[in] config 树体散射器初始化参数（叶片数、冠层半径/高度）。
+ * @return 随机生成的叶片方位/俯仰序列状态。
  */
 TreeScattererState InitializeTreeScatterer(const TreeScattererConfig& config);
 

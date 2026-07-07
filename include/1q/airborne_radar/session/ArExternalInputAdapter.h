@@ -1,8 +1,8 @@
 /**
  * @file ArExternalInputAdapter.h
- * @brief AR module primary external input adaptation types.
+ * @brief 机载雷达外部输入适配类型集合。
  *
- * Primary header for external input adaptation.
+ * 外部坐标系输入适配（平台位姿、目标转换）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_EXTERNAL_INPUT_ADAPTER_H_

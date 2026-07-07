@@ -1,8 +1,8 @@
 /**
  * @file ArRuntimeConfigPatch.h
- * @brief AR module primary runtime configuration patch types.
+ * @brief 机载雷达运行期配置补丁类型集合。
  *
- * Primary header for runtime configuration patches.
+ * 运行期可变参数补丁的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_RUNTIME_CONFIG_PATCH_H_

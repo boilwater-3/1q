@@ -15,15 +15,34 @@ namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 
+/**
+ * @brief 启发式计算控制配置对信号项的合成增益调整（单位：dB）。
+ * @param[in] cfg 控制效果配置（提供 LPI/自适应波束信号增益系数）。
+ * @param[in] control_profile 当前控制真值。
+ * @return 合成的信号项 dB 增量（可正可负，未启用任何相关模式时为 0）。
+ */
 float ComputeHeuristicSignalAdjustmentDb(
     const ::airborne_radar::config::execution::ControlProfileEffectsConfig& cfg,
     const session::ArControlProfile& control_profile);
 
+/**
+ * @brief 启发式计算控制配置对干扰环境的缓解量（单位：dB）。
+ * @param[in] cfg 干扰效果配置。
+ * @param[in] control_profile 当前控制真值。
+ * @param[in] environment_snapshot 环境快照（多源干扰信息）。
+ * @return 缓解后的等效 dB 减免量；不存在多源干扰事实时返回 0。
+ */
 float ComputeHeuristicEnvironmentReliefDb(
     const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
     const session::ArControlProfile& control_profile,
     const session::EnvironmentSnapshot& environment_snapshot);
 
+/**
+ * @brief 将控制真值（LPI、ECCM、自适应波束等）就地叠加到运行时配置。
+ * @param[in] control_profile 当前控制真值。
+ * @param[in,out] config 待修改的运行时配置指针。
+ * @note 当 config 为 nullptr 时直接返回，不做任何处理。
+ */
 void ApplyControlProfileToConfig(const session::ArControlProfile& control_profile,
                                  ExecutionConfig* config);
 

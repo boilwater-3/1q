@@ -1,8 +1,8 @@
 /**
  * @file ArPolicyConfig.h
- * @brief AR module primary policy configuration type.
+ * @brief 机载雷达策略域主配置类型。
  *
- * Primary header for policy domain configuration.
+ * 策略域（波束调度、关联、跟踪、生命周期）配置的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_POLICY_CONFIG_H_

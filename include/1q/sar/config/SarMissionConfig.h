@@ -14,11 +14,14 @@
 namespace sar {
 namespace config {
 
+/**
+ * @brief L3 BP 逐脉冲聚焦所需的多航点（waypoint）配置项。
+ */
 struct ONEQ_API SarWaypointConfig {
-  double time_from_session_start_s{0.0};
-  double latitude_deg{0.0};
-  double longitude_deg{0.0};
-  double altitude_m{0.0};
+  double time_from_session_start_s{0.0}; /**< 相对会话起始的时刻（s） */
+  double latitude_deg{0.0};              /**< 纬度（deg） */
+  double longitude_deg{0.0};             /**< 经度（deg） */
+  double altitude_m{0.0};                /**< 海拔高度（m） */
 };
 
 using SarWaypointConfigList = std::vector<SarWaypointConfig>;

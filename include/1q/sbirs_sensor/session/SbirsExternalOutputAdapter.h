@@ -14,6 +14,11 @@
 namespace sbirs_sensor {
 namespace session {
 
+/**
+ * @brief 统计输出帧中的检测记录数量。
+ * @param[in] frame 输出帧
+ * @return 检测记录条数
+ */
 ONEQ_API std::size_t CountSbirsDetections(const SbirsOutputFrame& frame);
 
 }  // namespace session

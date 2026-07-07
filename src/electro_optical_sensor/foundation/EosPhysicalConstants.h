@@ -10,7 +10,7 @@ namespace electro_optical_sensor {
 namespace foundation {
 namespace constants {
 
-constexpr float kPi = 3.14159265358979323846f;
+constexpr float kPi = 3.14159265358979323846f; /**< 圆周率常量（float 精度） */
 
 }  // namespace constants
 }  // namespace foundation

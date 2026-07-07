@@ -1,8 +1,8 @@
 /**
  * @file ArRuntimeConfigBuilder.h
- * @brief AR module primary runtime patch builder type.
+ * @brief 机载雷达运行期配置补丁链式构造器。
  *
- * Primary header for runtime patch builder.
+ * 运行期补丁构造器的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_RUNTIME_CONFIG_BUILDER_H_

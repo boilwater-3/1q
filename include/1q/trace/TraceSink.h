@@ -48,12 +48,34 @@ class ONEQ_API TraceSink {
  */
 class ONEQ_API FlatbufferFileTraceSink final : public TraceSink {
  public:
+  /**
+   * @brief 打开目标文件并准备追加 FlatBuffers 帧。
+   * @param[in] file_path 输出文件路径。
+   * @param[in] append 为 true 时以追加模式打开，为 false 时截断已存在文件（默认追加）。
+   * @note 以二进制模式打开文件；若打开失败仅记录日志，不抛出异常，后续 Record 写入会被静默丢弃。
+   */
   explicit FlatbufferFileTraceSink(std::string file_path, bool append = true);
 
+  /**
+   * @brief 写入一条记录，序列化为 FlexBuffers map 并以小端 uint32 长度前缀的帧落盘。
+   * @param[in] module 模块标识。
+   * @param[in] phase 记录阶段，例如 config/input/output。
+   * @param[in] payload_json 已构造好的 JSON 对象文本。
+   * @note 线程安全：内部通过 mutex_ 互斥串行化每次写入；每次写入后立即 flush。
+   *       文件未打开或帧过大时仅记录日志并静默丢弃，不抛出异常。
+   */
   void Record(const std::string& module, const std::string& phase,
               const std::string& payload_json) override;
 
+  /**
+   * @brief 返回构造时传入的输出文件路径。
+   * @return 输出文件路径。
+   */
   const std::string& file_path() const;
+  /**
+   * @brief 判断底层文件流是否处于打开状态。
+   * @return 文件已打开返回 true，否则返回 false。
+   */
   bool is_open() const;
 
  private:

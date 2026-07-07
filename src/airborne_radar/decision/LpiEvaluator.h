@@ -34,8 +34,8 @@ class LpiEvaluator final {
 
   /**
    * @brief 基于威胁来源信息生成 LPI 战术提案。
-   * @param lpi_source_info  ThreatAssessment 输出的 LPI 威胁来源信息
-   * @param proposals        [out] 追加 LPI 提案
+   * @param[in] lpi_source_info  ThreatAssessment 输出的 LPI 威胁来源信息
+   * @param[out] proposals        追加 LPI 提案的输出列表
    * @return 本评估周期的 LPI 评估结果
    */
   Result Evaluate(const model::LpiSourceInfo& lpi_source_info,
@@ -50,7 +50,7 @@ class LpiEvaluator final {
    * - 中距离 + 中速 → 适度降功率（中等比例）
    * - 远距离 + 低速 → 保守降功率或保持
    *
-   * @param info LPI 威胁来源信息
+   * @param[in] info LPI 威胁来源信息
    * @return 功率比例 [0, 1]，值越低代表功率压得越低
    */
   float ComputePowerScale(const model::LpiSourceInfo& info) const;

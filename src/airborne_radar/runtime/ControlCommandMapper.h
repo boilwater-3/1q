@@ -33,8 +33,9 @@ class ControlCommandMapper {
  public:
   /**
    * @brief 构造 mapper，所有依赖均为外部生命周期管理。
-   * @param control_reducer  控制归并器引用。
-   * @param radar_context    内部上下文，用于提交命令并更新 profile。
+   * @param[in] control_reducer  控制归并器引用。
+   * @param[in] radar_context    内部上下文，用于提交命令并更新 profile。
+   * @note 传入的引用须在 mapper 生命周期内保持有效，mapper 不持有其所有权。
    */
   ControlCommandMapper(decision::ControlReducer& control_reducer,
                        session::MutableArContext& radar_context);
@@ -44,8 +45,8 @@ class ControlCommandMapper {
    *
    * 调用后 *current_profile 更新为归并结果，radar_context 已收到所有命令和新 profile。
    *
-   * @param current_profile 当前控制真值指针，调用后被写入归并后的新值。
-   * @param proposals       本周期战术 proposal 列表。
+   * @param[in,out] current_profile 当前控制真值指针，调用后被写入归并后的新值。
+   * @param[in] proposals       本周期战术 proposal 列表。
    * @return 归并结果（包含新 profile、采纳与拒绝的 directives）。
    */
   extension::ControlReductionResult Apply(

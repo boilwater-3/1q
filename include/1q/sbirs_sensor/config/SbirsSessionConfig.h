@@ -15,11 +15,15 @@
 namespace sbirs_sensor {
 namespace config {
 
+/**
+ * @brief SBIRS-inspired 会话初始化配置，聚合硬件、任务、策略、环境四域配置。
+ * @note 纯数据类型 (POD)，是构造 `SbirsSession` 的主要输入。
+ */
 struct ONEQ_API SbirsSessionConfig {
-  SbirsHardwareConfig hardware{};
-  SbirsMissionConfig mission{};
-  SbirsPolicyConfig policy{};
-  SbirsEnvironmentConfig environment{};
+  SbirsHardwareConfig hardware{};       /**< 传感器硬件参数 */
+  SbirsMissionConfig mission{};         /**< 任务与视场参数 */
+  SbirsPolicyConfig policy{};           /**< 检测/误差/调度策略 */
+  SbirsEnvironmentConfig environment{}; /**< 环境与气象衰减参数 */
 };
 
 }  // namespace config

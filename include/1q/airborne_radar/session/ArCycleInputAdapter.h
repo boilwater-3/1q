@@ -1,8 +1,8 @@
 /**
  * @file ArCycleInputAdapter.h
- * @brief AR module primary one-step cycle input builder.
+ * @brief 机载雷达单步周期输入适配器。
  *
- * Primary header for cycle input adaptation.
+ * 周期输入坐标适配（一步构建 ArCycleInput）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CYCLE_INPUT_ADAPTER_H_

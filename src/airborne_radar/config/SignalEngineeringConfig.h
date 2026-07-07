@@ -31,12 +31,23 @@ using DetectionConfig = detection::DetectionConfig;
 // Tracking domain type — 1:1 alias to public tracking:: type (extends P9+P10 pattern).
 using TrackingConfig = tracking::TrackingConfig;
 
+/**
+ * @brief 航迹生命周期判定的核心计数参数 (POD)。
+ *
+ * 与 signal::tracking::LifecycleConfig 字段一一对应，描述候选轨迹晋升为
+ * 已确认、转入丢失态以及最终回收所需的命中/失配计数门限。
+ */
 struct LifecycleConfig {
   std::uint32_t confirm_hits{3};
   std::uint32_t max_miss_before_lost{2};
   std::uint32_t max_lost_cycles{5};
 };
 
+/**
+ * @brief 生命周期运行态配置 (POD)，组合基础计数参数与 IMM 融合开关。
+ * @note enable_imm_lifecycle 为 true 时要求上层 kalman_update_backend 配置一致，
+ *       否则会在会话构建期触发校验失败。
+ */
 struct LifecycleRuntimeConfig {
   LifecycleConfig lifecycle_config{};
   bool enable_imm_lifecycle{false};

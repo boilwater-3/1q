@@ -11,6 +11,12 @@
 namespace airborne_radar {
 namespace environment {
 
+/**
+ * @brief 向下取整的整数除法（对负数结果向负无穷方向舍入）。
+ * @param[in] numerator 被除数。
+ * @param[in] denominator 除数（不可为零）。
+ * @return 向下取整后的整商。
+ */
 inline std::int64_t FloorDiv(std::int64_t numerator, std::int64_t denominator) {
   const std::int64_t quotient = numerator / denominator;
   const std::int64_t remainder = numerator % denominator;
@@ -20,6 +26,14 @@ inline std::int64_t FloorDiv(std::int64_t numerator, std::int64_t denominator) {
   return quotient;
 }
 
+/**
+ * @brief 由 Unix 时间戳（秒）推算当年内的儒略日序号（day-of-year）。
+ *
+ * 采用 Howard Hinnant 的 civil_from_days 算法将天换算为年/月/日，
+ * 再结合闰年判定累计当年 1 月 1 日起的天数。
+ * @param[in] unix_seconds 距 Unix 纪元（1970-01-01 00:00:00 UTC）的秒数。
+ * @return 当年内的天序号（1 月 1 日为 1）。
+ */
 inline std::int32_t ResolveDayOfYearFromUnixSeconds(std::int64_t unix_seconds) {
   const std::int64_t days_since_epoch = FloorDiv(unix_seconds, 86400);
   std::int64_t z = days_since_epoch + 719468;

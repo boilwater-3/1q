@@ -1,8 +1,8 @@
 /**
  * @file ArMissionConfig.h
- * @brief AR module primary mission configuration type.
+ * @brief 机载雷达任务域主配置类型。
  *
- * Primary header for mission domain configuration.
+ * 任务域配置（开关机、波束指向运行态等）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_MISSION_CONFIG_H_

@@ -12,13 +12,46 @@
 namespace sbirs_sensor {
 namespace session {
 
+/**
+ * @brief 单周期输入构造器，按链式调用累积各字段后构造 `SbirsCycleInput`。
+ * @note 未显式设置的字段保留默认值；`AddTarget` 可多次调用以累积多个目标。
+ */
 class ONEQ_API SbirsCycleInputBuilder {
  public:
+  /**
+   * @brief 设置周期序号。
+   * @param[in] cycle_index 周期序号
+   * @return 自身引用，支持链式调用
+   */
   SbirsCycleInputBuilder& WithCycleIndex(std::uint32_t cycle_index);
+  /**
+   * @brief 设置本周期步长。
+   * @param[in] dt_sec 步长，单位 s
+   * @return 自身引用，支持链式调用
+   */
   SbirsCycleInputBuilder& WithDeltaTimeSec(float dt_sec);
+  /**
+   * @brief 设置卫星 ECEF 位置并标记为已提供。
+   * @param[in] position_ecef_m 卫星位置，单位 m
+   * @return 自身引用，支持链式调用
+   */
   SbirsCycleInputBuilder& WithSatellitePosition(const SbirsVector3M& position_ecef_m);
+  /**
+   * @brief 设置周期环境输入。
+   * @param[in] environment 周期环境输入
+   * @return 自身引用，支持链式调用
+   */
   SbirsCycleInputBuilder& WithEnvironment(const SbirsEnvironmentInput& environment);
+  /**
+   * @brief 追加一个目标到场景列表。
+   * @param[in] target 场景目标
+   * @return 自身引用，支持链式调用
+   */
   SbirsCycleInputBuilder& AddTarget(const SbirsSceneTarget& target);
+  /**
+   * @brief 构造并返回累积的单周期输入。
+   * @return 已设置字段的 `SbirsCycleInput`
+   */
   SbirsCycleInput Build() const;
 
  private:

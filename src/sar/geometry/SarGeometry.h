@@ -45,31 +45,43 @@ struct StraightStripmapTrackConfig {
   std::uint32_t pulse_count{0U};
 };
 
+/**
+ * @brief L1 匀速直线条带轨迹叠加确定性扰动配置（运动补偿测试用）。
+ */
 struct PerturbedStripmapTrackConfig {
-  StraightStripmapTrackConfig ideal{};
-  LocalPoint initial_position_error_m{};
-  double velocity_error_stddev_x_mps{0.0};
-  double velocity_error_stddev_y_mps{0.0};
-  double velocity_error_stddev_z_mps{0.0};
-  std::uint32_t random_seed{0U};
+  StraightStripmapTrackConfig ideal{};   /**< 理想匀速直线轨迹 */
+  LocalPoint initial_position_error_m{}; /**< 初始位置误差（m） */
+  double velocity_error_stddev_x_mps{0.0}; /**< x 向速度误差标准差（m/s） */
+  double velocity_error_stddev_y_mps{0.0}; /**< y 向速度误差标准差（m/s） */
+  double velocity_error_stddev_z_mps{0.0}; /**< z 向速度误差标准差（m/s） */
+  std::uint32_t random_seed{0U};          /**< 确定性扰动随机种子 */
 };
 
+/**
+ * @brief 任意时刻的航点（waypoint）位置（L3 多航点轨迹用）。
+ */
 struct Waypoint {
-  double time_s{0.0};
-  LocalPoint position_m{};
+  double time_s{0.0};        /**< 相对会话起始的时刻（s） */
+  LocalPoint position_m{};   /**< 航点位置（m） */
 };
 
+/**
+ * @brief L3 多航点轨迹配置。
+ */
 struct WaypointTrackConfig {
-  std::vector<Waypoint> waypoints{};
-  std::vector<double> pulse_times_s{};
-  std::uint64_t first_pulse_id{0U};
+  std::vector<Waypoint> waypoints{};   /**< 航点序列（时间单调递增） */
+  std::vector<double> pulse_times_s{}; /**< 各脉冲对应的慢时间（s） */
+  std::uint64_t first_pulse_id{0U};    /**< 首个脉冲 ID */
 };
 
+/**
+ * @brief 扰动轨迹相对理想轨迹的误差诊断。
+ */
 struct TrajectoryErrorDiagnostics {
-  double max_position_error_m{0.0};
-  double rms_position_error_m{0.0};
-  double max_velocity_error_mps{0.0};
-  double rms_velocity_error_mps{0.0};
+  double max_position_error_m{0.0};      /**< 最大位置误差（m） */
+  double rms_position_error_m{0.0};      /**< RMS 位置误差（m） */
+  double max_velocity_error_mps{0.0};    /**< 最大速度误差（m/s） */
+  double rms_velocity_error_mps{0.0};    /**< RMS 速度误差（m/s） */
 };
 
 /**
@@ -79,19 +91,52 @@ struct FractionalPrfState {
   double carry_pulses{0.0};
 };
 
+/**
+ * @brief 生成 L1 匀速直线条带轨迹脉冲序列。
+ * @param[in] config 轨迹配置。
+ * @param[out] pulses 输出脉冲序列。
+ * @return 成功返回 true，失败返回 false。
+ */
 bool GenerateStraightStripmapTrack(const StraightStripmapTrackConfig& config,
                                    std::vector<PlatformPulseState>* pulses);
 
+/**
+ * @brief 生成叠加确定性扰动的条带轨迹脉冲序列，并回填误差诊断。
+ * @param[in] config 含理想轨迹与扰动参数的配置。
+ * @param[out] pulses 输出含扰动的脉冲序列。
+ * @param[out] diagnostics 扰动相对理想轨迹的误差诊断。
+ * @return 成功返回 true，失败返回 false。
+ */
 bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
                                     std::vector<PlatformPulseState>* pulses,
                                     TrajectoryErrorDiagnostics* diagnostics);
 
+/**
+ * @brief 由航点序列插值生成 L3 多航点轨迹脉冲序列。
+ * @param[in] config 航点轨迹配置。
+ * @param[out] pulses 输出脉冲序列。
+ * @return 成功返回 true，失败返回 false。
+ */
 bool GenerateWaypointTrack(const WaypointTrackConfig& config,
                            std::vector<PlatformPulseState>* pulses);
 
+/**
+ * @brief 按周期步长与 PRF 推进 fractional PRF 状态并返回本周期发射脉冲数。
+ * @param[in] dt_s 周期步长（s）。
+ * @param[in] prf_hz 脉冲重复频率（Hz）。
+ * @param[in,out] state fractional PRF 累积状态，调用后更新。
+ * @param[out] emitted_pulses 本周期应发射的脉冲数。
+ * @return 成功返回 true，失败返回 false。
+ */
 bool AdvanceFractionalPrf(double dt_s, double prf_hz, FractionalPrfState* state,
                           std::uint32_t* emitted_pulses);
 
+/**
+ * @brief 计算两点间的欧氏距离。
+ * @param[in] a 点 A。
+ * @param[in] b 点 B。
+ * @return 距离（m）。
+ */
 double Distance(const LocalPoint& a, const LocalPoint& b);
 
 // ────────────────────────────────────────────────────────────
@@ -109,7 +154,15 @@ double Sinc(double x);
  */
 class DeterministicGaussianSampler {
  public:
+  /**
+   * @brief 用给定随机种子构造采样器。
+   * @param[in] seed 随机种子（相同 seed 产生相同序列）。
+   */
   explicit DeterministicGaussianSampler(std::uint32_t seed);
+  /**
+   * @brief 采样一个标准正态分布随机数。
+   * @return 采样值。
+   */
   double Sample();
 
  private:

@@ -23,12 +23,12 @@ namespace session {
  * @brief ESR 运行期补丁应用状态码。
  */
 enum class EsrRuntimeConfigApplyStatus {
-  kApplied = 0,
-  kNoRequestedUpdate,
-  kRejectedInvalidScanRate,
-  kRejectedInvalidScanCenterAz,
-  kRejectedInvalidScanCenterEl,
-  kRejectedInvalidExplicitScanBounds,
+  kApplied = 0,                         /**< 补丁已成功应用 */
+  kNoRequestedUpdate,                   /**< 补丁未请求任何更新 */
+  kRejectedInvalidScanRate,             /**< 因扫描数据率非法被拒绝 */
+  kRejectedInvalidScanCenterAz,         /**< 因扫描中心方位角非法被拒绝 */
+  kRejectedInvalidScanCenterEl,         /**< 因扫描中心俯仰角非法被拒绝 */
+  kRejectedInvalidExplicitScanBounds,   /**< 因显式扫描边界非法被拒绝 */
 };
 
 /**

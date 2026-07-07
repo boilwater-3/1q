@@ -56,13 +56,13 @@ ONEQ_API PropagationResult EvaluatePropagation(const PropagationInputs& inputs);
  * @brief 从大气状态和传感器参数构建 PropagationInputs。
  *
  * 消除各模块手工填充字段的重复代码。
- * @param frequency_hz 频率（Hz）
- * @param path_length_m 路径长度（m）
- * @param radar_altitude_m 雷达高度（m）
- * @param target_altitude_m 目标高度（m）
- * @param elevation_deg 仰角（deg）
- * @param observation 大气观测输入
- * @return 构造好的 PropagationInputs
+ * @param[in] frequency_hz 频率（单位：Hz）。
+ * @param[in] path_length_m 路径长度（单位：m）。
+ * @param[in] radar_altitude_m 雷达高度（单位：m）。
+ * @param[in] target_altitude_m 目标高度（单位：m）。
+ * @param[in] elevation_deg 仰角（单位：deg）。
+ * @param[in] observation 大气观测输入。
+ * @return 构造好的 PropagationInputs（has_space_weather_context 为 false）。
  */
 ONEQ_API PropagationInputs BuildPropagationInputs(
     float frequency_hz, float path_length_m, float radar_altitude_m,
@@ -70,13 +70,26 @@ ONEQ_API PropagationInputs BuildPropagationInputs(
     const AtmosphericObservation& observation);
 
 /**
- * @brief REOS 对齐入口：Blake 大气损耗。
+ * @brief REOS 对齐入口：Blake 大气损耗（单精度，转发到内部 r4 实现）。
+ * @param[in] altitude_m 雷达高度（单位：m）。
+ * @param[in] frequency_hz 雷达频率（单位：Hz）。
+ * @param[in] elevation_deg 传播仰角（单位：deg）。
+ * @param[in] range_m 传播距离（单位：m）。
+ * @param[in] k_factor 有效地球半径因子。
+ * @return Blake 双程大气损耗（单位：dB）。
  */
 ONEQ_API float BlakeAtmosphericLoss(float altitude_m, float frequency_hz,
                                     float elevation_deg, float range_m, float k_factor);
 
 /**
- * @brief REOS 对齐入口：折射率 n。
+ * @brief REOS 对齐入口：折射率 n（单精度，转发到内部 r4 实现）。
+ * @param[in] tc_celsius 摄氏温度（单位：°C）。
+ * @param[in] tk_kelvin 开氏温度（单位：K）。
+ * @param[in] pd_hpa 水汽分压（单位：hPa）。
+ * @param[in] p_hpa 总气压（单位：hPa）。
+ * @param[in] h_rel 相对湿度 [0, 1]。
+ * @param[in] water_or_ice 介质标志（水/冰），沿用 REOS 约定。
+ * @return 大气折射率 n。
  */
 ONEQ_API float RefractivityIndex(float tc_celsius, float tk_kelvin, float pd_hpa,
                                  float p_hpa, float h_rel, int water_or_ice);

@@ -1,8 +1,8 @@
 /**
  * @file ArOrientationConfig.h
- * @brief AR module primary orientation and scan configuration types.
+ * @brief 机载雷达方向与扫描相关主配置类型。
  *
- * Primary header for orientation, work mode, and scan configuration.
+ * 姿态、工作模式与扫描调度的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_ORIENTATION_CONFIG_H_

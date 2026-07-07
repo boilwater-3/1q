@@ -24,16 +24,16 @@ namespace imaging {
  * @brief 非相干平均类型。
  */
 enum class MultilookAverageType {
-  kAmplitude = 0,  ///< 幅度平均:mean(|z|)。对点目标峰值保持较好(默认)。
-  kPower = 1,      ///< 功率平均:sqrt(mean(|z|²))。功率域方差更小,降斑略优。
+  kAmplitude = 0,  /**< 幅度平均:mean(|z|)。对点目标峰值保持较好(默认)。 */
+  kPower = 1,      /**< 功率平均:sqrt(mean(|z|²))。功率域方差更小,降斑略优。 */
 };
 
 /**
  * @brief 多视配置。
  */
 struct MultilookConfig {
-  std::size_t azimuth_looks{1U};  ///< 方位视数(行向分块数),≥1
-  std::size_t range_looks{1U};    ///< 距离视数(列向分块数),≥1
+  std::size_t azimuth_looks{1U};  /**< 方位视数(行向分块数),≥1 */
+  std::size_t range_looks{1U};    /**< 距离视数(列向分块数),≥1 */
   MultilookAverageType average_type{MultilookAverageType::kAmplitude};
 };
 

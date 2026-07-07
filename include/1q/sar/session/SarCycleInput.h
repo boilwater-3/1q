@@ -70,18 +70,12 @@ struct ONEQ_API SarRawIqFrame {
   struct PulseState {
     std::uint64_t pulse_id{0U};
     double time_s{0.0};
-    /// 东向位置（m），相对 scene_center。
-    double position_x_m{0.0};
-    /// 北向位置（m），相对 scene_center。
-    double position_y_m{0.0};
-    /// 上向位置（m），相对 scene_center_altitude_m。
-    double position_z_m{0.0};
-    /// 东向速度（m/s）。
-    double velocity_x_mps{0.0};
-    /// 北向速度（m/s）。
-    double velocity_y_mps{0.0};
-    /// 上向速度（m/s）。
-    double velocity_z_mps{0.0};
+    double position_x_m{0.0};       /**< 东向位置（m），相对 scene_center */
+    double position_y_m{0.0};       /**< 北向位置（m），相对 scene_center */
+    double position_z_m{0.0};       /**< 上向位置（m），相对 scene_center_altitude_m */
+    double velocity_x_mps{0.0};     /**< 东向速度（m/s） */
+    double velocity_y_mps{0.0};     /**< 北向速度（m/s） */
+    double velocity_z_mps{0.0};     /**< 上向速度（m/s） */
   };
 
   std::uint32_t pulse_count{0U};

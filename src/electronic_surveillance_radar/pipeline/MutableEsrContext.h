@@ -23,22 +23,29 @@ class MutableEsrContext final {
 
   /**
    * @brief 使用周期输入和环境快照初始化上下文。
-   * @param input 周期输入。
-   * @param environment_snapshot 环境快照。
-   * @param pipeline_config 流水线配置。
-   * @param runtime_config 运行态配置。
+   * @param[in] input 周期输入。
+   * @param[in] environment_snapshot 环境快照。
+   * @param[in] pipeline_config 流水线配置。
+   * @param[in] runtime_config 运行态配置。
    */
   void BeginCycle(const session::EsrCycleInput& input,
                   const session::EsrEnvironmentSnapshot& environment_snapshot,
                   const extension::InterceptPipelineConfig& pipeline_config,
                   const extension::InterceptRuntimeConfig& runtime_config);
 
+  /** @brief 返回当前周期号。 */
   std::uint32_t GetCycleIndex() const;
+  /** @brief 返回当前周期步长（单位：s）。 */
   float GetCycleDeltaTimeSec() const;
+  /** @brief 返回侦察平台姿态状态的只读引用。 */
   const oneq::foundation::PoseState& GetPlatformPose() const;
+  /** @brief 返回场景辐射源输入列表的只读引用。 */
   const session::EsrSceneEmitterList& GetSceneEmitters() const;
+  /** @brief 返回当前周期环境快照的只读引用。 */
   const session::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const;
+  /** @brief 返回流水线配置的只读引用。 */
   const extension::InterceptPipelineConfig& GetPipelineConfig() const;
+  /** @brief 返回运行态配置的只读引用。 */
   const extension::InterceptRuntimeConfig& GetRuntimeConfig() const;
 
  private:

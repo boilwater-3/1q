@@ -18,7 +18,7 @@ namespace radiative_transfer {
  * @brief RadiativeTransferInputs 描述辐射传输评估输入。
  */
 struct RadiativeTransferInputs {
-  config::RadiativeTransferModel model{config::RadiativeTransferModel::kDerivedBeerLambert};
+  config::RadiativeTransferModel model{config::RadiativeTransferModel::kDerivedBeerLambert}; /**< 辐射传输模型类型 */
   float base_transmittance{0.85f};        /**< 基础大气透明度，范围 [0, 1] */
   float cloud_coverage_ratio{0.2f};       /**< 云量，范围 [0, 1] */
   float path_length_m{1000.0f};           /**< 路径长度（单位：m） */

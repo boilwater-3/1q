@@ -26,11 +26,25 @@ inline bool IsFinite(T value) {
   return std::isfinite(value) != 0;
 }
 
+/**
+ * @brief 判断数值是否为有限的 [0, 1] 比例值。
+ * @tparam T 数值类型。
+ * @param[in] value 输入数值。
+ * @return 有限且落在 [0, 1] 时返回 true。
+ */
 template <typename T>
 inline bool IsRatio01(T value) {
   return IsFinite(value) && value >= static_cast<T>(0) && value <= static_cast<T>(1);
 }
 
+/**
+ * @brief 构造定位信息（定位域 + 实体索引）。
+ * @tparam LocationT 定位结构类型。
+ * @tparam LocationKindT 定位域枚举类型。
+ * @param[in] kind 定位域。
+ * @param[in] entity_index 实体索引。
+ * @return 填充好的定位结构。
+ */
 template <typename LocationT, typename LocationKindT>
 inline LocationT MakeLocation(LocationKindT kind, std::size_t entity_index) {
   LocationT location;
@@ -39,6 +53,21 @@ inline LocationT MakeLocation(LocationKindT kind, std::size_t entity_index) {
   return location;
 }
 
+/**
+ * @brief 构造带定位与字段信息的结构化校验问题。
+ * @tparam IssueT 问题结构类型。
+ * @tparam LocationT 定位结构类型。
+ * @tparam SeverityT 严重级别枚举类型。
+ * @tparam CodeT 编码枚举类型。
+ * @tparam LocationKindT 定位域枚举类型。
+ * @param[in] severity 严重级别。
+ * @param[in] code 结构化问题编码。
+ * @param[in] location_kind 定位域。
+ * @param[in] entity_index 实体索引。
+ * @param[in] field 关联字段名。
+ * @param[in] message 面向调用方的简短说明。
+ * @return 构造后的问题结构。
+ */
 template <typename IssueT, typename LocationT, typename SeverityT, typename CodeT,
           typename LocationKindT>
 inline IssueT MakeLocatedIssue(SeverityT severity, CodeT code, LocationKindT location_kind,

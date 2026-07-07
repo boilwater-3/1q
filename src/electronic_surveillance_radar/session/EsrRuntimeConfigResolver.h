@@ -1,3 +1,8 @@
+/**
+ * @file EsrRuntimeConfigResolver.h
+ * @brief 解析 ESR 运行期补丁到内部执行态配置的统一更新计划。
+ */
+
 #ifndef ELECTRONIC_SURVEILLANCE_RADAR_SRC_SESSION_ESR_RUNTIME_CONFIG_RESOLVER_H_
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_SESSION_ESR_RUNTIME_CONFIG_RESOLVER_H_
 

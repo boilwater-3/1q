@@ -12,6 +12,11 @@
 namespace sbirs_sensor {
 namespace runtime {
 
+/**
+ * @brief 将 public 会话配置映射为 pipeline 内部执行配置。
+ * @param[in] config public 会话配置
+ * @return 内部执行配置
+ */
 config::SbirsInternalExecutionConfig MapSessionToInternal(const config::SbirsSessionConfig& config);
 
 }  // namespace runtime

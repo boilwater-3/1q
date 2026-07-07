@@ -1,8 +1,8 @@
 /**
  * @file ArCycleInput.h
- * @brief AR module primary cycle input type.
+ * @brief 机载雷达单周期输入类型。
  *
- * Primary header for cycle input.
+ * 周期输入（周期号、场景、平台位姿、步长）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CYCLE_INPUT_H_

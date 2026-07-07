@@ -1,8 +1,8 @@
 /**
  * @file ArTraceSession.h
- * @brief AR module primary trace session types.
+ * @brief 机载雷达 trace 记录会话类型。
  *
- * Primary header for trace sessions.
+ * trace 记录包装会话（调试/观测记录与 replay trace 写出）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_TRACE_SESSION_H_
@@ -54,6 +54,11 @@ struct ONEQ_API ArTraceSessionOptions {
  */
 class ONEQ_API ArTraceSession {
  public:
+  /**
+   * @brief 用四域配置与记录选项构造 trace 包装会话。
+   * @param[in] config 四域会话配置，透传给内部 ArSession。
+   * @param[in] options 记录器配置（sink / replay_writer / 是否记录配置）。
+   */
   explicit ArTraceSession(const config::ArSessionConfig& config = {},
                           ArTraceSessionOptions options = {});
 
@@ -65,17 +70,37 @@ class ONEQ_API ArTraceSession {
 
   ~ArTraceSession();
 
+  /**
+   * @brief 执行一个处理周期，同时记录输入与输出（行为同 ArSession::Step）。
+   * @param[in] input 当前周期输入。
+   * @return 当前周期生成的轨迹输出帧拷贝。
+   */
   TrackOutputFrame Step(const ArCycleInput& input);
+  /**
+   * @brief 执行一个处理周期并返回聚合结果，同时记录输入与输出（行为同 ArSession::StepWithResult）。
+   * @param[in] input 当前周期输入。
+   * @return 当前周期聚合结果。
+   */
   ArCycleResult StepWithResult(const ArCycleInput& input);
 
+  /**
+   * @brief 应用运行期可变配置补丁并记录（透传给内部 ArSession）。
+   * @param[in] patch 运行期可变配置补丁。
+   */
   void ApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 
+  /** @brief 获取当前周期已提交的控制指令（透传）。 */
   const std::vector<session::ArCommand>& GetSubmittedCommands() const;
+  /** @brief 判断是否已保存最新控制真值（透传）。 */
   bool HasLatestControlProfile() const;
+  /** @brief 获取最近一次控制真值（透传）。 */
   const session::ArControlProfile& GetLatestControlProfile() const;
+  /** @brief 获取最近一次关联质量观测指标（透传）。 */
   session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
 
+  /** @brief 获取被包装的底层 ArSession（可读写）。 */
   ArSession& session();
+  /** @brief 获取被包装的底层 ArSession（只读）。 */
   const ArSession& session() const;
 
  private:

@@ -1,3 +1,11 @@
+/**
+ * @file PropertyNames.h
+ * @brief 定义 JSBSim 属性树属性名常量，供 adapter/autopilot/guidance 等模块统一引用。
+ *
+ * @note 常量值为 JSBSim 属性路径字符串（如 "fcs/aileron-cmd-norm"），
+ *       修改这些字符串会直接改变对 JSBSim 属性树的读写目标。
+ */
+
 #ifndef ONEQ_FLIGHT_DYNAMIC_ADAPTER_PROPERTYNAMES_H_
 #define ONEQ_FLIGHT_DYNAMIC_ADAPTER_PROPERTYNAMES_H_
 

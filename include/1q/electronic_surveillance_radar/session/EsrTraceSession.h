@@ -59,11 +59,36 @@ class ONEQ_API EsrTraceSession {
   EsrTraceSession(EsrTraceSession&&) noexcept;
   EsrTraceSession& operator=(EsrTraceSession&&) noexcept;
 
+  /**
+   * @brief 执行单周期并返回输出帧，同时向已配置 sink/replay_writer 记录。
+   * @param[in] input 当前周期输入。
+   * @return 当前周期输出帧。
+   */
   EsrOutputFrame Step(const EsrCycleInput& input);
+
+  /**
+   * @brief 执行单周期并返回聚合结果，同时向已配置 sink/replay_writer 记录。
+   * @param[in] input 当前周期输入。
+   * @return 当前周期聚合结果。
+   */
   EsrCycleResult StepWithResult(const EsrCycleInput& input);
+
+  /**
+   * @brief 应用运行期可变配置补丁，并转发到内部 EsrSession。
+   * @param[in] patch 运行期补丁。
+   */
   void ApplyRuntimeConfig(const config::EsrRuntimeConfigPatch& patch);
 
+  /**
+   * @brief 获取内部 EsrSession 的可变引用。
+   * @return 内部会话引用。
+   */
   session::EsrSession& session();
+
+  /**
+   * @brief 获取内部 EsrSession 的只读引用。
+   * @return 内部会话常量引用。
+   */
   const session::EsrSession& session() const;
 
  private:

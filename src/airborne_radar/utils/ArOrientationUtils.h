@@ -19,12 +19,28 @@ namespace utils {
 
 
 
+/**
+ * @brief 3×3 单精度浮点矩阵 (POD)，行主序存储。
+ */
 struct Matrix3f {
   float m[3][3]{};
 };
 
+/**
+ * @brief 读取矩阵指定行列的元素。
+ * @param[in] matrix 输入矩阵。
+ * @param[in] row 行下标（0 基）。
+ * @param[in] col 列下标（0 基）。
+ * @return 该位置的元素值。
+ */
 inline float At(const Matrix3f& matrix, int row, int col) { return matrix.m[row][col]; }
 
+/**
+ * @brief 计算 3×3 矩阵乘积 lhs * rhs。
+ * @param[in] lhs 左操作矩阵。
+ * @param[in] rhs 右操作矩阵。
+ * @return 乘积矩阵。
+ */
 inline Matrix3f Multiply(const Matrix3f& lhs, const Matrix3f& rhs) {
   Matrix3f result;
   for (int row = 0; row < 3; ++row) {
@@ -38,6 +54,12 @@ inline Matrix3f Multiply(const Matrix3f& lhs, const Matrix3f& rhs) {
   return result;
 }
 
+/**
+ * @brief 由欧拉角 (yaw/pitch/roll) 构造旋转矩阵。
+ * @param[in] euler_deg 欧拉角输入（单位：度）。
+ * @return 对应的 3×3 旋转矩阵。
+ * @warning pitch 采用与内部几何模块一致的负号约定（取反后再转弧度）。
+ */
 inline Matrix3f BuildRotationMatrix(const config::EulerAnglesDeg& euler_deg) {
   const float yaw_rad = static_cast<float>(oneq::common::numerics::DegToRad(euler_deg.yaw_deg));
   // Keep the same pitch sign convention as the internal geometry module.
@@ -64,6 +86,11 @@ inline Matrix3f BuildRotationMatrix(const config::EulerAnglesDeg& euler_deg) {
   return rotation;
 }
 
+/**
+ * @brief 由旋转矩阵反解欧拉角 (yaw/pitch/roll)，与 BuildRotationMatrix 互逆。
+ * @param[in] rotation 输入旋转矩阵。
+ * @return 反解得到的欧拉角（单位：度）；pitch 分量在反解前裁剪到 [-1, 1] 防止数值越界。
+ */
 inline config::EulerAnglesDeg FromRotationMatrix(const Matrix3f& rotation) {
   config::EulerAnglesDeg euler_deg;
   const float r20 = std::max(-1.0f, std::min(1.0f, At(rotation, 2, 0)));

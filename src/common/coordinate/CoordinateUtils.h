@@ -1,3 +1,8 @@
+/**
+ * @file CoordinateUtils.h
+ * @brief 定义 coordinate 域与 foundation 域之间的轻量类型适配工具。
+ */
+
 #ifndef COMMON_COORDINATE_COORDINATE_UTILS_H_
 #define COMMON_COORDINATE_COORDINATE_UTILS_H_
 
@@ -10,6 +15,11 @@ namespace oneq {
 namespace common {
 namespace coordinate_utils {
 
+/**
+ * @brief 将 coordinate 域的 EulerAnglesDeg 转换为 foundation 域的同名类型。
+ * @param[in] attitude_deg coordinate 域欧拉角。
+ * @return foundation 域欧拉角。
+ */
 inline oneq::foundation::EulerAnglesDeg ToFoundationEuler(
     const oneq::coordinate::EulerAnglesDeg& attitude_deg) {
   oneq::foundation::EulerAnglesDeg output;
@@ -19,6 +29,11 @@ inline oneq::foundation::EulerAnglesDeg ToFoundationEuler(
   return output;
 }
 
+/**
+ * @brief 将 coordinate::Vector3d 转换为 foundation::Vector3f。
+ * @param[in] v coordinate 域三维向量。
+ * @return foundation 域三维向量。
+ */
 inline oneq::foundation::Vector3f ToFoundationVector(const oneq::coordinate::Vector3d& v) {
   oneq::foundation::Vector3f out;
   out.x = v.x;
@@ -27,6 +42,12 @@ inline oneq::foundation::Vector3f ToFoundationVector(const oneq::coordinate::Vec
   return out;
 }
 
+/**
+ * @brief 将 ENU 位置按局部姿态旋转到局部坐标系，并转换为 foundation::Vector3f。
+ * @param[in] enu ENU 位置。
+ * @param[in] local_attitude_deg 局部坐标系相对 ENU 的姿态角。
+ * @return 局部坐标系下的位置向量（foundation 域）。
+ */
 inline oneq::foundation::Vector3f RotateEnuPositionToLocal(
     const oneq::coordinate::EnuPositionM& enu,
     const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {
@@ -34,6 +55,12 @@ inline oneq::foundation::Vector3f RotateEnuPositionToLocal(
       oneq::coordinate::RotateEnuToLocal(enu.east_m, enu.north_m, enu.up_m, local_attitude_deg));
 }
 
+/**
+ * @brief 将 ENU 速度按局部姿态旋转到局部坐标系，并转换为 foundation::Vector3f。
+ * @param[in] enu ENU 速度。
+ * @param[in] local_attitude_deg 局部坐标系相对 ENU 的姿态角。
+ * @return 局部坐标系下的速度向量（foundation 域）。
+ */
 inline oneq::foundation::Vector3f RotateEnuVelocityToLocal(
     const oneq::coordinate::EnuVelocityMps& enu,
     const oneq::coordinate::EulerAnglesDeg& local_attitude_deg) {

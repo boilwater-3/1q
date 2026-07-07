@@ -56,10 +56,10 @@ enum class ONEQ_API EosCoordinateStatus {
 
 /**
  * @brief 将外部平台运动学输入转换为 EOS 平台位姿。
- * @param input 外部平台输入，位置与速度固定为 ECEF 坐标系。
- * @param reference EOS 局部坐标参考系，决定 ECEF/ENU 到 EOS 局部坐标的转换基准。
- * @param pose 输出平台位姿。
- * @param status 可选输出状态，nullptr 表示不关心失败原因。
+ * @param[in] input 外部平台输入，位置与速度固定为 ECEF 坐标系。
+ * @param[in] reference EOS 局部坐标参考系，决定 ECEF/ENU 到 EOS 局部坐标的转换基准。
+ * @param[out] pose 输出平台位姿。
+ * @param[out] status 可选输出状态，nullptr 表示不关心失败原因。
  * @return 转换成功返回 true；输入非法、坐标变换失败或输出为空返回 false。
  */
 ONEQ_API bool TryMakeEosPoseFromExternalKinematics(
@@ -68,12 +68,12 @@ ONEQ_API bool TryMakeEosPoseFromExternalKinematics(
 
 /**
  * @brief 两步模式第二步：将外部目标输入转换为 EOS 场景目标状态。
- * @param target_id 目标标识。
- * @param input 外部目标输入。
- * @param reference EOS 局部坐标参考系。
- * @param platform_pose 平台位姿，用于计算目标相对平台的几何关系。
- * @param target 输出目标状态。
- * @param status 可选输出状态，nullptr 表示不关心失败原因。
+ * @param[in] target_id 目标标识。
+ * @param[in] input 外部目标输入。
+ * @param[in] reference EOS 局部坐标参考系。
+ * @param[in] platform_pose 平台位姿，用于计算目标相对平台的几何关系。
+ * @param[out] target 输出目标状态。
+ * @param[out] status 可选输出状态，nullptr 表示不关心失败原因。
  * @return 转换成功返回 true；输入非法、坐标变换失败或输出为空返回 false。
  */
 ONEQ_API bool TryMakeEosSceneTargetFromExternalInput(

@@ -14,6 +14,11 @@
 namespace sbirs_sensor {
 namespace session {
 
+/**
+ * @brief 装配并返回默认依赖图的控制器实例。
+ * @param[in] config 会话配置
+ * @return 装配好的 `SbirsController`
+ */
 std::unique_ptr<runtime::SbirsController> CreateSbirsController(
     const config::SbirsSessionConfig& config);
 

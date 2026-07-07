@@ -1,8 +1,8 @@
 /**
  * @file ArSceneTypes.h
- * @brief AR module primary scene entity input types.
+ * @brief 机载雷达场景实体输入类型集合。
  *
- * Primary header for scene entity input types.
+ * 场景目标输入的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_SCENE_TYPES_H_

@@ -1,8 +1,8 @@
 /**
  * @file ArEnvironmentConfig.h
- * @brief AR module primary environment configuration types.
+ * @brief 机载雷达环境域主配置类型集合。
  *
- * Primary header for environment domain configuration.
+ * 环境域配置（气象、空间天气、植被散射、干扰源事实）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_ENVIRONMENT_CONFIG_H_

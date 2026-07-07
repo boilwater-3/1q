@@ -42,24 +42,24 @@ struct ScanBurstPulseRange {
  * 每个子带有自己的 Omega-K 物理参数(reference_range_m 取子带中心斜距)和 burst 列表。
  */
 struct ScanSarSubswathConfig {
-  OmegaKConfig omega_k{};                          ///< 该子带 Omega-K 参数
-  std::vector<ScanBurstPulseRange> burst_ranges{};  ///< 该子带各 burst 的脉冲区间
+  OmegaKConfig omega_k{};                          /**< 该子带 Omega-K 参数 */
+  std::vector<ScanBurstPulseRange> burst_ranges{};  /**< 该子带各 burst 的脉冲区间 */
 };
 
 /**
  * @brief ScanSAR 聚焦编排配置。
  */
 struct ScanSarFocusConfig {
-  std::vector<ScanSarSubswathConfig> subswaths{};  ///< N_swath 个子带配置
+  std::vector<ScanSarSubswathConfig> subswaths{};  /**< N_swath 个子带配置 */
 };
 
 /**
  * @brief 单子带聚焦结果(各 burst 拼接后的连续子图像)。
  */
 struct FocusedScanSarSubswath {
-  signal::ComplexMatrix image{};                   ///< burst 拼接后子图像
-  std::vector<OmegaKDiagnostics> burst_diagnostics{};  ///< 各 burst 诊断
-  std::vector<std::size_t> burst_azimuth_offsets{};    ///< 各 burst 在子图像中的方位行偏移
+  signal::ComplexMatrix image{};                   /**< burst 拼接后子图像 */
+  std::vector<OmegaKDiagnostics> burst_diagnostics{};  /**< 各 burst 诊断 */
+  std::vector<std::size_t> burst_azimuth_offsets{};    /**< 各 burst 在子图像中的方位行偏移 */
   bool valid{false};
 };
 
@@ -67,8 +67,7 @@ struct FocusedScanSarSubswath {
  * @brief ScanSAR 聚焦完整结果。
  */
 struct FocusedScanSarImage {
-  /// N_swath 个子带,每个子带是各 burst 拼接后的连续子图像。
-  std::vector<FocusedScanSarSubswath> subswaths{};
+  std::vector<FocusedScanSarSubswath> subswaths{}; /**< N_swath 个子带，每个子带是各 burst 拼接后的连续子图像 */
   std::string failure_stage{"none"};
 };
 

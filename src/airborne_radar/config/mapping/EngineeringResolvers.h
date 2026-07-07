@@ -17,6 +17,11 @@ namespace airborne_radar {
 namespace config {
 namespace mapping {
 
+/**
+ * @brief 将公开 LifecycleConfig 字段拷贝到 engineering 侧运行态配置。
+ * @param[in] lifecycle 会话侧的生命周期策略参数。
+ * @return 字段一一对应的 engineering::LifecycleRuntimeConfig。
+ */
 inline engineering::LifecycleRuntimeConfig ResolveLifecycleEngineering(
     const LifecycleConfig& lifecycle) {
   engineering::LifecycleRuntimeConfig resolved;
@@ -32,6 +37,8 @@ inline engineering::LifecycleRuntimeConfig ResolveLifecycleEngineering(
  *
  * 采用对数等间距分布：从精细（低运动噪声）到粗略（高运动噪声），
  * 确保 model_count_hint >= 2 时每个模型的系数区分度合理。
+ * @param[in] model_count_hint 期望的 IMM 模型数量提示，小于 2 时按 2 处理。
+ * @return 长度为实际模型数的差异系数向量，按运动噪声由低到高排列。
  */
 inline std::vector<float> BuildDefaultImmNoiseDiffCoeffs(
     std::uint32_t model_count_hint) {

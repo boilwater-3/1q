@@ -1,8 +1,8 @@
 /**
  * @file ArHardwareConfig.h
- * @brief AR module primary hardware configuration types.
+ * @brief 机载雷达硬件域主配置类型集合。
  *
- * Primary header for hardware domain configuration.
+ * 硬件域配置（探测链路物理参数、天线方向图、RCS 物理建模等）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_HARDWARE_CONFIG_H_

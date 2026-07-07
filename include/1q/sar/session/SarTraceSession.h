@@ -59,11 +59,33 @@ class ONEQ_API SarTraceSession {
   SarTraceSession(SarTraceSession&&) noexcept;
   SarTraceSession& operator=(SarTraceSession&&) noexcept;
 
+  /**
+   * @brief 执行单周期并返回聚合结果（同时写入 trace/replay 记录）。
+   * @param[in] input 单周期输入载荷。
+   * @return 单周期聚合结果。
+   */
   SarCycleResult StepWithResult(const SarCycleInput& input);
+  /**
+   * @brief 执行单周期并返回输出帧（同时写入 trace/replay 记录）。
+   * @param[in] input 单周期输入载荷。
+   * @return 单周期输出帧。
+   */
   SarOutputFrame Step(const SarCycleInput& input);
+  /**
+   * @brief 应用运行期可变配置补丁（透传至内部 SarSession）。
+   * @param[in] patch 运行期配置补丁。
+   */
   void ApplyRuntimeConfig(const config::SarRuntimeConfigPatch& patch);
 
+  /**
+   * @brief 访问内部 SarSession 引用。
+   * @return 内部会话引用。
+   */
   SarSession& session();
+  /**
+   * @brief 以只读方式访问内部 SarSession 引用。
+   * @return 内部会话 const 引用。
+   */
   const SarSession& session() const;
 
  private:

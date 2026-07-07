@@ -26,14 +26,14 @@ constexpr float kCovarianceFloor = 1.0e-6f;
 
 /**
  * @brief 安全的 log10 运算，输入钳制到下限。
- * @param value 输入值。
+ * @param[in] value 输入值。
  * @return 10 * log10(std::max(value, kLog10Floor))。
  */
 inline double SafeLog10(double value) { return 10.0 * std::log10(std::max(value, kLog10Floor)); }
 
 /**
  * @brief 安全的倒数运算，分母钳制到下限。
- * @param value 输入值。
+ * @param[in] value 输入值。
  * @return 1.0 / std::max(value, kNumericFloor)。
  */
 inline double SafeInverse(double value) { return 1.0 / std::max(value, kNumericFloor); }

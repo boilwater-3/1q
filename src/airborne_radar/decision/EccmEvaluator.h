@@ -27,9 +27,6 @@ class EccmEvaluator final {
   EccmEvaluator() = default;
 
   /**
-   * @brief ECCM 评估结果。
-   */
-  /**
    * @brief ECCM 实际激活来源。
    *
    * @note 该枚举反映「本周期真正达标的 proposal 来自哪条路径」，即**实际激活来源**，
@@ -47,6 +44,9 @@ class EccmEvaluator final {
     kAssociationPressure   /**< 由关联质量压力驱动评分达标而激活 */
   };
 
+  /**
+   * @brief ECCM 单周期评估结果，包含激活标志与实际激活来源。
+   */
   struct Result {
     bool eccm_activated{false}; /**< 本周期是否激活了任何 ECCM 措施 */
     ActivationSource activation_source{
@@ -61,9 +61,9 @@ class EccmEvaluator final {
    *   `TacticalCoordinator` 当前仅调用关联重载；本基础重载保留以兼容历史单元测试，
    *   新代码请勿使用。
    *
-   * @param eccm_source_info  环境干扰来源信息（has_jamming_signal + jammer_sources）
-   * @param hold_only         true 表示仅输出保守保底提案（持有期路径）
-   * @param proposals         [out] 追加 ECCM 提案
+   * @param[in] eccm_source_info  环境干扰来源信息（has_jamming_signal + jammer_sources）
+   * @param[in] hold_only         true 表示仅输出保守保底提案（持有期路径）
+   * @param[out] proposals        追加 ECCM 提案的输出列表
    * @return 本评估周期的 ECCM 评估结果
    */
   [[deprecated("生产路径已迁移到带 AssociationQualityInfo 的关联重载；"
@@ -78,10 +78,10 @@ class EccmEvaluator final {
    * 当环境未上报可信干扰源，但关联质量异常显示存在等效干扰压力时，
    * 直接根据干扰语义与强度推算 ECCM 评分，而非通过合成物理干扰源绕行。
    *
-   * @param eccm_source_info   环境干扰来源（has_jamming_signal 已置位，jammer_sources 可为空）
-   * @param association_quality 关联质量摘要，包含语义类型和强度
-   * @param hold_only           true 表示仅输出保守保底提案（持有期路径）
-   * @param proposals           [out] 追加 ECCM 提案
+   * @param[in] eccm_source_info   环境干扰来源（has_jamming_signal 已置位，jammer_sources 可为空）
+   * @param[in] association_quality 关联质量摘要，包含语义类型和强度
+   * @param[in] hold_only           true 表示仅输出保守保底提案（持有期路径）
+   * @param[out] proposals           追加 ECCM 提案的输出列表
    * @return 本评估周期的 ECCM 评估结果
    */
   Result Evaluate(const session::EccmSourceInfo& eccm_source_info,

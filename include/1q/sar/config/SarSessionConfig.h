@@ -19,12 +19,10 @@ namespace config {
  * @brief SAR 会话初始化高层输入。
  */
 struct ONEQ_API SarSessionConfig {
-  SarHardwareConfig hardware{};
-  SarMissionConfig mission{};
-  SarPolicyConfig policy{};
-  /// 保留域：environment 当前不进入计算链路，仅用于 replay/config 保真。
-  /// 详见 SarEnvironmentConfig 的保留域说明。
-  SarEnvironmentConfig environment{};
+  SarHardwareConfig hardware{};    /**< 传感器硬件与波形配置 */
+  SarMissionConfig mission{};      /**< 平台与场景任务配置 */
+  SarPolicyConfig policy{};        /**< 算法与运行策略配置 */
+  SarEnvironmentConfig environment{}; /**< 保留域：environment 当前不进入计算链路，仅用于 replay/config 保真。详见 SarEnvironmentConfig 的保留域说明 */
 };
 
 }  // namespace config

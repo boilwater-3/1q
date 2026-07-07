@@ -1,8 +1,8 @@
 /**
  * @file ArInputValidation.h
- * @brief AR module primary validation entry points for cycle inputs.
+ * @brief 机载雷达周期输入校验入口。
  *
- * Primary header for input validation.
+ * 周期输入静态校验的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_INPUT_VALIDATION_H_

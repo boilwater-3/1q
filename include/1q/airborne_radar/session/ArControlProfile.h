@@ -1,8 +1,8 @@
 /**
  * @file ArControlProfile.h
- * @brief AR module primary control profile state type.
+ * @brief 机载雷达控制 profile 状态类型。
  *
- * Primary header for control profile state.
+ * 下一周期生效的雷达控制状态的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CONTROL_PROFILE_H_

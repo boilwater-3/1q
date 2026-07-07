@@ -12,12 +12,24 @@
 namespace sbirs_sensor {
 namespace runtime {
 
+/**
+ * @brief runtime patch 解析结果。
+ * @note `is_valid` 表示 patch 是否合法；`has_requested_update` 表示是否产生实际更新；
+ *       仅当两者均为真时调用方才应采用 `resolved_config`。
+ */
 struct SbirsRuntimeConfigResolution {
-  bool is_valid{false};
-  bool has_requested_update{false};
-  config::SbirsSessionConfig resolved_config{};
+  bool is_valid{false};                        /**< patch 是否合法 */
+  bool has_requested_update{false};            /**< 是否产生实际更新 */
+  config::SbirsSessionConfig resolved_config{}; /**< 解析后的会话配置 */
 };
 
+/**
+ * @brief 校验 runtime patch 并在当前配置上叠加得到解析后的配置。
+ * @param[in] current_config 当前会话配置
+ * @param[in] patch 运行期配置补丁
+ * @return 解析结果（含合法性、是否更新与解析后配置）
+ * @note 该函数为纯计算，不修改输入；立即生效由调用方负责。
+ */
 SbirsRuntimeConfigResolution ResolveSbirsRuntimeConfigPatch(
     const config::SbirsSessionConfig& current_config, const config::SbirsRuntimeConfigPatch& patch);
 

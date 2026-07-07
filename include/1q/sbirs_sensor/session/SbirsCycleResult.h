@@ -15,21 +15,29 @@
 namespace sbirs_sensor {
 namespace session {
 
+/**
+ * @brief 单周期原始系统输出帧，属于三层输出模型的最底层主输出。
+ * @note 不携带目标真值或归属信息；`detections` 为 WFOV/NFOV 通道本周期检测记录。
+ */
 struct ONEQ_API SbirsOutputFrame {
-  std::uint32_t cycle_index{0U};
-  float scan_azimuth_deg{0.0f};
-  output::SbirsDetectionRecordList detections{};
+  std::uint32_t cycle_index{0U};              /**< 周期序号 */
+  float scan_azimuth_deg{0.0f};               /**< 本周期 WFOV 扫描方位角，单位 deg */
+  output::SbirsDetectionRecordList detections{}; /**< 检测记录列表 */
 };
 
+/**
+ * @brief 单周期结构化执行结果，是外部调用方通过 `StepWithResult()` 获取的主要产物。
+ * @note 输出帧、归属、校验、执行/中止状态分层携带。输入校验失败时可能复用上一有效输出。
+ */
 struct ONEQ_API SbirsCycleResult {
-  std::uint32_t input_cycle_index{0U};
-  SbirsOutputFrame output_frame{};
-  attribution::SbirsDetectionAttributionRecordList detection_attributions{};
-  ValidationIssueList validation_issues{};
-  bool has_validation_error{false};
-  bool executed_this_cycle{false};
-  bool reused_previous_output{false};
-  SbirsPipelineAbortReason abort_reason{SbirsPipelineAbortReason::kNone};
+  std::uint32_t input_cycle_index{0U};       /**< 对应输入周期序号 */
+  SbirsOutputFrame output_frame{};           /**< 原始系统输出帧 */
+  attribution::SbirsDetectionAttributionRecordList detection_attributions{}; /**< 检测归属列表 */
+  ValidationIssueList validation_issues{};   /**< 校验问题列表 */
+  bool has_validation_error{false};          /**< 是否存在校验级错误 */
+  bool executed_this_cycle{false};           /**< 本周期是否真正执行了流水线 */
+  bool reused_previous_output{false};        /**< 是否复用了上一有效输出 */
+  SbirsPipelineAbortReason abort_reason{SbirsPipelineAbortReason::kNone}; /**< 中止原因 */
 };
 
 }  // namespace session

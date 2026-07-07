@@ -36,14 +36,14 @@ class EnvironmentService final : public environment::IEnvironmentService {
  public:
   /**
    * @brief 使用配置构造环境模型。
-   * @param config 环境模型初始配置。
+   * @param[in] config 环境模型初始配置。
    */
   explicit EnvironmentService(const EnvironmentModelConfig& config = {});
   ~EnvironmentService() override;
 
   /**
    * @brief 冻结当前周期环境事实。
-   * @param cycle_context 当前周期上下文。
+   * @param[in] cycle_context 当前周期上下文。
    */
   void BeginCycle(const EnvironmentCycleContext& cycle_context) override;
 
@@ -55,7 +55,7 @@ class EnvironmentService final : public environment::IEnvironmentService {
 
   /**
    * @brief 更新待生效场景状态。
-   * @param scene_state 新的待生效场景状态。
+   * @param[in] scene_state 新的待生效场景状态。
    */
   void UpdateSceneState(const EnvironmentSceneState& scene_state) override;
 
@@ -67,18 +67,26 @@ class EnvironmentService final : public environment::IEnvironmentService {
 
   /**
    * @brief 更新环境模型配置。
-   * @param config 新的环境模型配置。
+   * @param[in] config 新的环境模型配置。
    */
   void UpdateModelConfig(const EnvironmentModelConfig& config) override;
 
   /**
    * @brief 设置干扰判定灵敏度语义档位。
-   * @param profile 干扰判定灵敏度语义档位。
+   * @param[in] profile 干扰判定灵敏度语义档位。
    */
   void SetJammingSensitivityProfile(JammingSensitivityProfile profile) override;
 
+  /**
+   * @brief 捕获当前环境服务运行态快照。
+   * @return 可用于失败回滚的环境运行态快照。
+   */
   environment::EnvironmentServiceRuntimeState CaptureRuntimeState() const override;
 
+  /**
+   * @brief 恢复此前捕获的环境服务运行态快照。
+   * @param[in] state 待恢复的环境运行态快照。
+   */
   void RestoreRuntimeState(const environment::EnvironmentServiceRuntimeState& state) override;
 
  private:

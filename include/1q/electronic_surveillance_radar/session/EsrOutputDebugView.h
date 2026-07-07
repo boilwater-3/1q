@@ -19,31 +19,40 @@ namespace session {
 // 前向声明：Build 参数为 const 引用，header 无需完整类型，避免拉入 EsrCycleInput 重依赖。
 struct EsrCycleInput;
 
+/**
+ * @brief EsrDebugEmitterStatus 表示单辐射源调试状态分类。
+ */
 enum class EsrDebugEmitterStatus {
-  kObserved = 0,
-  kNotObserved = 1,
-  kNotEmitting = 2,
-  kCycleNotExecuted = 3
+  kObserved = 0,        /**< 本周期被观测到且命中真值关联 */
+  kNotObserved = 1,     /**< 发射中但未命中观测/真值关联 */
+  kNotEmitting = 2,     /**< 辐射源本周期未发射 */
+  kCycleNotExecuted = 3 /**< 本周期未执行核心 pipeline */
 };
 
+/**
+ * @brief EsrDebugEmitterState 描述单个输入辐射源的调试状态。
+ */
 struct ONEQ_API EsrDebugEmitterState {
-  std::uint64_t emitter_id{0U};
-  std::string emitter_name{};
-  EsrDebugEmitterStatus status{EsrDebugEmitterStatus::kNotObserved};
-  bool present_in_input{false};
-  bool matched_observation{false};
-  std::uint64_t observation_id{0U};
-  float confidence{0.0f};
+  std::uint64_t emitter_id{0U};                              /**< 辐射源标识 */
+  std::string emitter_name{};                                /**< 辐射源名称，仅用于人读 */
+  EsrDebugEmitterStatus status{EsrDebugEmitterStatus::kNotObserved}; /**< 调试状态分类 */
+  bool present_in_input{false};                              /**< 是否出现在本周期输入中 */
+  bool matched_observation{false};                           /**< 是否命中真值关联观测 */
+  std::uint64_t observation_id{0U};                          /**< 命中观测记录标识（未命中为 0） */
+  float confidence{0.0f};                                    /**< 关联置信度，范围 [0, 1] */
 };
 
+/**
+ * @brief EsrOutputDebugView 描述单周期可读调试视图。
+ */
 struct ONEQ_API EsrOutputDebugView {
-  std::uint32_t input_cycle_index{0U};
-  std::uint32_t output_cycle_index{0U};
-  bool executed_this_cycle{false};
-  bool reused_previous_output{false};
-  bool has_validation_error{false};
-  session::EsrPipelineAbortReason abort_reason{session::EsrPipelineAbortReason::kNone};
-  std::vector<EsrDebugEmitterState> emitters{};
+  std::uint32_t input_cycle_index{0U};                                  /**< 输入周期号 */
+  std::uint32_t output_cycle_index{0U};                                 /**< 输出帧周期号 */
+  bool executed_this_cycle{false};                                      /**< 本周期是否执行了核心 pipeline */
+  bool reused_previous_output{false};                                   /**< 是否复用了上一有效输出 */
+  bool has_validation_error{false};                                     /**< 是否存在 error 级输入问题 */
+  session::EsrPipelineAbortReason abort_reason{session::EsrPipelineAbortReason::kNone}; /**< 周期终止原因 */
+  std::vector<EsrDebugEmitterState> emitters{};                         /**< 逐辐射源调试状态 */
 };
 
 /**

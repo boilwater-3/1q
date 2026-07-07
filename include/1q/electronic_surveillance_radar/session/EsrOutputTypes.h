@@ -22,10 +22,10 @@ namespace session {
  * @brief TruthAssociationRecord 表示观测记录与真值辐射源的评估关联。
  */
 struct ONEQ_API TruthAssociationRecord {
-  std::uint64_t observation_id{0U};
-  std::uint64_t truth_emitter_id{0U};
-  bool matched{false};
-  float confidence{0.0f};
+  std::uint64_t observation_id{0U};   /**< 观测记录标识 */
+  std::uint64_t truth_emitter_id{0U}; /**< 关联的真值辐射源标识 */
+  bool matched{false};                /**< 是否成功匹配真值辐射源 */
+  float confidence{0.0f};             /**< 关联置信度，范围 [0, 1] */
 };
 
 /** @brief TruthAssociationRecordList 表示评估关联记录列表。 */

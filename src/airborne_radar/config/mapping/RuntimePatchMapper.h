@@ -49,7 +49,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
 
 /**
  * @brief 将内部执行配置反向映射为四域会话配置。
- * @param execution_config 内部执行配置。
+ * @param[in] execution_config 内部执行配置。
  * @return 对应的四域会话配置。
  */
 config::ArSessionConfig MapExecutionToSession(
@@ -57,7 +57,7 @@ config::ArSessionConfig MapExecutionToSession(
 
 /**
  * @brief 将运行期状态映射为当前 pipeline 可消费的四域会话配置。
- * @param runtime_state 当前运行期状态。
+ * @param[in] runtime_state 当前运行期状态。
  * @return 已叠加运行期驻留偏移的四域会话配置。
  */
 config::ArSessionConfig MapRuntimeStateToPipelineSession(

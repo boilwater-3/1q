@@ -21,13 +21,13 @@ class SceneManager {
  public:
   /**
    * @brief 使用初始场景构造管理器。
-   * @param initial_scene 初始待生效场景。
+   * @param[in] initial_scene 初始待生效场景。
    */
   explicit SceneManager(const EnvironmentSceneState& initial_scene = {});
 
   /**
    * @brief 更新待生效场景。
-   * @param scene_state 新的待生效场景。
+   * @param[in] scene_state 新的待生效场景。
    */
   void UpdatePendingScene(const EnvironmentSceneState& scene_state);
 
@@ -45,7 +45,7 @@ class SceneManager {
 
   /**
    * @brief 提交待生效场景为当前周期冻结场景。
-   * @param cycle_context 当前周期上下文。
+   * @param[in] cycle_context 当前周期上下文。
    */
   void CommitPendingScene(const EnvironmentCycleContext& cycle_context);
 
@@ -63,9 +63,9 @@ class SceneManager {
 
   /**
    * @brief 恢复 active/pending 场景与 active 周期上下文。
-   * @param active_scene 目标 active 场景。
-   * @param pending_scene 目标 pending 场景。
-   * @param cycle_context 目标 active 周期上下文。
+   * @param[in] active_scene 目标 active 场景。
+   * @param[in] pending_scene 目标 pending 场景。
+   * @param[in] cycle_context 目标 active 周期上下文。
    */
   void RestoreState(const EnvironmentSceneState& active_scene,
                     const EnvironmentSceneState& pending_scene,

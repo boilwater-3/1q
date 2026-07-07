@@ -29,11 +29,22 @@ class ONEQ_API JsbsimAtmosphereAdapter : public IAtmosphereProvider {
  public:
   /**
    * @brief 从 JSBSim FDM 执行器构造大气适配器。
-   * @param fdm_exec JSBSim FDM 执行器引用（调用方保证生命周期）。
+   * @param[in] fdm_exec JSBSim FDM 执行器引用（调用方保证生命周期）。
+   * @note 适配器按引用持有 fdm_exec，不承担所有权；调用期间须保证其存活。
    */
   explicit JsbsimAtmosphereAdapter(const JSBSim::FGFDMExec& fdm_exec);
 
+  /**
+   * @brief 查询指定几何高度处的大气状态（从 JSBSim 大气模型读取并转换为 SI 单位）。
+   * @param[in] altitude_m 几何高度（单位：m，ASL）。
+   * @return 对应高度的大气状态。
+   */
   AtmosphericState GetState(float altitude_m) const override;
+
+  /**
+   * @brief 查询海平面大气状态。
+   * @return 海平面大气状态。
+   */
   AtmosphericState GetSeaLevelState() const override;
 
  private:

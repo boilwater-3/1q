@@ -1,8 +1,8 @@
 /**
  * @file ArExternalOutputAdapter.h
- * @brief AR module primary external output adaptation types.
+ * @brief 机载雷达外部输出适配类型集合。
  *
- * Primary header for external output adaptation.
+ * 外部输出适配（内部轨迹快照转 ECEF 运动学）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_EXTERNAL_OUTPUT_ADAPTER_H_

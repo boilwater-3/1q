@@ -1,8 +1,8 @@
 /**
  * @file ArSessionConfigBuilder.h
- * @brief AR module primary session config builder type.
+ * @brief 机载雷达会话配置链式构造器。
  *
- * Primary header for session config chain builder.
+ * 会话初始化配置链式构造器的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_SESSION_CONFIG_BUILDER_H_

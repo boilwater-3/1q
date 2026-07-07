@@ -19,6 +19,9 @@ using session::EnvironmentCycleContext;
 using session::EnvironmentSnapshot;
 using session::EnvironmentSceneState;
 
+/**
+ * @brief 环境服务运行态快照 (POD)，用于失败回滚等场景的整快照捕获/恢复。
+ */
 struct EnvironmentServiceRuntimeState {
   EnvironmentSceneState active_scene_state{};
   EnvironmentSceneState pending_scene_state{};
@@ -64,9 +67,9 @@ class IEnvironmentService {
   virtual void UpdateModelConfig(const EnvironmentModelConfig& config) = 0;
 
   /**
-    * @brief 设置干扰判定灵敏度语义档位。
-    * @param[in] profile 灵敏度语义档位。
-    */
+   * @brief 设置干扰判定灵敏度语义档位。
+   * @param[in] profile 灵敏度语义档位。
+   */
     virtual void SetJammingSensitivityProfile(JammingSensitivityProfile profile) = 0;
 
   /**
@@ -77,7 +80,7 @@ class IEnvironmentService {
 
   /**
    * @brief 恢复此前捕获的环境服务运行态快照。
-   * @param state 待恢复的环境运行态快照。
+   * @param[in] state 待恢复的环境运行态快照。
    */
   virtual void RestoreRuntimeState(const EnvironmentServiceRuntimeState& state) = 0;
 };

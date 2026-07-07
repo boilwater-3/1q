@@ -27,17 +27,17 @@ namespace extension {
  * @brief EosControllerRuntimeState 描述控制器运行态快照。
  */
 struct EosControllerRuntimeState {
-  const void* owner_identity{nullptr};
-  std::uint32_t schema_version{0U};
-  session::EosOutputFrame latest_output{};
-  attribution::EosDetectionAttributionRecordList latest_detection_attributions{};
-  session::ValidationIssueList last_validation_issues{};
-  bool has_latest_output{false};
-  bool has_validation_error{false};
-  bool last_cycle_executed{false};
-  bool last_cycle_reused_previous_output{false};
-  session::EosPipelineAbortReason last_abort_reason{session::EosPipelineAbortReason::kNone};
-  EosPipelineRuntimeState pipeline_state{};
+  const void* owner_identity{nullptr};       /**< 所有者实例身份（用于恢复时匹配原控制器） */
+  std::uint32_t schema_version{0U};          /**< 快照结构版本号 */
+  session::EosOutputFrame latest_output{};   /**< 最近一帧有效输出（失败周期可能复用上一帧） */
+  attribution::EosDetectionAttributionRecordList latest_detection_attributions{}; /**< 最近一帧归属映射 */
+  session::ValidationIssueList last_validation_issues{}; /**< 最近一次输入校验问题列表 */
+  bool has_latest_output{false};             /**< 是否已有可读取的最新输出帧 */
+  bool has_validation_error{false};          /**< 最近一次校验是否存在 error 级问题 */
+  bool last_cycle_executed{false};           /**< 最近一次 RunOnce 是否实际执行了核心 pipeline */
+  bool last_cycle_reused_previous_output{false};          /**< 最近一次是否复用了上一有效输出 */
+  session::EosPipelineAbortReason last_abort_reason{session::EosPipelineAbortReason::kNone}; /**< 最近一次终止原因 */
+  EosPipelineRuntimeState pipeline_state{};  /**< 内嵌的管线运行态快照 */
 };
 
 /**

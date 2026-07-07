@@ -28,15 +28,41 @@ struct FrameContext;
  */
 class EosPipeline {
  public:
+  /**
+   * @brief 以内部执行配置构造管线，扫描相位初始化为起始方位角。
+   * @param[in] config 内部执行配置真值。
+   */
   explicit EosPipeline(const config::execution::EosInternalExecutionConfig& config);
 
   // ---- 内部接口 (直接操作 EosInternalExecutionConfig, 无转换开销) ----
+
+  /**
+   * @brief 应用新的内部执行配置（直接覆盖，无转换开销）。
+   * @param[in] config 新的内部执行配置。
+   * @param[in] reset_scan_phase 是否将扫描相位重置为新配置的起始方位角，默认为 true。
+   */
   void ApplyInternalConfig(const config::execution::EosInternalExecutionConfig& config,
                            bool reset_scan_phase = true);
 
+  /**
+   * @brief 捕获当前管线运行态快照（扫描相位等），用于跨周期恢复。
+   * @return 管线运行态快照，`owner_identity` 指向本实例。
+   */
   extension::EosPipelineRuntimeState CaptureRuntimeState() const;
+
+  /**
+   * @brief 从快照恢复管线运行态。
+   * @param[in] state 待恢复的运行态快照。
+   * @return owner/schema/config 匹配且恢复成功返回 true；否则返回 false 并记录错误日志。
+   */
   bool RestoreRuntimeState(const extension::EosPipelineRuntimeState& state);
 
+  /**
+   * @brief 执行单周期核心处理（扫描递推、视场判定、探测评估）。
+   * @param[in] input 当前周期输入。
+   * @return 单周期执行结果，含探测记录、归属映射与扫描方位角。
+   * @note `sensor_enabled` 为 false 时直接返回未执行结果（abort_reason 为 kNone）。
+   */
   extension::EosPipelineExecuteResult RunCycle(
       const ::electro_optical_sensor::session::EosCycleInput& input);
 

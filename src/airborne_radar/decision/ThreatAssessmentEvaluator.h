@@ -25,7 +25,7 @@ class ThreatAssessmentEvaluator final {
  public:
   /**
    * @brief 构造函数，可选注入特征仓储。
-   * @param feature_repository 用于目标特征匹配的仓储接口；可为空。
+   * @param[in] feature_repository 用于目标特征匹配的仓储接口；可为空。
    */
   explicit ThreatAssessmentEvaluator(
       const environment::IFeatureRepository* feature_repository = nullptr);
@@ -50,7 +50,7 @@ class ThreatAssessmentEvaluator final {
  private:
   /**
    * @brief 识别目标类型，并填充匹配概率。
-   * @param track_snapshot 单条轨迹快照。
+   * @param[in] track_snapshot 单条轨迹快照。
    * @return 含类型标签及归一化概率的 TargetCategory；启发式路径时 probability 为 0。
    */
   session::TargetCategory IdentifyTarget(
@@ -58,7 +58,7 @@ class ThreatAssessmentEvaluator final {
 
   /**
    * @brief 计算威胁评分。
-   * @param track_snapshot 单条轨迹快照。
+   * @param[in] track_snapshot 单条轨迹快照。
    * @return 轨迹的威胁评分。
    */
   float ComputeThreatScore(const session::TrackStateSnapshot& track_snapshot) const;
@@ -66,8 +66,8 @@ class ThreatAssessmentEvaluator final {
   /**
    * @brief 更新供 LPI 使用的来源信息。
    * @param[in,out] source_info 待更新的 LPI 来源信息。
-   * @param track_snapshot 当前轨迹快照。
-   * @param classification 当前识别出的分类标签。
+   * @param[in] track_snapshot 当前轨迹快照。
+   * @param[in] classification 当前识别出的分类标签。
    */
   void UpdateLpiSourceInfo(model::LpiSourceInfo* source_info,
                            const session::TrackStateSnapshot& track_snapshot,
@@ -75,15 +75,15 @@ class ThreatAssessmentEvaluator final {
 
   /**
    * @brief 判断仓储匹配结果是否足够可靠。
-   * @param match_result 仓储匹配结果。
+   * @param[in] match_result 仓储匹配结果。
    * @return 结果足够可靠时返回 `true`。
    */
   bool ShouldAcceptRepositoryMatch(const environment::MatchResult& match_result) const;
 
   /**
    * @brief 更新跨周期置信度。
-   * @param track_snapshot 当前轨迹快照。
-   * @param previous_confidence 上一周期保留的置信度。
+   * @param[in] track_snapshot 当前轨迹快照。
+   * @param[in] previous_confidence 上一周期保留的置信度。
    * @return 更新后的置信度。
    */
   float UpdateConfidence(const session::TrackStateSnapshot& track_snapshot,
@@ -91,7 +91,7 @@ class ThreatAssessmentEvaluator final {
 
   /**
    * @brief 判断分类标签是否属于高威胁类型。
-   * @param category 分类标签。
+   * @param[in] category 分类标签。
    * @return 属于高威胁类型时返回 `true`。
    */
   bool IsHighThreatCategory(const std::string& category) const;

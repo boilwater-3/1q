@@ -102,7 +102,7 @@ enum class WindowType {
  */
 struct WindowSpec {
   WindowType type{WindowType::kNone};
-  double kaiser_beta{8.6};  ///< 仅 kKaiser 使用
+  double kaiser_beta{8.6};  /**< 仅 kKaiser 使用 */
 };
 
 /**
@@ -132,7 +132,7 @@ struct RangeAzimuthCompressionConfig {
   double prf_hz{0.0};
   WindowSpec range_window{};
   WindowSpec azimuth_window{};
-  double azimuth_matched_filter_rate_hz_per_s{0.0};  ///< 多普勒调频率 Ka,非零则执行方位压缩
+  double azimuth_matched_filter_rate_hz_per_s{0.0};  /**< 多普勒调频率 Ka,非零则执行方位压缩 */
 };
 
 /**

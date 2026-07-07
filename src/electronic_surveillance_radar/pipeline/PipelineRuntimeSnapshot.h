@@ -33,7 +33,7 @@ struct PipelineRuntimeSnapshot {
 
 /**
  * @brief 从 InterceptPipelineRuntimeState 中提取类型安全的快照指针。
- * @param state 运行时状态。
+ * @param[in] state 运行时状态。
  * @return 快照只读指针；若 snapshot 为空则返回 nullptr。
  */
 inline const PipelineRuntimeSnapshot* RestorePipelineSnapshot(
@@ -43,8 +43,8 @@ inline const PipelineRuntimeSnapshot* RestorePipelineSnapshot(
 
 /**
  * @brief 将类型安全的快照写入 InterceptPipelineRuntimeState。
- * @param state 运行时状态（in-out）。
- * @param snapshot 待写入的快照。
+ * @param[in,out] state 运行时状态（写入其 snapshot 字段）。
+ * @param[in] snapshot 待写入的快照。
  */
 inline void CapturePipelineSnapshot(
     extension::InterceptPipelineRuntimeState& state,

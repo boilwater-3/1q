@@ -25,17 +25,20 @@ namespace session {
 
 /**
  * @brief EsrSessionComposition 描述会话装配后的组件集合。
+ *
+ * `owned_*` 持有所有权（组合根拥有生命周期），`pipeline`/`environment_service`/
+ * `controller` 为非 owning 指针，指向 `owned_*` 中的对象，便于按接口传递。
  */
 struct EsrSessionComposition {
-  EsrInternalExecutionConfig execution_config{};
+  EsrInternalExecutionConfig execution_config{}; /**< 解析后的内部执行态配置 */
 
-  std::unique_ptr<pipeline::InterceptPipeline> owned_pipeline;
-  std::unique_ptr<environment::IEsrEnvironmentService> owned_environment_service;
-  std::unique_ptr<extension::EsrController> owned_controller;
+  std::unique_ptr<pipeline::InterceptPipeline> owned_pipeline;               /**< 拥有所有权的流水线实例 */
+  std::unique_ptr<environment::IEsrEnvironmentService> owned_environment_service; /**< 拥有所有权的环境服务 */
+  std::unique_ptr<extension::EsrController> owned_controller;                /**< 拥有所有权的控制器 */
 
-  pipeline::InterceptPipeline* pipeline{nullptr};
-  environment::IEsrEnvironmentService* environment_service{nullptr};
-  extension::EsrController* controller{nullptr};
+  pipeline::InterceptPipeline* pipeline{nullptr};                       /**< 非 owning 流水线指针 */
+  environment::IEsrEnvironmentService* environment_service{nullptr};     /**< 非 owning 环境服务指针 */
+  extension::EsrController* controller{nullptr};                        /**< 非 owning 控制器指针 */
 };
 
 /**
@@ -43,6 +46,11 @@ struct EsrSessionComposition {
  */
 class EsrSessionCompositionRoot {
  public:
+  /**
+   * @brief 装配默认会话组件集合。
+   * @param[in] config 四域会话配置。
+   * @return 装配完成的组件集合（含所有权）。
+   */
   static EsrSessionComposition ComposeDefault(const config::EsrSessionConfig& config);
 };
 

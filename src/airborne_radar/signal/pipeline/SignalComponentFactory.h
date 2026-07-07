@@ -37,36 +37,70 @@ namespace pipeline {
 
 using ExecutionConfig = ::airborne_radar::config::execution::InternalExecutionConfig;
 
+/**
+ * @brief Pipeline 自持有的核心组件装配产物。
+ */
 struct OwnedSignalComponents {
-  association::DataAssociationConfig association_config{};
-  tracking::TrackFilterConfig track_filter_config{};
-  std::unique_ptr<tracking::IKalmanPredictor> kalman_predictor;
-  std::unique_ptr<tracking::IKalmanUpdater> kalman_updater;
-  std::unique_ptr<detection::SignalDetector> signal_detector;
+  association::DataAssociationConfig association_config{};     /**< 关联配置（由执行配置映射）。 */
+  tracking::TrackFilterConfig track_filter_config{};           /**< 轨迹滤波器配置（由执行配置映射）。 */
+  std::unique_ptr<tracking::IKalmanPredictor> kalman_predictor; /**< Kalman 预测器（启用时非空）。 */
+  std::unique_ptr<tracking::IKalmanUpdater> kalman_updater;     /**< Kalman 更新器（启用时非空）。 */
+  std::unique_ptr<detection::SignalDetector> signal_detector;   /**< 信号检测器（启用物理检测时非空）。 */
 };
 
+/**
+ * @brief 生命周期装配产物，包含轨迹池、（IMM）预测器/更新器集合与生命周期管理器。
+ */
 struct LifecycleAssemblyArtifacts {
-  std::unique_ptr<tracking::BoostTrackPool> pool;
-  std::unique_ptr<tracking::ITrackPool> pool_wrapper;
-  std::unique_ptr<tracking::IKalmanPredictor> kalman_predictor;
-  std::unique_ptr<tracking::IKalmanUpdater> kalman_updater;
-  std::vector<std::unique_ptr<tracking::IKalmanPredictor>> imm_predictors_owned;
-  std::vector<std::unique_ptr<tracking::IKalmanUpdater>> imm_updaters_owned;
-  std::vector<tracking::IKalmanPredictor*> imm_predictors;
-  std::vector<tracking::IKalmanUpdater*> imm_updaters;
-  std::unique_ptr<tracking::ITrackLifecycleManager> lifecycle_manager;
+  std::unique_ptr<tracking::BoostTrackPool> pool;                  /**< 底层轨迹池。 */
+  std::unique_ptr<tracking::ITrackPool> pool_wrapper;              /**< 多线程模式下的同步包装器。 */
+  std::unique_ptr<tracking::IKalmanPredictor> kalman_predictor;    /**< 单模型 Kalman 预测器。 */
+  std::unique_ptr<tracking::IKalmanUpdater> kalman_updater;        /**< 单模型 Kalman 更新器。 */
+  std::vector<std::unique_ptr<tracking::IKalmanPredictor>> imm_predictors_owned; /**< IMM 各模型预测器（自有）。 */
+  std::vector<std::unique_ptr<tracking::IKalmanUpdater>> imm_updaters_owned;      /**< IMM 各模型更新器（自有）。 */
+  std::vector<tracking::IKalmanPredictor*> imm_predictors;         /**< IMM 预测器裸指针视图。 */
+  std::vector<tracking::IKalmanUpdater*> imm_updaters;              /**< IMM 更新器裸指针视图。 */
+  std::unique_ptr<tracking::ITrackLifecycleManager> lifecycle_manager; /**< 生命周期管理器。 */
 };
 
+/**
+ * @brief SignalPipeline 私有组件工厂，负责从执行配置映射子配置并装配各组件实例。
+ */
 class SignalComponentFactory final {
  public:
+  /**
+   * @brief 从执行配置构建生命周期配置。
+   * @param config execution 运行配置。
+   * @return 映射后的生命周期配置。
+   */
   static tracking::LifecycleConfig BuildLifecycleConfig(const ExecutionConfig& config);
 
+  /**
+   * @brief 从执行配置构建轨迹滤波器配置。
+   * @param config execution 运行配置。
+   * @return 映射后的轨迹滤波器配置。
+   */
   static tracking::TrackFilterConfig BuildTrackFilterConfig(const ExecutionConfig& config);
 
+  /**
+   * @brief 从执行配置构建数据关联配置。
+   * @param config execution 运行配置。
+   * @return 映射后的数据关联配置。
+   */
   static association::DataAssociationConfig BuildAssociationConfig(const ExecutionConfig& config);
 
+  /**
+   * @brief 从执行配置装配 Pipeline 自持有的核心组件（关联/滤波配置、预测器、更新器、检测器）。
+   * @param config execution 运行配置。
+   * @return 装配产物；未启用的组件对应字段为空。
+   */
   static OwnedSignalComponents BuildOwnedPipelineComponents(const ExecutionConfig& config);
 
+  /**
+   * @brief 从执行配置装配生命周期所需的全部组件（轨迹池、预测器/更新器、生命周期管理器）。
+   * @param config execution 运行配置。
+   * @return 装配产物；IMM 未启用时 imm_* 字段为空。
+   */
   static LifecycleAssemblyArtifacts BuildLifecycleAssemblyArtifacts(const ExecutionConfig& config);
 
  private:

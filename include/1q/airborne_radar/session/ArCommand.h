@@ -1,8 +1,8 @@
 /**
  * @file ArCommand.h
- * @brief AR module primary command types.
+ * @brief 机载雷达战术指令类型集合。
  *
- * Primary header for tactical command types.
+ * 战术控制指令（来源模块、指令类型）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_COMMAND_H_

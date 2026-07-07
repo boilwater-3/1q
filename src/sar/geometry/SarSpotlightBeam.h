@@ -22,15 +22,15 @@ namespace geometry {
  */
 struct SpotlightBeamState {
   double time_s{0.0};
-  double boresight_azimuth_rad{0.0};  ///< 该脉冲天线方位指向(rad)
+  double boresight_azimuth_rad{0.0};  /**< 该脉冲天线方位指向(rad) */
 };
 
 /**
  * @brief 聚束波束指向序列生成配置。
  */
 struct SpotlightBeamTrackConfig {
-  LocalPoint scene_center_m{};             ///< 聚束场景中心(波束反向跟踪目标)
-  std::vector<double> pulse_times_s{};     ///< 与平台脉冲序列对齐的慢时间
+  LocalPoint scene_center_m{};             /**< 聚束场景中心(波束反向跟踪目标) */
+  std::vector<double> pulse_times_s{};     /**< 与平台脉冲序列对齐的慢时间 */
 };
 
 /**
@@ -65,8 +65,8 @@ double SpotlightSyntheticApertureTime(const std::vector<SpotlightBeamState>& bea
  * @brief 聚束轨迹组合配置(平台直线匀速 + 天线反向跟踪场景中心)。
  */
 struct SpotlightTrackConfig {
-  StraightStripmapTrackConfig platform_track{};  ///< 平台直线匀速轨迹
-  LocalPoint scene_center_m{};                   ///< 聚束场景中心
+  StraightStripmapTrackConfig platform_track{};  /**< 平台直线匀速轨迹 */
+  LocalPoint scene_center_m{};                   /**< 聚束场景中心 */
 };
 
 /**

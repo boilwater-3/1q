@@ -1,3 +1,8 @@
+/**
+ * @file ArSessionCompositionRoot.h
+ * @brief 定义 AR 会话的组合根（composition root），统一装配上下文、流水线、环境服务与控制器。
+ */
+
 #ifndef AIRBORNE_RADAR_CORE_SESSION_AR_SESSION_COMPOSITION_ROOT_H_
 #define AIRBORNE_RADAR_CORE_SESSION_AR_SESSION_COMPOSITION_ROOT_H_
 
@@ -22,6 +27,12 @@ class IEnvironmentService;
 namespace session {
 class MutableArContext;
 
+/**
+ * @brief 会话装配产物，集中持有运行期实例与其配置快照。
+ *
+ * 由组件根拥有各 owned_* 实例（通过 unique_ptr 管理生命周期），
+ * 同时暴露裸指针别名便于在不转移所有权的情况下访问。
+ */
 struct ArSessionComposition {
   config::ArHardwareConfig runtime_hardware{};
   config::ArMissionConfig runtime_mission{};
@@ -42,12 +53,23 @@ struct ArSessionComposition {
   bool pipeline_config_synced{true};
 };
 
+/**
+ * @brief AR 会话组合根，负责根据会话配置装配整套运行期对象图。
+ */
 class ArSessionCompositionRoot {
  public:
+  /**
+   * @brief 使用默认战术协调器装配会话。
+   * @param[in] config 四域会话配置，用于初始化各组件。
+   * @return 装配完成的 ArSessionComposition。
+   */
   static ArSessionComposition ComposeDefault(const config::ArSessionConfig& config);
 
   /**
    * @brief 注入自定义决策引擎装配会话；context/pipeline/environment 由内部默认装配。
+   * @param[in] config 四域会话配置。
+   * @param[in] decision_engine 外部提供的战术决策引擎引用，须在控制器生命周期内保持有效。
+   * @return 装配完成的 ArSessionComposition。
    */
   static ArSessionComposition ComposeWithDecisionEngine(
       const config::ArSessionConfig& config, session::ITacticalDecisionEngine& decision_engine);

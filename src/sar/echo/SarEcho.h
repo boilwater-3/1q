@@ -71,7 +71,7 @@ bool GeneratePointTargetRawEcho(const RawEchoConfig& config,
  */
 struct AntennaModulationConfig {
   geometry::AntennaParams antenna{};
-  geometry::SpotlightBeamState beam_state{};  ///< 该脉冲的波束指向
+  geometry::SpotlightBeamState beam_state{};  /**< 该脉冲的波束指向 */
   bool enabled{false};
 };
 
@@ -101,7 +101,7 @@ bool GeneratePointTargetRawEchoWithAntenna(const RawEchoConfig& config,
  * 表达"天线此刻只看这个子带"(契约 scansar_mode.md §3.3)。
  */
 struct ElevationGateConfig {
-  geometry::ScanBurstState burst_state{};  ///< 该脉冲的 burst 调度(elevation 窗口 + illuminated)
+  geometry::ScanBurstState burst_state{};  /**< 该脉冲的 burst 调度(elevation 窗口 + illuminated) */
   bool enabled{false};
 };
 
@@ -150,8 +150,8 @@ bool AddNoise(const NoiseSpec& spec, signal::ComplexVector* samples);
  * @brief 杂波类型。
  */
 enum class ClutterType {
-  kGamma = 0,  ///< γ 常数模型(陆)
-  kSea = 1,    ///< 海杂波 GIT 经验模型
+  kGamma = 0,  /**< γ 常数模型(陆) */
+  kSea = 1,    /**< 海杂波 GIT 经验模型 */
 };
 
 /**
@@ -159,11 +159,11 @@ enum class ClutterType {
  */
 struct ClutterModel {
   ClutterType type{ClutterType::kGamma};
-  double gamma_constant{0.0};      ///< γ 常数(kGamma 时有效)
-  double sea_state{3.0};           ///< 海况级数(kSea 时有效)
-  double wind_speed_mps{5.0};      ///< 风速 m/s(kSea 时有效)
-  double incidence_angle_rad{0.0}; ///< 局部入射角
-  double resolution_cell_area_m2{1.0};  ///< 分辨单元面积 m²
+  double gamma_constant{0.0};      /**< γ 常数(kGamma 时有效) */
+  double sea_state{3.0};           /**< 海况级数(kSea 时有效) */
+  double wind_speed_mps{5.0};      /**< 风速 m/s(kSea 时有效) */
+  double incidence_angle_rad{0.0}; /**< 局部入射角 */
+  double resolution_cell_area_m2{1.0};  /**< 分辨单元面积 m² */
 };
 
 /**

@@ -1,8 +1,8 @@
 /**
  * @file ArOutputTypes.h
- * @brief AR module primary output support types.
+ * @brief 机载雷达输出辅助类型集合。
  *
- * Primary header for output support types (SignalCycleResult, etc.).
+ * 输出辅助类型（SignalCycleResult、关联质量指标等）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_OUTPUT_TYPES_H_

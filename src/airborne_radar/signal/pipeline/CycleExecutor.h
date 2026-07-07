@@ -59,6 +59,11 @@ struct CycleExecutionScratch {
   float jamming_severity{0.0f};
 };
 
+/**
+ * @brief 单周期执行所需的引擎、配置与状态引用集合。
+ *
+ * 所有成员为对长期存活对象的外部引用，调用方需保证生命周期覆盖整个 ExecuteCycle。
+ */
 struct CycleExecutionRuntime {
   CycleExecutionRuntime(const ExecutionConfig& base_config,
                         const session::ArControlProfile& control_profile,
@@ -87,6 +92,9 @@ struct CycleExecutionRuntime {
   bool has_manual_association_seeds{false};
 };
 
+/**
+ * @brief 单周期执行的输入上下文（场景输入、环境、周期编号与运行时配置）。
+ */
 struct CycleExecutionContext {
   CycleExecutionContext(const session::ArSceneTargetList& input_state,
                         const session::EnvironmentSnapshot& environment_snapshot,
@@ -107,6 +115,13 @@ struct CycleExecutionContext {
   ExecutionConfig runtime_config{};
 };
 
+/**
+ * @brief 执行一个完整的处理周期（环境→探测→关联→量测→滤波→汇总输出）。
+ * @param[in,out] context 周期输入上下文；其 runtime_config 在执行过程中可能被各阶段读取。
+ * @param[in] runtime 引擎、配置与状态引用集合。
+ * @param[in,out] cycle_scratch 周期暂存区，承载各阶段中间产物与最终输出。
+ * @return 环境阶段失败返回 false；正常完成返回 true。
+ */
 bool ExecuteCycle(CycleExecutionContext& context,
                   const CycleExecutionRuntime& runtime,
                   CycleExecutionScratch& cycle_scratch);

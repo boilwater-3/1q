@@ -25,8 +25,8 @@ namespace geometry {
  * 每个子带覆盖一段斜距区间 [near_range_m, far_range_m],聚焦时以其中心为参考斜距。
  */
 struct ScanSubswath {
-  double near_range_m{0.0};  ///< 子带近端斜距
-  double far_range_m{0.0};   ///< 子带远端斜距
+  double near_range_m{0.0};  /**< 子带近端斜距 */
+  double far_range_m{0.0};   /**< 子带远端斜距 */
 };
 
 /**
@@ -37,10 +37,10 @@ struct ScanSubswath {
  */
 struct ScanBurstState {
   double time_s{0.0};
-  std::uint32_t subswath_index{0U};  ///< 当前 burst 指向的子带编号
-  double near_range_m{0.0};          ///< 该子带近端斜距(elevation 门控用)
-  double far_range_m{0.0};           ///< 该子带远端斜距(elevation 门控用)
-  bool illuminated{false};           ///< 该脉冲是否照射该子带(burst 驻留/间隙标记)
+  std::uint32_t subswath_index{0U};  /**< 当前 burst 指向的子带编号 */
+  double near_range_m{0.0};          /**< 该子带近端斜距(elevation 门控用) */
+  double far_range_m{0.0};           /**< 该子带远端斜距(elevation 门控用) */
+  bool illuminated{false};           /**< 该脉冲是否照射该子带(burst 驻留/间隙标记) */
 };
 
 /**
@@ -51,9 +51,9 @@ struct ScanBurstState {
  * Δx_burst = v × T_cycle,需满足方位无缝隙覆盖(否则门控拒绝)。
  */
 struct ScanBurstScheduleConfig {
-  std::vector<ScanSubswath> subswaths{};  ///< N_swath 个子带(按轮转顺序)
-  double dwell_time_s{0.0};               ///< 单子带单次驻留时间(burst 长度)
-  std::vector<double> pulse_times_s{};    ///< 与平台脉冲序列对齐的慢时间
+  std::vector<ScanSubswath> subswaths{};  /**< N_swath 个子带(按轮转顺序) */
+  double dwell_time_s{0.0};               /**< 单子带单次驻留时间(burst 长度) */
+  std::vector<double> pulse_times_s{};    /**< 与平台脉冲序列对齐的慢时间 */
 };
 
 /**
@@ -98,9 +98,9 @@ bool IsInSubswath(const ScanSubswath& subswath, double slant_range_m);
  * @brief ScanSAR 场景组合配置(平台直线匀速 + 天线 elevation 子带轮转)。
  */
 struct ScanSarTrackConfig {
-  StraightStripmapTrackConfig platform_track{};  ///< 平台直线匀速轨迹
-  std::vector<ScanSubswath> subswaths{};          ///< N_swath 个子带
-  double dwell_time_s{0.0};                       ///< 单子带单次驻留时间
+  StraightStripmapTrackConfig platform_track{};  /**< 平台直线匀速轨迹 */
+  std::vector<ScanSubswath> subswaths{};          /**< N_swath 个子带 */
+  double dwell_time_s{0.0};                       /**< 单子带单次驻留时间 */
 };
 
 /**

@@ -19,19 +19,39 @@ namespace coordinate {
 // 输入校验
 // =============================================================================
 
-/// @brief 校验 LLA 纬度/经度范围及有限性。
+/**
+ * @brief 校验 LLA 纬度/经度范围及有限性。
+ * @param[in] lla 待校验的大地坐标。
+ * @return 纬度在 [-90, 90]、经度在 [-180, 180] 且高度有限时返回 true，否则返回 false。
+ */
 ONEQ_API bool IsValid(const LlaPositionDegM& lla);
 
-/// @brief 校验 ECEF 各分量均为有限值。
+/**
+ * @brief 校验 ECEF 各分量均为有限值。
+ * @param[in] ecef 待校验的 ECEF 坐标。
+ * @return 三个分量均为有限值返回 true，否则返回 false。
+ */
 ONEQ_API bool IsFinite(const EcefPositionM& ecef);
 
-/// @brief 校验 ENU 各分量均为有限值。
+/**
+ * @brief 校验 ENU 各分量均为有限值。
+ * @param[in] enu 待校验的 ENU 坐标。
+ * @return 三个分量均为有限值返回 true，否则返回 false。
+ */
 ONEQ_API bool IsFinite(const EnuPositionM& enu);
 
-/// @brief 校验 NED 各分量均为有限值。
+/**
+ * @brief 校验 NED 各分量均为有限值。
+ * @param[in] ned 待校验的 NED 坐标。
+ * @return 三个分量均为有限值返回 true，否则返回 false。
+ */
 ONEQ_API bool IsFinite(const NedPositionM& ned);
 
-/// @brief 校验 NUE 各分量均为有限值。
+/**
+ * @brief 校验 NUE 各分量均为有限值。
+ * @param[in] nue 待校验的 NUE 坐标。
+ * @return 三个分量均为有限值返回 true，否则返回 false。
+ */
 ONEQ_API bool IsFinite(const NuePositionM& nue);
 
 // =============================================================================

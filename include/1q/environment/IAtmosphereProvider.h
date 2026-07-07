@@ -24,8 +24,8 @@ class ONEQ_API IAtmosphereProvider {
 
   /**
    * @brief 查询指定几何高度处的大气状态。
-   * @param altitude_m 几何高度（单位：m，ASL）
-   * @return 大气状态
+   * @param[in] altitude_m 几何高度（单位：m，ASL）。
+   * @return 对应高度的大气状态。
    */
   virtual AtmosphericState GetState(float altitude_m) const = 0;
 

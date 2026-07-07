@@ -27,6 +27,11 @@ class ITacticalDecisionEngine;
 
 namespace extension {
 
+/**
+ * @brief ArController 运行态快照，用于失败回滚等场景的整快照捕获/恢复。
+ * @note owner_identity 标识捕获方实例，RestoreRuntimeState 会拒绝跨实例恢复；
+ *       schema_version 用于校验快照格式兼容性。
+ */
 struct ArControllerRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
@@ -123,6 +128,7 @@ class ArController {
 
   /**
    * @brief 最近一次 RunOnce 若未执行成功，返回 signal pipeline 的 abort 原因。
+   * @return 最近一次周期的 signal pipeline 终止原因；正常执行时为 kNone。
    */
   session::SignalCycleAbortReason GetLastSignalCycleAbortReason() const;
 
@@ -134,7 +140,8 @@ class ArController {
 
   /**
    * @brief 恢复此前捕获的控制器运行态快照。
-   * @param state 待恢复的控制器运行态快照。
+   * @param[in] state 待恢复的控制器运行态快照。
+   * @return owner_identity 与 schema_version 校验通过并成功恢复时返回 true。
    */
   bool RestoreRuntimeState(const ArControllerRuntimeState& state);
 

@@ -18,41 +18,72 @@
 namespace sbirs_sensor {
 namespace pipeline {
 
+/** @brief 目标级状态机 5 状态枚举（design 2.2），驱动 WFOV 发现、NFOV 首次捕获与真值辅助跟踪。 */
 enum class SbirsTargetState {
-  kUndetected = 0,
-  kWideCandidate,
-  kAwaitingNfovAcquisition,
-  kTruthAssistedTracking,
-  kLost
+  kUndetected = 0,           /**< 初始或目标未被任何视场发现 */
+  kWideCandidate,            /**< WFOV 已发现，等待 NFOV 资源调度 */
+  kAwaitingNfovAcquisition,  /**< 已被调度器选为首次捕获目标 */
+  kTruthAssistedTracking,    /**< 首次捕获成功，进入真值辅助跟踪 */
+  kLost                      /**< 目标从输入场景消失或传感器关闭 */
 };
 
+/**
+ * @brief pipeline 运行期状态快照，用于 controller 失败回滚与 replay 复现。
+ * @note 包含扫描相位、目标状态表、NFOV 锁定目标与随机源状态。
+ */
 struct SbirsPipelineSnapshot {
-  float scan_azimuth_deg{0.0f};
-  std::uint64_t next_detection_id{1U};
-  std::map<std::uint64_t, SbirsTargetState> target_states{};
-  bool has_locked_target{false};
-  std::uint64_t locked_target_id{0U};
-  unsigned int random_state{1U};  // 误差模型随机源状态（replay 可复现）
+  float scan_azimuth_deg{0.0f};                          /**< 当前 WFOV 扫描方位角，单位 deg */
+  std::uint64_t next_detection_id{1U};                   /**< 下一个检测记录 ID */
+  std::map<std::uint64_t, SbirsTargetState> target_states{}; /**< 各目标状态表（按 target_id 索引） */
+  bool has_locked_target{false};                         /**< 是否有目标锁定 NFOV 资源 */
+  std::uint64_t locked_target_id{0U};                    /**< 锁定 NFOV 资源的目标 ID */
+  unsigned int random_state{1U};  /**< 误差模型随机源状态（replay 可复现） */
 };
 
+/** @brief 单条 pipeline 内部检测结果，组合原始记录与归属。 */
 struct SbirsPipelineDetection {
-  output::SbirsDetectionRecord record{};
-  attribution::SbirsDetectionAttributionRecord attribution{};
+  output::SbirsDetectionRecord record{};            /**< 原始观测记录 */
+  attribution::SbirsDetectionAttributionRecord attribution{}; /**< 仿真归属记录 */
 };
 
+/** @brief 单周期 pipeline 执行结果，含扫描相位与本周期检测列表。 */
 struct SbirsPipelineResult {
-  float scan_azimuth_deg{0.0f};
-  std::vector<SbirsPipelineDetection> detections{};
+  float scan_azimuth_deg{0.0f};                       /**< 本周期扫描方位角，单位 deg */
+  std::vector<SbirsPipelineDetection> detections{};   /**< 检测列表 */
 };
 
+/**
+ * @brief WFOV/NFOV 双视场探测流水线，执行帧级几何门控、WFOV 发现、状态机决策与 NFOV 捕获/跟踪。
+ * @note pipeline 跨周期累积状态（扫描相位、目标状态机、NFOV 锁定、随机源）；
+ *       通过 Capture/RestoreRuntimeState 支持 controller 失败回滚与 replay 复现。
+ */
 class SbirsPipeline {
  public:
+  /**
+   * @brief 构造 pipeline 并应用初始内部执行配置。
+   * @param[in] config 内部执行配置
+   */
   explicit SbirsPipeline(const config::SbirsInternalExecutionConfig& config);
 
+  /**
+   * @brief 应用新的内部执行配置（runtime patch 立即生效后调用）。
+   * @param[in] config 新的内部执行配置
+   */
   void ApplyConfig(const config::SbirsInternalExecutionConfig& config);
+  /**
+   * @brief 执行一个仿真周期的探测流水线。
+   * @param[in] input 单周期输入
+   * @return 本周期 pipeline 结果
+   */
   SbirsPipelineResult RunCycle(const session::SbirsCycleInput& input);
 
+  /** @return 当前运行期状态快照，用于回滚或 replay。 */
   SbirsPipelineSnapshot CaptureRuntimeState() const;
+  /**
+   * @brief 从快照恢复运行期状态。
+   * @param[in] snapshot 待恢复的状态快照
+   * @return 恢复成功返回 true，否则返回 false
+   */
   bool RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot);
 
  private:

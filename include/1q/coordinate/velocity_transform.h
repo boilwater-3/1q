@@ -20,16 +20,32 @@ namespace coordinate {
 // 输入校验
 // =============================================================================
 
-/// @brief 校验 ECEF 速度各分量均为有限值。
+/**
+ * @brief 校验 ECEF 速度各分量均为有限值。
+ * @param[in] velocity 待校验的 ECEF 速度。
+ * @return 三个分量均为有限值返回 true，否则返回 false。
+ */
 ONEQ_API bool IsFinite(const EcefVelocityMps& velocity);
 
-/// @brief 校验 ENU 速度各分量均为有限值。
+/**
+ * @brief 校验 ENU 速度各分量均为有限值。
+ * @param[in] velocity 待校验的 ENU 速度。
+ * @return 三个分量均为有限值返回 true，否则返回 false。
+ */
 ONEQ_API bool IsFinite(const EnuVelocityMps& velocity);
 
-/// @brief 校验 NED 速度各分量均为有限值。
+/**
+ * @brief 校验 NED 速度各分量均为有限值。
+ * @param[in] velocity 待校验的 NED 速度。
+ * @return 三个分量均为有限值返回 true，否则返回 false。
+ */
 ONEQ_API bool IsFinite(const NedVelocityMps& velocity);
 
-/// @brief 校验 NUE 速度各分量均为有限值。
+/**
+ * @brief 校验 NUE 速度各分量均为有限值。
+ * @param[in] velocity 待校验的 NUE 速度。
+ * @return 三个分量均为有限值返回 true，否则返回 false。
+ */
 ONEQ_API bool IsFinite(const NueVelocityMps& velocity);
 
 // =============================================================================

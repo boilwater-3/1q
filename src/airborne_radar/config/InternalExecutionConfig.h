@@ -33,6 +33,14 @@ namespace airborne_radar {
 namespace config {
 namespace execution {
 
+/**
+ * @brief ECM 干扰效果调参集合 (POD)。
+ *
+ * 汇总各类干扰源 (噪声/欺骗/转发/未知) 下的启发式置信度门限、惩罚权重，
+ * 以及在 association/tracking/measurement 各环节施加的渐进式缩放步长与
+ * 协方差膨胀步长，供 JammingEffects 模块逐周期计算干扰退化量使用。
+ * @note 所有字段均为经验标定参数，直接修改会改变信号链路抗干扰行为。
+ */
 struct JammingEffectsConfig {
   float confidence_weight_min{0.25f};
   float heuristic_base_penalty_db{0.8f};
@@ -68,6 +76,13 @@ struct JammingEffectsConfig {
   float covariance_unknown_inflation_step{0.10f};
 };
 
+/**
+ * @brief 控制策略 (control profile) 对应的天线/波束增益效果参数 (POD)。
+ *
+ * 描述在自适应波束、LPI 等控制策略下，旁瓣电平抑制量、波束宽度缩放、
+ * 信号增益补偿，以及 ECCM 速度/RCS 衰减奖励等量值，供 ControlProfileEffects
+ * 模块在评估控制收益时使用。
+ */
 struct ControlProfileEffectsConfig {
   float sidelobe_level_reduction_db{6.0f};
   float adaptive_beam_gain_boost_db{2.0f};

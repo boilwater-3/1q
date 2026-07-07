@@ -36,6 +36,8 @@ config::execution::EosInternalExecutionConfig MapSessionToInternal(
 
 /**
  * @brief 将环境模型配置写入内部环境配置。
+ * @param[in] model_config 环境模型配置。
+ * @param[in,out] exec 待写入的内部执行配置（仅更新 environment 子配置）。
  */
 void ApplyEnvironmentModelToInternal(
     const config::EosEnvironmentModelConfig& model_config,

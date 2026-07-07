@@ -30,11 +30,11 @@ namespace session {
  *       而非在 Composition 层独立管理。
  */
 struct EosSessionComposition {
-  config::execution::EosInternalExecutionConfig internal_config{};
-  bool initial_reset_scan_phase{true};
+  config::execution::EosInternalExecutionConfig internal_config{}; /**< 解析后的内部执行配置真值 */
+  bool initial_reset_scan_phase{true};                              /**< 初始装配时是否重置扫描相位 */
 
-  std::unique_ptr<signal::pipeline::EosPipeline> owned_pipeline;
-  std::unique_ptr<extension::EosController> owned_controller;
+  std::unique_ptr<signal::pipeline::EosPipeline> owned_pipeline;   /**< 拥有的核心管线实例（始终非空） */
+  std::unique_ptr<extension::EosController> owned_controller;      /**< 拥有的控制器实例（始终非空） */
 };
 
 /**

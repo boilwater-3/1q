@@ -36,10 +36,18 @@ struct ONEQ_API RotationMatrix3d {
 // 输入校验
 // =============================================================================
 
-/// @brief 校验欧拉角各分量均为有限值。
+/**
+ * @brief 校验欧拉角各分量均为有限值。
+ * @param[in] attitude 待校验的欧拉角。
+ * @return 所有三轴分量均为有限值返回 true，否则返回 false。
+ */
 ONEQ_API bool IsFinite(const EulerAnglesDeg& attitude);
 
-/// @brief 校验旋转矩阵各元素均为有限值。
+/**
+ * @brief 校验旋转矩阵各元素均为有限值。
+ * @param[in] rotation 待校验的旋转矩阵。
+ * @return 全部九个元素均为有限值返回 true，否则返回 false。
+ */
 ONEQ_API bool IsFinite(const RotationMatrix3d& rotation);
 
 // =============================================================================

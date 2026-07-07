@@ -1,8 +1,8 @@
 /**
  * @file ArEnvironmentInput.h
- * @brief AR module primary environment input types.
+ * @brief 机载雷达单周期环境输入类型集合。
  *
- * Primary header for environment input types.
+ * 周期环境事实输入与状态维护的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_ENVIRONMENT_INPUT_H_
@@ -117,11 +117,21 @@ class ONEQ_API ArEnvironmentInputState {
   explicit ArEnvironmentInputState(const ArEnvironmentInput& snapshot)
       : snapshot_(snapshot) {}
 
+  /**
+   * @brief 用完整快照整体覆盖内部状态。
+   * @param[in] snapshot 新的环境事实快照。
+   * @return 返回自身引用以支持链式调用。
+   */
   ArEnvironmentInputState& Reset(const ArEnvironmentInput& snapshot) {
     snapshot_ = snapshot;
     return *this;
   }
 
+  /**
+   * @brief 按 patch 中 has_* 置位的字段局部更新内部状态。
+   * @param[in] patch 局部更新补丁；未置位字段保持不变。
+   * @return 返回自身引用以支持链式调用。
+   */
   ArEnvironmentInputState& Update(const ArEnvironmentInputPatch& patch) {
     if (patch.has_atmospheric_observation) {
       snapshot_.atmospheric_observation = patch.atmospheric_observation;
@@ -138,6 +148,10 @@ class ONEQ_API ArEnvironmentInputState {
     return *this;
   }
 
+  /**
+   * @brief 返回内部状态的拷贝快照。
+   * @return 当前环境事实快照。
+   */
   ArEnvironmentInput Snapshot() const { return snapshot_; }
 
  private:

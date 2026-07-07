@@ -17,30 +17,47 @@
 namespace sar {
 namespace imaging {
 
+/**
+ * @brief front-end 执行状态。
+ */
 enum class OmegaKSpectrumFrontEndStatus { kSucceeded = 0, kRejected = 1 };
+/**
+ * @brief front-end 执行拒绝/失败原因。
+ */
 enum class OmegaKSpectrumFrontEndReason {
-  kNone = 0,
-  kInvalidRequestId = 1,
-  kInvalidConfig = 2,
-  kInvalidRawHistory = 3,
-  kGeometryFailure = 4,
-  kTransformFailure = 5,
+  kNone = 0,              /**< 无 */
+  kInvalidRequestId = 1,  /**< 请求 ID 非法 */
+  kInvalidConfig = 2,     /**< 配置非法 */
+  kInvalidRawHistory = 3, /**< raw history 非法 */
+  kGeometryFailure = 4,   /**< 几何评估失败 */
+  kTransformFailure = 5,   /**< FFT/H_bulk 变换失败 */
 };
 
+/**
+ * @brief front-end 执行请求。
+ */
 struct OmegaKSpectrumFrontEndRequest {
-  std::uint64_t request_id{0U};
-  OmegaKGeometryConfig config;
-  signal::ComplexMatrix raw_pulse_history;
+  std::uint64_t request_id{0U};   /**< 请求 ID */
+  OmegaKGeometryConfig config;    /**< Omega-K 几何配置 */
+  signal::ComplexMatrix raw_pulse_history; /**< 原始相位历史矩阵 */
 };
 
+/**
+ * @brief front-end 执行结果。
+ */
 struct OmegaKSpectrumFrontEndResult {
-  std::uint64_t request_id{0U};
-  OmegaKSpectrumFrontEndStatus status{OmegaKSpectrumFrontEndStatus::kRejected};
-  OmegaKSpectrumFrontEndReason reason{OmegaKSpectrumFrontEndReason::kNone};
-  OmegaKGeometryDiagnostics geometry;
-  signal::ComplexMatrix source_spectrum;
+  std::uint64_t request_id{0U};   /**< 关联的请求 ID */
+  OmegaKSpectrumFrontEndStatus status{OmegaKSpectrumFrontEndStatus::kRejected}; /**< 执行状态 */
+  OmegaKSpectrumFrontEndReason reason{OmegaKSpectrumFrontEndReason::kNone}; /**< 拒绝原因 */
+  OmegaKGeometryDiagnostics geometry;             /**< 几何诊断 */
+  signal::ComplexMatrix source_spectrum;          /**< 2D 波数源谱 */
 };
 
+/**
+ * @brief 执行 Omega-K 前端：2D FFT + bulk 参考函数 H_bulk，产生波数源谱。
+ * @param[in] request front-end 执行请求。
+ * @return 执行结果（含源谱与几何诊断）。
+ */
 OmegaKSpectrumFrontEndResult ExecuteOmegaKSpectrumFrontEnd(
     const OmegaKSpectrumFrontEndRequest& request);
 

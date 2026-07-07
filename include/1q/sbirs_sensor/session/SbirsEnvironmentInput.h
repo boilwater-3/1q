@@ -12,9 +12,13 @@
 namespace sbirs_sensor {
 namespace session {
 
+/**
+ * @brief 单周期环境输入，可携带覆盖 session 配置的环境参数。
+ * @note `has_environment_override` 为真时使用 `environment` 覆盖；否则沿用 session 配置。
+ */
 struct ONEQ_API SbirsEnvironmentInput {
-  bool has_environment_override{false};
-  config::SbirsEnvironmentConfig environment{};
+  bool has_environment_override{false};      /**< 是否覆盖环境参数 */
+  config::SbirsEnvironmentConfig environment{}; /**< 环境参数覆盖值 */
 };
 
 }  // namespace session

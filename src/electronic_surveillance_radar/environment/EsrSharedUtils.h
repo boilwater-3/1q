@@ -14,11 +14,15 @@ namespace utils {
 
 /**
  * @brief 将输入裁剪到 [0, 1]。
+ * @param[in] value 待裁剪的浮点值。
+ * @return 裁剪到 [0, 1] 后的值。
  */
 inline float Clamp01(float value) { return oneq::common::numerics::Clamp01(value); }
 
 /**
  * @brief 将输入裁剪到非负区间。
+ * @param[in] value 待裁剪的浮点值。
+ * @return 裁剪到非负区间后的值。
  */
 inline float ClampNonNegative(float value) {
   return oneq::common::numerics::ClampNonNegative(value);
@@ -26,6 +30,12 @@ inline float ClampNonNegative(float value) {
 
 /**
  * @brief 解析干扰技术类型并应用兼容推断。
+ *
+ * 当源技术类型为已知值时直接返回；否则按 deception_risk 推断：
+ * 大于 0 视为压制+欺骗并存（kMixed），否则归为纯压制（kNoiseSuppression）。
+ *
+ * @param[in] source 干扰源输入。
+ * @return 解析后的干扰技术类型。
  */
 inline session::EsrJammingTechnique ResolveTechnique(
     const session::EsrJammerSource& source) {
@@ -40,6 +50,8 @@ inline session::EsrJammingTechnique ResolveTechnique(
 
 /**
  * @brief 判断技术类型是否包含压制分量。
+ * @param[in] technique 干扰技术类型。
+ * @return 为压制或混合类型时返回 `true`。
  */
 inline bool HasSuppressionEffect(session::EsrJammingTechnique technique) {
   return technique == session::EsrJammingTechnique::kNoiseSuppression ||
@@ -48,6 +60,8 @@ inline bool HasSuppressionEffect(session::EsrJammingTechnique technique) {
 
 /**
  * @brief 判断技术类型是否包含欺骗分量。
+ * @param[in] technique 干扰技术类型。
+ * @return 为欺骗或混合类型时返回 `true`。
  */
 inline bool HasDeceptionEffect(session::EsrJammingTechnique technique) {
   return technique == session::EsrJammingTechnique::kDeception ||

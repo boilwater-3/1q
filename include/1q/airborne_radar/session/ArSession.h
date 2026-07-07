@@ -2,7 +2,7 @@
  * @file ArSession.h
  * @brief 定义面向外部接入的高层机载雷达会话门面。
  *
- * Primary header for the AR module session facade.
+ * AR 模块会话门面（一步一帧执行、运行期补丁）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_SESSION_H_
@@ -47,7 +47,7 @@ class ONEQ_API ArSession {
 
   /**
    * @brief 执行一个不显式切场景的处理周期。
-   * @param input 当前周期输入。
+   * @param[in] input 当前周期输入。
    * @return 当前周期生成的轨迹输出帧拷贝。
    * @note 输入容错：`dt_sec ≤ 0` 或其他非法输入时，函数不抛异常，
    *       会以尽力而为出发返回上一周期有效状态，输出帧中
@@ -57,7 +57,7 @@ class ONEQ_API ArSession {
 
   /**
    * @brief 执行一个不显式切场景的处理周期，并返回聚合结果。
-   * @param input 当前周期输入。
+   * @param[in] input 当前周期输入。
    * @return 当前周期聚合结果。
    * @note 输入容错：行为与 `Step()` 一致；可通过结果中的
    *       `executed_this_cycle` / `reused_previous_output`
@@ -108,6 +108,12 @@ class ONEQ_API ArSession {
 
   /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
   static ArSession Create(const config::ArSessionConfig& config = {});
+  /**
+   * @brief 使用四域配置与自定义决策引擎创建会话。
+   * @param[in] config 四域会话配置。
+   * @param[in,out] decision_engine 外部提供的战术决策引擎，会话在运行期引用该实例。
+   * @return 构造完成的会话。
+   */
   static ArSession CreateWithDecisionEngine(
       const config::ArSessionConfig& config,
       session::ITacticalDecisionEngine& decision_engine);

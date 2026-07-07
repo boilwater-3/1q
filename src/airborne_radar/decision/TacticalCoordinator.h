@@ -28,14 +28,14 @@ class TacticalCoordinator final : public session::ITacticalDecisionEngine {
  public:
   /**
    * @brief 构造函数。
-   * @param feature_repository 供威胁识别使用的特征仓储；可为空。
+   * @param[in] feature_repository 供威胁识别使用的特征仓储；可为空。
    */
   explicit TacticalCoordinator(
       const environment::IFeatureRepository* feature_repository = nullptr);
 
   /**
    * @brief 评估单周期输入并输出战术建议。
-   * @param input_frame 当前周期决策输入帧。
+   * @param[in] input_frame 当前周期决策输入帧。
    * @param[in,out] state_store 跨周期战术状态存储。
    * @return 本周期的战术决策结果。
    */
@@ -49,6 +49,8 @@ class TacticalCoordinator final : public session::ITacticalDecisionEngine {
    *
    * 条件：dominant_jamming_semantic ∈ {Deception, Repeater, Mixed}
    * 且 severity ≥ 0.35、stress ≥ 0.18。
+   * @param[in] association_quality_info 当前周期关联质量摘要。
+   * @return 满足补填条件时返回 true。
    */
   static bool ShouldBackfillEccmTrigger(
       const session::AssociationQualityInfo& association_quality_info);
@@ -58,6 +60,8 @@ class TacticalCoordinator final : public session::ITacticalDecisionEngine {
    *
    * 在 EccmEvaluator 返回后，根据关联质量（severity、stress、match cost、semantic）
    * 对已生成的 ECCM proposals 进行优先级调整。
+   * @param[in] association_quality_info 当前周期关联质量摘要。
+   * @param[out] proposals 待调整优先级的 ECCM 提案列表（原地修改）。
    */
   static void ApplyAssociationDrivenPriorityBias(
       const session::AssociationQualityInfo& association_quality_info,

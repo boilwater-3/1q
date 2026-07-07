@@ -36,8 +36,8 @@ enum class ONEQ_API ValidationLocationKind {
  * @brief ValidationLocation 描述校验问题定位信息。
  */
 struct ONEQ_API ValidationLocation {
-  ValidationLocationKind kind{ValidationLocationKind::kGlobal};
-  std::size_t entity_index{static_cast<std::size_t>(-1)};
+  ValidationLocationKind kind{ValidationLocationKind::kGlobal}; /**< 定位域 */
+  std::size_t entity_index{static_cast<std::size_t>(-1)}; /**< 场景实体索引（仅 kSceneEntity 时使用，默认无效值） */
 };
 
 }  // namespace foundation

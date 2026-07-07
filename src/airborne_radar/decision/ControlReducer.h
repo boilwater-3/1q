@@ -32,13 +32,13 @@ class ControlReducer {
  public:
   /**
    * @brief 使用配置构造 reducer。
-   * @param config reducer 配置。
+   * @param[in] config reducer 配置。
    */
   explicit ControlReducer(extension::ControlReducerConfig config = {});
 
   /**
    * @brief 更新 reducer 配置。
-   * @param config 新的 reducer 配置。
+   * @param[in] config 新的 reducer 配置。
    */
   void UpdateConfig(extension::ControlReducerConfig config);
 
@@ -50,8 +50,8 @@ class ControlReducer {
 
   /**
    * @brief 使用上一版 profile 和 proposal 列表生成下一版 profile。
-   * @param previous_profile 上一版控制真值。
-   * @param proposals 当前周期候选控制意图列表。
+   * @param[in] previous_profile 上一版控制真值。
+   * @param[in] proposals 当前周期候选控制意图列表。
    * @return 归并后的控制真值与采纳结果。
    */
   extension::ControlReductionResult Reduce(
@@ -60,6 +60,7 @@ class ControlReducer {
 
   /**
    * @brief 获取 reducer 当前内部运行态（供调试/测试使用）。
+   * @return 当前 reducer 运行态快照，仅供调试与测试断言使用。
    */
   ControlReducerRuntimeState GetRuntimeState() const;
 

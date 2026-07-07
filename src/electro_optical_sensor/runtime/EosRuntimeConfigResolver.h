@@ -17,10 +17,10 @@ namespace session {
  * @brief EosRuntimeConfigResolveResult 描述 EOS 运行期补丁解析结果。
  */
 struct EosRuntimeConfigResolveResult {
-  config::execution::EosInternalExecutionConfig next_config{};
-  bool has_requested_update{false};
-  bool is_valid{true};
-  bool reset_scan_phase{false};
+  config::execution::EosInternalExecutionConfig next_config{}; /**< 解析后的下一份内部执行配置 */
+  bool has_requested_update{false};  /**< 补丁是否请求了任一字段更新 */
+  bool is_valid{true};               /**< 补丁是否合法；非法时 next_config 保持原值 */
+  bool reset_scan_phase{false};      /**< 是否需要重置扫描相位 */
 };
 
 /**

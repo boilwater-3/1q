@@ -42,6 +42,15 @@ using EosExternalDetectionRecordList = std::vector<EosExternalDetectionRecord>;
 
 /**
  * @brief 将内部 EOS 探测记录转换为外部 ECEF 探测记录。
+ *
+ * 依据平台位姿与局部参考系，将相对平台的 range/az/el 反解为 ECEF 位置，
+ * 并原样复制信噪比等标量字段。
+ *
+ * @param[in] detection 内部探测记录（相对平台的几何量）。
+ * @param[in] reference 局部坐标参考系，决定 ENU 到 ECEF 的转换基准。
+ * @param[in] platform_pose 平台局部位姿状态。
+ * @param[out] output 输出外部 ECEF 探测记录；为 nullptr 时直接返回 false。
+ * @return 转换成功返回 true；`output` 为空、几何量非有限/非法、或 ENU→ECEF 变换失败返回 false。
  */
 ONEQ_API bool TryMakeExternalDetectionFromRecord(
     const output::EosDetectionRecord& detection,

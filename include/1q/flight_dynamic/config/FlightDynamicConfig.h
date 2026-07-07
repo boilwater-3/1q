@@ -26,18 +26,18 @@ enum class InitialVelocityFrame {
  * @brief flight_dynamic 会话配置。
  */
 struct FlightDynamicConfig {
-  std::string aircraft_model;
-  std::string aircraft_root_dir;
-  double dt_sec = 0.005;
-  bool do_trim = true;
-  bool silent_mode = true;
-  int integrator_rate_rotational = 3;
-  int integrator_rate_translational = 3;
-  int integrator_pos_rotational = 1;
-  int integrator_pos_translational = 4;
-  int gravity_model = 1;
-  InitialVelocityFrame initial_velocity_frame = InitialVelocityFrame::kBody;
-  coordinate::ExternalKinematics initial_kinematics;
+  std::string aircraft_model;          /**< JSBSim 机型名称（对应 aircraft 目录下的机型） */
+  std::string aircraft_root_dir;       /**< JSBSim aircraft 根目录路径 */
+  double dt_sec = 0.005;               /**< 仿真步长（单位：s），默认 5 ms */
+  bool do_trim = true;                 /**< 构造时是否执行初始配平 */
+  bool silent_mode = true;             /**< 是否抑制 JSBSim 控制台输出 */
+  int integrator_rate_rotational = 3;  /**< 角运动速率积分器类型（JSBSim 索引） */
+  int integrator_rate_translational = 3; /**< 线运动速率积分器类型（JSBSim 索引） */
+  int integrator_pos_rotational = 1;   /**< 角位置积分器类型（JSBSim 索引） */
+  int integrator_pos_translational = 4; /**< 线位置积分器类型（JSBSim 索引） */
+  int gravity_model = 1;               /**< 重力模型（JSBSim 索引） */
+  InitialVelocityFrame initial_velocity_frame = InitialVelocityFrame::kBody; /**< 初始速度注入参考系 */
+  coordinate::ExternalKinematics initial_kinematics; /**< 初始位置/速度/姿态 */
 };
 
 }  // namespace config

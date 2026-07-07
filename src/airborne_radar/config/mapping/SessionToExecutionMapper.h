@@ -13,6 +13,14 @@ namespace airborne_radar {
 namespace config {
 namespace mapping {
 
+/**
+ * @brief 将四域会话配置映射为内部执行配置（唯一运行期配置真值）。
+ *
+ * 会合并 hardware/policy/mission 四域字段，并依据 lifecycle 策略派生
+ * engineering 子配置及默认 IMM 模型噪声差异系数。
+ * @param[in] session_config 外部提交的四域会话配置。
+ * @return 完整初始化后的 InternalExecutionConfig。
+ */
 execution::InternalExecutionConfig MapSessionToExecution(
     const config::ArSessionConfig& session_config);
 

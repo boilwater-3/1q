@@ -27,7 +27,11 @@ namespace config {
 namespace execution {
 
 // ── 与公开类型完全一致的 using 别名 ──
+
+/** @brief 光学采集配置别名（波长/口径/焦距），直接复用公开类型。 */
 using OpticsConfig = config::EosHardwareConfig;
+
+/** @brief 扫描指向配置别名（FOV/扫描速率/工作模式），直接复用公开类型。 */
 using ScanConfig = config::EosMissionConfig;
 
 // ── 新建内部类型（策略解析后、无 profile 元数据） ──
@@ -36,13 +40,13 @@ using ScanConfig = config::EosMissionConfig;
  * @brief 探测器硬件参数配置。
  */
 struct DetectorConfig {
-  float detector_detectivity_cm_sqrt_hz_per_w{1.0e10f};
-  float detector_area_cm2{0.25f};
-  float min_detection_depression_deg{1.0f};
-  float max_detection_depression_deg{89.0f};
+  float detector_detectivity_cm_sqrt_hz_per_w{1.0e10f}; /**< 探测器比探测率（D*） */
+  float detector_area_cm2{0.25f};                       /**< 探测器面积（单位：cm2） */
+  float min_detection_depression_deg{1.0f};             /**< 最小探测俯仰角（单位：deg） */
+  float max_detection_depression_deg{89.0f};            /**< 最大探测俯仰角（单位：deg） */
 };
 
-/// 杂散光抑制配置 — 直接别名到公开类型。
+/** @brief 杂散光抑制配置 — 直接别名到公开类型。 */
 using StrayLightConfig = config::EosStrayLightPolicyConfig;
 
 /**
@@ -55,16 +59,16 @@ using StrayLightConfig = config::EosStrayLightPolicyConfig;
  */
 struct EnvironmentConfig {
   config::EosEnvironmentModelType model_type{
-      config::EosEnvironmentModelType::kSimplified};
+      config::EosEnvironmentModelType::kSimplified}; /**< 环境模型策略 */
   config::RadiativeTransferModel radiative_transfer_model{
-      config::RadiativeTransferModel::kDerivedBeerLambert};
-  float aerosol_density_factor{1.0f};
-  float turbulence_factor{1.0f};
-  bool has_atmospheric_observation{false};
-  oneq::environment::AtmosphericObservation atmospheric_observation{};
+      config::RadiativeTransferModel::kDerivedBeerLambert}; /**< 辐射传输模型 */
+  float aerosol_density_factor{1.0f};                       /**< 气溶胶密度因子 */
+  float turbulence_factor{1.0f};                            /**< 湍流因子 */
+  bool has_atmospheric_observation{false};                  /**< 是否提供大气物理观测 */
+  oneq::environment::AtmosphericObservation atmospheric_observation{}; /**< 大气物理观测快照 */
 };
 
-/// 探测判决配置 — 直接别名到公开类型。
+/** @brief 探测判决配置 — 直接别名到公开类型。 */
 using DetectionConfig = config::EosDetectionPolicyConfig;
 
 /**
@@ -75,12 +79,12 @@ using DetectionConfig = config::EosDetectionPolicyConfig;
  */
 struct EosInternalExecutionConfig {
   bool sensor_enabled{true}; /**< 全局设备开关 */
-  OpticsConfig optics{};
-  ScanConfig scan{};
-  DetectorConfig detector{};
-  StrayLightConfig stray_light{};
-  EnvironmentConfig environment{};
-  DetectionConfig detection{};
+  OpticsConfig optics{};             /**< 光学采集配置 */
+  ScanConfig scan{};                 /**< 扫描指向配置 */
+  DetectorConfig detector{};         /**< 探测器硬件参数 */
+  StrayLightConfig stray_light{};    /**< 杂散光抑制配置 */
+  EnvironmentConfig environment{};   /**< 环境衰减配置 */
+  DetectionConfig detection{};       /**< 探测判决配置 */
 };
 
 }  // namespace execution

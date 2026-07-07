@@ -35,11 +35,11 @@ struct FeatureRecord {
 
   /**
    * @brief 构造内存仓储记录。
-   * @param type 目标类型标签。
-   * @param proto 原型特征向量。
-   * @param ss 速度维度归一化尺度。
-   * @param sr RCS 维度归一化尺度。
-   * @param p 先验权重。
+   * @param[in] type 目标类型标签。
+   * @param[in] proto 原型特征向量。
+   * @param[in] ss 速度维度归一化尺度。
+   * @param[in] sr RCS 维度归一化尺度。
+   * @param[in] p 先验权重。
    */
   FeatureRecord(std::string type, FeatureVector proto, float ss, float sr, float p)
       : target_type(std::move(type)),
@@ -68,7 +68,7 @@ class FeatureRepository final : public IFeatureRepository {
 
   /**
    * @brief 数据源连接（存根）。
-   * @param connection_string 外部数据库连接串。
+   * @param[in] connection_string 外部数据库连接串。
    * @return 始终返回 `false`——数据库驱动尚未实现。
    */
   bool ConnectDataSource(const std::string& connection_string) override;
@@ -81,7 +81,7 @@ class FeatureRepository final : public IFeatureRepository {
 
   /**
    * @brief 在内存仓储中查询输入特征的最优匹配。
-   * @param input 输入特征向量。
+   * @param[in] input 输入特征向量。
    * @param[out] result 输出最优匹配类型、归一化概率和距离。
    * @return 查询成功时返回 `true`；当仓储为空或得分无效时返回 `false`。
    */
@@ -97,7 +97,7 @@ class FeatureRepository final : public IFeatureRepository {
 
   /**
    * @brief 将原始行转换为内存仓储记录。
-   * @param rows 外部数据源返回的原始记录。
+   * @param[in] rows 外部数据源返回的原始记录。
    * @return 可直接用于查询的内存记录集合。
    * @note 会对 `sigma`/`prior` 等字段做最小值保护，避免异常参数破坏匹配稳定性。
    */
@@ -111,8 +111,8 @@ class FeatureRepository final : public IFeatureRepository {
 
   /**
    * @brief 计算输入与仓储记录的归一化距离。
-   * @param input 输入特征向量。
-   * @param record 仓储中的单条原型记录。
+   * @param[in] input 输入特征向量。
+   * @param[in] record 仓储中的单条原型记录。
    * @return 数值越小表示越相似。
    * @note 已知维度（`speed`/`rcs`/`jamming`）按固定权重计算；额外维度按差值累加。
    */
@@ -120,7 +120,7 @@ class FeatureRepository final : public IFeatureRepository {
 
   /**
    * @brief 根据距离计算匹配分值。
-   * @param distance 特征空间距离。
+   * @param[in] distance 特征空间距离。
    * @return 分值范围 `(0, 1]`，距离越小分值越高。
    */
   static float DistanceToScore(float distance);

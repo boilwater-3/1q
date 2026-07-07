@@ -1,3 +1,8 @@
+/**
+ * @file SarRuntimeConfigResolver.h
+ * @brief SAR 运行期补丁解析与可前置不变式校验。
+ */
+
 #ifndef ONEQ_SRC_SAR_SESSION_SAR_RUNTIME_CONFIG_RESOLVER_H_
 #define ONEQ_SRC_SAR_SESSION_SAR_RUNTIME_CONFIG_RESOLVER_H_
 

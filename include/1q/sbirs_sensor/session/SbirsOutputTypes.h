@@ -15,46 +15,59 @@
 namespace sbirs_sensor {
 namespace output {
 
+/** @brief 原生观测阶段：对应状态机输出的 WFOV 搜索、NFOV 首次捕获或 NFOV 真值辅助跟踪。 */
 enum class ONEQ_API SbirsObservationStage {
-  kWideFieldSearch = 0,
-  kNarrowFieldAcquisition,
-  kNarrowFieldTrack
+  kWideFieldSearch = 0,       /**< WFOV 宽视场搜索 */
+  kNarrowFieldAcquisition,    /**< NFOV 首次捕获 */
+  kNarrowFieldTrack           /**< NFOV 真值辅助跟踪 */
 };
 
+/**
+ * @brief 单条 SBIRS-inspired 原生观测检测记录，属于 1q 仿真传感器主输出层。
+ * @note 该结构不含目标真值或仿真归属；归属信息进入 `SbirsDetectionAttributionRecord`。
+ */
 struct ONEQ_API SbirsDetectionRecord {
-  std::uint64_t detection_id{0U};
-  float azimuth_deg{0.0f};
-  float elevation_deg{0.0f};
-  float infrared_snr_linear{0.0f};
-  SbirsObservationStage observation_stage{SbirsObservationStage::kWideFieldSearch};
-  bool detected{false};
+  std::uint64_t detection_id{0U}; /**< 本输出帧内的检测记录标识 */
+  float azimuth_deg{0.0f};        /**< 方位角，单位 deg */
+  float elevation_deg{0.0f};      /**< 仰角，单位 deg */
+  float infrared_snr_linear{0.0f}; /**< 红外通道线性 IR SNR */
+  SbirsObservationStage observation_stage{SbirsObservationStage::kWideFieldSearch}; /**< 观测阶段 */
+  bool detected{false};           /**< 是否通过探测门限判决 */
 };
 
+/** @brief 检测记录列表。 */
 using SbirsDetectionRecordList = std::vector<SbirsDetectionRecord>;
 
 }  // namespace output
 
 namespace attribution {
 
+/**
+ * @brief 检测记录到输入目标的仿真归属记录，仅供结构化结果/调试层消费。
+ * @note 归属信息不得混入 `SbirsOutputFrame` raw output；`estimated_range_m` 为内部
+ *       cue/诊断层估计距离，不代表真实被动红外测距能力。
+ */
 struct ONEQ_API SbirsDetectionAttributionRecord {
-  std::uint64_t detection_id{0U};
-  std::uint64_t target_id{0U};
-  std::string target_name{};
-  float estimated_range_m{0.0f};
-  bool used_truth_assist{false};
+  std::uint64_t detection_id{0U}; /**< 对应的检测记录标识 */
+  std::uint64_t target_id{0U};    /**< 输入场景目标 ID */
+  std::string target_name{};      /**< 输入场景目标名称 */
+  float estimated_range_m{0.0f};  /**< 估计距离，单位 m（仅归属/诊断层） */
+  bool used_truth_assist{false};  /**< 是否使用真值辅助跟踪 */
 };
 
+/** @brief 归属记录列表。 */
 using SbirsDetectionAttributionRecordList = std::vector<SbirsDetectionAttributionRecord>;
 
 }  // namespace attribution
 
 namespace session {
 
+/** @brief 单周期执行的中止原因：无、输入校验拒绝、输出契约违反、运行期状态恢复拒绝。 */
 enum class ONEQ_API SbirsPipelineAbortReason {
-  kNone = 0,
-  kValidationRejected,
-  kOutputContractViolation,
-  kRuntimeStateRestoreRejected
+  kNone = 0,                        /**< 正常执行，无中止 */
+  kValidationRejected,              /**< 输入校验拒绝 */
+  kOutputContractViolation,         /**< 输出契约违反 */
+  kRuntimeStateRestoreRejected      /**< 运行期状态恢复被拒绝 */
 };
 
 }  // namespace session

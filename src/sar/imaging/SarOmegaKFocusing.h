@@ -25,31 +25,49 @@
 namespace sar {
 namespace imaging {
 
+/**
+ * @brief Omega-K 条带聚焦物理参数配置。
+ */
 struct OmegaKConfig {
-  std::size_t range_sample_count{0U};
-  std::size_t azimuth_pulse_count{0U};
-  double sample_rate_hz{0.0};
-  double prf_hz{0.0};
-  double carrier_frequency_hz{0.0};
-  double platform_velocity_mps{0.0};
-  double reference_range_m{0.0};
+  std::size_t range_sample_count{0U};   /**< 距离向采样点数 */
+  std::size_t azimuth_pulse_count{0U};  /**< 方位向脉冲数 */
+  double sample_rate_hz{0.0};           /**< 距离向采样率（Hz） */
+  double prf_hz{0.0};                  /**< 脉冲重复频率 PRF（Hz） */
+  double carrier_frequency_hz{0.0};     /**< 载频（Hz） */
+  double platform_velocity_mps{0.0};    /**< 平台速度（m/s） */
+  double reference_range_m{0.0};        /**< 参考斜距（m） */
 };
 
+/**
+ * @brief Omega-K 聚焦各阶段诊断结果。
+ */
 struct OmegaKDiagnostics {
-  OmegaKSpectrumFrontEndResult front_end{};
-  OmegaKCommonSupportDiagnostics common_support{};
-  OmegaKGridReductionResult grid_reduction{};
-  OmegaKRelativeDelayResult relative_delay{};
-  OmegaKReferenceMappingResult reference_mapping{};
-  OmegaKAzimuthInverseResult azimuth_inverse{};
-  std::string failure_stage{"none"};
+  OmegaKSpectrumFrontEndResult front_end{};        /**< front-end（2D FFT + H_bulk）诊断 */
+  OmegaKCommonSupportDiagnostics common_support{}; /**< 共同支持阶段诊断 */
+  OmegaKGridReductionResult grid_reduction{};      /**< 网格收缩阶段结果 */
+  OmegaKRelativeDelayResult relative_delay{};      /**< 相对延迟变换结果 */
+  OmegaKReferenceMappingResult reference_mapping{};/**< 参考映射结果 */
+  OmegaKAzimuthInverseResult azimuth_inverse{};    /**< 方位逆变换结果 */
+  std::string failure_stage{"none"};               /**< 失败阶段标记，"none" 表示无失败 */
 };
 
+/**
+ * @brief Omega-K 聚焦输出（复图像 + 诊断）。
+ */
 struct FocusedOmegaKImage {
-  signal::ComplexMatrix image{};
-  OmegaKDiagnostics diagnostics{};
+  signal::ComplexMatrix image{};   /**< 聚焦复图像 */
+  OmegaKDiagnostics diagnostics{}; /**< 各阶段诊断 */
 };
 
+/**
+ * @brief Omega-K 条带 broadside 聚焦编排器。
+ *
+ * 把 front-end + 全部 Omega-K 部件串联成完整聚焦入口。仅支持 L1 匀速直线 broadside 条带。
+ * @param[in] config Omega-K 物理参数配置。
+ * @param[in] raw_pulse_history 原始相位历史矩阵（行=方位脉冲，列=距离采样）。
+ * @param[out] output 聚焦输出（复图像 + 诊断）。
+ * @return 聚焦成功返回 true；任一阶段失败或参数非法返回 false。
+ */
 bool FocusStripmapOmegaK(const OmegaKConfig& config,
                          const signal::ComplexMatrix& raw_pulse_history,
                          FocusedOmegaKImage* output);
@@ -61,7 +79,7 @@ bool FocusStripmapOmegaK(const OmegaKConfig& config,
  * 仅方位坐标原点由 scene_center_azimuth_m 偏移。
  */
 struct SpotlightOmegaKConfig : OmegaKConfig {
-  double scene_center_azimuth_m{0.0};  ///< 聚束场景中心方位(方位坐标原点偏移)
+  double scene_center_azimuth_m{0.0};  /**< 聚束场景中心方位(方位坐标原点偏移) */
 };
 
 /**

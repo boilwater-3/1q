@@ -18,6 +18,11 @@
 namespace airborne_radar {
 namespace session {
 
+/**
+ * @brief MutableArContext 运行态快照 (POD)，用于失败回滚等场景的整快照捕获/恢复。
+ * @note owner_identity 标识捕获方实例，RestoreRuntimeState 会拒绝跨实例恢复；
+ *       schema_version 用于校验快照格式兼容性。
+ */
 struct ArContextRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
@@ -41,36 +46,40 @@ class MutableArContext final {
    * @brief 默认构造函数。
    */
   MutableArContext() = default;
+  /**
+   * @brief 使用初始场景目标列表构造上下文。
+   * @param[in] scene_targets 初始场景目标列表。
+   */
   explicit MutableArContext(ArSceneTargetList scene_targets);
   ~MutableArContext() = default;
 
   /**
    * @brief 以单周期输入刷新上下文，并清空本周期输出缓存。
-   * @param input 单周期输入载荷。
+   * @param[in] input 单周期输入载荷。
    */
   void BeginCycle(const ArCycleInput& input);
 
   /**
    * @brief 更新当前周期场景目标列表。
-   * @param scene_targets 新的场景目标列表。
+   * @param[in] scene_targets 新的场景目标列表。
    */
   void SetSceneTargets(ArSceneTargetList scene_targets);
 
   /**
    * @brief 更新当前平台姿态角。
-   * @param platform_attitude_deg 平台姿态角，单位为度。
+   * @param[in] platform_attitude_deg 平台姿态角，单位为度。
    */
   void SetPlatformAttitude(const config::PlatformAttitudeDeg& platform_attitude_deg);
 
   /**
    * @brief 更新当前周期时间步长。
-   * @param dt_sec 周期步长，单位为秒。
+   * @param[in] dt_sec 周期步长，单位为秒。
    */
   void SetCycleDeltaTimeSec(float dt_sec);
 
   /**
    * @brief 更新当前输入周期号。
-   * @param cycle_index 当前周期号。
+   * @param[in] cycle_index 当前周期号。
    */
   void SetCycleIndex(std::uint32_t cycle_index);
 
@@ -86,6 +95,10 @@ class MutableArContext final {
    */
   const std::vector<session::ArCommand>& GetSubmittedCommands() const;
 
+  /**
+   * @brief GetSubmittedCommands 的别名，返回本周期命令缓存只读引用。
+   * @return 当前周期已提交命令缓存。
+   */
   const std::vector<session::ArCommand>& SubmittedCommands() const;
 
   /**
@@ -100,10 +113,23 @@ class MutableArContext final {
    */
   const session::ArControlProfile& GetLatestControlProfile() const;
 
+  /**
+   * @brief GetLatestControlProfile 的别名，返回最近一次控制真值只读引用。
+   * @return 最近一次控制真值；若尚未更新则返回默认值。
+   */
   const session::ArControlProfile& LatestControlProfile() const;
 
+  /**
+   * @brief 捕获当前上下文运行态快照。
+   * @return 可用于失败回滚的上下文运行态快照。
+   */
   ArContextRuntimeState CaptureRuntimeState() const;
 
+  /**
+   * @brief 恢复此前捕获的上下文运行态快照。
+   * @param[in] state 待恢复的上下文运行态快照。
+   * @note 仅当 owner_identity 与 schema_version 校验通过时才执行恢复，否则静默跳过。
+   */
   void RestoreRuntimeState(const ArContextRuntimeState& state);
 
   /**
@@ -117,6 +143,11 @@ class MutableArContext final {
    * @return 当前平台姿态角。
    */
   config::PlatformAttitudeDeg GetPlatformAttitude() const;
+
+  /**
+   * @brief 获取当前平台海拔高度。
+   * @return 当前平台海拔高度（单位：m）。
+   */
   float GetPlatformAltitudeM() const;
 
   /**
@@ -133,13 +164,13 @@ class MutableArContext final {
 
   /**
    * @brief 记录控制器提交的单条控制指令。
-   * @param cmd 控制指令。
+   * @param[in] cmd 控制指令。
    */
   void SubmitControlCommand(session::ArCommand cmd);
 
   /**
    * @brief 保存最近一次控制真值。
-   * @param profile 下一周期控制真值。
+   * @param[in] profile 下一周期控制真值。
    */
   void UpdateRadarControlProfile(const session::ArControlProfile& profile);
 

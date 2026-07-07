@@ -1,8 +1,8 @@
 /**
  * @file ArTrackLifecycleRecorder.h
- * @brief AR module primary track lifecycle recording types.
+ * @brief 机载雷达轨迹生命周期记录类型集合。
  *
- * Primary header for track lifecycle recording.
+ * 轨迹首次确认/更新/丢失/未跟踪事件记录的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_TRACK_LIFECYCLE_RECORDER_H_
@@ -22,34 +22,46 @@ namespace session {
 // 前向声明：Update 参数为 const 引用，header 无需完整类型，避免拉入 ArCycleInput 重依赖。
 struct ArCycleInput;
 
+/**
+ * @brief 轨迹生命周期事件类型。
+ */
 enum class ONEQ_API ArTrackLifecycleEventKind {
-  kFirstConfirmed = 0,
-  kUpdated = 1,
-  kLost = 2,
-  kNotTracked = 3
+  kFirstConfirmed = 0, /**< 目标首次进入已确认状态。 */
+  kUpdated = 1,        /**< 已确认轨迹本周期再次更新。 */
+  kLost = 2,           /**< 轨迹进入丢失状态。 */
+  kNotTracked = 3      /**< 输入目标无对应 track（需显式开启诊断）。 */
 };
 
+/**
+ * @brief 未跟踪/丢失事件的成因归类（仅在 kNotTracked 诊断时填充）。
+ */
 enum class ONEQ_API ArTrackLifecycleReason {
-  kNone = 0,
-  kNoTrack = 1,
-  kValidationRejected = 2,
-  kCycleNotExecuted = 3,
-  kUnknown = 4
+  kNone = 0,              /**< 无特殊成因（已确认/更新/丢失事件均用此值）。 */
+  kNoTrack = 1,           /**< 本周期未为该输入目标建立任何 track。 */
+  kValidationRejected = 2, /**< 周期输入被校验拒绝。 */
+  kCycleNotExecuted = 3,  /**< 本周期主链路未真正执行。 */
+  kUnknown = 4            /**< 其他无法归类的情形。 */
 };
 
+/**
+ * @brief 单条轨迹生命周期事件记录。
+ */
 struct ONEQ_API ArTrackLifecycleEvent {
-  std::uint32_t cycle_index{0U};
-  std::uint64_t external_target_id{0U};
-  std::string target_name{};
-  ArTrackLifecycleEventKind kind{ArTrackLifecycleEventKind::kUpdated};
-  ArTrackLifecycleReason reason{ArTrackLifecycleReason::kNone};
-  std::uint64_t association_key{0U};
-  session::TrackStatus track_status{session::TrackStatus::kTentative};
-  float speed{0.0f};
+  std::uint32_t cycle_index{0U};                                      /**< 触发该事件的周期号 */
+  std::uint64_t external_target_id{0U};                               /**< 输入目标外部标识符 */
+  std::string target_name{};                                          /**< 目标名称（人读标签） */
+  ArTrackLifecycleEventKind kind{ArTrackLifecycleEventKind::kUpdated}; /**< 事件类型 */
+  ArTrackLifecycleReason reason{ArTrackLifecycleReason::kNone};       /**< 事件成因（诊断用） */
+  std::uint64_t association_key{0U};                                  /**< 关联轨迹的关联键（无 track 时为 0） */
+  session::TrackStatus track_status{session::TrackStatus::kTentative}; /**< 关联轨迹的生命周期状态 */
+  float speed{0.0f};                                                  /**< 关联轨迹的速度（无 track 时为 0） */
 };
 
+/**
+ * @brief 轨迹生命周期记录器配置。
+ */
 struct ONEQ_API ArTrackLifecycleRecorderConfig {
-  bool emit_not_tracked_events{false};
+  bool emit_not_tracked_events{false}; /**< 是否为无对应 track 的输入目标产生 kNotTracked 事件 */
 };
 
 /**
@@ -73,8 +85,21 @@ class ONEQ_API ArTrackLifecycleRecorder {
   ArTrackLifecycleRecorder(ArTrackLifecycleRecorder&&) noexcept;
   ArTrackLifecycleRecorder& operator=(ArTrackLifecycleRecorder&&) noexcept;
 
+  /**
+   * @brief 基于单周期输入与执行结果产出生命周期事件。
+   *
+   * 仅处理 `external_target_id != 0` 的输入目标；按确认/更新/丢失/未跟踪规则
+   * 生成事件，未跟踪事件仅在配置开启时产生。
+   *
+   * @param[in] input 当前周期输入（用于遍历输入目标表）。
+   * @param[in] result 当前周期执行结果（用于查询关联轨迹状态）。
+   * @return 本周期产生的生命周期事件列表（可能为空）。
+   */
   std::vector<ArTrackLifecycleEvent> Update(const ArCycleInput& input, const ArCycleResult& result);
 
+  /**
+   * @brief 清空内部轨迹状态，回到初始状态。
+   */
   void Reset();
 
  private:

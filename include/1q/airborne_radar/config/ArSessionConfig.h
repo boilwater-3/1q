@@ -1,8 +1,8 @@
 /**
  * @file ArSessionConfig.h
- * @brief AR module primary session configuration type.
+ * @brief 机载雷达会话初始化主配置类型。
  *
- * Primary header for session initialization configuration.
+ * 会话初始化配置（四域公开模型）的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_SESSION_CONFIG_H_

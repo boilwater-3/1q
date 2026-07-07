@@ -18,26 +18,26 @@ namespace geometry {
  * @note 借鉴 AR 的可配置方向图模型，SAR 默认使用 sinc²（均匀孔径理论解）。
  */
 enum class AntennaPatternModel {
-  kSincPattern = 0,      ///< sinc² 方向图（均匀孔径理论解，默认）
-  kGaussianMainLobe = 1, ///< 高斯主瓣近似
-  kParabolicMainLobe = 2,///< 抛物线主瓣近似（dB 域）
-  kCosinePower = 3       ///< 余弦幂方向图近似
+  kSincPattern = 0,      /**< sinc² 方向图（均匀孔径理论解，默认） */
+  kGaussianMainLobe = 1, /**< 高斯主瓣近似 */
+  kParabolicMainLobe = 2,/**< 抛物线主瓣近似（dB 域） */
+  kCosinePower = 3       /**< 余弦幂方向图近似 */
 };
 
 /**
  * @brief 天线物理参数。
  */
 struct AntennaParams {
-  double length_m{0.0};               ///< 方位向天线长度
-  double width_m{0.0};                ///< 距离向天线宽度
-  double peak_gain_linear{1.0};       ///< 峰值增益(线性)
-  double beam_width_azimuth_rad{0.0}; ///< 方位波束宽度(rad)
-  double beam_width_range_rad{0.0};   ///< 距离波束宽度(rad)
-  double boresight_azimuth_rad{0.0};  ///< 方位角指向(rad)
-  double boresight_elevation_rad{0.0};///< 俯仰角指向(rad)
-  AntennaPatternModel pattern_model{AntennaPatternModel::kSincPattern}; ///< 方向图模型
-  double max_sidelobe_level_db{-20.0};///< 最大旁瓣电平(dB)，仅非 sinc² 模式生效
-  double backlobe_level_db{-35.0};    ///< 后瓣电平(dB)
+  double length_m{0.0};               /**< 方位向天线长度 */
+  double width_m{0.0};                /**< 距离向天线宽度 */
+  double peak_gain_linear{1.0};       /**< 峰值增益(线性) */
+  double beam_width_azimuth_rad{0.0}; /**< 方位波束宽度(rad) */
+  double beam_width_range_rad{0.0};   /**< 距离波束宽度(rad) */
+  double boresight_azimuth_rad{0.0};  /**< 方位角指向(rad) */
+  double boresight_elevation_rad{0.0};/**< 俯仰角指向(rad) */
+  AntennaPatternModel pattern_model{AntennaPatternModel::kSincPattern}; /**< 方向图模型 */
+  double max_sidelobe_level_db{-20.0};/**< 最大旁瓣电平(dB)，仅非 sinc² 模式生效 */
+  double backlobe_level_db{-35.0};    /**< 后瓣电平(dB) */
 };
 
 /**
