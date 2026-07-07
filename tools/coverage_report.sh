@@ -31,6 +31,7 @@ PRESET="llvm-ninja-coverage"
 LABEL=""
 NO_TEST=0
 OPEN=0
+CLEAN=0
 
 usage() {
     cat <<'EOF'
@@ -44,6 +45,7 @@ coverage_report.sh — 1q 代码覆盖率报告生成
   --label <label>    仅运行指定 CTest label (如 unit / sar_ci / fd_smoke / contract)
                      不指定则运行全部测试
   --no-test          跳过 ctest（假设测试已运行，仅重新生成报告）
+  --clean            先清空 coverage_report/ 下的旧报告与 profraw 再生成
   --open             生成后用系统默认浏览器打开 HTML 报告
   -h, --help         显示此帮助
 
@@ -59,6 +61,7 @@ while [[ $# -gt 0 ]]; do
         --preset) PRESET="$2"; shift 2 ;;
         --label)  LABEL="$2";  shift 2 ;;
         --no-test) NO_TEST=1; shift ;;
+        --clean)  CLEAN=1; shift ;;
         --open)   OPEN=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "错误: 未知参数 '$1'" >&2; usage >&2; exit 1 ;;
@@ -189,6 +192,14 @@ fi
 REPORT_DIR="${BUILD_DIR}/coverage_report"
 PROFDATA="${REPORT_DIR}/1q.profdata"
 PRORAW_DIR="${REPORT_DIR}/profraw"
+
+# --clean: 清空旧报告与 profraw，避免新旧口径混叠导致误读。
+# 这在切换 label、更换解读二进制、或长期未跑覆盖率后尤其有用——
+# 旧 summary.txt 不会残留，防止出现“虚高旧报告”对比混乱。
+if [[ "${CLEAN}" -eq 1 ]]; then
+    echo "==> [0/4] 清空旧报告 (${REPORT_DIR})..."
+    rm -rf "${REPORT_DIR}"
+fi
 mkdir -p "${PRORAW_DIR}"
 
 if [[ "${NO_TEST}" -eq 0 ]]; then
@@ -209,10 +220,24 @@ else
     echo "==> [1/4] 跳过测试 (--no-test)"
 fi
 
+# --no-test 容错：若脚本期望的 PRORAW_DIR 没有 profraw，但测试是用户自己
+# 跑的（LLVM_PROFILE_FILE 未指向本目录，profraw 散落在 build 目录各处），
+# 则兜底扫描整个 BUILD_DIR 下的 *.profraw 并挪进 PRORAW_DIR 统一收集。
+# 这消除了“profraw 位置不匹配导致 --no-test 报错”这一最常见的人为踩坑。
+# 注意排除 PRORAW_DIR 自身，避免 mv 把已在目录内的文件匹配到自身而报 identical。
 PRORAW_COUNT="$(find "${PRORAW_DIR}" -name '*.profraw' 2>/dev/null | wc -l | tr -d ' ')"
 if [[ "${PRORAW_COUNT}" -eq 0 ]]; then
-    echo "错误: 未找到任何 .profraw 文件 (${PRORAW_DIR})" >&2
+    SCAVENGED="$(find "${BUILD_DIR}" -name '*.profraw' -not -path "${PRORAW_DIR}/*" 2>/dev/null | wc -l | tr -d ' ')"
+    if [[ "${SCAVENGED}" -gt 0 ]]; then
+        echo "    ${PRORAW_DIR} 为空，兜底回收 ${SCAVENGED} 个散落的 .profraw (来自 ${BUILD_DIR})"
+        find "${BUILD_DIR}" -name '*.profraw' -not -path "${PRORAW_DIR}/*" -exec mv {} "${PRORAW_DIR}/" \;
+        PRORAW_COUNT="$(find "${PRORAW_DIR}" -name '*.profraw' 2>/dev/null | wc -l | tr -d ' ')"
+    fi
+fi
+if [[ "${PRORAW_COUNT}" -eq 0 ]]; then
+    echo "错误: 未找到任何 .profraw 文件 (${PRORAW_DIR} 及 ${BUILD_DIR} 下均无)" >&2
     echo "  确认已用 ENABLE_COVERAGE=ON 编译，且测试可执行文件确实被插桩。" >&2
+    echo "  若用 --no-test，请确保已跑过测试（不带 --no-test 重新运行即可自动跑测试）。" >&2
     exit 1
 fi
 echo "    收集到 ${PRORAW_COUNT} 个 .profraw 文件"
@@ -256,6 +281,27 @@ SUMMARY_TXT="${REPORT_DIR}/summary.txt"
     "${COVERAGE_FILTER_ARGS[@]}" \
     "${SOURCE_DIRS[@]}" \
     > "${SUMMARY_TXT}" 2>&1 || true
+
+# 在 summary 顶部注入口径标注，防止跨次/跨人对比时误读。
+# 旧报告若残留无标注，易被当作“虚高基线”与新单二进制口径错误对比。
+SUMMARY_HEADER="${REPORT_DIR}/.summary_header.txt"
+{
+    echo "# 1q 覆盖率摘要 — 口径标注（请连同此头一起阅读）"
+    echo "# 生成时间   : $(date '+%Y-%m-%d %H:%M:%S %z')"
+    echo "# 解读二进制 : ${PRIMARY_COV_BIN}（单二进制口径，profraw 来自全部测试层并集）"
+    echo "# 统计范围   : src/ include/，已排除 */generated/*"
+    echo "# 主指标     : Branch（数值密集代码看重分支覆盖）"
+    echo "# CTest 标签 : ${LABEL:-全部}"
+    echo "# profraw 数 : ${PRORAW_COUNT}"
+    echo "#"
+    echo "# 注意：不同解读口径（多 -object vs 单二进制）下的 Region 总数不可直接比较。"
+    echo "# 本报告为单二进制口径，已去重；多 -object 口径会因重复计数而虚高。"
+    echo "#"
+    echo "# 以下为 llvm-cov report 原始输出："
+    echo ""
+} > "${SUMMARY_HEADER}"
+cat "${SUMMARY_TXT}" >> "${SUMMARY_HEADER}"
+mv "${SUMMARY_HEADER}" "${SUMMARY_TXT}"
 
 echo "    → ${HTML_DIR}/index.html"
 

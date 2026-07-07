@@ -139,15 +139,26 @@ Generate a report after building:
 ```bash
 cmake --preset llvm-ninja-coverage
 cmake --build --preset llvm-ninja-coverage
-./tools/coverage_report.sh                       # full test suite, all instrumented binaries merged
-./tools/coverage_report.sh --label unit          # only the unit-test layer
-./tools/coverage_report.sh --label sar_ci        # any CTest label subset
-./tools/coverage_report.sh --open                # open HTML in browser
+bash tools/coverage_report.sh                       # full test suite, all instrumented binaries merged
+bash tools/coverage_report.sh --label unit          # only the unit-test layer
+bash tools/coverage_report.sh --label sar_ci        # any CTest label subset
+bash tools/coverage_report.sh --clean --open        # wipe old report first, then open HTML
 ```
 
-The script merges every instrumented test binary (`-object`) into one report, so the numbers reflect the whole test pyramid, not a single binary. Output lands under `build/llvm-ninja-coverage-local/coverage_report/` (already covered by `.gitignore`'s `build/` rule).
+The script runs every instrumented test binary, merges all `.profraw` into one `.profdata`, then interprets coverage through a single binary (`1q_unit_tests`) as the `llvm-cov` entry point — so the numbers reflect the whole test pyramid while avoiding the mismatched-data distortion that multi-`-object` interpretation causes. Output lands under `build/llvm-ninja-coverage-local/coverage_report/` (already covered by `.gitignore`'s `build/` rule).
 
-Read coverage as a diagnostic, not a KPI. **Branch coverage is the primary metric here** — this is a numerically dense radar/ESR simulation where line coverage can read 100% while whole `else` branches stay untested. Current full-suite baseline: Region 85.8%, Function 83.4%, Line 78.8%, **Branch 63.2%**. See `docs/coverage.md` for metric definitions, report reading, and troubleshooting.
+### Coverage workflow — do not run ctest manually
+
+The single command above (`bash tools/coverage_report.sh`) owns the entire flow: ctest → profraw → profdata → report. **Never run `ctest` by hand for coverage.** The script sets `LLVM_PROFILE_FILE` to a known directory; running ctest yourself scatters `.profraw` elsewhere and the script has to scavenge them. Always invoke the script. Options:
+
+- `--no-test` — regenerate the report from existing `.profraw` after you have already run tests through the script once. Has a build-dir scavenger fallback so scattered profraw are still collected, but prefer running the script without `--no-test` so it owns profraw placement.
+- `--clean` — wipe `coverage_report/` first. Use this when switching labels, after a long gap, or whenever an old report might otherwise be mistaken for a baseline. Old reports without a scope header can read as inflated baselines.
+- `--label <name>` — restrict to a CTest label subset (`unit`, `sar_ci`, `fd_smoke`, `contract`, ...).
+- `--open` — open the HTML report in a browser when done.
+
+The generated `summary.txt` carries a scope header (generation time, interpretation binary, stat scope, label, profraw count) — read it alongside the numbers, and never compare Region totals across different interpretation scopes (single-binary reports are deduplicated; multi-`-object` reports inflate via double-counting).
+
+Read coverage as a diagnostic, not a KPI. **Branch coverage is the primary metric here** — this is a numerically dense radar/ESR simulation where line coverage can read 100% while whole `else` branches stay untested. Current full-suite baseline: Region 86.87%, Function 91.35%, Line 86.24%, **Branch 69.53%**. See `docs/coverage.md` for metric definitions, report reading, and troubleshooting.
 
 ## Documentation
 
