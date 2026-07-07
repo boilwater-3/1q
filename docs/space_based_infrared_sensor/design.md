@@ -12,8 +12,6 @@ Authority: target design for the new `sbirs_sensor` module
 但不声称复刻真实 SBIRS 设备、保密载荷或地面处理链路。本文中的 WFOV / NFOV 是面向仿真实现的
 宽域搜索 / 窄域凝视抽象：WFOV 对应扫描搜索能力，NFOV 对应可任务化凝视与高灵敏度区域覆盖能力。
 
-原始需求草案见 `docs/review/sbirs_infrared_model_1205_v3.md`（pandoc 转换自原始 docx，下文引用其行号）。
-实现计划草案见 `docs/review/sbirs_filter.md`；历史审查结论见第 5 节。
 
 ## 1. 架构设计说明
 
