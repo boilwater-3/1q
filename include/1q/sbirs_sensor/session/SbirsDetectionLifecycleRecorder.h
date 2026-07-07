@@ -27,7 +27,7 @@ enum class ONEQ_API SbirsDetectionLifecycleEventKind {
   kNotDetected        /**< 目标本周期未检测 */
 };
 
-/** @brief 生命周期事件原因：视场外、低于 SNR 门限、校验拒绝、周期未执行、目标缺失、未知。 */
+/** @brief 生命周期事件原因：视场外、低于 SNR 门限、捕获失败、调度跳过、校验拒绝等。 */
 enum class ONEQ_API SbirsDetectionLifecycleReason {
   kNone = 0,                  /**< 无具体原因 */
   kOutOfFieldOfView,          /**< 目标在视场（FOV）外 */
@@ -35,6 +35,8 @@ enum class ONEQ_API SbirsDetectionLifecycleReason {
   kValidationRejected,        /**< 周期输入校验被拒绝 */
   kCycleNotExecuted,          /**< 本周期未执行 */
   kTargetMissingFromInput,    /**< 目标从输入场景消失 */
+  kNfovAcquisitionFailed,     /**< 进入 NFOV 待捕获但捕获失败 */
+  kSchedulerSkipped,          /**< WFOV 候选未被调度器选中 */
   kUnknown                    /**< 未知原因 */
 };
 

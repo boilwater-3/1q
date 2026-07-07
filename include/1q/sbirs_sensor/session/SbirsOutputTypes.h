@@ -43,6 +43,16 @@ using SbirsDetectionRecordList = std::vector<SbirsDetectionRecord>;
 namespace attribution {
 
 /**
+ * @brief 首次捕获失败原因，仅供归属/调试层消费，不进 `SbirsOutputFrame` raw output。
+ * @note 用于交接诊断：标识进入 NFOV 待捕获但失败、或 WFOV 候选被调度器跳过的目标。
+ */
+enum class ONEQ_API SbirsCaptureFailureReason {
+  kNone = 0,              /**< 无失败（成功捕获或仅 WFOV 观测） */
+  kNfovAcquisitionFailed, /**< 进入 NFOV 待捕获但捕获失败（视场外或 SNR 不足） */
+  kSchedulerSkipped       /**< WFOV 候选未被调度器选中（资源被占用或排序靠后） */
+};
+
+/**
  * @brief 检测记录到输入目标的仿真归属记录，仅供结构化结果/调试层消费。
  * @note 归属信息不得混入 `SbirsOutputFrame` raw output；`estimated_range_m` 为内部
  *       cue/诊断层估计距离，不代表真实被动红外测距能力。
@@ -53,6 +63,8 @@ struct ONEQ_API SbirsDetectionAttributionRecord {
   std::string target_name{};      /**< 输入场景目标名称 */
   float estimated_range_m{0.0f};  /**< 估计距离，单位 m（仅归属/诊断层） */
   bool used_truth_assist{false};  /**< 是否使用真值辅助跟踪 */
+  SbirsCaptureFailureReason capture_failure_reason{
+      SbirsCaptureFailureReason::kNone}; /**< 首次捕获失败原因（仅归属/诊断层） */
 };
 
 /** @brief 归属记录列表。 */

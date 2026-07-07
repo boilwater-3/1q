@@ -25,7 +25,8 @@ struct ONEQ_API SbirsVector3M {
 /**
  * @brief 输入场景中的单个目标描述（仿真真值）。
  * @note 纯数据类型 (POD)。`target_id` 是目标级状态机的键；真值位置仅用于真值辅助跟踪
- *       与仿真判定，不进入 `SbirsOutputFrame` raw output。
+ *       与仿真判定，不进入 `SbirsOutputFrame` raw output。速度真值用于 cue 延迟外推与
+ *       动态滞后误差，缺省（`has_velocity_ecef_m_per_s=false`）时按 0 处理，保持旧行为。
  */
 struct ONEQ_API SbirsSceneTarget {
   std::uint64_t target_id{0U};     /**< 目标唯一标识，状态机以此键管理状态 */
@@ -34,6 +35,8 @@ struct ONEQ_API SbirsSceneTarget {
   float temperature_k{1200.0f};    /**< 目标温度，单位 K */
   float emissivity{0.85f};         /**< 发射率，无量纲 */
   float projected_area_m2{1.0f};   /**< 投影面积，单位 m² */
+  SbirsVector3M velocity_ecef_m_per_s{}; /**< ECEF 速度真值，单位 m/s（仅 cue 外推与动态滞后用） */
+  bool has_velocity_ecef_m_per_s{false}; /**< 是否提供速度；为 false 时按 0 处理，保持旧行为 */
   bool active{true};               /**< 目标是否在场景中有效 */
 };
 

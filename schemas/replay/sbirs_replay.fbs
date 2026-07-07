@@ -32,6 +32,8 @@ table SbirsSceneTarget {
   temperature_k: float;
   emissivity: float;
   projected_area_m2: float;
+  velocity_ecef_m_per_s: Vec3d;
+  has_velocity_ecef_m_per_s: bool;
   active: bool;
 }
 
@@ -62,6 +64,7 @@ table SbirsDetectionAttributionRecord {
   target_name: string;
   estimated_range_m: float;
   used_truth_assist: bool;
+  capture_failure_reason: int32;
 }
 
 table SbirsOutputFrame {

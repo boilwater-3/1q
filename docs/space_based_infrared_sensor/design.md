@@ -1,12 +1,12 @@
 # Space-Based Infrared Sensor (SBIRS-inspired) 目标设计
 
 Status: active
-Last-reviewed: 2026-07-06
+Last-reviewed: 2026-07-07
 Authority: target design for the new `sbirs_sensor` module
 
-本文是 `sbirs_sensor`（天基红外预警仿真传感器）模块的设计权威文档。模块尚未实现，本文描述
-目标架构、数据流和算法边界。跨模块 public API、builder、三层输出等共同规则见
-`docs/common/contract.md`。
+本文是 `sbirs_sensor`（天基红外预警仿真传感器）模块的设计权威文档。模块已实现并具备单元、
+集成与契约测试分层；本文描述目标架构、数据流和算法边界。跨模块 public API、builder、三层输出
+等共同规则见 `docs/common/contract.md`。
 
 本文以公开 SBIRS / OPIR 资料中的扫描红外传感器与 step-staring/staring 红外传感器为真实系统校准点，
 但不声称复刻真实 SBIRS 设备、保密载荷或地面处理链路。本文中的 WFOV / NFOV 是面向仿真实现的
@@ -410,18 +410,23 @@ stateDiagram-v2
 1. **输入**：使用该目标 WFOV 输出的**带误差位置**（方位角、俯仰角、距离），不得使用真值位置。
 2. **指向生成**：由 WFOV 带误差位置生成 NFOV 命令指向 `u_cmd`。第一版不模拟 ATP 姿态机动过程，
    但保留 `narrow_pointing_settle_error_deg` / `narrow_cue_latency_s` 等配置位，默认可为 0。
-3. **窗口判定**：判断目标真实 LOS `u_true` 是否落入以 `u_cmd` 为中心的 NFOV 搜索窗口。这样捕获判定
-   仍受 WFOV 误差、目标运动、cue 延迟和 NFOV 视场大小影响，不会因为窗口中心直接取测量值而恒成立。
+3. **窗口判定**：判断目标真实 LOS `u_true` 是否落入以 `u_cmd` 为中心的 NFOV 搜索窗口。`u_true` 在
+   `narrow_cue_latency_s > 0` 且目标提供 `velocity_ecef_m_per_s` 时，按延迟时间对真值位置做线性外推
+   后重算——即 cue 指向测量瞬间的位置，而目标在延迟期间继续运动，从而建模 cue 延迟与目标运动的
+   耦合对首次捕获的影响。无速度时 `u_true` 即当前帧真值，行为不变。这样捕获判定仍受 WFOV 误差、
+   目标运动、cue 延迟和 NFOV 视场大小影响，不会因为窗口中心直接取测量值而恒成立。
 4. **SNR 门限**：判断 NFOV IR SNR 是否 ≥ NFOV 捕获门限。NFOV 门限通常高于 WFOV（窄视场虚警率
    要求更低，对应 `k=5~6`，见原始需求 `docs/review/sbirs_infrared_model_1205_v3.md:137-142` 的 k 值表）。
 5. **成功**：进入 `TruthAssistedTracking`。后续周期不再使用 WFOV 带误差位置重新捕获。
 6. **失败**：清除该目标本次交接状态，回退 `WideCandidate`，等待后续周期重新发现和交接。不输出该
-   目标本周期 NFOV 成功记录。
+   目标本周期 NFOV 成功记录；但产出 `capture_failure_reason = kNfovAcquisitionFailed` 的诊断归属，
+   仅进入 `SbirsCycleResult.detection_attributions` 与调试/lifecycle 层，不进入 raw output。
 
 适用边界：
 
 - NFOV 首次捕获只做几何窗口 + SNR 门限判定，不做模板匹配、图像相关或目标运动外推。
 - `u_cmd` 由 WFOV cue 生成；真实 LOS 只用于仿真判定捕获是否成功，不进入 raw output。
+- cue 延迟外推仅用目标速度对真值位置做线性平移，不做积分轨道传播或 ATP 动力学建模。
 - cue 延迟和指向 settle error 是配置参数，不代表完整 ATP 动力学模型。
 
 验证入口：
@@ -635,7 +640,10 @@ WFOV 输出的带误差位置是 NFOV 首次捕获的输入，误差模型直接
 > （`RefractionErrorDeg`/`DynamicLagErrorDeg`）。随机源 `SbirsRandomSource` 为 xorshift32 + Box-Muller，
 > 由 `random_seed` 初始化，状态经 `SbirsPipelineSnapshot::random_state` 随 capture/restore 持久化，
 > 保证 replay 可复现。当三项高斯 sigma 均为 0 时回退到合并 `angular_sigma_deg`（向后兼容）。
-> 目标角速度当前固定按 0 处理（动态滞后项为 0），后续接入运动估计后再启用。
+> 目标角速度由 `SbirsSceneTarget.velocity_ecef_m_per_s`（ECEF 速度真值，可选）推导：pipeline 调用
+> `ComputeRelativeAngularRateDegPerSec(los, velocity)` 得到视线角速度 `ω_tar`，接入动态滞后项。
+> 未提供速度（`has_velocity_ecef_m_per_s=false`）时 `ω_tar=0`，动态滞后项为 0，保持旧行为。当前无
+> 卫星速度输入，相对速度按目标速度处理；后续接入卫星运动估计时再扩展 `SbirsCycleInput`。
 
 适用边界：
 
@@ -699,8 +707,6 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 
 ## 3. 非目标与边界
 
-以下算法和能力出现在原始需求 `docs/review/sbirs_infrared_model_1205_v3.md` 中，但第一版不实现。每项给出理由。
-
 - **图像级 TBD（Track-Before-Detect）**——管道滤波能量累积（`:268-294`）、动态规划 TBD
   （`:296-310`）。第一版用 WFOV 单帧 SNR 门控判定可探测性，不做帧间能量累积。理由：TBD 需要
   多帧图像缓存和速度空间搜索，是独立的图像处理子系统；第一版聚焦视场协同与状态机交接。
@@ -721,8 +727,10 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
   需要独立的 NFOV 资源模型和调度器，第一版先用单目标验证状态机和交接语义。
 
 - **Cueing 运动预测与 ATP 姿态机动建模**——CV/CA 运动模型状态预测（`:370-432`）、ATP 快速姿态
-  机动（`:434-440`）。第一版不做目标运动外推和姿态机动过程建模。理由：第一版只保留由 WFOV
-  带误差 cue 生成 NFOV 命令指向的判定边界，ATP 机动时间、闭环稳定和速度空间搜索是后续优化项。
+  机动（`:434-440`）。第一版不做 CV/CA 滤波运动预测和姿态机动过程建模；但接入 `narrow_cue_latency_s`
+  驱动的**线性位置外推**（用 `velocity_ecef_m_per_s` 对真值位置平移），以建模 cue 延迟与目标运动对
+  首次捕获窗口的耦合影响。理由：线性外推是已有边界内的能力接线（速度作为可选输入、缺省退化为旧行为），
+  而 CV/CA 状态空间搜索与 ATP 闭环稳定仍是后续优化项。
 
 - **不暴露用户自定义 pipeline、controller、状态机、环境模型或 foundation algorithm 类型。**
 
@@ -739,6 +747,12 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 - `SbirsTraceSession` / `ReplaySbirsTrace` / `SbirsReplayFlatbufferCodec` 记录和回放的是 1q SBIRS 仿真
   DTO。schema 位于 `schemas/replay/sbirs_replay.fbs` 与
   `schemas/replay/sbirs_session_replay.fbs`，payload type 使用 `Sbirs*`，不复用 EOS schema。
+- 交接诊断字段（受三层分离约束，不进 `SbirsOutputFrame` raw output）：
+  - `SbirsSceneTarget.velocity_ecef_m_per_s` / `has_velocity_ecef_m_per_s`：目标速度真值，驱动 cue
+    延迟外推与动态滞后误差；缺省时行为不变。velocity 进 replay（`sbirs_replay.fbs`）。
+  - `SbirsCaptureFailureReason`（枚举）与 `SbirsDetectionAttributionRecord.capture_failure_reason`：
+    首次捕获失败/调度跳过诊断，进入 `SbirsCycleResult.detection_attributions` 与 lifecycle reason
+    （`kNfovAcquisitionFailed`/`kSchedulerSkipped`），不进 raw output。进 replay（`sbirs_replay.fbs`）。
 
 ## 4. 设计变更规则
 

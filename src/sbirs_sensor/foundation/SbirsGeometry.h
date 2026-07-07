@@ -27,6 +27,15 @@ float ComputeElevationDeg(const session::SbirsVector3M& los);
 /** @brief 计算两个 (az, el) 角度对之间的角距离，单位 deg。 */
 float AngularSeparationDeg(float az_a_deg, float el_a_deg, float az_b_deg, float el_b_deg);
 /**
+ * @brief 由相对位置与相对速度推导视线角速度（标量，单位 deg/s）。
+ * @param[in] relative_position_m 相对位置向量（卫星→目标），单位 m
+ * @param[in] relative_velocity_m_per_s 相对速度向量，单位 m/s
+ * @return 视线角速度模长 ω = |v_perp| / range，单位 deg/s；range ≤ 0 时返回 0
+ * @note v_perp = v − (v·r̂) r̂ 为速度在视线垂直方向的分量；返回值用于动态滞后误差与 cue 外推。
+ */
+float ComputeRelativeAngularRateDegPerSec(const session::SbirsVector3M& relative_position_m,
+                                          const session::SbirsVector3M& relative_velocity_m_per_s);
+/**
  * @brief 用有限 LOS 线段判定目标视线是否被地球球体遮挡。
  * @param[in] satellite_position_ecef_m 卫星 ECEF 位置，单位 m
  * @param[in] target_position_ecef_m 目标 ECEF 位置，单位 m

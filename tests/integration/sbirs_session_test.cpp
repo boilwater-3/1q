@@ -261,6 +261,47 @@ TEST(SbirsSessionIntegrationTest, MultipleWfovCandidatesSingleNfovLock) {
   EXPECT_EQ(truth_assisted, 1U);
 }
 
+// design cue 延迟外推：横向高速目标在 latency 内移出 NFOV → 首次捕获失败。
+// 失败诊断进 result.detection_attributions（capture_failure_reason=kNfovAcquisitionFailed），
+// 但 raw output_frame.detections 不含该失败记录（守三层分离边界）。
+TEST(SbirsSessionIntegrationTest, CueLatencyFailureAttributionStaysOutOfRawOutput) {
+  config::SbirsSessionConfig config = MakeSessionConfig();
+  config.mission.narrow_cue_latency_s = 1.0f;
+  config.mission.narrow_field_fov_az_deg = 2.0f;  // 收窄 NFOV 使外推后出界
+
+  SbirsSceneTarget target = MakeTarget(1U);
+  target.velocity_ecef_m_per_s = Vector(0.0, 1500000.0, 0.0);  // 横向高速
+  target.has_velocity_ecef_m_per_s = true;
+
+  SbirsCycleInput input = SbirsCycleInputBuilder()
+                              .WithCycleIndex(1U)
+                              .WithDeltaTimeSec(1.0f)
+                              .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                              .AddTarget(target)
+                              .Build();
+
+  SbirsSession session = SbirsSession::Create(config);
+  const SbirsCycleResult result = session.StepWithResult(input);
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.abort_reason, SbirsPipelineAbortReason::kNone);
+
+  // 失败诊断必须出现在 attribution 层。
+  bool found_failure = false;
+  for (const attribution::SbirsDetectionAttributionRecord& attr :
+       result.detection_attributions) {
+    if (attr.capture_failure_reason ==
+        attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed) {
+      found_failure = true;
+    }
+  }
+  EXPECT_TRUE(found_failure);
+
+  // raw output 不得包含 detected=false 的记录（边界守卫）。
+  for (const output::SbirsDetectionRecord& record : result.output_frame.detections) {
+    EXPECT_TRUE(record.detected);
+  }
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace sbirs_sensor

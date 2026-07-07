@@ -233,9 +233,10 @@ std::string EncodeSbirsCycleInput(const SbirsCycleInput& value) {
   for (const SbirsSceneTarget& target : value.scene) {
     const flatbuffers::Offset<flatbuffers::String> name = fbb.CreateString(target.target_name);
     const sbirs::replay::Vec3d position = ToFbVec3(target.position_ecef_m);
+    const sbirs::replay::Vec3d velocity = ToFbVec3(target.velocity_ecef_m_per_s);
     targets.push_back(sbirs::replay::CreateSbirsSceneTarget(
         fbb, target.target_id, name, &position, target.temperature_k, target.emissivity,
-        target.projected_area_m2, target.active));
+        target.projected_area_m2, &velocity, target.has_velocity_ecef_m_per_s, target.active));
   }
 
   const sbirs::replay::Vec3d satellite = ToFbVec3(value.satellite_position_ecef_m);
@@ -275,6 +276,8 @@ bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
       item.temperature_k = target->temperature_k();
       item.emissivity = target->emissivity();
       item.projected_area_m2 = target->projected_area_m2();
+      item.velocity_ecef_m_per_s = FromFbVec3(target->velocity_ecef_m_per_s());
+      item.has_velocity_ecef_m_per_s = target->has_velocity_ecef_m_per_s();
       item.active = target->active();
       out->scene.push_back(item);
     }
@@ -309,7 +312,8 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
     attributions.push_back(sbirs::replay::CreateSbirsDetectionAttributionRecord(
         fbb, attribution.detection_id, attribution.target_id,
         fbb.CreateString(attribution.target_name), attribution.estimated_range_m,
-        attribution.used_truth_assist));
+        attribution.used_truth_assist,
+        static_cast<std::int32_t>(attribution.capture_failure_reason)));
   }
 
   std::vector<flatbuffers::Offset<sbirs::replay::ValidationIssue>> issues;
@@ -351,6 +355,8 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
       record.target_name = attr->target_name() ? attr->target_name()->str() : std::string();
       record.estimated_range_m = attr->estimated_range_m();
       record.used_truth_assist = attr->used_truth_assist();
+      record.capture_failure_reason =
+          static_cast<attribution::SbirsCaptureFailureReason>(attr->capture_failure_reason());
       out->detection_attributions.push_back(record);
     }
   }

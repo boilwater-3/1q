@@ -64,6 +64,23 @@ float AngularSeparationDeg(float az_a_deg, float el_a_deg, float az_b_deg, float
   return static_cast<float>(std::acos(Clamp(dot, -1.0, 1.0)) * kRadToDeg);
 }
 
+float ComputeRelativeAngularRateDegPerSec(const session::SbirsVector3M& relative_position_m,
+                                          const session::SbirsVector3M& relative_velocity_m_per_s) {
+  const double range = Norm(relative_position_m);
+  if (range <= 0.0) {
+    return 0.0f;
+  }
+  // 视线单位向量与速度的径向分量，垂直分量 v_perp = v - (v·r̂) r̂
+  const session::SbirsVector3M u = Unit(relative_position_m);
+  const double radial_speed = Dot(relative_velocity_m_per_s, u);
+  session::SbirsVector3M perp;
+  perp.x = relative_velocity_m_per_s.x - radial_speed * u.x;
+  perp.y = relative_velocity_m_per_s.y - radial_speed * u.y;
+  perp.z = relative_velocity_m_per_s.z - radial_speed * u.z;
+  const double perp_norm = Norm(perp);
+  return static_cast<float>(perp_norm / range * kRadToDeg);
+}
+
 bool IsEarthOcculted(const session::SbirsVector3M& satellite_position_ecef_m,
                      const session::SbirsVector3M& target_position_ecef_m, double earth_radius_m) {
   const session::SbirsVector3M los = Subtract(target_position_ecef_m, satellite_position_ecef_m);

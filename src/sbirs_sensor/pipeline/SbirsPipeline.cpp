@@ -54,6 +54,8 @@ struct Candidate {
   const session::SbirsSceneTarget* target{nullptr};
   float azimuth_deg{0.0f};
   float elevation_deg{0.0f};
+  float predicted_azimuth_deg{0.0f};   // cue 延迟外推后的真值方位角（无速度时等同 azimuth_deg）
+  float predicted_elevation_deg{0.0f};  // cue 延迟外推后的真值俯仰角（无速度时等同 elevation_deg）
   float measured_azimuth_deg{0.0f};
   float measured_elevation_deg{0.0f};
   double range_m{0.0};        // 真值距离（调度优先级用）
@@ -162,13 +164,33 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     candidate.elevation_deg = elevation_deg;
     candidate.range_m = range_m;  // 真值距离：调度优先级用（design 2.6）
     // 2.10 WFOV 带误差位置：施加 5 类物理误差（高斯随机 + 折射 + 滞后）。
-    // 目标角速度未知时按 0 处理（动态滞后项为 0）。
+    // 目标角速度由 velocity_ecef_m_per_s 推导；未提供时按 0 处理（动态滞后项为 0）。
+    float omega_deg_per_sec = 0.0f;
+    if (target.has_velocity_ecef_m_per_s) {
+      // 当前无卫星速度输入，相对速度按目标速度处理（design 假设）。
+      omega_deg_per_sec = foundation::ComputeRelativeAngularRateDegPerSec(los, target.velocity_ecef_m_per_s);
+    }
     const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
         policy.error_model, &random_source_, azimuth_deg, elevation_deg, range_m,
-        /*target_angular_rate_deg_per_sec=*/0.0f);
+        /*target_angular_rate_deg_per_sec=*/omega_deg_per_sec);
     candidate.measured_azimuth_deg = bearing.azimuth_deg;
     candidate.measured_elevation_deg = bearing.elevation_deg;
     candidate.measured_range_m = bearing.range_m;
+    // cue 延迟外推：narrow_cue_latency_s 期间目标继续运动，真值 az/el 需按延迟后位置重算。
+    const float cue_latency_s = mission.narrow_cue_latency_s;
+    if (cue_latency_s > 0.0f && target.has_velocity_ecef_m_per_s) {
+      session::SbirsVector3M predicted_position;
+      predicted_position.x = target.position_ecef_m.x + target.velocity_ecef_m_per_s.x * cue_latency_s;
+      predicted_position.y = target.position_ecef_m.y + target.velocity_ecef_m_per_s.y * cue_latency_s;
+      predicted_position.z = target.position_ecef_m.z + target.velocity_ecef_m_per_s.z * cue_latency_s;
+      const session::SbirsVector3M predicted_los =
+          foundation::Subtract(predicted_position, input.satellite_position_ecef_m);
+      candidate.predicted_azimuth_deg = foundation::ComputeAzimuthDeg(predicted_los);
+      candidate.predicted_elevation_deg = foundation::ComputeElevationDeg(predicted_los);
+    } else {
+      candidate.predicted_azimuth_deg = azimuth_deg;
+      candidate.predicted_elevation_deg = elevation_deg;
+    }
     candidate.snr = snr;
     candidates.push_back(candidate);
     target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
@@ -188,9 +210,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     target_states_[selected.target->target_id] = SbirsTargetState::kAwaitingNfovAcquisition;
     const float cue_az = selected.measured_azimuth_deg + mission.narrow_pointing_settle_error_deg;
     const float cue_el = selected.measured_elevation_deg;
+    // 捕获判据用延迟外推后的真值 az/el（predicted_*）；无速度时等同当前帧真值，保持旧行为。
     const bool in_nfov =
-        InRectangularFov(selected.azimuth_deg, selected.elevation_deg, cue_az, cue_el,
-                         mission.narrow_field_fov_az_deg, mission.narrow_field_fov_el_deg);
+        InRectangularFov(selected.predicted_azimuth_deg, selected.predicted_elevation_deg, cue_az,
+                         cue_el, mission.narrow_field_fov_az_deg, mission.narrow_field_fov_el_deg);
     const bool captured = in_nfov && selected.snr >= policy.detection.narrow_min_snr_linear;
     if (captured) {
       has_locked_target_ = true;
@@ -211,6 +234,23 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       result.detections.push_back(detection);
     } else {
       target_states_[selected.target->target_id] = SbirsTargetState::kWideCandidate;
+      // 捕获失败：产出 detected=false 的诊断 attribution（record 不进 raw output，
+      // 仅 attribution 进 result.detection_attributions 供调试/lifecycle 消费）。
+      SbirsPipelineDetection detection;
+      detection.record.detection_id = next_detection_id_++;
+      detection.record.azimuth_deg = selected.azimuth_deg;
+      detection.record.elevation_deg = selected.elevation_deg;
+      detection.record.infrared_snr_linear = static_cast<float>(selected.snr);
+      detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldAcquisition;
+      detection.record.detected = false;
+      detection.attribution.detection_id = detection.record.detection_id;
+      detection.attribution.target_id = selected.target->target_id;
+      detection.attribution.target_name = selected.target->target_name;
+      detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
+      detection.attribution.used_truth_assist = false;
+      detection.attribution.capture_failure_reason =
+          attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed;
+      result.detections.push_back(detection);
     }
   }
 
@@ -230,6 +270,11 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     detection.attribution.target_name = candidate.target->target_name;
     detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
     detection.attribution.used_truth_assist = false;
+    // 进入 WFOV 候选但未被调度器选中（资源被占用或排序靠后）：标记为调度跳过。
+    if (has_locked_target_) {
+      detection.attribution.capture_failure_reason =
+          attribution::SbirsCaptureFailureReason::kSchedulerSkipped;
+    }
     result.detections.push_back(detection);
   }
 

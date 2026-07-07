@@ -50,6 +50,8 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   target.temperature_k = 2300.0f;
   target.emissivity = 0.91f;
   target.projected_area_m2 = 42.0f;
+  target.velocity_ecef_m_per_s = Vector(1000.0, -500.0, 250.0);
+  target.has_velocity_ecef_m_per_s = true;
   target.active = false;
 
   SbirsEnvironmentInput environment;
@@ -86,6 +88,10 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.scene[0].temperature_k, 2300.0f);
   EXPECT_FLOAT_EQ(decoded.scene[0].emissivity, 0.91f);
   EXPECT_FLOAT_EQ(decoded.scene[0].projected_area_m2, 42.0f);
+  EXPECT_DOUBLE_EQ(decoded.scene[0].velocity_ecef_m_per_s.x, 1000.0);
+  EXPECT_DOUBLE_EQ(decoded.scene[0].velocity_ecef_m_per_s.y, -500.0);
+  EXPECT_DOUBLE_EQ(decoded.scene[0].velocity_ecef_m_per_s.z, 250.0);
+  EXPECT_TRUE(decoded.scene[0].has_velocity_ecef_m_per_s);
   EXPECT_FALSE(decoded.scene[0].active);
 }
 
@@ -155,6 +161,8 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   attribution.target_name = "truth";
   attribution.estimated_range_m = 1234.0f;
   attribution.used_truth_assist = true;
+  attribution.capture_failure_reason =
+      attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed;
   result.detection_attributions.push_back(attribution);
 
   // 带 entity_index 的 scene 级 issue
@@ -188,6 +196,8 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   ASSERT_EQ(decoded.detection_attributions.size(), 1U);
   EXPECT_FLOAT_EQ(decoded.detection_attributions[0].estimated_range_m, 1234.0f);
   EXPECT_TRUE(decoded.detection_attributions[0].used_truth_assist);
+  EXPECT_EQ(decoded.detection_attributions[0].capture_failure_reason,
+            attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
   ASSERT_EQ(decoded.validation_issues.size(), 2U);
   EXPECT_EQ(decoded.validation_issues[0].location.entity_index, 1U);
   // 哨兵值经 size_t::max → int64(-1) → size_t::max 的往返
