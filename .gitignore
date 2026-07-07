@@ -73,3 +73,6 @@ jsbsim_aircraft_analysis.md
 src/airborne_radar/signal/Stone-Soup/
 .claude/worktrees/
 .venv/
+
+# Tool-generated session continuation cache (not tracked)
+.omo/
