@@ -42,6 +42,8 @@ struct SbirsPipelineSnapshot {
   unsigned int random_state{1U};  /**< 误差模型随机源状态（replay 可复现） */
   std::map<std::uint64_t, tracking::SbirsGaussianState> filter_states{}; /**< EKF 滤波状态表（kEstimatedTracking 目标的均值+协方差） */
   std::map<std::uint64_t, unsigned int> nis_gate_exceeded_counts{}; /**< EKF NIS 连续超限计数 */
+  bool imm_active{false}; /**< 当前 snapshot 是否使用 IMM 模式 */
+  std::map<std::uint64_t, tracking::SbirsImmSnapshot> imm_snapshots{}; /**< IMM 滤波状态表 */
 };
 
 /** @brief 单条 pipeline 内部检测结果，组合原始记录与归属。 */
@@ -103,6 +105,18 @@ class SbirsPipeline {
   tracking::SbirsAngleMeasurementModel angle_measurement_model_{};
   std::map<std::uint64_t, tracking::SbirsGaussianState> filter_states_{};
   std::map<std::uint64_t, unsigned int> nis_gate_exceeded_counts_{};
+
+  // IMM 组件（enable_imm_tracking=true 时激活，替代单 EKF 路径）
+  bool imm_initialized_{false};
+  std::vector<std::unique_ptr<tracking::SbirsAngleMeasurementModel>> imm_measurement_models_{};
+  std::vector<std::unique_ptr<tracking::SbirsEkfPredictor>> imm_predictors_owned_{};
+  std::vector<::oneq::common::estimation::IKalmanPredictor<6, 2>*> imm_predictors_{};
+  std::vector<std::unique_ptr<tracking::SbirsEkfUpdater>> imm_updaters_owned_{};
+  std::vector<::oneq::common::estimation::IKalmanUpdater<6, 2>*> imm_updaters_{};
+  std::unique_ptr<tracking::SbirsImmFilter> imm_filter_{};
+  std::map<std::uint64_t, tracking::SbirsImmSnapshot> imm_snapshots_{};
+
+  void InitializeImmComponents(const config::SbirsTrackingConfig& tracking);
 };
 
 }  // namespace pipeline

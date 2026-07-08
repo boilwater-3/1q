@@ -388,6 +388,22 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeFailureMarkerRejectsNullAndCorrupted) 
   EXPECT_FALSE(DecodeSbirsFailureMarker("bad", &failure, &error));
 }
 
+TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesImmTrackingFields) {
+  SbirsSessionConfig config;
+  config.policy.tracking.enable_imm_tracking = true;
+  config.policy.tracking.imm_model_noise_diff_coeffs = {0.5f, 80.0f, 200.0f};
+
+  const std::string encoded = EncodeSbirsSessionConfig(config);
+  SbirsSessionConfig decoded;
+  ASSERT_TRUE(DecodeSbirsSessionConfig(encoded, &decoded));
+
+  EXPECT_TRUE(decoded.policy.tracking.enable_imm_tracking);
+  ASSERT_EQ(decoded.policy.tracking.imm_model_noise_diff_coeffs.size(), 3U);
+  EXPECT_FLOAT_EQ(decoded.policy.tracking.imm_model_noise_diff_coeffs[0], 0.5f);
+  EXPECT_FLOAT_EQ(decoded.policy.tracking.imm_model_noise_diff_coeffs[1], 80.0f);
+  EXPECT_FLOAT_EQ(decoded.policy.tracking.imm_model_noise_diff_coeffs[2], 200.0f);
+}
+
 }  // namespace tests
 }  // namespace session
 }  // namespace sbirs_sensor

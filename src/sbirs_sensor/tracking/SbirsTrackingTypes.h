@@ -24,6 +24,7 @@
 #include "common/estimation/GaussianState.h"
 #include "common/estimation/IKalmanPredictor.h"
 #include "common/estimation/IKalmanUpdater.h"
+#include "common/estimation/ImmFilter.h"
 #include "common/estimation/KalmanPredictor.h"
 
 namespace sbirs_sensor {
@@ -184,6 +185,18 @@ inline SbirsMeasurementCovariance BuildMeasurementCovariance(
   R(1, 1) = static_cast<float>(var_el_rad2);
   return R;
 }
+
+// IMM facade：6 维状态 / 2 维角度量测
+using SbirsImmConfig = ::oneq::common::estimation::ImmConfig;
+using SbirsImmFilter = ::oneq::common::estimation::ImmFilter<kSbirsStateDim, kSbirsMeasurementDim>;
+using SbirsImmModelState =
+    ::oneq::common::estimation::ImmModelState<kSbirsStateDim, kSbirsMeasurementDim>;
+
+/** @brief IMM 滤波状态快照（供 replay/capture 持久化）。 */
+struct SbirsImmSnapshot {
+  std::vector<SbirsImmModelState> model_states{};  /**< 各模型状态 + 权重 */
+  Eigen::VectorXf model_weights{};                  /**< 模型权重向量（冗余，供校验） */
+};
 
 }  // namespace tracking
 }  // namespace sbirs_sensor

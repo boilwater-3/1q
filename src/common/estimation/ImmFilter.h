@@ -113,6 +113,19 @@ class ImmFilter {
     CombineEstimates();
   }
   /**
+   * @brief 执行完整的 IMM 循环，使用动态量测噪声协方差 R。
+   * @param[in] measurement 量测向量。
+   * @param[in] dt 时间步长。
+   * @param[in] dynamic_R 量测噪声协方差（所有模型共用，因 R 依赖传感器几何而非模型状态）。
+   */
+  void Process(const MeasurementVector& measurement, float dt,
+               const MeasurementCovariance& dynamic_R) {
+    MixStates();
+    PredictModels(dt);
+    UpdateModels(measurement, dynamic_R);
+    CombineEstimates();
+  }
+  /**
    * @brief 仅执行预测步骤（无量测时）。
    * @param[in] dt 时间步长。
    */
@@ -149,6 +162,8 @@ class ImmFilter {
   }
   /** @return 组合高斯状态。 */
   GaussianStateT GetCombinedState() const { return combined_state_; }
+  /** @brief 各模型最近 update result（供 NIS 等诊断消费）。 */
+  const std::vector<Result>& GetModelUpdateResults() const { return update_results_; }
   /** @return 模型权重向量。 */
   Eigen::VectorXf GetModelWeights() const {
     Eigen::VectorXf weights(num_models_);
@@ -241,7 +256,7 @@ class ImmFilter {
       predicted_states_[ju] = predictors_[ju]->Predict(mixed_states_[ju], dt);
     }
   }
-  /** @brief 步骤 3：模型条件更新。 */
+  /** @brief 步骤 3：模型条件更新（固定 R）。 */
   void UpdateModels(const MeasurementVector& measurement) {
     const int N = num_models_;
     constexpr float kWeightFloor = 1e-30f;
@@ -254,6 +269,29 @@ class ImmFilter {
       log_likelihoods_(j) = static_cast<float>(GaussianLogLikelihood(
           update_results_[ju].innovation, update_results_[ju].innovation_covariance));
     }
+
+    NormalizeWeights(kWeightFloor);
+  }
+  /** @brief 步骤 3：模型条件更新（动态 R，所有模型共用）。 */
+  void UpdateModels(const MeasurementVector& measurement, const MeasurementCovariance& dynamic_R) {
+    const int N = num_models_;
+    constexpr float kWeightFloor = 1e-30f;
+
+    for (int j = 0; j < N; ++j) {
+      const auto ju = static_cast<std::size_t>(j);
+      update_results_[ju] =
+          updaters_[ju]->Update(predicted_states_[ju], measurement, dynamic_R);
+      model_states_[ju].state = update_results_[ju].posterior;
+
+      log_likelihoods_(j) = static_cast<float>(GaussianLogLikelihood(
+          update_results_[ju].innovation, update_results_[ju].innovation_covariance));
+    }
+
+    NormalizeWeights(kWeightFloor);
+  }
+  /** @brief 权重归一化（log-sum-exp + 回退）。 */
+  void NormalizeWeights(float kWeightFloor) {
+    const int N = num_models_;
 
     // 1) log-sum-exp 归一化，避免 exp(log_likelihood) 下溢导致权重塌陷。
     double max_log_weight = -std::numeric_limits<double>::infinity();

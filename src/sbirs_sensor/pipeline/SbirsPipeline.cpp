@@ -101,6 +101,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   if (mission.work_mode == config::SbirsWorkMode::kStandby || !mission.sensor_enabled) {
     target_states_.clear();
     nis_gate_exceeded_counts_.clear();
+    imm_snapshots_.clear();
+    imm_initialized_ = false;
     has_locked_target_ = false;
     locked_target_id_ = 0U;
     result.scan_azimuth_deg = scan_azimuth_deg_;
@@ -125,6 +127,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       }
       filter_states_.erase(target.target_id);  // 释放滤波状态
       nis_gate_exceeded_counts_.erase(target.target_id);
+      imm_snapshots_.erase(target.target_id);
       continue;
     }
 
@@ -175,13 +178,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       if (state == SbirsTargetState::kEstimatedTracking &&
           policy.tracking.enable_estimated_tracking) {
         used_truth_assist = false;
-        // EKF predict-update：注入卫星位置，用本帧带误差角度测量更新。
-        angle_measurement_model_.SetSatellitePosition(input.satellite_position_ecef_m);
-        const tracking::SbirsEkfPredictor ekf_predictor(
-            &cv_transition_model_, tracking::SbirsEkfPredictorConfig{policy.tracking.process_noise_diff_coeff});
-        const tracking::SbirsGaussianState predicted =
-            ekf_predictor.Predict(filter_states_[target.target_id], input.dt_sec);
-        // 带误差角度测量（deg → rad）。
+        // 带误差角度测量（deg → rad）——IMM 和单 EKF 共用。
         const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
             policy.error_model, &random_source_, azimuth_deg, elevation_deg, range_m, omega_deg_per_sec_cached);
         tracking::SbirsMeasurementVector measurement_rad;
@@ -189,27 +186,84 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         measurement_rad << bearing.azimuth_deg * deg2rad, bearing.elevation_deg * deg2rad;
         const tracking::SbirsMeasurementCovariance R = tracking::BuildMeasurementCovariance(
             policy.error_model, range_m, elevation_deg, omega_deg_per_sec_cached);
-        const tracking::SbirsEkfUpdater ekf_updater(&angle_measurement_model_);
-        const tracking::SbirsKalmanUpdateResult update_result =
-            ekf_updater.Update(predicted, measurement_rad, R);
-        filter_states_[target.target_id] = update_result.posterior;
-        has_estimation_nis = true;
-        estimation_nis = ComputeNormalizedInnovationSquared(update_result);
-        estimation_nis_gate_exceeded = estimation_nis > kSbirsNisChiSquare2Dof95;
-        if (policy.tracking.nis_gate_loss_cycles > 0U && estimation_nis_gate_exceeded) {
-          const unsigned int exceeded_count = ++nis_gate_exceeded_counts_[target.target_id];
-          lost_due_to_estimation_nis = exceeded_count >= policy.tracking.nis_gate_loss_cycles;
+
+        if (policy.tracking.enable_imm_tracking) {
+          // === IMM 滤波测量跟踪 ===
+          if (!imm_initialized_) {
+            InitializeImmComponents(policy.tracking);
+          }
+          // 从快照恢复模型状态（replay/restore 后首次使用）
+          auto imm_it = imm_snapshots_.find(target.target_id);
+          if (imm_it != imm_snapshots_.end() && !imm_it->second.model_states.empty()) {
+            imm_filter_->SetModelStates(imm_it->second.model_states);
+            imm_snapshots_.erase(imm_it);
+          }
+          // 更新所有子模型的卫星位置
+          for (auto& meas : imm_measurement_models_) {
+            meas->SetSatellitePosition(input.satellite_position_ecef_m);
+          }
+          // IMM predict-update（动态 R 共用）
+          imm_filter_->Process(measurement_rad, input.dt_sec, R);
+          const tracking::SbirsGaussianState combined = imm_filter_->GetCombinedState();
+          filter_states_[target.target_id] = combined;
+
+          // 持久化 IMM 状态（供 snapshot/replay）
+          tracking::SbirsImmSnapshot imm_snap;
+          imm_snap.model_states = imm_filter_->GetModelStates();
+          imm_snap.model_weights = imm_filter_->GetModelWeights();
+          imm_snapshots_[target.target_id] = imm_snap;
+
+          // NIS：取各模型最大值（所有模型均超门限 → 即使最宽松模型也无法解释当前测量）
+          has_estimation_nis = true;
+          estimation_nis = 0.0f;
+          estimation_nis_gate_exceeded = false;
+          const auto& imm_results = imm_filter_->GetModelUpdateResults();
+          for (std::size_t m = 0U; m < imm_results.size(); ++m) {
+            const float model_nis = ComputeNormalizedInnovationSquared(imm_results[m]);
+            if (model_nis > estimation_nis) estimation_nis = model_nis;
+            if (model_nis > kSbirsNisChiSquare2Dof95) estimation_nis_gate_exceeded = true;
+          }
+          if (policy.tracking.nis_gate_loss_cycles > 0U && estimation_nis_gate_exceeded) {
+            const unsigned int exceeded_count = ++nis_gate_exceeded_counts_[target.target_id];
+            lost_due_to_estimation_nis = exceeded_count >= policy.tracking.nis_gate_loss_cycles;
+          } else {
+            nis_gate_exceeded_counts_[target.target_id] = 0U;
+          }
+          // 滤波估计 → LOS → az/el
+          const session::SbirsVector3M estimated_position{combined.mean(0), combined.mean(2),
+                                                          combined.mean(4)};
+          const session::SbirsVector3M est_los =
+              foundation::Subtract(estimated_position, input.satellite_position_ecef_m);
+          output_azimuth_deg = foundation::ComputeAzimuthDeg(est_los);
+          output_elevation_deg = foundation::ComputeElevationDeg(est_los);
         } else {
-          nis_gate_exceeded_counts_[target.target_id] = 0U;
+          // === 单 EKF 滤波测量跟踪（现有路径） ===
+          angle_measurement_model_.SetSatellitePosition(input.satellite_position_ecef_m);
+          const tracking::SbirsEkfPredictor ekf_predictor(
+              &cv_transition_model_, tracking::SbirsEkfPredictorConfig{policy.tracking.process_noise_diff_coeff});
+          const tracking::SbirsGaussianState predicted =
+              ekf_predictor.Predict(filter_states_[target.target_id], input.dt_sec);
+          const tracking::SbirsEkfUpdater ekf_updater(&angle_measurement_model_);
+          const tracking::SbirsKalmanUpdateResult update_result =
+              ekf_updater.Update(predicted, measurement_rad, R);
+          filter_states_[target.target_id] = update_result.posterior;
+          has_estimation_nis = true;
+          estimation_nis = ComputeNormalizedInnovationSquared(update_result);
+          estimation_nis_gate_exceeded = estimation_nis > kSbirsNisChiSquare2Dof95;
+          if (policy.tracking.nis_gate_loss_cycles > 0U && estimation_nis_gate_exceeded) {
+            const unsigned int exceeded_count = ++nis_gate_exceeded_counts_[target.target_id];
+            lost_due_to_estimation_nis = exceeded_count >= policy.tracking.nis_gate_loss_cycles;
+          } else {
+            nis_gate_exceeded_counts_[target.target_id] = 0U;
+          }
+          const session::SbirsVector3M estimated_position{update_result.posterior.mean(0),
+                                                          update_result.posterior.mean(2),
+                                                          update_result.posterior.mean(4)};
+          const session::SbirsVector3M est_los =
+              foundation::Subtract(estimated_position, input.satellite_position_ecef_m);
+          output_azimuth_deg = foundation::ComputeAzimuthDeg(est_los);
+          output_elevation_deg = foundation::ComputeElevationDeg(est_los);
         }
-        // 滤波估计（CV 交错布局 [x,vx,y,vy,z,vz] → 位置 [x,y,z] → 相对卫星 LOS → az/el deg）。
-        const session::SbirsVector3M estimated_position{update_result.posterior.mean(0),   // x
-                                                        update_result.posterior.mean(2),   // y
-                                                        update_result.posterior.mean(4)};  // z
-        const session::SbirsVector3M est_los =
-            foundation::Subtract(estimated_position, input.satellite_position_ecef_m);
-        output_azimuth_deg = foundation::ComputeAzimuthDeg(est_los);
-        output_elevation_deg = foundation::ComputeElevationDeg(est_los);
       }
       SbirsPipelineDetection detection;
       detection.record.detection_id = next_detection_id_++;
@@ -234,6 +288,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         locked_target_id_ = 0U;
         filter_states_.erase(target.target_id);
         nis_gate_exceeded_counts_.erase(target.target_id);
+        imm_snapshots_.erase(target.target_id);
       }
       result.detections.push_back(detection);
       continue;
@@ -329,6 +384,19 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         initial_state.covariance(5, 5) = vel_var;
         filter_states_[selected.target->target_id] = initial_state;
         nis_gate_exceeded_counts_[selected.target->target_id] = 0U;
+        if (policy.tracking.enable_imm_tracking) {
+          if (!imm_initialized_) {
+            InitializeImmComponents(policy.tracking);
+          }
+          const int num_models =
+              static_cast<int>(imm_filter_->GetModelStates().size());
+          const float init_weight = 1.0f / static_cast<float>(num_models);
+          std::vector<tracking::SbirsImmModelState> init_states;
+          for (int i = 0; i < num_models; ++i) {
+            init_states.push_back({initial_state, init_weight});
+          }
+          imm_filter_->SetModelStates(init_states);
+        }
       }
       SbirsPipelineDetection detection;
       detection.record.detection_id = next_detection_id_++;
@@ -392,6 +460,52 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   return result;
 }
 
+void SbirsPipeline::InitializeImmComponents(const config::SbirsTrackingConfig& tracking) {
+  imm_predictors_owned_.clear();
+  imm_predictors_.clear();
+  imm_measurement_models_.clear();
+  imm_updaters_owned_.clear();
+  imm_updaters_.clear();
+  imm_filter_.reset();
+
+  const std::vector<float> q_values =
+      tracking.imm_model_noise_diff_coeffs.empty()
+          ? std::vector<float>{1.0f, 100.0f}
+          : tracking.imm_model_noise_diff_coeffs;
+  const int num_models = static_cast<int>(q_values.size());
+
+  for (int i = 0; i < num_models; ++i) {
+    auto meas = std::make_unique<tracking::SbirsAngleMeasurementModel>();
+    imm_measurement_models_.push_back(std::move(meas));
+
+    tracking::SbirsEkfPredictorConfig pred_cfg;
+    pred_cfg.noise_diff_coeff = q_values[static_cast<std::size_t>(i)];
+    auto pred =
+        std::make_unique<tracking::SbirsEkfPredictor>(&cv_transition_model_, pred_cfg);
+    imm_predictors_.push_back(pred.get());
+    imm_predictors_owned_.push_back(std::move(pred));
+
+    auto upd =
+        std::make_unique<tracking::SbirsEkfUpdater>(imm_measurement_models_.back().get());
+    imm_updaters_.push_back(upd.get());
+    imm_updaters_owned_.push_back(std::move(upd));
+  }
+
+  tracking::SbirsImmConfig imm_cfg;
+  imm_cfg.transition_probability.resize(num_models, num_models);
+  for (int i = 0; i < num_models; ++i) {
+    for (int j = 0; j < num_models; ++j) {
+      imm_cfg.transition_probability(i, j) =
+          (i == j) ? 0.95f : 0.05f / static_cast<float>(num_models - 1);
+    }
+  }
+  imm_cfg.initial_weights.setConstant(num_models, 1.0f / static_cast<float>(num_models));
+
+  imm_filter_ = std::make_unique<tracking::SbirsImmFilter>(
+      imm_cfg, imm_predictors_, imm_updaters_);
+  imm_initialized_ = true;
+}
+
 SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   SbirsPipelineSnapshot snapshot;
   snapshot.scan_azimuth_deg = scan_azimuth_deg_;
@@ -402,6 +516,8 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   snapshot.random_state = random_source_.Capture();
   snapshot.filter_states = filter_states_;
   snapshot.nis_gate_exceeded_counts = nis_gate_exceeded_counts_;
+  snapshot.imm_active = imm_initialized_;
+  snapshot.imm_snapshots = imm_snapshots_;
   return snapshot;
 }
 
@@ -414,6 +530,8 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
   random_source_.Restore(snapshot.random_state);
   filter_states_ = snapshot.filter_states;
   nis_gate_exceeded_counts_ = snapshot.nis_gate_exceeded_counts;
+  imm_snapshots_ = snapshot.imm_snapshots;
+  imm_initialized_ = false;  // 强制下周期重新初始化 IMM 组件，从 imm_snapshots_ 恢复模型状态
   return true;
 }
 

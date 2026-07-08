@@ -60,6 +60,8 @@ table SbirsTrackingConfig {
   initial_position_std_m: float;
   initial_velocity_std_m_per_s: float;
   nis_gate_loss_cycles: uint32;
+  enable_imm_tracking: bool;
+  imm_model_noise_diff_coeffs: [float];
 }
 
 table SbirsPolicyConfig {

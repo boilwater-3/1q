@@ -292,4 +292,81 @@ TEST(SbirsPipelineTest, LockedTargetCausesSchedulerSkipOnOtherCandidate) {
   EXPECT_TRUE(found_skipped);
 }
 
+TEST(SbirsPipelineTest, ImmTrackingProducesFiniteState) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.policy.tracking.enable_imm_tracking = true;
+  config.policy.tracking.imm_model_noise_diff_coeffs = {0.5f, 80.0f};
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTarget(7U, 0.0))
+          .Build();
+  pipeline.RunCycle(input);
+
+  input.cycle_index = 2U;
+  input.scene[0] = HotTarget(7U, 5000.0);
+  const sbirs_sensor::pipeline::SbirsPipelineResult tracked = pipeline.RunCycle(input);
+  ASSERT_FALSE(tracked.detections.empty());
+  EXPECT_EQ(tracked.detections.front().record.observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
+  EXPECT_TRUE(tracked.detections.front().record.detected);
+  EXPECT_FALSE(tracked.detections.front().attribution.used_truth_assist);
+  EXPECT_TRUE(tracked.detections.front().attribution.has_estimation_nis);
+  EXPECT_TRUE(std::isfinite(tracked.detections.front().attribution.estimation_nis));
+}
+
+TEST(SbirsPipelineTest, ImmDisabledFallsBackToSingleEkf) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.policy.tracking.enable_imm_tracking = false;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTarget(7U, 0.0))
+          .Build();
+  pipeline.RunCycle(input);
+
+  input.cycle_index = 2U;
+  input.scene[0] = HotTarget(7U, 5000.0);
+  const auto result = pipeline.RunCycle(input);
+  ASSERT_FALSE(result.detections.empty());
+  EXPECT_TRUE(result.detections.front().record.detected);
+  EXPECT_TRUE(result.detections.front().attribution.has_estimation_nis);
+}
+
+TEST(SbirsPipelineTest, ImmSupportsCaptureRestoreRoundtrip) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.policy.tracking.enable_imm_tracking = true;
+  config.policy.tracking.imm_model_noise_diff_coeffs = {0.5f, 80.0f};
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTarget(7U, 0.0))
+          .Build();
+  pipeline.RunCycle(input);
+
+  const auto snapshot = pipeline.CaptureRuntimeState();
+
+  sbirs_sensor::pipeline::SbirsPipeline pipeline2(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  EXPECT_TRUE(pipeline2.RestoreRuntimeState(snapshot));
+
+  input.cycle_index = 2U;
+  input.scene[0] = HotTarget(7U, 5000.0);
+  const auto result = pipeline2.RunCycle(input);
+  ASSERT_FALSE(result.detections.empty());
+  EXPECT_TRUE(result.detections.front().record.detected);
+}
+
 }  // namespace

@@ -535,7 +535,7 @@ stateDiagram-v2
 | 后端 | 非线性量测支持 | 当前可用 | 前置条件 |
 |------|:---:|:---:|------|
 | EKF | ✅（`IMeasurementModel*`，Jacobian 一阶展开） | ✅ | — |
-| IMM(EKF) | ✅（内层 EKF） | ⚠️ | 需新写 per-target `ImmFilter` 状态管理（仿 AR `imm_filters_by_key_`）；需先有 EKF 基线数据论证收益 |
+| IMM(EKF) | ✅（内层 EKF） | ✅ 已接线 | 由 `enable_imm_tracking` 控制；`SbirsImmSnapshot` + `imm_snapshots_` 持久化；证据见 `SbirsImmEvaluationTest`（全场景改善 28-55%） |
 | SRIF | ❌（`SrifUpdater` 硬编码线性 H） | ❌ | 需扩展 `common/estimation` 让 `SrifUpdater` 接受 `IMeasurementModel*` 并在线性化方程中使用 |
 | UDKF | ❌（`UdkfUpdater` 硬编码线性 H） | ❌ | UDKF 是协方差 UD 分解（数值稳定），**不是**无导数滤波，对非线性量测无帮助 |
 | KF | ❌（`KalmanUpdater` 硬编码线性 H） | ❌ | 需线性 H，球坐标 az/el 不满足 |
@@ -545,11 +545,7 @@ stateDiagram-v2
 2. **选型决策依赖外部真知**："目标是否机动"等判据，仿真期真值已知，泄露到选型逻辑等同作弊。
 3. **可解释性**：工程评审需能追溯到具体后端与参数，自动切换使因果链复杂化。
 
-**升级触发条件**（需有 EKF 基线数据论证后再议）：
-- EKF 基线 NIS 持续偏高（纯 CV 失配）→ 考虑 IMM(CV+CA) 多模型
-- 协方差数值病态（非正定）→ 考虑扩展 SRIF 接受非线性量测
-- 强非线性几何（低仰角、大观测角）→ 考虑 CKF（sigma-point，需新写后端）
-- 确定性丢锁→概率模型：需先基于场景矩阵标定 NIS/SNR/角速度与重捕获成功率的映射
+**IMM 已接线**（详见 §2.5.2）：`common/estimation/ImmFilter.h` 已扩展 3 参 `Process(measurement, dt, R)` 支持动态 R。`SbirsPipeline` 在 `enable_imm_tracking=true` 时创建 per-target `ImmFilter` 实例，各子模型持有独立 `SbirsAngleMeasurementModel`，NIS 取各模型最大值用于丢锁判定。NIS 门限/丢锁/重捕获的确定性语义与单 EKF 路径一致。
 
 #### 2.5.4 NIS 诊断与丢锁重捕获
 
@@ -587,9 +583,11 @@ CV 模型在助推段会失配）；持续偏低→R 偏大。
 #### 2.5.5 验证入口汇总
 
 - `sbirs_state_machine_test`（默认走 EstimatedTracking；关闭滤波回退 TruthAssistedTracking）
-- `sbirs_pipeline_test`（捕获后 used_truth_assist=false；NIS 连续超限释放锁并重捕获）
+- `sbirs_pipeline_test`（单 EKF + IMM 路径；NIS 连续超限释放锁并重捕获；capture/restore 闭环）
 - `sbirs_ekf_baseline_test`（CV / 瞬时异常 / 持续失配 NIS 矩阵基线）
+- `sbirs_imm_evaluation_test`（IMM 全场景 RMSE 改善证据：中段 31%、助推 28%、末端机动 55%）
 - `sbirs_cycle_output_builder_test`（debug view 与 lifecycle 保留 NIS 丢锁 attribution/reason）
+- `sbirs_replay_codec_roundtrip_test`（IMM 配置编解码往返）
 - `sbirs_replay_session_test`（trace/replay 保真：捕获 → NIS 丢锁诊断 → 重捕获）
 
 ### 2.6 多目标优先级与 NFOV 资源调度

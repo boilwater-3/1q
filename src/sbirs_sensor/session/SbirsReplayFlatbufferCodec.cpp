@@ -198,11 +198,13 @@ flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
           value.error_model.detector_bandwidth_hz);
   const flatbuffers::Offset<sbirs::replay::SbirsSchedulerConfig> scheduler =
       sbirs::replay::CreateSbirsSchedulerConfig(fbb, value.scheduler.single_narrow_resource);
+  const auto imm_coeffs = fbb.CreateVector(value.tracking.imm_model_noise_diff_coeffs);
   const flatbuffers::Offset<sbirs::replay::SbirsTrackingConfig> tracking =
       sbirs::replay::CreateSbirsTrackingConfig(
           fbb, value.tracking.enable_estimated_tracking,
           value.tracking.process_noise_diff_coeff, value.tracking.initial_position_std_m,
-          value.tracking.initial_velocity_std_m_per_s, value.tracking.nis_gate_loss_cycles);
+          value.tracking.initial_velocity_std_m_per_s, value.tracking.nis_gate_loss_cycles,
+          value.tracking.enable_imm_tracking, imm_coeffs);
   return sbirs::replay::CreateSbirsPolicyConfig(fbb, detection, error, scheduler, tracking);
 }
 
@@ -234,6 +236,11 @@ void DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
     out->tracking.initial_velocity_std_m_per_s =
         fb->tracking()->initial_velocity_std_m_per_s();
     out->tracking.nis_gate_loss_cycles = fb->tracking()->nis_gate_loss_cycles();
+    out->tracking.enable_imm_tracking = fb->tracking()->enable_imm_tracking();
+    if (fb->tracking()->imm_model_noise_diff_coeffs() != nullptr) {
+      const auto* coeffs = fb->tracking()->imm_model_noise_diff_coeffs();
+      out->tracking.imm_model_noise_diff_coeffs.assign(coeffs->begin(), coeffs->end());
+    }
   }
 }
 
