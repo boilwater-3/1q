@@ -13,6 +13,9 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/ArSceneTypes.h"
+#include "airborne_radar/signal/tracking/IKalmanPredictor.h"
+#include "airborne_radar/signal/tracking/IKalmanUpdater.h"
+#include "airborne_radar/signal/tracking/ImmFilter.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/ITrackPool.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
@@ -23,9 +26,6 @@ namespace airborne_radar {
 namespace signal {
 namespace tracking {
 
-class IKalmanPredictor;
-class IKalmanUpdater;
-class ImmFilter;
 /**
  * @brief TrackLifecycleManager 负责轨迹生命周期状态推进。
  * 该类依赖 ITrackPool 管理对象复用，并提供快照导出能力。

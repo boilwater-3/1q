@@ -32,6 +32,7 @@ src/
 |   `-- utils/                              airborne utility adapters
 |-- common/                                 shared implementation utilities
 |   |-- atmosphere/                         atmosphere and propagation shared physics
+|   |-- estimation/                         templated Kalman filter family (KF/EKF/UDKF/SRIF/IMM)
 |   |-- geometry/                           coordinate and geometry transforms
 |   |-- logging/                            project logging abstraction
 |   |-- numerics/                           numerical solvers and math helpers

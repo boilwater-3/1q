@@ -1,75 +1,38 @@
 /**
  * @file GaussianTrackState.h
- * @brief 定义高斯状态表示，用于 Kalman 滤波系列的状态预测与更新。
+ * @brief 向后兼容外观：将 common/estimation 的模板化高斯状态重导出为 airborne_radar 命名空间下的
+ *        6/3 实例化旧名。
+ *
+ * 滤波原语已迁移至 `common/estimation/GaussianState.h`（模板化）。本头在
+ * `airborne_radar::signal::tracking` 命名空间下重导出机载雷达 6 维状态 / 3 维量测实例化，
+ * 以及原代码依赖的简短类型别名与维度常量，使现有航迹管理与 pipeline 代码无需逐处改名。
  */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_GAUSSIAN_TRACK_STATE_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_GAUSSIAN_TRACK_STATE_H_
 
-#include <Eigen/Core>
+#include "common/estimation/GaussianState.h"
 
 namespace airborne_radar {
 namespace signal {
 namespace tracking {
-/**
- * @brief 状态空间维度常量。
- * @details 采用 3D 恒速模型：[x, vx, y, vy, z, vz]。
- */
-static constexpr int kStateDim = 6;
-/**
- * @brief 量测空间维度常量。
- * @details 直接量测三维位置：[x, y, z]。
- */
-static constexpr int kMeasurementDim = 3;
-/**
- * @brief 状态向量类型（固定维度，列向量）。
- */
-using StateVector = Eigen::Matrix<float, kStateDim, 1>;
-/**
- * @brief 状态协方差矩阵类型。
- */
-using StateCovariance = Eigen::Matrix<float, kStateDim, kStateDim>;
-/**
- * @brief 量测向量类型。
- */
-using MeasurementVector = Eigen::Matrix<float, kMeasurementDim, 1>;
-/**
- * @brief 量测协方差矩阵类型。
- */
-using MeasurementCovariance = Eigen::Matrix<float, kMeasurementDim, kMeasurementDim>;
-/**
- * @brief 状态转移矩阵类型。
- */
-using TransitionMatrix = Eigen::Matrix<float, kStateDim, kStateDim>;
-/**
- * @brief 过程噪声协方差矩阵类型。
- */
-using ProcessNoiseCovariance = Eigen::Matrix<float, kStateDim, kStateDim>;
-/**
- * @brief 量测矩阵类型（H: kMeasurementDim × kStateDim）。
- */
-using MeasurementMatrix = Eigen::Matrix<float, kMeasurementDim, kStateDim>;
-/**
- * @brief Kalman 增益矩阵类型。
- */
-using KalmanGainMatrix = Eigen::Matrix<float, kStateDim, kMeasurementDim>;
-/**
- * @brief 高斯状态表示，作为 Kalman 滤波器的核心数据载体。
- * @details 封装状态均值向量和协方差矩阵，对应 Stone Soup 中的 GaussianState。
- *          状态向量布局为 [x, vx, y, vy, z, vz]，位置和速度交替排列。
- */
-struct GaussianTrackState {
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  StateVector mean{StateVector::Zero()};                   /**< 状态均值向量。 */
-  StateCovariance covariance{StateCovariance::Identity()}; /**< 状态协方差矩阵。 */
-  GaussianTrackState() = default;
-  /**
-   * @brief 从均值和协方差构造。
-   * @param m 状态均值向量。
-   * @param p 状态协方差矩阵。
-   */
-  GaussianTrackState(const StateVector& m, const StateCovariance& p) : mean(m), covariance(p) {}
-};
+
+/** @brief 机载雷达 3D 恒速高斯状态（[x, vx, y, vy, z, vz] / [x, y, z]）别名。 */
+using GaussianTrackState = ::oneq::common::estimation::GaussianState<6, 3>;
+
+/** @brief 状态空间维度常量（向后兼容旧引用）。 */
+static constexpr int kStateDim = GaussianTrackState::state_dim;
+/** @brief 量测空间维度常量（向后兼容旧引用）。 */
+static constexpr int kMeasurementDim = GaussianTrackState::measurement_dim;
+
+using StateVector = GaussianTrackState::StateVector;
+using StateCovariance = GaussianTrackState::StateCovariance;
+using MeasurementVector = GaussianTrackState::MeasurementVector;
+using MeasurementCovariance = GaussianTrackState::MeasurementCovariance;
+using TransitionMatrix = GaussianTrackState::TransitionMatrix;
+using ProcessNoiseCovariance = GaussianTrackState::ProcessNoiseCovariance;
+using MeasurementMatrix = GaussianTrackState::MeasurementMatrix;
+using KalmanGainMatrix = GaussianTrackState::KalmanGainMatrix;
 
 }  // namespace tracking
 }  // namespace signal

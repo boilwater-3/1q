@@ -50,7 +50,7 @@ Authority: current airborne_radar module design
 | `signal/detection/` | 雷达方程、波束控制、量测误差、目标几何 | `SignalDetector`、`RadarEquations`、`BeamControlResolver` |
 | `signal/pipeline/` | 扫描调度、探测执行、数据关联、航迹生命周期、决策帧构建 | `SignalPipeline`、`ExecuteCycle`、`RunPhysicalDetectionPass` |
 | `signal/association/` | 数据关联、代价矩阵、LAPJV assignment、关联质量指标 | `DataAssociationEngine`、`LapjvSolver` |
-| `signal/tracking/` | Kalman/EKF/UDKF/SRIF/IMM、track pool、生命周期 | `TrackFilter`、`TrackLifecycleManager`、`ImmFilter` |
+| `signal/tracking/` | track pool、生命周期；滤波原语（Kalman/EKF/UDKF/SRIF/IMM）已迁至 `src/common/estimation/`，本目录保留薄外观头以 6/3 实例化重导出 | `TrackFilter`、`TrackLifecycleManager`、`ImmFilter` |
 | `decision/` | 默认战术协调、威胁评估、LPI、ECCM、控制归约 | `TacticalCoordinator`、`ThreatAssessmentEvaluator`、`LpiEvaluator`、`EccmEvaluator`、`ControlReducer` |
 | `runtime/` | controller 和控制指令映射 | `ArController`、`ControlCommandMapper` |
 | `session/` | public session 装配、context、输入输出适配、trace/replay | `ArSession`、`MutableArContext`、`ArSessionCompositionRoot` |

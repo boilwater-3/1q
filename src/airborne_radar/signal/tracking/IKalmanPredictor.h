@@ -1,48 +1,21 @@
 /**
  * @file IKalmanPredictor.h
- * @brief 定义基于 Kalman 滤波的状态预测器抽象接口。
+ * @brief 向后兼容外观：将 common/estimation 模板化 Kalman 预测器接口重导出为 6/3 实例化旧名。
  */
 
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_I_KALMAN_PREDICTOR_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_I_KALMAN_PREDICTOR_H_
 
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
+#include "common/estimation/IKalmanPredictor.h"
 
 namespace airborne_radar {
 namespace signal {
 namespace tracking {
-/**
- * @brief Kalman 预测器配置。
- */
-struct KalmanPredictorConfig {
-  /**
-   * @brief 过程噪声扩散系数 q（单位：m/s²），建模加速度白噪声强度。
-   * @details 对应 Stone Soup ConstantVelocity 的 noise_diff_coeff。
-   *          值越大表示目标运动越不确定，协方差增长越快。
-   */
-  float noise_diff_coeff{1.0f};
-};
-/**
- * @brief Kalman 预测器抽象接口。
- */
-class IKalmanPredictor {
- public:
-  virtual ~IKalmanPredictor() = default;
-  /**
-   * @brief 对先验状态执行时间外推预测。
-   * @param prior 先验高斯状态。
-   * @param dt 预测时间步长（秒）。
-   * @return 预测后的高斯状态。
-   */
-  virtual GaussianTrackState Predict(const GaussianTrackState& prior, float dt) const = 0;
-  /**
-   * @brief 更新预测器配置。
-   * @details 默认实现为空操作。使用 KalmanPredictorConfig 的子类应重写本方法。
-   *          使用自定义配置类型的子类（如 EkfPredictor）保留其自身的 UpdateConfig 重载。
-   * @param config 预测器配置。
-   */
-  virtual void UpdateConfig(KalmanPredictorConfig /*config*/) {}
-};
+
+using ::oneq::common::estimation::KalmanPredictorConfig;
+/** @brief Kalman 预测器抽象接口（6 维状态 / 3 维量测实例化）。 */
+using IKalmanPredictor = ::oneq::common::estimation::IKalmanPredictor<6, 3>;
 
 }  // namespace tracking
 }  // namespace signal

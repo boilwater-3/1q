@@ -21,19 +21,11 @@ set(AIRBORNE_ENGINE_SOURCES
     airborne_radar/signal/pipeline/ScanScheduleResolver.cpp
     airborne_radar/signal/pipeline/SignalComponentFactory.cpp
     airborne_radar/signal/tracking/BoostTrackPool.cpp
-    airborne_radar/signal/tracking/EkfFilter.cpp
-    airborne_radar/signal/tracking/ImmFilter.cpp
-    airborne_radar/signal/tracking/KalmanPredictor.cpp
-    airborne_radar/signal/tracking/KalmanUpdater.cpp
-    airborne_radar/signal/tracking/SrifPredictor.cpp
-    airborne_radar/signal/tracking/SrifUpdater.cpp
     airborne_radar/signal/tracking/SynchronizedTrackPool.cpp
     airborne_radar/signal/tracking/TrackFilter.cpp
     airborne_radar/signal/tracking/TrackLifecycleManager.cpp
     airborne_radar/signal/tracking/TrackLifecycleSnapshots.cpp
     airborne_radar/signal/tracking/TrackStateSnapshotEmitter.cpp
-    airborne_radar/signal/tracking/UdkfPredictor.cpp
-    airborne_radar/signal/tracking/UdkfUpdater.cpp
 )
 
 # -- core: 会话、运行时、环境、配置、决策、输出（粘合层，依赖轻） -------------------
