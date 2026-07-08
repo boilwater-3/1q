@@ -4,6 +4,11 @@
 # Build outputs
 build/
 out/
+# LLVM source-based coverage 运行时产物（*.profraw / *.profdata）。
+# build/ 已覆盖构建目录内的，这两条兜底捕获在仓库根散落的——
+# 当 ENABLE_EXAMPLES=ON 后直接运行带插桩的 example 二进制时会在 CWD 写出。
+*.profraw
+*.profdata
 
 # CMake local/user files
 CMakeUserPresets.json

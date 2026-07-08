@@ -59,6 +59,25 @@ target_include_directories(sar_integration_demo PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/sar")
 _oneq_example_link_common(sar_integration_demo)
 
+# =============================================================================
+# 端到端场景示例：多目标对抗剧本 + 真实 session 跑多周期，作为模块级冒烟。
+# 与 integration_demo（API 教程）定位不同——这里搭具体战术剧本，看航迹/检测输出。
+# 配置复用 examples/configs/（与 batch_validation 同源），通过 SCENE_CONFIG_DIR 注入。
+# =============================================================================
+function(add_domain_scene name module_dir src)
+    add_executable(${name} "${module_dir}/${src}")
+    target_link_libraries(${name} PRIVATE ${PROJECT_ALIAS})
+    target_include_directories(${name} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/${module_dir}")
+    target_compile_definitions(${name} PRIVATE
+        SCENE_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")
+    _oneq_example_link_common(${name})
+endfunction()
+
+add_domain_scene(airborne_radar_scene airborne_radar airborne_radar_scene.cpp)
+add_domain_scene(electro_optical_scene electro_optical electro_optical_scene.cpp)
+add_domain_scene(electronic_warfare_scene electronic_warfare electronic_warfare_scene.cpp)
+
 # flight_dynamic 示例：依赖机动模块，仅在 ONEQ_ENABLE_FLIGHT_DYNAMIC 开启时构建。
 if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
 

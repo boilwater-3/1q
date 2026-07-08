@@ -67,7 +67,7 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 
 ## 测试
 
-测试覆盖关联、跟踪、环境、决策、会话编排、契约、性能和安装消费路径（见 `tests/{unit,integration,contract,performance,scene,consumer}/`）。修改公共 API 或关键逻辑时，应同步补充或更新 `tests/` 下的测试。
+测试覆盖关联、跟踪、环境、决策、会话编排、契约、性能和安装消费路径（见 `tests/{unit,integration,contract,performance,consumer}/`）。修改公共 API 或关键逻辑时，应同步补充或更新 `tests/` 下的测试。
 
 ## 约束
 
