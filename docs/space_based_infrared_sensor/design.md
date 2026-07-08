@@ -547,6 +547,11 @@ stateDiagram-v2
 
 **IMM 已接线**（详见 §2.5.2）：`common/estimation/ImmFilter.h` 已扩展 3 参 `Process(measurement, dt, R)` 支持动态 R。`SbirsPipeline` 在 `enable_imm_tracking=true` 时创建 per-target `ImmFilter` 实例，各子模型持有独立 `SbirsAngleMeasurementModel`，NIS 取各模型最大值用于丢锁判定。NIS 门限/丢锁/重捕获的确定性语义与单 EKF 路径一致。
 
+**升级触发条件**（需后续论证）：
+- 协方差数值病态（非正定）→ 考虑扩展 SRIF 接受非线性量测
+- 强非线性几何（低仰角、大观测角，Jacobian 一阶展开精度不足）→ 考虑 CKF（sigma-point，需新写后端）
+- 丢锁/重捕获目前是确定性 NIS 连续超限门限；若后续需要概率模型，应先基于场景矩阵标定 NIS、SNR、角速度与重捕获成功率的映射，再引入受 seed 控制的可复现概率抽样
+
 #### 2.5.4 NIS 诊断与丢锁重捕获
 
 **NIS 计算**：归一化新息平方 NIS = `innovationᵀ · innovation_covariance⁻¹ · innovation`，χ² 分布
