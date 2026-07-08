@@ -4,6 +4,8 @@
 #include <cmath>
 #include <limits>
 
+#include <Eigen/Cholesky>
+
 #include "sbirs_sensor/environment/SbirsEnvironmentModel.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
@@ -15,6 +17,7 @@ namespace pipeline {
 namespace {
 
 const double kEarthRadiusM = 6371000.0;
+constexpr float kSbirsNisChiSquare2Dof95 = 5.99f;
 
 float NormalizeAzimuth(float azimuth_deg) {
   float result = std::fmod(azimuth_deg + 180.0f, 360.0f);
@@ -48,6 +51,17 @@ double ComputeSnr(const config::SbirsInternalExecutionConfig& config,
   const double signal_energy =
       std::max(0.0, received_power) * std::max(0.0f, hardware.integration_time_sec);
   return signal_energy / effective_noise;
+}
+
+float ComputeNormalizedInnovationSquared(
+    const tracking::SbirsKalmanUpdateResult& update_result) {
+  const Eigen::LLT<tracking::SbirsMeasurementCovariance> llt(
+      update_result.innovation_covariance);
+  if (llt.info() != Eigen::Success) {
+    return std::numeric_limits<float>::infinity();
+  }
+  const tracking::SbirsMeasurementVector solved = llt.solve(update_result.innovation);
+  return update_result.innovation.dot(solved);
 }
 
 struct Candidate {
@@ -86,6 +100,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
   if (mission.work_mode == config::SbirsWorkMode::kStandby || !mission.sensor_enabled) {
     target_states_.clear();
+    nis_gate_exceeded_counts_.clear();
     has_locked_target_ = false;
     locked_target_id_ = 0U;
     result.scan_azimuth_deg = scan_azimuth_deg_;
@@ -109,6 +124,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         has_locked_target_ = false;
       }
       filter_states_.erase(target.target_id);  // 释放滤波状态
+      nis_gate_exceeded_counts_.erase(target.target_id);
       continue;
     }
 
@@ -152,6 +168,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       float output_azimuth_deg = azimuth_deg;
       float output_elevation_deg = elevation_deg;
       bool used_truth_assist = true;
+      bool has_estimation_nis = false;
+      float estimation_nis = 0.0f;
+      bool estimation_nis_gate_exceeded = false;
+      bool lost_due_to_estimation_nis = false;
       if (state == SbirsTargetState::kEstimatedTracking &&
           policy.tracking.enable_estimated_tracking) {
         used_truth_assist = false;
@@ -173,6 +193,15 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         const tracking::SbirsKalmanUpdateResult update_result =
             ekf_updater.Update(predicted, measurement_rad, R);
         filter_states_[target.target_id] = update_result.posterior;
+        has_estimation_nis = true;
+        estimation_nis = ComputeNormalizedInnovationSquared(update_result);
+        estimation_nis_gate_exceeded = estimation_nis > kSbirsNisChiSquare2Dof95;
+        if (policy.tracking.nis_gate_loss_cycles > 0U && estimation_nis_gate_exceeded) {
+          const unsigned int exceeded_count = ++nis_gate_exceeded_counts_[target.target_id];
+          lost_due_to_estimation_nis = exceeded_count >= policy.tracking.nis_gate_loss_cycles;
+        } else {
+          nis_gate_exceeded_counts_[target.target_id] = 0U;
+        }
         // 滤波估计（CV 交错布局 [x,vx,y,vy,z,vz] → 位置 [x,y,z] → 相对卫星 LOS → az/el deg）。
         const session::SbirsVector3M estimated_position{update_result.posterior.mean(0),   // x
                                                         update_result.posterior.mean(2),   // y
@@ -188,12 +217,24 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.record.elevation_deg = output_elevation_deg;
       detection.record.infrared_snr_linear = static_cast<float>(snr);
       detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldTrack;
-      detection.record.detected = true;
+      detection.record.detected = !lost_due_to_estimation_nis;
       detection.attribution.detection_id = detection.record.detection_id;
       detection.attribution.target_id = target.target_id;
       detection.attribution.target_name = target.target_name;
       detection.attribution.estimated_range_m = static_cast<float>(range_m);
       detection.attribution.used_truth_assist = used_truth_assist;
+      detection.attribution.has_estimation_nis = has_estimation_nis;
+      detection.attribution.estimation_nis = estimation_nis;
+      detection.attribution.estimation_nis_gate_exceeded = estimation_nis_gate_exceeded;
+      if (lost_due_to_estimation_nis) {
+        detection.attribution.capture_failure_reason =
+            attribution::SbirsCaptureFailureReason::kEstimationNisGateLost;
+        target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
+        has_locked_target_ = false;
+        locked_target_id_ = 0U;
+        filter_states_.erase(target.target_id);
+        nis_gate_exceeded_counts_.erase(target.target_id);
+      }
       result.detections.push_back(detection);
       continue;
     }
@@ -287,6 +328,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         initial_state.covariance(4, 4) = pos_var;
         initial_state.covariance(5, 5) = vel_var;
         filter_states_[selected.target->target_id] = initial_state;
+        nis_gate_exceeded_counts_[selected.target->target_id] = 0U;
       }
       SbirsPipelineDetection detection;
       detection.record.detection_id = next_detection_id_++;
@@ -359,6 +401,7 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   snapshot.locked_target_id = locked_target_id_;
   snapshot.random_state = random_source_.Capture();
   snapshot.filter_states = filter_states_;
+  snapshot.nis_gate_exceeded_counts = nis_gate_exceeded_counts_;
   return snapshot;
 }
 
@@ -370,6 +413,7 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
   locked_target_id_ = snapshot.locked_target_id;
   random_source_.Restore(snapshot.random_state);
   filter_states_ = snapshot.filter_states;
+  nis_gate_exceeded_counts_ = snapshot.nis_gate_exceeded_counts;
   return true;
 }
 

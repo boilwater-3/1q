@@ -52,6 +52,30 @@ sbirs_sensor::session::SbirsCycleResult ResultForTarget(std::uint32_t cycle_inde
   attribution.target_name = "boost";
   attribution.estimated_range_m = 1000000.0f;
   attribution.used_truth_assist = true;
+  attribution.has_estimation_nis = true;
+  attribution.estimation_nis = 1.5f;
+  attribution.estimation_nis_gate_exceeded = false;
+  result.detection_attributions.push_back(attribution);
+  return result;
+}
+
+sbirs_sensor::session::SbirsCycleResult NisLossResultForTarget(std::uint32_t cycle_index) {
+  sbirs_sensor::session::SbirsCycleResult result;
+  result.input_cycle_index = cycle_index;
+  result.output_frame.cycle_index = cycle_index;
+  result.executed_this_cycle = true;
+
+  sbirs_sensor::attribution::SbirsDetectionAttributionRecord attribution;
+  attribution.detection_id = 12U;
+  attribution.target_id = 7U;
+  attribution.target_name = "boost";
+  attribution.estimated_range_m = 1000000.0f;
+  attribution.used_truth_assist = false;
+  attribution.capture_failure_reason =
+      sbirs_sensor::attribution::SbirsCaptureFailureReason::kEstimationNisGateLost;
+  attribution.has_estimation_nis = true;
+  attribution.estimation_nis = 12.5f;
+  attribution.estimation_nis_gate_exceeded = true;
   result.detection_attributions.push_back(attribution);
   return result;
 }
@@ -83,7 +107,27 @@ TEST(SbirsCycleOutputBuilderTest, DebugViewMapsDetectionAttributionBackToInputTa
   EXPECT_TRUE(view.targets[0].has_raw_output_record);
   EXPECT_TRUE(view.targets[0].used_truth_assist);
   EXPECT_FLOAT_EQ(view.targets[0].estimated_range_m, 1000000.0f);
+  EXPECT_TRUE(view.targets[0].has_estimation_nis);
+  EXPECT_FLOAT_EQ(view.targets[0].estimation_nis, 1.5f);
+  EXPECT_FALSE(view.targets[0].estimation_nis_gate_exceeded);
   EXPECT_EQ(view.targets[0].status, sbirs_sensor::session::SbirsDebugTargetStatus::kDetected);
+}
+
+TEST(SbirsCycleOutputBuilderTest, DebugViewPreservesNisLossAttributionWithoutRawRecord) {
+  const sbirs_sensor::session::SbirsCycleInput input = InputWithTarget(2U);
+  const sbirs_sensor::session::SbirsCycleResult result = NisLossResultForTarget(2U);
+
+  const sbirs_sensor::session::SbirsOutputDebugView view =
+      sbirs_sensor::session::SbirsOutputDebugViewBuilder::Build(input, result);
+
+  ASSERT_EQ(view.targets.size(), 1U);
+  EXPECT_FALSE(view.targets[0].has_raw_output_record);
+  EXPECT_FALSE(view.targets[0].used_truth_assist);
+  EXPECT_FLOAT_EQ(view.targets[0].estimated_range_m, 1000000.0f);
+  EXPECT_TRUE(view.targets[0].has_estimation_nis);
+  EXPECT_FLOAT_EQ(view.targets[0].estimation_nis, 12.5f);
+  EXPECT_TRUE(view.targets[0].estimation_nis_gate_exceeded);
+  EXPECT_EQ(view.targets[0].status, sbirs_sensor::session::SbirsDebugTargetStatus::kNotInOutput);
 }
 
 TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderTracksFoundUpdatedLostAndOptionalNotDetected) {
@@ -122,6 +166,26 @@ TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderTracksFoundUpdatedLostAndOpti
   events = diagnose_recorder.Update(InputWithTarget(4U), sbirs_sensor::session::SbirsCycleResult{});
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events[0].kind, sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kNotDetected);
+}
+
+TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderPreservesNisLossReasonAndDiagnostics) {
+  sbirs_sensor::session::SbirsDetectionLifecycleRecorder recorder;
+  std::vector<sbirs_sensor::session::SbirsDetectionLifecycleEvent> events =
+      recorder.Update(InputWithTarget(1U), ResultForTarget(1U, true));
+  ASSERT_EQ(events.size(), 1U);
+  ASSERT_EQ(events[0].kind,
+            sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kFirstDetected);
+
+  events = recorder.Update(InputWithTarget(2U), NisLossResultForTarget(2U));
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events[0].kind, sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kLost);
+  EXPECT_EQ(events[0].reason,
+            sbirs_sensor::session::SbirsDetectionLifecycleReason::kEstimationNisGateLost);
+  EXPECT_FALSE(events[0].used_truth_assist);
+  EXPECT_FLOAT_EQ(events[0].estimated_range_m, 1000000.0f);
+  EXPECT_TRUE(events[0].has_estimation_nis);
+  EXPECT_FLOAT_EQ(events[0].estimation_nis, 12.5f);
+  EXPECT_TRUE(events[0].estimation_nis_gate_exceeded);
 }
 
 }  // namespace

@@ -198,7 +198,12 @@ flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
           value.error_model.detector_bandwidth_hz);
   const flatbuffers::Offset<sbirs::replay::SbirsSchedulerConfig> scheduler =
       sbirs::replay::CreateSbirsSchedulerConfig(fbb, value.scheduler.single_narrow_resource);
-  return sbirs::replay::CreateSbirsPolicyConfig(fbb, detection, error, scheduler);
+  const flatbuffers::Offset<sbirs::replay::SbirsTrackingConfig> tracking =
+      sbirs::replay::CreateSbirsTrackingConfig(
+          fbb, value.tracking.enable_estimated_tracking,
+          value.tracking.process_noise_diff_coeff, value.tracking.initial_position_std_m,
+          value.tracking.initial_velocity_std_m_per_s, value.tracking.nis_gate_loss_cycles);
+  return sbirs::replay::CreateSbirsPolicyConfig(fbb, detection, error, scheduler, tracking);
 }
 
 void DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
@@ -221,6 +226,14 @@ void DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
   }
   if (fb->scheduler() != nullptr) {
     out->scheduler.single_narrow_resource = fb->scheduler()->single_narrow_resource();
+  }
+  if (fb->tracking() != nullptr) {
+    out->tracking.enable_estimated_tracking = fb->tracking()->enable_estimated_tracking();
+    out->tracking.process_noise_diff_coeff = fb->tracking()->process_noise_diff_coeff();
+    out->tracking.initial_position_std_m = fb->tracking()->initial_position_std_m();
+    out->tracking.initial_velocity_std_m_per_s =
+        fb->tracking()->initial_velocity_std_m_per_s();
+    out->tracking.nis_gate_loss_cycles = fb->tracking()->nis_gate_loss_cycles();
   }
 }
 
@@ -313,7 +326,9 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
         fbb, attribution.detection_id, attribution.target_id,
         fbb.CreateString(attribution.target_name), attribution.estimated_range_m,
         attribution.used_truth_assist,
-        static_cast<std::int32_t>(attribution.capture_failure_reason)));
+        static_cast<std::int32_t>(attribution.capture_failure_reason),
+        attribution.has_estimation_nis, attribution.estimation_nis,
+        attribution.estimation_nis_gate_exceeded));
   }
 
   std::vector<flatbuffers::Offset<sbirs::replay::ValidationIssue>> issues;
@@ -357,6 +372,9 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
       record.used_truth_assist = attr->used_truth_assist();
       record.capture_failure_reason =
           static_cast<attribution::SbirsCaptureFailureReason>(attr->capture_failure_reason());
+      record.has_estimation_nis = attr->has_estimation_nis();
+      record.estimation_nis = attr->estimation_nis();
+      record.estimation_nis_gate_exceeded = attr->estimation_nis_gate_exceeded();
       out->detection_attributions.push_back(record);
     }
   }

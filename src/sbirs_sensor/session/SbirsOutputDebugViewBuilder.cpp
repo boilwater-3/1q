@@ -43,6 +43,12 @@ SbirsDebugTargetState BuildTargetState(const SbirsSceneTarget& target,
     return state;
   }
 
+  state.used_truth_assist = attribution->used_truth_assist;
+  state.estimated_range_m = attribution->estimated_range_m;
+  state.has_estimation_nis = attribution->has_estimation_nis;
+  state.estimation_nis = attribution->estimation_nis;
+  state.estimation_nis_gate_exceeded = attribution->estimation_nis_gate_exceeded;
+
   const output::SbirsDetectionRecord* record =
       FindRecord(attribution->detection_id, result.output_frame);
   if (record == nullptr) {
@@ -52,8 +58,6 @@ SbirsDebugTargetState BuildTargetState(const SbirsSceneTarget& target,
 
   state.has_raw_output_record = true;
   state.detected = record->detected;
-  state.used_truth_assist = attribution->used_truth_assist;
-  state.estimated_range_m = attribution->estimated_range_m;
   state.azimuth_deg = record->azimuth_deg;
   state.elevation_deg = record->elevation_deg;
   state.infrared_snr_linear = record->infrared_snr_linear;

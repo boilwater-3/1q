@@ -2,7 +2,7 @@
  * @file sbirs_session_test.cpp
  * @brief 验证 SBIRS Session 端到端闭环：状态机交接、多周期跟踪、运行时热切换、校验回退。
  *
- * 对齐 EOS/ESR 集成测试分层：单周期 smoke、WFOV→NFOV 首次捕获、真值辅助跟踪跨周期持续、
+ * 对齐 EOS/ESR 集成测试分层：单周期 smoke、WFOV→NFOV 首次捕获、EKF/真值辅助跟踪跨周期持续、
  * 扫描相位推进、runtime patch 立即生效、校验失败复用上一有效输出。
  */
 
@@ -110,17 +110,18 @@ TEST(SbirsSessionIntegrationTest, WfovCandidateTransitionsToNfovAcquisition) {
   ASSERT_FALSE(result.output_frame.detections.empty());
   EXPECT_EQ(result.output_frame.detections.front().observation_stage,
             output::SbirsObservationStage::kNarrowFieldAcquisition);
-  EXPECT_TRUE(result.detection_attributions.front().used_truth_assist);
+  EXPECT_FALSE(result.detection_attributions.front().used_truth_assist);
 }
 
-TEST(SbirsSessionIntegrationTest, CapturedTargetContinuesTruthAssistedTrackNextCycle) {
-  // 第二周期：捕获后的目标进入真值辅助持续跟踪（design 2.5），输出 NarrowFieldTrack。
+TEST(SbirsSessionIntegrationTest, CapturedTargetContinuesEstimatedTrackNextCycle) {
+  // 第二周期：默认启用 EKF 估计跟踪（design 2.5a），输出 NarrowFieldTrack。
   SbirsSession session = SbirsSession::Create(MakeSessionConfig());
   session.StepWithResult(MakeBaseInput(1U));
   const SbirsCycleResult result = session.StepWithResult(MakeBaseInput(2U));
   ASSERT_FALSE(result.output_frame.detections.empty());
   EXPECT_EQ(result.output_frame.detections.front().observation_stage,
             output::SbirsObservationStage::kNarrowFieldTrack);
+  EXPECT_FALSE(result.detection_attributions.front().used_truth_assist);
 }
 
 TEST(SbirsSessionIntegrationTest, MultiCycleScanAdvancesAzimuth) {
@@ -252,13 +253,17 @@ TEST(SbirsSessionIntegrationTest, MultipleWfovCandidatesSingleNfovLock) {
   input.scene.push_back(MakeTarget(2U, 1000.0));
   const SbirsCycleResult result = session.StepWithResult(input);
 
-  std::size_t truth_assisted = 0U;
+  std::size_t nfov_acquisitions = 0U;
   for (const attribution::SbirsDetectionAttributionRecord& attr : result.detection_attributions) {
-    if (attr.used_truth_assist) {
-      ++truth_assisted;
+    const output::SbirsDetectionRecord* record = FindDetectionByTargetId(result, attr.target_id);
+    if (record != nullptr &&
+        record->observation_stage == output::SbirsObservationStage::kNarrowFieldAcquisition &&
+        attr.capture_failure_reason == attribution::SbirsCaptureFailureReason::kNone) {
+      ++nfov_acquisitions;
+      EXPECT_FALSE(attr.used_truth_assist);
     }
   }
-  EXPECT_EQ(truth_assisted, 1U);
+  EXPECT_EQ(nfov_acquisitions, 1U);
 }
 
 // design cue 延迟外推：横向高速目标在 latency 内移出 NFOV → 首次捕获失败。

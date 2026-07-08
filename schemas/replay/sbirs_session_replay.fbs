@@ -54,10 +54,19 @@ table SbirsSchedulerConfig {
   single_narrow_resource: bool;
 }
 
+table SbirsTrackingConfig {
+  enable_estimated_tracking: bool;
+  process_noise_diff_coeff: float;
+  initial_position_std_m: float;
+  initial_velocity_std_m_per_s: float;
+  nis_gate_loss_cycles: uint32;
+}
+
 table SbirsPolicyConfig {
   detection: SbirsDetectionPolicyConfig;
   error_model: SbirsErrorModelConfig;
   scheduler: SbirsSchedulerConfig;
+  tracking: SbirsTrackingConfig;
 }
 
 table SbirsEnvironmentConfig {
@@ -95,4 +104,3 @@ table SbirsRuntimeConfigPatch {
   has_sensor_enabled: bool;
   sensor_enabled: bool;
 }
-

@@ -62,6 +62,7 @@ TEST(SbirsPipelineTest, WideCandidateCapturesIntoNfov) {
             sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
   // 默认 enable_estimated_tracking=true → 捕获走 EKF，used_truth_assist=false
   EXPECT_FALSE(result.detections.front().attribution.used_truth_assist);
+  EXPECT_FALSE(result.detections.front().attribution.has_estimation_nis);
 }
 
 TEST(SbirsPipelineTest, LockedTargetProducesEstimatedTrack) {
@@ -84,6 +85,45 @@ TEST(SbirsPipelineTest, LockedTargetProducesEstimatedTrack) {
   // 持续跟踪走 EKF 估计，输出角度应有限（滤波未发散）
   EXPECT_TRUE(std::isfinite(result.detections.front().record.azimuth_deg));
   EXPECT_TRUE(std::isfinite(result.detections.front().record.elevation_deg));
+  EXPECT_FALSE(result.detections.front().attribution.used_truth_assist);
+  EXPECT_TRUE(result.detections.front().attribution.has_estimation_nis);
+  EXPECT_TRUE(std::isfinite(result.detections.front().attribution.estimation_nis));
+  EXPECT_FALSE(result.detections.front().attribution.estimation_nis_gate_exceeded);
+}
+
+TEST(SbirsPipelineTest, ConsecutiveNisGateExceededReleasesEstimatedTrackLock) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.policy.tracking.nis_gate_loss_cycles = 1U;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTarget(7U, 0.0))
+          .Build();
+  pipeline.RunCycle(input);
+
+  input.cycle_index = 2U;
+  input.scene[0] = HotTarget(7U, 500000.0);
+  const sbirs_sensor::pipeline::SbirsPipelineResult lost = pipeline.RunCycle(input);
+  ASSERT_FALSE(lost.detections.empty());
+  EXPECT_EQ(lost.detections.front().record.observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
+  EXPECT_FALSE(lost.detections.front().record.detected);
+  EXPECT_TRUE(lost.detections.front().attribution.has_estimation_nis);
+  EXPECT_TRUE(lost.detections.front().attribution.estimation_nis_gate_exceeded);
+  EXPECT_EQ(lost.detections.front().attribution.capture_failure_reason,
+            sbirs_sensor::attribution::SbirsCaptureFailureReason::kEstimationNisGateLost);
+
+  input.cycle_index = 3U;
+  input.scene[0] = HotTarget(7U, 0.0);
+  const sbirs_sensor::pipeline::SbirsPipelineResult reacquired = pipeline.RunCycle(input);
+  ASSERT_FALSE(reacquired.detections.empty());
+  EXPECT_EQ(reacquired.detections.front().record.observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
+  EXPECT_TRUE(reacquired.detections.front().record.detected);
 }
 
 TEST(SbirsSchedulerTest, HigherSnrCandidateWinsBeforeDistanceTieBreak) {

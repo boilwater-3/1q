@@ -411,7 +411,7 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 - `TrackFilter` 在 missed detection 时衰减速度和 RCS。
 - deception/repeater/mixed 等关联脆弱干扰会放缓速度/RCS 衰减，避免把干扰导致的短时丢失误判成目标消失。
 - lifecycle manager 管理 tentative/confirmed/lost、track pool 回收、association seeds 导出和 filter writeback。
-- Kalman/EKF/UDKF/SRIF/IMM 路径用于不同工程配置下的预测/更新。
+- Kalman/EKF/UDKF/SRIF/IMM 路径用于不同工程配置下的预测/更新；后端选型矩阵与可复现性原则见 §2.10。
 
 这些质量指标不仅用于结果输出，也会被 decision frame 消费，成为关联压力驱动 ECCM 的依据。
 
@@ -464,11 +464,47 @@ controller 在一个周期开始时把当前 control profile 传给 signal pipel
 - 名称、仿真便利信息或调试归因不能替代 stable association key/status。
 - query/debug/lifecycle/replay 是诊断辅助，不是用户扩展 signal pipeline 的入口。
 
+### 2.10 滤波后端选型与可复现性
+
+航迹生命周期支持多 Kalman 后端，但后端选择遵循显式配置优先、不做在线自动切换的原则。
+
+**现有机制**：
+
+- `KalmanUpdateBackend` 枚举（`ArPolicyConfig.h:73-78`）：`kStandardKfJoseph`(默认) / `kUdKf` / `kSrif` / `kEkf`。
+- 工厂分支 `SignalComponentFactory::CreateKalmanPredictor/Updater`（`SignalComponentFactory.cpp:174-215`）按枚举实例化，返回 `IKalmanPredictor*` / `IKalmanUpdater*` 基类指针多态分发。
+- `TrackLifecycleManager` 两个构造重载（`TrackLifecycleManager.h:42-58`）：单模型走 `(predictor*, updater*)`；多模型走 `(vector<predictor*>, vector<updater*>, Π, w)` 即 IMM。IMM 不是第 5 个并列后端，是包裹前述后端的框架——每个模型分支各用一个 `kalman_update_backend` 指定的后端实例。
+
+**后端特性矩阵**：
+
+| 后端 | 量测线性性要求 | 数值稳定性 | 计算成本 | IMM 可组合 |
+|------|:---:|:---:|:---:|:---:|
+| KF (Joseph) | 线性 H | 标准 | 最低 | ✅ |
+| EKF | 非线性（Jacobian 一阶展开） | 标准 | 中（需算 Jacobian） | ✅ |
+| UDKF | 线性 H | 高（UD 分解保正定） | 中 | ✅ |
+| SRIF | 线性 H | 最高（信息矩阵 Cholesky） | 中高 | ✅ |
+| IMM | 继承子滤波器 | 取决于内层 | 高（N 倍单模型） | — |
+
+注：UDKF 的 "UD" 指协方差的 U·D·Uᵀ 分解，用于数值稳定，**不是** unscented/derivative-free 滤波；其量测更新仍是线性 KF 公式。
+
+**选型原则：人工配置为主，不做在线自动切换**。理由三点：
+
+1. **可复现性优先于智能性**。仿真的核心契约是"相同输入→相同输出"。在线自动选型会使同一想定因阈值微调或新增误差源而走不同后端，结果不可比，破坏回归测试、敏感性分析和 A/B 对比。
+2. **选型决策依赖外部真知**。"目标是否机动"这类判据，真实系统靠残差监测在线判断；仿真期真值本就已知，把此知识泄露到选型逻辑等同作弊。若不泄露，在线机动检测本身又是会出错的子系统，引入新误差源。
+3. **可解释性**。工程评审需能将"为何这条航迹跟丢"追溯到具体后端与参数，自动切换会使因果链复杂化。
+
+**可接受的"智能"形态**（仍保持人工决策）：
+
+- **只读诊断**：用 `KalmanUpdateResult` 现有的 `innovation` / `innovation_covariance` 字段（`IKalmanUpdater.h:35-37`）计算归一化新息平方 NIS = `innovationᵀ · innovation_covariance⁻¹ · innovation`，χ² 分布自由度=量测维数。AR 量测维 3，95% 门限约 7.81。NIS 持续偏高→模型失配（过程噪声偏小或目标机动）；持续偏低→R 偏大。此为报告/诊断，不触发自动切换。
+- **分阶段人工切换**：基于任务剖面先验知识（如助推段 IMM、中段 EKF、末段 SRIF）在配置阶段指定，完全可复现。
+
+**明确不做**：在线残差驱动的自动后端切换。后端选择由显式配置 `kalman_update_backend` / `enable_imm_lifecycle` 决定。
+
 ## 3. 非目标与边界
 
 - 不恢复宽 public customization surface。
 - 不把 `EnvironmentService`、`SignalPipeline`、`ArController`、`MutableArContext`、tracking lifecycle 或 foundation 工程算法暴露为用户可替换 API。
 - 不把单一默认 association 路径包装成 public algorithm family；只有存在多个生产实现时，才通过受控配置暴露选择。
+- 不做在线残差驱动的自动滤波后端切换；后端选择由显式配置 `kalman_update_backend` / `enable_imm_lifecycle` 决定，保证 replay 可复现（详见 §2.10）。
 - 不把测试 mock 便利接口升级为 public SPI。
 - 不让外部 decision engine 绕过内部 control reducer 和 command mapper。
 - 不把 debug/lifecycle/replay 字段混入系统输出语义。

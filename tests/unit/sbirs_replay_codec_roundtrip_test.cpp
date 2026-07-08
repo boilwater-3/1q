@@ -163,6 +163,9 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   attribution.used_truth_assist = true;
   attribution.capture_failure_reason =
       attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed;
+  attribution.has_estimation_nis = true;
+  attribution.estimation_nis = 6.25f;
+  attribution.estimation_nis_gate_exceeded = true;
   result.detection_attributions.push_back(attribution);
 
   // 带 entity_index 的 scene 级 issue
@@ -198,6 +201,9 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   EXPECT_TRUE(decoded.detection_attributions[0].used_truth_assist);
   EXPECT_EQ(decoded.detection_attributions[0].capture_failure_reason,
             attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
+  EXPECT_TRUE(decoded.detection_attributions[0].has_estimation_nis);
+  EXPECT_FLOAT_EQ(decoded.detection_attributions[0].estimation_nis, 6.25f);
+  EXPECT_TRUE(decoded.detection_attributions[0].estimation_nis_gate_exceeded);
   ASSERT_EQ(decoded.validation_issues.size(), 2U);
   EXPECT_EQ(decoded.validation_issues[0].location.entity_index, 1U);
   // 哨兵值经 size_t::max → int64(-1) → size_t::max 的往返
@@ -228,6 +234,11 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.error_model.range_fraction_sigma = 0.002f;
   config.policy.error_model.random_seed = 42U;
   config.policy.scheduler.single_narrow_resource = false;
+  config.policy.tracking.enable_estimated_tracking = true;
+  config.policy.tracking.process_noise_diff_coeff = 2.5f;
+  config.policy.tracking.initial_position_std_m = 1500.0f;
+  config.policy.tracking.initial_velocity_std_m_per_s = 80.0f;
+  config.policy.tracking.nis_gate_loss_cycles = 2U;
   config.environment.weather_type = SbirsWeatherType::kRain;
   config.environment.sea_state = SbirsSeaState::kMedium;
   config.environment.temperature_c = 25.0f;
@@ -244,6 +255,11 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.policy.error_model.angular_sigma_deg, 0.08f);
   EXPECT_EQ(decoded.policy.error_model.random_seed, 42U);
   EXPECT_FALSE(decoded.policy.scheduler.single_narrow_resource);
+  EXPECT_TRUE(decoded.policy.tracking.enable_estimated_tracking);
+  EXPECT_FLOAT_EQ(decoded.policy.tracking.process_noise_diff_coeff, 2.5f);
+  EXPECT_FLOAT_EQ(decoded.policy.tracking.initial_position_std_m, 1500.0f);
+  EXPECT_FLOAT_EQ(decoded.policy.tracking.initial_velocity_std_m_per_s, 80.0f);
+  EXPECT_EQ(decoded.policy.tracking.nis_gate_loss_cycles, 2U);
   EXPECT_EQ(decoded.environment.weather_type, SbirsWeatherType::kRain);
   EXPECT_EQ(decoded.environment.sea_state, SbirsSeaState::kMedium);
   EXPECT_FLOAT_EQ(decoded.environment.base_atmospheric_transmittance, 0.7f);
@@ -256,6 +272,7 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   mission.work_mode = SbirsWorkMode::kStandby;
   SbirsPolicyConfig policy;
   policy.detection.wide_min_snr_linear = 5.0f;
+  policy.tracking.nis_gate_loss_cycles = 3U;
   SbirsEnvironmentConfig environment;
   environment.weather_type = SbirsWeatherType::kCloudy;
 
@@ -275,6 +292,7 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_EQ(decoded.mission.work_mode, SbirsWorkMode::kStandby);
   EXPECT_TRUE(decoded.has_policy);
   EXPECT_FLOAT_EQ(decoded.policy.detection.wide_min_snr_linear, 5.0f);
+  EXPECT_EQ(decoded.policy.tracking.nis_gate_loss_cycles, 3U);
   EXPECT_TRUE(decoded.has_environment);
   EXPECT_EQ(decoded.environment.weather_type, SbirsWeatherType::kCloudy);
   EXPECT_TRUE(decoded.has_work_mode);

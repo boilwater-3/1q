@@ -47,7 +47,10 @@ bool AttributionEqual(const attribution::SbirsDetectionAttributionRecord& left,
          left.target_name == right.target_name &&
          left.estimated_range_m == right.estimated_range_m &&
          left.used_truth_assist == right.used_truth_assist &&
-         left.capture_failure_reason == right.capture_failure_reason;
+         left.capture_failure_reason == right.capture_failure_reason &&
+         left.has_estimation_nis == right.has_estimation_nis &&
+         left.estimation_nis == right.estimation_nis &&
+         left.estimation_nis_gate_exceeded == right.estimation_nis_gate_exceeded;
 }
 
 bool AttributionListEqual(const attribution::SbirsDetectionAttributionRecordList& left,

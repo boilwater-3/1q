@@ -65,6 +65,9 @@ table SbirsDetectionAttributionRecord {
   estimated_range_m: float;
   used_truth_assist: bool;
   capture_failure_reason: int32;
+  has_estimation_nis: bool;
+  estimation_nis: float;
+  estimation_nis_gate_exceeded: bool;
 }
 
 table SbirsOutputFrame {

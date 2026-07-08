@@ -59,6 +59,19 @@ class HasCaptureFailureReason {
   static const bool value = sizeof(Test<T>(0)) == sizeof(Yes);
 };
 
+template <typename T>
+class HasEstimationNis {
+  typedef char Yes[1];
+  typedef char No[2];
+  template <typename U>
+  static Yes& Test(decltype(&U::estimation_nis));
+  template <typename>
+  static No& Test(...);
+
+ public:
+  static const bool value = sizeof(Test<T>(0)) == sizeof(Yes);
+};
+
 TEST(SbirsOutputBoundaryContractTest, RawDetectionExcludesEosCompatibilityFields) {
   typedef sbirs_sensor::output::SbirsDetectionRecord Record;
   EXPECT_FALSE(HasRangeM<Record>::value);
@@ -70,6 +83,7 @@ TEST(SbirsOutputBoundaryContractTest, RawDetectionExcludesEosCompatibilityFields
 TEST(SbirsOutputBoundaryContractTest, RawDetectionExcludesCaptureFailureReason) {
   typedef sbirs_sensor::output::SbirsDetectionRecord Record;
   EXPECT_FALSE(HasCaptureFailureReason<Record>::value);
+  EXPECT_FALSE(HasEstimationNis<Record>::value);
 }
 
 }  // namespace

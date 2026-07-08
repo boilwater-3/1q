@@ -50,6 +50,8 @@ SbirsDetectionLifecycleReason InferReason(
         return SbirsDetectionLifecycleReason::kNfovAcquisitionFailed;
       case attribution::SbirsCaptureFailureReason::kSchedulerSkipped:
         return SbirsDetectionLifecycleReason::kSchedulerSkipped;
+      case attribution::SbirsCaptureFailureReason::kEstimationNisGateLost:
+        return SbirsDetectionLifecycleReason::kEstimationNisGateLost;
       case attribution::SbirsCaptureFailureReason::kNone:
         break;
     }
@@ -79,6 +81,18 @@ void FillObservationFields(const output::SbirsDetectionRecord& record,
   event->infrared_snr_linear = record.infrared_snr_linear;
   event->estimated_range_m = attribution.estimated_range_m;
   event->used_truth_assist = attribution.used_truth_assist;
+  event->has_estimation_nis = attribution.has_estimation_nis;
+  event->estimation_nis = attribution.estimation_nis;
+  event->estimation_nis_gate_exceeded = attribution.estimation_nis_gate_exceeded;
+}
+
+void FillAttributionFields(const attribution::SbirsDetectionAttributionRecord& attribution,
+                           SbirsDetectionLifecycleEvent* event) {
+  event->estimated_range_m = attribution.estimated_range_m;
+  event->used_truth_assist = attribution.used_truth_assist;
+  event->has_estimation_nis = attribution.has_estimation_nis;
+  event->estimation_nis = attribution.estimation_nis;
+  event->estimation_nis_gate_exceeded = attribution.estimation_nis_gate_exceeded;
 }
 
 }  // namespace
@@ -132,6 +146,8 @@ std::vector<SbirsDetectionLifecycleEvent> SbirsDetectionLifecycleRecorder::Updat
       event.reason = reason;
       if (record != nullptr && attribution != nullptr) {
         FillObservationFields(*record, *attribution, &event);
+      } else if (attribution != nullptr) {
+        FillAttributionFields(*attribution, &event);
       }
       events.push_back(event);
     } else if (impl_->config.emit_not_detected_events) {
@@ -140,6 +156,8 @@ std::vector<SbirsDetectionLifecycleEvent> SbirsDetectionLifecycleRecorder::Updat
       event.reason = reason;
       if (record != nullptr && attribution != nullptr) {
         FillObservationFields(*record, *attribution, &event);
+      } else if (attribution != nullptr) {
+        FillAttributionFields(*attribution, &event);
       }
       events.push_back(event);
     }

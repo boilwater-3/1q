@@ -49,7 +49,8 @@ namespace attribution {
 enum class ONEQ_API SbirsCaptureFailureReason {
   kNone = 0,              /**< 无失败（成功捕获或仅 WFOV 观测） */
   kNfovAcquisitionFailed, /**< 进入 NFOV 待捕获但捕获失败（视场外或 SNR 不足） */
-  kSchedulerSkipped       /**< WFOV 候选未被调度器选中（资源被占用或排序靠后） */
+  kSchedulerSkipped,      /**< WFOV 候选未被调度器选中（资源被占用或排序靠后） */
+  kEstimationNisGateLost  /**< EKF NIS 连续超限导致释放 NFOV 锁定 */
 };
 
 /**
@@ -65,6 +66,9 @@ struct ONEQ_API SbirsDetectionAttributionRecord {
   bool used_truth_assist{false};  /**< 是否使用真值辅助跟踪 */
   SbirsCaptureFailureReason capture_failure_reason{
       SbirsCaptureFailureReason::kNone}; /**< 首次捕获失败原因（仅归属/诊断层） */
+  bool has_estimation_nis{false}; /**< 是否包含 EKF 估计跟踪 NIS 诊断 */
+  float estimation_nis{0.0f};     /**< EKF 归一化新息平方，仅归属/诊断层 */
+  bool estimation_nis_gate_exceeded{false}; /**< EKF NIS 是否超过 2 维 95% 门限 */
 };
 
 /** @brief 归属记录列表。 */

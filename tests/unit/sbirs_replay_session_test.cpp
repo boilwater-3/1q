@@ -55,11 +55,12 @@ sbirs_sensor::config::SbirsSessionConfig Config() {
   return config;
 }
 
-sbirs_sensor::session::SbirsCycleInput ValidInput(std::uint32_t cycle_index) {
+sbirs_sensor::session::SbirsCycleInput ValidInput(std::uint32_t cycle_index,
+                                                  double target_offset_y_m = 0.0) {
   sbirs_sensor::session::SbirsSceneTarget target;
   target.target_id = 1U;
   target.target_name = "hot";
-  target.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
+  target.position_ecef_m = Vector(8000000.0, target_offset_y_m, 0.0);
   target.temperature_k = 2200.0f;
   target.projected_area_m2 = 5000.0f;
   return sbirs_sensor::session::SbirsCycleInputBuilder()
@@ -68,6 +69,17 @@ sbirs_sensor::session::SbirsCycleInput ValidInput(std::uint32_t cycle_index) {
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
       .AddTarget(target)
       .Build();
+}
+
+const sbirs_sensor::attribution::SbirsDetectionAttributionRecord* FindAttribution(
+    const sbirs_sensor::session::SbirsCycleResult& result, std::uint64_t target_id) {
+  for (const sbirs_sensor::attribution::SbirsDetectionAttributionRecord& attribution :
+       result.detection_attributions) {
+    if (attribution.target_id == target_id) {
+      return &attribution;
+    }
+  }
+  return nullptr;
 }
 
 oneq::replay::ReplayTraceManifest Manifest(const char* trace_id) {
@@ -105,6 +117,53 @@ TEST(SbirsReplaySessionTest, ReplaySbirsTraceRoundtrip) {
   EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
   EXPECT_EQ(replay_result.playback.applied_runtime_patch_count, 1U);
   EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
+TEST(SbirsReplaySessionTest, ReplayPreservesNisLossAndReacquisitionDiagnostics) {
+  sbirs_sensor::config::SbirsSessionConfig config = Config();
+  config.policy.tracking.nis_gate_loss_cycles = 1U;
+
+  const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-nis-loss");
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-nis-loss"), true));
+    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+    sbirs_sensor::session::SbirsTraceSession session(config, options);
+
+    const sbirs_sensor::session::SbirsCycleResult acquired =
+        session.StepWithResult(ValidInput(1U));
+    ASSERT_FALSE(acquired.output_frame.detections.empty());
+    EXPECT_EQ(acquired.output_frame.detections.front().observation_stage,
+              sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
+
+    const sbirs_sensor::session::SbirsCycleResult lost =
+        session.StepWithResult(ValidInput(2U, 500000.0));
+    const sbirs_sensor::attribution::SbirsDetectionAttributionRecord* lost_attr =
+        FindAttribution(lost, 1U);
+    ASSERT_NE(lost_attr, nullptr);
+    EXPECT_TRUE(lost_attr->has_estimation_nis);
+    EXPECT_TRUE(lost_attr->estimation_nis_gate_exceeded);
+    EXPECT_EQ(lost_attr->capture_failure_reason,
+              sbirs_sensor::attribution::SbirsCaptureFailureReason::kEstimationNisGateLost);
+    EXPECT_TRUE(lost.output_frame.detections.empty());
+
+    const sbirs_sensor::session::SbirsCycleResult reacquired =
+        session.StepWithResult(ValidInput(3U));
+    ASSERT_FALSE(reacquired.output_frame.detections.empty());
+    EXPECT_EQ(reacquired.output_frame.detections.front().observation_stage,
+              sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
+    replay_writer->Flush();
+  }
+
+  const sbirs_sensor::session::SbirsReplaySessionResult replay_result =
+      sbirs_sensor::session::ReplaySbirsTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_TRUE(replay_result.report.replay_ready);
+  EXPECT_EQ(replay_result.playback.applied_input_count, 3U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 3U);
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 

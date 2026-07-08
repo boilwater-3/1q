@@ -39,6 +39,9 @@ struct ONEQ_API SbirsDebugTargetState {
   bool detected{false};              /**< 是否通过门限检测 */
   bool used_truth_assist{false};     /**< 是否使用真值辅助 */
   float estimated_range_m{0.0f};     /**< 估计距离，单位 m */
+  bool has_estimation_nis{false};    /**< 是否包含 EKF 估计跟踪 NIS */
+  float estimation_nis{0.0f};        /**< EKF 归一化新息平方 */
+  bool estimation_nis_gate_exceeded{false}; /**< EKF NIS 是否超过 2 维 95% 门限 */
   float azimuth_deg{0.0f};           /**< 方位角，单位 deg */
   float elevation_deg{0.0f};         /**< 仰角，单位 deg */
   float infrared_snr_linear{0.0f};   /**< 红外通道线性 IR SNR */

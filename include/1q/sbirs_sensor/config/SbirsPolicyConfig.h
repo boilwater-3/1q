@@ -54,6 +54,7 @@ struct ONEQ_API SbirsTrackingConfig {
   float process_noise_diff_coeff{1.0f};        /**< 过程噪声扩散系数 q（CV 模型加速度白噪声强度） */
   float initial_position_std_m{1000.0f};       /**< 初始位置 1-σ（米），构造 P0 位置对角元 */
   float initial_velocity_std_m_per_s{100.0f};  /**< 初始速度 1-σ（m/s），构造 P0 速度对角元 */
+  unsigned int nis_gate_loss_cycles{0U}; /**< 连续 NIS 超过 2 维 95% 门限后丢锁的周期数；0 表示禁用 */
 };
 
 /**
