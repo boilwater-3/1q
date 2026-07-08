@@ -14,22 +14,24 @@
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "sbirs_sensor/config/SbirsInternalExecutionConfig.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
+#include "sbirs_sensor/tracking/SbirsTrackingTypes.h"
 
 namespace sbirs_sensor {
 namespace pipeline {
 
-/** @brief 目标级状态机 5 状态枚举（design 2.2），驱动 WFOV 发现、NFOV 首次捕获与真值辅助跟踪。 */
+/** @brief 目标级状态机 6 状态枚举（design 2.2），驱动 WFOV 发现、NFOV 首次捕获与持续跟踪。 */
 enum class SbirsTargetState {
   kUndetected = 0,           /**< 初始或目标未被任何视场发现 */
   kWideCandidate,            /**< WFOV 已发现，等待 NFOV 资源调度 */
-  kAwaitingNfovAcquisition,  /**< 已被调度器选为首次捕获目标 */
-  kTruthAssistedTracking,    /**< 首次捕获成功，进入真值辅助跟踪 */
+  kAwaitingNfovAcquisition,  /**< 已被调度器选为首次捕获目标，本周期执行 NFOV 首次捕获 */
+  kTruthAssistedTracking,    /**< 首次捕获成功，进入仿真简化的真值辅助持续跟踪 */
+  kEstimatedTracking,        /**< 滤波测量跟踪（预留态；由配置开关启用滤波时进入，本次不接线，见 design 2.2/2.5） */
   kLost                      /**< 目标从输入场景消失或传感器关闭 */
 };
 
 /**
  * @brief pipeline 运行期状态快照，用于 controller 失败回滚与 replay 复现。
- * @note 包含扫描相位、目标状态表、NFOV 锁定目标与随机源状态。
+ * @note 包含扫描相位、目标状态表、NFOV 锁定目标、随机源状态与 EKF 滤波状态表。
  */
 struct SbirsPipelineSnapshot {
   float scan_azimuth_deg{0.0f};                          /**< 当前 WFOV 扫描方位角，单位 deg */
@@ -38,6 +40,7 @@ struct SbirsPipelineSnapshot {
   bool has_locked_target{false};                         /**< 是否有目标锁定 NFOV 资源 */
   std::uint64_t locked_target_id{0U};                    /**< 锁定 NFOV 资源的目标 ID */
   unsigned int random_state{1U};  /**< 误差模型随机源状态（replay 可复现） */
+  std::map<std::uint64_t, tracking::SbirsGaussianState> filter_states{}; /**< EKF 滤波状态表（kEstimatedTracking 目标的均值+协方差） */
 };
 
 /** @brief 单条 pipeline 内部检测结果，组合原始记录与归属。 */
@@ -94,6 +97,10 @@ class SbirsPipeline {
   bool has_locked_target_{false};
   std::uint64_t locked_target_id_{0U};
   foundation::SbirsRandomSource random_source_;  // 误差模型确定性随机源
+  // EKF 滤波组件（kEstimatedTracking 状态使用；启用 enable_estimated_tracking 时激活）
+  tracking::SbirsCvTransitionModel cv_transition_model_{};
+  tracking::SbirsAngleMeasurementModel angle_measurement_model_{};
+  std::map<std::uint64_t, tracking::SbirsGaussianState> filter_states_{};
 };
 
 }  // namespace pipeline

@@ -40,7 +40,7 @@ sbirs_sensor::session::SbirsCycleInput InputWithTarget(std::uint32_t cycle_index
       .Build();
 }
 
-TEST(SbirsStateMachineTest, CaptureTransitionsTargetIntoTruthAssistedTracking) {
+TEST(SbirsStateMachineTest, CaptureTransitionsTargetIntoEstimatedTrackingByDefault) {
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(Config()));
 
@@ -49,10 +49,33 @@ TEST(SbirsStateMachineTest, CaptureTransitionsTargetIntoTruthAssistedTracking) {
 
   const sbirs_sensor::pipeline::SbirsPipelineSnapshot snapshot = pipeline.CaptureRuntimeState();
   ASSERT_EQ(snapshot.target_states.count(42U), 1U);
+  // 默认 enable_estimated_tracking=true → 捕获成功进入 kEstimatedTracking
   EXPECT_EQ(snapshot.target_states.at(42U),
-            sbirs_sensor::pipeline::SbirsTargetState::kTruthAssistedTracking);
+            sbirs_sensor::pipeline::SbirsTargetState::kEstimatedTracking);
   EXPECT_TRUE(snapshot.has_locked_target);
   EXPECT_EQ(snapshot.locked_target_id, 42U);
+  // 滤波状态已初始化
+  ASSERT_EQ(snapshot.filter_states.count(42U), 1U);
+  EXPECT_TRUE(snapshot.filter_states.at(42U).mean.allFinite());
+}
+
+TEST(SbirsStateMachineTest, DisabledTrackingFallsBackToTruthAssisted) {
+  sbirs_sensor::config::SbirsSessionConfig config = Config();
+  config.policy.tracking.enable_estimated_tracking = false;  // 显式关闭 → 回退真值辅助
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+
+  pipeline.RunCycle(InputWithTarget(1U));
+  const sbirs_sensor::pipeline::SbirsPipelineSnapshot snapshot = pipeline.CaptureRuntimeState();
+  EXPECT_EQ(snapshot.target_states.at(42U),
+            sbirs_sensor::pipeline::SbirsTargetState::kTruthAssistedTracking);
+  EXPECT_EQ(snapshot.filter_states.count(42U), 0U);  // 关闭时不初始化滤波状态
+}
+
+// kEstimatedTracking 与 kTruthAssistedTracking 严格分离，满足 design 2.5 的状态拆分前置。
+TEST(SbirsStateMachineTest, EstimatedTrackingStateIsReserved) {
+  EXPECT_NE(sbirs_sensor::pipeline::SbirsTargetState::kEstimatedTracking,
+            sbirs_sensor::pipeline::SbirsTargetState::kTruthAssistedTracking);
 }
 
 }  // namespace

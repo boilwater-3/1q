@@ -108,6 +108,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       if (has_locked_target_ && locked_target_id_ == target.target_id) {
         has_locked_target_ = false;
       }
+      filter_states_.erase(target.target_id);  // 释放滤波状态
       continue;
     }
 
@@ -129,18 +130,62 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     const float elevation_deg = foundation::ComputeElevationDeg(los);
     const double snr = ComputeSnr(config_, target, range_m, transmittance);
 
+    // 目标角速度：用于动态滞后误差与 R 矩阵（design 2.10）。未提供速度时按 0 处理。
+    float omega_deg_per_sec_cached = 0.0f;
+    if (target.has_velocity_ecef_m_per_s) {
+      omega_deg_per_sec_cached =
+          foundation::ComputeRelativeAngularRateDegPerSec(los, target.velocity_ecef_m_per_s);
+    }
+
     const bool in_wfov =
         InRectangularFov(azimuth_deg, elevation_deg, scan_azimuth_deg_, mission.scan_center_el_deg,
                          mission.wide_field_fov_az_deg, mission.wide_field_fov_el_deg);
 
+    const SbirsTargetState state = target_states_[target.target_id];
     const bool is_locked =
         has_locked_target_ && locked_target_id_ == target.target_id &&
-        target_states_[target.target_id] == SbirsTargetState::kTruthAssistedTracking;
+        (state == SbirsTargetState::kTruthAssistedTracking ||
+         state == SbirsTargetState::kEstimatedTracking);
     if (is_locked) {
+      // 输出角度来源：真值辅助态用真值 az/el；估计跟踪态用 EKF 滤波估计（更平滑）。
+      // SNR / range / 可探测性一律用真值几何（design 2.5 第 3 点：滤波发散不影响可探测性）。
+      float output_azimuth_deg = azimuth_deg;
+      float output_elevation_deg = elevation_deg;
+      bool used_truth_assist = true;
+      if (state == SbirsTargetState::kEstimatedTracking &&
+          policy.tracking.enable_estimated_tracking) {
+        used_truth_assist = false;
+        // EKF predict-update：注入卫星位置，用本帧带误差角度测量更新。
+        angle_measurement_model_.SetSatellitePosition(input.satellite_position_ecef_m);
+        const tracking::SbirsEkfPredictor ekf_predictor(
+            &cv_transition_model_, tracking::SbirsEkfPredictorConfig{policy.tracking.process_noise_diff_coeff});
+        const tracking::SbirsGaussianState predicted =
+            ekf_predictor.Predict(filter_states_[target.target_id], input.dt_sec);
+        // 带误差角度测量（deg → rad）。
+        const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
+            policy.error_model, &random_source_, azimuth_deg, elevation_deg, range_m, omega_deg_per_sec_cached);
+        tracking::SbirsMeasurementVector measurement_rad;
+        const float deg2rad = 0.0174532925f;
+        measurement_rad << bearing.azimuth_deg * deg2rad, bearing.elevation_deg * deg2rad;
+        const tracking::SbirsMeasurementCovariance R = tracking::BuildMeasurementCovariance(
+            policy.error_model, range_m, elevation_deg, omega_deg_per_sec_cached);
+        const tracking::SbirsEkfUpdater ekf_updater(&angle_measurement_model_);
+        const tracking::SbirsKalmanUpdateResult update_result =
+            ekf_updater.Update(predicted, measurement_rad, R);
+        filter_states_[target.target_id] = update_result.posterior;
+        // 滤波估计（CV 交错布局 [x,vx,y,vy,z,vz] → 位置 [x,y,z] → 相对卫星 LOS → az/el deg）。
+        const session::SbirsVector3M estimated_position{update_result.posterior.mean(0),   // x
+                                                        update_result.posterior.mean(2),   // y
+                                                        update_result.posterior.mean(4)};  // z
+        const session::SbirsVector3M est_los =
+            foundation::Subtract(estimated_position, input.satellite_position_ecef_m);
+        output_azimuth_deg = foundation::ComputeAzimuthDeg(est_los);
+        output_elevation_deg = foundation::ComputeElevationDeg(est_los);
+      }
       SbirsPipelineDetection detection;
       detection.record.detection_id = next_detection_id_++;
-      detection.record.azimuth_deg = azimuth_deg;
-      detection.record.elevation_deg = elevation_deg;
+      detection.record.azimuth_deg = output_azimuth_deg;
+      detection.record.elevation_deg = output_elevation_deg;
       detection.record.infrared_snr_linear = static_cast<float>(snr);
       detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldTrack;
       detection.record.detected = true;
@@ -148,7 +193,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.target_id = target.target_id;
       detection.attribution.target_name = target.target_name;
       detection.attribution.estimated_range_m = static_cast<float>(range_m);
-      detection.attribution.used_truth_assist = true;
+      detection.attribution.used_truth_assist = used_truth_assist;
       result.detections.push_back(detection);
       continue;
     }
@@ -164,15 +209,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     candidate.elevation_deg = elevation_deg;
     candidate.range_m = range_m;  // 真值距离：调度优先级用（design 2.6）
     // 2.10 WFOV 带误差位置：施加 5 类物理误差（高斯随机 + 折射 + 滞后）。
-    // 目标角速度由 velocity_ecef_m_per_s 推导；未提供时按 0 处理（动态滞后项为 0）。
-    float omega_deg_per_sec = 0.0f;
-    if (target.has_velocity_ecef_m_per_s) {
-      // 当前无卫星速度输入，相对速度按目标速度处理（design 假设）。
-      omega_deg_per_sec = foundation::ComputeRelativeAngularRateDegPerSec(los, target.velocity_ecef_m_per_s);
-    }
+    // 复用上方已算的目标角速度 omega_deg_per_sec_cached。
     const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
         policy.error_model, &random_source_, azimuth_deg, elevation_deg, range_m,
-        /*target_angular_rate_deg_per_sec=*/omega_deg_per_sec);
+        /*target_angular_rate_deg_per_sec=*/omega_deg_per_sec_cached);
     candidate.measured_azimuth_deg = bearing.azimuth_deg;
     candidate.measured_elevation_deg = bearing.elevation_deg;
     candidate.measured_range_m = bearing.range_m;
@@ -218,7 +258,36 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (captured) {
       has_locked_target_ = true;
       locked_target_id_ = selected.target->target_id;
-      target_states_[selected.target->target_id] = SbirsTargetState::kTruthAssistedTracking;
+      const bool use_estimated = policy.tracking.enable_estimated_tracking;
+      target_states_[selected.target->target_id] =
+          use_estimated ? SbirsTargetState::kEstimatedTracking : SbirsTargetState::kTruthAssistedTracking;
+      if (use_estimated) {
+        // 滤波初始化（方案 A）：状态均值用真值 ECEF 位置 + 速度（无速度时置 0）。
+        // 状态布局为 CV 交错 [x,vx,y,vy,z,vz]（与 common KalmanPredictor 一致）。
+        // 协方差 P0 由配置的 position/velocity 1-σ 构造为对角阵。
+        tracking::SbirsGaussianState initial_state;
+        initial_state.mean(0) = static_cast<float>(selected.target->position_ecef_m.x);  // x
+        initial_state.mean(2) = static_cast<float>(selected.target->position_ecef_m.y);  // y
+        initial_state.mean(4) = static_cast<float>(selected.target->position_ecef_m.z);  // z
+        if (selected.target->has_velocity_ecef_m_per_s) {
+          initial_state.mean(1) = static_cast<float>(selected.target->velocity_ecef_m_per_s.x);  // vx
+          initial_state.mean(3) = static_cast<float>(selected.target->velocity_ecef_m_per_s.y);  // vy
+          initial_state.mean(5) = static_cast<float>(selected.target->velocity_ecef_m_per_s.z);  // vz
+        }
+        const float pos_var = policy.tracking.initial_position_std_m *
+                              policy.tracking.initial_position_std_m;
+        const float vel_var = policy.tracking.initial_velocity_std_m_per_s *
+                              policy.tracking.initial_velocity_std_m_per_s;
+        initial_state.covariance = tracking::SbirsStateCovariance::Zero();
+        // 交错布局：偶数索引位置（0,2,4），奇数索引速度（1,3,5）。
+        initial_state.covariance(0, 0) = pos_var;
+        initial_state.covariance(1, 1) = vel_var;
+        initial_state.covariance(2, 2) = pos_var;
+        initial_state.covariance(3, 3) = vel_var;
+        initial_state.covariance(4, 4) = pos_var;
+        initial_state.covariance(5, 5) = vel_var;
+        filter_states_[selected.target->target_id] = initial_state;
+      }
       SbirsPipelineDetection detection;
       detection.record.detection_id = next_detection_id_++;
       detection.record.azimuth_deg = selected.azimuth_deg;
@@ -230,7 +299,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.target_id = selected.target->target_id;
       detection.attribution.target_name = selected.target->target_name;
       detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
-      detection.attribution.used_truth_assist = true;
+      detection.attribution.used_truth_assist = !use_estimated;
       result.detections.push_back(detection);
     } else {
       target_states_[selected.target->target_id] = SbirsTargetState::kWideCandidate;
@@ -289,6 +358,7 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   snapshot.has_locked_target = has_locked_target_;
   snapshot.locked_target_id = locked_target_id_;
   snapshot.random_state = random_source_.Capture();
+  snapshot.filter_states = filter_states_;
   return snapshot;
 }
 
@@ -299,6 +369,7 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
   has_locked_target_ = snapshot.has_locked_target;
   locked_target_id_ = snapshot.locked_target_id;
   random_source_.Restore(snapshot.random_state);
+  filter_states_ = snapshot.filter_states;
   return true;
 }
 

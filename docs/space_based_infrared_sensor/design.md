@@ -308,7 +308,7 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 本章是 SBIRS-inspired 模型区别于 EOS 的核心。EOS 对 FOV 内目标做一次性 SNR 判定；本模块用跨周期
 状态机管理每个目标的 WFOV 发现、NFOV 首次捕获和真值辅助跟踪全过程。
 
-#### 2.2.1 目标状态机（5 状态统一版）
+#### 2.2.1 目标状态机（6 状态版）
 
 每个目标独立维护一个状态机实例，以 `target_id` 为键。状态枚举（解决 `docs/review/sbirs_filter.md` 两套状态机
 不一致问题，见第 5 节修正 #2）：
@@ -318,7 +318,8 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 | `Undetected` | 初始或目标未被任何视场发现 | 不输出 |
 | `WideCandidate` | WFOV 已发现，等待 NFOV 资源调度 | 输出 WFOV 检测记录 |
 | `AwaitingNfovAcquisition` | 已被调度器选为首次捕获目标，本周期执行 NFOV 首次捕获 | 视捕获结果 |
-| `TruthAssistedTracking` | 首次 NFOV 捕获成功，进入仿真简化的真值辅助持续跟踪 | 输出 NFOV 检测记录 |
+| `TruthAssistedTracking` | 首次 NFOV 捕获成功，进入仿真简化的真值辅助持续跟踪（默认跟踪态） | 输出 NFOV 检测记录 |
+| `EstimatedTracking` | EKF 滤波测量跟踪（默认启用；由 `SbirsTrackingConfig.enable_estimated_tracking` 控制） | 输出 NFOV 检测记录（滤波估计角度） |
 | `Lost` | 目标从输入场景消失或传感器关闭 | 不输出 |
 
 捕获失败不是独立状态；失败转移回 `WideCandidate`，并清除本次交接上下文。
@@ -330,12 +331,15 @@ stateDiagram-v2
   [*] --> Undetected
   Undetected --> WideCandidate : WFOV FOV 门控通过\n且 WFOV SNR ≥ 门限
   WideCandidate --> AwaitingNfovAcquisition : 调度器选中\n（优先级最高候选）
-  AwaitingNfovAcquisition --> TruthAssistedTracking : 首次捕获成功\n（真实 LOS 落入 cue 指向窗口\n且 NFOV SNR ≥ 门限）
+  AwaitingNfovAcquisition --> TruthAssistedTracking : 首次捕获成功\n（默认：未启用滤波）\n（真实 LOS 落入 cue 指向窗口\n且 NFOV SNR ≥ 门限）
+  AwaitingNfovAcquisition --> EstimatedTracking : 首次捕获成功\n（启用滤波）\n（预留态，当前未接线）
   AwaitingNfovAcquisition --> WideCandidate : 首次捕获失败\n（清除交接状态）
   TruthAssistedTracking --> TruthAssistedTracking : 目标仍存在且传感器开启\n（仿真真值辅助跟踪）
+  EstimatedTracking --> EstimatedTracking : 目标仍存在且传感器开启\n（滤波测量跟踪，预留）
   WideCandidate --> WideCandidate : 下一周期仍是 WFOV 候选
   Undetected --> Undetected : 目标在 WFOV 外\n或 SNR 不足
   TruthAssistedTracking --> Lost : 目标从场景消失\n或传感器关闭
+  EstimatedTracking --> Lost : 目标从场景消失\n或传感器关闭
   WideCandidate --> Lost : 目标从场景消失
   AwaitingNfovAcquisition --> Lost : 目标从场景消失
   Lost --> [*]
@@ -347,17 +351,24 @@ stateDiagram-v2
 |---|---|---|
 | `Undetected` → `WideCandidate` | 目标在本周期 WFOV 视场内，且 WFOV IR SNR ≥ WFOV 检测门限 | 记录 WFOV 带误差位置、SNR |
 | `WideCandidate` → `AwaitingNfovAcquisition` | NFOV 资源空闲且该目标在优先级排序中胜出（见 2.6） | 标记本周期为首次捕获目标 |
-| `AwaitingNfovAcquisition` → `TruthAssistedTracking` | 由 WFOV 带误差 cue 生成的 NFOV 指向窗口覆盖目标真实 LOS，且 NFOV IR SNR ≥ NFOV 捕获门限 | 记录 NFOV 检测，进入真值辅助跟踪 |
+| `AwaitingNfovAcquisition` → `TruthAssistedTracking` | 由 WFOV 带误差 cue 生成的 NFOV 指向窗口覆盖目标真实 LOS，且 NFOV IR SNR ≥ NFOV 捕获门限（默认：未启用滤波） | 记录 NFOV 检测，进入真值辅助跟踪 |
+| `AwaitingNfovAcquisition` → `EstimatedTracking` | 同上捕获成功条件，且配置启用滤波测量跟踪（预留态，当前未接线） | 记录 NFOV 检测，进入滤波测量跟踪（初始化滤波状态） |
 | `AwaitingNfovAcquisition` → `WideCandidate` | 首次捕获条件不满足（窗口外或 SNR 不足） | 清除交接状态，目标回候选池 |
 | `TruthAssistedTracking` → `TruthAssistedTracking` | 目标仍存在于输入场景且传感器开启 | 用仿真真值辅助生成 NFOV 指向与检测输出 |
+| `EstimatedTracking` → `EstimatedTracking` | 目标仍存在于输入场景且传感器开启（预留态，当前未接线） | 用滤波估计生成 NFOV 指向与检测输出 |
 | 任意 → `Lost` | 目标从输入场景消失，或传感器关闭 | 释放 NFOV 资源 |
 
 设计要点：
 
 - 首次 NFOV 捕获**必须**使用 WFOV 输出的带误差位置，不得直接用真值位置（`docs/review/sbirs_filter.md:121` 假设）。
-- 捕获成功后的真值辅助跟踪**只**受"目标是否存在"和"传感器是否开启"影响，不受后续测量误差影响。
-  这是第一版的仿真简化，不是真实 SBIRS 设备行为：真实传感器只能产生测量、事件和辐射数据，不知道
-  目标真值。第一版不实现 EKF/CKF 滤波，先用真值辅助指向避免把跟踪估计复杂度引入首批开发。
+- 捕获成功后进入哪个跟踪态由配置决定：默认（未启用滤波）进入 `TruthAssistedTracking`，用仿真真值辅助
+  生成指向；启用滤波时进入 `EstimatedTracking`，用滤波估计生成指向。两个跟踪态**严格分离**，不复用同一
+  状态枚举——这满足原先"后续若引入估计滤波必须先把真值辅助状态拆分"的前置约束。
+- 真值辅助跟踪**只**受"目标是否存在"和"传感器是否开启"影响，不受后续测量误差影响。这是第一版的仿真简化，
+  不是真实 SBIRS 设备行为：真实传感器只能产生测量、事件和辐射数据，不知道目标真值。
+- `EstimatedTracking` 是预留态，当前未接线（不实现 EKF/CKF 滤波调用、R 矩阵构造、滤波状态 snapshot）。
+  滤波 facade 骨架已建立于 `sbirs_sensor::tracking` 命名空间（`src/sbirs_sensor/tracking/`），下一步接入 EKF 时
+  在此填充实例化别名与角度量测模型。当前捕获成功仍走 `TruthAssistedTracking`，行为零变化。
 - 状态机是跨周期累积状态。`SbirsController` 在执行前 snapshot、失败时 restore（见 1.5 时序图）。
   这是 SBIRS controller 的内部失败回滚约束，不是 session 层事务接口，也不要求与其他模块输出或
   controller 形状保持一致。
@@ -449,18 +460,79 @@ stateDiagram-v2
 适用边界：
 
 - 真值辅助跟踪是第一版仿真稳定性假设，不是 OPIR/SBIRS 真实跟踪算法。
-- 该阶段不实现 EKF/CKF、波门关联、轨迹平滑或丢锁概率模型。
-- 后续若引入估计滤波，必须先把本状态重命名或拆分，避免把真值辅助和真实测量跟踪混用。
+- 该阶段（`TruthAssistedTracking`）不实现 EKF/CKF、波门关联、轨迹平滑或丢锁概率模型。
+- 跟踪态已拆分为 `TruthAssistedTracking`（真值辅助，默认）与 `EstimatedTracking`（滤波测量跟踪，预留态
+  当前未接线）。原"后续若引入估计滤波，必须先把本状态重命名或拆分"的前置约束现已满足：两个跟踪态
+  严格分离。`EstimatedTracking` 的滤波接线（EKF 量测模型、R 矩阵、predict/update、滤波状态 snapshot）在
+  后续阶段，当前捕获成功仍走 `TruthAssistedTracking`，行为零变化。
 
 验证入口：
 
 - `sbirs_state_machine_test`
 - `sbirs_pipeline_test`
 
+### 2.5a NFOV EKF 滤波测量跟踪
+
+对 `kEstimatedTracking` 状态的目标（`enable_estimated_tracking=true` 时捕获成功进入），后续周期用
+扩展卡尔曼滤波（EKF）做测量跟踪。滤波框架消费 `common/estimation`（`oneq::common::estimation`），
+SBIRS 侧 facade 位于 `sbirs_sensor::tracking`（`src/sbirs_sensor/tracking/SbirsTrackingTypes.h`）。
+
+**状态空间**：6 维 ECEF 恒速模型 `[x, vx, y, vy, z, vz]`（CV 交错布局），复用 common 的
+`KalmanPredictor::BuildTransitionMatrix` / `BuildProcessNoise`。
+
+**量测模型**（非线性，球坐标角度）：2 维 `[az, el]`（弧度），被动红外不测距（design 2.11 不含 range）。
+`SbirsAngleMeasurementModel` 实现 `IMeasurementModel<6,2>`：
+- `h(x)` = 目标 ECEF 位置（状态偶数索引 0/2/4）相对卫星位置 `satellite_position` 的 LOS →
+  `[atan2(dy,dx), asin(dz/r)]`。卫星位置非状态分量，每帧由 pipeline 通过 `SetSatellitePosition` 注入。
+- Jacobian `H = ∂[az,el]/∂[x,vx,y,vy,z,vz]` 解析求导，速度列为零。
+
+**初始化**（首次捕获成功时，方案 A）：状态均值用输入场景真值 ECEF 位置 + 速度（无速度时速度置 0），
+初始协方差 P0 由 `SbirsTrackingConfig.initial_position_std_m` / `initial_velocity_std_m_per_s` 构造为
+对角阵（位置/速度交替）。这是仿真的 track initiation 简化（等效"首次检测无误差"）；后续 predict/update
+用带误差测量才是滤波器发挥作用的环节。
+
+**每周期 predict-update**（`kEstimatedTracking` 目标）：
+1. `SetSatellitePosition(input.satellite_position_ecef_m)`。
+2. EKF predict（CV 转移模型，过程噪声 `process_noise_diff_coeff`）。
+3. 测量 = 本帧带误差角度（`ApplyAngularErrorModel` 输出的 az/el，deg → rad）。
+4. R 矩阵 = `BuildMeasurementCovariance(error_model, range, elevation, angular_rate)`，从 design 2.10 的
+   5 类误差 1-σ（orbit/attitude/fov 高斯 + 折射 + 滞后）RSS 合成，deg² → rad²。R 随距离/俯仰/角速度动态变化。
+5. EKF update（3 参数重载，动态 R）。
+
+**输出处理**（design 2.5 第 3 点精神：滤波发散不影响可探测性）：
+- **SNR / range / 检测门限**：用真值几何算（与真值辅助一致），**不受滤波估计影响**。滤波器发散不会
+  导致"虚假丢失"——目标红外辐射特性是物理事实。
+- **输出角度**（`azimuth_deg` / `elevation_deg`）：用滤波估计的 ECEF 位置 → 相对卫星 LOS → az/el。
+  比单次带误差测量更平滑。`used_truth_assist = false`。
+- **状态转移**：仍只受"目标是否存在"和"传感器是否开启"影响（与真值辅助一致）。
+
+**snapshot / replay**：滤波状态（`filter_states_` map：target_id → `SbirsGaussianState` 均值+协方差）
+进 `SbirsPipelineSnapshot`，随 controller capture/restore 同步。EKF 本身确定性（无额外随机源采样），
+测量噪声采样复用 `SbirsRandomSource`（已在 snapshot 的 `random_state`），故 replay 确定性保持。
+
+适用边界：
+
+- `kEstimatedTracking` 与 `kTruthAssistedTracking` 严格分离（不同枚举值），不复用同一状态。
+  `enable_estimated_tracking=false` 时回退真值辅助，零滤波开销。
+- EKF 初始化用真值位置（方案 A），后续 update 用带误差测量；不实现测量初始化（反算 ECEF 需距离假设）。
+- SNR / 可探测性用真值链路；滤波器只影响指向与输出角度。滤波发散不丢锁。
+- 过程噪声为 CV 模型白噪声加速度（标量 q），不建模机动目标加速度跳变。
+- 量测噪声 R 从 design 2.10 误差模型合成，az/el 通道对称（各向同性假设）。
+
+配置（`SbirsTrackingConfig`，挂 `SbirsPolicyConfig.tracking`）：
+- `enable_estimated_tracking`（默认 true）：是否启用 EKF 跟踪。
+- `process_noise_diff_coeff`（默认 1.0）：CV 过程噪声扩散系数。
+- `initial_position_std_m`（默认 1000）、`initial_velocity_std_m_per_s`（默认 100）：P0 构造。
+
+验证入口：
+
+- `sbirs_state_machine_test`（默认走 kEstimatedTracking；显式关闭回退 kTruthAssistedTracking）
+- `sbirs_pipeline_test`（捕获后 used_truth_assist=false；持续跟踪输出角度有限）
+
 ### 2.6 多目标优先级与 NFOV 资源调度
 
-第一版 NFOV 资源采用**单目标锁定策略**：任一时刻至多一个目标处于 `AwaitingNfovAcquisition` 或
-`TruthAssistedTracking`。
+第一版 NFOV 资源采用**单目标锁定策略**：任一时刻至多一个目标处于 `AwaitingNfovAcquisition`、
+`TruthAssistedTracking` 或 `EstimatedTracking`。
 
 优先级默认规则（调度器在多个 WFOV 候选中选目标进入首次捕获）：
 
@@ -715,9 +787,11 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
   NFOV 命令指向，再用真实 LOS 是否落入搜索窗口 + SNR 门限判捕获。理由：NCC 需要宽视场目标模板和
   窄视场当前帧图像，依赖图像级数据；第一版的几何 + SNR 判定已能覆盖捕获语义。
 
-- **EKF/CKF 状态估计与滤波**——扩展卡尔曼滤波（`:886-994`）、容积卡尔曼滤波（`:1190-1216`）、
-  波门关联（`:984-994`）。第一版真值辅助阶段直接用仿真真值生成 NFOV 指向，不做滤波估计。理由：
-  真值辅助是第一版开发稳定性假设（捕获成功后用真值辅助），滤波估计属于后续跟踪精化阶段。
+- **EKF 已实现；CKF 与波门关联仍为非目标**——扩展卡尔曼滤波（EKF）已接入 `kEstimatedTracking`
+  状态（见 2.5a）：6 维 CV 状态 / 2 维角度量测，消费 `common/estimation` 模板化框架。仍不做：
+  容积卡尔曼滤波（CKF，sigma-point 路径，需新写 predictor/updater）、波门关联（多假设航迹关联）。
+  理由：EKF 已覆盖 SBIRS 红外角度量测的非线性估计需求；CKF 在大俯仰角/近距离机动场景的精度优势
+  需先有 EKF 基线对比数据，波门关联需多目标同时跟踪场景。
 
 - **Otsu/DBSCAN 多目标聚类**——自适应阈值分割（`:1174-1182`）、聚类分析（`:1184-1186`）。
   第一版按 `target_id` 独立维护状态机，不做像素级聚类。理由：聚类针对图像级检测点，第一版的

@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include "1q/sbirs_sensor/config/SbirsSessionConfigBuilder.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "sbirs_sensor/pipeline/SbirsPipeline.h"
@@ -58,10 +60,11 @@ TEST(SbirsPipelineTest, WideCandidateCapturesIntoNfov) {
   ASSERT_FALSE(result.detections.empty());
   EXPECT_EQ(result.detections.front().record.observation_stage,
             sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
-  EXPECT_TRUE(result.detections.front().attribution.used_truth_assist);
+  // 默认 enable_estimated_tracking=true → 捕获走 EKF，used_truth_assist=false
+  EXPECT_FALSE(result.detections.front().attribution.used_truth_assist);
 }
 
-TEST(SbirsPipelineTest, LockedTargetProducesTruthAssistedTrack) {
+TEST(SbirsPipelineTest, LockedTargetProducesEstimatedTrack) {
   const sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(config));
@@ -78,6 +81,9 @@ TEST(SbirsPipelineTest, LockedTargetProducesTruthAssistedTrack) {
   ASSERT_FALSE(result.detections.empty());
   EXPECT_EQ(result.detections.front().record.observation_stage,
             sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
+  // 持续跟踪走 EKF 估计，输出角度应有限（滤波未发散）
+  EXPECT_TRUE(std::isfinite(result.detections.front().record.azimuth_deg));
+  EXPECT_TRUE(std::isfinite(result.detections.front().record.elevation_deg));
 }
 
 TEST(SbirsSchedulerTest, HigherSnrCandidateWinsBeforeDistanceTieBreak) {

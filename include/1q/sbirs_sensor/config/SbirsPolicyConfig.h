@@ -44,13 +44,27 @@ struct ONEQ_API SbirsSchedulerConfig {
 };
 
 /**
- * @brief SBIRS-inspired 策略聚合配置，组合检测、误差和调度三域策略。
+ * @brief EKF 滤波测量跟踪配置。
+ * @details 启用时，首次 NFOV 捕获成功后进入 `kEstimatedTracking` 状态，用 EKF 估计生成 NFOV 指向
+ *          与检测输出角度（SNR/可探测性仍用真值链路，不受滤波发散影响）。禁用时回退真值辅助跟踪
+ *          （`kTruthAssistedTracking`）。初始协方差 P0 由位置/速度 1-σ 构造为对角阵。
+ */
+struct ONEQ_API SbirsTrackingConfig {
+  bool enable_estimated_tracking{true};        /**< 是否启用 EKF 滤波测量跟踪（默认开启） */
+  float process_noise_diff_coeff{1.0f};        /**< 过程噪声扩散系数 q（CV 模型加速度白噪声强度） */
+  float initial_position_std_m{1000.0f};       /**< 初始位置 1-σ（米），构造 P0 位置对角元 */
+  float initial_velocity_std_m_per_s{100.0f};  /**< 初始速度 1-σ（m/s），构造 P0 速度对角元 */
+};
+
+/**
+ * @brief SBIRS-inspired 策略聚合配置，组合检测、误差、调度和跟踪四域策略。
  * @note 纯数据类型 (POD)，作为 `SbirsSessionConfig::policy` 的子配置。
  */
 struct ONEQ_API SbirsPolicyConfig {
   SbirsDetectionPolicyConfig detection{};  /**< 检测门限策略 */
   SbirsErrorModelConfig error_model{};     /**< 误差模型策略 */
   SbirsSchedulerConfig scheduler{};        /**< NFOV 资源调度策略 */
+  SbirsTrackingConfig tracking{};          /**< EKF 滤波测量跟踪策略 */
 };
 
 }  // namespace config

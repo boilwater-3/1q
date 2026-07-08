@@ -81,3 +81,4 @@ src/airborne_radar/signal/Stone-Soup/
 
 # Tool-generated session continuation cache (not tracked)
 .omo/
+.zcode/
