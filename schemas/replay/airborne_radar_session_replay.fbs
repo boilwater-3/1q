@@ -121,7 +121,6 @@ table AssociationConfig {
 table TrackingConfig {
   enable_kalman_filter:bool;
   kalman_measurement_noise_std:float;
-  kalman_update_backend:int;
   speed_decay_ratio_on_loss:float;
   rcs_decay_ratio_on_loss:float;
 }

@@ -267,13 +267,11 @@ void ApplyTrackingPolicyProfile(config::ArSessionConfig* config,
   switch (profile) {
     case config::profiles::TrackingPolicyProfile::kFastAssociation:
       t.kalman_measurement_noise_std = 6.0f;
-      t.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       break;
     case config::profiles::TrackingPolicyProfile::kRobustAntiJamming:
       t.kalman_measurement_noise_std = 12.0f;
-      t.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       config->policy.association.unassigned_cost = 12.0f;

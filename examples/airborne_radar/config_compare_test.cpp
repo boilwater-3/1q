@@ -227,9 +227,6 @@ void CompareConfigs(const ar_config::ArSessionConfig& a,
              "tracking.enable_kalman_filter");
   CHECK_EQ(a.policy.tracking.kalman_measurement_noise_std,
            b.policy.tracking.kalman_measurement_noise_std, "tracking.kalman_measurement_noise_std");
-  CHECK_INT(static_cast<int>(a.policy.tracking.kalman_update_backend),
-            static_cast<int>(b.policy.tracking.kalman_update_backend),
-            "tracking.kalman_update_backend");
   CHECK_EQ(a.policy.tracking.speed_decay_ratio_on_loss, b.policy.tracking.speed_decay_ratio_on_loss,
            "tracking.speed_decay_ratio_on_loss");
   CHECK_EQ(a.policy.tracking.rcs_decay_ratio_on_loss, b.policy.tracking.rcs_decay_ratio_on_loss,

@@ -469,7 +469,6 @@ class RadarModule {
 
     policy_enable_kalman_filter_ = policy.tracking.enable_kalman_filter;
     policy_kalman_measurement_noise_std_ = static_cast<double>(policy.tracking.kalman_measurement_noise_std);
-    policy_kalman_update_backend_ = policy.tracking.kalman_update_backend;
     policy_speed_decay_ratio_on_loss_ = static_cast<double>(policy.tracking.speed_decay_ratio_on_loss);
     policy_rcs_decay_ratio_on_loss_ = static_cast<double>(policy.tracking.rcs_decay_ratio_on_loss);
 
@@ -649,8 +648,6 @@ class RadarModule {
   // Tracking
   bool policy_enable_kalman_filter_{true};
   double policy_kalman_measurement_noise_std_{0.0};
-  ar_config::KalmanUpdateBackend policy_kalman_update_backend_{
-      ar_config::KalmanUpdateBackend::kStandardKfJoseph};
   double policy_speed_decay_ratio_on_loss_{0.0};
   double policy_rcs_decay_ratio_on_loss_{0.0};
   // Lifecycle

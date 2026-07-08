@@ -558,7 +558,6 @@ flatbuffers::Offset<session_fb::ArPolicyConfig> EncodeSessionPolicyConfig(
                                           value.association.distance_gate_sigma_hint);
   const flatbuffers::Offset<session_fb::TrackingConfig> tracking = session_fb::CreateTrackingConfig(
       *builder, value.tracking.enable_kalman_filter, value.tracking.kalman_measurement_noise_std,
-      static_cast<int>(value.tracking.kalman_update_backend),
       value.tracking.speed_decay_ratio_on_loss, value.tracking.rcs_decay_ratio_on_loss);
   const flatbuffers::Offset<session_fb::LifecycleConfig> lifecycle =
       session_fb::CreateLifecycleConfig(
@@ -782,8 +781,6 @@ config::ArPolicyConfig DecodeSessionPolicyConfig(const session_fb::ArPolicyConfi
     if (tracking != nullptr) {
       result.tracking.enable_kalman_filter = tracking->enable_kalman_filter();
       result.tracking.kalman_measurement_noise_std = tracking->kalman_measurement_noise_std();
-      result.tracking.kalman_update_backend =
-          static_cast<config::KalmanUpdateBackend>(tracking->kalman_update_backend());
       result.tracking.speed_decay_ratio_on_loss = tracking->speed_decay_ratio_on_loss();
       result.tracking.rcs_decay_ratio_on_loss = tracking->rcs_decay_ratio_on_loss();
     }

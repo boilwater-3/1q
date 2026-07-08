@@ -101,10 +101,6 @@ class SignalComponentFactory final {
  private:
   static void LogLifecycleAssemblyConfigViolation(const char* message, float value);
   static void LogLifecycleAssemblyConfigViolation(const char* message, std::size_t value);
-  static std::unique_ptr<tracking::IKalmanPredictor> CreateKalmanPredictor(
-      float noise_diff_coeff, config::engineering::KalmanUpdateBackend backend);
-  static std::unique_ptr<tracking::IKalmanUpdater> CreateKalmanUpdater(
-      float measurement_noise_std, config::engineering::KalmanUpdateBackend backend);
   static Eigen::MatrixXf BuildImmTransitionProbability(const ExecutionConfig& config,
                                                        std::size_t model_count);
   static Eigen::VectorXf BuildImmInitialWeights(const ExecutionConfig& config,

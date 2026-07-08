@@ -54,11 +54,13 @@ OwnedSignalComponents SignalComponentFactory::BuildOwnedPipelineComponents(
   components.track_filter_config = BuildTrackFilterConfig(config);
 
   if (config.tracking.engineering.enable_kalman_filter) {
-    components.kalman_predictor = CreateKalmanPredictor(
-        config.tracking.kalman_noise_diff_coeff, config.tracking.engineering.kalman_update_backend);
-    components.kalman_updater =
-        CreateKalmanUpdater(config.tracking.engineering.kalman_measurement_noise_std,
-                            config.tracking.engineering.kalman_update_backend);
+    tracking::KalmanPredictorConfig pred_cfg;
+    pred_cfg.noise_diff_coeff = std::max(config.tracking.kalman_noise_diff_coeff, 0.001f);
+    components.kalman_predictor.reset(new tracking::KalmanPredictor(pred_cfg));
+    tracking::KalmanUpdaterConfig upd_cfg;
+    upd_cfg.measurement_noise_std =
+        std::max(config.tracking.engineering.kalman_measurement_noise_std, 0.001f);
+    components.kalman_updater.reset(new tracking::KalmanUpdater(upd_cfg));
   }
 
   if (config.detection.engineering.enable_physics_detection) {
@@ -110,11 +112,17 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
           break;
         }
 
-        artifacts.imm_predictors_owned.push_back(CreateKalmanPredictor(
-            noise_diff_coeff, config.tracking.engineering.kalman_update_backend));
+        tracking::KalmanPredictorConfig imm_pred_cfg;
+        imm_pred_cfg.noise_diff_coeff = std::max(noise_diff_coeff, 0.001f);
+        artifacts.imm_predictors_owned.push_back(
+            std::unique_ptr<tracking::IKalmanPredictor>(
+                new tracking::KalmanPredictor(imm_pred_cfg)));
+        tracking::KalmanUpdaterConfig imm_upd_cfg;
+        imm_upd_cfg.measurement_noise_std =
+            std::max(config.tracking.engineering.kalman_measurement_noise_std, 0.001f);
         artifacts.imm_updaters_owned.push_back(
-            CreateKalmanUpdater(config.tracking.engineering.kalman_measurement_noise_std,
-                                config.tracking.engineering.kalman_update_backend));
+            std::unique_ptr<tracking::IKalmanUpdater>(
+                new tracking::KalmanUpdater(imm_upd_cfg)));
         artifacts.imm_predictors.push_back(artifacts.imm_predictors_owned.back().get());
         artifacts.imm_updaters.push_back(artifacts.imm_updaters_owned.back().get());
       }
@@ -144,11 +152,13 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
   }
 
   if (config.tracking.engineering.enable_kalman_filter) {
-    artifacts.kalman_predictor = CreateKalmanPredictor(
-        config.tracking.kalman_noise_diff_coeff, config.tracking.engineering.kalman_update_backend);
-    artifacts.kalman_updater =
-        CreateKalmanUpdater(config.tracking.engineering.kalman_measurement_noise_std,
-                            config.tracking.engineering.kalman_update_backend);
+    tracking::KalmanPredictorConfig pred_cfg2;
+    pred_cfg2.noise_diff_coeff = std::max(config.tracking.kalman_noise_diff_coeff, 0.001f);
+    artifacts.kalman_predictor.reset(new tracking::KalmanPredictor(pred_cfg2));
+    tracking::KalmanUpdaterConfig upd_cfg2;
+    upd_cfg2.measurement_noise_std =
+        std::max(config.tracking.engineering.kalman_measurement_noise_std, 0.001f);
+    artifacts.kalman_updater.reset(new tracking::KalmanUpdater(upd_cfg2));
     artifacts.lifecycle_manager.reset(new tracking::TrackLifecycleManager(
         *effective_pool, lifecycle_config, artifacts.kalman_predictor.get(),
         artifacts.kalman_updater.get()));
@@ -169,21 +179,6 @@ void SignalComponentFactory::LogLifecycleAssemblyConfigViolation(const char* mes
                                                                  std::size_t value) {
   PROJECT_LOG_ERROR("[SignalPipeline] lifecycle auto-assembly config violation: {} (value={})",
                     message, value);
-}
-
-std::unique_ptr<tracking::IKalmanPredictor> SignalComponentFactory::CreateKalmanPredictor(
-    float noise_diff_coeff, config::engineering::KalmanUpdateBackend /*backend*/) {
-  tracking::KalmanPredictorConfig predictor_config;
-  predictor_config.noise_diff_coeff = std::max(noise_diff_coeff, 0.001f);
-  return std::unique_ptr<tracking::IKalmanPredictor>(
-      new tracking::KalmanPredictor(predictor_config));
-}
-
-std::unique_ptr<tracking::IKalmanUpdater> SignalComponentFactory::CreateKalmanUpdater(
-    float measurement_noise_std, config::engineering::KalmanUpdateBackend /*backend*/) {
-  tracking::KalmanUpdaterConfig updater_config;
-  updater_config.measurement_noise_std = std::max(measurement_noise_std, 0.001f);
-  return std::unique_ptr<tracking::IKalmanUpdater>(new tracking::KalmanUpdater(updater_config));
 }
 
 Eigen::MatrixXf SignalComponentFactory::BuildImmTransitionProbability(const ExecutionConfig& config,

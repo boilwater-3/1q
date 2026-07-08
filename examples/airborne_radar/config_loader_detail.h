@@ -153,8 +153,6 @@ inline void LoadTracking(const examples::JsonValue& j,
   v->enable_kalman_filter = j["enable_kalman_filter"].AsBool();
   v->kalman_measurement_noise_std =
       static_cast<float>(j["kalman_measurement_noise_std"].AsDouble());
-  v->kalman_update_backend =
-      KalmanBackendFromString(j["kalman_update_backend"].AsString());
   v->speed_decay_ratio_on_loss =
       static_cast<float>(j["speed_decay_ratio_on_loss"].AsDouble());
   v->rcs_decay_ratio_on_loss =

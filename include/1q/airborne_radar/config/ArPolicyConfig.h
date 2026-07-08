@@ -68,19 +68,11 @@ struct ONEQ_API LifecycleConfig {
 namespace tracking {
 
 /**
- * @brief Kalman 更新后端类型。
- */
-enum class ONEQ_API KalmanUpdateBackend {
-  kStandardKfJoseph = 0 /**< 标准 Joseph 形式 KF。 */
-};
-
-/**
  * @brief 跟踪参数。
  */
 struct ONEQ_API TrackingConfig {
   bool enable_kalman_filter{true}; /**< 是否启用 Kalman 滤波。 */
   float kalman_measurement_noise_std{10.0f}; /**< 量测噪声标准差。 */
-  KalmanUpdateBackend kalman_update_backend{KalmanUpdateBackend::kStandardKfJoseph}; /**< 更新后端。 */
   float speed_decay_ratio_on_loss{1.0f}; /**< 丢失周期速度衰减系数（默认无衰减）。 */
   float rcs_decay_ratio_on_loss{1.0f}; /**< 丢失周期 RCS 衰减系数（默认无衰减）。 */
 };
@@ -111,7 +103,6 @@ using beam::BeamPointingConfig;
 using beam::BeamSchedulerConfig;
 using lifecycle::LifecycleConfig;
 using tracking::AssociationConfig;
-using tracking::KalmanUpdateBackend;
 using tracking::TrackingConfig;
 
 /**

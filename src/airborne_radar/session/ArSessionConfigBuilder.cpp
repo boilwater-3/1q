@@ -110,13 +110,11 @@ void ApplyTrackingSemanticConfig(bool enable_tracking_filter,
   switch (tracking_profile) {
     case profiles::TrackingPolicyProfile::kFastAssociation:
       t.kalman_measurement_noise_std = 6.0f;
-      t.kalman_update_backend = KalmanUpdateBackend::kStandardKfJoseph;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       break;
     case profiles::TrackingPolicyProfile::kRobustAntiJamming:
       t.kalman_measurement_noise_std = 12.0f;
-      t.kalman_update_backend = KalmanUpdateBackend::kStandardKfJoseph;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       association_config->unassigned_cost = 12.0f;

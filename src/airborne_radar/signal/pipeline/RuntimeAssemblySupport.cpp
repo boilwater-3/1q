@@ -17,8 +17,6 @@ namespace {
 
 struct LifecycleConfigSignature {
   bool enable_imm_lifecycle{false};
-  config::engineering::KalmanUpdateBackend kalman_update_backend{
-      config::engineering::KalmanUpdateBackend::kStandardKfJoseph};
   std::size_t imm_model_count{0U};
   tracking::TrackPoolThreadSafetyMode track_pool_thread_safety_mode{
       tracking::TrackPoolThreadSafetyMode::kSingleThreadNoLock};
@@ -39,7 +37,6 @@ Eigen::VectorXf BuildImmInitialWeightsOrDefault(const ExecutionConfig& config,
 LifecycleConfigSignature BuildLifecycleConfigSignature(const ExecutionConfig& config) {
   LifecycleConfigSignature signature;
   signature.enable_imm_lifecycle = config.lifecycle.engineering.enable_imm_lifecycle;
-  signature.kalman_update_backend = config.tracking.engineering.kalman_update_backend;
   signature.imm_model_count = config.lifecycle.imm_model_noise_diff_coeffs.size();
   signature.track_pool_thread_safety_mode = config.lifecycle.track_pool_thread_safety_mode;
   return signature;
@@ -48,7 +45,6 @@ LifecycleConfigSignature BuildLifecycleConfigSignature(const ExecutionConfig& co
 bool ShouldRebuildLifecycleAssembly(const LifecycleConfigSignature& before,
                                     const LifecycleConfigSignature& after) {
   return before.enable_imm_lifecycle != after.enable_imm_lifecycle ||
-         before.kalman_update_backend != after.kalman_update_backend ||
          before.imm_model_count != after.imm_model_count ||
          before.track_pool_thread_safety_mode != after.track_pool_thread_safety_mode;
 }
@@ -59,7 +55,6 @@ void AssignLifecycleSignature(const LifecycleConfigSignature& source,
     return;
   }
   destination->enable_imm_lifecycle = source.enable_imm_lifecycle;
-  destination->kalman_update_backend = source.kalman_update_backend;
   destination->imm_model_count = source.imm_model_count;
   destination->track_pool_thread_safety_mode = source.track_pool_thread_safety_mode;
 }

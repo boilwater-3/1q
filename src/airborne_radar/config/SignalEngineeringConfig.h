@@ -17,7 +17,6 @@ namespace config {
 namespace engineering {
 
 using AntennaPatternModelType = detection::AntennaPatternModelType;
-using KalmanUpdateBackend = tracking::KalmanUpdateBackend;
 
 // Detection domain types — 1:1 aliases to public detection:: types (extends P7 pattern).
 using TransmitterConfig = detection::TransmitterConfig;
@@ -45,8 +44,7 @@ struct LifecycleConfig {
 
 /**
  * @brief 生命周期运行态配置 (POD)，组合基础计数参数与 IMM 融合开关。
- * @note enable_imm_lifecycle 为 true 时要求上层 kalman_update_backend 配置一致，
- *       否则会在会话构建期触发校验失败。
+ * @note enable_imm_lifecycle 为 true 时每个子模型使用标准 KF(Joseph) 后端。
  */
 struct LifecycleRuntimeConfig {
   LifecycleConfig lifecycle_config{};

@@ -41,13 +41,6 @@ inline airborne_radar::config::StabilizationMode StabilizationFromString(
   return airborne_radar::config::StabilizationMode::kBodyStabilized;
 }
 
-inline airborne_radar::config::KalmanUpdateBackend KalmanBackendFromString(
-    const std::string& s) {
-  if (s == "kStandardKfJoseph")
-    return airborne_radar::config::KalmanUpdateBackend::kStandardKfJoseph;
-  return airborne_radar::config::KalmanUpdateBackend::kStandardKfJoseph;
-}
-
 inline airborne_radar::config::JammingSensitivityProfile JammingSensFromString(
     const std::string& s) {
   using namespace airborne_radar::config;
