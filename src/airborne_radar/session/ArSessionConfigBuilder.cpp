@@ -116,7 +116,7 @@ void ApplyTrackingSemanticConfig(bool enable_tracking_filter,
       break;
     case profiles::TrackingPolicyProfile::kRobustAntiJamming:
       t.kalman_measurement_noise_std = 12.0f;
-      t.kalman_update_backend = KalmanUpdateBackend::kUdKf;
+      t.kalman_update_backend = KalmanUpdateBackend::kStandardKfJoseph;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       association_config->unassigned_cost = 12.0f;
@@ -248,13 +248,6 @@ ValidationIssueList ValidateArSessionConfig(const config::ArSessionConfig& confi
     push(ConfigValidationCode::kElectronicScanLimitsSwappedEl,
          "mission.orientation.electronic_scan_limits_deg",
          "Electronic elevation scan min exceeds max.");
-  }
-
-  if (config.policy.tracking.kalman_update_backend == config::KalmanUpdateBackend::kUdKf &&
-      !config.policy.lifecycle.enable_imm_lifecycle) {
-    push(ConfigValidationCode::kRobustTrackingWithoutImm,
-         "policy.tracking.kalman_update_backend / policy.lifecycle.enable_imm_lifecycle",
-         "Robust anti-jamming tracking should enable IMM lifecycle fusion.");
   }
 
   return issues;

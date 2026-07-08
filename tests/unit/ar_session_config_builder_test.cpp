@@ -115,7 +115,7 @@ TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleSemanticEditorsApplyCorr
           .Build();
 
   EXPECT_TRUE(config.policy.tracking.enable_kalman_filter);
-  EXPECT_EQ(config.policy.tracking.kalman_update_backend, config::KalmanUpdateBackend::kUdKf);
+  EXPECT_EQ(config.policy.tracking.kalman_update_backend, config::KalmanUpdateBackend::kStandardKfJoseph);
   EXPECT_TRUE(config.policy.lifecycle.enable_imm_lifecycle);
   EXPECT_EQ(config.policy.lifecycle.confirm_hits, 3U);
   EXPECT_EQ(config.policy.lifecycle.max_lost_cycles, 8U);
@@ -249,7 +249,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   detailed_config.mission.orientation.work_mode = config::ArWorkMode::kTas;
   detailed_config.policy.tracking.enable_kalman_filter = true;
   detailed_config.policy.tracking.kalman_measurement_noise_std = 7.5f;
-  detailed_config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
+  detailed_config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
   detailed_config.policy.lifecycle.enable_imm_lifecycle = true;
   detailed_config.policy.lifecycle.confirm_hits = 2U;
   detailed_config.policy.lifecycle.max_miss_before_lost = 1U;
@@ -263,7 +263,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   EXPECT_EQ(detailed_config.mission.orientation.work_mode, config::ArWorkMode::kTas);
   EXPECT_FLOAT_EQ(detailed_config.policy.tracking.kalman_measurement_noise_std, 7.5f);
   EXPECT_EQ(detailed_config.policy.tracking.kalman_update_backend,
-            config::KalmanUpdateBackend::kUdKf);
+            config::KalmanUpdateBackend::kStandardKfJoseph);
   EXPECT_EQ(detailed_config.policy.lifecycle.confirm_hits, 2U);
   EXPECT_TRUE(detailed_config.policy.lifecycle.enable_imm_lifecycle);
   EXPECT_EQ(detailed_config.environment.jamming_sensitivity_profile,
@@ -274,7 +274,7 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuiltConfigCanConstructRadarSession)
   config::ArSessionConfig config{};
   config.hardware.transmitter.peak_power_w = 5.0e6f;
   config.hardware.transmitter.frequency_hz = 9.3e9f;
-  config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
+  config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
   config.policy.lifecycle.enable_imm_lifecycle = true;
 
   session::ArSession session = session::ArSession::Create(config);
@@ -319,16 +319,6 @@ TEST(RadarSessionConfigValidationTest, ReportsInvalidCommandedBeamwidth) {
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 1U);
   EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kCommandedBeamwidthAzNotPositive);
-}
-
-TEST(RadarSessionConfigValidationTest, ReportsRobustTrackingWithoutImm) {
-  config::ArSessionConfig session_config;
-  session_config.policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
-  session_config.policy.lifecycle.enable_imm_lifecycle = false;
-
-  const auto issues = config::ValidateArSessionConfig(session_config);
-  ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kRobustTrackingWithoutImm);
 }
 
 TEST(RadarSessionCreateWithValidationTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {

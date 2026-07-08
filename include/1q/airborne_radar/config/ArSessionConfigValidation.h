@@ -30,7 +30,7 @@ enum class ConfigValidationCode {
   kMechanicalScanLimitsSwappedEl,     /**< 机械俯仰扫描下限大于上限。 */
   kElectronicScanLimitsSwappedAz,     /**< 电子方位扫描下限大于上限。 */
   kElectronicScanLimitsSwappedEl,     /**< 电子俯仰扫描下限大于上限。 */
-  kRobustTrackingWithoutImm           /**< 选用抗干扰鲁棒跟踪后端但未启用 IMM 生命周期融合。 */
+  kRobustTrackingWithoutImm           /**< @deprecated UDKF 已移除，此校验码不再产出。保留以兼容旧 replay。 */
 };
 
 /**

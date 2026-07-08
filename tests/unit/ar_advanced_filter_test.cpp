@@ -14,8 +14,6 @@
 #include "airborne_radar/signal/tracking/ImmFilter.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
-#include "airborne_radar/signal/tracking/UdkfPredictor.h"
-#include "airborne_radar/signal/tracking/UdkfUpdater.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -165,38 +163,38 @@ TEST(ImmFilterTest, SingleModelEquivalentToKF) {
   }
 }
 
-TEST(ImmFilterTest, BackendFamilyPairsRunForUd) {
+TEST(ImmFilterTest, SingleModelImmWithKfBackendRunsFinite) {
+  // 单模型 IMM(KF) 应等价于纯 KF
   signal::tracking::KalmanPredictorConfig pred_cfg;
   pred_cfg.noise_diff_coeff = 2.0f;
+  signal::tracking::KalmanPredictor predictor(pred_cfg);
   signal::tracking::KalmanUpdaterConfig upd_cfg;
   upd_cfg.measurement_noise_std = 2.0f;
-
-  signal::tracking::UdkfPredictor ud_predictor(pred_cfg);
-  signal::tracking::UdkfUpdater ud_updater(upd_cfg);
+  signal::tracking::KalmanUpdater updater(upd_cfg);
 
   signal::tracking::ImmConfig config;
   config.transition_probability = Eigen::MatrixXf::Ones(1, 1);
   config.initial_weights = Eigen::VectorXf::Ones(1);
 
-  signal::tracking::ImmFilter ud_imm(config, {&ud_predictor}, {&ud_updater});
+  signal::tracking::ImmFilter imm(config, {&predictor}, {&updater});
 
   StateVector mean = StateVector::Zero();
   mean(0) = 50.0f;
   mean(1) = 7.0f;
   GaussianTrackState init(mean, StateCovariance::Identity() * 20.0f);
 
-  ud_imm.SetModelStates({signal::tracking::ImmModelState(init, 1.0f)});
+  imm.SetModelStates({signal::tracking::ImmModelState(init, 1.0f)});
 
   for (int cycle = 1; cycle <= 8; ++cycle) {
     const float x = 50.0f + 7.0f * static_cast<float>(cycle);
     MeasurementVector measurement(x, 0.0f, 0.0f);
-    ud_imm.Process(measurement, 1.0f);
+    imm.Process(measurement, 1.0f);
   }
 
-  const GaussianTrackState ud_state = ud_imm.GetCombinedState();
-  EXPECT_TRUE(ud_state.mean.allFinite());
-  EXPECT_TRUE(ud_state.covariance.allFinite());
-  EXPECT_NEAR(ud_imm.GetModelWeights()(0), 1.0f, kTolerance);
+  const GaussianTrackState state = imm.GetCombinedState();
+  EXPECT_TRUE(state.mean.allFinite());
+  EXPECT_TRUE(state.covariance.allFinite());
+  EXPECT_NEAR(imm.GetModelWeights()(0), 1.0f, kTolerance);
 }
 
 TEST(ImmFilterTest, TwoModelWeightsConvergeToCorrectModel) {

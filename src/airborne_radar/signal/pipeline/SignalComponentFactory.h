@@ -24,8 +24,6 @@
 #include "airborne_radar/signal/tracking/SynchronizedTrackPool.h"
 #include "airborne_radar/signal/tracking/TrackFilter.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleManager.h"
-#include "airborne_radar/signal/tracking/UdkfPredictor.h"
-#include "airborne_radar/signal/tracking/UdkfUpdater.h"
 #include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {

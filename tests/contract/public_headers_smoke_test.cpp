@@ -254,9 +254,9 @@ TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
 
   config::ArPolicyConfig policy{};
   policy.lifecycle.confirm_hits = 2U;
-  policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
+  policy.tracking.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
   EXPECT_EQ(policy.lifecycle.confirm_hits, 2U);
-  EXPECT_EQ(policy.tracking.kalman_update_backend, config::KalmanUpdateBackend::kUdKf);
+  EXPECT_EQ(policy.tracking.kalman_update_backend, config::KalmanUpdateBackend::kStandardKfJoseph);
 
   config::ArEnvironmentConfig env{};
   env.scenario_config.atmospheric_physics.enable_physical_model = true;

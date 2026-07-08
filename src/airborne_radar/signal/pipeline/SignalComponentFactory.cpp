@@ -172,24 +172,17 @@ void SignalComponentFactory::LogLifecycleAssemblyConfigViolation(const char* mes
 }
 
 std::unique_ptr<tracking::IKalmanPredictor> SignalComponentFactory::CreateKalmanPredictor(
-    float noise_diff_coeff, config::engineering::KalmanUpdateBackend backend) {
+    float noise_diff_coeff, config::engineering::KalmanUpdateBackend /*backend*/) {
   tracking::KalmanPredictorConfig predictor_config;
   predictor_config.noise_diff_coeff = std::max(noise_diff_coeff, 0.001f);
-  if (backend == config::engineering::KalmanUpdateBackend::kUdKf) {
-    return std::unique_ptr<tracking::IKalmanPredictor>(
-        new tracking::UdkfPredictor(predictor_config));
-  }
   return std::unique_ptr<tracking::IKalmanPredictor>(
       new tracking::KalmanPredictor(predictor_config));
 }
 
 std::unique_ptr<tracking::IKalmanUpdater> SignalComponentFactory::CreateKalmanUpdater(
-    float measurement_noise_std, config::engineering::KalmanUpdateBackend backend) {
+    float measurement_noise_std, config::engineering::KalmanUpdateBackend /*backend*/) {
   tracking::KalmanUpdaterConfig updater_config;
   updater_config.measurement_noise_std = std::max(measurement_noise_std, 0.001f);
-  if (backend == config::engineering::KalmanUpdateBackend::kUdKf) {
-    return std::unique_ptr<tracking::IKalmanUpdater>(new tracking::UdkfUpdater(updater_config));
-  }
   return std::unique_ptr<tracking::IKalmanUpdater>(new tracking::KalmanUpdater(updater_config));
 }
 

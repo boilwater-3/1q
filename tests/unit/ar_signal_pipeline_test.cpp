@@ -273,7 +273,7 @@ void ApplyTrackingPolicyProfile(config::ArSessionConfig* config,
       break;
     case config::profiles::TrackingPolicyProfile::kRobustAntiJamming:
       t.kalman_measurement_noise_std = 12.0f;
-      t.kalman_update_backend = config::KalmanUpdateBackend::kUdKf;
+      t.kalman_update_backend = config::KalmanUpdateBackend::kStandardKfJoseph;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
       config->policy.association.unassigned_cost = 12.0f;

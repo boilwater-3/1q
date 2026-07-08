@@ -466,41 +466,36 @@ controller 在一个周期开始时把当前 control profile 传给 signal pipel
 
 ### 2.10 滤波后端选型与可复现性
 
-航迹生命周期支持多 Kalman 后端，但后端选择遵循显式配置优先、不做在线自动切换的原则。
+AR 模块当前使用标准 Joseph 形式 Kalman 滤波器（KF）作为唯一后端。`KalmanUpdateBackend`
+枚举保留 `kStandardKfJoseph` 单值以备后续扩展。航迹生命周期可通过 `enable_imm_lifecycle`
+启用 IMM（交互多模型）框架——IMM 不是独立后端，是包裹 KF 的多模型融合层：每个模型分支
+使用相同 KF 后端、不同过程噪声系数 q，通过 Markov 转移概率矩阵和权重自适应应对机动目标。
 
-**现有机制**：
+**后端特性**：
 
-- `KalmanUpdateBackend` 枚举（`ArPolicyConfig.h:73-78`）：`kStandardKfJoseph`(默认) / `kUdKf`。
-- 工厂分支 `SignalComponentFactory::CreateKalmanPredictor/Updater`（`SignalComponentFactory.cpp`）按枚举实例化，返回 `IKalmanPredictor*` / `IKalmanUpdater*` 基类指针多态分发。
-- `TrackLifecycleManager` 两个构造重载（`TrackLifecycleManager.h:42-58`）：单模型走 `(predictor*, updater*)`；多模型走 `(vector<predictor*>, vector<updater*>, Π, w)` 即 IMM。IMM 不是第 3 个并列后端，是包裹前述后端的框架——每个模型分支各用一个 `kalman_update_backend` 指定的后端实例。
+| 组件 | 量测线性性 | 数值稳定性 | 计算成本 | 说明 |
+|------|:---:|:---:|:---:|------|
+| KF (Joseph) | 线性 H | 标准 | 最低 | 默认后端；Joseph 形式显式对称化协方差 |
+| IMM(KF×N) | 继承 KF | 取决于内层 | N 倍 | 多模型自适应；CV(q_low)+CV(q_high) 对机动场景 RMSE 改善 50-97% |
 
-**后端特性矩阵**：
+**已移除的后端**（均经实质证据评估）：
 
-| 后端 | 量测线性性要求 | 数值稳定性 | 计算成本 | IMM 可组合 |
-|------|:---:|:---:|:---:|:---:|
-| KF (Joseph) | 线性 H | 标准 | 最低 | ✅ |
-| UDKF | 线性 H | 高（UD 分解保正定） | 中 | ✅ |
-| IMM | 继承子滤波器 | 取决于内层 | 高（N 倍单模型） | — |
-
-注：UDKF 的 "UD" 指协方差的 U·D·Uᵀ 分解，用于数值稳定，**不是** unscented/derivative-free 滤波；其量测更新仍是线性 KF 公式。
-
-**已移除的后端**：
-
-- **EKF（kEkf）**：AR 量测在进入 KF 前已完成球坐标→笛卡尔转换（`BuildMeasurementVector` 直接取 `position(0,1,2)`），量测模型为纯线性 `H=[I₃|0₃]`。使用 `LinearPositionMeasurementModel` 的 EKF 完全退化为标准 KF + 多余 Jacobian 开销，无实际价值。`common/estimation` 的 EKF 模板仍保留供 SBIRS 等非线性量测模块使用。
-- **SRIF（kSrif）**：信息形式滤波的优势（无先验初始化、数值精度）在 AR 6/3 CV + 笛卡尔量测场景中未经证实需要。`common/estimation` 的 SRIF 模板仍保留供后续模块评估。
+- **EKF（kEkf）**：AR 量测为笛卡尔坐标（`BuildMeasurementVector` 直接取 `position.xyz`），量测模型为纯线性 `H=[I₃|0₃]`。EKF 退化为 KF + 冗余 Jacobian 开销。`common/estimation/EkfFilter.h` 保留供 SBIRS 非线性角度量测使用。
+- **SRIF（kSrif）**：信息形式优势（无先验初始化）与 AR 场景无关。`common/estimation` 模板保留供后续模块评估。
+- **UDKF（kUdKf）**：500 周期 CV + 病态初始化(P0=1e6)下，KF(Joseph) 与 UDKF 协方差正定性、对称性、条件数无差异——Joseph 形式的显式对称化已提供充分数值稳定性。`common/estimation` 模板保留供后续模块评估。
 
 **选型原则：人工配置为主，不做在线自动切换**。理由三点：
 
-1. **可复现性优先于智能性**。仿真的核心契约是"相同输入→相同输出"。在线自动选型会使同一想定因阈值微调或新增误差源而走不同后端，结果不可比，破坏回归测试、敏感性分析和 A/B 对比。
-2. **选型决策依赖外部真知**。"目标是否机动"这类判据，真实系统靠残差监测在线判断；仿真期真值本就已知，把此知识泄露到选型逻辑等同作弊。若不泄露，在线机动检测本身又是会出错的子系统，引入新误差源。
-3. **可解释性**。工程评审需能将"为何这条航迹跟丢"追溯到具体后端与参数，自动切换会使因果链复杂化。
+1. **可复现性优先于智能性**。在线自动选型会使同一想定因阈值微调走不同后端，结果不可比。
+2. **选型决策依赖外部真知**。"目标是否机动"等判据，仿真期真值已知，泄露到选型逻辑等同作弊。
+3. **可解释性**。工程评审需能追溯到具体后端与参数，自动切换使因果链复杂化。
 
 **可接受的"智能"形态**（仍保持人工决策）：
 
-- **只读诊断**：用 `KalmanUpdateResult` 现有的 `innovation` / `innovation_covariance` 字段（`IKalmanUpdater.h:35-37`）计算归一化新息平方 NIS = `innovationᵀ · innovation_covariance⁻¹ · innovation`，χ² 分布自由度=量测维数。AR 量测维 3，95% 门限约 7.81。NIS 持续偏高→模型失配（过程噪声偏小或目标机动）；持续偏低→R 偏大。此为报告/诊断，不触发自动切换。
-- **分阶段人工切换**：基于任务剖面先验知识（如巡航段 KF、高机动段 UDKF+IMM）在配置阶段指定，完全可复现。
+- **只读诊断**：用 `KalmanUpdateResult` 现有的 `innovation` / `innovation_covariance` 字段计算 NIS，报告模型失配程度，不触发自动切换。
+- **IMM 多模型**：基于任务剖面先验知识启用（如助推段用 IMM、巡航段用单 KF），在配置阶段指定，完全可复现。证据：IMM(CV×2) 对急转弯 RMSE 改善 97%，对持续正弦机动改善 50%，匀速场景无退化（`ar_backend_evaluation_test`）。
 
-**明确不做**：在线残差驱动的自动后端切换。后端选择由显式配置 `kalman_update_backend` / `enable_imm_lifecycle` 决定。
+**明确不做**：在线残差驱动的自动后端切换。后端/框架选择由显式配置 `kalman_update_backend` / `enable_imm_lifecycle` 决定。
 
 ## 3. 非目标与边界
 

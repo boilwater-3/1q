@@ -71,8 +71,7 @@ namespace tracking {
  * @brief Kalman 更新后端类型。
  */
 enum class ONEQ_API KalmanUpdateBackend {
-  kStandardKfJoseph = 0, /**< 标准 Joseph 形式 KF。 */
-  kUdKf = 1 /**< UD 分解 KF。 */
+  kStandardKfJoseph = 0 /**< 标准 Joseph 形式 KF。 */
 };
 
 /**

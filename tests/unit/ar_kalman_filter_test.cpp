@@ -12,8 +12,6 @@
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
-#include "airborne_radar/signal/tracking/UdkfPredictor.h"
-#include "airborne_radar/signal/tracking/UdkfUpdater.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -31,8 +29,6 @@ using signal::tracking::kStateDim;
 using signal::tracking::MeasurementVector;
 using signal::tracking::StateCovariance;
 using signal::tracking::StateVector;
-using signal::tracking::UdkfPredictor;
-using signal::tracking::UdkfUpdater;
 
 /// @brief 构造一个简单的先验状态用于测试。
 /// @param x 初始 X 位置。
@@ -227,74 +223,6 @@ TEST(KalmanPredictorTest, ProcessNoiseMatchesStoneSoupCV) {
   EXPECT_NEAR(predicted.covariance(2, 4), 0.0f, kTolerance);
 }
 
-TEST(KalmanPredictorBackendTest, TwoBackendsPredictFiniteSymmetricCovariance) {
-  const GaussianTrackState prior = MakePrior(100.0f, 12.0f, 300.0f, 50.0f);
-  const float dt = 0.75f;
-
-  KalmanPredictorConfig config;
-  config.noise_diff_coeff = 2.0f;
-  KalmanPredictor standard_predictor(config);
-  UdkfPredictor udkf_predictor(config);
-
-  const GaussianTrackState standard_predicted = standard_predictor.Predict(prior, dt);
-  const GaussianTrackState udkf_predicted = udkf_predictor.Predict(prior, dt);
-
-  const GaussianTrackState* predicted_states[] = {&standard_predicted, &udkf_predicted};
-  for (std::size_t i = 0; i < sizeof(predicted_states) / sizeof(predicted_states[0]); ++i) {
-    EXPECT_TRUE(predicted_states[i]->mean.allFinite());
-    EXPECT_TRUE(predicted_states[i]->covariance.allFinite());
-    for (int r = 0; r < kStateDim; ++r) {
-      EXPECT_GT(predicted_states[i]->covariance(r, r), 0.0f);
-      for (int c = r + 1; c < kStateDim; ++c) {
-        EXPECT_NEAR(predicted_states[i]->covariance(r, c), predicted_states[i]->covariance(c, r),
-                    1.0e-4f);
-      }
-    }
-  }
-}
-
-TEST(KalmanPredictorBackendTest, UdkfPreservesPermutationSensitiveCovarianceAtZeroDt) {
-  KalmanPredictorConfig config;
-  config.noise_diff_coeff = 0.0f;
-  UdkfPredictor udkf_predictor(config);
-
-  StateCovariance covariance = StateCovariance::Zero();
-  covariance(0, 0) = 1.0e-4f;
-  covariance(1, 1) = 50.0f;
-  covariance(0, 1) = 1.0e-2f;
-  covariance(1, 0) = covariance(0, 1);
-  covariance(2, 2) = 2.0e-4f;
-  covariance(3, 3) = 60.0f;
-  covariance(2, 3) = 2.0e-2f;
-  covariance(3, 2) = covariance(2, 3);
-  covariance(4, 4) = 3.0e-4f;
-  covariance(5, 5) = 70.0f;
-  covariance(4, 5) = 3.0e-2f;
-  covariance(5, 4) = covariance(4, 5);
-  covariance = (covariance + covariance.transpose()) * 0.5f;
-
-  const Eigen::LDLT<StateCovariance> ldlt(covariance);
-  ASSERT_EQ(ldlt.info(), Eigen::Success);
-  const Eigen::Transpositions<kStateDim, kStateDim>& transpositions = ldlt.transpositionsP();
-  bool has_non_identity_permutation = false;
-  for (int i = 0; i < kStateDim; ++i) {
-    if (transpositions.indices()(i) != i) {
-      has_non_identity_permutation = true;
-      break;
-    }
-  }
-  ASSERT_TRUE(has_non_identity_permutation);
-
-  GaussianTrackState prior(StateVector::Zero(), covariance);
-  const GaussianTrackState predicted = udkf_predictor.Predict(prior, 0.0f);
-
-  for (int row = 0; row < kStateDim; ++row) {
-    for (int col = 0; col < kStateDim; ++col) {
-      EXPECT_NEAR(predicted.covariance(row, col), covariance(row, col), 1.0e-3f);
-    }
-  }
-}
-
 // ============================================================================
 // KalmanUpdater 测试
 // ============================================================================
@@ -448,61 +376,6 @@ TEST(KalmanUpdaterTest, DynamicCovarianceAltersUpdateWeight) {
   EXPECT_GT(result_small_R.posterior.mean(0), result_large_R.posterior.mean(0));
   EXPECT_NEAR(result_small_R.posterior.mean(0), 150.0f, 5.0f);
   EXPECT_NEAR(result_large_R.posterior.mean(0), 100.0f, 5.0f);
-}
-
-TEST(KalmanUpdaterBackendTest, TwoBackendsProduceFiniteStateAndCovariance) {
-  const GaussianTrackState predicted = MakePrior(100.0f, 5.0f, 250.0f, 100.0f);
-  const MeasurementVector measurement(101.5f, 4.0f, -2.5f);
-
-  KalmanUpdaterConfig config;
-  config.measurement_noise_std = 4.0f;
-  KalmanUpdater standard_updater(config);
-  UdkfUpdater udkf_updater(config);
-
-  const KalmanUpdateResult standard_result = standard_updater.Update(predicted, measurement);
-  const KalmanUpdateResult udkf_result = udkf_updater.Update(predicted, measurement);
-
-  const KalmanUpdateResult* results[] = {&standard_result, &udkf_result};
-  for (std::size_t i = 0; i < sizeof(results) / sizeof(results[0]); ++i) {
-    EXPECT_TRUE(results[i]->posterior.mean.allFinite());
-    EXPECT_TRUE(results[i]->posterior.covariance.allFinite());
-    for (int diag = 0; diag < kStateDim; ++diag) {
-      EXPECT_GT(results[i]->posterior.covariance(diag, diag), 0.0f);
-    }
-  }
-}
-
-TEST(KalmanPredictUpdateBackendTest, TwoBackendPairsRemainFiniteAcrossSequence) {
-  KalmanPredictorConfig predictor_config;
-  predictor_config.noise_diff_coeff = 1.5f;
-  KalmanUpdaterConfig updater_config;
-  updater_config.measurement_noise_std = 3.0f;
-
-  KalmanPredictor standard_predictor(predictor_config);
-  KalmanUpdater standard_updater(updater_config);
-  UdkfPredictor udkf_predictor(predictor_config);
-  UdkfUpdater udkf_updater(updater_config);
-
-  GaussianTrackState standard_state = MakePrior(0.0f, 10.0f, 100.0f, 25.0f);
-  GaussianTrackState udkf_state = standard_state;
-
-  for (int cycle = 1; cycle <= 12; ++cycle) {
-    const float true_x = 10.0f * static_cast<float>(cycle);
-    const MeasurementVector measurement(true_x + 0.3f, -0.2f, 0.1f);
-    standard_state = standard_updater.Update(standard_predictor.Predict(standard_state, 1.0f),
-                                             measurement)
-                         .posterior;
-    udkf_state = udkf_updater.Update(udkf_predictor.Predict(udkf_state, 1.0f), measurement).posterior;
-  }
-
-  const GaussianTrackState* final_states[] = {&standard_state, &udkf_state};
-  for (std::size_t i = 0; i < sizeof(final_states) / sizeof(final_states[0]); ++i) {
-    EXPECT_TRUE(final_states[i]->mean.allFinite());
-    EXPECT_TRUE(final_states[i]->covariance.allFinite());
-    for (int diag = 0; diag < kStateDim; ++diag) {
-      EXPECT_GT(final_states[i]->covariance(diag, diag), 0.0f);
-    }
-  }
 }
 
 // ============================================================================
