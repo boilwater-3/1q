@@ -9,8 +9,6 @@
 #include "airborne_radar/signal/pipeline/SignalComponentFactory.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
-#include "airborne_radar/signal/tracking/SrifPredictor.h"
-#include "airborne_radar/signal/tracking/SrifUpdater.h"
 #include "airborne_radar/signal/tracking/UdkfPredictor.h"
 #include "airborne_radar/signal/tracking/UdkfUpdater.h"
 
@@ -33,16 +31,6 @@ TEST(SignalComponentFactoryTest, BuildOwnedComponentsSelectsPredictorUpdaterFami
   EXPECT_NE(dynamic_cast<signal::tracking::UdkfPredictor*>(ud_components.kalman_predictor.get()),
             nullptr);
   EXPECT_NE(dynamic_cast<signal::tracking::UdkfUpdater*>(ud_components.kalman_updater.get()),
-            nullptr);
-
-  config.tracking.engineering.kalman_update_backend =
-      config::engineering::KalmanUpdateBackend::kSrif;
-  signal::pipeline::OwnedSignalComponents srif_components =
-      signal::pipeline::SignalComponentFactory::BuildOwnedPipelineComponents(
-          config);
-  EXPECT_NE(dynamic_cast<signal::tracking::SrifPredictor*>(srif_components.kalman_predictor.get()),
-            nullptr);
-  EXPECT_NE(dynamic_cast<signal::tracking::SrifUpdater*>(srif_components.kalman_updater.get()),
             nullptr);
 
   config.tracking.engineering.kalman_update_backend =

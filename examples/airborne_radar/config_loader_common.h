@@ -46,8 +46,6 @@ inline airborne_radar::config::KalmanUpdateBackend KalmanBackendFromString(
   if (s == "kStandardKfJoseph")
     return airborne_radar::config::KalmanUpdateBackend::kStandardKfJoseph;
   if (s == "kUdKf") return airborne_radar::config::KalmanUpdateBackend::kUdKf;
-  if (s == "kSrif") return airborne_radar::config::KalmanUpdateBackend::kSrif;
-  if (s == "kEkf") return airborne_radar::config::KalmanUpdateBackend::kEkf;
   return airborne_radar::config::KalmanUpdateBackend::kStandardKfJoseph;
 }
 

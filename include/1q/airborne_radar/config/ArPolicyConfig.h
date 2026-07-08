@@ -72,9 +72,7 @@ namespace tracking {
  */
 enum class ONEQ_API KalmanUpdateBackend {
   kStandardKfJoseph = 0, /**< 标准 Joseph 形式 KF。 */
-  kUdKf = 1, /**< UD 分解 KF。 */
-  kSrif = 2, /**< SRIF 后端。 */
-  kEkf = 3 /**< 扩展 Kalman 滤波器。 */
+  kUdKf = 1 /**< UD 分解 KF。 */
 };
 
 /**

@@ -1,7 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
 // @file advanced_filter_test.cpp
-// @brief 验证 FullMahalanobisDistanceMetric、EkfFilter 和 ImmFilter 的正确性。
+// @brief 验证 FullMahalanobisDistanceMetric 和 ImmFilter 的正确性。
 
 #include <gtest/gtest.h>
 
@@ -10,13 +10,10 @@
 #include <vector>
 
 #include "airborne_radar/signal/association/DistanceMetric.h"
-#include "airborne_radar/signal/tracking/EkfFilter.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 #include "airborne_radar/signal/tracking/ImmFilter.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
-#include "airborne_radar/signal/tracking/SrifPredictor.h"
-#include "airborne_radar/signal/tracking/SrifUpdater.h"
 #include "airborne_radar/signal/tracking/UdkfPredictor.h"
 #include "airborne_radar/signal/tracking/UdkfUpdater.h"
 
@@ -113,87 +110,6 @@ TEST(FullMahalanobisTest, InvalidCovarianceReturnsInfiniteDistance) {
 }
 
 // ============================================================================
-// EKF 测试
-// ============================================================================
-
-TEST(EkfPredictorTest, LinearModelMatchesStandardKalman) {
-  // 当 f 和 F 是线性的（CV 模型），EKF 应等价于标准 KF
-  signal::tracking::KalmanPredictorConfig kf_config;
-  kf_config.noise_diff_coeff = 2.0f;
-  signal::tracking::KalmanPredictor kf(kf_config);
-
-  // EKF 使用线性 CV 模型（与 KF 数学等价）
-  signal::tracking::LinearCvTransitionModel cv_model;
-  signal::tracking::EkfPredictorConfig ekf_config;
-  ekf_config.noise_diff_coeff = 2.0f;
-  signal::tracking::EkfPredictor ekf(&cv_model, ekf_config);
-
-  StateVector mean;
-  mean << 100.0f, 10.0f, 50.0f, -5.0f, 200.0f, 3.0f;
-  GaussianTrackState prior(mean, StateCovariance::Identity() * 50.0f);
-
-  const GaussianTrackState kf_pred = kf.Predict(prior, 0.5f);
-  const GaussianTrackState ekf_pred = ekf.Predict(prior, 0.5f);
-
-  for (int i = 0; i < kStateDim; ++i) {
-    EXPECT_NEAR(ekf_pred.mean(i), kf_pred.mean(i), kTolerance) << "mean mismatch at " << i;
-  }
-  for (int r = 0; r < kStateDim; ++r) {
-    for (int c = 0; c < kStateDim; ++c) {
-      EXPECT_NEAR(ekf_pred.covariance(r, c), kf_pred.covariance(r, c), kTolerance)
-          << "cov mismatch at (" << r << "," << c << ")";
-    }
-  }
-}
-
-TEST(EkfUpdaterTest, LinearModelMatchesStandardKalman) {
-  signal::tracking::KalmanUpdaterConfig kf_config;
-  kf_config.measurement_noise_std = 5.0f;
-  signal::tracking::KalmanUpdater kf(kf_config);
-
-  signal::tracking::LinearPositionMeasurementModel meas_model;
-  signal::tracking::EkfUpdaterConfig ekf_config;
-  ekf_config.measurement_noise_std = 5.0f;
-  signal::tracking::EkfUpdater ekf(&meas_model, ekf_config);
-
-  StateVector mean;
-  mean << 100.0f, 10.0f, 50.0f, -5.0f, 200.0f, 3.0f;
-  GaussianTrackState predicted(mean, StateCovariance::Identity() * 100.0f);
-  MeasurementVector z(105.0f, 48.0f, 202.0f);
-
-  const auto kf_result = kf.Update(predicted, z);
-  const auto ekf_result = ekf.Update(predicted, z);
-
-  for (int i = 0; i < kStateDim; ++i) {
-    EXPECT_NEAR(ekf_result.posterior.mean(i), kf_result.posterior.mean(i), kTolerance)
-        << "posterior mean mismatch at " << i;
-  }
-}
-
-TEST(KalmanUpdaterTest, InvalidInnovationCovarianceFallsBackToPredictedState) {
-  signal::tracking::KalmanUpdater updater;
-  GaussianTrackState predicted(StateVector::Zero(), StateCovariance::Identity());
-  MeasurementVector measurement(1.0f, 2.0f, 3.0f);
-  MeasurementCovariance invalid_r = -MeasurementCovariance::Identity() * 10.0f;
-
-  const auto result = updater.Update(predicted, measurement, invalid_r);
-  EXPECT_TRUE(result.posterior.mean.isApprox(predicted.mean, 1.0e-6f));
-  EXPECT_TRUE(result.posterior.covariance.isApprox(predicted.covariance, 1.0e-6f));
-}
-
-TEST(EkfUpdaterTest, InvalidInnovationCovarianceFallsBackToPredictedState) {
-  signal::tracking::LinearPositionMeasurementModel model;
-  signal::tracking::EkfUpdater updater(&model, {});
-  GaussianTrackState predicted(StateVector::Zero(), StateCovariance::Identity());
-  MeasurementVector measurement(1.0f, 2.0f, 3.0f);
-  MeasurementCovariance invalid_r = -MeasurementCovariance::Identity() * 10.0f;
-
-  const auto result = updater.Update(predicted, measurement, invalid_r);
-  EXPECT_TRUE(result.posterior.mean.isApprox(predicted.mean, 1.0e-6f));
-  EXPECT_TRUE(result.posterior.covariance.isApprox(predicted.covariance, 1.0e-6f));
-}
-
-// ============================================================================
 // IMM 测试
 // ============================================================================
 
@@ -249,7 +165,7 @@ TEST(ImmFilterTest, SingleModelEquivalentToKF) {
   }
 }
 
-TEST(ImmFilterTest, BackendFamilyPairsRunForUdAndSrif) {
+TEST(ImmFilterTest, BackendFamilyPairsRunForUd) {
   signal::tracking::KalmanPredictorConfig pred_cfg;
   pred_cfg.noise_diff_coeff = 2.0f;
   signal::tracking::KalmanUpdaterConfig upd_cfg;
@@ -257,15 +173,12 @@ TEST(ImmFilterTest, BackendFamilyPairsRunForUdAndSrif) {
 
   signal::tracking::UdkfPredictor ud_predictor(pred_cfg);
   signal::tracking::UdkfUpdater ud_updater(upd_cfg);
-  signal::tracking::SrifPredictor srif_predictor(pred_cfg);
-  signal::tracking::SrifUpdater srif_updater(upd_cfg);
 
   signal::tracking::ImmConfig config;
   config.transition_probability = Eigen::MatrixXf::Ones(1, 1);
   config.initial_weights = Eigen::VectorXf::Ones(1);
 
   signal::tracking::ImmFilter ud_imm(config, {&ud_predictor}, {&ud_updater});
-  signal::tracking::ImmFilter srif_imm(config, {&srif_predictor}, {&srif_updater});
 
   StateVector mean = StateVector::Zero();
   mean(0) = 50.0f;
@@ -273,23 +186,17 @@ TEST(ImmFilterTest, BackendFamilyPairsRunForUdAndSrif) {
   GaussianTrackState init(mean, StateCovariance::Identity() * 20.0f);
 
   ud_imm.SetModelStates({signal::tracking::ImmModelState(init, 1.0f)});
-  srif_imm.SetModelStates({signal::tracking::ImmModelState(init, 1.0f)});
 
   for (int cycle = 1; cycle <= 8; ++cycle) {
     const float x = 50.0f + 7.0f * static_cast<float>(cycle);
     MeasurementVector measurement(x, 0.0f, 0.0f);
     ud_imm.Process(measurement, 1.0f);
-    srif_imm.Process(measurement, 1.0f);
   }
 
   const GaussianTrackState ud_state = ud_imm.GetCombinedState();
-  const GaussianTrackState srif_state = srif_imm.GetCombinedState();
   EXPECT_TRUE(ud_state.mean.allFinite());
   EXPECT_TRUE(ud_state.covariance.allFinite());
-  EXPECT_TRUE(srif_state.mean.allFinite());
-  EXPECT_TRUE(srif_state.covariance.allFinite());
   EXPECT_NEAR(ud_imm.GetModelWeights()(0), 1.0f, kTolerance);
-  EXPECT_NEAR(srif_imm.GetModelWeights()(0), 1.0f, kTolerance);
 }
 
 TEST(ImmFilterTest, TwoModelWeightsConvergeToCorrectModel) {

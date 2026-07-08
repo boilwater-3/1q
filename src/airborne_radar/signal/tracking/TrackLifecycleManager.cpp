@@ -7,8 +7,6 @@
 #include "airborne_radar/signal/tracking/ImmFilter.h"
 #include "airborne_radar/signal/tracking/KalmanPredictor.h"
 #include "airborne_radar/signal/tracking/KalmanUpdater.h"
-#include "airborne_radar/signal/tracking/SrifPredictor.h"
-#include "airborne_radar/signal/tracking/SrifUpdater.h"
 #include "airborne_radar/signal/tracking/UdkfPredictor.h"
 #include "airborne_radar/signal/tracking/UdkfUpdater.h"
 #include "common/logging/ProjectLog.h"

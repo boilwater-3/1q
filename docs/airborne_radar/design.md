@@ -470,21 +470,24 @@ controller 在一个周期开始时把当前 control profile 传给 signal pipel
 
 **现有机制**：
 
-- `KalmanUpdateBackend` 枚举（`ArPolicyConfig.h:73-78`）：`kStandardKfJoseph`(默认) / `kUdKf` / `kSrif` / `kEkf`。
-- 工厂分支 `SignalComponentFactory::CreateKalmanPredictor/Updater`（`SignalComponentFactory.cpp:174-215`）按枚举实例化，返回 `IKalmanPredictor*` / `IKalmanUpdater*` 基类指针多态分发。
-- `TrackLifecycleManager` 两个构造重载（`TrackLifecycleManager.h:42-58`）：单模型走 `(predictor*, updater*)`；多模型走 `(vector<predictor*>, vector<updater*>, Π, w)` 即 IMM。IMM 不是第 5 个并列后端，是包裹前述后端的框架——每个模型分支各用一个 `kalman_update_backend` 指定的后端实例。
+- `KalmanUpdateBackend` 枚举（`ArPolicyConfig.h:73-78`）：`kStandardKfJoseph`(默认) / `kUdKf`。
+- 工厂分支 `SignalComponentFactory::CreateKalmanPredictor/Updater`（`SignalComponentFactory.cpp`）按枚举实例化，返回 `IKalmanPredictor*` / `IKalmanUpdater*` 基类指针多态分发。
+- `TrackLifecycleManager` 两个构造重载（`TrackLifecycleManager.h:42-58`）：单模型走 `(predictor*, updater*)`；多模型走 `(vector<predictor*>, vector<updater*>, Π, w)` 即 IMM。IMM 不是第 3 个并列后端，是包裹前述后端的框架——每个模型分支各用一个 `kalman_update_backend` 指定的后端实例。
 
 **后端特性矩阵**：
 
 | 后端 | 量测线性性要求 | 数值稳定性 | 计算成本 | IMM 可组合 |
 |------|:---:|:---:|:---:|:---:|
 | KF (Joseph) | 线性 H | 标准 | 最低 | ✅ |
-| EKF | 非线性（Jacobian 一阶展开） | 标准 | 中（需算 Jacobian） | ✅ |
 | UDKF | 线性 H | 高（UD 分解保正定） | 中 | ✅ |
-| SRIF | 线性 H | 最高（信息矩阵 Cholesky） | 中高 | ✅ |
 | IMM | 继承子滤波器 | 取决于内层 | 高（N 倍单模型） | — |
 
 注：UDKF 的 "UD" 指协方差的 U·D·Uᵀ 分解，用于数值稳定，**不是** unscented/derivative-free 滤波；其量测更新仍是线性 KF 公式。
+
+**已移除的后端**：
+
+- **EKF（kEkf）**：AR 量测在进入 KF 前已完成球坐标→笛卡尔转换（`BuildMeasurementVector` 直接取 `position(0,1,2)`），量测模型为纯线性 `H=[I₃|0₃]`。使用 `LinearPositionMeasurementModel` 的 EKF 完全退化为标准 KF + 多余 Jacobian 开销，无实际价值。`common/estimation` 的 EKF 模板仍保留供 SBIRS 等非线性量测模块使用。
+- **SRIF（kSrif）**：信息形式滤波的优势（无先验初始化、数值精度）在 AR 6/3 CV + 笛卡尔量测场景中未经证实需要。`common/estimation` 的 SRIF 模板仍保留供后续模块评估。
 
 **选型原则：人工配置为主，不做在线自动切换**。理由三点：
 
@@ -495,7 +498,7 @@ controller 在一个周期开始时把当前 control profile 传给 signal pipel
 **可接受的"智能"形态**（仍保持人工决策）：
 
 - **只读诊断**：用 `KalmanUpdateResult` 现有的 `innovation` / `innovation_covariance` 字段（`IKalmanUpdater.h:35-37`）计算归一化新息平方 NIS = `innovationᵀ · innovation_covariance⁻¹ · innovation`，χ² 分布自由度=量测维数。AR 量测维 3，95% 门限约 7.81。NIS 持续偏高→模型失配（过程噪声偏小或目标机动）；持续偏低→R 偏大。此为报告/诊断，不触发自动切换。
-- **分阶段人工切换**：基于任务剖面先验知识（如助推段 IMM、中段 EKF、末段 SRIF）在配置阶段指定，完全可复现。
+- **分阶段人工切换**：基于任务剖面先验知识（如巡航段 KF、高机动段 UDKF+IMM）在配置阶段指定，完全可复现。
 
 **明确不做**：在线残差驱动的自动后端切换。后端选择由显式配置 `kalman_update_backend` / `enable_imm_lifecycle` 决定。
 

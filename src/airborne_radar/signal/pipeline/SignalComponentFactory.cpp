@@ -179,17 +179,6 @@ std::unique_ptr<tracking::IKalmanPredictor> SignalComponentFactory::CreateKalman
     return std::unique_ptr<tracking::IKalmanPredictor>(
         new tracking::UdkfPredictor(predictor_config));
   }
-  if (backend == config::engineering::KalmanUpdateBackend::kSrif) {
-    return std::unique_ptr<tracking::IKalmanPredictor>(
-        new tracking::SrifPredictor(predictor_config));
-  }
-  if (backend == config::engineering::KalmanUpdateBackend::kEkf) {
-    static const tracking::LinearCvTransitionModel ekf_transition;
-    tracking::EkfPredictorConfig ekf_config;
-    ekf_config.noise_diff_coeff = std::max(noise_diff_coeff, 0.001f);
-    return std::unique_ptr<tracking::IKalmanPredictor>(
-        new tracking::EkfPredictor(&ekf_transition, ekf_config));
-  }
   return std::unique_ptr<tracking::IKalmanPredictor>(
       new tracking::KalmanPredictor(predictor_config));
 }
@@ -200,16 +189,6 @@ std::unique_ptr<tracking::IKalmanUpdater> SignalComponentFactory::CreateKalmanUp
   updater_config.measurement_noise_std = std::max(measurement_noise_std, 0.001f);
   if (backend == config::engineering::KalmanUpdateBackend::kUdKf) {
     return std::unique_ptr<tracking::IKalmanUpdater>(new tracking::UdkfUpdater(updater_config));
-  }
-  if (backend == config::engineering::KalmanUpdateBackend::kSrif) {
-    return std::unique_ptr<tracking::IKalmanUpdater>(new tracking::SrifUpdater(updater_config));
-  }
-  if (backend == config::engineering::KalmanUpdateBackend::kEkf) {
-    static const tracking::LinearPositionMeasurementModel ekf_measurement;
-    tracking::EkfUpdaterConfig ekf_updater_config;
-    ekf_updater_config.measurement_noise_std = std::max(measurement_noise_std, 0.001f);
-    return std::unique_ptr<tracking::IKalmanUpdater>(
-        new tracking::EkfUpdater(&ekf_measurement, ekf_updater_config));
   }
   return std::unique_ptr<tracking::IKalmanUpdater>(new tracking::KalmanUpdater(updater_config));
 }
