@@ -96,7 +96,7 @@ if(VIOLATIONS)
           "规则：include/1q/ 公共头必须守 C++11 子集（VS2015 消费方兼容）。\n"
           "      构建标准为 C++17（jsbsim 等依赖要求），但公共头不得使用\n"
           "      C++14/17 特性。请改用 C++11 等价写法，而非放宽本检查。\n"
-          "见：cmake/ProjectLanguageDefaults.cmake 注释、\n"
+          "见：cmake/project/ProjectLanguageDefaults.cmake 注释、\n"
           "      tests/contract/check_sar_cxx11_compat.cmake（编译式最终真相）。\n"
           "违规：\n${VIOLATION_TEXT}")
 endif()

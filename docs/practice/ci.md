@@ -28,7 +28,7 @@ Authority: build & test infrastructure
 
 当前仅 macOS（`macos-14` arm64 runner）。理由：
 - macOS 路径下 Conan 提供全部依赖（含 JSBSim 预编译包 `jsbsim/1.3.1`），最干净可靠。
-- Windows conan 路径的 JSBSim 来源存在未决问题（`conanfile.py` 在 Windows 下不 `requires` jsbsim，但 `ProjectDependencies.cmake` 仍 `find_package`），需先核实再启用。
+- Windows conan 路径的 JSBSim 来源存在未决问题（`conanfile.py` 在 Windows 下不 `requires` jsbsim，但 `cmake/project/ProjectDependencies.cmake` 仍 `find_package`），需先核实再启用。
 
 ## 本地复现
 

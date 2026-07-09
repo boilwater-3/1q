@@ -42,7 +42,7 @@
             "displayName": "macOS LLVM Ninja Debug",
             "binaryDir": "${sourceDir}/build/llvm-ninja-debug-local",
             "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/packaging/ConanBootstrapToolchain.cmake",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTING": "ON",
                 "BUILD_SHARED_LIBS": "OFF"
@@ -54,7 +54,7 @@
             "displayName": "macOS LLVM Ninja Coverage (source-based)",
             "binaryDir": "${sourceDir}/build/llvm-ninja-coverage-local",
             "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/packaging/ConanBootstrapToolchain.cmake",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTING": "ON",
                 "BUILD_SHARED_LIBS": "OFF",
@@ -66,7 +66,7 @@
             "inherits": "macos-base",
             "displayName": "macOS LLVM Ninja Release",
             "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/packaging/ConanBootstrapToolchain.cmake",
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTING": "ON",
                 "BUILD_SHARED_LIBS": "OFF"
@@ -85,7 +85,7 @@
             "architecture": "x64",
             "cacheVariables": {
                 "PACKAGE_MANAGER": "conan",
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/ConanBootstrapToolchain.cmake"
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/packaging/ConanBootstrapToolchain.cmake"
             }
         },
         {

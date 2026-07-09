@@ -47,9 +47,11 @@ list(SORT DISK_HEADERS)
 # ---- 收集 install 清单引用的头文件 ----
 # 扫描两类来源:
 #   1. 各模块 src/*/CMakeLists.txt 的 set(PUBLIC_HEADERS_*) 列表
-#   2. cmake/*.cmake 中安装的根头(如 api.php,见 ProjectInstall.cmake)
+#   2. cmake/*.cmake / cmake/project/*.cmake 中安装的根头(如 api.hpp,见 ProjectInstall.cmake)
 file(GLOB MODULE_CMAKES "${SOURCE_DIR}/src/*/CMakeLists.txt")
-file(GLOB CMAKE_MODULE_FILES "${SOURCE_DIR}/cmake/*.cmake")
+file(GLOB CMAKE_MODULE_FILES
+    "${SOURCE_DIR}/cmake/*.cmake"
+    "${SOURCE_DIR}/cmake/project/*.cmake")
 set(MANIFEST_SOURCES ${MODULE_CMAKES} ${CMAKE_MODULE_FILES})
 
 set(INSTALLED_HEADERS "")

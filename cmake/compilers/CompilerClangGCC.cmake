@@ -83,7 +83,7 @@ add_compile_options($<$<CONFIG:Release>:-flto>)    # 链接时优化（LTO）
 add_compile_options($<$<CONFIG:Release>:-fomit-frame-pointer>)  # 省略帧指针
 add_link_options($<$<CONFIG:Release>:-flto>)       # LTO链接
 
-# MasOs
+# macOS
 if(APPLE)
     add_link_options($<$<CONFIG:Release>:-Wl,-dead_strip>)  # macOS: 移除未使用符号
 else()
@@ -102,7 +102,7 @@ add_compile_options($<$<CONFIG:MinSizeRel>:-DNDEBUG>)  # 禁用断言
 add_compile_options($<$<CONFIG:MinSizeRel>:-flto>)     # LTO
 add_link_options($<$<CONFIG:MinSizeRel>:-flto>)
 
-# MasOs
+# macOS
 if(APPLE)
     add_link_options($<$<CONFIG:MinSizeRel>:-Wl,-dead_strip>)
 else()

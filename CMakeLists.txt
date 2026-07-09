@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.16...3.30)
 if(DEFINED CMAKE_TOOLCHAIN_FILE)
     get_filename_component(_requested_toolchain "${CMAKE_TOOLCHAIN_FILE}" ABSOLUTE)
     get_filename_component(_bootstrap_toolchain
-        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ConanBootstrapToolchain.cmake" ABSOLUTE)
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/packaging/ConanBootstrapToolchain.cmake" ABSOLUTE)
 
     if(NOT EXISTS "${_requested_toolchain}"
        AND NOT _requested_toolchain STREQUAL _bootstrap_toolchain)
@@ -18,7 +18,7 @@ if(DEFINED CMAKE_TOOLCHAIN_FILE)
     endif()
 endif()
 
-include(cmake/ProjectLanguageDefaults.cmake)
+include(cmake/project/ProjectLanguageDefaults.cmake)
 
 # 项目期望的 C++ 标准
 if(DEFINED CMAKE_CXX_STANDARD AND NOT CMAKE_CXX_STANDARD STREQUAL "")
@@ -89,22 +89,22 @@ endif()
 
 # 包含配置模块
 # 用户可配置选项
-include(cmake/ProjectOptions.cmake)
+include(cmake/project/ProjectOptions.cmake)
 
 # 构建特性配置
-include(cmake/FeatureUnityBuild.cmake)
-include(cmake/FeatureCCache.cmake)
-include(cmake/FeaturePrecompiledHeaders.cmake)
-include(cmake/FeatureClangTidy.cmake)
-include(cmake/FeatureClangFormat.cmake)
-include(cmake/FeatureCoverage.cmake)
-include(cmake/FeatureFlatBuffers.cmake)
+include(cmake/features/FeatureUnityBuild.cmake)
+include(cmake/features/FeatureCCache.cmake)
+include(cmake/features/FeaturePrecompiledHeaders.cmake)
+include(cmake/features/FeatureClangTidy.cmake)
+include(cmake/features/FeatureClangFormat.cmake)
+include(cmake/features/FeatureCoverage.cmake)
+include(cmake/project/FeatureFlatBuffers.cmake)
 
 # 编译器特定配置
 if(MSVC)
-    include(cmake/CompilerMSVC.cmake)
+    include(cmake/compilers/CompilerMSVC.cmake)
 else()
-    include(cmake/CompilerGNU.cmake)
+    include(cmake/compilers/CompilerClangGCC.cmake)
 endif()
 
 # 包管理器配置（延迟到 target 创建之后）
@@ -162,7 +162,7 @@ message(STATUS "  └─ Coverage: ${ENABLE_COVERAGE}")
 message(STATUS "  └─ Install support: ${ENABLE_INSTALL}")
 
 # VS2015 行尾兼容处理
-include(cmake/EnsureCRLF.cmake)
+include(cmake/project/EnsureCRLF.cmake)
 
 # 子目录包含
 if(EXISTS "${CMAKE_SOURCE_DIR}/src/CMakeLists.txt")
@@ -173,7 +173,7 @@ endif()
 
 # 包管理器配置（必须在 target 创建之后）
 if(PACKAGE_MANAGER STREQUAL "conan")
-    include(cmake/PackageManagerConan.cmake)
+    include(cmake/packaging/PackageManagerConan.cmake)
 endif()
 
 if(ENABLE_TESTING AND EXISTS "${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt")

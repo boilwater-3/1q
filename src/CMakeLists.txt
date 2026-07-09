@@ -136,7 +136,7 @@ if(ONEQ_VENDOR_OBJECT_TARGETS)
 endif()
 
 # --- 第三方依赖 ---
-include(${CMAKE_SOURCE_DIR}/cmake/ProjectDependencies.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/project/ProjectDependencies.cmake)
 
 # --- FlatBuffers 构建期代码生成 ---
 # 必须在 ProjectDependencies.cmake（find_package(flatbuffers)）之后：flatc
@@ -207,7 +207,7 @@ if(ONEQ_FLATBUFFERS_GENERATED_HEADERS)
 endif()
 
 # --- 目标属性 ---
-include(${CMAKE_SOURCE_DIR}/cmake/TargetProperties.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/project/TargetProperties.cmake)
 
 # --- PCH ---
 if(ENABLE_PCH)
@@ -248,4 +248,4 @@ if(ENABLE_PCH)
 endif()
 
 # --- 安装 ---
-include(${CMAKE_SOURCE_DIR}/cmake/ProjectInstall.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/project/ProjectInstall.cmake)

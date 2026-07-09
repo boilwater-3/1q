@@ -1,4 +1,4 @@
-include("${CMAKE_CURRENT_LIST_DIR}/ProjectLanguageDefaults.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../project/ProjectLanguageDefaults.cmake")
 
 # Vendor 模式不使用包管理器，跳过 Conan 安装流程。
 if(DEFINED PACKAGE_MANAGER AND PACKAGE_MANAGER STREQUAL "none")
@@ -12,7 +12,7 @@ if(_conan_in_try_compile)
 endif()
 
 # 统一 Conan 源目录和输出目录。
-get_filename_component(_conan_source_dir "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+get_filename_component(_conan_source_dir "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
 set(_conan_conanfile_path "${_conan_source_dir}/conanfile.py")
 
 if(NOT EXISTS "${_conan_conanfile_path}")

@@ -79,7 +79,7 @@ endif()
 
 # ENABLE_COVERAGE: 启用代码覆盖率插桩 (LLVM source-based coverage)
 # 开启后注入 -fprofile-instr-generate -fcoverage-mapping 编译/链接标志
-# (见 FeatureCoverage.cmake 的编译器校验)。
+# (见 features/FeatureCoverage.cmake 的编译器校验)。
 # 仅支持 Clang/LLVM toolchain；会显著增加编译产物体积与运行开销，
 # 仅用于本地/CI 覆盖率测量，不要用于发布构建。
 # 配套 preset 为 llvm-ninja-coverage；报告生成见 tools/coverage_report.sh。

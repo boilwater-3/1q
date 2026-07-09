@@ -37,7 +37,7 @@ install(EXPORT ${PROJECT_EXPORT_SET}
 
 # 生成 PackageConfig 文件（供 find_package 使用）
 configure_package_config_file(
-    "${CMAKE_SOURCE_DIR}/cmake/ProjectTemplateConfig.cmake.in"
+    "${CMAKE_CURRENT_LIST_DIR}/ProjectTemplateConfig.cmake.in"
     "${CMAKE_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
     PATH_VARS CMAKE_INSTALL_INCLUDEDIR
