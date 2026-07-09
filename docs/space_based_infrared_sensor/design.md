@@ -528,9 +528,9 @@ stateDiagram-v2
 
 #### 2.5.3 滤波后端选型
 
-当前 SBIRS 仅 EKF 单后端接线（`SbirsTrackingTypes.h` 别名硬绑 6/2，`SbirsPipeline.cpp` 直接构造
-`SbirsEkfPredictor` / `SbirsEkfUpdater`）。`enable_estimated_tracking` 是 EKF↔真值辅助的二态开关，
-**不是**多后端选择。`common/estimation` 的多后端框架并非全部适用于 SBIRS 非线性角度量测：
+当前 SBIRS 接线 EKF 和 IMM(EKF) 两个后端（`enable_imm_tracking` 控制切换）；`enable_estimated_tracking`
+是滤波↔真值辅助的总开关，**不是**多后端选择。`common/estimation` 的多后端框架并非全部适用于 SBIRS
+非线性角度量测，下表汇总验证结论：
 
 | 后端 | 非线性量测支持 | 当前可用 | 前置条件 |
 |------|:---:|:---:|------|
@@ -547,10 +547,15 @@ stateDiagram-v2
 
 **IMM 已接线**（详见 §2.5.2）：`common/estimation/ImmFilter.h` 已扩展 3 参 `Process(measurement, dt, R)` 支持动态 R。`SbirsPipeline` 在 `enable_imm_tracking=true` 时创建 per-target `ImmFilter` 实例，各子模型持有独立 `SbirsAngleMeasurementModel`，NIS 取各模型最大值用于丢锁判定。NIS 门限/丢锁/重捕获的确定性语义与单 EKF 路径一致。
 
-**升级触发条件**（需后续论证）：
-- 协方差数值病态（非正定）→ 考虑扩展 SRIF 接受非线性量测
-- 强非线性几何（低仰角、大观测角，Jacobian 一阶展开精度不足）→ 考虑 CKF（sigma-point，需新写后端）
-- 丢锁/重捕获目前是确定性 NIS 连续超限门限；若后续需要概率模型，应先基于场景矩阵标定 NIS、SNR、角速度与重捕获成功率的映射，再引入受 seed 控制的可复现概率抽样
+**升级触发条件**（已验证，2026-07-08）：
+
+| 方向 | 判定 | 理由 |
+|------|:---:|------|
+| SRIF 扩展（协方差数值病态→非正定） | ❌ 不适用 | EKF 已使用 Joseph 形式保证后验协方差对称半正定（`EkfFilter.h:252-255`）；AR 模块 500 周期病态测试已验证 Joseph 形式数值稳定性足够（`ar_backend_evaluation_test.cpp:9`）。SRIF 当前硬编码线性 H，需先扩展 `common/estimation` 接受 `IMeasurementModel*` 才能用于 SBIRS，与协方差病态无关 |
+| CKF（强非线性几何，Jacobian 一阶展开精度不足） | ❌ 不适用 | SBIRS LEO 卫星（~629km 高度）近天底观测，horiz 始终数百公里量级，atan2/asin 非线性度温和；退化几何（horiz→0）仅在极地飞越时发生且被地球遮挡过滤。仓库无 CKF 实现，需从零编写 `CkfPredictor`/`CkfUpdater` |
+| 概率丢锁模型（确定性 NIS 门限→概率抽样） | ✅ 保留 | 当前丢锁是纯确定性连续 NIS 计数（`nis_gate_loss_cycles`），这是跟踪滤波器行业标准做法（AR 模块同理）。概率模型需先完成 NIS/SNR/角速度→重捕获成功率场景矩阵标定，再引入受 seed 控制的可复现概率抽样 |
+
+已否决的两条触发条件不阻塞当前架构——SBIRS 的 EKF/IMM(EKF) + Joseph 形式 + 确定性 NIS 丢锁已覆盖全部已知场景。若未来出现新的 SBIRS 几何配置（如高轨凝视卫星、极地大倾角轨道）或新的量测模型（如多波段联合），可重新评估。
 
 #### 2.5.4 NIS 诊断与丢锁重捕获
 
@@ -572,7 +577,7 @@ CV 模型在助推段会失配）；持续偏低→R 偏大。
 **基线证据**（`SbirsEkfBaselineTest`）：
 - CV 适配场景：5 周期 NIS 均低于 95% 门限 → 默认 EKF/CV 对平稳目标足够
 - 瞬时横向异常：单周期 NIS 超门限 → 适合触发诊断或确定性丢锁计数
-- 持续横向失配：NIS 超门限次数和峰值均高于瞬时异常 → 后续评估 IMM 或概率丢锁模型的候选证据
+- 持续横向失配：NIS 超门限次数和峰值均高于瞬时异常 → 已驱动 IMM 接线（全场景改善 28–55%）；概率丢锁模型仍为候选方向
 
 **决策记录**：
 
@@ -583,7 +588,7 @@ CV 模型在助推段会失配）；持续偏低→R 偏大。
 | 丢锁/重捕获 | `nis_gate_loss_cycles` 确定性丢锁；失败诊断进 attribution/debug/lifecycle/replay | `ConsecutiveNisGateExceededReleasesEstimatedTrackLock`、`ReplayPreservesNisLossAndReacquisitionDiagnostics` |
 | 概率丢锁模型 | 暂不实现；需先标定 NIS/SNR/角速度到丢锁概率的映射 | NIS 矩阵证明可分离 CV、瞬时异常和持续失配 |
 | 波门关联 | 暂不实现；NFOV 是单目标锁定资源 | `MultipleWfovCandidatesSingleNfovLock` 与 §2.6 |
-| IMM | 暂不实现；EKF 基线覆盖平稳目标 | `ScenarioMatrixSeparatesCvTransientAndSustainedMismatch` |
+| IMM | ✅ 已接线；`enable_imm_tracking` 控制，IMM(EKF×N) 全场景 RMSE 改善 28–55% | `SbirsImmEvaluationTest`、`ImmTrackingProducesFiniteState`、`ImmSupportsCaptureRestoreRoundtrip` |
 
 #### 2.5.5 验证入口汇总
 
@@ -853,14 +858,20 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
   NFOV 命令指向，再用真实 LOS 是否落入搜索窗口 + SNR 门限判捕获。理由：NCC 需要宽视场目标模板和
   窄视场当前帧图像，依赖图像级数据；第一版的几何 + SNR 判定已能覆盖捕获语义。
 
-- **EKF 已实现；多后端枚举、CKF 与波门关联仍为非目标**——扩展卡尔曼滤波（EKF）已接入 `kEstimatedTracking`
-  状态（见 §2.5.2）：6 维 CV 状态 / 2 维角度量测，消费 `common/estimation` 模板化框架。仍不做：
-  （1）多后端枚举——SBIRS 非线性角度量测仅 EKF 可直接复用；IMM(EKF) 需新写 per-target 状态管理，
-  SRIF/UDKF 需先扩展 `common/estimation` 接受 `IMeasurementModel*`（见 §2.5.3 选型矩阵）。在此之前
-  `enable_estimated_tracking` 是 EKF↔真值辅助二态开关，非多后端选择。（2）容积卡尔曼滤波（CKF，
-  sigma-point 路径，需新写 predictor/updater）。（3）波门关联（多假设航迹关联）。
-  理由：EKF 已覆盖 SBIRS 红外角度量测的非线性估计需求；IMM/SRIF/CKF 的收益需先有 EKF 基线数据
-  （NIS 持续偏高或数值病态）论证，波门关联需多目标同时跟踪场景。
+- **滤波后端：EKF + IMM(EKF) 已接线，不再引入额外后端**——当前 SBIRS `kEstimatedTracking` 状态
+  支持两个滤波后端（见 §2.5.2—§2.5.3）：单 EKF(CV)（默认，`enable_imm_tracking=false`）和
+  IMM(EKF×N)（`enable_imm_tracking=true`，三场景 RMSE 改善 28–55%）。以下后端经验证后判定为不适用，
+  不再作为升级方向：
+  - **CKF**（容积卡尔曼滤波，sigma-point 路径）：❌ 不适用。SBIRS LEO 卫星（~629km 高度）近天底
+    观测，horiz 始终数百公里量级，atan2/asin 非线性度温和；退化几何仅在极地飞越时发生且被地球遮挡
+    过滤。仓库无 CKF 实现，需从零编写，且无已知 SBIRS 场景触发其必要性。
+  - **SRIF**（平方根信息滤波）：❌ 不适用。EKF 已使用 Joseph 形式保证后验协方差对称半正定
+    （`EkfFilter.h:252-255`），AR 模块 500 周期病态测试已验证 Joseph 形式数值稳定性足够；SRIF 当前
+    硬编码线性 H，需先扩展 `common/estimation` 接受 `IMeasurementModel*` 才能用于 SBIRS。
+  - **UDKF**（UD 分解卡尔曼滤波）：❌ 不适用。UDKF 是协方差 UD 分解（数值稳定），不是无导数滤波，
+    对非线性量测无帮助；且 Joseph 形式已提供足够的数值稳定性。
+  仍不做：（1）多后端枚举——`enable_imm_tracking` 是 EKF↔IMM 二态开关，非通用多后端选择器。
+  （2）波门关联（多假设航迹关联）——需多目标同时跟踪场景。
 - **不做在线残差驱动的自动滤波后端切换**——后端选择由显式配置决定，保证 replay 可复现（与 AR §2.10
   一致）。可接受的"智能"形态为只读 NIS 诊断（由 `KalmanUpdateResult` 计算并落到 attribution/debug/replay）
   + 人工看报告改配置。
