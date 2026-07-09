@@ -1,25 +1,38 @@
-# Unity Build 配置
-# Unity Build 将多个源文件合并编译以加速构建
+# Unity Build helpers.
+# This file defines a target-level function; project targets opt in explicitly.
 
-if(ENABLE_UNITY_BUILD)
-    set(CMAKE_UNITY_BUILD ON)
-    
-    # Unity Build 批次大小：每批合并编译的源文件数量
-    # 较小值：减少单个编译单元体积，但合并效果降低
-    # 较大值：更激进的合并，但可能导致编译器内存占用过高
+function(oneq_apply_unity_build)
+    set(multi_value_args TARGETS)
+    cmake_parse_arguments(ARG "" "" "${multi_value_args}" ${ARGN})
+
+    if(NOT ENABLE_UNITY_BUILD)
+        message(STATUS "Unity Build: Disabled")
+        return()
+    endif()
+    if(NOT ARG_TARGETS)
+        message(FATAL_ERROR "oneq_apply_unity_build() requires TARGETS")
+    endif()
+
     if(NOT DEFINED CMAKE_UNITY_BUILD_BATCH_SIZE)
-        set(CMAKE_UNITY_BUILD_BATCH_SIZE 16 CACHE STRING 
+        set(CMAKE_UNITY_BUILD_BATCH_SIZE 16 CACHE STRING
             "Number of source files to combine in Unity Build")
     endif()
-    
+
+    foreach(_target IN LISTS ARG_TARGETS)
+        if(NOT TARGET "${_target}")
+            message(FATAL_ERROR "Unity Build target does not exist: ${_target}")
+        endif()
+        set_target_properties("${_target}" PROPERTIES
+            UNITY_BUILD ON
+            UNITY_BUILD_BATCH_SIZE "${CMAKE_UNITY_BUILD_BATCH_SIZE}")
+        if(MSVC)
+            target_compile_options("${_target}" PRIVATE /bigobj)
+        endif()
+    endforeach()
+
     message(STATUS "Unity Build: Enabled")
     message(STATUS "  └─ Batch size: ${CMAKE_UNITY_BUILD_BATCH_SIZE} files per unity")
-    
-    # MSVC 需要 /bigobj 处理大型对象文件
     if(MSVC)
-        add_compile_options(/bigobj)
-        message(STATUS "  └─ Added /bigobj flag for MSVC")
+        message(STATUS "  └─ Added /bigobj flag for MSVC targets")
     endif()
-else()
-    message(STATUS "Unity Build: Disabled")
-endif()
+endfunction()

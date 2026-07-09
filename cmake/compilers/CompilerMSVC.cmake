@@ -1,117 +1,127 @@
-# MSVC 编译器配置 (Visual Studio, ClangCL)
-# 本文件包含所有 MSVC 特定的编译和链接选项
+# MSVC compiler option helpers.
+# This file defines functions only; project targets opt in explicitly.
 
-if(NOT MSVC)
-    message(FATAL_ERROR "This file should only be included when using MSVC compiler")
-endif()
+function(oneq_apply_msvc_options)
+    set(one_value_args ENABLE_WARNINGS STACK_SIZE_OPTION)
+    set(multi_value_args TARGETS LINK_TARGETS)
+    cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-message(STATUS "Configuring for MSVC compiler")
-message(STATUS "  └─ Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+    if(NOT MSVC)
+        message(FATAL_ERROR "oneq_apply_msvc_options() requires an MSVC compiler")
+    endif()
+    if(NOT ARG_TARGETS)
+        message(FATAL_ERROR "oneq_apply_msvc_options() requires TARGETS")
+    endif()
+    if(NOT DEFINED ARG_STACK_SIZE_OPTION OR ARG_STACK_SIZE_OPTION STREQUAL "")
+        set(ARG_STACK_SIZE_OPTION "DEFAULT")
+    endif()
+    if(NOT ARG_LINK_TARGETS)
+        set(ARG_LINK_TARGETS ${ARG_TARGETS})
+    endif()
 
-# 栈大小设置（通过链接器标志）
-if(STACK_SIZE_OPTION STREQUAL "DEFAULT")
-    message(STATUS "  Stack size: Using system default (1MB)")
-elseif(STACK_SIZE_OPTION STREQUAL "RECOMMENDED")
-    add_link_options(/STACK:2097152)  # 2MB
-    message(STATUS "  Stack size: 2MB (Recommended)")
-elseif(STACK_SIZE_OPTION STREQUAL "LARGE_PROJECT")
-    add_link_options(/STACK:4194304)  # 4MB
-    message(STATUS "  Stack size: 4MB (Large Project)")
-elseif(STACK_SIZE_OPTION STREQUAL "EXTREME_RECURSION")
-    add_link_options(/STACK:8388608)  # 8MB
-    message(STATUS "  Stack size: 8MB (Extreme Recursion)")
-endif()
+    message(STATUS "Configuring for MSVC compiler")
+    message(STATUS "  └─ Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
-# 通用编译选项
-set(ONEQ_MSVC_COMMON_COMPILE_OPTIONS
-    /MP
-    /Zc:inline
-)
+    set(_msvc_common_compile_options /MP /Zc:inline)
+    if(MSVC_VERSION GREATER_EQUAL 1910)
+        list(APPEND _msvc_common_compile_options
+            /utf-8
+            /permissive-
+            /Zc:referenceBinding)
+    else()
+        message(STATUS "  Legacy MSVC mode: skipping /utf-8 /permissive- /Zc:referenceBinding for VS2015 compatibility")
+    endif()
 
-# VS2017+ 引入了新的编译器选项，启用更严格的标准兼容性和更好的 UTF-8 支持
-if(MSVC_VERSION GREATER_EQUAL 1910)
-    list(APPEND ONEQ_MSVC_COMMON_COMPILE_OPTIONS
-        /utf-8
-        /permissive-
-        /Zc:referenceBinding
-    )
-else()
-    message(STATUS "  Legacy MSVC mode: skipping /utf-8 /permissive- /Zc:referenceBinding for VS2015 compatibility")
-endif()
+    foreach(_target IN LISTS ARG_TARGETS)
+        if(NOT TARGET "${_target}")
+            message(FATAL_ERROR "Compiler target does not exist: ${_target}")
+        endif()
+        target_compile_options("${_target}" PRIVATE ${_msvc_common_compile_options})
+        if(ARG_ENABLE_WARNINGS)
+            target_compile_options("${_target}" PRIVATE
+                /W4
+                /WX-
+                /w14242
+                /w14254
+                /w14263
+                /w14265
+                /w14287
+                /we4289
+                /w14296
+                /w14311
+                /w14545
+                /w14546
+                /w14547
+                /w14549
+                /w14555
+                /w14619
+                /w14640
+                /w14826
+                /w14905
+                /w14906
+                /w14928)
+        else()
+            target_compile_options("${_target}" PRIVATE /W3)
+        endif()
 
-add_compile_options(${ONEQ_MSVC_COMMON_COMPILE_OPTIONS})
+        target_compile_options("${_target}" PRIVATE
+            $<$<CONFIG:Debug>:/Z7>
+            $<$<CONFIG:Debug>:/Od>
+            $<$<CONFIG:Debug>:/RTC1>
+            $<$<AND:$<CONFIG:Debug>,$<VERSION_GREATER_EQUAL:${MSVC_VERSION},1910>>:/JMC>
+            $<$<CONFIG:Release>:/Od>
+            $<$<CONFIG:Release>:/Ot>
+            $<$<CONFIG:Release>:/Ob2>
+            $<$<CONFIG:Release>:/Oi>
+            $<$<CONFIG:Release>:/Gy>
+            $<$<CONFIG:Release>:/GS->
+            $<$<CONFIG:Release>:/Z7>
+            $<$<CONFIG:RelWithDebInfo>:/O2>
+            $<$<CONFIG:RelWithDebInfo>:/Ob2>
+            $<$<CONFIG:RelWithDebInfo>:/Oi>
+            $<$<CONFIG:RelWithDebInfo>:/Z7>
+            $<$<CONFIG:MinSizeRel>:/O1>
+            $<$<CONFIG:MinSizeRel>:/Os>)
+    endforeach()
 
-# 警告配置
-if(ENABLE_WARNINGS)
-    add_compile_options(
-        /W4                     # 最高警告级别
-        /WX-                    # 警告不视为错误（可改为 /WX 严格模式）
-        /w14242                 # 类型转换可能丢失数据
-        /w14254                 # 位域类型不同
-        /w14263                 # 成员函数不覆盖任何基类虚函数
-        /w14265                 # 类有虚函数但析构函数非虚
-        /w14287                 # 无符号/负常量不匹配
-        /we4289                 # 使用非标准扩展（循环变量）
-        /w14296                 # 表达式始终为真/假
-        /w14311                 # 指针截断
-        /w14545                 # 逗号前的表达式为无效函数
-        /w14546                 # 逗号前缺少参数列表
-        /w14547                 # 逗号前的运算符无效
-        /w14549                 # 逗号前的运算符无效
-        /w14555                 # 表达式无效
-        /w14619                 # 编译指示警告编号无效
-        /w14640                 # 线程安全静态成员初始化
-        /w14826                 # 从窄类型转换为宽类型（性能）
-        /w14905                 # 宽字符串字面值强制转换
-        /w14906                 # 字符串字面值强制转换
-        /w14928                 # 非法的复制初始化
-    )
-    message(STATUS "  Warnings: Enhanced (/W4 + additional checks)")
-else()
-    add_compile_options(/W3)
-    message(STATUS "  Warnings: Standard (/W3)")
-endif()
+    foreach(_target IN LISTS ARG_LINK_TARGETS)
+        if(NOT TARGET "${_target}")
+            message(FATAL_ERROR "Compiler link target does not exist: ${_target}")
+        endif()
+        if(ARG_STACK_SIZE_OPTION STREQUAL "RECOMMENDED")
+            target_link_options("${_target}" PRIVATE /STACK:2097152)
+        elseif(ARG_STACK_SIZE_OPTION STREQUAL "LARGE_PROJECT")
+            target_link_options("${_target}" PRIVATE /STACK:4194304)
+        elseif(ARG_STACK_SIZE_OPTION STREQUAL "EXTREME_RECURSION")
+            target_link_options("${_target}" PRIVATE /STACK:8388608)
+        endif()
 
-# Debug 模式配置
-add_compile_options($<$<CONFIG:Debug>:/Z7>)        # 调试信息嵌入对象文件（分发友好）
-add_compile_options($<$<CONFIG:Debug>:/Od>)        # 禁用优化
-add_compile_options($<$<CONFIG:Debug>:/RTC1>)      # 运行时错误检查
+        target_link_options("${_target}" PRIVATE
+            $<$<CONFIG:Debug>:/DEBUG:FULL>
+            $<$<CONFIG:Debug>:/INCREMENTAL>
+            $<$<CONFIG:Release>:/DEBUG:FULL>
+            $<$<CONFIG:Release>:/INCREMENTAL:NO>
+            $<$<CONFIG:RelWithDebInfo>:/DEBUG:FULL>
+            $<$<CONFIG:RelWithDebInfo>:/OPT:REF>
+            $<$<CONFIG:RelWithDebInfo>:/OPT:ICF>
+            $<$<CONFIG:RelWithDebInfo>:/INCREMENTAL:NO>
+            $<$<CONFIG:MinSizeRel>:/OPT:REF>
+            $<$<CONFIG:MinSizeRel>:/OPT:ICF>)
+    endforeach()
 
-# VS2017+ 支持 /JMC（Just My Code）选项，增强调试体验
-if(MSVC_VERSION GREATER_EQUAL 1910)
-    add_compile_options($<$<CONFIG:Debug>:/JMC>)
-endif()
-add_link_options($<$<CONFIG:Debug>:/DEBUG:FULL>)   # 完整调试信息
-add_link_options($<$<CONFIG:Debug>:/INCREMENTAL>)  # 增量链接
+    if(ARG_STACK_SIZE_OPTION STREQUAL "DEFAULT")
+        message(STATUS "  └─ Stack size: Using system default (1MB)")
+    elseif(ARG_STACK_SIZE_OPTION STREQUAL "RECOMMENDED")
+        message(STATUS "  └─ Stack size: 2MB (Recommended)")
+    elseif(ARG_STACK_SIZE_OPTION STREQUAL "LARGE_PROJECT")
+        message(STATUS "  └─ Stack size: 4MB (Large Project)")
+    elseif(ARG_STACK_SIZE_OPTION STREQUAL "EXTREME_RECURSION")
+        message(STATUS "  └─ Stack size: 8MB (Extreme Recursion)")
+    endif()
 
-# Release 模式配置（最大性能）
-add_compile_options($<$<CONFIG:Release>:/Od>)      # 最大速度优化
-add_compile_options($<$<CONFIG:Release>:/Ot>)      # 倾向速度而非大小
-add_compile_options($<$<CONFIG:Release>:/Ob2>)     # 内联展开
-add_compile_options($<$<CONFIG:Release>:/Oi>)      # 内置函数
-# add_compile_options($<$<CONFIG:Release>:/GL>)      # 全程序优化
-add_compile_options($<$<CONFIG:Release>:/Gy>)      # 函数级链接
-add_compile_options($<$<CONFIG:Release>:/GS->)     # 禁用缓冲区安全检查（性能）
-# 项目特殊性：Release 同样生成调试文件，便于线上问题定位
-add_compile_options($<$<CONFIG:Release>:/Z7>)      # 调试信息嵌入对象文件（分发友好）
-add_link_options($<$<CONFIG:Release>:/DEBUG:FULL>) # 生成完整 PDB 调试文件
-# add_link_options($<$<CONFIG:Release>:/LTCG>)       # 链接时代码生成
-# add_link_options($<$<CONFIG:Release>:/OPT:REF>)    # 移除未引用函数
-# add_link_options($<$<CONFIG:Release>:/OPT:ICF>)    # 合并相同函数
-add_link_options($<$<CONFIG:Release>:/INCREMENTAL:NO>)  # 禁用增量链接
-
-# RelWithDebInfo 模式配置（性能 + 调试）
-add_compile_options($<$<CONFIG:RelWithDebInfo>:/O2>)   # 速度优化
-add_compile_options($<$<CONFIG:RelWithDebInfo>:/Ob2>)  # 内联展开
-add_compile_options($<$<CONFIG:RelWithDebInfo>:/Oi>)   # 内置函数
-add_compile_options($<$<CONFIG:RelWithDebInfo>:/Z7>)   # 调试信息嵌入对象文件（分发友好）
-add_link_options($<$<CONFIG:RelWithDebInfo>:/DEBUG:FULL>)
-add_link_options($<$<CONFIG:RelWithDebInfo>:/OPT:REF>)
-add_link_options($<$<CONFIG:RelWithDebInfo>:/OPT:ICF>)
-add_link_options($<$<CONFIG:RelWithDebInfo>:/INCREMENTAL:NO>)
-
-# MinSizeRel 模式配置（最小体积）
-add_compile_options($<$<CONFIG:MinSizeRel>:/O1>)       # 最小体积优化
-add_compile_options($<$<CONFIG:MinSizeRel>:/Os>)       # 倾向体积
-add_link_options($<$<CONFIG:MinSizeRel>:/OPT:REF>)
-add_link_options($<$<CONFIG:MinSizeRel>:/OPT:ICF>)
+    if(ARG_ENABLE_WARNINGS)
+        message(STATUS "  └─ Warnings: Enhanced (/W4 + additional checks)")
+    else()
+        message(STATUS "  └─ Warnings: Standard (/W3)")
+    endif()
+endfunction()

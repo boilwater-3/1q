@@ -148,18 +148,7 @@ oneq_setup_flatc()
 # ${ONEQ_FLATBUFFERS_GENERATED_DIR}/<sensor>/session/generated/，以支持
 # Style-2 include（#include "<sensor>/session/generated/<name>_generated.h"）。
 # 条目格式："schema.fbs:sensor_subdir:object_target"
-set(ONEQ_FLATBUFFERS_SCHEMAS
-    "sar_replay.fbs:sar:sar_core"
-    "sar_session_replay.fbs:sar:sar_core"
-    "eos_replay.fbs:electro_optical_sensor:eos_core"
-    "eos_session_replay.fbs:electro_optical_sensor:eos_core"
-    "esr_replay.fbs:electronic_surveillance_radar:esr_core"
-    "esr_session_replay.fbs:electronic_surveillance_radar:esr_core"
-    "airborne_radar_replay.fbs:airborne_radar:airborne_core"
-    "airborne_radar_session_replay.fbs:airborne_radar:airborne_core"
-    "sbirs_replay.fbs:sbirs_sensor:sbirs_core"
-    "sbirs_session_replay.fbs:sbirs_sensor:sbirs_core"
-)
+include(${CMAKE_SOURCE_DIR}/cmake/project/ReplaySchemas.cmake)
 
 set(ONEQ_FLATBUFFERS_GENERATED_HEADERS)
 foreach(_fb_entry IN LISTS ONEQ_FLATBUFFERS_SCHEMAS)
@@ -209,43 +198,8 @@ endif()
 # --- 目标属性 ---
 include(${CMAKE_SOURCE_DIR}/cmake/project/TargetProperties.cmake)
 
-# --- PCH ---
-if(ENABLE_PCH)
-    set(ONEQ_PCH_HEADERS
-        <vector>
-        <string>
-        <array>
-        <deque>
-        <list>
-        <map>
-        <set>
-        <unordered_map>
-        <unordered_set>
-        <memory>
-        <algorithm>
-        <numeric>
-        <utility>
-        <functional>
-        <tuple>
-        <sstream>
-        <cmath>
-        <cstdint>
-        <cstring>
-        <chrono>
-    )
-    if(CMAKE_CXX_STANDARD GREATER_EQUAL 17)
-        list(APPEND ONEQ_PCH_HEADERS
-            <optional>
-            <variant>
-        )
-    endif()
-    target_precompile_headers(${PROJECT_CORE_TARGET} PRIVATE ${ONEQ_PCH_HEADERS})
-    foreach(ONEQ_OBJECT_TARGET IN LISTS ONEQ_OBJECT_TARGETS)
-        target_precompile_headers(${ONEQ_OBJECT_TARGET} PRIVATE ${ONEQ_PCH_HEADERS})
-    endforeach()
-    unset(ONEQ_OBJECT_TARGET)
-    unset(ONEQ_PCH_HEADERS)
-endif()
+# --- Target-scoped build options ---
+include(${CMAKE_SOURCE_DIR}/cmake/project/TargetBuildOptions.cmake)
 
 # --- 安装 ---
 include(${CMAKE_SOURCE_DIR}/cmake/project/ProjectInstall.cmake)

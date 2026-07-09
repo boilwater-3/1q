@@ -94,11 +94,11 @@ include(cmake/project/ProjectOptions.cmake)
 # 构建特性配置
 include(cmake/features/FeatureUnityBuild.cmake)
 include(cmake/features/FeatureCCache.cmake)
-include(cmake/features/FeaturePrecompiledHeaders.cmake)
 include(cmake/features/FeatureClangTidy.cmake)
 include(cmake/features/FeatureClangFormat.cmake)
 include(cmake/features/FeatureCoverage.cmake)
 include(cmake/project/FeatureFlatBuffers.cmake)
+include(cmake/project/TargetPrecompiledHeaders.cmake)
 
 # 编译器特定配置
 if(MSVC)
@@ -106,9 +106,6 @@ if(MSVC)
 else()
     include(cmake/compilers/CompilerClangGCC.cmake)
 endif()
-
-# 包管理器配置（延迟到 target 创建之后）
-# 见下方 add_subdirectory(src) 之后的包含
 
 # 输出目录配置
 if(isMultiConfig)
@@ -162,18 +159,13 @@ message(STATUS "  └─ Coverage: ${ENABLE_COVERAGE}")
 message(STATUS "  └─ Install support: ${ENABLE_INSTALL}")
 
 # VS2015 行尾兼容处理
-include(cmake/project/EnsureCRLF.cmake)
+include(cmake/project/legacy/Vs2015SourceNormalization.cmake)
 
 # 子目录包含
 if(EXISTS "${CMAKE_SOURCE_DIR}/src/CMakeLists.txt")
     add_subdirectory(src)
 else()
     message(FATAL_ERROR "Required module missing: ${CMAKE_SOURCE_DIR}/src/CMakeLists.txt")
-endif()
-
-# 包管理器配置（必须在 target 创建之后）
-if(PACKAGE_MANAGER STREQUAL "conan")
-    include(cmake/packaging/PackageManagerConan.cmake)
 endif()
 
 if(ENABLE_TESTING AND EXISTS "${CMAKE_SOURCE_DIR}/tests/CMakeLists.txt")

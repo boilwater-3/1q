@@ -1,110 +1,124 @@
-# GCC/Clang 编译器配置
-# 本文件包含所有 GCC 和 Clang 特定的编译和链接选项
+# GCC/Clang compiler option helpers.
+# This file defines functions only; project targets opt in explicitly.
 
-if(MSVC)
-    message(FATAL_ERROR "This file should only be included when using GCC/Clang compiler")
-endif()
+function(oneq_apply_clang_gcc_options)
+    set(one_value_args ENABLE_WARNINGS STACK_SIZE_OPTION)
+    set(multi_value_args TARGETS LINK_TARGETS)
+    cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-message(STATUS "Configuring for GCC/Clang compiler")
-message(STATUS "  └─ Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+    if(MSVC)
+        message(FATAL_ERROR "oneq_apply_clang_gcc_options() requires a GCC/Clang compiler")
+    endif()
+    if(NOT ARG_TARGETS)
+        message(FATAL_ERROR "oneq_apply_clang_gcc_options() requires TARGETS")
+    endif()
+    if(NOT DEFINED ARG_STACK_SIZE_OPTION OR ARG_STACK_SIZE_OPTION STREQUAL "")
+        set(ARG_STACK_SIZE_OPTION "DEFAULT")
+    endif()
+    if(NOT ARG_LINK_TARGETS)
+        set(ARG_LINK_TARGETS ${ARG_TARGETS})
+    endif()
 
-# 栈大小设置（通过链接器标志）
-# 注意：macOS 不支持标准的栈大小设置，仅在 Linux 上生效
-if(NOT APPLE)
-    if(STACK_SIZE_OPTION STREQUAL "DEFAULT")
+    message(STATUS "Configuring for GCC/Clang compiler")
+    message(STATUS "  └─ Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+
+    foreach(_target IN LISTS ARG_TARGETS)
+        if(NOT TARGET "${_target}")
+            message(FATAL_ERROR "Compiler target does not exist: ${_target}")
+        endif()
+        set_target_properties("${_target}" PROPERTIES POSITION_INDEPENDENT_CODE ON)
+        target_compile_options("${_target}" PRIVATE -fvisibility=hidden)
+
+        if(ARG_ENABLE_WARNINGS)
+            target_compile_options("${_target}" PRIVATE
+                -Wall
+                -Wextra
+                -Wpedantic
+                -Wshadow
+                -Wnon-virtual-dtor
+                -Wold-style-cast
+                -Wcast-align
+                -Wunused
+                -Woverloaded-virtual
+                -Wconversion
+                -Wsign-conversion
+                -Wdouble-promotion
+                -Wformat=2
+                -Wimplicit-fallthrough)
+            if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+                target_compile_options("${_target}" PRIVATE
+                    -Wmisleading-indentation
+                    -Wduplicated-cond
+                    -Wduplicated-branches
+                    -Wlogical-op
+                    -Wnull-dereference
+                    -Wuseless-cast)
+            endif()
+        else()
+            target_compile_options("${_target}" PRIVATE -Wall)
+        endif()
+
+        target_compile_options("${_target}" PRIVATE
+            $<$<CONFIG:Debug>:-g3>
+            $<$<CONFIG:Debug>:-O0>
+            $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+            $<$<CONFIG:Debug>:-fno-inline>
+            $<$<CONFIG:Release>:-O3>
+            $<$<CONFIG:Release>:-DNDEBUG>
+            $<$<CONFIG:Release>:-flto>
+            $<$<CONFIG:Release>:-fomit-frame-pointer>
+            $<$<CONFIG:RelWithDebInfo>:-O2>
+            $<$<CONFIG:RelWithDebInfo>:-g>
+            $<$<CONFIG:RelWithDebInfo>:-DNDEBUG>
+            $<$<CONFIG:RelWithDebInfo>:-fno-omit-frame-pointer>
+            $<$<CONFIG:MinSizeRel>:-Os>
+            $<$<CONFIG:MinSizeRel>:-DNDEBUG>
+            $<$<CONFIG:MinSizeRel>:-flto>)
+    endforeach()
+
+    foreach(_target IN LISTS ARG_LINK_TARGETS)
+        if(NOT TARGET "${_target}")
+            message(FATAL_ERROR "Compiler link target does not exist: ${_target}")
+        endif()
+        if(NOT APPLE)
+            if(ARG_STACK_SIZE_OPTION STREQUAL "RECOMMENDED")
+                target_link_options("${_target}" PRIVATE -Wl,-z,stack-size=2097152)
+            elseif(ARG_STACK_SIZE_OPTION STREQUAL "LARGE_PROJECT")
+                target_link_options("${_target}" PRIVATE -Wl,-z,stack-size=4194304)
+            elseif(ARG_STACK_SIZE_OPTION STREQUAL "EXTREME_RECURSION")
+                target_link_options("${_target}" PRIVATE -Wl,-z,stack-size=8388608)
+            endif()
+        endif()
+
+        target_link_options("${_target}" PRIVATE
+            $<$<CONFIG:Release>:-flto>
+            $<$<CONFIG:MinSizeRel>:-flto>)
+        if(APPLE)
+            target_link_options("${_target}" PRIVATE
+                $<$<CONFIG:Release>:-Wl,-dead_strip>
+                $<$<CONFIG:MinSizeRel>:-Wl,-dead_strip>)
+        else()
+            target_link_options("${_target}" PRIVATE
+                $<$<CONFIG:Release>:-Wl,--gc-sections>
+                $<$<CONFIG:MinSizeRel>:-Wl,--gc-sections>)
+        endif()
+    endforeach()
+
+    if(APPLE)
+        message(STATUS "  └─ Stack size: macOS uses system default (adjustable via ulimit)")
+    elseif(ARG_STACK_SIZE_OPTION STREQUAL "DEFAULT")
         message(STATUS "  └─ Stack size: Using system default")
-    elseif(STACK_SIZE_OPTION STREQUAL "RECOMMENDED")
-        add_link_options(-Wl,-z,stack-size=2097152)    # 2MB
+    elseif(ARG_STACK_SIZE_OPTION STREQUAL "RECOMMENDED")
         message(STATUS "  └─ Stack size: 2MB (Recommended)")
-    elseif(STACK_SIZE_OPTION STREQUAL "LARGE_PROJECT")
-        add_link_options(-Wl,-z,stack-size=4194304)    # 4MB
+    elseif(ARG_STACK_SIZE_OPTION STREQUAL "LARGE_PROJECT")
         message(STATUS "  └─ Stack size: 4MB (Large Project)")
-    elseif(STACK_SIZE_OPTION STREQUAL "EXTREME_RECURSION")
-        add_link_options(-Wl,-z,stack-size=8388608)    # 8MB
+    elseif(ARG_STACK_SIZE_OPTION STREQUAL "EXTREME_RECURSION")
         message(STATUS "  └─ Stack size: 8MB (Extreme Recursion)")
     endif()
-else()
-    message(STATUS "  └─ Stack size: macOS uses system default (adjustable via ulimit)")
-endif()
 
-# 通用编译选项
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)  # 位置无关代码
-add_compile_options(
-    -fvisibility=hidden     # 默认隐藏符号
-)
-
-# 警告配置
-if(ENABLE_WARNINGS)
-    add_compile_options(
-        -Wall                   # 所有常见警告
-        -Wextra                 # 额外警告
-        -Wpedantic              # 严格标准一致性
-        -Wshadow                # 变量遮蔽
-        -Wnon-virtual-dtor      # 非虚析构函数
-        -Wold-style-cast        # C 风格类型转换
-        -Wcast-align            # 指针对齐转换
-        -Wunused                # 未使用的变量/函数
-        -Woverloaded-virtual    # 虚函数遮蔽
-        -Wconversion            # 隐式类型转换
-        -Wsign-conversion       # 符号转换
-        -Wdouble-promotion      # float提升为double
-        -Wformat=2              # printf格式字符串检查
-        -Wimplicit-fallthrough  # switch缺少break
-    )
-    
-    # GCC 特有警告
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        add_compile_options(
-            -Wmisleading-indentation    # 误导性缩进
-            -Wduplicated-cond           # 重复条件
-            -Wduplicated-branches       # 重复分支
-            -Wlogical-op                # 逻辑运算符误用
-            -Wnull-dereference          # 空指针解引用
-            -Wuseless-cast              # 无用的类型转换
-        )
+    if(ARG_ENABLE_WARNINGS)
+        message(STATUS "  └─ Warnings: Enhanced (-Wall -Wextra + additional)")
+    else()
+        message(STATUS "  └─ Warnings: Standard (-Wall)")
     endif()
-    
-    message(STATUS "  └─ Warnings: Enhanced (-Wall -Wextra + additional)")
-else()
-    add_compile_options(-Wall)
-    message(STATUS "  └─ Warnings: Standard (-Wall)")
-endif()
-
-# Debug 模式配置
-add_compile_options($<$<CONFIG:Debug>:-g3>)        # 最详细调试信息
-add_compile_options($<$<CONFIG:Debug>:-O0>)        # 禁用优化
-add_compile_options($<$<CONFIG:Debug>:-fno-omit-frame-pointer>)  # 保留帧指针
-add_compile_options($<$<CONFIG:Debug>:-fno-inline>)              # 禁用内联
-
-# Release 模式配置
-add_compile_options($<$<CONFIG:Release>:-O3>)      # 最大优化
-add_compile_options($<$<CONFIG:Release>:-DNDEBUG>) # 禁用断言
-add_compile_options($<$<CONFIG:Release>:-flto>)    # 链接时优化（LTO）
-add_compile_options($<$<CONFIG:Release>:-fomit-frame-pointer>)  # 省略帧指针
-add_link_options($<$<CONFIG:Release>:-flto>)       # LTO链接
-
-# macOS
-if(APPLE)
-    add_link_options($<$<CONFIG:Release>:-Wl,-dead_strip>)  # macOS: 移除未使用符号
-else()
-    add_link_options($<$<CONFIG:Release>:-Wl,--gc-sections>)  # Linux: 移除未使用节
-endif()
-
-# RelWithDebInfo 模式配置
-add_compile_options($<$<CONFIG:RelWithDebInfo>:-O2>)       # 平衡优化
-add_compile_options($<$<CONFIG:RelWithDebInfo>:-g>)        # 调试信息
-add_compile_options($<$<CONFIG:RelWithDebInfo>:-DNDEBUG>)  # 禁用断言
-add_compile_options($<$<CONFIG:RelWithDebInfo>:-fno-omit-frame-pointer>)
-
-# MinSizeRel 模式配置
-add_compile_options($<$<CONFIG:MinSizeRel>:-Os>)       # 体积优化
-add_compile_options($<$<CONFIG:MinSizeRel>:-DNDEBUG>)  # 禁用断言
-add_compile_options($<$<CONFIG:MinSizeRel>:-flto>)     # LTO
-add_link_options($<$<CONFIG:MinSizeRel>:-flto>)
-
-# macOS
-if(APPLE)
-    add_link_options($<$<CONFIG:MinSizeRel>:-Wl,-dead_strip>)
-else()
-    add_link_options($<$<CONFIG:MinSizeRel>:-Wl,--gc-sections>)
-endif()
+endfunction()
