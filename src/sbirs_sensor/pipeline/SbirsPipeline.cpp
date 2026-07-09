@@ -64,30 +64,20 @@ float ComputeNormalizedInnovationSquared(
   return update_result.innovation.dot(solved);
 }
 
-struct Candidate {
-  const session::SbirsSceneTarget* target{nullptr};
-  float azimuth_deg{0.0f};
-  float elevation_deg{0.0f};
-  float predicted_azimuth_deg{0.0f};   // cue 延迟外推后的真值方位角（无速度时等同 azimuth_deg）
-  float predicted_elevation_deg{0.0f};  // cue 延迟外推后的真值俯仰角（无速度时等同 elevation_deg）
-  float measured_azimuth_deg{0.0f};
-  float measured_elevation_deg{0.0f};
-  double range_m{0.0};        // 真值距离（调度优先级用）
-  double measured_range_m{0.0};  // 带误差距离（NFOV cue 与 attribution 诊断用）
-  double snr{0.0};
-};
-
 }  // namespace
 
 SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
     : config_(config),
       scan_azimuth_deg_(config.session.mission.scan_start_az_deg),
+      nfov_scheduler_(config.session.policy.scheduler.max_concurrent_nfov_locks),
       random_source_(config.session.policy.error_model.random_seed) {}
 
 void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& config) {
   config_ = config;
   // 配置变更后重置随机源种子，保证 runtime patch 后的 replay 可复现。
   random_source_ = foundation::SbirsRandomSource(config.session.policy.error_model.random_seed);
+  // 同步调度器通道上限；运行期 patch 改变通道数后清空既有分配，避免越界。
+  nfov_scheduler_ = SbirsNfovScheduler(config.session.policy.scheduler.max_concurrent_nfov_locks);
 }
 
 SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& input) {
@@ -103,8 +93,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     nis_gate_exceeded_counts_.clear();
     imm_snapshots_.clear();
     imm_initialized_ = false;
-    has_locked_target_ = false;
-    locked_target_id_ = 0U;
+    nfov_scheduler_.Clear();
     result.scan_azimuth_deg = scan_azimuth_deg_;
     return result;
   }
@@ -117,14 +106,12 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   result.scan_azimuth_deg = scan_azimuth_deg_;
 
   const float transmittance = environment::ResolveEffectiveTransmittance(environment_config);
-  std::vector<Candidate> candidates;
+  std::vector<SbirsCandidate> candidates;
 
   for (const session::SbirsSceneTarget& target : input.scene) {
     if (!target.active) {
       target_states_[target.target_id] = SbirsTargetState::kLost;
-      if (has_locked_target_ && locked_target_id_ == target.target_id) {
-        has_locked_target_ = false;
-      }
+      nfov_scheduler_.Release(target.target_id);
       filter_states_.erase(target.target_id);  // 释放滤波状态
       nis_gate_exceeded_counts_.erase(target.target_id);
       imm_snapshots_.erase(target.target_id);
@@ -162,7 +149,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
     const SbirsTargetState state = target_states_[target.target_id];
     const bool is_locked =
-        has_locked_target_ && locked_target_id_ == target.target_id &&
+        nfov_scheduler_.IsLocked(target.target_id) &&
         (state == SbirsTargetState::kTruthAssistedTracking ||
          state == SbirsTargetState::kEstimatedTracking);
     if (is_locked) {
@@ -277,6 +264,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.target_name = target.target_name;
       detection.attribution.estimated_range_m = static_cast<float>(range_m);
       detection.attribution.used_truth_assist = used_truth_assist;
+      detection.attribution.nfov_channel_id = nfov_scheduler_.ChannelOf(target.target_id);
       detection.attribution.has_estimation_nis = has_estimation_nis;
       detection.attribution.estimation_nis = estimation_nis;
       detection.attribution.estimation_nis_gate_exceeded = estimation_nis_gate_exceeded;
@@ -284,8 +272,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         detection.attribution.capture_failure_reason =
             attribution::SbirsCaptureFailureReason::kEstimationNisGateLost;
         target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
-        has_locked_target_ = false;
-        locked_target_id_ = 0U;
+        nfov_scheduler_.Release(target.target_id);
         filter_states_.erase(target.target_id);
         nis_gate_exceeded_counts_.erase(target.target_id);
         imm_snapshots_.erase(target.target_id);
@@ -299,7 +286,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       continue;
     }
 
-    Candidate candidate;
+    SbirsCandidate candidate;
     candidate.target = &target;
     candidate.azimuth_deg = azimuth_deg;
     candidate.elevation_deg = elevation_deg;
@@ -332,17 +319,11 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
   }
 
-  if (!has_locked_target_ && !candidates.empty()) {
-    std::sort(candidates.begin(), candidates.end(), [](const Candidate& lhs, const Candidate& rhs) {
-      if (lhs.snr != rhs.snr) {
-        return lhs.snr > rhs.snr;
-      }
-      if (lhs.range_m != rhs.range_m) {
-        return lhs.range_m < rhs.range_m;
-      }
-      return lhs.target->target_id < rhs.target->target_id;
-    });
-    Candidate& selected = candidates.front();
+  // 多通道调度：在并发上限内按 design 2.6 优先级选取候选进入首次捕获。
+  const std::vector<const SbirsCandidate*> selected_candidates =
+      nfov_scheduler_.SelectForAcquisition(candidates);
+  for (const SbirsCandidate* selected_ptr : selected_candidates) {
+    const SbirsCandidate& selected = *selected_ptr;
     target_states_[selected.target->target_id] = SbirsTargetState::kAwaitingNfovAcquisition;
     const float cue_az = selected.measured_azimuth_deg + mission.narrow_pointing_settle_error_deg;
     const float cue_el = selected.measured_elevation_deg;
@@ -352,8 +333,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                          cue_el, mission.narrow_field_fov_az_deg, mission.narrow_field_fov_el_deg);
     const bool captured = in_nfov && selected.snr >= policy.detection.narrow_min_snr_linear;
     if (captured) {
-      has_locked_target_ = true;
-      locked_target_id_ = selected.target->target_id;
+      const int channel_id = nfov_scheduler_.Acquire(selected.target->target_id);
       const bool use_estimated = policy.tracking.enable_estimated_tracking;
       target_states_[selected.target->target_id] =
           use_estimated ? SbirsTargetState::kEstimatedTracking : SbirsTargetState::kTruthAssistedTracking;
@@ -410,6 +390,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.target_name = selected.target->target_name;
       detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
       detection.attribution.used_truth_assist = !use_estimated;
+      detection.attribution.nfov_channel_id = channel_id;
       result.detections.push_back(detection);
     } else {
       target_states_[selected.target->target_id] = SbirsTargetState::kWideCandidate;
@@ -433,8 +414,11 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
   }
 
-  for (const Candidate& candidate : candidates) {
-    if (has_locked_target_ && locked_target_id_ == candidate.target->target_id) {
+  // 通道已满（无并发余量）时，未被选中的 WFOV 候选标记为调度跳过。
+  const bool resources_full =
+      static_cast<int>(nfov_scheduler_.LockedCount()) >= nfov_scheduler_.max_locks();
+  for (const SbirsCandidate& candidate : candidates) {
+    if (nfov_scheduler_.IsLocked(candidate.target->target_id)) {
       continue;
     }
     SbirsPipelineDetection detection;
@@ -450,7 +434,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
     detection.attribution.used_truth_assist = false;
     // 进入 WFOV 候选但未被调度器选中（资源被占用或排序靠后）：标记为调度跳过。
-    if (has_locked_target_) {
+    if (resources_full) {
       detection.attribution.capture_failure_reason =
           attribution::SbirsCaptureFailureReason::kSchedulerSkipped;
     }
@@ -511,8 +495,7 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   snapshot.scan_azimuth_deg = scan_azimuth_deg_;
   snapshot.next_detection_id = next_detection_id_;
   snapshot.target_states = target_states_;
-  snapshot.has_locked_target = has_locked_target_;
-  snapshot.locked_target_id = locked_target_id_;
+  snapshot.nfov_scheduler = nfov_scheduler_.Capture();
   snapshot.random_state = random_source_.Capture();
   snapshot.filter_states = filter_states_;
   snapshot.nis_gate_exceeded_counts = nis_gate_exceeded_counts_;
@@ -525,8 +508,7 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
   scan_azimuth_deg_ = snapshot.scan_azimuth_deg;
   next_detection_id_ = snapshot.next_detection_id;
   target_states_ = snapshot.target_states;
-  has_locked_target_ = snapshot.has_locked_target;
-  locked_target_id_ = snapshot.locked_target_id;
+  nfov_scheduler_.Restore(snapshot.nfov_scheduler);
   random_source_.Restore(snapshot.random_state);
   filter_states_ = snapshot.filter_states;
   nis_gate_exceeded_counts_ = snapshot.nis_gate_exceeded_counts;

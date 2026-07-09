@@ -51,7 +51,7 @@ table SbirsErrorModelConfig {
 }
 
 table SbirsSchedulerConfig {
-  single_narrow_resource: bool;
+  max_concurrent_nfov_locks: int32;
 }
 
 table SbirsTrackingConfig {

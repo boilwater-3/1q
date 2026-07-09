@@ -84,6 +84,7 @@ void FillObservationFields(const output::SbirsDetectionRecord& record,
   event->has_estimation_nis = attribution.has_estimation_nis;
   event->estimation_nis = attribution.estimation_nis;
   event->estimation_nis_gate_exceeded = attribution.estimation_nis_gate_exceeded;
+  event->nfov_channel_id = attribution.nfov_channel_id;
 }
 
 void FillAttributionFields(const attribution::SbirsDetectionAttributionRecord& attribution,
@@ -93,6 +94,7 @@ void FillAttributionFields(const attribution::SbirsDetectionAttributionRecord& a
   event->has_estimation_nis = attribution.has_estimation_nis;
   event->estimation_nis = attribution.estimation_nis;
   event->estimation_nis_gate_exceeded = attribution.estimation_nis_gate_exceeded;
+  event->nfov_channel_id = attribution.nfov_channel_id;
 }
 
 }  // namespace

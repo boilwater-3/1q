@@ -7,6 +7,7 @@ set(SBIRS_ENGINE_SOURCES
     sbirs_sensor/foundation/SbirsNoiseModel.cpp
     sbirs_sensor/environment/SbirsEnvironmentModel.cpp
     sbirs_sensor/pipeline/SbirsPipeline.cpp
+    sbirs_sensor/pipeline/SbirsNfovScheduler.cpp
 )
 
 set(SBIRS_CORE_SOURCES

@@ -39,10 +39,12 @@ struct ONEQ_API SbirsErrorModelConfig {
 
 /**
  * @brief NFOV 资源调度器配置。
- * @note 第一版采用单目标锁定策略，任一时刻至多一个目标占用 NFOV 资源。
+ * @note `max_concurrent_nfov_locks` 控制传感器上可同时凝视锁定不同目标的 NFOV 通道数。
+ *       默认 1 等价单目标锁定策略；>1 时支持多通道同时捕获与跟踪（design 2.6）。
+ *       取值必须 >= 1，由 `ValidateSbirsSessionConfig` 校验。
  */
 struct ONEQ_API SbirsSchedulerConfig {
-  bool single_narrow_resource{true}; /**< 是否启用单 NFOV 资源锁定 */
+  int max_concurrent_nfov_locks{1}; /**< 最大并发 NFOV 锁定通道数（>=1） */
 };
 
 /**

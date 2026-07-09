@@ -197,7 +197,7 @@ flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
           value.error_model.attitude_sigma_deg, value.error_model.fov_sigma_deg,
           value.error_model.detector_bandwidth_hz);
   const flatbuffers::Offset<sbirs::replay::SbirsSchedulerConfig> scheduler =
-      sbirs::replay::CreateSbirsSchedulerConfig(fbb, value.scheduler.single_narrow_resource);
+      sbirs::replay::CreateSbirsSchedulerConfig(fbb, value.scheduler.max_concurrent_nfov_locks);
   const auto imm_coeffs = fbb.CreateVector(value.tracking.imm_model_noise_diff_coeffs);
   const flatbuffers::Offset<sbirs::replay::SbirsTrackingConfig> tracking =
       sbirs::replay::CreateSbirsTrackingConfig(
@@ -227,7 +227,7 @@ void DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
     out->error_model.detector_bandwidth_hz = fb->error_model()->detector_bandwidth_hz();
   }
   if (fb->scheduler() != nullptr) {
-    out->scheduler.single_narrow_resource = fb->scheduler()->single_narrow_resource();
+    out->scheduler.max_concurrent_nfov_locks = fb->scheduler()->max_concurrent_nfov_locks();
   }
   if (fb->tracking() != nullptr) {
     out->tracking.enable_estimated_tracking = fb->tracking()->enable_estimated_tracking();
@@ -335,7 +335,7 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
         attribution.used_truth_assist,
         static_cast<std::int32_t>(attribution.capture_failure_reason),
         attribution.has_estimation_nis, attribution.estimation_nis,
-        attribution.estimation_nis_gate_exceeded));
+        attribution.estimation_nis_gate_exceeded, attribution.nfov_channel_id));
   }
 
   std::vector<flatbuffers::Offset<sbirs::replay::ValidationIssue>> issues;
@@ -382,6 +382,7 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
       record.has_estimation_nis = attr->has_estimation_nis();
       record.estimation_nis = attr->estimation_nis();
       record.estimation_nis_gate_exceeded = attr->estimation_nis_gate_exceeded();
+      record.nfov_channel_id = attr->nfov_channel_id();
       out->detection_attributions.push_back(record);
     }
   }

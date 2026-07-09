@@ -52,8 +52,8 @@ TEST(SbirsStateMachineTest, CaptureTransitionsTargetIntoEstimatedTrackingByDefau
   // 默认 enable_estimated_tracking=true → 捕获成功进入 kEstimatedTracking
   EXPECT_EQ(snapshot.target_states.at(42U),
             sbirs_sensor::pipeline::SbirsTargetState::kEstimatedTracking);
-  EXPECT_TRUE(snapshot.has_locked_target);
-  EXPECT_EQ(snapshot.locked_target_id, 42U);
+  ASSERT_EQ(snapshot.nfov_scheduler.target_to_channel.count(42U), 1U);
+  EXPECT_EQ(snapshot.nfov_scheduler.target_to_channel.at(42U), 0);
   // 滤波状态已初始化
   ASSERT_EQ(snapshot.filter_states.count(42U), 1U);
   EXPECT_TRUE(snapshot.filter_states.at(42U).mean.allFinite());

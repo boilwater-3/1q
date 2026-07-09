@@ -245,7 +245,7 @@ flowchart LR
   subgraph State["State machine / 状态机决策"]
     SM["Target state\n5 状态机"]
     Handoff["Handoff\n首次捕获判定"]
-    Sched["NFOV scheduler\n单目标锁定调度"]
+    Sched["NFOV scheduler\n多通道锁定调度"]
   end
 
   subgraph Nfov["NFOV channel / 窄视场通道"]
@@ -299,7 +299,7 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 | WFOV 误差模型 | `ApplyAngularErrorModel` | 对方位/俯仰/距离生成带误差 cue，供首次 NFOV 捕获使用 | internal 随机源可注入，public 不直接采样 | `sbirs_error_model_test` |
 | 目标状态机 | `SbirsTargetStateMachine` | 5 状态管理 WFOV 候选、首次捕获和真值辅助跟踪 | internal 状态机，debug view 可观测 | `sbirs_state_machine_test` |
 | NFOV 首次捕获 | `EvaluateNfovAcquisition` | 由 WFOV cue 生成凝视指向，真实 LOS 落入窗口且 NFOV SNR 达标时捕获 | internal 判定，不暴露捕获算法 SPI | `sbirs_pipeline_test` |
-| NFOV 资源调度 | `SbirsNfovScheduler::Select` | 单目标锁定，按已跟踪、SNR、距离、target id 排序 | internal scheduler，不暴露策略 SPI | `sbirs_scheduler_test` |
+| NFOV 资源调度 | `SbirsNfovScheduler::SelectForAcquisition` | 多通道并发锁定（`max_concurrent_nfov_locks`，默认 1），按已跟踪、SNR、距离、target id 排序并分配通道编号 | internal scheduler，不暴露策略 SPI | `sbirs_scheduler_test` |
 | 辐射传输与 SNR | `ComputePlanckRadiance`、`EvaluateRadiativeTransfer`、`ComputeInfraredSnrLinear` | 计算红外辐射、透过率、噪声和可探测性 | internal foundation，可测试但不可定制 | `sbirs_foundation_test`、`sbirs_radiative_transfer_test` |
 | 输出构造与仿真归属 | `SbirsCycleOutputAdapter` | 生成 1q 仿真传感器主输出、结构化 result、debug/lifecycle/replay | public 只消费 DTO，不混入 truth | `sbirs_cycle_output_builder_test` |
 
@@ -323,6 +323,10 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 | `Lost` | 目标从输入场景消失或传感器关闭 | 不输出 |
 
 捕获失败不是独立状态；失败转移回 `WideCandidate`，并清除本次交接上下文。
+
+`max_concurrent_nfov_locks > 1` 时，多个目标可同时处于 `AwaitingNfovAcquisition`、
+`TruthAssistedTracking` 或 `EstimatedTracking`，各占一个独立 NFOV 通道（见 §2.6）。
+默认值为 1 时退化为单目标锁定，状态机行为与旧版一致。
 
 状态转移：
 
@@ -350,7 +354,7 @@ stateDiagram-v2
 | 起点 → 终点 | 触发条件 | 周期内副作用 |
 |---|---|---|
 | `Undetected` → `WideCandidate` | 目标在本周期 WFOV 视场内，且 WFOV IR SNR ≥ WFOV 检测门限 | 记录 WFOV 带误差位置、SNR |
-| `WideCandidate` → `AwaitingNfovAcquisition` | NFOV 资源空闲且该目标在优先级排序中胜出（见 2.6） | 标记本周期为首次捕获目标 |
+| `WideCandidate` → `AwaitingNfovAcquisition` | 存在空闲 NFOV 通道（未达 `max_concurrent_nfov_locks` 上限）且该目标在优先级排序中胜出（见 2.6） | 标记本周期为首次捕获目标，分配 NFOV 通道编号 |
 | `AwaitingNfovAcquisition` → `TruthAssistedTracking` | 由 WFOV 带误差 cue 生成的 NFOV 指向窗口覆盖目标真实 LOS，且 NFOV IR SNR ≥ NFOV 捕获门限，并显式关闭滤波（`enable_estimated_tracking=false`） | 记录 NFOV 检测，进入真值辅助跟踪 |
 | `AwaitingNfovAcquisition` → `EstimatedTracking` | 同上捕获成功条件，且配置启用滤波测量跟踪（`enable_estimated_tracking=true`，见 §2.5.2） | 记录 NFOV 检测，进入滤波测量跟踪（初始化滤波状态） |
 | `AwaitingNfovAcquisition` → `WideCandidate` | 首次捕获条件不满足（窗口外或 SNR 不足） | 清除交接状态，目标回候选池 |
@@ -587,7 +591,7 @@ CV 模型在助推段会失配）；持续偏低→R 偏大。
 | 轨迹平滑 | EKF 后验角度作为第一层平滑 | `LockedTargetProducesEstimatedTrack`、NIS 基线矩阵 |
 | 丢锁/重捕获 | `nis_gate_loss_cycles` 确定性丢锁；失败诊断进 attribution/debug/lifecycle/replay | `ConsecutiveNisGateExceededReleasesEstimatedTrackLock`、`ReplayPreservesNisLossAndReacquisitionDiagnostics` |
 | 概率丢锁模型 | 暂不实现；需先标定 NIS/SNR/角速度到丢锁概率的映射 | NIS 矩阵证明可分离 CV、瞬时异常和持续失配 |
-| 波门关联 | 暂不实现；NFOV 是单目标锁定资源 | `MultipleWfovCandidatesSingleNfovLock` 与 §2.6 |
+| 波门关联 | 暂不实现；NFOV 已支持多通道并发锁定，但航迹关联仍需独立模型 | `MultipleWfovCandidatesMultiNfovLock` 与 §2.6 |
 | IMM | ✅ 已接线；`enable_imm_tracking` 控制，IMM(EKF×N) 全场景 RMSE 改善 28–55% | `SbirsImmEvaluationTest`、`ImmTrackingProducesFiniteState`、`ImmSupportsCaptureRestoreRoundtrip` |
 
 #### 2.5.5 验证入口汇总
@@ -602,23 +606,35 @@ CV 模型在助推段会失配）；持续偏低→R 偏大。
 
 ### 2.6 多目标优先级与 NFOV 资源调度
 
-第一版 NFOV 资源采用**单目标锁定策略**：任一时刻至多一个目标处于 `AwaitingNfovAcquisition`、
-`TruthAssistedTracking` 或 `EstimatedTracking`。
+NFOV 资源采用**多通道并发锁定策略**：传感器配置 `max_concurrent_nfov_locks`（`SbirsSchedulerConfig`，
+默认 1）个并发 NFOV 通道，每个通道可独立凝视锁定一个目标。默认值 1 退化为单目标锁定。
+任一时刻最多 `max_concurrent_nfov_locks` 个目标可同时处于 `AwaitingNfovAcquisition`、
+`TruthAssistedTracking` 或 `EstimatedTracking`，各占一个独立通道编号（`nfov_channel_id`）。
+
+通道编号分配与回收：
+
+- 新目标成功捕获时，由 `SbirsNfovScheduler::Acquire` 分配**最小可用编号**（从 0 起的空闲通道）。
+- 目标消失、NIS 丢锁或传感器进入 standby 时，`Release` 回收其通道，供后续目标复用。
+- 编号分配确定性：相同输入在 replay 中产生相同的目标→通道映射。
 
 优先级默认规则（调度器在多个 WFOV 候选中选目标进入首次捕获）：
 
-1. 已真值辅助跟踪目标优先级最高（持续占用 NFOV 资源，直到目标消失）。
+1. 已锁定（真值辅助/估计跟踪）目标优先级最高（持续占用各自通道，直到释放）。
 2. 新候选按 WFOV IR SNR 从高到低。
 3. SNR 相同按距离从近到远。
 4. 仍相同按 `target_id` 从小到大。
 
-已锁定目标消失后，NFOV 释放资源，调度器在剩余 `WideCandidate` 中按上述规则选下一个。
+调度器在通道有余量时，按上述规则从 `WideCandidate` 中选取至多
+`max_concurrent_nfov_locks - 已占用通道数` 个目标进入首次捕获。已锁定目标的候选不重复入选。
+通道满（无余量）时，未被选中的 WFOV 候选标记 `kSchedulerSkipped`。
 
 适用边界：
 
-- 第一版调度器只支持单 NFOV 资源；多凝视资源、多区域同时重访和任务化排程不在当前范围。
-- 优先级排序必须稳定，避免相同输入在 replay 中产生不同捕获目标。
+- 多区域同时重访和任务化排程不在当前范围（仍是单 WFOV 扫描 + 多 NFOV 凝视）。
+- 优先级排序必须稳定，避免相同输入在 replay 中产生不同捕获目标与通道分配。
 - 调度器不读取仿真目标名称，只使用状态、SNR、距离和 `target_id`。
+- `nfov_channel_id` 仅进 attribution 调试层（`SbirsDetectionAttributionRecord`、
+  lifecycle 事件、debug view），不进 `SbirsOutputFrame` raw output（见 §3 输出边界）。
 
 验证入口：
 
@@ -880,8 +896,9 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
   第一版按 `target_id` 独立维护状态机，不做像素级聚类。理由：聚类针对图像级检测点，第一版的
   目标来自输入场景的显式目标列表。
 
-- **多 NFOV 通道同时锁定**——第一版 NFOV 资源采用单目标锁定策略（2.6）。理由：多通道同时跟踪
-  需要独立的 NFOV 资源模型和调度器，第一版先用单目标验证状态机和交接语义。
+- **多 NFOV 通道同时锁定**——现已支持（见 §2.6）。`SbirsSchedulerConfig.max_concurrent_nfov_locks`
+  控制并发 NFOV 通道数（默认 1）。`SbirsNfovScheduler` 管理通道分配与回收，`nfov_channel_id` 仅进
+  attribution 调试层。之前作为非目标保留的理由（"需独立的 NFOV 资源模型和调度器"）已由本次变更落地。
 
 - **Cueing 运动预测与 ATP 姿态机动建模**——CV/CA 运动模型状态预测（`:370-432`）、ATP 快速姿态
   机动（`:434-440`）。第一版不做 CV/CA 滤波运动预测和姿态机动过程建模；但接入 `narrow_cue_latency_s`
@@ -910,6 +927,9 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
   - `SbirsCaptureFailureReason`（枚举）与 `SbirsDetectionAttributionRecord.capture_failure_reason`：
     首次捕获失败/调度跳过/EKF NIS 丢锁诊断，进入 `SbirsCycleResult.detection_attributions` 与 lifecycle reason
     （`kNfovAcquisitionFailed`/`kSchedulerSkipped`/`kEstimationNisGateLost`），不进 raw output。进 replay（`sbirs_replay.fbs`）。
+  - `SbirsDetectionAttributionRecord.nfov_channel_id`：NFOV 通道编号（-1 表示 WFOV/未占用 NFOV 资源），
+    标识目标占用哪个并发 NFOV 通道（§2.6）。进入 attribution、lifecycle 事件与 debug view，
+    不进 raw output。进 replay（`sbirs_replay.fbs`）。
 
 ## 4. 设计变更规则
 

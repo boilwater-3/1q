@@ -281,15 +281,80 @@ TEST(SbirsPipelineTest, LockedTargetCausesSchedulerSkipOnOtherCandidate) {
       found_track = true;
       EXPECT_EQ(detection.attribution.capture_failure_reason,
                 sbirs_sensor::attribution::SbirsCaptureFailureReason::kNone);
+      EXPECT_GE(detection.attribution.nfov_channel_id, 0);  // 已锁定目标带通道编号
     }
     if (detection.attribution.target_id == 2U) {
       found_skipped = true;
       EXPECT_EQ(detection.attribution.capture_failure_reason,
                 sbirs_sensor::attribution::SbirsCaptureFailureReason::kSchedulerSkipped);
+      EXPECT_EQ(detection.attribution.nfov_channel_id, -1);  // WFOV 候选无通道
     }
   }
   EXPECT_TRUE(found_track);
   EXPECT_TRUE(found_skipped);
+}
+
+// design 2.6 多通道：max_concurrent_nfov_locks=2 时，两目标在同一周期同时捕获，
+// 各占独立通道（0 与 1），并产出各自的 NFOV acquisition 检测。
+TEST(SbirsPipelineTest, MultipleChannelsSimultaneouslyAcquireAndTrack) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.policy.scheduler.max_concurrent_nfov_locks = 2;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+
+  // 第一周期：两个热目标同时进入 WFOV，均应被捕获（两通道）。
+  sbirs_sensor::session::SbirsCycleInput first =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTarget(1U, 0.0))
+          .AddTarget(HotTarget(2U, 5.0))
+          .Build();
+  const sbirs_sensor::pipeline::SbirsPipelineResult acq = pipeline.RunCycle(first);
+
+  std::size_t acquisitions = 0U;
+  for (const sbirs_sensor::pipeline::SbirsPipelineDetection& detection : acq.detections) {
+    if (detection.record.observation_stage ==
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition &&
+        detection.attribution.capture_failure_reason ==
+            sbirs_sensor::attribution::SbirsCaptureFailureReason::kNone) {
+      ++acquisitions;
+      EXPECT_GE(detection.attribution.nfov_channel_id, 0);
+    }
+  }
+  EXPECT_EQ(acquisitions, 2U);
+
+  // 快照确认两目标各自锁定到不同通道。
+  const sbirs_sensor::pipeline::SbirsPipelineSnapshot snapshot =
+      pipeline.CaptureRuntimeState();
+  ASSERT_EQ(snapshot.nfov_scheduler.target_to_channel.count(1U), 1U);
+  ASSERT_EQ(snapshot.nfov_scheduler.target_to_channel.count(2U), 1U);
+  EXPECT_NE(snapshot.nfov_scheduler.target_to_channel.at(1U),
+            snapshot.nfov_scheduler.target_to_channel.at(2U));
+
+  // 第二周期：两目标各自进入 NFOV track（kNarrowFieldTrack）。
+  sbirs_sensor::session::SbirsCycleInput second =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(2U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTarget(1U, 0.0))
+          .AddTarget(HotTarget(2U, 5.0))
+          .Build();
+  const sbirs_sensor::pipeline::SbirsPipelineResult tracks = pipeline.RunCycle(second);
+
+  std::size_t track_count = 0U;
+  for (const sbirs_sensor::pipeline::SbirsPipelineDetection& detection : tracks.detections) {
+    if (detection.record.observation_stage ==
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack &&
+        detection.attribution.capture_failure_reason ==
+            sbirs_sensor::attribution::SbirsCaptureFailureReason::kNone) {
+      ++track_count;
+      EXPECT_GE(detection.attribution.nfov_channel_id, 0);
+    }
+  }
+  EXPECT_EQ(track_count, 2U);
 }
 
 TEST(SbirsPipelineTest, ImmTrackingProducesFiniteState) {

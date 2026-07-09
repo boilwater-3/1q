@@ -266,6 +266,35 @@ TEST(SbirsSessionIntegrationTest, MultipleWfovCandidatesSingleNfovLock) {
   EXPECT_EQ(nfov_acquisitions, 1U);
 }
 
+TEST(SbirsSessionIntegrationTest, MultipleWfovCandidatesMultiNfovLock) {
+  // design 2.6 多通道：max_concurrent_nfov_locks=2 时，两个 WFOV 候选同时捕获，
+  // 各占独立 NFOV 通道，且通道编号互不相同。
+  config::SbirsSessionConfig config = MakeSessionConfig();
+  config.policy.scheduler.max_concurrent_nfov_locks = 2;
+  SbirsSession session = SbirsSession::Create(config);
+  SbirsCycleInput input = MakeBaseInput();
+  input.scene.push_back(MakeTarget(2U, 1000.0));
+  const SbirsCycleResult result = session.StepWithResult(input);
+
+  std::size_t nfov_acquisitions = 0U;
+  int channel_of_target_1 = -2;
+  int channel_of_target_2 = -2;
+  for (const attribution::SbirsDetectionAttributionRecord& attr : result.detection_attributions) {
+    const output::SbirsDetectionRecord* record = FindDetectionByTargetId(result, attr.target_id);
+    if (record != nullptr &&
+        record->observation_stage == output::SbirsObservationStage::kNarrowFieldAcquisition &&
+        attr.capture_failure_reason == attribution::SbirsCaptureFailureReason::kNone) {
+      ++nfov_acquisitions;
+      if (attr.target_id == 1U) channel_of_target_1 = attr.nfov_channel_id;
+      if (attr.target_id == 2U) channel_of_target_2 = attr.nfov_channel_id;
+    }
+  }
+  EXPECT_EQ(nfov_acquisitions, 2U);
+  EXPECT_GE(channel_of_target_1, 0);
+  EXPECT_GE(channel_of_target_2, 0);
+  EXPECT_NE(channel_of_target_1, channel_of_target_2);
+}
+
 // design cue 延迟外推：横向高速目标在 latency 内移出 NFOV → 首次捕获失败。
 // 失败诊断进 result.detection_attributions（capture_failure_reason=kNfovAcquisitionFailed），
 // 但 raw output_frame.detections 不含该失败记录（守三层分离边界）。

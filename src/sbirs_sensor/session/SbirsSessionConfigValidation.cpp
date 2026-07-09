@@ -42,6 +42,9 @@ ValidationIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& config)
       config.policy.detection.narrow_min_snr_linear < 0.0f) {
     AddError("detection thresholds must be non-negative", &issues);
   }
+  if (config.policy.scheduler.max_concurrent_nfov_locks < 1) {
+    AddError("scheduler max_concurrent_nfov_locks must be at least 1", &issues);
+  }
   return issues;
 }
 

@@ -166,6 +166,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   attribution.has_estimation_nis = true;
   attribution.estimation_nis = 6.25f;
   attribution.estimation_nis_gate_exceeded = true;
+  attribution.nfov_channel_id = 1;
   result.detection_attributions.push_back(attribution);
 
   // 带 entity_index 的 scene 级 issue
@@ -204,6 +205,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   EXPECT_TRUE(decoded.detection_attributions[0].has_estimation_nis);
   EXPECT_FLOAT_EQ(decoded.detection_attributions[0].estimation_nis, 6.25f);
   EXPECT_TRUE(decoded.detection_attributions[0].estimation_nis_gate_exceeded);
+  EXPECT_EQ(decoded.detection_attributions[0].nfov_channel_id, 1);
   ASSERT_EQ(decoded.validation_issues.size(), 2U);
   EXPECT_EQ(decoded.validation_issues[0].location.entity_index, 1U);
   // 哨兵值经 size_t::max → int64(-1) → size_t::max 的往返
@@ -233,7 +235,7 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.error_model.angular_sigma_deg = 0.08f;
   config.policy.error_model.range_fraction_sigma = 0.002f;
   config.policy.error_model.random_seed = 42U;
-  config.policy.scheduler.single_narrow_resource = false;
+  config.policy.scheduler.max_concurrent_nfov_locks = 3;
   config.policy.tracking.enable_estimated_tracking = true;
   config.policy.tracking.process_noise_diff_coeff = 2.5f;
   config.policy.tracking.initial_position_std_m = 1500.0f;
@@ -254,7 +256,7 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.policy.detection.narrow_min_snr_linear, 7.0f);
   EXPECT_FLOAT_EQ(decoded.policy.error_model.angular_sigma_deg, 0.08f);
   EXPECT_EQ(decoded.policy.error_model.random_seed, 42U);
-  EXPECT_FALSE(decoded.policy.scheduler.single_narrow_resource);
+  EXPECT_EQ(decoded.policy.scheduler.max_concurrent_nfov_locks, 3);
   EXPECT_TRUE(decoded.policy.tracking.enable_estimated_tracking);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.process_noise_diff_coeff, 2.5f);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.initial_position_std_m, 1500.0f);

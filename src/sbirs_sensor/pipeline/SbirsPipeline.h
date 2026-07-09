@@ -13,6 +13,7 @@
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "sbirs_sensor/config/SbirsInternalExecutionConfig.h"
+#include "sbirs_sensor/pipeline/SbirsNfovScheduler.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
 #include "sbirs_sensor/tracking/SbirsTrackingTypes.h"
 
@@ -31,14 +32,13 @@ enum class SbirsTargetState {
 
 /**
  * @brief pipeline 运行期状态快照，用于 controller 失败回滚与 replay 复现。
- * @note 包含扫描相位、目标状态表、NFOV 锁定目标、随机源状态与 EKF 滤波状态表。
+ * @note 包含扫描相位、目标状态表、NFOV 多通道调度状态、随机源状态与 EKF 滤波状态表。
  */
 struct SbirsPipelineSnapshot {
   float scan_azimuth_deg{0.0f};                          /**< 当前 WFOV 扫描方位角，单位 deg */
   std::uint64_t next_detection_id{1U};                   /**< 下一个检测记录 ID */
   std::map<std::uint64_t, SbirsTargetState> target_states{}; /**< 各目标状态表（按 target_id 索引） */
-  bool has_locked_target{false};                         /**< 是否有目标锁定 NFOV 资源 */
-  std::uint64_t locked_target_id{0U};                    /**< 锁定 NFOV 资源的目标 ID */
+  SbirsNfovSchedulerSnapshot nfov_scheduler{};           /**< NFOV 多通道调度状态（目标→通道分配） */
   unsigned int random_state{1U};  /**< 误差模型随机源状态（replay 可复现） */
   std::map<std::uint64_t, tracking::SbirsGaussianState> filter_states{}; /**< EKF 滤波状态表（kEstimatedTracking 目标的均值+协方差） */
   std::map<std::uint64_t, unsigned int> nis_gate_exceeded_counts{}; /**< EKF NIS 连续超限计数 */
@@ -97,8 +97,7 @@ class SbirsPipeline {
   float scan_azimuth_deg_{0.0f};
   std::uint64_t next_detection_id_{1U};
   std::map<std::uint64_t, SbirsTargetState> target_states_{};
-  bool has_locked_target_{false};
-  std::uint64_t locked_target_id_{0U};
+  SbirsNfovScheduler nfov_scheduler_;  // NFOV 多通道资源调度器
   foundation::SbirsRandomSource random_source_;  // 误差模型确定性随机源
   // EKF 滤波组件（kEstimatedTracking 状态使用；启用 enable_estimated_tracking 时激活）
   tracking::SbirsCvTransitionModel cv_transition_model_{};

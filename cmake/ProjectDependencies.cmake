@@ -125,6 +125,7 @@ target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 # -- OBJECT 目标依赖（header-only 传递） --
 # AR/ESR 的 core 层因 composition root 需引用 engine 头文件，必须持有全部算法库路径。
 # EOS 确认无数学库传递依赖，因此 engine/core 均不链接 Eigen/Boost/nanoflann。
+# SBIRS engine 因 EKF/IMM 滤波跟踪链路引用 Eigen，需单独链接 Eigen3。
 # flatbuffers/zlib 因 replay codec 文件散布于各域，统一提供。
 target_link_libraries(airborne_engine PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(airborne_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
@@ -132,7 +133,8 @@ target_link_libraries(esr_engine PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(esr_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(eos_engine PRIVATE flatbuffers::flatbuffers)
 target_link_libraries(eos_core PRIVATE flatbuffers::flatbuffers)
-target_link_libraries(sbirs_core PRIVATE flatbuffers::flatbuffers)
+target_link_libraries(sbirs_engine PRIVATE Eigen3::Eigen flatbuffers::flatbuffers)
+target_link_libraries(sbirs_core PRIVATE Eigen3::Eigen flatbuffers::flatbuffers)
 target_link_libraries(sar_core PRIVATE flatbuffers::flatbuffers)
 
 # ── SAR HDF5 输出(可选, 默认 OFF) ──

@@ -68,6 +68,7 @@ table SbirsDetectionAttributionRecord {
   has_estimation_nis: bool;
   estimation_nis: float;
   estimation_nis_gate_exceeded: bool;
+  nfov_channel_id: int32;
 }
 
 table SbirsOutputFrame {

@@ -48,6 +48,7 @@ SbirsDebugTargetState BuildTargetState(const SbirsSceneTarget& target,
   state.has_estimation_nis = attribution->has_estimation_nis;
   state.estimation_nis = attribution->estimation_nis;
   state.estimation_nis_gate_exceeded = attribution->estimation_nis_gate_exceeded;
+  state.nfov_channel_id = attribution->nfov_channel_id;
 
   const output::SbirsDetectionRecord* record =
       FindRecord(attribution->detection_id, result.output_frame);

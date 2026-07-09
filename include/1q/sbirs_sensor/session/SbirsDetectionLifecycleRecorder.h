@@ -58,6 +58,7 @@ struct ONEQ_API SbirsDetectionLifecycleEvent {
   bool has_estimation_nis{false};  /**< 是否包含 EKF 估计跟踪 NIS */
   float estimation_nis{0.0f};      /**< EKF 归一化新息平方 */
   bool estimation_nis_gate_exceeded{false}; /**< EKF NIS 是否超过 2 维 95% 门限 */
+  int nfov_channel_id{-1};         /**< NFOV 通道编号；-1 表示 WFOV/未占用 NFOV 资源 */
 };
 
 /**
