@@ -99,3 +99,105 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
     add_test(NAME "${suite_label}::${target_name}" COMMAND ${target_name})
     set_tests_properties("${suite_label}::${target_name}" PROPERTIES LABELS "${suite_label}")
 endfunction()
+
+# --------------------------------------------------------------------------
+# Phase 2+: type × domain partition registration API.
+#
+# oneq_add_test_partition(
+#   TYPE <unit|integration|replay|contract|performance|compatibility>
+#   DOMAIN <common|airborne_radar|...>
+#   SOURCES <source...>
+#   [TIMEOUT <seconds>]
+#   [LABELS <strategy-label...>]   # e.g. ci_required, ci_advisory, fast, slow, known_limit
+#   [LINK_LIBS <lib...>]
+#   [INCLUDE_DIRS <dir...>]
+#   [COMPILE_DEFS <def...>]
+#   [DEPENDS <target...>]
+#   [EXTRA_SOURCES <non-test-source...>]   # e.g. json_reader.cpp helper
+# )
+#
+# Produces:
+#   - executable target  1q_<domain>_<type>_tests
+#   - CTest entry        <type>::<domain>
+#   - labels             <type>;<domain>;<strategy-labels...>
+#   - registered sources in ONEQ_TEST_REGISTRY (via oneq_register_test_sources)
+function(oneq_add_test_partition)
+    cmake_parse_arguments(_oneq_part
+        "GATED" "TYPE;DOMAIN;TIMEOUT" "SOURCES;LABELS;LINK_LIBS;INCLUDE_DIRS;COMPILE_DEFS;DEPENDS;EXTRA_SOURCES"
+        ${ARGN})
+    if(NOT _oneq_part_SOURCES)
+        return()
+    endif()
+
+    set(_target "${PROJECT_NAME}_${_oneq_part_DOMAIN}_${_oneq_part_TYPE}_tests")
+    set(_ctest "${_oneq_part_TYPE}::${_oneq_part_DOMAIN}")
+
+    add_executable(${_target} ${_oneq_part_SOURCES} ${_oneq_part_EXTRA_SOURCES})
+    target_link_libraries(${_target} PRIVATE
+        GTest::gtest_main
+        GTest::gmock
+        Boost::boost
+        Eigen3::Eigen
+        ${PROJECT_ALIAS})
+    if(TARGET flatbuffers::flatbuffers)
+        target_link_libraries(${_target} PRIVATE flatbuffers::flatbuffers)
+    endif()
+    if(_oneq_part_LINK_LIBS)
+        target_link_libraries(${_target} PRIVATE ${_oneq_part_LINK_LIBS})
+    endif()
+    target_include_directories(${_target} PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR})
+    if(DEFINED ONEQ_FLATBUFFERS_GENERATED_DIR)
+        target_include_directories(${_target} PRIVATE ${ONEQ_FLATBUFFERS_GENERATED_DIR})
+    endif()
+    if(DEFINED flatbuffers_INCLUDE_DIRS_RELEASE)
+        target_include_directories(${_target} PRIVATE ${flatbuffers_INCLUDE_DIRS_RELEASE})
+    endif()
+    if(_oneq_part_INCLUDE_DIRS)
+        target_include_directories(${_target} PRIVATE ${_oneq_part_INCLUDE_DIRS})
+    endif()
+    if(WIN32)
+        target_compile_definitions(${_target} PRIVATE FLATBUFFERS_LOCALE_INDEPENDENT=0)
+    endif()
+    if(TARGET ZLIB::ZLIB)
+        target_compile_definitions(${_target} PRIVATE ONEQ_HAVE_ZLIB=1)
+        if(DEFINED zlib_INCLUDE_DIRS_RELEASE)
+            target_include_directories(${_target} PRIVATE ${zlib_INCLUDE_DIRS_RELEASE})
+        endif()
+    else()
+        target_compile_definitions(${_target} PRIVATE ONEQ_HAVE_ZLIB=0)
+    endif()
+    if(_oneq_part_COMPILE_DEFS)
+        target_compile_definitions(${_target} PRIVATE ${_oneq_part_COMPILE_DEFS})
+    endif()
+    if(ENABLE_PCH)
+        target_precompile_headers(${_target} PRIVATE
+            <vector> <string> <array> <map> <set> <unordered_map> <memory>
+            <algorithm> <utility> <cmath> <cstdint>)
+    endif()
+    if(WIN32 AND BUILD_SHARED_LIBS)
+        add_custom_command(TARGET ${_target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:${PROJECT_CORE_TARGET}>
+                $<TARGET_FILE_DIR:${_target}>
+            COMMENT "Copying ${PROJECT_CORE_TARGET} DLL to test directory")
+    endif()
+    if(_oneq_part_DEPENDS)
+        add_dependencies(${_target} ${_oneq_part_DEPENDS})
+    endif()
+
+    set(_labels "${_oneq_part_TYPE};${_oneq_part_DOMAIN}")
+    if(_oneq_part_LABELS)
+        list(APPEND _labels ${_oneq_part_LABELS})
+    endif()
+    add_test(NAME "${_ctest}" COMMAND ${_target})
+    set_tests_properties("${_ctest}" PROPERTIES LABELS "${_labels}")
+    if(_oneq_part_TIMEOUT)
+        set_tests_properties("${_ctest}" PROPERTIES TIMEOUT "${_oneq_part_TIMEOUT}")
+    endif()
+
+    # Record test sources (not EXTRA_SOURCES) in the registry.
+    oneq_register_test_sources("${_oneq_part_TYPE}.${_oneq_part_DOMAIN}" ${_oneq_part_SOURCES})
+endfunction()

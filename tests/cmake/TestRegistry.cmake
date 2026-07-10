@@ -103,7 +103,7 @@ function(oneq_finalize_test_registry)
     set(_orphans "")
     foreach(_root IN LISTS _type_roots)
         file(GLOB_RECURSE _disk_sources CONFIGURE_DEPENDS
-            "${_test_root}/${_root}/*_test.cpp")
+            "${CMAKE_SOURCE_DIR}/tests/${_root}/*_test.cpp")
         foreach(_src IN LISTS _disk_sources)
             list(FIND _registered_sources "${_src}" _found)
             if(_found EQUAL -1)

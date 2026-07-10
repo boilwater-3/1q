@@ -16,9 +16,9 @@ set(_sar_unit_filter
     "SarReplayCodecRoundtripTest.*:" "SarReplaySessionTest.*:"
     "SarRuntimeConfigResolverTest.*")
 string(REPLACE ";" "" _sar_unit_filter_str "${_sar_unit_filter}")
-add_test(NAME "sar_unit::1q_unit_tests"
-         COMMAND ${PROJECT_NAME}_unit_tests --gtest_filter=${_sar_unit_filter_str})
-set_tests_properties("sar_unit::1q_unit_tests" PROPERTIES LABELS "sar_unit;sar_ci")
+add_test(NAME "sar_unit::1q_sar_unit_tests"
+         COMMAND ${PROJECT_NAME}_sar_unit_tests --gtest_filter=${_sar_unit_filter_str})
+set_tests_properties("sar_unit::1q_sar_unit_tests" PROPERTIES LABELS "sar_unit;sar_ci")
 
 set(_sar_replay_filter "SarReplayCodecRoundtripTest.*:" "SarReplaySessionTest.*")
 string(REPLACE ";" "" _sar_replay_filter_str "${_sar_replay_filter}")
@@ -28,9 +28,9 @@ set_tests_properties("sar_replay::1q_replay_fast_tests" PROPERTIES LABELS "sar_r
 
 set(_sar_integration_filter "SarSessionPipelineTest.*:" "SarReplaySessionTest.*")
 string(REPLACE ";" "" _sar_integration_filter_str "${_sar_integration_filter}")
-add_test(NAME "sar_integration::1q_unit_tests"
-         COMMAND ${PROJECT_NAME}_unit_tests --gtest_filter=${_sar_integration_filter_str})
-set_tests_properties("sar_integration::1q_unit_tests"
+add_test(NAME "sar_integration::1q_sar_unit_tests"
+         COMMAND ${PROJECT_NAME}_sar_unit_tests --gtest_filter=${_sar_integration_filter_str})
+set_tests_properties("sar_integration::1q_sar_unit_tests"
                      PROPERTIES LABELS "sar_integration;sar_ci")
 
 add_test(NAME "sar_contract::1q_contract_tests"
