@@ -38,7 +38,8 @@ batch_validation/
 ## 构建与运行
 
 ```bash
-# 构建（需先完成项目标准 configure 步骤）
+# 构建（需先完成项目标准 bootstrap + configure 步骤）
+bash scripts/bootstrap_conan.sh llvm-ninja-release-local
 cmake --preset llvm-ninja-release-local
 cmake --build --preset llvm-ninja-release-local --target \
     ar_batch_validation eos_batch_validation esr_batch_validation sar_batch_validation

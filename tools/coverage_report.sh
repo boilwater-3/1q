@@ -143,6 +143,7 @@ fi
 if [[ ! -d "${BUILD_DIR}" ]]; then
     echo "错误: 构建目录不存在: ${BUILD_DIR}" >&2
     echo "  请先运行:" >&2
+    echo "    bash scripts/bootstrap_conan.sh ${PRESET}" >&2
     echo "    cmake --preset ${PRESET}" >&2
     echo "    cmake --build --preset ${PRESET}" >&2
     exit 1

@@ -9,6 +9,9 @@ Authority: build infrastructure
 ## 快速开始
 
 ```bash
+# 0. 生成 Conan toolchain（首次或依赖变更后）
+bash scripts/bootstrap_conan.sh llvm-ninja-coverage
+
 # 1. 配置（使用专用 coverage preset，已设 ENABLE_COVERAGE=ON）
 cmake --preset llvm-ninja-coverage
 

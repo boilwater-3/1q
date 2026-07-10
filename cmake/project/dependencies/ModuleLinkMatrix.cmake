@@ -12,15 +12,16 @@ target_link_libraries(sbirs_engine PRIVATE Eigen3::Eigen flatbuffers::flatbuffer
 target_link_libraries(sbirs_core PRIVATE Eigen3::Eigen flatbuffers::flatbuffers)
 target_link_libraries(sar_core PRIVATE flatbuffers::flatbuffers)
 
-if(ONEQ_ENABLE_HDF5_OUTPUT)
+# HDF5 输出需要 HighFive（C++17），C++11 构建自动跳过。
+if(CMAKE_CXX_STANDARD GREATER_EQUAL 17)
     find_package(HighFive CONFIG REQUIRED)
     message(STATUS "SAR HDF5 output: ENABLED (HighFive found)")
     if(TARGET sar_engine)
-        target_link_libraries(sar_engine PRIVATE HighFive::HighFive)
+        target_link_libraries(sar_engine PRIVATE HighFive)
         target_compile_definitions(sar_engine PRIVATE ONEQ_ENABLE_HDF5_OUTPUT)
     endif()
 else()
-    message(STATUS "SAR HDF5 output: disabled (ONEQ_ENABLE_HDF5_OUTPUT=OFF)")
+    message(STATUS "SAR HDF5 output: disabled (requires C++17, current: C++${CMAKE_CXX_STANDARD})")
 endif()
 
 if(TARGET sar_engine)

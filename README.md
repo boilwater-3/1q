@@ -38,12 +38,15 @@ CI / 跨平台 preset（定义于 `CMakePresets.json`）：
 示例命令：
 
 ```bash
+bash scripts/bootstrap_conan.sh llvm-ninja-debug-local
 cmake --preset llvm-ninja-debug-local
 cmake --build --preset llvm-ninja-debug-local
 ctest --preset llvm-ninja-debug-local --output-on-failure
 ```
 
-同一个 preset 下应串行执行 `configure -> build -> test`。
+同一个 preset 下应串行执行 `bootstrap -> configure -> build -> test`。
+`bootstrap_conan.sh` 负责按 preset 派生参数并执行 `conan install`，生成
+`conan_toolchain.cmake` 供后续配置使用。
 
 ## 示例
 

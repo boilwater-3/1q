@@ -12,6 +12,7 @@
 # 详见 docs/ci.md。
 #
 # 本地复现（见 docs/ci.md "本地复现" 一节）:
+#   bash scripts/bootstrap_conan.sh llvm-ninja-debug
 #   cmake --preset llvm-ninja-debug && cmake --build --preset llvm-ninja-debug
 #   ctest --test-dir build/llvm-ninja-debug-local -L contract --output-on-failure -j4
 #   ctest --test-dir build/llvm-ninja-debug-local -L 'sar_ci|integration|replay_fast' --output-on-failure -j4
@@ -57,6 +58,9 @@ jobs:
           path: ~/.conan2
           key: conan-${{ runner.os }}-${{ env.CONAN_CACHE_KEY }}-debug
 
+      - name: Bootstrap Conan (generate toolchain)
+        run: bash scripts/bootstrap_conan.sh ${{ env.PRESET }}
+
       - name: Configure
         run: cmake --preset ${{ env.PRESET }}
 
@@ -86,6 +90,9 @@ jobs:
         with:
           path: ~/.conan2
           key: conan-${{ runner.os }}-${{ env.CONAN_CACHE_KEY }}-debug
+
+      - name: Bootstrap Conan (generate toolchain)
+        run: bash scripts/bootstrap_conan.sh ${{ env.PRESET }}
 
       - name: Configure
         run: cmake --preset ${{ env.PRESET }}

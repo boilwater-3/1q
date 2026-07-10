@@ -10,16 +10,14 @@
 cmake/
 ├── README.md
 ├── compilers/                         编译器族 target option helpers
-│   ├── CompilerClangGCC.cmake         oneq_apply_clang_gcc_options()
-│   └── CompilerMSVC.cmake             oneq_apply_msvc_options()
+│   ├── CompilerClangGCC.cmake         apply_clang_gcc_options()
+│   └── CompilerMSVC.cmake             apply_msvc_options()
 ├── features/                          通用工具/feature helpers
 │   ├── FeatureCCache.cmake            ccache compiler launcher
 │   ├── FeatureClangFormat.cmake       format / format-check targets
 │   ├── FeatureClangTidy.cmake         CMAKE_CXX_CLANG_TIDY 配置
-│   ├── FeatureCoverage.cmake          oneq_apply_coverage_options()
-│   └── FeatureUnityBuild.cmake        oneq_apply_unity_build()
-├── packaging/                         包管理器 / 工具链引导
-│   └── ConanBootstrapToolchain.cmake  Conan install 引导工具链
+│   ├── FeatureCoverage.cmake          apply_coverage_options()
+│   └── FeatureUnityBuild.cmake        apply_unity_build()
 └── project/                           1q 项目特定配置与胶水
     ├── BuildOptions.cmake             通用构建选项
     ├── FeatureFlatBuffers.cmake       FlatBuffers 代码生成函数
@@ -48,8 +46,11 @@ cmake/
 |----|------|---------|
 | 编译器层 | `compilers/` | 只定义 target-scoped helper；不直接调用 `add_compile_options()` / `add_link_options()`。 |
 | 特性层 | `features/` | 提供工具查找、custom target 或 target-scoped helper；clang-format/tidy 仍带 1q 默认源码树约定。 |
-| 打包层 | `packaging/` | 只做工具链/Conan install 引导；真实依赖发现和 target 链接在 `project/`。 |
 | 项目层 | `project/` | 消费 `PROJECT_CORE_TARGET`、`ONEQ_OBJECT_TARGETS`、sensor/replay 布局和安装导出契约。 |
+
+> Conan 依赖引导已从 `cmake/` 移出，改由仓库根的 `scripts/bootstrap_conan.sh`
+> 负责：它按 preset 名派生参数并执行 `conan install`，生成的 `conan_toolchain.cmake`
+> 由各 preset 的 `CMAKE_TOOLCHAIN_FILE` 直接引用。真实依赖发现和 target 链接仍在 `project/`。
 
 `compilers/` 和 `features/` 是通用构建层，不再声称可直接零修改复制到任意项目：
 `FeatureClangFormat.cmake` / `FeatureClangTidy.cmake` 仍默认使用本仓库源码布局和
@@ -79,8 +80,7 @@ CMakeLists.txt
         ├── cmake/project/TargetBuildOptions.cmake
         └── cmake/project/ProjectInstall.cmake
 
-cmake/packaging/ConanBootstrapToolchain.cmake
-  └── include ../project/ProjectLanguageDefaults.cmake
+scripts/bootstrap_conan.sh <preset>     # 构建前先跑：conan install 生成 toolchain
 ```
 
 ## 模块说明
@@ -99,20 +99,13 @@ cmake/packaging/ConanBootstrapToolchain.cmake
   `include/`、`src/`、`tests/`、`examples/`、`tools/`。
 - `FeatureClangTidy.cmake`：在 `ENABLE_CLANG_TIDY=ON` 时配置
   `CMAKE_CXX_CLANG_TIDY`，默认读取仓库根 `.clang-tidy`。
-- `FeatureCoverage.cmake`：定义 `oneq_apply_coverage_options()`，只对显式传入的
+- `FeatureCoverage.cmake`：定义 `apply_coverage_options()`，只对显式传入的
   target 注入 LLVM source-based coverage flags。
-- `FeatureUnityBuild.cmake`：定义 `oneq_apply_unity_build()`，只对显式传入的 target
+- `FeatureUnityBuild.cmake`：定义 `apply_unity_build()`，只对显式传入的 target
   设置 `UNITY_BUILD`。
 
 PCH 不在 `features/` 中实现，因为实际头集合是 1q target policy；见
 `project/TargetPrecompiledHeaders.cmake`。
-
-### packaging/
-
-`ConanBootstrapToolchain.cmake` 是 `CMAKE_TOOLCHAIN_FILE` 引导脚本，按
-`conanfile.py` hash、build type、cppstd、测试开关、Eigen 版本等输入决定是否重新
-运行 `conan install`，随后 include Conan 生成的真实 toolchain。它只负责引导，不
-负责给 1q target 链接依赖。
 
 ### project/
 
@@ -120,8 +113,8 @@ PCH 不在 `features/` 中实现，因为实际头集合是 1q target policy；�
   `OneqModuleOptions.cmake`。
 - `ProjectDependencies.cmake` 是第三方依赖入口，内部按来源解析、package discovery、
   module link matrix、PackageConfig dependency block 分文件维护。
-- `FeatureFlatBuffers.cmake` 定义 `oneq_setup_flatc()` 和
-  `oneq_flatbuffers_generate()`；schema manifest 在 `ReplaySchemas.cmake`。
+- `FeatureFlatBuffers.cmake` 定义 `setup_flatc()` 和
+  `flatbuffers_generate()`；schema manifest 在 `ReplaySchemas.cmake`。
 - `TargetBuildOptions.cmake` 对项目自有 target 应用 compiler、unity、coverage、PCH
   策略。
 - `legacy/Vs2015SourceNormalization.cmake` 是默认关闭的 VS2015 源码归一化兼容入口；

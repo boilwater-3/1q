@@ -3,18 +3,16 @@
 
 cmake_minimum_required(VERSION 3.16...3.30)
 
+# 校验 toolchain 存在性：迁移到两步式 Conan 集成后，toolchain 由
+# scripts/bootstrap_conan.sh 预先生成。若用户忘记先跑该脚本，此处给出明确提示。
 if(DEFINED CMAKE_TOOLCHAIN_FILE)
     get_filename_component(_requested_toolchain "${CMAKE_TOOLCHAIN_FILE}" ABSOLUTE)
-    get_filename_component(_bootstrap_toolchain
-        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/packaging/ConanBootstrapToolchain.cmake" ABSOLUTE)
 
-    if(NOT EXISTS "${_requested_toolchain}"
-       AND NOT _requested_toolchain STREQUAL _bootstrap_toolchain)
+    if(NOT EXISTS "${_requested_toolchain}")
         message(FATAL_ERROR
             "Requested toolchain does not exist: ${CMAKE_TOOLCHAIN_FILE}\n"
-            "Use ${_bootstrap_toolchain} as CMAKE_TOOLCHAIN_FILE so Conan can "
-            "bootstrap the generated toolchain, or run conan install manually "
-            "before configuring.")
+            "请先运行 scripts/bootstrap_conan.sh <preset> 生成 conan_toolchain.cmake，"
+            "再执行 cmake --preset <preset>。")
     endif()
 endif()
 
@@ -98,7 +96,7 @@ include(cmake/features/FeatureClangTidy.cmake)
 include(cmake/features/FeatureClangFormat.cmake)
 include(cmake/features/FeatureCoverage.cmake)
 include(cmake/project/FeatureFlatBuffers.cmake)
-include(cmake/project/TargetPrecompiledHeaders.cmake)
+include(cmake/features/FeaturePrecompiledHeaders.cmake)
 
 # 编译器特定配置
 if(MSVC)

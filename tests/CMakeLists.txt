@@ -68,9 +68,6 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
         Eigen3::Eigen
         ${PROJECT_ALIAS}
     )
-    if(TARGET ZLIB::ZLIB)
-        target_link_libraries(${target_name} PRIVATE ZLIB::ZLIB)
-    endif()
     if(TARGET flatbuffers::flatbuffers)
         target_link_libraries(${target_name} PRIVATE flatbuffers::flatbuffers)
     endif()

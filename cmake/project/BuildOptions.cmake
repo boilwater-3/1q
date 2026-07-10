@@ -12,7 +12,7 @@ else()
 endif()
 
 if(UNIX)
-    option(USE_CCACHE "Use ccache to accelerate rebuilds" OFF)
+    option(USE_CCACHE "Use ccache to accelerate rebuilds" ON)
 else()
     set(USE_CCACHE OFF CACHE INTERNAL "ccache is primarily for Linux/macOS")
 endif()

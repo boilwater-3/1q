@@ -3,6 +3,10 @@
 #include <fstream>
 #include <sstream>
 
+#if defined(ONEQ_ENABLE_HDF5_OUTPUT)
+#include <highfive/H5File.hpp>
+#endif
+
 namespace sar {
 namespace output {
 
@@ -145,10 +149,9 @@ bool WriteGeoTiffSidecar(const ::sar::session::SarFocusedImage& image,
   return true;
 }
 
-// ── HDF5 输出(条件编译) ──────────────────────────────────────
+// ── HDF5 输出（C++17 编译时启用，C++11 自动跳过）────────────
 
 #if defined(ONEQ_ENABLE_HDF5_OUTPUT)
-#include <highfive/H5File.hpp>
 
 bool WriteHdf5Image(const ::sar::session::SarFocusedImage& image,
                     const ImageOutputMetadata& meta,

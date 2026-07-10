@@ -2,8 +2,8 @@
 #
 # 背景：项目构建标准为 C++17（jsbsim/1.3.1 等依赖要求 cppstd>=17），但
 # include/1q/ 公共头必须守 C++11 子集，以保证 VS2015（MSVC 190）消费方可编译。
-# VS2015 经 ConanBootstrapToolchain 将 cppstd 映射为 14，故公共头连 C++14
-# 特性都不得使用。
+# Conan 引导（scripts/bootstrap_conan.sh）对 VS2015 同样传 compiler.cppstd=17，
+# 故公共头连 C++14 特性都不得使用。
 #
 # 本脚本做静态正则扫描（快速门），与既有编译式检查
 # tests/contract/check_sar_cxx11_compat.cmake（强，但仅覆盖 SAR 源）互补：

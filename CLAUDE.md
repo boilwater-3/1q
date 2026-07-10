@@ -98,12 +98,14 @@ root config files/
 - Prefer `llvm-ninja-release-local` for testing — JSBSim simulation runs ~6× faster than debug.
 - Use stress preset only for stress runs: `llvm-ninja-release-local-stress`.
 - Use log prefix: `/tmp/1q`.
-- Run configure, build, and test serially for the same preset.
+- Run bootstrap, configure, build, and test serially for the same preset.
+- `bash scripts/bootstrap_conan.sh "$preset"` generates the Conan toolchain before configure (run once, or again when `conanfile.py` changes).
 - Never start ctest before that preset build completes.
 - Parallel work is allowed only across different presets.
 - Use the `-j <num_cores>` or `--parallel <num_cores>` option (e.g., `-j 4`) to run tests in parallel, leveraging multi-core CPUs to significantly reduce test execution time.
 
 ```bash
+bash scripts/bootstrap_conan.sh "$preset" >"${log_prefix}-conan.log" 2>&1 || { tail -n 80 "${log_prefix}-conan.log"; false; }
 cmake --preset "$preset" >"${log_prefix}-cmake.log" 2>&1 || { tail -n 80 "${log_prefix}-cmake.log"; false; }
 cmake --build --preset "$preset" >"${log_prefix}-build.log" 2>&1 || { tail -n 80 "${log_prefix}-build.log"; false; }
 ctest --preset "$preset" --output-on-failure -j 4
@@ -118,6 +120,7 @@ The maneuver module (`src/flight_dynamic/`) is gated behind a CMake option:
 The option defaults to OFF because the module is not yet in a stable testing stage. To build or test it, pass it explicitly:
 
 ```bash
+bash scripts/bootstrap_conan.sh "$preset"
 cmake --preset "$preset" -D ONEQ_ENABLE_FLIGHT_DYNAMIC=ON
 cmake --build --preset "$preset"
 ctest --preset "$preset" -L fd_ci        # CI subset (smoke + contract + controllability)

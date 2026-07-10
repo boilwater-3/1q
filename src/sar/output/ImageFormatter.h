@@ -56,12 +56,12 @@ bool WriteBinaryImage(const ::sar::session::SarFocusedImage& image, const ImageO
 bool WriteGeoTiffSidecar(const ::sar::session::SarFocusedImage& image, const ImageOutputMetadata& meta,
                          const std::string& base_filepath);
 
-// ── HDF5 输出(条件编译, 默认 OFF) ──────────────────────────────
+// ── HDF5 输出（C++17 编译时启用，C++11 自动跳过）─────────────
 
 #if defined(ONEQ_ENABLE_HDF5_OUTPUT)
 /**
  * @brief 写出 HDF5 图像文件(dataset /image/real, /image/imag + 元数据 attrs)。
- *        需要 HighFive 库, 仅当 ONEQ_ENABLE_HDF5_OUTPUT 宏定义时可用。
+ *        需要 HighFive 库（C++17）。
  *
  *        is_placeholder 为 true 时安全跳过, 返回 true。
  */

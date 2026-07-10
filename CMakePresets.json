@@ -42,7 +42,7 @@
             "displayName": "macOS LLVM Ninja Debug",
             "binaryDir": "${sourceDir}/build/llvm-ninja-debug-local",
             "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/packaging/ConanBootstrapToolchain.cmake",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/llvm-ninja-debug-local/build/Debug/generators/conan_toolchain.cmake",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTING": "ON",
                 "BUILD_SHARED_LIBS": "OFF"
@@ -54,7 +54,7 @@
             "displayName": "macOS LLVM Ninja Coverage (source-based)",
             "binaryDir": "${sourceDir}/build/llvm-ninja-coverage-local",
             "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/packaging/ConanBootstrapToolchain.cmake",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/llvm-ninja-coverage-local/build/Debug/generators/conan_toolchain.cmake",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTING": "ON",
                 "BUILD_SHARED_LIBS": "OFF",
@@ -66,7 +66,7 @@
             "inherits": "macos-base",
             "displayName": "macOS LLVM Ninja Release",
             "cacheVariables": {
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/packaging/ConanBootstrapToolchain.cmake",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/llvm-ninja-release/build/Release/generators/conan_toolchain.cmake",
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTING": "ON",
                 "BUILD_SHARED_LIBS": "OFF"
@@ -85,7 +85,7 @@
             "architecture": "x64",
             "cacheVariables": {
                 "PACKAGE_MANAGER": "conan",
-                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/packaging/ConanBootstrapToolchain.cmake"
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/${presetName}/build/generators/conan_toolchain.cmake"
             }
         },
         {
@@ -106,6 +106,7 @@
             "binaryDir": "${sourceDir}/build/vendor-debug-windows-local-vs2015",
             "cacheVariables": {
                 "PACKAGE_MANAGER": "none",
+                "CMAKE_TOOLCHAIN_FILE": null,
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTING": "ON"
             }
@@ -117,6 +118,7 @@
             "binaryDir": "${sourceDir}/build/vendor-release-windows-local-vs2015",
             "cacheVariables": {
                 "PACKAGE_MANAGER": "none",
+                "CMAKE_TOOLCHAIN_FILE": null,
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTING": "OFF"
             }
@@ -140,6 +142,7 @@
             "binaryDir": "${sourceDir}/build/vendor-debug-windows-local-vs2017",
             "cacheVariables": {
                 "PACKAGE_MANAGER": "none",
+                "CMAKE_TOOLCHAIN_FILE": null,
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTING": "ON"
             }
@@ -151,6 +154,7 @@
             "binaryDir": "${sourceDir}/build/vendor-release-windows-local-vs2017",
             "cacheVariables": {
                 "PACKAGE_MANAGER": "none",
+                "CMAKE_TOOLCHAIN_FILE": null,
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTING": "OFF"
             }
@@ -174,6 +178,7 @@
             "binaryDir": "${sourceDir}/build/vendor-debug-windows-local-vs2019",
             "cacheVariables": {
                 "PACKAGE_MANAGER": "none",
+                "CMAKE_TOOLCHAIN_FILE": null,
                 "CMAKE_BUILD_TYPE": "Debug",
                 "ENABLE_TESTING": "ON"
             }
@@ -185,6 +190,7 @@
             "binaryDir": "${sourceDir}/build/vendor-release-windows-local-vs2019",
             "cacheVariables": {
                 "PACKAGE_MANAGER": "none",
+                "CMAKE_TOOLCHAIN_FILE": null,
                 "CMAKE_BUILD_TYPE": "Release",
                 "ENABLE_TESTING": "OFF"
             }

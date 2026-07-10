@@ -39,10 +39,10 @@ Implementation-State: completed
 
 ### Phase 2D: 通用层 target 化
 
-- `cmake/compilers/CompilerClangGCC.cmake` 只定义 `oneq_apply_clang_gcc_options()`。
-- `cmake/compilers/CompilerMSVC.cmake` 只定义 `oneq_apply_msvc_options()`。
-- `cmake/features/FeatureCoverage.cmake` 只定义 `oneq_apply_coverage_options()`。
-- `cmake/features/FeatureUnityBuild.cmake` 只定义 `oneq_apply_unity_build()`。
+- `cmake/compilers/CompilerClangGCC.cmake` 只定义 `apply_clang_gcc_options()`。
+- `cmake/compilers/CompilerMSVC.cmake` 只定义 `apply_msvc_options()`。
+- `cmake/features/FeatureCoverage.cmake` 只定义 `apply_coverage_options()`。
+- `cmake/features/FeatureUnityBuild.cmake` 只定义 `apply_unity_build()`。
 - `cmake/project/TargetBuildOptions.cmake` 对 `${PROJECT_CORE_TARGET}` 和 `${ONEQ_OBJECT_TARGETS}` 统一应用 compiler、unity、coverage、PCH 策略。
 - `ProjectDependencies.cmake` 中原先为 vendor JSBSim 临时移除/恢复 `-fvisibility=hidden` 的目录级 workaround 已删除。
 

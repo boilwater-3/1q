@@ -36,10 +36,12 @@ CI 跑的每条命令都可在本地复现，便于调试失败：
 
 ```bash
 # === guard job（contract 守护）===
+bash scripts/bootstrap_conan.sh llvm-ninja-debug
 cmake --preset llvm-ninja-debug
 ctest --test-dir build/llvm-ninja-debug-local -L contract --output-on-failure -j 4
 
 # === build-test job（绿色门禁）===
+bash scripts/bootstrap_conan.sh llvm-ninja-debug
 cmake --preset llvm-ninja-debug
 cmake --build --preset llvm-ninja-debug -j 4
 ctest --test-dir build/llvm-ninja-debug-local -L 'sar_ci|integration|replay_fast' --output-on-failure -j 4
@@ -48,6 +50,7 @@ ctest --test-dir build/llvm-ninja-debug-local -L 'sar_ci|integration|replay_fast
 ctest --test-dir build/llvm-ninja-debug-local -L unit --output-on-failure -j 4
 
 # === nightly: performance ===
+bash scripts/bootstrap_conan.sh llvm-ninja-release
 cmake --preset llvm-ninja-release
 cmake --build --preset llvm-ninja-release -j 4
 ctest --test-dir build/llvm-ninja-release -L 'performance|sar_performance' --output-on-failure -j 4
@@ -55,11 +58,13 @@ ctest --test-dir build/llvm-ninja-release -R sar_cxx11_compat --output-on-failur
 
 # === nightly: flight-dynamic（需先获取 JSBSim 数据）===
 git clone --depth 1 https://github.com/JSBSim-Team/jsbsim.git third_party/jsbsim
+bash scripts/bootstrap_conan.sh llvm-ninja-debug
 cmake --preset llvm-ninja-debug -D ONEQ_ENABLE_FLIGHT_DYNAMIC=ON
 cmake --build --preset llvm-ninja-debug -j 4
 ctest --test-dir build/llvm-ninja-debug-local -L fd_ci --output-on-failure -j 4
 
 # === nightly: coverage ===
+bash scripts/bootstrap_conan.sh llvm-ninja-coverage
 cmake --preset llvm-ninja-coverage
 cmake --build --preset llvm-ninja-coverage -j 4
 bash tools/coverage_report.sh

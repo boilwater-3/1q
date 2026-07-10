@@ -1,6 +1,7 @@
 # FeatureClangTidy.cmake
 # clang-tidy 静态分析配置
 # clang-tidy 在编译时执行代码检查，发现潜在bug和代码质量问题
+# UNIX（Linux/macOS）默认关闭， clang-tidy 在 MSVC 上不稳定，且 MSVC 自带的 Code Analysis 更适合 Windows 平台
 
 if(ENABLE_CLANG_TIDY)
     # macOS 下 Homebrew 的 LLVM 安装路径（系统自带的 clang 通常不带 clang-tidy）。

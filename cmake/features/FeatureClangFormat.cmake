@@ -1,7 +1,7 @@
 # FeatureClangFormat.cmake
 # clang-format 代码格式化配置
 # 提供 format / format-check 目标，手动触发，不影响默认构建流程
-# UNIX（Linux/macOS）默认开启
+# UNIX（Linux/macOS）默认开启， 不支持 Windows
 
 # macOS 下 Homebrew 的 LLVM 安装路径（系统自带的 clang 通常不带 clang-format）。
 set(_LLVM_HINT_PATHS)

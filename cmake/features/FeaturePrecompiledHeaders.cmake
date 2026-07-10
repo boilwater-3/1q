@@ -1,6 +1,8 @@
-# Project precompiled header target policy.
+# FeaturePrecompiledHeaders.cmake
+# 定义项目自有 target 的预编译头（PCH）策略函数。
+# 与 FeatureUnityBuild、FeatureCoverage 同属通用编译特性层，不绑定特定项目。
 
-function(oneq_apply_precompiled_headers)
+function(apply_precompiled_headers)
     set(multi_value_args TARGETS)
     cmake_parse_arguments(ARG "" "" "${multi_value_args}" ${ARGN})
 
@@ -9,7 +11,7 @@ function(oneq_apply_precompiled_headers)
         return()
     endif()
     if(NOT ARG_TARGETS)
-        message(FATAL_ERROR "oneq_apply_precompiled_headers() requires TARGETS")
+        message(FATAL_ERROR "apply_precompiled_headers() requires TARGETS")
     endif()
 
     set(_oneq_pch_headers

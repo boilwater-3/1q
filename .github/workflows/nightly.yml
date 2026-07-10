@@ -54,6 +54,9 @@ jobs:
           path: ~/.conan2
           key: conan-${{ runner.os }}-${{ env.CONAN_CACHE_KEY }}-release
 
+      - name: Bootstrap Conan (generate toolchain)
+        run: bash scripts/bootstrap_conan.sh llvm-ninja-release
+
       - name: Configure (Release)
         run: cmake --preset llvm-ninja-release
 
@@ -103,6 +106,9 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/JSBSim-Team/jsbsim.git third_party/jsbsim
 
+      - name: Bootstrap Conan (generate toolchain)
+        run: bash scripts/bootstrap_conan.sh llvm-ninja-debug
+
       - name: Configure (with flight_dynamic)
         run: cmake --preset llvm-ninja-debug -D ONEQ_ENABLE_FLIGHT_DYNAMIC=ON
 
@@ -138,6 +144,9 @@ jobs:
         with:
           path: ~/.conan2
           key: conan-${{ runner.os }}-${{ env.CONAN_CACHE_KEY }}-coverage
+
+      - name: Bootstrap Conan (generate toolchain)
+        run: bash scripts/bootstrap_conan.sh llvm-ninja-coverage
 
       - name: Configure (Coverage)
         run: cmake --preset llvm-ninja-coverage

@@ -3,7 +3,7 @@ from conan.tools.cmake import CMakeDeps, CMakeToolchain, cmake_layout
 
 _BASE_DEPS_VS2015 = {
     "eigen": "eigen/3.3.9",
-    "boost": "boost/1.74.0",
+    "boost": "boost/1.85.0",
     "nanoflann": "nanoflann/1.3.2",
     "flatbuffers": "flatbuffers/1.12.0",
     "zlib": "zlib/1.2.11",
@@ -11,7 +11,7 @@ _BASE_DEPS_VS2015 = {
 
 _BASE_DEPS_MODERN = {
     "eigen": "eigen/3.4.0",
-    "boost": "boost/1.83.0",
+    "boost": "boost/1.85.0",
     "nanoflann": "nanoflann/1.6.0",
     "flatbuffers": "flatbuffers/1.12.0",
     "zlib": "zlib/1.3.1",
@@ -37,13 +37,13 @@ class OneQConan(ConanFile):
 
     options = {
         "enable_testing": [True, False],
-        "enable_hdf5": [True, False],
+
         "eigen_version": ["auto", "3.3.9", "3.4.0"],
     }
 
     default_options = {
         "enable_testing": False,
-        "enable_hdf5": False,
+
         "eigen_version": "auto",
         # 显式固定第三方链接形态，避免依赖 recipe 默认值导致构建行为漂移。
         "spdlog/*:shared": False,
@@ -88,9 +88,8 @@ class OneQConan(ConanFile):
             # macOS 开发使用 conan 预编译的 JSBSim（Windows/VS2015 从 third_party 源码构建）
             self.requires(_JSBSIM_DEPS_NON_WINDOWS["jsbsim"])
 
-            # SAR HDF5 输出(可选, 默认 OFF)
-            if self.options.enable_hdf5:
-                self.requires("highfive/2.10.0")
+            # SAR HDF5 输出（始终开启）
+            self.requires("highfive/2.10.0")
 
     def build_requirements(self):
         if self.options.enable_testing:
@@ -100,7 +99,6 @@ class OneQConan(ConanFile):
     def generate(self):
         CMakeDeps(self).generate()
         tc = CMakeToolchain(self)
-        tc.user_presets_path = False
         tc.generate()
 
     def layout(self):
