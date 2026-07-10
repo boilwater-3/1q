@@ -61,8 +61,8 @@ set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/replay/electro_optical_sensor/eos_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/replay/electro_optical_sensor/eos_replay_session_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/electronic_surveillance_radar/esr_replay_session_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/replay/electronic_surveillance_radar/esr_replay_session_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/sar/sar_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/sar/sar_replay_session_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp
