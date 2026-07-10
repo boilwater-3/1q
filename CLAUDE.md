@@ -135,7 +135,7 @@ Caveats:
 
 LLVM source-based coverage measures how much of `src/` and `include/` the test suite actually exercises. It is gated behind a CMake option and a dedicated preset so it never touches the regular debug/release builds:
 
-- `ENABLE_COVERAGE` (default **OFF**, `mark_as_advanced`) — when ON, `cmake/features/FeatureCoverage.cmake` injects `-fprofile-instr-generate -fcoverage-mapping`. Clang-only; configuring with another compiler is a hard error.
+- `ENABLE_COVERAGE` (default **OFF**, `mark_as_advanced`) — when ON, `cmake/features/Coverage.cmake` injects `-fprofile-instr-generate -fcoverage-mapping`. Clang-only; configuring with another compiler is a hard error.
 - `llvm-ninja-coverage` preset — the supported way to enable it. `binaryDir` is `build/llvm-ninja-coverage-local`. Independent of `llvm-ninja-debug` / `llvm-ninja-release`; those presets stay coverage-free (verified: zero coverage symbols).
 
 Generate a report after building:

@@ -16,7 +16,7 @@ set -euo pipefail
 # --- 参数校验 ---
 if [[ $# -ne 1 ]]; then
     echo "用法: $0 <preset>" >&2
-    echo "支持的 preset: llvm-ninja-debug | llvm-ninja-coverage | llvm-ninja-release | windows-vs2015" >&2
+    echo "支持的 preset: llvm-ninja-debug | llvm-ninja-coverage | llvm-ninja-release" >&2
     exit 2
 fi
 
@@ -37,7 +37,7 @@ if ! command -v conan >/dev/null 2>&1; then
     exit 1
 fi
 
-# C++ 标准，与 cmake/project/ProjectLanguageDefaults.cmake 的 PROJECT_DEFAULT_CXX_STANDARD 一致。
+# C++ 标准，与 cmake/project/ProjectSetup.cmake 的 PROJECT_DEFAULT_CXX_STANDARD 一致。
 CPPSTD=17
 
 # --- preset → 参数映射 -------------------------------------------------------
@@ -76,15 +76,9 @@ case "${PRESET}" in
         ENABLE_TESTING="True"
         GENERATOR=""
         ;;
-    windows-vs2015)
-        BINARY_DIR="${SOURCE_DIR}/build/windows-vs2015"
-        BUILD_TYPE=""           # multi-config：不传 build_type，CMakeDeps 一次生成多 config
-        ENABLE_TESTING="False"
-        GENERATOR="Visual Studio 14 2015"
-        ;;
     *)
         echo "错误: 不支持的 preset '${PRESET}'" >&2
-        echo "支持: llvm-ninja-debug | llvm-ninja-coverage | llvm-ninja-release | windows-vs2015" >&2
+        echo "支持: llvm-ninja-debug | llvm-ninja-coverage | llvm-ninja-release" >&2
         exit 2
         ;;
 esac
@@ -103,7 +97,7 @@ if [[ -n "${BUILD_TYPE}" ]]; then
     CONAN_ARGS+=(-s "build_type=${BUILD_TYPE}")
 fi
 
-# Windows VS2015：告知生成器类型（触发 multi-config CMakeDeps）+ MSVC settings。
+# 当前正式 profile 均为单配置 Ninja；Windows provider 重新闭合后再单独恢复。
 if [[ -n "${GENERATOR}" ]]; then
     CONAN_ARGS+=(
         -c "tools.cmake.cmaketoolchain:generator=${GENERATOR}"
@@ -114,8 +108,6 @@ if [[ -n "${GENERATOR}" ]]; then
         -s "compiler.version=190"
         -s "compiler.runtime=dynamic"
     )
-    # runtime_type 跟随 build_type；VS2015 multi-config 下用 Release（与原 bootstrap 默认一致）。
-    CONAN_ARGS+=(-s "compiler.runtime_type=Release")
 fi
 
 # --- 执行 -------------------------------------------------------------------

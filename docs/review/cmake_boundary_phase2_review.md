@@ -4,6 +4,10 @@ Status: draft
 Authority: CMake directory boundary review and implementation record
 Date: 2026-07-09
 Implementation-State: completed
+Superseded-By: docs/review/cmake_engineering_replan.md
+
+> Historical record. The file layout described below was superseded by the
+> module-owned target migration; use `cmake/README.md` for the current model.
 
 ## 结论
 

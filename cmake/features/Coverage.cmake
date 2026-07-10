@@ -1,4 +1,4 @@
-# FeatureCoverage.cmake
+# Coverage.cmake
 # LLVM source-based coverage 配置
 # 通过 Clang 编译器的 -fprofile-instr-generate/-fcoverage-mapping 选项在编译时插桩，运行测试后生成覆盖率数据
 

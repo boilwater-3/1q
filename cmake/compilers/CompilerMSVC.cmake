@@ -85,7 +85,6 @@ function(apply_msvc_options)
             $<$<CONFIG:MinSizeRel>:/O1>                                           # 以代码体积为目标优化
             $<$<CONFIG:MinSizeRel>:/Os>)                                          # 优化时优先代码体积（而非速度）
     endforeach()
-    endforeach()
 
     foreach(_target IN LISTS ARG_LINK_TARGETS)
         if(NOT TARGET "${_target}")
@@ -113,7 +112,6 @@ function(apply_msvc_options)
             $<$<CONFIG:RelWithDebInfo>:/INCREMENTAL:NO>  # 关闭增量链接，配合 /OPT 优化
             $<$<CONFIG:MinSizeRel>:/OPT:REF>        # 移除未引用函数/数据
             $<$<CONFIG:MinSizeRel>:/OPT:ICF>)       # 折叠等价 COMDAT 段，进一步缩减体积
-    endforeach()
     endforeach()
 
     if(ARG_STACK_SIZE_OPTION STREQUAL "DEFAULT")

@@ -513,9 +513,8 @@ add_test(
             -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_public_header_cxx11.cmake
 )
 
-# install 清单守护：确保各 src/*/CMakeLists.txt 的 install(FILES) 清单
-# 与 include/1q/ 磁盘头文件一致(无幽灵头、无漏 install)。与
-# check_public_api_boundary.cmake 互补:前者管 whitelist↔磁盘,本守护管 install↔磁盘。
+# install 清单守护：确保 ProjectInstall.cmake 递归镜像 include/1q/ 公共边界，
+# 且磁盘头文件与 public-header whitelist 一致（无幽灵头、无漏 install）。
 add_test(
     NAME install_manifest_guard
     COMMAND ${CMAKE_COMMAND}
@@ -546,6 +545,27 @@ add_test(
             -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_docs_structure.cmake
 )
 
+add_test(
+    NAME cmake_helper_parse_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_cmake_helper_parse.cmake
+)
+
+add_test(
+    NAME preset_provider_contract_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_preset_provider_contract.cmake
+)
+
+add_test(
+    NAME cmake_project_layout_guard
+    COMMAND ${CMAKE_COMMAND}
+            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_cmake_project_layout.cmake
+)
+
 set_tests_properties(
     public_api_boundary_guard
     airborne_include_style_guard
@@ -561,6 +581,9 @@ set_tests_properties(
     doc_legacy_term_guard
     sar_doc_governance_guard
     docs_structure_guard
+    cmake_helper_parse_guard
+    preset_provider_contract_guard
+    cmake_project_layout_guard
     PROPERTIES LABELS "contract"
 )
 

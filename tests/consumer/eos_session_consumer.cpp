@@ -22,7 +22,6 @@
 #include "1q/electro_optical_sensor/session/EosEnvironmentInput.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace eos = electro_optical_sensor;
 
@@ -139,28 +138,37 @@ int main() {
           .Build();
   session.ApplyRuntimeConfig(straylight_patch);
 
-  // 13. RuntimeConfigBuilder: switch environment model to advanced
+  // 13. RuntimeConfigBuilder: switch the public environment scenario to advanced.
+  eos::config::EosEnvironmentScenarioConfig scenario;
+  scenario.model_type = eos::config::EosEnvironmentModelType::kAdvanced;
+  scenario.has_custom_overrides = true;
+  scenario.custom_overrides.radiative_transfer_model =
+      eos::config::RadiativeTransferModel::kAdaptivePathRadiance;
+  scenario.custom_overrides.aerosol_density_factor = 1.3f;
+  scenario.custom_overrides.turbulence_factor = 1.8f;
   const eos::config::EosRuntimeConfigPatch env_patch =
       eos::config::EosRuntimeConfigBuilder()
-          .WithEnvironmentModelType(eos::config::EosEnvironmentModelType::kAdvanced)
-          .WithEnvironmentDetails(eos::config::RadiativeTransferModel::kAdaptivePathRadiance, 1.3f,
-                                  1.8f)
+          .WithEnvironmentScenarioConfig(scenario)
           .Build();
   session.ApplyRuntimeConfig(env_patch);
 
-  // 14. RuntimeConfigBuilder: tune environment model details
+  // 14. RuntimeConfigBuilder: tune the public scenario overrides.
+  scenario.custom_overrides.aerosol_density_factor = 2.0f;
+  scenario.custom_overrides.turbulence_factor = 1.2f;
   const eos::config::EosRuntimeConfigPatch rt_patch =
       eos::config::EosRuntimeConfigBuilder()
-          .WithEnvironmentDetails(eos::config::RadiativeTransferModel::kAdaptivePathRadiance, 2.0f,
-                                  1.2f)
+          .WithEnvironmentScenarioConfig(scenario)
           .Build();
   session.ApplyRuntimeConfig(rt_patch);
 
-  // 15. RuntimeConfigBuilder: change environment model details again
+  // 15. RuntimeConfigBuilder: select another public transfer-model override.
+  scenario.custom_overrides.radiative_transfer_model =
+      eos::config::RadiativeTransferModel::kHumidityWeighted;
+  scenario.custom_overrides.aerosol_density_factor = 1.1f;
+  scenario.custom_overrides.turbulence_factor = 1.1f;
   const eos::config::EosRuntimeConfigPatch vis_ref_patch =
       eos::config::EosRuntimeConfigBuilder()
-          .WithEnvironmentDetails(eos::config::RadiativeTransferModel::kHumidityWeighted, 1.1f,
-                                  1.1f)
+          .WithEnvironmentScenarioConfig(scenario)
           .Build();
   session.ApplyRuntimeConfig(vis_ref_patch);
 

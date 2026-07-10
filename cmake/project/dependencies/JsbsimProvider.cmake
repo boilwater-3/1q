@@ -1,4 +1,4 @@
-# JSBSim source resolution.
+# JSBSim provider resolution.
 
 option(ONEQ_JSBSIM_FROM_SOURCE "Build JSBSim from third_party source (enables source-level debugging)" OFF)
 set(ONEQ_JSBSIM_PREBUILT_ROOT_DIR "" CACHE PATH
@@ -20,7 +20,7 @@ if(ONEQ_JSBSIM_PREBUILT_ROOT_DIR)
         IMPORTED_LOCATION "${ONEQ_JSBSIM_PREBUILT_LIBRARY}"
         INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/third_party/jsbsim/src")
     add_library(JSBSim::JSBSim ALIAS JSBSim_prebuilt)
-elseif(ONEQ_JSBSIM_FROM_SOURCE OR PACKAGE_MANAGER STREQUAL "none")
+elseif(ONEQ_JSBSIM_FROM_SOURCE)
     set(ONEQ_JSBSIM_BINARY_SOURCE "vendor:third_party/jsbsim")
     set(_oneq_prev_build_shared_libs ${BUILD_SHARED_LIBS})
     set(BUILD_SHARED_LIBS ON CACHE BOOL "Build JSBSim as shared library" FORCE)
@@ -36,12 +36,10 @@ elseif(ONEQ_JSBSIM_FROM_SOURCE OR PACKAGE_MANAGER STREQUAL "none")
     target_include_directories(JSBSim_interface INTERFACE
         ${CMAKE_SOURCE_DIR}/third_party/jsbsim/src)
     add_library(JSBSim::JSBSim ALIAS JSBSim_interface)
-elseif(PACKAGE_MANAGER STREQUAL "conan")
+else()
     set(ONEQ_JSBSIM_BINARY_SOURCE "conan:jsbsim/1.3.1")
     find_package(jsbsim CONFIG REQUIRED)
     add_library(JSBSim::JSBSim ALIAS jsbsim::jsbsim)
-else()
-    message(FATAL_ERROR "Unsupported PACKAGE_MANAGER for JSBSim: ${PACKAGE_MANAGER}")
 endif()
 
 set(ONEQ_JSBSIM_BINARY_SOURCE "${ONEQ_JSBSIM_BINARY_SOURCE}"

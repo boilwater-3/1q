@@ -1,6 +1,6 @@
-# FeaturePrecompiledHeaders.cmake
+# PrecompiledHeaders.cmake
 # 定义项目自有 target 的预编译头（PCH）策略函数。
-# 与 FeatureUnityBuild、FeatureCoverage 同属通用编译特性层，不绑定特定项目。
+# 与 UnityBuild、Coverage 同属通用编译特性层，不绑定特定项目。
 
 function(apply_precompiled_headers)
     set(multi_value_args TARGETS)

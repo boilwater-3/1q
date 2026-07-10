@@ -1,4 +1,4 @@
-# FeatureClangTidy.cmake
+# ClangTidy.cmake
 # clang-tidy 静态分析配置
 # clang-tidy 在编译时执行代码检查，发现潜在bug和代码质量问题
 # UNIX（Linux/macOS）默认关闭， clang-tidy 在 MSVC 上不稳定，且 MSVC 自带的 Code Analysis 更适合 Windows 平台
@@ -29,7 +29,7 @@ if(ENABLE_CLANG_TIDY)
 
     if(CLANG_TIDY_EXECUTABLE)
         # 组装最终传给 clang-tidy 的参数列表：可执行文件 + 可选 -checks 白名单 + 可选 --config-file。
-        # CLANG_TIDY_CHECKS 在 BuildOptions.cmake 中定义（默认含一组 readability/modernize/... 检查）。
+        # CLANG_TIDY_CHECKS 在 ProjectOptions.cmake 中定义（默认含一组 readability/modernize/... 检查）。
         set(CLANG_TIDY_CONFIG_FILE "${CMAKE_SOURCE_DIR}/.clang-tidy")
         set(_CLANG_TIDY_ARGS "${CLANG_TIDY_EXECUTABLE}")
 

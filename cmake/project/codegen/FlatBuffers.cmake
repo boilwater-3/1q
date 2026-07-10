@@ -1,5 +1,5 @@
 #[[
-@file FeatureFlatBuffers.cmake
+@file codegen/FlatBuffers.cmake
 @brief FlatBuffers 构建期代码生成配置：定义 flatc 发现与 schema 代码生成函数。
 
 将 schemas/replay/*.fbs 在构建期编译为 *_generated.h，取代手工提交的 checked-in
@@ -8,8 +8,8 @@ flatbuffers::flatc imported executable 以及 FLATBUFFERS_FLATC_EXECUTABLE 变�
 版本与运行时头一致（当前 1.12.0）。
 
 @note 本文件只定义函数；实际的 flatc 发现与 schema 编译由
-      cmake/project/FlatBuffersSetup.cmake 编排，后者在 find_package(flatbuffers)
-      与目标创建之后由 src/CMakeLists.txt 调用。
+      本文件的模块注册 API 在 find_package(flatbuffers) 与目标创建之后由
+      对应 `src/<module>/CMakeLists.txt` 调用。
 ]]
 
 # 生成头集中输出目录。按 <sensor>/session/generated/ 子目录布局，使
@@ -46,6 +46,12 @@ macro(setup_flatc)
             "FlatBuffers: flatc 未找到。conan flatbuffers 包应通过 FlatcTargets.cmake "
             "暴露 flatbuffers::flatc；若缺失请检查 conan install 是否成功。")
     endif()
+
+    # Schema registration can occur inside module helper functions. Persist the
+    # resolved executable so flatbuffers_generate(), which has its own scope,
+    # always receives the same tool path.
+    set(ONEQ_FLATC_EXECUTABLE "${ONEQ_FLATC_EXECUTABLE}" CACHE INTERNAL
+        "Resolved FlatBuffers compiler executable")
 
     execute_process(
         COMMAND ${ONEQ_FLATC_EXECUTABLE} --version
@@ -94,4 +100,48 @@ function(flatbuffers_generate schema_file sensor_subdir out_var)
     )
 
     set(${out_var} "${_out_header}" PARENT_SCOPE)
+endfunction()
+
+# Module-owned schema registration. There is deliberately no central
+# schema-to-target manifest: each business module declares the schemas used by
+# its codec owner target beside that target's sources and dependencies.
+function(oneq_add_flatbuffers_schemas)
+    set(one_value_args TARGET MODULE)
+    set(multi_value_args SCHEMAS)
+    cmake_parse_arguments(ARG "" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    if(NOT ARG_TARGET OR NOT ARG_MODULE OR NOT ARG_SCHEMAS)
+        message(FATAL_ERROR
+            "oneq_add_flatbuffers_schemas() requires TARGET, MODULE and SCHEMAS")
+    endif()
+    if(NOT TARGET "${ARG_TARGET}")
+        message(FATAL_ERROR "FlatBuffers owner target does not exist: ${ARG_TARGET}")
+    endif()
+
+    get_property(flatc_ready GLOBAL PROPERTY ONEQ_FLATC_READY)
+    if(NOT flatc_ready)
+        setup_flatc()
+        set_property(GLOBAL PROPERTY ONEQ_FLATC_READY TRUE)
+    endif()
+
+    foreach(schema_name IN LISTS ARG_SCHEMAS)
+        set(schema_path "${CMAKE_SOURCE_DIR}/schemas/replay/${schema_name}")
+        if(NOT EXISTS "${schema_path}")
+            message(FATAL_ERROR "FlatBuffers schema does not exist: ${schema_path}")
+        endif()
+        flatbuffers_generate("${schema_path}" "${ARG_MODULE}" generated_header)
+        target_sources("${ARG_TARGET}" PRIVATE "${generated_header}")
+        set_property(GLOBAL APPEND PROPERTY ONEQ_FLATBUFFERS_GENERATED_HEADERS
+            "${generated_header}")
+    endforeach()
+    target_include_directories("${ARG_TARGET}" PRIVATE
+        "${ONEQ_FLATBUFFERS_GENERATED_DIR}")
+endfunction()
+
+function(oneq_finalize_flatbuffers)
+    get_property(generated_headers GLOBAL PROPERTY ONEQ_FLATBUFFERS_GENERATED_HEADERS)
+    if(NOT generated_headers)
+        return()
+    endif()
+    add_custom_target(oneq_flatbuffers_headers DEPENDS ${generated_headers})
+    set(ONEQ_FLATBUFFERS_HEADERS_TARGET oneq_flatbuffers_headers PARENT_SCOPE)
 endfunction()

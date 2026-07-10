@@ -11,7 +11,7 @@ Authority: build & test infrastructure
 | Workflow | 触发 | Job | 内容 | 阻断 PR |
 |---|---|---|---|---|
 | `ci.yml` | push / PR | **guard** | `-L contract`：17 个架构守护 + 契约测试，编译前先跑 | ✅ |
-| `ci.yml` | push / PR | **build-test** | Debug 构建 + 绿色门禁（`sar_ci`/`integration`/`replay_fast`）+ unit advisory | ✅（unit 不阻断） |
+| `ci.yml` | push / PR | **build-test** | Debug 构建 + 安装 consumer + 绿色门禁（`sar_ci`/`integration`/`replay_fast`）+ unit advisory | ✅（unit 不阻断） |
 | `nightly.yml` | cron 02:00 + 手动 | **performance** | Release 构建 + 性能/cxx11 兼容 gate | ❌ |
 | `nightly.yml` | cron + 手动 | **flight-dynamic** | FD=ON + JSBSim 数据 + `fd_ci` | ❌ |
 | `nightly.yml` | cron + 手动 | **coverage** | 插桩构建 + 覆盖率报告 artifact | ❌ |
@@ -28,7 +28,7 @@ Authority: build & test infrastructure
 
 当前仅 macOS（`macos-14` arm64 runner）。理由：
 - macOS 路径下 Conan 提供全部依赖（含 JSBSim 预编译包 `jsbsim/1.3.1`），最干净可靠。
-- Windows conan 路径的 JSBSim 来源存在未决问题（`conanfile.py` 在 Windows 下不 `requires` jsbsim，但 `cmake/project/ProjectDependencies.cmake` 仍 `find_package`），需先核实再启用。
+- Windows 依赖与安装消费闭包尚未验证，因此项目不再公开 Windows preset；恢复前必须先建立真实的 configure/build/install-consumer 验证。
 
 ## 本地复现
 
@@ -44,6 +44,12 @@ ctest --test-dir build/llvm-ninja-debug-local -L contract --output-on-failure -j
 bash scripts/bootstrap_conan.sh llvm-ninja-debug
 cmake --preset llvm-ninja-debug
 cmake --build --preset llvm-ninja-debug -j 4
+cmake --install build/llvm-ninja-debug-local
+cmake -S tests/consumer -B build/consumer/llvm-ninja-debug -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_TOOLCHAIN_FILE="$PWD/build/llvm-ninja-debug-local/build/Debug/generators/conan_toolchain.cmake" \
+  -DCMAKE_PREFIX_PATH="$PWD/build/install/llvm-ninja-debug"
+cmake --build build/consumer/llvm-ninja-debug -j 4
 ctest --test-dir build/llvm-ninja-debug-local -L 'sar_ci|integration|replay_fast' --output-on-failure -j 4
 
 # === build-test 的 unit advisory ===
@@ -78,7 +84,7 @@ GitHub 仓库 → **Actions** 标签页 → 左侧选 **Nightly** → 右上角 
 
 ## 扩展指南
 
-**新增 Windows job**：在 `nightly.yml` 加一个 `runs-on: windows-latest` 的 job，用 `windows-vs2019` preset。但必须先解决 JSBSim 在 Windows conan 路径下的来源问题（核实 `conanfile.py` 是否需要为 Windows 补 `jsbsim` requires，或改走源码编译路径）。
+**新增 Windows job**：先新增并验证 Windows Conan preset，再在 `nightly.yml` 加 `runs-on: windows-latest` job。验收必须覆盖 JSBSim / HighFive 的依赖来源、configure、build 和安装后的 consumer；未满足前不要在文档或 presets 中声明 Windows 支持。
 
 **把 unit 升级为硬门禁**：修复 2 个 SAR 失败 case 后，在 `ci.yml` 的 `build-test` job 里：
 1. 删除 `unit advisory` 整个 step

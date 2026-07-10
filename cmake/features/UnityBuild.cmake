@@ -1,4 +1,4 @@
-# FeatureUnityBuild.cmake
+# UnityBuild.cmake
 # 定义 Unity Build 的 target 级开关函数
 # ENABLE_UNITY_BUILD 为 ON 时，apply_unity_build() 会为指定 target 启用批量源文件合并编译，
 # 显著减少重复头文件解析次数，加速整体构建。

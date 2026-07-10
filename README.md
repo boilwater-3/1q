@@ -20,7 +20,7 @@
 - GTest / GMock（测试）
 - Eigen、nanoflann、Boost
 - FlatBuffers、zlib
-- spdlog / fmt（日志，Windows 以外的默认依赖）
+- spdlog / fmt（日志依赖）
 - JSBSim、HighFive（可选，由 Conan 选项控制）
 
 ## 构建
@@ -30,10 +30,9 @@
 - `llvm-ninja-debug-local`
 - `llvm-ninja-release-local`
 
-CI / 跨平台 preset（定义于 `CMakePresets.json`）：
+CI preset（定义于 `CMakePresets.json`，当前支持 macOS / LLVM + Ninja）：
 
 - `llvm-ninja-debug`、`llvm-ninja-release`（macOS / LLVM + Ninja）
-- `vendor-{debug,release}-windows-local-vs{2015,2017,2019}`（Windows + VS）
 
 示例命令：
 

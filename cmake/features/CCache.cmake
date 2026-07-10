@@ -1,4 +1,4 @@
-# FeatureCCache.cmake
+# CCache.cmake
 # 配置 ccache 缓存编译结果以加速重新编译
 # 仅 UNIX（Linux/macOS）默认开启，Windows 下强制 OFF 且不可改
 
