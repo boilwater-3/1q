@@ -1,10 +1,10 @@
 # 1Q Simulation Model Library
 
 ## Project Overview
-Simulation model library for external service modules such as airborne radar and electronic surveillance radar.
+Simulation model library for external service modules: airborne radar (AR), electronic surveillance radar (ESR), synthetic aperture radar (SAR), electro-optical sensor (EOS), flight dynamics, and space-based infrared sensor (SBIRS).
 
 ## Tech Stack
-C++11, CMake, Conan, GTest/GMock, spdlog, Eigen, nanoflann.
+C++17 (minimum C++11), CMake, Conan, GTest/GMock, Eigen, nanoflann, Boost, FlatBuffers, zlib, spdlog/fmt, JSBSim, HighFive (optional).
 
 ## Directory Structure
 ```text
@@ -19,6 +19,7 @@ include/
     |-- foundation/                         cross-domain public foundation types
     |-- replay/                             replay public interfaces
     |-- sar/                                SAR public API surface
+    |-- sbirs_sensor/                       SBIRS sensor public API surface
     `-- trace/                              cross-domain trace interfaces
 src/
 |-- airborne_radar/
@@ -65,16 +66,24 @@ src/
 |   |-- guidance/                           maneuver executor FSM and waypoint sequencing
 |   |-- model/                              vehicle state mapping from JSBSim
 |   `-- propulsion/                         engine and throttle management
-`-- sar/
-    |-- calibration/                        radiometric calibration
-    |-- echo/                               point target raw echo generation
-    |-- geometry/                           L1/L2/L3 trajectory, spotlight/scansar geometry
-    |-- imaging/                            RDA, BP/GBP, MoCo, Omega-K, quality, multilook
-    |-- output/                             binary/sidecar/HDF5 output
-    |-- runtime/                            PulseRingBuffer and aperture stitching
-    |-- session/                            session assembly, input validation, imaging executor
-    |-- signal/                             FFT, LFM waveform, matched filter
-    `-- smoke/                              PGA toolchain compile/link smoke test
+|-- sar/
+|   |-- calibration/                        radiometric calibration
+|   |-- echo/                               point target raw echo generation
+|   |-- geometry/                           L1/L2/L3 trajectory, spotlight/scansar geometry
+|   |-- imaging/                            RDA, BP/GBP, MoCo, Omega-K, quality, multilook
+|   |-- output/                             binary/sidecar/HDF5 output
+|   |-- runtime/                            PulseRingBuffer and aperture stitching
+|   |-- session/                            session assembly, input validation, imaging executor
+|   |-- signal/                             FFT, LFM waveform, matched filter
+|   `-- smoke/                              PGA toolchain compile/link smoke test
+`-- sbirs_sensor/
+    |-- config/                             SBIRS internal execution config
+    |-- environment/                        SBIRS environment modeling and state
+    |-- foundation/                         SBIRS error model, geometry, and physics foundation
+    |-- pipeline/                           SBIRS NFOV scheduler and processing pipeline
+    |-- runtime/                            SBIRS controller and pipeline config mapping
+    |-- session/                            SBIRS cycle I/O adapters and detection lifecycle
+    `-- tracking/                           SBIRS tracking types
 tests/                              unit and integration tests
 examples/                           usage examples
 tools/                              helper scripts
@@ -96,7 +105,6 @@ root config files/
 
 - Use presets: `llvm-ninja-debug-local`, `llvm-ninja-release-local`.
 - Prefer `llvm-ninja-release-local` for testing — JSBSim simulation runs ~6× faster than debug.
-- Use stress preset only for stress runs: `llvm-ninja-release-local-stress`.
 - Use log prefix: `/tmp/1q`.
 - Run bootstrap, configure, build, and test serially for the same preset.
 - `bash scripts/bootstrap_conan.sh "$preset"` generates the Conan toolchain before configure (run once, or again when `conanfile.py` changes).
@@ -162,7 +170,7 @@ The single command above (`bash tools/coverage_report.sh`) owns the entire flow:
 
 The generated `summary.txt` carries a scope header (generation time, interpretation binary, stat scope, label, profraw count) — read it alongside the numbers, and never compare Region totals across different interpretation scopes (single-binary reports are deduplicated; multi-`-object` reports inflate via double-counting).
 
-Read coverage as a diagnostic, not a KPI. **Branch coverage is the primary metric here** — this is a numerically dense radar/ESR simulation where line coverage can read 100% while whole `else` branches stay untested. Current full-suite baseline: Region 86.87%, Function 91.35%, Line 86.24%, **Branch 69.53%**. See `docs/coverage.md` for metric definitions, report reading, and troubleshooting.
+Read coverage as a diagnostic, not a KPI. **Branch coverage is the primary metric here** — this is a numerically dense radar/ESR simulation where line coverage can read 100% while whole `else` branches stay untested. Current full-suite baseline: Region 86.87%, Function 91.35%, Line 86.24%, **Branch 69.53%**. See `docs/practice/coverage.md` for metric definitions, report reading, and troubleshooting.
 
 ## Documentation
 

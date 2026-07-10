@@ -1,6 +1,6 @@
 # 1q
 
-`1q` 是一个面向外部服务模块的仿真模型库，当前覆盖机载雷达（AR）、电子侦察雷达（ESR）、合成孔径雷达（SAR）、光电传感器（EOS）以及飞行动力学（Flight Dynamic）五套主模块。项目重点在于稳定的公共 API、可替换的内部组件，以及可测试的仿真链路编排。
+`1q` 是一个面向外部服务模块的仿真模型库，当前覆盖机载雷达（AR）、电子侦察雷达（ESR）、合成孔径雷达（SAR）、光电传感器（EOS）、飞行动力学（Flight Dynamic）以及天基红外传感器（SBIRS）六套主模块。项目重点在于稳定的公共 API、可替换的内部组件，以及可测试的仿真链路编排。
 
 ## 模块概览
 
@@ -9,6 +9,7 @@
 - `include/1q/sar/`、`src/sar/`: 合成孔径雷达公共 API 与实现。
 - `include/1q/electro_optical_sensor/`、`src/electro_optical_sensor/`: 光电传感器公共 API 与实现。
 - `include/1q/flight_dynamic/`、`src/flight_dynamic/`: 飞行动力学、制导与机动模型。
+- `include/1q/sbirs_sensor/`、`src/sbirs_sensor/`: 天基红外传感器（SBIRS）公共 API 与实现，覆盖环境、错误模型、NFOV 调度与处理流水线。
 - `include/1q/{coordinate,environment,foundation,replay,trace}/`: 跨模块共享的坐标、环境、基础类型、回放与追踪接口。
 - `tests/`: 单元测试、集成测试、契约测试、性能测试与安装消费测试。
 - `examples/`: 各模块的快速上手、会话用法与集成示例。
@@ -60,7 +61,7 @@ ctest --preset llvm-ninja-debug-local --output-on-failure
 ## 文档
 
 - `CLAUDE.md`: 工程约束、构建测试规则与重构策略。
-- `docs/<module>/design.md`: 各模块当前设计（AR / ESR / SAR / EOS / Flight Dynamic）。
+- `docs/<module>/design.md`: 各模块当前设计（AR / ESR / SAR / EOS / Flight Dynamic / SBIRS）。
 - `docs/common/`: 跨模块契约与开放问题（`contract.md`、`open_questions.md`）。
 - `docs/practice/`: 工程实践与基础设施类设计文档（覆盖率、批量场景验证框架等）。
 - `docs/review/`: 模块评审与迁移计划。
