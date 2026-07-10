@@ -57,8 +57,8 @@ oneq_register_test_sources(contract_compiled ${CONTRACT_TEST_SOURCES})
 # are still compiled into both a unit partition and this replay_fast target.
 set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/replay/common/replay_trace_writer_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar/ar_trace_session_adapter_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar/ar_replay_codec_roundtrip_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/replay/airborne_radar/ar_trace_session_adapter_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/eos_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/eos_replay_session_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp
