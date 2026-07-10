@@ -3,8 +3,8 @@
 # Phase 2: the legacy 1q_unit_tests executable is replaced by per-domain unit
 # partitions defined in partitions/Unit.cmake. 1q_unit_tests becomes a custom
 # aggregate target. The FD executable (1q_fd_tests) is replaced by the
-# 1q_flight_dynamic_unit_tests partition. Phase 3 converts replay-fast to
-# per-domain replay partitions; integration/contract/performance remain legacy
+# 1q_flight_dynamic_unit_tests partition. Phase 3 converts replay-fast and
+# integration to per-domain partitions; contract/performance remain legacy
 # executables until their own partition batches.
 
 # --- unit partitions -------------------------------------------------------
@@ -40,11 +40,22 @@ file(GLOB_RECURSE PERFORMANCE_TEST_SOURCES CONFIGURE_DEPENDS
 add_1q_gtest(${PROJECT_NAME}_performance_tests performance 180 ${PERFORMANCE_TEST_SOURCES})
 oneq_register_test_sources(performance ${PERFORMANCE_TEST_SOURCES})
 
-# --- integration (legacy executable, Phase 3 converts to partition) --------
-file(GLOB_RECURSE INTEGRATION_TEST_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/integration/*.cpp")
-add_1q_gtest(${PROJECT_NAME}_integration_tests integration 120 ${INTEGRATION_TEST_SOURCES})
-oneq_register_test_sources(integration ${INTEGRATION_TEST_SOURCES})
+# --- integration partitions ------------------------------------------------
+include(${CMAKE_CURRENT_LIST_DIR}/partitions/Integration.cmake)
+
+add_custom_target(${PROJECT_NAME}_integration_tests)
+set(_oneq_integration_partition_targets
+    ${PROJECT_NAME}_airborne_radar_integration_tests
+    ${PROJECT_NAME}_electro_optical_sensor_integration_tests
+    ${PROJECT_NAME}_electronic_surveillance_radar_integration_tests
+    ${PROJECT_NAME}_sbirs_sensor_integration_tests
+    ${PROJECT_NAME}_cross_domain_integration_tests)
+foreach(_p IN LISTS _oneq_integration_partition_targets)
+    if(TARGET ${_p})
+        add_dependencies(${PROJECT_NAME}_integration_tests ${_p})
+    endif()
+endforeach()
+unset(_oneq_integration_partition_targets)
 
 # --- contract compiled (legacy executable, Phase 3 converts to partition) --
 file(GLOB_RECURSE CONTRACT_TEST_SOURCES CONFIGURE_DEPENDS
