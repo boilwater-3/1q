@@ -4,8 +4,7 @@
 # partitions defined in partitions/Unit.cmake. 1q_unit_tests becomes a custom
 # aggregate target. The FD executable (1q_fd_tests) is replaced by the
 # 1q_flight_dynamic_unit_tests partition. Phase 3 converts replay-fast and
-# integration and compiled contract to per-domain partitions; performance
-# remains a legacy executable until its own partition batch.
+# integration, compiled contract and performance to per-domain partitions.
 
 # --- unit partitions -------------------------------------------------------
 include(${CMAKE_CURRENT_LIST_DIR}/partitions/Unit.cmake)
@@ -34,11 +33,13 @@ if(TARGET ${PROJECT_NAME}_flight_dynamic_unit_tests AND NOT TARGET ${PROJECT_NAM
     add_dependencies(${PROJECT_NAME}_fd_tests ${PROJECT_NAME}_flight_dynamic_unit_tests)
 endif()
 
-# --- performance (legacy executable, Phase 3 converts to partition) --------
-file(GLOB_RECURSE PERFORMANCE_TEST_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/performance/*.cpp")
-add_1q_gtest(${PROJECT_NAME}_performance_tests performance 180 ${PERFORMANCE_TEST_SOURCES})
-oneq_register_test_sources(performance ${PERFORMANCE_TEST_SOURCES})
+# --- performance partitions ------------------------------------------------
+include(${CMAKE_CURRENT_LIST_DIR}/partitions/Performance.cmake)
+
+add_custom_target(${PROJECT_NAME}_performance_tests)
+if(TARGET ${PROJECT_NAME}_sar_performance_tests)
+    add_dependencies(${PROJECT_NAME}_performance_tests ${PROJECT_NAME}_sar_performance_tests)
+endif()
 
 # --- integration partitions ------------------------------------------------
 include(${CMAKE_CURRENT_LIST_DIR}/partitions/Integration.cmake)

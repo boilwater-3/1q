@@ -45,7 +45,7 @@ add_test(NAME sar_frozen_sources
 set_tests_properties(sar_frozen_sources PROPERTIES LABELS "sar_contract;sar_ci")
 
 add_test(NAME "sar_performance::1q_performance_tests"
-         COMMAND ${PROJECT_NAME}_performance_tests
+         COMMAND ${PROJECT_NAME}_sar_performance_tests
                  --gtest_filter=SarPerformanceTest.*)
 set_tests_properties("sar_performance::1q_performance_tests" PROPERTIES LABELS "sar_performance")
 
