@@ -45,8 +45,7 @@ progress.md
 # project prompts (local AI agent configs, not for version control)
 # 例外：.github/workflows/ 是 CI 配置，必须纳入版本控制。
 GEMINI.md
-AGENTS.md
-CLAUDE.md
+# CLAUDE.md 作为 prompt 单一事实源纳入版本控制；AGENTS.md 为指向它的符号链接。
 .claude/skills/debug-cpp-bug/
 # 忽略 .github/ 下除 workflows/ 外的本地配置
 .github/*
