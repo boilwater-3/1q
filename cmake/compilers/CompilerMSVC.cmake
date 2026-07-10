@@ -1,16 +1,17 @@
-# MSVC compiler option helpers.
-# This file defines functions only; project targets opt in explicitly.
+# CompilerMSVC.cmake
+# 为 MSVC 编译器定义 target 级编译/链接选项应用函数。
+# 本文件仅定义函数，不直接调用 add_compile_options() / add_link_options()，
 
-function(oneq_apply_msvc_options)
+function(apply_msvc_options)
     set(one_value_args ENABLE_WARNINGS STACK_SIZE_OPTION)
     set(multi_value_args TARGETS LINK_TARGETS)
     cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT MSVC)
-        message(FATAL_ERROR "oneq_apply_msvc_options() requires an MSVC compiler")
+        message(FATAL_ERROR "apply_msvc_options() requires an MSVC compiler")
     endif()
     if(NOT ARG_TARGETS)
-        message(FATAL_ERROR "oneq_apply_msvc_options() requires TARGETS")
+        message(FATAL_ERROR "apply_msvc_options() requires TARGETS")
     endif()
     if(NOT DEFINED ARG_STACK_SIZE_OPTION OR ARG_STACK_SIZE_OPTION STREQUAL "")
         set(ARG_STACK_SIZE_OPTION "DEFAULT")
@@ -22,12 +23,13 @@ function(oneq_apply_msvc_options)
     message(STATUS "Configuring for MSVC compiler")
     message(STATUS "  └─ Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
+    # /MP：多源文件并行编译；/Zc:inline：剔除 COMDAT 重复定义，缩减代码体积
     set(_msvc_common_compile_options /MP /Zc:inline)
     if(MSVC_VERSION GREATER_EQUAL 1910)
         list(APPEND _msvc_common_compile_options
-            /utf-8
-            /permissive-
-            /Zc:referenceBinding)
+            /utf-8                 # 源码与执行字符集均按 UTF-8 处理（避免中文乱码）
+            /permissive-           # 严格遵循标准 C++，禁用历史非标准扩展
+            /Zc:referenceBinding)  # 禁止临时量绑定到非 const 左值引用（标准要求）
     else()
         message(STATUS "  Legacy MSVC mode: skipping /utf-8 /permissive- /Zc:referenceBinding for VS2015 compatibility")
     endif()
@@ -39,49 +41,50 @@ function(oneq_apply_msvc_options)
         target_compile_options("${_target}" PRIVATE ${_msvc_common_compile_options})
         if(ARG_ENABLE_WARNINGS)
             target_compile_options("${_target}" PRIVATE
-                /W4
-                /WX-
-                /w14242
-                /w14254
-                /w14263
-                /w14265
-                /w14287
-                /we4289
-                /w14296
-                /w14311
-                /w14545
-                /w14546
-                /w14547
-                /w14549
-                /w14555
-                /w14619
-                /w14640
-                /w14826
-                /w14905
-                /w14906
-                /w14928)
+                /W4      # 最高信息级别警告（启用绝大多数警告，含 C4xxx 系列）
+                /WX-     # 警告不视为错误（保留告警但允许编译继续）
+                /w14242  # 从 size_t 隐式截断转换（如 sizeof 结果赋给 int）
+                /w14254  # 运算符转换可能导致数据丢失
+                /w14263  # 成员函数签名与基类虚函数不一致（虚表未覆盖）
+                /w14265  # 类有虚函数但析构函数非 virtual（多态资源泄漏风险）
+                /w14287  # 非 const 成员函数调用非 static 数据成员的 this 误用
+                /we4289  # 将 for-range 局部变量声明错误使用为错误（标准兼容）
+                /w14296  # 表达式始终为 false（疑似逻辑错误）
+                /w14311  # 指针截断转换为更小整型（64→32 位指针丢失高位）
+                /w14545  # 函数体之前的不确定语句（逗号表达式误写）
+                /w14546  # 在形参列表前误用逗号（误写为函数调用）
+                /w14547  # 在实参列表前误用逗号
+                /w14549  # 形参实参类型不一致（signed/unsigned 提醒）
+                /w14555  # 表达式无副作用（疑似缺赋值运算符）
+                /w14619  # pragma warning 描述格式错误
+                /w14640  # 线程不安全静态局部变量的使用风险提醒
+                /w14826  # 从 size_t 到带符号整型的转换可能溢出
+                /w14905  # 宽字符串字面量拼接为窄字符串（类型不一致）
+                /w14906  # 字符串字面量拼接跨字符串类型不一致
+                /w14928) # 异常规范误用（如 throw() 旧式标注）
         else()
-            target_compile_options("${_target}" PRIVATE /W3)
+            target_compile_options("${_target}" PRIVATE /W3)  # 标准信息级别警告
         endif()
 
         target_compile_options("${_target}" PRIVATE
-            $<$<CONFIG:Debug>:/Z7>
-            $<$<CONFIG:Debug>:/Od>
-            $<$<CONFIG:Debug>:/RTC1>
-            $<$<AND:$<CONFIG:Debug>,$<VERSION_GREATER_EQUAL:${MSVC_VERSION},1910>>:/JMC>
-            $<$<CONFIG:Release>:/Od>
-            $<$<CONFIG:Release>:/Ot>
-            $<$<CONFIG:Release>:/Ob2>
-            $<$<CONFIG:Release>:/Oi>
-            $<$<CONFIG:Release>:/Gy>
-            $<$<CONFIG:Release>:/GS->
-            $<$<CONFIG:Release>:/Z7>
-            $<$<CONFIG:RelWithDebInfo>:/O2>
-            $<$<CONFIG:RelWithDebInfo>:/Ob2>
-            $<$<CONFIG:RelWithDebInfo>:/Oi>
-            $<$<CONFIG:RelWithDebInfo>:/Z7>
-            $<$<CONFIG:MinSizeRel>:/O1>
-            $<$<CONFIG:MinSizeRel>:/Os>)
+            $<$<CONFIG:Debug>:/Z7>                                                # 生成旧式完整调试信息（嵌入 .obj，便于调试）
+            $<$<CONFIG:Debug>:/Od>                                                # 关闭优化，变量观察值与源码一致
+            $<$<CONFIG:Debug>:/RTC1>                                              # 运行期检查：未初始化栈变量 + 栈帧校验
+            $<$<AND:$<CONFIG:Debug>,$<VERSION_GREATER_EQUAL:${MSVC_VERSION},1910>>:/JMC>  # 启用 Just My Code 调试（仅步入用户代码）
+            $<$<CONFIG:Release>:/Od>                                              # 先关优化再叠加下方优化选项，避免 /Od 与 /O 冲突告警
+            $<$<CONFIG:Release>:/Ot>                                              # 优化时优先代码速度（而非体积）
+            $<$<CONFIG:Release>:/Ob2>                                             # 任意内联（含编译器判断的非 inline 函数）
+            $<$<CONFIG:Release>:/Oi>                                              # 生成内建函数（如 memcpy 走 intrinsic）
+            $<$<CONFIG:Release>:/Gy>                                              # 每函数独立 COMDAT 段，配合链接期折叠/裁剪
+            $<$<CONFIG:Release>:/GS->                                             # 关闭缓冲区安全检查（性能向，牺牲溢出防护）
+            $<$<CONFIG:Release>:/Z7>                                              # Release 仍带调试信息，便于排查线上问题
+            $<$<CONFIG:RelWithDebInfo>:/O2>                                       # 标准优化，兼顾性能与可调试性
+            $<$<CONFIG:RelWithDebInfo>:/Ob2>                                      # 任意内联
+            $<$<CONFIG:RelWithDebInfo>:/Oi>                                       # 启用内建函数
+            $<$<CONFIG:RelWithDebInfo>:/Z7>                                       # 生成完整调试信息
+            $<$<CONFIG:MinSizeRel>:/O1>                                           # 以代码体积为目标优化
+            $<$<CONFIG:MinSizeRel>:/Os>)                                          # 优化时优先代码体积（而非速度）
+    endforeach()
     endforeach()
 
     foreach(_target IN LISTS ARG_LINK_TARGETS)
@@ -89,24 +92,28 @@ function(oneq_apply_msvc_options)
             message(FATAL_ERROR "Compiler link target does not exist: ${_target}")
         endif()
         if(ARG_STACK_SIZE_OPTION STREQUAL "RECOMMENDED")
+            # 设置栈保留空间为 2MB（默认仅 1MB）
             target_link_options("${_target}" PRIVATE /STACK:2097152)
         elseif(ARG_STACK_SIZE_OPTION STREQUAL "LARGE_PROJECT")
+            # 设置栈保留空间为 4MB，适配较深调用栈的大中型工程
             target_link_options("${_target}" PRIVATE /STACK:4194304)
         elseif(ARG_STACK_SIZE_OPTION STREQUAL "EXTREME_RECURSION")
+            # 设置栈保留空间为 8MB，适配深度递归 / 模板实例化场景
             target_link_options("${_target}" PRIVATE /STACK:8388608)
         endif()
 
         target_link_options("${_target}" PRIVATE
-            $<$<CONFIG:Debug>:/DEBUG:FULL>
-            $<$<CONFIG:Debug>:/INCREMENTAL>
-            $<$<CONFIG:Release>:/DEBUG:FULL>
-            $<$<CONFIG:Release>:/INCREMENTAL:NO>
-            $<$<CONFIG:RelWithDebInfo>:/DEBUG:FULL>
-            $<$<CONFIG:RelWithDebInfo>:/OPT:REF>
-            $<$<CONFIG:RelWithDebInfo>:/OPT:ICF>
-            $<$<CONFIG:RelWithDebInfo>:/INCREMENTAL:NO>
-            $<$<CONFIG:MinSizeRel>:/OPT:REF>
-            $<$<CONFIG:MinSizeRel>:/OPT:ICF>)
+            $<$<CONFIG:Debug>:/DEBUG:FULL>          # 生成完整 PDB 调试符号
+            $<$<CONFIG:Debug>:/INCREMENTAL>         # 启用增量链接，加快反复链接速度
+            $<$<CONFIG:Release>:/DEBUG:FULL>        # Release 仍生成完整 PDB，便于排查线上问题
+            $<$<CONFIG:Release>:/INCREMENTAL:NO>    # 关闭增量链接，配合 LTO/优化更稳定
+            $<$<CONFIG:RelWithDebInfo>:/DEBUG:FULL> # 生成完整 PDB 调试符号
+            $<$<CONFIG:RelWithDebInfo>:/OPT:REF>    # 移除未引用函数/数据（需 /Gy 段级编译）
+            $<$<CONFIG:RelWithDebInfo>:/OPT:ICF>    # 折叠等价 COMDAT 段（Identical COMDAT Folding）
+            $<$<CONFIG:RelWithDebInfo>:/INCREMENTAL:NO>  # 关闭增量链接，配合 /OPT 优化
+            $<$<CONFIG:MinSizeRel>:/OPT:REF>        # 移除未引用函数/数据
+            $<$<CONFIG:MinSizeRel>:/OPT:ICF>)       # 折叠等价 COMDAT 段，进一步缩减体积
+    endforeach()
     endforeach()
 
     if(ARG_STACK_SIZE_OPTION STREQUAL "DEFAULT")
