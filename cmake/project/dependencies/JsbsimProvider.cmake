@@ -1,9 +1,11 @@
-# JSBSim provider resolution.
+# dependencies/JsbsimProvider.cmake
+# JSBSim 依赖解析：三选一策略，始终产出 JSBSim::JSBSim 别名 target
 
 option(ONEQ_JSBSIM_FROM_SOURCE "Build JSBSim from third_party source (enables source-level debugging)" OFF)
 set(ONEQ_JSBSIM_PREBUILT_ROOT_DIR "" CACHE PATH
     "Use a prebuilt JSBSim tree instead of building/finding JSBSim")
 
+# 策略一：使用预编译目录（lib/libJSBSim），适合已构建好的 JSBSim 树。
 if(ONEQ_JSBSIM_PREBUILT_ROOT_DIR)
     set(ONEQ_JSBSIM_BINARY_SOURCE "prebuilt:${ONEQ_JSBSIM_PREBUILT_ROOT_DIR}")
     find_library(ONEQ_JSBSIM_PREBUILT_LIBRARY
@@ -20,28 +22,35 @@ if(ONEQ_JSBSIM_PREBUILT_ROOT_DIR)
         IMPORTED_LOCATION "${ONEQ_JSBSIM_PREBUILT_LIBRARY}"
         INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/third_party/jsbsim/src")
     add_library(JSBSim::JSBSim ALIAS JSBSim_prebuilt)
+# 策略二：从 third_party/jsbsim 源码构建，支持源码级调试。
 elseif(ONEQ_JSBSIM_FROM_SOURCE)
     set(ONEQ_JSBSIM_BINARY_SOURCE "vendor:third_party/jsbsim")
+    # 保存并强制覆盖 BUILD_SHARED_LIBS：JSBSim 需以共享库构建，避免与主项目静态策略冲突。
     set(_oneq_prev_build_shared_libs ${BUILD_SHARED_LIBS})
     set(BUILD_SHARED_LIBS ON CACHE BOOL "Build JSBSim as shared library" FORCE)
+    # 关闭 JSBSim 自带的文档构建，减少不必要的依赖。
     set(BUILD_DOCS OFF CACHE BOOL "" FORCE)
 
     add_subdirectory(${CMAKE_SOURCE_DIR}/third_party/jsbsim ${CMAKE_BINARY_DIR}/third_party/jsbsim)
 
+    # 恢复主项目原有的共享/静态策略。
     set(BUILD_SHARED_LIBS ${_oneq_prev_build_shared_libs} CACHE BOOL "" FORCE)
     unset(_oneq_prev_build_shared_libs)
 
+    # 用 INTERFACE 库包装 libJSBSim，统一以 JSBSim::JSBSim 别名消费。
     add_library(JSBSim_interface INTERFACE)
     target_link_libraries(JSBSim_interface INTERFACE libJSBSim)
     target_include_directories(JSBSim_interface INTERFACE
         ${CMAKE_SOURCE_DIR}/third_party/jsbsim/src)
     add_library(JSBSim::JSBSim ALIAS JSBSim_interface)
+# 策略三（默认）：由 conan 提供 jsbsim 预编译包。
 else()
     set(ONEQ_JSBSIM_BINARY_SOURCE "conan:jsbsim/1.3.1")
     find_package(jsbsim CONFIG REQUIRED)
     add_library(JSBSim::JSBSim ALIAS jsbsim::jsbsim)
 endif()
 
+# 解析结果写回 CACHE INTERNAL，供 ProjectDependencies 提升到调用方作用域。
 set(ONEQ_JSBSIM_BINARY_SOURCE "${ONEQ_JSBSIM_BINARY_SOURCE}"
     CACHE INTERNAL "Resolved JSBSim binary source")
 set(ONEQ_JSBSIM_DATA_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim"

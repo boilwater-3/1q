@@ -1,5 +1,6 @@
-# Project configuration summary. Kept separate from setup so the top-level
-# lifecycle can emit its final state after all product directories are added.
+# ProjectSummary.cmake
+# 项目配置汇总打印
+# 与 setup 分离，使生命周期在所有产品目录添加后输出最终状态
 
 macro(oneq_print_project_summary)
     message(STATUS "Configuration Summary")

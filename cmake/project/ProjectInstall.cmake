@@ -1,6 +1,9 @@
-# Installation and package-export lifecycle entry point.
+# ProjectInstall.cmake
+# 安装与包导出生命周期入口
+# 受 ENABLE_INSTALL 门控；生成 *Config.cmake 供下游 find_package 消费
 
 function(oneq_configure_package_dependencies out_var)
+    # 组装下游包配置文件中的 find_dependency(...) 片段：每个第三方包对应一行。
     set(config_find_dependencies "")
     if(PACKAGE_MANAGER STREQUAL "conan")
         string(APPEND config_find_dependencies
@@ -9,11 +12,13 @@ function(oneq_configure_package_dependencies out_var)
             "find_dependency(nanoflann REQUIRED CONFIG)\n"
             "find_dependency(flatbuffers REQUIRED CONFIG)\n"
             "find_dependency(jsbsim REQUIRED CONFIG)\n")
+        # spdlog 仅在启用时纳入，避免下游被迫安装未使用的依赖。
         if(PROJECT_ENABLE_SPDLOG)
             string(APPEND config_find_dependencies
                 "find_dependency(spdlog REQUIRED CONFIG)\n")
         endif()
         string(APPEND config_find_dependencies "find_dependency(ZLIB REQUIRED)\n")
+        # HDF5 输出能力依赖 HighFive，仅在 C++17 且包存在时启用。
         if(ONEQ_ENABLE_HDF5_OUTPUT)
             string(APPEND config_find_dependencies
                 "find_dependency(HighFive REQUIRED CONFIG)\n")
@@ -29,6 +34,7 @@ function(oneq_install_project)
 
     include(CMakePackageConfigHelpers)
 
+    # 安装核心 target 并关联到导出集，按 GNUInstallDirs 标准路径分类产物。
     install(TARGETS ${PROJECT_CORE_TARGET}
         EXPORT ${PROJECT_EXPORT_SET}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -37,8 +43,7 @@ function(oneq_install_project)
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
 
-    # include/1q/ is the guarded public-header boundary. Mirror it instead of
-    # maintaining a second, module-local header manifest.
+    # include/1q/ 是受控的公共头边界：镜像安装而非维护第二份模块本地头清单。
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/include/1q/"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/1q"
         FILES_MATCHING
@@ -49,12 +54,14 @@ function(oneq_install_project)
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/1q
     )
 
+    # 导出 target 集为 <PROJECT_NAME>Targets.cmake，下游以 <PROJECT_NAME>:: 命名空间引用。
     install(EXPORT ${PROJECT_EXPORT_SET}
         NAMESPACE ${PROJECT_NAME}::
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
         FILE ${PROJECT_NAME}Targets.cmake
     )
 
+    # 生成 *Config.cmake.in 模板并 configure 为最终包配置文件。
     oneq_configure_package_dependencies(ONEQ_CONFIG_FIND_DEPENDENCIES)
     set(_oneq_config_template "${CMAKE_BINARY_DIR}/${PROJECT_NAME}Config.cmake.in")
     file(WRITE "${_oneq_config_template}" [=[@PACKAGE_INIT@
@@ -84,12 +91,14 @@ set(@PROJECT_NAME@_LIBRARIES @PROJECT_NAME@::@PROJECT_NAME_LOWER@)
         PATH_VARS CMAKE_INSTALL_INCLUDEDIR
     )
 
+    # 版本兼容策略采用 SameMajorVersion：次版本/补丁升级视为兼容，主版本升级需人工确认。
     write_basic_package_version_file(
         "${CMAKE_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
         VERSION ${PROJECT_VERSION}
         COMPATIBILITY SameMajorVersion
     )
 
+    # 安装两个配置文件到 cmake/ 目录，下游 find_package 即可定位。
     install(FILES
         "${CMAKE_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
         "${CMAKE_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
