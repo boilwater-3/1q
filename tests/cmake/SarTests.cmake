@@ -23,7 +23,7 @@ set_tests_properties("sar_unit::1q_sar_unit_tests" PROPERTIES LABELS "sar_unit;s
 set(_sar_replay_filter "SarReplayCodecRoundtripTest.*:" "SarReplaySessionTest.*")
 string(REPLACE ";" "" _sar_replay_filter_str "${_sar_replay_filter}")
 add_test(NAME "sar_replay::1q_replay_fast_tests"
-         COMMAND ${PROJECT_NAME}_replay_fast_tests --gtest_filter=${_sar_replay_filter_str})
+         COMMAND ${PROJECT_NAME}_sar_replay_tests --gtest_filter=${_sar_replay_filter_str})
 set_tests_properties("sar_replay::1q_replay_fast_tests" PROPERTIES LABELS "sar_replay;sar_ci")
 
 set(_sar_integration_filter "SarSessionPipelineTest.*:" "SarReplaySessionTest.*")

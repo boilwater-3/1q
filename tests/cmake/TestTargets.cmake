@@ -3,9 +3,9 @@
 # Phase 2: the legacy 1q_unit_tests executable is replaced by per-domain unit
 # partitions defined in partitions/Unit.cmake. 1q_unit_tests becomes a custom
 # aggregate target. The FD executable (1q_fd_tests) is replaced by the
-# 1q_flight_dynamic_unit_tests partition. replay_fast/integration/contract/
-# performance remain legacy executables in this phase; Phase 3 converts them to
-# partitions and aggregate targets.
+# 1q_flight_dynamic_unit_tests partition. Phase 3 converts replay-fast to
+# per-domain replay partitions; integration/contract/performance remain legacy
+# executables until their own partition batches.
 
 # --- unit partitions -------------------------------------------------------
 include(${CMAKE_CURRENT_LIST_DIR}/partitions/Unit.cmake)
@@ -52,26 +52,25 @@ file(GLOB_RECURSE CONTRACT_TEST_SOURCES CONFIGURE_DEPENDS
 add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES})
 oneq_register_test_sources(contract_compiled ${CONTRACT_TEST_SOURCES})
 
-# --- replay-fast (legacy executable, Phase 3 converts to partition) --------
-# The replay overlap allowlist in TestRegistry.cmake documents the sources that
-# are still compiled into both a unit partition and this replay_fast target.
-set(REPLAY_FAST_TEST_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/replay/common/replay_trace_writer_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/replay/airborne_radar/ar_trace_session_adapter_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/replay/electro_optical_sensor/eos_replay_codec_roundtrip_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/replay/electro_optical_sensor/eos_replay_session_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/replay/electronic_surveillance_radar/esr_replay_session_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/replay/sar/sar_replay_codec_roundtrip_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/replay/sar/sar_replay_session_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/replay/common/replay_trace_compression_test.cpp)
-add_1q_gtest(${PROJECT_NAME}_replay_fast_tests replay_fast 90 ${REPLAY_FAST_TEST_SOURCES})
-oneq_register_test_sources(replay_fast ${REPLAY_FAST_TEST_SOURCES})
-if(TARGET oneq_flatbuffers_headers)
-    add_dependencies(${PROJECT_NAME}_replay_fast_tests oneq_flatbuffers_headers)
-endif()
+# --- replay partitions -----------------------------------------------------
+include(${CMAKE_CURRENT_LIST_DIR}/partitions/Replay.cmake)
+
+# Keep the legacy build target name as an aggregate; CTest selection remains
+# compatible through the replay_fast label set on each partition.
+add_custom_target(${PROJECT_NAME}_replay_fast_tests)
+set(_oneq_replay_partition_targets
+    ${PROJECT_NAME}_common_replay_tests
+    ${PROJECT_NAME}_airborne_radar_replay_tests
+    ${PROJECT_NAME}_electro_optical_sensor_replay_tests
+    ${PROJECT_NAME}_electronic_surveillance_radar_replay_tests
+    ${PROJECT_NAME}_sar_replay_tests
+    ${PROJECT_NAME}_sbirs_sensor_replay_tests)
+foreach(_p IN LISTS _oneq_replay_partition_targets)
+    if(TARGET ${_p})
+        add_dependencies(${PROJECT_NAME}_replay_fast_tests ${_p})
+    endif()
+endforeach()
+unset(_oneq_replay_partition_targets)
 
 # --- aggregate build targets ----------------------------------------------
 add_custom_target(${PROJECT_NAME}_tests)
