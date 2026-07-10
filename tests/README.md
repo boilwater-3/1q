@@ -24,6 +24,18 @@
 - 仅集成：`ctest --preset llvm-ninja-debug-local -Q --output-on-failure -L integration`
 - 仅契约：`ctest --preset llvm-ninja-debug-local -Q --output-on-failure -L contract`
 
+## CMake 注册结构
+
+`tests/CMakeLists.txt` 只编排测试生命周期；具体注册按职责位于 `tests/cmake/`：
+
+- `TestSupport.cmake`：依赖发现、源文件收集与通用 `add_1q_gtest()`。
+- `TestTargets.cmake`：测试二进制、replay-fast 与 aggregate build targets。
+- `FlightDynamicTests.cmake`：FD 五层 CTest filter/label 与 JSBSim 接线。
+- `SarTests.cmake`：SAR focused 入口与 C++11 compatibility probe。
+- `ContractGuards.cmake`：源码/文档/CMake contract guard 注册。
+
+新增 CTest 入口应放入其拥有的注册文件；不得重新把专项 filter 或 guard 堆回根入口。
+
 ## AR include-direction 护栏
 - `airborne_include_direction_guard` 强制 `src/airborne_radar/signal/**` 不得 include `airborne_radar/runtime/**` 或 `airborne_radar/session/**`。
 - `airborne_include_direction_guard` 强制 `src/airborne_radar/environment/**` 不得 include `airborne_radar/decision/**` 或 `airborne_radar/signal/**`。
