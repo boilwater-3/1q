@@ -36,9 +36,9 @@ list(LENGTH _flat_unit_root_tests _flat_count)
 message(STATUS "test_layout_guard: ${_unit_count} _test.cpp under tests/unit/ (${_flat_count} still flat at root)")
 
 # Ensure type subdirectories that hold tests match the allowed vocabulary.
-# Phase 0 only validates the four currently-active type roots; infrastructure
-# directories (cmake/, support/) are explicitly allowed and are not test types.
-set(_allowed_type_roots unit integration contract performance consumer)
+# All target type roots are allowed once their Phase 1–3 directory migrations
+# have started; infrastructure directories are not test types.
+set(_allowed_type_roots unit integration replay contract performance compatibility consumer)
 set(_allowed_infra_dirs cmake support)
 file(GLOB _entries RELATIVE "${_test_root}" "${_test_root}/*")
 foreach(_e IN LISTS _entries)
@@ -50,7 +50,7 @@ foreach(_e IN LISTS _entries)
                 "test_layout_guard: unknown directory tests/${_e}/. "
                 "Allowed type roots: ${_allowed_type_roots}; "
                 "infrastructure: ${_allowed_infra_dirs}. "
-                "(replay/compatibility are Phase 1 targets.)")
+                "All listed type roots are valid test categories.")
         endif()
     endif()
 endforeach()

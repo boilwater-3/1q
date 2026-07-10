@@ -34,7 +34,7 @@ set_tests_properties("sar_integration::1q_sar_unit_tests"
                      PROPERTIES LABELS "sar_integration;sar_ci")
 
 add_test(NAME "sar_contract::1q_contract_tests"
-         COMMAND ${PROJECT_NAME}_contract_tests
+         COMMAND ${PROJECT_NAME}_public_api_contract_tests
                  --gtest_filter=PublicHeadersSmokeTest.SarPublicSurfaceSupportsMinimalUsage)
 set_tests_properties("sar_contract::1q_contract_tests" PROPERTIES LABELS "sar_contract;sar_ci")
 

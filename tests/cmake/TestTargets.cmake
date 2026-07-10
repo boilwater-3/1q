@@ -4,8 +4,8 @@
 # partitions defined in partitions/Unit.cmake. 1q_unit_tests becomes a custom
 # aggregate target. The FD executable (1q_fd_tests) is replaced by the
 # 1q_flight_dynamic_unit_tests partition. Phase 3 converts replay-fast and
-# integration to per-domain partitions; contract/performance remain legacy
-# executables until their own partition batches.
+# integration and compiled contract to per-domain partitions; performance
+# remains a legacy executable until its own partition batch.
 
 # --- unit partitions -------------------------------------------------------
 include(${CMAKE_CURRENT_LIST_DIR}/partitions/Unit.cmake)
@@ -57,11 +57,23 @@ foreach(_p IN LISTS _oneq_integration_partition_targets)
 endforeach()
 unset(_oneq_integration_partition_targets)
 
-# --- contract compiled (legacy executable, Phase 3 converts to partition) --
-file(GLOB_RECURSE CONTRACT_TEST_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/contract/*.cpp")
-add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES})
-oneq_register_test_sources(contract_compiled ${CONTRACT_TEST_SOURCES})
+# --- compiled contract partitions -----------------------------------------
+include(${CMAKE_CURRENT_LIST_DIR}/partitions/Contract.cmake)
+
+add_custom_target(${PROJECT_NAME}_contract_tests)
+set(_oneq_contract_partition_targets
+    ${PROJECT_NAME}_public_api_contract_tests
+    ${PROJECT_NAME}_airborne_radar_contract_tests
+    ${PROJECT_NAME}_electro_optical_sensor_contract_tests
+    ${PROJECT_NAME}_electronic_surveillance_radar_contract_tests
+    ${PROJECT_NAME}_sar_contract_tests
+    ${PROJECT_NAME}_sbirs_sensor_contract_tests)
+foreach(_p IN LISTS _oneq_contract_partition_targets)
+    if(TARGET ${_p})
+        add_dependencies(${PROJECT_NAME}_contract_tests ${_p})
+    endif()
+endforeach()
+unset(_oneq_contract_partition_targets)
 
 # --- replay partitions -----------------------------------------------------
 include(${CMAKE_CURRENT_LIST_DIR}/partitions/Replay.cmake)
