@@ -65,7 +65,7 @@ set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/replay/electronic_surveillance_radar/esr_replay_session_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/replay/sar/sar_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/replay/sar/sar_replay_session_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/replay/common/replay_trace_compression_test.cpp)
 add_1q_gtest(${PROJECT_NAME}_replay_fast_tests replay_fast 90 ${REPLAY_FAST_TEST_SOURCES})
 oneq_register_test_sources(replay_fast ${REPLAY_FAST_TEST_SOURCES})

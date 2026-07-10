@@ -27,7 +27,6 @@ define_property(GLOBAL PROPERTY ONEQ_TEST_PARTITION_MAP
 # compiled into more than one target. Phase 3 must remove these entries as it
 # eliminates the duplicate compilation. Each entry is an absolute source path.
 set(ONEQ_TEST_OVERLAP_ALLOWLIST
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp"
     )
 
 # Record a batch of sources under a partition key (e.g. "unit", "replay_fast").
