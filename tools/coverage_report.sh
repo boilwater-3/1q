@@ -4,7 +4,7 @@
 # 用法:
 #   ./tools/coverage_report.sh                          # 默认 llvm-ninja-coverage，全部测试
 #   ./tools/coverage_report.sh --label unit             # 仅 unit 测试的覆盖率
-#   ./tools/coverage_report.sh --label sar_ci           # 仅 SAR CI 子集
+#   ./tools/coverage_report.sh --label ci_required      # PR 关键路径与架构守护
 #   ./tools/coverage_report.sh --preset llvm-ninja-coverage --label unit
 #   ./tools/coverage_report.sh --no-test                # 跳过 ctest（已跑过测试，只重新生成报告）
 #   ./tools/coverage_report.sh --open                   # 生成后自动打开 HTML 报告
@@ -13,7 +13,7 @@
 # 流程:
 #   1. 校验指定 preset 的构建目录存在且 ENABLE_COVERAGE=ON
 #   2. (可选) 运行 ctest 执行插桩后的测试二进制，产出 .profraw
-#      （所有测试层 unit/integration/replay/performance 全跑，profraw 取并集）
+#      （运行所选分区，profraw 取并集）
 #   3. llvm-profdata merge 合并所有 .profraw → 1q.profdata
 #   4. llvm-cov show/report 用单二进制解读（避免多 -object 的 mismatched-data）
 #   5. llvm-cov show -format=html 生成目录式 HTML 报告
@@ -42,7 +42,7 @@ coverage_report.sh — 1q 代码覆盖率报告生成
 
 选项:
   --preset <name>    构建预设 (默认: llvm-ninja-coverage)
-  --label <label>    仅运行指定 CTest label (如 unit / sar_ci / fd_smoke / contract)
+  --label <label>    仅运行指定 CTest label (如 unit / ci_required / known_limit / contract)
                      不指定则运行全部测试
   --no-test          跳过 ctest（假设测试已运行，仅重新生成报告）
   --clean            先清空 coverage_report/ 下的旧报告与 profraw 再生成
@@ -52,7 +52,7 @@ coverage_report.sh — 1q 代码覆盖率报告生成
 示例:
   ./tools/coverage_report.sh                          # 全量覆盖率基线
   ./tools/coverage_report.sh --label unit             # 单元测试覆盖率
-  ./tools/coverage_report.sh --label sar_ci           # SAR CI 子集覆盖率
+  ./tools/coverage_report.sh --label ci_required      # PR 关键路径覆盖率
 EOF
 }
 
@@ -168,19 +168,20 @@ fi
 # 冲突，llvm-profdata 会丢弃冲突函数并报 "warning: N functions have mismatched
 # data"，导致受影响文件显示虚假 0%。改用单二进制解读可消除绝大多数冲突。
 #
-# 单二进制（1q_unit_tests）通过静态库链接了全部 src 的 coverage mapping，且 profraw
+# coverage-only runner（1q_coverage_tests）通过静态库链接了全部 src 的 coverage mapping，且 profraw
 # 仍来自所有测试层（unit/integration/replay/performance 全跑），因此并集覆盖不丢失。
 # 实测：mismatched 从 317 降到个位数，5 个假性 0% 文件全部恢复真实数值。
 TEST_BINS=()
-PRIMARY_COV_BIN=""
-for candidate in 1q_unit_tests 1q_contract_tests 1q_integration_tests 1q_replay_fast_tests 1q_performance_tests 1q_fd_tests; do
-    if [[ -x "${BUILD_DIR}/bin/${candidate}" ]]; then
-        TEST_BINS+=("${BUILD_DIR}/bin/${candidate}")
-        if [[ -z "${PRIMARY_COV_BIN}" ]]; then
-            PRIMARY_COV_BIN="${BUILD_DIR}/bin/${candidate}"
-        fi
+PRIMARY_COV_BIN="${BUILD_DIR}/bin/1q_coverage_tests"
+if [[ ! -x "${PRIMARY_COV_BIN}" ]]; then
+    PRIMARY_COV_BIN=""
+fi
+while IFS= read -r candidate; do
+    TEST_BINS+=("${candidate}")
+    if [[ -z "${PRIMARY_COV_BIN}" ]]; then
+        PRIMARY_COV_BIN="${candidate}"
     fi
-done
+done < <(find "${BUILD_DIR}/bin" -maxdepth 1 -type f -name '1q_*_tests' -perm -111 | sort)
 if [[ -z "${PRIMARY_COV_BIN}" ]]; then
     echo "错误: 在 ${BUILD_DIR}/bin/ 下未找到任何测试二进制。" >&2
     echo "  请先编译: cmake --build --preset ${PRESET}" >&2

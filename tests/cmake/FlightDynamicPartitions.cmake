@@ -1,7 +1,7 @@
 # FD source-level partitions. Avoids suite filters while preserving the
 # non-blocking boundary for known-limit and performance scenarios.
 
-set(_oneq_fd_ci_sources
+set(_oneq_fd_stable_sources
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_adapter_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_bare_aircraft_baseline_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_robustness_test.cpp"
@@ -15,7 +15,7 @@ set(_oneq_fd_known_limit_sources
 if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
     oneq_add_test_partition(
         TYPE unit DOMAIN flight_dynamic
-        SOURCES ${_oneq_fd_ci_sources}
+        SOURCES ${_oneq_fd_stable_sources}
         TIMEOUT 180
         LABELS ci_required)
     oneq_add_test_partition(
@@ -45,5 +45,5 @@ if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
         ${PROJECT_NAME}_flight_dynamic_unit_tests
         ${PROJECT_NAME}_flight_dynamic_known_limit_tests)
 else()
-    oneq_register_test_sources("unit.flight_dynamic" ${_oneq_fd_ci_sources} ${_oneq_fd_known_limit_sources})
+    oneq_register_test_sources("unit.flight_dynamic" ${_oneq_fd_stable_sources} ${_oneq_fd_known_limit_sources})
 endif()

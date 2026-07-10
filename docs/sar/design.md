@@ -493,4 +493,4 @@ Radiometric calibration 是后处理标量定标能力，当前不扩大为完�
 2. pipeline、轨迹、raw history、聚焦路径或算法限制变化必须同步本文。
 3. 能力启用、否决或替代关系必须在本文 `[evidence: ...]` 标注中记录依据。
 4. 历史原因只保留本文的摘要说明，不恢复被删除的旧审计文档目录。
-5. 验证优先使用 `sar_ci`、`sar_contract`、`sar_cxx11_compat` 和 focused SAR unit tests。
+5. 验证优先使用 `ci_required` 中的 SAR replay/integration/guard、`compatibility::sar` 和 `unit::sar`。

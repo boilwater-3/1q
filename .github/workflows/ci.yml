@@ -2,11 +2,11 @@
 #
 # 设计目标: 在 ~5 分钟内给出 PR 是否可合并的信号。按成本/风险分两个 job:
 #   1. guard      — 纯源码扫描的架构守护，编译前先跑（最快反馈，~30s）
-#   2. build-test — Debug 构建 + 绿色 label 硬门禁 + unit advisory（非阻断）
+#   2. build-test — Debug 构建 + 分层 CTest 硬门禁
 #
 # job 间解耦: guard 不依赖编译产物，即使 build-test 挂了 guard 的结果仍可见，
 # 便于快速定位是架构问题还是代码问题。build-test 内编译一次，先跑绿色门禁
-# （阻断），再跑 unit（advisory 不阻断），避免重复编译。
+# （阻断），再跑完整 unit 分区，避免重复编译。
 #
 # 平台: 仅 macOS（macos-14, arm64）。Windows conan 路径 JSBSim 来源待核实，留后续。
 # 详见 docs/ci.md。
@@ -15,7 +15,8 @@
 #   bash scripts/bootstrap_conan.sh llvm-ninja-debug
 #   cmake --preset llvm-ninja-debug && cmake --build --preset llvm-ninja-debug
 #   ctest --test-dir build/llvm-ninja-debug-local -L contract --output-on-failure -j4
-#   ctest --test-dir build/llvm-ninja-debug-local -L 'sar_ci|integration|replay_fast' --output-on-failure -j4
+#   ctest --test-dir build/llvm-ninja-debug-local -L ci_required --output-on-failure -j4
+#   ctest --test-dir build/llvm-ninja-debug-local -L unit --output-on-failure -j4
 
 name: CI
 
@@ -70,10 +71,8 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────
   # Job 2: build-test — Debug 构建 + 测试门禁
   # 编译一次，分两轮跑测试:
-  #   (a) 绿色硬门禁: sar_ci / integration / replay_fast — 失败则 job 红
-  #   (b) unit advisory: 全量 unit — 当前有 2 个确定性失败（commit 545ac428），
-  #       用 if: always() + continue-on-error 语义，失败只 warn 不阻断 PR。
-  # 待 SAR 默认配置修复后，将 unit 从 advisory 移入硬门禁。
+  #   (a) 通用快速门禁: ci_required（replay/integration/public API/SAR guards）
+  #   (b) 全量 unit 分区；两轮任一失败均阻断 PR。
   # ─────────────────────────────────────────────────────────────────────
   build-test:
     name: Build & Test
@@ -118,17 +117,9 @@ jobs:
                 -L ci_required \
                 --output-on-failure -j 4
 
-      # ── (b) unit advisory: 当前已知 2 个失败，不阻断 ──
-      # id: unit-result 让下一步可引用其结论
-      - name: Run unit tests (advisory)
-        id: unit-result
-        continue-on-error: true
+      # ── (b) 全量 unit 分区：稳定的细粒度回归门禁 ──
+      - name: Run unit partitions (blocking)
         run: |
           ctest --test-dir build/llvm-ninja-debug-local \
                 -L unit \
                 --output-on-failure -j 4
-
-      - name: Unit advisory summary
-        if: steps.unit-result.outcome == 'failure'
-        run: |
-          echo "::warning file=tests/unit/sar_session_config_builder_test.cpp::unit label 有已知失败（commit 545ac428 引入的物理校验，默认 config 不自洽）。暂不阻断，待修复后升级为硬门禁。详见 docs/ci.md。"

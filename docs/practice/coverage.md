@@ -1,7 +1,7 @@
 # 代码覆盖率测量指南
 
 Status: active
-Last-reviewed: 2026-07-02
+Last-reviewed: 2026-07-11
 Authority: build infrastructure
 
 本项目使用 **LLVM source-based coverage**（`-fprofile-instr-generate -fcoverage-mapping`）测量代码覆盖率。它基于 LLVM 源码 region，分支覆盖率精度高于传统 gcov，是 Clang/Apple 官方推荐路径。
@@ -36,8 +36,8 @@ coverage_report.sh 支持 `--label` 透传给 ctest，与项目现有的 CTest l
 
 ```bash
 ./tools/coverage_report.sh --label unit       # 仅单元测试
-./tools/coverage_report.sh --label sar_ci      # SAR CI 子集
-./tools/coverage_report.sh --label fd_smoke    # flight_dynamic 冒烟层
+./tools/coverage_report.sh --label ci_required # PR 关键路径与架构守护
+./tools/coverage_report.sh --label known_limit # flight_dynamic 等已知边界层
 ./tools/coverage_report.sh --label contract    # 契约/架构守护
 ```
 

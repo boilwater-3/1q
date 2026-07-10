@@ -88,6 +88,10 @@ function(add_1q_gtest target_name suite_label discovery_timeout)
             <algorithm> <utility> <cmath> <cstdint>)
     endif()
 
+    if(ENABLE_COVERAGE)
+        target_link_options(${target_name} PRIVATE -fprofile-instr-generate)
+    endif()
+
     if(WIN32 AND BUILD_SHARED_LIBS)
         add_custom_command(TARGET ${target_name} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -176,6 +180,9 @@ function(oneq_add_test_partition)
         target_precompile_headers(${_target} PRIVATE
             <vector> <string> <array> <map> <set> <unordered_map> <memory>
             <algorithm> <utility> <cmath> <cstdint>)
+    endif()
+    if(ENABLE_COVERAGE)
+        target_link_options(${_target} PRIVATE -fprofile-instr-generate)
     endif()
     if(WIN32 AND BUILD_SHARED_LIBS)
         add_custom_command(TARGET ${_target} POST_BUILD

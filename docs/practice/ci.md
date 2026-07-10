@@ -1,7 +1,7 @@
 # CI 持续集成
 
 Status: active
-Last-reviewed: 2026-07-02
+Last-reviewed: 2026-07-11
 Authority: build & test infrastructure
 
 本仓库的持续集成（CI）由两个 GitHub Actions workflow 组成，按"快速门禁 vs 慢任务"分层。
@@ -11,18 +11,12 @@ Authority: build & test infrastructure
 | Workflow | 触发 | Job | 内容 | 阻断 PR |
 |---|---|---|---|---|
 | `ci.yml` | push / PR | **guard** | `-L contract`：17 个架构守护 + 契约测试，编译前先跑 | ✅ |
-| `ci.yml` | push / PR | **build-test** | Debug 构建 + 安装 consumer + 绿色门禁（`sar_ci`/`integration`/`replay_fast`）+ unit advisory | ✅（unit 不阻断） |
+| `ci.yml` | push / PR | **build-test** | Debug 构建 + 安装 consumer + `ci_required` + 全量 `unit` 分区 | ✅ |
 | `nightly.yml` | cron 02:00 + 手动 | **performance** | Release 构建 + 性能/cxx11 兼容 gate | ❌ |
-| `nightly.yml` | cron + 手动 | **flight-dynamic** | FD=ON + JSBSim 数据 + `fd_ci` | ❌ |
+| `nightly.yml` | cron + 手动 | **flight-dynamic** | FD=ON + JSBSim 数据 + `unit::flight_dynamic` | ❌ |
 | `nightly.yml` | cron + 手动 | **coverage** | 插桩构建 + 覆盖率报告 artifact | ❌ |
 
-设计原则：**CI 一上线就必须是绿的。** 只把当前已知健康的 label 作为硬门禁，已知失败的 `unit` 降级为 advisory（warn 不阻断）。
-
-## 为什么 unit 是 advisory
-
-`unit` label 当前有 2 个确定性失败（`sar_session_config_builder_test.cpp` 的 `PassesOnHealthyBuiltConfig` / `BuildsSessionAndReportsNoIssuesForHealthyConfig`），根因是 commit `545ac428` 新增了跨字段物理校验 `kSampleWindowTooSmallForPulse`（距离采样窗口必须容纳完整脉冲宽度），但 `SarSessionConfigBuilder` 的 `kStripmapSurvey` 默认值不满足该约束。
-
-这是**测试需更新**（调整默认 config 使其物理自洽），不是产品代码 bug。修复后应将 `unit` 从 advisory 移入 `build-test` 的硬门禁——届时删除 ci.yml 中 `unit advisory` step 的 `continue-on-error: true` 即可。
+设计原则：**CI 一上线就必须是绿的。** `ci_required` 覆盖跨层关键路径与架构守护；完整 `unit` 分区覆盖可重复的局部回归，二者均为 PR 阻断门禁。
 
 ## 平台范围
 
@@ -50,9 +44,9 @@ cmake -S tests/consumer -B build/consumer/llvm-ninja-debug -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE="$PWD/build/llvm-ninja-debug-local/build/Debug/generators/conan_toolchain.cmake" \
   -DCMAKE_PREFIX_PATH="$PWD/build/install/llvm-ninja-debug"
 cmake --build build/consumer/llvm-ninja-debug -j 4
-ctest --test-dir build/llvm-ninja-debug-local -L 'sar_ci|integration|replay_fast' --output-on-failure -j 4
+ctest --test-dir build/llvm-ninja-debug-local -L ci_required --output-on-failure -j 4
 
-# === build-test 的 unit advisory ===
+# === build-test 的 unit 分区 ===
 ctest --test-dir build/llvm-ninja-debug-local -L unit --output-on-failure -j 4
 
 # === nightly: performance ===
@@ -67,7 +61,7 @@ git clone --depth 1 https://github.com/JSBSim-Team/jsbsim.git third_party/jsbsim
 bash scripts/bootstrap_conan.sh llvm-ninja-debug
 cmake --preset llvm-ninja-debug -D ONEQ_ENABLE_FLIGHT_DYNAMIC=ON
 cmake --build --preset llvm-ninja-debug -j 4
-ctest --test-dir build/llvm-ninja-debug-local -L fd_ci --output-on-failure -j 4
+ctest --test-dir build/llvm-ninja-debug-local -R '^unit::flight_dynamic$' --output-on-failure -j 4
 
 # === nightly: coverage ===
 bash scripts/bootstrap_conan.sh llvm-ninja-coverage
@@ -85,10 +79,6 @@ GitHub 仓库 → **Actions** 标签页 → 左侧选 **Nightly** → 右上角 
 ## 扩展指南
 
 **新增 Windows job**：先新增并验证 Windows Conan preset，再在 `nightly.yml` 加 `runs-on: windows-latest` job。验收必须覆盖 JSBSim / HighFive 的依赖来源、configure、build 和安装后的 consumer；未满足前不要在文档或 presets 中声明 Windows 支持。
-
-**把 unit 升级为硬门禁**：修复 2 个 SAR 失败 case 后，在 `ci.yml` 的 `build-test` job 里：
-1. 删除 `unit advisory` 整个 step
-2. 在 `Run green-label tests` 的 `-L` 参数里追加 `|unit`
 
 **新增 lint job**（clang-format/tidy）：在 `ci.yml` 加独立 job 跑 `cmake --build --target format-check`（需 runner 装 clang-format）。与功能测试解耦，格式问题不阻塞代码验证。
 

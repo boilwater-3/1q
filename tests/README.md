@@ -8,12 +8,12 @@
 
 ## 归档规则
 - 新增测试文件禁止放在 `tests/` 根目录，必须放入上述分层目录。
-- 域归属由文件名前缀（`airborne_`、`esr_`、`eos_`）编码，不再使用域子目录。
+- 域归属由第二层域目录（如 `unit/airborne_radar/`、`replay/sar/`）编码；文件名前缀与域目录保持一致。
 - 共享测试辅助代码只放 `fixtures/` 或 `mocks/`，避免复制。
 
 ## 命名规则
 - 所有测试文件统一命名：`{domain}_{descriptive_name}_test.cpp`。
-  - `domain` 取 `airborne` \| `esr` \| `eos`，与所在域目录对齐。
+  - `domain` 取 `common` \| `airborne_radar` \| `electronic_surveillance_radar` \| `electro_optical_sensor` \| `sar` \| `sbirs_sensor` \| `flight_dynamic`，与所在域目录对齐。
   - `contract/` 下的跨域公共 API 测试不带域前缀。
 - 文件名中**不**再包含层级后缀（`_unit_`、`_integration_`、`_stress_`），层级由目录路径和 CTest label 编码。
 - 示例：`airborne_kalman_filter_test.cpp`、`esr_kdtree_clusterer_test.cpp`、`eos_pipeline_test.cpp`。
@@ -28,13 +28,14 @@
 
 `tests/CMakeLists.txt` 只编排测试生命周期；具体注册按职责位于 `tests/cmake/`：
 
-- `TestSupport.cmake`：依赖发现、源文件收集与通用 `add_1q_gtest()`。
-- `TestTargets.cmake`：测试二进制、replay-fast 与 aggregate build targets。
-- `FlightDynamicTests.cmake`：FD 五层 CTest filter/label 与 JSBSim 接线。
-- `SarTests.cmake`：SAR focused 入口与 C++11 compatibility probe。
-- `ContractGuards.cmake`：源码/文档/CMake contract guard 注册。
+- `TestSupport.cmake`：分区注册 API、依赖接线与测试源注册表。
+- `TestTargets.cmake`：各层 aggregate build targets。
+- `partitions/{Unit,Replay,Integration,Contract,Performance}.cmake`：常规 type × domain 分区。
+- `FlightDynamicPartitions.cmake`：FD stable unit 与 known-limit 分区，以及 JSBSim 接线。
+- `CompatibilityChecks.cmake` / `ContractGuards.cmake`：脚本兼容性检查与源码、文档、CMake 守护。
+- `CoverageRunner.cmake`：仅 coverage preset 使用的 mapping 可执行文件；CTest 默认禁用，避免重复执行测试。
 
-新增 CTest 入口应放入其拥有的注册文件；不得重新把专项 filter 或 guard 堆回根入口。
+新增 CTest 入口应放入其拥有的 type × domain 分区；不得重新把专项 filter 或 guard 堆回根入口。
 
 ## AR include-direction 护栏
 - `airborne_include_direction_guard` 强制 `src/airborne_radar/signal/**` 不得 include `airborne_radar/runtime/**` 或 `airborne_radar/session/**`。

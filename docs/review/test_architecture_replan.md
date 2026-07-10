@@ -4,17 +4,17 @@ Status: draft
 Authority: test architecture replan proposal
 Date: 2026-07-10
 Live-Baseline: `b9ba6a0f`
-Implementation-State: Phase 0-1 complete; Phase 2-6 pending
+Implementation-State: Phase 0-6 complete (local validation); retained as implementation record
 
 ## 阶段进度
 
 - **Phase 0：冻结基线和自动守护** — ✅ 完成（2026-07-11）
 - **Phase 1：建立类型 × 域目录** — ✅ 完成（2026-07-11）
-- Phase 2：拆分 unit 分区目标 — ⏳ pending
-- Phase 3：拆分 replay/integration/contract/performance/compatibility — ⏳ pending
-- Phase 4：消除专项 filter 和迁移 CI 策略 — ⏳ pending
-- Phase 5：覆盖率、工具和活跃文档收口 — ⏳ pending
-- Phase 6：全矩阵验收和旧结构删除 — ⏳ pending
+- **Phase 2：拆分 unit 分区目标** — ✅ 完成（2026-07-11）
+- **Phase 3：拆分 replay/integration/contract/performance/compatibility** — ✅ 完成（2026-07-11）
+- **Phase 4：消除专项 filter 和迁移 CI 策略** — ✅ 完成（2026-07-11）
+- **Phase 5：覆盖率、工具和活跃文档收口** — ✅ 完成（2026-07-11）
+- **Phase 6：全矩阵验收和旧结构删除** — ✅ 完成（2026-07-11）
 
 ## 结论
 
@@ -366,7 +366,7 @@ FD 的可选 JSBSim 依赖保留，但五层手写 filter 只作为过渡实现�
 
 1. 删除 `SarTests.cmake`，把 SAR label 映射并入通用 registry。
 2. 按文件/fixture 拆分 FD tier，逐项删除 `FlightDynamicTests.cmake` 的手写 filter。
-3. 为当前绿色门禁中的等价分区附加 `ci_required`；unit advisory 使用 `ci_advisory`；performance/known-limit 保持非阻断。
+3. 为当前绿色门禁中的等价分区附加 `ci_required`；完整 `unit` 分区作为稳定的 PR 门禁，performance/known-limit 保持非阻断。
 4. 将 CI 的 `-L 'sar_ci|integration|replay_fast'` 改为 `-L ci_required`，确认测试集合在切换前后等价后再删除旧 label。
 
 退出条件：业务模块新增测试不需要编辑 suite/case filter；CI 选择只依赖通用策略 label；阻断范围没有静默扩大或缩小。
@@ -388,10 +388,18 @@ FD 的可选 JSBSim 依赖保留，但五层手写 filter 只作为过渡实现�
 
 ### Phase 6：全矩阵验收和旧结构删除
 
-1. 删除 provisional `TestTargets.cmake`、`SarTests.cmake`、`FlightDynamicTests.cmake` 中已被 registry/partitions 取代的逻辑。
+1. 删除已被 registry/partitions 取代的 `SarTests.cmake` 和 `FlightDynamicTests.cmake`；保留 `TestTargets.cmake` 作为 aggregate build target 的唯一入口。
 2. 收紧 `test_layout_guard`，拒绝平铺源、未知 domain、重复归属和新手写 domain filter。
 3. 运行完整验证矩阵并记录 test count、构建时间和 coverage 差异。
-4. 一个稳定 CI 周期后删除 `sar_ci`、`replay_fast`、`fd_ci` 等过渡 label。
+4. 删除 `sar_ci`、`fd_ci` 等过渡 label；保留 `replay_fast` 作为 replay 的执行策略 label，而非目标类型。
+
+### 实施验收记录（2026-07-11）
+
+- Debug（FD=OFF）：fresh configure、完整构建、完整 CTest 为 **45/45**；layout/registry/contract guards 均通过。
+- Debug（FD=ON）：`ci_required` 为 **17/17**；`known_limit::flight_dynamic` 为 **236 passed / 3 environment-gated skipped / 0 failed**。
+- Release：fresh configure/build 后，`performance` 与 `compatibility` labels 均通过。
+- 安装 consumer：Debug install 后以 Conan toolchain 配置、构建并运行通过。
+- Coverage：`coverage_report.sh --label ci_required --clean` 为 **16/16**，收集 13 份 `.profraw`；Branch 覆盖率 **56.56%**。
 
 ## 验证矩阵
 

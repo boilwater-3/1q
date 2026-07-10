@@ -81,11 +81,10 @@ jobs:
   # 需额外步骤获取 JSBSim 数据文件:
   #   - third_party/jsbsim 被 .gitignore，CI checkout 缺失
   #   - fd_* 测试读 FD_JSBSIM_ROOT_DIR（=third_party/jsbsim）的 aircraft/*.xml
-  # 只跑 fd_ci（smoke+contract+controllability 三层），fd_performance/fd_known_limit
-  # 更慢且按需，此处不跑。
+  # 只跑稳定 unit::flight_dynamic 分区；known_limit 性能/边界用例不在 nightly 门禁中。
   # ─────────────────────────────────────────────────────────────────────
   flight-dynamic:
-    name: Flight Dynamic (fd_ci)
+    name: Flight Dynamic (stable unit partition)
     runs-on: macos-14
     timeout-minutes: 30
     steps:
