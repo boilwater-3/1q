@@ -32,7 +32,7 @@ double SelectClMax(const PerformanceDerivationInputs& inputs) {
 
 PerformanceDerivationResult DeriveStallAndWingLoading(const PerformanceDerivationInputs& inputs,
                                                       double rho_slugs_ft3) {
-  PerformanceDerivationResult result;
+  PerformanceDerivationResult result = {};
   result.cl_max = SelectClMax(inputs);
   // 非法输入时 v_stall 留 0（调用方各自做 validation/fallback，不在 helper 内处理）。
   if (inputs.weight_lbs > 0.0 && inputs.wing_area_ft2 > 0.0 && rho_slugs_ft3 > 0.0 &&

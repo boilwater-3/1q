@@ -3,7 +3,7 @@
  * @brief 定义机型自适应的自动驾驶控制器（Autopilot），封装航向/高度/速度/姿态保持与油门管理。
  *
  * Autopilot 根据 AircraftControlProfile 选择直接舵面、JSBSim 原生自动驾驶或飞控速率指令等
- * 不同控制路径，对外统一暴露 Set*/Get*/Update 接口。
+ * 不同控制路径，对外统一暴露 Set / Get / Update 接口。
  */
 
 #ifndef ONEQ_FLIGHT_DYNAMIC_AUTOPILOT_AUTOPILOT_H_
@@ -126,7 +126,7 @@ struct AircraftControlProfile {
  * @brief 机型自适应自动驾驶控制器。
  *
  * 持有 AircraftControlProfile 与对 JsbsimAdapter 的引用，对外提供航向/高度/俯仰/
- * 滚转/速度/油门/偏航阻尼等通道的 Set*/Get* 接口，并在每步通过 Update() 驱动能量管理与
+ * 滚转/速度/油门/偏航阻尼等通道的 Set / Get 接口，并在每步通过 Update() 驱动能量管理与
  * 各通道保持律。控制路径依据机型画像在直接舵面、JSBSim 原生自动驾驶、C++ 自有自动驾驶、
  * 飞控速率指令之间选择。
  * @note 按 adapter_ 引用持有 JsbsimAdapter，不承担所有权；调用期间须保证 adapter 存活。
