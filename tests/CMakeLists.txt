@@ -22,7 +22,6 @@ endif()
 
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/TestTargets.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/FlightDynamicTests.cmake)
-include(${CMAKE_CURRENT_LIST_DIR}/cmake/SarTests.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/ContractGuards.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/CompatibilityChecks.cmake)
 

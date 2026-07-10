@@ -16,7 +16,7 @@ function(_oneq_add_replay_partition domain)
             DOMAIN ${domain}
             SOURCES ${_sources}
             TIMEOUT 90
-            LABELS fast replay_fast
+            LABELS fast replay_fast ci_required
             DEPENDS ${_oneq_replay_depends})
     endif()
 endfunction()

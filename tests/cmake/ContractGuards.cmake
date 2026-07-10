@@ -24,6 +24,7 @@ oneq_add_script_guard(docs_structure_guard check_docs_structure.cmake)
 oneq_add_script_guard(cmake_helper_parse_guard check_cmake_helper_parse.cmake)
 oneq_add_script_guard(preset_provider_contract_guard check_preset_provider_contract.cmake)
 oneq_add_script_guard(cmake_project_layout_guard check_cmake_project_layout.cmake)
+oneq_add_script_guard(sar_frozen_sources check_sar_frozen_sources.cmake)
 
 set_tests_properties(
     public_api_boundary_guard
@@ -42,6 +43,8 @@ set_tests_properties(
     cmake_helper_parse_guard
     preset_provider_contract_guard
     cmake_project_layout_guard
+    sar_frozen_sources
     PROPERTIES LABELS "contract")
-set_tests_properties(public_api_boundary_guard PROPERTIES LABELS "contract;sar_contract;sar_ci")
-set_tests_properties(sar_doc_governance_guard PROPERTIES LABELS "contract;sar_contract;sar_ci")
+set_tests_properties(public_api_boundary_guard PROPERTIES LABELS "contract;public_api;ci_required")
+set_tests_properties(sar_doc_governance_guard PROPERTIES LABELS "contract;sar;ci_required")
+set_tests_properties(sar_frozen_sources PROPERTIES LABELS "contract;sar;ci_required")

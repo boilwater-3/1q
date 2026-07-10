@@ -102,7 +102,8 @@ if(_oneq_unit_sar)
     oneq_add_test_partition(
         TYPE unit DOMAIN sar
         SOURCES ${_oneq_unit_sar}
-        TIMEOUT 60)
+        TIMEOUT 60
+        LABELS ci_required)
 endif()
 
 # flight_dynamic (FD) — gated by ONEQ_ENABLE_FLIGHT_DYNAMIC; JSBSim wiring is

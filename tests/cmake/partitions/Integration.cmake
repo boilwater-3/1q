@@ -8,7 +8,8 @@ function(_oneq_add_integration_partition domain)
             TYPE integration
             DOMAIN ${domain}
             SOURCES ${_sources}
-            TIMEOUT 120)
+            TIMEOUT 120
+            LABELS ci_required)
     endif()
 endfunction()
 
