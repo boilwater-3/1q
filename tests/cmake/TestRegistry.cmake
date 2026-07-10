@@ -32,12 +32,11 @@ set(ONEQ_TEST_OVERLAP_ALLOWLIST
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/sar/sar_replay_codec_roundtrip_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/common/replay_trace_writer_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar/ar_trace_session_adapter_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/eos_replay_session_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/electronic_surveillance_radar/esr_replay_session_test.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/sar/sar_replay_session_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/common/replay_trace_compression_test.cpp")
+    )
 
 # Record a batch of sources under a partition key (e.g. "unit", "replay_fast").
 # Usage: oneq_register_test_sources(<partition_key> source1 source2 ...)
@@ -99,7 +98,7 @@ function(oneq_finalize_test_registry)
     endif()
 
     # 3. Orphan detection: scan known type roots for _test.cpp not registered.
-    set(_type_roots unit integration contract performance)
+    set(_type_roots unit integration replay contract performance)
     set(_orphans "")
     foreach(_root IN LISTS _type_roots)
         file(GLOB_RECURSE _disk_sources CONFIGURE_DEPENDS

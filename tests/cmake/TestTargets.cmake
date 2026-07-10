@@ -56,7 +56,7 @@ oneq_register_test_sources(contract_compiled ${CONTRACT_TEST_SOURCES})
 # The replay overlap allowlist in TestRegistry.cmake documents the sources that
 # are still compiled into both a unit partition and this replay_fast target.
 set(REPLAY_FAST_TEST_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/common/replay_trace_writer_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/replay/common/replay_trace_writer_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar/ar_trace_session_adapter_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar/ar_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/eos_replay_codec_roundtrip_test.cpp
@@ -66,7 +66,7 @@ set(REPLAY_FAST_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/sar/sar_replay_codec_roundtrip_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/sar/sar_replay_session_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/common/replay_trace_compression_test.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/replay/common/replay_trace_compression_test.cpp)
 add_1q_gtest(${PROJECT_NAME}_replay_fast_tests replay_fast 90 ${REPLAY_FAST_TEST_SOURCES})
 oneq_register_test_sources(replay_fast ${REPLAY_FAST_TEST_SOURCES})
 if(TARGET oneq_flatbuffers_headers)
