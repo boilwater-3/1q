@@ -27,11 +27,13 @@ if(_root_tests)
         "Place them under a type directory: tests/{unit,integration,contract,performance,replay,compatibility,consumer}/<domain>/")
 endif()
 
-# Informational: report current flat-structure count under tests/unit for
-# migration tracking. This is a status line, not a failure, until Phase 6.
-file(GLOB _flat_unit_tests "${_test_root}/unit/*_test.cpp")
-list(LENGTH _flat_unit_tests _flat_count)
-message(STATUS "test_layout_guard: ${_flat_count} flat _test.cpp under tests/unit/ (Phase 1 migration pending)")
+# Informational: report current domain-subdir count under tests/unit for
+# migration tracking. This is a status line, not a failure.
+file(GLOB_RECURSE _flat_unit_tests "${_test_root}/unit/*_test.cpp")
+list(LENGTH _flat_unit_tests _unit_count)
+file(GLOB _flat_unit_root_tests "${_test_root}/unit/*_test.cpp")
+list(LENGTH _flat_unit_root_tests _flat_count)
+message(STATUS "test_layout_guard: ${_unit_count} _test.cpp under tests/unit/ (${_flat_count} still flat at root)")
 
 # Ensure type subdirectories that hold tests match the allowed vocabulary.
 # Phase 0 only validates the four currently-active type roots; infrastructure

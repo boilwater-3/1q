@@ -1,15 +1,15 @@
 # 测试编写架构重规划
 
-Status: in-progress
+Status: draft
 Authority: test architecture replan proposal
 Date: 2026-07-10
 Live-Baseline: `b9ba6a0f`
-Implementation-State: Phase 0 complete; Phase 1-6 pending
+Implementation-State: Phase 0-1 complete; Phase 2-6 pending
 
 ## 阶段进度
 
 - **Phase 0：冻结基线和自动守护** — ✅ 完成（2026-07-11）
-- Phase 1：建立类型 × 域目录 — ⏳ pending
+- **Phase 1：建立类型 × 域目录** — ✅ 完成（2026-07-11）
 - Phase 2：拆分 unit 分区目标 — ⏳ pending
 - Phase 3：拆分 replay/integration/contract/performance/compatibility — ⏳ pending
 - Phase 4：消除专项 filter 和迁移 CI 策略 — ⏳ pending
@@ -306,7 +306,7 @@ FD 的可选 JSBSim 依赖保留，但五层手写 filter 只作为过渡实现�
 
 回滚边界：可独立删除新 guard/registry，不触及测试代码。
 
-### Phase 1：建立类型 × 域目录，不改变测试语义
+### Phase 1：建立类型 × 域目录，不改变测试语义 ✅
 
 按 owner 小批迁移，每批只移动路径和修正 source discovery：
 
@@ -319,7 +319,22 @@ FD 的可选 JSBSim 依赖保留，但五层手写 filter 只作为过渡实现�
 
 每批使用 Git rename 保留历史；不重命名 suite/case，不改变断言。当前 unit/replay 重叠先由 registry 明示，等 Phase 3 再消除。
 
+迁移结果（2026-07-11）：
+
+- `tests/unit/` → `common/`(8) `examples/`(1) `airborne_radar/`(41) `electronic_surveillance_radar/`(18) `electro_optical_sensor/`(19) `sbirs_sensor/`(17) `sar/`(66) `flight_dynamic/`(8)，共 178 文件，0 flat。
+- `tests/integration/` → `airborne_radar/` `electronic_surveillance_radar/` `electro_optical_sensor/` `sbirs_sensor/` `cross_domain/`，共 5 文件。
+- `tests/contract/` compiled → `public_api/` `airborne_radar/`(2) `electronic_surveillance_radar/`(2) `electro_optical_sensor/` `sar/` `sbirs_sensor/`，共 8 文件；`.cmake` script guards 暂留 contract 根目录，Phase 3 由 ScriptGuards.cmake 统一归类。
+- `tests/performance/` → `sar/`，1 文件。
+- `tests/consumer/` 保持单层（消费者类型无 domain 子目录）。
+- `TestTargets.cmake`/`TestRegistry.cmake` 中的硬编码路径同步更新到新 `unit/<domain>/` 位置。
+
 退出条件：所有 `_test.cpp` 位于允许的类型/域路径；源码集合与 Phase 0 基线完全一致；现有 target、CTest 名称和运行结果不变。
+
+验证结果：
+
+- `cmake --preset llvm-ninja-debug-local`：通过；registry 输出与 Phase 0 完全一致（198 sources，partition 计数不变）。
+- `cmake --build ... --target 1q_unit_tests 1q_contract_tests 1q_integration_tests 1q_replay_fast_tests 1q_performance_tests`：通过。
+- `ctest ... -j 4`（FD=OFF）：30/30 通过。
 
 回滚边界：每个 owner 一次独立提交，可按模块回退。
 

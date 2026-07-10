@@ -6,22 +6,22 @@
 # legacy target names; Phase 2/3 replace them with 1q_<domain>_<type>_tests.
 
 set(FD_TEST_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_performance_derivation_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_angle_normalization_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_adapter_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_maneuver_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_aircraft_probe_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_bare_aircraft_baseline_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_orbit_quality_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/fd_robustness_test.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_aircraft_performance_derivation_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_angle_normalization_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_adapter_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_aircraft_maneuver_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_aircraft_probe_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_bare_aircraft_baseline_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_orbit_quality_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/fd_robustness_test.cpp)
 list(REMOVE_ITEM UNIT_TEST_SOURCES ${FD_TEST_SOURCES})
 
 set(REPLAY_CODEC_ROUNDTRIP_TEST_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_replay_codec_roundtrip_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/eos_replay_codec_roundtrip_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/esr_replay_codec_roundtrip_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sar_replay_codec_roundtrip_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_replay_codec_roundtrip_test.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar/ar_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/eos_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sar/sar_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp")
 list(REMOVE_ITEM UNIT_TEST_SOURCES ${REPLAY_CODEC_ROUNDTRIP_TEST_SOURCES})
 
 add_1q_gtest(${PROJECT_NAME}_unit_tests unit 60 ${UNIT_TEST_SOURCES})
@@ -45,17 +45,17 @@ add_1q_gtest(${PROJECT_NAME}_contract_tests contract 60 ${CONTRACT_TEST_SOURCES}
 oneq_register_test_sources(contract_compiled ${CONTRACT_TEST_SOURCES})
 
 set(REPLAY_FAST_TEST_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_writer_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_trace_session_adapter_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_replay_codec_roundtrip_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/eos_replay_codec_roundtrip_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/eos_replay_session_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/esr_replay_codec_roundtrip_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/esr_replay_session_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/sar_replay_codec_roundtrip_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/sar_replay_session_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_replay_codec_roundtrip_test.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_compression_test.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/common/replay_trace_writer_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar/ar_trace_session_adapter_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar/ar_replay_codec_roundtrip_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/eos_replay_codec_roundtrip_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/eos_replay_session_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/electronic_surveillance_radar/esr_replay_session_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/sar/sar_replay_codec_roundtrip_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/sar/sar_replay_session_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/common/replay_trace_compression_test.cpp)
 add_1q_gtest(${PROJECT_NAME}_replay_fast_tests replay_fast 90 ${REPLAY_FAST_TEST_SOURCES})
 oneq_register_test_sources(replay_fast ${REPLAY_FAST_TEST_SOURCES})
 if(TARGET oneq_flatbuffers_headers)

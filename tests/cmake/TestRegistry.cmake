@@ -27,17 +27,17 @@ define_property(GLOBAL PROPERTY ONEQ_TEST_PARTITION_MAP
 # compiled into more than one target. Phase 3 must remove these entries as it
 # eliminates the duplicate compilation. Each entry is an absolute source path.
 set(ONEQ_TEST_OVERLAP_ALLOWLIST
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_replay_codec_roundtrip_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/eos_replay_codec_roundtrip_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/esr_replay_codec_roundtrip_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sar_replay_codec_roundtrip_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_replay_codec_roundtrip_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_writer_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/ar_trace_session_adapter_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/eos_replay_session_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/esr_replay_session_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sar_replay_session_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/replay_trace_compression_test.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar/ar_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/eos_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sar/sar_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/common/replay_trace_writer_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/airborne_radar/ar_trace_session_adapter_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/eos_replay_session_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/electronic_surveillance_radar/esr_replay_session_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/sar/sar_replay_session_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/common/replay_trace_compression_test.cpp")
 
 # Record a batch of sources under a partition key (e.g. "unit", "replay_fast").
 # Usage: oneq_register_test_sources(<partition_key> source1 source2 ...)
@@ -102,8 +102,8 @@ function(oneq_finalize_test_registry)
     set(_type_roots unit integration contract performance)
     set(_orphans "")
     foreach(_root IN LISTS _type_roots)
-        file(GLOB _disk_sources CONFIGURE_DEPENDS
-            "${CMAKE_CURRENT_SOURCE_DIR}/${_root}/*_test.cpp")
+        file(GLOB_RECURSE _disk_sources CONFIGURE_DEPENDS
+            "${_test_root}/${_root}/*_test.cpp")
         foreach(_src IN LISTS _disk_sources)
             list(FIND _registered_sources "${_src}" _found)
             if(_found EQUAL -1)
