@@ -24,6 +24,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/cmake/TestTargets.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/FlightDynamicTests.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/SarTests.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/ContractGuards.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/CompatibilityChecks.cmake)
 
 # Phase 0 layout guard: reject flat _test.cpp at tests/ root and unknown type dirs.
 oneq_add_script_guard(test_layout_guard check_test_layout.cmake)

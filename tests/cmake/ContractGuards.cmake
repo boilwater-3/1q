@@ -17,7 +17,6 @@ oneq_add_script_guard(eos_include_direction_guard check_eos_include_direction.cm
 oneq_add_script_guard(public_header_external_dependency_isolation_guard
     check_public_header_external_dependency_isolation.cmake)
 oneq_add_script_guard(cross_domain_naming_guard check_cross_domain_naming.cmake)
-oneq_add_script_guard(public_header_cxx11_guard check_public_header_cxx11.cmake)
 oneq_add_script_guard(install_manifest_guard check_install_manifest.cmake)
 oneq_add_script_guard(doc_legacy_term_guard check_doc_legacy_term_guard.cmake)
 oneq_add_script_guard(sar_doc_governance_guard check_sar_doc_governance.cmake)
@@ -36,7 +35,6 @@ set_tests_properties(
     eos_include_direction_guard
     public_header_external_dependency_isolation_guard
     cross_domain_naming_guard
-    public_header_cxx11_guard
     install_manifest_guard
     doc_legacy_term_guard
     sar_doc_governance_guard

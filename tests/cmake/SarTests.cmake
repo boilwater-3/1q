@@ -48,23 +48,3 @@ add_test(NAME "sar_performance::1q_performance_tests"
          COMMAND ${PROJECT_NAME}_sar_performance_tests
                  --gtest_filter=SarPerformanceTest.*)
 set_tests_properties("sar_performance::1q_performance_tests" PROPERTIES LABELS "sar_performance")
-
-get_target_property(_sar_eigen_include_dirs Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
-list(GET _sar_eigen_include_dirs 0 _sar_eigen_include_dir)
-if(MSVC)
-    set(_sar_cxx11_runner "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/run_sar_cxx11_compat.bat")
-    file(GENERATE OUTPUT "${_sar_cxx11_runner}" CONTENT
-"@call \"${CMAKE_GENERATOR_INSTANCE}/VC/Auxiliary/Build/vcvars64.bat\" >nul
-@\"${CMAKE_COMMAND}\" -DSOURCE_DIR=\"${CMAKE_SOURCE_DIR}\" -DCXX_COMPILER=\"${CMAKE_CXX_COMPILER}\" -DCXX_COMPILER_ID=MSVC -DEIGEN_INCLUDE_DIR=\"${_sar_eigen_include_dir}\" -P \"${CMAKE_CURRENT_SOURCE_DIR}/contract/check_sar_cxx11_compat.cmake\"
-")
-    add_test(NAME sar_cxx11_compat COMMAND "${_sar_cxx11_runner}")
-else()
-    add_test(NAME sar_cxx11_compat
-        COMMAND ${CMAKE_COMMAND}
-            -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
-            -DCXX_COMPILER=${CMAKE_CXX_COMPILER}
-            -DCXX_COMPILER_ID=${CMAKE_CXX_COMPILER_ID}
-            -DEIGEN_INCLUDE_DIR=${_sar_eigen_include_dir}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/contract/check_sar_cxx11_compat.cmake)
-endif()
-set_tests_properties(sar_cxx11_compat PROPERTIES LABELS "sar_cxx11_compat")
