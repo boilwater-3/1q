@@ -31,6 +31,9 @@ unset(_oneq_unit_partition_targets)
 if(TARGET ${PROJECT_NAME}_flight_dynamic_unit_tests AND NOT TARGET ${PROJECT_NAME}_fd_tests)
     add_custom_target(${PROJECT_NAME}_fd_tests)
     add_dependencies(${PROJECT_NAME}_fd_tests ${PROJECT_NAME}_flight_dynamic_unit_tests)
+    if(TARGET ${PROJECT_NAME}_flight_dynamic_known_limit_tests)
+        add_dependencies(${PROJECT_NAME}_fd_tests ${PROJECT_NAME}_flight_dynamic_known_limit_tests)
+    endif()
 endif()
 
 # --- performance partitions ------------------------------------------------

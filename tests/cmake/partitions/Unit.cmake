@@ -105,31 +105,3 @@ if(_oneq_unit_sar)
         TIMEOUT 60
         LABELS ci_required)
 endif()
-
-# flight_dynamic (FD) — gated by ONEQ_ENABLE_FLIGHT_DYNAMIC; JSBSim wiring is
-# handled by FlightDynamicTests.cmake target requirements on the partition target.
-file(GLOB _oneq_unit_flight_dynamic CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/unit/flight_dynamic/*_test.cpp")
-if(_oneq_unit_flight_dynamic AND ONEQ_ENABLE_FLIGHT_DYNAMIC)
-    oneq_add_test_partition(
-        TYPE unit DOMAIN flight_dynamic
-        SOURCES ${_oneq_unit_flight_dynamic}
-        TIMEOUT 180)
-    # JSBSim include/link/data-root wiring for the FD unit partition.
-    if(DEFINED ONEQ_JSBSIM_DATA_ROOT_DIR AND NOT ONEQ_JSBSIM_DATA_ROOT_DIR STREQUAL "")
-        set(FD_JSBSIM_ROOT_DIR "${ONEQ_JSBSIM_DATA_ROOT_DIR}")
-    else()
-        set(FD_JSBSIM_ROOT_DIR "${CMAKE_SOURCE_DIR}/third_party/jsbsim")
-    endif()
-    target_include_directories(${PROJECT_NAME}_flight_dynamic_unit_tests SYSTEM PRIVATE
-        ${CMAKE_SOURCE_DIR}/third_party/jsbsim/src)
-    if(TARGET JSBSim::JSBSim)
-        target_link_libraries(${PROJECT_NAME}_flight_dynamic_unit_tests PRIVATE JSBSim::JSBSim)
-    endif()
-    target_compile_definitions(${PROJECT_NAME}_flight_dynamic_unit_tests PRIVATE
-        FD_JSBSIM_ROOT_DIR="${FD_JSBSIM_ROOT_DIR}")
-elseif(_oneq_unit_flight_dynamic)
-    # Preserve the Phase 0 registry contract while FD is disabled: its sources
-    # still have an owner even though no optional executable is created.
-    oneq_register_test_sources("unit.flight_dynamic" ${_oneq_unit_flight_dynamic})
-endif()
