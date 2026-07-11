@@ -22,7 +22,7 @@ Use `ls`/`find` for sub-directory detail. Namespace-directory mapping is consist
 
 ## Build and Test
 
-- Presets: `llvm-ninja-debug-local`, `llvm-ninja-release-local` (prefer release for testing — JSBSim runs ~6× faster).
+- Presets: `llvm-ninja-debug-local`, `llvm-ninja-release-local` (from `CMakeUserPresets.json`; base presets `llvm-ninja-debug`/`llvm-ninja-release` live in `CMakePresets.json`). Prefer release for testing — JSBSim runs ~6× faster.
 - Run bootstrap → configure → build → test **serially** for the same preset; never start ctest before build completes. Parallel work is allowed only across different presets.
 - Use log prefix `/tmp/1q` and `-j 4` for parallel test execution.
 
@@ -35,12 +35,12 @@ ctest --preset "$preset" --output-on-failure -j 4
 
 ### flight_dynamic module build switch
 
-`ONEQ_ENABLE_FLIGHT_DYNAMIC` (default **OFF**) gates `src/flight_dynamic/`. When OFF, all its targets, the `1q_fd_tests` binary, five CTest tiers (`fd_smoke`/`fd_contract`/`fd_controllability`/`fd_performance`/`fd_known_limit`), and examples are skipped.
+`ONEQ_ENABLE_FLIGHT_DYNAMIC` (default **OFF**) gates `src/flight_dynamic/`. When OFF, all its targets, the `1q_fd_tests` binary, both CTest partitions (`unit::flight_dynamic` and `known_limit::flight_dynamic`), and examples are skipped.
 
 ```bash
 cmake --preset "$preset" -D ONEQ_ENABLE_FLIGHT_DYNAMIC=ON
 cmake --build --preset "$preset"
-ctest --preset "$preset" -L fd_ci        # CI subset (smoke + contract + controllability)
+ctest --preset "$preset" -R 'flight_dynamic'          # stable + known_limit
 ```
 
 Caveats: disabling it does **not** drop JSBSim (`src/common/environment/JsbsimAtmosphereAdapter` still needs it); `fd_*` sources are always excluded from `1q_unit_tests`; no preset sets this option today.
@@ -77,7 +77,7 @@ Evidence references point to existing test files and specific test cases (not br
 - Make interfaces easy to use correctly and hard to use incorrectly.
 - For algorithm, architecture, module-internal optimization, output/config semantics, or public API work, use `skills/evidence-first-freeze-contract` before implementation.
 - Log critical paths and events. e.g. Use `spdlog::debug/info` for flow and `spdlog::error` for failures.
-- For Chinese Doxygen work, explicitly use `$cpp-chinese-doxygen`.
+- For Chinese Doxygen work, invoke the `/cpp-chinese-doxygen` skill.
 
 ## Constraints
 - Never introduce C++ exceptions.
