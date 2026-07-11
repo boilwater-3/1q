@@ -15,6 +15,12 @@ list(TRANSFORM SAR_ENGINE_SOURCES PREPEND "${_sar_sources_root}/")
 list(TRANSFORM SAR_CORE_SOURCES PREPEND "${_sar_sources_root}/")
 
 oneq_add_component(sar_core SOURCES ${SAR_CORE_SOURCES})
+# Three SAR session sources use the same file-local raw-IQ predicate. Keep two
+# standalone so this remains safe even when callers increase the Unity batch size.
+set_source_files_properties(
+    "${_sar_sources_root}/sar/session/SarReplayFlatbufferCodec.cpp"
+    "${_sar_sources_root}/sar/session/SarTraceSession.cpp"
+    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 target_link_libraries(sar_core PRIVATE flatbuffers::flatbuffers)
 if(SAR_ENGINE_SOURCES)
     oneq_add_component(sar_engine SOURCES ${SAR_ENGINE_SOURCES})

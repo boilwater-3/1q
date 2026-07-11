@@ -64,6 +64,14 @@ set(AIRBORNE_CORE_SOURCES
 
 oneq_add_component(airborne_engine SOURCES ${AIRBORNE_ENGINE_SOURCES})
 oneq_add_component(airborne_core SOURCES ${AIRBORNE_CORE_SOURCES})
+# These two sources intentionally retain file-local lookup helpers with the same
+# name. Keep the lifecycle recorder standalone when Unity Build is enabled.
+set_source_files_properties(session/ArTrackLifecycleRecorder.cpp
+    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+# Both external adapters use an identically named file-local finite-vector
+# predicate. Keep one translation unit standalone for every Unity batch size.
+set_source_files_properties(session/ArExternalOutputAdapter.cpp
+    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 target_link_libraries(airborne_engine PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(airborne_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 oneq_add_flatbuffers_schemas(

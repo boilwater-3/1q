@@ -183,8 +183,8 @@ using ReplayTraceEventCallback = bool (*)(const ReplayTraceReadEvent& event, voi
  * @brief cycle_output 回调返回的结构化比较状态。
  *
  * 替代旧的 bool 返回值，让模块在回调中显式区分三类结果，避免回放框架靠解析
- * `error` 文本字符串来判断是否发生输出分叉（参见
- * `docs/review/batch_validation_consumer_friction.md` §1）。
+ * `error` 文本字符串来判断是否发生输出分叉（见 `docs/common/contract.md` 的
+ * “Replay 与 trace 语义”）。
  *
  * - `kHandledByModule`：模块已逐字段比较，输出一致。`actual_output_payload` 应留空
  *   （表示比较由模块内部完成），或填入模块自行生成的诊断 JSON。

@@ -152,6 +152,36 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
   validation error。若未来引入可表达负数的外部输入入口，负数 ID 必须在转换为
   public `std::uint64_t` DTO 前被拒绝。
 - 仿真真值不得混入面向外部系统的真实输出通道。
+- `*CycleResult` 的输出帧、指标和诊断产品仅在 `executed_this_cycle=true` 时代表
+  本周期的有效计算结果；abort/失败周期中的默认值或复用值不得按真实零值参与统计。
+
+## Replay 与 trace 语义
+
+1. 模块级 cycle-output 回调必须用 `ReplayTraceOutputStatus` 结构化表达比较结果。
+   `kDivergence` 是输出分叉；`kOtherFailure` 是解码、类型或执行失败，不能被标记为
+   分叉；不得通过解析人读 error 文本推断状态。
+2. `ReplayTracePlaybackResult.divergence_found` 是分叉的权威结构化信号。
+   `kHandledByModule` 和 `kDivergence` 均计入 `compared_output_count`，
+   `kOtherFailure` 不计入且不改变分叉状态；两条路径必须遵守同一
+   `stop_on_first_divergence` 语义。
+3. `TraceSink` 是调试/观测记录格式，不能作为 `ReplayXxxTrace()` 输入。
+   需要可回放目录时必须使用 `ReplayTraceWriter` 并经对应
+   `*TraceSessionOptions::replay_writer` 传入；两者可同时配置，但不能相互替代。
+
+## CMake 工程边界
+
+1. 顶层 `CMakeLists.txt` 只编排项目生命周期；`src/CMakeLists.txt` 只装配最终产品；
+   每个模块 CMake 文件拥有自身 component target、源文件、直接依赖和 replay schema。
+   不得恢复中心式 module link matrix 或 schema 注册表。
+2. 编译、链接、Unity、PCH、coverage 等策略必须以 target 为作用域；不得以
+   `add_compile_options()` 或 `add_link_options()` 向目录树广播项目私有选项。
+3. Unity Build 暴露的匿名命名空间重定义必须在源文件属性上显式声明
+   `SKIP_UNITY_BUILD_INCLUSION`，并说明冲突原因；不得为此把模块私有 helper 扩大为
+   `src/common` 公共设施。
+4. Windows/MSVC 支持不因 preset 或 public-header 编译通过而成立。该平台将使用
+   仓库拥有的 shell bootstrap 从 GitHub 获取锁定版本依赖；脚本必须固定版本与提交
+   标识、校验下载内容并产出 CMake 可消费的 imported targets。只有真实 Windows
+   configure、build、install 和外部 consumer job 均通过后，才可宣称 project build support。
 
 ## 测试架构
 

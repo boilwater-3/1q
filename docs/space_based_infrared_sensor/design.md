@@ -310,8 +310,7 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 
 #### 2.2.1 目标状态机（6 状态版）
 
-每个目标独立维护一个状态机实例，以 `target_id` 为键。状态枚举（解决 `docs/review/sbirs_filter.md` 两套状态机
-不一致问题，见第 5 节修正 #2）：
+每个目标独立维护一个状态机实例，以 `target_id` 为键。状态枚举：
 
 | 状态 | 含义 | 该状态下本周期输出 |
 |---|---|---|
@@ -364,7 +363,7 @@ stateDiagram-v2
 
 设计要点：
 
-- 首次 NFOV 捕获**必须**使用 WFOV 输出的带误差位置，不得直接用真值位置（`docs/review/sbirs_filter.md:121` 假设）。
+- 首次 NFOV 捕获**必须**使用 WFOV 输出的带误差位置，不得直接用真值位置。
 - 捕获成功后进入哪个跟踪态由配置决定：默认启用滤波进入 `EstimatedTracking`，用滤波估计生成指向；
   显式关闭滤波时进入 `TruthAssistedTracking`，用仿真真值辅助生成指向。两个跟踪态**严格分离**，不复用同一
   状态枚举——这满足原先"后续若引入估计滤波必须先把真值辅助状态拆分"的前置约束。
@@ -456,7 +455,9 @@ stateDiagram-v2
 - **显式关闭（false）**：进入 `TruthAssistedTracking`，仿真真值辅助跟踪（§2.5.1）。
 
 两个跟踪态**严格分离**（不同枚举值），不复用同一状态——这满足原先"后续若引入估计滤波必须先把
-真值辅助状态拆分"的前置约束。状态转移详见 §2.2.1。
+真值辅助状态拆分"的前置约束。状态转移详见 §2.2.1。混用同一状态枚举会带来三个不可接受的后果：某帧检测
+记录的指向来源（真值还是滤波估计）无法追溯；capture/restore 无法正确回滚（真值辅助无状态可回滚，滤波器有）；
+replay 语义模糊（真值辅助确定性复现，滤波器依赖随机源）。
 
 #### 2.5.1 真值辅助跟踪（TruthAssistedTracking）
 
@@ -488,6 +489,8 @@ stateDiagram-v2
 `KalmanPredictor::BuildTransitionMatrix` / `BuildProcessNoise`。
 
 **量测模型**（非线性，球坐标角度）：2 维 `[az, el]`（弧度），被动红外不测距（design 2.11 不含 range）。
+选纯 2 维角度而非 3 维 `[az, el, range]` + 大 R 屏蔽 range 通道：后者把不可观测的 range 塞进量测向量，
+需要用极大 R 把它"屏蔽"掉，语义不干净；纯 2 维直接表达"被动红外只测角"的物理事实。
 `SbirsAngleMeasurementModel` 实现 `IMeasurementModel<6,2>`：
 - `h(x)` = 目标 ECEF 位置（状态偶数索引 0/2/4）相对卫星位置 `satellite_position` 的 LOS →
   `[atan2(dy,dx), asin(dz/r)]`。卫星位置非状态分量，每帧由 pipeline 注入。
@@ -529,6 +532,9 @@ stateDiagram-v2
 - 过程噪声为 CV 模型白噪声加速度（标量 q），不建模机动目标加速度跳变。
 - 量测噪声 R 从 §2.10 误差模型合成，az/el 通道对称（各向同性假设）。
 - `nis_gate_loss_cycles` 丢锁是确定性门限，不做概率抽样（详见 §2.5.4）。
+- runtime patch（`ApplyConfig`，见 §1.5）对已存在的滤波器只更新 R/Q 等参数（`UpdateConfig`），**不重置**
+  协方差矩阵和状态向量——重置会破坏跨周期跟踪连续性。"立即提交"契约（`docs/common/contract.md` 运行期配置
+  提交策略表）约束的是 patch 生效时机，不要求丢弃累积状态。
 
 #### 2.5.3 滤波后端选型
 
@@ -643,7 +649,7 @@ NFOV 资源采用**多通道并发锁定策略**：传感器配置 `max_concurre
 
 ### 2.7 地球遮挡与几何门控
 
-天基传感器视线穿过地球时目标不可观测，这是 `docs/review/sbirs_filter.md` 缺失、但原始需求明确要求的天基必备
+天基传感器视线穿过地球时目标不可观测，这是原始需求明确要求的天基必备
 几何门控（`docs/review/sbirs_infrared_model_1205_v3.md:864-880`）。
 
 **遮挡角计算**：
@@ -946,28 +952,3 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 6. foundation 算法如果从 internal 变成 public API，必须在本文 `[evidence: ...]` 标注中记录扩展
    理由、稳定性约束和迁移影响，并检查与 EOS 对应算法的偏离是否有意。
 7. 新增 debug/replay 字段时，必须保持真实输出、结构化结果和仿真辅助视图三层分离。
-
-## 5. `docs/review/sbirs_filter.md` 审查记录
-
-`docs/review/sbirs_filter.md` 是历史实现计划草案，不再作为当前设计权威。它经与原始需求、`docs/common/contract.md`
-和现有 `electro_optical_sensor`（EOS）代码核对后，保留以下结论：
-
-通过项：
-
-- `docs/review/sbirs_filter.md` 曾提议输出字段与现有红外传感器一致；本文已废弃该方案，首批 raw output 使用原生
-  SBIRS-inspired 观测契约。
-- 三层输出模型：内部 WFOV/NFOV 状态不进 raw output，符合 `docs/common/contract.md`
-  三层输出规则。
-- public API 边界：不在公开头暴露 `Eos*` / `electro_optical_sensor`。
-- 第一版范围裁剪清晰，非目标边界明确。
-
-修正项：
-
-| # | 主题 | 历史草案问题 | 本文结论 | 理由 |
-|---|---|---|---|---|
-| 1 | 迁移源头 | 草案称从当前 `space_based_infrared_sensor` 迁移，但仓库中不存在该实现模块 | 真实源头是 `electro_optical_sensor`；参照复制 EOS foundation 层算法，pipeline/controller/session 独立实现 | 全仓库搜索 `sbirs`/`space_based_infrared` 仅命中草案和本文 |
-| 2 | 内部状态机 | 草案同时给出两套状态，数量和语义不对齐 | 统一为本文 2.2 的 5 状态；捕获失败回退是转移，不是独立状态 | 同一对象不能有两套状态机 |
-| 3 | 地球遮挡门控 | 草案未覆盖天基几何遮挡 | 本文 2.7 要求地球遮挡与大气边界过滤，并以有限 LOS 线段与地球球体相交作为实现判定 | 天基传感器视线穿地不可观测 |
-| 4 | 契约注册 | 草案提议 `sbirs_sensor` 命名空间和 `Sbirs*` 前缀，但未同步公共契约 | `docs/common/contract.md` 需同步文档目录、模块前缀、运行期提交策略和模块关系图 | 公共契约是模块边界权威 |
-| 5 | 气象衰减 | 草案只笼统提环境 | 本文 2.9 明确气象影响列表查表 + 加权叠加公式 `A_total`，作用于路径透过率并进入 SNR 链路 | 原始需求 `docs/review/sbirs_infrared_model_1205_v3.md:35-103` 有完整定义 |
-| 6 | 输出字段 | 草案要求复用 EOS 检测记录形状 | 本文改为原生 SBIRS 输出，不包含必填 range、visible SNR 或 fused SNR | 新模块没有复用 EOS 输出形状的约束，被动红外 raw output 不应伪装成可见光/融合/直接测距输出 |

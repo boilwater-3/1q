@@ -35,6 +35,10 @@ set(EOS_CORE_SOURCES
 
 oneq_add_component(eos_engine SOURCES ${EOS_ENGINE_SOURCES})
 oneq_add_component(eos_core SOURCES ${EOS_CORE_SOURCES})
+# Keep file-local detection lookup helpers in separate translation units under
+# Unity Build; the recorder and debug-view builder use identical local names.
+set_source_files_properties(session/EosDetectionLifecycleRecorder.cpp
+    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 target_link_libraries(eos_engine PRIVATE flatbuffers::flatbuffers)
 target_link_libraries(eos_core PRIVATE flatbuffers::flatbuffers)
 oneq_add_flatbuffers_schemas(

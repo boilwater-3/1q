@@ -33,6 +33,10 @@ set(SBIRS_CORE_SOURCES
 
 oneq_add_component(sbirs_engine SOURCES ${SBIRS_ENGINE_SOURCES})
 oneq_add_component(sbirs_core SOURCES ${SBIRS_CORE_SOURCES})
+# Keep file-local detection lookup helpers in separate translation units under
+# Unity Build; the recorder and debug-view builder use identical local names.
+set_source_files_properties(session/SbirsDetectionLifecycleRecorder.cpp
+    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 target_link_libraries(sbirs_engine PRIVATE Eigen3::Eigen flatbuffers::flatbuffers)
 target_link_libraries(sbirs_core PRIVATE Eigen3::Eigen flatbuffers::flatbuffers)
 oneq_add_flatbuffers_schemas(

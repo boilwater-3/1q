@@ -36,6 +36,10 @@ set(ESR_CORE_SOURCES
 
 oneq_add_component(esr_engine SOURCES ${ESR_ENGINE_SOURCES})
 oneq_add_component(esr_core SOURCES ${ESR_CORE_SOURCES})
+# Keep the lifecycle recorder out of Unity Build because it and the debug-view
+# builder deliberately use the same file-local association lookup helper.
+set_source_files_properties(session/EsrEmitterLifecycleRecorder.cpp
+    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 target_link_libraries(esr_engine PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 target_link_libraries(esr_core PRIVATE ${ONEQ_LINK_DEPENDENCIES})
 oneq_add_flatbuffers_schemas(
