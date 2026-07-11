@@ -80,6 +80,8 @@ flowchart TB
 4. 保持模块 schema、payload type、file identifier、public DTO 和字节语义不变。
 5. 在 `contract.md` 定义核心运行合同与诊断工具合同的兼容等级。
 
+实施记录（2026-07-11）：EOS/ESR 已完成第一批 internal helper 迁移。helper 只统一完成 builder 的字节复制和 FailureMarker 的解码保护；模块 schema、DTO、payload type、identifier、公开头和错误文本均未改变。helper unit、EOS/ESR replay、完整 replay、contract 和 C++11 compatibility 验证均通过。SBIRS、SAR、AR 仍待后续小批迁移。
+
 ### 5.2 SBIRS 与 SAR 内部边界
 
 1. 从 `SbirsPipeline` 提取 internal NFOV acquisition evaluator。

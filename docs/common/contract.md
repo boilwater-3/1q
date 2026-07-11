@@ -43,6 +43,15 @@ Authority: common contract for all modules
 
 唯一允许的用户自定义 SPI 是 `airborne_radar` 的 decision engine。其它模块默认只提供稳定 session 门面。
 
+### 核心运行面与观测工具面
+
+public API 分为两类，二者都受 public boundary、install manifest 和 consumer 测试保护：
+
+1. **核心运行面**：模块聚合入口、config、input、session、raw output 与 cycle result。它定义调用方驱动模型和消费仿真结果的稳定语义。
+2. **观测工具面**：trace/replay、debug view、lifecycle recorder 及其结果 DTO。它用于诊断、复现和人读归属，不能反向改变核心运行面、raw output 或控制行为。
+
+观测工具面的新增字段或事件必须保持三层输出分离，并同步 schema/codec、对应 replay/trace 测试和 consumer 测试；删除或重命名已公开工具仍属于 public API 变更，必须先冻结兼容迁移契约。
+
 ## 内部共享命名空间
 
 `src/common/` 是库内部实现层的跨模块共享设施目录，对应命名空间必须使用

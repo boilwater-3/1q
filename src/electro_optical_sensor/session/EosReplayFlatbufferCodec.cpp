@@ -9,6 +9,7 @@
 #include "1q/electro_optical_sensor/session/EosCycleInput.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "electro_optical_sensor/runtime/EosPipelineConfigMapper.h"
+#include "common/replay/ReplayFlatbufferCodecSupport.h"
 #include "flatbuffers/flatbuffers.h"
 #include "electro_optical_sensor/session/generated/eos_replay_generated.h"
 #include "electro_optical_sensor/session/generated/eos_session_replay_generated.h"
@@ -119,8 +120,7 @@ std::string EncodeEosCycleInput(const EosCycleInput& v) {
   b.add_scene_targets(targets);
   b.add_platform_altitude_m(v.platform_altitude_m);
   fbb.Finish(b.Finish());
-  const uint8_t* buf = fbb.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeEosCycleInput(const std::string& bytes, EosCycleInput* out) {
@@ -175,8 +175,7 @@ std::string EncodeEosOutputFrame(const session::EosOutputFrame& v) {
   auto dets = fbb.CreateVector(det_vec);
   auto frame = eos::replay::CreateEosOutputFrame(fbb, v.cycle_index, v.scan_azimuth_deg, dets);
   fbb.Finish(frame);
-  const uint8_t* buf = fbb.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeEosOutputFrame(const std::string& bytes, session::EosOutputFrame* out) {
@@ -238,8 +237,7 @@ std::string EncodeEosCycleResult(const ::electro_optical_sensor::session::EosCyc
       v.has_validation_error, v.executed_this_cycle, v.reused_previous_output,
       static_cast<int32_t>(v.abort_reason));
   fbb.Finish(result);
-  const uint8_t* buf = fbb.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeEosCycleResult(const std::string& bytes,
@@ -353,8 +351,7 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
       atm_obs);
 
   fbb.Finish(eos::replay::CreateEosSessionConfig(fbb, hw, mission, policy, env));
-  const uint8_t* buf = fbb.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* out) {
@@ -478,8 +475,7 @@ std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) 
       v.environment.has_scenario_config, v.has_work_mode, static_cast<int32_t>(v.work_mode),
       v.has_scan_rate_deg_per_sec, v.scan_rate_deg_per_sec, v.has_frame_rate_hz, v.frame_rate_hz,
       v.has_sensor_enabled, v.sensor_enabled));
-  const uint8_t* buf = fbb.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buf), fbb.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeConfigPatch* out) {
@@ -573,45 +569,13 @@ std::string EncodeEosFailureMarker(const oneq::replay::ReplayTraceFailure& failu
           failure.sim_time_sec, failure.diagnostics_payload.c_str(), false, 0U);
   builder.Finish(root);
 
-  const std::uint8_t* buffer = builder.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buffer),
-                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
 bool DecodeEosFailureMarker(const std::string& payload_bytes,
                             oneq::replay::ReplayTraceFailure* failure, std::string* error) {
-  if (failure == nullptr) {
-    if (error != nullptr) {
-      *error = "null FailureMarker output";
-    }
-    return false;
-  }
-  if (payload_bytes.empty()) {
-    if (error != nullptr) {
-      *error = "empty FailureMarker flatbuffers payload";
-    }
-    return false;
-  }
-
-  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
-  flatbuffers::Verifier verifier(data, payload_bytes.size());
-  const eos::replay::FailureMarker* root = flatbuffers::GetRoot<eos::replay::FailureMarker>(data);
-  if (root == nullptr || !root->Verify(verifier)) {
-    if (error != nullptr) {
-      *error = "invalid FailureMarker flatbuffers payload";
-    }
-    return false;
-  }
-
-  failure->error_code = root->error_code() ? root->error_code()->str() : "";
-  failure->message = root->message() ? root->message()->str() : "";
-  failure->location = root->location() ? root->location()->str() : "";
-  failure->has_cycle_index = root->has_cycle_index();
-  failure->cycle_index = root->cycle_index();
-  failure->has_sim_time_sec = root->has_sim_time_sec();
-  failure->sim_time_sec = root->sim_time_sec();
-  failure->diagnostics_payload = root->diagnostics() ? root->diagnostics()->str() : "{}";
-  return true;
+  return oneq::common::replay::DecodeFailureMarkerPayload<eos::replay::FailureMarker>(
+      payload_bytes, failure, error);
 }
 
 }  // namespace session

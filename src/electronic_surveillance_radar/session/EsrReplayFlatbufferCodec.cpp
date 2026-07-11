@@ -4,6 +4,7 @@
 #include <string>
 
 #include "flatbuffers/flatbuffers.h"
+#include "common/replay/ReplayFlatbufferCodecSupport.h"
 #include "electronic_surveillance_radar/session/generated/esr_replay_generated.h"
 #include "electronic_surveillance_radar/session/generated/esr_session_replay_generated.h"
 
@@ -106,7 +107,7 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   b.add_environment(env_fb);
   b.add_platform_altitude_m(v.platform_altitude_m);
   fbb.Finish(b.Finish());
-  return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
@@ -288,7 +289,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
 std::string EncodeEsrOutputFrame(const session::EsrOutputFrame& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
   fbb.Finish(CreateEsrOutputFrameTable(fbb, v));
-  return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeEsrOutputFrame(const std::string& bytes, session::EsrOutputFrame* out) {
@@ -316,7 +317,7 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
   fbb.Finish(esr::replay::CreateEsrCycleResult(
       fbb, v.input_cycle_index, frame, fbb.CreateVector(issues), v.has_validation_error,
       v.executed_this_cycle, v.reused_previous_output, static_cast<int32_t>(v.abort_reason)));
-  return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
@@ -387,7 +388,7 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
       es.atmospheric_context.geomagnetic_ap);
   auto env = esr::replay::CreateEsrEnvironmentConfig(fbb, static_cast<int32_t>(es.preset), ap, ac);
   fbb.Finish(esr::replay::CreateEsrSessionConfig(fbb, hw, mission, policy, env));
-  return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* out) {
@@ -508,7 +509,7 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
       sb.scan_end_az_deg, v.has_explicit_scan_bounds, sb.scan_start_el_deg,
       v.has_explicit_scan_bounds, sb.scan_end_el_deg, v.has_mission, mission, v.has_policy, policy,
       v.has_environment, env_patch));
-  return {reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize()};
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeConfigPatch* out) {
@@ -610,45 +611,13 @@ std::string EncodeEsrFailureMarker(const oneq::replay::ReplayTraceFailure& failu
           failure.sim_time_sec, failure.diagnostics_payload.c_str(), false, 0U);
   builder.Finish(root);
 
-  const std::uint8_t* buffer = builder.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buffer),
-                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
 bool DecodeEsrFailureMarker(const std::string& payload_bytes,
                             oneq::replay::ReplayTraceFailure* failure, std::string* error) {
-  if (failure == nullptr) {
-    if (error != nullptr) {
-      *error = "null FailureMarker output";
-    }
-    return false;
-  }
-  if (payload_bytes.empty()) {
-    if (error != nullptr) {
-      *error = "empty FailureMarker flatbuffers payload";
-    }
-    return false;
-  }
-
-  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
-  flatbuffers::Verifier verifier(data, payload_bytes.size());
-  const esr::replay::FailureMarker* root = flatbuffers::GetRoot<esr::replay::FailureMarker>(data);
-  if (root == nullptr || !root->Verify(verifier)) {
-    if (error != nullptr) {
-      *error = "invalid FailureMarker flatbuffers payload";
-    }
-    return false;
-  }
-
-  failure->error_code = root->error_code() ? root->error_code()->str() : "";
-  failure->message = root->message() ? root->message()->str() : "";
-  failure->location = root->location() ? root->location()->str() : "";
-  failure->has_cycle_index = root->has_cycle_index();
-  failure->cycle_index = root->cycle_index();
-  failure->has_sim_time_sec = root->has_sim_time_sec();
-  failure->sim_time_sec = root->sim_time_sec();
-  failure->diagnostics_payload = root->diagnostics() ? root->diagnostics()->str() : "{}";
-  return true;
+  return oneq::common::replay::DecodeFailureMarkerPayload<esr::replay::FailureMarker>(
+      payload_bytes, failure, error);
 }
 
 }  // namespace session
