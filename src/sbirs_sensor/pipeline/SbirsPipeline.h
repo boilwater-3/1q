@@ -14,8 +14,8 @@
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "sbirs_sensor/config/SbirsInternalExecutionConfig.h"
 #include "sbirs_sensor/pipeline/SbirsNfovScheduler.h"
+#include "sbirs_sensor/pipeline/SbirsTrackingCoordinator.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
-#include "sbirs_sensor/tracking/SbirsTrackingTypes.h"
 
 namespace sbirs_sensor {
 namespace pipeline {
@@ -99,23 +99,7 @@ class SbirsPipeline {
   std::map<std::uint64_t, SbirsTargetState> target_states_{};
   SbirsNfovScheduler nfov_scheduler_;  // NFOV 多通道资源调度器
   foundation::SbirsRandomSource random_source_;  // 误差模型确定性随机源
-  // EKF 滤波组件（kEstimatedTracking 状态使用；启用 enable_estimated_tracking 时激活）
-  tracking::SbirsCvTransitionModel cv_transition_model_{};
-  tracking::SbirsAngleMeasurementModel angle_measurement_model_{};
-  std::map<std::uint64_t, tracking::SbirsGaussianState> filter_states_{};
-  std::map<std::uint64_t, unsigned int> nis_gate_exceeded_counts_{};
-
-  // IMM 组件（enable_imm_tracking=true 时激活，替代单 EKF 路径）
-  bool imm_initialized_{false};
-  std::vector<std::unique_ptr<tracking::SbirsAngleMeasurementModel>> imm_measurement_models_{};
-  std::vector<std::unique_ptr<tracking::SbirsEkfPredictor>> imm_predictors_owned_{};
-  std::vector<::oneq::common::estimation::IKalmanPredictor<6, 2>*> imm_predictors_{};
-  std::vector<std::unique_ptr<tracking::SbirsEkfUpdater>> imm_updaters_owned_{};
-  std::vector<::oneq::common::estimation::IKalmanUpdater<6, 2>*> imm_updaters_{};
-  std::unique_ptr<tracking::SbirsImmFilter> imm_filter_{};
-  std::map<std::uint64_t, tracking::SbirsImmSnapshot> imm_snapshots_{};
-
-  void InitializeImmComponents(const config::SbirsTrackingConfig& tracking);
+  SbirsTrackingCoordinator tracking_coordinator_{};
 };
 
 }  // namespace pipeline

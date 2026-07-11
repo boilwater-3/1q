@@ -425,6 +425,20 @@ Omega-K 部件链包括 spectrum front-end、Stolt geometry/interpolation、comm
    `tests/unit/sar_omega_k_*_test.cpp` — 12+ 测试覆盖 Omega-K 各部件链]
 - Spotlight 与 ScanSAR 的部件、时变 beam 和 burst 逻辑已可独立验证，但尚未接入 session 主链。
 
+能力晋级门（仅适用于内部候选算法，不创建新的 public 类型）：
+
+| 级别 | 进入条件 | 当前算法 |
+|---|---|---|
+| `experimental` | 可编译，且局部单元测试明确输入、输出与拒绝边界 | Spotlight Omega-K、ScanSAR Omega-K |
+| `characterized` | 除局部测试外，已有确定性、质量/失效矩阵或受控证据 | stripmap Omega-K |
+| `production-eligible` | 已冻结场景范围、门限、失败语义与集成证据；仍未改变 session 装配 | 当前无候选 |
+| `session-wired` | 已接入 `SarProcessingPipeline`，并覆盖 config、输出/abort、replay 与 session 集成 | L1 RDA、L3 BP |
+
+`session-wired` 只陈述当前会话已装配的能力，不把它泛化为所有场景的性能承诺。候选算法必须逐级提供证据；不得因已有 internal 实现而跳级或新增未接线算法族。\
+[evidence: `src/sar/pipeline/SarProcessingPipeline.cpp:RunCycle` — 只调用 `ExecuteL1RdaImaging` 和 `ExecuteL3BpImaging`;\
+ `sar_session_pipeline_test.cpp:StepWithResultRunsRawRangeAndRdaPipeline` — session 输出 L1 RDA stage;\
+ `sar_omega_k_focusing_test.cpp`、`sar_omega_k_spotlight_test.cpp`、`sar_omega_k_scansar_test.cpp` — internal 算法的独立验证]
+
 限制：
 
 - 这些路径不自动变成 public/session 默认行为。\

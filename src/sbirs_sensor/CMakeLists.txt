@@ -7,7 +7,9 @@ set(SBIRS_ENGINE_SOURCES
     foundation/SbirsNoiseModel.cpp
     environment/SbirsEnvironmentModel.cpp
     pipeline/SbirsPipeline.cpp
+    pipeline/SbirsNfovAcquisition.cpp
     pipeline/SbirsNfovScheduler.cpp
+    pipeline/SbirsTrackingCoordinator.cpp
 )
 
 set(SBIRS_CORE_SOURCES
