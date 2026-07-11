@@ -40,28 +40,15 @@ Authority: 非规定性记录
 
 注：P2.4（commit `65cc7fc4`）把 CLmax + V_stall 公式收拢为单一 `AircraftPerformanceDerivation` helper，但 ρ 作为入参透传，严格保留了三处现状——漂移本身未修。
 
-## OQ-5 flight_dynamic 模块游离于统一 cycle/result 范式
+## OQ-8 折射率成对温度输入的 public 迁移
 
-`flight_dynamic::FlightManager` 暴露 `GetAdapter()`/`GetAutopilot()`/`GetEngineManager()` 等内部子系统直接引用（`include/1q/flight_dynamic/FlightManager.h:168-172`），并使用 `FlightManagerState` 枚举状态机，而其它四个传感器模块采用 Session→Controller→Pipeline 分层与 cycle/result/abort-reason 协议。
+原 OQ-8 的低风险收尾已复核：L3 不能移除 `GeometryTransform.h` 的 `Eigen/Core`，因为该头直接以 `Eigen::Vector3f` / `Eigen::Matrix3f` 作为函数返回值和参数；L4（`src/common` 的 `reset(new)`）已经不存在。两项均无需代码修复。
 
-- 公开子系统所有权：`include/1q/flight_dynamic/FlightManager.h:168-172`。
-- 枚举状态机：同文件 `FlightManagerState`（`:48`）与 `state_`（`:187`），区别于其它模块的 `*CycleResult` + `*PipelineAbortReason`。
+剩余的 L6 不再是低风险样式项：`refractivity_index_n_r4/r8` 和公开的 `RefractivityIndex` 同时接收摄氏与开氏温度。两个裸浮点参数可被调换，但改变为成对温度类型或单一温标会改变 REOS 对齐的 public 签名。
 
-为何未决：这是 `flight_dynamic` 的既有 public 边界设计，不是缺陷。是否引入统一的 session/cycle 外壳属于跨模块 API 形态决策，需要先确认飞行动力学作为"平台状态生产者"的特殊定位是否应当保留更宽的 public 接口。
+为何未决：仓库内只有转发实现和一致温标的单测，无法证明仓库外调用方不依赖当前签名。静默派生其中一个温度会改变不一致输入的数值语义，也不能可靠修复“参数被调换”。
 
-推进需要：先在 `docs/flight_dynamic/design.md` 显式文档化该模块的特殊边界（与传感器模块的区别），再评估是否引入更统一的 cycle 外壳。
-
-注：源自 `src/` 架构与安全审查的 M8，原状态 verified-deferred。
-
-## OQ-8 common 层局部代码质量收尾
-
-若干低风险样式/编译成本项已验证但未在本轮修复，列出以便独立批次处理，避免与语义修复混批。
-
-- L3：`src/common/geometry/GeometryTransform.h:9` 全量 `#include <Eigen/Core>`，可评估前向声明降低编译成本（纯编译优化，无语义影响）。
-- L6：`src/common/atmosphere/AtmospherePhysics.cpp:63-76` 的 `refractivity_index_n_*` 同函数并列 `tc_celsius` 与 `tk_kelvin` 两个温标参数，调用方易传错；改签名涉及 REOS 对齐与兼容迁移。
-
-为何未决：三者均为样式/兼容性收尾，不改变运行时行为，混入语义修复批次会模糊变更意图。
-
-推进需要：在独立的小步重构批次中处理，L6 需要配套 REOS 对齐签名迁移。
-
-注：源自 `src/` 架构与安全审查的 L3/L4/L6，原状态 verified-deferred。
+推进需要：独立 Stage A 冻结 public migration（新 typed input/过渡入口、REOS 对齐、外部 consumer 期限），并补充温标不一致的拒绝或诊断契约。\
+[evidence: `include/1q/environment/PropagationPhysics.h:RefractivityIndex` — public 六标量签名;\
+ `src/common/atmosphere/AtmospherePhysics.cpp:refractivity_index_n_r8` — 同时消费 Celsius 与 Kelvin;\
+ `tests/unit/airborne_radar/ar_atmosphere_physics_test.cpp` — 当前只覆盖一致温标]
