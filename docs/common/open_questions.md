@@ -58,7 +58,6 @@ Authority: 非规定性记录
 若干低风险样式/编译成本项已验证但未在本轮修复，列出以便独立批次处理，避免与语义修复混批。
 
 - L3：`src/common/geometry/GeometryTransform.h:9` 全量 `#include <Eigen/Core>`，可评估前向声明降低编译成本（纯编译优化，无语义影响）。
-- L4：约 10 处 `ptr.reset(new T)` 可逐步替换为 `std::make_unique`（纯样式）。
 - L6：`src/common/atmosphere/AtmospherePhysics.cpp:63-76` 的 `refractivity_index_n_*` 同函数并列 `tc_celsius` 与 `tk_kelvin` 两个温标参数，调用方易传错；改签名涉及 REOS 对齐与兼容迁移。
 
 为何未决：三者均为样式/兼容性收尾，不改变运行时行为，混入语义修复批次会模糊变更意图。

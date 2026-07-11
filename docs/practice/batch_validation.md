@@ -10,23 +10,23 @@ Authority: examples/batch_validation engineering practice
 
 ### 1.1 定位
 
-批量场景验证框架（`examples/batch_validation/`）通过**多场景参数扫描**证明 AR / EOS / ESR / SAR 四个传感器模块在不同物理条件下的泛用性与正确性。每个模块一个独立可执行程序，对一组场景参数表逐场景运行仿真，产出：
+批量场景验证框架（`examples/batch_validation/`）通过**多场景参数扫描**对 AR / EOS / ESR / SAR 四个传感器模块做物理趋势表征与回归诊断。每个模块一个独立可执行程序，对一组场景参数表逐场景运行仿真，产出：
 
 - **周期级 + 场景汇总级 CSV 指标**，供离线趋势分析。
 - **可回放 trace**，每个场景一个目录，事后可由 `ReplayXxxTrace` 做确定性回归（分叉检测）。
 - **物理合理性软断言**：对关键趋势（距离↑→检出↓、带宽↑→分辨率↑等）做检查，违反记 `kWarning` 不中断。
 
-框架是纯 examples 层：只使用对外公开接口与各模块 `config_loader`，不修改任何 `include/` 或 `src/`。
+框架是纯 examples 层：只使用对外公开接口和 example-local 的配置加载器，不修改任何 `include/` 或 `src/`。
 
 ### 1.2 Public API 与内部实现边界
 
-框架消费的公开能力（均已在 `docs/common/contract.md` 的 Public API 边界中确认为稳定外部消费合同）：
+框架消费的公开能力；example-local 配置加载器不属于稳定外部消费合同：
 
 | 能力 | 入口 | 用途 |
 | --- | --- | --- |
 | 会话门面 | `*Session::Create` / `StepWithResult` | 驱动单周期执行 |
 | 坐标适配（AR/EOS/ESR） | `*CycleInputAdapter::Build` | 外部 ECEF/LLA → 模块内部坐标 |
-| 配置加载 | `examples/<module>/config_loader.h` | JSON → `*SessionConfig` |
+| 配置加载 | `examples/<module>/config_loader.h` | example-local JSON → `*SessionConfig` |
 | trace 录制 | `*TraceSession(config, options)` | 包装 Session，自动录制可回放事件 |
 | 回放回归 | `Replay*Trace(trace_dir)` | 重放并逐字段比对输出（分叉检测） |
 | 运行期配置 | `*RuntimeConfigPatch` | （预留，当前未在批量程序中注入） |
@@ -159,7 +159,7 @@ flowchart LR
 
 ### 2.2 软断言策略与退出码
 
-批量验证采用"数据采集 + 物理合理性软断言"：对关键物理趋势做检查，违反时记录 `kWarning`（不中断），既证明泛用性又能自动捕捉异常。三类诊断级别（与 SAR 诊断层语义对齐）：
+批量验证采用"数据采集 + 物理合理性软断言"：对关键物理趋势做检查，违反时记录 `kWarning`（不中断），用于表征和自动发现异常。三类诊断级别（与 SAR 诊断层语义对齐）：
 
 | 级别 | 触发 | 退出码影响 |
 | --- | --- | --- |
@@ -167,7 +167,7 @@ flowchart LR
 | `kWarning` | 物理趋势违反；**回放分叉** | 不影响（程序继续） |
 | `kError` | 配置加载失败、`Adapter::Build` 失败、无周期执行 | 程序返回 2 |
 
-**回放分叉记为 warning（非 error）**：这是模块在边界场景下的确定性属性（如 ESR 近距离高功率时观测时间戳字段在逐字段严格比较下漂移），应被记录与高亮，但不阻塞批量运行。只有 `kError` 才使程序返回非零。
+**回放分叉记为 warning（非 error）**：批量程序会记录 `replay_ok` / `replay_divergence` 并打印 `FAIL`，但继续完成全部场景；只有 `kError` 才使程序返回非零。分叉原因必须由可复现 trace 或模块测试证明，不在本文归因为特定字段。
 
 各模块软断言：
 
@@ -205,12 +205,12 @@ flowchart LR
 2. **不取代 GTest 矩阵测试**。`tests/unit/*_matrix_test.cpp` 是 CI 硬性回归门控（`EXPECT_*` 失败即红）；本框架是软断言的数据采集与趋势分析工具，两者互补，不互替。
 3. **不为 SAR 增加 ECEF 外部输出**。SAR 产品是聚焦图像（复数矩阵），模块本就不提供 ECEF 坐标转换；示例包装层不再暴露恒 false 的占位输出接口，框架也不试图弥补。
 4. **不把 SAR 复数像素写入 CSV**。`focused_image.real_values/imaginary_values` 不入 CSV（单图像可达百万像素）；只记录图像质量摘要（SNR / 主瓣宽 / 分辨率 / 熵 / 对比度）。需原始像素时手动回放对应 trace。
-5. **回放分叉不阻塞批量运行**。模块在边界场景（如 ESR 近距离高功率）的确定性漂移属模块属性，记为 warning 高亮，不视为框架失败，也不修改模块输出语义以求"通过"。
+5. **回放分叉不阻塞批量运行**。分叉记为 warning 高亮并写入 CSV，批量程序仍完成其余场景；它不是可接受的模块确定性结论，也不修改模块输出语义以求"通过"。
 6. **不引入新依赖**。CSV 写入仿 `examples/flight_dynamic/orbit_quality_csv.cpp` 的 `fprintf` 风格；Python 分析脚本仅用标准库 + 可选 matplotlib（无则跳过绘图），不引入 pandas/numpy。
 
 ### 3.1 已知发现（模块属性，非框架缺陷）
 
-- **ESR 近距离（10km）回放分叉**：高功率辐射源在近距离时，重放逐字段严格比较会因观测时间戳等字段产生确定性漂移。这是模块确定性属性，已记为 warning。要在 replay 层消除需模块侧改进（如时间戳确定化），超出本框架范围。
+- **ESR 近距离（10km）回放分叉**：此前批量运行记录了 warning；原因尚未由可复现 trace 固化，不将其描述为模块固有属性。若再次出现，应以 trace 和模块测试单独定位。
 - **ESR 距离/占用率不敏感**：50MW 辐射源在 10–100km 内均远超 ESR 截获门限，`truth_match_rate` 在所有距离下一致。要观察距离衰减需进一步降低辐射功率，超出本框架"配置面"的合理范围。
 - **SAR 高带宽饱和**：带宽超过 sample_rate/2（奈奎斯特）后距离分辨率不再提升，属采样定理约束，非缺陷。
 

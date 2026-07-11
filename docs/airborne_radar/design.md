@@ -50,7 +50,7 @@ Authority: current airborne_radar module design
 | `signal/detection/` | 雷达方程、波束控制、量测误差、目标几何 | `SignalDetector`、`RadarEquations`、`BeamControlResolver` |
 | `signal/pipeline/` | 扫描调度、探测执行、数据关联、航迹生命周期、决策帧构建 | `SignalPipeline`、`ExecuteCycle`、`RunPhysicalDetectionPass` |
 | `signal/association/` | 数据关联、代价矩阵、LAPJV assignment、关联质量指标 | `DataAssociationEngine`、`LapjvSolver` |
-| `signal/tracking/` | track pool、生命周期；滤波原语（Kalman/EKF/UDKF/SRIF/IMM）已迁至 `src/common/estimation/`，本目录保留薄外观头以 6/3 实例化重导出 | `TrackFilter`、`TrackLifecycleManager`、`ImmFilter` |
+| `signal/tracking/` | track pool、生命周期；生产路径使用 KF，IMM 生命周期按策略配置启用；其他滤波原语位于 `src/common/estimation/`，不构成 AR 可选生产后端 | `TrackFilter`、`TrackLifecycleManager`、`ImmFilter` |
 | `decision/` | 默认战术协调、威胁评估、LPI、ECCM、控制归约 | `TacticalCoordinator`、`ThreatAssessmentEvaluator`、`LpiEvaluator`、`EccmEvaluator`、`ControlReducer` |
 | `runtime/` | controller 和控制指令映射 | `ArController`、`ControlCommandMapper` |
 | `session/` | public session 装配、context、输入输出适配、trace/replay | `ArSession`、`MutableArContext`、`ArSessionCompositionRoot` |
@@ -411,7 +411,7 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 - `TrackFilter` 在 missed detection 时衰减速度和 RCS。
 - deception/repeater/mixed 等关联脆弱干扰会放缓速度/RCS 衰减，避免把干扰导致的短时丢失误判成目标消失。
 - lifecycle manager 管理 tentative/confirmed/lost、track pool 回收、association seeds 导出和 filter writeback。
-- Kalman/EKF/UDKF/SRIF/IMM 路径用于不同工程配置下的预测/更新；后端选型矩阵与可复现性原则见 §2.10。
+- 生产预测/更新使用 KF；策略可启用 IMM 生命周期作为多模型 KF 融合层。EKF、UDKF、SRIF 是 common 内部资产，不是 AR 的运行期配置路径；可复现性边界见 §2.10。
 
 这些质量指标不仅用于结果输出，也会被 decision frame 消费，成为关联压力驱动 ECCM 的依据。
 
@@ -466,9 +466,8 @@ controller 在一个周期开始时把当前 control profile 传给 signal pipel
 
 ### 2.10 滤波后端选型与可复现性
 
-AR 模块当前使用标准 Joseph 形式 Kalman 滤波器（KF）作为唯一后端。`KalmanUpdateBackend`
-枚举保留 `kStandardKfJoseph` 单值以备后续扩展。航迹生命周期可通过 `enable_imm_lifecycle`
-启用 IMM（交互多模型）框架——IMM 不是独立后端，是包裹 KF 的多模型融合层：每个模型分支
+AR 模块当前使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产后端。航迹生命周期可通过策略配置
+`enable_imm_lifecycle` 启用 IMM（交互多模型）框架——IMM 不是独立后端，是包裹 KF 的多模型融合层：每个模型分支
 使用相同 KF 后端、不同过程噪声系数 q，通过 Markov 转移概率矩阵和权重自适应应对机动目标。
 
 **后端特性**：
@@ -476,7 +475,7 @@ AR 模块当前使用标准 Joseph 形式 Kalman 滤波器（KF）作为唯一�
 | 组件 | 量测线性性 | 数值稳定性 | 计算成本 | 说明 |
 |------|:---:|:---:|:---:|------|
 | KF (Joseph) | 线性 H | 标准 | 最低 | 默认后端；Joseph 形式显式对称化协方差 |
-| IMM(KF×N) | 继承 KF | 取决于内层 | N 倍 | 多模型自适应；CV(q_low)+CV(q_high) 对机动场景 RMSE 改善 50-97% |
+| IMM(KF×N) | 继承 KF | 取决于内层 | N 倍 | 多模型自适应；是否启用由策略配置决定 |
 
 **已移除的后端**（均经实质证据评估）：
 
@@ -493,16 +492,16 @@ AR 模块当前使用标准 Joseph 形式 Kalman 滤波器（KF）作为唯一�
 **可接受的"智能"形态**（仍保持人工决策）：
 
 - **只读诊断**：用 `KalmanUpdateResult` 现有的 `innovation` / `innovation_covariance` 字段计算 NIS，报告模型失配程度，不触发自动切换。
-- **IMM 多模型**：基于任务剖面先验知识启用（如助推段用 IMM、巡航段用单 KF），在配置阶段指定，完全可复现。证据：IMM(CV×2) 对急转弯 RMSE 改善 97%，对持续正弦机动改善 50%，匀速场景无退化（`ar_backend_evaluation_test`）。
+- **IMM 多模型**：基于任务剖面先验知识启用（如助推段用 IMM、巡航段用单 KF），在策略配置阶段指定，完全可复现。
 
-**明确不做**：在线残差驱动的自动后端切换。后端/框架选择由显式配置 `kalman_update_backend` / `enable_imm_lifecycle` 决定。
+**明确不做**：在线残差驱动的自动后端切换。唯一可选框架是策略配置中的 `enable_imm_lifecycle`；KF 仍是每个模型分支的生产更新器。
 
 ## 3. 非目标与边界
 
 - 不恢复宽 public customization surface。
 - 不把 `EnvironmentService`、`SignalPipeline`、`ArController`、`MutableArContext`、tracking lifecycle 或 foundation 工程算法暴露为用户可替换 API。
 - 不把单一默认 association 路径包装成 public algorithm family；只有存在多个生产实现时，才通过受控配置暴露选择。
-- 不做在线残差驱动的自动滤波后端切换；后端选择由显式配置 `kalman_update_backend` / `enable_imm_lifecycle` 决定，保证 replay 可复现（详见 §2.10）。
+- 不做在线残差驱动的自动滤波后端切换；IMM 生命周期仅由 `enable_imm_lifecycle` 策略配置决定，保证 replay 可复现（详见 §2.10）。
 - 不把测试 mock 便利接口升级为 public SPI。
 - 不让外部 decision engine 绕过内部 control reducer 和 command mapper。
 - 不把 debug/lifecycle/replay 字段混入系统输出语义。

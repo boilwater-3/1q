@@ -258,7 +258,7 @@ flowchart TB
 
 | 算法/部件 | 入口 | 当前角色 | 主要测试锚点 |
 |---|---|---|---|
-| 配置到内部执行映射 | `MapSessionToInternal`、`BuildModelConfigFromScenario` | 将四域配置变成 pipeline 可执行参数 | `eos_input_validation_test` |
+| 配置到内部执行映射 | `MapSessionToInternal`、`BuildModelConfigFromScenario` | 将四域配置变成 pipeline 可执行参数；replay 派生快照不反写配置 | `eos_replay_codec_roundtrip_test::SessionConfigPreservesAllDomains` |
 | runtime patch 原子解析 | `ResolveEosRuntimeConfigPatch`、`EosSession::TryApplyRuntimeConfig` | 校验运行期变更，拒绝无效 patch，按需重置扫描相位 | `eos_runtime_config_resolver_test`、`eos_session_test` |
 | 环境因子解析 | `ResolveEnvironmentFactors` | 将场景/大气观测映射为 aerosol、turbulence、radiance bias 等环境因子 | `eos_environment_model_test` |
 | 辐射传输 | `EvaluateRadiativeTransfer`、`ComputePathRadiativeTransfer` | 根据路径长度、云量、气溶胶、湍流和模型类型计算透过率 | `eos_radiative_transfer_test`、`eos_pipeline_test` |

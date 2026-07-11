@@ -289,12 +289,12 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 下表中的算法均为 internal 实现；除 `SbirsSession`、配置、输入输出 DTO、trace/replay/debug/lifecycle
 工具外，不形成 public customization surface。
 
-| 算法/部件 | 入口 | 当前角色 | Public 默认 | 主要测试锚点（计划） |
+| 算法/部件 | 入口 | 当前角色 | Public 默认 | 主要测试锚点 |
 |---|---|---|---|---|
 | 配置到内部执行映射 | `MapSessionToInternal` | 将硬件、任务、策略、环境四域配置映射为 WFOV/NFOV 可执行参数 | internal mapper，不暴露 | `sbirs_input_validation_test` |
-| runtime patch 立即提交 | `ResolveSbirsRuntimeConfigPatch`、`SbirsSession::TryApplyRuntimeConfig` | 校验工作模式、扫描速率、阈值、NFOV 策略和环境模型变更 | public 只提交 patch，不替换 resolver | `sbirs_runtime_config_resolver_test`、`sbirs_session_test` |
+| runtime patch 立即提交 | `ResolveSbirsRuntimeConfigPatch`、`SbirsSession::TryApplyRuntimeConfig` | 校验工作模式、扫描速率、阈值、NFOV 策略和环境模型变更 | public 只提交 patch，不替换 resolver | `sbirs_session_test` |
 | 环境与气象衰减 | `ResolveEnvironmentFactors`、`ResolveWeatherAttenuation` | 将场景/大气观测映射为透过率衰减因子 | internal 环境模型，不提供环境 service SPI | `sbirs_environment_model_test` |
-| 地球遮挡门控 | `EvaluateEarthOccultation` | 用有限 LOS 线段与地球球体相交判别穿地视线 | internal 几何门控，不进入 raw output | `sbirs_earth_occultation_test` |
+| 地球遮挡门控 | `IsEarthOcculted` | 用有限 LOS 线段与地球球体相交判别穿地视线 | internal 几何门控，不进入 raw output | `sbirs_foundation_test`、`sbirs_pipeline_test` |
 | WFOV 扫描搜索 | `SbirsPipeline` | 推进扫描相位，执行地球遮挡、FOV、范围和 SNR 门控 | internal pipeline，不可替换 | `sbirs_pipeline_test` |
 | WFOV 误差模型 | `ApplyAngularErrorModel` | 对方位/俯仰/距离生成带误差 cue，供首次 NFOV 捕获使用 | internal 随机源可注入，public 不直接采样 | `sbirs_error_model_test` |
 | 目标状态机 | `SbirsTargetStateMachine` | 5 状态管理 WFOV 候选、首次捕获和真值辅助跟踪 | internal 状态机，debug view 可观测 | `sbirs_state_machine_test` |
@@ -429,8 +429,7 @@ stateDiagram-v2
    后重算——即 cue 指向测量瞬间的位置，而目标在延迟期间继续运动，从而建模 cue 延迟与目标运动的
    耦合对首次捕获的影响。无速度时 `u_true` 即当前帧真值，行为不变。这样捕获判定仍受 WFOV 误差、
    目标运动、cue 延迟和 NFOV 视场大小影响，不会因为窗口中心直接取测量值而恒成立。
-4. **SNR 门限**：判断 NFOV IR SNR 是否 ≥ NFOV 捕获门限。NFOV 门限通常高于 WFOV（窄视场虚警率
-   要求更低，对应 `k=5~6`，见原始需求 `docs/review/sbirs_infrared_model_1205_v3.md:137-142` 的 k 值表）。
+4. **SNR 门限**：判断 NFOV IR SNR 是否 ≥ NFOV 捕获门限；具体门限由当前配置决定。
 5. **成功**：默认进入 `EstimatedTracking`；显式关闭滤波时进入 `TruthAssistedTracking`。后续周期不再使用 WFOV 带误差位置重新捕获。
 6. **失败**：清除该目标本次交接状态，回退 `WideCandidate`，等待后续周期重新发现和交接。不输出该
    目标本周期 NFOV 成功记录；但产出 `capture_failure_reason = kNfovAcquisitionFailed` 的诊断归属，
@@ -438,7 +437,7 @@ stateDiagram-v2
 
 适用边界：
 
-- NFOV 首次捕获只做几何窗口 + SNR 门限判定，不做模板匹配、图像相关或目标运动外推。
+- NFOV 首次捕获只做几何窗口 + SNR 门限判定，不做模板匹配、图像相关、CV/CA 状态预测、轨道传播或 ATP 动力学。
 - `u_cmd` 由 WFOV cue 生成；真实 LOS 只用于仿真判定捕获是否成功，不进入 raw output。
 - cue 延迟外推仅用目标速度对真值位置做线性平移，不做积分轨道传播或 ATP 动力学建模。
 - cue 延迟和指向 settle error 是配置参数，不代表完整 ATP 动力学模型。
@@ -466,7 +465,7 @@ replay 语义模糊（真值辅助确定性复现，滤波器依赖随机源）�
 1. **指向来源**：使用目标**真实位置**（输入场景中的真值方位角、俯仰角、距离）辅助计算 NFOV 指向和
    检测输出，不再使用 WFOV 带误差位置。这是仿真层稳定性假设，不代表真实传感器知道目标真值。
 2. **持续条件**：只受"目标是否存在"和"传感器是否开启"影响，不因测量误差丢失锁定。
-3. **输出**：按 `SbirsOutputFrame` 格式生成检测记录（角度、距离、SNR、是否探测成功）。可在输出测量值
+3. **输出**：按 `SbirsOutputFrame` 格式生成检测记录（方位角、俯仰角、SNR、观测阶段、是否探测成功）。可在输出测量值
    上叠加误差，但误差不影响内部真值辅助状态——即输出层的误差是"显示噪声"，不是"状态转移输入"。
 4. **释放**：目标从输入场景消失后，状态转为 `Lost`，NFOV 释放资源，回到 WFOV 中选择下一个候选。
 
@@ -649,8 +648,7 @@ NFOV 资源采用**多通道并发锁定策略**：传感器配置 `max_concurre
 
 ### 2.7 地球遮挡与几何门控
 
-天基传感器视线穿过地球时目标不可观测，这是原始需求明确要求的天基必备
-几何门控（`docs/review/sbirs_infrared_model_1205_v3.md:864-880`）。
+天基传感器视线穿过地球时目标不可观测；这是 WFOV 搜索前的必要几何门控。
 
 **遮挡角计算**：
 
@@ -694,23 +692,12 @@ occulted = (0 < s_closest && s_closest < range && d_closest² <= R_E²)
 
 验证入口：
 
-- `sbirs_earth_occultation_test`
+- `sbirs_foundation_test`
 - `sbirs_pipeline_test`
 
 ### 2.8 Foundation 物理链路
 
-以下 foundation 算法参照 EOS foundation 层复制并改为 `sbirs_sensor` 命名空间，原始公式见
-`docs/review/sbirs_infrared_model_1205_v3.md`：
-
-| 算法 | EOS 参照 | 原始需求公式 | 说明 |
-|---|---|---|---|
-| Planck 辐射 | `ComputePlanckRadiance`（`src/electro_optical_sensor/foundation/EosRadiometry.cpp`） | `docs/review/sbirs_infrared_model_1205_v3.md:208-214`（斯特藩-玻尔兹曼简化） | 目标谱辐射，Stefan-Boltzmann 常数使用 `σ≈5.670374419e-8 W/(m²·K⁴)`；原始需求中的 `5.76e-8` 视为近似/笔误 |
-| 大气衰减（Beer-Lambert） | `EvaluateRadiativeTransfer`（`EosRadiativeTransfer.cpp`） | `docs/review/sbirs_infrared_model_1205_v3.md:216-222` | `Φ_atm = Φ_tar · τ(λ,d)`，`τ` 依赖波段和距离 |
-| 探测器接收功率 | `ComputeReceivedPowerW` | `docs/review/sbirs_infrared_model_1205_v3.md:224-230` | `P_sig = Φ_atm · A_det · η_det / d²` |
-| 噪声模型 | `ComputeBackgroundNoiseStatistics`（`EosNoiseModel.cpp`） | `docs/review/sbirs_infrared_model_1205_v3.md:232-240` | 光子噪声、热噪声、读出噪声均方根合成。实现见 `SbirsNoiseModel`：`background_radiance_w_sr_m2`/`detector_temperature_k`/`readout_noise_rms_w` 三项 RMS 合成，三项默认全 0 时回退到 `noise_equivalent_power_w` 标量 |
-| SNR 与可探测性 | `ComputeInfraredSnrLinear` | `docs/review/sbirs_infrared_model_1205_v3.md:242-246` | `SNR = P_sig · t_int / N_total`，`SNR ≥ SNR_th` 可探测 |
-| 方位角/俯仰角计算 | EOS pipeline 内部 | `docs/review/sbirs_infrared_model_1205_v3.md:148-186` | `El = RADTODEG(-arcsin(XLOS_z/LOSRange))`，`Az = RADTODEG(arctan2(XLOS_y, XLOS_x))` |
-| 探测阈值调整 | EOS policy 映射 | `docs/review/sbirs_infrared_model_1205_v3.md:121-142` | `T = μ + k·σ`，k 值按虚警率选取（WFOV k≈4，NFOV k≈5~6） |
+foundation 链路由 `SbirsPipeline` 统一编排：Planck 辐射、路径透过率、接收功率、背景/探测器噪声和 SNR 门限顺序计算。`SbirsNoiseModel` 将背景辐射、探测器温度和读出噪声按 RMS 合成；三项均为零时回退到 `noise_equivalent_power_w`。这些实现以当前 source 和单元测试为证据，不以历史需求中的常数或公式版本作为契约。
 
 这些算法是内部可测试实现，不是 public 契约。复制时改命名空间为 `sbirs_sensor`，类型前缀改
 `Sbirs*`，并允许为天基红外场景修正物理常数、波段参数、背景项和几何门控。若与 EOS 逻辑不等价，
@@ -730,7 +717,7 @@ occulted = (0 < s_closest && s_closest < range && d_closest² <= R_E²)
 
 ### 2.9 气象衰减模型
 
-气象影响是 SBIRS SNR 链路的必要组成，原始需求 `docs/review/sbirs_infrared_model_1205_v3.md:35-103` 有完整定义。
+气象影响是 SBIRS SNR 链路的必要组成。
 
 **气象影响列表**（查表得各参数独立衰减比例 `A_i`）：
 
@@ -742,7 +729,7 @@ occulted = (0 < s_closest && s_closest < range && d_closest² <= R_E²)
 | 湿度 | 每增加 20% 衰减增加 5% |
 | 能见度 | >10km 0% / 5-10km 5% / 1-5km 10% / <1km 20% |
 
-**加权叠加公式**（`docs/review/sbirs_infrared_model_1205_v3.md:87-103`）：
+**加权叠加公式**：
 
 ```
 A_total = Σ(w_i · A_i) + Σ(k_j · A_p · A_q) + C
@@ -777,25 +764,7 @@ A_total = Σ(w_i · A_i) + Σ(k_j · A_p · A_q) + C
 
 ### 2.10 误差模型（WFOV 带误差位置）
 
-WFOV 输出的带误差位置是 NFOV 首次捕获的输入，误差模型直接影响首次捕获成功率。原始需求
-`docs/review/sbirs_infrared_model_1205_v3.md:1052-1115` 定义 5 类误差：
-
-| 误差类型 | 物理成因 | 建模方法 |
-|---|---|---|
-| 卫星轨道误差 | 轨道预报摄动（太阳辐射压、大气阻力） | 高斯分布 + 协方差传播，`Δr_sat ~ N(0, Σ_orb)` |
-| 卫星姿态误差 | 姿态传感器噪声（陀螺漂移、星敏误差） | 高斯分布 + 一阶马尔可夫，`Δα,Δβ ~ N(0, σ_att²)`，典型 `σ_att≈0.01°` |
-| 探测器视场误差 | 像元错位、光学畸变 | 随机偏移 + 系统偏差，`Δθ_FOV = Δθ_rand + Δθ_sys` |
-| 大气折射误差 | 大气密度梯度导致的光线偏折 | 标准大气模型，红外波段 `Δθ_refr = 1.5e-6 / (d·cosβ)`，β 为目标俯仰角 |
-| 动态滞后误差 | 探测器响应延迟（高速目标运动快） | 一阶系统滞后，`Δθ_lag = ω_tar / (2π·f_det)`，`ω_tar` 为目标角速度，`f_det` 为探测器带宽 |
-
-**加法合成**（角度误差）到真值方位角/俯仰角（`docs/review/sbirs_infrared_model_1205_v3.md:1111-1113`）：
-
-```
-α_meas = α_true + Δα_orb + Δα_att + Δα_refr + Δα_lag
-β_meas = β_true + Δβ_orb + Δβ_att + Δβ_refr + Δβ_lag
-```
-
-**乘法合成**（距离误差）：`d_meas = d_true · (1 + Δd_rand)`，典型 `Δd_rand ≈ 0.1%`。
+WFOV 输出的带误差位置是 NFOV 首次捕获的输入，误差模型直接影响首次捕获成功率。当前实现使用轨道、姿态、视场三项高斯角度误差，以及确定性的折射和动态滞后项；距离误差只用于内部 cue/诊断。
 
 误差叠加作用于 WFOV 输出层、NFOV cue 指向生成和 NFOV 首次捕获判定层；真值辅助跟踪阶段（2.5）
 不受后续测量误差影响。高斯随机误差的采样应使用可注入的随机数源，保证 replay 可复现。

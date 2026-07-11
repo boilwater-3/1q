@@ -416,15 +416,14 @@ BP 的价值是用实际逐脉冲几何承接 L3 航路点/转弯小场景，而
 
 ### 2.7 Omega-K、Spotlight 与 ScanSAR
 
-Omega-K 部件链包括 spectrum front-end、Stolt geometry/interpolation、common support、grid reduction、relative delay、reference mapping、reference phase compensation 和 azimuth inverse transform。完整编排入口用于 stripmap/spotlight/scansar 受控路径。
+Omega-K 部件链包括 spectrum front-end、Stolt geometry/interpolation、common support、grid reduction、relative delay、reference mapping、reference phase compensation 和 azimuth inverse transform。这些已编译的内部部件用于受控算法证据与局部验证；当前 session 主链不装配 Omega-K、Spotlight 或 ScanSAR。
 
 设计判断：
 
-- Omega-K 更适合聚束和宽波束类路径，优先于重新扩展完整 CSA。\
+- Omega-K 更适合聚束和宽波束类的后续受控路径，优先于重新扩展完整 CSA。\
   [evidence: `sar_csa_complete_focusing_evidence_test.cpp:RdaBroadsideApproximationDegradationMatrix` — 所有孔径 |alpha| max<0.018, RDA worst NRMS=1.38; Omega-K 全覆盖; DO_NOT_TRIGGER_PHASE_B;\
    `tests/unit/sar_omega_k_*_test.cpp` — 12+ 测试覆盖 Omega-K 各部件链]
-- Spotlight 通过时变 beam 建模和 Omega-K 编排承接。
-- ScanSAR 通过 burst schedule、逐 burst Omega-K 和拼接承接。
+- Spotlight 与 ScanSAR 的部件、时变 beam 和 burst 逻辑已可独立验证，但尚未接入 session 主链。
 
 限制：
 
@@ -434,7 +433,7 @@ Omega-K 部件链包括 spectrum front-end、Stolt geometry/interpolation、comm
 - truth ingestion、manifest、payload digest 和 eligibility gate 属于证据链，不是普通 public API。\
   [evidence: `src/sar/` 中无 `public` 路径暴露 truth oracle 或 eligibility 类型;\
    `sar_csa_complete_focusing_evidence_test.cpp` — CSA 否决证据;\
-   `sar_pga_autofocus_closure_evidence_test.md` — PGA 否决证据]
+   `sar_pga_autofocus_closure_evidence_test.cpp` — PGA 否决证据]
 
 验证入口：
 

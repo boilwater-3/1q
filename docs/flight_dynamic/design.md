@@ -4,7 +4,7 @@ Status: active
 Last-reviewed: 2026-06-27
 Authority: current flight_dynamic module design
 
-本文是 `flight_dynamic` 当前设计权威。它描述 1Q 对 JSBSim 的适配、飞行状态映射、自动驾驶、航路点和机动执行边界。该模块不同于传感器模块，没有 `Session` / `CycleInput` / `CycleResult` 三层会话模型；核心使用方式是 `FlightManager` 构造、下发机动、步进仿真并读取 `VehicleState`。
+本文是 `flight_dynamic` 当前设计权威。它描述 1Q 对 JSBSim 的适配、飞行状态映射、自动驾驶、航路点和机动执行边界。该模块不同于传感器模块，没有 `Session` / `CycleInput` / `CycleResult` 三层会话模型；核心使用方式是 `FlightManager` 构造、下发机动、步进仿真并读取 `VehicleState`。模块由 `ONEQ_ENABLE_FLIGHT_DYNAMIC` 控制，默认不编译；启用后才提供其目标、测试和示例。
 
 ## 1. 架构设计说明
 
@@ -221,10 +221,10 @@ flowchart TB
 
 验证入口：
 
-- `tests/unit/fd_adapter_test.cpp`
-- `tests/unit/fd_bare_aircraft_baseline_test.cpp`
-- `tests/unit/fd_aircraft_probe_test.cpp`
-- `tests/unit/fd_robustness_test.cpp`
+- `tests/unit/flight_dynamic/fd_adapter_test.cpp`
+- `tests/unit/flight_dynamic/fd_bare_aircraft_baseline_test.cpp`
+- `tests/unit/flight_dynamic/fd_aircraft_probe_test.cpp`
+- `tests/unit/flight_dynamic/fd_robustness_test.cpp`
 
 ### 2.3 状态映射
 
@@ -252,9 +252,9 @@ flowchart TB
 
 验证入口：
 
-- `tests/unit/fd_aircraft_maneuver_test.cpp`
-- `tests/unit/fd_orbit_quality_test.cpp`
-- `tests/unit/fd_robustness_test.cpp`
+- `tests/unit/flight_dynamic/fd_aircraft_maneuver_test.cpp`
+- `tests/unit/flight_dynamic/fd_orbit_quality_test.cpp`
+- `tests/unit/flight_dynamic/fd_robustness_test.cpp`
 
 ### 2.5 航路点到达语义
 
@@ -275,8 +275,8 @@ flowchart TB
 
 验证入口：
 
-- `tests/unit/fd_aircraft_maneuver_test.cpp`
-- `tests/unit/fd_orbit_quality_test.cpp`
+- `tests/unit/flight_dynamic/fd_aircraft_maneuver_test.cpp`
+- `tests/unit/flight_dynamic/fd_orbit_quality_test.cpp`
 
 ### 2.6 机动执行
 
@@ -297,17 +297,19 @@ flowchart TB
 ```mermaid
 stateDiagram-v2
   direction LR
-  [*] --> Idle : FlightManager 构造
-  Idle --> Executing : PushManeuver() 入队机动
-  Executing --> Executing : Step() / Update(dt) 每帧推进
+  [*] --> Ready : FlightManager 构造成功
+  [*] --> Aborted : FlightManager 构造失败
+  Ready --> Executing : PushManeuver() 入队首个机动
+  Ready --> Ready : PushManeuver() 前无机动
+  Executing --> Executing : PushManeuver() 追加机动 / Step() 推进
   Executing --> Completed : Waypoint 到达 / orbit 时间耗尽
   Executing --> Aborted : 坠毁 / 无效命令 / NaN
-  Completed --> Idle : 当前机动结束，等待下一机动
-  Aborted --> Idle : 下一机动入队
-  Idle --> [*] : FlightManager 销毁
+  Completed --> Ready : Reset() 成功
+  Aborted --> Ready : Reset() 成功
+  Ready --> [*] : FlightManager 销毁
 ```
 
-状态含义：`kIdle` 等待机动入队；`kExecuting` 每帧推进机动逻辑；`kCompleted` 到达目标/超时；`kAborted` 执行异常。`Step()` 每帧返回状态，只有 `kIdle` 时才接受新 `ManeuverCommand`。
+状态含义：`kIdle` 仅是成员默认值，构造成功或 `Reset()` 成功后进入 `kReady`；`kExecuting` 每帧推进当前机动；`kCompleted` 表示队列已耗尽；`kAborted` 表示构造、执行或外部 `Abort()` 中止。`PushManeuver()` 总会追加命令，只有在 `kReady` 时立即启动执行；执行中追加的命令在当前机动完成后继续执行。`kCompleted` 和 `kAborted` 的 `Step()` 都返回 `false`，必须通过 `Reset()` 重建组件并回到 `kReady`。
 
 ### 2.7 起飞与降落
 
@@ -340,4 +342,4 @@ stateDiagram-v2
 2. Autopilot profile、XML `guidance/*` override 或机动控制律变化必须同步本文。
 3. Waypoint 到达语义变化必须明确说明 capture radius、法平面穿越和 cross-track corridor 的影响。
 4. 已知限制应进入 dedicated test label 或 history 摘要，不得改变稳定测试含义。
-
+5. 验证应区分标签为 `unit;flight_dynamic` 的稳定测试与 `known_limit;flight_dynamic`；known-limit 不得替代稳定能力承诺。
