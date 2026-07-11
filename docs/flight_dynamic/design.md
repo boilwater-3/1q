@@ -1,7 +1,7 @@
 # Flight Dynamic 当前设计
 
 Status: active
-Last-reviewed: 2026-06-27
+Last-reviewed: 2026-07-11
 Authority: current flight_dynamic module design
 
 本文是 `flight_dynamic` 当前设计权威。它描述 1Q 对 JSBSim 的适配、飞行状态映射、自动驾驶、航路点和机动执行边界。该模块不同于传感器模块，没有 `Session` / `CycleInput` / `CycleResult` 三层会话模型；核心使用方式是 `FlightManager` 构造、下发机动、步进仿真并读取 `VehicleState`。模块由 `ONEQ_ENABLE_FLIGHT_DYNAMIC` 控制，默认不编译；启用后才提供其目标、测试和示例。
@@ -44,6 +44,20 @@ Authority: current flight_dynamic module design
 | `autopilot/` | `Autopilot`，速度/高度/航向/姿态控制属性写入 |
 | `guidance/` | `ManeuverExecutor`、航路点、起飞、降落、盘旋、S-turn 等机动逻辑 |
 | `propulsion/` | `EngineManager`，发动机类型、启动、油门/推进辅助 |
+
+### 1.2.1 `FlightManager` 低层控制 seam
+
+`FlightManager` 的 `GetAdapter()`、`GetAutopilot()`、`GetEngineManager()` 和 `GetWaypointManager()` 是既有 public 兼容面，不是可随意删除的内部便利函数。当前消费者证明它们承担不同职责：
+
+- `GetAdapter()`：FD adapter 测试和已安装的起降示例直接访问 JSBSim property tree、传播状态与地面反力。
+- `GetAutopilot()`：多个飞行示例和行为测试读取 aircraft control profile，并设置速度/高度保持目标。
+- `GetEngineManager()` 与 `GetWaypointManager()`：分别被发动机/航路点行为测试和示例消费。
+
+因此本版本保留四个 getter，不新增包装它们的通用控制端口，也不以传感器 `Session/Cycle` 形状重构 Flight Dynamic。若未来收窄任一 getter，必须先逐个迁移已安装示例和 consumer test，并以独立 Stage A 冻结替代 API、JSBSim 属性边界和兼容期限。\
+[evidence: `FlightManager.h:GetAdapter/GetAutopilot/GetEngineManager/GetWaypointManager` — 当前 public seam;\
+ `fd_adapter_test.cpp` — adapter、engine、waypoint 和 autopilot consumer;\
+ `examples/flight_dynamic/takeoff_land_csv.cpp` — direct JSBSim property/ground-reaction consumer;\
+ `examples/flight_dynamic/racetrack_quality_csv.cpp` — autopilot target-setting consumer]
 
 ### 1.3 新开发者视角的分层图
 

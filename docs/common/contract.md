@@ -43,6 +43,20 @@ Authority: common contract for all modules
 
 唯一允许的用户自定义 SPI 是 `airborne_radar` 的 decision engine。其它模块默认只提供稳定 session 门面。
 
+## 跨模块物理基元复用
+
+跨模块函数不得因名称或量纲相似而合并。只有输入单位、数值精度、有效/非法输入策略、几何归一化、环境/效率因子和输出失败语义完全同义时，才允许复用无状态纯函数；复用前必须有跨模块 characterization 测试。
+
+当前 EOS/SBIRS 的冻结结论：
+
+| 函数族 | 结论 | 原因 |
+|---|---|---|
+| Planck 光谱辐亮度 | 仅共同 characterization，不抽 common | 有效域数值接近；EOS 为 `float` 且对非法输入回退，SBIRS 为 `double` 且返回零 |
+| 接收功率 | 不合并 | EOS 接收孔径面积并除以 `4πr²`；SBIRS 接收孔径直径、使用不同几何因子和量子效率 |
+| 噪声/NEP | 不合并 | EOS 是背景抑制与 NEP 链；SBIRS 是 photon/thermal/readout RMS 与兼容 NEP 回退 |
+
+这不是未来共享 foundation 的禁止令：新的候选必须先证明上述语义完全相同，且不得以转换器、默认值或兼容层掩盖差异。
+
 ### 核心运行面与观测工具面
 
 public API 分为两类，二者都受 public boundary、install manifest 和 consumer 测试保护：
