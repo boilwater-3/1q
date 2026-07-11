@@ -1,7 +1,7 @@
 # 跨模块契约
 
 Status: active
-Last-reviewed: 2026-07-06
+Last-reviewed: 2026-07-11
 Authority: common contract for all modules
 
 本文合并原顶层 public API customization、session config builder、三层输出可观测性和文档治理契约。模块级文档不得与本文冲突。
@@ -152,6 +152,32 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
   validation error。若未来引入可表达负数的外部输入入口，负数 ID 必须在转换为
   public `std::uint64_t` DTO 前被拒绝。
 - 仿真真值不得混入面向外部系统的真实输出通道。
+
+## 测试架构
+
+测试代码按“测试类型 × 业务域”组织。`*_test.cpp` 必须位于
+`tests/<type>/<domain>/`，其中 type 为 `unit`、`integration`、`replay`、
+`contract` 或 `performance`；`compatibility` 存放脚本式兼容性探针，`consumer`
+保留为安装后消费者验证，二者不混入进程内 GoogleTest 分区。
+
+规则：
+
+1. 每个 `*_test.cpp` 只能有一个类型、一个业务域、一个编译分区。`TestRegistry.cmake`
+   在 configure 时必须拒绝 orphan 和重复归属；不得用 allowlist 长期保留重复编译。
+2. 新增进程内测试必须通过 `oneq_add_test_partition()` 注册；不得重新引入按
+   GoogleTest suite/case 的 CMake filter。`1q_unit_tests` 等旧名称只可作为
+   aggregate build target，不能再被当作稳定的测试可执行文件路径。
+3. 每个 CTest 项必须携带 type 与 domain label；执行策略使用额外 label 表达。
+   `ci_required` 是 PR 的阻断关键路径，完整 `unit` 分区同样阻断；`known_limit`
+   与 `performance` 不得借重构被静默纳入该门禁。`replay_fast` 仅是 replay 的
+   执行策略 label，不是另一种测试类型。
+4. `flight_dynamic` 只在目标依赖和执行策略上是特例：稳定源属于
+   `unit::flight_dynamic`，边界/性能源属于 `known_limit::flight_dynamic`；不得
+   为它恢复独立的 suite filter 体系。
+5. 覆盖率 preset 可构建专用 mapping runner，但该 runner 必须在 CTest 中禁用；
+   profile 数据仍来自真实 type × domain 分区，避免重复执行同一测试。
+6. `test_layout_guard` 负责 type/domain 布局与 CMake filter 禁令；新增 type 或
+   domain 前，必须同批更新 guard、分区注册、README 和相关 contract 测试。
 
 ## 文档结构
 

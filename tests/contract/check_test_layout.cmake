@@ -1,14 +1,5 @@
-# Test layout guard (Phase 0): enforce the first layer of the target layout.
-#
-# Phase 0 scope (per test_architecture_replan.md):
-#   - Reject any _test.cpp placed directly under tests/ root.
-#   - Do NOT yet reject the current flat structure under tests/unit (that is
-#     the Phase 1 migration target).
-#   - Warn (not fail) on non-empty tests/ root _test.cpp to keep the baseline
-#     frozen while Phase 1 directories are being created.
-#
-# This guard is tightened in Phase 1/6 to reject flat sources, unknown domains,
-# duplicate ownership, and hand-written domain filters.
+# Test layout guard: enforce the type × domain source layout. Duplicate source
+# ownership is enforced by TestRegistry.cmake during configure.
 
 cmake_minimum_required(VERSION 3.16)
 
@@ -18,7 +9,7 @@ endif()
 
 set(_test_root "${SOURCE_DIR}/tests")
 
-# Phase 0 hard rule: no _test.cpp directly under tests/ root.
+# No _test.cpp may live directly under tests/.
 file(GLOB _root_tests "${_test_root}/*_test.cpp")
 if(_root_tests)
     list(JOIN _root_tests "\n  " _root_list)
@@ -27,17 +18,9 @@ if(_root_tests)
         "Place them under a type directory: tests/{unit,integration,contract,performance,replay,compatibility,consumer}/<domain>/")
 endif()
 
-# Informational: report current domain-subdir count under tests/unit for
-# migration tracking. This is a status line, not a failure.
-file(GLOB_RECURSE _flat_unit_tests "${_test_root}/unit/*_test.cpp")
-list(LENGTH _flat_unit_tests _unit_count)
-file(GLOB _flat_unit_root_tests "${_test_root}/unit/*_test.cpp")
-list(LENGTH _flat_unit_root_tests _flat_count)
-message(STATUS "test_layout_guard: ${_unit_count} _test.cpp under tests/unit/ (${_flat_count} still flat at root)")
-
-# Ensure type subdirectories that hold tests match the allowed vocabulary.
-# All target type roots are allowed once their Phase 1–3 directory migrations
-# have started; infrastructure directories are not test types.
+# Ensure the type roots and their domain subdirectories match the registration
+# model. This rejects a misplaced new source before it can be silently omitted
+# from a partition.
 set(_allowed_type_roots unit integration replay contract performance compatibility consumer)
 set(_allowed_infra_dirs cmake support)
 file(GLOB _entries RELATIVE "${_test_root}" "${_test_root}/*")
@@ -55,4 +38,56 @@ foreach(_e IN LISTS _entries)
     endif()
 endforeach()
 
-message(STATUS "test_layout_guard: Phase 0 layout check passed.")
+set(_unit_domains
+    common examples airborne_radar electronic_surveillance_radar
+    electro_optical_sensor sbirs_sensor sar flight_dynamic)
+set(_integration_domains
+    airborne_radar electro_optical_sensor electronic_surveillance_radar
+    sbirs_sensor cross_domain)
+set(_replay_domains
+    common airborne_radar electro_optical_sensor electronic_surveillance_radar
+    sar sbirs_sensor)
+set(_contract_domains
+    public_api airborne_radar electro_optical_sensor electronic_surveillance_radar
+    sar sbirs_sensor)
+set(_performance_domains sar)
+set(_compatibility_domains public_api sar)
+
+foreach(_type IN ITEMS unit integration replay contract performance compatibility)
+    file(GLOB _flat_sources "${_test_root}/${_type}/*_test.cpp")
+    if(_flat_sources)
+        list(JOIN _flat_sources "\n  " _flat_list)
+        message(FATAL_ERROR
+            "test_layout_guard: _test.cpp must live under tests/${_type}/<domain>/. Found:\n  ${_flat_list}")
+    endif()
+
+    file(GLOB _domain_entries RELATIVE "${_test_root}/${_type}" "${_test_root}/${_type}/*")
+    foreach(_domain IN LISTS _domain_entries)
+        if(NOT IS_DIRECTORY "${_test_root}/${_type}/${_domain}")
+            continue()
+        endif()
+        list(FIND _${_type}_domains "${_domain}" _domain_idx)
+        if(_domain_idx EQUAL -1)
+            message(FATAL_ERROR
+                "test_layout_guard: unknown domain tests/${_type}/${_domain}/. "
+                "Allowed domains for ${_type}: ${_${_type}_domains}")
+        endif()
+    endforeach()
+endforeach()
+
+# The source-level partitions intentionally replace suite/case filters. Do not
+# reintroduce gtest filters in test registration CMake files.
+file(GLOB_RECURSE _test_cmake_files
+    "${_test_root}/CMakeLists.txt"
+    "${_test_root}/cmake/*.cmake")
+foreach(_cmake_file IN LISTS _test_cmake_files)
+    file(READ "${_cmake_file}" _cmake_content)
+    string(REGEX MATCH "(--gtest_filter|gtest_filter)" _gtest_filter_match "${_cmake_content}")
+    if(_gtest_filter_match)
+        message(FATAL_ERROR
+            "test_layout_guard: ${_cmake_file} reintroduces a GoogleTest filter. "
+            "Register source-level type × domain partitions instead.")
+    endif()
+endforeach()
+
+message(STATUS "test_layout_guard: type × domain layout check passed.")

@@ -3,13 +3,32 @@
 ## 分层规则
 - `unit/`: 单元测试（含原压力测试）。
 - `integration/`: 跨组件或会话级集成测试。
+- `replay/`: trace/replay、codec roundtrip 与 divergence 测试。
 - `contract/`: 公共 API/头文件稳定性与边界约束测试。
+- `performance/`: 性能与质量阈值测试。
+- `compatibility/`: 脚本式编译兼容性探针，不属于进程内 GoogleTest 分区。
 - `consumer/`: 安装后消费者样例与安装验证。
 
 ## 归档规则
 - 新增测试文件禁止放在 `tests/` 根目录，必须放入上述分层目录。
 - 域归属由第二层域目录（如 `unit/airborne_radar/`、`replay/sar/`）编码；文件名前缀与域目录保持一致。
 - 共享测试辅助代码只放 `fixtures/` 或 `mocks/`，避免复制。
+
+## 类型与业务域
+
+进程内测试的有效目录组合由 layout guard 和分区注册共同约束：
+
+| 类型 | 允许的业务域 |
+|---|---|
+| `unit` | `common`、`examples`、`airborne_radar`、`electronic_surveillance_radar`、`electro_optical_sensor`、`sbirs_sensor`、`sar`、`flight_dynamic` |
+| `integration` | `airborne_radar`、`electro_optical_sensor`、`electronic_surveillance_radar`、`sbirs_sensor`、`cross_domain` |
+| `replay` | `common`、`airborne_radar`、`electro_optical_sensor`、`electronic_surveillance_radar`、`sar`、`sbirs_sensor` |
+| `contract` | `public_api`、`airborne_radar`、`electro_optical_sensor`、`electronic_surveillance_radar`、`sar`、`sbirs_sensor` |
+| `performance` | `sar` |
+
+`compatibility/` 当前使用 `public_api` 与 `sar` domain；`consumer/` 的源码由
+consumer CMake 单独管理。新增 type/domain 必须同时更新 layout guard、分区
+CMake、本文和 `docs/common/contract.md`。
 
 ## 命名规则
 - 所有测试文件统一命名：`{domain}_{descriptive_name}_test.cpp`。
@@ -22,7 +41,10 @@
 - 全量：`ctest --preset llvm-ninja-debug-local -Q --output-on-failure`
 - 仅单元：`ctest --preset llvm-ninja-debug-local -Q --output-on-failure -L unit`
 - 仅集成：`ctest --preset llvm-ninja-debug-local -Q --output-on-failure -L integration`
+- 仅 replay：`ctest --preset llvm-ninja-debug-local -Q --output-on-failure -L replay`
 - 仅契约：`ctest --preset llvm-ninja-debug-local -Q --output-on-failure -L contract`
+- PR 关键路径：`ctest --preset llvm-ninja-debug-local -Q --output-on-failure -L ci_required`
+- 兼容性探针：`ctest --preset llvm-ninja-debug-local -Q --output-on-failure -L compatibility`
 
 ## CMake 注册结构
 
@@ -36,6 +58,11 @@
 - `CoverageRunner.cmake`：仅 coverage preset 使用的 mapping 可执行文件；CTest 默认禁用，避免重复执行测试。
 
 新增 CTest 入口应放入其拥有的 type × domain 分区；不得重新把专项 filter 或 guard 堆回根入口。
+
+每个 `*_test.cpp` 必须只注册到一个分区。`TestRegistry.cmake` 会在 configure 时
+拒绝 orphan 或重复归属；不要用重复编译让同一源文件同时承担 unit、replay 或
+integration 语义。`1q_unit_tests` 等是 aggregate build target，不应被脚本当作
+固定二进制路径调用。
 
 ## AR include-direction 护栏
 - `airborne_include_direction_guard` 强制 `src/airborne_radar/signal/**` 不得 include `airborne_radar/runtime/**` 或 `airborne_radar/session/**`。
