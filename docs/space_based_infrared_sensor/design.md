@@ -417,6 +417,20 @@ stateDiagram-v2
 - `sbirs_pipeline_test`
 - `sbirs_error_model_test`
 
+#### 2.4.1 ATP 光轴执行器 characterization
+
+`SbirsPointingActuator` 是 internal、未接线的 ATP characterization primitive。它将当前光轴与命令光轴
+表示为单位 LOS 向量，沿球面最短路径按 `max_slew_rate_deg_per_sec × dt` 限速推进，并用
+`settle_tolerance_deg` 判断 settled；一步可到达命令时直接落到命令向量，禁止过冲。方位跨 ±180°、
+俯仰组合和对跖方向均不转成欧拉角积分；对跖方向采用确定性的正交旋转轴。
+
+执行器状态包含 current LOS、command LOS、initialized 和 settled，支持 capture/restore。非有限或零
+LOS、非正/非有限 `dt`、非正最大转速、负 settle tolerance 均原子拒绝且不改变状态。当前配置类型只在
+`src/` 内供测试使用，不进入 `SbirsMissionConfig`、runtime patch、replay schema、NFOV scheduler 或
+session；因此它证明的是执行器数学和状态可持久化性，不代表 ATP 已成为生产链路能力。
+
+[evidence: `sbirs_pointing_actuator_test.cpp:ZeroAngleIsImmediatelySettled`、`SlewRateLimitsProgressAndPreventsOvershoot`、`CommandChangeUsesCurrentPointingAsNewOrigin`、`SphericalPathHandlesAzimuthWrapAndElevation`、`InvalidInputIsRejectedAtomically`、`CaptureRestorePreservesDeterministicContinuation`、`AntipodalCommandUsesDeterministicGreatCircle`]
+
 ### 2.4 NFOV 首次捕获
 
 对状态机进入 `AwaitingNfovAcquisition` 的目标，本周期执行首次捕获：
