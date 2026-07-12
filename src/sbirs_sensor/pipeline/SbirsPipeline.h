@@ -13,6 +13,7 @@
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "sbirs_sensor/config/SbirsInternalExecutionConfig.h"
+#include "sbirs_sensor/pipeline/SbirsCuePredictor.h"
 #include "sbirs_sensor/pipeline/SbirsNfovScheduler.h"
 #include "sbirs_sensor/pipeline/SbirsTrackingCoordinator.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
@@ -44,6 +45,7 @@ struct SbirsPipelineSnapshot {
   std::map<std::uint64_t, unsigned int> nis_gate_exceeded_counts{}; /**< EKF NIS 连续超限计数 */
   bool imm_active{false}; /**< 当前 snapshot 是否使用 IMM 模式 */
   std::map<std::uint64_t, tracking::SbirsImmSnapshot> imm_snapshots{}; /**< IMM 滤波状态表 */
+  SbirsCuePredictorSnapshot cue_predictor{}; /**< 测量驱动 cue predictor 逐目标历史 */
 };
 
 /** @brief 单条 pipeline 内部检测结果，组合原始记录与归属。 */
@@ -99,6 +101,7 @@ class SbirsPipeline {
   std::map<std::uint64_t, SbirsTargetState> target_states_{};
   SbirsNfovScheduler nfov_scheduler_;  // NFOV 多通道资源调度器
   foundation::SbirsRandomSource random_source_;  // 误差模型确定性随机源
+  SbirsCuePredictor cue_predictor_{};
   SbirsTrackingCoordinator tracking_coordinator_{};
 };
 

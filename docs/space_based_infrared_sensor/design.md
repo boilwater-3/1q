@@ -422,8 +422,10 @@ stateDiagram-v2
 对状态机进入 `AwaitingNfovAcquisition` 的目标，本周期执行首次捕获：
 
 1. **输入**：使用该目标 WFOV 输出的**带误差位置**（方位角、俯仰角、距离），不得使用真值位置。
-2. **指向生成**：由 WFOV 带误差位置生成 NFOV 命令指向 `u_cmd`。第一版不模拟 ATP 姿态机动过程，
-   但保留 `narrow_pointing_settle_error_deg` / `narrow_cue_latency_s` 等配置位，默认可为 0。
+2. **指向生成**：`SbirsCuePredictor` 按 `target_id` 保存连续 WFOV 带误差角度，用两点有限差分估计
+   方位/俯仰角速度，并生成 `u_cmd = u_measured + angular_rate × narrow_cue_latency_s`。第一条测量、
+   非正 `dt` 或零延迟退化为当前测量；方位差采用 ±180° 最短路径。命令生成不消费目标真值速度。
+   当前仍不模拟 ATP 姿态机动过程，`narrow_pointing_settle_error_deg` 继续表示静态 settle error。
 3. **窗口判定**：判断目标真实 LOS `u_true` 是否落入以 `u_cmd` 为中心的 NFOV 搜索窗口。`u_true` 在
    `narrow_cue_latency_s > 0` 且目标提供 `velocity_ecef_m_per_s` 时，按延迟时间对真值位置做线性外推
    后重算——即 cue 指向测量瞬间的位置，而目标在延迟期间继续运动，从而建模 cue 延迟与目标运动的
@@ -437,10 +439,16 @@ stateDiagram-v2
 
 适用边界：
 
-- NFOV 首次捕获只做几何窗口 + SNR 门限判定，不做模板匹配、图像相关、CV/CA 状态预测、轨道传播或 ATP 动力学。
-- `u_cmd` 由 WFOV cue 生成；真实 LOS 只用于仿真判定捕获是否成功，不进入 raw output。
-- cue 延迟外推仅用目标速度对真值位置做线性平移，不做积分轨道传播或 ATP 动力学建模。
+- NFOV 首次捕获只做几何窗口 + SNR 门限判定；cue predictor 是角度域两点 CV，不做 CA、6D ECEF
+  滤波预测、轨道传播、模板匹配、图像相关或 ATP 动力学。
+- `u_cmd` 仅由 WFOV 带误差测量历史生成；延迟后的真实 LOS 只用于仿真判定捕获是否成功，不进入命令或 raw output。
+- cue 延迟对真实 LOS 的评估仍用目标速度做线性平移，不做积分轨道传播。
 - cue 延迟和指向 settle error 是配置参数，不代表完整 ATP 动力学模型。
+
+[evidence: `sbirs_cue_predictor_test.cpp:ConstantAngularVelocityPredictsLatencyAhead`、`AzimuthUsesShortestPathAcrossWrap`、`CaptureRestorePreservesPerTargetHistory`;
+ `sbirs_pipeline_test.cpp:MeasurementCvCueCapturesOnSecondObservationAndRestores`、`SchedulerSkippedCandidateAccumulatesCueHistoryUntilChannelFrees`;
+ `sbirs_session_test.cpp:MeasurementCvCueCapturesAfterSecondWfovObservation`;
+ `sbirs_replay_session_test.cpp:ReplayPreservesMeasurementDerivedCvCue`]
 
 验证入口：
 
@@ -881,11 +889,10 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
   控制并发 NFOV 通道数（默认 1）。`SbirsNfovScheduler` 管理通道分配与回收，`nfov_channel_id` 仅进
   attribution 调试层。之前作为非目标保留的理由（"需独立的 NFOV 资源模型和调度器"）已由本次变更落地。
 
-- **Cueing 运动预测与 ATP 姿态机动建模**——CV/CA 运动模型状态预测（`:370-432`）、ATP 快速姿态
-  机动（`:434-440`）。第一版不做 CV/CA 滤波运动预测和姿态机动过程建模；但接入 `narrow_cue_latency_s`
-  驱动的**线性位置外推**（用 `velocity_ecef_m_per_s` 对真值位置平移），以建模 cue 延迟与目标运动对
-  首次捕获窗口的耦合影响。理由：线性外推是已有边界内的能力接线（速度作为可选输入、缺省退化为旧行为），
-  而 CV/CA 状态空间搜索与 ATP 闭环稳定仍是后续优化项。
+- **Cueing 运动预测与 ATP 姿态机动建模**——测量驱动的角度域 CV cue 已接线：连续 WFOV 带误差
+  角度估计角速度并补偿 `narrow_cue_latency_s`，逐目标历史支持 capture/restore 和 replay。目标真值
+  速度只推进仿真判定使用的 delayed truth，不生成命令。CA、6D 状态空间搜索与 ATP 闭环稳定仍是
+  后续优化项；速率受限 ATP 当前只允许 internal characterization，不接入 session。
 
 - **不暴露用户自定义 pipeline、controller、状态机、环境模型或 foundation algorithm 类型。**
 

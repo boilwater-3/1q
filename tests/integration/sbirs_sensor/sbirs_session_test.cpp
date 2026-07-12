@@ -336,6 +336,42 @@ TEST(SbirsSessionIntegrationTest, CueLatencyFailureAttributionStaysOutOfRawOutpu
   }
 }
 
+TEST(SbirsSessionIntegrationTest, MeasurementCvCueCapturesAfterSecondWfovObservation) {
+  config::SbirsSessionConfig config = MakeSessionConfig();
+  config.mission.narrow_cue_latency_s = 1.0f;
+  config.mission.narrow_field_fov_az_deg = 1.0f;
+  config.policy.error_model.attitude_sigma_deg = 0.0f;
+  config.policy.error_model.orbit_sigma_deg = 0.0f;
+  config.policy.error_model.fov_sigma_deg = 0.0f;
+
+  SbirsSceneTarget target = MakeTarget(77U);
+  target.velocity_ecef_m_per_s = Vector(0.0, 20000.0, 0.0);
+  target.has_velocity_ecef_m_per_s = true;
+  SbirsSession session = SbirsSession::Create(config);
+  const SbirsCycleResult first = session.StepWithResult(
+      SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(target)
+          .Build());
+  EXPECT_EQ(FindDetectionByTargetId(first, 77U), nullptr);
+
+  target.position_ecef_m.y = 20000.0;
+  const SbirsCycleResult second = session.StepWithResult(
+      SbirsCycleInputBuilder()
+          .WithCycleIndex(2U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(target)
+          .Build());
+  const output::SbirsDetectionRecord* acquired = FindDetectionByTargetId(second, 77U);
+  ASSERT_NE(acquired, nullptr);
+  EXPECT_TRUE(acquired->detected);
+  EXPECT_EQ(acquired->observation_stage,
+            output::SbirsObservationStage::kNarrowFieldAcquisition);
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace sbirs_sensor

@@ -91,6 +91,24 @@ sbirs_sensor::session::SbirsCycleInput ImmMultiTargetInput(std::uint32_t cycle_i
       .Build();
 }
 
+sbirs_sensor::session::SbirsCycleInput MovingCueInput(std::uint32_t cycle_index,
+                                                       double target_offset_y_m) {
+  sbirs_sensor::session::SbirsSceneTarget target;
+  target.target_id = 31U;
+  target.target_name = "moving-cue";
+  target.position_ecef_m = Vector(8000000.0, target_offset_y_m, 0.0);
+  target.velocity_ecef_m_per_s = Vector(0.0, 20000.0, 0.0);
+  target.has_velocity_ecef_m_per_s = true;
+  target.temperature_k = 2200.0f;
+  target.projected_area_m2 = 5000.0f;
+  return sbirs_sensor::session::SbirsCycleInputBuilder()
+      .WithCycleIndex(cycle_index)
+      .WithDeltaTimeSec(1.0f)
+      .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+      .AddTarget(target)
+      .Build();
+}
+
 const sbirs_sensor::attribution::SbirsDetectionAttributionRecord* FindAttribution(
     const sbirs_sensor::session::SbirsCycleResult& result, std::uint64_t target_id) {
   for (const sbirs_sensor::attribution::SbirsDetectionAttributionRecord& attribution :
@@ -211,6 +229,43 @@ TEST(SbirsReplaySessionTest, ReplayPreservesMultiTargetImmTracking) {
     const sbirs_sensor::session::SbirsCycleResult tracked =
         session.StepWithResult(ImmMultiTargetInput(2U));
     ASSERT_EQ(tracked.output_frame.detections.size(), 2U);
+    replay_writer->Flush();
+  }
+
+  const sbirs_sensor::session::SbirsReplaySessionResult replay_result =
+      sbirs_sensor::session::ReplaySbirsTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 2U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 2U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
+TEST(SbirsReplaySessionTest, ReplayPreservesMeasurementDerivedCvCue) {
+  sbirs_sensor::config::SbirsSessionConfig config = Config();
+  config.mission.narrow_cue_latency_s = 1.0f;
+  config.mission.narrow_field_fov_az_deg = 1.0f;
+  config.policy.error_model.attitude_sigma_deg = 0.0f;
+  config.policy.error_model.orbit_sigma_deg = 0.0f;
+  config.policy.error_model.fov_sigma_deg = 0.0f;
+  config.policy.error_model.range_fraction_sigma = 0.0f;
+
+  const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-cv-cue");
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-cv-cue"), true));
+    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    const auto first = session.StepWithResult(MovingCueInput(1U, 0.0));
+    for (const auto& detection : first.output_frame.detections) {
+      EXPECT_NE(detection.observation_stage,
+                sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
+    }
+    const auto acquired = session.StepWithResult(MovingCueInput(2U, 20000.0));
+    ASSERT_EQ(acquired.output_frame.detections.size(), 1U);
+    EXPECT_EQ(acquired.output_frame.detections.front().observation_stage,
+              sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
     replay_writer->Flush();
   }
 

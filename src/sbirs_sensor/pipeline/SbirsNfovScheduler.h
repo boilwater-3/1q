@@ -24,10 +24,12 @@ struct SbirsCandidate {
   const session::SbirsSceneTarget* target{nullptr};
   float azimuth_deg{0.0f};
   float elevation_deg{0.0f};
-  float predicted_azimuth_deg{0.0f};   ///< cue 延迟外推后的真值方位角（无速度时等同 azimuth_deg）
-  float predicted_elevation_deg{0.0f};  ///< cue 延迟外推后的真值俯仰角（无速度时等同 elevation_deg）
+  float delayed_truth_azimuth_deg{0.0f};   ///< cue 延迟后的仿真真值方位角，仅用于捕获判定
+  float delayed_truth_elevation_deg{0.0f}; ///< cue 延迟后的仿真真值俯仰角，仅用于捕获判定
   float measured_azimuth_deg{0.0f};
   float measured_elevation_deg{0.0f};
+  float command_azimuth_deg{0.0f};   ///< 仅由 WFOV 测量历史生成的 NFOV 命令方位角
+  float command_elevation_deg{0.0f}; ///< 仅由 WFOV 测量历史生成的 NFOV 命令俯仰角
   double range_m{0.0};        ///< 真值距离（调度优先级用）
   double measured_range_m{0.0};  ///< 带误差距离（NFOV cue 与 attribution 诊断用）
   double snr{0.0};

@@ -11,10 +11,10 @@ namespace pipeline {
 
 /** @brief Inputs to the pure NFOV first-acquisition decision. */
 struct SbirsNfovAcquisitionRequest {
-  float predicted_azimuth_deg{0.0f};
-  float predicted_elevation_deg{0.0f};
-  float measured_azimuth_deg{0.0f};
-  float measured_elevation_deg{0.0f};
+  float delayed_truth_azimuth_deg{0.0f};
+  float delayed_truth_elevation_deg{0.0f};
+  float command_azimuth_deg{0.0f};
+  float command_elevation_deg{0.0f};
   float pointing_settle_error_deg{0.0f};
   float field_of_view_azimuth_deg{0.0f};
   float field_of_view_elevation_deg{0.0f};

@@ -293,6 +293,128 @@ TEST(SbirsPipelineTest, CueLatencyWithoutVelocityKeepsBaselineCapture) {
             sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
 }
 
+TEST(SbirsPipelineTest, MeasurementCvCueCapturesOnSecondObservationAndRestores) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.narrow_cue_latency_s = 1.0f;
+  config.mission.narrow_field_fov_az_deg = 1.0f;
+  sbirs_sensor::pipeline::SbirsPipeline uninterrupted(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+
+  sbirs_sensor::session::SbirsSceneTarget target = HotTarget(17U, 0.0);
+  target.velocity_ecef_m_per_s = Vector(0.0, 20000.0, 0.0);
+  target.has_velocity_ecef_m_per_s = true;
+  sbirs_sensor::session::SbirsCycleInput first =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(target)
+          .Build();
+  const auto first_result = uninterrupted.RunCycle(first);
+  ASSERT_FALSE(first_result.detections.empty());
+  EXPECT_FALSE(first_result.detections.front().record.detected);
+  const auto first_snapshot = uninterrupted.CaptureRuntimeState();
+  ASSERT_EQ(first_snapshot.cue_predictor.targets.count(17U), 1U);
+
+  target.position_ecef_m.y = 20000.0;
+  sbirs_sensor::session::SbirsCycleInput second =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(2U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(target)
+          .Build();
+  const auto uninterrupted_result = uninterrupted.RunCycle(second);
+  ASSERT_FALSE(uninterrupted_result.detections.empty());
+  EXPECT_TRUE(uninterrupted_result.detections.front().record.detected);
+  EXPECT_EQ(uninterrupted_result.detections.front().record.observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
+
+  sbirs_sensor::pipeline::SbirsPipeline restored(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  ASSERT_TRUE(restored.RestoreRuntimeState(first_snapshot));
+  const auto restored_result = restored.RunCycle(second);
+  ASSERT_EQ(restored_result.detections.size(), uninterrupted_result.detections.size());
+  EXPECT_EQ(restored_result.detections.front().record.detected,
+            uninterrupted_result.detections.front().record.detected);
+  EXPECT_EQ(restored.CaptureRuntimeState().cue_predictor.targets.count(17U), 0U);
+}
+
+TEST(SbirsPipelineTest, SchedulerSkippedCandidateAccumulatesCueHistoryUntilChannelFrees) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.narrow_cue_latency_s = 1.0f;
+  config.mission.narrow_field_fov_az_deg = 1.0f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+
+  sbirs_sensor::session::SbirsSceneTarget locked = HotTarget(1U, 0.0);
+  sbirs_sensor::session::SbirsSceneTarget moving = HotTarget(2U, 0.0);
+  moving.velocity_ecef_m_per_s = Vector(0.0, 20000.0, 0.0);
+  moving.has_velocity_ecef_m_per_s = true;
+  pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
+                        .WithCycleIndex(1U)
+                        .WithDeltaTimeSec(1.0f)
+                        .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                        .AddTarget(locked)
+                        .Build());
+  pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
+                        .WithCycleIndex(2U)
+                        .WithDeltaTimeSec(1.0f)
+                        .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                        .AddTarget(locked)
+                        .AddTarget(moving)
+                        .Build());
+  moving.position_ecef_m.y = 20000.0;
+  pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
+                        .WithCycleIndex(3U)
+                        .WithDeltaTimeSec(1.0f)
+                        .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                        .AddTarget(locked)
+                        .AddTarget(moving)
+                        .Build());
+  ASSERT_EQ(pipeline.CaptureRuntimeState().cue_predictor.targets.count(2U), 1U);
+
+  locked.active = false;
+  moving.position_ecef_m.y = 40000.0;
+  const auto acquired = pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
+                                              .WithCycleIndex(4U)
+                                              .WithDeltaTimeSec(1.0f)
+                                              .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                                              .AddTarget(locked)
+                                              .AddTarget(moving)
+                                              .Build());
+  bool found_acquisition = false;
+  for (const auto& detection : acquired.detections) {
+    if (detection.attribution.target_id == 2U && detection.record.detected &&
+        detection.record.observation_stage ==
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition) {
+      found_acquisition = true;
+    }
+  }
+  EXPECT_TRUE(found_acquisition);
+}
+
+TEST(SbirsPipelineTest, ApplyingConfigClearsCueMeasurementHistory) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.narrow_cue_latency_s = 1.0f;
+  config.mission.narrow_field_fov_az_deg = 1.0f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsSceneTarget target = HotTarget(23U, 0.0);
+  target.velocity_ecef_m_per_s = Vector(0.0, 20000.0, 0.0);
+  target.has_velocity_ecef_m_per_s = true;
+  pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
+                        .WithCycleIndex(1U)
+                        .WithDeltaTimeSec(1.0f)
+                        .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                        .AddTarget(target)
+                        .Build());
+  ASSERT_EQ(pipeline.CaptureRuntimeState().cue_predictor.targets.count(23U), 1U);
+
+  pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config));
+  EXPECT_TRUE(pipeline.CaptureRuntimeState().cue_predictor.targets.empty());
+}
+
 // 调度跳过诊断：目标 A 已锁定 NFOV，候选 B 被 WFOV 发现但资源被占用，
 // 应产出 kSchedulerSkipped 归属（record.detected=true，仅 attribution 标记跳过）。
 TEST(SbirsPipelineTest, LockedTargetCausesSchedulerSkipOnOtherCandidate) {

@@ -63,6 +63,8 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
   random_source_ = foundation::SbirsRandomSource(config.session.policy.error_model.random_seed);
   // 同步调度器通道上限；运行期 patch 改变通道数后清空既有分配，避免越界。
   nfov_scheduler_ = SbirsNfovScheduler(config.session.policy.scheduler.max_concurrent_nfov_locks);
+  // 配置可能改变误差/时序语义，不混用提交前后的 WFOV 测量历史。
+  cue_predictor_.Clear();
 }
 
 SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& input) {
@@ -77,6 +79,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     target_states_.clear();
     tracking_coordinator_.ClearForStandby();
     nfov_scheduler_.Clear();
+    cue_predictor_.Clear();
     result.scan_azimuth_deg = scan_azimuth_deg_;
     return result;
   }
@@ -95,6 +98,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (!target.active) {
       target_states_[target.target_id] = SbirsTargetState::kLost;
       nfov_scheduler_.Release(target.target_id);
+      cue_predictor_.Release(target.target_id);
       tracking_coordinator_.ReleaseTarget(target.target_id);
       continue;
     }
@@ -102,6 +106,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (foundation::IsEarthOcculted(input.satellite_position_ecef_m, target.position_ecef_m,
                                     kEarthRadiusM)) {
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
+      cue_predictor_.Release(target.target_id);
       continue;
     }
 
@@ -110,6 +115,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     const double range_m = foundation::Norm(los);
     if (range_m < mission.min_range_m || range_m > mission.max_range_m) {
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
+      cue_predictor_.Release(target.target_id);
       continue;
     }
 
@@ -185,6 +191,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
     if (!in_wfov || snr < policy.detection.wide_min_snr_linear) {
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
+      cue_predictor_.Release(target.target_id);
       continue;
     }
 
@@ -201,6 +208,11 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     candidate.measured_azimuth_deg = bearing.azimuth_deg;
     candidate.measured_elevation_deg = bearing.elevation_deg;
     candidate.measured_range_m = bearing.range_m;
+    const SbirsCuePrediction cue_prediction = cue_predictor_.Update(
+        target.target_id, bearing.azimuth_deg, bearing.elevation_deg, input.dt_sec,
+        mission.narrow_cue_latency_s);
+    candidate.command_azimuth_deg = cue_prediction.command_azimuth_deg;
+    candidate.command_elevation_deg = cue_prediction.command_elevation_deg;
     // cue 延迟外推：narrow_cue_latency_s 期间目标继续运动，真值 az/el 需按延迟后位置重算。
     const float cue_latency_s = mission.narrow_cue_latency_s;
     if (cue_latency_s > 0.0f && target.has_velocity_ecef_m_per_s) {
@@ -210,11 +222,11 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       predicted_position.z = target.position_ecef_m.z + target.velocity_ecef_m_per_s.z * cue_latency_s;
       const session::SbirsVector3M predicted_los =
           foundation::Subtract(predicted_position, input.satellite_position_ecef_m);
-      candidate.predicted_azimuth_deg = foundation::ComputeAzimuthDeg(predicted_los);
-      candidate.predicted_elevation_deg = foundation::ComputeElevationDeg(predicted_los);
+      candidate.delayed_truth_azimuth_deg = foundation::ComputeAzimuthDeg(predicted_los);
+      candidate.delayed_truth_elevation_deg = foundation::ComputeElevationDeg(predicted_los);
     } else {
-      candidate.predicted_azimuth_deg = azimuth_deg;
-      candidate.predicted_elevation_deg = elevation_deg;
+      candidate.delayed_truth_azimuth_deg = azimuth_deg;
+      candidate.delayed_truth_elevation_deg = elevation_deg;
     }
     candidate.snr = snr;
     candidates.push_back(candidate);
@@ -229,10 +241,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     target_states_[selected.target->target_id] = SbirsTargetState::kAwaitingNfovAcquisition;
     // 捕获判据用延迟外推后的真值 az/el（predicted_*）；无速度时等同当前帧真值，保持旧行为。
     SbirsNfovAcquisitionRequest acquisition_request;
-    acquisition_request.predicted_azimuth_deg = selected.predicted_azimuth_deg;
-    acquisition_request.predicted_elevation_deg = selected.predicted_elevation_deg;
-    acquisition_request.measured_azimuth_deg = selected.measured_azimuth_deg;
-    acquisition_request.measured_elevation_deg = selected.measured_elevation_deg;
+    acquisition_request.delayed_truth_azimuth_deg = selected.delayed_truth_azimuth_deg;
+    acquisition_request.delayed_truth_elevation_deg = selected.delayed_truth_elevation_deg;
+    acquisition_request.command_azimuth_deg = selected.command_azimuth_deg;
+    acquisition_request.command_elevation_deg = selected.command_elevation_deg;
     acquisition_request.pointing_settle_error_deg = mission.narrow_pointing_settle_error_deg;
     acquisition_request.field_of_view_azimuth_deg = mission.narrow_field_fov_az_deg;
     acquisition_request.field_of_view_elevation_deg = mission.narrow_field_fov_el_deg;
@@ -241,6 +253,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     const bool captured = IsNfovAcquisitionEligible(acquisition_request);
     if (captured) {
       const int channel_id = nfov_scheduler_.Acquire(selected.target->target_id);
+      cue_predictor_.Release(selected.target->target_id);
       const bool use_estimated = policy.tracking.enable_estimated_tracking;
       target_states_[selected.target->target_id] =
           use_estimated ? SbirsTargetState::kEstimatedTracking : SbirsTargetState::kTruthAssistedTracking;
@@ -321,6 +334,7 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   snapshot.target_states = target_states_;
   snapshot.nfov_scheduler = nfov_scheduler_.Capture();
   snapshot.random_state = random_source_.Capture();
+  snapshot.cue_predictor = cue_predictor_.Capture();
   const SbirsTrackingRuntimeState tracking_state = tracking_coordinator_.CaptureRuntimeState();
   snapshot.filter_states = tracking_state.filter_states;
   snapshot.nis_gate_exceeded_counts = tracking_state.nis_gate_exceeded_counts;
@@ -335,6 +349,7 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
   target_states_ = snapshot.target_states;
   nfov_scheduler_.Restore(snapshot.nfov_scheduler);
   random_source_.Restore(snapshot.random_state);
+  cue_predictor_.Restore(snapshot.cue_predictor);
   SbirsTrackingRuntimeState tracking_state;
   tracking_state.filter_states = snapshot.filter_states;
   tracking_state.nis_gate_exceeded_counts = snapshot.nis_gate_exceeded_counts;
