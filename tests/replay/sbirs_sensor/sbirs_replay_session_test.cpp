@@ -71,6 +71,26 @@ sbirs_sensor::session::SbirsCycleInput ValidInput(std::uint32_t cycle_index,
       .Build();
 }
 
+sbirs_sensor::session::SbirsCycleInput ImmMultiTargetInput(std::uint32_t cycle_index) {
+  sbirs_sensor::session::SbirsSceneTarget first;
+  first.target_id = 1U;
+  first.target_name = "first";
+  first.position_ecef_m = Vector(8000000.0, 0.0, 0.0);
+  first.temperature_k = 2200.0f;
+  first.projected_area_m2 = 5000.0f;
+  sbirs_sensor::session::SbirsSceneTarget second = first;
+  second.target_id = 2U;
+  second.target_name = "second";
+  second.position_ecef_m = Vector(8000000.0, 5000.0, 0.0);
+  return sbirs_sensor::session::SbirsCycleInputBuilder()
+      .WithCycleIndex(cycle_index)
+      .WithDeltaTimeSec(1.0f)
+      .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+      .AddTarget(first)
+      .AddTarget(second)
+      .Build();
+}
+
 const sbirs_sensor::attribution::SbirsDetectionAttributionRecord* FindAttribution(
     const sbirs_sensor::session::SbirsCycleResult& result, std::uint64_t target_id) {
   for (const sbirs_sensor::attribution::SbirsDetectionAttributionRecord& attribution :
@@ -164,6 +184,41 @@ TEST(SbirsReplaySessionTest, ReplayPreservesNisLossAndReacquisitionDiagnostics) 
   EXPECT_TRUE(replay_result.report.replay_ready);
   EXPECT_EQ(replay_result.playback.applied_input_count, 3U);
   EXPECT_EQ(replay_result.playback.compared_output_count, 3U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
+TEST(SbirsReplaySessionTest, ReplayPreservesMultiTargetImmTracking) {
+  sbirs_sensor::config::SbirsSessionConfig config = Config();
+  config.policy.scheduler.max_concurrent_nfov_locks = 2;
+  config.policy.tracking.enable_imm_tracking = true;
+  config.policy.tracking.imm_model_noise_diff_coeffs = {0.5f, 80.0f};
+  config.policy.error_model.attitude_sigma_deg = 0.0f;
+  config.policy.error_model.orbit_sigma_deg = 0.0f;
+  config.policy.error_model.fov_sigma_deg = 0.0f;
+  config.policy.error_model.range_fraction_sigma = 0.0f;
+
+  const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-multi-imm");
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-multi-imm"), true));
+    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    const sbirs_sensor::session::SbirsCycleResult acquired =
+        session.StepWithResult(ImmMultiTargetInput(1U));
+    ASSERT_EQ(acquired.output_frame.detections.size(), 2U);
+    const sbirs_sensor::session::SbirsCycleResult tracked =
+        session.StepWithResult(ImmMultiTargetInput(2U));
+    ASSERT_EQ(tracked.output_frame.detections.size(), 2U);
+    replay_writer->Flush();
+  }
+
+  const sbirs_sensor::session::SbirsReplaySessionResult replay_result =
+      sbirs_sensor::session::ReplaySbirsTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 2U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 2U);
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 

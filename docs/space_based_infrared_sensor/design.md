@@ -516,8 +516,10 @@ replay 语义模糊（真值辅助确定性复现，滤波器依赖随机源）�
   连续 NIS 超 2 维 95% 门限会释放 NFOV 锁定（详见 §2.5.4）。
 
 **snapshot / replay**：`SbirsTrackingCoordinator` 内部持有滤波状态（`filter_states_` map：target_id →
-`SbirsGaussianState`）、NIS 连续计数和 IMM 运行态；它们仍逐字段写入既有 `SbirsPipelineSnapshot`，随
-controller capture/restore 同步。EKF 本身确定性（无额外随机源采样），测量噪声采样复用
+`SbirsGaussianState`）、NIS 连续计数和 IMM 运行态；启用 IMM 时，每个 `target_id` 拥有独立 live
+`ImmFilter`，其模型状态逐目标映射到既有 `imm_snapshots`。capture/restore 只恢复同一 target 的模型状态，
+不会跨目标复用；目标消失、NIS 丢锁或 standby 会释放对应 live filter。它们仍逐字段写入既有
+`SbirsPipelineSnapshot`，随 controller capture/restore 同步。EKF 本身确定性（无额外随机源采样），测量噪声采样复用
 `SbirsRandomSource`（已在 snapshot 的 `random_state`），故 replay 确定性保持。
 
 配置（`SbirsTrackingConfig`，挂 `SbirsPolicyConfig.tracking`）：
@@ -555,7 +557,10 @@ controller capture/restore 同步。EKF 本身确定性（无额外随机源采�
 2. **选型决策依赖外部真知**："目标是否机动"等判据，仿真期真值已知，泄露到选型逻辑等同作弊。
 3. **可解释性**：工程评审需能追溯到具体后端与参数，自动切换使因果链复杂化。
 
-**IMM 已接线**（详见 §2.5.2）：`common/estimation/ImmFilter.h` 已扩展 3 参 `Process(measurement, dt, R)` 支持动态 R。`SbirsTrackingCoordinator` 在 `enable_imm_tracking=true` 时维护运行期 `ImmFilter` 与各子模型的 `SbirsAngleMeasurementModel`；每个 target 的模型状态经 `imm_snapshots_` 保存/恢复，NIS 取各模型最大值用于丢锁判定。NIS 门限/丢锁/重捕获的确定性语义与单 EKF 路径一致。
+**IMM 已接线**（详见 §2.5.2）：`common/estimation/ImmFilter.h` 已扩展 3 参 `Process(measurement, dt, R)` 支持动态 R。`SbirsTrackingCoordinator` 在 `enable_imm_tracking=true` 时维护按 `target_id` 隔离的运行期 `ImmFilter`，并共享只读模型构件与各子模型的 `SbirsAngleMeasurementModel`；每个 target 的模型状态经既有 `imm_snapshots` 保存/恢复，NIS 取各模型最大值用于丢锁判定。双目标首捕、独立运行/输入顺序、capture/restore 和 trace/replay 均要求保持按 target 归属的一致性。NIS 门限/丢锁/重捕获的确定性语义与单 EKF 路径一致。
+
+[evidence: `sbirs_pipeline_test.cpp:ImmKeepsIndependentStateForEachCapturedTarget`、`ImmMultiTargetUpdatesMatchIndependentRunsAndInputOrder`、`ImmMultiTargetRestorePreservesPerTargetState`;
+ `sbirs_replay_session_test.cpp:ReplayPreservesMultiTargetImmTracking`]
 
 **升级触发条件**（已验证，2026-07-08）：
 

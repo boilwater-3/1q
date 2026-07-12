@@ -434,6 +434,28 @@ Omega-K 部件链包括 spectrum front-end、Stolt geometry/interpolation、comm
 | `production-eligible` | 已冻结场景范围、门限、失败语义与集成证据；仍未改变 session 装配 | 当前无候选 |
 | `session-wired` | 已接入 `SarProcessingPipeline`，并覆盖 config、输出/abort、replay 与 session 集成 | L1 RDA、L3 BP |
 
+Stripmap Omega-K 的 Stage A 矩阵冻结为 L1、匀速直线、broadside stripmap，且只允许以
+`BuildRawPulseHistory` 生成的孔径调用 `FocusStripmapOmegaK`；Spotlight、ScanSAR、squint、L2/L3
+轨迹与 session 接线均不在本候选内。参数对照表明，复用 RDA 单元测试的缩小配置（1 GHz、20 Hz PRF、
+2 m/s、100 MHz、9×64）时，最大 Stolt 频移超过距离频率支持区，公共有效列为零并稳定在
+`grid_reduction/kInvalidCommonSupport` 拒绝；保持其余参数不变、仅把平台速度提高到 5 m/s 后，
+同一 `BuildRawPulseHistory → FocusStripmapOmegaK` 路径恢复公共支持并确定性聚焦成功。因此直接原因是
+缩小配置破坏了 Omega-K 的几何比例，而不是内部编排器普遍不可用。当前支持判定仍按全部 PRF FFT 行
+取交集，不考虑实际能量占用的多普勒带宽；这是保守模型，但尚无证据证明应放宽。参考距离不参与
+公共支持区计算，只参与 front-end 参考相位。
+
+仓库仍没有可追溯、独立的物理真值数据，synthetic fixture 也会被 truth eligibility 拒绝为非物理证据，
+所以结论保持 `characterized`，不得进入质量门限或 `production-eligible`。下一 probe 是提供带 manifest、
+digest、provenance、`physical_evidence=true` 和 `independently_generated=true` 的独立 L1 真值，并将
+实际输出送入验收器。
+
+[evidence: `sar_omega_k_l1_raw_history_stage_a_test.cpp:RejectsGeneratedL1ApertureAtGridReductionDeterministically` — 缩小配置公共支持为零并稳定拒绝;
+ `sar_omega_k_l1_raw_history_stage_a_test.cpp:CompatibleVelocityRestoresCommonSupportAndFocusing` — 单变量速度对照恢复同一路径完整聚焦;
+ `src/sar/imaging/SarOmegaKCommonSupport.cpp:DiagnoseOmegaKCommonStoltSupport` — 全方位 FFT 行共同支持交集;
+ `src/sar/imaging/SarOmegaKSpectrumFrontEnd.cpp:ExecuteOmegaKSpectrumFrontEnd` — 参考距离仅用于 bulk 参考相位;
+ `sar_omega_k_truth_eligibility_test.cpp:KeepsSyntheticFixtureIneligible` — synthetic fixture 不可作为物理验收真值;
+ `sar_omega_k_truth_eligibility_test.cpp:AuthorizesEligibleDatasetForEvaluationOnly` — manifest/digest/provenance 独立真值门]
+
 `session-wired` 只陈述当前会话已装配的能力，不把它泛化为所有场景的性能承诺。候选算法必须逐级提供证据；不得因已有 internal 实现而跳级或新增未接线算法族。\
 [evidence: `src/sar/pipeline/SarProcessingPipeline.cpp:RunCycle` — 只调用 `ExecuteL1RdaImaging` 和 `ExecuteL3BpImaging`;\
  `sar_session_pipeline_test.cpp:StepWithResultRunsRawRangeAndRdaPipeline` — session 输出 L1 RDA stage;\
@@ -442,7 +464,8 @@ Omega-K 部件链包括 spectrum front-end、Stolt geometry/interpolation、comm
 限制：
 
 - 这些路径不自动变成 public/session 默认行为。\
-  [evidence: `src/sar/imaging/` 目录结构 — Omega-K: 多个部件文件, 无单入口编排器;\
+  [evidence: `src/sar/imaging/SarOmegaKFocusing.h:FocusStripmapOmegaK` — Omega-K 已有内部单入口编排器;\
+   `src/sar/pipeline/SarProcessingPipeline.cpp:RunCycle` — 缺失的是该入口到 pipeline/session 的接线;\
    `sar_session_pipeline_test.cpp` — session 默认只启用 RDA/BP, 不包含 Omega-K/Spotlight/ScanSAR]
 - truth ingestion、manifest、payload digest 和 eligibility gate 属于证据链，不是普通 public API。\
   [evidence: `src/sar/` 中无 `public` 路径暴露 truth oracle 或 eligibility 类型;\

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <map>
 
 #include "1q/sbirs_sensor/config/SbirsSessionConfigBuilder.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
@@ -41,7 +42,54 @@ sbirs_sensor::config::SbirsSessionConfig PipelineConfig() {
   config.policy.detection.wide_min_snr_linear = 0.001f;
   config.policy.detection.narrow_min_snr_linear = 0.001f;
   config.policy.error_model.angular_sigma_deg = 0.0f;
+  config.policy.error_model.attitude_sigma_deg = 0.0f;
+  config.policy.error_model.orbit_sigma_deg = 0.0f;
+  config.policy.error_model.fov_sigma_deg = 0.0f;
+  config.policy.error_model.range_fraction_sigma = 0.0f;
   return config;
+}
+
+sbirs_sensor::config::SbirsSessionConfig ImmMultiTargetConfig() {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.policy.scheduler.max_concurrent_nfov_locks = 2;
+  config.policy.tracking.enable_imm_tracking = true;
+  config.policy.tracking.imm_model_noise_diff_coeffs = {0.5f, 80.0f};
+  return config;
+}
+
+sbirs_sensor::session::SbirsCycleInput TwoTargetInput(std::uint32_t cycle_index,
+                                                       bool reverse_order = false) {
+  sbirs_sensor::session::SbirsCycleInputBuilder builder;
+  builder.WithCycleIndex(cycle_index)
+      .WithDeltaTimeSec(1.0f)
+      .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0));
+  if (reverse_order) {
+    builder.AddTarget(HotTarget(2U, 5000.0)).AddTarget(HotTarget(1U, 0.0));
+  } else {
+    builder.AddTarget(HotTarget(1U, 0.0)).AddTarget(HotTarget(2U, 5000.0));
+  }
+  return builder.Build();
+}
+
+void ExpectImmTargetStateEqual(const sbirs_sensor::pipeline::SbirsPipelineSnapshot& left,
+                               const sbirs_sensor::pipeline::SbirsPipelineSnapshot& right,
+                               std::uint64_t target_id) {
+  ASSERT_EQ(left.filter_states.count(target_id), 1U);
+  ASSERT_EQ(right.filter_states.count(target_id), 1U);
+  EXPECT_TRUE(left.filter_states.at(target_id).mean.isApprox(right.filter_states.at(target_id).mean));
+  EXPECT_TRUE(left.filter_states.at(target_id).covariance.isApprox(
+      right.filter_states.at(target_id).covariance));
+  ASSERT_EQ(left.imm_snapshots.count(target_id), 1U);
+  ASSERT_EQ(right.imm_snapshots.count(target_id), 1U);
+  const auto& left_models = left.imm_snapshots.at(target_id).model_states;
+  const auto& right_models = right.imm_snapshots.at(target_id).model_states;
+  ASSERT_EQ(left_models.size(), right_models.size());
+  for (std::size_t index = 0U; index < left_models.size(); ++index) {
+    EXPECT_TRUE(left_models[index].state.mean.isApprox(right_models[index].state.mean));
+    EXPECT_TRUE(left_models[index].state.covariance.isApprox(
+        right_models[index].state.covariance));
+    EXPECT_FLOAT_EQ(left_models[index].weight, right_models[index].weight);
+  }
 }
 
 TEST(SbirsPipelineTest, WideCandidateCapturesIntoNfov) {
@@ -382,6 +430,83 @@ TEST(SbirsPipelineTest, ImmTrackingProducesFiniteState) {
   EXPECT_FALSE(tracked.detections.front().attribution.used_truth_assist);
   EXPECT_TRUE(tracked.detections.front().attribution.has_estimation_nis);
   EXPECT_TRUE(std::isfinite(tracked.detections.front().attribution.estimation_nis));
+}
+
+TEST(SbirsPipelineTest, ImmKeepsIndependentStateForEachCapturedTarget) {
+  const sbirs_sensor::config::SbirsSessionConfig config = ImmMultiTargetConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  pipeline.RunCycle(TwoTargetInput(1U));
+
+  const sbirs_sensor::pipeline::SbirsPipelineSnapshot first_snapshot =
+      pipeline.CaptureRuntimeState();
+  ASSERT_TRUE(first_snapshot.imm_active);
+  ASSERT_EQ(first_snapshot.imm_snapshots.size(), 2U);
+  ASSERT_EQ(first_snapshot.imm_snapshots.count(1U), 1U);
+  ASSERT_EQ(first_snapshot.imm_snapshots.count(2U), 1U);
+  for (const auto& entry : first_snapshot.imm_snapshots) {
+    ASSERT_EQ(entry.second.model_states.size(), 2U);
+  }
+  EXPECT_FLOAT_EQ(first_snapshot.imm_snapshots.at(1U).model_states[0].state.mean(2), 0.0f);
+  EXPECT_FLOAT_EQ(first_snapshot.imm_snapshots.at(2U).model_states[0].state.mean(2), 5000.0f);
+}
+
+TEST(SbirsPipelineTest, ImmMultiTargetUpdatesMatchIndependentRunsAndInputOrder) {
+  const sbirs_sensor::config::SbirsSessionConfig config = ImmMultiTargetConfig();
+  const sbirs_sensor::session::SbirsVector3M satellite = Vector(7000000.0, 0.0, 0.0);
+  const sbirs_sensor::session::SbirsSceneTarget first = HotTarget(1U, 0.0);
+  const sbirs_sensor::session::SbirsSceneTarget second = HotTarget(2U, 5000.0);
+  sbirs_sensor::pipeline::SbirsTrackingCoordinator joint;
+  sbirs_sensor::pipeline::SbirsTrackingCoordinator only_first;
+  sbirs_sensor::pipeline::SbirsTrackingCoordinator only_second;
+  sbirs_sensor::pipeline::SbirsTrackingCoordinator reversed;
+  joint.InitializeTarget(1U, first, config.policy.tracking);
+  joint.InitializeTarget(2U, second, config.policy.tracking);
+  only_first.InitializeTarget(1U, first, config.policy.tracking);
+  only_second.InitializeTarget(2U, second, config.policy.tracking);
+  reversed.InitializeTarget(2U, second, config.policy.tracking);
+  reversed.InitializeTarget(1U, first, config.policy.tracking);
+
+  sbirs_sensor::foundation::SbirsRandomSource joint_random(1U);
+  sbirs_sensor::foundation::SbirsRandomSource first_random(1U);
+  sbirs_sensor::foundation::SbirsRandomSource second_random(1U);
+  sbirs_sensor::foundation::SbirsRandomSource reversed_random(1U);
+  const auto joint_first = joint.Update(1U, config.policy, &joint_random, 0.0f, 0.0f, 1.0e6,
+                                        0.0f, 1.0f, satellite);
+  const auto joint_second = joint.Update(2U, config.policy, &joint_random, 0.3f, 0.1f, 1.0e6,
+                                         0.0f, 1.0f, satellite);
+  const auto alone_first = only_first.Update(1U, config.policy, &first_random, 0.0f, 0.0f,
+                                             1.0e6, 0.0f, 1.0f, satellite);
+  const auto alone_second = only_second.Update(2U, config.policy, &second_random, 0.3f, 0.1f,
+                                               1.0e6, 0.0f, 1.0f, satellite);
+  const auto reversed_second = reversed.Update(2U, config.policy, &reversed_random, 0.3f, 0.1f,
+                                               1.0e6, 0.0f, 1.0f, satellite);
+  const auto reversed_first = reversed.Update(1U, config.policy, &reversed_random, 0.0f, 0.0f,
+                                              1.0e6, 0.0f, 1.0f, satellite);
+  EXPECT_FLOAT_EQ(joint_first.output_azimuth_deg, alone_first.output_azimuth_deg);
+  EXPECT_FLOAT_EQ(joint_first.output_elevation_deg, alone_first.output_elevation_deg);
+  EXPECT_FLOAT_EQ(joint_second.output_azimuth_deg, alone_second.output_azimuth_deg);
+  EXPECT_FLOAT_EQ(joint_second.output_elevation_deg, alone_second.output_elevation_deg);
+  EXPECT_FLOAT_EQ(joint_first.output_azimuth_deg, reversed_first.output_azimuth_deg);
+  EXPECT_FLOAT_EQ(joint_second.output_azimuth_deg, reversed_second.output_azimuth_deg);
+}
+
+TEST(SbirsPipelineTest, ImmMultiTargetRestorePreservesPerTargetState) {
+  const sbirs_sensor::config::SbirsSessionConfig config = ImmMultiTargetConfig();
+  sbirs_sensor::pipeline::SbirsPipeline uninterrupted(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  uninterrupted.RunCycle(TwoTargetInput(1U));
+  const auto first_snapshot = uninterrupted.CaptureRuntimeState();
+  uninterrupted.RunCycle(TwoTargetInput(2U));
+  const auto uninterrupted_snapshot = uninterrupted.CaptureRuntimeState();
+
+  sbirs_sensor::pipeline::SbirsPipeline restored(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  ASSERT_TRUE(restored.RestoreRuntimeState(first_snapshot));
+  restored.RunCycle(TwoTargetInput(2U));
+  const auto restored_snapshot = restored.CaptureRuntimeState();
+  ExpectImmTargetStateEqual(uninterrupted_snapshot, restored_snapshot, 1U);
+  ExpectImmTargetStateEqual(uninterrupted_snapshot, restored_snapshot, 2U);
 }
 
 TEST(SbirsPipelineTest, ImmDisabledFallsBackToSingleEkf) {

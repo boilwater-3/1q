@@ -58,6 +58,8 @@ class SbirsTrackingCoordinator {
 
  private:
   void InitializeImmComponents(const config::SbirsTrackingConfig& tracking);
+  tracking::SbirsImmFilter* CreateImmFilter(
+      std::uint64_t target_id, const tracking::SbirsGaussianState& initial_state);
 
   tracking::SbirsCvTransitionModel cv_transition_model_{};
   tracking::SbirsAngleMeasurementModel angle_measurement_model_{};
@@ -69,7 +71,10 @@ class SbirsTrackingCoordinator {
   std::vector<::oneq::common::estimation::IKalmanPredictor<6, 2>*> imm_predictors_{};
   std::vector<std::unique_ptr<tracking::SbirsEkfUpdater>> imm_updaters_owned_{};
   std::vector<::oneq::common::estimation::IKalmanUpdater<6, 2>*> imm_updaters_{};
-  std::unique_ptr<tracking::SbirsImmFilter> imm_filter_{};
+  // Predictors and updaters are immutable model plumbing shared by all targets;
+  // each target owns its mutable IMM model state.
+  std::map<std::uint64_t, std::unique_ptr<tracking::SbirsImmFilter>> imm_filters_by_target_{};
+  // Restored snapshots wait here until the target next receives an update.
   std::map<std::uint64_t, tracking::SbirsImmSnapshot> imm_snapshots_{};
 };
 

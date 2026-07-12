@@ -53,13 +53,8 @@ void SbirsTrackingCoordinator::InitializeTarget(
   if (!imm_initialized_) {
     InitializeImmComponents(tracking);
   }
-  const int num_models = static_cast<int>(imm_filter_->GetModelStates().size());
-  const float init_weight = 1.0f / static_cast<float>(num_models);
-  std::vector<tracking::SbirsImmModelState> init_states;
-  for (int i = 0; i < num_models; ++i) {
-    init_states.push_back({initial_state, init_weight});
-  }
-  imm_filter_->SetModelStates(init_states);
+  imm_snapshots_.erase(target_id);
+  CreateImmFilter(target_id, initial_state);
 }
 
 SbirsTrackingUpdateResult SbirsTrackingCoordinator::Update(
@@ -82,25 +77,27 @@ SbirsTrackingUpdateResult SbirsTrackingCoordinator::Update(
     if (!imm_initialized_) {
       InitializeImmComponents(policy.tracking);
     }
-    auto imm_it = imm_snapshots_.find(target_id);
-    if (imm_it != imm_snapshots_.end() && !imm_it->second.model_states.empty()) {
-      imm_filter_->SetModelStates(imm_it->second.model_states);
-      imm_snapshots_.erase(imm_it);
+    auto filter_it = imm_filters_by_target_.find(target_id);
+    if (filter_it == imm_filters_by_target_.end()) {
+      const auto snapshot_it = imm_snapshots_.find(target_id);
+      const tracking::SbirsGaussianState initial_state = filter_states_[target_id];
+      CreateImmFilter(target_id, initial_state);
+      filter_it = imm_filters_by_target_.find(target_id);
+      if (snapshot_it != imm_snapshots_.end() && !snapshot_it->second.model_states.empty()) {
+        filter_it->second->SetModelStates(snapshot_it->second.model_states);
+        imm_snapshots_.erase(snapshot_it);
+      }
     }
     for (auto& measurement_model : imm_measurement_models_) {
       measurement_model->SetSatellitePosition(satellite_position_ecef_m);
     }
-    imm_filter_->Process(measurement_rad, dt_sec, measurement_covariance);
-    combined = imm_filter_->GetCombinedState();
+    tracking::SbirsImmFilter* const imm_filter = filter_it->second.get();
+    imm_filter->Process(measurement_rad, dt_sec, measurement_covariance);
+    combined = imm_filter->GetCombinedState();
     filter_states_[target_id] = combined;
 
-    tracking::SbirsImmSnapshot imm_snapshot;
-    imm_snapshot.model_states = imm_filter_->GetModelStates();
-    imm_snapshot.model_weights = imm_filter_->GetModelWeights();
-    imm_snapshots_[target_id] = imm_snapshot;
-
     result.has_estimation_nis = true;
-    const auto& imm_results = imm_filter_->GetModelUpdateResults();
+    const auto& imm_results = imm_filter->GetModelUpdateResults();
     for (std::size_t index = 0U; index < imm_results.size(); ++index) {
       const float model_nis = ComputeNormalizedInnovationSquared(imm_results[index]);
       if (model_nis > result.estimation_nis) result.estimation_nis = model_nis;
@@ -139,11 +136,13 @@ SbirsTrackingUpdateResult SbirsTrackingCoordinator::Update(
 void SbirsTrackingCoordinator::ReleaseTarget(std::uint64_t target_id) {
   filter_states_.erase(target_id);
   nis_gate_exceeded_counts_.erase(target_id);
+  imm_filters_by_target_.erase(target_id);
   imm_snapshots_.erase(target_id);
 }
 
 void SbirsTrackingCoordinator::ClearForStandby() {
   nis_gate_exceeded_counts_.clear();
+  imm_filters_by_target_.clear();
   imm_snapshots_.clear();
   imm_initialized_ = false;
 }
@@ -154,12 +153,20 @@ SbirsTrackingRuntimeState SbirsTrackingCoordinator::CaptureRuntimeState() const 
   state.nis_gate_exceeded_counts = nis_gate_exceeded_counts_;
   state.imm_active = imm_initialized_;
   state.imm_snapshots = imm_snapshots_;
+  for (const auto& entry : imm_filters_by_target_) {
+    tracking::SbirsImmSnapshot snapshot;
+    snapshot.model_states = entry.second->GetModelStates();
+    snapshot.model_weights = entry.second->GetModelWeights();
+    state.imm_snapshots[entry.first] = snapshot;
+  }
+  state.imm_active = !state.imm_snapshots.empty();
   return state;
 }
 
 void SbirsTrackingCoordinator::RestoreRuntimeState(const SbirsTrackingRuntimeState& state) {
   filter_states_ = state.filter_states;
   nis_gate_exceeded_counts_ = state.nis_gate_exceeded_counts;
+  imm_filters_by_target_.clear();
   imm_snapshots_ = state.imm_snapshots;
   imm_initialized_ = false;
 }
@@ -170,7 +177,7 @@ void SbirsTrackingCoordinator::InitializeImmComponents(const config::SbirsTracki
   imm_measurement_models_.clear();
   imm_updaters_owned_.clear();
   imm_updaters_.clear();
-  imm_filter_.reset();
+  imm_filters_by_target_.clear();
 
   const std::vector<float> q_values = tracking.imm_model_noise_diff_coeffs.empty()
                                           ? std::vector<float>{1.0f, 100.0f}
@@ -189,6 +196,19 @@ void SbirsTrackingCoordinator::InitializeImmComponents(const config::SbirsTracki
     imm_updaters_owned_.push_back(std::move(updater));
   }
 
+  imm_initialized_ = true;
+}
+
+tracking::SbirsImmFilter* SbirsTrackingCoordinator::CreateImmFilter(
+    std::uint64_t target_id, const tracking::SbirsGaussianState& initial_state) {
+  const int num_models = static_cast<int>(imm_predictors_.size());
+  const float initial_weight = 1.0f / static_cast<float>(num_models);
+  std::vector<tracking::SbirsImmModelState> initial_model_states;
+  initial_model_states.reserve(static_cast<std::size_t>(num_models));
+  for (int index = 0; index < num_models; ++index) {
+    initial_model_states.push_back({initial_state, initial_weight});
+  }
+
   tracking::SbirsImmConfig imm_config;
   imm_config.transition_probability.resize(num_models, num_models);
   for (int row = 0; row < num_models; ++row) {
@@ -197,9 +217,13 @@ void SbirsTrackingCoordinator::InitializeImmComponents(const config::SbirsTracki
           (row == column) ? 0.95f : 0.05f / static_cast<float>(num_models - 1);
     }
   }
-  imm_config.initial_weights.setConstant(num_models, 1.0f / static_cast<float>(num_models));
-  imm_filter_ = std::make_unique<tracking::SbirsImmFilter>(imm_config, imm_predictors_, imm_updaters_);
-  imm_initialized_ = true;
+  imm_config.initial_weights.setConstant(num_models, initial_weight);
+  std::unique_ptr<tracking::SbirsImmFilter> filter =
+      std::make_unique<tracking::SbirsImmFilter>(imm_config, imm_predictors_, imm_updaters_);
+  filter->SetModelStates(initial_model_states);
+  tracking::SbirsImmFilter* const result = filter.get();
+  imm_filters_by_target_[target_id] = std::move(filter);
+  return result;
 }
 
 }  // namespace pipeline
