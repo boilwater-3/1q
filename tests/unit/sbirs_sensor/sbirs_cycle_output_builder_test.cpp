@@ -80,6 +80,25 @@ sbirs_sensor::session::SbirsCycleResult NisLossResultForTarget(std::uint32_t cyc
   return result;
 }
 
+sbirs_sensor::session::SbirsCycleResult PointingTimeoutResultForTarget(std::uint32_t cycle_index) {
+  sbirs_sensor::session::SbirsCycleResult result;
+  result.input_cycle_index = cycle_index;
+  result.output_frame.cycle_index = cycle_index;
+  result.executed_this_cycle = true;
+
+  sbirs_sensor::attribution::SbirsDetectionAttributionRecord attribution;
+  attribution.detection_id = 13U;
+  attribution.target_id = 7U;
+  attribution.target_name = "boost";
+  attribution.estimated_range_m = 1000000.0f;
+  attribution.used_truth_assist = false;
+  attribution.nfov_channel_id = 2;
+  attribution.capture_failure_reason =
+      sbirs_sensor::attribution::SbirsCaptureFailureReason::kNfovPointingTimeout;
+  result.detection_attributions.push_back(attribution);
+  return result;
+}
+
 TEST(SbirsCycleOutputBuilderTest, NativeFrameHelperAcceptsSbirsDetectionShape) {
   sbirs_sensor::session::SbirsOutputFrame frame;
   sbirs_sensor::output::SbirsDetectionRecord detection;
@@ -186,6 +205,26 @@ TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderPreservesNisLossReasonAndDiag
   EXPECT_TRUE(events[0].has_estimation_nis);
   EXPECT_FLOAT_EQ(events[0].estimation_nis, 12.5f);
   EXPECT_TRUE(events[0].estimation_nis_gate_exceeded);
+}
+
+TEST(SbirsCycleOutputBuilderTest, DebugAndLifecyclePreservePointingTimeoutChannel) {
+  const sbirs_sensor::session::SbirsCycleInput input = InputWithTarget(3U);
+  const sbirs_sensor::session::SbirsCycleResult result = PointingTimeoutResultForTarget(3U);
+  const sbirs_sensor::session::SbirsOutputDebugView view =
+      sbirs_sensor::session::SbirsOutputDebugViewBuilder::Build(input, result);
+  ASSERT_EQ(view.targets.size(), 1U);
+  EXPECT_FALSE(view.targets[0].has_raw_output_record);
+  EXPECT_EQ(view.targets[0].nfov_channel_id, 2);
+
+  sbirs_sensor::session::SbirsDetectionLifecycleRecorder recorder(
+      sbirs_sensor::session::SbirsDetectionLifecycleRecorderConfig{true});
+  const std::vector<sbirs_sensor::session::SbirsDetectionLifecycleEvent> events =
+      recorder.Update(input, result);
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events[0].kind, sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kNotDetected);
+  EXPECT_EQ(events[0].reason,
+            sbirs_sensor::session::SbirsDetectionLifecycleReason::kNfovPointingTimeout);
+  EXPECT_EQ(events[0].nfov_channel_id, 2);
 }
 
 }  // namespace

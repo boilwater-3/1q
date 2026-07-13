@@ -1,7 +1,7 @@
 # Space-Based Infrared Sensor (SBIRS-inspired) 目标设计
 
 Status: active
-Last-reviewed: 2026-07-07
+Last-reviewed: 2026-07-13
 Authority: target design for the new `sbirs_sensor` module
 
 本文是 `sbirs_sensor`（天基红外预警仿真传感器）模块的设计权威文档。模块已实现并具备单元、
@@ -104,11 +104,13 @@ flowchart TB
     FrameCtx["FrameContext\n帧级光学 / 环境 / 噪声 / 卫星几何上下文"]
     Occult["Earth-occultation gate\n地球遮挡与大气边界门控"]
     Wfov["WFOV channel\n宽视场扫描发现 + 带误差位置"]
-    StateMachine["SbirsTargetStateMachine\n目标级状态机（5 状态）"]
+    StateMachine["SbirsTargetStateMachine\n目标级状态机（6 状态）"]
+    Cue["SbirsCuePredictor\n逐目标测量驱动 CV cue"]
     Handoff["Handoff decision\n首次捕获判定"]
+    Pointing["SbirsPointingCoordinator\n逐通道限速 ATP"]
     NfovFirst["NFOV first acquisition\n用 WFOV 带误差位置捕获"]
     NfovTrack["NFOV truth-assisted tracking\n仿真真值辅助持续跟踪"]
-    Scheduler["SbirsNfovScheduler\n单目标锁定资源调度"]
+    Scheduler["SbirsNfovScheduler\n多通道资源分配"]
   end
 
   subgraph Foundation["Foundation algorithms / 基础物理算法（参照 EOS）"]
@@ -134,11 +136,14 @@ flowchart TB
   InputAdapters --> SbirsSession
   FrameCtx --> Occult
   Occult --> Wfov
+  Wfov --> Cue
   Wfov --> StateMachine
   StateMachine --> Handoff
+  Cue --> Pointing
+  Scheduler --> Pointing
+  Pointing --> Handoff
   Handoff --> NfovFirst
   Handoff --> NfovTrack
-  Scheduler --> Handoff
   NfovFirst --> OutputAdapters
   NfovTrack --> OutputAdapters
   Wfov --> OutputAdapters
@@ -159,7 +164,7 @@ flowchart TB
 1. 外部只从 Public API 进入，不直接构造 `SbirsPipeline`、`SbirsTargetStateMachine` 或 foundation 类型。
 2. `SbirsSessionCompositionRoot` 负责默认依赖图；当前没有用户替换 controller、pipeline、状态机或环境模型的 public API。
 3. `SbirsController` 处理输入校验、运行期状态（含状态机 capture/restore）、失败输出复用和周期执行。
-4. `SbirsPipeline` 把一个周期拆成帧级上下文、地球遮挡门控、WFOV 发现、状态机决策、NFOV 首次捕获或真值辅助跟踪。
+4. `SbirsPipeline` 把一个周期拆成帧级上下文、地球遮挡门控、WFOV 发现、测量 cue、逐通道 ATP、NFOV 首次捕获或持续跟踪。
 5. foundation 算法参照 EOS 复制改名，是内部可测试实现，不是模块间契约。
 
 ### 1.5 执行时序图
@@ -191,13 +196,18 @@ sequenceDiagram
       Pipeline->>Physics: WFOV scan: range/FOV/radiometry/noise/SNR\n带误差位置
       Pipeline->>SM: update target state\n更新目标状态
       alt first acquisition candidate / 首次捕获候选
-        SM-->>Pipeline: AwaitingNfovAcquisition\n等待 NFOV 首次捕获
-        Pipeline->>Physics: NFOV acquisition: window + SNR gate\n捕获窗口与门限判定
+        SM-->>Pipeline: reserve channel, AwaitingNfovAcquisition\n预留通道并进入跨周期等待
+        Pipeline->>Pipeline: update cue and advance rate-limited ATP\n更新命令并限速推进光轴
+        alt ATP still slewing / 光轴未稳定
+          Pipeline-->>Output: WFOV record + reserved channel attribution\n输出 WFOV 与预留通道归属
+        else ATP settled / 光轴已稳定
+          Pipeline->>Physics: NFOV acquisition: actuator LOS + window + SNR gate\n以实际光轴执行捕获判定
         alt acquisition success / 捕获成功
           SM-->>Pipeline: TruthAssistedTracking\n真值辅助跟踪
           Pipeline->>Physics: NFOV truth-assisted track\n真值辅助持续跟踪
         else acquisition fail / 捕获失败
           SM-->>Pipeline: back to WideCandidate\n回退 WFOV
+        end
         end
       end
     end
@@ -243,7 +253,7 @@ flowchart LR
   end
 
   subgraph State["State machine / 状态机决策"]
-    SM["Target state\n5 状态机"]
+    SM["Target state\n6 状态机"]
     Handoff["Handoff\n首次捕获判定"]
     Sched["NFOV scheduler\n多通道锁定调度"]
   end
@@ -297,7 +307,9 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 | 地球遮挡门控 | `IsEarthOcculted` | 用有限 LOS 线段与地球球体相交判别穿地视线 | internal 几何门控，不进入 raw output | `sbirs_foundation_test`、`sbirs_pipeline_test` |
 | WFOV 扫描搜索 | `SbirsPipeline` | 推进扫描相位，执行地球遮挡、FOV、范围和 SNR 门控 | internal pipeline，不可替换 | `sbirs_pipeline_test` |
 | WFOV 误差模型 | `ApplyAngularErrorModel` | 对方位/俯仰/距离生成带误差 cue，供首次 NFOV 捕获使用 | internal 随机源可注入，public 不直接采样 | `sbirs_error_model_test` |
-| 目标状态机 | `SbirsTargetStateMachine` | 5 状态管理 WFOV 候选、首次捕获和真值辅助跟踪 | internal 状态机，debug view 可观测 | `sbirs_state_machine_test` |
+| Cue 预测 | `SbirsCuePredictor` | 按目标保存 WFOV 测量历史并生成角度域 CV 提前量 | internal；命令不消费目标真值速度 | `sbirs_cue_predictor_test`、`sbirs_pipeline_test` |
+| NFOV ATP | `SbirsPointingCoordinator`、`SbirsPointingActuator` | 按 NFOV 通道保存光轴，跨周期限速推进并判定 settled/timeout | 始终启用；配置只公开最大转速与稳定容差 | `sbirs_pointing_coordinator_test`、`sbirs_session_test` |
+| 目标状态机 | `SbirsTargetStateMachine` | 6 状态管理 WFOV 候选、跨周期捕获和持续跟踪 | internal 状态机，debug view 可观测 | `sbirs_state_machine_test` |
 | NFOV 首次捕获 | `EvaluateNfovAcquisition` | 由 WFOV cue 生成凝视指向，真实 LOS 落入窗口且 NFOV SNR 达标时捕获 | internal 判定，不暴露捕获算法 SPI | `sbirs_pipeline_test` |
 | NFOV 资源调度 | `SbirsNfovScheduler::SelectForAcquisition` | 多通道并发锁定（`max_concurrent_nfov_locks`，默认 1），按已跟踪、SNR、距离、target id 排序并分配通道编号 | internal scheduler，不暴露策略 SPI | `sbirs_scheduler_test` |
 | 辐射传输与 SNR | `ComputePlanckRadiance`、`EvaluateRadiativeTransfer`、`ComputeInfraredSnrLinear` | 计算红外辐射、透过率、噪声和可探测性 | internal foundation，可测试但不可定制 | `sbirs_foundation_test`、`sbirs_radiative_transfer_test` |
@@ -316,7 +328,7 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 |---|---|---|
 | `Undetected` | 初始或目标未被任何视场发现 | 不输出 |
 | `WideCandidate` | WFOV 已发现，等待 NFOV 资源调度 | 输出 WFOV 检测记录 |
-| `AwaitingNfovAcquisition` | 已被调度器选为首次捕获目标，本周期执行 NFOV 首次捕获 | 视捕获结果 |
+| `AwaitingNfovAcquisition` | 已预留 NFOV 通道，逐周期更新 cue 并推进 ATP；settled 后才执行首次捕获 | slewing 时输出 WFOV；settled 后视捕获结果 |
 | `TruthAssistedTracking` | 首次 NFOV 捕获成功且显式关闭滤波时，进入仿真简化的真值辅助持续跟踪 | 输出 NFOV 检测记录 |
 | `EstimatedTracking` | EKF 滤波测量跟踪（默认启用；由 `SbirsTrackingConfig.enable_estimated_tracking` 控制） | 输出 NFOV 检测记录（滤波估计角度） |
 | `Lost` | 目标从输入场景消失或传感器关闭 | 不输出 |
@@ -336,7 +348,8 @@ stateDiagram-v2
   WideCandidate --> AwaitingNfovAcquisition : 调度器选中\n（优先级最高候选）
   AwaitingNfovAcquisition --> TruthAssistedTracking : 首次捕获成功\n（显式关闭滤波）\n（真实 LOS 落入 cue 指向窗口\n且 NFOV SNR ≥ 门限）
   AwaitingNfovAcquisition --> EstimatedTracking : 首次捕获成功\n（启用滤波）\n（EKF 滤波测量跟踪，见 §2.5.2）
-  AwaitingNfovAcquisition --> WideCandidate : 首次捕获失败\n（清除交接状态）
+  AwaitingNfovAcquisition --> AwaitingNfovAcquisition : ATP 未 settled\n（保留通道并输出 WFOV）
+  AwaitingNfovAcquisition --> WideCandidate : 首次捕获失败或 ATP timeout\n（释放通道并清除交接状态）
   TruthAssistedTracking --> TruthAssistedTracking : 目标仍存在且传感器开启\n（仿真真值辅助跟踪）
   EstimatedTracking --> EstimatedTracking : 目标仍存在且传感器开启\n（EKF 滤波测量跟踪）
   WideCandidate --> WideCandidate : 下一周期仍是 WFOV 候选
@@ -353,10 +366,11 @@ stateDiagram-v2
 | 起点 → 终点 | 触发条件 | 周期内副作用 |
 |---|---|---|
 | `Undetected` → `WideCandidate` | 目标在本周期 WFOV 视场内，且 WFOV IR SNR ≥ WFOV 检测门限 | 记录 WFOV 带误差位置、SNR |
-| `WideCandidate` → `AwaitingNfovAcquisition` | 存在空闲 NFOV 通道（未达 `max_concurrent_nfov_locks` 上限）且该目标在优先级排序中胜出（见 2.6） | 标记本周期为首次捕获目标，分配 NFOV 通道编号 |
-| `AwaitingNfovAcquisition` → `TruthAssistedTracking` | 由 WFOV 带误差 cue 生成的 NFOV 指向窗口覆盖目标真实 LOS，且 NFOV IR SNR ≥ NFOV 捕获门限，并显式关闭滤波（`enable_estimated_tracking=false`） | 记录 NFOV 检测，进入真值辅助跟踪 |
-| `AwaitingNfovAcquisition` → `EstimatedTracking` | 同上捕获成功条件，且配置启用滤波测量跟踪（`enable_estimated_tracking=true`，见 §2.5.2） | 记录 NFOV 检测，进入滤波测量跟踪（初始化滤波状态） |
-| `AwaitingNfovAcquisition` → `WideCandidate` | 首次捕获条件不满足（窗口外或 SNR 不足） | 清除交接状态，目标回候选池 |
+| `WideCandidate` → `AwaitingNfovAcquisition` | 存在空闲 NFOV 通道且该目标在优先级排序中胜出（见 2.6） | 立即分配通道；首次使用从 WFOV 扫描中心初始化光轴，复用通道则从末次 LOS 继续 |
+| `AwaitingNfovAcquisition` → `AwaitingNfovAcquisition` | ATP 未 settled 且累计等待小于 `180° / max_slew_rate` | 保留通道，更新 cue，输出 WFOV record 与 `nfov_channel_id` |
+| `AwaitingNfovAcquisition` → `TruthAssistedTracking` | ATP settled 后，实际光轴窗口覆盖延迟真值 LOS，NFOV SNR 达标，且关闭滤波 | 记录 NFOV 检测，释放 ATP 绑定但保留 scheduler 锁定 |
+| `AwaitingNfovAcquisition` → `EstimatedTracking` | 同上，且启用滤波测量跟踪（见 §2.5.2） | 记录 NFOV 检测并初始化该目标滤波状态 |
+| `AwaitingNfovAcquisition` → `WideCandidate` | settled 后窗口/SNR 失败，或未 settled 且达到派生 timeout | 产生一次失败归属并释放通道；同周期不重新调度该目标 |
 | `TruthAssistedTracking` → `TruthAssistedTracking` | 目标仍存在于输入场景且传感器开启 | 用仿真真值辅助生成 NFOV 指向与检测输出 |
 | `EstimatedTracking` → `EstimatedTracking` | 目标仍存在于输入场景且传感器开启 | 用滤波估计生成 NFOV 指向与检测输出 |
 | 任意 → `Lost` | 目标从输入场景消失，或传感器关闭 | 释放 NFOV 资源 |
@@ -417,52 +431,65 @@ stateDiagram-v2
 - `sbirs_pipeline_test`
 - `sbirs_error_model_test`
 
-#### 2.4.1 ATP 光轴执行器 characterization
+#### 2.4.1 ATP 光轴执行与逐通道状态
 
-`SbirsPointingActuator` 是 internal、未接线的 ATP characterization primitive。它将当前光轴与命令光轴
-表示为单位 LOS 向量，沿球面最短路径按 `max_slew_rate_deg_per_sec × dt` 限速推进，并用
-`settle_tolerance_deg` 判断 settled；一步可到达命令时直接落到命令向量，禁止过冲。方位跨 ±180°、
-俯仰组合和对跖方向均不转成欧拉角积分；对跖方向采用确定性的正交旋转轴。
+`SbirsPointingActuator` 已通过 `SbirsPointingCoordinator` 接入 NFOV 生产链路。执行器把当前/命令光轴
+表示为单位 LOS 向量，沿球面最短路径按
+`narrow_pointing_max_slew_rate_deg_per_sec × dt` 限速推进，并用
+`narrow_pointing_settle_tolerance_deg` 判断 settled；一步可到达命令时直接落到命令向量，禁止过冲。
+默认值分别为 30 deg/s 和 0.01 deg，ATP 始终启用。二者与 settled 后施加的静态
+`narrow_pointing_settle_error_deg` 是三个独立物理量。
 
-执行器状态包含 current LOS、command LOS、initialized 和 settled，支持 capture/restore。非有限或零
-LOS、非正/非有限 `dt`、非正最大转速、负 settle tolerance 均原子拒绝且不改变状态。当前配置类型只在
-`src/` 内供测试使用，不进入 `SbirsMissionConfig`、runtime patch、replay schema、NFOV scheduler 或
-session；因此它证明的是执行器数学和状态可持久化性，不代表 ATP 已成为生产链路能力。
+coordinator 以 `channel_id` 持有 actuator、绑定目标和累计等待时间；scheduler 仍是通道分配的唯一
+权威。首次使用的通道从当周期 WFOV 扫描中心初始化；普通释放只解除目标绑定并保留末次 LOS，standby
+或整域 mission config 提交才清空。每周期先推进已有 awaiting 目标，再调度新候选，因此释放的容量可在
+同周期供其他目标使用。未 settled 且累计等待达到 `180° / max_slew_rate` 时产生一次
+`kNfovPointingTimeout`，释放资源并禁止该目标同周期重新调度。
 
-[evidence: `sbirs_pointing_actuator_test.cpp:ZeroAngleIsImmediatelySettled`、`SlewRateLimitsProgressAndPreventsOvershoot`、`CommandChangeUsesCurrentPointingAsNewOrigin`、`SphericalPathHandlesAzimuthWrapAndElevation`、`InvalidInputIsRejectedAtomically`、`CaptureRestorePreservesDeterministicContinuation`、`AntipodalCommandUsesDeterministicGreatCircle`]
+pipeline snapshot 同时保存 scheduler 映射和逐通道 actuator 状态；restore 先验证通道范围、唯一性、
+绑定目标与 `AwaitingNfovAcquisition` 的双向一致性，再原子提交。replay 不序列化内部 snapshot，而是由
+config、cycle input 和 runtime patch 重新执行；结果比较包含 `nfov_channel_id`。
+
+[evidence: `sbirs_pointing_actuator_test.cpp:ZeroAngleIsImmediatelySettled`、`SlewRateLimitsProgressAndPreventsOvershoot`、`InvalidInputIsRejectedAtomically`、`CaptureRestorePreservesDeterministicContinuation`;
+ `sbirs_pointing_coordinator_test.cpp:ReleaseKeepsLosAndClearResetsIt`、`MovingCommandTimesOutAndReleasesBinding`、`InvalidSnapshotIsRejectedAtomically`;
+ `sbirs_pipeline_test.cpp:RateLimitedPointingSpansCyclesAndRestores`、`PointingTimeoutReleasesWithoutSameCycleReschedule`、`InvalidPointingSnapshotRestoreIsAtomic`]
 
 ### 2.4 NFOV 首次捕获
 
-对状态机进入 `AwaitingNfovAcquisition` 的目标，本周期执行首次捕获：
+对进入 `AwaitingNfovAcquisition` 的目标跨周期执行指向与首次捕获：
 
 1. **输入**：使用该目标 WFOV 输出的**带误差位置**（方位角、俯仰角、距离），不得使用真值位置。
 2. **指向生成**：`SbirsCuePredictor` 按 `target_id` 保存连续 WFOV 带误差角度，用两点有限差分估计
    方位/俯仰角速度，并生成 `u_cmd = u_measured + angular_rate × narrow_cue_latency_s`。第一条测量、
    非正 `dt` 或零延迟退化为当前测量；方位差采用 ±180° 最短路径。命令生成不消费目标真值速度。
-   当前仍不模拟 ATP 姿态机动过程，`narrow_pointing_settle_error_deg` 继续表示静态 settle error。
-3. **窗口判定**：判断目标真实 LOS `u_true` 是否落入以 `u_cmd` 为中心的 NFOV 搜索窗口。`u_true` 在
+3. **ATP 推进**：发令时立即预留 NFOV 通道；每周期用最新 cue 更新命令，并从该通道当前 LOS 沿球面
+   最短路径限速推进。未 settled 时只输出正常 WFOV record，attribution 携带已预留的通道编号。
+4. **窗口判定**：settled 后，以 actuator 当前 LOS 为窗口中心，再叠加
+   `narrow_pointing_settle_error_deg` 静态方位偏差。目标真实 LOS `u_true` 在
    `narrow_cue_latency_s > 0` 且目标提供 `velocity_ecef_m_per_s` 时，按延迟时间对真值位置做线性外推
    后重算——即 cue 指向测量瞬间的位置，而目标在延迟期间继续运动，从而建模 cue 延迟与目标运动的
    耦合对首次捕获的影响。无速度时 `u_true` 即当前帧真值，行为不变。这样捕获判定仍受 WFOV 误差、
    目标运动、cue 延迟和 NFOV 视场大小影响，不会因为窗口中心直接取测量值而恒成立。
-4. **SNR 门限**：判断 NFOV IR SNR 是否 ≥ NFOV 捕获门限；具体门限由当前配置决定。
-5. **成功**：默认进入 `EstimatedTracking`；显式关闭滤波时进入 `TruthAssistedTracking`。后续周期不再使用 WFOV 带误差位置重新捕获。
-6. **失败**：清除该目标本次交接状态，回退 `WideCandidate`，等待后续周期重新发现和交接。不输出该
+5. **SNR 门限**：判断 NFOV IR SNR 是否 ≥ NFOV 捕获门限；具体门限由当前配置决定。
+6. **成功**：默认进入 `EstimatedTracking`；显式关闭滤波时进入 `TruthAssistedTracking`。捕获后的持续
+   跟踪不再推进 actuator。
+7. **失败/超时**：窗口或 SNR 失败，或 ATP 达到派生等待上限时，清除交接并回退 `WideCandidate`。不输出该
    目标本周期 NFOV 成功记录；但产出 `capture_failure_reason = kNfovAcquisitionFailed` 的诊断归属，
    仅进入 `SbirsCycleResult.detection_attributions` 与调试/lifecycle 层，不进入 raw output。
 
 适用边界：
 
-- NFOV 首次捕获只做几何窗口 + SNR 门限判定；cue predictor 是角度域两点 CV，不做 CA、6D ECEF
-  滤波预测、轨道传播、模板匹配、图像相关或 ATP 动力学。
+- NFOV 首次捕获只做限速光轴 + 几何窗口 + SNR 门限判定；cue predictor 是角度域两点 CV，不做 CA、
+  6D ECEF 滤波预测、轨道传播、模板匹配或图像相关。
 - `u_cmd` 仅由 WFOV 带误差测量历史生成；延迟后的真实 LOS 只用于仿真判定捕获是否成功，不进入命令或 raw output。
 - cue 延迟对真实 LOS 的评估仍用目标速度做线性平移，不做积分轨道传播。
-- cue 延迟和指向 settle error 是配置参数，不代表完整 ATP 动力学模型。
+- 当前 ATP 只建模 NFOV 捕获前的速率受限光轴，不建模整星姿态动力学、通道间机械耦合或捕获后闭环跟踪。
 
 [evidence: `sbirs_cue_predictor_test.cpp:ConstantAngularVelocityPredictsLatencyAhead`、`AzimuthUsesShortestPathAcrossWrap`、`CaptureRestorePreservesPerTargetHistory`;
  `sbirs_pipeline_test.cpp:MeasurementCvCueCapturesOnSecondObservationAndRestores`、`SchedulerSkippedCandidateAccumulatesCueHistoryUntilChannelFrees`;
  `sbirs_session_test.cpp:MeasurementCvCueCapturesAfterSecondWfovObservation`;
- `sbirs_replay_session_test.cpp:ReplayPreservesMeasurementDerivedCvCue`]
+ `sbirs_session_test.cpp:RateLimitedPointingReservesChannelUntilSettled`、`RuntimeMissionPatchClearsSlewAndUsesNewRate`、`DualChannelAssignmentIsIndependentOfInputOrder`;
+ `sbirs_replay_session_test.cpp:ReplayPreservesMeasurementDerivedCvCue`、`ReplayPreservesMultiCycleSlewAndRuntimeMissionPatch`、`ReplayPreservesDualChannelPointingTimeout`]
 
 验证入口：
 
@@ -646,8 +673,10 @@ NFOV 资源采用**多通道并发锁定策略**：传感器配置 `max_concurre
 
 通道编号分配与回收：
 
-- 新目标成功捕获时，由 `SbirsNfovScheduler::Acquire` 分配**最小可用编号**（从 0 起的空闲通道）。
-- 目标消失、NIS 丢锁或传感器进入 standby 时，`Release` 回收其通道，供后续目标复用。
+- 新目标被调度选中时，由 `SbirsNfovScheduler::Acquire` 立即分配**最小可用编号**，在 ATP slewing
+  与首次捕获期间保持预留。
+- 目标失活/消失、遮挡、越距、离开 WFOV、低于 WFOV SNR、捕获失败、pointing timeout、NIS 丢锁或
+  standby 时回收 scheduler 分配。普通释放保留该物理通道末次 LOS；standby/config apply 才清空光轴。
 - 编号分配确定性：相同输入在 replay 中产生相同的目标→通道映射。
 
 优先级默认规则（调度器在多个 WFOV 候选中选目标进入首次捕获）：
@@ -845,9 +874,12 @@ EOS 检测记录形状）：
 output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的未处理辐射图像或事件消息：
 
 - WFOV 阶段（`WideCandidate`）：输出 WFOV 检测成功目标的检测记录，位置为带误差值。
+- NFOV 指向等待周期（`AwaitingNfovAcquisition` 且 ATP 未 settled）：继续输出 WFOV 检测记录；
+  attribution 携带已预留的 `nfov_channel_id`。
 - NFOV 首次捕获成功周期（`AwaitingNfovAcquisition → EstimatedTracking/TruthAssistedTracking`）：输出 NFOV 捕获后的检测记录。
 - NFOV 持续跟踪周期（`EstimatedTracking` 或 `TruthAssistedTracking`）：持续输出锁定目标的检测记录；默认位置角度由 EKF 估计生成，显式关闭滤波时由真值辅助生成。
-- NFOV 首次捕获失败周期（`AwaitingNfovAcquisition → WideCandidate`）：不输出该目标 NFOV 成功记录，目标回 WFOV 流程。
+- NFOV 首次捕获失败或 pointing timeout 周期（`AwaitingNfovAcquisition → WideCandidate`）：raw output
+  不含失败记录；result attribution 分别携带 `kNfovAcquisitionFailed` 或 `kNfovPointingTimeout`。
 
 仿真归属（detection id → 输入 target id/name）、debug view、lifecycle（found/lost）、replay 仅进
 `SbirsCycleResult` 和调试视图层，不得混入 `SbirsOutputFrame`。WFOV/NFOV 状态机内部状态如需调试，
@@ -903,10 +935,10 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
   控制并发 NFOV 通道数（默认 1）。`SbirsNfovScheduler` 管理通道分配与回收，`nfov_channel_id` 仅进
   attribution 调试层。之前作为非目标保留的理由（"需独立的 NFOV 资源模型和调度器"）已由本次变更落地。
 
-- **Cueing 运动预测与 ATP 姿态机动建模**——测量驱动的角度域 CV cue 已接线：连续 WFOV 带误差
-  角度估计角速度并补偿 `narrow_cue_latency_s`，逐目标历史支持 capture/restore 和 replay。目标真值
-  速度只推进仿真判定使用的 delayed truth，不生成命令。CA、6D 状态空间搜索与 ATP 闭环稳定仍是
-  后续优化项；速率受限 ATP 当前只允许 internal characterization，不接入 session。
+- **Cueing 与捕获前 ATP 已接线，但不扩展为完整姿态/跟踪系统**——测量驱动的角度域 CV cue 使用
+  连续 WFOV 带误差角度补偿 `narrow_cue_latency_s`；逐通道 ATP 以球面最短路径限速推进并在 settled
+  后执行首次捕获。目标真值速度只推进 delayed truth，不生成命令。CA、6D/9D 搜索、轨道预测、整星
+  姿态动力学、通道机械耦合和捕获后闭环 ATP 跟踪仍是明确非目标。
 
 - **不暴露用户自定义 pipeline、controller、状态机、环境模型或 foundation algorithm 类型。**
 

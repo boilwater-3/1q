@@ -58,7 +58,7 @@ sbirs_sensor::config::SbirsSessionConfig ImmMultiTargetConfig() {
 }
 
 sbirs_sensor::session::SbirsCycleInput TwoTargetInput(std::uint32_t cycle_index,
-                                                       bool reverse_order = false) {
+                                                      bool reverse_order = false) {
   sbirs_sensor::session::SbirsCycleInputBuilder builder;
   builder.WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
@@ -76,7 +76,8 @@ void ExpectImmTargetStateEqual(const sbirs_sensor::pipeline::SbirsPipelineSnapsh
                                std::uint64_t target_id) {
   ASSERT_EQ(left.filter_states.count(target_id), 1U);
   ASSERT_EQ(right.filter_states.count(target_id), 1U);
-  EXPECT_TRUE(left.filter_states.at(target_id).mean.isApprox(right.filter_states.at(target_id).mean));
+  EXPECT_TRUE(
+      left.filter_states.at(target_id).mean.isApprox(right.filter_states.at(target_id).mean));
   EXPECT_TRUE(left.filter_states.at(target_id).covariance.isApprox(
       right.filter_states.at(target_id).covariance));
   ASSERT_EQ(left.imm_snapshots.count(target_id), 1U);
@@ -86,8 +87,7 @@ void ExpectImmTargetStateEqual(const sbirs_sensor::pipeline::SbirsPipelineSnapsh
   ASSERT_EQ(left_models.size(), right_models.size());
   for (std::size_t index = 0U; index < left_models.size(); ++index) {
     EXPECT_TRUE(left_models[index].state.mean.isApprox(right_models[index].state.mean));
-    EXPECT_TRUE(left_models[index].state.covariance.isApprox(
-        right_models[index].state.covariance));
+    EXPECT_TRUE(left_models[index].state.covariance.isApprox(right_models[index].state.covariance));
     EXPECT_FLOAT_EQ(left_models[index].weight, right_models[index].weight);
   }
 }
@@ -213,10 +213,8 @@ TEST(SbirsPipelineTest, WfovMeasuredAzimuthReflectsErrorModelAndIsReproducible) 
           .AddTarget(HotTarget(7U, 0.0))
           .Build();
 
-  sbirs_sensor::pipeline::SbirsPipeline first(
-      sbirs_sensor::runtime::MapSessionToInternal(config));
-  sbirs_sensor::pipeline::SbirsPipeline second(
-      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::pipeline::SbirsPipeline first(sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::pipeline::SbirsPipeline second(sbirs_sensor::runtime::MapSessionToInternal(config));
   const sbirs_sensor::pipeline::SbirsPipelineResult r1 = first.RunCycle(input);
   const sbirs_sensor::pipeline::SbirsPipelineResult r2 = second.RunCycle(input);
 
@@ -231,8 +229,8 @@ TEST(SbirsPipelineTest, WfovMeasuredAzimuthReflectsErrorModelAndIsReproducible) 
 // 首次捕获应失败，并产出 kNfovAcquisitionFailed 诊断 attribution（detected=false）。
 TEST(SbirsPipelineTest, CueLatencyWithCrossVelocityCausesAcquisitionFailure) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
-  config.mission.narrow_cue_latency_s = 1.0f;       // 1s 延迟
-  config.mission.narrow_field_fov_az_deg = 2.0f;    // 收窄 NFOV 使外推后易出界
+  config.mission.narrow_cue_latency_s = 1.0f;     // 1s 延迟
+  config.mission.narrow_field_fov_az_deg = 2.0f;  // 收窄 NFOV 使外推后易出界
   config.policy.error_model.angular_sigma_deg = 0.0f;
   config.policy.error_model.attitude_sigma_deg = 0.0f;
 
@@ -394,6 +392,39 @@ TEST(SbirsPipelineTest, SchedulerSkippedCandidateAccumulatesCueHistoryUntilChann
   EXPECT_TRUE(found_acquisition);
 }
 
+TEST(SbirsPipelineTest, MissingUnboundCandidateClearsCueHistory) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.narrow_cue_latency_s = 1.0f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const sbirs_sensor::session::SbirsSceneTarget locked = HotTarget(1U, 0.0);
+  const sbirs_sensor::session::SbirsSceneTarget waiting = HotTarget(2U, 5000.0);
+  pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
+                        .WithCycleIndex(1U)
+                        .WithDeltaTimeSec(1.0f)
+                        .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                        .AddTarget(locked)
+                        .Build());
+  pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
+                        .WithCycleIndex(2U)
+                        .WithDeltaTimeSec(1.0f)
+                        .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                        .AddTarget(locked)
+                        .AddTarget(waiting)
+                        .Build());
+  ASSERT_EQ(pipeline.CaptureRuntimeState().cue_predictor.targets.count(2U), 1U);
+
+  pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
+                        .WithCycleIndex(3U)
+                        .WithDeltaTimeSec(1.0f)
+                        .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                        .AddTarget(locked)
+                        .Build());
+  const auto snapshot = pipeline.CaptureRuntimeState();
+  EXPECT_EQ(snapshot.cue_predictor.targets.count(2U), 0U);
+  EXPECT_EQ(snapshot.target_states.at(2U), sbirs_sensor::pipeline::SbirsTargetState::kLost);
+}
+
 TEST(SbirsPipelineTest, ApplyingConfigClearsCueMeasurementHistory) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
   config.mission.narrow_cue_latency_s = 1.0f;
@@ -455,10 +486,9 @@ TEST(SbirsPipelineTest, RateLimitedPointingSpansCyclesAndRestores) {
   ASSERT_EQ(uninterrupted_second.detections.size(), restored_second.detections.size());
   EXPECT_EQ(uninterrupted_second.detections.front().record.observation_stage,
             restored_second.detections.front().record.observation_stage);
-  EXPECT_DOUBLE_EQ(uninterrupted.CaptureRuntimeState()
-                       .pointing_coordinator.channels.front()
-                       .elapsed_wait_sec,
-                   restored.CaptureRuntimeState().pointing_coordinator.channels.front().elapsed_wait_sec);
+  EXPECT_DOUBLE_EQ(
+      uninterrupted.CaptureRuntimeState().pointing_coordinator.channels.front().elapsed_wait_sec,
+      restored.CaptureRuntimeState().pointing_coordinator.channels.front().elapsed_wait_sec);
 
   uninterrupted.RunCycle(make_input(3U));
   uninterrupted.RunCycle(make_input(4U));
@@ -612,8 +642,7 @@ TEST(SbirsPipelineTest, MultipleChannelsSimultaneouslyAcquireAndTrack) {
   EXPECT_EQ(acquisitions, 2U);
 
   // 快照确认两目标各自锁定到不同通道。
-  const sbirs_sensor::pipeline::SbirsPipelineSnapshot snapshot =
-      pipeline.CaptureRuntimeState();
+  const sbirs_sensor::pipeline::SbirsPipelineSnapshot snapshot = pipeline.CaptureRuntimeState();
   ASSERT_EQ(snapshot.nfov_scheduler.target_to_channel.count(1U), 1U);
   ASSERT_EQ(snapshot.nfov_scheduler.target_to_channel.count(2U), 1U);
   EXPECT_NE(snapshot.nfov_scheduler.target_to_channel.at(1U),
@@ -709,14 +738,14 @@ TEST(SbirsPipelineTest, ImmMultiTargetUpdatesMatchIndependentRunsAndInputOrder) 
   sbirs_sensor::foundation::SbirsRandomSource first_random(1U);
   sbirs_sensor::foundation::SbirsRandomSource second_random(1U);
   sbirs_sensor::foundation::SbirsRandomSource reversed_random(1U);
-  const auto joint_first = joint.Update(1U, config.policy, &joint_random, 0.0f, 0.0f, 1.0e6,
-                                        0.0f, 1.0f, satellite);
-  const auto joint_second = joint.Update(2U, config.policy, &joint_random, 0.3f, 0.1f, 1.0e6,
-                                         0.0f, 1.0f, satellite);
-  const auto alone_first = only_first.Update(1U, config.policy, &first_random, 0.0f, 0.0f,
-                                             1.0e6, 0.0f, 1.0f, satellite);
-  const auto alone_second = only_second.Update(2U, config.policy, &second_random, 0.3f, 0.1f,
-                                               1.0e6, 0.0f, 1.0f, satellite);
+  const auto joint_first =
+      joint.Update(1U, config.policy, &joint_random, 0.0f, 0.0f, 1.0e6, 0.0f, 1.0f, satellite);
+  const auto joint_second =
+      joint.Update(2U, config.policy, &joint_random, 0.3f, 0.1f, 1.0e6, 0.0f, 1.0f, satellite);
+  const auto alone_first =
+      only_first.Update(1U, config.policy, &first_random, 0.0f, 0.0f, 1.0e6, 0.0f, 1.0f, satellite);
+  const auto alone_second = only_second.Update(2U, config.policy, &second_random, 0.3f, 0.1f, 1.0e6,
+                                               0.0f, 1.0f, satellite);
   const auto reversed_second = reversed.Update(2U, config.policy, &reversed_random, 0.3f, 0.1f,
                                                1.0e6, 0.0f, 1.0f, satellite);
   const auto reversed_first = reversed.Update(1U, config.policy, &reversed_random, 0.0f, 0.0f,

@@ -17,9 +17,9 @@ namespace output {
 
 /** @brief 原生观测阶段：对应状态机输出的 WFOV 搜索、NFOV 首次捕获或 NFOV 真值辅助跟踪。 */
 enum class ONEQ_API SbirsObservationStage {
-  kWideFieldSearch = 0,       /**< WFOV 宽视场搜索 */
-  kNarrowFieldAcquisition,    /**< NFOV 首次捕获 */
-  kNarrowFieldTrack           /**< NFOV 真值辅助跟踪 */
+  kWideFieldSearch = 0,    /**< WFOV 宽视场搜索 */
+  kNarrowFieldAcquisition, /**< NFOV 首次捕获 */
+  kNarrowFieldTrack        /**< NFOV 真值辅助跟踪 */
 };
 
 /**
@@ -27,12 +27,12 @@ enum class ONEQ_API SbirsObservationStage {
  * @note 该结构不含目标真值或仿真归属；归属信息进入 `SbirsDetectionAttributionRecord`。
  */
 struct ONEQ_API SbirsDetectionRecord {
-  std::uint64_t detection_id{0U}; /**< 本输出帧内的检测记录标识 */
-  float azimuth_deg{0.0f};        /**< 方位角，单位 deg */
-  float elevation_deg{0.0f};      /**< 仰角，单位 deg */
+  std::uint64_t detection_id{0U};  /**< 本输出帧内的检测记录标识 */
+  float azimuth_deg{0.0f};         /**< 方位角，单位 deg */
+  float elevation_deg{0.0f};       /**< 仰角，单位 deg */
   float infrared_snr_linear{0.0f}; /**< 红外通道线性 IR SNR */
   SbirsObservationStage observation_stage{SbirsObservationStage::kWideFieldSearch}; /**< 观测阶段 */
-  bool detected{false};           /**< 是否通过探测门限判决 */
+  bool detected{false}; /**< 是否通过探测门限判决 */
 };
 
 /** @brief 检测记录列表。 */
@@ -66,11 +66,11 @@ struct ONEQ_API SbirsDetectionAttributionRecord {
   float estimated_range_m{0.0f};  /**< 估计距离，单位 m（仅归属/诊断层） */
   bool used_truth_assist{false};  /**< 是否使用真值辅助跟踪 */
   SbirsCaptureFailureReason capture_failure_reason{
-      SbirsCaptureFailureReason::kNone}; /**< 首次捕获失败原因（仅归属/诊断层） */
-  bool has_estimation_nis{false}; /**< 是否包含 EKF 估计跟踪 NIS 诊断 */
-  float estimation_nis{0.0f};     /**< EKF 归一化新息平方，仅归属/诊断层 */
+      SbirsCaptureFailureReason::kNone};    /**< 首次捕获失败原因（仅归属/诊断层） */
+  bool has_estimation_nis{false};           /**< 是否包含 EKF 估计跟踪 NIS 诊断 */
+  float estimation_nis{0.0f};               /**< EKF 归一化新息平方，仅归属/诊断层 */
   bool estimation_nis_gate_exceeded{false}; /**< EKF NIS 是否超过 2 维 95% 门限 */
-  int nfov_channel_id{-1};        /**< NFOV 通道编号；-1 表示 WFOV/未占用 NFOV 资源（仅归属/诊断层） */
+  int nfov_channel_id{-1}; /**< NFOV 通道编号；-1 表示 WFOV/未占用 NFOV 资源（仅归属/诊断层） */
 };
 
 /** @brief 归属记录列表。 */
@@ -82,10 +82,10 @@ namespace session {
 
 /** @brief 单周期执行的中止原因：无、输入校验拒绝、输出契约违反、运行期状态恢复拒绝。 */
 enum class ONEQ_API SbirsPipelineAbortReason {
-  kNone = 0,                        /**< 正常执行，无中止 */
-  kValidationRejected,              /**< 输入校验拒绝 */
-  kOutputContractViolation,         /**< 输出契约违反 */
-  kRuntimeStateRestoreRejected      /**< 运行期状态恢复被拒绝 */
+  kNone = 0,                   /**< 正常执行，无中止 */
+  kValidationRejected,         /**< 输入校验拒绝 */
+  kOutputContractViolation,    /**< 输出契约违反 */
+  kRuntimeStateRestoreRejected /**< 运行期状态恢复被拒绝 */
 };
 
 }  // namespace session

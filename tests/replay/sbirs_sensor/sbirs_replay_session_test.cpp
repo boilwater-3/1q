@@ -11,6 +11,7 @@
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsReplaySession.h"
+#include "1q/sbirs_sensor/session/SbirsSession.h"
 #include "1q/sbirs_sensor/session/SbirsTraceSession.h"
 #include "sbirs_sensor/session/SbirsReplayFlatbufferCodec.h"
 
@@ -92,7 +93,7 @@ sbirs_sensor::session::SbirsCycleInput ImmMultiTargetInput(std::uint32_t cycle_i
 }
 
 sbirs_sensor::session::SbirsCycleInput MovingCueInput(std::uint32_t cycle_index,
-                                                       double target_offset_y_m) {
+                                                      double target_offset_y_m) {
   sbirs_sensor::session::SbirsSceneTarget target;
   target.target_id = 31U;
   target.target_name = "moving-cue";
@@ -107,6 +108,30 @@ sbirs_sensor::session::SbirsCycleInput MovingCueInput(std::uint32_t cycle_index,
       .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
       .AddTarget(target)
       .Build();
+}
+
+sbirs_sensor::session::SbirsCycleInput PointingInput(std::uint32_t cycle_index,
+                                                     double first_offset_y_m,
+                                                     bool include_second = false) {
+  sbirs_sensor::session::SbirsSceneTarget first;
+  first.target_id = 1U;
+  first.target_name = "first-pointing";
+  first.position_ecef_m = Vector(8000000.0, first_offset_y_m, 0.0);
+  first.temperature_k = 2200.0f;
+  first.projected_area_m2 = 5000.0f;
+  sbirs_sensor::session::SbirsCycleInputBuilder builder;
+  builder.WithCycleIndex(cycle_index)
+      .WithDeltaTimeSec(1.0f)
+      .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+      .AddTarget(first);
+  if (include_second) {
+    sbirs_sensor::session::SbirsSceneTarget second = first;
+    second.target_id = 2U;
+    second.target_name = "second-pointing";
+    second.position_ecef_m.y = -first_offset_y_m;
+    builder.AddTarget(second);
+  }
+  return builder.Build();
 }
 
 const sbirs_sensor::attribution::SbirsDetectionAttributionRecord* FindAttribution(
@@ -171,8 +196,7 @@ TEST(SbirsReplaySessionTest, ReplayPreservesNisLossAndReacquisitionDiagnostics) 
     options.trace_config_on_construct = true;
     sbirs_sensor::session::SbirsTraceSession session(config, options);
 
-    const sbirs_sensor::session::SbirsCycleResult acquired =
-        session.StepWithResult(ValidInput(1U));
+    const sbirs_sensor::session::SbirsCycleResult acquired = session.StepWithResult(ValidInput(1U));
     ASSERT_FALSE(acquired.output_frame.detections.empty());
     EXPECT_EQ(acquired.output_frame.detections.front().observation_stage,
               sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
@@ -277,6 +301,88 @@ TEST(SbirsReplaySessionTest, ReplayPreservesMeasurementDerivedCvCue) {
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 
+TEST(SbirsReplaySessionTest, ReplayPreservesMultiCycleSlewAndRuntimeMissionPatch) {
+  sbirs_sensor::config::SbirsSessionConfig config = Config();
+  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 0.0f;
+  config.mission.wide_field_fov_az_deg = 30.0f;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 2.0f;
+  const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-atp-patch");
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-atp-patch"), true));
+    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    const sbirs_sensor::session::SbirsCycleResult slewing =
+        session.StepWithResult(PointingInput(1U, 0.0));
+    ASSERT_EQ(slewing.output_frame.detections.size(), 1U);
+    EXPECT_EQ(slewing.output_frame.detections.front().observation_stage,
+              sbirs_sensor::output::SbirsObservationStage::kWideFieldSearch);
+    EXPECT_EQ(slewing.detection_attributions.front().nfov_channel_id, 0);
+
+    config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 20.0f;
+    session.ApplyRuntimeConfig(
+        sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build());
+    const sbirs_sensor::session::SbirsCycleResult acquired =
+        session.StepWithResult(PointingInput(2U, 0.0));
+    ASSERT_EQ(acquired.output_frame.detections.size(), 1U);
+    EXPECT_EQ(acquired.output_frame.detections.front().observation_stage,
+              sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
+    replay_writer->Flush();
+  }
+
+  const sbirs_sensor::session::SbirsReplaySessionResult replay_result =
+      sbirs_sensor::session::ReplaySbirsTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 2U);
+  EXPECT_EQ(replay_result.playback.applied_runtime_patch_count, 1U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 2U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
+TEST(SbirsReplaySessionTest, ReplayPreservesDualChannelPointingTimeout) {
+  sbirs_sensor::config::SbirsSessionConfig config = Config();
+  config.mission.scan_start_az_deg = 0.0f;
+  config.mission.scan_end_az_deg = 20.0f;
+  config.mission.scan_rate_deg_per_sec = 0.0f;
+  config.mission.wide_field_fov_az_deg = 30.0f;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 1.0f;
+  config.policy.scheduler.max_concurrent_nfov_locks = 2;
+  const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-atp-timeout");
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-atp-timeout"), true));
+    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    sbirs_sensor::session::SbirsCycleResult result;
+    for (std::uint32_t cycle = 1U; cycle <= 180U; ++cycle) {
+      const double offset_y_m = cycle % 2U == 0U ? -176326.9807 : 176326.9807;
+      result = session.StepWithResult(PointingInput(cycle, offset_y_m, true));
+    }
+    EXPECT_TRUE(result.output_frame.detections.empty());
+    ASSERT_EQ(result.detection_attributions.size(), 2U);
+    for (const sbirs_sensor::attribution::SbirsDetectionAttributionRecord& attribution :
+         result.detection_attributions) {
+      EXPECT_GE(attribution.nfov_channel_id, 0);
+      EXPECT_EQ(attribution.capture_failure_reason,
+                sbirs_sensor::attribution::SbirsCaptureFailureReason::kNfovPointingTimeout);
+    }
+    replay_writer->Flush();
+  }
+
+  const sbirs_sensor::session::SbirsReplaySessionResult replay_result =
+      sbirs_sensor::session::ReplaySbirsTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 180U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 180U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
 TEST(SbirsReplaySessionTest, ReplaySbirsTraceRejectsWrongModule) {
   const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-wrong-module");
   oneq::replay::ReplayTraceManifest manifest = Manifest("sbirs-wrong-module");
@@ -313,10 +419,12 @@ TEST(SbirsReplaySessionTest, ReplaySbirsTraceDetectsDivergence) {
   input_event.cycle_index = input.cycle_index;
   writer.WriteEvent(input_event);
 
-  sbirs_sensor::session::SbirsCycleResult tampered;
-  tampered.input_cycle_index = 1U;
-  tampered.output_frame.cycle_index = 1U;
-  tampered.output_frame.scan_azimuth_deg = 777.0f;
+  sbirs_sensor::session::SbirsSession oracle =
+      sbirs_sensor::session::SbirsSession::Create(Config());
+  sbirs_sensor::session::SbirsCycleResult tampered = oracle.StepWithResult(input);
+  ASSERT_EQ(tampered.detection_attributions.size(), 1U);
+  ASSERT_GE(tampered.detection_attributions.front().nfov_channel_id, 0);
+  ++tampered.detection_attributions.front().nfov_channel_id;
   oneq::replay::ReplayTraceEvent output_event;
   output_event.module = "sbirs_sensor";
   output_event.event_type = "cycle_output";

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <set>
+
 #include "sbirs_sensor/environment/SbirsEnvironmentModel.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
@@ -116,15 +117,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
   for (const session::SbirsSceneTarget& target : input.scene) {
     present_target_ids.insert(target.target_id);
   }
-  const SbirsNfovSchedulerSnapshot scheduler_before_scene = nfov_scheduler_.Capture();
-  for (const std::map<std::uint64_t, int>::value_type& assignment :
-       scheduler_before_scene.target_to_channel) {
-    if (present_target_ids.count(assignment.first) == 0U) {
-      target_states_[assignment.first] = SbirsTargetState::kLost;
-      nfov_scheduler_.Release(assignment.first);
-      pointing_coordinator_.ReleaseTarget(assignment.first);
-      cue_predictor_.Release(assignment.first);
-      tracking_coordinator_.ReleaseTarget(assignment.first);
+  for (std::map<std::uint64_t, SbirsTargetState>::value_type& target_state : target_states_) {
+    if (present_target_ids.count(target_state.first) == 0U) {
+      target_state.second = SbirsTargetState::kLost;
+      nfov_scheduler_.Release(target_state.first);
+      pointing_coordinator_.ReleaseTarget(target_state.first);
+      cue_predictor_.Release(target_state.first);
+      tracking_coordinator_.ReleaseTarget(target_state.first);
     }
   }
 
@@ -176,10 +175,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                          mission.wide_field_fov_az_deg, mission.wide_field_fov_el_deg);
 
     const SbirsTargetState state = target_states_[target.target_id];
-    const bool is_locked =
-        nfov_scheduler_.IsLocked(target.target_id) &&
-        (state == SbirsTargetState::kTruthAssistedTracking ||
-         state == SbirsTargetState::kEstimatedTracking);
+    const bool is_locked = nfov_scheduler_.IsLocked(target.target_id) &&
+                           (state == SbirsTargetState::kTruthAssistedTracking ||
+                            state == SbirsTargetState::kEstimatedTracking);
     if (is_locked) {
       // 输出角度来源：真值辅助态用真值 az/el；估计跟踪态用 EKF 滤波估计（更平滑）。
       // SNR / range / 可探测性一律用真值几何（design 2.5 第 3 点：滤波发散不影响可探测性）。
@@ -253,18 +251,21 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     candidate.measured_azimuth_deg = bearing.azimuth_deg;
     candidate.measured_elevation_deg = bearing.elevation_deg;
     candidate.measured_range_m = bearing.range_m;
-    const SbirsCuePrediction cue_prediction = cue_predictor_.Update(
-        target.target_id, bearing.azimuth_deg, bearing.elevation_deg, input.dt_sec,
-        mission.narrow_cue_latency_s);
+    const SbirsCuePrediction cue_prediction =
+        cue_predictor_.Update(target.target_id, bearing.azimuth_deg, bearing.elevation_deg,
+                              input.dt_sec, mission.narrow_cue_latency_s);
     candidate.command_azimuth_deg = cue_prediction.command_azimuth_deg;
     candidate.command_elevation_deg = cue_prediction.command_elevation_deg;
     // cue 延迟外推：narrow_cue_latency_s 期间目标继续运动，真值 az/el 需按延迟后位置重算。
     const float cue_latency_s = mission.narrow_cue_latency_s;
     if (cue_latency_s > 0.0f && target.has_velocity_ecef_m_per_s) {
       session::SbirsVector3M predicted_position;
-      predicted_position.x = target.position_ecef_m.x + target.velocity_ecef_m_per_s.x * cue_latency_s;
-      predicted_position.y = target.position_ecef_m.y + target.velocity_ecef_m_per_s.y * cue_latency_s;
-      predicted_position.z = target.position_ecef_m.z + target.velocity_ecef_m_per_s.z * cue_latency_s;
+      predicted_position.x =
+          target.position_ecef_m.x + target.velocity_ecef_m_per_s.x * cue_latency_s;
+      predicted_position.y =
+          target.position_ecef_m.y + target.velocity_ecef_m_per_s.y * cue_latency_s;
+      predicted_position.z =
+          target.position_ecef_m.z + target.velocity_ecef_m_per_s.z * cue_latency_s;
       const session::SbirsVector3M predicted_los =
           foundation::Subtract(predicted_position, input.satellite_position_ecef_m);
       candidate.delayed_truth_azimuth_deg = foundation::ComputeAzimuthDeg(predicted_los);
@@ -303,7 +304,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     result.detections.push_back(detection);
   };
   const auto append_acquisition_failure = [&](const SbirsCandidate& candidate, int channel_id,
-                                               attribution::SbirsCaptureFailureReason reason) {
+                                              attribution::SbirsCaptureFailureReason reason) {
     SbirsPipelineDetection detection;
     detection.record.detection_id = next_detection_id_++;
     detection.record.azimuth_deg = candidate.azimuth_deg;
@@ -366,8 +367,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       pointing_coordinator_.ReleaseTarget(target_id);
       cue_predictor_.Release(target_id);
       const bool use_estimated = policy.tracking.enable_estimated_tracking;
-      target_states_[target_id] =
-          use_estimated ? SbirsTargetState::kEstimatedTracking : SbirsTargetState::kTruthAssistedTracking;
+      target_states_[target_id] = use_estimated ? SbirsTargetState::kEstimatedTracking
+                                                : SbirsTargetState::kTruthAssistedTracking;
       if (use_estimated) {
         tracking_coordinator_.InitializeTarget(target_id, *selected.target, policy.tracking);
       }
@@ -505,7 +506,8 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
     const std::map<std::uint64_t, SbirsTargetState>::const_iterator state =
         snapshot.target_states.find(assignment.first);
     if (assignment.second < 0 || assignment.second >= nfov_scheduler_.max_locks() ||
-        !assigned_channels.insert(assignment.second).second || state == snapshot.target_states.end() ||
+        !assigned_channels.insert(assignment.second).second ||
+        state == snapshot.target_states.end() ||
         (state->second != SbirsTargetState::kAwaitingNfovAcquisition &&
          state->second != SbirsTargetState::kEstimatedTracking &&
          state->second != SbirsTargetState::kTruthAssistedTracking)) {

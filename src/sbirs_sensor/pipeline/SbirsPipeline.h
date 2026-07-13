@@ -13,23 +13,23 @@
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "sbirs_sensor/config/SbirsInternalExecutionConfig.h"
+#include "sbirs_sensor/foundation/SbirsErrorModel.h"
 #include "sbirs_sensor/pipeline/SbirsCuePredictor.h"
 #include "sbirs_sensor/pipeline/SbirsNfovScheduler.h"
 #include "sbirs_sensor/pipeline/SbirsPointingCoordinator.h"
 #include "sbirs_sensor/pipeline/SbirsTrackingCoordinator.h"
-#include "sbirs_sensor/foundation/SbirsErrorModel.h"
 
 namespace sbirs_sensor {
 namespace pipeline {
 
 /** @brief 目标级状态机 6 状态枚举（design 2.2），驱动 WFOV 发现、NFOV 首次捕获与持续跟踪。 */
 enum class SbirsTargetState {
-  kUndetected = 0,           /**< 初始或目标未被任何视场发现 */
-  kWideCandidate,            /**< WFOV 已发现，等待 NFOV 资源调度 */
-  kAwaitingNfovAcquisition,  /**< 已被调度器选为首次捕获目标，本周期执行 NFOV 首次捕获 */
-  kTruthAssistedTracking,    /**< 首次捕获成功，进入仿真简化的真值辅助持续跟踪 */
-  kEstimatedTracking,        /**< EKF 滤波测量跟踪；由配置开关启用滤波时进入，见 design 2.2/2.5a */
-  kLost                      /**< 目标从输入场景消失或传感器关闭 */
+  kUndetected = 0,          /**< 初始或目标未被任何视场发现 */
+  kWideCandidate,           /**< WFOV 已发现，等待 NFOV 资源调度 */
+  kAwaitingNfovAcquisition, /**< 已被调度器选为首次捕获目标，本周期执行 NFOV 首次捕获 */
+  kTruthAssistedTracking,   /**< 首次捕获成功，进入仿真简化的真值辅助持续跟踪 */
+  kEstimatedTracking,       /**< EKF 滤波测量跟踪；由配置开关启用滤波时进入，见 design 2.2/2.5a */
+  kLost                     /**< 目标从输入场景消失或传感器关闭 */
 };
 
 /**
@@ -37,29 +37,31 @@ enum class SbirsTargetState {
  * @note 包含扫描相位、目标状态表、NFOV 多通道调度状态、随机源状态与 EKF 滤波状态表。
  */
 struct SbirsPipelineSnapshot {
-  float scan_azimuth_deg{0.0f};                          /**< 当前 WFOV 扫描方位角，单位 deg */
-  std::uint64_t next_detection_id{1U};                   /**< 下一个检测记录 ID */
-  std::map<std::uint64_t, SbirsTargetState> target_states{}; /**< 各目标状态表（按 target_id 索引） */
-  SbirsNfovSchedulerSnapshot nfov_scheduler{};           /**< NFOV 多通道调度状态（目标→通道分配） */
-  unsigned int random_state{1U};  /**< 误差模型随机源状态（replay 可复现） */
-  std::map<std::uint64_t, tracking::SbirsGaussianState> filter_states{}; /**< EKF 滤波状态表（kEstimatedTracking 目标的均值+协方差） */
+  float scan_azimuth_deg{0.0f};        /**< 当前 WFOV 扫描方位角，单位 deg */
+  std::uint64_t next_detection_id{1U}; /**< 下一个检测记录 ID */
+  std::map<std::uint64_t, SbirsTargetState>
+      target_states{};                         /**< 各目标状态表（按 target_id 索引） */
+  SbirsNfovSchedulerSnapshot nfov_scheduler{}; /**< NFOV 多通道调度状态（目标→通道分配） */
+  unsigned int random_state{1U};               /**< 误差模型随机源状态（replay 可复现） */
+  std::map<std::uint64_t, tracking::SbirsGaussianState>
+      filter_states{}; /**< EKF 滤波状态表（kEstimatedTracking 目标的均值+协方差） */
   std::map<std::uint64_t, unsigned int> nis_gate_exceeded_counts{}; /**< EKF NIS 连续超限计数 */
   bool imm_active{false}; /**< 当前 snapshot 是否使用 IMM 模式 */
   std::map<std::uint64_t, tracking::SbirsImmSnapshot> imm_snapshots{}; /**< IMM 滤波状态表 */
-  SbirsCuePredictorSnapshot cue_predictor{}; /**< 测量驱动 cue predictor 逐目标历史 */
+  SbirsCuePredictorSnapshot cue_predictor{};               /**< 测量驱动 cue predictor 逐目标历史 */
   SbirsPointingCoordinatorSnapshot pointing_coordinator{}; /**< 逐 NFOV 通道 ATP 状态 */
 };
 
 /** @brief 单条 pipeline 内部检测结果，组合原始记录与归属。 */
 struct SbirsPipelineDetection {
-  output::SbirsDetectionRecord record{};            /**< 原始观测记录 */
+  output::SbirsDetectionRecord record{};                      /**< 原始观测记录 */
   attribution::SbirsDetectionAttributionRecord attribution{}; /**< 仿真归属记录 */
 };
 
 /** @brief 单周期 pipeline 执行结果，含扫描相位与本周期检测列表。 */
 struct SbirsPipelineResult {
-  float scan_azimuth_deg{0.0f};                       /**< 本周期扫描方位角，单位 deg */
-  std::vector<SbirsPipelineDetection> detections{};   /**< 检测列表 */
+  float scan_azimuth_deg{0.0f};                     /**< 本周期扫描方位角，单位 deg */
+  std::vector<SbirsPipelineDetection> detections{}; /**< 检测列表 */
 };
 
 /**
@@ -101,9 +103,9 @@ class SbirsPipeline {
   float scan_azimuth_deg_{0.0f};
   std::uint64_t next_detection_id_{1U};
   std::map<std::uint64_t, SbirsTargetState> target_states_{};
-  SbirsNfovScheduler nfov_scheduler_;  // NFOV 多通道资源调度器
+  SbirsNfovScheduler nfov_scheduler_;              // NFOV 多通道资源调度器
   SbirsPointingCoordinator pointing_coordinator_;  // NFOV 逐通道 ATP 执行状态
-  foundation::SbirsRandomSource random_source_;  // 误差模型确定性随机源
+  foundation::SbirsRandomSource random_source_;    // 误差模型确定性随机源
   SbirsCuePredictor cue_predictor_{};
   SbirsTrackingCoordinator tracking_coordinator_{};
 };

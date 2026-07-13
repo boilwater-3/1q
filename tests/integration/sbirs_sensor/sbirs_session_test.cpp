@@ -162,10 +162,9 @@ TEST(SbirsSessionIntegrationTest, RuntimeWorkModeSwitchTakesEffectImmediately) {
   const SbirsOutputFrame active_frame = session.Step(MakeBaseInput(1U));
   ASSERT_FALSE(active_frame.detections.empty());
 
-  const config::SbirsRuntimeConfigPatch patch =
-      sbirs_config::SbirsRuntimeConfigBuilder()
-          .WithWorkMode(config::SbirsWorkMode::kStandby)
-          .Build();
+  const config::SbirsRuntimeConfigPatch patch = sbirs_config::SbirsRuntimeConfigBuilder()
+                                                    .WithWorkMode(config::SbirsWorkMode::kStandby)
+                                                    .Build();
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
 
   const SbirsOutputFrame standby_frame = session.Step(MakeBaseInput(2U));
@@ -192,6 +191,97 @@ TEST(SbirsSessionIntegrationTest, RuntimeScanRateChangeUpdatesAdvance) {
   const float delta_slow = std::fabs(slow_2.scan_azimuth_deg - slow_1.scan_azimuth_deg);
 
   EXPECT_GT(delta_fast, delta_slow);
+}
+
+TEST(SbirsSessionIntegrationTest, RateLimitedPointingReservesChannelUntilSettled) {
+  config::SbirsSessionConfig config = MakeSessionConfig();
+  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 0.0f;
+  config.mission.wide_field_fov_az_deg = 30.0f;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 2.0f;
+  SbirsSession session = SbirsSession::Create(config);
+
+  for (std::uint32_t cycle = 1U; cycle <= 4U; ++cycle) {
+    const SbirsCycleResult result = session.StepWithResult(MakeBaseInput(cycle));
+    ASSERT_EQ(result.output_frame.detections.size(), 1U);
+    EXPECT_EQ(result.output_frame.detections.front().observation_stage,
+              output::SbirsObservationStage::kWideFieldSearch);
+    ASSERT_EQ(result.detection_attributions.size(), 1U);
+    EXPECT_EQ(result.detection_attributions.front().nfov_channel_id, 0);
+  }
+  const SbirsCycleResult acquired = session.StepWithResult(MakeBaseInput(5U));
+  ASSERT_EQ(acquired.output_frame.detections.size(), 1U);
+  EXPECT_EQ(acquired.output_frame.detections.front().observation_stage,
+            output::SbirsObservationStage::kNarrowFieldAcquisition);
+  const SbirsCycleResult tracked = session.StepWithResult(MakeBaseInput(6U));
+  ASSERT_EQ(tracked.output_frame.detections.size(), 1U);
+  EXPECT_EQ(tracked.output_frame.detections.front().observation_stage,
+            output::SbirsObservationStage::kNarrowFieldTrack);
+}
+
+TEST(SbirsSessionIntegrationTest, RuntimeMissionPatchClearsSlewAndUsesNewRate) {
+  config::SbirsSessionConfig config = MakeSessionConfig();
+  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 0.0f;
+  config.mission.wide_field_fov_az_deg = 30.0f;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 2.0f;
+  SbirsSession session = SbirsSession::Create(config);
+  const SbirsCycleResult slewing = session.StepWithResult(MakeBaseInput(1U));
+  ASSERT_EQ(slewing.output_frame.detections.size(), 1U);
+  EXPECT_EQ(slewing.output_frame.detections.front().observation_stage,
+            output::SbirsObservationStage::kWideFieldSearch);
+
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 20.0f;
+  const config::SbirsRuntimeConfigPatch patch =
+      sbirs_config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build();
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(patch));
+  const SbirsCycleResult acquired = session.StepWithResult(MakeBaseInput(2U));
+  ASSERT_EQ(acquired.output_frame.detections.size(), 1U);
+  EXPECT_EQ(acquired.output_frame.detections.front().observation_stage,
+            output::SbirsObservationStage::kNarrowFieldAcquisition);
+}
+
+TEST(SbirsSessionIntegrationTest, DualChannelAssignmentIsIndependentOfInputOrder) {
+  config::SbirsSessionConfig config = MakeSessionConfig();
+  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_rate_deg_per_sec = 0.0f;
+  config.mission.wide_field_fov_az_deg = 30.0f;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 2.0f;
+  config.policy.scheduler.max_concurrent_nfov_locks = 2;
+
+  const auto run = [&config](bool reverse) {
+    SbirsCycleInputBuilder builder;
+    builder.WithCycleIndex(1U).WithDeltaTimeSec(1.0f).WithSatellitePosition(
+        Vector(7000000.0, 0.0, 0.0));
+    if (reverse) {
+      builder.AddTarget(MakeTarget(2U, -1000.0)).AddTarget(MakeTarget(1U, 1000.0));
+    } else {
+      builder.AddTarget(MakeTarget(1U, 1000.0)).AddTarget(MakeTarget(2U, -1000.0));
+    }
+    SbirsSession session = SbirsSession::Create(config);
+    return session.StepWithResult(builder.Build());
+  };
+  const SbirsCycleResult forward = run(false);
+  const SbirsCycleResult reversed = run(true);
+  ASSERT_EQ(forward.detection_attributions.size(), 2U);
+  ASSERT_EQ(reversed.detection_attributions.size(), 2U);
+  for (std::uint64_t target_id = 1U; target_id <= 2U; ++target_id) {
+    int forward_channel = -1;
+    int reversed_channel = -1;
+    for (const attribution::SbirsDetectionAttributionRecord& value :
+         forward.detection_attributions) {
+      if (value.target_id == target_id) forward_channel = value.nfov_channel_id;
+    }
+    for (const attribution::SbirsDetectionAttributionRecord& value :
+         reversed.detection_attributions) {
+      if (value.target_id == target_id) reversed_channel = value.nfov_channel_id;
+    }
+    EXPECT_GE(forward_channel, 0);
+    EXPECT_EQ(forward_channel, reversed_channel);
+  }
 }
 
 TEST(SbirsSessionIntegrationTest, InvalidRuntimePatchDoesNotPolluteConfig) {
@@ -321,8 +411,7 @@ TEST(SbirsSessionIntegrationTest, CueLatencyFailureAttributionStaysOutOfRawOutpu
 
   // 失败诊断必须出现在 attribution 层。
   bool found_failure = false;
-  for (const attribution::SbirsDetectionAttributionRecord& attr :
-       result.detection_attributions) {
+  for (const attribution::SbirsDetectionAttributionRecord& attr : result.detection_attributions) {
     if (attr.capture_failure_reason ==
         attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed) {
       found_failure = true;
@@ -348,28 +437,27 @@ TEST(SbirsSessionIntegrationTest, MeasurementCvCueCapturesAfterSecondWfovObserva
   target.velocity_ecef_m_per_s = Vector(0.0, 20000.0, 0.0);
   target.has_velocity_ecef_m_per_s = true;
   SbirsSession session = SbirsSession::Create(config);
-  const SbirsCycleResult first = session.StepWithResult(
-      SbirsCycleInputBuilder()
-          .WithCycleIndex(1U)
-          .WithDeltaTimeSec(1.0f)
-          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-          .AddTarget(target)
-          .Build());
+  const SbirsCycleResult first =
+      session.StepWithResult(SbirsCycleInputBuilder()
+                                 .WithCycleIndex(1U)
+                                 .WithDeltaTimeSec(1.0f)
+                                 .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                                 .AddTarget(target)
+                                 .Build());
   EXPECT_EQ(FindDetectionByTargetId(first, 77U), nullptr);
 
   target.position_ecef_m.y = 20000.0;
-  const SbirsCycleResult second = session.StepWithResult(
-      SbirsCycleInputBuilder()
-          .WithCycleIndex(2U)
-          .WithDeltaTimeSec(1.0f)
-          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
-          .AddTarget(target)
-          .Build());
+  const SbirsCycleResult second =
+      session.StepWithResult(SbirsCycleInputBuilder()
+                                 .WithCycleIndex(2U)
+                                 .WithDeltaTimeSec(1.0f)
+                                 .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                                 .AddTarget(target)
+                                 .Build());
   const output::SbirsDetectionRecord* acquired = FindDetectionByTargetId(second, 77U);
   ASSERT_NE(acquired, nullptr);
   EXPECT_TRUE(acquired->detected);
-  EXPECT_EQ(acquired->observation_stage,
-            output::SbirsObservationStage::kNarrowFieldAcquisition);
+  EXPECT_EQ(acquired->observation_stage, output::SbirsObservationStage::kNarrowFieldAcquisition);
 }
 
 }  // namespace

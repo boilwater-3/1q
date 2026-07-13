@@ -52,6 +52,8 @@ SbirsDetectionLifecycleReason InferReason(
         return SbirsDetectionLifecycleReason::kSchedulerSkipped;
       case attribution::SbirsCaptureFailureReason::kEstimationNisGateLost:
         return SbirsDetectionLifecycleReason::kEstimationNisGateLost;
+      case attribution::SbirsCaptureFailureReason::kNfovPointingTimeout:
+        return SbirsDetectionLifecycleReason::kNfovPointingTimeout;
       case attribution::SbirsCaptureFailureReason::kNone:
         break;
     }

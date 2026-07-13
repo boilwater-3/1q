@@ -131,8 +131,8 @@ flatbuffers::Offset<sbirs::replay::SbirsHardwareConfig> EncodeHardwareConfig(
   return sbirs::replay::CreateSbirsHardwareConfig(
       fbb, value.wavelength_lower_um, value.wavelength_upper_um, value.optical_aperture_m,
       value.detector_area_m2, value.optical_transmission, value.detector_quantum_efficiency,
-      value.integration_time_sec, value.noise_equivalent_power_w,
-      value.background_radiance_w_sr_m2, value.detector_temperature_k, value.readout_noise_rms_w);
+      value.integration_time_sec, value.noise_equivalent_power_w, value.background_radiance_w_sr_m2,
+      value.detector_temperature_k, value.readout_noise_rms_w);
 }
 
 void DecodeHardwareConfig(const sbirs::replay::SbirsHardwareConfig* fb,
@@ -161,8 +161,7 @@ flatbuffers::Offset<sbirs::replay::SbirsMissionConfig> EncodeMissionConfig(
       value.narrow_field_fov_el_deg, value.scan_start_az_deg, value.scan_end_az_deg,
       value.scan_center_el_deg, value.scan_rate_deg_per_sec, value.min_range_m, value.max_range_m,
       value.frame_rate_hz, value.narrow_cue_latency_s, value.narrow_pointing_settle_error_deg,
-      value.narrow_pointing_max_slew_rate_deg_per_sec,
-      value.narrow_pointing_settle_tolerance_deg);
+      value.narrow_pointing_max_slew_rate_deg_per_sec, value.narrow_pointing_settle_tolerance_deg);
 }
 
 void DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
@@ -185,8 +184,7 @@ void DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
   out->frame_rate_hz = fb->frame_rate_hz();
   out->narrow_cue_latency_s = fb->narrow_cue_latency_s();
   out->narrow_pointing_settle_error_deg = fb->narrow_pointing_settle_error_deg();
-  out->narrow_pointing_max_slew_rate_deg_per_sec =
-      fb->narrow_pointing_max_slew_rate_deg_per_sec();
+  out->narrow_pointing_max_slew_rate_deg_per_sec = fb->narrow_pointing_max_slew_rate_deg_per_sec();
   out->narrow_pointing_settle_tolerance_deg = fb->narrow_pointing_settle_tolerance_deg();
 }
 
@@ -206,10 +204,9 @@ flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
   const auto imm_coeffs = fbb.CreateVector(value.tracking.imm_model_noise_diff_coeffs);
   const flatbuffers::Offset<sbirs::replay::SbirsTrackingConfig> tracking =
       sbirs::replay::CreateSbirsTrackingConfig(
-          fbb, value.tracking.enable_estimated_tracking,
-          value.tracking.process_noise_diff_coeff, value.tracking.initial_position_std_m,
-          value.tracking.initial_velocity_std_m_per_s, value.tracking.nis_gate_loss_cycles,
-          value.tracking.enable_imm_tracking, imm_coeffs);
+          fbb, value.tracking.enable_estimated_tracking, value.tracking.process_noise_diff_coeff,
+          value.tracking.initial_position_std_m, value.tracking.initial_velocity_std_m_per_s,
+          value.tracking.nis_gate_loss_cycles, value.tracking.enable_imm_tracking, imm_coeffs);
   return sbirs::replay::CreateSbirsPolicyConfig(fbb, detection, error, scheduler, tracking);
 }
 
@@ -238,8 +235,7 @@ void DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
     out->tracking.enable_estimated_tracking = fb->tracking()->enable_estimated_tracking();
     out->tracking.process_noise_diff_coeff = fb->tracking()->process_noise_diff_coeff();
     out->tracking.initial_position_std_m = fb->tracking()->initial_position_std_m();
-    out->tracking.initial_velocity_std_m_per_s =
-        fb->tracking()->initial_velocity_std_m_per_s();
+    out->tracking.initial_velocity_std_m_per_s = fb->tracking()->initial_velocity_std_m_per_s();
     out->tracking.nis_gate_loss_cycles = fb->tracking()->nis_gate_loss_cycles();
     out->tracking.enable_imm_tracking = fb->tracking()->enable_imm_tracking();
     if (fb->tracking()->imm_model_noise_diff_coeffs() != nullptr) {

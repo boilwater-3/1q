@@ -39,11 +39,10 @@ class SbirsPointingCoordinator {
  public:
   explicit SbirsPointingCoordinator(int channel_count);
 
-  bool Reserve(int channel_id, std::uint64_t target_id,
-               const session::SbirsVector3M& initial_los);
+  bool Reserve(int channel_id, std::uint64_t target_id, const session::SbirsVector3M& initial_los);
   SbirsPointingAdvanceResult Advance(int channel_id, std::uint64_t target_id,
-                                    const session::SbirsVector3M& command_los, double dt_sec,
-                                    const SbirsPointingActuatorConfig& config);
+                                     const session::SbirsVector3M& command_los, double dt_sec,
+                                     const SbirsPointingActuatorConfig& config);
   bool ReleaseTarget(std::uint64_t target_id);
   void Clear();
 

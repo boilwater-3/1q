@@ -29,16 +29,17 @@ enum class ONEQ_API SbirsDetectionLifecycleEventKind {
 
 /** @brief 生命周期事件原因：视场外、低于 SNR 门限、捕获失败、调度跳过、校验拒绝等。 */
 enum class ONEQ_API SbirsDetectionLifecycleReason {
-  kNone = 0,                  /**< 无具体原因 */
-  kOutOfFieldOfView,          /**< 目标在视场（FOV）外 */
-  kBelowSnrThreshold,         /**< IR SNR 低于门限 */
-  kValidationRejected,        /**< 周期输入校验被拒绝 */
-  kCycleNotExecuted,          /**< 本周期未执行 */
-  kTargetMissingFromInput,    /**< 目标从输入场景消失 */
-  kNfovAcquisitionFailed,     /**< 进入 NFOV 待捕获但捕获失败 */
-  kSchedulerSkipped,          /**< WFOV 候选未被调度器选中 */
-  kEstimationNisGateLost,     /**< EKF NIS 连续超限导致释放 NFOV 锁定 */
-  kUnknown                    /**< 未知原因 */
+  kNone = 0,               /**< 无具体原因 */
+  kOutOfFieldOfView,       /**< 目标在视场（FOV）外 */
+  kBelowSnrThreshold,      /**< IR SNR 低于门限 */
+  kValidationRejected,     /**< 周期输入校验被拒绝 */
+  kCycleNotExecuted,       /**< 本周期未执行 */
+  kTargetMissingFromInput, /**< 目标从输入场景消失 */
+  kNfovAcquisitionFailed,  /**< 进入 NFOV 待捕获但捕获失败 */
+  kSchedulerSkipped,       /**< WFOV 候选未被调度器选中 */
+  kEstimationNisGateLost,  /**< EKF NIS 连续超限导致释放 NFOV 锁定 */
+  kNfovPointingTimeout,    /**< ATP 光轴未在派生等待上限内稳定 */
+  kUnknown                 /**< 未知原因 */
 };
 
 /**
@@ -49,16 +50,18 @@ struct ONEQ_API SbirsDetectionLifecycleEvent {
   std::uint32_t cycle_index{0U}; /**< 周期序号 */
   std::uint64_t target_id{0U};   /**< 目标 ID */
   std::string target_name{};     /**< 目标名称 */
-  SbirsDetectionLifecycleEventKind kind{SbirsDetectionLifecycleEventKind::kUpdated}; /**< 事件类型 */
-  SbirsDetectionLifecycleReason reason{SbirsDetectionLifecycleReason::kNone};        /**< 事件原因 */
-  output::SbirsObservationStage observation_stage{output::SbirsObservationStage::kWideFieldSearch}; /**< 观测阶段 */
-  float infrared_snr_linear{0.0f}; /**< 红外通道线性 IR SNR */
-  float estimated_range_m{0.0f};   /**< 估计距离，单位 m */
-  bool used_truth_assist{false};   /**< 是否使用真值辅助 */
-  bool has_estimation_nis{false};  /**< 是否包含 EKF 估计跟踪 NIS */
-  float estimation_nis{0.0f};      /**< EKF 归一化新息平方 */
-  bool estimation_nis_gate_exceeded{false}; /**< EKF NIS 是否超过 2 维 95% 门限 */
-  int nfov_channel_id{-1};         /**< NFOV 通道编号；-1 表示 WFOV/未占用 NFOV 资源 */
+  SbirsDetectionLifecycleEventKind kind{
+      SbirsDetectionLifecycleEventKind::kUpdated};                            /**< 事件类型 */
+  SbirsDetectionLifecycleReason reason{SbirsDetectionLifecycleReason::kNone}; /**< 事件原因 */
+  output::SbirsObservationStage observation_stage{
+      output::SbirsObservationStage::kWideFieldSearch}; /**< 观测阶段 */
+  float infrared_snr_linear{0.0f};                      /**< 红外通道线性 IR SNR */
+  float estimated_range_m{0.0f};                        /**< 估计距离，单位 m */
+  bool used_truth_assist{false};                        /**< 是否使用真值辅助 */
+  bool has_estimation_nis{false};                       /**< 是否包含 EKF 估计跟踪 NIS */
+  float estimation_nis{0.0f};                           /**< EKF 归一化新息平方 */
+  bool estimation_nis_gate_exceeded{false};             /**< EKF NIS 是否超过 2 维 95% 门限 */
+  int nfov_channel_id{-1}; /**< NFOV 通道编号；-1 表示 WFOV/未占用 NFOV 资源 */
 };
 
 /**

@@ -55,16 +55,14 @@ TEST(SbirsSessionConfigBuilderTest, RejectsInvalidPointingParameters) {
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 0.0f;
   EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 
-  config.mission.narrow_pointing_max_slew_rate_deg_per_sec =
-      std::numeric_limits<float>::infinity();
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = std::numeric_limits<float>::infinity();
   EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 30.0f;
   config.mission.narrow_pointing_settle_tolerance_deg = -0.01f;
   EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 
-  config.mission.narrow_pointing_settle_tolerance_deg =
-      std::numeric_limits<float>::quiet_NaN();
+  config.mission.narrow_pointing_settle_tolerance_deg = std::numeric_limits<float>::quiet_NaN();
   EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 

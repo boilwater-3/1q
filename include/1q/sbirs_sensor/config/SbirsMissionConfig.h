@@ -22,21 +22,21 @@ enum class ONEQ_API SbirsWorkMode { kStandby = 0, kWideSearch, kSearchAndStare }
 struct ONEQ_API SbirsMissionConfig {
   SbirsWorkMode work_mode{SbirsWorkMode::kSearchAndStare}; /**< 传感器工作模式 */
   bool sensor_enabled{true};                               /**< 传感器是否开启 */
-  float wide_field_fov_az_deg{20.0f};    /**< WFOV 方位视场（FOV），单位 deg */
-  float wide_field_fov_el_deg{20.0f};    /**< WFOV 俯仰视场（FOV），单位 deg */
-  float narrow_field_fov_az_deg{2.0f};   /**< NFOV 方位视场（IFOV），单位 deg */
-  float narrow_field_fov_el_deg{2.0f};   /**< NFOV 俯仰视场（IFOV），单位 deg */
-  float scan_start_az_deg{-60.0f};       /**< WFOV 扫描方位起点，单位 deg */
-  float scan_end_az_deg{60.0f};          /**< WFOV 扫描方位终点，单位 deg */
-  float scan_center_el_deg{0.0f};        /**< WFOV 扫描中心俯仰角，单位 deg */
-  float scan_rate_deg_per_sec{10.0f};    /**< WFOV 扫描速率，单位 deg/s */
-  float min_range_m{1.0e3f};             /**< 距离门控下限 Dmin，单位 m */
-  float max_range_m{5.0e7f};             /**< 距离门控上限 Dmax，单位 m */
-  float frame_rate_hz{10.0f};            /**< 帧率，单位 Hz */
-  float narrow_cue_latency_s{0.0f};      /**< WFOV→NFOV cue 延迟，单位 s */
-  float narrow_pointing_settle_error_deg{0.0f}; /**< NFOV 指向稳定误差，单位 deg */
-  float narrow_pointing_max_slew_rate_deg_per_sec{30.0f}; /**< NFOV 光轴最大转速，单位 deg/s */
-  float narrow_pointing_settle_tolerance_deg{0.01f}; /**< NFOV 光轴稳定容差，单位 deg */
+  float wide_field_fov_az_deg{20.0f};                      /**< WFOV 方位视场（FOV），单位 deg */
+  float wide_field_fov_el_deg{20.0f};                      /**< WFOV 俯仰视场（FOV），单位 deg */
+  float narrow_field_fov_az_deg{2.0f};                     /**< NFOV 方位视场（IFOV），单位 deg */
+  float narrow_field_fov_el_deg{2.0f};                     /**< NFOV 俯仰视场（IFOV），单位 deg */
+  float scan_start_az_deg{-60.0f};                         /**< WFOV 扫描方位起点，单位 deg */
+  float scan_end_az_deg{60.0f};                            /**< WFOV 扫描方位终点，单位 deg */
+  float scan_center_el_deg{0.0f};                          /**< WFOV 扫描中心俯仰角，单位 deg */
+  float scan_rate_deg_per_sec{10.0f};                      /**< WFOV 扫描速率，单位 deg/s */
+  float min_range_m{1.0e3f};                               /**< 距离门控下限 Dmin，单位 m */
+  float max_range_m{5.0e7f};                               /**< 距离门控上限 Dmax，单位 m */
+  float frame_rate_hz{10.0f};                              /**< 帧率，单位 Hz */
+  float narrow_cue_latency_s{0.0f};                        /**< WFOV→NFOV cue 延迟，单位 s */
+  float narrow_pointing_settle_error_deg{0.0f};            /**< NFOV 指向稳定误差，单位 deg */
+  float narrow_pointing_max_slew_rate_deg_per_sec{30.0f};  /**< NFOV 光轴最大转速，单位 deg/s */
+  float narrow_pointing_settle_tolerance_deg{0.01f};       /**< NFOV 光轴稳定容差，单位 deg */
 };
 
 }  // namespace config

@@ -133,8 +133,7 @@ TEST(SbirsPublicApiConvenienceTest, ValidateCycleInputFlagsInvalidDeltaTime) {
 }
 
 TEST(SbirsPublicApiConvenienceTest, ValidateCycleInputAcceptsValidInput) {
-  const session::ValidationIssueList issues =
-      session::ValidateSbirsCycleInput(MakeMinimalInput());
+  const session::ValidationIssueList issues = session::ValidateSbirsCycleInput(MakeMinimalInput());
   EXPECT_FALSE(session::HasValidationError(issues));
 }
 
@@ -161,7 +160,8 @@ TEST(SbirsPublicApiConvenienceTest, CreateWithValidationReportsIssues) {
   (void)result.executed_this_cycle;
 
   // nullptr issues 参数也接受。
-  session::SbirsSession session_null = session::SbirsSession::CreateWithValidation(invalid, nullptr);
+  session::SbirsSession session_null =
+      session::SbirsSession::CreateWithValidation(invalid, nullptr);
   (void)session_null;
   SUCCEED();
 }

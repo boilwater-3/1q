@@ -86,9 +86,7 @@ bool SbirsPointingCoordinator::ReleaseTarget(std::uint64_t target_id) {
   return true;
 }
 
-void SbirsPointingCoordinator::Clear() {
-  channels_.assign(channels_.size(), ChannelRuntime{});
-}
+void SbirsPointingCoordinator::Clear() { channels_.assign(channels_.size(), ChannelRuntime{}); }
 
 bool SbirsPointingCoordinator::IsTargetBound(std::uint64_t target_id) const {
   return ChannelOf(target_id) >= 0;

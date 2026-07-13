@@ -60,14 +60,13 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   environment.environment.sea_state = SbirsSeaState::kHigh;
   environment.environment.visibility_km = 4.0f;
 
-  const SbirsCycleInput input =
-      SbirsCycleInputBuilder()
-          .WithCycleIndex(3U)
-          .WithDeltaTimeSec(0.25f)
-          .WithSatellitePosition(Vector(7000000.0, 4.0, 5.0))
-          .WithEnvironment(environment)
-          .AddTarget(target)
-          .Build();
+  const SbirsCycleInput input = SbirsCycleInputBuilder()
+                                    .WithCycleIndex(3U)
+                                    .WithDeltaTimeSec(0.25f)
+                                    .WithSatellitePosition(Vector(7000000.0, 4.0, 5.0))
+                                    .WithEnvironment(environment)
+                                    .AddTarget(target)
+                                    .Build();
 
   const std::string bytes = EncodeSbirsCycleInput(input);
   ASSERT_FALSE(bytes.empty());
@@ -96,8 +95,7 @@ TEST(SbirsReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
 }
 
 TEST(SbirsReplayCodecRoundtripTest, CycleInputDecodesEmptyScene) {
-  const SbirsCycleInput input =
-      SbirsCycleInputBuilder().WithCycleIndex(1U).Build();
+  const SbirsCycleInput input = SbirsCycleInputBuilder().WithCycleIndex(1U).Build();
   const std::string bytes = EncodeSbirsCycleInput(input);
   SbirsCycleInput decoded;
   ASSERT_TRUE(DecodeSbirsCycleInput(bytes, &decoded));
@@ -284,15 +282,14 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   SbirsEnvironmentConfig environment;
   environment.weather_type = SbirsWeatherType::kCloudy;
 
-  const SbirsRuntimeConfigPatch patch =
-      SbirsRuntimeConfigBuilder()
-          .WithMission(mission)
-          .WithPolicy(policy)
-          .WithEnvironment(environment)
-          .WithWorkMode(SbirsWorkMode::kWideSearch)
-          .WithScanRateDegPerSec(4.0f)
-          .WithSensorEnabled(false)
-          .Build();
+  const SbirsRuntimeConfigPatch patch = SbirsRuntimeConfigBuilder()
+                                            .WithMission(mission)
+                                            .WithPolicy(policy)
+                                            .WithEnvironment(environment)
+                                            .WithWorkMode(SbirsWorkMode::kWideSearch)
+                                            .WithScanRateDegPerSec(4.0f)
+                                            .WithSensorEnabled(false)
+                                            .Build();
   SbirsRuntimeConfigPatch decoded;
   ASSERT_TRUE(DecodeSbirsRuntimeConfigPatch(EncodeSbirsRuntimeConfigPatch(patch), &decoded));
 

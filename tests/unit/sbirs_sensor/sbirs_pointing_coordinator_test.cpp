@@ -18,8 +18,8 @@ SbirsPointingActuatorConfig Config(double rate = 30.0, double tolerance = 0.01) 
   return config;
 }
 
-void ExpectVectorNear(const session::SbirsVector3M& actual,
-                      const session::SbirsVector3M& expected, double tolerance = 1.0e-12) {
+void ExpectVectorNear(const session::SbirsVector3M& actual, const session::SbirsVector3M& expected,
+                      double tolerance = 1.0e-12) {
   EXPECT_NEAR(actual.x, expected.x, tolerance);
   EXPECT_NEAR(actual.y, expected.y, tolerance);
   EXPECT_NEAR(actual.z, expected.z, tolerance);
@@ -69,7 +69,8 @@ TEST(SbirsPointingCoordinatorTest, ReleaseKeepsLosAndClearResetsIt) {
   SbirsPointingCoordinator coordinator(1);
   ASSERT_TRUE(coordinator.Reserve(0, 1U, Vector(1.0, 0.0, 0.0)));
   coordinator.Advance(0, 1U, Vector(0.0, 1.0, 0.0), 1.0, Config());
-  const session::SbirsVector3M released_los = coordinator.Capture().channels[0].actuator.current_los;
+  const session::SbirsVector3M released_los =
+      coordinator.Capture().channels[0].actuator.current_los;
   ASSERT_TRUE(coordinator.ReleaseTarget(1U));
   ASSERT_TRUE(coordinator.Reserve(0, 2U, Vector(0.0, 0.0, 1.0)));
   ExpectVectorNear(coordinator.Capture().channels[0].actuator.current_los, released_los);
@@ -85,8 +86,8 @@ TEST(SbirsPointingCoordinatorTest, MovingCommandTimesOutAndReleasesBinding) {
   SbirsPointingAdvanceResult result;
   for (int step = 0; step < 4; ++step) {
     const session::SbirsVector3M current = coordinator.Capture().channels[0].actuator.current_los;
-    result = coordinator.Advance(0, 9U, Vector(-current.x, -current.y, -current.z), 0.5,
-                                 Config(90.0));
+    result =
+        coordinator.Advance(0, 9U, Vector(-current.x, -current.y, -current.z), 0.5, Config(90.0));
   }
 
   EXPECT_EQ(result.status, SbirsPointingAdvanceStatus::kTimedOut);
@@ -127,8 +128,7 @@ TEST(SbirsPointingCoordinatorTest, InvalidSnapshotIsRejectedAtomically) {
   EXPECT_FALSE(coordinator.Restore(invalid));
   const SbirsPointingCoordinatorSnapshot after = coordinator.Capture();
   EXPECT_EQ(after.channels[0].target_id, before.channels[0].target_id);
-  ExpectVectorNear(after.channels[0].actuator.current_los,
-                   before.channels[0].actuator.current_los);
+  ExpectVectorNear(after.channels[0].actuator.current_los, before.channels[0].actuator.current_los);
 }
 
 }  // namespace

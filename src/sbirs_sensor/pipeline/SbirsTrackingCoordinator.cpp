@@ -1,8 +1,7 @@
 #include "sbirs_sensor/pipeline/SbirsTrackingCoordinator.h"
 
-#include <limits>
-
 #include <Eigen/Cholesky>
+#include <limits>
 
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
 
@@ -13,8 +12,7 @@ namespace {
 constexpr float kSbirsNisChiSquare2Dof95 = 5.99f;
 
 float ComputeNormalizedInnovationSquared(const tracking::SbirsKalmanUpdateResult& update_result) {
-  const Eigen::LLT<tracking::SbirsMeasurementCovariance> llt(
-      update_result.innovation_covariance);
+  const Eigen::LLT<tracking::SbirsMeasurementCovariance> llt(update_result.innovation_covariance);
   if (llt.info() != Eigen::Success) {
     return std::numeric_limits<float>::infinity();
   }
@@ -24,9 +22,9 @@ float ComputeNormalizedInnovationSquared(const tracking::SbirsKalmanUpdateResult
 
 }  // namespace
 
-void SbirsTrackingCoordinator::InitializeTarget(
-    std::uint64_t target_id, const session::SbirsSceneTarget& target,
-    const config::SbirsTrackingConfig& tracking) {
+void SbirsTrackingCoordinator::InitializeTarget(std::uint64_t target_id,
+                                                const session::SbirsSceneTarget& target,
+                                                const config::SbirsTrackingConfig& tracking) {
   tracking::SbirsGaussianState initial_state;
   initial_state.mean(0) = static_cast<float>(target.position_ecef_m.x);
   initial_state.mean(2) = static_cast<float>(target.position_ecef_m.y);
@@ -37,7 +35,8 @@ void SbirsTrackingCoordinator::InitializeTarget(
     initial_state.mean(5) = static_cast<float>(target.velocity_ecef_m_per_s.z);
   }
   const float pos_var = tracking.initial_position_std_m * tracking.initial_position_std_m;
-  const float vel_var = tracking.initial_velocity_std_m_per_s * tracking.initial_velocity_std_m_per_s;
+  const float vel_var =
+      tracking.initial_velocity_std_m_per_s * tracking.initial_velocity_std_m_per_s;
   initial_state.covariance = tracking::SbirsStateCovariance::Zero();
   initial_state.covariance(0, 0) = pos_var;
   initial_state.covariance(1, 1) = vel_var;
@@ -63,8 +62,9 @@ SbirsTrackingUpdateResult SbirsTrackingCoordinator::Update(
     double range_m, float angular_rate_deg_per_sec, float dt_sec,
     const session::SbirsVector3M& satellite_position_ecef_m) {
   SbirsTrackingUpdateResult result;
-  const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
-      policy.error_model, random_source, azimuth_deg, elevation_deg, range_m, angular_rate_deg_per_sec);
+  const foundation::SbirsErrorBearing bearing =
+      foundation::ApplyAngularErrorModel(policy.error_model, random_source, azimuth_deg,
+                                         elevation_deg, range_m, angular_rate_deg_per_sec);
   tracking::SbirsMeasurementVector measurement_rad;
   const float deg2rad = 0.0174532925f;
   measurement_rad << bearing.azimuth_deg * deg2rad, bearing.elevation_deg * deg2rad;
@@ -106,8 +106,10 @@ SbirsTrackingUpdateResult SbirsTrackingCoordinator::Update(
   } else {
     angle_measurement_model_.SetSatellitePosition(satellite_position_ecef_m);
     const tracking::SbirsEkfPredictor predictor(
-        &cv_transition_model_, tracking::SbirsEkfPredictorConfig{policy.tracking.process_noise_diff_coeff});
-    const tracking::SbirsGaussianState predicted = predictor.Predict(filter_states_[target_id], dt_sec);
+        &cv_transition_model_,
+        tracking::SbirsEkfPredictorConfig{policy.tracking.process_noise_diff_coeff});
+    const tracking::SbirsGaussianState predicted =
+        predictor.Predict(filter_states_[target_id], dt_sec);
     const tracking::SbirsEkfUpdater updater(&angle_measurement_model_);
     const tracking::SbirsKalmanUpdateResult update_result =
         updater.Update(predicted, measurement_rad, measurement_covariance);
@@ -125,7 +127,7 @@ SbirsTrackingUpdateResult SbirsTrackingCoordinator::Update(
     nis_gate_exceeded_counts_[target_id] = 0U;
   }
   const session::SbirsVector3M estimated_position{combined.mean(0), combined.mean(2),
-                                                   combined.mean(4)};
+                                                  combined.mean(4)};
   const session::SbirsVector3M estimated_los =
       foundation::Subtract(estimated_position, satellite_position_ecef_m);
   result.output_azimuth_deg = foundation::ComputeAzimuthDeg(estimated_los);
@@ -172,7 +174,8 @@ void SbirsTrackingCoordinator::RestoreRuntimeState(const SbirsTrackingRuntimeSta
   imm_initialized_ = false;
 }
 
-void SbirsTrackingCoordinator::InitializeImmComponents(const config::SbirsTrackingConfig& tracking) {
+void SbirsTrackingCoordinator::InitializeImmComponents(
+    const config::SbirsTrackingConfig& tracking) {
   imm_predictors_owned_.clear();
   imm_predictors_.clear();
   imm_measurement_models_.clear();
@@ -189,10 +192,12 @@ void SbirsTrackingCoordinator::InitializeImmComponents(const config::SbirsTracki
     imm_measurement_models_.push_back(std::move(measurement_model));
     tracking::SbirsEkfPredictorConfig predictor_config;
     predictor_config.noise_diff_coeff = q_values[static_cast<std::size_t>(i)];
-    auto predictor = std::make_unique<tracking::SbirsEkfPredictor>(&cv_transition_model_, predictor_config);
+    auto predictor =
+        std::make_unique<tracking::SbirsEkfPredictor>(&cv_transition_model_, predictor_config);
     imm_predictors_.push_back(predictor.get());
     imm_predictors_owned_.push_back(std::move(predictor));
-    auto updater = std::make_unique<tracking::SbirsEkfUpdater>(imm_measurement_models_.back().get());
+    auto updater =
+        std::make_unique<tracking::SbirsEkfUpdater>(imm_measurement_models_.back().get());
     imm_updaters_.push_back(updater.get());
     imm_updaters_owned_.push_back(std::move(updater));
   }
