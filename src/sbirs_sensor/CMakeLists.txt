@@ -11,6 +11,7 @@ set(SBIRS_ENGINE_SOURCES
     pipeline/SbirsNfovAcquisition.cpp
     pipeline/SbirsNfovScheduler.cpp
     pipeline/SbirsPointingActuator.cpp
+    pipeline/SbirsPointingCoordinator.cpp
     pipeline/SbirsTrackingCoordinator.cpp
 )
 
