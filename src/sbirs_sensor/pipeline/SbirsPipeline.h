@@ -15,6 +15,7 @@
 #include "sbirs_sensor/config/SbirsInternalExecutionConfig.h"
 #include "sbirs_sensor/pipeline/SbirsCuePredictor.h"
 #include "sbirs_sensor/pipeline/SbirsNfovScheduler.h"
+#include "sbirs_sensor/pipeline/SbirsPointingCoordinator.h"
 #include "sbirs_sensor/pipeline/SbirsTrackingCoordinator.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
 
@@ -46,6 +47,7 @@ struct SbirsPipelineSnapshot {
   bool imm_active{false}; /**< 当前 snapshot 是否使用 IMM 模式 */
   std::map<std::uint64_t, tracking::SbirsImmSnapshot> imm_snapshots{}; /**< IMM 滤波状态表 */
   SbirsCuePredictorSnapshot cue_predictor{}; /**< 测量驱动 cue predictor 逐目标历史 */
+  SbirsPointingCoordinatorSnapshot pointing_coordinator{}; /**< 逐 NFOV 通道 ATP 状态 */
 };
 
 /** @brief 单条 pipeline 内部检测结果，组合原始记录与归属。 */
@@ -100,6 +102,7 @@ class SbirsPipeline {
   std::uint64_t next_detection_id_{1U};
   std::map<std::uint64_t, SbirsTargetState> target_states_{};
   SbirsNfovScheduler nfov_scheduler_;  // NFOV 多通道资源调度器
+  SbirsPointingCoordinator pointing_coordinator_;  // NFOV 逐通道 ATP 执行状态
   foundation::SbirsRandomSource random_source_;  // 误差模型确定性随机源
   SbirsCuePredictor cue_predictor_{};
   SbirsTrackingCoordinator tracking_coordinator_{};

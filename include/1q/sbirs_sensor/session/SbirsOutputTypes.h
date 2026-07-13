@@ -50,7 +50,8 @@ enum class ONEQ_API SbirsCaptureFailureReason {
   kNone = 0,              /**< 无失败（成功捕获或仅 WFOV 观测） */
   kNfovAcquisitionFailed, /**< 进入 NFOV 待捕获但捕获失败（视场外或 SNR 不足） */
   kSchedulerSkipped,      /**< WFOV 候选未被调度器选中（资源被占用或排序靠后） */
-  kEstimationNisGateLost  /**< EKF NIS 连续超限导致释放 NFOV 锁定 */
+  kEstimationNisGateLost, /**< EKF NIS 连续超限导致释放 NFOV 锁定 */
+  kNfovPointingTimeout    /**< ATP 光轴在派生等待上限内未稳定 */
 };
 
 /**

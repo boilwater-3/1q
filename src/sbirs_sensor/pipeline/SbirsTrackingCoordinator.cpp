@@ -141,6 +141,7 @@ void SbirsTrackingCoordinator::ReleaseTarget(std::uint64_t target_id) {
 }
 
 void SbirsTrackingCoordinator::ClearForStandby() {
+  filter_states_.clear();
   nis_gate_exceeded_counts_.clear();
   imm_filters_by_target_.clear();
   imm_snapshots_.clear();

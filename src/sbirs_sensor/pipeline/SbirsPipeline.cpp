@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <set>
 #include "sbirs_sensor/environment/SbirsEnvironmentModel.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
 #include "sbirs_sensor/foundation/SbirsGeometry.h"
@@ -24,6 +25,18 @@ float NormalizeAzimuth(float azimuth_deg) {
 }
 
 float AzimuthDelta(float lhs_deg, float rhs_deg) { return NormalizeAzimuth(lhs_deg - rhs_deg); }
+
+session::SbirsVector3M LosFromAzimuthElevation(float azimuth_deg, float elevation_deg) {
+  const double kDegreesToRadians = 0.017453292519943295;
+  const double azimuth_rad = static_cast<double>(azimuth_deg) * kDegreesToRadians;
+  const double elevation_rad = static_cast<double>(elevation_deg) * kDegreesToRadians;
+  const double horizontal = std::cos(elevation_rad);
+  session::SbirsVector3M los;
+  los.x = horizontal * std::cos(azimuth_rad);
+  los.y = horizontal * std::sin(azimuth_rad);
+  los.z = std::sin(elevation_rad);
+  return los;
+}
 
 bool InRectangularFov(float target_az_deg, float target_el_deg, float center_az_deg,
                       float center_el_deg, float fov_az_deg, float fov_el_deg) {
@@ -55,6 +68,7 @@ SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
     : config_(config),
       scan_azimuth_deg_(config.session.mission.scan_start_az_deg),
       nfov_scheduler_(config.session.policy.scheduler.max_concurrent_nfov_locks),
+      pointing_coordinator_(config.session.policy.scheduler.max_concurrent_nfov_locks),
       random_source_(config.session.policy.error_model.random_seed) {}
 
 void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& config) {
@@ -63,8 +77,12 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
   random_source_ = foundation::SbirsRandomSource(config.session.policy.error_model.random_seed);
   // 同步调度器通道上限；运行期 patch 改变通道数后清空既有分配，避免越界。
   nfov_scheduler_ = SbirsNfovScheduler(config.session.policy.scheduler.max_concurrent_nfov_locks);
+  pointing_coordinator_ =
+      SbirsPointingCoordinator(config.session.policy.scheduler.max_concurrent_nfov_locks);
   // 配置可能改变误差/时序语义，不混用提交前后的 WFOV 测量历史。
   cue_predictor_.Clear();
+  target_states_.clear();
+  tracking_coordinator_.ClearForStandby();
 }
 
 SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& input) {
@@ -79,6 +97,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     target_states_.clear();
     tracking_coordinator_.ClearForStandby();
     nfov_scheduler_.Clear();
+    pointing_coordinator_.Clear();
     cue_predictor_.Clear();
     result.scan_azimuth_deg = scan_azimuth_deg_;
     return result;
@@ -93,11 +112,27 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
   const float transmittance = environment::ResolveEffectiveTransmittance(environment_config);
   std::vector<SbirsCandidate> candidates;
+  std::set<std::uint64_t> present_target_ids;
+  for (const session::SbirsSceneTarget& target : input.scene) {
+    present_target_ids.insert(target.target_id);
+  }
+  const SbirsNfovSchedulerSnapshot scheduler_before_scene = nfov_scheduler_.Capture();
+  for (const std::map<std::uint64_t, int>::value_type& assignment :
+       scheduler_before_scene.target_to_channel) {
+    if (present_target_ids.count(assignment.first) == 0U) {
+      target_states_[assignment.first] = SbirsTargetState::kLost;
+      nfov_scheduler_.Release(assignment.first);
+      pointing_coordinator_.ReleaseTarget(assignment.first);
+      cue_predictor_.Release(assignment.first);
+      tracking_coordinator_.ReleaseTarget(assignment.first);
+    }
+  }
 
   for (const session::SbirsSceneTarget& target : input.scene) {
     if (!target.active) {
       target_states_[target.target_id] = SbirsTargetState::kLost;
       nfov_scheduler_.Release(target.target_id);
+      pointing_coordinator_.ReleaseTarget(target.target_id);
       cue_predictor_.Release(target.target_id);
       tracking_coordinator_.ReleaseTarget(target.target_id);
       continue;
@@ -106,7 +141,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (foundation::IsEarthOcculted(input.satellite_position_ecef_m, target.position_ecef_m,
                                     kEarthRadiusM)) {
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
+      nfov_scheduler_.Release(target.target_id);
+      pointing_coordinator_.ReleaseTarget(target.target_id);
       cue_predictor_.Release(target.target_id);
+      tracking_coordinator_.ReleaseTarget(target.target_id);
       continue;
     }
 
@@ -115,7 +153,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     const double range_m = foundation::Norm(los);
     if (range_m < mission.min_range_m || range_m > mission.max_range_m) {
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
+      nfov_scheduler_.Release(target.target_id);
+      pointing_coordinator_.ReleaseTarget(target.target_id);
       cue_predictor_.Release(target.target_id);
+      tracking_coordinator_.ReleaseTarget(target.target_id);
       continue;
     }
 
@@ -183,6 +224,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
             attribution::SbirsCaptureFailureReason::kEstimationNisGateLost;
         target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
         nfov_scheduler_.Release(target.target_id);
+        pointing_coordinator_.ReleaseTarget(target.target_id);
         tracking_coordinator_.ReleaseTarget(target.target_id);
       }
       result.detections.push_back(detection);
@@ -191,7 +233,10 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
     if (!in_wfov || snr < policy.detection.wide_min_snr_linear) {
       target_states_[target.target_id] = SbirsTargetState::kUndetected;
+      nfov_scheduler_.Release(target.target_id);
+      pointing_coordinator_.ReleaseTarget(target.target_id);
       cue_predictor_.Release(target.target_id);
+      tracking_coordinator_.ReleaseTarget(target.target_id);
       continue;
     }
 
@@ -230,21 +275,87 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
     candidate.snr = snr;
     candidates.push_back(candidate);
-    target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
+    if (target_states_[target.target_id] != SbirsTargetState::kAwaitingNfovAcquisition) {
+      target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
+    }
   }
 
-  // 多通道调度：在并发上限内按 design 2.6 优先级选取候选进入首次捕获。
-  const std::vector<const SbirsCandidate*> selected_candidates =
-      nfov_scheduler_.SelectForAcquisition(candidates);
-  for (const SbirsCandidate* selected_ptr : selected_candidates) {
-    const SbirsCandidate& selected = *selected_ptr;
-    target_states_[selected.target->target_id] = SbirsTargetState::kAwaitingNfovAcquisition;
-    // 捕获判据用延迟外推后的真值 az/el（predicted_*）；无速度时等同当前帧真值，保持旧行为。
+  const SbirsPointingActuatorConfig pointing_config{
+      mission.narrow_pointing_max_slew_rate_deg_per_sec,
+      mission.narrow_pointing_settle_tolerance_deg};
+  std::set<std::uint64_t> processed_target_ids;
+  std::set<std::uint64_t> blocked_target_ids;
+
+  const auto append_wfov_detection = [&](const SbirsCandidate& candidate, int channel_id) {
+    SbirsPipelineDetection detection;
+    detection.record.detection_id = next_detection_id_++;
+    detection.record.azimuth_deg = candidate.measured_azimuth_deg;
+    detection.record.elevation_deg = candidate.measured_elevation_deg;
+    detection.record.infrared_snr_linear = static_cast<float>(candidate.snr);
+    detection.record.observation_stage = output::SbirsObservationStage::kWideFieldSearch;
+    detection.record.detected = true;
+    detection.attribution.detection_id = detection.record.detection_id;
+    detection.attribution.target_id = candidate.target->target_id;
+    detection.attribution.target_name = candidate.target->target_name;
+    detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
+    detection.attribution.used_truth_assist = false;
+    detection.attribution.nfov_channel_id = channel_id;
+    result.detections.push_back(detection);
+  };
+  const auto append_acquisition_failure = [&](const SbirsCandidate& candidate, int channel_id,
+                                               attribution::SbirsCaptureFailureReason reason) {
+    SbirsPipelineDetection detection;
+    detection.record.detection_id = next_detection_id_++;
+    detection.record.azimuth_deg = candidate.azimuth_deg;
+    detection.record.elevation_deg = candidate.elevation_deg;
+    detection.record.infrared_snr_linear = static_cast<float>(candidate.snr);
+    detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldAcquisition;
+    detection.record.detected = false;
+    detection.attribution.detection_id = detection.record.detection_id;
+    detection.attribution.target_id = candidate.target->target_id;
+    detection.attribution.target_name = candidate.target->target_name;
+    detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
+    detection.attribution.used_truth_assist = false;
+    detection.attribution.nfov_channel_id = channel_id;
+    detection.attribution.capture_failure_reason = reason;
+    result.detections.push_back(detection);
+  };
+  const auto advance_pointing = [&](const SbirsCandidate& selected, int channel_id) {
+    const std::uint64_t target_id = selected.target->target_id;
+    const SbirsPointingAdvanceResult pointing_result = pointing_coordinator_.Advance(
+        channel_id, target_id,
+        LosFromAzimuthElevation(selected.command_azimuth_deg, selected.command_elevation_deg),
+        input.dt_sec, pointing_config);
+    processed_target_ids.insert(target_id);
+    if (pointing_result.status == SbirsPointingAdvanceStatus::kSlewing) {
+      append_wfov_detection(selected, channel_id);
+      return;
+    }
+    if (pointing_result.status == SbirsPointingAdvanceStatus::kTimedOut) {
+      nfov_scheduler_.Release(target_id);
+      target_states_[target_id] = SbirsTargetState::kWideCandidate;
+      blocked_target_ids.insert(target_id);
+      append_acquisition_failure(selected, channel_id,
+                                 attribution::SbirsCaptureFailureReason::kNfovPointingTimeout);
+      return;
+    }
+    if (pointing_result.status == SbirsPointingAdvanceStatus::kRejected) {
+      nfov_scheduler_.Release(target_id);
+      pointing_coordinator_.ReleaseTarget(target_id);
+      target_states_[target_id] = SbirsTargetState::kWideCandidate;
+      blocked_target_ids.insert(target_id);
+      append_acquisition_failure(selected, channel_id,
+                                 attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
+      return;
+    }
+
     SbirsNfovAcquisitionRequest acquisition_request;
     acquisition_request.delayed_truth_azimuth_deg = selected.delayed_truth_azimuth_deg;
     acquisition_request.delayed_truth_elevation_deg = selected.delayed_truth_elevation_deg;
-    acquisition_request.command_azimuth_deg = selected.command_azimuth_deg;
-    acquisition_request.command_elevation_deg = selected.command_elevation_deg;
+    acquisition_request.command_azimuth_deg =
+        foundation::ComputeAzimuthDeg(pointing_result.current_los);
+    acquisition_request.command_elevation_deg =
+        foundation::ComputeElevationDeg(pointing_result.current_los);
     acquisition_request.pointing_settle_error_deg = mission.narrow_pointing_settle_error_deg;
     acquisition_request.field_of_view_azimuth_deg = mission.narrow_field_fov_az_deg;
     acquisition_request.field_of_view_elevation_deg = mission.narrow_field_fov_el_deg;
@@ -252,14 +363,13 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     acquisition_request.minimum_snr_linear = policy.detection.narrow_min_snr_linear;
     const bool captured = IsNfovAcquisitionEligible(acquisition_request);
     if (captured) {
-      const int channel_id = nfov_scheduler_.Acquire(selected.target->target_id);
-      cue_predictor_.Release(selected.target->target_id);
+      pointing_coordinator_.ReleaseTarget(target_id);
+      cue_predictor_.Release(target_id);
       const bool use_estimated = policy.tracking.enable_estimated_tracking;
-      target_states_[selected.target->target_id] =
+      target_states_[target_id] =
           use_estimated ? SbirsTargetState::kEstimatedTracking : SbirsTargetState::kTruthAssistedTracking;
       if (use_estimated) {
-        tracking_coordinator_.InitializeTarget(selected.target->target_id, *selected.target,
-                                               policy.tracking);
+        tracking_coordinator_.InitializeTarget(target_id, *selected.target, policy.tracking);
       }
       SbirsPipelineDetection detection;
       detection.record.detection_id = next_detection_id_++;
@@ -276,32 +386,70 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.nfov_channel_id = channel_id;
       result.detections.push_back(detection);
     } else {
-      target_states_[selected.target->target_id] = SbirsTargetState::kWideCandidate;
-      // 捕获失败：产出 detected=false 的诊断 attribution（record 不进 raw output，
-      // 仅 attribution 进 result.detection_attributions 供调试/lifecycle 消费）。
-      SbirsPipelineDetection detection;
-      detection.record.detection_id = next_detection_id_++;
-      detection.record.azimuth_deg = selected.azimuth_deg;
-      detection.record.elevation_deg = selected.elevation_deg;
-      detection.record.infrared_snr_linear = static_cast<float>(selected.snr);
-      detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldAcquisition;
-      detection.record.detected = false;
-      detection.attribution.detection_id = detection.record.detection_id;
-      detection.attribution.target_id = selected.target->target_id;
-      detection.attribution.target_name = selected.target->target_name;
-      detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
-      detection.attribution.used_truth_assist = false;
-      detection.attribution.capture_failure_reason =
-          attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed;
-      result.detections.push_back(detection);
+      nfov_scheduler_.Release(target_id);
+      pointing_coordinator_.ReleaseTarget(target_id);
+      target_states_[target_id] = SbirsTargetState::kWideCandidate;
+      blocked_target_ids.insert(target_id);
+      append_acquisition_failure(selected, channel_id,
+                                 attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
     }
+  };
+
+  std::vector<const SbirsCandidate*> awaiting_candidates;
+  for (const SbirsCandidate& candidate : candidates) {
+    const std::uint64_t target_id = candidate.target->target_id;
+    if (target_states_[target_id] == SbirsTargetState::kAwaitingNfovAcquisition &&
+        nfov_scheduler_.IsLocked(target_id)) {
+      awaiting_candidates.push_back(&candidate);
+    }
+  }
+  std::sort(awaiting_candidates.begin(), awaiting_candidates.end(),
+            [this](const SbirsCandidate* lhs, const SbirsCandidate* rhs) {
+              const int lhs_channel = nfov_scheduler_.ChannelOf(lhs->target->target_id);
+              const int rhs_channel = nfov_scheduler_.ChannelOf(rhs->target->target_id);
+              return lhs_channel != rhs_channel ? lhs_channel < rhs_channel
+                                                : lhs->target->target_id < rhs->target->target_id;
+            });
+  for (const SbirsCandidate* candidate : awaiting_candidates) {
+    advance_pointing(*candidate, nfov_scheduler_.ChannelOf(candidate->target->target_id));
+  }
+
+  std::vector<SbirsCandidate> new_candidates;
+  for (const SbirsCandidate& candidate : candidates) {
+    const std::uint64_t target_id = candidate.target->target_id;
+    if (processed_target_ids.count(target_id) == 0U && blocked_target_ids.count(target_id) == 0U &&
+        !nfov_scheduler_.IsLocked(target_id)) {
+      new_candidates.push_back(candidate);
+    }
+  }
+  const std::vector<const SbirsCandidate*> selected_candidates =
+      nfov_scheduler_.SelectForAcquisition(new_candidates);
+  for (const SbirsCandidate* selected : selected_candidates) {
+    const std::uint64_t target_id = selected->target->target_id;
+    const int channel_id = nfov_scheduler_.Acquire(target_id);
+    if (channel_id < 0 ||
+        !pointing_coordinator_.Reserve(
+            channel_id, target_id,
+            LosFromAzimuthElevation(scan_azimuth_deg_, mission.scan_center_el_deg))) {
+      nfov_scheduler_.Release(target_id);
+      pointing_coordinator_.ReleaseTarget(target_id);
+      target_states_[target_id] = SbirsTargetState::kWideCandidate;
+      processed_target_ids.insert(target_id);
+      blocked_target_ids.insert(target_id);
+      append_acquisition_failure(*selected, channel_id,
+                                 attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
+      continue;
+    }
+    target_states_[target_id] = SbirsTargetState::kAwaitingNfovAcquisition;
+    advance_pointing(*selected, channel_id);
   }
 
   // 通道已满（无并发余量）时，未被选中的 WFOV 候选标记为调度跳过。
   const bool resources_full =
       static_cast<int>(nfov_scheduler_.LockedCount()) >= nfov_scheduler_.max_locks();
   for (const SbirsCandidate& candidate : candidates) {
-    if (nfov_scheduler_.IsLocked(candidate.target->target_id)) {
+    const std::uint64_t target_id = candidate.target->target_id;
+    if (processed_target_ids.count(target_id) != 0U || nfov_scheduler_.IsLocked(target_id)) {
       continue;
     }
     SbirsPipelineDetection detection;
@@ -333,6 +481,7 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   snapshot.next_detection_id = next_detection_id_;
   snapshot.target_states = target_states_;
   snapshot.nfov_scheduler = nfov_scheduler_.Capture();
+  snapshot.pointing_coordinator = pointing_coordinator_.Capture();
   snapshot.random_state = random_source_.Capture();
   snapshot.cue_predictor = cue_predictor_.Capture();
   const SbirsTrackingRuntimeState tracking_state = tracking_coordinator_.CaptureRuntimeState();
@@ -344,17 +493,66 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
 }
 
 bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
-  scan_azimuth_deg_ = snapshot.scan_azimuth_deg;
-  next_detection_id_ = snapshot.next_detection_id;
-  target_states_ = snapshot.target_states;
-  nfov_scheduler_.Restore(snapshot.nfov_scheduler);
-  random_source_.Restore(snapshot.random_state);
-  cue_predictor_.Restore(snapshot.cue_predictor);
+  SbirsPointingCoordinator restored_pointing(nfov_scheduler_.max_locks());
+  if (!restored_pointing.Restore(snapshot.pointing_coordinator) ||
+      snapshot.nfov_scheduler.target_to_channel.size() >
+          static_cast<std::size_t>(nfov_scheduler_.max_locks())) {
+    return false;
+  }
+  std::set<int> assigned_channels;
+  for (const std::map<std::uint64_t, int>::value_type& assignment :
+       snapshot.nfov_scheduler.target_to_channel) {
+    const std::map<std::uint64_t, SbirsTargetState>::const_iterator state =
+        snapshot.target_states.find(assignment.first);
+    if (assignment.second < 0 || assignment.second >= nfov_scheduler_.max_locks() ||
+        !assigned_channels.insert(assignment.second).second || state == snapshot.target_states.end() ||
+        (state->second != SbirsTargetState::kAwaitingNfovAcquisition &&
+         state->second != SbirsTargetState::kEstimatedTracking &&
+         state->second != SbirsTargetState::kTruthAssistedTracking)) {
+      return false;
+    }
+    const int pointing_channel = restored_pointing.ChannelOf(assignment.first);
+    if ((state->second == SbirsTargetState::kAwaitingNfovAcquisition &&
+         pointing_channel != assignment.second) ||
+        (state->second != SbirsTargetState::kAwaitingNfovAcquisition && pointing_channel >= 0)) {
+      return false;
+    }
+  }
+  for (const std::map<std::uint64_t, SbirsTargetState>::value_type& state :
+       snapshot.target_states) {
+    if (state.second == SbirsTargetState::kAwaitingNfovAcquisition &&
+        snapshot.nfov_scheduler.target_to_channel.find(state.first) ==
+            snapshot.nfov_scheduler.target_to_channel.end()) {
+      return false;
+    }
+  }
+  const SbirsPointingCoordinatorSnapshot restored_snapshot = restored_pointing.Capture();
+  for (const SbirsPointingChannelSnapshot& channel : restored_snapshot.channels) {
+    if (!channel.has_bound_target) {
+      continue;
+    }
+    const std::map<std::uint64_t, int>::const_iterator assignment =
+        snapshot.nfov_scheduler.target_to_channel.find(channel.target_id);
+    if (assignment == snapshot.nfov_scheduler.target_to_channel.end() ||
+        assignment->second != channel.channel_id ||
+        snapshot.target_states.find(channel.target_id) == snapshot.target_states.end() ||
+        snapshot.target_states.find(channel.target_id)->second !=
+            SbirsTargetState::kAwaitingNfovAcquisition) {
+      return false;
+    }
+  }
   SbirsTrackingRuntimeState tracking_state;
   tracking_state.filter_states = snapshot.filter_states;
   tracking_state.nis_gate_exceeded_counts = snapshot.nis_gate_exceeded_counts;
   tracking_state.imm_active = snapshot.imm_active;
   tracking_state.imm_snapshots = snapshot.imm_snapshots;
+  scan_azimuth_deg_ = snapshot.scan_azimuth_deg;
+  next_detection_id_ = snapshot.next_detection_id;
+  target_states_ = snapshot.target_states;
+  nfov_scheduler_.Restore(snapshot.nfov_scheduler);
+  pointing_coordinator_ = restored_pointing;
+  random_source_.Restore(snapshot.random_state);
+  cue_predictor_.Restore(snapshot.cue_predictor);
   tracking_coordinator_.RestoreRuntimeState(tracking_state);
   return true;
 }
