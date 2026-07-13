@@ -87,10 +87,14 @@ TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
   config::SbirsSessionConfig config;
   config.hardware.optical_aperture_m = 0.8f;
   config.mission.scan_rate_deg_per_sec = 12.0f;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 45.0f;
+  config.mission.narrow_pointing_settle_tolerance_deg = 0.02f;
   config.policy.detection.wide_min_snr_linear = 5.0f;
   config.environment.weather_type = config::SbirsWeatherType::kRain;
   EXPECT_FLOAT_EQ(config.hardware.optical_aperture_m, 0.8f);
   EXPECT_FLOAT_EQ(config.mission.scan_rate_deg_per_sec, 12.0f);
+  EXPECT_FLOAT_EQ(config.mission.narrow_pointing_max_slew_rate_deg_per_sec, 45.0f);
+  EXPECT_FLOAT_EQ(config.mission.narrow_pointing_settle_tolerance_deg, 0.02f);
   EXPECT_FLOAT_EQ(config.policy.detection.wide_min_snr_linear, 5.0f);
   EXPECT_EQ(config.environment.weather_type, config::SbirsWeatherType::kRain);
 }

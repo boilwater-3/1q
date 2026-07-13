@@ -35,6 +35,8 @@ struct ONEQ_API SbirsMissionConfig {
   float frame_rate_hz{10.0f};            /**< 帧率，单位 Hz */
   float narrow_cue_latency_s{0.0f};      /**< WFOV→NFOV cue 延迟，单位 s */
   float narrow_pointing_settle_error_deg{0.0f}; /**< NFOV 指向稳定误差，单位 deg */
+  float narrow_pointing_max_slew_rate_deg_per_sec{30.0f}; /**< NFOV 光轴最大转速，单位 deg/s */
+  float narrow_pointing_settle_tolerance_deg{0.01f}; /**< NFOV 光轴稳定容差，单位 deg */
 };
 
 }  // namespace config

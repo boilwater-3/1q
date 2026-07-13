@@ -1,5 +1,7 @@
 #include "1q/sbirs_sensor/config/SbirsSessionConfigValidation.h"
 
+#include <cmath>
+
 namespace sbirs_sensor {
 namespace config {
 namespace {
@@ -37,6 +39,14 @@ ValidationIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& config)
   }
   if (config.mission.scan_rate_deg_per_sec < 0.0f) {
     AddError("mission scan rate must be non-negative", &issues);
+  }
+  if (!std::isfinite(config.mission.narrow_pointing_max_slew_rate_deg_per_sec) ||
+      config.mission.narrow_pointing_max_slew_rate_deg_per_sec <= 0.0f) {
+    AddError("mission narrow pointing max slew rate must be positive and finite", &issues);
+  }
+  if (!std::isfinite(config.mission.narrow_pointing_settle_tolerance_deg) ||
+      config.mission.narrow_pointing_settle_tolerance_deg < 0.0f) {
+    AddError("mission narrow pointing settle tolerance must be non-negative and finite", &issues);
   }
   if (config.policy.detection.wide_min_snr_linear < 0.0f ||
       config.policy.detection.narrow_min_snr_linear < 0.0f) {

@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #include "1q/sbirs_sensor/config/SbirsSessionConfigBuilder.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfigValidation.h"
 
@@ -38,6 +40,31 @@ TEST(SbirsSessionConfigBuilderTest, RejectsInvalidScanRate) {
   const sbirs_sensor::config::SbirsSessionConfig config =
       sbirs_sensor::config::SbirsSessionConfigBuilder().WithMission(mission).Build();
 
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+}
+
+TEST(SbirsSessionConfigBuilderTest, PointingDefaultsAreProductionValues) {
+  const sbirs_sensor::config::SbirsMissionConfig mission;
+
+  EXPECT_FLOAT_EQ(mission.narrow_pointing_max_slew_rate_deg_per_sec, 30.0f);
+  EXPECT_FLOAT_EQ(mission.narrow_pointing_settle_tolerance_deg, 0.01f);
+}
+
+TEST(SbirsSessionConfigBuilderTest, RejectsInvalidPointingParameters) {
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 0.0f;
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec =
+      std::numeric_limits<float>::infinity();
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 30.0f;
+  config.mission.narrow_pointing_settle_tolerance_deg = -0.01f;
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.mission.narrow_pointing_settle_tolerance_deg =
+      std::numeric_limits<float>::quiet_NaN();
   EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 
