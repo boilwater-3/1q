@@ -230,6 +230,8 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.mission.sensor_enabled = true;
   config.mission.scan_rate_deg_per_sec = 3.0f;
   config.mission.narrow_cue_latency_s = 0.05f;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 17.5f;
+  config.mission.narrow_pointing_settle_tolerance_deg = 0.025f;
   config.policy.detection.wide_min_snr_linear = 3.5f;
   config.policy.detection.narrow_min_snr_linear = 7.0f;
   config.policy.error_model.angular_sigma_deg = 0.08f;
@@ -253,6 +255,8 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_EQ(decoded.mission.work_mode, SbirsWorkMode::kWideSearch);
   EXPECT_TRUE(decoded.mission.sensor_enabled);
   EXPECT_FLOAT_EQ(decoded.mission.scan_rate_deg_per_sec, 3.0f);
+  EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_max_slew_rate_deg_per_sec, 17.5f);
+  EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_settle_tolerance_deg, 0.025f);
   EXPECT_FLOAT_EQ(decoded.policy.detection.narrow_min_snr_linear, 7.0f);
   EXPECT_FLOAT_EQ(decoded.policy.error_model.angular_sigma_deg, 0.08f);
   EXPECT_EQ(decoded.policy.error_model.random_seed, 42U);
@@ -272,6 +276,8 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
 TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   SbirsMissionConfig mission;
   mission.work_mode = SbirsWorkMode::kStandby;
+  mission.narrow_pointing_max_slew_rate_deg_per_sec = 12.0f;
+  mission.narrow_pointing_settle_tolerance_deg = 0.03f;
   SbirsPolicyConfig policy;
   policy.detection.wide_min_snr_linear = 5.0f;
   policy.tracking.nis_gate_loss_cycles = 3U;
@@ -292,6 +298,8 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
 
   EXPECT_TRUE(decoded.has_mission);
   EXPECT_EQ(decoded.mission.work_mode, SbirsWorkMode::kStandby);
+  EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_max_slew_rate_deg_per_sec, 12.0f);
+  EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_settle_tolerance_deg, 0.03f);
   EXPECT_TRUE(decoded.has_policy);
   EXPECT_FLOAT_EQ(decoded.policy.detection.wide_min_snr_linear, 5.0f);
   EXPECT_EQ(decoded.policy.tracking.nis_gate_loss_cycles, 3U);

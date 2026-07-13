@@ -33,6 +33,8 @@ table SbirsMissionConfig {
   frame_rate_hz: float;
   narrow_cue_latency_s: float;
   narrow_pointing_settle_error_deg: float;
+  narrow_pointing_max_slew_rate_deg_per_sec: float = 30.0;
+  narrow_pointing_settle_tolerance_deg: float = 0.01;
 }
 
 table SbirsDetectionPolicyConfig {

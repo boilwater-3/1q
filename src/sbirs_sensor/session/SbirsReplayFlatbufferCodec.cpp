@@ -160,7 +160,9 @@ flatbuffers::Offset<sbirs::replay::SbirsMissionConfig> EncodeMissionConfig(
       value.wide_field_fov_az_deg, value.wide_field_fov_el_deg, value.narrow_field_fov_az_deg,
       value.narrow_field_fov_el_deg, value.scan_start_az_deg, value.scan_end_az_deg,
       value.scan_center_el_deg, value.scan_rate_deg_per_sec, value.min_range_m, value.max_range_m,
-      value.frame_rate_hz, value.narrow_cue_latency_s, value.narrow_pointing_settle_error_deg);
+      value.frame_rate_hz, value.narrow_cue_latency_s, value.narrow_pointing_settle_error_deg,
+      value.narrow_pointing_max_slew_rate_deg_per_sec,
+      value.narrow_pointing_settle_tolerance_deg);
 }
 
 void DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
@@ -183,6 +185,9 @@ void DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
   out->frame_rate_hz = fb->frame_rate_hz();
   out->narrow_cue_latency_s = fb->narrow_cue_latency_s();
   out->narrow_pointing_settle_error_deg = fb->narrow_pointing_settle_error_deg();
+  out->narrow_pointing_max_slew_rate_deg_per_sec =
+      fb->narrow_pointing_max_slew_rate_deg_per_sec();
+  out->narrow_pointing_settle_tolerance_deg = fb->narrow_pointing_settle_tolerance_deg();
 }
 
 flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
