@@ -27,7 +27,13 @@ struct SbirsTrackingRuntimeState {
   std::map<std::uint64_t, tracking::SbirsImmSnapshot> imm_snapshots{};
 };
 
-/** @brief Result of one estimated-tracking update. */
+/** @brief Result of one estimated-tracking prediction. */
+struct SbirsTrackingPredictionResult {
+  float output_azimuth_deg{0.0f};
+  float output_elevation_deg{0.0f};
+};
+
+/** @brief Result of one estimated-tracking measurement correction. */
 struct SbirsTrackingUpdateResult {
   float output_azimuth_deg{0.0f};
   float output_elevation_deg{0.0f};
@@ -45,6 +51,15 @@ class SbirsTrackingCoordinator {
  public:
   void InitializeTarget(std::uint64_t target_id, const session::SbirsSceneTarget& target,
                         const config::SbirsTrackingConfig& tracking);
+  SbirsTrackingPredictionResult PredictTarget(
+      std::uint64_t target_id, const config::SbirsPolicyConfig& policy, float dt_sec,
+      const session::SbirsVector3M& satellite_position_ecef_m);
+  SbirsTrackingUpdateResult CorrectTarget(
+      std::uint64_t target_id, const config::SbirsPolicyConfig& policy,
+      foundation::SbirsRandomSource* random_source, float azimuth_deg, float elevation_deg,
+      double range_m, float angular_rate_deg_per_sec,
+      const session::SbirsVector3M& satellite_position_ecef_m);
+  void MarkMeasurementUnavailable(std::uint64_t target_id);
   SbirsTrackingUpdateResult Update(std::uint64_t target_id,
                                    const config::SbirsPolicyConfig& policy,
                                    foundation::SbirsRandomSource* random_source,
@@ -60,6 +75,9 @@ class SbirsTrackingCoordinator {
   void InitializeImmComponents(const config::SbirsTrackingConfig& tracking);
   tracking::SbirsImmFilter* CreateImmFilter(
       std::uint64_t target_id, const tracking::SbirsGaussianState& initial_state);
+  static SbirsTrackingPredictionResult BuildPredictionResult(
+      const tracking::SbirsGaussianState& state,
+      const session::SbirsVector3M& satellite_position_ecef_m);
 
   tracking::SbirsCvTransitionModel cv_transition_model_{};
   tracking::SbirsAngleMeasurementModel angle_measurement_model_{};

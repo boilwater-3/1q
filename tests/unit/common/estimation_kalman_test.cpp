@@ -185,6 +185,56 @@ TEST(EstimationNonStandardDimTest, TwoDimMeasurementInstantiates) {
   EXPECT_TRUE(predicted4.covariance.isApprox(s4.covariance));
 }
 
+TEST(EstimationImmFilterTest, SplitPredictCorrectMatchesProcessWithDynamicR) {
+  using Filter = ImmFilter<kTestStateDim, kTestMeasDim>;
+  KalmanPredictorConfig slow_config;
+  slow_config.noise_diff_coeff = 1.0f;
+  KalmanPredictorConfig fast_config;
+  fast_config.noise_diff_coeff = 25.0f;
+  KalmanPredictor<kTestStateDim, kTestMeasDim> slow_predictor(slow_config);
+  KalmanPredictor<kTestStateDim, kTestMeasDim> fast_predictor(fast_config);
+  KalmanUpdater<kTestStateDim, kTestMeasDim> slow_updater;
+  KalmanUpdater<kTestStateDim, kTestMeasDim> fast_updater;
+
+  ImmConfig config;
+  config.transition_probability.resize(2, 2);
+  config.transition_probability << 0.95f, 0.05f, 0.10f, 0.90f;
+  config.initial_weights.resize(2);
+  config.initial_weights << 0.6f, 0.4f;
+  std::vector<Filter::Predictor*> predictors{&slow_predictor, &fast_predictor};
+  std::vector<Filter::Updater*> updaters{&slow_updater, &fast_updater};
+  Filter complete(config, predictors, updaters);
+  Filter split(config, predictors, updaters);
+
+  const State prior = MakePrior();
+  std::vector<Filter::ModelState> states(2);
+  states[0] = Filter::ModelState(prior, 0.6f);
+  states[1] = Filter::ModelState(prior, 0.4f);
+  complete.SetModelStates(states);
+  split.SetModelStates(states);
+
+  State::MeasurementVector measurement(106.0f, 2.0f, -1.0f);
+  State::MeasurementCovariance dynamic_R =
+      State::MeasurementCovariance::Identity() * 16.0f;
+  complete.Process(measurement, 0.5f, dynamic_R);
+  split.Predict(0.5f);
+  split.Correct(measurement, dynamic_R);
+
+  EXPECT_TRUE(complete.GetCombinedState().mean.isApprox(split.GetCombinedState().mean, 1.0e-6f));
+  EXPECT_TRUE(complete.GetCombinedState().covariance.isApprox(
+      split.GetCombinedState().covariance, 1.0e-5f));
+  EXPECT_TRUE(complete.GetModelWeights().isApprox(split.GetModelWeights(), 1.0e-6f));
+  const auto& complete_results = complete.GetModelUpdateResults();
+  const auto& split_results = split.GetModelUpdateResults();
+  ASSERT_EQ(complete_results.size(), split_results.size());
+  for (std::size_t index = 0U; index < complete_results.size(); ++index) {
+    EXPECT_TRUE(complete_results[index].innovation.isApprox(split_results[index].innovation,
+                                                            1.0e-6f));
+    EXPECT_TRUE(complete_results[index].innovation_covariance.isApprox(
+        split_results[index].innovation_covariance, 1.0e-5f));
+  }
+}
+
 }  // namespace
 }  // namespace estimation
 }  // namespace common

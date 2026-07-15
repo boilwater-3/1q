@@ -160,6 +160,26 @@ class ImmFilter {
 
     CombineEstimates();
   }
+  /**
+   * @brief 在一次已完成的 Predict 之后执行量测校正。
+   * @param[in] measurement 量测向量。
+   * @note 调用者必须先调用 Predict；用于量测可用性在预测后才能判定的因果链路。
+   */
+  void Correct(const MeasurementVector& measurement) {
+    UpdateModels(measurement);
+    CombineEstimates();
+  }
+  /**
+   * @brief 在一次已完成的 Predict 之后使用动态量测噪声协方差执行校正。
+   * @param[in] measurement 量测向量。
+   * @param[in] dynamic_R 量测噪声协方差。
+   * @note 调用者必须先调用 Predict；结果应与同输入的 Process 等价。
+   */
+  void Correct(const MeasurementVector& measurement,
+               const MeasurementCovariance& dynamic_R) {
+    UpdateModels(measurement, dynamic_R);
+    CombineEstimates();
+  }
   /** @return 组合高斯状态。 */
   GaussianStateT GetCombinedState() const { return combined_state_; }
   /** @brief 各模型最近 update result（供 NIS 等诊断消费）。 */
