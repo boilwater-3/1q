@@ -56,6 +56,10 @@ int EccmEvaluator::ResolvePriorityFromScore(int base_priority, float score) {
   return base_priority + static_cast<int>(score * 10.0f);
 }
 
+float EccmEvaluator::ResolveBurnthroughGain(float score) {
+  return std::max(1.0f, std::min(2.0f, 1.0f + 0.25f * score));
+}
+
 float EccmEvaluator::ClampUnit(float value) {
   return std::max(0.0f, std::min(1.0f, value));
 }
@@ -213,12 +217,17 @@ std::string EccmEvaluator::BuildProposalRationale(
 void EccmEvaluator::AppendProposal(
     session::ControlDirectiveType type, int priority,
     const std::string& rationale,
-    std::vector<session::TacticalProposal>* proposals) {
+    std::vector<session::TacticalProposal>* proposals,
+    bool has_requested_value, float requested_value) {
   if (proposals == nullptr) {
     return;
   }
-  proposals->push_back(
-      session::TacticalProposal{BuildDirective(type), priority, rationale});
+  const session::ControlDirective directive =
+      has_requested_value
+          ? session::ControlDirective(type, session::ControlDirectiveSource::SURVIVABILITY,
+                                      requested_value)
+          : BuildDirective(type);
+  proposals->push_back(session::TacticalProposal{directive, priority, rationale});
 }
 
 // ===== public Evaluate =====
@@ -316,7 +325,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
             session::ControlDirectiveType::
                 REQUEST_ECCM_BURNTHROUGH_GAIN,
             selection),
-        proposals);
+        proposals, true, ResolveBurnthroughGain(selection.burnthrough_gain_score));
     MarkActivated(&result, activation_source);
   }
 
@@ -428,7 +437,7 @@ EccmEvaluator::Result EccmEvaluator::Evaluate(
                                  selection.burnthrough_gain_score),
         BuildProposalRationale(
             session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN, selection),
-        proposals);
+        proposals, true, ResolveBurnthroughGain(selection.burnthrough_gain_score));
     MarkActivated(&result, activation_source);
   }
   if (!result.eccm_activated && !hold_only) {

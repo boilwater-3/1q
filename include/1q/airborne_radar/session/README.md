@@ -3,7 +3,7 @@
 > 本模块所有公开类型使用 `Ar*` 命名。
 
 ## 决策域
-- ITacticalDecisionEngine.h — 决策引擎抽象接口（唯一的公共扩展点），含 TacticalDecisionResult、TargetCategory
+- DecisionControlTypes.h — 仅包含 proposal、决策观测、外部响应、提交状态和控制来源；默认战术算法状态/结果不公开
 - DecisionInputFrame.h — 单周期决策输入帧（关联/探测质量摘要 + 轨迹快照）
 - DecisionSourceInfo.h — ECCM 干扰源摘要（JammingTechnique 枚举 + EccmSourceInfo）
 - TrackStateSnapshot.h — 轨迹快照 DTO（位置/速度/加速度/RCS/航迹状态）
@@ -27,7 +27,7 @@
 - [ArCycleOutputAdapter](ArCycleOutputAdapter.h) — 周期输出适配器（内部帧 → ECEF 输出帧）
 
 ## 会话
-- [ArSession](ArSession.h) — 主会话（PIMPL，静态工厂 Create / CreateWithDecisionEngine）
+- [ArSession](ArSession.h) — 主会话（PIMPL，静态工厂 Create；通过 SubmitExternalDecision 提交步间 LPI/ECCM 响应）
 - [ArReplaySession](ArReplaySession.h) — 回放会话
 - [ArTraceSession](ArTraceSession.h) — 跟踪会话
 

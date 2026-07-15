@@ -8,10 +8,11 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "airborne_radar/decision/EccmEvaluator.h"
 #include "airborne_radar/decision/LpiEvaluator.h"
+#include "airborne_radar/decision/TacticalDecisionTypes.h"
 #include "airborne_radar/decision/ThreatAssessmentEvaluator.h"
 #include "airborne_radar/environment/IFeatureRepository.h"
 
@@ -24,7 +25,7 @@ namespace decision {
  * 编排 ThreatAssessment → LPI → ECCM 的评估流水线，
  * 各 evaluator 通过明确的 Result 结构体传递数据，不共享中间状态。
  */
-class TacticalCoordinator final : public session::ITacticalDecisionEngine {
+class TacticalCoordinator final {
  public:
   /**
    * @brief 构造函数。
@@ -41,7 +42,7 @@ class TacticalCoordinator final : public session::ITacticalDecisionEngine {
    */
   session::TacticalDecisionResult Evaluate(
       const session::DecisionInputFrame& input_frame,
-      session::TacticalStateStore& state_store) override;
+      session::TacticalStateStore& state_store);
 
  private:
   /**

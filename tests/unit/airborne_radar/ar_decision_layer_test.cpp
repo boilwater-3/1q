@@ -116,9 +116,14 @@ TEST(TacticalCoordinatorTest, HighThreatClearEnvironment) {
 
   EXPECT_EQ(PrimaryCategory(result), "HIGH_THREAT_FIGHTER");
   EXPECT_EQ(result.selected_mode, ext::TacticalMode::kThreatResponse);
-  ASSERT_EQ(result.proposals.size(), 1u);
+  ASSERT_EQ(result.proposals.size(), 2u);
   EXPECT_EQ(result.proposals[0].directive.type,
             acc::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION);
+  EXPECT_TRUE(result.proposals[0].directive.has_requested_value);
+  EXPECT_FLOAT_EQ(result.proposals[0].directive.requested_value, 0.5f);
+  EXPECT_EQ(result.proposals[1].directive.type,
+            acc::ControlDirectiveType::REQUEST_LPI_DWELL);
+  EXPECT_FLOAT_EQ(result.proposals[1].directive.requested_value, 0.75f);
 }
 
 TEST(TacticalCoordinatorTest, HighRcsCanPromoteThreatWithModerateSpeed) {

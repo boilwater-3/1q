@@ -10,7 +10,9 @@
 #include <memory>
 
 #include "1q/airborne_radar/session/ArCycleResult.h"
+#include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
+#include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 
@@ -21,10 +23,6 @@ class IEnvironmentService;
 namespace session {
 class MutableArContext;
 }
-namespace session {
-class ITacticalDecisionEngine;
-}  // namespace session
-
 namespace extension {
 
 /**
@@ -42,7 +40,20 @@ struct ArControllerRuntimeState {
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
-  signal::SignalPipelineRuntimeState signal_pipeline_state{};
+  session::ArControlProfile control_profile{};
+  decision::ControlReducerRuntimeState control_reducer_state{};
+  bool has_pending_internal_decision{false};
+  std::uint32_t pending_internal_cycle_index{0U};
+  std::uint64_t pending_internal_batch_id{0U};
+  std::vector<session::TacticalProposal> pending_internal_proposals{};
+  bool has_pending_external_decision{false};
+  session::ExternalDecisionResponse pending_external_decision{};
+  bool has_latest_decision_observation{false};
+  session::DecisionObservation latest_decision_observation{};
+  session::DecisionControlSource last_applied_decision_source{
+      session::DecisionControlSource::kNone};
+  std::uint32_t last_applied_decision_cycle_index{0U};
+  std::uint64_t last_applied_decision_batch_id{0U};
 };
 }  // namespace extension
 }  // namespace airborne_radar
@@ -67,18 +78,6 @@ class ArController {
    */
   ArController(session::MutableArContext& ar_context,
                signal::ISignalPipeline& signal_pipeline,
-               environment::IEnvironmentService& environment_service);
-
-  /**
-   * @brief 构造函数，显式注入新的决策引擎。
-   * @param[in] ar_context AR 上下文引用。
-   * @param[in] signal_pipeline 信号处理流水线引用。
-   * @param[in] decision_engine 战术决策引擎引用。
-   * @param[in] environment_service 环境服务引用。
-   */
-  ArController(session::MutableArContext& ar_context,
-               signal::ISignalPipeline& signal_pipeline,
-               session::ITacticalDecisionEngine& decision_engine,
                environment::IEnvironmentService& environment_service);
 
   /** @brief 执行一次 AR 处理循环 */
@@ -131,6 +130,20 @@ class ArController {
    * @return 最近一次周期的 signal pipeline 终止原因；正常执行时为 kNone。
    */
   session::SignalCycleAbortReason GetLastSignalCycleAbortReason() const;
+
+  /** @brief 获取最近成功周期发布的决策观测。 */
+  const session::DecisionObservation& GetLatestDecisionObservation() const;
+
+  /** @brief 当前是否存在可供外部模块响应的决策观测。 */
+  bool HasLatestDecisionObservation() const;
+
+  /** @brief 提交与最新决策观测匹配的外部 LPI/ECCM 响应。 */
+  session::ExternalDecisionSubmitStatus SubmitExternalDecision(
+      const session::ExternalDecisionResponse& response);
+
+  session::DecisionControlSource GetLastAppliedDecisionSource() const;
+  std::uint32_t GetLastAppliedDecisionCycleIndex() const;
+  std::uint64_t GetLastAppliedDecisionBatchId() const;
 
   /**
    * @brief 捕获当前控制器运行态快照。

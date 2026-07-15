@@ -1,6 +1,7 @@
 #include "airborne_radar/decision/ControlReducer.h"
 
 #include <algorithm>
+#include <cmath>
 #include <set>
 #include <vector>
 
@@ -55,6 +56,29 @@ bool IsEccmDirective(session::ControlDirectiveType type) {
     case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
     case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
     case session::ControlDirectiveType::REQUEST_LPI_DWELL:
+    case session::ControlDirectiveType::NONE:
+    default:
+      return false;
+  }
+}
+
+bool IsValidDirectiveValue(const session::ControlDirective& directive) {
+  switch (directive.type) {
+    case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
+      return directive.has_requested_value && std::isfinite(directive.requested_value) &&
+             directive.requested_value > 0.0f && directive.requested_value <= 1.0f;
+    case session::ControlDirectiveType::REQUEST_LPI_DWELL:
+      return directive.has_requested_value && std::isfinite(directive.requested_value) &&
+             directive.requested_value >= 0.25f && directive.requested_value <= 1.0f;
+    case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
+      return directive.has_requested_value && std::isfinite(directive.requested_value) &&
+             directive.requested_value > 1.0f && directive.requested_value <= 2.0f;
+    case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
+    case session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING:
+    case session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY:
+    case session::ControlDirectiveType::REQUEST_ECCM_REJITTER:
+      return !directive.has_requested_value;
     case session::ControlDirectiveType::NONE:
     default:
       return false;
@@ -165,14 +189,12 @@ void AdvanceAgilityFrequencyHopPhase(const session::ArControlProfile& previous,
 
 /**
  * @brief 把单条控制意图映射到运行时控制真值。
- * @param config 归并器配置。
  * @param directive 待应用的控制意图。
  * @param profile 待写入的控制真值。
  * @param applied 已接受的控制意图列表。
  * @param rejected 已拒绝的控制意图列表。
  */
-void ApplyDirectiveToProfile(const extension::ControlReducerConfig& config,
-                             const session::ControlDirective& directive,
+void ApplyDirectiveToProfile(const session::ControlDirective& directive,
                              session::ArControlProfile* profile,
                              std::vector<session::ControlDirective>* applied,
                              std::vector<session::ControlDirective>* rejected) {
@@ -183,7 +205,7 @@ void ApplyDirectiveToProfile(const extension::ControlReducerConfig& config,
   switch (directive.type) {
     case session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION:
       profile->enable_lpi_power_control = true;
-      profile->lpi_power_scale = config.lpi_power_scale_on_reduction;
+      profile->lpi_power_scale = directive.requested_value;
       applied->push_back(directive);
       break;
     case session::ControlDirectiveType::REQUEST_LPI_BEAMFORMING:
@@ -191,7 +213,7 @@ void ApplyDirectiveToProfile(const extension::ControlReducerConfig& config,
       applied->push_back(directive);
       break;
     case session::ControlDirectiveType::REQUEST_LPI_DWELL:
-      profile->lpi_dwell_scale = config.lpi_dwell_scale;
+      profile->lpi_dwell_scale = directive.requested_value;
       applied->push_back(directive);
       break;
     case session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER:
@@ -211,7 +233,7 @@ void ApplyDirectiveToProfile(const extension::ControlReducerConfig& config,
       applied->push_back(directive);
       break;
     case session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN:
-      profile->eccm_burnthrough_gain = config.eccm_burnthrough_gain;
+      profile->eccm_burnthrough_gain = directive.requested_value;
       applied->push_back(directive);
       break;
     case session::ControlDirectiveType::NONE:
@@ -317,6 +339,13 @@ ControlReducerRuntimeState ControlReducer::GetRuntimeState() const {
   return state;
 }
 
+void ControlReducer::RestoreRuntimeState(const ControlReducerRuntimeState& state) {
+  lpi_hold_cycles_remaining_ = state.lpi_hold_cycles_remaining;
+  eccm_hold_cycles_remaining_ = state.eccm_hold_cycles_remaining;
+  lpi_cooldown_cycles_remaining_ = state.lpi_cooldown_cycles_remaining;
+  eccm_cooldown_cycles_remaining_ = state.eccm_cooldown_cycles_remaining;
+}
+
 extension::ControlReductionResult ControlReducer::Reduce(
     const session::ArControlProfile& previous_profile,
     const std::vector<session::TacticalProposal>& proposals) {
@@ -339,6 +368,10 @@ extension::ControlReductionResult ControlReducer::Reduce(
   bool has_eccm_requests = false;
   for (std::size_t i = 0; i < sorted_proposals.size(); ++i) {
     const session::ControlDirective& directive = sorted_proposals[i].directive;
+    if (!IsValidDirectiveValue(directive)) {
+      result.rejected_directives.push_back(directive);
+      continue;
+    }
     if (applied_types.find(directive.type) != applied_types.end()) {
       result.rejected_directives.push_back(directive);
       continue;
@@ -367,7 +400,7 @@ extension::ControlReductionResult ControlReducer::Reduce(
     lpi_cooldown_cycles_remaining_ = 0U;
     for (std::size_t i = 0; i < accepted_directives.size(); ++i) {
       if (IsLpiDirective(accepted_directives[i].type)) {
-        ApplyDirectiveToProfile(config_, accepted_directives[i], &next_profile,
+        ApplyDirectiveToProfile(accepted_directives[i], &next_profile,
                                 &result.applied_directives, &result.rejected_directives);
       }
     }
@@ -389,7 +422,7 @@ extension::ControlReductionResult ControlReducer::Reduce(
     eccm_cooldown_cycles_remaining_ = 0U;
     for (std::size_t i = 0; i < accepted_directives.size(); ++i) {
       if (IsEccmDirective(accepted_directives[i].type)) {
-        ApplyDirectiveToProfile(config_, accepted_directives[i], &next_profile,
+        ApplyDirectiveToProfile(accepted_directives[i], &next_profile,
                                 &result.applied_directives, &result.rejected_directives);
       }
     }

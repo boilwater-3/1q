@@ -1,7 +1,7 @@
 # Airborne Radar 当前设计
 
 Status: active
-Last-reviewed: 2026-07-06
+Last-reviewed: 2026-07-16
 Authority: current airborne_radar module design
 
 本文描述 `airborne_radar` 当前架构、数据流和算法边界。跨模块 public API、builder、输出三层模型等共同规则见 `docs/common/contract.md`。
@@ -12,19 +12,19 @@ Authority: current airborne_radar module design
 
 `airborne_radar` 提供机载雷达探测、航迹维护、环境/干扰建模、战术决策、控制指令归约、trace/replay、调试视图和生命周期事件。
 
-它是当前五个业务模块中唯一保留用户自定义 SPI 的模块，但自定义点被限定在 `ITacticalDecisionEngine`：
+AR 的决策扩展点是同进程步间 observation/response seam：
 
-- 可以替换战术决策引擎，改变 LPI/ECCM/威胁响应策略。
-- 不可以替换 public 层之外的 signal pipeline、controller、environment service、mutable context 或 tracking lifecycle。
-- 自定义决策引擎消费稳定 DTO：`DecisionInputFrame`、`TacticalStateStore`、`TacticalDecisionResult`。
-- 决策输出仍由内部 `ControlReducer` 和 `ControlCommandMapper` 归约为下一周期 `ArControlProfile`。
+- 每个成功周期通过 `DecisionObservation` 输出 `DecisionInputFrame` 与实际控制 profile。
+- 调用方在下一次 `Step` 前运行外部模块，并用 `SubmitExternalDecision` 提交完整 LPI/ECCM proposals。
+- 外部模块不替换内部对象；威胁分类和内部 baseline 每个成功周期仍持续计算。
+- 外部 proposals 仍由内部 `ControlReducer` 和 `ControlCommandMapper` 归约为唯一 `ArControlProfile`。
 
 当前模块的稳定外部使用方式是：
 
 1. 用 `ArSessionConfig` 或 builder 描述硬件、任务、策略、环境四域配置。
 2. 用 `ArCycleInput` 或 adapter 提供平台姿态、高度、目标、环境和干扰源。
 3. 调用 `ArSession::Step()` 获取 track output，或调用 `ArSession::StepWithResult()` 获取结构化执行结果。
-4. 如需自定义战术逻辑，使用 `ArSession::CreateWithDecisionEngine()` 注入 `ITacticalDecisionEngine`。
+4. 如需自定义 LPI/ECCM，读取结果中的 observation，外部评估后调用 `SubmitExternalDecision()`。
 5. 如需调整运行期参数，使用 runtime patch；patch 提交失败时必须保持各子系统状态一致。
 
 `Ar*` 是 AR 模块的 public API 前缀（config/session/cycle/result/adapter/trace/replay/debug/lifecycle 等 DTO 与门面）。`RadarEquations`、`radar_cross_section`、`radar_mount_angles_deg`、`ComposeRadarAttitudeDeg` 等领域术语与领域函数不属于模块前缀范围，保留原名。
@@ -39,7 +39,12 @@ Authority: current airborne_radar module design
 |---|---|---|
 | `airborne_radar.hpp` | 模块聚合入口 | 聚合稳定 public API，不暴露内部 signal/environment/runtime 类型 |
 | `config/` | `ArSessionConfig`、runtime patch、semantic builder、validation、jamming semantics | 表达硬件、任务、策略、环境和干扰敏感性 |
-| `session/` | `ArSession`、cycle input/result、scene target、output types、trace/replay、debug/lifecycle、decision SPI | 是调用方主要使用面；`ITacticalDecisionEngine` 是唯一 public SPI |
+| `session/` | `ArSession`、cycle input/result、scene target、output types、trace/replay、debug/lifecycle、decision DTO | observation/response 是唯一 public 决策 seam |
+
+Public 决策 DTO 只包含 `TacticalProposal`、`DecisionObservation`、
+`ExternalDecisionResponse`、`ExternalDecisionSubmitStatus` 和 `DecisionControlSource`。
+默认算法使用的 `TargetCategory`、`TacticalMode`、`TacticalStateStore` 和
+`TacticalDecisionResult` 位于 `src/airborne_radar/decision/`，不属于安装边界。
 
 内部实现位于 `src/airborne_radar/`：
 
@@ -65,13 +70,13 @@ flowchart TB
     Entry["airborne_radar.hpp\n稳定聚合入口"]
     Config["config/*\nHardware / Mission / Policy / Environment\nRuntimePatch / Builder / Validation"]
     SessionApi["session/*\nArSession / ArCycleInput / ArCycleResult\nTrackOutputFrame / SceneTarget"]
-    DecisionSpi["ITacticalDecisionEngine\n唯一用户可定制 SPI"]
+    DecisionSeam["DecisionObservation / ExternalDecisionResponse\n步间外部决策 seam"]
     Tools["Trace / Replay / Debug / Lifecycle\n追踪 / 回放 / 调试 / 生命周期"]
   end
 
   subgraph Session["Session orchestration / 会话编排层"]
     ArSession["ArSession\nStep / StepWithResult / RuntimePatch"]
-    Composition["ArSessionCompositionRoot\n默认依赖图 / 可注入 DecisionEngine"]
+    Composition["ArSessionCompositionRoot\n默认内部依赖图"]
     Context["MutableArContext\n周期输入 / 命令 / 最新控制配置"]
     Rollback["runtime snapshots\nContext / Pipeline / Environment / Controller 快照回滚"]
     Adapters["Input/Output adapters\n外部输入输出适配"]
@@ -104,7 +109,7 @@ flowchart TB
   Entry --> Config
   Entry --> SessionApi
   SessionApi --> ArSession
-  DecisionSpi --> Composition
+  DecisionSeam --> ArSession
   Config --> ArSession
   ArSession --> Composition
   Composition --> Context
@@ -121,7 +126,7 @@ flowchart TB
   Assoc --> Track
   Track --> DecisionFrame
   DecisionFrame --> Tactical
-  DecisionSpi -. "optional replace / 可选替换" .-> Tactical
+  DecisionSeam -. "next-cycle proposals / 下一周期建议" .-> Reducer
   Tactical --> Threat
   Tactical --> Lpi
   Tactical --> Eccm
@@ -134,10 +139,10 @@ flowchart TB
 
 读图顺序：
 
-1. 外部只从 Public API 进入。除 `ITacticalDecisionEngine` 外，不应依赖内部类型。
+1. 外部只从 Public API 的 observation/response seam 进入，不依赖内部类型。
 2. `ArSessionCompositionRoot` 默认装配 context、pipeline、environment service、controller 和默认 `TacticalCoordinator`。
 3. `ArSession` 在运行期配置提交前捕获四类快照；提交或执行失败时回滚，避免 pipeline/environment/controller 状态部分生效。
-4. `ArController` 每周期冻结环境快照，再让 signal pipeline 和 decision engine 看到同一份环境事实。
+4. `ArController` 每周期冻结环境快照，再让 signal pipeline 和内部 decision engine 看到同一份环境事实。
 5. 决策 proposal 不直接修改 signal pipeline，而是经 `ControlReducer`/`ControlCommandMapper` 形成下一周期控制配置。
 
 ### 1.4 执行时序图
@@ -177,14 +182,17 @@ sequenceDiagram
       Session->>Env: UpdateSceneState(input.environment)\n更新待生效环境
       Session->>Context: BeginCycle(input)\n写入周期输入
       Session->>Controller: RunOnce()\n执行一个周期
+      Controller->>Mapper: Reduce previous external response or internal baseline\n归约上一成功周期控制
+      Mapper->>Pipe: SetControlProfile\n写入本周期唯一控制真值
       Controller->>Env: BeginCycle + SampleEnvironment\n冻结并采样环境
       Controller->>Pipe: RunCycle(targets, environment)\n探测 / 关联 / 航迹
       Pipe-->>Controller: SignalCycleResult + DecisionInputFrame\n信号结果与决策帧
       Controller->>Decision: Evaluate(frame, state_store)\n评估战术决策
-      Decision-->>Controller: TacticalDecisionResult\n分类与 proposals
-      Controller->>Mapper: Apply(proposals)\n归约到控制配置
-      Mapper->>Context: Submit commands / update control profile\n提交命令并更新控制配置
-      Session-->>Caller: ArCycleResult\n输出帧 / 指令 / 质量指标
+      Decision-->>Controller: TacticalDecisionResult\n当前分类与下一周期 internal baseline
+      Controller->>Controller: stage baseline + observation\n暂存 baseline 与观测
+      Session-->>Caller: ArCycleResult + DecisionObservation\n输出结果和决策观测
+      Caller->>Caller: external Evaluate(observation)\n同进程外部评估
+      Caller->>Session: SubmitExternalDecision(response)\n在下一次 Step 前提交
     end
   end
 ```
@@ -197,7 +205,8 @@ flowchart LR
     Config["ArSessionConfig\n硬件 / 任务 / 策略 / 环境"]
     Cycle["ArCycleInput\n平台姿态 / 高度 / 目标 / 环境输入"]
     Patch["ArRuntimeConfigPatch\n运行期工程参数 / 环境 / 干扰敏感性"]
-    Spi["ITacticalDecisionEngine\n可选外部决策引擎"]
+    Observation["DecisionObservation\n本周期输入帧 + 实际 profile"]
+    Response["ExternalDecisionResponse\n下一周期完整 LPI/ECCM proposals"]
   end
 
   subgraph Environment["Environment / 环境与干扰"]
@@ -216,7 +225,7 @@ flowchart LR
 
   subgraph Decision["Decision and control / 决策与控制"]
     Default["TacticalCoordinator\n默认威胁 / LPI / ECCM"]
-    External["External decision engine\n外部 SPI 实现"]
+    External["External decision module\n同进程外部模块"]
     Reduce["ControlReducer\n优先级 / 冲突 / 保持 / 冷却"]
     Profile["ArControlProfile\n下一周期控制配置"]
   end
@@ -240,10 +249,11 @@ flowchart LR
   Assoc --> Track
   Track --> Frame
   Frame --> Default
-  Frame --> External
-  Spi --> External
+  Frame --> Observation
+  Observation --> External
+  External --> Response
   Default --> Reduce
-  External --> Reduce
+  Response --> Reduce
   Reduce --> Profile
   Profile --> Scan
   Track --> TrackOut
@@ -433,19 +443,46 @@ selected mode 规则：
 - 否则如果 LPI 请求降低暴露，选择 `kThreatResponse`。
 - 其余为 `kBaseline`。
 
-默认决策结果会把目标分类回填到 track output frame。外部 `ITacticalDecisionEngine` 可以替换这套决策逻辑，但仍必须遵守 DTO 输入输出，并接受内部控制归约。
+默认决策结果始终把目标分类回填到 track output frame，并在每个成功周期推进
+`TacticalStateStore`、计算下一周期 internal baseline。外部响应只覆盖 LPI/ECCM proposals，
+不替换威胁分类路径；因此外部长期生效后，内部 baseline 仍能立即接管。
+[evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::RadarSessionAppliesMatchingExternalDecisionOnNextSuccessfulCycle]
+
+LPI 激活时输出两个参数化 proposal：功率比例沿用威胁/距离分档，范围为 `0.3–0.8`；
+驻留比例为 `clamp(0.5 + 0.5 * power_scale, 0.65, 0.90)`。首批不自动启用 LPI
+beamforming。[evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp::LpiEvaluatorTest.EmitsDynamicPowerAndCoupledDwellAcrossRangeBands]
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.ExternalLpiParametersAlterNextPhysicalDetection]
+
+ECCM 保持既有干扰事实、关联压力和措施选择；烧穿达到既有评分阈值后输出
+`clamp(1.0 + 0.25 * burnthrough_gain_score, 1.0, 2.0)`，且实际 proposal 必须落在
+`(1, 2]`。[evidence: tests/unit/airborne_radar/ar_eccm_evaluator_test.cpp::EccmEvaluatorTest.BurnthroughGainIsMonotonicAndClamped]
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.ExternalBurnthroughGainAltersNextPhysicalDetection]
 
 ### 2.8 控制归约和跨周期反馈
 
-decision engine 输出的是 tactical proposal，不是直接生效的硬件控制。`ControlReducer` 和 `ControlCommandMapper` 负责把 proposal 变成下一周期 `ArControlProfile`：
+内部 baseline 或整包外部响应输出的是 tactical proposal，不是直接生效的硬件控制。
+`ControlReducer` 和 `ControlCommandMapper` 在下一成功周期开始前把二者之一变成唯一
+`ArControlProfile`；外部与内部 proposals 不合并：
 
 - 不同域 proposal 会按优先级、策略表和冲突规则归并。
 - beam 类冲突默认偏向生存性。
 - 保持窗口使 proposal 停止后控制可继续维持若干周期。
 - cooldown 防止同一域反复进出造成控制抖动。
 - 频率捷变等行为可以有 hop phase 的跨周期状态。
+- LPI 功率要求有限且位于 `(0,1]`，驻留位于 `[0.25,1]`，ECCM 烧穿位于 `(1,2]`；
+  其他布尔 directive 禁止携带标量，参数化 directive 禁止缺值。
+- 同时出现烧穿和 LPI 降功率时，生存性规则把最终功率比例提升到至少 `0.85`。
+- 外部响应必须匹配最新 observation 的 cycle/batch；错源、重复提交、重复 directive type
+  或任一非法 proposal 都整包拒绝。合法空集合表示明确关闭 LPI/ECCM。
+- 无合法外部响应时自动使用 internal baseline。
+[evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp::ControlReducerTest.RejectsMissingNonFiniteOutOfRangeAndUnexpectedValues]
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::RejectsMismatchedDuplicateAndInvalidExternalResponses]
 
 controller 在一个周期开始时把当前 control profile 传给 signal pipeline，因此决策影响的是后续周期，不应假设同周期内 proposal 立即改变已经完成的探测。
+执行失败时 session 恢复 control profile、reducer 计数器、internal baseline 和待消费外部
+响应；pipeline 快照由 session 所有，controller 快照只恢复 controller 自身状态，避免同一
+pipeline 被重复恢复。该响应可供下一次成功执行重试。
+[evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::PublicApiConvenienceTest.RadarSessionAutomaticallyRestoresPendingExternalDecisionAfterPipelineAbort]
 
 ### 2.9 输出、输入校验和失败行为
 

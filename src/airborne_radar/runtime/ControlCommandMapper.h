@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "airborne_radar/decision/ControlReducerTypes.h"
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/DecisionControlTypes.h"
 
 namespace airborne_radar {
 namespace decision {

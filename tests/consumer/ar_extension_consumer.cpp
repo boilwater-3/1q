@@ -1,45 +1,50 @@
 /**
  * @file ar_extension_consumer.cpp
- * @brief 验证安装后机载雷达扩展接口可被外部工程实现并接入会话。
+ * @brief 验证安装后机载雷达步间外部决策接口可被外部工程使用。
  *
- * 本 consumer 演示 public API 的唯一自定义扩展点:外部实现 ITacticalDecisionEngine
- * 替换 AR 决策逻辑,其余组件(context / pipeline / environment service)由
- * ArSession::Create 内部默认装配,不对外暴露。
+ * 本 consumer 演示 StepWithResult -> 外部 Evaluate -> SubmitExternalDecision。
  */
 
-#include <vector>
-
 #include "1q/airborne_radar/config/ArSessionConfig.h"
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArSession.h"
+#include "1q/airborne_radar/session/DecisionControlTypes.h"
 
 namespace airborne_radar {
 namespace {
 
-class DummyDecisionEngine : public session::ITacticalDecisionEngine {
- public:
-  session::TacticalDecisionResult Evaluate(const session::DecisionInputFrame& input_frame,
-                                             session::TacticalStateStore& state_store) override {
-    (void)input_frame;
-    (void)state_store;
-    return {};
-  }
-};
+session::ExternalDecisionResponse EvaluateExternal(
+    const session::DecisionObservation& observation) {
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = observation.input_frame.cycle_index;
+  response.source_batch_id = observation.input_frame.batch_id;
+  return response;
+}
 
 }  // namespace
 }  // namespace airborne_radar
 
 int main() {
-  airborne_radar::DummyDecisionEngine decision_engine;
-
-  // 注入自定义决策引擎创建会话;context/pipeline/environment 由工厂内部装配。
   airborne_radar::session::ArSession session =
-      airborne_radar::session::ArSession::CreateWithDecisionEngine(
-          airborne_radar::config::ArSessionConfig{}, decision_engine);
+      airborne_radar::session::ArSession::Create(airborne_radar::config::ArSessionConfig{});
 
   airborne_radar::session::ArCycleInput input;
-  const airborne_radar::session::ArCycleResult result = session.StepWithResult(input);
-  return result.executed_this_cycle ? 0 : 1;
+  const airborne_radar::session::ArCycleResult first = session.StepWithResult(input);
+  if (!first.executed_this_cycle || !first.has_decision_observation) {
+    return 1;
+  }
+  const airborne_radar::session::ExternalDecisionResponse response =
+      airborne_radar::EvaluateExternal(first.decision_observation);
+  if (session.SubmitExternalDecision(response) !=
+      airborne_radar::session::ExternalDecisionSubmitStatus::kAccepted) {
+    return 2;
+  }
+  ++input.cycle_index;
+  const airborne_radar::session::ArCycleResult second = session.StepWithResult(input);
+  return second.executed_this_cycle &&
+                 second.applied_decision_source ==
+                     airborne_radar::session::DecisionControlSource::kExternal
+             ? 0
+             : 3;
 }

@@ -18,7 +18,6 @@
 #include "1q/airborne_radar/session/ArInputValidation.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/airborne_radar/session/ArSession.h"
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "1q/coordinate/position_transform.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/runtime/ArController.h"
@@ -426,16 +425,6 @@ class RecordingSignalPipeline : public signal::ISignalPipeline {
   bool should_accept_updates_{true};
   std::size_t run_cycle_count_{0U};
   std::size_t update_config_count_{0U};
-};
-
-class NoopDecisionEngine : public session::ITacticalDecisionEngine {
- public:
-  session::TacticalDecisionResult Evaluate(const session::DecisionInputFrame& input_frame,
-                                           session::TacticalStateStore& state_store) override {
-    (void)input_frame;
-    (void)state_store;
-    return {};
-  }
 };
 
 }  // namespace
@@ -1085,6 +1074,98 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultSurfacesValidationError
                                 session::ValidationCode::kNonFiniteCycleDeltaTime));
   EXPECT_TRUE(ContainsIssueCode(result.validation_issues,
                                 session::ValidationCode::kMissingRangeAndCartesianPosition));
+}
+
+TEST(PublicApiConvenienceTest, RadarSessionAppliesMatchingExternalDecisionOnNextSuccessfulCycle) {
+  session::ArSession session = session::ArSession::Create(MakeConvenienceSessionConfig());
+  session::ArCycleInput first_input = MakeCycleInput(session::ArSceneTargetList{
+      model::MakeAirTarget(901U, 1000.0f, 0.0f, 100.0f, 800.0f, 0.0f, 0.0f, 2.5f),
+  });
+
+  const session::ArCycleResult first = session.StepWithResult(first_input);
+  ASSERT_TRUE(first.executed_this_cycle);
+  ASSERT_TRUE(first.has_decision_observation);
+  EXPECT_EQ(first.applied_decision_source, session::DecisionControlSource::kNone);
+  ASSERT_EQ(first.track_output_frame.tracks.size(), 1U);
+  EXPECT_NE(first.track_output_frame.tracks[0].target_type, "UNKNOWN");
+  EXPECT_EQ(first.decision_observation.input_frame.cycle_index,
+            first.track_output_frame.cycle_index);
+  EXPECT_EQ(first.decision_observation.input_frame.batch_id,
+            first.track_output_frame.batch_id);
+
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = first.decision_observation.input_frame.cycle_index;
+  response.source_batch_id = first.decision_observation.input_frame.batch_id;
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.4f),
+      60, "external power"});
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_DWELL,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.7f),
+      55, "external dwell"});
+  ASSERT_EQ(session.SubmitExternalDecision(response),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+  EXPECT_EQ(session.SubmitExternalDecision(response),
+            session::ExternalDecisionSubmitStatus::kAlreadySubmitted);
+
+  session::ArCycleInput second_input = first_input;
+  ++second_input.cycle_index;
+  const session::ArCycleResult second = session.StepWithResult(second_input);
+  ASSERT_TRUE(second.executed_this_cycle);
+  EXPECT_EQ(second.applied_decision_source, session::DecisionControlSource::kExternal);
+  EXPECT_EQ(second.applied_decision_cycle_index, response.source_cycle_index);
+  EXPECT_EQ(second.applied_decision_batch_id, response.source_batch_id);
+  ASSERT_TRUE(second.has_control_profile);
+  EXPECT_FLOAT_EQ(second.control_profile.lpi_power_scale, 0.4f);
+  EXPECT_FLOAT_EQ(second.control_profile.lpi_dwell_scale, 0.7f);
+  ASSERT_TRUE(second.has_decision_observation);
+  EXPECT_FLOAT_EQ(second.decision_observation.active_control_profile.lpi_power_scale, 0.4f);
+  ASSERT_EQ(second.track_output_frame.tracks.size(), 1U);
+  EXPECT_NE(second.track_output_frame.tracks[0].target_type, "UNKNOWN");
+}
+
+TEST(PublicApiConvenienceTest,
+     RadarSessionAutomaticallyRestoresPendingExternalDecisionAfterPipelineAbort) {
+  session::ArSession session = session::ArSession::Create(MakeConvenienceSessionConfig());
+  session::ArCycleInput input = MakeCycleInput(session::ArSceneTargetList{
+      model::MakeAirTarget(902U, 1000.0f, 0.0f, 100.0f, 800.0f, 0.0f, 0.0f, 2.5f),
+  });
+  const session::ArCycleResult first = session.StepWithResult(input);
+  ASSERT_TRUE(first.executed_this_cycle);
+  ASSERT_TRUE(first.has_decision_observation);
+
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = first.decision_observation.input_frame.cycle_index;
+  response.source_batch_id = first.decision_observation.input_frame.batch_id;
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.4f),
+      60, "external power retained across abort"});
+  ASSERT_EQ(session.SubmitExternalDecision(response),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+
+  config::ArRuntimeConfigPatch disable_sensor;
+  disable_sensor.has_sensor_enabled = true;
+  disable_sensor.sensor_enabled = false;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(disable_sensor));
+  ++input.cycle_index;
+  const session::ArCycleResult aborted = session.StepWithResult(input);
+  EXPECT_FALSE(aborted.executed_this_cycle);
+  EXPECT_FALSE(aborted.has_decision_observation);
+  EXPECT_TRUE(aborted.reused_previous_output);
+
+  config::ArRuntimeConfigPatch enable_sensor;
+  enable_sensor.has_sensor_enabled = true;
+  enable_sensor.sensor_enabled = true;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(enable_sensor));
+  const session::ArCycleResult retried = session.StepWithResult(input);
+  ASSERT_TRUE(retried.executed_this_cycle);
+  EXPECT_EQ(retried.applied_decision_source, session::DecisionControlSource::kExternal);
+  EXPECT_EQ(retried.applied_decision_cycle_index, response.source_cycle_index);
+  EXPECT_EQ(retried.applied_decision_batch_id, response.source_batch_id);
+  ASSERT_TRUE(retried.has_control_profile);
+  EXPECT_FLOAT_EQ(retried.control_profile.lpi_power_scale, 0.4f);
 }
 
 TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnderJammedScene) {

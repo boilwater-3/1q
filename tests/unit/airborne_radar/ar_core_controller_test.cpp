@@ -14,7 +14,6 @@
 
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/session/ArCommand.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
@@ -71,51 +70,6 @@ config::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_power_
 }  // namespace
 
 using FakeRadarContext = session::MutableArContext;
-
-class FixedDirectiveDecisionEngine : public session::ITacticalDecisionEngine {
- public:
-  explicit FixedDirectiveDecisionEngine(session::ControlDirective directive)
-      : directive_(std::move(directive)) {}
-
-  session::TacticalDecisionResult Evaluate(const session::DecisionInputFrame&,
-                                           session::TacticalStateStore&) override {
-    session::TacticalDecisionResult result;
-    result.proposals.push_back(session::TacticalProposal(directive_, 10, "test directive"));
-    return result;
-  }
-
- private:
-  session::ControlDirective directive_;
-};
-
-class FixedProposalDecisionEngine : public session::ITacticalDecisionEngine {
- public:
-  explicit FixedProposalDecisionEngine(std::vector<session::TacticalProposal> proposals)
-      : proposals_(std::move(proposals)) {}
-
-  session::TacticalDecisionResult Evaluate(const session::DecisionInputFrame&,
-                                           session::TacticalStateStore&) override {
-    session::TacticalDecisionResult result;
-    result.proposals = proposals_;
-    return result;
-  }
-
- private:
-  std::vector<session::TacticalProposal> proposals_;
-};
-
-class CapturingDecisionEngine : public session::ITacticalDecisionEngine {
- public:
-  session::TacticalDecisionResult Evaluate(const session::DecisionInputFrame& frame,
-                                           session::TacticalStateStore&) override {
-    last_frame = frame;
-    ++evaluate_count;
-    return session::TacticalDecisionResult();
-  }
-
-  session::DecisionInputFrame last_frame{};
-  std::size_t evaluate_count{0U};
-};
 
 /// @brief CoreControllerTest 覆盖核心调度与指令下发路径。
 class CoreControllerTest : public ::testing::Test {};
@@ -210,7 +164,8 @@ TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
-
+  EXPECT_TRUE(radar_context.SubmittedCommands().empty());
+  controller.RunOnce();
   const auto& cmds = radar_context.SubmittedCommands();
   EXPECT_GT(cmds.size(), 0u);
 }
@@ -259,9 +214,7 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
   }());
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  CapturingDecisionEngine decision_engine;
-  extension::ArController controller(radar_context, signal_pipeline, decision_engine,
-                                        environment_service);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
 
@@ -269,17 +222,19 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
   const std::vector<signal::tracking::TrackMeasurement> measurements =
       signal_pipeline.GetLastTrackMeasurements();
 
-  EXPECT_TRUE(decision_engine.last_frame.environment_jamming_detected);
-  EXPECT_EQ(decision_engine.last_frame.environment_jamming_detected,
+  const session::DecisionInputFrame& decision_frame =
+      controller.GetLatestDecisionObservation().input_frame;
+  EXPECT_TRUE(decision_frame.environment_jamming_detected);
+  EXPECT_EQ(decision_frame.environment_jamming_detected,
             frozen_snapshot.jamming_detected);
-  EXPECT_EQ(decision_engine.last_frame.eccm_source_info.has_jamming_signal,
+  EXPECT_EQ(decision_frame.eccm_source_info.has_jamming_signal,
             frozen_snapshot.jamming_detected);
-  ASSERT_EQ(decision_engine.last_frame.eccm_source_info.jammer_sources.size(),
+  ASSERT_EQ(decision_frame.eccm_source_info.jammer_sources.size(),
             frozen_snapshot.jammer_sources.size());
-  ASSERT_FALSE(decision_engine.last_frame.eccm_source_info.jammer_sources.empty());
+  ASSERT_FALSE(decision_frame.eccm_source_info.jammer_sources.empty());
   ASSERT_FALSE(frozen_snapshot.jammer_sources.empty());
   EXPECT_FLOAT_EQ(
-      decision_engine.last_frame.eccm_source_info.jammer_sources.front().jammer_power_db,
+      decision_frame.eccm_source_info.jammer_sources.front().jammer_power_db,
       frozen_snapshot.jammer_sources.front().power_db);
   ASSERT_EQ(measurements.size(), 1U);
   EXPECT_EQ(measurements[0].filtered_feature.jamming_detected, frozen_snapshot.jamming_detected);
@@ -291,12 +246,11 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
 
   environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline signal_pipeline;
-  CapturingDecisionEngine decision_engine;
-  extension::ArController controller(radar_context, signal_pipeline, decision_engine,
-                                        environment_service);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
-  EXPECT_FALSE(decision_engine.last_frame.environment_jamming_detected);
+  EXPECT_FALSE(controller.GetLatestDecisionObservation()
+                   .input_frame.environment_jamming_detected);
 
   config::JammerEmitterState jammer_source;
   jammer_source.technique = config::JammingTechnique::kNoiseSuppression;
@@ -316,7 +270,8 @@ TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
 
   controller.RunOnce();
 
-  EXPECT_TRUE(decision_engine.last_frame.environment_jamming_detected);
+  EXPECT_TRUE(controller.GetLatestDecisionObservation()
+                  .input_frame.environment_jamming_detected);
   EXPECT_TRUE(environment_service.SampleEnvironment().jamming_detected);
 }
 
@@ -338,19 +293,18 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  CapturingDecisionEngine decision_engine;
-  extension::ArController controller(radar_context, signal_pipeline, decision_engine,
-                                        environment_service);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
 
   const session::EnvironmentSnapshot frozen_snapshot = environment_service.SampleEnvironment();
-  ASSERT_EQ(decision_engine.evaluate_count, 1u);
-  EXPECT_TRUE(decision_engine.last_frame.environment_jamming_detected);
-  ASSERT_EQ(decision_engine.last_frame.eccm_source_info.jammer_sources.size(), 1u);
+  const session::DecisionInputFrame& decision_frame =
+      controller.GetLatestDecisionObservation().input_frame;
+  EXPECT_TRUE(decision_frame.environment_jamming_detected);
+  ASSERT_EQ(decision_frame.eccm_source_info.jammer_sources.size(), 1u);
   ASSERT_EQ(frozen_snapshot.jammer_sources.size(), 1u);
   const session::EccmJammerSourceInfo& mapped_source =
-      decision_engine.last_frame.eccm_source_info.jammer_sources.front();
+      decision_frame.eccm_source_info.jammer_sources.front();
   const session::JammerSourceFact& frozen_source = frozen_snapshot.jammer_sources.front();
   EXPECT_EQ(mapped_source.technique, session::JammingTechnique::kDeception);
   EXPECT_FLOAT_EQ(mapped_source.jammer_power_db, 9.0f);
@@ -359,14 +313,14 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   EXPECT_FLOAT_EQ(mapped_source.prf_lock_risk, frozen_source.prf_lock_risk);
   EXPECT_NEAR(mapped_source.direction_deg.azimuth_deg, 30.0f, 1e-4f);
   EXPECT_FLOAT_EQ(mapped_source.angular_span_deg, 8.0f);
-  EXPECT_EQ(decision_engine.last_frame.association_quality_info.dominant_jamming_semantic,
+  EXPECT_EQ(decision_frame.association_quality_info.dominant_jamming_semantic,
             config::JammingSemantic::kDeception);
-  EXPECT_GT(decision_engine.last_frame.association_quality_info.jamming_severity, 0.0f);
-  EXPECT_GT(decision_engine.last_frame.association_quality_info.association_stress, 0.0f);
-  EXPECT_EQ(decision_engine.last_frame.perception_quality_info.input_target_count, 1u);
-  EXPECT_EQ(decision_engine.last_frame.perception_quality_info.detection_count, 1u);
-  EXPECT_FLOAT_EQ(decision_engine.last_frame.perception_quality_info.detection_rate, 1.0f);
-  EXPECT_FLOAT_EQ(decision_engine.last_frame.perception_quality_info.detection_stress, 0.0f);
+  EXPECT_GT(decision_frame.association_quality_info.jamming_severity, 0.0f);
+  EXPECT_GT(decision_frame.association_quality_info.association_stress, 0.0f);
+  EXPECT_EQ(decision_frame.perception_quality_info.input_target_count, 1u);
+  EXPECT_EQ(decision_frame.perception_quality_info.detection_count, 1u);
+  EXPECT_FLOAT_EQ(decision_frame.perception_quality_info.detection_rate, 1.0f);
+  EXPECT_FLOAT_EQ(decision_frame.perception_quality_info.detection_stress, 0.0f);
 }
 
 TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFirstCycle) {
@@ -376,10 +330,7 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
   environment::EnvironmentService environment_service;
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  CapturingDecisionEngine decision_engine;
-
-  extension::ArController controller(radar_context, signal_pipeline, decision_engine,
-                                        environment_service);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
 
   controller.RunOnce();
 
@@ -392,9 +343,11 @@ TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFir
       0U);
   EXPECT_FALSE(
       session::CountTracksByStatus(latest_track_output_frame, session::TrackStatus::kLost) > 0U);
-  ASSERT_EQ(decision_engine.last_frame.tracks.size(), 1U);
-  EXPECT_EQ(decision_engine.last_frame.tracks[0].status, session::TrackStatus::kTentative);
-  EXPECT_EQ(decision_engine.last_frame.tracks[0].association_key,
+  const session::DecisionInputFrame& decision_frame =
+      controller.GetLatestDecisionObservation().input_frame;
+  ASSERT_EQ(decision_frame.tracks.size(), 1U);
+  EXPECT_EQ(decision_frame.tracks[0].status, session::TrackStatus::kTentative);
+  EXPECT_EQ(decision_frame.tracks[0].association_key,
             latest_track_output_frame.tracks[0].association_key);
 }
 
@@ -549,11 +502,236 @@ TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline
 
   controller.RunOnce();
   EXPECT_EQ(signal_pipeline.GetControlProfile().version, 0u);
-  const std::uint64_t first_pending_version = radar_context.LatestControlProfile().version;
-  EXPECT_GT(first_pending_version, 0u);
+  EXPECT_EQ(radar_context.LatestControlProfile().version, 0u);
 
   controller.RunOnce();
-  EXPECT_EQ(signal_pipeline.GetControlProfile().version, first_pending_version);
+  EXPECT_GT(signal_pipeline.GetControlProfile().version, 0u);
+  EXPECT_EQ(controller.GetLastAppliedDecisionSource(),
+            session::DecisionControlSource::kInternal);
+}
+
+TEST_F(CoreControllerTest, MatchingExternalResponseReplacesInternalBaseline) {
+  FakeRadarContext radar_context(BuildSingleTarget(800.0f, 2.5f, false));
+  environment::EnvironmentService environment_service;
+  signal::pipeline::SignalPipeline signal_pipeline;
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
+
+  controller.RunOnce();
+  const session::DecisionInputFrame frame =
+      controller.GetLatestDecisionObservation().input_frame;
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = frame.cycle_index;
+  response.source_batch_id = frame.batch_id;
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.4f),
+      60, "external power"});
+  EXPECT_EQ(controller.SubmitExternalDecision(response),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+
+  controller.RunOnce();
+  EXPECT_EQ(controller.GetLastAppliedDecisionSource(),
+            session::DecisionControlSource::kExternal);
+  EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.4f);
+}
+
+TEST_F(CoreControllerTest, ExternalLpiParametersAlterNextPhysicalDetection) {
+  config::ArSessionConfig session_config = MakeDetectionFocusedConfig();
+  session_config.hardware.enable_physics_detection = true;
+  FakeRadarContext radar_context(BuildSingleTarget(220.0f, 10000.0f, false));
+  environment::EnvironmentService environment_service;
+  signal::pipeline::SignalPipeline signal_pipeline(session_config);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
+
+  controller.RunOnce();
+  const std::vector<signal::tracking::TrackMeasurement> baseline_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+  ASSERT_EQ(baseline_measurements.size(), 1U);
+  const session::DecisionInputFrame frame =
+      controller.GetLatestDecisionObservation().input_frame;
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = frame.cycle_index;
+  response.source_batch_id = frame.batch_id;
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.4f),
+      60, "external power"});
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_DWELL,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.7f),
+      55, "external dwell"});
+  ASSERT_EQ(controller.SubmitExternalDecision(response),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+
+  controller.RunOnce();
+  const std::vector<signal::tracking::TrackMeasurement> controlled_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+  ASSERT_EQ(controlled_measurements.size(), 1U);
+  EXPECT_EQ(controller.GetLastAppliedDecisionSource(),
+            session::DecisionControlSource::kExternal);
+  EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.4f);
+  EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_dwell_scale, 0.7f);
+  EXPECT_LT(controlled_measurements[0].raw_measurement.detection_margin_db,
+            baseline_measurements[0].raw_measurement.detection_margin_db);
+}
+
+TEST_F(CoreControllerTest, ExternalBurnthroughGainAltersNextPhysicalDetection) {
+  config::ArSessionConfig session_config = MakeDetectionFocusedConfig();
+  session_config.hardware.enable_physics_detection = true;
+  FakeRadarContext radar_context(BuildSingleTarget(220.0f, 10000.0f, false));
+  environment::EnvironmentService environment_service;
+  signal::pipeline::SignalPipeline signal_pipeline(session_config);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
+
+  controller.RunOnce();
+  const std::vector<signal::tracking::TrackMeasurement> baseline_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+  ASSERT_EQ(baseline_measurements.size(), 1U);
+  const session::DecisionInputFrame frame =
+      controller.GetLatestDecisionObservation().input_frame;
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = frame.cycle_index;
+  response.source_batch_id = frame.batch_id;
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+                                session::ControlDirectiveSource::SURVIVABILITY, 1.5f),
+      82, "external burnthrough"});
+  ASSERT_EQ(controller.SubmitExternalDecision(response),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+
+  controller.RunOnce();
+  const std::vector<signal::tracking::TrackMeasurement> controlled_measurements =
+      signal_pipeline.GetLastTrackMeasurements();
+  ASSERT_EQ(controlled_measurements.size(), 1U);
+  EXPECT_EQ(controller.GetLastAppliedDecisionSource(),
+            session::DecisionControlSource::kExternal);
+  EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().eccm_burnthrough_gain, 1.5f);
+  EXPECT_GT(controlled_measurements[0].raw_measurement.detection_margin_db,
+            baseline_measurements[0].raw_measurement.detection_margin_db);
+}
+
+TEST_F(CoreControllerTest, EmptyExternalResponseExplicitlyDisablesInternalControl) {
+  FakeRadarContext radar_context(BuildSingleTarget(800.0f, 2.5f, false));
+  environment::EnvironmentService environment_service(BuildJammingEnvironmentConfig(12.0f));
+  signal::pipeline::SignalPipeline signal_pipeline;
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
+
+  controller.RunOnce();
+  const session::DecisionInputFrame frame =
+      controller.GetLatestDecisionObservation().input_frame;
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = frame.cycle_index;
+  response.source_batch_id = frame.batch_id;
+  ASSERT_EQ(controller.SubmitExternalDecision(response),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+
+  controller.RunOnce();
+  EXPECT_EQ(controller.GetLastAppliedDecisionSource(),
+            session::DecisionControlSource::kExternal);
+  EXPECT_EQ(signal_pipeline.GetControlProfile().version, 0U);
+}
+
+TEST_F(CoreControllerTest, RejectsMismatchedDuplicateAndInvalidExternalResponses) {
+  FakeRadarContext radar_context(BuildSingleTarget(800.0f, 2.5f, false));
+  environment::EnvironmentService environment_service;
+  signal::pipeline::SignalPipeline signal_pipeline;
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
+  session::ExternalDecisionResponse before_observation;
+  EXPECT_EQ(controller.SubmitExternalDecision(before_observation),
+            session::ExternalDecisionSubmitStatus::kNoPendingObservation);
+  controller.RunOnce();
+  const session::DecisionInputFrame frame =
+      controller.GetLatestDecisionObservation().input_frame;
+
+  session::ExternalDecisionResponse mismatch;
+  mismatch.source_cycle_index = frame.cycle_index + 1U;
+  mismatch.source_batch_id = frame.batch_id;
+  EXPECT_EQ(controller.SubmitExternalDecision(mismatch),
+            session::ExternalDecisionSubmitStatus::kSourceMismatch);
+
+  session::ExternalDecisionResponse wrong_batch;
+  wrong_batch.source_cycle_index = frame.cycle_index;
+  wrong_batch.source_batch_id = frame.batch_id + 1U;
+  EXPECT_EQ(controller.SubmitExternalDecision(wrong_batch),
+            session::ExternalDecisionSubmitStatus::kSourceMismatch);
+
+  session::ExternalDecisionResponse invalid;
+  invalid.source_cycle_index = frame.cycle_index;
+  invalid.source_batch_id = frame.batch_id;
+  invalid.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL),
+      60, "missing scalar"});
+  EXPECT_EQ(controller.SubmitExternalDecision(invalid),
+            session::ExternalDecisionSubmitStatus::kInvalidProposal);
+
+  session::ExternalDecisionResponse duplicate;
+  duplicate.source_cycle_index = frame.cycle_index;
+  duplicate.source_batch_id = frame.batch_id;
+  duplicate.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.4f),
+      60, "first power"});
+  duplicate.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.5f),
+      55, "duplicate power"});
+  EXPECT_EQ(controller.SubmitExternalDecision(duplicate),
+            session::ExternalDecisionSubmitStatus::kInvalidProposal);
+
+  controller.RunOnce();
+  EXPECT_EQ(controller.GetLastAppliedDecisionSource(),
+            session::DecisionControlSource::kInternal);
+  const session::DecisionInputFrame next_frame =
+      controller.GetLatestDecisionObservation().input_frame;
+  session::ExternalDecisionResponse stale;
+  stale.source_cycle_index = frame.cycle_index;
+  stale.source_batch_id = frame.batch_id;
+  EXPECT_EQ(controller.SubmitExternalDecision(stale),
+            session::ExternalDecisionSubmitStatus::kSourceMismatch);
+
+  session::ExternalDecisionResponse accepted;
+  accepted.source_cycle_index = next_frame.cycle_index;
+  accepted.source_batch_id = next_frame.batch_id;
+  EXPECT_EQ(controller.SubmitExternalDecision(accepted),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+  EXPECT_EQ(controller.SubmitExternalDecision(accepted),
+            session::ExternalDecisionSubmitStatus::kAlreadySubmitted);
+}
+
+TEST_F(CoreControllerTest, RuntimeRestoreRetainsPendingExternalResponseForRetry) {
+  FakeRadarContext radar_context(BuildSingleTarget(800.0f, 2.5f, false));
+  environment::EnvironmentService environment_service;
+  AbortingSignalPipeline signal_pipeline;
+  signal_pipeline.SetShouldExecute(true);
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
+
+  controller.RunOnce();
+  const session::DecisionInputFrame frame =
+      controller.GetLatestDecisionObservation().input_frame;
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = frame.cycle_index;
+  response.source_batch_id = frame.batch_id;
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.4f),
+      60, "external power"});
+  ASSERT_EQ(controller.SubmitExternalDecision(response),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+  const extension::ArControllerRuntimeState snapshot = controller.CaptureRuntimeState();
+  const signal::SignalPipelineRuntimeState pipeline_snapshot =
+      signal_pipeline.CaptureRuntimeState();
+
+  signal_pipeline.SetShouldExecute(false);
+  controller.RunOnce();
+  EXPECT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.4f);
+
+  signal_pipeline.RestoreRuntimeState(pipeline_snapshot);
+  ASSERT_TRUE(controller.RestoreRuntimeState(snapshot));
+  controller.RunOnce();
+  EXPECT_EQ(controller.GetLastAppliedDecisionSource(),
+            session::DecisionControlSource::kExternal);
+  EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.4f);
 }
 
 }  // namespace tests

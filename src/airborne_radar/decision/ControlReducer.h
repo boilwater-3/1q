@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "airborne_radar/decision/ControlReducerTypes.h"
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/DecisionControlTypes.h"
 
 namespace airborne_radar {
 namespace decision {
@@ -63,6 +63,9 @@ class ControlReducer {
    * @return 当前 reducer 运行态快照，仅供调试与测试断言使用。
    */
   ControlReducerRuntimeState GetRuntimeState() const;
+
+  /** @brief 恢复此前捕获的 reducer 跨周期运行态。 */
+  void RestoreRuntimeState(const ControlReducerRuntimeState& state);
 
  private:
   extension::ControlReducerConfig config_{};

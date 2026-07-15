@@ -519,19 +519,17 @@ TEST(RadarJointIntegrationTest,
   EXPECT_GT(CountJammingFlaggedTracks(jammed_frame), 0U);
   ExpectFrameContainsTargets(jammed_frame, targets);
 
-  const session::ArControlProfile cycle_2_profile =
-      radar_context.LatestControlProfile();
-  EXPECT_TRUE(cycle_2_profile.enable_sidelobe_canceller);
-  EXPECT_TRUE(cycle_2_profile.enable_adaptive_beamforming);
-  EXPECT_GT(cycle_2_profile.eccm_burnthrough_gain, 1.0f);
+  AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
+  const session::TrackOutputFrame protected_frame =
+      RunScenarioCycle(&controller, &radar_context, targets);
+  const session::ArControlProfile protected_profile = radar_context.LatestControlProfile();
+  EXPECT_TRUE(protected_profile.enable_sidelobe_canceller);
+  EXPECT_TRUE(protected_profile.enable_adaptive_beamforming);
+  EXPECT_GT(protected_profile.eccm_burnthrough_gain, 1.0f);
   EXPECT_TRUE(ContainsCommandType(radar_context,
                                   session::ArCommandType::ENABLE_SIDELOBE_CANCELLER));
   EXPECT_TRUE(ContainsCommandType(radar_context,
                                   session::ArCommandType::SET_ECCM_BURNTHROUGH_GAIN));
-
-  AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
-  const session::TrackOutputFrame protected_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
   EXPECT_GT(protected_frame.tracks.size(), 0U);
   EXPECT_GT(session::CountTracksByStatus(protected_frame, session::TrackStatus::kConfirmed), 0U);
   EXPECT_GT(CountJammingFlaggedTracks(protected_frame), 0U);
@@ -570,20 +568,18 @@ TEST(RadarJointIntegrationTest,
   EXPECT_GT(CountJammingFlaggedTracks(cycle_2_frame), 0U);
   EXPECT_EQ(cycle_2_metrics.dominant_jamming_semantic, config::JammingSemantic::kDeception);
 
-  const session::ArControlProfile cycle_2_profile =
-      radar_context.LatestControlProfile();
-  EXPECT_TRUE(cycle_2_profile.enable_agility_frequency);
-  EXPECT_TRUE(cycle_2_profile.enable_eccm_rejitter);
-  EXPECT_TRUE(
-      ContainsCommandType(radar_context, session::ArCommandType::SET_AGILITY_FREQ));
-  EXPECT_TRUE(
-      ContainsCommandType(radar_context, session::ArCommandType::SET_ECCM_REJITTER));
-
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   const session::TrackOutputFrame cycle_3_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
   const session::AssociationQualityMetrics cycle_3_metrics =
       signal_pipeline.GetLastAssociationQualityMetrics();
+  const session::ArControlProfile cycle_3_profile = radar_context.LatestControlProfile();
+  EXPECT_TRUE(cycle_3_profile.enable_agility_frequency);
+  EXPECT_TRUE(cycle_3_profile.enable_eccm_rejitter);
+  EXPECT_TRUE(
+      ContainsCommandType(radar_context, session::ArCommandType::SET_AGILITY_FREQ));
+  EXPECT_TRUE(
+      ContainsCommandType(radar_context, session::ArCommandType::SET_ECCM_REJITTER));
 
   EXPECT_GT(session::CountTracksByStatus(cycle_3_frame, session::TrackStatus::kConfirmed), 0U);
   ExpectFrameContainsTargets(cycle_3_frame, targets);
@@ -619,19 +615,18 @@ TEST(RadarJointIntegrationTest, StageTwoRepeaterInterferenceKeepsTrackOutputAndS
 
   const session::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  const session::ArControlProfile cycle_2_profile =
-      radar_context.LatestControlProfile();
   EXPECT_GT(CountJammingFlaggedTracks(cycle_2_frame), 0U);
-  EXPECT_TRUE(cycle_2_profile.enable_eccm_rejitter);
-  EXPECT_TRUE(cycle_2_profile.enable_adaptive_beamforming);
-  EXPECT_TRUE(
-      ContainsCommandType(radar_context, session::ArCommandType::SET_ECCM_REJITTER));
-  EXPECT_TRUE(ContainsCommandType(
-      radar_context, session::ArCommandType::ENABLE_ADAPTIVE_BEAMFORMING));
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   const session::TrackOutputFrame cycle_3_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
+  const session::ArControlProfile cycle_3_profile = radar_context.LatestControlProfile();
+  EXPECT_TRUE(cycle_3_profile.enable_eccm_rejitter);
+  EXPECT_TRUE(cycle_3_profile.enable_adaptive_beamforming);
+  EXPECT_TRUE(
+      ContainsCommandType(radar_context, session::ArCommandType::SET_ECCM_REJITTER));
+  EXPECT_TRUE(ContainsCommandType(
+      radar_context, session::ArCommandType::ENABLE_ADAPTIVE_BEAMFORMING));
   EXPECT_GT(cycle_3_frame.tracks.size(), 0U);
   EXPECT_GT(session::CountTracksByStatus(cycle_3_frame, session::TrackStatus::kConfirmed), 0U);
   ExpectFrameContainsTargets(cycle_3_frame, targets);
@@ -668,17 +663,16 @@ TEST(RadarJointIntegrationTest,
 
   const session::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  const session::ArControlProfile cycle_2_profile =
-      radar_context.LatestControlProfile();
   EXPECT_GT(CountJammingFlaggedTracks(cycle_2_frame), 0U);
-  EXPECT_TRUE(cycle_2_profile.enable_sidelobe_canceller);
-  EXPECT_TRUE(cycle_2_profile.enable_agility_frequency);
-  EXPECT_TRUE(cycle_2_profile.enable_eccm_rejitter);
-  EXPECT_GT(cycle_2_profile.eccm_burnthrough_gain, 1.0f);
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   const session::TrackOutputFrame cycle_3_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
+  const session::ArControlProfile cycle_3_profile = radar_context.LatestControlProfile();
+  EXPECT_TRUE(cycle_3_profile.enable_sidelobe_canceller);
+  EXPECT_TRUE(cycle_3_profile.enable_agility_frequency);
+  EXPECT_TRUE(cycle_3_profile.enable_eccm_rejitter);
+  EXPECT_GT(cycle_3_profile.eccm_burnthrough_gain, 1.0f);
   const auto track_map = BuildTrackMapByExternalId(cycle_3_frame);
 
   ASSERT_EQ(cycle_3_frame.tracks.size(), targets.size());
@@ -2141,7 +2135,8 @@ TEST(RadarJointIntegrationTest, LongDurationExtremeRcsAndAltitudeMixKeepsMetrics
   }
 
   ExpectNoZeroPublishedCycles(stats);
-  ExpectBoundedCommandBurst(stats, 6U);
+  // 参数化 LPI 同时提交功率与驻留控制，单周期最多比旧路径多一条命令。
+  ExpectBoundedCommandBurst(stats, 7U);
   EXPECT_LE(max_association_stress, 1.0f);
 }
 

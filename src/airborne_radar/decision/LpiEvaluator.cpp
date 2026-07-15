@@ -1,5 +1,6 @@
 #include "airborne_radar/decision/LpiEvaluator.h"
 
+#include <algorithm>
 #include <string>
 
 #include "1q/airborne_radar/session/ControlDirective.h"
@@ -10,9 +11,16 @@ namespace decision {
 
 namespace {
 
-session::ControlDirective BuildLpiPowerDirective() {
+session::ControlDirective BuildLpiPowerDirective(float power_scale) {
   return session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                                   session::ControlDirectiveSource::EMISSION_CONTROL);
+                                   session::ControlDirectiveSource::EMISSION_CONTROL,
+                                   power_scale);
+}
+
+session::ControlDirective BuildLpiDwellDirective(float dwell_scale) {
+  return session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_DWELL,
+                                   session::ControlDirectiveSource::EMISSION_CONTROL,
+                                   dwell_scale);
 }
 
 }  // namespace
@@ -41,6 +49,7 @@ LpiEvaluator::Result LpiEvaluator::Evaluate(const model::LpiSourceInfo& lpi_sour
   result.requests_power_reduction = true;
   const float power_scale = ComputePowerScale(lpi_source_info);
   result.power_scale = power_scale;
+  result.dwell_scale = ComputeDwellScale(power_scale);
 
   std::string rationale = "recon platform";
   if (lpi_source_info.threat_range_km > 0.0f) {
@@ -50,7 +59,11 @@ LpiEvaluator::Result LpiEvaluator::Evaluate(const model::LpiSourceInfo& lpi_sour
   }
   rationale += " requires reduced emission";
 
-  proposals->push_back(session::TacticalProposal{BuildLpiPowerDirective(), 60, rationale});
+  proposals->push_back(
+      session::TacticalProposal{BuildLpiPowerDirective(result.power_scale), 60, rationale});
+  proposals->push_back(session::TacticalProposal{
+      BuildLpiDwellDirective(result.dwell_scale), 55,
+      "reduced dwell accompanies LPI power control"});
 
   PROJECT_LOG_DEBUG(
       "[LpiEvaluator] Recon platform detected. Appending LPI power reduction proposal "
@@ -83,6 +96,10 @@ float LpiEvaluator::ComputePowerScale(const model::LpiSourceInfo& info) const {
 
   // 100km 以外：保守降功率
   return 0.8f;
+}
+
+float LpiEvaluator::ComputeDwellScale(float power_scale) const {
+  return std::max(0.65f, std::min(0.90f, 0.5f + 0.5f * power_scale));
 }
 
 }  // namespace decision

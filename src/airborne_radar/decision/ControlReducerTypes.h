@@ -23,9 +23,6 @@ namespace extension {
  * @brief ControlReducerConfig 描述 proposal -> profile 的固定映射与冲突裁决策略。
  */
 struct ControlReducerConfig {
-  float lpi_power_scale_on_reduction{0.5f}; /**< LPI 降功率意图映射到的默认功率比例 */
-  float lpi_dwell_scale{0.75f};             /**< LPI 驻留调整意图映射到的默认驻留比例 */
-  float eccm_burnthrough_gain{1.5f};        /**< ECCM 烧穿意图映射到的默认增益倍率 */
   float burnthrough_lpi_power_floor{
       0.85f}; /**< 当烧穿增益与 LPI 降功率并存时，对功率比例施加的保护下限 */
   std::uint32_t lpi_hold_cycles_after_request{0};  /**< LPI 域在收到 proposal 后额外保持的周期数 */
