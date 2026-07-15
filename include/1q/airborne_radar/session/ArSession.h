@@ -24,9 +24,6 @@ namespace airborne_radar {
 namespace config {
 struct ArRuntimeConfigPatch;
 }  // namespace config
-namespace session {
-class ITacticalDecisionEngine;
-}  // namespace session
 }  // namespace airborne_radar
 
 namespace airborne_radar {
@@ -106,18 +103,12 @@ class ONEQ_API ArSession {
    */
   bool TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 
+  /** @brief 提交与最近成功周期观测匹配的外部 LPI/ECCM 决策。 */
+  session::ExternalDecisionSubmitStatus SubmitExternalDecision(
+      const session::ExternalDecisionResponse& response);
+
   /** @brief 使用四域配置创建会话（推荐入口，信任路径，不做配置校验）。 */
   static ArSession Create(const config::ArSessionConfig& config = {});
-  /**
-   * @brief 使用四域配置与自定义决策引擎创建会话。
-   * @param[in] config 四域会话配置。
-   * @param[in,out] decision_engine 外部提供的战术决策引擎，会话在运行期引用该实例。
-   * @return 构造完成的会话。
-   */
-  static ArSession CreateWithDecisionEngine(
-      const config::ArSessionConfig& config,
-      session::ITacticalDecisionEngine& decision_engine);
-
   /**
    * @brief 创建会话并报告配置校验结果（校验路径）。
    *

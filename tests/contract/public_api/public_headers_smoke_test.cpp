@@ -34,9 +34,9 @@
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/airborne_radar/session/ControlDirective.h"
+#include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/DecisionSourceInfo.h"
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/api.hpp"
 #include "1q/coordinate/attitude_transform.h"
@@ -120,13 +120,6 @@ static_assert(!std::is_constructible<ArSession, const ArConfig&>::value,
 static_assert(std::is_same<ArSession, decltype(airborne_radar::session::ArSession::Create(
                                           std::declval<const ArConfig&>()))>::value,
               "ArSession::Create must return ArSession");
-static_assert(
-    std::is_same<ArSession,
-                 decltype(airborne_radar::session::ArSession::CreateWithDecisionEngine(
-                     std::declval<const ArConfig&>(),
-                     std::declval<airborne_radar::session::ITacticalDecisionEngine&>()))>::value,
-    "ArSession::CreateWithDecisionEngine must return ArSession");
-
 static_assert(
     !std::is_constructible<electronic_surveillance_radar::session::EsrSession,
                            electronic_surveillance_radar::config::EsrSessionConfig>::value,

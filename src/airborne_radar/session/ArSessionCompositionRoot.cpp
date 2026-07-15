@@ -2,7 +2,6 @@
 
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
 #include "airborne_radar/runtime/ArController.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
@@ -33,23 +32,6 @@ ArSessionComposition BuildCompositionBase(const config::ArSessionConfig& config)
   return composition;
 }
 
-bool SyncPipelineConfig(ArSessionComposition* composition) {
-  if (composition == nullptr || composition->signal_pipeline == nullptr) {
-    return false;
-  }
-  const config::ArSessionConfig runtime_session_config =
-      BuildRuntimeSessionConfig(*composition);
-  return composition->signal_pipeline->UpdateConfig(runtime_session_config);
-}
-
-void SyncEnvironmentModelConfig(ArSessionComposition* composition) {
-  if (composition == nullptr || composition->environment_service == nullptr) {
-    return;
-  }
-  composition->environment_service->UpdateModelConfig(
-      config::BuildModelConfigFromScenario(composition->runtime_environment_scenario_config));
-}
-
 void SyncEnvironmentJammingThreshold(ArSessionComposition* composition) {
   if (composition == nullptr || composition->environment_service == nullptr) {
     return;
@@ -72,28 +54,6 @@ ArSessionComposition ArSessionCompositionRoot::ComposeDefault(
       config::BuildModelConfigFromScenario(composition.runtime_environment_scenario_config)));
   composition.owned_controller.reset(new extension::ArController(
       *composition.owned_ar_context, *composition.owned_signal_pipeline,
-      *composition.owned_environment_service));
-  composition.ar_context = composition.owned_ar_context.get();
-  composition.signal_pipeline = composition.owned_signal_pipeline.get();
-  composition.environment_service = composition.owned_environment_service.get();
-  composition.controller = composition.owned_controller.get();
-  SyncEnvironmentJammingThreshold(&composition);
-  return composition;
-}
-
-ArSessionComposition ArSessionCompositionRoot::ComposeWithDecisionEngine(
-    const config::ArSessionConfig& config,
-    session::ITacticalDecisionEngine& decision_engine) {
-  ArSessionComposition composition = BuildCompositionBase(config);
-  composition.owned_ar_context.reset(new MutableArContext());
-  const config::execution::InternalExecutionConfig runtime_execution_config =
-      config::mapping::MapSessionToExecution(BuildRuntimeSessionConfig(composition));
-  composition.owned_signal_pipeline.reset(
-      new signal::pipeline::SignalPipeline(runtime_execution_config));
-  composition.owned_environment_service.reset(new environment::EnvironmentService(
-      config::BuildModelConfigFromScenario(composition.runtime_environment_scenario_config)));
-  composition.owned_controller.reset(new extension::ArController(
-      *composition.owned_ar_context, *composition.owned_signal_pipeline, decision_engine,
       *composition.owned_environment_service));
   composition.ar_context = composition.owned_ar_context.get();
   composition.signal_pipeline = composition.owned_signal_pipeline.get();

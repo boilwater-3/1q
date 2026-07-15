@@ -44,6 +44,16 @@ EccmJammerSourceInfo MakeCredibleSource() {
   return source;
 }
 
+float FindBurnthroughGain(const std::vector<TacticalProposal>& proposals) {
+  for (std::size_t i = 0; i < proposals.size(); ++i) {
+    if (proposals[i].directive.type ==
+        session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN) {
+      return proposals[i].directive.requested_value;
+    }
+  }
+  return 1.0f;
+}
+
 // =============================================================================
 // 基础 Evaluate 重载（此前 0% 覆盖，26 个未覆盖分支）
 // =============================================================================
@@ -114,6 +124,31 @@ TEST(EccmEvaluatorTest, NoiseSuppressionTechniqueActivatesEccm) {
   const EccmEvaluator::Result result = evaluator.Evaluate(info, false, &proposals);
   EXPECT_TRUE(result.eccm_activated);
   EXPECT_EQ(result.activation_source, ActivationSource::kEvidenceBased);
+}
+
+TEST(EccmEvaluatorTest, BurnthroughGainIsMonotonicAndClamped) {
+  EccmEvaluator evaluator;
+  EccmSourceInfo moderate_info;
+  moderate_info.has_jamming_signal = true;
+  EccmJammerSourceInfo moderate = MakeCredibleSource();
+  moderate.technique = session::JammingTechnique::kNoiseSuppression;
+  moderate.jammer_power_db = 8.0f;
+  moderate.jammer_to_signal_db = 6.0f;
+  moderate_info.jammer_sources.push_back(moderate);
+  std::vector<TacticalProposal> moderate_proposals;
+  evaluator.Evaluate(moderate_info, false, &moderate_proposals);
+
+  EccmSourceInfo strong_info = moderate_info;
+  strong_info.jammer_sources[0].jammer_power_db = 32.0f;
+  strong_info.jammer_sources[0].jammer_to_signal_db = 24.0f;
+  std::vector<TacticalProposal> strong_proposals;
+  evaluator.Evaluate(strong_info, false, &strong_proposals);
+
+  const float moderate_gain = FindBurnthroughGain(moderate_proposals);
+  const float strong_gain = FindBurnthroughGain(strong_proposals);
+  EXPECT_GT(moderate_gain, 1.0f);
+  EXPECT_GT(strong_gain, moderate_gain);
+  EXPECT_LE(strong_gain, 2.0f);
 }
 
 TEST(EccmEvaluatorTest, RepeaterTechniqueActivatesEccm) {

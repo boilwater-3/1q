@@ -73,6 +73,13 @@ struct ArSession::Impl {
     }
     if (result.executed_this_cycle) {
       result.association_quality_metrics = SignalPipeline().GetLastAssociationQualityMetrics();
+      result.has_decision_observation = Controller().HasLatestDecisionObservation();
+      if (result.has_decision_observation) {
+        result.decision_observation = Controller().GetLatestDecisionObservation();
+      }
+      result.applied_decision_source = Controller().GetLastAppliedDecisionSource();
+      result.applied_decision_cycle_index = Controller().GetLastAppliedDecisionCycleIndex();
+      result.applied_decision_batch_id = Controller().GetLastAppliedDecisionBatchId();
     }
     return result;
   }
@@ -249,12 +256,6 @@ ArSession ArSession::Create(const config::ArSessionConfig& config) {
       new ArSession::Impl(ArSessionCompositionRoot::ComposeDefault(config))));
 }
 
-ArSession ArSession::CreateWithDecisionEngine(
-    const config::ArSessionConfig& config, session::ITacticalDecisionEngine& decision_engine) {
-  return ArSession(std::unique_ptr<ArSession::Impl>(new ArSession::Impl(
-      ArSessionCompositionRoot::ComposeWithDecisionEngine(config, decision_engine))));
-}
-
 ArSession ArSession::CreateWithValidation(const config::ArSessionConfig& config,
                                                 config::ValidationIssueList* issues) {
   const config::ValidationIssueList found = config::ValidateArSessionConfig(config);
@@ -315,6 +316,11 @@ bool ArSession::TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch)
       impl_->pending_jamming_sensitivity_profile_changed ||
       resolved.jamming_sensitivity_profile_changed;
   return true;
+}
+
+session::ExternalDecisionSubmitStatus ArSession::SubmitExternalDecision(
+    const session::ExternalDecisionResponse& response) {
+  return impl_->Controller().SubmitExternalDecision(response);
 }
 
 }  // namespace session

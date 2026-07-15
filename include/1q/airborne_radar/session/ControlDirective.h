@@ -42,6 +42,8 @@ enum class ONEQ_API ControlDirectiveType {
 struct ONEQ_API ControlDirective {
   ControlDirectiveType type{ControlDirectiveType::NONE};          /**< 控制意图类型 */
   ControlDirectiveSource source{ControlDirectiveSource::UNKNOWN}; /**< 控制意图来源 */
+  bool has_requested_value{false}; /**< 是否携带该控制意图要求的显式标量 */
+  float requested_value{0.0f};     /**< 功率/驻留比例或烧穿增益，语义由 type 决定 */
 
   ControlDirective() = default; /**< 默认构造 */
 
@@ -52,6 +54,14 @@ struct ONEQ_API ControlDirective {
    */
   ControlDirective(ControlDirectiveType directive_type, ControlDirectiveSource directive_source)
       : type(directive_type), source(directive_source) {}
+
+  /** @brief 构造携带显式标量的控制意图。 */
+  ControlDirective(ControlDirectiveType directive_type, ControlDirectiveSource directive_source,
+                   float value)
+      : type(directive_type),
+        source(directive_source),
+        has_requested_value(true),
+        requested_value(value) {}
 };
 
 }  // namespace session

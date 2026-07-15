@@ -50,7 +50,7 @@
 - `airborne_radar/config/`：含 `RadarSessionConfigBuilder`（Mission/Sensitivity 等
   语义档位）、`JammingSemantics`、`RadarOrientationConfig` 等雷达专用配置。
 - `airborne_radar/session/`：会话门面、周期 IO、环境输入、外部适配器、
-  决策引擎接口（`ITacticalDecisionEngine`）、航迹生命周期记录。
+  决策 observation/response DTO、航迹生命周期记录。
 
 ### Electronic Surveillance Radar (ESR)
 

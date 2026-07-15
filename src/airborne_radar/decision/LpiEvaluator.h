@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "airborne_radar/decision/LpiSourceInfo.h"
 
 namespace airborne_radar {
@@ -30,6 +30,7 @@ class LpiEvaluator final {
   struct Result {
     bool requests_power_reduction{false}; /**< 是否请求 LPI 降功率 */
     float power_scale{1.0f};              /**< 推荐降功率比例 [0,1]，值越低功率压得越低 */
+    float dwell_scale{1.0f};              /**< 推荐驻留比例 [0.65,0.90] */
   };
 
   /**
@@ -54,6 +55,9 @@ class LpiEvaluator final {
    * @return 功率比例 [0, 1]，值越低代表功率压得越低
    */
   float ComputePowerScale(const model::LpiSourceInfo& info) const;
+
+  /** @brief 根据功率比例生成同步的 LPI 驻留比例。 */
+  float ComputeDwellScale(float power_scale) const;
 };
 
 }  // namespace decision

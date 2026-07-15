@@ -7,12 +7,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <set>
 #include <string>
 
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/decision/ControlReducer.h"
+#include "airborne_radar/decision/LpiEvaluator.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
 
 namespace airborne_radar {
@@ -81,6 +83,36 @@ TEST(TacticalCoordinatorTest, HighThreatTrackGeneratesLpiProposal) {
   ASSERT_FALSE(result.proposals.empty());
   EXPECT_EQ(result.proposals[0].directive.type,
             session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION);
+}
+
+TEST(LpiEvaluatorTest, EmitsDynamicPowerAndCoupledDwellAcrossRangeBands) {
+  decision::LpiEvaluator evaluator;
+  model::LpiSourceInfo info;
+  info.has_recon_platform = true;
+
+  struct Case {
+    float range_km;
+    float closure_speed_mps;
+    float expected_power;
+    float expected_dwell;
+  };
+  const Case cases[] = {
+      {0.0f, 250.0f, 0.5f, 0.75f},  {10.0f, 250.0f, 0.3f, 0.65f},
+      {30.0f, 250.0f, 0.4f, 0.70f}, {30.0f, 100.0f, 0.5f, 0.75f},
+      {70.0f, 250.0f, 0.6f, 0.80f}, {70.0f, 100.0f, 0.7f, 0.85f},
+      {120.0f, 250.0f, 0.8f, 0.90f},
+  };
+  for (std::size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
+    info.threat_range_km = cases[i].range_km;
+    info.threat_closure_speed_mps = cases[i].closure_speed_mps;
+    std::vector<session::TacticalProposal> proposals;
+    const decision::LpiEvaluator::Result result = evaluator.Evaluate(info, &proposals);
+    ASSERT_EQ(proposals.size(), 2U);
+    EXPECT_FLOAT_EQ(result.power_scale, cases[i].expected_power);
+    EXPECT_FLOAT_EQ(result.dwell_scale, cases[i].expected_dwell);
+    EXPECT_FLOAT_EQ(proposals[0].directive.requested_value, cases[i].expected_power);
+    EXPECT_FLOAT_EQ(proposals[1].directive.requested_value, cases[i].expected_dwell);
+  }
 }
 
 TEST(TacticalCoordinatorTest, LowEvidenceTrackDoesNotTriggerAggressiveControl) {
@@ -565,11 +597,11 @@ TEST(ControlReducerTest, ReducerBuildsNextControlProfileAndRejectsDuplicates) {
   std::vector<session::TacticalProposal> proposals;
   proposals.push_back(session::TacticalProposal{
       session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                               session::ControlDirectiveSource::EMISSION_CONTROL),
+                               session::ControlDirectiveSource::EMISSION_CONTROL, 0.5f),
       60, "reduce power"});
   proposals.push_back(session::TacticalProposal{
       session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                               session::ControlDirectiveSource::UNKNOWN),
+                               session::ControlDirectiveSource::UNKNOWN, 0.4f),
       10, "duplicate reduce power"});
   proposals.push_back(session::TacticalProposal{
       session::ControlDirective(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
@@ -653,11 +685,11 @@ TEST(ControlReducerTest, BurnthroughGainFloorsLpiPowerReductionForSurvivability)
   std::vector<session::TacticalProposal> proposals;
   proposals.push_back(session::TacticalProposal{
       session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                               session::ControlDirectiveSource::EMISSION_CONTROL),
+                               session::ControlDirectiveSource::EMISSION_CONTROL, 0.5f),
       60, "reduce power"});
   proposals.push_back(session::TacticalProposal{
       session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                               session::ControlDirectiveSource::SURVIVABILITY),
+                               session::ControlDirectiveSource::SURVIVABILITY, 1.5f),
       82, "increase burnthrough"});
 
   const extension::ControlReductionResult result =
@@ -670,9 +702,6 @@ TEST(ControlReducerTest, BurnthroughGainFloorsLpiPowerReductionForSurvivability)
 
 TEST(ControlReducerTest, ReducerSupportsCustomConfigPolicyTable) {
   extension::ControlReducerConfig config;
-  config.lpi_power_scale_on_reduction = 0.65f;
-  config.lpi_dwell_scale = 0.60f;
-  config.eccm_burnthrough_gain = 1.8f;
   config.burnthrough_lpi_power_floor = 0.92f;
 
   decision::ControlReducer reducer(config);
@@ -681,15 +710,15 @@ TEST(ControlReducerTest, ReducerSupportsCustomConfigPolicyTable) {
   std::vector<session::TacticalProposal> proposals;
   proposals.push_back(session::TacticalProposal{
       session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
-                               session::ControlDirectiveSource::EMISSION_CONTROL),
+                               session::ControlDirectiveSource::EMISSION_CONTROL, 0.65f),
       60, "reduce power"});
   proposals.push_back(session::TacticalProposal{
       session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_DWELL,
-                               session::ControlDirectiveSource::EMISSION_CONTROL),
+                               session::ControlDirectiveSource::EMISSION_CONTROL, 0.60f),
       55, "reduce dwell"});
   proposals.push_back(session::TacticalProposal{
       session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                               session::ControlDirectiveSource::SURVIVABILITY),
+                               session::ControlDirectiveSource::SURVIVABILITY, 1.8f),
       82, "increase burnthrough"});
 
   const extension::ControlReductionResult result =
@@ -724,7 +753,7 @@ TEST(ControlReducerTest, ReducerPreservesDomainDuringConfiguredHoldWindow) {
   std::vector<session::TacticalProposal> proposals;
   proposals.push_back(session::TacticalProposal{
       session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                               session::ControlDirectiveSource::SURVIVABILITY),
+                               session::ControlDirectiveSource::SURVIVABILITY, 1.5f),
       82, "increase burnthrough"});
 
   const extension::ControlReductionResult first =
@@ -761,7 +790,7 @@ TEST(ControlReducerTest, ReducerRejectsReentryDuringConfiguredCooldown) {
   std::vector<session::TacticalProposal> proposals;
   proposals.push_back(session::TacticalProposal{
       session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
-                               session::ControlDirectiveSource::SURVIVABILITY),
+                               session::ControlDirectiveSource::SURVIVABILITY, 1.5f),
       82, "increase burnthrough"});
 
   const extension::ControlReductionResult blocked_once =
@@ -782,6 +811,51 @@ TEST(ControlReducerTest, ReducerRejectsReentryDuringConfiguredCooldown) {
       reducer.Reduce(blocked_twice.profile, proposals);
   EXPECT_FLOAT_EQ(allowed.profile.eccm_burnthrough_gain, 1.5f);
   EXPECT_EQ(allowed.applied_directives.size(), 1u);
+}
+
+TEST(ControlReducerTest, RejectsMissingNonFiniteOutOfRangeAndUnexpectedValues) {
+  decision::ControlReducer reducer;
+  session::ArControlProfile previous_profile;
+  std::vector<session::TacticalProposal> proposals;
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL),
+      60, "missing power"});
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_DWELL,
+                                session::ControlDirectiveSource::EMISSION_CONTROL,
+                                std::numeric_limits<float>::infinity()),
+      55, "non-finite dwell"});
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL,
+                                std::numeric_limits<float>::quiet_NaN()),
+      59, "nan power"});
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.0f),
+      58, "zero power"});
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_DWELL,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.2f),
+      54, "low dwell"});
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+                                session::ControlDirectiveSource::SURVIVABILITY, 2.1f),
+      82, "excessive gain"});
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN,
+                                session::ControlDirectiveSource::SURVIVABILITY, 1.0f),
+      81, "inactive gain"});
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+                                session::ControlDirectiveSource::SURVIVABILITY, 1.0f),
+      84, "unexpected scalar"});
+
+  const extension::ControlReductionResult result = reducer.Reduce(previous_profile, proposals);
+  EXPECT_EQ(result.applied_directives.size(), 0u);
+  EXPECT_EQ(result.rejected_directives.size(), 8u);
+  EXPECT_EQ(result.profile.version, 0u);
 }
 
 TEST(ControlReducerTest, BeamConflictPrefersSurvivabilityByDefault) {

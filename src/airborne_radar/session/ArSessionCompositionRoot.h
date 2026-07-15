@@ -12,9 +12,6 @@
 #include "1q/airborne_radar/session/ArSession.h"
 
 namespace airborne_radar {
-namespace session {
-class ITacticalDecisionEngine;
-}  // namespace session
 namespace signal {
 class ISignalPipeline;
 }  // namespace signal
@@ -65,14 +62,6 @@ class ArSessionCompositionRoot {
    */
   static ArSessionComposition ComposeDefault(const config::ArSessionConfig& config);
 
-  /**
-   * @brief 注入自定义决策引擎装配会话；context/pipeline/environment 由内部默认装配。
-   * @param[in] config 四域会话配置。
-   * @param[in] decision_engine 外部提供的战术决策引擎引用，须在控制器生命周期内保持有效。
-   * @return 装配完成的 ArSessionComposition。
-   */
-  static ArSessionComposition ComposeWithDecisionEngine(
-      const config::ArSessionConfig& config, session::ITacticalDecisionEngine& decision_engine);
 };
 
 

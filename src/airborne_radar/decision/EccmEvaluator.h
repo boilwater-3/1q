@@ -8,7 +8,7 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/session/ITacticalDecisionEngine.h"
+#include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/airborne_radar/session/DecisionSourceInfo.h"
 
@@ -107,6 +107,9 @@ class EccmEvaluator final {
   /** @brief 根据评分增益确定优先级。 */
   static int ResolvePriorityFromScore(int base_priority, float score);
 
+  /** @brief 将烧穿评分线性映射到 [1,2] 增益。 */
+  static float ResolveBurnthroughGain(float score);
+
   /** @brief 将浮点值裁剪到 [0, 1]。 */
   static float ClampUnit(float value);
 
@@ -141,7 +144,8 @@ class EccmEvaluator final {
   static void AppendProposal(
       session::ControlDirectiveType type, int priority,
       const std::string& rationale,
-      std::vector<session::TacticalProposal>* proposals);
+      std::vector<session::TacticalProposal>* proposals,
+      bool has_requested_value = false, float requested_value = 0.0f);
 };
 
 }  // namespace decision
