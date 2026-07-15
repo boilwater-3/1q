@@ -486,11 +486,18 @@ pipeline snapshot 同时保存 scheduler 映射、逐通道 actuator 和 trackin
 
 - NFOV 首次捕获只做限速光轴 + 几何窗口 + SNR 门限判定；cue predictor 是角度域两点 CV，不做 CA、
   6D ECEF 滤波预测、轨道传播、模板匹配或图像相关。
+- 五样本角度二次最小二乘 CA 已完成 characterization：108 个无噪声持续加速
+  组合中聚合 RMS 从 CV 的 `0.068965 deg` 降为数值零；但在 `dt=0.1 s`、
+  `latency=0.5 s`、量测 `sigma=0.01 deg` 的恒速场景，CA RMS/P95 为
+  `0.141490/0.279187 deg`，劣于 CV 的 `0.074132/0.141619 deg`，捕获率也从
+  `73.91%` 降至 `41.30%`。因未通过标称噪声零回退门，当前拒绝生产接线，
+  不新增 CV/CA 配置、schema 或自动切换。
 - `u_cmd` 仅由 WFOV 带误差测量历史生成；延迟后的真实 LOS 只用于仿真判定捕获是否成功，不进入命令或 raw output。
 - cue 延迟对真实 LOS 的评估仍用目标速度做线性平移，不做积分轨道传播。
 - 当前 ATP 建模捕获前与捕获后的逐通道速率受限光轴；仍不建模整星姿态动力学或通道间机械耦合。
 
 [evidence: `sbirs_cue_predictor_test.cpp:ConstantAngularVelocityPredictsLatencyAhead`、`AzimuthUsesShortestPathAcrossWrap`、`CaptureRestorePreservesPerTargetHistory`;
+ `sbirs_cue_ca_characterization_test.cpp:SustainedAccelerationPassesBenefitGateWithoutNoise`、`StaticAndConstantVelocityHaveNoNoiselessRegression`、`FiveSampleCaFailsStrictNominalNoiseZeroRegression`、`NonUniformDtAndAccelerationReversalRemainFinite`;
  `sbirs_pipeline_test.cpp:MeasurementCvCueCapturesOnSecondObservationAndRestores`、`SchedulerSkippedCandidateAccumulatesCueHistoryUntilChannelFrees`;
  `sbirs_session_test.cpp:MeasurementCvCueCapturesAfterSecondWfovObservation`;
  `sbirs_session_test.cpp:RateLimitedPointingReservesChannelUntilSettled`、`RuntimeMissionPatchClearsSlewAndUsesNewRate`、`DualChannelAssignmentIsIndependentOfInputOrder`;
@@ -1037,7 +1044,7 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 |---:|---|:---:|:---:|---|---|
 | 1 | 捕获后闭环 ATP 跟踪（implemented） | P0 | 中 | 很高：已消除 tracking 绕过 actuator 的理想化行为 | 已按逐通道状态接线；predict→advance→gate→correct、coasting、两周期丢锁、snapshot/replay 均有测试证据 |
 | 2 | 时间相关的姿态抖动与指向误差（implemented） | P0 | 中 | 高：补足独立逐帧 sigma 无法表达的漂移、抖动和残余振荡 | 已接入共模 WFOV/NFOV 与逐通道 NFOV；GM/白噪声/振动 characterization、snapshot、runtime policy patch 与 replay 均有证据；零幅默认，不是完整整星控制器 |
-| 3 | CA cue predictor characterization | P1 | 中 | 中高：可能改善持续角加速度目标的 cue 提前量 | 先建立 CV/CA 场景矩阵；只有 CA 在加速场景稳定降低角误差/提高捕获率，且不因测量噪声显著恶化时才允许接线，禁止自动后端切换 |
+| 3 | CA cue predictor（characterized/rejected for wiring） | P1 | 中 | 中高：无噪声持续加速场景改善明显 | 五样本二次拟合在标称噪声+较长 latency 下明显放大误差并降低捕获率，未通过零回退门；保持测试证据，不接入 config/schema/pipeline，禁止自动后端切换 |
 | 4 | 简化整星姿态动力学与执行机构约束 | P2 | 高 | 高：表达角加速度、饱和、稳定时间和平台本体运动 | 独立 Stage A；必须先完成闭环 ATP，冻结“共享平台姿态 + 逐通道光轴”的两层状态所有权，不把完整动力学内联进 `SbirsPipeline` |
 | 5 | 多通道机械耦合与共享姿态资源 | P2 | 高 | 中高：表达多个 NFOV 通道同时指向时的资源冲突和共同扰动 | 依赖第 4 项；需证明通道不再可视为独立 LOS，并形成确定性仲裁、失败归属和 snapshot/replay 矩阵 |
 | 6 | 探测器像元、背景杂波与图像帧 | P3（载荷算法用途可升为 P0） | 极高 | 取决于用途：对图像检测/TBD/NCC 很高，对当前系统级 session 较低 | 新建独立 SBIRS imaging 子系统；必须先具备可追溯 PSF/MTF、噪声、背景和独立物理真值，不向现有标量 raw output 直接堆入图像字段 |
@@ -1045,7 +1052,7 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 | 8 | 地面任务规划、区域重访与星座协同 | P3 | 高 | 中：提高任务系统真实性，不直接提高单传感器物理精度 | 独立任务规划模块；通过 session config/input 驱动 SBIRS，禁止把排程、星座资源和地面决策并入 sensor pipeline |
 | — | 复刻真实 SBIRS 保密参数或处理链 | reject | 不可评估 | 不可验证 | 不作为工程目标；只使用可追溯公开资料、仓库内模型假设和独立测试证据，不用不可审计常数冒充真实设备参数 |
 
-后续推荐顺序为：**CA 证据矩阵 → 简化姿态动力学
+后续推荐顺序为：**简化姿态动力学
 与通道耦合**。如果项目目标转为载荷图像算法评估，必须单独冻结产品边界，此时第 6 项可升为 P0，
 但仍不得把图像链直接塞入当前标量 `SbirsPipeline`。
 
