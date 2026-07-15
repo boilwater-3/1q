@@ -965,7 +965,31 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
     标识目标占用哪个并发 NFOV 通道（§2.6）。进入 attribution、lifecycle 事件与 debug view，
     不进 raw output。进 replay（`sbirs_replay.fbs`）。
 
-## 4. 设计变更规则
+## 4. 未来扩展模块优先级
+
+下表面向当前默认定位——**系统级、可解释、可确定性 replay 的 SBIRS-inspired 仿真**。优先级表示
+建议开展 Stage A 的顺序，不表示功能已经承诺或进入生产链路；所有候选初始状态均为 `defer`。只有
+证据矩阵证明真实性收益、状态所有权和验收门限后，才允许冻结实现范围。
+
+复杂度分为中、高、极高，综合考虑运行态、配置/schema、snapshot/replay、独立物理真值和测试矩阵。
+
+| 顺序 | 未来扩展候选 | 优先级 | 复杂度 | 预期真实性增益 | 推荐归属与 Stage A 进入条件 |
+|---:|---|:---:|:---:|---|---|
+| 1 | 捕获后闭环 ATP 跟踪 | P0 | 中 | 很高：消除进入 tracking 后不再推进 actuator 的理想化行为 | 先作为 `sbirs_sensor/pipeline` internal characterization；证明高角速度目标下实际光轴误差会改变丢锁/重捕获结果，并冻结逐通道状态与 replay 语义 |
+| 2 | 时间相关的姿态抖动与指向误差 | P0 | 中 | 高：补足独立逐帧 sigma 无法表达的偏置、漂移、抖动和残余振荡 | internal disturbance primitive；先比较白噪声与一阶 Gauss–Markov/确定性振动对捕获率、tracking error 和 replay 的影响，不直接引入整星控制器 |
+| 3 | CA cue predictor characterization | P1 | 中 | 中高：可能改善持续角加速度目标的 cue 提前量 | 先建立 CV/CA 场景矩阵；只有 CA 在加速场景稳定降低角误差/提高捕获率，且不因测量噪声显著恶化时才允许接线，禁止自动后端切换 |
+| 4 | 简化整星姿态动力学与执行机构约束 | P2 | 高 | 高：表达角加速度、饱和、稳定时间和平台本体运动 | 独立 Stage A；必须先完成闭环 ATP，冻结“共享平台姿态 + 逐通道光轴”的两层状态所有权，不把完整动力学内联进 `SbirsPipeline` |
+| 5 | 多通道机械耦合与共享姿态资源 | P2 | 高 | 中高：表达多个 NFOV 通道同时指向时的资源冲突和共同扰动 | 依赖第 4 项；需证明通道不再可视为独立 LOS，并形成确定性仲裁、失败归属和 snapshot/replay 矩阵 |
+| 6 | 探测器像元、背景杂波与图像帧 | P3（载荷算法用途可升为 P0） | 极高 | 取决于用途：对图像检测/TBD/NCC 很高，对当前系统级 session 较低 | 新建独立 SBIRS imaging 子系统；必须先具备可追溯 PSF/MTF、噪声、背景和独立物理真值，不向现有标量 raw output 直接堆入图像字段 |
+| 7 | 高精度轨道传播 | P3 | 高 | 中：提高长时几何一致性，但当前 cycle input 已提供平台/目标状态 | 默认归属场景或平台动力学模块；SBIRS 只消费同一时标/坐标系状态。只有外部输入无法满足 cue/遮挡精度时才评估窄 internal helper |
+| 8 | 地面任务规划、区域重访与星座协同 | P3 | 高 | 中：提高任务系统真实性，不直接提高单传感器物理精度 | 独立任务规划模块；通过 session config/input 驱动 SBIRS，禁止把排程、星座资源和地面决策并入 sensor pipeline |
+| — | 复刻真实 SBIRS 保密参数或处理链 | reject | 不可评估 | 不可验证 | 不作为工程目标；只使用可追溯公开资料、仓库内模型假设和独立测试证据，不用不可审计常数冒充真实设备参数 |
+
+推荐默认推进顺序为：**闭环 ATP characterization → 时间相关指向扰动 → CA 证据矩阵 → 简化姿态动力学
+与通道耦合**。如果项目目标转为载荷图像算法评估，必须单独冻结产品边界，此时第 6 项可升为 P0，
+但仍不得把图像链直接塞入当前标量 `SbirsPipeline`。
+
+## 5. 设计变更规则
 
 1. `SbirsOutputFrame`、检测记录字段、`SbirsCycleResult` 或 attribution/debug/lifecycle 语义变化，
    必须同步本文和输出边界测试；不得为复用 EOS consumer 而把 range、visible/fused SNR 塞进 raw output。
