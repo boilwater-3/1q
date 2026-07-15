@@ -54,6 +54,8 @@ SbirsDetectionLifecycleReason InferReason(
         return SbirsDetectionLifecycleReason::kEstimationNisGateLost;
       case attribution::SbirsCaptureFailureReason::kNfovPointingTimeout:
         return SbirsDetectionLifecycleReason::kNfovPointingTimeout;
+      case attribution::SbirsCaptureFailureReason::kNfovTrackingGateLost:
+        return SbirsDetectionLifecycleReason::kNfovTrackingGateLost;
       case attribution::SbirsCaptureFailureReason::kNone:
         break;
     }
@@ -87,6 +89,12 @@ void FillObservationFields(const output::SbirsDetectionRecord& record,
   event->estimation_nis = attribution.estimation_nis;
   event->estimation_nis_gate_exceeded = attribution.estimation_nis_gate_exceeded;
   event->nfov_channel_id = attribution.nfov_channel_id;
+  event->has_nfov_tracking_diagnostics = attribution.has_nfov_tracking_diagnostics;
+  event->nfov_pointing_error_deg = attribution.nfov_pointing_error_deg;
+  event->nfov_geometry_gate_passed = attribution.nfov_geometry_gate_passed;
+  event->nfov_snr_gate_passed = attribution.nfov_snr_gate_passed;
+  event->nfov_tracking_gate_failure_count = attribution.nfov_tracking_gate_failure_count;
+  event->nfov_tracking_coasting = attribution.nfov_tracking_coasting;
 }
 
 void FillAttributionFields(const attribution::SbirsDetectionAttributionRecord& attribution,
@@ -97,6 +105,12 @@ void FillAttributionFields(const attribution::SbirsDetectionAttributionRecord& a
   event->estimation_nis = attribution.estimation_nis;
   event->estimation_nis_gate_exceeded = attribution.estimation_nis_gate_exceeded;
   event->nfov_channel_id = attribution.nfov_channel_id;
+  event->has_nfov_tracking_diagnostics = attribution.has_nfov_tracking_diagnostics;
+  event->nfov_pointing_error_deg = attribution.nfov_pointing_error_deg;
+  event->nfov_geometry_gate_passed = attribution.nfov_geometry_gate_passed;
+  event->nfov_snr_gate_passed = attribution.nfov_snr_gate_passed;
+  event->nfov_tracking_gate_failure_count = attribution.nfov_tracking_gate_failure_count;
+  event->nfov_tracking_coasting = attribution.nfov_tracking_coasting;
 }
 
 }  // namespace
@@ -130,6 +144,16 @@ std::vector<SbirsDetectionLifecycleEvent> SbirsDetectionLifecycleRecorder::Updat
     const output::SbirsDetectionRecord* record =
         attribution == nullptr ? nullptr
                                : FindRecord(attribution->detection_id, result.output_frame);
+    if (attribution != nullptr && attribution->nfov_tracking_coasting) {
+      SbirsDetectionLifecycleEvent event = MakeBaseEvent(target, result);
+      event.kind = SbirsDetectionLifecycleEventKind::kCoasting;
+      event.reason = SbirsDetectionLifecycleReason::kNone;
+      FillAttributionFields(*attribution, &event);
+      events.push_back(event);
+      state.detected = true;
+      state.target_name = target.target_name;
+      continue;
+    }
     const bool detected_now = result.executed_this_cycle && record != nullptr && record->detected;
     if (detected_now) {
       SbirsDetectionLifecycleEvent event = MakeBaseEvent(target, result);

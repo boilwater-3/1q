@@ -19,10 +19,11 @@ namespace session {
 
 struct SbirsCycleInput;
 
-/** @brief 生命周期事件类型：首次检测、更新、丢失、未检测。 */
+/** @brief 生命周期事件类型：首次检测、更新、coasting、丢失、未检测。 */
 enum class ONEQ_API SbirsDetectionLifecycleEventKind {
   kFirstDetected = 0, /**< 目标首次被检测 */
   kUpdated,           /**< 目标状态更新（持续检测） */
+  kCoasting,          /**< 暂无有效 NFOV 量测但仍保持锁定 */
   kLost,              /**< 目标丢失 */
   kNotDetected        /**< 目标本周期未检测 */
 };
@@ -39,6 +40,7 @@ enum class ONEQ_API SbirsDetectionLifecycleReason {
   kSchedulerSkipped,       /**< WFOV 候选未被调度器选中 */
   kEstimationNisGateLost,  /**< EKF NIS 连续超限导致释放 NFOV 锁定 */
   kNfovPointingTimeout,    /**< ATP 光轴未在派生等待上限内稳定 */
+  kNfovTrackingGateLost,   /**< NFOV 跟踪几何/SNR 门连续失败 */
   kUnknown                 /**< 未知原因 */
 };
 
@@ -62,6 +64,12 @@ struct ONEQ_API SbirsDetectionLifecycleEvent {
   float estimation_nis{0.0f};                           /**< EKF 归一化新息平方 */
   bool estimation_nis_gate_exceeded{false};             /**< EKF NIS 是否超过 2 维 95% 门限 */
   int nfov_channel_id{-1}; /**< NFOV 通道编号；-1 表示 WFOV/未占用 NFOV 资源 */
+  bool has_nfov_tracking_diagnostics{false};
+  float nfov_pointing_error_deg{0.0f};
+  bool nfov_geometry_gate_passed{false};
+  bool nfov_snr_gate_passed{false};
+  unsigned int nfov_tracking_gate_failure_count{0U};
+  bool nfov_tracking_coasting{false};
 };
 
 /**

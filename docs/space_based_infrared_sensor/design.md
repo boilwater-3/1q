@@ -109,7 +109,7 @@ flowchart TB
     Handoff["Handoff decision\n首次捕获判定"]
     Pointing["SbirsPointingCoordinator\n逐通道限速 ATP"]
     NfovFirst["NFOV first acquisition\n用 WFOV 带误差位置捕获"]
-    NfovTrack["NFOV truth-assisted tracking\n仿真真值辅助持续跟踪"]
+    NfovTrack["NFOV closed-loop tracking\n估计/真值辅助命令 + 实际光轴门控"]
     Scheduler["SbirsNfovScheduler\n多通道资源分配"]
   end
 
@@ -203,8 +203,8 @@ sequenceDiagram
         else ATP settled / 光轴已稳定
           Pipeline->>Physics: NFOV acquisition: actuator LOS + window + SNR gate\n以实际光轴执行捕获判定
         alt acquisition success / 捕获成功
-          SM-->>Pipeline: TruthAssistedTracking\n真值辅助跟踪
-          Pipeline->>Physics: NFOV truth-assisted track\n真值辅助持续跟踪
+          SM-->>Pipeline: Estimated/TruthAssistedTracking\n进入持续跟踪
+          Pipeline->>Physics: predict/command → ATP → gate → correct\n闭环光轴与可见性判定
         else acquisition fail / 捕获失败
           SM-->>Pipeline: back to WideCandidate\n回退 WFOV
         end
@@ -260,7 +260,7 @@ flowchart LR
 
   subgraph Nfov["NFOV channel / 窄视场通道"]
     Acq["First acquisition\nWFOV 带误差位置 + 窗口 + 门限"]
-    Track["Truth-assisted tracking\n真值辅助持续跟踪"]
+    Track["Closed-loop tracking\n预测/真值命令 + ATP + NFOV 门"]
   end
 
   subgraph Output["Output / 输出"]
@@ -308,7 +308,7 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 | WFOV 扫描搜索 | `SbirsPipeline` | 推进扫描相位，执行地球遮挡、FOV、范围和 SNR 门控 | internal pipeline，不可替换 | `sbirs_pipeline_test` |
 | WFOV 误差模型 | `ApplyAngularErrorModel` | 对方位/俯仰/距离生成带误差 cue，供首次 NFOV 捕获使用 | internal 随机源可注入，public 不直接采样 | `sbirs_error_model_test` |
 | Cue 预测 | `SbirsCuePredictor` | 按目标保存 WFOV 测量历史并生成角度域 CV 提前量 | internal；命令不消费目标真值速度 | `sbirs_cue_predictor_test`、`sbirs_pipeline_test` |
-| NFOV ATP | `SbirsPointingCoordinator`、`SbirsPointingActuator` | 按 NFOV 通道保存光轴，跨周期限速推进并判定 settled/timeout | 始终启用；配置只公开最大转速与稳定容差 | `sbirs_pointing_coordinator_test`、`sbirs_session_test` |
+| NFOV ATP | `SbirsPointingCoordinator`、`SbirsPointingActuator` | 按 NFOV 通道保存光轴；捕获前限速推进并判定 settled/timeout，捕获后闭环跟随并执行几何/SNR 门 | 始终启用；配置公开最大转速、稳定容差与连续跟踪门失败周期数 | `sbirs_pointing_coordinator_test`、`sbirs_pipeline_test` |
 | 目标状态机 | `SbirsTargetStateMachine` | 6 状态管理 WFOV 候选、跨周期捕获和持续跟踪 | internal 状态机，debug view 可观测 | `sbirs_state_machine_test` |
 | NFOV 首次捕获 | `EvaluateNfovAcquisition` | 由 WFOV cue 生成凝视指向，真实 LOS 落入窗口且 NFOV SNR 达标时捕获 | internal 判定，不暴露捕获算法 SPI | `sbirs_pipeline_test` |
 | NFOV 资源调度 | `SbirsNfovScheduler::SelectForAcquisition` | 多通道并发锁定（`max_concurrent_nfov_locks`，默认 1），按已跟踪、SNR、距离、target id 排序并分配通道编号 | internal scheduler，不暴露策略 SPI | `sbirs_scheduler_test` |
@@ -329,8 +329,8 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 | `Undetected` | 初始或目标未被任何视场发现 | 不输出 |
 | `WideCandidate` | WFOV 已发现，等待 NFOV 资源调度 | 输出 WFOV 检测记录 |
 | `AwaitingNfovAcquisition` | 已预留 NFOV 通道，逐周期更新 cue 并推进 ATP；settled 后才执行首次捕获 | slewing 时输出 WFOV；settled 后视捕获结果 |
-| `TruthAssistedTracking` | 首次 NFOV 捕获成功且显式关闭滤波时，进入仿真简化的真值辅助持续跟踪 | 输出 NFOV 检测记录 |
-| `EstimatedTracking` | EKF 滤波测量跟踪（默认启用；由 `SbirsTrackingConfig.enable_estimated_tracking` 控制） | 输出 NFOV 检测记录（滤波估计角度） |
+| `TruthAssistedTracking` | 首次 NFOV 捕获成功且显式关闭滤波时，真值 LOS 驱动闭环 ATP | 门通过时输出 NFOV 检测；暂时失视时 coasting 且无 raw |
+| `EstimatedTracking` | EKF/IMM 预测 LOS 驱动闭环 ATP，门通过后才消费角度量测 | 门通过时输出滤波估计；暂时失视时仅预测 coasting |
 | `Lost` | 目标从输入场景消失或传感器关闭 | 不输出 |
 
 捕获失败不是独立状态；失败转移回 `WideCandidate`，并清除本次交接上下文。
@@ -350,8 +350,10 @@ stateDiagram-v2
   AwaitingNfovAcquisition --> EstimatedTracking : 首次捕获成功\n（启用滤波）\n（EKF 滤波测量跟踪，见 §2.5.2）
   AwaitingNfovAcquisition --> AwaitingNfovAcquisition : ATP 未 settled\n（保留通道并输出 WFOV）
   AwaitingNfovAcquisition --> WideCandidate : 首次捕获失败或 ATP timeout\n（释放通道并清除交接状态）
-  TruthAssistedTracking --> TruthAssistedTracking : 目标仍存在且传感器开启\n（仿真真值辅助跟踪）
-  EstimatedTracking --> EstimatedTracking : 目标仍存在且传感器开启\n（EKF 滤波测量跟踪）
+  TruthAssistedTracking --> TruthAssistedTracking : 实际 NFOV 几何/SNR 门通过\n或失败次数未达阈值
+  EstimatedTracking --> EstimatedTracking : predict→ATP→gate→correct\n或 predict-only coasting
+  TruthAssistedTracking --> WideCandidate : NFOV 跟踪门连续失败 2 周期
+  EstimatedTracking --> WideCandidate : NFOV 跟踪门连续失败 2 周期
   WideCandidate --> WideCandidate : 下一周期仍是 WFOV 候选
   Undetected --> Undetected : 目标在 WFOV 外\n或 SNR 不足
   TruthAssistedTracking --> Lost : 目标从场景消失\n或传感器关闭
@@ -368,11 +370,12 @@ stateDiagram-v2
 | `Undetected` → `WideCandidate` | 目标在本周期 WFOV 视场内，且 WFOV IR SNR ≥ WFOV 检测门限 | 记录 WFOV 带误差位置、SNR |
 | `WideCandidate` → `AwaitingNfovAcquisition` | 存在空闲 NFOV 通道且该目标在优先级排序中胜出（见 2.6） | 立即分配通道；首次使用从 WFOV 扫描中心初始化光轴，复用通道则从末次 LOS 继续 |
 | `AwaitingNfovAcquisition` → `AwaitingNfovAcquisition` | ATP 未 settled 且累计等待小于 `180° / max_slew_rate` | 保留通道，更新 cue，输出 WFOV record 与 `nfov_channel_id` |
-| `AwaitingNfovAcquisition` → `TruthAssistedTracking` | ATP settled 后，实际光轴窗口覆盖延迟真值 LOS，NFOV SNR 达标，且关闭滤波 | 记录 NFOV 检测，释放 ATP 绑定但保留 scheduler 锁定 |
+| `AwaitingNfovAcquisition` → `TruthAssistedTracking` | ATP settled 后，实际光轴窗口覆盖延迟真值 LOS，NFOV SNR 达标，且关闭滤波 | 记录 NFOV 检测，保留 scheduler 与 ATP 通道绑定 |
 | `AwaitingNfovAcquisition` → `EstimatedTracking` | 同上，且启用滤波测量跟踪（见 §2.5.2） | 记录 NFOV 检测并初始化该目标滤波状态 |
 | `AwaitingNfovAcquisition` → `WideCandidate` | settled 后窗口/SNR 失败，或未 settled 且达到派生 timeout | 产生一次失败归属并释放通道；同周期不重新调度该目标 |
-| `TruthAssistedTracking` → `TruthAssistedTracking` | 目标仍存在于输入场景且传感器开启 | 用仿真真值辅助生成 NFOV 指向与检测输出 |
-| `EstimatedTracking` → `EstimatedTracking` | 目标仍存在于输入场景且传感器开启 | 用滤波估计生成 NFOV 指向与检测输出 |
+| `TruthAssistedTracking` → `TruthAssistedTracking` | 真值命令驱动 ATP；实际 NFOV 几何/SNR 门通过或失败次数未达阈值 | 通过时输出真值辅助角度；单周期失败只输出 coasting 诊断 |
+| `EstimatedTracking` → `EstimatedTracking` | 先预测 LOS 并推进 ATP；实际 NFOV 门通过后才校正量测 | 通过时输出后验角度；单周期失败只推进预测状态 |
+| 两个 tracking 状态 → `WideCandidate` | 几何或 SNR 门连续失败达到 `nfov_tracking_gate_loss_cycles`（默认 2） | 输出一次 `kNfovTrackingGateLost`，释放 scheduler、ATP 与滤波状态 |
 | 任意 → `Lost` | 目标从输入场景消失，或传感器关闭 | 释放 NFOV 资源 |
 
 设计要点：
@@ -381,8 +384,8 @@ stateDiagram-v2
 - 捕获成功后进入哪个跟踪态由配置决定：默认启用滤波进入 `EstimatedTracking`，用滤波估计生成指向；
   显式关闭滤波时进入 `TruthAssistedTracking`，用仿真真值辅助生成指向。两个跟踪态**严格分离**，不复用同一
   状态枚举——这满足原先"后续若引入估计滤波必须先把真值辅助状态拆分"的前置约束。
-- 真值辅助跟踪**只**受"目标是否存在"和"传感器是否开启"影响，不受后续测量误差影响。这是第一版的仿真简化，
-  不是真实 SBIRS 设备行为：真实传感器只能产生测量、事件和辐射数据，不知道目标真值。
+- 真值辅助态的命令来源仍是真值，但实际 actuator LOS、NFOV 窗口与 SNR 门同样决定是否存在有效量测；
+  它不是绕过光轴动力学和可见性的理想化输出路径。
 - `EstimatedTracking` 的 EKF 滤波已接线（见 §2.5.2）：6 维 CV 状态 / 2 维角度量测，消费
   `common/estimation` 模板化框架，facade 位于 `sbirs_sensor::tracking` 命名空间。`enable_estimated_tracking=true`
   时捕获成功进入此态；关闭时回退 `TruthAssistedTracking`，行为零变化。后端选型见 §2.5.3。
@@ -440,19 +443,20 @@ stateDiagram-v2
 默认值分别为 30 deg/s 和 0.01 deg，ATP 始终启用。二者与 settled 后施加的静态
 `narrow_pointing_settle_error_deg` 是三个独立物理量。
 
-coordinator 以 `channel_id` 持有 actuator、绑定目标和累计等待时间；scheduler 仍是通道分配的唯一
+coordinator 以 `channel_id` 持有 actuator、绑定目标、捕获等待时间和跟踪门连续失败计数；scheduler 仍是通道分配的唯一
 权威。首次使用的通道从当周期 WFOV 扫描中心初始化；普通释放只解除目标绑定并保留末次 LOS，standby
 或整域 mission config 提交才清空。每周期先推进已有 awaiting 目标，再调度新候选，因此释放的容量可在
 同周期供其他目标使用。未 settled 且累计等待达到 `180° / max_slew_rate` 时产生一次
 `kNfovPointingTimeout`，释放资源并禁止该目标同周期重新调度。
 
-pipeline snapshot 同时保存 scheduler 映射和逐通道 actuator 状态；restore 先验证通道范围、唯一性、
-绑定目标与 `AwaitingNfovAcquisition` 的双向一致性，再原子提交。replay 不序列化内部 snapshot，而是由
-config、cycle input 和 runtime patch 重新执行；结果比较包含 `nfov_channel_id`。
+首次捕获成功后 coordinator 不释放绑定，而是清零捕获等待并晋级为 tracking；之后每周期继续限速推进。
+pipeline snapshot 同时保存 scheduler 映射、逐通道 actuator 和 tracking gate 计数；restore 验证通道范围、
+唯一性，以及绑定目标与 awaiting/tracking 状态的双向一致性后原子提交。replay 不序列化内部 snapshot，
+而是由 config、cycle input 和 runtime patch 重新执行；结果比较覆盖全部 tracking gate 诊断。
 
 [evidence: `sbirs_pointing_actuator_test.cpp:ZeroAngleIsImmediatelySettled`、`SlewRateLimitsProgressAndPreventsOvershoot`、`InvalidInputIsRejectedAtomically`、`CaptureRestorePreservesDeterministicContinuation`;
- `sbirs_pointing_coordinator_test.cpp:ReleaseKeepsLosAndClearResetsIt`、`MovingCommandTimesOutAndReleasesBinding`、`InvalidSnapshotIsRejectedAtomically`;
- `sbirs_pipeline_test.cpp:RateLimitedPointingSpansCyclesAndRestores`、`PointingTimeoutReleasesWithoutSameCycleReschedule`、`InvalidPointingSnapshotRestoreIsAtomic`]
+ `sbirs_pointing_coordinator_test.cpp:TrackingAdvanceKeepsBindingWithoutAcquisitionTimeout`、`TrackingGateCountResetsAndRoundtrips`、`InvalidSnapshotIsRejectedAtomically`;
+ `sbirs_pipeline_test.cpp:RateLimitedPointingSpansCyclesAndRestores`、`TrackingCoastSnapshotRestoreMatchesUninterrupted`、`ConsecutiveTrackingGateFailuresReleaseLock`]
 
 ### 2.4 NFOV 首次捕获
 
@@ -471,8 +475,8 @@ config、cycle input 和 runtime patch 重新执行；结果比较包含 `nfov_c
    耦合对首次捕获的影响。无速度时 `u_true` 即当前帧真值，行为不变。这样捕获判定仍受 WFOV 误差、
    目标运动、cue 延迟和 NFOV 视场大小影响，不会因为窗口中心直接取测量值而恒成立。
 5. **SNR 门限**：判断 NFOV IR SNR 是否 ≥ NFOV 捕获门限；具体门限由当前配置决定。
-6. **成功**：默认进入 `EstimatedTracking`；显式关闭滤波时进入 `TruthAssistedTracking`。捕获后的持续
-   跟踪不再推进 actuator。
+6. **成功**：默认进入 `EstimatedTracking`；显式关闭滤波时进入 `TruthAssistedTracking`。两种状态都保留
+   当前通道的 actuator 绑定并进入捕获后闭环推进。
 7. **失败/超时**：窗口或 SNR 失败，或 ATP 达到派生等待上限时，清除交接并回退 `WideCandidate`。不输出该
    目标本周期 NFOV 成功记录；但产出 `capture_failure_reason = kNfovAcquisitionFailed` 的诊断归属，
    仅进入 `SbirsCycleResult.detection_attributions` 与调试/lifecycle 层，不进入 raw output。
@@ -483,7 +487,7 @@ config、cycle input 和 runtime patch 重新执行；结果比较包含 `nfov_c
   6D ECEF 滤波预测、轨道传播、模板匹配或图像相关。
 - `u_cmd` 仅由 WFOV 带误差测量历史生成；延迟后的真实 LOS 只用于仿真判定捕获是否成功，不进入命令或 raw output。
 - cue 延迟对真实 LOS 的评估仍用目标速度做线性平移，不做积分轨道传播。
-- 当前 ATP 只建模 NFOV 捕获前的速率受限光轴，不建模整星姿态动力学、通道间机械耦合或捕获后闭环跟踪。
+- 当前 ATP 建模捕获前与捕获后的逐通道速率受限光轴；仍不建模整星姿态动力学或通道间机械耦合。
 
 [evidence: `sbirs_cue_predictor_test.cpp:ConstantAngularVelocityPredictsLatencyAhead`、`AzimuthUsesShortestPathAcrossWrap`、`CaptureRestorePreservesPerTargetHistory`;
  `sbirs_pipeline_test.cpp:MeasurementCvCueCapturesOnSecondObservationAndRestores`、`SchedulerSkippedCandidateAccumulatesCueHistoryUntilChannelFrees`;
@@ -507,13 +511,25 @@ config、cycle input 和 runtime patch 重新执行；结果比较包含 `nfov_c
 记录的指向来源（真值还是滤波估计）无法追溯；capture/restore 无法正确回滚（真值辅助无状态可回滚，滤波器有）；
 replay 语义模糊（真值辅助确定性复现，滤波器依赖随机源）。
 
+两个状态共享同一条闭环可见性链：命令 LOS → actuator 按 `dt_sec` 限速推进 → 当前 actuator LOS 叠加
+`narrow_pointing_settle_error_deg` 形成有效 NFOV 中心 → 矩形几何门与 `narrow_min_snr_linear` SNR 门。
+单周期失败不产生 raw 量测，而是进入 `Coasting` 诊断并保持通道；连续失败达到
+`nfov_tracking_gate_loss_cycles`（默认 2，必须 ≥1）才正式丢锁。
+
+EstimatedTracking 严格使用因果顺序：**predict → actuator advance → geometry/SNR gate → correct**。
+门失败时滤波器只预测、不采样量测、不产生 NIS，并清零连续 NIS 超限计数；门通过后才施加带误差角度量测。
+[evidence: `estimation_kalman_test.cpp:SplitPredictCorrectMatchesProcessWithDynamicR`;
+ `sbirs_pipeline_test.cpp:TrackingGateCoastsOnceThenRecoversWithoutRawMeasurement`、`TrackingSnrGateCanCoastWhileGeometryPasses`、`TruthAssistedTrackingStillUsesActualPointingGate`;
+ `sbirs_cycle_output_builder_test.cpp:CoastingHasNoRawAndDoesNotEmitPrematureLost`;
+ `sbirs_replay_session_test.cpp:ReplayPreservesTrackingCoastAndGateLoss`]
+
 #### 2.5.1 真值辅助跟踪（TruthAssistedTracking）
 
 对 `TruthAssistedTracking` 状态的目标（`enable_estimated_tracking=false`），后续周期持续跟踪：
 
 1. **指向来源**：使用目标**真实位置**（输入场景中的真值方位角、俯仰角、距离）辅助计算 NFOV 指向和
    检测输出，不再使用 WFOV 带误差位置。这是仿真层稳定性假设，不代表真实传感器知道目标真值。
-2. **持续条件**：只受"目标是否存在"和"传感器是否开启"影响，不因测量误差丢失锁定。
+2. **持续条件**：真值驱动命令，但实际 actuator LOS 的 NFOV 几何门和 SNR 门必须通过；短暂失败进入 coasting。
 3. **输出**：按 `SbirsOutputFrame` 格式生成检测记录（方位角、俯仰角、SNR、观测阶段、是否探测成功）。可在输出测量值
    上叠加误差，但误差不影响内部真值辅助状态——即输出层的误差是"显示噪声"，不是"状态转移输入"。
 4. **释放**：目标从输入场景消失后，状态转为 `Lost`，NFOV 释放资源，回到 WFOV 中选择下一个候选。
@@ -548,17 +564,18 @@ replay 语义模糊（真值辅助确定性复现，滤波器依赖随机源）�
 初始协方差 P0 由 `SbirsTrackingConfig.initial_position_std_m` / `initial_velocity_std_m_per_s` 构造为
 对角阵。这是仿真的 track initiation 简化；后续 predict/update 用带误差测量才是滤波器发挥作用的环节。
 
-**每周期 predict-update**：
+**每周期因果闭环**：
 1. `SetSatellitePosition(input.satellite_position_ecef_m)`
-2. EKF predict（CV 转移模型，过程噪声 `process_noise_diff_coeff`）
-3. 测量 = 本帧带误差角度（`ApplyAngularErrorModel` 输出的 az/el，deg→rad）
-4. R 矩阵 = `BuildMeasurementCovariance(error_model, range, elevation, angular_rate)`，从 §2.10 的
+2. EKF/IMM predict（CV 转移模型，过程噪声 `process_noise_diff_coeff`），预测 LOS 作为 ATP 命令
+3. actuator 限速推进，以实际 LOS 执行 NFOV 几何/SNR 门；失败时只保留预测状态并 coasting
+4. 门通过后才生成本帧带误差角度量测（`ApplyAngularErrorModel` 输出的 az/el，deg→rad）
+5. R 矩阵 = `BuildMeasurementCovariance(error_model, range, elevation, angular_rate)`，从 §2.10 的
    5 类误差 RSS 合成，deg²→rad²。R 随距离/俯仰/角速度动态变化
-5. EKF update（3 参数重载，动态 R）
+6. EKF/IMM correct（动态 R），并计算 NIS
 
 **输出处理**：
-- **SNR / range / 检测门限**：用真值几何算（与真值辅助一致），**不受滤波估计影响**。滤波器发散不会
-  导致"虚假丢失"。
+- **SNR / range / 检测门限**：SNR 和 range 仍用真值物理链计算；NFOV 几何中心来自实际 actuator LOS，
+  因而滤波预测误差和转速限制会真实影响 coasting/丢锁。
 - **输出角度**（`azimuth_deg` / `elevation_deg`）：用滤波估计的 ECEF 位置 → 相对卫星 LOS → az/el。
   `used_truth_assist = false`。
 - **状态转移**：默认仍只受"目标是否存在"和"传感器是否开启"影响；当 `nis_gate_loss_cycles > 0` 时，
@@ -576,6 +593,7 @@ replay 语义模糊（真值辅助确定性复现，滤波器依赖随机源）�
 - `process_noise_diff_coeff`（默认 1.0）
 - `initial_position_std_m`（默认 1000）、`initial_velocity_std_m_per_s`（默认 100）
 - `nis_gate_loss_cycles`（默认 0，禁用）
+- `nfov_tracking_gate_loss_cycles`（默认 2，必须 ≥1）
 
 适用边界：
 - EKF 初始化用真值位置（方案 A），后续 update 用带误差测量；不实现测量初始化（反算 ECEF 需距离假设）。
@@ -877,7 +895,9 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 - NFOV 指向等待周期（`AwaitingNfovAcquisition` 且 ATP 未 settled）：继续输出 WFOV 检测记录；
   attribution 携带已预留的 `nfov_channel_id`。
 - NFOV 首次捕获成功周期（`AwaitingNfovAcquisition → EstimatedTracking/TruthAssistedTracking`）：输出 NFOV 捕获后的检测记录。
-- NFOV 持续跟踪周期（`EstimatedTracking` 或 `TruthAssistedTracking`）：持续输出锁定目标的检测记录；默认位置角度由 EKF 估计生成，显式关闭滤波时由真值辅助生成。
+- NFOV 持续跟踪且几何/SNR 门通过：输出锁定目标检测；默认角度来自滤波后验，显式关闭滤波时来自真值辅助。
+- NFOV 单周期门失败但未达丢锁阈值：raw output 无记录；attribution/debug/lifecycle 标记 `Coasting` 并保留通道。
+- NFOV 门连续失败达到阈值：raw output 无记录；result attribution 携带 `kNfovTrackingGateLost` 并释放锁定。
 - NFOV 首次捕获失败或 pointing timeout 周期（`AwaitingNfovAcquisition → WideCandidate`）：raw output
   不含失败记录；result attribution 分别携带 `kNfovAcquisitionFailed` 或 `kNfovPointingTimeout`。
 
@@ -935,10 +955,10 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
   控制并发 NFOV 通道数（默认 1）。`SbirsNfovScheduler` 管理通道分配与回收，`nfov_channel_id` 仅进
   attribution 调试层。之前作为非目标保留的理由（"需独立的 NFOV 资源模型和调度器"）已由本次变更落地。
 
-- **Cueing 与捕获前 ATP 已接线，但不扩展为完整姿态/跟踪系统**——测量驱动的角度域 CV cue 使用
+- **Cueing 与逐通道闭环 ATP 已接线，但不扩展为完整整星姿态系统**——测量驱动的角度域 CV cue 使用
   连续 WFOV 带误差角度补偿 `narrow_cue_latency_s`；逐通道 ATP 以球面最短路径限速推进并在 settled
   后执行首次捕获。目标真值速度只推进 delayed truth，不生成命令。CA、6D/9D 搜索、轨道预测、整星
-  姿态动力学、通道机械耦合和捕获后闭环 ATP 跟踪仍是明确非目标。
+  姿态动力学、通道机械耦合仍是明确非目标；捕获后 tracking 已使用实际 actuator LOS 门控。
 
 - **不暴露用户自定义 pipeline、controller、状态机、环境模型或 foundation algorithm 类型。**
 
@@ -960,7 +980,9 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
     延迟外推与动态滞后误差；缺省时行为不变。velocity 进 replay（`sbirs_replay.fbs`）。
   - `SbirsCaptureFailureReason`（枚举）与 `SbirsDetectionAttributionRecord.capture_failure_reason`：
     首次捕获失败/调度跳过/EKF NIS 丢锁诊断，进入 `SbirsCycleResult.detection_attributions` 与 lifecycle reason
-    （`kNfovAcquisitionFailed`/`kSchedulerSkipped`/`kEstimationNisGateLost`），不进 raw output。进 replay（`sbirs_replay.fbs`）。
+    （`kNfovAcquisitionFailed`/`kSchedulerSkipped`/`kEstimationNisGateLost`/`kNfovTrackingGateLost`），不进 raw output。进 replay（`sbirs_replay.fbs`）。
+  - 闭环跟踪诊断：实际光轴误差、几何/SNR 门状态、连续失败计数和 coasting 标志进入
+    attribution、debug、lifecycle 与 replay；不进入 raw output。
   - `SbirsDetectionAttributionRecord.nfov_channel_id`：NFOV 通道编号（-1 表示 WFOV/未占用 NFOV 资源），
     标识目标占用哪个并发 NFOV 通道（§2.6）。进入 attribution、lifecycle 事件与 debug view，
     不进 raw output。进 replay（`sbirs_replay.fbs`）。
@@ -968,14 +990,14 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 ## 4. 未来扩展模块优先级
 
 下表面向当前默认定位——**系统级、可解释、可确定性 replay 的 SBIRS-inspired 仿真**。优先级表示
-建议开展 Stage A 的顺序，不表示功能已经承诺或进入生产链路；所有候选初始状态均为 `defer`。只有
+建议开展 Stage A 的顺序，不表示其余功能已经承诺；第 1 项已完成 Stage A 并进入生产链路，其余候选保持 `defer`。只有
 证据矩阵证明真实性收益、状态所有权和验收门限后，才允许冻结实现范围。
 
 复杂度分为中、高、极高，综合考虑运行态、配置/schema、snapshot/replay、独立物理真值和测试矩阵。
 
 | 顺序 | 未来扩展候选 | 优先级 | 复杂度 | 预期真实性增益 | 推荐归属与 Stage A 进入条件 |
 |---:|---|:---:|:---:|---|---|
-| 1 | 捕获后闭环 ATP 跟踪 | P0 | 中 | 很高：消除进入 tracking 后不再推进 actuator 的理想化行为 | 先作为 `sbirs_sensor/pipeline` internal characterization；证明高角速度目标下实际光轴误差会改变丢锁/重捕获结果，并冻结逐通道状态与 replay 语义 |
+| 1 | 捕获后闭环 ATP 跟踪（implemented） | P0 | 中 | 很高：已消除 tracking 绕过 actuator 的理想化行为 | 已按逐通道状态接线；predict→advance→gate→correct、coasting、两周期丢锁、snapshot/replay 均有测试证据 |
 | 2 | 时间相关的姿态抖动与指向误差 | P0 | 中 | 高：补足独立逐帧 sigma 无法表达的偏置、漂移、抖动和残余振荡 | internal disturbance primitive；先比较白噪声与一阶 Gauss–Markov/确定性振动对捕获率、tracking error 和 replay 的影响，不直接引入整星控制器 |
 | 3 | CA cue predictor characterization | P1 | 中 | 中高：可能改善持续角加速度目标的 cue 提前量 | 先建立 CV/CA 场景矩阵；只有 CA 在加速场景稳定降低角误差/提高捕获率，且不因测量噪声显著恶化时才允许接线，禁止自动后端切换 |
 | 4 | 简化整星姿态动力学与执行机构约束 | P2 | 高 | 高：表达角加速度、饱和、稳定时间和平台本体运动 | 独立 Stage A；必须先完成闭环 ATP，冻结“共享平台姿态 + 逐通道光轴”的两层状态所有权，不把完整动力学内联进 `SbirsPipeline` |
@@ -985,7 +1007,7 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 | 8 | 地面任务规划、区域重访与星座协同 | P3 | 高 | 中：提高任务系统真实性，不直接提高单传感器物理精度 | 独立任务规划模块；通过 session config/input 驱动 SBIRS，禁止把排程、星座资源和地面决策并入 sensor pipeline |
 | — | 复刻真实 SBIRS 保密参数或处理链 | reject | 不可评估 | 不可验证 | 不作为工程目标；只使用可追溯公开资料、仓库内模型假设和独立测试证据，不用不可审计常数冒充真实设备参数 |
 
-推荐默认推进顺序为：**闭环 ATP characterization → 时间相关指向扰动 → CA 证据矩阵 → 简化姿态动力学
+后续推荐顺序为：**时间相关指向扰动 → CA 证据矩阵 → 简化姿态动力学
 与通道耦合**。如果项目目标转为载荷图像算法评估，必须单独冻结产品边界，此时第 6 项可升为 P0，
 但仍不得把图像链直接塞入当前标量 `SbirsPipeline`。
 

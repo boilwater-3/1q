@@ -18,12 +18,13 @@ namespace session {
 
 struct SbirsCycleInput;
 
-/** @brief 调试视图中的目标状态：已检测、低于门限观测、不在输出中、本周期未执行。 */
+/** @brief 调试视图中的目标状态：已检测、低于门限、coasting、不在输出或未执行。 */
 enum class ONEQ_API SbirsDebugTargetStatus {
-  kDetected = 0,              /**< 已检测（通过门限） */
-  kObservedBelowThreshold,    /**< 被观测但低于 SNR 门限 */
-  kNotInOutput,               /**< 不在输出中 */
-  kCycleNotExecuted           /**< 本周期未执行 */
+  kDetected = 0,           /**< 已检测（通过门限） */
+  kObservedBelowThreshold, /**< 被观测但低于 SNR 门限 */
+  kCoasting,               /**< 暂无有效 NFOV 量测但仍保持跟踪锁定 */
+  kNotInOutput,            /**< 不在输出中 */
+  kCycleNotExecuted        /**< 本周期未执行 */
 };
 
 /**
@@ -43,6 +44,12 @@ struct ONEQ_API SbirsDebugTargetState {
   float estimation_nis{0.0f};        /**< EKF 归一化新息平方 */
   bool estimation_nis_gate_exceeded{false}; /**< EKF NIS 是否超过 2 维 95% 门限 */
   int nfov_channel_id{-1};           /**< NFOV 通道编号；-1 表示 WFOV/未占用 NFOV 资源 */
+  bool has_nfov_tracking_diagnostics{false}; /**< 是否包含闭环 NFOV 跟踪门诊断 */
+  float nfov_pointing_error_deg{0.0f};       /**< 有效光轴与目标 LOS 角距 */
+  bool nfov_geometry_gate_passed{false};
+  bool nfov_snr_gate_passed{false};
+  unsigned int nfov_tracking_gate_failure_count{0U};
+  bool nfov_tracking_coasting{false};
   float azimuth_deg{0.0f};           /**< 方位角，单位 deg */
   float elevation_deg{0.0f};         /**< 仰角，单位 deg */
   float infrared_snr_linear{0.0f};   /**< 红外通道线性 IR SNR */

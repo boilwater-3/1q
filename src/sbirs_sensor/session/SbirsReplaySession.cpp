@@ -51,7 +51,13 @@ bool AttributionEqual(const attribution::SbirsDetectionAttributionRecord& left,
          left.capture_failure_reason == right.capture_failure_reason &&
          left.has_estimation_nis == right.has_estimation_nis &&
          left.estimation_nis == right.estimation_nis &&
-         left.estimation_nis_gate_exceeded == right.estimation_nis_gate_exceeded;
+         left.estimation_nis_gate_exceeded == right.estimation_nis_gate_exceeded &&
+         left.has_nfov_tracking_diagnostics == right.has_nfov_tracking_diagnostics &&
+         left.nfov_pointing_error_deg == right.nfov_pointing_error_deg &&
+         left.nfov_geometry_gate_passed == right.nfov_geometry_gate_passed &&
+         left.nfov_snr_gate_passed == right.nfov_snr_gate_passed &&
+         left.nfov_tracking_gate_failure_count == right.nfov_tracking_gate_failure_count &&
+         left.nfov_tracking_coasting == right.nfov_tracking_coasting;
 }
 
 bool AttributionListEqual(const attribution::SbirsDetectionAttributionRecordList& left,

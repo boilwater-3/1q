@@ -340,7 +340,10 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
         attribution.used_truth_assist,
         static_cast<std::int32_t>(attribution.capture_failure_reason),
         attribution.has_estimation_nis, attribution.estimation_nis,
-        attribution.estimation_nis_gate_exceeded, attribution.nfov_channel_id));
+        attribution.estimation_nis_gate_exceeded, attribution.nfov_channel_id,
+        attribution.has_nfov_tracking_diagnostics, attribution.nfov_pointing_error_deg,
+        attribution.nfov_geometry_gate_passed, attribution.nfov_snr_gate_passed,
+        attribution.nfov_tracking_gate_failure_count, attribution.nfov_tracking_coasting));
   }
 
   std::vector<flatbuffers::Offset<sbirs::replay::ValidationIssue>> issues;
@@ -388,6 +391,12 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
       record.estimation_nis = attr->estimation_nis();
       record.estimation_nis_gate_exceeded = attr->estimation_nis_gate_exceeded();
       record.nfov_channel_id = attr->nfov_channel_id();
+      record.has_nfov_tracking_diagnostics = attr->has_nfov_tracking_diagnostics();
+      record.nfov_pointing_error_deg = attr->nfov_pointing_error_deg();
+      record.nfov_geometry_gate_passed = attr->nfov_geometry_gate_passed();
+      record.nfov_snr_gate_passed = attr->nfov_snr_gate_passed();
+      record.nfov_tracking_gate_failure_count = attr->nfov_tracking_gate_failure_count();
+      record.nfov_tracking_coasting = attr->nfov_tracking_coasting();
       out->detection_attributions.push_back(record);
     }
   }

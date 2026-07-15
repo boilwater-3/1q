@@ -43,8 +43,8 @@ using SbirsDetectionRecordList = std::vector<SbirsDetectionRecord>;
 namespace attribution {
 
 /**
- * @brief 首次捕获失败原因，仅供归属/调试层消费，不进 `SbirsOutputFrame` raw output。
- * @note 用于交接诊断：标识进入 NFOV 待捕获但失败、或 WFOV 候选被调度器跳过的目标。
+ * @brief NFOV 交接与跟踪失败原因，仅供归属/调试层消费，不进 `SbirsOutputFrame` raw output。
+ * @note 标识首次捕获、调度、估计门、pointing timeout 或闭环跟踪门导致的失败。
  */
 enum class ONEQ_API SbirsCaptureFailureReason {
   kNone = 0,              /**< 无失败（成功捕获或仅 WFOV 观测） */
@@ -67,7 +67,7 @@ struct ONEQ_API SbirsDetectionAttributionRecord {
   float estimated_range_m{0.0f};  /**< 估计距离，单位 m（仅归属/诊断层） */
   bool used_truth_assist{false};  /**< 是否使用真值辅助跟踪 */
   SbirsCaptureFailureReason capture_failure_reason{
-      SbirsCaptureFailureReason::kNone};    /**< 首次捕获失败原因（仅归属/诊断层） */
+      SbirsCaptureFailureReason::kNone};    /**< NFOV 交接/跟踪失败原因（仅归属/诊断层） */
   bool has_estimation_nis{false};           /**< 是否包含 EKF 估计跟踪 NIS 诊断 */
   float estimation_nis{0.0f};               /**< EKF 归一化新息平方，仅归属/诊断层 */
   bool estimation_nis_gate_exceeded{false}; /**< EKF NIS 是否超过 2 维 95% 门限 */

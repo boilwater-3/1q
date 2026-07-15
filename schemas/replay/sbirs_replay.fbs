@@ -69,6 +69,12 @@ table SbirsDetectionAttributionRecord {
   estimation_nis: float;
   estimation_nis_gate_exceeded: bool;
   nfov_channel_id: int32;
+  has_nfov_tracking_diagnostics: bool;
+  nfov_pointing_error_deg: float;
+  nfov_geometry_gate_passed: bool;
+  nfov_snr_gate_passed: bool;
+  nfov_tracking_gate_failure_count: uint32;
+  nfov_tracking_coasting: bool;
 }
 
 table SbirsOutputFrame {

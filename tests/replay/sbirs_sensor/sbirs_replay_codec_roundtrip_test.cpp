@@ -165,6 +165,12 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   attribution.estimation_nis = 6.25f;
   attribution.estimation_nis_gate_exceeded = true;
   attribution.nfov_channel_id = 1;
+  attribution.has_nfov_tracking_diagnostics = true;
+  attribution.nfov_pointing_error_deg = 0.75f;
+  attribution.nfov_geometry_gate_passed = false;
+  attribution.nfov_snr_gate_passed = true;
+  attribution.nfov_tracking_gate_failure_count = 1U;
+  attribution.nfov_tracking_coasting = true;
   result.detection_attributions.push_back(attribution);
 
   // 带 entity_index 的 scene 级 issue
@@ -204,6 +210,12 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   EXPECT_FLOAT_EQ(decoded.detection_attributions[0].estimation_nis, 6.25f);
   EXPECT_TRUE(decoded.detection_attributions[0].estimation_nis_gate_exceeded);
   EXPECT_EQ(decoded.detection_attributions[0].nfov_channel_id, 1);
+  EXPECT_TRUE(decoded.detection_attributions[0].has_nfov_tracking_diagnostics);
+  EXPECT_FLOAT_EQ(decoded.detection_attributions[0].nfov_pointing_error_deg, 0.75f);
+  EXPECT_FALSE(decoded.detection_attributions[0].nfov_geometry_gate_passed);
+  EXPECT_TRUE(decoded.detection_attributions[0].nfov_snr_gate_passed);
+  EXPECT_EQ(decoded.detection_attributions[0].nfov_tracking_gate_failure_count, 1U);
+  EXPECT_TRUE(decoded.detection_attributions[0].nfov_tracking_coasting);
   ASSERT_EQ(decoded.validation_issues.size(), 2U);
   EXPECT_EQ(decoded.validation_issues[0].location.entity_index, 1U);
   // 哨兵值经 size_t::max → int64(-1) → size_t::max 的往返

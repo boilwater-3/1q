@@ -99,6 +99,36 @@ sbirs_sensor::session::SbirsCycleResult PointingTimeoutResultForTarget(std::uint
   return result;
 }
 
+sbirs_sensor::session::SbirsCycleResult CoastingResultForTarget(std::uint32_t cycle_index) {
+  sbirs_sensor::session::SbirsCycleResult result;
+  result.input_cycle_index = cycle_index;
+  result.output_frame.cycle_index = cycle_index;
+  result.executed_this_cycle = true;
+  sbirs_sensor::attribution::SbirsDetectionAttributionRecord attribution;
+  attribution.detection_id = 14U;
+  attribution.target_id = 7U;
+  attribution.target_name = "boost";
+  attribution.nfov_channel_id = 1;
+  attribution.has_nfov_tracking_diagnostics = true;
+  attribution.nfov_pointing_error_deg = 0.75f;
+  attribution.nfov_geometry_gate_passed = false;
+  attribution.nfov_snr_gate_passed = true;
+  attribution.nfov_tracking_gate_failure_count = 1U;
+  attribution.nfov_tracking_coasting = true;
+  result.detection_attributions.push_back(attribution);
+  return result;
+}
+
+sbirs_sensor::session::SbirsCycleResult TrackingGateLossResultForTarget(std::uint32_t cycle_index) {
+  sbirs_sensor::session::SbirsCycleResult result = CoastingResultForTarget(cycle_index);
+  auto& attribution = result.detection_attributions.front();
+  attribution.capture_failure_reason =
+      sbirs_sensor::attribution::SbirsCaptureFailureReason::kNfovTrackingGateLost;
+  attribution.nfov_tracking_gate_failure_count = 2U;
+  attribution.nfov_tracking_coasting = false;
+  return result;
+}
+
 TEST(SbirsCycleOutputBuilderTest, NativeFrameHelperAcceptsSbirsDetectionShape) {
   sbirs_sensor::session::SbirsOutputFrame frame;
   sbirs_sensor::output::SbirsDetectionRecord detection;
@@ -225,6 +255,38 @@ TEST(SbirsCycleOutputBuilderTest, DebugAndLifecyclePreservePointingTimeoutChanne
   EXPECT_EQ(events[0].reason,
             sbirs_sensor::session::SbirsDetectionLifecycleReason::kNfovPointingTimeout);
   EXPECT_EQ(events[0].nfov_channel_id, 2);
+}
+
+TEST(SbirsCycleOutputBuilderTest, CoastingHasNoRawAndDoesNotEmitPrematureLost) {
+  sbirs_sensor::session::SbirsDetectionLifecycleRecorder recorder;
+  recorder.Update(InputWithTarget(1U), ResultForTarget(1U, true));
+  const auto input = InputWithTarget(2U);
+  const auto result = CoastingResultForTarget(2U);
+
+  const auto view = sbirs_sensor::session::SbirsOutputDebugViewBuilder::Build(input, result);
+  ASSERT_EQ(view.targets.size(), 1U);
+  EXPECT_EQ(view.targets[0].status, sbirs_sensor::session::SbirsDebugTargetStatus::kCoasting);
+  EXPECT_FALSE(view.targets[0].has_raw_output_record);
+  EXPECT_EQ(view.targets[0].nfov_tracking_gate_failure_count, 1U);
+
+  const auto events = recorder.Update(input, result);
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events[0].kind, sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kCoasting);
+  EXPECT_EQ(events[0].reason, sbirs_sensor::session::SbirsDetectionLifecycleReason::kNone);
+  EXPECT_TRUE(events[0].nfov_tracking_coasting);
+}
+
+TEST(SbirsCycleOutputBuilderTest, TrackingGateLossEndsCoastingLifecycle) {
+  sbirs_sensor::session::SbirsDetectionLifecycleRecorder recorder;
+  recorder.Update(InputWithTarget(1U), ResultForTarget(1U, true));
+  recorder.Update(InputWithTarget(2U), CoastingResultForTarget(2U));
+
+  const auto events = recorder.Update(InputWithTarget(3U), TrackingGateLossResultForTarget(3U));
+  ASSERT_EQ(events.size(), 1U);
+  EXPECT_EQ(events[0].kind, sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kLost);
+  EXPECT_EQ(events[0].reason,
+            sbirs_sensor::session::SbirsDetectionLifecycleReason::kNfovTrackingGateLost);
+  EXPECT_EQ(events[0].nfov_tracking_gate_failure_count, 2U);
 }
 
 }  // namespace

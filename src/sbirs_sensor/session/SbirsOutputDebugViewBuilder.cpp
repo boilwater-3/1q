@@ -49,6 +49,17 @@ SbirsDebugTargetState BuildTargetState(const SbirsSceneTarget& target,
   state.estimation_nis = attribution->estimation_nis;
   state.estimation_nis_gate_exceeded = attribution->estimation_nis_gate_exceeded;
   state.nfov_channel_id = attribution->nfov_channel_id;
+  state.has_nfov_tracking_diagnostics = attribution->has_nfov_tracking_diagnostics;
+  state.nfov_pointing_error_deg = attribution->nfov_pointing_error_deg;
+  state.nfov_geometry_gate_passed = attribution->nfov_geometry_gate_passed;
+  state.nfov_snr_gate_passed = attribution->nfov_snr_gate_passed;
+  state.nfov_tracking_gate_failure_count = attribution->nfov_tracking_gate_failure_count;
+  state.nfov_tracking_coasting = attribution->nfov_tracking_coasting;
+
+  if (attribution->nfov_tracking_coasting) {
+    state.status = SbirsDebugTargetStatus::kCoasting;
+    return state;
+  }
 
   const output::SbirsDetectionRecord* record =
       FindRecord(attribution->detection_id, result.output_frame);

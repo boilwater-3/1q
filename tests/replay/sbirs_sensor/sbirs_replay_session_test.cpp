@@ -201,8 +201,9 @@ TEST(SbirsReplaySessionTest, ReplayPreservesNisLossAndReacquisitionDiagnostics) 
     EXPECT_EQ(acquired.output_frame.detections.front().observation_stage,
               sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
 
+    // 默认 NFOV 半宽 1°；保持目标在窗口内，使 trace 只覆盖量测后的 NIS 丢锁。
     const sbirs_sensor::session::SbirsCycleResult lost =
-        session.StepWithResult(ValidInput(2U, 500000.0));
+        session.StepWithResult(ValidInput(2U, 10000.0));
     const sbirs_sensor::attribution::SbirsDetectionAttributionRecord* lost_attr =
         FindAttribution(lost, 1U);
     ASSERT_NE(lost_attr, nullptr);
@@ -383,6 +384,40 @@ TEST(SbirsReplaySessionTest, ReplayPreservesDualChannelPointingTimeout) {
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 
+TEST(SbirsReplaySessionTest, ReplayPreservesTrackingCoastAndGateLoss) {
+  sbirs_sensor::config::SbirsSessionConfig config = Config();
+  config.mission.narrow_field_fov_az_deg = 1.0f;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 0.1f;
+  const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-tracking-gate");
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-tracking-gate"), true));
+    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    session.StepWithResult(ValidInput(1U));
+    const auto coast = session.StepWithResult(ValidInput(2U, 35000.0));
+    EXPECT_TRUE(coast.output_frame.detections.empty());
+    ASSERT_EQ(coast.detection_attributions.size(), 1U);
+    EXPECT_TRUE(coast.detection_attributions[0].nfov_tracking_coasting);
+    EXPECT_EQ(coast.detection_attributions[0].nfov_tracking_gate_failure_count, 1U);
+    const auto lost = session.StepWithResult(ValidInput(3U, 35000.0));
+    EXPECT_TRUE(lost.output_frame.detections.empty());
+    ASSERT_EQ(lost.detection_attributions.size(), 1U);
+    EXPECT_EQ(lost.detection_attributions[0].capture_failure_reason,
+              sbirs_sensor::attribution::SbirsCaptureFailureReason::kNfovTrackingGateLost);
+    replay_writer->Flush();
+  }
+
+  const sbirs_sensor::session::SbirsReplaySessionResult replay_result =
+      sbirs_sensor::session::ReplaySbirsTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 3U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 3U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
 TEST(SbirsReplaySessionTest, ReplaySbirsTraceRejectsWrongModule) {
   const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-wrong-module");
   oneq::replay::ReplayTraceManifest manifest = Manifest("sbirs-wrong-module");
@@ -423,8 +458,8 @@ TEST(SbirsReplaySessionTest, ReplaySbirsTraceDetectsDivergence) {
       sbirs_sensor::session::SbirsSession::Create(Config());
   sbirs_sensor::session::SbirsCycleResult tampered = oracle.StepWithResult(input);
   ASSERT_EQ(tampered.detection_attributions.size(), 1U);
-  ASSERT_GE(tampered.detection_attributions.front().nfov_channel_id, 0);
-  ++tampered.detection_attributions.front().nfov_channel_id;
+  tampered.detection_attributions.front().has_nfov_tracking_diagnostics = true;
+  tampered.detection_attributions.front().nfov_pointing_error_deg = 99.0f;
   oneq::replay::ReplayTraceEvent output_event;
   output_event.module = "sbirs_sensor";
   output_event.event_type = "cycle_output";
