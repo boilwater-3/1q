@@ -51,7 +51,8 @@ enum class ONEQ_API SbirsCaptureFailureReason {
   kNfovAcquisitionFailed, /**< 进入 NFOV 待捕获但捕获失败（视场外或 SNR 不足） */
   kSchedulerSkipped,      /**< WFOV 候选未被调度器选中（资源被占用或排序靠后） */
   kEstimationNisGateLost, /**< EKF NIS 连续超限导致释放 NFOV 锁定 */
-  kNfovPointingTimeout    /**< ATP 光轴在派生等待上限内未稳定 */
+  kNfovPointingTimeout,   /**< ATP 光轴在派生等待上限内未稳定 */
+  kNfovTrackingGateLost   /**< NFOV 跟踪几何/SNR 门连续失败导致丢锁 */
 };
 
 /**
@@ -71,6 +72,12 @@ struct ONEQ_API SbirsDetectionAttributionRecord {
   float estimation_nis{0.0f};               /**< EKF 归一化新息平方，仅归属/诊断层 */
   bool estimation_nis_gate_exceeded{false}; /**< EKF NIS 是否超过 2 维 95% 门限 */
   int nfov_channel_id{-1}; /**< NFOV 通道编号；-1 表示 WFOV/未占用 NFOV 资源（仅归属/诊断层） */
+  bool has_nfov_tracking_diagnostics{false}; /**< 是否包含闭环 NFOV 跟踪门诊断 */
+  float nfov_pointing_error_deg{0.0f};       /**< 有效光轴中心与目标真值 LOS 角距 */
+  bool nfov_geometry_gate_passed{false};     /**< 目标是否位于实际 NFOV 矩形窗口内 */
+  bool nfov_snr_gate_passed{false};          /**< 目标是否通过既有 NFOV SNR 门 */
+  unsigned int nfov_tracking_gate_failure_count{0U}; /**< 连续 NFOV 跟踪门失败计数 */
+  bool nfov_tracking_coasting{false}; /**< 本周期无有效 NFOV 量测但尚未正式丢锁 */
 };
 
 /** @brief 归属记录列表。 */

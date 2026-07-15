@@ -179,47 +179,91 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                            (state == SbirsTargetState::kTruthAssistedTracking ||
                             state == SbirsTargetState::kEstimatedTracking);
     if (is_locked) {
-      // 输出角度来源：真值辅助态用真值 az/el；估计跟踪态用 EKF 滤波估计（更平滑）。
-      // SNR / range / 可探测性一律用真值几何（design 2.5 第 3 点：滤波发散不影响可探测性）。
-      float output_azimuth_deg = azimuth_deg;
-      float output_elevation_deg = elevation_deg;
-      bool used_truth_assist = true;
-      bool has_estimation_nis = false;
-      float estimation_nis = 0.0f;
-      bool estimation_nis_gate_exceeded = false;
-      bool lost_due_to_estimation_nis = false;
-      if (state == SbirsTargetState::kEstimatedTracking &&
-          policy.tracking.enable_estimated_tracking) {
-        used_truth_assist = false;
-        const SbirsTrackingUpdateResult tracking_result = tracking_coordinator_.Update(
-            target.target_id, policy, &random_source_, azimuth_deg, elevation_deg, range_m,
-            omega_deg_per_sec_cached, input.dt_sec, input.satellite_position_ecef_m);
-        output_azimuth_deg = tracking_result.output_azimuth_deg;
-        output_elevation_deg = tracking_result.output_elevation_deg;
-        has_estimation_nis = tracking_result.has_estimation_nis;
-        estimation_nis = tracking_result.estimation_nis;
-        estimation_nis_gate_exceeded = tracking_result.estimation_nis_gate_exceeded;
-        lost_due_to_estimation_nis = tracking_result.lost_due_to_estimation_nis;
+      const int channel_id = nfov_scheduler_.ChannelOf(target.target_id);
+      const bool estimated_tracking = state == SbirsTargetState::kEstimatedTracking &&
+                                      policy.tracking.enable_estimated_tracking;
+      float command_azimuth_deg = azimuth_deg;
+      float command_elevation_deg = elevation_deg;
+      if (estimated_tracking) {
+        const SbirsTrackingPredictionResult prediction = tracking_coordinator_.PredictTarget(
+            target.target_id, policy, input.dt_sec, input.satellite_position_ecef_m);
+        command_azimuth_deg = prediction.output_azimuth_deg;
+        command_elevation_deg = prediction.output_elevation_deg;
       }
+      const SbirsPointingActuatorConfig tracking_pointing_config{
+          mission.narrow_pointing_max_slew_rate_deg_per_sec,
+          mission.narrow_pointing_settle_tolerance_deg};
+      const SbirsPointingAdvanceResult pointing_result = pointing_coordinator_.AdvanceTracking(
+          channel_id, target.target_id,
+          LosFromAzimuthElevation(command_azimuth_deg, command_elevation_deg), input.dt_sec,
+          tracking_pointing_config);
+      const float actual_pointing_azimuth_deg =
+          foundation::ComputeAzimuthDeg(pointing_result.current_los) +
+          mission.narrow_pointing_settle_error_deg;
+      const float actual_pointing_elevation_deg =
+          foundation::ComputeElevationDeg(pointing_result.current_los);
+      const bool geometry_gate_passed =
+          pointing_result.status != SbirsPointingAdvanceStatus::kRejected &&
+          InRectangularFov(azimuth_deg, elevation_deg, actual_pointing_azimuth_deg,
+                           actual_pointing_elevation_deg, mission.narrow_field_fov_az_deg,
+                           mission.narrow_field_fov_el_deg);
+      const bool snr_gate_passed = snr >= policy.detection.narrow_min_snr_linear;
+      const bool tracking_gate_passed = geometry_gate_passed && snr_gate_passed;
+      const unsigned int gate_failure_count = pointing_coordinator_.RecordTrackingGateResult(
+          target.target_id, tracking_gate_passed);
+      const bool lost_due_to_tracking_gate =
+          !tracking_gate_passed &&
+          gate_failure_count >= policy.tracking.nfov_tracking_gate_loss_cycles;
+
       SbirsPipelineDetection detection;
       detection.record.detection_id = next_detection_id_++;
-      detection.record.azimuth_deg = output_azimuth_deg;
-      detection.record.elevation_deg = output_elevation_deg;
+      detection.record.azimuth_deg = command_azimuth_deg;
+      detection.record.elevation_deg = command_elevation_deg;
       detection.record.infrared_snr_linear = static_cast<float>(snr);
       detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldTrack;
-      detection.record.detected = !lost_due_to_estimation_nis;
+      detection.record.detected = tracking_gate_passed;
       detection.attribution.detection_id = detection.record.detection_id;
       detection.attribution.target_id = target.target_id;
       detection.attribution.target_name = target.target_name;
       detection.attribution.estimated_range_m = static_cast<float>(range_m);
-      detection.attribution.used_truth_assist = used_truth_assist;
-      detection.attribution.nfov_channel_id = nfov_scheduler_.ChannelOf(target.target_id);
-      detection.attribution.has_estimation_nis = has_estimation_nis;
-      detection.attribution.estimation_nis = estimation_nis;
-      detection.attribution.estimation_nis_gate_exceeded = estimation_nis_gate_exceeded;
+      detection.attribution.used_truth_assist = !estimated_tracking;
+      detection.attribution.nfov_channel_id = channel_id;
+      detection.attribution.has_nfov_tracking_diagnostics = true;
+      detection.attribution.nfov_pointing_error_deg = foundation::AngularSeparationDeg(
+          azimuth_deg, elevation_deg, actual_pointing_azimuth_deg,
+          actual_pointing_elevation_deg);
+      detection.attribution.nfov_geometry_gate_passed = geometry_gate_passed;
+      detection.attribution.nfov_snr_gate_passed = snr_gate_passed;
+      detection.attribution.nfov_tracking_gate_failure_count = gate_failure_count;
+      detection.attribution.nfov_tracking_coasting =
+          !tracking_gate_passed && !lost_due_to_tracking_gate;
+
+      bool lost_due_to_estimation_nis = false;
+      if (tracking_gate_passed && estimated_tracking) {
+        const SbirsTrackingUpdateResult tracking_result = tracking_coordinator_.CorrectTarget(
+            target.target_id, policy, &random_source_, azimuth_deg, elevation_deg, range_m,
+            omega_deg_per_sec_cached, input.satellite_position_ecef_m);
+        detection.record.azimuth_deg = tracking_result.output_azimuth_deg;
+        detection.record.elevation_deg = tracking_result.output_elevation_deg;
+        detection.attribution.has_estimation_nis = tracking_result.has_estimation_nis;
+        detection.attribution.estimation_nis = tracking_result.estimation_nis;
+        detection.attribution.estimation_nis_gate_exceeded =
+            tracking_result.estimation_nis_gate_exceeded;
+        lost_due_to_estimation_nis = tracking_result.lost_due_to_estimation_nis;
+        detection.record.detected = !lost_due_to_estimation_nis;
+      } else if (!tracking_gate_passed && estimated_tracking) {
+        tracking_coordinator_.MarkMeasurementUnavailable(target.target_id);
+      }
       if (lost_due_to_estimation_nis) {
         detection.attribution.capture_failure_reason =
             attribution::SbirsCaptureFailureReason::kEstimationNisGateLost;
+        target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
+        nfov_scheduler_.Release(target.target_id);
+        pointing_coordinator_.ReleaseTarget(target.target_id);
+        tracking_coordinator_.ReleaseTarget(target.target_id);
+      } else if (lost_due_to_tracking_gate) {
+        detection.attribution.capture_failure_reason =
+            attribution::SbirsCaptureFailureReason::kNfovTrackingGateLost;
         target_states_[target.target_id] = SbirsTargetState::kWideCandidate;
         nfov_scheduler_.Release(target.target_id);
         pointing_coordinator_.ReleaseTarget(target.target_id);
@@ -364,7 +408,16 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     acquisition_request.minimum_snr_linear = policy.detection.narrow_min_snr_linear;
     const bool captured = IsNfovAcquisitionEligible(acquisition_request);
     if (captured) {
-      pointing_coordinator_.ReleaseTarget(target_id);
+      if (!pointing_coordinator_.PromoteToTracking(target_id)) {
+        nfov_scheduler_.Release(target_id);
+        pointing_coordinator_.ReleaseTarget(target_id);
+        target_states_[target_id] = SbirsTargetState::kWideCandidate;
+        blocked_target_ids.insert(target_id);
+        append_acquisition_failure(
+            selected, channel_id,
+            attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
+        return;
+      }
       cue_predictor_.Release(target_id);
       const bool use_estimated = policy.tracking.enable_estimated_tracking;
       target_states_[target_id] = use_estimated ? SbirsTargetState::kEstimatedTracking
@@ -514,15 +567,15 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
       return false;
     }
     const int pointing_channel = restored_pointing.ChannelOf(assignment.first);
-    if ((state->second == SbirsTargetState::kAwaitingNfovAcquisition &&
-         pointing_channel != assignment.second) ||
-        (state->second != SbirsTargetState::kAwaitingNfovAcquisition && pointing_channel >= 0)) {
+    if (pointing_channel != assignment.second) {
       return false;
     }
   }
   for (const std::map<std::uint64_t, SbirsTargetState>::value_type& state :
        snapshot.target_states) {
-    if (state.second == SbirsTargetState::kAwaitingNfovAcquisition &&
+    if ((state.second == SbirsTargetState::kAwaitingNfovAcquisition ||
+         state.second == SbirsTargetState::kEstimatedTracking ||
+         state.second == SbirsTargetState::kTruthAssistedTracking) &&
         snapshot.nfov_scheduler.target_to_channel.find(state.first) ==
             snapshot.nfov_scheduler.target_to_channel.end()) {
       return false;
@@ -538,8 +591,21 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
     if (assignment == snapshot.nfov_scheduler.target_to_channel.end() ||
         assignment->second != channel.channel_id ||
         snapshot.target_states.find(channel.target_id) == snapshot.target_states.end() ||
-        snapshot.target_states.find(channel.target_id)->second !=
-            SbirsTargetState::kAwaitingNfovAcquisition) {
+        (snapshot.target_states.find(channel.target_id)->second !=
+             SbirsTargetState::kAwaitingNfovAcquisition &&
+         snapshot.target_states.find(channel.target_id)->second !=
+             SbirsTargetState::kEstimatedTracking &&
+         snapshot.target_states.find(channel.target_id)->second !=
+             SbirsTargetState::kTruthAssistedTracking)) {
+      return false;
+    }
+    const SbirsTargetState channel_state = snapshot.target_states.find(channel.target_id)->second;
+    if ((channel_state == SbirsTargetState::kAwaitingNfovAcquisition &&
+         channel.tracking_gate_failure_count != 0U) ||
+        (channel_state != SbirsTargetState::kAwaitingNfovAcquisition &&
+         (channel.elapsed_wait_sec != 0.0 ||
+          channel.tracking_gate_failure_count >=
+              config_.session.policy.tracking.nfov_tracking_gate_loss_cycles))) {
       return false;
     }
   }

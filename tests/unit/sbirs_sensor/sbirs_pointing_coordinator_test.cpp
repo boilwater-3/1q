@@ -112,6 +112,36 @@ TEST(SbirsPointingCoordinatorTest, CaptureRestorePreservesContinuation) {
   ExpectVectorNear(actual.current_los, expected.current_los);
 }
 
+TEST(SbirsPointingCoordinatorTest, TrackingAdvanceKeepsBindingWithoutAcquisitionTimeout) {
+  SbirsPointingCoordinator coordinator(1);
+  ASSERT_TRUE(coordinator.Reserve(0, 4U, Vector(1.0, 0.0, 0.0)));
+  ASSERT_TRUE(coordinator.PromoteToTracking(4U));
+
+  for (int step = 0; step < 5; ++step) {
+    const SbirsPointingAdvanceResult result = coordinator.AdvanceTracking(
+        0, 4U, Vector(0.0, 1.0, 0.0), 0.5, Config(30.0));
+    EXPECT_NE(result.status, SbirsPointingAdvanceStatus::kTimedOut);
+  }
+
+  EXPECT_EQ(coordinator.ChannelOf(4U), 0);
+  EXPECT_DOUBLE_EQ(coordinator.Capture().channels[0].elapsed_wait_sec, 0.0);
+}
+
+TEST(SbirsPointingCoordinatorTest, TrackingGateCountResetsAndRoundtrips) {
+  SbirsPointingCoordinator coordinator(1);
+  ASSERT_TRUE(coordinator.Reserve(0, 8U, Vector(1.0, 0.0, 0.0)));
+  ASSERT_TRUE(coordinator.PromoteToTracking(8U));
+  EXPECT_EQ(coordinator.RecordTrackingGateResult(8U, false), 1U);
+  EXPECT_EQ(coordinator.RecordTrackingGateResult(8U, false), 2U);
+
+  const SbirsPointingCoordinatorSnapshot snapshot = coordinator.Capture();
+  ASSERT_EQ(snapshot.channels[0].tracking_gate_failure_count, 2U);
+  SbirsPointingCoordinator restored(1);
+  ASSERT_TRUE(restored.Restore(snapshot));
+  EXPECT_EQ(restored.RecordTrackingGateResult(8U, true), 0U);
+  EXPECT_EQ(restored.Capture().channels[0].tracking_gate_failure_count, 0U);
+}
+
 TEST(SbirsPointingCoordinatorTest, InvalidSnapshotIsRejectedAtomically) {
   SbirsPointingCoordinator coordinator(2);
   ASSERT_TRUE(coordinator.Reserve(0, 3U, Vector(1.0, 0.0, 0.0)));
@@ -121,6 +151,7 @@ TEST(SbirsPointingCoordinatorTest, InvalidSnapshotIsRejectedAtomically) {
   invalid.channels[1].has_bound_target = true;
   invalid.channels[1].target_id = 3U;
   invalid.channels[1].elapsed_wait_sec = std::numeric_limits<double>::infinity();
+  invalid.channels[1].tracking_gate_failure_count = 1U;
   invalid.channels[1].actuator.initialized = true;
   invalid.channels[1].actuator.current_los = Vector(0.0, 1.0, 0.0);
   invalid.channels[1].actuator.command_los = Vector(0.0, 1.0, 0.0);

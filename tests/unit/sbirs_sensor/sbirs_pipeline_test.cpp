@@ -137,6 +137,71 @@ TEST(SbirsPipelineTest, LockedTargetProducesEstimatedTrack) {
   EXPECT_TRUE(result.detections.front().attribution.has_estimation_nis);
   EXPECT_TRUE(std::isfinite(result.detections.front().attribution.estimation_nis));
   EXPECT_FALSE(result.detections.front().attribution.estimation_nis_gate_exceeded);
+  EXPECT_TRUE(result.detections.front().attribution.has_nfov_tracking_diagnostics);
+  EXPECT_TRUE(result.detections.front().attribution.nfov_geometry_gate_passed);
+  EXPECT_TRUE(result.detections.front().attribution.nfov_snr_gate_passed);
+}
+
+TEST(SbirsPipelineTest, TrackingGateCoastsOnceThenRecoversWithoutRawMeasurement) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.narrow_field_fov_az_deg = 1.0f;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 0.1f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTarget(77U, 0.0))
+          .Build();
+  pipeline.RunCycle(input);
+
+  input.cycle_index = 2U;
+  input.scene[0] = HotTarget(77U, 35000.0);
+  const auto coast = pipeline.RunCycle(input);
+  ASSERT_EQ(coast.detections.size(), 1U);
+  EXPECT_FALSE(coast.detections[0].record.detected);
+  EXPECT_TRUE(coast.detections[0].attribution.nfov_tracking_coasting);
+  EXPECT_EQ(coast.detections[0].attribution.nfov_tracking_gate_failure_count, 1U);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().nfov_scheduler.target_to_channel.count(77U), 1U);
+
+  input.cycle_index = 3U;
+  input.scene[0] = HotTarget(77U, 0.0);
+  const auto recovered = pipeline.RunCycle(input);
+  ASSERT_EQ(recovered.detections.size(), 1U);
+  EXPECT_TRUE(recovered.detections[0].record.detected);
+  EXPECT_EQ(recovered.detections[0].record.observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
+  EXPECT_EQ(recovered.detections[0].attribution.nfov_tracking_gate_failure_count, 0U);
+}
+
+TEST(SbirsPipelineTest, ConsecutiveTrackingGateFailuresReleaseLock) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.narrow_field_fov_az_deg = 1.0f;
+  config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 0.1f;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  sbirs_sensor::session::SbirsCycleInput input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(1U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .AddTarget(HotTarget(78U, 0.0))
+          .Build();
+  pipeline.RunCycle(input);
+  input.scene[0] = HotTarget(78U, 35000.0);
+  input.cycle_index = 2U;
+  pipeline.RunCycle(input);
+  input.cycle_index = 3U;
+  const auto lost = pipeline.RunCycle(input);
+
+  ASSERT_EQ(lost.detections.size(), 1U);
+  EXPECT_FALSE(lost.detections[0].record.detected);
+  EXPECT_FALSE(lost.detections[0].attribution.nfov_tracking_coasting);
+  EXPECT_EQ(lost.detections[0].attribution.capture_failure_reason,
+            sbirs_sensor::attribution::SbirsCaptureFailureReason::kNfovTrackingGateLost);
+  EXPECT_EQ(pipeline.CaptureRuntimeState().nfov_scheduler.target_to_channel.count(78U), 0U);
 }
 
 TEST(SbirsPipelineTest, ConsecutiveNisGateExceededReleasesEstimatedTrackLock) {
@@ -154,7 +219,8 @@ TEST(SbirsPipelineTest, ConsecutiveNisGateExceededReleasesEstimatedTrackLock) {
   pipeline.RunCycle(input);
 
   input.cycle_index = 2U;
-  input.scene[0] = HotTarget(7U, 500000.0);
+  // 保持目标仍位于 ±2.5° NFOV 内，使本测试只触发量测后的 NIS 门，而非先被几何门拦截。
+  input.scene[0] = HotTarget(7U, 30000.0);
   const sbirs_sensor::pipeline::SbirsPipelineResult lost = pipeline.RunCycle(input);
   ASSERT_FALSE(lost.detections.empty());
   EXPECT_EQ(lost.detections.front().record.observation_stage,

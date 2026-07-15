@@ -19,6 +19,7 @@ struct SbirsPointingChannelSnapshot {
   bool has_bound_target{false};
   std::uint64_t target_id{0U};
   double elapsed_wait_sec{0.0};
+  unsigned int tracking_gate_failure_count{0U};
   SbirsPointingActuatorSnapshot actuator{};
 };
 
@@ -43,6 +44,11 @@ class SbirsPointingCoordinator {
   SbirsPointingAdvanceResult Advance(int channel_id, std::uint64_t target_id,
                                      const session::SbirsVector3M& command_los, double dt_sec,
                                      const SbirsPointingActuatorConfig& config);
+  bool PromoteToTracking(std::uint64_t target_id);
+  SbirsPointingAdvanceResult AdvanceTracking(
+      int channel_id, std::uint64_t target_id, const session::SbirsVector3M& command_los,
+      double dt_sec, const SbirsPointingActuatorConfig& config);
+  unsigned int RecordTrackingGateResult(std::uint64_t target_id, bool gate_passed);
   bool ReleaseTarget(std::uint64_t target_id);
   void Clear();
 
@@ -56,6 +62,7 @@ class SbirsPointingCoordinator {
     bool has_bound_target{false};
     std::uint64_t target_id{0U};
     double elapsed_wait_sec{0.0};
+    unsigned int tracking_gate_failure_count{0U};
     SbirsPointingActuator actuator{};
   };
 

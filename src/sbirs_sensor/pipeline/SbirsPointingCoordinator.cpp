@@ -33,6 +33,7 @@ bool SbirsPointingCoordinator::Reserve(int channel_id, std::uint64_t target_id,
   channel.has_bound_target = true;
   channel.target_id = target_id;
   channel.elapsed_wait_sec = 0.0;
+  channel.tracking_gate_failure_count = 0U;
   return true;
 }
 
@@ -74,6 +75,55 @@ SbirsPointingAdvanceResult SbirsPointingCoordinator::Advance(
   return result;
 }
 
+bool SbirsPointingCoordinator::PromoteToTracking(std::uint64_t target_id) {
+  const int channel_id = ChannelOf(target_id);
+  if (channel_id < 0) {
+    return false;
+  }
+  ChannelRuntime& channel = channels_[static_cast<std::size_t>(channel_id)];
+  channel.elapsed_wait_sec = 0.0;
+  channel.tracking_gate_failure_count = 0U;
+  return true;
+}
+
+SbirsPointingAdvanceResult SbirsPointingCoordinator::AdvanceTracking(
+    int channel_id, std::uint64_t target_id, const session::SbirsVector3M& command_los,
+    double dt_sec, const SbirsPointingActuatorConfig& config) {
+  SbirsPointingAdvanceResult result;
+  if (!IsValidChannel(channel_id)) {
+    return result;
+  }
+  ChannelRuntime& channel = channels_[static_cast<std::size_t>(channel_id)];
+  if (!channel.has_bound_target || channel.target_id != target_id) {
+    return result;
+  }
+  SbirsPointingActuatorResult actuator_result;
+  if (!channel.actuator.Step(command_los, dt_sec, config, &actuator_result)) {
+    return result;
+  }
+  result.current_los = actuator_result.current_los;
+  result.remaining_angle_deg = actuator_result.remaining_angle_deg;
+  result.elapsed_wait_sec = 0.0;
+  result.status = actuator_result.settled ? SbirsPointingAdvanceStatus::kSettled
+                                         : SbirsPointingAdvanceStatus::kSlewing;
+  return result;
+}
+
+unsigned int SbirsPointingCoordinator::RecordTrackingGateResult(std::uint64_t target_id,
+                                                                 bool gate_passed) {
+  const int channel_id = ChannelOf(target_id);
+  if (channel_id < 0) {
+    return 0U;
+  }
+  ChannelRuntime& channel = channels_[static_cast<std::size_t>(channel_id)];
+  if (gate_passed) {
+    channel.tracking_gate_failure_count = 0U;
+  } else {
+    ++channel.tracking_gate_failure_count;
+  }
+  return channel.tracking_gate_failure_count;
+}
+
 bool SbirsPointingCoordinator::ReleaseTarget(std::uint64_t target_id) {
   const int channel_id = ChannelOf(target_id);
   if (channel_id < 0) {
@@ -83,6 +133,7 @@ bool SbirsPointingCoordinator::ReleaseTarget(std::uint64_t target_id) {
   channel.has_bound_target = false;
   channel.target_id = 0U;
   channel.elapsed_wait_sec = 0.0;
+  channel.tracking_gate_failure_count = 0U;
   return true;
 }
 
@@ -110,6 +161,7 @@ SbirsPointingCoordinatorSnapshot SbirsPointingCoordinator::Capture() const {
     channel.has_bound_target = channels_[i].has_bound_target;
     channel.target_id = channels_[i].target_id;
     channel.elapsed_wait_sec = channels_[i].elapsed_wait_sec;
+    channel.tracking_gate_failure_count = channels_[i].tracking_gate_failure_count;
     channel.actuator = channels_[i].actuator.Capture();
     snapshot.channels.push_back(channel);
   }
@@ -127,6 +179,7 @@ bool SbirsPointingCoordinator::Restore(const SbirsPointingCoordinatorSnapshot& s
     if (source.channel_id != static_cast<int>(i) || !std::isfinite(source.elapsed_wait_sec) ||
         source.elapsed_wait_sec < 0.0 ||
         (!source.has_bound_target && source.elapsed_wait_sec != 0.0) ||
+        (!source.has_bound_target && source.tracking_gate_failure_count != 0U) ||
         (source.has_bound_target && !source.actuator.initialized) ||
         (source.has_bound_target && !bound_targets.insert(source.target_id).second)) {
       return false;
@@ -138,6 +191,7 @@ bool SbirsPointingCoordinator::Restore(const SbirsPointingCoordinatorSnapshot& s
     destination.has_bound_target = source.has_bound_target;
     destination.target_id = source.has_bound_target ? source.target_id : 0U;
     destination.elapsed_wait_sec = source.elapsed_wait_sec;
+    destination.tracking_gate_failure_count = source.tracking_gate_failure_count;
   }
   channels_ = restored;
   return true;
