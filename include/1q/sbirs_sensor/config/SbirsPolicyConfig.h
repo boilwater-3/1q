@@ -59,6 +59,7 @@ struct ONEQ_API SbirsTrackingConfig {
   float initial_position_std_m{1000.0f};       /**< 初始位置 1-σ（米），构造 P0 位置对角元 */
   float initial_velocity_std_m_per_s{100.0f};  /**< 初始速度 1-σ（m/s），构造 P0 速度对角元 */
   unsigned int nis_gate_loss_cycles{0U}; /**< 连续 NIS 超过 2 维 95% 门限后丢锁的周期数；0 表示禁用 */
+  unsigned int nfov_tracking_gate_loss_cycles{2U}; /**< NFOV 几何/SNR 门连续失败后丢锁周期数（>=1） */
   bool enable_imm_tracking{false}; /**< 是否启用 IMM 替代单 EKF（enable_estimated_tracking=true 时有效） */
   std::vector<float> imm_model_noise_diff_coeffs{}; /**< IMM 各模型的过程噪声扩散系数；空向量表示使用默认 [1.0, 100.0] */
 };

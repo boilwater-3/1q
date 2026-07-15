@@ -45,9 +45,11 @@ TEST(SbirsSessionConfigBuilderTest, RejectsInvalidScanRate) {
 
 TEST(SbirsSessionConfigBuilderTest, PointingDefaultsAreProductionValues) {
   const sbirs_sensor::config::SbirsMissionConfig mission;
+  const sbirs_sensor::config::SbirsTrackingConfig tracking;
 
   EXPECT_FLOAT_EQ(mission.narrow_pointing_max_slew_rate_deg_per_sec, 30.0f);
   EXPECT_FLOAT_EQ(mission.narrow_pointing_settle_tolerance_deg, 0.01f);
+  EXPECT_EQ(tracking.nfov_tracking_gate_loss_cycles, 2U);
 }
 
 TEST(SbirsSessionConfigBuilderTest, RejectsInvalidPointingParameters) {
@@ -63,6 +65,13 @@ TEST(SbirsSessionConfigBuilderTest, RejectsInvalidPointingParameters) {
   EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 
   config.mission.narrow_pointing_settle_tolerance_deg = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+}
+
+TEST(SbirsSessionConfigBuilderTest, RejectsZeroTrackingGateLossCycles) {
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.policy.tracking.nfov_tracking_gate_loss_cycles = 0U;
+
   EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 

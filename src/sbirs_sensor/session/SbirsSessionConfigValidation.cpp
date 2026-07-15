@@ -55,6 +55,9 @@ ValidationIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& config)
   if (config.policy.scheduler.max_concurrent_nfov_locks < 1) {
     AddError("scheduler max_concurrent_nfov_locks must be at least 1", &issues);
   }
+  if (config.policy.tracking.nfov_tracking_gate_loss_cycles < 1U) {
+    AddError("tracking nfov_tracking_gate_loss_cycles must be at least 1", &issues);
+  }
   return issues;
 }
 

@@ -241,6 +241,7 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.tracking.initial_position_std_m = 1500.0f;
   config.policy.tracking.initial_velocity_std_m_per_s = 80.0f;
   config.policy.tracking.nis_gate_loss_cycles = 2U;
+  config.policy.tracking.nfov_tracking_gate_loss_cycles = 4U;
   config.environment.weather_type = SbirsWeatherType::kRain;
   config.environment.sea_state = SbirsSeaState::kMedium;
   config.environment.temperature_c = 25.0f;
@@ -264,6 +265,7 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.policy.tracking.initial_position_std_m, 1500.0f);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.initial_velocity_std_m_per_s, 80.0f);
   EXPECT_EQ(decoded.policy.tracking.nis_gate_loss_cycles, 2U);
+  EXPECT_EQ(decoded.policy.tracking.nfov_tracking_gate_loss_cycles, 4U);
   EXPECT_EQ(decoded.environment.weather_type, SbirsWeatherType::kRain);
   EXPECT_EQ(decoded.environment.sea_state, SbirsSeaState::kMedium);
   EXPECT_FLOAT_EQ(decoded.environment.base_atmospheric_transmittance, 0.7f);
@@ -279,6 +281,7 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   SbirsPolicyConfig policy;
   policy.detection.wide_min_snr_linear = 5.0f;
   policy.tracking.nis_gate_loss_cycles = 3U;
+  policy.tracking.nfov_tracking_gate_loss_cycles = 5U;
   SbirsEnvironmentConfig environment;
   environment.weather_type = SbirsWeatherType::kCloudy;
 
@@ -300,6 +303,7 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_TRUE(decoded.has_policy);
   EXPECT_FLOAT_EQ(decoded.policy.detection.wide_min_snr_linear, 5.0f);
   EXPECT_EQ(decoded.policy.tracking.nis_gate_loss_cycles, 3U);
+  EXPECT_EQ(decoded.policy.tracking.nfov_tracking_gate_loss_cycles, 5U);
   EXPECT_TRUE(decoded.has_environment);
   EXPECT_EQ(decoded.environment.weather_type, SbirsWeatherType::kCloudy);
   EXPECT_TRUE(decoded.has_work_mode);
