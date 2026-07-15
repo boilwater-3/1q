@@ -247,6 +247,13 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.error_model.angular_sigma_deg = 0.08f;
   config.policy.error_model.range_fraction_sigma = 0.002f;
   config.policy.error_model.random_seed = 42U;
+  config.policy.pointing_disturbance.common_attitude_sigma_deg = 0.02f;
+  config.policy.pointing_disturbance.common_attitude_correlation_time_s = 2.0f;
+  config.policy.pointing_disturbance.channel_pointing_sigma_deg = 0.03f;
+  config.policy.pointing_disturbance.channel_pointing_correlation_time_s = 3.0f;
+  config.policy.pointing_disturbance.channel_vibration_amplitude_deg = 0.04f;
+  config.policy.pointing_disturbance.channel_vibration_frequency_hz = 4.0f;
+  config.policy.pointing_disturbance.random_seed = 43U;
   config.policy.scheduler.max_concurrent_nfov_locks = 3;
   config.policy.tracking.enable_estimated_tracking = true;
   config.policy.tracking.process_noise_diff_coeff = 2.5f;
@@ -271,6 +278,13 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.policy.detection.narrow_min_snr_linear, 7.0f);
   EXPECT_FLOAT_EQ(decoded.policy.error_model.angular_sigma_deg, 0.08f);
   EXPECT_EQ(decoded.policy.error_model.random_seed, 42U);
+  EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.common_attitude_sigma_deg, 0.02f);
+  EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.common_attitude_correlation_time_s, 2.0f);
+  EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.channel_pointing_sigma_deg, 0.03f);
+  EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.channel_pointing_correlation_time_s, 3.0f);
+  EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.channel_vibration_amplitude_deg, 0.04f);
+  EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.channel_vibration_frequency_hz, 4.0f);
+  EXPECT_EQ(decoded.policy.pointing_disturbance.random_seed, 43U);
   EXPECT_EQ(decoded.policy.scheduler.max_concurrent_nfov_locks, 3);
   EXPECT_TRUE(decoded.policy.tracking.enable_estimated_tracking);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.process_noise_diff_coeff, 2.5f);
@@ -294,6 +308,8 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   policy.detection.wide_min_snr_linear = 5.0f;
   policy.tracking.nis_gate_loss_cycles = 3U;
   policy.tracking.nfov_tracking_gate_loss_cycles = 5U;
+  policy.pointing_disturbance.common_attitude_sigma_deg = 0.05f;
+  policy.pointing_disturbance.random_seed = 44U;
   SbirsEnvironmentConfig environment;
   environment.weather_type = SbirsWeatherType::kCloudy;
 
@@ -316,6 +332,8 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.policy.detection.wide_min_snr_linear, 5.0f);
   EXPECT_EQ(decoded.policy.tracking.nis_gate_loss_cycles, 3U);
   EXPECT_EQ(decoded.policy.tracking.nfov_tracking_gate_loss_cycles, 5U);
+  EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.common_attitude_sigma_deg, 0.05f);
+  EXPECT_EQ(decoded.policy.pointing_disturbance.random_seed, 44U);
   EXPECT_TRUE(decoded.has_environment);
   EXPECT_EQ(decoded.environment.weather_type, SbirsWeatherType::kCloudy);
   EXPECT_TRUE(decoded.has_work_mode);

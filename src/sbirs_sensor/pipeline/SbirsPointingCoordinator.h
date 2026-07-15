@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "sbirs_sensor/pipeline/SbirsPointingActuator.h"
+#include "sbirs_sensor/pipeline/SbirsPointingDisturbance.h"
 
 namespace sbirs_sensor {
 namespace pipeline {
@@ -25,6 +26,7 @@ struct SbirsPointingChannelSnapshot {
 
 struct SbirsPointingCoordinatorSnapshot {
   std::vector<SbirsPointingChannelSnapshot> channels{};
+  SbirsPointingDisturbanceSnapshot disturbance{};
 };
 
 enum class SbirsPointingAdvanceStatus { kRejected = 0, kSlewing, kSettled, kTimedOut };
@@ -38,7 +40,7 @@ struct SbirsPointingAdvanceResult {
 
 class SbirsPointingCoordinator {
  public:
-  explicit SbirsPointingCoordinator(int channel_count);
+  explicit SbirsPointingCoordinator(int channel_count, unsigned int disturbance_seed = 1U);
 
   bool Reserve(int channel_id, std::uint64_t target_id, const session::SbirsVector3M& initial_los);
   SbirsPointingAdvanceResult Advance(int channel_id, std::uint64_t target_id,
@@ -49,6 +51,9 @@ class SbirsPointingCoordinator {
       int channel_id, std::uint64_t target_id, const session::SbirsVector3M& command_los,
       double dt_sec, const SbirsPointingActuatorConfig& config);
   unsigned int RecordTrackingGateResult(std::uint64_t target_id, bool gate_passed);
+  bool AdvanceDisturbance(double dt_sec, const SbirsPointingDisturbanceParameters& parameters);
+  bool DisturbanceSample(int channel_id, const SbirsPointingDisturbanceParameters& parameters,
+                         SbirsPointingDisturbanceSample* sample) const;
   bool ReleaseTarget(std::uint64_t target_id);
   void Clear();
 
@@ -68,6 +73,7 @@ class SbirsPointingCoordinator {
 
   bool IsValidChannel(int channel_id) const;
   std::vector<ChannelRuntime> channels_{};
+  SbirsPointingDisturbance disturbance_;
 };
 
 }  // namespace pipeline

@@ -28,6 +28,19 @@ sbirs_sensor::session::SbirsSceneTarget HotTarget(std::uint64_t id, double y) {
   return target;
 }
 
+sbirs_sensor::session::SbirsSceneTarget HotTargetAtAngles(std::uint64_t id, double azimuth_deg,
+                                                          double elevation_deg) {
+  constexpr double kPi = 3.141592653589793238462643383279502884;
+  const double azimuth_rad = azimuth_deg * kPi / 180.0;
+  const double elevation_rad = elevation_deg * kPi / 180.0;
+  const double horizontal = std::cos(elevation_rad);
+  sbirs_sensor::session::SbirsSceneTarget target = HotTarget(id, 0.0);
+  target.position_ecef_m =
+      Vector(7000000.0 + 1000000.0 * horizontal * std::cos(azimuth_rad),
+             1000000.0 * horizontal * std::sin(azimuth_rad), 1000000.0 * std::sin(elevation_rad));
+  return target;
+}
+
 sbirs_sensor::config::SbirsSessionConfig PipelineConfig() {
   sbirs_sensor::config::SbirsSessionConfig config;
   config.hardware.noise_equivalent_power_w = 1.0e-18f;
@@ -111,6 +124,70 @@ TEST(SbirsPipelineTest, WideCandidateCapturesIntoNfov) {
   // 默认 enable_estimated_tracking=true → 捕获走 EKF，used_truth_assist=false
   EXPECT_FALSE(result.detections.front().attribution.used_truth_assist);
   EXPECT_FALSE(result.detections.front().attribution.has_estimation_nis);
+}
+
+TEST(SbirsPipelineTest, CommonAttitudeDisturbanceMovesWfovAndNfovTogether) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.scan_start_az_deg = 0.0f;
+  config.mission.scan_rate_deg_per_sec = 0.0f;
+  config.mission.wide_field_fov_az_deg = 0.02f;
+  config.mission.wide_field_fov_el_deg = 0.02f;
+  config.mission.narrow_field_fov_az_deg = 0.1f;
+  config.mission.narrow_field_fov_el_deg = 0.1f;
+  config.policy.pointing_disturbance.common_attitude_sigma_deg = 5.0f;
+  config.policy.pointing_disturbance.common_attitude_correlation_time_s = 1.0f;
+  config.policy.pointing_disturbance.random_seed = 53U;
+
+  sbirs_sensor::pipeline::SbirsPointingDisturbance probe(1, 53U);
+  sbirs_sensor::pipeline::SbirsPointingDisturbanceParameters parameters;
+  parameters.common_attitude_sigma_deg = 5.0;
+  parameters.common_attitude_correlation_time_s = 1.0;
+  ASSERT_TRUE(probe.Advance(1.0, parameters));
+  sbirs_sensor::pipeline::SbirsPointingDisturbanceSample expected;
+  ASSERT_TRUE(probe.Sample(0, parameters, &expected));
+  ASSERT_GT(std::hypot(expected.common.azimuth_deg, expected.common.elevation_deg), 0.02);
+
+  const auto input = sbirs_sensor::session::SbirsCycleInputBuilder()
+                         .WithCycleIndex(1U)
+                         .WithDeltaTimeSec(1.0f)
+                         .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                         .AddTarget(HotTargetAtAngles(71U, expected.common.azimuth_deg,
+                                                      expected.common.elevation_deg))
+                         .Build();
+  sbirs_sensor::pipeline::SbirsPipeline disturbed(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  const auto disturbed_result = disturbed.RunCycle(input);
+  ASSERT_EQ(disturbed_result.detections.size(), 1U);
+  EXPECT_EQ(disturbed_result.detections.front().record.observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
+
+  config.policy.pointing_disturbance.common_attitude_sigma_deg = 0.0f;
+  sbirs_sensor::pipeline::SbirsPipeline nominal(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  EXPECT_TRUE(nominal.RunCycle(input).detections.empty());
+}
+
+TEST(SbirsPipelineTest, ChannelDisturbanceContributesToTrackingPointingError) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.narrow_field_fov_az_deg = 10.0f;
+  config.mission.narrow_field_fov_el_deg = 10.0f;
+  config.policy.pointing_disturbance.channel_vibration_amplitude_deg = 0.5f;
+  config.policy.pointing_disturbance.channel_vibration_frequency_hz = 0.25f;
+  config.policy.pointing_disturbance.random_seed = 59U;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  auto input = sbirs_sensor::session::SbirsCycleInputBuilder()
+                   .WithCycleIndex(1U)
+                   .WithDeltaTimeSec(1.0f)
+                   .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                   .AddTarget(HotTarget(72U, 0.0))
+                   .Build();
+  ASSERT_EQ(pipeline.RunCycle(input).detections.size(), 1U);
+  input.cycle_index = 2U;
+  const auto tracking = pipeline.RunCycle(input);
+  ASSERT_EQ(tracking.detections.size(), 1U);
+  EXPECT_TRUE(tracking.detections.front().attribution.has_nfov_tracking_diagnostics);
+  EXPECT_GT(tracking.detections.front().attribution.nfov_pointing_error_deg, 1.0e-4f);
 }
 
 TEST(SbirsPipelineTest, LockedTargetProducesEstimatedTrack) {
@@ -613,6 +690,7 @@ TEST(SbirsPipelineTest, ApplyingConfigClearsCueMeasurementHistory) {
   EXPECT_TRUE(snapshot.target_states.empty());
   ASSERT_EQ(snapshot.pointing_coordinator.channels.size(), 1U);
   EXPECT_FALSE(snapshot.pointing_coordinator.channels.front().actuator.initialized);
+  EXPECT_DOUBLE_EQ(snapshot.pointing_coordinator.disturbance.common.azimuth_deg, 0.0);
 }
 
 TEST(SbirsPipelineTest, RateLimitedPointingSpansCyclesAndRestores) {
@@ -717,6 +795,7 @@ TEST(SbirsPipelineTest, InvalidPointingSnapshotRestoreIsAtomic) {
   const auto before = pipeline.CaptureRuntimeState();
   auto invalid = before;
   invalid.pointing_coordinator.channels.front().target_id = 99U;
+  invalid.pointing_coordinator.disturbance.common.random_state = 0U;
   EXPECT_FALSE(pipeline.RestoreRuntimeState(invalid));
   const auto after = pipeline.CaptureRuntimeState();
   EXPECT_EQ(after.nfov_scheduler.target_to_channel, before.nfov_scheduler.target_to_channel);
@@ -724,6 +803,8 @@ TEST(SbirsPipelineTest, InvalidPointingSnapshotRestoreIsAtomic) {
             before.pointing_coordinator.channels.front().target_id);
   EXPECT_DOUBLE_EQ(after.pointing_coordinator.channels.front().elapsed_wait_sec,
                    before.pointing_coordinator.channels.front().elapsed_wait_sec);
+  EXPECT_EQ(after.pointing_coordinator.disturbance.common.random_state,
+            before.pointing_coordinator.disturbance.common.random_state);
 }
 
 // 调度跳过诊断：目标 A 已锁定 NFOV，候选 B 被 WFOV 发现但资源被占用，

@@ -38,6 +38,21 @@ struct ONEQ_API SbirsErrorModelConfig {
 };
 
 /**
+ * @brief 实际光学中心的时间相关姿态与逐 NFOV 通道指向扰动配置。
+ * @note 共模项同时作用于 WFOV/NFOV；通道项仅作用于对应 NFOV。全部幅值默认 0，
+ *       与 `SbirsErrorModelConfig` 的量测误差及 mission 静态 settle error 相互独立。
+ */
+struct ONEQ_API SbirsPointingDisturbanceConfig {
+  float common_attitude_sigma_deg{0.0f};           /**< 共模 GM 各角轴平稳 1-σ，单位 deg */
+  float common_attitude_correlation_time_s{1.0f};  /**< 共模 GM 相关时间，单位 s */
+  float channel_pointing_sigma_deg{0.0f};          /**< 逐通道 GM 各角轴平稳 1-σ，单位 deg */
+  float channel_pointing_correlation_time_s{1.0f}; /**< 逐通道 GM 相关时间，单位 s */
+  float channel_vibration_amplitude_deg{0.0f};     /**< 逐通道确定性振动各轴峰值，单位 deg */
+  float channel_vibration_frequency_hz{0.0f};      /**< 逐通道确定性振动频率，单位 Hz */
+  unsigned int random_seed{1U};                    /**< 共模与逐通道独立随机流的基础种子 */
+};
+
+/**
  * @brief NFOV 资源调度器配置。
  * @note `max_concurrent_nfov_locks` 控制传感器上可同时凝视锁定不同目标的 NFOV 通道数。
  *       默认 1 等价单目标锁定策略；>1 时支持多通道同时捕获与跟踪（design 2.6）。
@@ -71,6 +86,7 @@ struct ONEQ_API SbirsTrackingConfig {
 struct ONEQ_API SbirsPolicyConfig {
   SbirsDetectionPolicyConfig detection{};  /**< 检测门限策略 */
   SbirsErrorModelConfig error_model{};     /**< 误差模型策略 */
+  SbirsPointingDisturbanceConfig pointing_disturbance{}; /**< 实际光轴时间相关扰动 */
   SbirsSchedulerConfig scheduler{};        /**< NFOV 资源调度策略 */
   SbirsTrackingConfig tracking{};          /**< EKF 滤波测量跟踪策略 */
 };

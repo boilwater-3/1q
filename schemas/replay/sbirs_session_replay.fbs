@@ -52,6 +52,16 @@ table SbirsErrorModelConfig {
   detector_bandwidth_hz: float;
 }
 
+table SbirsPointingDisturbanceConfig {
+  common_attitude_sigma_deg: float;
+  common_attitude_correlation_time_s: float = 1.0;
+  channel_pointing_sigma_deg: float;
+  channel_pointing_correlation_time_s: float = 1.0;
+  channel_vibration_amplitude_deg: float;
+  channel_vibration_frequency_hz: float;
+  random_seed: uint32 = 1;
+}
+
 table SbirsSchedulerConfig {
   max_concurrent_nfov_locks: int32;
 }
@@ -70,6 +80,7 @@ table SbirsTrackingConfig {
 table SbirsPolicyConfig {
   detection: SbirsDetectionPolicyConfig;
   error_model: SbirsErrorModelConfig;
+  pointing_disturbance: SbirsPointingDisturbanceConfig;
   scheduler: SbirsSchedulerConfig;
   tracking: SbirsTrackingConfig;
 }

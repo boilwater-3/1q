@@ -418,6 +418,102 @@ TEST(SbirsReplaySessionTest, ReplayPreservesTrackingCoastAndGateLoss) {
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 
+TEST(SbirsReplaySessionTest, ReplayPreservesPointingDisturbanceAndRuntimePolicyPatch) {
+  sbirs_sensor::config::SbirsSessionConfig config = Config();
+  config.mission.narrow_field_fov_az_deg = 10.0f;
+  config.mission.narrow_field_fov_el_deg = 10.0f;
+  config.policy.scheduler.max_concurrent_nfov_locks = 2;
+  config.policy.pointing_disturbance.common_attitude_sigma_deg = 0.05f;
+  config.policy.pointing_disturbance.common_attitude_correlation_time_s = 2.0f;
+  config.policy.pointing_disturbance.channel_pointing_sigma_deg = 0.1f;
+  config.policy.pointing_disturbance.channel_pointing_correlation_time_s = 3.0f;
+  config.policy.pointing_disturbance.channel_vibration_amplitude_deg = 0.2f;
+  config.policy.pointing_disturbance.channel_vibration_frequency_hz = 0.25f;
+  config.policy.pointing_disturbance.random_seed = 61U;
+  const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-pointing-disturbance");
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-pointing-disturbance"),
+                                            true));
+    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    session.StepWithResult(ImmMultiTargetInput(1U));
+    const auto tracked = session.StepWithResult(ImmMultiTargetInput(2U));
+    ASSERT_EQ(tracked.detection_attributions.size(), 2U);
+    EXPECT_GT(tracked.detection_attributions[0].nfov_pointing_error_deg, 0.0f);
+
+    config.policy.pointing_disturbance.random_seed = 67U;
+    config.policy.pointing_disturbance.channel_vibration_amplitude_deg = 0.1f;
+    session.ApplyRuntimeConfig(
+        sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build());
+    session.StepWithResult(ImmMultiTargetInput(3U));
+    session.StepWithResult(ImmMultiTargetInput(4U));
+    replay_writer->Flush();
+  }
+
+  const sbirs_sensor::session::SbirsReplaySessionResult replay_result =
+      sbirs_sensor::session::ReplaySbirsTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 4U);
+  EXPECT_EQ(replay_result.playback.applied_runtime_patch_count, 1U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 4U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
+TEST(SbirsReplaySessionTest, DisturbanceConfigMismatchTriggersDivergence) {
+  sbirs_sensor::config::SbirsSessionConfig replay_config = Config();
+  replay_config.mission.scan_start_az_deg = 0.0f;
+  replay_config.mission.scan_rate_deg_per_sec = 0.0f;
+  replay_config.mission.wide_field_fov_az_deg = 0.02f;
+  replay_config.mission.wide_field_fov_el_deg = 0.02f;
+  replay_config.policy.pointing_disturbance.common_attitude_sigma_deg = 5.0f;
+  replay_config.policy.pointing_disturbance.random_seed = 53U;
+  sbirs_sensor::config::SbirsSessionConfig oracle_config = replay_config;
+  oracle_config.policy.pointing_disturbance.common_attitude_sigma_deg = 0.0f;
+
+  const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-disturbance-divergence");
+  oneq::replay::ReplayTraceWriter writer(trace_dir, Manifest("sbirs-disturbance-divergence"), true);
+  oneq::replay::ReplayTraceEvent config_event;
+  config_event.module = "sbirs_sensor";
+  config_event.event_type = "session_config";
+  config_event.payload_type = "SbirsSessionConfig";
+  config_event.payload_encoding = "flatbuffers";
+  config_event.payload_bytes = sbirs_sensor::session::EncodeSbirsSessionConfig(replay_config);
+  writer.WriteEvent(config_event);
+
+  const sbirs_sensor::session::SbirsCycleInput input = ValidInput(1U);
+  oneq::replay::ReplayTraceEvent input_event;
+  input_event.module = "sbirs_sensor";
+  input_event.event_type = "cycle_input";
+  input_event.payload_type = "SbirsCycleInput";
+  input_event.payload_encoding = "flatbuffers";
+  input_event.payload_bytes = sbirs_sensor::session::EncodeSbirsCycleInput(input);
+  input_event.has_cycle_index = true;
+  input_event.cycle_index = input.cycle_index;
+  writer.WriteEvent(input_event);
+
+  sbirs_sensor::session::SbirsSession oracle =
+      sbirs_sensor::session::SbirsSession::Create(oracle_config);
+  oneq::replay::ReplayTraceEvent output_event;
+  output_event.module = "sbirs_sensor";
+  output_event.event_type = "cycle_output";
+  output_event.payload_type = "SbirsCycleResult";
+  output_event.payload_encoding = "flatbuffers";
+  output_event.payload_bytes =
+      sbirs_sensor::session::EncodeSbirsCycleResult(oracle.StepWithResult(input));
+  output_event.has_cycle_index = true;
+  output_event.cycle_index = input.cycle_index;
+  writer.WriteEvent(output_event);
+  writer.Flush();
+
+  const sbirs_sensor::session::SbirsReplaySessionResult replay_result =
+      sbirs_sensor::session::ReplaySbirsTrace(trace_dir);
+  EXPECT_FALSE(replay_result.ok);
+  EXPECT_TRUE(replay_result.playback.divergence_found);
+}
+
 TEST(SbirsReplaySessionTest, ReplaySbirsTraceRejectsWrongModule) {
   const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-wrong-module");
   oneq::replay::ReplayTraceManifest manifest = Manifest("sbirs-wrong-module");

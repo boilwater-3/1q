@@ -50,6 +50,10 @@ TEST(SbirsSessionConfigBuilderTest, PointingDefaultsAreProductionValues) {
   EXPECT_FLOAT_EQ(mission.narrow_pointing_max_slew_rate_deg_per_sec, 30.0f);
   EXPECT_FLOAT_EQ(mission.narrow_pointing_settle_tolerance_deg, 0.01f);
   EXPECT_EQ(tracking.nfov_tracking_gate_loss_cycles, 2U);
+  const sbirs_sensor::config::SbirsPointingDisturbanceConfig disturbance;
+  EXPECT_FLOAT_EQ(disturbance.common_attitude_sigma_deg, 0.0f);
+  EXPECT_FLOAT_EQ(disturbance.channel_pointing_sigma_deg, 0.0f);
+  EXPECT_FLOAT_EQ(disturbance.channel_vibration_amplitude_deg, 0.0f);
 }
 
 TEST(SbirsSessionConfigBuilderTest, RejectsInvalidPointingParameters) {
@@ -73,6 +77,33 @@ TEST(SbirsSessionConfigBuilderTest, RejectsZeroTrackingGateLossCycles) {
   config.policy.tracking.nfov_tracking_gate_loss_cycles = 0U;
 
   EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+}
+
+TEST(SbirsSessionConfigBuilderTest, ValidatesPointingDisturbanceParameters) {
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.policy.pointing_disturbance.common_attitude_sigma_deg = -0.1f;
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.policy.pointing_disturbance.common_attitude_sigma_deg = 0.0f;
+  config.policy.pointing_disturbance.common_attitude_correlation_time_s = 0.0f;
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.policy.pointing_disturbance.common_attitude_correlation_time_s = 1.0f;
+  config.policy.pointing_disturbance.channel_pointing_sigma_deg =
+      std::numeric_limits<float>::quiet_NaN();
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.policy.pointing_disturbance.channel_pointing_sigma_deg = 0.0f;
+  config.policy.pointing_disturbance.channel_pointing_correlation_time_s = -1.0f;
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.policy.pointing_disturbance.channel_pointing_correlation_time_s = 1.0f;
+  config.policy.pointing_disturbance.channel_vibration_amplitude_deg = 0.1f;
+  config.policy.pointing_disturbance.channel_vibration_frequency_hz = 0.0f;
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.policy.pointing_disturbance.channel_vibration_frequency_hz = 2.0f;
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 
 }  // namespace

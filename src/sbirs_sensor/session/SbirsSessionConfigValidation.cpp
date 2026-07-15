@@ -52,6 +52,29 @@ ValidationIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& config)
       config.policy.detection.narrow_min_snr_linear < 0.0f) {
     AddError("detection thresholds must be non-negative", &issues);
   }
+  const SbirsPointingDisturbanceConfig& disturbance = config.policy.pointing_disturbance;
+  if (!std::isfinite(disturbance.common_attitude_sigma_deg) ||
+      disturbance.common_attitude_sigma_deg < 0.0f ||
+      !std::isfinite(disturbance.channel_pointing_sigma_deg) ||
+      disturbance.channel_pointing_sigma_deg < 0.0f ||
+      !std::isfinite(disturbance.channel_vibration_amplitude_deg) ||
+      disturbance.channel_vibration_amplitude_deg < 0.0f ||
+      !std::isfinite(disturbance.channel_vibration_frequency_hz) ||
+      disturbance.channel_vibration_frequency_hz < 0.0f) {
+    AddError("pointing disturbance amplitudes and frequency must be non-negative and finite",
+             &issues);
+  }
+  if (!std::isfinite(disturbance.common_attitude_correlation_time_s) ||
+      disturbance.common_attitude_correlation_time_s <= 0.0f ||
+      !std::isfinite(disturbance.channel_pointing_correlation_time_s) ||
+      disturbance.channel_pointing_correlation_time_s <= 0.0f) {
+    AddError("pointing disturbance correlation times must be positive and finite", &issues);
+  }
+  if (disturbance.channel_vibration_amplitude_deg > 0.0f &&
+      disturbance.channel_vibration_frequency_hz <= 0.0f) {
+    AddError("pointing disturbance vibration frequency must be positive when amplitude is non-zero",
+             &issues);
+  }
   if (config.policy.scheduler.max_concurrent_nfov_locks < 1) {
     AddError("scheduler max_concurrent_nfov_locks must be at least 1", &issues);
   }

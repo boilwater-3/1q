@@ -45,6 +45,43 @@ bool InRectangularFov(float target_az_deg, float target_el_deg, float center_az_
          std::fabs(target_el_deg - center_el_deg) <= 0.5f * fov_el_deg;
 }
 
+SbirsPointingDisturbanceParameters DisturbanceParameters(
+    const config::SbirsPointingDisturbanceConfig& config) {
+  SbirsPointingDisturbanceParameters parameters;
+  parameters.common_attitude_sigma_deg = static_cast<double>(config.common_attitude_sigma_deg);
+  parameters.common_attitude_correlation_time_s =
+      static_cast<double>(config.common_attitude_correlation_time_s);
+  parameters.channel_pointing_sigma_deg = static_cast<double>(config.channel_pointing_sigma_deg);
+  parameters.channel_pointing_correlation_time_s =
+      static_cast<double>(config.channel_pointing_correlation_time_s);
+  parameters.channel_vibration_amplitude_deg =
+      static_cast<double>(config.channel_vibration_amplitude_deg);
+  parameters.channel_vibration_frequency_hz =
+      static_cast<double>(config.channel_vibration_frequency_hz);
+  return parameters;
+}
+
+bool EffectiveNfovPointing(const SbirsPointingCoordinator& coordinator, int channel_id,
+                           const SbirsPointingDisturbanceParameters& parameters,
+                           const session::SbirsVector3M& nominal_los, float static_error_deg,
+                           float* azimuth_deg, float* elevation_deg) {
+  if (azimuth_deg == nullptr || elevation_deg == nullptr) {
+    return false;
+  }
+  SbirsPointingDisturbanceSample disturbance;
+  if (!coordinator.DisturbanceSample(channel_id, parameters, &disturbance)) {
+    return false;
+  }
+  *azimuth_deg =
+      foundation::ComputeAzimuthDeg(nominal_los) +
+      static_cast<float>(disturbance.common.azimuth_deg + disturbance.channel.azimuth_deg) +
+      static_error_deg;
+  *elevation_deg =
+      foundation::ComputeElevationDeg(nominal_los) +
+      static_cast<float>(disturbance.common.elevation_deg + disturbance.channel.elevation_deg);
+  return true;
+}
+
 double ComputeSnr(const config::SbirsInternalExecutionConfig& config,
                   const session::SbirsSceneTarget& target, double range_m, float transmittance) {
   const config::SbirsHardwareConfig& hardware = config.session.hardware;
@@ -69,7 +106,8 @@ SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
     : config_(config),
       scan_azimuth_deg_(config.session.mission.scan_start_az_deg),
       nfov_scheduler_(config.session.policy.scheduler.max_concurrent_nfov_locks),
-      pointing_coordinator_(config.session.policy.scheduler.max_concurrent_nfov_locks),
+      pointing_coordinator_(config.session.policy.scheduler.max_concurrent_nfov_locks,
+                            config.session.policy.pointing_disturbance.random_seed),
       random_source_(config.session.policy.error_model.random_seed) {}
 
 void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& config) {
@@ -79,7 +117,8 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
   // 同步调度器通道上限；运行期 patch 改变通道数后清空既有分配，避免越界。
   nfov_scheduler_ = SbirsNfovScheduler(config.session.policy.scheduler.max_concurrent_nfov_locks);
   pointing_coordinator_ =
-      SbirsPointingCoordinator(config.session.policy.scheduler.max_concurrent_nfov_locks);
+      SbirsPointingCoordinator(config.session.policy.scheduler.max_concurrent_nfov_locks,
+                               config.session.policy.pointing_disturbance.random_seed);
   // 配置可能改变误差/时序语义，不混用提交前后的 WFOV 测量历史。
   cue_predictor_.Clear();
   target_states_.clear();
@@ -104,12 +143,29 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     return result;
   }
 
+  const SbirsPointingDisturbanceParameters disturbance_parameters =
+      DisturbanceParameters(policy.pointing_disturbance);
+  if (!pointing_coordinator_.AdvanceDisturbance(static_cast<double>(input.dt_sec),
+                                                disturbance_parameters)) {
+    result.scan_azimuth_deg = scan_azimuth_deg_;
+    return result;
+  }
+  SbirsPointingDisturbanceSample frame_disturbance;
+  if (!pointing_coordinator_.DisturbanceSample(0, disturbance_parameters, &frame_disturbance)) {
+    result.scan_azimuth_deg = scan_azimuth_deg_;
+    return result;
+  }
+
   scan_azimuth_deg_ = NormalizeAzimuth(scan_azimuth_deg_ + mission.scan_rate_deg_per_sec *
                                                                std::max(0.0f, input.dt_sec));
   if (scan_azimuth_deg_ > mission.scan_end_az_deg) {
     scan_azimuth_deg_ = mission.scan_start_az_deg;
   }
   result.scan_azimuth_deg = scan_azimuth_deg_;
+  const float actual_scan_azimuth_deg =
+      scan_azimuth_deg_ + static_cast<float>(frame_disturbance.common.azimuth_deg);
+  const float actual_scan_elevation_deg =
+      mission.scan_center_el_deg + static_cast<float>(frame_disturbance.common.elevation_deg);
 
   const float transmittance = environment::ResolveEffectiveTransmittance(environment_config);
   std::vector<SbirsCandidate> candidates;
@@ -170,9 +226,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
           foundation::ComputeRelativeAngularRateDegPerSec(los, target.velocity_ecef_m_per_s);
     }
 
-    const bool in_wfov =
-        InRectangularFov(azimuth_deg, elevation_deg, scan_azimuth_deg_, mission.scan_center_el_deg,
-                         mission.wide_field_fov_az_deg, mission.wide_field_fov_el_deg);
+    const bool in_wfov = InRectangularFov(azimuth_deg, elevation_deg, actual_scan_azimuth_deg,
+                                          actual_scan_elevation_deg, mission.wide_field_fov_az_deg,
+                                          mission.wide_field_fov_el_deg);
 
     const SbirsTargetState state = target_states_[target.target_id];
     const bool is_locked = nfov_scheduler_.IsLocked(target.target_id) &&
@@ -197,13 +253,14 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
           channel_id, target.target_id,
           LosFromAzimuthElevation(command_azimuth_deg, command_elevation_deg), input.dt_sec,
           tracking_pointing_config);
-      const float actual_pointing_azimuth_deg =
-          foundation::ComputeAzimuthDeg(pointing_result.current_los) +
-          mission.narrow_pointing_settle_error_deg;
-      const float actual_pointing_elevation_deg =
-          foundation::ComputeElevationDeg(pointing_result.current_los);
+      float actual_pointing_azimuth_deg = 0.0f;
+      float actual_pointing_elevation_deg = 0.0f;
+      const bool pointing_available = EffectiveNfovPointing(
+          pointing_coordinator_, channel_id, disturbance_parameters, pointing_result.current_los,
+          mission.narrow_pointing_settle_error_deg, &actual_pointing_azimuth_deg,
+          &actual_pointing_elevation_deg);
       const bool geometry_gate_passed =
-          pointing_result.status != SbirsPointingAdvanceStatus::kRejected &&
+          pointing_result.status != SbirsPointingAdvanceStatus::kRejected && pointing_available &&
           InRectangularFov(azimuth_deg, elevation_deg, actual_pointing_azimuth_deg,
                            actual_pointing_elevation_deg, mission.narrow_field_fov_az_deg,
                            mission.narrow_field_fov_el_deg);
@@ -397,10 +454,18 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     SbirsNfovAcquisitionRequest acquisition_request;
     acquisition_request.delayed_truth_azimuth_deg = selected.delayed_truth_azimuth_deg;
     acquisition_request.delayed_truth_elevation_deg = selected.delayed_truth_elevation_deg;
-    acquisition_request.command_azimuth_deg =
-        foundation::ComputeAzimuthDeg(pointing_result.current_los);
-    acquisition_request.command_elevation_deg =
-        foundation::ComputeElevationDeg(pointing_result.current_los);
+    if (!EffectiveNfovPointing(pointing_coordinator_, channel_id, disturbance_parameters,
+                               pointing_result.current_los, 0.0f,
+                               &acquisition_request.command_azimuth_deg,
+                               &acquisition_request.command_elevation_deg)) {
+      nfov_scheduler_.Release(target_id);
+      pointing_coordinator_.ReleaseTarget(target_id);
+      target_states_[target_id] = SbirsTargetState::kWideCandidate;
+      blocked_target_ids.insert(target_id);
+      append_acquisition_failure(selected, channel_id,
+                                 attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
+      return;
+    }
     acquisition_request.pointing_settle_error_deg = mission.narrow_pointing_settle_error_deg;
     acquisition_request.field_of_view_azimuth_deg = mission.narrow_field_fov_az_deg;
     acquisition_request.field_of_view_elevation_deg = mission.narrow_field_fov_el_deg;
@@ -547,7 +612,8 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
 }
 
 bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
-  SbirsPointingCoordinator restored_pointing(nfov_scheduler_.max_locks());
+  SbirsPointingCoordinator restored_pointing(
+      nfov_scheduler_.max_locks(), config_.session.policy.pointing_disturbance.random_seed);
   if (!restored_pointing.Restore(snapshot.pointing_coordinator) ||
       snapshot.nfov_scheduler.target_to_channel.size() >
           static_cast<std::size_t>(nfov_scheduler_.max_locks())) {

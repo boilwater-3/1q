@@ -307,6 +307,7 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 | 地球遮挡门控 | `IsEarthOcculted` | 用有限 LOS 线段与地球球体相交判别穿地视线 | internal 几何门控，不进入 raw output | `sbirs_foundation_test`、`sbirs_pipeline_test` |
 | WFOV 扫描搜索 | `SbirsPipeline` | 推进扫描相位，执行地球遮挡、FOV、范围和 SNR 门控 | internal pipeline，不可替换 | `sbirs_pipeline_test` |
 | WFOV 误差模型 | `ApplyAngularErrorModel` | 对方位/俯仰/距离生成带误差 cue，供首次 NFOV 捕获使用 | internal 随机源可注入，public 不直接采样 | `sbirs_error_model_test` |
+| 时间相关指向扰动 | `SbirsPointingDisturbance` | 整星共模 GM 同时移动 WFOV/NFOV，逐通道 GM + 确定性振动只移动对应 NFOV | 零幅默认；不等同量测噪声或完整姿态控制器 | `sbirs_pointing_disturbance_test`、`sbirs_pipeline_test` |
 | Cue 预测 | `SbirsCuePredictor` | 按目标保存 WFOV 测量历史并生成角度域 CV 提前量 | internal；命令不消费目标真值速度 | `sbirs_cue_predictor_test`、`sbirs_pipeline_test` |
 | NFOV ATP | `SbirsPointingCoordinator`、`SbirsPointingActuator` | 按 NFOV 通道保存光轴；捕获前限速推进并判定 settled/timeout，捕获后闭环跟随并执行几何/SNR 门 | 始终启用；配置公开最大转速、稳定容差与连续跟踪门失败周期数 | `sbirs_pointing_coordinator_test`、`sbirs_pipeline_test` |
 | 目标状态机 | `SbirsTargetStateMachine` | 6 状态管理 WFOV 候选、跨周期捕获和持续跟踪 | internal 状态机，debug view 可观测 | `sbirs_state_machine_test` |
@@ -866,6 +867,43 @@ WFOV 输出的带误差位置是 NFOV 首次捕获的输入，误差模型直接
 - `sbirs_error_model_test`
 - `sbirs_replay_codec_roundtrip_test`
 
+#### 2.10.1 时间相关姿态与指向扰动
+
+`SbirsErrorModel` 的 `attitude_sigma_deg` 属于量测域独立误差；它改变 WFOV cue 和可见时的 tracking
+量测，但不改变实际光学中心。实际光轴另由 `SbirsPointingDisturbance` 建模：每个 active cycle 先推进
+一份整星共模状态和全部物理 NFOV 通道状态，再执行 WFOV/NFOV 几何门。
+
+两类随机状态均采用一阶 Gauss–Markov 精确离散：
+
+```
+alpha = exp(-dt / tau)
+x[k+1] = alpha * x[k] + sigma * sqrt(1 - alpha^2) * N(0, 1)
+```
+
+`sigma` 是方位/俯仰各轴的平稳 1-σ，`tau` 是相关时间。逐通道残差还叠加固定 seed 与 channel id
+派生相位的正弦振动。共模项在同周期同时移动 WFOV 实际扫描中心和所有 NFOV 中心；通道项只移动
+对应 NFOV。NFOV 有效中心按 `actuator nominal LOS → 共模 → 通道 GM/振动 → 静态 settle error`
+合成，然后进入首次捕获或闭环 tracking 的既有矩形几何门。[evidence:
+`sbirs_pointing_disturbance_test.cpp:GaussMarkovMatchesStationaryRmsAndLagOne`;
+`sbirs_pipeline_test.cpp:CommonAttitudeDisturbanceMovesWfovAndNfovTogether`]
+
+状态所有权与确定性边界：
+
+- 共模状态每个 pipeline 一份；通道状态按物理 `channel_id` 持有，不按目标持有。
+- 空闲通道仍随仿真时间推进；普通 release/rebind 不重置，standby、配置提交或通道数变化重置。
+- snapshot 保存共模、各通道 GM、随机流与振动时间；restore 与 actuator/绑定映射一起原子校验。
+- 全部幅值默认 0；没有可追溯设备参数时不提供仓库级非零“真实 SBIRS”常数。
+- 当前是传感器角度坐标系的小角度扰动，不含刚体姿态、角速度控制、反作用轮、饱和或机械耦合。
+- raw output 和滤波 R 不增加扰动字段；现有 `nfov_pointing_error_deg` 表示合成后的总实际误差。
+
+验证入口：
+
+- `sbirs_pointing_disturbance_test`
+- `sbirs_pointing_coordinator_test`
+- `sbirs_pipeline_test`
+- `sbirs_replay_codec_roundtrip_test`
+- `sbirs_replay_session_test`
+
 ### 2.11 输出与仿真归属
 
 SBIRS 遵守三层输出模型（`docs/common/contract.md` 三层输出模型表）：
@@ -990,7 +1028,7 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 ## 4. 未来扩展模块优先级
 
 下表面向当前默认定位——**系统级、可解释、可确定性 replay 的 SBIRS-inspired 仿真**。优先级表示
-建议开展 Stage A 的顺序，不表示其余功能已经承诺；第 1 项已完成 Stage A 并进入生产链路，其余候选保持 `defer`。只有
+建议开展 Stage A 的顺序，不表示其余功能已经承诺；第 1、2 项已完成 Stage A 并进入生产链路，其余候选保持 `defer`。只有
 证据矩阵证明真实性收益、状态所有权和验收门限后，才允许冻结实现范围。
 
 复杂度分为中、高、极高，综合考虑运行态、配置/schema、snapshot/replay、独立物理真值和测试矩阵。
@@ -998,7 +1036,7 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 | 顺序 | 未来扩展候选 | 优先级 | 复杂度 | 预期真实性增益 | 推荐归属与 Stage A 进入条件 |
 |---:|---|:---:|:---:|---|---|
 | 1 | 捕获后闭环 ATP 跟踪（implemented） | P0 | 中 | 很高：已消除 tracking 绕过 actuator 的理想化行为 | 已按逐通道状态接线；predict→advance→gate→correct、coasting、两周期丢锁、snapshot/replay 均有测试证据 |
-| 2 | 时间相关的姿态抖动与指向误差 | P0 | 中 | 高：补足独立逐帧 sigma 无法表达的偏置、漂移、抖动和残余振荡 | internal disturbance primitive；先比较白噪声与一阶 Gauss–Markov/确定性振动对捕获率、tracking error 和 replay 的影响，不直接引入整星控制器 |
+| 2 | 时间相关的姿态抖动与指向误差（implemented） | P0 | 中 | 高：补足独立逐帧 sigma 无法表达的漂移、抖动和残余振荡 | 已接入共模 WFOV/NFOV 与逐通道 NFOV；GM/白噪声/振动 characterization、snapshot、runtime policy patch 与 replay 均有证据；零幅默认，不是完整整星控制器 |
 | 3 | CA cue predictor characterization | P1 | 中 | 中高：可能改善持续角加速度目标的 cue 提前量 | 先建立 CV/CA 场景矩阵；只有 CA 在加速场景稳定降低角误差/提高捕获率，且不因测量噪声显著恶化时才允许接线，禁止自动后端切换 |
 | 4 | 简化整星姿态动力学与执行机构约束 | P2 | 高 | 高：表达角加速度、饱和、稳定时间和平台本体运动 | 独立 Stage A；必须先完成闭环 ATP，冻结“共享平台姿态 + 逐通道光轴”的两层状态所有权，不把完整动力学内联进 `SbirsPipeline` |
 | 5 | 多通道机械耦合与共享姿态资源 | P2 | 高 | 中高：表达多个 NFOV 通道同时指向时的资源冲突和共同扰动 | 依赖第 4 项；需证明通道不再可视为独立 LOS，并形成确定性仲裁、失败归属和 snapshot/replay 矩阵 |
@@ -1007,7 +1045,7 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 | 8 | 地面任务规划、区域重访与星座协同 | P3 | 高 | 中：提高任务系统真实性，不直接提高单传感器物理精度 | 独立任务规划模块；通过 session config/input 驱动 SBIRS，禁止把排程、星座资源和地面决策并入 sensor pipeline |
 | — | 复刻真实 SBIRS 保密参数或处理链 | reject | 不可评估 | 不可验证 | 不作为工程目标；只使用可追溯公开资料、仓库内模型假设和独立测试证据，不用不可审计常数冒充真实设备参数 |
 
-后续推荐顺序为：**时间相关指向扰动 → CA 证据矩阵 → 简化姿态动力学
+后续推荐顺序为：**CA 证据矩阵 → 简化姿态动力学
 与通道耦合**。如果项目目标转为载荷图像算法评估，必须单独冻结产品边界，此时第 6 项可升为 P0，
 但仍不得把图像链直接塞入当前标量 `SbirsPipeline`。
 

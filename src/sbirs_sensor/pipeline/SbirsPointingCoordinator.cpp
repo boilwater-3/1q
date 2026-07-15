@@ -6,8 +6,9 @@
 namespace sbirs_sensor {
 namespace pipeline {
 
-SbirsPointingCoordinator::SbirsPointingCoordinator(int channel_count)
-    : channels_(static_cast<std::size_t>(channel_count < 1 ? 1 : channel_count)) {}
+SbirsPointingCoordinator::SbirsPointingCoordinator(int channel_count, unsigned int disturbance_seed)
+    : channels_(static_cast<std::size_t>(channel_count < 1 ? 1 : channel_count)),
+      disturbance_(channel_count, disturbance_seed) {}
 
 bool SbirsPointingCoordinator::IsValidChannel(int channel_id) const {
   return channel_id >= 0 && static_cast<std::size_t>(channel_id) < channels_.size();
@@ -124,6 +125,17 @@ unsigned int SbirsPointingCoordinator::RecordTrackingGateResult(std::uint64_t ta
   return channel.tracking_gate_failure_count;
 }
 
+bool SbirsPointingCoordinator::AdvanceDisturbance(
+    double dt_sec, const SbirsPointingDisturbanceParameters& parameters) {
+  return disturbance_.Advance(dt_sec, parameters);
+}
+
+bool SbirsPointingCoordinator::DisturbanceSample(
+    int channel_id, const SbirsPointingDisturbanceParameters& parameters,
+    SbirsPointingDisturbanceSample* sample) const {
+  return disturbance_.Sample(channel_id, parameters, sample);
+}
+
 bool SbirsPointingCoordinator::ReleaseTarget(std::uint64_t target_id) {
   const int channel_id = ChannelOf(target_id);
   if (channel_id < 0) {
@@ -137,7 +149,11 @@ bool SbirsPointingCoordinator::ReleaseTarget(std::uint64_t target_id) {
   return true;
 }
 
-void SbirsPointingCoordinator::Clear() { channels_.assign(channels_.size(), ChannelRuntime{}); }
+void SbirsPointingCoordinator::Clear() {
+  const unsigned int seed = disturbance_.Capture().base_seed;
+  channels_.assign(channels_.size(), ChannelRuntime{});
+  disturbance_ = SbirsPointingDisturbance(static_cast<int>(channels_.size()), seed);
+}
 
 bool SbirsPointingCoordinator::IsTargetBound(std::uint64_t target_id) const {
   return ChannelOf(target_id) >= 0;
@@ -165,11 +181,16 @@ SbirsPointingCoordinatorSnapshot SbirsPointingCoordinator::Capture() const {
     channel.actuator = channels_[i].actuator.Capture();
     snapshot.channels.push_back(channel);
   }
+  snapshot.disturbance = disturbance_.Capture();
   return snapshot;
 }
 
 bool SbirsPointingCoordinator::Restore(const SbirsPointingCoordinatorSnapshot& snapshot) {
   if (snapshot.channels.size() != channels_.size()) {
+    return false;
+  }
+  SbirsPointingDisturbance restored_disturbance(static_cast<int>(channels_.size()), 1U);
+  if (!restored_disturbance.Restore(snapshot.disturbance)) {
     return false;
   }
   std::vector<ChannelRuntime> restored(channels_.size());
@@ -194,6 +215,7 @@ bool SbirsPointingCoordinator::Restore(const SbirsPointingCoordinatorSnapshot& s
     destination.tracking_gate_failure_count = source.tracking_gate_failure_count;
   }
   channels_ = restored;
+  disturbance_ = restored_disturbance;
   return true;
 }
 

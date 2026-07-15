@@ -199,6 +199,15 @@ flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
           value.error_model.random_seed, value.error_model.orbit_sigma_deg,
           value.error_model.attitude_sigma_deg, value.error_model.fov_sigma_deg,
           value.error_model.detector_bandwidth_hz);
+  const flatbuffers::Offset<sbirs::replay::SbirsPointingDisturbanceConfig> disturbance =
+      sbirs::replay::CreateSbirsPointingDisturbanceConfig(
+          fbb, value.pointing_disturbance.common_attitude_sigma_deg,
+          value.pointing_disturbance.common_attitude_correlation_time_s,
+          value.pointing_disturbance.channel_pointing_sigma_deg,
+          value.pointing_disturbance.channel_pointing_correlation_time_s,
+          value.pointing_disturbance.channel_vibration_amplitude_deg,
+          value.pointing_disturbance.channel_vibration_frequency_hz,
+          value.pointing_disturbance.random_seed);
   const flatbuffers::Offset<sbirs::replay::SbirsSchedulerConfig> scheduler =
       sbirs::replay::CreateSbirsSchedulerConfig(fbb, value.scheduler.max_concurrent_nfov_locks);
   const auto imm_coeffs = fbb.CreateVector(value.tracking.imm_model_noise_diff_coeffs);
@@ -209,7 +218,8 @@ flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
           value.tracking.nis_gate_loss_cycles,
           value.tracking.nfov_tracking_gate_loss_cycles,
           value.tracking.enable_imm_tracking, imm_coeffs);
-  return sbirs::replay::CreateSbirsPolicyConfig(fbb, detection, error, scheduler, tracking);
+  return sbirs::replay::CreateSbirsPolicyConfig(fbb, detection, error, disturbance, scheduler,
+                                                tracking);
 }
 
 void DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
@@ -229,6 +239,21 @@ void DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
     out->error_model.attitude_sigma_deg = fb->error_model()->attitude_sigma_deg();
     out->error_model.fov_sigma_deg = fb->error_model()->fov_sigma_deg();
     out->error_model.detector_bandwidth_hz = fb->error_model()->detector_bandwidth_hz();
+  }
+  if (fb->pointing_disturbance() != nullptr) {
+    out->pointing_disturbance.common_attitude_sigma_deg =
+        fb->pointing_disturbance()->common_attitude_sigma_deg();
+    out->pointing_disturbance.common_attitude_correlation_time_s =
+        fb->pointing_disturbance()->common_attitude_correlation_time_s();
+    out->pointing_disturbance.channel_pointing_sigma_deg =
+        fb->pointing_disturbance()->channel_pointing_sigma_deg();
+    out->pointing_disturbance.channel_pointing_correlation_time_s =
+        fb->pointing_disturbance()->channel_pointing_correlation_time_s();
+    out->pointing_disturbance.channel_vibration_amplitude_deg =
+        fb->pointing_disturbance()->channel_vibration_amplitude_deg();
+    out->pointing_disturbance.channel_vibration_frequency_hz =
+        fb->pointing_disturbance()->channel_vibration_frequency_hz();
+    out->pointing_disturbance.random_seed = fb->pointing_disturbance()->random_seed();
   }
   if (fb->scheduler() != nullptr) {
     out->scheduler.max_concurrent_nfov_locks = fb->scheduler()->max_concurrent_nfov_locks();
