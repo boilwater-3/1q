@@ -52,3 +52,28 @@ Authority: 非规定性记录
 [evidence: `include/1q/environment/PropagationPhysics.h:RefractivityIndex` — public 六标量签名;\
  `src/common/atmosphere/AtmospherePhysics.cpp:refractivity_index_n_r8` — 同时消费 Celsius 与 Kelvin;\
  `tests/unit/airborne_radar/ar_atmosphere_physics_test.cpp` — 当前只覆盖一致温标]
+
+## OQ-9 Replay FlatBuffer internal helper 的后续迁移边界
+
+EOS/ESR 已把“完成 builder 后复制字节”和统一 `FailureMarker` 解码保护迁入
+`src/common/replay/ReplayFlatbufferCodecSupport.h`。SBIRS、SAR、AR 仍保留相似机械代码，但三者的
+schema、DTO、payload identifier、错误文本和 replay 行为必须继续由模块拥有，不能借迁移合并为万能 codec。
+
+当前现场：
+
+- SBIRS 同时重复 buffer 复制与 `FailureMarker` 空值/空 payload/verifier/错误传播，现有 roundtrip、损坏拒绝、
+  多目标 IMM、coasting 和扰动 replay 可作为首批行为护栏。
+- SAR 重复 buffer 复制和各 payload verifier；其 raw-IQ 外部数据边界及 L1/L2/L3 结果结构属于模块语义，
+  不应进入公共 helper。
+- AR 的 codec 对象图和 identifier 处理最复杂，并有更完整的 corruption 与 failure-marker 行为，因此只在
+  SBIRS、SAR 两批证明 helper 边界稳定后最后迁移。
+
+推荐 probe 顺序为 **SBIRS → SAR → AR**。每批只允许迁移无 schema 知识的机械路径；必须保持编码结果、
+空值/截断/损坏拒绝、failure marker、错误文本和 divergence 行为，并通过对应 replay partition、contract、
+public boundary、install manifest 与 C++11 compatibility。若复用需要接触模块 DTO 转换、payload identifier、
+外部数据资格或改变错误语义，则停止迁移并保留模块实现，不扩大 helper。
+
+[evidence: `tests/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp:SbirsReplayCodecRoundtripTest.DecodeFailureMarkerRejectsNullAndCorrupted` — SBIRS failure-marker 拒绝行为;\
+ `tests/replay/sbirs_sensor/sbirs_replay_session_test.cpp:SbirsReplaySessionTest.ReplayPreservesTrackingCoastAndGateLoss` — SBIRS 结果重放语义;\
+ `tests/replay/sar/sar_replay_codec_roundtrip_test.cpp:SarReplayCodecRoundtripTest.RejectsEmptyPayload` — SAR 空 payload 拒绝;\
+ `tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp:ArReplayCodecRoundtripTest.DecodeFailureMarkerRejectsNullAndCorrupted` — AR failure-marker/corruption 行为]

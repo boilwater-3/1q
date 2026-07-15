@@ -176,6 +176,8 @@ TEST(SbirsCycleOutputBuilderTest, DebugViewPreservesNisLossAttributionWithoutRaw
   EXPECT_TRUE(view.targets[0].has_estimation_nis);
   EXPECT_FLOAT_EQ(view.targets[0].estimation_nis, 12.5f);
   EXPECT_TRUE(view.targets[0].estimation_nis_gate_exceeded);
+  EXPECT_EQ(view.targets[0].observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
   EXPECT_EQ(view.targets[0].status, sbirs_sensor::session::SbirsDebugTargetStatus::kNotInOutput);
 }
 
@@ -235,6 +237,8 @@ TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderPreservesNisLossReasonAndDiag
   EXPECT_TRUE(events[0].has_estimation_nis);
   EXPECT_FLOAT_EQ(events[0].estimation_nis, 12.5f);
   EXPECT_TRUE(events[0].estimation_nis_gate_exceeded);
+  EXPECT_EQ(events[0].observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
 }
 
 TEST(SbirsCycleOutputBuilderTest, DebugAndLifecyclePreservePointingTimeoutChannel) {
@@ -245,6 +249,8 @@ TEST(SbirsCycleOutputBuilderTest, DebugAndLifecyclePreservePointingTimeoutChanne
   ASSERT_EQ(view.targets.size(), 1U);
   EXPECT_FALSE(view.targets[0].has_raw_output_record);
   EXPECT_EQ(view.targets[0].nfov_channel_id, 2);
+  EXPECT_EQ(view.targets[0].observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
 
   sbirs_sensor::session::SbirsDetectionLifecycleRecorder recorder(
       sbirs_sensor::session::SbirsDetectionLifecycleRecorderConfig{true});
@@ -255,6 +261,8 @@ TEST(SbirsCycleOutputBuilderTest, DebugAndLifecyclePreservePointingTimeoutChanne
   EXPECT_EQ(events[0].reason,
             sbirs_sensor::session::SbirsDetectionLifecycleReason::kNfovPointingTimeout);
   EXPECT_EQ(events[0].nfov_channel_id, 2);
+  EXPECT_EQ(events[0].observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
 }
 
 TEST(SbirsCycleOutputBuilderTest, CoastingHasNoRawAndDoesNotEmitPrematureLost) {
@@ -268,12 +276,16 @@ TEST(SbirsCycleOutputBuilderTest, CoastingHasNoRawAndDoesNotEmitPrematureLost) {
   EXPECT_EQ(view.targets[0].status, sbirs_sensor::session::SbirsDebugTargetStatus::kCoasting);
   EXPECT_FALSE(view.targets[0].has_raw_output_record);
   EXPECT_EQ(view.targets[0].nfov_tracking_gate_failure_count, 1U);
+  EXPECT_EQ(view.targets[0].observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
 
   const auto events = recorder.Update(input, result);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events[0].kind, sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kCoasting);
   EXPECT_EQ(events[0].reason, sbirs_sensor::session::SbirsDetectionLifecycleReason::kNone);
   EXPECT_TRUE(events[0].nfov_tracking_coasting);
+  EXPECT_EQ(events[0].observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
 }
 
 TEST(SbirsCycleOutputBuilderTest, TrackingGateLossEndsCoastingLifecycle) {
@@ -287,6 +299,8 @@ TEST(SbirsCycleOutputBuilderTest, TrackingGateLossEndsCoastingLifecycle) {
   EXPECT_EQ(events[0].reason,
             sbirs_sensor::session::SbirsDetectionLifecycleReason::kNfovTrackingGateLost);
   EXPECT_EQ(events[0].nfov_tracking_gate_failure_count, 2U);
+  EXPECT_EQ(events[0].observation_stage,
+            sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
 }
 
 }  // namespace

@@ -82,6 +82,76 @@ bool EffectiveNfovPointing(const SbirsPointingCoordinator& coordinator, int chan
   return true;
 }
 
+bool IsFiniteGaussianState(const tracking::SbirsGaussianState& state) {
+  return state.mean.allFinite() && state.covariance.allFinite();
+}
+
+bool IsValidTrackingSnapshot(const SbirsPipelineSnapshot& snapshot,
+                             const config::SbirsTrackingConfig& tracking_config) {
+  if (!std::isfinite(snapshot.scan_azimuth_deg) || snapshot.next_detection_id == 0U ||
+      snapshot.random_state == 0U) {
+    return false;
+  }
+  for (const auto& entry : snapshot.cue_predictor.targets) {
+    if (!std::isfinite(entry.second.measured_azimuth_deg) ||
+        !std::isfinite(entry.second.measured_elevation_deg)) {
+      return false;
+    }
+  }
+
+  std::set<std::uint64_t> estimated_target_ids;
+  for (const auto& entry : snapshot.target_states) {
+    switch (entry.second) {
+      case SbirsTargetState::kUndetected:
+      case SbirsTargetState::kWideCandidate:
+      case SbirsTargetState::kAwaitingNfovAcquisition:
+      case SbirsTargetState::kTruthAssistedTracking:
+      case SbirsTargetState::kLost:
+        break;
+      case SbirsTargetState::kEstimatedTracking:
+        estimated_target_ids.insert(entry.first);
+        break;
+      default:
+        return false;
+    }
+  }
+  if (snapshot.filter_states.size() != estimated_target_ids.size() ||
+      snapshot.nis_gate_exceeded_counts.size() != estimated_target_ids.size()) {
+    return false;
+  }
+  const std::size_t expected_model_count = tracking_config.imm_model_noise_diff_coeffs.empty()
+                                               ? 2U
+                                               : tracking_config.imm_model_noise_diff_coeffs.size();
+  for (const std::uint64_t target_id : estimated_target_ids) {
+    const auto filter = snapshot.filter_states.find(target_id);
+    if (filter == snapshot.filter_states.end() || !IsFiniteGaussianState(filter->second) ||
+        snapshot.nis_gate_exceeded_counts.count(target_id) == 0U) {
+      return false;
+    }
+    if (!tracking_config.enable_imm_tracking) {
+      continue;
+    }
+    const auto imm = snapshot.imm_snapshots.find(target_id);
+    if (imm == snapshot.imm_snapshots.end() ||
+        imm->second.model_states.size() != expected_model_count ||
+        static_cast<std::size_t>(imm->second.model_weights.size()) != expected_model_count ||
+        !imm->second.model_weights.allFinite()) {
+      return false;
+    }
+    for (std::size_t index = 0U; index < expected_model_count; ++index) {
+      const tracking::SbirsImmModelState& model = imm->second.model_states[index];
+      if (!IsFiniteGaussianState(model.state) || !std::isfinite(model.weight) ||
+          model.weight != imm->second.model_weights(static_cast<Eigen::Index>(index))) {
+        return false;
+      }
+    }
+  }
+  const std::size_t expected_imm_count =
+      tracking_config.enable_imm_tracking ? estimated_target_ids.size() : 0U;
+  return snapshot.imm_snapshots.size() == expected_imm_count &&
+         snapshot.imm_active == (expected_imm_count != 0U);
+}
+
 double ComputeSnr(const config::SbirsInternalExecutionConfig& config,
                   const session::SbirsSceneTarget& target, double range_m, float transmittance) {
   const config::SbirsHardwareConfig& hardware = config.session.hardware;
@@ -612,6 +682,9 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
 }
 
 bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
+  if (!IsValidTrackingSnapshot(snapshot, config_.session.policy.tracking)) {
+    return false;
+  }
   SbirsPointingCoordinator restored_pointing(
       nfov_scheduler_.max_locks(), config_.session.policy.pointing_disturbance.random_seed);
   if (!restored_pointing.Restore(snapshot.pointing_coordinator) ||

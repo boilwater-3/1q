@@ -34,6 +34,25 @@ const attribution::SbirsDetectionAttributionRecord* FindAttribution(
   return nullptr;
 }
 
+output::SbirsObservationStage InferObservationStage(
+    const attribution::SbirsDetectionAttributionRecord& attribution) {
+  if (attribution.nfov_tracking_coasting || attribution.has_nfov_tracking_diagnostics) {
+    return output::SbirsObservationStage::kNarrowFieldTrack;
+  }
+  switch (attribution.capture_failure_reason) {
+    case attribution::SbirsCaptureFailureReason::kEstimationNisGateLost:
+    case attribution::SbirsCaptureFailureReason::kNfovTrackingGateLost:
+      return output::SbirsObservationStage::kNarrowFieldTrack;
+    case attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed:
+    case attribution::SbirsCaptureFailureReason::kNfovPointingTimeout:
+      return output::SbirsObservationStage::kNarrowFieldAcquisition;
+    case attribution::SbirsCaptureFailureReason::kSchedulerSkipped:
+    case attribution::SbirsCaptureFailureReason::kNone:
+      return output::SbirsObservationStage::kWideFieldSearch;
+  }
+  return output::SbirsObservationStage::kWideFieldSearch;
+}
+
 SbirsDetectionLifecycleReason InferReason(
     const SbirsCycleResult& result, const output::SbirsDetectionRecord* record,
     const attribution::SbirsDetectionAttributionRecord* attribution) {
@@ -99,6 +118,7 @@ void FillObservationFields(const output::SbirsDetectionRecord& record,
 
 void FillAttributionFields(const attribution::SbirsDetectionAttributionRecord& attribution,
                            SbirsDetectionLifecycleEvent* event) {
+  event->observation_stage = InferObservationStage(attribution);
   event->estimated_range_m = attribution.estimated_range_m;
   event->used_truth_assist = attribution.used_truth_assist;
   event->has_estimation_nis = attribution.has_estimation_nis;

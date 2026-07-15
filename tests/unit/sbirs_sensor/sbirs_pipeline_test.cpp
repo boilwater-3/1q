@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 #include <map>
 
 #include "1q/sbirs_sensor/config/SbirsSessionConfigBuilder.h"
@@ -805,6 +806,63 @@ TEST(SbirsPipelineTest, InvalidPointingSnapshotRestoreIsAtomic) {
                    before.pointing_coordinator.channels.front().elapsed_wait_sec);
   EXPECT_EQ(after.pointing_coordinator.disturbance.common.random_state,
             before.pointing_coordinator.disturbance.common.random_state);
+}
+
+TEST(SbirsPipelineTest, InvalidTrackingSnapshotRestoreIsAtomic) {
+  const sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  pipeline.RunCycle(sbirs_sensor::session::SbirsCycleInputBuilder()
+                        .WithCycleIndex(1U)
+                        .WithDeltaTimeSec(1.0f)
+                        .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                        .AddTarget(HotTarget(44U, 0.0))
+                        .Build());
+  const auto before = pipeline.CaptureRuntimeState();
+  ASSERT_EQ(before.filter_states.count(44U), 1U);
+
+  auto missing_filter = before;
+  missing_filter.filter_states.erase(44U);
+  EXPECT_FALSE(pipeline.RestoreRuntimeState(missing_filter));
+
+  auto non_finite_filter = before;
+  non_finite_filter.filter_states.at(44U).mean(0) = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_FALSE(pipeline.RestoreRuntimeState(non_finite_filter));
+
+  auto invalid_random_state = before;
+  invalid_random_state.random_state = 0U;
+  EXPECT_FALSE(pipeline.RestoreRuntimeState(invalid_random_state));
+
+  const auto after = pipeline.CaptureRuntimeState();
+  EXPECT_EQ(after.target_states, before.target_states);
+  EXPECT_EQ(after.nfov_scheduler.target_to_channel, before.nfov_scheduler.target_to_channel);
+  EXPECT_EQ(after.random_state, before.random_state);
+  ASSERT_EQ(after.filter_states.count(44U), 1U);
+  EXPECT_TRUE(after.filter_states.at(44U).mean.isApprox(before.filter_states.at(44U).mean));
+  EXPECT_TRUE(
+      after.filter_states.at(44U).covariance.isApprox(before.filter_states.at(44U).covariance));
+}
+
+TEST(SbirsPipelineTest, InvalidImmSnapshotRestoreIsAtomic) {
+  const sbirs_sensor::config::SbirsSessionConfig config = ImmMultiTargetConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  pipeline.RunCycle(TwoTargetInput(1U));
+  const auto before = pipeline.CaptureRuntimeState();
+  ASSERT_EQ(before.imm_snapshots.count(1U), 1U);
+
+  auto missing_imm = before;
+  missing_imm.imm_snapshots.erase(1U);
+  EXPECT_FALSE(pipeline.RestoreRuntimeState(missing_imm));
+
+  auto non_finite_weight = before;
+  non_finite_weight.imm_snapshots.at(1U).model_weights(0) = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_FALSE(pipeline.RestoreRuntimeState(non_finite_weight));
+
+  const auto after = pipeline.CaptureRuntimeState();
+  EXPECT_EQ(after.target_states, before.target_states);
+  ExpectImmTargetStateEqual(after, before, 1U);
+  ExpectImmTargetStateEqual(after, before, 2U);
 }
 
 // 调度跳过诊断：目标 A 已锁定 NFOV，候选 B 被 WFOV 发现但资源被占用，
