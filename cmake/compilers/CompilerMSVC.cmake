@@ -38,11 +38,17 @@ function(apply_msvc_options)
             /Zc:referenceBinding)  # 禁止临时量绑定到非 const 左值引用（标准要求）
     endif()
 
-    foreach(_target IN LISTS ARG_TARGETS)
-        if(NOT TARGET "${_target}")
-            message(FATAL_ERROR "Compiler target does not exist: ${_target}")
-        endif()
-        target_compile_options("${_target}" PRIVATE ${_msvc_common_compile_options})
+	    foreach(_target IN LISTS ARG_TARGETS)
+	        if(NOT TARGET "${_target}")
+	            message(FATAL_ERROR "Compiler target does not exist: ${_target}")
+	        endif()
+	        target_compile_options("${_target}" PRIVATE ${_msvc_common_compile_options})
+	        # /utf-8 同时作为 INTERFACE 选项传播给消费者：
+	        # 库头文件含 UTF-8 中文字符（中文注释），消费者若无 /utf-8，
+	        # MSVC 会按系统 ANSI 代码页（936=GBK）解析，导致语法错误。
+	        if(MSVC_VERSION GREATER_EQUAL 1900)
+	            target_compile_options("${_target}" INTERFACE /utf-8)
+	        endif()
         if(ARG_ENABLE_WARNINGS)
             target_compile_options("${_target}" PRIVATE
                 /W4      # 最高信息级别警告（启用绝大多数警告，含 C4xxx 系列）

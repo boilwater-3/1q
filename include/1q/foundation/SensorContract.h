@@ -37,7 +37,10 @@ namespace contract {
  */
 template <typename SessionT, typename InputT, typename OutputFrameT>
 struct StepReturnMatches {
-  static ONEQ_API const bool value = std::is_same<
+  // NOTE: 不使用 ONEQ_API（展开为 __declspec(dllimport)），
+  // 因为这些模板是纯编译期工具，非 DLL 导出符号。
+  // VS2015/MSVC 不接受 static __declspec(dllimport) const bool 的类内初始化。
+  static const bool value = std::is_same<
       decltype(std::declval<SessionT>().Step(std::declval<const InputT&>())),
       OutputFrameT>::value;
 };
@@ -47,7 +50,7 @@ struct StepReturnMatches {
  */
 template <typename SessionT, typename InputT, typename ResultT>
 struct StepWithResultReturnMatches {
-  static ONEQ_API const bool value = std::is_same<
+  static const bool value = std::is_same<
       decltype(std::declval<SessionT>().StepWithResult(std::declval<const InputT&>())),
       ResultT>::value;
 };
