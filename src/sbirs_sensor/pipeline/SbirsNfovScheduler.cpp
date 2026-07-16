@@ -85,7 +85,9 @@ std::vector<const SbirsCandidate*> SbirsNfovScheduler::SelectForAcquisition(
 }
 
 SbirsNfovSchedulerSnapshot SbirsNfovScheduler::Capture() const {
-  return SbirsNfovSchedulerSnapshot{target_to_channel_};
+  SbirsNfovSchedulerSnapshot snapshot;
+  snapshot.target_to_channel = target_to_channel_;
+  return snapshot;
 }
 
 void SbirsNfovScheduler::Restore(const SbirsNfovSchedulerSnapshot& snapshot) {

@@ -4,7 +4,6 @@ set(ONEQ_COMMON_SOURCES
     atmosphere/AtmospherePhysics.cpp
     atmosphere/StandardAtmosphere.cpp
     environment/PropagationPhysicsImpl.cpp
-    environment/JsbsimAtmosphereAdapter.cpp
     geometry/GeometryTransform.cpp
     coordinate/PositionTransform.cpp
     coordinate/VelocityTransform.cpp
@@ -18,5 +17,4 @@ set(ONEQ_COMMON_SOURCES
 
 oneq_add_component(oneq_common SOURCES ${ONEQ_COMMON_SOURCES})
 target_link_libraries(oneq_common PRIVATE
-    ${ONEQ_LINK_DEPENDENCIES}
-    JSBSim::JSBSim)
+    ${ONEQ_LINK_DEPENDENCIES})

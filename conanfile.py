@@ -1,18 +1,10 @@
 from conan import ConanFile
 from conan.tools.cmake import CMakeDeps, CMakeToolchain, cmake_layout
 
-_BASE_DEPS_VS2015 = {
-    "eigen": "eigen/3.3.9",
-    "boost": "boost/1.85.0",
-    "nanoflann": "nanoflann/1.3.2",
-    "flatbuffers": "flatbuffers/1.12.0",
-    "zlib": "zlib/1.2.11",
-}
-
-_BASE_DEPS_MODERN = {
+_BASE_DEPS = {
     "eigen": "eigen/3.4.0",
     "boost": "boost/1.85.0",
-    "nanoflann": "nanoflann/1.6.0",
+    "nanoflann": "nanoflann/1.3.2",
     "flatbuffers": "flatbuffers/1.12.0",
     "zlib": "zlib/1.3.1",
 }
@@ -26,8 +18,7 @@ _LOG_DEPS_NON_WINDOWS = {
     "fmt": "fmt/10.2.1",
 }
 
-_GTEST_VERSION_VS2015 = "gtest/1.8.1"
-_GTEST_VERSION_MODERN = "gtest/1.12.1"
+_GTEST_VERSION = "gtest/1.12.1"
 
 
 class OneQConan(ConanFile):
@@ -37,14 +28,10 @@ class OneQConan(ConanFile):
 
     options = {
         "enable_testing": [True, False],
-
-        "eigen_version": ["auto", "3.3.9", "3.4.0"],
     }
 
     default_options = {
         "enable_testing": False,
-
-        "eigen_version": "auto",
         # 显式固定第三方链接形态，避免依赖 recipe 默认值导致构建行为漂移。
         "spdlog/*:shared": False,
         "fmt/*:shared": False,
@@ -57,29 +44,12 @@ class OneQConan(ConanFile):
     def _is_windows(self):
         return str(self.settings.os) == "Windows"
 
-    def _is_vs2015_target(self):
-        if not self._is_windows():
-            return False
-
-        compiler = str(self.settings.compiler)
-        version = str(self.settings.compiler.version)
-        return (
-            (compiler == "msvc" and version == "190")
-            or (compiler == "Visual Studio" and version == "14")
-        )
-
-    def _base_deps(self):
-        return _BASE_DEPS_VS2015 if self._is_vs2015_target() else _BASE_DEPS_MODERN
-
     def requirements(self):
-        deps = self._base_deps()
-
-        eigen_version = str(self.options.eigen_version)
-        self.requires(deps["eigen"] if eigen_version == "auto" else f"eigen/{eigen_version}")
-        self.requires(deps["boost"])
-        self.requires(deps["nanoflann"])
-        self.requires(deps["flatbuffers"])
-        self.requires(deps["zlib"])
+        self.requires(_BASE_DEPS["eigen"])
+        self.requires(_BASE_DEPS["boost"])
+        self.requires(_BASE_DEPS["nanoflann"])
+        self.requires(_BASE_DEPS["flatbuffers"])
+        self.requires(_BASE_DEPS["zlib"])
 
         # macOS/Linux 保留调试日志能力，Windows 全平台关闭日志依赖。
         if not self._is_windows():
@@ -93,8 +63,7 @@ class OneQConan(ConanFile):
 
     def build_requirements(self):
         if self.options.enable_testing:
-            gtest_version = _GTEST_VERSION_VS2015 if self._is_vs2015_target() else _GTEST_VERSION_MODERN
-            self.test_requires(gtest_version)
+            self.test_requires(_GTEST_VERSION)
 
     def generate(self):
         CMakeDeps(self).generate()

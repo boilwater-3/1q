@@ -25,13 +25,17 @@ function(apply_msvc_options)
 
     # /MP：多源文件并行编译；/Zc:inline：剔除 COMDAT 重复定义，缩减代码体积
     set(_msvc_common_compile_options /MP /Zc:inline)
+    # /utf-8 自 VS2015 Update 2 起支持，避免含中文等非 ASCII 的源码被按系统代码页误解析。
+    # MSVC_VERSION 在 VS2015 全部 Update 下均为 1900，无法细分 Update 等级，故对 VS2015 无条件加上：
+    # Update 2+ 生效，更旧的 Update 会触发 D9002 被忽略（无害）。
+    if(MSVC_VERSION GREATER_EQUAL 1900)
+        list(APPEND _msvc_common_compile_options /utf-8)
+    endif()
+    # /permissive- 与 /Zc:referenceBinding 需 VS2017+（MSVC 1910）。
     if(MSVC_VERSION GREATER_EQUAL 1910)
         list(APPEND _msvc_common_compile_options
-            /utf-8                 # 源码与执行字符集均按 UTF-8 处理（避免中文乱码）
             /permissive-           # 严格遵循标准 C++，禁用历史非标准扩展
             /Zc:referenceBinding)  # 禁止临时量绑定到非 const 左值引用（标准要求）
-    else()
-        message(STATUS "  Legacy MSVC mode: skipping /utf-8 /permissive- /Zc:referenceBinding for VS2015 compatibility")
     endif()
 
     foreach(_target IN LISTS ARG_TARGETS)
@@ -71,13 +75,10 @@ function(apply_msvc_options)
             $<$<CONFIG:Debug>:/Od>                                                # 关闭优化，变量观察值与源码一致
             $<$<CONFIG:Debug>:/RTC1>                                              # 运行期检查：未初始化栈变量 + 栈帧校验
             $<$<AND:$<CONFIG:Debug>,$<VERSION_GREATER_EQUAL:${MSVC_VERSION},1910>>:/JMC>  # 启用 Just My Code 调试（仅步入用户代码）
-            $<$<CONFIG:Release>:/Od>                                              # 先关优化再叠加下方优化选项，避免 /Od 与 /O 冲突告警
-            $<$<CONFIG:Release>:/Ot>                                              # 优化时优先代码速度（而非体积）
-            $<$<CONFIG:Release>:/Ob2>                                             # 任意内联（含编译器判断的非 inline 函数）
-            $<$<CONFIG:Release>:/Oi>                                              # 生成内建函数（如 memcpy 走 intrinsic）
-            $<$<CONFIG:Release>:/Gy>                                              # 每函数独立 COMDAT 段，配合链接期折叠/裁剪
+            $<$<CONFIG:Release>:/Od>                                              # 关闭优化：生产环境仅 Release 一档，需保留变量级可调试性（配合 /Z7 + /DEBUG:FULL）
+            $<$<CONFIG:Release>:/Ob0>                                             # 禁止内联：避免变量/调用栈被内联优化掉，保证调试时所见即所写
             $<$<CONFIG:Release>:/GS->                                             # 关闭缓冲区安全检查（性能向，牺牲溢出防护）
-            $<$<CONFIG:Release>:/Z7>                                              # Release 仍带调试信息，便于排查线上问题
+            $<$<CONFIG:Release>:/Z7>                                              # Release 生成完整调试信息（嵌入 .obj），生产可调试
             $<$<CONFIG:RelWithDebInfo>:/O2>                                       # 标准优化，兼顾性能与可调试性
             $<$<CONFIG:RelWithDebInfo>:/Ob2>                                      # 任意内联
             $<$<CONFIG:RelWithDebInfo>:/Oi>                                       # 启用内建函数
@@ -104,8 +105,8 @@ function(apply_msvc_options)
         target_link_options("${_target}" PRIVATE
             $<$<CONFIG:Debug>:/DEBUG:FULL>          # 生成完整 PDB 调试符号
             $<$<CONFIG:Debug>:/INCREMENTAL>         # 启用增量链接，加快反复链接速度
-            $<$<CONFIG:Release>:/DEBUG:FULL>        # Release 仍生成完整 PDB，便于排查线上问题
-            $<$<CONFIG:Release>:/INCREMENTAL:NO>    # 关闭增量链接，配合 LTO/优化更稳定
+            $<$<CONFIG:Release>:/DEBUG:FULL>        # Release 生成完整 PDB，配合 /Z7 支持生产环境变量级调试
+            $<$<CONFIG:Release>:/INCREMENTAL:NO>    # 关闭增量链接，Release 调试构建稳定性优先
             $<$<CONFIG:RelWithDebInfo>:/DEBUG:FULL> # 生成完整 PDB 调试符号
             $<$<CONFIG:RelWithDebInfo>:/OPT:REF>    # 移除未引用函数/数据（需 /Gy 段级编译）
             $<$<CONFIG:RelWithDebInfo>:/OPT:ICF>    # 折叠等价 COMDAT 段（Identical COMDAT Folding）

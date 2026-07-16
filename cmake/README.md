@@ -49,8 +49,9 @@ dependency 和 schema。`src/CMakeLists.txt` 不维护 module source list、link
 - `1q::core` 和 `1q_lib` 是稳定的产品/导出 target；不得作为普通 cache option 覆写。
 - `PACKAGE_MANAGER=conan` 是唯一受支持的 provider。先运行
   `scripts/bootstrap_conan.sh <preset>`，再运行 `cmake --preset <preset>`。
-- `ONEQ_ENABLE_FLIGHT_DYNAMIC` 只控制机动模块；common 的 JSBSim atmosphere adapter
-  仍是基础库能力，因此不代表 JSBSim 可以裁剪。
+- `ONEQ_ENABLE_FLIGHT_DYNAMIC` 控制机动模块，同时决定是否引入 JSBSim。
+  JSBSim 是 flight_dynamic 专属依赖：关闭该模块（默认）时 core/common 完全不依赖
+  JSBSim，JsbsimProvider 不会执行 `find_package(jsbsim)`。
 - FlatBuffers schema 与其 codec owner target 在同一模块声明；新增 schema 不更新中心清单。
 - `include/1q` 是唯一 public header 物理边界。`ProjectInstall.cmake` 镜像安装该目录，
   `check_public_api_boundary` 与 `check_install_manifest` 共同守护它。

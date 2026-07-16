@@ -88,9 +88,10 @@ SbirsTrackingPredictionResult SbirsTrackingCoordinator::PredictTarget(
     filter_it->second->Predict(dt_sec);
     predicted = filter_it->second->GetCombinedState();
   } else {
+    tracking::SbirsEkfPredictorConfig predictor_config;
+    predictor_config.noise_diff_coeff = policy.tracking.process_noise_diff_coeff;
     const tracking::SbirsEkfPredictor predictor(
-        &cv_transition_model_,
-        tracking::SbirsEkfPredictorConfig{policy.tracking.process_noise_diff_coeff});
+        &cv_transition_model_, predictor_config);
     predicted = predictor.Predict(filter_states_[target_id], dt_sec);
   }
   filter_states_[target_id] = predicted;
@@ -149,8 +150,10 @@ SbirsTrackingUpdateResult SbirsTrackingCoordinator::CorrectTarget(
   } else {
     nis_gate_exceeded_counts_[target_id] = 0U;
   }
-  const session::SbirsVector3M estimated_position{combined.mean(0), combined.mean(2),
-                                                  combined.mean(4)};
+  session::SbirsVector3M estimated_position;
+  estimated_position.x = combined.mean(0);
+  estimated_position.y = combined.mean(2);
+  estimated_position.z = combined.mean(4);
   const session::SbirsVector3M estimated_los =
       foundation::Subtract(estimated_position, satellite_position_ecef_m);
   result.output_azimuth_deg = foundation::ComputeAzimuthDeg(estimated_los);
@@ -165,7 +168,10 @@ void SbirsTrackingCoordinator::MarkMeasurementUnavailable(std::uint64_t target_i
 SbirsTrackingPredictionResult SbirsTrackingCoordinator::BuildPredictionResult(
     const tracking::SbirsGaussianState& state,
     const session::SbirsVector3M& satellite_position_ecef_m) {
-  const session::SbirsVector3M estimated_position{state.mean(0), state.mean(2), state.mean(4)};
+  session::SbirsVector3M estimated_position;
+  estimated_position.x = state.mean(0);
+  estimated_position.y = state.mean(2);
+  estimated_position.z = state.mean(4);
   const session::SbirsVector3M estimated_los =
       foundation::Subtract(estimated_position, satellite_position_ecef_m);
   SbirsTrackingPredictionResult result;

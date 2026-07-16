@@ -316,9 +316,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         command_azimuth_deg = prediction.output_azimuth_deg;
         command_elevation_deg = prediction.output_elevation_deg;
       }
-      const SbirsPointingActuatorConfig tracking_pointing_config{
-          mission.narrow_pointing_max_slew_rate_deg_per_sec,
-          mission.narrow_pointing_settle_tolerance_deg};
+      SbirsPointingActuatorConfig tracking_pointing_config;
+      tracking_pointing_config.max_slew_rate_deg_per_sec = mission.narrow_pointing_max_slew_rate_deg_per_sec;
+      tracking_pointing_config.settle_tolerance_deg = mission.narrow_pointing_settle_tolerance_deg;
       const SbirsPointingAdvanceResult pointing_result = pointing_coordinator_.AdvanceTracking(
           channel_id, target.target_id,
           LosFromAzimuthElevation(command_azimuth_deg, command_elevation_deg), input.dt_sec,
@@ -452,9 +452,9 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
   }
 
-  const SbirsPointingActuatorConfig pointing_config{
-      mission.narrow_pointing_max_slew_rate_deg_per_sec,
-      mission.narrow_pointing_settle_tolerance_deg};
+  SbirsPointingActuatorConfig pointing_config;
+  pointing_config.max_slew_rate_deg_per_sec = mission.narrow_pointing_max_slew_rate_deg_per_sec;
+  pointing_config.settle_tolerance_deg = mission.narrow_pointing_settle_tolerance_deg;
   std::set<std::uint64_t> processed_target_ids;
   std::set<std::uint64_t> blocked_target_ids;
 

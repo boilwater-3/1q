@@ -9,6 +9,8 @@
 #include "common/estimation/GaussianState.h"
 #include "common/estimation/IKalmanPredictor.h"
 
+#include <type_traits>
+
 namespace oneq {
 namespace common {
 namespace estimation {
@@ -70,11 +72,15 @@ class KalmanPredictor final : public IKalmanPredictor<kStateDim, kMeasurementDim
    */
   static TransitionMatrix BuildTransitionMatrix(float dt) {
     TransitionMatrix F = TransitionMatrix::Identity();
+#if __cplusplus >= 201703L
     if constexpr (kStateDim == 6) {
       F(0, 1) = dt;  // X 轴
       F(2, 3) = dt;  // Y 轴
       F(4, 5) = dt;  // Z 轴
     }
+#else
+    ApplyTransitionEntries6(F, dt, std::integral_constant<bool, kStateDim == 6>{});
+#endif
     return F;
   }
   /**
@@ -86,6 +92,7 @@ class KalmanPredictor final : public IKalmanPredictor<kStateDim, kMeasurementDim
    */
   static ProcessNoiseCovariance BuildProcessNoise(float dt, float q) {
     ProcessNoiseCovariance Q = ProcessNoiseCovariance::Zero();
+#if __cplusplus >= 201703L
     if constexpr (kStateDim == 6) {
       const float dt2 = dt * dt;
       const float dt3 = dt2 * dt;
@@ -98,10 +105,34 @@ class KalmanPredictor final : public IKalmanPredictor<kStateDim, kMeasurementDim
       }
       Q *= q;
     }
+#else
+    ApplyProcessNoise6(Q, dt, q, std::integral_constant<bool, kStateDim == 6>{});
+#endif
     return Q;
   }
 
  private:
+  // C++17 以下兼容：tag dispatch 消除维度不匹配时越界的矩阵访问分支。
+  static void ApplyTransitionEntries6(TransitionMatrix& F, float dt, std::true_type) {
+    F(0, 1) = dt;  // X 轴
+    F(2, 3) = dt;  // Y 轴
+    F(4, 5) = dt;  // Z 轴
+  }
+  static void ApplyTransitionEntries6(TransitionMatrix&, float, std::false_type) {}
+  static void ApplyProcessNoise6(ProcessNoiseCovariance& Q, float dt, float q, std::true_type) {
+    const float dt2 = dt * dt;
+    const float dt3 = dt2 * dt;
+    for (int axis = 0; axis < 3; ++axis) {
+      const int base = axis * 2;
+      Q(base, base) = dt3 / 3.0f;
+      Q(base, base + 1) = dt2 / 2.0f;
+      Q(base + 1, base) = dt2 / 2.0f;
+      Q(base + 1, base + 1) = dt;
+    }
+    Q *= q;
+  }
+  static void ApplyProcessNoise6(ProcessNoiseCovariance&, float, float, std::false_type) {}
+
   KalmanPredictorConfig config_{}; /**< 当前配置。 */
 };
 

@@ -48,8 +48,7 @@ unset(ONEQ_OBJECT_TARGET)
 # owns their final packaging link closure, without exporting implementation
 # object targets as part of 1qTargets.cmake.
 target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE
-    ${ONEQ_LINK_DEPENDENCIES}
-    JSBSim::JSBSim)
+    ${ONEQ_LINK_DEPENDENCIES})
 if(PROJECT_ENABLE_SPDLOG)
     target_link_libraries(${PROJECT_CORE_TARGET} PRIVATE ${PROJECT_SPDLOG_TARGET})
 endif()

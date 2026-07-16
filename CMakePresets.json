@@ -74,6 +74,34 @@
                 "ENABLE_INSTALL": "ON",
                 "BUILD_SHARED_LIBS": "OFF"
             }
+        },
+        {
+            "name": "windows-base",
+            "hidden": true,
+            "inherits": "base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "toolset": "host=x64",
+            "architecture": "x64",
+            "cacheVariables": {
+                "PACKAGE_MANAGER": "conan",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/${presetName}/build/generators/conan_toolchain.cmake"
+            }
+        },
+        {
+            "name": "VisualStudio.14.0-amd64",
+            "displayName": "Visual Studio 14 2015 (x64, Conan)",
+            "description": "VS2015 x64 via Conan toolchain",
+            "inherits": "windows-base",
+            "generator": "Visual Studio 14 2015",
+            "cacheVariables": {
+                "CMAKE_CXX_STANDARD": "14",
+                "BUILD_SHARED_LIBS": "OFF",
+                "ENABLE_INSTALL": "ON"
+            }
         }
     ],
     "buildPresets": [
@@ -88,6 +116,18 @@
         {
             "name": "llvm-ninja-release",
             "configurePreset": "llvm-ninja-release"
+        },
+        {
+            "name": "VisualStudio.14.0-amd64-debug",
+            "displayName": "Visual Studio 14 2015 (x64) - Debug",
+            "configurePreset": "VisualStudio.14.0-amd64",
+            "configuration": "Debug"
+        },
+        {
+            "name": "VisualStudio.14.0-amd64-release",
+            "displayName": "Visual Studio 14 2015 (x64) - Release",
+            "configurePreset": "VisualStudio.14.0-amd64",
+            "configuration": "Release"
         }
     ],
     "testPresets": [

@@ -1,5 +1,10 @@
 # dependencies/JsbsimProvider.cmake
-# JSBSim 依赖解析：三选一策略，始终产出 JSBSim::JSBSim 别名 target
+# JSBSim 依赖解析：flight_dynamic 专属，仅在 ONEQ_ENABLE_FLIGHT_DYNAMIC=ON 时执行。
+# JSBSim 不再耦合进 core/common；关闭 flight_dynamic 即完全不依赖 JSBSim。
+
+if(NOT ONEQ_ENABLE_FLIGHT_DYNAMIC)
+    return()
+endif()
 
 option(ONEQ_JSBSIM_FROM_SOURCE "Build JSBSim from third_party source (enables source-level debugging)" OFF)
 set(ONEQ_JSBSIM_PREBUILT_ROOT_DIR "" CACHE PATH

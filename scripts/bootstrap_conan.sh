@@ -11,12 +11,17 @@
 #   cmake --preset llvm-ninja-debug                 # 2. 配置（自动发现生成的 toolchain）
 #   cmake --build --preset llvm-ninja-debug         # 3. 构建
 #
+# Windows (VS2015) 同样两步：
+#   scripts/bootstrap_conan.sh VisualStudio.14.0-amd64
+#   cmake --preset VisualStudio.14.0-amd64
+#   cmake --build --preset VisualStudio.14.0-amd64-debug
+#
 set -euo pipefail
 
 # --- 参数校验 ---
 if [[ $# -ne 1 ]]; then
     echo "用法: $0 <preset>" >&2
-    echo "支持的 preset: llvm-ninja-debug | llvm-ninja-coverage | llvm-ninja-release" >&2
+    echo "支持的 preset: llvm-ninja-debug | llvm-ninja-coverage | llvm-ninja-release | VisualStudio.14.0-amd64" >&2
     exit 2
 fi
 
@@ -37,7 +42,9 @@ if ! command -v conan >/dev/null 2>&1; then
     exit 1
 fi
 
-# C++ 标准，与 cmake/project/ProjectSetup.cmake 的 PROJECT_DEFAULT_CXX_STANDARD 一致。
+# C++ 标准默认 17（与 cmake/project/ProjectSetup.cmake 的 PROJECT_DEFAULT_CXX_STANDARD 一致）。
+# VS2015 (msvc 190) 在 Conan 支持表里只接受 cppstd=14（MSVC 无 C++11 档位，/std:c++14 覆盖 11+14）；
+# flight_dynamic 模块默认 OFF 且 Windows 不拉 JSBSim，14 不触发其 C++17 第三方依赖。
 CPPSTD=17
 
 # --- preset → 参数映射 -------------------------------------------------------
@@ -76,15 +83,34 @@ case "${PRESET}" in
         ENABLE_TESTING="True"
         GENERATOR=""
         ;;
+    VisualStudio.14.0-amd64)
+        # VS2015 多配置：binaryDir 与 CMakePresets.json 的 windows-base 一致
+        # （${sourceDir}/build/${presetName}），conan 在其下生成 build/generators/。
+        BINARY_DIR="${SOURCE_DIR}/build/VisualStudio.14.0-amd64"
+        BUILD_TYPE=""            # 多配置生成器，不固定 build_type
+        ENABLE_TESTING="False"   # 与 preset ENABLE_TESTING 缺省(OFF)一致
+        GENERATOR="Visual Studio 14 2015"
+        CPPSTD=14                # msvc 190 在 Conan 仅支持 14（覆盖 11/14）
+        ;;
     *)
         echo "错误: 不支持的 preset '${PRESET}'" >&2
-        echo "支持: llvm-ninja-debug | llvm-ninja-coverage | llvm-ninja-release" >&2
+        echo "支持: llvm-ninja-debug | llvm-ninja-coverage | llvm-ninja-release | VisualStudio.14.0-amd64" >&2
         exit 2
         ;;
 esac
 
-# --- 组装 conan install 命令 -------------------------------------------------
-CONAN_ARGS=(
+# --- 组装 conan install 公共参数 ---------------------------------------------
+# 单配置 preset（BUILD_TYPE 非空）只装该配置；多配置 preset（BUILD_TYPE 为空，
+# 如 VS 多配置生成器）需对 Debug + Release 各装一次，CMakeDeps 才会为两套配置
+# 都生成 *-Target-debug.cmake / *-Target-release.cmake，否则缺配置的 build 找不到 include。
+if [[ -n "${BUILD_TYPE}" ]]; then
+    CONAN_BUILD_TYPES=("${BUILD_TYPE}")
+else
+    CONAN_BUILD_TYPES=("Debug" "Release")
+fi
+
+# 公共参数：输出目录、构建策略、cppstd、testing 开关。
+CONAN_COMMON_ARGS=(
     install "${SOURCE_DIR}"
     --output-folder "${BINARY_DIR}"
     --build=missing
@@ -92,14 +118,9 @@ CONAN_ARGS=(
     -o "&:enable_testing=${ENABLE_TESTING}"
 )
 
-# 单配置 preset：显式指定 build_type（Conan 按此分包缓存）。
-if [[ -n "${BUILD_TYPE}" ]]; then
-    CONAN_ARGS+=(-s "build_type=${BUILD_TYPE}")
-fi
-
-# 当前正式 profile 均为单配置 Ninja；Windows provider 重新闭合后再单独恢复。
+# Windows (VS2015) preset 设置 GENERATOR 后走多配置 MSVC 分支。
 if [[ -n "${GENERATOR}" ]]; then
-    CONAN_ARGS+=(
+    CONAN_COMMON_ARGS+=(
         -c "tools.cmake.cmaketoolchain:generator=${GENERATOR}"
         -c "tools.microsoft.msbuild:vs_version=14"
         -s "os=Windows"
@@ -110,15 +131,19 @@ if [[ -n "${GENERATOR}" ]]; then
     )
 fi
 
-# --- 执行 -------------------------------------------------------------------
+# --- 执行（按配置列表循环）---------------------------------------------------
 echo "[bootstrap_conan] preset=${PRESET}"
 echo "[bootstrap_conan] output-folder=${BINARY_DIR}"
-echo "[bootstrap_conan] build_type=${BUILD_TYPE:-<multi-config>}"
+echo "[bootstrap_conan] build_type=${BUILD_TYPE:-multi-config(Debug+Release)}"
 echo "[bootstrap_conan] enable_testing=${ENABLE_TESTING}"
-echo "[bootstrap_conan] 运行: conan ${CONAN_ARGS[*]}"
 echo
 
-conan "${CONAN_ARGS[@]}"
+for _build_type in "${CONAN_BUILD_TYPES[@]}"; do
+    echo "[bootstrap_conan] --- build_type=${_build_type} ---"
+    echo "[bootstrap_conan] 运行: conan ${CONAN_COMMON_ARGS[*]} -s build_type=${_build_type}"
+    echo
+    conan "${CONAN_COMMON_ARGS[@]}" -s "build_type=${_build_type}"
+done
 
 # --- 报告生成的 toolchain 路径 ----------------------------------------------
 if [[ -n "${GENERATOR}" ]]; then

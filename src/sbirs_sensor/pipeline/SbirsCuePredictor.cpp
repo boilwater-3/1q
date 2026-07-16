@@ -46,8 +46,10 @@ SbirsCuePrediction SbirsCuePredictor::Update(std::uint64_t target_id, float meas
   }
 
   if (valid_measurement) {
-    targets_[target_id] = {NormalizeAzimuth(measured_azimuth_deg),
-                           ClampElevation(measured_elevation_deg)};
+    SbirsCuePredictorTargetState state;
+    state.measured_azimuth_deg = NormalizeAzimuth(measured_azimuth_deg);
+    state.measured_elevation_deg = ClampElevation(measured_elevation_deg);
+    targets_[target_id] = state;
   }
   return result;
 }

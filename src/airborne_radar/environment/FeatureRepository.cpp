@@ -36,8 +36,8 @@ constexpr const char kJammingFeature[] = "jamming";
  * @note 代码行为依据：`IsKnownFeature()` 依赖该集合把内建维度与扩展维度区分开，
  *       避免速度、RCS 与干扰键在附加距离循环中被重复累计。
  */
-constexpr std::array<const char*, 3> kKnownFeatureKeys = {kSpeedFeature, kRcsFeature,
-                                                          kJammingFeature};
+const std::array<const char*, 3> kKnownFeatureKeys = {kSpeedFeature, kRcsFeature,
+                                                       kJammingFeature};
 /**
  * @brief 判断给定特征名是否属于仓储内建标准维度。
  * @param feature_name 待判定的特征名。

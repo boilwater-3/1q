@@ -8,6 +8,8 @@
 
 #include "common/estimation/GaussianState.h"
 
+#include <type_traits>
+
 namespace oneq {
 namespace common {
 namespace estimation {
@@ -84,11 +86,15 @@ class IKalmanUpdater {
    */
   static MeasurementMatrix BuildPositionMeasurementMatrix() {
     MeasurementMatrix H = MeasurementMatrix::Zero();
+#if __cplusplus >= 201703L
     if constexpr (kStateDim == 6 && kMeasurementDim == 3) {
       H(0, 0) = 1.0f;  // x
       H(1, 2) = 1.0f;  // y
       H(2, 4) = 1.0f;  // z
     }
+#else
+    ApplyPositionEntries6x3(H, std::integral_constant<bool, kStateDim == 6 && kMeasurementDim == 3>{});
+#endif
     return H;
   }
   /**
@@ -100,6 +106,15 @@ class IKalmanUpdater {
     const float variance = std_dev * std_dev;
     return MeasurementCovariance::Identity() * variance;
   }
+
+ private:
+  // C++17 以下兼容：tag dispatch 消除维度不匹配时越界的矩阵访问分支。
+  static void ApplyPositionEntries6x3(MeasurementMatrix& H, std::true_type) {
+    H(0, 0) = 1.0f;  // x
+    H(1, 2) = 1.0f;  // y
+    H(2, 4) = 1.0f;  // z
+  }
+  static void ApplyPositionEntries6x3(MeasurementMatrix&, std::false_type) {}
 };
 
 }  // namespace estimation

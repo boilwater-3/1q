@@ -180,7 +180,6 @@ set(ENVIRONMENT_HEADERS
     "environment/AtmosphericState.h"
     "environment/AtmosphericTypes.h"
     "environment/IAtmosphereProvider.h"
-    "environment/JsbsimAtmosphereAdapter.h"
     "environment/PropagationPhysics.h"
 )
 

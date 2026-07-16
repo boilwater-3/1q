@@ -20,8 +20,11 @@ double Dot(const session::SbirsVector3M& left, const session::SbirsVector3M& rig
 
 session::SbirsVector3M Cross(const session::SbirsVector3M& left,
                              const session::SbirsVector3M& right) {
-  return {left.y * right.z - left.z * right.y, left.z * right.x - left.x * right.z,
-          left.x * right.y - left.y * right.x};
+  session::SbirsVector3M result;
+  result.x = left.y * right.z - left.z * right.y;
+  result.y = left.z * right.x - left.x * right.z;
+  result.z = left.x * right.y - left.y * right.x;
+  return result;
 }
 
 double Norm(const session::SbirsVector3M& value) { return std::sqrt(Dot(value, value)); }
@@ -34,7 +37,9 @@ bool Normalize(const session::SbirsVector3M& value, session::SbirsVector3M* norm
   if (!std::isfinite(norm) || norm <= kVectorEpsilon) {
     return false;
   }
-  *normalized = {value.x / norm, value.y / norm, value.z / norm};
+  normalized->x = value.x / norm;
+  normalized->y = value.y / norm;
+  normalized->z = value.z / norm;
   return true;
 }
 
@@ -65,9 +70,11 @@ session::SbirsVector3M RotateAroundAxis(const session::SbirsVector3M& value,
   const double sine = std::sin(angle_rad);
   const session::SbirsVector3M cross = Cross(axis, value);
   const double projection = Dot(axis, value) * (1.0 - cosine);
-  return {value.x * cosine + cross.x * sine + axis.x * projection,
-          value.y * cosine + cross.y * sine + axis.y * projection,
-          value.z * cosine + cross.z * sine + axis.z * projection};
+  session::SbirsVector3M result;
+  result.x = value.x * cosine + cross.x * sine + axis.x * projection;
+  result.y = value.y * cosine + cross.y * sine + axis.y * projection;
+  result.z = value.z * cosine + cross.z * sine + axis.z * projection;
+  return result;
 }
 
 }  // namespace

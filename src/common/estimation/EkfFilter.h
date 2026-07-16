@@ -111,16 +111,29 @@ class LinearPositionMeasurementModel final : public IMeasurementModel<kStateDim,
 
   MeasurementVector Function(const StateVector& state) const override {
     MeasurementVector z = MeasurementVector::Zero();
+#if __cplusplus >= 201703L
     if constexpr (kStateDim == 6 && kMeasurementDim == 3) {
       z(0) = state(0);
       z(1) = state(2);
       z(2) = state(4);
     }
+#else
+    ApplyPositionEntries6x3(z, state, std::integral_constant<bool, kStateDim == 6 && kMeasurementDim == 3>{});
+#endif
     return z;
   }
   MeasurementMatrix Jacobian(const StateVector& /*state*/) const override {
     return IKalmanUpdater<kStateDim, kMeasurementDim>::BuildPositionMeasurementMatrix();
   }
+
+ private:
+  // C++17 以下兼容：tag dispatch 消除维度不匹配时越界的向量访问分支。
+  static void ApplyPositionEntries6x3(MeasurementVector& z, const StateVector& state, std::true_type) {
+    z(0) = state(0);
+    z(1) = state(2);
+    z(2) = state(4);
+  }
+  static void ApplyPositionEntries6x3(MeasurementVector&, const StateVector&, std::false_type) {}
 };
 
 /**
