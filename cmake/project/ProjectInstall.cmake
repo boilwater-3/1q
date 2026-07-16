@@ -4,20 +4,26 @@
 
 function(oneq_configure_package_dependencies out_var)
     # 组装下游包配置文件中的 find_dependency(...) 片段：每个第三方包对应一行。
+    # 依赖的 cmake config 文件会在安装时一并部署到 <prefix>/lib/cmake/1q/deps/，
+    # 下游无需单独安装第三方包。
     set(config_find_dependencies "")
     if(PACKAGE_MANAGER STREQUAL "conan")
         string(APPEND config_find_dependencies
             "find_dependency(Eigen3 REQUIRED CONFIG)\n"
             "find_dependency(Boost REQUIRED CONFIG)\n"
             "find_dependency(nanoflann REQUIRED CONFIG)\n"
-            "find_dependency(flatbuffers REQUIRED CONFIG)\n"
-            "find_dependency(jsbsim REQUIRED CONFIG)\n")
+            "find_dependency(flatbuffers REQUIRED CONFIG)\n")
         # spdlog 仅在启用时纳入，避免下游被迫安装未使用的依赖。
         if(PROJECT_ENABLE_SPDLOG)
             string(APPEND config_find_dependencies
                 "find_dependency(spdlog REQUIRED CONFIG)\n")
         endif()
-        string(APPEND config_find_dependencies "find_dependency(ZLIB REQUIRED)\n")
+        string(APPEND config_find_dependencies "find_dependency(ZLIB REQUIRED CONFIG)\n")
+        # jsbsim 仅在启用 flight_dynamic 时纳入，默认关闭时不依赖。
+        if(ONEQ_ENABLE_FLIGHT_DYNAMIC)
+            string(APPEND config_find_dependencies
+                "find_dependency(jsbsim REQUIRED CONFIG)\n")
+        endif()
         # HDF5 输出能力依赖 HighFive，仅在 C++17 且包存在时启用。
         if(ONEQ_ENABLE_HDF5_OUTPUT)
             string(APPEND config_find_dependencies
@@ -68,6 +74,9 @@ function(oneq_install_project)
 
 include(CMakeFindDependencyMacro)
 
+# 下游无需单独安装第三方依赖——cmake 配置文件已部署在 deps/ 子目录。
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_LIST_DIR}/deps")
+
 @ONEQ_CONFIG_FIND_DEPENDENCIES@
 
 include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
@@ -104,4 +113,17 @@ set(@PROJECT_NAME@_LIBRARIES @PROJECT_NAME@::@PROJECT_NAME_LOWER@)
         "${CMAKE_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
     )
+
+    # 部署第三方依赖的 cmake 配置（由 conan CMakeDeps 生成），
+    # 使下游 find_dependency(Eigen3) 等能在本地解析，无需额外安装。
+    install(DIRECTORY "${CMAKE_BINARY_DIR}/build/generators/"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}/deps/"
+        FILES_MATCHING
+            PATTERN "*.cmake"
+        PATTERN "conan_toolchain.cmake" EXCLUDE
+        PATTERN "conanbuild*" EXCLUDE
+        PATTERN "conanrun*" EXCLUDE
+        PATTERN "conanenv*" EXCLUDE
+        PATTERN "conanhost*" EXCLUDE
+        PATTERN "conandeps_legacy*" EXCLUDE)
 endfunction()
