@@ -117,6 +117,13 @@ bool FileExists(const std::string& path) {
   return f.good();
 }
 
+bool HasExistingReplayTraceArtifacts(const std::string& trace_dir) {
+  return FileExists(JoinPath(trace_dir, "manifest.json")) ||
+         FileExists(EventChunkPath(trace_dir, 0U)) ||
+         FileExists(EventChunkGzPath(trace_dir, 0U)) ||
+         FileExists(JoinPath(JoinPath(trace_dir, "indexes"), "cycles.idx"));
+}
+
 #if ONEQ_HAVE_ZLIB
 // 将 src_path 内容压缩写入 dst_gz_path，成功后删除 src_path。
 // 返回 false 表示压缩失败，error 写入原因。
@@ -722,6 +729,12 @@ std::string ExtractRawJsonValue(const std::string& json, const std::string& fiel
 struct ReplayTraceWriter::Impl {
   Impl(std::string path, ReplayTraceManifest manifest_value, bool overwrite)
       : trace_dir(std::move(path)), manifest(std::move(manifest_value)) {
+    if (!overwrite && HasExistingReplayTraceArtifacts(trace_dir)) {
+      first_error = "replay trace already exists and overwrite is disabled: " + trace_dir;
+      writable = false;
+      PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", first_error);
+      return;
+    }
     if (!CreateDirectoryRecursive(trace_dir, &first_error) ||
         !CreateDirectoryRecursive(JoinPath(trace_dir, "events"), &first_error) ||
         !CreateDirectoryRecursive(JoinPath(trace_dir, "checkpoints"), &first_error) ||

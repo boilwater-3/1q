@@ -215,6 +215,9 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
 3. `TraceSink` 是调试/观测记录格式，不能作为 `ReplayXxxTrace()` 输入。
    需要可回放目录时必须使用 `ReplayTraceWriter` 并经对应
    `*TraceSessionOptions::replay_writer` 传入；两者可同时配置，但不能相互替代。
+4. `ReplayTraceWriter(overwrite=false)` 必须对既有 replay 工件 fail closed：不得重写
+   manifest、追加事件或重置 sequence/hash chain。续写已有 trace 需要独立、显式且能恢复
+   sequence、hash、chunk 与 index 状态的 resume 契约，不能复用普通创建入口隐式实现。
 
 ## CMake 工程边界
 

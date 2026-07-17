@@ -266,7 +266,8 @@ class ONEQ_API ReplayTraceWriter final {
    * @brief 构造写入器并初始化 trace 目录。
    * @param[in] trace_dir trace 输出目录。
    * @param[in] manifest 清单元信息。
-   * @param[in] overwrite 目录已存在时是否覆盖（默认 false）。
+   * @param[in] overwrite 是否允许覆盖既有 replay trace 工件（默认 false）。为 false 时，
+   *            若目录内已有 manifest、事件 chunk 或周期索引，Writer 将禁用且不修改既有文件。
    */
   ReplayTraceWriter(std::string trace_dir, ReplayTraceManifest manifest, bool overwrite = false);
   ~ReplayTraceWriter();

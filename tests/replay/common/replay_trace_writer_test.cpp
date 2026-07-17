@@ -199,6 +199,53 @@ TEST(ReplayTraceWriterTest, WritesManifestAndReplayEventEnvelope) {
   EXPECT_NE(event_content.find("\"payload_hash\":\"fnv1a64:"), std::string::npos);
 }
 
+TEST(ReplayTraceWriterTest, DefaultWriterPreservesExistingTraceArtifacts) {
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceManifest original_manifest;
+  original_manifest.trace_id = "original-trace";
+  original_manifest.module = "airborne_radar";
+  {
+    ReplayTraceWriter writer(trace_dir, original_manifest, true);
+    ReplayTraceEvent event;
+    event.module = "airborne_radar";
+    event.event_type = "session_config";
+    event.payload_type = "ArSessionConfig";
+    event.payload_bytes = MakeFlatbuffersPayloadBytes("original-config");
+    writer.WriteEvent(event);
+    writer.Flush();
+  }
+
+  const std::string manifest_path = JoinPath(trace_dir, "manifest.json");
+  const std::string event_path = JoinPath(JoinPath(trace_dir, "events"),
+                                          "000000.events.jsonl");
+  const std::string index_path = JoinPath(JoinPath(trace_dir, "indexes"), "cycles.idx");
+  const std::string original_manifest_bytes = ReadFile(manifest_path);
+  const std::string original_event_bytes = ReadFile(event_path);
+  const std::string original_index_bytes = ReadFile(index_path);
+
+  ReplayTraceManifest replacement_manifest;
+  replacement_manifest.trace_id = "replacement-trace";
+  replacement_manifest.module = "sar";
+  {
+    ReplayTraceWriter writer(trace_dir, replacement_manifest);
+    ReplayTraceEvent event;
+    event.module = "sar";
+    event.event_type = "cycle_input";
+    event.payload_type = "SarCycleInput";
+    event.payload_bytes = MakeFlatbuffersPayloadBytes("replacement-input");
+    writer.WriteEvent(event);
+    writer.Flush();
+  }
+
+  EXPECT_EQ(ReadFile(manifest_path), original_manifest_bytes);
+  EXPECT_EQ(ReadFile(event_path), original_event_bytes);
+  EXPECT_EQ(ReadFile(index_path), original_index_bytes);
+  const ReplayTraceScanResult scan = ScanReplayTrace(trace_dir);
+  EXPECT_TRUE(scan.ok) << scan.first_error;
+  EXPECT_EQ(scan.event_count, 1U);
+}
+
 TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
   const std::string trace_dir = MakeTempTraceDir();
 
