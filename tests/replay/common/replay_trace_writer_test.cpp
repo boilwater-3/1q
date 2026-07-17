@@ -189,7 +189,8 @@ TEST(ReplayTraceWriterTest, WritesManifestAndReplayEventEnvelope) {
             std::string::npos);
   EXPECT_NE(manifest_content.find("\"failure_window_event_count\":64"), std::string::npos);
 
-  const std::string event_path = JoinPath(JoinPath(trace_dir, "events"), "000000.events.jsonl");
+  const std::string event_path = JoinPath(JoinPath(trace_dir, "events"),
+                                          "000000.events.jsonl");
   const std::string event_content = ReadFile(event_path);
   EXPECT_NE(event_content.find("\"event_type\":\"cycle_input\""), std::string::npos);
   EXPECT_NE(event_content.find("\"cycle_index\":7"), std::string::npos);
@@ -217,8 +218,7 @@ TEST(ReplayTraceWriterTest, DefaultWriterPreservesExistingTraceArtifacts) {
   }
 
   const std::string manifest_path = JoinPath(trace_dir, "manifest.json");
-  const std::string event_path = JoinPath(JoinPath(trace_dir, "events"),
-                                          "000000.events.jsonl");
+  const std::string event_path = JoinPath(JoinPath(trace_dir, "events"), "000000.events.jsonl");
   const std::string index_path = JoinPath(JoinPath(trace_dir, "indexes"), "cycles.idx");
   const std::string original_manifest_bytes = ReadFile(manifest_path);
   const std::string original_event_bytes = ReadFile(event_path);
@@ -229,13 +229,15 @@ TEST(ReplayTraceWriterTest, DefaultWriterPreservesExistingTraceArtifacts) {
   replacement_manifest.module = "sar";
   {
     ReplayTraceWriter writer(trace_dir, replacement_manifest);
+    EXPECT_FALSE(writer.ok());
+    EXPECT_FALSE(writer.first_error().empty());
     ReplayTraceEvent event;
     event.module = "sar";
     event.event_type = "cycle_input";
     event.payload_type = "SarCycleInput";
     event.payload_bytes = MakeFlatbuffersPayloadBytes("replacement-input");
-    writer.WriteEvent(event);
-    writer.Flush();
+    EXPECT_EQ(writer.WriteEventWithStatus(event), ReplayTraceWriteStatus::kError);
+    EXPECT_EQ(writer.FlushWithStatus(), ReplayTraceWriteStatus::kError);
   }
 
   EXPECT_EQ(ReadFile(manifest_path), original_manifest_bytes);
@@ -310,7 +312,9 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
   EXPECT_TRUE(event.previous_event_hash_matches);
   EXPECT_FALSE(event.event_hash.empty());
 
-  EXPECT_FALSE(reader.ReadNextEvent(&event));
+  EXPECT_EQ(reader.ReadNextEventWithStatus(&event), ReplayTraceReadStatus::kEndOfTrace);
+  EXPECT_TRUE(reader.ok());
+  EXPECT_TRUE(reader.first_error().empty());
 }
 
 TEST(ReplayTraceWriterTest, ReaderMissingTraceDirectoryDoesNotThrow) {
@@ -318,9 +322,11 @@ TEST(ReplayTraceWriterTest, ReaderMissingTraceDirectoryDoesNotThrow) {
 
   ReplayTraceReader reader(trace_dir);
   EXPECT_TRUE(reader.manifest_json().empty());
+  EXPECT_FALSE(reader.ok());
+  EXPECT_FALSE(reader.first_error().empty());
 
   ReplayTraceReadEvent event;
-  EXPECT_FALSE(reader.ReadNextEvent(&event));
+  EXPECT_EQ(reader.ReadNextEventWithStatus(&event), ReplayTraceReadStatus::kError);
 }
 
 TEST(ReplayTraceWriterTest, ReaderRestoresBinaryPayloadBytes) {
@@ -1230,11 +1236,22 @@ TEST(ReplayTraceWriterTest, CompatibilityCheckRejectsMissingTraceDir) {
   EXPECT_FALSE(result.compatible);
 }
 
-TEST(ReplayTraceWriterTest, ScanHandlesMissingTraceDirAsEmpty) {
-  // ScanReplayTrace 对缺失目录返回 ok=true（空 trace）而非错误
+TEST(ReplayTraceWriterTest, ScanRejectsMissingTraceDirectory) {
   ReplayTraceScanResult result = ScanReplayTrace("/nonexistent/path/oneq-scan-99999");
-  EXPECT_TRUE(result.ok);
+  EXPECT_FALSE(result.ok);
   EXPECT_EQ(result.event_count, 0U);
+  EXPECT_FALSE(result.first_error.empty());
+}
+
+TEST(ReplayTraceWriterTest, PlaybackRejectsMissingTraceDirectory) {
+  ReplayTracePlaybackCallbacks callbacks;
+  ReplayTracePlaybackOptions options;
+  const ReplayTracePlaybackResult result =
+      PlaybackReplayTrace("/nonexistent/path/oneq-playback-99999", callbacks, options);
+
+  EXPECT_FALSE(result.ok);
+  EXPECT_EQ(result.processed_event_count, 0U);
+  EXPECT_FALSE(result.first_error.empty());
 }
 
 }  // namespace tests

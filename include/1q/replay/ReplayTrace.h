@@ -199,6 +199,19 @@ enum class ReplayTraceOutputStatus {
   kOtherFailure = 2     /**< 解码/执行/类型不匹配等失败，非分叉 */
 };
 
+/** @brief Replay trace 写入/刷新操作的结构化结果。 */
+enum class ONEQ_API ReplayTraceWriteStatus {
+  kSuccess = 0, /**< 操作成功 */
+  kError = 1    /**< 操作失败；通过 Writer::first_error() 获取首错 */
+};
+
+/** @brief Replay trace 单步读取的结构化结果。 */
+enum class ONEQ_API ReplayTraceReadStatus {
+  kEvent = 0,      /**< 成功读取一条事件 */
+  kEndOfTrace = 1, /**< 正常到达 trace 末尾 */
+  kError = 2       /**< 读取失败；通过 Reader::first_error() 获取首错 */
+};
+
 /**
  * @brief cycle_output 的结构化比较回调签名。
  * @param[in] event 当前读取到的 cycle_output 事件。
@@ -294,6 +307,20 @@ class ONEQ_API ReplayTraceWriter final {
   /** @brief 强制刷新所有缓冲到磁盘。 */
   void Flush();
 
+  /** @brief 追加一条事件并返回结构化写入状态。 */
+  ReplayTraceWriteStatus WriteEventWithStatus(const ReplayTraceEvent& event);
+  /** @brief 写入失败标记并返回结构化写入状态。 */
+  ReplayTraceWriteStatus WriteFailureMarkerWithStatus(const ReplayTraceFailure& failure);
+  /** @brief 写入带 payload 的失败标记并返回结构化写入状态。 */
+  ReplayTraceWriteStatus WriteFailureMarkerWithStatus(const ReplayTraceFailure& failure,
+                                                      const std::string& payload_bytes);
+  /** @brief 刷新所有缓冲并返回结构化写入状态。 */
+  ReplayTraceWriteStatus FlushWithStatus();
+  /** @return Writer 是否仍可写。 */
+  bool ok() const;
+  /** @return 首个写入错误；无错误时为空。 */
+  const std::string& first_error() const;
+
   /** @return trace 输出目录。 */
   const std::string& trace_dir() const;
   /** @return 构造时传入的 manifest。 */
@@ -331,6 +358,16 @@ class ONEQ_API ReplayTraceReader final {
    * @return 成功读取返回 true；已到末尾或失败返回 false。
    */
   bool ReadNextEvent(ReplayTraceReadEvent* event);
+  /**
+   * @brief 读取下一条事件并区分事件、正常末尾与读取错误。
+   * @param[out] event 输出解析得到的事件。
+   * @return 结构化读取状态。
+   */
+  ReplayTraceReadStatus ReadNextEventWithStatus(ReplayTraceReadEvent* event);
+  /** @return Reader 初始化及最近一次读取是否未失败。 */
+  bool ok() const;
+  /** @return 首个读取错误；无错误时为空。 */
+  const std::string& first_error() const;
 
  private:
   struct Impl;

@@ -898,12 +898,12 @@ ReplayTraceWriter::ReplayTraceWriter(std::string trace_dir, ReplayTraceManifest 
 
 ReplayTraceWriter::~ReplayTraceWriter() = default;
 
-void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
+ReplayTraceWriteStatus ReplayTraceWriter::WriteEventWithStatus(const ReplayTraceEvent& event) {
   if (!impl_->RotateEventChunkIfNeeded()) {
-    return;
+    return ReplayTraceWriteStatus::kError;
   }
   if (!impl_->CheckWritable()) {
-    return;
+    return ReplayTraceWriteStatus::kError;
   }
 
   const std::string payload_hash = HashString(PayloadBytesForHash(event));
@@ -937,19 +937,34 @@ void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
 
   const std::string serialized = line.str();
   if (!impl_->WriteLine(serialized, event)) {
-    return;
+    return ReplayTraceWriteStatus::kError;
   }
   impl_->previous_event_hash = HashString(serialized);
   ++impl_->next_sequence;
   impl_->RememberWindow(serialized);
+  return ReplayTraceWriteStatus::kSuccess;
+}
+
+void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
+  (void)WriteEventWithStatus(event);
 }
 
 void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure) {
-  WriteFailureMarker(failure, "");
+  (void)WriteFailureMarkerWithStatus(failure);
 }
 
 void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure,
                                            const std::string& payload_bytes) {
+  (void)WriteFailureMarkerWithStatus(failure, payload_bytes);
+}
+
+ReplayTraceWriteStatus ReplayTraceWriter::WriteFailureMarkerWithStatus(
+    const ReplayTraceFailure& failure) {
+  return WriteFailureMarkerWithStatus(failure, "");
+}
+
+ReplayTraceWriteStatus ReplayTraceWriter::WriteFailureMarkerWithStatus(
+    const ReplayTraceFailure& failure, const std::string& payload_bytes) {
   const std::uint64_t failure_marker_sequence = impl_->next_sequence;
   const bool has_last_event_sequence = impl_->next_sequence > 0U;
   const std::uint64_t last_event_sequence =
@@ -965,27 +980,39 @@ void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure,
   event.cycle_index = failure.cycle_index;
   event.has_sim_time_sec = failure.has_sim_time_sec;
   event.sim_time_sec = failure.sim_time_sec;
-  WriteEvent(event);
+  if (WriteEventWithStatus(event) == ReplayTraceWriteStatus::kError) {
+    return ReplayTraceWriteStatus::kError;
+  }
 
   const std::string crash_dir = JoinPath(impl_->trace_dir, "crash");
   if (!impl_->writable) {
-    return;
+    return ReplayTraceWriteStatus::kError;
   }
   if (!WriteFailureFile(JoinPath(crash_dir, "failure.json"), impl_->manifest, failure,
                         failure_marker_sequence, has_last_event_sequence, last_event_sequence,
                         &impl_->first_error)) {
     impl_->writable = false;
     PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", impl_->first_error);
-    return;
+    return ReplayTraceWriteStatus::kError;
   }
   if (!WriteLastWindowFile(JoinPath(crash_dir, "last-window.events.jsonl"), impl_->last_window,
                            &impl_->first_error)) {
     impl_->writable = false;
     PROJECT_LOG_ERROR("ReplayTraceWriter disabled: {}", impl_->first_error);
+    return ReplayTraceWriteStatus::kError;
   }
+  return ReplayTraceWriteStatus::kSuccess;
 }
 
-void ReplayTraceWriter::Flush() { (void)impl_->Flush(); }
+ReplayTraceWriteStatus ReplayTraceWriter::FlushWithStatus() {
+  return impl_->Flush() ? ReplayTraceWriteStatus::kSuccess : ReplayTraceWriteStatus::kError;
+}
+
+void ReplayTraceWriter::Flush() { (void)FlushWithStatus(); }
+
+bool ReplayTraceWriter::ok() const { return impl_->writable; }
+
+const std::string& ReplayTraceWriter::first_error() const { return impl_->first_error; }
 
 const std::string& ReplayTraceWriter::trace_dir() const { return impl_->trace_dir; }
 
@@ -1042,27 +1069,46 @@ struct ReplayTraceReader::Impl {
     return true;
   }
 
-  bool ReadNextLine(std::string* line) {
+  ReplayTraceReadStatus MarkReadFailure(const std::string& message) {
+    if (first_error.empty()) {
+      first_error = message;
+    }
+    readable = false;
+    PROJECT_LOG_ERROR("ReplayTraceReader disabled: {}", first_error);
+    return ReplayTraceReadStatus::kError;
+  }
+
+  ReplayTraceReadStatus ReadNextLine(std::string* line) {
     if (!readable) {
-      return false;
+      return ReplayTraceReadStatus::kError;
     }
     while (true) {
 #if ONEQ_HAVE_ZLIB
       if (gz_events != Z_NULL) {
         if (GzipReadLine(gz_events, line)) {
-          return true;
+          return ReplayTraceReadStatus::kEvent;
+        }
+        int gzip_error = Z_OK;
+        const char* gzip_message = gzerror(gz_events, &gzip_error);
+        if (gzip_error != Z_OK && gzip_error != Z_STREAM_END) {
+          return MarkReadFailure(std::string("failed to read replay gzip event file: ") +
+                                 (gzip_message == nullptr ? "unknown gzip error" : gzip_message));
         }
         if (!OpenEventChunk(current_chunk_index + 1U)) {
-          return false;
+          return ReplayTraceReadStatus::kEndOfTrace;
         }
         continue;
       }
 #endif
       if (std::getline(events, *line)) {
-        return true;
+        return ReplayTraceReadStatus::kEvent;
+      }
+      if (events.bad() || (events.fail() && !events.eof())) {
+        return MarkReadFailure("failed to read replay event file: " +
+                               EventChunkPath(trace_dir, current_chunk_index));
       }
       if (!OpenEventChunk(current_chunk_index + 1U)) {
-        return false;
+        return ReplayTraceReadStatus::kEndOfTrace;
       }
     }
   }
@@ -1089,13 +1135,18 @@ const std::string& ReplayTraceReader::trace_dir() const { return impl_->trace_di
 const std::string& ReplayTraceReader::manifest_json() const { return impl_->manifest_json; }
 
 bool ReplayTraceReader::ReadNextEvent(ReplayTraceReadEvent* event) {
+  return ReadNextEventWithStatus(event) == ReplayTraceReadStatus::kEvent;
+}
+
+ReplayTraceReadStatus ReplayTraceReader::ReadNextEventWithStatus(ReplayTraceReadEvent* event) {
   if (event == nullptr) {
-    return false;
+    return impl_->MarkReadFailure("replay trace event output is null");
   }
 
   std::string line;
-  if (!impl_->ReadNextLine(&line)) {
-    return false;
+  const ReplayTraceReadStatus status = impl_->ReadNextLine(&line);
+  if (status != ReplayTraceReadStatus::kEvent) {
+    return status;
   }
 
   ReplayTraceReadEvent parsed;
@@ -1122,8 +1173,12 @@ bool ReplayTraceReader::ReadNextEvent(ReplayTraceReadEvent* event) {
   impl_->previous_event_hash = parsed.event_hash;
 
   *event = parsed;
-  return true;
+  return ReplayTraceReadStatus::kEvent;
 }
+
+bool ReplayTraceReader::ok() const { return impl_->readable; }
+
+const std::string& ReplayTraceReader::first_error() const { return impl_->first_error; }
 
 ReplayTraceScanResult ScanReplayTrace(const std::string& trace_dir) {
   ReplayTraceReader reader(trace_dir);
@@ -1131,7 +1186,8 @@ ReplayTraceScanResult ScanReplayTrace(const std::string& trace_dir) {
 
   std::uint64_t expected_sequence = 0U;
   ReplayTraceReadEvent event;
-  while (reader.ReadNextEvent(&event)) {
+  ReplayTraceReadStatus read_status = ReplayTraceReadStatus::kEndOfTrace;
+  while ((read_status = reader.ReadNextEventWithStatus(&event)) == ReplayTraceReadStatus::kEvent) {
     ++result.event_count;
 
     if (event.sequence != expected_sequence) {
@@ -1165,7 +1221,12 @@ ReplayTraceScanResult ScanReplayTrace(const std::string& trace_dir) {
     expected_sequence = event.sequence + 1U;
   }
 
-  result.ok = result.payload_hashes_ok && result.event_chain_ok && result.sequences_contiguous;
+  if (read_status == ReplayTraceReadStatus::kError) {
+    result.first_error = reader.first_error();
+  }
+
+  result.ok = read_status != ReplayTraceReadStatus::kError && result.payload_hashes_ok &&
+              result.event_chain_ok && result.sequences_contiguous;
   return result;
 }
 
@@ -1224,7 +1285,8 @@ ReplayTraceReplayReport BuildReplayTraceReport(
 
   ReplayTraceReader reader(trace_dir);
   ReplayTraceReadEvent event;
-  while (reader.ReadNextEvent(&event)) {
+  ReplayTraceReadStatus read_status = ReplayTraceReadStatus::kEndOfTrace;
+  while ((read_status = reader.ReadNextEventWithStatus(&event)) == ReplayTraceReadStatus::kEvent) {
     if (event.event_type == "session_config") {
       ++report.session_config_count;
       report.has_session_config = true;
@@ -1291,7 +1353,8 @@ ReplayTracePlaybackResult PlaybackReplayTrace(const std::string& trace_dir,
   ReplayTraceReader reader(trace_dir);
 
   ReplayTraceReadEvent event;
-  while (reader.ReadNextEvent(&event)) {
+  ReplayTraceReadStatus read_status = ReplayTraceReadStatus::kEndOfTrace;
+  while ((read_status = reader.ReadNextEventWithStatus(&event)) == ReplayTraceReadStatus::kEvent) {
     ++result.processed_event_count;
 
     std::string callback_error;
@@ -1382,6 +1445,13 @@ ReplayTracePlaybackResult PlaybackReplayTrace(const std::string& trace_dir,
         result.first_error = callback_error.empty() ? "replay callback failed" : callback_error;
       }
       return result;
+    }
+  }
+
+  if (read_status == ReplayTraceReadStatus::kError) {
+    result.ok = false;
+    if (result.first_error.empty()) {
+      result.first_error = reader.first_error();
     }
   }
 
