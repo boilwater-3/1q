@@ -54,12 +54,16 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
 
   if (patch.has_mission) {
     has_requested_update = true;
-    resolved.next_config.mission = patch.mission;
-    if (!oneq::common::validation::IsFinite(
-            resolved.next_config.mission.scan.scan_rate_hz) ||
-        resolved.next_config.mission.scan.scan_rate_hz <= 0.0f) {
-      resolved.next_config.mission.scan.scan_rate_hz = 1.0f;
+    if (!oneq::common::validation::IsFinite(patch.mission.scan.scan_rate_hz) ||
+        patch.mission.scan.scan_rate_hz <= 0.0f) {
+      PROJECT_LOG_ERROR(
+          "[EsrSession] Rejecting mission runtime patch due to invalid scan_rate_hz={}; "
+          "must be finite and positive.",
+          patch.mission.scan.scan_rate_hz);
+      return RejectPatch(current_config, true,
+                         EsrRuntimeConfigApplyStatus::kRejectedInvalidScanRate);
     }
+    resolved.next_config.mission = patch.mission;
     ApplyScanPolicy(resolved.next_config.hardware, resolved.next_config.mission.scan,
                     &resolved.next_config.resolved_scan);
     resolved.runtime_config_changed = true;

@@ -13,6 +13,7 @@
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 #include "airborne_radar/config/InternalExecutionConfig.h"
+#include "airborne_radar/config/mapping/RuntimePatchMapper.h"
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
@@ -611,10 +612,10 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
 TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutcome) {
   config::ArSessionConfig session_config;
   session_config.hardware.enable_physics_detection = true;
-  session_config.hardware.pulse_count = 16;
-  session_config.hardware.detection_policy.cfar_pfa = 2.0e-6f;
-  session_config.hardware.detection_policy.min_snr_db = -12.0f;
-  session_config.hardware.min_detection_margin_db = -100.0f;
+  session_config.policy.detection.pulse_count = 16;
+  session_config.policy.detection.pfa = 2.0e-6f;
+  session_config.policy.detection.minimum_snr_db = -12.0f;
+  session_config.policy.detection.minimum_detection_margin_db = -100.0f;
   session_config.hardware.antenna.pattern.model_type =
       config::AntennaPatternModelType::kParabolicMainLobe;
   session_config.hardware.antenna.pattern.max_sidelobe_level_db = -18.0f;
@@ -641,12 +642,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
   orientation.scan_start_position = oneq::foundation::ScanStartPosition::kLeftTop;
   orientation.scan_sequence = oneq::foundation::ScanSequence::kAzimuthFirst;
 
-  session_config.mission.orientation = exec_config.detection.orientation;
-  session_config.hardware = exec_config.detection.engineering;
-  session_config.policy.beam_control = exec_config.detection.beam_control;
-  session_config.policy.association = exec_config.association.policy;
-  session_config.policy.tracking = exec_config.tracking.policy;
-  session_config.policy.lifecycle = exec_config.lifecycle.policy;
+  session_config = config::mapping::MapExecutionToSession(exec_config);
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
   config::EnvironmentModelConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
@@ -714,10 +710,10 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
 TEST(SignalPipelineScanScheduleTest, WorkModeSttReducesSweepCoverageComparedToTws) {
   config::ArSessionConfig tws_session;
   tws_session.hardware.enable_physics_detection = true;
-  tws_session.hardware.pulse_count = 16;
-  tws_session.hardware.detection_policy.cfar_pfa = 2.0e-6f;
-  tws_session.hardware.detection_policy.min_snr_db = -12.0f;
-  tws_session.hardware.min_detection_margin_db = -100.0f;
+  tws_session.policy.detection.pulse_count = 16;
+  tws_session.policy.detection.pfa = 2.0e-6f;
+  tws_session.policy.detection.minimum_snr_db = -12.0f;
+  tws_session.policy.detection.minimum_detection_margin_db = -100.0f;
   tws_session.hardware.antenna.pattern.model_type =
       config::AntennaPatternModelType::kParabolicMainLobe;
   tws_session.hardware.antenna.pattern.max_sidelobe_level_db = -18.0f;

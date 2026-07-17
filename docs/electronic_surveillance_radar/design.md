@@ -290,6 +290,14 @@ flowchart TB
 
 ### 2.6 运行期配置与状态边界
 
+`scan_rate_hz` 的单位不是波束更新率或角速度，而是**每秒完成的完整二维 scan pattern 循环数**。
+pipeline 持有归一化扫描相位 `[0, 1)`：本周期先用 `floor(phase × pattern_size)` 选择波束，再累加
+`scan_rate_hz × dt` 并回绕。因此变步长不会改变物理扫描速度；运行期只改速率会保留当前相位，改变
+窗口边界、顺序或起始位置则重置到起始波束。设备关闭时扫描相位冻结。静态配置和 runtime patch 均拒绝
+非有限或非正速率。
+[evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test.cpp]
+[evidence: tests/unit/electronic_surveillance_radar/esr_session_config_builder_test.cpp]
+
 扫描窗口有两种互斥解释方式：
 
 - `use_explicit_scan_bounds=true` 时，四个显式起止角必须全部有限，并分别满足
@@ -307,7 +315,7 @@ flowchart TB
 
 pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描述累积运行态能力：
 
-- pipeline 快照含 RNG、observation/hypothesis id、hypothesis associator tracks。
+- pipeline 快照含 RNG、observation/hypothesis id、hypothesis associator tracks 和归一化扫描相位。
 - pipeline 快照不含 config、feature scales 或环境配置。
 - controller 快照含 latest output、validation issues、batch id 和最近一次执行状态。
 

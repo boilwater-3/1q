@@ -262,6 +262,25 @@ SAR 遵守 `docs/common/contract.md`：
 - `SarController` 与 `SarProcessingPipeline` 各自持有 runtime state / raw pulse / trajectory 累积状态快照（capture/restore），与事务性提交语义对齐。
 - historical/raw evidence 不常驻 `docs/sar/`；当前事实只由五文件模型承载。
 
+### 1.8 Environment 配置的保留与后续接入边界
+
+`SarEnvironmentConfig` 是有意保留的 public 四域配置，不下沉、不删除，也不标记 deprecated。
+当前生产链尚未消费其中字段，因此本版本中它们只参与 config 透传和 replay roundtrip；调用方不得
+把字段变化解释为已改变 raw echo、聚焦图像或质量摘要。
+
+后续接入方向已经确定，但物理公式和分批顺序仍需在实施前单独完成 Stage A：
+
+- `terrain_reference_altitude_m` 应进入场景参考面、平台/目标相对高度和成像几何解析。
+- `atmospheric_loss_db_per_km` 与 `enable_atmospheric_attenuation` 应共同控制内部生成 raw echo 的
+  双程传播衰减；关闭开关时损耗参数不生效。
+- `surface_backscatter_sigma0_db` 应进入分布式地表背景/杂波回波建模，不得机械叠加到点目标 RCS。
+- `use_flat_earth_geometry` 应选择局部平面与曲面地球几何路径；两条路径必须共享明确的坐标、距离和
+  高程基准，不能只改变字段而继续执行同一计算。
+- 外部 raw IQ 已包含外部生成器的环境传播结果，session 不得再次施加上述衰减或背景模型。
+
+任何字段首次接入生产计算时，必须同时补充启用/关闭对照、输出影响、非法值校验、内部 raw echo 与
+外部 raw IQ 分流、replay 确定性和对应成像回归；在这些证据完成前保持当前 no-op 行为。
+
 ## 2. 本模块使用的算法
 
 ### 2.1 算法总览
@@ -310,6 +329,18 @@ SAR 支持两条 raw history 来源：
 1. 内部生成：由平台状态、点目标、L1/L2/L3 轨迹和 LFM 波形生成 raw echo，并通过 `PulseRingBuffer` 组成 aperture。
 2. 外部 raw IQ：调用方提供完整孔径 IQ 样本和 pulse state，session 只校验与转换轨迹，不重新生成 echo。
 
+`retain_raw_phase_history` 控制结构化 `SarCycleResult` 是否返回本次**实际用于成像**的完整孔径：
+
+- 关闭时不复制矩阵，`raw_phase_history` 为空且 source 为 `kNone`。
+- 开启时必须同时启用 raw echo generation，否则 session 初始化和 runtime patch 均拒绝。
+- 内部生成路径标记 `kInternallyGenerated`；external raw IQ 路径标记 `kExternalRawIq`，I/Q 顺序和值保持输入。
+- 产品携带 pulse count、samples per pulse 和行主序 I/Q vectors；cycle-result replay 完整记录该产品，
+  decode 校验尺寸乘法、精确长度和所有样本有限性。
+
+该产品属于结构化执行结果，不进入 `SarOutputFrame`；失败周期不发布未完成孔径。
+[evidence: tests/unit/sar/sar_session_pipeline_test.cpp]
+[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp]
+
 内部轨迹分层：
 
 - L1：匀速直线 stripmap 轨迹。
@@ -353,6 +384,11 @@ RDA 是当前 L1 broadside stripmap 的基础聚焦路径。session 中 `Execute
 
 - 当前 RDA 是 broadside 基础路径，不把所有 squint/spotlight/turning 场景都硬塞进 RDA。\
   [evidence: `sar_rda_test.cpp` — RDA zero-squint 实现，单脉冲 Fallback 等 11 个用例覆盖率定语义]
+- `max_allowed_squint_angle_deg` 是启用成像路径的执行门，必须有限且位于 `[0°, 90°)`。squint 由实际
+  速度方向与指向场景中心 LOS 相对零多普勒 broadside 的夹角计算；存在完整实际脉冲轨迹时取孔径内
+  最大绝对值，否则使用当前平台状态。超限以 `squint_angle_exceeds_limit` 中止，不自动切换到其它算法；
+  raw-echo-only 模式不执行该成像门。
+  [evidence: `sar_session_pipeline_test.cpp` — broadside、临界值、超限和 raw-only 对照]
 - RDA 误差用相位曲率、Doppler margin、3dB 宽度、entropy、contrast 等诊断解释，不通过放宽阈值掩盖。\
   [evidence: `sar_image_quality_test.cpp` — 9 个用例覆盖 entropy/contrast/PSLR/ISLR/3dB width;\
    `sar_rda_test.cpp:DiagnosticsPreserveEquivalentAzimuthSpacingAndPhaseCurvature` — 相位曲率与 Doppler Nyquist margin 诊断]

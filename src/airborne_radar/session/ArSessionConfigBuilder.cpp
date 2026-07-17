@@ -1,5 +1,7 @@
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 
+#include <cmath>
+
 #include "1q/airborne_radar/config/ArSessionConfigValidation.h"
 #include "common/validation/ValidationUtils.h"
 
@@ -14,11 +16,13 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
                                   profiles::AntennaPatternProfile antenna_profile,
                                   const config::AzimuthElevationDeg& antenna_boresight_offset_deg,
                                   profiles::RcsFusionProfile rcs_fusion_profile,
-                                  DetectionConfig* detection_config) {
-  if (detection_config == nullptr) {
+                                  DetectionConfig* detection_config,
+                                  ArDetectionPolicyConfig* detection_policy) {
+  if (detection_config == nullptr || detection_policy == nullptr) {
     return;
   }
   auto& d = *detection_config;
+  auto& policy = *detection_policy;
   d.enable_physics_detection = enable_physics_detection;
 
   switch (hardware_profile) {
@@ -49,20 +53,20 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
 
   switch (intent_profile) {
     case profiles::DetectionIntentProfile::kDetectionPriority:
-      d.pulse_count = 16;
-      d.detection_policy.cfar_pfa = 2e-6f;
-      d.detection_policy.min_snr_db = -12.0f;
-      d.min_detection_margin_db = -100.0f;
+      policy.pulse_count = 16;
+      policy.pfa = 2e-6f;
+      policy.minimum_snr_db = -12.0f;
+      policy.minimum_detection_margin_db = -100.0f;
       break;
     case profiles::DetectionIntentProfile::kTrackStabilityPriority:
-      d.pulse_count = 8;
-      d.detection_policy.cfar_pfa = 5e-7f;
-      d.detection_policy.min_snr_db = -8.0f;
-      d.min_detection_margin_db = -20.0f;
+      policy.pulse_count = 8;
+      policy.pfa = 5e-7f;
+      policy.minimum_snr_db = -8.0f;
+      policy.minimum_detection_margin_db = -20.0f;
       break;
     case profiles::DetectionIntentProfile::kBalanced:
     default:
-      d.min_detection_margin_db = -2.0f;
+      policy.minimum_detection_margin_db = -2.0f;
       break;
   }
 
@@ -118,7 +122,7 @@ void ApplyTrackingSemanticConfig(bool enable_tracking_filter,
       t.kalman_measurement_noise_std = 12.0f;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
-      association_config->unassigned_cost = 12.0f;
+      association_config->distance_gate_sigma = std::sqrt(12.0f);
       break;
     case profiles::TrackingPolicyProfile::kBalanced:
     default:
@@ -157,7 +161,8 @@ config::ArSessionConfig BuildDefaultSemanticSessionConfig() {
   ApplyDetectionSemanticConfig(
       false, profiles::ArHardwareProfile::kGenericAirborneXBand,
       profiles::DetectionIntentProfile::kBalanced, profiles::AntennaPatternProfile::kStandard,
-      config::AzimuthElevationDeg(), profiles::RcsFusionProfile::kDisabled, &config.hardware);
+      config::AzimuthElevationDeg(), profiles::RcsFusionProfile::kDisabled, &config.hardware,
+      &config.policy.detection);
   ApplyTrackingSemanticConfig(false, profiles::TrackingPolicyProfile::kBalanced,
                               &config.policy.tracking, &config.policy.association);
   ApplyLifecycleSemanticConfig(false, profiles::LifecyclePolicyProfile::kBalanced,
@@ -181,7 +186,8 @@ config::ArSessionConfig ArSessionConfigBuilder::Build() const {
     result.hardware = default_semantic.hardware;
     ApplyDetectionSemanticConfig(enable_physics_detection_, hardware_profile_, intent_profile_,
                                  antenna_profile_, antenna_boresight_offset_deg_,
-                                 rcs_fusion_profile_, &result.hardware);
+                                 rcs_fusion_profile_, &result.hardware,
+                                 &result.policy.detection);
   }
 
   if (tracking_dirty_) {

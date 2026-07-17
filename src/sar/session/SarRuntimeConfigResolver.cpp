@@ -71,6 +71,13 @@ SarRuntimeConfigResolveResult ResolveSarRuntimeConfigPatch(
         "[SarSession] Rejecting patch: enable_l1_rda_imaging requires enable_raw_echo_generation.");
     return RejectPatch(current_config, true);
   }
+  if (resolved.next_config.policy.retain_raw_phase_history &&
+      !resolved.next_config.policy.enable_raw_echo_generation) {
+    PROJECT_LOG_ERROR(
+        "[SarSession] Rejecting patch: retain_raw_phase_history requires "
+        "enable_raw_echo_generation.");
+    return RejectPatch(current_config, true);
+  }
 
   resolved.has_requested_update = has_requested_update;
   if (has_requested_update) {

@@ -43,18 +43,6 @@ enum class ONEQ_API ArHardwareProfile {
 };
 
 /**
- * @brief 探测意图档位。
- *
- * 控制脉冲积累数、虚警概率、最小信噪比和探测裕量，
- * 决定探测链路在"多发现"与"少误报"之间的平衡点。
- */
-enum class ONEQ_API DetectionIntentProfile {
-  kBalanced = 0,              /**< 均衡——默认探测裕量。 */
-  kDetectionPriority = 1,     /**< 探测优先——降低信噪比门限、增大积累数，追求更高的检测概率。 */
-  kTrackStabilityPriority = 2 /**< 航迹稳定优先——收紧门限、减少积累数，降低虚警以保持航迹连续。 */
-};
-
-/**
  * @brief 物理 RCS 估计与经验值的融合策略。
  *
  * 控制是否将基于目标几何的物理 RCS 估计值与经验值混合，
@@ -143,14 +131,6 @@ struct ONEQ_API AntennaConfig {
 };
 
 /**
- * @brief 探测门限与判决配置。
- */
-struct ONEQ_API DetectionPolicyConfig {
-  float cfar_pfa{1e-6f};    /**< CFAR 虚警概率目标值。 */
-  float min_snr_db{-10.0f}; /**< 最小信噪比门限。 */
-};
-
-/**
  * @brief 接收机工程参数。
  */
 struct ONEQ_API ReceiverConfig {
@@ -193,10 +173,7 @@ struct ONEQ_API DetectionConfig {
   TransmitterConfig transmitter{};          /**< 发射机参数。 */
   AntennaConfig antenna{};                  /**< 天线参数。 */
   ReceiverConfig receiver{};                /**< 接收机参数。 */
-  DetectionPolicyConfig detection_policy{}; /**< 探测判决参数。 */
   RcsPhysicsConfig rcs_physics{};           /**< RCS 物理建模参数。 */
-  float min_detection_margin_db{-2.0f};     /**< 最小探测裕量。 */
-  int pulse_count{10};                      /**< 脉冲积累数。 */
 };
 
 }  // namespace detection

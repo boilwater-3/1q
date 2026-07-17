@@ -26,6 +26,7 @@ namespace pipeline {
  */
 struct PipelineRuntimeSnapshot {
   std::mt19937 rng;                                 /**< 随机引擎状态 */
+  double scan_phase_cycles{0.0};                    /**< 归一化扫描循环相位 */
   std::uint64_t next_observation_id{1U};             /**< 观测 ID 分配器 */
   std::uint64_t next_hypothesis_id{1U};              /**< 假设 ID 分配器 */
   std::vector<HypothesisAssociator::TrackState> tracks; /**< 关联器轨迹状态 */

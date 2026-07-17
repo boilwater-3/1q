@@ -18,14 +18,28 @@ namespace engineering {
 
 using AntennaPatternModelType = detection::AntennaPatternModelType;
 
-// Detection domain types — 1:1 aliases to public detection:: types (extends P7 pattern).
+// Detection engineering types combine hardware capability and policy decisions.
 using TransmitterConfig = detection::TransmitterConfig;
 using AntennaPatternConfig = detection::AntennaPatternConfig;
 using AntennaConfig = detection::AntennaConfig;
 using ReceiverConfig = detection::ReceiverConfig;
-using DetectionPolicy = detection::DetectionPolicyConfig;
 using RcsPhysicsConfig = detection::RcsPhysicsConfig;
-using DetectionConfig = detection::DetectionConfig;
+
+struct DetectionPolicy {
+  float cfar_pfa{1e-6f};
+  float min_snr_db{-10.0f};
+};
+
+struct DetectionConfig {
+  bool enable_physics_detection{false};
+  TransmitterConfig transmitter{};
+  AntennaConfig antenna{};
+  ReceiverConfig receiver{};
+  DetectionPolicy detection_policy{};
+  RcsPhysicsConfig rcs_physics{};
+  float min_detection_margin_db{-2.0f};
+  int pulse_count{10};
+};
 
 // Tracking domain type — 1:1 alias to public tracking:: type (extends P9+P10 pattern).
 using TrackingConfig = tracking::TrackingConfig;

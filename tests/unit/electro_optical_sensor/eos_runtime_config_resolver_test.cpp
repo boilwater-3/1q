@@ -373,6 +373,68 @@ TEST(EosRuntimeConfigResolverTest, EnvironmentWithNanAerosolFactorIsRejected) {
                    .is_valid);
 }
 
+TEST(EosRuntimeConfigResolverTest, EnvironmentWithInvalidModelTypeOrPresetIsRejected) {
+  config::execution::EosInternalExecutionConfig current_config = MakeValidCurrentConfig();
+  eos_config::EosEnvironmentScenarioConfig scenario;
+  scenario.model_type = static_cast<eos_config::EosEnvironmentModelType>(99);
+
+  eos_config::EosRuntimeConfigPatch patch =
+      eos_config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(scenario).Build();
+  EXPECT_FALSE(ResolveEosRuntimeConfigPatch(current_config, patch).is_valid);
+
+  scenario.model_type = eos_config::EosEnvironmentModelType::kSimplified;
+  scenario.preset = static_cast<eos_config::EosEnvironmentPreset>(99);
+  patch = eos_config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(scenario).Build();
+  EXPECT_FALSE(ResolveEosRuntimeConfigPatch(current_config, patch).is_valid);
+}
+
+TEST(EosRuntimeConfigResolverTest, EnvironmentWithInvalidEnabledRadiativeModelIsRejected) {
+  config::execution::EosInternalExecutionConfig current_config = MakeValidCurrentConfig();
+  eos_config::EosEnvironmentScenarioConfig scenario;
+  scenario.has_custom_overrides = true;
+  scenario.custom_overrides.radiative_transfer_model =
+      static_cast<eos_config::RadiativeTransferModel>(99);
+
+  const eos_config::EosRuntimeConfigPatch patch =
+      eos_config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(scenario).Build();
+  EXPECT_FALSE(ResolveEosRuntimeConfigPatch(current_config, patch).is_valid);
+}
+
+TEST(EosRuntimeConfigResolverTest, EnvironmentWithInfiniteEnabledFactorIsRejected) {
+  config::execution::EosInternalExecutionConfig current_config = MakeValidCurrentConfig();
+  eos_config::EosEnvironmentScenarioConfig scenario;
+  scenario.has_custom_overrides = true;
+  scenario.custom_overrides.turbulence_factor =
+      std::numeric_limits<float>::infinity();
+
+  const eos_config::EosRuntimeConfigPatch patch =
+      eos_config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(scenario).Build();
+  EXPECT_FALSE(ResolveEosRuntimeConfigPatch(current_config, patch).is_valid);
+}
+
+TEST(EosRuntimeConfigResolverTest, DisabledCustomOverridesAreIgnoredAtRuntime) {
+  config::execution::EosInternalExecutionConfig current_config = MakeValidCurrentConfig();
+  eos_config::EosEnvironmentScenarioConfig scenario;
+  scenario.preset = eos_config::EosEnvironmentPreset::kMaritime;
+  scenario.has_custom_overrides = false;
+  scenario.custom_overrides.radiative_transfer_model =
+      static_cast<eos_config::RadiativeTransferModel>(99);
+  scenario.custom_overrides.aerosol_density_factor =
+      std::numeric_limits<float>::quiet_NaN();
+  scenario.custom_overrides.turbulence_factor = -1.0f;
+
+  const eos_config::EosRuntimeConfigPatch patch =
+      eos_config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(scenario).Build();
+  const EosRuntimeConfigResolveResult resolved =
+      ResolveEosRuntimeConfigPatch(current_config, patch);
+
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_EQ(resolved.next_config.environment.radiative_transfer_model,
+            eos_config::RadiativeTransferModel::kHumidityWeighted);
+  EXPECT_FLOAT_EQ(resolved.next_config.environment.aerosol_density_factor, 1.5f);
+  EXPECT_FLOAT_EQ(resolved.next_config.environment.turbulence_factor, 1.4f);
+}
+
 // =============================================================================
 // 简单补丁路径（work_mode / sensor_enabled / frame_rate / scan_rate）
 // =============================================================================

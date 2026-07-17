@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 #include "electronic_surveillance_radar/runtime/EsrController.h"
 #include "electronic_surveillance_radar/environment/IEsrEnvironmentService.h"
@@ -14,6 +15,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
+#include "electronic_surveillance_radar/pipeline/PipelineRuntimeSnapshot.h"
 
 namespace electronic_surveillance_radar {
 namespace extension {
@@ -53,6 +55,13 @@ session::EsrCycleInput MakeValidInput(std::uint32_t cycle_index) {
   input.cycle_index = cycle_index;
   input.dt_sec = 1.0f;
   return input;
+}
+
+double ReadScanPhase(const pipeline::InterceptPipeline& pipeline) {
+  const pipeline::PipelineRuntimeSnapshot* snapshot =
+      pipeline::RestorePipelineSnapshot(pipeline.CaptureRuntimeState());
+  EXPECT_NE(snapshot, nullptr);
+  return snapshot == nullptr ? -1.0 : snapshot->scan_phase_cycles;
 }
 
 }  // namespace
@@ -160,6 +169,70 @@ TEST(EsrControllerRuntimeStateTest,
   EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), session::EsrPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 100U);
   EXPECT_TRUE(controller.ReusedPreviousInterceptOutputLatestCycle());
+}
+
+TEST(EsrControllerRuntimeStateTest, ScanPhaseUsesFullPatternCycleRateAndVariableStep) {
+  EsrInternalExecutionConfig config = MakeDefaultConfig();
+  config.mission.scan.scan_rate_hz = 0.5f;
+  pipeline::InterceptPipeline pipeline(config);
+  StubEnvironmentService env;
+
+  session::EsrCycleInput input = MakeValidInput(1U);
+  input.dt_sec = 0.2f;
+  pipeline.RunCycle(input, env);
+  EXPECT_NEAR(ReadScanPhase(pipeline), 0.1, 5.0e-8);
+
+  config.mission.scan.scan_rate_hz = 2.0f;
+  pipeline.UpdateConfig(config);
+  EXPECT_NEAR(ReadScanPhase(pipeline), 0.1, 5.0e-8);
+  input.dt_sec = 0.15f;
+  pipeline.RunCycle(input, env);
+  EXPECT_NEAR(ReadScanPhase(pipeline), 0.4, 5.0e-8);
+
+  config.mission.scan.scan_rate_hz = 5.0f;
+  pipeline.UpdateConfig(config);
+  input.dt_sec = 0.25f;
+  pipeline.RunCycle(input, env);
+  EXPECT_NEAR(ReadScanPhase(pipeline), 0.65, 5.0e-8);
+}
+
+TEST(EsrControllerRuntimeStateTest, ScanGeometryResetPowerFreezeAndSnapshotRestore) {
+  EsrInternalExecutionConfig config = MakeDefaultConfig();
+  config.mission.scan.scan_rate_hz = 0.5f;
+  pipeline::InterceptPipeline pipeline(config);
+  StubEnvironmentService env;
+  session::EsrCycleInput input = MakeValidInput(1U);
+  input.dt_sec = 0.2f;
+  pipeline.RunCycle(input, env);
+  const extension::InterceptPipelineRuntimeState saved = pipeline.CaptureRuntimeState();
+  EXPECT_NEAR(ReadScanPhase(pipeline), 0.1, 5.0e-8);
+
+  config.resolved_scan.scan_sequence = 1;
+  pipeline.UpdateConfig(config);
+  EXPECT_DOUBLE_EQ(ReadScanPhase(pipeline), 0.0);
+
+  pipeline.RunCycle(input, env);
+  config.mission.power_on = false;
+  pipeline.UpdateConfig(config);
+  const double frozen_phase = ReadScanPhase(pipeline);
+  pipeline.RunCycle(input, env);
+  EXPECT_DOUBLE_EQ(ReadScanPhase(pipeline), frozen_phase);
+
+  EXPECT_TRUE(pipeline.RestoreRuntimeState(saved));
+  EXPECT_NEAR(ReadScanPhase(pipeline), 0.1, 5.0e-8);
+}
+
+TEST(EsrControllerRuntimeStateTest, RestoreRejectsNonFiniteScanPhase) {
+  pipeline::InterceptPipeline pipeline(MakeDefaultConfig());
+  extension::InterceptPipelineRuntimeState state = pipeline.CaptureRuntimeState();
+  const pipeline::PipelineRuntimeSnapshot* original =
+      pipeline::RestorePipelineSnapshot(state);
+  ASSERT_NE(original, nullptr);
+  std::shared_ptr<pipeline::PipelineRuntimeSnapshot> corrupted(
+      new pipeline::PipelineRuntimeSnapshot(*original));
+  corrupted->scan_phase_cycles = std::numeric_limits<double>::quiet_NaN();
+  pipeline::CapturePipelineSnapshot(state, corrupted);
+  EXPECT_FALSE(pipeline.RestoreRuntimeState(state));
 }
 
 }  // namespace extension

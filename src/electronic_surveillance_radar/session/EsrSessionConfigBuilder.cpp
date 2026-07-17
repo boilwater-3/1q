@@ -102,9 +102,10 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
     issues.push_back(issue);
   };
 
-  if (config.mission.scan.scan_rate_hz <= 0.0f) {
+  if (!oneq::common::validation::IsFinite(config.mission.scan.scan_rate_hz) ||
+      config.mission.scan.scan_rate_hz <= 0.0f) {
     push(ConfigValidationCode::kScanRateNotPositive, "mission.scan.scan_rate_hz",
-         "Scan rate must be positive.");
+         "Scan pattern cycle rate must be finite and positive.");
   }
 
   if (config.hardware.receiver_band_lower_hz >= config.hardware.receiver_band_upper_hz) {

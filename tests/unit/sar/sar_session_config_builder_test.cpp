@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <limits>
+
 #include "1q/sar/config/SarSessionConfigBuilder.h"
 #include "1q/sar/config/SarSessionConfigValidation.h"
 #include "1q/sar/session/SarSession.h"
@@ -140,6 +143,29 @@ TEST(SarSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {
   builder.Mission().WithMissionProfile(SarMissionProfile::kStripmapSurvey).End();
   const ValidationIssueList issues = ValidateSarSessionConfig(builder.Build());
   EXPECT_TRUE(issues.empty());
+}
+
+TEST(SarSessionConfigValidationTest, RejectsRawHistoryWithoutRawEcho) {
+  SarSessionConfig config;
+  config.policy.enable_raw_echo_generation = false;
+  config.policy.retain_raw_phase_history = true;
+  const ValidationIssueList issues = ValidateSarSessionConfig(config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const ConfigValidationIssue& issue) {
+    return issue.code == ConfigValidationCode::kRetainRawHistoryRequiresRawEcho;
+  }));
+}
+
+TEST(SarSessionConfigValidationTest, RejectsInvalidSquintLimit) {
+  for (double value : {-1.0, 90.0, std::numeric_limits<double>::quiet_NaN(),
+                       std::numeric_limits<double>::infinity()}) {
+    SarSessionConfig config;
+    config.policy.max_allowed_squint_angle_deg = value;
+    const ValidationIssueList issues = ValidateSarSessionConfig(config);
+    EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const ConfigValidationIssue& issue) {
+      return issue.code == ConfigValidationCode::kSquintAngleInvalid;
+    }));
+  }
 }
 
 }  // namespace

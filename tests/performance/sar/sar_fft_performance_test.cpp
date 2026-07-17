@@ -342,6 +342,7 @@ TEST(SarPerformanceTest, PublicSessionCompletes1024SquarePointTargetScene) {
   constexpr std::uint32_t kSize = 1024U;
   constexpr double kSampleRateHz = 100.0e6;
   constexpr double kSpeedOfLightMps = 299792458.0;
+  constexpr double kPlatformSpeedMps = 120.0;
   constexpr double kCurrentPlatformLimitSeconds = 30.0;
   const double target_range_m =
       static_cast<double>(kSize / 2U) * kSpeedOfLightMps / (2.0 * kSampleRateHz);
@@ -353,7 +354,9 @@ TEST(SarPerformanceTest, PublicSessionCompletes1024SquarePointTargetScene) {
   config.hardware.pulse_repetition_frequency_hz = 1000.0;
   config.hardware.sample_rate_hz = kSampleRateHz;
   config.mission.nominal_slant_range_m = target_range_m;
-  config.mission.platform_speed_mps = 150.0;
+  config.mission.scene_center_latitude_deg =
+      target_range_m / 6378137.0 * 180.0 / 3.14159265358979323846;
+  config.mission.platform_speed_mps = kPlatformSpeedMps;
   config.mission.range_sample_count = kSize;
   config.mission.azimuth_pulse_count = kSize;
   config.policy.enable_l1_rda_imaging = true;
@@ -361,6 +364,11 @@ TEST(SarPerformanceTest, PublicSessionCompletes1024SquarePointTargetScene) {
   session::SarCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 0.1f;
+  const double half_aperture_length_m =
+      0.5 * static_cast<double>(kSize - 1U) * kPlatformSpeedMps /
+      config.hardware.pulse_repetition_frequency_hz;
+  input.platform.longitude_deg =
+      -half_aperture_length_m / 6378137.0 * 180.0 / 3.14159265358979323846;
   session::SarPointTarget target;
   target.latitude_deg = target_range_m / 6378137.0 * 180.0 / 3.14159265358979323846;
   target.radar_cross_section_dbsm = 80.0;

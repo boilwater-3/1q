@@ -69,9 +69,11 @@ table ReceiverConfig {
   receive_loss_db:float;
 }
 
-table DetectionPolicyConfig {
-  cfar_pfa:float;
-  min_snr_db:float;
+table ArDetectionPolicyConfig {
+  minimum_snr_db:float;
+  pfa:float;
+  pulse_count:int;
+  minimum_detection_margin_db:float;
 }
 
 table RcsPhysicsConfig {
@@ -92,14 +94,10 @@ table DetectionConfig {
   transmitter:TransmitterConfig;
   antenna:AntennaConfig;
   receiver:ReceiverConfig;
-  detection_policy:DetectionPolicyConfig;
   rcs_physics:RcsPhysicsConfig;
-  min_detection_margin_db:float;
-  pulse_count:int;
 }
 
 table BeamPointingConfig {
-  default_scan_center_deg:AzimuthElevationDeg;
   nominal_beamwidth_deg:CommandedBeamwidthDeg;
 }
 
@@ -115,9 +113,7 @@ table BeamControlConfig {
 }
 
 table AssociationConfig {
-  unassigned_cost:float;
-  use_distance_gate_hint:bool;
-  distance_gate_sigma_hint:float;
+  distance_gate_sigma:float;
 }
 
 table TrackingConfig {
@@ -140,6 +136,7 @@ table ImmConfig {
 }
 
 table ArPolicyConfig {
+  detection:ArDetectionPolicyConfig;
   beam_control:BeamControlConfig;
   association:AssociationConfig;
   tracking:TrackingConfig;

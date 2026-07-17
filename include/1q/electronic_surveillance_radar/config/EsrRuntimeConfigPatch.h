@@ -67,8 +67,8 @@ struct ONEQ_API EsrRuntimeConfigPatch {
   bool has_work_mode{false};                                /**< [补丁标志] 是否显式设置工作模式 */
   EsrWorkMode work_mode{EsrWorkMode::kEsm}; /**< [可外部调整] 工作模式值 */
 
-  bool has_scan_rate_hz{false}; /**< [补丁标志] 是否显式设置扫描数据率 */
-  float scan_rate_hz{1.0f};     /**< [可外部调整] 扫描数据率（单位：Hz） */
+  bool has_scan_rate_hz{false}; /**< [补丁标志] 是否显式设置完整扫描图循环频率。 */
+  float scan_rate_hz{1.0f};     /**< [可外部调整] 完整二维扫描图循环频率（单位：Hz）。 */
 
   bool has_scan_start_position{false}; /**< [补丁标志] 是否显式设置扫描起始位置 */
   EsrScanStartPosition scan_start_position{EsrScanStartPosition::kLeftTop};

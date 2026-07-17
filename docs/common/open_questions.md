@@ -11,13 +11,13 @@ Authority: 非规定性记录
 
 | 优先级 | 条目 | 当前判断 | 首个交付物 |
 |---|---|---|---|
-| P1 | OQ-10b、OQ-10e、OQ-10f、OQ-10k、OQ-10l | 主要是公开配置误导或跨域语义不一致，先补文档和守护 | 字段生效表、四域规则、no-op 标注 |
+| P1 | OQ-10b | SAR environment 仍是公开 no-op 域，需后续接入生产环境计算 | 分项物理公式、内外部 raw IQ 分流与成像影响证据 |
 | P2 | OQ-8、OQ-10a、OQ-10d、OQ-10i、OQ-10m | 涉及 public API/ABI 或跨模块迁移，不能作为顺手清理 | Stage A 迁移契约和 consumer 影响清单 |
 | P2 | OQ-9 | 机械 replay helper 收敛，必须在模块行为护栏稳定后进行 | SBIRS → SAR → AR 分批证明 |
 
 排序依据是当前 checkout 的代码和测试，不代表这些条目已经获准实施。原 OQ-10h、OQ-3、OQ-10c、
-OQ-10g、OQ-10j、OQ-1 已完成；对应运行时语义和证据已迁入 SBIRS、Flight Dynamic、AR、ESR 的
-模块设计权威。
+OQ-10e、OQ-10f、OQ-10g、OQ-10j、OQ-10k、OQ-10l、OQ-1 已完成；对应运行时语义和证据已迁入
+SBIRS、Flight Dynamic、AR、ESR、EOS、SAR 的模块设计权威。
 
 ---
 
@@ -86,12 +86,14 @@ AR/ESR/EOS 的开关机字段都叫 `power_on{true}`，唯独 SBIRS 叫 `sensor_
 - 影响字段：`terrain_reference_altitude_m` / `atmospheric_loss_db_per_km` / `surface_backscatter_sigma0_db` / `use_flat_earth_geometry` / `enable_atmospheric_attenuation`。
 - 用户配置这些旋钮对成像输出零影响，仅 `SarReplayFlatbufferCodec` 用于 replay 保真与 config 透传。
 
-为何未决：该域存在的合法理由是 replay 保真与未来按域接入，但作为对外公开四域之一会误导用户以为可调参。下沉到 internal 还是保留并显著标注，需结合对外 API 收敛策略决定。
+已冻结的方向：该域继续作为 public 四域配置保留，后续接入 SAR 环境计算，不下沉、不删除，也不标记
+deprecated。当前版本仍为 no-op，仅承担 replay/config 保真；未来计算责任和 external raw IQ 不重复施加
+环境效应的边界已写入 `docs/sar/design.md` §1.8。
 
 推进需要：
-- 决定该域是下沉到 `src/` 内部、还是保留在公开 API 但加 `[[deprecated("reserved for replay fidelity, no compute effect")]]` 并在 README/Builder 文档显著标注；
-- 若保留，需在 `SarSessionConfigBuilder` 文档与 `docs/sar/design.md` 明确"本域当前不影响输出"；
-- 同步检查其他仅为 replay/config 保真的保留字段（见 OQ-10l），保证处置一致。
+- 分别冻结几何参考面、双程大气衰减、分布式 sigma0 背景和曲面/平面几何的物理公式与校验；
+- 增加启用/关闭对照及成像影响测试，并保持 external raw IQ 不被二次施加环境效应；
+- 完成生产接线后再从本文移除该项。
 
 ### OQ-10d 🟠 ScenarioConfig / ModelConfig "双胞胎 struct"，字段完全相同却禁止视为同型
 
@@ -108,35 +110,6 @@ AR 与 ESR 的环境域各有一对字段 100% 相同的 ScenarioConfig / ModelC
 - 若无需求，退化为 `using ModelConfig = ScenarioConfig;` 并移除 `BuildModelConfigFromScenario`；
 - 若保留，补一条"两 struct 字段集差异"的契约测试，并在注释中给出差异化的具体计划而非"未来可能"。
 
-### OQ-10e 🟠 跨域"探测策略"归属不一致
-
-AR 把 `DetectionPolicyConfig`（cfar_pfa / min_snr_db）放在**硬件域**的 `DetectionConfig` 内，ESR 把同概念放在**策略域**。
-
-- AR：`DetectionPolicyConfig` 嵌在 `DetectionConfig`（硬件域），`include/1q/airborne_radar/config/ArHardwareConfig.h:148-151`（定义）、`:196`（聚合成员 `detection_policy`）。`ArHardwareConfig` 本身就是 `DetectionConfig` 的别名（`:208`）。
-- ESR：`EsrDetectionPolicyConfig`（minimum_snr_db / pfa / pulse_count）独立放在策略域，`include/1q/electronic_surveillance_radar/config/EsrPolicyConfig.h`。
-
-为何未决：四域划分的语义边界本应一致，但"探测门限/虚警概率"在 AR 被当作硬件固有能力、在 ESR 被当作策略。用户在 ESR 找探测门限去 policy，在 AR 却要去 hardware。迁移会改变 AR `ArHardwareConfig` 的结构（它是 alias），影响面大。
-
-推进需要：
-- 决定探测策略的归属标准（按"是否硬件固有能力"判定）；
-- 若统一到 policy 域，规划 AR `DetectionPolicyConfig` 迁出 hardware 的迁移路径与 replay schema 兼容；
-- 在 `docs/common/contract.md` 的四域划分规则中补一条"探测门限类参数归属"明确规则。
-
-### OQ-10f 🟠 ESR `scan_rate_hz` 与 EOS/SBIRS `scan_rate_deg_per_sec` 跨域量纲不一致
-
-同名 `scan_rate` 前缀，ESR 是数据率（Hz，标量刷新率），EOS/SBIRS 是角速度（deg/s），量纲不同。
-
-- ESR：`EsrScanPolicyConfig.scan_rate_hz{1.0f}` 注释"扫描数据率（单位：Hz）"，`include/1q/electronic_surveillance_radar/config/EsrMissionConfig.h:36`。
-- EOS：`scan_rate_deg_per_sec{20.0f}`（角速度），`include/1q/electro_optical_sensor/config/EosMissionConfig.h:30`。
-- SBIRS：`scan_rate_deg_per_sec{10.0f}`（角速度），`include/1q/sbirs_sensor/config/SbirsMissionConfig.h`。
-
-为何未决：ESR 作为电子侦察，"扫描数据率"与机械/电子扫描角速度确实是不同物理量，但共用 `scan_rate` 前缀会误导跨模块复用配置的用户。改名涉及对外字段名变更。
-
-推进需要：
-- 确认 ESR 的 `scan_rate_hz` 是否真的是刷新率而非角速度（核对 `src/electronic_surveillance_radar/` 消费点语义）；
-- 若是刷新率，改名为更明确的 `scan_update_rate_hz` 或 `frame_rate_hz` 以与角速度区分；
-- 评估跨模块配置复用场景是否真实存在，决定改名优先级。
-
 ### OQ-10i 🟡 SBIRS `detector_area_m2` vs EOS `detector_area_cm2` 同物理量单位不一致
 
 同是"探测器面积"，SBIRS 用 m²，EOS 用 cm²，跨域复制易错 4 个数量级。
@@ -150,36 +123,6 @@ AR 把 `DetectionPolicyConfig`（cfar_pfa / min_snr_db）放在**硬件域**的 
 - 决定是否统一到 SI（m²），评估对 EOS 现有消费方与文档的影响；
 - 若不统一，在 `docs/common/contract.md` 补一条"跨域同物理量单位须在字段名后缀标明"的规则并加 lint 守护；
 - 字段名后缀已带单位（`_m2` / `_cm2`），最低限度应确保文档显著标注差异。
-
-### OQ-10k 🟡 EOS 环境域三个正交枚举组合空间爆炸，优先级未说明
-
-EOS 环境域有四套正交开关，头文件未说明哪个优先、谁覆盖谁。
-
-- 证据：`include/1q/electro_optical_sensor/config/EosEnvironmentConfig.h:18-63`。
-- 枚举/开关：`EosEnvironmentModelType`（2 项，`:27`）、`EosEnvironmentPreset`（5 项，`:35`）、`RadiativeTransferModel`（3 项，`:18`）、`has_custom_overrides` + `EosEnvironmentCustomOverrides`（`:59-60`、`:46-51`）。
-
-为何未决：组合空间 2×5×3×2 = 60 种，许多组合语义重叠（如 `preset=kDusty` 与 `custom_overrides.aerosol_density_factor>1`），用户难以判断实际生效路径。ModelConfig 扁平化 custom_overrides 后优先级更隐晦。
-
-推进需要：
-- 核对 `src/electro_optical_sensor/` 中四套开关的解析优先级（preset → model_type → custom_overrides → radiative_transfer_model?）；
-- 在头文件注释补一条优先级链说明，或在 `docs/electro_optical_sensor/design.md` 明确生效路径；
-- 评估是否收敛枚举（如 preset 与 custom_overrides 二选一），减少组合空间。
-
-### OQ-10l 对外公开 API 中的保留字段（注释为真，设计本身值得商榷）
-
-以下字段注释明确标注"不进入计算链路"，经核验确实仅被对应 `*ReplayFlatbufferCodec.cpp` 序列化、不进计算。注释诚实，但作为对外公开 API 保留死字段本身反直觉——用户会尝试调它期望生效。
-
-- AR `BeamPointingConfig.default_scan_center_deg`：注释"当前真实扫描中心唯一来源是 `ArMissionConfig::orientation.scan_center_deg`"。证据 `include/1q/airborne_radar/config/ArPolicyConfig.h:30`；消费仅 `src/airborne_radar/session/ArReplayFlatbufferCodec.cpp:545,759-760`。
-- AR `AssociationConfig.use_distance_gate_hint` / `distance_gate_sigma_hint`：注释"当前关联门限由库内关联器自适应管理"。证据 `include/1q/airborne_radar/config/ArPolicyConfig.h:90,96`；消费仅 `src/airborne_radar/session/ArReplayFlatbufferCodec.cpp:557-558,777-778`。
-- SAR `SarPolicyConfig.retain_raw_phase_history`：注释"当前 public result 不返回 raw phase history，仅 replay/config 保真"。证据 `include/1q/sar/config/SarPolicyConfig.h`。
-- SAR `SarPolicyConfig.max_allowed_squint_angle_deg`：注释"当前 session 尚未实现 squint-angle runtime gate"。证据 `include/1q/sar/config/SarPolicyConfig.h`。
-
-为何未决：这些字段为 replay/config 保真而保留，但放在公开 `include/` 下会诱导用户调参。下沉到 internal 会破坏 replay schema 的对外可见性；保留则需更强的"无效"标注。
-
-推进需要：
-- 决定统一策略：要么将这些字段下沉到 `src/` 内部 replay DTO（公开 API 只留活跃字段），要么在公开 API 加 `[[deprecated]]` 或统一的前缀（如 `reserved_`）显著标注；
-- 与 OQ-10b（SAR 整域 no-op）的处置保持一致；
-- 任何一种方案都需同步 replay codec 与 consumer 测试。
 
 ### OQ-10m 🟡 AR `AntennaConfig` 缺 frequency，隐式借用 transmitter
 

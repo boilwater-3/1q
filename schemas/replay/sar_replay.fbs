@@ -67,10 +67,19 @@ table SarDiagnosticIssue {
   message: string;
 }
 
+table SarRawPhaseHistory {
+  source: int32;
+  pulse_count: uint32;
+  samples_per_pulse: uint32;
+  i_values: [double];
+  q_values: [double];
+}
+
 table SarCycleResult {
   input_cycle_index: uint32;
   output_frame: SarOutputFrame;
   diagnostics: [SarDiagnosticIssue];
+  raw_phase_history: SarRawPhaseHistory;
   has_error: bool;
   executed_this_cycle: bool;
   reused_previous_output: bool;

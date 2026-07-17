@@ -155,6 +155,19 @@ ValidationIssueList ValidateSarSessionConfig(const config::SarSessionConfig& con
          "mission.desired_azimuth_resolution_m",
          "Desired azimuth resolution must be positive.");
   }
+  if (config.policy.retain_raw_phase_history &&
+      !config.policy.enable_raw_echo_generation) {
+    push(ConfigValidationCode::kRetainRawHistoryRequiresRawEcho,
+         "policy.retain_raw_phase_history / enable_raw_echo_generation",
+         "Retaining raw phase history requires raw echo generation.");
+  }
+  if (!std::isfinite(config.policy.max_allowed_squint_angle_deg) ||
+      config.policy.max_allowed_squint_angle_deg < 0.0 ||
+      config.policy.max_allowed_squint_angle_deg >= 90.0) {
+    push(ConfigValidationCode::kSquintAngleInvalid,
+         "policy.max_allowed_squint_angle_deg",
+         "Maximum allowed squint angle must be finite and in [0, 90) degrees.");
+  }
 
   // 跨字段物理约束：距离采样窗口必须能容纳完整 LFM 脉冲宽度（与 SarWaveform.cpp:68 的
   // 波形样本数公式 ceil(pulse_width_s * sample_rate_hz) 一致）。窗口过小会导致回波被

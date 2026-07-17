@@ -213,23 +213,23 @@ void ApplyDetectionIntentProfile(config::ArSessionConfig* config,
   if (config == nullptr) {
     return;
   }
-  auto& d = config->hardware;
+  auto& d = config->policy.detection;
   switch (profile) {
     case config::profiles::DetectionIntentProfile::kDetectionPriority:
       d.pulse_count = 16;
-      d.detection_policy.cfar_pfa = 2e-6f;
-      d.detection_policy.min_snr_db = -12.0f;
-      d.min_detection_margin_db = -100.0f;
+      d.pfa = 2e-6f;
+      d.minimum_snr_db = -12.0f;
+      d.minimum_detection_margin_db = -100.0f;
       break;
     case config::profiles::DetectionIntentProfile::kTrackStabilityPriority:
       d.pulse_count = 8;
-      d.detection_policy.cfar_pfa = 5e-7f;
-      d.detection_policy.min_snr_db = -8.0f;
-      d.min_detection_margin_db = -20.0f;
+      d.pfa = 5e-7f;
+      d.minimum_snr_db = -8.0f;
+      d.minimum_detection_margin_db = -20.0f;
       break;
     case config::profiles::DetectionIntentProfile::kBalanced:
     default:
-      d.min_detection_margin_db = -2.0f;
+      d.minimum_detection_margin_db = -2.0f;
       break;
   }
 }
@@ -274,7 +274,7 @@ void ApplyTrackingPolicyProfile(config::ArSessionConfig* config,
       t.kalman_measurement_noise_std = 12.0f;
       t.speed_decay_ratio_on_loss = 0.95f;
       t.rcs_decay_ratio_on_loss = 0.92f;
-      config->policy.association.unassigned_cost = 12.0f;
+      config->policy.association.distance_gate_sigma = std::sqrt(12.0f);
       break;
     case config::profiles::TrackingPolicyProfile::kBalanced:
     default:

@@ -235,8 +235,8 @@ TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
 
 TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
   config::ArHardwareConfig hardware{};
-  hardware.pulse_count = 32;
-  EXPECT_EQ(hardware.pulse_count, 32);
+  hardware.transmitter.peak_power_w = 2.0e6f;
+  EXPECT_FLOAT_EQ(hardware.transmitter.peak_power_w, 2.0e6f);
 
   config::AzimuthElevationDeg scan_center;
   scan_center.az_deg = 45.0f;
@@ -246,7 +246,9 @@ TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
   EXPECT_FLOAT_EQ(mission.orientation.scan_center_deg.az_deg, 45.0f);
 
   config::ArPolicyConfig policy{};
+  policy.detection.pulse_count = 32;
   policy.lifecycle.confirm_hits = 2U;
+  EXPECT_EQ(policy.detection.pulse_count, 32);
   EXPECT_EQ(policy.lifecycle.confirm_hits, 2U);
 
   config::ArEnvironmentConfig env{};
@@ -259,7 +261,7 @@ TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
   session_cfg.policy = policy;
   session_cfg.environment = env;
   session_cfg.environment.jamming_sensitivity_profile = config::JammingSensitivityProfile::kStrict;
-  EXPECT_EQ(session_cfg.hardware.pulse_count, 32);
+  EXPECT_EQ(session_cfg.policy.detection.pulse_count, 32);
   EXPECT_FLOAT_EQ(session_cfg.mission.orientation.scan_center_deg.az_deg, 45.0f);
   EXPECT_EQ(session_cfg.policy.lifecycle.confirm_hits, 2U);
   EXPECT_EQ(session_cfg.environment.jamming_sensitivity_profile,
@@ -288,7 +290,7 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
           .Build();
   config.mission.orientation.scan_center_deg = scan_center;
   EXPECT_TRUE(config.hardware.enable_physics_detection);
-  EXPECT_EQ(config.hardware.pulse_count, 16);
+  EXPECT_EQ(config.policy.detection.pulse_count, 16);
   EXPECT_FLOAT_EQ(config.hardware.transmitter.peak_power_w, 5.0e6f);
   EXPECT_FLOAT_EQ(config.hardware.antenna.pattern.max_sidelobe_level_db, -30.0f);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, -12.0f);

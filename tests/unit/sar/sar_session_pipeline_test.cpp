@@ -39,15 +39,19 @@ config::SarSessionConfig MakeSmallRdaConfig() {
   config.hardware.pulse_repetition_frequency_hz = 20.0;
   config.hardware.sample_rate_hz = 100.0e6;
   config.mission.nominal_slant_range_m = 29.9792458;
+  config.mission.scene_center_latitude_deg =
+      29.9792458 / 6378137.0 * 180.0 / 3.14159265358979323846;
   config.mission.platform_speed_mps = 2.0;
   config.mission.range_sample_count = 64U;
   config.mission.azimuth_pulse_count = 9U;
   config.policy.enable_l1_rda_imaging = true;
+  config.policy.max_allowed_squint_angle_deg = 89.0;
   return config;
 }
 
 config::SarSessionConfig MakeSmallL3BpConfig() {
   config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.max_allowed_squint_angle_deg = 89.0;
   config.policy.enable_l1_rda_imaging = false;
   config.policy.enable_l3_bp_imaging = true;
   const double meters_to_degrees = 180.0 / (3.14159265358979323846 * 6378137.0);
@@ -100,6 +104,7 @@ session::SarCycleInput MakeExternalRawIqInputWithTrajectory() {
     state.pulse_id = static_cast<std::uint64_t>(index);
     state.time_s = static_cast<double>(index) / 20.0;
     state.position_x_m = -0.4 + 0.1 * static_cast<double>(index);
+    state.position_y_m = -29.9792458;
     state.velocity_x_mps = 2.0;
     input.raw_iq.pulse_states.push_back(state);
   }
@@ -164,6 +169,68 @@ TEST(SarSessionPipelineTest, StepWithResultRunsRawRangeAndRdaPipeline) {
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "azimuth_quadratic_phase_span_rad="));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "max_geometric_doppler_hz="));
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.rda_peak", "doppler_nyquist_margin="));
+  EXPECT_EQ(result.raw_phase_history.source, session::SarRawPhaseHistorySource::kNone);
+  EXPECT_TRUE(result.raw_phase_history.i_values.empty());
+  EXPECT_TRUE(result.raw_phase_history.q_values.empty());
+}
+
+TEST(SarSessionPipelineTest, RetainedInternalRawPhaseHistoryReturnsCompleteAperture) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.retain_raw_phase_history = true;
+  const session::SarCycleResult result =
+      session::SarSession::Create(config).StepWithResult(MakeInput());
+  ASSERT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.raw_phase_history.source,
+            session::SarRawPhaseHistorySource::kInternallyGenerated);
+  EXPECT_EQ(result.raw_phase_history.pulse_count, 9U);
+  EXPECT_EQ(result.raw_phase_history.samples_per_pulse, 64U);
+  EXPECT_EQ(result.raw_phase_history.i_values.size(), 9U * 64U);
+  EXPECT_EQ(result.raw_phase_history.q_values.size(), 9U * 64U);
+}
+
+TEST(SarSessionPipelineTest, RetainedExternalRawPhaseHistoryIsExactInputIq) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.retain_raw_phase_history = true;
+  const session::SarCycleInput input = MakeExternalRawIqInput();
+  const session::SarCycleResult result =
+      session::SarSession::Create(config).StepWithResult(input);
+  ASSERT_TRUE(result.executed_this_cycle);
+  EXPECT_EQ(result.raw_phase_history.source,
+            session::SarRawPhaseHistorySource::kExternalRawIq);
+  EXPECT_EQ(result.raw_phase_history.i_values, input.raw_iq.i_values);
+  EXPECT_EQ(result.raw_phase_history.q_values, input.raw_iq.q_values);
+}
+
+TEST(SarSessionPipelineTest, SquintGateUsesMaximumActualApertureAngle) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.max_allowed_squint_angle_deg = 5.9;
+  session::SarCycleInput input = MakeExternalRawIqInputWithTrajectory();
+  const double six_degree_offset_m =
+      std::tan(6.0 * 3.14159265358979323846 / 180.0) * 29.9792458;
+  for (session::SarRawIqFrame::PulseState& state : input.raw_iq.pulse_states) {
+    state.position_x_m = -six_degree_offset_m;
+  }
+
+  const session::SarCycleResult rejected =
+      session::SarSession::Create(config).StepWithResult(input);
+  EXPECT_FALSE(rejected.executed_this_cycle);
+  EXPECT_EQ(rejected.abort_reason, "squint_angle_exceeds_limit");
+
+  config.policy.max_allowed_squint_angle_deg = 6.1;
+  const session::SarCycleResult accepted =
+      session::SarSession::Create(config).StepWithResult(input);
+  EXPECT_TRUE(accepted.executed_this_cycle);
+}
+
+TEST(SarSessionPipelineTest, RawEchoOnlySkipsSquintImagingGate) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.enable_l1_rda_imaging = false;
+  config.policy.enable_range_compression = false;
+  config.policy.max_allowed_squint_angle_deg = 0.0;
+  session::SarCycleInput input = MakeInput();
+  const session::SarCycleResult result =
+      session::SarSession::Create(config).StepWithResult(input);
+  EXPECT_TRUE(result.executed_this_cycle);
 }
 
 TEST(SarSessionPipelineTest, ProductDebugViewCarriesProductAndTargetLabels) {
@@ -392,6 +459,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqRejectsShapeMismatchAndAdvancedPaths) 
 
   config::SarSessionConfig l2_config = MakeSmallRdaConfig();
   l2_config.policy.enable_l2_motion_compensation = true;
+  l2_config.policy.max_allowed_squint_angle_deg = 89.0;
   session::SarSession l2_session = session::SarSession::Create(l2_config);
   const session::SarCycleResult l2_result = l2_session.StepWithResult(MakeExternalRawIqInput());
   EXPECT_FALSE(l2_result.executed_this_cycle);
@@ -428,6 +496,7 @@ TEST(SarSessionPipelineTest, ExternalRawIqL1ExplicitlyIgnoresPulseStates) {
 TEST(SarSessionPipelineTest, ExternalRawIqDualTrajectoryRunsL2MotionCompensation) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.enable_l2_motion_compensation = true;
+  config.policy.max_allowed_squint_angle_deg = 89.0;
   session::SarSession session = session::SarSession::Create(config);
 
   const session::SarCycleResult result =

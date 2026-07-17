@@ -43,6 +43,21 @@ Authority: common contract for all modules
 
 唯一允许的用户自定义 SPI 是 `airborne_radar` 的 decision engine。其它模块默认只提供稳定 session 门面。
 
+### 四域配置所有权
+
+`*SessionConfig` 的 hardware / mission / policy / environment 按“参数表达的用户意图”划分，而不是按
+当前内部消费类所在目录划分：
+
+- hardware：发射机、接收机、天线、探测器、光学和波形等物理能力。
+- mission：开关机、工作模式、扫描几何、指向和任务目标。
+- policy：最低 SNR、虚警概率、脉冲积累数、检测 margin、关联门限等可由任务策略调整的判决规则。
+- environment：场景介质、传播、地表和大气观测等外部环境语义。
+
+因此最低 SNR、Pfa 等探测门限不得因内部 signal detector 与 hardware 相邻而放入 hardware。跨模块的
+同类判决参数应归 policy；模块可以保留不同物理算法和字段集合，但不能改变所有权含义。
+[evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
+
 ## 跨模块物理基元复用
 
 跨模块函数不得因名称或量纲相似而合并。只有输入单位、数值精度、有效/非法输入策略、几何归一化、环境/效率因子和输出失败语义完全同义时，才允许复用无状态纯函数；复用前必须有跨模块 characterization 测试。
@@ -89,7 +104,12 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 
 1. **禁止 C++ 异常。** `CLAUDE.md` 已规定 "Never introduce C++ exceptions."。`src/` 与 `include/` 不得引入 `throw`、`std::runtime_error`/`std::invalid_argument` 等异常类型或 `<stdexcept>`。I/O 失败、构造失败、解析失败必须以无异常的错误状态、空 reader 或诊断字段表达（如 `ReplayTrace`/`TraceSink`/`JsbsimAdapter` 的现行做法）。该约束同时保证 `-fno-exceptions` 构建成立，并避免异常穿透构造函数导致仿真流程中途终止。
 
-2. **冗余标志必须与数据一致，且由校验层断言。** 任何 `has_xxx` 布尔标志若用于表达"是否提供某可选数据"，当 `has_xxx=false` 但对应数据非默认值时，输入校验必须报 error 级问题并 abort，不得让数据静默跳过。典型反例是 AR 的 `has_environment`：环境快照已写入但因漏置 flag 不被消费，会让杂波/干扰/大气数据完全不进入信号链且无任何信号。
+2. **存在性标志必须与数据一致，且由校验层断言。** `has_xxx` 若表达“调用方是否提供本周期可选
+   数据”，当 `has_xxx=false` 但对应数据非默认值时，输入校验必须报 error 级问题并 abort，不得让
+   数据静默跳过。典型反例是 AR 的 `has_environment`：环境快照已写入但因漏置 flag 不被消费，会让
+   杂波/干扰/大气数据完全不进入信号链且无任何信号。若布尔量明确是配置选择器而非数据存在性标志，
+   可以定义关闭时整组候选参数不生效且不校验，但必须在 public Doxygen 和模块 design 明确优先级，并以
+   启用/关闭对照测试锁定；EOS `has_custom_overrides` 属于这种选择器。
 
 3. **校验拒绝必须产生结构化 abort reason，不得静默或合成有效输出。** 输入校验失败时，controller 必须设置显式 abort reason（如 `kValidationRejected`），不执行 pipeline，不合成空输出帧，不把非法输入记作新的有效 batch/帧。已有有效输出时可复用上一帧并标记 `reused_previous_output`。新增 abort reason 以显式数值追加，保留已有 replay/trace 中既有数值语义。
 

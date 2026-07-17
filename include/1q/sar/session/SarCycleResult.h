@@ -36,6 +36,13 @@ enum class SarDiagnosticSeverity { kInfo = 0, kWarning = 1, kError = 2 };
  */
 enum class SarFocusedImageSource { kNone = 0, kL1Rda = 1, kL3Bp = 2 };
 
+/** @brief 原始相位历史的执行来源。 */
+enum class SarRawPhaseHistorySource {
+  kNone = 0,
+  kInternallyGenerated = 1,
+  kExternalRawIq = 2
+};
+
 /**
  * @brief SAR 聚焦图像相位参考摘要。
  */
@@ -68,6 +75,19 @@ struct ONEQ_API SarFocusedImage {
   std::vector<double> real_values{};
   std::vector<double> imaginary_values{};
   bool is_placeholder{false};
+};
+
+/**
+ * @brief 实际进入本周期处理链的完整孔径原始相位历史。
+ * @note I/Q 向量均为 pulse-major 行主序，长度必须等于
+ *       `pulse_count * samples_per_pulse`。
+ */
+struct ONEQ_API SarRawPhaseHistory {
+  SarRawPhaseHistorySource source{SarRawPhaseHistorySource::kNone};
+  std::uint32_t pulse_count{0U};
+  std::uint32_t samples_per_pulse{0U};
+  std::vector<double> i_values{};
+  std::vector<double> q_values{};
 };
 
 /**
@@ -107,6 +127,7 @@ struct ONEQ_API SarCycleResult {
   std::uint32_t input_cycle_index{0U};
   SarOutputFrame output_frame{};
   SarFocusedImage focused_image{};
+  SarRawPhaseHistory raw_phase_history{};
   SarDiagnosticIssueList diagnostics{};
   bool has_error{false};
   bool executed_this_cycle{false};

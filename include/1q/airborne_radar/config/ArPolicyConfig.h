@@ -15,19 +15,44 @@
 
 namespace airborne_radar {
 namespace config {
+
+namespace profiles {
+
+/**
+ * @brief 探测意图档位。
+ *
+ * 控制脉冲积累数、虚警概率、最低信噪比和探测裕量。
+ */
+enum class ONEQ_API DetectionIntentProfile {
+  kBalanced = 0,              /**< 均衡探测与航迹稳定。 */
+  kDetectionPriority = 1,     /**< 放宽门限并增加积累，优先发现目标。 */
+  kTrackStabilityPriority = 2 /**< 收紧门限并减少积累，优先抑制虚警。 */
+};
+
+}  // namespace profiles
+
+namespace detection {
+
+/**
+ * @brief 探测判决策略配置。
+ *
+ * 统一承载与用户探测意图相关的判决门限和积累参数；硬件域仅描述物理能力。
+ */
+struct ONEQ_API ArDetectionPolicyConfig {
+  float minimum_snr_db{-10.0f};             /**< 最低信噪比门限。 */
+  float pfa{1e-6f};                         /**< 单次判决目标虚警概率。 */
+  int pulse_count{10};                      /**< 相干或非相干积累脉冲数。 */
+  float minimum_detection_margin_db{-2.0f}; /**< 最低探测裕量。 */
+};
+
+}  // namespace detection
+
 namespace beam {
 
 /**
  * @brief 波束指向基线配置。
  */
 struct ONEQ_API BeamPointingConfig {
-  /**
-   * @brief 兼容保留字段：历史默认扫描中心。
-   *
-   * @note 当前真实扫描中心唯一来源是 ArMissionConfig::orientation.scan_center_deg。
-   *       本字段不进入扫描调度计算链路，保留仅用于旧配置/replay 结构兼容。
-   */
-  config::AzimuthElevationDeg default_scan_center_deg{};
   config::CommandedBeamwidthDeg nominal_beamwidth_deg{}; /**< 名义指令态波束宽度。 */
 };
 
@@ -81,19 +106,7 @@ struct ONEQ_API TrackingConfig {
  * @brief 量测关联参数。
  */
 struct ONEQ_API AssociationConfig {
-  float unassigned_cost{9.0f}; /**< 未分配量测代价。 */
-  /**
-   * @brief 兼容保留字段：历史距离门限提示开关。
-   *
-   * @note 当前关联门限由库内关联器自适应管理，本字段不进入计算链路。
-   */
-  bool use_distance_gate_hint{false};
-  /**
-   * @brief 兼容保留字段：历史距离门限 sigma 提示。
-   *
-   * @note 当前关联门限由库内关联器自适应管理，本字段不进入计算链路。
-   */
-  float distance_gate_sigma_hint{0.0f};
+  float distance_gate_sigma{3.0f}; /**< 归一化距离关联门限的 sigma 倍数。 */
 };
 
 }  // namespace tracking
@@ -101,6 +114,7 @@ struct ONEQ_API AssociationConfig {
 using beam::BeamControlConfig;
 using beam::BeamPointingConfig;
 using beam::BeamSchedulerConfig;
+using detection::ArDetectionPolicyConfig;
 using lifecycle::LifecycleConfig;
 using tracking::AssociationConfig;
 using tracking::TrackingConfig;
@@ -111,6 +125,7 @@ using tracking::TrackingConfig;
  * 当前阶段策略域承载调度、关联、跟踪与生命周期策略。
  */
 struct ONEQ_API ArPolicyConfig {
+  ArDetectionPolicyConfig detection{};
   BeamControlConfig beam_control{};
   AssociationConfig association{};
   TrackingConfig tracking{};

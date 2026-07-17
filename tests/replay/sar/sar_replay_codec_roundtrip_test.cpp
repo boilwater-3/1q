@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #include "1q/sar/config/SarRuntimeConfigPatch.h"
 #include "1q/sar/config/SarRuntimeConfigBuilder.h"
 #include "1q/sar/config/SarSessionConfig.h"
@@ -85,6 +87,11 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   diagnostic.code = "sar.rda_peak";
   diagnostic.message = "peak index";
   result.diagnostics.push_back(diagnostic);
+  result.raw_phase_history.source = SarRawPhaseHistorySource::kExternalRawIq;
+  result.raw_phase_history.pulse_count = 2U;
+  result.raw_phase_history.samples_per_pulse = 2U;
+  result.raw_phase_history.i_values = {1.0, 2.0, 3.0, 4.0};
+  result.raw_phase_history.q_values = {-1.0, -2.0, -3.0, -4.0};
   result.executed_this_cycle = true;
 
   const std::string bytes = EncodeSarCycleResult(result);
@@ -112,6 +119,11 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   EXPECT_EQ(decoded.diagnostics[0].severity, SarDiagnosticSeverity::kInfo);
   EXPECT_EQ(decoded.diagnostics[0].code, "sar.rda_peak");
   EXPECT_TRUE(decoded.executed_this_cycle);
+  EXPECT_EQ(decoded.raw_phase_history.source, SarRawPhaseHistorySource::kExternalRawIq);
+  EXPECT_EQ(decoded.raw_phase_history.pulse_count, 2U);
+  EXPECT_EQ(decoded.raw_phase_history.samples_per_pulse, 2U);
+  EXPECT_EQ(decoded.raw_phase_history.i_values, result.raw_phase_history.i_values);
+  EXPECT_EQ(decoded.raw_phase_history.q_values, result.raw_phase_history.q_values);
   EXPECT_FALSE(decoded.has_error);
 }
 
@@ -185,6 +197,21 @@ TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_DOUBLE_EQ(decoded.policy.minimum_snr_db, -5.0);
   EXPECT_FALSE(decoded.environment.use_flat_earth_geometry);
   EXPECT_TRUE(decoded.environment.enable_atmospheric_attenuation);
+}
+
+TEST(SarReplayCodecRoundtripTest, CycleResultRejectsMalformedRawPhaseHistory) {
+  SarCycleResult malformed;
+  malformed.raw_phase_history.source = SarRawPhaseHistorySource::kInternallyGenerated;
+  malformed.raw_phase_history.pulse_count = 2U;
+  malformed.raw_phase_history.samples_per_pulse = 2U;
+  malformed.raw_phase_history.i_values = {1.0, 2.0, 3.0};
+  malformed.raw_phase_history.q_values = {1.0, 2.0, 3.0, 4.0};
+  SarCycleResult decoded;
+  EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
+
+  malformed.raw_phase_history.i_values = {1.0, 2.0, 3.0, 4.0};
+  malformed.raw_phase_history.i_values[2] = std::numeric_limits<double>::infinity();
+  EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
 }
 
 TEST(SarReplayCodecRoundtripTest, RuntimeConfigPatchPreservesHasBitsAndValues) {

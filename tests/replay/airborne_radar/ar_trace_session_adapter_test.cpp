@@ -215,7 +215,7 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     config.policy.lifecycle.max_miss_before_lost = 1U;
     config.policy.tracking.enable_kalman_filter = false;
     config.mission.orientation.scan_center_deg.az_deg = 12.5f;
-    config.hardware.min_detection_margin_db = -25.0f;
+    config.policy.detection.minimum_detection_margin_db = -25.0f;
     session::ArTraceSession session(config, options);
 
     config::ArRuntimeConfigPatch runtime_patch;

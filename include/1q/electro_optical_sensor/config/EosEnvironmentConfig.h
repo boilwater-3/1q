@@ -52,13 +52,19 @@ struct ONEQ_API EosEnvironmentCustomOverrides {
 
 /**
  * @brief EosEnvironmentScenarioConfig 描述外部场景语义输入。
+ *
+ * 解析顺序固定为：先由 @ref preset 建立整组环境参数基线；当
+ * @ref has_custom_overrides 为 `true` 时，再由 @ref custom_overrides 整组覆盖该基线；
+ * 最后由 @ref model_type 决定运行时是否依据实时环境对这组参数进行动态修正。
+ * 当 @ref has_custom_overrides 为 `false` 时，custom_overrides 中的值完全忽略。
+ * 大气观测通过独立的 has/value 对传入，不参与 preset 与 custom 的优先级判定。
  */
 struct ONEQ_API EosEnvironmentScenarioConfig {
-  EosEnvironmentModelType model_type{EosEnvironmentModelType::kSimplified};
-  EosEnvironmentPreset preset{EosEnvironmentPreset::kStandard};
-  bool has_custom_overrides{false};
-  EosEnvironmentCustomOverrides custom_overrides{};
-  bool has_atmospheric_observation{false};
+  EosEnvironmentModelType model_type{EosEnvironmentModelType::kSimplified}; /**< 动态修正策略 */
+  EosEnvironmentPreset preset{EosEnvironmentPreset::kStandard}; /**< 环境参数基线 */
+  bool has_custom_overrides{false}; /**< 是否整组启用显式覆盖 */
+  EosEnvironmentCustomOverrides custom_overrides{}; /**< 显式整组覆盖值 */
+  bool has_atmospheric_observation{false}; /**< 是否提供独立的大气观测 */
   oneq::environment::AtmosphericObservation atmospheric_observation{};
 };
 

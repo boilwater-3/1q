@@ -68,6 +68,16 @@ TEST(EsrSessionConfigValidationTest, RejectsNonPositiveScanRate) {
                            ConfigValidationCode::kScanRateNotPositive));
 }
 
+TEST(EsrSessionConfigValidationTest, RejectsNonFiniteScanRate) {
+  EsrSessionConfig config;
+  config.mission.scan.scan_rate_hz = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
+                           ConfigValidationCode::kScanRateNotPositive));
+  config.mission.scan.scan_rate_hz = std::numeric_limits<float>::infinity();
+  EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
+                           ConfigValidationCode::kScanRateNotPositive));
+}
+
 TEST(EsrSessionConfigValidationTest, RejectsReceiverBandLowerAboveUpper) {
   EsrSessionConfig config;
   config.mission.scan.scan_rate_hz = 2.0f;

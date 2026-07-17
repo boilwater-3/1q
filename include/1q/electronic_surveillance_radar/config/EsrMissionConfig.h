@@ -37,7 +37,7 @@ enum class ONEQ_API EsrWorkMode {
 struct ONEQ_API EsrScanPolicyConfig {
   float scan_center_az_deg{0.0f};   /**< 扫描中心方位（单位：deg） */
   float scan_center_el_deg{0.0f};   /**< 扫描中心俯仰（单位：deg） */
-  float scan_rate_hz{1.0f};         /**< 扫描数据率（单位：Hz） */
+  float scan_rate_hz{1.0f};         /**< 每秒完成的完整二维扫描图循环数（单位：Hz）。 */
   EsrScanStartPosition scan_start_position{EsrScanStartPosition::kLeftTop}; /**< 扫描起始位置 */
   EsrScanSequence scan_sequence{EsrScanSequence::kAzimuthFirst};             /**< 扫描顺序 */
   bool use_explicit_scan_bounds{false}; /**< 是否使用显式扫描起止角；启用后显式边界优先于中心角 */

@@ -28,6 +28,8 @@ config::SarSessionConfig MakeSmallRdaConfig() {
   config.hardware.pulse_repetition_frequency_hz = 20.0;
   config.hardware.sample_rate_hz = 100.0e6;
   config.mission.nominal_slant_range_m = 29.9792458;
+  config.mission.scene_center_latitude_deg =
+      29.9792458 / 6378137.0 * 180.0 / 3.14159265358979323846;
   config.mission.platform_speed_mps = 2.0;
   config.mission.range_sample_count = 64U;
   config.mission.azimuth_pulse_count = 9U;
@@ -35,7 +37,7 @@ config::SarSessionConfig MakeSmallRdaConfig() {
   return config;
 }
 
-// 构造与 mission.scene_center 对齐的 platform/target，便于 adapter 坐标转换。
+// 构造位于 scene center 正南侧的 broadside 平台，便于 adapter 坐标转换。
 session::SarPlatformState MakePlatformAtSceneCenter() {
   session::SarPlatformState platform;
   platform.latitude_deg = 0.0;

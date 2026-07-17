@@ -54,7 +54,12 @@ bool SarCycleResultEqual(const SarCycleResult& left, const SarCycleResult& right
       left.diagnostics.size() != right.diagnostics.size() || left.has_error != right.has_error ||
       left.executed_this_cycle != right.executed_this_cycle ||
       left.reused_previous_output != right.reused_previous_output ||
-      left.abort_reason != right.abort_reason) {
+      left.abort_reason != right.abort_reason ||
+      left.raw_phase_history.source != right.raw_phase_history.source ||
+      left.raw_phase_history.pulse_count != right.raw_phase_history.pulse_count ||
+      left.raw_phase_history.samples_per_pulse != right.raw_phase_history.samples_per_pulse ||
+      left.raw_phase_history.i_values != right.raw_phase_history.i_values ||
+      left.raw_phase_history.q_values != right.raw_phase_history.q_values) {
     return false;
   }
   for (std::size_t i = 0U; i < left.diagnostics.size(); ++i) {

@@ -301,12 +301,15 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.transmitter.frequency_hz = 9.5e9f;
   config.hardware.antenna.antenna_length_m = 1.75f;
   config.hardware.antenna.antenna_width_m = 0.85f;
-  config.hardware.min_detection_margin_db = -20.0f;
   // mission
   config.mission.orientation.scan_center_deg.az_deg = 15.0f;
   config.mission.orientation.scan_center_deg.el_deg = -2.0f;
   // policy
   config.policy.lifecycle.confirm_hits = 2U;
+  config.policy.detection.minimum_detection_margin_db = -20.0f;
+  config.policy.detection.minimum_snr_db = -8.0f;
+  config.policy.detection.pfa = 2.0e-6f;
+  config.policy.detection.pulse_count = 24;
   config.policy.lifecycle.max_miss_before_lost = 3U;
   config.policy.tracking.enable_kalman_filter = true;
   config.policy.tracking.kalman_measurement_noise_std = 5.5f;
@@ -343,12 +346,15 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.hardware.transmitter.frequency_hz, 9.5e9f);
   EXPECT_FLOAT_EQ(decoded.hardware.antenna.antenna_length_m, 1.75f);
   EXPECT_FLOAT_EQ(decoded.hardware.antenna.antenna_width_m, 0.85f);
-  EXPECT_FLOAT_EQ(decoded.hardware.min_detection_margin_db, -20.0f);
   // mission
   EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.az_deg, 15.0f);
   EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.el_deg, -2.0f);
   // policy
   EXPECT_EQ(decoded.policy.lifecycle.confirm_hits, 2U);
+  EXPECT_FLOAT_EQ(decoded.policy.detection.minimum_detection_margin_db, -20.0f);
+  EXPECT_FLOAT_EQ(decoded.policy.detection.minimum_snr_db, -8.0f);
+  EXPECT_FLOAT_EQ(decoded.policy.detection.pfa, 2.0e-6f);
+  EXPECT_EQ(decoded.policy.detection.pulse_count, 24);
   EXPECT_EQ(decoded.policy.lifecycle.max_miss_before_lost, 3U);
   EXPECT_TRUE(decoded.policy.tracking.enable_kalman_filter);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.kalman_measurement_noise_std, 5.5f);

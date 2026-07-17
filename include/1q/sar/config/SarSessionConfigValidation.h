@@ -30,7 +30,9 @@ enum class ConfigValidationCode {
   kAzimuthPulseCountZero,                /**< 方位脉冲数为 0 */
   kRangeSampleCountZero,                 /**< 距离采样点数为 0 */
   kDesiredResolutionNotPositive,         /**< 期望分辨率 <= 0 */
-  kSampleWindowTooSmallForPulse          /**< 距离采样窗口装不下脉冲宽度（ceil(pulse_width*sample_rate) > range_sample_count）*/
+  kSampleWindowTooSmallForPulse,         /**< 距离采样窗口装不下脉冲宽度（ceil(pulse_width*sample_rate) > range_sample_count）*/
+  kRetainRawHistoryRequiresRawEcho,      /**< 请求返回 raw history 但 raw echo generation 关闭 */
+  kSquintAngleInvalid                    /**< squint 上限非有限或不在 [0, 90) */
 };
 
 /**

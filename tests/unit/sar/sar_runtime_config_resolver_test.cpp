@@ -111,6 +111,19 @@ TEST(SarRuntimeConfigResolverTest, L1RdaBlockedEvenIfCurrentConfigEnabledRawEcho
   EXPECT_FALSE(resolved.is_valid);
 }
 
+TEST(SarRuntimeConfigResolverTest, RetainRawHistoryWithoutRawEchoRejectsWholePatch) {
+  const config::SarRuntimeConfigPatch patch = sar_config::SarRuntimeConfigBuilder()
+                                                   .WithEnableRawEchoGeneration(false)
+                                                   .WithRetainRawPhaseHistory(true)
+                                                   .Build();
+  const SarRuntimeConfigResolveResult resolved =
+      ResolveSarRuntimeConfigPatch(config::SarSessionConfig{}, patch);
+  EXPECT_TRUE(resolved.has_requested_update);
+  EXPECT_FALSE(resolved.is_valid);
+  EXPECT_FALSE(resolved.next_config.policy.retain_raw_phase_history);
+  EXPECT_TRUE(resolved.next_config.policy.enable_raw_echo_generation);
+}
+
 }  // namespace
 }  // namespace internal
 }  // namespace session

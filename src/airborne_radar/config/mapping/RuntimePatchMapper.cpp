@@ -70,7 +70,17 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
 
   if (patch.has_policy) {
     next_execution_config.detection.beam_control = patch.policy.beam_control;
-    next_execution_config.association.policy = patch.policy.association;
+    next_execution_config.detection.engineering.detection_policy.cfar_pfa =
+        patch.policy.detection.pfa;
+    next_execution_config.detection.engineering.detection_policy.min_snr_db =
+        patch.policy.detection.minimum_snr_db;
+    next_execution_config.detection.engineering.pulse_count =
+        patch.policy.detection.pulse_count;
+    next_execution_config.detection.engineering.min_detection_margin_db =
+        patch.policy.detection.minimum_detection_margin_db;
+    next_execution_config.association.policy.unassigned_cost =
+        patch.policy.association.distance_gate_sigma *
+        patch.policy.association.distance_gate_sigma;
     next_execution_config.tracking.policy = patch.policy.tracking;
     next_execution_config.lifecycle.policy = patch.policy.lifecycle;
     policy_changed = true;
@@ -149,10 +159,23 @@ config::ArSessionConfig MapExecutionToSession(
     const execution::InternalExecutionConfig& execution_config) {
   config::ArSessionConfig config;
   config.mission.power_on = execution_config.sensor_enabled;
-  config.hardware = execution_config.detection.engineering;
+  config.hardware.enable_physics_detection =
+      execution_config.detection.engineering.enable_physics_detection;
+  config.hardware.transmitter = execution_config.detection.engineering.transmitter;
+  config.hardware.antenna = execution_config.detection.engineering.antenna;
+  config.hardware.receiver = execution_config.detection.engineering.receiver;
+  config.hardware.rcs_physics = execution_config.detection.engineering.rcs_physics;
   config.mission.orientation = execution_config.detection.orientation;
   config.policy.beam_control = execution_config.detection.beam_control;
-  config.policy.association = execution_config.association.policy;
+  config.policy.detection.pfa =
+      execution_config.detection.engineering.detection_policy.cfar_pfa;
+  config.policy.detection.minimum_snr_db =
+      execution_config.detection.engineering.detection_policy.min_snr_db;
+  config.policy.detection.pulse_count = execution_config.detection.engineering.pulse_count;
+  config.policy.detection.minimum_detection_margin_db =
+      execution_config.detection.engineering.min_detection_margin_db;
+  config.policy.association.distance_gate_sigma =
+      std::sqrt(execution_config.association.policy.unassigned_cost);
   config.policy.tracking = execution_config.tracking.policy;
   config.policy.lifecycle = execution_config.lifecycle.policy;
   return config;

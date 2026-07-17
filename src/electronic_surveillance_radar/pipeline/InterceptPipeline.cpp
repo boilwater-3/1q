@@ -1,5 +1,6 @@
 #include "electronic_surveillance_radar/pipeline/InterceptPipeline.h"
 
+#include <cmath>
 #include <utility>
 
 #include "common/logging/ProjectLog.h"
@@ -38,6 +39,16 @@ extension::InterceptAssociationConfig BuildAssociationConfig(const RuntimeTrackC
   return assoc;
 }
 
+bool HasSameScanGeometry(const extension::InterceptScanConfig& lhs,
+                         const extension::InterceptScanConfig& rhs) {
+  return lhs.scan_start_az_deg == rhs.scan_start_az_deg &&
+         lhs.scan_end_az_deg == rhs.scan_end_az_deg &&
+         lhs.scan_start_el_deg == rhs.scan_start_el_deg &&
+         lhs.scan_end_el_deg == rhs.scan_end_el_deg && lhs.az_step_deg == rhs.az_step_deg &&
+         lhs.el_step_deg == rhs.el_step_deg && lhs.scan_start_pos == rhs.scan_start_pos &&
+         lhs.scan_sequence == rhs.scan_sequence;
+}
+
 }  // namespace
 
 InterceptPipeline::InterceptPipeline(EsrInternalExecutionConfig config)
@@ -50,6 +61,9 @@ InterceptPipeline::InterceptPipeline(EsrInternalExecutionConfig config)
 }
 
 void InterceptPipeline::UpdateConfig(const EsrInternalExecutionConfig& config) {
+  if (!HasSameScanGeometry(config_.resolved_scan, config.resolved_scan)) {
+    scan_phase_cycles_ = 0.0;
+  }
   config_ = config;
   // 重建依赖 config_ 的派生状态（feature_scales、associator）。
   feature_scales_ = BuildFeatureScales(config_.intercept.cluster);
@@ -77,7 +91,7 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
   ctx.BeginCycle(input_state, environment_snapshot, pipeline_config, runtime_config);
 
   const InterceptDetectionOutput detection_output =
-      detection_executor_.Execute(ctx, rng_, next_observation_id_);
+      detection_executor_.Execute(ctx, rng_, next_observation_id_, &scan_phase_cycles_);
 
   result = post_processing_executor_.Execute(detection_output.raw_records, ctx, preprocessor_,
                                              clusterer_, associator_, feature_scales_,
@@ -94,27 +108,33 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
 extension::InterceptPipelineRuntimeState InterceptPipeline::CaptureRuntimeState() const {
   auto snapshot = std::make_shared<PipelineRuntimeSnapshot>();
   snapshot->rng = rng_;
+  snapshot->scan_phase_cycles = scan_phase_cycles_;
   snapshot->next_observation_id = next_observation_id_;
   snapshot->next_hypothesis_id = next_hypothesis_id_;
   snapshot->tracks = associator_.CaptureTracks();
 
   extension::InterceptPipelineRuntimeState state;
   state.owner_identity = this;
-  state.schema_version = 1U;
+  state.schema_version = 2U;
   CapturePipelineSnapshot(state, snapshot);
   return state;
 }
 
 bool InterceptPipeline::RestoreRuntimeState(
     const extension::InterceptPipelineRuntimeState& state) {
-  if (state.owner_identity != this || state.schema_version != 1U) {
+  if (state.owner_identity != this || state.schema_version != 2U) {
     return false;
   }
   const auto* snapshot = RestorePipelineSnapshot(state);
   if (snapshot == nullptr) {
     return false;
   }
+  if (std::isfinite(snapshot->scan_phase_cycles) == 0 ||
+      snapshot->scan_phase_cycles < 0.0 || snapshot->scan_phase_cycles >= 1.0) {
+    return false;
+  }
   rng_ = snapshot->rng;
+  scan_phase_cycles_ = snapshot->scan_phase_cycles;
   next_observation_id_ = snapshot->next_observation_id;
   next_hypothesis_id_ = snapshot->next_hypothesis_id;
   associator_.RestoreTracks(snapshot->tracks);

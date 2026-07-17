@@ -523,9 +523,6 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
       value.antenna.antenna_length_m, value.antenna.antenna_width_m);
   const flatbuffers::Offset<session_fb::ReceiverConfig> receiver = session_fb::CreateReceiverConfig(
       *builder, value.receiver.noise_figure_db, value.receiver.receive_loss_db);
-  const flatbuffers::Offset<session_fb::DetectionPolicyConfig> policy =
-      session_fb::CreateDetectionPolicyConfig(*builder, value.detection_policy.cfar_pfa,
-                                              value.detection_policy.min_snr_db);
   const flatbuffers::Offset<session_fb::RcsPhysicsConfig> rcs_physics =
       session_fb::CreateRcsPhysicsConfig(
           *builder, value.rcs_physics.enable_physical_rcs, value.rcs_physics.frequency_hz,
@@ -536,16 +533,19 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
   return session_fb::CreateDetectionConfig(
       *builder, value.enable_physics_detection,
       static_cast<int>(config::profiles::SwerlingModel::kSwerling0), transmitter,
-      antenna, receiver, policy, rcs_physics, value.min_detection_margin_db, value.pulse_count);
+      antenna, receiver, rcs_physics);
 }
 
 flatbuffers::Offset<session_fb::ArPolicyConfig> EncodeSessionPolicyConfig(
     flatbuffers::FlatBufferBuilder* builder, const config::ArPolicyConfig& value) {
+  const flatbuffers::Offset<session_fb::ArDetectionPolicyConfig> detection =
+      session_fb::CreateArDetectionPolicyConfig(
+          *builder, value.detection.minimum_snr_db, value.detection.pfa,
+          value.detection.pulse_count, value.detection.minimum_detection_margin_db);
   const flatbuffers::Offset<session_fb::BeamPointingConfig> pointing =
       session_fb::CreateBeamPointingConfig(
-          *builder, EncodeSessionAzEl(builder, value.beam_control.pointing.default_scan_center_deg),
-          EncodeSessionCommandedBeamwidth(builder,
-                                          value.beam_control.pointing.nominal_beamwidth_deg));
+          *builder, EncodeSessionCommandedBeamwidth(
+                        builder, value.beam_control.pointing.nominal_beamwidth_deg));
   const flatbuffers::Offset<session_fb::BeamSchedulerConfig> scheduler =
       session_fb::CreateBeamSchedulerConfig(*builder,
                                             value.beam_control.scheduler.azimuth_step_count_hint,
@@ -554,9 +554,7 @@ flatbuffers::Offset<session_fb::ArPolicyConfig> EncodeSessionPolicyConfig(
   const flatbuffers::Offset<session_fb::BeamControlConfig> beam_control =
       session_fb::CreateBeamControlConfig(*builder, pointing, scheduler);
   const flatbuffers::Offset<session_fb::AssociationConfig> association =
-      session_fb::CreateAssociationConfig(*builder, value.association.unassigned_cost,
-                                          value.association.use_distance_gate_hint,
-                                          value.association.distance_gate_sigma_hint);
+      session_fb::CreateAssociationConfig(*builder, value.association.distance_gate_sigma);
   const flatbuffers::Offset<session_fb::TrackingConfig> tracking = session_fb::CreateTrackingConfig(
       *builder, value.tracking.enable_kalman_filter, value.tracking.kalman_measurement_noise_std,
       value.tracking.speed_decay_ratio_on_loss, value.tracking.rcs_decay_ratio_on_loss);
@@ -566,8 +564,8 @@ flatbuffers::Offset<session_fb::ArPolicyConfig> EncodeSessionPolicyConfig(
           value.lifecycle.max_lost_cycles, value.lifecycle.enable_imm_lifecycle);
   const flatbuffers::Offset<session_fb::ImmConfig> imm = session_fb::CreateImmConfig(
       *builder, value.lifecycle.enable_imm_lifecycle, value.lifecycle.model_count_hint);
-  return session_fb::CreateArPolicyConfig(*builder, beam_control, association, tracking,
-                                             lifecycle, imm);
+  return session_fb::CreateArPolicyConfig(*builder, detection, beam_control, association,
+                                          tracking, lifecycle, imm);
 }
 
 flatbuffers::Offset<session_fb::AtmosphericPhysicsConfig> EncodeSessionAtmosphericPhysicsConfig(
@@ -729,11 +727,6 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
       result.receiver.noise_figure_db = receiver->noise_figure_db();
       result.receiver.receive_loss_db = receiver->receive_loss_db();
     }
-    const session_fb::DetectionPolicyConfig* policy = value->detection_policy();
-    if (policy != nullptr) {
-      result.detection_policy.cfar_pfa = policy->cfar_pfa();
-      result.detection_policy.min_snr_db = policy->min_snr_db();
-    }
     const session_fb::RcsPhysicsConfig* rcs_physics = value->rcs_physics();
     if (rcs_physics != nullptr) {
       result.rcs_physics.enable_physical_rcs = rcs_physics->enable_physical_rcs();
@@ -746,8 +739,6 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
       result.rcs_physics.max_rcs_m2 = rcs_physics->max_rcs_m2();
       result.rcs_physics.bistatic_psi_offset_deg = rcs_physics->bistatic_psi_offset_deg();
     }
-    result.min_detection_margin_db = value->min_detection_margin_db();
-    result.pulse_count = value->pulse_count();
   }
   return result;
 }
@@ -755,12 +746,18 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
 config::ArPolicyConfig DecodeSessionPolicyConfig(const session_fb::ArPolicyConfig* value) {
   config::ArPolicyConfig result;
   if (value != nullptr) {
+    const session_fb::ArDetectionPolicyConfig* detection = value->detection();
+    if (detection != nullptr) {
+      result.detection.minimum_snr_db = detection->minimum_snr_db();
+      result.detection.pfa = detection->pfa();
+      result.detection.pulse_count = detection->pulse_count();
+      result.detection.minimum_detection_margin_db =
+          detection->minimum_detection_margin_db();
+    }
     const session_fb::BeamControlConfig* beam_control = value->beam_control();
     if (beam_control != nullptr) {
       const session_fb::BeamPointingConfig* pointing = beam_control->pointing();
       if (pointing != nullptr) {
-        result.beam_control.pointing.default_scan_center_deg =
-            DecodeSessionAzEl(pointing->default_scan_center_deg());
         result.beam_control.pointing.nominal_beamwidth_deg =
             DecodeSessionCommandedBeamwidth(pointing->nominal_beamwidth_deg());
       }
@@ -776,9 +773,7 @@ config::ArPolicyConfig DecodeSessionPolicyConfig(const session_fb::ArPolicyConfi
     }
     const session_fb::AssociationConfig* association = value->association();
     if (association != nullptr) {
-      result.association.unassigned_cost = association->unassigned_cost();
-      result.association.use_distance_gate_hint = association->use_distance_gate_hint();
-      result.association.distance_gate_sigma_hint = association->distance_gate_sigma_hint();
+      result.association.distance_gate_sigma = association->distance_gate_sigma();
     }
     const session_fb::TrackingConfig* tracking = value->tracking();
     if (tracking != nullptr) {

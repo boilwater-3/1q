@@ -180,6 +180,27 @@ TEST(EsrRuntimeConfigResolverTest, MissionDomainPatchUpdatesMissionAndResolvedSc
   EXPECT_FLOAT_EQ(resolved.next_config.detection.threshold_scale, 0.85f);
 }
 
+TEST(EsrRuntimeConfigResolverTest, MissionDomainPatchRejectsInvalidScanRateAtomically) {
+  EsrInternalExecutionConfig current_config;
+  current_config.mission.power_on = true;
+  current_config.mission.scan.scan_rate_hz = 2.0f;
+
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_mission = true;
+  patch.mission = current_config.mission;
+  patch.mission.power_on = false;
+  patch.mission.scan.scan_rate_hz = std::numeric_limits<float>::infinity();
+
+  const EsrRuntimeConfigResolveResult resolved =
+      ResolveEsrRuntimeConfigPatch(current_config, patch);
+
+  EXPECT_TRUE(resolved.has_requested_update);
+  EXPECT_FALSE(resolved.is_valid);
+  EXPECT_EQ(resolved.status, EsrRuntimeConfigApplyStatus::kRejectedInvalidScanRate);
+  EXPECT_TRUE(resolved.next_config.mission.power_on);
+  EXPECT_FLOAT_EQ(resolved.next_config.mission.scan.scan_rate_hz, 2.0f);
+}
+
 TEST(EsrRuntimeConfigResolverTest, MissionAndPolicyPatchAppliesWorkModeAfterPolicy) {
   EsrInternalExecutionConfig current_config;
   current_config.mission.work_mode = config::EsrWorkMode::kEsm;

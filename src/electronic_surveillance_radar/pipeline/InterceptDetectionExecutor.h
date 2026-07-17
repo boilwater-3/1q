@@ -48,10 +48,12 @@ class InterceptDetectionExecutor {
    * @param[in] ctx 周期上下文。
    * @param[in,out] rng 随机引擎。
    * @param[in,out] next_observation_id 观测 ID 分配器。
+   * @param[in,out] scan_phase_cycles 归一化完整扫描图循环相位。
    * @return 检测阶段输出。
    */
   InterceptDetectionOutput Execute(const MutableEsrContext& ctx, std::mt19937& rng,
-                                   std::uint64_t& next_observation_id);
+                                   std::uint64_t& next_observation_id,
+                                   double* scan_phase_cycles);
 
  private:
   /**

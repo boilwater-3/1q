@@ -37,8 +37,8 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults
   const auto config = config::ArSessionConfigBuilder().Build();
 
   EXPECT_FALSE(config.hardware.enable_physics_detection);
-  EXPECT_FLOAT_EQ(config.hardware.min_detection_margin_db, -2.0f);
-  EXPECT_EQ(config.hardware.pulse_count, 10);
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_detection_margin_db, -2.0f);
+  EXPECT_EQ(config.policy.detection.pulse_count, 10);
   EXPECT_FALSE(config.policy.tracking.enable_kalman_filter);
   EXPECT_EQ(config.policy.lifecycle.confirm_hits, 3U);
   EXPECT_EQ(config.policy.lifecycle.max_miss_before_lost, 2U);
@@ -48,8 +48,8 @@ TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults
 TEST(RadarSessionConfigBuilderTest, ExistingBuilderBasePreservesSemanticValues) {
   const auto config = config::ArSessionConfigBuilder(MakeDetectionFocusedConfig()).Build();
 
-  EXPECT_EQ(config.hardware.pulse_count, 16);
-  EXPECT_FLOAT_EQ(config.hardware.detection_policy.min_snr_db, -12.0f);
+  EXPECT_EQ(config.policy.detection.pulse_count, 16);
+  EXPECT_FLOAT_EQ(config.policy.detection.minimum_snr_db, -12.0f);
   EXPECT_FLOAT_EQ(config.policy.tracking.kalman_measurement_noise_std, 6.0f);
   EXPECT_EQ(config.policy.lifecycle.confirm_hits, 1U);
 }
@@ -97,7 +97,7 @@ TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
 
   EXPECT_TRUE(config.hardware.enable_physics_detection);
   EXPECT_FLOAT_EQ(config.hardware.transmitter.peak_power_w, 5.0e6f);
-  EXPECT_EQ(config.hardware.pulse_count, 8);
+  EXPECT_EQ(config.policy.detection.pulse_count, 8);
   EXPECT_FLOAT_EQ(config.hardware.antenna.pattern.max_sidelobe_level_db, -30.0f);
   EXPECT_TRUE(config.hardware.rcs_physics.enable_physical_rcs);
   EXPECT_FLOAT_EQ(config.hardware.rcs_physics.physics_mix_ratio, 0.60f);
@@ -291,7 +291,6 @@ TEST(RadarSessionConfigBuilderTest, DetailedBeamSchedulerWritesPolicyPath) {
   detailed_config.policy.beam_control.scheduler.azimuth_step_count_hint = 8U;
   detailed_config.policy.beam_control.scheduler.elevation_step_count_hint = 4U;
   detailed_config.policy.beam_control.scheduler.prefer_dense_tas_sampling = true;
-  detailed_config.policy.beam_control.pointing.default_scan_center_deg = default_scan_center;
   detailed_config.mission.orientation.scan_center_deg = default_scan_center;
   detailed_config.policy.beam_control.pointing.nominal_beamwidth_deg = nominal_beamwidth;
   detailed_config.mission.orientation.commanded_beamwidth_deg = nominal_beamwidth;

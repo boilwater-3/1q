@@ -1,6 +1,9 @@
 #include "SarReplayFlatbufferCodec.h"
 
+#include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -290,8 +293,14 @@ std::string EncodeSarCycleResult(const SarCycleResult& value) {
         fbb, static_cast<std::int32_t>(diagnostic.severity), fbb.CreateString(diagnostic.code),
         fbb.CreateString(diagnostic.message)));
   }
+  const auto raw_phase_history = replay::CreateSarRawPhaseHistory(
+      fbb, static_cast<std::int32_t>(value.raw_phase_history.source),
+      value.raw_phase_history.pulse_count, value.raw_phase_history.samples_per_pulse,
+      fbb.CreateVector(value.raw_phase_history.i_values),
+      fbb.CreateVector(value.raw_phase_history.q_values));
   fbb.Finish(replay::CreateSarCycleResult(fbb, value.input_cycle_index, frame,
-                                          fbb.CreateVector(diagnostic_offsets), value.has_error,
+                                          fbb.CreateVector(diagnostic_offsets), raw_phase_history,
+                                          value.has_error,
                                           value.executed_this_cycle, value.reused_previous_output,
                                           fbb.CreateString(value.abort_reason)));
   return FinishToString(&fbb);
@@ -316,6 +325,33 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
       decoded.code = issue->code() ? issue->code()->str() : std::string();
       decoded.message = issue->message() ? issue->message()->str() : std::string();
       out->diagnostics.push_back(decoded);
+    }
+  }
+  out->raw_phase_history = SarRawPhaseHistory{};
+  if (fb->raw_phase_history()) {
+    const auto* raw = fb->raw_phase_history();
+    const std::size_t pulse_count = raw->pulse_count();
+    const std::size_t samples_per_pulse = raw->samples_per_pulse();
+    if (samples_per_pulse != 0U &&
+        pulse_count > std::numeric_limits<std::size_t>::max() / samples_per_pulse) {
+      return false;
+    }
+    const std::size_t expected_size = pulse_count * samples_per_pulse;
+    if (raw->i_values() == nullptr || raw->q_values() == nullptr ||
+        raw->i_values()->size() != expected_size || raw->q_values()->size() != expected_size) {
+      return false;
+    }
+    out->raw_phase_history.source =
+        static_cast<SarRawPhaseHistorySource>(raw->source());
+    out->raw_phase_history.pulse_count = raw->pulse_count();
+    out->raw_phase_history.samples_per_pulse = raw->samples_per_pulse();
+    out->raw_phase_history.i_values.assign(raw->i_values()->begin(), raw->i_values()->end());
+    out->raw_phase_history.q_values.assign(raw->q_values()->begin(), raw->q_values()->end());
+    for (std::size_t index = 0U; index < expected_size; ++index) {
+      if (std::isfinite(out->raw_phase_history.i_values[index]) == 0 ||
+          std::isfinite(out->raw_phase_history.q_values[index]) == 0) {
+        return false;
+      }
     }
   }
   out->has_error = fb->has_error();

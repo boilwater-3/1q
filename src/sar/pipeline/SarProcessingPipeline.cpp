@@ -15,6 +15,8 @@ namespace pipeline {
 namespace {
 
 constexpr std::uint32_t kPipelineRuntimeStateSchemaVersion = 1U;
+constexpr double kEarthRadiusM = 6378137.0;
+constexpr double kRadiansToDegrees = 180.0 / 3.141592653589793238462643383279502884;
 
 bool HasDegenerateImagePeak(const session::SarCycleResult& result,
                             const session::SarCycleInput& input) {
@@ -36,6 +38,86 @@ bool HasDegenerateImagePeak(const session::SarCycleResult& result,
     return true;
   }
   return false;
+}
+
+void ExportRawPhaseHistory(const signal::ComplexMatrix& raw_history,
+                           session::SarRawPhaseHistorySource source,
+                           session::SarRawPhaseHistory* output) {
+  if (output == nullptr) {
+    return;
+  }
+  output->source = source;
+  output->pulse_count = static_cast<std::uint32_t>(raw_history.rows);
+  output->samples_per_pulse = static_cast<std::uint32_t>(raw_history.cols);
+  output->i_values.reserve(raw_history.values.size());
+  output->q_values.reserve(raw_history.values.size());
+  for (const signal::ComplexSample& sample : raw_history.values) {
+    output->i_values.push_back(sample.real());
+    output->q_values.push_back(sample.imag());
+  }
+}
+
+double ComputeSquintAngleDeg(const geometry::PlatformPulseState& pulse) {
+  const double speed = std::sqrt(pulse.velocity_x_mps * pulse.velocity_x_mps +
+                                 pulse.velocity_y_mps * pulse.velocity_y_mps +
+                                 pulse.velocity_z_mps * pulse.velocity_z_mps);
+  const double los_x = -pulse.position_m.x_m;
+  const double los_y = -pulse.position_m.y_m;
+  const double los_z = -pulse.position_m.z_m;
+  const double range = std::sqrt(los_x * los_x + los_y * los_y + los_z * los_z);
+  if (speed <= 0.0 || range <= 0.0) {
+    return 0.0;
+  }
+  const double along_track_cosine =
+      std::abs((pulse.velocity_x_mps * los_x + pulse.velocity_y_mps * los_y +
+                pulse.velocity_z_mps * los_z) /
+               (speed * range));
+  return std::asin(std::min(1.0, along_track_cosine)) * kRadiansToDegrees;
+}
+
+geometry::PlatformPulseState BuildCurrentPlatformPulse(
+    const config::SarMissionConfig& mission, const session::SarPlatformState& platform) {
+  const double degrees_to_radians = 1.0 / kRadiansToDegrees;
+  const double reference_latitude_rad = mission.scene_center_latitude_deg * degrees_to_radians;
+  geometry::PlatformPulseState pulse;
+  pulse.position_m.x_m =
+      (platform.longitude_deg - mission.scene_center_longitude_deg) * degrees_to_radians *
+      std::cos(reference_latitude_rad) * kEarthRadiusM;
+  pulse.position_m.y_m =
+      (platform.latitude_deg - mission.scene_center_latitude_deg) * degrees_to_radians *
+      kEarthRadiusM;
+  pulse.position_m.z_m = platform.altitude_m - mission.scene_center_altitude_m;
+  pulse.velocity_x_mps = platform.velocity_east_mps;
+  pulse.velocity_y_mps = platform.velocity_north_mps;
+  pulse.velocity_z_mps = -platform.velocity_down_mps;
+  return pulse;
+}
+
+double ResolveMaximumSquintAngleDeg(
+    const config::SarMissionConfig& mission, const session::SarCycleInput& input,
+    const signal::ComplexMatrix& raw_history,
+    const std::deque<geometry::PlatformPulseState>& actual_trajectory) {
+  double maximum_angle_deg = 0.0;
+  if (input.raw_iq.pulse_states.size() == raw_history.rows && raw_history.rows != 0U) {
+    for (const session::SarRawIqFrame::PulseState& state : input.raw_iq.pulse_states) {
+      geometry::PlatformPulseState pulse;
+      pulse.position_m.x_m = state.position_x_m;
+      pulse.position_m.y_m = state.position_y_m;
+      pulse.position_m.z_m = state.position_z_m;
+      pulse.velocity_x_mps = state.velocity_x_mps;
+      pulse.velocity_y_mps = state.velocity_y_mps;
+      pulse.velocity_z_mps = state.velocity_z_mps;
+      maximum_angle_deg = std::max(maximum_angle_deg, ComputeSquintAngleDeg(pulse));
+    }
+    return maximum_angle_deg;
+  }
+  if (!actual_trajectory.empty() && actual_trajectory.size() == raw_history.rows) {
+    for (const geometry::PlatformPulseState& pulse : actual_trajectory) {
+      maximum_angle_deg = std::max(maximum_angle_deg, ComputeSquintAngleDeg(pulse));
+    }
+    return maximum_angle_deg;
+  }
+  return ComputeSquintAngleDeg(BuildCurrentPlatformPulse(mission, input.platform));
 }
 
 }  // namespace
@@ -72,14 +154,18 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
   }
 
   signal::ComplexMatrix raw_history;
+  session::SarRawPhaseHistorySource raw_history_source =
+      session::SarRawPhaseHistorySource::kNone;
   if (config.policy.enable_raw_echo_generation) {
     if (session::HasExternalRawIq(input)) {
+      raw_history_source = session::SarRawPhaseHistorySource::kExternalRawIq;
       if (!session::BuildExternalRawIqHistory(config, input, &raw_history,
                                               &impl_->ideal_trajectory_buffer,
                                               &impl_->actual_trajectory_buffer, result)) {
         return false;
       }
     } else {
+      raw_history_source = session::SarRawPhaseHistorySource::kInternallyGenerated;
       if (!session::BuildRawPulseHistory(config, input, waveform.samples, &impl_->raw_pulse_buffer,
                                          &impl_->next_pulse_id, &impl_->pulse_fraction_carry,
                                          &raw_history, &impl_->ideal_trajectory_buffer,
@@ -93,6 +179,15 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
         result->output_frame.estimated_snr_db < config.policy.minimum_snr_db) {
       session::RecordAbort(result, "snr_below_minimum",
                            "SAR estimated SNR is below the configured minimum valid SNR.");
+      return false;
+    }
+  }
+  if (config.policy.enable_l1_rda_imaging || config.policy.enable_l3_bp_imaging) {
+    const double maximum_squint_angle_deg = ResolveMaximumSquintAngleDeg(
+        config.mission, input, raw_history, impl_->actual_trajectory_buffer);
+    if (maximum_squint_angle_deg > config.policy.max_allowed_squint_angle_deg) {
+      session::RecordAbort(result, "squint_angle_exceeds_limit",
+                           "SAR aperture squint angle exceeds the configured imaging limit.");
       return false;
     }
   }
@@ -119,6 +214,10 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
         "SAR focused image has zero peak power; the echo/focusing pipeline produced no "
         "signal. Check sar.raw_echo_clipping and sar.slant_range_mismatch diagnostics.");
     return false;
+  }
+
+  if (config.policy.retain_raw_phase_history) {
+    ExportRawPhaseHistory(raw_history, raw_history_source, &result->raw_phase_history);
   }
 
   result->executed_this_cycle = true;

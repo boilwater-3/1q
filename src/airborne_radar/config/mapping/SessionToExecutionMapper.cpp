@@ -11,9 +11,12 @@ execution::InternalExecutionConfig MapSessionToExecution(
   execution::InternalExecutionConfig exec;
 
   exec.sensor_enabled = session_config.mission.power_on;
-  exec.detection.engineering = session_config.hardware;
+  exec.detection.engineering =
+      ResolveDetectionEngineering(session_config.hardware, session_config.policy.detection);
   exec.detection.beam_control = session_config.policy.beam_control;
-  exec.association.policy = session_config.policy.association;
+  exec.association.policy.unassigned_cost =
+      session_config.policy.association.distance_gate_sigma *
+      session_config.policy.association.distance_gate_sigma;
   exec.tracking.policy = session_config.policy.tracking;
   exec.lifecycle.policy = session_config.policy.lifecycle;
   exec.detection.orientation = session_config.mission.orientation;

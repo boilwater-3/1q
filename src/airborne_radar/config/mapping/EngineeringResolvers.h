@@ -17,6 +17,22 @@ namespace airborne_radar {
 namespace config {
 namespace mapping {
 
+inline engineering::DetectionConfig ResolveDetectionEngineering(
+    const detection::DetectionConfig& hardware,
+    const ArDetectionPolicyConfig& policy) {
+  engineering::DetectionConfig resolved;
+  resolved.enable_physics_detection = hardware.enable_physics_detection;
+  resolved.transmitter = hardware.transmitter;
+  resolved.antenna = hardware.antenna;
+  resolved.receiver = hardware.receiver;
+  resolved.rcs_physics = hardware.rcs_physics;
+  resolved.detection_policy.cfar_pfa = policy.pfa;
+  resolved.detection_policy.min_snr_db = policy.minimum_snr_db;
+  resolved.pulse_count = policy.pulse_count;
+  resolved.min_detection_margin_db = policy.minimum_detection_margin_db;
+  return resolved;
+}
+
 /**
  * @brief 将公开 LifecycleConfig 字段拷贝到 engineering 侧运行态配置。
  * @param[in] lifecycle 会话侧的生命周期策略参数。

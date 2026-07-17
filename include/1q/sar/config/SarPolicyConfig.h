@@ -21,9 +21,9 @@ struct ONEQ_API SarPolicyConfig {
   bool enable_l2_motion_compensation{false};  /**< 是否启用 L2 一阶运动补偿 */
   bool enable_l3_bp_imaging{false};           /**< 是否启用 L3 BP 聚焦成像 */
   bool enable_diagnostics{true};              /**< 是否返回非错误诊断。关闭时仍保留错误诊断和 abort_reason */
-  bool retain_raw_phase_history{false};       /**< 保留字段：当前 public result 不返回 raw phase history，仅 replay/config 保真 */
+  bool retain_raw_phase_history{false};       /**< 是否在成功周期的 SarCycleResult 中返回实际使用的完整孔径 I/Q 相位历史；要求同时启用 raw echo generation。 */
   bool retain_focused_image{true};            /**< 是否在 SarCycleResult 中返回完整聚焦复图像。默认开启以保持向后兼容；关闭时 focused_image 仅含占位元数据（is_placeholder=true），可避免大图拷贝 */
-  double max_allowed_squint_angle_deg{5.0};   /**< 保留字段：当前 session 尚未实现 squint-angle runtime gate */
+  double max_allowed_squint_angle_deg{5.0};   /**< 成像路径允许的最大绝对 squint 角，范围 [0, 90) deg；raw-echo-only 不执行该门。 */
   double minimum_snr_db{-10.0};               /**< 原始孔径峰均功率比估算 SNR 的最低有效门限，低于该值时本周期中止。全零/空孔径返回不可估计值，不触发该低 SNR 门控 */
 };
 

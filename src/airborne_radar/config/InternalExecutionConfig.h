@@ -104,11 +104,15 @@ struct DetectionExecutionConfig {
   engineering::DetectionConfig engineering{};
 };
 
+struct AssociationPolicyConfig {
+  float unassigned_cost{9.0f};
+};
+
 /**
  * @brief 数据关联相关执行配置。
  */
 struct AssociationExecutionConfig {
-  AssociationConfig policy{};
+  AssociationPolicyConfig policy{};
 };
 
 /**

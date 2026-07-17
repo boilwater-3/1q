@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <limits>
 
 #include "1q/airborne_radar/config/ArRuntimeConfigBuilder.h"
@@ -130,22 +131,22 @@ TEST(ArRuntimePatchMapperTest, InvalidPatchIsRejectedAtomically) {
 
 TEST(ArRuntimePatchMapperTest, MapExecutionToSessionRoundTripsFields) {
   config::ArSessionConfig original;
-  original.hardware.min_detection_margin_db = -3.0f;
-  original.hardware.pulse_count = 20;
+  original.policy.detection.minimum_detection_margin_db = -3.0f;
+  original.policy.detection.pulse_count = 20;
   original.mission.orientation.scan_center_deg.az_deg = 45.0f;
   original.mission.orientation.scan_center_deg.el_deg = 10.0f;
   original.policy.tracking.speed_decay_ratio_on_loss = 0.9f;
-  original.policy.association.unassigned_cost = 12.0f;
+  original.policy.association.distance_gate_sigma = std::sqrt(12.0f);
 
   const execution::InternalExecutionConfig mapped = mapping::MapSessionToExecution(original);
   const config::ArSessionConfig round_tripped = mapping::MapExecutionToSession(mapped);
 
-  EXPECT_FLOAT_EQ(round_tripped.hardware.min_detection_margin_db, -3.0f);
-  EXPECT_EQ(round_tripped.hardware.pulse_count, 20);
+  EXPECT_FLOAT_EQ(round_tripped.policy.detection.minimum_detection_margin_db, -3.0f);
+  EXPECT_EQ(round_tripped.policy.detection.pulse_count, 20);
   EXPECT_FLOAT_EQ(round_tripped.mission.orientation.scan_center_deg.az_deg, 45.0f);
   EXPECT_FLOAT_EQ(round_tripped.mission.orientation.scan_center_deg.el_deg, 10.0f);
   EXPECT_FLOAT_EQ(round_tripped.policy.tracking.speed_decay_ratio_on_loss, 0.9f);
-  EXPECT_FLOAT_EQ(round_tripped.policy.association.unassigned_cost, 12.0f);
+  EXPECT_FLOAT_EQ(round_tripped.policy.association.distance_gate_sigma, std::sqrt(12.0f));
 }
 
 }  // namespace

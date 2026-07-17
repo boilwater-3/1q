@@ -277,30 +277,35 @@ std::pair<double, double> BuildReceiverWindow(
 }
 
 /**
- * @brief 根据扫描数据率解析当前周期激活波束索引。
- * @param[in] cycle_index 当前周期号。
+ * @brief 根据归一化循环相位解析当前周期激活波束并推进相位。
+ * @param[in,out] scan_phase_cycles 当前完整扫描图循环相位。
  * @param[in] dt_sec 周期步长（单位：s）。
  * @param[in] scan_pattern_size 扫描序列长度。
  * @param[in] runtime_config 会话运行态配置。
  * @return 激活波束索引。
  */
-std::size_t ResolveActiveBeamIndex(std::uint32_t cycle_index, float dt_sec,
+std::size_t ResolveActiveBeamIndex(double* scan_phase_cycles, float dt_sec,
                                    std::size_t scan_pattern_size,
                                    const extension::InterceptRuntimeConfig& runtime_config) {
-  if (scan_pattern_size == 0U) {
+  if (scan_pattern_size == 0U || scan_phase_cycles == nullptr) {
     return 0U;
   }
   const double safe_dt_sec =
-      (std::isfinite(dt_sec) != 0 && dt_sec > 0.0f) ? static_cast<double>(dt_sec) : 1.0;
+      (std::isfinite(dt_sec) != 0 && dt_sec > 0.0f) ? static_cast<double>(dt_sec) : 0.0;
   const double scan_rate_hz =
       (std::isfinite(runtime_config.scan_rate_hz) != 0 && runtime_config.scan_rate_hz > 0.0f)
           ? static_cast<double>(runtime_config.scan_rate_hz)
           : 1.0;
-  const double beam_advance_per_cycle = std::max(1.0, std::round(scan_rate_hz * safe_dt_sec));
-  const std::uint64_t stride = static_cast<std::uint64_t>(std::max(1.0, beam_advance_per_cycle));
-  const std::uint64_t beam_index = (static_cast<std::uint64_t>(cycle_index) * stride) %
-                                   static_cast<std::uint64_t>(scan_pattern_size);
-  return static_cast<std::size_t>(beam_index);
+  const double normalized_phase =
+      std::min(std::nextafter(1.0, 0.0), std::max(0.0, *scan_phase_cycles));
+  const std::size_t beam_index = static_cast<std::size_t>(
+      std::floor(normalized_phase * static_cast<double>(scan_pattern_size)));
+  double next_phase = std::fmod(normalized_phase + scan_rate_hz * safe_dt_sec, 1.0);
+  if (next_phase < 0.0) {
+    next_phase += 1.0;
+  }
+  *scan_phase_cycles = next_phase;
+  return beam_index;
 }
 
 /**
@@ -401,7 +406,8 @@ RawObservationRecord BuildDeceptionRecord(const RawObservationRecord& template_r
 
 InterceptDetectionOutput InterceptDetectionExecutor::Execute(const MutableEsrContext& ctx,
                                                              std::mt19937& rng,
-                                                             std::uint64_t& next_observation_id) {
+                                                             std::uint64_t& next_observation_id,
+                                                             double* scan_phase_cycles) {
   InterceptDetectionOutput output;
 
   const intercept::ScanPatternConfig scan_pattern_config =
@@ -411,7 +417,7 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const MutableEsrCon
     output.scan_pattern.push_back(intercept::BeamPointingDeg());
   }
   const std::size_t active_beam_index =
-      ResolveActiveBeamIndex(ctx.GetCycleIndex(), ctx.GetCycleDeltaTimeSec(),
+      ResolveActiveBeamIndex(scan_phase_cycles, ctx.GetCycleDeltaTimeSec(),
                              output.scan_pattern.size(), ctx.GetRuntimeConfig());
   const intercept::BeamPointingDeg active_beam = output.scan_pattern[active_beam_index];
 

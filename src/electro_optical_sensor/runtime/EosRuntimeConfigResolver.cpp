@@ -16,6 +16,37 @@ namespace runtime {
 namespace session {
 namespace {
 
+bool IsValidEnvironmentModelType(config::EosEnvironmentModelType model_type) {
+  switch (model_type) {
+    case config::EosEnvironmentModelType::kSimplified:
+    case config::EosEnvironmentModelType::kAdvanced:
+      return true;
+  }
+  return false;
+}
+
+bool IsValidEnvironmentPreset(config::EosEnvironmentPreset preset) {
+  switch (preset) {
+    case config::EosEnvironmentPreset::kStandard:
+    case config::EosEnvironmentPreset::kHumid:
+    case config::EosEnvironmentPreset::kDusty:
+    case config::EosEnvironmentPreset::kTurbulent:
+    case config::EosEnvironmentPreset::kMaritime:
+      return true;
+  }
+  return false;
+}
+
+bool IsValidRadiativeTransferModel(config::RadiativeTransferModel model) {
+  switch (model) {
+    case config::RadiativeTransferModel::kDerivedBeerLambert:
+    case config::RadiativeTransferModel::kHumidityWeighted:
+    case config::RadiativeTransferModel::kAdaptivePathRadiance:
+      return true;
+  }
+  return false;
+}
+
 bool IsValidMission(const config::EosMissionConfig& mission) {
   return oneq::common::validation::IsFinite(mission.scan_rate_deg_per_sec) &&
          mission.scan_rate_deg_per_sec > 0.0f &&
@@ -67,15 +98,25 @@ bool IsValidPolicy(const config::EosPolicyConfig& policy) {
 bool IsValidEnvironmentPatch(
     const config::EosEnvironmentRuntimeConfigPatch& environment_patch) {
   if (environment_patch.has_scenario_config) {
-    if (environment_patch.scenario_config.has_custom_overrides) {
-      if (!oneq::common::validation::IsFinite(
-              environment_patch.scenario_config.custom_overrides.aerosol_density_factor) ||
-          environment_patch.scenario_config.custom_overrides.aerosol_density_factor <= 0.0f) {
+    const config::EosEnvironmentScenarioConfig& scenario =
+        environment_patch.scenario_config;
+    if (!IsValidEnvironmentModelType(scenario.model_type) ||
+        !IsValidEnvironmentPreset(scenario.preset)) {
+      return false;
+    }
+    if (scenario.has_custom_overrides) {
+      if (!IsValidRadiativeTransferModel(
+              scenario.custom_overrides.radiative_transfer_model)) {
         return false;
       }
       if (!oneq::common::validation::IsFinite(
-              environment_patch.scenario_config.custom_overrides.turbulence_factor) ||
-          environment_patch.scenario_config.custom_overrides.turbulence_factor <= 0.0f) {
+              scenario.custom_overrides.aerosol_density_factor) ||
+          scenario.custom_overrides.aerosol_density_factor <= 0.0f) {
+        return false;
+      }
+      if (!oneq::common::validation::IsFinite(
+              scenario.custom_overrides.turbulence_factor) ||
+          scenario.custom_overrides.turbulence_factor <= 0.0f) {
         return false;
       }
     }

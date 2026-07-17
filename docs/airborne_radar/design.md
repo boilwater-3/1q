@@ -369,6 +369,12 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 - `ScanScheduleResolver` 将周期、扫描范围和 dwell center 转成当前扫描指向。
 - `BeamControlResolver` 综合天线工程配置、扫描中心、平台姿态、目标 look angle 和波长，给出 one-way antenna gain 与有效波束宽度。
 
+扫描中心只有一个 public source of truth：`ArMissionConfig::orientation.scan_center_deg`。policy 不再
+保留默认扫描中心或 replay-only 副本，Builder 档位也只写入 mission orientation。这样运行期扫描调度、
+波束指向和 replay roundtrip 对同一字段作相同解释。
+[evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
+
 天线波束宽度按轴独立解析，方位轴使用 `nominal_az_beamwidth_deg` / `antenna_length_m`，俯仰轴使用
 `nominal_el_beamwidth_deg` / `antenna_width_m`：
 
@@ -392,6 +398,12 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 相关测试覆盖坐标变换、扫描窗口、波束宽度、天线方向图、平台姿态耦合和控制配置跨周期生效。
 
 ### 2.5 探测执行：启发式路径与物理路径
+
+AR 的探测门限属于 policy，不属于 hardware。`ArPolicyConfig::detection` 统一承载
+`minimum_snr_db`、`pfa`、`pulse_count` 和 `minimum_detection_margin_db`；hardware 只描述发射机、
+接收机、天线、波形和量测等物理能力。semantic Builder 的 detection intent 只翻译为这组 policy 参数。
+[evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
 
 `DetectionExecution` 提供两类探测路径：
 
@@ -431,10 +443,16 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 2. 基于外部/lifecycle seeds 预测先验 track。
 3. 使用 `FullMahalanobisDistanceMetric`、`DenseCostHypothesiser` 和量测协方差生成关联假设。
 4. 构造方阵代价矩阵，使用 LAPJV assignment。
-5. 小于等于 unassigned cost 的匹配复用原 track key，其余生成新 track key。
+5. public `distance_gate_sigma` 以标准差倍数表达；内部 assignment 门限统一派生为
+   `distance_gate_sigma²`。小于等于该代价门限的匹配复用原 track key，其余生成新 track key。
 6. 计算 association quality metrics：prior、detection、matched、new、missed、match rate、new track rate、missed track rate、mean/p95 match cost。
 
 当前 association 不是 public 算法族扩展点。生产链路只有一条默认路径：`FullMahalanobisDistanceMetric` + `DenseCostHypothesiser` + `LapjvSolver`，没有 factory、runtime config 选择或用户可替换接口。`MahalanobisDistanceMetric` 等保留的具体类用于局部测试和算法对比，不代表已接入第二条生产实现。
+
+association public 配置不再暴露 `unassigned_cost`、启用 hint 或第二套 sigma hint；这些字段会制造多个
+互相竞争的门限来源。策略档位如需保持既有内部代价行为，必须在 Builder 中以平方根映射到唯一 sigma。
+[evidence: tests/unit/airborne_radar/ar_track_filter_test.cpp]
+[evidence: tests/unit/airborne_radar/ar_runtime_patch_mapper_test.cpp]
 
 只有当未来出现至少两个已接入生产路径、具备测试覆盖且语义稳定的 association 实现时，才允许新增用户可见配置来选择算法；在此之前，新增配置项不得只为“可能扩展”而暴露内部类或抽象基类。
 

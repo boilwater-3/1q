@@ -296,7 +296,24 @@ characterization/漂移检查；`DecodeEosSessionConfig` 不从这些派生字�
 | turbulent | `kAdaptivePathRadiance` | 1.3 | 1.8 | 湍流主导退化 |
 | maritime | `kHumidityWeighted` | 1.5 | 1.4 | 海洋湿度和气溶胶混合退化 |
 
-如果 `has_custom_overrides` 为真，custom model、aerosol、turbulence 会覆盖 preset 默认值。这个规则是设计契约的一部分，改变时必须同步本文、`docs/common/contract.md` 中的配置语义和相关测试。
+环境解析顺序固定为：**preset 建立基线 → custom 整组覆盖 → model_type 决定是否按实时环境动态修正**。
+
+- `has_custom_overrides=false` 时，custom 中的 radiative model、aerosol 和 turbulence 字段完全忽略，
+  即使其存储值非法也不参与本次解析。
+- `has_custom_overrides=true` 时，custom 三项必须作为整组生效；radiative model 枚举必须有效，两个
+  因子必须有限且大于零。
+- `model_type=kSimplified` 使用解析后的基线参数；`kAdvanced` 才依据实时云量、高度、湿度和温度进一步
+  动态修正，但不会改变 preset/custom 的所有权和覆盖顺序。
+- atmospheric observation 的 has/value 对独立传递，不参与 preset 与 custom 的优先级选择。
+- session 初始化和 runtime patch 都校验 model type、preset，以及被启用的 custom 组；非法组合返回
+  validation/rejection，不静默回退。
+
+该规则由全部五种 preset 的直接 mapper 真值表、custom 启用/关闭对照和 simplified/advanced 环境模型
+测试共同锁定。
+[evidence: tests/unit/electro_optical_sensor/eos_session_composition_root_test.cpp]
+[evidence: tests/unit/electro_optical_sensor/eos_session_config_builder_test.cpp]
+[evidence: tests/unit/electro_optical_sensor/eos_runtime_config_resolver_test.cpp]
+[evidence: tests/unit/electro_optical_sensor/eos_environment_model_test.cpp]
 
 ### 2.3 帧级上下文：工作模式、扫描和探测范围
 

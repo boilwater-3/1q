@@ -847,8 +847,8 @@ TEST(PublicApiConvenienceTest, BuilderProvidesExpectedDetectionFocusedDefaults) 
   const config::ArSessionConfig detection_config = MakeConvenienceSessionConfig();
   EXPECT_EQ(detection_config.policy.lifecycle.confirm_hits, 1U);
   EXPECT_EQ(detection_config.policy.lifecycle.max_miss_before_lost, 1U);
-  EXPECT_EQ(detection_config.hardware.pulse_count, 16);
-  EXPECT_FLOAT_EQ(detection_config.hardware.detection_policy.min_snr_db, -12.0f);
+  EXPECT_EQ(detection_config.policy.detection.pulse_count, 16);
+  EXPECT_FLOAT_EQ(detection_config.policy.detection.minimum_snr_db, -12.0f);
 
   session::ArSession session = session::ArSession::Create(detection_config);
   const session::TrackOutputFrame frame = session.Step(MakeCycleInput(session::ArSceneTargetList{

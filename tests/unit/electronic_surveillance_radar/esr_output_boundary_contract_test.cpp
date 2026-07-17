@@ -116,6 +116,7 @@ esr_config::EsrSessionConfig MakeConfig() {
   config.mission.scan.scan_end_az_deg = 180.0f;
   config.mission.scan.scan_start_el_deg = -90.0f;
   config.mission.scan.scan_end_el_deg = 90.0f;
+  config.mission.scan.scan_rate_hz = 1.0f / 30.0f;
   config.hardware.beam_az_width_deg = 180.0f;
   config.hardware.beam_el_width_deg = 120.0f;
   return config;
