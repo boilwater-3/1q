@@ -47,7 +47,6 @@ TEST(SbirsSchedulerTest, TargetIdBreaksOtherwiseEqualCandidateTie) {
   config.mission.scan_rate_deg_per_sec = 1.0f;
   config.policy.detection.wide_min_snr_linear = 0.001f;
   config.policy.detection.narrow_min_snr_linear = 0.001f;
-  config.policy.error_model.angular_sigma_deg = 0.0f;
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(config));
 

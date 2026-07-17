@@ -233,18 +233,11 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.stray_light.hood_min_suppression_ratio = 0.25f;
   config.policy.stray_light.hood_max_suppression_ratio = 0.90f;
   // environment
-  config.environment.scenario_config.model_type = config::EosEnvironmentModelType::kAdvanced;
   config.environment.scenario_config.preset = config::EosEnvironmentPreset::kDusty;
-  config.environment.scenario_config.has_custom_overrides = true;
-  config.environment.scenario_config.custom_overrides.radiative_transfer_model =
-      config::RadiativeTransferModel::kAdaptivePathRadiance;
-  config.environment.scenario_config.custom_overrides.aerosol_density_factor = 1.5f;
-  config.environment.scenario_config.custom_overrides.turbulence_factor = 2.0f;
-  config.environment.scenario_config.has_atmospheric_observation = true;
-  config.environment.scenario_config.atmospheric_observation.enable_physical_model = true;
-  config.environment.scenario_config.atmospheric_observation.pressure_hpa = 1010.0f;
-  config.environment.scenario_config.atmospheric_observation.temperature_k = 295.0f;
-  config.environment.scenario_config.atmospheric_observation.relative_humidity = 0.65f;
+  config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
+  config.environment.scenario_config.atmospheric_physics.pressure_hpa = 1010.0f;
+  config.environment.scenario_config.atmospheric_physics.temperature_k = 295.0f;
+  config.environment.scenario_config.atmospheric_physics.relative_humidity = 0.65f;
 
   const std::string bytes = EncodeEosSessionConfig(config);
   ASSERT_FALSE(bytes.empty());
@@ -252,14 +245,8 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   const auto* encoded = eos::replay::GetEosSessionConfig(bytes.data());
   ASSERT_NE(encoded, nullptr);
   ASSERT_NE(encoded->environment(), nullptr);
-  const auto derived_model =
-      config::BuildModelConfigFromScenario(config.environment.scenario_config);
-  EXPECT_EQ(encoded->environment()->radiative_transfer_model_derived(),
-            static_cast<int32_t>(derived_model.radiative_transfer_model));
-  EXPECT_FLOAT_EQ(encoded->environment()->aerosol_density_factor_derived(),
-                  derived_model.aerosol_density_factor);
-  EXPECT_FLOAT_EQ(encoded->environment()->turbulence_factor_derived(),
-                  derived_model.turbulence_factor);
+  EXPECT_EQ(encoded->environment()->preset(),
+            static_cast<int32_t>(config::EosEnvironmentPreset::kDusty));
 
   config::EosSessionConfig decoded;
   ASSERT_TRUE(DecodeEosSessionConfig(bytes, &decoded));
@@ -281,21 +268,13 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_TRUE(decoded.policy.stray_light.enable_straylight_filter);
   EXPECT_FLOAT_EQ(decoded.policy.stray_light.hood_inner_half_angle_deg, 10.0f);
   // environment
-  EXPECT_EQ(decoded.environment.scenario_config.model_type,
-            config::EosEnvironmentModelType::kAdvanced);
   EXPECT_EQ(decoded.environment.scenario_config.preset, config::EosEnvironmentPreset::kDusty);
-  EXPECT_TRUE(decoded.environment.scenario_config.has_custom_overrides);
-  EXPECT_EQ(decoded.environment.scenario_config.custom_overrides.radiative_transfer_model,
-            config::RadiativeTransferModel::kAdaptivePathRadiance);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.custom_overrides.aerosol_density_factor,
-                  1.5f);
-  EXPECT_TRUE(decoded.environment.scenario_config.has_atmospheric_observation);
-  EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_observation.enable_physical_model);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_observation.pressure_hpa,
+  EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_physics.enable_physical_model);
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.pressure_hpa,
                   1010.0f);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_observation.temperature_k,
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.temperature_k,
                   295.0f);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_observation.relative_humidity,
+  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.relative_humidity,
                   0.65f);
 }
 
@@ -313,7 +292,7 @@ TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.policy.stray_light.enable_straylight_filter = true;
   patch.has_environment = true;
   patch.environment.has_scenario_config = true;
-  patch.environment.scenario_config.model_type = config::EosEnvironmentModelType::kAdvanced;
+  patch.environment.scenario_config.preset = config::EosEnvironmentPreset::kHumid;
   patch.has_work_mode = true;
   patch.work_mode = config::EosWorkMode::kVisibleOnly;
   patch.has_scan_rate_deg_per_sec = true;

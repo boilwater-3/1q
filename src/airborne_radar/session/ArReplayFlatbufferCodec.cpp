@@ -525,7 +525,7 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
       *builder, value.receiver.noise_figure_db, value.receiver.receive_loss_db);
   const flatbuffers::Offset<session_fb::RcsPhysicsConfig> rcs_physics =
       session_fb::CreateRcsPhysicsConfig(
-          *builder, value.rcs_physics.enable_physical_rcs, value.rcs_physics.frequency_hz,
+          *builder, value.rcs_physics.enable_physical_rcs,
           value.rcs_physics.physics_mix_ratio, value.rcs_physics.cylinder_weight,
           value.rcs_physics.min_equivalent_radius_m, value.rcs_physics.max_equivalent_radius_m,
           value.rcs_physics.min_rcs_m2, value.rcs_physics.max_rcs_m2,
@@ -730,7 +730,6 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
     const session_fb::RcsPhysicsConfig* rcs_physics = value->rcs_physics();
     if (rcs_physics != nullptr) {
       result.rcs_physics.enable_physical_rcs = rcs_physics->enable_physical_rcs();
-      result.rcs_physics.frequency_hz = rcs_physics->frequency_hz();
       result.rcs_physics.physics_mix_ratio = rcs_physics->physics_mix_ratio();
       result.rcs_physics.cylinder_weight = rcs_physics->cylinder_weight();
       result.rcs_physics.min_equivalent_radius_m = rcs_physics->min_equivalent_radius_m();

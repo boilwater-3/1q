@@ -190,7 +190,6 @@ ar_session::ArEnvironmentInput MakeEnvironment(std::uint32_t cycle_index) {
 void ApplyCaseToConfig(const ArCase& c, ar_config::ArSessionConfig& config) {
   config.hardware.enable_physics_detection = true;
   config.hardware.rcs_physics.enable_physical_rcs = true;
-  config.hardware.rcs_physics.frequency_hz = config.hardware.transmitter.frequency_hz;
   config.hardware.rcs_physics.physics_mix_ratio = 1.0f;  // 完全物理估计
   if (c.min_snr_db_override >= 0.0f) {
     config.hardware.detection_policy.min_snr_db = c.min_snr_db_override;

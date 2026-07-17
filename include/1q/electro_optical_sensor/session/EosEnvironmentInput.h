@@ -38,16 +38,12 @@ struct ONEQ_API EosEnvironmentInput {
  * @brief EosEnvironmentModelInputs 描述环境模型输入。
  */
 struct ONEQ_API EosEnvironmentModelInputs {
-  config::EosEnvironmentModelType model_type{config::EosEnvironmentModelType::kSimplified};
-  config::RadiativeTransferModel radiative_transfer_model{
-      config::RadiativeTransferModel::kDerivedBeerLambert};
   float base_aerosol_density_factor{1.0f};
   float base_turbulence_factor{1.0f};
   float platform_altitude_m{0.0f};
   float cloud_coverage_ratio{0.0f};
   float wind_speed_mps{0.0f};
-  bool has_atmospheric_observation{false};
-  oneq::environment::AtmosphericObservation atmospheric_observation{};
+  oneq::environment::AtmosphericObservation atmospheric_physics{};
 };
 
 /**

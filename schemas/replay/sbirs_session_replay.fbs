@@ -43,7 +43,6 @@ table SbirsDetectionPolicyConfig {
 }
 
 table SbirsErrorModelConfig {
-  angular_sigma_deg: float;
   range_fraction_sigma: float;
   random_seed: uint32;
   orbit_sigma_deg: float;

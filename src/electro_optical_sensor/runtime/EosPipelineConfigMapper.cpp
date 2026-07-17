@@ -9,14 +9,12 @@ namespace electro_optical_sensor {
 namespace runtime {
 namespace session {
 void ApplyEnvironmentModelToInternal(
-    const config::EosEnvironmentModelConfig& model_config,
+    const config::execution::EnvironmentConfig& model_config,
     config::execution::EosInternalExecutionConfig* exec) {
-  exec->environment.model_type = model_config.model_type;
   exec->environment.radiative_transfer_model = model_config.radiative_transfer_model;
   exec->environment.aerosol_density_factor = model_config.aerosol_density_factor;
   exec->environment.turbulence_factor = model_config.turbulence_factor;
-  exec->environment.has_atmospheric_observation = model_config.has_atmospheric_observation;
-  exec->environment.atmospheric_observation = model_config.atmospheric_observation;
+  exec->environment.atmospheric_physics = model_config.atmospheric_physics;
 }
 
 }  // namespace session
@@ -24,12 +22,11 @@ void ApplyEnvironmentModelToInternal(
 
 namespace config {
 
-EosEnvironmentModelConfig BuildModelConfigFromScenario(
+execution::EnvironmentConfig BuildModelConfigFromScenario(
     const config::EosEnvironmentScenarioConfig& scenario_config) {
-  config::EosEnvironmentModelConfig model_config;
-  model_config.model_type = scenario_config.model_type;
+  execution::EnvironmentConfig model_config;
 
-  using Model = config::RadiativeTransferModel;
+  using Model = execution::RadiativeTransferModel;
   if (scenario_config.preset == config::EosEnvironmentPreset::kHumid) {
     model_config.radiative_transfer_model = Model::kHumidityWeighted;
     model_config.aerosol_density_factor = 1.1f;
@@ -52,17 +49,7 @@ EosEnvironmentModelConfig BuildModelConfigFromScenario(
     model_config.turbulence_factor = 1.0f;
   }
 
-  if (scenario_config.has_custom_overrides) {
-    model_config.radiative_transfer_model =
-        scenario_config.custom_overrides.radiative_transfer_model;
-    model_config.aerosol_density_factor =
-        scenario_config.custom_overrides.aerosol_density_factor;
-    model_config.turbulence_factor = scenario_config.custom_overrides.turbulence_factor;
-  }
-
-  // 传递可选大气物理观测
-  model_config.has_atmospheric_observation = scenario_config.has_atmospheric_observation;
-  model_config.atmospheric_observation = scenario_config.atmospheric_observation;
+  model_config.atmospheric_physics = scenario_config.atmospheric_physics;
 
   return model_config;
 }
@@ -75,7 +62,7 @@ namespace session {
 config::execution::EosInternalExecutionConfig MapSessionToInternal(
     const ::electro_optical_sensor::config::EosSessionConfig& config) {
   config::execution::EosInternalExecutionConfig exec;
-  const config::EosEnvironmentModelConfig environment_model_config =
+  const config::execution::EnvironmentConfig environment_model_config =
       BuildModelConfigFromScenario(config.environment.scenario_config);
 
   exec.sensor_enabled = config.mission.power_on;

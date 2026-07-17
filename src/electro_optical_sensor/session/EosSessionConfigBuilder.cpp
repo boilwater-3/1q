@@ -12,15 +12,6 @@ namespace config {
 
 namespace {
 
-bool IsValidEnvironmentModelType(EosEnvironmentModelType model_type) {
-  switch (model_type) {
-    case EosEnvironmentModelType::kSimplified:
-    case EosEnvironmentModelType::kAdvanced:
-      return true;
-  }
-  return false;
-}
-
 bool IsValidEnvironmentPreset(EosEnvironmentPreset preset) {
   switch (preset) {
     case EosEnvironmentPreset::kStandard:
@@ -28,16 +19,6 @@ bool IsValidEnvironmentPreset(EosEnvironmentPreset preset) {
     case EosEnvironmentPreset::kDusty:
     case EosEnvironmentPreset::kTurbulent:
     case EosEnvironmentPreset::kMaritime:
-      return true;
-  }
-  return false;
-}
-
-bool IsValidRadiativeTransferModel(RadiativeTransferModel model) {
-  switch (model) {
-    case RadiativeTransferModel::kDerivedBeerLambert:
-    case RadiativeTransferModel::kHumidityWeighted:
-    case RadiativeTransferModel::kAdaptivePathRadiance:
       return true;
   }
   return false;
@@ -154,33 +135,19 @@ ValidationIssueList ValidateEosSessionConfig(const config::EosSessionConfig& con
   }
 
   const EosEnvironmentScenarioConfig& environment = config.environment.scenario_config;
-  if (!IsValidEnvironmentModelType(environment.model_type)) {
-    push(ConfigValidationCode::kEnvironmentModelTypeInvalid,
-         "environment.scenario_config.model_type", "Environment model type is invalid.");
-  }
   if (!IsValidEnvironmentPreset(environment.preset)) {
     push(ConfigValidationCode::kEnvironmentPresetInvalid,
          "environment.scenario_config.preset", "Environment preset is invalid.");
   }
-  if (environment.has_custom_overrides) {
-    if (!IsValidRadiativeTransferModel(
-            environment.custom_overrides.radiative_transfer_model)) {
-      push(ConfigValidationCode::kRadiativeTransferModelInvalid,
-           "environment.scenario_config.custom_overrides.radiative_transfer_model",
-           "Custom radiative transfer model is invalid.");
-    }
-    if (!std::isfinite(environment.custom_overrides.aerosol_density_factor) ||
-        environment.custom_overrides.aerosol_density_factor <= 0.0f) {
-      push(ConfigValidationCode::kAerosolDensityFactorInvalid,
-           "environment.scenario_config.custom_overrides.aerosol_density_factor",
-           "Custom aerosol density factor must be finite and positive.");
-    }
-    if (!std::isfinite(environment.custom_overrides.turbulence_factor) ||
-        environment.custom_overrides.turbulence_factor <= 0.0f) {
-      push(ConfigValidationCode::kTurbulenceFactorInvalid,
-           "environment.scenario_config.custom_overrides.turbulence_factor",
-           "Custom turbulence factor must be finite and positive.");
-    }
+  const EosAtmosphericPhysicsConfig& atmosphere = environment.atmospheric_physics;
+  if (atmosphere.enable_physical_model &&
+      (!std::isfinite(atmosphere.pressure_hpa) || atmosphere.pressure_hpa <= 0.0f ||
+       !std::isfinite(atmosphere.temperature_k) || atmosphere.temperature_k <= 0.0f ||
+       !std::isfinite(atmosphere.relative_humidity) || atmosphere.relative_humidity < 0.0f ||
+       atmosphere.relative_humidity > 1.0f)) {
+    push(ConfigValidationCode::kAtmosphericPhysicsInvalid,
+         "environment.scenario_config.atmospheric_physics",
+         "Enabled atmospheric physics values are invalid.");
   }
 
   return issues;

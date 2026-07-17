@@ -434,8 +434,8 @@ TEST(PublicHeadersSmokeTest, EosPublicSurfaceSupportsMinimalUsage) {
   const session::ValidationIssueList issues = session::ValidateEosCycleInput(input);
   EXPECT_FALSE(session::HasValidationError(issues));
 
-  // RadiativeTransferModel 枚举通过 EosEnvironmentConfig.h 公开
-  EXPECT_NE(static_cast<int>(config::RadiativeTransferModel::kDerivedBeerLambert), -1);
+  // 环境 preset 作为唯一公开模型选择入口。
+  EXPECT_NE(static_cast<int>(config::EosEnvironmentPreset::kStandard), -1);
 
   session::EosSession session = session::EosSession::Create(session_config);
   const config::EosRuntimeConfigPatch runtime_patch =
@@ -467,6 +467,8 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   session_config.hardware.pulse_repetition_frequency_hz = 20.0;
   session_config.hardware.sample_rate_hz = 100.0e6;
   session_config.mission.nominal_slant_range_m = 29.9792458;
+  session_config.mission.scene_center_latitude_deg =
+      29.9792458 / 6378137.0 * 180.0 / 3.14159265358979323846;
   session_config.mission.platform_speed_mps = 2.0;
   session_config.mission.range_sample_count = 64U;
   session_config.mission.azimuth_pulse_count = 9U;
@@ -509,7 +511,7 @@ TEST(PublicHeadersSmokeTest, SarPublicSurfaceSupportsMinimalUsage) {
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
 
   const session::SarCycleResult result = session.StepWithResult(input);
-  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_TRUE(result.executed_this_cycle) << result.abort_reason;
   EXPECT_FALSE(result.reused_previous_output);
   EXPECT_EQ(result.output_frame.range_sample_count, 64U);
   EXPECT_TRUE(result.output_frame.has_raw_echo);

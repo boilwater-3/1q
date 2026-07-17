@@ -403,7 +403,6 @@ class RadarModule {
 
     // RCS physics
     hw_enable_physical_rcs_ = det.rcs_physics.enable_physical_rcs;
-    hw_rcs_physics_frequency_hz_ = static_cast<double>(det.rcs_physics.frequency_hz);
     hw_rcs_physics_mix_ratio_ = static_cast<double>(det.rcs_physics.physics_mix_ratio);
     hw_cylinder_weight_ = static_cast<double>(det.rcs_physics.cylinder_weight);
     hw_min_equivalent_radius_m_ = static_cast<double>(det.rcs_physics.min_equivalent_radius_m);
@@ -590,7 +589,6 @@ class RadarModule {
   double hw_min_snr_db_{0.0};
   // RCS physics
   bool hw_enable_physical_rcs_{false};
-  double hw_rcs_physics_frequency_hz_{0.0};
   double hw_rcs_physics_mix_ratio_{0.0};
   double hw_cylinder_weight_{0.0};
   double hw_min_equivalent_radius_m_{0.0};

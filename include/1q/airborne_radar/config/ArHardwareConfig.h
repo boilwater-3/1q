@@ -155,7 +155,6 @@ struct ONEQ_API TransmitterConfig {
  */
 struct ONEQ_API RcsPhysicsConfig {
   bool enable_physical_rcs{false};      /**< 是否启用物理 RCS 估计。 */
-  float frequency_hz{0.0f};             /**< 物理 RCS 评估频率；0 跟随当前有效发射频率，正值固定且不随频率捷变。 */
   float physics_mix_ratio{0.0f};        /**< 物理估计与经验值的混合比例。 */
   float cylinder_weight{0.5f};          /**< 圆柱散射模型权重。 */
   float min_equivalent_radius_m{0.05f}; /**< 等效半径下界。 */

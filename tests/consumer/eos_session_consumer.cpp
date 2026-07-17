@@ -33,7 +33,7 @@ int main() {
           .WithMissionProfile(eos::config::EosMissionProfile::kWideAreaSearch)
           .End()
           .Environment()
-          .WithEnvironmentModelType(eos::config::EosEnvironmentModelType::kSimplified)
+          .WithEnvironmentPreset(eos::config::EosEnvironmentPreset::kStandard)
           .End()
           .Build();
   auto config = semantic_config;
@@ -138,34 +138,26 @@ int main() {
           .Build();
   session.ApplyRuntimeConfig(straylight_patch);
 
-  // 13. RuntimeConfigBuilder: switch the public environment scenario to advanced.
+  // 13. RuntimeConfigBuilder: switch the public environment preset.
   eos::config::EosEnvironmentScenarioConfig scenario;
-  scenario.model_type = eos::config::EosEnvironmentModelType::kAdvanced;
-  scenario.has_custom_overrides = true;
-  scenario.custom_overrides.radiative_transfer_model =
-      eos::config::RadiativeTransferModel::kAdaptivePathRadiance;
-  scenario.custom_overrides.aerosol_density_factor = 1.3f;
-  scenario.custom_overrides.turbulence_factor = 1.8f;
+  scenario.preset = eos::config::EosEnvironmentPreset::kTurbulent;
   const eos::config::EosRuntimeConfigPatch env_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentScenarioConfig(scenario)
           .Build();
   session.ApplyRuntimeConfig(env_patch);
 
-  // 14. RuntimeConfigBuilder: tune the public scenario overrides.
-  scenario.custom_overrides.aerosol_density_factor = 2.0f;
-  scenario.custom_overrides.turbulence_factor = 1.2f;
+  // 14. RuntimeConfigBuilder: select another public preset.
+  scenario.preset = eos::config::EosEnvironmentPreset::kDusty;
   const eos::config::EosRuntimeConfigPatch rt_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentScenarioConfig(scenario)
           .Build();
   session.ApplyRuntimeConfig(rt_patch);
 
-  // 15. RuntimeConfigBuilder: select another public transfer-model override.
-  scenario.custom_overrides.radiative_transfer_model =
-      eos::config::RadiativeTransferModel::kHumidityWeighted;
-  scenario.custom_overrides.aerosol_density_factor = 1.1f;
-  scenario.custom_overrides.turbulence_factor = 1.1f;
+  // 15. RuntimeConfigBuilder: enable standard atmospheric physics.
+  scenario.atmospheric_physics.enable_physical_model = true;
+  scenario.atmospheric_physics.relative_humidity = 0.8f;
   const eos::config::EosRuntimeConfigPatch vis_ref_patch =
       eos::config::EosRuntimeConfigBuilder()
           .WithEnvironmentScenarioConfig(scenario)

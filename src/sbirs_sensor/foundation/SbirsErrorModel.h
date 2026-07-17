@@ -61,8 +61,9 @@ struct SbirsErrorBearing {
 
 /**
  * @brief 解析当前配置实际生效的角度高斯 1-σ（单位 deg）。
- * @details 任一物理分项非零时按 RSS 合成 orbit/attitude/fov，并忽略 legacy
- *          `angular_sigma_deg`；三项均为零时回退 legacy 字段。
+ * @details 按 RSS 合成 orbit/attitude/fov；三项均为零时返回零。
+ * @param[in] model 误差模型配置。
+ * @return 合成后的角度高斯 1-σ，单位 deg。
  */
 double ResolveEffectiveAngularSigmaDeg(const config::SbirsErrorModelConfig& model);
 

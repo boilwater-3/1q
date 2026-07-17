@@ -65,25 +65,22 @@ inline void LoadEosPolicy(const examples::JsonValue& j,
   LoadEosStrayLight(j["stray_light"], &v->stray_light);
 }
 
-inline void LoadEosCustomOverrides(
-    const examples::JsonValue& j,
-    electro_optical_sensor::config::EosEnvironmentCustomOverrides* v) {
-  if (j.IsNull()) return;
-  v->radiative_transfer_model =
-      RadiativeModelFromString(j["radiative_transfer_model"].AsString());
-  v->aerosol_density_factor =
-      static_cast<float>(j["aerosol_density_factor"].AsDouble());
-  v->turbulence_factor = static_cast<float>(j["turbulence_factor"].AsDouble());
-}
-
 inline void LoadEosScenario(
     const examples::JsonValue& j,
     electro_optical_sensor::config::EosEnvironmentScenarioConfig* v) {
   if (j.IsNull()) return;
-  v->model_type = EosModelFromString(j["model_type"].AsString());
   v->preset = EosPresetFromString(j["preset"].AsString());
-  v->has_custom_overrides = j["has_custom_overrides"].AsBool();
-  LoadEosCustomOverrides(j["custom_overrides"], &v->custom_overrides);
+  const examples::JsonValue& atmosphere = j["atmospheric_physics"];
+  if (!atmosphere.IsNull()) {
+    v->atmospheric_physics.enable_physical_model =
+        atmosphere["enable_physical_model"].AsBool();
+    v->atmospheric_physics.pressure_hpa =
+        static_cast<float>(atmosphere["pressure_hpa"].AsDouble());
+    v->atmospheric_physics.temperature_k =
+        static_cast<float>(atmosphere["temperature_k"].AsDouble());
+    v->atmospheric_physics.relative_humidity =
+        static_cast<float>(atmosphere["relative_humidity"].AsDouble());
+  }
 }
 
 inline void LoadEosEnvironment(

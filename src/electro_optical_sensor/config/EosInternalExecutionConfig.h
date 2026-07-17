@@ -26,6 +26,13 @@ namespace electro_optical_sensor {
 namespace config {
 namespace execution {
 
+/** @brief preset 派生的内部辐射传输算法。 */
+enum class RadiativeTransferModel {
+  kDerivedBeerLambert = 0,
+  kHumidityWeighted,
+  kAdaptivePathRadiance
+};
+
 // ── 与公开类型完全一致的 using 别名 ──
 
 /** @brief 光学采集配置别名（波长/口径/焦距），直接复用公开类型。 */
@@ -52,20 +59,14 @@ using StrayLightConfig = config::EosStrayLightPolicyConfig;
 /**
  * @brief 环境衰减配置（场景派生后的数值）。
  *
- * @note 字段集合与默认值与 `EosEnvironmentModelConfig` 保持同步。
- *       若修改此结构的字段或默认值，必须同步更新
- *       `include/1q/electro_optical_sensor/config/EosEnvironmentConfig.h` 中
- *       `EosEnvironmentModelConfig` 的对应字段以避免漂移。
+ * @note 本结构完全由公开 preset 和标准大气观测派生，不暴露给调用方。
  */
 struct EnvironmentConfig {
-  config::EosEnvironmentModelType model_type{
-      config::EosEnvironmentModelType::kSimplified}; /**< 环境模型策略 */
-  config::RadiativeTransferModel radiative_transfer_model{
-      config::RadiativeTransferModel::kDerivedBeerLambert}; /**< 辐射传输模型 */
+  RadiativeTransferModel radiative_transfer_model{
+      RadiativeTransferModel::kDerivedBeerLambert}; /**< 辐射传输模型 */
   float aerosol_density_factor{1.0f};                       /**< 气溶胶密度因子 */
   float turbulence_factor{1.0f};                            /**< 湍流因子 */
-  bool has_atmospheric_observation{false};                  /**< 是否提供大气物理观测 */
-  oneq::environment::AtmosphericObservation atmospheric_observation{}; /**< 大气物理观测快照 */
+  oneq::environment::AtmosphericObservation atmospheric_physics{}; /**< 大气物理观测快照 */
 };
 
 /** @brief 探测判决配置 — 直接别名到公开类型。 */

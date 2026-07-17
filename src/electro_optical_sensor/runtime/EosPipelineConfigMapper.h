@@ -16,7 +16,7 @@ namespace config {
  * @brief 将场景配置映射为环境模型配置（单入口）。
  * @note 已从公开头文件移入 src/，仅限内部使用。
  */
-EosEnvironmentModelConfig BuildModelConfigFromScenario(
+execution::EnvironmentConfig BuildModelConfigFromScenario(
     const EosEnvironmentScenarioConfig& scenario_config);
 
 }  // namespace config
@@ -40,7 +40,7 @@ config::execution::EosInternalExecutionConfig MapSessionToInternal(
  * @param[in,out] exec 待写入的内部执行配置（仅更新 environment 子配置）。
  */
 void ApplyEnvironmentModelToInternal(
-    const config::EosEnvironmentModelConfig& model_config,
+    const config::execution::EnvironmentConfig& model_config,
     config::execution::EosInternalExecutionConfig* exec);
 
 }  // namespace session

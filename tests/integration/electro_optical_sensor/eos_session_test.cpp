@@ -600,7 +600,7 @@ TEST(EosSessionIntegrationTest, RuntimeConfigStraylightToggleWorks) {
             filtered_frame.detections.front().fused_snr_linear);
 }
 
-TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
+TEST(EosSessionIntegrationTest, RuntimeEnvironmentPresetChangeTakesEffect) {
   config::EosSessionConfig config = MakeSessionConfig();
   config.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   EosSession session = EosSession::Create(config);
@@ -613,15 +613,10 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
   target.appearance.apparent_temperature_k = 700.0f;
   input.scene.push_back(target);
 
-  const session::EosOutputFrame simplified_frame = session.Step(input);
+  const session::EosOutputFrame standard_frame = session.Step(input);
 
   config::EosEnvironmentScenarioConfig env_config;
-  env_config.model_type = config::EosEnvironmentModelType::kAdvanced;
-  env_config.has_custom_overrides = true;
-  env_config.custom_overrides.radiative_transfer_model =
-      config::RadiativeTransferModel::kAdaptivePathRadiance;
-  env_config.custom_overrides.aerosol_density_factor = 1.3f;
-  env_config.custom_overrides.turbulence_factor = 1.8f;
+  env_config.preset = config::EosEnvironmentPreset::kTurbulent;
 
   const config::EosRuntimeConfigPatch patch =
       eos_config::EosRuntimeConfigBuilder().WithEnvironmentScenarioConfig(env_config).Build();
@@ -634,12 +629,12 @@ TEST(EosSessionIntegrationTest, RuntimeEnvironmentModelChangeTakesEffect) {
   input_2.scene.clear();
   input_2.scene.push_back(target);
 
-  const session::EosOutputFrame advanced_frame = session.Step(input_2);
+  const session::EosOutputFrame turbulent_frame = session.Step(input_2);
 
-  ASSERT_FALSE(simplified_frame.detections.empty());
-  ASSERT_FALSE(advanced_frame.detections.empty());
-  EXPECT_GE(simplified_frame.detections.front().fused_snr_linear,
-            advanced_frame.detections.front().fused_snr_linear);
+  ASSERT_FALSE(standard_frame.detections.empty());
+  ASSERT_FALSE(turbulent_frame.detections.empty());
+  EXPECT_GE(standard_frame.detections.front().fused_snr_linear,
+            turbulent_frame.detections.front().fused_snr_linear);
 }
 
 }  // namespace

@@ -78,7 +78,6 @@ table ArDetectionPolicyConfig {
 
 table RcsPhysicsConfig {
   enable_physical_rcs:bool;
-  frequency_hz:float;
   physics_mix_ratio:float;
   cylinder_weight:float;
   min_equivalent_radius_m:float;

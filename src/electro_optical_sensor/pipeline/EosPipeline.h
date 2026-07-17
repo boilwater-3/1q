@@ -16,7 +16,6 @@ namespace electro_optical_sensor {
 namespace signal {
 namespace pipeline {
 
-using ::electro_optical_sensor::extension::EosPipelineEnvironmentModelType;
 using ::electro_optical_sensor::extension::EosPipelineWorkMode;
 
 /** @brief 帧级别环境计算上下文，目标无关字段的聚合（完整定义见 cpp）。 */

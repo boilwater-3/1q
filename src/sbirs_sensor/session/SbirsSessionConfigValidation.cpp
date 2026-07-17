@@ -53,8 +53,7 @@ ValidationIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& config)
     AddError("detection thresholds must be non-negative", &issues);
   }
   const SbirsErrorModelConfig& error_model = config.policy.error_model;
-  if (!std::isfinite(error_model.angular_sigma_deg) || error_model.angular_sigma_deg < 0.0f ||
-      !std::isfinite(error_model.orbit_sigma_deg) || error_model.orbit_sigma_deg < 0.0f ||
+  if (!std::isfinite(error_model.orbit_sigma_deg) || error_model.orbit_sigma_deg < 0.0f ||
       !std::isfinite(error_model.attitude_sigma_deg) || error_model.attitude_sigma_deg < 0.0f ||
       !std::isfinite(error_model.fov_sigma_deg) || error_model.fov_sigma_deg < 0.0f ||
       !std::isfinite(error_model.range_fraction_sigma) ||

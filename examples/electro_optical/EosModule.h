@@ -375,13 +375,8 @@ class EosModule {
        << " hood_suppress=[" << policy_hood_min_suppression_ratio_
        << "," << policy_hood_max_suppression_ratio_ << "]"
        << "\n[Environment]\n"
-       << "  model_type=" << static_cast<int>(env_model_type_)
-       << " preset=" << static_cast<int>(env_preset_)
-       << " has_custom=" << env_has_custom_overrides_
-       << "\n  radiative_transfer=" << static_cast<int>(env_radiative_transfer_model_)
-       << " aerosol_factor=" << env_aerosol_density_factor_
-       << " turbulence_factor=" << env_turbulence_factor_
-       << "\n  has_atmos_obs=" << env_has_atmospheric_observation_
+       << "  preset=" << static_cast<int>(env_preset_)
+       << "\n  physical_model=" << env_enable_physical_model_
        << " pressure_hpa=" << env_pressure_hpa_
        << " temp_k=" << env_temperature_k_
        << " humidity=" << env_relative_humidity_
@@ -441,18 +436,11 @@ class EosModule {
     // ---- 环境域 (Environment) ----
     const auto& env = config.environment;
     const auto& scenario = env.scenario_config;
-    env_model_type_ = scenario.model_type;
     env_preset_ = scenario.preset;
-    env_has_custom_overrides_ = scenario.has_custom_overrides;
-    env_radiative_transfer_model_ = scenario.custom_overrides.radiative_transfer_model;
-    env_aerosol_density_factor_ = static_cast<double>(scenario.custom_overrides.aerosol_density_factor);
-    env_turbulence_factor_ = static_cast<double>(scenario.custom_overrides.turbulence_factor);
-
-    env_has_atmospheric_observation_ = scenario.has_atmospheric_observation;
-    env_enable_physical_model_ = scenario.atmospheric_observation.enable_physical_model;
-    env_pressure_hpa_ = static_cast<double>(scenario.atmospheric_observation.pressure_hpa);
-    env_temperature_k_ = static_cast<double>(scenario.atmospheric_observation.temperature_k);
-    env_relative_humidity_ = static_cast<double>(scenario.atmospheric_observation.relative_humidity);
+    env_enable_physical_model_ = scenario.atmospheric_physics.enable_physical_model;
+    env_pressure_hpa_ = static_cast<double>(scenario.atmospheric_physics.pressure_hpa);
+    env_temperature_k_ = static_cast<double>(scenario.atmospheric_physics.temperature_k);
+    env_relative_humidity_ = static_cast<double>(scenario.atmospheric_physics.relative_humidity);
   }
 
   /**
@@ -545,16 +533,8 @@ class EosModule {
   double policy_hood_max_suppression_ratio_{0.0};
 
   // -- 环境域 (Environment) --
-  eos_config::EosEnvironmentModelType env_model_type_{
-      eos_config::EosEnvironmentModelType::kSimplified};
   eos_config::EosEnvironmentPreset env_preset_{
       eos_config::EosEnvironmentPreset::kStandard};
-  bool env_has_custom_overrides_{false};
-  eos_config::RadiativeTransferModel env_radiative_transfer_model_{
-      eos_config::RadiativeTransferModel::kDerivedBeerLambert};
-  double env_aerosol_density_factor_{0.0};
-  double env_turbulence_factor_{0.0};
-  bool env_has_atmospheric_observation_{false};
   bool env_enable_physical_model_{false};
   double env_pressure_hpa_{0.0};
   double env_temperature_k_{0.0};

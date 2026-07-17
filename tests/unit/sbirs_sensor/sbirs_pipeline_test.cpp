@@ -55,7 +55,6 @@ sbirs_sensor::config::SbirsSessionConfig PipelineConfig() {
   config.mission.narrow_field_fov_el_deg = 5.0f;
   config.policy.detection.wide_min_snr_linear = 0.001f;
   config.policy.detection.narrow_min_snr_linear = 0.001f;
-  config.policy.error_model.angular_sigma_deg = 0.0f;
   config.policy.error_model.attitude_sigma_deg = 0.0f;
   config.policy.error_model.orbit_sigma_deg = 0.0f;
   config.policy.error_model.fov_sigma_deg = 0.0f;
@@ -442,7 +441,6 @@ TEST(SbirsSchedulerTest, HigherSnrCandidateWinsBeforeDistanceTieBreak) {
 // 且相同 random_seed 的两次独立 pipeline 产生相同测量（replay 可复现）。
 TEST(SbirsPipelineTest, WfovMeasuredAzimuthReflectsErrorModelAndIsReproducible) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
-  config.policy.error_model.angular_sigma_deg = 0.0f;
   config.policy.error_model.attitude_sigma_deg = 0.5f;  // 启用姿态误差
   config.policy.error_model.orbit_sigma_deg = 0.0f;
   config.policy.error_model.fov_sigma_deg = 0.0f;
@@ -474,7 +472,6 @@ TEST(SbirsPipelineTest, CueLatencyWithCrossVelocityCausesAcquisitionFailure) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
   config.mission.narrow_cue_latency_s = 1.0f;     // 1s 延迟
   config.mission.narrow_field_fov_az_deg = 2.0f;  // 收窄 NFOV 使外推后易出界
-  config.policy.error_model.angular_sigma_deg = 0.0f;
   config.policy.error_model.attitude_sigma_deg = 0.0f;
 
   sbirs_sensor::session::SbirsSceneTarget target = HotTarget(7U, 0.0);

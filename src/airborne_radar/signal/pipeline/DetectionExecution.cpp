@@ -21,15 +21,6 @@ namespace pipeline {
 
 namespace {
 
-
-float ResolveRcsPhysicsFrequencyHz(const ExecutionConfig& exec_config) {
-  const float config_frequency_hz = exec_config.detection.engineering.rcs_physics.frequency_hz;
-  if (config_frequency_hz > 0.0f) {
-    return config_frequency_hz;
-  }
-  return exec_config.detection.engineering.transmitter.frequency_hz;
-}
-
 float ComputeEquivalentClutterNoiseW(
     const config::engineering::DetectionConfig& detection_config, float clutter_power_db) {
   if (!std::isfinite(clutter_power_db)) {
@@ -98,7 +89,7 @@ float ComputeEffectiveTargetRcsM2(const session::ArSceneTarget& target,
     return input_rcs_m2;
   }
 
-  const float frequency_hz = ResolveRcsPhysicsFrequencyHz(exec_config);
+  const float frequency_hz = exec_config.detection.engineering.transmitter.frequency_hz;
   if (frequency_hz <= 0.0f) {
     return input_rcs_m2;
   }

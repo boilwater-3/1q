@@ -217,7 +217,6 @@ ValidationIssueList ValidateArSessionConfig(const config::ArSessionConfig& confi
   const config::ArOrientationConfig& orientation = config.mission.orientation;
   const config::detection::AntennaConfig& antenna = config.hardware.antenna;
   const float transmitter_frequency_hz = config.hardware.transmitter.frequency_hz;
-  const float rcs_frequency_hz = config.hardware.rcs_physics.frequency_hz;
 
   if (!oneq::common::validation::IsFinite(transmitter_frequency_hz) ||
       transmitter_frequency_hz <= 0.0f) {
@@ -225,12 +224,6 @@ ValidationIssueList ValidateArSessionConfig(const config::ArSessionConfig& confi
          "hardware.transmitter.frequency_hz",
          "Transmitter frequency must be finite and positive.");
   }
-  if (!oneq::common::validation::IsFinite(rcs_frequency_hz) || rcs_frequency_hz < 0.0f) {
-    push(ConfigValidationCode::kRcsPhysicsFrequencyInvalid,
-         "hardware.rcs_physics.frequency_hz",
-         "RCS physics frequency must be zero (inherit) or finite and positive.");
-  }
-
   const auto axis_geometry_valid =
       [transmitter_frequency_hz](float nominal_beamwidth_deg, float aperture_m,
                                  bool commanded_override_enabled) {

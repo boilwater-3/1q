@@ -25,11 +25,8 @@ enum class ConfigValidationCode {
   kScanRateNotPositive,      /**< 扫描角速度 <= 0 */
   kFrameRateNotPositive,     /**< 帧率 <= 0 */
   kScanRangeAzSwapped,       /**< 扫描方位起止颠倒（起始 >= 结束） */
-  kEnvironmentModelTypeInvalid, /**< 环境模型策略枚举非法 */
   kEnvironmentPresetInvalid, /**< 环境预设枚举非法 */
-  kRadiativeTransferModelInvalid, /**< 自定义辐射传输模型枚举非法 */
-  kAerosolDensityFactorInvalid, /**< 自定义气溶胶因子非有限或 <= 0 */
-  kTurbulenceFactorInvalid /**< 自定义湍流因子非有限或 <= 0 */
+  kAtmosphericPhysicsInvalid /**< 启用的大气物理观测包含非法值 */
 };
 
 /**
@@ -51,8 +48,8 @@ using ValidationIssueList = std::vector<ConfigValidationIssue>;
  * - 视场角为正；
  * - 扫描角速度与帧率为正；
  * - 扫描方位起止角一致。
- * - 环境模型与 preset 枚举有效；
- * - 启用 custom 整组覆盖时，辐射模型枚举有效且两个因子有限并大于零。
+ * - 环境 preset 枚举有效；
+ * - 启用标准大气物理观测时，气压、温度和相对湿度有效。
  *
  * @param config 待校验的最终会话配置。
  * @return 按发现顺序返回的校验问题列表。

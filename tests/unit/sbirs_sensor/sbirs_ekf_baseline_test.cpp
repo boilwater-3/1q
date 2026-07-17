@@ -70,8 +70,7 @@ NisScenarioSummary RunLateralOffsetScenario(const std::vector<double>& lateral_o
   const sbirs_sensor::tracking::SbirsEkfUpdater updater(&measurement_model);
 
   sbirs_sensor::config::SbirsErrorModelConfig error_model;
-  error_model.angular_sigma_deg = 0.02f;
-  error_model.attitude_sigma_deg = 0.0f;
+  error_model.attitude_sigma_deg = 0.02f;
   error_model.orbit_sigma_deg = 0.0f;
   error_model.fov_sigma_deg = 0.0f;
   const sbirs_sensor::tracking::SbirsMeasurementCovariance R =
@@ -114,8 +113,7 @@ TEST(SbirsEkfBaselineTest, ConstantVelocityMeasurementsKeepNisBelowGate) {
   const sbirs_sensor::tracking::SbirsEkfUpdater updater(&measurement_model);
 
   sbirs_sensor::config::SbirsErrorModelConfig error_model;
-  error_model.angular_sigma_deg = 0.02f;
-  error_model.attitude_sigma_deg = 0.0f;
+  error_model.attitude_sigma_deg = 0.02f;
   error_model.orbit_sigma_deg = 0.0f;
   error_model.fov_sigma_deg = 0.0f;
   const sbirs_sensor::tracking::SbirsMeasurementCovariance R =
@@ -150,8 +148,7 @@ TEST(SbirsEkfBaselineTest, SuddenCrossRangeManeuverRaisesNisAboveGate) {
   const sbirs_sensor::tracking::SbirsEkfUpdater updater(&measurement_model);
 
   sbirs_sensor::config::SbirsErrorModelConfig error_model;
-  error_model.angular_sigma_deg = 0.02f;
-  error_model.attitude_sigma_deg = 0.0f;
+  error_model.attitude_sigma_deg = 0.02f;
   error_model.orbit_sigma_deg = 0.0f;
   error_model.fov_sigma_deg = 0.0f;
   const sbirs_sensor::tracking::SbirsMeasurementCovariance R =

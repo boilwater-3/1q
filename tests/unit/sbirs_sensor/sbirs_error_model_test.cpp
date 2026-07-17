@@ -60,23 +60,16 @@ TEST(SbirsErrorModelTest, DynamicLagScalesWithAngularRate) {
   EXPECT_DOUBLE_EQ(sbirs_sensor::foundation::DynamicLagErrorDeg(1.0f, 0.0f), 0.0);
 }
 
-TEST(SbirsErrorModelTest, LegacyAngularSigmaAppliedWhenPhysicalSigmasZero) {
-  // 三项物理 sigma 全为 0 时回退到合并 angular_sigma_deg（向后兼容）。
+TEST(SbirsErrorModelTest, ZeroPhysicalSigmasProduceZeroAngularVariance) {
   sbirs_sensor::config::SbirsErrorModelConfig model;
-  model.angular_sigma_deg = 0.1f;
   model.orbit_sigma_deg = 0.0f;
   model.attitude_sigma_deg = 0.0f;
   model.fov_sigma_deg = 0.0f;
-  sbirs_sensor::foundation::SbirsRandomSource src(1U);
-  const sbirs_sensor::foundation::SbirsErrorBearing bearing =
-      sbirs_sensor::foundation::ApplyAngularErrorModel(model, &src, 0.0f, 0.0f, 1.0e6, 0.0f);
-  // 合成误差叠加到真值 0 上，应非零。
-  EXPECT_NE(bearing.azimuth_deg, 0.0f);
+  EXPECT_DOUBLE_EQ(sbirs_sensor::foundation::ResolveEffectiveAngularSigmaDeg(model), 0.0);
 }
 
-TEST(SbirsErrorModelTest, PhysicalSigmasUseRssAndIgnoreLegacySigma) {
+TEST(SbirsErrorModelTest, PhysicalSigmasUseRss) {
   sbirs_sensor::config::SbirsErrorModelConfig model;
-  model.angular_sigma_deg = 10.0f;
   model.orbit_sigma_deg = 0.03f;
   model.attitude_sigma_deg = 0.04f;
   model.fov_sigma_deg = 0.0f;
@@ -89,11 +82,10 @@ TEST(SbirsErrorModelTest, PhysicalSigmasUseRssAndIgnoreLegacySigma) {
   EXPECT_NEAR(covariance(1, 1), expected_variance_rad2, 1.0e-10);
 }
 
-TEST(SbirsErrorModelTest, LegacySigmaIsZeroMeanAndAzElSamplesAreIndependent) {
+TEST(SbirsErrorModelTest, PhysicalSigmaIsZeroMeanAndAzElSamplesAreIndependent) {
   sbirs_sensor::config::SbirsErrorModelConfig model;
-  model.angular_sigma_deg = 0.2f;
   model.orbit_sigma_deg = 0.0f;
-  model.attitude_sigma_deg = 0.0f;
+  model.attitude_sigma_deg = 0.2f;
   model.fov_sigma_deg = 0.0f;
   model.range_fraction_sigma = 0.0f;
   sbirs_sensor::foundation::SbirsRandomSource source(17U);
@@ -122,10 +114,10 @@ TEST(SbirsErrorModelTest, ValidationRejectsInvalidErrorModelParameters) {
   EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 
   config.policy.error_model.attitude_sigma_deg = 0.01f;
-  config.policy.error_model.angular_sigma_deg = std::numeric_limits<float>::quiet_NaN();
+  config.policy.error_model.orbit_sigma_deg = std::numeric_limits<float>::quiet_NaN();
   EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 
-  config.policy.error_model.angular_sigma_deg = 0.05f;
+  config.policy.error_model.orbit_sigma_deg = 0.0f;
   config.policy.error_model.range_fraction_sigma = std::numeric_limits<float>::infinity();
   EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 

@@ -352,23 +352,13 @@ TEST(RadarSessionConfigValidationTest, RejectsMissingOrNonFiniteAntennaGeometry)
   EXPECT_EQ(issues[1].code, config::ConfigValidationCode::kAntennaElGeometryInvalid);
 }
 
-TEST(RadarSessionConfigValidationTest, RejectsInvalidTransmitterAndRcsFrequencies) {
+TEST(RadarSessionConfigValidationTest, RejectsInvalidTransmitterFrequency) {
   config::ArSessionConfig session_config;
   session_config.hardware.transmitter.frequency_hz = 0.0f;
-  session_config.hardware.rcs_physics.frequency_hz =
-      std::numeric_limits<float>::infinity();
 
   const auto issues = config::ValidateArSessionConfig(session_config);
-  ASSERT_EQ(issues.size(), 2U);
+  ASSERT_EQ(issues.size(), 1U);
   EXPECT_EQ(issues[0].code, config::ConfigValidationCode::kTransmitterFrequencyInvalid);
-  EXPECT_EQ(issues[1].code, config::ConfigValidationCode::kRcsPhysicsFrequencyInvalid);
-}
-
-TEST(RadarSessionConfigValidationTest, AcceptsZeroRcsFrequencyAsInheritance) {
-  config::ArSessionConfig session_config;
-  session_config.hardware.rcs_physics.frequency_hz = 0.0f;
-
-  EXPECT_TRUE(config::ValidateArSessionConfig(session_config).empty());
 }
 
 TEST(RadarSessionCreateWithValidationTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {

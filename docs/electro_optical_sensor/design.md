@@ -278,13 +278,11 @@ flowchart TB
 - `hardware` 映射为 optics 和 detector 参数。
 - `mission` 映射为 power、工作模式、扫描速率、帧率和探测范围。
 - `policy` 映射为检测阈值、融合策略、杂散光过滤策略。
-- `environment.scenario_config` 经 `BuildModelConfigFromScenario` 映射为辐射传输模型、气溶胶系数、湍流系数和可选大气观测。
+- `environment.scenario_config` 只包含一个环境 preset 和标准 `atmospheric_physics` 观测；
+  `BuildModelConfigFromScenario` 在内部派生辐射算法、气溶胶系数和湍流系数。
 
-EOS replay 的 session-config payload 以 `scenario_config` 为 decode 后的环境 source of truth。
-FlatBuffer 中的 `radiative_transfer_model_derived`、`aerosol_density_factor_derived` 和
-`turbulence_factor_derived` 是编码时 `BuildModelConfigFromScenario` 的派生快照，用于
-characterization/漂移检查；`DecodeEosSessionConfig` 不从这些派生字段反写配置。
-`EosReplayCodecRoundtripTest.SessionConfigPreservesAllDomains` 直接检查快照字段与当前 mapper 输出一致。
+EOS replay 的 session-config payload 只记录 `preset + atmospheric_physics`，与公开 source of truth
+完全一致；内部派生算法和数值不进入 schema，也不形成第二套可配置状态。
 
 当前 preset 语义：
 
@@ -296,21 +294,14 @@ characterization/漂移检查；`DecodeEosSessionConfig` 不从这些派生字�
 | turbulent | `kAdaptivePathRadiance` | 1.3 | 1.8 | 湍流主导退化 |
 | maritime | `kHumidityWeighted` | 1.5 | 1.4 | 海洋湿度和气溶胶混合退化 |
 
-环境解析顺序固定为：**preset 建立基线 → custom 整组覆盖 → model_type 决定是否按实时环境动态修正**。
+环境解析固定为：**preset 建立内部基线 → 每周期高度、云量和风速自动动态修正 → 启用的标准大气
+物理观测追加湿度与温度修正**。调用方不选择 simplified/advanced 或具体辐射算法，也不填写 custom
+因子。`atmospheric_physics.enable_physical_model=false` 时，其数值不参与物理修正；为 true 时气压和温度
+必须有限且大于零、相对湿度必须位于 `[0,1]`。初始化和 runtime patch 使用相同校验并原子拒绝非法值。
 
-- `has_custom_overrides=false` 时，custom 中的 radiative model、aerosol 和 turbulence 字段完全忽略，
-  即使其存储值非法也不参与本次解析。
-- `has_custom_overrides=true` 时，custom 三项必须作为整组生效；radiative model 枚举必须有效，两个
-  因子必须有限且大于零。
-- `model_type=kSimplified` 使用解析后的基线参数；`kAdvanced` 才依据实时云量、高度、湿度和温度进一步
-  动态修正，但不会改变 preset/custom 的所有权和覆盖顺序。
-- atmospheric observation 的 has/value 对独立传递，不参与 preset 与 custom 的优先级选择。
-- session 初始化和 runtime patch 都校验 model type、preset，以及被启用的 custom 组；非法组合返回
-  validation/rejection，不静默回退。
-
-该规则由全部五种 preset 的直接 mapper 真值表、custom 启用/关闭对照和 simplified/advanced 环境模型
-测试共同锁定。
+该规则由全部五种 preset 的 mapper 真值表、自动动态修正、标准大气观测和 runtime patch 测试锁定。
 [evidence: tests/unit/electro_optical_sensor/eos_session_composition_root_test.cpp]
+[evidence: tests/unit/electro_optical_sensor/eos_environment_model_test.cpp]
 [evidence: tests/unit/electro_optical_sensor/eos_session_config_builder_test.cpp]
 [evidence: tests/unit/electro_optical_sensor/eos_runtime_config_resolver_test.cpp]
 [evidence: tests/unit/electro_optical_sensor/eos_environment_model_test.cpp]

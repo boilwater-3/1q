@@ -26,7 +26,6 @@ config::EosSessionConfig MakeSessionConfig() {
   config.policy.detection.minimum_snr_db = 60.0f;
   config.policy.detection.detection_sensitivity_w = 2.0e-12f;
   config.policy.detection.visible_reference_irradiance_w_m2 = 1000.0f;
-  config.environment.scenario_config.model_type = config::EosEnvironmentModelType::kAdvanced;
   config.environment.scenario_config.preset = config::EosEnvironmentPreset::kDusty;
   return config;
 }
@@ -45,72 +44,26 @@ TEST(EosSessionCompositionRootTest, ComposeDefaultBuildsOwnedGraphAndRuntimeAsse
 TEST(EosEnvironmentConfigMapperTest, MapsEveryPresetToItsExactBaseline) {
   struct ExpectedPreset {
     config::EosEnvironmentPreset preset;
-    config::RadiativeTransferModel radiative_model;
     float aerosol_factor;
     float turbulence_factor;
   };
   const ExpectedPreset cases[] = {
-      {config::EosEnvironmentPreset::kStandard,
-       config::RadiativeTransferModel::kDerivedBeerLambert, 1.0f, 1.0f},
-      {config::EosEnvironmentPreset::kHumid,
-       config::RadiativeTransferModel::kHumidityWeighted, 1.1f, 1.1f},
-      {config::EosEnvironmentPreset::kDusty,
-       config::RadiativeTransferModel::kAdaptivePathRadiance, 2.0f, 1.2f},
-      {config::EosEnvironmentPreset::kTurbulent,
-       config::RadiativeTransferModel::kAdaptivePathRadiance, 1.3f, 1.8f},
-      {config::EosEnvironmentPreset::kMaritime,
-       config::RadiativeTransferModel::kHumidityWeighted, 1.5f, 1.4f},
+      {config::EosEnvironmentPreset::kStandard, 1.0f, 1.0f},
+      {config::EosEnvironmentPreset::kHumid, 1.1f, 1.1f},
+      {config::EosEnvironmentPreset::kDusty, 2.0f, 1.2f},
+      {config::EosEnvironmentPreset::kTurbulent, 1.3f, 1.8f},
+      {config::EosEnvironmentPreset::kMaritime, 1.5f, 1.4f},
   };
 
   for (const ExpectedPreset& expected : cases) {
     config::EosEnvironmentScenarioConfig scenario;
-    scenario.model_type = config::EosEnvironmentModelType::kAdvanced;
     scenario.preset = expected.preset;
 
-    const config::EosEnvironmentModelConfig mapped =
-        config::BuildModelConfigFromScenario(scenario);
+    const auto mapped = config::BuildModelConfigFromScenario(scenario);
 
-    EXPECT_EQ(mapped.model_type, config::EosEnvironmentModelType::kAdvanced);
-    EXPECT_EQ(mapped.radiative_transfer_model, expected.radiative_model);
     EXPECT_FLOAT_EQ(mapped.aerosol_density_factor, expected.aerosol_factor);
     EXPECT_FLOAT_EQ(mapped.turbulence_factor, expected.turbulence_factor);
   }
-}
-
-TEST(EosEnvironmentConfigMapperTest, EnabledCustomOverridesReplaceWholePresetGroup) {
-  config::EosEnvironmentScenarioConfig scenario;
-  scenario.preset = config::EosEnvironmentPreset::kDusty;
-  scenario.has_custom_overrides = true;
-  scenario.custom_overrides.radiative_transfer_model =
-      config::RadiativeTransferModel::kHumidityWeighted;
-  scenario.custom_overrides.aerosol_density_factor = 3.25f;
-  scenario.custom_overrides.turbulence_factor = 2.75f;
-
-  const config::EosEnvironmentModelConfig mapped =
-      config::BuildModelConfigFromScenario(scenario);
-
-  EXPECT_EQ(mapped.radiative_transfer_model,
-            config::RadiativeTransferModel::kHumidityWeighted);
-  EXPECT_FLOAT_EQ(mapped.aerosol_density_factor, 3.25f);
-  EXPECT_FLOAT_EQ(mapped.turbulence_factor, 2.75f);
-}
-
-TEST(EosEnvironmentConfigMapperTest, DisabledCustomOverridesAreIgnored) {
-  config::EosEnvironmentScenarioConfig scenario;
-  scenario.preset = config::EosEnvironmentPreset::kHumid;
-  scenario.has_custom_overrides = false;
-  scenario.custom_overrides.radiative_transfer_model =
-      config::RadiativeTransferModel::kAdaptivePathRadiance;
-  scenario.custom_overrides.aerosol_density_factor = 99.0f;
-  scenario.custom_overrides.turbulence_factor = 88.0f;
-
-  const config::EosEnvironmentModelConfig mapped =
-      config::BuildModelConfigFromScenario(scenario);
-
-  EXPECT_EQ(mapped.radiative_transfer_model,
-            config::RadiativeTransferModel::kHumidityWeighted);
-  EXPECT_FLOAT_EQ(mapped.aerosol_density_factor, 1.1f);
-  EXPECT_FLOAT_EQ(mapped.turbulence_factor, 1.1f);
 }
 
 }  // namespace

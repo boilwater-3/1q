@@ -503,16 +503,13 @@ FrameContext EosPipeline::BuildFrameContext(
   frame.noise_inputs_base.detector_area_cm2 = frame.nep_inputs.detector_area_cm2;
 
   session::EosEnvironmentModelInputs env_inputs;
-  env_inputs.model_type = config_.environment.model_type;
-  env_inputs.radiative_transfer_model = config_.environment.radiative_transfer_model;
   env_inputs.base_aerosol_density_factor = config_.environment.aerosol_density_factor;
   env_inputs.base_turbulence_factor = config_.environment.turbulence_factor;
   env_inputs.platform_altitude_m = ResolvePlatformAltitudeM(input);
   env_inputs.cloud_coverage_ratio =
       oneq::common::numerics::Clamp01(input.environment.cloud_coverage_ratio);
   env_inputs.wind_speed_mps = std::max(0.0f, input.environment.ambient_wind_speed_mps);
-  env_inputs.has_atmospheric_observation = config_.environment.has_atmospheric_observation;
-  env_inputs.atmospheric_observation = config_.environment.atmospheric_observation;
+  env_inputs.atmospheric_physics = config_.environment.atmospheric_physics;
   frame.environment_result = environment::ResolveEnvironmentFactors(env_inputs);
 
   return frame;

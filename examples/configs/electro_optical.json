@@ -36,14 +36,12 @@
   },
   "environment": {
     "scenario_config": {
-      "model_type": "kSimplified",
       "preset": "kStandard",
-      "has_custom_overrides": false,
-      "custom_overrides": {
-        "radiative_transfer_model": "kDerivedBeerLambert",
-        "aerosol_density_factor": 1.0,
-        "turbulence_factor": 1.0,
-        "enable_optical_countermeasure_extension": false
+      "atmospheric_physics": {
+        "enable_physical_model": false,
+        "pressure_hpa": 1013.25,
+        "temperature_k": 288.15,
+        "relative_humidity": 0.5
       }
     }
   }

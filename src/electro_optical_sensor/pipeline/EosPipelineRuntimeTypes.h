@@ -24,12 +24,6 @@ using session::EosPipelineAbortReason;
 using EosPipelineWorkMode = config::EosWorkMode;
 
 /**
- * @brief EosPipelineEnvironmentModelType 描述环境模型策略。
- * @note 等价于 config::EosEnvironmentModelType，限定为内部 pipeline 使用。
- */
-using EosPipelineEnvironmentModelType = config::EosEnvironmentModelType;
-
-/**
  * @brief EosPipelineRuntimeState 描述 EOS 管线运行态快照。
  */
 struct EosPipelineRuntimeState {

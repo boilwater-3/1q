@@ -32,8 +32,7 @@ enum class ConfigValidationCode {
   kElectronicScanLimitsSwappedEl,     /**< 电子俯仰扫描下限大于上限。 */
   kAntennaAzGeometryInvalid,          /**< 方位名义波束宽度或物理孔径无法解析。 */
   kAntennaElGeometryInvalid,          /**< 俯仰名义波束宽度或物理孔径无法解析。 */
-  kTransmitterFrequencyInvalid,       /**< 发射频率非有限或非正。 */
-  kRcsPhysicsFrequencyInvalid         /**< 物理 RCS 评估频率非有限或为负。 */
+  kTransmitterFrequencyInvalid        /**< 发射频率非有限或非正。 */
 };
 
 /**

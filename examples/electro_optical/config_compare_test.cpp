@@ -33,9 +33,7 @@ eos_cfg::EosSessionConfig MakeFusedSearchConfig() {
   config.policy.stray_light.hood_outer_half_angle_deg = 75.0f;
   config.policy.stray_light.hood_min_suppression_ratio = 0.2f;
   config.policy.stray_light.hood_max_suppression_ratio = 0.85f;
-  config.environment.scenario_config.model_type = eos_cfg::EosEnvironmentModelType::kSimplified;
   config.environment.scenario_config.preset = eos_cfg::EosEnvironmentPreset::kStandard;
-  config.environment.scenario_config.has_custom_overrides = false;
   return config;
 }
 
@@ -126,21 +124,14 @@ int main() {
   // environment
   const auto& be = builder_cfg.environment;
   const auto& fe = file_cfg.environment;
-  ReportI("environment.scenario_config.model_type", static_cast<int>(be.scenario_config.model_type),
-          static_cast<int>(fe.scenario_config.model_type));
   ReportI("environment.scenario_config.preset", static_cast<int>(be.scenario_config.preset),
           static_cast<int>(fe.scenario_config.preset));
-  ReportB("environment.scenario_config.has_custom_overrides",
-          be.scenario_config.has_custom_overrides, fe.scenario_config.has_custom_overrides);
-  ReportI("environment.scenario_config.custom_overrides.radiative_transfer_model",
-          static_cast<int>(be.scenario_config.custom_overrides.radiative_transfer_model),
-          static_cast<int>(fe.scenario_config.custom_overrides.radiative_transfer_model));
-  ReportF("environment.scenario_config.custom_overrides.aerosol_density_factor",
-          be.scenario_config.custom_overrides.aerosol_density_factor,
-          fe.scenario_config.custom_overrides.aerosol_density_factor);
-  ReportF("environment.scenario_config.custom_overrides.turbulence_factor",
-          be.scenario_config.custom_overrides.turbulence_factor,
-          fe.scenario_config.custom_overrides.turbulence_factor);
+  ReportB("environment.scenario_config.atmospheric_physics.enable_physical_model",
+          be.scenario_config.atmospheric_physics.enable_physical_model,
+          fe.scenario_config.atmospheric_physics.enable_physical_model);
+  ReportF("environment.scenario_config.atmospheric_physics.relative_humidity",
+          be.scenario_config.atmospheric_physics.relative_humidity,
+          fe.scenario_config.atmospheric_physics.relative_humidity);
   if (failed == 0) {
     std::cout << "PASS: all fields match\n";
     return 0;

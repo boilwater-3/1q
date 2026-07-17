@@ -12,11 +12,11 @@ Authority: 非规定性记录
 | 优先级 | 条目 | 当前判断 | 首个交付物 |
 |---|---|---|---|
 | P1 | OQ-10b | SAR environment 仍是公开 no-op 域，需后续接入生产环境计算 | 分项物理公式、内外部 raw IQ 分流与成像影响证据 |
-| P2 | OQ-8、OQ-10a、OQ-10d、OQ-10i、OQ-10m | 涉及 public API/ABI 或跨模块迁移，不能作为顺手清理 | Stage A 迁移契约和 consumer 影响清单 |
+| P2 | OQ-8、OQ-10a、OQ-10d、OQ-10i | 涉及 public API/ABI 或跨模块迁移，不能作为顺手清理 | Stage A 迁移契约和 consumer 影响清单 |
 | P2 | OQ-9 | 机械 replay helper 收敛，必须在模块行为护栏稳定后进行 | SBIRS → SAR → AR 分批证明 |
 
 排序依据是当前 checkout 的代码和测试，不代表这些条目已经获准实施。原 OQ-10h、OQ-3、OQ-10c、
-OQ-10e、OQ-10f、OQ-10g、OQ-10j、OQ-10k、OQ-10l、OQ-1 已完成；对应运行时语义和证据已迁入
+OQ-10e、OQ-10f、OQ-10g、OQ-10j、OQ-10k、OQ-10l、OQ-10m、OQ-1 已完成；对应运行时语义和证据已迁入
 SBIRS、Flight Dynamic、AR、ESR、EOS、SAR 的模块设计权威。
 
 ---
@@ -101,7 +101,7 @@ AR 与 ESR 的环境域各有一对字段 100% 相同的 ScenarioConfig / ModelC
 
 - AR：`EnvironmentScenarioConfig` 与 `EnvironmentModelConfig` 字段完全一致，`BuildModelConfigFromScenario` 为逐字段拷贝。证据 `include/1q/airborne_radar/config/ArEnvironmentConfig.h:131-188`（struct 定义在 `:131`/`:147`，映射函数在 `:180-188`，禁止 alias 的注释在 `:144-146`）。
 - ESR：`EsrEnvironmentScenarioConfig` 与 `EsrEnvironmentModelConfig` 三字段全等。证据 `include/1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h:37-48`。
-- 对比：EOS 是唯一真正有差异的——ModelConfig 把 ScenarioConfig 的 `custom_overrides` 子结构扁平化了（`include/1q/electro_optical_sensor/config/EosEnvironmentConfig.h:56-76`），算合理。
+- EOS 已收敛为单一公开 ScenarioConfig，内部派生执行参数，不再公开同名 ModelConfig，因此不属于本议题。
 
 为何未决：注释"禁止退化为 type alias""调用方不得假设同型"与当前实现的恒等映射自相矛盾；用户无从判断两者何时会有差异，也无法从代码证明差异不会发生。
 
@@ -123,19 +123,3 @@ AR 与 ESR 的环境域各有一对字段 100% 相同的 ScenarioConfig / ModelC
 - 决定是否统一到 SI（m²），评估对 EOS 现有消费方与文档的影响；
 - 若不统一，在 `docs/common/contract.md` 补一条"跨域同物理量单位须在字段名后缀标明"的规则并加 lint 守护；
 - 字段名后缀已带单位（`_m2` / `_cm2`），最低限度应确保文档显著标注差异。
-
-### OQ-10m 🟡 AR `AntennaConfig` 缺 frequency，隐式借用 transmitter
-
-天线波束宽度推导、sinc² 方向图都需要波长（频率），但 `AntennaConfig` 无 frequency 字段，全部隐式借 `transmitter.frequency_hz`。
-
-- 证据：`include/1q/airborne_radar/config/ArHardwareConfig.h:135-143`（`AntennaConfig` 无频率字段）。
-- 消费侧耦合：`src/airborne_radar/signal/pipeline/DetectionExecution.cpp:252-253` 用 `transmitter.frequency_hz` 算波长。
-
-当前契约已明确：天线波长始终取当前有效 `transmitter.frequency_hz`；
-`rcs_physics.frequency_hz` 等于 0 时同样继承该值，大于 0 时只固定 RCS 表征且不改变天线波长。
-剩余未决点是这种跨子配置依赖是否需要通过 public 类型结构显式表达，而不是运行时频率来源未知。
-
-推进需要：
-- 评估是否需要在不改变当前运行时语义的前提下，把天线对有效发射频率的依赖显式编码到 public 类型；
-- 若不能证明 public 结构迁移收益超过兼容成本，则保留当前所有权，只加强字段注释与 contract guard；
-- 任何迁移都必须保持频率捷变驱动天线波长、固定 RCS override 不驱动天线波长的既有契约。

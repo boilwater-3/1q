@@ -161,11 +161,11 @@ TEST(EosPipelineTest, AdaptiveRadiativeTransferModelProducesLowerSnrInSameScene)
   config::execution::EosInternalExecutionConfig baseline_config = MakePipelineConfig();
   baseline_config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
   baseline_config.environment.radiative_transfer_model =
-      config::RadiativeTransferModel::kDerivedBeerLambert;
+      config::execution::RadiativeTransferModel::kDerivedBeerLambert;
 
   config::execution::EosInternalExecutionConfig adaptive_config = baseline_config;
   adaptive_config.environment.radiative_transfer_model =
-      config::RadiativeTransferModel::kAdaptivePathRadiance;
+      config::execution::RadiativeTransferModel::kAdaptivePathRadiance;
   adaptive_config.environment.aerosol_density_factor = 1.6f;
   adaptive_config.environment.turbulence_factor = 1.5f;
 
@@ -191,46 +191,44 @@ TEST(EosPipelineTest, AdaptiveRadiativeTransferModelProducesLowerSnrInSameScene)
             adaptive_frame.detections[0].fused_snr_linear);
 }
 
-TEST(EosPipelineTest, AdvancedEnvironmentModelLowersSnrInHighWindScene) {
-  config::execution::EosInternalExecutionConfig simplified_config = MakePipelineConfig();
-  simplified_config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
-  simplified_config.environment.radiative_transfer_model =
-      config::RadiativeTransferModel::kAdaptivePathRadiance;
-  simplified_config.environment.model_type = EosPipelineEnvironmentModelType::kSimplified;
-  simplified_config.environment.aerosol_density_factor = 1.2f;
-  simplified_config.environment.turbulence_factor = 1.1f;
+TEST(EosPipelineTest, RuntimeEnvironmentAutomaticallyLowersSnrInHighWindScene) {
+  config::execution::EosInternalExecutionConfig config = MakePipelineConfig();
+  config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  config.environment.radiative_transfer_model =
+      config::execution::RadiativeTransferModel::kAdaptivePathRadiance;
+  config.environment.aerosol_density_factor = 1.2f;
+  config.environment.turbulence_factor = 1.1f;
 
-  config::execution::EosInternalExecutionConfig advanced_config = simplified_config;
-  advanced_config.environment.model_type = EosPipelineEnvironmentModelType::kAdvanced;
+  EosPipeline calm_pipeline(config);
+  EosPipeline severe_pipeline(config);
 
-  EosPipeline simplified_pipeline(simplified_config);
-  EosPipeline advanced_pipeline(advanced_config);
-
-  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
-  input.cycle_index = 7U;
-  input.environment.background_temperature_k = 240.0f;
-  input.environment.cloud_coverage_ratio = 0.6f;
-  input.environment.ambient_wind_speed_mps = 120.0f;
+  ::electro_optical_sensor::session::EosCycleInput calm_input = MakeCycleInput(1.0f);
+  calm_input.cycle_index = 7U;
+  calm_input.environment.background_temperature_k = 240.0f;
   session::EosSceneTarget target = MakeTarget(501U, -5.0f, 1200.0f, 10.0f);
   target.appearance.apparent_temperature_k = 880.0f;
   target.appearance.emissivity = 0.98f;
-  input.scene.push_back(target);
+  calm_input.scene.push_back(target);
 
-  const auto simplified_frame = simplified_pipeline.RunCycle(input);
-  const auto advanced_frame = advanced_pipeline.RunCycle(input);
+  ::electro_optical_sensor::session::EosCycleInput severe_input = calm_input;
+  severe_input.cycle_index = 8U;
+  severe_input.environment.cloud_coverage_ratio = 0.6f;
+  severe_input.environment.ambient_wind_speed_mps = 120.0f;
 
-  ASSERT_EQ(simplified_frame.detections.size(), 1U);
-  ASSERT_EQ(advanced_frame.detections.size(), 1U);
-  EXPECT_GT(simplified_frame.detections[0].fused_snr_linear,
-            advanced_frame.detections[0].fused_snr_linear);
+  const auto calm_frame = calm_pipeline.RunCycle(calm_input);
+  const auto severe_frame = severe_pipeline.RunCycle(severe_input);
+
+  ASSERT_EQ(calm_frame.detections.size(), 1U);
+  ASSERT_EQ(severe_frame.detections.size(), 1U);
+  EXPECT_GT(calm_frame.detections[0].fused_snr_linear,
+            severe_frame.detections[0].fused_snr_linear);
 }
 
 TEST(EosPipelineTest, PlatformVelocityDoesNotAffectEnvironmentPenaltyWhenWindFixed) {
   config::execution::EosInternalExecutionConfig config = MakePipelineConfig();
   config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
   config.environment.radiative_transfer_model =
-      config::RadiativeTransferModel::kAdaptivePathRadiance;
-  config.environment.model_type = EosPipelineEnvironmentModelType::kAdvanced;
+      config::execution::RadiativeTransferModel::kAdaptivePathRadiance;
   config.environment.aerosol_density_factor = 1.2f;
   config.environment.turbulence_factor = 1.1f;
 

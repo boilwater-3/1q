@@ -244,7 +244,9 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.mission.narrow_pointing_settle_tolerance_deg = 0.025f;
   config.policy.detection.wide_min_snr_linear = 3.5f;
   config.policy.detection.narrow_min_snr_linear = 7.0f;
-  config.policy.error_model.angular_sigma_deg = 0.08f;
+  config.policy.error_model.orbit_sigma_deg = 0.02f;
+  config.policy.error_model.attitude_sigma_deg = 0.04f;
+  config.policy.error_model.fov_sigma_deg = 0.06f;
   config.policy.error_model.range_fraction_sigma = 0.002f;
   config.policy.error_model.random_seed = 42U;
   config.policy.pointing_disturbance.common_attitude_sigma_deg = 0.02f;
@@ -276,7 +278,9 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_max_slew_rate_deg_per_sec, 17.5f);
   EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_settle_tolerance_deg, 0.025f);
   EXPECT_FLOAT_EQ(decoded.policy.detection.narrow_min_snr_linear, 7.0f);
-  EXPECT_FLOAT_EQ(decoded.policy.error_model.angular_sigma_deg, 0.08f);
+  EXPECT_FLOAT_EQ(decoded.policy.error_model.orbit_sigma_deg, 0.02f);
+  EXPECT_FLOAT_EQ(decoded.policy.error_model.attitude_sigma_deg, 0.04f);
+  EXPECT_FLOAT_EQ(decoded.policy.error_model.fov_sigma_deg, 0.06f);
   EXPECT_EQ(decoded.policy.error_model.random_seed, 42U);
   EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.common_attitude_sigma_deg, 0.02f);
   EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.common_attitude_correlation_time_s, 2.0f);

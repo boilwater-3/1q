@@ -60,9 +60,6 @@ double ResolveEffectiveAngularSigmaDeg(const config::SbirsErrorModelConfig& mode
   const double orbit = static_cast<double>(model.orbit_sigma_deg);
   const double attitude = static_cast<double>(model.attitude_sigma_deg);
   const double fov = static_cast<double>(model.fov_sigma_deg);
-  if (orbit == 0.0 && attitude == 0.0 && fov == 0.0) {
-    return static_cast<double>(model.angular_sigma_deg);
-  }
   return std::sqrt(orbit * orbit + attitude * attitude + fov * fov);
 }
 

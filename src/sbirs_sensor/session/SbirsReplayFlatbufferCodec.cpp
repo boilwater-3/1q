@@ -195,8 +195,8 @@ flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
                                                       value.detection.narrow_min_snr_linear);
   const flatbuffers::Offset<sbirs::replay::SbirsErrorModelConfig> error =
       sbirs::replay::CreateSbirsErrorModelConfig(
-          fbb, value.error_model.angular_sigma_deg, value.error_model.range_fraction_sigma,
-          value.error_model.random_seed, value.error_model.orbit_sigma_deg,
+          fbb, value.error_model.range_fraction_sigma, value.error_model.random_seed,
+          value.error_model.orbit_sigma_deg,
           value.error_model.attitude_sigma_deg, value.error_model.fov_sigma_deg,
           value.error_model.detector_bandwidth_hz);
   const flatbuffers::Offset<sbirs::replay::SbirsPointingDisturbanceConfig> disturbance =
@@ -232,7 +232,6 @@ void DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
     out->detection.narrow_min_snr_linear = fb->detection()->narrow_min_snr_linear();
   }
   if (fb->error_model() != nullptr) {
-    out->error_model.angular_sigma_deg = fb->error_model()->angular_sigma_deg();
     out->error_model.range_fraction_sigma = fb->error_model()->range_fraction_sigma();
     out->error_model.random_seed = fb->error_model()->random_seed();
     out->error_model.orbit_sigma_deg = fb->error_model()->orbit_sigma_deg();

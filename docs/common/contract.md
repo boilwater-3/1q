@@ -109,7 +109,7 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
    数据静默跳过。典型反例是 AR 的 `has_environment`：环境快照已写入但因漏置 flag 不被消费，会让
    杂波/干扰/大气数据完全不进入信号链且无任何信号。若布尔量明确是配置选择器而非数据存在性标志，
    可以定义关闭时整组候选参数不生效且不校验，但必须在 public Doxygen 和模块 design 明确优先级，并以
-   启用/关闭对照测试锁定；EOS `has_custom_overrides` 属于这种选择器。
+   启用/关闭对照测试锁定。
 
 3. **校验拒绝必须产生结构化 abort reason，不得静默或合成有效输出。** 输入校验失败时，controller 必须设置显式 abort reason（如 `kValidationRejected`），不执行 pipeline，不合成空输出帧，不把非法输入记作新的有效 batch/帧。已有有效输出时可复用上一帧并标记 `reused_previous_output`。新增 abort reason 以显式数值追加，保留已有 replay/trace 中既有数值语义。
 

@@ -38,12 +38,6 @@ table EosPolicyConfig {
   stray_light: EosPolicyStrayLightConfig;
 }
 
-table EosEnvironmentCustomOverrides {
-  radiative_transfer_model:                int32;
-  aerosol_density_factor:                  float;
-  turbulence_factor:                       float;
-}
-
 table EosAtmosphericObservation {
   enable_physical_model: bool;
   pressure_hpa:          float;
@@ -52,18 +46,8 @@ table EosAtmosphericObservation {
 }
 
 table EosEnvironmentConfig {
-  model_type:           int32;
-  preset:               int32;
-  has_custom_overrides: bool;
-  custom_overrides:     EosEnvironmentCustomOverrides;
-  // 派生的 ModelConfig 快照。decode 以 scenario_config 为 source of truth，
-  // 这些字段用于编码侧 characterization / 漂移检查。
-  radiative_transfer_model_derived:                int32;
-  aerosol_density_factor_derived:                  float;
-  turbulence_factor_derived:                       float;
-  // 可选大气物理观测（新增字段，默认值保持向后兼容）
-  has_atmospheric_observation: bool = false;
-  atmospheric_observation:     EosAtmosphericObservation;
+  preset:              int32;
+  atmospheric_physics: EosAtmosphericObservation;
 }
 
 table EosHardwareConfig {

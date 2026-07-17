@@ -35,11 +35,11 @@ RadiativeTransferResult EvaluateRadiativeTransfer(const RadiativeTransferInputs&
       base_extinction_coeff_per_m + humidity_absorption_coeff_per_m;
   float path_radiance_penalty_scale = 1.0f;
 
-  if (inputs.model == config::RadiativeTransferModel::kHumidityWeighted) {
+  if (inputs.model == config::execution::RadiativeTransferModel::kHumidityWeighted) {
     total_extinction_coeff_per_m =
         base_extinction_coeff_per_m + 1.5f * humidity_absorption_coeff_per_m + aerosol_coeff_per_m;
     path_radiance_penalty_scale = 1.0f + 0.5f * cloud_ratio;
-  } else if (inputs.model == config::RadiativeTransferModel::kAdaptivePathRadiance) {
+  } else if (inputs.model == config::execution::RadiativeTransferModel::kAdaptivePathRadiance) {
     total_extinction_coeff_per_m = base_extinction_coeff_per_m +
                                    1.2f * humidity_absorption_coeff_per_m + aerosol_coeff_per_m +
                                    turbulence_coeff_per_m;

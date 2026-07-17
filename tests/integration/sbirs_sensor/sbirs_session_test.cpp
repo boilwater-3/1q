@@ -59,7 +59,6 @@ config::SbirsSessionConfig MakeSessionConfig() {
   config.policy.detection.wide_min_snr_linear = 0.001f;
   config.policy.detection.narrow_min_snr_linear = 0.001f;
   // 关闭随机误差，使扫描/捕获判定在集成测试中确定可复现。
-  config.policy.error_model.angular_sigma_deg = 0.0f;
   config.policy.error_model.range_fraction_sigma = 0.0f;
   return config;
 }

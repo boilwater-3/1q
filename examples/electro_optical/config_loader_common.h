@@ -21,15 +21,6 @@ inline electro_optical_sensor::config::EosWorkMode EosWorkModeFromString(
   return electro_optical_sensor::config::EosWorkMode::kFused;
 }
 
-inline electro_optical_sensor::config::EosEnvironmentModelType EosModelFromString(
-    const std::string& s) {
-  if (s == "kSimplified")
-    return electro_optical_sensor::config::EosEnvironmentModelType::kSimplified;
-  if (s == "kAdvanced")
-    return electro_optical_sensor::config::EosEnvironmentModelType::kAdvanced;
-  return electro_optical_sensor::config::EosEnvironmentModelType::kSimplified;
-}
-
 inline electro_optical_sensor::config::EosEnvironmentPreset EosPresetFromString(
     const std::string& s) {
   if (s == "kStandard")
@@ -43,16 +34,6 @@ inline electro_optical_sensor::config::EosEnvironmentPreset EosPresetFromString(
   if (s == "kMaritime")
     return electro_optical_sensor::config::EosEnvironmentPreset::kMaritime;
   return electro_optical_sensor::config::EosEnvironmentPreset::kStandard;
-}
-
-inline electro_optical_sensor::config::RadiativeTransferModel
-RadiativeModelFromString(const std::string& s) {
-  using R =
-      electro_optical_sensor::config::RadiativeTransferModel;
-  if (s == "kDerivedBeerLambert") return R::kDerivedBeerLambert;
-  if (s == "kHumidityWeighted") return R::kHumidityWeighted;
-  if (s == "kAdaptivePathRadiance") return R::kAdaptivePathRadiance;
-  return R::kDerivedBeerLambert;
 }
 
 }  // namespace examples

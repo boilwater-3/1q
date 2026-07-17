@@ -16,15 +16,6 @@ namespace runtime {
 namespace session {
 namespace {
 
-bool IsValidEnvironmentModelType(config::EosEnvironmentModelType model_type) {
-  switch (model_type) {
-    case config::EosEnvironmentModelType::kSimplified:
-    case config::EosEnvironmentModelType::kAdvanced:
-      return true;
-  }
-  return false;
-}
-
 bool IsValidEnvironmentPreset(config::EosEnvironmentPreset preset) {
   switch (preset) {
     case config::EosEnvironmentPreset::kStandard:
@@ -32,16 +23,6 @@ bool IsValidEnvironmentPreset(config::EosEnvironmentPreset preset) {
     case config::EosEnvironmentPreset::kDusty:
     case config::EosEnvironmentPreset::kTurbulent:
     case config::EosEnvironmentPreset::kMaritime:
-      return true;
-  }
-  return false;
-}
-
-bool IsValidRadiativeTransferModel(config::RadiativeTransferModel model) {
-  switch (model) {
-    case config::RadiativeTransferModel::kDerivedBeerLambert:
-    case config::RadiativeTransferModel::kHumidityWeighted:
-    case config::RadiativeTransferModel::kAdaptivePathRadiance:
       return true;
   }
   return false;
@@ -100,25 +81,20 @@ bool IsValidEnvironmentPatch(
   if (environment_patch.has_scenario_config) {
     const config::EosEnvironmentScenarioConfig& scenario =
         environment_patch.scenario_config;
-    if (!IsValidEnvironmentModelType(scenario.model_type) ||
-        !IsValidEnvironmentPreset(scenario.preset)) {
+    if (!IsValidEnvironmentPreset(scenario.preset)) {
       return false;
     }
-    if (scenario.has_custom_overrides) {
-      if (!IsValidRadiativeTransferModel(
-              scenario.custom_overrides.radiative_transfer_model)) {
-        return false;
-      }
-      if (!oneq::common::validation::IsFinite(
-              scenario.custom_overrides.aerosol_density_factor) ||
-          scenario.custom_overrides.aerosol_density_factor <= 0.0f) {
-        return false;
-      }
-      if (!oneq::common::validation::IsFinite(
-              scenario.custom_overrides.turbulence_factor) ||
-          scenario.custom_overrides.turbulence_factor <= 0.0f) {
-        return false;
-      }
+    const config::EosAtmosphericPhysicsConfig& atmosphere =
+        scenario.atmospheric_physics;
+    if (atmosphere.enable_physical_model &&
+        (!oneq::common::validation::IsFinite(atmosphere.pressure_hpa) ||
+         atmosphere.pressure_hpa <= 0.0f ||
+         !oneq::common::validation::IsFinite(atmosphere.temperature_k) ||
+         atmosphere.temperature_k <= 0.0f ||
+         !oneq::common::validation::IsFinite(atmosphere.relative_humidity) ||
+         atmosphere.relative_humidity < 0.0f ||
+         atmosphere.relative_humidity > 1.0f)) {
+      return false;
     }
   }
   return true;
@@ -176,7 +152,7 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
     }
 
     if (patch.environment.has_scenario_config) {
-      const config::EosEnvironmentModelConfig model_config =
+      const config::execution::EnvironmentConfig model_config =
           config::BuildModelConfigFromScenario(patch.environment.scenario_config);
       ApplyEnvironmentModelToInternal(model_config, &resolved.next_config);
     }

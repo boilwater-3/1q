@@ -5,8 +5,6 @@
 
 #include <gtest/gtest.h>
 
-#include <limits>
-
 #include "1q/electro_optical_sensor/config/EosSessionConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosSessionConfigValidation.h"
 
@@ -106,51 +104,19 @@ TEST(EosSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {
 
 TEST(EosSessionConfigValidationTest, RejectsInvalidEnvironmentEnums) {
   EosSessionConfig config;
-  config.environment.scenario_config.model_type =
-      static_cast<EosEnvironmentModelType>(99);
   config.environment.scenario_config.preset = static_cast<EosEnvironmentPreset>(99);
 
   const ValidationIssueList issues = ValidateEosSessionConfig(config);
-  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kEnvironmentModelTypeInvalid));
   EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kEnvironmentPresetInvalid));
 }
 
-TEST(EosSessionConfigValidationTest, RejectsInvalidEnabledCustomOverrides) {
+TEST(EosSessionConfigValidationTest, RejectsInvalidEnabledAtmosphericPhysics) {
   EosSessionConfig config;
-  config.environment.scenario_config.has_custom_overrides = true;
-  EosEnvironmentCustomOverrides& custom =
-      config.environment.scenario_config.custom_overrides;
-  custom.radiative_transfer_model = static_cast<RadiativeTransferModel>(99);
-  custom.aerosol_density_factor = std::numeric_limits<float>::quiet_NaN();
-  custom.turbulence_factor = std::numeric_limits<float>::infinity();
+  config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
+  config.environment.scenario_config.atmospheric_physics.temperature_k = 0.0f;
 
   const ValidationIssueList issues = ValidateEosSessionConfig(config);
-  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kRadiativeTransferModelInvalid));
-  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kAerosolDensityFactorInvalid));
-  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kTurbulenceFactorInvalid));
-}
-
-TEST(EosSessionConfigValidationTest, RejectsNonPositiveEnabledCustomFactors) {
-  EosSessionConfig config;
-  config.environment.scenario_config.has_custom_overrides = true;
-  config.environment.scenario_config.custom_overrides.aerosol_density_factor = 0.0f;
-  config.environment.scenario_config.custom_overrides.turbulence_factor = -1.0f;
-
-  const ValidationIssueList issues = ValidateEosSessionConfig(config);
-  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kAerosolDensityFactorInvalid));
-  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kTurbulenceFactorInvalid));
-}
-
-TEST(EosSessionConfigValidationTest, IgnoresDisabledCustomOverrides) {
-  EosSessionConfig config;
-  config.environment.scenario_config.has_custom_overrides = false;
-  EosEnvironmentCustomOverrides& custom =
-      config.environment.scenario_config.custom_overrides;
-  custom.radiative_transfer_model = static_cast<RadiativeTransferModel>(99);
-  custom.aerosol_density_factor = std::numeric_limits<float>::quiet_NaN();
-  custom.turbulence_factor = -1.0f;
-
-  EXPECT_TRUE(ValidateEosSessionConfig(config).empty());
+  EXPECT_TRUE(ContainsCode(issues, ConfigValidationCode::kAtmosphericPhysicsInvalid));
 }
 
 }  // namespace

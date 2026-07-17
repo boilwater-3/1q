@@ -427,11 +427,10 @@ AR 的探测门限属于 policy，不属于 hardware。`ArPolicyConfig::detectio
 
 物理路径的关键边界是：目标 RCS、环境传播、干扰、波束增益和量测协方差都参与结果。不能只用“目标距离近就探测成功”描述 AR 行为。
 
-频率配置分为两种所有权：`transmitter.frequency_hz` 是当前探测、传播和波长计算的有效发射频率，
-频率捷变会改变该值；`rcs_physics.frequency_hz` 只控制目标物理 RCS 表征。后者等于 0 时继承当前
-有效发射频率，因此随频率捷变跳变；大于 0 时是固定表征 override，不随频率捷变变化。两者都必须
-有限，发射频率必须大于 0，RCS 表征频率不得小于 0。
-[evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp::ZeroRcsFrequencyMatchesExplicitTransmitterFrequency]
+AR 只有一个频率来源：当前有效的 `transmitter.frequency_hz`。探测、传播、天线波长和物理 RCS
+全部消费该值；频率捷变更新它后，四条物理路径在同一周期使用同一频率。配置必须有限且大于 0，
+`RcsPhysicsConfig` 不再提供独立频率或隐式继承规则。
+[evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp::SignalPipelineTest.PhysicalRcsUsesTransmitterFrequency]
 [evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp::SignalPipelineTest.AgilityFrequencyHopPhaseControlsFrequencyDirection]
 [evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp]
 
