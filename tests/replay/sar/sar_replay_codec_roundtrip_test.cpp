@@ -110,6 +110,7 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   EXPECT_DOUBLE_EQ(decoded.output_frame.azimuth_resolution_3db_m, 10.0);
   EXPECT_DOUBLE_EQ(decoded.output_frame.image_entropy_nats, 2.25);
   EXPECT_DOUBLE_EQ(decoded.output_frame.image_contrast, 1.5);
+  EXPECT_TRUE(decoded.output_frame.has_range_compressed_echo);
   EXPECT_TRUE(decoded.output_frame.has_l3_bp_image);
   EXPECT_FALSE(decoded.output_frame.has_l1_image);
   EXPECT_TRUE(decoded.output_frame.has_image_quality_metrics);

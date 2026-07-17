@@ -199,21 +199,20 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
       return false;
     }
   }
-  if (config.policy.enable_range_compression) {
-    session::MarkRangeCompressionStage(&result->output_frame);
-  }
   if (config.policy.enable_l1_rda_imaging) {
     if (!session::ExecuteL1RdaImaging(config, raw_history, matched_filter,
                                       impl_->ideal_trajectory_buffer,
                                       impl_->actual_trajectory_buffer, result)) {
       return false;
     }
+    result->output_frame.has_range_compressed_echo = true;
   }
   if (config.policy.enable_l3_bp_imaging) {
     if (!session::ExecuteL3BpImaging(config, raw_history, matched_filter,
                                      impl_->actual_trajectory_buffer, result)) {
       return false;
     }
+    result->output_frame.has_range_compressed_echo = true;
   }
 
   if (HasDegenerateImagePeak(*result, input)) {

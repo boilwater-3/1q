@@ -62,13 +62,14 @@ SarRuntimeConfigResolveResult ResolveSarRuntimeConfigPatch(
     resolved.policy_changed = true;
   }
 
-  // L1 RDA 成像依赖 raw echo generation：原为 step-time gate
-  // （SarRuntimeConfigValidation.cpp:54-58），此处前置到 apply 时刻。
-  // 基于 resolved.next_config 判定，使同一补丁内同时打开两者也能正确放行。
+  // L1 RDA 成像依赖 raw echo generation 与 range compression。基于
+  // resolved.next_config 判定，使同一补丁内同时打开依赖项也能正确放行。
   if (resolved.next_config.policy.enable_l1_rda_imaging &&
-      !resolved.next_config.policy.enable_raw_echo_generation) {
+      (!resolved.next_config.policy.enable_raw_echo_generation ||
+       !resolved.next_config.policy.enable_range_compression)) {
     PROJECT_LOG_ERROR(
-        "[SarSession] Rejecting patch: enable_l1_rda_imaging requires enable_raw_echo_generation.");
+        "[SarSession] Rejecting patch: enable_l1_rda_imaging requires raw echo generation and "
+        "range compression.");
     return RejectPatch(current_config, true);
   }
   if (resolved.next_config.policy.retain_raw_phase_history &&

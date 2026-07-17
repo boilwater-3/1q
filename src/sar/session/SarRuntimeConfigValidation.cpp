@@ -81,9 +81,10 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
                 "validation scenes until performance approval.");
     return false;
   }
-  if (config.policy.enable_l1_rda_imaging && !config.policy.enable_raw_echo_generation) {
-    RecordAbort(result, "rda_requires_raw_echo",
-                "SAR session RDA requires raw echo generation in the current Phase 1 pipeline.");
+  if (config.policy.enable_l1_rda_imaging &&
+      (!config.policy.enable_raw_echo_generation || !config.policy.enable_range_compression)) {
+    RecordAbort(result, "rda_requires_raw_echo_and_range_compression",
+                "SAR session RDA requires raw echo generation and range compression.");
     return false;
   }
   if (config.policy.enable_l2_motion_compensation &&

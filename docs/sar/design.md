@@ -311,12 +311,19 @@ SAR session 每周期先由 hardware config 生成 LFM waveform：
 - pulse width：`SarHardwareConfig::pulse_width_s`
 - time-bandwidth product：`max(bandwidth * pulse_width, 1.0)`
 
-匹配滤波器由发射波形构造。距离压缩是 RDA/BP 前的基础处理，不作为 public 算法对象暴露。
+匹配滤波器由发射波形构造。距离压缩是 RDA/BP 内部的基础处理，不作为 public 算法对象暴露。
 
 适用边界：
 
 - waveform 生成失败会中止周期。
-- range compression 可通过 policy 记录阶段，但完整聚焦仍依赖 raw history 和 matched filter。
+- `enable_range_compression` 是 L1 RDA 与 L3 BP 的显式前置条件；关闭时成像配置在执行前被拒绝。
+- 当前没有独立距离压缩载荷。只有 RDA/BP 实际成功执行内部距离压缩后才置位
+  `has_range_compressed_echo`；`raw=false, range=true` 与 raw-only 路径均不得发布完成状态，live
+  session 也不以 `kRangeCompression` 作为仅开关驱动的终态。该枚举只为既有 replay 保真保留。
+
+[evidence: tests/unit/sar/sar_session_pipeline_test.cpp::RangeCompressionStatusRequiresExecutedImaging]
+[evidence: tests/unit/sar/sar_session_pipeline_test.cpp::RdaRequiresRawEchoAndRangeCompression]
+[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::CycleResultPreservesOutputAndDiagnostics]
 
 验证入口：
 

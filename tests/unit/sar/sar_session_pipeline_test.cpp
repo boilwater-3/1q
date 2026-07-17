@@ -634,17 +634,44 @@ TEST(SarSessionPipelineTest, RuntimeSizeGateRejectsUnapprovedLargeRda) {
   EXPECT_FALSE(result.output_frame.has_l1_image);
 }
 
-TEST(SarSessionPipelineTest, RdaRequiresRawEchoGenerationInPhase1Pipeline) {
-  config::SarSessionConfig config = MakeSmallRdaConfig();
-  config.policy.enable_raw_echo_generation = false;
-  session::SarSession session = session::SarSession::Create(config);
+TEST(SarSessionPipelineTest, RdaRequiresRawEchoAndRangeCompression) {
+  for (int missing_dependency = 0; missing_dependency < 2; ++missing_dependency) {
+    config::SarSessionConfig config = MakeSmallRdaConfig();
+    if (missing_dependency == 0) {
+      config.policy.enable_raw_echo_generation = false;
+    } else {
+      config.policy.enable_range_compression = false;
+    }
+    const session::SarCycleResult result =
+        session::SarSession::Create(config).StepWithResult(MakeInput());
 
-  const session::SarCycleResult result = session.StepWithResult(MakeInput());
+    EXPECT_FALSE(result.executed_this_cycle);
+    EXPECT_TRUE(result.has_error);
+    EXPECT_EQ(result.abort_reason, "rda_requires_raw_echo_and_range_compression");
+    EXPECT_FALSE(result.output_frame.has_range_compressed_echo);
+    EXPECT_FALSE(result.output_frame.has_l1_image);
+  }
+}
 
-  EXPECT_FALSE(result.executed_this_cycle);
-  EXPECT_TRUE(result.has_error);
-  EXPECT_EQ(result.abort_reason, "rda_requires_raw_echo");
-  EXPECT_FALSE(result.output_frame.has_l1_image);
+TEST(SarSessionPipelineTest, RangeCompressionStatusRequiresExecutedImaging) {
+  config::SarSessionConfig no_raw = MakeSmallRdaConfig();
+  no_raw.policy.enable_raw_echo_generation = false;
+  no_raw.policy.enable_l1_rda_imaging = false;
+  const session::SarCycleResult no_raw_result =
+      session::SarSession::Create(no_raw).StepWithResult(MakeInput());
+  EXPECT_TRUE(no_raw_result.executed_this_cycle);
+  EXPECT_FALSE(no_raw_result.output_frame.has_raw_echo);
+  EXPECT_FALSE(no_raw_result.output_frame.has_range_compressed_echo);
+  EXPECT_EQ(no_raw_result.output_frame.completed_stage, session::SarProcessingStage::kNone);
+
+  config::SarSessionConfig raw_only = MakeSmallRdaConfig();
+  raw_only.policy.enable_l1_rda_imaging = false;
+  const session::SarCycleResult raw_only_result =
+      session::SarSession::Create(raw_only).StepWithResult(MakeInput());
+  EXPECT_TRUE(raw_only_result.executed_this_cycle);
+  EXPECT_TRUE(raw_only_result.output_frame.has_raw_echo);
+  EXPECT_FALSE(raw_only_result.output_frame.has_range_compressed_echo);
+  EXPECT_EQ(raw_only_result.output_frame.completed_stage, session::SarProcessingStage::kRawEcho);
 }
 
 TEST(SarSessionPipelineTest, L2MotionCompensationIsDefaultOffAndRunsWhenExplicitlyEnabled) {

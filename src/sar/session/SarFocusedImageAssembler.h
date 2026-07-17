@@ -29,17 +29,6 @@ void InitializeOutputFrameMetadata(const config::SarSessionConfig& config, SarOu
  */
 void MarkRawEchoStage(SarOutputFrame* frame, double estimated_snr_db);
 
-/**
- * @brief 标记 range-compression 阶段。
- *
- * 语义说明（与 findings.md F5 / 阶段5 注释对齐）：当前 Phase 1 不产出独立可消费的
- * 距离压缩产物，真实距离压缩发生在 RDA / BP 内部。本标记表示会话已声明完成该内部
- * 步骤、满足 L3 BP 的前置条件门，并在 replay 中保持 `kRangeCompression` 阶段摘要；
- * 它不是独立输出载荷。行为保持与历史一致，仅在此集中标注语义。
- * @param[out] frame 输出帧，completed_stage 与 has_range_compressed_echo 字段被更新。
- */
-void MarkRangeCompressionStage(SarOutputFrame* frame);
-
 }  // namespace session
 }  // namespace sar
 

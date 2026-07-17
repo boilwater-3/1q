@@ -16,10 +16,5 @@ void MarkRawEchoStage(SarOutputFrame* frame, double estimated_snr_db) {
   frame->estimated_snr_db = estimated_snr_db;
 }
 
-void MarkRangeCompressionStage(SarOutputFrame* frame) {
-  frame->completed_stage = SarProcessingStage::kRangeCompression;
-  frame->has_range_compressed_echo = true;
-}
-
 }  // namespace session
 }  // namespace sar

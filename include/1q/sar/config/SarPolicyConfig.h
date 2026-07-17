@@ -16,7 +16,7 @@ namespace config {
  */
 struct ONEQ_API SarPolicyConfig {
   bool enable_raw_echo_generation{true};      /**< 是否启用 raw echo 生成阶段 */
-  bool enable_range_compression{true};        /**< 距离压缩开关。当前 Phase 1 不产出独立可消费的距离压缩产物，真实距离压缩在 RDA / BP 内部完成。此开关作为 L3 BP 的前置条件门（参见 l3_bp_session_integration 契约：L3 BP 必须同时启用 raw echo generation 与 range compression），并在启用时触发 `SarProcessingStage::kRangeCompression` 阶段标记与 `has_range_compressed_echo` 摘要；该标记是前置条件摘要，不是独立输出载荷 */
+  bool enable_range_compression{true};        /**< L1 RDA 与 L3 BP 的距离压缩前置条件开关。当前不产出独立距离压缩载荷；RDA/BP 在内部执行真实距离压缩并于成功后发布 `has_range_compressed_echo`，仅启用本开关不发布完成状态 */
   bool enable_l1_rda_imaging{false};          /**< 是否启用 L1 RDA 聚焦成像 */
   bool enable_l2_motion_compensation{false};  /**< 是否启用 L2 一阶运动补偿 */
   bool enable_l3_bp_imaging{false};           /**< 是否启用 L3 BP 聚焦成像 */

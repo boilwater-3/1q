@@ -21,7 +21,7 @@ namespace session {
 enum class SarProcessingStage {
   kNone = 0,
   kRawEcho = 1,
-  kRangeCompression = 2, /**< 距离压缩阶段标记。当前 Phase 1 不产出独立可消费的距离压缩产物，真实距离压缩在 RDA / BP 内部完成；该值表示会话已声明完成该内部步骤、满足 L3 BP 前置条件门，并作为 replay 摘要保真。它不是终端成像阶段，仅当 RDA/BP 未启用时才可能成为 completed_stage 的最终值 */
+  kRangeCompression = 2, /**< 为既有 replay 数据保留的距离压缩阶段值。当前 live session 不产出独立距离压缩载荷，也不会仅因开关启用而发布此完成阶段；真实距离压缩由 RDA/BP 内部执行 */
   kL1RdaImage = 3,
   kL3BpImage = 4
 };
@@ -109,7 +109,7 @@ struct ONEQ_API SarOutputFrame {
   double image_entropy_nats{0.0};
   double image_contrast{0.0};
   bool has_raw_echo{false};
-  bool has_range_compressed_echo{false}; /**< 距离压缩摘要标志，与 `SarProcessingStage::kRangeCompression` 同义。当前 Phase 1 不返回独立距离压缩载荷；该标志在 `enable_range_compression` 为真时置位，表示 RDA/BP 内部距离压缩步骤已声明完成，并非可消费的独立输出 */
+  bool has_range_compressed_echo{false}; /**< RDA/BP 已实际完成内部距离压缩的事实摘要。当前不返回独立距离压缩载荷；仅启用 `enable_range_compression` 不会置位 */
   bool has_l1_image{false};
   bool has_l3_bp_image{false};
   bool has_image_quality_metrics{false};
