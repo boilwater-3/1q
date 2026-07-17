@@ -487,7 +487,9 @@ pipeline snapshot 同时保存 scheduler 映射、逐通道 actuator 和 trackin
    目标运动、cue 延迟和 NFOV 视场大小影响，不会因为窗口中心直接取测量值而恒成立。
 5. **SNR 门限**：判断 NFOV IR SNR 是否 ≥ NFOV 捕获门限；具体门限由当前配置决定。
 6. **成功**：默认进入 `EstimatedTracking`；显式关闭滤波时进入 `TruthAssistedTracking`。两种状态都保留
-   当前通道的 actuator 绑定并进入捕获后闭环推进。
+   当前通道的 actuator 绑定并进入捕获后闭环推进。捕获 raw 角度沿用本周期 WFOV 带噪测量；实际
+   actuator LOS 只参与窗口 eligibility，不把通过门限的目标真值直接写成观测。目标 ID/name 与真实
+   LOS 仍只进入 attribution 和仿真判定层。
 7. **失败/超时**：窗口或 SNR 失败，或 ATP 达到派生等待上限时，清除交接并回退 `WideCandidate`。不输出该
    目标本周期 NFOV 成功记录；但产出 `capture_failure_reason = kNfovAcquisitionFailed` 的诊断归属，
    仅进入 `SbirsCycleResult.detection_attributions` 与调试/lifecycle 层，不进入 raw output。
@@ -502,16 +504,18 @@ pipeline snapshot 同时保存 scheduler 映射、逐通道 actuator 和 trackin
   `0.141490/0.279187 deg`，劣于 CV 的 `0.074132/0.141619 deg`，捕获率也从
   `73.91%` 降至 `41.30%`。因未通过标称噪声零回退门，当前拒绝生产接线，
   不新增 CV/CA 配置、schema 或自动切换。
-- `u_cmd` 仅由 WFOV 带误差测量历史生成；延迟后的真实 LOS 只用于仿真判定捕获是否成功，不进入命令或 raw output。
+- `u_cmd` 与捕获 raw 均来自 WFOV 带误差测量链；延迟后的真实 LOS 只用于仿真判定捕获是否成功，
+  不进入命令或 raw output。实际 NFOV LOS 的单变量效果由捕获窗口是否存在 raw 记录体现，而非改写
+  raw 为窗口中心。
 - cue 延迟对真实 LOS 的评估仍用目标速度做线性平移，不做积分轨道传播。
 - 当前 ATP 建模捕获前与捕获后的逐通道速率受限光轴；仍不建模整星姿态动力学或通道间机械耦合。
 
 [evidence: `sbirs_cue_predictor_test.cpp:ConstantAngularVelocityPredictsLatencyAhead`、`AzimuthUsesShortestPathAcrossWrap`、`CaptureRestorePreservesPerTargetHistory`;
  `sbirs_cue_ca_characterization_test.cpp:SustainedAccelerationPassesBenefitGateWithoutNoise`、`StaticAndConstantVelocityHaveNoNoiselessRegression`、`FiveSampleCaFailsStrictNominalNoiseZeroRegression`、`NonUniformDtAndAccelerationReversalRemainFinite`;
- `sbirs_pipeline_test.cpp:MeasurementCvCueCapturesOnSecondObservationAndRestores`、`SchedulerSkippedCandidateAccumulatesCueHistoryUntilChannelFrees`;
+ `sbirs_pipeline_test.cpp:MeasurementCvCueCapturesOnSecondObservationAndRestores`、`SchedulerSkippedCandidateAccumulatesCueHistoryUntilChannelFrees`、`NfovAcquisitionRawUsesNoisyMeasurementAndIsReproducible`、`CommonAttitudeDisturbanceMovesWfovAndNfovTogether`;
  `sbirs_session_test.cpp:MeasurementCvCueCapturesAfterSecondWfovObservation`;
  `sbirs_session_test.cpp:RateLimitedPointingReservesChannelUntilSettled`、`RuntimeMissionPatchClearsSlewAndUsesNewRate`、`DualChannelAssignmentIsIndependentOfInputOrder`;
- `sbirs_replay_session_test.cpp:ReplayPreservesMeasurementDerivedCvCue`、`ReplayPreservesMultiCycleSlewAndRuntimeMissionPatch`、`ReplayPreservesDualChannelPointingTimeout`]
+ `sbirs_replay_session_test.cpp:ReplaySbirsTraceRoundtrip`、`ReplayPreservesMeasurementDerivedCvCue`、`ReplayPreservesMultiCycleSlewAndRuntimeMissionPatch`、`ReplayPreservesDualChannelPointingTimeout`]
 
 验证入口：
 
@@ -951,7 +955,8 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 - WFOV 阶段（`WideCandidate`）：输出 WFOV 检测成功目标的检测记录，位置为带误差值。
 - NFOV 指向等待周期（`AwaitingNfovAcquisition` 且 ATP 未 settled）：继续输出 WFOV 检测记录；
   attribution 携带已预留的 `nfov_channel_id`。
-- NFOV 首次捕获成功周期（`AwaitingNfovAcquisition → EstimatedTracking/TruthAssistedTracking`）：输出 NFOV 捕获后的检测记录。
+- NFOV 首次捕获成功周期（`AwaitingNfovAcquisition → EstimatedTracking/TruthAssistedTracking`）：输出
+  NFOV 捕获后的检测记录，角度来自本周期带噪测量而非 eligibility 使用的目标真值。
 - NFOV 持续跟踪且几何/SNR 门通过：输出锁定目标检测；默认角度来自滤波后验，显式关闭滤波时来自真值辅助。
 - NFOV 单周期门失败但未达丢锁阈值：raw output 无记录；attribution/debug/lifecycle 标记 `Coasting` 并保留通道。
 - NFOV 门连续失败达到阈值：raw output 无记录；result attribution 携带 `kNfovTrackingGateLost` 并释放锁定。

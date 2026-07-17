@@ -478,8 +478,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
                                               attribution::SbirsCaptureFailureReason reason) {
     SbirsPipelineDetection detection;
     detection.record.detection_id = next_detection_id_++;
-    detection.record.azimuth_deg = candidate.azimuth_deg;
-    detection.record.elevation_deg = candidate.elevation_deg;
+    detection.record.azimuth_deg = candidate.measured_azimuth_deg;
+    detection.record.elevation_deg = candidate.measured_elevation_deg;
     detection.record.infrared_snr_linear = static_cast<float>(candidate.snr);
     detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldAcquisition;
     detection.record.detected = false;
@@ -562,8 +562,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       }
       SbirsPipelineDetection detection;
       detection.record.detection_id = next_detection_id_++;
-      detection.record.azimuth_deg = selected.azimuth_deg;
-      detection.record.elevation_deg = selected.elevation_deg;
+      detection.record.azimuth_deg = selected.measured_azimuth_deg;
+      detection.record.elevation_deg = selected.measured_elevation_deg;
       detection.record.infrared_snr_linear = static_cast<float>(selected.snr);
       detection.record.observation_stage = output::SbirsObservationStage::kNarrowFieldAcquisition;
       detection.record.detected = true;

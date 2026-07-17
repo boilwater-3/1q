@@ -169,6 +169,13 @@ TEST(SbirsReplaySessionTest, ReplaySbirsTraceRoundtrip) {
     session.ApplyRuntimeConfig(patch);
     const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(ValidInput(1U));
     EXPECT_TRUE(result.executed_this_cycle);
+    ASSERT_EQ(result.output_frame.detections.size(), 1U);
+    ASSERT_EQ(result.detection_attributions.size(), 1U);
+    EXPECT_EQ(result.output_frame.detections.front().observation_stage,
+              sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
+    EXPECT_NE(result.output_frame.detections.front().azimuth_deg, 0.0f);
+    EXPECT_EQ(result.detection_attributions.front().target_id, 1U);
+    EXPECT_FALSE(result.detection_attributions.front().used_truth_assist);
     replay_writer->Flush();
   }
 
