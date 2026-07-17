@@ -389,7 +389,7 @@ extension::EosPipelineExecuteResult EosPipeline::RunCycle(
   if (!config_.sensor_enabled) {
     extension::EosPipelineExecuteResult result;
     result.executed_this_cycle = false;
-    result.abort_reason = session::EosPipelineAbortReason::kNone;
+    result.abort_reason = session::EosPipelineAbortReason::kSensorPoweredOff;
     return result;
   }
   extension::EosPipelineExecuteResult result;

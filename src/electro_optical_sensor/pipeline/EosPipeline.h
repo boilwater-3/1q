@@ -60,7 +60,7 @@ class EosPipeline {
    * @brief 执行单周期核心处理（扫描递推、视场判定、探测评估）。
    * @param[in] input 当前周期输入。
    * @return 单周期执行结果，含探测记录、归属映射与扫描方位角。
-   * @note `sensor_enabled` 为 false 时直接返回未执行结果（abort_reason 为 kNone）。
+   * @note `sensor_enabled` 为 false 时直接返回 `kSensorPoweredOff` 未执行结果。
    */
   extension::EosPipelineExecuteResult RunCycle(
       const ::electro_optical_sensor::session::EosCycleInput& input);

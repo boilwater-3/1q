@@ -61,7 +61,8 @@ enum class ONEQ_API EosPipelineAbortReason {
   kNone = 0,
   kValidationRejected,
   kOutputContractViolation,
-  kRuntimeStateRestoreRejected
+  kRuntimeStateRestoreRejected,
+  kSensorPoweredOff = 4 /**< 设备关机，核心 pipeline 未执行 */
 };
 
 }  // namespace session

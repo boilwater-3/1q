@@ -404,10 +404,13 @@ pipeline 先得到红外 SNR 和可见光 SNR，再依据工作模式生成最�
 
 - 首个周期输入无效时，不合成虚假的最新输出。
 - 已有成功周期后再遇到无效输入，可以复用最近有效输出，同时在 result 中记录校验失败状态。
+- 设备关机返回 `kSensorPoweredOff` 合法非执行状态；controller 保留最近有效输出并设置
+  `reused_previous_output`，不得把关机映射为 `kOutputContractViolation`。
 - runtime patch 必须原子校验；任一字段无效时整个 patch 被拒绝。
 - controller runtime state 支持 capture/restore，但必须拒绝不兼容的 pipeline snapshot 或其他 controller 实例的 snapshot。
 
 这些规则让 EOS 能在 replay、回归测试和集成场景中保持可解释行为。相关测试包括 `ValidationFailureReturnsEmptyFrameAndStillAdvancesCycleIndex`、`StepReusesPreviousOutputWhenValidationFailsAfterSuccessfulCycle`、`RuntimePatchIsAtomicWhenAnyFieldIsInvalid` 和 `CaptureAndRestoreRoundTripState`。
+[evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::EosSessionReportsPoweredOffWithoutContractViolation]
 
 ## 3. 非目标与边界
 

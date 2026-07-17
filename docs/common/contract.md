@@ -111,7 +111,12 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
    可以定义关闭时整组候选参数不生效且不校验，但必须在 public Doxygen 和模块 design 明确优先级，并以
    启用/关闭对照测试锁定。
 
-3. **校验拒绝必须产生结构化 abort reason，不得静默或合成有效输出。** 输入校验失败时，controller 必须设置显式 abort reason（如 `kValidationRejected`），不执行 pipeline，不合成空输出帧，不把非法输入记作新的有效 batch/帧。已有有效输出时可复用上一帧并标记 `reused_previous_output`。新增 abort reason 以显式数值追加，保留已有 replay/trace 中既有数值语义。
+3. **非执行周期必须产生准确的结构化 reason，不得静默或伪造故障。** 输入校验失败时，
+   controller 必须设置显式 abort reason（如 `kValidationRejected`），不执行 pipeline，不合成
+   空输出帧，不把非法输入记作新的有效 batch/帧。设备关机等合法非执行状态必须使用独立
+   reason（如 `kSensorPoweredOff`），不得映射成 output contract violation。已有有效输出时可
+   复用上一帧并标记 `reused_previous_output`。新增 reason 以显式数值追加，保留已有 replay/trace
+   中既有数值语义。
 
 4. **外部输入解析与 trace 读取必须有上限与完整性校验。** 自研解析器（如 JSON）必须有最大嵌套深度限制、顶层 value 后的 EOF 校验与转义完整性校验。trace/replay 文件读取必须在读入前检查大小上限（与写入侧守卫对齐）。磁盘写失败必须检查流状态并记录，不得静默丢失。
 

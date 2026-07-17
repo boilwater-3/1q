@@ -87,6 +87,17 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
 
   const extension::EosPipelineExecuteResult execute_result = impl_->pipeline.RunCycle(input);
 
+  if (!execute_result.executed_this_cycle &&
+      execute_result.abort_reason == session::EosPipelineAbortReason::kSensorPoweredOff) {
+    impl_->latest_output = previous_output;
+    impl_->latest_detection_attributions = previous_attributions;
+    impl_->has_latest_output = had_previous_output;
+    impl_->last_cycle_executed = false;
+    impl_->last_cycle_reused_previous_output = had_previous_output;
+    impl_->last_abort_reason = session::EosPipelineAbortReason::kSensorPoweredOff;
+    return;
+  }
+
   if (!IsEosExecuteResultContractValid(execute_result, input)) {
     const bool restore_ok = impl_->pipeline.RestoreRuntimeState(previous_pipeline_state);
     if (!restore_ok) {

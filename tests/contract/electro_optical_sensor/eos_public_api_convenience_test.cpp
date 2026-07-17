@@ -444,6 +444,28 @@ TEST(EosPublicApiConvenienceTest, EosSessionAppliesRuntimeConfigPatch) {
   EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }
 
+TEST(EosPublicApiConvenienceTest, EosSessionReportsPoweredOffWithoutContractViolation) {
+  session::EosSession session = session::EosSession::Create();
+  ::electro_optical_sensor::session::EosCycleInput input;
+  input.cycle_index = 1U;
+  input.dt_sec = 1.0f;
+  input.scene.push_back(MakeTarget(601U, 1000.0f, 0.0f, 0.0f, 310.0f, 0.9f, 0.1f, 1.5f));
+
+  const ::electro_optical_sensor::session::EosCycleResult active =
+      session.StepWithResult(input);
+  ASSERT_TRUE(active.executed_this_cycle);
+
+  session.ApplyRuntimeConfig(config::EosRuntimeConfigBuilder().WithSensorEnabled(false).Build());
+  ++input.cycle_index;
+  const ::electro_optical_sensor::session::EosCycleResult powered_off =
+      session.StepWithResult(input);
+
+  EXPECT_FALSE(powered_off.executed_this_cycle);
+  EXPECT_TRUE(powered_off.reused_previous_output);
+  EXPECT_EQ(powered_off.abort_reason, session::EosPipelineAbortReason::kSensorPoweredOff);
+  EXPECT_EQ(powered_off.output_frame.cycle_index, active.output_frame.cycle_index);
+}
+
 TEST(EosPublicApiConvenienceTest, EosSessionMultiCycleProducesProgressiveCycleIndices) {
   config::EosSessionConfig config;
   config.mission.scan_start_az_deg = -20.0f;
