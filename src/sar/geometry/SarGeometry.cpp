@@ -21,7 +21,11 @@ bool IsFinite(const LocalPoint& point) {
 
 bool GenerateStraightStripmapTrack(const StraightStripmapTrackConfig& config,
                                    std::vector<PlatformPulseState>* pulses) {
-  if (pulses == nullptr || !std::isfinite(config.prf_hz) || config.prf_hz <= 0.0 ||
+  if (pulses == nullptr || !std::isfinite(config.start_time_s) ||
+      !std::isfinite(config.velocity_x_mps) || !std::isfinite(config.velocity_y_mps) ||
+      !std::isfinite(config.velocity_z_mps) || !std::isfinite(config.roll_deg) ||
+      !std::isfinite(config.pitch_deg) || !std::isfinite(config.yaw_deg) ||
+      !std::isfinite(config.prf_hz) || config.prf_hz <= 0.0 ||
       config.pulse_count == 0U) {
     return false;
   }
@@ -29,13 +33,20 @@ bool GenerateStraightStripmapTrack(const StraightStripmapTrackConfig& config,
   pulses->clear();
   pulses->reserve(config.pulse_count);
   for (std::uint32_t i = 0U; i < config.pulse_count; ++i) {
-    const double time_s = static_cast<double>(i) / config.prf_hz;
+    const double time_offset_s = static_cast<double>(i) / config.prf_hz;
     PlatformPulseState pulse;
     pulse.pulse_id = config.first_pulse_id + i;
-    pulse.time_s = time_s;
+    pulse.time_s = config.start_time_s + time_offset_s;
     pulse.position_m = config.start_position_m;
-    pulse.position_m.x_m += config.velocity_x_mps * time_s;
+    pulse.position_m.x_m += config.velocity_x_mps * time_offset_s;
+    pulse.position_m.y_m += config.velocity_y_mps * time_offset_s;
+    pulse.position_m.z_m += config.velocity_z_mps * time_offset_s;
     pulse.velocity_x_mps = config.velocity_x_mps;
+    pulse.velocity_y_mps = config.velocity_y_mps;
+    pulse.velocity_z_mps = config.velocity_z_mps;
+    pulse.roll_deg = config.roll_deg;
+    pulse.pitch_deg = config.pitch_deg;
+    pulse.yaw_deg = config.yaw_deg;
     pulses->push_back(pulse);
   }
   return true;
@@ -44,7 +55,11 @@ bool GenerateStraightStripmapTrack(const StraightStripmapTrackConfig& config,
 bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
                                     std::vector<PlatformPulseState>* pulses,
                                     TrajectoryErrorDiagnostics* diagnostics) {
-  if (pulses == nullptr || diagnostics == nullptr || config.ideal.velocity_x_mps <= 0.0 ||
+  const double ideal_speed_squared =
+      config.ideal.velocity_x_mps * config.ideal.velocity_x_mps +
+      config.ideal.velocity_y_mps * config.ideal.velocity_y_mps +
+      config.ideal.velocity_z_mps * config.ideal.velocity_z_mps;
+  if (pulses == nullptr || diagnostics == nullptr || ideal_speed_squared <= 0.0 ||
       config.ideal.prf_hz <= 0.0 || config.ideal.pulse_count == 0U ||
       config.velocity_error_stddev_x_mps < 0.0 || config.velocity_error_stddev_y_mps < 0.0 ||
       config.velocity_error_stddev_z_mps < 0.0) {
@@ -74,6 +89,9 @@ bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
     PlatformPulseState& pulse = (*pulses)[index];
     pulse.pulse_id = ideal_pulses[index].pulse_id;
     pulse.time_s = ideal_pulses[index].time_s;
+    pulse.roll_deg = ideal_pulses[index].roll_deg;
+    pulse.pitch_deg = ideal_pulses[index].pitch_deg;
+    pulse.yaw_deg = ideal_pulses[index].yaw_deg;
     if (index == 0U) {
       pulse.position_m = config.ideal.start_position_m;
       pulse.position_m.x_m += config.initial_position_error_m.x_m;
@@ -87,14 +105,18 @@ bool GeneratePerturbedStripmapTrack(const PerturbedStripmapTrackConfig& config,
     }
     pulse.velocity_x_mps =
         config.ideal.velocity_x_mps + gaussian.Sample() * config.velocity_error_stddev_x_mps;
-    pulse.velocity_y_mps = gaussian.Sample() * config.velocity_error_stddev_y_mps;
-    pulse.velocity_z_mps = gaussian.Sample() * config.velocity_error_stddev_z_mps;
+    pulse.velocity_y_mps =
+        config.ideal.velocity_y_mps + gaussian.Sample() * config.velocity_error_stddev_y_mps;
+    pulse.velocity_z_mps =
+        config.ideal.velocity_z_mps + gaussian.Sample() * config.velocity_error_stddev_z_mps;
 
     const double position_error_m = Distance(pulse.position_m, ideal_pulses[index].position_m);
     const double velocity_error_x_mps = pulse.velocity_x_mps - config.ideal.velocity_x_mps;
+    const double velocity_error_y_mps = pulse.velocity_y_mps - config.ideal.velocity_y_mps;
+    const double velocity_error_z_mps = pulse.velocity_z_mps - config.ideal.velocity_z_mps;
     const double velocity_error_mps = std::sqrt(velocity_error_x_mps * velocity_error_x_mps +
-                                                pulse.velocity_y_mps * pulse.velocity_y_mps +
-                                                pulse.velocity_z_mps * pulse.velocity_z_mps);
+                                                velocity_error_y_mps * velocity_error_y_mps +
+                                                velocity_error_z_mps * velocity_error_z_mps);
     diagnostics->max_position_error_m =
         std::max(diagnostics->max_position_error_m, position_error_m);
     diagnostics->max_velocity_error_mps =

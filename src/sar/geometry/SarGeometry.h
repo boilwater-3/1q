@@ -32,6 +32,9 @@ struct PlatformPulseState {
   double velocity_x_mps{0.0};
   double velocity_y_mps{0.0};
   double velocity_z_mps{0.0};
+  double roll_deg{0.0};
+  double pitch_deg{0.0};
+  double yaw_deg{0.0};
 };
 
 /**
@@ -39,7 +42,13 @@ struct PlatformPulseState {
  */
 struct StraightStripmapTrackConfig {
   LocalPoint start_position_m{};
+  double start_time_s{0.0};
   double velocity_x_mps{0.0};
+  double velocity_y_mps{0.0};
+  double velocity_z_mps{0.0};
+  double roll_deg{0.0};
+  double pitch_deg{0.0};
+  double yaw_deg{0.0};
   double prf_hz{0.0};
   std::uint64_t first_pulse_id{0U};
   std::uint32_t pulse_count{0U};

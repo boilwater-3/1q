@@ -17,6 +17,9 @@ namespace session {
 
 /**
  * @brief SAR 平台状态输入。
+ * @note 内部生成 raw echo 时，位置、时间、NED 速度和姿态是本周期轨迹起点的权威输入；
+ *       三轴速度全零时为兼容旧调用方，沿用 mission 标称速度。L3 waypoint 模式的位置轨迹
+ *       仍由显式 waypoint 配置拥有 authority。
  */
 struct ONEQ_API SarPlatformState {
   double time_s{0.0};

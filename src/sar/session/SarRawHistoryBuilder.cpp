@@ -100,13 +100,34 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
   track_config.start_position_m =
       ToLocalPoint(input.platform.latitude_deg, input.platform.longitude_deg,
                    input.platform.altitude_m, config.mission);
-  track_config.start_position_m.x_m += static_cast<double>(next_pulse_id) *
-                                       config.mission.platform_speed_mps /
-                                       config.hardware.pulse_repetition_frequency_hz;
-  track_config.velocity_x_mps = config.mission.platform_speed_mps;
+  track_config.start_time_s = input.platform.time_s;
+  track_config.velocity_x_mps = input.platform.velocity_east_mps;
+  track_config.velocity_y_mps = input.platform.velocity_north_mps;
+  track_config.velocity_z_mps = -input.platform.velocity_down_mps;
+  const double input_speed_squared =
+      track_config.velocity_x_mps * track_config.velocity_x_mps +
+      track_config.velocity_y_mps * track_config.velocity_y_mps +
+      track_config.velocity_z_mps * track_config.velocity_z_mps;
+  if (input_speed_squared == 0.0) {
+    track_config.velocity_x_mps = config.mission.platform_speed_mps;
+  }
+  track_config.roll_deg = input.platform.roll_deg;
+  track_config.pitch_deg = input.platform.pitch_deg;
+  track_config.yaw_deg = input.platform.yaw_deg;
   track_config.prf_hz = config.hardware.pulse_repetition_frequency_hz;
   track_config.first_pulse_id = next_pulse_id;
   track_config.pulse_count = static_cast<std::uint32_t>(pulse_count_to_generate);
+
+  if (previous_actual != nullptr && track_config.start_time_s <= previous_actual->time_s) {
+    const double dt_s = 1.0 / track_config.prf_hz;
+    track_config.start_time_s = previous_actual->time_s + dt_s;
+    track_config.start_position_m.x_m =
+        previous_actual->position_m.x_m + previous_actual->velocity_x_mps * dt_s;
+    track_config.start_position_m.y_m =
+        previous_actual->position_m.y_m + previous_actual->velocity_y_mps * dt_s;
+    track_config.start_position_m.z_m =
+        previous_actual->position_m.z_m + previous_actual->velocity_z_mps * dt_s;
+  }
 
   if (pulse_count_to_generate > 0U &&
       !geometry::GenerateStraightStripmapTrack(track_config, ideal_pulses)) {
@@ -126,13 +147,19 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
       l3_config.waypoints.push_back(local_waypoint);
     }
     for (std::size_t index = 0U; index < pulse_count_to_generate; ++index) {
-      l3_config.pulse_times_s.push_back(static_cast<double>(next_pulse_id + index) /
-                                        config.hardware.pulse_repetition_frequency_hz);
+      l3_config.pulse_times_s.push_back(
+          track_config.start_time_s +
+          static_cast<double>(index) / config.hardware.pulse_repetition_frequency_hz);
     }
     if (!geometry::GenerateWaypointTrack(l3_config, actual_pulses)) {
       RecordAbort(result, "l3_waypoint_coverage",
                   "SAR L3 waypoints do not cover the required fixed-PRF pulse time range.");
       return false;
+    }
+    for (geometry::PlatformPulseState& pulse : *actual_pulses) {
+      pulse.roll_deg = input.platform.roll_deg;
+      pulse.pitch_deg = input.platform.pitch_deg;
+      pulse.yaw_deg = input.platform.yaw_deg;
     }
     *ideal_pulses = *actual_pulses;
     result->diagnostics.push_back(

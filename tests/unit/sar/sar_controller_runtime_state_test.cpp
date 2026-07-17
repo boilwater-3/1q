@@ -150,6 +150,57 @@ TEST(SarControllerRuntimeStateTest, PipelineAbortRestoresAllCrossCycleState) {
                    before.actual_trajectory_buffer.back().time_s);
 }
 
+TEST(SarControllerRuntimeStateTest, PlatformInputOwnsGeneratedTrajectoryKinematics) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.enable_l1_rda_imaging = false;
+  config.policy.enable_range_compression = false;
+  pipeline::SarProcessingPipeline pipeline(config);
+  SarController controller(pipeline, config);
+
+  session::SarCycleInput first = MakeInput(60U);
+  first.platform.time_s = 10.0;
+  first.platform.latitude_deg = config.mission.scene_center_latitude_deg;
+  first.platform.velocity_north_mps = 3.0;
+  first.platform.velocity_east_mps = 4.0;
+  first.platform.velocity_down_mps = 1.0;
+  first.platform.roll_deg = 2.0;
+  first.platform.pitch_deg = 3.0;
+  first.platform.yaw_deg = 4.0;
+  controller.RunOnce(first);
+  const session::SarCycleResult first_result = controller.BuildCycleResult(first);
+  ASSERT_TRUE(first_result.executed_this_cycle) << first_result.abort_reason;
+  const pipeline::SarProcessingPipelineRuntimeState first_state = pipeline.CaptureRuntimeState();
+  ASSERT_FALSE(first_state.actual_trajectory_buffer.empty());
+  const geometry::PlatformPulseState& first_pulse = first_state.actual_trajectory_buffer.front();
+  EXPECT_DOUBLE_EQ(first_pulse.time_s, 10.0);
+  EXPECT_DOUBLE_EQ(first_pulse.position_m.x_m, 0.0);
+  EXPECT_NEAR(first_pulse.position_m.y_m, 0.0, 1.0e-9);
+  EXPECT_DOUBLE_EQ(first_pulse.velocity_x_mps, 4.0);
+  EXPECT_DOUBLE_EQ(first_pulse.velocity_y_mps, 3.0);
+  EXPECT_DOUBLE_EQ(first_pulse.velocity_z_mps, -1.0);
+  EXPECT_DOUBLE_EQ(first_pulse.roll_deg, 2.0);
+  EXPECT_DOUBLE_EQ(first_pulse.pitch_deg, 3.0);
+  EXPECT_DOUBLE_EQ(first_pulse.yaw_deg, 4.0);
+
+  session::SarCycleInput second = first;
+  second.cycle_index = 61U;
+  second.platform.time_s = 11.0;
+  second.platform.latitude_deg += 5.0 / 6378137.0 * 180.0 / 3.14159265358979323846;
+  controller.RunOnce(second);
+  ASSERT_TRUE(controller.BuildCycleResult(second).executed_this_cycle);
+  const pipeline::SarProcessingPipelineRuntimeState second_state = pipeline.CaptureRuntimeState();
+  ASSERT_FALSE(second_state.actual_trajectory_buffer.empty());
+  const geometry::PlatformPulseState* second_cycle_first = nullptr;
+  for (const geometry::PlatformPulseState& pulse : second_state.actual_trajectory_buffer) {
+    if (pulse.time_s == 11.0) {
+      second_cycle_first = &pulse;
+      break;
+    }
+  }
+  ASSERT_NE(second_cycle_first, nullptr);
+  EXPECT_NEAR(second_cycle_first->position_m.y_m, 5.0, 1.0e-6);
+}
+
 }  // namespace
 }  // namespace extension
 }  // namespace sar
