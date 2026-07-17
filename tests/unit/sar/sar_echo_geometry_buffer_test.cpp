@@ -376,6 +376,25 @@ TEST(PulseRingBufferTest, RejectsOutOfOrderPulseIds) {
   EXPECT_FALSE(buffer.Push({5U, {}}));
 }
 
+TEST(PulseRingBufferTest, RuntimeRestoreRejectsInvalidPowerMetadataAtomically) {
+  runtime::PulseRingBuffer buffer(3U);
+  runtime::PulseRecord record;
+  record.pulse_id = 5U;
+  record.samples = {signal::ComplexSample(1.0, 0.0)};
+  record.signal_power_w = 2.0;
+  record.noise_power_w = 1.0;
+  ASSERT_TRUE(buffer.Push(record));
+
+  runtime::PulseRingBufferRuntimeState invalid = buffer.CaptureRuntimeState();
+  invalid.records.front().noise_power_w = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_FALSE(buffer.RestoreRuntimeState(invalid));
+
+  std::vector<runtime::PulseRecord> latest;
+  ASSERT_TRUE(buffer.ReadLatest(1U, &latest));
+  EXPECT_DOUBLE_EQ(latest.front().signal_power_w, 2.0);
+  EXPECT_DOUBLE_EQ(latest.front().noise_power_w, 1.0);
+}
+
 TEST(SarEchoTest, GeneratePointTargetRawEchoRejectsNanSampleRate) {
   echo::RawEchoConfig config;
   config.sample_rate_hz = std::numeric_limits<double>::quiet_NaN();

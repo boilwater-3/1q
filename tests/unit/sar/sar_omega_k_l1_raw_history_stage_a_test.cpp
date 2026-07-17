@@ -61,9 +61,11 @@ bool BuildL1RawHistory(const config::SarSessionConfig& config, signal::ComplexMa
   std::deque<geometry::PlatformPulseState> ideal_trajectory;
   std::deque<geometry::PlatformPulseState> actual_trajectory;
   session::SarCycleResult build_result;
+  double estimated_snr_db = 0.0;
   return session::BuildRawPulseHistory(config, MakeL1Input(), waveform.samples, &pulse_buffer,
                                        &next_pulse_id, &pulse_fraction_carry, raw_history,
-                                       &ideal_trajectory, &actual_trajectory, &build_result);
+                                       &ideal_trajectory, &actual_trajectory, &estimated_snr_db,
+                                       &build_result);
 }
 
 TEST(SarOmegaKL1RawHistoryStageATest, RejectsGeneratedL1ApertureAtGridReductionDeterministically) {

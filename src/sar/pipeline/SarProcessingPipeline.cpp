@@ -164,22 +164,30 @@ bool SarProcessingPipeline::RunCycle(const config::SarSessionConfig& config,
                                               &impl_->actual_trajectory_buffer, result)) {
         return false;
       }
+      result->diagnostics.push_back(session::MakeInfoDiagnostic(
+          "sar.external_raw_iq_snr_unavailable",
+          "External raw IQ is already receiver-domain data; hardware link budget and minimum "
+          "SNR gating are not reapplied without signal/noise metadata."));
     } else {
       raw_history_source = session::SarRawPhaseHistorySource::kInternallyGenerated;
+      double estimated_snr_db = -std::numeric_limits<double>::infinity();
       if (!session::BuildRawPulseHistory(config, input, waveform.samples, &impl_->raw_pulse_buffer,
                                          &impl_->next_pulse_id, &impl_->pulse_fraction_carry,
                                          &raw_history, &impl_->ideal_trajectory_buffer,
-                                         &impl_->actual_trajectory_buffer, result)) {
+                                         &impl_->actual_trajectory_buffer, &estimated_snr_db,
+                                         result)) {
+        return false;
+      }
+      session::MarkRawEchoStage(&result->output_frame, estimated_snr_db);
+      if (std::isfinite(estimated_snr_db) && estimated_snr_db < config.policy.minimum_snr_db) {
+        session::RecordAbort(result, "snr_below_minimum",
+                             "SAR estimated SNR is below the configured minimum valid SNR.");
         return false;
       }
     }
-    const double estimated_snr_db = session::EstimateRawHistorySnrDb(raw_history);
-    session::MarkRawEchoStage(&result->output_frame, estimated_snr_db);
-    if (std::isfinite(result->output_frame.estimated_snr_db) &&
-        result->output_frame.estimated_snr_db < config.policy.minimum_snr_db) {
-      session::RecordAbort(result, "snr_below_minimum",
-                           "SAR estimated SNR is below the configured minimum valid SNR.");
-      return false;
+    if (raw_history_source == session::SarRawPhaseHistorySource::kExternalRawIq) {
+      session::MarkRawEchoStage(&result->output_frame,
+                                -std::numeric_limits<double>::infinity());
     }
   }
   if (config.policy.enable_l1_rda_imaging || config.policy.enable_l3_bp_imaging) {

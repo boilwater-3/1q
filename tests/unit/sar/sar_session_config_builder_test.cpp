@@ -168,6 +168,16 @@ TEST(SarSessionConfigValidationTest, RejectsInvalidSquintLimit) {
   }
 }
 
+TEST(SarSessionConfigValidationTest, RejectsInvalidHardwareLinkBudget) {
+  SarSessionConfig config;
+  config.hardware.peak_power_w = 0.0;
+  config.hardware.receiver_noise_figure_db = -1.0;
+  const ValidationIssueList issues = ValidateSarSessionConfig(config);
+  EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const ConfigValidationIssue& issue) {
+    return issue.code == ConfigValidationCode::kHardwareLinkBudgetInvalid;
+  }));
+}
+
 }  // namespace
 
 TEST(SarSessionCreateWithValidationTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {

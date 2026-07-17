@@ -21,6 +21,10 @@ namespace session {
 namespace {
 
 constexpr double kEarthRadiusM = 6378137.0;
+constexpr double kBoltzmannConstantJPerK = 1.380649e-23;
+constexpr double kReferenceTemperatureK = 290.0;
+constexpr double kSpeedOfLightMps = 299792458.0;
+constexpr double kPi = 3.141592653589793238462643383279502884;
 
 geometry::LocalPoint ToLocalPoint(double latitude_deg, double longitude_deg, double altitude_m,
                                   const config::SarMissionConfig& mission) {
@@ -37,6 +41,59 @@ geometry::LocalPoint ToLocalPoint(double latitude_deg, double longitude_deg, dou
 }
 
 double DbsmToSquareMeters(double dbsm) { return std::pow(10.0, dbsm / 10.0); }
+
+double ReceiverNoisePowerW(const config::SarHardwareConfig& hardware) {
+  const double noise_factor = std::pow(10.0, hardware.receiver_noise_figure_db / 10.0);
+  return kBoltzmannConstantJPerK * kReferenceTemperatureK * hardware.bandwidth_hz * noise_factor;
+}
+
+double MonostaticLinkAmplitudeScale(const config::SarHardwareConfig& hardware) {
+  const double wavelength_m = kSpeedOfLightMps / hardware.carrier_frequency_hz;
+  const double gain_linear = std::pow(10.0, hardware.antenna_gain_db / 10.0);
+  const double loss_linear = std::pow(10.0, hardware.system_loss_db / 10.0);
+  const double numerator =
+      hardware.peak_power_w * gain_linear * gain_linear * wavelength_m * wavelength_m;
+  const double denominator = std::pow(4.0 * kPi, 3.0) * loss_linear;
+  return std::sqrt(numerator / denominator);
+}
+
+double MeanPower(const signal::ComplexVector& samples) {
+  if (samples.empty()) {
+    return 0.0;
+  }
+  double power = 0.0;
+  for (const signal::ComplexSample& sample : samples) {
+    power += std::norm(sample);
+  }
+  return power / static_cast<double>(samples.size());
+}
+
+void ApplyReceiverChain(double amplitude_scale, double noise_power_w, std::uint64_t pulse_id,
+                        signal::ComplexVector* samples) {
+  for (signal::ComplexSample& sample : *samples) {
+    sample *= amplitude_scale;
+  }
+  const double sigma = std::sqrt(noise_power_w * 0.5);
+  geometry::DeterministicGaussianSampler gaussian(
+      static_cast<std::uint32_t>(pulse_id ^ (pulse_id >> 32U) ^ 0x534152U));
+  for (signal::ComplexSample& sample : *samples) {
+    sample += signal::ComplexSample(gaussian.Sample() * sigma, gaussian.Sample() * sigma);
+  }
+}
+
+double EstimateApertureSnrDb(const std::vector<runtime::PulseRecord>& records) {
+  double signal_power_w = 0.0;
+  double noise_power_w = 0.0;
+  for (const runtime::PulseRecord& record : records) {
+    signal_power_w += record.signal_power_w;
+    noise_power_w += record.noise_power_w;
+  }
+  if (signal_power_w <= 0.0 || noise_power_w <= 0.0 || !std::isfinite(signal_power_w) ||
+      !std::isfinite(noise_power_w)) {
+    return -std::numeric_limits<double>::infinity();
+  }
+  return 10.0 * std::log10(signal_power_w / noise_power_w);
+}
 
 bool CopyExternalPulseStates(const std::vector<SarRawIqFrame::PulseState>& public_states,
                              std::uint32_t expected_count,
@@ -227,27 +284,6 @@ bool BuildWaveformAndFilter(const config::SarSessionConfig& config, signal::LfmW
          signal::BuildMatchedFilter(waveform->samples, matched_filter);
 }
 
-double EstimateRawHistorySnrDb(const signal::ComplexMatrix& history) {
-  if (history.rows == 0U || history.cols == 0U ||
-      history.values.size() != history.rows * history.cols) {
-    return -std::numeric_limits<double>::infinity();
-  }
-
-  double peak_power = 0.0;
-  double mean_power = 0.0;
-  for (const signal::ComplexSample& sample : history.values) {
-    const double power = std::norm(sample);
-    peak_power = std::max(peak_power, power);
-    mean_power += power;
-  }
-  mean_power /= static_cast<double>(history.values.size());
-  if (peak_power <= 0.0 || mean_power <= 0.0 || !std::isfinite(peak_power) ||
-      !std::isfinite(mean_power)) {
-    return -std::numeric_limits<double>::infinity();
-  }
-  return 10.0 * std::log10(peak_power / mean_power);
-}
-
 bool BuildExternalRawIqHistory(const config::SarSessionConfig& config, const SarCycleInput& input,
                                signal::ComplexMatrix* history,
                                std::deque<geometry::PlatformPulseState>* ideal_trajectory_buffer,
@@ -337,9 +373,10 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
                           double* pulse_fraction_carry, signal::ComplexMatrix* history,
                           std::deque<geometry::PlatformPulseState>* ideal_trajectory_buffer,
                           std::deque<geometry::PlatformPulseState>* actual_trajectory_buffer,
-                          SarCycleResult* result) {
+                          double* estimated_snr_db, SarCycleResult* result) {
   if (pulse_buffer == nullptr || next_pulse_id == nullptr || pulse_fraction_carry == nullptr ||
-      ideal_trajectory_buffer == nullptr || actual_trajectory_buffer == nullptr) {
+      ideal_trajectory_buffer == nullptr || actual_trajectory_buffer == nullptr ||
+      estimated_snr_db == nullptr) {
     RecordAbort(result, "pulse_buffer_unavailable", "SAR pulse ring buffer is unavailable.");
     return false;
   }
@@ -405,6 +442,9 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   history->cols = config.mission.range_sample_count;
   history->values.assign(history->rows * history->cols, signal::ComplexSample(0.0, 0.0));
 
+  const double link_amplitude_scale = MonostaticLinkAmplitudeScale(config.hardware);
+  const double receiver_noise_power_w = ReceiverNoisePowerW(config.hardware);
+
   std::size_t clipping_count = 0U;
   for (std::size_t row = 0U; row < actual_pulses.size(); ++row) {
     echo::RawEchoResult echo;
@@ -418,6 +458,12 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
     }
     runtime::PulseRecord record;
     record.pulse_id = *next_pulse_id;
+    for (signal::ComplexSample& sample : echo.samples) {
+      sample *= link_amplitude_scale;
+    }
+    record.signal_power_w = MeanPower(echo.samples);
+    record.noise_power_w = receiver_noise_power_w;
+    ApplyReceiverChain(1.0, receiver_noise_power_w, record.pulse_id, &echo.samples);
     record.samples = echo.samples;
     if (!pulse_buffer->Push(record)) {
       RecordAbort(result, "pulse_buffer_push_failed",
@@ -457,6 +503,7 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
                 "SAR pulse ring buffer cannot provide a contiguous latest aperture.");
     return false;
   }
+  *estimated_snr_db = EstimateApertureSnrDb(latest_pulses);
 
   history->rows = latest_pulses.size();
   history->cols = config.mission.range_sample_count;

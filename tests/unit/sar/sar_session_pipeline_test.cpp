@@ -368,10 +368,10 @@ TEST(SarSessionPipelineTest, DiagnosticsDisabledSuppressesNonErrorDiagnostics) {
 
 TEST(SarSessionPipelineTest, MinValidSnrRejectsApertureBelowThreshold) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
-  config.policy.minimum_snr_db = 100.0;
+  config.policy.minimum_snr_db = 200.0;
   session::SarSession session = session::SarSession::Create(config);
 
-  const session::SarCycleResult result = session.StepWithResult(MakeExternalRawIqInput());
+  const session::SarCycleResult result = session.StepWithResult(MakeInput());
 
   EXPECT_FALSE(result.executed_this_cycle);
   EXPECT_TRUE(result.has_error);
@@ -380,6 +380,71 @@ TEST(SarSessionPipelineTest, MinValidSnrRejectsApertureBelowThreshold) {
   EXPECT_FALSE(result.output_frame.has_l1_image);
   EXPECT_LT(result.output_frame.estimated_snr_db, config.policy.minimum_snr_db);
   EXPECT_TRUE(HasDiagnosticContaining(result, "sar.snr_below_minimum", "below"));
+}
+
+TEST(SarSessionPipelineTest, HardwareLinkBudgetControlsInternalRawEchoSnr) {
+  const auto run_with = [](const config::SarHardwareConfig& hardware) {
+    config::SarSessionConfig config = MakeSmallRdaConfig();
+    config.hardware = hardware;
+    config.policy.minimum_snr_db = -1000.0;
+    return session::SarSession::Create(config).StepWithResult(MakeInput());
+  };
+
+  const config::SarHardwareConfig baseline = MakeSmallRdaConfig().hardware;
+  const session::SarCycleResult reference = run_with(baseline);
+  ASSERT_TRUE(reference.executed_this_cycle);
+
+  config::SarHardwareConfig higher_power = baseline;
+  higher_power.peak_power_w *= 10.0;
+  EXPECT_GT(run_with(higher_power).output_frame.estimated_snr_db,
+            reference.output_frame.estimated_snr_db + 9.9);
+
+  config::SarHardwareConfig higher_gain = baseline;
+  higher_gain.antenna_gain_db += 10.0;
+  EXPECT_GT(run_with(higher_gain).output_frame.estimated_snr_db,
+            reference.output_frame.estimated_snr_db + 19.9);
+
+  config::SarHardwareConfig higher_loss = baseline;
+  higher_loss.system_loss_db += 10.0;
+  EXPECT_LT(run_with(higher_loss).output_frame.estimated_snr_db,
+            reference.output_frame.estimated_snr_db - 9.9);
+
+  config::SarHardwareConfig higher_noise_figure = baseline;
+  higher_noise_figure.receiver_noise_figure_db += 10.0;
+  EXPECT_LT(run_with(higher_noise_figure).output_frame.estimated_snr_db,
+            reference.output_frame.estimated_snr_db - 9.9);
+}
+
+TEST(SarSessionPipelineTest, ExternalRawIqDoesNotReapplyHardwareOrSnrGate) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.hardware.peak_power_w = 1.0e-9;
+  config.hardware.antenna_gain_db = -100.0;
+  config.hardware.receiver_noise_figure_db = 100.0;
+  config.hardware.system_loss_db = 100.0;
+  config.policy.minimum_snr_db = 1000.0;
+  session::SarSession session = session::SarSession::Create(config);
+
+  const session::SarCycleResult result = session.StepWithResult(MakeExternalRawIqInput());
+
+  EXPECT_TRUE(result.executed_this_cycle);
+  EXPECT_FALSE(result.has_error);
+  EXPECT_EQ(result.output_frame.estimated_snr_db,
+            -std::numeric_limits<double>::infinity());
+  EXPECT_TRUE(HasDiagnosticContaining(result, "sar.external_raw_iq_snr_unavailable",
+                                      "not reapplied"));
+}
+
+TEST(SarSessionPipelineTest, InvalidHardwareLinkBudgetFailsBeforeRawEcho) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.hardware.peak_power_w = 0.0;
+  session::SarSession session = session::SarSession::Create(config);
+
+  const session::SarCycleResult result = session.StepWithResult(MakeInput());
+
+  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_TRUE(result.has_error);
+  EXPECT_EQ(result.abort_reason, "invalid_hardware_link_budget");
+  EXPECT_FALSE(result.output_frame.has_raw_echo);
 }
 
 TEST(SarSessionPipelineTest, EmptySceneDoesNotTripMinSnrGate) {

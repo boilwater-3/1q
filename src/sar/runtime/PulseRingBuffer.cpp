@@ -1,15 +1,19 @@
 #include "sar/runtime/PulseRingBuffer.h"
 
+#include <cmath>
+
 namespace sar {
 namespace runtime {
 
 namespace {
 
-constexpr std::uint32_t kPulseRingBufferRuntimeStateSchemaVersion = 1U;
+constexpr std::uint32_t kPulseRingBufferRuntimeStateSchemaVersion = 2U;
 
 bool IsStrictlyIncreasing(const std::deque<PulseRecord>& records) {
-  for (std::size_t i = 1U; i < records.size(); ++i) {
-    if (records[i].pulse_id <= records[i - 1U].pulse_id) {
+  for (std::size_t i = 0U; i < records.size(); ++i) {
+    if (!std::isfinite(records[i].signal_power_w) || records[i].signal_power_w < 0.0 ||
+        !std::isfinite(records[i].noise_power_w) || records[i].noise_power_w < 0.0 ||
+        (i > 0U && records[i].pulse_id <= records[i - 1U].pulse_id)) {
       return false;
     }
   }

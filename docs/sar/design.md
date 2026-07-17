@@ -331,6 +331,19 @@ SAR 支持两条 raw history 来源：
 1. 内部生成：由平台状态、点目标、L1/L2/L3 轨迹和 LFM 波形生成 raw echo，并通过 `PulseRingBuffer` 组成 aperture。
 2. 外部 raw IQ：调用方提供完整孔径 IQ 样本和 pulse state，session 只校验与转换轨迹，不重新生成 echo。
 
+内部生成路径的接收链按单站雷达方程处理：`peak_power_w`、双程天线增益、波长与
+`system_loss_db` 决定回波幅度，随后按 `k * 290 K * bandwidth * noise factor` 叠加确定性复高斯
+热噪声。`estimated_snr_db` 是完整孔径内加噪前平均接收信号功率与已知接收机噪声功率之比；功率、
+增益、损耗、噪声系数的单变量变化必须分别满足正、正、负、负的方向性。
+
+external raw IQ 已位于接收机之后，session 不得再次施加上述链路预算或噪声。现有 public 输入未携带
+信号/噪声分量元数据，因此该路径将 `estimated_snr_db` 标为不可估计（`-inf`），记录
+`sar.external_raw_iq_snr_unavailable`，并跳过 `minimum_snr_db` 门控；不得以峰均功率比冒充 SNR。
+
+[evidence: tests/unit/sar/sar_session_pipeline_test.cpp::HardwareLinkBudgetControlsInternalRawEchoSnr]
+[evidence: tests/unit/sar/sar_session_pipeline_test.cpp::MinValidSnrRejectsApertureBelowThreshold]
+[evidence: tests/unit/sar/sar_session_pipeline_test.cpp::ExternalRawIqDoesNotReapplyHardwareOrSnrGate]
+
 `retain_raw_phase_history` 控制结构化 `SarCycleResult` 是否返回本次**实际用于成像**的完整孔径：
 
 - 关闭时不复制矩阵，`raw_phase_history` 为空且 source 为 `kNone`。

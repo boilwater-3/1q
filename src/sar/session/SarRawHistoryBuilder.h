@@ -75,16 +75,7 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
                           double* pulse_fraction_carry, signal::ComplexMatrix* history,
                           std::deque<geometry::PlatformPulseState>* ideal_trajectory_buffer,
                           std::deque<geometry::PlatformPulseState>* actual_trajectory_buffer,
-                          SarCycleResult* result);
-
-/**
- * @brief 基于峰均功率比估算 raw history 的启发式 SNR（dB）。
- *
- * 空矩阵、全零孔径或非有限值返回 -inf。调用方应将 -inf 视为“无可估计信号”，而非低 SNR 失败。
- * @param[in] history 原始相位历史矩阵。
- * @return 估算 SNR（dB）；不可估计时返回 -inf。
- */
-double EstimateRawHistorySnrDb(const signal::ComplexMatrix& history);
+                          double* estimated_snr_db, SarCycleResult* result);
 
 }  // namespace session
 }  // namespace sar

@@ -22,6 +22,8 @@ namespace runtime {
 struct PulseRecord {
   std::uint64_t pulse_id{0U};        /**< 脉冲 ID */
   signal::ComplexVector samples{};   /**< 该脉冲的复采样 */
+  double signal_power_w{0.0};        /**< 加噪前的平均接收信号功率（W） */
+  double noise_power_w{0.0};         /**< 接收机复采样平均噪声功率（W） */
 };
 
 /**

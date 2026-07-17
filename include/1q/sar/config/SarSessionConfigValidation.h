@@ -32,7 +32,8 @@ enum class ConfigValidationCode {
   kDesiredResolutionNotPositive,         /**< 期望分辨率 <= 0 */
   kSampleWindowTooSmallForPulse,         /**< 距离采样窗口装不下脉冲宽度（ceil(pulse_width*sample_rate) > range_sample_count）*/
   kRetainRawHistoryRequiresRawEcho,      /**< 请求返回 raw history 但 raw echo generation 关闭 */
-  kSquintAngleInvalid                    /**< squint 上限非有限或不在 [0, 90) */
+  kSquintAngleInvalid,                   /**< squint 上限非有限或不在 [0, 90) */
+  kHardwareLinkBudgetInvalid             /**< 发射功率、天线增益、噪声系数或系统损耗非法 */
 };
 
 /**
@@ -53,6 +54,7 @@ using ValidationIssueList = std::vector<ConfigValidationIssue>;
  * 检查项包括：
  * - 载频、带宽、PRF、采样率为正；
  * - 方位孔径长度、标称斜距、平台速度为正；
+ * - 发射功率为正，天线增益、接收机噪声系数与系统损耗为有限值；
  * - 方位脉冲数、距离采样点数非零；
  * - 期望分辨率（方位/地距）为正；
  * - 距离采样窗口能容纳完整脉冲宽度（ceil(pulse_width*sample_rate) <= range_sample_count）。

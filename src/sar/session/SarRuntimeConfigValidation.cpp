@@ -43,6 +43,16 @@ bool ValidateRuntimeConfigForStep(const config::SarSessionConfig& config,
     RecordAbort(result, "invalid_config", "SAR runtime config contains non-positive fields.");
     return false;
   }
+  if (!std::isfinite(config.hardware.peak_power_w) || config.hardware.peak_power_w <= 0.0 ||
+      !std::isfinite(config.hardware.antenna_gain_db) ||
+      !std::isfinite(config.hardware.receiver_noise_figure_db) ||
+      config.hardware.receiver_noise_figure_db < 0.0 ||
+      !std::isfinite(config.hardware.system_loss_db) || config.hardware.system_loss_db < 0.0) {
+    RecordAbort(result, "invalid_hardware_link_budget",
+                "SAR power must be positive; antenna gain, receiver noise figure, and system "
+                "loss must be finite and the latter two non-negative.");
+    return false;
+  }
 
   // 跨字段物理约束：LFM 脉冲的完整回波需要覆盖整个脉冲持续时间。波形样本数 =
   // ceil(pulse_width_s * sample_rate_hz)（与 SarWaveform.cpp:68 一致），若它超过

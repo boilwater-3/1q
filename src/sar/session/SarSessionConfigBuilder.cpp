@@ -129,6 +129,16 @@ ValidationIssueList ValidateSarSessionConfig(const config::SarSessionConfig& con
     push(ConfigValidationCode::kAntennaLengthNotPositive,
          "hardware.antenna_length_m", "Antenna length must be positive.");
   }
+  if (!std::isfinite(config.hardware.peak_power_w) || config.hardware.peak_power_w <= 0.0 ||
+      !std::isfinite(config.hardware.antenna_gain_db) ||
+      !std::isfinite(config.hardware.receiver_noise_figure_db) ||
+      config.hardware.receiver_noise_figure_db < 0.0 ||
+      !std::isfinite(config.hardware.system_loss_db) || config.hardware.system_loss_db < 0.0) {
+    push(ConfigValidationCode::kHardwareLinkBudgetInvalid,
+         "hardware.peak_power_w / antenna_gain_db / receiver_noise_figure_db / system_loss_db",
+         "Hardware link-budget fields must be finite; power must be positive and noise figure / "
+         "loss must be non-negative.");
+  }
   if (config.mission.nominal_slant_range_m <= 0.0) {
     push(ConfigValidationCode::kNominalSlantRangeNotPositive,
          "mission.nominal_slant_range_m", "Nominal slant range must be positive.");
