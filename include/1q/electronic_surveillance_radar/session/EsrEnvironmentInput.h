@@ -75,7 +75,7 @@ struct ONEQ_API EsrEnvironmentInput {
   EsrPropagationEnvironmentProfile propagation_profile{
       EsrPropagationEnvironmentProfile::kTypical};
   EsrClutterDensityLevel clutter_density{EsrClutterDensityLevel::kMedium};
-  float spectrum_occupancy_ratio{0.0f};
+  float spectrum_occupancy_ratio{0.0f}; /**< 频谱占用率 [0,1]；按 1+9ρ 放大接收机与杂波底噪 */
   EsrAtmosphericObservation atmospheric_observation{};
   EsrJammerSourceList jammer_sources{};
 };
@@ -86,6 +86,7 @@ struct ONEQ_API EsrEnvironmentInput {
 struct ONEQ_API EsrEnvironmentCycleContext {
   std::uint32_t cycle_index{0U};
   float dt_sec{0.0f};
+  float platform_altitude_m{0.0f}; /**< 接收平台 WGS84 绝对海拔（单位：m） */
   EsrEnvironmentInput observation{};
 };
 
@@ -99,7 +100,7 @@ struct ONEQ_API EsrEnvironmentSnapshot {
   float clutter_noise_w{0.0f};
   float suppression_power_w{0.0f};
   float deception_risk{0.0f};
-  float spectrum_occupancy_ratio{0.0f};
+  float spectrum_occupancy_ratio{0.0f}; /**< 冻结占用率；检测链按 1+9ρ 计算环境噪声倍率 */
   bool jamming_detected{false};
   EsrJammerSourceList jammer_sources{};
 };

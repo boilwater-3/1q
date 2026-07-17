@@ -92,6 +92,37 @@ TEST(EsrSessionIntegrationTest, StepWithResultProducesThreeChannelOutput) {
   EXPECT_EQ(result.output_frame.cycle_index, 1U);
 }
 
+TEST(EsrSessionIntegrationTest, AltitudeAndSpectrumOccupancyAffectReceiverSnr) {
+  config::EsrSessionConfig config = MakeSessionConfig();
+  config.policy.detection.minimum_snr_db = -100.0f;
+  config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
+
+  EsrCycleInput low_altitude = MakeBaseInput();
+  low_altitude.platform_altitude_m = 0.0f;
+  low_altitude.environment.spectrum_occupancy_ratio = 0.0f;
+  const EsrCycleResult low_result =
+      EsrSession::Create(config).StepWithResult(low_altitude);
+  ASSERT_FALSE(low_result.output_frame.observation_output.observations.empty());
+
+  EsrCycleInput high_altitude = low_altitude;
+  high_altitude.platform_altitude_m = 10000.0f;
+  const EsrCycleResult high_result =
+      EsrSession::Create(config).StepWithResult(high_altitude);
+  ASSERT_FALSE(high_result.output_frame.observation_output.observations.empty());
+  EXPECT_GT(high_result.output_frame.observation_output.observations.front().snr_db,
+            low_result.output_frame.observation_output.observations.front().snr_db);
+
+  EsrCycleInput occupied = low_altitude;
+  occupied.environment.spectrum_occupancy_ratio = 1.0f;
+  const EsrCycleResult occupied_result =
+      EsrSession::Create(config).StepWithResult(occupied);
+  ASSERT_FALSE(occupied_result.output_frame.observation_output.observations.empty());
+  EXPECT_NEAR(occupied_result.output_frame.observation_output.observations.front().snr_db,
+              low_result.output_frame.observation_output.observations.front().snr_db - 10.0,
+              1.0e-4);
+  EXPECT_FALSE(occupied_result.output_frame.observation_output.observations.front().is_jammed);
+}
+
 TEST(EsrSessionIntegrationTest, WorkModeMappingMakesHgesmMoreDetectableThanRwr) {
   config::EsrSessionConfig hgesm_config = MakeSessionConfig();
   hgesm_config.mission.work_mode = config::EsrWorkMode::kHgesm;

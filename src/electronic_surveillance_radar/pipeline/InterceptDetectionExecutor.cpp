@@ -29,6 +29,10 @@ using oneq::common::numerics::kNumericFloor;
 
 namespace {
 
+double ResolveSpectrumOccupancyNoiseScale(float spectrum_occupancy_ratio) {
+  return 1.0 + 9.0 * static_cast<double>(utils::Clamp01(spectrum_occupancy_ratio));
+}
+
 /**
  * @brief 电磁传播计算中使用的圆周率常量。
  * @note 代码行为依据：接收功率计算使用自由空间路径损耗模型中的 `4πR/λ` 项。
@@ -494,9 +498,13 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
   const double effective_suppression_power_w =
       static_cast<double>(jamming_result.suppression_power_w) *
       static_cast<double>(suppression_noise_scale);
-  const double noise_power_w = std::max(
+  const double ambient_noise_power_w =
       static_cast<double>(config.detection.receiver_noise_floor_w) +
-          static_cast<double>(env_snapshot.clutter_noise_w) + effective_suppression_power_w,
+      static_cast<double>(env_snapshot.clutter_noise_w);
+  const double noise_power_w = std::max(
+      ambient_noise_power_w *
+              ResolveSpectrumOccupancyNoiseScale(env_snapshot.spectrum_occupancy_ratio) +
+          effective_suppression_power_w,
       kNumericFloor);
   const float static_threshold_snr_db = config.detection.minimum_snr_db;
   const float dynamic_threshold_snr_db =

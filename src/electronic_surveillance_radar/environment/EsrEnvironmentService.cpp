@@ -28,8 +28,6 @@ namespace {
 
 constexpr float kDefaultAtmosphereFrequencyHz = 10.0e9f;
 constexpr float kDefaultAtmospherePathLengthM = 10.0e3f;
-constexpr float kDefaultAtmosphereRadarAltitudeM = 1.0e3f;
-constexpr float kDefaultAtmosphereTargetAltitudeM = 1.0e3f;
 constexpr float kDefaultAtmosphereElevationDeg = 5.0f;
 
 float ResolvePropagationProfileLossDb(session::EsrPropagationEnvironmentProfile profile) {
@@ -136,7 +134,8 @@ session::EsrEnvironmentSnapshot BuildSnapshot(const session::EsrEnvironmentCycle
     oneq::environment::PropagationInputs inputs =
         oneq::environment::BuildPropagationInputs(
             kDefaultAtmosphereFrequencyHz, kDefaultAtmospherePathLengthM,
-            kDefaultAtmosphereRadarAltitudeM, kDefaultAtmosphereTargetAltitudeM,
+            std::max(0.0f, cycle_context.platform_altitude_m),
+            std::max(0.0f, cycle_context.platform_altitude_m),
             kDefaultAtmosphereElevationDeg, obs);
     inputs.has_space_weather_context = true;
     inputs.space_weather_context = atmospheric_context;

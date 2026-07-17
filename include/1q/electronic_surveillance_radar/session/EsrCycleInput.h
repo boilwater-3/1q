@@ -19,7 +19,7 @@ namespace session {
 struct ONEQ_API EsrCycleInput {
   std::uint32_t cycle_index{0U};     /**< 当前周期号 */
   float dt_sec{1.0f};                /**< 当前周期步长（单位：s） */
-  float platform_altitude_m{0.0f};   /**< 平台 WGS84 绝对海拔（单位：m） */
+  float platform_altitude_m{0.0f};   /**< 平台 WGS84 绝对海拔（单位：m）；启用大气物理时作为传播高度参考 */
   oneq::foundation::PoseState platform_pose{};      /**< 侦察平台局部姿态与运动状态 */
   EsrSceneEmitterList scene{};       /**< 当前周期场景辐射源输入列表 */
   EsrEnvironmentInput environment{}; /**< 本周期环境高层观测输入 */

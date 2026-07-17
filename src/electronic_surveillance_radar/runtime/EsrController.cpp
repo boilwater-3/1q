@@ -56,6 +56,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
     session::EsrEnvironmentCycleContext env_ctx;
     env_ctx.cycle_index = stamp.cycle_index;
     env_ctx.dt_sec = input.dt_sec;
+    env_ctx.platform_altitude_m = input.platform_altitude_m;
     env_ctx.observation = input.environment;
     impl_->environment_service.BeginCycle(env_ctx);
   }

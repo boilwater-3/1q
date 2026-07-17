@@ -221,8 +221,12 @@ flowchart TB
 2. 应用天线安装偏置。
 3. 计算 emitter beam overlap；历史默认 beam state 退化为全覆盖。
 4. 使用自由空间路径损耗和综合接收损耗估计接收功率。
-5. 结合统计检测参数、pulse count、integration mode、PFA 和 threshold scale 判断是否可检测。
-6. 将 suppression/deception 影响写入观测质量或 false/confused observation 可能性。
+5. 启用大气物理时，以 `platform_altitude_m` 作为接收端大气高度参考；更高高度通过气压、密度与
+   Blake 衰减改变传播附加损耗，而不是只进入 trace。
+6. 以 `1 + 9 * spectrum_occupancy_ratio` 放大接收机底噪与杂波底噪：0 严格退化，1 对应
+   +10 dB 环境噪声；占用率不参与主动 jammer 聚合，也不单独置 `is_jammed`。
+7. 结合统计检测参数、pulse count、integration mode、PFA 和 threshold scale 判断是否可检测。
+8. 将 suppression/deception 影响写入观测质量或 false/confused observation 可能性。
 
 限制：
 
@@ -233,6 +237,9 @@ flowchart TB
 
 - `tests/unit/esr_algorithms_test.cpp`
 - `tests/integration/esr_session_test.cpp`
+
+[evidence: tests/integration/electronic_surveillance_radar/esr_session_test.cpp::AltitudeAndSpectrumOccupancyAffectReceiverSnr]
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::CycleInputPreservesAllFields]
 
 ### 2.3 观测预处理
 
