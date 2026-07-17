@@ -51,16 +51,26 @@ set_property(CACHE STACK_SIZE_OPTION PROPERTY STRINGS
     "DEFAULT" "RECOMMENDED" "LARGE_PROJECT" "EXTREME_RECURSION")
 mark_as_advanced(STACK_SIZE_OPTION)
 
-# 包管理器：当前仅支持 conan，由 scripts/bootstrap_conan.sh 完成 install。
+# 包管理器 / 依赖 provider：
+#   conan —— 标准方式，由 scripts/bootstrap_conan.sh 完成 install 并生成 toolchain/CMakeDeps。
+#   none  —— 不走 conan：第三方依赖来自 third_party/ 源码，由 scripts/fetch_third_party.bat
+#            git clone 到位，dependencies/VendorPackages.cmake 以 add_subdirectory / header-only 消费。
+# 两个 provider 对外契约相同（相同的 imported target 名与 ONEQ_LINK_DEPENDENCIES 等输出变量），
+# 故 src/、tests/、install 等下游消费点不感知 provider 切换。
 set(PACKAGE_MANAGER "conan" CACHE STRING
-    "1q dependency provider (Conan is the only supported value)")
-set_property(CACHE PACKAGE_MANAGER PROPERTY STRINGS "conan")
-if(NOT PACKAGE_MANAGER STREQUAL "conan")
+    "1q dependency provider: 'conan' (run scripts/bootstrap_conan.sh) or 'none' (run scripts/fetch_third_party.bat)")
+set_property(CACHE PACKAGE_MANAGER PROPERTY STRINGS "conan" "none")
+if(NOT PACKAGE_MANAGER STREQUAL "conan" AND NOT PACKAGE_MANAGER STREQUAL "none")
     message(FATAL_ERROR
         "Unsupported PACKAGE_MANAGER: '${PACKAGE_MANAGER}'. "
-        "1q currently supports only 'conan'; run scripts/bootstrap_conan.sh <preset> first.")
+        "1q supports 'conan' (run scripts/bootstrap_conan.sh <preset>) or 'none' "
+        "(run scripts/fetch_third_party.bat to populate third_party/).")
 endif()
-message(STATUS "Package Manager: Conan")
+if(PACKAGE_MANAGER STREQUAL "none")
+    message(STATUS "Package Manager: none (deps from third_party/, run scripts/fetch_third_party.bat)")
+else()
+    message(STATUS "Package Manager: Conan")
+endif()
 
 # 机动（maneuver）模块开关：默认关闭，按需启用。
 option(ONEQ_ENABLE_FLIGHT_DYNAMIC "Build the flight_dynamic (maneuver) module" OFF)

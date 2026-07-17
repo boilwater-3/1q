@@ -12,10 +12,10 @@ set(BOOTSTRAP_FILE "${SOURCE_DIR}/scripts/bootstrap_conan.sh")
 file(READ "${PRESETS_FILE}" PRESETS_CONTENT)
 file(READ "${BOOTSTRAP_FILE}" BOOTSTRAP_CONTENT)
 
-if(PRESETS_CONTENT MATCHES "\"PACKAGE_MANAGER\"[ \t\r\n]*:[ \t\r\n]*\"none\"")
-    message(FATAL_ERROR
-        "CMakePresets.json exposes PACKAGE_MANAGER=none, but the project has no supported offline provider.")
-endif()
+# PACKAGE_MANAGER=none 预设走 SystemPackages provider，不调用 conan，故不得耦合
+# conan toolchain：设置 PACKAGE_MANAGER=none 的 configure preset 不得同时携带
+# CMAKE_TOOLCHAIN_FILE（否则会在配置期因找不到 conan_toolchain.cmake 而失败）。
+# 该约束由 ProjectSetup.cmake 的 toolchain 存在性校验在配置期兜底，此处不再硬拒绝。
 
 foreach(required_preset IN ITEMS
         llvm-ninja-debug

@@ -41,12 +41,20 @@ macro(setup_flatc)
     set(ONEQ_FLATC_EXECUTABLE "${ONEQ_FLATC_EXECUTABLE}" CACHE INTERNAL
         "Resolved FlatBuffers compiler executable")
 
-    execute_process(
-        COMMAND ${ONEQ_FLATC_EXECUTABLE} --version
-        OUTPUT_VARIABLE _oneq_flatc_version
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        ERROR_QUIET
-    )
+    # 配置期版本探测：仅当 flatc 路径是具体可执行文件时执行。
+    # 当来源是 vendored 源码构建（VendorPackages.cmake）时，路径为生成器表达式
+    # $<TARGET_FILE:flatc>（构建期才解析），配置期无法执行，故跳过——版本探测只是
+    # STATUS 诊断，flatc 实际版本一致性由源码 tag 保证（v1.12.0 与运行时头一致）。
+    if(NOT ONEQ_FLATC_EXECUTABLE MATCHES "\\$<")
+        execute_process(
+            COMMAND ${ONEQ_FLATC_EXECUTABLE} --version
+            OUTPUT_VARIABLE _oneq_flatc_version
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+        )
+    else()
+        set(_oneq_flatc_version "(vendored flatc, version probed at build time)")
+    endif()
     message(STATUS "FlatBuffers: 构建期代码生成已启用")
     message(STATUS "  └─ flatc: ${ONEQ_FLATC_EXECUTABLE}")
     if(_oneq_flatc_version)
