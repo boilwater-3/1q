@@ -214,6 +214,19 @@ struct ArSession::Impl {
       SignalPipeline().RestoreRuntimeState(pipeline_state);
       EnvironmentService().RestoreRuntimeState(environment_state);
       Controller().RestoreRuntimeState(controller_state);
+      if (abort_reason == session::SignalCycleAbortReason::kSensorPoweredOff) {
+        // 关机是已接受的非执行边界，不是 pipeline 故障。先恢复本周期消费的控制/环境状态，
+        // 再单独对齐已验证的配置，使 pending 事务能够落定且外部决策仍留待下个成功周期。
+        if (!CommitPendingRuntimeConfig()) {
+          RadarContext().RestoreRuntimeState(radar_context_state);
+          SignalPipeline().RestoreRuntimeState(pipeline_state);
+          EnvironmentService().RestoreRuntimeState(environment_state);
+          Controller().RestoreRuntimeState(controller_state);
+          return BuildExecutionAbortResult(
+              input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
+        }
+        FinalizePendingRuntimeConfig();
+      }
       return BuildExecutionAbortResult(input, abort_reason);
     }
 

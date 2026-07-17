@@ -121,7 +121,9 @@ struct SignalPipeline::Impl {
 
     if (!runtime_.config.base_config.sensor_enabled) {
       ResetCycleScratch(&cycle_.scratch);
-      return {};
+      session::SignalCycleResult result;
+      result.abort_reason = session::SignalCycleAbortReason::kSensorPoweredOff;
+      return result;
     }
 
     if (runtime_.owned.auto_lifecycle_manager == nullptr) {

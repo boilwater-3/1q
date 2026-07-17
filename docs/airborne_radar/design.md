@@ -141,7 +141,7 @@ flowchart TB
 
 1. 外部只从 Public API 的 observation/response seam 进入，不依赖内部类型。
 2. `ArSessionCompositionRoot` 默认装配 context、pipeline、environment service、controller 和默认 `TacticalCoordinator`。
-3. `ArSession` 在运行期配置提交前捕获四类快照；提交或执行失败时回滚，避免 pipeline/environment/controller 状态部分生效。
+3. `ArSession` 在运行期配置提交前捕获四类快照；提交或执行失败时回滚，避免 pipeline/environment/controller 状态部分生效。设备关机是已接受的非执行配置边界：撤销周期副作用后 finalize 关机配置，并保留外部决策等待下一成功周期。
 4. `ArController` 每周期冻结环境快照，再让 signal pipeline 和内部 decision engine 看到同一份环境事实。
 5. 决策 proposal 不直接修改 signal pipeline，而是经 `ControlReducer`/`ControlCommandMapper` 形成下一周期控制配置。
 
@@ -334,9 +334,12 @@ AR 的 public config 是语义配置，signal pipeline 使用的是内部工程�
 3. 将 pending runtime state 同步到 signal pipeline。
 4. 将环境 scenario 和 jamming sensitivity 同步到 environment service。
 5. 任一提交失败则恢复所有快照，并返回 `kRuntimePreparationFailed`。
-6. 提交成功并完成执行后才调用 `FinalizePendingRuntimeConfig`。
+6. 提交成功并完成执行后才调用 `FinalizePendingRuntimeConfig`；唯一非执行例外是
+   `kSensorPoweredOff`：session 先恢复本周期四类快照以撤销控制/环境消费，再单独重新对齐
+   已验证配置并 finalize。真正的执行 abort 仍保留 pending 状态等待重试。
 
 这个机制避免出现“pipeline 已换配置，但 environment/controller 仍旧”的部分生效状态。任何新增运行期可变项，都必须纳入这个提交/回滚语义。
+[evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::RadarSessionPreservesPendingExternalDecisionAcrossPoweredOffBoundary]
 
 ### 2.3 环境、传播和干扰事实
 

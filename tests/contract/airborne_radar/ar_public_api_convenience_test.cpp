@@ -1126,7 +1126,7 @@ TEST(PublicApiConvenienceTest, RadarSessionAppliesMatchingExternalDecisionOnNext
 }
 
 TEST(PublicApiConvenienceTest,
-     RadarSessionAutomaticallyRestoresPendingExternalDecisionAfterPipelineAbort) {
+     RadarSessionPreservesPendingExternalDecisionAcrossPoweredOffBoundary) {
   session::ArSession session = session::ArSession::Create(MakeConvenienceSessionConfig());
   session::ArCycleInput input = MakeCycleInput(session::ArSceneTargetList{
       model::MakeAirTarget(902U, 1000.0f, 0.0f, 100.0f, 800.0f, 0.0f, 0.0f, 2.5f),
@@ -1152,8 +1152,15 @@ TEST(PublicApiConvenienceTest,
   ++input.cycle_index;
   const session::ArCycleResult aborted = session.StepWithResult(input);
   EXPECT_FALSE(aborted.executed_this_cycle);
+  EXPECT_EQ(aborted.abort_reason, session::SignalCycleAbortReason::kSensorPoweredOff);
   EXPECT_FALSE(aborted.has_decision_observation);
   EXPECT_TRUE(aborted.reused_previous_output);
+
+  const session::ArCycleResult still_powered_off = session.StepWithResult(input);
+  EXPECT_FALSE(still_powered_off.executed_this_cycle);
+  EXPECT_EQ(still_powered_off.abort_reason,
+            session::SignalCycleAbortReason::kSensorPoweredOff);
+  EXPECT_TRUE(still_powered_off.reused_previous_output);
 
   config::ArRuntimeConfigPatch enable_sensor;
   enable_sensor.has_sensor_enabled = true;

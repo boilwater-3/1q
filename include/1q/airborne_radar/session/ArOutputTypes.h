@@ -27,6 +27,7 @@ enum class ONEQ_API SignalCycleAbortReason {
   kInvalidEnvironmentCycle = 2,
   kRuntimePreparationFailed = 3,
   kValidationRejected = 4,
+  kSensorPoweredOff = 5, /**< 设备关机，未执行主链路但配置边界已被接受 */
 };
 
 /**
