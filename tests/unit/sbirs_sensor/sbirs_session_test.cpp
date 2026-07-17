@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsSession.h"
@@ -71,6 +73,36 @@ TEST(SbirsSessionTest, InvalidLaterCycleReusesLatestOutput) {
   const sbirs_sensor::session::SbirsCycleResult result = session.StepWithResult(invalid);
   EXPECT_TRUE(result.reused_previous_output);
   EXPECT_EQ(result.output_frame.detections.size(), valid.output_frame.detections.size());
+}
+
+TEST(SbirsSessionTest, ValidationRejectDoesNotAdvancePipelineState) {
+  sbirs_sensor::session::SbirsSession rejected_then_valid =
+      sbirs_sensor::session::SbirsSession::Create(Config());
+  sbirs_sensor::session::SbirsCycleInput invalid = ValidInput(1U);
+  invalid.scene.front().emissivity = std::numeric_limits<float>::quiet_NaN();
+  ASSERT_TRUE(rejected_then_valid.StepWithResult(invalid).has_validation_error);
+
+  const sbirs_sensor::session::SbirsCycleResult after_reject =
+      rejected_then_valid.StepWithResult(ValidInput(2U));
+  sbirs_sensor::session::SbirsSession clean =
+      sbirs_sensor::session::SbirsSession::Create(Config());
+  const sbirs_sensor::session::SbirsCycleResult clean_result =
+      clean.StepWithResult(ValidInput(2U));
+
+  ASSERT_TRUE(after_reject.executed_this_cycle);
+  ASSERT_EQ(after_reject.output_frame.detections.size(),
+            clean_result.output_frame.detections.size());
+  ASSERT_FALSE(after_reject.output_frame.detections.empty());
+  EXPECT_FLOAT_EQ(after_reject.output_frame.scan_azimuth_deg,
+                  clean_result.output_frame.scan_azimuth_deg);
+  EXPECT_EQ(after_reject.output_frame.detections.front().detection_id,
+            clean_result.output_frame.detections.front().detection_id);
+  EXPECT_FLOAT_EQ(after_reject.output_frame.detections.front().azimuth_deg,
+                  clean_result.output_frame.detections.front().azimuth_deg);
+  EXPECT_FLOAT_EQ(after_reject.output_frame.detections.front().elevation_deg,
+                  clean_result.output_frame.detections.front().elevation_deg);
+  EXPECT_FLOAT_EQ(after_reject.output_frame.detections.front().infrared_snr_linear,
+                  clean_result.output_frame.detections.front().infrared_snr_linear);
 }
 
 TEST(SbirsRuntimeConfigResolverTest, InvalidPatchDoesNotPolluteConfig) {

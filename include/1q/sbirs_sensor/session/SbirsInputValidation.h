@@ -32,7 +32,8 @@ using ValidationIssueList = std::vector<ValidationIssue>;
 struct SbirsCycleInput;
 
 /**
- * @brief 校验单周期输入：步长为正且有限、卫星位置已提供且有限、各目标物理输入有限且非负。
+ * @brief 校验单周期输入：步长、非零 ECEF、目标 ID 唯一性、物理取值域、速度 flag/data
+ *        一致性及 environment override 的枚举与连续参数。
  * @param[in] input 待校验的单周期输入
  * @return 校验问题列表；为空表示输入通过校验
  * @note 该函数为纯校验，不修改输入，不抛异常。

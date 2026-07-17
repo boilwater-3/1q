@@ -36,7 +36,7 @@ struct ONEQ_API SbirsSceneTarget {
   float emissivity{0.85f};         /**< 发射率，无量纲 */
   float projected_area_m2{1.0f};   /**< 投影面积，单位 m² */
   SbirsVector3M velocity_ecef_m_per_s{}; /**< ECEF 速度真值，单位 m/s（仅 cue 外推与动态滞后用） */
-  bool has_velocity_ecef_m_per_s{false}; /**< 是否提供速度；为 false 时按 0 处理，保持旧行为 */
+  bool has_velocity_ecef_m_per_s{false}; /**< 是否提供速度；为 false 时数据必须为有限零向量，避免静默忽略矛盾载荷 */
   bool active{true};               /**< 目标是否在场景中有效 */
 };
 

@@ -182,13 +182,13 @@ sequenceDiagram
 
   Caller->>Session: StepWithResult(input)\n提交单周期输入
   Session->>Controller: RunOnce(input)\n执行一个周期
-  Controller->>Controller: snapshot state-machine\n快照状态机用于失败回滚
   Controller->>Validator: ValidateSbirsCycleInput(input)\n校验平台 / 环境 / 目标
   alt invalid input / 输入无效
     Validator-->>Controller: issues\n错误列表
     Controller->>Output: reuse latest output if available\n复用最近有效输出
     Output-->>Session: SbirsCycleResult with validation status\n携带校验状态的结果
   else valid input / 输入有效
+    Controller->>Controller: snapshot pipeline state\n快照用于执行失败回滚
     Controller->>Pipeline: RunCycle(input)\n进入探测流水线
     Pipeline->>Physics: build FrameContext\n构造帧级光学 / 噪声 / 卫星几何上下文
     Pipeline->>Physics: earth-occultation gate\n地球遮挡与大气边界过滤
@@ -224,6 +224,16 @@ sequenceDiagram
 
 运行期配置采用**立即提交**策略（与 EOS 同类），见 `docs/common/contract.md` 运行期配置提交策略表。
 状态机 capture/restore 是 controller 内部失败回滚机制，不上升为 session 层事务契约。
+
+单周期输入在任何 pipeline mutation 之前 fail-closed 校验：`dt_sec` 必须正且有限；卫星和目标 ECEF
+必须有限且非原点；`target_id` 必须非零且周期内唯一；温度、emissivity、投影面积遵守各自物理域；
+目标速度在 `has_velocity_ecef_m_per_s=true` 时必须有限，为 false 时必须是有限零向量；启用
+environment override 时，天气/海况枚举、绝对温度下限、湿度、能见度、透过率和交互权重全部校验。
+拒绝周期不捕获也不恢复 pipeline，因为其随机源、扫描、cue、ATP、调度和跟踪状态从未推进；若已有
+成功输出只复用上一帧，随后合法周期与未经历拒绝的干净会话等价。
+
+[evidence: tests/unit/sbirs_sensor/sbirs_input_validation_test.cpp::RejectsFiniteDomainFlagIdAndEnvironmentMatrix]
+[evidence: tests/unit/sbirs_sensor/sbirs_session_test.cpp::ValidationRejectDoesNotAdvancePipelineState]
 
 ### 1.6 主探测数据流
 
