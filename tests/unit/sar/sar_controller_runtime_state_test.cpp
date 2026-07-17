@@ -102,6 +102,54 @@ TEST(SarControllerRuntimeStateTest, ValidationRejectReusesPreviousOutput) {
   EXPECT_EQ(result.output_frame.cycle_index, 40U);
 }
 
+TEST(SarControllerRuntimeStateTest, PipelineAbortRestoresAllCrossCycleState) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  pipeline::SarProcessingPipeline pipeline(config);
+  SarController controller(pipeline, config);
+  const session::SarCycleInput successful_input = MakeInput(49U);
+  controller.RunOnce(successful_input);
+  ASSERT_TRUE(controller.BuildCycleResult(successful_input).executed_this_cycle);
+
+  config::SarRuntimeConfigPatch reject_snr;
+  reject_snr.has_minimum_snr_db = true;
+  reject_snr.minimum_snr_db = 1000.0;
+  ASSERT_TRUE(controller.TryApplyRuntimeConfig(reject_snr));
+  const pipeline::SarProcessingPipelineRuntimeState before = pipeline.CaptureRuntimeState();
+
+  const session::SarCycleInput input = MakeInput(50U);
+  controller.RunOnce(input);
+  const session::SarCycleResult result = controller.BuildCycleResult(input);
+  const pipeline::SarProcessingPipelineRuntimeState after = pipeline.CaptureRuntimeState();
+
+  ASSERT_FALSE(result.executed_this_cycle);
+  ASSERT_EQ(result.abort_reason, "snr_below_minimum");
+  EXPECT_TRUE(result.reused_previous_output);
+  EXPECT_EQ(result.output_frame.cycle_index, successful_input.cycle_index);
+  EXPECT_EQ(after.next_pulse_id, before.next_pulse_id);
+  EXPECT_DOUBLE_EQ(after.pulse_fraction_carry, before.pulse_fraction_carry);
+  EXPECT_EQ(after.raw_pulse_buffer_state.records.size(),
+            before.raw_pulse_buffer_state.records.size());
+  for (std::size_t index = 0U; index < before.raw_pulse_buffer_state.records.size(); ++index) {
+    EXPECT_EQ(after.raw_pulse_buffer_state.records[index].pulse_id,
+              before.raw_pulse_buffer_state.records[index].pulse_id);
+    EXPECT_EQ(after.raw_pulse_buffer_state.records[index].samples,
+              before.raw_pulse_buffer_state.records[index].samples);
+  }
+  EXPECT_EQ(after.raw_pulse_buffer_state.overflow_sticky,
+            before.raw_pulse_buffer_state.overflow_sticky);
+  EXPECT_EQ(after.ideal_trajectory_buffer.size(), before.ideal_trajectory_buffer.size());
+  EXPECT_EQ(after.actual_trajectory_buffer.size(), before.actual_trajectory_buffer.size());
+  ASSERT_FALSE(before.actual_trajectory_buffer.empty());
+  EXPECT_EQ(after.actual_trajectory_buffer.front().pulse_id,
+            before.actual_trajectory_buffer.front().pulse_id);
+  EXPECT_DOUBLE_EQ(after.actual_trajectory_buffer.front().time_s,
+                   before.actual_trajectory_buffer.front().time_s);
+  EXPECT_EQ(after.actual_trajectory_buffer.back().pulse_id,
+            before.actual_trajectory_buffer.back().pulse_id);
+  EXPECT_DOUBLE_EQ(after.actual_trajectory_buffer.back().time_s,
+                   before.actual_trajectory_buffer.back().time_s);
+}
+
 }  // namespace
 }  // namespace extension
 }  // namespace sar

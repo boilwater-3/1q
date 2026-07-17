@@ -259,7 +259,9 @@ SAR 遵守 `docs/common/contract.md`：
 - `SarSessionConfigBuilder` 是 semantic builder，不承担 leaf setter 或隐式 validation。
 - SAR 输出遵守三层模型：系统输出、结构化结果、调试视图分离。
 - `SarSession::StepWithResult` 在运行期配置和成像链路前调用 `ValidateSarCycleInput`；存在 error 级问题时记录 `invalid_cycle_input` abort 并按既有语义复用上一帧（符合 contract.md §实现安全与失败语义规则 3）。
-- `SarController` 与 `SarProcessingPipeline` 各自持有 runtime state / raw pulse / trajectory 累积状态快照（capture/restore），与事务性提交语义对齐。
+- SAR runtime config 属于立即提交；`SarController` 在每次 pipeline 执行前捕获 raw pulse、
+  trajectory、pulse ID 和 PRF 分数余量，执行 abort 时恢复这些跨周期状态并按需复用上一有效
+  输出。配置不随执行失败回滚，执行状态也不得被失败周期污染。
 - historical/raw evidence 不常驻 `docs/sar/`；当前事实只由五文件模型承载。
 
 ### 1.8 Environment 配置的保留与后续接入边界
@@ -339,6 +341,7 @@ SAR 支持两条 raw history 来源：
 
 该产品属于结构化执行结果，不进入 `SarOutputFrame`；失败周期不发布未完成孔径。
 [evidence: tests/unit/sar/sar_session_pipeline_test.cpp]
+[evidence: tests/unit/sar/sar_controller_runtime_state_test.cpp::PipelineAbortRestoresAllCrossCycleState]
 [evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp]
 
 内部轨迹分层：

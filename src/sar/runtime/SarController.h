@@ -62,6 +62,7 @@ class SarController {
   /**
    * @brief 执行单周期处理并缓存结果。
    * @param[in] input 单周期输入载荷。
+   * @note pipeline 中止时恢复调用前的跨周期状态；若已有有效输出则复用上一帧。
    */
   void RunOnce(const session::SarCycleInput& input);
   /**

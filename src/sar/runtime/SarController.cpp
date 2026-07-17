@@ -94,7 +94,17 @@ void SarController::RunOnce(const session::SarCycleInput& input) {
     return;
   }
 
+  const pipeline::SarProcessingPipelineRuntimeState pipeline_state =
+      impl_->pipeline.CaptureRuntimeState();
   if (!impl_->pipeline.RunCycle(impl_->runtime_config, input, &result)) {
+    if (!impl_->pipeline.RestoreRuntimeState(pipeline_state)) {
+      session::RecordAbort(&result, "runtime_state_restore_rejected",
+                           "SAR failed to restore pipeline state after cycle abort.");
+    }
+    if (impl_->has_previous_output) {
+      result.output_frame = impl_->previous_output;
+      result.reused_previous_output = true;
+    }
     impl_->Finish(result);
     return;
   }
