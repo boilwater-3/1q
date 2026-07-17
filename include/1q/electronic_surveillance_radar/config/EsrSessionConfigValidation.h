@@ -25,7 +25,8 @@ enum class ConfigValidationCode {
   kBeamAzWidthNotPositive,      /**< 方位波束宽度 <= 0 */
   kBeamElWidthNotPositive,      /**< 俯仰波束宽度 <= 0 */
   kExplicitScanBoundsAzSwapped, /**< 显式扫描方位起止颠倒 */
-  kExplicitScanBoundsElSwapped  /**< 显式扫描俯仰起止颠倒 */
+  kExplicitScanBoundsElSwapped, /**< 显式扫描俯仰起止颠倒 */
+  kExplicitScanBoundsNotFinite  /**< 显式扫描边界包含 NaN 或 Inf */
 };
 
 /**
@@ -47,9 +48,9 @@ using ValidationIssueList = std::vector<ConfigValidationIssue>;
  * - 扫描数据率为正；
  * - 接收频段上下限一致；
  * - 波束宽度为正；
- * - 显式扫描边界起止一致。
+ * - 显式扫描边界均为有限值，且起止顺序一致。
  *
- * @param config 待校验的最终会话配置。
+ * @param[in] config 待校验的最终会话配置。
  * @return 按发现顺序返回的校验问题列表。
  */
 ONEQ_API ValidationIssueList

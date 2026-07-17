@@ -290,6 +290,17 @@ flowchart TB
 
 ### 2.6 运行期配置与状态边界
 
+扫描窗口有两种互斥解释方式：
+
+- `use_explicit_scan_bounds=true` 时，四个显式起止角必须全部有限，并分别满足
+  `scan_start_az_deg < scan_end_az_deg`、`scan_start_el_deg < scan_end_el_deg`；显式边界生效，中心角字段被忽略。
+- `use_explicit_scan_bounds=false` 时，中心角结合硬件扫描范围推导窗口；即使显式字段为 NaN/Inf，也因未被选择而忽略。
+
+静态 session validation 按所选模式验证，不能把非法的显式模式静默退化成中心模式。运行期 patch
+提交中心角时关闭显式模式，提交显式起止角时开启显式模式，因此最近一次被明确选择的表达拥有窗口语义。
+[evidence: tests/unit/electronic_surveillance_radar/esr_session_config_builder_test.cpp]
+[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp]
+
 `ApplyRuntimeConfigWithResult()` 通过 `ResolveEsrRuntimeConfigPatch()` 校验 patch。有效 patch 立即写入 `resolved_config`，并同步到 pipeline/environment；无效 patch 拒绝且不污染现有配置。ESR 属于 `docs/common/contract.md` 定义的立即提交类，配置单向落定，不提供 session 层回滚。
 
 `InterceptPipeline::RunCycle()` 返回 `InterceptPipelineResult`，该结果只包含 observation、emitter、truth evaluation 三通道输出，不包含 `executed_this_cycle` 或 `abort_reason`。因此 ESR controller 当前没有 EOS 式的 pipeline 自报失败状态可校验；一旦输入校验通过并进入 pipeline，空输出也是合法数据结果。

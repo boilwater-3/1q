@@ -284,18 +284,25 @@ flowchart TB
 - `IsAtTarget()`：距离小于 threshold 或 waypoint radius。
 - `IsAtOrPastTarget()`：已经进入 capture radius，或越过目标法平面且横向偏差在 corridor 内。
 
-`HasPassedActiveWaypoint()` 使用 leg start 到 target 的局部平面投影：
+`HasPassedActiveWaypoint()` 使用球面大圆航段计算 leg start、target 与当前位置的关系：
 
-- 沿航段方向超过目标点表示已经越过。
+- 沿大圆短弧方向的 along-track 距离超过航段长度表示已经越过。
+- cross-track 是当前位置到该大圆的球面有符号距离；判定只消费其绝对值。
 - 横向偏差超过 `max(3000m, radius * 3)` 时，不允许仅凭法平面穿越判定到达，避免大转弯中提前切航点。
+- 经度差归一化到最短跨界弧，因此航段可跨越 ±180° 经度边界；高纬长航段不再使用平面
+  `cos(latitude)` 近似。
+- 零长度、非有限坐标和近对跖点航段没有稳定的唯一短弧，几何解析失败时保守返回“尚未越过”。
 
 设计边界：
 
 - waypoint “到达”不是单一距离阈值。
 - 大转弯、过冲、横向偏差和 capture radius 必须分开讨论。
+- 全球 waypoint 航段使用球面大圆；orbit、figure-8、racetrack 等局部机动仍以各自参考中心的局部
+  切平面构造路径。这两类几何服务于不同尺度，不要求共享同一个纬经度投影 helper。
 
 验证入口：
 
+- `tests/unit/flight_dynamic/fd_adapter_test.cpp`
 - `tests/unit/flight_dynamic/fd_aircraft_maneuver_test.cpp`
 - `tests/unit/flight_dynamic/fd_orbit_quality_test.cpp`
 

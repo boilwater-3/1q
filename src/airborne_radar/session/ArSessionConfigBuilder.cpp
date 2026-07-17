@@ -1,6 +1,7 @@
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
 
 #include "1q/airborne_radar/config/ArSessionConfigValidation.h"
+#include "common/validation/ValidationUtils.h"
 
 namespace airborne_radar {
 namespace config {
@@ -208,18 +209,66 @@ ValidationIssueList ValidateArSessionConfig(const config::ArSessionConfig& confi
     issues.push_back(issue);
   };
   const config::ArOrientationConfig& orientation = config.mission.orientation;
+  const config::detection::AntennaConfig& antenna = config.hardware.antenna;
+  const float transmitter_frequency_hz = config.hardware.transmitter.frequency_hz;
+  const float rcs_frequency_hz = config.hardware.rcs_physics.frequency_hz;
+
+  if (!oneq::common::validation::IsFinite(transmitter_frequency_hz) ||
+      transmitter_frequency_hz <= 0.0f) {
+    push(ConfigValidationCode::kTransmitterFrequencyInvalid,
+         "hardware.transmitter.frequency_hz",
+         "Transmitter frequency must be finite and positive.");
+  }
+  if (!oneq::common::validation::IsFinite(rcs_frequency_hz) || rcs_frequency_hz < 0.0f) {
+    push(ConfigValidationCode::kRcsPhysicsFrequencyInvalid,
+         "hardware.rcs_physics.frequency_hz",
+         "RCS physics frequency must be zero (inherit) or finite and positive.");
+  }
+
+  const auto axis_geometry_valid =
+      [transmitter_frequency_hz](float nominal_beamwidth_deg, float aperture_m,
+                                 bool commanded_override_enabled) {
+        if (!oneq::common::validation::IsFinite(nominal_beamwidth_deg) ||
+            !oneq::common::validation::IsFinite(aperture_m) ||
+            nominal_beamwidth_deg < 0.0f || aperture_m < 0.0f) {
+          return false;
+        }
+        if (commanded_override_enabled || nominal_beamwidth_deg > 0.0f) {
+          return true;
+        }
+        return aperture_m > 0.0f &&
+               oneq::common::validation::IsFinite(transmitter_frequency_hz) &&
+               transmitter_frequency_hz > 0.0f;
+      };
 
   if (orientation.commanded_beamwidth_enabled) {
-    if (orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f) {
+    if (!oneq::common::validation::IsFinite(
+            orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg) ||
+        orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f) {
       push(ConfigValidationCode::kCommandedBeamwidthAzNotPositive,
            "mission.orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg",
-           "Commanded azimuth beamwidth must be positive when enabled.");
+           "Commanded azimuth beamwidth must be finite and positive when enabled.");
     }
-    if (orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg <= 0.0f) {
+    if (!oneq::common::validation::IsFinite(
+            orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg) ||
+        orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg <= 0.0f) {
       push(ConfigValidationCode::kCommandedBeamwidthElNotPositive,
            "mission.orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg",
-           "Commanded elevation beamwidth must be positive when enabled.");
+           "Commanded elevation beamwidth must be finite and positive when enabled.");
     }
+  }
+
+  if (!axis_geometry_valid(antenna.nominal_az_beamwidth_deg, antenna.antenna_length_m,
+                           orientation.commanded_beamwidth_enabled)) {
+    push(ConfigValidationCode::kAntennaAzGeometryInvalid,
+         "hardware.antenna.nominal_az_beamwidth_deg / antenna_length_m",
+         "Azimuth beamwidth requires a positive nominal value or a valid physical aperture.");
+  }
+  if (!axis_geometry_valid(antenna.nominal_el_beamwidth_deg, antenna.antenna_width_m,
+                           orientation.commanded_beamwidth_enabled)) {
+    push(ConfigValidationCode::kAntennaElGeometryInvalid,
+         "hardware.antenna.nominal_el_beamwidth_deg / antenna_width_m",
+         "Elevation beamwidth requires a positive nominal value or a valid physical aperture.");
   }
 
   if (orientation.mechanical_scan_limits_deg.az_min_deg >

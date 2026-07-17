@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
 
@@ -109,6 +111,27 @@ TEST(EsrSessionConfigValidationTest, RejectsExplicitScanBoundsElSwapped) {
   config.mission.scan.scan_end_el_deg = -10.0f;
   EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
                            ConfigValidationCode::kExplicitScanBoundsElSwapped));
+}
+
+TEST(EsrSessionConfigValidationTest, RejectsNonFiniteExplicitScanBounds) {
+  EsrSessionConfig config;
+  config.mission.scan.use_explicit_scan_bounds = true;
+  config.mission.scan.scan_start_az_deg =
+      std::numeric_limits<float>::quiet_NaN();
+
+  EXPECT_TRUE(ContainsCode(ValidateEsrSessionConfig(config),
+                           ConfigValidationCode::kExplicitScanBoundsNotFinite));
+}
+
+TEST(EsrSessionConfigValidationTest, IgnoresExplicitFieldsWhenCenterModeIsSelected) {
+  EsrSessionConfig config;
+  config.mission.scan.use_explicit_scan_bounds = false;
+  config.mission.scan.scan_start_az_deg =
+      std::numeric_limits<float>::quiet_NaN();
+  config.mission.scan.scan_end_el_deg =
+      std::numeric_limits<float>::infinity();
+
+  EXPECT_TRUE(ValidateEsrSessionConfig(config).empty());
 }
 
 TEST(EsrSessionConfigValidationTest, PassesOnHealthyBuiltConfig) {

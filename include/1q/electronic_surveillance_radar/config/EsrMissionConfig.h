@@ -29,6 +29,10 @@ enum class ONEQ_API EsrWorkMode {
 
 /**
  * @brief EsrScanPolicyConfig 描述任务扫描语义输入。
+ *
+ * @note `use_explicit_scan_bounds == true` 时，四个显式起止角唯一生效，中心角字段被忽略；
+ *       四个边界必须为有限值且每个轴满足 start < end。为 false 时，显式边界字段被忽略，
+ *       中心角结合硬件扫描范围解析扫描区间。
  */
 struct ONEQ_API EsrScanPolicyConfig {
   float scan_center_az_deg{0.0f};   /**< 扫描中心方位（单位：deg） */
@@ -36,7 +40,7 @@ struct ONEQ_API EsrScanPolicyConfig {
   float scan_rate_hz{1.0f};         /**< 扫描数据率（单位：Hz） */
   EsrScanStartPosition scan_start_position{EsrScanStartPosition::kLeftTop}; /**< 扫描起始位置 */
   EsrScanSequence scan_sequence{EsrScanSequence::kAzimuthFirst};             /**< 扫描顺序 */
-  bool use_explicit_scan_bounds{false}; /**< 是否使用显式扫描起止角 */
+  bool use_explicit_scan_bounds{false}; /**< 是否使用显式扫描起止角；启用后显式边界优先于中心角 */
   float scan_start_az_deg{-60.0f};      /**< 扫描起始方位（单位：deg） */
   float scan_end_az_deg{60.0f};         /**< 扫描结束方位（单位：deg） */
   float scan_start_el_deg{-10.0f};      /**< 扫描起始俯仰（单位：deg） */

@@ -24,12 +24,16 @@ namespace config {
  */
 enum class ConfigValidationCode {
   kNone = 0,                          /**< 无问题（默认占位）。 */
-  kCommandedBeamwidthAzNotPositive,   /**< 指令态方位波束宽度启用时非正数。 */
-  kCommandedBeamwidthElNotPositive,   /**< 指令态俯仰波束宽度启用时非正数。 */
+  kCommandedBeamwidthAzNotPositive,   /**< 指令态方位波束宽度启用时非有限或非正。 */
+  kCommandedBeamwidthElNotPositive,   /**< 指令态俯仰波束宽度启用时非有限或非正。 */
   kMechanicalScanLimitsSwappedAz,     /**< 机械方位扫描下限大于上限。 */
   kMechanicalScanLimitsSwappedEl,     /**< 机械俯仰扫描下限大于上限。 */
   kElectronicScanLimitsSwappedAz,     /**< 电子方位扫描下限大于上限。 */
-  kElectronicScanLimitsSwappedEl     /**< 电子俯仰扫描下限大于上限。 */
+  kElectronicScanLimitsSwappedEl,     /**< 电子俯仰扫描下限大于上限。 */
+  kAntennaAzGeometryInvalid,          /**< 方位名义波束宽度或物理孔径无法解析。 */
+  kAntennaElGeometryInvalid,          /**< 俯仰名义波束宽度或物理孔径无法解析。 */
+  kTransmitterFrequencyInvalid,       /**< 发射频率非有限或非正。 */
+  kRcsPhysicsFrequencyInvalid         /**< 物理 RCS 评估频率非有限或为负。 */
 };
 
 /**
@@ -47,8 +51,10 @@ using ValidationIssueList = std::vector<ConfigValidationIssue>;
 /**
  * @brief 对会话初始化配置执行静态结构校验。
  *
- * 校验范围：指令态波束宽度启用时须为正数；机械/电子扫描限位下限不大于上限；
- * 选用 UD 分解（kUdKf）等抗干扰鲁棒跟踪后端时应同时启用 IMM 生命周期融合。
+ * 校验范围：指令态波束宽度启用时须为有限正值；未启用指令态覆盖时，每个天线轴必须
+ * 提供正的名义波束宽度，或提供可结合有效发射频率推导波束宽度的正物理孔径；
+ * 发射频率须为有限正值；物理 RCS 评估频率须为 0 或有限正值；机械/电子扫描限位
+ * 下限不大于上限。
  *
  * @param[in] config 待校验的会话初始化配置。
  * @return 校验问题列表；为空表示配置通过校验。

@@ -50,5 +50,37 @@ TEST(BeamwidthResolutionTest, UsesCommandedBeamwidthWhenEnabled) {
   EXPECT_FLOAT_EQ(effective_beamwidth.el_beamwidth_deg, 9.0f);
 }
 
+TEST(BeamwidthResolutionTest, DerivesZeroNominalBeamwidthFromPhysicalAperture) {
+  AntennaConfig antenna_config;
+  antenna_config.nominal_az_beamwidth_deg = 0.0f;
+  antenna_config.nominal_el_beamwidth_deg = 0.0f;
+  antenna_config.antenna_length_m = 2.0f;
+  antenna_config.antenna_width_m = 1.0f;
+
+  ArOrientationConfig orientation_config;
+  constexpr float kWavelengthM = 0.03f;
+  constexpr float kRad2Deg = 180.0f / 3.14159265358979f;
+  const EffectiveBeamwidthDeg effective_beamwidth =
+      ResolveEffectiveBeamwidth(antenna_config, orientation_config, kWavelengthM);
+
+  EXPECT_FLOAT_EQ(effective_beamwidth.az_beamwidth_deg,
+                  kWavelengthM / antenna_config.antenna_length_m * kRad2Deg);
+  EXPECT_FLOAT_EQ(effective_beamwidth.el_beamwidth_deg,
+                  kWavelengthM / antenna_config.antenna_width_m * kRad2Deg);
+}
+
+TEST(BeamwidthResolutionTest, LeavesUnresolvableZeroGeometryAtZeroForValidation) {
+  AntennaConfig antenna_config;
+  antenna_config.nominal_az_beamwidth_deg = 0.0f;
+  antenna_config.nominal_el_beamwidth_deg = 0.0f;
+  ArOrientationConfig orientation_config;
+
+  const EffectiveBeamwidthDeg effective_beamwidth =
+      ResolveEffectiveBeamwidth(antenna_config, orientation_config, 0.03f);
+
+  EXPECT_FLOAT_EQ(effective_beamwidth.az_beamwidth_deg, 0.0f);
+  EXPECT_FLOAT_EQ(effective_beamwidth.el_beamwidth_deg, 0.0f);
+}
+
 }  // namespace tests
 }  // namespace airborne_radar

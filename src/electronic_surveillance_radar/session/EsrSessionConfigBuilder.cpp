@@ -4,6 +4,7 @@
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
+#include "common/validation/ValidationUtils.h"
 
 namespace electronic_surveillance_radar {
 namespace config {
@@ -122,12 +123,23 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
   }
 
   if (config.mission.scan.use_explicit_scan_bounds) {
-    if (config.mission.scan.scan_start_az_deg >= config.mission.scan.scan_end_az_deg) {
+    const bool bounds_finite =
+        oneq::common::validation::IsFinite(config.mission.scan.scan_start_az_deg) &&
+        oneq::common::validation::IsFinite(config.mission.scan.scan_end_az_deg) &&
+        oneq::common::validation::IsFinite(config.mission.scan.scan_start_el_deg) &&
+        oneq::common::validation::IsFinite(config.mission.scan.scan_end_el_deg);
+    if (!bounds_finite) {
+      push(ConfigValidationCode::kExplicitScanBoundsNotFinite,
+           "mission.scan explicit bounds",
+           "Explicit scan bounds must all be finite.");
+    } else if (config.mission.scan.scan_start_az_deg >=
+               config.mission.scan.scan_end_az_deg) {
       push(ConfigValidationCode::kExplicitScanBoundsAzSwapped,
            "mission.scan.scan_start_az_deg / scan_end_az_deg",
            "Scan start azimuth must be less than end azimuth.");
     }
-    if (config.mission.scan.scan_start_el_deg >= config.mission.scan.scan_end_el_deg) {
+    if (bounds_finite && config.mission.scan.scan_start_el_deg >=
+                             config.mission.scan.scan_end_el_deg) {
       push(ConfigValidationCode::kExplicitScanBoundsElSwapped,
            "mission.scan.scan_start_el_deg / scan_end_el_deg",
            "Scan start elevation must be less than end elevation.");

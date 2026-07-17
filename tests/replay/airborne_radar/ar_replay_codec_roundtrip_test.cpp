@@ -299,6 +299,8 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   // hardware
   config.hardware.transmitter.peak_power_w = 50000.0f;
   config.hardware.transmitter.frequency_hz = 9.5e9f;
+  config.hardware.antenna.antenna_length_m = 1.75f;
+  config.hardware.antenna.antenna_width_m = 0.85f;
   config.hardware.min_detection_margin_db = -20.0f;
   // mission
   config.mission.orientation.scan_center_deg.az_deg = 15.0f;
@@ -339,6 +341,8 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   // hardware
   EXPECT_FLOAT_EQ(decoded.hardware.transmitter.peak_power_w, 50000.0f);
   EXPECT_FLOAT_EQ(decoded.hardware.transmitter.frequency_hz, 9.5e9f);
+  EXPECT_FLOAT_EQ(decoded.hardware.antenna.antenna_length_m, 1.75f);
+  EXPECT_FLOAT_EQ(decoded.hardware.antenna.antenna_width_m, 0.85f);
   EXPECT_FLOAT_EQ(decoded.hardware.min_detection_margin_db, -20.0f);
   // mission
   EXPECT_FLOAT_EQ(decoded.mission.orientation.scan_center_deg.az_deg, 15.0f);

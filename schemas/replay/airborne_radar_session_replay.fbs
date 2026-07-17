@@ -60,6 +60,8 @@ table AntennaConfig {
   nominal_el_beamwidth_deg:float;
   enable_directional_pattern:bool;
   pattern:AntennaPatternConfig;
+  antenna_length_m:float;
+  antenna_width_m:float;
 }
 
 table ReceiverConfig {

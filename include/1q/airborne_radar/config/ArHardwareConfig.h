@@ -134,10 +134,10 @@ struct ONEQ_API AntennaPatternConfig {
  */
 struct ONEQ_API AntennaConfig {
   float main_beam_gain_db{35.0f};         /**< 主瓣峰值增益。 */
-  float nominal_az_beamwidth_deg{4.0f};   /**< 名义方位波束宽度（为 0 且 antenna_length_m>0 时从物理尺寸推导）。 */
-  float nominal_el_beamwidth_deg{4.0f};   /**< 名义俯仰波束宽度（为 0 且 antenna_width_m>0 时从物理尺寸推导）。 */
-  float antenna_length_m{0.0f};           /**< 物理方位孔径尺寸（0=不使用物理推导，非0时用于 beamwidth 推导和 sinc² 模式）。 */
-  float antenna_width_m{0.0f};            /**< 物理俯仰孔径尺寸（0=不使用物理推导）。 */
+  float nominal_az_beamwidth_deg{4.0f};   /**< 名义方位波束宽度；正值直接生效，0 表示从有效物理孔径推导。 */
+  float nominal_el_beamwidth_deg{4.0f};   /**< 名义俯仰波束宽度；正值直接生效，0 表示从有效物理孔径推导。 */
+  float antenna_length_m{0.0f};           /**< 物理方位孔径尺寸；正值参与波束推导和 sinc² 模式，0 表示未配置。 */
+  float antenna_width_m{0.0f};            /**< 物理俯仰孔径尺寸；正值参与波束推导和 sinc² 模式，0 表示未配置。 */
   AntennaPatternConfig pattern{};         /**< 方向图参数。 */
   bool enable_directional_pattern{false}; /**< 是否启用离轴方向图评估。 */
 };
@@ -175,7 +175,7 @@ struct ONEQ_API TransmitterConfig {
  */
 struct ONEQ_API RcsPhysicsConfig {
   bool enable_physical_rcs{false};      /**< 是否启用物理 RCS 估计。 */
-  float frequency_hz{0.0f};             /**< 物理 RCS 估计使用的频率。 */
+  float frequency_hz{0.0f};             /**< 物理 RCS 评估频率；0 跟随当前有效发射频率，正值固定且不随频率捷变。 */
   float physics_mix_ratio{0.0f};        /**< 物理估计与经验值的混合比例。 */
   float cylinder_weight{0.5f};          /**< 圆柱散射模型权重。 */
   float min_equivalent_radius_m{0.05f}; /**< 等效半径下界。 */

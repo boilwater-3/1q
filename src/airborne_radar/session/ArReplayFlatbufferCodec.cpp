@@ -519,7 +519,8 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
           EncodeSessionAzEl(builder, value.antenna.pattern.boresight_offset_deg));
   const flatbuffers::Offset<session_fb::AntennaConfig> antenna = session_fb::CreateAntennaConfig(
       *builder, value.antenna.main_beam_gain_db, value.antenna.nominal_az_beamwidth_deg,
-      value.antenna.nominal_el_beamwidth_deg, value.antenna.enable_directional_pattern, pattern);
+      value.antenna.nominal_el_beamwidth_deg, value.antenna.enable_directional_pattern, pattern,
+      value.antenna.antenna_length_m, value.antenna.antenna_width_m);
   const flatbuffers::Offset<session_fb::ReceiverConfig> receiver = session_fb::CreateReceiverConfig(
       *builder, value.receiver.noise_figure_db, value.receiver.receive_loss_db);
   const flatbuffers::Offset<session_fb::DetectionPolicyConfig> policy =
@@ -708,6 +709,8 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
       result.antenna.main_beam_gain_db = antenna->main_beam_gain_db();
       result.antenna.nominal_az_beamwidth_deg = antenna->nominal_az_beamwidth_deg();
       result.antenna.nominal_el_beamwidth_deg = antenna->nominal_el_beamwidth_deg();
+      result.antenna.antenna_length_m = antenna->antenna_length_m();
+      result.antenna.antenna_width_m = antenna->antenna_width_m();
       result.antenna.enable_directional_pattern = antenna->enable_directional_pattern();
       const session_fb::AntennaPatternConfig* pattern = antenna->pattern();
       if (pattern != nullptr) {

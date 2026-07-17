@@ -11,30 +11,15 @@ Authority: 非规定性记录
 
 | 优先级 | 条目 | 当前判断 | 首个交付物 |
 |---|---|---|---|
-| P1 | OQ-10c、OQ-10g、OQ-10j、OQ-1 | 生效优先级或几何退化路径可由代码复现，但尚缺统一契约 | 组合矩阵/远场几何测试 + 设计文档 |
 | P1 | OQ-10b、OQ-10e、OQ-10f、OQ-10k、OQ-10l | 主要是公开配置误导或跨域语义不一致，先补文档和守护 | 字段生效表、四域规则、no-op 标注 |
 | P2 | OQ-8、OQ-10a、OQ-10d、OQ-10i、OQ-10m | 涉及 public API/ABI 或跨模块迁移，不能作为顺手清理 | Stage A 迁移契约和 consumer 影响清单 |
 | P2 | OQ-9 | 机械 replay helper 收敛，必须在模块行为护栏稳定后进行 | SBIRS → SAR → AR 分批证明 |
 
-排序依据是当前 checkout 的代码和测试，不代表这些条目已经获准实施。原 OQ-10h 已完成：SBIRS 物理 sigma 按 RSS 合成，legacy 仅在三项全零时生效，bearing/covariance 共用同一解析语义。原 OQ-3 也已完成：Autopilot 使用当前重量/密度刷新动态 TAS 包线，起飞旋转与默认进近速度统一使用标准海平面密度作为 CAS 基准。
+排序依据是当前 checkout 的代码和测试，不代表这些条目已经获准实施。原 OQ-10h、OQ-3、OQ-10c、
+OQ-10g、OQ-10j、OQ-1 已完成；对应运行时语义和证据已迁入 SBIRS、Flight Dynamic、AR、ESR 的
+模块设计权威。
 
 ---
-
-## OQ-1 飞行动力学局部 NE 投影 cos-lat 约定分叉
-
-`WaypointManager` 与 `Maneuver` 各自实现了 lat/lon → 局部北/东米投影，但两者使用的 cos-纬度约定不同，对大 cross-track 偏移会产生不同几何结果。
-
-- `WaypointManager` 用平均纬度 cos：`src/flight_dynamic/guidance/WaypointManager.cpp:24`（`mean_latitude_rad = 0.5 * (lat + origin_lat)`）、`:28`（`east_m = ... * cos(mean_latitude_rad)`）。
-- `Maneuver` 用参考中心纬度 cos：`src/flight_dynamic/guidance/Maneuver.cpp:160`、`:203`（`cos_lat = std::cos(center.latitude_rad)`），并在文件内 6 处内联重复该投影。
-
-为何未决：无法从代码判断哪个约定是有意为之。两者在小偏移下数值接近，分叉只在远场才显现；现有测试未覆盖"两套约定应一致"或"应不同"的断言。合并到单一投影需要先决定以哪个 cos-lat 约定为准。
-
-推进需要：
-- 领域知识确认：orbit / figure-8 / racetrack 几何中，cos(mean lat) 与 cos(center/reference lat) 哪个是正确意图；
-- 决定后，要么统一为单一约定（带参数的 helper），要么显式记录"两者有意不同"并保留；
-- 重测 orbit / figure-8 / racetrack 几何，确认无回归。
-
-注：P2.5a（commit `ff0c9a2c`）只收拢了 `NormalizeRad`/`RadToDeg360`（角度归一化），明确未触碰此 NE 投影分叉。
 
 ## OQ-8 折射率成对温度输入的 public 迁移
 
@@ -106,22 +91,7 @@ AR/ESR/EOS 的开关机字段都叫 `power_on{true}`，唯独 SBIRS 叫 `sensor_
 推进需要：
 - 决定该域是下沉到 `src/` 内部、还是保留在公开 API 但加 `[[deprecated("reserved for replay fidelity, no compute effect")]]` 并在 README/Builder 文档显著标注；
 - 若保留，需在 `SarSessionConfigBuilder` 文档与 `docs/sar/design.md` 明确"本域当前不影响输出"；
-- 同步检查同类"保留字段"先例（见 OQ-10g）的处置一致性。
-
-### OQ-10c 🔴 AR 硬件域 `frequency_hz` 三处出现 + 隐式回退优先级
-
-AR 硬件域 `frequency_hz` 出现在两个子配置中，且有第三处隐式回退逻辑：
-
-- `TransmitterConfig.frequency_hz{3e9f}`：探测/波长/大气损耗主源。证据 `src/airborne_radar/signal/pipeline/DetectionExecution.cpp:70`、`:252-253`、`src/airborne_radar/signal/detection/RadarEquations.cpp:100`。
-- `RcsPhysicsConfig.frequency_hz{0.0f}`：物理 RCS 估计频率。默认 `0.0f`。
-- `ResolveRcsPhysicsFrequencyHz`（`src/airborne_radar/signal/pipeline/DetectionExecution.cpp:25-31`）：`rcs_physics.frequency_hz > 0` 则用之，否则**静默回退** `transmitter.frequency_hz`。
-
-为何未决：用户面对两个 `frequency_hz` 不知道改哪个生效；`RcsPhysicsConfig.frequency_hz` 默认 `0.0f` 实为"继承 transmitter"的魔法值，但字段注释（`include/1q/airborne_radar/config/ArHardwareConfig.h:178`）只写"物理 RCS 估计使用的频率"，未披露这个 0→继承的隐藏契约。删除冗余字段会改变 struct 布局，需确认无外部代码按字段偏移访问。
-
-推进需要：
-- 决定方案：删除 `RcsPhysicsConfig.frequency_hz`（RCS 估计直接复用 transmitter），或在头文件注释显式写明"0 = 继承 transmitter.frequency_hz"契约；
-- 若删除，更新 `ArReplayFlatbufferCodec` schema 与回放兼容策略；
-- 补一条针对"rcs_physics.frequency_hz = 0 与 = transmitter 值应同效"的契约测试。
+- 同步检查其他仅为 replay/config 保真的保留字段（见 OQ-10l），保证处置一致。
 
 ### OQ-10d 🟠 ScenarioConfig / ModelConfig "双胞胎 struct"，字段完全相同却禁止视为同型
 
@@ -167,20 +137,6 @@ AR 把 `DetectionPolicyConfig`（cfar_pfa / min_snr_db）放在**硬件域**的 
 - 若是刷新率，改名为更明确的 `scan_update_rate_hz` 或 `frame_rate_hz` 以与角速度区分；
 - 评估跨模块配置复用场景是否真实存在，决定改名优先级。
 
-### OQ-10g 🟠 ESR 扫描范围双重表达，靠布尔切换
-
-`EsrScanPolicyConfig` 同时提供中心式与显式起止式两套表达，靠 `use_explicit_scan_bounds` 切换语义。
-
-- 证据：`include/1q/electronic_surveillance_radar/config/EsrMissionConfig.h:33-44`。
-- 字段：中心式 `scan_center_az_deg` / `scan_center_el_deg`；显式起止式 `scan_start_az_deg` / `scan_end_az_deg` / `scan_start_el_deg` / `scan_end_el_deg`；切换开关 `use_explicit_scan_bounds{false}`。
-
-代码复核后的确定事实：当 `use_explicit_scan_bounds=true` 且四个起止角均为有限值时，显式起止边界直接生效并提前返回；否则才使用中心角和扫描范围推导边界。运行期 patch 设置中心角时会主动清除显式模式，设置显式边界时则切换到显式模式。因此当前未决点不是“谁优先未知”，而是 public 结构仍允许同时填写两套值，且静态配置缺少冲突校验/显式生效表。
-
-推进需要：
-- 在 `EsrMissionConfig`/`EsrSessionConfigBuilder` 文档中写明上述生效优先级，并补一条静态配置的冲突/退化组合测试；
-- 决定二选一（推荐保留显式起止式，语义无歧义），或保留两套但在头文件显式写明优先级与一致性约束；
-- 补一条"两套表达冲突时的解析行为"契约测试。
-
 ### OQ-10i 🟡 SBIRS `detector_area_m2` vs EOS `detector_area_cm2` 同物理量单位不一致
 
 同是"探测器面积"，SBIRS 用 m²，EOS 用 cm²，跨域复制易错 4 个数量级。
@@ -194,22 +150,6 @@ AR 把 `DetectionPolicyConfig`（cfar_pfa / min_snr_db）放在**硬件域**的 
 - 决定是否统一到 SI（m²），评估对 EOS 现有消费方与文档的影响；
 - 若不统一，在 `docs/common/contract.md` 补一条"跨域同物理量单位须在字段名后缀标明"的规则并加 lint 守护；
 - 字段名后缀已带单位（`_m2` / `_cm2`），最低限度应确保文档显著标注差异。
-
-### OQ-10j 🟡 AR 硬件域多个"0=特殊语义"魔法值，且 0 在不同字段含义相反
-
-同一个 0，在 `nominal_az_beamwidth_deg` 是"自动推导"，在 `antenna_length_m` 是"禁用功能"，方向相反，依赖组合判断。
-
-- 证据：`include/1q/airborne_radar/config/ArHardwareConfig.h:137-140`。
-- `nominal_az/el_beamwidth_deg{4.0f}`：注释"为 0 且 antenna_length_m>0 时从物理尺寸推导"。
-- `antenna_length_m{0.0f}` / `antenna_width_m{0.0f}`：注释"0 = 不使用物理推导"。
-- 组合语义：`beamwidth=0 && length>0` → 推导；`beamwidth!=0` → 直接用；`beamwidth=0 && length=0` → 语义未定义（无 backstop）。
-
-为何未决：魔法值 0 在不同字段含义相反，且 `beamwidth=0 && length=0` 的退化组合无明确回退。用户难以推断生效路径。
-
-推进需要：
-- 决定是否引入显式枚举（如 `BeamwidthSource{ kNominal, kDerivedFromAperture }`）替代 0 魔法值；
-- 或在头文件注释补一张"字段组合 → 生效路径"真值表，并明确 `beamwidth=0 && length=0` 的回退；
-- 补一条覆盖三种组合的契约测试。
 
 ### OQ-10k 🟡 EOS 环境域三个正交枚举组合空间爆炸，优先级未说明
 
@@ -248,9 +188,11 @@ EOS 环境域有四套正交开关，头文件未说明哪个优先、谁覆盖�
 - 证据：`include/1q/airborne_radar/config/ArHardwareConfig.h:135-143`（`AntennaConfig` 无频率字段）。
 - 消费侧耦合：`src/airborne_radar/signal/pipeline/DetectionExecution.cpp:252-253` 用 `transmitter.frequency_hz` 算波长。
 
-为何未决：天线物理参数与频率强耦合，却不在同 struct 内表达，耦合关系隐式跨子配置。与 OQ-10c 的 frequency 重复问题方向相反——一个重复、一个缺失，根源都是 frequency 归属未理清。
+当前契约已明确：天线波长始终取当前有效 `transmitter.frequency_hz`；
+`rcs_physics.frequency_hz` 等于 0 时同样继承该值，大于 0 时只固定 RCS 表征且不改变天线波长。
+剩余未决点是这种跨子配置依赖是否需要通过 public 类型结构显式表达，而不是运行时频率来源未知。
 
 推进需要：
-- 与 OQ-10c 合并决策：理清 hardware 域 frequency 的唯一归属（推荐放 `DetectionConfig` 顶层或 `TransmitterConfig`，RCS 与天线均显式引用之，消除 `RcsPhysicsConfig.frequency_hz`）；
-- 或在 `AntennaConfig` 注释显式声明"波长依赖 `transmitter.frequency_hz`"；
-- 评估是否引入 `DetectionConfig::frequency_hz` 作为单一频率源。
+- 评估是否需要在不改变当前运行时语义的前提下，把天线对有效发射频率的依赖显式编码到 public 类型；
+- 若不能证明 public 结构迁移收益超过兼容成本，则保留当前所有权，只加强字段注释与 contract guard；
+- 任何迁移都必须保持频率捷变驱动天线波长、固定 RCS override 不驱动天线波长的既有契约。

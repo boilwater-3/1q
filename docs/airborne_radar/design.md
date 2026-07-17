@@ -369,6 +369,20 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 - `ScanScheduleResolver` 将周期、扫描范围和 dwell center 转成当前扫描指向。
 - `BeamControlResolver` 综合天线工程配置、扫描中心、平台姿态、目标 look angle 和波长，给出 one-way antenna gain 与有效波束宽度。
 
+天线波束宽度按轴独立解析，方位轴使用 `nominal_az_beamwidth_deg` / `antenna_length_m`，俯仰轴使用
+`nominal_el_beamwidth_deg` / `antenna_width_m`：
+
+- 有生效的 commanded beamwidth 时，以有限正值的 commanded 值为准。
+- 未启用 commanded beamwidth 且 nominal beamwidth 大于 0 时，直接使用 nominal 值。
+- nominal beamwidth 等于 0 且对应孔径大于 0 时，使用当前发射频率对应的波长和孔径推导。
+- nominal 与孔径同时为 0 时没有可用来源，session config validation 拒绝；负数、非有限值，以及推导所需的非法发射频率同样拒绝。
+
+孔径字段属于可回放硬件配置，AR replay 必须保留 `antenna_length_m` 与 `antenna_width_m`；旧 buffer
+缺少新增字段时按 FlatBuffer 默认值 0 解码，再由当前 validation 判断该组合是否有效。
+[evidence: tests/unit/airborne_radar/ar_beamwidth_resolution_test.cpp]
+[evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
+
 控制配置会反馈到扫描和波束：
 
 - LPI 可能降低发射功率或改变发射策略。
@@ -400,6 +414,14 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 - 用 `MeasurementErrorModel` 将 SNR、波束宽度和带宽转为 range/angle error，再构造量测协方差。
 
 物理路径的关键边界是：目标 RCS、环境传播、干扰、波束增益和量测协方差都参与结果。不能只用“目标距离近就探测成功”描述 AR 行为。
+
+频率配置分为两种所有权：`transmitter.frequency_hz` 是当前探测、传播和波长计算的有效发射频率，
+频率捷变会改变该值；`rcs_physics.frequency_hz` 只控制目标物理 RCS 表征。后者等于 0 时继承当前
+有效发射频率，因此随频率捷变跳变；大于 0 时是固定表征 override，不随频率捷变变化。两者都必须
+有限，发射频率必须大于 0，RCS 表征频率不得小于 0。
+[evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp::ZeroRcsFrequencyMatchesExplicitTransmitterFrequency]
+[evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp::SignalPipelineTest.AgilityFrequencyHopPhaseControlsFrequencyDirection]
+[evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp]
 
 ### 2.6 数据关联、质量指标和航迹生命周期
 

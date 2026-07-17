@@ -11,6 +11,7 @@
 #include "fd_test_helpers.h"
 #include "flight_dynamic/adapter/JsbsimAdapter.h"
 #include "flight_dynamic/adapter/PropertyNames.h"
+#include "flight_dynamic/guidance/GreatCircleTrackGeometry.h"
 #include "flight_dynamic/propulsion/EngineManager.h"
 #include "math/FGLocation.h"
 #include "models/FGPropagate.h"
@@ -599,6 +600,39 @@ TEST_F(FlightDynamicTest, WaypointManagerCompletesAfterPassingTargetPlane) {
   EXPECT_GT(wpm.GetDistanceToActiveM(), wp.radius_m);
   EXPECT_TRUE(wpm.IsAtOrPastTarget())
       << "Waypoint should complete after crossing the normal plane at the target";
+}
+
+TEST(GreatCircleTrackGeometryTest, ResolvesHighLatitudeCrossTrackAgainstSphericalReference) {
+  constexpr double kDegToRad = kPi / 180.0;
+  const auto track = guidance::great_circle_track::ResolveTrackMetricsM(
+      75.0 * kDegToRad, 0.0, 76.0 * kDegToRad, 0.1 * kDegToRad,
+      76.05 * kDegToRad, 0.0);
+
+  ASSERT_TRUE(track.valid);
+  EXPECT_NEAR(std::fabs(track.cross_track_m), 2826.814, 1.0);
+  EXPECT_NEAR(track.along_track_m - track.leg_length_m, 5496.944, 1.0);
+}
+
+TEST(GreatCircleTrackGeometryTest, UsesShortArcAcrossDateLine) {
+  constexpr double kDegToRad = kPi / 180.0;
+  const auto track = guidance::great_circle_track::ResolveTrackMetricsM(
+      10.0 * kDegToRad, 179.8 * kDegToRad,
+      10.0 * kDegToRad, -179.8 * kDegToRad,
+      10.0 * kDegToRad, -179.7 * kDegToRad);
+
+  ASSERT_TRUE(track.valid);
+  EXPECT_GT(track.along_track_m, track.leg_length_m);
+  EXPECT_LT(std::fabs(track.cross_track_m), 100.0);
+}
+
+TEST(GreatCircleTrackGeometryTest, RejectsDegenerateAndAntipodalLegs) {
+  constexpr double kDegToRad = kPi / 180.0;
+  EXPECT_FALSE(guidance::great_circle_track::ResolveTrackMetricsM(
+                   0.0, 0.0, 0.0, 0.0, 0.1, 0.0)
+                   .valid);
+  EXPECT_FALSE(guidance::great_circle_track::ResolveTrackMetricsM(
+                   0.0, 0.0, 0.0, 180.0 * kDegToRad, 0.1, 0.0)
+                   .valid);
 }
 
 TEST_F(FlightDynamicTest, MultipleManeuvers) {

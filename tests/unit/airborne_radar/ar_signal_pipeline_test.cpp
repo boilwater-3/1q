@@ -392,6 +392,34 @@ TEST(SignalPipelineTest,
   EXPECT_GT(enabled_measurements[0].raw_measurement.detection_margin_db, -2.0f);
 }
 
+TEST(SignalPipelineTest, ZeroRcsFrequencyMatchesExplicitTransmitterFrequency) {
+  config::ArSessionConfig inherited_config;
+  ApplyHardwareProfile(&inherited_config,
+                       config::profiles::ArHardwareProfile::kLongRangeHighPower);
+  ApplyRcsFusionProfile(&inherited_config, config::profiles::RcsFusionProfile::kEnhanced);
+  inherited_config.hardware.rcs_physics.frequency_hz = 0.0f;
+  config::ArSessionConfig explicit_config = inherited_config;
+  explicit_config.hardware.rcs_physics.frequency_hz =
+      explicit_config.hardware.transmitter.frequency_hz;
+
+  const session::ArSceneTargetList input_state{BuildPhysicsTarget(4500.0f, 0.2f)};
+  config::EnvironmentModelConfig environment_config;
+  environment::EnvironmentService inherited_environment(environment_config);
+  environment::EnvironmentService explicit_environment(environment_config);
+  signal::pipeline::SignalPipeline inherited_pipeline(inherited_config);
+  signal::pipeline::SignalPipeline explicit_pipeline(explicit_config);
+
+  RunPipelineCycle(&inherited_pipeline, input_state, &inherited_environment);
+  RunPipelineCycle(&explicit_pipeline, input_state, &explicit_environment);
+  const auto inherited_measurements = inherited_pipeline.GetLastTrackMeasurements();
+  const auto explicit_measurements = explicit_pipeline.GetLastTrackMeasurements();
+
+  ASSERT_EQ(inherited_measurements.size(), 1U);
+  ASSERT_EQ(explicit_measurements.size(), 1U);
+  EXPECT_FLOAT_EQ(inherited_measurements[0].raw_measurement.detection_margin_db,
+                  explicit_measurements[0].raw_measurement.detection_margin_db);
+}
+
 TEST(SignalPipelineTest, ExposesPublicPlatformAttitudeUpdateApi) {
   signal::pipeline::SignalPipeline signal_pipeline;
   config::PlatformAttitudeDeg platform_attitude_deg;
@@ -923,6 +951,8 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
   ExecutionConfig phase_one_exec = config::mapping::MapSessionToExecution(phase_one_config);
   phase_zero_exec.detection.engineering.transmitter.frequency_hz = 1.0e9f;
   phase_one_exec.detection.engineering.transmitter.frequency_hz = 1.0e9f;
+  phase_zero_exec.detection.engineering.rcs_physics.frequency_hz = 3.0e9f;
+  phase_one_exec.detection.engineering.rcs_physics.frequency_hz = 3.0e9f;
 
   session::ArControlProfile profile;
   profile.enable_agility_frequency = true;
@@ -933,6 +963,8 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
 
   EXPECT_FLOAT_EQ(phase_zero_exec.detection.engineering.transmitter.frequency_hz, 1.015e9f);
   EXPECT_FLOAT_EQ(phase_one_exec.detection.engineering.transmitter.frequency_hz, 0.985e9f);
+  EXPECT_FLOAT_EQ(phase_zero_exec.detection.engineering.rcs_physics.frequency_hz, 3.0e9f);
+  EXPECT_FLOAT_EQ(phase_one_exec.detection.engineering.rcs_physics.frequency_hz, 3.0e9f);
 }
 
 TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
