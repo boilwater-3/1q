@@ -6,6 +6,9 @@ cmake_minimum_required(VERSION 3.16)
 if(NOT DEFINED SOURCE_DIR)
     message(FATAL_ERROR "SOURCE_DIR is required")
 endif()
+# 规范化为绝对路径：file(GLOB ... RELATIVE <base>) 在 -P 脚本模式下，当 base 为
+# 相对路径时返回空列表（误报或静默放行）。对绝对输入幂等，仅兜底手动调用。
+get_filename_component(SOURCE_DIR "${SOURCE_DIR}" ABSOLUTE)
 
 set(PUBLIC_INCLUDE_DIR "${SOURCE_DIR}/include/1q")
 file(GLOB_RECURSE DISK_HEADERS_REL

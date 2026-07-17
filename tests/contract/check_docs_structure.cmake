@@ -20,6 +20,9 @@ cmake_minimum_required(VERSION 3.16)
 if(NOT DEFINED SOURCE_DIR)
   message(FATAL_ERROR "SOURCE_DIR is required")
 endif()
+# 规范化为绝对路径：GLOB ... RELATIVE 在 -P 脚本模式下，当 base 为相对路径时
+# 返回空列表（静默放行违规）。对绝对输入幂等，仅兜底手动调用。
+get_filename_component(SOURCE_DIR "${SOURCE_DIR}" ABSOLUTE)
 
 set(ALLOWED_DOC_DIRS
     "airborne_radar"
@@ -45,7 +48,8 @@ set(MODULE_DOC_FILES
 
 set(COMMON_DOC_FILES
     "contract.md"
-    "open_questions.md")
+    "open_questions.md"
+    "usage.md")
 
 set(VIOLATIONS "")
 

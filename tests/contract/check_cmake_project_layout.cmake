@@ -5,6 +5,10 @@ cmake_minimum_required(VERSION 3.16)
 if(NOT DEFINED SOURCE_DIR)
     message(FATAL_ERROR "SOURCE_DIR is required")
 endif()
+# 规范化为绝对路径：file(GLOB_RECURSE ... RELATIVE <base>) 在 -P 脚本模式下，
+# 当 base 为相对路径时返回空列表（误报全部 missing）。ctest 经 ContractGuards.cmake
+# 传入的 ${CMAKE_SOURCE_DIR} 已是绝对路径，此调用对绝对输入幂等，仅兜底手动 -DSOURCE_DIR=. 调用。
+get_filename_component(SOURCE_DIR "${SOURCE_DIR}" ABSOLUTE)
 
 set(PROJECT_CMAKE_DIR "${SOURCE_DIR}/cmake/project")
 file(GLOB_RECURSE ACTUAL_PROJECT_FILES RELATIVE "${PROJECT_CMAKE_DIR}"
@@ -22,7 +26,7 @@ set(EXPECTED_PROJECT_FILES
     "codegen/FlatBuffers.cmake"
     "dependencies/ConanPackages.cmake"
     "dependencies/JsbsimProvider.cmake"
-    "legacy/Vs2015SourceNormalization.cmake")
+    "dependencies/VendorPackages.cmake")
 list(SORT EXPECTED_PROJECT_FILES)
 
 set(LAYOUT_VIOLATIONS "")

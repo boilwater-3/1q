@@ -1,6 +1,9 @@
 if(NOT DEFINED SOURCE_DIR OR SOURCE_DIR STREQUAL "")
   message(FATAL_ERROR "SOURCE_DIR must be provided")
 endif()
+# 规范化为绝对路径：GLOB ... RELATIVE 在 -P 脚本模式下，当 base 为相对路径时
+# 返回空列表（误报或静默放行）。对绝对输入幂等，仅兜底手动调用。
+get_filename_component(SOURCE_DIR "${SOURCE_DIR}" ABSOLUTE)
 
 set(AIRBORNE_SRC_DIR "${SOURCE_DIR}/src/airborne_radar")
 set(PUBLIC_INCLUDE_ROOT "${SOURCE_DIR}/include/1q")

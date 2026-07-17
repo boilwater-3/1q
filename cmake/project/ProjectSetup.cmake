@@ -64,7 +64,6 @@ macro(oneq_configure_project)
     include("${ONEQ_PROJECT_SETUP_DIR}/ProjectInstall.cmake")
     include("${ONEQ_PROJECT_SETUP_DIR}/ProjectTargets.cmake")
     include("${ONEQ_PROJECT_SETUP_DIR}/ProjectSummary.cmake")
-    include("${ONEQ_PROJECT_SETUP_DIR}/legacy/Vs2015SourceNormalization.cmake")
 
     # 生命周期四步：环境 → 依赖 → 产物目录 → 测试/安装设施。
     oneq_configure_project_environment()

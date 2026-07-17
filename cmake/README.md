@@ -22,8 +22,6 @@ cmake/
     ├── dependencies/
     │   ├── ConanPackages.cmake        imported package discovery
     │   └── JsbsimProvider.cmake       JSBSim provider resolution
-    └── legacy/
-        └── Vs2015SourceNormalization.cmake
 ```
 
 ## 主调用链

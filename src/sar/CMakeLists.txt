@@ -50,5 +50,13 @@ if(MSVC AND MSVC_VERSION EQUAL 1900)
         CXX_STANDARD_REQUIRED ON
         CXX_EXTENSIONS OFF
     )
+    # 该 target 是最小化 legacy 工具链兼容性探针（C++11 + VS2015），故意不挂
+    # apply_msvc_options()（不带 /W4、优化档、栈大小等），以免改变探针语义。
+    # 但 /utf-8 是编译正确性前提而非可选优化：PGA 头经 #include "sar/signal/SarFft.h"
+    # 拉入含中文注释的 SarFft.h，VS2015 若按系统代码页(936/GBK)解析会触发
+    # C4819→C2059 级联。此处仅补 /utf-8，与 2026f570 修复 VS2015 全链路同一根因。
+    if(MSVC_VERSION GREATER_EQUAL 1900)
+        target_compile_options(sar_legacy_toolchain_smoke PRIVATE /utf-8)
+    endif()
 endif()
 unset(_sar_sources_root)
