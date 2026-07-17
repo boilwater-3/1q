@@ -25,6 +25,7 @@
 #include "common/estimation/IKalmanUpdater.h"
 #include "common/estimation/ImmFilter.h"
 #include "common/estimation/KalmanPredictor.h"
+#include "sbirs_sensor/foundation/SbirsErrorModel.h"
 
 namespace sbirs_sensor {
 namespace tracking {
@@ -142,19 +143,9 @@ class SbirsAngleMeasurementModel final
 inline SbirsMeasurementCovariance BuildMeasurementCovariance(
     const config::SbirsErrorModelConfig& error_model, double range_m, float elevation_deg,
     float angular_rate_deg_per_sec) {
-  // 高斯项 RSS：orbit² + attitude² + fov²（兼容 legacy angular_sigma）。
-  const double gauss_sq = static_cast<double>(error_model.orbit_sigma_deg) *
-                              static_cast<double>(error_model.orbit_sigma_deg) +
-                          static_cast<double>(error_model.attitude_sigma_deg) *
-                              static_cast<double>(error_model.attitude_sigma_deg) +
-                          static_cast<double>(error_model.fov_sigma_deg) *
-                              static_cast<double>(error_model.fov_sigma_deg);
-  const bool use_legacy =
-      error_model.orbit_sigma_deg == 0.0f && error_model.fov_sigma_deg == 0.0f;
-  const double legacy_sq =
-      use_legacy ? static_cast<double>(error_model.angular_sigma_deg) *
-                      static_cast<double>(error_model.angular_sigma_deg)
-                 : 0.0;
+  const double angular_sigma_deg =
+      foundation::ResolveEffectiveAngularSigmaDeg(error_model);
+  const double gauss_sq = angular_sigma_deg * angular_sigma_deg;
 
   // 确定性项：折射（随距离/俯仰）与动态滞后（随角速度/带宽）。
   const double refraction_deg = [range_m, elevation_deg]() -> double {
@@ -170,7 +161,7 @@ inline SbirsMeasurementCovariance BuildMeasurementCovariance(
                              : 0.0;
 
   // 方差（deg²），各通道相同（5 类误差对 az/el 对称作用）。
-  const double sigma_az_deg = std::sqrt(gauss_sq + legacy_sq + refraction_deg * refraction_deg +
+  const double sigma_az_deg = std::sqrt(gauss_sq + refraction_deg * refraction_deg +
                                         lag_deg * lag_deg);
   const double sigma_el_deg = sigma_az_deg;
 

@@ -2,7 +2,12 @@
 // 覆盖 5 类误差（轨道/姿态/视场/折射/滞后）与确定性随机源可复现性。
 #include <gtest/gtest.h>
 
+#include <cmath>
+#include <limits>
+
+#include "1q/sbirs_sensor/config/SbirsSessionConfigValidation.h"
 #include "sbirs_sensor/foundation/SbirsErrorModel.h"
+#include "sbirs_sensor/tracking/SbirsTrackingTypes.h"
 
 namespace {
 
@@ -56,7 +61,7 @@ TEST(SbirsErrorModelTest, DynamicLagScalesWithAngularRate) {
 }
 
 TEST(SbirsErrorModelTest, LegacyAngularSigmaAppliedWhenPhysicalSigmasZero) {
-  // 当 orbit/fov sigma 为 0 时回退到合并 angular_sigma_deg（向后兼容）。
+  // 三项物理 sigma 全为 0 时回退到合并 angular_sigma_deg（向后兼容）。
   sbirs_sensor::config::SbirsErrorModelConfig model;
   model.angular_sigma_deg = 0.1f;
   model.orbit_sigma_deg = 0.0f;
@@ -67,6 +72,66 @@ TEST(SbirsErrorModelTest, LegacyAngularSigmaAppliedWhenPhysicalSigmasZero) {
       sbirs_sensor::foundation::ApplyAngularErrorModel(model, &src, 0.0f, 0.0f, 1.0e6, 0.0f);
   // 合成误差叠加到真值 0 上，应非零。
   EXPECT_NE(bearing.azimuth_deg, 0.0f);
+}
+
+TEST(SbirsErrorModelTest, PhysicalSigmasUseRssAndIgnoreLegacySigma) {
+  sbirs_sensor::config::SbirsErrorModelConfig model;
+  model.angular_sigma_deg = 10.0f;
+  model.orbit_sigma_deg = 0.03f;
+  model.attitude_sigma_deg = 0.04f;
+  model.fov_sigma_deg = 0.0f;
+
+  EXPECT_NEAR(sbirs_sensor::foundation::ResolveEffectiveAngularSigmaDeg(model), 0.05, 1.0e-7);
+  const auto covariance =
+      sbirs_sensor::tracking::BuildMeasurementCovariance(model, 0.0, 0.0f, 0.0f);
+  const double expected_variance_rad2 = std::pow(0.05 * 3.14159265358979323846 / 180.0, 2.0);
+  EXPECT_NEAR(covariance(0, 0), expected_variance_rad2, 1.0e-10);
+  EXPECT_NEAR(covariance(1, 1), expected_variance_rad2, 1.0e-10);
+}
+
+TEST(SbirsErrorModelTest, LegacySigmaIsZeroMeanAndAzElSamplesAreIndependent) {
+  sbirs_sensor::config::SbirsErrorModelConfig model;
+  model.angular_sigma_deg = 0.2f;
+  model.orbit_sigma_deg = 0.0f;
+  model.attitude_sigma_deg = 0.0f;
+  model.fov_sigma_deg = 0.0f;
+  model.range_fraction_sigma = 0.0f;
+  sbirs_sensor::foundation::SbirsRandomSource source(17U);
+
+  const int sample_count = 4096;
+  double azimuth_sum = 0.0;
+  double azimuth_square_sum = 0.0;
+  bool observed_distinct_axes = false;
+  for (int i = 0; i < sample_count; ++i) {
+    const auto bearing = sbirs_sensor::foundation::ApplyAngularErrorModel(
+        model, &source, 0.0f, 0.0f, 0.0, 0.0f);
+    azimuth_sum += bearing.azimuth_deg;
+    azimuth_square_sum += static_cast<double>(bearing.azimuth_deg) * bearing.azimuth_deg;
+    observed_distinct_axes = observed_distinct_axes || bearing.azimuth_deg != bearing.elevation_deg;
+  }
+  const double mean = azimuth_sum / sample_count;
+  const double variance = azimuth_square_sum / sample_count - mean * mean;
+  EXPECT_NEAR(mean, 0.0, 0.01);
+  EXPECT_NEAR(std::sqrt(variance), 0.2, 0.01);
+  EXPECT_TRUE(observed_distinct_axes);
+}
+
+TEST(SbirsErrorModelTest, ValidationRejectsInvalidErrorModelParameters) {
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.policy.error_model.attitude_sigma_deg = -0.01f;
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.policy.error_model.attitude_sigma_deg = 0.01f;
+  config.policy.error_model.angular_sigma_deg = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.policy.error_model.angular_sigma_deg = 0.05f;
+  config.policy.error_model.range_fraction_sigma = std::numeric_limits<float>::infinity();
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.policy.error_model.range_fraction_sigma = 0.001f;
+  config.policy.error_model.detector_bandwidth_hz = 0.0f;
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 
 }  // namespace

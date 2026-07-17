@@ -181,7 +181,7 @@ double EngineManager::GetRotationSpeedKts() const {
   // All units in JSBSim imperial: lbs, ft², slugs/ft³ → result in ft/s.
   const double weight_lbs = GetProperty("inertia/weight-lbs");
   const double wing_area_ft2 = GetProperty("metrics/Sw-sqft");
-  const double rho = GetProperty("atmosphere/rho-slugs_ft3");
+  const double rho = kStandardSeaLevelDensitySlugsFt3;
   const double iyy = GetProperty("inertia/iyy-slugs_ft2");
 
   // --- Input validation ---
@@ -287,9 +287,8 @@ double EngineManager::GetDefaultApproachSpeedMps() const {
   // physics-derived value.  CLmax logic mirrors GetRotationSpeedKts().
   const double weight_lbs = GetProperty("inertia/weight-lbs");
   const double wing_area_ft2 = GetProperty("metrics/Sw-sqft");
-  const double rho = GetProperty("atmosphere/rho-slugs_ft3");
 
-  if (weight_lbs < 1.0 || wing_area_ft2 < 1.0 || rho < 1e-9) {
+  if (weight_lbs < 1.0 || wing_area_ft2 < 1.0) {
     PROJECT_LOG_DEBUG("[ENGINE] DefaultApproachSpeed: invalid inputs → fallback {:.0f} m/s",
                   kApproachSpeedFallbackMps);
     return kApproachSpeedFallbackMps;
@@ -304,12 +303,8 @@ double EngineManager::GetDefaultApproachSpeedMps() const {
   perf_inputs.has_cl_max_override = false;
   perf_inputs.cl_max_override = 0.0;
 
-  // NOTE: this fallback path historically uses the sea-level ρ constant for
-  // V_stall (even though it reads property-tree ρ above for validation). That
-  // divergence is preserved verbatim — fixing it is out of scope (no failing
-  // test evidence; behavior-change requires its own contract).
-  constexpr double kRhoSeaLevel = 0.002377;  // slugs/ft³
-  const PerformanceDerivationResult perf = DeriveStallAndWingLoading(perf_inputs, kRhoSeaLevel);
+  const PerformanceDerivationResult perf =
+      DeriveStallAndWingLoading(perf_inputs, kStandardSeaLevelDensitySlugsFt3);
   const double cl_max = perf.cl_max;
   double v_stall_ftps = perf.v_stall_ftps;
   double approach_mps = v_stall_ftps * 0.3048 * kApproachSpeedStallFactor;

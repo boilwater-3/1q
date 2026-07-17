@@ -253,10 +253,17 @@ flowchart TB
 
 `Autopilot` 的核心是把高层目标转成 JSBSim 控制属性。控制 profile 由 aircraft 物理量和 XML override 共同决定：
 
-- 速度 envelope 从 clean stall speed、wing loading、发动机数量、FBW/roll-rate 能力等推导。
+- `v_stall_mps`、`min_speed_mps`、`cruise_speed_mps`、`max_speed_mps`、`ref_speed_mps`
+  是当前有效 TAS 包线。每个 `Autopilot::Update()` 开始时，使用上一 JSBSim step 已提交的
+  当前重量与大气密度，按 `Vstall = sqrt(2W / (ρ·S·CLmax))` 刷新；其余速度继续使用既有
+  stall/cruise/max 分类因子。[evidence: `tests/unit/flight_dynamic/fd_adapter_test.cpp:FlightDynamicTest.DynamicTasEnvelopeTracksCommittedAtmosphereDensity`]
 - cruise speed 使用 wing loading 连续函数，避免旧式粗分类。
 - safety-critical 参数仍按机型类别离散设置，例如 stall margin、roll limit、pitch command、minimum throttle。
-- XML `guidance/*` 属性可覆盖 ref/cruise/min/max speed、pitch/roll limit、landing/takeoff tuning 等。
+- XML `guidance/ref-speed-mps`、`cruise-speed-mps`、`min-speed-mps`、`max-speed-mps` 是显式
+  TAS override：被覆盖字段保持固定，未覆盖字段继续随重量/密度动态推导。
+  [evidence: `tests/unit/flight_dynamic/fd_adapter_test.cpp:FlightDynamicTest.XmlSpeedOverrideRemainsFixedWhileOtherTasSpeedsRefresh`]
+- 当前重量或密度非法时不提交新包线，保留最后一次有效值；构造阶段以标准海平面密度建立
+  安全基线，并在初始密度非法时记录 warning。[evidence: `tests/unit/flight_dynamic/fd_aircraft_performance_derivation_test.cpp:AircraftPerformanceDerivationTest.DynamicEnvelopeRejectsInvalidInputs`]
 
 设计边界：
 
@@ -328,6 +335,10 @@ stateDiagram-v2
 ### 2.7 起飞与降落
 
 起飞逻辑按发动机类型设置 idle、static runup、throttle ramp 和 rotation。turboprop/turbine/piston 的启动和油门响应不同，不能用一个常数覆盖。
+
+起飞旋转速度与默认进近速度是 CAS 基准，统一使用标准海平面密度计算，不随机场高度改变；
+飞行中的 autopilot 安全包线则是动态 TAS，两者不得混用。
+[evidence: `tests/unit/flight_dynamic/fd_adapter_test.cpp:FlightDynamicTest.InitialAltitudeChangesTasEnvelopeButNotCasTakeoffSpeeds`]
 
 降落逻辑包括：
 

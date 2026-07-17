@@ -24,8 +24,8 @@ struct ONEQ_API SbirsDetectionPolicyConfig {
 // random_seed 驱动可注入的确定性高斯采样源（保证 replay 可复现）。
 /**
  * @brief 误差模型配置，定义 WFOV 带误差位置生成所用的 5 类物理误差 1-σ。
- * @note 当轨道/姿态/视场三项高斯 sigma 均为 0 时，回退到合并的 `angular_sigma_deg`
- *       以保持向后兼容；`random_seed` 驱动确定性随机源，保证 replay 可复现。
+ * @note 任一轨道/姿态/视场 sigma 非零时，三项按 RSS 合成且忽略 `angular_sigma_deg`；
+ *       三项均为 0 时才回退到该兼容字段。方位/俯仰独立采样，`random_seed` 保证 replay 可复现。
  */
 struct ONEQ_API SbirsErrorModelConfig {
   float angular_sigma_deg{0.05f};        /**< 合成 1-σ（向后兼容：轨道+姿态+视场合并），单位 deg */

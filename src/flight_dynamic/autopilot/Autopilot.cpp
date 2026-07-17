@@ -3,10 +3,11 @@
 #include <algorithm>
 #include <cmath>
 
-#include "flight_dynamic/adapter/JsbsimAdapter.h"
-#include "flight_dynamic/adapter/PropertyNames.h"
+#include "common/logging/ProjectLog.h"
 #include "flight_dynamic/AircraftPerformanceDerivation.h"
 #include "flight_dynamic/AngleNormalization.h"
+#include "flight_dynamic/adapter/JsbsimAdapter.h"
+#include "flight_dynamic/adapter/PropertyNames.h"
 #include "math/FGLocation.h"
 #include "models/FGPropagate.h"
 #include "models/FGPropulsion.h"
@@ -79,35 +80,6 @@ void ApplyEnergyDefaults(AircraftControlProfile* profile) {
   //   c172x WL=10.9, c310 WL=21.9, DHC6 WL=24.9, A4 WL=51.2, T38 WL=57.9,
   //   f15 WL=59.9, f16 WL=75.4, 737 WL=92.1, B747 WL=120.6, MD11 WL=134.8
 
-  double cruise_factor;
-  if (profile->has_mixture) {
-    // Piston: all GA pistons have WL 10-22, CF is essentially flat.
-    cruise_factor = 2.8;
-  } else {
-    // Non-piston: continuous linear function of wing loading.
-    // Higher wing loading → higher optimal cruise speed relative to V_stall.
-    // Calibrated on: DHC6(25), OV10(39), F80C(45), A4(51), T38(58),
-    // f15(60), F4N(69), f16(75), 737(92), B747(121), MD11(135).
-    cruise_factor = 2.89 + 0.00455 * wl;
-    // FBW fighters can sustain significantly higher cruise speeds due to
-    // high thrust-to-weight ratio and structural margins.
-    if (has_fbw) cruise_factor += 0.25;
-    cruise_factor = std::max(2.8, std::min(cruise_factor, 4.0));
-  }
-
-  // max_factor: cruise_factor + category-based delta.
-  // Remains discrete because it's a structural/thrust safety limit.
-  double max_factor;
-  if (has_fbw) {
-    max_factor = cruise_factor + 2.0;   // fighters: ~5.5
-  } else if (is_heavy) {
-    max_factor = cruise_factor + 0.7;   // heavy transports: ~4.2
-  } else if (profile->has_mixture) {
-    max_factor = cruise_factor + 0.7;   // pistons: 3.5
-  } else {
-    max_factor = cruise_factor + 0.8;   // medium/light turbines: ~3.8
-  }
-
   // Safety-critical parameters: keep discrete categories.
   double stall_margin, pitch_cmd, roll_lim, min_thr;
 
@@ -145,10 +117,20 @@ void ApplyEnergyDefaults(AircraftControlProfile* profile) {
   // to recover → prioritize speed over altitude in energy management.
   bool spd_prio = has_fbw || (wl > 50.0);
 
-  profile->min_speed_mps    = vs * stall_margin;
-  profile->cruise_speed_mps = vs * cruise_factor;
-  profile->max_speed_mps    = vs * max_factor;
-  profile->ref_speed_mps    = vs * max_factor;  // generous for waypoint room
+  DynamicSpeedEnvelopeInputs envelope_inputs;
+  envelope_inputs.v_stall_mps = vs;
+  envelope_inputs.wing_loading_lbs_ft2 = wl;
+  envelope_inputs.is_piston = profile->has_mixture;
+  envelope_inputs.has_fbw = has_fbw;
+  envelope_inputs.is_heavy = is_heavy;
+  const DynamicSpeedEnvelopeResult envelope =
+      DeriveDynamicSpeedEnvelope(envelope_inputs);
+  if (envelope.valid) {
+    profile->min_speed_mps = envelope.min_speed_mps;
+    profile->cruise_speed_mps = envelope.cruise_speed_mps;
+    profile->max_speed_mps = envelope.max_speed_mps;
+    profile->ref_speed_mps = envelope.ref_speed_mps;
+  }
 
   profile->max_pitch_command_deg = pitch_cmd;
   profile->max_roll_angle_deg    = roll_lim;
@@ -169,20 +151,85 @@ void ApplyEnergyDefaults(AircraftControlProfile* profile) {
   }
 }
 
+void ApplyXmlSpeedOverrides(adapter::JsbsimAdapter& adapter,
+                            AircraftControlProfile* profile) {
+  profile->ref_speed_mps =
+      ReadPropertyOrDefault(adapter, "guidance/ref-speed-mps", profile->ref_speed_mps);
+  profile->cruise_speed_mps = ReadPropertyOrDefault(
+      adapter, "guidance/cruise-speed-mps", profile->cruise_speed_mps);
+  profile->min_speed_mps =
+      ReadPropertyOrDefault(adapter, "guidance/min-speed-mps", profile->min_speed_mps);
+  profile->max_speed_mps =
+      ReadPropertyOrDefault(adapter, "guidance/max-speed-mps", profile->max_speed_mps);
+}
+
+bool RefreshDynamicSpeedEnvelope(adapter::JsbsimAdapter& adapter,
+                                 AircraftControlProfile* profile,
+                                 bool allow_standard_density_fallback) {
+  const double weight_lbs = ReadPropertyOrDefault(adapter, "inertia/weight-lbs", 0.0);
+  const double wing_area_ft2 = ReadPropertyOrDefault(adapter, "metrics/Sw-sqft", 0.0);
+  const double wingspan_ft = ReadPropertyOrDefault(adapter, "metrics/bw-ft", 0.0);
+  double rho = ReadPropertyOrDefault(adapter, "atmosphere/rho-slugs_ft3", 0.0);
+  if (!std::isfinite(weight_lbs) || weight_lbs <= 0.0 ||
+      !std::isfinite(wing_area_ft2) || wing_area_ft2 <= 0.0) {
+    return false;
+  }
+  if (!std::isfinite(rho) || rho <= 0.0) {
+    if (!allow_standard_density_fallback) return false;
+    PROJECT_LOG_WARN(
+        "[AUTOPILOT] Invalid initial atmosphere density; using standard sea-level "
+        "density for the baseline TAS envelope");
+    rho = kStandardSeaLevelDensitySlugsFt3;
+  }
+
+  bool is_turboprop = false;
+  const auto propulsion = adapter.GetFdmExec().GetPropulsion();
+  if (propulsion && propulsion->GetNumEngines() > 0) {
+    is_turboprop =
+        propulsion->GetEngine(0)->GetType() == JSBSim::FGEngine::etTurboprop;
+  }
+  PerformanceDerivationInputs performance_inputs;
+  performance_inputs.weight_lbs = weight_lbs;
+  performance_inputs.wing_area_ft2 = wing_area_ft2;
+  performance_inputs.wingspan_ft = wingspan_ft;
+  performance_inputs.is_turboprop = is_turboprop;
+  performance_inputs.has_cl_max_override = false;
+  performance_inputs.cl_max_override = 0.0;
+  const PerformanceDerivationResult performance =
+      DeriveStallAndWingLoading(performance_inputs, rho);
+  if (performance.v_stall_ftps <= 0.0) return false;
+
+  const double wing_loading_lbs_ft2 = weight_lbs / wing_area_ft2;
+  const double v_stall_mps = performance.v_stall_ftps * kFtToM;
+  const bool has_fbw = profile->has_fbw_override || profile->has_roll_rate_command;
+  const bool is_heavy = profile->engine_count >= 4 ||
+      (profile->pitch_moi_lbsft2 > 0.0 && std::log10(profile->pitch_moi_lbsft2) > 7.0);
+  DynamicSpeedEnvelopeInputs envelope_inputs;
+  envelope_inputs.v_stall_mps = v_stall_mps;
+  envelope_inputs.wing_loading_lbs_ft2 = wing_loading_lbs_ft2;
+  envelope_inputs.is_piston = profile->has_mixture;
+  envelope_inputs.has_fbw = has_fbw;
+  envelope_inputs.is_heavy = is_heavy;
+  const DynamicSpeedEnvelopeResult envelope =
+      DeriveDynamicSpeedEnvelope(envelope_inputs);
+  if (!envelope.valid) return false;
+  profile->wing_loading_lbs_ft2 = wing_loading_lbs_ft2;
+  profile->v_stall_mps = v_stall_mps;
+  profile->min_speed_mps = envelope.min_speed_mps;
+  profile->cruise_speed_mps = envelope.cruise_speed_mps;
+  profile->max_speed_mps = envelope.max_speed_mps;
+  profile->ref_speed_mps = envelope.ref_speed_mps;
+  ApplyXmlSpeedOverrides(adapter, profile);
+  return true;
+}
+
 // XML guidance/* properties override dynamic defaults.  This keeps property-tree
 // detection as the fallback while allowing aircraft XML to carry tuning that is
 // specific to its flight envelope or model limitations.
 void ApplyXmlProfileOverrides(adapter::JsbsimAdapter& adapter, AircraftControlProfile* profile) {
   if (!profile) return;
 
-  profile->ref_speed_mps =
-      ReadPropertyOrDefault(adapter, "guidance/ref-speed-mps", profile->ref_speed_mps);
-  profile->cruise_speed_mps =
-      ReadPropertyOrDefault(adapter, "guidance/cruise-speed-mps", profile->cruise_speed_mps);
-  profile->min_speed_mps =
-      ReadPropertyOrDefault(adapter, "guidance/min-speed-mps", profile->min_speed_mps);
-  profile->max_speed_mps =
-      ReadPropertyOrDefault(adapter, "guidance/max-speed-mps", profile->max_speed_mps);
+  ApplyXmlSpeedOverrides(adapter, profile);
   profile->max_pitch_command_deg = ReadPropertyOrDefault(
       adapter, "guidance/max-pitch-command-deg", profile->max_pitch_command_deg);
   profile->max_roll_angle_deg =
@@ -327,8 +374,8 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
     if (weight_lbs > 1.0 && wing_ft2 > 1.0) {
       control_profile_.wing_loading_lbs_ft2 = weight_lbs / wing_ft2;
 
-      // CLmax + V_stall derivation via shared single source (mirrors EngineManager).
-      // Autopilot uses the sea-level ρ constant (its historical behavior).
+      // Establish a deterministic safe baseline before current atmosphere state
+      // is consumed below. Runtime updates replace it with the current TAS value.
       bool is_turboprop = false;
       if (propulsion) {
         int n = propulsion->GetNumEngines();
@@ -336,7 +383,6 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
           is_turboprop = true;
         }
       }
-      constexpr double kRhoSeaLevel = 0.002377;  // slugs/ft³
       PerformanceDerivationInputs perf_inputs;
       perf_inputs.weight_lbs = weight_lbs;
       perf_inputs.wing_area_ft2 = wing_ft2;
@@ -345,7 +391,7 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
       perf_inputs.has_cl_max_override = false;
       perf_inputs.cl_max_override = 0.0;
       const PerformanceDerivationResult perf =
-          DeriveStallAndWingLoading(perf_inputs, kRhoSeaLevel);
+          DeriveStallAndWingLoading(perf_inputs, kStandardSeaLevelDensitySlugsFt3);
       control_profile_.v_stall_mps = perf.v_stall_ftps * 0.3048;
 
       // Thrust-to-weight ratio: read from property tree.
@@ -408,6 +454,7 @@ Autopilot::Autopilot(adapter::JsbsimAdapter& adapter) : adapter_(adapter) {
       control_profile_.lateral_interface != LateralControlInterface::kOwnAutopilot &&
       control_profile_.lateral_interface != LateralControlInterface::kGenericAutopilotBridge;
   ApplyEnergyDefaults(&control_profile_);
+  RefreshDynamicSpeedEnvelope(adapter_, &control_profile_, true);
   ApplyXmlRollLimitOverride(adapter_, &control_profile_);
   ApplyXmlProfileOverrides(adapter_, &control_profile_);
 }
@@ -563,6 +610,7 @@ double Autopilot::GetAltitudeASLM() const {
 }
 
 void Autopilot::Update(double /*dt_sec*/) {
+  RefreshDynamicSpeedEnvelope(adapter_, &control_profile_, false);
   const auto& propagate = adapter_.GetPropagate();
 
   // kOwnAutopilot: delegate lateral to XML autopilot, but use C++ pitch

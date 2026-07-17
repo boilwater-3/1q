@@ -56,30 +56,30 @@ double DynamicLagErrorDeg(float target_angular_rate_deg_per_sec, float detector_
   return static_cast<double>(target_angular_rate_deg_per_sec) / (2.0 * kPi * detector_bandwidth_hz);
 }
 
+double ResolveEffectiveAngularSigmaDeg(const config::SbirsErrorModelConfig& model) {
+  const double orbit = static_cast<double>(model.orbit_sigma_deg);
+  const double attitude = static_cast<double>(model.attitude_sigma_deg);
+  const double fov = static_cast<double>(model.fov_sigma_deg);
+  if (orbit == 0.0 && attitude == 0.0 && fov == 0.0) {
+    return static_cast<double>(model.angular_sigma_deg);
+  }
+  return std::sqrt(orbit * orbit + attitude * attitude + fov * fov);
+}
+
 SbirsErrorBearing ApplyAngularErrorModel(const config::SbirsErrorModelConfig& model,
                                          SbirsRandomSource* random, float true_azimuth_deg,
                                          float true_elevation_deg, double true_range_m,
                                          float target_angular_rate_deg_per_sec) {
   SbirsErrorBearing bearing;
-  // 5 类误差：轨道、姿态、视场为高斯随机；折射、滞后为确定性公式。
-  // 各 sigma 合成按 RSS（独立零均值高斯方差可加）。
-  const double orbit =
-      model.orbit_sigma_deg > 0.0f && random != nullptr
-          ? model.orbit_sigma_deg * random->NextStandardNormal()
+  // 物理分项按 RSS 合成为单一 1-σ；az/el 独立采样，与对角量测协方差一致。
+  const double angular_sigma_deg = ResolveEffectiveAngularSigmaDeg(model);
+  const double azimuth_random_error =
+      angular_sigma_deg > 0.0 && random != nullptr
+          ? angular_sigma_deg * random->NextStandardNormal()
           : 0.0;
-  const double attitude =
-      model.attitude_sigma_deg > 0.0f && random != nullptr
-          ? model.attitude_sigma_deg * random->NextStandardNormal()
-          : 0.0;
-  const double fov =
-      model.fov_sigma_deg > 0.0f && random != nullptr
-          ? model.fov_sigma_deg * random->NextStandardNormal()
-          : 0.0;
-  // 兼容字段：当 orbit/attitude/fov sigma 都为 0 时，回退到合并 angular_sigma_deg，
-  // 保持现有测试与配置默认行为不变。
-  const double legacy =
-      (model.orbit_sigma_deg == 0.0f && model.fov_sigma_deg == 0.0f)
-          ? model.angular_sigma_deg
+  const double elevation_random_error =
+      angular_sigma_deg > 0.0 && random != nullptr
+          ? angular_sigma_deg * random->NextStandardNormal()
           : 0.0;
 
   const double refraction = RefractionErrorDeg(true_range_m, true_elevation_deg);
@@ -88,11 +88,11 @@ SbirsErrorBearing ApplyAngularErrorModel(const config::SbirsErrorModelConfig& mo
 
   // 加法合成（design 2.10 式 1111-1113）。
   bearing.azimuth_deg =
-      static_cast<float>(static_cast<double>(true_azimuth_deg) + orbit + attitude + fov + legacy +
+      static_cast<float>(static_cast<double>(true_azimuth_deg) + azimuth_random_error +
                          refraction + lag);
   bearing.elevation_deg =
-      static_cast<float>(static_cast<double>(true_elevation_deg) + orbit + attitude + fov +
-                         legacy + refraction + lag);
+      static_cast<float>(static_cast<double>(true_elevation_deg) + elevation_random_error +
+                         refraction + lag);
 
   // 乘法合成（距离误差）：d_meas = d_true · (1 + Δd_rand)。
   double range_factor = 0.0;

@@ -5,6 +5,19 @@ Authority: 非规定性记录
 
 本文登记调查中发现但尚未定论的跨模块架构议题，不构成契约约束。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从本文移除。
 
+## 当前修复优先级（2026-07-17 实时代码复核）
+
+以下排序按“已经能证明存在运行时语义风险”优先于“需要 public API 迁移决策”，再优先于“纯机械重构”排列。这里的 P0/P1/P2 是修复顺序，不是线上安全等级；在完成对应失败测试和契约冻结前，不直接修改 public struct 或 replay schema。
+
+| 优先级 | 条目 | 当前判断 | 首个交付物 |
+|---|---|---|---|
+| P1 | OQ-10c、OQ-10g、OQ-10j、OQ-1 | 生效优先级或几何退化路径可由代码复现，但尚缺统一契约 | 组合矩阵/远场几何测试 + 设计文档 |
+| P1 | OQ-10b、OQ-10e、OQ-10f、OQ-10k、OQ-10l | 主要是公开配置误导或跨域语义不一致，先补文档和守护 | 字段生效表、四域规则、no-op 标注 |
+| P2 | OQ-8、OQ-10a、OQ-10d、OQ-10i、OQ-10m | 涉及 public API/ABI 或跨模块迁移，不能作为顺手清理 | Stage A 迁移契约和 consumer 影响清单 |
+| P2 | OQ-9 | 机械 replay helper 收敛，必须在模块行为护栏稳定后进行 | SBIRS → SAR → AR 分批证明 |
+
+排序依据是当前 checkout 的代码和测试，不代表这些条目已经获准实施。原 OQ-10h 已完成：SBIRS 物理 sigma 按 RSS 合成，legacy 仅在三项全零时生效，bearing/covariance 共用同一解析语义。原 OQ-3 也已完成：Autopilot 使用当前重量/密度刷新动态 TAS 包线，起飞旋转与默认进近速度统一使用标准海平面密度作为 CAS 基准。
+
 ---
 
 ## OQ-1 飞行动力学局部 NE 投影 cos-lat 约定分叉
@@ -22,23 +35,6 @@ Authority: 非规定性记录
 - 重测 orbit / figure-8 / racetrack 几何，确认无回归。
 
 注：P2.5a（commit `ff0c9a2c`）只收拢了 `NormalizeRad`/`RadToDeg360`（角度归一化），明确未触碰此 NE 投影分叉。
-
-## OQ-3 飞行动力学失速速度 ρ 来源漂移
-
-失速速度公式 `V_stall = sqrt(2W / (ρ·S·CLmax))` 的 ρ 在三个调用点来源不一致，是已知 bug 但尚无失败测试证据。
-
-- Autopilot：硬编码 `kRhoSeaLevel = 0.002377`：`src/flight_dynamic/autopilot/Autopilot.cpp:339`。
-- EngineManager `GetRotationSpeedKts`：读 property tree `atmosphere/rho-slugs_ft3`：`src/flight_dynamic/propulsion/EngineManager.cpp:184`。
-- EngineManager `GetDefaultApproachSpeedMps`：读了 property tree ρ 做校验（`:290`），但 V_stall 计算又用硬编码 `kRhoSeaLevel`（`:311`）——同一函数内 ρ 来源自相矛盾。
-
-为何未决：narrow 重构契约要求零行为变化，且无测试因 ρ 漂移而失败。修它等于改变至少一个调用点的数值输出，必须有测试兜底。
-
-推进需要：
-- 确认正确的 ρ 来源应是哪个（property tree 的实时大气密度，还是固定海平面常数）；
-- 补一个针对 ρ 来源的失败/边界测试（如高海拔场景下 V_stall 应随 ρ 变化）；
-- 在测试兜底下统一 ρ 来源。
-
-注：P2.4（commit `65cc7fc4`）把 CLmax + V_stall 公式收拢为单一 `AircraftPerformanceDerivation` helper，但 ρ 作为入参透传，严格保留了三处现状——漂移本身未修。
 
 ## OQ-8 折射率成对温度输入的 public 迁移
 
@@ -178,27 +174,12 @@ AR 把 `DetectionPolicyConfig`（cfar_pfa / min_snr_db）放在**硬件域**的 
 - 证据：`include/1q/electronic_surveillance_radar/config/EsrMissionConfig.h:33-44`。
 - 字段：中心式 `scan_center_az_deg` / `scan_center_el_deg`；显式起止式 `scan_start_az_deg` / `scan_end_az_deg` / `scan_start_el_deg` / `scan_end_el_deg`；切换开关 `use_explicit_scan_bounds{false}`。
 
-为何未决：两套表达共存，用户不知道默认走哪套、两套是否互相约束（如 center 与 start/end 不一致时谁优先）。这是状态机式配置，违反"make interfaces easy to use correctly and hard to use incorrectly"。
+代码复核后的确定事实：当 `use_explicit_scan_bounds=true` 且四个起止角均为有限值时，显式起止边界直接生效并提前返回；否则才使用中心角和扫描范围推导边界。运行期 patch 设置中心角时会主动清除显式模式，设置显式边界时则切换到显式模式。因此当前未决点不是“谁优先未知”，而是 public 结构仍允许同时填写两套值，且静态配置缺少冲突校验/显式生效表。
 
 推进需要：
-- 核对 `src/electronic_surveillance_radar/` 中两套表达的消费优先级；
+- 在 `EsrMissionConfig`/`EsrSessionConfigBuilder` 文档中写明上述生效优先级，并补一条静态配置的冲突/退化组合测试；
 - 决定二选一（推荐保留显式起止式，语义无歧义），或保留两套但在头文件显式写明优先级与一致性约束；
 - 补一条"两套表达冲突时的解析行为"契约测试。
-
-### OQ-10h 🟠 SBIRS `SbirsErrorModelConfig.angular_sigma_deg` 合并项与分立项并存
-
-合并项 `angular_sigma_deg` 与独立项 `orbit_sigma_deg` / `attitude_sigma_deg` / `fov_sigma_deg` 并存，优先级未在头文件说明。
-
-- 证据：`include/1q/sbirs_sensor/config/SbirsPolicyConfig.h:30-38`。
-- `angular_sigma_deg{0.05f}` 注释"合成 1-σ（向后兼容：轨道+姿态+视场合并）"，独立项默认多为 0。
-- 与 OQ-10c 同类的隐式优先级问题（独立项为 0 时用合并项？是否叠加？）。
-
-为何未决：用户不知道设了 `angular_sigma_deg` 会不会与独立项叠加；隐式优先级（独立项默认 0 时用合并项）未在头文件说明，消费侧逻辑需核对。
-
-推进需要：
-- 核对 `src/sbirs_sensor/` 中合并项与独立项的解析逻辑（叠加 / 互斥 / 回退）；
-- 在头文件注释显式写明优先级契约，或拆分为单一表达（删除合并项，由库内聚合）；
-- 补一条覆盖"合并项 + 独立项同时非零"的契约测试。
 
 ### OQ-10i 🟡 SBIRS `detector_area_m2` vs EOS `detector_area_cm2` 同物理量单位不一致
 

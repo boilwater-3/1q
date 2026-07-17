@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 
 #include "flight_dynamic/AircraftPerformanceDerivation.h"
 
@@ -128,6 +129,16 @@ TEST(AircraftPerformanceDerivationTest, VstallScalesWithRho) {
   EXPECT_NEAR(r2.v_stall_ftps, r1.v_stall_ftps / std::sqrt(2.0), 1e-9);
 }
 
+TEST(AircraftPerformanceDerivationTest, VstallScalesWithWeight) {
+  PerformanceDerivationInputs inputs = MakeBaseInputs();
+  const PerformanceDerivationResult light =
+      DeriveStallAndWingLoading(inputs, kStandardSeaLevelDensitySlugsFt3);
+  inputs.weight_lbs *= 2.0;
+  const PerformanceDerivationResult heavy =
+      DeriveStallAndWingLoading(inputs, kStandardSeaLevelDensitySlugsFt3);
+  EXPECT_NEAR(heavy.v_stall_ftps, light.v_stall_ftps * std::sqrt(2.0), 1e-9);
+}
+
 TEST(AircraftPerformanceDerivationTest, VstallZeroForInvalidInputs) {
   PerformanceDerivationInputs inputs = MakeBaseInputs();
   // weight 非正
@@ -142,6 +153,50 @@ TEST(AircraftPerformanceDerivationTest, VstallZeroForNonPositiveRho) {
   PerformanceDerivationInputs inputs = MakeBaseInputs();
   PerformanceDerivationResult result = DeriveStallAndWingLoading(inputs, 0.0);
   EXPECT_DOUBLE_EQ(result.v_stall_ftps, 0.0);
+
+  result = DeriveStallAndWingLoading(
+      inputs, std::numeric_limits<double>::infinity());
+  EXPECT_DOUBLE_EQ(result.v_stall_ftps, 0.0);
+  inputs.weight_lbs = std::numeric_limits<double>::quiet_NaN();
+  result = DeriveStallAndWingLoading(inputs, kStandardSeaLevelDensitySlugsFt3);
+  EXPECT_DOUBLE_EQ(result.v_stall_ftps, 0.0);
+  inputs = MakeBaseInputs();
+  inputs.weight_lbs = std::numeric_limits<double>::max();
+  inputs.wing_area_ft2 = std::numeric_limits<double>::min();
+  result = DeriveStallAndWingLoading(inputs, kStandardSeaLevelDensitySlugsFt3);
+  EXPECT_DOUBLE_EQ(result.v_stall_ftps, 0.0);
+}
+
+TEST(AircraftPerformanceDerivationTest, DynamicEnvelopeScalesWithCurrentStallSpeed) {
+  DynamicSpeedEnvelopeInputs sea_level = {};
+  sea_level.v_stall_mps = 50.0;
+  sea_level.wing_loading_lbs_ft2 = 60.0;
+  sea_level.is_piston = false;
+  sea_level.has_fbw = false;
+  sea_level.is_heavy = false;
+  const DynamicSpeedEnvelopeResult low = DeriveDynamicSpeedEnvelope(sea_level);
+  ASSERT_TRUE(low.valid);
+
+  DynamicSpeedEnvelopeInputs altitude = sea_level;
+  altitude.v_stall_mps = sea_level.v_stall_mps * std::sqrt(2.0);
+  const DynamicSpeedEnvelopeResult high = DeriveDynamicSpeedEnvelope(altitude);
+  ASSERT_TRUE(high.valid);
+  EXPECT_NEAR(high.min_speed_mps, low.min_speed_mps * std::sqrt(2.0), 1e-9);
+  EXPECT_NEAR(high.cruise_speed_mps, low.cruise_speed_mps * std::sqrt(2.0), 1e-9);
+  EXPECT_NEAR(high.max_speed_mps, low.max_speed_mps * std::sqrt(2.0), 1e-9);
+  EXPECT_NEAR(high.ref_speed_mps, low.ref_speed_mps * std::sqrt(2.0), 1e-9);
+}
+
+TEST(AircraftPerformanceDerivationTest, DynamicEnvelopeRejectsInvalidInputs) {
+  DynamicSpeedEnvelopeInputs inputs = {};
+  inputs.v_stall_mps = 0.0;
+  inputs.wing_loading_lbs_ft2 = 60.0;
+  EXPECT_FALSE(DeriveDynamicSpeedEnvelope(inputs).valid);
+  inputs.v_stall_mps = 50.0;
+  inputs.wing_loading_lbs_ft2 = 0.0;
+  EXPECT_FALSE(DeriveDynamicSpeedEnvelope(inputs).valid);
+  inputs.wing_loading_lbs_ft2 = std::numeric_limits<double>::infinity();
+  EXPECT_FALSE(DeriveDynamicSpeedEnvelope(inputs).valid);
 }
 
 // 锁定常量值（任一被改动立即报红，对应三处历史重复中的漂移风险）。

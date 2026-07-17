@@ -856,7 +856,9 @@ WFOV 输出的带误差位置是 NFOV 首次捕获的输入，误差模型直接
 > （`orbit_sigma_deg`/`attitude_sigma_deg`/`fov_sigma_deg`，Box-Muller），折射与滞后为确定性公式
 > （`RefractionErrorDeg`/`DynamicLagErrorDeg`）。随机源 `SbirsRandomSource` 为 xorshift32 + Box-Muller，
 > 由 `random_seed` 初始化，状态经 `SbirsPipelineSnapshot::random_state` 随 capture/restore 持久化，
-> 保证 replay 可复现。当三项高斯 sigma 均为 0 时回退到合并 `angular_sigma_deg`（向后兼容）。
+> 保证 replay 可复现。任一物理 sigma 非零时，三项按 RSS 合成为有效角度 1-σ，legacy
+> `angular_sigma_deg` 不参与；三项均为 0 时才回退 legacy。方位/俯仰使用独立零均值高斯样本，
+> 与 tracking 使用的对角量测协方差保持一致。修复前将 legacy 当固定正偏置的结果不再保留。
 > 目标角速度由 `SbirsSceneTarget.velocity_ecef_m_per_s`（ECEF 速度真值，可选）推导：pipeline 调用
 > `ComputeRelativeAngularRateDegPerSec(los, velocity)` 得到视线角速度 `ω_tar`，接入动态滞后项。
 > 未提供速度（`has_velocity_ecef_m_per_s=false`）时 `ω_tar=0`，动态滞后项为 0，保持旧行为。当前无

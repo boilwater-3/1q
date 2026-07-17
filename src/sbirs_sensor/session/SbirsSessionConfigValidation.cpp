@@ -52,6 +52,19 @@ ValidationIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& config)
       config.policy.detection.narrow_min_snr_linear < 0.0f) {
     AddError("detection thresholds must be non-negative", &issues);
   }
+  const SbirsErrorModelConfig& error_model = config.policy.error_model;
+  if (!std::isfinite(error_model.angular_sigma_deg) || error_model.angular_sigma_deg < 0.0f ||
+      !std::isfinite(error_model.orbit_sigma_deg) || error_model.orbit_sigma_deg < 0.0f ||
+      !std::isfinite(error_model.attitude_sigma_deg) || error_model.attitude_sigma_deg < 0.0f ||
+      !std::isfinite(error_model.fov_sigma_deg) || error_model.fov_sigma_deg < 0.0f ||
+      !std::isfinite(error_model.range_fraction_sigma) ||
+      error_model.range_fraction_sigma < 0.0f) {
+    AddError("error model sigma values must be non-negative and finite", &issues);
+  }
+  if (!std::isfinite(error_model.detector_bandwidth_hz) ||
+      error_model.detector_bandwidth_hz <= 0.0f) {
+    AddError("error model detector bandwidth must be positive and finite", &issues);
+  }
   const SbirsPointingDisturbanceConfig& disturbance = config.policy.pointing_disturbance;
   if (!std::isfinite(disturbance.common_attitude_sigma_deg) ||
       disturbance.common_attitude_sigma_deg < 0.0f ||

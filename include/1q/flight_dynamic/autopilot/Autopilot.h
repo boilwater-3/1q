@@ -63,8 +63,10 @@ enum class LateralGuidanceMode {
  * @brief 机型控制能力画像（POD），描述某机型支持的控制接口与物理性能参数。
  *
  * 能量管理相关字段由机型物理量（失速速度、翼载荷）推导，而非硬编码分类；
- * V_stall = sqrt(2W / ρ·S·CLmax) 将重量、机翼面积与最大升力能力编码为单一基准速度。
- * @note 该结构体在构造 Autopilot 时由机型性能推导填充，运行期只读使用。
+ * V_stall = sqrt(2W / ρ·S·CLmax) 将当前重量、当前大气密度、机翼面积与最大升力能力
+ * 编码为单一基准速度。
+ * @note Autopilot 每个 Update() 开始时刷新动态 TAS 字段；调用方应把 GetControlProfile()
+ * 返回的引用视为当前周期快照，不应跨周期缓存其中的速度值。
  */
 struct AircraftControlProfile {
   LateralControlInterface lateral_interface = LateralControlInterface::kDirectSurface; /**< 横向控制接口 */
@@ -87,13 +89,13 @@ struct AircraftControlProfile {
   // Derived from aircraft physics (V_stall, wing loading), not hardcoded
   // categories.  V_stall = sqrt(2W / ρ·S·CLmax) encodes actual weight,
   // wing area, and lift capability into a single base speed.
-  double v_stall_mps = 0.0;           /**< 海平面净构型失速速度（TAS，单位：m/s） */
+  double v_stall_mps = 0.0;           /**< 当前重量/密度下的净构型失速 TAS（单位：m/s） */
   double wing_loading_lbs_ft2 = 0.0;  /**< 翼载荷 = 重量 / 机翼面积（单位：lbs/ft²） */
   double thrust_to_weight = 0.0;      /**< 总静推力 / 重量（无量纲） */
-  double ref_speed_mps = 0.0;         /**< 能量分配参考/巡航速度（单位：m/s） */
-  double min_speed_mps = 0.0;         /**< 任务最低速度（含失速余度，单位：m/s） */
-  double max_speed_mps = 0.0;         /**< 任务最高速度（结构/推力限制，单位：m/s） */
-  double cruise_speed_mps = 0.0;      /**< 按机型分类的默认巡航 TAS（单位：m/s） */
+  double ref_speed_mps = 0.0;         /**< 当前有效能量分配参考 TAS（单位：m/s） */
+  double min_speed_mps = 0.0;         /**< 当前有效最低 TAS（含失速余度，单位：m/s） */
+  double max_speed_mps = 0.0;         /**< 当前有效最高 TAS（结构/推力限制，单位：m/s） */
+  double cruise_speed_mps = 0.0;      /**< 当前有效巡航 TAS（单位：m/s） */
   double ceiling_m = 0.0;             /**< 实用升限（单位：m，0 = 由物理量推导） */
   double max_pitch_command_deg = 20.0;  /**< 高度保持中的俯仰指令上限（单位：deg） */
   double max_roll_angle_deg = 45.0;     /**< 结构/气动滚转限制（单位：deg，亦用于盘旋半径） */
@@ -254,11 +256,11 @@ class Autopilot {
    * @return 当前大地高 ASL（单位：m）。
    */
   double GetAltitudeASLM() const;
-  /** @return 机型控制能力画像（const）。 */
+  /** @return 当前控制能力画像；其中 TAS 包线在每个 Update() 开始时刷新。 */
   const AircraftControlProfile& GetControlProfile() const { return control_profile_; }
 
   /**
-   * @brief 推进一个控制步长，更新各控制通道并注入到 JSBSim。
+   * @brief 推进一个控制步长，先按上一 JSBSim step 的状态刷新 TAS 包线，再更新控制通道。
    * @param[in] dt_sec 步长（单位：s）。
    */
   void Update(double dt_sec);

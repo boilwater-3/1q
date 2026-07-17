@@ -391,6 +391,68 @@ TEST_P(EngineManagerContractTest, ApproachSpeedFallbackReasonable) {
   }
 }
 
+TEST_F(FlightDynamicTest, DynamicTasEnvelopeTracksCommittedAtmosphereDensity) {
+  FlightManager fm(config_);
+  const auto initial = fm.GetAutopilot().GetControlProfile();
+  const double initial_rho =
+      fm.GetAdapter().GetProperty("atmosphere/rho-slugs_ft3");
+  ASSERT_GT(initial_rho, 0.0);
+
+  fm.GetAdapter().SetProperty("position/h-sl-ft", 3000.0 * kMToFt);
+  ASSERT_TRUE(fm.GetAdapter().Run());
+  const double lower_rho =
+      fm.GetAdapter().GetProperty("atmosphere/rho-slugs_ft3");
+  ASSERT_GT(lower_rho, 0.0);
+  ASSERT_LT(lower_rho, initial_rho);
+  fm.GetAutopilot().Update(kDt);
+  const auto lower_density = fm.GetAutopilot().GetControlProfile();
+  const double expected_ratio = std::sqrt(initial_rho / lower_rho);
+  EXPECT_NEAR(lower_density.v_stall_mps / initial.v_stall_mps, expected_ratio, 1.0e-12);
+  EXPECT_NEAR(lower_density.min_speed_mps / initial.min_speed_mps, expected_ratio,
+              1.0e-12);
+  EXPECT_NEAR(lower_density.cruise_speed_mps / initial.cruise_speed_mps,
+              expected_ratio, 1.0e-12);
+}
+
+TEST_F(FlightDynamicTest, XmlSpeedOverrideRemainsFixedWhileOtherTasSpeedsRefresh) {
+  FlightManager fm(config_);
+  const auto initial = fm.GetAutopilot().GetControlProfile();
+  const double initial_rho =
+      fm.GetAdapter().GetProperty("atmosphere/rho-slugs_ft3");
+  ASSERT_GT(initial_rho, 0.0);
+
+  fm.GetAdapter().SetProperty("guidance/min-speed-mps", 42.0);
+  fm.GetAdapter().SetProperty("position/h-sl-ft", 3000.0 * kMToFt);
+  ASSERT_TRUE(fm.GetAdapter().Run());
+  const double lower_rho =
+      fm.GetAdapter().GetProperty("atmosphere/rho-slugs_ft3");
+  ASSERT_GT(lower_rho, 0.0);
+  ASSERT_LT(lower_rho, initial_rho);
+  fm.GetAutopilot().Update(kDt);
+  const auto refreshed = fm.GetAutopilot().GetControlProfile();
+  EXPECT_DOUBLE_EQ(refreshed.min_speed_mps, 42.0);
+  const double expected_ratio = std::sqrt(initial_rho / lower_rho);
+  EXPECT_NEAR(refreshed.v_stall_mps / initial.v_stall_mps, expected_ratio, 1.0e-12);
+  EXPECT_NEAR(refreshed.cruise_speed_mps / initial.cruise_speed_mps,
+              expected_ratio, 1.0e-12);
+}
+
+TEST_F(FlightDynamicTest, InitialAltitudeChangesTasEnvelopeButNotCasTakeoffSpeeds) {
+  config::FlightDynamicConfig high_config = config_;
+  high_config.initial_kinematics.position_lla_deg_m.altitude_m = 3000.0;
+  FlightManager low(config_);
+  FlightManager high(high_config);
+
+  const auto& low_profile = low.GetAutopilot().GetControlProfile();
+  const auto& high_profile = high.GetAutopilot().GetControlProfile();
+  EXPECT_GT(high_profile.v_stall_mps, low_profile.v_stall_mps);
+  EXPECT_GT(high_profile.min_speed_mps, low_profile.min_speed_mps);
+  EXPECT_DOUBLE_EQ(high.GetEngineManager().GetRotationSpeedKts(),
+                   low.GetEngineManager().GetRotationSpeedKts());
+  EXPECT_DOUBLE_EQ(high.GetEngineManager().GetDefaultApproachSpeedMps(),
+                   low.GetEngineManager().GetDefaultApproachSpeedMps());
+}
+
 INSTANTIATE_TEST_SUITE_P(
     EngineManagerContracts, EngineManagerContractTest,
     ::testing::Values(
@@ -895,10 +957,10 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
   if (model == "Concorde") {
     // Classified as heavy jet (4 engines, Iyy=1.9e7, no mixture).
     // cruise_factor continuous: 2.89 + 0.00455 × WL ≈ 3.43, max_factor = CF + 0.7
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 234.26352052539247);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 193.98933551800999);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 69.041460012655634);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 234.26352052539247);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 302.14528602514599);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 250.20098363784268);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 89.047375521091368);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 302.14528602514599);
     SNAPSHOT_CHECK_DBL(p, ceiling_m, 13700.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 8.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 35.0);
@@ -906,10 +968,10 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
   } else if (model == "f16") {
     // FBW fighter: cruise_factor continuous + 0.25 FBW bonus → ~3.48
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 316.06104307020496);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 200.13677550795398);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 72.452667226406817);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 316.06104307020496);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 366.86358488022273);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 232.30605776652874);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 84.09845444605871);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 366.86358488022273);
     SNAPSHOT_CHECK_DBL(p, ceiling_m, 15200.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 15.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 45.0);
@@ -918,18 +980,18 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
   } else if (model == "f15") {
     // Non-FBW, non-piston, not heavy (2 engines, Iyy=1.65e5).
     // cruise_factor continuous: 2.89 + 0.00455 × WL ≈ 3.16, max_factor = CF + 0.8
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 203.52571382154451);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 67.175686226135227);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 236.23972212006282);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 77.973270056684228);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 20.0);
     EXPECT_NEAR(p.max_roll_angle_deg, 21.0, 0.5);  // from XML roll limit × sustained factor
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.15);
     // f15 wing_loading ≈ 55 lbs/ft² > 50 → speed_energy_priority = true.
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, true);
   } else if (model == "B17") {
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 149.43193652640619);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 119.54554922112493);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 55.503290709808013);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 149.43193652640619);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 156.86775448231597);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 125.49420358585277);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 58.265165950574506);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 156.86775448231597);
     SNAPSHOT_CHECK_DBL(p, ceiling_m, 4300.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 10.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 25.0);
@@ -939,10 +1001,10 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
   } else if (model == "C130") {
     // Classified as heavy jet (4 engines, no magneto, no mixture).
     // cruise_factor continuous: 2.89 + 0.00455 × WL ≈ 3.20, max_factor = CF + 0.7
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 156.91058639731219);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 127.64257111614953);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 50.173740481993114);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 156.91058639731219);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 164.71854621451828);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 133.99413788498572);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 52.670414279198674);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 164.71854621451828);
     SNAPSHOT_CHECK_DBL(p, ceiling_m, 13700.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 8.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 35.0);
@@ -950,20 +1012,20 @@ TEST_P(ProfileSnapshotTest, MatchesExpectedProfile) {
     // C130 wing_loading ≈ 30 lbs/ft² < 50 → speed_energy_priority = false.
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, false);
   } else if (model == "c172x") {
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 92.358025343142515);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 73.886420274514009);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 34.304409413167221);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 92.358025343142515);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 94.615984112791907);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 75.692787290233525);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 35.143079813322707);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 94.615984112791907);
     SNAPSHOT_CHECK_DBL(p, ceiling_m, 4300.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 12.0);
     EXPECT_NEAR(p.max_roll_angle_deg, 0.523 * 180.0 / kPi * 0.7, 1.0e-3);
     SNAPSHOT_CHECK_DBL(p, min_throttle, 0.20);
     SNAPSHOT_CHECK_BOOL(p, speed_energy_priority, false);
   } else if (model == "c310") {
-    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 121.96887745540842);
-    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 97.57510196432672);
-    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 45.302725912008839);
-    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 121.96887745540842);
+    SNAPSHOT_CHECK_DBL(p, ref_speed_mps, 124.95075905640114);
+    SNAPSHOT_CHECK_DBL(p, cruise_speed_mps, 99.960607245120897);
+    SNAPSHOT_CHECK_DBL(p, min_speed_mps, 46.410281935234707);
+    SNAPSHOT_CHECK_DBL(p, max_speed_mps, 124.95075905640114);
     SNAPSHOT_CHECK_DBL(p, ceiling_m, 4300.0);
     SNAPSHOT_CHECK_DBL(p, max_pitch_command_deg, 10.0);
     SNAPSHOT_CHECK_DBL(p, max_roll_angle_deg, 30.0);
