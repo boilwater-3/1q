@@ -137,16 +137,18 @@ void CheckReceiver(const ar_config::detection::ReceiverConfig& a,
   CHECK_EQ(a.receive_loss_db, b.receive_loss_db, "receiver.receive_loss_db");
 }
 
-void CheckDetectionPolicy(const ar_config::detection::DetectionPolicyConfig& a,
-                          const ar_config::detection::DetectionPolicyConfig& b) {
-  CHECK_EQ(a.cfar_pfa, b.cfar_pfa, "detection_policy.cfar_pfa");
-  CHECK_EQ(a.min_snr_db, b.min_snr_db, "detection_policy.min_snr_db");
+void CheckDetectionPolicy(const ar_config::ArDetectionPolicyConfig& a,
+                          const ar_config::ArDetectionPolicyConfig& b) {
+  CHECK_EQ(a.minimum_snr_db, b.minimum_snr_db, "detection.minimum_snr_db");
+  CHECK_EQ(a.pfa, b.pfa, "detection.pfa");
+  CHECK_INT(a.pulse_count, b.pulse_count, "detection.pulse_count");
+  CHECK_EQ(a.minimum_detection_margin_db, b.minimum_detection_margin_db,
+           "detection.minimum_detection_margin_db");
 }
 
 void CheckRcsPhysics(const ar_config::detection::RcsPhysicsConfig& a,
                      const ar_config::detection::RcsPhysicsConfig& b) {
   CHECK_BOOL(a.enable_physical_rcs, b.enable_physical_rcs, "rcs.enable_physical_rcs");
-  CHECK_EQ(a.frequency_hz, b.frequency_hz, "rcs.frequency_hz");
   CHECK_EQ(a.physics_mix_ratio, b.physics_mix_ratio, "rcs.physics_mix_ratio");
   CHECK_EQ(a.cylinder_weight, b.cylinder_weight, "rcs.cylinder_weight");
   CHECK_EQ(a.min_equivalent_radius_m, b.min_equivalent_radius_m, "rcs.min_equivalent_radius_m");
@@ -168,11 +170,7 @@ void CompareConfigs(const ar_config::ArSessionConfig& a,
   CheckTransmitter(da.transmitter, db.transmitter);
   CheckAntenna(da.antenna, db.antenna);
   CheckReceiver(da.receiver, db.receiver);
-  CheckDetectionPolicy(da.detection_policy, db.detection_policy);
   CheckRcsPhysics(da.rcs_physics, db.rcs_physics);
-  CHECK_EQ(da.min_detection_margin_db, db.min_detection_margin_db,
-           "detection.min_detection_margin_db");
-  CHECK_INT(da.pulse_count, db.pulse_count, "detection.pulse_count");
 
   // mission.orientation
   const auto& oa = a.mission.orientation;
@@ -202,6 +200,8 @@ void CompareConfigs(const ar_config::ArSessionConfig& a,
             "orientation.stabilization_mode");
 
   // policy subtree
+  CheckDetectionPolicy(a.policy.detection, b.policy.detection);
+
   // beam_control.pointing
   CheckCmdBeamwidth(a.policy.beam_control.pointing.nominal_beamwidth_deg,
                     b.policy.beam_control.pointing.nominal_beamwidth_deg,
@@ -219,8 +219,9 @@ void CompareConfigs(const ar_config::ArSessionConfig& a,
              "beam_control.scheduler.prefer_dense_tas_sampling");
 
   // association
-  CHECK_EQ(a.policy.association.unassigned_cost, b.policy.association.unassigned_cost,
-           "association.unassigned_cost");
+  CHECK_EQ(a.policy.association.distance_gate_sigma,
+           b.policy.association.distance_gate_sigma,
+           "association.distance_gate_sigma");
 
   // tracking
   CHECK_BOOL(a.policy.tracking.enable_kalman_filter, b.policy.tracking.enable_kalman_filter,

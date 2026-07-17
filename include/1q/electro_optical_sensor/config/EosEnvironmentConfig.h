@@ -1,6 +1,6 @@
 /**
  * @file EosEnvironmentConfig.h
- * @brief EOS 环境配置契约（Scenario/Model/Default）。
+ * @brief EOS 单一场景环境配置契约。
  */
 
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_CONFIG_EOS_ENVIRONMENT_CONFIG_H_

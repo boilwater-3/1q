@@ -331,12 +331,12 @@ class RadarModule {
        << "  peak_power_w=" << hw_peak_power_w_
        << " freq_hz=" << hw_frequency_hz_
        << " prf_hz=" << hw_prf_hz_
-       << " pulse_count=" << hw_pulse_count_
+       << " pulse_count=" << policy_pulse_count_
        << "\n  gain_db=" << hw_main_beam_gain_db_
        << " az_bw=" << hw_nominal_az_beamwidth_deg_
        << " el_bw=" << hw_nominal_el_beamwidth_deg_
-       << " cfar_pfa=" << hw_cfar_pfa_
-       << " min_snr_db=" << hw_min_snr_db_
+       << " pfa=" << policy_pfa_
+       << " minimum_snr_db=" << policy_minimum_snr_db_
        << "\n[Mission]\n"
        << "  power_on=" << mission_power_on_
        << " work_mode=" << static_cast<int>(mission_work_mode_)
@@ -397,10 +397,6 @@ class RadarModule {
     hw_noise_figure_db_ = static_cast<double>(det.receiver.noise_figure_db);
     hw_receive_loss_db_ = static_cast<double>(det.receiver.receive_loss_db);
 
-    // Detection policy
-    hw_cfar_pfa_ = static_cast<double>(det.detection_policy.cfar_pfa);
-    hw_min_snr_db_ = static_cast<double>(det.detection_policy.min_snr_db);
-
     // RCS physics
     hw_enable_physical_rcs_ = det.rcs_physics.enable_physical_rcs;
     hw_rcs_physics_mix_ratio_ = static_cast<double>(det.rcs_physics.physics_mix_ratio);
@@ -410,9 +406,6 @@ class RadarModule {
     hw_min_rcs_m2_ = static_cast<double>(det.rcs_physics.min_rcs_m2);
     hw_max_rcs_m2_ = static_cast<double>(det.rcs_physics.max_rcs_m2);
     hw_bistatic_psi_offset_deg_ = static_cast<double>(det.rcs_physics.bistatic_psi_offset_deg);
-
-    hw_min_detection_margin_db_ = static_cast<double>(det.min_detection_margin_db);
-    hw_pulse_count_ = det.pulse_count;
 
     // ---- 任务域 (Mission) ----
     const auto& mission = config.mission;
@@ -453,6 +446,12 @@ class RadarModule {
     // ---- 策略域 (Policy) ----
     const auto& policy = config.policy;
 
+    policy_pfa_ = static_cast<double>(policy.detection.pfa);
+    policy_minimum_snr_db_ = static_cast<double>(policy.detection.minimum_snr_db);
+    policy_minimum_detection_margin_db_ =
+        static_cast<double>(policy.detection.minimum_detection_margin_db);
+    policy_pulse_count_ = policy.detection.pulse_count;
+
     policy_nominal_beamwidth_az_deg_ =
         static_cast<double>(policy.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg);
     policy_nominal_beamwidth_el_deg_ =
@@ -464,7 +463,8 @@ class RadarModule {
     policy_prefer_dense_tas_sampling_ =
         policy.beam_control.scheduler.prefer_dense_tas_sampling;
 
-    policy_unassigned_cost_ = static_cast<double>(policy.association.unassigned_cost);
+    policy_distance_gate_sigma_ =
+        static_cast<double>(policy.association.distance_gate_sigma);
 
     policy_enable_kalman_filter_ = policy.tracking.enable_kalman_filter;
     policy_kalman_measurement_noise_std_ = static_cast<double>(policy.tracking.kalman_measurement_noise_std);
@@ -584,9 +584,6 @@ class RadarModule {
   // Receiver
   double hw_noise_figure_db_{0.0};
   double hw_receive_loss_db_{0.0};
-  // Detection policy
-  double hw_cfar_pfa_{0.0};
-  double hw_min_snr_db_{0.0};
   // RCS physics
   bool hw_enable_physical_rcs_{false};
   double hw_rcs_physics_mix_ratio_{0.0};
@@ -596,10 +593,6 @@ class RadarModule {
   double hw_min_rcs_m2_{0.0};
   double hw_max_rcs_m2_{0.0};
   double hw_bistatic_psi_offset_deg_{0.0};
-  // Detection aggregation
-  double hw_min_detection_margin_db_{0.0};
-  int hw_pulse_count_{0};
-
   // -- 任务域 (Mission) --
   bool mission_power_on_{true};
   // Mount angles
@@ -634,6 +627,11 @@ class RadarModule {
       ar_config::StabilizationMode::kBodyStabilized};
 
   // -- 策略域 (Policy) --
+  // Detection
+  double policy_pfa_{0.0};
+  double policy_minimum_snr_db_{0.0};
+  double policy_minimum_detection_margin_db_{0.0};
+  int policy_pulse_count_{0};
   // Beam control — pointing
   double policy_nominal_beamwidth_az_deg_{0.0};
   double policy_nominal_beamwidth_el_deg_{0.0};
@@ -642,7 +640,7 @@ class RadarModule {
   std::uint32_t policy_elevation_step_count_hint_{0U};
   bool policy_prefer_dense_tas_sampling_{false};
   // Association
-  double policy_unassigned_cost_{0.0};
+  double policy_distance_gate_sigma_{0.0};
   // Tracking
   bool policy_enable_kalman_filter_{true};
   double policy_kalman_measurement_noise_std_{0.0};

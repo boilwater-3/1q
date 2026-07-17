@@ -66,7 +66,7 @@ class InterceptPipeline final {
    * @param[in] state CaptureRuntimeState 产生的快照。
    * @return owner_identity/schema 不匹配或快照损坏时返回 false。
    *
-   * 只恢复累积量（rng/id/tracks），不恢复配置。参见 CaptureRuntimeState doc。
+   * 只恢复累积量（rng/scan phase/id/tracks），不恢复配置。参见 CaptureRuntimeState doc。
    */
   bool RestoreRuntimeState(const extension::InterceptPipelineRuntimeState& state);
 

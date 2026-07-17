@@ -192,7 +192,7 @@ void ApplyCaseToConfig(const ArCase& c, ar_config::ArSessionConfig& config) {
   config.hardware.rcs_physics.enable_physical_rcs = true;
   config.hardware.rcs_physics.physics_mix_ratio = 1.0f;  // 完全物理估计
   if (c.min_snr_db_override >= 0.0f) {
-    config.hardware.detection_policy.min_snr_db = c.min_snr_db_override;
+    config.policy.detection.minimum_snr_db = c.min_snr_db_override;
   }
 }
 

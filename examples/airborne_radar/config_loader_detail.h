@@ -51,17 +51,9 @@ inline void LoadReceiver(const examples::JsonValue& j, ar_det::ReceiverConfig* v
   v->receive_loss_db = static_cast<float>(j["receive_loss_db"].AsDouble());
 }
 
-inline void LoadDetectionPolicy(const examples::JsonValue& j,
-                                ar_det::DetectionPolicyConfig* v) {
-  if (j.IsNull()) return;
-  v->cfar_pfa = static_cast<float>(j["cfar_pfa"].AsDouble());
-  v->min_snr_db = static_cast<float>(j["min_snr_db"].AsDouble());
-}
-
 inline void LoadRcsPhysics(const examples::JsonValue& j, ar_det::RcsPhysicsConfig* v) {
   if (j.IsNull()) return;
   v->enable_physical_rcs = j["enable_physical_rcs"].AsBool();
-  v->frequency_hz = static_cast<float>(j["frequency_hz"].AsDouble());
   v->physics_mix_ratio = static_cast<float>(j["physics_mix_ratio"].AsDouble());
   v->cylinder_weight = static_cast<float>(j["cylinder_weight"].AsDouble());
   v->min_equivalent_radius_m = static_cast<float>(j["min_equivalent_radius_m"].AsDouble());
@@ -78,11 +70,7 @@ inline void LoadDetectionConfig(const examples::JsonValue& j,
   LoadTransmitter(j["transmitter"], &v->transmitter);
   LoadAntenna(j["antenna"], &v->antenna);
   LoadReceiver(j["receiver"], &v->receiver);
-  LoadDetectionPolicy(j["detection_policy"], &v->detection_policy);
   LoadRcsPhysics(j["rcs_physics"], &v->rcs_physics);
-  v->min_detection_margin_db =
-      static_cast<float>(j["min_detection_margin_db"].AsDouble());
-  v->pulse_count = static_cast<int>(j["pulse_count"].AsInt());
 }
 
 inline void LoadHardware(const examples::JsonValue& j,
@@ -118,6 +106,17 @@ inline void LoadMission(const examples::JsonValue& j,
 
 // -- policy sub-tree ---------------------------------------------------------
 
+inline void LoadDetectionPolicy(
+    const examples::JsonValue& j,
+    airborne_radar::config::ArDetectionPolicyConfig* v) {
+  if (j.IsNull()) return;
+  v->minimum_snr_db = static_cast<float>(j["minimum_snr_db"].AsDouble());
+  v->pfa = static_cast<float>(j["pfa"].AsDouble());
+  v->pulse_count = static_cast<int>(j["pulse_count"].AsInt());
+  v->minimum_detection_margin_db =
+      static_cast<float>(j["minimum_detection_margin_db"].AsDouble());
+}
+
 inline void LoadBeamPointing(const examples::JsonValue& j,
                              airborne_radar::config::BeamPointingConfig* v) {
   if (j.IsNull()) return;
@@ -144,7 +143,7 @@ inline void LoadBeamControl(const examples::JsonValue& j,
 inline void LoadAssociation(const examples::JsonValue& j,
                             airborne_radar::config::AssociationConfig* v) {
   if (j.IsNull()) return;
-  v->unassigned_cost = static_cast<float>(j["unassigned_cost"].AsDouble());
+  v->distance_gate_sigma = static_cast<float>(j["distance_gate_sigma"].AsDouble());
 }
 
 inline void LoadTracking(const examples::JsonValue& j,
@@ -175,6 +174,7 @@ inline void LoadLifecycle(const examples::JsonValue& j,
 inline void LoadPolicy(const examples::JsonValue& j,
                        airborne_radar::config::ArPolicyConfig* v) {
   if (j.IsNull()) return;
+  LoadDetectionPolicy(j["detection"], &v->detection);
   LoadBeamControl(j["beam_control"], &v->beam_control);
   LoadAssociation(j["association"], &v->association);
   LoadTracking(j["tracking"], &v->tracking);

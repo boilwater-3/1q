@@ -34,7 +34,7 @@ struct FrameContext {
   float dmax_m{0.0f};
   foundation::propagation::NepNoiseModelInputs nep_inputs{};
   foundation::noise::BackgroundNoiseModelInputs noise_inputs_base{};
-  session::EosEnvironmentModelResult environment_result{};
+  environment::EnvironmentModelResult environment_result{};
 };
 
 namespace {
@@ -71,7 +71,7 @@ float ResolvePlatformAltitudeM(const ::electro_optical_sensor::session::EosCycle
 foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTransfer(
     const config::execution::EosInternalExecutionConfig& config,
     const ::electro_optical_sensor::session::EosCycleInput& input, float range_m,
-    const session::EosEnvironmentModelResult& environment_result) {
+    const environment::EnvironmentModelResult& environment_result) {
   const float cloud_ratio =
       oneq::common::numerics::Clamp01(input.environment.cloud_coverage_ratio);
   const float aerosol_excess = std::max(0.0f, environment_result.aerosol_density_factor - 1.0f);
@@ -502,7 +502,7 @@ FrameContext EosPipeline::BuildFrameContext(
   frame.noise_inputs_base.cloud_coverage_ratio = input.environment.cloud_coverage_ratio;
   frame.noise_inputs_base.detector_area_cm2 = frame.nep_inputs.detector_area_cm2;
 
-  session::EosEnvironmentModelInputs env_inputs;
+  environment::EnvironmentModelInputs env_inputs;
   env_inputs.base_aerosol_density_factor = config_.environment.aerosol_density_factor;
   env_inputs.base_turbulence_factor = config_.environment.turbulence_factor;
   env_inputs.platform_altitude_m = ResolvePlatformAltitudeM(input);

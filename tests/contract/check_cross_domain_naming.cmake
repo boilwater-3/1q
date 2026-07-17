@@ -11,9 +11,9 @@
 #   3) ESR/AR 运行期补丁的环境补丁槽不得再用 environment_runtime_config 字段名
 #      或 has_environment_runtime_config / WithEnvironmentRuntimeConfig（P1-b 统一为
 #      environment / has_environment / WithEnvironment，对齐 EOS）。
-#   4) ESR/SAR 的最小 SNR 门限不得再用 min_detect_snr_db / min_valid_snr_db
-#      前缀（P2-a 统一为 minimum_snr_db，对齐 EOS）。注意 AR 的 min_snr_db 因与
-#      timing model 动态门限同名且语义不同，刻意不在本检查范围（见 P2-a 决策）。
+#   4) 四域 public 配置的最小 SNR 门限统一为 minimum_snr_db；旧的
+#      min_detect_snr_db / min_valid_snr_db / min_snr_db 均不得回流。内部 timing
+#      model 的动态门限不属于 public 配置命名契约。
 #   5) 四域 RuntimeConfigBuilder 的链式方法统一以 With* 动词开头，不得回归
 #      Set*/Enable* 旧动词（P3-b 统一）。仅约束 *RuntimeConfigBuilder.h 公共头，
 #      不影响 ArSessionConfigBuilder::MissionEditor 等其它建造者类。
@@ -109,6 +109,29 @@ foreach(SCAN_DIR IN LISTS SCAN_DIRS)
         endif()
       endforeach()
     endforeach()
+  endforeach()
+endforeach()
+
+# public 配置统一使用 minimum_snr_db。此规则只扫描 include/1q 下的配置头，
+# 避免误伤内部 timing model 等具有不同责任的局部参数。
+file(GLOB_RECURSE PUBLIC_CONFIG_HEADERS
+     "${PUBLIC_INCLUDE_ROOT}/airborne_radar/config/*.h"
+     "${PUBLIC_INCLUDE_ROOT}/electro_optical_sensor/config/*.h"
+     "${PUBLIC_INCLUDE_ROOT}/electronic_surveillance_radar/config/*.h"
+     "${PUBLIC_INCLUDE_ROOT}/sar/config/*.h")
+foreach(HEADER IN LISTS PUBLIC_CONFIG_HEADERS)
+  file(STRINGS "${HEADER}" HEADER_LINES)
+  set(_line_no 0)
+  foreach(LINE IN LISTS HEADER_LINES)
+    math(EXPR _line_no "${_line_no} + 1")
+    string(STRIP "${LINE}" _stripped)
+    if(_stripped MATCHES "^(//|/\\*|\\*)")
+      continue()
+    endif()
+    if(LINE MATCHES "(^|[^A-Za-z0-9_])min_snr_db([^A-Za-z0-9_]|$)")
+      list(APPEND VIOLATIONS
+           "${HEADER}:${_line_no}: [public 最低 SNR 字段必须命名为 minimum_snr_db]: ${LINE}")
+    endif()
   endforeach()
 endforeach()
 

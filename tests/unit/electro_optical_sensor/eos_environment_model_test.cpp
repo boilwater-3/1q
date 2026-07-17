@@ -12,15 +12,15 @@ namespace environment {
 namespace {
 
 TEST(EosEnvironmentModelTest, CycleEnvironmentAlwaysModifiesPresetBaseline) {
-  session::EosEnvironmentModelInputs baseline_inputs;
-  const session::EosEnvironmentModelResult baseline_result =
+  EnvironmentModelInputs baseline_inputs;
+  const EnvironmentModelResult baseline_result =
       ResolveEnvironmentFactors(baseline_inputs);
 
-  session::EosEnvironmentModelInputs observed_inputs;
+  EnvironmentModelInputs observed_inputs;
   observed_inputs.platform_altitude_m = 5000.0f;
   observed_inputs.cloud_coverage_ratio = 0.7f;
   observed_inputs.wind_speed_mps = 25.0f;
-  const session::EosEnvironmentModelResult observed_result =
+  const EnvironmentModelResult observed_result =
       ResolveEnvironmentFactors(observed_inputs);
 
   EXPECT_GT(observed_result.aerosol_density_factor,
@@ -31,8 +31,8 @@ TEST(EosEnvironmentModelTest, CycleEnvironmentAlwaysModifiesPresetBaseline) {
 }
 
 TEST(EosEnvironmentModelTest, EnabledAtmosphericPhysicsAppliesHumidityAndTemperature) {
-  session::EosEnvironmentModelInputs baseline_inputs;
-  session::EosEnvironmentModelInputs physical_inputs = baseline_inputs;
+  EnvironmentModelInputs baseline_inputs;
+  EnvironmentModelInputs physical_inputs = baseline_inputs;
   physical_inputs.atmospheric_physics.enable_physical_model = true;
   physical_inputs.atmospheric_physics.relative_humidity = 0.8f;
   physical_inputs.atmospheric_physics.temperature_k = 318.15f;
@@ -47,12 +47,12 @@ TEST(EosEnvironmentModelTest, EnabledAtmosphericPhysicsAppliesHumidityAndTempera
 }
 
 TEST(EosEnvironmentModelTest, InvalidOrNegativeInputsAreClampedToSafeRange) {
-  session::EosEnvironmentModelInputs inputs;
+  EnvironmentModelInputs inputs;
   inputs.platform_altitude_m = -1000.0f;
   inputs.cloud_coverage_ratio = 5.0f;
   inputs.wind_speed_mps = -15.0f;
 
-  const session::EosEnvironmentModelResult result = ResolveEnvironmentFactors(inputs);
+  const EnvironmentModelResult result = ResolveEnvironmentFactors(inputs);
 
   EXPECT_GE(result.aerosol_density_factor, 1.0f);
   EXPECT_GE(result.turbulence_factor, 1.0f);

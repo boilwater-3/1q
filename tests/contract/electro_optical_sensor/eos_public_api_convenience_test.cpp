@@ -19,7 +19,6 @@
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosInputValidation.h"
 #include "1q/electro_optical_sensor/session/EosSession.h"
-#include "electro_optical_sensor/foundation/EosRadiativeTransfer.h"
 
 namespace electro_optical_sensor {
 namespace tests {
@@ -356,28 +355,6 @@ TEST(EosPublicApiConvenienceTest, CoordinateUtilsBuildsTargetFromEcefAndLla) {
   ASSERT_TRUE(session::TryMakeEosSceneTargetFromExternalInput(402U, ecef_input, reference,
                                                               platform_pose, &target_from_ecef));
   EXPECT_NEAR(target_from_ecef.range_m, target_from_lla.range_m, 1.0f);
-}
-
-TEST(EosPublicApiConvenienceTest, RadiativeTransferEvaluatesModels) {
-  foundation::radiative_transfer::RadiativeTransferInputs beer_lambert;
-  beer_lambert.model = config::execution::RadiativeTransferModel::kDerivedBeerLambert;
-  beer_lambert.base_transmittance = 0.85f;
-  beer_lambert.path_length_m = 1000.0f;
-  const foundation::radiative_transfer::RadiativeTransferResult bl =
-      foundation::radiative_transfer::EvaluateRadiativeTransfer(beer_lambert);
-  EXPECT_GT(bl.transmittance, 0.0f);
-  EXPECT_LE(bl.transmittance, 1.0f);
-
-  foundation::radiative_transfer::RadiativeTransferInputs adaptive;
-  adaptive.model = config::execution::RadiativeTransferModel::kAdaptivePathRadiance;
-  adaptive.base_transmittance = 0.8f;
-  adaptive.cloud_coverage_ratio = 0.3f;
-  adaptive.path_length_m = 5000.0f;
-  adaptive.aerosol_density_factor = 2.0f;
-  const foundation::radiative_transfer::RadiativeTransferResult ar =
-      foundation::radiative_transfer::EvaluateRadiativeTransfer(adaptive);
-  EXPECT_GT(ar.transmittance, 0.0f);
-  EXPECT_LT(ar.transmittance, bl.transmittance);
 }
 
 TEST(EosPublicApiConvenienceTest, EosSessionStepProducesDetectionOutput) {

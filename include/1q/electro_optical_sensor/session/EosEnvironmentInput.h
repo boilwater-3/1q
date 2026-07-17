@@ -1,13 +1,12 @@
 /**
  * @file EosEnvironmentInput.h
- * @brief 定义 EOS 单周期环境输入、模型输入输出类型。
+ * @brief 定义 EOS 单周期环境输入类型。
  */
 
 #ifndef ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_ENVIRONMENT_INPUT_H_
 #define ONEQ_ELECTRO_OPTICAL_SENSOR_SESSION_EOS_ENVIRONMENT_INPUT_H_
 
 #include "1q/api.hpp"
-#include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
 
 namespace electro_optical_sensor {
 namespace session {
@@ -32,27 +31,6 @@ struct ONEQ_API EosEnvironmentInput {
   float ambient_wind_speed_mps{0.0f};
   DayNightType day_night_type{DayNightType::kDay};
   float background_temperature_k{290.0f};
-};
-
-/**
- * @brief EosEnvironmentModelInputs 描述环境模型输入。
- */
-struct ONEQ_API EosEnvironmentModelInputs {
-  float base_aerosol_density_factor{1.0f};
-  float base_turbulence_factor{1.0f};
-  float platform_altitude_m{0.0f};
-  float cloud_coverage_ratio{0.0f};
-  float wind_speed_mps{0.0f};
-  oneq::environment::AtmosphericObservation atmospheric_physics{};
-};
-
-/**
- * @brief EosEnvironmentModelResult 描述环境模型输出。
- */
-struct ONEQ_API EosEnvironmentModelResult {
-  float aerosol_density_factor{1.0f};
-  float turbulence_factor{1.0f};
-  float path_radiance_scale_bias{1.0f};
 };
 
 /**

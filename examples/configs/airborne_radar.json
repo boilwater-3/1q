@@ -1,12 +1,12 @@
 {
   "hardware": {
     "detection": {
-      "enable_physics_detection": true,
+      "enable_physics_detection": false,
       "transmitter": {
         "peak_power_w": 5000000.0,
         "frequency_hz": 9300000000.0,
         "bandwidth_hz": 3000000.0,
-        "pulse_width_s": 1.3e-5,
+        "pulse_width_s": 1.8e-5,
         "prf_hz": 220.0,
         "transmit_loss_db": 3.5
       },
@@ -28,23 +28,16 @@
         "noise_figure_db": 3.0,
         "receive_loss_db": 2.0
       },
-      "detection_policy": {
-        "cfar_pfa": 1.0e-6,
-        "min_snr_db": -12.0
-      },
       "rcs_physics": {
-        "enable_physical_rcs": true,
-        "frequency_hz": 0.0,
-        "physics_mix_ratio": 1.0,
+        "enable_physical_rcs": false,
+        "physics_mix_ratio": 0.0,
         "cylinder_weight": 0.5,
         "min_equivalent_radius_m": 0.05,
         "max_equivalent_radius_m": 5.0,
         "min_rcs_m2": 0.01,
         "max_rcs_m2": 1000.0,
         "bistatic_psi_offset_deg": 5.0
-      },
-      "min_detection_margin_db": -100.0,
-      "pulse_count": 16
+      }
     }
   },
   "mission": {
@@ -62,6 +55,12 @@
     }
   },
   "policy": {
+    "detection": {
+      "minimum_snr_db": -12.0,
+      "pfa": 2.0e-6,
+      "pulse_count": 16,
+      "minimum_detection_margin_db": -100.0
+    },
     "beam_control": {
       "pointing": {
         "nominal_beamwidth_deg": {"commanded_az_beamwidth_deg": 4.0, "commanded_el_beamwidth_deg": 4.0}
@@ -73,7 +72,7 @@
       }
     },
     "association": {
-      "unassigned_cost": 9.0
+      "distance_gate_sigma": 3.0
     },
     "tracking": {
       "enable_kalman_filter": true,

@@ -11,7 +11,7 @@ Authority: build & test infrastructure
 | Workflow | 触发 | Job | 内容 | 阻断 PR |
 |---|---|---|---|---|
 | `ci.yml` | push / PR | **guard** | `-L contract`：17 个架构守护 + 契约测试，编译前先跑 | ✅ |
-| `ci.yml` | push / PR | **build-test** | Debug 构建 + 安装 consumer + `ci_required` + 全量 `unit` 分区 | ✅ |
+| `ci.yml` | push / PR | **build-test** | Debug 库/第一方示例构建 + 安装 consumer + `ci_required` + 全量 `unit` 分区 | ✅ |
 | `nightly.yml` | cron 02:00 + 手动 | **performance** | Release 构建 + 性能/cxx11 兼容 gate | ❌ |
 | `nightly.yml` | cron + 手动 | **flight-dynamic** | FD=ON + JSBSim 数据 + `unit::flight_dynamic` | ❌ |
 | `nightly.yml` | cron + 手动 | **coverage** | 插桩构建 + 覆盖率报告 artifact | ❌ |
@@ -36,7 +36,7 @@ ctest --test-dir build/llvm-ninja-debug-local -L contract --output-on-failure -j
 
 # === build-test job（绿色门禁）===
 bash scripts/bootstrap_conan.sh llvm-ninja-debug
-cmake --preset llvm-ninja-debug
+cmake --preset llvm-ninja-debug -D ENABLE_EXAMPLES=ON
 cmake --build --preset llvm-ninja-debug -j 4
 cmake --install build/llvm-ninja-debug-local
 cmake -S tests/consumer -B build/consumer/llvm-ninja-debug -G Ninja \
