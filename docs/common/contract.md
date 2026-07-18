@@ -251,8 +251,8 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
    sequence、hash、chunk 与 index 状态的 resume 契约，不能复用普通创建入口隐式实现。
 5. Replay I/O 不得把错误伪装成正常结束。Reader 调用方必须可通过
    `ReplayTraceReadStatus` 区分事件、正常 trace 末尾与读取错误；Writer 调用方必须可通过
-   `ReplayTraceWriteStatus` 和 `first_error()` 观察初始化、写入及刷新失败。旧的 bool/void
-   入口仅作为兼容包装。扫描和回放遇到缺失 manifest、缺失首 chunk 或底层读取错误时必须
+   `ReplayTraceWriteStatus` 和 `first_error()` 观察初始化、写入及刷新失败。扫描和回放遇到
+   缺失 manifest、缺失首 chunk 或底层读取错误时必须
    fail closed。
 6. 模块 FlatBuffers codec 只共享无 schema 知识的机械基元：已完成 builder 的字节复制，以及
    字段布局一致的 `FailureMarker` 空值、空 payload、verifier 和共有字段解码保护。schema、DTO

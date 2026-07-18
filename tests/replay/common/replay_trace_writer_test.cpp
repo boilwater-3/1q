@@ -236,8 +236,8 @@ TEST(ReplayTraceWriterTest, DefaultWriterPreservesExistingTraceArtifacts) {
     event.event_type = "cycle_input";
     event.payload_type = "SarCycleInput";
     event.payload_bytes = MakeFlatbuffersPayloadBytes("replacement-input");
-    EXPECT_EQ(writer.WriteEventWithStatus(event), ReplayTraceWriteStatus::kError);
-    EXPECT_EQ(writer.FlushWithStatus(), ReplayTraceWriteStatus::kError);
+    EXPECT_EQ(writer.WriteEvent(event), ReplayTraceWriteStatus::kError);
+    EXPECT_EQ(writer.Flush(), ReplayTraceWriteStatus::kError);
   }
 
   EXPECT_EQ(ReadFile(manifest_path), original_manifest_bytes);
@@ -285,7 +285,7 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
   EXPECT_NE(reader.manifest_json().find("\"trace_id\":\"reader-trace-test\""), std::string::npos);
 
   ReplayTraceReadEvent event;
-  ASSERT_TRUE(reader.ReadNextEvent(&event));
+  ASSERT_EQ(reader.ReadNextEvent(&event), ReplayTraceReadStatus::kEvent);
   EXPECT_EQ(event.sequence, 0U);
   EXPECT_EQ(event.event_type, "session_config");
   EXPECT_EQ(event.payload_type, "ArSessionConfig");
@@ -297,7 +297,7 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
   EXPECT_FALSE(event.event_hash.empty());
   EXPECT_FALSE(event.has_cycle_index);
 
-  ASSERT_TRUE(reader.ReadNextEvent(&event));
+  ASSERT_EQ(reader.ReadNextEvent(&event), ReplayTraceReadStatus::kEvent);
   EXPECT_EQ(event.sequence, 1U);
   EXPECT_EQ(event.event_type, "cycle_input");
   EXPECT_EQ(event.payload_type, "ArCycleInput");
@@ -312,7 +312,7 @@ TEST(ReplayTraceWriterTest, ReaderIteratesEventsAndValidatesPayloadHash) {
   EXPECT_TRUE(event.previous_event_hash_matches);
   EXPECT_FALSE(event.event_hash.empty());
 
-  EXPECT_EQ(reader.ReadNextEventWithStatus(&event), ReplayTraceReadStatus::kEndOfTrace);
+  EXPECT_EQ(reader.ReadNextEvent(&event), ReplayTraceReadStatus::kEndOfTrace);
   EXPECT_TRUE(reader.ok());
   EXPECT_TRUE(reader.first_error().empty());
 }
@@ -326,7 +326,7 @@ TEST(ReplayTraceWriterTest, ReaderMissingTraceDirectoryDoesNotThrow) {
   EXPECT_FALSE(reader.first_error().empty());
 
   ReplayTraceReadEvent event;
-  EXPECT_EQ(reader.ReadNextEventWithStatus(&event), ReplayTraceReadStatus::kError);
+  EXPECT_EQ(reader.ReadNextEvent(&event), ReplayTraceReadStatus::kError);
 }
 
 TEST(ReplayTraceWriterTest, ReaderRestoresBinaryPayloadBytes) {
@@ -360,13 +360,13 @@ TEST(ReplayTraceWriterTest, ReaderRestoresBinaryPayloadBytes) {
 
   ReplayTraceReader reader(trace_dir);
   ReplayTraceReadEvent event;
-  ASSERT_TRUE(reader.ReadNextEvent(&event));
+  ASSERT_EQ(reader.ReadNextEvent(&event), ReplayTraceReadStatus::kEvent);
   EXPECT_EQ(event.payload_encoding, "flatbuffers");
   EXPECT_EQ(event.payload_inline, "null");
   EXPECT_EQ(event.payload_bytes, payload_bytes);
   EXPECT_TRUE(event.payload_hash_matches);
   EXPECT_FALSE(event.payload_hash.empty());
-  EXPECT_FALSE(reader.ReadNextEvent(&event));
+  EXPECT_EQ(reader.ReadNextEvent(&event), ReplayTraceReadStatus::kEndOfTrace);
 }
 
 TEST(ReplayTraceWriterTest, ScanReportsEventCountAndDetectsTampering) {
@@ -523,12 +523,12 @@ TEST(ReplayTraceWriterTest, SplitsEventChunksAndWritesCycleIndex) {
   ReplayTraceReader reader(trace_dir);
   ReplayTraceReadEvent read_event;
   for (std::uint64_t expected = 0U; expected < 5U; ++expected) {
-    ASSERT_TRUE(reader.ReadNextEvent(&read_event));
+    ASSERT_EQ(reader.ReadNextEvent(&read_event), ReplayTraceReadStatus::kEvent);
     EXPECT_EQ(read_event.sequence, expected);
     EXPECT_TRUE(read_event.payload_hash_matches);
     EXPECT_TRUE(read_event.previous_event_hash_matches);
   }
-  EXPECT_FALSE(reader.ReadNextEvent(&read_event));
+  EXPECT_EQ(reader.ReadNextEvent(&read_event), ReplayTraceReadStatus::kEndOfTrace);
 
   const std::string cycle_index = ReadFile(JoinPath(JoinPath(trace_dir, "indexes"), "cycles.idx"));
   EXPECT_NE(cycle_index.find("\"cycle_index\":4"), std::string::npos);

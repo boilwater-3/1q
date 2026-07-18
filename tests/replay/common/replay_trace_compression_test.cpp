@@ -113,7 +113,7 @@ TEST(ReplayTraceCompressionTest, ReaderTransparentlyDecompressesGzChunks) {
   ReplayTraceReader reader(trace_dir);
   std::vector<std::string> read_payloads;
   ReplayTraceReadEvent ev;
-  while (reader.ReadNextEvent(&ev)) {
+  while (reader.ReadNextEvent(&ev) == ReplayTraceReadStatus::kEvent) {
     read_payloads.push_back(ev.payload_bytes);
   }
 

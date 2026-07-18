@@ -898,7 +898,7 @@ ReplayTraceWriter::ReplayTraceWriter(std::string trace_dir, ReplayTraceManifest 
 
 ReplayTraceWriter::~ReplayTraceWriter() = default;
 
-ReplayTraceWriteStatus ReplayTraceWriter::WriteEventWithStatus(const ReplayTraceEvent& event) {
+ReplayTraceWriteStatus ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
   if (!impl_->RotateEventChunkIfNeeded()) {
     return ReplayTraceWriteStatus::kError;
   }
@@ -945,25 +945,12 @@ ReplayTraceWriteStatus ReplayTraceWriter::WriteEventWithStatus(const ReplayTrace
   return ReplayTraceWriteStatus::kSuccess;
 }
 
-void ReplayTraceWriter::WriteEvent(const ReplayTraceEvent& event) {
-  (void)WriteEventWithStatus(event);
-}
-
-void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure) {
-  (void)WriteFailureMarkerWithStatus(failure);
-}
-
-void ReplayTraceWriter::WriteFailureMarker(const ReplayTraceFailure& failure,
-                                           const std::string& payload_bytes) {
-  (void)WriteFailureMarkerWithStatus(failure, payload_bytes);
-}
-
-ReplayTraceWriteStatus ReplayTraceWriter::WriteFailureMarkerWithStatus(
+ReplayTraceWriteStatus ReplayTraceWriter::WriteFailureMarker(
     const ReplayTraceFailure& failure) {
-  return WriteFailureMarkerWithStatus(failure, "");
+  return WriteFailureMarker(failure, "");
 }
 
-ReplayTraceWriteStatus ReplayTraceWriter::WriteFailureMarkerWithStatus(
+ReplayTraceWriteStatus ReplayTraceWriter::WriteFailureMarker(
     const ReplayTraceFailure& failure, const std::string& payload_bytes) {
   const std::uint64_t failure_marker_sequence = impl_->next_sequence;
   const bool has_last_event_sequence = impl_->next_sequence > 0U;
@@ -980,7 +967,7 @@ ReplayTraceWriteStatus ReplayTraceWriter::WriteFailureMarkerWithStatus(
   event.cycle_index = failure.cycle_index;
   event.has_sim_time_sec = failure.has_sim_time_sec;
   event.sim_time_sec = failure.sim_time_sec;
-  if (WriteEventWithStatus(event) == ReplayTraceWriteStatus::kError) {
+  if (WriteEvent(event) == ReplayTraceWriteStatus::kError) {
     return ReplayTraceWriteStatus::kError;
   }
 
@@ -1004,11 +991,9 @@ ReplayTraceWriteStatus ReplayTraceWriter::WriteFailureMarkerWithStatus(
   return ReplayTraceWriteStatus::kSuccess;
 }
 
-ReplayTraceWriteStatus ReplayTraceWriter::FlushWithStatus() {
+ReplayTraceWriteStatus ReplayTraceWriter::Flush() {
   return impl_->Flush() ? ReplayTraceWriteStatus::kSuccess : ReplayTraceWriteStatus::kError;
 }
-
-void ReplayTraceWriter::Flush() { (void)FlushWithStatus(); }
 
 bool ReplayTraceWriter::ok() const { return impl_->writable; }
 
@@ -1134,11 +1119,7 @@ const std::string& ReplayTraceReader::trace_dir() const { return impl_->trace_di
 
 const std::string& ReplayTraceReader::manifest_json() const { return impl_->manifest_json; }
 
-bool ReplayTraceReader::ReadNextEvent(ReplayTraceReadEvent* event) {
-  return ReadNextEventWithStatus(event) == ReplayTraceReadStatus::kEvent;
-}
-
-ReplayTraceReadStatus ReplayTraceReader::ReadNextEventWithStatus(ReplayTraceReadEvent* event) {
+ReplayTraceReadStatus ReplayTraceReader::ReadNextEvent(ReplayTraceReadEvent* event) {
   if (event == nullptr) {
     return impl_->MarkReadFailure("replay trace event output is null");
   }
@@ -1187,7 +1168,7 @@ ReplayTraceScanResult ScanReplayTrace(const std::string& trace_dir) {
   std::uint64_t expected_sequence = 0U;
   ReplayTraceReadEvent event;
   ReplayTraceReadStatus read_status = ReplayTraceReadStatus::kEndOfTrace;
-  while ((read_status = reader.ReadNextEventWithStatus(&event)) == ReplayTraceReadStatus::kEvent) {
+  while ((read_status = reader.ReadNextEvent(&event)) == ReplayTraceReadStatus::kEvent) {
     ++result.event_count;
 
     if (event.sequence != expected_sequence) {
@@ -1286,7 +1267,7 @@ ReplayTraceReplayReport BuildReplayTraceReport(
   ReplayTraceReader reader(trace_dir);
   ReplayTraceReadEvent event;
   ReplayTraceReadStatus read_status = ReplayTraceReadStatus::kEndOfTrace;
-  while ((read_status = reader.ReadNextEventWithStatus(&event)) == ReplayTraceReadStatus::kEvent) {
+  while ((read_status = reader.ReadNextEvent(&event)) == ReplayTraceReadStatus::kEvent) {
     if (event.event_type == "session_config") {
       ++report.session_config_count;
       report.has_session_config = true;
@@ -1354,7 +1335,7 @@ ReplayTracePlaybackResult PlaybackReplayTrace(const std::string& trace_dir,
 
   ReplayTraceReadEvent event;
   ReplayTraceReadStatus read_status = ReplayTraceReadStatus::kEndOfTrace;
-  while ((read_status = reader.ReadNextEventWithStatus(&event)) == ReplayTraceReadStatus::kEvent) {
+  while ((read_status = reader.ReadNextEvent(&event)) == ReplayTraceReadStatus::kEvent) {
     ++result.processed_event_count;
 
     std::string callback_error;

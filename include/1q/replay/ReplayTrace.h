@@ -288,34 +288,15 @@ class ONEQ_API ReplayTraceWriter final {
   ReplayTraceWriter(const ReplayTraceWriter&) = delete;
   ReplayTraceWriter& operator=(const ReplayTraceWriter&) = delete;
 
-  /**
-   * @brief 追加一条事件，必要时滚动到下一个 chunk 文件。
-   * @param[in] event 待写入的事件。
-   */
-  void WriteEvent(const ReplayTraceEvent& event);
-  /**
-   * @brief 写入失败标记，payload 由 failure 内部生成。
-   * @param[in] failure 失败描述。
-   */
-  void WriteFailureMarker(const ReplayTraceFailure& failure);
-  /**
-   * @brief 写入失败标记，并携带显式 payload 字节。
-   * @param[in] failure 失败描述。
-   * @param[in] payload_bytes 失败诊断的 payload 字节。
-   */
-  void WriteFailureMarker(const ReplayTraceFailure& failure, const std::string& payload_bytes);
-  /** @brief 强制刷新所有缓冲到磁盘。 */
-  void Flush();
-
   /** @brief 追加一条事件并返回结构化写入状态。 */
-  ReplayTraceWriteStatus WriteEventWithStatus(const ReplayTraceEvent& event);
+  ReplayTraceWriteStatus WriteEvent(const ReplayTraceEvent& event);
   /** @brief 写入失败标记并返回结构化写入状态。 */
-  ReplayTraceWriteStatus WriteFailureMarkerWithStatus(const ReplayTraceFailure& failure);
+  ReplayTraceWriteStatus WriteFailureMarker(const ReplayTraceFailure& failure);
   /** @brief 写入带 payload 的失败标记并返回结构化写入状态。 */
-  ReplayTraceWriteStatus WriteFailureMarkerWithStatus(const ReplayTraceFailure& failure,
-                                                      const std::string& payload_bytes);
+  ReplayTraceWriteStatus WriteFailureMarker(const ReplayTraceFailure& failure,
+                                            const std::string& payload_bytes);
   /** @brief 刷新所有缓冲并返回结构化写入状态。 */
-  ReplayTraceWriteStatus FlushWithStatus();
+  ReplayTraceWriteStatus Flush();
   /** @return Writer 是否仍可写。 */
   bool ok() const;
   /** @return 首个写入错误；无错误时为空。 */
@@ -355,15 +336,9 @@ class ONEQ_API ReplayTraceReader final {
   /**
    * @brief 读取下一条事件。
    * @param[out] event 输出解析得到的事件。
-   * @return 成功读取返回 true；已到末尾或失败返回 false。
-   */
-  bool ReadNextEvent(ReplayTraceReadEvent* event);
-  /**
-   * @brief 读取下一条事件并区分事件、正常末尾与读取错误。
-   * @param[out] event 输出解析得到的事件。
    * @return 结构化读取状态。
    */
-  ReplayTraceReadStatus ReadNextEventWithStatus(ReplayTraceReadEvent* event);
+  ReplayTraceReadStatus ReadNextEvent(ReplayTraceReadEvent* event);
   /** @return Reader 初始化及最近一次读取是否未失败。 */
   bool ok() const;
   /** @return 首个读取错误；无错误时为空。 */

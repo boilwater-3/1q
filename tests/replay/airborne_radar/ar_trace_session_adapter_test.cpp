@@ -154,7 +154,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
   bool saw_flatbuffer_session_config = false;
   bool saw_flatbuffer_input = false;
   bool saw_flatbuffer_output = false;
-  while (reader.ReadNextEvent(&event)) {
+  while (reader.ReadNextEvent(&event) == oneq::replay::ReplayTraceReadStatus::kEvent) {
     if (event.event_type == "session_config") {
       saw_flatbuffer_session_config = true;
       EXPECT_EQ(event.payload_encoding, "flatbuffers");
@@ -282,7 +282,8 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   bool saw_session_config = false;
   bool saw_runtime_patch = false;
   bool saw_cycle_output = false;
-  while (replay_reader.ReadNextEvent(&replay_event)) {
+  while (replay_reader.ReadNextEvent(&replay_event) ==
+         oneq::replay::ReplayTraceReadStatus::kEvent) {
     if (replay_event.event_type == "session_config") {
       saw_session_config = true;
       EXPECT_EQ(replay_event.payload_type, "ArSessionConfig");
@@ -371,7 +372,8 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionUsesInputCycleIndexForValidationF
   bool saw_cycle_output = false;
   bool saw_cycle_input = false;
   bool saw_failure_marker = false;
-  while (replay_reader.ReadNextEvent(&replay_event)) {
+  while (replay_reader.ReadNextEvent(&replay_event) ==
+         oneq::replay::ReplayTraceReadStatus::kEvent) {
     if (replay_event.event_type == "cycle_input") {
       saw_cycle_input = true;
       EXPECT_TRUE(replay_event.has_cycle_index);
@@ -474,7 +476,8 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionStepWritesResultFailureMarker) {
   oneq::replay::ReplayTraceReadEvent replay_event;
   bool saw_result_output = false;
   bool saw_failure_marker = false;
-  while (replay_reader.ReadNextEvent(&replay_event)) {
+  while (replay_reader.ReadNextEvent(&replay_event) ==
+         oneq::replay::ReplayTraceReadStatus::kEvent) {
     if (replay_event.event_type == "cycle_output") {
       EXPECT_EQ(replay_event.payload_type, "ArCycleResult");
       session::ArCycleResult decoded_result;
@@ -529,7 +532,8 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionConsecutiveStepWithResultDoesNotE
   std::uint32_t input_count = 0U;
   std::uint32_t output_count = 0U;
   std::uint32_t warning_count = 0U;
-  while (replay_reader.ReadNextEvent(&replay_event)) {
+  while (replay_reader.ReadNextEvent(&replay_event) ==
+         oneq::replay::ReplayTraceReadStatus::kEvent) {
     if (replay_event.event_type == "cycle_input") {
       ++input_count;
     }
@@ -676,7 +680,8 @@ TEST(TraceSessionAdapterTest, EsrTraceSessionUsesInputCycleIndexForValidationFai
   oneq::replay::ReplayTraceReadEvent replay_event;
   bool saw_failed_cycle_output = false;
   bool saw_failure_marker = false;
-  while (replay_reader.ReadNextEvent(&replay_event)) {
+  while (replay_reader.ReadNextEvent(&replay_event) ==
+         oneq::replay::ReplayTraceReadStatus::kEvent) {
     if (replay_event.event_type == "cycle_output") {
       session::EsrCycleResult decoded_result;
       ASSERT_TRUE(session::DecodeEsrCycleResult(replay_event.payload_bytes, &decoded_result));
@@ -791,7 +796,8 @@ TEST(TraceSessionAdapterTest, EosTraceSessionUsesInputCycleIndexForValidationFai
   oneq::replay::ReplayTraceReadEvent replay_event;
   bool saw_failed_cycle_output = false;
   bool saw_failure_marker = false;
-  while (replay_reader.ReadNextEvent(&replay_event)) {
+  while (replay_reader.ReadNextEvent(&replay_event) ==
+         oneq::replay::ReplayTraceReadStatus::kEvent) {
     if (replay_event.event_type == "cycle_output") {
       session::EosCycleResult decoded_result;
       ASSERT_TRUE(session::DecodeEosCycleResult(replay_event.payload_bytes, &decoded_result));
