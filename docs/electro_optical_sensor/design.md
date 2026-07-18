@@ -1,7 +1,7 @@
 # Electro Optical Sensor 当前设计
 
 Status: active
-Last-reviewed: 2026-06-27
+Last-reviewed: 2026-07-18
 Authority: current electro_optical_sensor module design
 
 本文描述 `electro_optical_sensor` 当前架构、数据流和算法边界。跨模块 public API、builder、输出三层模型等共同规则见 `docs/common/contract.md`。
@@ -378,6 +378,12 @@ EOS 的检测判定不是简单的“信号大于阈值”。噪声和成像质�
 - 杂散光：太阳-目标夹角越小，污染越强；遮光罩和云量会调节抑制结果。
 
 这些算法位于 foundation 层，测试可以直接覆盖，但它们不是 public customization surface。外部用户只能通过硬件、任务、策略、环境和输入影响这些模型。
+
+`detector_area_cm2` 的厘米制单位与 `detector_detectivity_cm_sqrt_hz_per_w` 的 D* 量纲绑定，二者直接进入
+NEP 计算；它不是与 SBIRS `detector_area_m2` 可机械互换的同义字段。公开名称必须保留 `_cm2` 后缀，
+避免调用方把 m² 数值直接复制进来造成四个数量级误差。
+[evidence: tests/unit/electro_optical_sensor/eos_foundation_test.cpp::EosFoundationTest.NepModelProducesReasonableSnrEvaluation]
+[evidence: tests/contract/check_cross_domain_naming.cmake]
 
 ### 2.8 融合、检测记录和仿真归属
 
