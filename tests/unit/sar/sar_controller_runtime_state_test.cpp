@@ -201,6 +201,31 @@ TEST(SarControllerRuntimeStateTest, PlatformInputOwnsGeneratedTrajectoryKinemati
   EXPECT_NEAR(second_cycle_first->position_m.y_m, 5.0, 1.0e-6);
 }
 
+TEST(SarControllerRuntimeStateTest, ZeroPlatformVelocityMeansStationary) {
+  config::SarSessionConfig config = MakeSmallRdaConfig();
+  config.policy.enable_l1_rda_imaging = false;
+  config.policy.enable_range_compression = false;
+  pipeline::SarProcessingPipeline pipeline(config);
+  SarController controller(pipeline, config);
+
+  session::SarCycleInput input = MakeInput(62U);
+  input.platform.time_s = 12.0;
+  controller.RunOnce(input);
+  const session::SarCycleResult result = controller.BuildCycleResult(input);
+  ASSERT_TRUE(result.executed_this_cycle) << result.abort_reason;
+
+  const pipeline::SarProcessingPipelineRuntimeState state = pipeline.CaptureRuntimeState();
+  ASSERT_GE(state.actual_trajectory_buffer.size(), 2U);
+  const geometry::PlatformPulseState& first = state.actual_trajectory_buffer.front();
+  const geometry::PlatformPulseState& last = state.actual_trajectory_buffer.back();
+  EXPECT_DOUBLE_EQ(first.velocity_x_mps, 0.0);
+  EXPECT_DOUBLE_EQ(first.velocity_y_mps, 0.0);
+  EXPECT_DOUBLE_EQ(first.velocity_z_mps, 0.0);
+  EXPECT_DOUBLE_EQ(last.position_m.x_m, first.position_m.x_m);
+  EXPECT_DOUBLE_EQ(last.position_m.y_m, first.position_m.y_m);
+  EXPECT_DOUBLE_EQ(last.position_m.z_m, first.position_m.z_m);
+}
+
 }  // namespace
 }  // namespace extension
 }  // namespace sar

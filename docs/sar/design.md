@@ -384,13 +384,14 @@ external raw IQ 已位于接收机之后，session 不得再次施加上述链�
 内部轨迹分层：
 
 - L1：`SarCycleInput.platform` 的本周期 LLA、时间、NED 速度和姿态是匀速直线轨迹的
-  authority；显式推进的输入位置不得再叠加全局 pulse ID 位移。三轴速度全零时为兼容旧调用方
-  才使用 mission 标称东向速度；输入时间未推进时才从上一脉冲连续外推。
+  authority；显式推进的输入位置不得再叠加全局 pulse ID 位移，三轴速度全零明确表示静止；
+  输入时间未推进时才从上一脉冲连续外推。
 - L2：沿用同一 input-owned ideal 轨迹，在其上叠加确定性速度扰动，保留 ideal/actual 轨迹对。
 - L3：显式时间航路点拥有位置 authority，BP 使用 waypoint actual 轨迹逐脉冲聚焦；当前周期
   input 姿态仍随 pulse state 保存，不再从另一份内部配置派生。
 
 [evidence: tests/unit/sar/sar_controller_runtime_state_test.cpp::PlatformInputOwnsGeneratedTrajectoryKinematics]
+[evidence: tests/unit/sar/sar_controller_runtime_state_test.cpp::ZeroPlatformVelocityMeansStationary]
 
 坐标边界：
 

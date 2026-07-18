@@ -187,13 +187,6 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
   track_config.velocity_x_mps = input.platform.velocity_east_mps;
   track_config.velocity_y_mps = input.platform.velocity_north_mps;
   track_config.velocity_z_mps = -input.platform.velocity_down_mps;
-  const double input_speed_squared =
-      track_config.velocity_x_mps * track_config.velocity_x_mps +
-      track_config.velocity_y_mps * track_config.velocity_y_mps +
-      track_config.velocity_z_mps * track_config.velocity_z_mps;
-  if (input_speed_squared == 0.0) {
-    track_config.velocity_x_mps = config.mission.platform_speed_mps;
-  }
   track_config.roll_deg = input.platform.roll_deg;
   track_config.pitch_deg = input.platform.pitch_deg;
   track_config.yaw_deg = input.platform.yaw_deg;
