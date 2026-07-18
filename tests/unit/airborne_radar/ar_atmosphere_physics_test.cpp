@@ -5,6 +5,9 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+
+#include "1q/environment/PropagationPhysics.h"
 #include "common/atmosphere/AtmospherePhysics.h"
 
 namespace oneq {
@@ -39,6 +42,43 @@ TEST(AtmospherePhysicsTest, RefractivityIndexRemainsAboveUnity) {
   const float n_surface = refractivity_index_nh_r4(n_r4, 0.0f, 7350.0f);
   const float n_upper = refractivity_index_nh_r4(n_r4, 5000.0f, 7350.0f);
   EXPECT_GT(n_surface, n_upper);
+}
+
+TEST(AtmospherePhysicsTest, LegacyPublicRefractivitySilentlyAcceptsMismatchedTemperatureScales) {
+  const float consistent = oneq::environment::RefractivityIndex(
+      20.0f, 293.15f, 900.0f, 1013.25f, 0.65f, 0);
+  const float mismatched = oneq::environment::RefractivityIndex(
+      20.0f, 20.0f, 900.0f, 1013.25f, 0.65f, 0);
+  EXPECT_TRUE(std::isfinite(mismatched));
+  EXPECT_NE(mismatched, consistent);
+}
+
+TEST(AtmospherePhysicsTest, TypedPublicRefractivityMatchesLegacyForConsistentTemperaturePair) {
+  oneq::environment::RefractivityInputs inputs;
+  inputs.temperature.celsius = 20.0f;
+  inputs.temperature.kelvin = 293.15f;
+  inputs.partial_pressure_hpa = 900.0f;
+  inputs.total_pressure_hpa = 1013.25f;
+  inputs.relative_humidity = 0.65f;
+
+  float typed = 0.0f;
+  ASSERT_TRUE(oneq::environment::TryRefractivityIndex(inputs, &typed));
+  EXPECT_FLOAT_EQ(typed, oneq::environment::RefractivityIndex(
+                             20.0f, 293.15f, 900.0f, 1013.25f, 0.65f, 0));
+}
+
+TEST(AtmospherePhysicsTest, TypedPublicRefractivityRejectsMismatchedTemperaturePairAtomically) {
+  oneq::environment::RefractivityInputs inputs;
+  inputs.temperature.celsius = 20.0f;
+  inputs.temperature.kelvin = 20.0f;
+  inputs.partial_pressure_hpa = 900.0f;
+  inputs.total_pressure_hpa = 1013.25f;
+  inputs.relative_humidity = 0.65f;
+
+  float output = 7.0f;
+  EXPECT_FALSE(oneq::environment::TryRefractivityIndex(inputs, &output));
+  EXPECT_FLOAT_EQ(output, 7.0f);
+  EXPECT_FALSE(oneq::environment::TryRefractivityIndex(inputs, nullptr));
 }
 
 TEST(AtmospherePhysicsTest, Gtd7DensityDecaysWithAltitude) {

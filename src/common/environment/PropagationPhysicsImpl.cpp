@@ -6,6 +6,8 @@
 #include "1q/environment/AtmosphericTypes.h"
 #include "1q/environment/PropagationPhysics.h"
 
+#include <cmath>
+
 #include "common/atmosphere/AtmospherePhysics.h"
 
 namespace oneq {
@@ -103,6 +105,33 @@ float BlakeAtmosphericLoss(float altitude_m, float frequency_hz,
                            float elevation_deg, float range_m, float k_factor) {
   return common::atmosphere::blake_atmos_loss_r4_1(
       altitude_m, frequency_hz, elevation_deg, range_m, k_factor);
+}
+
+bool TryRefractivityIndex(const RefractivityInputs& inputs, float* refractivity_index) {
+  constexpr float kKelvinOffset = 273.15f;
+  constexpr float kTemperatureConsistencyToleranceK = 0.05f;
+  const float expected_kelvin = inputs.temperature.celsius + kKelvinOffset;
+  if (refractivity_index == nullptr || !std::isfinite(inputs.temperature.celsius) ||
+      !std::isfinite(inputs.temperature.kelvin) || inputs.temperature.kelvin <= 0.0f ||
+      std::fabs(inputs.temperature.kelvin - expected_kelvin) >
+          kTemperatureConsistencyToleranceK ||
+      !std::isfinite(inputs.partial_pressure_hpa) || inputs.partial_pressure_hpa < 0.0f ||
+      !std::isfinite(inputs.total_pressure_hpa) || inputs.total_pressure_hpa < 0.0f ||
+      !std::isfinite(inputs.relative_humidity) || inputs.relative_humidity < 0.0f ||
+      inputs.relative_humidity > 1.0f ||
+      (inputs.water_or_ice != 0 && inputs.water_or_ice != 1)) {
+    return false;
+  }
+
+  const float candidate = common::atmosphere::refractivity_index_n_r4(
+      inputs.temperature.celsius, inputs.temperature.kelvin,
+      inputs.partial_pressure_hpa, inputs.total_pressure_hpa,
+      inputs.relative_humidity, inputs.water_or_ice);
+  if (!std::isfinite(candidate)) {
+    return false;
+  }
+  *refractivity_index = candidate;
+  return true;
 }
 
 float RefractivityIndex(float tc_celsius, float tk_kelvin, float pd_hpa,

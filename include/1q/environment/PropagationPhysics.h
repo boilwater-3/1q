@@ -82,7 +82,35 @@ ONEQ_API float BlakeAtmosphericLoss(float altitude_m, float frequency_hz,
                                     float elevation_deg, float range_m, float k_factor);
 
 /**
- * @brief REOS 对齐入口：折射率 n（单精度，转发到内部 r4 实现）。
+ * @brief 同一热力学温度的摄氏/开氏成对表示。
+ * @note `TryRefractivityIndex` 校验两者满足 kelvin ≈ celsius + 273.15。
+ */
+struct ONEQ_API RefractivityTemperaturePair {
+  float celsius{15.0f}; /**< 摄氏温度（单位：°C） */
+  float kelvin{288.15f}; /**< 开氏温度（单位：K） */
+};
+
+/** @brief 强类型折射率输入，避免六个裸标量的温标位置混淆。 */
+struct ONEQ_API RefractivityInputs {
+  RefractivityTemperaturePair temperature{}; /**< 同一温度的成对温标 */
+  float partial_pressure_hpa{0.0f};           /**< REOS `pd` 分压参数（hPa） */
+  float total_pressure_hpa{1013.25f};         /**< 总气压（hPa） */
+  float relative_humidity{0.5f};              /**< 相对湿度 [0, 1] */
+  int water_or_ice{0};                        /**< 0=水，1=冰 */
+};
+
+/**
+ * @brief 校验强类型输入并计算大气折射率 n。
+ * @param[in] inputs 强类型折射率输入。
+ * @param[out] refractivity_index 成功时写入折射率；失败时保持原值。
+ * @return 温标一致、其余标量合法且计算结果有限时返回 true，否则返回 false。
+ */
+ONEQ_API bool TryRefractivityIndex(const RefractivityInputs& inputs,
+                                   float* refractivity_index);
+
+/**
+ * @brief REOS 对齐兼容入口：折射率 n（单精度，转发到内部 r4 实现）。
+ * @note 保留历史六标量数值语义；新代码应使用 `TryRefractivityIndex`。
  * @param[in] tc_celsius 摄氏温度（单位：°C）。
  * @param[in] tk_kelvin 开氏温度（单位：K）。
  * @param[in] pd_hpa 水汽分压（单位：hPa）。
