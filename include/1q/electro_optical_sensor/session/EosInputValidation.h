@@ -33,7 +33,6 @@ enum class ONEQ_API ValidationCode {
   kInvalidCloudCoverageRatio,       /**< 云量非法（不在 [0, 1]） */
   kInvalidAmbientWindSpeed,         /**< 环境风速非法（非有限值或 < 0） */
   kInvalidBackgroundTemperature,    /**< 背景温度非法（<= 0） */
-  kInvalidTargetId,                 /**< 保留兼容：当前 public DTO 不再因 target_id == 0 报错 */
   kNonFiniteTargetNumericField,     /**< 目标存在非有限值字段 */
   kInvalidTargetRange,              /**< 目标斜距非法（<= 0） */
   kInvalidTargetTemperature,        /**< 目标温度非法（<= 0） */

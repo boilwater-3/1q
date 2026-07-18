@@ -167,7 +167,6 @@ TEST(EosInputValidationTest, ZeroTargetIdDoesNotProduceValidationError) {
   input.scene[0].target_id = 0U;
 
   const ValidationIssueList issues = ValidateEosCycleInput(input);
-  EXPECT_FALSE(ContainsCode(issues, ValidationCode::kInvalidTargetId));
   EXPECT_FALSE(HasValidationError(issues));
 }
 

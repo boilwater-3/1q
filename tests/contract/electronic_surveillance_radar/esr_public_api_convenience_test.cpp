@@ -260,7 +260,6 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) 
   EXPECT_TRUE(ContainsEsrIssueCode(issues, session::ValidationCode::kInvalidCycleDeltaTime));
   EXPECT_TRUE(
       ContainsEsrIssueCode(issues, session::ValidationCode::kNonFinitePlatformNumericField));
-  EXPECT_FALSE(ContainsEsrIssueCode(issues, session::ValidationCode::kEmptyEmitterId));
   EXPECT_TRUE(session::HasValidationError(issues));
 }
 

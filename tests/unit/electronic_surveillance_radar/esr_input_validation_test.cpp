@@ -326,7 +326,6 @@ TEST(EsrInputValidationTest, ZeroEmitterIdDoesNotProduceValidationError) {
   input.scene.push_back(emitter);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
-  EXPECT_FALSE(ContainsCode(issues, ValidationCode::kEmptyEmitterId));
   EXPECT_FALSE(HasValidationError(issues));
 }
 
