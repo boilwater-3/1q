@@ -21,7 +21,10 @@ enum class ONEQ_API SbirsWorkMode { kStandby = 0, kWideSearch, kSearchAndStare }
  */
 struct ONEQ_API SbirsMissionConfig {
   SbirsWorkMode work_mode{SbirsWorkMode::kSearchAndStare}; /**< 传感器工作模式 */
-  bool sensor_enabled{true};                               /**< 传感器是否开启 */
+  union {
+    bool power_on{true};   /**< 传感器是否开启；mission 四域主名称 */
+    bool sensor_enabled;   /**< 兼容别名：与 power_on 共享同一存储 */
+  };
   float wide_field_fov_az_deg{20.0f};                      /**< WFOV 方位视场（FOV），单位 deg */
   float wide_field_fov_el_deg{20.0f};                      /**< WFOV 俯仰视场（FOV），单位 deg */
   float narrow_field_fov_az_deg{2.0f};                     /**< NFOV 方位视场（IFOV），单位 deg */

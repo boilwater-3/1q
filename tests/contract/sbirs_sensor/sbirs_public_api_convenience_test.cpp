@@ -98,6 +98,18 @@ TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
   EXPECT_EQ(config.environment.weather_type, config::SbirsWeatherType::kRain);
 }
 
+TEST(SbirsPublicApiConvenienceTest, MissionPowerNameKeepsLegacyAliasOnSameStorage) {
+  config::SbirsMissionConfig mission;
+  EXPECT_TRUE(mission.power_on);
+  EXPECT_TRUE(mission.sensor_enabled);
+
+  mission.sensor_enabled = false;
+  EXPECT_FALSE(mission.power_on);
+  mission.power_on = true;
+  EXPECT_TRUE(mission.sensor_enabled);
+  EXPECT_EQ(&mission.power_on, &mission.sensor_enabled);
+}
+
 TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreAllUnset) {
   // 默认 Build() 后所有 has_* flag 应为 false（无变更请求）。
   const config::SbirsRuntimeConfigPatch patch = sbirs_config::SbirsRuntimeConfigBuilder().Build();

@@ -32,7 +32,7 @@ SbirsRuntimeConfigResolution ResolveSbirsRuntimeConfigPatch(
     resolution.resolved_config.mission.scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
   }
   if (patch.has_sensor_enabled) {
-    resolution.resolved_config.mission.sensor_enabled = patch.sensor_enabled;
+    resolution.resolved_config.mission.power_on = patch.sensor_enabled;
   }
   resolution.is_valid = config::ValidateSbirsSessionConfig(resolution.resolved_config).empty();
   return resolution;

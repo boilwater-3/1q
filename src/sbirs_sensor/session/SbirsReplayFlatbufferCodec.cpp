@@ -152,7 +152,7 @@ void DecodeHardwareConfig(const sbirs::replay::SbirsHardwareConfig* fb,
 flatbuffers::Offset<sbirs::replay::SbirsMissionConfig> EncodeMissionConfig(
     flatbuffers::FlatBufferBuilder& fbb, const config::SbirsMissionConfig& value) {
   return sbirs::replay::CreateSbirsMissionConfig(
-      fbb, static_cast<std::int32_t>(value.work_mode), value.sensor_enabled,
+      fbb, static_cast<std::int32_t>(value.work_mode), value.power_on,
       value.wide_field_fov_az_deg, value.wide_field_fov_el_deg, value.narrow_field_fov_az_deg,
       value.narrow_field_fov_el_deg, value.scan_start_az_deg, value.scan_end_az_deg,
       value.scan_center_el_deg, value.scan_rate_deg_per_sec, value.min_range_m, value.max_range_m,
@@ -166,7 +166,7 @@ void DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
     return;
   }
   out->work_mode = static_cast<config::SbirsWorkMode>(fb->work_mode());
-  out->sensor_enabled = fb->sensor_enabled();
+  out->power_on = fb->sensor_enabled();
   out->wide_field_fov_az_deg = fb->wide_field_fov_az_deg();
   out->wide_field_fov_el_deg = fb->wide_field_fov_el_deg();
   out->narrow_field_fov_az_deg = fb->narrow_field_fov_az_deg();
