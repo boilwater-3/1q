@@ -290,6 +290,8 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
   config.hardware.el_scan_range_deg = 20.0f;
   config.mission.power_on = true;
   config.mission.work_mode = esr::config::EsrWorkMode::kEsm;
+  // 1 s 场景步长下使用 10 s 完整扫描周期，避免 1 Hz 默认值每帧恰好回到起始波束。
+  config.mission.scan.scan_rate_hz = 0.1f;
   config.policy.detection.minimum_snr_db = 6.0f;
   config.policy.detection.enable_statistical_detection = true;
   return config;

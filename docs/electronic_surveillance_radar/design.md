@@ -311,6 +311,11 @@ pipeline 持有归一化扫描相位 `[0, 1)`：本周期先用 `floor(phase × 
 [evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test.cpp]
 [evidence: tests/unit/electronic_surveillance_radar/esr_session_config_builder_test.cpp]
 
+该标量 pipeline 每个 `Step` 只判定当前相位对应的一个波束，不在单周期内积分连续扫过的全部驻留。
+因此 `scan_rate_hz × dt` 为整数时，相位会按物理周期回到同一点；需要观察完整扫描覆盖的场景必须选择
+能够解析扫描相位的步长/速率组合，不能依赖 cycle index 隐式轮转波束。
+[evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp::MultiModelScenarioTest.AirToAirHeadOn]
+
 扫描窗口有两种互斥解释方式：
 
 - `use_explicit_scan_bounds=true` 时，四个显式起止角必须全部有限，并分别满足
