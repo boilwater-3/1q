@@ -297,11 +297,10 @@ flowchart TB
 
 ### 2.6 运行期配置与状态边界
 
-环境域以 `EsrEnvironmentScenarioConfig` 作为当前唯一公开 DTO 权威；
-`EsrEnvironmentModelConfig` 是兼容别名，`BuildModelConfigFromScenario()` 保留为恒等边界函数。
-由于当前没有执行态专属环境字段，不维护字段完全相同的第二套公开 struct；未来若有真实运行路径需要，
-应新增内部执行配置并以测试证明非恒等映射。
-[evidence: tests/contract/electronic_surveillance_radar/esr_environment_config_contract_test.cpp::EsrEnvironmentConfigContractTest.ModelConfigAliasesScenarioUntilExecutionFieldsDiverge]
+环境域以 `EsrEnvironmentScenarioConfig` 作为唯一公开 DTO 权威，环境服务直接消费该类型。当前运行路径
+没有 execution-only 字段，因此不得维护同型公开 Model 类型或恒等 mapper；只有先证明存在执行态专属
+字段时，才可新增内部执行配置和显式映射。
+[evidence: tests/contract/electronic_surveillance_radar/esr_environment_config_contract_test.cpp::EsrEnvironmentConfigContractTest.DefaultConfigOwnsScenarioConfig]
 
 `scan_rate_hz` 的单位不是波束更新率或角速度，而是**每秒完成的完整二维 scan pattern 循环数**。
 pipeline 持有归一化扫描相位 `[0, 1)`：本周期先用 `floor(phase × pattern_size)` 选择波束，再累加

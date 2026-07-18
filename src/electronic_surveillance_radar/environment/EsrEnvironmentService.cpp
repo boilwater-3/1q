@@ -9,11 +9,10 @@
 namespace electronic_surveillance_radar {
 namespace environment {
 
-using config::BuildModelConfigFromScenario;
 using config::EsrAtmosphericDerivedContext;
 using config::EsrAtmosphericPhysicsConfig;
 using config::EsrEnvironmentConfig;
-using config::EsrEnvironmentModelConfig;
+using config::EsrEnvironmentScenarioConfig;
 using config::EsrEnvironmentScenarioConfig;
 using session::EsrAtmosphericObservation;
 using session::EsrClutterDensityLevel;
@@ -53,7 +52,7 @@ float ResolveWeatherLossDb(const session::EsrAtmosphericObservation& observation
 }
 
 float ResolveClutterNoiseW(const session::EsrEnvironmentInput& observation,
-                           const config::EsrEnvironmentModelConfig& config) {
+                           const config::EsrEnvironmentScenarioConfig& config) {
   float reference_noise = 1.0e-12f;
   switch (config.preset) {
     case config::EsrEnvironmentPreset::kLowClutter:
@@ -79,7 +78,7 @@ float ResolveClutterNoiseW(const session::EsrEnvironmentInput& observation,
   }
 }
 
-float ResolveJammingDetectionThresholdW(const config::EsrEnvironmentModelConfig& config) {
+float ResolveJammingDetectionThresholdW(const config::EsrEnvironmentScenarioConfig& config) {
   switch (config.preset) {
     case config::EsrEnvironmentPreset::kLowClutter:
       return 8.0e-10f;
@@ -116,7 +115,7 @@ EsrJammerSource NormalizeJammerSource(const EsrJammerSource& raw_source) {
  * @return 冻结环境快照。
  */
 session::EsrEnvironmentSnapshot BuildSnapshot(const session::EsrEnvironmentCycleContext& cycle_context,
-                                     const config::EsrEnvironmentModelConfig& config) {
+                                     const config::EsrEnvironmentScenarioConfig& config) {
   session::EsrEnvironmentSnapshot snapshot;
   snapshot.cycle_index = cycle_context.cycle_index;
   snapshot.dt_sec = cycle_context.dt_sec;
@@ -180,7 +179,7 @@ session::EsrEnvironmentSnapshot BuildSnapshot(const session::EsrEnvironmentCycle
 
 }  // namespace
 
-EsrEnvironmentService::EsrEnvironmentService(config::EsrEnvironmentModelConfig config) : config_(config) {}
+EsrEnvironmentService::EsrEnvironmentService(config::EsrEnvironmentScenarioConfig config) : config_(config) {}
 
 void EsrEnvironmentService::BeginCycle(const session::EsrEnvironmentCycleContext& cycle_context) {
   frozen_snapshot_ = BuildSnapshot(cycle_context, config_);
@@ -188,7 +187,7 @@ void EsrEnvironmentService::BeginCycle(const session::EsrEnvironmentCycleContext
 
 session::EsrEnvironmentSnapshot EsrEnvironmentService::SampleEnvironment() const { return frozen_snapshot_; }
 
-void EsrEnvironmentService::UpdateModelConfig(config::EsrEnvironmentModelConfig config) {
+void EsrEnvironmentService::UpdateModelConfig(config::EsrEnvironmentScenarioConfig config) {
   config_ = config;
 }
 

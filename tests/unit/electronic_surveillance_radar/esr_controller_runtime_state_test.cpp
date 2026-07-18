@@ -47,7 +47,7 @@ class StubEnvironmentService final : public environment::IEsrEnvironmentService 
   session::EsrEnvironmentSnapshot SampleEnvironment() const override {
     return session::EsrEnvironmentSnapshot{};
   }
-  void UpdateModelConfig(config::EsrEnvironmentModelConfig) override {}
+  void UpdateModelConfig(config::EsrEnvironmentScenarioConfig) override {}
 };
 
 session::EsrCycleInput MakeValidInput(std::uint32_t cycle_index) {

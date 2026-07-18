@@ -67,7 +67,7 @@ TEST(EsrEnvironmentServiceTest, UnknownTechniqueWithZeroRiskInfersSuppressionOnl
 TEST(EsrEnvironmentServiceTest, DeceptionOnlySourceDoesNotTriggerSuppressionDetection) {
   config::EsrEnvironmentScenarioConfig scenario;
   scenario.preset = config::EsrEnvironmentPreset::kJammed;
-  config::EsrEnvironmentModelConfig model_config = BuildModelConfigFromScenario(scenario);
+  config::EsrEnvironmentScenarioConfig model_config = scenario;
   EsrEnvironmentService service(model_config);
 
   session::EsrEnvironmentCycleContext context;
@@ -120,7 +120,7 @@ TEST(EsrEnvironmentServiceTest, ConfigAtmosphericPhysicsAppliesWhenSceneDoesNotO
   config::EsrEnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
   scenario.atmospheric_physics.relative_humidity = 0.75f;
-  config::EsrEnvironmentModelConfig model_config = BuildModelConfigFromScenario(scenario);
+  config::EsrEnvironmentScenarioConfig model_config = scenario;
   EsrEnvironmentService service(model_config);
 
   session::EsrEnvironmentCycleContext context;
@@ -164,11 +164,11 @@ TEST(EsrEnvironmentServiceTest, AtmosphericContextCanChangePropagationLoss) {
   context.observation.atmospheric_observation.precipitation_rate_mmph = 0.0f;
   context.observation.atmospheric_observation.visibility_km = 30.0f;
 
-  EsrEnvironmentService baseline_service(BuildModelConfigFromScenario(baseline_scenario));
+  EsrEnvironmentService baseline_service(baseline_scenario);
   baseline_service.BeginCycle(context);
   const session::EsrEnvironmentSnapshot baseline_snapshot = baseline_service.SampleEnvironment();
 
-  EsrEnvironmentService stressed_service(BuildModelConfigFromScenario(stressed_scenario));
+  EsrEnvironmentService stressed_service(stressed_scenario);
   stressed_service.BeginCycle(context);
   const session::EsrEnvironmentSnapshot stressed_snapshot = stressed_service.SampleEnvironment();
 
