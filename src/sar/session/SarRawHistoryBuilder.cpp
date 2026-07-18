@@ -456,6 +456,9 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   echo_config.sample_rate_hz = config.hardware.sample_rate_hz;
   echo_config.carrier_frequency_hz = config.hardware.carrier_frequency_hz;
   echo_config.range_sample_count = config.mission.range_sample_count;
+  echo_config.atmospheric_loss_db_per_km = config.environment.atmospheric_loss_db_per_km;
+  echo_config.enable_atmospheric_attenuation =
+      config.environment.enable_atmospheric_attenuation;
 
   // 逐目标几何一致性检查：nominal_slant_range_m 不参与回波接收窗口定时（定时用真实
   // 几何距离，见 SarEcho.cpp），它只是 RDA 参考聚焦距离。但若实际斜距与标称值严重错配，

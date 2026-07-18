@@ -191,6 +191,8 @@ TEST(SarSessionPipelineTest, RetainedInternalRawPhaseHistoryReturnsCompleteApert
 TEST(SarSessionPipelineTest, RetainedExternalRawPhaseHistoryIsExactInputIq) {
   config::SarSessionConfig config = MakeSmallRdaConfig();
   config.policy.retain_raw_phase_history = true;
+  config.environment.enable_atmospheric_attenuation = true;
+  config.environment.atmospheric_loss_db_per_km = 1000.0;
   const session::SarCycleInput input = MakeExternalRawIqInput();
   const session::SarCycleResult result =
       session::SarSession::Create(config).StepWithResult(input);
@@ -413,6 +415,26 @@ TEST(SarSessionPipelineTest, HardwareLinkBudgetControlsInternalRawEchoSnr) {
   higher_noise_figure.receiver_noise_figure_db += 10.0;
   EXPECT_LT(run_with(higher_noise_figure).output_frame.estimated_snr_db,
             reference.output_frame.estimated_snr_db - 9.9);
+}
+
+TEST(SarSessionPipelineTest, AtmosphericAttenuationAppliesTwoWayLossToInternalEcho) {
+  config::SarSessionConfig reference_config = MakeSmallRdaConfig();
+  reference_config.policy.minimum_snr_db = -1000.0;
+  const session::SarCycleResult reference =
+      session::SarSession::Create(reference_config).StepWithResult(MakeInput());
+  ASSERT_TRUE(reference.executed_this_cycle);
+
+  config::SarSessionConfig attenuated_config = reference_config;
+  attenuated_config.environment.enable_atmospheric_attenuation = true;
+  attenuated_config.environment.atmospheric_loss_db_per_km = 100.0;
+  const session::SarCycleResult attenuated =
+      session::SarSession::Create(attenuated_config).StepWithResult(MakeInput());
+  ASSERT_TRUE(attenuated.executed_this_cycle);
+
+  // 目标斜距约 30 m；100 dB/km 的单程比损耗应在双程造成约 6 dB SNR 下降。
+  EXPECT_NEAR(reference.output_frame.estimated_snr_db -
+                  attenuated.output_frame.estimated_snr_db,
+              6.0, 0.1);
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqDoesNotReapplyHardwareOrSnrGate) {

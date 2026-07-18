@@ -46,6 +46,8 @@ struct RawEchoConfig {
   double sample_rate_hz{0.0};
   double carrier_frequency_hz{0.0};
   std::size_t range_sample_count{0U};
+  double atmospheric_loss_db_per_km{0.0}; /**< 单程大气比损耗（dB/km） */
+  bool enable_atmospheric_attenuation{false}; /**< 是否按目标双程斜距施加大气衰减 */
 };
 
 /**

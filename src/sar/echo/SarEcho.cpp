@@ -17,7 +17,18 @@ constexpr double kFractionalDelayThreshold = 1e-12;
 bool IsValid(const RawEchoConfig& config, const signal::ComplexVector& transmit_waveform) {
   return config.sample_rate_hz > 0.0 && std::isfinite(config.sample_rate_hz) &&
          config.carrier_frequency_hz > 0.0 && std::isfinite(config.carrier_frequency_hz) &&
-         config.range_sample_count > 0U && !transmit_waveform.empty();
+         config.range_sample_count > 0U &&
+         config.atmospheric_loss_db_per_km >= 0.0 &&
+         std::isfinite(config.atmospheric_loss_db_per_km) && !transmit_waveform.empty();
+}
+
+double AtmosphericAmplitudeScale(const RawEchoConfig& config, double slant_range_m) {
+  if (!config.enable_atmospheric_attenuation) {
+    return 1.0;
+  }
+  const double two_way_loss_db =
+      2.0 * config.atmospheric_loss_db_per_km * slant_range_m / 1000.0;
+  return std::pow(10.0, -two_way_loss_db / 20.0);
 }
 
 }  // namespace
@@ -48,7 +59,9 @@ bool GeneratePointTargetRawEcho(const RawEchoConfig& config,
         static_cast<std::size_t>(std::llround(delay_samples));
     const double fractional_delay = delay_samples - static_cast<double>(delay_sample_index);
 
-    const double amplitude = std::sqrt(target.rcs_m2) / (slant_range_m * slant_range_m);
+    const double amplitude = std::sqrt(target.rcs_m2) /
+                             (slant_range_m * slant_range_m) *
+                             AtmosphericAmplitudeScale(config, slant_range_m);
     const double phase = -4.0 * kPi * slant_range_m / wavelength_m;
     const signal::ComplexSample propagation(amplitude * std::cos(phase),
                                             amplitude * std::sin(phase));
@@ -145,6 +158,7 @@ bool GeneratePointTargetRawEchoWithAntenna(const RawEchoConfig& config,
 
     double amplitude = std::sqrt(target.rcs_m2) / (slant_range_m * slant_range_m);
     amplitude *= amplitude_weight;
+    amplitude *= AtmosphericAmplitudeScale(config, slant_range_m);
     const double phase = -4.0 * kPi * slant_range_m / wavelength_m;
     const signal::ComplexSample propagation(amplitude * std::cos(phase),
                                             amplitude * std::sin(phase));
@@ -252,7 +266,9 @@ bool GeneratePointTargetRawEchoWithElevationGate(
       continue;
     }
 
-    const double amplitude = std::sqrt(target.rcs_m2) / (slant_range_m * slant_range_m);
+    const double amplitude = std::sqrt(target.rcs_m2) /
+                             (slant_range_m * slant_range_m) *
+                             AtmosphericAmplitudeScale(config, slant_range_m);
     const double phase = -4.0 * kPi * slant_range_m / wavelength_m;
     const signal::ComplexSample propagation(amplitude * std::cos(phase),
                                             amplitude * std::sin(phase));
@@ -437,7 +453,9 @@ bool GenerateClutterScene(const RawEchoConfig& config,
           static_cast<std::size_t>(std::llround(delay_samples));
       const double fractional_delay = delay_samples - static_cast<double>(delay_sample_index);
 
-      const double amplitude = std::sqrt(rcs) / (slant_range_m * slant_range_m);
+      const double amplitude = std::sqrt(rcs) /
+                               (slant_range_m * slant_range_m) *
+                               AtmosphericAmplitudeScale(config, slant_range_m);
       const double phase = -4.0 * kPi * slant_range_m / wavelength_m;
       const signal::ComplexSample propagation(amplitude * std::cos(phase),
                                                amplitude * std::sin(phase));
