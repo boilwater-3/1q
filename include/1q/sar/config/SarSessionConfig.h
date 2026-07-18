@@ -22,7 +22,7 @@ struct ONEQ_API SarSessionConfig {
   SarHardwareConfig hardware{};    /**< 传感器硬件与波形配置 */
   SarMissionConfig mission{};      /**< 平台与场景任务配置 */
   SarPolicyConfig policy{};        /**< 算法与运行策略配置 */
-  SarEnvironmentConfig environment{}; /**< 保留域：environment 当前不进入计算链路，仅用于 replay/config 保真。详见 SarEnvironmentConfig 的保留域说明 */
+  SarEnvironmentConfig environment{}; /**< 环境与传播配置；字段生效范围见 SarEnvironmentConfig */
 };
 
 }  // namespace config

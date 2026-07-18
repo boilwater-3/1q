@@ -178,6 +178,35 @@ TEST(SarSessionConfigValidationTest, RejectsInvalidHardwareLinkBudget) {
   }));
 }
 
+TEST(SarSessionConfigValidationTest, RejectsInvalidEnvironmentScalars) {
+  for (double value : {std::numeric_limits<double>::quiet_NaN(),
+                       std::numeric_limits<double>::infinity()}) {
+    SarSessionConfig config;
+    config.environment.terrain_reference_altitude_m = value;
+    const ValidationIssueList issues = ValidateSarSessionConfig(config);
+    EXPECT_TRUE(std::any_of(issues.begin(), issues.end(), [](const ConfigValidationIssue& issue) {
+      return issue.code == ConfigValidationCode::kEnvironmentConfigInvalid;
+    }));
+  }
+
+  SarSessionConfig negative_loss;
+  negative_loss.environment.atmospheric_loss_db_per_km = -0.01;
+  const ValidationIssueList negative_loss_issues = ValidateSarSessionConfig(negative_loss);
+  EXPECT_TRUE(std::any_of(negative_loss_issues.begin(), negative_loss_issues.end(),
+                          [](const ConfigValidationIssue& issue) {
+                            return issue.code == ConfigValidationCode::kEnvironmentConfigInvalid;
+                          }));
+
+  SarSessionConfig invalid_sigma0;
+  invalid_sigma0.environment.surface_backscatter_sigma0_db =
+      std::numeric_limits<double>::quiet_NaN();
+  const ValidationIssueList sigma0_issues = ValidateSarSessionConfig(invalid_sigma0);
+  EXPECT_TRUE(std::any_of(sigma0_issues.begin(), sigma0_issues.end(),
+                          [](const ConfigValidationIssue& issue) {
+                            return issue.code == ConfigValidationCode::kEnvironmentConfigInvalid;
+                          }));
+}
+
 }  // namespace
 
 TEST(SarSessionCreateWithValidationTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {

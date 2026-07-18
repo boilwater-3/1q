@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "1q/coordinate/position_transform.h"
 #include "sar/echo/SarEcho.h"
 #include "sar/geometry/SarGeometry.h"
 #include "sar/runtime/PulseRingBuffer.h"
@@ -26,18 +27,45 @@ constexpr double kReferenceTemperatureK = 290.0;
 constexpr double kSpeedOfLightMps = 299792458.0;
 constexpr double kPi = 3.141592653589793238462643383279502884;
 
-geometry::LocalPoint ToLocalPoint(double latitude_deg, double longitude_deg, double altitude_m,
-                                  const config::SarMissionConfig& mission) {
-  const double deg_to_rad = 3.141592653589793238462643383279502884 / 180.0;
-  const double lat0_rad = mission.scene_center_latitude_deg * deg_to_rad;
-  const double dlat_rad = (latitude_deg - mission.scene_center_latitude_deg) * deg_to_rad;
-  const double dlon_rad = (longitude_deg - mission.scene_center_longitude_deg) * deg_to_rad;
+bool TryToLocalPoint(double latitude_deg, double longitude_deg, double altitude_m,
+                     const config::SarSessionConfig& config, geometry::LocalPoint* point) {
+  if (point == nullptr) {
+    return false;
+  }
+  oneq::coordinate::LlaPositionDegM lla;
+  lla.latitude_deg = latitude_deg;
+  lla.longitude_deg = longitude_deg;
+  lla.altitude_m = altitude_m;
+  oneq::coordinate::LlaPositionDegM origin;
+  origin.latitude_deg = config.mission.scene_center_latitude_deg;
+  origin.longitude_deg = config.mission.scene_center_longitude_deg;
+  origin.altitude_m = config.environment.terrain_reference_altitude_m;
+  if (!oneq::coordinate::IsValid(lla) || !oneq::coordinate::IsValid(origin)) {
+    return false;
+  }
 
-  geometry::LocalPoint point;
-  point.x_m = dlon_rad * std::cos(lat0_rad) * kEarthRadiusM;
-  point.y_m = dlat_rad * kEarthRadiusM;
-  point.z_m = altitude_m - mission.scene_center_altitude_m;
-  return point;
+  if (!config.environment.use_flat_earth_geometry) {
+    oneq::coordinate::EnuPositionM enu;
+    if (!oneq::coordinate::TryLlaToEnu(lla, origin, &enu)) {
+      return false;
+    }
+    point->x_m = enu.east_m;
+    point->y_m = enu.north_m;
+    point->z_m = enu.up_m;
+    return true;
+  }
+
+  const double deg_to_rad = 3.141592653589793238462643383279502884 / 180.0;
+  const double lat0_rad = config.mission.scene_center_latitude_deg * deg_to_rad;
+  const double dlat_rad =
+      (latitude_deg - config.mission.scene_center_latitude_deg) * deg_to_rad;
+  const double dlon_rad =
+      (longitude_deg - config.mission.scene_center_longitude_deg) * deg_to_rad;
+
+  point->x_m = dlon_rad * std::cos(lat0_rad) * kEarthRadiusM;
+  point->y_m = dlat_rad * kEarthRadiusM;
+  point->z_m = altitude_m - config.environment.terrain_reference_altitude_m;
+  return true;
 }
 
 double DbsmToSquareMeters(double dbsm) { return std::pow(10.0, dbsm / 10.0); }
@@ -129,18 +157,24 @@ bool CopyExternalPulseStates(const std::vector<SarRawIqFrame::PulseState>& publi
   return true;
 }
 
-std::vector<echo::PointTarget> BuildLocalTargets(const SarCycleInput& input,
-                                                 const config::SarMissionConfig& mission) {
-  std::vector<echo::PointTarget> targets;
-  targets.reserve(input.point_targets.size());
+bool BuildLocalTargets(const config::SarSessionConfig& config, const SarCycleInput& input,
+                       std::vector<echo::PointTarget>* targets) {
+  if (targets == nullptr) {
+    return false;
+  }
+  std::vector<echo::PointTarget> converted;
+  converted.reserve(input.point_targets.size());
   for (const SarPointTarget& target : input.point_targets) {
     echo::PointTarget local_target;
-    local_target.position_m =
-        ToLocalPoint(target.latitude_deg, target.longitude_deg, target.altitude_m, mission);
+    if (!TryToLocalPoint(target.latitude_deg, target.longitude_deg, target.altitude_m, config,
+                         &local_target.position_m)) {
+      return false;
+    }
     local_target.rcs_m2 = DbsmToSquareMeters(target.radar_cross_section_dbsm);
-    targets.push_back(local_target);
+    converted.push_back(local_target);
   }
-  return targets;
+  *targets = std::move(converted);
+  return true;
 }
 
 // 生成本周期的理想与实际脉冲轨迹。L1 为基础匀速直线条带；
@@ -154,9 +188,12 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
                              std::vector<geometry::PlatformPulseState>* actual_pulses,
                              SarCycleResult* result) {
   geometry::StraightStripmapTrackConfig track_config;
-  track_config.start_position_m =
-      ToLocalPoint(input.platform.latitude_deg, input.platform.longitude_deg,
-                   input.platform.altitude_m, config.mission);
+  if (!TryToLocalPoint(input.platform.latitude_deg, input.platform.longitude_deg,
+                       input.platform.altitude_m, config, &track_config.start_position_m)) {
+    RecordAbort(result, "platform_geometry_failed",
+                "SAR platform LLA cannot be converted to the configured local geometry.");
+    return false;
+  }
   track_config.start_time_s = input.platform.time_s;
   track_config.velocity_x_mps = input.platform.velocity_east_mps;
   track_config.velocity_y_mps = input.platform.velocity_north_mps;
@@ -199,8 +236,12 @@ bool GenerateCycleTrajectory(const config::SarSessionConfig& config, const SarCy
     for (const config::SarWaypointConfig& waypoint : config.mission.l3_waypoints) {
       geometry::Waypoint local_waypoint;
       local_waypoint.time_s = waypoint.time_from_session_start_s;
-      local_waypoint.position_m = ToLocalPoint(waypoint.latitude_deg, waypoint.longitude_deg,
-                                               waypoint.altitude_m, config.mission);
+      if (!TryToLocalPoint(waypoint.latitude_deg, waypoint.longitude_deg, waypoint.altitude_m,
+                           config, &local_waypoint.position_m)) {
+        RecordAbort(result, "l3_waypoint_geometry_failed",
+                    "SAR L3 waypoint LLA cannot be converted to the configured local geometry.");
+        return false;
+      }
       l3_config.waypoints.push_back(local_waypoint);
     }
     for (std::size_t index = 0U; index < pulse_count_to_generate; ++index) {
@@ -405,7 +446,12 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
     return false;
   }
 
-  const std::vector<echo::PointTarget> targets = BuildLocalTargets(input, config.mission);
+  std::vector<echo::PointTarget> targets;
+  if (!BuildLocalTargets(config, input, &targets)) {
+    RecordAbort(result, "target_geometry_failed",
+                "SAR point-target LLA cannot be converted to the configured local geometry.");
+    return false;
+  }
   echo::RawEchoConfig echo_config;
   echo_config.sample_rate_hz = config.hardware.sample_rate_hz;
   echo_config.carrier_frequency_hz = config.hardware.carrier_frequency_hz;

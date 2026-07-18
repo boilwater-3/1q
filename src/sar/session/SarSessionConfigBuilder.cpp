@@ -178,6 +178,15 @@ ValidationIssueList ValidateSarSessionConfig(const config::SarSessionConfig& con
          "policy.max_allowed_squint_angle_deg",
          "Maximum allowed squint angle must be finite and in [0, 90) degrees.");
   }
+  if (!std::isfinite(config.environment.terrain_reference_altitude_m) ||
+      !std::isfinite(config.environment.atmospheric_loss_db_per_km) ||
+      config.environment.atmospheric_loss_db_per_km < 0.0 ||
+      !std::isfinite(config.environment.surface_backscatter_sigma0_db)) {
+    push(ConfigValidationCode::kEnvironmentConfigInvalid,
+         "environment.terrain_reference_altitude_m / atmospheric_loss_db_per_km / "
+         "surface_backscatter_sigma0_db",
+         "Environment scalar fields must be finite and atmospheric loss must be non-negative.");
+  }
 
   // 跨字段物理约束：距离采样窗口必须能容纳完整 LFM 脉冲宽度（与 SarWaveform.cpp:68 的
   // 波形样本数公式 ceil(pulse_width_s * sample_rate_hz) 一致）。窗口过小会导致回波被

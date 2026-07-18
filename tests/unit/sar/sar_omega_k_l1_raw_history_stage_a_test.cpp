@@ -68,6 +68,26 @@ bool BuildL1RawHistory(const config::SarSessionConfig& config, signal::ComplexMa
                                        &build_result);
 }
 
+bool BuildGeometryProbe(const config::SarSessionConfig& config, const session::SarCycleInput& input,
+                        std::deque<geometry::PlatformPulseState>* actual_trajectory) {
+  signal::LfmWaveform waveform;
+  signal::ComplexVector matched_filter;
+  if (!session::BuildWaveformAndFilter(config, &waveform, &matched_filter)) {
+    return false;
+  }
+
+  runtime::PulseRingBuffer pulse_buffer(config.mission.azimuth_pulse_count);
+  std::uint64_t next_pulse_id = 0U;
+  double pulse_fraction_carry = 0.0;
+  signal::ComplexMatrix raw_history;
+  std::deque<geometry::PlatformPulseState> ideal_trajectory;
+  session::SarCycleResult build_result;
+  double estimated_snr_db = 0.0;
+  return session::BuildRawPulseHistory(
+      config, input, waveform.samples, &pulse_buffer, &next_pulse_id, &pulse_fraction_carry,
+      &raw_history, &ideal_trajectory, actual_trajectory, &estimated_snr_db, &build_result);
+}
+
 TEST(SarOmegaKL1RawHistoryStageATest, RejectsGeneratedL1ApertureAtGridReductionDeterministically) {
   const config::SarSessionConfig config = MakeL1Config();
   signal::ComplexMatrix raw_history;
@@ -103,6 +123,36 @@ TEST(SarOmegaKL1RawHistoryStageATest, CompatibleVelocityRestoresCommonSupportAnd
   EXPECT_TRUE(first.diagnostics.common_support.usable_for_interpolation);
   EXPECT_GE(first.diagnostics.common_support.largest_contiguous_column_count, 2U);
   EXPECT_EQ(first.image.values, second.image.values);
+}
+
+TEST(SarOmegaKL1RawHistoryStageATest, EnvironmentSelectsTerrainDatumAndEarthGeometry) {
+  config::SarSessionConfig flat_config = MakeL1Config();
+  flat_config.mission.scene_center_latitude_deg = 75.0;
+  flat_config.mission.scene_center_longitude_deg = 0.0;
+  flat_config.mission.scene_center_altitude_m = 1000.0;
+  flat_config.environment.terrain_reference_altitude_m = 500.0;
+  flat_config.environment.use_flat_earth_geometry = true;
+
+  session::SarCycleInput input;
+  input.dt_sec = 0.1f;
+  input.platform.latitude_deg = 75.0;
+  input.platform.longitude_deg = 1.0;
+  input.platform.altitude_m = 2500.0;
+
+  std::deque<geometry::PlatformPulseState> flat_trajectory;
+  ASSERT_TRUE(BuildGeometryProbe(flat_config, input, &flat_trajectory));
+  ASSERT_FALSE(flat_trajectory.empty());
+  EXPECT_DOUBLE_EQ(flat_trajectory.front().position_m.z_m, 2000.0);
+
+  config::SarSessionConfig curved_config = flat_config;
+  curved_config.environment.use_flat_earth_geometry = false;
+  std::deque<geometry::PlatformPulseState> curved_trajectory;
+  ASSERT_TRUE(BuildGeometryProbe(curved_config, input, &curved_trajectory));
+  ASSERT_EQ(curved_trajectory.size(), flat_trajectory.size());
+  EXPECT_LT(curved_trajectory.front().position_m.z_m,
+            flat_trajectory.front().position_m.z_m - 10.0);
+  EXPECT_NE(curved_trajectory.front().position_m.x_m,
+            flat_trajectory.front().position_m.x_m);
 }
 
 }  // namespace
