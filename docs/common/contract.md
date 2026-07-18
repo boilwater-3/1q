@@ -234,6 +234,14 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
    `ReplayTraceWriteStatus` 和 `first_error()` 观察初始化、写入及刷新失败。旧的 bool/void
    入口仅作为兼容包装。扫描和回放遇到缺失 manifest、缺失首 chunk 或底层读取错误时必须
    fail closed。
+6. 模块 FlatBuffers codec 只共享无 schema 知识的机械基元：已完成 builder 的字节复制，以及
+   字段布局一致的 `FailureMarker` 空值、空 payload、verifier 和共有字段解码保护。schema、DTO
+   映射、payload identifier、模块错误文本、外部数据资格与 divergence 行为继续由模块拥有；
+   不得把公共 helper 扩张为万能 codec 或跨模块对象图。
+
+[evidence: tests/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp::DecodeFailureMarkerRejectsNullAndCorrupted]
+[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::RejectsEmptyPayload]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp::DecodeFailureMarkerRejectsNullAndCorrupted]
 
 ## CMake 工程边界
 
