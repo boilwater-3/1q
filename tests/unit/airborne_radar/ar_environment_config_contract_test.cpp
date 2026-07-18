@@ -34,9 +34,9 @@ namespace {
 // Suite 1: 类型与别名合同
 // ---------------------------------------------------------------------------
 
-TEST(ArEnvironmentTypeContractTest, ModelConfigIsIndependentFromScenarioConfig) {
-  static_assert(!std::is_same<EnvironmentModelConfig, EnvironmentScenarioConfig>::value,
-                "EnvironmentModelConfig must NOT be an alias of EnvironmentScenarioConfig");
+TEST(ArEnvironmentTypeContractTest, ModelConfigAliasesScenarioUntilExecutionFieldsDiverge) {
+  static_assert(std::is_same<EnvironmentModelConfig, EnvironmentScenarioConfig>::value,
+                "Identical environment DTOs must use one type authority");
 }
 
 TEST(ArEnvironmentTypeContractTest, ModelConfigHasSameFieldStructureAsScenarioConfig) {

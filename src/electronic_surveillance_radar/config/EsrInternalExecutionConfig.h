@@ -126,7 +126,7 @@ struct RuntimeConfig {
 
 // ── 内部环境子配置 ───────────────────────────────────────────────
 
-/** @brief 内部环境执行态配置（独立 ModelConfig，由 BuildModelConfigFromScenario 映射）。 */
+/** @brief 内部环境执行视图；当前无专属字段，复用场景配置类型。 */
 using EnvironmentConfig = config::EsrEnvironmentModelConfig;
 
 /**

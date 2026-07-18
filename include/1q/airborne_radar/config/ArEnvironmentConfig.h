@@ -136,20 +136,13 @@ struct ONEQ_API EnvironmentScenarioConfig {
 };
 
 /**
- * @brief EnvironmentModelConfig 描述环境服务/算法执行直接消费的参数。
+ * @brief 环境服务当前直接消费场景事实，复用唯一配置类型权威。
  *
  * @par 类型合约
- * - 独立于 EnvironmentScenarioConfig 的 struct，禁止退化为 type alias。
- * - 字段与 ScenarioConfig 一致时，通过 BuildModelConfigFromScenario 显式字段映射构造。
- * - 若未来需差异化（增加派生字段或移除场景字段），直接修改本 struct 并更新映射函数。
- * - 调用方不得假设 ModelConfig 与 ScenarioConfig 同型。
+ * - 当前不存在执行态专属字段，不复制一套同型 DTO。
+ * - 若未来出现执行态专属字段，应先提供运行路径证据，再新增内部执行配置与显式映射。
  */
-struct ONEQ_API EnvironmentModelConfig {
-  AtmosphericPhysicsConfig atmospheric_physics{};
-  AtmosphericDerivedContext atmospheric_context{};
-  VegetationScatterPhysicsConfig vegetation_scatter_physics{};
-  JammerEmitterStateList jammer_sources{};
-};
+using EnvironmentModelConfig = EnvironmentScenarioConfig;
 
 /**
  * @brief ArEnvironmentConfig 描述初始化阶段的默认环境配置。
@@ -170,21 +163,16 @@ struct ONEQ_API ArEnvironmentConfig {
  * @brief 将对外场景输入映射为内部环境模型配置。
  *
  * @par 映射合约
- * - 显式字段映射：逐字段从 ScenarioConfig 拷贝到 ModelConfig。
+ * - 当前为同型恒等映射，保留函数以稳定调用点并显式标识场景到执行边界。
  * - 若未来引入非恒等映射（字段转换、派生、过滤），须同步添加映射单元测试。
  * - 无 fallback 语义：输入合法即输出合法。
  *
  * @param[in] scenario_config 外部场景输入。
- * @return 逐字段拷贝后的模型配置。
+ * @return 场景配置副本。
  */
 inline ONEQ_API EnvironmentModelConfig BuildModelConfigFromScenario(
     const EnvironmentScenarioConfig& scenario_config) {
-  EnvironmentModelConfig model_config;
-  model_config.atmospheric_physics = scenario_config.atmospheric_physics;
-  model_config.atmospheric_context = scenario_config.atmospheric_context;
-  model_config.vegetation_scatter_physics = scenario_config.vegetation_scatter_physics;
-  model_config.jammer_sources = scenario_config.jammer_sources;
-  return model_config;
+  return scenario_config;
 }
 
 

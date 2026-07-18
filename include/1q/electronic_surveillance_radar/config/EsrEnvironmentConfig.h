@@ -40,24 +40,19 @@ struct ONEQ_API EsrEnvironmentScenarioConfig {
 };
 
 /**
- * @brief EsrEnvironmentModelConfig 描述环境服务直接消费的参数。
+ * @brief 环境服务当前直接消费场景事实，复用唯一配置类型权威。
+ *
+ * 当前不存在执行态专属字段；若未来出现，应基于运行路径证据新增内部执行配置，
+ * 而不是复制一套同型公开 DTO。
  */
-struct ONEQ_API EsrEnvironmentModelConfig {
-  EsrEnvironmentPreset preset{EsrEnvironmentPreset::kStandard};
-  EsrAtmosphericPhysicsConfig atmospheric_physics{};
-  EsrAtmosphericDerivedContext atmospheric_context{};
-};
+using EsrEnvironmentModelConfig = EsrEnvironmentScenarioConfig;
 
 /**
  * @brief 将对外场景输入映射为内部环境模型配置。
  */
 inline EsrEnvironmentModelConfig BuildModelConfigFromScenario(
     const EsrEnvironmentScenarioConfig& scenario_config) {
-  EsrEnvironmentModelConfig model_config;
-  model_config.preset = scenario_config.preset;
-  model_config.atmospheric_physics = scenario_config.atmospheric_physics;
-  model_config.atmospheric_context = scenario_config.atmospheric_context;
-  return model_config;
+  return scenario_config;
 }
 
 /**

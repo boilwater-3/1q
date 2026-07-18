@@ -43,11 +43,11 @@ TEST(EsrEnvironmentConfigContractTest, DefaultConfigOwnsScenarioConfig) {
   EXPECT_EQ(config_default.scenario_config.preset, config::EsrEnvironmentPreset::kStandard);
 }
 
-TEST(EsrEnvironmentConfigContractTest, ModelConfigIsDistinctFromScenarioConfig) {
+TEST(EsrEnvironmentConfigContractTest, ModelConfigAliasesScenarioUntilExecutionFieldsDiverge) {
   const bool is_same =
       std::is_same<config::EsrEnvironmentModelConfig,
                    config::EsrEnvironmentScenarioConfig>::value;
-  EXPECT_FALSE(is_same);
+  EXPECT_TRUE(is_same);
 }
 
 }  // namespace
