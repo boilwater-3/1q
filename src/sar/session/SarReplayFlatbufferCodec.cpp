@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "common/replay/ReplayFlatbufferCodecSupport.h"
 #include "flatbuffers/flatbuffers.h"
 #include "sar/session/generated/sar_replay_generated.h"
 #include "sar/session/generated/sar_session_replay_generated.h"
@@ -211,11 +212,6 @@ void FromFbEnvironmentConfig(const replay::SarEnvironmentConfig* fb,
   out->enable_atmospheric_attenuation = fb->enable_atmospheric_attenuation();
 }
 
-std::string FinishToString(flatbuffers::FlatBufferBuilder* fbb) {
-  const std::uint8_t* buf = fbb->GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buf), fbb->GetSize());
-}
-
 }  // namespace
 
 std::string EncodeSarCycleInput(const SarCycleInput& value) {
@@ -233,7 +229,7 @@ std::string EncodeSarCycleInput(const SarCycleInput& value) {
   const auto platform = BuildPlatformState(fbb, value.platform);
   const auto targets = fbb.CreateVector(target_offsets);
   fbb.Finish(replay::CreateSarCycleInput(fbb, value.cycle_index, value.dt_sec, platform, targets));
-  return FinishToString(&fbb);
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSarCycleInput(const std::string& bytes, SarCycleInput* out) {
@@ -268,7 +264,7 @@ bool DecodeSarCycleInput(const std::string& bytes, SarCycleInput* out) {
 std::string EncodeSarOutputFrame(const SarOutputFrame& value) {
   flatbuffers::FlatBufferBuilder fbb(256);
   fbb.Finish(BuildOutputFrame(fbb, value));
-  return FinishToString(&fbb);
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSarOutputFrame(const std::string& bytes, SarOutputFrame* out) {
@@ -303,7 +299,7 @@ std::string EncodeSarCycleResult(const SarCycleResult& value) {
                                           value.has_error,
                                           value.executed_this_cycle, value.reused_previous_output,
                                           fbb.CreateString(value.abort_reason)));
-  return FinishToString(&fbb);
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
@@ -368,7 +364,7 @@ std::string EncodeSarSessionConfig(const config::SarSessionConfig& value) {
   const auto policy = BuildPolicyConfig(fbb, value.policy);
   const auto environment = BuildEnvironmentConfig(fbb, value.environment);
   fbb.Finish(replay::CreateSarSessionConfig(fbb, hardware, mission, policy, environment));
-  return FinishToString(&fbb);
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSarSessionConfig(const std::string& bytes, config::SarSessionConfig* out) {
@@ -396,7 +392,7 @@ std::string EncodeSarRuntimeConfigPatch(const config::SarRuntimeConfigPatch& val
       value.has_retain_raw_phase_history, value.retain_raw_phase_history,
       value.has_retain_focused_image, value.retain_focused_image, value.has_minimum_snr_db,
       value.minimum_snr_db));
-  return FinishToString(&fbb);
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSarRuntimeConfigPatch(const std::string& bytes, config::SarRuntimeConfigPatch* out) {
