@@ -21,9 +21,8 @@ namespace session {
 enum class SarProcessingStage {
   kNone = 0,
   kRawEcho = 1,
-  kRangeCompression = 2, /**< 为既有 replay 数据保留的距离压缩阶段值。当前 live session 不产出独立距离压缩载荷，也不会仅因开关启用而发布此完成阶段；真实距离压缩由 RDA/BP 内部执行 */
-  kL1RdaImage = 3,
-  kL3BpImage = 4
+  kL1RdaImage = 2,
+  kL3BpImage = 3
 };
 
 /**

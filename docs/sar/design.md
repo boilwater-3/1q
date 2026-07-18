@@ -330,9 +330,8 @@ SAR session 每周期先由 hardware config 生成 LFM waveform：
 
 - waveform 生成失败会中止周期。
 - `enable_range_compression` 是 L1 RDA 与 L3 BP 的显式前置条件；关闭时成像配置在执行前被拒绝。
-- 当前没有独立距离压缩载荷。只有 RDA/BP 实际成功执行内部距离压缩后才置位
-  `has_range_compressed_echo`；`raw=false, range=true` 与 raw-only 路径均不得发布完成状态，live
-  session 也不以 `kRangeCompression` 作为仅开关驱动的终态。该枚举只为既有 replay 保真保留。
+- 当前没有独立距离压缩载荷或独立完成阶段。只有 RDA/BP 实际成功执行内部距离压缩后才置位
+  `has_range_compressed_echo`；`raw=false, range=true` 与 raw-only 路径均不得发布距离压缩完成状态。
 
 [evidence: tests/unit/sar/sar_session_pipeline_test.cpp::RangeCompressionStatusRequiresExecutedImaging]
 [evidence: tests/unit/sar/sar_session_pipeline_test.cpp::RdaRequiresRawEchoAndRangeCompression]

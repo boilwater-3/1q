@@ -75,6 +75,7 @@ session::SarCycleInput MakeInput(std::uint32_t cycle_index = 1U) {
   input.platform.latitude_deg = 0.0;
   input.platform.longitude_deg = 0.0;
   input.platform.altitude_m = 0.0;
+  input.platform.velocity_east_mps = 2.0;
 
   session::SarPointTarget target;
   target.latitude_deg = 29.9792458 / 6378137.0 * 180.0 / 3.14159265358979323846;
@@ -298,7 +299,7 @@ TEST(SarSessionPipelineTest, ProductLifecycleRecorderTracksProducedUpdatedLostAn
   lost.input_cycle_index = 3U;
   lost.executed_this_cycle = true;
   lost.output_frame.cycle_index = 3U;
-  lost.output_frame.completed_stage = session::SarProcessingStage::kRangeCompression;
+  lost.output_frame.completed_stage = session::SarProcessingStage::kRawEcho;
   events = recorder.Update(lost);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kProductLost);
