@@ -85,17 +85,6 @@ double MonostaticLinkAmplitudeScale(const config::SarHardwareConfig& hardware) {
   return std::sqrt(numerator / denominator);
 }
 
-double MeanPower(const signal::ComplexVector& samples) {
-  if (samples.empty()) {
-    return 0.0;
-  }
-  double power = 0.0;
-  for (const signal::ComplexSample& sample : samples) {
-    power += std::norm(sample);
-  }
-  return power / static_cast<double>(samples.size());
-}
-
 void ApplyReceiverChain(double amplitude_scale, double noise_power_w, std::uint64_t pulse_id,
                         signal::ComplexVector* samples) {
   for (signal::ComplexSample& sample : *samples) {
