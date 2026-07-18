@@ -167,9 +167,9 @@ config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique,
   return jammer;
 }
 
-config::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
+config::EnvironmentScenarioConfig MakeEnvironmentConfigWithJammers(
     std::initializer_list<config::JammerEmitterState> jammer_sources) {
-  config::EnvironmentModelConfig config;
+  config::EnvironmentScenarioConfig config;
   config.jammer_sources.insert(config.jammer_sources.end(), jammer_sources.begin(),
                                jammer_sources.end());
   return config;
@@ -328,7 +328,7 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
 }
 
 TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
-  config::EnvironmentModelConfig env_config;
+  config::EnvironmentScenarioConfig env_config;
   env_config.jammer_sources.push_back(MakeJammerEmitter(config::JammingTechnique::kUnknown, 40.0f));
   environment::EnvironmentService environment_service(env_config);
 
@@ -353,7 +353,7 @@ TEST(SignalPipelineTest,
   ApplyHardwareProfile(&baseline_config,
                        config::profiles::ArHardwareProfile::kLongRangeHighPower);
 
-  config::EnvironmentModelConfig env_config;
+  config::EnvironmentScenarioConfig env_config;
 
   const session::ArSceneTargetList input_state{BuildPhysicsTarget(4500.0f, 0.2f)};
 
@@ -402,7 +402,7 @@ TEST(SignalPipelineTest, PhysicalRcsUsesTransmitterFrequency) {
   high_frequency_config.hardware.transmitter.frequency_hz = 3.0e9f;
 
   const session::ArSceneTargetList input_state{BuildPhysicsTarget(4500.0f, 0.2f)};
-  config::EnvironmentModelConfig environment_config;
+  config::EnvironmentScenarioConfig environment_config;
   environment::EnvironmentService low_frequency_environment(environment_config);
   environment::EnvironmentService high_frequency_environment(environment_config);
   signal::pipeline::SignalPipeline low_frequency_pipeline(low_frequency_config);
@@ -648,7 +648,7 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
   seed.gaussian_state.covariance = signal::tracking::StateCovariance::Zero();
 
-  config::EnvironmentModelConfig noise_env_config;
+  config::EnvironmentScenarioConfig noise_env_config;
   config::JammerEmitterState noise_source;
   noise_source.technique = config::JammingTechnique::kNoiseSuppression;
   noise_source.power_db = 8.0f;
@@ -661,7 +661,7 @@ TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummar
   noise_env_config.jammer_sources.push_back(noise_source);
   environment::EnvironmentService noise_environment(noise_env_config);
 
-  config::EnvironmentModelConfig deception_env_config;
+  config::EnvironmentScenarioConfig deception_env_config;
   config::JammerEmitterState deception_source;
   deception_source.technique = config::JammingTechnique::kDeception;
   deception_source.power_db = 8.0f;
@@ -766,7 +766,7 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
   seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
   seed.gaussian_state.covariance = signal::tracking::StateCovariance::Zero();
 
-  config::EnvironmentModelConfig deception_env_config;
+  config::EnvironmentScenarioConfig deception_env_config;
   config::JammerEmitterState deception_source;
   deception_source.technique = config::JammingTechnique::kDeception;
   deception_source.power_db = 8.0f;
@@ -817,7 +817,7 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
   session_config.mission.orientation.electronic_scan_limits_deg =
       session_config.mission.orientation.mechanical_scan_limits_deg;
 
-  config::EnvironmentModelConfig env_config;
+  config::EnvironmentScenarioConfig env_config;
   env_config.jammer_sources.push_back(MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f));
   environment::EnvironmentService environment_service(env_config);
 
@@ -906,7 +906,7 @@ TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatche
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
 
-  config::EnvironmentModelConfig env_config;
+  config::EnvironmentScenarioConfig env_config;
   config::JammerEmitterState deception_source;
   deception_source.technique = config::JammingTechnique::kDeception;
   deception_source.power_db = -20.0f;
@@ -963,7 +963,7 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
 }
 
 TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
-  config::EnvironmentModelConfig env_config;
+  config::EnvironmentScenarioConfig env_config;
   env_config.jammer_sources.push_back(MakeJammerEmitter(config::JammingTechnique::kUnknown, 45.0f));
   environment::EnvironmentService environment_service(env_config);
 
@@ -1008,7 +1008,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
   favorable_source.position_z = 1763.27f;  // range 10000m * tan(10 deg)
   favorable_source.angular_span_deg = 32.0f;
 
-  config::EnvironmentModelConfig favorable_env_config =
+  config::EnvironmentScenarioConfig favorable_env_config =
       MakeEnvironmentConfigWithJammers({favorable_source});
   environment::EnvironmentService favorable_environment(favorable_env_config);
 
@@ -1018,7 +1018,7 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
   unfavorable_source.position_y = 9998.48f;  // range 10000m * cos(1 deg)
   unfavorable_source.position_z = 0.0f;      // elevation 0 deg
   unfavorable_source.angular_span_deg = 6.0f;
-  config::EnvironmentModelConfig unfavorable_env_config =
+  config::EnvironmentScenarioConfig unfavorable_env_config =
       MakeEnvironmentConfigWithJammers({unfavorable_source});
   environment::EnvironmentService unfavorable_environment(unfavorable_env_config);
 
@@ -1211,7 +1211,7 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
 
-  config::EnvironmentModelConfig noise_env_config;
+  config::EnvironmentScenarioConfig noise_env_config;
   config::JammerEmitterState noise_source;
   noise_source.technique = config::JammingTechnique::kNoiseSuppression;
   noise_source.power_db = -20.0f;
@@ -1224,7 +1224,7 @@ TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoise
   noise_env_config.jammer_sources.push_back(noise_source);
   environment::EnvironmentService noise_environment(noise_env_config);
 
-  config::EnvironmentModelConfig deception_env_config;
+  config::EnvironmentScenarioConfig deception_env_config;
   config::JammerEmitterState deception_source;
   deception_source.technique = config::JammingTechnique::kDeception;
   deception_source.power_db = -20.0f;

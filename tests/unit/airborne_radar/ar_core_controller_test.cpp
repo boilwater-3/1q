@@ -57,8 +57,8 @@ config::ArSessionConfig MakeDetectionFocusedConfig() {
       .Build();
 }
 
-config::EnvironmentModelConfig BuildJammingEnvironmentConfig(float jammer_power_db) {
-  config::EnvironmentModelConfig config;
+config::EnvironmentScenarioConfig BuildJammingEnvironmentConfig(float jammer_power_db) {
+  config::EnvironmentScenarioConfig config;
   config::JammerEmitterState jammer;
   jammer.technique = config::JammingTechnique::kUnknown;
   jammer.power_db = jammer_power_db;
@@ -279,7 +279,7 @@ TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
   const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
-  config::EnvironmentModelConfig env_config;
+  config::EnvironmentScenarioConfig env_config;
   config::JammerEmitterState deception_emitter;
   deception_emitter.technique = config::JammingTechnique::kDeception;
   deception_emitter.power_db = 9.0f;

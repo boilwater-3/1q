@@ -325,11 +325,10 @@ flowchart TB
 
 ### 2.2 配置映射、运行期提交和回滚
 
-环境域以 `EnvironmentScenarioConfig` 作为当前唯一公开 DTO 权威；
-`EnvironmentModelConfig` 是该类型的兼容别名，`BuildModelConfigFromScenario()` 保留为恒等边界函数。
-当前运行路径没有执行态专属字段，因此不得维护一套字段完全相同的公开 Model struct。只有先证明存在
-execution-only 字段时，才可新增内部执行配置并提供显式映射，不应重新复制公开 DTO。
-[evidence: tests/unit/airborne_radar/ar_environment_config_contract_test.cpp::ArEnvironmentTypeContractTest.ModelConfigAliasesScenarioUntilExecutionFieldsDiverge]
+环境域以 `EnvironmentScenarioConfig` 作为唯一公开 DTO 权威，环境服务直接消费该类型。当前运行路径
+没有执行态专属字段，因此不得维护同型公开 Model 类型或恒等 mapper。只有先证明存在 execution-only
+字段时，才可新增内部执行配置并提供显式映射，不应重新复制公开 DTO。
+[evidence: tests/unit/airborne_radar/ar_environment_config_contract_test.cpp::ArEnvironmentTypeContractTest.DefaultConfigContainsOnlyScenarioConfig]
 
 AR 的 public config 是语义配置，signal pipeline 使用的是内部工程配置。`ArSession` 构造时通过 `MapSessionToExecution` 初始化 runtime state；runtime patch 到达后先暂存到 `pending_runtime_state`。
 

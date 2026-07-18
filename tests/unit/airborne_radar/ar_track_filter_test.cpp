@@ -62,9 +62,9 @@ config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique,
   return jammer;
 }
 
-config::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
+config::EnvironmentScenarioConfig MakeEnvironmentConfigWithJammers(
     std::initializer_list<config::JammerEmitterState> jammer_sources) {
-  config::EnvironmentModelConfig config;
+  config::EnvironmentScenarioConfig config;
   config.jammer_sources.insert(config.jammer_sources.end(), jammer_sources.begin(),
                                jammer_sources.end());
   return config;

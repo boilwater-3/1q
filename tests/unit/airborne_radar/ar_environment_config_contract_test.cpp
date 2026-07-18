@@ -5,8 +5,6 @@
 
 #include <gtest/gtest.h>
 
-#include <type_traits>
-
 #include "1q/airborne_radar/config/ArEnvironmentConfig.h"
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 
@@ -16,8 +14,6 @@ namespace environment {
 // Using declarations for types migrated to config::
 using config::AtmosphericDerivedContext;
 using config::AtmosphericPhysicsConfig;
-using config::BuildModelConfigFromScenario;
-using config::EnvironmentModelConfig;
 using config::EnvironmentRuntimeConfigPatch;
 using config::EnvironmentScenarioConfig;
 using config::JammerEmitterState;
@@ -31,32 +27,8 @@ using config::VegetationScatterPhysicsConfig;
 namespace {
 
 // ---------------------------------------------------------------------------
-// Suite 1: 类型与别名合同
+// Suite 1: 类型合同
 // ---------------------------------------------------------------------------
-
-TEST(ArEnvironmentTypeContractTest, ModelConfigAliasesScenarioUntilExecutionFieldsDiverge) {
-  static_assert(std::is_same<EnvironmentModelConfig, EnvironmentScenarioConfig>::value,
-                "Identical environment DTOs must use one type authority");
-}
-
-TEST(ArEnvironmentTypeContractTest, ModelConfigHasSameFieldStructureAsScenarioConfig) {
-  EnvironmentScenarioConfig scenario;
-  scenario.atmospheric_physics.pressure_hpa = 1000.0f;
-  scenario.atmospheric_context.solar_flux_f107 = 120.0f;
-  scenario.vegetation_scatter_physics.cover_profile = VegetationCoverProfile::kDeciduousForest;
-  JammerEmitterState j;
-  j.power_db = 5.0f;
-  scenario.jammer_sources = {j};
-
-  const auto model = BuildModelConfigFromScenario(scenario);
-
-  EXPECT_FLOAT_EQ(model.atmospheric_physics.pressure_hpa, 1000.0f);
-  EXPECT_FLOAT_EQ(model.atmospheric_context.solar_flux_f107, 120.0f);
-  EXPECT_EQ(model.vegetation_scatter_physics.cover_profile,
-            VegetationCoverProfile::kDeciduousForest);
-  ASSERT_EQ(model.jammer_sources.size(), 1u);
-  EXPECT_FLOAT_EQ(model.jammer_sources[0].power_db, 5.0f);
-}
 
 TEST(ArEnvironmentTypeContractTest, DefaultConfigContainsOnlyScenarioConfig) {
   ArEnvironmentConfig defaults;
@@ -150,40 +122,6 @@ TEST(ArEnvironmentDefaultStabilityTest, DefaultConfigPreservesOverride) {
 // ---------------------------------------------------------------------------
 // Suite 3: 映射函数行为
 // ---------------------------------------------------------------------------
-
-TEST(ArEnvironmentMappingFunctionTest, BuildModelConfigFromScenarioExplicitFieldMapping) {
-  EnvironmentScenarioConfig scenario;
-  scenario.atmospheric_physics.enable_physical_model = true;
-  scenario.atmospheric_physics.temperature_k = 300.0f;
-  scenario.atmospheric_physics.pressure_hpa = 1000.0f;
-
-  const auto model = BuildModelConfigFromScenario(scenario);
-
-  EXPECT_FLOAT_EQ(model.atmospheric_physics.temperature_k,
-                  scenario.atmospheric_physics.temperature_k);
-  EXPECT_FLOAT_EQ(model.atmospheric_physics.pressure_hpa,
-                  scenario.atmospheric_physics.pressure_hpa);
-  EXPECT_EQ(model.atmospheric_physics.enable_physical_model,
-            scenario.atmospheric_physics.enable_physical_model);
-}
-
-TEST(ArEnvironmentMappingFunctionTest, BuildModelConfigFromScenarioPreservesJammerSources) {
-  EnvironmentScenarioConfig scenario;
-  JammerEmitterState j1;
-  JammerEmitterState j2;
-  JammerEmitterState j3;
-  j1.power_db = 10.0f;
-  j2.power_db = 20.0f;
-  j3.power_db = 30.0f;
-  scenario.jammer_sources = {j1, j2, j3};
-
-  const auto model = BuildModelConfigFromScenario(scenario);
-
-  ASSERT_EQ(model.jammer_sources.size(), 3u);
-  EXPECT_FLOAT_EQ(model.jammer_sources[0].power_db, 10.0f);
-  EXPECT_FLOAT_EQ(model.jammer_sources[1].power_db, 20.0f);
-  EXPECT_FLOAT_EQ(model.jammer_sources[2].power_db, 30.0f);
-}
 
 TEST(ArEnvironmentMappingFunctionTest, ResolveEffectiveKFactorStandardConditions) {
   AtmosphericDerivedContext context;

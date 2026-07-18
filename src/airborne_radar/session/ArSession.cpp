@@ -159,7 +159,7 @@ struct ArSession::Impl {
 
     if (should_sync_environment_model) {
       EnvironmentService().UpdateModelConfig(
-          config::BuildModelConfigFromScenario(pending_runtime_state.environment_scenario_config));
+          pending_runtime_state.environment_scenario_config);
     }
     if (should_sync_jamming_sensitivity) {
       EnvironmentService().SetJammingSensitivityProfile(

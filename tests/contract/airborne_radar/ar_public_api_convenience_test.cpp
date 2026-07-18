@@ -275,7 +275,7 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
     return pending_scene_state_;
   }
 
-  void UpdateModelConfig(const config::EnvironmentModelConfig& config) override {
+  void UpdateModelConfig(const config::EnvironmentScenarioConfig& config) override {
     ++update_model_config_count_;
     model_config_ = config;
   }
@@ -312,7 +312,7 @@ class RecordingEnvironmentService : public environment::IEnvironmentService {
  private:
   session::EnvironmentSceneState active_scene_state_{};
   session::EnvironmentSceneState pending_scene_state_{};
-  config::EnvironmentModelConfig model_config_{};
+  config::EnvironmentScenarioConfig model_config_{};
   session::EnvironmentCycleContext cycle_context_{};
   config::JammingSensitivityProfile jamming_sensitivity_profile_{
       config::JammingSensitivityProfile::kBalanced};
@@ -892,8 +892,7 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
 
   session::MutableArContext manual_context;
   signal::pipeline::SignalPipeline signal_pipeline(config);
-  environment::EnvironmentService environment_service(
-      config::BuildModelConfigFromScenario(config.environment.scenario_config));
+  environment::EnvironmentService environment_service(config.environment.scenario_config);
   environment_service.SetJammingSensitivityProfile(config.environment.jamming_sensitivity_profile);
   extension::ArController controller(manual_context, signal_pipeline, environment_service);
 
@@ -1181,8 +1180,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
 
   session::MutableArContext manual_context;
   signal::pipeline::SignalPipeline signal_pipeline(config);
-  environment::EnvironmentService environment_service(
-      config::BuildModelConfigFromScenario(config.environment.scenario_config));
+  environment::EnvironmentService environment_service(config.environment.scenario_config);
   environment_service.SetJammingSensitivityProfile(config.environment.jamming_sensitivity_profile);
   extension::ArController controller(manual_context, signal_pipeline, environment_service);
 

@@ -13,7 +13,7 @@ namespace airborne_radar {
 namespace environment {
 
 // Using declarations for types migrated to config:: and session::
-using config::EnvironmentModelConfig;
+using config::EnvironmentScenarioConfig;
 using config::JammerEmitterState;
 using config::JammingSensitivityProfile;
 using config::JammingTechnique;
@@ -176,7 +176,7 @@ JammerSourceFact ToJammerSourceFact(const JammerEmitterState& emitter_state) {
  * @param config 环境模型配置。
  * @return 统一后的环境场景状态。
  */
-EnvironmentSceneState BuildSceneStateFromModelConfig(const EnvironmentModelConfig& config) {
+EnvironmentSceneState BuildSceneStateFromModelConfig(const EnvironmentScenarioConfig& config) {
   EnvironmentSceneState scene_state;
   scene_state.atmospheric_physics = config.atmospheric_physics;
   scene_state.atmospheric_context = config.atmospheric_context;
@@ -189,7 +189,7 @@ EnvironmentSceneState BuildSceneStateFromModelConfig(const EnvironmentModelConfi
 
 }  // namespace
 
-EnvironmentService::EnvironmentService(const EnvironmentModelConfig& config)
+EnvironmentService::EnvironmentService(const EnvironmentScenarioConfig& config)
     : scene_manager_(new SceneManager(BuildSceneStateFromModelConfig(config))),
       propagation_model_(new PropagationModel()) {
   RefreshFrozenSnapshotFromActiveScene();
@@ -216,7 +216,7 @@ EnvironmentSceneState EnvironmentService::GetPendingSceneState() const {
   return scene_manager_->GetPendingScene();
 }
 
-void EnvironmentService::UpdateModelConfig(const EnvironmentModelConfig& config) {
+void EnvironmentService::UpdateModelConfig(const EnvironmentScenarioConfig& config) {
   scene_manager_->UpdatePendingScene(BuildSceneStateFromModelConfig(config));
 }
 

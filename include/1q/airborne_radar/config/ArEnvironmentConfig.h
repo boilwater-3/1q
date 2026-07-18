@@ -136,15 +136,6 @@ struct ONEQ_API EnvironmentScenarioConfig {
 };
 
 /**
- * @brief 环境服务当前直接消费场景事实，复用唯一配置类型权威。
- *
- * @par 类型合约
- * - 当前不存在执行态专属字段，不复制一套同型 DTO。
- * - 若未来出现执行态专属字段，应先提供运行路径证据，再新增内部执行配置与显式映射。
- */
-using EnvironmentModelConfig = EnvironmentScenarioConfig;
-
-/**
  * @brief ArEnvironmentConfig 描述初始化阶段的默认环境配置。
  *
  * @par 类型合约
@@ -158,23 +149,6 @@ struct ONEQ_API ArEnvironmentConfig {
   JammingSensitivityProfile jamming_sensitivity_profile{
       JammingSensitivityProfile::kBalanced}; /**< 干扰判定灵敏度语义档位 */
 };
-
-/**
- * @brief 将对外场景输入映射为内部环境模型配置。
- *
- * @par 映射合约
- * - 当前为同型恒等映射，保留函数以稳定调用点并显式标识场景到执行边界。
- * - 若未来引入非恒等映射（字段转换、派生、过滤），须同步添加映射单元测试。
- * - 无 fallback 语义：输入合法即输出合法。
- *
- * @param[in] scenario_config 外部场景输入。
- * @return 场景配置副本。
- */
-inline ONEQ_API EnvironmentModelConfig BuildModelConfigFromScenario(
-    const EnvironmentScenarioConfig& scenario_config) {
-  return scenario_config;
-}
-
 
 }  // namespace config
 }  // namespace airborne_radar

@@ -27,9 +27,9 @@ config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique,
   return jammer;
 }
 
-config::EnvironmentModelConfig MakeEnvironmentConfigWithJammers(
+config::EnvironmentScenarioConfig MakeEnvironmentConfigWithJammers(
     std::initializer_list<config::JammerEmitterState> jammer_sources) {
-  config::EnvironmentModelConfig config;
+  config::EnvironmentScenarioConfig config;
   config.jammer_sources.insert(config.jammer_sources.end(), jammer_sources.begin(),
                                jammer_sources.end());
   return config;
@@ -76,7 +76,7 @@ TEST(EnvironmentServiceTest, KeepsDirectionUnknownWhenExternalDirectionIsMissing
 }
 
 TEST(EnvironmentServiceTest, ModelConfigAtmosphericPhysicsAffectsDefaultSnapshot) {
-  config::EnvironmentModelConfig config;
+  config::EnvironmentScenarioConfig config;
   config.atmospheric_physics.enable_physical_model = true;
   config.atmospheric_physics.relative_humidity = 0.7f;
 
@@ -86,7 +86,7 @@ TEST(EnvironmentServiceTest, ModelConfigAtmosphericPhysicsAffectsDefaultSnapshot
 }
 
 TEST(EnvironmentServiceTest, DerivesAtmosphericInputsFromObservationAndTimestamp) {
-  config::EnvironmentModelConfig config;
+  config::EnvironmentScenarioConfig config;
   config.atmospheric_physics.enable_physical_model = true;
   config.atmospheric_physics.pressure_hpa = 950.0f;
   config.atmospheric_physics.temperature_k = 300.0f;
@@ -104,7 +104,7 @@ TEST(EnvironmentServiceTest, DerivesAtmosphericInputsFromObservationAndTimestamp
 }
 
 TEST(EnvironmentServiceTest, FallsBackToDefaultDayOfYearWithoutTimestamp) {
-  config::EnvironmentModelConfig config;
+  config::EnvironmentScenarioConfig config;
   config.atmospheric_physics.enable_physical_model = true;
   config.atmospheric_context.has_simulation_unix_seconds = false;
   config.atmospheric_context.simulation_unix_seconds = 946684800;  // 2000-01-01
@@ -155,7 +155,7 @@ TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
 }
 
 TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
-  config::EnvironmentModelConfig config;
+  config::EnvironmentScenarioConfig config;
 
   config::JammerEmitterState noise_source;
   noise_source.technique = config::JammingTechnique::kNoiseSuppression;
@@ -216,9 +216,9 @@ TEST(EnvironmentServiceTest, AppliesPendingSceneJammerOnNextCycleOnly) {
 }
 
 TEST(EnvironmentServiceTest, ModelConfigVegetationScatterAffectsDefaultSnapshotClutter) {
-  config::EnvironmentModelConfig baseline_config;
+  config::EnvironmentScenarioConfig baseline_config;
 
-  config::EnvironmentModelConfig physics_config = baseline_config;
+  config::EnvironmentScenarioConfig physics_config = baseline_config;
   physics_config.vegetation_scatter_physics.enable_physical_model = true;
   physics_config.vegetation_scatter_physics.cover_profile =
       config::VegetationCoverProfile::kConiferousForest;
@@ -262,7 +262,7 @@ TEST(EnvironmentServiceTest, StructuredSidelobeFactIsPreservedWithoutDetection) 
 /// @brief NormalizeEmitterState：负值 power_db 钳位到 0。
 
 TEST(EnvironmentServiceTest, NegativeEmitterPowerIsClampedToZero) {
-  config::EnvironmentModelConfig config;
+  config::EnvironmentScenarioConfig config;
   config::JammerEmitterState source;
   source.technique = config::JammingTechnique::kNoiseSuppression;
   source.power_db = -10.0f;  // 负值应被钳位
@@ -280,7 +280,7 @@ TEST(EnvironmentServiceTest, NegativeEmitterPowerIsClampedToZero) {
 /// @brief NormalizeEmitterState：负值 js_db 与 angular_span_deg 钳位到 0。
 
 TEST(EnvironmentServiceTest, NegativeEmitterJsAndAngularSpanAreClampedToZero) {
-  config::EnvironmentModelConfig config;
+  config::EnvironmentScenarioConfig config;
   config::JammerEmitterState source;
   source.technique = config::JammingTechnique::kNoiseSuppression;
   source.power_db = 3.0f;
@@ -300,7 +300,7 @@ TEST(EnvironmentServiceTest, NegativeEmitterJsAndAngularSpanAreClampedToZero) {
 /// @brief NormalizeEmitterState：派生 frequency_overlap_ratio 超过上限时钳位到 1.0。
 
 TEST(EnvironmentServiceTest, EmitterOverlapRatioAboveOneIsClampedToOne) {
-  config::EnvironmentModelConfig config;
+  config::EnvironmentScenarioConfig config;
   config::JammerEmitterState source;
   source.technique = config::JammingTechnique::kDeception;
   source.power_db = 5.0f;
@@ -322,7 +322,7 @@ TEST(EnvironmentServiceTest, EmitterOverlapRatioAboveOneIsClampedToOne) {
 /// @brief NormalizeEmitterState：confidence > 1.0 钳位到 1.0。
 
 TEST(EnvironmentServiceTest, EmitterConfidenceAboveOneIsClampedToOne) {
-  config::EnvironmentModelConfig config;
+  config::EnvironmentScenarioConfig config;
   config::JammerEmitterState source;
   source.power_db = 5.0f;
   source.confidence = 2.5f;  // 超出范围
@@ -358,7 +358,7 @@ TEST(EnvironmentServiceTest, JammingNotDetectedWhenPowerBelowThreshold) {
 /// @brief 多干扰源输入应完整保留到快照中。
 
 TEST(EnvironmentServiceTest, KeepsAllJammerSourcesInSnapshot) {
-  config::EnvironmentModelConfig config;
+  config::EnvironmentScenarioConfig config;
 
   config::JammerEmitterState low;
   low.power_db = 3.0f;

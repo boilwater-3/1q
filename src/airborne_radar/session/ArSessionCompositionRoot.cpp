@@ -51,7 +51,7 @@ ArSessionComposition ArSessionCompositionRoot::ComposeDefault(
   composition.owned_signal_pipeline.reset(
       new signal::pipeline::SignalPipeline(runtime_execution_config));
   composition.owned_environment_service.reset(new environment::EnvironmentService(
-      config::BuildModelConfigFromScenario(composition.runtime_environment_scenario_config)));
+      composition.runtime_environment_scenario_config));
   composition.owned_controller.reset(new extension::ArController(
       *composition.owned_ar_context, *composition.owned_signal_pipeline,
       *composition.owned_environment_service));

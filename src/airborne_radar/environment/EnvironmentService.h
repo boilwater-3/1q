@@ -16,7 +16,7 @@ namespace airborne_radar {
 namespace environment {
 
 // Using declarations for types migrated to config:: and session::
-using config::EnvironmentModelConfig;
+using config::EnvironmentScenarioConfig;
 using config::JammingSensitivityProfile;
 using session::EnvironmentCycleContext;
 using session::EnvironmentSnapshot;
@@ -38,7 +38,7 @@ class EnvironmentService final : public environment::IEnvironmentService {
    * @brief 使用配置构造环境模型。
    * @param[in] config 环境模型初始配置。
    */
-  explicit EnvironmentService(const EnvironmentModelConfig& config = {});
+  explicit EnvironmentService(const EnvironmentScenarioConfig& config = {});
   ~EnvironmentService() override;
 
   /**
@@ -69,7 +69,7 @@ class EnvironmentService final : public environment::IEnvironmentService {
    * @brief 更新环境模型配置。
    * @param[in] config 新的环境模型配置。
    */
-  void UpdateModelConfig(const EnvironmentModelConfig& config) override;
+  void UpdateModelConfig(const EnvironmentScenarioConfig& config) override;
 
   /**
    * @brief 设置干扰判定灵敏度语义档位。

@@ -644,7 +644,7 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
 
   session_config = config::mapping::MapExecutionToSession(exec_config);
   signal::pipeline::SignalPipeline signal_pipeline(session_config);
-  config::EnvironmentModelConfig environment_config;
+  config::EnvironmentScenarioConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
 
   session::ArSceneTarget target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
@@ -737,7 +737,7 @@ TEST(SignalPipelineScanScheduleTest, WorkModeSttReducesSweepCoverageComparedToTw
   signal::pipeline::SignalPipeline tws_pipeline(tws_session);
   signal::pipeline::SignalPipeline stt_pipeline(stt_session);
 
-  config::EnvironmentModelConfig environment_config;
+  config::EnvironmentScenarioConfig environment_config;
   environment::EnvironmentService environment_service(environment_config);
 
   session::ArSceneTarget target(0.0f, 0.0f, 0.0f, 10000.0f, 120.0f, 0, 2026U);
