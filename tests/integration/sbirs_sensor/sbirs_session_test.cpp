@@ -140,7 +140,7 @@ TEST(SbirsSessionIntegrationTest, StandbyModeProducesNoDetections) {
 
 TEST(SbirsSessionIntegrationTest, SensorDisabledProducesNoDetections) {
   config::SbirsSessionConfig config = MakeSessionConfig();
-  config.mission.sensor_enabled = false;
+  config.mission.power_on = false;
   SbirsSession session = SbirsSession::Create(config);
   const SbirsCycleResult result = session.StepWithResult(MakeBaseInput());
   EXPECT_TRUE(result.output_frame.detections.empty());

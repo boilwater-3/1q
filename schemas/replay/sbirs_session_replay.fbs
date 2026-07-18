@@ -19,7 +19,7 @@ table SbirsHardwareConfig {
 
 table SbirsMissionConfig {
   work_mode: int32;
-  sensor_enabled: bool;
+  power_on: bool;
   wide_field_fov_az_deg: float;
   wide_field_fov_el_deg: float;
   narrow_field_fov_az_deg: float;
@@ -116,6 +116,6 @@ table SbirsRuntimeConfigPatch {
   work_mode: int32;
   has_scan_rate_deg_per_sec: bool;
   scan_rate_deg_per_sec: float;
-  has_sensor_enabled: bool;
-  sensor_enabled: bool;
+  has_power_on: bool;
+  power_on: bool;
 }

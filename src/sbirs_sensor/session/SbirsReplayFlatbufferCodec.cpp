@@ -166,7 +166,7 @@ void DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
     return;
   }
   out->work_mode = static_cast<config::SbirsWorkMode>(fb->work_mode());
-  out->power_on = fb->sensor_enabled();
+  out->power_on = fb->power_on();
   out->wide_field_fov_az_deg = fb->wide_field_fov_az_deg();
   out->wide_field_fov_el_deg = fb->wide_field_fov_el_deg();
   out->narrow_field_fov_az_deg = fb->narrow_field_fov_az_deg();
@@ -470,7 +470,7 @@ std::string EncodeSbirsRuntimeConfigPatch(const config::SbirsRuntimeConfigPatch&
       EncodePolicyConfig(fbb, value.policy), value.has_environment,
       EncodeSessionEnvironmentConfig(fbb, value.environment), value.has_work_mode,
       static_cast<std::int32_t>(value.work_mode), value.has_scan_rate_deg_per_sec,
-      value.scan_rate_deg_per_sec, value.has_sensor_enabled, value.sensor_enabled));
+      value.scan_rate_deg_per_sec, value.has_power_on, value.power_on));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -488,8 +488,8 @@ bool DecodeSbirsRuntimeConfigPatch(const std::string& bytes, config::SbirsRuntim
   out->work_mode = static_cast<config::SbirsWorkMode>(fb->work_mode());
   out->has_scan_rate_deg_per_sec = fb->has_scan_rate_deg_per_sec();
   out->scan_rate_deg_per_sec = fb->scan_rate_deg_per_sec();
-  out->has_sensor_enabled = fb->has_sensor_enabled();
-  out->sensor_enabled = fb->sensor_enabled();
+  out->has_power_on = fb->has_power_on();
+  out->power_on = fb->power_on();
   DecodeMissionConfig(fb->mission(), &out->mission);
   DecodePolicyConfig(fb->policy(), &out->policy);
   out->environment = DecodeSessionEnvironmentConfig(fb->environment());

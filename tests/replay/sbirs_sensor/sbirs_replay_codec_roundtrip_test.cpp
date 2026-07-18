@@ -237,7 +237,7 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.integration_time_sec = 0.04f;
   config.hardware.noise_equivalent_power_w = 2.0e-12f;
   config.mission.work_mode = SbirsWorkMode::kWideSearch;
-  config.mission.sensor_enabled = true;
+  config.mission.power_on = true;
   config.mission.scan_rate_deg_per_sec = 3.0f;
   config.mission.narrow_cue_latency_s = 0.05f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 17.5f;
@@ -273,7 +273,7 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.hardware.optical_aperture_m, 0.9f);
   EXPECT_FLOAT_EQ(decoded.hardware.noise_equivalent_power_w, 2.0e-12f);
   EXPECT_EQ(decoded.mission.work_mode, SbirsWorkMode::kWideSearch);
-  EXPECT_TRUE(decoded.mission.sensor_enabled);
+  EXPECT_TRUE(decoded.mission.power_on);
   EXPECT_FLOAT_EQ(decoded.mission.scan_rate_deg_per_sec, 3.0f);
   EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_max_slew_rate_deg_per_sec, 17.5f);
   EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_settle_tolerance_deg, 0.025f);
@@ -323,7 +323,7 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
                                             .WithEnvironment(environment)
                                             .WithWorkMode(SbirsWorkMode::kWideSearch)
                                             .WithScanRateDegPerSec(4.0f)
-                                            .WithSensorEnabled(false)
+                                            .WithPowerOn(false)
                                             .Build();
   SbirsRuntimeConfigPatch decoded;
   ASSERT_TRUE(DecodeSbirsRuntimeConfigPatch(EncodeSbirsRuntimeConfigPatch(patch), &decoded));
@@ -344,8 +344,8 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_EQ(decoded.work_mode, SbirsWorkMode::kWideSearch);
   EXPECT_TRUE(decoded.has_scan_rate_deg_per_sec);
   EXPECT_FLOAT_EQ(decoded.scan_rate_deg_per_sec, 4.0f);
-  EXPECT_TRUE(decoded.has_sensor_enabled);
-  EXPECT_FALSE(decoded.sensor_enabled);
+  EXPECT_TRUE(decoded.has_power_on);
+  EXPECT_FALSE(decoded.power_on);
 }
 
 TEST(SbirsReplayCodecRoundtripTest, EmptyRuntimeConfigPatchKeepsAllFlagsFalse) {
@@ -357,7 +357,7 @@ TEST(SbirsReplayCodecRoundtripTest, EmptyRuntimeConfigPatchKeepsAllFlagsFalse) {
   EXPECT_FALSE(decoded.has_environment);
   EXPECT_FALSE(decoded.has_work_mode);
   EXPECT_FALSE(decoded.has_scan_rate_deg_per_sec);
-  EXPECT_FALSE(decoded.has_sensor_enabled);
+  EXPECT_FALSE(decoded.has_power_on);
 }
 
 // --- FailureMarker ---

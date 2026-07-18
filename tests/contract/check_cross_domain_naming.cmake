@@ -19,7 +19,7 @@
 #      不影响 ArSessionConfigBuilder::MissionEditor 等其它建造者类。
 #   6) 四域 RuntimeConfigBuilder 必须提供 WithRuntimeConfigPatch 整块覆盖入口
 #      （P3-b 对齐，四域形状一致）。
-#   7) SBIRS mission 电源主名必须为 power_on，并保留同存储 sensor_enabled 兼容别名。
+#   7) SBIRS mission、runtime patch 与 builder 的电源名称必须统一为 power_on。
 #   8) EOS/SBIRS 探测器面积必须保留显式单位后缀；禁止退化为无单位字段名。
 #
 # 配套：跨域"形状契约"（Step/StepWithResult 返回类型）由编译期
@@ -178,17 +178,30 @@ foreach(HEADER IN LISTS RUNTIME_BUILDER_HEADERS)
   endif()
 endforeach()
 
-# ---- 阻断 7：SBIRS mission 电源主名 + 兼容别名 ----
+# ---- 阻断 7：SBIRS 电源命名唯一权威 ----
 set(SBIRS_MISSION_HEADER
     "${PUBLIC_INCLUDE_ROOT}/sbirs_sensor/config/SbirsMissionConfig.h")
 file(READ "${SBIRS_MISSION_HEADER}" SBIRS_MISSION_TEXT)
-foreach(REQUIRED_TOKEN "bool power_on" "bool sensor_enabled")
-  string(FIND "${SBIRS_MISSION_TEXT}" "${REQUIRED_TOKEN}" _token_pos)
-  if(_token_pos EQUAL -1)
-    list(APPEND VIOLATIONS
-         "${SBIRS_MISSION_HEADER}: [SBIRS 电源命名] 缺少 '${REQUIRED_TOKEN}'；power_on 为主名，sensor_enabled 为兼容别名")
-  endif()
-endforeach()
+set(SBIRS_RUNTIME_PATCH_HEADER
+    "${PUBLIC_INCLUDE_ROOT}/sbirs_sensor/config/SbirsRuntimeConfigPatch.h")
+set(SBIRS_RUNTIME_BUILDER_HEADER
+    "${PUBLIC_INCLUDE_ROOT}/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h")
+file(READ "${SBIRS_RUNTIME_PATCH_HEADER}" SBIRS_RUNTIME_PATCH_TEXT)
+file(READ "${SBIRS_RUNTIME_BUILDER_HEADER}" SBIRS_RUNTIME_BUILDER_TEXT)
+string(FIND "${SBIRS_MISSION_TEXT}" "bool power_on" _mission_power_pos)
+string(FIND "${SBIRS_RUNTIME_PATCH_TEXT}" "bool has_power_on" _patch_power_pos)
+string(FIND "${SBIRS_RUNTIME_BUILDER_TEXT}" "WithPowerOn" _builder_power_pos)
+if(_mission_power_pos EQUAL -1 OR _patch_power_pos EQUAL -1 OR _builder_power_pos EQUAL -1)
+  list(APPEND VIOLATIONS
+       "[SBIRS 电源命名] mission、runtime patch 与 builder 必须统一提供 power_on")
+endif()
+string(FIND "${SBIRS_MISSION_TEXT}" "sensor_enabled" _mission_legacy_pos)
+string(FIND "${SBIRS_RUNTIME_PATCH_TEXT}" "sensor_enabled" _patch_legacy_pos)
+string(FIND "${SBIRS_RUNTIME_BUILDER_TEXT}" "sensor_enabled" _builder_legacy_pos)
+if(NOT _mission_legacy_pos EQUAL -1 OR NOT _patch_legacy_pos EQUAL -1 OR
+   NOT _builder_legacy_pos EQUAL -1)
+  list(APPEND VIOLATIONS "[SBIRS 电源命名] 禁止回流旧名 sensor_enabled")
+endif()
 
 # ---- 阻断 8：跨域探测器面积单位后缀 ----
 set(DETECTOR_AREA_HEADERS

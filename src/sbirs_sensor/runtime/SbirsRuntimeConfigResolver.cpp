@@ -12,7 +12,7 @@ SbirsRuntimeConfigResolution ResolveSbirsRuntimeConfigPatch(
   resolution.resolved_config = current_config;
   resolution.has_requested_update = patch.has_mission || patch.has_policy ||
                                     patch.has_environment || patch.has_work_mode ||
-                                    patch.has_scan_rate_deg_per_sec || patch.has_sensor_enabled;
+                                    patch.has_scan_rate_deg_per_sec || patch.has_power_on;
   if (!resolution.has_requested_update) {
     return resolution;
   }
@@ -31,8 +31,8 @@ SbirsRuntimeConfigResolution ResolveSbirsRuntimeConfigPatch(
   if (patch.has_scan_rate_deg_per_sec) {
     resolution.resolved_config.mission.scan_rate_deg_per_sec = patch.scan_rate_deg_per_sec;
   }
-  if (patch.has_sensor_enabled) {
-    resolution.resolved_config.mission.power_on = patch.sensor_enabled;
+  if (patch.has_power_on) {
+    resolution.resolved_config.mission.power_on = patch.power_on;
   }
   resolution.is_valid = config::ValidateSbirsSessionConfig(resolution.resolved_config).empty();
   return resolution;

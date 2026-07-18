@@ -98,18 +98,6 @@ TEST(SbirsPublicApiConvenienceTest, SessionConfigFieldsAreAssignable) {
   EXPECT_EQ(config.environment.weather_type, config::SbirsWeatherType::kRain);
 }
 
-TEST(SbirsPublicApiConvenienceTest, MissionPowerNameKeepsLegacyAliasOnSameStorage) {
-  config::SbirsMissionConfig mission;
-  EXPECT_TRUE(mission.power_on);
-  EXPECT_TRUE(mission.sensor_enabled);
-
-  mission.sensor_enabled = false;
-  EXPECT_FALSE(mission.power_on);
-  mission.power_on = true;
-  EXPECT_TRUE(mission.sensor_enabled);
-  EXPECT_EQ(&mission.power_on, &mission.sensor_enabled);
-}
-
 TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreAllUnset) {
   // 默认 Build() 后所有 has_* flag 应为 false（无变更请求）。
   const config::SbirsRuntimeConfigPatch patch = sbirs_config::SbirsRuntimeConfigBuilder().Build();
@@ -118,7 +106,7 @@ TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderDefaultsAreAllUnset) {
   EXPECT_FALSE(patch.has_environment);
   EXPECT_FALSE(patch.has_work_mode);
   EXPECT_FALSE(patch.has_scan_rate_deg_per_sec);
-  EXPECT_FALSE(patch.has_sensor_enabled);
+  EXPECT_FALSE(patch.has_power_on);
 }
 
 TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderAllFieldsPopulateFlags) {
@@ -126,14 +114,14 @@ TEST(SbirsPublicApiConvenienceTest, RuntimeConfigBuilderAllFieldsPopulateFlags) 
       sbirs_config::SbirsRuntimeConfigBuilder()
           .WithWorkMode(config::SbirsWorkMode::kWideSearch)
           .WithScanRateDegPerSec(8.0f)
-          .WithSensorEnabled(true)
+          .WithPowerOn(true)
           .Build();
   EXPECT_TRUE(patch.has_work_mode);
   EXPECT_EQ(patch.work_mode, config::SbirsWorkMode::kWideSearch);
   EXPECT_TRUE(patch.has_scan_rate_deg_per_sec);
   EXPECT_FLOAT_EQ(patch.scan_rate_deg_per_sec, 8.0f);
-  EXPECT_TRUE(patch.has_sensor_enabled);
-  EXPECT_TRUE(patch.sensor_enabled);
+  EXPECT_TRUE(patch.has_power_on);
+  EXPECT_TRUE(patch.power_on);
 }
 
 TEST(SbirsPublicApiConvenienceTest, ValidateCycleInputFlagsInvalidDeltaTime) {

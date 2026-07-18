@@ -301,17 +301,12 @@ flowchart LR
   Result --> Trace
 ```
 
-### 1.7 Mission 电源命名与兼容边界
+### 1.7 Mission 电源命名边界
 
-`SbirsMissionConfig::power_on` 是与 AR/ESR/EOS 对齐的 mission 电源主名。历史
-`sensor_enabled` 通过匿名 union 保留为同存储源码/布局兼容别名：两者不是两个配置源，写任一名称
-都会立即反映到另一名称。pipeline、runtime resolver 和新代码只读取 `power_on`。
+`power_on` 是 SBIRS mission、runtime patch、builder 与 replay schema 的唯一电源名称；不存在第二个
+同义字段或 DTO 边界改名。pipeline 和 runtime resolver 也只读取该权威字段。
 
-runtime patch 的 `has_sensor_enabled` / `sensor_enabled` 继续与 AR/ESR/EOS 的补丁命名一致；replay
-schema 的 `sensor_enabled` 字段名也保持不变，codec 只在 DTO 边界映射到 `power_on`，不做 schema
-迁移。未来删除兼容别名属于 major public API 决策，必须重新审计外部消费者。
-
-[evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::MissionPowerNameKeepsLegacyAliasOnSameStorage]
+[evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::RuntimeConfigBuilderAllFieldsPopulateFlags]
 [evidence: tests/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp::SessionConfigPreservesAllDomains]
 
 ## 2. 本模块使用的算法

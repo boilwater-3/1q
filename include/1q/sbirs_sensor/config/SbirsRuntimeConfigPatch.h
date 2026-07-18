@@ -35,8 +35,8 @@ struct ONEQ_API SbirsRuntimeConfigPatch {
   bool has_scan_rate_deg_per_sec{false}; /**< 是否覆盖扫描速率 */
   float scan_rate_deg_per_sec{10.0f};    /**< 扫描速率覆盖值，单位 deg/s */
 
-  bool has_sensor_enabled{false};   /**< 是否覆盖传感器使能位 */
-  bool sensor_enabled{true};        /**< 传感器使能覆盖值 */
+  bool has_power_on{false};         /**< 是否覆盖传感器电源状态 */
+  bool power_on{true};              /**< 传感器电源状态覆盖值 */
 };
 
 }  // namespace config
