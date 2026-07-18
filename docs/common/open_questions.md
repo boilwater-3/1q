@@ -11,26 +11,13 @@ Authority: 非规定性记录
 
 | 优先级 | 条目 | 当前判断 | 首个交付物 |
 |---|---|---|---|
-| P2 | OQ-8、OQ-10a、OQ-10d、OQ-10i | 涉及 public API/ABI 或跨模块迁移，不能作为顺手清理 | Stage A 迁移契约和 consumer 影响清单 |
+| P2 | OQ-10a、OQ-10d、OQ-10i | 涉及 public API/ABI 或跨模块迁移，不能作为顺手清理 | Stage A 迁移契约和 consumer 影响清单 |
 
 排序依据是当前 checkout 的代码和测试，不代表这些条目已经获准实施。原 OQ-10h、OQ-3、OQ-10c、
-OQ-9、OQ-10b、OQ-10e、OQ-10f、OQ-10g、OQ-10j、OQ-10k、OQ-10l、OQ-10m、OQ-1 已完成；对应运行时语义和证据已迁入
+OQ-8、OQ-9、OQ-10b、OQ-10e、OQ-10f、OQ-10g、OQ-10j、OQ-10k、OQ-10l、OQ-10m、OQ-1 已完成；对应运行时语义和证据已迁入
 SBIRS、Flight Dynamic、AR、ESR、EOS、SAR 的模块设计权威。
 
 ---
-
-## OQ-8 折射率成对温度输入的 public 迁移
-
-原 OQ-8 的低风险收尾已复核：L3 不能移除 `GeometryTransform.h` 的 `Eigen/Core`，因为该头直接以 `Eigen::Vector3f` / `Eigen::Matrix3f` 作为函数返回值和参数；L4（`src/common` 的 `reset(new)`）已经不存在。两项均无需代码修复。
-
-剩余的 L6 不再是低风险样式项：`refractivity_index_n_r4/r8` 和公开的 `RefractivityIndex` 同时接收摄氏与开氏温度。两个裸浮点参数可被调换，但改变为成对温度类型或单一温标会改变 REOS 对齐的 public 签名。
-
-为何未决：仓库内只有转发实现和一致温标的单测，无法证明仓库外调用方不依赖当前签名。静默派生其中一个温度会改变不一致输入的数值语义，也不能可靠修复“参数被调换”。
-
-推进需要：独立 Stage A 冻结 public migration（新 typed input/过渡入口、REOS 对齐、外部 consumer 期限），并补充温标不一致的拒绝或诊断契约。\
-[evidence: `include/1q/environment/PropagationPhysics.h:RefractivityIndex` — public 六标量签名;\
- `src/common/atmosphere/AtmospherePhysics.cpp:refractivity_index_n_r8` — 同时消费 Celsius 与 Kelvin;\
- `tests/unit/airborne_radar/ar_atmosphere_physics_test.cpp` — 当前只覆盖一致温标]
 
 ## OQ-10 四域对外配置结构体成员合理性与反直觉审查
 
