@@ -1,7 +1,7 @@
 # Electronic Surveillance Radar 当前设计
 
 Status: active
-Last-reviewed: 2026-07-01
+Last-reviewed: 2026-07-18
 Authority: current electronic_surveillance_radar module design
 
 本文是 `electronic_surveillance_radar` 当前设计权威。它描述 ESR 的会话门面、拦截 pipeline、观测预处理、聚类、辐射源假设关联、输出三通道和运行期状态边界。
@@ -296,6 +296,12 @@ flowchart TB
 - `tests/unit/esr_hypothesis_associator_test.cpp`
 
 ### 2.6 运行期配置与状态边界
+
+环境域以 `EsrEnvironmentScenarioConfig` 作为当前唯一公开 DTO 权威；
+`EsrEnvironmentModelConfig` 是兼容别名，`BuildModelConfigFromScenario()` 保留为恒等边界函数。
+由于当前没有执行态专属环境字段，不维护字段完全相同的第二套公开 struct；未来若有真实运行路径需要，
+应新增内部执行配置并以测试证明非恒等映射。
+[evidence: tests/contract/electronic_surveillance_radar/esr_environment_config_contract_test.cpp::EsrEnvironmentConfigContractTest.ModelConfigAliasesScenarioUntilExecutionFieldsDiverge]
 
 `scan_rate_hz` 的单位不是波束更新率或角速度，而是**每秒完成的完整二维 scan pattern 循环数**。
 pipeline 持有归一化扫描相位 `[0, 1)`：本周期先用 `floor(phase × pattern_size)` 选择波束，再累加

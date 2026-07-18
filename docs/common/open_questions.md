@@ -11,10 +11,10 @@ Authority: 非规定性记录
 
 | 优先级 | 条目 | 当前判断 | 首个交付物 |
 |---|---|---|---|
-| P2 | OQ-10d、OQ-10i | 涉及 public API/ABI 或跨模块迁移，不能作为顺手清理 | Stage A 迁移契约和 consumer 影响清单 |
+| P2 | OQ-10i | 涉及 public API/ABI 或跨模块迁移，不能作为顺手清理 | Stage A 迁移契约和 consumer 影响清单 |
 
 排序依据是当前 checkout 的代码和测试，不代表这些条目已经获准实施。原 OQ-10h、OQ-3、OQ-10c、
-OQ-8、OQ-9、OQ-10a、OQ-10b、OQ-10e、OQ-10f、OQ-10g、OQ-10j、OQ-10k、OQ-10l、OQ-10m、OQ-1 已完成；对应运行时语义和证据已迁入
+OQ-8、OQ-9、OQ-10a、OQ-10b、OQ-10d、OQ-10e、OQ-10f、OQ-10g、OQ-10j、OQ-10k、OQ-10l、OQ-10m、OQ-1 已完成；对应运行时语义和证据已迁入
 SBIRS、Flight Dynamic、AR、ESR、EOS、SAR 的模块设计权威。
 
 ---
@@ -22,21 +22,6 @@ SBIRS、Flight Dynamic、AR、ESR、EOS、SAR 的模块设计权威。
 ## OQ-10 四域对外配置结构体成员合理性与反直觉审查
 
 对 5 个传感器模块（AR / ESR / EOS / SAR / SBIRS）的对外公开四域配置（hardware / mission / policy / environment）共 20 个头文件做了逐字段审查与实际消费路径核验，登记以下反用户直觉问题。按严重度分级；每条均附代码证据。结论前缀含 🔴严重 / 🟠中等 / 🟡轻微。
-
-### OQ-10d 🟠 ScenarioConfig / ModelConfig "双胞胎 struct"，字段完全相同却禁止视为同型
-
-AR 与 ESR 的环境域各有一对字段 100% 相同的 ScenarioConfig / ModelConfig，但注释禁止视为同型。
-
-- AR：`EnvironmentScenarioConfig` 与 `EnvironmentModelConfig` 字段完全一致，`BuildModelConfigFromScenario` 为逐字段拷贝。证据 `include/1q/airborne_radar/config/ArEnvironmentConfig.h:131-188`（struct 定义在 `:131`/`:147`，映射函数在 `:180-188`，禁止 alias 的注释在 `:144-146`）。
-- ESR：`EsrEnvironmentScenarioConfig` 与 `EsrEnvironmentModelConfig` 三字段全等。证据 `include/1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h:37-48`。
-- EOS 已收敛为单一公开 ScenarioConfig，内部派生执行参数，不再公开同名 ModelConfig，因此不属于本议题。
-
-为何未决：注释"禁止退化为 type alias""调用方不得假设同型"与当前实现的恒等映射自相矛盾；用户无从判断两者何时会有差异，也无法从代码证明差异不会发生。
-
-推进需要：
-- 决定 AR/ESR 的 ModelConfig 是否有未来差异化需求（增加派生字段或移除场景字段）；
-- 若无需求，退化为 `using ModelConfig = ScenarioConfig;` 并移除 `BuildModelConfigFromScenario`；
-- 若保留，补一条"两 struct 字段集差异"的契约测试，并在注释中给出差异化的具体计划而非"未来可能"。
 
 ### OQ-10i 🟡 SBIRS `detector_area_m2` vs EOS `detector_area_cm2` 同物理量单位不一致
 

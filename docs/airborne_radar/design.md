@@ -1,7 +1,7 @@
 # Airborne Radar 当前设计
 
 Status: active
-Last-reviewed: 2026-07-16
+Last-reviewed: 2026-07-18
 Authority: current airborne_radar module design
 
 本文描述 `airborne_radar` 当前架构、数据流和算法边界。跨模块 public API、builder、输出三层模型等共同规则见 `docs/common/contract.md`。
@@ -324,6 +324,12 @@ flowchart TB
 | 输出/回放 | output adapters、trace/replay codec | 构造 track output、result、debug view 和 replay trace | `ar_cycle_output_builder_test`、`ar_trace_session_adapter_test`、`ar_output_boundary_contract_test` |
 
 ### 2.2 配置映射、运行期提交和回滚
+
+环境域以 `EnvironmentScenarioConfig` 作为当前唯一公开 DTO 权威；
+`EnvironmentModelConfig` 是该类型的兼容别名，`BuildModelConfigFromScenario()` 保留为恒等边界函数。
+当前运行路径没有执行态专属字段，因此不得维护一套字段完全相同的公开 Model struct。只有先证明存在
+execution-only 字段时，才可新增内部执行配置并提供显式映射，不应重新复制公开 DTO。
+[evidence: tests/unit/airborne_radar/ar_environment_config_contract_test.cpp::ArEnvironmentTypeContractTest.ModelConfigAliasesScenarioUntilExecutionFieldsDiverge]
 
 AR 的 public config 是语义配置，signal pipeline 使用的是内部工程配置。`ArSession` 构造时通过 `MapSessionToExecution` 初始化 runtime state；runtime patch 到达后先暂存到 `pending_runtime_state`。
 
