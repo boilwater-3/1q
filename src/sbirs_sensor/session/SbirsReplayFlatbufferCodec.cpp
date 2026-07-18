@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "common/replay/ReplayFlatbufferCodecSupport.h"
 #include "flatbuffers/flatbuffers.h"
 #include "sbirs_sensor/session/generated/sbirs_replay_generated.h"
 #include "sbirs_sensor/session/generated/sbirs_session_replay_generated.h"
@@ -12,11 +13,6 @@
 namespace sbirs_sensor {
 namespace session {
 namespace {
-
-std::string FinishToString(const flatbuffers::FlatBufferBuilder& fbb) {
-  const std::uint8_t* buffer = fbb.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buffer), fbb.GetSize());
-}
 
 sbirs::replay::Vec3d ToFbVec3(const SbirsVector3M& v) {
   return sbirs::replay::Vec3d(v.x, v.y, v.z);
@@ -296,7 +292,7 @@ std::string EncodeSbirsCycleInput(const SbirsCycleInput& value) {
   fbb.Finish(sbirs::replay::CreateSbirsCycleInput(fbb, value.cycle_index, value.dt_sec,
                                                   value.has_satellite_position, &satellite,
                                                   environment, fbb.CreateVector(targets)));
-  return FinishToString(fbb);
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
@@ -337,7 +333,7 @@ bool DecodeSbirsCycleInput(const std::string& bytes, SbirsCycleInput* out) {
 std::string EncodeSbirsOutputFrame(const SbirsOutputFrame& value) {
   flatbuffers::FlatBufferBuilder fbb(256);
   fbb.Finish(EncodeOutputFrameTable(fbb, value));
-  return FinishToString(fbb);
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsOutputFrame(const std::string& bytes, SbirsOutputFrame* out) {
@@ -387,7 +383,7 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
       fbb, value.input_cycle_index, frame, fbb.CreateVector(attributions), fbb.CreateVector(issues),
       value.has_validation_error, value.executed_this_cycle, value.reused_previous_output,
       static_cast<std::int32_t>(value.abort_reason)));
-  return FinishToString(fbb);
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
@@ -450,7 +446,7 @@ std::string EncodeSbirsSessionConfig(const config::SbirsSessionConfig& value) {
       fbb, EncodeHardwareConfig(fbb, value.hardware), EncodeMissionConfig(fbb, value.mission),
       EncodePolicyConfig(fbb, value.policy),
       EncodeSessionEnvironmentConfig(fbb, value.environment)));
-  return FinishToString(fbb);
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsSessionConfig(const std::string& bytes, config::SbirsSessionConfig* out) {
@@ -475,7 +471,7 @@ std::string EncodeSbirsRuntimeConfigPatch(const config::SbirsRuntimeConfigPatch&
       EncodeSessionEnvironmentConfig(fbb, value.environment), value.has_work_mode,
       static_cast<std::int32_t>(value.work_mode), value.has_scan_rate_deg_per_sec,
       value.scan_rate_deg_per_sec, value.has_sensor_enabled, value.sensor_enabled));
-  return FinishToString(fbb);
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsRuntimeConfigPatch(const std::string& bytes, config::SbirsRuntimeConfigPatch* out) {
@@ -506,41 +502,13 @@ std::string EncodeSbirsFailureMarker(const oneq::replay::ReplayTraceFailure& fai
       fbb, failure.error_code.c_str(), failure.message.c_str(), failure.location.c_str(),
       failure.has_cycle_index, failure.cycle_index, failure.has_sim_time_sec, failure.sim_time_sec,
       failure.diagnostics_payload.c_str(), false, 0U));
-  return FinishToString(fbb);
+  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
 bool DecodeSbirsFailureMarker(const std::string& bytes, oneq::replay::ReplayTraceFailure* failure,
                               std::string* error) {
-  if (failure == nullptr) {
-    if (error != nullptr) {
-      *error = "null FailureMarker output";
-    }
-    return false;
-  }
-  if (bytes.empty()) {
-    if (error != nullptr) {
-      *error = "empty FailureMarker flatbuffers payload";
-    }
-    return false;
-  }
-  flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (!verifier.VerifyBuffer<sbirs::replay::FailureMarker>()) {
-    if (error != nullptr) {
-      *error = "invalid FailureMarker flatbuffers payload";
-    }
-    return false;
-  }
-  const sbirs::replay::FailureMarker* fb =
-      flatbuffers::GetRoot<sbirs::replay::FailureMarker>(bytes.data());
-  failure->error_code = fb->error_code() ? fb->error_code()->str() : "";
-  failure->message = fb->message() ? fb->message()->str() : "";
-  failure->location = fb->location() ? fb->location()->str() : "";
-  failure->has_cycle_index = fb->has_cycle_index();
-  failure->cycle_index = fb->cycle_index();
-  failure->has_sim_time_sec = fb->has_sim_time_sec();
-  failure->sim_time_sec = fb->sim_time_sec();
-  failure->diagnostics_payload = fb->diagnostics() ? fb->diagnostics()->str() : "{}";
-  return true;
+  return oneq::common::replay::DecodeFailureMarkerPayload<sbirs::replay::FailureMarker>(
+      bytes, failure, error);
 }
 
 }  // namespace session
