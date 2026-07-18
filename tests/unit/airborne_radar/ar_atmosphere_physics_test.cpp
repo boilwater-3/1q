@@ -44,16 +44,7 @@ TEST(AtmospherePhysicsTest, RefractivityIndexRemainsAboveUnity) {
   EXPECT_GT(n_surface, n_upper);
 }
 
-TEST(AtmospherePhysicsTest, LegacyPublicRefractivitySilentlyAcceptsMismatchedTemperatureScales) {
-  const float consistent = oneq::environment::RefractivityIndex(
-      20.0f, 293.15f, 900.0f, 1013.25f, 0.65f, 0);
-  const float mismatched = oneq::environment::RefractivityIndex(
-      20.0f, 20.0f, 900.0f, 1013.25f, 0.65f, 0);
-  EXPECT_TRUE(std::isfinite(mismatched));
-  EXPECT_NE(mismatched, consistent);
-}
-
-TEST(AtmospherePhysicsTest, TypedPublicRefractivityMatchesLegacyForConsistentTemperaturePair) {
+TEST(AtmospherePhysicsTest, TypedPublicRefractivityMatchesPhysicalKernel) {
   oneq::environment::RefractivityInputs inputs;
   inputs.temperature.celsius = 20.0f;
   inputs.temperature.kelvin = 293.15f;
@@ -63,8 +54,8 @@ TEST(AtmospherePhysicsTest, TypedPublicRefractivityMatchesLegacyForConsistentTem
 
   float typed = 0.0f;
   ASSERT_TRUE(oneq::environment::TryRefractivityIndex(inputs, &typed));
-  EXPECT_FLOAT_EQ(typed, oneq::environment::RefractivityIndex(
-                             20.0f, 293.15f, 900.0f, 1013.25f, 0.65f, 0));
+  EXPECT_FLOAT_EQ(typed,
+                  refractivity_index_n_r4(20.0f, 293.15f, 900.0f, 1013.25f, 0.65f, 0));
 }
 
 TEST(AtmospherePhysicsTest, TypedPublicRefractivityRejectsMismatchedTemperaturePairAtomically) {

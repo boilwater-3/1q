@@ -84,18 +84,13 @@ SBIRS 的 `detector_area_m2` 则是 SI 像元面积及既有 replay 字段，因
 
 ### 折射率温标输入迁移
 
-公开折射率入口以 `RefractivityInputs` + `RefractivityTemperaturePair` +
-`TryRefractivityIndex` 为新代码权威。摄氏与开氏字段必须满足
+公开折射率入口只提供 `RefractivityInputs` + `RefractivityTemperaturePair` +
+`TryRefractivityIndex`。摄氏与开氏字段必须满足
 `kelvin = celsius + 273.15`（允许 0.05 K 浮点容差）；温标错配、非有限/越界标量或空输出必须
 fail closed，且失败不得修改调用方输出。
 
-历史六标量 `RefractivityIndex` 仅作为 REOS 数值兼容包装保留，不新增仓库内消费者，也不静默改变
-其既有错配输入行为。删除该入口属于后续 major public-boundary 决策，必须重新盘点外部消费者；
-在此之前，文档和新示例只使用 typed `Try` 入口。
-
-[evidence: tests/unit/airborne_radar/ar_atmosphere_physics_test.cpp::TypedPublicRefractivityMatchesLegacyForConsistentTemperaturePair]
+[evidence: tests/unit/airborne_radar/ar_atmosphere_physics_test.cpp::TypedPublicRefractivityMatchesPhysicalKernel]
 [evidence: tests/unit/airborne_radar/ar_atmosphere_physics_test.cpp::TypedPublicRefractivityRejectsMismatchedTemperaturePairAtomically]
-[evidence: tests/unit/airborne_radar/ar_atmosphere_physics_test.cpp::LegacyPublicRefractivitySilentlyAcceptsMismatchedTemperatureScales]
 
 ### 核心运行面与观测工具面
 

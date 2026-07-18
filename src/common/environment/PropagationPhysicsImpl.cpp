@@ -134,11 +134,5 @@ bool TryRefractivityIndex(const RefractivityInputs& inputs, float* refractivity_
   return true;
 }
 
-float RefractivityIndex(float tc_celsius, float tk_kelvin, float pd_hpa,
-                        float p_hpa, float h_rel, int water_or_ice) {
-  return common::atmosphere::refractivity_index_n_r4(
-      tc_celsius, tk_kelvin, pd_hpa, p_hpa, h_rel, water_or_ice);
-}
-
 }  // namespace environment
 }  // namespace oneq

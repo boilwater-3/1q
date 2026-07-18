@@ -108,20 +108,6 @@ struct ONEQ_API RefractivityInputs {
 ONEQ_API bool TryRefractivityIndex(const RefractivityInputs& inputs,
                                    float* refractivity_index);
 
-/**
- * @brief REOS 对齐兼容入口：折射率 n（单精度，转发到内部 r4 实现）。
- * @note 保留历史六标量数值语义；新代码应使用 `TryRefractivityIndex`。
- * @param[in] tc_celsius 摄氏温度（单位：°C）。
- * @param[in] tk_kelvin 开氏温度（单位：K）。
- * @param[in] pd_hpa 水汽分压（单位：hPa）。
- * @param[in] p_hpa 总气压（单位：hPa）。
- * @param[in] h_rel 相对湿度 [0, 1]。
- * @param[in] water_or_ice 介质标志（水/冰），沿用 REOS 约定。
- * @return 大气折射率 n。
- */
-ONEQ_API float RefractivityIndex(float tc_celsius, float tk_kelvin, float pd_hpa,
-                                 float p_hpa, float h_rel, int water_or_ice);
-
 }  // namespace environment
 }  // namespace oneq
 
