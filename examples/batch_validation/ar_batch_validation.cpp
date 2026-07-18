@@ -507,6 +507,19 @@ int main(int argc, char** argv) {
 
   // 5. 写场景汇总 CSV。
   for (const auto& s : summaries) {
+    std::fprintf(stderr,
+                 "  [scenario] module=AR id=%s physics_detection=1 physical_rcs=1 "
+                 "physics_mix_ratio=1.000 range_km=%.3f rcs_m2=%.3f targets=%d "
+                 "min_snr_db_override=%.3f executed=%u/%u confirmed=%.4f match_rate=%.4f "
+                 "missed_rate=%.4f jamming=%.4f replay_ok=%d compared=%llu divergence=%d "
+                 "warn=%zu error=%zu\n",
+                 s.scenario_id.c_str(), s.target_range_km, s.rcs_m2, s.target_count,
+                 s.min_snr_db_override, s.executed_cycles, kNumCycles, s.steady_confirmed_mean,
+                 s.steady_match_rate_mean, s.steady_missed_rate_mean, s.steady_jamming_mean,
+                 static_cast<int>(s.replay_ok),
+                 static_cast<unsigned long long>(s.replay_compared),
+                 static_cast<int>(s.replay_divergence),
+                 s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError));
     std::fprintf(
         scenario_writer.file(),
         "%s,%.3f,%.3f,%d,%.3f,%u,%u,%.4f,%.4f,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%s\n",

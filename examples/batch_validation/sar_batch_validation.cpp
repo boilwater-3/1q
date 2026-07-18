@@ -20,6 +20,7 @@
  *   默认输出 /tmp/1q/batch_validation/sar/
  */
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -66,7 +67,10 @@ constexpr double kPlatformSpeedMps = 180.0;
 constexpr double kSceneCenterLatDeg = 40.1;
 constexpr double kSceneCenterLonDeg = -105.0;
 constexpr double kDefaultDtSec = 0.1;
-constexpr double kTargetRcsDbsm = 10.0;
+// 使用强点目标作为成像质量标定源。真实链路预算启用后，原 10 dBsm 目标在
+// 100--150 km 扫描范围内低于默认 -10 dB SNR 门限，所有场景都会在 raw echo
+// 阶段按设计中止，无法验证后续成像链路。
+constexpr double kTargetRcsDbsm = 80.0;
 
 // =============================================================================
 // 场景参数表
@@ -81,41 +85,25 @@ struct SarCase {
 
 std::vector<SarCase> BuildSarCases() {
   std::vector<SarCase> cases;
-  // 带宽扫描：保持在 sample_rate(1MHz) 以下，满足奈奎斯特。
+  // 带宽扫描：保持在 sample_rate(1MHz) 以下，避免离散波形分辨率饱和。
   // 距离分辨率 = c/(2*B)，带宽↑ → 分辨率数值↓（更精细）。
-  const double bws[] = {0.2, 0.5, 1.0, 2.0};       // MHz（最后两档接近/达采样率上限）
+  const double bws[] = {0.2, 0.4, 0.6, 0.8};       // MHz
   const double ranges[] = {100.0, 120.0, 150.0};   // km（标称斜距）
   const std::uint32_t pulses[] = {17U, 33U, 65U};  // 方位脉冲数（孔径长度）
   char buf[128];
-  // 带宽扫描（固定中等斜距 + 中孔径）
+  // 完整扫描：带宽 × 斜距 × 方位脉冲数，覆盖采样、几何与孔径长度的交互。
   for (double bw : bws) {
-    SarCase c;
-    std::snprintf(buf, sizeof(buf), "sar_bwsweep_bw%.1f", bw);
-    c.scenario_id = buf;
-    c.bandwidth_mhz = bw;
-    c.slant_range_km = 100.0;
-    c.azimuth_pulses = 33U;
-    cases.push_back(c);
-  }
-  // 斜距扫描（固定带宽 + 中孔径）
-  for (double r : ranges) {
-    SarCase c;
-    std::snprintf(buf, sizeof(buf), "sar_rsweep_r%.0fkm", r);
-    c.scenario_id = buf;
-    c.bandwidth_mhz = 0.5;
-    c.slant_range_km = r;
-    c.azimuth_pulses = 33U;
-    cases.push_back(c);
-  }
-  // 孔径脉冲数扫描（固定带宽 + 中斜距）
-  for (std::uint32_t p : pulses) {
-    SarCase c;
-    std::snprintf(buf, sizeof(buf), "sar_psweep_p%u", p);
-    c.scenario_id = buf;
-    c.bandwidth_mhz = 0.5;
-    c.slant_range_km = 100.0;
-    c.azimuth_pulses = p;
-    cases.push_back(c);
+    for (double r : ranges) {
+      for (std::uint32_t p : pulses) {
+        SarCase c;
+        std::snprintf(buf, sizeof(buf), "sar_bw%.1f_r%.0fkm_p%u", bw, r, p);
+        c.scenario_id = buf;
+        c.bandwidth_mhz = bw;
+        c.slant_range_km = r;
+        c.azimuth_pulses = p;
+        cases.push_back(c);
+      }
+    }
   }
   return cases;
 }
@@ -168,10 +156,14 @@ sar_session::SarCycleInput MakeCycleInput(std::uint32_t cycle_index,
   input.cycle_index = cycle_index;
   input.dt_sec = static_cast<float>(kDefaultDtSec);
 
-  // 平台起始位于场景中心以北 ~100km（0.9°），使斜距≈标称值；沿东向匀速。
-  constexpr double kPlatformLatOffset = 0.9;
+  // 按每个场景的标称斜距构造真实几何，避免只改变配置标签而物理输入不变。
+  const double vertical_separation_m = kPlatformAltitudeM - mission.scene_center_altitude_m;
+  const double horizontal_range_m =
+      std::sqrt(std::max(0.0, mission.nominal_slant_range_m * mission.nominal_slant_range_m -
+                                  vertical_separation_m * vertical_separation_m));
+  const double platform_lat_offset_deg = horizontal_range_m / kEarthRadiusM * (180.0 / kPi);
   input.platform.time_s = elapsed_s;
-  input.platform.latitude_deg = kSceneCenterLatDeg - kPlatformLatOffset;
+  input.platform.latitude_deg = kSceneCenterLatDeg - platform_lat_offset_deg;
   input.platform.longitude_deg = kSceneCenterLonDeg + delta_lon_deg;
   input.platform.altitude_m = kPlatformAltitudeM;
   input.platform.velocity_north_mps = 0.0;
@@ -284,6 +276,10 @@ struct ScenarioSummary {
   double slant_range_km{0.0};
   std::uint32_t azimuth_pulses{0};
   bool executed{false};
+  bool has_error{false};
+  std::string abort_reason;
+  std::size_t diagnostic_warning_count{0};
+  std::size_t diagnostic_error_count{0};
   bool replay_ok{false};
   std::uint64_t replay_compared{0};
   bool replay_divergence{false};
@@ -342,6 +338,10 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
   }
 
   s.completed_stage = m.completed_stage;
+  s.has_error = m.has_error;
+  s.abort_reason = m.abort_reason;
+  s.diagnostic_warning_count = m.diag_warn;
+  s.diagnostic_error_count = m.diag_err;
   s.snr_db = m.snr_db;
   s.range_res_m = m.range_res_m;
   s.az_res_m = m.az_res_m;
@@ -362,7 +362,7 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
   if (!s.executed) {
     s.warnings.Error("cycle not executed");
   } else {
-    // ① 聚焦阶段应达 kL1RdaImage (=3) 或更高
+    // ① 聚焦阶段应达 kL1RdaImage 或更高，不绑定枚举的整数编码。
     if (s.completed_stage < static_cast<int>(sar_session::SarProcessingStage::kL1RdaImage)) {
       s.warnings.Warn("completed_stage below kL1RdaImage: " + std::to_string(s.completed_stage));
     }
@@ -454,6 +454,21 @@ int main(int argc, char** argv) {
   CheckCrossScenarioTrends(summaries);
 
   for (const auto& s : summaries) {
+    std::fprintf(stderr,
+                 "  [scenario] module=SAR id=%s bandwidth_mhz=%.3f slant_range_km=%.3f "
+                 "azimuth_pulses=%u executed=%d/1 stage=%d snr_db=%.5f range_res_m=%.5f "
+                 "az_res_m=%.5f entropy=%.5f contrast=%.5f iqm=%d has_error=%d abort_reason=%s "
+                 "diag_warn=%zu diag_error=%zu replay_ok=%d compared=%llu divergence=%d "
+                 "warn=%zu error=%zu\n",
+                 s.scenario_id.c_str(), s.bandwidth_mhz, s.slant_range_km, s.azimuth_pulses,
+                 static_cast<int>(s.executed), s.completed_stage, s.snr_db, s.range_res_m,
+                 s.az_res_m, s.image_entropy, s.image_contrast, static_cast<int>(s.has_iqm),
+                 static_cast<int>(s.has_error), s.abort_reason.empty() ? "none" : s.abort_reason.c_str(),
+                 s.diagnostic_warning_count, s.diagnostic_error_count,
+                 static_cast<int>(s.replay_ok),
+                 static_cast<unsigned long long>(s.replay_compared),
+                 static_cast<int>(s.replay_divergence),
+                 s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError));
     std::fprintf(scenario_writer.file(),
                  "%s,%.3f,%.3f,%u,%d,%d,%llu,%d,%d,%.5f,%.5f,%.5f,%.5f,%.5f,%d,%zu,%zu,%s\n",
                  s.scenario_id.c_str(), s.bandwidth_mhz, s.slant_range_km, s.azimuth_pulses,

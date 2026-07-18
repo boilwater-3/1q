@@ -73,29 +73,22 @@ std::vector<EsrCase> BuildEsrCases() {
   std::vector<EsrCase> cases;
   const double ranges[] = {10.0, 30.0, 60.0, 100.0};
   const double carriers[] = {2.0, 8.0, 18.0};  // S/C/Ku 波段
+  const float occupancies[] = {0.1f, 0.4f, 0.7f, 0.95f};
   char buf[128];
-  // 默认低占用率扫描：距离 × 载频
+  // 完整扫描：距离 × 载频 × 频谱占用率，覆盖传播与干扰的交互。
   for (double r : ranges) {
     for (double fc : carriers) {
-      EsrCase c;
-      std::snprintf(buf, sizeof(buf), "esr_r%03.0fkm_fc%02.0g_occ0.1", r, fc);
-      c.scenario_id = buf;
-      c.emitter_range_km = r;
-      c.carrier_ghz = fc;
-      c.spectrum_occupancy = 0.1f;
-      cases.push_back(c);
+      for (float occ : occupancies) {
+        EsrCase c;
+        std::snprintf(buf, sizeof(buf), "esr_r%03.0fkm_fc%02.0f_occ%.2f", r, fc,
+                      static_cast<double>(occ));
+        c.scenario_id = buf;
+        c.emitter_range_km = r;
+        c.carrier_ghz = fc;
+        c.spectrum_occupancy = occ;
+        cases.push_back(c);
+      }
     }
-  }
-  // 占用率扫描：固定中等距离 + 中载频
-  const float occupancies[] = {0.1f, 0.4f, 0.7f, 0.95f};
-  for (float occ : occupancies) {
-    EsrCase c;
-    std::snprintf(buf, sizeof(buf), "esr_r30km_fc08_occ%.2f", static_cast<double>(occ));
-    c.scenario_id = buf;
-    c.emitter_range_km = 30.0;
-    c.carrier_ghz = 8.0;
-    c.spectrum_occupancy = occ;
-    cases.push_back(c);
   }
   return cases;
 }
@@ -421,6 +414,18 @@ int main(int argc, char** argv) {
   CheckCrossScenarioTrends(summaries);
 
   for (const auto& s : summaries) {
+    std::fprintf(stderr,
+                 "  [scenario] module=ESR id=%s range_km=%.3f carrier_ghz=%.3f occupancy=%.3f "
+                 "executed=%u/%u observations=%.4f hypothesis_confidence=%.4f "
+                 "truth_match_rate=%.4f jammed=%.4f replay_ok=%d compared=%llu divergence=%d "
+                 "warn=%zu error=%zu\n",
+                 s.scenario_id.c_str(), s.emitter_range_km, s.carrier_ghz,
+                 s.spectrum_occupancy, s.executed_cycles, kNumCycles, s.steady_obs_count_mean,
+                 s.steady_hyp_confidence_mean, s.steady_truth_match_rate_mean,
+                 s.steady_jammed_mean, static_cast<int>(s.replay_ok),
+                 static_cast<unsigned long long>(s.replay_compared),
+                 static_cast<int>(s.replay_divergence),
+                 s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError));
     std::fprintf(scenario_writer.file(),
                  "%s,%.3f,%.3f,%.3f,%u,%.4f,%.4f,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%s\n",
                  s.scenario_id.c_str(), s.emitter_range_km, s.carrier_ghz, s.spectrum_occupancy,

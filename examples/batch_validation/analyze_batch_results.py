@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """批量场景验证结果分析脚本。
 
-读取四个模块（AR/EOS/ESR/SAR）各自 scenarios.csv 汇总文件，打印：
+读取五个模块（AR/EOS/ESR/SAR/SBIRS）各自 scenarios.csv 汇总文件，打印：
   - 每模块的场景汇总表（关键参数 → 关键指标）。
   - 高亮回放分叉场景（replay_ok=0）与软断言告警（warning_count/error_count > 0）。
   - 关键物理趋势的单调性检查（带宽↑→距离分辨率↓、对比度↑→检出率↑ 等）。
@@ -26,6 +26,7 @@ MODULES = [
     ("electro_optical_sensor", "EOS 光电传感器"),
     ("electronic_surveillance_radar", "ESR 电子侦察"),
     ("sar", "SAR 合成孔径雷达"),
+    ("sbirs_sensor", "SBIRS 天基红外传感器"),
 ]
 
 # ANSI 颜色码（终端高亮）。
@@ -169,6 +170,16 @@ def print_module_trend(module_dir, display_name, rows):
                       f"res_m={fmt(to_float(r.get('range_resolution_3db_m', 0)), 10, 3)}  "
                       f"snr_db={fmt(to_float(r.get('estimated_snr_db', 0)), 8, 2)}  "
                       f"entropy={fmt(to_float(r.get('image_entropy_nats', 0)))}")
+
+    elif "sbirs_sensor" in module_dir:
+        # SBIRS: 距离 → 红外 SNR / 检出（固定 800K, 10m2）
+        print("    距离 → 红外SNR/检出 (temperature=800K, area=10m2):")
+        for r in sorted(rows, key=lambda x: to_float(x.get("range_km", 0))):
+            if (abs(to_float(r.get("temperature_k", 0)) - 800.0) < 1e-6
+                    and abs(to_float(r.get("projected_area_m2", 0)) - 10.0) < 1e-6):
+                print(f"      range={fmt(to_float(r['range_km']), 7, 0)}km  "
+                      f"snr={fmt(to_float(r.get('max_snr_linear', 0)), 12, 4)}  "
+                      f"detections={to_int(r.get('detection_count', 0))}")
 
 
 def try_plot(base_dir):

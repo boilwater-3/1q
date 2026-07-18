@@ -62,7 +62,7 @@ constexpr double kNominalSlantRangeM = 100000.0;  // 100 km（匹配原始 sessi
 constexpr double kPlatformSpeedMps = 180.0;
 constexpr double kSceneCenterLatDeg = 40.1;   ///< 场景中心纬度（与平台 ~11km 地面偏移，使斜距≈15km）
 constexpr double kSceneCenterLonDeg = -105.0;
-constexpr double kTargetRcsDbsm = 10.0;     ///< 点目标 RCS（dBsm，对应 10 m^2）
+constexpr double kTargetRcsDbsm = 80.0;     ///< 强点目标标定源，确保通过真实链路预算 SNR 门限
 constexpr std::uint32_t kPulseCount = 33U;    ///< 孔径脉冲数（匹配原始 session_usage 验证参数）
 constexpr std::uint32_t kRangeSamples = 1024U; ///< 距离向采样点数
 constexpr double kPulseRepetitionFrequencyHz = 100.0;  ///< PRF（与下方 JSON hardware 配置一致）
@@ -203,8 +203,6 @@ const char* StageName(sar::session::SarProcessingStage stage) {
       return "None";
     case sar::session::SarProcessingStage::kRawEcho:
       return "RawEcho";
-    case sar::session::SarProcessingStage::kRangeCompression:
-      return "RangeCompression";
     case sar::session::SarProcessingStage::kL1RdaImage:
       return "L1RdaImage";
     case sar::session::SarProcessingStage::kL3BpImage:

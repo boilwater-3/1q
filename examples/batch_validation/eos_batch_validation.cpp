@@ -104,29 +104,22 @@ std::vector<EosCase> BuildEosCases() {
   const double offsets[] = {0.005, 0.010, 0.020, 0.030};
   const ContrastLevel contrasts[] = {ContrastLevel::kLow, ContrastLevel::kMedium,
                                      ContrastLevel::kHigh};
+  const LightingCondition lights[] = {LightingCondition::kDay, LightingCondition::kNight,
+                                      LightingCondition::kTwilight};
   char buf[128];
   for (double off : offsets) {
     for (ContrastLevel c : contrasts) {
-      EosCase cs;
-      std::snprintf(buf, sizeof(buf), "eos_off%.3f_%s_day", off, ContrastName(c));
-      cs.scenario_id = buf;
-      cs.target_lon_offset_deg = off;
-      cs.contrast = c;
-      cs.lighting = LightingCondition::kDay;
-      cases.push_back(cs);
+      for (LightingCondition l : lights) {
+        EosCase cs;
+        std::snprintf(buf, sizeof(buf), "eos_off%.3f_%s_%s", off, ContrastName(c),
+                      LightingName(l));
+        cs.scenario_id = buf;
+        cs.target_lon_offset_deg = off;
+        cs.contrast = c;
+        cs.lighting = l;
+        cases.push_back(cs);
+      }
     }
-  }
-  // 光照扫描：固定中等距离 + 高对比度，扫描昼夜。
-  // 注：day 变体已由上方对比度扫描覆盖（eos_off0.010_high_day），此处只补 night/twilight。
-  const LightingCondition lights[] = {LightingCondition::kNight, LightingCondition::kTwilight};
-  for (LightingCondition l : lights) {
-    EosCase cs;
-    std::snprintf(buf, sizeof(buf), "eos_off0.010_high_%s", LightingName(l));
-    cs.scenario_id = buf;
-    cs.target_lon_offset_deg = 0.010;
-    cs.contrast = ContrastLevel::kHigh;
-    cs.lighting = l;
-    cases.push_back(cs);
   }
   return cases;
 }
@@ -474,6 +467,17 @@ int main(int argc, char** argv) {
   CheckCrossScenarioTrends(summaries);
 
   for (const auto& s : summaries) {
+    std::fprintf(stderr,
+                 "  [scenario] module=EOS id=%s offset_deg=%.4f contrast=%s lighting=%s "
+                 "executed=%u/%u detection_rate=%.4f fused_snr_db=%.4f infrared=%.4f "
+                 "visible=%.4f replay_ok=%d compared=%llu divergence=%d warn=%zu error=%zu\n",
+                 s.scenario_id.c_str(), s.target_lon_offset_deg, s.contrast.c_str(),
+                 s.lighting.c_str(), s.executed_cycles, kNumCycles,
+                 s.steady_detection_rate_mean, s.steady_fused_snr_db_mean,
+                 s.steady_infrared_mean, s.steady_visible_mean, static_cast<int>(s.replay_ok),
+                 static_cast<unsigned long long>(s.replay_compared),
+                 static_cast<int>(s.replay_divergence),
+                 s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError));
     std::fprintf(scenario_writer.file(),
                  "%s,%.4f,%s,%s,%u,%.4f,%.4f,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%s\n",
                  s.scenario_id.c_str(), s.target_lon_offset_deg, s.contrast.c_str(),

@@ -4,7 +4,7 @@
  *
  * @par 设计目标
  * 统一封装 ReplayTraceWriter 的构造（manifest 必填字段填充），
- * 让四个模块的批量程序用同一行调用为每个场景产出一个可回放 trace 目录，
+ * 让各传感器模块的批量程序用同一行调用为每个场景产出一个可回放 trace 目录，
  * 事后由各模块的 ReplayXxxTrace(trace_dir) 做确定性回归（分叉检测）。
  *
  * @par 关键约定
@@ -31,6 +31,7 @@ struct ModuleName {
   static constexpr const char* kElectroOpticalSensor = "electro_optical_sensor";
   static constexpr const char* kElectronicSurveillanceRadar = "electronic_surveillance_radar";
   static constexpr const char* kSar = "sar";
+  static constexpr const char* kSbirsSensor = "sbirs_sensor";
 };
 
 /**

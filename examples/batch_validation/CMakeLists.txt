@@ -46,3 +46,9 @@ target_include_directories(sar_batch_validation PRIVATE
 target_compile_definitions(sar_batch_validation PRIVATE
     BATCH_CONFIG_DIR="${CMAKE_SOURCE_DIR}/examples/configs")
 target_sources(sar_batch_validation PRIVATE ${ONEQ_EXAMPLE_COMMON_SOURCES})
+
+# SBIRS 批量验证：配置与输入均通过公开 POD / builder 构造，无私有 config loader。
+add_executable(sbirs_batch_validation sbirs_batch_validation.cpp)
+target_link_libraries(sbirs_batch_validation PRIVATE ${PROJECT_ALIAS})
+target_include_directories(sbirs_batch_validation PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}")

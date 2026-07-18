@@ -1,12 +1,12 @@
 # 批量场景验证（Batch Validation）
 
-通过多场景参数扫描，验证 AR / EOS / ESR / SAR 四个传感器模块在不同物理条件下的
+通过多场景参数扫描，验证 AR / EOS / ESR / SAR / SBIRS 五个传感器模块在不同物理条件下的
 泛用性与正确性。每个模块一个独立可执行程序：构造多组场景 → 跑完仿真周期 →
 采集周期级与场景汇总级 CSV 指标 → 对关键物理趋势做软断言 → 每个场景用 `XxxTraceSession`
 录制可回放 trace，并立即用 `ReplayXxxTrace` 做确定性回归（分叉检测）。
 
-本目录是 **examples 层**：只使用对外公开的 Session / Adapter / Replay 接口与
-`config_loader`，不修改任何 `include/` 或 `src/`。
+本目录是 **examples 层**：只使用对外公开的 Session / Adapter / Replay 接口，
+并按模块使用公开 `config_loader` 或 POD / builder 构造配置，不修改任何 `include/` 或 `src/`。
 
 ## 与现有测试的关系
 
@@ -20,6 +20,10 @@
 
 两者互补：matrix_test 是 CI 门控，本框架是"用大量场景证明模块泛用性"的数据采集与分析工具。
 
+当前矩阵共 199 个场景：AR 52、EOS 36、ESR 48、SAR 36、SBIRS 27。AR 验证器在
+构造每个会话前显式设置 `enable_physics_detection=true`、`enable_physical_rcs=true`
+和 `physics_mix_ratio=1.0`，不依赖 JSON 默认值。
+
 ## 目录结构
 
 ```
@@ -32,6 +36,7 @@ batch_validation/
 ├── eos_batch_validation.cpp   EOS 场景扫描（距离 × 红外对比度 × 光照）
 ├── esr_batch_validation.cpp   ESR 场景扫描（辐射源距离 × 载频 × 频谱占用率）
 ├── sar_batch_validation.cpp   SAR 场景扫描（带宽 × 斜距 × 方位脉冲数）
+├── sbirs_batch_validation.cpp SBIRS 场景扫描（距离 × 温度 × 投影面积）
 └── analyze_batch_results.py   分析脚本：读 scenarios.csv → 趋势表 + 高亮告警 + 趋势图
 ```
 
@@ -42,13 +47,15 @@ batch_validation/
 bash scripts/bootstrap_conan.sh llvm-ninja-release-local
 cmake --preset llvm-ninja-release-local
 cmake --build --preset llvm-ninja-release-local --target \
-    ar_batch_validation eos_batch_validation esr_batch_validation sar_batch_validation
+    ar_batch_validation eos_batch_validation esr_batch_validation sar_batch_validation \
+    sbirs_batch_validation
 
 # 运行（默认输出到 /tmp/1q/batch_validation/<module>/）
 ./build/llvm-ninja-release-local/bin/ar_batch_validation
 ./build/llvm-ninja-release-local/bin/eos_batch_validation
 ./build/llvm-ninja-release-local/bin/esr_batch_validation
 ./build/llvm-ninja-release-local/bin/sar_batch_validation
+./build/llvm-ninja-release-local/bin/sbirs_batch_validation
 
 # 分析
 python3 examples/batch_validation/analyze_batch_results.py
@@ -66,7 +73,8 @@ python3 examples/batch_validation/analyze_batch_results.py
 │   └── traces/<scenario_id>/  每场景一个可回放 trace 目录（manifest.json + events/）
 ├── electro_optical_sensor/    同上
 ├── electronic_surveillance_radar/  同上
-└── sar/                       同上（单周期聚焦，cycles.csv 每场景一行）
+├── sar/                       同上（单周期聚焦，cycles.csv 每场景一行）
+└── sbirs_sensor/              同上（每场景两周期，覆盖捕获与跟踪交接）
 ```
 
 ## 关键技术点
@@ -98,6 +106,7 @@ python3 examples/batch_validation/analyze_batch_results.py
 | EOS | 高对比度检出率 ≥ 低对比度；夜间可见光 SNR 显著低于红外 |
 | ESR | 假设置信度 / 真值匹配率 ∈ [0,1]；占用率↑ 时受扰观测↑ |
 | SAR | 聚焦阶段达 `kL1RdaImage`；图像质量指标有效；带宽↑ → 距离分辨率↓ |
+| SBIRS | 两周期均执行；温度↑ 时红外 SNR 不下降；覆盖可检出与门限下不可检出场景 |
 
 回放分叉也记为 warning（非 error）：这是模块在边界场景下的确定性属性，应被记录与
 高亮，但不阻塞批量运行。只有 `kError`（配置加载失败、Adapter::Build 失败、无周期执行）
@@ -131,7 +140,8 @@ auto result = airborne_radar::session::ReplayArTrace(
 // result.ok / result.playback.divergence_found / result.first_error
 ```
 
-EOS / ESR / SAR 同理（`ReplayEosTrace` / `ReplayEsrTrace` / `ReplaySarTrace`）。
+EOS / ESR / SAR / SBIRS 同理（`ReplayEosTrace` / `ReplayEsrTrace` / `ReplaySarTrace` /
+`ReplaySbirsTrace`）。
 
 ## 当前已知发现
 
