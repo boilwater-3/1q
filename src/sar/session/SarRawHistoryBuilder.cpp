@@ -460,6 +460,20 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   echo_config.enable_atmospheric_attenuation =
       config.environment.enable_atmospheric_attenuation;
 
+  echo::SceneDescription scene;
+  scene.point_targets = targets;
+  const double resolution_cell_area_m2 =
+      config.mission.desired_ground_range_resolution_m *
+      config.mission.desired_azimuth_resolution_m;
+  const double representative_spacing_m = std::sqrt(resolution_cell_area_m2);
+  scene.scene_extent_x_m = 3.0 * representative_spacing_m;
+  scene.scene_extent_y_m = 3.0 * representative_spacing_m;
+  scene.clutter_grid_spacing_m = representative_spacing_m;
+  scene.clutter_cell_area_m2 = resolution_cell_area_m2;
+  scene.clutter.type = echo::ClutterType::kConstantSigma0;
+  scene.clutter.sigma0_linear =
+      std::pow(10.0, config.environment.surface_backscatter_sigma0_db / 10.0);
+
   // 逐目标几何一致性检查：nominal_slant_range_m 不参与回波接收窗口定时（定时用真实
   // 几何距离，见 SarEcho.cpp），它只是 RDA 参考聚焦距离。但若实际斜距与标称值严重错配，
   // 通常意味着配置与场景几何脱节（如平台-目标同点但 nominal 很大），会让回波完全落在
@@ -492,14 +506,16 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
   history->values.assign(history->rows * history->cols, signal::ComplexSample(0.0, 0.0));
 
   const double link_amplitude_scale = MonostaticLinkAmplitudeScale(config.hardware);
+  const double link_power_scale = link_amplitude_scale * link_amplitude_scale;
   const double receiver_noise_power_w = ReceiverNoisePowerW(config.hardware);
 
   std::size_t clipping_count = 0U;
   for (std::size_t row = 0U; row < actual_pulses.size(); ++row) {
     echo::RawEchoResult echo;
-    if (!echo::GeneratePointTargetRawEcho(echo_config, actual_pulses[row], targets,
-                                          transmit_waveform, &echo)) {
-      RecordAbort(result, "raw_echo_failed", "SAR failed to generate point-target raw echo.");
+    if (!echo::GenerateClutterScene(echo_config, actual_pulses[row], scene,
+                                    transmit_waveform, &echo)) {
+      RecordAbort(result, "raw_echo_failed",
+                  "SAR failed to generate point-target and surface-background raw echo.");
       return false;
     }
     if (echo.has_clipping) {
@@ -510,8 +526,9 @@ bool BuildRawPulseHistory(const config::SarSessionConfig& config, const SarCycle
     for (signal::ComplexSample& sample : echo.samples) {
       sample *= link_amplitude_scale;
     }
-    record.signal_power_w = MeanPower(echo.samples);
-    record.noise_power_w = receiver_noise_power_w;
+    record.signal_power_w = echo.point_target_mean_power * link_power_scale;
+    record.noise_power_w = receiver_noise_power_w +
+                           echo.distributed_clutter_mean_power * link_power_scale;
     ApplyReceiverChain(1.0, receiver_noise_power_w, record.pulse_id, &echo.samples);
     record.samples = echo.samples;
     if (!pulse_buffer->Push(record)) {

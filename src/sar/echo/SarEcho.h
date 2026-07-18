@@ -56,6 +56,8 @@ struct RawEchoConfig {
 struct RawEchoResult {
   signal::ComplexVector samples{};
   std::vector<EchoTargetDiagnostic> diagnostics{};
+  double point_target_mean_power{0.0};
+  double distributed_clutter_mean_power{0.0};
   bool has_clipping{false};
 };
 
@@ -154,6 +156,7 @@ bool AddNoise(const NoiseSpec& spec, signal::ComplexVector* samples);
 enum class ClutterType {
   kGamma = 0,  /**< γ 常数模型(陆) */
   kSea = 1,    /**< 海杂波 GIT 经验模型 */
+  kConstantSigma0 = 2, /**< 常量地表后向散射系数模型 */
 };
 
 /**
@@ -166,6 +169,7 @@ struct ClutterModel {
   double wind_speed_mps{5.0};      /**< 风速 m/s(kSea 时有效) */
   double incidence_angle_rad{0.0}; /**< 局部入射角 */
   double resolution_cell_area_m2{1.0};  /**< 分辨单元面积 m² */
+  double sigma0_linear{0.0};       /**< kConstantSigma0 的线性功率比 */
 };
 
 /**
@@ -177,6 +181,9 @@ double GammaClutterRcs(const ClutterModel& model);
  * @brief 海杂波 GIT 经验模型:σ = f(海况, 风速, 入射角)·A_cell。
  */
 double SeaClutterRcs(const ClutterModel& model);
+
+/** @brief 常量 sigma0 模型：σ = sigma0 × A_cell。 */
+double ConstantSigma0ClutterRcs(const ClutterModel& model);
 
 // ────────────────────────────────────────────────────────────
 // 面目标场景
@@ -192,6 +199,7 @@ struct SceneDescription {
   std::vector<PointTarget> point_targets{};
   ClutterModel clutter{};
   double clutter_grid_spacing_m{10.0};
+  double clutter_cell_area_m2{0.0}; /**< >0 时覆盖 spacing² 作为单元面积 */
 };
 
 /**

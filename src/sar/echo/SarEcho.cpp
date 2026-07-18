@@ -31,6 +31,17 @@ double AtmosphericAmplitudeScale(const RawEchoConfig& config, double slant_range
   return std::pow(10.0, -two_way_loss_db / 20.0);
 }
 
+double MeanPower(const signal::ComplexVector& samples) {
+  if (samples.empty()) {
+    return 0.0;
+  }
+  double power = 0.0;
+  for (const signal::ComplexSample& sample : samples) {
+    power += std::norm(sample);
+  }
+  return power / static_cast<double>(samples.size());
+}
+
 }  // namespace
 bool GeneratePointTargetRawEcho(const RawEchoConfig& config,
                                 const geometry::PlatformPulseState& platform,
@@ -43,6 +54,8 @@ bool GeneratePointTargetRawEcho(const RawEchoConfig& config,
 
   result->samples.assign(config.range_sample_count, signal::ComplexSample(0.0, 0.0));
   result->diagnostics.clear();
+  result->point_target_mean_power = 0.0;
+  result->distributed_clutter_mean_power = 0.0;
   result->has_clipping = false;
 
   const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
@@ -104,6 +117,7 @@ bool GeneratePointTargetRawEcho(const RawEchoConfig& config,
     }
     result->diagnostics.push_back(diagnostic);
   }
+  result->point_target_mean_power = MeanPower(result->samples);
   return true;
 }
 
@@ -123,6 +137,8 @@ bool GeneratePointTargetRawEchoWithAntenna(const RawEchoConfig& config,
 
   result->samples.assign(config.range_sample_count, signal::ComplexSample(0.0, 0.0));
   result->diagnostics.clear();
+  result->point_target_mean_power = 0.0;
+  result->distributed_clutter_mean_power = 0.0;
   result->has_clipping = false;
 
   const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
@@ -200,6 +216,7 @@ bool GeneratePointTargetRawEchoWithAntenna(const RawEchoConfig& config,
     }
     result->diagnostics.push_back(diagnostic);
   }
+  result->point_target_mean_power = MeanPower(result->samples);
   return true;
 }
 
@@ -217,6 +234,8 @@ bool GeneratePointTargetRawEchoWithElevationGate(
 
   result->samples.assign(config.range_sample_count, signal::ComplexSample(0.0, 0.0));
   result->diagnostics.clear();
+  result->point_target_mean_power = 0.0;
+  result->distributed_clutter_mean_power = 0.0;
   result->has_clipping = false;
 
   // 门控有效条件:illuminated 且 near < far(子带窗口有效)。
@@ -296,6 +315,7 @@ bool GeneratePointTargetRawEchoWithElevationGate(
     }
     result->diagnostics.push_back(diagnostic);
   }
+  result->point_target_mean_power = MeanPower(result->samples);
   return true;
 }
 
@@ -386,6 +406,10 @@ double SeaClutterRcs(const ClutterModel& model) {
   return sigma0_linear * model.resolution_cell_area_m2;
 }
 
+double ConstantSigma0ClutterRcs(const ClutterModel& model) {
+  return model.sigma0_linear * model.resolution_cell_area_m2;
+}
+
 // ────────────────────────────────────────────────────────────
 // 面目标场景
 // ────────────────────────────────────────────────────────────
@@ -413,13 +437,19 @@ bool GenerateClutterScene(const RawEchoConfig& config,
 
   const double half_x = scene.scene_extent_x_m * 0.5;
   const double half_y = scene.scene_extent_y_m * 0.5;
-  const double cell_area = spacing * spacing;
+  const double cell_area = scene.clutter_cell_area_m2 > 0.0
+                               ? scene.clutter_cell_area_m2
+                               : spacing * spacing;
 
   const double wavelength_m = kSpeedOfLightMps / config.carrier_frequency_hz;
+  signal::ComplexVector clutter_samples(config.range_sample_count,
+                                        signal::ComplexSample(0.0, 0.0));
 
-  for (double cx = scene.scene_center.x_m - half_x; cx < scene.scene_center.x_m + half_x;
+  for (double cx = scene.scene_center.x_m - half_x + 0.5 * spacing;
+       cx < scene.scene_center.x_m + half_x;
        cx += spacing) {
-    for (double cy = scene.scene_center.y_m - half_y; cy < scene.scene_center.y_m + half_y;
+    for (double cy = scene.scene_center.y_m - half_y + 0.5 * spacing;
+         cy < scene.scene_center.y_m + half_y;
          cy += spacing) {
       geometry::LocalPoint cell_pos;
       cell_pos.x_m = cx;
@@ -440,8 +470,18 @@ bool GenerateClutterScene(const RawEchoConfig& config,
       cell_model.incidence_angle_rad = inc_angle_rad;
       cell_model.resolution_cell_area_m2 = cell_area;
 
-      const double rcs =
-          cell_model.type == ClutterType::kSea ? SeaClutterRcs(cell_model) : GammaClutterRcs(cell_model);
+      double rcs = 0.0;
+      switch (cell_model.type) {
+        case ClutterType::kGamma:
+          rcs = GammaClutterRcs(cell_model);
+          break;
+        case ClutterType::kSea:
+          rcs = SeaClutterRcs(cell_model);
+          break;
+        case ClutterType::kConstantSigma0:
+          rcs = ConstantSigma0ClutterRcs(cell_model);
+          break;
+      }
 
       if (!std::isfinite(rcs) || rcs <= 0.0) {
         continue;
@@ -477,12 +517,17 @@ bool GenerateClutterScene(const RawEchoConfig& config,
       const std::size_t writable_count =
           std::min(effective_waveform.size(), config.range_sample_count - delay_sample_index);
       for (std::size_t i = 0U; i < writable_count; ++i) {
-        result->samples[delay_sample_index + i] += effective_waveform[i] * propagation;
+        clutter_samples[delay_sample_index + i] += effective_waveform[i] * propagation;
       }
       if (writable_count < transmit_waveform.size()) {
         result->has_clipping = true;
       }
     }
+  }
+
+  result->distributed_clutter_mean_power = MeanPower(clutter_samples);
+  for (std::size_t index = 0U; index < result->samples.size(); ++index) {
+    result->samples[index] += clutter_samples[index];
   }
 
   return true;

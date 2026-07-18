@@ -193,6 +193,7 @@ TEST(SarSessionPipelineTest, RetainedExternalRawPhaseHistoryIsExactInputIq) {
   config.policy.retain_raw_phase_history = true;
   config.environment.enable_atmospheric_attenuation = true;
   config.environment.atmospheric_loss_db_per_km = 1000.0;
+  config.environment.surface_backscatter_sigma0_db = 20.0;
   const session::SarCycleInput input = MakeExternalRawIqInput();
   const session::SarCycleResult result =
       session::SarSession::Create(config).StepWithResult(input);
@@ -389,6 +390,7 @@ TEST(SarSessionPipelineTest, HardwareLinkBudgetControlsInternalRawEchoSnr) {
     config::SarSessionConfig config = MakeSmallRdaConfig();
     config.hardware = hardware;
     config.policy.minimum_snr_db = -1000.0;
+    config.environment.surface_backscatter_sigma0_db = -300.0;
     return session::SarSession::Create(config).StepWithResult(MakeInput());
   };
 
@@ -420,6 +422,7 @@ TEST(SarSessionPipelineTest, HardwareLinkBudgetControlsInternalRawEchoSnr) {
 TEST(SarSessionPipelineTest, AtmosphericAttenuationAppliesTwoWayLossToInternalEcho) {
   config::SarSessionConfig reference_config = MakeSmallRdaConfig();
   reference_config.policy.minimum_snr_db = -1000.0;
+  reference_config.environment.surface_backscatter_sigma0_db = -300.0;
   const session::SarCycleResult reference =
       session::SarSession::Create(reference_config).StepWithResult(MakeInput());
   ASSERT_TRUE(reference.executed_this_cycle);
@@ -435,6 +438,25 @@ TEST(SarSessionPipelineTest, AtmosphericAttenuationAppliesTwoWayLossToInternalEc
   EXPECT_NEAR(reference.output_frame.estimated_snr_db -
                   attenuated.output_frame.estimated_snr_db,
               6.0, 0.1);
+}
+
+TEST(SarSessionPipelineTest, SurfaceSigma0ControlsDistributedInternalBackground) {
+  const auto run_with = [](double sigma0_db) {
+    config::SarSessionConfig config = MakeSmallRdaConfig();
+    config.policy.minimum_snr_db = -1000.0;
+    config.environment.surface_backscatter_sigma0_db = sigma0_db;
+    return session::SarSession::Create(config).StepWithResult(MakeInput());
+  };
+
+  const session::SarCycleResult low_background = run_with(-30.0);
+  const session::SarCycleResult high_background = run_with(-10.0);
+  ASSERT_TRUE(low_background.executed_this_cycle);
+  ASSERT_TRUE(high_background.executed_this_cycle);
+  ASSERT_TRUE(std::isfinite(low_background.output_frame.estimated_snr_db));
+  ASSERT_TRUE(std::isfinite(high_background.output_frame.estimated_snr_db));
+  EXPECT_NEAR(low_background.output_frame.estimated_snr_db -
+                  high_background.output_frame.estimated_snr_db,
+              20.0, 0.05);
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqDoesNotReapplyHardwareOrSnrGate) {
