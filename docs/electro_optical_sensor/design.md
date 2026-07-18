@@ -380,8 +380,7 @@ EOS 的检测判定不是简单的“信号大于阈值”。噪声和成像质�
 这些算法位于 foundation 层，测试可以直接覆盖，但它们不是 public customization surface。外部用户只能通过硬件、任务、策略、环境和输入影响这些模型。
 
 `detector_area_cm2` 的厘米制单位与 `detector_detectivity_cm_sqrt_hz_per_w` 的 D* 量纲绑定，二者直接进入
-NEP 计算；它不是与 SBIRS `detector_area_m2` 可机械互换的同义字段。公开名称必须保留 `_cm2` 后缀，
-避免调用方把 m² 数值直接复制进来造成四个数量级误差。
+NEP 计算。公开名称必须保留 `_cm2` 后缀，避免调用方误把其他面积单位的数值直接复制进来。
 [evidence: tests/unit/electro_optical_sensor/eos_foundation_test.cpp::EosFoundationTest.NepModelProducesReasonableSnrEvaluation]
 [evidence: tests/contract/check_cross_domain_naming.cmake]
 
