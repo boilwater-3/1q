@@ -11,10 +11,10 @@ Authority: 非规定性记录
 
 | 优先级 | 条目 | 当前判断 | 首个交付物 |
 |---|---|---|---|
-| P2 | OQ-10a、OQ-10d、OQ-10i | 涉及 public API/ABI 或跨模块迁移，不能作为顺手清理 | Stage A 迁移契约和 consumer 影响清单 |
+| P2 | OQ-10d、OQ-10i | 涉及 public API/ABI 或跨模块迁移，不能作为顺手清理 | Stage A 迁移契约和 consumer 影响清单 |
 
 排序依据是当前 checkout 的代码和测试，不代表这些条目已经获准实施。原 OQ-10h、OQ-3、OQ-10c、
-OQ-8、OQ-9、OQ-10b、OQ-10e、OQ-10f、OQ-10g、OQ-10j、OQ-10k、OQ-10l、OQ-10m、OQ-1 已完成；对应运行时语义和证据已迁入
+OQ-8、OQ-9、OQ-10a、OQ-10b、OQ-10e、OQ-10f、OQ-10g、OQ-10j、OQ-10k、OQ-10l、OQ-10m、OQ-1 已完成；对应运行时语义和证据已迁入
 SBIRS、Flight Dynamic、AR、ESR、EOS、SAR 的模块设计权威。
 
 ---
@@ -22,21 +22,6 @@ SBIRS、Flight Dynamic、AR、ESR、EOS、SAR 的模块设计权威。
 ## OQ-10 四域对外配置结构体成员合理性与反直觉审查
 
 对 5 个传感器模块（AR / ESR / EOS / SAR / SBIRS）的对外公开四域配置（hardware / mission / policy / environment）共 20 个头文件做了逐字段审查与实际消费路径核验，登记以下反用户直觉问题。按严重度分级；每条均附代码证据。结论前缀含 🔴严重 / 🟠中等 / 🟡轻微。
-
-### OQ-10a 🔴 SBIRS `sensor_enabled` 与其余三域 `power_on` 同概念跨域异名
-
-AR/ESR/EOS 的开关机字段都叫 `power_on{true}`，唯独 SBIRS 叫 `sensor_enabled{true}`。
-
-- AR `include/1q/airborne_radar/config/ArMissionConfig.h:23`、ESR `include/1q/electronic_surveillance_radar/config/EsrMissionConfig.h:50`、EOS `include/1q/electro_optical_sensor/config/EosMissionConfig.h:36`：`bool power_on{true}`。
-- SBIRS `include/1q/sbirs_sensor/config/SbirsMissionConfig.h:24`：`bool sensor_enabled{true}`。
-- 反差证据：`include/1q/airborne_radar/config/ArOrientationConfig.h:62-63` 注释明确写"命名对齐 EOS/ESR 的 work_mode…由 `check_cross_domain_naming.cmake` 守护不回归"——SBIRS 绕过了这套守护。
-
-为何未决：改名是 ABI/源码兼容性破坏，需确认是否有外部消费方依赖当前字段名；同时需核对 `check_cross_domain_naming.cmake` 的守护范围是否本应覆盖此字段而漏检。
-
-推进需要：
-- 决定统一字段名（推荐 `power_on`，多数派）；
-- 扩展或核对 `check_cross_domain_naming.cmake` 规则将该字段纳入守护，防回归；
-- 评估改名对外部消费方的兼容性影响，必要时走别名过渡。
 
 ### OQ-10d 🟠 ScenarioConfig / ModelConfig "双胞胎 struct"，字段完全相同却禁止视为同型
 

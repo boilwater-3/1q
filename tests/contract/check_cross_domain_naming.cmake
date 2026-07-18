@@ -19,6 +19,7 @@
 #      不影响 ArSessionConfigBuilder::MissionEditor 等其它建造者类。
 #   6) 四域 RuntimeConfigBuilder 必须提供 WithRuntimeConfigPatch 整块覆盖入口
 #      （P3-b 对齐，四域形状一致）。
+#   7) SBIRS mission 电源主名必须为 power_on，并保留同存储 sensor_enabled 兼容别名。
 #
 # 配套：跨域"形状契约"（Step/StepWithResult 返回类型）由编译期
 # foundation/SensorContract.h 的 static_assert 守护，本脚本不重复检查类型形状。
@@ -176,6 +177,18 @@ foreach(HEADER IN LISTS RUNTIME_BUILDER_HEADERS)
   endif()
 endforeach()
 
+# ---- 阻断 7：SBIRS mission 电源主名 + 兼容别名 ----
+set(SBIRS_MISSION_HEADER
+    "${PUBLIC_INCLUDE_ROOT}/sbirs_sensor/config/SbirsMissionConfig.h")
+file(READ "${SBIRS_MISSION_HEADER}" SBIRS_MISSION_TEXT)
+foreach(REQUIRED_TOKEN "bool power_on" "bool sensor_enabled")
+  string(FIND "${SBIRS_MISSION_TEXT}" "${REQUIRED_TOKEN}" _token_pos)
+  if(_token_pos EQUAL -1)
+    list(APPEND VIOLATIONS
+         "${SBIRS_MISSION_HEADER}: [SBIRS 电源命名] 缺少 '${REQUIRED_TOKEN}'；power_on 为主名，sensor_enabled 为兼容别名")
+  endif()
+endforeach()
+
 if(VIOLATIONS)
   list(JOIN VIOLATIONS "\n" VIOLATION_TEXT)
   message(FATAL_ERROR
@@ -185,4 +198,4 @@ if(VIOLATIONS)
           "违规：\n${VIOLATION_TEXT}")
 endif()
 
-message(STATUS "[跨域命名守护] 通过：Session 签名裸名 + work_mode + 补丁槽 + SNR 前缀 + Builder 动词/整块入口均无回退。")
+message(STATUS "[跨域命名守护] 通过：Session 签名裸名 + work_mode + power_on + 补丁槽 + SNR 前缀 + Builder 动词/整块入口均无回退。")

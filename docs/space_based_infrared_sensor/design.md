@@ -1,7 +1,7 @@
 # Space-Based Infrared Sensor (SBIRS-inspired) 目标设计
 
 Status: active
-Last-reviewed: 2026-07-13
+Last-reviewed: 2026-07-18
 Authority: target design for the new `sbirs_sensor` module
 
 本文是 `sbirs_sensor`（天基红外预警仿真传感器）模块的设计权威文档。模块已实现并具备单元、
@@ -300,6 +300,19 @@ flowchart LR
   Raw --> Result
   Result --> Trace
 ```
+
+### 1.7 Mission 电源命名与兼容边界
+
+`SbirsMissionConfig::power_on` 是与 AR/ESR/EOS 对齐的 mission 电源主名。历史
+`sensor_enabled` 通过匿名 union 保留为同存储源码/布局兼容别名：两者不是两个配置源，写任一名称
+都会立即反映到另一名称。pipeline、runtime resolver 和新代码只读取 `power_on`。
+
+runtime patch 的 `has_sensor_enabled` / `sensor_enabled` 继续与 AR/ESR/EOS 的补丁命名一致；replay
+schema 的 `sensor_enabled` 字段名也保持不变，codec 只在 DTO 边界映射到 `power_on`，不做 schema
+迁移。未来删除兼容别名属于 major public API 决策，必须重新审计外部消费者。
+
+[evidence: tests/contract/sbirs_sensor/sbirs_public_api_convenience_test.cpp::MissionPowerNameKeepsLegacyAliasOnSameStorage]
+[evidence: tests/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp::SessionConfigPreservesAllDomains]
 
 ## 2. 本模块使用的算法
 
