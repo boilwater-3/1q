@@ -136,7 +136,8 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
    空输出帧，不把非法输入记作新的有效 batch/帧。设备关机等合法非执行状态必须使用独立
    reason（如 `kSensorPoweredOff`），不得映射成 output contract violation。已有有效输出时可
    复用上一帧并标记 `reused_previous_output`。新增 reason 以显式数值追加，保留已有 replay/trace
-   中既有数值语义。
+   中既有数值语义。Lifecycle recorder 不得把 `executed_this_cycle=false` 解释为目标丢失或未检测；
+   非执行周期不产生 lifecycle 事件，也不推进其累积状态。
 
 4. **外部输入解析与 trace 读取必须有上限与完整性校验。** 自研解析器（如 JSON）必须有最大嵌套深度限制、顶层 value 后的 EOF 校验与转义完整性校验。trace/replay 文件读取必须在读入前检查大小上限（与写入侧守卫对齐）。磁盘写失败必须检查流状态并记录，不得静默丢失。
 
@@ -202,7 +203,10 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
    - `sar`：runtime config 立即提交，但 pipeline 持有 pulse ring、轨迹缓冲、pulse ID 与 PRF
      分数余量。`SarController::RunOnce` 在 pipeline 执行前捕获这些状态，任一执行 abort 后完整
      恢复并按需复用上一有效输出；配置本身不随执行失败回滚，故仍归属立即提交类。
-   - `sbirs_sensor`：pipeline 持有跨周期目标状态机，但 capture/restore 封装在 `SbirsController::RunOnce` 内部，是 SBIRS controller 的内部失败回滚边界，不在 session 层暴露事务语义。归属立即提交类。
+   - `sbirs_sensor`：pipeline 持有跨周期目标状态机，但 `RunCycle` 返回 record/attribution 原子元素，
+     controller 输出装配后没有可能失败的 commit 步骤，因此不激活周期回滚。pipeline 的
+     capture/restore 是经 mutation 前完整校验的 internal checkpoint，用于确定性 continuation 与
+     状态恢复测试，不在 session 层暴露事务语义。归属立即提交类。
 2. **所有四模块的 patch 必须经 resolver 校验**（`is_valid`/`has_requested_update`），不得盲写。`sar` 已通过 `SarRuntimeConfigResolver` 对齐该规则。
 3. **立即提交类不得声称 session 层回滚。** 若其内部存在 capture/restore 能力（如 ESR 的累积状态快照），必须在代码 doc 注明该机制的实际边界，避免阅读者误以为 session 层提供配置回滚或已激活的执行失败回滚。
 4. **事务性提交类不得在配置边界被接受前落定配置语义状态。** 配置的"逻辑当前值"

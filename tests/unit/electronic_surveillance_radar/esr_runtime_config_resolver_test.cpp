@@ -258,6 +258,95 @@ TEST(EsrRuntimeConfigResolverTest, InvalidExplicitBoundsRejectWholePatch) {
   EXPECT_FLOAT_EQ(resolved.next_config.mission.scan.scan_rate_hz, 1.0f);
 }
 
+TEST(EsrRuntimeConfigResolverTest, DisableExplicitBoundsRebuildsCenterDrivenWindow) {
+  EsrInternalExecutionConfig current_config;
+  current_config.hardware.az_scan_range_deg = 80.0f;
+  current_config.hardware.el_scan_range_deg = 20.0f;
+  current_config.hardware.antenna_mount_az_deg = 3.0f;
+  current_config.hardware.antenna_mount_el_deg = -2.0f;
+  current_config.mission.scan.use_explicit_scan_bounds = true;
+  current_config.mission.scan.scan_center_az_deg = 20.0f;
+  current_config.mission.scan.scan_center_el_deg = 4.0f;
+  current_config.mission.scan.scan_start_az_deg = -10.0f;
+  current_config.mission.scan.scan_end_az_deg = 10.0f;
+  current_config.mission.scan.scan_start_el_deg = -5.0f;
+  current_config.mission.scan.scan_end_el_deg = 5.0f;
+  current_config.resolved_scan.scan_start_az_deg = -10.0f;
+  current_config.resolved_scan.scan_end_az_deg = 10.0f;
+  current_config.resolved_scan.scan_start_el_deg = -5.0f;
+  current_config.resolved_scan.scan_end_el_deg = 5.0f;
+
+  const config::EsrRuntimeConfigPatch patch =
+      esr_config::EsrRuntimeConfigBuilder().WithExplicitScanBoundsEnabled(false).Build();
+  const EsrRuntimeConfigResolveResult resolved =
+      ResolveEsrRuntimeConfigPatch(current_config, patch);
+
+  EXPECT_TRUE(resolved.has_requested_update);
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_EQ(resolved.status, EsrRuntimeConfigApplyStatus::kApplied);
+  EXPECT_TRUE(resolved.pipeline_config_changed);
+  EXPECT_FALSE(resolved.next_config.mission.scan.use_explicit_scan_bounds);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_start_az_deg, -23.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_end_az_deg, 57.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_start_el_deg, -4.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_end_el_deg, 16.0f);
+}
+
+TEST(EsrRuntimeConfigResolverTest, EnableExplicitBoundsUsesStaticMountConvention) {
+  EsrInternalExecutionConfig current_config;
+  current_config.hardware.antenna_mount_az_deg = 3.0f;
+  current_config.hardware.antenna_mount_el_deg = -2.0f;
+
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_explicit_scan_bounds = true;
+  patch.explicit_scan_bounds.enabled = true;
+  patch.explicit_scan_bounds.scan_start_az_deg = -10.0f;
+  patch.explicit_scan_bounds.scan_end_az_deg = 30.0f;
+  patch.explicit_scan_bounds.scan_start_el_deg = -5.0f;
+  patch.explicit_scan_bounds.scan_end_el_deg = 7.0f;
+
+  const EsrRuntimeConfigResolveResult resolved =
+      ResolveEsrRuntimeConfigPatch(current_config, patch);
+
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_TRUE(resolved.pipeline_config_changed);
+  EXPECT_TRUE(resolved.next_config.mission.scan.use_explicit_scan_bounds);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_start_az_deg, -13.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_end_az_deg, 27.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_start_el_deg, -3.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_end_el_deg, 9.0f);
+}
+
+TEST(EsrRuntimeConfigResolverTest, DisableExplicitBoundsIgnoresInactiveNonFinitePayload) {
+  EsrInternalExecutionConfig current_config;
+  current_config.hardware.az_scan_range_deg = 60.0f;
+  current_config.hardware.el_scan_range_deg = 30.0f;
+  current_config.mission.scan.use_explicit_scan_bounds = true;
+  current_config.mission.scan.scan_center_az_deg = 5.0f;
+  current_config.mission.scan.scan_center_el_deg = -3.0f;
+
+  config::EsrRuntimeConfigPatch patch;
+  patch.has_explicit_scan_bounds = true;
+  patch.explicit_scan_bounds.enabled = false;
+  patch.explicit_scan_bounds.scan_start_az_deg = std::numeric_limits<float>::quiet_NaN();
+  patch.explicit_scan_bounds.scan_end_az_deg = std::numeric_limits<float>::infinity();
+  patch.explicit_scan_bounds.scan_start_el_deg = -std::numeric_limits<float>::infinity();
+  patch.explicit_scan_bounds.scan_end_el_deg = std::numeric_limits<float>::quiet_NaN();
+
+  const EsrRuntimeConfigResolveResult resolved =
+      ResolveEsrRuntimeConfigPatch(current_config, patch);
+
+  EXPECT_TRUE(resolved.has_requested_update);
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_EQ(resolved.status, EsrRuntimeConfigApplyStatus::kApplied);
+  EXPECT_TRUE(resolved.pipeline_config_changed);
+  EXPECT_FALSE(resolved.next_config.mission.scan.use_explicit_scan_bounds);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_start_az_deg, -25.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_end_az_deg, 35.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_start_el_deg, -18.0f);
+  EXPECT_FLOAT_EQ(resolved.next_config.resolved_scan.scan_end_el_deg, 12.0f);
+}
+
 }  // namespace
 }  // namespace internal
 }  // namespace session

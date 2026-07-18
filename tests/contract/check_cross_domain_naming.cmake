@@ -21,6 +21,7 @@
 #      （P3-b 对齐，四域形状一致）。
 #   7) SBIRS mission、runtime patch 与 builder 的电源名称必须统一为 power_on。
 #   8) EOS 探测器面积必须保留显式单位后缀；SBIRS 禁止回流未消费的面积字段。
+#   9) SBIRS lifecycle/abort public 枚举不得回流没有生产传播路径的历史 reason。
 #
 # 配套：跨域"形状契约"（Step/StepWithResult 返回类型）由编译期
 # foundation/SensorContract.h 的 static_assert 守护，本脚本不重复检查类型形状。
@@ -225,6 +226,28 @@ if(NOT _sbirs_area_pos EQUAL -1)
        "${SBIRS_HARDWARE_HEADER}: [探测器面积边界] 禁止回流未消费的 detector_area 字段")
 endif()
 
+# ---- 阻断 9：SBIRS 只保留真实可传播的生命周期/中止原因 ----
+set(SBIRS_LIFECYCLE_HEADER
+    "${PUBLIC_INCLUDE_ROOT}/sbirs_sensor/session/SbirsDetectionLifecycleRecorder.h")
+set(SBIRS_OUTPUT_TYPES_HEADER
+    "${PUBLIC_INCLUDE_ROOT}/sbirs_sensor/session/SbirsOutputTypes.h")
+file(READ "${SBIRS_LIFECYCLE_HEADER}" SBIRS_LIFECYCLE_TEXT)
+file(READ "${SBIRS_OUTPUT_TYPES_HEADER}" SBIRS_OUTPUT_TYPES_TEXT)
+foreach(DEAD_LIFECYCLE_REASON kValidationRejected kCycleNotExecuted)
+  string(FIND "${SBIRS_LIFECYCLE_TEXT}" "${DEAD_LIFECYCLE_REASON}" _dead_lifecycle_pos)
+  if(NOT _dead_lifecycle_pos EQUAL -1)
+    list(APPEND VIOLATIONS
+         "${SBIRS_LIFECYCLE_HEADER}: [SBIRS lifecycle 边界] 禁止回流 ${DEAD_LIFECYCLE_REASON}")
+  endif()
+endforeach()
+foreach(DEAD_ABORT_REASON kOutputContractViolation kRuntimeStateRestoreRejected)
+  string(FIND "${SBIRS_OUTPUT_TYPES_TEXT}" "${DEAD_ABORT_REASON}" _dead_abort_pos)
+  if(NOT _dead_abort_pos EQUAL -1)
+    list(APPEND VIOLATIONS
+         "${SBIRS_OUTPUT_TYPES_HEADER}: [SBIRS abort 边界] 禁止回流 ${DEAD_ABORT_REASON}")
+  endif()
+endforeach()
+
 if(VIOLATIONS)
   list(JOIN VIOLATIONS "\n" VIOLATION_TEXT)
   message(FATAL_ERROR
@@ -236,4 +259,4 @@ endif()
 
 message(STATUS
         "[跨域命名守护] 通过：Session 签名裸名 + work_mode + power_on + 补丁槽 + "
-        "SNR 前缀 + Builder 动词/整块入口 + 探测器面积单位后缀均无回退。")
+        "SNR 前缀 + Builder 动词/整块入口 + 探测器面积单位后缀 + SBIRS reason 均无回退。")

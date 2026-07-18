@@ -22,7 +22,8 @@ namespace session {
 /**
  * @brief SBIRS-inspired 会话门面，是外部调用方的主要使用面。
  * @note 该类不可拷贝但可移动，内部持有实现 (PIMPL)。实例本身非线程安全；
- *       运行期配置采用立即提交策略，状态机 capture/restore 仅为 controller 内部失败回滚。
+ *       运行期配置采用立即提交策略；pipeline snapshot 是经完整校验的 internal checkpoint，
+ *       当前 controller 周期路径不声明执行后回滚步骤。
  */
 class ONEQ_API SbirsSession {
  public:

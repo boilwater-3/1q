@@ -36,7 +36,7 @@ struct SbirsCandidate {
 };
 
 /**
- * @brief NFOV 资源调度器快照，用于 controller 失败回滚与 replay 复现。
+ * @brief NFOV 资源调度器快照，用于 pipeline validated checkpoint 与确定性 continuation。
  * @note 仅包含目标→通道的分配关系；滤波/IMM 状态由 pipeline 各自管理。
  */
 struct SbirsNfovSchedulerSnapshot {
@@ -96,7 +96,7 @@ class SbirsNfovScheduler {
   /** @brief 清空所有通道分配（standby / 重置）。 */
   void Clear();
 
-  /** @return 当前调度状态的快照，用于回滚或 replay。 */
+  /** @return 当前调度状态快照，用于 pipeline checkpoint 与状态恢复测试。 */
   SbirsNfovSchedulerSnapshot Capture() const;
 
   /**

@@ -54,14 +54,8 @@ output::SbirsObservationStage InferObservationStage(
 }
 
 SbirsDetectionLifecycleReason InferReason(
-    const SbirsCycleResult& result, const output::SbirsDetectionRecord* record,
+    const output::SbirsDetectionRecord* record,
     const attribution::SbirsDetectionAttributionRecord* attribution) {
-  if (result.has_validation_error) {
-    return SbirsDetectionLifecycleReason::kValidationRejected;
-  }
-  if (!result.executed_this_cycle) {
-    return SbirsDetectionLifecycleReason::kCycleNotExecuted;
-  }
   // 优先消费 attribution 携带的捕获失败原因，修正"捕获失败被误归 FOV 外"的盲点。
   if (attribution != nullptr) {
     switch (attribution->capture_failure_reason) {
@@ -153,6 +147,9 @@ SbirsDetectionLifecycleRecorder& SbirsDetectionLifecycleRecorder::operator=(
 std::vector<SbirsDetectionLifecycleEvent> SbirsDetectionLifecycleRecorder::Update(
     const SbirsCycleInput& input, const SbirsCycleResult& result) {
   std::vector<SbirsDetectionLifecycleEvent> events;
+  if (!result.executed_this_cycle) {
+    return events;
+  }
   std::unordered_set<std::uint64_t> present_target_ids;
   events.reserve(input.scene.size());
 
@@ -187,7 +184,7 @@ std::vector<SbirsDetectionLifecycleEvent> SbirsDetectionLifecycleRecorder::Updat
       continue;
     }
 
-    const SbirsDetectionLifecycleReason reason = InferReason(result, record, attribution);
+    const SbirsDetectionLifecycleReason reason = InferReason(record, attribution);
     if (state.detected) {
       SbirsDetectionLifecycleEvent event = MakeBaseEvent(target, result);
       event.kind = SbirsDetectionLifecycleEventKind::kLost;

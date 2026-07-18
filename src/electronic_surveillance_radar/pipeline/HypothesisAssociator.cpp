@@ -1,9 +1,10 @@
 #include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <string>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -104,19 +105,105 @@ float ComputeBaseBearingStdDeg(std::size_t support_count) {
   return std::max(0.1f, 3.0f / std::sqrt(static_cast<float>(safe_support_count)));
 }
 
-struct CandidatePair {
-  std::size_t cluster_index;
-  std::size_t track_index;
-  double distance;
+struct ResidualEdge {
+  std::size_t to;
+  std::size_t reverse_index;
+  int capacity;
+  double cost;
 };
 
-/**
- * @brief 候选对排序规则：按距离升序，其次按簇索引、轨迹索引升序。
- * @note 显式固定并列距离的顺序，避免关联输出在边界场景抖动。
- */
-bool LessCandidatePair(const CandidatePair& lhs, const CandidatePair& rhs) {
-  return std::tie(lhs.distance, lhs.cluster_index, lhs.track_index) <
-         std::tie(rhs.distance, rhs.cluster_index, rhs.track_index);
+using ResidualGraph = std::vector<std::vector<ResidualEdge>>;
+
+void AddResidualEdge(std::size_t from, std::size_t to, double cost, ResidualGraph* graph) {
+  ResidualEdge forward{to, (*graph)[to].size(), 1, cost};
+  ResidualEdge reverse{from, (*graph)[from].size(), 0, -cost};
+  (*graph)[from].push_back(forward);
+  (*graph)[to].push_back(reverse);
+}
+
+std::vector<std::size_t> ComputeGlobalAssignment(
+    const std::vector<ClusterSummary>& clusters,
+    const std::vector<HypothesisAssociator::TrackState>& tracks, double gate_distance) {
+  const std::size_t unmatched_track = tracks.size();
+  std::vector<std::size_t> cluster_to_track(clusters.size(), unmatched_track);
+  if (clusters.empty() || tracks.empty()) {
+    return cluster_to_track;
+  }
+
+  const std::size_t source = 0U;
+  const std::size_t cluster_offset = 1U;
+  const std::size_t track_offset = cluster_offset + clusters.size();
+  const std::size_t sink = track_offset + tracks.size();
+  ResidualGraph graph(sink + 1U);
+
+  for (std::size_t cluster_index = 0; cluster_index < clusters.size(); ++cluster_index) {
+    AddResidualEdge(source, cluster_offset + cluster_index, 0.0, &graph);
+    for (std::size_t track_index = 0; track_index < tracks.size(); ++track_index) {
+      const double distance = static_cast<double>(
+          ComputeDistance(clusters[cluster_index].centroid_feature, tracks[track_index].feature));
+      if (std::isfinite(distance) && distance <= gate_distance) {
+        AddResidualEdge(cluster_offset + cluster_index, track_offset + track_index, distance,
+                        &graph);
+      }
+    }
+  }
+  for (std::size_t track_index = 0; track_index < tracks.size(); ++track_index) {
+    AddResidualEdge(track_offset + track_index, sink, 0.0, &graph);
+  }
+
+  const double infinity = std::numeric_limits<double>::infinity();
+  while (true) {
+    std::vector<double> distance(graph.size(), infinity);
+    std::vector<std::size_t> previous_node(graph.size(), graph.size());
+    std::vector<std::size_t> previous_edge(graph.size(), 0U);
+    distance[source] = 0.0;
+
+    for (std::size_t iteration = 1U; iteration < graph.size(); ++iteration) {
+      bool changed = false;
+      for (std::size_t from = 0; from < graph.size(); ++from) {
+        if (!std::isfinite(distance[from])) {
+          continue;
+        }
+        for (std::size_t edge_index = 0; edge_index < graph[from].size(); ++edge_index) {
+          const ResidualEdge& edge = graph[from][edge_index];
+          if (edge.capacity == 0) {
+            continue;
+          }
+          const double candidate_distance = distance[from] + edge.cost;
+          if (candidate_distance < distance[edge.to]) {
+            distance[edge.to] = candidate_distance;
+            previous_node[edge.to] = from;
+            previous_edge[edge.to] = edge_index;
+            changed = true;
+          }
+        }
+      }
+      if (!changed) {
+        break;
+      }
+    }
+
+    if (previous_node[sink] == graph.size()) {
+      break;
+    }
+    for (std::size_t node = sink; node != source; node = previous_node[node]) {
+      ResidualEdge& edge = graph[previous_node[node]][previous_edge[node]];
+      --edge.capacity;
+      ++graph[node][edge.reverse_index].capacity;
+    }
+  }
+
+  for (std::size_t cluster_index = 0; cluster_index < clusters.size(); ++cluster_index) {
+    const std::vector<ResidualEdge>& edges = graph[cluster_offset + cluster_index];
+    for (std::size_t edge_index = 0; edge_index < edges.size(); ++edge_index) {
+      const ResidualEdge& edge = edges[edge_index];
+      if (edge.to >= track_offset && edge.to < sink && edge.capacity == 0) {
+        cluster_to_track[cluster_index] = edge.to - track_offset;
+        break;
+      }
+    }
+  }
+  return cluster_to_track;
 }
 
 }  // namespace
@@ -129,34 +216,24 @@ void HypothesisAssociator::UpdateConfig(extension::InterceptAssociationConfig co
 session::EmitterHypothesisList HypothesisAssociator::Update(
     std::uint32_t cycle_index, const std::vector<ClusterSummary>& clusters,
     std::uint64_t* next_hypothesis_id) {
+  std::stable_sort(tracks_.begin(), tracks_.end(),
+                   [](const TrackState& lhs, const TrackState& rhs) {
+                     return lhs.hypothesis_id < rhs.hypothesis_id;
+                   });
   const std::size_t original_track_count = tracks_.size();
   std::vector<std::uint8_t> track_matched(original_track_count, 0U);
   std::vector<std::uint8_t> cluster_matched(clusters.size(), 0U);
 
-  std::vector<CandidatePair> pairs;
   const double gate_distance = static_cast<double>(config_.gate_distance);
+  const std::vector<std::size_t> cluster_to_track =
+      ComputeGlobalAssignment(clusters, tracks_, gate_distance);
   for (std::size_t cluster_index = 0; cluster_index < clusters.size(); ++cluster_index) {
-    for (std::size_t track_index = 0; track_index < original_track_count; ++track_index) {
-      const double distance = static_cast<double>(ComputeDistance(
-          clusters[cluster_index].centroid_feature, tracks_[track_index].feature));
-      if (distance <= gate_distance) {
-        CandidatePair pair;
-        pair.cluster_index = cluster_index;
-        pair.track_index = track_index;
-        pair.distance = distance;
-        pairs.push_back(pair);
-      }
-    }
-  }
-  std::sort(pairs.begin(), pairs.end(), LessCandidatePair);
-
-  for (std::size_t i = 0; i < pairs.size(); ++i) {
-    const CandidatePair pair = pairs[i];
-    if (cluster_matched[pair.cluster_index] != 0U || track_matched[pair.track_index] != 0U) {
+    const std::size_t track_index = cluster_to_track[cluster_index];
+    if (track_index == original_track_count) {
       continue;
     }
-    TrackState& track = tracks_[pair.track_index];
-    const ClusterSummary& summary = clusters[pair.cluster_index];
+    TrackState& track = tracks_[track_index];
+    const ClusterSummary& summary = clusters[cluster_index];
     const float deception_ratio = utils::Clamp01(summary.deception_support_ratio);
 
     for (std::size_t dim = 0; dim < kObservationFeatureDimension; ++dim) {
@@ -166,8 +243,8 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     }
     track.mode = InferModeFromCluster(summary);
     track.threat_level = InferThreatFromCluster(track.mode, summary.mean_snr_db);
-    track.candidate_classes = BuildCandidateClasses(summary.mean_rf_hz, deception_ratio,
-                                                    summary.spectral_class_label);
+    track.candidate_classes =
+        BuildCandidateClasses(summary.mean_rf_hz, deception_ratio, summary.spectral_class_label);
     track.bearing_az_deg =
         Blend(track.bearing_az_deg, summary.mean_az_deg, config_.confidence_alpha);
     track.bearing_el_deg =
@@ -186,8 +263,8 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
       track.confirmed = true;
     }
 
-    cluster_matched[pair.cluster_index] = 1U;
-    track_matched[pair.track_index] = 1U;
+    cluster_matched[cluster_index] = 1U;
+    track_matched[track_index] = 1U;
   }
 
   for (std::size_t i = 0; i < clusters.size(); ++i) {

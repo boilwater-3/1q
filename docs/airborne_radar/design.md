@@ -346,6 +346,11 @@ AR 的 public config 是语义配置，signal pipeline 使用的是内部工程�
 这个机制避免出现“pipeline 已换配置，但 environment/controller 仍旧”的部分生效状态。任何新增运行期可变项，都必须纳入这个提交/回滚语义。
 [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::RadarSessionPreservesPendingExternalDecisionAcrossPoweredOffBoundary]
 
+`MutableArContext` 快照是 session 内部的强所有权边界：仅同一实例、当前 schema 且载荷非空的 typed snapshot 可恢复。foreign owner、bad schema 或空载荷均在 mutation 前拒绝，不存在从明文字段回退恢复的兼容路径。session 仍会对 pipeline、environment 和 controller 执行全部回滚动作；context 或 controller 任一拒绝时统一中止为 `kRuntimePreparationFailed`，不得在 powered-off 边界 finalize pending 状态。
+[evidence: tests/unit/airborne_radar/ar_mutable_context_runtime_state_test.cpp::MutableArContextRuntimeStateTest.ForeignOwnerIsRejectedWithoutMutation]
+[evidence: tests/unit/airborne_radar/ar_mutable_context_runtime_state_test.cpp::MutableArContextRuntimeStateTest.BadSchemaIsRejectedWithoutMutation]
+[evidence: tests/unit/airborne_radar/ar_mutable_context_runtime_state_test.cpp::MutableArContextRuntimeStateTest.EmptySnapshotIsRejectedWithoutMutation]
+
 ### 2.3 环境、传播和干扰事实
 
 `EnvironmentService` 维护 pending scene 和 active scene。`UpdateSceneState` 只更新 pending scene，`BeginCycle` 到达时才提交并刷新冻结快照。controller 和 signal pipeline 在同一周期内读取同一份 `EnvironmentSnapshot`。

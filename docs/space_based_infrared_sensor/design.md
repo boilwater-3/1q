@@ -73,7 +73,8 @@ SBIRS 的 foundation 物理算法（Planck 辐射、Beer-Lambert 传播、光子
 - EOS pipeline 是单视场扫描 + 单次 SNR 判定（`EosPipeline::RunCycle`，
   `src/electro_optical_sensor/pipeline/EosPipeline.cpp:387-426`）。
 - SBIRS pipeline 是双视场 + 状态机调度：WFOV 通道发现目标、状态机决策交接、NFOV 通道做首次捕获
-  或真值辅助跟踪。状态机是跨周期累积状态，由 controller 做 capture/restore（见 1.5、2.2）。
+  或真值辅助跟踪。状态机是跨周期累积状态；pipeline 提供经完整校验的 internal checkpoint，当前
+  controller 周期路径没有执行后失败回滚步骤（见 1.5、2.2）。
 
 ### 1.4 分层组件图
 
@@ -95,7 +96,7 @@ flowchart TB
   end
 
   subgraph Runtime["Runtime control / 运行期控制层"]
-    Controller["SbirsController\n校验输入 / 执行周期 / 状态机 capture-restore / 缓存输出"]
+    Controller["SbirsController\n校验输入 / 执行周期 / 组装结果 / 缓存输出"]
     Mapper["SbirsPipelineConfigMapper\nSessionConfig 到内部执行配置"]
     Resolver["SbirsRuntimeConfigResolver\nPatch 校验与立即生效"]
   end
@@ -163,7 +164,7 @@ flowchart TB
 
 1. 外部只从 Public API 进入，不直接构造 `SbirsPipeline`、`SbirsTargetStateMachine` 或 foundation 类型。
 2. `SbirsSessionCompositionRoot` 负责默认依赖图；当前没有用户替换 controller、pipeline、状态机或环境模型的 public API。
-3. `SbirsController` 处理输入校验、运行期状态（含状态机 capture/restore）、失败输出复用和周期执行。
+3. `SbirsController` 处理输入校验、周期执行、record/attribution 结果组装和失败输出复用。
 4. `SbirsPipeline` 把一个周期拆成帧级上下文、地球遮挡门控、WFOV 发现、测量 cue、逐通道 ATP、NFOV 首次捕获或持续跟踪。
 5. foundation 算法参照 EOS 复制改名，是内部可测试实现，不是模块间契约。
 
@@ -188,7 +189,6 @@ sequenceDiagram
     Controller->>Output: reuse latest output if available\n复用最近有效输出
     Output-->>Session: SbirsCycleResult with validation status\n携带校验状态的结果
   else valid input / 输入有效
-    Controller->>Controller: snapshot pipeline state\n快照用于执行失败回滚
     Controller->>Pipeline: RunCycle(input)\n进入探测流水线
     Pipeline->>Physics: build FrameContext\n构造帧级光学 / 噪声 / 卫星几何上下文
     Pipeline->>Physics: earth-occultation gate\n地球遮挡与大气边界过滤
@@ -223,7 +223,9 @@ sequenceDiagram
 ```
 
 运行期配置采用**立即提交**策略（与 EOS 同类），见 `docs/common/contract.md` 运行期配置提交策略表。
-状态机 capture/restore 是 controller 内部失败回滚机制，不上升为 session 层事务契约。
+当前 `RunCycle` 后不存在可能失败的 commit 步骤，因此 controller 不捕获或恢复 pipeline。pipeline
+snapshot 仅是经完整校验的 internal checkpoint，用于确定性 continuation 与状态恢复测试，不上升为
+session 层事务契约。
 
 单周期输入在任何 pipeline mutation 之前 fail-closed 校验：`dt_sec` 必须正且有限；卫星和目标 ECEF
 必须有限且非原点；`target_id` 必须非零且周期内唯一；温度、emissivity、投影面积遵守各自物理域；
@@ -408,9 +410,8 @@ stateDiagram-v2
 - `EstimatedTracking` 的 EKF 滤波已接线（见 §2.5.2）：6 维 CV 状态 / 2 维角度量测，消费
   `common/estimation` 模板化框架，facade 位于 `sbirs_sensor::tracking` 命名空间。`enable_estimated_tracking=true`
   时捕获成功进入此态；关闭时回退 `TruthAssistedTracking`，行为零变化。后端选型见 §2.5.3。
-- 状态机是跨周期累积状态。`SbirsController` 在执行前 snapshot、失败时 restore（见 1.5 时序图）。
-  这是 SBIRS controller 的内部失败回滚约束，不是 session 层事务接口，也不要求与其他模块输出或
-  controller 形状保持一致。
+- 状态机是跨周期累积状态。其 snapshot/restore 由 pipeline 自身拥有，并在 mutation 前验证全部
+  cross-owned 状态后原子恢复；当前 controller 不把它包装成虚构的执行失败回滚分支。
 
 适用边界：
 
@@ -615,7 +616,7 @@ EstimatedTracking 严格使用因果顺序：**predict → actuator advance → 
 `SbirsGaussianState`）、NIS 连续计数和 IMM 运行态；启用 IMM 时，每个 `target_id` 拥有独立 live
 `ImmFilter`，其模型状态逐目标映射到既有 `imm_snapshots`。capture/restore 只恢复同一 target 的模型状态，
 不会跨目标复用；目标消失、NIS 丢锁或 standby 会释放对应 live filter。它们仍逐字段写入既有
-`SbirsPipelineSnapshot`，随 controller capture/restore 同步。EKF 本身确定性（无额外随机源采样），测量噪声采样复用
+`SbirsPipelineSnapshot`，并由 pipeline checkpoint 统一恢复。EKF 本身确定性（无额外随机源采样），测量噪声采样复用
 `SbirsRandomSource`（已在 snapshot 的 `random_state`），故 replay 确定性保持。
 
 配置（`SbirsTrackingConfig`，挂 `SbirsPolicyConfig.tracking`）：
@@ -948,6 +949,13 @@ SBIRS 遵守三层输出模型（`docs/common/contract.md` 三层输出模型表
 | 原始系统输出层 | `Step()` 返回的 `SbirsOutputFrame` | 1q 仿真传感器主输出 |
 | 结构化执行结果层 | `StepWithResult()` 返回的 `SbirsCycleResult` | 输出帧、执行状态、校验、abort reason、诊断摘要 |
 | 开发调试视图层 | `SbirsOutputDebugViewBuilder` / `SbirsDetectionLifecycleRecorder` | 人读状态、生命周期事件、输入实体回填 |
+
+`executed_this_cycle=false` 表示本周期没有产生新的目标观测事实。Lifecycle recorder 在该边界返回空
+事件列表并保持全部累积状态；validation rejection 不得虚构 `Lost`、`NotDetected` 或
+`TargetMissingFromInput`。下一合法检测继续按拒绝前状态产生 `Updated`。
+[evidence: tests/unit/sbirs_sensor/sbirs_cycle_output_builder_test.cpp::SbirsCycleOutputBuilderTest.ValidationRejectedCyclePreservesDetectedLifecycleState]
+[evidence: tests/unit/sbirs_sensor/sbirs_cycle_output_builder_test.cpp::SbirsCycleOutputBuilderTest.ValidationRejectedEmptyInputDoesNotInventTargetMissing]
+[evidence: tests/unit/sbirs_sensor/sbirs_cycle_output_builder_test.cpp::SbirsCycleOutputBuilderTest.ValidationRejectedCycleIgnoresEmitNotDetectedPolicy]
 
 **`SbirsOutputFrame` 字段**（第一版使用原生 SBIRS-inspired 观测契约，不继承
 EOS 检测记录形状）：

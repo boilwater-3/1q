@@ -92,6 +92,11 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   result.raw_phase_history.samples_per_pulse = 2U;
   result.raw_phase_history.i_values = {1.0, 2.0, 3.0, 4.0};
   result.raw_phase_history.q_values = {-1.0, -2.0, -3.0, -4.0};
+  result.focused_image.source = SarFocusedImageSource::kL3Bp;
+  result.focused_image.row_count = 2U;
+  result.focused_image.column_count = 2U;
+  result.focused_image.real_values = {10.0, 20.0, 30.0, 40.0};
+  result.focused_image.imaginary_values = {-10.0, -20.0, -30.0, -40.0};
   result.executed_this_cycle = true;
 
   const std::string bytes = EncodeSarCycleResult(result);
@@ -125,7 +130,52 @@ TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {
   EXPECT_EQ(decoded.raw_phase_history.samples_per_pulse, 2U);
   EXPECT_EQ(decoded.raw_phase_history.i_values, result.raw_phase_history.i_values);
   EXPECT_EQ(decoded.raw_phase_history.q_values, result.raw_phase_history.q_values);
+  EXPECT_EQ(decoded.focused_image.source, SarFocusedImageSource::kL3Bp);
+  EXPECT_EQ(decoded.focused_image.row_count, 2U);
+  EXPECT_EQ(decoded.focused_image.column_count, 2U);
+  EXPECT_EQ(decoded.focused_image.real_values, result.focused_image.real_values);
+  EXPECT_EQ(decoded.focused_image.imaginary_values, result.focused_image.imaginary_values);
+  EXPECT_FALSE(decoded.focused_image.is_placeholder);
   EXPECT_FALSE(decoded.has_error);
+}
+
+TEST(SarReplayCodecRoundtripTest, CycleResultPreservesFocusedImagePlaceholder) {
+  SarCycleResult result;
+  result.focused_image.source = SarFocusedImageSource::kL1Rda;
+  result.focused_image.row_count = 9U;
+  result.focused_image.column_count = 64U;
+  result.focused_image.is_placeholder = true;
+
+  SarCycleResult decoded;
+  ASSERT_TRUE(DecodeSarCycleResult(EncodeSarCycleResult(result), &decoded));
+  EXPECT_EQ(decoded.focused_image.source, SarFocusedImageSource::kL1Rda);
+  EXPECT_EQ(decoded.focused_image.row_count, 9U);
+  EXPECT_EQ(decoded.focused_image.column_count, 64U);
+  EXPECT_TRUE(decoded.focused_image.real_values.empty());
+  EXPECT_TRUE(decoded.focused_image.imaginary_values.empty());
+  EXPECT_TRUE(decoded.focused_image.is_placeholder);
+}
+
+TEST(SarReplayCodecRoundtripTest, CycleResultRejectsMalformedFocusedImage) {
+  SarCycleResult malformed;
+  malformed.focused_image.source = SarFocusedImageSource::kL1Rda;
+  malformed.focused_image.row_count = 2U;
+  malformed.focused_image.column_count = 2U;
+  malformed.focused_image.real_values = {1.0, 2.0, 3.0};
+  malformed.focused_image.imaginary_values = {1.0, 2.0, 3.0, 4.0};
+  SarCycleResult decoded;
+  EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
+
+  malformed.focused_image.real_values = {1.0, 2.0, 3.0, 4.0};
+  malformed.focused_image.real_values[2] = std::numeric_limits<double>::infinity();
+  EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
+
+  malformed.focused_image.real_values.clear();
+  malformed.focused_image.imaginary_values.clear();
+  malformed.focused_image.real_values.push_back(1.0);
+  malformed.focused_image.imaginary_values.push_back(1.0);
+  malformed.focused_image.is_placeholder = true;
+  EXPECT_FALSE(DecodeSarCycleResult(EncodeSarCycleResult(malformed), &decoded));
 }
 
 TEST(SarReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {

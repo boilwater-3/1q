@@ -65,7 +65,7 @@ using SarDiagnosticIssueList = std::vector<SarDiagnosticIssue>;
 
 /**
  * @brief 与内部矩阵实现解耦的行主序复数聚焦图像。
- * @note Phase 1 replay 仍只保存摘要；该载荷仅由本次实时执行结果返回。
+ * @note Cycle-result replay 完整保存来源、尺寸、占位状态与复数像素，并按精确值比较。
  */
 struct ONEQ_API SarFocusedImage {
   SarFocusedImageSource source{SarFocusedImageSource::kNone};

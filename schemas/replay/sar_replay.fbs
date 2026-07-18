@@ -75,9 +75,19 @@ table SarRawPhaseHistory {
   q_values: [double];
 }
 
+table SarFocusedImage {
+  source: int32;
+  row_count: uint32;
+  column_count: uint32;
+  real_values: [double];
+  imaginary_values: [double];
+  is_placeholder: bool;
+}
+
 table SarCycleResult {
   input_cycle_index: uint32;
   output_frame: SarOutputFrame;
+  focused_image: SarFocusedImage;
   diagnostics: [SarDiagnosticIssue];
   raw_phase_history: SarRawPhaseHistory;
   has_error: bool;

@@ -195,10 +195,13 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
       resolved.next_config.mission.scan.scan_end_az_deg = end_az;
       resolved.next_config.mission.scan.scan_start_el_deg = start_el;
       resolved.next_config.mission.scan.scan_end_el_deg = end_el;
-      resolved.next_config.resolved_scan.scan_start_az_deg = start_az;
-      resolved.next_config.resolved_scan.scan_end_az_deg = end_az;
-      resolved.next_config.resolved_scan.scan_start_el_deg = start_el;
-      resolved.next_config.resolved_scan.scan_end_el_deg = end_el;
+      ApplyScanPolicy(resolved.next_config.hardware, resolved.next_config.mission.scan,
+                      &resolved.next_config.resolved_scan);
+      resolved.pipeline_config_changed = true;
+    } else {
+      resolved.next_config.mission.scan.use_explicit_scan_bounds = false;
+      ApplyScanPolicy(resolved.next_config.hardware, resolved.next_config.mission.scan,
+                      &resolved.next_config.resolved_scan);
       resolved.pipeline_config_changed = true;
     }
   }

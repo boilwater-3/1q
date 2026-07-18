@@ -108,6 +108,86 @@ TEST(EsrHypothesisAssociatorTest, CreatesNewTrackWhenTwoClustersCompeteOneTrack)
   EXPECT_NE(cycle_2[1].hypothesis_id, stable_id);
 }
 
+TEST(EsrHypothesisAssociatorTest, UsesMaximumCardinalityAssignmentBeforeMinimumDistance) {
+  extension::InterceptAssociationConfig config;
+  config.gate_distance = 0.75f;
+  config.confirm_hits = 1U;
+  config.max_missed_cycles = 4U;
+  config.confidence_alpha = 1.0f;
+  config.output_tentative = true;
+  HypothesisAssociator associator(config);
+
+  std::uint64_t next_hypothesis_id = 1U;
+  std::vector<ClusterSummary> clusters_cycle_1;
+  clusters_cycle_1.push_back(
+      MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "TRACK_ZERO"));
+  clusters_cycle_1.push_back(
+      MakeCluster(1.0f, 0.0f, 1.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "TRACK_ONE"));
+  const session::EmitterHypothesisList cycle_1 =
+      associator.Update(25U, clusters_cycle_1, &next_hypothesis_id);
+  ASSERT_EQ(cycle_1.size(), 2U);
+  ASSERT_EQ(next_hypothesis_id, 3U);
+
+  std::vector<ClusterSummary> clusters_cycle_2;
+  clusters_cycle_2.push_back(
+      MakeCluster(0.4f, 0.0f, 4.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "FLEXIBLE"));
+  clusters_cycle_2.push_back(
+      MakeCluster(-0.5f, 0.0f, -5.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "CONSTRAINED"));
+  const session::EmitterHypothesisList cycle_2 =
+      associator.Update(26U, clusters_cycle_2, &next_hypothesis_id);
+
+  ASSERT_EQ(cycle_2.size(), 2U);
+  EXPECT_EQ(next_hypothesis_id, 3U);
+  const std::vector<HypothesisAssociator::TrackState> tracks = associator.CaptureTracks();
+  ASSERT_EQ(tracks.size(), 2U);
+  ASSERT_EQ(tracks[0].hypothesis_id, 1U);
+  ASSERT_EQ(tracks[1].hypothesis_id, 2U);
+  EXPECT_FLOAT_EQ(tracks[0].feature.values[0], -0.5f);
+  EXPECT_FLOAT_EQ(tracks[1].feature.values[0], 0.4f);
+  EXPECT_EQ(tracks[0].missed_cycles, 0U);
+  EXPECT_EQ(tracks[1].missed_cycles, 0U);
+  EXPECT_NE(std::find(tracks[0].candidate_classes.begin(), tracks[0].candidate_classes.end(),
+                      "CONSTRAINED"),
+            tracks[0].candidate_classes.end());
+  EXPECT_NE(
+      std::find(tracks[1].candidate_classes.begin(), tracks[1].candidate_classes.end(), "FLEXIBLE"),
+      tracks[1].candidate_classes.end());
+}
+
+TEST(EsrHypothesisAssociatorTest, EqualCostPerfectMatchingUsesClusterThenHypothesisIdOrder) {
+  extension::InterceptAssociationConfig config;
+  config.gate_distance = 1.0f;
+  config.confirm_hits = 1U;
+  config.max_missed_cycles = 4U;
+  config.confidence_alpha = 1.0f;
+  config.output_tentative = true;
+  HypothesisAssociator associator(config);
+
+  std::uint64_t next_hypothesis_id = 1U;
+  std::vector<ClusterSummary> initial_clusters;
+  initial_clusters.push_back(MakeCluster(-1.0f, 0.0f, -1.0f, 0.0f, 10.0e9, 12.0f, 3U));
+  initial_clusters.push_back(MakeCluster(1.0f, 0.0f, 1.0f, 0.0f, 10.0e9, 12.0f, 3U));
+  ASSERT_EQ(associator.Update(27U, initial_clusters, &next_hypothesis_id).size(), 2U);
+
+  std::vector<ClusterSummary> tied_clusters;
+  tied_clusters.push_back(
+      MakeCluster(0.0f, 0.0f, 2.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "FIRST"));
+  tied_clusters.push_back(
+      MakeCluster(0.0f, 0.0f, 3.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SECOND"));
+  ASSERT_EQ(associator.Update(28U, tied_clusters, &next_hypothesis_id).size(), 2U);
+
+  const std::vector<HypothesisAssociator::TrackState> tracks = associator.CaptureTracks();
+  ASSERT_EQ(tracks.size(), 2U);
+  ASSERT_EQ(tracks[0].hypothesis_id, 1U);
+  ASSERT_EQ(tracks[1].hypothesis_id, 2U);
+  EXPECT_NE(std::find(tracks[0].candidate_classes.begin(), tracks[0].candidate_classes.end(),
+                      "FIRST"),
+            tracks[0].candidate_classes.end());
+  EXPECT_NE(std::find(tracks[1].candidate_classes.begin(), tracks[1].candidate_classes.end(),
+                      "SECOND"),
+            tracks[1].candidate_classes.end());
+}
+
 TEST(EsrHypothesisAssociatorTest, RecyclesTrackAfterConfiguredMissedCycles) {
   extension::InterceptAssociationConfig config;
   config.gate_distance = 1.0f;

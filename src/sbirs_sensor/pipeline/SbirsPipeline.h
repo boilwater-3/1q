@@ -33,7 +33,7 @@ enum class SbirsTargetState {
 };
 
 /**
- * @brief pipeline 运行期状态快照，用于 controller 失败回滚与 replay 复现。
+ * @brief pipeline 运行期状态快照，用于 validated checkpoint 与确定性 continuation。
  * @note 包含扫描相位、目标状态表、NFOV 多通道调度状态、随机源状态与 EKF 滤波状态表。
  */
 struct SbirsPipelineSnapshot {
@@ -67,7 +67,8 @@ struct SbirsPipelineResult {
 /**
  * @brief WFOV/NFOV 双视场探测流水线，执行帧级几何门控、WFOV 发现、状态机决策与 NFOV 捕获/跟踪。
  * @note pipeline 跨周期累积状态（扫描相位、目标状态机、NFOV 锁定、随机源）；
- *       通过 Capture/RestoreRuntimeState 支持 controller 失败回滚与 replay 复现。
+ *       Capture/RestoreRuntimeState 是经完整校验的 internal checkpoint，用于确定性 continuation
+ *       与状态恢复测试；当前 controller 周期路径不声明执行后回滚步骤。
  */
 class SbirsPipeline {
  public:
@@ -89,7 +90,7 @@ class SbirsPipeline {
    */
   SbirsPipelineResult RunCycle(const session::SbirsCycleInput& input);
 
-  /** @return 当前运行期状态快照，用于回滚或 replay。 */
+  /** @return 当前运行期状态快照，用于 validated checkpoint 与状态恢复测试。 */
   SbirsPipelineSnapshot CaptureRuntimeState() const;
   /**
    * @brief 从快照恢复运行期状态。

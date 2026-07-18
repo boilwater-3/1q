@@ -14,8 +14,9 @@ namespace sbirs_sensor {
 namespace runtime {
 
 /**
- * @brief 周期控制器，负责输入校验、状态机 capture/restore、失败输出复用与周期执行。
- * @note 状态机 capture/restore 是 controller 内部失败回滚机制，不上升为 session 层事务契约。
+ * @brief 周期控制器，负责输入校验、周期执行、结果组装与失败输出复用。
+ * @note pipeline 结果已经把 record 与 attribution 组成原子元素，当前输出装配后不存在可能失败的
+ *       commit 步骤，因此不建立虚构的 controller rollback 分支。
  */
 class SbirsController {
  public:

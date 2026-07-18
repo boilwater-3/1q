@@ -282,6 +282,10 @@ bool DecodeSarOutputFrame(const std::string& bytes, SarOutputFrame* out) {
 std::string EncodeSarCycleResult(const SarCycleResult& value) {
   flatbuffers::FlatBufferBuilder fbb(512);
   const auto frame = BuildOutputFrame(fbb, value.output_frame);
+  const auto focused_image = replay::CreateSarFocusedImage(
+      fbb, static_cast<std::int32_t>(value.focused_image.source), value.focused_image.row_count,
+      value.focused_image.column_count, fbb.CreateVector(value.focused_image.real_values),
+      fbb.CreateVector(value.focused_image.imaginary_values), value.focused_image.is_placeholder);
   std::vector<flatbuffers::Offset<replay::SarDiagnosticIssue>> diagnostic_offsets;
   diagnostic_offsets.reserve(value.diagnostics.size());
   for (const SarDiagnosticIssue& diagnostic : value.diagnostics) {
@@ -294,7 +298,7 @@ std::string EncodeSarCycleResult(const SarCycleResult& value) {
       value.raw_phase_history.pulse_count, value.raw_phase_history.samples_per_pulse,
       fbb.CreateVector(value.raw_phase_history.i_values),
       fbb.CreateVector(value.raw_phase_history.q_values));
-  fbb.Finish(replay::CreateSarCycleResult(fbb, value.input_cycle_index, frame,
+  fbb.Finish(replay::CreateSarCycleResult(fbb, value.input_cycle_index, frame, focused_image,
                                           fbb.CreateVector(diagnostic_offsets), raw_phase_history,
                                           value.has_error,
                                           value.executed_this_cycle, value.reused_previous_output,
@@ -313,6 +317,40 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
   const auto* fb = flatbuffers::GetRoot<replay::SarCycleResult>(bytes.data());
   out->input_cycle_index = fb->input_cycle_index();
   FromFbOutputFrame(fb->output_frame(), &out->output_frame);
+  const auto* focused = fb->focused_image();
+  if (focused == nullptr || focused->real_values() == nullptr ||
+      focused->imaginary_values() == nullptr) {
+    return false;
+  }
+  const std::size_t row_count = focused->row_count();
+  const std::size_t column_count = focused->column_count();
+  if (column_count != 0U &&
+      row_count > std::numeric_limits<std::size_t>::max() / column_count) {
+    return false;
+  }
+  const std::size_t focused_expected_size = row_count * column_count;
+  const std::size_t real_size = focused->real_values()->size();
+  const std::size_t imaginary_size = focused->imaginary_values()->size();
+  if ((focused->is_placeholder() && (real_size != 0U || imaginary_size != 0U)) ||
+      (!focused->is_placeholder() &&
+       (real_size != focused_expected_size || imaginary_size != focused_expected_size))) {
+    return false;
+  }
+  out->focused_image = SarFocusedImage{};
+  out->focused_image.source = static_cast<SarFocusedImageSource>(focused->source());
+  out->focused_image.row_count = focused->row_count();
+  out->focused_image.column_count = focused->column_count();
+  out->focused_image.is_placeholder = focused->is_placeholder();
+  out->focused_image.real_values.assign(focused->real_values()->begin(),
+                                        focused->real_values()->end());
+  out->focused_image.imaginary_values.assign(focused->imaginary_values()->begin(),
+                                             focused->imaginary_values()->end());
+  for (std::size_t index = 0U; index < real_size; ++index) {
+    if (std::isfinite(out->focused_image.real_values[index]) == 0 ||
+        std::isfinite(out->focused_image.imaginary_values[index]) == 0) {
+      return false;
+    }
+  }
   out->diagnostics.clear();
   if (fb->diagnostics()) {
     for (const auto* issue : *fb->diagnostics()) {

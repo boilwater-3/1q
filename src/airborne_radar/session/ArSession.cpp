@@ -10,6 +10,7 @@
 #include "airborne_radar/session/ArSessionCompositionRoot.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
+#include "common/logging/ProjectLog.h"
 
 namespace airborne_radar {
 namespace session {
@@ -179,6 +180,24 @@ struct ArSession::Impl {
     pending_jamming_sensitivity_profile_changed = false;
   }
 
+  bool RestoreCycleRuntimeState(
+      const ArContextRuntimeState& radar_context_state,
+      const signal::SignalPipelineRuntimeState& pipeline_state,
+      const environment::EnvironmentServiceRuntimeState& environment_state,
+      const extension::ArControllerRuntimeState& controller_state) {
+    const bool radar_context_restored =
+        RadarContext().RestoreRuntimeState(radar_context_state);
+    SignalPipeline().RestoreRuntimeState(pipeline_state);
+    EnvironmentService().RestoreRuntimeState(environment_state);
+    const bool controller_restored = Controller().RestoreRuntimeState(controller_state);
+    const bool runtime_state_restored = radar_context_restored && controller_restored;
+    if (!runtime_state_restored) {
+      PROJECT_LOG_ERROR(
+          "[ArSession] cycle runtime state restore rejected by context or controller.");
+    }
+    return runtime_state_restored;
+  }
+
   ArCycleResult RunCycle(const ArCycleInput& input) {
     const ValidationIssueList issues = ValidateInput(input);
     if (HasValidationError(issues)) {
@@ -193,10 +212,12 @@ struct ArSession::Impl {
         Controller().CaptureRuntimeState();
 
     if (!CommitPendingRuntimeConfig()) {
-      RadarContext().RestoreRuntimeState(radar_context_state);
-      SignalPipeline().RestoreRuntimeState(pipeline_state);
-      EnvironmentService().RestoreRuntimeState(environment_state);
-      Controller().RestoreRuntimeState(controller_state);
+      const bool runtime_state_restored = RestoreCycleRuntimeState(
+          radar_context_state, pipeline_state, environment_state, controller_state);
+      if (!runtime_state_restored) {
+        return BuildExecutionAbortResult(
+            input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
+      }
       return BuildExecutionAbortResult(input,
                                        session::SignalCycleAbortReason::kRuntimePreparationFailed);
     }
@@ -210,18 +231,21 @@ struct ArSession::Impl {
     if (!Controller().ExecutedLatestCycle()) {
       const session::SignalCycleAbortReason abort_reason =
           Controller().GetLastSignalCycleAbortReason();
-      RadarContext().RestoreRuntimeState(radar_context_state);
-      SignalPipeline().RestoreRuntimeState(pipeline_state);
-      EnvironmentService().RestoreRuntimeState(environment_state);
-      Controller().RestoreRuntimeState(controller_state);
+      if (!RestoreCycleRuntimeState(radar_context_state, pipeline_state, environment_state,
+                                    controller_state)) {
+        return BuildExecutionAbortResult(
+            input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
+      }
       if (abort_reason == session::SignalCycleAbortReason::kSensorPoweredOff) {
         // 关机是已接受的非执行边界，不是 pipeline 故障。先恢复本周期消费的控制/环境状态，
         // 再单独对齐已验证的配置，使 pending 事务能够落定且外部决策仍留待下个成功周期。
         if (!CommitPendingRuntimeConfig()) {
-          RadarContext().RestoreRuntimeState(radar_context_state);
-          SignalPipeline().RestoreRuntimeState(pipeline_state);
-          EnvironmentService().RestoreRuntimeState(environment_state);
-          Controller().RestoreRuntimeState(controller_state);
+          const bool runtime_state_restored = RestoreCycleRuntimeState(
+              radar_context_state, pipeline_state, environment_state, controller_state);
+          if (!runtime_state_restored) {
+            return BuildExecutionAbortResult(
+                input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
+          }
           return BuildExecutionAbortResult(
               input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
         }

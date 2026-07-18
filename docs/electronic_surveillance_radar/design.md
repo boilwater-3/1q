@@ -279,8 +279,8 @@ flowchart TB
 `HypothesisAssociator` 维护内部 track state。每周期：
 
 1. 计算 cluster centroid feature 到现有 track feature 的距离。
-2. 距离小于 `gate_distance` 的 cluster-track pair 进入候选集。
-3. 候选按距离、cluster index、track index 排序，固定并列距离顺序，避免边界抖动。
+2. 有限且距离不大于 `gate_distance` 的 cluster-track pair 进入候选集。
+3. 对候选图执行一对一全局分配：先最大化匹配数量，再在最大匹配中最小化总距离；总代价相同时按 cluster input index、track hypothesis id 确定性裁决。
 4. 匹配 track 使用 `confidence_alpha` blending 更新 feature、bearing、mode、threat、confidence。
 5. 未匹配 cluster 创建新 hypothesis id。
 6. 未命中 track 累计 missed cycles，超过阈值后回收。
@@ -293,7 +293,9 @@ flowchart TB
 
 验证入口：
 
-- `tests/unit/esr_hypothesis_associator_test.cpp`
+- `tests/unit/electronic_surveillance_radar/esr_hypothesis_associator_test.cpp::EsrHypothesisAssociatorTest.UsesMaximumCardinalityAssignmentBeforeMinimumDistance`
+- `tests/unit/electronic_surveillance_radar/esr_hypothesis_associator_test.cpp::EsrHypothesisAssociatorTest.TieDistanceAssociationUsesStableClusterOrder`
+- `tests/unit/electronic_surveillance_radar/esr_hypothesis_associator_test.cpp::EsrHypothesisAssociatorTest.EqualCostPerfectMatchingUsesClusterThenHypothesisIdOrder`
 
 ### 2.6 运行期配置与状态边界
 
@@ -322,9 +324,12 @@ pipeline 持有归一化扫描相位 `[0, 1)`：本周期先用 `floor(phase × 
 - `use_explicit_scan_bounds=false` 时，中心角结合硬件扫描范围推导窗口；即使显式字段为 NaN/Inf，也因未被选择而忽略。
 
 静态 session validation 按所选模式验证，不能把非法的显式模式静默退化成中心模式。运行期 patch
-提交中心角时关闭显式模式，提交显式起止角时开启显式模式，因此最近一次被明确选择的表达拥有窗口语义。
+提交中心角时关闭显式模式，提交显式起止角时开启显式模式；显式提交 `enabled=false` 时忽略该
+inactive payload 中的四个边界字段，并立即按中心角、硬件扫描范围和天线安装角重建窗口。因此最近一次
+被明确选择的表达拥有窗口语义，旧显式边界不得继续影响执行态窗口。
 [evidence: tests/unit/electronic_surveillance_radar/esr_session_config_builder_test.cpp]
-[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp]
+[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.DisableExplicitBoundsRebuildsCenterDrivenWindow]
+[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.DisableExplicitBoundsIgnoresInactiveNonFinitePayload]
 
 `ApplyRuntimeConfigWithResult()` 通过 `ResolveEsrRuntimeConfigPatch()` 校验 patch。有效 patch 立即写入 `resolved_config`，并同步到 pipeline/environment；无效 patch 拒绝且不污染现有配置。ESR 属于 `docs/common/contract.md` 定义的立即提交类，配置单向落定，不提供 session 层回滚。
 

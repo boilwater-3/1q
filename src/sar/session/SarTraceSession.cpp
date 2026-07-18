@@ -143,7 +143,8 @@ SarCycleResult SarTraceSession::StepWithResult(const SarCycleInput& input) {
     issue.severity = SarDiagnosticSeverity::kError;
     issue.code = "sar.external_raw_iq_replay_unsupported";
     issue.message =
-        "External raw IQ cannot be recorded by the current summary-only SAR replay schema.";
+        "External raw IQ cannot be recorded because the SAR replay input schema does not encode "
+        "raw IQ samples or pulse states.";
     result.diagnostics.push_back(issue);
     return result;
   }

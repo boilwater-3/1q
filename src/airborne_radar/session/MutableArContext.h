@@ -18,23 +18,17 @@
 namespace airborne_radar {
 namespace session {
 
+struct ArContextRuntimeSnapshot;
+
 /**
- * @brief MutableArContext 运行态快照 (POD)，用于失败回滚等场景的整快照捕获/恢复。
+ * @brief MutableArContext 运行态快照，用于失败回滚等场景的整快照捕获/恢复。
  * @note owner_identity 标识捕获方实例，RestoreRuntimeState 会拒绝跨实例恢复；
  *       schema_version 用于校验快照格式兼容性。
  */
 struct ArContextRuntimeState {
   const void* owner_identity{nullptr};
   std::uint32_t schema_version{0U};
-  std::shared_ptr<void> opaque{};
-  ArSceneTargetList scene_targets{};
-  oneq::foundation::PoseState platform_pose{};
-  float platform_altitude_m{0.0f};
-  float cycle_dt_sec{1.0f};
-  std::uint32_t cycle_index{0U};
-  std::vector<session::ArCommand> submitted_commands{};
-  session::ArControlProfile latest_control_profile{};
-  bool has_latest_control_profile{false};
+  std::shared_ptr<const ArContextRuntimeSnapshot> snapshot{};
 };
 
 /**
@@ -128,9 +122,9 @@ class MutableArContext final {
   /**
    * @brief 恢复此前捕获的上下文运行态快照。
    * @param[in] state 待恢复的上下文运行态快照。
-   * @note 仅当 owner_identity 与 schema_version 校验通过时才执行恢复，否则静默跳过。
+   * @return owner、schema 与快照载荷均有效时返回 true，否则返回 false 且不修改当前状态。
    */
-  void RestoreRuntimeState(const ArContextRuntimeState& state);
+  bool RestoreRuntimeState(const ArContextRuntimeState& state);
 
   /**
    * @brief 获取当前周期场景目标列表。
@@ -175,8 +169,6 @@ class MutableArContext final {
   void UpdateRadarControlProfile(const session::ArControlProfile& profile);
 
  private:
-  struct RuntimeSnapshot;
-
   std::shared_ptr<ArSceneTargetList> scene_targets_{new ArSceneTargetList()};
   oneq::foundation::PoseState platform_pose_{};
   float platform_altitude_m_{0.0f};

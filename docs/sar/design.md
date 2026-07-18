@@ -380,6 +380,15 @@ external raw IQ 已位于接收机之后，session 不得再次施加上述链�
 [evidence: tests/unit/sar/sar_controller_runtime_state_test.cpp::PipelineAbortRestoresAllCrossCycleState]
 [evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp]
 
+`SarCycleResult.focused_image` 同样是 replay 权威输出，而不是只在实时结果中存在的旁路载荷。
+cycle-result schema 完整保存 source、row/column、placeholder 与行主序 real/imag vectors；非占位图像
+要求两个向量长度严格等于 `rows * columns`，placeholder 禁止携带像素，decode 同时拒绝尺寸溢出和
+非有限样本。Replay 以精确值比较全部字段，任一像素变化必须报告 divergence。
+[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::SarReplayCodecRoundtripTest.CycleResultPreservesOutputAndDiagnostics]
+[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::SarReplayCodecRoundtripTest.CycleResultPreservesFocusedImagePlaceholder]
+[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::SarReplayCodecRoundtripTest.CycleResultRejectsMalformedFocusedImage]
+[evidence: tests/replay/sar/sar_replay_session_test.cpp::SarReplaySessionTest.ReplaySarTraceDetectsFocusedImagePixelDivergence]
+
 内部轨迹分层：
 
 - L1：`SarCycleInput.platform` 的本周期 LLA、时间、NED 速度和姿态是匀速直线轨迹的

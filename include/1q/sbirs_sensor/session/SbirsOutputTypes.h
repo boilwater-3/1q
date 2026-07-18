@@ -87,12 +87,10 @@ using SbirsDetectionAttributionRecordList = std::vector<SbirsDetectionAttributio
 
 namespace session {
 
-/** @brief 单周期执行的中止原因：无、输入校验拒绝、输出契约违反、运行期状态恢复拒绝。 */
+/** @brief 单周期执行的中止原因：无或输入校验拒绝。 */
 enum class ONEQ_API SbirsPipelineAbortReason {
-  kNone = 0,                   /**< 正常执行，无中止 */
-  kValidationRejected,         /**< 输入校验拒绝 */
-  kOutputContractViolation,    /**< 输出契约违反 */
-  kRuntimeStateRestoreRejected /**< 运行期状态恢复被拒绝 */
+  kNone = 0,           /**< 正常执行，无中止 */
+  kValidationRejected /**< 输入校验拒绝 */
 };
 
 }  // namespace session

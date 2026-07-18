@@ -55,6 +55,12 @@ bool SarCycleResultEqual(const SarCycleResult& left, const SarCycleResult& right
       left.executed_this_cycle != right.executed_this_cycle ||
       left.reused_previous_output != right.reused_previous_output ||
       left.abort_reason != right.abort_reason ||
+      left.focused_image.source != right.focused_image.source ||
+      left.focused_image.row_count != right.focused_image.row_count ||
+      left.focused_image.column_count != right.focused_image.column_count ||
+      left.focused_image.real_values != right.focused_image.real_values ||
+      left.focused_image.imaginary_values != right.focused_image.imaginary_values ||
+      left.focused_image.is_placeholder != right.focused_image.is_placeholder ||
       left.raw_phase_history.source != right.raw_phase_history.source ||
       left.raw_phase_history.pulse_count != right.raw_phase_history.pulse_count ||
       left.raw_phase_history.samples_per_pulse != right.raw_phase_history.samples_per_pulse ||

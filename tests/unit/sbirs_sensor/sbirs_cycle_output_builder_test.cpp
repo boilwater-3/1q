@@ -59,6 +59,14 @@ sbirs_sensor::session::SbirsCycleResult ResultForTarget(std::uint32_t cycle_inde
   return result;
 }
 
+sbirs_sensor::session::SbirsCycleResult RejectedResult(std::uint32_t cycle_index) {
+  sbirs_sensor::session::SbirsCycleResult result;
+  result.input_cycle_index = cycle_index;
+  result.has_validation_error = true;
+  result.abort_reason = sbirs_sensor::session::SbirsPipelineAbortReason::kValidationRejected;
+  return result;
+}
+
 sbirs_sensor::session::SbirsCycleResult NisLossResultForTarget(std::uint32_t cycle_index) {
   sbirs_sensor::session::SbirsCycleResult result;
   result.input_cycle_index = cycle_index;
@@ -214,9 +222,58 @@ TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderTracksFoundUpdatedLostAndOpti
 
   sbirs_sensor::session::SbirsDetectionLifecycleRecorder diagnose_recorder(
       sbirs_sensor::session::SbirsDetectionLifecycleRecorderConfig{true});
-  events = diagnose_recorder.Update(InputWithTarget(4U), sbirs_sensor::session::SbirsCycleResult{});
+  sbirs_sensor::session::SbirsCycleResult executed_without_detection;
+  executed_without_detection.input_cycle_index = 4U;
+  executed_without_detection.executed_this_cycle = true;
+  events = diagnose_recorder.Update(InputWithTarget(4U), executed_without_detection);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events[0].kind, sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kNotDetected);
+}
+
+TEST(SbirsCycleOutputBuilderTest, ValidationRejectedCyclePreservesDetectedLifecycleState) {
+  sbirs_sensor::session::SbirsDetectionLifecycleRecorder recorder;
+  ASSERT_EQ(recorder.Update(InputWithTarget(1U), ResultForTarget(1U, true)).size(), 1U);
+
+  const auto rejected_events = recorder.Update(InputWithTarget(2U), RejectedResult(2U));
+  EXPECT_TRUE(rejected_events.empty());
+
+  const auto resumed_events = recorder.Update(InputWithTarget(3U), ResultForTarget(3U, true));
+  ASSERT_EQ(resumed_events.size(), 1U);
+  EXPECT_EQ(resumed_events.front().kind,
+            sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kUpdated);
+}
+
+TEST(SbirsCycleOutputBuilderTest, ValidationRejectedEmptyInputDoesNotInventTargetMissing) {
+  sbirs_sensor::session::SbirsDetectionLifecycleRecorder recorder;
+  ASSERT_EQ(recorder.Update(InputWithTarget(1U), ResultForTarget(1U, true)).size(), 1U);
+  const sbirs_sensor::session::SbirsCycleInput empty_input =
+      sbirs_sensor::session::SbirsCycleInputBuilder()
+          .WithCycleIndex(2U)
+          .WithDeltaTimeSec(1.0f)
+          .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+          .Build();
+
+  const auto rejected_events = recorder.Update(empty_input, RejectedResult(2U));
+  EXPECT_TRUE(rejected_events.empty());
+
+  const auto resumed_events = recorder.Update(InputWithTarget(3U), ResultForTarget(3U, true));
+  ASSERT_EQ(resumed_events.size(), 1U);
+  EXPECT_EQ(resumed_events.front().kind,
+            sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kUpdated);
+}
+
+TEST(SbirsCycleOutputBuilderTest, ValidationRejectedCycleIgnoresEmitNotDetectedPolicy) {
+  sbirs_sensor::session::SbirsDetectionLifecycleRecorder recorder(
+      sbirs_sensor::session::SbirsDetectionLifecycleRecorderConfig{true});
+  ASSERT_EQ(recorder.Update(InputWithTarget(1U), ResultForTarget(1U, true)).size(), 1U);
+
+  const auto rejected_events = recorder.Update(InputWithTarget(2U), RejectedResult(2U));
+  EXPECT_TRUE(rejected_events.empty());
+
+  const auto resumed_events = recorder.Update(InputWithTarget(3U), ResultForTarget(3U, true));
+  ASSERT_EQ(resumed_events.size(), 1U);
+  EXPECT_EQ(resumed_events.front().kind,
+            sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kUpdated);
 }
 
 TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderPreservesNisLossReasonAndDiagnostics) {

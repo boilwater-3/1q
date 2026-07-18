@@ -2,10 +2,17 @@
 
 #include <utility>
 
+#include "common/logging/ProjectLog.h"
+
 namespace airborne_radar {
 namespace session {
+namespace {
 
-struct MutableArContext::RuntimeSnapshot {
+constexpr std::uint32_t kArContextRuntimeStateSchemaVersion = 1U;
+
+}  // namespace
+
+struct ArContextRuntimeSnapshot {
   std::shared_ptr<ArSceneTargetList> scene_targets;
   oneq::foundation::PoseState platform_pose{};
   float platform_altitude_m{0.0f};
@@ -66,7 +73,7 @@ const session::ArControlProfile& MutableArContext::LatestControlProfile() const 
 
 ArContextRuntimeState MutableArContext::CaptureRuntimeState() const {
   ArContextRuntimeState state;
-  std::shared_ptr<RuntimeSnapshot> snapshot(new RuntimeSnapshot());
+  std::shared_ptr<ArContextRuntimeSnapshot> snapshot(new ArContextRuntimeSnapshot());
   snapshot->scene_targets = scene_targets_;
   snapshot->platform_pose = platform_pose_;
   snapshot->platform_altitude_m = platform_altitude_m_;
@@ -76,44 +83,29 @@ ArContextRuntimeState MutableArContext::CaptureRuntimeState() const {
   snapshot->latest_control_profile = latest_control_profile_;
   snapshot->has_latest_control_profile = has_latest_control_profile_;
   state.owner_identity = this;
-  state.schema_version = 1U;
-  state.opaque = snapshot;
-  state.scene_targets = scene_targets_ != nullptr ? *scene_targets_ : ArSceneTargetList();
-  state.platform_pose = platform_pose_;
-  state.platform_altitude_m = platform_altitude_m_;
-  state.cycle_dt_sec = cycle_dt_sec_;
-  state.cycle_index = cycle_index_;
-  state.submitted_commands = submitted_commands_;
-  state.latest_control_profile = latest_control_profile_;
-  state.has_latest_control_profile = has_latest_control_profile_;
+  state.schema_version = kArContextRuntimeStateSchemaVersion;
+  state.snapshot = snapshot;
   return state;
 }
 
-void MutableArContext::RestoreRuntimeState(const ArContextRuntimeState& state) {
-  if (state.owner_identity == this && state.schema_version == 1U) {
-    const std::shared_ptr<RuntimeSnapshot> snapshot =
-        std::static_pointer_cast<RuntimeSnapshot>(state.opaque);
-    if (snapshot != nullptr) {
-      scene_targets_ = snapshot->scene_targets;
-      platform_pose_ = snapshot->platform_pose;
-      platform_altitude_m_ = snapshot->platform_altitude_m;
-      cycle_dt_sec_ = snapshot->cycle_dt_sec;
-      cycle_index_ = snapshot->cycle_index;
-      submitted_commands_ = snapshot->submitted_commands;
-      latest_control_profile_ = snapshot->latest_control_profile;
-      has_latest_control_profile_ = snapshot->has_latest_control_profile;
-      return;
-    }
+bool MutableArContext::RestoreRuntimeState(const ArContextRuntimeState& state) {
+  if (state.owner_identity != this ||
+      state.schema_version != kArContextRuntimeStateSchemaVersion || state.snapshot == nullptr) {
+    PROJECT_LOG_ERROR(
+        "[MutableArContext] context runtime state restore rejected: "
+        "owner/schema/snapshot mismatch.");
+    return false;
   }
 
-  scene_targets_.reset(new ArSceneTargetList(state.scene_targets));
-  platform_pose_ = state.platform_pose;
-  platform_altitude_m_ = state.platform_altitude_m;
-  cycle_dt_sec_ = state.cycle_dt_sec;
-  cycle_index_ = state.cycle_index;
-  submitted_commands_ = state.submitted_commands;
-  latest_control_profile_ = state.latest_control_profile;
-  has_latest_control_profile_ = state.has_latest_control_profile;
+  scene_targets_ = state.snapshot->scene_targets;
+  platform_pose_ = state.snapshot->platform_pose;
+  platform_altitude_m_ = state.snapshot->platform_altitude_m;
+  cycle_dt_sec_ = state.snapshot->cycle_dt_sec;
+  cycle_index_ = state.snapshot->cycle_index;
+  submitted_commands_ = state.snapshot->submitted_commands;
+  latest_control_profile_ = state.snapshot->latest_control_profile;
+  has_latest_control_profile_ = state.snapshot->has_latest_control_profile;
+  return true;
 }
 
 const ArSceneTargetList& MutableArContext::GetSceneTargets() const {

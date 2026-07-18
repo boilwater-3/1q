@@ -14,6 +14,7 @@
 
 #include "1q/replay/ReplayTrace.h"
 #include "1q/sar/session/SarReplaySession.h"
+#include "1q/sar/session/SarSession.h"
 #include "1q/sar/session/SarTraceSession.h"
 #include "sar/session/SarReplayFlatbufferCodec.h"
 
@@ -223,6 +224,59 @@ TEST(SarReplaySessionTest, ReplaySarTraceAppliesRuntimePatchBeforeCycle) {
   EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
   EXPECT_EQ(replay_result.playback.applied_runtime_patch_count, 1U);
   EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+}
+
+TEST(SarReplaySessionTest, ReplaySarTraceDetectsFocusedImagePixelDivergence) {
+  ScopedTempDir temp_dir;
+  const std::string& trace_dir = temp_dir.Path();
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "sar-focused-image-divergence-test";
+  manifest.module = "sar";
+  manifest.scenario_id = "unit-test";
+
+  const config::SarSessionConfig config = MakeSmallRdaConfigForReplay();
+  const SarCycleInput input = MakeReplayInput();
+  SarSession session = SarSession::Create(config);
+  SarCycleResult expected = session.StepWithResult(input);
+  ASSERT_TRUE(expected.executed_this_cycle);
+  ASSERT_FALSE(expected.focused_image.real_values.empty());
+  expected.focused_image.real_values.front() += 1.0;
+
+  oneq::replay::ReplayTraceWriter writer(trace_dir, manifest, true);
+  oneq::replay::ReplayTraceEvent config_event;
+  config_event.module = "sar";
+  config_event.event_type = "session_config";
+  config_event.payload_type = "SarSessionConfig";
+  config_event.payload_encoding = "flatbuffers";
+  config_event.payload_bytes = EncodeSarSessionConfig(config);
+  writer.WriteEvent(config_event);
+
+  oneq::replay::ReplayTraceEvent input_event;
+  input_event.module = "sar";
+  input_event.event_type = "cycle_input";
+  input_event.payload_type = "SarCycleInput";
+  input_event.payload_encoding = "flatbuffers";
+  input_event.payload_bytes = EncodeSarCycleInput(input);
+  input_event.has_cycle_index = true;
+  input_event.cycle_index = input.cycle_index;
+  writer.WriteEvent(input_event);
+
+  oneq::replay::ReplayTraceEvent output_event;
+  output_event.module = "sar";
+  output_event.event_type = "cycle_output";
+  output_event.payload_type = "SarCycleResult";
+  output_event.payload_encoding = "flatbuffers";
+  output_event.payload_bytes = EncodeSarCycleResult(expected);
+  output_event.has_cycle_index = true;
+  output_event.cycle_index = input.cycle_index;
+  writer.WriteEvent(output_event);
+  writer.Flush();
+
+  const SarReplaySessionResult replay_result = ReplaySarTrace(trace_dir);
+  EXPECT_FALSE(replay_result.ok);
+  EXPECT_TRUE(replay_result.playback.divergence_found);
+  EXPECT_NE(replay_result.first_error.find("SarCycleResult"), std::string::npos);
 }
 
 TEST(SarReplaySessionTest, ReplaySarTraceRejectsWrongModule) {
