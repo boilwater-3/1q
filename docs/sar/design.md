@@ -1,7 +1,7 @@
 # SAR 当前设计
 
 Status: active
-Last-reviewed: 2026-07-06
+Last-reviewed: 2026-07-18
 Authority: current SAR module design
 
 本文是 SAR 模块当前设计权威。它只描述当前 main 中仍成立的架构、数据流和算法边界；历史验收日志、旧合同、旧审计和被删除的 archive 原文不覆盖本文。
@@ -264,24 +264,37 @@ SAR 遵守 `docs/common/contract.md`：
   输出。配置不随执行失败回滚，执行状态也不得被失败周期污染。
 - historical/raw evidence 不常驻 `docs/sar/`；当前事实只由五文件模型承载。
 
-### 1.8 Environment 配置的保留与后续接入边界
+### 1.8 Environment 几何、传播与地表背景契约
 
-`SarEnvironmentConfig` 是有意保留的 public 四域配置，不下沉、不删除，也不标记 deprecated。
-当前生产链尚未消费其中字段，因此本版本中它们只参与 config 透传和 replay roundtrip；调用方不得
-把字段变化解释为已改变 raw echo、聚焦图像或质量摘要。
+`SarEnvironmentConfig` 是 public 四域配置之一，当前五个字段均有确定语义。它只作用于 session
+内部生成 raw echo；外部完整孔径 raw IQ 已位于外部生成器接收机之后，session 必须逐样本保留，
+不得再次施加坐标转换、大气衰减或地表背景。
 
-后续接入方向已经确定，但物理公式和分批顺序仍需在实施前单独完成 Stage A：
+内部生成路径以场景中心经纬度和 `terrain_reference_altitude_m` 组成局部原点，并对平台、点目标和
+L3 航路点使用同一转换：
 
-- `terrain_reference_altitude_m` 应进入场景参考面、平台/目标相对高度和成像几何解析。
-- `atmospheric_loss_db_per_km` 与 `enable_atmospheric_attenuation` 应共同控制内部生成 raw echo 的
-  双程传播衰减；关闭开关时损耗参数不生效。
-- `surface_backscatter_sigma0_db` 应进入分布式地表背景/杂波回波建模，不得机械叠加到点目标 RCS。
-- `use_flat_earth_geometry` 应选择局部平面与曲面地球几何路径；两条路径必须共享明确的坐标、距离和
-  高程基准，不能只改变字段而继续执行同一计算。
-- 外部 raw IQ 已包含外部生成器的环境传播结果，session 不得再次施加上述衰减或背景模型。
+- `use_flat_earth_geometry=true` 时，`x = R cos(lat0) Δlon`、`y = R Δlat`、
+  `z = altitude - terrain_reference_altitude`。
+- `use_flat_earth_geometry=false` 时，经 WGS-84 LLA→ECEF→ENU 得到 east/north/up；两条路径的
+  原点和轴语义一致。非法 LLA 或转换失败必须结构化中止，不能静默回退到另一条几何路径。
 
-任何字段首次接入生产计算时，必须同时补充启用/关闭对照、输出影响、非法值校验、内部 raw echo 与
-外部 raw IQ 分流、replay 确定性和对应成像回归；在这些证据完成前保持当前 no-op 行为。
+内部回波的大气与地表模型为：
+
+- 若 `enable_atmospheric_attenuation=true`，单程比损耗 `gamma_db_per_km` 对斜距 `r_m` 形成
+  `L_two_way_db = 2 × gamma_db_per_km × r_m / 1000`，每个散射体的复振幅乘
+  `10^(-L_two_way_db/20)`；关闭时严格退化为 1。
+- 地表单元 RCS 为 `10^(surface_backscatter_sigma0_db/10) × A_cell`，其中 `A_cell` 是期望地距
+  分辨率与期望方位分辨率之积。当前低成本背景用场景中心周围确定性 3×3 代表性单元，相干叠加到
+  raw IQ；其平均功率进入干扰/噪声账本，不得计为点目标 signal power。
+- 地形参考高程、大气比损耗和 sigma0 必须有限；大气比损耗还必须非负。replay roundtrip 保真全部
+  environment 字段，但不改变上述来源边界。
+
+[evidence: tests/unit/sar/sar_omega_k_l1_raw_history_stage_a_test.cpp::EnvironmentSelectsTerrainDatumAndEarthGeometry]
+[evidence: tests/unit/sar/sar_session_config_builder_test.cpp::RejectsInvalidEnvironmentScalars]
+[evidence: tests/unit/sar/sar_session_pipeline_test.cpp::AtmosphericAttenuationAppliesTwoWayLossToInternalEcho]
+[evidence: tests/unit/sar/sar_session_pipeline_test.cpp::SurfaceSigma0ControlsDistributedInternalBackground]
+[evidence: tests/unit/sar/sar_session_pipeline_test.cpp::RetainedExternalRawPhaseHistoryIsExactInputIq]
+[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::SessionConfigPreservesAllDomains]
 
 ## 2. 本模块使用的算法
 
@@ -340,14 +353,18 @@ SAR 支持两条 raw history 来源：
 
 内部生成路径的接收链按单站雷达方程处理：`peak_power_w`、双程天线增益、波长与
 `system_loss_db` 决定回波幅度，随后按 `k * 290 K * bandwidth * noise factor` 叠加确定性复高斯
-热噪声。`estimated_snr_db` 是完整孔径内加噪前平均接收信号功率与已知接收机噪声功率之比；功率、
-增益、损耗、噪声系数的单变量变化必须分别满足正、正、负、负的方向性。
+热噪声。环境开启时，点目标还按真实斜距承受双程大气衰减，地表 sigma0 背景相干叠加到 IQ。
+`estimated_snr_db` 是完整孔径内加噪前点目标平均接收功率与“接收机热噪声 + 分布式地表背景功率”
+之比；地表背景不得伪装成目标信号。隔离地表背景后，功率、增益、损耗、噪声系数的单变量变化
+必须分别满足正、正、负、负的方向性。
 
 external raw IQ 已位于接收机之后，session 不得再次施加上述链路预算或噪声。现有 public 输入未携带
 信号/噪声分量元数据，因此该路径将 `estimated_snr_db` 标为不可估计（`-inf`），记录
 `sar.external_raw_iq_snr_unavailable`，并跳过 `minimum_snr_db` 门控；不得以峰均功率比冒充 SNR。
 
 [evidence: tests/unit/sar/sar_session_pipeline_test.cpp::HardwareLinkBudgetControlsInternalRawEchoSnr]
+[evidence: tests/unit/sar/sar_session_pipeline_test.cpp::AtmosphericAttenuationAppliesTwoWayLossToInternalEcho]
+[evidence: tests/unit/sar/sar_session_pipeline_test.cpp::SurfaceSigma0ControlsDistributedInternalBackground]
 [evidence: tests/unit/sar/sar_session_pipeline_test.cpp::MinValidSnrRejectsApertureBelowThreshold]
 [evidence: tests/unit/sar/sar_session_pipeline_test.cpp::ExternalRawIqDoesNotReapplyHardwareOrSnrGate]
 
@@ -377,9 +394,10 @@ external raw IQ 已位于接收机之后，session 不得再次施加上述链�
 
 坐标边界：
 
-- 平台和点目标 public 输入使用 LLA/NED 语义。
+- 平台和点目标 public 输入使用 LLA/NED 语义；内部生成路径按 §1.8 的统一环境几何转换到局部 ENU。
 - raw IQ pulse state 使用 scene-center-relative ENU。
-- ECEF/LLA 到 ENU 的适配集中在 `SarExternalInputAdapter`，不能散落进 imaging 算法。
+- 外部 raw IQ pulse state 的 ECEF/LLA 到 ENU 适配集中在 `SarExternalInputAdapter`；环境几何只存在于
+  raw-history 构造边界，均不得散落进 imaging 算法。
 
 验证入口：
 

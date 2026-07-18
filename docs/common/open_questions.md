@@ -5,18 +5,17 @@ Authority: 非规定性记录
 
 本文登记调查中发现但尚未定论的跨模块架构议题，不构成契约约束。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从本文移除。
 
-## 当前修复优先级（2026-07-17 实时代码复核）
+## 当前修复优先级（2026-07-18 实时代码复核）
 
 以下排序按“已经能证明存在运行时语义风险”优先于“需要 public API 迁移决策”，再优先于“纯机械重构”排列。这里的 P0/P1/P2 是修复顺序，不是线上安全等级；在完成对应失败测试和契约冻结前，不直接修改 public struct 或 replay schema。
 
 | 优先级 | 条目 | 当前判断 | 首个交付物 |
 |---|---|---|---|
-| P1 | OQ-10b | SAR environment 仍是公开 no-op 域，需后续接入生产环境计算 | 分项物理公式、内外部 raw IQ 分流与成像影响证据 |
 | P2 | OQ-8、OQ-10a、OQ-10d、OQ-10i | 涉及 public API/ABI 或跨模块迁移，不能作为顺手清理 | Stage A 迁移契约和 consumer 影响清单 |
 | P2 | OQ-9 | 机械 replay helper 收敛，必须在模块行为护栏稳定后进行 | SBIRS → SAR → AR 分批证明 |
 
 排序依据是当前 checkout 的代码和测试，不代表这些条目已经获准实施。原 OQ-10h、OQ-3、OQ-10c、
-OQ-10e、OQ-10f、OQ-10g、OQ-10j、OQ-10k、OQ-10l、OQ-10m、OQ-1 已完成；对应运行时语义和证据已迁入
+OQ-10b、OQ-10e、OQ-10f、OQ-10g、OQ-10j、OQ-10k、OQ-10l、OQ-10m、OQ-1 已完成；对应运行时语义和证据已迁入
 SBIRS、Flight Dynamic、AR、ESR、EOS、SAR 的模块设计权威。
 
 ---
@@ -77,23 +76,6 @@ AR/ESR/EOS 的开关机字段都叫 `power_on{true}`，唯独 SBIRS 叫 `sensor_
 - 决定统一字段名（推荐 `power_on`，多数派）；
 - 扩展或核对 `check_cross_domain_naming.cmake` 规则将该字段纳入守护，防回归；
 - 评估改名对外部消费方的兼容性影响，必要时走别名过渡。
-
-### OQ-10b 🔴 SAR `SarEnvironmentConfig` 整域是 no-op 却作为对外公开四域之一
-
-该域头文件注释自认："当前 Phase 1 计算链路（raw echo 生成、L1 RDA、L3 BP、质量摘要）**不消费本域任何字段**"。5 个字段全部标注"保留字段：当前不驱动任何计算阶段"。
-
-- 证据：`include/1q/sar/config/SarEnvironmentConfig.h`（struct 级 `@note` 与各字段注释）。
-- 影响字段：`terrain_reference_altitude_m` / `atmospheric_loss_db_per_km` / `surface_backscatter_sigma0_db` / `use_flat_earth_geometry` / `enable_atmospheric_attenuation`。
-- 用户配置这些旋钮对成像输出零影响，仅 `SarReplayFlatbufferCodec` 用于 replay 保真与 config 透传。
-
-已冻结的方向：该域继续作为 public 四域配置保留，后续接入 SAR 环境计算，不下沉、不删除，也不标记
-deprecated。当前版本仍为 no-op，仅承担 replay/config 保真；未来计算责任和 external raw IQ 不重复施加
-环境效应的边界已写入 `docs/sar/design.md` §1.8。
-
-推进需要：
-- 分别冻结几何参考面、双程大气衰减、分布式 sigma0 背景和曲面/平面几何的物理公式与校验；
-- 增加启用/关闭对照及成像影响测试，并保持 external raw IQ 不被二次施加环境效应；
-- 完成生产接线后再从本文移除该项。
 
 ### OQ-10d 🟠 ScenarioConfig / ModelConfig "双胞胎 struct"，字段完全相同却禁止视为同型
 
