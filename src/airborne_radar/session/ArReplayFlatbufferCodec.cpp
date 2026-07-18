@@ -7,6 +7,7 @@
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "airborne_radar/session/generated/airborne_radar_replay_generated.h"
 #include "airborne_radar/session/generated/airborne_radar_session_replay_generated.h"
+#include "common/replay/ReplayFlatbufferCodecSupport.h"
 
 namespace airborne_radar {
 namespace session {
@@ -918,9 +919,7 @@ std::string EncodeCycleInputFlatbuffer(const ArCycleInput& input) {
       scene_vector, input.has_environment, env, input.platform_altitude_m);
   builder.Finish(root, fb::ArCycleInputIdentifier());
 
-  const std::uint8_t* buffer = builder.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buffer),
-                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
 bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, ArCycleInput* input,
@@ -971,9 +970,7 @@ std::string EncodeTrackOutputFrameFlatbuffer(const session::TrackOutputFrame& ou
       EncodeTrackOutputFrame(&builder, output_frame);
   builder.Finish(root);
 
-  const std::uint8_t* buffer = builder.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buffer),
-                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
 bool DecodeTrackOutputFrameFlatbuffer(const std::string& payload_bytes,
@@ -1010,9 +1007,7 @@ std::string EncodeCycleResultFlatbuffer(const ArCycleResult& result) {
   const flatbuffers::Offset<fb::ArCycleResult> root = EncodeCycleResult(&builder, result);
   builder.Finish(root);
 
-  const std::uint8_t* buffer = builder.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buffer),
-                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
 bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, ArCycleResult* result,
@@ -1056,9 +1051,7 @@ std::string EncodeSessionConfigFlatbuffer(const config::ArSessionConfig& config)
           config.mission.power_on);
   builder.Finish(root, session_fb::ArSessionConfigIdentifier());
 
-  const std::uint8_t* buffer = builder.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buffer),
-                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
 bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes, config::ArSessionConfig* config,
@@ -1112,9 +1105,7 @@ std::string EncodeRuntimeConfigPatchFlatbuffer(const config::ArRuntimeConfigPatc
           patch.has_sensor_enabled, patch.sensor_enabled);
   builder.Finish(root);
 
-  const std::uint8_t* buffer = builder.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buffer),
-                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
 bool DecodeRuntimeConfigPatchFlatbuffer(const std::string& payload_bytes,
@@ -1176,45 +1167,13 @@ std::string EncodeFailureMarkerFlatbuffer(const oneq::replay::ReplayTraceFailure
       failure.diagnostics_payload.c_str(), has_last_event_sequence, last_event_sequence);
   builder.Finish(root);
 
-  const std::uint8_t* buffer = builder.GetBufferPointer();
-  return std::string(reinterpret_cast<const char*>(buffer),
-                     reinterpret_cast<const char*>(buffer) + builder.GetSize());
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
 
 bool DecodeFailureMarkerFlatbuffer(const std::string& payload_bytes,
                                    oneq::replay::ReplayTraceFailure* failure, std::string* error) {
-  if (failure == nullptr) {
-    if (error != nullptr) {
-      *error = "null FailureMarker output";
-    }
-    return false;
-  }
-  if (payload_bytes.empty()) {
-    if (error != nullptr) {
-      *error = "empty FailureMarker flatbuffers payload";
-    }
-    return false;
-  }
-
-  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
-  flatbuffers::Verifier verifier(data, payload_bytes.size());
-  const fb::FailureMarker* root = flatbuffers::GetRoot<fb::FailureMarker>(data);
-  if (root == nullptr || !root->Verify(verifier)) {
-    if (error != nullptr) {
-      *error = "invalid FailureMarker flatbuffers payload";
-    }
-    return false;
-  }
-
-  failure->error_code = root->error_code() ? root->error_code()->str() : "";
-  failure->message = root->message() ? root->message()->str() : "";
-  failure->location = root->location() ? root->location()->str() : "";
-  failure->has_cycle_index = root->has_cycle_index();
-  failure->cycle_index = root->cycle_index();
-  failure->has_sim_time_sec = root->has_sim_time_sec();
-  failure->sim_time_sec = root->sim_time_sec();
-  failure->diagnostics_payload = root->diagnostics() ? root->diagnostics()->str() : "{}";
-  return true;
+  return oneq::common::replay::DecodeFailureMarkerPayload<fb::FailureMarker>(
+      payload_bytes, failure, error);
 }
 
 }  // namespace session
