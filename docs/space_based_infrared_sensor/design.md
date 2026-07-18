@@ -804,11 +804,9 @@ occulted = (0 < s_closest && s_closest < range && d_closest² <= R_E²)
 
 foundation 链路由 `SbirsPipeline` 统一编排：Planck 辐射、路径透过率、接收功率、背景/探测器噪声和 SNR 门限顺序计算。`SbirsNoiseModel` 将背景辐射、探测器温度和读出噪声按 RMS 合成；三项均为零时回退到 `noise_equivalent_power_w`。这些实现以当前 source 和单元测试为证据，不以历史需求中的常数或公式版本作为契约。
 
-`detector_area_m2` 保持 SI 单位和既有 replay 兼容，但当前标量 SNR 链路不消费该字段：现有背景项按孔径和
-简化 1 sr 视场计算，缺少把像元面积映射为视场立体角所需的焦距/成像几何。不得用任意归一化系数让该字段
-假装生效；只有独立成像模型同时具备 PSF/MTF、焦距与像元几何时，才可冻结其物理效应并增加结果测试。
-[evidence: tests/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp::SbirsReplayCodecRoundtripTest.SessionConfigPreservesAllDomains]
-[evidence: tests/contract/check_cross_domain_naming.cmake]
+当前标量 SNR 链缺少把像元面积映射为视场立体角所需的焦距与成像几何，因此 public hardware 和 replay
+schema 都不暴露无消费者的 detector-area 字段。只有独立成像模型同时具备 PSF/MTF、焦距与像元几何时，
+才可冻结其物理效应并增加结果测试；不得先加占位字段再用任意归一化系数伪装生效。
 
 这些算法是内部可测试实现，不是 public 契约。复制时改命名空间为 `sbirs_sensor`，类型前缀改
 `Sbirs*`，并允许为天基红外场景修正物理常数、波段参数、背景项和几何门控。若与 EOS 逻辑不等价，

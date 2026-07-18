@@ -126,7 +126,7 @@ flatbuffers::Offset<sbirs::replay::SbirsHardwareConfig> EncodeHardwareConfig(
     flatbuffers::FlatBufferBuilder& fbb, const config::SbirsHardwareConfig& value) {
   return sbirs::replay::CreateSbirsHardwareConfig(
       fbb, value.wavelength_lower_um, value.wavelength_upper_um, value.optical_aperture_m,
-      value.detector_area_m2, value.optical_transmission, value.detector_quantum_efficiency,
+      value.optical_transmission, value.detector_quantum_efficiency,
       value.integration_time_sec, value.noise_equivalent_power_w, value.background_radiance_w_sr_m2,
       value.detector_temperature_k, value.readout_noise_rms_w);
 }
@@ -139,7 +139,6 @@ void DecodeHardwareConfig(const sbirs::replay::SbirsHardwareConfig* fb,
   out->wavelength_lower_um = fb->wavelength_lower_um();
   out->wavelength_upper_um = fb->wavelength_upper_um();
   out->optical_aperture_m = fb->optical_aperture_m();
-  out->detector_area_m2 = fb->detector_area_m2();
   out->optical_transmission = fb->optical_transmission();
   out->detector_quantum_efficiency = fb->detector_quantum_efficiency();
   out->integration_time_sec = fb->integration_time_sec();

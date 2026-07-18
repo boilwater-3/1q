@@ -20,7 +20,7 @@
 #   6) 四域 RuntimeConfigBuilder 必须提供 WithRuntimeConfigPatch 整块覆盖入口
 #      （P3-b 对齐，四域形状一致）。
 #   7) SBIRS mission、runtime patch 与 builder 的电源名称必须统一为 power_on。
-#   8) EOS/SBIRS 探测器面积必须保留显式单位后缀；禁止退化为无单位字段名。
+#   8) EOS 探测器面积必须保留显式单位后缀；SBIRS 禁止回流未消费的面积字段。
 #
 # 配套：跨域"形状契约"（Step/StepWithResult 返回类型）由编译期
 # foundation/SensorContract.h 的 static_assert 守护，本脚本不重复检查类型形状。
@@ -203,26 +203,27 @@ if(NOT _mission_legacy_pos EQUAL -1 OR NOT _patch_legacy_pos EQUAL -1 OR
   list(APPEND VIOLATIONS "[SBIRS 电源命名] 禁止回流旧名 sensor_enabled")
 endif()
 
-# ---- 阻断 8：跨域探测器面积单位后缀 ----
-set(DETECTOR_AREA_HEADERS
-    "${PUBLIC_INCLUDE_ROOT}/electro_optical_sensor/config/EosHardwareConfig.h|detector_area_cm2"
-    "${PUBLIC_INCLUDE_ROOT}/sbirs_sensor/config/SbirsHardwareConfig.h|detector_area_m2")
-foreach(HEADER_AND_TOKEN IN LISTS DETECTOR_AREA_HEADERS)
-  string(FIND "${HEADER_AND_TOKEN}" "|" _separator)
-  math(EXPR _token_start "${_separator} + 1")
-  string(SUBSTRING "${HEADER_AND_TOKEN}" 0 ${_separator} _header)
-  string(SUBSTRING "${HEADER_AND_TOKEN}" ${_token_start} -1 _required_token)
-  file(READ "${_header}" _header_text)
-  string(FIND "${_header_text}" "${_required_token}" _required_pos)
-  if(_required_pos EQUAL -1)
-    list(APPEND VIOLATIONS "${_header}: [探测器面积单位] 缺少 '${_required_token}'；"
-                           "跨域同物理量必须在字段名中显式标明单位")
-  endif()
-  if(_header_text MATCHES "float[ \t]+detector_area[ \t]*[{;]")
-    list(APPEND VIOLATIONS "${_header}: [探测器面积单位] 禁止无单位字段 detector_area；"
-                           "使用模块冻结的 _cm2 或 _m2 后缀")
-  endif()
-endforeach()
+# ---- 阻断 8：探测器面积边界 ----
+set(EOS_HARDWARE_HEADER
+    "${PUBLIC_INCLUDE_ROOT}/electro_optical_sensor/config/EosHardwareConfig.h")
+set(SBIRS_HARDWARE_HEADER
+    "${PUBLIC_INCLUDE_ROOT}/sbirs_sensor/config/SbirsHardwareConfig.h")
+file(READ "${EOS_HARDWARE_HEADER}" EOS_HARDWARE_TEXT)
+file(READ "${SBIRS_HARDWARE_HEADER}" SBIRS_HARDWARE_TEXT)
+string(FIND "${EOS_HARDWARE_TEXT}" "detector_area_cm2" _eos_area_pos)
+if(_eos_area_pos EQUAL -1)
+  list(APPEND VIOLATIONS
+       "${EOS_HARDWARE_HEADER}: [探测器面积单位] 缺少 detector_area_cm2")
+endif()
+if(EOS_HARDWARE_TEXT MATCHES "float[ \t]+detector_area[ \t]*[{;]")
+  list(APPEND VIOLATIONS
+       "${EOS_HARDWARE_HEADER}: [探测器面积单位] 禁止无单位字段 detector_area")
+endif()
+string(FIND "${SBIRS_HARDWARE_TEXT}" "detector_area" _sbirs_area_pos)
+if(NOT _sbirs_area_pos EQUAL -1)
+  list(APPEND VIOLATIONS
+       "${SBIRS_HARDWARE_HEADER}: [探测器面积边界] 禁止回流未消费的 detector_area 字段")
+endif()
 
 if(VIOLATIONS)
   list(JOIN VIOLATIONS "\n" VIOLATION_TEXT)

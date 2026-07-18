@@ -21,7 +21,6 @@ struct ONEQ_API SbirsHardwareConfig {
   float wavelength_upper_um{5.0f};   /**< 工作波段上限，单位 μm（默认 MWIR 上沿 5.0） */
   float optical_aperture_m{0.5f};    /**< 光学孔径，单位 m */
   /** 探测器像元面积（m²）；当前标量链路不消费，保留 replay 兼容。 */
-  float detector_area_m2{1.0e-4f};
   float optical_transmission{0.8f};  /**< 光学透过率，无量纲 */
   float detector_quantum_efficiency{0.7f}; /**< 探测器量子效率，无量纲 */
   float integration_time_sec{0.02f};       /**< 积分时间，单位 s */

@@ -64,8 +64,8 @@ Authority: common contract for all modules
 一致时才统一单位；不得为了表面一致，在 public 边界隐藏换算或让字段退化为无单位名。
 
 EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同进入厘米制 D* / NEP 公式，
-SBIRS 的 `detector_area_m2` 则是 SI 像元面积及既有 replay 字段，因此保留不同后缀。两者都禁止改成
-无单位 `detector_area`；若未来迁移单位，必须同时迁移公式、consumer、schema/codec 和 roundtrip 证据。
+因此必须保留显式单位后缀，禁止退化成无单位 `detector_area`。SBIRS 当前没有具备焦距、像元几何与
+视场立体角映射的成像链，因此不公开未消费的 detector-area 参数。
 [evidence: tests/contract/check_cross_domain_naming.cmake]
 
 ## 跨模块物理基元复用

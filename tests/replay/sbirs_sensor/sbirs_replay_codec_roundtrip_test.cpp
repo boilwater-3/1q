@@ -231,7 +231,6 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.wavelength_lower_um = 2.0f;
   config.hardware.wavelength_upper_um = 5.0f;
   config.hardware.optical_aperture_m = 0.9f;
-  config.hardware.detector_area_m2 = 2.0e-4f;
   config.hardware.optical_transmission = 0.75f;
   config.hardware.detector_quantum_efficiency = 0.65f;
   config.hardware.integration_time_sec = 0.04f;
