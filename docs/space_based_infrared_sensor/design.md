@@ -1068,30 +1068,26 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
     标识目标占用哪个并发 NFOV 通道（§2.6）。进入 attribution、lifecycle 事件与 debug view，
     不进 raw output。进 replay（`sbirs_replay.fbs`）。
 
-## 4. 未来扩展模块优先级
+## 4. 能力决策与重新进入门
 
-下表面向当前默认定位——**系统级、可解释、可确定性 replay 的 SBIRS-inspired 仿真**。优先级表示
-建议开展 Stage A 的顺序，不表示其余功能已经承诺；第 1、2 项已完成 Stage A 并进入生产链路，第 3 项已完成
-characterization 但未通过生产接线门，其余候选保持 `defer`。只有
-证据矩阵证明真实性收益、状态所有权和验收门限后，才允许冻结实现范围。
+当前定位是**系统级、可解释、可确定性 replay 的 SBIRS-inspired 仿真**。下表不是 backlog 或优先级；
+没有可复现失败、误差预算和验收门的候选不计入当前架构债务，也不得仅凭“真实性可能提高”进入生产。
 
-复杂度分为中、高、极高，综合考虑运行态、配置/schema、snapshot/replay、独立物理真值和测试矩阵。
+| 能力 | 当前决策 | 证据或重新进入 Stage A 的必要条件 |
+|---|---|---|
+| 捕获后闭环 ATP 跟踪 | implemented | 已按逐通道状态接线；predict→advance→gate→correct、coasting、丢锁、snapshot/replay 均有测试证据 |
+| 时间相关的姿态抖动与指向误差 | implemented | 已接入共模 WFOV/NFOV 与逐通道 NFOV；零幅默认，不等同完整整星控制器 |
+| CA cue predictor | reject for wiring | 标称噪声和较长 latency 下放大误差、降低捕获率，未通过零回退门；不得接入 config/schema/pipeline |
+| 简化整星姿态动力学与执行机构约束 | defer | 必须先给出当前角度域模型无法满足的可复现失败和误差预算，再冻结共享平台姿态与逐通道光轴所有权 |
+| 多通道机械耦合与共享姿态资源 | defer | 必须证明独立 LOS 假设导致可观测错误，并具备确定性仲裁、失败归属和 snapshot/replay 验收矩阵 |
+| 探测器像元、背景杂波与图像帧 | defer outside current product boundary | 仅在产品目标转为图像检测/TBD/NCC 且具备 PSF/MTF、焦距、像元几何、背景和独立物理真值时重开；归属独立 imaging 子系统 |
+| 高精度轨道传播 | reject in sensor ownership | cycle input 已提供同一时标下的平台/目标状态；默认归属场景或平台动力学模块。只有输入精度被证明不足时才评估窄消费 helper |
+| 地面任务规划、区域重访与星座协同 | reject in sensor ownership | 属于任务规划/星座资源域，应通过 session config/input 驱动传感器，不并入 sensor pipeline |
+| 复刻真实 SBIRS 保密参数或处理链 | reject | 不可审计、不可验证；只使用可追溯公开资料、仓库内模型假设和独立测试证据 |
 
-| 顺序 | 未来扩展候选 | 优先级 | 复杂度 | 预期真实性增益 | 推荐归属与 Stage A 进入条件 |
-|---:|---|:---:|:---:|---|---|
-| 1 | 捕获后闭环 ATP 跟踪（implemented） | P0 | 中 | 很高：已消除 tracking 绕过 actuator 的理想化行为 | 已按逐通道状态接线；predict→advance→gate→correct、coasting、两周期丢锁、snapshot/replay 均有测试证据 |
-| 2 | 时间相关的姿态抖动与指向误差（implemented） | P0 | 中 | 高：补足独立逐帧 sigma 无法表达的漂移、抖动和残余振荡 | 已接入共模 WFOV/NFOV 与逐通道 NFOV；GM/白噪声/振动 characterization、snapshot、runtime policy patch 与 replay 均有证据；零幅默认，不是完整整星控制器 |
-| 3 | CA cue predictor（characterized/rejected for wiring） | P1 | 中 | 中高：无噪声持续加速场景改善明显 | 五样本二次拟合在标称噪声+较长 latency 下明显放大误差并降低捕获率，未通过零回退门；保持测试证据，不接入 config/schema/pipeline，禁止自动后端切换 |
-| 4 | 简化整星姿态动力学与执行机构约束 | P2 | 高 | 高：表达角加速度、饱和、稳定时间和平台本体运动 | 独立 Stage A；必须先完成闭环 ATP，冻结“共享平台姿态 + 逐通道光轴”的两层状态所有权，不把完整动力学内联进 `SbirsPipeline` |
-| 5 | 多通道机械耦合与共享姿态资源 | P2 | 高 | 中高：表达多个 NFOV 通道同时指向时的资源冲突和共同扰动 | 依赖第 4 项；需证明通道不再可视为独立 LOS，并形成确定性仲裁、失败归属和 snapshot/replay 矩阵 |
-| 6 | 探测器像元、背景杂波与图像帧 | P3（载荷算法用途可升为 P0） | 极高 | 取决于用途：对图像检测/TBD/NCC 很高，对当前系统级 session 较低 | 新建独立 SBIRS imaging 子系统；必须先具备可追溯 PSF/MTF、噪声、背景和独立物理真值，不向现有标量 raw output 直接堆入图像字段 |
-| 7 | 高精度轨道传播 | P3 | 高 | 中：提高长时几何一致性，但当前 cycle input 已提供平台/目标状态 | 默认归属场景或平台动力学模块；SBIRS 只消费同一时标/坐标系状态。只有外部输入无法满足 cue/遮挡精度时才评估窄 internal helper |
-| 8 | 地面任务规划、区域重访与星座协同 | P3 | 高 | 中：提高任务系统真实性，不直接提高单传感器物理精度 | 独立任务规划模块；通过 session config/input 驱动 SBIRS，禁止把排程、星座资源和地面决策并入 sensor pipeline |
-| — | 复刻真实 SBIRS 保密参数或处理链 | reject | 不可评估 | 不可验证 | 不作为工程目标；只使用可追溯公开资料、仓库内模型假设和独立测试证据，不用不可审计常数冒充真实设备参数 |
-
-后续推荐顺序为：**简化姿态动力学
-与通道耦合**。如果项目目标转为载荷图像算法评估，必须单独冻结产品边界，此时第 6 项可升为 P0，
-但仍不得把图像链直接塞入当前标量 `SbirsPipeline`。
+[evidence: tests/unit/sbirs_sensor/sbirs_cue_predictor_test.cpp]
+[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp]
+[evidence: tests/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp]
 
 ## 5. 设计变更规则
 
