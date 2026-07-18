@@ -20,6 +20,7 @@
 #   6) 四域 RuntimeConfigBuilder 必须提供 WithRuntimeConfigPatch 整块覆盖入口
 #      （P3-b 对齐，四域形状一致）。
 #   7) SBIRS mission 电源主名必须为 power_on，并保留同存储 sensor_enabled 兼容别名。
+#   8) EOS/SBIRS 探测器面积必须保留显式单位后缀；禁止退化为无单位字段名。
 #
 # 配套：跨域"形状契约"（Step/StepWithResult 返回类型）由编译期
 # foundation/SensorContract.h 的 static_assert 守护，本脚本不重复检查类型形状。
@@ -189,6 +190,27 @@ foreach(REQUIRED_TOKEN "bool power_on" "bool sensor_enabled")
   endif()
 endforeach()
 
+# ---- 阻断 8：跨域探测器面积单位后缀 ----
+set(DETECTOR_AREA_HEADERS
+    "${PUBLIC_INCLUDE_ROOT}/electro_optical_sensor/config/EosHardwareConfig.h|detector_area_cm2"
+    "${PUBLIC_INCLUDE_ROOT}/sbirs_sensor/config/SbirsHardwareConfig.h|detector_area_m2")
+foreach(HEADER_AND_TOKEN IN LISTS DETECTOR_AREA_HEADERS)
+  string(FIND "${HEADER_AND_TOKEN}" "|" _separator)
+  math(EXPR _token_start "${_separator} + 1")
+  string(SUBSTRING "${HEADER_AND_TOKEN}" 0 ${_separator} _header)
+  string(SUBSTRING "${HEADER_AND_TOKEN}" ${_token_start} -1 _required_token)
+  file(READ "${_header}" _header_text)
+  string(FIND "${_header_text}" "${_required_token}" _required_pos)
+  if(_required_pos EQUAL -1)
+    list(APPEND VIOLATIONS "${_header}: [探测器面积单位] 缺少 '${_required_token}'；"
+                           "跨域同物理量必须在字段名中显式标明单位")
+  endif()
+  if(_header_text MATCHES "float[ \t]+detector_area[ \t]*[{;]")
+    list(APPEND VIOLATIONS "${_header}: [探测器面积单位] 禁止无单位字段 detector_area；"
+                           "使用模块冻结的 _cm2 或 _m2 后缀")
+  endif()
+endforeach()
+
 if(VIOLATIONS)
   list(JOIN VIOLATIONS "\n" VIOLATION_TEXT)
   message(FATAL_ERROR
@@ -198,4 +220,6 @@ if(VIOLATIONS)
           "违规：\n${VIOLATION_TEXT}")
 endif()
 
-message(STATUS "[跨域命名守护] 通过：Session 签名裸名 + work_mode + power_on + 补丁槽 + SNR 前缀 + Builder 动词/整块入口均无回退。")
+message(STATUS
+        "[跨域命名守护] 通过：Session 签名裸名 + work_mode + power_on + 补丁槽 + "
+        "SNR 前缀 + Builder 动词/整块入口 + 探测器面积单位后缀均无回退。")
