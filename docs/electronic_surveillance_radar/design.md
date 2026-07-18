@@ -323,13 +323,21 @@ pipeline 持有归一化扫描相位 `[0, 1)`：本周期先用 `floor(phase × 
   `scan_start_az_deg < scan_end_az_deg`、`scan_start_el_deg < scan_end_el_deg`；显式边界生效，中心角字段被忽略。
 - `use_explicit_scan_bounds=false` 时，中心角结合硬件扫描范围推导窗口；即使显式字段为 NaN/Inf，也因未被选择而忽略。
 
-静态 session validation 按所选模式验证，不能把非法的显式模式静默退化成中心模式。运行期 patch
-提交中心角时关闭显式模式，提交显式起止角时开启显式模式；显式提交 `enabled=false` 时忽略该
-inactive payload 中的四个边界字段，并立即按中心角、硬件扫描范围和天线安装角重建窗口。因此最近一次
-被明确选择的表达拥有窗口语义，旧显式边界不得继续影响执行态窗口。
+静态 session validation 按所选模式验证，不能把非法的显式模式静默退化成中心模式。运行期 resolver
+先合并 full-domain mission，再应用 leaf override，最后只对合并后的 scan policy 做一次统一校验和解析；
+因此 full-domain 中的非法中间值可被合法 leaf 覆盖，但任何留在最终策略中的非法值都会原子拒绝整份 patch。
+提交中心角时关闭显式模式，提交显式起止角时开启显式模式；显式提交 `enabled=false` 时忽略该 inactive
+payload 中的四个边界字段，并按中心角、硬件扫描范围和天线安装角重建窗口；将被启用的中心角若非有限
+则原子拒绝，不能保留旧显式执行态窗口。runtime 开启显式模式与静态 validation 一致，严格要求两轴
+`start < end`，不接受 equal/swapped 输入。因此最近一次被明确选择的合法表达拥有窗口语义。
 [evidence: tests/unit/electronic_surveillance_radar/esr_session_config_builder_test.cpp]
+[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.EqualOrSwappedExplicitBoundsRejectWholePatch]
 [evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.DisableExplicitBoundsRebuildsCenterDrivenWindow]
 [evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.DisableExplicitBoundsIgnoresInactiveNonFinitePayload]
+[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.DisableExplicitBoundsRejectsNonFiniteCenterAtomically]
+[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.MissionDomainRejectsInvalidExplicitBoundsAtomically]
+[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.MissionDomainRejectsInvalidCenterAtomically]
+[evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.LeafOverridesAreValidatedAfterInvalidMissionScanValues]
 
 `ApplyRuntimeConfigWithResult()` 通过 `ResolveEsrRuntimeConfigPatch()` 校验 patch。有效 patch 立即写入 `resolved_config`，并同步到 pipeline/environment；无效 patch 拒绝且不污染现有配置。ESR 属于 `docs/common/contract.md` 定义的立即提交类，配置单向落定，不提供 session 层回滚。
 

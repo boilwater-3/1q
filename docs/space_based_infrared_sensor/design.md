@@ -1057,6 +1057,9 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 - `SbirsTraceSession` / `ReplaySbirsTrace` / `SbirsReplayFlatbufferCodec` 记录和回放的是 1q SBIRS 仿真
   DTO。schema 位于 `schemas/replay/sbirs_replay.fbs` 与
   `schemas/replay/sbirs_session_replay.fbs`，payload type 使用 `Sbirs*`，不复用 EOS schema。
+  `SbirsCycleResult.abort_reason` 解码只接受当前枚举中的 `kNone` 与
+  `kValidationRejected`；未知数值在修改输出前拒绝，已删除的 reason 不提供 replay 数值兼容路径。
+  [evidence: tests/replay/sbirs_sensor/sbirs_replay_codec_roundtrip_test.cpp::SbirsReplayCodecRoundtripTest.DecodeCycleResultRejectsUnknownAbortReasonAtomically]
 - 交接诊断字段（受三层分离约束，不进 `SbirsOutputFrame` raw output）：
   - `SbirsSceneTarget.velocity_ecef_m_per_s` / `has_velocity_ecef_m_per_s`：目标速度真值，驱动 cue
     延迟外推与动态滞后误差；缺省时行为不变。velocity 进 replay（`sbirs_replay.fbs`）。

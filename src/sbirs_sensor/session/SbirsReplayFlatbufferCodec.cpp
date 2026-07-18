@@ -392,6 +392,12 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
   }
   const sbirs::replay::SbirsCycleResult* fb =
       flatbuffers::GetRoot<sbirs::replay::SbirsCycleResult>(bytes.data());
+  const std::int32_t abort_reason = fb->abort_reason();
+  if (abort_reason != static_cast<std::int32_t>(SbirsPipelineAbortReason::kNone) &&
+      abort_reason !=
+          static_cast<std::int32_t>(SbirsPipelineAbortReason::kValidationRejected)) {
+    return false;
+  }
   out->input_cycle_index = fb->input_cycle_index();
   DecodeOutputFrameTable(fb->output_frame(), &out->output_frame);
   out->detection_attributions.clear();
@@ -435,7 +441,7 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
   out->has_validation_error = fb->has_validation_error();
   out->executed_this_cycle = fb->executed_this_cycle();
   out->reused_previous_output = fb->reused_previous_output();
-  out->abort_reason = static_cast<SbirsPipelineAbortReason>(fb->abort_reason());
+  out->abort_reason = static_cast<SbirsPipelineAbortReason>(abort_reason);
   return true;
 }
 

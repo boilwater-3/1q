@@ -383,11 +383,17 @@ external raw IQ 已位于接收机之后，session 不得再次施加上述链�
 `SarCycleResult.focused_image` 同样是 replay 权威输出，而不是只在实时结果中存在的旁路载荷。
 cycle-result schema 完整保存 source、row/column、placeholder 与行主序 real/imag vectors；非占位图像
 要求两个向量长度严格等于 `rows * columns`，placeholder 禁止携带像素，decode 同时拒绝尺寸溢出和
-非有限样本。Replay 以精确值比较全部字段，任一像素变化必须报告 divergence。
+非有限样本。`kNone` 只允许 `0 x 0`、非 placeholder、空像素状态；`kL1Rda`/`kL3Bp` 必须具有
+正行列数，未知 source 一律拒绝。decode 先构造并验证完整局部结果，成功后才一次提交，失败不得部分
+覆盖调用方输出。Replay 的 `cycle_output` 唯一 payload 是 `SarCycleResult`；不接受缺少 focused image
+的 standalone `SarOutputFrame` 兼容路径。Replay 以精确值比较全部字段，任一像素变化必须报告 divergence。
 [evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::SarReplayCodecRoundtripTest.CycleResultPreservesOutputAndDiagnostics]
 [evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::SarReplayCodecRoundtripTest.CycleResultPreservesFocusedImagePlaceholder]
 [evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::SarReplayCodecRoundtripTest.CycleResultRejectsMalformedFocusedImage]
+[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::SarReplayCodecRoundtripTest.CycleResultRejectsInvalidFocusedImageStateCombinations]
+[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::SarReplayCodecRoundtripTest.CycleResultDecodeFailureDoesNotModifyOutput]
 [evidence: tests/replay/sar/sar_replay_session_test.cpp::SarReplaySessionTest.ReplaySarTraceDetectsFocusedImagePixelDivergence]
+[evidence: tests/replay/sar/sar_replay_session_test.cpp::SarReplaySessionTest.ReplaySarTraceRejectsStandaloneOutputFramePayload]
 
 内部轨迹分层：
 

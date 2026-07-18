@@ -261,24 +261,6 @@ bool DecodeSarCycleInput(const std::string& bytes, SarCycleInput* out) {
   return true;
 }
 
-std::string EncodeSarOutputFrame(const SarOutputFrame& value) {
-  flatbuffers::FlatBufferBuilder fbb(256);
-  fbb.Finish(BuildOutputFrame(fbb, value));
-  return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
-}
-
-bool DecodeSarOutputFrame(const std::string& bytes, SarOutputFrame* out) {
-  if (!out) {
-    return false;
-  }
-  flatbuffers::Verifier verifier(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
-  if (!verifier.VerifyBuffer<replay::SarOutputFrame>()) {
-    return false;
-  }
-  FromFbOutputFrame(flatbuffers::GetRoot<replay::SarOutputFrame>(bytes.data()), out);
-  return true;
-}
-
 std::string EncodeSarCycleResult(const SarCycleResult& value) {
   flatbuffers::FlatBufferBuilder fbb(512);
   const auto frame = BuildOutputFrame(fbb, value.output_frame);
@@ -315,8 +297,9 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<replay::SarCycleResult>(bytes.data());
-  out->input_cycle_index = fb->input_cycle_index();
-  FromFbOutputFrame(fb->output_frame(), &out->output_frame);
+  SarCycleResult decoded;
+  decoded.input_cycle_index = fb->input_cycle_index();
+  FromFbOutputFrame(fb->output_frame(), &decoded.output_frame);
   const auto* focused = fb->focused_image();
   if (focused == nullptr || focused->real_values() == nullptr ||
       focused->imaginary_values() == nullptr) {
@@ -331,37 +314,49 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
   const std::size_t focused_expected_size = row_count * column_count;
   const std::size_t real_size = focused->real_values()->size();
   const std::size_t imaginary_size = focused->imaginary_values()->size();
-  if ((focused->is_placeholder() && (real_size != 0U || imaginary_size != 0U)) ||
-      (!focused->is_placeholder() &&
-       (real_size != focused_expected_size || imaginary_size != focused_expected_size))) {
-    return false;
+  const SarFocusedImageSource source = static_cast<SarFocusedImageSource>(focused->source());
+  switch (source) {
+    case SarFocusedImageSource::kNone:
+      if (row_count != 0U || column_count != 0U || focused->is_placeholder() || real_size != 0U ||
+          imaginary_size != 0U) {
+        return false;
+      }
+      break;
+    case SarFocusedImageSource::kL1Rda:
+    case SarFocusedImageSource::kL3Bp:
+      if (row_count == 0U || column_count == 0U ||
+          (focused->is_placeholder() && (real_size != 0U || imaginary_size != 0U)) ||
+          (!focused->is_placeholder() &&
+           (real_size != focused_expected_size || imaginary_size != focused_expected_size))) {
+        return false;
+      }
+      break;
+    default:
+      return false;
   }
-  out->focused_image = SarFocusedImage{};
-  out->focused_image.source = static_cast<SarFocusedImageSource>(focused->source());
-  out->focused_image.row_count = focused->row_count();
-  out->focused_image.column_count = focused->column_count();
-  out->focused_image.is_placeholder = focused->is_placeholder();
-  out->focused_image.real_values.assign(focused->real_values()->begin(),
-                                        focused->real_values()->end());
-  out->focused_image.imaginary_values.assign(focused->imaginary_values()->begin(),
-                                             focused->imaginary_values()->end());
+  decoded.focused_image.source = source;
+  decoded.focused_image.row_count = focused->row_count();
+  decoded.focused_image.column_count = focused->column_count();
+  decoded.focused_image.is_placeholder = focused->is_placeholder();
+  decoded.focused_image.real_values.assign(focused->real_values()->begin(),
+                                           focused->real_values()->end());
+  decoded.focused_image.imaginary_values.assign(focused->imaginary_values()->begin(),
+                                                focused->imaginary_values()->end());
   for (std::size_t index = 0U; index < real_size; ++index) {
-    if (std::isfinite(out->focused_image.real_values[index]) == 0 ||
-        std::isfinite(out->focused_image.imaginary_values[index]) == 0) {
+    if (std::isfinite(decoded.focused_image.real_values[index]) == 0 ||
+        std::isfinite(decoded.focused_image.imaginary_values[index]) == 0) {
       return false;
     }
   }
-  out->diagnostics.clear();
   if (fb->diagnostics()) {
     for (const auto* issue : *fb->diagnostics()) {
-      SarDiagnosticIssue decoded;
-      decoded.severity = static_cast<SarDiagnosticSeverity>(issue->severity());
-      decoded.code = issue->code() ? issue->code()->str() : std::string();
-      decoded.message = issue->message() ? issue->message()->str() : std::string();
-      out->diagnostics.push_back(decoded);
+      SarDiagnosticIssue decoded_issue;
+      decoded_issue.severity = static_cast<SarDiagnosticSeverity>(issue->severity());
+      decoded_issue.code = issue->code() ? issue->code()->str() : std::string();
+      decoded_issue.message = issue->message() ? issue->message()->str() : std::string();
+      decoded.diagnostics.push_back(decoded_issue);
     }
   }
-  out->raw_phase_history = SarRawPhaseHistory{};
   if (fb->raw_phase_history()) {
     const auto* raw = fb->raw_phase_history();
     const std::size_t pulse_count = raw->pulse_count();
@@ -375,23 +370,24 @@ bool DecodeSarCycleResult(const std::string& bytes, SarCycleResult* out) {
         raw->i_values()->size() != expected_size || raw->q_values()->size() != expected_size) {
       return false;
     }
-    out->raw_phase_history.source =
+    decoded.raw_phase_history.source =
         static_cast<SarRawPhaseHistorySource>(raw->source());
-    out->raw_phase_history.pulse_count = raw->pulse_count();
-    out->raw_phase_history.samples_per_pulse = raw->samples_per_pulse();
-    out->raw_phase_history.i_values.assign(raw->i_values()->begin(), raw->i_values()->end());
-    out->raw_phase_history.q_values.assign(raw->q_values()->begin(), raw->q_values()->end());
+    decoded.raw_phase_history.pulse_count = raw->pulse_count();
+    decoded.raw_phase_history.samples_per_pulse = raw->samples_per_pulse();
+    decoded.raw_phase_history.i_values.assign(raw->i_values()->begin(), raw->i_values()->end());
+    decoded.raw_phase_history.q_values.assign(raw->q_values()->begin(), raw->q_values()->end());
     for (std::size_t index = 0U; index < expected_size; ++index) {
-      if (std::isfinite(out->raw_phase_history.i_values[index]) == 0 ||
-          std::isfinite(out->raw_phase_history.q_values[index]) == 0) {
+      if (std::isfinite(decoded.raw_phase_history.i_values[index]) == 0 ||
+          std::isfinite(decoded.raw_phase_history.q_values[index]) == 0) {
         return false;
       }
     }
   }
-  out->has_error = fb->has_error();
-  out->executed_this_cycle = fb->executed_this_cycle();
-  out->reused_previous_output = fb->reused_previous_output();
-  out->abort_reason = fb->abort_reason() ? fb->abort_reason()->str() : std::string();
+  decoded.has_error = fb->has_error();
+  decoded.executed_this_cycle = fb->executed_this_cycle();
+  decoded.reused_previous_output = fb->reused_previous_output();
+  decoded.abort_reason = fb->abort_reason() ? fb->abort_reason()->str() : std::string();
+  *out = decoded;
   return true;
 }
 

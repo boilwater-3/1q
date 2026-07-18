@@ -10,6 +10,8 @@
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "1q/sbirs_sensor/session/SbirsOutputTypes.h"
+#include "flatbuffers/flatbuffers.h"
+#include "sbirs_sensor/session/generated/sbirs_replay_generated.h"
 #include "sbirs_sensor/session/SbirsReplayFlatbufferCodec.h"
 
 namespace sbirs_sensor {
@@ -36,6 +38,14 @@ SbirsVector3M Vector(double x, double y, double z) {
   value.y = y;
   value.z = z;
   return value;
+}
+
+std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
+  flatbuffers::FlatBufferBuilder builder(128U);
+  builder.Finish(sbirs::replay::CreateSbirsCycleResult(
+      builder, 99U, 0, 0, 0, false, false, false, abort_reason));
+  return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
+                     builder.GetSize());
 }
 
 }  // namespace
@@ -407,6 +417,24 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsNullAndCorrupted) {
   EXPECT_FALSE(DecodeSbirsCycleResult("", nullptr));
   SbirsCycleResult result;
   EXPECT_FALSE(DecodeSbirsCycleResult("bad", &result));
+}
+
+TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownAbortReasonAtomically) {
+  const std::int32_t invalid_reasons[] = {2, 3, -1, std::numeric_limits<std::int32_t>::max()};
+  for (const std::int32_t invalid_reason : invalid_reasons) {
+    SbirsCycleResult result;
+    result.input_cycle_index = 17U;
+    result.output_frame.cycle_index = 18U;
+    result.executed_this_cycle = true;
+    result.abort_reason = SbirsPipelineAbortReason::kValidationRejected;
+
+    EXPECT_FALSE(DecodeSbirsCycleResult(EncodeCycleResultWithRawAbortReason(invalid_reason),
+                                       &result));
+    EXPECT_EQ(result.input_cycle_index, 17U);
+    EXPECT_EQ(result.output_frame.cycle_index, 18U);
+    EXPECT_TRUE(result.executed_this_cycle);
+    EXPECT_EQ(result.abort_reason, SbirsPipelineAbortReason::kValidationRejected);
+  }
 }
 
 TEST(SbirsReplayCodecRoundtripTest, DecodeSessionConfigRejectsNullAndCorrupted) {

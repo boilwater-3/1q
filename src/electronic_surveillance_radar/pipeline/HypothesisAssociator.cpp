@@ -1,6 +1,7 @@
 #include "electronic_surveillance_radar/pipeline/HypothesisAssociator.h"
 
 #include <algorithm>
+#include <boost/multiprecision/cpp_int.hpp>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -110,15 +111,24 @@ struct ResidualEdge {
   std::size_t reverse_index;
   int capacity;
   double cost;
+  boost::multiprecision::cpp_int tie_rank;
 };
 
 using ResidualGraph = std::vector<std::vector<ResidualEdge>>;
 
-void AddResidualEdge(std::size_t from, std::size_t to, double cost, ResidualGraph* graph) {
-  ResidualEdge forward{to, (*graph)[to].size(), 1, cost};
-  ResidualEdge reverse{from, (*graph)[from].size(), 0, -cost};
+void AddResidualEdge(std::size_t from, std::size_t to, double cost,
+                     const boost::multiprecision::cpp_int& tie_rank, ResidualGraph* graph) {
+  ResidualEdge forward{to, (*graph)[to].size(), 1, cost, tie_rank};
+  ResidualEdge reverse{from, (*graph)[from].size(), 0, -cost, -tie_rank};
   (*graph)[from].push_back(forward);
   (*graph)[to].push_back(reverse);
+}
+
+bool IsBetterPath(double candidate_distance,
+                  const boost::multiprecision::cpp_int& candidate_tie_rank, double current_distance,
+                  const boost::multiprecision::cpp_int& current_tie_rank) {
+  return candidate_distance < current_distance ||
+         (candidate_distance == current_distance && candidate_tie_rank < current_tie_rank);
 }
 
 std::vector<std::size_t> ComputeGlobalAssignment(
@@ -136,24 +146,39 @@ std::vector<std::size_t> ComputeGlobalAssignment(
   const std::size_t sink = track_offset + tracks.size();
   ResidualGraph graph(sink + 1U);
 
+  // 把每个 cluster 的最终 assignment 看作 base=(track_count+1) 的一位：track index
+  // 为 0..track_count-1，未匹配为 track_count。最大基数固定后，减去未匹配基线
+  // 只改变符号 tie rank，不改变词典序；任意精度整数避免溢出或 epsilon 扰动主距离。
+  std::vector<boost::multiprecision::cpp_int> cluster_weights(clusters.size());
+  boost::multiprecision::cpp_int weight = 1;
+  const boost::multiprecision::cpp_int base = tracks.size() + 1U;
+  for (std::size_t cluster_index = clusters.size(); cluster_index > 0U; --cluster_index) {
+    cluster_weights[cluster_index - 1U] = weight;
+    weight *= base;
+  }
+
   for (std::size_t cluster_index = 0; cluster_index < clusters.size(); ++cluster_index) {
-    AddResidualEdge(source, cluster_offset + cluster_index, 0.0, &graph);
+    AddResidualEdge(source, cluster_offset + cluster_index, 0.0, 0, &graph);
     for (std::size_t track_index = 0; track_index < tracks.size(); ++track_index) {
       const double distance = static_cast<double>(
           ComputeDistance(clusters[cluster_index].centroid_feature, tracks[track_index].feature));
       if (std::isfinite(distance) && distance <= gate_distance) {
+        boost::multiprecision::cpp_int tie_rank = track_index;
+        tie_rank -= tracks.size();
+        tie_rank *= cluster_weights[cluster_index];
         AddResidualEdge(cluster_offset + cluster_index, track_offset + track_index, distance,
-                        &graph);
+                        tie_rank, &graph);
       }
     }
   }
   for (std::size_t track_index = 0; track_index < tracks.size(); ++track_index) {
-    AddResidualEdge(track_offset + track_index, sink, 0.0, &graph);
+    AddResidualEdge(track_offset + track_index, sink, 0.0, 0, &graph);
   }
 
   const double infinity = std::numeric_limits<double>::infinity();
   while (true) {
     std::vector<double> distance(graph.size(), infinity);
+    std::vector<boost::multiprecision::cpp_int> tie_rank(graph.size());
     std::vector<std::size_t> previous_node(graph.size(), graph.size());
     std::vector<std::size_t> previous_edge(graph.size(), 0U);
     distance[source] = 0.0;
@@ -170,8 +195,11 @@ std::vector<std::size_t> ComputeGlobalAssignment(
             continue;
           }
           const double candidate_distance = distance[from] + edge.cost;
-          if (candidate_distance < distance[edge.to]) {
+          const boost::multiprecision::cpp_int candidate_tie_rank = tie_rank[from] + edge.tie_rank;
+          if (IsBetterPath(candidate_distance, candidate_tie_rank, distance[edge.to],
+                           tie_rank[edge.to])) {
             distance[edge.to] = candidate_distance;
+            tie_rank[edge.to] = candidate_tie_rank;
             previous_node[edge.to] = from;
             previous_edge[edge.to] = edge_index;
             changed = true;

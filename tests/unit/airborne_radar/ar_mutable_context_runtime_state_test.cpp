@@ -1,6 +1,10 @@
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <cstdint>
+#include <new>
+#include <type_traits>
+#include <utility>
 
 #include "airborne_radar/session/MutableArContext.h"
 
@@ -8,6 +12,26 @@ namespace airborne_radar {
 namespace session {
 namespace tests {
 namespace {
+
+static_assert(!std::is_aggregate<ArContextRuntimeState>::value,
+              "runtime state must not expose a recomposable aggregate envelope");
+static_assert(!std::is_default_constructible<ArContextRuntimeState>::value,
+              "runtime state must only be created by MutableArContext");
+static_assert(std::is_copy_constructible<ArContextRuntimeState>::value,
+              "snapshot must be copyable");
+static_assert(std::is_copy_assignable<ArContextRuntimeState>::value,
+              "snapshot must be copy assignable as a whole envelope");
+static_assert(std::is_move_constructible<ArContextRuntimeState>::value, "snapshot must be movable");
+static_assert(std::is_move_assignable<ArContextRuntimeState>::value,
+              "snapshot must be move assignable as a whole envelope");
+static_assert(!std::is_copy_constructible<MutableArContext>::value,
+              "context identity must not be copied to another instance");
+static_assert(!std::is_copy_assignable<MutableArContext>::value,
+              "context identity must not be copy assigned to another instance");
+static_assert(!std::is_move_constructible<MutableArContext>::value,
+              "context identity must not be moved to another instance");
+static_assert(!std::is_move_assignable<MutableArContext>::value,
+              "context identity must not be move assigned to another instance");
 
 ArCycleInput MakeCycleInput(std::uint32_t cycle_index, std::uint64_t target_id, float altitude_m,
                             float dt_sec, double yaw_deg) {
@@ -78,26 +102,48 @@ TEST(MutableArContextRuntimeStateTest, ForeignOwnerIsRejectedWithoutMutation) {
   ExpectContextState(context, 21U, 301U, 9000.0f, 0.75f, 24.0, 5U);
 }
 
-TEST(MutableArContextRuntimeStateTest, BadSchemaIsRejectedWithoutMutation) {
+TEST(MutableArContextRuntimeStateTest, WholeForeignEnvelopeAssignmentIsRejectedWithoutMutation) {
   MutableArContext context;
+  MutableArContext foreign_context;
   SeedContext(&context, 31U, 401U, 10000.0f, 1.25f, 40.0, 7U);
-  ArContextRuntimeState invalid_snapshot = context.CaptureRuntimeState();
-  ++invalid_snapshot.schema_version;
+  ArContextRuntimeState assigned_snapshot = context.CaptureRuntimeState();
+  SeedContext(&foreign_context, 33U, 403U, 10200.0f, 1.75f, 56.0, 9U);
+  assigned_snapshot = foreign_context.CaptureRuntimeState();
   SeedContext(&context, 32U, 402U, 10100.0f, 1.5f, 48.0, 8U);
 
-  EXPECT_FALSE(context.RestoreRuntimeState(invalid_snapshot));
+  EXPECT_FALSE(context.RestoreRuntimeState(assigned_snapshot));
   ExpectContextState(context, 32U, 402U, 10100.0f, 1.5f, 48.0, 8U);
 }
 
-TEST(MutableArContextRuntimeStateTest, EmptySnapshotIsRejectedWithoutMutation) {
+TEST(MutableArContextRuntimeStateTest, MovedFromEnvelopeIsRejectedWithoutMutation) {
   MutableArContext context;
   SeedContext(&context, 41U, 501U, 11000.0f, 1.75f, 56.0, 9U);
-  ArContextRuntimeState invalid_snapshot = context.CaptureRuntimeState();
-  invalid_snapshot.snapshot.reset();
+  ArContextRuntimeState moved_from_snapshot = context.CaptureRuntimeState();
+  const ArContextRuntimeState retained_snapshot = std::move(moved_from_snapshot);
   SeedContext(&context, 42U, 502U, 11100.0f, 2.0f, 64.0, 10U);
 
-  EXPECT_FALSE(context.RestoreRuntimeState(invalid_snapshot));
+  EXPECT_FALSE(context.RestoreRuntimeState(moved_from_snapshot));
   ExpectContextState(context, 42U, 502U, 11100.0f, 2.0f, 64.0, 10U);
+  EXPECT_TRUE(context.RestoreRuntimeState(retained_snapshot));
+  ExpectContextState(context, 41U, 501U, 11000.0f, 1.75f, 56.0, 9U);
+}
+
+TEST(MutableArContextRuntimeStateTest, ReusedObjectAddressRejectsPreviousLifetimeEnvelope) {
+  using ContextStorage =
+      typename std::aligned_storage<sizeof(MutableArContext), alignof(MutableArContext)>::type;
+  ContextStorage storage;
+
+  MutableArContext* first_context = new (&storage) MutableArContext();
+  SeedContext(first_context, 51U, 601U, 12000.0f, 2.25f, 72.0, 11U);
+  const ArContextRuntimeState previous_lifetime_snapshot = first_context->CaptureRuntimeState();
+  first_context->~MutableArContext();
+
+  MutableArContext* second_context = new (&storage) MutableArContext();
+  SeedContext(second_context, 52U, 602U, 12100.0f, 2.5f, 80.0, 12U);
+
+  EXPECT_FALSE(second_context->RestoreRuntimeState(previous_lifetime_snapshot));
+  ExpectContextState(*second_context, 52U, 602U, 12100.0f, 2.5f, 80.0, 12U);
+  second_context->~MutableArContext();
 }
 
 }  // namespace

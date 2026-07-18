@@ -161,7 +161,7 @@ oneq::replay::ReplayTraceOutputStatus OnCycleOutput(const oneq::replay::ReplayTr
                                                      void* user_data, std::string* actual_output,
                                                      std::string* error) {
   using oneq::replay::ReplayTraceOutputStatus;
-  if (event.payload_type != "SarCycleResult" && event.payload_type != "SarOutputFrame") {
+  if (event.payload_type != "SarCycleResult") {
     *error = "SAR replay does not support cycle_output payload type: " + event.payload_type;
     return ReplayTraceOutputStatus::kOtherFailure;
   }
@@ -171,28 +171,13 @@ oneq::replay::ReplayTraceOutputStatus OnCycleOutput(const oneq::replay::ReplayTr
     return ReplayTraceOutputStatus::kOtherFailure;
   }
 
-  if (event.payload_type == "SarCycleResult") {
-    SarCycleResult expected;
-    if (!DecodeSarCycleResult(event.payload_bytes, &expected)) {
-      *error = "SAR replay failed to decode SarCycleResult";
-      return ReplayTraceOutputStatus::kOtherFailure;
-    }
-    if (!SarCycleResultEqual(expected, state->latest_result)) {
-      *error = "SAR replay output divergence (SarCycleResult)";
-      actual_output->clear();
-      return ReplayTraceOutputStatus::kDivergence;
-    }
-    actual_output->clear();
-    return ReplayTraceOutputStatus::kHandledByModule;
-  }
-
-  SarOutputFrame expected_frame;
-  if (!DecodeSarOutputFrame(event.payload_bytes, &expected_frame)) {
-    *error = "SAR replay failed to decode SarOutputFrame";
+  SarCycleResult expected;
+  if (!DecodeSarCycleResult(event.payload_bytes, &expected)) {
+    *error = "SAR replay failed to decode SarCycleResult";
     return ReplayTraceOutputStatus::kOtherFailure;
   }
-  if (!SarOutputFrameEqual(expected_frame, state->latest_result.output_frame)) {
-    *error = "SAR replay output divergence (SarOutputFrame)";
+  if (!SarCycleResultEqual(expected, state->latest_result)) {
+    *error = "SAR replay output divergence (SarCycleResult)";
     actual_output->clear();
     return ReplayTraceOutputStatus::kDivergence;
   }

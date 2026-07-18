@@ -156,7 +156,7 @@ TEST(EsrHypothesisAssociatorTest, UsesMaximumCardinalityAssignmentBeforeMinimumD
 
 TEST(EsrHypothesisAssociatorTest, EqualCostPerfectMatchingUsesClusterThenHypothesisIdOrder) {
   extension::InterceptAssociationConfig config;
-  config.gate_distance = 1.0f;
+  config.gate_distance = 2.0f;
   config.confirm_hits = 1U;
   config.max_missed_cycles = 4U;
   config.confidence_alpha = 1.0f;
@@ -165,27 +165,25 @@ TEST(EsrHypothesisAssociatorTest, EqualCostPerfectMatchingUsesClusterThenHypothe
 
   std::uint64_t next_hypothesis_id = 1U;
   std::vector<ClusterSummary> initial_clusters;
-  initial_clusters.push_back(MakeCluster(-1.0f, 0.0f, -1.0f, 0.0f, 10.0e9, 12.0f, 3U));
   initial_clusters.push_back(MakeCluster(1.0f, 0.0f, 1.0f, 0.0f, 10.0e9, 12.0f, 3U));
+  initial_clusters.push_back(MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 12.0f, 3U));
   ASSERT_EQ(associator.Update(27U, initial_clusters, &next_hypothesis_id).size(), 2U);
 
   std::vector<ClusterSummary> tied_clusters;
-  tied_clusters.push_back(
-      MakeCluster(0.0f, 0.0f, 2.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "FIRST"));
-  tied_clusters.push_back(
-      MakeCluster(0.0f, 0.0f, 3.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SECOND"));
+  tied_clusters.push_back(MakeCluster(0.0f, 0.0f, 2.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "FIRST"));
+  tied_clusters.push_back(MakeCluster(-1.0f, 0.0f, 3.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SECOND"));
   ASSERT_EQ(associator.Update(28U, tied_clusters, &next_hypothesis_id).size(), 2U);
 
   const std::vector<HypothesisAssociator::TrackState> tracks = associator.CaptureTracks();
   ASSERT_EQ(tracks.size(), 2U);
   ASSERT_EQ(tracks[0].hypothesis_id, 1U);
   ASSERT_EQ(tracks[1].hypothesis_id, 2U);
-  EXPECT_NE(std::find(tracks[0].candidate_classes.begin(), tracks[0].candidate_classes.end(),
-                      "FIRST"),
-            tracks[0].candidate_classes.end());
-  EXPECT_NE(std::find(tracks[1].candidate_classes.begin(), tracks[1].candidate_classes.end(),
-                      "SECOND"),
-            tracks[1].candidate_classes.end());
+  EXPECT_NE(
+      std::find(tracks[0].candidate_classes.begin(), tracks[0].candidate_classes.end(), "FIRST"),
+      tracks[0].candidate_classes.end());
+  EXPECT_NE(
+      std::find(tracks[1].candidate_classes.begin(), tracks[1].candidate_classes.end(), "SECOND"),
+      tracks[1].candidate_classes.end());
 }
 
 TEST(EsrHypothesisAssociatorTest, RecyclesTrackAfterConfiguredMissedCycles) {

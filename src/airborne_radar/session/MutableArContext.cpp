@@ -6,11 +6,8 @@
 
 namespace airborne_radar {
 namespace session {
-namespace {
 
-constexpr std::uint32_t kArContextRuntimeStateSchemaVersion = 1U;
-
-}  // namespace
+struct ArContextRuntimeIdentity {};
 
 struct ArContextRuntimeSnapshot {
   std::shared_ptr<ArSceneTargetList> scene_targets;
@@ -23,8 +20,13 @@ struct ArContextRuntimeSnapshot {
   bool has_latest_control_profile{false};
 };
 
+MutableArContext::MutableArContext()
+    : owner_identity_(new ArContextRuntimeIdentity()) {}
+
 MutableArContext::MutableArContext(ArSceneTargetList scene_targets)
-    : scene_targets_(new ArSceneTargetList(std::move(scene_targets))), cycle_index_(1U) {}
+    : owner_identity_(new ArContextRuntimeIdentity()),
+      scene_targets_(new ArSceneTargetList(std::move(scene_targets))),
+      cycle_index_(1U) {}
 
 void MutableArContext::BeginCycle(const ArCycleInput& input) {
   SetSceneTargets(input.scene);
@@ -72,7 +74,6 @@ const session::ArControlProfile& MutableArContext::LatestControlProfile() const 
 }
 
 ArContextRuntimeState MutableArContext::CaptureRuntimeState() const {
-  ArContextRuntimeState state;
   std::shared_ptr<ArContextRuntimeSnapshot> snapshot(new ArContextRuntimeSnapshot());
   snapshot->scene_targets = scene_targets_;
   snapshot->platform_pose = platform_pose_;
@@ -82,29 +83,25 @@ ArContextRuntimeState MutableArContext::CaptureRuntimeState() const {
   snapshot->submitted_commands = submitted_commands_;
   snapshot->latest_control_profile = latest_control_profile_;
   snapshot->has_latest_control_profile = has_latest_control_profile_;
-  state.owner_identity = this;
-  state.schema_version = kArContextRuntimeStateSchemaVersion;
-  state.snapshot = snapshot;
-  return state;
+  return ArContextRuntimeState(owner_identity_, std::move(snapshot));
 }
 
 bool MutableArContext::RestoreRuntimeState(const ArContextRuntimeState& state) {
-  if (state.owner_identity != this ||
-      state.schema_version != kArContextRuntimeStateSchemaVersion || state.snapshot == nullptr) {
+  if (state.owner_identity_ != owner_identity_ || state.snapshot_ == nullptr) {
     PROJECT_LOG_ERROR(
         "[MutableArContext] context runtime state restore rejected: "
-        "owner/schema/snapshot mismatch.");
+        "owner/snapshot mismatch.");
     return false;
   }
 
-  scene_targets_ = state.snapshot->scene_targets;
-  platform_pose_ = state.snapshot->platform_pose;
-  platform_altitude_m_ = state.snapshot->platform_altitude_m;
-  cycle_dt_sec_ = state.snapshot->cycle_dt_sec;
-  cycle_index_ = state.snapshot->cycle_index;
-  submitted_commands_ = state.snapshot->submitted_commands;
-  latest_control_profile_ = state.snapshot->latest_control_profile;
-  has_latest_control_profile_ = state.snapshot->has_latest_control_profile;
+  scene_targets_ = state.snapshot_->scene_targets;
+  platform_pose_ = state.snapshot_->platform_pose;
+  platform_altitude_m_ = state.snapshot_->platform_altitude_m;
+  cycle_dt_sec_ = state.snapshot_->cycle_dt_sec;
+  cycle_index_ = state.snapshot_->cycle_index;
+  submitted_commands_ = state.snapshot_->submitted_commands;
+  latest_control_profile_ = state.snapshot_->latest_control_profile;
+  has_latest_control_profile_ = state.snapshot_->has_latest_control_profile;
   return true;
 }
 

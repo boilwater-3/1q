@@ -7,6 +7,7 @@
 #define AIRBORNE_RADAR_CORE_CONTEXT_MUTABLE_AR_CONTEXT_H_
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "1q/airborne_radar/session/ArCommand.h"
@@ -19,16 +20,30 @@ namespace airborne_radar {
 namespace session {
 
 struct ArContextRuntimeSnapshot;
+struct ArContextRuntimeIdentity;
+class MutableArContext;
 
 /**
  * @brief MutableArContext 运行态快照，用于失败回滚等场景的整快照捕获/恢复。
- * @note owner_identity 标识捕获方实例，RestoreRuntimeState 会拒绝跨实例恢复；
- *       schema_version 用于校验快照格式兼容性。
+ * @note envelope 仅能由 MutableArContext 构造，调用方可整体复制/移动，
+ *       但无法重组 owner 与 typed snapshot 的绑定关系。
  */
-struct ArContextRuntimeState {
-  const void* owner_identity{nullptr};
-  std::uint32_t schema_version{0U};
-  std::shared_ptr<const ArContextRuntimeSnapshot> snapshot{};
+class ArContextRuntimeState final {
+ public:
+  ArContextRuntimeState(const ArContextRuntimeState&) = default;
+  ArContextRuntimeState& operator=(const ArContextRuntimeState&) = default;
+  ArContextRuntimeState(ArContextRuntimeState&&) noexcept = default;
+  ArContextRuntimeState& operator=(ArContextRuntimeState&&) noexcept = default;
+
+ private:
+  ArContextRuntimeState(std::shared_ptr<const ArContextRuntimeIdentity> owner_identity,
+                        std::shared_ptr<const ArContextRuntimeSnapshot> snapshot)
+      : owner_identity_(std::move(owner_identity)), snapshot_(std::move(snapshot)) {}
+
+  std::shared_ptr<const ArContextRuntimeIdentity> owner_identity_{};
+  std::shared_ptr<const ArContextRuntimeSnapshot> snapshot_{};
+
+  friend class MutableArContext;
 };
 
 /**
@@ -39,13 +54,18 @@ class MutableArContext final {
   /**
    * @brief 默认构造函数。
    */
-  MutableArContext() = default;
+  MutableArContext();
   /**
    * @brief 使用初始场景目标列表构造上下文。
    * @param[in] scene_targets 初始场景目标列表。
    */
   explicit MutableArContext(ArSceneTargetList scene_targets);
   ~MutableArContext() = default;
+
+  MutableArContext(const MutableArContext&) = delete;
+  MutableArContext& operator=(const MutableArContext&) = delete;
+  MutableArContext(MutableArContext&&) = delete;
+  MutableArContext& operator=(MutableArContext&&) = delete;
 
   /**
    * @brief 以单周期输入刷新上下文，并清空本周期输出缓存。
@@ -122,7 +142,7 @@ class MutableArContext final {
   /**
    * @brief 恢复此前捕获的上下文运行态快照。
    * @param[in] state 待恢复的上下文运行态快照。
-   * @return owner、schema 与快照载荷均有效时返回 true，否则返回 false 且不修改当前状态。
+   * @return owner 与快照载荷均有效时返回 true，否则返回 false 且不修改当前状态。
    */
   bool RestoreRuntimeState(const ArContextRuntimeState& state);
 
@@ -169,6 +189,7 @@ class MutableArContext final {
   void UpdateRadarControlProfile(const session::ArControlProfile& profile);
 
  private:
+  std::shared_ptr<const ArContextRuntimeIdentity> owner_identity_;
   std::shared_ptr<ArSceneTargetList> scene_targets_{new ArSceneTargetList()};
   oneq::foundation::PoseState platform_pose_{};
   float platform_altitude_m_{0.0f};

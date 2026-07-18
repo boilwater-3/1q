@@ -1,8 +1,6 @@
 #include "electronic_surveillance_radar/session/EsrRuntimeConfigResolver.h"
 
 #include <algorithm>
-#include <cmath>
-
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 #include "electronic_surveillance_radar/session/EsrResolutionRules.h"
 #include "common/logging/ProjectLog.h"
@@ -13,7 +11,6 @@ namespace session {
 
 using resolution_rules::ApplyScanPolicy;
 using resolution_rules::ApplyWorkModeAdjustment;
-using resolution_rules::NormalizeScanBounds;
 
 namespace {
 
@@ -43,29 +40,19 @@ void ApplyEnvironmentRuntimePatch(const config::EsrEnvironmentRuntimeConfigPatch
 }  // namespace
 
 EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
-    const EsrInternalExecutionConfig& current_config,
-    const config::EsrRuntimeConfigPatch& patch) {
+    const EsrInternalExecutionConfig& current_config, const config::EsrRuntimeConfigPatch& patch) {
   EsrRuntimeConfigResolveResult resolved;
   resolved.next_config = current_config;
   resolved.status = EsrRuntimeConfigApplyStatus::kNoRequestedUpdate;
   bool has_requested_update = false;
+  bool scan_policy_changed = false;
 
   // ---- Phase 1: 整块域覆盖（先于叶子） ----
 
   if (patch.has_mission) {
     has_requested_update = true;
-    if (!oneq::common::validation::IsFinite(patch.mission.scan.scan_rate_hz) ||
-        patch.mission.scan.scan_rate_hz <= 0.0f) {
-      PROJECT_LOG_ERROR(
-          "[EsrSession] Rejecting mission runtime patch due to invalid scan_rate_hz={}; "
-          "must be finite and positive.",
-          patch.mission.scan.scan_rate_hz);
-      return RejectPatch(current_config, true,
-                         EsrRuntimeConfigApplyStatus::kRejectedInvalidScanRate);
-    }
     resolved.next_config.mission = patch.mission;
-    ApplyScanPolicy(resolved.next_config.hardware, resolved.next_config.mission.scan,
-                    &resolved.next_config.resolved_scan);
+    scan_policy_changed = true;
     resolved.runtime_config_changed = true;
     resolved.pipeline_config_changed = true;
   }
@@ -104,106 +91,87 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
 
   if (patch.has_scan_rate_hz) {
     has_requested_update = true;
-    if (!oneq::common::validation::IsFinite(patch.scan_rate_hz) || patch.scan_rate_hz <= 0.0f) {
-      PROJECT_LOG_ERROR(
-          "[EsrSession] Rejecting runtime config patch due to invalid scan_rate_hz={}; "
-          "must be finite and positive.",
-          patch.scan_rate_hz);
-      return RejectPatch(current_config, true,
-                         EsrRuntimeConfigApplyStatus::kRejectedInvalidScanRate);
-    }
     resolved.next_config.mission.scan.scan_rate_hz = patch.scan_rate_hz;
+    scan_policy_changed = true;
     resolved.runtime_config_changed = true;
   }
 
   if (patch.has_scan_start_position) {
     resolved.next_config.mission.scan.scan_start_position = patch.scan_start_position;
-    resolved.next_config.resolved_scan.scan_start_pos =
-        static_cast<int>(patch.scan_start_position);
+    scan_policy_changed = true;
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
   if (patch.has_scan_sequence) {
     resolved.next_config.mission.scan.scan_sequence = patch.scan_sequence;
-    resolved.next_config.resolved_scan.scan_sequence =
-        static_cast<int>(patch.scan_sequence);
+    scan_policy_changed = true;
     resolved.pipeline_config_changed = true;
     has_requested_update = true;
   }
   if (patch.has_scan_center_az_deg) {
     has_requested_update = true;
-    if (!oneq::common::validation::IsFinite(patch.scan_center_az_deg)) {
-      PROJECT_LOG_ERROR(
-          "[EsrSession] Rejecting runtime config patch due to non-finite scan_center_az_deg={} .",
-          patch.scan_center_az_deg);
-      return RejectPatch(current_config, true,
-                         EsrRuntimeConfigApplyStatus::kRejectedInvalidScanCenterAz);
-    }
-    const float half_az_span =
-        0.5f * std::fabs(resolved.next_config.resolved_scan.scan_end_az_deg -
-                         resolved.next_config.resolved_scan.scan_start_az_deg);
     resolved.next_config.mission.scan.scan_center_az_deg = patch.scan_center_az_deg;
     resolved.next_config.mission.scan.use_explicit_scan_bounds = false;
-    resolved.next_config.resolved_scan.scan_start_az_deg =
-        patch.scan_center_az_deg - half_az_span;
-    resolved.next_config.resolved_scan.scan_end_az_deg =
-        patch.scan_center_az_deg + half_az_span;
+    scan_policy_changed = true;
     resolved.pipeline_config_changed = true;
   }
   if (patch.has_scan_center_el_deg) {
     has_requested_update = true;
-    if (!oneq::common::validation::IsFinite(patch.scan_center_el_deg)) {
-      PROJECT_LOG_ERROR(
-          "[EsrSession] Rejecting runtime config patch due to non-finite scan_center_el_deg={} .",
-          patch.scan_center_el_deg);
-      return RejectPatch(current_config, true,
-                         EsrRuntimeConfigApplyStatus::kRejectedInvalidScanCenterEl);
-    }
-    const float half_el_span =
-        0.5f * std::fabs(resolved.next_config.resolved_scan.scan_end_el_deg -
-                         resolved.next_config.resolved_scan.scan_start_el_deg);
     resolved.next_config.mission.scan.scan_center_el_deg = patch.scan_center_el_deg;
     resolved.next_config.mission.scan.use_explicit_scan_bounds = false;
-    resolved.next_config.resolved_scan.scan_start_el_deg =
-        patch.scan_center_el_deg - half_el_span;
-    resolved.next_config.resolved_scan.scan_end_el_deg =
-        patch.scan_center_el_deg + half_el_span;
+    scan_policy_changed = true;
     resolved.pipeline_config_changed = true;
   }
   if (patch.has_explicit_scan_bounds) {
     has_requested_update = true;
+    scan_policy_changed = true;
+    resolved.pipeline_config_changed = true;
+    resolved.next_config.mission.scan.use_explicit_scan_bounds = patch.explicit_scan_bounds.enabled;
     if (patch.explicit_scan_bounds.enabled) {
       const auto& sb = patch.explicit_scan_bounds;
-      if (!oneq::common::validation::IsFinite(sb.scan_start_az_deg) ||
-          !oneq::common::validation::IsFinite(sb.scan_end_az_deg) ||
-          !oneq::common::validation::IsFinite(sb.scan_start_el_deg) ||
-          !oneq::common::validation::IsFinite(sb.scan_end_el_deg)) {
+      resolved.next_config.mission.scan.scan_start_az_deg = sb.scan_start_az_deg;
+      resolved.next_config.mission.scan.scan_end_az_deg = sb.scan_end_az_deg;
+      resolved.next_config.mission.scan.scan_start_el_deg = sb.scan_start_el_deg;
+      resolved.next_config.mission.scan.scan_end_el_deg = sb.scan_end_el_deg;
+    }
+  }
+
+  // ---- Phase 3: 对整域与叶子合并后的最终扫描策略统一校验并解析 ----
+
+  if (scan_policy_changed) {
+    const config::EsrScanPolicyConfig& scan = resolved.next_config.mission.scan;
+    if (!oneq::common::validation::IsFinite(scan.scan_rate_hz) || scan.scan_rate_hz <= 0.0f) {
+      PROJECT_LOG_ERROR(
+          "[EsrSession] Rejecting runtime config patch due to invalid final scan_rate_hz={}; "
+          "must be finite and positive.",
+          scan.scan_rate_hz);
+      return RejectPatch(current_config, true,
+                         EsrRuntimeConfigApplyStatus::kRejectedInvalidScanRate);
+    }
+    if (scan.use_explicit_scan_bounds) {
+      if (!oneq::common::validation::IsFinite(scan.scan_start_az_deg) ||
+          !oneq::common::validation::IsFinite(scan.scan_end_az_deg) ||
+          !oneq::common::validation::IsFinite(scan.scan_start_el_deg) ||
+          !oneq::common::validation::IsFinite(scan.scan_end_el_deg) ||
+          scan.scan_start_az_deg >= scan.scan_end_az_deg ||
+          scan.scan_start_el_deg >= scan.scan_end_el_deg) {
         PROJECT_LOG_ERROR(
-            "[EsrSession] Rejecting runtime config patch due to invalid explicit scan bounds "
-            "payload.");
+            "[EsrSession] Rejecting runtime config patch due to invalid final explicit scan "
+            "bounds.");
         return RejectPatch(current_config, true,
                            EsrRuntimeConfigApplyStatus::kRejectedInvalidExplicitScanBounds);
       }
-      float start_az = sb.scan_start_az_deg;
-      float end_az = sb.scan_end_az_deg;
-      float start_el = sb.scan_start_el_deg;
-      float end_el = sb.scan_end_el_deg;
-      NormalizeScanBounds(&start_az, &end_az);
-      NormalizeScanBounds(&start_el, &end_el);
-      resolved.next_config.mission.scan.use_explicit_scan_bounds = true;
-      resolved.next_config.mission.scan.scan_start_az_deg = start_az;
-      resolved.next_config.mission.scan.scan_end_az_deg = end_az;
-      resolved.next_config.mission.scan.scan_start_el_deg = start_el;
-      resolved.next_config.mission.scan.scan_end_el_deg = end_el;
-      ApplyScanPolicy(resolved.next_config.hardware, resolved.next_config.mission.scan,
-                      &resolved.next_config.resolved_scan);
-      resolved.pipeline_config_changed = true;
     } else {
-      resolved.next_config.mission.scan.use_explicit_scan_bounds = false;
-      ApplyScanPolicy(resolved.next_config.hardware, resolved.next_config.mission.scan,
-                      &resolved.next_config.resolved_scan);
-      resolved.pipeline_config_changed = true;
+      if (!oneq::common::validation::IsFinite(scan.scan_center_az_deg)) {
+        return RejectPatch(current_config, true,
+                           EsrRuntimeConfigApplyStatus::kRejectedInvalidScanCenterAz);
+      }
+      if (!oneq::common::validation::IsFinite(scan.scan_center_el_deg)) {
+        return RejectPatch(current_config, true,
+                           EsrRuntimeConfigApplyStatus::kRejectedInvalidScanCenterEl);
+      }
     }
+    ApplyScanPolicy(resolved.next_config.hardware, scan, &resolved.next_config.resolved_scan);
   }
 
   resolved.has_requested_update = has_requested_update;
@@ -212,9 +180,8 @@ EsrRuntimeConfigResolveResult ResolveEsrRuntimeConfigPatch(
     PROJECT_LOG_INFO(
         "[EsrSession] runtime config patch applied: mission={} policy={} env={} sensor_enabled={} "
         "work_mode={} scan_rate={} scan_bounds={}",
-        patch.has_mission, patch.has_policy, patch.has_environment,
-        patch.has_sensor_enabled, patch.has_work_mode, patch.has_scan_rate_hz,
-        patch.has_explicit_scan_bounds);
+        patch.has_mission, patch.has_policy, patch.has_environment, patch.has_sensor_enabled,
+        patch.has_work_mode, patch.has_scan_rate_hz, patch.has_explicit_scan_bounds);
   }
   return resolved;
 }

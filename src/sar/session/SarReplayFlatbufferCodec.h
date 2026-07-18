@@ -23,12 +23,6 @@ namespace session {
  */
 std::string EncodeSarCycleInput(const SarCycleInput& value);
 /**
- * @brief 将输出帧元数据序列化为 FlatBuffers 字节串。
- * @param[in] value 待序列化的输出帧。
- * @return FlatBuffers 编码后的字节串。
- */
-std::string EncodeSarOutputFrame(const SarOutputFrame& value);
-/**
  * @brief 将单周期结果序列化为 FlatBuffers 字节串。
  * @param[in] value 待序列化的单周期结果。
  * @return FlatBuffers 编码后的字节串。
@@ -54,13 +48,6 @@ std::string EncodeSarRuntimeConfigPatch(const config::SarRuntimeConfigPatch& val
  * @return 校验通过且成功解码返回 true；非法或校验失败返回 false。
  */
 bool DecodeSarCycleInput(const std::string& bytes, SarCycleInput* out);
-/**
- * @brief 从 FlatBuffers 字节串反序列化输出帧元数据。
- * @param[in] bytes FlatBuffers 编码字节串。
- * @param[out] out 反序列化结果（失败时不修改）。
- * @return 校验通过且成功解码返回 true；非法或校验失败返回 false。
- */
-bool DecodeSarOutputFrame(const std::string& bytes, SarOutputFrame* out);
 /**
  * @brief 从 FlatBuffers 字节串反序列化单周期结果。
  * @param[in] bytes FlatBuffers 编码字节串。

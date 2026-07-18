@@ -279,6 +279,52 @@ TEST(SarReplaySessionTest, ReplaySarTraceDetectsFocusedImagePixelDivergence) {
   EXPECT_NE(replay_result.first_error.find("SarCycleResult"), std::string::npos);
 }
 
+TEST(SarReplaySessionTest, ReplaySarTraceRejectsStandaloneOutputFramePayload) {
+  ScopedTempDir temp_dir;
+  const std::string& trace_dir = temp_dir.Path();
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "sar-standalone-output-frame-rejected-test";
+  manifest.module = "sar";
+  manifest.scenario_id = "unit-test";
+
+  oneq::replay::ReplayTraceWriter writer(trace_dir, manifest, true);
+  oneq::replay::ReplayTraceEvent config_event;
+  config_event.module = "sar";
+  config_event.event_type = "session_config";
+  config_event.payload_type = "SarSessionConfig";
+  config_event.payload_encoding = "flatbuffers";
+  config_event.payload_bytes = EncodeSarSessionConfig(MakeSmallRdaConfigForReplay());
+  writer.WriteEvent(config_event);
+
+  const SarCycleInput input = MakeReplayInput();
+  oneq::replay::ReplayTraceEvent input_event;
+  input_event.module = "sar";
+  input_event.event_type = "cycle_input";
+  input_event.payload_type = "SarCycleInput";
+  input_event.payload_encoding = "flatbuffers";
+  input_event.payload_bytes = EncodeSarCycleInput(input);
+  input_event.has_cycle_index = true;
+  input_event.cycle_index = input.cycle_index;
+  writer.WriteEvent(input_event);
+
+  oneq::replay::ReplayTraceEvent output_event;
+  output_event.module = "sar";
+  output_event.event_type = "cycle_output";
+  output_event.payload_type = "SarOutputFrame";
+  output_event.payload_encoding = "flatbuffers";
+  output_event.payload_bytes = EncodeSarCycleResult(SarCycleResult{});
+  output_event.has_cycle_index = true;
+  output_event.cycle_index = input.cycle_index;
+  writer.WriteEvent(output_event);
+  writer.Flush();
+
+  const SarReplaySessionResult replay_result = ReplaySarTrace(trace_dir);
+  EXPECT_FALSE(replay_result.ok);
+  EXPECT_NE(replay_result.first_error.find("does not support cycle_output payload type"),
+            std::string::npos);
+}
+
 TEST(SarReplaySessionTest, ReplaySarTraceRejectsWrongModule) {
   ScopedTempDir temp_dir;
   const std::string& trace_dir = temp_dir.Path();

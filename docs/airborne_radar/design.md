@@ -346,10 +346,18 @@ AR 的 public config 是语义配置，signal pipeline 使用的是内部工程�
 这个机制避免出现“pipeline 已换配置，但 environment/controller 仍旧”的部分生效状态。任何新增运行期可变项，都必须纳入这个提交/回滚语义。
 [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::RadarSessionPreservesPendingExternalDecisionAcrossPoweredOffBoundary]
 
-`MutableArContext` 快照是 session 内部的强所有权边界：仅同一实例、当前 schema 且载荷非空的 typed snapshot 可恢复。foreign owner、bad schema 或空载荷均在 mutation 前拒绝，不存在从明文字段回退恢复的兼容路径。session 仍会对 pipeline、environment 和 controller 执行全部回滚动作；context 或 controller 任一拒绝时统一中止为 `kRuntimePreparationFailed`，不得在 powered-off 边界 finalize pending 状态。
+`MutableArContext` 快照是 session 内部的强所有权边界：opaque envelope 只能由捕获实例构造，
+每个 context 生命周期持有唯一 typed identity token，owner token 与 typed snapshot 均为私有且不能
+被调用方拆开重组；仅同一生命周期且载荷非空的完整 envelope 可恢复。context 不可复制或移动，
+即使析构后在同一地址构造新实例，旧 envelope 也会因 identity 不同被拒绝。foreign owner 和
+moved-from 空载荷均在 mutation 前拒绝，不保留 schema compatibility 或明文字段回退路径。
+session 仍会对 pipeline、environment 和 controller 执行全部回滚动作；context
+或 controller 任一拒绝时统一中止为 `kRuntimePreparationFailed`，不得在 powered-off 边界 finalize
+pending 状态。
 [evidence: tests/unit/airborne_radar/ar_mutable_context_runtime_state_test.cpp::MutableArContextRuntimeStateTest.ForeignOwnerIsRejectedWithoutMutation]
-[evidence: tests/unit/airborne_radar/ar_mutable_context_runtime_state_test.cpp::MutableArContextRuntimeStateTest.BadSchemaIsRejectedWithoutMutation]
-[evidence: tests/unit/airborne_radar/ar_mutable_context_runtime_state_test.cpp::MutableArContextRuntimeStateTest.EmptySnapshotIsRejectedWithoutMutation]
+[evidence: tests/unit/airborne_radar/ar_mutable_context_runtime_state_test.cpp::MutableArContextRuntimeStateTest.WholeForeignEnvelopeAssignmentIsRejectedWithoutMutation]
+[evidence: tests/unit/airborne_radar/ar_mutable_context_runtime_state_test.cpp::MutableArContextRuntimeStateTest.MovedFromEnvelopeIsRejectedWithoutMutation]
+[evidence: tests/unit/airborne_radar/ar_mutable_context_runtime_state_test.cpp::MutableArContextRuntimeStateTest.ReusedObjectAddressRejectsPreviousLifetimeEnvelope]
 
 ### 2.3 环境、传播和干扰事实
 
