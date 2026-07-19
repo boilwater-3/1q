@@ -7,17 +7,22 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
+#include <set>
 #include <string>
 #include <system_error>
 #include <vector>
 
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/session/SbirsCycleInputAdapter.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "1q/sbirs_sensor/session/SbirsReplaySession.h"
 #include "1q/sbirs_sensor/session/SbirsTraceSession.h"
 #include "batch_assertions.h"
+#include "batch_checks.h"
+#include "batch_cli.h"
 #include "batch_csv_writer.h"
 #include "batch_replay.h"
 
@@ -25,6 +30,7 @@ namespace sbirs_config = sbirs_sensor::config;
 namespace sbirs_output = sbirs_sensor::output;
 namespace sbirs_session = sbirs_sensor::session;
 using batch_validation::CsvWriter;
+using batch_validation::ContractCheckCollector;
 using batch_validation::ModuleName;
 using batch_validation::ReplayCheckResult;
 using batch_validation::Severity;
@@ -41,6 +47,8 @@ struct SbirsCase {
   double range_km{0.0};
   float temperature_k{0.0f};
   float projected_area_m2{0.0f};
+  bool sequence{false};
+  std::string family{"parameter_sweep"};
 };
 
 std::vector<SbirsCase> BuildCases() {
@@ -61,6 +69,41 @@ std::vector<SbirsCase> BuildCases() {
   return cases;
 }
 
+std::vector<SbirsCase> BuildSequenceCases() {
+  const char* ids[] = {"sbirs_seq_two_target_crossing_two_locks",
+                       "sbirs_seq_three_target_one_lock_handoff",
+                       "sbirs_seq_boost_maneuver_nis_reacquire",
+                       "sbirs_seq_cue_latency_cross_velocity",
+                       "sbirs_seq_occultation_reappearance",
+                       "sbirs_seq_standby_mission_retask",
+                       "sbirs_seq_invalid_input_recovery"};
+  std::vector<SbirsCase> cases;
+  for (const char* id : ids) {
+    SbirsCase c;
+    c.scenario_id = id;
+    c.range_km = 1000.0;
+    c.temperature_k = 2200.0f;
+    c.projected_area_m2 = 5000.0f;
+    c.sequence = true;
+    c.family = std::strstr(id, "target") != nullptr ? "multi_target_resource" :
+               std::strstr(id, "maneuver") != nullptr ? "tracking_reacquisition" :
+               std::strstr(id, "occultation") != nullptr ? "visibility_interruption" :
+               std::strstr(id, "invalid_input") != nullptr ? "invalid_input_recovery" :
+                                                                  "mission_reconfiguration";
+    cases.push_back(c);
+  }
+  return cases;
+}
+
+std::uint32_t CycleCount(const SbirsCase& c) { return c.sequence ? 12U : 2U; }
+
+const char* PhaseFor(const SbirsCase& c, std::uint32_t cycle) {
+  if (!c.sequence) return "sweep";
+  if (cycle <= 4U) return "establish";
+  if (cycle <= 8U) return "interruption";
+  return "recovery";
+}
+
 sbirs_session::SbirsVector3M Vector(double x, double y, double z) {
   sbirs_session::SbirsVector3M value;
   value.x = x;
@@ -69,7 +112,7 @@ sbirs_session::SbirsVector3M Vector(double x, double y, double z) {
   return value;
 }
 
-sbirs_config::SbirsSessionConfig MakeConfig() {
+sbirs_config::SbirsSessionConfig MakeConfig(const SbirsCase* scenario = nullptr) {
   sbirs_config::SbirsSessionConfig config;
   config.hardware.integration_time_sec = 1.0f;
   config.mission.scan_start_az_deg = -1.0f;
@@ -81,6 +124,18 @@ sbirs_config::SbirsSessionConfig MakeConfig() {
   config.mission.narrow_field_fov_el_deg = 5.0f;
   config.policy.error_model.range_fraction_sigma = 0.0f;
   config.policy.error_model.attitude_sigma_deg = 0.0f;
+  if (scenario != nullptr) {
+    if (scenario->scenario_id == "sbirs_seq_two_target_crossing_two_locks") {
+      config.policy.scheduler.max_concurrent_nfov_locks = 2;
+    }
+    if (scenario->scenario_id == "sbirs_seq_boost_maneuver_nis_reacquire") {
+      config.policy.tracking.nis_gate_loss_cycles = 2U;
+      config.policy.tracking.process_noise_diff_coeff = 0.01f;
+    }
+    if (scenario->scenario_id == "sbirs_seq_cue_latency_cross_velocity") {
+      config.mission.narrow_cue_latency_s = 0.5f;
+    }
+  }
   return config;
 }
 
@@ -92,12 +147,56 @@ sbirs_session::SbirsCycleInput MakeInput(const SbirsCase& scenario, std::uint32_
   target.temperature_k = scenario.temperature_k;
   target.emissivity = 0.9f;
   target.projected_area_m2 = scenario.projected_area_m2;
-  return sbirs_session::SbirsCycleInputBuilder()
+  if (scenario.sequence && scenario.scenario_id == "sbirs_seq_boost_maneuver_nis_reacquire" &&
+      cycle_index >= 5U && cycle_index <= 8U) {
+    target.position_ecef_m.y = static_cast<double>(cycle_index - 4U) * 10000.0;
+  }
+  if (scenario.sequence && scenario.scenario_id == "sbirs_seq_cue_latency_cross_velocity") {
+    target.position_ecef_m.y = -10000.0 + static_cast<double>(cycle_index) * 1000.0;
+    target.velocity_ecef_m_per_s = Vector(0.0, 1000.0, 0.0);
+    target.has_velocity_ecef_m_per_s = true;
+  }
+  if (scenario.sequence && scenario.scenario_id == "sbirs_seq_occultation_reappearance" &&
+      cycle_index >= 5U && cycle_index <= 8U) {
+    target.position_ecef_m = Vector(-kSatelliteXM, 0.0, 0.0);
+  }
+  if (scenario.sequence && scenario.scenario_id == "sbirs_seq_three_target_one_lock_handoff" &&
+      cycle_index >= 5U && cycle_index <= 8U) {
+    target.active = false;
+  }
+  sbirs_session::SbirsCycleInputBuilder builder = sbirs_session::SbirsCycleInputBuilder()
       .WithCycleIndex(cycle_index)
       .WithDeltaTimeSec(1.0f)
       .WithSatellitePosition(Vector(kSatelliteXM, 0.0, 0.0))
-      .AddTarget(target)
-      .Build();
+      .AddTarget(target);
+  if (scenario.sequence && (scenario.scenario_id == "sbirs_seq_two_target_crossing_two_locks" ||
+                            scenario.scenario_id == "sbirs_seq_three_target_one_lock_handoff" ||
+                            scenario.scenario_id == "sbirs_seq_invalid_input_recovery")) {
+    const int count = scenario.scenario_id == "sbirs_seq_three_target_one_lock_handoff" ? 3 : 2;
+    for (int i = 1; i < count; ++i) {
+      sbirs_session::SbirsSceneTarget other = target;
+      other.target_id = 101U + static_cast<std::uint64_t>(i);
+      other.target_name = "batch_ir_target_" + std::to_string(i + 1);
+      other.active = true;
+      const double crossing = (6.5 - static_cast<double>(cycle_index)) * 1000.0;
+      other.position_ecef_m.y = i == 1 ? -crossing : 25000.0;
+      if (scenario.scenario_id == "sbirs_seq_two_target_crossing_two_locks") {
+        target.position_ecef_m.y = crossing;
+      }
+      builder.AddTarget(other);
+    }
+  }
+  sbirs_session::SbirsCycleInput input = builder.Build();
+  if (scenario.sequence && scenario.scenario_id == "sbirs_seq_two_target_crossing_two_locks") {
+    input.scene[0].position_ecef_m.y = (6.5 - static_cast<double>(cycle_index)) * 1000.0;
+  }
+  if (scenario.sequence && scenario.scenario_id == "sbirs_seq_invalid_input_recovery") {
+    if (cycle_index == 5U) input.dt_sec = 0.0f;
+    if (cycle_index == 6U && input.scene.size() >= 2U) {
+      input.scene[1].target_id = input.scene[0].target_id;
+    }
+  }
+  return input;
 }
 
 const char* StageName(sbirs_output::SbirsObservationStage stage) {
@@ -114,6 +213,8 @@ const char* StageName(sbirs_output::SbirsObservationStage stage) {
 
 struct ScenarioSummary {
   SbirsCase scenario;
+  std::string suite;
+  std::string scenario_family;
   std::size_t executed_cycles{0U};
   std::size_t detection_count{0U};
   float max_snr_linear{0.0f};
@@ -121,32 +222,93 @@ struct ScenarioSummary {
   bool replay_ok{false};
   std::uint64_t replay_compared{0U};
   bool replay_divergence{false};
+  std::size_t expected_failure_count{0U};
+  std::size_t contract_check_count{0U};
+  std::size_t contract_failure_count{0U};
+  std::uint64_t failure_marker_count{0U};
   WarningCollector warnings;
 };
 
 constexpr const char* kCycleHeader =
-    "scenario_id,cycle_index,executed,validation_error,reused,abort_reason,scan_azimuth_deg,"
+    "scenario_id,suite,scenario_family,phase,cycle_index,executed,validation_error,reused,abort_reason,scan_azimuth_deg,"
     "detection_count,max_snr_linear,observation_stage";
 constexpr const char* kScenarioHeader =
-    "scenario_id,range_km,temperature_k,projected_area_m2,executed_cycles,detection_count,"
+    "scenario_id,suite,scenario_family,range_km,temperature_k,projected_area_m2,executed_cycles,detection_count,"
     "max_snr_linear,final_stage,replay_ok,replay_compared,replay_divergence,warning_count,"
-    "error_count,warnings";
+    "error_count,expected_failure_count,contract_check_count,contract_failure_count,"
+    "failure_marker_count,warnings";
 
 ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output_dir,
-                            CsvWriter& cycle_writer) {
+                            CsvWriter& cycle_writer, ContractCheckCollector& checks) {
   ScenarioSummary summary;
   summary.scenario = scenario;
+  summary.suite = scenario.sequence ? "sequence" : "sweep";
+  summary.scenario_family = scenario.family;
   const std::string trace_dir = output_dir + "/traces/" + scenario.scenario_id;
   auto replay_writer = batch_validation::MakeReplayWriter(trace_dir, ModuleName::kSbirsSensor,
                                                           kTraceId, scenario.scenario_id);
   {
     sbirs_session::SbirsTraceSessionOptions options;
     options.replay_writer = replay_writer;
-    sbirs_session::SbirsTraceSession session(MakeConfig(), options);
-    for (std::uint32_t cycle = 1U; cycle <= 2U; ++cycle) {
+    sbirs_session::SbirsTraceSession session(MakeConfig(&scenario), options);
+    const std::uint32_t cycle_count = CycleCount(scenario);
+    std::size_t nonexecuted_count = 0U;
+    bool channels_unique = true;
+    std::size_t max_nfov_channels = 0U;
+    std::set<std::uint64_t> nfov_target_ids;
+    bool saw_nis_exceeded = false;
+    bool saw_nis_loss = false;
+    std::size_t interruption_detections = 0U;
+    std::size_t recovery_detections = 0U;
+    const char* previous_phase = nullptr;
+    for (std::uint32_t cycle = 1U; cycle <= cycle_count; ++cycle) {
+      const char* phase = PhaseFor(scenario, cycle);
+      if (previous_phase == nullptr || std::strcmp(previous_phase, phase) != 0) {
+        std::fprintf(stderr, "  [phase] scenario=%s phase=%s cycle=%u\n",
+                     scenario.scenario_id.c_str(), phase, cycle);
+        previous_phase = phase;
+      }
+      if (scenario.scenario_id == "sbirs_seq_standby_mission_retask" && cycle == 5U) {
+        sbirs_config::SbirsRuntimeConfigPatch patch;
+        patch.has_work_mode = true;
+        patch.work_mode = sbirs_config::SbirsWorkMode::kStandby;
+        session.ApplyRuntimeConfig(patch);
+      } else if (scenario.scenario_id == "sbirs_seq_standby_mission_retask" && cycle == 9U) {
+        sbirs_config::SbirsRuntimeConfigPatch patch;
+        patch.has_work_mode = true;
+        patch.work_mode = sbirs_config::SbirsWorkMode::kSearchAndStare;
+        patch.has_scan_rate_deg_per_sec = true;
+        patch.scan_rate_deg_per_sec = 2.0f;
+        patch.has_policy = true;
+        patch.policy = MakeConfig(&scenario).policy;
+        patch.policy.scheduler.max_concurrent_nfov_locks = 2;
+        session.ApplyRuntimeConfig(patch);
+      }
       const sbirs_session::SbirsCycleResult result =
           session.StepWithResult(MakeInput(scenario, cycle));
       if (result.executed_this_cycle) ++summary.executed_cycles;
+      else ++nonexecuted_count;
+      std::set<int> cycle_channels;
+      for (std::size_t i = 0; i < result.detection_attributions.size(); ++i) {
+        const auto& attribution = result.detection_attributions[i];
+        const int channel = attribution.nfov_channel_id;
+        saw_nis_exceeded = saw_nis_exceeded || attribution.estimation_nis_gate_exceeded;
+        saw_nis_loss = saw_nis_loss ||
+                       attribution.capture_failure_reason ==
+                           sbirs_sensor::attribution::SbirsCaptureFailureReason::kEstimationNisGateLost;
+        if (channel < 0) continue;
+        cycle_channels.insert(channel);
+        nfov_target_ids.insert(attribution.target_id);
+        for (std::size_t j = i + 1U; j < result.detection_attributions.size(); ++j) {
+          if (result.detection_attributions[j].nfov_channel_id == channel) channels_unique = false;
+        }
+      }
+      max_nfov_channels = std::max(max_nfov_channels, cycle_channels.size());
+      if (cycle >= 5U && cycle <= 8U) {
+        interruption_detections += result.output_frame.detections.size();
+      } else if (cycle >= 9U) {
+        recovery_detections += result.output_frame.detections.size();
+      }
       summary.detection_count += result.output_frame.detections.size();
       float cycle_max_snr = 0.0f;
       const char* stage = "none";
@@ -157,32 +319,86 @@ ScenarioSummary RunScenario(const SbirsCase& scenario, const std::string& output
       summary.max_snr_linear = std::max(summary.max_snr_linear, cycle_max_snr);
       summary.final_stage = stage;
       std::fprintf(
-          cycle_writer.file(), "%s,%u,%d,%d,%d,%d,%.5f,%zu,%.9g,%s\n", scenario.scenario_id.c_str(),
-          cycle, static_cast<int>(result.executed_this_cycle),
+          cycle_writer.file(), "%s,%s,%s,%s,%u,%d,%d,%d,%d,%.5f,%zu,%.9g,%s\n",
+          scenario.scenario_id.c_str(), scenario.sequence ? "sequence" : "sweep",
+          scenario.family.c_str(), phase, cycle, static_cast<int>(result.executed_this_cycle),
           static_cast<int>(result.has_validation_error),
           static_cast<int>(result.reused_previous_output), static_cast<int>(result.abort_reason),
           result.output_frame.scan_azimuth_deg, result.output_frame.detections.size(),
           static_cast<double>(cycle_max_snr), stage);
     }
     replay_writer->Flush();
+
+    if (scenario.sequence) {
+      const std::size_t expected_nonexecuted =
+          scenario.scenario_id == "sbirs_seq_invalid_input_recovery" ? 2U : 0U;
+      summary.expected_failure_count = expected_nonexecuted;
+      checks.Add(scenario.scenario_id, "recovery", cycle_count, "expected_nonexecuted_cycles",
+                 std::to_string(expected_nonexecuted), std::to_string(nonexecuted_count),
+                 expected_nonexecuted == nonexecuted_count);
+      checks.Add(scenario.scenario_id, "recovery", cycle_count, "nfov_channels_unique", "unique",
+                 channels_unique ? "unique" : "duplicate", channels_unique);
+      if (scenario.scenario_id == "sbirs_seq_two_target_crossing_two_locks") {
+        checks.Add(scenario.scenario_id, "interruption", 8U, "two_nfov_channels_used", "2",
+                   std::to_string(max_nfov_channels), max_nfov_channels == 2U);
+        checks.Add(scenario.scenario_id, "recovery", cycle_count, "two_targets_locked", "2",
+                   std::to_string(nfov_target_ids.size()), nfov_target_ids.size() == 2U);
+      } else if (scenario.scenario_id == "sbirs_seq_three_target_one_lock_handoff") {
+        checks.Add(scenario.scenario_id, "interruption", 8U, "single_channel_limit", "1",
+                   std::to_string(max_nfov_channels), max_nfov_channels <= 1U);
+        checks.Add(scenario.scenario_id, "recovery", cycle_count, "handoff_reaches_multiple_targets",
+                   ">=2", std::to_string(nfov_target_ids.size()), nfov_target_ids.size() >= 2U);
+      } else if (scenario.scenario_id == "sbirs_seq_boost_maneuver_nis_reacquire") {
+        checks.Add(scenario.scenario_id, "interruption", 8U, "nis_gate_exceeded", "true",
+                   saw_nis_exceeded ? "true" : "false", saw_nis_exceeded);
+        checks.Add(scenario.scenario_id, "interruption", 8U, "nis_lock_released", "true",
+                   saw_nis_loss ? "true" : "false", saw_nis_loss);
+        checks.Add(scenario.scenario_id, "recovery", cycle_count, "reacquired_after_maneuver",
+                   ">0", std::to_string(recovery_detections), recovery_detections > 0U);
+      } else if (scenario.scenario_id == "sbirs_seq_cue_latency_cross_velocity") {
+        checks.Add(scenario.scenario_id, "recovery", cycle_count, "latency_geometry_captures_target",
+                   ">0", std::to_string(nfov_target_ids.size()), !nfov_target_ids.empty());
+      } else if (scenario.scenario_id == "sbirs_seq_occultation_reappearance" ||
+                 scenario.scenario_id == "sbirs_seq_standby_mission_retask") {
+        checks.Add(scenario.scenario_id, "interruption", 8U, "interruption_suppresses_detections",
+                   "0", std::to_string(interruption_detections), interruption_detections == 0U);
+        checks.Add(scenario.scenario_id, "recovery", cycle_count, "reappearance_detected", ">0",
+                   std::to_string(recovery_detections), recovery_detections > 0U);
+      } else if (scenario.scenario_id == "sbirs_seq_invalid_input_recovery") {
+        checks.Add(scenario.scenario_id, "recovery", cycle_count, "recovery_detection_continues",
+                   ">0", std::to_string(recovery_detections), recovery_detections > 0U);
+      }
+    }
   }
 
   const sbirs_session::SbirsReplaySessionResult replay = sbirs_session::ReplaySbirsTrace(trace_dir);
   summary.replay_ok = replay.ok;
   summary.replay_compared = replay.playback.compared_output_count;
   summary.replay_divergence = replay.playback.divergence_found;
-  if (summary.executed_cycles != 2U) {
+  summary.failure_marker_count = replay.playback.failure_marker_count;
+  if (!scenario.sequence && summary.executed_cycles != 2U) {
     summary.warnings.Error("not all cycles executed");
   }
-  if (!replay.ok || replay.playback.divergence_found || summary.replay_compared != 2U) {
-    summary.warnings.Warn("replay divergence: " + replay.first_error);
+  const std::uint32_t cycle_count = CycleCount(scenario);
+  if (!replay.ok || replay.playback.divergence_found || summary.replay_compared != cycle_count) {
+    summary.warnings.Error("replay divergence: " + replay.first_error);
+  }
+  if (scenario.sequence) {
+    checks.Add(scenario.scenario_id, "replay", cycle_count, "replay_complete",
+               std::to_string(cycle_count), std::to_string(summary.replay_compared),
+               replay.ok && !summary.replay_divergence && summary.replay_compared == cycle_count);
+    const std::uint64_t expected_markers =
+        scenario.scenario_id == "sbirs_seq_invalid_input_recovery" ? 2U : 0U;
+    checks.Add(scenario.scenario_id, "replay", cycle_count, "failure_marker_count",
+               std::to_string(expected_markers), std::to_string(summary.failure_marker_count),
+               expected_markers == summary.failure_marker_count);
   }
   batch_validation::LogReplayResult(
       scenario.scenario_id,
       ReplayCheckResult{replay.ok, replay.playback.divergence_found,
                         replay.playback.compared_output_count, replay.playback.applied_input_count,
                         replay.reached_failure_marker, replay.first_error},
-      2U);
+      cycle_count);
   summary.warnings.DumpToStderr(scenario.scenario_id + ": ");
   return summary;
 }
@@ -217,7 +433,33 @@ void CheckTemperatureTrend(std::vector<ScenarioSummary>& summaries) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  const std::string output_dir = argc > 1 ? argv[1] : kDefaultOutputDir;
+  batch_validation::BatchCliOptions cli;
+  std::string cli_error;
+  if (!batch_validation::ParseBatchCli(argc, argv, kDefaultOutputDir, &cli, &cli_error)) {
+    std::fprintf(stderr, "FATAL: %s\n", cli_error.c_str());
+    batch_validation::PrintBatchUsage(argv[0]);
+    return 1;
+  }
+  const std::string output_dir = cli.output_dir;
+  std::vector<SbirsCase> cases;
+  if (batch_validation::IncludesSweep(cli.suite)) cases = BuildCases();
+  if (batch_validation::IncludesSequence(cli.suite)) {
+    const std::vector<SbirsCase> sequences = BuildSequenceCases();
+    cases.insert(cases.end(), sequences.begin(), sequences.end());
+  }
+  if (cli.list_scenarios) {
+    for (const SbirsCase& c : cases) std::printf("%s\n", c.scenario_id.c_str());
+    return 0;
+  }
+  if (!cli.scenario_id.empty()) {
+    cases.erase(std::remove_if(cases.begin(), cases.end(), [&](const SbirsCase& c) {
+                  return c.scenario_id != cli.scenario_id;
+                }), cases.end());
+  }
+  if (cases.empty()) {
+    std::fprintf(stderr, "FATAL: no scenario matched\n");
+    return 1;
+  }
   std::error_code ec;
   std::filesystem::create_directories(output_dir, ec);
   if (ec) {
@@ -226,23 +468,33 @@ int main(int argc, char** argv) {
   }
   CsvWriter cycle_writer(output_dir + "/cycles.csv", kCycleHeader);
   CsvWriter scenario_writer(output_dir + "/scenarios.csv", kScenarioHeader);
-  const std::vector<SbirsCase> cases = BuildCases();
   std::vector<ScenarioSummary> summaries;
+  ContractCheckCollector checks;
   summaries.reserve(cases.size());
   std::fprintf(stderr, "=== SBIRS batch validation ===\n  scenarios: %zu\n", cases.size());
   for (std::size_t i = 0U; i < cases.size(); ++i) {
     std::fprintf(stderr, "[%zu/%zu] %s\n", i + 1U, cases.size(), cases[i].scenario_id.c_str());
-    summaries.push_back(RunScenario(cases[i], output_dir, cycle_writer));
+    std::fprintf(stderr, "  [scenario] id=%s suite=%s family=%s\n", cases[i].scenario_id.c_str(),
+                 cases[i].sequence ? "sequence" : "sweep", cases[i].family.c_str());
+    const std::size_t check_begin = checks.size();
+    summaries.push_back(RunScenario(cases[i], output_dir, cycle_writer, checks));
+    summaries.back().contract_check_count = checks.size() - check_begin;
+    for (std::size_t j = check_begin; j < checks.checks().size(); ++j) {
+      if (!checks.checks()[j].passed && checks.checks()[j].severity == Severity::kError) {
+        ++summaries.back().contract_failure_count;
+      }
+    }
   }
   CheckTemperatureTrend(summaries);
   for (const auto& summary : summaries) {
     std::fprintf(stderr,
                  "  [scenario] module=SBIRS id=%s range_km=%.0f temperature_k=%.0f area_m2=%.0f "
-                 "executed=%zu/2 detections=%zu max_snr_linear=%.9g final_stage=%s replay_ok=%d "
+                 "executed=%zu/%u detections=%zu max_snr_linear=%.9g final_stage=%s replay_ok=%d "
                  "compared=%llu divergence=%d warn=%zu error=%zu\n",
                  summary.scenario.scenario_id.c_str(), summary.scenario.range_km,
                  static_cast<double>(summary.scenario.temperature_k),
                  static_cast<double>(summary.scenario.projected_area_m2), summary.executed_cycles,
+                 CycleCount(summary.scenario),
                  summary.detection_count, static_cast<double>(summary.max_snr_linear),
                  summary.final_stage.c_str(), static_cast<int>(summary.replay_ok),
                  static_cast<unsigned long long>(summary.replay_compared),
@@ -250,17 +502,21 @@ int main(int argc, char** argv) {
                  summary.warnings.Count(Severity::kWarning),
                  summary.warnings.Count(Severity::kError));
     std::fprintf(
-        scenario_writer.file(), "%s,%.0f,%.0f,%.0f,%zu,%zu,%.9g,%s,%d,%llu,%d,%zu,%zu,%s\n",
-        summary.scenario.scenario_id.c_str(), summary.scenario.range_km,
+        scenario_writer.file(), "%s,%s,%s,%.0f,%.0f,%.0f,%zu,%zu,%.9g,%s,%d,%llu,%d,%zu,%zu,%zu,%zu,%zu,%llu,%s\n",
+        summary.scenario.scenario_id.c_str(), summary.suite.c_str(),
+        summary.scenario_family.c_str(), summary.scenario.range_km,
         static_cast<double>(summary.scenario.temperature_k),
         static_cast<double>(summary.scenario.projected_area_m2), summary.executed_cycles,
         summary.detection_count, static_cast<double>(summary.max_snr_linear),
         summary.final_stage.c_str(), static_cast<int>(summary.replay_ok),
         static_cast<unsigned long long>(summary.replay_compared),
         static_cast<int>(summary.replay_divergence), summary.warnings.Count(Severity::kWarning),
-        summary.warnings.Count(Severity::kError),
+        summary.warnings.Count(Severity::kError), summary.expected_failure_count,
+        summary.contract_check_count, summary.contract_failure_count,
+        static_cast<unsigned long long>(summary.failure_marker_count),
         batch_validation::EscapeCsvField(summary.warnings.JoinForCsv()).c_str());
   }
+  checks.WriteCsv(output_dir + "/checks.csv");
   std::size_t errors = 0U;
   std::size_t warnings = 0U;
   for (const auto& summary : summaries) {
@@ -269,5 +525,5 @@ int main(int argc, char** argv) {
   }
   std::fprintf(stderr, "=== SBIRS summary: scenarios=%zu warnings=%zu errors=%zu ===\n",
                summaries.size(), warnings, errors);
-  return errors == 0U ? 0 : 2;
+  return errors == 0U && checks.FailureCount() == 0U ? 0 : 2;
 }
