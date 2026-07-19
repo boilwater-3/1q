@@ -112,6 +112,44 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_DOUBLE_EQ(decoded.environment.jammer_sources[0].center_hz, 9.5e9);
 }
 
+TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesDoublePrecisionPose) {
+  EsrCycleInput input;
+  input.platform_pose.position_m.x = -4226.1319451063564;
+  input.platform_pose.position_m.y = -8397.388596805331;
+  input.platform_pose.position_m.z = 5255.8229838761899;
+  input.platform_pose.velocity_mps.x = 123.45678901234567;
+  input.platform_pose.velocity_mps.y = -45.67890123456789;
+  input.platform_pose.velocity_mps.z = 0.000000123456789;
+  input.platform_pose.attitude_deg.yaw_deg = 12.345678901234567;
+  input.platform_pose.attitude_deg.pitch_deg = -2.345678901234567;
+  input.platform_pose.attitude_deg.roll_deg = 0.12345678901234567;
+
+  EsrSceneEmitter emitter;
+  emitter.emitter_id = 2001U;
+  emitter.pose = input.platform_pose;
+  input.scene.push_back(emitter);
+
+  EsrCycleInput decoded;
+  ASSERT_TRUE(DecodeEsrCycleInput(EncodeEsrCycleInput(input), &decoded));
+
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.position_m.x, input.platform_pose.position_m.x);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.position_m.y, input.platform_pose.position_m.y);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.position_m.z, input.platform_pose.position_m.z);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.velocity_mps.x, input.platform_pose.velocity_mps.x);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.velocity_mps.y, input.platform_pose.velocity_mps.y);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.velocity_mps.z, input.platform_pose.velocity_mps.z);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.attitude_deg.yaw_deg,
+                   input.platform_pose.attitude_deg.yaw_deg);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.attitude_deg.pitch_deg,
+                   input.platform_pose.attitude_deg.pitch_deg);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.attitude_deg.roll_deg,
+                   input.platform_pose.attitude_deg.roll_deg);
+  ASSERT_EQ(decoded.scene.size(), 1U);
+  EXPECT_DOUBLE_EQ(decoded.scene[0].pose.position_m.x, emitter.pose.position_m.x);
+  EXPECT_DOUBLE_EQ(decoded.scene[0].pose.attitude_deg.pitch_deg,
+                   emitter.pose.attitude_deg.pitch_deg);
+}
+
 TEST(EsrReplayCodecRoundtripTest, CycleInputDecodesEmptyEmitterList) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;

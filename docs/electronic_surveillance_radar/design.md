@@ -240,6 +240,12 @@ flowchart TB
 
 [evidence: tests/integration/electronic_surveillance_radar/esr_session_test.cpp::AltitudeAndSpectrumOccupancyAffectReceiverSnr]
 [evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::CycleInputPreservesAllFields]
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::CycleInputPreservesDoublePrecisionPose]
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_session_test.cpp::ReplayPreservesRealTenKilometerGeometry]
+
+Replay 的 cycle-input 位姿与 public `PoseState` 同为 double 精度；schema/codec 不允许把位置、
+速度或欧拉角降为 float。输出比较继续使用严格判等，输入必须先做到可精确重组，不能用比较容差
+掩盖几何量化引起的观测角漂移。
 
 ### 2.3 观测预处理
 
@@ -387,7 +393,7 @@ ESR 输出保持三通道：
 
 ## 4. 设计变更规则
 
-1. Observation/hypothesis 字段变化必须同步 replay roundtrip 测试。
+1. Observation/hypothesis 或 cycle-input 位姿字段变化必须同步精确 replay roundtrip 测试。
 2. Gate、preprocess、cluster、association 语义变化必须同步本文和对应 focused tests。
 3. Runtime patch、snapshot 或状态边界变化必须同步控制器状态测试。
 4. 输出通道边界变化必须同步 output boundary contract 测试。

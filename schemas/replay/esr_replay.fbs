@@ -8,15 +8,15 @@ namespace esr.replay;
 // ---- 基础向量与姿态类型 ----
 
 struct Vec3 {
-  x: float;
-  y: float;
-  z: float;
+  x: double;
+  y: double;
+  z: double;
 }
 
 struct EulerDeg {
-  yaw_deg:   float;
-  pitch_deg: float;
-  roll_deg:  float;
+  yaw_deg:   double;
+  pitch_deg: double;
+  roll_deg:  double;
 }
 
 table PoseState {

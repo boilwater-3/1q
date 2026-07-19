@@ -15,6 +15,7 @@
 #include <string>
 
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfig.h"
+#include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
@@ -85,6 +86,66 @@ TEST(EsrReplaySessionTest, ReplayEsrTraceRoundtrip) {
   EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
   EXPECT_FALSE(replay_result.playback.divergence_found);
   EXPECT_FALSE(replay_result.reached_failure_marker);
+}
+
+TEST(EsrReplaySessionTest, ReplayPreservesRealTenKilometerGeometry) {
+  const std::string trace_dir = MakeTempTracePath("oneq-esr-replay-10km-geometry");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "esr-replay-10km-geometry-test";
+  manifest.module = "electronic_surveillance_radar";
+  manifest.scenario_id = "real-10km-geometry";
+
+  config::EsrSessionConfig config;
+  config.hardware.beam_az_width_deg = 120.0f;
+  config.hardware.beam_el_width_deg = 40.0f;
+
+  EsrExternalPoseInput platform;
+  platform.platform_position_ecef_m.x_m = -2289512.0;
+  platform.platform_position_ecef_m.y_m = 4909946.0;
+  platform.platform_position_ecef_m.z_m = 3649982.0;
+
+  EsrExternalEmitterInput emitter;
+  emitter.emitter_id = 2001U;
+  emitter.emitter_name = "ten-kilometer-emitter";
+  emitter.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  emitter.kinematics.position_ecef_m.x_m = -2289512.0;
+  emitter.kinematics.position_ecef_m.y_m = 4919946.0;
+  emitter.kinematics.position_ecef_m.z_m = 3645982.0;
+  emitter.carrier_hz = 8.0e9;
+  emitter.bandwidth_hz = 2.0e6;
+  emitter.tx_power_w = 5.0e7;
+  emitter.pulse_width_s = 1.0e-6;
+  emitter.pri_s = 1.0e-4;
+
+  EsrEnvironmentInput environment;
+  environment.propagation_profile = EsrPropagationEnvironmentProfile::kTypical;
+  environment.clutter_density = EsrClutterDensityLevel::kMedium;
+  environment.spectrum_occupancy_ratio = 0.1f;
+
+  EsrCycleInput input;
+  EsrCoordinateStatus coordinate_status = EsrCoordinateStatus::kOk;
+  ASSERT_TRUE(EsrCycleInputAdapter::Build(platform, {emitter}, 1.0f, environment, &input,
+                                          &coordinate_status));
+  input.cycle_index = 1U;
+
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+    EsrTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    EsrTraceSession session(config, options);
+    const EsrCycleResult result = session.StepWithResult(input);
+    ASSERT_TRUE(result.executed_this_cycle);
+    ASSERT_EQ(result.output_frame.observation_output.observations.size(), 1U);
+    replay_writer->Flush();
+  }
+
+  const EsrReplaySessionResult replay_result = ReplayEsrTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 
 TEST(EsrReplaySessionTest, ReplayEsrTraceRejectsWrongModule) {

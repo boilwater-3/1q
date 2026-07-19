@@ -95,6 +95,35 @@ TEST(EosReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.scene[0].appearance.emissivity, 0.95f);
 }
 
+TEST(EosReplayCodecRoundtripTest, CycleInputPreservesDoublePrecisionPose) {
+  EosCycleInput input;
+  input.platform_pose.position_m.x = -4226.1319451063564;
+  input.platform_pose.position_m.y = -8397.388596805331;
+  input.platform_pose.position_m.z = 5255.8229838761899;
+  input.platform_pose.velocity_mps.x = 123.45678901234567;
+  input.platform_pose.velocity_mps.y = -45.67890123456789;
+  input.platform_pose.velocity_mps.z = 0.000000123456789;
+  input.platform_pose.attitude_deg.yaw_deg = 12.345678901234567;
+  input.platform_pose.attitude_deg.pitch_deg = -2.345678901234567;
+  input.platform_pose.attitude_deg.roll_deg = 0.12345678901234567;
+
+  EosCycleInput decoded;
+  ASSERT_TRUE(DecodeEosCycleInput(EncodeEosCycleInput(input), &decoded));
+
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.position_m.x, input.platform_pose.position_m.x);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.position_m.y, input.platform_pose.position_m.y);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.position_m.z, input.platform_pose.position_m.z);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.velocity_mps.x, input.platform_pose.velocity_mps.x);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.velocity_mps.y, input.platform_pose.velocity_mps.y);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.velocity_mps.z, input.platform_pose.velocity_mps.z);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.attitude_deg.yaw_deg,
+                   input.platform_pose.attitude_deg.yaw_deg);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.attitude_deg.pitch_deg,
+                   input.platform_pose.attitude_deg.pitch_deg);
+  EXPECT_DOUBLE_EQ(decoded.platform_pose.attitude_deg.roll_deg,
+                   input.platform_pose.attitude_deg.roll_deg);
+}
+
 TEST(EosReplayCodecRoundtripTest, CycleInputDecodesEmptyScene) {
   EosCycleInput input;
   input.dt_sec = 1.0f;

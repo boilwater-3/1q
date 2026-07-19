@@ -43,13 +43,11 @@ void DecodeOneDetection(const eos::replay::EosDetectionRecord& d, output::EosDet
 }
 
 eos::replay::Vec3 ToFbVec3(const oneq::foundation::Vector3f& v) {
-  return eos::replay::Vec3(static_cast<float>(v.x), static_cast<float>(v.y),
-                           static_cast<float>(v.z));
+  return eos::replay::Vec3(v.x, v.y, v.z);
 }
 
 eos::replay::EulerDeg ToFbEuler(const oneq::foundation::EulerAnglesDeg& e) {
-  return eos::replay::EulerDeg(static_cast<float>(e.yaw_deg), static_cast<float>(e.pitch_deg),
-                               static_cast<float>(e.roll_deg));
+  return eos::replay::EulerDeg(e.yaw_deg, e.pitch_deg, e.roll_deg);
 }
 
 flatbuffers::Offset<eos::replay::PoseState> BuildPoseState(flatbuffers::FlatBufferBuilder& fbb,

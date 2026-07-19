@@ -251,6 +251,11 @@ flowchart TB
 - 归属关系由 `EosCycleResult` 和 debug view 承接。
 - 生命周期事件是跨周期辅助视图，不替代 raw output。
 - replay 用于复现输入输出和失败标记，不作为 public 算法扩展点。
+- replay cycle-input 中的平台位置、速度与欧拉角保持 public `PoseState` 的 double 精度；
+  不允许 schema/codec 静默降为 float。即使当前检测 pipeline 不消费平台位姿，trace 仍必须能
+  精确重组调用方输入。
+
+[evidence: tests/replay/electro_optical_sensor/eos_replay_codec_roundtrip_test.cpp::CycleInputPreservesDoublePrecisionPose]
 
 ## 2. 本模块使用的算法
 
