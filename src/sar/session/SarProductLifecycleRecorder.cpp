@@ -10,9 +10,6 @@ bool HasImageProduct(const SarOutputFrame& frame) {
 }
 
 SarProductLifecycleReason InferFailureReason(const SarCycleResult& result) {
-  if (!result.executed_this_cycle) {
-    return SarProductLifecycleReason::kCycleNotExecuted;
-  }
   if (!result.abort_reason.empty()) {
     return SarProductLifecycleReason::kAbortReason;
   }
@@ -38,8 +35,11 @@ SarProductLifecycleRecorder::SarProductLifecycleRecorder(SarProductLifecycleReco
 
 std::vector<SarProductLifecycleEvent> SarProductLifecycleRecorder::Update(const SarCycleResult& result) {
   std::vector<SarProductLifecycleEvent> events;
+  if (!result.executed_this_cycle) {
+    return events;
+  }
   const bool has_product = HasImageProduct(result.output_frame);
-  if (result.has_error || !result.executed_this_cycle) {
+  if (result.has_error) {
     events.push_back(
         MakeEvent(result, SarProductLifecycleEventKind::kProcessingFailed, InferFailureReason(result)));
     has_product_ = false;

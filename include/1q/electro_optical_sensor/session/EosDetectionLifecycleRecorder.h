@@ -37,9 +37,7 @@ enum class EosDetectionLifecycleReason {
   kNone = 0,                 /**< 无原因（事件为发现/更新类） */
   kOutOfFov = 1,             /**< 目标处于视场 (FOV) 之外 */
   kBelowSnrThreshold = 2,    /**< 融合信噪比 (SNR) 低于门限 */
-  kValidationRejected = 3,   /**< 输入校验失败导致周期未执行 */
-  kCycleNotExecuted = 4,     /**< 本周期核心 pipeline 未实际执行 */
-  kUnknown = 5               /**< 原因不明 */
+  kUnknown = 3               /**< 原因不明 */
 };
 
 /**
@@ -67,6 +65,7 @@ struct ONEQ_API EosDetectionLifecycleRecorderConfig {
  *
  * 私有状态(含 unordered_map)与判定逻辑见 .cpp，避免在 public header 暴露实现细节。
  * @note 仅可移动、不可拷贝；内部状态按 target_id 跨周期持续跟踪，非线程安全。
+ * @note 非执行周期不产生事件，也不推进内部状态。
  */
 class ONEQ_API EosDetectionLifecycleRecorder {
  public:

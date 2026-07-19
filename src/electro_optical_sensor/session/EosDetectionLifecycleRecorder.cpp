@@ -34,14 +34,7 @@ const attribution::EosDetectionAttributionRecord* FindAttribution(
   return nullptr;
 }
 
-EosDetectionLifecycleReason InferReason(const EosCycleResult& result,
-                                        const output::EosDetectionRecord* record) {
-  if (result.has_validation_error) {
-    return EosDetectionLifecycleReason::kValidationRejected;
-  }
-  if (!result.executed_this_cycle) {
-    return EosDetectionLifecycleReason::kCycleNotExecuted;
-  }
+EosDetectionLifecycleReason InferReason(const output::EosDetectionRecord* record) {
   if (record == nullptr) {
     return EosDetectionLifecycleReason::kOutOfFov;
   }
@@ -79,6 +72,9 @@ EosDetectionLifecycleRecorder& EosDetectionLifecycleRecorder::operator=(
 std::vector<EosDetectionLifecycleEvent> EosDetectionLifecycleRecorder::Update(
     const EosCycleInput& input, const EosCycleResult& result) {
   std::vector<EosDetectionLifecycleEvent> events;
+  if (!result.executed_this_cycle) {
+    return events;
+  }
   events.reserve(input.scene.size());
   for (const EosSceneTarget& target : input.scene) {
     TargetState& state = impl_->states[target.target_id];
@@ -101,7 +97,7 @@ std::vector<EosDetectionLifecycleEvent> EosDetectionLifecycleRecorder::Update(
       continue;
     }
 
-    const EosDetectionLifecycleReason reason = InferReason(result, record);
+    const EosDetectionLifecycleReason reason = InferReason(record);
     if (state.detected) {
       EosDetectionLifecycleEvent event = MakeBaseEvent(target, result);
       event.kind = EosDetectionLifecycleEventKind::kLost;

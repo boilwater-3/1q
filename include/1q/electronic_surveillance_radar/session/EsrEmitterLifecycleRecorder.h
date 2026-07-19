@@ -37,9 +37,7 @@ enum class EsrEmitterLifecycleReason {
   kNone = 0,                /**< 无原因占位值（事件为观测/更新时使用） */
   kNotEmitting = 1,         /**< 辐射源本周期未发射 */
   kNoMatchedObservation = 2,/**< 执行了 pipeline 但无匹配观测 */
-  kValidationRejected = 3,  /**< 因输入校验 Error 未执行计算 */
-  kCycleNotExecuted = 4,    /**< 本周期未执行核心 pipeline */
-  kUnknown = 5              /**< 未知原因占位值 */
+  kUnknown = 3              /**< 未知原因占位值 */
 };
 
 /**
@@ -66,6 +64,7 @@ struct ONEQ_API EsrEmitterLifecycleRecorderConfig {
  * @brief 记录辐射源首次观测/更新/丢失/未观测事件；未观测原因需显式开启。
  *
  * 私有状态(含 unordered_map)与判定逻辑见 .cpp，避免在 public header 暴露实现细节。
+ * 非执行周期不产生事件，也不推进内部状态。
  */
 class ONEQ_API EsrEmitterLifecycleRecorder {
  public:

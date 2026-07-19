@@ -25,13 +25,7 @@ const session::TrackStateSnapshot* FindTrackByExternalTargetId(
   return nullptr;
 }
 
-ArTrackLifecycleReason InferReason(const ArCycleResult& result, const session::TrackStateSnapshot* track) {
-  if (result.has_validation_error) {
-    return ArTrackLifecycleReason::kValidationRejected;
-  }
-  if (!result.executed_this_cycle) {
-    return ArTrackLifecycleReason::kCycleNotExecuted;
-  }
+ArTrackLifecycleReason InferReason(const session::TrackStateSnapshot* track) {
   if (track == nullptr) {
     return ArTrackLifecycleReason::kNoTrack;
   }
@@ -65,6 +59,9 @@ ArTrackLifecycleRecorder& ArTrackLifecycleRecorder::operator=(ArTrackLifecycleRe
 std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
     const ArCycleInput& input, const ArCycleResult& result) {
   std::vector<ArTrackLifecycleEvent> events;
+  if (!result.executed_this_cycle) {
+    return events;
+  }
   events.reserve(input.scene.size());
   for (const ArSceneTarget& target : input.scene) {
     // external_target_id 为 0 的输入目标无法按 ID 关联，跳过生命周期记录。
@@ -104,7 +101,7 @@ std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
     } else if (!state.confirmed && impl_->config.emit_not_tracked_events) {
       ArTrackLifecycleEvent event = MakeBaseEvent(target, result);
       event.kind = ArTrackLifecycleEventKind::kNotTracked;
-      event.reason = InferReason(result, track);
+      event.reason = InferReason(track);
       if (track != nullptr) {
         event.association_key = track->association_key;
         event.track_status = track->status;

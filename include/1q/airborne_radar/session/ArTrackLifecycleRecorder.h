@@ -38,9 +38,7 @@ enum class ONEQ_API ArTrackLifecycleEventKind {
 enum class ONEQ_API ArTrackLifecycleReason {
   kNone = 0,              /**< 无特殊成因（已确认/更新/丢失事件均用此值）。 */
   kNoTrack = 1,           /**< 本周期未为该输入目标建立任何 track。 */
-  kValidationRejected = 2, /**< 周期输入被校验拒绝。 */
-  kCycleNotExecuted = 3,  /**< 本周期主链路未真正执行。 */
-  kUnknown = 4            /**< 其他无法归类的情形。 */
+  kUnknown = 2            /**< 其他无法归类的情形。 */
 };
 
 /**
@@ -70,6 +68,7 @@ struct ONEQ_API ArTrackLifecycleRecorderConfig {
  * 生命周期贴合 AR 的 TrackStatus(kTentative/kConfirmed/kLost)：
  * 首次进入 kConfirmed 产生 kFirstConfirmed；已确认周期更新产生 kUpdated；
  * 进入 kLost 产生 kLost；输入目标无对应 track 且开启诊断时产生 kNotTracked。
+ * 非执行周期不产生事件，也不推进记录器状态。
  * 私有状态(含 unordered_map)与判定逻辑见 .cpp，避免在 public header 暴露实现细节。
  */
 class ONEQ_API ArTrackLifecycleRecorder {

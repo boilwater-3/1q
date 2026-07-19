@@ -261,3 +261,34 @@ TEST(EosCycleOutputBuilderTest, LifecycleRecorderTracksFoundLostAndOptionalNotDe
   EXPECT_EQ(events[0].reason, eos_session::EosDetectionLifecycleReason::kOutOfFov);
   EXPECT_EQ(events[1].target_name, "never-seen");
 }
+
+TEST(EosCycleOutputBuilderTest, NonExecutedCyclePreservesDetectedState) {
+  eos_session::EosCycleInput input;
+  eos_session::EosSceneTarget target;
+  target.target_id = 12U;
+  input.scene.push_back(target);
+  eos_session::EosCycleResult detected_result;
+  detected_result.input_cycle_index = 1U;
+  detected_result.executed_this_cycle = true;
+  ::electro_optical_sensor::output::EosDetectionRecord detection;
+  detection.detection_id = 7U;
+  detection.detected = true;
+  detected_result.output_frame.detections.push_back(detection);
+  ::electro_optical_sensor::attribution::EosDetectionAttributionRecord attribution;
+  attribution.target_id = 12U;
+  attribution.detection_id = 7U;
+  detected_result.detection_attributions.push_back(attribution);
+  eos_session::EosDetectionLifecycleRecorder recorder(
+      eos_session::EosDetectionLifecycleRecorderConfig{true});
+  ASSERT_EQ(recorder.Update(input, detected_result).front().kind,
+            eos_session::EosDetectionLifecycleEventKind::kFirstDetected);
+  eos_session::EosCycleResult rejected;
+  rejected.input_cycle_index = 2U;
+  rejected.has_validation_error = true;
+  EXPECT_TRUE(recorder.Update(input, rejected).empty());
+  detected_result.input_cycle_index = 3U;
+  const std::vector<eos_session::EosDetectionLifecycleEvent> recovered =
+      recorder.Update(input, detected_result);
+  ASSERT_EQ(recovered.size(), 1U);
+  EXPECT_EQ(recovered.front().kind, eos_session::EosDetectionLifecycleEventKind::kUpdated);
+}

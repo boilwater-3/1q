@@ -34,8 +34,7 @@ enum class SarProductLifecycleReason {
   kNone = 0,             /**< 无特定原因 */
   kNoImageProduct = 1,   /**< 无图像产品 */
   kAbortReason = 2,      /**< 因 abort 终止 */
-  kError = 3,            /**< 错误 */
-  kCycleNotExecuted = 4  /**< 本周期未执行 */
+  kError = 3             /**< 错误 */
 };
 
 /**
@@ -75,7 +74,7 @@ class ONEQ_API SarProductLifecycleRecorder {
    * @brief 根据本周期结果更新产品生命周期状态并发出事件。
    *
    * 比较当前结果与内部持有的“是否已有产品”状态，判定首次产出、更新、丢失或处理失败，
-   * 返回对应的生命周期事件列表。
+ * 返回对应的生命周期事件列表；非执行周期不产生事件，也不推进内部状态。
    * @param[in] result 单周期结果。
    * @return 本周期触发的生命周期事件列表。
    */

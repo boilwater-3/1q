@@ -264,3 +264,32 @@ TEST(EsrCycleOutputBuilderTest, LifecycleRecorderTracksObservedLostAndOptionalNo
   EXPECT_EQ(events[0].reason, esr_session::EsrEmitterLifecycleReason::kNoMatchedObservation);
   EXPECT_EQ(events[1].emitter_name, "missed-emitter");
 }
+
+TEST(EsrCycleOutputBuilderTest, NonExecutedCyclePreservesObservedState) {
+  esr_session::EsrCycleInput input;
+  esr_session::EsrSceneEmitter emitter;
+  emitter.emitter_id = 203U;
+  emitter.is_emitting = true;
+  input.scene.push_back(emitter);
+  esr_session::EsrCycleResult observed;
+  observed.input_cycle_index = 1U;
+  observed.executed_this_cycle = true;
+  esr_session::TruthAssociationRecord association;
+  association.observation_id = 9U;
+  association.truth_emitter_id = 203U;
+  association.matched = true;
+  observed.output_frame.truth_evaluation_output.associations.push_back(association);
+  esr_session::EsrEmitterLifecycleRecorder recorder(
+      esr_session::EsrEmitterLifecycleRecorderConfig{true});
+  ASSERT_EQ(recorder.Update(input, observed).front().kind,
+            esr_session::EsrEmitterLifecycleEventKind::kFirstObserved);
+  esr_session::EsrCycleResult rejected;
+  rejected.input_cycle_index = 2U;
+  rejected.has_validation_error = true;
+  EXPECT_TRUE(recorder.Update(input, rejected).empty());
+  observed.input_cycle_index = 3U;
+  const std::vector<esr_session::EsrEmitterLifecycleEvent> recovered =
+      recorder.Update(input, observed);
+  ASSERT_EQ(recovered.size(), 1U);
+  EXPECT_EQ(recovered.front().kind, esr_session::EsrEmitterLifecycleEventKind::kUpdated);
+}

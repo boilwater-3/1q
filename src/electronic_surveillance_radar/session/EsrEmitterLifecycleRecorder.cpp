@@ -25,13 +25,7 @@ const session::TruthAssociationRecord* FindAssociation(
   return nullptr;
 }
 
-EsrEmitterLifecycleReason InferReason(const EsrSceneEmitter& emitter, const EsrCycleResult& result) {
-  if (result.has_validation_error) {
-    return EsrEmitterLifecycleReason::kValidationRejected;
-  }
-  if (!result.executed_this_cycle) {
-    return EsrEmitterLifecycleReason::kCycleNotExecuted;
-  }
+EsrEmitterLifecycleReason InferReason(const EsrSceneEmitter& emitter) {
   if (!emitter.is_emitting) {
     return EsrEmitterLifecycleReason::kNotEmitting;
   }
@@ -65,6 +59,9 @@ EsrEmitterLifecycleRecorder& EsrEmitterLifecycleRecorder::operator=(EsrEmitterLi
 std::vector<EsrEmitterLifecycleEvent> EsrEmitterLifecycleRecorder::Update(const EsrCycleInput& input,
                                                                            const EsrCycleResult& result) {
   std::vector<EsrEmitterLifecycleEvent> events;
+  if (!result.executed_this_cycle) {
+    return events;
+  }
   events.reserve(input.scene.size());
   for (const EsrSceneEmitter& emitter : input.scene) {
     EmitterState& state = impl_->states[emitter.emitter_id];
@@ -84,7 +81,7 @@ std::vector<EsrEmitterLifecycleEvent> EsrEmitterLifecycleRecorder::Update(const 
       continue;
     }
 
-    const EsrEmitterLifecycleReason reason = InferReason(emitter, result);
+    const EsrEmitterLifecycleReason reason = InferReason(emitter);
     if (state.observed) {
       EsrEmitterLifecycleEvent event = MakeBaseEvent(emitter, result);
       event.kind = EsrEmitterLifecycleEventKind::kLost;

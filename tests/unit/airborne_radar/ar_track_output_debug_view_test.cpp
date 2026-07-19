@@ -138,6 +138,23 @@ TEST(RadarTrackLifecycleRecorderTest, TracksFirstConfirmedUpdatedLost) {
   EXPECT_EQ(events[0].kind, ArTrackLifecycleEventKind::kLost);
 }
 
+TEST(RadarTrackLifecycleRecorderTest, NonExecutedCyclePreservesConfirmedState) {
+  ArCycleInput input;
+  input.scene = {MakeNamedTarget(801U, "recoverable")};
+  ArTrackLifecycleRecorder recorder(ArTrackLifecycleRecorderConfig{true});
+  ArCycleResult confirmed = MakeCycleResult(
+      1U, true, {MakeTrackSnapshot(801U, "recoverable", session::TrackStatus::kConfirmed)});
+  ASSERT_EQ(recorder.Update(input, confirmed).front().kind,
+            ArTrackLifecycleEventKind::kFirstConfirmed);
+  ArCycleResult rejected = MakeCycleResult(2U, false, {});
+  rejected.has_validation_error = true;
+  EXPECT_TRUE(recorder.Update(input, rejected).empty());
+  confirmed.input_cycle_index = 3U;
+  const std::vector<ArTrackLifecycleEvent> recovered = recorder.Update(input, confirmed);
+  ASSERT_EQ(recovered.size(), 1U);
+  EXPECT_EQ(recovered.front().kind, ArTrackLifecycleEventKind::kUpdated);
+}
+
 // lifecycle recorder：未跟踪目标默认不产生事件；开启后产生 kNotTracked。
 TEST(RadarTrackLifecycleRecorderTest, NotTrackedEventsRequireExplicitEnable) {
   ArCycleInput input;

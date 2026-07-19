@@ -311,16 +311,36 @@ TEST(SarSessionPipelineTest, ProductLifecycleRecorderTracksProducedUpdatedLostAn
   failed.has_error = true;
   failed.abort_reason = "snr_below_minimum";
   events = recorder.Update(failed);
+  EXPECT_TRUE(events.empty());
+
+  updated.input_cycle_index = 5U;
+  events = recorder.Update(updated);
   ASSERT_EQ(events.size(), 1U);
-  EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kProcessingFailed);
-  EXPECT_EQ(events.front().reason, session::SarProductLifecycleReason::kCycleNotExecuted);
-  EXPECT_EQ(events.front().abort_reason, "snr_below_minimum");
+  EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kImageProduced);
 
   session::SarProductLifecycleRecorder diagnose_recorder(
       session::SarProductLifecycleRecorderConfig{true});
   events = diagnose_recorder.Update(lost);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events.front().kind, session::SarProductLifecycleEventKind::kNoProduct);
+}
+
+TEST(SarSessionPipelineTest, ProductLifecycleRecorderPreservesStateAcrossNonExecutedCycle) {
+  session::SarProductLifecycleRecorder recorder;
+  session::SarCycleResult produced;
+  produced.input_cycle_index = 1U;
+  produced.executed_this_cycle = true;
+  produced.output_frame.has_l1_image = true;
+  ASSERT_EQ(recorder.Update(produced).front().kind,
+            session::SarProductLifecycleEventKind::kImageProduced);
+  session::SarCycleResult rejected;
+  rejected.input_cycle_index = 2U;
+  rejected.has_error = true;
+  EXPECT_TRUE(recorder.Update(rejected).empty());
+  produced.input_cycle_index = 3U;
+  const std::vector<session::SarProductLifecycleEvent> recovered = recorder.Update(produced);
+  ASSERT_EQ(recovered.size(), 1U);
+  EXPECT_EQ(recovered.front().kind, session::SarProductLifecycleEventKind::kProductUpdated);
 }
 
 TEST(SarSessionPipelineTest, RetainFocusedImageFalseProducesPlaceholder) {
