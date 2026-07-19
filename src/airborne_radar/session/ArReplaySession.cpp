@@ -310,7 +310,9 @@ ArReplaySessionResult ReplayArTrace(const std::string& trace_dir) {
   oneq::replay::ReplayTracePlaybackOptions options;
   options.require_output_callback = true;
   options.stop_on_first_divergence = true;
-  options.stop_on_failure_marker = true;
+  // Validation failures are recoverable session boundaries. Keep the marker in
+  // the report, but continue so a valid recovery cycle is replayed as well.
+  options.stop_on_failure_marker = false;
 
   result.playback = oneq::replay::PlaybackReplayTrace(trace_dir, callbacks, options);
   result.ok = result.playback.ok;

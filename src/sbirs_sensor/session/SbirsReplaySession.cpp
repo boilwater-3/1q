@@ -253,7 +253,9 @@ SbirsReplaySessionResult ReplaySbirsTrace(const std::string& trace_dir) {
   oneq::replay::ReplayTracePlaybackOptions options;
   options.require_output_callback = true;
   options.stop_on_first_divergence = true;
-  options.stop_on_failure_marker = true;
+  // Input rejection is fail-closed before pipeline mutation, so the trace may
+  // legitimately continue with a recovery cycle after the marker.
+  options.stop_on_failure_marker = false;
 
   result.playback = oneq::replay::PlaybackReplayTrace(trace_dir, callbacks, options);
   result.ok = result.playback.ok;

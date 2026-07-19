@@ -189,6 +189,34 @@ TEST(SbirsReplaySessionTest, ReplaySbirsTraceRoundtrip) {
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 
+TEST(SbirsReplaySessionTest, ReplayContinuesAfterFailureMarker) {
+  const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-marker-continuation");
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-marker-continuation"), true));
+    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    options.replay_writer = writer;
+    options.trace_config_on_construct = true;
+    sbirs_sensor::session::SbirsTraceSession session(Config(), options);
+    ASSERT_TRUE(session.StepWithResult(ValidInput(1U)).executed_this_cycle);
+    oneq::replay::ReplayTraceFailure failure;
+    failure.error_code = "SBIRS_RECOVERABLE_TEST";
+    failure.message = "synthetic recoverable marker";
+    failure.has_cycle_index = true;
+    failure.cycle_index = 1U;
+    writer->WriteFailureMarker(failure, sbirs_sensor::session::EncodeSbirsFailureMarker(failure));
+    ASSERT_TRUE(session.StepWithResult(ValidInput(2U)).executed_this_cycle);
+    writer->Flush();
+  }
+  const sbirs_sensor::session::SbirsReplaySessionResult replay_result =
+      sbirs_sensor::session::ReplaySbirsTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_TRUE(replay_result.reached_failure_marker);
+  EXPECT_EQ(replay_result.playback.failure_marker_count, 1U);
+  EXPECT_EQ(replay_result.playback.applied_input_count, 2U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 2U);
+}
+
 TEST(SbirsReplaySessionTest, ReplayPreservesNisLossAndReacquisitionDiagnostics) {
   sbirs_sensor::config::SbirsSessionConfig config = Config();
   config.policy.tracking.nis_gate_loss_cycles = 1U;

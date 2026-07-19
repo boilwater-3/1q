@@ -406,7 +406,7 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionUsesInputCycleIndexForValidationF
   EXPECT_TRUE(saw_failure_marker);
 }
 
-TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
+TEST(TraceSessionAdapterTest, RadarReplaySessionContinuesAfterFailureMarker) {
   const std::string trace_dir = MakeTempTracePath("oneq-radar-replay-failure");
 
   oneq::replay::ReplayTraceManifest manifest;
@@ -437,6 +437,8 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
     failure.cycle_index = result.track_output_frame.cycle_index;
     const std::string failure_bytes = session::EncodeFailureMarkerFlatbuffer(failure, false, 0U);
     replay_writer->WriteFailureMarker(failure, failure_bytes);
+    input.cycle_index = 2U;
+    session.StepWithResult(input);
     replay_writer->Flush();
   }
 
@@ -445,6 +447,8 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionStopsAtFailureMarker) {
   EXPECT_TRUE(replay_result.report.has_failure_marker);
   EXPECT_TRUE(replay_result.reached_failure_marker);
   EXPECT_EQ(replay_result.playback.failure_marker_count, 1U);
+  EXPECT_EQ(replay_result.playback.applied_input_count, 2U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 2U);
   EXPECT_EQ(replay_result.failure_marker_data.error_code, "AR_SIM_ASSERT");
   EXPECT_EQ(replay_result.failure_marker_data.message, "synthetic replay failure marker");
   EXPECT_TRUE(replay_result.failure_marker_data.has_cycle_index);

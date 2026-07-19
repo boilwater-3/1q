@@ -141,6 +141,15 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 
 4. **外部输入解析与 trace 读取必须有上限与完整性校验。** 自研解析器（如 JSON）必须有最大嵌套深度限制、顶层 value 后的 EOF 校验与转义完整性校验。trace/replay 文件读取必须在读入前检查大小上限（与写入侧守卫对齐）。磁盘写失败必须检查流状态并记录，不得静默丢失。
 
+   failure marker 是 trace 中一个可报告的失败边界，不是 replay 的终止符。回放必须记录 marker，
+   继续应用并比较其后的有效输入/输出，使“有效 -> 拒绝 -> 恢复”整段都进入确定性比较；只有
+   divergence、损坏记录或不兼容模块等真正无法继续解释 trace 的错误才终止回放。
+   [evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplaySessionContinuesAfterFailureMarker]
+   [evidence: tests/replay/electro_optical_sensor/eos_replay_session_test.cpp::EosReplaySessionTest.ReplayEosTraceContinuesAfterFailureMarker]
+   [evidence: tests/replay/electronic_surveillance_radar/esr_replay_session_test.cpp::EsrReplaySessionTest.ReplayEsrTraceContinuesAfterFailureMarker]
+   [evidence: tests/replay/sar/sar_replay_session_test.cpp::SarReplaySessionTest.ReplayContinuesAfterFailureMarker]
+   [evidence: tests/replay/sbirs_sensor/sbirs_replay_session_test.cpp::SbirsReplaySessionTest.ReplayContinuesAfterFailureMarker]
+
 5. **数值归一化必须是常数时间。** 角度/周期归一化等可能接受无界输入的工具函数必须用 `std::fmod` 等常数时间实现，不得用 `while` 循环减/加周期，避免极大输入近似死循环。
 
 ## 数值下限语义

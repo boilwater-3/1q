@@ -270,7 +270,9 @@ EosReplaySessionResult ReplayEosTrace(const std::string& trace_dir) {
   oneq::replay::ReplayTracePlaybackOptions options;
   options.require_output_callback = true;
   options.stop_on_first_divergence = true;
-  options.stop_on_failure_marker = true;
+  // Failure markers diagnose recoverable rejected cycles; they do not make the
+  // remaining trace ineligible for deterministic replay.
+  options.stop_on_failure_marker = false;
 
   result.playback = oneq::replay::PlaybackReplayTrace(trace_dir, callbacks, options);
   result.ok = result.playback.ok;

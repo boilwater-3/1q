@@ -156,6 +156,37 @@ TEST(SarReplaySessionTest, ReplaySarTraceRoundtrip) {
   EXPECT_FALSE(replay_result.reached_failure_marker);
 }
 
+TEST(SarReplaySessionTest, ReplayContinuesAfterFailureMarker) {
+  ScopedTempDir temp_dir;
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "sar-replay-marker-continuation";
+  manifest.module = "sar";
+  manifest.scenario_id = "unit-test";
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> writer(
+        new oneq::replay::ReplayTraceWriter(temp_dir.Path(), manifest, true));
+    SarTraceSessionOptions options;
+    options.replay_writer = writer;
+    options.trace_config_on_construct = true;
+    SarTraceSession session(MakeSmallRdaConfigForReplay(), options);
+    ASSERT_TRUE(session.StepWithResult(MakeReplayInput(1U)).executed_this_cycle);
+    oneq::replay::ReplayTraceFailure failure;
+    failure.error_code = "SAR_RECOVERABLE_TEST";
+    failure.message = "synthetic recoverable marker";
+    failure.has_cycle_index = true;
+    failure.cycle_index = 1U;
+    writer->WriteFailureMarker(failure);
+    ASSERT_TRUE(session.StepWithResult(MakeReplayInput(2U)).executed_this_cycle);
+    writer->Flush();
+  }
+  const SarReplaySessionResult replay_result = ReplaySarTrace(temp_dir.Path());
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_TRUE(replay_result.reached_failure_marker);
+  EXPECT_EQ(replay_result.playback.failure_marker_count, 1U);
+  EXPECT_EQ(replay_result.playback.applied_input_count, 2U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 2U);
+}
+
 TEST(SarReplaySessionTest, ReplayL3BpTraceRoundtrip) {
   ScopedTempDir temp_dir;
   const std::string& trace_dir = temp_dir.Path();

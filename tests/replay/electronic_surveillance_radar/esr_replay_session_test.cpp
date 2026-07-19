@@ -165,7 +165,7 @@ TEST(EsrReplaySessionTest, ReplayEsrTraceRejectsWrongModule) {
   EXPECT_FALSE(replay_result.ok);
 }
 
-TEST(EsrReplaySessionTest, ReplayEsrTraceStopsAtFailureMarker) {
+TEST(EsrReplaySessionTest, ReplayEsrTraceContinuesAfterFailureMarker) {
   const std::string trace_dir = MakeTempTracePath("oneq-esr-replay-failure");
 
   oneq::replay::ReplayTraceManifest manifest;
@@ -198,6 +198,8 @@ TEST(EsrReplaySessionTest, ReplayEsrTraceStopsAtFailureMarker) {
     failure.cycle_index = 1U;
     const std::string failure_bytes = EncodeEsrFailureMarker(failure);
     replay_writer->WriteFailureMarker(failure, failure_bytes);
+    input.cycle_index = 2U;
+    session.StepWithResult(input);
     replay_writer->Flush();
   }
 
@@ -206,6 +208,8 @@ TEST(EsrReplaySessionTest, ReplayEsrTraceStopsAtFailureMarker) {
   EXPECT_TRUE(replay_result.report.has_failure_marker);
   EXPECT_TRUE(replay_result.reached_failure_marker);
   EXPECT_EQ(replay_result.playback.failure_marker_count, 1U);
+  EXPECT_EQ(replay_result.playback.applied_input_count, 2U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 2U);
   EXPECT_EQ(replay_result.failure_marker_data.error_code, "ESR_SIM_ASSERT");
   EXPECT_EQ(replay_result.failure_marker_data.message, "synthetic replay failure marker");
   EXPECT_TRUE(replay_result.failure_marker_data.has_cycle_index);

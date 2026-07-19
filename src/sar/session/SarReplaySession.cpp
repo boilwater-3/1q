@@ -221,7 +221,9 @@ SarReplaySessionResult ReplaySarTrace(const std::string& trace_dir) {
   oneq::replay::ReplayTracePlaybackOptions options;
   options.require_output_callback = true;
   options.stop_on_first_divergence = true;
-  options.stop_on_failure_marker = true;
+  // SAR aborts restore cross-cycle state and may be followed by a valid cycle;
+  // retain the marker while continuing the deterministic comparison.
+  options.stop_on_failure_marker = false;
 
   result.playback = oneq::replay::PlaybackReplayTrace(trace_dir, callbacks, options);
   result.ok = result.playback.ok;

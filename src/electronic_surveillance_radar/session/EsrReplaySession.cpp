@@ -308,7 +308,9 @@ EsrReplaySessionResult ReplayEsrTrace(const std::string& trace_dir) {
   oneq::replay::ReplayTracePlaybackOptions options;
   options.require_output_callback = true;
   options.stop_on_first_divergence = true;
-  options.stop_on_failure_marker = true;
+  // A rejected cycle does not terminate the live session. Replay must preserve
+  // that boundary and compare any following recovery cycles.
+  options.stop_on_failure_marker = false;
 
   result.playback = oneq::replay::PlaybackReplayTrace(trace_dir, callbacks, options);
   result.ok = result.playback.ok;
