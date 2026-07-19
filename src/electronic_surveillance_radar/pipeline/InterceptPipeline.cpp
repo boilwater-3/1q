@@ -77,6 +77,7 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
   if (!config_.mission.power_on) {
     PROJECT_LOG_DEBUG("[InterceptPipeline] sensor disabled, cycle_index={} skipped.",
                       input_state.cycle_index);
+    result.sensor_powered_off = true;
     return result;
   }
 

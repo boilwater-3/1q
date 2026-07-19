@@ -61,7 +61,8 @@ enum class EsrPipelineAbortReason {
   kNone = 0,                    /**< 正常执行完成，未中断 */
   kValidationRejected,          /**< 因输入级严重校验问题（Error）而主动放弃计算 */
   kRuntimeStateRestoreRejected, /**< 因运行时状态恢复失败引发阻断 */
-  kOutputContractViolation      /**< 兼容保留；当前 ESR pipeline 结果无自报失败状态 */
+  kOutputContractViolation,     /**< pipeline 输出违反内部契约 */
+  kSensorPoweredOff = 4         /**< 设备关机，pipeline 未执行 */
 };
 
 }  // namespace session

@@ -47,7 +47,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
     impl_->last_cycle_executed = false;
     impl_->last_abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
     impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
-    PROJECT_LOG_ERROR("ESR validation rejected for cycle_index={}", stamp.cycle_index);
+    PROJECT_LOG_WARN("ESR validation rejected for cycle_index={}", stamp.cycle_index);
     return;
   }
 
@@ -64,6 +64,12 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   // 执行
   extension::InterceptPipelineResult pipeline_result =
       impl_->pipeline.RunCycle(input, impl_->environment_service);
+  if (pipeline_result.sensor_powered_off) {
+    impl_->last_cycle_executed = false;
+    impl_->last_abort_reason = session::EsrPipelineAbortReason::kSensorPoweredOff;
+    impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
+    return;
+  }
   session::EsrOutputFrame output_frame;
   output_frame.cycle_index = stamp.cycle_index;
   output_frame.batch_id = stamp.batch_id;

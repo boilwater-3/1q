@@ -179,6 +179,7 @@ struct InterceptPipelineResult {
   ObservationOutputFrame observation_output{};
   EmitterOutputFrame emitter_output{};
   TruthEvaluationFrame truth_evaluation_output{};
+  bool sensor_powered_off{false}; /**< 设备关机导致本周期未执行，而非合法空观测。 */
 };
 
 /**

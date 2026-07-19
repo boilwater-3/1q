@@ -146,6 +146,8 @@ TEST(EsrSessionIntegrationTest, MissionPowerOffReturnsEmptyChannels) {
 
   EsrSession session = EsrSession::Create(config);
   const EsrCycleResult result = session.StepWithResult(MakeBaseInput());
+  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_EQ(result.abort_reason, EsrPipelineAbortReason::kSensorPoweredOff);
   EXPECT_TRUE(result.output_frame.observation_output.observations.empty());
   EXPECT_TRUE(result.output_frame.emitter_output.hypotheses.empty());
   EXPECT_TRUE(result.output_frame.truth_evaluation_output.associations.empty());
@@ -161,7 +163,11 @@ TEST(EsrSessionIntegrationTest, RuntimePatchCanDisableSensorWithoutReconstructio
   session.ApplyRuntimeConfig(patch);
 
   const EsrCycleResult updated = session.StepWithResult(MakeBaseInput());
-  EXPECT_TRUE(updated.output_frame.observation_output.observations.empty());
+  EXPECT_FALSE(updated.executed_this_cycle);
+  EXPECT_TRUE(updated.reused_previous_output);
+  EXPECT_EQ(updated.abort_reason, EsrPipelineAbortReason::kSensorPoweredOff);
+  EXPECT_EQ(updated.output_frame.observation_output.observations.size(),
+            baseline.output_frame.observation_output.observations.size());
 }
 
 TEST(EsrSessionIntegrationTest, RuntimePatchCanApplyExplicitScanBounds) {

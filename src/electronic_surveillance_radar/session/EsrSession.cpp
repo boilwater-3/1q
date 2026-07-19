@@ -50,11 +50,13 @@ struct EsrSession::Impl {
     Controller().RunOnce(input);
 
     // 按 docs/common/contract.md「运行期配置提交策略」，ESR 属立即提交类，配置不在
-    // session 层回滚。InterceptPipelineResult 是纯三通道数据载体，当前没有
-    // pipeline 自报失败状态；此分支仅保留为非 validation abort 的防御边界。
+    // session 层回滚。关机由 pipeline 显式上报，且没有推进任何累积状态；保留该
+    // 非执行结果与最近有效输出。其他非 validation abort 才回滚运行态。
     if (!Controller().ExecutedLatestCycle() &&
         Controller().GetLastInterceptCycleAbortReason() !=
-            session::EsrPipelineAbortReason::kValidationRejected) {
+            session::EsrPipelineAbortReason::kValidationRejected &&
+        Controller().GetLastInterceptCycleAbortReason() !=
+            session::EsrPipelineAbortReason::kSensorPoweredOff) {
       Pipeline().RestoreRuntimeState(pipeline_state);
       Controller().RestoreRuntimeState(controller_state);
     }

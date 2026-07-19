@@ -347,7 +347,9 @@ payload 中的四个边界字段，并按中心角、硬件扫描范围和天线
 
 `ApplyRuntimeConfigWithResult()` 通过 `ResolveEsrRuntimeConfigPatch()` 校验 patch。有效 patch 立即写入 `resolved_config`，并同步到 pipeline/environment；无效 patch 拒绝且不污染现有配置。ESR 属于 `docs/common/contract.md` 定义的立即提交类，配置单向落定，不提供 session 层回滚。
 
-`InterceptPipeline::RunCycle()` 返回 `InterceptPipelineResult`，该结果只包含 observation、emitter、truth evaluation 三通道输出，不包含 `executed_this_cycle` 或 `abort_reason`。因此 ESR controller 当前没有 EOS 式的 pipeline 自报失败状态可校验；一旦输入校验通过并进入 pipeline，空输出也是合法数据结果。
+`InterceptPipeline::RunCycle()` 返回 `InterceptPipelineResult`。除 observation、emitter、truth
+evaluation 三通道外，它显式区分设备关机导致的未执行状态；controller 将其传播为
+`kSensorPoweredOff`，复用最近有效输出且不推进 batch。普通空观测仍是合法数据结果。
 
 pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描述累积运行态能力：
 
@@ -358,7 +360,8 @@ pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描
 设计含义：
 
 - validation rejection 在进入 pipeline 前发生，`EsrCycleResult` 记录 `executed_this_cycle=false` 和 `kValidationRejected`。
-- 当前没有“pipeline 执行后自报失败并触发回滚”的路径；不要把 `kOutputContractViolation` 理解为 ESR 输出契约校验的预留占位。
+- 当前唯一的 pipeline 自报非执行状态是设备关机；它不是 output-contract failure，也不触发
+  运行态回滚。新增其他 pipeline failure 必须使用显式内部结果状态并定义回滚边界。
 - 新增 ESR pipeline 失败语义前，必须先扩展 `InterceptPipelineResult` 或等价内部结果结构，使失败状态成为显式接口契约。
 
 验证入口：
@@ -366,6 +369,7 @@ pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描
 - `tests/unit/esr_controller_runtime_state_test.cpp`
 - `tests/unit/esr_runtime_config_resolver_test.cpp`
 - `tests/integration/esr_session_test.cpp`
+[evidence: tests/integration/electronic_surveillance_radar/esr_session_test.cpp::EsrSessionIntegrationTest.RuntimePatchCanDisableSensorWithoutReconstruction]
 
 ### 2.7 输出三通道与可观测性
 
