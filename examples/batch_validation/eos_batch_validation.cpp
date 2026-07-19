@@ -11,7 +11,8 @@
  *   - 每场景录制可回放 trace，用 ReplayEosTrace 做确定性回归。
  *
  * @par 运行方式
- *   ./eos_batch_validation [output_dir]
+ *   ./eos_batch_validation [--suite sweep|sequence|all] [--scenario ID]
+ *                          [--output-dir PATH] [--list-scenarios]
  *   默认输出 /tmp/1q/batch_validation/electro_optical_sensor/
  */
 
@@ -29,6 +30,7 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
+#include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
 #include "1q/electro_optical_sensor/session/EosCycleInputAdapter.h"
 #include "1q/electro_optical_sensor/session/EosCycleResult.h"
 #include "1q/electro_optical_sensor/session/EosExternalInputAdapter.h"
@@ -38,6 +40,8 @@
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
 
 #include "batch_assertions.h"
+#include "batch_checks.h"
+#include "batch_cli.h"
 #include "batch_csv_writer.h"
 #include "batch_replay.h"
 #include "config_loader.h"
@@ -46,6 +50,7 @@ namespace eos = electro_optical_sensor;
 namespace eos_config = electro_optical_sensor::config;
 namespace eos_session = electro_optical_sensor::session;
 using batch_validation::CsvWriter;
+using batch_validation::ContractCheckCollector;
 using batch_validation::ModuleName;
 using batch_validation::ReplayCheckResult;
 using batch_validation::Severity;
@@ -77,6 +82,8 @@ struct EosCase {
   double target_lon_offset_deg;  ///< 目标相对平台的经度偏移（越大距离越远）
   ContrastLevel contrast;         ///< 红外对比度档位
   LightingCondition lighting;     ///< 光照条件
+  bool sequence{false};
+  std::string family{"parameter_sweep"};
 };
 
 const char* ContrastName(ContrastLevel c) {
@@ -122,6 +129,37 @@ std::vector<EosCase> BuildEosCases() {
     }
   }
   return cases;
+}
+
+std::vector<EosCase> BuildEosSequenceCases() {
+  const char* ids[] = {"eos_seq_two_target_focal_crossing", "eos_seq_day_twilight_night",
+                       "eos_seq_fused_ir_visible_fused", "eos_seq_sector_retask",
+                       "eos_seq_power_cycle", "eos_seq_invalid_input_recovery"};
+  std::vector<EosCase> cases;
+  for (const char* id : ids) {
+    EosCase c;
+    c.scenario_id = id;
+    c.target_lon_offset_deg = 0.005;
+    c.contrast = ContrastLevel::kHigh;
+    c.lighting = LightingCondition::kDay;
+    c.sequence = true;
+    c.family = std::strstr(id, "crossing") != nullptr ? "multi_target_geometry" :
+               std::strstr(id, "day_twilight") != nullptr ? "environment_transition" :
+               std::strstr(id, "power") != nullptr ? "lifecycle_interruption" :
+               std::strstr(id, "invalid_input") != nullptr ? "invalid_input_recovery" :
+                                                                  "runtime_reconfiguration";
+    cases.push_back(c);
+  }
+  return cases;
+}
+
+std::uint32_t CycleCount(const EosCase& c) { return c.sequence ? 24U : kNumCycles; }
+
+const char* PhaseFor(const EosCase& c, std::uint32_t cycle) {
+  if (!c.sequence) return "sweep";
+  if (cycle <= 8U) return "establish";
+  if (cycle <= 16U) return "transition";
+  return "recovery";
 }
 
 // =============================================================================
@@ -177,7 +215,8 @@ eos_session::EosTargetAppearance MakeAppearance(ContrastLevel c) {
   return a;
 }
 
-std::vector<eos_session::EosExternalTargetInput> MakeTargets(const EosCase& c) {
+std::vector<eos_session::EosExternalTargetInput> MakeTargets(const EosCase& c,
+                                                              std::uint32_t cycle_index) {
   std::vector<eos_session::EosExternalTargetInput> targets;
   eos_session::EosExternalTargetInput t;
   t.target_id = 101;
@@ -188,6 +227,15 @@ std::vector<eos_session::EosExternalTargetInput> MakeTargets(const EosCase& c) {
   t.kinematics.position_lla_deg_m.altitude_m = 0.0;
   t.appearance = MakeAppearance(c.contrast);
   targets.push_back(t);
+  if (c.sequence && c.scenario_id == "eos_seq_two_target_focal_crossing") {
+    const double delta = (12.5 - static_cast<double>(cycle_index)) * 0.00025;
+    targets[0].kinematics.position_lla_deg_m.longitude_deg = kBaseLon + delta;
+    eos_session::EosExternalTargetInput second = targets[0];
+    second.target_id = 102U;
+    second.kinematics.position_lla_deg_m.longitude_deg = kBaseLon - delta;
+    second.appearance = MakeAppearance(ContrastLevel::kMedium);
+    targets.push_back(second);
+  }
   return targets;
 }
 
@@ -224,15 +272,16 @@ eos_session::EosEnvironmentInput MakeEnvironment(LightingCondition l) {
 // =============================================================================
 
 constexpr const char* kCycleHeader =
-    "scenario_id,cycle_index,executed_this_cycle,has_validation_error,abort_reason,"
+    "scenario_id,suite,scenario_family,phase,cycle_index,executed_this_cycle,has_validation_error,abort_reason,"
     "scan_azimuth_deg,total_detection_count,detected_count,detection_rate,"
     "fused_snr_db_mean,fused_snr_db_p95,infrared_snr_linear_mean,visible_snr_linear_mean";
 
 constexpr const char* kScenarioHeader =
-    "scenario_id,target_lon_offset_deg,contrast,lighting,executed_cycles,"
+    "scenario_id,suite,scenario_family,target_lon_offset_deg,contrast,lighting,executed_cycles,"
     "steady_detection_rate_mean,steady_fused_snr_db_mean,steady_infrared_mean,"
     "steady_visible_mean,replay_ok,replay_compared,replay_divergence,warning_count,"
-    "error_count,warnings";
+    "error_count,expected_failure_count,contract_check_count,contract_failure_count,"
+    "failure_marker_count,warnings";
 
 // =============================================================================
 // 单场景执行
@@ -277,6 +326,8 @@ CycleMetrics ExtractCycleMetrics(const eos_session::EosCycleResult& r) {
 
 struct ScenarioSummary {
   std::string scenario_id;
+  std::string suite;
+  std::string scenario_family;
   double target_lon_offset_deg{0.0};
   std::string contrast;
   std::string lighting;
@@ -288,13 +339,20 @@ struct ScenarioSummary {
   bool replay_ok{false};
   std::uint64_t replay_compared{0};
   bool replay_divergence{false};
+  std::size_t expected_failure_count{0U};
+  std::size_t contract_check_count{0U};
+  std::size_t contract_failure_count{0U};
+  std::uint64_t failure_marker_count{0U};
   WarningCollector warnings;
 };
 
 ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionConfig& base_config,
-                               const std::string& output_dir, CsvWriter& cycle_writer) {
+                               const std::string& output_dir, CsvWriter& cycle_writer,
+                               ContractCheckCollector& checks) {
   ScenarioSummary s;
   s.scenario_id = c.scenario_id;
+  s.suite = c.sequence ? "sequence" : "sweep";
+  s.scenario_family = c.family;
   s.target_lon_offset_deg = c.target_lon_offset_deg;
   s.contrast = ContrastName(c.contrast);
   s.lighting = LightingName(c.lighting);
@@ -308,7 +366,14 @@ ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionCon
       trace_dir, ModuleName::kElectroOpticalSensor, kTraceId, c.scenario_id);
 
   std::vector<CycleMetrics> metrics;
-  metrics.reserve(kNumCycles);
+  const std::uint32_t cycle_count = CycleCount(c);
+  metrics.reserve(cycle_count);
+  std::size_t nonexecuted_count = 0U;
+  bool attribution_complete = true;
+  bool detection_ids_unique = true;
+  double establish_visible = 0.0;
+  double transition_visible = 0.0;
+  double recovery_ir = 0.0;
 
   {
     eos_session::EosTraceSessionOptions options;
@@ -316,11 +381,44 @@ ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionCon
     options.trace_config_on_construct = true;
     eos_session::EosTraceSession session(config, options);
 
-    for (std::uint32_t i = 0; i < kNumCycles; ++i) {
+    const char* previous_phase = nullptr;
+    for (std::uint32_t i = 0; i < cycle_count; ++i) {
       const std::uint32_t cycle_index = i + 1;
+      const char* phase = PhaseFor(c, cycle_index);
+      if (previous_phase == nullptr || std::strcmp(previous_phase, phase) != 0) {
+        std::fprintf(stderr, "  [phase] scenario=%s phase=%s cycle=%u\n",
+                     c.scenario_id.c_str(), phase, cycle_index);
+        previous_phase = phase;
+      }
+      if (c.scenario_id == "eos_seq_fused_ir_visible_fused" &&
+          (cycle_index == 9U || cycle_index == 13U || cycle_index == 17U)) {
+        eos_config::EosRuntimeConfigPatch patch;
+        patch.has_work_mode = true;
+        patch.work_mode = cycle_index == 9U ? eos_config::EosWorkMode::kInfraredOnly :
+                          cycle_index == 13U ? eos_config::EosWorkMode::kVisibleOnly :
+                                                eos_config::EosWorkMode::kFused;
+        session.ApplyRuntimeConfig(patch);
+      }
+      if (c.scenario_id == "eos_seq_sector_retask" && (cycle_index == 9U || cycle_index == 17U)) {
+        eos_config::EosRuntimeConfigPatch patch;
+        patch.has_scan_rate_deg_per_sec = true;
+        patch.scan_rate_deg_per_sec = cycle_index == 9U ? 35.0f : 12.0f;
+        session.ApplyRuntimeConfig(patch);
+      }
+      if (c.scenario_id == "eos_seq_power_cycle" && (cycle_index == 9U || cycle_index == 14U)) {
+        eos_config::EosRuntimeConfigPatch patch;
+        patch.has_sensor_enabled = true;
+        patch.sensor_enabled = cycle_index == 14U;
+        session.ApplyRuntimeConfig(patch);
+      }
       eos_session::EosExternalPoseInput platform = MakePlatform(cycle_index);
-      std::vector<eos_session::EosExternalTargetInput> targets = MakeTargets(c);
-      eos_session::EosEnvironmentInput env = MakeEnvironment(c.lighting);
+      std::vector<eos_session::EosExternalTargetInput> targets = MakeTargets(c, cycle_index);
+      LightingCondition lighting = c.lighting;
+      if (c.scenario_id == "eos_seq_day_twilight_night") {
+        lighting = cycle_index <= 8U ? LightingCondition::kDay :
+                   cycle_index <= 16U ? LightingCondition::kTwilight : LightingCondition::kNight;
+      }
+      eos_session::EosEnvironmentInput env = MakeEnvironment(lighting);
 
       eos_session::EosCycleInput input;
       eos_session::EosCoordinateStatus status;
@@ -330,19 +428,40 @@ ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionCon
         break;
       }
       input.cycle_index = cycle_index;
+      if (c.scenario_id == "eos_seq_invalid_input_recovery" && cycle_index == 9U) {
+        input.dt_sec = 0.0f;
+      } else if (c.scenario_id == "eos_seq_invalid_input_recovery" && cycle_index == 10U &&
+                 !input.scene.empty()) {
+        input.scene[0].appearance.emissivity = 1.5f;
+      }
 
       const eos_session::EosCycleResult result = session.StepWithResult(input);
+      if (!result.executed_this_cycle) ++nonexecuted_count;
+      if (result.executed_this_cycle) {
+        attribution_complete = attribution_complete &&
+                               result.detection_attributions.size() == result.output_frame.detections.size();
+        for (std::size_t a = 0; a < result.output_frame.detections.size(); ++a) {
+          for (std::size_t b = a + 1U; b < result.output_frame.detections.size(); ++b) {
+            if (result.output_frame.detections[a].detection_id ==
+                result.output_frame.detections[b].detection_id) detection_ids_unique = false;
+          }
+        }
+      }
       CycleMetrics m = ExtractCycleMetrics(result);
       metrics.push_back(m);
 
       const double det_rate =
           (m.total > 0) ? static_cast<double>(m.detected) / static_cast<double>(m.total) : 0.0;
       std::fprintf(cycle_writer.file(),
-                   "%s,%u,%d,%d,%d,%.3f,%zu,%zu,%.5f,%.5f,%.5f,%.5f,%.5f\n", c.scenario_id.c_str(),
-                   m.cycle_index, static_cast<int>(m.executed),
+                   "%s,%s,%s,%s,%u,%d,%d,%d,%.3f,%zu,%zu,%.5f,%.5f,%.5f,%.5f,%.5f\n",
+                   c.scenario_id.c_str(), c.sequence ? "sequence" : "sweep", c.family.c_str(),
+                   phase, m.cycle_index, static_cast<int>(m.executed),
                    static_cast<int>(m.has_validation_error), m.abort_reason,
                    static_cast<double>(m.scan_azimuth_deg), m.total, m.detected, det_rate,
                    m.fused_snr_db_mean, m.fused_snr_db_p95, m.infrared_mean, m.visible_mean);
+      if (cycle_index == 8U) establish_visible = m.visible_mean;
+      if (cycle_index == 16U) transition_visible = m.visible_mean;
+      if (cycle_index == 24U) recovery_ir = m.infrared_mean;
     }
     replay_writer->Flush();
   }
@@ -369,8 +488,41 @@ ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionCon
   s.replay_ok = replay.ok;
   s.replay_compared = replay.playback.compared_output_count;
   s.replay_divergence = replay.playback.divergence_found;
+  s.failure_marker_count = replay.playback.failure_marker_count;
   if (!replay.ok || replay.playback.divergence_found) {
     s.warnings.Error("replay failed: " + replay.first_error);
+  }
+  if (replay.playback.compared_output_count != metrics.size()) {
+    s.warnings.Error("replay output count does not equal Step count");
+  }
+
+  if (c.sequence) {
+    const std::size_t expected_nonexecuted =
+        c.scenario_id == "eos_seq_power_cycle" ? 5U :
+        c.scenario_id == "eos_seq_invalid_input_recovery" ? 2U : 0U;
+    s.expected_failure_count = c.scenario_id == "eos_seq_invalid_input_recovery" ? 2U : 0U;
+    checks.Add(c.scenario_id, "replay", cycle_count, "replay_complete",
+               std::to_string(metrics.size()), std::to_string(s.replay_compared),
+               replay.ok && !s.replay_divergence && s.replay_compared == metrics.size());
+    checks.Add(c.scenario_id, "recovery", cycle_count, "expected_nonexecuted_cycles",
+               std::to_string(expected_nonexecuted), std::to_string(nonexecuted_count),
+               expected_nonexecuted == nonexecuted_count);
+    const std::uint64_t expected_markers =
+        c.scenario_id == "eos_seq_invalid_input_recovery" ? 2U : 0U;
+    checks.Add(c.scenario_id, "replay", cycle_count, "failure_marker_count",
+               std::to_string(expected_markers), std::to_string(s.failure_marker_count),
+               expected_markers == s.failure_marker_count);
+    checks.Add(c.scenario_id, "recovery", cycle_count, "attribution_complete", "complete",
+               attribution_complete ? "complete" : "incomplete", attribution_complete);
+    checks.Add(c.scenario_id, "recovery", cycle_count, "detection_ids_unique", "unique",
+               detection_ids_unique ? "unique" : "duplicate", detection_ids_unique);
+    if (c.scenario_id == "eos_seq_day_twilight_night") {
+      checks.Add(c.scenario_id, "transition", 16U, "visible_light_declines", "night<day",
+                 std::to_string(transition_visible) + "<" + std::to_string(establish_visible),
+                 transition_visible <= establish_visible, Severity::kWarning);
+      checks.Add(c.scenario_id, "recovery", 24U, "infrared_remains_finite", "finite",
+                 std::to_string(recovery_ir), std::isfinite(recovery_ir), Severity::kWarning);
+    }
   }
 
   // 软断言
@@ -397,7 +549,7 @@ ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionCon
       ReplayCheckResult{replay.ok, replay.playback.divergence_found,
                         replay.playback.compared_output_count, replay.playback.applied_input_count,
                         replay.reached_failure_marker, replay.first_error},
-      s.executed_cycles);
+      metrics.size());
   s.warnings.DumpToStderr(c.scenario_id + ": ");
   return s;
 }
@@ -429,11 +581,38 @@ void CheckCrossScenarioTrends(std::vector<ScenarioSummary>& summaries) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  const std::string output_dir = (argc > 1) ? argv[1] : kDefaultOutputDir;
+  batch_validation::BatchCliOptions cli;
+  std::string cli_error;
+  if (!batch_validation::ParseBatchCli(argc, argv, kDefaultOutputDir, &cli, &cli_error)) {
+    std::fprintf(stderr, "FATAL: %s\n", cli_error.c_str());
+    batch_validation::PrintBatchUsage(argv[0]);
+    return 1;
+  }
+  const std::string output_dir = cli.output_dir;
   const std::string config_path = BATCH_CONFIG_DIR "/electro_optical.json";
 
   std::fprintf(stderr, "=== EOS 批量场景验证 ===\n");
   std::fprintf(stderr, "  配置: %s\n  输出: %s\n", config_path.c_str(), output_dir.c_str());
+
+  std::vector<EosCase> cases;
+  if (batch_validation::IncludesSweep(cli.suite)) cases = BuildEosCases();
+  if (batch_validation::IncludesSequence(cli.suite)) {
+    const std::vector<EosCase> sequences = BuildEosSequenceCases();
+    cases.insert(cases.end(), sequences.begin(), sequences.end());
+  }
+  if (cli.list_scenarios) {
+    for (const EosCase& c : cases) std::printf("%s\n", c.scenario_id.c_str());
+    return 0;
+  }
+  if (!cli.scenario_id.empty()) {
+    cases.erase(std::remove_if(cases.begin(), cases.end(), [&](const EosCase& c) {
+                  return c.scenario_id != cli.scenario_id;
+                }), cases.end());
+  }
+  if (cases.empty()) {
+    std::fprintf(stderr, "FATAL: no scenario matched\n");
+    return 1;
+  }
 
   eos_config::EosSessionConfig base_config;
   std::string load_error;
@@ -453,14 +632,23 @@ int main(int argc, char** argv) {
   CsvWriter cycle_writer(cycles_csv, kCycleHeader);
   CsvWriter scenario_writer(scenarios_csv, kScenarioHeader);
 
-  std::vector<EosCase> cases = BuildEosCases();
   std::vector<ScenarioSummary> summaries;
+  ContractCheckCollector checks;
   summaries.reserve(cases.size());
   std::fprintf(stderr, "  场景数: %zu\n", cases.size());
 
   for (std::size_t i = 0; i < cases.size(); ++i) {
     std::fprintf(stderr, "[%zu/%zu] %s\n", i + 1, cases.size(), cases[i].scenario_id.c_str());
-    summaries.push_back(RunEosScenario(cases[i], base_config, output_dir, cycle_writer));
+    std::fprintf(stderr, "  [scenario] id=%s suite=%s family=%s\n", cases[i].scenario_id.c_str(),
+                 cases[i].sequence ? "sequence" : "sweep", cases[i].family.c_str());
+    const std::size_t check_begin = checks.size();
+    summaries.push_back(RunEosScenario(cases[i], base_config, output_dir, cycle_writer, checks));
+    summaries.back().contract_check_count = checks.size() - check_begin;
+    for (std::size_t j = check_begin; j < checks.checks().size(); ++j) {
+      if (!checks.checks()[j].passed && checks.checks()[j].severity == Severity::kError) {
+        ++summaries.back().contract_failure_count;
+      }
+    }
     cycle_writer.Flush();
   }
 
@@ -472,23 +660,28 @@ int main(int argc, char** argv) {
                  "executed=%u/%u detection_rate=%.4f fused_snr_db=%.4f infrared=%.4f "
                  "visible=%.4f replay_ok=%d compared=%llu divergence=%d warn=%zu error=%zu\n",
                  s.scenario_id.c_str(), s.target_lon_offset_deg, s.contrast.c_str(),
-                 s.lighting.c_str(), s.executed_cycles, kNumCycles,
+                 s.lighting.c_str(), s.executed_cycles,
+                 s.suite == "sequence" ? 24U : kNumCycles,
                  s.steady_detection_rate_mean, s.steady_fused_snr_db_mean,
                  s.steady_infrared_mean, s.steady_visible_mean, static_cast<int>(s.replay_ok),
                  static_cast<unsigned long long>(s.replay_compared),
                  static_cast<int>(s.replay_divergence),
                  s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError));
     std::fprintf(scenario_writer.file(),
-                 "%s,%.4f,%s,%s,%u,%.4f,%.4f,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%s\n",
-                 s.scenario_id.c_str(), s.target_lon_offset_deg, s.contrast.c_str(),
+                 "%s,%s,%s,%.4f,%s,%s,%u,%.4f,%.4f,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%zu,%zu,%zu,%llu,%s\n",
+                 s.scenario_id.c_str(), s.suite.c_str(), s.scenario_family.c_str(),
+                 s.target_lon_offset_deg, s.contrast.c_str(),
                  s.lighting.c_str(), s.executed_cycles, s.steady_detection_rate_mean,
                  s.steady_fused_snr_db_mean, s.steady_infrared_mean, s.steady_visible_mean,
                  static_cast<int>(s.replay_ok), static_cast<unsigned long long>(s.replay_compared),
                  static_cast<int>(s.replay_divergence), s.warnings.Count(Severity::kWarning),
-                 s.warnings.Count(Severity::kError),
+                 s.warnings.Count(Severity::kError), s.expected_failure_count,
+                 s.contract_check_count, s.contract_failure_count,
+                 static_cast<unsigned long long>(s.failure_marker_count),
                  batch_validation::EscapeCsvField(s.warnings.JoinForCsv()).c_str());
   }
   scenario_writer.Flush();
+  checks.WriteCsv(output_dir + "/checks.csv");
 
   std::size_t total_warn = 0, total_err = 0, replay_fail = 0;
   for (const auto& s : summaries) {
@@ -502,5 +695,5 @@ int main(int argc, char** argv) {
   std::fprintf(stderr, "  软断言 warning: %zu, error: %zu\n", total_warn, total_err);
   std::fprintf(stderr, "  回放失败场景: %zu\n", replay_fail);
   std::fprintf(stderr, "  trace 目录: %s/traces/<scenario_id>/\n", output_dir.c_str());
-  return (replay_fail > 0 || total_err > 0) ? 2 : 0;
+  return (replay_fail > 0 || total_err > 0 || checks.FailureCount() > 0U) ? 2 : 0;
 }
