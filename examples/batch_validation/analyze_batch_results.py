@@ -3,7 +3,8 @@
 
 读取五个模块（AR/EOS/ESR/SAR/SBIRS）各自 scenarios.csv 汇总文件，打印：
   - 每模块的场景汇总表（关键参数 → 关键指标）。
-  - 高亮回放分叉场景（replay_ok=0）与软断言告警（warning_count/error_count > 0）。
+  - 将回放分叉、契约失败和结构化 failure marker 检查失败作为硬失败。
+  - 高亮物理趋势软断言告警（warning_count > 0）。
   - 关键物理趋势的单调性检查（带宽↑→距离分辨率↓、对比度↑→检出率↑ 等）。
   - 若 matplotlib 可用，为每个模块生成一张趋势 PNG（失败优雅降级）。
 
@@ -80,15 +81,17 @@ def fmt(v, width=10, prec=4):
 
 
 def analyze_module(module_dir, display_name):
-    """分析单个模块的 scenarios.csv，返回是否有问题（用于退出码）。"""
+    """分析模块的场景与结构化检查，返回是否存在硬失败。"""
     csv_path = os.path.join(module_dir, "scenarios.csv")
     fields, rows = read_csv(csv_path)
     if rows is None:
-        print(colored(f"  [跳过] {display_name}: 未找到 {csv_path}", YELLOW))
-        return False
+        print(colored(f"  [失败] {display_name}: 未找到 {csv_path}", RED))
+        return True
 
     has_problem = False
     replay_fail = 0
+    contract_fail = 0
+    marker_total = 0
     warn_scenarios = []
     err_scenarios = []
 
@@ -96,11 +99,16 @@ def analyze_module(module_dir, display_name):
         replay_ok = to_int(r.get("replay_ok", "1"))
         warn_cnt = to_int(r.get("warning_count", "0"))
         err_cnt = to_int(r.get("error_count", "0"))
+        contract_cnt = to_int(r.get("contract_failure_count", "0"))
+        actual_markers = to_int(r.get("failure_marker_count", "0"))
         sid = r.get("scenario_id", "?")
         if replay_ok == 0:
             replay_fail += 1
-            # 回放分叉记为 warning 级提示，不计入 has_problem（属模块确定性属性，
-            # 与各模块 C++ 程序的退出逻辑一致：只有 error 才阻塞）。
+            has_problem = True
+        if contract_cnt > 0:
+            contract_fail += contract_cnt
+            has_problem = True
+        marker_total += actual_markers
         if warn_cnt > 0:
             warn_scenarios.append((sid, warn_cnt, r.get("warnings", "")))
         if err_cnt > 0:
@@ -109,6 +117,8 @@ def analyze_module(module_dir, display_name):
 
     print(f"\n  场景总数: {len(rows)}")
     print(f"  回放分叉场景: {replay_fail}")
+    print(f"  契约检查失败数: {contract_fail}")
+    print(f"  failure marker 总数: {marker_total}")
     print(f"  软断言 warning 场景: {len(warn_scenarios)}")
     print(f"  软断言 error   场景: {len(err_scenarios)}")
 
@@ -120,6 +130,49 @@ def analyze_module(module_dir, display_name):
         print(colored("\n  [warning 场景详情]", YELLOW))
         for sid, cnt, msg in warn_scenarios[:10]:
             print(f"    {sid} (warn={cnt}): {msg[:120]}")
+
+    checks_path = os.path.join(module_dir, "checks.csv")
+    _, checks = read_csv(checks_path)
+    has_sequence = any(r.get("suite") == "sequence" for r in rows)
+    if checks is None:
+        if has_sequence:
+            print(colored(f"\n  [失败] sequence 结果缺少 {checks_path}", RED))
+            has_problem = True
+    else:
+        hard_check_failures = [
+            check for check in checks
+            if to_int(check.get("passed", "0")) == 0 and check.get("severity") == "error"
+        ]
+        print(f"  结构化检查数: {len(checks)}")
+        print(f"  结构化硬失败数: {len(hard_check_failures)}")
+        checks_by_scenario = {}
+        failures_by_scenario = {}
+        for check in checks:
+            sid = check.get("scenario_id", "?")
+            checks_by_scenario[sid] = checks_by_scenario.get(sid, 0) + 1
+            if to_int(check.get("passed", "0")) == 0 and check.get("severity") == "error":
+                failures_by_scenario[sid] = failures_by_scenario.get(sid, 0) + 1
+        summary_mismatches = []
+        for row in rows:
+            if row.get("suite") != "sequence":
+                continue
+            sid = row.get("scenario_id", "?")
+            expected_counts = (to_int(row.get("contract_check_count", "0")),
+                               to_int(row.get("contract_failure_count", "0")))
+            actual_counts = (checks_by_scenario.get(sid, 0), failures_by_scenario.get(sid, 0))
+            if expected_counts != actual_counts:
+                summary_mismatches.append((sid, expected_counts, actual_counts))
+        if summary_mismatches:
+            has_problem = True
+            print(colored("\n  [检查汇总不一致]", RED))
+            for sid, expected, actual in summary_mismatches[:10]:
+                print(f"    {sid}: summary={expected}, checks.csv={actual}")
+        if hard_check_failures:
+            has_problem = True
+            print(colored("\n  [结构化检查失败]", RED))
+            for check in hard_check_failures[:10]:
+                print(f"    {check.get('scenario_id', '?')}:{check.get('check_id', '?')} "
+                      f"expected={check.get('expected', '')} actual={check.get('actual', '')}")
 
     # 模块特化的趋势摘要。
     print_module_trend(module_dir, display_name, rows)
@@ -241,10 +294,10 @@ def main():
 
     print_header("总结")
     if any_problem:
-        print(colored("  存在 error 场景，请查看上方详情。", RED))
+        print(colored("  存在契约、回放或 error 场景失败，请查看上方详情。", RED))
     else:
-        print(colored("  所有模块：无 error 场景。", GREEN))
-    print(colored("  注：回放分叉（如有）记为 warning，属模块确定性属性，不视为失败。", YELLOW))
+        print(colored("  所有模块：契约、回放和结构化检查均通过。", GREEN))
+    print(colored("  注：物理趋势偏差保留为 warning，不改变退出码。", YELLOW))
 
     try_plot(base_dir)
     return 1 if any_problem else 0

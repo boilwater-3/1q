@@ -28,6 +28,15 @@ TEST(BatchValidationSupportTest, RejectsPositionalAndUnknownArguments) {
   EXPECT_NE(error.find("unknown argument"), std::string::npos);
 }
 
+TEST(BatchValidationSupportTest, FiltersSweepAndSequenceSuitesExplicitly) {
+  EXPECT_TRUE(batch_validation::IncludesSweep(batch_validation::ScenarioSuite::kSweep));
+  EXPECT_FALSE(batch_validation::IncludesSequence(batch_validation::ScenarioSuite::kSweep));
+  EXPECT_FALSE(batch_validation::IncludesSweep(batch_validation::ScenarioSuite::kSequence));
+  EXPECT_TRUE(batch_validation::IncludesSequence(batch_validation::ScenarioSuite::kSequence));
+  EXPECT_TRUE(batch_validation::IncludesSweep(batch_validation::ScenarioSuite::kAll));
+  EXPECT_TRUE(batch_validation::IncludesSequence(batch_validation::ScenarioSuite::kAll));
+}
+
 TEST(BatchValidationSupportTest, CountsOnlyFailedChecksAtRequestedSeverity) {
   batch_validation::ContractCheckCollector checks;
   checks.Add("s", "phase", 1U, "pass", "1", "1", true);

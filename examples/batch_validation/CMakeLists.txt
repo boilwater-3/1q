@@ -52,3 +52,21 @@ add_executable(sbirs_batch_validation sbirs_batch_validation.cpp)
 target_link_libraries(sbirs_batch_validation PRIVATE ${PROJECT_ALIAS})
 target_include_directories(sbirs_batch_validation PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}")
+
+if(BUILD_TESTING)
+    function(oneq_add_batch_sequence_test domain target)
+        add_test(NAME "batch_validation::${domain}"
+            COMMAND $<TARGET_FILE:${target}>
+                --suite sequence
+                --output-dir "${CMAKE_BINARY_DIR}/batch_validation/${domain}")
+        set_tests_properties("batch_validation::${domain}" PROPERTIES
+            LABELS "batch_validation;${domain}"
+            TIMEOUT 120)
+    endfunction()
+
+    oneq_add_batch_sequence_test(airborne_radar ar_batch_validation)
+    oneq_add_batch_sequence_test(electro_optical_sensor eos_batch_validation)
+    oneq_add_batch_sequence_test(electronic_surveillance_radar esr_batch_validation)
+    oneq_add_batch_sequence_test(sar sar_batch_validation)
+    oneq_add_batch_sequence_test(sbirs_sensor sbirs_batch_validation)
+endif()
