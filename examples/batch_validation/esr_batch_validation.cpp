@@ -11,7 +11,8 @@
  *   - 每场景录制可回放 trace，用 ReplayEsrTrace 做确定性回归。
  *
  * @par 运行方式
- *   ./esr_batch_validation [output_dir]
+ *   ./esr_batch_validation [--suite sweep|sequence|all] [--scenario ID]
+ *                          [--output-dir PATH] [--list-scenarios]
  *   默认输出 /tmp/1q/batch_validation/electronic_surveillance_radar/
  */
 
@@ -26,6 +27,7 @@
 
 #include "1q/coordinate/types.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
+#include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
@@ -34,6 +36,8 @@
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 
 #include "batch_assertions.h"
+#include "batch_checks.h"
+#include "batch_cli.h"
 #include "batch_csv_writer.h"
 #include "batch_replay.h"
 #include "config_loader.h"
@@ -42,6 +46,7 @@ namespace esr = electronic_surveillance_radar;
 namespace esr_config = electronic_surveillance_radar::config;
 namespace esr_session = electronic_surveillance_radar::session;
 using batch_validation::CsvWriter;
+using batch_validation::ContractCheckCollector;
 using batch_validation::ModuleName;
 using batch_validation::ReplayCheckResult;
 using batch_validation::Severity;
@@ -67,6 +72,8 @@ struct EsrCase {
   double emitter_range_km;    ///< 辐射源相对平台的初始斜距（km）
   double carrier_ghz;          ///< 辐射源载频（GHz）
   float spectrum_occupancy;    ///< 频谱占用率 [0,1]（影响干扰）
+  bool sequence{false};
+  std::string family{"parameter_sweep"};
 };
 
 std::vector<EsrCase> BuildEsrCases() {
@@ -93,6 +100,47 @@ std::vector<EsrCase> BuildEsrCases() {
   return cases;
 }
 
+std::vector<EsrCase> BuildEsrSequenceCases() {
+  const char* ids[] = {"esr_seq_two_emitter_angular_crossing",
+                       "esr_seq_dense_emitters_with_silence", "esr_seq_mode_switch",
+                       "esr_seq_scan_bounds_retask", "esr_seq_power_cycle",
+                       "esr_seq_invalid_input_recovery"};
+  std::vector<EsrCase> cases;
+  for (const char* id : ids) {
+    EsrCase c;
+    c.scenario_id = id;
+    c.emitter_range_km = 30.0;
+    c.carrier_ghz = 8.0;
+    c.spectrum_occupancy = 0.1f;
+    c.sequence = true;
+    c.family = std::strstr(id, "crossing") != nullptr ? "multi_emitter_association" :
+               std::strstr(id, "silence") != nullptr ? "emitter_lifecycle" :
+               std::strstr(id, "power") != nullptr ? "lifecycle_interruption" :
+               std::strstr(id, "invalid_input") != nullptr ? "invalid_input_recovery" :
+                                                                  "runtime_reconfiguration";
+    cases.push_back(c);
+  }
+  return cases;
+}
+
+std::uint32_t CycleCount(const EsrCase& c) { return c.sequence ? 24U : kNumCycles; }
+
+const char* PhaseFor(const EsrCase& c, std::uint32_t cycle) {
+  if (!c.sequence) return "sweep";
+  if (cycle <= 8U) return "establish";
+  if (cycle <= 16U) return "transition";
+  return "recovery";
+}
+
+std::string JoinIds(const std::vector<std::uint64_t>& ids) {
+  std::string text;
+  for (std::uint64_t id : ids) {
+    if (!text.empty()) text += ":";
+    text += std::to_string(id);
+  }
+  return text;
+}
+
 // =============================================================================
 // 输入构造
 // =============================================================================
@@ -110,7 +158,8 @@ esr_session::EsrExternalPoseInput MakePlatform(std::uint32_t cycle_index) {
   return p;
 }
 
-std::vector<esr_session::EsrExternalEmitterInput> MakeEmitters(const EsrCase& c) {
+std::vector<esr_session::EsrExternalEmitterInput> MakeEmitters(const EsrCase& c,
+                                                               std::uint32_t cycle_index) {
   std::vector<esr_session::EsrExternalEmitterInput> emitters;
   esr_session::EsrExternalEmitterInput e;
   e.emitter_id = 2001;
@@ -127,6 +176,26 @@ std::vector<esr_session::EsrExternalEmitterInput> MakeEmitters(const EsrCase& c)
   e.pri_s = 1.0e-4;             // 0.1 ms（10 kHz PRF，与 demo 一致）
   e.is_emitting = true;
   emitters.push_back(e);
+  if (c.sequence && (c.scenario_id.find("crossing") != std::string::npos ||
+                     c.scenario_id.find("dense_emitters") != std::string::npos)) {
+    const int count = c.scenario_id.find("dense_emitters") != std::string::npos ? 3 : 2;
+    emitters.clear();
+    for (int i = 0; i < count; ++i) {
+      esr_session::EsrExternalEmitterInput item = e;
+      item.emitter_id = 2001U + static_cast<std::uint64_t>(i);
+      item.carrier_hz += static_cast<double>(i) * 5.0e6;
+      const double crossing_step_m = 120.0;
+      const double crossing_offset =
+          (i == 0 ? -1.0 : i == 1 ? 1.0 : 0.35) *
+          (12.5 - static_cast<double>(cycle_index)) * crossing_step_m;
+      item.kinematics.position_ecef_m.x_m += crossing_offset;
+      if (c.scenario_id.find("dense_emitters") != std::string::npos && i == 1 &&
+          cycle_index >= 9U && cycle_index <= 12U) {
+        item.is_emitting = false;
+      }
+      emitters.push_back(item);
+    }
+  }
   return emitters;
 }
 
@@ -143,16 +212,17 @@ esr_session::EsrEnvironmentInput MakeEnvironment(float spectrum_occupancy) {
 // =============================================================================
 
 constexpr const char* kCycleHeader =
-    "scenario_id,cycle_index,executed_this_cycle,has_validation_error,abort_reason,"
+    "scenario_id,suite,scenario_family,phase,cycle_index,executed_this_cycle,has_validation_error,abort_reason,"
     "raw_observation_count,cluster_count,obs_jammed_count,obs_snr_db_mean,"
     "hypothesis_count,hypothesis_confidence_mean,hypothesis_confidence_p95,"
     "truth_matched_count,truth_total_count,truth_match_rate";
 
 constexpr const char* kScenarioHeader =
-    "scenario_id,emitter_range_km,carrier_ghz,spectrum_occupancy,executed_cycles,"
+    "scenario_id,suite,scenario_family,emitter_range_km,carrier_ghz,spectrum_occupancy,executed_cycles,"
     "steady_obs_count_mean,steady_hyp_confidence_mean,steady_truth_match_rate_mean,"
     "steady_jammed_mean,replay_ok,replay_compared,replay_divergence,warning_count,"
-    "error_count,warnings";
+    "error_count,expected_failure_count,contract_check_count,contract_failure_count,"
+    "failure_marker_count,warnings";
 
 // =============================================================================
 // 单场景执行
@@ -212,6 +282,8 @@ CycleMetrics ExtractCycleMetrics(const esr_session::EsrCycleResult& r) {
 
 struct ScenarioSummary {
   std::string scenario_id;
+  std::string suite;
+  std::string scenario_family;
   double emitter_range_km{0.0};
   double carrier_ghz{0.0};
   double spectrum_occupancy{0.0};
@@ -223,13 +295,20 @@ struct ScenarioSummary {
   bool replay_ok{false};
   std::uint64_t replay_compared{0};
   bool replay_divergence{false};
+  std::size_t expected_failure_count{0U};
+  std::size_t contract_check_count{0U};
+  std::size_t contract_failure_count{0U};
+  std::uint64_t failure_marker_count{0U};
   WarningCollector warnings;
 };
 
 ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionConfig& base_config,
-                               const std::string& output_dir, CsvWriter& cycle_writer) {
+                               const std::string& output_dir, CsvWriter& cycle_writer,
+                               ContractCheckCollector& checks) {
   ScenarioSummary s;
   s.scenario_id = c.scenario_id;
+  s.suite = c.sequence ? "sequence" : "sweep";
+  s.scenario_family = c.family;
   s.emitter_range_km = c.emitter_range_km;
   s.carrier_ghz = c.carrier_ghz;
   s.spectrum_occupancy = static_cast<double>(c.spectrum_occupancy);
@@ -242,7 +321,12 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
       trace_dir, ModuleName::kElectronicSurveillanceRadar, kTraceId, c.scenario_id);
 
   std::vector<CycleMetrics> metrics;
-  metrics.reserve(kNumCycles);
+  const std::uint32_t cycle_count = CycleCount(c);
+  metrics.reserve(cycle_count);
+  std::size_t nonexecuted_count = 0U;
+  bool invalid_bounds_rejected = false;
+  std::vector<std::uint64_t> established_ids;
+  std::vector<std::uint64_t> recovered_ids;
 
   {
     esr_session::EsrTraceSessionOptions options;
@@ -250,10 +334,58 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
     options.trace_config_on_construct = true;
     esr_session::EsrTraceSession session(config, options);
 
-    for (std::uint32_t i = 0; i < kNumCycles; ++i) {
+    const char* previous_phase = nullptr;
+    for (std::uint32_t i = 0; i < cycle_count; ++i) {
       const std::uint32_t cycle_index = i + 1;
+      const char* phase = PhaseFor(c, cycle_index);
+      if (previous_phase == nullptr || std::strcmp(previous_phase, phase) != 0) {
+        std::fprintf(stderr, "  [phase] scenario=%s phase=%s cycle=%u\n",
+                     c.scenario_id.c_str(), phase, cycle_index);
+        previous_phase = phase;
+      }
+      if (c.scenario_id == "esr_seq_mode_switch" && (cycle_index == 9U || cycle_index == 17U)) {
+        esr_config::EsrRuntimeConfigPatch patch;
+        patch.has_work_mode = true;
+        patch.work_mode = cycle_index == 9U ? esr_config::EsrWorkMode::kRwr
+                                            : esr_config::EsrWorkMode::kHgesm;
+        session.ApplyRuntimeConfig(patch);
+      }
+      if (c.scenario_id == "esr_seq_scan_bounds_retask" && cycle_index == 9U) {
+        esr_config::EsrRuntimeConfigPatch patch;
+        patch.has_scan_center_az_deg = true;
+        patch.scan_center_az_deg = 20.0f;
+        patch.has_explicit_scan_bounds = true;
+        patch.explicit_scan_bounds.enabled = true;
+        patch.explicit_scan_bounds.scan_start_az_deg = 30.0f;
+        patch.explicit_scan_bounds.scan_end_az_deg = -30.0f;
+        patch.explicit_scan_bounds.scan_start_el_deg = -5.0f;
+        patch.explicit_scan_bounds.scan_end_el_deg = 5.0f;
+        invalid_bounds_rejected = !session.session().TryApplyRuntimeConfig(patch);
+      } else if (c.scenario_id == "esr_seq_scan_bounds_retask" && cycle_index == 10U) {
+        esr_config::EsrRuntimeConfigPatch patch;
+        patch.has_explicit_scan_bounds = true;
+        patch.explicit_scan_bounds.enabled = true;
+        patch.explicit_scan_bounds.scan_start_az_deg = -20.0f;
+        patch.explicit_scan_bounds.scan_end_az_deg = 20.0f;
+        patch.explicit_scan_bounds.scan_start_el_deg = -5.0f;
+        patch.explicit_scan_bounds.scan_end_el_deg = 5.0f;
+        session.ApplyRuntimeConfig(patch);
+      } else if (c.scenario_id == "esr_seq_scan_bounds_retask" && cycle_index == 17U) {
+        esr_config::EsrRuntimeConfigPatch patch;
+        patch.has_scan_center_az_deg = true;
+        patch.scan_center_az_deg = 0.0f;
+        patch.has_explicit_scan_bounds = true;
+        patch.explicit_scan_bounds.enabled = false;
+        session.ApplyRuntimeConfig(patch);
+      }
+      if (c.scenario_id == "esr_seq_power_cycle" && (cycle_index == 9U || cycle_index == 14U)) {
+        esr_config::EsrRuntimeConfigPatch patch;
+        patch.has_sensor_enabled = true;
+        patch.sensor_enabled = cycle_index == 14U;
+        session.ApplyRuntimeConfig(patch);
+      }
       esr_session::EsrExternalPoseInput platform = MakePlatform(cycle_index);
-      std::vector<esr_session::EsrExternalEmitterInput> emitters = MakeEmitters(c);
+      std::vector<esr_session::EsrExternalEmitterInput> emitters = MakeEmitters(c, cycle_index);
       esr_session::EsrEnvironmentInput env = MakeEnvironment(c.spectrum_occupancy);
 
       esr_session::EsrCycleInput input;
@@ -264,14 +396,29 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
         break;
       }
       input.cycle_index = cycle_index;
+      if (c.scenario_id == "esr_seq_invalid_input_recovery" && cycle_index == 9U) {
+        input.dt_sec = 0.0f;
+      } else if (c.scenario_id == "esr_seq_invalid_input_recovery" && cycle_index == 10U &&
+                 !input.scene.empty()) {
+        input.scene[0].pri_s = input.scene[0].pulse_width_s * 0.5f;
+      }
 
       const esr_session::EsrCycleResult result = session.StepWithResult(input);
+      if (!result.executed_this_cycle) ++nonexecuted_count;
+      if (cycle_index == 8U || cycle_index == 24U) {
+        std::vector<std::uint64_t>& ids = cycle_index == 8U ? established_ids : recovered_ids;
+        for (const auto& hypothesis : result.output_frame.emitter_output.hypotheses) {
+          ids.push_back(hypothesis.hypothesis_id);
+        }
+        std::sort(ids.begin(), ids.end());
+      }
       CycleMetrics m = ExtractCycleMetrics(result);
       metrics.push_back(m);
 
       std::fprintf(cycle_writer.file(),
-                   "%s,%u,%d,%d,%d,%zu,%zu,%zu,%.5f,%zu,%.5f,%.5f,%zu,%zu,%.5f\n",
-                   c.scenario_id.c_str(), m.cycle_index, static_cast<int>(m.executed),
+                   "%s,%s,%s,%s,%u,%d,%d,%d,%zu,%zu,%zu,%.5f,%zu,%.5f,%.5f,%zu,%zu,%.5f\n",
+                   c.scenario_id.c_str(), c.sequence ? "sequence" : "sweep", c.family.c_str(),
+                   phase, m.cycle_index, static_cast<int>(m.executed),
                    static_cast<int>(m.has_validation_error), m.abort_reason, m.raw_obs, m.cluster,
                    m.jammed, m.obs_snr_mean, m.hyp_count, m.hyp_conf_mean, m.hyp_conf_p95,
                    m.truth_matched, m.truth_total, m.truth_match_rate);
@@ -299,11 +446,42 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
   s.replay_ok = replay.ok;
   s.replay_compared = replay.playback.compared_output_count;
   s.replay_divergence = replay.playback.divergence_found;
-  // 回放分叉记为 warning（非 error）：ESR 在近距离 + 高功率边界场景下，
-  // 观测时间戳等字段可能在逐字段严格比较下产生确定性漂移。这是模块确定性属性，
-  // 应被记录与高亮，但不阻塞批量运行。
+  s.failure_marker_count = replay.playback.failure_marker_count;
   if (!replay.ok || replay.playback.divergence_found) {
-    s.warnings.Warn("replay divergence: " + replay.first_error);
+    s.warnings.Error("replay divergence: " + replay.first_error);
+  }
+  if (replay.playback.compared_output_count != metrics.size()) {
+    s.warnings.Error("replay output count does not equal Step count");
+  }
+
+  if (c.sequence) {
+    const std::size_t expected_nonexecuted =
+        c.scenario_id == "esr_seq_power_cycle" ? 5U :
+        c.scenario_id == "esr_seq_invalid_input_recovery" ? 2U : 0U;
+    s.expected_failure_count = c.scenario_id == "esr_seq_invalid_input_recovery" ? 2U :
+                               c.scenario_id == "esr_seq_scan_bounds_retask" ? 1U : 0U;
+    checks.Add(c.scenario_id, "replay", cycle_count, "replay_complete",
+               std::to_string(metrics.size()), std::to_string(s.replay_compared),
+               replay.ok && !s.replay_divergence && s.replay_compared == metrics.size());
+    checks.Add(c.scenario_id, "recovery", cycle_count, "expected_nonexecuted_cycles",
+               std::to_string(expected_nonexecuted), std::to_string(nonexecuted_count),
+               expected_nonexecuted == nonexecuted_count);
+    const std::uint64_t expected_markers =
+        c.scenario_id == "esr_seq_invalid_input_recovery" ? 2U : 0U;
+    checks.Add(c.scenario_id, "replay", cycle_count, "failure_marker_count",
+               std::to_string(expected_markers), std::to_string(s.failure_marker_count),
+               expected_markers == s.failure_marker_count);
+    if (c.scenario_id == "esr_seq_scan_bounds_retask") {
+      checks.Add(c.scenario_id, "transition", 9U, "invalid_bounds_atomic_rejection", "rejected",
+                 invalid_bounds_rejected ? "rejected" : "accepted", invalid_bounds_rejected);
+    }
+    if (c.scenario_id == "esr_seq_two_emitter_angular_crossing" ||
+        c.scenario_id == "esr_seq_power_cycle" ||
+        c.scenario_id == "esr_seq_invalid_input_recovery") {
+      checks.Add(c.scenario_id, "recovery", cycle_count, "hypothesis_identity_continuity",
+                 JoinIds(established_ids), JoinIds(recovered_ids),
+                 !established_ids.empty() && established_ids == recovered_ids);
+    }
   }
 
   // 软断言
@@ -327,7 +505,7 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
       ReplayCheckResult{replay.ok, replay.playback.divergence_found,
                         replay.playback.compared_output_count, replay.playback.applied_input_count,
                         replay.reached_failure_marker, replay.first_error},
-      s.executed_cycles);
+      metrics.size());
   s.warnings.DumpToStderr(c.scenario_id + ": ");
   return s;
 }
@@ -376,11 +554,38 @@ void CheckCrossScenarioTrends(std::vector<ScenarioSummary>& summaries) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  const std::string output_dir = (argc > 1) ? argv[1] : kDefaultOutputDir;
+  batch_validation::BatchCliOptions cli;
+  std::string cli_error;
+  if (!batch_validation::ParseBatchCli(argc, argv, kDefaultOutputDir, &cli, &cli_error)) {
+    std::fprintf(stderr, "FATAL: %s\n", cli_error.c_str());
+    batch_validation::PrintBatchUsage(argv[0]);
+    return 1;
+  }
+  const std::string output_dir = cli.output_dir;
   const std::string config_path = BATCH_CONFIG_DIR "/electronic_warfare.json";
 
   std::fprintf(stderr, "=== ESR 批量场景验证 ===\n");
   std::fprintf(stderr, "  配置: %s\n  输出: %s\n", config_path.c_str(), output_dir.c_str());
+
+  std::vector<EsrCase> cases;
+  if (batch_validation::IncludesSweep(cli.suite)) cases = BuildEsrCases();
+  if (batch_validation::IncludesSequence(cli.suite)) {
+    const std::vector<EsrCase> sequences = BuildEsrSequenceCases();
+    cases.insert(cases.end(), sequences.begin(), sequences.end());
+  }
+  if (cli.list_scenarios) {
+    for (const EsrCase& c : cases) std::printf("%s\n", c.scenario_id.c_str());
+    return 0;
+  }
+  if (!cli.scenario_id.empty()) {
+    cases.erase(std::remove_if(cases.begin(), cases.end(), [&](const EsrCase& c) {
+                  return c.scenario_id != cli.scenario_id;
+                }), cases.end());
+  }
+  if (cases.empty()) {
+    std::fprintf(stderr, "FATAL: no scenario matched\n");
+    return 1;
+  }
 
   esr_config::EsrSessionConfig base_config;
   std::string load_error;
@@ -400,14 +605,23 @@ int main(int argc, char** argv) {
   CsvWriter cycle_writer(cycles_csv, kCycleHeader);
   CsvWriter scenario_writer(scenarios_csv, kScenarioHeader);
 
-  std::vector<EsrCase> cases = BuildEsrCases();
   std::vector<ScenarioSummary> summaries;
+  ContractCheckCollector checks;
   summaries.reserve(cases.size());
   std::fprintf(stderr, "  场景数: %zu\n", cases.size());
 
   for (std::size_t i = 0; i < cases.size(); ++i) {
     std::fprintf(stderr, "[%zu/%zu] %s\n", i + 1, cases.size(), cases[i].scenario_id.c_str());
-    summaries.push_back(RunEsrScenario(cases[i], base_config, output_dir, cycle_writer));
+    std::fprintf(stderr, "  [scenario] id=%s suite=%s family=%s\n", cases[i].scenario_id.c_str(),
+                 cases[i].sequence ? "sequence" : "sweep", cases[i].family.c_str());
+    const std::size_t check_begin = checks.size();
+    summaries.push_back(RunEsrScenario(cases[i], base_config, output_dir, cycle_writer, checks));
+    summaries.back().contract_check_count = checks.size() - check_begin;
+    for (std::size_t j = check_begin; j < checks.checks().size(); ++j) {
+      if (!checks.checks()[j].passed && checks.checks()[j].severity == Severity::kError) {
+        ++summaries.back().contract_failure_count;
+      }
+    }
     cycle_writer.Flush();
   }
 
@@ -420,23 +634,28 @@ int main(int argc, char** argv) {
                  "truth_match_rate=%.4f jammed=%.4f replay_ok=%d compared=%llu divergence=%d "
                  "warn=%zu error=%zu\n",
                  s.scenario_id.c_str(), s.emitter_range_km, s.carrier_ghz,
-                 s.spectrum_occupancy, s.executed_cycles, kNumCycles, s.steady_obs_count_mean,
+                 s.spectrum_occupancy, s.executed_cycles,
+                 s.suite == "sequence" ? 24U : kNumCycles, s.steady_obs_count_mean,
                  s.steady_hyp_confidence_mean, s.steady_truth_match_rate_mean,
                  s.steady_jammed_mean, static_cast<int>(s.replay_ok),
                  static_cast<unsigned long long>(s.replay_compared),
                  static_cast<int>(s.replay_divergence),
                  s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError));
     std::fprintf(scenario_writer.file(),
-                 "%s,%.3f,%.3f,%.3f,%u,%.4f,%.4f,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%s\n",
-                 s.scenario_id.c_str(), s.emitter_range_km, s.carrier_ghz, s.spectrum_occupancy,
+                 "%s,%s,%s,%.3f,%.3f,%.3f,%u,%.4f,%.4f,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%zu,%zu,%zu,%llu,%s\n",
+                 s.scenario_id.c_str(), s.suite.c_str(), s.scenario_family.c_str(),
+                 s.emitter_range_km, s.carrier_ghz, s.spectrum_occupancy,
                  s.executed_cycles, s.steady_obs_count_mean, s.steady_hyp_confidence_mean,
                  s.steady_truth_match_rate_mean, s.steady_jammed_mean,
                  static_cast<int>(s.replay_ok), static_cast<unsigned long long>(s.replay_compared),
                  static_cast<int>(s.replay_divergence), s.warnings.Count(Severity::kWarning),
-                 s.warnings.Count(Severity::kError),
+                 s.warnings.Count(Severity::kError), s.expected_failure_count,
+                 s.contract_check_count, s.contract_failure_count,
+                 static_cast<unsigned long long>(s.failure_marker_count),
                  batch_validation::EscapeCsvField(s.warnings.JoinForCsv()).c_str());
   }
   scenario_writer.Flush();
+  checks.WriteCsv(output_dir + "/checks.csv");
 
   std::size_t total_warn = 0, total_err = 0, replay_div = 0;
   for (const auto& s : summaries) {
@@ -448,9 +667,7 @@ int main(int argc, char** argv) {
   std::fprintf(stderr, "  场景数: %zu\n  周期 CSV: %s\n  场景 CSV: %s\n", summaries.size(),
                cycles_csv.c_str(), scenarios_csv.c_str());
   std::fprintf(stderr, "  软断言 warning: %zu, error: %zu\n", total_warn, total_err);
-  std::fprintf(stderr, "  回放分叉场景: %zu（记 warning，不阻塞退出）\n", replay_div);
+  std::fprintf(stderr, "  回放分叉场景: %zu\n", replay_div);
   std::fprintf(stderr, "  trace 目录: %s/traces/<scenario_id>/\n", output_dir.c_str());
-  // 仅当出现非回放类 error（配置/Adapter/执行失败）才返回非零；
-  // 回放分叉已降级为 warning，属模块确定性属性，不阻塞批量运行。
-  return (total_err > 0) ? 2 : 0;
+  return (total_err > 0 || replay_div > 0 || checks.FailureCount() > 0U) ? 2 : 0;
 }
