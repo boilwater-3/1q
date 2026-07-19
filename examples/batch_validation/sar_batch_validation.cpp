@@ -16,7 +16,8 @@
  *   - 输出是聚焦图像而非航迹/检测；CSV 只记录图像质量摘要，复数像素不入 CSV。
  *
  * @par 运行方式
- *   ./sar_batch_validation [output_dir]
+ *   ./sar_batch_validation [--suite sweep|sequence|all] [--scenario ID]
+ *                          [--output-dir PATH] [--list-scenarios]
  *   默认输出 /tmp/1q/batch_validation/sar/
  */
 
@@ -27,17 +28,21 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <limits>
 #include <string>
 #include <system_error>
 #include <vector>
 
 #include "1q/sar/sar.hpp"
+#include "1q/sar/config/SarRuntimeConfigPatch.h"
 #include "1q/sar/session/SarCycleInput.h"
 #include "1q/sar/session/SarCycleResult.h"
 #include "1q/sar/session/SarReplaySession.h"
 #include "1q/sar/session/SarSession.h"
 #include "1q/sar/session/SarTraceSession.h"
 #include "batch_assertions.h"
+#include "batch_checks.h"
+#include "batch_cli.h"
 #include "batch_csv_writer.h"
 #include "batch_replay.h"
 #include "config_loader.h"
@@ -45,6 +50,7 @@
 namespace sar_session = sar::session;
 namespace sar_config = sar::config;
 using batch_validation::CsvWriter;
+using batch_validation::ContractCheckCollector;
 using batch_validation::ModuleName;
 using batch_validation::ReplayCheckResult;
 using batch_validation::Severity;
@@ -81,6 +87,8 @@ struct SarCase {
   double bandwidth_mhz;          ///< 信号带宽（MHz）→ 影响距离分辨率
   double slant_range_km;         ///< 标称斜距（km）
   std::uint32_t azimuth_pulses;  ///< 方位向脉冲数 → 影响方位分辨率 / 孔径长度
+  bool sequence{false};
+  std::string family{"parameter_sweep"};
 };
 
 std::vector<SarCase> BuildSarCases() {
@@ -106,6 +114,37 @@ std::vector<SarCase> BuildSarCases() {
     }
   }
   return cases;
+}
+
+std::vector<SarCase> BuildSarSequenceCases() {
+  const char* ids[] = {"sar_seq_multi_scatterer_resolution", "sar_seq_squint_gate_recovery",
+                       "sar_seq_raw_to_image", "sar_seq_invalid_runtime_atomic",
+                       "sar_seq_invalid_input_recovery", "sar_seq_low_snr_recovery"};
+  std::vector<SarCase> cases;
+  for (const char* id : ids) {
+    SarCase c;
+    c.scenario_id = id;
+    c.bandwidth_mhz = 0.8;
+    c.slant_range_km = 100.0;
+    c.azimuth_pulses = 17U;
+    c.sequence = true;
+    c.family = std::strstr(id, "multi_scatterer") != nullptr ? "multi_scatterer_imaging" :
+               std::strstr(id, "runtime") != nullptr || std::strstr(id, "raw_to_image") != nullptr ?
+                   "runtime_reconfiguration" :
+               std::strstr(id, "squint") != nullptr ? "geometry_gate_recovery" :
+                                                        "processing_failure_recovery";
+    cases.push_back(c);
+  }
+  return cases;
+}
+
+std::uint32_t CycleCount(const SarCase& c) { return c.sequence ? 5U : 1U; }
+
+const char* PhaseFor(const SarCase& c, std::uint32_t cycle) {
+  if (!c.sequence) return "sweep";
+  if (cycle == 1U) return "establish";
+  if (cycle <= 3U) return "interruption";
+  return "recovery";
 }
 
 // =============================================================================
@@ -146,7 +185,8 @@ void ApplyCaseToConfig(const SarCase& c, sar_config::SarSessionConfig& config) {
 /// 构造单周期 SAR 输入：平台沿东向匀速、场景中心一个静止点目标。
 /// 直接填充 SarCycleInput（SAR 内部存 LLA，无需 Adapter 做坐标转换）。
 sar_session::SarCycleInput MakeCycleInput(std::uint32_t cycle_index,
-                                          const sar_config::SarMissionConfig& mission) {
+                                          const sar_config::SarMissionConfig& mission,
+                                          const SarCase* scenario = nullptr) {
   const double elapsed_s = static_cast<double>(cycle_index - 1) * kDefaultDtSec;
   const double east_disp_m = kPlatformSpeedMps * elapsed_s;
   const double delta_lon_deg =
@@ -182,6 +222,33 @@ sar_session::SarCycleInput MakeCycleInput(std::uint32_t cycle_index,
   target.radar_cross_section_dbsm = kTargetRcsDbsm;
   input.point_targets = {target};
 
+  if (scenario != nullptr && scenario->scenario_id == "sar_seq_multi_scatterer_resolution") {
+    sar_session::SarPointTarget range_offset = target;
+    range_offset.target_id = 102U;
+    range_offset.target_name = "range_offset_scatterer";
+    range_offset.latitude_deg += 0.00025;
+    sar_session::SarPointTarget azimuth_offset = target;
+    azimuth_offset.target_id = 103U;
+    azimuth_offset.target_name = "azimuth_offset_scatterer";
+    azimuth_offset.longitude_deg += 0.00035;
+    input.point_targets.push_back(range_offset);
+    input.point_targets.push_back(azimuth_offset);
+  }
+  if (scenario != nullptr && scenario->scenario_id == "sar_seq_squint_gate_recovery" &&
+      cycle_index >= 2U && cycle_index <= 3U) {
+    input.platform.longitude_deg += 0.5;
+    input.platform.time_s += 10.0;
+  }
+  if (scenario != nullptr && scenario->scenario_id == "sar_seq_invalid_input_recovery") {
+    if (cycle_index == 2U) input.dt_sec = 0.0f;
+    if (cycle_index == 3U) input.point_targets[0].latitude_deg =
+        std::numeric_limits<double>::quiet_NaN();
+  }
+  if (scenario != nullptr && scenario->scenario_id == "sar_seq_low_snr_recovery" &&
+      cycle_index >= 2U && cycle_index <= 4U) {
+    input.point_targets[0].radar_cross_section_dbsm = -40.0;
+  }
+
   return input;
 }
 
@@ -190,7 +257,7 @@ sar_session::SarCycleInput MakeCycleInput(std::uint32_t cycle_index,
 // =============================================================================
 
 constexpr const char* kCycleHeader =
-    "scenario_id,cycle_index,executed_this_cycle,has_error,reused_previous_output,abort_reason,"
+    "scenario_id,suite,scenario_family,phase,cycle_index,executed_this_cycle,has_error,reused_previous_output,abort_reason,"
     "completed_stage,has_raw_echo,has_range_compressed_echo,has_l1_image,has_l3_bp_image,"
     "estimated_snr_db,center_slant_range_m,range_sample_count,azimuth_pulse_count,"
     "image_entropy_nats,image_contrast,range_resolution_3db_m,azimuth_resolution_3db_m,"
@@ -198,10 +265,11 @@ constexpr const char* kCycleHeader =
     "image_resolution_m_valid,diag_warning_count,diag_error_count,image_rows,image_cols";
 
 constexpr const char* kScenarioHeader =
-    "scenario_id,bandwidth_mhz,slant_range_km,azimuth_pulses,executed,replay_ok,"
+    "scenario_id,suite,scenario_family,bandwidth_mhz,slant_range_km,azimuth_pulses,executed,replay_ok,"
     "replay_compared,replay_divergence,completed_stage,estimated_snr_db,"
     "range_resolution_3db_m,azimuth_resolution_3db_m,image_entropy_nats,image_contrast,"
-    "has_image_quality_metrics,warning_count,error_count,warnings";
+    "has_image_quality_metrics,warning_count,error_count,expected_failure_count,"
+    "contract_check_count,contract_failure_count,failure_marker_count,warnings";
 
 // =============================================================================
 // 单场景执行
@@ -272,6 +340,8 @@ CycleMetrics ExtractCycleMetrics(const sar_session::SarCycleResult& r) {
 
 struct ScenarioSummary {
   std::string scenario_id;
+  std::string suite;
+  std::string scenario_family;
   double bandwidth_mhz{0.0};
   double slant_range_km{0.0};
   std::uint32_t azimuth_pulses{0};
@@ -290,13 +360,20 @@ struct ScenarioSummary {
   double image_entropy{0.0};
   double image_contrast{0.0};
   bool has_iqm{false};
+  std::size_t expected_failure_count{0U};
+  std::size_t contract_check_count{0U};
+  std::size_t contract_failure_count{0U};
+  std::uint64_t failure_marker_count{0U};
   WarningCollector warnings;
 };
 
 ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionConfig& base_config,
-                               const std::string& output_dir, CsvWriter& cycle_writer) {
+                               const std::string& output_dir, CsvWriter& cycle_writer,
+                               ContractCheckCollector& checks) {
   ScenarioSummary s;
   s.scenario_id = c.scenario_id;
+  s.suite = c.sequence ? "sequence" : "sweep";
+  s.scenario_family = c.family;
   s.bandwidth_mhz = c.bandwidth_mhz;
   s.slant_range_km = c.slant_range_km;
   s.azimuth_pulses = c.azimuth_pulses;
@@ -310,22 +387,57 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
       batch_validation::MakeReplayWriter(trace_dir, ModuleName::kSar, kTraceId, c.scenario_id);
 
   CycleMetrics m;
-  // SAR 单周期聚焦：录制 scope 内执行 1 个周期。
+  std::vector<CycleMetrics> metrics;
+  const std::uint32_t cycle_count = CycleCount(c);
+  metrics.reserve(cycle_count);
+  bool invalid_patch_rejected = false;
   {
     sar_session::SarTraceSessionOptions options;
     options.replay_writer = replay_writer;
     options.trace_config_on_construct = true;
     sar_session::SarTraceSession session(config, options);
 
-    sar_session::SarCycleInput input = MakeCycleInput(1U, config.mission);
-    const sar_session::SarCycleResult result = session.StepWithResult(input);
-    m = ExtractCycleMetrics(result);
-    s.executed = m.executed;
+    const char* previous_phase = nullptr;
+    for (std::uint32_t cycle_index = 1U; cycle_index <= cycle_count; ++cycle_index) {
+      const char* phase = PhaseFor(c, cycle_index);
+      if (previous_phase == nullptr || std::strcmp(previous_phase, phase) != 0) {
+        std::fprintf(stderr, "  [phase] scenario=%s phase=%s cycle=%u\n",
+                     c.scenario_id.c_str(), phase, cycle_index);
+        previous_phase = phase;
+      }
+      if (c.scenario_id == "sar_seq_raw_to_image" && (cycle_index == 2U || cycle_index == 4U)) {
+        sar_config::SarRuntimeConfigPatch patch;
+        patch.has_enable_l1_rda_imaging = true;
+        patch.enable_l1_rda_imaging = cycle_index == 4U;
+        patch.has_enable_range_compression = true;
+        patch.enable_range_compression = true;
+        session.ApplyRuntimeConfig(patch);
+      }
+      if (c.scenario_id == "sar_seq_invalid_runtime_atomic" && cycle_index == 2U) {
+        sar_config::SarRuntimeConfigPatch patch;
+        patch.has_enable_raw_echo_generation = true;
+        patch.enable_raw_echo_generation = false;
+        patch.has_enable_l1_rda_imaging = true;
+        patch.enable_l1_rda_imaging = true;
+        invalid_patch_rejected = !session.session().TryApplyRuntimeConfig(patch);
+      } else if (c.scenario_id == "sar_seq_invalid_runtime_atomic" && cycle_index == 3U) {
+        sar_config::SarRuntimeConfigPatch patch;
+        patch.has_enable_raw_echo_generation = true;
+        patch.enable_raw_echo_generation = true;
+        patch.has_enable_l1_rda_imaging = true;
+        patch.enable_l1_rda_imaging = true;
+        session.ApplyRuntimeConfig(patch);
+      }
+      sar_session::SarCycleInput input = MakeCycleInput(cycle_index, config.mission, &c);
+      const sar_session::SarCycleResult result = session.StepWithResult(input);
+      m = ExtractCycleMetrics(result);
+      metrics.push_back(m);
 
-    std::fprintf(cycle_writer.file(),
-                 "%s,%u,%d,%d,%d,%s,%d,%d,%d,%d,%d,%.5f,%.3f,%u,%u,%.5f,%.5f,%.5f,"
+      std::fprintf(cycle_writer.file(),
+                 "%s,%s,%s,%s,%u,%d,%d,%d,%s,%d,%d,%d,%d,%d,%.5f,%.3f,%u,%u,%.5f,%.5f,%.5f,"
                  "%.5f,%.5f,%.5f,%d,%d,%zu,%zu,%u,%u\n",
-                 c.scenario_id.c_str(), m.cycle_index, static_cast<int>(m.executed),
+                 c.scenario_id.c_str(), c.sequence ? "sequence" : "sweep", c.family.c_str(),
+                 phase, m.cycle_index, static_cast<int>(m.executed),
                  static_cast<int>(m.has_error), static_cast<int>(m.reused),
                  batch_validation::EscapeCsvField(m.abort_reason).c_str(), m.completed_stage,
                  static_cast<int>(m.has_raw_echo), static_cast<int>(m.has_rc_echo),
@@ -334,8 +446,11 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
                  m.image_contrast, m.range_res_m, m.az_res_m, m.range_width_bins, m.az_width_bins,
                  static_cast<int>(m.has_iqm), static_cast<int>(m.res_valid), m.diag_warn,
                  m.diag_err, m.img_rows, m.img_cols);
+    }
     replay_writer->Flush();
   }
+
+  s.executed = !metrics.empty() && metrics.back().executed;
 
   s.completed_stage = m.completed_stage;
   s.has_error = m.has_error;
@@ -354,8 +469,44 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
   s.replay_ok = replay.ok;
   s.replay_compared = replay.playback.compared_output_count;
   s.replay_divergence = replay.playback.divergence_found;
+  s.failure_marker_count = replay.playback.failure_marker_count;
   if (!replay.ok || replay.playback.divergence_found) {
-    s.warnings.Warn("replay divergence: " + replay.first_error);
+    s.warnings.Error("replay divergence: " + replay.first_error);
+  }
+  if (replay.playback.compared_output_count != metrics.size()) {
+    s.warnings.Error("replay output count does not equal Step count");
+  }
+
+  if (c.sequence) {
+    std::size_t nonexecuted_count = 0U;
+    for (const CycleMetrics& cycle : metrics) if (!cycle.executed) ++nonexecuted_count;
+    const std::size_t expected_nonexecuted =
+        c.scenario_id == "sar_seq_squint_gate_recovery" ||
+        c.scenario_id == "sar_seq_invalid_input_recovery" ||
+        c.scenario_id == "sar_seq_low_snr_recovery" ? 2U : 0U;
+    s.expected_failure_count = expected_nonexecuted +
+                               (c.scenario_id == "sar_seq_invalid_runtime_atomic" ? 1U : 0U);
+    checks.Add(c.scenario_id, "replay", cycle_count, "replay_complete",
+               std::to_string(metrics.size()), std::to_string(s.replay_compared),
+               replay.ok && !s.replay_divergence && s.replay_compared == metrics.size());
+    checks.Add(c.scenario_id, "recovery", cycle_count, "expected_nonexecuted_cycles",
+               std::to_string(expected_nonexecuted), std::to_string(nonexecuted_count),
+               expected_nonexecuted == nonexecuted_count);
+    const std::uint64_t expected_markers = expected_nonexecuted;
+    checks.Add(c.scenario_id, "replay", cycle_count, "failure_marker_count",
+               std::to_string(expected_markers), std::to_string(s.failure_marker_count),
+               expected_markers == s.failure_marker_count);
+    checks.Add(c.scenario_id, "recovery", cycle_count, "recovery_produces_image", "executed",
+               metrics.back().executed ? "executed" : metrics.back().abort_reason,
+               metrics.back().executed);
+    if (c.scenario_id == "sar_seq_invalid_runtime_atomic") {
+      checks.Add(c.scenario_id, "interruption", 2U, "invalid_runtime_atomic_rejection", "rejected",
+                 invalid_patch_rejected ? "rejected" : "accepted", invalid_patch_rejected);
+    }
+    if (c.scenario_id == "sar_seq_raw_to_image") {
+      checks.Add(c.scenario_id, "interruption", 3U, "range_compression_only_stage", "no_l1",
+                 metrics[2].has_l1 ? "has_l1" : "no_l1", !metrics[2].has_l1);
+    }
   }
 
   // 软断言
@@ -385,7 +536,7 @@ ScenarioSummary RunSarScenario(const SarCase& c, const sar_config::SarSessionCon
       ReplayCheckResult{replay.ok, replay.playback.divergence_found,
                         replay.playback.compared_output_count, replay.playback.applied_input_count,
                         replay.reached_failure_marker, replay.first_error},
-      s.executed ? 1U : 0U);
+      metrics.size());
   s.warnings.DumpToStderr(c.scenario_id + ": ");
   return s;
 }
@@ -415,11 +566,38 @@ void CheckCrossScenarioTrends(std::vector<ScenarioSummary>& summaries) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  const std::string output_dir = (argc > 1) ? argv[1] : kDefaultOutputDir;
+  batch_validation::BatchCliOptions cli;
+  std::string cli_error;
+  if (!batch_validation::ParseBatchCli(argc, argv, kDefaultOutputDir, &cli, &cli_error)) {
+    std::fprintf(stderr, "FATAL: %s\n", cli_error.c_str());
+    batch_validation::PrintBatchUsage(argv[0]);
+    return 1;
+  }
+  const std::string output_dir = cli.output_dir;
   const std::string config_path = BATCH_CONFIG_DIR "/sar.json";
 
   std::fprintf(stderr, "=== SAR 批量场景验证 ===\n");
   std::fprintf(stderr, "  配置: %s\n  输出: %s\n", config_path.c_str(), output_dir.c_str());
+
+  std::vector<SarCase> cases;
+  if (batch_validation::IncludesSweep(cli.suite)) cases = BuildSarCases();
+  if (batch_validation::IncludesSequence(cli.suite)) {
+    const std::vector<SarCase> sequences = BuildSarSequenceCases();
+    cases.insert(cases.end(), sequences.begin(), sequences.end());
+  }
+  if (cli.list_scenarios) {
+    for (const SarCase& c : cases) std::printf("%s\n", c.scenario_id.c_str());
+    return 0;
+  }
+  if (!cli.scenario_id.empty()) {
+    cases.erase(std::remove_if(cases.begin(), cases.end(), [&](const SarCase& c) {
+                  return c.scenario_id != cli.scenario_id;
+                }), cases.end());
+  }
+  if (cases.empty()) {
+    std::fprintf(stderr, "FATAL: no scenario matched\n");
+    return 1;
+  }
 
   sar_config::SarSessionConfig base_config;
   std::string load_error;
@@ -440,14 +618,23 @@ int main(int argc, char** argv) {
   CsvWriter cycle_writer(cycles_csv, kCycleHeader);
   CsvWriter scenario_writer(scenarios_csv, kScenarioHeader);
 
-  std::vector<SarCase> cases = BuildSarCases();
   std::vector<ScenarioSummary> summaries;
+  ContractCheckCollector checks;
   summaries.reserve(cases.size());
   std::fprintf(stderr, "  场景数: %zu\n", cases.size());
 
   for (std::size_t i = 0; i < cases.size(); ++i) {
     std::fprintf(stderr, "[%zu/%zu] %s\n", i + 1, cases.size(), cases[i].scenario_id.c_str());
-    summaries.push_back(RunSarScenario(cases[i], base_config, output_dir, cycle_writer));
+    std::fprintf(stderr, "  [scenario] id=%s suite=%s family=%s\n", cases[i].scenario_id.c_str(),
+                 cases[i].sequence ? "sequence" : "sweep", cases[i].family.c_str());
+    const std::size_t check_begin = checks.size();
+    summaries.push_back(RunSarScenario(cases[i], base_config, output_dir, cycle_writer, checks));
+    summaries.back().contract_check_count = checks.size() - check_begin;
+    for (std::size_t j = check_begin; j < checks.checks().size(); ++j) {
+      if (!checks.checks()[j].passed && checks.checks()[j].severity == Severity::kError) {
+        ++summaries.back().contract_failure_count;
+      }
+    }
   }
   cycle_writer.Flush();
 
@@ -456,12 +643,13 @@ int main(int argc, char** argv) {
   for (const auto& s : summaries) {
     std::fprintf(stderr,
                  "  [scenario] module=SAR id=%s bandwidth_mhz=%.3f slant_range_km=%.3f "
-                 "azimuth_pulses=%u executed=%d/1 stage=%d snr_db=%.5f range_res_m=%.5f "
+                 "azimuth_pulses=%u executed=%d/%u stage=%d snr_db=%.5f range_res_m=%.5f "
                  "az_res_m=%.5f entropy=%.5f contrast=%.5f iqm=%d has_error=%d abort_reason=%s "
                  "diag_warn=%zu diag_error=%zu replay_ok=%d compared=%llu divergence=%d "
                  "warn=%zu error=%zu\n",
                  s.scenario_id.c_str(), s.bandwidth_mhz, s.slant_range_km, s.azimuth_pulses,
-                 static_cast<int>(s.executed), s.completed_stage, s.snr_db, s.range_res_m,
+                 static_cast<int>(s.executed), s.suite == "sequence" ? 5U : 1U,
+                 s.completed_stage, s.snr_db, s.range_res_m,
                  s.az_res_m, s.image_entropy, s.image_contrast, static_cast<int>(s.has_iqm),
                  static_cast<int>(s.has_error), s.abort_reason.empty() ? "none" : s.abort_reason.c_str(),
                  s.diagnostic_warning_count, s.diagnostic_error_count,
@@ -470,16 +658,20 @@ int main(int argc, char** argv) {
                  static_cast<int>(s.replay_divergence),
                  s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError));
     std::fprintf(scenario_writer.file(),
-                 "%s,%.3f,%.3f,%u,%d,%d,%llu,%d,%d,%.5f,%.5f,%.5f,%.5f,%.5f,%d,%zu,%zu,%s\n",
-                 s.scenario_id.c_str(), s.bandwidth_mhz, s.slant_range_km, s.azimuth_pulses,
+                 "%s,%s,%s,%.3f,%.3f,%u,%d,%d,%llu,%d,%d,%.5f,%.5f,%.5f,%.5f,%.5f,%d,%zu,%zu,%zu,%zu,%zu,%llu,%s\n",
+                 s.scenario_id.c_str(), s.suite.c_str(), s.scenario_family.c_str(),
+                 s.bandwidth_mhz, s.slant_range_km, s.azimuth_pulses,
                  static_cast<int>(s.executed), static_cast<int>(s.replay_ok),
                  static_cast<unsigned long long>(s.replay_compared),
                  static_cast<int>(s.replay_divergence), s.completed_stage, s.snr_db, s.range_res_m,
                  s.az_res_m, s.image_entropy, s.image_contrast, static_cast<int>(s.has_iqm),
                  s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError),
+                 s.expected_failure_count, s.contract_check_count, s.contract_failure_count,
+                 static_cast<unsigned long long>(s.failure_marker_count),
                  batch_validation::EscapeCsvField(s.warnings.JoinForCsv()).c_str());
   }
   scenario_writer.Flush();
+  checks.WriteCsv(output_dir + "/checks.csv");
 
   std::size_t total_warn = 0, total_err = 0, replay_div = 0;
   for (const auto& s : summaries) {
@@ -491,7 +683,7 @@ int main(int argc, char** argv) {
   std::fprintf(stderr, "  场景数: %zu\n  周期 CSV: %s\n  场景 CSV: %s\n", summaries.size(),
                cycles_csv.c_str(), scenarios_csv.c_str());
   std::fprintf(stderr, "  软断言 warning: %zu, error: %zu\n", total_warn, total_err);
-  std::fprintf(stderr, "  回放分叉场景: %zu（记 warning，不阻塞退出）\n", replay_div);
+  std::fprintf(stderr, "  回放分叉场景: %zu\n", replay_div);
   std::fprintf(stderr, "  trace 目录: %s/traces/<scenario_id>/\n", output_dir.c_str());
-  return (total_err > 0) ? 2 : 0;
+  return (total_err > 0 || replay_div > 0 || checks.FailureCount() > 0U) ? 2 : 0;
 }
