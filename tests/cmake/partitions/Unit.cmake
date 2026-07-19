@@ -42,6 +42,7 @@ if(_oneq_unit_examples)
         SOURCES ${_oneq_unit_examples}
         TIMEOUT 60
         INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/examples/common"
+                     "${CMAKE_SOURCE_DIR}/examples/batch_validation"
         EXTRA_SOURCES "${CMAKE_SOURCE_DIR}/examples/common/json_reader.cpp")
 endif()
 
