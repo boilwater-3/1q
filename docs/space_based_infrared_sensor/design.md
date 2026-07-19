@@ -1001,6 +1001,14 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 - `sbirs_replay_codec_roundtrip_test`
 - `sbirs_replay_session_test`（包含 NIS 丢锁 attribution 与重捕获 trace 回放）
 
+### 2.12 专项序列验证边界
+
+`batch_validation::sbirs_sensor` 覆盖双目标双锁、三目标单锁交接、持续机动引发 NIS 丢锁与重捕获、
+带横向速度的 cue latency、地球遮挡再现、standby 任务重定向和无效输入恢复。目标状态隔离、NFOV
+通道唯一与稳定、确定性交接、遮挡释放、校验前零 mutation、恢复后的滤波/通道连续性以及 failure
+marker 后完整 replay 均为硬契约；红外链路物理趋势仍为 warning。场景 ID 与运行方式由
+`examples/batch_validation/README.md` 维护。
+
 ## 3. 非目标与边界
 
 - **图像级 TBD（Track-Before-Detect）**——管道滤波能量累积（`:268-294`）、动态规划 TBD

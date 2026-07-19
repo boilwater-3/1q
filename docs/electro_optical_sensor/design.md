@@ -422,6 +422,14 @@ pipeline 先得到红外 SNR 和可见光 SNR，再依据工作模式生成最�
 这些规则让 EOS 能在 replay、回归测试和集成场景中保持可解释行为。相关测试包括 `ValidationFailureReturnsEmptyFrameAndStillAdvancesCycleIndex`、`StepReusesPreviousOutputWhenValidationFailsAfterSuccessfulCycle`、`RuntimePatchIsAtomicWhenAnyFieldIsInvalid` 和 `CaptureAndRestoreRoundTripState`。
 [evidence: tests/contract/electro_optical_sensor/eos_public_api_convenience_test.cpp::EosSessionReportsPoweredOffWithoutContractViolation]
 
+### 2.10 专项序列验证边界
+
+`batch_validation::electro_optical_sensor` 覆盖双目标焦面交叉、昼/黄昏/夜间、融合/红外/可见光
+通道切换、扇区重定向、关机恢复和无效输入恢复。EOS 不因此声明跨周期目标跟踪身份；硬检查仅要求
+逐周期 attribution 完整、检测 ID 不冲突、FOV/lifecycle 语义准确、运行期配置原子且 replay 在
+failure marker 后继续。通道 SNR 的昼夜趋势属于物理 warning。场景 ID 与运行方式由
+`examples/batch_validation/README.md` 维护。
+
 ## 3. 非目标与边界
 
 - 不暴露用户自定义 pipeline、controller、环境模型或 foundation algorithm 类型。

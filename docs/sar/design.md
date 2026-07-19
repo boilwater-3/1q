@@ -606,6 +606,14 @@ Radiometric calibration 是后处理标量定标能力，当前不扩大为完�
 - `tests/unit/sar_pga_autofocus_closure_evidence_test.cpp`
 - `tests/unit/sar_missing_pulse_*_test.cpp`
 
+### 2.9 专项序列验证边界
+
+`batch_validation::sar` 使用多静态散射体和平台几何验证当前成像能力，不把 SAR 伪装成目标
+跟踪器。六类序列覆盖多散射点分辨、squint 门控恢复、raw/range-compression/L1 阶段切换、
+非法 runtime 组合原子拒绝、无效输入恢复和低 SNR 恢复。completed stage、abort reason、产品
+lifecycle、孔径/ring-buffer 状态冻结和 failure marker 后完整 replay 属于硬契约；图像质量相对
+趋势属于 warning。场景 ID 与运行方式由 `examples/batch_validation/README.md` 维护。
+
 ## 3. 非目标与边界
 
 - 不恢复旧会话工厂或旧文档树。

@@ -388,6 +388,14 @@ ESR 输出保持三通道：
 - `tests/consumer/esr_output_observability_consumer.cpp`
 - `tests/unit/esr_replay_codec_roundtrip_test.cpp`
 
+### 2.8 专项序列验证边界
+
+`batch_validation::electronic_surveillance_radar` 覆盖近同频辐射源角度交叉、密集辐射源静默、
+ESM/RWR/HGESM 切换、显式扫描边界重定向、关机恢复和无效输入恢复。一对一关联身份、静默源独占
+Lost、显式边界关闭后不残留、patch 原子性、非执行周期 lifecycle 静默以及 10/30/60/100 km
+trace 的确定性 replay 都是硬契约；强信号下距离趋势不敏感仍只作为物理 warning。场景 ID 与运行
+方式由 `examples/batch_validation/README.md` 维护。
+
 ## 3. 非目标与边界
 
 - 不暴露用户自定义 pipeline/controller/environment service。

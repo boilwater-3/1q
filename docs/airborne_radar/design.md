@@ -598,6 +598,14 @@ AR 模块当前使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产�
 
 **明确不做**：在线残差驱动的自动后端切换。唯一可选框架是策略配置中的 `enable_imm_lifecycle`；KF 仍是每个模型分支的生产更新器。
 
+### 2.11 专项序列验证边界
+
+`batch_validation::airborne_radar` 在公开 Session 边界执行六类跨周期序列：同 RCS
+双目标交叉、干扰加入/清除、TWS→STT→TWS、关机恢复、无效输入恢复和混合非法 runtime
+patch。场景必须显式启用物理探测、物理 RCS 与 `physics_mix_ratio=1`。目标身份连续、patch
+原子性、非执行周期 lifecycle 静默、failure marker 后完整 replay 属于硬契约；距离/RCS 等
+物理趋势仍只产生 warning。场景 ID 与运行方式由 `examples/batch_validation/README.md` 维护。
+
 ## 3. 非目标与边界
 
 - 不恢复宽 public customization surface。
