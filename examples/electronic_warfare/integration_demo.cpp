@@ -514,10 +514,6 @@ int main(int argc, char** argv) {
         reason_str = "未发射"; break;
       case esr_session::EsrEmitterLifecycleReason::kNoMatchedObservation:
         reason_str = "无匹配观测"; break;
-      case esr_session::EsrEmitterLifecycleReason::kValidationRejected:
-        reason_str = "校验拒绝"; break;
-      case esr_session::EsrEmitterLifecycleReason::kCycleNotExecuted:
-        reason_str = "周期未执行"; break;
       case esr_session::EsrEmitterLifecycleReason::kUnknown:
         reason_str = "未知"; break;
     }

@@ -617,9 +617,6 @@ int main() {
       case sar::session::SarProductLifecycleReason::kError:
         reason_str = "Error";
         break;
-      case sar::session::SarProductLifecycleReason::kCycleNotExecuted:
-        reason_str = "CycleNotExecuted";
-        break;
     }
     std::cout << "    [" << k << "] cycle=" << e.cycle_index
               << " kind=" << LifecycleEventKindName(e.kind)
