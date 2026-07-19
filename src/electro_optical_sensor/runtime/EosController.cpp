@@ -79,7 +79,7 @@ void EosController::RunOnce(const ::electro_optical_sensor::session::EosCycleInp
     impl_->latest_output = previous_output;
     impl_->latest_detection_attributions = previous_attributions;
     impl_->has_latest_output = had_previous_output;
-    PROJECT_LOG_ERROR("EOS validation rejected for cycle_index={}", input.cycle_index);
+    PROJECT_LOG_WARN("EOS validation rejected for cycle_index={}", input.cycle_index);
     PROJECT_LOG_DEBUG("[EosController] cycle_index={} reused_previous={}", input.cycle_index,
                       had_previous_output);
     return;
