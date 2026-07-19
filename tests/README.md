@@ -45,6 +45,7 @@ CMake、本文和 `docs/common/contract.md`。
 - 仅契约：`ctest --preset llvm-ninja-debug-local -Q --output-on-failure -L contract`
 - PR 关键路径：`ctest --preset llvm-ninja-debug-local -Q --output-on-failure -L ci_required`
 - 兼容性探针：`ctest --preset llvm-ninja-debug-local -Q --output-on-failure -L compatibility`
+- 五模块专项序列：`ctest --preset llvm-ninja-release-local -Q --output-on-failure -L batch_validation`
 
 ## CMake 注册结构
 
@@ -58,6 +59,10 @@ CMake、本文和 `docs/common/contract.md`。
 - `CoverageRunner.cmake`：仅 coverage preset 使用的 mapping 可执行文件；CTest 默认禁用，避免重复执行测试。
 
 新增 CTest 入口应放入其拥有的 type × domain 分区；不得重新把专项 filter 或 guard 堆回根入口。
+
+唯一的非 GoogleTest 业务场景入口是 `examples/batch_validation` 拥有的五个 sequence
+可执行套件。它们以 `batch_validation::<domain>` 注册并携带 `batch_validation` 与 domain
+label，不产生新的 `tests/` 源码 type，也不把 199 个 sweep 重复纳入 CTest。
 
 每个 `*_test.cpp` 必须只注册到一个分区。`TestRegistry.cmake` 会在 configure 时
 拒绝 orphan 或重复归属；不要用重复编译让同一源文件同时承担 unit、replay 或
