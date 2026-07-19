@@ -129,6 +129,29 @@ TEST(ArRuntimePatchMapperTest, InvalidPatchIsRejectedAtomically) {
             config::JammingSensitivityProfile::kBalanced);
 }
 
+TEST(ArRuntimePatchMapperTest, EnabledNonPositiveBeamwidthIsRejectedAtomically) {
+  RuntimeConfigState current_state;
+  current_state.execution_config.detection.orientation.work_mode = config::ArWorkMode::kTws;
+
+  ArRuntimeConfigPatch patch;
+  patch.has_work_mode = true;
+  patch.work_mode = config::ArWorkMode::kStt;
+  patch.has_commanded_beamwidth_enabled = true;
+  patch.commanded_beamwidth_enabled = true;
+  patch.has_commanded_beamwidth_deg = true;
+  patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 0.0f;
+
+  const RuntimeConfigResolveResult resolved = ApplyRuntimePatch(current_state, patch);
+
+  EXPECT_TRUE(resolved.has_requested_update);
+  EXPECT_FALSE(resolved.is_valid);
+  EXPECT_FALSE(resolved.execution_config_changed);
+  EXPECT_EQ(resolved.next_state.execution_config.detection.orientation.work_mode,
+            config::ArWorkMode::kTws);
+  EXPECT_FALSE(
+      resolved.next_state.execution_config.detection.orientation.commanded_beamwidth_enabled);
+}
+
 TEST(ArRuntimePatchMapperTest, MapExecutionToSessionRoundTripsFields) {
   config::ArSessionConfig original;
   original.policy.detection.minimum_detection_margin_db = -3.0f;

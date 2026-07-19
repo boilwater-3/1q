@@ -346,6 +346,11 @@ AR 的 public config 是语义配置，signal pipeline 使用的是内部工程�
 这个机制避免出现“pipeline 已换配置，但 environment/controller 仍旧”的部分生效状态。任何新增运行期可变项，都必须纳入这个提交/回滚语义。
 [evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::RadarSessionPreservesPendingExternalDecisionAcrossPoweredOffBoundary]
 
+运行期 mapper 必须校验合并后的最终候选配置；例如指令波束宽度在同一 patch 中被启用时，
+方位/俯仰宽度必须均为有限正数。合法工作模式与非法波束字段混合时整个 patch 原子拒绝，
+不得留下工作模式的部分更新。
+[evidence: tests/unit/airborne_radar/ar_runtime_patch_mapper_test.cpp::ArRuntimePatchMapperTest.EnabledNonPositiveBeamwidthIsRejectedAtomically]
+
 `MutableArContext` 快照是 session 内部的强所有权边界：opaque envelope 只能由捕获实例构造，
 每个 context 生命周期持有唯一 typed identity token，owner token 与 typed snapshot 均为私有且不能
 被调用方拆开重组；仅同一生命周期且载荷非空的完整 envelope 可恢复。context 不可复制或移动，

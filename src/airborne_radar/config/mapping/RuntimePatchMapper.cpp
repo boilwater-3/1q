@@ -127,6 +127,19 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
 
+  const config::ArOrientationConfig& next_orientation =
+      next_execution_config.detection.orientation;
+  if (next_orientation.commanded_beamwidth_enabled &&
+      (next_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f ||
+       next_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg <= 0.0f)) {
+    PROJECT_LOG_ERROR(
+        "[ArSession] Rejecting runtime config patch because enabled commanded beamwidth "
+        "must be positive (az_deg={}, el_deg={}).",
+        next_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg,
+        next_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg);
+    return RejectPatch(current_state, has_requested_update);
+  }
+
   if (patch.has_sensor_enabled) {
     next_execution_config.sensor_enabled = patch.sensor_enabled;
     execution_config_changed = true;
