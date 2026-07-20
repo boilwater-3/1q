@@ -41,7 +41,7 @@ bool SbirsSession::TryApplyRuntimeConfig(const config::SbirsRuntimeConfigPatch& 
     return false;
   }
   impl_->config = resolution.resolved_config;
-  impl_->controller->ApplyConfig(runtime::MapSessionToInternal(impl_->config));
+  impl_->controller->ApplyConfig(runtime::MapSessionToInternal(impl_->config), resolution.impact);
   return true;
 }
 

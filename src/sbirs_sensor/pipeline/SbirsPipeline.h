@@ -18,6 +18,7 @@
 #include "sbirs_sensor/pipeline/SbirsNfovScheduler.h"
 #include "sbirs_sensor/pipeline/SbirsPointingCoordinator.h"
 #include "sbirs_sensor/pipeline/SbirsTrackingCoordinator.h"
+#include "sbirs_sensor/runtime/SbirsRuntimeConfigImpact.h"
 
 namespace sbirs_sensor {
 namespace pipeline {
@@ -37,7 +38,7 @@ enum class SbirsTargetState {
  * @note 包含扫描相位、目标状态表、NFOV 多通道调度状态、随机源状态与 EKF 滤波状态表。
  */
 struct SbirsPipelineSnapshot {
-  float scan_azimuth_deg{0.0f};        /**< 当前 WFOV 扫描方位角，单位 deg */
+  float scan_phase_deg{0.0f};          /**< 当前 WFOV 有向扫描相位，范围 [0, span) deg */
   std::uint64_t next_detection_id{1U}; /**< 下一个检测记录 ID */
   std::map<std::uint64_t, SbirsTargetState>
       target_states{};                         /**< 各目标状态表（按 target_id 索引） */
@@ -82,7 +83,8 @@ class SbirsPipeline {
    * @brief 应用新的内部执行配置（runtime patch 立即生效后调用）。
    * @param[in] config 新的内部执行配置
    */
-  void ApplyConfig(const config::SbirsInternalExecutionConfig& config);
+  void ApplyConfig(const config::SbirsInternalExecutionConfig& config,
+                   const runtime::SbirsRuntimeConfigImpact& impact);
   /**
    * @brief 执行一个仿真周期的探测流水线。
    * @param[in] input 单周期输入
@@ -101,7 +103,7 @@ class SbirsPipeline {
 
  private:
   config::SbirsInternalExecutionConfig config_{};
-  float scan_azimuth_deg_{0.0f};
+  float scan_phase_deg_{0.0f};
   std::uint64_t next_detection_id_{1U};
   std::map<std::uint64_t, SbirsTargetState> target_states_{};
   SbirsNfovScheduler nfov_scheduler_;              // NFOV 多通道资源调度器

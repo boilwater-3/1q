@@ -199,6 +199,9 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
 TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
   sbirs_sensor::config::SbirsSessionConfig config =
       sbirs_sensor::config::SbirsSessionConfigBuilder().Build();
+  config.mission.scan_start_az_deg = 170.0f;
+  config.mission.scan_span_deg = 40.0f;
+  config.mission.scan_direction = sbirs_sensor::config::SbirsScanDirection::kDecreasingAzimuth;
   sbirs_sensor::session::SbirsSession session = sbirs_sensor::session::SbirsSession::Create(config);
 
   sbirs_sensor::session::SbirsVector3M satellite;

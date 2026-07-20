@@ -24,7 +24,8 @@ table SbirsMissionConfig {
   narrow_field_fov_az_deg: float;
   narrow_field_fov_el_deg: float;
   scan_start_az_deg: float;
-  scan_end_az_deg: float;
+  scan_span_deg: float;
+  scan_direction: int32;
   scan_center_el_deg: float;
   scan_rate_deg_per_sec: float;
   min_range_m: float;

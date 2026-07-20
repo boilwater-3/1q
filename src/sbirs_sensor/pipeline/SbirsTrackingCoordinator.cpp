@@ -187,6 +187,12 @@ void SbirsTrackingCoordinator::ReleaseTarget(std::uint64_t target_id) {
   imm_snapshots_.erase(target_id);
 }
 
+void SbirsTrackingCoordinator::ResetNisGateCounts() {
+  for (auto& entry : nis_gate_exceeded_counts_) {
+    entry.second = 0U;
+  }
+}
+
 void SbirsTrackingCoordinator::ClearForStandby() {
   filter_states_.clear();
   nis_gate_exceeded_counts_.clear();

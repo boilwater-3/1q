@@ -8,8 +8,9 @@ namespace runtime {
 SbirsController::SbirsController(const config::SbirsInternalExecutionConfig& config)
     : pipeline_(config) {}
 
-void SbirsController::ApplyConfig(const config::SbirsInternalExecutionConfig& config) {
-  pipeline_.ApplyConfig(config);
+void SbirsController::ApplyConfig(const config::SbirsInternalExecutionConfig& config,
+                                  const SbirsRuntimeConfigImpact& impact) {
+  pipeline_.ApplyConfig(config, impact);
 }
 
 session::SbirsCycleResult SbirsController::RunOnce(const session::SbirsCycleInput& input) {

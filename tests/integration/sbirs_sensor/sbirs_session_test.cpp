@@ -50,7 +50,7 @@ config::SbirsSessionConfig MakeSessionConfig() {
   config.hardware.noise_equivalent_power_w = 1.0e-18f;
   config.hardware.integration_time_sec = 1.0f;
   config.mission.scan_start_az_deg = -1.0f;
-  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_span_deg = 11.0f;
   config.mission.scan_rate_deg_per_sec = 1.0f;
   config.mission.wide_field_fov_az_deg = 20.0f;
   config.mission.wide_field_fov_el_deg = 20.0f;
@@ -170,11 +170,79 @@ TEST(SbirsSessionIntegrationTest, RuntimeWorkModeSwitchTakesEffectImmediately) {
   EXPECT_TRUE(standby_frame.detections.empty());
 }
 
+TEST(SbirsSessionIntegrationTest, WideSearchIsWfovOnlyAndRoundTripResumesScheduling) {
+  SbirsSession session = SbirsSession::Create(MakeSessionConfig());
+  ASSERT_FALSE(session.StepWithResult(MakeBaseInput(1U)).output_frame.detections.empty());
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(sbirs_config::SbirsRuntimeConfigBuilder()
+                                                .WithWorkMode(config::SbirsWorkMode::kWideSearch)
+                                                .Build()));
+
+  const SbirsCycleResult wide = session.StepWithResult(MakeBaseInput(2U));
+  ASSERT_EQ(wide.output_frame.detections.size(), 1U);
+  EXPECT_EQ(wide.output_frame.detections.front().observation_stage,
+            output::SbirsObservationStage::kWideFieldSearch);
+  ASSERT_EQ(wide.detection_attributions.size(), 1U);
+  EXPECT_EQ(wide.detection_attributions.front().nfov_channel_id, -1);
+
+  ASSERT_TRUE(
+      session.TryApplyRuntimeConfig(sbirs_config::SbirsRuntimeConfigBuilder()
+                                        .WithWorkMode(config::SbirsWorkMode::kSearchAndStare)
+                                        .Build()));
+  const SbirsCycleResult resumed = session.StepWithResult(MakeBaseInput(3U));
+  ASSERT_EQ(resumed.output_frame.detections.size(), 1U);
+  EXPECT_EQ(resumed.output_frame.detections.front().observation_stage,
+            output::SbirsObservationStage::kNarrowFieldAcquisition);
+}
+
+TEST(SbirsSessionIntegrationTest, RuntimeScanSectorKeepsPointingInsideAndResetsOutside) {
+  config::SbirsSessionConfig config = MakeSessionConfig();
+  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_span_deg = 20.0f;
+  config.mission.scan_rate_deg_per_sec = 5.0f;
+  SbirsSession session = SbirsSession::Create(config);
+  const SbirsOutputFrame initial = session.Step(MakeBaseInput(1U));
+  ASSERT_FLOAT_EQ(initial.scan_azimuth_deg, -5.0f);
+
+  config.mission.scan_start_az_deg = -20.0f;
+  config.mission.scan_span_deg = 30.0f;
+  config.mission.scan_rate_deg_per_sec = 0.0f;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(
+      sbirs_config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build()));
+  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(2U)).scan_azimuth_deg, -5.0f);
+
+  config.mission.scan_start_az_deg = 30.0f;
+  config.mission.scan_span_deg = 20.0f;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(
+      sbirs_config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build()));
+  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(3U)).scan_azimuth_deg, 30.0f);
+}
+
+TEST(SbirsSessionIntegrationTest, StandbyFreezesScanPhaseUntilSearchResumes) {
+  config::SbirsSessionConfig config = MakeSessionConfig();
+  config.mission.scan_start_az_deg = -10.0f;
+  config.mission.scan_span_deg = 20.0f;
+  config.mission.scan_rate_deg_per_sec = 5.0f;
+  SbirsSession session = SbirsSession::Create(config);
+  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(1U)).scan_azimuth_deg, -5.0f);
+
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(sbirs_config::SbirsRuntimeConfigBuilder()
+                                                .WithWorkMode(config::SbirsWorkMode::kStandby)
+                                                .Build()));
+  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(2U)).scan_azimuth_deg, -5.0f);
+  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(3U)).scan_azimuth_deg, -5.0f);
+
+  ASSERT_TRUE(
+      session.TryApplyRuntimeConfig(sbirs_config::SbirsRuntimeConfigBuilder()
+                                        .WithWorkMode(config::SbirsWorkMode::kSearchAndStare)
+                                        .Build()));
+  EXPECT_FLOAT_EQ(session.Step(MakeBaseInput(4U)).scan_azimuth_deg, 0.0f);
+}
+
 TEST(SbirsSessionIntegrationTest, RuntimeScanRateChangeUpdatesAdvance) {
   // 用足够大的扫描范围，避免推进后回绕到 scan_start，掩盖速率差异。
   config::SbirsSessionConfig config = MakeSessionConfig();
-  config.mission.scan_start_az_deg = -1000.0f;
-  config.mission.scan_end_az_deg = 1000.0f;
+  config.mission.scan_start_az_deg = -180.0f;
+  config.mission.scan_span_deg = 360.0f;
 
   SbirsSession fast_session = SbirsSession::Create(config);
   const SbirsOutputFrame fast_1 = fast_session.Step(MakeBaseInput(1U));
@@ -195,7 +263,7 @@ TEST(SbirsSessionIntegrationTest, RuntimeScanRateChangeUpdatesAdvance) {
 TEST(SbirsSessionIntegrationTest, RateLimitedPointingReservesChannelUntilSettled) {
   config::SbirsSessionConfig config = MakeSessionConfig();
   config.mission.scan_start_az_deg = -10.0f;
-  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 2.0f;
@@ -222,7 +290,7 @@ TEST(SbirsSessionIntegrationTest, RateLimitedPointingReservesChannelUntilSettled
 TEST(SbirsSessionIntegrationTest, RuntimeMissionPatchClearsSlewAndUsesNewRate) {
   config::SbirsSessionConfig config = MakeSessionConfig();
   config.mission.scan_start_az_deg = -10.0f;
-  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 2.0f;
@@ -245,7 +313,7 @@ TEST(SbirsSessionIntegrationTest, RuntimeMissionPatchClearsSlewAndUsesNewRate) {
 TEST(SbirsSessionIntegrationTest, DualChannelAssignmentIsIndependentOfInputOrder) {
   config::SbirsSessionConfig config = MakeSessionConfig();
   config.mission.scan_start_az_deg = -10.0f;
-  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 2.0f;

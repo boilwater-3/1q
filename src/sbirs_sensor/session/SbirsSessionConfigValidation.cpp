@@ -30,6 +30,18 @@ ValidationIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& config)
       config.mission.narrow_field_fov_el_deg <= 0.0f) {
     AddError("mission FOV values must be positive", &issues);
   }
+  if (!std::isfinite(config.mission.scan_start_az_deg) ||
+      config.mission.scan_start_az_deg < -180.0f || config.mission.scan_start_az_deg >= 180.0f) {
+    AddError("mission scan start azimuth must be finite and in [-180, 180)", &issues);
+  }
+  if (!std::isfinite(config.mission.scan_span_deg) || config.mission.scan_span_deg <= 0.0f ||
+      config.mission.scan_span_deg > 360.0f) {
+    AddError("mission scan span must be finite and in (0, 360]", &issues);
+  }
+  if (config.mission.scan_direction != SbirsScanDirection::kIncreasingAzimuth &&
+      config.mission.scan_direction != SbirsScanDirection::kDecreasingAzimuth) {
+    AddError("mission scan direction is invalid", &issues);
+  }
   if (config.mission.max_range_m <= config.mission.min_range_m ||
       config.mission.min_range_m < 0.0f) {
     AddError("mission range gate must be ordered and non-negative", &issues);
@@ -37,8 +49,9 @@ ValidationIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& config)
   if (config.mission.frame_rate_hz <= 0.0f) {
     AddError("mission frame rate must be positive", &issues);
   }
-  if (config.mission.scan_rate_deg_per_sec < 0.0f) {
-    AddError("mission scan rate must be non-negative", &issues);
+  if (!std::isfinite(config.mission.scan_rate_deg_per_sec) ||
+      config.mission.scan_rate_deg_per_sec < 0.0f) {
+    AddError("mission scan rate must be non-negative and finite", &issues);
   }
   if (!std::isfinite(config.mission.narrow_pointing_max_slew_rate_deg_per_sec) ||
       config.mission.narrow_pointing_max_slew_rate_deg_per_sec <= 0.0f) {

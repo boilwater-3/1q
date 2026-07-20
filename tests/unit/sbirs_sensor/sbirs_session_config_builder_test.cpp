@@ -43,6 +43,27 @@ TEST(SbirsSessionConfigBuilderTest, RejectsInvalidScanRate) {
   EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 
+TEST(SbirsSessionConfigBuilderTest, ValidatesCircularScanContract) {
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.mission.scan_start_az_deg = -180.0f;
+  config.mission.scan_span_deg = 360.0f;
+  config.mission.scan_direction = sbirs_sensor::config::SbirsScanDirection::kDecreasingAzimuth;
+  EXPECT_TRUE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.mission.scan_start_az_deg = 180.0f;
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+  config.mission.scan_start_az_deg = -180.0f;
+  config.mission.scan_span_deg = 0.0f;
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+  config.mission.scan_span_deg = 360.1f;
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+  config.mission.scan_span_deg = std::numeric_limits<float>::quiet_NaN();
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+  config.mission.scan_span_deg = 120.0f;
+  config.mission.scan_direction = static_cast<sbirs_sensor::config::SbirsScanDirection>(99);
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+}
+
 TEST(SbirsSessionConfigBuilderTest, PointingDefaultsAreProductionValues) {
   const sbirs_sensor::config::SbirsMissionConfig mission;
   const sbirs_sensor::config::SbirsTrackingConfig tracking;

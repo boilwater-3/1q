@@ -1,0 +1,101 @@
+#include <gtest/gtest.h>
+
+#include "1q/sbirs_sensor/config/SbirsRuntimeConfigBuilder.h"
+#include "sbirs_sensor/runtime/SbirsRuntimeConfigResolver.h"
+
+namespace {
+
+TEST(SbirsRuntimeConfigResolverTest, SameValueMissionPatchIsValidWithoutMigration) {
+  const sbirs_sensor::config::SbirsSessionConfig config;
+  const sbirs_sensor::config::SbirsRuntimeConfigPatch patch =
+      sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithMission(config.mission).Build();
+
+  const auto resolved = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(config, patch);
+
+  EXPECT_TRUE(resolved.is_valid);
+  EXPECT_TRUE(resolved.has_requested_update);
+  EXPECT_FALSE(resolved.impact.scan_sector_changed);
+  EXPECT_FALSE(resolved.impact.reset_measurement_random_stream);
+  EXPECT_FALSE(resolved.impact.reset_nis_gate_counts);
+  EXPECT_FALSE(resolved.impact.reset_nfov_gate_failure_counts);
+  EXPECT_FALSE(resolved.impact.restart_pointing_disturbance);
+  EXPECT_FALSE(resolved.impact.release_estimated_tracks);
+  EXPECT_FALSE(resolved.impact.nfov_channel_count_changed);
+  EXPECT_FALSE(resolved.impact.clear_for_inactive);
+  EXPECT_FALSE(resolved.impact.clear_for_wide_search);
+}
+
+TEST(SbirsRuntimeConfigResolverTest, ClassifiesIndependentStateMigrationGroups) {
+  sbirs_sensor::config::SbirsSessionConfig current;
+  sbirs_sensor::config::SbirsSessionConfig next = current;
+  next.mission.scan_start_az_deg = 170.0f;
+  next.mission.scan_span_deg = 40.0f;
+  next.mission.scan_direction = sbirs_sensor::config::SbirsScanDirection::kDecreasingAzimuth;
+  next.mission.narrow_field_fov_az_deg = 3.0f;
+  next.policy.error_model.random_seed = 9U;
+  next.policy.error_model.attitude_sigma_deg = 0.02f;
+  next.policy.pointing_disturbance.random_seed = 10U;
+  next.policy.tracking.process_noise_diff_coeff = 2.0f;
+  next.policy.tracking.enable_imm_tracking = true;
+  next.policy.scheduler.max_concurrent_nfov_locks = 2;
+
+  const auto patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
+                         .WithMission(next.mission)
+                         .WithPolicy(next.policy)
+                         .Build();
+  const auto resolved = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(current, patch);
+
+  ASSERT_TRUE(resolved.is_valid);
+  EXPECT_TRUE(resolved.impact.scan_sector_changed);
+  EXPECT_TRUE(resolved.impact.reset_measurement_random_stream);
+  EXPECT_TRUE(resolved.impact.reset_nis_gate_counts);
+  EXPECT_TRUE(resolved.impact.reset_nfov_gate_failure_counts);
+  EXPECT_TRUE(resolved.impact.restart_pointing_disturbance);
+  EXPECT_TRUE(resolved.impact.release_estimated_tracks);
+  EXPECT_TRUE(resolved.impact.nfov_channel_count_changed);
+  EXPECT_EQ(resolved.impact.previous_nfov_channel_count, 1);
+  EXPECT_EQ(resolved.impact.next_nfov_channel_count, 2);
+}
+
+TEST(SbirsRuntimeConfigResolverTest, EnvironmentAndScanRatePreserveAccumulatedState) {
+  sbirs_sensor::config::SbirsSessionConfig current;
+  sbirs_sensor::config::SbirsRuntimeConfigPatch patch;
+  patch.has_environment = true;
+  patch.environment = current.environment;
+  patch.environment.visibility_km = 8.0f;
+  patch.has_scan_rate_deg_per_sec = true;
+  patch.scan_rate_deg_per_sec = 25.0f;
+
+  const auto resolved = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(current, patch);
+
+  ASSERT_TRUE(resolved.is_valid);
+  EXPECT_FALSE(resolved.impact.scan_sector_changed);
+  EXPECT_FALSE(resolved.impact.reset_measurement_random_stream);
+  EXPECT_FALSE(resolved.impact.reset_nis_gate_counts);
+  EXPECT_FALSE(resolved.impact.reset_nfov_gate_failure_counts);
+  EXPECT_FALSE(resolved.impact.restart_pointing_disturbance);
+  EXPECT_FALSE(resolved.impact.release_estimated_tracks);
+  EXPECT_FALSE(resolved.impact.nfov_channel_count_changed);
+}
+
+TEST(SbirsRuntimeConfigResolverTest, WorkModeTransitionsClassifyOnlyEntryCleanup) {
+  const sbirs_sensor::config::SbirsSessionConfig current;
+  const auto wide_patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
+                              .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kWideSearch)
+                              .Build();
+  const auto wide = sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(current, wide_patch);
+  ASSERT_TRUE(wide.is_valid);
+  EXPECT_TRUE(wide.impact.clear_for_wide_search);
+  EXPECT_FALSE(wide.impact.clear_for_inactive);
+
+  const auto standby_patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
+                                 .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kStandby)
+                                 .Build();
+  const auto standby =
+      sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(current, standby_patch);
+  ASSERT_TRUE(standby.is_valid);
+  EXPECT_TRUE(standby.impact.clear_for_inactive);
+  EXPECT_FALSE(standby.impact.clear_for_wide_search);
+}
+
+}  // namespace

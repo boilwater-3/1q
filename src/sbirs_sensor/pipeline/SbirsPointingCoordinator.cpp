@@ -1,5 +1,6 @@
 #include "sbirs_sensor/pipeline/SbirsPointingCoordinator.h"
 
+#include <algorithm>
 #include <cmath>
 #include <set>
 
@@ -147,6 +148,46 @@ bool SbirsPointingCoordinator::ReleaseTarget(std::uint64_t target_id) {
   channel.elapsed_wait_sec = 0.0;
   channel.tracking_gate_failure_count = 0U;
   return true;
+}
+
+bool SbirsPointingCoordinator::Reconfigure(int channel_count, unsigned int disturbance_seed,
+                                           bool restart_disturbance,
+                                           std::vector<std::uint64_t>* released_target_ids) {
+  if (channel_count < 1 || disturbance_seed == 0U || released_target_ids == nullptr) {
+    return false;
+  }
+  SbirsPointingCoordinator next(channel_count, disturbance_seed);
+  SbirsPointingCoordinatorSnapshot next_snapshot = next.Capture();
+  const SbirsPointingCoordinatorSnapshot previous_snapshot = Capture();
+  const std::size_t retained_count =
+      std::min(previous_snapshot.channels.size(), next_snapshot.channels.size());
+  for (std::size_t index = 0U; index < retained_count; ++index) {
+    next_snapshot.channels[index] = previous_snapshot.channels[index];
+  }
+  released_target_ids->clear();
+  for (std::size_t index = retained_count; index < previous_snapshot.channels.size(); ++index) {
+    if (previous_snapshot.channels[index].has_bound_target) {
+      released_target_ids->push_back(previous_snapshot.channels[index].target_id);
+    }
+  }
+  if (!restart_disturbance) {
+    next_snapshot.disturbance.common = previous_snapshot.disturbance.common;
+    next_snapshot.disturbance.base_seed = previous_snapshot.disturbance.base_seed;
+    for (std::size_t index = 0U; index < retained_count; ++index) {
+      next_snapshot.disturbance.channels[index] = previous_snapshot.disturbance.channels[index];
+    }
+  }
+  if (!next.Restore(next_snapshot)) {
+    return false;
+  }
+  *this = next;
+  return true;
+}
+
+void SbirsPointingCoordinator::ResetTrackingGateFailureCounts() {
+  for (ChannelRuntime& channel : channels_) {
+    channel.tracking_gate_failure_count = 0U;
+  }
 }
 
 void SbirsPointingCoordinator::Clear() {

@@ -116,7 +116,7 @@ sbirs_config::SbirsSessionConfig MakeConfig(const SbirsCase* scenario = nullptr)
   sbirs_config::SbirsSessionConfig config;
   config.hardware.integration_time_sec = 1.0f;
   config.mission.scan_start_az_deg = -1.0f;
-  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_span_deg = 11.0f;
   config.mission.scan_rate_deg_per_sec = 1.0f;
   config.mission.wide_field_fov_az_deg = 20.0f;
   config.mission.wide_field_fov_el_deg = 20.0f;

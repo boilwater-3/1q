@@ -8,6 +8,7 @@
 
 #include "1q/sbirs_sensor/config/SbirsRuntimeConfigPatch.h"
 #include "1q/sbirs_sensor/config/SbirsSessionConfig.h"
+#include "sbirs_sensor/runtime/SbirsRuntimeConfigImpact.h"
 
 namespace sbirs_sensor {
 namespace runtime {
@@ -21,6 +22,7 @@ struct SbirsRuntimeConfigResolution {
   bool is_valid{false};                        /**< patch 是否合法 */
   bool has_requested_update{false};            /**< 是否产生实际更新 */
   config::SbirsSessionConfig resolved_config{}; /**< 解析后的会话配置 */
+  SbirsRuntimeConfigImpact impact{};            /**< pipeline 最小状态迁移影响 */
 };
 
 /**

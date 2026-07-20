@@ -47,7 +47,7 @@ sbirs_sensor::config::SbirsSessionConfig PipelineConfig() {
   config.hardware.noise_equivalent_power_w = 1.0e-18f;
   config.hardware.integration_time_sec = 1.0f;
   config.mission.scan_start_az_deg = -1.0f;
-  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_span_deg = 11.0f;
   config.mission.scan_rate_deg_per_sec = 1.0f;
   config.mission.wide_field_fov_az_deg = 20.0f;
   config.mission.wide_field_fov_el_deg = 20.0f;
@@ -669,7 +669,7 @@ TEST(SbirsPipelineTest, MissingUnboundCandidateClearsCueHistory) {
   EXPECT_EQ(snapshot.target_states.at(2U), sbirs_sensor::pipeline::SbirsTargetState::kLost);
 }
 
-TEST(SbirsPipelineTest, ApplyingConfigClearsCueMeasurementHistory) {
+TEST(SbirsPipelineTest, ApplyingSameConfigPreservesAccumulatedState) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
   config.mission.narrow_cue_latency_s = 1.0f;
   config.mission.narrow_field_fov_az_deg = 1.0f;
@@ -686,19 +686,146 @@ TEST(SbirsPipelineTest, ApplyingConfigClearsCueMeasurementHistory) {
                         .Build());
   ASSERT_EQ(pipeline.CaptureRuntimeState().cue_predictor.targets.count(23U), 1U);
 
-  pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config));
+  pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), {});
   const auto snapshot = pipeline.CaptureRuntimeState();
-  EXPECT_TRUE(snapshot.cue_predictor.targets.empty());
-  EXPECT_TRUE(snapshot.target_states.empty());
+  EXPECT_EQ(snapshot.cue_predictor.targets.count(23U), 1U);
+  EXPECT_EQ(snapshot.target_states.count(23U), 1U);
   ASSERT_EQ(snapshot.pointing_coordinator.channels.size(), 1U);
-  EXPECT_FALSE(snapshot.pointing_coordinator.channels.front().actuator.initialized);
-  EXPECT_DOUBLE_EQ(snapshot.pointing_coordinator.disturbance.common.azimuth_deg, 0.0);
+  EXPECT_TRUE(snapshot.pointing_coordinator.channels.front().actuator.initialized);
+}
+
+TEST(SbirsPipelineTest, CircularScanSupportsDirectionBoundaryAndMultipleWraps) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.mission.scan_start_az_deg = 170.0f;
+  config.mission.scan_span_deg = 40.0f;
+  config.mission.scan_rate_deg_per_sec = 15.0f;
+  sbirs_sensor::pipeline::SbirsPipeline increasing(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  EXPECT_FLOAT_EQ(increasing.RunCycle(TwoTargetInput(1U)).scan_azimuth_deg, -175.0f);
+
+  config.mission.scan_start_az_deg = -170.0f;
+  config.mission.scan_direction = sbirs_sensor::config::SbirsScanDirection::kDecreasingAzimuth;
+  sbirs_sensor::pipeline::SbirsPipeline decreasing(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  EXPECT_FLOAT_EQ(decreasing.RunCycle(TwoTargetInput(1U)).scan_azimuth_deg, 175.0f);
+
+  config.mission.scan_start_az_deg = -180.0f;
+  config.mission.scan_span_deg = 360.0f;
+  config.mission.scan_direction = sbirs_sensor::config::SbirsScanDirection::kIncreasingAzimuth;
+  config.mission.scan_rate_deg_per_sec = 100.0f;
+  sbirs_sensor::pipeline::SbirsPipeline full_circle(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  auto input = TwoTargetInput(1U);
+  input.dt_sec = 10.0f;
+  EXPECT_FLOAT_EQ(full_circle.RunCycle(input).scan_azimuth_deg, 100.0f);
+  EXPECT_FLOAT_EQ(full_circle.CaptureRuntimeState().scan_phase_deg, 280.0f);
+}
+
+TEST(SbirsPipelineTest, ChannelShrinkKeepsLowChannelAndReleasesHighChannelState) {
+  sbirs_sensor::config::SbirsSessionConfig config = ImmMultiTargetConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  pipeline.RunCycle(TwoTargetInput(1U));
+  const auto before = pipeline.CaptureRuntimeState();
+  ASSERT_EQ(before.nfov_scheduler.target_to_channel.size(), 2U);
+  std::uint64_t low_target_id = 0U;
+  std::uint64_t high_target_id = 0U;
+  for (const auto& entry : before.nfov_scheduler.target_to_channel) {
+    if (entry.second == 0) low_target_id = entry.first;
+    if (entry.second == 1) high_target_id = entry.first;
+  }
+  ASSERT_NE(low_target_id, 0U);
+  ASSERT_NE(high_target_id, 0U);
+
+  config.policy.scheduler.max_concurrent_nfov_locks = 1;
+  sbirs_sensor::runtime::SbirsRuntimeConfigImpact impact;
+  impact.nfov_channel_count_changed = true;
+  impact.previous_nfov_channel_count = 2;
+  impact.next_nfov_channel_count = 1;
+  pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), impact);
+
+  const auto after = pipeline.CaptureRuntimeState();
+  ASSERT_EQ(after.nfov_scheduler.target_to_channel.size(), 1U);
+  EXPECT_EQ(after.nfov_scheduler.target_to_channel.at(low_target_id), 0);
+  EXPECT_EQ(after.target_states.at(high_target_id),
+            sbirs_sensor::pipeline::SbirsTargetState::kWideCandidate);
+  EXPECT_EQ(after.filter_states.count(low_target_id), 1U);
+  EXPECT_EQ(after.filter_states.count(high_target_id), 0U);
+  ASSERT_EQ(after.pointing_coordinator.channels.size(), 1U);
+  EXPECT_EQ(after.pointing_coordinator.channels.front().target_id, low_target_id);
+}
+
+TEST(SbirsPipelineTest, StatisticalPatchesResetOnlyTheirConsecutiveCounters) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  pipeline.RunCycle(TwoTargetInput(1U));
+  auto seeded = pipeline.CaptureRuntimeState();
+  const std::uint64_t target_id = seeded.nfov_scheduler.target_to_channel.begin()->first;
+  seeded.nis_gate_exceeded_counts[target_id] = 3U;
+  seeded.pointing_coordinator.channels.front().tracking_gate_failure_count = 1U;
+  ASSERT_TRUE(pipeline.RestoreRuntimeState(seeded));
+  const auto before = pipeline.CaptureRuntimeState();
+
+  config.policy.tracking.process_noise_diff_coeff = 2.0f;
+  config.policy.detection.narrow_min_snr_linear = 0.002f;
+  sbirs_sensor::runtime::SbirsRuntimeConfigImpact impact;
+  impact.reset_nis_gate_counts = true;
+  impact.reset_nfov_gate_failure_counts = true;
+  pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), impact);
+
+  const auto after = pipeline.CaptureRuntimeState();
+  EXPECT_TRUE(
+      after.filter_states.at(target_id).mean.isApprox(before.filter_states.at(target_id).mean));
+  EXPECT_TRUE(after.filter_states.at(target_id).covariance.isApprox(
+      before.filter_states.at(target_id).covariance));
+  EXPECT_EQ(after.nis_gate_exceeded_counts.at(target_id), 0U);
+  EXPECT_EQ(after.pointing_coordinator.channels.front().tracking_gate_failure_count, 0U);
+  EXPECT_EQ(after.nfov_scheduler.target_to_channel, before.nfov_scheduler.target_to_channel);
+  EXPECT_EQ(after.pointing_coordinator.channels.front().target_id, target_id);
+  EXPECT_EQ(after.pointing_coordinator.channels.front().actuator.initialized,
+            before.pointing_coordinator.channels.front().actuator.initialized);
+}
+
+TEST(SbirsPipelineTest, RuntimeSeedsRestartOnlyTheirOwnedRandomStream) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  pipeline.RunCycle(TwoTargetInput(1U));
+  const auto initial = pipeline.CaptureRuntimeState();
+
+  config.policy.error_model.random_seed = 99U;
+  sbirs_sensor::runtime::SbirsRuntimeConfigImpact measurement_impact;
+  measurement_impact.reset_measurement_random_stream = true;
+  pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), measurement_impact);
+  const auto measurement_reset = pipeline.CaptureRuntimeState();
+  EXPECT_EQ(measurement_reset.random_state, 99U);
+  EXPECT_EQ(measurement_reset.pointing_coordinator.disturbance.base_seed,
+            initial.pointing_coordinator.disturbance.base_seed);
+  EXPECT_EQ(measurement_reset.nfov_scheduler.target_to_channel,
+            initial.nfov_scheduler.target_to_channel);
+
+  config.policy.pointing_disturbance.random_seed = 101U;
+  sbirs_sensor::runtime::SbirsRuntimeConfigImpact pointing_impact;
+  pointing_impact.restart_pointing_disturbance = true;
+  pointing_impact.previous_nfov_channel_count = 1;
+  pointing_impact.next_nfov_channel_count = 1;
+  pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), pointing_impact);
+  const auto pointing_reset = pipeline.CaptureRuntimeState();
+  EXPECT_EQ(pointing_reset.random_state, measurement_reset.random_state);
+  EXPECT_EQ(pointing_reset.pointing_coordinator.disturbance.base_seed, 101U);
+  EXPECT_EQ(pointing_reset.nfov_scheduler.target_to_channel,
+            measurement_reset.nfov_scheduler.target_to_channel);
+  EXPECT_EQ(pointing_reset.pointing_coordinator.channels.front().target_id,
+            measurement_reset.pointing_coordinator.channels.front().target_id);
+  EXPECT_EQ(pointing_reset.pointing_coordinator.channels.front().actuator.initialized,
+            measurement_reset.pointing_coordinator.channels.front().actuator.initialized);
 }
 
 TEST(SbirsPipelineTest, RateLimitedPointingSpansCyclesAndRestores) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
   config.mission.scan_start_az_deg = -10.0f;
-  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 2.0f;
@@ -750,7 +877,7 @@ TEST(SbirsPipelineTest, RateLimitedPointingSpansCyclesAndRestores) {
 TEST(SbirsPipelineTest, PointingTimeoutReleasesWithoutSameCycleReschedule) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
   config.mission.scan_start_az_deg = -10.0f;
-  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 90.0f;
@@ -782,7 +909,7 @@ TEST(SbirsPipelineTest, PointingTimeoutReleasesWithoutSameCycleReschedule) {
 TEST(SbirsPipelineTest, InvalidPointingSnapshotRestoreIsAtomic) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
   config.mission.scan_start_az_deg = -10.0f;
-  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 2.0f;
@@ -1077,6 +1204,7 @@ TEST(SbirsPipelineTest, ImmMultiTargetRestorePreservesPerTargetState) {
   ASSERT_TRUE(restored.RestoreRuntimeState(first_snapshot));
   restored.RunCycle(TwoTargetInput(2U));
   const auto restored_snapshot = restored.CaptureRuntimeState();
+  EXPECT_FLOAT_EQ(restored_snapshot.scan_phase_deg, uninterrupted_snapshot.scan_phase_deg);
   ExpectImmTargetStateEqual(uninterrupted_snapshot, restored_snapshot, 1U);
   ExpectImmTargetStateEqual(uninterrupted_snapshot, restored_snapshot, 2U);
 }

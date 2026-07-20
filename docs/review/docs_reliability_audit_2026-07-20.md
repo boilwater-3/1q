@@ -3,7 +3,7 @@
 Status: draft
 Review-Date: 2026-07-20
 Review-Scope: `docs/` 当前待审文档，排除已迁入权威设计的 AR 和 `docs/flight_dynamic/design.md`
-Approval-State: SBIRS class A applied; SBIRS class B and remaining modules pending owner approval
+Approval-State: SBIRS approved items applied; TruthAssisted semantics and remaining modules pending owner approval
 
 ## 1. 审查目的与边界
 
@@ -269,148 +269,13 @@ replay/config 字段在 public DTO、schema、codec 和测试之间没有形成�
 
 ### 4.4 Space-Based Infrared Sensor
 
-SBIRS 采用比全局 D/A/Q 更严格的二分类：
+SBIRS 第一类问题以及已批准的 B1–B6、B8、B9、环形扫描和 WideSearch-only 行为均已迁入
+`docs/space_based_infrared_sensor/design.md` 并由对应代码与测试固化。本报告不再保留这些已落定项的
+历史方案描述，避免与模块唯一设计权威形成第二份事实来源。
 
-- **第一类（A）过时事实/过时依据**：无需选择设计方案；只要修正文档或注释，就能与已由当前代码、
-  配置、枚举、测试或 batch check 直接证明的事实一致。
-- **第二类（B）设计-实现分歧**：把文档改成代码现状会隐含否决现有设计，或把代码改成文档方案会改变
-  架构/算法/状态连续性；没有对照实验、失败场景和验收门时，本轮不裁决。
-
-| 分类 | 原 finding | 本轮处置 |
-|---|---|---|
-| A1 | SBIRS-01 权威头仍称“新模块目标设计” | 已改为现有模块的 current design authority，并标出 B 类过渡边界 |
-| A2 | SBIRS-07 cue latency 保留旧物理解说 | 已改为 command/truth 同在 latency horizon 评估 |
-| A3 | SBIRS-08 默认状态转移遗漏 tracking gate | 已区分默认 tracking gate 与默认关闭的 NIS loss |
-| A4 | SBIRS-11 batch hard-contract 覆盖夸大 | 已按当前 `checks.Add`/退出门收窄 |
-| A5 | SBIRS-12 失效 evidence | 已删裸行号、修正 Joseph 位置、撤掉不存在的 AR test 作为依据 |
-| A6 | SBIRS-13 observation stage/失败原因不完整 | 已修设计文档和 public enum 注释 |
-| A7 | 原 SBIRS-Q2 的 CA evidence 只来自旧二进制 | fresh build 后 suite 已注册且 5/5 通过，补具体测试锚点 |
-| B1 | SBIRS-02 runtime patch 是否保留滤波状态 | 冻结，待连续性收益与 stale-state 风险证据 |
-| B2 | SBIRS-03 大气边界、Beer–Lambert、optics/GSD 链 | 冻结，待物理误差预算和场景影响证据 |
-| B3 | SBIRS-04 resolver/output/component 所有权 | 冻结，待架构职责与可测试性比较 |
-| B4 | SBIRS-05 WFOV 回绕与 gate/SNR 顺序 | 冻结，待边界场景与输出影响测试 |
-| B5 | SBIRS-06 NFOV 独立辐射/噪声链 | 冻结，待双链与共享 SNR 模型的误差比较 |
-| B6 | SBIRS-09 debug view 是否直接暴露状态机 | 冻结，涉及 public observability 边界 |
-| B7 | SBIRS-10 TruthAssisted 是否叠加误差 | 冻结，待该模式定义和统计语义 |
-| B8 | SBIRS-12 的 SRIF/CKF/UDKF veto 依据及原 Q1 | 冻结；旧 AR 注释不能证明 SBIRS 否决，需 focused characterization |
-| B9 | “融合输出”是算法融合还是 result aggregation | 冻结，先定义术语和实际 consumer |
-
-#### SBIRS-A1（P1，第一类，已处理）权威头仍称新模块目标设计
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md:1,5`。
-- live 证据：`src/sbirs_sensor/CMakeLists.txt:3` 已列完整生产源，文档 `:7` 自己也承认已实现。
-- 处理：标题改为当前设计，Authority 改为 existing module 的 current design authority；同时规定未验证
-  候选不能混写成当前事实，并明确 B 类段落在裁决前不能作为 live 行为依据。
-
-#### SBIRS-B1（P1，第二类，冻结）runtime patch 保留滤波状态的陈述与实际相反
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md` §2.5.2 的 runtime patch 适用边界。
-- live 证据：`SbirsSession.cpp:37` 每次有效 patch 都调用 `SbirsPipeline::ApplyConfig`；
-  `SbirsPipeline.cpp:183` 重建 scheduler/pointing，清除 cue/target state，并通过
-  `tracking_coordinator_.ClearForStandby()` 清除 EKF/NIS/IMM。
-- 暂不处理：文档方案强调跨周期连续性，代码方案强调配置切换后的状态一致性；需要构造 patch 前后
-  tracking continuity、旧状态污染和 replay 确定性的对照场景后再裁决。
-
-#### SBIRS-B2（P1，第二类，冻结）设计中的物理链尚未进入生产路径
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md` §1.2～§1.4、§2.7～§2.9。
-- live 证据：`SbirsEnvironmentModel.cpp:37`、`SbirsPipeline.cpp:155,266` 只有
-  `base_atmospheric_transmittance × (1-A_total)` 标量链；没有 `H_atm`/目标高度门、
-  `EvaluateRadiativeTransfer`、波长/距离 Beer–Lambert 求解，也没有独立 optics/diffraction/GSD 组件。
-- 暂不处理：不能只因当前代码较简化就否决设计链；需先量化大气边界、波长/距离传播与 optics/GSD
-  对当前场景 SNR/门控的影响。
-
-#### SBIRS-B3（P1，第二类，冻结）组件图与 runtime/output 所有权存在分歧
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md` §1.4～§1.6。
-- live 证据：`SbirsSession.cpp:37` 直接调用 resolver；`SbirsController.cpp:15` 内联组装 result；
-  `SbirsCycleOutputAdapter.cpp:6` 仅提供 native-field guard；没有图中具体 `FrameContext` 或
-  `SbirsTargetStateMachine` 类型。
-- 暂不处理：先比较 Session-owned resolver 与 Controller-owned resolver 的事务边界、测试隔离和
-  runtime patch 原子性，再决定改图还是改实现；概念节点也需单独决定是否保留。
-
-#### SBIRS-B4（P1，第二类，冻结）WFOV 回绕与 gate/SNR 顺序存在分歧
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md` §2.3、§2.7。
-- live 证据：`SbirsPipeline.cpp:20,229,266` 显示扫描先归一化到 `[-180,180)`，只在超过 end 时跳 start；
-  不是在 `[start,end]` 宽度上取模。目标处理顺序是 Earth occultation → range → SNR → WFOV FOV。
-- 暂不处理：扫描区间跨 ±180°、边界命中以及 FOV 外目标是否应计算 SNR 都会改变行为；需先补边界
-  场景和结果差异证据。
-
-#### SBIRS-B5（P1，第二类，冻结）NFOV 独立链与共享 SNR 实现存在分歧
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md` §1.4～§1.5、§2.4。
-- live 证据：`SbirsPipeline.cpp:288,337,542` 每目标只计算一次标量 `snr`，WFOV/NFOV 共用，
-  仅阈值不同；NFOV 不再次运行 radiometry/noise。
-- 暂不处理：独立 NFOV 链可能更符合双视场硬件抽象；在没有参数、误差预算和验收场景前，不把共享
-  SNR 直接提升为设计结论。
-
-#### SBIRS-A2（P2，第一类，已处理）cue latency 仍保留旧物理解说
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md` §2.4“窗口判定”。
-- live 证据：`SbirsPipeline.cpp:425,430` 中命令由两点角度 CV 前推到 latency horizon，delayed truth
-  也按速度前推；并非“命令指向测量瞬间位置”。
-- 处理：已写明命令和 eligibility truth 均评估 latency horizon，残差来自 WFOV 误差、CV 失配、
-  ATP 和 NFOV 窗口；不改变算法。
-
-#### SBIRS-A3（P2，第一类，已处理）默认状态转移不只受存在/电源影响
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md` §2.5.2“状态转移”。
-- live 证据：`SbirsPolicyConfig.h:75` 默认 tracking gate loss 为 2；`SbirsPipeline.cpp:339` 达阈值会
-  回到 `WideCandidate`。NIS loss 默认关闭不代表其他丢锁条件关闭。
-- 处理：已分别描述默认启用、阈值为 2 的 tracking gate loss，以及默认关闭的 NIS gate loss，并补
-  两个具体 pipeline 测试证据。
-
-#### SBIRS-B6（P2，第二类，冻结）debug view 不直接暴露目标状态机枚举
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md` §2.2、§2.11。
-- live 证据：`SbirsOutputDebugView.h:21`、`SbirsOutputDebugViewBuilder.cpp:28` 只提供调试 status 和
-  推断 observation stage，没有 `SbirsTargetState`。
-- 暂不处理：直接暴露状态机可能增强诊断，但会扩大 public DTO/replay 边界；需先确定 observability
-  contract，再决定改文档或实现。
-
-#### SBIRS-B7（P2，第二类，冻结）TruthAssisted 输出误差语义存在分歧
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md` §2.5.1。
-- live 证据：`SbirsPipeline.cpp:307,345` 直接用真值 az/el 做命令和成功记录角度；测量误差只在
-  EstimatedTracking correction、WFOV/capture 路径使用。
-- 暂不处理：需先冻结 TruthAssisted 是“严格真值基线”还是“真值状态 + 可配置传感器误差”的模式定义。
-
-#### SBIRS-A4（P2，第一类，已处理）batch hard-contract 覆盖夸大
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md` §2.12。
-- live 证据：`sbirs_batch_validation.cpp:332-394` 的硬检查包括执行计数、通道唯一、目标覆盖、NIS 事件、
-  恢复后有检测、replay 数量和 marker；没有直接证明状态隔离、稳定通道映射、reject 后与 clean session
-  等价或 filter continuity。
-- 处理：已按当前 check id 收窄；明确 batch 不直接证明跨周期通道稳定映射、零 mutation、filter/channel
-  continuity 或 clean-session 等价。
-
-#### SBIRS-A5/B8（P2，拆分处理）evidence 锚点断裂
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md` §2.5.3、§3。
-- `EkfFilter.h:252-255` 现在是 LLT failure 分支，Joseph covariance 已移到 `:265-268`。
-- “AR 500 周期病态测试”当前只剩 `ar_backend_evaluation_test.cpp:9` 历史注释，不是注册测试。
-- 多个 `:268-294`、`:1174-1186` 锚点没有文件名，无法解析。
-- 第一类处理：已删除 TBD/NCC/Otsu/DBSCAN 条目中无文件名、不可解析的裸行号；Joseph 实现位置修正为
-  `EkfFilter.h:265-268`；明确旧 AR 文件头注释不算 live test evidence。
-- 第二类冻结：以上事实不足以决定是否维持 SRIF/CKF/UDKF veto；设计只标注“依据待复核”，结论强度
-  留待第二类讨论。
-
-#### SBIRS-A6（P2，第一类，已处理）observation stage/失败原因说明不完整
-
-- 文档位置：`docs/space_based_infrared_sensor/design.md` §2.11、§3。
-- live 证据：`SbirsOutputTypes.h:18,49`；`kNarrowFieldTrack` 同时承载 Estimated 和 TruthAssisted，
-  失败原因清单还漏掉 `kNfovPointingTimeout`。
-- 处理：设计文档和 `SbirsOutputTypes.h` 注释统一为“NFOV 持续跟踪（估计或真值辅助）”；失败原因
-  清单补入 `kNfovPointingTimeout`。
-
-#### SBIRS-A7/B8/B9（拆分处理）原未确认项
-
-- CKF veto 的近天底/极地几何理由缺少当前 SBIRS 场景矩阵。
-- CA 证据已刷新：fresh release build 后 `SbirsCueCaCharacterizationTest` 注册 5 项且 5/5 通过；
-  设计文档已补持续加速收益和标称噪声零回退失败的具体测试锚点。该结果支持“当前不接线 CA”，不代表
-  CA 永久否决。
-- “融合输出”未找到独立融合算法消费者，可能只是 result aggregation 用语；归入 B9，待定义后处理。
+唯一尚未裁决的 SBIRS 项是 TruthAssisted 双模式定义及观测误差语义；它已独立冻结在
+`docs/review/sbirs_truth_assisted_mode_discussion.md`（`Status: draft`）。在该专题获批前，不修改
+`enable_estimated_tracking=false`、`kTruthAssistedTracking`、相关 public DTO、replay schema 或生产观测语义。
 
 ## 5. Common 文档详细发现
 

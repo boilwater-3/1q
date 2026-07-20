@@ -6,9 +6,9 @@ Authority: current design authority for the existing `sbirs_sensor` module
 
 本文是 `sbirs_sensor`（天基红外预警仿真传感器）模块的设计权威文档。模块已实现并具备单元、
 集成与契约测试分层；本文描述经证据确认的当前实现与已经冻结的设计边界。未经实现验证的候选设计
-只能放在能力决策或重新进入门中，不得写成当前运行事实。当前尚未裁决的设计-实现分歧记录在
-`docs/review/docs_reliability_audit_2026-07-20.md` 的 SBIRS B 类中；裁决前，对应段落不得作为
-live 行为依据。跨模块 public API、builder、三层输出
+只能放在能力决策或重新进入门中，不得写成当前运行事实。当前仅 TruthAssisted 双模式语义仍在
+`docs/review/sbirs_truth_assisted_mode_discussion.md` 中等待裁决；该草案不构成 live 行为依据。
+跨模块 public API、builder、三层输出
 等共同规则见 `docs/common/contract.md`。
 
 本文以公开 SBIRS / OPIR 资料中的扫描红外传感器与 step-staring/staring 红外传感器为真实系统校准点，
@@ -21,7 +21,7 @@ live 行为依据。跨模块 public API、builder、三层输出
 ### 1.1 模块定位
 
 `sbirs_sensor` 提供天基红外预警仿真传感器的配置、单周期输入、环境与大气建模、扫描搜索发现、
-凝视捕获/跟踪、搜索→凝视交接（cueing & handover）、多目标状态管理、融合输出、trace/replay、
+凝视捕获/跟踪、搜索→凝视交接（cueing & handover）、多目标状态管理、结构化结果聚合、trace/replay、
 调试视图和生命周期事件。
 
 与 EOS 的核心差异在于**扫描搜索 + 凝视资源调度 + 状态机驱动交接**：EOS 是单视场扫描探测器，对
@@ -67,7 +67,7 @@ EOS 仅作为 foundation 物理算法的迁移参考，不构成 SBIRS 的对外
 
 ### 1.3 与 EOS 的关系：派生 + 独立
 
-SBIRS 的 foundation 物理算法（Planck 辐射、Beer-Lambert 传播、光子/热/读出噪声、SNR 合成）
+SBIRS 的 foundation 物理算法（Planck 辐射、标量路径透过率、光子/热/读出噪声、SNR 合成）
 参照 EOS foundation 层复制并改为 `sbirs_sensor` 命名空间和 `Sbirs*` 类型。这些算法是内部可测试
 实现，不是 public 契约，也不是 public customization surface。
 
@@ -94,7 +94,7 @@ flowchart TB
     SbirsSession["SbirsSession\n外部门面：Step / StepWithResult / RuntimePatch"]
     Composition["SbirsSessionCompositionRoot\n默认依赖图装配"]
     InputAdapters["Input adapters\n外部输入到 SbirsCycleInput"]
-    OutputAdapters["Output adapters\nOutputFrame / Result / DebugView"]
+    OutputConsumers["Result consumers\nDebug / Lifecycle / Replay / External adapter"]
     ReplayCodec["Replay codec\nFlatBuffer 追踪与回放"]
   end
 
@@ -105,10 +105,10 @@ flowchart TB
   end
 
   subgraph Pipeline["Detection pipeline / 探测流水线"]
-    FrameCtx["FrameContext\n帧级光学 / 环境 / 噪声 / 卫星几何上下文"]
-    Occult["Earth-occultation gate\n地球遮挡与大气边界门控"]
+    PipelineCore["SbirsPipeline\n扫描 / 环境 / SNR / 状态机运行态"]
+    Occult["Earth-occultation gate\n地球遮挡门控"]
     Wfov["WFOV channel\n宽视场扫描发现 + 带误差位置"]
-    StateMachine["SbirsTargetStateMachine\n目标级状态机（6 状态）"]
+    StateMachine["Target-state logic (concept)\n目标级 6 状态逻辑"]
     Cue["SbirsCuePredictor\n逐目标测量驱动 CV cue"]
     Handoff["Handoff decision\n首次捕获判定"]
     Pointing["SbirsPointingCoordinator\n逐通道限速 ATP"]
@@ -118,9 +118,8 @@ flowchart TB
   end
 
   subgraph Foundation["Foundation algorithms / 基础物理算法（参照 EOS）"]
-    Env["environment\n气象影响 + 环境因子"]
-    Optics["optics\n孔径 / FOV / 衍射 / GSD"]
-    Transfer["radiative transfer\n路径透过率 / 路径辐射惩罚"]
+    Env["environment\n气象影响 + 标量透过率"]
+    Transfer["radiative transfer\n标量路径透过率"]
     Radiometry["radiometry\nPlanck / Lambertian / contrast"]
     Noise["noise / NEP\n背景噪声 / 等效噪声 / 有效信号"]
   end
@@ -132,13 +131,12 @@ flowchart TB
   Tools -. "observe / consume\n观测与消费" .-> ReplayCodec
   SbirsSession --> Composition
   Composition --> Controller
-  Composition --> Mapper
-  Controller --> Resolver
-  Controller --> FrameCtx
-  Mapper --> FrameCtx
-  Resolver --> FrameCtx
+  SbirsSession --> Resolver
+  Resolver --> Mapper
+  Mapper --> Controller
+  Controller --> PipelineCore
   InputAdapters --> SbirsSession
-  FrameCtx --> Occult
+  PipelineCore --> Occult
   Occult --> Wfov
   Wfov --> Cue
   Wfov --> StateMachine
@@ -148,13 +146,13 @@ flowchart TB
   Pointing --> Handoff
   Handoff --> NfovFirst
   Handoff --> NfovTrack
-  NfovFirst --> OutputAdapters
-  NfovTrack --> OutputAdapters
-  Wfov --> OutputAdapters
-  OutputAdapters --> SbirsSession
+  Wfov --> Controller
+  NfovFirst --> Controller
+  NfovTrack --> Controller
+  Controller --> SbirsSession
+  SbirsSession -. "consume result\n消费结果" .-> OutputConsumers
   ReplayCodec -. "record/replay\n记录与回放" .-> SbirsSession
-  FrameCtx --> Env
-  FrameCtx --> Optics
+  PipelineCore --> Env
   Wfov --> Transfer
   Wfov --> Radiometry
   Wfov --> Noise
@@ -169,7 +167,9 @@ flowchart TB
 2. `SbirsSessionCompositionRoot` 负责默认依赖图；当前没有用户替换 controller、pipeline、状态机或环境模型的 public API。
 3. `SbirsController` 处理输入校验、周期执行、record/attribution 结果组装和失败输出复用。
 4. `SbirsPipeline` 把一个周期拆成帧级上下文、地球遮挡门控、WFOV 发现、测量 cue、逐通道 ATP、NFOV 首次捕获或持续跟踪。
-5. foundation 算法参照 EOS 复制改名，是内部可测试实现，不是模块间契约。
+5. `SbirsCycleOutputAdapter` 只校验 native-field invariant；result 由 Controller 组装，debug/lifecycle/replay
+   作为消费者读取 result，不反向参与 pipeline。
+6. foundation 算法是内部可测试实现，不是模块间契约；当前没有 GSD、PSF/MTF 或图像帧链。
 
 ### 1.5 执行时序图
 
@@ -182,7 +182,7 @@ sequenceDiagram
   participant Pipeline as SbirsPipeline / 探测流水线
   participant SM as TargetStateMachine / 目标状态机
   participant Physics as Foundation / 物理算法
-  participant Output as OutputAdapter / 输出适配
+  participant Output as Result consumers / 结果消费者
 
   Caller->>Session: StepWithResult(input)\n提交单周期输入
   Session->>Controller: RunOnce(input)\n执行一个周期
@@ -193,8 +193,8 @@ sequenceDiagram
     Output-->>Session: SbirsCycleResult with validation status\n携带校验状态的结果
   else valid input / 输入有效
     Controller->>Pipeline: RunCycle(input)\n进入探测流水线
-    Pipeline->>Physics: build FrameContext\n构造帧级光学 / 噪声 / 卫星几何上下文
-    Pipeline->>Physics: earth-occultation gate\n地球遮挡与大气边界过滤
+    Pipeline->>Physics: resolve frame factors\n解析标量环境 / 噪声 / 卫星几何
+    Pipeline->>Physics: earth-occultation gate\n地球遮挡过滤
     loop each target / 每个目标
       Pipeline->>Physics: WFOV scan: range/FOV/radiometry/noise/SNR\n带误差位置
       Pipeline->>SM: update target state\n更新目标状态
@@ -215,20 +215,41 @@ sequenceDiagram
       end
     end
     Pipeline-->>Controller: detections + attribution\n检测记录与仿真归属
-    Controller->>Output: BuildCycleResult(input)\n生成结构化结果
-    Output-->>Session: OutputFrame + diagnostics\n系统输出与诊断
+    Controller->>Controller: assemble CycleResult\n组装主输出与 attribution
+    Controller-->>Session: OutputFrame + diagnostics\n返回结构化结果
   end
   Session-->>Caller: SbirsCycleResult\n返回结果
 
   Caller->>Session: TryApplyRuntimeConfig(patch)\n提交运行期变更
-  Session->>Controller: ResolveSbirsRuntimeConfigPatch\n校验 patch
-  Controller->>Pipeline: ApplyInternalConfig (immediate)\n立即生效，不在 session 层回滚
+  Session->>Session: ResolveSbirsRuntimeConfigPatch\n校验 patch 并生成 impact
+  Session->>Controller: ApplyInternalConfig(config, impact)\n立即生效，不在 session 层回滚
+  Controller->>Pipeline: ApplyConfig(config, impact)\n按影响最小迁移累积状态
 ```
 
 运行期配置采用**立即提交**策略（与 EOS 同类），见 `docs/common/contract.md` 运行期配置提交策略表。
 当前 `RunCycle` 后不存在可能失败的 commit 步骤，因此 controller 不捕获或恢复 pipeline。pipeline
 snapshot 仅是经完整校验的 internal checkpoint，用于确定性 continuation 与状态恢复测试，不上升为
 session 层事务契约。
+
+resolver 按旧、新配置的字段差异生成内部 impact；相同值 patch 合法但不迁移状态。pipeline 的迁移表为：
+
+| 变化 | 保留 | 定向迁移 |
+|------|------|----------|
+| environment、WFOV 门限、普通 FOV/range/cue/pointing 数值、scan rate | scan、lock、cue、filter、actuator、全部随机流 | 无 |
+| R/Q、NIS 周期或误差统计 | filter 均值与协方差 | NIS 连续计数归零 |
+| NFOV 门限/FOV、指向扰动参数、NFOV gate-loss 周期 | lock 与 actuator | NFOV 连续门失败计数归零 |
+| 初始化协方差 | 所有既有航迹 | 只影响后续新航迹 |
+| measurement seed / pointing seed | 另一随机流；pointing seed 还保留绑定和 actuator LOS | 分别只重启所属随机流/扰动 epoch |
+| EKF/IMM 结构 | 非估计状态 | 释放不兼容 estimated track，后续允许重捕获 |
+| NFOV 通道扩/缩容 | 低编号通道及其绑定/actuator/filter | 扩容新增空闲高编号；缩容确定性释放越界目标 |
+| standby / power-off | scan phase；未改 seed 的测量随机流 | 清空 target、cue、NFOV、pointing、tracking |
+
+通道数/pointing 的多组件迁移先构造临时 scheduler 和 coordinator，验证保留映射一致后再整体替换；
+这属于 pipeline 内部原子状态替换，不虚构 session rollback。
+[evidence: tests/unit/sbirs_sensor/sbirs_runtime_config_resolver_test.cpp]
+[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp::StatisticalPatchesResetOnlyTheirConsecutiveCounters]
+[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp::RuntimeSeedsRestartOnlyTheirOwnedRandomStream]
+[evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp::ChannelShrinkKeepsLowChannelAndReleasesHighChannelState]
 
 单周期输入在任何 pipeline mutation 之前 fail-closed 校验：`dt_sec` 必须正且有限；卫星和目标 ECEF
 必须有限且非原点；`target_id` 必须非零且周期内唯一；温度、emissivity、投影面积遵守各自物理域；
@@ -325,7 +346,7 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 | 算法/部件 | 入口 | 当前角色 | Public 默认 | 主要测试锚点 |
 |---|---|---|---|---|
 | 配置到内部执行映射 | `MapSessionToInternal` | 将硬件、任务、策略、环境四域配置映射为 WFOV/NFOV 可执行参数 | internal mapper，不暴露 | `sbirs_input_validation_test` |
-| runtime patch 立即提交 | `ResolveSbirsRuntimeConfigPatch`、`SbirsSession::TryApplyRuntimeConfig` | 校验工作模式、扫描速率、阈值、NFOV 策略和环境模型变更 | public 只提交 patch，不替换 resolver | `sbirs_session_test` |
+| runtime patch 立即提交 | `ResolveSbirsRuntimeConfigPatch`、`SbirsSession::TryApplyRuntimeConfig` | 解析配置差异与内部 impact；pipeline 按字段所有权最小迁移累积状态 | public 只提交 patch，不替换 resolver | `sbirs_session_test` |
 | 环境与气象衰减 | `ResolveEnvironmentFactors`、`ResolveWeatherAttenuation` | 将场景/大气观测映射为透过率衰减因子 | internal 环境模型，不提供环境 service SPI | `sbirs_environment_model_test` |
 | 地球遮挡门控 | `IsEarthOcculted` | 用有限 LOS 线段与地球球体相交判别穿地视线 | internal 几何门控，不进入 raw output | `sbirs_foundation_test`、`sbirs_pipeline_test` |
 | WFOV 扫描搜索 | `SbirsPipeline` | 推进扫描相位，执行地球遮挡、FOV、范围和 SNR 门控 | internal pipeline，不可替换 | `sbirs_pipeline_test` |
@@ -337,7 +358,7 @@ SBIRS 第一版的 public 可调面限定为 config、cycle input、runtime patc
 | NFOV 首次捕获 | `EvaluateNfovAcquisition` | 由 WFOV cue 生成凝视指向，真实 LOS 落入窗口且 NFOV SNR 达标时捕获 | internal 判定，不暴露捕获算法 SPI | `sbirs_pipeline_test` |
 | NFOV 资源调度 | `SbirsNfovScheduler::SelectForAcquisition` | 多通道并发锁定（`max_concurrent_nfov_locks`，默认 1），按已跟踪、SNR、距离、target id 排序并分配通道编号 | internal scheduler，不暴露策略 SPI | `sbirs_scheduler_test` |
 | 辐射传输与 SNR | `ComputePlanckRadiance`、`EvaluateRadiativeTransfer`、`ComputeInfraredSnrLinear` | 计算红外辐射、透过率、噪声和可探测性 | internal foundation，可测试但不可定制 | `sbirs_foundation_test`、`sbirs_radiative_transfer_test` |
-| 输出构造与仿真归属 | `SbirsCycleOutputAdapter` | 生成 1q 仿真传感器主输出、结构化 result、debug/lifecycle/replay | public 只消费 DTO，不混入 truth | `sbirs_cycle_output_builder_test` |
+| 输出构造与仿真归属 | `SbirsController`、`SbirsCycleOutputAdapter` | Controller 组装主输出与结构化 result；adapter 只校验 native-field invariant | public 只消费 DTO，不混入 truth | `sbirs_cycle_output_builder_test` |
 
 ### 2.2 核心状态机与 WFOV→NFOV 交接
 
@@ -435,10 +456,13 @@ stateDiagram-v2
 1. **几何门控**：目标先过地球遮挡门控（2.7）、WFOV FOV 门控、范围门控。WFOV FOV 门控参照 EOS
    `IsTargetInCurrentFov`（`src/electro_optical_sensor/pipeline/EosPipeline.cpp:443-451`）：
    `|az − scan_az| ≤ 0.5 × wide_field_fov_az` 且 `|el − scan_center_el| ≤ 0.5 × wide_field_fov_el`。
-2. **扫描相位推进**：每周期按 `scan_rate_deg_per_sec × dt` 推进 WFOV 扫描方位角，对
-   `[start_az, end_az]` 取模回绕，参照 EOS `AdvanceScan`
-   （`src/electro_optical_sensor/pipeline/EosPipeline.cpp:428-441`）。角度归一化必须用 `std::fmod`
-   常数时间实现（`docs/common/contract.md` 实现安全规则 5）。
+2. **扫描相位推进**：public 用 `scan_start_az_deg + scan_span_deg + scan_direction` 定义有向圆周半开
+   区间；pipeline 保存 `scan_phase_deg ∈ [0, span)`，每周期用 `std::fmod` 常数时间推进，再派生
+   `[-180, 180)` 的名义扫描方位。`span=360°` 表示整圆，跨 ±180° 不产生数轴断点，大 `dt` 不丢失
+   多次回绕后的余量。扇区 patch 后，当前绝对方位仍位于新有向半开区间时重算 phase 并保持指向，
+   否则 phase 归零转到新起点；rate-only patch 保持 phase。
+   [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp::CircularScanSupportsDirectionBoundaryAndMultipleWraps]
+   [evidence: tests/integration/sbirs_sensor/sbirs_session_test.cpp::RuntimeScanSectorKeepsPointingInsideAndResetsOutside]
 3. **SNR 计算**：对门控通过的目标计算 WFOV IR SNR（见 2.8）。气象衰减 `A_total`（2.9）作用于
    路径透过率，进入 SNR。
 4. **带误差位置**：满足 WFOV 检测门限的目标，输出带误差的方位角、俯仰角、距离（见 2.10 误差模型）。
@@ -451,6 +475,10 @@ stateDiagram-v2
 - WFOV 搜索只处理输入场景中显式给出的目标列表，不从图像像素中生成新目标。
 - WFOV 带误差位置是仿真观测/cue，不是目标真值，也不是外部 target identity。
 - 扫描相位、FOV 和范围门控属于 pipeline 内部状态；public 只能通过配置和 runtime patch 影响它们。
+- `kWideSearch` 只产生 channel=`-1` 的 WFOV 观测，不分配 NFOV；从 SearchAndStare 切入时释放
+  NFOV/pointing/filter 绑定但保留 scan phase、测量随机流和已有 WFOV cue 历史；切回后下一周期恢复
+  调度、捕获和持续跟踪。[evidence:
+  tests/integration/sbirs_sensor/sbirs_session_test.cpp::WideSearchIsWfovOnlyAndRoundTripResumesScheduling]
 
 验证入口：
 
@@ -468,7 +496,8 @@ stateDiagram-v2
 
 coordinator 以 `channel_id` 持有 actuator、绑定目标、捕获等待时间和跟踪门连续失败计数；scheduler 仍是通道分配的唯一
 权威。首次使用的通道从当周期 WFOV 扫描中心初始化；普通释放只解除目标绑定并保留末次 LOS，standby
-或整域 mission config 提交才清空。每周期先推进已有 awaiting 目标，再调度新候选，因此释放的容量可在
+才清空全部通道运行态。runtime patch 按字段 impact 迁移，不因整域 mission/policy 外形而全量清空。
+每周期先推进已有 awaiting 目标，再调度新候选，因此释放的容量可在
 同周期供其他目标使用。未 settled 且累计等待达到 `180° / max_slew_rate` 时产生一次
 `kNfovPointingTimeout`，释放资源并禁止该目标同周期重新调度。
 
@@ -642,23 +671,23 @@ EstimatedTracking 严格使用因果顺序：**predict → actuator advance → 
 - 过程噪声为 CV 模型白噪声加速度（标量 q），不建模机动目标加速度跳变。
 - 量测噪声 R 从 §2.10 误差模型合成，az/el 通道对称（各向同性假设）。
 - `nis_gate_loss_cycles` 丢锁是确定性门限，不做概率抽样（详见 §2.5.4）。
-- runtime patch（`ApplyConfig`，见 §1.5）对已存在的滤波器只更新 R/Q 等参数（`UpdateConfig`），**不重置**
+- runtime patch（`ApplyConfig`，见 §1.5）对已存在的滤波器只让后续周期读取新的 R/Q 等参数，**不重置**
   协方差矩阵和状态向量——重置会破坏跨周期跟踪连续性。"立即提交"契约（`docs/common/contract.md` 运行期配置
   提交策略表）约束的是 patch 生效时机，不要求丢弃累积状态。
 
 #### 2.5.3 滤波后端选型
 
-当前 SBIRS 接线 EKF 和 IMM(EKF) 两个后端（`enable_imm_tracking` 控制切换）；`enable_estimated_tracking`
-是滤波↔真值辅助的总开关，**不是**多后端选择。`common/estimation` 的多后端框架并非全部适用于 SBIRS
-非线性角度量测，下表汇总验证结论：
+当前 SBIRS 接线 EKF 和 IMM(EKF) 两个生产后端（`enable_imm_tracking` 控制切换）；
+`enable_estimated_tracking` 是滤波↔真值辅助的总开关，**不是**多后端选择。其他后端只列入评估与
+重新进入表，当前不可接线不等于已证明永久不适用：
 
-| 后端 | 非线性量测支持 | 当前可用 | 前置条件 |
-|------|:---:|:---:|------|
-| EKF | ✅（`IMeasurementModel*`，Jacobian 一阶展开） | ✅ | — |
-| IMM(EKF) | ✅（内层 EKF） | ✅ 已接线 | 由 `enable_imm_tracking` 控制；`SbirsImmSnapshot` + `imm_snapshots_` 持久化；证据见 `SbirsImmEvaluationTest`（全场景改善 28-55%） |
-| SRIF | ❌（`SrifUpdater` 硬编码线性 H） | ❌ | 需扩展 `common/estimation` 让 `SrifUpdater` 接受 `IMeasurementModel*` 并在线性化方程中使用 |
-| UDKF | ❌（`UdkfUpdater` 硬编码线性 H） | ❌ | UDKF 是协方差 UD 分解（数值稳定），**不是**无导数滤波，对非线性量测无帮助 |
-| KF | ❌（`KalmanUpdater` 硬编码线性 H） | ❌ | 需线性 H，球坐标 az/el 不满足 |
+| 后端 | 生产状态 | 当前阻塞 | 重新进入门 |
+|------|:---:|------|------|
+| EKF | live | — | 当前默认 |
+| IMM(EKF) | live | — | 显式配置；snapshot/replay 已接线 |
+| SRIF | evaluation only | 线性 H helper 对 SBIRS 6D/2D 量测语义不兼容 | 先支持非线性量测，再证明 covariance/LLT 可复现失稳 |
+| UDKF | evaluation only | 当前同样绑定线性 H；UD 分解本身不解决非线性量测 | 先提供 6D/2D 非线性接口和优于 EKF 的数值证据 |
+| CKF | evaluation only | 仓库没有实现 | 提供 Jacobian 近似误差超门的 SBIRS 场景矩阵和独立实现验证 |
 
 **选型原则：人工配置为主，不做在线自动切换**（与 AR §2.10 一致）。理由：
 1. **可复现性优先于智能性**：在线自动选型会使同一想定因阈值微调走不同后端，结果不可比。
@@ -670,15 +699,16 @@ EstimatedTracking 严格使用因果顺序：**predict → actuator advance → 
 [evidence: `sbirs_pipeline_test.cpp:ImmKeepsIndependentStateForEachCapturedTarget`、`ImmMultiTargetUpdatesMatchIndependentRunsAndInputOrder`、`ImmMultiTargetRestorePreservesPerTargetState`;
  `sbirs_replay_session_test.cpp:ReplayPreservesMultiTargetImmTracking`]
 
-**升级触发条件**（当前决策；部分 veto 依据待第二类复核）：
+**升级触发条件**：
 
 | 方向 | 判定 | 理由 |
 |------|:---:|------|
-| SRIF 扩展（协方差数值病态→非正定） | ❌ 不适用（依据待复核） | 当前只确认 EKF 使用 Joseph 形式更新后验协方差（`EkfFilter.h:265-268`），以及 SRIF 硬编码线性 H、需先扩展 `common/estimation` 接受 `IMeasurementModel*` 才能用于 SBIRS。当前没有 live 的“AR 500 周期病态测试”可证明 SBIRS 数值稳定性已足够；是否维持该 veto 列入第二类评审 |
-| CKF（强非线性几何，Jacobian 一阶展开精度不足） | ❌ 不适用 | SBIRS LEO 卫星（~629km 高度）近天底观测，horiz 始终数百公里量级，atan2/asin 非线性度温和；退化几何（horiz→0）仅在极地飞越时发生且被地球遮挡过滤。仓库无 CKF 实现，需从零编写 `CkfPredictor`/`CkfUpdater` |
+| SRIF 扩展（协方差数值病态→非正定） | 评估保留 | 需要先扩展非线性量测接口，并提供 SBIRS covariance/LLT 失稳证据 |
+| CKF（Jacobian 一阶展开精度不足） | 评估保留 | 需要先提供强非线性几何失败矩阵；当前无 CKF 实现 |
 | 概率丢锁模型（确定性 NIS 门限→概率抽样） | ✅ 保留 | 当前丢锁是纯确定性连续 NIS 计数（`nis_gate_loss_cycles`），这是跟踪滤波器行业标准做法（AR 模块同理）。概率模型需先完成 NIS/SNR/角速度→重捕获成功率场景矩阵标定，再引入受 seed 控制的可复现概率抽样 |
 
-已否决的两条触发条件不阻塞当前架构——SBIRS 的 EKF/IMM(EKF) + Joseph 形式 + 确定性 NIS 丢锁已覆盖全部已知场景。若未来出现新的 SBIRS 几何配置（如高轨凝视卫星、极地大倾角轨道）或新的量测模型（如多波段联合），可重新评估。
+这些评估项不阻塞当前生产架构。EKF/IMM(EKF) 覆盖已有验证场景；若出现 covariance 失稳、LLT 失败、
+NIS 病态或 Jacobian 近似误差超出验收门，再重新进入，不以其他模块注释代替 SBIRS 证据。
 
 #### 2.5.4 NIS 诊断与丢锁重捕获
 
@@ -735,7 +765,8 @@ NFOV 资源采用**多通道并发锁定策略**：传感器配置 `max_concurre
 - 新目标被调度选中时，由 `SbirsNfovScheduler::Acquire` 立即分配**最小可用编号**，在 ATP slewing
   与首次捕获期间保持预留。
 - 目标失活/消失、遮挡、越距、离开 WFOV、低于 WFOV SNR、捕获失败、pointing timeout、NIS 丢锁或
-  standby 时回收 scheduler 分配。普通释放保留该物理通道末次 LOS；standby/config apply 才清空光轴。
+  standby 时回收 scheduler 分配。普通释放保留该物理通道末次 LOS；standby/power-off 和 WideSearch
+  切入会清空光轴，普通无关字段 patch 不清空。
 - 编号分配确定性：相同输入在 replay 中产生相同的目标→通道映射。
 
 优先级默认规则（调度器在多个 WFOV 候选中选目标进入首次捕获）：
@@ -792,10 +823,6 @@ occulted = (0 < s_closest && s_closest < range && d_closest² <= R_E²)
 其中 `u` 是从卫星指向目标的单位 LOS。只有最近点位于卫星到目标的有限线段内，且该线段穿过地球球体
 时，目标才被地球遮挡。若只做无限射线近似，也必须要求 `dot(p, u) < 0`，即视线朝向地球一侧。
 
-**大气边界过滤**：设定大气顶层高度 `H_atm`（如 100 km）。对目标高度 `h < H_atm` 的区域，考虑
-大气红外吸收（通过透过率阈值过滤）。第一版的气象衰减模型（2.9）已覆盖大气透过率，大气边界过滤
-主要作为几何前置门控：目标位于大气层以下且距离过远时，直接判为不可观测。
-
 地球遮挡判定在 WFOV FOV 门控和范围门控**之前**执行，避免对穿地视线做无意义的 SNR 计算。该门控
 是帧级（目标无关）与目标级（目标相关）的混合：遮挡角 `θ_occ` 只依赖卫星位置（帧级），夹角 `φ`
 依赖目标视线方向（目标级）。
@@ -803,7 +830,7 @@ occulted = (0 < s_closest && s_closest < range && d_closest² <= R_E²)
 适用边界：
 
 - 遮挡门控只回答 LOS 是否穿过地球球体，不负责地形、云图、临边散射或三维大气廓线。
-- 大气边界过滤是 SNR 前置 gate；更精细的大气吸收仍由 2.9 的透过率链路承担。
+- 不存在“目标位于大气层以下且距离过远”硬 gate；低空/地面目标的路径损耗只通过当前标量透过率进入 SNR。
 - 实现必须使用一致的 ECEF/ECI 坐标输入，不能混用局部 FOV 坐标做地球相交判定。
 
 验证入口：
@@ -818,6 +845,10 @@ foundation 链路由 `SbirsPipeline` 统一编排：Planck 辐射、路径透过
 当前标量 SNR 链缺少把像元面积映射为视场立体角所需的焦距与成像几何，因此 public hardware 和 replay
 schema 都不暴露无消费者的 detector-area 字段。只有独立成像模型同时具备 PSF/MTF、焦距与像元几何时，
 才可冻结其物理效应并增加结果测试；不得先加占位字段再用任意归一化系数伪装生效。
+
+WFOV/NFOV 当前共享同一套波段、孔径、透过率、积分时间和噪声参数，对同一目标只计算一条标量 SNR；
+两个通道的差异由 FOV、调度/指向和各自检测门限表达。只有具备独立通道硬件参数及可验证误差预算时，
+才重新进入双 radiometry/SNR 链，不重复执行同一公式伪装成两个物理通道。
 
 这些算法是内部可测试实现，不是 public 契约。复制时改命名空间为 `sbirs_sensor`，类型前缀改
 `Sbirs*`，并允许为天基红外场景修正物理常数、波段参数、背景项和几何门控。若与 EOS 逻辑不等价，
@@ -868,14 +899,16 @@ A_total = Σ(w_i · A_i) + Σ(k_j · A_p · A_q) + C
 τ_eff(λ,d) = τ(λ,d) · (1 − A_total)
 ```
 
-`τ_eff` 替换 2.8 中的 `τ(λ,d)` 进入 `Φ_atm = Φ_tar · τ_eff`，进而降低 `P_sig` 和 SNR。这样气象
-衰减与 Beer-Lambert 大气衰减统一在透过率维度合成，避免在多个环节重复扣减。
+`τ_eff` 替换 2.8 中的 `τ(λ,d)` 进入 `Φ_atm = Φ_tar · τ_eff`，进而降低 `P_sig` 和 SNR。气象衰减
+只在透过率维度合成一次，避免在多个环节重复扣减。
 
 适用边界：
 
 - 气象模型只输出透过率衰减因子，不直接改写 detection threshold、目标温度或输出记录。
 - `A_total` 必须夹紧到 `[0, 1]`，并且只能在透过率维度扣减一次。
 - 第一版使用查表和加权叠加，不接入 MODTRAN/LOWTRAN 或三维天气场。
+- 当前 `base_atmospheric_transmittance` 是可标定标量，不声称实现波长/路径长度 Beer–Lambert 廓线；
+  只有具备波段吸收系数、有效路径和误差预算时才重新进入。
 
 验证入口：
 
@@ -936,7 +969,8 @@ x[k+1] = alpha * x[k] + sigma * sqrt(1 - alpha^2) * N(0, 1)
 状态所有权与确定性边界：
 
 - 共模状态每个 pipeline 一份；通道状态按物理 `channel_id` 持有，不按目标持有。
-- 空闲通道仍随仿真时间推进；普通 release/rebind 不重置，standby、配置提交或通道数变化重置。
+- 空闲通道仍随仿真时间推进；普通 release/rebind 和无关字段 patch 不重置。standby/WideSearch 清空，
+  pointing seed 重启扰动 epoch 但保留 actuator/绑定；通道扩缩容保留仍存在的低编号通道扰动状态。
 - snapshot 保存共模、各通道 GM、随机流与振动时间；restore 与 actuator/绑定映射一起原子校验。
 - 全部幅值默认 0；没有可追溯设备参数时不提供仓库级非零“真实 SBIRS”常数。
 - 当前是传感器角度坐标系的小角度扰动，不含刚体姿态、角速度控制、反作用轮、饱和或机械耦合。
@@ -995,13 +1029,14 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 
 仿真归属（detection id → 输入 target id/name）、debug view、lifecycle（found/lost）、replay 仅进
 `SbirsCycleResult` 和调试视图层，不得混入 `SbirsOutputFrame`。WFOV/NFOV 状态机内部状态如需调试，
-通过 debug view 暴露，不影响正式输出接口。
+通过稳定的 status/stage/reason/coasting/gate 语义派生，不直接公开 internal `SbirsTargetState` 枚举，
+也不影响正式输出接口。
 
 适用边界：
 
 - `SbirsOutputFrame` 是 1q 仿真传感器主输出层，不是 debug view，也不是真实 SBIRS 下传辐射图像。
 - `target_id`、输入目标名称、状态机枚举、capture attribution 和生命周期事件只能进入 result/debug/replay 层。
-- `range_m`、visible/fused SNR 不属于首批 raw output；距离估计只进入 `SbirsCycleResult` 的 attribution/诊断层。
+- `range_m`、visible SNR 或所谓 fused SNR 不属于首批 raw output；距离估计只进入 `SbirsCycleResult` 的 attribution/诊断层。
 - 如果后续新增真实 OPIR 风格事件消息或辐射帧，应新增独立 DTO，不得把字段塞回其他模块的输出形状。
 
 验证入口：
@@ -1033,18 +1068,8 @@ unit/integration/replay 测试作为证据。红外链路物理趋势仍为 warn
   窄视场当前帧图像，依赖图像级数据；第一版的几何 + SNR 判定已能覆盖捕获语义。
 
 - **滤波后端：EKF + IMM(EKF) 已接线，当前不引入额外后端**——当前 SBIRS `kEstimatedTracking` 状态
-  支持两个滤波后端（见 §2.5.2—§2.5.3）：单 EKF(CV)（默认，`enable_imm_tracking=false`）和
-  IMM(EKF×N)（`enable_imm_tracking=true`，三场景 RMSE 改善 28–55%）。以下后端是当前设计 veto；
-  CKF/SRIF/UDKF 的证据充分性仍列入第二类复核，不得把“当前不接线”扩大成“已证明永远不适用”：
-  - **CKF**（容积卡尔曼滤波，sigma-point 路径）：❌ 不适用。SBIRS LEO 卫星（~629km 高度）近天底
-    观测，horiz 始终数百公里量级，atan2/asin 非线性度温和；退化几何仅在极地飞越时发生且被地球遮挡
-    过滤。仓库无 CKF 实现，需从零编写，且无已知 SBIRS 场景触发其必要性。
-  - **SRIF**（平方根信息滤波）：当前设计判定为不适用，但依据待第二类评审。已确认 EKF 使用 Joseph
-    形式更新后验协方差（`EkfFilter.h:265-268`），SRIF 当前硬编码线性 H，需先扩展
-    `common/estimation` 接受 `IMeasurementModel*` 才能用于 SBIRS；当前没有 live 的“AR 500 周期
-    病态测试”可直接证明 SBIRS 数值稳定性已足够。
-  - **UDKF**（UD 分解卡尔曼滤波）：❌ 不适用。UDKF 是协方差 UD 分解（数值稳定），不是无导数滤波，
-    对非线性量测无帮助；且 Joseph 形式已提供足够的数值稳定性。
+  支持单 EKF(CV) 与 IMM(EKF×N)。CKF/SRIF/UDKF 只保留为评估方向：当前接口不兼容或实现缺失，
+  但没有 SBIRS 场景证据支持永久 veto；重新进入条件统一见 §2.5.3。
   仍不做：（1）多后端枚举——`enable_imm_tracking` 是 EKF↔IMM 二态开关，非通用多后端选择器。
   （2）波门关联（多假设航迹关联）——需多目标同时跟踪场景。
 - **不做在线残差驱动的自动滤波后端切换**——后端选择由显式配置决定，保证 replay 可复现（与 AR §2.10

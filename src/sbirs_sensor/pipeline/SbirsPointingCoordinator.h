@@ -55,6 +55,9 @@ class SbirsPointingCoordinator {
   bool DisturbanceSample(int channel_id, const SbirsPointingDisturbanceParameters& parameters,
                          SbirsPointingDisturbanceSample* sample) const;
   bool ReleaseTarget(std::uint64_t target_id);
+  bool Reconfigure(int channel_count, unsigned int disturbance_seed, bool restart_disturbance,
+                   std::vector<std::uint64_t>* released_target_ids);
+  void ResetTrackingGateFailureCounts();
   void Clear();
 
   bool IsTargetBound(std::uint64_t target_id) const;

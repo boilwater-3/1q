@@ -151,36 +151,45 @@ void DecodeHardwareConfig(const sbirs::replay::SbirsHardwareConfig* fb,
 flatbuffers::Offset<sbirs::replay::SbirsMissionConfig> EncodeMissionConfig(
     flatbuffers::FlatBufferBuilder& fbb, const config::SbirsMissionConfig& value) {
   return sbirs::replay::CreateSbirsMissionConfig(
-      fbb, static_cast<std::int32_t>(value.work_mode), value.power_on,
-      value.wide_field_fov_az_deg, value.wide_field_fov_el_deg, value.narrow_field_fov_az_deg,
-      value.narrow_field_fov_el_deg, value.scan_start_az_deg, value.scan_end_az_deg,
+      fbb, static_cast<std::int32_t>(value.work_mode), value.power_on, value.wide_field_fov_az_deg,
+      value.wide_field_fov_el_deg, value.narrow_field_fov_az_deg, value.narrow_field_fov_el_deg,
+      value.scan_start_az_deg, value.scan_span_deg, static_cast<std::int32_t>(value.scan_direction),
       value.scan_center_el_deg, value.scan_rate_deg_per_sec, value.min_range_m, value.max_range_m,
       value.frame_rate_hz, value.narrow_cue_latency_s, value.narrow_pointing_settle_error_deg,
       value.narrow_pointing_max_slew_rate_deg_per_sec, value.narrow_pointing_settle_tolerance_deg);
 }
 
-void DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
+bool DecodeMissionConfig(const sbirs::replay::SbirsMissionConfig* fb,
                          config::SbirsMissionConfig* out) {
-  if (fb == nullptr) {
-    return;
+  if (fb == nullptr || out == nullptr ||
+      (fb->scan_direction() !=
+           static_cast<std::int32_t>(config::SbirsScanDirection::kIncreasingAzimuth) &&
+       fb->scan_direction() !=
+           static_cast<std::int32_t>(config::SbirsScanDirection::kDecreasingAzimuth))) {
+    return false;
   }
-  out->work_mode = static_cast<config::SbirsWorkMode>(fb->work_mode());
-  out->power_on = fb->power_on();
-  out->wide_field_fov_az_deg = fb->wide_field_fov_az_deg();
-  out->wide_field_fov_el_deg = fb->wide_field_fov_el_deg();
-  out->narrow_field_fov_az_deg = fb->narrow_field_fov_az_deg();
-  out->narrow_field_fov_el_deg = fb->narrow_field_fov_el_deg();
-  out->scan_start_az_deg = fb->scan_start_az_deg();
-  out->scan_end_az_deg = fb->scan_end_az_deg();
-  out->scan_center_el_deg = fb->scan_center_el_deg();
-  out->scan_rate_deg_per_sec = fb->scan_rate_deg_per_sec();
-  out->min_range_m = fb->min_range_m();
-  out->max_range_m = fb->max_range_m();
-  out->frame_rate_hz = fb->frame_rate_hz();
-  out->narrow_cue_latency_s = fb->narrow_cue_latency_s();
-  out->narrow_pointing_settle_error_deg = fb->narrow_pointing_settle_error_deg();
-  out->narrow_pointing_max_slew_rate_deg_per_sec = fb->narrow_pointing_max_slew_rate_deg_per_sec();
-  out->narrow_pointing_settle_tolerance_deg = fb->narrow_pointing_settle_tolerance_deg();
+  config::SbirsMissionConfig decoded;
+  decoded.work_mode = static_cast<config::SbirsWorkMode>(fb->work_mode());
+  decoded.power_on = fb->power_on();
+  decoded.wide_field_fov_az_deg = fb->wide_field_fov_az_deg();
+  decoded.wide_field_fov_el_deg = fb->wide_field_fov_el_deg();
+  decoded.narrow_field_fov_az_deg = fb->narrow_field_fov_az_deg();
+  decoded.narrow_field_fov_el_deg = fb->narrow_field_fov_el_deg();
+  decoded.scan_start_az_deg = fb->scan_start_az_deg();
+  decoded.scan_span_deg = fb->scan_span_deg();
+  decoded.scan_direction = static_cast<config::SbirsScanDirection>(fb->scan_direction());
+  decoded.scan_center_el_deg = fb->scan_center_el_deg();
+  decoded.scan_rate_deg_per_sec = fb->scan_rate_deg_per_sec();
+  decoded.min_range_m = fb->min_range_m();
+  decoded.max_range_m = fb->max_range_m();
+  decoded.frame_rate_hz = fb->frame_rate_hz();
+  decoded.narrow_cue_latency_s = fb->narrow_cue_latency_s();
+  decoded.narrow_pointing_settle_error_deg = fb->narrow_pointing_settle_error_deg();
+  decoded.narrow_pointing_max_slew_rate_deg_per_sec =
+      fb->narrow_pointing_max_slew_rate_deg_per_sec();
+  decoded.narrow_pointing_settle_tolerance_deg = fb->narrow_pointing_settle_tolerance_deg();
+  *out = decoded;
+  return true;
 }
 
 flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
@@ -461,10 +470,14 @@ bool DecodeSbirsSessionConfig(const std::string& bytes, config::SbirsSessionConf
   }
   const sbirs::replay::SbirsSessionConfig* fb =
       flatbuffers::GetRoot<sbirs::replay::SbirsSessionConfig>(bytes.data());
-  DecodeHardwareConfig(fb->hardware(), &out->hardware);
-  DecodeMissionConfig(fb->mission(), &out->mission);
-  DecodePolicyConfig(fb->policy(), &out->policy);
-  out->environment = DecodeSessionEnvironmentConfig(fb->environment());
+  config::SbirsSessionConfig decoded = *out;
+  if (!DecodeMissionConfig(fb->mission(), &decoded.mission)) {
+    return false;
+  }
+  DecodeHardwareConfig(fb->hardware(), &decoded.hardware);
+  DecodePolicyConfig(fb->policy(), &decoded.policy);
+  decoded.environment = DecodeSessionEnvironmentConfig(fb->environment());
+  *out = decoded;
   return true;
 }
 
@@ -486,18 +499,22 @@ bool DecodeSbirsRuntimeConfigPatch(const std::string& bytes, config::SbirsRuntim
   }
   const sbirs::replay::SbirsRuntimeConfigPatch* fb =
       flatbuffers::GetRoot<sbirs::replay::SbirsRuntimeConfigPatch>(bytes.data());
-  out->has_mission = fb->has_mission();
-  out->has_policy = fb->has_policy();
-  out->has_environment = fb->has_environment();
-  out->has_work_mode = fb->has_work_mode();
-  out->work_mode = static_cast<config::SbirsWorkMode>(fb->work_mode());
-  out->has_scan_rate_deg_per_sec = fb->has_scan_rate_deg_per_sec();
-  out->scan_rate_deg_per_sec = fb->scan_rate_deg_per_sec();
-  out->has_power_on = fb->has_power_on();
-  out->power_on = fb->power_on();
-  DecodeMissionConfig(fb->mission(), &out->mission);
-  DecodePolicyConfig(fb->policy(), &out->policy);
-  out->environment = DecodeSessionEnvironmentConfig(fb->environment());
+  config::SbirsRuntimeConfigPatch decoded = *out;
+  if (!DecodeMissionConfig(fb->mission(), &decoded.mission)) {
+    return false;
+  }
+  decoded.has_mission = fb->has_mission();
+  decoded.has_policy = fb->has_policy();
+  decoded.has_environment = fb->has_environment();
+  decoded.has_work_mode = fb->has_work_mode();
+  decoded.work_mode = static_cast<config::SbirsWorkMode>(fb->work_mode());
+  decoded.has_scan_rate_deg_per_sec = fb->has_scan_rate_deg_per_sec();
+  decoded.scan_rate_deg_per_sec = fb->scan_rate_deg_per_sec();
+  decoded.has_power_on = fb->has_power_on();
+  decoded.power_on = fb->power_on();
+  DecodePolicyConfig(fb->policy(), &decoded.policy);
+  decoded.environment = DecodeSessionEnvironmentConfig(fb->environment());
+  *out = decoded;
   return true;
 }
 

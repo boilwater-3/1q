@@ -18,7 +18,7 @@ sbirs_sensor::config::SbirsSessionConfig Config() {
   sbirs_sensor::config::SbirsSessionConfig config;
   config.hardware.noise_equivalent_power_w = 1.0e-18f;
   config.mission.scan_start_az_deg = -1.0f;
-  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_span_deg = 11.0f;
   config.mission.scan_rate_deg_per_sec = 1.0f;
   config.policy.detection.wide_min_snr_linear = 0.001f;
   config.policy.detection.narrow_min_snr_linear = 0.001f;

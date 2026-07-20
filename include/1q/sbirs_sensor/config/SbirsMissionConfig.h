@@ -14,6 +14,9 @@ namespace config {
 /** @brief 传感器工作模式：待机、仅 WFOV 宽视场搜索、搜索+凝视协同。 */
 enum class ONEQ_API SbirsWorkMode { kStandby = 0, kWideSearch, kSearchAndStare };
 
+/** @brief WFOV 环形扫描方向；扫描速率始终为非负标量。 */
+enum class ONEQ_API SbirsScanDirection { kIncreasingAzimuth = 0, kDecreasingAzimuth };
+
 /**
  * @brief SBIRS-inspired 任务与视场参数。
  * @note 纯数据类型 (POD)。WFOV/NFOV 视场、扫描范围与速率、距离门控和帧率共同定义
@@ -27,7 +30,8 @@ struct ONEQ_API SbirsMissionConfig {
   float narrow_field_fov_az_deg{2.0f};                     /**< NFOV 方位视场（IFOV），单位 deg */
   float narrow_field_fov_el_deg{2.0f};                     /**< NFOV 俯仰视场（IFOV），单位 deg */
   float scan_start_az_deg{-60.0f};                         /**< WFOV 扫描方位起点，单位 deg */
-  float scan_end_az_deg{60.0f};                            /**< WFOV 扫描方位终点，单位 deg */
+  float scan_span_deg{120.0f}; /**< WFOV 有向扫描跨度，范围 (0, 360] deg */
+  SbirsScanDirection scan_direction{SbirsScanDirection::kIncreasingAzimuth}; /**< WFOV 扫描方向 */
   float scan_center_el_deg{0.0f};                          /**< WFOV 扫描中心俯仰角，单位 deg */
   float scan_rate_deg_per_sec{10.0f};                      /**< WFOV 扫描速率，单位 deg/s */
   float min_range_m{1.0e3f};                               /**< 距离门控下限 Dmin，单位 m */

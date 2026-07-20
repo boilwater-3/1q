@@ -48,7 +48,7 @@ sbirs_sensor::config::SbirsSessionConfig Config() {
   sbirs_sensor::config::SbirsSessionConfig config;
   config.hardware.noise_equivalent_power_w = 1.0e-18f;
   config.mission.scan_start_az_deg = -1.0f;
-  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_span_deg = 11.0f;
   config.mission.scan_rate_deg_per_sec = 1.0f;
   config.policy.detection.wide_min_snr_linear = 0.001f;
   config.policy.detection.narrow_min_snr_linear = 0.001f;
@@ -339,7 +339,7 @@ TEST(SbirsReplaySessionTest, ReplayPreservesMeasurementDerivedCvCue) {
 TEST(SbirsReplaySessionTest, ReplayPreservesMultiCycleSlewAndRuntimeMissionPatch) {
   sbirs_sensor::config::SbirsSessionConfig config = Config();
   config.mission.scan_start_az_deg = -10.0f;
-  config.mission.scan_end_az_deg = 10.0f;
+  config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 2.0f;
@@ -381,7 +381,7 @@ TEST(SbirsReplaySessionTest, ReplayPreservesMultiCycleSlewAndRuntimeMissionPatch
 TEST(SbirsReplaySessionTest, ReplayPreservesDualChannelPointingTimeout) {
   sbirs_sensor::config::SbirsSessionConfig config = Config();
   config.mission.scan_start_az_deg = 0.0f;
-  config.mission.scan_end_az_deg = 20.0f;
+  config.mission.scan_span_deg = 20.0f;
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 1.0f;
@@ -415,6 +415,49 @@ TEST(SbirsReplaySessionTest, ReplayPreservesDualChannelPointingTimeout) {
   EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
   EXPECT_EQ(replay_result.playback.applied_input_count, 180U);
   EXPECT_EQ(replay_result.playback.compared_output_count, 180U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
+TEST(SbirsReplaySessionTest, ReplayPreservesChannelShrinkAndWideSearchRoundTrip) {
+  sbirs_sensor::config::SbirsSessionConfig config = Config();
+  config.policy.scheduler.max_concurrent_nfov_locks = 2;
+  const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-runtime-migration");
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-runtime-migration"), true));
+    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+    sbirs_sensor::session::SbirsTraceSession session(config, options);
+    session.StepWithResult(ImmMultiTargetInput(1U));
+
+    config.policy.scheduler.max_concurrent_nfov_locks = 1;
+    session.ApplyRuntimeConfig(
+        sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build());
+    session.StepWithResult(ImmMultiTargetInput(2U));
+
+    session.ApplyRuntimeConfig(sbirs_sensor::config::SbirsRuntimeConfigBuilder()
+                                   .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kWideSearch)
+                                   .Build());
+    const auto wide = session.StepWithResult(ImmMultiTargetInput(3U));
+    for (const auto& attribution : wide.detection_attributions) {
+      EXPECT_EQ(attribution.nfov_channel_id, -1);
+    }
+
+    session.ApplyRuntimeConfig(
+        sbirs_sensor::config::SbirsRuntimeConfigBuilder()
+            .WithWorkMode(sbirs_sensor::config::SbirsWorkMode::kSearchAndStare)
+            .Build());
+    session.StepWithResult(ImmMultiTargetInput(4U));
+    replay_writer->Flush();
+  }
+
+  const sbirs_sensor::session::SbirsReplaySessionResult replay_result =
+      sbirs_sensor::session::ReplaySbirsTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 4U);
+  EXPECT_EQ(replay_result.playback.applied_runtime_patch_count, 3U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 4U);
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 

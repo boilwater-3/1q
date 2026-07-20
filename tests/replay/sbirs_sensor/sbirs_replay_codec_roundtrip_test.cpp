@@ -11,8 +11,9 @@
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "1q/sbirs_sensor/session/SbirsOutputTypes.h"
 #include "flatbuffers/flatbuffers.h"
-#include "sbirs_sensor/session/generated/sbirs_replay_generated.h"
 #include "sbirs_sensor/session/SbirsReplayFlatbufferCodec.h"
+#include "sbirs_sensor/session/generated/sbirs_replay_generated.h"
+#include "sbirs_sensor/session/generated/sbirs_session_replay_generated.h"
 
 namespace sbirs_sensor {
 namespace session {
@@ -25,6 +26,7 @@ using config::SbirsMissionConfig;
 using config::SbirsPolicyConfig;
 using config::SbirsRuntimeConfigBuilder;
 using config::SbirsRuntimeConfigPatch;
+using config::SbirsScanDirection;
 using config::SbirsSeaState;
 using config::SbirsSessionConfig;
 using config::SbirsWeatherType;
@@ -46,6 +48,14 @@ std::string EncodeCycleResultWithRawAbortReason(std::int32_t abort_reason) {
       builder, 99U, 0, 0, 0, false, false, false, abort_reason));
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()),
                      builder.GetSize());
+}
+
+std::string EncodeSessionConfigWithRawScanDirection(std::int32_t scan_direction) {
+  flatbuffers::FlatBufferBuilder builder(128U);
+  const auto mission = sbirs::replay::CreateSbirsMissionConfig(
+      builder, 0, true, 20.0f, 20.0f, 2.0f, 2.0f, -60.0f, 120.0f, scan_direction);
+  builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, mission, 0, 0));
+  return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
 }
 
 }  // namespace
@@ -247,6 +257,9 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.noise_equivalent_power_w = 2.0e-12f;
   config.mission.work_mode = SbirsWorkMode::kWideSearch;
   config.mission.power_on = true;
+  config.mission.scan_start_az_deg = 170.0f;
+  config.mission.scan_span_deg = 45.0f;
+  config.mission.scan_direction = SbirsScanDirection::kDecreasingAzimuth;
   config.mission.scan_rate_deg_per_sec = 3.0f;
   config.mission.narrow_cue_latency_s = 0.05f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 17.5f;
@@ -283,6 +296,9 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.hardware.noise_equivalent_power_w, 2.0e-12f);
   EXPECT_EQ(decoded.mission.work_mode, SbirsWorkMode::kWideSearch);
   EXPECT_TRUE(decoded.mission.power_on);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_start_az_deg, 170.0f);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_span_deg, 45.0f);
+  EXPECT_EQ(decoded.mission.scan_direction, SbirsScanDirection::kDecreasingAzimuth);
   EXPECT_FLOAT_EQ(decoded.mission.scan_rate_deg_per_sec, 3.0f);
   EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_max_slew_rate_deg_per_sec, 17.5f);
   EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_settle_tolerance_deg, 0.025f);
@@ -315,6 +331,9 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
 TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   SbirsMissionConfig mission;
   mission.work_mode = SbirsWorkMode::kStandby;
+  mission.scan_start_az_deg = 175.0f;
+  mission.scan_span_deg = 80.0f;
+  mission.scan_direction = SbirsScanDirection::kDecreasingAzimuth;
   mission.narrow_pointing_max_slew_rate_deg_per_sec = 12.0f;
   mission.narrow_pointing_settle_tolerance_deg = 0.03f;
   SbirsPolicyConfig policy;
@@ -339,6 +358,9 @@ TEST(SbirsReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
 
   EXPECT_TRUE(decoded.has_mission);
   EXPECT_EQ(decoded.mission.work_mode, SbirsWorkMode::kStandby);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_start_az_deg, 175.0f);
+  EXPECT_FLOAT_EQ(decoded.mission.scan_span_deg, 80.0f);
+  EXPECT_EQ(decoded.mission.scan_direction, SbirsScanDirection::kDecreasingAzimuth);
   EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_max_slew_rate_deg_per_sec, 12.0f);
   EXPECT_FLOAT_EQ(decoded.mission.narrow_pointing_settle_tolerance_deg, 0.03f);
   EXPECT_TRUE(decoded.has_policy);
@@ -441,6 +463,15 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeSessionConfigRejectsNullAndCorrupted) 
   EXPECT_FALSE(DecodeSbirsSessionConfig("", nullptr));
   SbirsSessionConfig config;
   EXPECT_FALSE(DecodeSbirsSessionConfig("bad", &config));
+}
+
+TEST(SbirsReplayCodecRoundtripTest, DecodeSessionConfigRejectsUnknownScanDirectionAtomically) {
+  SbirsSessionConfig config;
+  config.mission.scan_start_az_deg = 12.0f;
+  config.mission.scan_span_deg = 34.0f;
+  EXPECT_FALSE(DecodeSbirsSessionConfig(EncodeSessionConfigWithRawScanDirection(99), &config));
+  EXPECT_FLOAT_EQ(config.mission.scan_start_az_deg, 12.0f);
+  EXPECT_FLOAT_EQ(config.mission.scan_span_deg, 34.0f);
 }
 
 TEST(SbirsReplayCodecRoundtripTest, DecodeRuntimeConfigPatchRejectsNullAndCorrupted) {

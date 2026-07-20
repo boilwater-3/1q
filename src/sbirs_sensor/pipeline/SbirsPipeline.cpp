@@ -27,6 +27,27 @@ float NormalizeAzimuth(float azimuth_deg) {
 
 float AzimuthDelta(float lhs_deg, float rhs_deg) { return NormalizeAzimuth(lhs_deg - rhs_deg); }
 
+float PositiveModulo(float value, float period) {
+  float result = std::fmod(value, period);
+  if (result < 0.0f) {
+    result += period;
+  }
+  return result;
+}
+
+float ScanAzimuth(const config::SbirsMissionConfig& mission, float phase_deg) {
+  const float direction =
+      mission.scan_direction == config::SbirsScanDirection::kIncreasingAzimuth ? 1.0f : -1.0f;
+  return NormalizeAzimuth(mission.scan_start_az_deg + direction * phase_deg);
+}
+
+float ScanPhaseForAzimuth(const config::SbirsMissionConfig& mission, float azimuth_deg) {
+  if (mission.scan_direction == config::SbirsScanDirection::kIncreasingAzimuth) {
+    return PositiveModulo(azimuth_deg - mission.scan_start_az_deg, 360.0f);
+  }
+  return PositiveModulo(mission.scan_start_az_deg - azimuth_deg, 360.0f);
+}
+
 session::SbirsVector3M LosFromAzimuthElevation(float azimuth_deg, float elevation_deg) {
   const double kDegreesToRadians = 0.017453292519943295;
   const double azimuth_rad = static_cast<double>(azimuth_deg) * kDegreesToRadians;
@@ -88,7 +109,7 @@ bool IsFiniteGaussianState(const tracking::SbirsGaussianState& state) {
 
 bool IsValidTrackingSnapshot(const SbirsPipelineSnapshot& snapshot,
                              const config::SbirsTrackingConfig& tracking_config) {
-  if (!std::isfinite(snapshot.scan_azimuth_deg) || snapshot.next_detection_id == 0U ||
+  if (!std::isfinite(snapshot.scan_phase_deg) || snapshot.next_detection_id == 0U ||
       snapshot.random_state == 0U) {
     return false;
   }
@@ -174,25 +195,87 @@ double ComputeSnr(const config::SbirsInternalExecutionConfig& config,
 
 SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
     : config_(config),
-      scan_azimuth_deg_(config.session.mission.scan_start_az_deg),
       nfov_scheduler_(config.session.policy.scheduler.max_concurrent_nfov_locks),
       pointing_coordinator_(config.session.policy.scheduler.max_concurrent_nfov_locks,
                             config.session.policy.pointing_disturbance.random_seed),
       random_source_(config.session.policy.error_model.random_seed) {}
 
-void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& config) {
+void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& config,
+                                const runtime::SbirsRuntimeConfigImpact& impact) {
+  const float previous_scan_azimuth_deg = ScanAzimuth(config_.session.mission, scan_phase_deg_);
   config_ = config;
-  // 配置变更后重置随机源种子，保证 runtime patch 后的 replay 可复现。
-  random_source_ = foundation::SbirsRandomSource(config.session.policy.error_model.random_seed);
-  // 同步调度器通道上限；运行期 patch 改变通道数后清空既有分配，避免越界。
-  nfov_scheduler_ = SbirsNfovScheduler(config.session.policy.scheduler.max_concurrent_nfov_locks);
-  pointing_coordinator_ =
-      SbirsPointingCoordinator(config.session.policy.scheduler.max_concurrent_nfov_locks,
-                               config.session.policy.pointing_disturbance.random_seed);
-  // 配置可能改变误差/时序语义，不混用提交前后的 WFOV 测量历史。
-  cue_predictor_.Clear();
-  target_states_.clear();
-  tracking_coordinator_.ClearForStandby();
+  if (impact.scan_sector_changed) {
+    const float candidate_phase =
+        ScanPhaseForAzimuth(config_.session.mission, previous_scan_azimuth_deg);
+    scan_phase_deg_ = config_.session.mission.scan_span_deg == 360.0f ||
+                              candidate_phase < config_.session.mission.scan_span_deg
+                          ? candidate_phase
+                          : 0.0f;
+  }
+  if (impact.reset_measurement_random_stream) {
+    random_source_ = foundation::SbirsRandomSource(config.session.policy.error_model.random_seed);
+  }
+  if (impact.nfov_channel_count_changed || impact.restart_pointing_disturbance) {
+    SbirsNfovScheduler next_scheduler(impact.next_nfov_channel_count);
+    SbirsNfovSchedulerSnapshot next_scheduler_snapshot;
+    const SbirsNfovSchedulerSnapshot previous_scheduler_snapshot = nfov_scheduler_.Capture();
+    for (const auto& entry : previous_scheduler_snapshot.target_to_channel) {
+      if (entry.second < impact.next_nfov_channel_count) {
+        next_scheduler_snapshot.target_to_channel.insert(entry);
+      }
+    }
+    next_scheduler.Restore(next_scheduler_snapshot);
+
+    SbirsPointingCoordinator next_pointing = pointing_coordinator_;
+    std::vector<std::uint64_t> released_target_ids;
+    if (next_pointing.Reconfigure(impact.next_nfov_channel_count,
+                                  config.session.policy.pointing_disturbance.random_seed,
+                                  impact.restart_pointing_disturbance, &released_target_ids)) {
+      bool state_is_consistent = true;
+      const SbirsPointingCoordinatorSnapshot next_pointing_snapshot = next_pointing.Capture();
+      for (const auto& entry : next_scheduler_snapshot.target_to_channel) {
+        const std::size_t channel_index = static_cast<std::size_t>(entry.second);
+        state_is_consistent =
+            state_is_consistent && channel_index < next_pointing_snapshot.channels.size() &&
+            next_pointing_snapshot.channels[channel_index].has_bound_target &&
+            next_pointing_snapshot.channels[channel_index].target_id == entry.first;
+      }
+      if (state_is_consistent) {
+        nfov_scheduler_ = next_scheduler;
+        pointing_coordinator_ = next_pointing;
+        for (const std::uint64_t target_id : released_target_ids) {
+          target_states_[target_id] = SbirsTargetState::kWideCandidate;
+          tracking_coordinator_.ReleaseTarget(target_id);
+        }
+      }
+    }
+  }
+  if (impact.reset_nis_gate_counts) {
+    tracking_coordinator_.ResetNisGateCounts();
+  }
+  if (impact.reset_nfov_gate_failure_counts) {
+    pointing_coordinator_.ResetTrackingGateFailureCounts();
+  }
+  if (impact.release_estimated_tracks) {
+    for (auto& entry : target_states_) {
+      if (entry.second != SbirsTargetState::kEstimatedTracking) {
+        continue;
+      }
+      entry.second = SbirsTargetState::kWideCandidate;
+      nfov_scheduler_.Release(entry.first);
+      pointing_coordinator_.ReleaseTarget(entry.first);
+      tracking_coordinator_.ReleaseTarget(entry.first);
+    }
+  }
+  if (impact.clear_for_inactive || impact.clear_for_wide_search) {
+    target_states_.clear();
+    tracking_coordinator_.ClearForStandby();
+    nfov_scheduler_.Clear();
+    pointing_coordinator_.Clear();
+    if (impact.clear_for_inactive) {
+      cue_predictor_.Clear();
+    }
+  }
 }
 
 SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& input) {
@@ -209,7 +292,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     nfov_scheduler_.Clear();
     pointing_coordinator_.Clear();
     cue_predictor_.Clear();
-    result.scan_azimuth_deg = scan_azimuth_deg_;
+    result.scan_azimuth_deg = ScanAzimuth(mission, scan_phase_deg_);
     return result;
   }
 
@@ -217,23 +300,22 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       DisturbanceParameters(policy.pointing_disturbance);
   if (!pointing_coordinator_.AdvanceDisturbance(static_cast<double>(input.dt_sec),
                                                 disturbance_parameters)) {
-    result.scan_azimuth_deg = scan_azimuth_deg_;
+    result.scan_azimuth_deg = ScanAzimuth(mission, scan_phase_deg_);
     return result;
   }
   SbirsPointingDisturbanceSample frame_disturbance;
   if (!pointing_coordinator_.DisturbanceSample(0, disturbance_parameters, &frame_disturbance)) {
-    result.scan_azimuth_deg = scan_azimuth_deg_;
+    result.scan_azimuth_deg = ScanAzimuth(mission, scan_phase_deg_);
     return result;
   }
 
-  scan_azimuth_deg_ = NormalizeAzimuth(scan_azimuth_deg_ + mission.scan_rate_deg_per_sec *
-                                                               std::max(0.0f, input.dt_sec));
-  if (scan_azimuth_deg_ > mission.scan_end_az_deg) {
-    scan_azimuth_deg_ = mission.scan_start_az_deg;
-  }
-  result.scan_azimuth_deg = scan_azimuth_deg_;
+  scan_phase_deg_ =
+      PositiveModulo(scan_phase_deg_ + mission.scan_rate_deg_per_sec * std::max(0.0f, input.dt_sec),
+                     mission.scan_span_deg);
+  const float scan_azimuth_deg = ScanAzimuth(mission, scan_phase_deg_);
+  result.scan_azimuth_deg = scan_azimuth_deg;
   const float actual_scan_azimuth_deg =
-      scan_azimuth_deg_ + static_cast<float>(frame_disturbance.common.azimuth_deg);
+      NormalizeAzimuth(scan_azimuth_deg + static_cast<float>(frame_disturbance.common.azimuth_deg));
   const float actual_scan_elevation_deg =
       mission.scan_center_el_deg + static_cast<float>(frame_disturbance.common.elevation_deg);
 
@@ -452,6 +534,26 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     }
   }
 
+  if (mission.work_mode == config::SbirsWorkMode::kWideSearch) {
+    for (const SbirsCandidate& candidate : candidates) {
+      SbirsPipelineDetection detection;
+      detection.record.detection_id = next_detection_id_++;
+      detection.record.azimuth_deg = candidate.measured_azimuth_deg;
+      detection.record.elevation_deg = candidate.measured_elevation_deg;
+      detection.record.infrared_snr_linear = static_cast<float>(candidate.snr);
+      detection.record.observation_stage = output::SbirsObservationStage::kWideFieldSearch;
+      detection.record.detected = true;
+      detection.attribution.detection_id = detection.record.detection_id;
+      detection.attribution.target_id = candidate.target->target_id;
+      detection.attribution.target_name = candidate.target->target_name;
+      detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
+      detection.attribution.used_truth_assist = false;
+      detection.attribution.nfov_channel_id = -1;
+      result.detections.push_back(detection);
+    }
+    return result;
+  }
+
   SbirsPointingActuatorConfig pointing_config;
   pointing_config.max_slew_rate_deg_per_sec = mission.narrow_pointing_max_slew_rate_deg_per_sec;
   pointing_config.settle_tolerance_deg = mission.narrow_pointing_settle_tolerance_deg;
@@ -619,7 +721,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     if (channel_id < 0 ||
         !pointing_coordinator_.Reserve(
             channel_id, target_id,
-            LosFromAzimuthElevation(scan_azimuth_deg_, mission.scan_center_el_deg))) {
+            LosFromAzimuthElevation(scan_azimuth_deg, mission.scan_center_el_deg))) {
       nfov_scheduler_.Release(target_id);
       pointing_coordinator_.ReleaseTarget(target_id);
       target_states_[target_id] = SbirsTargetState::kWideCandidate;
@@ -666,7 +768,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
 SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   SbirsPipelineSnapshot snapshot;
-  snapshot.scan_azimuth_deg = scan_azimuth_deg_;
+  snapshot.scan_phase_deg = scan_phase_deg_;
   snapshot.next_detection_id = next_detection_id_;
   snapshot.target_states = target_states_;
   snapshot.nfov_scheduler = nfov_scheduler_.Capture();
@@ -682,7 +784,9 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
 }
 
 bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
-  if (!IsValidTrackingSnapshot(snapshot, config_.session.policy.tracking)) {
+  if (!IsValidTrackingSnapshot(snapshot, config_.session.policy.tracking) ||
+      snapshot.scan_phase_deg < 0.0f ||
+      snapshot.scan_phase_deg >= config_.session.mission.scan_span_deg) {
     return false;
   }
   SbirsPointingCoordinator restored_pointing(
@@ -753,7 +857,7 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
   tracking_state.nis_gate_exceeded_counts = snapshot.nis_gate_exceeded_counts;
   tracking_state.imm_active = snapshot.imm_active;
   tracking_state.imm_snapshots = snapshot.imm_snapshots;
-  scan_azimuth_deg_ = snapshot.scan_azimuth_deg;
+  scan_phase_deg_ = snapshot.scan_phase_deg;
   next_detection_id_ = snapshot.next_detection_id;
   target_states_ = snapshot.target_states;
   nfov_scheduler_.Restore(snapshot.nfov_scheduler);

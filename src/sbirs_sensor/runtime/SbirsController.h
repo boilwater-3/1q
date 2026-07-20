@@ -9,6 +9,7 @@
 #include "1q/sbirs_sensor/session/SbirsCycleInput.h"
 #include "1q/sbirs_sensor/session/SbirsCycleResult.h"
 #include "sbirs_sensor/pipeline/SbirsPipeline.h"
+#include "sbirs_sensor/runtime/SbirsRuntimeConfigImpact.h"
 
 namespace sbirs_sensor {
 namespace runtime {
@@ -30,7 +31,8 @@ class SbirsController {
    * @brief 应用新的内部执行配置（runtime patch 立即生效后调用）。
    * @param[in] config 新的内部执行配置
    */
-  void ApplyConfig(const config::SbirsInternalExecutionConfig& config);
+  void ApplyConfig(const config::SbirsInternalExecutionConfig& config,
+                   const SbirsRuntimeConfigImpact& impact);
   /**
    * @brief 执行一个周期：校验输入、推进 pipeline、生成结构化结果，必要时复用上一有效输出。
    * @param[in] input 单周期输入

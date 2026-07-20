@@ -67,6 +67,7 @@ class SbirsTrackingCoordinator {
                                    float angular_rate_deg_per_sec, float dt_sec,
                                    const session::SbirsVector3M& satellite_position_ecef_m);
   void ReleaseTarget(std::uint64_t target_id);
+  void ResetNisGateCounts();
   void ClearForStandby();
   SbirsTrackingRuntimeState CaptureRuntimeState() const;
   void RestoreRuntimeState(const SbirsTrackingRuntimeState& state);
