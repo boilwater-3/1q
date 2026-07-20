@@ -1,11 +1,14 @@
-# Space-Based Infrared Sensor (SBIRS-inspired) 目标设计
+# Space-Based Infrared Sensor (SBIRS-inspired) 设计
 
 Status: active
-Last-reviewed: 2026-07-18
-Authority: target design for the new `sbirs_sensor` module
+Last-reviewed: 2026-07-20
+Authority: current design authority for the existing `sbirs_sensor` module
 
 本文是 `sbirs_sensor`（天基红外预警仿真传感器）模块的设计权威文档。模块已实现并具备单元、
-集成与契约测试分层；本文描述目标架构、数据流和算法边界。跨模块 public API、builder、三层输出
+集成与契约测试分层；本文描述经证据确认的当前实现与已经冻结的设计边界。未经实现验证的候选设计
+只能放在能力决策或重新进入门中，不得写成当前运行事实。当前尚未裁决的设计-实现分歧记录在
+`docs/review/docs_reliability_audit_2026-07-20.md` 的 SBIRS B 类中；裁决前，对应段落不得作为
+live 行为依据。跨模块 public API、builder、三层输出
 等共同规则见 `docs/common/contract.md`。
 
 本文以公开 SBIRS / OPIR 资料中的扫描红外传感器与 step-staring/staring 红外传感器为真实系统校准点，
@@ -491,8 +494,9 @@ pipeline snapshot 同时保存 scheduler 映射、逐通道 actuator 和 trackin
 4. **窗口判定**：settled 后，以 actuator 当前 LOS 为窗口中心，再叠加
    `narrow_pointing_settle_error_deg` 静态方位偏差。目标真实 LOS `u_true` 在
    `narrow_cue_latency_s > 0` 且目标提供 `velocity_ecef_m_per_s` 时，按延迟时间对真值位置做线性外推
-   后重算——即 cue 指向测量瞬间的位置，而目标在延迟期间继续运动，从而建模 cue 延迟与目标运动的
-   耦合对首次捕获的影响。无速度时 `u_true` 即当前帧真值，行为不变。这样捕获判定仍受 WFOV 误差、
+   后重算。因此 cue 命令和 eligibility truth 都在 latency horizon 上评估；两者的残差来自
+   WFOV 测量误差、两点 CV 外推失配、ATP 限速/稳定误差与 NFOV 窗口。无速度时 `u_true`
+   即当前帧真值，行为不变。这样捕获判定仍受 WFOV 误差、
    目标运动、cue 延迟和 NFOV 视场大小影响，不会因为窗口中心直接取测量值而恒成立。
 5. **SNR 门限**：判断 NFOV IR SNR 是否 ≥ NFOV 捕获门限；具体门限由当前配置决定。
 6. **成功**：默认进入 `EstimatedTracking`；显式关闭滤波时进入 `TruthAssistedTracking`。两种状态都保留
@@ -513,6 +517,8 @@ pipeline snapshot 同时保存 scheduler 映射、逐通道 actuator 和 trackin
   `0.141490/0.279187 deg`，劣于 CV 的 `0.074132/0.141619 deg`，捕获率也从
   `73.91%` 降至 `41.30%`。因未通过标称噪声零回退门，当前拒绝生产接线，
   不新增 CV/CA 配置、schema 或自动切换。
+  [evidence: tests/unit/sbirs_sensor/sbirs_cue_ca_characterization_test.cpp::SbirsCueCaCharacterizationTest.SustainedAccelerationPassesBenefitGateWithoutNoise]
+  [evidence: tests/unit/sbirs_sensor/sbirs_cue_ca_characterization_test.cpp::SbirsCueCaCharacterizationTest.FiveSampleCaFailsStrictNominalNoiseZeroRegression]
 - `u_cmd` 与捕获 raw 均来自 WFOV 带误差测量链；延迟后的真实 LOS 只用于仿真判定捕获是否成功，
   不进入命令或 raw output。实际 NFOV LOS 的单变量效果由捕获窗口是否存在 raw 记录体现，而非改写
   raw 为窗口中心。
@@ -609,8 +615,12 @@ EstimatedTracking 严格使用因果顺序：**predict → actuator advance → 
   因而滤波预测误差和转速限制会真实影响 coasting/丢锁。
 - **输出角度**（`azimuth_deg` / `elevation_deg`）：用滤波估计的 ECEF 位置 → 相对卫星 LOS → az/el。
   `used_truth_assist = false`。
-- **状态转移**：默认仍只受"目标是否存在"和"传感器是否开启"影响；当 `nis_gate_loss_cycles > 0` 时，
-  连续 NIS 超 2 维 95% 门限会释放 NFOV 锁定（详见 §2.5.4）。
+- **状态转移**：除目标存在性和传感器开关外，默认启用的 NFOV 几何/SNR 跟踪门也会影响
+  状态转移；连续失败达 `nfov_tracking_gate_loss_cycles`（默认 2）时释放 NFOV 锁定并回到
+  `WideCandidate`。NIS 丢锁是另一条可选路径：默认 `nis_gate_loss_cycles = 0` 表示关闭；
+  只有配置为正数时，连续 NIS 超 2 维 95% 门限才会释放锁定（详见 §2.5.4）。
+  [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp::SbirsPipelineTest.ConsecutiveTrackingGateFailuresReleaseLock]
+  [evidence: tests/unit/sbirs_sensor/sbirs_pipeline_test.cpp::SbirsPipelineTest.ConsecutiveNisGateExceededReleasesEstimatedTrackLock]
 
 **snapshot / replay**：`SbirsTrackingCoordinator` 内部持有滤波状态（`filter_states_` map：target_id →
 `SbirsGaussianState`）、NIS 连续计数和 IMM 运行态；启用 IMM 时，每个 `target_id` 拥有独立 live
@@ -660,11 +670,11 @@ EstimatedTracking 严格使用因果顺序：**predict → actuator advance → 
 [evidence: `sbirs_pipeline_test.cpp:ImmKeepsIndependentStateForEachCapturedTarget`、`ImmMultiTargetUpdatesMatchIndependentRunsAndInputOrder`、`ImmMultiTargetRestorePreservesPerTargetState`;
  `sbirs_replay_session_test.cpp:ReplayPreservesMultiTargetImmTracking`]
 
-**升级触发条件**（已验证，2026-07-08）：
+**升级触发条件**（当前决策；部分 veto 依据待第二类复核）：
 
 | 方向 | 判定 | 理由 |
 |------|:---:|------|
-| SRIF 扩展（协方差数值病态→非正定） | ❌ 不适用 | EKF 已使用 Joseph 形式保证后验协方差对称半正定（`EkfFilter.h:252-255`）；AR 模块 500 周期病态测试已验证 Joseph 形式数值稳定性足够（`ar_backend_evaluation_test.cpp:9`）。SRIF 当前硬编码线性 H，需先扩展 `common/estimation` 接受 `IMeasurementModel*` 才能用于 SBIRS，与协方差病态无关 |
+| SRIF 扩展（协方差数值病态→非正定） | ❌ 不适用（依据待复核） | 当前只确认 EKF 使用 Joseph 形式更新后验协方差（`EkfFilter.h:265-268`），以及 SRIF 硬编码线性 H、需先扩展 `common/estimation` 接受 `IMeasurementModel*` 才能用于 SBIRS。当前没有 live 的“AR 500 周期病态测试”可证明 SBIRS 数值稳定性已足够；是否维持该 veto 列入第二类评审 |
 | CKF（强非线性几何，Jacobian 一阶展开精度不足） | ❌ 不适用 | SBIRS LEO 卫星（~629km 高度）近天底观测，horiz 始终数百公里量级，atan2/asin 非线性度温和；退化几何（horiz→0）仅在极地飞越时发生且被地球遮挡过滤。仓库无 CKF 实现，需从零编写 `CkfPredictor`/`CkfUpdater` |
 | 概率丢锁模型（确定性 NIS 门限→概率抽样） | ✅ 保留 | 当前丢锁是纯确定性连续 NIS 计数（`nis_gate_loss_cycles`），这是跟踪滤波器行业标准做法（AR 模块同理）。概率模型需先完成 NIS/SNR/角速度→重捕获成功率场景矩阵标定，再引入受 seed 控制的可复现概率抽样 |
 
@@ -966,7 +976,7 @@ EOS 检测记录形状）：
 | `azimuth_deg` | `float` | 方位角（deg） |
 | `elevation_deg` | `float` | 仰角（deg） |
 | `infrared_snr_linear` | `float` | 红外通道线性 SNR |
-| `observation_stage` | enum | 原生观测阶段：WFOV 搜索、NFOV 首次捕获或 NFOV 真值辅助跟踪 |
+| `observation_stage` | enum | 原生观测阶段：WFOV 搜索、NFOV 首次捕获或 NFOV 持续跟踪（同时承载估计跟踪与真值辅助跟踪） |
 | `detected` | `bool` | 是否通过探测门限判决 |
 
 输出规则（WFOV/NFOV 状态仅决定当前周期哪些目标输出检测记录，不进 raw output 字段）。这里的 raw
@@ -1004,31 +1014,35 @@ output 指 1q 仿真传感器主输出层，不等同于真实 SBIRS 下传的�
 ### 2.12 专项序列验证边界
 
 `batch_validation::sbirs_sensor` 覆盖双目标双锁、三目标单锁交接、持续机动引发 NIS 丢锁与重捕获、
-带横向速度的 cue latency、地球遮挡再现、standby 任务重定向和无效输入恢复。目标状态隔离、NFOV
-通道唯一与稳定、确定性交接、遮挡释放、校验前零 mutation、恢复后的滤波/通道连续性以及 failure
-marker 后完整 replay 均为硬契约；红外链路物理趋势仍为 warning。场景 ID 与运行方式由
+带横向速度的 cue latency、地球遮挡再现、standby 任务重定向和无效输入恢复。当前
+`checks.csv` 硬检查的范围限于：预期未执行周期数、单周期 NFOV 通道唯一性、场景特定的通道/目标
+数量与中断-恢复结果、NIS 超门/丢锁/重捕获事件，以及 `replay_complete` 和
+`failure_marker_count`。这些检查失败会使程序以非零状态退出。当前 batch 未直接证明通道跨周期稳定映射、
+无效输入前零 mutation、恢复后滤波/通道连续性或与 clean session 等价；这些性质只能由对应的
+unit/integration/replay 测试作为证据。红外链路物理趋势仍为 warning。场景 ID 与运行方式由
 `examples/batch_validation/README.md` 维护。
 
 ## 3. 非目标与边界
 
-- **图像级 TBD（Track-Before-Detect）**——管道滤波能量累积（`:268-294`）、动态规划 TBD
-  （`:296-310`）。第一版用 WFOV 单帧 SNR 门控判定可探测性，不做帧间能量累积。理由：TBD 需要
+- **图像级 TBD（Track-Before-Detect）**——第一版用 WFOV 单帧 SNR 门控判定可探测性，不做管道滤波、
+  帧间能量累积或动态规划 TBD。理由：TBD 需要
   多帧图像缓存和速度空间搜索，是独立的图像处理子系统；第一版聚焦视场协同与状态机交接。
 
-- **模板匹配 NCC 窄视场捕获**——归一化互相关模板匹配（`:442-472`）。第一版用 WFOV cue 生成
+- **模板匹配 NCC 窄视场捕获**——第一版不实现归一化互相关模板匹配，而是用 WFOV cue 生成
   NFOV 命令指向，再用真实 LOS 是否落入搜索窗口 + SNR 门限判捕获。理由：NCC 需要宽视场目标模板和
   窄视场当前帧图像，依赖图像级数据；第一版的几何 + SNR 判定已能覆盖捕获语义。
 
-- **滤波后端：EKF + IMM(EKF) 已接线，不再引入额外后端**——当前 SBIRS `kEstimatedTracking` 状态
+- **滤波后端：EKF + IMM(EKF) 已接线，当前不引入额外后端**——当前 SBIRS `kEstimatedTracking` 状态
   支持两个滤波后端（见 §2.5.2—§2.5.3）：单 EKF(CV)（默认，`enable_imm_tracking=false`）和
-  IMM(EKF×N)（`enable_imm_tracking=true`，三场景 RMSE 改善 28–55%）。以下后端经验证后判定为不适用，
-  不再作为升级方向：
+  IMM(EKF×N)（`enable_imm_tracking=true`，三场景 RMSE 改善 28–55%）。以下后端是当前设计 veto；
+  CKF/SRIF/UDKF 的证据充分性仍列入第二类复核，不得把“当前不接线”扩大成“已证明永远不适用”：
   - **CKF**（容积卡尔曼滤波，sigma-point 路径）：❌ 不适用。SBIRS LEO 卫星（~629km 高度）近天底
     观测，horiz 始终数百公里量级，atan2/asin 非线性度温和；退化几何仅在极地飞越时发生且被地球遮挡
     过滤。仓库无 CKF 实现，需从零编写，且无已知 SBIRS 场景触发其必要性。
-  - **SRIF**（平方根信息滤波）：❌ 不适用。EKF 已使用 Joseph 形式保证后验协方差对称半正定
-    （`EkfFilter.h:252-255`），AR 模块 500 周期病态测试已验证 Joseph 形式数值稳定性足够；SRIF 当前
-    硬编码线性 H，需先扩展 `common/estimation` 接受 `IMeasurementModel*` 才能用于 SBIRS。
+  - **SRIF**（平方根信息滤波）：当前设计判定为不适用，但依据待第二类评审。已确认 EKF 使用 Joseph
+    形式更新后验协方差（`EkfFilter.h:265-268`），SRIF 当前硬编码线性 H，需先扩展
+    `common/estimation` 接受 `IMeasurementModel*` 才能用于 SBIRS；当前没有 live 的“AR 500 周期
+    病态测试”可直接证明 SBIRS 数值稳定性已足够。
   - **UDKF**（UD 分解卡尔曼滤波）：❌ 不适用。UDKF 是协方差 UD 分解（数值稳定），不是无导数滤波，
     对非线性量测无帮助；且 Joseph 形式已提供足够的数值稳定性。
   仍不做：（1）多后端枚举——`enable_imm_tracking` 是 EKF↔IMM 二态开关，非通用多后端选择器。
@@ -1037,8 +1051,8 @@ marker 后完整 replay 均为硬契约；红外链路物理趋势仍为 warning
   一致）。可接受的"智能"形态为只读 NIS 诊断（由 `KalmanUpdateResult` 计算并落到 attribution/debug/replay）
   + 人工看报告改配置。
 
-- **Otsu/DBSCAN 多目标聚类**——自适应阈值分割（`:1174-1182`）、聚类分析（`:1184-1186`）。
-  第一版按 `target_id` 独立维护状态机，不做像素级聚类。理由：聚类针对图像级检测点，第一版的
+- **Otsu/DBSCAN 多目标聚类**——第一版不实现自适应阈值分割或聚类分析，而是按 `target_id`
+  独立维护状态机。理由：聚类针对图像级检测点，第一版的
   目标来自输入场景的显式目标列表。
 
 - **多 NFOV 通道同时锁定**——现已支持（见 §2.6）。`SbirsSchedulerConfig.max_concurrent_nfov_locks`
@@ -1073,7 +1087,8 @@ marker 后完整 replay 均为硬契约；红外链路物理趋势仍为 warning
     延迟外推与动态滞后误差；缺省时行为不变。velocity 进 replay（`sbirs_replay.fbs`）。
   - `SbirsCaptureFailureReason`（枚举）与 `SbirsDetectionAttributionRecord.capture_failure_reason`：
     首次捕获失败/调度跳过/EKF NIS 丢锁诊断，进入 `SbirsCycleResult.detection_attributions` 与 lifecycle reason
-    （`kNfovAcquisitionFailed`/`kSchedulerSkipped`/`kEstimationNisGateLost`/`kNfovTrackingGateLost`），不进 raw output。进 replay（`sbirs_replay.fbs`）。
+    （`kNfovAcquisitionFailed`/`kSchedulerSkipped`/`kEstimationNisGateLost`/`kNfovPointingTimeout`/
+    `kNfovTrackingGateLost`），不进 raw output。进 replay（`sbirs_replay.fbs`）。
   - 闭环跟踪诊断：实际光轴误差、几何/SNR 门状态、连续失败计数和 coasting 标志进入
     attribution、debug、lifecycle 与 replay；不进入 raw output。
   - `SbirsDetectionAttributionRecord.nfov_channel_id`：NFOV 通道编号（-1 表示 WFOV/未占用 NFOV 资源），

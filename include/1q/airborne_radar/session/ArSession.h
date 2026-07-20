@@ -29,6 +29,8 @@ struct ArRuntimeConfigPatch;
 namespace airborne_radar {
 namespace session {
 
+class ArSessionReplayAccess;
+
 /**
  * @brief ArSession 提供"一步一帧"的外部接入门面。
  */
@@ -125,6 +127,7 @@ class ONEQ_API ArSession {
                                         config::ValidationIssueList* issues);
 
  private:
+  friend class ArSessionReplayAccess;
 
   struct Impl;
   explicit ArSession(std::unique_ptr<Impl> impl);

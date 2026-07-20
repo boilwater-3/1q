@@ -378,6 +378,218 @@ session::ArControlProfile DecodeArControlProfile(
   return result;
 }
 
+flatbuffers::Offset<fb::EccmJammerSourceInfo> EncodeEccmJammerSourceInfo(
+    flatbuffers::FlatBufferBuilder* builder, const session::EccmJammerSourceInfo& value) {
+  return fb::CreateEccmJammerSourceInfo(
+      *builder, static_cast<int>(value.technique), value.jammer_power_db,
+      value.jammer_to_signal_db, value.frequency_overlap_ratio, value.prf_lock_risk,
+      value.has_direction_deg,
+      fb::CreateEccmJammerDirectionDeg(*builder, value.direction_deg.azimuth_deg,
+                                       value.direction_deg.elevation_deg),
+      value.angular_span_deg, value.jammer_in_sidelobe, value.confidence);
+}
+
+flatbuffers::Offset<fb::EccmSourceInfo> EncodeEccmSourceInfo(
+    flatbuffers::FlatBufferBuilder* builder, const session::EccmSourceInfo& value) {
+  std::vector<flatbuffers::Offset<fb::EccmJammerSourceInfo>> source_offsets;
+  source_offsets.reserve(value.jammer_sources.size());
+  for (std::size_t i = 0; i < value.jammer_sources.size(); ++i) {
+    source_offsets.push_back(EncodeEccmJammerSourceInfo(builder, value.jammer_sources[i]));
+  }
+  return fb::CreateEccmSourceInfo(*builder, value.has_jamming_signal,
+                                  builder->CreateVector(source_offsets));
+}
+
+flatbuffers::Offset<fb::DecisionInputFrame> EncodeDecisionInputFrame(
+    flatbuffers::FlatBufferBuilder* builder, const session::DecisionInputFrame& value) {
+  std::vector<flatbuffers::Offset<fb::TrackStateSnapshot>> track_offsets;
+  track_offsets.reserve(value.tracks.size());
+  for (std::size_t i = 0; i < value.tracks.size(); ++i) {
+    track_offsets.push_back(EncodeTrackSnapshot(builder, value.tracks[i]));
+  }
+  const session::AssociationQualityInfo& association = value.association_quality_info;
+  const session::PerceptionQualityInfo& perception = value.perception_quality_info;
+  return fb::CreateDecisionInputFrame(
+      *builder, value.cycle_index, value.batch_id, value.environment_jamming_detected,
+      EncodeEccmSourceInfo(builder, value.eccm_source_info),
+      fb::CreateAssociationQualityInfo(
+          *builder, association.match_rate, association.new_track_rate,
+          association.missed_track_rate, association.mean_match_cost,
+          association.p95_match_cost,
+          static_cast<int>(association.dominant_jamming_semantic),
+          association.jamming_severity, association.association_stress),
+      fb::CreatePerceptionQualityInfo(
+          *builder, static_cast<std::uint64_t>(perception.input_target_count),
+          static_cast<std::uint64_t>(perception.detection_count),
+          perception.detection_rate, perception.detection_stress),
+      builder->CreateVector(track_offsets));
+}
+
+flatbuffers::Offset<fb::DecisionObservation> EncodeDecisionObservation(
+    flatbuffers::FlatBufferBuilder* builder, const session::DecisionObservation& value) {
+  return fb::CreateDecisionObservation(
+      *builder, EncodeDecisionInputFrame(builder, value.input_frame),
+      EncodeArControlProfile(builder, value.active_control_profile));
+}
+
+flatbuffers::Offset<fb::TacticalProposal> EncodeTacticalProposal(
+    flatbuffers::FlatBufferBuilder* builder, const session::TacticalProposal& value) {
+  const session::ControlDirective& directive = value.directive;
+  return fb::CreateTacticalProposal(
+      *builder,
+      fb::CreateControlDirective(*builder, static_cast<int>(directive.type),
+                                 static_cast<int>(directive.source),
+                                 directive.has_requested_value, directive.requested_value),
+      value.priority, builder->CreateString(value.rationale));
+}
+
+flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<fb::TacticalProposal>>>
+EncodeTacticalProposals(flatbuffers::FlatBufferBuilder* builder,
+                        const std::vector<session::TacticalProposal>& values) {
+  std::vector<flatbuffers::Offset<fb::TacticalProposal>> offsets;
+  offsets.reserve(values.size());
+  for (std::size_t i = 0; i < values.size(); ++i) {
+    offsets.push_back(EncodeTacticalProposal(builder, values[i]));
+  }
+  return builder->CreateVector(offsets);
+}
+
+flatbuffers::Offset<fb::ExternalDecisionResponse> EncodeExternalDecisionResponse(
+    flatbuffers::FlatBufferBuilder* builder, const session::ExternalDecisionResponse& value) {
+  return fb::CreateExternalDecisionResponse(
+      *builder, value.source_cycle_index, value.source_batch_id,
+      EncodeTacticalProposals(builder, value.proposals));
+}
+
+session::EccmJammerSourceInfo DecodeEccmJammerSourceInfo(
+    const fb::EccmJammerSourceInfo* value) {
+  session::EccmJammerSourceInfo result;
+  if (value != nullptr) {
+    result.technique = static_cast<session::JammingTechnique>(value->technique());
+    result.jammer_power_db = value->jammer_power_db();
+    result.jammer_to_signal_db = value->jammer_to_signal_db();
+    result.frequency_overlap_ratio = value->frequency_overlap_ratio();
+    result.prf_lock_risk = value->prf_lock_risk();
+    result.has_direction_deg = value->has_direction_deg();
+    if (value->direction_deg() != nullptr) {
+      result.direction_deg.azimuth_deg = value->direction_deg()->azimuth_deg();
+      result.direction_deg.elevation_deg = value->direction_deg()->elevation_deg();
+    }
+    result.angular_span_deg = value->angular_span_deg();
+    result.jammer_in_sidelobe = value->jammer_in_sidelobe();
+    result.confidence = value->confidence();
+  }
+  return result;
+}
+
+session::EccmSourceInfo DecodeEccmSourceInfo(const fb::EccmSourceInfo* value) {
+  session::EccmSourceInfo result;
+  if (value != nullptr) {
+    result.has_jamming_signal = value->has_jamming_signal();
+    const flatbuffers::Vector<flatbuffers::Offset<fb::EccmJammerSourceInfo>>* sources =
+        value->jammer_sources();
+    if (sources != nullptr) {
+      result.jammer_sources.reserve(sources->size());
+      for (flatbuffers::uoffset_t i = 0; i < sources->size(); ++i) {
+        result.jammer_sources.push_back(DecodeEccmJammerSourceInfo(sources->Get(i)));
+      }
+    }
+  }
+  return result;
+}
+
+session::DecisionInputFrame DecodeDecisionInputFrame(const fb::DecisionInputFrame* value) {
+  session::DecisionInputFrame result;
+  if (value != nullptr) {
+    result.cycle_index = value->cycle_index();
+    result.batch_id = value->batch_id();
+    result.environment_jamming_detected = value->environment_jamming_detected();
+    result.eccm_source_info = DecodeEccmSourceInfo(value->eccm_source_info());
+    if (value->association_quality_info() != nullptr) {
+      const fb::AssociationQualityInfo* association = value->association_quality_info();
+      result.association_quality_info.match_rate = association->match_rate();
+      result.association_quality_info.new_track_rate = association->new_track_rate();
+      result.association_quality_info.missed_track_rate = association->missed_track_rate();
+      result.association_quality_info.mean_match_cost = association->mean_match_cost();
+      result.association_quality_info.p95_match_cost = association->p95_match_cost();
+      result.association_quality_info.dominant_jamming_semantic =
+          static_cast<config::JammingSemantic>(association->dominant_jamming_semantic());
+      result.association_quality_info.jamming_severity = association->jamming_severity();
+      result.association_quality_info.association_stress = association->association_stress();
+    }
+    if (value->perception_quality_info() != nullptr) {
+      const fb::PerceptionQualityInfo* perception = value->perception_quality_info();
+      result.perception_quality_info.input_target_count =
+          static_cast<std::size_t>(perception->input_target_count());
+      result.perception_quality_info.detection_count =
+          static_cast<std::size_t>(perception->detection_count());
+      result.perception_quality_info.detection_rate = perception->detection_rate();
+      result.perception_quality_info.detection_stress = perception->detection_stress();
+    }
+    const flatbuffers::Vector<flatbuffers::Offset<fb::TrackStateSnapshot>>* tracks =
+        value->tracks();
+    if (tracks != nullptr) {
+      result.tracks.reserve(tracks->size());
+      for (flatbuffers::uoffset_t i = 0; i < tracks->size(); ++i) {
+        result.tracks.push_back(DecodeTrackSnapshot(tracks->Get(i)));
+      }
+    }
+  }
+  return result;
+}
+
+session::DecisionObservation DecodeDecisionObservation(
+    const fb::DecisionObservation* value) {
+  session::DecisionObservation result;
+  if (value != nullptr) {
+    result.input_frame = DecodeDecisionInputFrame(value->input_frame());
+    result.active_control_profile = DecodeArControlProfile(value->active_control_profile());
+  }
+  return result;
+}
+
+session::TacticalProposal DecodeTacticalProposal(const fb::TacticalProposal* value) {
+  session::TacticalProposal result;
+  if (value != nullptr) {
+    if (value->directive() != nullptr) {
+      result.directive.type =
+          static_cast<session::ControlDirectiveType>(value->directive()->type());
+      result.directive.source =
+          static_cast<session::ControlDirectiveSource>(value->directive()->source());
+      result.directive.has_requested_value = value->directive()->has_requested_value();
+      result.directive.requested_value = value->directive()->requested_value();
+    }
+    result.priority = value->priority();
+    if (value->rationale() != nullptr) {
+      result.rationale = value->rationale()->str();
+    }
+  }
+  return result;
+}
+
+std::vector<session::TacticalProposal> DecodeTacticalProposals(
+    const flatbuffers::Vector<flatbuffers::Offset<fb::TacticalProposal>>* values) {
+  std::vector<session::TacticalProposal> result;
+  if (values != nullptr) {
+    result.reserve(values->size());
+    for (flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+      result.push_back(DecodeTacticalProposal(values->Get(i)));
+    }
+  }
+  return result;
+}
+
+session::ExternalDecisionResponse DecodeExternalDecisionResponse(
+    const fb::ExternalDecisionResponse* value) {
+  session::ExternalDecisionResponse result;
+  if (value != nullptr) {
+    result.source_cycle_index = value->source_cycle_index();
+    result.source_batch_id = value->source_batch_id();
+    result.proposals = DecodeTacticalProposals(value->proposals());
+  }
+  return result;
+}
+
 flatbuffers::Offset<fb::AssociationQualityMetrics> EncodeAssociationQualityMetrics(
     flatbuffers::FlatBufferBuilder* builder, const session::AssociationQualityMetrics& value) {
   return fb::CreateAssociationQualityMetrics(
@@ -433,7 +645,11 @@ flatbuffers::Offset<fb::ArCycleResult> EncodeCycleResult(flatbuffers::FlatBuffer
       value.has_validation_error, value.executed_this_cycle,
       static_cast<int>(value.abort_reason), value.reused_previous_output,
       value.has_control_profile, EncodeArControlProfile(builder, value.control_profile),
-      EncodeAssociationQualityMetrics(builder, value.association_quality_metrics));
+      EncodeAssociationQualityMetrics(builder, value.association_quality_metrics),
+      value.has_decision_observation,
+      EncodeDecisionObservation(builder, value.decision_observation),
+      static_cast<int>(value.applied_decision_source), value.applied_decision_cycle_index,
+      value.applied_decision_batch_id);
 }
 
 ArCycleResult DecodeCycleResult(const fb::ArCycleResult* value) {
@@ -466,6 +682,54 @@ ArCycleResult DecodeCycleResult(const fb::ArCycleResult* value) {
     result.control_profile = DecodeArControlProfile(value->control_profile());
     result.association_quality_metrics =
         DecodeAssociationQualityMetrics(value->association_quality_metrics());
+    result.has_decision_observation = value->has_decision_observation();
+    result.decision_observation = DecodeDecisionObservation(value->decision_observation());
+    result.applied_decision_source =
+        static_cast<session::DecisionControlSource>(value->applied_decision_source());
+    result.applied_decision_cycle_index = value->applied_decision_cycle_index();
+    result.applied_decision_batch_id = value->applied_decision_batch_id();
+  }
+  return result;
+}
+
+flatbuffers::Offset<fb::ArDecisionReplayState> EncodeDecisionReplayState(
+    flatbuffers::FlatBufferBuilder* builder, const ArDecisionReplayState& value) {
+  return fb::CreateArDecisionReplayState(
+      *builder, value.has_pending_internal_decision, value.pending_internal_cycle_index,
+      value.pending_internal_batch_id,
+      EncodeTacticalProposals(builder, value.pending_internal_proposals),
+      static_cast<int>(value.applied_decision_source), value.applied_decision_cycle_index,
+      value.applied_decision_batch_id,
+      EncodeTacticalProposals(builder, value.applied_decision_proposals),
+      value.has_pending_external_decision,
+      EncodeExternalDecisionResponse(builder, value.pending_external_decision),
+      value.reducer_state.lpi_hold_cycles_remaining,
+      value.reducer_state.eccm_hold_cycles_remaining,
+      value.reducer_state.lpi_cooldown_cycles_remaining,
+      value.reducer_state.eccm_cooldown_cycles_remaining);
+}
+
+ArDecisionReplayState DecodeDecisionReplayState(const fb::ArDecisionReplayState* value) {
+  ArDecisionReplayState result;
+  if (value != nullptr) {
+    result.has_pending_internal_decision = value->has_pending_internal_decision();
+    result.pending_internal_cycle_index = value->pending_internal_cycle_index();
+    result.pending_internal_batch_id = value->pending_internal_batch_id();
+    result.pending_internal_proposals =
+        DecodeTacticalProposals(value->pending_internal_proposals());
+    result.applied_decision_source =
+        static_cast<session::DecisionControlSource>(value->applied_decision_source());
+    result.applied_decision_cycle_index = value->applied_decision_cycle_index();
+    result.applied_decision_batch_id = value->applied_decision_batch_id();
+    result.applied_decision_proposals =
+        DecodeTacticalProposals(value->applied_decision_proposals());
+    result.has_pending_external_decision = value->has_pending_external_decision();
+    result.pending_external_decision =
+        DecodeExternalDecisionResponse(value->pending_external_decision());
+    result.reducer_state.lpi_hold_cycles_remaining = value->lpi_hold_cycles_remaining();
+    result.reducer_state.eccm_hold_cycles_remaining = value->eccm_hold_cycles_remaining();
+    result.reducer_state.lpi_cooldown_cycles_remaining = value->lpi_cooldown_cycles_remaining();
+    result.reducer_state.eccm_cooldown_cycles_remaining = value->eccm_cooldown_cycles_remaining();
   }
   return result;
 }
@@ -565,8 +829,14 @@ flatbuffers::Offset<session_fb::ArPolicyConfig> EncodeSessionPolicyConfig(
           value.lifecycle.max_lost_cycles, value.lifecycle.enable_imm_lifecycle);
   const flatbuffers::Offset<session_fb::ImmConfig> imm = session_fb::CreateImmConfig(
       *builder, value.lifecycle.enable_imm_lifecycle, value.lifecycle.model_count_hint);
+  const flatbuffers::Offset<session_fb::DecisionControlConfig> decision_control =
+      session_fb::CreateDecisionControlConfig(
+          *builder, value.decision_control.lpi_hold_cycles_after_request,
+          value.decision_control.eccm_hold_cycles_after_request,
+          value.decision_control.lpi_cooldown_cycles_after_release,
+          value.decision_control.eccm_cooldown_cycles_after_release);
   return session_fb::CreateArPolicyConfig(*builder, detection, beam_control, association,
-                                          tracking, lifecycle, imm);
+                                          tracking, lifecycle, imm, decision_control);
 }
 
 flatbuffers::Offset<session_fb::AtmosphericPhysicsConfig> EncodeSessionAtmosphericPhysicsConfig(
@@ -793,6 +1063,17 @@ config::ArPolicyConfig DecodeSessionPolicyConfig(const session_fb::ArPolicyConfi
     if (imm != nullptr) {
       result.lifecycle.enable_imm_lifecycle = imm->enable_imm_lifecycle();
       result.lifecycle.model_count_hint = imm->model_count_hint();
+    }
+    const session_fb::DecisionControlConfig* decision_control = value->decision_control();
+    if (decision_control != nullptr) {
+      result.decision_control.lpi_hold_cycles_after_request =
+          decision_control->lpi_hold_cycles_after_request();
+      result.decision_control.eccm_hold_cycles_after_request =
+          decision_control->eccm_hold_cycles_after_request();
+      result.decision_control.lpi_cooldown_cycles_after_release =
+          decision_control->lpi_cooldown_cycles_after_release();
+      result.decision_control.eccm_cooldown_cycles_after_release =
+          decision_control->eccm_cooldown_cycles_after_release();
     }
   }
   return result;
@@ -1036,6 +1317,85 @@ bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, ArCycleResult
   }
 
   *result = DecodeCycleResult(root);
+  return true;
+}
+
+std::string EncodeExternalDecisionResponseFlatbuffer(
+    const session::ExternalDecisionResponse& response) {
+  flatbuffers::FlatBufferBuilder builder;
+  const flatbuffers::Offset<fb::ExternalDecisionResponse> root =
+      EncodeExternalDecisionResponse(&builder, response);
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeExternalDecisionResponseFlatbuffer(
+    const std::string& payload_bytes, session::ExternalDecisionResponse* response,
+    std::string* error) {
+  if (response == nullptr) {
+    if (error != nullptr) {
+      *error = "null ExternalDecisionResponse output";
+    }
+    return false;
+  }
+  if (payload_bytes.empty()) {
+    if (error != nullptr) {
+      *error = "empty ExternalDecisionResponse flatbuffers payload";
+    }
+    return false;
+  }
+
+  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  flatbuffers::Verifier verifier(data, payload_bytes.size());
+  const fb::ExternalDecisionResponse* root =
+      flatbuffers::GetRoot<fb::ExternalDecisionResponse>(data);
+  if (root == nullptr || !root->Verify(verifier)) {
+    if (error != nullptr) {
+      *error = "invalid ExternalDecisionResponse flatbuffers payload";
+    }
+    return false;
+  }
+
+  *response = DecodeExternalDecisionResponse(root);
+  return true;
+}
+
+std::string EncodeReplayCycleRecordFlatbuffer(const ArReplayCycleRecord& record) {
+  flatbuffers::FlatBufferBuilder builder;
+  const flatbuffers::Offset<fb::ArReplayCycleRecord> root = fb::CreateArReplayCycleRecord(
+      builder, EncodeCycleResult(&builder, record.result),
+      EncodeDecisionReplayState(&builder, record.decision_state));
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeReplayCycleRecordFlatbuffer(const std::string& payload_bytes,
+                                       ArReplayCycleRecord* record, std::string* error) {
+  if (record == nullptr) {
+    if (error != nullptr) {
+      *error = "null ArReplayCycleRecord output";
+    }
+    return false;
+  }
+  if (payload_bytes.empty()) {
+    if (error != nullptr) {
+      *error = "empty ArReplayCycleRecord flatbuffers payload";
+    }
+    return false;
+  }
+
+  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  flatbuffers::Verifier verifier(data, payload_bytes.size());
+  const fb::ArReplayCycleRecord* root = flatbuffers::GetRoot<fb::ArReplayCycleRecord>(data);
+  if (root == nullptr || !root->Verify(verifier)) {
+    if (error != nullptr) {
+      *error = "invalid ArReplayCycleRecord flatbuffers payload";
+    }
+    return false;
+  }
+
+  record->result = DecodeCycleResult(root->result());
+  record->decision_state = DecodeDecisionReplayState(root->decision_state());
   return true;
 }
 

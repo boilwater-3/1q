@@ -414,7 +414,7 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
         patch.commanded_beamwidth_enabled = true;
         patch.has_commanded_beamwidth_deg = true;
         patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg = 0.0f;
-        invalid_patch_rejected = !session.session().TryApplyRuntimeConfig(patch);
+        invalid_patch_rejected = !session.TryApplyRuntimeConfig(patch);
       } else if (c.scenario_id == "ar_seq_invalid_patch_atomic" && cycle_index == 10U) {
         ar_config::ArRuntimeConfigPatch patch;
         patch.has_work_mode = true;

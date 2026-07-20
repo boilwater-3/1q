@@ -39,6 +39,7 @@ class ControlReducer {
   /**
    * @brief 更新 reducer 配置。
    * @param[in] config 新的 reducer 配置。
+   * @note 当前 hold/cooldown 剩余周期会收紧到新上限；增大配置不会延长已开始的窗口。
    */
   void UpdateConfig(extension::ControlReducerConfig config);
 

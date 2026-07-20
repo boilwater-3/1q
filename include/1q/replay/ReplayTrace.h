@@ -141,6 +141,7 @@ struct ONEQ_API ReplayTraceReplayReport {
   bool has_failure_marker{false};
   std::uint64_t session_config_count{0U};
   std::uint64_t cycle_input_count{0U};
+  std::uint64_t decision_input_count{0U};
   std::uint64_t scene_state_count{0U};
   std::uint64_t runtime_config_patch_count{0U};
   std::uint64_t cycle_output_count{0U};
@@ -232,6 +233,7 @@ struct ONEQ_API ReplayTracePlaybackCallbacks {
   void* user_data{nullptr};
   ReplayTraceEventCallback on_session_config{nullptr};
   ReplayTraceEventCallback on_cycle_input{nullptr};
+  ReplayTraceEventCallback on_decision_input{nullptr};
   ReplayTraceEventCallback on_scene_state{nullptr};
   ReplayTraceEventCallback on_runtime_config_patch{nullptr};
   ReplayTraceOutputCallback on_cycle_output{nullptr};
@@ -254,6 +256,7 @@ struct ONEQ_API ReplayTracePlaybackResult {
   bool ok{true};
   std::uint64_t processed_event_count{0U}; /**< 已读取的 trace event 数，使用 64-bit 以支持长回放 */
   std::uint64_t applied_input_count{0U};   /**< 已应用的 cycle_input 数，使用 64-bit 以支持长回放 */
+  std::uint64_t applied_decision_input_count{0U}; /**< 已应用的 decision_input 数 */
   std::uint64_t applied_scene_state_count{0U};   /**< 已应用的 scene_state 数 */
   std::uint64_t applied_runtime_patch_count{0U}; /**< 已应用的 runtime_config_patch 数 */
   std::uint64_t compared_output_count{

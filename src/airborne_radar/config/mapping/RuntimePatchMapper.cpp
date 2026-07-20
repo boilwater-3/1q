@@ -69,6 +69,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
   }
 
   if (patch.has_policy) {
+    next_execution_config.decision_control = patch.policy.decision_control;
     next_execution_config.detection.beam_control = patch.policy.beam_control;
     next_execution_config.detection.engineering.detection_policy.cfar_pfa =
         patch.policy.detection.pfa;
@@ -179,6 +180,7 @@ config::ArSessionConfig MapExecutionToSession(
   config.hardware.receiver = execution_config.detection.engineering.receiver;
   config.hardware.rcs_physics = execution_config.detection.engineering.rcs_physics;
   config.mission.orientation = execution_config.detection.orientation;
+  config.policy.decision_control = execution_config.decision_control;
   config.policy.beam_control = execution_config.detection.beam_control;
   config.policy.detection.pfa =
       execution_config.detection.engineering.detection_policy.cfar_pfa;

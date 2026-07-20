@@ -73,6 +73,16 @@ bool IsValidExternalProposal(const session::TacticalProposal& proposal) {
   return requires_value ? HasValidRequestedValue(directive) : !directive.has_requested_value;
 }
 
+extension::ControlReducerConfig MapDecisionControlConfig(
+    const config::DecisionControlConfig& config) {
+  extension::ControlReducerConfig mapped;
+  mapped.lpi_hold_cycles_after_request = config.lpi_hold_cycles_after_request;
+  mapped.eccm_hold_cycles_after_request = config.eccm_hold_cycles_after_request;
+  mapped.lpi_cooldown_cycles_after_release = config.lpi_cooldown_cycles_after_release;
+  mapped.eccm_cooldown_cycles_after_release = config.eccm_cooldown_cycles_after_release;
+  return mapped;
+}
+
 }  // namespace
 
 /**
@@ -124,14 +134,17 @@ struct ArController::Impl {
       session::DecisionControlSource::kNone};
   std::uint32_t last_applied_decision_cycle_index{0U};
   std::uint64_t last_applied_decision_batch_id{0U};
+  std::vector<session::TacticalProposal> last_applied_decision_proposals{};
 
   /** @brief 构造使用默认 TacticalCoordinator 的控制器。 */
   Impl(session::MutableArContext& ctx, signal::ISignalPipeline& sig,
-       environment::IEnvironmentService& env)
+       environment::IEnvironmentService& env,
+       const config::DecisionControlConfig& decision_control_config)
       : radar_context(ctx), signal_pipeline(sig), environment_service(env) {
     owned_decision_components.decision_engine.reset(new decision::TacticalCoordinator(nullptr));
     owned_decision_components.tactical_state_store.reset(new session::TacticalStateStore());
-    owned_decision_components.control_reducer.reset(new decision::ControlReducer());
+    owned_decision_components.control_reducer.reset(
+        new decision::ControlReducer(MapDecisionControlConfig(decision_control_config)));
     command_mapper.reset(
         new extension::ControlCommandMapper(*owned_decision_components.control_reducer, ctx));
   }
@@ -144,6 +157,7 @@ struct ArController::Impl {
     last_applied_decision_source = session::DecisionControlSource::kNone;
     last_applied_decision_cycle_index = 0U;
     last_applied_decision_batch_id = 0U;
+    last_applied_decision_proposals.clear();
   }
 
   void ApplyPendingDecisionControl() {
@@ -159,6 +173,7 @@ struct ArController::Impl {
                                        : session::DecisionControlSource::kInternal;
     last_applied_decision_cycle_index = pending_internal_cycle_index;
     last_applied_decision_batch_id = pending_internal_batch_id;
+    last_applied_decision_proposals = selected_proposals;
     has_pending_internal_decision = false;
     pending_internal_proposals.clear();
     has_pending_external_decision = false;
@@ -170,10 +185,18 @@ struct ArController::Impl {
 
 ArController::ArController(session::MutableArContext& radar_context,
                            signal::ISignalPipeline& signal_pipeline,
-                           environment::IEnvironmentService& environment_service)
-    : impl_(new Impl(radar_context, signal_pipeline, environment_service)) {}
+                           environment::IEnvironmentService& environment_service,
+                           config::DecisionControlConfig decision_control_config)
+    : impl_(new Impl(radar_context, signal_pipeline, environment_service,
+                     decision_control_config)) {}
 
 ArController::~ArController() = default;
+
+void ArController::UpdateDecisionControlConfig(
+    const config::DecisionControlConfig& decision_control_config) {
+  impl_->owned_decision_components.control_reducer->UpdateConfig(
+      MapDecisionControlConfig(decision_control_config));
+}
 
 void ArController::RunOnce() {
   impl_->ResetPerCycleFlags();
@@ -348,6 +371,19 @@ std::uint64_t ArController::GetLastAppliedDecisionBatchId() const {
   return impl_->last_applied_decision_batch_id;
 }
 
+const std::vector<session::TacticalProposal>&
+ArController::GetLastAppliedDecisionProposals() const {
+  return impl_->last_applied_decision_proposals;
+}
+
+bool ArController::HasPendingExternalDecision() const {
+  return impl_->has_pending_external_decision;
+}
+
+const session::ExternalDecisionResponse& ArController::GetPendingExternalDecision() const {
+  return impl_->pending_external_decision;
+}
+
 extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   extension::ArControllerRuntimeState state;
   state.owner_identity = this;
@@ -360,6 +396,8 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.last_cycle_reused_previous_output = impl_->last_cycle_reused_previous_output;
   state.last_signal_abort_reason = impl_->last_signal_abort_reason;
   state.control_profile = impl_->control_profile;
+  state.control_reducer_config =
+      impl_->owned_decision_components.control_reducer->GetConfig();
   state.control_reducer_state = impl_->owned_decision_components.control_reducer->GetRuntimeState();
   state.has_pending_internal_decision = impl_->has_pending_internal_decision;
   state.pending_internal_cycle_index = impl_->pending_internal_cycle_index;
@@ -372,6 +410,7 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.last_applied_decision_source = impl_->last_applied_decision_source;
   state.last_applied_decision_cycle_index = impl_->last_applied_decision_cycle_index;
   state.last_applied_decision_batch_id = impl_->last_applied_decision_batch_id;
+  state.last_applied_decision_proposals = impl_->last_applied_decision_proposals;
   return state;
 }
 
@@ -390,6 +429,8 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->last_cycle_reused_previous_output = state.last_cycle_reused_previous_output;
   impl_->last_signal_abort_reason = state.last_signal_abort_reason;
   impl_->control_profile = state.control_profile;
+  impl_->owned_decision_components.control_reducer->UpdateConfig(
+      state.control_reducer_config);
   impl_->owned_decision_components.control_reducer->RestoreRuntimeState(
       state.control_reducer_state);
   impl_->has_pending_internal_decision = state.has_pending_internal_decision;
@@ -403,6 +444,7 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->last_applied_decision_source = state.last_applied_decision_source;
   impl_->last_applied_decision_cycle_index = state.last_applied_decision_cycle_index;
   impl_->last_applied_decision_batch_id = state.last_applied_decision_batch_id;
+  impl_->last_applied_decision_proposals = state.last_applied_decision_proposals;
   return true;
 }
 

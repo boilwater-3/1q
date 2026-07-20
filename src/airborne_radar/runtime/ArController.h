@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <memory>
 
+#include "1q/airborne_radar/config/ArPolicyConfig.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
@@ -41,6 +42,7 @@ struct ArControllerRuntimeState {
   bool last_cycle_reused_previous_output{false};
   session::SignalCycleAbortReason last_signal_abort_reason{session::SignalCycleAbortReason::kNone};
   session::ArControlProfile control_profile{};
+  extension::ControlReducerConfig control_reducer_config{};
   decision::ControlReducerRuntimeState control_reducer_state{};
   bool has_pending_internal_decision{false};
   std::uint32_t pending_internal_cycle_index{0U};
@@ -54,6 +56,7 @@ struct ArControllerRuntimeState {
       session::DecisionControlSource::kNone};
   std::uint32_t last_applied_decision_cycle_index{0U};
   std::uint64_t last_applied_decision_batch_id{0U};
+  std::vector<session::TacticalProposal> last_applied_decision_proposals{};
 };
 }  // namespace extension
 }  // namespace airborne_radar
@@ -78,7 +81,12 @@ class ArController {
    */
   ArController(session::MutableArContext& ar_context,
                signal::ISignalPipeline& signal_pipeline,
-               environment::IEnvironmentService& environment_service);
+               environment::IEnvironmentService& environment_service,
+               config::DecisionControlConfig decision_control_config = {});
+
+  /** @brief 原子更新后续成功周期使用的控制保持/冷却配置。 */
+  void UpdateDecisionControlConfig(
+      const config::DecisionControlConfig& decision_control_config);
 
   /** @brief 执行一次 AR 处理循环 */
   void RunOnce();
@@ -144,6 +152,9 @@ class ArController {
   session::DecisionControlSource GetLastAppliedDecisionSource() const;
   std::uint32_t GetLastAppliedDecisionCycleIndex() const;
   std::uint64_t GetLastAppliedDecisionBatchId() const;
+  const std::vector<session::TacticalProposal>& GetLastAppliedDecisionProposals() const;
+  bool HasPendingExternalDecision() const;
+  const session::ExternalDecisionResponse& GetPendingExternalDecision() const;
 
   /**
    * @brief 捕获当前控制器运行态快照。

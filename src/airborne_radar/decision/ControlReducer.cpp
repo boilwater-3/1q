@@ -326,7 +326,17 @@ bool HasOperationalProfileChanged(const session::ArControlProfile& previous,
 
 ControlReducer::ControlReducer(extension::ControlReducerConfig config) : config_(config) {}
 
-void ControlReducer::UpdateConfig(extension::ControlReducerConfig config) { config_ = config; }
+void ControlReducer::UpdateConfig(extension::ControlReducerConfig config) {
+  lpi_hold_cycles_remaining_ =
+      std::min(lpi_hold_cycles_remaining_, config.lpi_hold_cycles_after_request);
+  eccm_hold_cycles_remaining_ =
+      std::min(eccm_hold_cycles_remaining_, config.eccm_hold_cycles_after_request);
+  lpi_cooldown_cycles_remaining_ =
+      std::min(lpi_cooldown_cycles_remaining_, config.lpi_cooldown_cycles_after_release);
+  eccm_cooldown_cycles_remaining_ =
+      std::min(eccm_cooldown_cycles_remaining_, config.eccm_cooldown_cycles_after_release);
+  config_ = config;
+}
 
 extension::ControlReducerConfig ControlReducer::GetConfig() const { return config_; }
 

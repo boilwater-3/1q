@@ -11,6 +11,7 @@ execution::InternalExecutionConfig MapSessionToExecution(
   execution::InternalExecutionConfig exec;
 
   exec.sensor_enabled = session_config.mission.power_on;
+  exec.decision_control = session_config.policy.decision_control;
   exec.detection.engineering =
       ResolveDetectionEngineering(session_config.hardware, session_config.policy.detection);
   exec.detection.beam_control = session_config.policy.beam_control;

@@ -18,7 +18,7 @@ struct ArReplayState {
   ArCycleInput pending_input{};
   bool has_pending_input{false};
   ArCycleResult latest_result{};
-  session::TrackOutputFrame latest_frame{};
+  ArDecisionReplayState latest_decision_state{};
   bool reached_failure_marker{false};
   std::string failure_marker_payload{};
   oneq::replay::ReplayTraceFailure failure_marker_data{};
@@ -118,8 +118,112 @@ bool AssociationQualityMetricsEqual(const session::AssociationQualityMetrics& le
          left.association_stress == right.association_stress;
 }
 
+bool EccmJammerSourceInfoEqual(const session::EccmJammerSourceInfo& left,
+                               const session::EccmJammerSourceInfo& right) {
+  return left.technique == right.technique &&
+         left.jammer_power_db == right.jammer_power_db &&
+         left.jammer_to_signal_db == right.jammer_to_signal_db &&
+         left.frequency_overlap_ratio == right.frequency_overlap_ratio &&
+         left.prf_lock_risk == right.prf_lock_risk &&
+         left.has_direction_deg == right.has_direction_deg &&
+         left.direction_deg.azimuth_deg == right.direction_deg.azimuth_deg &&
+         left.direction_deg.elevation_deg == right.direction_deg.elevation_deg &&
+         left.angular_span_deg == right.angular_span_deg &&
+         left.jammer_in_sidelobe == right.jammer_in_sidelobe &&
+         left.confidence == right.confidence;
+}
+
+bool EccmSourceInfoEqual(const session::EccmSourceInfo& left,
+                         const session::EccmSourceInfo& right) {
+  if (left.has_jamming_signal != right.has_jamming_signal ||
+      left.jammer_sources.size() != right.jammer_sources.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.jammer_sources.size(); ++i) {
+    if (!EccmJammerSourceInfoEqual(left.jammer_sources[i], right.jammer_sources[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool DecisionInputFrameEqual(const session::DecisionInputFrame& left,
+                             const session::DecisionInputFrame& right) {
+  if (left.cycle_index != right.cycle_index || left.batch_id != right.batch_id ||
+      left.environment_jamming_detected != right.environment_jamming_detected ||
+      !EccmSourceInfoEqual(left.eccm_source_info, right.eccm_source_info) ||
+      left.association_quality_info.match_rate != right.association_quality_info.match_rate ||
+      left.association_quality_info.new_track_rate !=
+          right.association_quality_info.new_track_rate ||
+      left.association_quality_info.missed_track_rate !=
+          right.association_quality_info.missed_track_rate ||
+      left.association_quality_info.mean_match_cost !=
+          right.association_quality_info.mean_match_cost ||
+      left.association_quality_info.p95_match_cost !=
+          right.association_quality_info.p95_match_cost ||
+      left.association_quality_info.dominant_jamming_semantic !=
+          right.association_quality_info.dominant_jamming_semantic ||
+      left.association_quality_info.jamming_severity !=
+          right.association_quality_info.jamming_severity ||
+      left.association_quality_info.association_stress !=
+          right.association_quality_info.association_stress ||
+      left.perception_quality_info.input_target_count !=
+          right.perception_quality_info.input_target_count ||
+      left.perception_quality_info.detection_count !=
+          right.perception_quality_info.detection_count ||
+      left.perception_quality_info.detection_rate !=
+          right.perception_quality_info.detection_rate ||
+      left.perception_quality_info.detection_stress !=
+          right.perception_quality_info.detection_stress ||
+      left.tracks.size() != right.tracks.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.tracks.size(); ++i) {
+    if (!TrackStateSnapshotEqual(left.tracks[i], right.tracks[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool TacticalProposalEqual(const session::TacticalProposal& left,
+                           const session::TacticalProposal& right) {
+  return left.directive.type == right.directive.type &&
+         left.directive.source == right.directive.source &&
+         left.directive.has_requested_value == right.directive.has_requested_value &&
+         left.directive.requested_value == right.directive.requested_value &&
+         left.priority == right.priority && left.rationale == right.rationale;
+}
+
+bool TacticalProposalsEqual(const std::vector<session::TacticalProposal>& left,
+                            const std::vector<session::TacticalProposal>& right) {
+  if (left.size() != right.size()) {
+    return false;
+  }
+  for (std::size_t i = 0; i < left.size(); ++i) {
+    if (!TacticalProposalEqual(left[i], right[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool ExternalDecisionResponseEqual(const session::ExternalDecisionResponse& left,
+                                   const session::ExternalDecisionResponse& right) {
+  return left.source_cycle_index == right.source_cycle_index &&
+         left.source_batch_id == right.source_batch_id &&
+         TacticalProposalsEqual(left.proposals, right.proposals);
+}
+
+bool DecisionObservationEqual(const session::DecisionObservation& left,
+                              const session::DecisionObservation& right) {
+  return DecisionInputFrameEqual(left.input_frame, right.input_frame) &&
+         ArControlProfileEqual(left.active_control_profile,
+                               right.active_control_profile);
+}
+
 bool CycleResultEqual(const ArCycleResult& left, const ArCycleResult& right) {
-  return left.input_cycle_index == right.input_cycle_index &&
+  const bool base_equal = left.input_cycle_index == right.input_cycle_index &&
          TrackOutputFrameEqual(left.track_output_frame, right.track_output_frame) &&
          ArCommandsEqual(left.submitted_commands, right.submitted_commands) &&
          ValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
@@ -131,6 +235,41 @@ bool CycleResultEqual(const ArCycleResult& left, const ArCycleResult& right) {
          ArControlProfileEqual(left.control_profile, right.control_profile) &&
          AssociationQualityMetricsEqual(left.association_quality_metrics,
                                         right.association_quality_metrics);
+  return base_equal &&
+         left.has_decision_observation == right.has_decision_observation &&
+         DecisionObservationEqual(left.decision_observation,
+                                  right.decision_observation) &&
+         left.applied_decision_source == right.applied_decision_source &&
+         left.applied_decision_cycle_index == right.applied_decision_cycle_index &&
+         left.applied_decision_batch_id == right.applied_decision_batch_id;
+}
+
+bool DecisionReplayStateEqual(const ArDecisionReplayState& left,
+                              const ArDecisionReplayState& right) {
+  const bool pending_external_equal =
+      left.has_pending_external_decision == right.has_pending_external_decision &&
+      (!left.has_pending_external_decision ||
+       ExternalDecisionResponseEqual(left.pending_external_decision,
+                                     right.pending_external_decision));
+  return left.has_pending_internal_decision == right.has_pending_internal_decision &&
+         left.pending_internal_cycle_index == right.pending_internal_cycle_index &&
+         left.pending_internal_batch_id == right.pending_internal_batch_id &&
+         TacticalProposalsEqual(left.pending_internal_proposals,
+                                right.pending_internal_proposals) &&
+         left.applied_decision_source == right.applied_decision_source &&
+         left.applied_decision_cycle_index == right.applied_decision_cycle_index &&
+         left.applied_decision_batch_id == right.applied_decision_batch_id &&
+         TacticalProposalsEqual(left.applied_decision_proposals,
+                                right.applied_decision_proposals) &&
+         pending_external_equal &&
+         left.reducer_state.lpi_hold_cycles_remaining ==
+             right.reducer_state.lpi_hold_cycles_remaining &&
+         left.reducer_state.eccm_hold_cycles_remaining ==
+             right.reducer_state.eccm_hold_cycles_remaining &&
+         left.reducer_state.lpi_cooldown_cycles_remaining ==
+             right.reducer_state.lpi_cooldown_cycles_remaining &&
+         left.reducer_state.eccm_cooldown_cycles_remaining ==
+             right.reducer_state.eccm_cooldown_cycles_remaining;
 }
 
 bool ExecutePendingCycle(ArReplayState* state, std::string* error) {
@@ -145,7 +284,8 @@ bool ExecutePendingCycle(ArReplayState* state, std::string* error) {
 
   ArCycleResult result = state->session->StepWithResult(state->pending_input);
   state->latest_result = result;
-  state->latest_frame = result.track_output_frame;
+  state->latest_decision_state =
+      ArSessionReplayAccess::CaptureDecisionState(*state->session);
   state->has_pending_input = false;
   return true;
 }
@@ -216,27 +356,45 @@ bool OnRuntimeConfigPatch(const oneq::replay::ReplayTraceReadEvent& event, void*
   return true;
 }
 
+bool OnDecisionInput(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
+                     std::string* error) {
+  if (event.payload_type != "ExternalDecisionResponse") {
+    *error = "AR replay expected ExternalDecisionResponse decision_input";
+    return false;
+  }
+
+  ArReplayState* state = static_cast<ArReplayState*>(user_data);
+  if (!state->session) {
+    *error = "AR replay received decision_input before session_config";
+    return false;
+  }
+  if (state->has_pending_input) {
+    *error = "AR replay received decision_input after cycle_input but before cycle_output";
+    return false;
+  }
+
+  session::ExternalDecisionResponse response;
+  if (!DecodeExternalDecisionResponseFlatbuffer(event.payload_bytes, &response, error)) {
+    return false;
+  }
+  if (state->session->SubmitExternalDecision(response) !=
+      session::ExternalDecisionSubmitStatus::kAccepted) {
+    *error = "AR replay could not apply recorded external decision at its causal boundary";
+    return false;
+  }
+  return true;
+}
+
 oneq::replay::ReplayTraceOutputStatus OnCycleOutput(const oneq::replay::ReplayTraceReadEvent& event,
                                                      void* user_data, std::string* actual_output,
                                                      std::string* error) {
   using oneq::replay::ReplayTraceOutputStatus;
-  ArCycleResult expected_result;
-  session::TrackOutputFrame expected_frame;
-  bool has_expected_result = false;
-  bool has_expected_frame = false;
-
-  if (event.payload_type == "ArCycleResult") {
-    if (!DecodeCycleResultFlatbuffer(event.payload_bytes, &expected_result, error)) {
-      return ReplayTraceOutputStatus::kOtherFailure;
-    }
-    has_expected_result = true;
-  } else if (event.payload_type == "TrackOutputFrame") {
-    if (!DecodeTrackOutputFrameFlatbuffer(event.payload_bytes, &expected_frame, error)) {
-      return ReplayTraceOutputStatus::kOtherFailure;
-    }
-    has_expected_frame = true;
-  } else {
+  if (event.payload_type != "ArReplayCycleRecord") {
     *error = "AR replay does not support cycle_output payload type: " + event.payload_type;
+    return ReplayTraceOutputStatus::kOtherFailure;
+  }
+  ArReplayCycleRecord expected_record;
+  if (!DecodeReplayCycleRecordFlatbuffer(event.payload_bytes, &expected_record, error)) {
     return ReplayTraceOutputStatus::kOtherFailure;
   }
 
@@ -245,28 +403,16 @@ oneq::replay::ReplayTraceOutputStatus OnCycleOutput(const oneq::replay::ReplayTr
     return ReplayTraceOutputStatus::kOtherFailure;
   }
 
-  if (event.payload_type == "ArCycleResult") {
-    const bool match =
-        has_expected_result && CycleResultEqual(expected_result, state->latest_result);
-    if (!match) {
-      *error = "AR replay output divergence (ArCycleResult)";
-      actual_output->clear();
-      return ReplayTraceOutputStatus::kDivergence;
-    }
+  const bool match = CycleResultEqual(expected_record.result, state->latest_result) &&
+                     DecisionReplayStateEqual(expected_record.decision_state,
+                                              state->latest_decision_state);
+  if (!match) {
+    *error = "AR replay output divergence (ArReplayCycleRecord)";
     actual_output->clear();
-    return ReplayTraceOutputStatus::kHandledByModule;
+    return ReplayTraceOutputStatus::kDivergence;
   }
-  {
-    const bool match =
-        has_expected_frame && TrackOutputFrameEqual(expected_frame, state->latest_frame);
-    if (!match) {
-      *error = "AR replay output divergence (TrackOutputFrame)";
-      actual_output->clear();
-      return ReplayTraceOutputStatus::kDivergence;
-    }
-    actual_output->clear();
-    return ReplayTraceOutputStatus::kHandledByModule;
-  }
+  actual_output->clear();
+  return ReplayTraceOutputStatus::kHandledByModule;
 }
 
 bool OnFailureMarker(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
@@ -303,6 +449,7 @@ ArReplaySessionResult ReplayArTrace(const std::string& trace_dir) {
   callbacks.user_data = &state;
   callbacks.on_session_config = OnSessionConfig;
   callbacks.on_cycle_input = OnCycleInput;
+  callbacks.on_decision_input = OnDecisionInput;
   callbacks.on_runtime_config_patch = OnRuntimeConfigPatch;
   callbacks.on_cycle_output = OnCycleOutput;
   callbacks.on_failure_marker = OnFailureMarker;

@@ -161,6 +161,81 @@ table AssociationQualityMetrics {
   association_stress:float;
 }
 
+table EccmJammerDirectionDeg {
+  azimuth_deg:float;
+  elevation_deg:float;
+}
+
+table EccmJammerSourceInfo {
+  technique:int;
+  jammer_power_db:float;
+  jammer_to_signal_db:float;
+  frequency_overlap_ratio:float;
+  prf_lock_risk:float;
+  has_direction_deg:bool;
+  direction_deg:EccmJammerDirectionDeg;
+  angular_span_deg:float;
+  jammer_in_sidelobe:bool;
+  confidence:float;
+}
+
+table EccmSourceInfo {
+  has_jamming_signal:bool;
+  jammer_sources:[EccmJammerSourceInfo];
+}
+
+table AssociationQualityInfo {
+  match_rate:float;
+  new_track_rate:float;
+  missed_track_rate:float;
+  mean_match_cost:float;
+  p95_match_cost:float;
+  dominant_jamming_semantic:int;
+  jamming_severity:float;
+  association_stress:float;
+}
+
+table PerceptionQualityInfo {
+  input_target_count:ulong;
+  detection_count:ulong;
+  detection_rate:float;
+  detection_stress:float;
+}
+
+table DecisionInputFrame {
+  cycle_index:uint;
+  batch_id:ulong;
+  environment_jamming_detected:bool;
+  eccm_source_info:EccmSourceInfo;
+  association_quality_info:AssociationQualityInfo;
+  perception_quality_info:PerceptionQualityInfo;
+  tracks:[TrackStateSnapshot];
+}
+
+table DecisionObservation {
+  input_frame:DecisionInputFrame;
+  active_control_profile:ArControlProfile;
+}
+
+table ControlDirective {
+  type:int;
+  source:int;
+  has_requested_value:bool;
+  requested_value:float;
+}
+
+table TacticalProposal {
+  directive:ControlDirective;
+  priority:int;
+  rationale:string;
+}
+
+table ExternalDecisionResponse {
+  source_cycle_index:uint;
+  source_batch_id:ulong;
+  proposals:[TacticalProposal];
+}
+
 table ArCycleResult {
   input_cycle_index:uint;
   track_output_frame:TrackOutputFrame;
@@ -173,6 +248,33 @@ table ArCycleResult {
   has_control_profile:bool;
   control_profile:ArControlProfile;
   association_quality_metrics:AssociationQualityMetrics;
+  has_decision_observation:bool;
+  decision_observation:DecisionObservation;
+  applied_decision_source:int;
+  applied_decision_cycle_index:uint;
+  applied_decision_batch_id:ulong;
+}
+
+table ArDecisionReplayState {
+  has_pending_internal_decision:bool;
+  pending_internal_cycle_index:uint;
+  pending_internal_batch_id:ulong;
+  pending_internal_proposals:[TacticalProposal];
+  applied_decision_source:int;
+  applied_decision_cycle_index:uint;
+  applied_decision_batch_id:ulong;
+  applied_decision_proposals:[TacticalProposal];
+  has_pending_external_decision:bool;
+  pending_external_decision:ExternalDecisionResponse;
+  lpi_hold_cycles_remaining:uint;
+  eccm_hold_cycles_remaining:uint;
+  lpi_cooldown_cycles_remaining:uint;
+  eccm_cooldown_cycles_remaining:uint;
+}
+
+table ArReplayCycleRecord {
+  result:ArCycleResult;
+  decision_state:ArDecisionReplayState;
 }
 
 table FailureMarker {

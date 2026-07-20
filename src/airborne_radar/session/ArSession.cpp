@@ -7,6 +7,7 @@
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/runtime/ArController.h"
 #include "airborne_radar/session/MutableArContext.h"
+#include "airborne_radar/session/ArReplayCycleRecord.h"
 #include "airborne_radar/session/ArSessionCompositionRoot.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
@@ -155,6 +156,8 @@ struct ArSession::Impl {
           return false;
         }
       }
+      Controller().UpdateDecisionControlConfig(
+          state_to_commit.execution_config.decision_control);
       pipeline_config_synced = true;
     }
 
@@ -270,6 +273,27 @@ struct ArSession::Impl {
   }
   extension::ArController& Controller() const { return *owned_controller; }
 };
+
+ArDecisionReplayState ArSessionReplayAccess::CaptureDecisionState(const ArSession& session) {
+  ArDecisionReplayState replay_state;
+  const extension::ArControllerRuntimeState controller_state =
+      session.impl_->Controller().CaptureRuntimeState();
+  replay_state.has_pending_internal_decision =
+      controller_state.has_pending_internal_decision;
+  replay_state.pending_internal_cycle_index = controller_state.pending_internal_cycle_index;
+  replay_state.pending_internal_batch_id = controller_state.pending_internal_batch_id;
+  replay_state.pending_internal_proposals = controller_state.pending_internal_proposals;
+  replay_state.applied_decision_source = controller_state.last_applied_decision_source;
+  replay_state.applied_decision_cycle_index =
+      controller_state.last_applied_decision_cycle_index;
+  replay_state.applied_decision_batch_id = controller_state.last_applied_decision_batch_id;
+  replay_state.applied_decision_proposals = controller_state.last_applied_decision_proposals;
+  replay_state.has_pending_external_decision =
+      controller_state.has_pending_external_decision;
+  replay_state.pending_external_decision = controller_state.pending_external_decision;
+  replay_state.reducer_state = controller_state.control_reducer_state;
+  return replay_state;
+}
 
 ArSession::ArSession(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
 

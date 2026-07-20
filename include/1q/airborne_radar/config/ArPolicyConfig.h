@@ -2,7 +2,7 @@
  * @file ArPolicyConfig.h
  * @brief 机载雷达策略域主配置类型。
  *
- * 策略域（波束调度、关联、跟踪、生命周期）配置的主头文件。
+ * 策略域（探测、波束调度、关联、跟踪、生命周期、决策控制）配置的主头文件。
  */
 
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_POLICY_CONFIG_H_
@@ -46,6 +46,22 @@ struct ONEQ_API ArDetectionPolicyConfig {
 };
 
 }  // namespace detection
+
+namespace decision {
+
+/**
+ * @brief 跨周期 LPI/ECCM 控制保持与冷却策略。
+ *
+ * 所有字段以成功执行周期计数。0 表示关闭对应窗口，保持既有立即切换行为。
+ */
+struct ONEQ_API DecisionControlConfig {
+  std::uint32_t lpi_hold_cycles_after_request{0U}; /**< LPI proposal 消失后额外保持的成功周期数。 */
+  std::uint32_t eccm_hold_cycles_after_request{0U}; /**< ECCM proposal 消失后额外保持的成功周期数。 */
+  std::uint32_t lpi_cooldown_cycles_after_release{0U}; /**< LPI 释放后阻止重新激活的成功周期数。 */
+  std::uint32_t eccm_cooldown_cycles_after_release{0U}; /**< ECCM 释放后阻止重新激活的成功周期数。 */
+};
+
+}  // namespace decision
 
 namespace beam {
 
@@ -114,6 +130,7 @@ struct ONEQ_API AssociationConfig {
 using beam::BeamControlConfig;
 using beam::BeamPointingConfig;
 using beam::BeamSchedulerConfig;
+using decision::DecisionControlConfig;
 using detection::ArDetectionPolicyConfig;
 using lifecycle::LifecycleConfig;
 using tracking::AssociationConfig;
@@ -122,7 +139,7 @@ using tracking::TrackingConfig;
 /**
  * @brief ArPolicyConfig 雷达策略域配置。
  *
- * 当前阶段策略域承载调度、关联、跟踪与生命周期策略。
+ * 当前阶段策略域承载探测、调度、关联、跟踪、生命周期与决策控制策略。
  */
 struct ONEQ_API ArPolicyConfig {
   ArDetectionPolicyConfig detection{};
@@ -130,6 +147,7 @@ struct ONEQ_API ArPolicyConfig {
   AssociationConfig association{};
   TrackingConfig tracking{};
   LifecycleConfig lifecycle{};
+  DecisionControlConfig decision_control{};
 };
 
 

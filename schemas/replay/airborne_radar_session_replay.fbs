@@ -134,6 +134,13 @@ table ImmConfig {
   model_count_hint:uint;
 }
 
+table DecisionControlConfig {
+  lpi_hold_cycles_after_request:uint;
+  eccm_hold_cycles_after_request:uint;
+  lpi_cooldown_cycles_after_release:uint;
+  eccm_cooldown_cycles_after_release:uint;
+}
+
 table ArPolicyConfig {
   detection:ArDetectionPolicyConfig;
   beam_control:BeamControlConfig;
@@ -141,6 +148,7 @@ table ArPolicyConfig {
   tracking:TrackingConfig;
   lifecycle:LifecycleConfig;
   imm:ImmConfig;
+  decision_control:DecisionControlConfig;
 }
 
 table AtmosphericPhysicsConfig {

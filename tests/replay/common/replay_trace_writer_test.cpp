@@ -83,6 +83,7 @@ std::string MakeFlatbuffersPayloadBytes(const std::string& tag) { return std::st
 struct PlaybackDispatchState {
   std::uint64_t session_config_calls{0U};
   std::uint64_t cycle_input_calls{0U};
+  std::uint64_t decision_input_calls{0U};
 };
 
 bool CountSessionConfigCallback(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
@@ -99,6 +100,14 @@ bool CountCycleInputCallback(const oneq::replay::ReplayTraceReadEvent& event, vo
   PlaybackDispatchState* state = static_cast<PlaybackDispatchState*>(user_data);
   ++state->cycle_input_calls;
   return event.payload_type == "ArCycleInput";
+}
+
+bool CountDecisionInputCallback(const oneq::replay::ReplayTraceReadEvent& event, void* user_data,
+                                std::string* error) {
+  (void)error;
+  PlaybackDispatchState* state = static_cast<PlaybackDispatchState*>(user_data);
+  ++state->decision_input_calls;
+  return event.payload_type == "ExternalDecisionResponse";
 }
 
 using oneq::replay::ReplayTraceOutputStatus;
@@ -625,6 +634,14 @@ TEST(ReplayTraceWriterTest, BuildsReplayReportForBComputerEntry) {
     input.cycle_index = 3U;
     writer.WriteEvent(input);
 
+    ReplayTraceEvent decision;
+    decision.module = "airborne_radar";
+    decision.event_type = "decision_input";
+    decision.payload_type = "ExternalDecisionResponse";
+    decision.payload_encoding = "flatbuffers";
+    decision.payload_bytes = MakeFlatbuffersPayloadBytes("report-decision");
+    writer.WriteEvent(decision);
+
     ReplayTraceEvent output;
     output.module = "airborne_radar";
     output.event_type = "cycle_output";
@@ -656,10 +673,11 @@ TEST(ReplayTraceWriterTest, BuildsReplayReportForBComputerEntry) {
   EXPECT_TRUE(report.has_failure_marker);
   EXPECT_EQ(report.session_config_count, 1U);
   EXPECT_EQ(report.cycle_input_count, 1U);
+  EXPECT_EQ(report.decision_input_count, 1U);
   EXPECT_EQ(report.cycle_output_count, 1U);
   EXPECT_EQ(report.failure_marker_count, 1U);
   EXPECT_EQ(report.unsupported_event_count, 0U);
-  EXPECT_EQ(report.first_failure_sequence, 3U);
+  EXPECT_EQ(report.first_failure_sequence, 4U);
   EXPECT_FALSE(report.first_failure_payload_base64.empty());
   EXPECT_EQ(report.first_failure_payload_base64, "ZmI6cmVwb3J0LWZhaWx1cmU=");
   EXPECT_EQ(report.first_failure_payload_encoding, "flatbuffers");
@@ -670,6 +688,7 @@ TEST(ReplayTraceWriterTest, BuildsReplayReportForBComputerEntry) {
   const std::string report_json = ReadFile(report_path);
   EXPECT_NE(report_json.find("\"replay_ready\":true"), std::string::npos);
   EXPECT_NE(report_json.find("\"cycle_input_count\":1"), std::string::npos);
+  EXPECT_NE(report_json.find("\"decision_input_count\":1"), std::string::npos);
   EXPECT_NE(report_json.find("\"first_failure_payload_base64\":\"ZmI6cmVwb3J0LWZhaWx1cmU=\""),
             std::string::npos);
   EXPECT_NE(report_json.find("\"first_failure_payload_encoding\":\"flatbuffers\""),
@@ -779,6 +798,14 @@ TEST(ReplayTraceWriterTest, PlaybackDispatchesEventsAndComparesOutput) {
     input.payload_bytes = MakeFlatbuffersPayloadBytes("playback-input");
     writer.WriteEvent(input);
 
+    ReplayTraceEvent decision;
+    decision.module = "airborne_radar";
+    decision.event_type = "decision_input";
+    decision.payload_type = "ExternalDecisionResponse";
+    decision.payload_encoding = "flatbuffers";
+    decision.payload_bytes = MakeFlatbuffersPayloadBytes("playback-decision");
+    writer.WriteEvent(decision);
+
     ReplayTraceEvent output;
     output.module = "airborne_radar";
     output.event_type = "cycle_output";
@@ -794,16 +821,44 @@ TEST(ReplayTraceWriterTest, PlaybackDispatchesEventsAndComparesOutput) {
   callbacks.user_data = &state;
   callbacks.on_session_config = CountSessionConfigCallback;
   callbacks.on_cycle_input = CountCycleInputCallback;
+  callbacks.on_decision_input = CountDecisionInputCallback;
   callbacks.on_cycle_output = EchoOutputCallback;
 
   ReplayTracePlaybackResult result = PlaybackReplayTrace(trace_dir, callbacks);
   EXPECT_TRUE(result.ok);
   EXPECT_FALSE(result.divergence_found);
-  EXPECT_EQ(result.processed_event_count, 3U);
+  EXPECT_EQ(result.processed_event_count, 4U);
   EXPECT_EQ(result.applied_input_count, 1U);
+  EXPECT_EQ(result.applied_decision_input_count, 1U);
   EXPECT_EQ(result.compared_output_count, 1U);
   EXPECT_EQ(state.session_config_calls, 1U);
   EXPECT_EQ(state.cycle_input_calls, 1U);
+  EXPECT_EQ(state.decision_input_calls, 1U);
+}
+
+TEST(ReplayTraceWriterTest, PlaybackRejectsMissingDecisionInputCallback) {
+  const std::string trace_dir = MakeTempTraceDir();
+
+  ReplayTraceManifest manifest;
+  manifest.trace_id = "missing-decision-callback-trace-test";
+  manifest.module = "airborne_radar";
+
+  {
+    ReplayTraceWriter writer(trace_dir, manifest, true);
+    ReplayTraceEvent decision;
+    decision.module = "airborne_radar";
+    decision.event_type = "decision_input";
+    decision.payload_type = "ExternalDecisionResponse";
+    decision.payload_encoding = "flatbuffers";
+    decision.payload_bytes = MakeFlatbuffersPayloadBytes("missing-decision-callback");
+    writer.WriteEvent(decision);
+    writer.Flush();
+  }
+
+  ReplayTracePlaybackCallbacks callbacks;
+  ReplayTracePlaybackResult result = PlaybackReplayTrace(trace_dir, callbacks);
+  EXPECT_FALSE(result.ok);
+  EXPECT_NE(result.first_error.find("decision_input"), std::string::npos);
 }
 
 TEST(ReplayTraceWriterTest, PlaybackStopsOnFirstDivergenceWhenEnabled) {

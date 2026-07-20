@@ -89,6 +89,13 @@ class ONEQ_API ArTraceSession {
    */
   void ApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 
+  /** @brief 尝试应用运行期配置补丁；仅在底层会话接受补丁后写入 replay trace。 */
+  bool TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
+
+  /** @brief 提交外部 LPI/ECCM 决策；仅接受的决策会作为独立 replay 输入事件写入。 */
+  session::ExternalDecisionSubmitStatus SubmitExternalDecision(
+      const session::ExternalDecisionResponse& response);
+
   /** @brief 获取当前周期已提交的控制指令（透传）。 */
   const std::vector<session::ArCommand>& GetSubmittedCommands() const;
   /** @brief 判断是否已保存最新控制真值（透传）。 */
@@ -98,8 +105,6 @@ class ONEQ_API ArTraceSession {
   /** @brief 获取最近一次关联质量观测指标（透传）。 */
   session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
 
-  /** @brief 获取被包装的底层 ArSession（可读写）。 */
-  ArSession& session();
   /** @brief 获取被包装的底层 ArSession（只读）。 */
   const ArSession& session() const;
 

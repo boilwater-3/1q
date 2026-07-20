@@ -535,6 +535,53 @@ TEST_F(CoreControllerTest, MatchingExternalResponseReplacesInternalBaseline) {
   EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.4f);
 }
 
+TEST_F(CoreControllerTest, PublicDecisionControlConfigEnablesHoldWindow) {
+  const session::ArSceneTargetList empty_scene;
+  FakeRadarContext radar_context(empty_scene);
+  environment::EnvironmentService environment_service;
+  signal::pipeline::SignalPipeline signal_pipeline;
+  config::DecisionControlConfig decision_control_config;
+  decision_control_config.lpi_hold_cycles_after_request = 1U;
+  extension::ArController controller(radar_context, signal_pipeline, environment_service,
+                                     decision_control_config);
+
+  controller.RunOnce();
+  session::DecisionInputFrame frame =
+      controller.GetLatestDecisionObservation().input_frame;
+  session::ExternalDecisionResponse request;
+  request.source_cycle_index = frame.cycle_index;
+  request.source_batch_id = frame.batch_id;
+  request.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.5f),
+      80, "public hold configuration"});
+  ASSERT_EQ(controller.SubmitExternalDecision(request),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+
+  controller.RunOnce();
+  ASSERT_TRUE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
+  ASSERT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.5f);
+
+  frame = controller.GetLatestDecisionObservation().input_frame;
+  session::ExternalDecisionResponse release;
+  release.source_cycle_index = frame.cycle_index;
+  release.source_batch_id = frame.batch_id;
+  ASSERT_EQ(controller.SubmitExternalDecision(release),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+  controller.RunOnce();
+  EXPECT_TRUE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
+  EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.5f);
+
+  frame = controller.GetLatestDecisionObservation().input_frame;
+  release.source_cycle_index = frame.cycle_index;
+  release.source_batch_id = frame.batch_id;
+  ASSERT_EQ(controller.SubmitExternalDecision(release),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+  controller.RunOnce();
+  EXPECT_FALSE(signal_pipeline.GetControlProfile().enable_lpi_power_control);
+  EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 1.0f);
+}
+
 TEST_F(CoreControllerTest, ExternalLpiParametersAlterNextPhysicalDetection) {
   config::ArSessionConfig session_config = MakeDetectionFocusedConfig();
   session_config.hardware.enable_physics_detection = true;

@@ -149,6 +149,7 @@ struct LifecycleExecutionConfig {
  */
 struct InternalExecutionConfig {
   bool sensor_enabled{true};  /**< 设备开关机状态 */
+  config::DecisionControlConfig decision_control{}; /**< 跨周期 LPI/ECCM 保持与冷却策略 */
   DetectionExecutionConfig detection{};
   AssociationExecutionConfig association{};
   TrackingExecutionConfig tracking{};

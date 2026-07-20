@@ -509,6 +509,7 @@ bool WriteReportFile(const std::string& path, const ReplayTraceReplayReport& rep
          << ",";
   output << "\"session_config_count\":" << report.session_config_count << ",";
   output << "\"cycle_input_count\":" << report.cycle_input_count << ",";
+  output << "\"decision_input_count\":" << report.decision_input_count << ",";
   output << "\"scene_state_count\":" << report.scene_state_count << ",";
   output << "\"runtime_config_patch_count\":" << report.runtime_config_patch_count << ",";
   output << "\"cycle_output_count\":" << report.cycle_output_count << ",";
@@ -1273,6 +1274,8 @@ ReplayTraceReplayReport BuildReplayTraceReport(
       report.has_session_config = true;
     } else if (event.event_type == "cycle_input") {
       ++report.cycle_input_count;
+    } else if (event.event_type == "decision_input") {
+      ++report.decision_input_count;
     } else if (event.event_type == "scene_state") {
       ++report.scene_state_count;
     } else if (event.event_type == "runtime_config_patch") {
@@ -1350,6 +1353,13 @@ ReplayTracePlaybackResult PlaybackReplayTrace(const std::string& trace_dir,
                                "missing cycle_input replay callback", true, &callback_error);
       if (callback_ok) {
         ++result.applied_input_count;
+      }
+    } else if (event.event_type == "decision_input") {
+      callback_ok = InvokeReplayCallback(
+          callbacks.on_decision_input, event, callbacks.user_data,
+          "missing decision_input replay callback", true, &callback_error);
+      if (callback_ok) {
+        ++result.applied_decision_input_count;
       }
     } else if (event.event_type == "scene_state") {
       callback_ok =

@@ -1124,6 +1124,64 @@ TEST(PublicApiConvenienceTest, RadarSessionAppliesMatchingExternalDecisionOnNext
   EXPECT_NE(second.track_output_frame.tracks[0].target_type, "UNKNOWN");
 }
 
+TEST(PublicApiConvenienceTest, RadarRuntimePolicyPatchEnablesDecisionHoldWindow) {
+  const config::ArSessionConfig base_config = MakeConvenienceSessionConfig();
+  session::ArSession session = session::ArSession::Create(base_config);
+  session::ArCycleInput input = MakeCycleInput(session::ArSceneTargetList{
+      model::MakeAirTarget(903U, 1000.0f, 0.0f, 100.0f, 800.0f, 0.0f, 0.0f, 2.5f),
+  });
+
+  const session::ArCycleResult first = session.StepWithResult(input);
+  ASSERT_TRUE(first.executed_this_cycle);
+  ASSERT_TRUE(first.has_decision_observation);
+
+  session::ExternalDecisionResponse request;
+  request.source_cycle_index = first.decision_observation.input_frame.cycle_index;
+  request.source_batch_id = first.decision_observation.input_frame.batch_id;
+  request.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.5f),
+      80, "public runtime hold configuration"});
+  ASSERT_EQ(session.SubmitExternalDecision(request),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+
+  config::ArRuntimeConfigPatch policy_patch;
+  policy_patch.has_policy = true;
+  policy_patch.policy = base_config.policy;
+  policy_patch.policy.decision_control.lpi_hold_cycles_after_request = 1U;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(policy_patch));
+
+  ++input.cycle_index;
+  const session::ArCycleResult activated = session.StepWithResult(input);
+  ASSERT_TRUE(activated.executed_this_cycle);
+  ASSERT_TRUE(activated.has_control_profile);
+  ASSERT_TRUE(activated.control_profile.enable_lpi_power_control);
+  ASSERT_FLOAT_EQ(activated.control_profile.lpi_power_scale, 0.5f);
+  ASSERT_TRUE(activated.has_decision_observation);
+
+  session::ExternalDecisionResponse release;
+  release.source_cycle_index = activated.decision_observation.input_frame.cycle_index;
+  release.source_batch_id = activated.decision_observation.input_frame.batch_id;
+  ASSERT_EQ(session.SubmitExternalDecision(release),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+  ++input.cycle_index;
+  const session::ArCycleResult held = session.StepWithResult(input);
+  ASSERT_TRUE(held.executed_this_cycle);
+  EXPECT_TRUE(held.control_profile.enable_lpi_power_control);
+  EXPECT_FLOAT_EQ(held.control_profile.lpi_power_scale, 0.5f);
+  ASSERT_TRUE(held.has_decision_observation);
+
+  release.source_cycle_index = held.decision_observation.input_frame.cycle_index;
+  release.source_batch_id = held.decision_observation.input_frame.batch_id;
+  ASSERT_EQ(session.SubmitExternalDecision(release),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+  ++input.cycle_index;
+  const session::ArCycleResult released = session.StepWithResult(input);
+  ASSERT_TRUE(released.executed_this_cycle);
+  EXPECT_FALSE(released.control_profile.enable_lpi_power_control);
+  EXPECT_FLOAT_EQ(released.control_profile.lpi_power_scale, 1.0f);
+}
+
 TEST(PublicApiConvenienceTest,
      RadarSessionPreservesPendingExternalDecisionAcrossPoweredOffBoundary) {
   session::ArSession session = session::ArSession::Create(MakeConvenienceSessionConfig());

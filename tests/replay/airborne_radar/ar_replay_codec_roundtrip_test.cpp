@@ -168,7 +168,8 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
 // ---------------------------------------------------------------------------
 
 TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
-  ArCycleResult result;
+  ArReplayCycleRecord record;
+  ArCycleResult& result = record.result;
   result.input_cycle_index = 55U;
   result.track_output_frame.cycle_index = 5U;
   result.track_output_frame.batch_id = 3U;
@@ -226,13 +227,43 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
       config::JammingSemantic::kNoiseSuppression;
   result.association_quality_metrics.jamming_severity = 0.6f;
   result.association_quality_metrics.association_stress = 0.7f;
+  result.has_decision_observation = true;
+  result.decision_observation.input_frame.cycle_index = 54U;
+  result.decision_observation.input_frame.batch_id = 12U;
+  result.decision_observation.input_frame.environment_jamming_detected = true;
+  result.decision_observation.input_frame.association_quality_info.match_rate = 0.75f;
+  result.decision_observation.input_frame.perception_quality_info.input_target_count = 2U;
+  result.decision_observation.input_frame.tracks.push_back(snap);
+  result.decision_observation.active_control_profile = result.control_profile;
+  result.applied_decision_source = session::DecisionControlSource::kExternal;
+  result.applied_decision_cycle_index = 54U;
+  result.applied_decision_batch_id = 12U;
+  record.decision_state.applied_decision_source = session::DecisionControlSource::kExternal;
+  record.decision_state.applied_decision_cycle_index = 54U;
+  record.decision_state.applied_decision_batch_id = 12U;
+  record.decision_state.applied_decision_proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(
+          session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+          session::ControlDirectiveSource::EMISSION_CONTROL, 0.6f),
+      80, "external replay proposal"});
+  record.decision_state.has_pending_external_decision = true;
+  record.decision_state.pending_external_decision.source_cycle_index = 55U;
+  record.decision_state.pending_external_decision.source_batch_id = 13U;
+  record.decision_state.has_pending_internal_decision = true;
+  record.decision_state.pending_internal_cycle_index = 55U;
+  record.decision_state.pending_internal_batch_id = 13U;
+  record.decision_state.reducer_state.lpi_hold_cycles_remaining = 2U;
+  record.decision_state.reducer_state.eccm_hold_cycles_remaining = 3U;
+  record.decision_state.reducer_state.lpi_cooldown_cycles_remaining = 4U;
+  record.decision_state.reducer_state.eccm_cooldown_cycles_remaining = 5U;
 
-  const std::string bytes = EncodeCycleResultFlatbuffer(result);
+  const std::string bytes = EncodeReplayCycleRecordFlatbuffer(record);
   ASSERT_FALSE(bytes.empty());
 
-  ArCycleResult decoded;
+  ArReplayCycleRecord decoded_record;
   std::string error;
-  ASSERT_TRUE(DecodeCycleResultFlatbuffer(bytes, &decoded, &error)) << error;
+  ASSERT_TRUE(DecodeReplayCycleRecordFlatbuffer(bytes, &decoded_record, &error)) << error;
+  const ArCycleResult& decoded = decoded_record.result;
 
   EXPECT_EQ(decoded.input_cycle_index, 55U);
   EXPECT_EQ(decoded.track_output_frame.cycle_index, 5U);
@@ -279,6 +310,32 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
             config::JammingSemantic::kNoiseSuppression);
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.jamming_severity, 0.6f);
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.association_stress, 0.7f);
+  EXPECT_TRUE(decoded.has_decision_observation);
+  EXPECT_EQ(decoded.decision_observation.input_frame.cycle_index, 54U);
+  EXPECT_EQ(decoded.decision_observation.input_frame.batch_id, 12U);
+  EXPECT_TRUE(decoded.decision_observation.input_frame.environment_jamming_detected);
+  EXPECT_FLOAT_EQ(decoded.decision_observation.input_frame.association_quality_info.match_rate,
+                  0.75f);
+  EXPECT_EQ(decoded.decision_observation.input_frame.perception_quality_info.input_target_count,
+            2U);
+  ASSERT_EQ(decoded.decision_observation.input_frame.tracks.size(), 1U);
+  EXPECT_EQ(decoded.applied_decision_source, session::DecisionControlSource::kExternal);
+  EXPECT_EQ(decoded.applied_decision_cycle_index, 54U);
+  EXPECT_EQ(decoded.applied_decision_batch_id, 12U);
+  ASSERT_EQ(decoded_record.decision_state.applied_decision_proposals.size(), 1U);
+  EXPECT_FLOAT_EQ(decoded_record.decision_state.applied_decision_proposals[0]
+                      .directive.requested_value,
+                  0.6f);
+  EXPECT_EQ(decoded_record.decision_state.applied_decision_proposals[0].rationale,
+            "external replay proposal");
+  EXPECT_TRUE(decoded_record.decision_state.has_pending_external_decision);
+  EXPECT_EQ(decoded_record.decision_state.pending_external_decision.source_cycle_index, 55U);
+  EXPECT_EQ(decoded_record.decision_state.pending_external_decision.source_batch_id, 13U);
+  EXPECT_TRUE(decoded_record.decision_state.has_pending_internal_decision);
+  EXPECT_EQ(decoded_record.decision_state.reducer_state.lpi_hold_cycles_remaining, 2U);
+  EXPECT_EQ(decoded_record.decision_state.reducer_state.eccm_hold_cycles_remaining, 3U);
+  EXPECT_EQ(decoded_record.decision_state.reducer_state.lpi_cooldown_cycles_remaining, 4U);
+  EXPECT_EQ(decoded_record.decision_state.reducer_state.eccm_cooldown_cycles_remaining, 5U);
   ASSERT_EQ(decoded.track_output_frame.tracks.size(), 1U);
   EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].position_x, 50.0f);
   EXPECT_FLOAT_EQ(decoded.track_output_frame.tracks[0].rcs, 1.5f);
@@ -313,6 +370,10 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.lifecycle.max_miss_before_lost = 3U;
   config.policy.tracking.enable_kalman_filter = true;
   config.policy.tracking.kalman_measurement_noise_std = 5.5f;
+  config.policy.decision_control.lpi_hold_cycles_after_request = 2U;
+  config.policy.decision_control.eccm_hold_cycles_after_request = 3U;
+  config.policy.decision_control.lpi_cooldown_cycles_after_release = 4U;
+  config.policy.decision_control.eccm_cooldown_cycles_after_release = 5U;
   // jamming_sensitivity_profile
   config.environment.jamming_sensitivity_profile = config::JammingSensitivityProfile::kStrict;
   // environment (previously missing from codec!)
@@ -358,6 +419,10 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_EQ(decoded.policy.lifecycle.max_miss_before_lost, 3U);
   EXPECT_TRUE(decoded.policy.tracking.enable_kalman_filter);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.kalman_measurement_noise_std, 5.5f);
+  EXPECT_EQ(decoded.policy.decision_control.lpi_hold_cycles_after_request, 2U);
+  EXPECT_EQ(decoded.policy.decision_control.eccm_hold_cycles_after_request, 3U);
+  EXPECT_EQ(decoded.policy.decision_control.lpi_cooldown_cycles_after_release, 4U);
+  EXPECT_EQ(decoded.policy.decision_control.eccm_cooldown_cycles_after_release, 5U);
   // jamming_sensitivity_profile
   EXPECT_EQ(decoded.environment.jamming_sensitivity_profile, config::JammingSensitivityProfile::kStrict);
   // environment (previously broken!)
@@ -390,6 +455,10 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.policy.tracking.enable_kalman_filter = true;
   patch.policy.tracking.kalman_measurement_noise_std = 7.5f;
   patch.policy.lifecycle.confirm_hits = 1U;
+  patch.policy.decision_control.lpi_hold_cycles_after_request = 6U;
+  patch.policy.decision_control.eccm_hold_cycles_after_request = 7U;
+  patch.policy.decision_control.lpi_cooldown_cycles_after_release = 8U;
+  patch.policy.decision_control.eccm_cooldown_cycles_after_release = 9U;
   patch.has_scan_center_deg = true;
   patch.scan_center_deg.az_deg = 30.0f;
   patch.scan_center_deg.el_deg = -3.0f;
@@ -416,6 +485,10 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_TRUE(decoded.policy.tracking.enable_kalman_filter);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.kalman_measurement_noise_std, 7.5f);
   EXPECT_EQ(decoded.policy.lifecycle.confirm_hits, 1U);
+  EXPECT_EQ(decoded.policy.decision_control.lpi_hold_cycles_after_request, 6U);
+  EXPECT_EQ(decoded.policy.decision_control.eccm_hold_cycles_after_request, 7U);
+  EXPECT_EQ(decoded.policy.decision_control.lpi_cooldown_cycles_after_release, 8U);
+  EXPECT_EQ(decoded.policy.decision_control.eccm_cooldown_cycles_after_release, 9U);
   EXPECT_TRUE(decoded.has_scan_center_deg);
   EXPECT_FLOAT_EQ(decoded.scan_center_deg.az_deg, 30.0f);
   EXPECT_FLOAT_EQ(decoded.scan_center_deg.el_deg, -3.0f);

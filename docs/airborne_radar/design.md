@@ -1,7 +1,7 @@
 # Airborne Radar 当前设计
 
 Status: active
-Last-reviewed: 2026-07-18
+Last-reviewed: 2026-07-20
 Authority: current airborne_radar module design
 
 本文描述 `airborne_radar` 当前架构、数据流和算法边界。跨模块 public API、builder、输出三层模型等共同规则见 `docs/common/contract.md`。
@@ -18,6 +18,9 @@ AR 的决策扩展点是同进程步间 observation/response seam：
 - 调用方在下一次 `Step` 前运行外部模块，并用 `SubmitExternalDecision` 提交完整 LPI/ECCM proposals。
 - 外部模块不替换内部对象；威胁分类和内部 baseline 每个成功周期仍持续计算。
 - 外部 proposals 仍由内部 `ControlReducer` 和 `ControlCommandMapper` 归约为唯一 `ArControlProfile`。
+- trace/replay 在外部响应被接受时立即写入独立 `decision_input` 事件，并在周期输出的内部
+  `ArReplayCycleRecord` 中固化 observation、pending/applied internal/external proposals、来源
+  cycle/batch、reducer 计数和最终 profile；外部整包替换的 next-successful-cycle 语义可被确定性重放。
 
 当前模块的稳定外部使用方式是：
 
@@ -90,11 +93,11 @@ flowchart TB
   end
 
   subgraph Signal["Signal pipeline / 信号与航迹流水线"]
-    Env["EnvironmentService\n冻结环境快照 / 干扰事实"]
+    Env["EnvironmentService\n冻结环境快照 / 内部派生干扰判定"]
     Schedule["ScanScheduleResolver\n扫描调度与驻留中心"]
     Detect["DetectionExecution\n启发式或物理探测"]
     Assoc["DataAssociation\nMahalanobis 代价 / LAPJV 分配"]
-    Track["TrackLifecycle + Filters\nKalman/EKF/UDKF/SRIF/IMM"]
+    Track["TrackLifecycle + Filters\nKF / IMM(KF) 生产链"]
     DecisionFrame["DecisionFrameBuilders\n航迹 / 感知质量 / ECCM 来源"]
   end
 
@@ -103,7 +106,7 @@ flowchart TB
     Lpi["LpiEvaluator\n低截获概率发射控制"]
     Eccm["EccmEvaluator\n抗干扰措施"]
     Tactical["TacticalCoordinator\n默认决策协调"]
-    Reducer["ControlReducer\n冲突归约 / 保持窗口 / 冷却"]
+    Reducer["ControlReducer\n冲突归约 / 可配置保持与冷却（默认 0）"]
   end
 
   Entry --> Config
@@ -171,7 +174,7 @@ sequenceDiagram
     Session->>Env: CaptureRuntimeState\n捕获环境快照
     Session->>Controller: CaptureRuntimeState\n捕获控制器快照
     Session->>Pipe: Commit pending config\n提交待生效配置
-    Session->>Env: Commit environment/jamming profile\n提交环境与干扰敏感性
+    Session->>Env: Commit pending environment config\n提交待生效环境配置
     alt commit failed / 提交失败
       Session->>Context: RestoreRuntimeState\n回滚上下文
       Session->>Pipe: RestoreRuntimeState\n回滚流水线
@@ -179,17 +182,22 @@ sequenceDiagram
       Session->>Controller: RestoreRuntimeState\n回滚控制器
       Session-->>Caller: abort result\n返回执行中止
     else commit succeeded / 提交成功
-      Session->>Env: UpdateSceneState(input.environment)\n更新待生效环境
+      alt input.has_environment / 本周期提供环境输入
+        Session->>Env: UpdateSceneState(input.environment)\n更新待生效环境
+      else no environment snapshot / 本周期未提供环境输入
+        Session->>Session: keep current pending scene\n保持当前待生效场景
+      end
       Session->>Context: BeginCycle(input)\n写入周期输入
       Session->>Controller: RunOnce()\n执行一个周期
+      Controller->>Env: BeginCycle + SampleEnvironment\n冻结并采样环境
       Controller->>Mapper: Reduce previous external response or internal baseline\n归约上一成功周期控制
       Mapper->>Pipe: SetControlProfile\n写入本周期唯一控制真值
-      Controller->>Env: BeginCycle + SampleEnvironment\n冻结并采样环境
       Controller->>Pipe: RunCycle(targets, environment)\n探测 / 关联 / 航迹
       Pipe-->>Controller: SignalCycleResult + DecisionInputFrame\n信号结果与决策帧
       Controller->>Decision: Evaluate(frame, state_store)\n评估战术决策
       Decision-->>Controller: TacticalDecisionResult\n当前分类与下一周期 internal baseline
       Controller->>Controller: stage baseline + observation\n暂存 baseline 与观测
+      Session->>Session: assemble ArCycleResult from controller/context/pipeline\n组装周期结果
       Session-->>Caller: ArCycleResult + DecisionObservation\n输出结果和决策观测
       Caller->>Caller: external Evaluate(observation)\n同进程外部评估
       Caller->>Session: SubmitExternalDecision(response)\n在下一次 Step 前提交
@@ -212,6 +220,7 @@ flowchart LR
   subgraph Environment["Environment / 环境与干扰"]
     Scene["SceneManager\npending scene 到 active scene"]
     Snapshot["EnvironmentSnapshot\n冻结传播 / 杂波 / 干扰事实"]
+    Derived["Jamming policy evaluation\nprofile / threshold 仅服务内部派生"]
     Jammer["Jammer facts\n方向 / 旁瓣 / 频率重叠 / PRF 锁定风险"]
   end
 
@@ -232,8 +241,8 @@ flowchart LR
 
   subgraph Output["Output / 输出"]
     TrackOut["TrackOutputFrame\n系统侧航迹输出"]
-    Result["ArCycleResult\n执行状态 / commands / metrics"]
-    Debug["Debug / Lifecycle / Replay\n调试 / 生命周期 / 回放"]
+    Result["ArCycleResult\n执行状态 / commands / metrics / decision provenance"]
+    Debug["Debug / Lifecycle / Replay\nArReplayCycleRecord / 调试 / 生命周期 / 回放"]
   end
 
   Config --> Detect
@@ -242,8 +251,12 @@ flowchart LR
   Cycle --> Scene
   Cycle --> Detect
   Scene --> Snapshot
+  Config --> Derived
+  Patch --> Derived
+  Snapshot --> Derived
   Snapshot --> Jammer
   Snapshot --> Detect
+  Derived --> Detect
   Scan --> Detect
   Detect --> Assoc
   Assoc --> Track
@@ -282,7 +295,7 @@ flowchart TB
     Result["ArCycleResult\n执行状态 / 控制配置 / 提交命令"]
     Debug["ArTrackOutputDebugView\n人读排查视图"]
     Lifecycle["ArTrackLifecycleRecorder\nconfirmed / lost / recycled"]
-    Replay["ArTraceSession / ArReplaySession\n回放输入输出和失败标记"]
+    Replay["ArTraceSession / ArReplaySession\n回放输入输出、决策状态和失败标记"]
   end
 
   Tracks --> Frame
@@ -301,7 +314,10 @@ flowchart TB
 
 - `TrackOutputFrame` 是系统输出；debug/lifecycle/replay 是仿真和开发辅助视图。
 - output query 可以辅助按关联键、状态、干扰条件查询，但不改变输出语义。
-- `ArCycleResult` 承载执行状态、validation issues、abort reason、submitted commands、control profile 和 association quality metrics。
+- `ArCycleResult` 由 `ArSession` 汇总 controller、context 和 pipeline 状态，承载执行状态、validation
+  issues、abort reason、submitted commands、control profile、association quality metrics、decision
+  observation 和已采用来源 provenance；完整 proposal、待消费响应与 reducer 计数只属于内部
+  `ArReplayCycleRecord`，不进入 public 业务结果。
 - 决策 SPI 不拥有输出结构，也不能绕过内部 output adapter 写系统输出。
 
 ## 2. 本模块使用的算法
@@ -317,7 +333,7 @@ flowchart TB
 | 探测执行 | `RunHeuristicDetectionPass`、`RunPhysicalDetectionPass`、`SignalDetector` | 生成探测成功标志、SNR/margin、量测协方差 | `ar_signal_detection_test`、`ar_signal_pipeline_test` |
 | RCS 与大气物理 | `ComputeEffectiveTargetRcsM2`、`ComputeTargetSpecificAtmosphericLossDb` | 可选物理 RCS、大气传播损失、目标相关损失修正 | `ar_rcs_physics_test`、`ar_atmosphere_physics_test` |
 | 数据关联 | `DataAssociationEngine`、`DenseCostHypothesiser`、`LapjvSolver` | 默认生产路径；基于位置量测、协方差和 track seeds 进行 assignment | `ar_signal_association_test`、`ar_lapjv_solver_test` |
-| 航迹过滤与生命周期 | `TrackFilter`、`TrackLifecycleManager`、Kalman/EKF/UDKF/SRIF/IMM | 更新航迹、处理 missed detection、确认/丢失/回收 | `ar_track_filter_test`、`ar_track_lifecycle_test`、`ar_advanced_filter_test` |
+| 航迹过滤与生命周期 | `TrackFilter`、`TrackLifecycleManager`、KF、IMM(KF) | 更新航迹、处理 missed detection、确认/丢失/回收；EKF/UDKF/SRIF 仅见 §2.10 评估/否决表 | `ar_track_filter_test`、`ar_track_lifecycle_test`、`ar_advanced_filter_test` |
 | 决策帧构造 | `DecisionFrameBuilders` | 汇总 tracks、感知质量、关联质量、ECCM source info | `ar_core_controller_test`、`ar_signal_pipeline_test` |
 | 战术协调 | `TacticalCoordinator` | 威胁评估、LPI、ECCM、关联压力补触发、状态清理 | `ar_decision_layer_test`、`ar_tactical_coordinator_test` |
 | 控制归约 | `ControlReducer`、`ControlCommandMapper` | 处理 proposal 冲突、保持窗口、冷却和下一周期控制配置 | `ar_tactical_coordinator_test`、`ar_core_controller_test` |
@@ -374,11 +390,14 @@ pending 状态。
 - 地表/植被散射物理，用于影响杂波。
 - 传播损失和大气物理损失。
 - jammer sources，包含规范化后的干扰事实。
-- jamming sensitivity profile 和有效检测阈值。
+
+`jamming_sensitivity_profile` 和有效干扰判定阈值不属于 `EnvironmentSnapshot` 字段。前者是服务配置，
+后者由 `EnvironmentService` 结合 profile 与场景事实在服务内部计算；它们只参与生成快照中的干扰事实。
 
 干扰源规范化规则包括：
 
-- 位置存在时根据 xyz 推导相对方位/俯仰；不存在时保留方向未知。
+- 业务输入契约要求每个 jammer source 都提供有限的 xyz 位置；服务总是据此推导相对方位/俯仰。
+  当前 DTO 不表达“位置缺失”状态，调用方不得用省略位置来表示方向未知。
 - `power_db`、`js_db`、`angular_span_deg` 下界裁剪到 0，`confidence` 裁剪到 `[0, 1]`。
 - 根据技术类型、角宽、置信度、J/S 比推导旁瓣事实。
 - 根据技术类型、J/S、置信度、方向聚焦推导频率重叠。
@@ -395,9 +414,10 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 - `ScanScheduleResolver` 将周期、扫描范围和 dwell center 转成当前扫描指向。
 - `BeamControlResolver` 综合天线工程配置、扫描中心、平台姿态、目标 look angle 和波长，给出 one-way antenna gain 与有效波束宽度。
 
-扫描中心只有一个 public source of truth：`ArMissionConfig::orientation.scan_center_deg`。policy 不再
-保留默认扫描中心或 replay-only 副本，Builder 档位也只写入 mission orientation。这样运行期扫描调度、
-波束指向和 replay roundtrip 对同一字段作相同解释。
+`ArMissionConfig::orientation.scan_center_deg` 是基础扫描中心的 public source of truth；policy 不再
+保留默认中心或 replay-only 副本，Builder 档位也只写入 mission orientation。runtime patch 的
+`dwell_center_deg` 是当次驻留偏移，最终运行时指向为“基础扫描中心 + 当次 dwell 偏移”。replay 分别保留
+基础中心与偏移，不把最终指向误写成只来自一个字段。
 [evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
 
@@ -531,8 +551,13 @@ ECCM 保持既有干扰事实、关联压力和措施选择；烧穿达到既有
 
 - 不同域 proposal 会按优先级、策略表和冲突规则归并。
 - beam 类冲突默认偏向生存性。
-- 保持窗口使 proposal 停止后控制可继续维持若干周期。
-- cooldown 防止同一域反复进出造成控制抖动。
+- `ArPolicyConfig::decision_control` 可分别配置 LPI/ECCM 的保持窗口，使 proposal 停止后控制继续维持
+  指定数量的成功周期。
+- 同一配置可分别设置 LPI/ECCM cooldown，防止控制释放后立即重新激活。
+- 四个周期数默认均为 `0`，表示关闭相应窗口并保持“下一成功周期可立即切换”的兼容行为；调用方可通过
+  初始 session config 或 whole-policy runtime patch 显式启用，snapshot rollback 和 replay 同步保留配置与计数状态。
+- runtime patch 缩短窗口时，当前剩余周期立即收紧为 `min(旧剩余, 新上限)`；改为 `0` 会取消当前窗口。
+  增大配置不会延长已经开始的窗口，只影响下一次新建的 hold/cooldown 窗口。
 - 频率捷变等行为可以有 hop phase 的跨周期状态。
 - LPI 功率要求有限且位于 `(0,1]`，驻留位于 `[0.25,1]`，ECCM 烧穿位于 `(1,2]`；
   其他布尔 directive 禁止携带标量，参数化 directive 禁止缺值。
@@ -547,7 +572,11 @@ controller 在一个周期开始时把当前 control profile 传给 signal pipel
 执行失败时 session 恢复 control profile、reducer 计数器、internal baseline 和待消费外部
 响应；pipeline 快照由 session 所有，controller 快照只恢复 controller 自身状态，避免同一
 pipeline 被重复恢复。该响应可供下一次成功执行重试。
-[evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::PublicApiConvenienceTest.RadarSessionAutomaticallyRestoresPendingExternalDecisionAfterPipelineAbort]
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.RuntimeRestoreRetainsPendingExternalResponseForRetry]
+[evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.PublicDecisionControlConfigEnablesHoldWindow]
+[evidence: tests/contract/airborne_radar/ar_public_api_convenience_test.cpp::PublicApiConvenienceTest.RadarRuntimePolicyPatchEnablesDecisionHoldWindow]
+[evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp::ControlReducerTest.RuntimeConfigClampsActiveHoldAndCooldownWithoutExtendingThem]
+[evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp::ControlReducerTest.IncreasedRuntimeConfigAppliesToNextNewWindow]
 
 ### 2.9 输出、输入校验和失败行为
 
@@ -557,8 +586,20 @@ pipeline 被重复恢复。该响应可供下一次成功执行重试。
 - 冗余 `has_environment` 标志与数据必须一致：`has_environment=false` 且 `environment` 为默认值视为省略快照；`has_environment=false` 但 `environment` 含非默认数据时校验报 `kEnvironmentSnapshotFlagMismatch` error 并 abort，避免环境事实（杂波/干扰/大气）被静默跳过（见 contract.md §实现安全与失败语义规则 2）。
 - 已有有效输出时，校验失败可以复用上一帧输出，并标记 `reused_previous_output`。
 - signal pipeline abort 时不会发布合成的最新输出。
-- controller 暴露 `executed_this_cycle`、`abort_reason`、`has_validation_error`、`submitted_commands`、`control_profile` 和 association quality metrics。
-- trace/replay 会记录输入、输出、result 和 failure marker；回放遇到不匹配或错误模块应拒绝。
+- controller 提供执行状态、失败原因、校验问题、决策来源 provenance 和 control profile 等运行期来源；
+  `ArSession` 再结合 context/pipeline 状态组装 public `ArCycleResult`。完整 proposal、待消费响应和 reducer
+  计数由内部 replay access 捕获，不通过 public getter 暴露。
+- trace 的因果顺序是 `cycle_output(N) → decision_input(response) → cycle_input(N+1) → cycle_output(N+1)`。
+  `ArTraceSession::SubmitExternalDecision` 只有在底层返回 `kAccepted` 后才立即写事件，因此即使 trace 在提交后
+  立刻结束，响应也不会丢失。回放在原事件位置提交响应，禁止从后续输出反推前因。
+- `cycle_output` 使用内部 `ArReplayCycleRecord`，由 public result 和 `ArDecisionReplayState` 组成；内部决策按
+  live 路径重新计算，并逐字段比较 pending internal baseline、实际采用 proposal、pending external response、
+  来源 cycle/batch、reducer 计数、observation 和最终 profile。不支持旧 `ArCycleResult` replay 输出格式。
+[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayRestoresExternalDecisionAcrossRejectedCycleForNextSuccessfulCycle]
+[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayComparesInternalNextCycleDecision]
+[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayDetectsDecisionObservationDivergence]
+[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayRetainsExternalDecisionAcrossPoweredOffAbort]
+[evidence: tests/replay/airborne_radar/ar_trace_session_adapter_test.cpp::TraceSessionAdapterTest.RadarReplayPersistsAcceptedDecisionWhenTraceEndsImmediately]
 
 输出边界要求：
 
@@ -579,11 +620,13 @@ AR 模块当前使用标准 Joseph 形式 Kalman 滤波器（KF）作为生产�
 | KF (Joseph) | 线性 H | 标准 | 最低 | 默认后端；Joseph 形式显式对称化协方差 |
 | IMM(KF×N) | 继承 KF | 取决于内层 | N 倍 | 多模型自适应；是否启用由策略配置决定 |
 
-**已移除的后端**（均经实质证据评估）：
+**评估/否决表**（以下候选不与 live 生产链并列）：
 
-- **EKF（kEkf）**：AR 量测为笛卡尔坐标（`BuildMeasurementVector` 直接取 `position.xyz`），量测模型为纯线性 `H=[I₃|0₃]`。EKF 退化为 KF + 冗余 Jacobian 开销。`common/estimation/EkfFilter.h` 保留供 SBIRS 非线性角度量测使用。
-- **SRIF（kSrif）**：信息形式优势（无先验初始化）与 AR 场景无关。`common/estimation` 模板保留供后续模块评估。
-- **UDKF（kUdKf）**：500 周期 CV + 病态初始化(P0=1e6)下，KF(Joseph) 与 UDKF 协方差正定性、对称性、条件数无差异——Joseph 形式的显式对称化已提供充分数值稳定性。`common/estimation` 模板保留供后续模块评估。
+| 候选 | 当前结论 | 否决依据 |
+|---|---|---|
+| EKF (`kEkf`) | 否决接入 AR | AR 使用笛卡尔位置量测，`H=[I3|03]` 为线性模型；EKF 退化为 KF 并增加 Jacobian 开销。common 原语保留给非线性量测模块评估。 |
+| SRIF (`kSrif`) | 暂不接入 AR | 信息形式优势与当前已有先验初始化的 AR 路径不匹配；common 模板仅作候选资产。 |
+| UDKF (`kUdKf`) | 否决接入 AR | 500 周期 CV 与病态初始化表征中，未证明相对 Joseph KF 的正定性、对称性或条件数收益；common 模板仅作候选资产。 |
 
 **选型原则：人工配置为主，不做在线自动切换**。理由三点：
 

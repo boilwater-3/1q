@@ -15,11 +15,14 @@
 namespace sbirs_sensor {
 namespace output {
 
-/** @brief 原生观测阶段：对应状态机输出的 WFOV 搜索、NFOV 首次捕获或 NFOV 真值辅助跟踪。 */
+/**
+ * @brief 表示原生观测所处的 WFOV 搜索、NFOV 首次捕获或 NFOV 持续跟踪阶段。
+ * @note NFOV 持续跟踪同时承载估计跟踪和真值辅助跟踪，不区分滤波后端。
+ */
 enum class ONEQ_API SbirsObservationStage {
   kWideFieldSearch = 0,    /**< WFOV 宽视场搜索 */
   kNarrowFieldAcquisition, /**< NFOV 首次捕获 */
-  kNarrowFieldTrack        /**< NFOV 真值辅助跟踪 */
+  kNarrowFieldTrack        /**< NFOV 持续跟踪（估计或真值辅助） */
 };
 
 /**

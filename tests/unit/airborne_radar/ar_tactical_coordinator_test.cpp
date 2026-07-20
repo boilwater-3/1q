@@ -744,6 +744,82 @@ TEST(ControlReducerTest, ReducerClearsExpiredDomainWhenNoProposalArrives) {
   EXPECT_FLOAT_EQ(result.profile.lpi_power_scale, 1.0f);
 }
 
+TEST(ControlReducerTest, RuntimeConfigClampsActiveHoldAndCooldownWithoutExtendingThem) {
+  extension::ControlReducerConfig config;
+  config.lpi_hold_cycles_after_request = 10u;
+  config.eccm_hold_cycles_after_request = 10u;
+  config.lpi_cooldown_cycles_after_release = 10u;
+  config.eccm_cooldown_cycles_after_release = 10u;
+  decision::ControlReducer reducer(config);
+
+  decision::ControlReducerRuntimeState state;
+  state.lpi_hold_cycles_remaining = 10u;
+  state.eccm_hold_cycles_remaining = 10u;
+  state.lpi_cooldown_cycles_remaining = 10u;
+  state.eccm_cooldown_cycles_remaining = 10u;
+  reducer.RestoreRuntimeState(state);
+
+  config.lpi_hold_cycles_after_request = 2u;
+  config.eccm_hold_cycles_after_request = 2u;
+  config.lpi_cooldown_cycles_after_release = 2u;
+  config.eccm_cooldown_cycles_after_release = 2u;
+  reducer.UpdateConfig(config);
+  state = reducer.GetRuntimeState();
+  EXPECT_EQ(state.lpi_hold_cycles_remaining, 2u);
+  EXPECT_EQ(state.eccm_hold_cycles_remaining, 2u);
+  EXPECT_EQ(state.lpi_cooldown_cycles_remaining, 2u);
+  EXPECT_EQ(state.eccm_cooldown_cycles_remaining, 2u);
+
+  config.lpi_hold_cycles_after_request = 5u;
+  config.eccm_hold_cycles_after_request = 5u;
+  config.lpi_cooldown_cycles_after_release = 5u;
+  config.eccm_cooldown_cycles_after_release = 5u;
+  reducer.UpdateConfig(config);
+  state = reducer.GetRuntimeState();
+  EXPECT_EQ(state.lpi_hold_cycles_remaining, 2u);
+  EXPECT_EQ(state.eccm_hold_cycles_remaining, 2u);
+  EXPECT_EQ(state.lpi_cooldown_cycles_remaining, 2u);
+  EXPECT_EQ(state.eccm_cooldown_cycles_remaining, 2u);
+
+  config.lpi_hold_cycles_after_request = 0u;
+  config.eccm_hold_cycles_after_request = 0u;
+  config.lpi_cooldown_cycles_after_release = 0u;
+  config.eccm_cooldown_cycles_after_release = 0u;
+  reducer.UpdateConfig(config);
+  state = reducer.GetRuntimeState();
+  EXPECT_EQ(state.lpi_hold_cycles_remaining, 0u);
+  EXPECT_EQ(state.eccm_hold_cycles_remaining, 0u);
+  EXPECT_EQ(state.lpi_cooldown_cycles_remaining, 0u);
+  EXPECT_EQ(state.eccm_cooldown_cycles_remaining, 0u);
+}
+
+TEST(ControlReducerTest, IncreasedRuntimeConfigAppliesToNextNewWindow) {
+  decision::ControlReducer reducer;
+  extension::ControlReducerConfig config;
+  config.lpi_hold_cycles_after_request = 5u;
+  config.eccm_cooldown_cycles_after_release = 5u;
+  reducer.UpdateConfig(config);
+
+  std::vector<session::TacticalProposal> proposals;
+  proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+                                session::ControlDirectiveSource::EMISSION_CONTROL, 0.7f),
+      80, "start a new LPI hold window"});
+  session::ArControlProfile inactive_profile;
+  const extension::ControlReductionResult activated =
+      reducer.Reduce(inactive_profile, proposals);
+  EXPECT_TRUE(activated.profile.enable_lpi_power_control);
+  EXPECT_EQ(reducer.GetRuntimeState().lpi_hold_cycles_remaining, 5u);
+
+  decision::ControlReducerRuntimeState state = reducer.GetRuntimeState();
+  state.lpi_hold_cycles_remaining = 0u;
+  reducer.RestoreRuntimeState(state);
+  session::ArControlProfile active_eccm_profile;
+  active_eccm_profile.eccm_burnthrough_gain = 1.5f;
+  reducer.Reduce(active_eccm_profile, std::vector<session::TacticalProposal>());
+  EXPECT_EQ(reducer.GetRuntimeState().eccm_cooldown_cycles_remaining, 5u);
+}
+
 TEST(ControlReducerTest, ReducerPreservesDomainDuringConfiguredHoldWindow) {
   extension::ControlReducerConfig config;
   config.eccm_hold_cycles_after_request = 1u;

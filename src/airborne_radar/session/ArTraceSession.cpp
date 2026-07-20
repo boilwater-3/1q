@@ -75,16 +75,30 @@ void WriteRuntimeConfigPatchReplay(const std::shared_ptr<oneq::replay::ReplayTra
   writer->WriteEvent(event);
 }
 
+void WriteExternalDecisionReplay(
+    const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
+    const session::ExternalDecisionResponse& response) {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "airborne_radar";
+  event.event_type = "decision_input";
+  event.payload_type = "ExternalDecisionResponse";
+  event.payload_encoding = "flatbuffers";
+  event.payload_bytes = EncodeExternalDecisionResponseFlatbuffer(response);
+  event.has_cycle_index = true;
+  event.cycle_index = response.source_cycle_index;
+  writer->WriteEvent(event);
+}
+
 void WriteCycleResultReplay(const std::shared_ptr<oneq::replay::ReplayTraceWriter>& writer,
-                            const ArCycleResult& result) {
+                            const ArReplayCycleRecord& record) {
   oneq::replay::ReplayTraceEvent event;
   event.module = "airborne_radar";
   event.event_type = "cycle_output";
-  event.payload_type = "ArCycleResult";
+  event.payload_type = "ArReplayCycleRecord";
   event.payload_encoding = "flatbuffers";
-  event.payload_bytes = EncodeCycleResultFlatbuffer(result);
+  event.payload_bytes = EncodeReplayCycleRecordFlatbuffer(record);
   event.has_cycle_index = true;
-  event.cycle_index = result.input_cycle_index;
+  event.cycle_index = record.result.input_cycle_index;
   writer->WriteEvent(event);
 }
 
@@ -169,7 +183,10 @@ session::TrackOutputFrame ArTraceSession::Step(const ArCycleInput& input) {
     impl_->sink->Record("airborne_radar", "output", BuildArOutputPayload(result));
   }
   if (impl_->replay_writer) {
-    WriteCycleResultReplay(impl_->replay_writer, result);
+    ArReplayCycleRecord record;
+    record.result = result;
+    record.decision_state = ArSessionReplayAccess::CaptureDecisionState(impl_->session);
+    WriteCycleResultReplay(impl_->replay_writer, record);
     MaybeWriteValidationFailureMarker(impl_->replay_writer, result);
     impl_->pending_input_written = false;
   }
@@ -197,7 +214,10 @@ ArCycleResult ArTraceSession::StepWithResult(const ArCycleInput& input) {
     impl_->sink->Record("airborne_radar", "output", BuildArOutputPayload(output));
   }
   if (impl_->replay_writer) {
-    WriteCycleResultReplay(impl_->replay_writer, output);
+    ArReplayCycleRecord record;
+    record.result = output;
+    record.decision_state = ArSessionReplayAccess::CaptureDecisionState(impl_->session);
+    WriteCycleResultReplay(impl_->replay_writer, record);
     MaybeWriteValidationFailureMarker(impl_->replay_writer, output);
     impl_->pending_input_written = false;
   }
@@ -205,10 +225,27 @@ ArCycleResult ArTraceSession::StepWithResult(const ArCycleInput& input) {
 }
 
 void ArTraceSession::ApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch) {
+  (void)TryApplyRuntimeConfig(patch);
+}
+
+bool ArTraceSession::TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch) {
+  if (!impl_->session.TryApplyRuntimeConfig(patch)) {
+    return false;
+  }
   if (impl_->replay_writer) {
     WriteRuntimeConfigPatchReplay(impl_->replay_writer, patch);
   }
-  impl_->session.ApplyRuntimeConfig(patch);
+  return true;
+}
+
+session::ExternalDecisionSubmitStatus ArTraceSession::SubmitExternalDecision(
+    const session::ExternalDecisionResponse& response) {
+  const session::ExternalDecisionSubmitStatus status =
+      impl_->session.SubmitExternalDecision(response);
+  if (status == session::ExternalDecisionSubmitStatus::kAccepted && impl_->replay_writer) {
+    WriteExternalDecisionReplay(impl_->replay_writer, response);
+  }
+  return status;
 }
 
 const std::vector<session::ArCommand>& ArTraceSession::GetSubmittedCommands()
@@ -227,8 +264,6 @@ const session::ArControlProfile& ArTraceSession::GetLatestControlProfile() const
 session::AssociationQualityMetrics ArTraceSession::GetLastAssociationQualityMetrics() const {
   return impl_->session.GetLastAssociationQualityMetrics();
 }
-
-ArSession& ArTraceSession::session() { return impl_->session; }
 
 const ArSession& ArTraceSession::session() const { return impl_->session; }
 

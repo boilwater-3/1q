@@ -105,6 +105,25 @@ static void ExpectFlatbufferRecord(const std::vector<std::uint8_t>& content,
 namespace airborne_radar {
 namespace tests {
 
+namespace {
+
+void WriteArReplayEvent(oneq::replay::ReplayTraceWriter* writer,
+                        const char* event_type, const char* payload_type,
+                        const std::string& payload_bytes, bool has_cycle_index,
+                        std::uint32_t cycle_index) {
+  oneq::replay::ReplayTraceEvent event;
+  event.module = "airborne_radar";
+  event.event_type = event_type;
+  event.payload_type = payload_type;
+  event.payload_encoding = "flatbuffers";
+  event.payload_bytes = payload_bytes;
+  event.has_cycle_index = has_cycle_index;
+  event.cycle_index = cycle_index;
+  ASSERT_EQ(writer->WriteEvent(event), oneq::replay::ReplayTraceWriteStatus::kSuccess);
+}
+
+}  // namespace
+
 TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) {
   const std::string trace_dir = MakeTempTracePath("oneq-radar-replay-trace");
 
@@ -174,11 +193,12 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionWritesReplayEventsWithFullInput) 
       EXPECT_EQ(event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(event.payload_bytes.empty());
       EXPECT_TRUE(event.payload_hash_matches);
-      session::ArCycleResult decoded_result;
+      session::ArReplayCycleRecord decoded_record;
       std::string decode_error;
-      EXPECT_TRUE(
-          session::DecodeCycleResultFlatbuffer(event.payload_bytes, &decoded_result, &decode_error))
+      EXPECT_TRUE(session::DecodeReplayCycleRecordFlatbuffer(
+          event.payload_bytes, &decoded_record, &decode_error))
           << decode_error;
+      const session::ArCycleResult& decoded_result = decoded_record.result;
       EXPECT_EQ(decoded_result.input_cycle_index, result.input_cycle_index);
       EXPECT_EQ(decoded_result.track_output_frame.cycle_index,
                 result.track_output_frame.cycle_index);
@@ -313,15 +333,16 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
     }
     if (replay_event.event_type == "cycle_output") {
       saw_cycle_output = true;
-      EXPECT_EQ(replay_event.payload_type, "ArCycleResult");
+      EXPECT_EQ(replay_event.payload_type, "ArReplayCycleRecord");
       EXPECT_EQ(replay_event.payload_encoding, "flatbuffers");
       EXPECT_FALSE(replay_event.payload_bytes.empty());
       EXPECT_TRUE(replay_event.payload_hash_matches);
-      session::ArCycleResult decoded_result;
+      session::ArReplayCycleRecord decoded_record;
       std::string decode_error;
-      EXPECT_TRUE(session::DecodeCycleResultFlatbuffer(replay_event.payload_bytes, &decoded_result,
-                                                       &decode_error))
+      EXPECT_TRUE(session::DecodeReplayCycleRecordFlatbuffer(
+          replay_event.payload_bytes, &decoded_record, &decode_error))
           << decode_error;
+      const session::ArCycleResult& decoded_result = decoded_record.result;
       EXPECT_TRUE(decoded_result.executed_this_cycle);
       EXPECT_TRUE(replay_event.has_cycle_index);
       EXPECT_EQ(decoded_result.input_cycle_index, replay_event.cycle_index);
@@ -338,6 +359,303 @@ TEST(TraceSessionAdapterTest, RadarReplaySessionReplaysTraceAndComparesOutput) {
   EXPECT_EQ(replay_result.playback.applied_scene_state_count, 0U);
   EXPECT_EQ(replay_result.playback.applied_runtime_patch_count, 1U);
   EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
+TEST(TraceSessionAdapterTest,
+     RadarReplayRestoresExternalDecisionAcrossRejectedCycleForNextSuccessfulCycle) {
+  const std::string trace_dir = MakeTempTracePath("oneq-radar-external-decision-replay");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "radar-external-decision-replay";
+  manifest.module = "airborne_radar";
+  manifest.scenario_id = "unit-test";
+
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+    session::ArTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+
+    config::ArSessionConfig config;
+    config.policy.lifecycle.confirm_hits = 1U;
+    config.policy.detection.minimum_detection_margin_db = -40.0f;
+    session::ArTraceSession trace_session(config, options);
+
+    session::ArCycleInput input;
+    input.cycle_index = 1U;
+    input.dt_sec = 1.0f;
+    session::ArSceneTarget target;
+    target.external_target_id = 9101U;
+    target.range_m = 1500.0f;
+    target.position_x = 1500.0f;
+    target.position_z = 100.0f;
+    target.rcs = 5.0f;
+    input.scene.push_back(target);
+
+    const session::ArCycleResult first = trace_session.StepWithResult(input);
+    ASSERT_TRUE(first.executed_this_cycle);
+    ASSERT_TRUE(first.has_decision_observation);
+
+    session::ExternalDecisionResponse response;
+    response.source_cycle_index = first.decision_observation.input_frame.cycle_index;
+    response.source_batch_id = first.decision_observation.input_frame.batch_id;
+    response.proposals.push_back(session::TacticalProposal{
+        session::ControlDirective(
+            session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+            session::ControlDirectiveSource::EMISSION_CONTROL, 0.6f),
+        90, "external next-cycle replay"});
+    ASSERT_EQ(trace_session.SubmitExternalDecision(response),
+              session::ExternalDecisionSubmitStatus::kAccepted);
+
+    input.cycle_index = 2U;
+    input.dt_sec = -1.0f;
+    const session::ArCycleResult rejected = trace_session.StepWithResult(input);
+    ASSERT_FALSE(rejected.executed_this_cycle);
+    ASSERT_TRUE(rejected.has_validation_error);
+
+    input.cycle_index = 3U;
+    input.dt_sec = 1.0f;
+    const session::ArCycleResult applied = trace_session.StepWithResult(input);
+    ASSERT_TRUE(applied.executed_this_cycle);
+    EXPECT_EQ(applied.applied_decision_source, session::DecisionControlSource::kExternal);
+    EXPECT_EQ(applied.applied_decision_cycle_index, response.source_cycle_index);
+    EXPECT_EQ(applied.applied_decision_batch_id, response.source_batch_id);
+    EXPECT_FLOAT_EQ(applied.control_profile.lpi_power_scale, 0.6f);
+    replay_writer->Flush();
+  }
+
+  const session::ArReplaySessionResult replay_result = session::ReplayArTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 3U);
+  EXPECT_EQ(replay_result.report.decision_input_count, 1U);
+  EXPECT_EQ(replay_result.playback.applied_decision_input_count, 1U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 3U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
+TEST(TraceSessionAdapterTest, RadarReplayComparesInternalNextCycleDecision) {
+  const std::string trace_dir = MakeTempTracePath("oneq-radar-internal-decision-replay");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "radar-internal-decision-replay";
+  manifest.module = "airborne_radar";
+  manifest.scenario_id = "unit-test";
+
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+    session::ArTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+
+    config::ArSessionConfig config;
+    config.policy.lifecycle.confirm_hits = 1U;
+    config.policy.detection.minimum_detection_margin_db = -40.0f;
+    session::ArTraceSession trace_session(config, options);
+
+    session::ArCycleInput input;
+    input.cycle_index = 1U;
+    input.dt_sec = 1.0f;
+    session::ArSceneTarget target;
+    target.external_target_id = 9201U;
+    target.velocity_x = 800.0f;
+    target.range_m = 100.0f;
+    target.position_x = 100.0f;
+    target.rcs = 2.5f;
+    input.scene.push_back(target);
+
+    const session::ArCycleResult first = trace_session.StepWithResult(input);
+    ASSERT_TRUE(first.executed_this_cycle);
+    ASSERT_TRUE(first.has_decision_observation);
+
+    input.cycle_index = 2U;
+    const session::ArCycleResult second = trace_session.StepWithResult(input);
+    ASSERT_TRUE(second.executed_this_cycle);
+    EXPECT_EQ(second.applied_decision_source, session::DecisionControlSource::kInternal);
+    EXPECT_EQ(second.applied_decision_cycle_index,
+              first.decision_observation.input_frame.cycle_index);
+    EXPECT_EQ(second.applied_decision_batch_id,
+              first.decision_observation.input_frame.batch_id);
+
+    input.cycle_index = 3U;
+    const session::ArCycleResult third = trace_session.StepWithResult(input);
+    ASSERT_TRUE(third.executed_this_cycle);
+    EXPECT_EQ(third.applied_decision_source, session::DecisionControlSource::kInternal);
+    EXPECT_EQ(third.applied_decision_cycle_index,
+              second.decision_observation.input_frame.cycle_index);
+    EXPECT_EQ(third.applied_decision_batch_id,
+              second.decision_observation.input_frame.batch_id);
+    replay_writer->Flush();
+  }
+
+  const session::ArReplaySessionResult replay_result = session::ReplayArTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 3U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 3U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
+TEST(TraceSessionAdapterTest, RadarReplayPersistsAcceptedDecisionWhenTraceEndsImmediately) {
+  const std::string trace_dir = MakeTempTracePath("oneq-radar-decision-terminal-event");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "radar-decision-terminal-event";
+  manifest.module = "airborne_radar";
+  manifest.scenario_id = "unit-test";
+
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+    session::ArTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+
+    session::ArTraceSession trace_session(config::ArSessionConfig(), options);
+    session::ArCycleInput input;
+    input.cycle_index = 1U;
+    input.dt_sec = 1.0f;
+    const session::ArCycleResult result = trace_session.StepWithResult(input);
+    ASSERT_TRUE(result.executed_this_cycle);
+    ASSERT_TRUE(result.has_decision_observation);
+
+    session::ExternalDecisionResponse response;
+    response.source_cycle_index = result.decision_observation.input_frame.cycle_index;
+    response.source_batch_id = result.decision_observation.input_frame.batch_id;
+    session::ExternalDecisionResponse rejected_response = response;
+    ++rejected_response.source_cycle_index;
+    EXPECT_EQ(trace_session.SubmitExternalDecision(rejected_response),
+              session::ExternalDecisionSubmitStatus::kSourceMismatch);
+    ASSERT_EQ(trace_session.SubmitExternalDecision(response),
+              session::ExternalDecisionSubmitStatus::kAccepted);
+    replay_writer->Flush();
+  }
+
+  const session::ArReplaySessionResult replay_result = session::ReplayArTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.report.decision_input_count, 1U);
+  EXPECT_EQ(replay_result.playback.applied_decision_input_count, 1U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+}
+
+TEST(TraceSessionAdapterTest, RadarReplayDetectsDecisionObservationDivergence) {
+  const std::string trace_dir = MakeTempTracePath("oneq-radar-decision-divergence");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "radar-decision-divergence";
+  manifest.module = "airborne_radar";
+  manifest.scenario_id = "unit-test";
+
+  config::ArSessionConfig config;
+  session::ArCycleInput input;
+  input.cycle_index = 1U;
+  input.dt_sec = 1.0f;
+  session::ArSession original = session::ArSession::Create(config);
+  session::ArReplayCycleRecord tampered;
+  tampered.result = original.StepWithResult(input);
+  tampered.decision_state = session::ArSessionReplayAccess::CaptureDecisionState(original);
+  ASSERT_TRUE(tampered.result.executed_this_cycle);
+  ASSERT_TRUE(tampered.result.has_decision_observation);
+  tampered.result.decision_observation.input_frame.perception_quality_info.detection_stress +=
+      0.25f;
+
+  {
+    oneq::replay::ReplayTraceWriter writer(trace_dir, manifest, true);
+    WriteArReplayEvent(&writer, "session_config", "ArSessionConfig",
+                       session::EncodeSessionConfigFlatbuffer(config), false, 0U);
+    WriteArReplayEvent(&writer, "cycle_input", "ArCycleInput",
+                       session::EncodeCycleInputFlatbuffer(input), true,
+                       input.cycle_index);
+    WriteArReplayEvent(&writer, "cycle_output", "ArReplayCycleRecord",
+                       session::EncodeReplayCycleRecordFlatbuffer(tampered), true,
+                       input.cycle_index);
+    ASSERT_EQ(writer.Flush(), oneq::replay::ReplayTraceWriteStatus::kSuccess);
+  }
+
+  const session::ArReplaySessionResult replay_result = session::ReplayArTrace(trace_dir);
+  EXPECT_FALSE(replay_result.ok);
+  EXPECT_TRUE(replay_result.playback.divergence_found);
+  EXPECT_NE(replay_result.first_error.find("ArReplayCycleRecord"), std::string::npos)
+      << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+}
+
+TEST(TraceSessionAdapterTest,
+     RadarReplayRetainsExternalDecisionAcrossPoweredOffAbort) {
+  const std::string trace_dir = MakeTempTracePath("oneq-radar-powered-off-decision-replay");
+
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "radar-powered-off-decision-replay";
+  manifest.module = "airborne_radar";
+  manifest.scenario_id = "unit-test";
+
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+    session::ArTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+
+    config::ArSessionConfig config;
+    config.policy.lifecycle.confirm_hits = 1U;
+    config.policy.detection.minimum_detection_margin_db = -40.0f;
+    session::ArTraceSession trace_session(config, options);
+
+    session::ArCycleInput input;
+    input.cycle_index = 1U;
+    input.dt_sec = 1.0f;
+    session::ArSceneTarget target;
+    target.external_target_id = 9301U;
+    target.range_m = 100.0f;
+    target.position_x = 100.0f;
+    target.rcs = 2.5f;
+    input.scene.push_back(target);
+
+    const session::ArCycleResult first = trace_session.StepWithResult(input);
+    ASSERT_TRUE(first.executed_this_cycle);
+    ASSERT_TRUE(first.has_decision_observation);
+
+    session::ExternalDecisionResponse response;
+    response.source_cycle_index = first.decision_observation.input_frame.cycle_index;
+    response.source_batch_id = first.decision_observation.input_frame.batch_id;
+    response.proposals.push_back(session::TacticalProposal{
+        session::ControlDirective(
+            session::ControlDirectiveType::REQUEST_LPI_POWER_REDUCTION,
+            session::ControlDirectiveSource::EMISSION_CONTROL, 0.55f),
+        85, "external response retained across power boundary"});
+    ASSERT_EQ(trace_session.SubmitExternalDecision(response),
+              session::ExternalDecisionSubmitStatus::kAccepted);
+
+    config::ArRuntimeConfigPatch power_patch;
+    power_patch.has_sensor_enabled = true;
+    power_patch.sensor_enabled = false;
+    trace_session.ApplyRuntimeConfig(power_patch);
+    input.cycle_index = 2U;
+    const session::ArCycleResult powered_off = trace_session.StepWithResult(input);
+    ASSERT_FALSE(powered_off.executed_this_cycle);
+    EXPECT_EQ(powered_off.abort_reason,
+              session::SignalCycleAbortReason::kSensorPoweredOff);
+
+    power_patch.sensor_enabled = true;
+    trace_session.ApplyRuntimeConfig(power_patch);
+    input.cycle_index = 3U;
+    const session::ArCycleResult resumed = trace_session.StepWithResult(input);
+    ASSERT_TRUE(resumed.executed_this_cycle);
+    EXPECT_EQ(resumed.applied_decision_source,
+              session::DecisionControlSource::kExternal);
+    EXPECT_EQ(resumed.applied_decision_cycle_index, response.source_cycle_index);
+    EXPECT_EQ(resumed.applied_decision_batch_id, response.source_batch_id);
+    EXPECT_FLOAT_EQ(resumed.control_profile.lpi_power_scale, 0.55f);
+    replay_writer->Flush();
+  }
+
+  const session::ArReplaySessionResult replay_result = session::ReplayArTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_runtime_patch_count, 2U);
+  EXPECT_EQ(replay_result.playback.applied_decision_input_count, 1U);
+  EXPECT_EQ(replay_result.playback.applied_input_count, 3U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 3U);
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 
@@ -383,11 +701,12 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionUsesInputCycleIndexForValidationF
       saw_cycle_output = true;
       EXPECT_TRUE(replay_event.has_cycle_index);
       EXPECT_EQ(replay_event.cycle_index, 77U);
-      session::ArCycleResult decoded_result;
+      session::ArReplayCycleRecord decoded_record;
       std::string decode_error;
-      EXPECT_TRUE(session::DecodeCycleResultFlatbuffer(replay_event.payload_bytes, &decoded_result,
-                                                       &decode_error))
+      EXPECT_TRUE(session::DecodeReplayCycleRecordFlatbuffer(
+          replay_event.payload_bytes, &decoded_record, &decode_error))
           << decode_error;
+      const session::ArCycleResult& decoded_result = decoded_record.result;
       EXPECT_EQ(decoded_result.input_cycle_index, 77U);
     }
     if (replay_event.event_type == "failure_marker") {
@@ -483,12 +802,13 @@ TEST(TraceSessionAdapterTest, RadarTraceSessionStepWritesResultFailureMarker) {
   while (replay_reader.ReadNextEvent(&replay_event) ==
          oneq::replay::ReplayTraceReadStatus::kEvent) {
     if (replay_event.event_type == "cycle_output") {
-      EXPECT_EQ(replay_event.payload_type, "ArCycleResult");
-      session::ArCycleResult decoded_result;
+      EXPECT_EQ(replay_event.payload_type, "ArReplayCycleRecord");
+      session::ArReplayCycleRecord decoded_record;
       std::string decode_error;
-      ASSERT_TRUE(session::DecodeCycleResultFlatbuffer(replay_event.payload_bytes, &decoded_result,
-                                                       &decode_error))
+      ASSERT_TRUE(session::DecodeReplayCycleRecordFlatbuffer(
+          replay_event.payload_bytes, &decoded_record, &decode_error))
           << decode_error;
+      const session::ArCycleResult& decoded_result = decoded_record.result;
       saw_result_output = true;
       EXPECT_TRUE(decoded_result.has_validation_error);
       EXPECT_EQ(decoded_result.input_cycle_index, 91U);

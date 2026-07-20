@@ -16,6 +16,7 @@
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/replay/ReplayTrace.h"
+#include "airborne_radar/session/ArReplayCycleRecord.h"
 
 namespace airborne_radar {
 namespace session {
@@ -65,6 +66,18 @@ std::string EncodeCycleResultFlatbuffer(const ArCycleResult& result);
  */
 bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, ArCycleResult* result,
                                  std::string* error);
+/** @brief 将外部 LPI/ECCM 决策响应编码为独立 replay 输入 payload。 */
+std::string EncodeExternalDecisionResponseFlatbuffer(
+    const session::ExternalDecisionResponse& response);
+/** @brief 从独立 replay 输入 payload 解码外部 LPI/ECCM 决策响应。 */
+bool DecodeExternalDecisionResponseFlatbuffer(
+    const std::string& payload_bytes, session::ExternalDecisionResponse* response,
+    std::string* error);
+/** @brief 将 replay 专用周期记录编码为 FlatBuffers payload。 */
+std::string EncodeReplayCycleRecordFlatbuffer(const ArReplayCycleRecord& record);
+/** @brief 从 FlatBuffers payload 解码 replay 专用周期记录。 */
+bool DecodeReplayCycleRecordFlatbuffer(const std::string& payload_bytes,
+                                       ArReplayCycleRecord* record, std::string* error);
 /**
  * @brief 将四域会话配置编码为 FlatBuffers 字节串。
  * @param[in] config 待编码的会话配置。
