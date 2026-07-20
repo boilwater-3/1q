@@ -7,7 +7,8 @@
 namespace sbirs_sensor {
 namespace pipeline {
 
-SbirsPointingCoordinator::SbirsPointingCoordinator(int channel_count, unsigned int disturbance_seed)
+SbirsPointingCoordinator::SbirsPointingCoordinator(int channel_count,
+                                                   std::uint32_t disturbance_seed)
     : channels_(static_cast<std::size_t>(channel_count < 1 ? 1 : channel_count)),
       disturbance_(channel_count, disturbance_seed) {}
 
@@ -150,7 +151,7 @@ bool SbirsPointingCoordinator::ReleaseTarget(std::uint64_t target_id) {
   return true;
 }
 
-bool SbirsPointingCoordinator::Reconfigure(int channel_count, unsigned int disturbance_seed,
+bool SbirsPointingCoordinator::Reconfigure(int channel_count, std::uint32_t disturbance_seed,
                                            bool restart_disturbance,
                                            std::vector<std::uint64_t>* released_target_ids) {
   if (channel_count < 1 || disturbance_seed == 0U || released_target_ids == nullptr) {
@@ -191,7 +192,7 @@ void SbirsPointingCoordinator::ResetTrackingGateFailureCounts() {
 }
 
 void SbirsPointingCoordinator::Clear() {
-  const unsigned int seed = disturbance_.Capture().base_seed;
+  const std::uint32_t seed = disturbance_.Capture().base_seed;
   channels_.assign(channels_.size(), ChannelRuntime{});
   disturbance_ = SbirsPointingDisturbance(static_cast<int>(channels_.size()), seed);
 }

@@ -53,10 +53,18 @@ SbirsRuntimeConfigImpact ClassifyImpact(const config::SbirsSessionConfig& previo
           next.policy.tracking.nfov_tracking_gate_loss_cycles;
   impact.restart_pointing_disturbance = previous.policy.pointing_disturbance.random_seed !=
                                         next.policy.pointing_disturbance.random_seed;
+  impact.previous_tracking_mode = previous.policy.tracking.tracking_mode;
+  impact.next_tracking_mode = next.policy.tracking.tracking_mode;
+  const bool previous_estimated =
+      impact.previous_tracking_mode == config::SbirsTrackingMode::kEstimated;
+  const bool next_estimated =
+      impact.next_tracking_mode == config::SbirsTrackingMode::kEstimated;
+  impact.release_incompatible_tracks = previous_estimated != next_estimated;
+  impact.retag_truth_tracks =
+      !previous_estimated && !next_estimated &&
+      impact.previous_tracking_mode != impact.next_tracking_mode;
   impact.release_estimated_tracks =
-      previous.policy.tracking.enable_estimated_tracking !=
-          next.policy.tracking.enable_estimated_tracking ||
-      previous.policy.tracking.enable_imm_tracking != next.policy.tracking.enable_imm_tracking ||
+      previous.policy.tracking.estimated_backend != next.policy.tracking.estimated_backend ||
       previous.policy.tracking.imm_model_noise_diff_coeffs !=
           next.policy.tracking.imm_model_noise_diff_coeffs;
   impact.previous_nfov_channel_count = previous.policy.scheduler.max_concurrent_nfov_locks;

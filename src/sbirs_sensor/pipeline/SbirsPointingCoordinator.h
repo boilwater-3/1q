@@ -40,7 +40,7 @@ struct SbirsPointingAdvanceResult {
 
 class SbirsPointingCoordinator {
  public:
-  explicit SbirsPointingCoordinator(int channel_count, unsigned int disturbance_seed = 1U);
+  explicit SbirsPointingCoordinator(int channel_count, std::uint32_t disturbance_seed = 1U);
 
   bool Reserve(int channel_id, std::uint64_t target_id, const session::SbirsVector3M& initial_los);
   SbirsPointingAdvanceResult Advance(int channel_id, std::uint64_t target_id,
@@ -55,7 +55,7 @@ class SbirsPointingCoordinator {
   bool DisturbanceSample(int channel_id, const SbirsPointingDisturbanceParameters& parameters,
                          SbirsPointingDisturbanceSample* sample) const;
   bool ReleaseTarget(std::uint64_t target_id);
-  bool Reconfigure(int channel_count, unsigned int disturbance_seed, bool restart_disturbance,
+  bool Reconfigure(int channel_count, std::uint32_t disturbance_seed, bool restart_disturbance,
                    std::vector<std::uint64_t>* released_target_ids);
   void ResetTrackingGateFailureCounts();
   void Clear();

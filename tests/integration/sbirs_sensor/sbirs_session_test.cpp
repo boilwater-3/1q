@@ -109,7 +109,8 @@ TEST(SbirsSessionIntegrationTest, WfovCandidateTransitionsToNfovAcquisition) {
   ASSERT_FALSE(result.output_frame.detections.empty());
   EXPECT_EQ(result.output_frame.detections.front().observation_stage,
             output::SbirsObservationStage::kNarrowFieldAcquisition);
-  EXPECT_FALSE(result.detection_attributions.front().used_truth_assist);
+  EXPECT_EQ(result.detection_attributions.front().tracking_source,
+            attribution::SbirsTrackingSource::kEstimated);
 }
 
 TEST(SbirsSessionIntegrationTest, CapturedTargetContinuesEstimatedTrackNextCycle) {
@@ -120,7 +121,48 @@ TEST(SbirsSessionIntegrationTest, CapturedTargetContinuesEstimatedTrackNextCycle
   ASSERT_FALSE(result.output_frame.detections.empty());
   EXPECT_EQ(result.output_frame.detections.front().observation_stage,
             output::SbirsObservationStage::kNarrowFieldTrack);
-  EXPECT_FALSE(result.detection_attributions.front().used_truth_assist);
+  EXPECT_EQ(result.detection_attributions.front().tracking_source,
+            attribution::SbirsTrackingSource::kEstimated);
+}
+
+TEST(SbirsSessionIntegrationTest, TruthModesRetagInPlaceAndEstimatedTransitionReacquires) {
+  config::SbirsSessionConfig config = MakeSessionConfig();
+  config.policy.tracking.tracking_mode =
+      config::SbirsTrackingMode::kStrictTruthAssisted;
+  config.policy.error_model.attitude_sigma_deg = 0.2f;
+  config.policy.error_model.range_fraction_sigma = 0.01f;
+  SbirsSession session = SbirsSession::Create(config);
+
+  const SbirsCycleResult strict = session.StepWithResult(MakeBaseInput(1U));
+  ASSERT_EQ(strict.output_frame.detections.size(), 1U);
+  ASSERT_EQ(strict.detection_attributions.size(), 1U);
+  EXPECT_EQ(strict.output_frame.detections.front().observation_stage,
+            output::SbirsObservationStage::kNarrowFieldAcquisition);
+  EXPECT_EQ(strict.detection_attributions.front().tracking_source,
+            attribution::SbirsTrackingSource::kStrictTruthAssisted);
+  EXPECT_FLOAT_EQ(strict.output_frame.detections.front().azimuth_deg, 0.0f);
+
+  config.policy.tracking.tracking_mode =
+      config::SbirsTrackingMode::kSensorLikeTruthAssisted;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(
+      sbirs_config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build()));
+  const SbirsCycleResult sensor_like = session.StepWithResult(MakeBaseInput(2U));
+  ASSERT_EQ(sensor_like.output_frame.detections.size(), 1U);
+  EXPECT_EQ(sensor_like.output_frame.detections.front().observation_stage,
+            output::SbirsObservationStage::kNarrowFieldTrack);
+  EXPECT_EQ(sensor_like.detection_attributions.front().tracking_source,
+            attribution::SbirsTrackingSource::kSensorLikeTruthAssisted);
+  EXPECT_NE(sensor_like.output_frame.detections.front().azimuth_deg, 0.0f);
+
+  config.policy.tracking.tracking_mode = config::SbirsTrackingMode::kEstimated;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(
+      sbirs_config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build()));
+  const SbirsCycleResult estimated = session.StepWithResult(MakeBaseInput(3U));
+  ASSERT_EQ(estimated.output_frame.detections.size(), 1U);
+  EXPECT_EQ(estimated.output_frame.detections.front().observation_stage,
+            output::SbirsObservationStage::kNarrowFieldAcquisition);
+  EXPECT_EQ(estimated.detection_attributions.front().tracking_source,
+            attribution::SbirsTrackingSource::kEstimated);
 }
 
 TEST(SbirsSessionIntegrationTest, MultiCycleScanAdvancesAzimuth) {
@@ -267,6 +309,10 @@ TEST(SbirsSessionIntegrationTest, RateLimitedPointingReservesChannelUntilSettled
   config.mission.scan_rate_deg_per_sec = 0.0f;
   config.mission.wide_field_fov_az_deg = 30.0f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 2.0f;
+  config.policy.error_model.attitude_sigma_deg = 0.0f;
+  config.policy.error_model.orbit_sigma_deg = 0.0f;
+  config.policy.error_model.fov_sigma_deg = 0.0f;
+  config.policy.error_model.range_fraction_sigma = 0.0f;
   SbirsSession session = SbirsSession::Create(config);
 
   for (std::uint32_t cycle = 1U; cycle <= 4U; ++cycle) {
@@ -417,7 +463,7 @@ TEST(SbirsSessionIntegrationTest, MultipleWfovCandidatesSingleNfovLock) {
         record->observation_stage == output::SbirsObservationStage::kNarrowFieldAcquisition &&
         attr.capture_failure_reason == attribution::SbirsCaptureFailureReason::kNone) {
       ++nfov_acquisitions;
-      EXPECT_FALSE(attr.used_truth_assist);
+      EXPECT_EQ(attr.tracking_source, attribution::SbirsTrackingSource::kEstimated);
     }
   }
   EXPECT_EQ(nfov_acquisitions, 1U);

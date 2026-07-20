@@ -6,6 +6,7 @@
 #ifndef ONEQ_SBIRS_SENSOR_CONFIG_SBIRS_POLICY_CONFIG_H_
 #define ONEQ_SBIRS_SENSOR_CONFIG_SBIRS_POLICY_CONFIG_H_
 
+#include <cstdint>
 #include <vector>
 
 #include "1q/api.hpp"
@@ -29,7 +30,7 @@ struct ONEQ_API SbirsDetectionPolicyConfig {
  */
 struct ONEQ_API SbirsErrorModelConfig {
   float range_fraction_sigma{0.001f};    /**< 距离乘法误差比例 1-σ（约 0.1%），无量纲 */
-  unsigned int random_seed{1U};          /**< 随机源种子，驱动可注入高斯采样 */
+  std::uint32_t random_seed{1U};         /**< 固定 32 位随机源种子，驱动可注入高斯采样 */
   float orbit_sigma_deg{0.0f};            /**< 卫星轨道误差角度 1-σ，单位 deg */
   float attitude_sigma_deg{0.01f};        /**< 卫星姿态误差角度 1-σ（典型 ≈0.01°），单位 deg */
   float fov_sigma_deg{0.0f};              /**< 探测器视场（像元/畸变）误差 1-σ，单位 deg */
@@ -48,7 +49,7 @@ struct ONEQ_API SbirsPointingDisturbanceConfig {
   float channel_pointing_correlation_time_s{1.0f}; /**< 逐通道 GM 相关时间，单位 s */
   float channel_vibration_amplitude_deg{0.0f};     /**< 逐通道确定性振动各轴峰值，单位 deg */
   float channel_vibration_frequency_hz{0.0f};      /**< 逐通道确定性振动频率，单位 Hz */
-  unsigned int random_seed{1U};                    /**< 共模与逐通道独立随机流的基础种子 */
+  std::uint32_t random_seed{1U};                   /**< 共模与逐通道独立随机流的 32 位基础种子 */
 };
 
 /**
@@ -61,20 +62,32 @@ struct ONEQ_API SbirsSchedulerConfig {
   int max_concurrent_nfov_locks{1}; /**< 最大并发 NFOV 锁定通道数（>=1） */
 };
 
+/** @brief 首次 NFOV 捕获成功后采用的互斥跟踪模式。 */
+enum class ONEQ_API SbirsTrackingMode {
+  kEstimated = 0,                 /**< 使用估计器预测、校正并生成跟踪输出 */
+  kStrictTruthAssisted,           /**< 真值 LOS 驱动指向并输出精确真值 */
+  kSensorLikeTruthAssisted        /**< 真值 LOS 驱动指向，输出使用传感器误差模型 */
+};
+
+/** @brief Estimated 跟踪模式采用的生产估计后端。 */
+enum class ONEQ_API SbirsEstimatedTrackingBackend {
+  kEkf = 0, /**< 单 EKF 后端 */
+  kImm      /**< IMM(EKF) 后端 */
+};
+
 /**
- * @brief EKF 滤波测量跟踪配置。
- * @details 启用时，首次 NFOV 捕获成功后进入 `kEstimatedTracking` 状态，用 EKF 估计生成 NFOV 指向
- *          与检测输出角度（SNR/可探测性仍用真值链路，不受滤波发散影响）。禁用时回退真值辅助跟踪
- *          （`kTruthAssistedTracking`）。初始协方差 P0 由位置/速度 1-σ 构造为对角阵。
+ * @brief 三种互斥跟踪模式及 Estimated 后端配置。
+ * @details 默认进入 Estimated，并在 EKF/IMM 中选择后端；两个 TruthAssisted 模式使用独立状态与
+ *          输出来源。SNR/可探测性始终使用物理真值链路。初始协方差 P0 由位置/速度 1-σ 构造。
  */
 struct ONEQ_API SbirsTrackingConfig {
-  bool enable_estimated_tracking{true};        /**< 是否启用 EKF 滤波测量跟踪（默认开启） */
+  SbirsTrackingMode tracking_mode{SbirsTrackingMode::kEstimated};
+  SbirsEstimatedTrackingBackend estimated_backend{SbirsEstimatedTrackingBackend::kEkf};
   float process_noise_diff_coeff{1.0f};        /**< 过程噪声扩散系数 q（CV 模型加速度白噪声强度） */
   float initial_position_std_m{1000.0f};       /**< 初始位置 1-σ（米），构造 P0 位置对角元 */
   float initial_velocity_std_m_per_s{100.0f};  /**< 初始速度 1-σ（m/s），构造 P0 速度对角元 */
   unsigned int nis_gate_loss_cycles{0U}; /**< 连续 NIS 超过 2 维 95% 门限后丢锁的周期数；0 表示禁用 */
   unsigned int nfov_tracking_gate_loss_cycles{2U}; /**< NFOV 几何/SNR 门连续失败后丢锁周期数（>=1） */
-  bool enable_imm_tracking{false}; /**< 是否启用 IMM 替代单 EKF（enable_estimated_tracking=true 时有效） */
   std::vector<float> imm_model_noise_diff_coeffs{}; /**< IMM 各模型的过程噪声扩散系数；空向量表示使用默认 [1.0, 100.0] */
 };
 

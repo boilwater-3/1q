@@ -20,9 +20,43 @@ TEST(SbirsRuntimeConfigResolverTest, SameValueMissionPatchIsValidWithoutMigratio
   EXPECT_FALSE(resolved.impact.reset_nfov_gate_failure_counts);
   EXPECT_FALSE(resolved.impact.restart_pointing_disturbance);
   EXPECT_FALSE(resolved.impact.release_estimated_tracks);
+  EXPECT_FALSE(resolved.impact.release_incompatible_tracks);
+  EXPECT_FALSE(resolved.impact.retag_truth_tracks);
   EXPECT_FALSE(resolved.impact.nfov_channel_count_changed);
   EXPECT_FALSE(resolved.impact.clear_for_inactive);
   EXPECT_FALSE(resolved.impact.clear_for_wide_search);
+}
+
+TEST(SbirsRuntimeConfigResolverTest, SeparatesTruthRetagFromEstimatedFamilyTransition) {
+  sbirs_sensor::config::SbirsSessionConfig strict;
+  strict.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kStrictTruthAssisted;
+  sbirs_sensor::config::SbirsSessionConfig sensor_like = strict;
+  sensor_like.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kSensorLikeTruthAssisted;
+
+  const auto truth_patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
+                               .WithPolicy(sensor_like.policy)
+                               .Build();
+  const auto truth =
+      sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(strict, truth_patch);
+  ASSERT_TRUE(truth.is_valid);
+  EXPECT_TRUE(truth.impact.retag_truth_tracks);
+  EXPECT_FALSE(truth.impact.release_incompatible_tracks);
+  EXPECT_FALSE(truth.impact.release_estimated_tracks);
+
+  sbirs_sensor::config::SbirsSessionConfig estimated = sensor_like;
+  estimated.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kEstimated;
+  const auto estimated_patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()
+                                   .WithPolicy(estimated.policy)
+                                   .Build();
+  const auto family =
+      sbirs_sensor::runtime::ResolveSbirsRuntimeConfigPatch(sensor_like, estimated_patch);
+  ASSERT_TRUE(family.is_valid);
+  EXPECT_FALSE(family.impact.retag_truth_tracks);
+  EXPECT_TRUE(family.impact.release_incompatible_tracks);
+  EXPECT_FALSE(family.impact.release_estimated_tracks);
 }
 
 TEST(SbirsRuntimeConfigResolverTest, ClassifiesIndependentStateMigrationGroups) {
@@ -36,7 +70,8 @@ TEST(SbirsRuntimeConfigResolverTest, ClassifiesIndependentStateMigrationGroups) 
   next.policy.error_model.attitude_sigma_deg = 0.02f;
   next.policy.pointing_disturbance.random_seed = 10U;
   next.policy.tracking.process_noise_diff_coeff = 2.0f;
-  next.policy.tracking.enable_imm_tracking = true;
+  next.policy.tracking.estimated_backend =
+      sbirs_sensor::config::SbirsEstimatedTrackingBackend::kImm;
   next.policy.scheduler.max_concurrent_nfov_locks = 2;
 
   const auto patch = sbirs_sensor::config::SbirsRuntimeConfigBuilder()

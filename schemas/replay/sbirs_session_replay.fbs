@@ -66,13 +66,13 @@ table SbirsSchedulerConfig {
 }
 
 table SbirsTrackingConfig {
-  enable_estimated_tracking: bool;
+  tracking_mode: int32;
+  estimated_backend: int32;
   process_noise_diff_coeff: float;
   initial_position_std_m: float;
   initial_velocity_std_m_per_s: float;
   nis_gate_loss_cycles: uint32;
   nfov_tracking_gate_loss_cycles: uint32;
-  enable_imm_tracking: bool;
   imm_model_noise_diff_coeffs: [float];
 }
 

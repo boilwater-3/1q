@@ -32,12 +32,12 @@ class SbirsRandomSource {
    * @brief 构造随机源；种子为 0 时内部归一为 1 以避免退化。
    * @param[in] seed 随机种子
    */
-  explicit SbirsRandomSource(unsigned int seed) : state_(seed == 0U ? 1U : seed) {}
+  explicit SbirsRandomSource(std::uint32_t seed) : state_(seed == 0U ? 1U : seed) {}
 
   /** @return 当前内部状态值，用于快照。 */
-  unsigned int Capture() const { return state_; }
+  std::uint32_t Capture() const { return state_; }
   /** @brief 恢复内部状态；state 为 0 时归一为 1。 */
-  void Restore(unsigned int state) { state_ = (state == 0U) ? 1U : state; }
+  void Restore(std::uint32_t state) { state_ = (state == 0U) ? 1U : state; }
 
   /** @brief 生成 [0,1) 均匀分布样本。 */
   double NextUniform();
@@ -46,7 +46,7 @@ class SbirsRandomSource {
   double NextStandardNormal();
 
  private:
-  unsigned int state_;
+  std::uint32_t state_;
 };
 
 /**

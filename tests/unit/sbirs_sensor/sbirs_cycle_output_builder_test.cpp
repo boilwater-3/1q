@@ -51,7 +51,8 @@ sbirs_sensor::session::SbirsCycleResult ResultForTarget(std::uint32_t cycle_inde
   attribution.target_id = 7U;
   attribution.target_name = "boost";
   attribution.estimated_range_m = 1000000.0f;
-  attribution.used_truth_assist = true;
+  attribution.tracking_source =
+      sbirs_sensor::attribution::SbirsTrackingSource::kStrictTruthAssisted;
   attribution.has_estimation_nis = true;
   attribution.estimation_nis = 1.5f;
   attribution.estimation_nis_gate_exceeded = false;
@@ -78,7 +79,7 @@ sbirs_sensor::session::SbirsCycleResult NisLossResultForTarget(std::uint32_t cyc
   attribution.target_id = 7U;
   attribution.target_name = "boost";
   attribution.estimated_range_m = 1000000.0f;
-  attribution.used_truth_assist = false;
+  attribution.tracking_source = sbirs_sensor::attribution::SbirsTrackingSource::kEstimated;
   attribution.capture_failure_reason =
       sbirs_sensor::attribution::SbirsCaptureFailureReason::kEstimationNisGateLost;
   attribution.has_estimation_nis = true;
@@ -99,7 +100,8 @@ sbirs_sensor::session::SbirsCycleResult PointingTimeoutResultForTarget(std::uint
   attribution.target_id = 7U;
   attribution.target_name = "boost";
   attribution.estimated_range_m = 1000000.0f;
-  attribution.used_truth_assist = false;
+  attribution.tracking_source =
+      sbirs_sensor::attribution::SbirsTrackingSource::kNotApplicable;
   attribution.nfov_channel_id = 2;
   attribution.capture_failure_reason =
       sbirs_sensor::attribution::SbirsCaptureFailureReason::kNfovPointingTimeout;
@@ -162,7 +164,8 @@ TEST(SbirsCycleOutputBuilderTest, DebugViewMapsDetectionAttributionBackToInputTa
   EXPECT_EQ(view.targets[0].target_id, 7U);
   EXPECT_EQ(view.targets[0].target_name, "boost");
   EXPECT_TRUE(view.targets[0].has_raw_output_record);
-  EXPECT_TRUE(view.targets[0].used_truth_assist);
+  EXPECT_EQ(view.targets[0].tracking_source,
+            sbirs_sensor::attribution::SbirsTrackingSource::kStrictTruthAssisted);
   EXPECT_FLOAT_EQ(view.targets[0].estimated_range_m, 1000000.0f);
   EXPECT_TRUE(view.targets[0].has_estimation_nis);
   EXPECT_FLOAT_EQ(view.targets[0].estimation_nis, 1.5f);
@@ -179,7 +182,8 @@ TEST(SbirsCycleOutputBuilderTest, DebugViewPreservesNisLossAttributionWithoutRaw
 
   ASSERT_EQ(view.targets.size(), 1U);
   EXPECT_FALSE(view.targets[0].has_raw_output_record);
-  EXPECT_FALSE(view.targets[0].used_truth_assist);
+  EXPECT_EQ(view.targets[0].tracking_source,
+            sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
   EXPECT_FLOAT_EQ(view.targets[0].estimated_range_m, 1000000.0f);
   EXPECT_TRUE(view.targets[0].has_estimation_nis);
   EXPECT_FLOAT_EQ(view.targets[0].estimation_nis, 12.5f);
@@ -198,7 +202,8 @@ TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderTracksFoundUpdatedLostAndOpti
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events[0].kind,
             sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kFirstDetected);
-  EXPECT_TRUE(events[0].used_truth_assist);
+  EXPECT_EQ(events[0].tracking_source,
+            sbirs_sensor::attribution::SbirsTrackingSource::kStrictTruthAssisted);
 
   events = recorder.Update(InputWithTarget(2U), ResultForTarget(2U, true));
   ASSERT_EQ(events.size(), 1U);
@@ -289,7 +294,8 @@ TEST(SbirsCycleOutputBuilderTest, LifecycleRecorderPreservesNisLossReasonAndDiag
   EXPECT_EQ(events[0].kind, sbirs_sensor::session::SbirsDetectionLifecycleEventKind::kLost);
   EXPECT_EQ(events[0].reason,
             sbirs_sensor::session::SbirsDetectionLifecycleReason::kEstimationNisGateLost);
-  EXPECT_FALSE(events[0].used_truth_assist);
+  EXPECT_EQ(events[0].tracking_source,
+            sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
   EXPECT_FLOAT_EQ(events[0].estimated_range_m, 1000000.0f);
   EXPECT_TRUE(events[0].has_estimation_nis);
   EXPECT_FLOAT_EQ(events[0].estimation_nis, 12.5f);

@@ -38,7 +38,8 @@ struct ONEQ_API SbirsDebugTargetState {
   bool present_in_input{false};      /**< 是否在输入场景中存在 */
   bool has_raw_output_record{false}; /**< 是否在 raw output 中有记录 */
   bool detected{false};              /**< 是否通过门限检测 */
-  bool used_truth_assist{false};     /**< 是否使用真值辅助 */
+  attribution::SbirsTrackingSource tracking_source{
+      attribution::SbirsTrackingSource::kNotApplicable}; /**< 正式跟踪来源 */
   float estimated_range_m{0.0f};     /**< 估计距离，单位 m */
   bool has_estimation_nis{false};    /**< 是否包含 EKF 估计跟踪 NIS */
   float estimation_nis{0.0f};        /**< EKF 归一化新息平方 */

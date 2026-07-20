@@ -175,7 +175,8 @@ TEST(SbirsReplaySessionTest, ReplaySbirsTraceRoundtrip) {
               sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
     EXPECT_NE(result.output_frame.detections.front().azimuth_deg, 0.0f);
     EXPECT_EQ(result.detection_attributions.front().target_id, 1U);
-    EXPECT_FALSE(result.detection_attributions.front().used_truth_assist);
+    EXPECT_EQ(result.detection_attributions.front().tracking_source,
+              sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
     replay_writer->Flush();
   }
 
@@ -186,6 +187,55 @@ TEST(SbirsReplaySessionTest, ReplaySbirsTraceRoundtrip) {
   EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
   EXPECT_EQ(replay_result.playback.applied_runtime_patch_count, 1U);
   EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
+TEST(SbirsReplaySessionTest, ReplayPreservesTruthModesAndRuntimeTransitions) {
+  const std::string trace_dir = MakeTempTracePath("oneq-sbirs-replay-truth-modes");
+  {
+    sbirs_sensor::config::SbirsSessionConfig config = Config();
+    config.policy.tracking.tracking_mode =
+        sbirs_sensor::config::SbirsTrackingMode::kStrictTruthAssisted;
+    config.policy.error_model.attitude_sigma_deg = 0.2f;
+    config.policy.error_model.range_fraction_sigma = 0.01f;
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, Manifest("sbirs-truth-modes"), true));
+    sbirs_sensor::session::SbirsTraceSessionOptions options;
+    options.replay_writer = writer;
+    options.trace_config_on_construct = true;
+    sbirs_sensor::session::SbirsTraceSession session(config, options);
+
+    const auto strict = session.StepWithResult(ValidInput(1U));
+    ASSERT_EQ(strict.detection_attributions.size(), 1U);
+    EXPECT_EQ(strict.detection_attributions.front().tracking_source,
+              sbirs_sensor::attribution::SbirsTrackingSource::kStrictTruthAssisted);
+
+    config.policy.tracking.tracking_mode =
+        sbirs_sensor::config::SbirsTrackingMode::kSensorLikeTruthAssisted;
+    session.ApplyRuntimeConfig(
+        sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build());
+    const auto sensor_like = session.StepWithResult(ValidInput(2U));
+    ASSERT_EQ(sensor_like.detection_attributions.size(), 1U);
+    EXPECT_EQ(sensor_like.detection_attributions.front().tracking_source,
+              sbirs_sensor::attribution::SbirsTrackingSource::kSensorLikeTruthAssisted);
+
+    config.policy.tracking.tracking_mode =
+        sbirs_sensor::config::SbirsTrackingMode::kEstimated;
+    session.ApplyRuntimeConfig(
+        sbirs_sensor::config::SbirsRuntimeConfigBuilder().WithPolicy(config.policy).Build());
+    const auto estimated = session.StepWithResult(ValidInput(3U));
+    ASSERT_EQ(estimated.detection_attributions.size(), 1U);
+    EXPECT_EQ(estimated.detection_attributions.front().tracking_source,
+              sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
+    writer->Flush();
+  }
+
+  const sbirs_sensor::session::SbirsReplaySessionResult replay_result =
+      sbirs_sensor::session::ReplaySbirsTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 3U);
+  EXPECT_EQ(replay_result.playback.applied_runtime_patch_count, 2U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 3U);
   EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 
@@ -267,7 +317,8 @@ TEST(SbirsReplaySessionTest, ReplayPreservesNisLossAndReacquisitionDiagnostics) 
 TEST(SbirsReplaySessionTest, ReplayPreservesMultiTargetImmTracking) {
   sbirs_sensor::config::SbirsSessionConfig config = Config();
   config.policy.scheduler.max_concurrent_nfov_locks = 2;
-  config.policy.tracking.enable_imm_tracking = true;
+  config.policy.tracking.estimated_backend =
+      sbirs_sensor::config::SbirsEstimatedTrackingBackend::kImm;
   config.policy.tracking.imm_model_noise_diff_coeffs = {0.5f, 80.0f};
   config.policy.error_model.attitude_sigma_deg = 0.0f;
   config.policy.error_model.orbit_sigma_deg = 0.0f;

@@ -3,7 +3,7 @@
 Status: draft
 Review-Date: 2026-07-20
 Review-Scope: `docs/` 当前待审文档，排除已迁入权威设计的 AR 和 `docs/flight_dynamic/design.md`
-Approval-State: SBIRS approved items applied; TruthAssisted semantics and remaining modules pending owner approval
+Approval-State: SBIRS findings fully applied; remaining modules pending owner approval
 
 ## 1. 审查目的与边界
 
@@ -273,9 +273,10 @@ SBIRS 第一类问题以及已批准的 B1–B6、B8、B9、环形扫描和 Wide
 `docs/space_based_infrared_sensor/design.md` 并由对应代码与测试固化。本报告不再保留这些已落定项的
 历史方案描述，避免与模块唯一设计权威形成第二份事实来源。
 
-唯一尚未裁决的 SBIRS 项是 TruthAssisted 双模式定义及观测误差语义；它已独立冻结在
-`docs/review/sbirs_truth_assisted_mode_discussion.md`（`Status: draft`）。在该专题获批前，不修改
-`enable_estimated_tracking=false`、`kTruthAssistedTracking`、相关 public DTO、replay schema 或生产观测语义。
+TruthAssisted 双模式已经获批并落地：`Estimated`、`StrictTruthAssisted`、
+`SensorLikeTruthAssisted` 作为互斥正式模式，由模块 `design.md`、public DTO、runtime patch 与 replay
+契约共同固化。原专题草案已删除；不阻塞该契约的距离语义、分阶段误差统计、多目标随机顺序和
+Estimated 真值初始化问题登记在 `docs/common/open_questions.md`，不在本审查稿形成第二权威。
 
 ## 5. Common 文档详细发现
 

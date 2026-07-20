@@ -46,7 +46,7 @@ bool AttributionEqual(const attribution::SbirsDetectionAttributionRecord& left,
   return left.detection_id == right.detection_id && left.target_id == right.target_id &&
          left.target_name == right.target_name &&
          left.estimated_range_m == right.estimated_range_m &&
-         left.used_truth_assist == right.used_truth_assist &&
+         left.tracking_source == right.tracking_source &&
          left.nfov_channel_id == right.nfov_channel_id &&
          left.capture_failure_reason == right.capture_failure_reason &&
          left.has_estimation_nis == right.has_estimation_nis &&

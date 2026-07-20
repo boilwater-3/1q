@@ -13,7 +13,7 @@ const double kDegToRad = kPi / 180.0;
 
 double SbirsRandomSource::NextUniform() {
   // xorshift32（Marsaglia）。state 永远非零（构造/Restore 时夹紧）。
-  unsigned int x = state_;
+  std::uint32_t x = state_;
   x ^= x << 13;
   x ^= x >> 17;
   x ^= x << 5;

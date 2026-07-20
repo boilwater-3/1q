@@ -215,21 +215,27 @@ flatbuffers::Offset<sbirs::replay::SbirsPolicyConfig> EncodePolicyConfig(
   const flatbuffers::Offset<sbirs::replay::SbirsSchedulerConfig> scheduler =
       sbirs::replay::CreateSbirsSchedulerConfig(fbb, value.scheduler.max_concurrent_nfov_locks);
   const auto imm_coeffs = fbb.CreateVector(value.tracking.imm_model_noise_diff_coeffs);
+  sbirs::replay::SbirsTrackingConfigBuilder tracking_builder(fbb);
+  tracking_builder.add_tracking_mode(static_cast<std::int32_t>(value.tracking.tracking_mode));
+  tracking_builder.add_estimated_backend(
+      static_cast<std::int32_t>(value.tracking.estimated_backend));
+  tracking_builder.add_process_noise_diff_coeff(value.tracking.process_noise_diff_coeff);
+  tracking_builder.add_initial_position_std_m(value.tracking.initial_position_std_m);
+  tracking_builder.add_initial_velocity_std_m_per_s(value.tracking.initial_velocity_std_m_per_s);
+  tracking_builder.add_nis_gate_loss_cycles(value.tracking.nis_gate_loss_cycles);
+  tracking_builder.add_nfov_tracking_gate_loss_cycles(
+      value.tracking.nfov_tracking_gate_loss_cycles);
+  tracking_builder.add_imm_model_noise_diff_coeffs(imm_coeffs);
   const flatbuffers::Offset<sbirs::replay::SbirsTrackingConfig> tracking =
-      sbirs::replay::CreateSbirsTrackingConfig(
-          fbb, value.tracking.enable_estimated_tracking, value.tracking.process_noise_diff_coeff,
-          value.tracking.initial_position_std_m, value.tracking.initial_velocity_std_m_per_s,
-          value.tracking.nis_gate_loss_cycles,
-          value.tracking.nfov_tracking_gate_loss_cycles,
-          value.tracking.enable_imm_tracking, imm_coeffs);
+      tracking_builder.Finish();
   return sbirs::replay::CreateSbirsPolicyConfig(fbb, detection, error, disturbance, scheduler,
                                                 tracking);
 }
 
-void DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
+bool DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
                         config::SbirsPolicyConfig* out) {
   if (fb == nullptr) {
-    return;
+    return true;
   }
   if (fb->detection() != nullptr) {
     out->detection.wide_min_snr_linear = fb->detection()->wide_min_snr_linear();
@@ -262,19 +268,34 @@ void DecodePolicyConfig(const sbirs::replay::SbirsPolicyConfig* fb,
     out->scheduler.max_concurrent_nfov_locks = fb->scheduler()->max_concurrent_nfov_locks();
   }
   if (fb->tracking() != nullptr) {
-    out->tracking.enable_estimated_tracking = fb->tracking()->enable_estimated_tracking();
+    const std::int32_t tracking_mode = fb->tracking()->tracking_mode();
+    const std::int32_t estimated_backend = fb->tracking()->estimated_backend();
+    if ((tracking_mode != static_cast<std::int32_t>(config::SbirsTrackingMode::kEstimated) &&
+         tracking_mode !=
+             static_cast<std::int32_t>(config::SbirsTrackingMode::kStrictTruthAssisted) &&
+         tracking_mode !=
+             static_cast<std::int32_t>(config::SbirsTrackingMode::kSensorLikeTruthAssisted)) ||
+        (estimated_backend !=
+             static_cast<std::int32_t>(config::SbirsEstimatedTrackingBackend::kEkf) &&
+         estimated_backend !=
+             static_cast<std::int32_t>(config::SbirsEstimatedTrackingBackend::kImm))) {
+      return false;
+    }
+    out->tracking.tracking_mode = static_cast<config::SbirsTrackingMode>(tracking_mode);
+    out->tracking.estimated_backend =
+        static_cast<config::SbirsEstimatedTrackingBackend>(estimated_backend);
     out->tracking.process_noise_diff_coeff = fb->tracking()->process_noise_diff_coeff();
     out->tracking.initial_position_std_m = fb->tracking()->initial_position_std_m();
     out->tracking.initial_velocity_std_m_per_s = fb->tracking()->initial_velocity_std_m_per_s();
     out->tracking.nis_gate_loss_cycles = fb->tracking()->nis_gate_loss_cycles();
     out->tracking.nfov_tracking_gate_loss_cycles =
         fb->tracking()->nfov_tracking_gate_loss_cycles();
-    out->tracking.enable_imm_tracking = fb->tracking()->enable_imm_tracking();
     if (fb->tracking()->imm_model_noise_diff_coeffs() != nullptr) {
       const auto* coeffs = fb->tracking()->imm_model_noise_diff_coeffs();
       out->tracking.imm_model_noise_diff_coeffs.assign(coeffs->begin(), coeffs->end());
     }
   }
+  return true;
 }
 
 }  // namespace
@@ -362,16 +383,26 @@ std::string EncodeSbirsCycleResult(const SbirsCycleResult& value) {
   attributions.reserve(value.detection_attributions.size());
   for (const attribution::SbirsDetectionAttributionRecord& attribution :
        value.detection_attributions) {
-    attributions.push_back(sbirs::replay::CreateSbirsDetectionAttributionRecord(
-        fbb, attribution.detection_id, attribution.target_id,
-        fbb.CreateString(attribution.target_name), attribution.estimated_range_m,
-        attribution.used_truth_assist,
-        static_cast<std::int32_t>(attribution.capture_failure_reason),
-        attribution.has_estimation_nis, attribution.estimation_nis,
-        attribution.estimation_nis_gate_exceeded, attribution.nfov_channel_id,
-        attribution.has_nfov_tracking_diagnostics, attribution.nfov_pointing_error_deg,
-        attribution.nfov_geometry_gate_passed, attribution.nfov_snr_gate_passed,
-        attribution.nfov_tracking_gate_failure_count, attribution.nfov_tracking_coasting));
+    const auto target_name = fbb.CreateString(attribution.target_name);
+    sbirs::replay::SbirsDetectionAttributionRecordBuilder builder(fbb);
+    builder.add_detection_id(attribution.detection_id);
+    builder.add_target_id(attribution.target_id);
+    builder.add_target_name(target_name);
+    builder.add_estimated_range_m(attribution.estimated_range_m);
+    builder.add_tracking_source(static_cast<std::int32_t>(attribution.tracking_source));
+    builder.add_capture_failure_reason(
+        static_cast<std::int32_t>(attribution.capture_failure_reason));
+    builder.add_has_estimation_nis(attribution.has_estimation_nis);
+    builder.add_estimation_nis(attribution.estimation_nis);
+    builder.add_estimation_nis_gate_exceeded(attribution.estimation_nis_gate_exceeded);
+    builder.add_nfov_channel_id(attribution.nfov_channel_id);
+    builder.add_has_nfov_tracking_diagnostics(attribution.has_nfov_tracking_diagnostics);
+    builder.add_nfov_pointing_error_deg(attribution.nfov_pointing_error_deg);
+    builder.add_nfov_geometry_gate_passed(attribution.nfov_geometry_gate_passed);
+    builder.add_nfov_snr_gate_passed(attribution.nfov_snr_gate_passed);
+    builder.add_nfov_tracking_gate_failure_count(attribution.nfov_tracking_gate_failure_count);
+    builder.add_nfov_tracking_coasting(attribution.nfov_tracking_coasting);
+    attributions.push_back(builder.Finish());
   }
 
   std::vector<flatbuffers::Offset<sbirs::replay::ValidationIssue>> issues;
@@ -407,9 +438,9 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
           static_cast<std::int32_t>(SbirsPipelineAbortReason::kValidationRejected)) {
     return false;
   }
-  out->input_cycle_index = fb->input_cycle_index();
-  DecodeOutputFrameTable(fb->output_frame(), &out->output_frame);
-  out->detection_attributions.clear();
+  SbirsCycleResult decoded;
+  decoded.input_cycle_index = fb->input_cycle_index();
+  DecodeOutputFrameTable(fb->output_frame(), &decoded.output_frame);
   if (fb->detection_attributions() != nullptr) {
     for (const sbirs::replay::SbirsDetectionAttributionRecord* attr :
          *fb->detection_attributions()) {
@@ -418,7 +449,19 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
       record.target_id = attr->target_id();
       record.target_name = attr->target_name() ? attr->target_name()->str() : std::string();
       record.estimated_range_m = attr->estimated_range_m();
-      record.used_truth_assist = attr->used_truth_assist();
+      const std::int32_t tracking_source = attr->tracking_source();
+      if (tracking_source !=
+              static_cast<std::int32_t>(attribution::SbirsTrackingSource::kNotApplicable) &&
+          tracking_source !=
+              static_cast<std::int32_t>(attribution::SbirsTrackingSource::kEstimated) &&
+          tracking_source != static_cast<std::int32_t>(
+                                 attribution::SbirsTrackingSource::kStrictTruthAssisted) &&
+          tracking_source != static_cast<std::int32_t>(
+                                 attribution::SbirsTrackingSource::kSensorLikeTruthAssisted)) {
+        return false;
+      }
+      record.tracking_source =
+          static_cast<attribution::SbirsTrackingSource>(tracking_source);
       record.capture_failure_reason =
           static_cast<attribution::SbirsCaptureFailureReason>(attr->capture_failure_reason());
       record.has_estimation_nis = attr->has_estimation_nis();
@@ -431,10 +474,9 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
       record.nfov_snr_gate_passed = attr->nfov_snr_gate_passed();
       record.nfov_tracking_gate_failure_count = attr->nfov_tracking_gate_failure_count();
       record.nfov_tracking_coasting = attr->nfov_tracking_coasting();
-      out->detection_attributions.push_back(record);
+      decoded.detection_attributions.push_back(record);
     }
   }
-  out->validation_issues.clear();
   if (fb->validation_issues() != nullptr) {
     for (const sbirs::replay::ValidationIssue* issue : *fb->validation_issues()) {
       ValidationIssue item;
@@ -444,13 +486,14 @@ bool DecodeSbirsCycleResult(const std::string& bytes, SbirsCycleResult* out) {
                                        ? std::numeric_limits<std::size_t>::max()
                                        : static_cast<std::size_t>(issue->entity_index());
       item.message = issue->message() ? issue->message()->str() : std::string();
-      out->validation_issues.push_back(item);
+      decoded.validation_issues.push_back(item);
     }
   }
-  out->has_validation_error = fb->has_validation_error();
-  out->executed_this_cycle = fb->executed_this_cycle();
-  out->reused_previous_output = fb->reused_previous_output();
-  out->abort_reason = static_cast<SbirsPipelineAbortReason>(abort_reason);
+  decoded.has_validation_error = fb->has_validation_error();
+  decoded.executed_this_cycle = fb->executed_this_cycle();
+  decoded.reused_previous_output = fb->reused_previous_output();
+  decoded.abort_reason = static_cast<SbirsPipelineAbortReason>(abort_reason);
+  *out = decoded;
   return true;
 }
 
@@ -475,7 +518,9 @@ bool DecodeSbirsSessionConfig(const std::string& bytes, config::SbirsSessionConf
     return false;
   }
   DecodeHardwareConfig(fb->hardware(), &decoded.hardware);
-  DecodePolicyConfig(fb->policy(), &decoded.policy);
+  if (!DecodePolicyConfig(fb->policy(), &decoded.policy)) {
+    return false;
+  }
   decoded.environment = DecodeSessionEnvironmentConfig(fb->environment());
   *out = decoded;
   return true;
@@ -512,7 +557,9 @@ bool DecodeSbirsRuntimeConfigPatch(const std::string& bytes, config::SbirsRuntim
   decoded.scan_rate_deg_per_sec = fb->scan_rate_deg_per_sec();
   decoded.has_power_on = fb->has_power_on();
   decoded.power_on = fb->power_on();
-  DecodePolicyConfig(fb->policy(), &decoded.policy);
+  if (!DecodePolicyConfig(fb->policy(), &decoded.policy)) {
+    return false;
+  }
   decoded.environment = DecodeSessionEnvironmentConfig(fb->environment());
   *out = decoded;
   return true;

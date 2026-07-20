@@ -32,6 +32,7 @@ struct SbirsCandidate {
   float command_elevation_deg{0.0f}; ///< 仅由 WFOV 测量历史生成的 NFOV 命令俯仰角
   double range_m{0.0};        ///< 真值距离（调度优先级用）
   double measured_range_m{0.0};  ///< 带误差距离（NFOV cue 与 attribution 诊断用）
+  float angular_rate_deg_per_sec{0.0f}; ///< Sensor-like 成功观测的动态滞后输入
   double snr{0.0};
 };
 

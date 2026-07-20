@@ -71,10 +71,25 @@ TEST(SbirsSessionConfigBuilderTest, PointingDefaultsAreProductionValues) {
   EXPECT_FLOAT_EQ(mission.narrow_pointing_max_slew_rate_deg_per_sec, 30.0f);
   EXPECT_FLOAT_EQ(mission.narrow_pointing_settle_tolerance_deg, 0.01f);
   EXPECT_EQ(tracking.nfov_tracking_gate_loss_cycles, 2U);
+  EXPECT_EQ(tracking.tracking_mode, sbirs_sensor::config::SbirsTrackingMode::kEstimated);
+  EXPECT_EQ(tracking.estimated_backend,
+            sbirs_sensor::config::SbirsEstimatedTrackingBackend::kEkf);
   const sbirs_sensor::config::SbirsPointingDisturbanceConfig disturbance;
   EXPECT_FLOAT_EQ(disturbance.common_attitude_sigma_deg, 0.0f);
   EXPECT_FLOAT_EQ(disturbance.channel_pointing_sigma_deg, 0.0f);
   EXPECT_FLOAT_EQ(disturbance.channel_vibration_amplitude_deg, 0.0f);
+}
+
+TEST(SbirsSessionConfigBuilderTest, RejectsUnknownTrackingEnums) {
+  sbirs_sensor::config::SbirsSessionConfig config;
+  config.policy.tracking.tracking_mode =
+      static_cast<sbirs_sensor::config::SbirsTrackingMode>(99);
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
+
+  config.policy.tracking.tracking_mode = sbirs_sensor::config::SbirsTrackingMode::kEstimated;
+  config.policy.tracking.estimated_backend =
+      static_cast<sbirs_sensor::config::SbirsEstimatedTrackingBackend>(99);
+  EXPECT_FALSE(sbirs_sensor::config::ValidateSbirsSessionConfig(config).empty());
 }
 
 TEST(SbirsSessionConfigBuilderTest, RejectsInvalidPointingParameters) {

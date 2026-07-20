@@ -17,6 +17,51 @@ namespace {
 
 const double kEarthRadiusM = 6371000.0;
 
+std::uint32_t DeriveMeasurementSeed(std::uint32_t base_seed, std::uint32_t domain_tag) {
+  std::uint32_t value = base_seed ^ domain_tag;
+  value ^= value >> 16U;
+  value *= 0x7feb352dU;
+  value ^= value >> 15U;
+  value *= 0x846ca68bU;
+  value ^= value >> 16U;
+  return value == 0U ? 1U : value;
+}
+
+const std::uint32_t kWfovMeasurementDomain = UINT32_C(0x57464f56);
+const std::uint32_t kEstimatedMeasurementDomain = UINT32_C(0x4553544d);
+const std::uint32_t kSensorLikeOutputDomain = UINT32_C(0x534c4f55);
+
+bool IsTruthTrackingState(SbirsTargetState state) {
+  return state == SbirsTargetState::kStrictTruthAssistedTracking ||
+         state == SbirsTargetState::kSensorLikeTruthAssistedTracking;
+}
+
+attribution::SbirsTrackingSource TrackingSourceForState(SbirsTargetState state) {
+  switch (state) {
+    case SbirsTargetState::kEstimatedTracking:
+      return attribution::SbirsTrackingSource::kEstimated;
+    case SbirsTargetState::kStrictTruthAssistedTracking:
+      return attribution::SbirsTrackingSource::kStrictTruthAssisted;
+    case SbirsTargetState::kSensorLikeTruthAssistedTracking:
+      return attribution::SbirsTrackingSource::kSensorLikeTruthAssisted;
+    default:
+      return attribution::SbirsTrackingSource::kNotApplicable;
+  }
+}
+
+attribution::SbirsTrackingSource TrackingSourceForMode(config::SbirsTrackingMode mode) {
+  switch (mode) {
+    case config::SbirsTrackingMode::kEstimated:
+      return attribution::SbirsTrackingSource::kEstimated;
+    case config::SbirsTrackingMode::kStrictTruthAssisted:
+      return attribution::SbirsTrackingSource::kStrictTruthAssisted;
+    case config::SbirsTrackingMode::kSensorLikeTruthAssisted:
+      return attribution::SbirsTrackingSource::kSensorLikeTruthAssisted;
+    default:
+      return attribution::SbirsTrackingSource::kNotApplicable;
+  }
+}
+
 float NormalizeAzimuth(float azimuth_deg) {
   float result = std::fmod(azimuth_deg + 180.0f, 360.0f);
   if (result < 0.0f) {
@@ -110,7 +155,9 @@ bool IsFiniteGaussianState(const tracking::SbirsGaussianState& state) {
 bool IsValidTrackingSnapshot(const SbirsPipelineSnapshot& snapshot,
                              const config::SbirsTrackingConfig& tracking_config) {
   if (!std::isfinite(snapshot.scan_phase_deg) || snapshot.next_detection_id == 0U ||
-      snapshot.random_state == 0U) {
+      snapshot.wfov_measurement_random_state == 0U ||
+      snapshot.estimated_measurement_random_state == 0U ||
+      snapshot.sensor_like_output_random_state == 0U) {
     return false;
   }
   for (const auto& entry : snapshot.cue_predictor.targets) {
@@ -126,7 +173,8 @@ bool IsValidTrackingSnapshot(const SbirsPipelineSnapshot& snapshot,
       case SbirsTargetState::kUndetected:
       case SbirsTargetState::kWideCandidate:
       case SbirsTargetState::kAwaitingNfovAcquisition:
-      case SbirsTargetState::kTruthAssistedTracking:
+      case SbirsTargetState::kStrictTruthAssistedTracking:
+      case SbirsTargetState::kSensorLikeTruthAssistedTracking:
       case SbirsTargetState::kLost:
         break;
       case SbirsTargetState::kEstimatedTracking:
@@ -149,7 +197,7 @@ bool IsValidTrackingSnapshot(const SbirsPipelineSnapshot& snapshot,
         snapshot.nis_gate_exceeded_counts.count(target_id) == 0U) {
       return false;
     }
-    if (!tracking_config.enable_imm_tracking) {
+    if (tracking_config.estimated_backend != config::SbirsEstimatedTrackingBackend::kImm) {
       continue;
     }
     const auto imm = snapshot.imm_snapshots.find(target_id);
@@ -168,7 +216,9 @@ bool IsValidTrackingSnapshot(const SbirsPipelineSnapshot& snapshot,
     }
   }
   const std::size_t expected_imm_count =
-      tracking_config.enable_imm_tracking ? estimated_target_ids.size() : 0U;
+      tracking_config.estimated_backend == config::SbirsEstimatedTrackingBackend::kImm
+          ? estimated_target_ids.size()
+          : 0U;
   return snapshot.imm_snapshots.size() == expected_imm_count &&
          snapshot.imm_active == (expected_imm_count != 0U);
 }
@@ -198,7 +248,12 @@ SbirsPipeline::SbirsPipeline(const config::SbirsInternalExecutionConfig& config)
       nfov_scheduler_(config.session.policy.scheduler.max_concurrent_nfov_locks),
       pointing_coordinator_(config.session.policy.scheduler.max_concurrent_nfov_locks,
                             config.session.policy.pointing_disturbance.random_seed),
-      random_source_(config.session.policy.error_model.random_seed) {}
+      wfov_measurement_random_source_(DeriveMeasurementSeed(
+          config.session.policy.error_model.random_seed, kWfovMeasurementDomain)),
+      estimated_measurement_random_source_(DeriveMeasurementSeed(
+          config.session.policy.error_model.random_seed, kEstimatedMeasurementDomain)),
+      sensor_like_output_random_source_(DeriveMeasurementSeed(
+          config.session.policy.error_model.random_seed, kSensorLikeOutputDomain)) {}
 
 void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& config,
                                 const runtime::SbirsRuntimeConfigImpact& impact) {
@@ -213,7 +268,13 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
                           : 0.0f;
   }
   if (impact.reset_measurement_random_stream) {
-    random_source_ = foundation::SbirsRandomSource(config.session.policy.error_model.random_seed);
+    const std::uint32_t seed = config.session.policy.error_model.random_seed;
+    wfov_measurement_random_source_ = foundation::SbirsRandomSource(
+        DeriveMeasurementSeed(seed, kWfovMeasurementDomain));
+    estimated_measurement_random_source_ = foundation::SbirsRandomSource(
+        DeriveMeasurementSeed(seed, kEstimatedMeasurementDomain));
+    sensor_like_output_random_source_ = foundation::SbirsRandomSource(
+        DeriveMeasurementSeed(seed, kSensorLikeOutputDomain));
   }
   if (impact.nfov_channel_count_changed || impact.restart_pointing_disturbance) {
     SbirsNfovScheduler next_scheduler(impact.next_nfov_channel_count);
@@ -256,15 +317,33 @@ void SbirsPipeline::ApplyConfig(const config::SbirsInternalExecutionConfig& conf
   if (impact.reset_nfov_gate_failure_counts) {
     pointing_coordinator_.ResetTrackingGateFailureCounts();
   }
-  if (impact.release_estimated_tracks) {
+  std::vector<std::uint64_t> released_tracking_targets;
+  for (const auto& entry : target_states_) {
+    const bool release_for_backend =
+        impact.release_estimated_tracks && entry.second == SbirsTargetState::kEstimatedTracking;
+    const bool release_for_mode =
+        impact.release_incompatible_tracks &&
+        (entry.second == SbirsTargetState::kEstimatedTracking ||
+         IsTruthTrackingState(entry.second));
+    if (release_for_backend || release_for_mode) {
+      released_tracking_targets.push_back(entry.first);
+    }
+  }
+  for (const std::uint64_t target_id : released_tracking_targets) {
+    target_states_[target_id] = SbirsTargetState::kWideCandidate;
+    nfov_scheduler_.Release(target_id);
+    pointing_coordinator_.ReleaseTarget(target_id);
+    tracking_coordinator_.ReleaseTarget(target_id);
+  }
+  if (impact.retag_truth_tracks) {
+    const SbirsTargetState next_state =
+        impact.next_tracking_mode == config::SbirsTrackingMode::kStrictTruthAssisted
+            ? SbirsTargetState::kStrictTruthAssistedTracking
+            : SbirsTargetState::kSensorLikeTruthAssistedTracking;
     for (auto& entry : target_states_) {
-      if (entry.second != SbirsTargetState::kEstimatedTracking) {
-        continue;
+      if (IsTruthTrackingState(entry.second)) {
+        entry.second = next_state;
       }
-      entry.second = SbirsTargetState::kWideCandidate;
-      nfov_scheduler_.Release(entry.first);
-      pointing_coordinator_.ReleaseTarget(entry.first);
-      tracking_coordinator_.ReleaseTarget(entry.first);
     }
   }
   if (impact.clear_for_inactive || impact.clear_for_wide_search) {
@@ -384,12 +463,12 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
 
     const SbirsTargetState state = target_states_[target.target_id];
     const bool is_locked = nfov_scheduler_.IsLocked(target.target_id) &&
-                           (state == SbirsTargetState::kTruthAssistedTracking ||
+                           (state == SbirsTargetState::kStrictTruthAssistedTracking ||
+                            state == SbirsTargetState::kSensorLikeTruthAssistedTracking ||
                             state == SbirsTargetState::kEstimatedTracking);
     if (is_locked) {
       const int channel_id = nfov_scheduler_.ChannelOf(target.target_id);
-      const bool estimated_tracking = state == SbirsTargetState::kEstimatedTracking &&
-                                      policy.tracking.enable_estimated_tracking;
+      const bool estimated_tracking = state == SbirsTargetState::kEstimatedTracking;
       float command_azimuth_deg = azimuth_deg;
       float command_elevation_deg = elevation_deg;
       if (estimated_tracking) {
@@ -435,7 +514,7 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.target_id = target.target_id;
       detection.attribution.target_name = target.target_name;
       detection.attribution.estimated_range_m = static_cast<float>(range_m);
-      detection.attribution.used_truth_assist = !estimated_tracking;
+      detection.attribution.tracking_source = TrackingSourceForState(state);
       detection.attribution.nfov_channel_id = channel_id;
       detection.attribution.has_nfov_tracking_diagnostics = true;
       detection.attribution.nfov_pointing_error_deg = foundation::AngularSeparationDeg(
@@ -450,7 +529,8 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       bool lost_due_to_estimation_nis = false;
       if (tracking_gate_passed && estimated_tracking) {
         const SbirsTrackingUpdateResult tracking_result = tracking_coordinator_.CorrectTarget(
-            target.target_id, policy, &random_source_, azimuth_deg, elevation_deg, range_m,
+            target.target_id, policy, &estimated_measurement_random_source_, azimuth_deg,
+            elevation_deg, range_m,
             omega_deg_per_sec_cached, input.satellite_position_ecef_m);
         detection.record.azimuth_deg = tracking_result.output_azimuth_deg;
         detection.record.elevation_deg = tracking_result.output_elevation_deg;
@@ -460,6 +540,14 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
             tracking_result.estimation_nis_gate_exceeded;
         lost_due_to_estimation_nis = tracking_result.lost_due_to_estimation_nis;
         detection.record.detected = !lost_due_to_estimation_nis;
+      } else if (tracking_gate_passed &&
+                 state == SbirsTargetState::kSensorLikeTruthAssistedTracking) {
+        const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
+            policy.error_model, &sensor_like_output_random_source_, azimuth_deg, elevation_deg,
+            range_m, omega_deg_per_sec_cached);
+        detection.record.azimuth_deg = bearing.azimuth_deg;
+        detection.record.elevation_deg = bearing.elevation_deg;
+        detection.attribution.estimated_range_m = static_cast<float>(bearing.range_m);
       } else if (!tracking_gate_passed && estimated_tracking) {
         tracking_coordinator_.MarkMeasurementUnavailable(target.target_id);
       }
@@ -499,11 +587,12 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     // 2.10 WFOV 带误差位置：施加 5 类物理误差（高斯随机 + 折射 + 滞后）。
     // 复用上方已算的目标角速度 omega_deg_per_sec_cached。
     const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
-        policy.error_model, &random_source_, azimuth_deg, elevation_deg, range_m,
+        policy.error_model, &wfov_measurement_random_source_, azimuth_deg, elevation_deg, range_m,
         /*target_angular_rate_deg_per_sec=*/omega_deg_per_sec_cached);
     candidate.measured_azimuth_deg = bearing.azimuth_deg;
     candidate.measured_elevation_deg = bearing.elevation_deg;
     candidate.measured_range_m = bearing.range_m;
+    candidate.angular_rate_deg_per_sec = omega_deg_per_sec_cached;
     const SbirsCuePrediction cue_prediction =
         cue_predictor_.Update(target.target_id, bearing.azimuth_deg, bearing.elevation_deg,
                               input.dt_sec, mission.narrow_cue_latency_s);
@@ -547,7 +636,6 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.target_id = candidate.target->target_id;
       detection.attribution.target_name = candidate.target->target_name;
       detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
-      detection.attribution.used_truth_assist = false;
       detection.attribution.nfov_channel_id = -1;
       result.detections.push_back(detection);
     }
@@ -572,7 +660,6 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     detection.attribution.target_id = candidate.target->target_id;
     detection.attribution.target_name = candidate.target->target_name;
     detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
-    detection.attribution.used_truth_assist = false;
     detection.attribution.nfov_channel_id = channel_id;
     result.detections.push_back(detection);
   };
@@ -589,7 +676,6 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     detection.attribution.target_id = candidate.target->target_id;
     detection.attribution.target_name = candidate.target->target_name;
     detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
-    detection.attribution.used_truth_assist = false;
     detection.attribution.nfov_channel_id = channel_id;
     detection.attribution.capture_failure_reason = reason;
     result.detections.push_back(detection);
@@ -656,9 +742,16 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
         return;
       }
       cue_predictor_.Release(target_id);
-      const bool use_estimated = policy.tracking.enable_estimated_tracking;
-      target_states_[target_id] = use_estimated ? SbirsTargetState::kEstimatedTracking
-                                                : SbirsTargetState::kTruthAssistedTracking;
+      const bool use_estimated =
+          policy.tracking.tracking_mode == config::SbirsTrackingMode::kEstimated;
+      if (use_estimated) {
+        target_states_[target_id] = SbirsTargetState::kEstimatedTracking;
+      } else if (policy.tracking.tracking_mode ==
+                 config::SbirsTrackingMode::kStrictTruthAssisted) {
+        target_states_[target_id] = SbirsTargetState::kStrictTruthAssistedTracking;
+      } else {
+        target_states_[target_id] = SbirsTargetState::kSensorLikeTruthAssistedTracking;
+      }
       if (use_estimated) {
         tracking_coordinator_.InitializeTarget(target_id, *selected.target, policy.tracking);
       }
@@ -672,8 +765,22 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
       detection.attribution.detection_id = detection.record.detection_id;
       detection.attribution.target_id = selected.target->target_id;
       detection.attribution.target_name = selected.target->target_name;
-      detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
-      detection.attribution.used_truth_assist = !use_estimated;
+      detection.attribution.tracking_source = TrackingSourceForMode(policy.tracking.tracking_mode);
+      if (policy.tracking.tracking_mode == config::SbirsTrackingMode::kStrictTruthAssisted) {
+        detection.record.azimuth_deg = selected.azimuth_deg;
+        detection.record.elevation_deg = selected.elevation_deg;
+        detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
+      } else if (policy.tracking.tracking_mode ==
+                 config::SbirsTrackingMode::kSensorLikeTruthAssisted) {
+        const foundation::SbirsErrorBearing bearing = foundation::ApplyAngularErrorModel(
+            policy.error_model, &sensor_like_output_random_source_, selected.azimuth_deg,
+            selected.elevation_deg, selected.range_m, selected.angular_rate_deg_per_sec);
+        detection.record.azimuth_deg = bearing.azimuth_deg;
+        detection.record.elevation_deg = bearing.elevation_deg;
+        detection.attribution.estimated_range_m = static_cast<float>(bearing.range_m);
+      } else {
+        detection.attribution.estimated_range_m = static_cast<float>(selected.range_m);
+      }
       detection.attribution.nfov_channel_id = channel_id;
       result.detections.push_back(detection);
     } else {
@@ -754,7 +861,6 @@ SbirsPipelineResult SbirsPipeline::RunCycle(const session::SbirsCycleInput& inpu
     detection.attribution.target_id = candidate.target->target_id;
     detection.attribution.target_name = candidate.target->target_name;
     detection.attribution.estimated_range_m = static_cast<float>(candidate.range_m);
-    detection.attribution.used_truth_assist = false;
     // 进入 WFOV 候选但未被调度器选中（资源被占用或排序靠后）：标记为调度跳过。
     if (resources_full) {
       detection.attribution.capture_failure_reason =
@@ -773,7 +879,9 @@ SbirsPipelineSnapshot SbirsPipeline::CaptureRuntimeState() const {
   snapshot.target_states = target_states_;
   snapshot.nfov_scheduler = nfov_scheduler_.Capture();
   snapshot.pointing_coordinator = pointing_coordinator_.Capture();
-  snapshot.random_state = random_source_.Capture();
+  snapshot.wfov_measurement_random_state = wfov_measurement_random_source_.Capture();
+  snapshot.estimated_measurement_random_state = estimated_measurement_random_source_.Capture();
+  snapshot.sensor_like_output_random_state = sensor_like_output_random_source_.Capture();
   snapshot.cue_predictor = cue_predictor_.Capture();
   const SbirsTrackingRuntimeState tracking_state = tracking_coordinator_.CaptureRuntimeState();
   snapshot.filter_states = tracking_state.filter_states;
@@ -806,7 +914,8 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
         state == snapshot.target_states.end() ||
         (state->second != SbirsTargetState::kAwaitingNfovAcquisition &&
          state->second != SbirsTargetState::kEstimatedTracking &&
-         state->second != SbirsTargetState::kTruthAssistedTracking)) {
+         state->second != SbirsTargetState::kStrictTruthAssistedTracking &&
+         state->second != SbirsTargetState::kSensorLikeTruthAssistedTracking)) {
       return false;
     }
     const int pointing_channel = restored_pointing.ChannelOf(assignment.first);
@@ -818,7 +927,8 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
        snapshot.target_states) {
     if ((state.second == SbirsTargetState::kAwaitingNfovAcquisition ||
          state.second == SbirsTargetState::kEstimatedTracking ||
-         state.second == SbirsTargetState::kTruthAssistedTracking) &&
+         state.second == SbirsTargetState::kStrictTruthAssistedTracking ||
+         state.second == SbirsTargetState::kSensorLikeTruthAssistedTracking) &&
         snapshot.nfov_scheduler.target_to_channel.find(state.first) ==
             snapshot.nfov_scheduler.target_to_channel.end()) {
       return false;
@@ -839,7 +949,9 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
          snapshot.target_states.find(channel.target_id)->second !=
              SbirsTargetState::kEstimatedTracking &&
          snapshot.target_states.find(channel.target_id)->second !=
-             SbirsTargetState::kTruthAssistedTracking)) {
+             SbirsTargetState::kStrictTruthAssistedTracking &&
+         snapshot.target_states.find(channel.target_id)->second !=
+             SbirsTargetState::kSensorLikeTruthAssistedTracking)) {
       return false;
     }
     const SbirsTargetState channel_state = snapshot.target_states.find(channel.target_id)->second;
@@ -862,7 +974,9 @@ bool SbirsPipeline::RestoreRuntimeState(const SbirsPipelineSnapshot& snapshot) {
   target_states_ = snapshot.target_states;
   nfov_scheduler_.Restore(snapshot.nfov_scheduler);
   pointing_coordinator_ = restored_pointing;
-  random_source_.Restore(snapshot.random_state);
+  wfov_measurement_random_source_.Restore(snapshot.wfov_measurement_random_state);
+  estimated_measurement_random_source_.Restore(snapshot.estimated_measurement_random_state);
+  sensor_like_output_random_source_.Restore(snapshot.sensor_like_output_random_state);
   cue_predictor_.Restore(snapshot.cue_predictor);
   tracking_coordinator_.RestoreRuntimeState(tracking_state);
   return true;

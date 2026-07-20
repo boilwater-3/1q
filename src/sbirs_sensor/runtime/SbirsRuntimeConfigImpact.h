@@ -6,6 +6,8 @@
 #ifndef ONEQ_SRC_SBIRS_SENSOR_RUNTIME_SBIRS_RUNTIME_CONFIG_IMPACT_H_
 #define ONEQ_SRC_SBIRS_SENSOR_RUNTIME_SBIRS_RUNTIME_CONFIG_IMPACT_H_
 
+#include "1q/sbirs_sensor/config/SbirsPolicyConfig.h"
+
 namespace sbirs_sensor {
 namespace runtime {
 
@@ -17,6 +19,10 @@ struct SbirsRuntimeConfigImpact {
   bool reset_nfov_gate_failure_counts{false};
   bool restart_pointing_disturbance{false};
   bool release_estimated_tracks{false};
+  bool release_incompatible_tracks{false};
+  bool retag_truth_tracks{false};
+  config::SbirsTrackingMode previous_tracking_mode{config::SbirsTrackingMode::kEstimated};
+  config::SbirsTrackingMode next_tracking_mode{config::SbirsTrackingMode::kEstimated};
   bool nfov_channel_count_changed{false};
   bool clear_for_inactive{false};
   bool clear_for_wide_search{false};

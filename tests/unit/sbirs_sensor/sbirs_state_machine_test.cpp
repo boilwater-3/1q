@@ -48,7 +48,7 @@ TEST(SbirsStateMachineTest, CaptureTransitionsTargetIntoEstimatedTrackingByDefau
 
   const sbirs_sensor::pipeline::SbirsPipelineSnapshot snapshot = pipeline.CaptureRuntimeState();
   ASSERT_EQ(snapshot.target_states.count(42U), 1U);
-  // 默认 enable_estimated_tracking=true → 捕获成功进入 kEstimatedTracking
+  // 默认 tracking_mode=kEstimated → 捕获成功进入 kEstimatedTracking
   EXPECT_EQ(snapshot.target_states.at(42U),
             sbirs_sensor::pipeline::SbirsTargetState::kEstimatedTracking);
   ASSERT_EQ(snapshot.nfov_scheduler.target_to_channel.count(42U), 1U);
@@ -58,23 +58,39 @@ TEST(SbirsStateMachineTest, CaptureTransitionsTargetIntoEstimatedTrackingByDefau
   EXPECT_TRUE(snapshot.filter_states.at(42U).mean.allFinite());
 }
 
-TEST(SbirsStateMachineTest, DisabledTrackingFallsBackToTruthAssisted) {
+TEST(SbirsStateMachineTest, StrictTruthModeEntersDedicatedTrackingState) {
   sbirs_sensor::config::SbirsSessionConfig config = Config();
-  config.policy.tracking.enable_estimated_tracking = false;  // 显式关闭 → 回退真值辅助
+  config.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kStrictTruthAssisted;
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(config));
 
   pipeline.RunCycle(InputWithTarget(1U));
   const sbirs_sensor::pipeline::SbirsPipelineSnapshot snapshot = pipeline.CaptureRuntimeState();
   EXPECT_EQ(snapshot.target_states.at(42U),
-            sbirs_sensor::pipeline::SbirsTargetState::kTruthAssistedTracking);
-  EXPECT_EQ(snapshot.filter_states.count(42U), 0U);  // 关闭时不初始化滤波状态
+            sbirs_sensor::pipeline::SbirsTargetState::kStrictTruthAssistedTracking);
+  EXPECT_EQ(snapshot.filter_states.count(42U), 0U);
 }
 
-// kEstimatedTracking 与 kTruthAssistedTracking 严格分离，满足 design 2.5 的状态拆分前置。
-TEST(SbirsStateMachineTest, EstimatedTrackingStateIsReserved) {
+TEST(SbirsStateMachineTest, SensorLikeModeEntersDedicatedTrackingState) {
+  sbirs_sensor::config::SbirsSessionConfig config = Config();
+  config.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kSensorLikeTruthAssisted;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+
+  pipeline.RunCycle(InputWithTarget(1U));
+  const sbirs_sensor::pipeline::SbirsPipelineSnapshot snapshot = pipeline.CaptureRuntimeState();
+  EXPECT_EQ(snapshot.target_states.at(42U),
+            sbirs_sensor::pipeline::SbirsTargetState::kSensorLikeTruthAssistedTracking);
+  EXPECT_EQ(snapshot.filter_states.count(42U), 0U);
+}
+
+TEST(SbirsStateMachineTest, ThreeTrackingStatesAreMutuallyExclusive) {
   EXPECT_NE(sbirs_sensor::pipeline::SbirsTargetState::kEstimatedTracking,
-            sbirs_sensor::pipeline::SbirsTargetState::kTruthAssistedTracking);
+            sbirs_sensor::pipeline::SbirsTargetState::kStrictTruthAssistedTracking);
+  EXPECT_NE(sbirs_sensor::pipeline::SbirsTargetState::kStrictTruthAssistedTracking,
+            sbirs_sensor::pipeline::SbirsTargetState::kSensorLikeTruthAssistedTracking);
 }
 
 }  // namespace

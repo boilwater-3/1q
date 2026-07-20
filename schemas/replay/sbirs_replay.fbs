@@ -63,7 +63,7 @@ table SbirsDetectionAttributionRecord {
   target_id: uint64;
   target_name: string;
   estimated_range_m: float;
-  used_truth_assist: bool;
+  tracking_source: int32;
   capture_failure_reason: int32;
   has_estimation_nis: bool;
   estimation_nis: float;

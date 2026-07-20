@@ -58,6 +58,27 @@ std::string EncodeSessionConfigWithRawScanDirection(std::int32_t scan_direction)
   return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
 }
 
+std::string EncodeSessionConfigWithRawTrackingEnums(std::int32_t tracking_mode,
+                                                    std::int32_t estimated_backend) {
+  flatbuffers::FlatBufferBuilder builder(128U);
+  const auto tracking = sbirs::replay::CreateSbirsTrackingConfig(
+      builder, tracking_mode, estimated_backend);
+  const auto policy = sbirs::replay::CreateSbirsPolicyConfig(builder, 0, 0, 0, 0, tracking);
+  builder.Finish(sbirs::replay::CreateSbirsSessionConfig(builder, 0, 0, policy, 0));
+  return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
+}
+
+std::string EncodeCycleResultWithRawTrackingSource(std::int32_t tracking_source) {
+  flatbuffers::FlatBufferBuilder builder(128U);
+  const auto attribution = sbirs::replay::CreateSbirsDetectionAttributionRecord(
+      builder, 1U, 2U, 0, 3.0f, tracking_source);
+  std::vector<flatbuffers::Offset<sbirs::replay::SbirsDetectionAttributionRecord>> records;
+  records.push_back(attribution);
+  builder.Finish(sbirs::replay::CreateSbirsCycleResult(
+      builder, 4U, 0, builder.CreateVector(records)));
+  return std::string(reinterpret_cast<const char*>(builder.GetBufferPointer()), builder.GetSize());
+}
+
 }  // namespace
 
 // --- CycleInput ---
@@ -178,7 +199,8 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
   attribution.target_id = 44U;
   attribution.target_name = "truth";
   attribution.estimated_range_m = 1234.0f;
-  attribution.used_truth_assist = true;
+  attribution.tracking_source =
+      attribution::SbirsTrackingSource::kSensorLikeTruthAssisted;
   attribution.capture_failure_reason =
       attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed;
   attribution.has_estimation_nis = true;
@@ -223,7 +245,8 @@ TEST(SbirsReplayCodecRoundtripTest, CycleResultPreservesOutputAndAttributionFiel
             SbirsObservationStage::kNarrowFieldTrack);
   ASSERT_EQ(decoded.detection_attributions.size(), 1U);
   EXPECT_FLOAT_EQ(decoded.detection_attributions[0].estimated_range_m, 1234.0f);
-  EXPECT_TRUE(decoded.detection_attributions[0].used_truth_assist);
+  EXPECT_EQ(decoded.detection_attributions[0].tracking_source,
+            attribution::SbirsTrackingSource::kSensorLikeTruthAssisted);
   EXPECT_EQ(decoded.detection_attributions[0].capture_failure_reason,
             attribution::SbirsCaptureFailureReason::kNfovAcquisitionFailed);
   EXPECT_TRUE(decoded.detection_attributions[0].has_estimation_nis);
@@ -279,7 +302,8 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.pointing_disturbance.channel_vibration_frequency_hz = 4.0f;
   config.policy.pointing_disturbance.random_seed = 43U;
   config.policy.scheduler.max_concurrent_nfov_locks = 3;
-  config.policy.tracking.enable_estimated_tracking = true;
+  config.policy.tracking.tracking_mode = config::SbirsTrackingMode::kStrictTruthAssisted;
+  config.policy.tracking.estimated_backend = config::SbirsEstimatedTrackingBackend::kEkf;
   config.policy.tracking.process_noise_diff_coeff = 2.5f;
   config.policy.tracking.initial_position_std_m = 1500.0f;
   config.policy.tracking.initial_velocity_std_m_per_s = 80.0f;
@@ -315,7 +339,10 @@ TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.policy.pointing_disturbance.channel_vibration_frequency_hz, 4.0f);
   EXPECT_EQ(decoded.policy.pointing_disturbance.random_seed, 43U);
   EXPECT_EQ(decoded.policy.scheduler.max_concurrent_nfov_locks, 3);
-  EXPECT_TRUE(decoded.policy.tracking.enable_estimated_tracking);
+  EXPECT_EQ(decoded.policy.tracking.tracking_mode,
+            config::SbirsTrackingMode::kStrictTruthAssisted);
+  EXPECT_EQ(decoded.policy.tracking.estimated_backend,
+            config::SbirsEstimatedTrackingBackend::kEkf);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.process_noise_diff_coeff, 2.5f);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.initial_position_std_m, 1500.0f);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.initial_velocity_std_m_per_s, 80.0f);
@@ -474,6 +501,25 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeSessionConfigRejectsUnknownScanDirecti
   EXPECT_FLOAT_EQ(config.mission.scan_span_deg, 34.0f);
 }
 
+TEST(SbirsReplayCodecRoundtripTest, DecodeSessionConfigRejectsUnknownTrackingEnumsAtomically) {
+  SbirsSessionConfig config;
+  config.policy.tracking.tracking_mode = config::SbirsTrackingMode::kStrictTruthAssisted;
+  EXPECT_FALSE(DecodeSbirsSessionConfig(EncodeSessionConfigWithRawTrackingEnums(99, 0), &config));
+  EXPECT_EQ(config.policy.tracking.tracking_mode,
+            config::SbirsTrackingMode::kStrictTruthAssisted);
+  EXPECT_FALSE(DecodeSbirsSessionConfig(EncodeSessionConfigWithRawTrackingEnums(0, 99), &config));
+  EXPECT_EQ(config.policy.tracking.tracking_mode,
+            config::SbirsTrackingMode::kStrictTruthAssisted);
+}
+
+TEST(SbirsReplayCodecRoundtripTest, DecodeCycleResultRejectsUnknownTrackingSourceAtomically) {
+  SbirsCycleResult result;
+  result.input_cycle_index = 17U;
+  EXPECT_FALSE(DecodeSbirsCycleResult(EncodeCycleResultWithRawTrackingSource(99), &result));
+  EXPECT_EQ(result.input_cycle_index, 17U);
+  EXPECT_TRUE(result.detection_attributions.empty());
+}
+
 TEST(SbirsReplayCodecRoundtripTest, DecodeRuntimeConfigPatchRejectsNullAndCorrupted) {
   EXPECT_FALSE(DecodeSbirsRuntimeConfigPatch("", nullptr));
   SbirsRuntimeConfigPatch patch;
@@ -493,14 +539,15 @@ TEST(SbirsReplayCodecRoundtripTest, DecodeFailureMarkerRejectsNullAndCorrupted) 
 
 TEST(SbirsReplayCodecRoundtripTest, SessionConfigPreservesImmTrackingFields) {
   SbirsSessionConfig config;
-  config.policy.tracking.enable_imm_tracking = true;
+  config.policy.tracking.estimated_backend = config::SbirsEstimatedTrackingBackend::kImm;
   config.policy.tracking.imm_model_noise_diff_coeffs = {0.5f, 80.0f, 200.0f};
 
   const std::string encoded = EncodeSbirsSessionConfig(config);
   SbirsSessionConfig decoded;
   ASSERT_TRUE(DecodeSbirsSessionConfig(encoded, &decoded));
 
-  EXPECT_TRUE(decoded.policy.tracking.enable_imm_tracking);
+  EXPECT_EQ(decoded.policy.tracking.estimated_backend,
+            config::SbirsEstimatedTrackingBackend::kImm);
   ASSERT_EQ(decoded.policy.tracking.imm_model_noise_diff_coeffs.size(), 3U);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.imm_model_noise_diff_coeffs[0], 0.5f);
   EXPECT_FLOAT_EQ(decoded.policy.tracking.imm_model_noise_diff_coeffs[1], 80.0f);

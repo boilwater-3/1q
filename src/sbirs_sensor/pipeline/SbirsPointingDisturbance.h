@@ -36,7 +36,7 @@ struct SbirsPointingDisturbanceSample {
 struct SbirsGaussMarkovSnapshot {
   double azimuth_deg{0.0};
   double elevation_deg{0.0};
-  unsigned int random_state{1U};
+  std::uint32_t random_state{1U};
 };
 
 struct SbirsChannelDisturbanceSnapshot {
@@ -45,14 +45,14 @@ struct SbirsChannelDisturbanceSnapshot {
 };
 
 struct SbirsPointingDisturbanceSnapshot {
-  unsigned int base_seed{1U};
+  std::uint32_t base_seed{1U};
   SbirsGaussMarkovSnapshot common{};
   std::vector<SbirsChannelDisturbanceSnapshot> channels{};
 };
 
 class SbirsPointingDisturbance {
  public:
-  SbirsPointingDisturbance(int channel_count, unsigned int seed);
+  SbirsPointingDisturbance(int channel_count, std::uint32_t seed);
 
   bool Advance(double dt_sec, const SbirsPointingDisturbanceParameters& parameters);
   bool Sample(int channel_id, const SbirsPointingDisturbanceParameters& parameters,
@@ -66,23 +66,23 @@ class SbirsPointingDisturbance {
     double elevation_deg{0.0};
     foundation::SbirsRandomSource random;
 
-    explicit GaussMarkovRuntime(unsigned int seed) : random(seed) {}
+    explicit GaussMarkovRuntime(std::uint32_t seed) : random(seed) {}
   };
 
   struct ChannelRuntime {
     GaussMarkovRuntime gauss_markov;
     double elapsed_time_s{0.0};
 
-    explicit ChannelRuntime(unsigned int seed) : gauss_markov(seed) {}
+    explicit ChannelRuntime(std::uint32_t seed) : gauss_markov(seed) {}
   };
 
-  static unsigned int DeriveSeed(unsigned int base_seed, unsigned int stream_id);
-  static double DerivePhaseRad(unsigned int base_seed, unsigned int stream_id);
+  static std::uint32_t DeriveSeed(std::uint32_t base_seed, std::uint32_t stream_id);
+  static double DerivePhaseRad(std::uint32_t base_seed, std::uint32_t stream_id);
   static bool ValidateParameters(const SbirsPointingDisturbanceParameters& parameters);
   static void AdvanceGaussMarkov(double dt_sec, double sigma_deg, double correlation_time_s,
                                  GaussMarkovRuntime* runtime);
 
-  unsigned int base_seed_{1U};
+  std::uint32_t base_seed_{1U};
   GaussMarkovRuntime common_;
   std::vector<ChannelRuntime> channels_{};
 };

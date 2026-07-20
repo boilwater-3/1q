@@ -103,6 +103,16 @@ ValidationIssueList ValidateSbirsSessionConfig(const SbirsSessionConfig& config)
   if (config.policy.scheduler.max_concurrent_nfov_locks < 1) {
     AddError("scheduler max_concurrent_nfov_locks must be at least 1", &issues);
   }
+  const SbirsTrackingConfig& tracking = config.policy.tracking;
+  if (tracking.tracking_mode != SbirsTrackingMode::kEstimated &&
+      tracking.tracking_mode != SbirsTrackingMode::kStrictTruthAssisted &&
+      tracking.tracking_mode != SbirsTrackingMode::kSensorLikeTruthAssisted) {
+    AddError("tracking mode is invalid", &issues);
+  }
+  if (tracking.estimated_backend != SbirsEstimatedTrackingBackend::kEkf &&
+      tracking.estimated_backend != SbirsEstimatedTrackingBackend::kImm) {
+    AddError("estimated tracking backend is invalid", &issues);
+  }
   if (config.policy.tracking.nfov_tracking_gate_loss_cycles < 1U) {
     AddError("tracking nfov_tracking_gate_loss_cycles must be at least 1", &issues);
   }

@@ -57,7 +57,8 @@ struct ONEQ_API SbirsDetectionLifecycleEvent {
       output::SbirsObservationStage::kWideFieldSearch}; /**< 观测阶段 */
   float infrared_snr_linear{0.0f};                      /**< 红外通道线性 IR SNR */
   float estimated_range_m{0.0f};                        /**< 估计距离，单位 m */
-  bool used_truth_assist{false};                        /**< 是否使用真值辅助 */
+  attribution::SbirsTrackingSource tracking_source{
+      attribution::SbirsTrackingSource::kNotApplicable}; /**< 正式跟踪来源 */
   bool has_estimation_nis{false};                       /**< 是否包含 EKF 估计跟踪 NIS */
   float estimation_nis{0.0f};                           /**< EKF 归一化新息平方 */
   bool estimation_nis_gate_exceeded{false};             /**< EKF NIS 是否超过 2 维 95% 门限 */

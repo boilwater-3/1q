@@ -62,7 +62,7 @@ SbirsDebugTargetState BuildTargetState(const SbirsSceneTarget& target,
     return state;
   }
 
-  state.used_truth_assist = attribution->used_truth_assist;
+  state.tracking_source = attribution->tracking_source;
   state.estimated_range_m = attribution->estimated_range_m;
   state.has_estimation_nis = attribution->has_estimation_nis;
   state.estimation_nis = attribution->estimation_nis;

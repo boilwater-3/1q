@@ -15,9 +15,10 @@ bool IsFinite(const SbirsGaussMarkovSnapshot& snapshot) {
 
 }  // namespace
 
-unsigned int SbirsPointingDisturbance::DeriveSeed(unsigned int base_seed,
-                                                   unsigned int stream_id) {
-  unsigned int value = (base_seed == 0U ? 1U : base_seed) + 0x9e3779b9U * (stream_id + 1U);
+std::uint32_t SbirsPointingDisturbance::DeriveSeed(std::uint32_t base_seed,
+                                                   std::uint32_t stream_id) {
+  std::uint32_t value =
+      (base_seed == 0U ? 1U : base_seed) + UINT32_C(0x9e3779b9) * (stream_id + 1U);
   value ^= value >> 16;
   value *= 0x7feb352dU;
   value ^= value >> 15;
@@ -26,18 +27,18 @@ unsigned int SbirsPointingDisturbance::DeriveSeed(unsigned int base_seed,
   return value == 0U ? 1U : value;
 }
 
-double SbirsPointingDisturbance::DerivePhaseRad(unsigned int base_seed,
-                                                 unsigned int stream_id) {
+double SbirsPointingDisturbance::DerivePhaseRad(std::uint32_t base_seed,
+                                                 std::uint32_t stream_id) {
   return 2.0 * kPi * static_cast<double>(DeriveSeed(base_seed, stream_id)) / 4294967296.0;
 }
 
-SbirsPointingDisturbance::SbirsPointingDisturbance(int channel_count, unsigned int seed)
+SbirsPointingDisturbance::SbirsPointingDisturbance(int channel_count, std::uint32_t seed)
     : base_seed_(seed == 0U ? 1U : seed), common_(DeriveSeed(base_seed_, 0U)) {
   const int normalized_count = channel_count < 1 ? 1 : channel_count;
   channels_.reserve(static_cast<std::size_t>(normalized_count));
   for (int channel_id = 0; channel_id < normalized_count; ++channel_id) {
     channels_.push_back(ChannelRuntime(
-        DeriveSeed(base_seed_, 1U + static_cast<unsigned int>(channel_id))));
+        DeriveSeed(base_seed_, 1U + static_cast<std::uint32_t>(channel_id))));
   }
 }
 
@@ -103,7 +104,8 @@ bool SbirsPointingDisturbance::Sample(
   }
   const ChannelRuntime& channel = channels_[static_cast<std::size_t>(channel_id)];
   const double angular_frequency = 2.0 * kPi * parameters.channel_vibration_frequency_hz;
-  const unsigned int stream_base = 0x100U + 2U * static_cast<unsigned int>(channel_id);
+  const std::uint32_t stream_base = UINT32_C(0x100) +
+                                    2U * static_cast<std::uint32_t>(channel_id);
   SbirsPointingDisturbanceSample next;
   next.common.azimuth_deg = common_.azimuth_deg;
   next.common.elevation_deg = common_.elevation_deg;
@@ -154,7 +156,8 @@ bool SbirsPointingDisturbance::Restore(const SbirsPointingDisturbanceSnapshot& s
         source.elapsed_time_s < 0.0) {
       return false;
     }
-    ChannelRuntime destination(DeriveSeed(snapshot.base_seed, 1U + static_cast<unsigned int>(i)));
+    ChannelRuntime destination(
+        DeriveSeed(snapshot.base_seed, 1U + static_cast<std::uint32_t>(i)));
     destination.gauss_markov.azimuth_deg = source.gauss_markov.azimuth_deg;
     destination.gauss_markov.elevation_deg = source.gauss_markov.elevation_deg;
     destination.gauss_markov.random.Restore(source.gauss_markov.random_state);

@@ -28,8 +28,9 @@ enum class SbirsTargetState {
   kUndetected = 0,          /**< 初始或目标未被任何视场发现 */
   kWideCandidate,           /**< WFOV 已发现，等待 NFOV 资源调度 */
   kAwaitingNfovAcquisition, /**< 已被调度器选为首次捕获目标，本周期执行 NFOV 首次捕获 */
-  kTruthAssistedTracking,   /**< 首次捕获成功，进入仿真简化的真值辅助持续跟踪 */
-  kEstimatedTracking,       /**< EKF 滤波测量跟踪；由配置开关启用滤波时进入，见 design 2.2/2.5a */
+  kStrictTruthAssistedTracking, /**< 真值 LOS 驱动并输出精确真值 */
+  kSensorLikeTruthAssistedTracking, /**< 真值 LOS 驱动并输出带误差观测 */
+  kEstimatedTracking,       /**< EKF/IMM 滤波测量跟踪 */
   kLost                     /**< 目标从输入场景消失或传感器关闭 */
 };
 
@@ -43,7 +44,9 @@ struct SbirsPipelineSnapshot {
   std::map<std::uint64_t, SbirsTargetState>
       target_states{};                         /**< 各目标状态表（按 target_id 索引） */
   SbirsNfovSchedulerSnapshot nfov_scheduler{}; /**< NFOV 多通道调度状态（目标→通道分配） */
-  unsigned int random_state{1U};               /**< 误差模型随机源状态（replay 可复现） */
+  std::uint32_t wfov_measurement_random_state{1U}; /**< WFOV/cue 量测随机状态 */
+  std::uint32_t estimated_measurement_random_state{1U}; /**< Estimated 校正量测随机状态 */
+  std::uint32_t sensor_like_output_random_state{1U}; /**< Sensor-like 输出随机状态 */
   std::map<std::uint64_t, tracking::SbirsGaussianState>
       filter_states{}; /**< EKF 滤波状态表（kEstimatedTracking 目标的均值+协方差） */
   std::map<std::uint64_t, unsigned int> nis_gate_exceeded_counts{}; /**< EKF NIS 连续超限计数 */
@@ -108,7 +111,9 @@ class SbirsPipeline {
   std::map<std::uint64_t, SbirsTargetState> target_states_{};
   SbirsNfovScheduler nfov_scheduler_;              // NFOV 多通道资源调度器
   SbirsPointingCoordinator pointing_coordinator_;  // NFOV 逐通道 ATP 执行状态
-  foundation::SbirsRandomSource random_source_;    // 误差模型确定性随机源
+  foundation::SbirsRandomSource wfov_measurement_random_source_;
+  foundation::SbirsRandomSource estimated_measurement_random_source_;
+  foundation::SbirsRandomSource sensor_like_output_random_source_;
   SbirsCuePredictor cue_predictor_{};
   SbirsTrackingCoordinator tracking_coordinator_{};
 };

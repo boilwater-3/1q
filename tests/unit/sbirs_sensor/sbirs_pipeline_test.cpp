@@ -65,7 +65,8 @@ sbirs_sensor::config::SbirsSessionConfig PipelineConfig() {
 sbirs_sensor::config::SbirsSessionConfig ImmMultiTargetConfig() {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
   config.policy.scheduler.max_concurrent_nfov_locks = 2;
-  config.policy.tracking.enable_imm_tracking = true;
+  config.policy.tracking.estimated_backend =
+      sbirs_sensor::config::SbirsEstimatedTrackingBackend::kImm;
   config.policy.tracking.imm_model_noise_diff_coeffs = {0.5f, 80.0f};
   return config;
 }
@@ -121,9 +122,195 @@ TEST(SbirsPipelineTest, WideCandidateCapturesIntoNfov) {
   ASSERT_FALSE(result.detections.empty());
   EXPECT_EQ(result.detections.front().record.observation_stage,
             sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
-  // 默认 enable_estimated_tracking=true → 捕获走 EKF，used_truth_assist=false
-  EXPECT_FALSE(result.detections.front().attribution.used_truth_assist);
+  EXPECT_EQ(result.detections.front().attribution.tracking_source,
+            sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
   EXPECT_FALSE(result.detections.front().attribution.has_estimation_nis);
+}
+
+TEST(SbirsPipelineTest, TruthModesShareGatesButExposeDistinctSuccessfulMeasurements) {
+  sbirs_sensor::config::SbirsSessionConfig strict_config = PipelineConfig();
+  strict_config.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kStrictTruthAssisted;
+  strict_config.policy.error_model.attitude_sigma_deg = 0.2f;
+  strict_config.policy.error_model.range_fraction_sigma = 0.01f;
+  sbirs_sensor::config::SbirsSessionConfig sensor_config = strict_config;
+  sensor_config.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kSensorLikeTruthAssisted;
+
+  sbirs_sensor::pipeline::SbirsPipeline strict(
+      sbirs_sensor::runtime::MapSessionToInternal(strict_config));
+  sbirs_sensor::pipeline::SbirsPipeline sensor(
+      sbirs_sensor::runtime::MapSessionToInternal(sensor_config));
+  const auto input = TwoTargetInput(1U);
+  const auto strict_acquisition = strict.RunCycle(input);
+  const auto sensor_acquisition = sensor.RunCycle(input);
+  ASSERT_FALSE(strict_acquisition.detections.empty());
+  ASSERT_FALSE(sensor_acquisition.detections.empty());
+  const auto& strict_detection = strict_acquisition.detections.front();
+  const auto& sensor_detection = sensor_acquisition.detections.front();
+  EXPECT_EQ(strict_detection.attribution.tracking_source,
+            sbirs_sensor::attribution::SbirsTrackingSource::kStrictTruthAssisted);
+  EXPECT_EQ(sensor_detection.attribution.tracking_source,
+            sbirs_sensor::attribution::SbirsTrackingSource::kSensorLikeTruthAssisted);
+  EXPECT_FLOAT_EQ(strict_detection.record.azimuth_deg, 0.0f);
+  EXPECT_FLOAT_EQ(strict_detection.record.elevation_deg, 0.0f);
+  EXPECT_FLOAT_EQ(strict_detection.attribution.estimated_range_m, 1000000.0f);
+  EXPECT_NE(sensor_detection.record.azimuth_deg, strict_detection.record.azimuth_deg);
+  EXPECT_NE(sensor_detection.attribution.estimated_range_m,
+            strict_detection.attribution.estimated_range_m);
+  EXPECT_FLOAT_EQ(sensor_detection.record.infrared_snr_linear,
+                  strict_detection.record.infrared_snr_linear);
+
+  const auto strict_snapshot = strict.CaptureRuntimeState();
+  const auto sensor_snapshot = sensor.CaptureRuntimeState();
+  EXPECT_EQ(strict_snapshot.wfov_measurement_random_state,
+            sensor_snapshot.wfov_measurement_random_state);
+  EXPECT_EQ(strict_snapshot.estimated_measurement_random_state,
+            sensor_snapshot.estimated_measurement_random_state);
+  EXPECT_NE(strict_snapshot.sensor_like_output_random_state,
+            sensor_snapshot.sensor_like_output_random_state);
+
+  sensor_config.policy.detection.narrow_min_snr_linear =
+      std::numeric_limits<float>::max();
+  sbirs_sensor::runtime::SbirsRuntimeConfigImpact gate_impact;
+  gate_impact.reset_nfov_gate_failure_counts = true;
+  sensor.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(sensor_config), gate_impact);
+  const auto before_coast = sensor.CaptureRuntimeState();
+  const auto coast = sensor.RunCycle(TwoTargetInput(2U));
+  ASSERT_FALSE(coast.detections.empty());
+  EXPECT_FALSE(coast.detections.front().record.detected);
+  const auto after_coast = sensor.CaptureRuntimeState();
+  EXPECT_EQ(after_coast.sensor_like_output_random_state,
+            before_coast.sensor_like_output_random_state);
+}
+
+TEST(SbirsPipelineTest, TruthModesHaveIdenticalCoastingLossAndChannelRelease) {
+  sbirs_sensor::config::SbirsSessionConfig strict_config = PipelineConfig();
+  strict_config.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kStrictTruthAssisted;
+  sbirs_sensor::config::SbirsSessionConfig sensor_config = strict_config;
+  sensor_config.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kSensorLikeTruthAssisted;
+
+  sbirs_sensor::pipeline::SbirsPipeline strict(
+      sbirs_sensor::runtime::MapSessionToInternal(strict_config));
+  sbirs_sensor::pipeline::SbirsPipeline sensor(
+      sbirs_sensor::runtime::MapSessionToInternal(sensor_config));
+  auto input = sbirs_sensor::session::SbirsCycleInputBuilder()
+                   .WithCycleIndex(1U)
+                   .WithDeltaTimeSec(1.0f)
+                   .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                   .AddTarget(HotTarget(91U, 0.0))
+                   .Build();
+  strict.RunCycle(input);
+  sensor.RunCycle(input);
+  const std::uint32_t sensor_random_state =
+      sensor.CaptureRuntimeState().sensor_like_output_random_state;
+
+  input.scene.front().projected_area_m2 = 0.0f;
+  for (std::uint32_t cycle_index = 2U; cycle_index <= 3U; ++cycle_index) {
+    input.cycle_index = cycle_index;
+    const auto strict_result = strict.RunCycle(input);
+    const auto sensor_result = sensor.RunCycle(input);
+    ASSERT_EQ(strict_result.detections.size(), 1U);
+    ASSERT_EQ(sensor_result.detections.size(), 1U);
+    const auto& strict_detection = strict_result.detections.front();
+    const auto& sensor_detection = sensor_result.detections.front();
+    EXPECT_EQ(strict_detection.record.detected, sensor_detection.record.detected);
+    EXPECT_EQ(strict_detection.attribution.nfov_geometry_gate_passed,
+              sensor_detection.attribution.nfov_geometry_gate_passed);
+    EXPECT_EQ(strict_detection.attribution.nfov_snr_gate_passed,
+              sensor_detection.attribution.nfov_snr_gate_passed);
+    EXPECT_EQ(strict_detection.attribution.nfov_tracking_gate_failure_count,
+              sensor_detection.attribution.nfov_tracking_gate_failure_count);
+    EXPECT_EQ(strict_detection.attribution.nfov_tracking_coasting,
+              sensor_detection.attribution.nfov_tracking_coasting);
+    EXPECT_EQ(strict_detection.attribution.capture_failure_reason,
+              sensor_detection.attribution.capture_failure_reason);
+  }
+
+  const auto strict_snapshot = strict.CaptureRuntimeState();
+  const auto sensor_snapshot = sensor.CaptureRuntimeState();
+  EXPECT_EQ(strict_snapshot.target_states, sensor_snapshot.target_states);
+  EXPECT_TRUE(strict_snapshot.nfov_scheduler.target_to_channel.empty());
+  EXPECT_EQ(strict_snapshot.nfov_scheduler.target_to_channel,
+            sensor_snapshot.nfov_scheduler.target_to_channel);
+  EXPECT_EQ(strict_snapshot.target_states.at(91U),
+            sbirs_sensor::pipeline::SbirsTargetState::kWideCandidate);
+  EXPECT_EQ(sensor_snapshot.sensor_like_output_random_state, sensor_random_state);
+}
+
+TEST(SbirsPipelineTest, SensorLikeSnapshotRestoreContinuesOutputRandomStream) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kSensorLikeTruthAssisted;
+  config.policy.error_model.attitude_sigma_deg = 0.2f;
+  config.policy.error_model.range_fraction_sigma = 0.01f;
+  sbirs_sensor::pipeline::SbirsPipeline uninterrupted(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  auto input = sbirs_sensor::session::SbirsCycleInputBuilder()
+                   .WithCycleIndex(1U)
+                   .WithDeltaTimeSec(1.0f)
+                   .WithSatellitePosition(Vector(7000000.0, 0.0, 0.0))
+                   .AddTarget(HotTarget(92U, 0.0))
+                   .Build();
+  uninterrupted.RunCycle(input);
+  const auto snapshot = uninterrupted.CaptureRuntimeState();
+
+  input.cycle_index = 2U;
+  const auto expected = uninterrupted.RunCycle(input);
+  sbirs_sensor::pipeline::SbirsPipeline restored(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  ASSERT_TRUE(restored.RestoreRuntimeState(snapshot));
+  const auto actual = restored.RunCycle(input);
+  ASSERT_EQ(expected.detections.size(), 1U);
+  ASSERT_EQ(actual.detections.size(), 1U);
+  EXPECT_FLOAT_EQ(actual.detections.front().record.azimuth_deg,
+                  expected.detections.front().record.azimuth_deg);
+  EXPECT_FLOAT_EQ(actual.detections.front().record.elevation_deg,
+                  expected.detections.front().record.elevation_deg);
+  EXPECT_FLOAT_EQ(actual.detections.front().record.infrared_snr_linear,
+                  expected.detections.front().record.infrared_snr_linear);
+  EXPECT_FLOAT_EQ(actual.detections.front().attribution.estimated_range_m,
+                  expected.detections.front().attribution.estimated_range_m);
+  EXPECT_EQ(actual.detections.front().attribution.tracking_source,
+            sbirs_sensor::attribution::SbirsTrackingSource::kSensorLikeTruthAssisted);
+  EXPECT_EQ(restored.CaptureRuntimeState().sensor_like_output_random_state,
+            uninterrupted.CaptureRuntimeState().sensor_like_output_random_state);
+}
+
+TEST(SbirsPipelineTest, TruthRetagKeepsLockWhileEstimatedTransitionReleasesIt) {
+  sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
+  config.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kStrictTruthAssisted;
+  sbirs_sensor::pipeline::SbirsPipeline pipeline(
+      sbirs_sensor::runtime::MapSessionToInternal(config));
+  pipeline.RunCycle(TwoTargetInput(1U));
+  const auto before = pipeline.CaptureRuntimeState();
+
+  config.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kSensorLikeTruthAssisted;
+  sbirs_sensor::runtime::SbirsRuntimeConfigImpact retag;
+  retag.retag_truth_tracks = true;
+  retag.previous_tracking_mode = sbirs_sensor::config::SbirsTrackingMode::kStrictTruthAssisted;
+  retag.next_tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kSensorLikeTruthAssisted;
+  pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), retag);
+  const auto retagged = pipeline.CaptureRuntimeState();
+  EXPECT_EQ(retagged.nfov_scheduler.target_to_channel, before.nfov_scheduler.target_to_channel);
+  EXPECT_EQ(retagged.target_states.at(1U),
+            sbirs_sensor::pipeline::SbirsTargetState::kSensorLikeTruthAssistedTracking);
+  EXPECT_EQ(retagged.sensor_like_output_random_state,
+            before.sensor_like_output_random_state);
+
+  config.policy.tracking.tracking_mode = sbirs_sensor::config::SbirsTrackingMode::kEstimated;
+  sbirs_sensor::runtime::SbirsRuntimeConfigImpact release;
+  release.release_incompatible_tracks = true;
+  pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), release);
+  const auto released = pipeline.CaptureRuntimeState();
+  EXPECT_TRUE(released.nfov_scheduler.target_to_channel.empty());
+  EXPECT_EQ(released.target_states.at(1U),
+            sbirs_sensor::pipeline::SbirsTargetState::kWideCandidate);
 }
 
 TEST(SbirsPipelineTest, CommonAttitudeDisturbanceMovesWfovAndNfovTogether) {
@@ -210,7 +397,8 @@ TEST(SbirsPipelineTest, LockedTargetProducesEstimatedTrack) {
   // 持续跟踪走 EKF 估计，输出角度应有限（滤波未发散）
   EXPECT_TRUE(std::isfinite(result.detections.front().record.azimuth_deg));
   EXPECT_TRUE(std::isfinite(result.detections.front().record.elevation_deg));
-  EXPECT_FALSE(result.detections.front().attribution.used_truth_assist);
+  EXPECT_EQ(result.detections.front().attribution.tracking_source,
+            sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
   EXPECT_TRUE(result.detections.front().attribution.has_estimation_nis);
   EXPECT_TRUE(std::isfinite(result.detections.front().attribution.estimation_nis));
   EXPECT_FALSE(result.detections.front().attribution.estimation_nis_gate_exceeded);
@@ -315,9 +503,10 @@ TEST(SbirsPipelineTest, TrackingCoastSnapshotRestoreMatchesUninterrupted) {
   EXPECT_EQ(actual.detections[0].attribution.nfov_tracking_gate_failure_count, 0U);
 }
 
-TEST(SbirsPipelineTest, TruthAssistedTrackingStillUsesActualPointingGate) {
+TEST(SbirsPipelineTest, StrictTruthAssistedStillUsesActualPointingGate) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
-  config.policy.tracking.enable_estimated_tracking = false;
+  config.policy.tracking.tracking_mode =
+      sbirs_sensor::config::SbirsTrackingMode::kStrictTruthAssisted;
   config.mission.narrow_field_fov_az_deg = 1.0f;
   config.mission.narrow_pointing_max_slew_rate_deg_per_sec = 0.1f;
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
@@ -334,7 +523,8 @@ TEST(SbirsPipelineTest, TruthAssistedTrackingStillUsesActualPointingGate) {
   const auto coast = pipeline.RunCycle(input);
   ASSERT_EQ(coast.detections.size(), 1U);
   EXPECT_FALSE(coast.detections[0].record.detected);
-  EXPECT_TRUE(coast.detections[0].attribution.used_truth_assist);
+  EXPECT_EQ(coast.detections[0].attribution.tracking_source,
+            sbirs_sensor::attribution::SbirsTrackingSource::kStrictTruthAssisted);
   EXPECT_TRUE(coast.detections[0].attribution.nfov_tracking_coasting);
   EXPECT_FALSE(coast.detections[0].attribution.has_estimation_nis);
 }
@@ -464,7 +654,8 @@ TEST(SbirsPipelineTest, NfovAcquisitionRawUsesNoisyMeasurementAndIsReproducible)
             sbirs_sensor::output::SbirsObservationStage::kNarrowFieldAcquisition);
   EXPECT_NE(r1.detections.front().record.azimuth_deg, 0.0f);
   EXPECT_EQ(r1.detections.front().attribution.target_id, 7U);
-  EXPECT_FALSE(r1.detections.front().attribution.used_truth_assist);
+  EXPECT_EQ(r1.detections.front().attribution.tracking_source,
+            sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
   // 相同 seed → 相同输出。
   EXPECT_FLOAT_EQ(r1.detections.front().record.azimuth_deg,
                   r2.detections.front().record.azimuth_deg);
@@ -799,7 +990,9 @@ TEST(SbirsPipelineTest, RuntimeSeedsRestartOnlyTheirOwnedRandomStream) {
   measurement_impact.reset_measurement_random_stream = true;
   pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), measurement_impact);
   const auto measurement_reset = pipeline.CaptureRuntimeState();
-  EXPECT_EQ(measurement_reset.random_state, 99U);
+  EXPECT_NE(measurement_reset.wfov_measurement_random_state, 0U);
+  EXPECT_NE(measurement_reset.estimated_measurement_random_state, 0U);
+  EXPECT_NE(measurement_reset.sensor_like_output_random_state, 0U);
   EXPECT_EQ(measurement_reset.pointing_coordinator.disturbance.base_seed,
             initial.pointing_coordinator.disturbance.base_seed);
   EXPECT_EQ(measurement_reset.nfov_scheduler.target_to_channel,
@@ -812,7 +1005,12 @@ TEST(SbirsPipelineTest, RuntimeSeedsRestartOnlyTheirOwnedRandomStream) {
   pointing_impact.next_nfov_channel_count = 1;
   pipeline.ApplyConfig(sbirs_sensor::runtime::MapSessionToInternal(config), pointing_impact);
   const auto pointing_reset = pipeline.CaptureRuntimeState();
-  EXPECT_EQ(pointing_reset.random_state, measurement_reset.random_state);
+  EXPECT_EQ(pointing_reset.wfov_measurement_random_state,
+            measurement_reset.wfov_measurement_random_state);
+  EXPECT_EQ(pointing_reset.estimated_measurement_random_state,
+            measurement_reset.estimated_measurement_random_state);
+  EXPECT_EQ(pointing_reset.sensor_like_output_random_state,
+            measurement_reset.sensor_like_output_random_state);
   EXPECT_EQ(pointing_reset.pointing_coordinator.disturbance.base_seed, 101U);
   EXPECT_EQ(pointing_reset.nfov_scheduler.target_to_channel,
             measurement_reset.nfov_scheduler.target_to_channel);
@@ -958,13 +1156,16 @@ TEST(SbirsPipelineTest, InvalidTrackingSnapshotRestoreIsAtomic) {
   EXPECT_FALSE(pipeline.RestoreRuntimeState(non_finite_filter));
 
   auto invalid_random_state = before;
-  invalid_random_state.random_state = 0U;
+  invalid_random_state.sensor_like_output_random_state = 0U;
   EXPECT_FALSE(pipeline.RestoreRuntimeState(invalid_random_state));
 
   const auto after = pipeline.CaptureRuntimeState();
   EXPECT_EQ(after.target_states, before.target_states);
   EXPECT_EQ(after.nfov_scheduler.target_to_channel, before.nfov_scheduler.target_to_channel);
-  EXPECT_EQ(after.random_state, before.random_state);
+  EXPECT_EQ(after.wfov_measurement_random_state, before.wfov_measurement_random_state);
+  EXPECT_EQ(after.estimated_measurement_random_state,
+            before.estimated_measurement_random_state);
+  EXPECT_EQ(after.sensor_like_output_random_state, before.sensor_like_output_random_state);
   ASSERT_EQ(after.filter_states.count(44U), 1U);
   EXPECT_TRUE(after.filter_states.at(44U).mean.isApprox(before.filter_states.at(44U).mean));
   EXPECT_TRUE(
@@ -1106,7 +1307,8 @@ TEST(SbirsPipelineTest, MultipleChannelsSimultaneouslyAcquireAndTrack) {
 
 TEST(SbirsPipelineTest, ImmTrackingProducesFiniteState) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
-  config.policy.tracking.enable_imm_tracking = true;
+  config.policy.tracking.estimated_backend =
+      sbirs_sensor::config::SbirsEstimatedTrackingBackend::kImm;
   config.policy.tracking.imm_model_noise_diff_coeffs = {0.5f, 80.0f};
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(config));
@@ -1126,7 +1328,8 @@ TEST(SbirsPipelineTest, ImmTrackingProducesFiniteState) {
   EXPECT_EQ(tracked.detections.front().record.observation_stage,
             sbirs_sensor::output::SbirsObservationStage::kNarrowFieldTrack);
   EXPECT_TRUE(tracked.detections.front().record.detected);
-  EXPECT_FALSE(tracked.detections.front().attribution.used_truth_assist);
+  EXPECT_EQ(tracked.detections.front().attribution.tracking_source,
+            sbirs_sensor::attribution::SbirsTrackingSource::kEstimated);
   EXPECT_TRUE(tracked.detections.front().attribution.has_estimation_nis);
   EXPECT_TRUE(std::isfinite(tracked.detections.front().attribution.estimation_nis));
 }
@@ -1211,7 +1414,8 @@ TEST(SbirsPipelineTest, ImmMultiTargetRestorePreservesPerTargetState) {
 
 TEST(SbirsPipelineTest, ImmDisabledFallsBackToSingleEkf) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
-  config.policy.tracking.enable_imm_tracking = false;
+  config.policy.tracking.estimated_backend =
+      sbirs_sensor::config::SbirsEstimatedTrackingBackend::kEkf;
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(config));
   sbirs_sensor::session::SbirsCycleInput input =
@@ -1233,7 +1437,8 @@ TEST(SbirsPipelineTest, ImmDisabledFallsBackToSingleEkf) {
 
 TEST(SbirsPipelineTest, ImmSupportsCaptureRestoreRoundtrip) {
   sbirs_sensor::config::SbirsSessionConfig config = PipelineConfig();
-  config.policy.tracking.enable_imm_tracking = true;
+  config.policy.tracking.estimated_backend =
+      sbirs_sensor::config::SbirsEstimatedTrackingBackend::kImm;
   config.policy.tracking.imm_model_noise_diff_coeffs = {0.5f, 80.0f};
   sbirs_sensor::pipeline::SbirsPipeline pipeline(
       sbirs_sensor::runtime::MapSessionToInternal(config));

@@ -46,7 +46,7 @@ void SbirsTrackingCoordinator::InitializeTarget(std::uint64_t target_id,
   initial_state.covariance(5, 5) = vel_var;
   filter_states_[target_id] = initial_state;
   nis_gate_exceeded_counts_[target_id] = 0U;
-  if (!tracking.enable_imm_tracking) {
+  if (tracking.estimated_backend != config::SbirsEstimatedTrackingBackend::kImm) {
     return;
   }
   if (!imm_initialized_) {
@@ -70,7 +70,7 @@ SbirsTrackingPredictionResult SbirsTrackingCoordinator::PredictTarget(
     std::uint64_t target_id, const config::SbirsPolicyConfig& policy, float dt_sec,
     const session::SbirsVector3M& satellite_position_ecef_m) {
   tracking::SbirsGaussianState predicted;
-  if (policy.tracking.enable_imm_tracking) {
+  if (policy.tracking.estimated_backend == config::SbirsEstimatedTrackingBackend::kImm) {
     if (!imm_initialized_) {
       InitializeImmComponents(policy.tracking);
     }
@@ -115,7 +115,7 @@ SbirsTrackingUpdateResult SbirsTrackingCoordinator::CorrectTarget(
                                            angular_rate_deg_per_sec);
 
   tracking::SbirsGaussianState combined;
-  if (policy.tracking.enable_imm_tracking) {
+  if (policy.tracking.estimated_backend == config::SbirsEstimatedTrackingBackend::kImm) {
     auto filter_it = imm_filters_by_target_.find(target_id);
     for (auto& measurement_model : imm_measurement_models_) {
       measurement_model->SetSatellitePosition(satellite_position_ecef_m);

@@ -58,6 +58,14 @@ enum class ONEQ_API SbirsCaptureFailureReason {
   kNfovTrackingGateLost   /**< NFOV 跟踪几何/SNR 门连续失败导致丢锁 */
 };
 
+/** @brief 归属记录所对应的正式跟踪来源；WFOV 与失败捕获不适用。 */
+enum class ONEQ_API SbirsTrackingSource {
+  kNotApplicable = 0,          /**< 尚未建立 NFOV 跟踪 */
+  kEstimated,                  /**< Estimated 跟踪 */
+  kStrictTruthAssisted,        /**< StrictTruthAssisted 跟踪 */
+  kSensorLikeTruthAssisted     /**< SensorLikeTruthAssisted 跟踪 */
+};
+
 /**
  * @brief 检测记录到输入目标的仿真归属记录，仅供结构化结果/调试层消费。
  * @note 归属信息不得混入 `SbirsOutputFrame` raw output；`estimated_range_m` 为内部
@@ -68,7 +76,8 @@ struct ONEQ_API SbirsDetectionAttributionRecord {
   std::uint64_t target_id{0U};    /**< 输入场景目标 ID */
   std::string target_name{};      /**< 输入场景目标名称 */
   float estimated_range_m{0.0f};  /**< 估计距离，单位 m（仅归属/诊断层） */
-  bool used_truth_assist{false};  /**< 是否使用真值辅助跟踪 */
+  SbirsTrackingSource tracking_source{
+      SbirsTrackingSource::kNotApplicable}; /**< 本记录的正式跟踪来源 */
   SbirsCaptureFailureReason capture_failure_reason{
       SbirsCaptureFailureReason::kNone};    /**< NFOV 交接/跟踪失败原因（仅归属/诊断层） */
   bool has_estimation_nis{false};           /**< 是否包含 EKF 估计跟踪 NIS 诊断 */
