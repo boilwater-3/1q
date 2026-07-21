@@ -29,11 +29,30 @@ foreach(required_fragment IN ITEMS
         "include/1q/"
         "FILES_MATCHING"
         "PATTERN \"*.h\""
-        "PATTERN \"*.hpp\"")
+        "PATTERN \"*.hpp\""
+        "find_dependency(Eigen3 REQUIRED CONFIG)"
+        "find_dependency(Boost REQUIRED CONFIG)"
+        "find_dependency(nanoflann REQUIRED CONFIG)"
+        "find_dependency(flatbuffers REQUIRED CONFIG)"
+        "find_dependency(ZLIB REQUIRED CONFIG)")
     string(FIND "${PROJECT_INSTALL_CONTENT}" "${required_fragment}" fragment_index)
     if(fragment_index EQUAL -1)
         message(FATAL_ERROR
             "[install-manifest] ProjectInstall.cmake no longer mirrors the guarded public tree; missing '${required_fragment}'.")
+    endif()
+endforeach()
+
+# Third-party packages remain consumer-provided dependencies. Do not recreate
+# partial package configs in the install tree: header-only stand-ins can shadow
+# real binary packages while leaving unresolved runtime/link requirements.
+foreach(forbidden_fragment IN ITEMS
+        "install_portable_dependency"
+        "CMAKE_INSTALL_INCLUDEDIR}/deps"
+        "CMAKE_CURRENT_LIST_DIR}/deps")
+    string(FIND "${PROJECT_INSTALL_CONTENT}" "${forbidden_fragment}" fragment_index)
+    if(NOT fragment_index EQUAL -1)
+        message(FATAL_ERROR
+            "[install-manifest] ProjectInstall.cmake reintroduced a partial third-party package snapshot: '${forbidden_fragment}'.")
     endif()
 endforeach()
 

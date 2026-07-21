@@ -8,8 +8,22 @@ Authority: 非规定性记录
 ## 当前状态（2026-07-21 实时代码复核）
 
 原 OQ-1、OQ-3、OQ-8、OQ-9、OQ-10a 至 OQ-10m 均已完成、拒绝或冻结；对应结论和测试证据已迁入
-`docs/common/contract.md` 及各模块 `design.md`。当前保留一项 ESR runtime validation 边界和四项 SBIRS
-非阻塞仿真边界，均不构成已批准实现要求。
+`docs/common/contract.md` 及各模块 `design.md`。当前保留一项 Common/Practice 构建边界、一项 ESR
+runtime validation 边界和四项 SBIRS 非阻塞仿真边界，均不构成已批准实现要求。
+
+## Common/Practice 非阻塞构建边界
+
+### COMMON-OQ-1：Windows/MSVC 全链支持验收
+
+- **现状证据**：仓库存在 Windows Conan/no-Conan presets 和 `scripts/fetch_third_party.bat`，但当前 CI
+  只在 macOS 运行；`.bat` 还包含 GitLab/archives.boost.io 来源，且没有对下载内容做 hash 校验。
+- **未决问题**：如何实现已冻结的 Windows shell/GitHub bootstrap，并在不依赖 Windows Conan 的前提下
+  形成可重复的依赖、configure、build、install 和外部 consumer 闭环。
+- **当前边界**：这些 presets 和脚本只视为未验收脚手架；文档不得据此宣称 Windows 已受支持，也不得
+  把 Conan 路径自动提升为正式 Windows 方案。
+- **Stage A 进入条件**：提交锁定版本/提交与下载校验矩阵，提供 shell bootstrap 原型，并在真实 Windows
+  runner 上依次证明 configure、Debug/Release build、install、独立 consumer build/run；随后再决定保留、
+  删除或重命名现有 presets 与 `.bat` 入口。
 
 ## ESR 非阻塞架构边界
 

@@ -1,119 +1,103 @@
 # 1q 库消费指南
 
 Status: active
+Last-reviewed: 2026-07-21
+Authority: build/install consumer guide
 
-外部项目使用 1q 有两种方式：**直接使用预编译安装树**（零依赖）或 **通过 Conan 管理依赖**（项目标准方式）。
+本文只描述已经由仓库 install/consumer 路径验证的消费方式。构建系统契约见
+`docs/common/contract.md`；尚未验收的平台能力不得从 preset 或示例命令推断。
 
----
+## 当前支持的消费方式
 
-## 方式一：直接使用安装树（零额外依赖）
+当前已验证的方式是：在能够解析 1q 第三方依赖的同一构建环境中安装 1q，然后由下游项目通过
+`find_package(1q CONFIG REQUIRED)` 消费导出的 `1q::1q` target。CI 使用 Conan toolchain 和对应
+依赖配置完成这条 install/consumer 验证。
 
-1q 安装后，所有第三方依赖的 CMake 配置也一并部署在 `lib/cmake/1q/deps/` 目录下。下游只需指向安装路径即可，无需单独安装 Eigen3、Boost 等包。
+安装树包含：
 
-```cmake
-# 最小示例
-cmake_minimum_required(VERSION 3.16)
-project(my_app LANGUAGES CXX)
+- 1q public headers、库文件、`1qConfig.cmake`、版本文件和 exported targets；
+- 根据当前构建启用的依赖生成的 `find_dependency(...)` 声明。
 
-# 直接指向 1q 的安装路径
-find_package(1q REQUIRED CONFIG
-    PATHS "D:/path/to/1q/install/lib/cmake/1q"
-    NO_DEFAULT_PATH
-)
+这不等于“零依赖安装包”。安装树不复制第三方头文件、配置或二进制；下游须通过当前 toolchain、
+`CMAKE_PREFIX_PATH` 或等价机制提供可解析的依赖 target。最稳妥的做法是让库构建、安装和 consumer
+使用同一依赖环境。
 
-# 链接 1q（第三方依赖自动传递）
-add_executable(my_app main.cpp)
-target_link_libraries(my_app PRIVATE 1q::1q)
-```
+## 构建并安装
 
-`1qConfig.cmake` 会自动:
-
-1. 将 `deps/` 加入 `CMAKE_PREFIX_PATH`
-2. 加载 `Eigen3Config.cmake`、`BoostConfig.cmake`、`nanoflannConfig.cmake`、`flatbuffersConfig.cmake`、`ZLIBConfig.cmake`（均从安装目录解析）
-3. 定义 `1q::1q` 静态库 target，携带编译选项、头文件路径、以及传递的第三方依赖
-
-**前提**：1q 的 conan cache 在目标机器上存在（安装树中的 cmake config 指向 conan cache 中的头文件路径）。同一台机器或同一 conan 环境中构建/安装/使用均无问题。
-
-**生产/开发环境典型流程**：
+以下示例使用仓库当前验证的 Release preset：
 
 ```bash
-# 1. 构建并安装 1q（生产机器上仅需执行一次）
-scripts/bootstrap_conan.sh VisualStudio.14.0-amd64
-cmake --preset VisualStudio.14.0-amd64
-cmake --build --preset VisualStudio.14.0-amd64-release
-cmake --install build/VisualStudio.14.0-amd64 --config Release
-
-# 2. 下游项目使用（指向安装路径即可）
-cmake -S . -B build -D1q_DIR="D:/path/to/install/lib/cmake/1q"
-cmake --build build
+bash scripts/bootstrap_conan.sh llvm-ninja-release-local
+cmake --preset llvm-ninja-release-local -D ENABLE_INSTALL=ON
+cmake --build --preset llvm-ninja-release-local -j 4
+cmake --install build/llvm-ninja-release-local
 ```
 
----
+实际安装前缀由 preset 的 `CMAKE_INSTALL_PREFIX` 决定。CI 的精确 install/consumer 命令以
+`.github/workflows/ci.yml` 为准。
 
-## 方式二：通过 Conan 管理依赖（推荐，macOS/CI 标准做法）
-
-外部项目自身也通过 Conan 管理依赖，和 1q 使用相同的 conan profile。1q 的第三方依赖链由 Conan 统一协调。
-
-```python
-# conanfile.py（下游项目）
-from conan import ConanFile
-
-class MyAppConan(ConanFile):
-    settings = "os", "compiler", "build_type", "arch"
-    requires = "1q/0.1"
-
-    def generate(self):
-        tc = CMakeToolchain(self)
-        tc.generate()
-        deps = CMakeDeps(self)
-        deps.generate()
-```
+## 下游 CMake
 
 ```cmake
-# CMakeLists.txt（下游项目）
 cmake_minimum_required(VERSION 3.16)
 project(my_app LANGUAGES CXX)
 
-# Conan 已在 CMakePresets.json / CMakeUserPresets.json 中设置好 toolchain
-# 或直接用：
-find_package(1q REQUIRED)
+find_package(1q REQUIRED CONFIG)
 
 add_executable(my_app main.cpp)
 target_link_libraries(my_app PRIVATE 1q::1q)
 ```
 
+配置下游时必须同时提供 1q 安装前缀和可解析第三方依赖的环境。例如在同一 Conan 构建环境中：
+
 ```bash
-# 下游构建步骤
-conan install . --output-folder=build --build=missing
-cmake --preset conan-default
-cmake --build build
+cmake -S . -B build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_TOOLCHAIN_FILE=/path/to/conan_toolchain.cmake \
+  -DCMAKE_PREFIX_PATH=/path/to/1q/install
+cmake --build build -j 4
 ```
 
----
+调用方只链接 `1q::1q`，无需手工枚举 1q 自身的 include 目录或猜测库文件名；第三方 target 是否可解析
+仍是 consumer 配置环境的责任。
 
-## 1q::1q target 属性
+## Conan 边界
 
-安装后检查 `1q::1q` 的关键属性：
+仓库根 `conanfile.py` 当前是本项目的依赖 bootstrap recipe：它声明第三方 requirements，并生成
+CMake toolchain/dependency 文件。它没有 `build()`、`package()` 或 `package_info()`，因此当前不提供
+可由下游直接写成 `requires = "1q/0.1"` 的 1q Conan package。
 
-| 属性 | 值 |
+在正式增加 Conan package/export 和独立 consumer 验证之前，不得把 `1q/0.1` 依赖写法作为受支持
+消费方式。Conan 目前只负责构建环境中的第三方依赖解析。
+
+## 导出 target 的实际属性
+
+| 属性 | 当前规则 |
 |---|---|
-| 类型 | `STATIC_LIBRARY` |
-| 包含目录 | `${INSTALL_PREFIX}/include`（1q public headers） |
-| 编译定义 | `ONEQ_STATIC_DEFINE` |
-| 编译特性 | `cxx_std_14` |
-| 传递链接（`LINK_ONLY`） | `Eigen3::Eigen`、`Boost::boost`、`nanoflann::nanoflann`、`flatbuffers::flatbuffers`、`ZLIB::ZLIB` |
+| Target | `1q::1q` |
+| 库类型 | 跟随 `BUILD_SHARED_LIBS`；项目默认 ON，本地/CI presets 当前覆盖为 OFF |
+| Public include | `${INSTALL_PREFIX}/include` |
+| C++ 标准 | 项目默认 C++17；允许调用方显式设置不低于 C++11 的值 |
+| 静态定义 | 仅静态构建公开 `ONEQ_STATIC_DEFINE` |
+| 依赖 | 由 exported target 与 `1qConfig.cmake` 的 `find_dependency` 共同解析 |
 
-第三方库以 `$<LINK_ONLY:...>` 传递，链接时已编入 `1q.lib`，下游无需关心链接顺序。
+不得把某个 preset 的静态构建选择写成项目全局默认，也不得把最低兼容探针误写成默认语言标准。
 
----
+## 主要构建选项
 
-## 可选模块
+| 选项 | 项目默认值 | 含义 |
+|---|---:|---|
+| `BUILD_SHARED_LIBS` | ON | 选择 shared/static 主库；常用 presets 当前设为 OFF |
+| `ENABLE_TESTING` | OFF | 注册测试目标与 CTest |
+| `ENABLE_EXAMPLES` | OFF | 构建第一方示例和 batch validation |
+| `ENABLE_INSTALL` | OFF | 启用安装与 package-config 规则 |
+| `ONEQ_ENABLE_FLIGHT_DYNAMIC` | OFF | 构建 flight_dynamic 模块及其专属测试/示例 |
 
-构建 1q 时可通过 CMake 选项控制功能范围，影响下游的使用前提：
+选项的最终值以所选 preset 与 configure 命令覆盖后的 CMake cache 为准。
 
-| 选项 | 默认值 | 说明 | 下游影响 |
-|---|---|---|---|
-| `ENABLE_TESTING` | OFF | 单元测试 | 下游无需关心 |
-| `ENABLE_EXAMPLES` | OFF | 示例程序 | 下游无需关心 |
-| `ONEQ_ENABLE_FLIGHT_DYNAMIC` | OFF | 机动飞行模块 | 关闭时 JSBSim 不编译也不导出依赖 |
-| `BUILD_SHARED_LIBS` | OFF | 共享/静态库 | 当前仅支持静态库 |
+## 支持边界
+
+- macOS Conan 路径由当前 CI 覆盖 configure、build、install 和 consumer。
+- Windows presets 与 `scripts/fetch_third_party.bat` 已存在，但尚未完成 contract 要求的真实 Windows
+  全链验收，因此不构成正式支持声明。
+- install tree 不是通用、完全自包含的二进制 SDK；跨机器分发前必须另行验证依赖闭包和运行时库。

@@ -1,7 +1,7 @@
 # 跨模块契约
 
 Status: active
-Last-reviewed: 2026-07-18
+Last-reviewed: 2026-07-21
 Authority: common contract for all modules
 
 本文合并原顶层 public API customization、session config builder、三层输出可观测性和文档治理契约。模块级文档不得与本文冲突。
@@ -103,26 +103,35 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 
 ## 内部共享命名空间
 
-`src/common/` 是库内部实现层的跨模块共享设施目录，对应命名空间必须使用
-`oneq::common::*`。这些类型和函数可被 AR / ESR / EOS / SAR / common
-内部代码复用，但不构成 `include/1q/` public API。
+`src/common/` 同时容纳两类实现，目录位置本身不决定 C++ 命名空间：
+
+- 已由 `include/1q/<domain>/` 公开的领域 API 实现使用对应 public 命名空间，例如
+  `oneq::coordinate`、`oneq::replay`、`oneq::trace`。
+- 只在库内部跨模块复用的设施使用 `oneq::common::<domain>`，不构成 public API。
 
 规则：
 
-1. `src/common/` 下的共享工具不得放在 `oneq::internal::*` 或
-   `oneq::trace::internal` 这类跨模块内部命名空间中。
-2. 不得为 `oneq::common::*` 工具新增 `oneq::internal::*` dual-alias 或
+1. `src/common/` 下的类型必须能追溯到 public 领域头或明确的 `oneq::common::<domain>` 所有权；
+   不得仅因目录名把 public-domain implementation 改入 `oneq::common`。
+2. 跨模块共享工具不得放在 `oneq::internal::*` 或
+   `oneq::trace::internal` 这类模糊内部命名空间中。
+3. 不得为 `oneq::common::*` 工具新增 `oneq::internal::*` dual-alias 或
    兼容 using 块；迁移期 alias 只能作为同一批次内的临时编译过渡，最终提交前必须删除。
-3. `namespace internal` 只可用于测试或翻译单元局部辅助语义；跨文件、跨模块消费的
+4. `namespace internal` 只可用于测试或翻译单元局部辅助语义；跨文件、跨模块消费的
    `src/common/` 设施必须有明确的 `oneq::common::<domain>` 所属域。
-4. 若某工具需要成为外部消费者合同，应通过 `include/1q/` 公开并补充 public API
+5. 若某工具需要成为外部消费者合同，应通过 `include/1q/` 公开并补充 public API
    边界测试，而不是从 `src/common/` 泄漏。
 
 ## 实现安全与失败语义
 
 下列规则源自 `src/` 架构与安全审查，是所有模块共享的规定性约束。
 
-1. **禁止 C++ 异常。** `CLAUDE.md` 已规定 "Never introduce C++ exceptions."。`src/` 与 `include/` 不得引入 `throw`、`std::runtime_error`/`std::invalid_argument` 等异常类型或 `<stdexcept>`。I/O 失败、构造失败、解析失败必须以无异常的错误状态、空 reader 或诊断字段表达（如 `ReplayTrace`/`TraceSink`/`JsbsimAdapter` 的现行做法）。该约束同时保证 `-fno-exceptions` 构建成立，并避免异常穿透构造函数导致仿真流程中途终止。
+1. **项目失败语义不得依赖 C++ 异常。** `src/` 与 `include/` 不得新增 `throw`，也不得用
+   `std::runtime_error`、`std::invalid_argument` 等异常作为项目 API 的失败通道。I/O、构造和解析失败
+   必须转换为错误状态、空 reader 或诊断字段。对 HighFive、JSBSim 等可能抛异常的第三方边界，允许在
+   最窄调用点使用既有 `try/catch`，但 catch 后必须转换为项目状态且不得让异常穿透 session/adapter
+   边界。当前构建没有全局启用 `-fno-exceptions`，因此本文不承诺该编译模式已经成立；若要建立该门禁，
+   必须先替换或隔离所有第三方异常边界并增加真实构建验证。
 
 2. **存在性标志必须与数据一致，且由校验层断言。** `has_xxx` 若表达“调用方是否提供本周期可选
    数据”，当 `has_xxx=false` 但对应数据非默认值时，输入校验必须报 error 级问题并 abort，不得让
@@ -178,7 +187,7 @@ public API 分为两类，二者都受 public boundary、install manifest 和 co
 
 ## Session composition ownership
 
-AR/EOS/ESR/SAR 的 `Session::Impl` 是 session 依赖图的所有权边界。组合根可以在装配过程中使用
+AR/EOS/ESR/SAR/SBIRS 的 `Session::Impl` 是 session 依赖图的所有权边界。组合根可以在装配过程中使用
 raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存 `std::unique_ptr<X>` 与同一对象的
 `X&` 成员。`Impl` 应只保存 owning member，并在使用点通过 accessor 或局部引用派生依赖引用。
 
@@ -196,7 +205,7 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
 
 ## 运行期配置提交策略
 
-`*RuntimeConfigPatch` 的提交（commit）与周期内失败回滚（rollback）按 pipeline 的状态空间复杂度分两类。每个 `*Session` 必须显式归属其中一类，且实际行为不得与所属类的承诺冲突。四模块当前归属固定如下——这是对已实现行为的契约化，不是行为变更要求。
+`*RuntimeConfigPatch` 的提交（commit）与周期内失败回滚（rollback）按 pipeline 的状态空间复杂度分两类。每个 `*Session` 必须显式归属其中一类，且实际行为不得与所属类的承诺冲突。五个传感器模块当前归属固定如下——这是对已实现行为的契约化，不是行为变更要求。
 
 | 类别 | 承诺 | 归属模块 |
 |---|---|---|
@@ -207,7 +216,7 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
 
 1. **归属由状态空间决定，不由风格偏好决定。** 仅当 pipeline 同时满足"有跨周期累积状态"且"commit/执行存在真实失败路径"时，才采用事务性提交。两者缺一即为立即提交。
    - `airborne_radar`：4 个子系统各有独立 runtime state，`UpdateConfig`/`UpdateExecutionConfig` 可返回 false，故需事务对齐（`ArSession.cpp:117` CommitPendingRuntimeConfig、`:185-197` capture/restore、`:167-176` 成功后才 FinalizePendingRuntimeConfig）。
-   - `electronic_surveillance_radar`：config 无累积（每 RunCycle 重新派生），`UpdateConfig` 走换 config 留 tracks（`InterceptPipeline.cpp:52-57`）；`InterceptPipelineResult` 是三通道纯数据载体，不含 pipeline 自报执行状态，因此当前无 pipeline 执行失败 abort 路径。
+   - `electronic_surveillance_radar`：config 无累积（每 RunCycle 重新派生），`UpdateConfig` 走换 config 留 tracks（`InterceptPipeline.cpp:52-57`）；`InterceptPipelineResult` 包含 observation、emitter、truth-evaluation 三个业务输出及 `sensor_powered_off` execution metadata，当前没有其它 pipeline 执行失败 commit 路径。
    - `electro_optical_sensor`：执行回滚封装在 `EosController::RunOnce`（`EosController.cpp:68-111`），不上升为 session 层事务。
    - `sar`：runtime config 立即提交，但 pipeline 持有 pulse ring、轨迹缓冲、pulse ID 与 PRF
      分数余量。`SarController::RunOnce` 在 pipeline 执行前捕获这些状态，任一执行 abort 后完整
@@ -216,7 +225,7 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
      controller 输出装配后没有可能失败的 commit 步骤，因此不激活周期回滚。pipeline 的
      capture/restore 是经 mutation 前完整校验的 internal checkpoint，用于确定性 continuation 与
      状态恢复测试，不在 session 层暴露事务语义。归属立即提交类。
-2. **所有四模块的 patch 必须经 resolver 校验**（`is_valid`/`has_requested_update`），不得盲写。`sar` 已通过 `SarRuntimeConfigResolver` 对齐该规则。
+2. **所有五个传感器模块的 patch 必须经 resolver 校验**（`is_valid`/`has_requested_update`），不得盲写。
 3. **立即提交类不得声称 session 层回滚。** 若其内部存在 capture/restore 能力（如 ESR 的累积状态快照），必须在代码 doc 注明该机制的实际边界，避免阅读者误以为 session 层提供配置回滚或已激活的执行失败回滚。
 4. **事务性提交类不得在配置边界被接受前落定配置语义状态。** 配置的"逻辑当前值"
    （如 AR 的 `runtime_state`）与"已推送到子系统的物理状态"必须在对齐点之后才一致。
@@ -292,6 +301,8 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
    仓库拥有的 shell bootstrap 从 GitHub 获取锁定版本依赖；脚本必须固定版本与提交
    标识、校验下载内容并产出 CMake 可消费的 imported targets。只有真实 Windows
    configure、build、install 和外部 consumer job 均通过后，才可宣称 project build support。
+   当前 Windows Conan/no-Conan presets 与 `fetch_third_party.bat` 只属于未验收脚手架，不改变上述
+   支持契约，也不能单独作为“已支持 Windows”的证据。
 
 ## 测试架构
 
@@ -345,10 +356,11 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
 
 每个业务模块只保留 `design.md` 作为设计权威文档。历史决策记录（旧版 `decisions.md`、`history.md`、`contract.md`）和模块入口（`README.md`）的内容已内聚到 `design.md` 中。
 
-`common/` 只允许保留两份文档：
+`common/` 只允许保留三份文档：
 
 - `contract.md` —— 公共契约（规定性：所有模块必须遵守的规则）。
 - `open_questions.md` —— 跨模块架构观察与待决项（非规定性：记录调查中发现但尚未定论的议题，不构成契约约束）。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从 open_questions.md 移除。
+- `usage.md` —— 当前已验证的构建、安装与外部消费指南；不得承诺尚未由 consumer 验证的打包方式。
 
 模块目录内不保留 `archive/`、`audits/`、`contracts/`、`design/`、`decisions/`、`workflow/`、`migration/` 等展开式历史目录。历史细节需要追溯时从 git 历史读取。
 
@@ -356,7 +368,8 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
 
 ## 模块间关系
 
-各业务模块之间的数据流向如下。`flight_dynamic` 是平台状态的生产者；所有传感器模块消费平台状态、外部目标和环境输入后独立输出。
+下图只表示外部仿真编排概念，不表示仓库内 C++ 调用或链接依赖。调用方负责把平台状态、场景和环境
+组装为各模块 public `*CycleInput`；`flight_dynamic` 可以是平台状态来源之一，也可以完全不参与。
 
 ```mermaid
 flowchart LR
@@ -372,6 +385,7 @@ flowchart LR
   end
 
   subgraph EXT["外部输入"]
+    ORCH[External orchestrator\n外部仿真编排器]
     TGT[Targets / Scene\n目标 / 场景]
     ENV[Environment\n大气 / 环境]
     IQ[External Raw IQ\n外部原始 IQ]
@@ -391,36 +405,32 @@ flowchart LR
     O2[Detection / Classification\n检测 / 分类]
     O3[Intercept / ELINT\n截获 / 情报]
     O4[SAR Image / SLC\n图像 / 复数据]
+    O5[Infrared Detection\n天基红外检测]
   end
 
   CORE -.->|共享类型| FD
   CORE -.->|共享类型| SENSORS
 
-  STATE -->|平台状态| AR
-  STATE -->|平台状态| EO
-  STATE -->|平台状态| ESR
-  STATE -->|平台状态| SAR
-  STATE -->|平台状态| SBIRS
-
-  ENV --> AR
-  ENV --> EO
-  ENV --> SBIRS
-  TGT --> AR
-  TGT --> EO
-  TGT --> SAR
-  TGT --> SBIRS
-  IQ -.->|可选的| SAR
-  EMIT --> ESR
+  STATE -.->|可选平台来源| ORCH
+  ENV --> ORCH
+  TGT --> ORCH
+  IQ -.->|可选输入| ORCH
+  EMIT --> ORCH
+  ORCH -->|ArCycleInput| AR
+  ORCH -->|EosCycleInput| EO
+  ORCH -->|EsrCycleInput| ESR
+  ORCH -->|SarCycleInput| SAR
+  ORCH -->|SbirsCycleInput| SBIRS
 
   AR --> O1
   EO --> O2
   ESR --> O3
   SAR --> O4
-  SBIRS --> O2
+  SBIRS --> O5
 ```
 
 读图规则：
-- 箭头表示数据流向，虚线表示可选路径或跨模块共享类型。
+- 箭头表示概念数据流向，虚线表示可选来源或跨模块共享类型；它们不是 include/link 关系。
 - 没有传感器模块之间的直接数据流——各传感器独立处理平台状态和外部输入。
 - `common/` 层提供坐标转换、大气物理、数值方法等跨模块共享类型，不作为独立运行时层。
-- `flight_dynamic` 是唯一的平台状态生产者；传感器模块不反向影响飞行动力学。
+- `flight_dynamic` 不被任何传感器模块直接调用；平台状态也可由其它外部仿真源提供。

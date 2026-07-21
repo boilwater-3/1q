@@ -3,7 +3,7 @@
 # Guard repository documentation shape:
 #   - docs/ has common, review, practice, and the module directories
 #   - each business module uses the single-file design.md model
-#   - common uses the approved common-document set (contract.md + open_questions.md)
+#   - common uses the approved common-document set (contract.md + open_questions.md + usage.md)
 #   - review uses draft Markdown files only, with no nested directory tree
 #   - practice holds flat active-status Markdown for engineering/infra topics
 #   - top-level loose Markdown files and legacy archive/migration folders do not reappear
@@ -11,7 +11,8 @@
 # Per docs/common/contract.md §文档结构, each business module keeps only
 # design.md as its design authority; the prior README/contract/decisions/history
 # set has been collapsed into design.md, and common keeps contract.md (public
-# contract) plus open_questions.md (non-normative cross-module open questions).
+# contract), open_questions.md (non-normative cross-module open questions), and
+# usage.md (verified build/install consumer guidance).
 # docs/review is the only approved draft/review holding area; docs/practice holds
 # active engineering-practice docs (build, test, coverage, examples, batch validation).
 
