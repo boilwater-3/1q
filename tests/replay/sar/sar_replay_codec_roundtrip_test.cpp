@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <limits>
+#include <vector>
 
 #include "1q/sar/config/SarRuntimeConfigPatch.h"
 #include "1q/sar/config/SarRuntimeConfigBuilder.h"
@@ -57,6 +58,58 @@ TEST(SarReplayCodecRoundtripTest, CycleInputPreservesPlatformAndTargets) {
   EXPECT_DOUBLE_EQ(decoded.point_targets[0].longitude_deg, target.longitude_deg);
   EXPECT_DOUBLE_EQ(decoded.point_targets[0].radar_cross_section_dbsm,
                    target.radar_cross_section_dbsm);
+}
+
+TEST(SarReplayCodecRoundtripTest, CycleInputPreservesExternalRawIqAndDualTrajectories) {
+  SarCycleInput input;
+  input.cycle_index = 8U;
+  input.raw_iq.pulse_count = 2U;
+  input.raw_iq.samples_per_pulse = 3U;
+  input.raw_iq.i_values = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+  input.raw_iq.q_values = {-1.0, -2.0, -3.0, -4.0, -5.0, -6.0};
+  for (std::uint64_t pulse_id = 10U; pulse_id < 12U; ++pulse_id) {
+    SarRawIqFrame::PulseState actual;
+    actual.pulse_id = pulse_id;
+    actual.time_s = 0.25 * static_cast<double>(pulse_id - 10U);
+    actual.position_x_m = static_cast<double>(pulse_id);
+    actual.position_y_m = -2.0 * actual.position_x_m;
+    actual.position_z_m = 1000.0;
+    actual.velocity_x_mps = 120.0;
+    actual.velocity_y_mps = 3.0;
+    actual.velocity_z_mps = -0.5;
+    input.raw_iq.pulse_states.push_back(actual);
+    SarRawIqFrame::PulseState ideal = actual;
+    ideal.position_y_m += 0.75;
+    input.raw_iq.ideal_pulse_states.push_back(ideal);
+  }
+
+  const std::string bytes = EncodeSarCycleInput(input);
+  ASSERT_FALSE(bytes.empty());
+  SarCycleInput decoded;
+  ASSERT_TRUE(DecodeSarCycleInput(bytes, &decoded));
+
+  EXPECT_EQ(decoded.raw_iq.pulse_count, input.raw_iq.pulse_count);
+  EXPECT_EQ(decoded.raw_iq.samples_per_pulse, input.raw_iq.samples_per_pulse);
+  EXPECT_EQ(decoded.raw_iq.i_values, input.raw_iq.i_values);
+  EXPECT_EQ(decoded.raw_iq.q_values, input.raw_iq.q_values);
+  ASSERT_EQ(decoded.raw_iq.pulse_states.size(), 2U);
+  ASSERT_EQ(decoded.raw_iq.ideal_pulse_states.size(), 2U);
+  EXPECT_EQ(decoded.raw_iq.pulse_states[1].pulse_id, 11U);
+  EXPECT_DOUBLE_EQ(decoded.raw_iq.pulse_states[1].position_y_m, -22.0);
+  EXPECT_DOUBLE_EQ(decoded.raw_iq.ideal_pulse_states[1].position_y_m, -21.25);
+  EXPECT_DOUBLE_EQ(decoded.raw_iq.pulse_states[0].velocity_z_mps, -0.5);
+}
+
+TEST(SarReplayCodecRoundtripTest, CycleInputDecodeFailureDoesNotModifyOutput) {
+  SarCycleInput output;
+  output.cycle_index = 77U;
+  output.raw_iq.pulse_count = 5U;
+  output.raw_iq.i_values = {123.0};
+
+  EXPECT_FALSE(DecodeSarCycleInput("not-a-flatbuffer", &output));
+  EXPECT_EQ(output.cycle_index, 77U);
+  EXPECT_EQ(output.raw_iq.pulse_count, 5U);
+  EXPECT_EQ(output.raw_iq.i_values, std::vector<double>({123.0}));
 }
 
 TEST(SarReplayCodecRoundtripTest, CycleResultPreservesOutputAndDiagnostics) {

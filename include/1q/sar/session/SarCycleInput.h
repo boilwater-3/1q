@@ -50,7 +50,7 @@ using SarPointTargetList = std::vector<SarPointTarget>;
 
 /**
  * @brief 外部提供的完整孔径行主序复数 IQ 帧。
- * @note 当前支持 L1 RDA、双轨迹 L2+RDA 和实际轨迹 BP；replay 后续单独审批。
+ * @note 当前支持 L1 RDA、双轨迹 L2+RDA、实际轨迹 BP，以及完整 trace/replay。
  *
  * 坐标系约定：`PulseState` 中的位置与速度使用 **本地直角坐标**（local Cartesian），
  * 与 `SarPlatformState` / `SarPointTarget` 的大地坐标（LLA + NED）不同。这是因为外部

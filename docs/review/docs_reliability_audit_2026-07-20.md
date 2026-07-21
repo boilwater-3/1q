@@ -38,7 +38,7 @@ Approval-State: SBIRS and ESR findings fully applied; remaining modules pending 
 | 文档 | 结论 | 已确认问题概况 | 建议处置 |
 |---|---|---:|---|
 | `docs/electronic_surveillance_radar/design.md` | 已收口 | ESR-01～06 已迁入权威设计；Q1 已修复 | Q2 迁入 open questions |
-| `docs/sar/design.md` | 需修订 | 3 P1、6 P2、若干 P3 | D + replay A；另保留 1 个 Q |
+| `docs/sar/design.md` | 已收口 | SAR-01～09 已迁入权威设计；SAR-Q1 与 raw IQ replay 已修复 | 保持 design 为唯一权威 |
 | `docs/electro_optical_sensor/design.md` | 需修订 | 3 P1、3 P2、1 P3 | D + replay A |
 | `docs/space_based_infrared_sensor/design.md` | 第一类已处理、第二类待讨论 | 7 个事实/依据项已修或复核；9 个设计-实现分歧/术语项冻结 | 本轮仅 docs/comment 修订；B 类不裁决 |
 | `docs/common/contract.md` | 需修订/需裁决 | 异常、命名空间、模块数量、文档结构和关系图漂移 | D + 规范性 A |
@@ -74,80 +74,12 @@ ESR-01～ESR-06 的稳定结论已经迁入 `docs/electronic_surveillance_radar/
 `UINT32_MAX + 1`。ESR-Q2 作为唯一未决项迁入 `docs/common/open_questions.md`，本审查稿不再保留
 ESR 的第二份规范性描述。
 
-### 4.2 Synthetic Aperture Radar
+### 4.2 Synthetic Aperture Radar（已收口）
 
-#### SAR-01（P1，D）五文件治理模型与当前 contract 自相矛盾
-
-- 文档位置：`docs/sar/design.md:265,625`。
-- live 证据：`docs/common/contract.md:346` 与
-  `tests/contract/check_sar_doc_governance.cmake:22,55` 均要求 SAR 只有一个 active `design.md`。
-- 建议：删除五文件模型，明确本文是唯一模块设计权威。
-
-#### SAR-02（P1，D）RDA phase reference 的顺序和语义错误
-
-- 文档位置：`docs/sar/design.md:127,312,435`，写成方位压缩后/global phase。
-- live 证据：`src/sar/imaging/SarRda.cpp:185` range compression 后，`:213` 应用 reference，`:220`
-  才 azimuth FFT；`SarPhaseReference.cpp:61` 是空间变化参考；真正全局常相位对齐在
-  `SarImageQuality.cpp:172`。
-- 建议：区分成像链中的 spatially varying phase reference 与质量比较中的 global constant alignment。
-
-#### SAR-03（P1，A）外部 raw IQ 不可 replay 的限制被遗漏
-
-- 文档位置：`docs/sar/design.md:13,104,191,206`，整体暗示统一 trace/replay。
-- live 证据：`include/1q/sar/session/SarCycleInput.h:51` 已写限制；
-  `SarReplayFlatbufferCodec.cpp:217` 不支持外部 raw IQ；`SarTraceSession.cpp:135` 在带 replay writer 时拒绝。
-- 建议：审批选择记录当前限制，或另开完整 schema/codec/trace/replay 扩展；本轮不修改 schema。
-
-#### SAR-04（P2，D）配置图暗示所有构造均经过 validation
-
-- 文档位置：`docs/sar/design.md:151,175`。
-- live 证据：`SarSession.h:57`、`SarSession.cpp:32` 的 `Create` 是 trusted path；
-  `CreateWithValidation` 在 `SarSession.cpp:37` 报告问题但仍构造。
-- 建议：明确 trusted create、reporting validation 和 runtime atomic reject 的边界。
-
-#### SAR-05（P2，D）composition root 与 runtime scheduling 混画
-
-- 文档位置：`docs/sar/design.md:89,105`。
-- live 证据：`SarSessionCompositionRoot.cpp:9` 只构造依赖；运行时由 `SarSession.cpp:50` 委托，
-  `SarController.cpp:68` 执行 scheduling。
-- 建议：拆分 construction view 与 cycle execution view。
-
-#### SAR-06（P2，D）public 构造边界错误
-
-- 文档位置：`docs/sar/design.md:625`，声称 private ctor + factory friend。
-- live 证据：`include/1q/sar/session/SarSession.h:27` 有 public 默认构造且无 friend。
-- 建议：按 live public API 修订。
-
-#### SAR-07（P2，D）batch 硬契约夸大
-
-- 文档位置：`docs/sar/design.md:611`。
-- live 证据：`examples/batch_validation/sar_batch_validation.cpp:489,512` 主要检查 completed stage、
-  replay 和 image-quality warning；没有直接观察 lifecycle/ring buffer 全契约。
-- 建议：只保留现有 check ids 和 warning/hard gate 分类。
-
-#### SAR-08（P2，D）“6 m passes，9 m fails”过度概括
-
-- 文档位置：`docs/sar/design.md:473,595`。
-- live 证据：`sar_second_order_motion_compensation_evidence_test.cpp:277,304` 的多目标矩阵中，
-  6 m、delay 12 已出现 NRMS 0.329653 failure；0.177/0.273 只对应 reference target。
-- 建议：写成“reference target 在 6 m 条件通过；完整矩阵在 6 m 已存在失败点”。
-
-#### SAR-09（P2/P3，D）大量 evidence 路径和计数过时
-
-- 文档位置：`:342,419,460,486,510,522,574,603` 等路径缺少当前 `/sar/` domain 目录或仅写 basename。
-- 其他事实漂移：
-  - `:45` generated path 应是 build/generated，不是 `src/sar/session/generated`。
-  - `:454` image-quality 测试数写 9，当前为 8。
-  - `:585` calibration 约 340 行，当前文件约 402 行。
-  - `:637` 不存在 `compatibility::sar` CTest；live target 为 `sar_cxx11_compat`，labels 为
-    `compatibility;sar`。
-  - `:447` single-pulse fallback 已不成立，当前 RDA 拒绝 single pulse。
-- 建议：优先用文件+测试名，避免易漂移的源码行数统计。
-
-#### SAR-Q1（Q）`kFullPipelineL3` 与 validation 共存规则
-
-- builder 会同时启用 L2+L3，但 validation 似乎拒绝二者共存。
-- 需 fresh builder→validation→step characterization 后再决定文档或代码哪一侧错误。
+SAR-01～SAR-09 的稳定结论已经迁入 `docs/sar/design.md`。外部 raw IQ 的 samples、actual/ideal
+pulse states 已进入 cycle-input FlatBuffers、codec 和 trace/replay 闭环；L3 profile 已收口为
+`kL3Backprojection`，与 runtime 互斥规则一致，不再错误启用 L2。SAR-Q1
+因此关闭。本审查稿不再保留 SAR 的第二份规范性描述。
 
 ### 4.3 Electro-Optical Sensor
 
@@ -388,9 +320,8 @@ Windows contract 或 Conan packaging 选为后续未决事项，应在是否进�
 
 ### AP-2：replay 能力缺口
 
-- [ ] **批准（推荐）**：本批先在 EOS/SAR 文档明确当前限制；分别另开 evidence-first schema/code 项。
-- [ ] 要求本批同时实现 EOS `power_on`、SAR raw IQ replay（这会显著扩大范围，需重新冻结合同）。
-- [ ] 维持原文，不记录限制（不推荐，现有证据已证明描述过宽）。
+- [x] SAR raw IQ replay 已完成 schema、codec、trace 与回放闭环，并迁入 SAR 权威设计。
+- [ ] EOS `power_on` replay 仍按 EOS 专项另行裁决。
 
 ### AP-3：全项目异常规则
 
@@ -416,9 +347,8 @@ Windows contract 或 Conan packaging 选为后续未决事项，应在是否进�
 
 ### AP-7：未确认项
 
-- [ ] **批准（推荐）**：SAR FullPipelineL3、EOS 未消费配置继续 defer；SBIRS
-  CKF/SRIF/UDKF 冻结为 B8，“融合输出”冻结为 B9，本批不新增或强化结论；CA evidence 已刷新，
-  生产接线仍维持当前拒绝，待新的 characterization 触发条件后再讨论。
+- [x] SAR 配置疑点已关闭：L3 profile 改名为 `kL3Backprojection`，且不再与 L1/L2 共存。
+- [ ] EOS 未消费配置继续 defer；其余模块未决项由各自权威设计或 open questions 管理。
 - [ ] 指定需要立即验证的 Q 项：__________。
 
 ## 9. 审批后的建议冻结范围

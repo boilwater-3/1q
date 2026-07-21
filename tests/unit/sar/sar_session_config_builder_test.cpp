@@ -6,6 +6,7 @@
 #include "1q/sar/config/SarSessionConfigBuilder.h"
 #include "1q/sar/config/SarSessionConfigValidation.h"
 #include "1q/sar/session/SarSession.h"
+#include "sar/session/SarRuntimeConfigValidation.h"
 
 namespace sar {
 namespace config {
@@ -57,16 +58,32 @@ TEST(SarSessionConfigBuilderTest, ProcessingProfileRawEchoOnly) {
   EXPECT_FALSE(config.policy.retain_focused_image);
 }
 
-TEST(SarSessionConfigBuilderTest, ProcessingProfileFullPipelineL3) {
+TEST(SarSessionConfigBuilderTest, ProcessingProfileL3Backprojection) {
   SarSessionConfigBuilder builder;
-  builder.Processing().WithProcessingProfile(SarProcessingProfile::kFullPipelineL3).End();
+  builder.Processing().WithProcessingProfile(SarProcessingProfile::kL3Backprojection).End();
   const SarSessionConfig config = builder.Build();
 
   EXPECT_TRUE(config.policy.enable_raw_echo_generation);
   EXPECT_TRUE(config.policy.enable_range_compression);
-  EXPECT_TRUE(config.policy.enable_l2_motion_compensation);
+  EXPECT_FALSE(config.policy.enable_l1_rda_imaging);
+  EXPECT_FALSE(config.policy.enable_l2_motion_compensation);
   EXPECT_TRUE(config.policy.enable_l3_bp_imaging);
   EXPECT_TRUE(config.policy.retain_focused_image);
+}
+
+TEST(SarSessionConfigBuilderTest, ProcessingProfileL3BackprojectionHasNoL1L2Conflict) {
+  SarSessionConfig baseline;
+  baseline.hardware.pulse_width_s = 0.16e-6;
+  baseline.hardware.sample_rate_hz = 100.0e6;
+  baseline.mission.range_sample_count = 64U;
+  baseline.mission.azimuth_pulse_count = 9U;
+  SarSessionConfigBuilder builder(baseline);
+  builder.Processing().WithProcessingProfile(SarProcessingProfile::kL3Backprojection).End();
+
+  session::SarCycleResult result;
+  EXPECT_TRUE(session::ValidateRuntimeConfigForStep(
+      builder.Build(), /*has_external_raw_iq=*/true, &result))
+      << result.abort_reason;
 }
 
 TEST(SarSessionConfigBuilderTest, DirectConfigOwnsSceneCenterFields) {
@@ -108,7 +125,7 @@ TEST(SarSessionConfigBuilderTest, ProcessingProfileDoesNotOwnMinimumSnr) {
   baseline.policy.minimum_snr_db = 7.25;
 
   SarSessionConfigBuilder builder(baseline);
-  builder.Processing().WithProcessingProfile(SarProcessingProfile::kFullPipelineL3).End();
+  builder.Processing().WithProcessingProfile(SarProcessingProfile::kL3Backprojection).End();
   const SarSessionConfig config = builder.Build();
 
   EXPECT_TRUE(config.policy.enable_l3_bp_imaging);

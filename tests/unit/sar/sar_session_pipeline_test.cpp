@@ -568,8 +568,18 @@ TEST(SarSessionPipelineTest, TraceSessionWithoutReplayWriterAcceptsExternalRawIq
   EXPECT_EQ(result.focused_image.source, session::SarFocusedImageSource::kL1Rda);
 }
 
-TEST(SarSessionPipelineTest, SummaryReplayCodecRejectsExternalRawIq) {
-  EXPECT_TRUE(session::EncodeSarCycleInput(MakeExternalRawIqInput()).empty());
+TEST(SarSessionPipelineTest, ReplayCodecPreservesExternalRawIq) {
+  const session::SarCycleInput input = MakeExternalRawIqInputWithDualTrajectory();
+  const std::string encoded = session::EncodeSarCycleInput(input);
+  ASSERT_FALSE(encoded.empty());
+  session::SarCycleInput decoded;
+  ASSERT_TRUE(session::DecodeSarCycleInput(encoded, &decoded));
+  EXPECT_EQ(decoded.raw_iq.pulse_count, input.raw_iq.pulse_count);
+  EXPECT_EQ(decoded.raw_iq.samples_per_pulse, input.raw_iq.samples_per_pulse);
+  EXPECT_EQ(decoded.raw_iq.i_values, input.raw_iq.i_values);
+  EXPECT_EQ(decoded.raw_iq.q_values, input.raw_iq.q_values);
+  EXPECT_EQ(decoded.raw_iq.pulse_states.size(), input.raw_iq.pulse_states.size());
+  EXPECT_EQ(decoded.raw_iq.ideal_pulse_states.size(), input.raw_iq.ideal_pulse_states.size());
 }
 
 TEST(SarSessionPipelineTest, ExternalRawIqRejectsShapeMismatchAndAdvancedPaths) {

@@ -118,6 +118,20 @@ SarCycleInput MakeReplayInput(std::uint32_t cycle_index = 1U) {
   return input;
 }
 
+SarCycleInput MakeExternalRawIqReplayInput(std::uint32_t cycle_index = 1U) {
+  SarCycleInput input;
+  input.cycle_index = cycle_index;
+  input.dt_sec = 0.1f;
+  input.raw_iq.pulse_count = 9U;
+  input.raw_iq.samples_per_pulse = 64U;
+  input.raw_iq.i_values.assign(9U * 64U, 0.0);
+  input.raw_iq.q_values.assign(9U * 64U, 0.0);
+  for (std::size_t row = 0U; row < 9U; ++row) {
+    input.raw_iq.i_values[row * 64U + 20U] = 1.0;
+  }
+  return input;
+}
+
 TEST(SarReplaySessionTest, ReplaySarTraceRoundtrip) {
   ScopedTempDir temp_dir;
   const std::string& trace_dir = temp_dir.Path();
@@ -154,6 +168,68 @@ TEST(SarReplaySessionTest, ReplaySarTraceRoundtrip) {
   EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
   EXPECT_FALSE(replay_result.playback.divergence_found);
   EXPECT_FALSE(replay_result.reached_failure_marker);
+}
+
+TEST(SarReplaySessionTest, ReplayExternalRawIqTraceRoundtrip) {
+  ScopedTempDir temp_dir;
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "sar-external-raw-iq-replay-roundtrip";
+  manifest.module = "sar";
+  manifest.scenario_id = "unit-test";
+
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(temp_dir.Path(), manifest, true));
+    SarTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+    config::SarSessionConfig config = MakeSmallRdaConfigForReplay();
+    config.policy.retain_raw_phase_history = true;
+    SarTraceSession session(config, options);
+
+    const SarCycleResult result = session.StepWithResult(MakeExternalRawIqReplayInput());
+    ASSERT_TRUE(result.executed_this_cycle) << result.abort_reason;
+    ASSERT_TRUE(result.output_frame.has_l1_image);
+    ASSERT_EQ(result.raw_phase_history.source, SarRawPhaseHistorySource::kExternalRawIq);
+    replay_writer->Flush();
+  }
+
+  const SarReplaySessionResult replay_result = ReplaySarTrace(temp_dir.Path());
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
+TEST(SarReplaySessionTest, ReplayExternalRawIqShapeFailureRoundtrip) {
+  ScopedTempDir temp_dir;
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "sar-external-raw-iq-failure-roundtrip";
+  manifest.module = "sar";
+  manifest.scenario_id = "unit-test";
+
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(temp_dir.Path(), manifest, true));
+    SarTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+    SarTraceSession session(MakeSmallRdaConfigForReplay(), options);
+    SarCycleInput malformed = MakeExternalRawIqReplayInput();
+    malformed.raw_iq.i_values.pop_back();
+
+    const SarCycleResult result = session.StepWithResult(malformed);
+    ASSERT_TRUE(result.has_error);
+    ASSERT_EQ(result.abort_reason, "external_raw_iq_shape_mismatch");
+    replay_writer->Flush();
+  }
+
+  const SarReplaySessionResult replay_result = ReplaySarTrace(temp_dir.Path());
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_TRUE(replay_result.reached_failure_marker);
+  EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
 }
 
 TEST(SarReplaySessionTest, ReplayContinuesAfterFailureMarker) {

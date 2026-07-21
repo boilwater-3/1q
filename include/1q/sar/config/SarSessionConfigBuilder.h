@@ -33,7 +33,7 @@ enum class ONEQ_API SarMissionProfile {
 enum class ONEQ_API SarProcessingProfile {
   kRawEchoOnly = 0,       /**< 仅生回波：只开 raw echo generation */
   kRangeCompressedL1,     /**< 距离压缩+L1 RDA：开 raw echo + range compression + L1 */
-  kFullPipelineL3         /**< 全流水线：开 raw echo + range compression + L2 + L3 */
+  kL3Backprojection       /**< L3 BP 路径：开 raw echo + range compression + L3 BP */
 };
 
 /**

@@ -27,11 +27,32 @@ table SarPointTarget {
   target_name: string;
 }
 
+table SarRawIqPulseState {
+  pulse_id: uint64;
+  time_s: double;
+  position_x_m: double;
+  position_y_m: double;
+  position_z_m: double;
+  velocity_x_mps: double;
+  velocity_y_mps: double;
+  velocity_z_mps: double;
+}
+
+table SarRawIqFrame {
+  pulse_count: uint32;
+  samples_per_pulse: uint32;
+  i_values: [double];
+  q_values: [double];
+  pulse_states: [SarRawIqPulseState];
+  ideal_pulse_states: [SarRawIqPulseState];
+}
+
 table SarCycleInput {
   cycle_index: uint32;
   dt_sec: float;
   platform: SarPlatformState;
   point_targets: [SarPointTarget];
+  raw_iq: SarRawIqFrame;
 }
 
 root_type SarCycleInput;

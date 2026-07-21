@@ -8,16 +8,11 @@
 #include "1q/replay/ReplayTrace.h"
 #include "1q/trace/TraceSink.h"
 #include "SarReplayFlatbufferCodec.h"
+#include "sar/session/SarRawHistoryBuilder.h"
 
 namespace sar {
 namespace session {
 namespace {
-
-bool HasExternalRawIq(const SarCycleInput& input) {
-  return input.raw_iq.pulse_count != 0U || input.raw_iq.samples_per_pulse != 0U ||
-         !input.raw_iq.i_values.empty() || !input.raw_iq.q_values.empty() ||
-         !input.raw_iq.pulse_states.empty() || !input.raw_iq.ideal_pulse_states.empty();
-}
 
 std::string BuildSarInputPayload(const SarCycleInput& input) {
   std::ostringstream os;
@@ -133,21 +128,6 @@ SarOutputFrame SarTraceSession::Step(const SarCycleInput& input) {
 }
 
 SarCycleResult SarTraceSession::StepWithResult(const SarCycleInput& input) {
-  if (impl_->replay_writer && HasExternalRawIq(input)) {
-    SarCycleResult result;
-    result.input_cycle_index = input.cycle_index;
-    result.output_frame.cycle_index = input.cycle_index;
-    result.has_error = true;
-    result.abort_reason = "external_raw_iq_replay_unsupported";
-    SarDiagnosticIssue issue;
-    issue.severity = SarDiagnosticSeverity::kError;
-    issue.code = "sar.external_raw_iq_replay_unsupported";
-    issue.message =
-        "External raw IQ cannot be recorded because the SAR replay input schema does not encode "
-        "raw IQ samples or pulse states.";
-    result.diagnostics.push_back(issue);
-    return result;
-  }
   if (impl_->replay_writer) {
     if (impl_->pending_input_written) {
       oneq::replay::ReplayTraceEvent warning;

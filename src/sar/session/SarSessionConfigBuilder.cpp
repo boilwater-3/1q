@@ -73,11 +73,11 @@ void ApplySarProcessingSemanticConfig(SarProcessingProfile profile, SarPolicyCon
       p.enable_l3_bp_imaging = false;
       p.retain_focused_image = true;
       break;
-    case SarProcessingProfile::kFullPipelineL3:
+    case SarProcessingProfile::kL3Backprojection:
       p.enable_raw_echo_generation = true;
       p.enable_range_compression = true;
       p.enable_l1_rda_imaging = false;
-      p.enable_l2_motion_compensation = true;
+      p.enable_l2_motion_compensation = false;
       p.enable_l3_bp_imaging = true;
       p.retain_focused_image = true;
       break;

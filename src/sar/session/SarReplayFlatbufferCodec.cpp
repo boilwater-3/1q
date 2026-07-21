@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "common/replay/ReplayFlatbufferCodecSupport.h"
@@ -15,12 +16,6 @@
 namespace sar {
 namespace session {
 namespace {
-
-bool HasExternalRawIq(const SarCycleInput& input) {
-  return input.raw_iq.pulse_count != 0U || input.raw_iq.samples_per_pulse != 0U ||
-         !input.raw_iq.i_values.empty() || !input.raw_iq.q_values.empty() ||
-         !input.raw_iq.pulse_states.empty() || !input.raw_iq.ideal_pulse_states.empty();
-}
 
 flatbuffers::Offset<replay::SarPlatformState> BuildPlatformState(
     flatbuffers::FlatBufferBuilder& fbb, const SarPlatformState& value) {
@@ -46,6 +41,75 @@ SarPlatformState FromFbPlatformState(const replay::SarPlatformState* fb) {
   out.pitch_deg = fb->pitch_deg();
   out.yaw_deg = fb->yaw_deg();
   return out;
+}
+
+flatbuffers::Offset<replay::SarRawIqPulseState> BuildRawIqPulseState(
+    flatbuffers::FlatBufferBuilder& fbb, const SarRawIqFrame::PulseState& value) {
+  return replay::CreateSarRawIqPulseState(
+      fbb, value.pulse_id, value.time_s, value.position_x_m, value.position_y_m,
+      value.position_z_m, value.velocity_x_mps, value.velocity_y_mps, value.velocity_z_mps);
+}
+
+SarRawIqFrame::PulseState FromFbRawIqPulseState(const replay::SarRawIqPulseState* fb) {
+  SarRawIqFrame::PulseState out;
+  if (!fb) {
+    return out;
+  }
+  out.pulse_id = fb->pulse_id();
+  out.time_s = fb->time_s();
+  out.position_x_m = fb->position_x_m();
+  out.position_y_m = fb->position_y_m();
+  out.position_z_m = fb->position_z_m();
+  out.velocity_x_mps = fb->velocity_x_mps();
+  out.velocity_y_mps = fb->velocity_y_mps();
+  out.velocity_z_mps = fb->velocity_z_mps();
+  return out;
+}
+
+flatbuffers::Offset<replay::SarRawIqFrame> BuildRawIqFrame(
+    flatbuffers::FlatBufferBuilder& fbb, const SarRawIqFrame& value) {
+  std::vector<flatbuffers::Offset<replay::SarRawIqPulseState>> pulse_states;
+  pulse_states.reserve(value.pulse_states.size());
+  for (const SarRawIqFrame::PulseState& pulse : value.pulse_states) {
+    pulse_states.push_back(BuildRawIqPulseState(fbb, pulse));
+  }
+  std::vector<flatbuffers::Offset<replay::SarRawIqPulseState>> ideal_pulse_states;
+  ideal_pulse_states.reserve(value.ideal_pulse_states.size());
+  for (const SarRawIqFrame::PulseState& pulse : value.ideal_pulse_states) {
+    ideal_pulse_states.push_back(BuildRawIqPulseState(fbb, pulse));
+  }
+  return replay::CreateSarRawIqFrame(
+      fbb, value.pulse_count, value.samples_per_pulse, fbb.CreateVector(value.i_values),
+      fbb.CreateVector(value.q_values), fbb.CreateVector(pulse_states),
+      fbb.CreateVector(ideal_pulse_states));
+}
+
+bool FromFbRawIqFrame(const replay::SarRawIqFrame* fb, SarRawIqFrame* out) {
+  if (!fb || !out || !fb->i_values() || !fb->q_values() || !fb->pulse_states() ||
+      !fb->ideal_pulse_states()) {
+    return false;
+  }
+  SarRawIqFrame decoded;
+  decoded.pulse_count = fb->pulse_count();
+  decoded.samples_per_pulse = fb->samples_per_pulse();
+  decoded.i_values.assign(fb->i_values()->begin(), fb->i_values()->end());
+  decoded.q_values.assign(fb->q_values()->begin(), fb->q_values()->end());
+  decoded.pulse_states.reserve(fb->pulse_states()->size());
+  for (const replay::SarRawIqPulseState* pulse : *fb->pulse_states()) {
+    if (!pulse) {
+      return false;
+    }
+    decoded.pulse_states.push_back(FromFbRawIqPulseState(pulse));
+  }
+  decoded.ideal_pulse_states.reserve(fb->ideal_pulse_states()->size());
+  for (const replay::SarRawIqPulseState* pulse : *fb->ideal_pulse_states()) {
+    if (!pulse) {
+      return false;
+    }
+    decoded.ideal_pulse_states.push_back(FromFbRawIqPulseState(pulse));
+  }
+  *out = std::move(decoded);
+  return true;
 }
 
 flatbuffers::Offset<replay::SarOutputFrame> BuildOutputFrame(flatbuffers::FlatBufferBuilder& fbb,
@@ -215,9 +279,6 @@ void FromFbEnvironmentConfig(const replay::SarEnvironmentConfig* fb,
 }  // namespace
 
 std::string EncodeSarCycleInput(const SarCycleInput& value) {
-  if (HasExternalRawIq(value)) {
-    return std::string{};
-  }
   flatbuffers::FlatBufferBuilder fbb(512);
   std::vector<flatbuffers::Offset<replay::SarPointTarget>> target_offsets;
   target_offsets.reserve(value.point_targets.size());
@@ -228,7 +289,9 @@ std::string EncodeSarCycleInput(const SarCycleInput& value) {
   }
   const auto platform = BuildPlatformState(fbb, value.platform);
   const auto targets = fbb.CreateVector(target_offsets);
-  fbb.Finish(replay::CreateSarCycleInput(fbb, value.cycle_index, value.dt_sec, platform, targets));
+  const auto raw_iq = BuildRawIqFrame(fbb, value.raw_iq);
+  fbb.Finish(
+      replay::CreateSarCycleInput(fbb, value.cycle_index, value.dt_sec, platform, targets, raw_iq));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -241,23 +304,31 @@ bool DecodeSarCycleInput(const std::string& bytes, SarCycleInput* out) {
     return false;
   }
   const auto* fb = flatbuffers::GetRoot<replay::SarCycleInput>(bytes.data());
-  out->cycle_index = fb->cycle_index();
-  out->dt_sec = fb->dt_sec();
-  out->platform = FromFbPlatformState(fb->platform());
-  out->point_targets.clear();
-  out->raw_iq = SarRawIqFrame{};
+  SarCycleInput decoded;
+  decoded.cycle_index = fb->cycle_index();
+  decoded.dt_sec = fb->dt_sec();
+  decoded.platform = FromFbPlatformState(fb->platform());
   if (fb->point_targets()) {
+    decoded.point_targets.reserve(fb->point_targets()->size());
     for (const auto* target : *fb->point_targets()) {
-      SarPointTarget decoded;
-      decoded.target_id = target->target_id();
-      decoded.target_name = target->target_name() ? target->target_name()->str() : std::string();
-      decoded.latitude_deg = target->latitude_deg();
-      decoded.longitude_deg = target->longitude_deg();
-      decoded.altitude_m = target->altitude_m();
-      decoded.radar_cross_section_dbsm = target->radar_cross_section_dbsm();
-      out->point_targets.push_back(decoded);
+      if (!target) {
+        return false;
+      }
+      SarPointTarget decoded_target;
+      decoded_target.target_id = target->target_id();
+      decoded_target.target_name =
+          target->target_name() ? target->target_name()->str() : std::string();
+      decoded_target.latitude_deg = target->latitude_deg();
+      decoded_target.longitude_deg = target->longitude_deg();
+      decoded_target.altitude_m = target->altitude_m();
+      decoded_target.radar_cross_section_dbsm = target->radar_cross_section_dbsm();
+      decoded.point_targets.push_back(decoded_target);
     }
   }
+  if (!FromFbRawIqFrame(fb->raw_iq(), &decoded.raw_iq)) {
+    return false;
+  }
+  *out = std::move(decoded);
   return true;
 }
 

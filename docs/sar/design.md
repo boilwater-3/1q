@@ -1,7 +1,7 @@
 # SAR 当前设计
 
 Status: active
-Last-reviewed: 2026-07-18
+Last-reviewed: 2026-07-21
 Authority: current SAR module design
 
 本文是 SAR 模块当前设计权威。它只描述当前 main 中仍成立的架构、数据流和算法边界；历史验收日志、旧合同、旧审计和被删除的 archive 原文不覆盖本文。
@@ -42,7 +42,7 @@ SAR 模块负责合成孔径雷达的回波仿真、完整孔径 raw IQ 消费�
 | `imaging/` | RDA、BP/GBP、MoCo、phase reference、quality、Omega-K、Spotlight、ScanSAR、Multilook、PGA/CSA evidence |
 | `calibration/` | 辐射定标后处理 |
 | `session/` | `SarSession`（对外门面，只委托 controller）、`SarSessionCompositionRoot`（统一装配 pipeline 与 controller）、输入校验、focused image assembler、trace/replay |
-| `session/generated/` | FlatBuffers replay/trace 生成头 |
+| 构建树 `generated/sar/session/generated/` | 由 schema 在构建期生成的 FlatBuffers replay/trace 头；不属于 `src/sar/` 源码树 |
 | `output/` | Binary / sidecar / HDF5 条件输出 |
 | `smoke/` | 编译/链接烟雾测试 |
 
@@ -87,9 +87,9 @@ flowchart TB
   Input --> Sess
   Tools -. "wrap or consume\n包装或消费" .-> Sess
   Sess --> Controller
-  Sess --> Composition
-  Composition --> Controller
-  Composition --> ProcPipe
+  Config -. "creation input\n构造输入" .-> Composition
+  Composition -. "construct / own\n只负责装配与所有权" .-> Controller
+  Composition -. "construct / own\n只负责装配与所有权" .-> ProcPipe
   Controller --> ProcPipe
   ProcPipe --> Signal
   ProcPipe --> Geometry
@@ -102,7 +102,8 @@ flowchart TB
 
 - 新调用方从 `sar.hpp`、`SarSessionConfig`、`SarCycleInput` 和 `SarSession` 开始。
 - 需要记录或回放时，再单独包含 trace/replay 头。
-- `src/sar/session` 是 public API 和算法部件之间的唯一编排层。
+- `SarSessionCompositionRoot` 只在创建阶段装配并转移 Pipeline/Controller 所有权；它不参与周期调度。
+- 周期执行由 `SarSession` 委托 `SarController`，再由 Controller 调度 Pipeline。
 - `src/sar/imaging` 等目录可以被内部测试直接覆盖，但不构成 public customization surface。
 
 ### 1.4 执行时序图
@@ -124,7 +125,7 @@ sequenceDiagram
   else valid input 输入有效
     Controller->>Pipeline: RunCycle 构造 raw history 并成像
     alt L1 RDA path (broadside stripmap)
-      Pipeline->>Pipeline: Range compression / Azimuth FFT / RCMC / 方位压缩 / 相位重参考
+      Pipeline->>Pipeline: Range compression / 空间变化相位参考 / Azimuth FFT / RCMC / 方位匹配滤波与 IFFT
     else L3 BP path (turning / small scene)
       Pipeline->>Pipeline: Grid generation / Backprojection traversal
     end
@@ -149,7 +150,7 @@ flowchart LR
   end
 
   subgraph Gate["边界校验 Gate"]
-    ConfigCheck["ValidateSarSessionConfig\n初始化配置校验"]
+    ConfigCheck["ValidateSarSessionConfig\n显式、报告式初始化校验"]
     StepCheck["SarInputValidation\n单周期输入校验"]
     PolicyCheck["Runtime policy validation\n运行期策略校验"]
   end
@@ -172,10 +173,10 @@ flowchart LR
     Observability["Trace / Replay / Debug view\n可观测性工具"]
   end
 
-  Config --> ConfigCheck
+  Config -. "CreateWithValidation only\n仅校验入口" .-> ConfigCheck
+  Config --> Waveform
   Patch --> PolicyCheck
   Cycle --> StepCheck
-  ConfigCheck --> Waveform
   StepCheck --> RawHistory
   PolicyCheck --> RawHistory
   Waveform --> RawHistory
@@ -190,6 +191,11 @@ flowchart LR
   Frame --> Result
   Result --> Observability
 ```
+
+`SarSession()` 与 `SarSession::Create(config)` 是信任构造路径，不隐式调用初始化校验。
+`CreateWithValidation(config, issues)` 会报告 `ValidateSarSessionConfig` 的问题，但仍然构造会话；真正阻断
+执行的是每周期输入/运行配置 gate。runtime patch 则由 resolver 先生成候选配置并整体校验，失败时不替换
+当前配置。
 
 `raw_history` 本身有两种来源。下面这张图只解释孔径数据如何进入统一成像入口：
 
@@ -262,7 +268,9 @@ SAR 遵守 `docs/common/contract.md`：
 - SAR runtime config 属于立即提交；`SarController` 在每次 pipeline 执行前捕获 raw pulse、
   trajectory、pulse ID 和 PRF 分数余量，执行 abort 时恢复这些跨周期状态并按需复用上一有效
   输出。配置不随执行失败回滚，执行状态也不得被失败周期污染。
-- historical/raw evidence 不常驻 `docs/sar/`；当前事实只由五文件模型承载。
+- historical/raw evidence 不常驻 `docs/sar/`；当前事实只由本 `design.md` 承载。
+- `SarProcessingProfile::kL3Backprojection` 只启用 raw echo、距离压缩和 L3 BP，并保持 L1/L2 关闭；L3
+  仍须满足有效 waypoint（或外部 IQ 实际轨迹）和 128×128 尺寸门。
 
 ### 1.8 Environment 几何、传播与地表背景契约
 
@@ -309,7 +317,7 @@ L3 航路点使用同一转换：
 | First-order MoCo | `ApplyFirstOrderMotionCompensation` | L2 扰动轨迹补偿 | 受 policy 控制 |
 | BP/GBP | `FocusSmallSceneBp` / `FocusSmallSceneGbp` | L3 转弯/小场景参考成像 | 受 policy 和尺寸门控制 |
 | Image quality | `EvaluateImageQuality` | 峰值、3dB 宽度、熵、对比度等摘要 | 输出摘要 |
-| Phase reference | `ApplyBroadsideCenterPhaseReference` | RDA 全局相位重参考 | RDA 内部使用 |
+| Phase reference | `ApplyBroadsideCenterPhaseReference` | RDA 在方位 FFT 前施加随慢时间与距离单元变化的 broadside-center 参考 | RDA 内部使用 |
 | Omega-K | `FocusStripmapOmegaK` 及部件链 | 聚束/宽波束友好聚焦路径和证据链 | internal/受控 |
 | Spotlight / ScanSAR | `FocusSpotlightOmegaK` / `FocusScanSarOmegaK` | 模式编排路径 | internal/受控 |
 | Multilook | `ApplyMultilook` | 聚焦后图像域非相干多视 | internal/受控 |
@@ -339,16 +347,17 @@ SAR session 每周期先由 hardware config 生成 LFM waveform：
 
 验证入口：
 
-- `tests/unit/sar_signal_chain_test.cpp`
-- `tests/unit/sar_fft_backend_test.cpp`
-- `tests/unit/sar_rda_test.cpp`
+- `tests/unit/sar/sar_signal_chain_test.cpp`
+- `tests/unit/sar/sar_fft_backend_test.cpp`
+- `tests/unit/sar/sar_rda_test.cpp`
 
 ### 2.3 Raw history 构造
 
 SAR 支持两条 raw history 来源：
 
 1. 内部生成：由平台状态、点目标、L1/L2/L3 轨迹和 LFM 波形生成 raw echo，并通过 `PulseRingBuffer` 组成 aperture。
-2. 外部 raw IQ：调用方提供完整孔径 IQ 样本和 pulse state，session 只校验与转换轨迹，不重新生成 echo。
+2. 外部 raw IQ：调用方提供完整孔径 IQ 样本；L1 可不带轨迹，L2 需要 actual/ideal 双轨迹，L3 需要
+   actual 轨迹。session 只校验输入并消费已是 scene-center-relative ENU 的轨迹，不重新生成 echo。
 
 内部生成路径的接收链按单站雷达方程处理：`peak_power_w`、双程天线增益、波长与
 `system_loss_db` 决定回波幅度，随后按 `k * 290 K * bandwidth * noise factor` 叠加确定性复高斯
@@ -361,11 +370,21 @@ external raw IQ 已位于接收机之后，session 不得再次施加上述链�
 信号/噪声分量元数据，因此该路径将 `estimated_snr_db` 标为不可估计（`-inf`），记录
 `sar.external_raw_iq_snr_unavailable`，并跳过 `minimum_snr_db` 门控；不得以峰均功率比冒充 SNR。
 
+cycle-input replay schema 完整保存 pulse/sample 维度、行主序 I/Q、actual pulse states 和 ideal pulse
+states。TraceSession 记录外部 raw IQ 后照常执行；ReplaySession 解码同一输入并比较完整
+`SarCycleResult`。codec 先在临时对象中完成整份输入解码，成功后才替换调用方输出。raw IQ 的物理/shape
+合法性仍由正常 input/pipeline gate 判断，因此一个将被 live 执行拒绝的输入也能被原样记录，并在 replay
+中重现同一失败，而不是被 codec 改写。
+
 [evidence: tests/unit/sar/sar_session_pipeline_test.cpp::HardwareLinkBudgetControlsInternalRawEchoSnr]
 [evidence: tests/unit/sar/sar_session_pipeline_test.cpp::AtmosphericAttenuationAppliesTwoWayLossToInternalEcho]
 [evidence: tests/unit/sar/sar_session_pipeline_test.cpp::SurfaceSigma0ControlsDistributedInternalBackground]
 [evidence: tests/unit/sar/sar_session_pipeline_test.cpp::MinValidSnrRejectsApertureBelowThreshold]
 [evidence: tests/unit/sar/sar_session_pipeline_test.cpp::ExternalRawIqDoesNotReapplyHardwareOrSnrGate]
+[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::CycleInputPreservesExternalRawIqAndDualTrajectories]
+[evidence: tests/replay/sar/sar_replay_codec_roundtrip_test.cpp::CycleInputDecodeFailureDoesNotModifyOutput]
+[evidence: tests/replay/sar/sar_replay_session_test.cpp::ReplayExternalRawIqTraceRoundtrip]
+[evidence: tests/replay/sar/sar_replay_session_test.cpp::ReplayExternalRawIqShapeFailureRoundtrip]
 
 `retain_raw_phase_history` 控制结构化 `SarCycleResult` 是否返回本次**实际用于成像**的完整孔径：
 
@@ -416,10 +435,10 @@ cycle-result schema 完整保存 source、row/column、placeholder 与行主序 
 
 验证入口：
 
-- `tests/unit/sar_cycle_input_adapter_test.cpp`
-- `tests/unit/sar_external_input_adapter_test.cpp`
-- `tests/unit/sar_input_validation_test.cpp`
-- `tests/unit/sar_raw_history_external_iq_predicate_test.cpp`
+- `tests/unit/sar/sar_cycle_input_adapter_test.cpp`
+- `tests/unit/sar/sar_external_input_adapter_test.cpp`
+- `tests/unit/sar/sar_input_validation_test.cpp`
+- `tests/unit/sar/sar_raw_history_external_iq_predicate_test.cpp`
 
 ### 2.4 RDA 聚焦
 
@@ -435,32 +454,37 @@ RDA 是当前 L1 broadside stripmap 的基础聚焦路径。session 中 `Execute
 处理步骤概念上包括：
 
 1. 距离压缩。
-2. 方位向频域处理。
-3. RCMC。
-4. 方位压缩。
-5. broadside center phase reference。
+2. 在距离压缩矩阵上施加 broadside-center phase reference；该旋转随慢时间行与距离单元变化。
+3. 方位 FFT。
+4. RCMC。
+5. 方位匹配滤波和 IFFT。
 6. image quality diagnostics。
+
+这里的 phase reference 是生产成像链的一部分，不是全图常数旋转。只有
+`CompareImagesWithGlobalPhaseReference` 在测试/质量比较中估计并消除单个全局常相位，用于比较归一化后的
+图像形状；它不会回写生产图像，也不能掩盖空间变化相位误差。
 
 设计限制：
 
-- 当前 RDA 是 broadside 基础路径，不把所有 squint/spotlight/turning 场景都硬塞进 RDA。\
-  [evidence: `sar_rda_test.cpp` — RDA zero-squint 实现，单脉冲 Fallback 等 11 个用例覆盖率定语义]
+- 当前 RDA 是 broadside 基础路径，不把所有 squint/spotlight/turning 场景都硬塞进 RDA；单脉冲孔径
+  明确拒绝，不存在 fallback。\
+  [evidence: `tests/unit/sar/sar_rda_test.cpp::RejectsSinglePulseImagingAperture`]
 - `max_allowed_squint_angle_deg` 是启用成像路径的执行门，必须有限且位于 `[0°, 90°)`。squint 由实际
   速度方向与指向场景中心 LOS 相对零多普勒 broadside 的夹角计算；存在完整实际脉冲轨迹时取孔径内
   最大绝对值，否则使用当前平台状态。超限以 `squint_angle_exceeds_limit` 中止，不自动切换到其它算法；
   raw-echo-only 模式不执行该成像门。
-  [evidence: `sar_session_pipeline_test.cpp` — broadside、临界值、超限和 raw-only 对照]
+  [evidence: `tests/unit/sar/sar_session_pipeline_test.cpp` — broadside、临界值、超限和 raw-only 对照]
 - RDA 误差用相位曲率、Doppler margin、3dB 宽度、entropy、contrast 等诊断解释，不通过放宽阈值掩盖。\
-  [evidence: `sar_image_quality_test.cpp` — 9 个用例覆盖 entropy/contrast/PSLR/ISLR/3dB width;\
-   `sar_rda_test.cpp:DiagnosticsPreserveEquivalentAzimuthSpacingAndPhaseCurvature` — 相位曲率与 Doppler Nyquist margin 诊断]
+  [evidence: `tests/unit/sar/sar_image_quality_test.cpp` — 8 个用例覆盖 entropy/contrast/PSLR/ISLR/3dB width 与全局相位比较边界;\
+   `tests/unit/sar/sar_rda_test.cpp::DiagnosticsPreserveEquivalentAzimuthSpacingAndPhaseCurvature` — 相位曲率与 Doppler Nyquist margin 诊断]
 - RDA focused image 是否完整保留由 `retain_focused_image` policy 控制；关闭时只输出占位元数据。
 
 验证入口：
 
-- `tests/unit/sar_rda_test.cpp`
-- `tests/unit/sar_phase_reference_test.cpp`
-- `tests/unit/sar_image_quality_test.cpp`
-- `tests/unit/sar_reference_scenario_matrix_test.cpp`
+- `tests/unit/sar/sar_rda_test.cpp`
+- `tests/unit/sar/sar_phase_reference_test.cpp`
+- `tests/unit/sar/sar_image_quality_test.cpp`
+- `tests/unit/sar/sar_reference_scenario_matrix_test.cpp`
 
 ### 2.5 一阶运动补偿
 
@@ -470,22 +494,24 @@ L2 MoCo 在 RDA 前对 raw history 施加一阶运动补偿：
 - 输出：补偿后的 raw history。
 - 诊断：最大/RMS range error、envelope shift bins。
 
-补偿参考点由 nominal slant range 给出。该算法解决直线轨迹扰动下的一部分相位误差，不授权二阶补偿或自动算法选择。\
-[evidence: `sar_second_order_motion_compensation_evidence_test.cpp:PhaseAFailureEvidenceMatrix` — NRMS<0.25 且 Coherence>0.97 门限; 6m 偏移通过, 9m 起失效; DO_NOT_TRIGGER_PHASE_B;\
- `sar_l2_l3_fidelity_matrix_test.cpp` — L2/L3 一阶适用性矩阵]
+补偿参考点由 nominal slant range 给出。该算法解决直线轨迹扰动下的一部分相位误差，不授权二阶补偿或自动算法选择。门限是 `NRMS < 0.25` 且 `coherence > 0.97`；结果必须按“横向偏移 × 目标距离单元”矩阵解释，不能只用参考目标概括整个偏移档位。6 m 时参考目标
+`delay=20` 的 NRMS 为 0.176959、通过，但同一 6 m 档位的 `delay=12` 已为 0.329653、失败；9 m
+参考目标为 0.272569、失败。\
+[evidence: `tests/unit/sar/sar_second_order_motion_compensation_evidence_test.cpp::PhaseAFailureEvidenceMatrix`;\
+ `tests/unit/sar/sar_l2_l3_fidelity_matrix_test.cpp` — L2/L3 一阶适用性矩阵]
 
 限制：
 
 - ideal/actual 轨迹长度必须等于 raw history 行数。
 - 对强转弯场景，失效根因通常是 RDA 轨迹假设，不应简单归因为二阶残余相位。\
-  [evidence: `sar_second_order_motion_compensation_evidence_test.cpp:PhaseAFailureEvidenceMatrix` — 参考点(二阶残余恒为零)从 9m 起已失效, 排除了"残余相位是主因"假设;\
+  [evidence: `tests/unit/sar/sar_second_order_motion_compensation_evidence_test.cpp::PhaseAFailureEvidenceMatrix` — 参考点(二阶残余恒为零)从 9m 起已失效, 排除了"残余相位是主因"假设;\
    同文件 `SecondOrderPhaseIsZeroWhenTargetEqualsReference` — 不变量验证参考点二阶相位严格为零]
 
 验证入口：
 
-- `tests/unit/sar_motion_compensation_test.cpp`
-- `tests/unit/sar_l2_l3_fidelity_matrix_test.cpp`
-- `tests/unit/sar_second_order_motion_compensation_evidence_test.cpp`
+- `tests/unit/sar/sar_motion_compensation_test.cpp`
+- `tests/unit/sar/sar_l2_l3_fidelity_matrix_test.cpp`
+- `tests/unit/sar/sar_second_order_motion_compensation_evidence_test.cpp`
 
 ### 2.6 BP/GBP 小场景聚焦
 
@@ -500,16 +526,16 @@ BP 的价值是用实际逐脉冲几何承接 L3 航路点/转弯小场景，而
 限制：
 
 - 受尺寸门约束，不作为无限规模生产聚焦器。\
-  [evidence: `sar_gbp_test.cpp:RejectsSceneBeyondApproved128SquareGate` — kMaxApprovedDimension=128, azimuth+range pixel count 超 128 被拒绝;\
-   `sar_rda_test.cpp` — RDA size gate: 1024×1024]
+  [evidence: `tests/unit/sar/sar_gbp_test.cpp::RejectsSceneBeyondApproved128SquareGate` — kMaxApprovedDimension=128, azimuth+range pixel count 超 128 被拒绝;\
+   `tests/unit/sar/sar_rda_test.cpp` — RDA size gate: 1024×1024]
 - 不默认引入并行、GPU 或快速 BP。
 - BP quality summary 只输出当前可稳定承诺的摘要；米制分辨率有效性与 RDA 不完全相同。
 
 验证入口：
 
-- `tests/unit/sar_gbp_test.cpp`
-- `tests/unit/sar_l2_l3_fidelity_matrix_test.cpp`
-- `tests/unit/sar_session_pipeline_test.cpp`
+- `tests/unit/sar/sar_gbp_test.cpp`
+- `tests/unit/sar/sar_l2_l3_fidelity_matrix_test.cpp`
+- `tests/unit/sar/sar_session_pipeline_test.cpp`
 
 ### 2.7 Omega-K、Spotlight 与 ScanSAR
 
@@ -518,8 +544,8 @@ Omega-K 部件链包括 spectrum front-end、Stolt geometry/interpolation、comm
 设计判断：
 
 - Omega-K 更适合聚束和宽波束类的后续受控路径，优先于重新扩展完整 CSA。\
-  [evidence: `sar_csa_complete_focusing_evidence_test.cpp:RdaBroadsideApproximationDegradationMatrix` — 所有孔径 |alpha| max<0.018, RDA worst NRMS=1.38; Omega-K 全覆盖; DO_NOT_TRIGGER_PHASE_B;\
-   `tests/unit/sar_omega_k_*_test.cpp` — 12+ 测试覆盖 Omega-K 各部件链]
+  [evidence: `tests/unit/sar/sar_csa_complete_focusing_evidence_test.cpp::RdaBroadsideApproximationDegradationMatrix` — 所有孔径 |alpha| max<0.018, RDA worst NRMS=1.38; Omega-K 全覆盖; DO_NOT_TRIGGER_PHASE_B;\
+   `tests/unit/sar/sar_omega_k_*_test.cpp` — 12+ 测试覆盖 Omega-K 各部件链]
 - Spotlight 与 ScanSAR 的部件、时变 beam 和 burst 逻辑已可独立验证，但尚未接入 session 主链。
 
 能力晋级门（仅适用于内部候选算法，不创建新的 public 类型）：
@@ -546,73 +572,76 @@ Stripmap Omega-K 的 Stage A 矩阵冻结为 L1、匀速直线、broadside strip
 digest、provenance、`physical_evidence=true` 和 `independently_generated=true` 的独立 L1 真值，并将
 实际输出送入验收器。
 
-[evidence: `sar_omega_k_l1_raw_history_stage_a_test.cpp:RejectsGeneratedL1ApertureAtGridReductionDeterministically` — 缩小配置公共支持为零并稳定拒绝;
- `sar_omega_k_l1_raw_history_stage_a_test.cpp:CompatibleVelocityRestoresCommonSupportAndFocusing` — 单变量速度对照恢复同一路径完整聚焦;
+[evidence: `tests/unit/sar/sar_omega_k_l1_raw_history_stage_a_test.cpp::RejectsGeneratedL1ApertureAtGridReductionDeterministically` — 缩小配置公共支持为零并稳定拒绝;
+ `tests/unit/sar/sar_omega_k_l1_raw_history_stage_a_test.cpp::CompatibleVelocityRestoresCommonSupportAndFocusing` — 单变量速度对照恢复同一路径完整聚焦;
  `src/sar/imaging/SarOmegaKCommonSupport.cpp:DiagnoseOmegaKCommonStoltSupport` — 全方位 FFT 行共同支持交集;
  `src/sar/imaging/SarOmegaKSpectrumFrontEnd.cpp:ExecuteOmegaKSpectrumFrontEnd` — 参考距离仅用于 bulk 参考相位;
- `sar_omega_k_truth_eligibility_test.cpp:KeepsSyntheticFixtureIneligible` — synthetic fixture 不可作为物理验收真值;
- `sar_omega_k_truth_eligibility_test.cpp:AuthorizesEligibleDatasetForEvaluationOnly` — manifest/digest/provenance 独立真值门]
+ `tests/unit/sar/sar_omega_k_truth_eligibility_test.cpp::KeepsSyntheticFixtureIneligible` — synthetic fixture 不可作为物理验收真值;
+ `tests/unit/sar/sar_omega_k_truth_eligibility_test.cpp::AuthorizesEligibleDatasetForEvaluationOnly` — manifest/digest/provenance 独立真值门]
 
 `session-wired` 只陈述当前会话已装配的能力，不把它泛化为所有场景的性能承诺。候选算法必须逐级提供证据；不得因已有 internal 实现而跳级或新增未接线算法族。\
 [evidence: `src/sar/pipeline/SarProcessingPipeline.cpp:RunCycle` — 只调用 `ExecuteL1RdaImaging` 和 `ExecuteL3BpImaging`;\
- `sar_session_pipeline_test.cpp:StepWithResultRunsRawRangeAndRdaPipeline` — session 输出 L1 RDA stage;\
- `sar_omega_k_focusing_test.cpp`、`sar_omega_k_spotlight_test.cpp`、`sar_omega_k_scansar_test.cpp` — internal 算法的独立验证]
+ `tests/unit/sar/sar_session_pipeline_test.cpp::StepWithResultRunsRawRangeAndRdaPipeline` — session 输出 L1 RDA stage;\
+ `tests/unit/sar/sar_omega_k_focusing_test.cpp`、`tests/unit/sar/sar_omega_k_spotlight_test.cpp`、`tests/unit/sar/sar_omega_k_scansar_test.cpp` — internal 算法的独立验证]
 
 限制：
 
 - 这些路径不自动变成 public/session 默认行为。\
   [evidence: `src/sar/imaging/SarOmegaKFocusing.h:FocusStripmapOmegaK` — Omega-K 已有内部单入口编排器;\
    `src/sar/pipeline/SarProcessingPipeline.cpp:RunCycle` — 缺失的是该入口到 pipeline/session 的接线;\
-   `sar_session_pipeline_test.cpp` — session 默认只启用 RDA/BP, 不包含 Omega-K/Spotlight/ScanSAR]
+   `tests/unit/sar/sar_session_pipeline_test.cpp` — session 默认只启用 RDA/BP, 不包含 Omega-K/Spotlight/ScanSAR]
 - truth ingestion、manifest、payload digest 和 eligibility gate 属于证据链，不是普通 public API。\
   [evidence: `src/sar/` 中无 `public` 路径暴露 truth oracle 或 eligibility 类型;\
-   `sar_csa_complete_focusing_evidence_test.cpp` — CSA 否决证据;\
-   `sar_pga_autofocus_closure_evidence_test.cpp` — PGA 否决证据]
+   `tests/unit/sar/sar_csa_complete_focusing_evidence_test.cpp` — CSA 否决证据;\
+   `tests/unit/sar/sar_pga_autofocus_closure_evidence_test.cpp` — PGA 否决证据]
 
 验证入口：
 
-- `tests/unit/sar_omega_k_*_test.cpp`
-- `tests/unit/sar_omega_k_spotlight_test.cpp`
-- `tests/unit/sar_omega_k_scansar_test.cpp`
-- `tests/unit/sar_scan_burst_test.cpp`
-- `tests/unit/sar_spotlight_beam_test.cpp`
+- `tests/unit/sar/sar_omega_k_*_test.cpp`
+- `tests/unit/sar/sar_omega_k_spotlight_test.cpp`
+- `tests/unit/sar/sar_omega_k_scansar_test.cpp`
+- `tests/unit/sar/sar_scan_burst_test.cpp`
+- `tests/unit/sar/sar_spotlight_beam_test.cpp`
 
 ### 2.8 Multilook、radiometric calibration 与受限能力
 
 Multilook 是聚焦后图像域非相干多视，消费任意 focused complex image，不侵入聚焦器主链路。
 
 Radiometric calibration 是后处理标量定标能力，当前不扩大为完整生产级雷达方程 public contract。定标入口为 `ExecuteCalibrationRequests`（批量请求执行），底层使用 `CalibrateSingle`/`CalibrateMultiple` 从已知 RCS 观测求解定标因子。\
-[evidence: `sar_radiometric_calibration_test.cpp` — 覆盖 CalibrateSingle/Multiple/ExecuteCalibrationRequests;\
- `src/sar/calibration/` — 2 文件约 340 行, 按当前契约不扩展为 public API]
+[evidence: `tests/unit/sar/sar_radiometric_calibration_test.cpp` — 覆盖 CalibrateSingle/Multiple/ExecuteCalibrationRequests;\
+ `src/sar/calibration/` — 实现保持 internal，按当前契约不扩展为 public API]
 
 受限或否决方向：
 
 - 完整 CSA：当前无独立增量，Omega-K 覆盖主要需求。\
-  [evidence: `sar_csa_complete_focusing_evidence_test.cpp:RdaBroadsideApproximationDegradationMatrix` — 所有孔径 |alpha| max<0.018, RDA worst NRMS=1.38 均显著超阈值; DO_NOT_TRIGGER_PHASE_B;\
+  [evidence: `tests/unit/sar/sar_csa_complete_focusing_evidence_test.cpp::RdaBroadsideApproximationDegradationMatrix` — 所有孔径 |alpha| max<0.018, RDA worst NRMS=1.38 均显著超阈值; DO_NOT_TRIGGER_PHASE_B;\
    `src/sar/imaging/SarCsaGeometry.h` — CSA 仅 geometry+oracle, main flow 0% implemented]
 - PGA closure：当前 MoCo 已覆盖直线扰动场景，PGA 闭环不进入默认生产路径。\
-  [evidence: `sar_pga_autofocus_closure_evidence_test.cpp:MotionCompensationResidualDefocusMatrix` — 所有 MoCo 补偿后 NRMS<0.17 (阈值 0.25), Coherence>0.985; DO_NOT_TRIGGER_PHASE_B]
+  [evidence: `tests/unit/sar/sar_pga_autofocus_closure_evidence_test.cpp::MotionCompensationResidualDefocusMatrix` — 所有 MoCo 补偿后 NRMS<0.17 (阈值 0.25), Coherence>0.985; DO_NOT_TRIGGER_PHASE_B]
 - 二阶 MoCo：强转弯失败主因是 RDA 轨迹假设，不是简单二阶相位补偿。\
-  [evidence: `sar_second_order_motion_compensation_evidence_test.cpp:PhaseAFailureEvidenceMatrix` — NRMS 6m=0.177/通过, 9m=0.273/失效, 12m~18m 持续恶化;\
+  [evidence: `tests/unit/sar/sar_second_order_motion_compensation_evidence_test.cpp::PhaseAFailureEvidenceMatrix` — 参考目标在 6m 为 NRMS 0.176959/通过、9m 为 0.272569/失效；完整矩阵在 6m 的 delay=12 已为 0.329653/失效;\
    `grep -r 'SecondOrder\|second_order' src/sar/` 返回零命中]
 - 缺失脉冲修复、NUFFT、生产 RDA 自动接入：保留诊断和拒绝矩阵，不默认启用自动修复。\
-  [evidence: `sar_missing_pulse_rejection_matrix_test.cpp` — 3 个用例覆盖 baseline/single-missing/separate-missing 路径, gap_ratio≥1.5 硬拒绝]
+  [evidence: `tests/unit/sar/sar_missing_pulse_rejection_matrix_test.cpp` — 3 个用例覆盖 baseline/single-missing/separate-missing 路径, gap_ratio≥1.5 硬拒绝]
 
 验证入口：
 
-- `tests/unit/sar_multilook_test.cpp`
-- `tests/unit/sar_radiometric_calibration_test.cpp`
-- `tests/unit/sar_csa_complete_focusing_evidence_test.cpp`
-- `tests/unit/sar_pga_autofocus_closure_evidence_test.cpp`
-- `tests/unit/sar_missing_pulse_*_test.cpp`
+- `tests/unit/sar/sar_multilook_test.cpp`
+- `tests/unit/sar/sar_radiometric_calibration_test.cpp`
+- `tests/unit/sar/sar_csa_complete_focusing_evidence_test.cpp`
+- `tests/unit/sar/sar_pga_autofocus_closure_evidence_test.cpp`
+- `tests/unit/sar/sar_missing_pulse_*_test.cpp`
 
 ### 2.9 专项序列验证边界
 
 `batch_validation::sar` 使用多静态散射体和平台几何验证当前成像能力，不把 SAR 伪装成目标
 跟踪器。六类序列覆盖多散射点分辨、squint 门控恢复、raw/range-compression/L1 阶段切换、
-非法 runtime 组合原子拒绝、无效输入恢复和低 SNR 恢复。completed stage、abort reason、产品
-lifecycle、孔径/ring-buffer 状态冻结和 failure marker 后完整 replay 属于硬契约；图像质量相对
-趋势属于 warning。场景 ID 与运行方式由 `examples/batch_validation/README.md` 维护。
+非法 runtime 组合原子拒绝、无效输入恢复和低 SNR 恢复。当前写入 `checks.csv` 并影响退出码的硬检查
+是：replay 输出数完整、预期非执行周期数、failure marker 数、恢复后重新产图，以及特定序列的非法
+runtime patch 原子拒绝和 range-compression-only 阶段。completed stage 低于 L1、图像质量缺失、SNR
+非有限、熵非正及跨场景趋势属于 warning/error collector 的观测项；batch 没有直接读取 lifecycle
+recorder，也没有直接断言完整 ring-buffer 状态，因此不得把场景名扩大为这些内部状态的硬契约。场景
+ID 与运行方式由 `examples/batch_validation/README.md` 维护。
 
 ## 3. 非目标与边界
 
@@ -622,10 +651,10 @@ lifecycle、孔径/ring-buffer 状态冻结和 failure marker 后完整 replay �
 - 不为形式对称把 SAR 输入改造成其它模块的 external adapter 模型。
 - 不用测试阈值放宽替代模型、坐标、算法和契约问题的拆分。
 
-上述边界由当前 `docs/sar/` 五文件模型和 public API 契约测试守护。\
+上述边界由当前“本文件为单一权威”的文档模型和 public API 契约测试守护。\
 [evidence: `tests/contract/check_sar_doc_governance.cmake` — 文档结构守护;\
  `tests/contract/check_public_api_boundary.cmake` — public header 边界守护;\
- `sar.hpp` — PIMPL + private ctor + factory friend 阻止外部构造;\
+ `include/1q/sar/session/SarSession.h` — PIMPL 隐藏实现依赖，同时保留 public 默认构造与静态 Create/CreateWithValidation;\
  `include/1q/sar/` — public headers 不暴露 imaging/calibration/echo 等内部类型]
 
 ## 4. 设计变更规则
@@ -634,4 +663,5 @@ lifecycle、孔径/ring-buffer 状态冻结和 failure marker 后完整 replay �
 2. pipeline、轨迹、raw history、聚焦路径或算法限制变化必须同步本文。
 3. 能力启用、否决或替代关系必须在本文 `[evidence: ...]` 标注中记录依据。
 4. 历史原因只保留本文的摘要说明，不恢复被删除的旧审计文档目录。
-5. 验证优先使用 `ci_required` 中的 SAR replay/integration/guard、`compatibility::sar` 和 `unit::sar`。
+5. 验证优先使用 `unit::sar`、`contract::sar`、`replay::sar`、`batch_validation::sar`、SAR guards
+   以及 CTest `sar_cxx11_compat`（labels `compatibility;sar`）；当前没有独立的 `integration::sar` 分区。
