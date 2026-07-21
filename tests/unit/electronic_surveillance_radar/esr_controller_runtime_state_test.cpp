@@ -85,6 +85,33 @@ TEST(EsrControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
   EXPECT_FALSE(controller.ReusedPreviousInterceptOutputLatestCycle());
 }
 
+TEST(EsrControllerRuntimeStateTest, SuccessfulCyclesAdvanceBatchAndRejectedCycleDoesNot) {
+  pipeline::InterceptPipeline pipeline(MakeDefaultConfig());
+  StubEnvironmentService env;
+  EsrController controller(pipeline, env);
+  const std::uint64_t initial_batch_id = controller.CaptureRuntimeState().next_batch_id;
+
+  controller.RunOnce(MakeValidInput(10U));
+  ASSERT_TRUE(controller.ExecutedLatestCycle());
+  EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 10U);
+  EXPECT_EQ(controller.GetLatestInterceptOutputFrame().batch_id, initial_batch_id);
+  EXPECT_EQ(controller.CaptureRuntimeState().next_batch_id, initial_batch_id + 1U);
+
+  session::EsrCycleInput invalid_input = MakeValidInput(11U);
+  invalid_input.dt_sec = 0.0f;
+  controller.RunOnce(invalid_input);
+  EXPECT_FALSE(controller.ExecutedLatestCycle());
+  EXPECT_TRUE(controller.ReusedPreviousInterceptOutputLatestCycle());
+  EXPECT_EQ(controller.GetLatestInterceptOutputFrame().batch_id, initial_batch_id);
+  EXPECT_EQ(controller.CaptureRuntimeState().next_batch_id, initial_batch_id + 1U);
+
+  controller.RunOnce(MakeValidInput(12U));
+  ASSERT_TRUE(controller.ExecutedLatestCycle());
+  EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 12U);
+  EXPECT_EQ(controller.GetLatestInterceptOutputFrame().batch_id, initial_batch_id + 1U);
+  EXPECT_EQ(controller.CaptureRuntimeState().next_batch_id, initial_batch_id + 2U);
+}
+
 TEST(EsrControllerRuntimeStateTest, RestoreRejectsIncompatiblePipelineSnapshot) {
   pipeline::InterceptPipeline pipeline_a(MakeDefaultConfig());
   pipeline::InterceptPipeline pipeline_b(MakeDefaultConfig());

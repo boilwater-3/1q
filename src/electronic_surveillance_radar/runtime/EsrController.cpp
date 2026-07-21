@@ -7,7 +7,6 @@
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "common/logging/ProjectLog.h"
 #include "common/runtime/RuntimeCycleExecutor.h"
-#include "electronic_surveillance_radar/runtime/EsrOutputManager.h"
 
 namespace electronic_surveillance_radar {
 namespace extension {
@@ -19,7 +18,6 @@ struct EsrController::Impl {
 
   pipeline::InterceptPipeline& pipeline;
   environment::IEsrEnvironmentService& environment_service;
-  output::EsrOutputManager output_manager;
   oneq::common::runtime::RuntimeCycleState<session::EsrOutputFrame,
                                           session::ValidationIssueList>
       runtime_state{};

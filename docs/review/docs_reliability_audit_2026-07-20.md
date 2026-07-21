@@ -3,7 +3,7 @@
 Status: draft
 Review-Date: 2026-07-20
 Review-Scope: `docs/` 当前待审文档，排除已迁入权威设计的 AR 和 `docs/flight_dynamic/design.md`
-Approval-State: SBIRS findings fully applied; remaining modules pending owner approval
+Approval-State: SBIRS and ESR findings fully applied; remaining modules pending owner approval
 
 ## 1. 审查目的与边界
 
@@ -37,13 +37,13 @@ Approval-State: SBIRS findings fully applied; remaining modules pending owner ap
 
 | 文档 | 结论 | 已确认问题概况 | 建议处置 |
 |---|---|---:|---|
-| `docs/electronic_surveillance_radar/design.md` | 需修订 | 3 P1、2 P2、1 P3 | D；另保留 2 个 Q |
+| `docs/electronic_surveillance_radar/design.md` | 已收口 | ESR-01～06 已迁入权威设计；Q1 已修复 | Q2 迁入 open questions |
 | `docs/sar/design.md` | 需修订 | 3 P1、6 P2、若干 P3 | D + replay A；另保留 1 个 Q |
 | `docs/electro_optical_sensor/design.md` | 需修订 | 3 P1、3 P2、1 P3 | D + replay A |
 | `docs/space_based_infrared_sensor/design.md` | 第一类已处理、第二类待讨论 | 7 个事实/依据项已修或复核；9 个设计-实现分歧/术语项冻结 | 本轮仅 docs/comment 修订；B 类不裁决 |
 | `docs/common/contract.md` | 需修订/需裁决 | 异常、命名空间、模块数量、文档结构和关系图漂移 | D + 规范性 A |
 | `docs/common/usage.md` | 需修订 | 安装、Conan 消费、shared/static 和 C++ 标准描述错误 | D；安装承诺 A |
-| `docs/common/open_questions.md` | 未发现确认问题 | 未找到与“当前无开放问题”直接冲突的证据 | 保持 |
+| `docs/common/open_questions.md` | 非规定性记录 | 当前保留 ESR 1 项、SBIRS 4 项 | 按 Stage A 条件重新进入 |
 | `docs/practice/batch_validation.md` | 需修订 | 模块/场景数量、sequence、退出码、测试路径和硬门描述过时 | D |
 | `docs/practice/ci.md` | 需修订 | Windows preset 和 contract 数量过时 | D + Windows 策略 A |
 | `docs/practice/coverage.md` | 未发现确认问题 | 当前 script 与 branch-first 口径一致 | 保持 |
@@ -67,63 +67,12 @@ replay/config 字段在 public DTO、schema、codec 和测试之间没有形成�
 
 ## 4. 模块文档详细发现
 
-### 4.1 Electronic Surveillance Radar
+### 4.1 Electronic Surveillance Radar（已收口）
 
-#### ESR-01（P1，D）truth evaluation 数据流顺序错误
-
-- 文档位置：`docs/electronic_surveillance_radar/design.md:180,195`，图示 Hypothesis/Association → Truth。
-- live 证据：`src/electronic_surveillance_radar/pipeline/InterceptPostProcessingExecutor.cpp:251-270`
-  直接从 raw records 做 truth association；`:303-306` 才独立生成 hypothesis；`:311-324` 从 scene
-  计算 missed truth。
-- 建议：把 truth evaluation 画成 raw records/scene 的旁路消费，不依赖 hypothesis chain。
-
-#### ESR-02（P1，D）`EsrOutputManager` 被误写成 live 输出组件
-
-- 文档位置：`docs/electronic_surveillance_radar/design.md:67,87,95,214`。
-- live 证据：Controller 只构造成员（`EsrController.cpp:22`），实际在 `:73-85` 直接 stamp/move 输出；
-  `EsrOutputManager.cpp:8-17` 的方法仅在测试中调用，没有生产复用链。
-- 建议：从生产图移除，或明确标注为未接线 helper/test surface。
-
-#### ESR-03（P2，D）“纯三通道结果”遗漏状态字段
-
-- 文档位置：`docs/electronic_surveillance_radar/design.md:124`。
-- live 证据：`src/electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h:178-183` 已有
-  `sensor_powered_off`，Controller 在 `EsrController.cpp:65-71` 消费；文档后文 `:350-365` 反而准确。
-- 建议：统一前后描述，写成三输出通道 + execution/status metadata。
-
-#### ESR-04（P1，D）batch “硬契约”范围夸大
-
-- 文档位置：`docs/electronic_surveillance_radar/design.md:393-397`。
-- live 证据：`examples/batch_validation/esr_batch_validation.cpp:406-424,457-484` 只硬检查 replay、
-  nonexecuted、marker、invalid recovery 和 identity continuity；没有 lifecycle recorder，也没有直接
-  Lost/residue/boundary 全套断言。
-- 建议：逐项引用当前 check id；其余降为未覆盖或另补测试。
-
-#### ESR-05（P2，D）验证路径仍是旧目录布局
-
-- 文档位置：`:238,239,266,281,369-371,386-389`。
-- 当前路径分别位于：
-  - `tests/unit/electronic_surveillance_radar/`
-  - `tests/integration/electronic_surveillance_radar/`
-  - `tests/replay/electronic_surveillance_radar/`
-- 建议：全部改为 repo-relative 当前路径和具体测试名。
-
-#### ESR-06（P3，D）recycle 阈值措辞存在 off-by-one
-
-- 文档把触发条件写成“超过阈值”；`HypothesisAssociator.cpp:337-340` 实际为 `>=`。
-- `tests/unit/electronic_surveillance_radar/esr_hypothesis_associator_test.cpp:189-212` 证明阈值 2
-  在第二次 miss 即 recycle。
-- 建议：改为“达到阈值”。
-
-#### ESR-Q1（Q）batch id replay 宽度
-
-- public `EsrCycleResult::batch_id` 是 `uint64`，schema 为 `uint32`，codec 存在窄化。
-- 需要增加 `> UINT32_MAX` roundtrip/trace characterization 后才能决定是 schema defect 还是范围契约。
-
-#### ESR-Q2（Q）resolver “验证 patch”措辞范围
-
-- live resolver 只直接约束 scan rate/bounds/center；需先确认文档意图是“所有域语义校验”还是“本 resolver
-  所有支持字段”，本轮不写成确定缺陷。
+ESR-01～ESR-06 的稳定结论已经迁入 `docs/electronic_surveillance_radar/design.md`；未接线的
+`EsrOutputManager` 已删除。ESR-Q1 已确认为 64→32 位 replay 窄化缺陷并修复，边界测试覆盖
+`UINT32_MAX + 1`。ESR-Q2 作为唯一未决项迁入 `docs/common/open_questions.md`，本审查稿不再保留
+ESR 的第二份规范性描述。
 
 ### 4.2 Synthetic Aperture Radar
 
@@ -467,7 +416,7 @@ Windows contract 或 Conan packaging 选为后续未决事项，应在是否进�
 
 ### AP-7：未确认项
 
-- [ ] **批准（推荐）**：ESR batch-id 宽度、SAR FullPipelineL3、EOS 未消费配置继续 defer；SBIRS
+- [ ] **批准（推荐）**：SAR FullPipelineL3、EOS 未消费配置继续 defer；SBIRS
   CKF/SRIF/UDKF 冻结为 B8，“融合输出”冻结为 B9，本批不新增或强化结论；CA evidence 已刷新，
   生产接线仍维持当前拒绝，待新的 characterization 触发条件后再讨论。
 - [ ] 指定需要立即验证的 Q 项：__________。

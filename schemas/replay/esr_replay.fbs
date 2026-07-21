@@ -134,7 +134,7 @@ table TruthEvaluationOutput {
 
 table EsrOutputFrame {
   cycle_index:           uint32;
-  batch_id:              uint32;
+  batch_id:              uint64;
   observation_output:    ObservationOutput;
   emitter_output:        EmitterOutput;
   truth_evaluation_output: TruthEvaluationOutput;

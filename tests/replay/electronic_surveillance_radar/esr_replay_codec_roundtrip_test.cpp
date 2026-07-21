@@ -7,6 +7,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -292,6 +294,22 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_EQ(decoded.validation_issues[0].code, ValidationCode::kInvalidEmitterFrequency);
   EXPECT_EQ(decoded.validation_issues[0].field, "carrier_hz");
   EXPECT_EQ(decoded.validation_issues[0].message, "emitter frequency must be positive");
+}
+
+TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesBatchIdAboveUint32Max) {
+  EsrCycleResult result;
+  result.input_cycle_index = 56U;
+  result.output_frame.cycle_index = 6U;
+  result.output_frame.batch_id =
+      static_cast<std::uint64_t>(std::numeric_limits<std::uint32_t>::max()) + 1U;
+  result.executed_this_cycle = true;
+
+  const std::string bytes = EncodeEsrCycleResult(result);
+  ASSERT_FALSE(bytes.empty());
+
+  EsrCycleResult decoded;
+  ASSERT_TRUE(DecodeEsrCycleResult(bytes, &decoded));
+  EXPECT_EQ(decoded.output_frame.batch_id, result.output_frame.batch_id);
 }
 
 // ---------------------------------------------------------------------------

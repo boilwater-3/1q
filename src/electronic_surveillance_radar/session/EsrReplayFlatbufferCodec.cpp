@@ -212,8 +212,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
   }
   auto truth_out = esr::replay::CreateTruthEvaluationOutput(fbb, fbb.CreateVector(ta_vec));
 
-  return esr::replay::CreateEsrOutputFrame(fbb, static_cast<std::uint32_t>(v.cycle_index),
-                                           static_cast<std::uint32_t>(v.batch_id), obs_out, em_out,
+  return esr::replay::CreateEsrOutputFrame(fbb, v.cycle_index, v.batch_id, obs_out, em_out,
                                            truth_out);
 }
 

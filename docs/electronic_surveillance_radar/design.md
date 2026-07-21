@@ -40,7 +40,7 @@ ESR 模块模拟电子侦察接收机对辐射源的观测和估计。它的核�
 | `config/` | 内部执行配置 | `EsrInternalExecutionConfig` |
 | `environment/` | `EsrEnvironmentService` 和 suppression/deception/atmospheric 环境采样 |
 | `pipeline/` | 拦截 gate、检测执行、预处理、特征编码、Kd-tree 聚类、假设关联、后处理 |
-| `runtime/` | `EsrController`、`EsrOutputManager` 和执行状态管理 |
+| `runtime/` | `EsrController` 和执行状态、输出缓存管理 |
 | `session/` | session 组合根、配置解析、runtime patch、输入/输出适配、trace/replay |
 
 ### 1.3 新开发者视角的分层图
@@ -64,7 +64,6 @@ flowchart TB
 
   subgraph Runtime["Runtime layer\n运行期层"]
     Controller["EsrController\n单周期执行控制"]
-    OutputManager["EsrOutputManager\n输出帧管理"]
     Environment["EsrEnvironmentService\n电磁环境采样"]
   end
 
@@ -84,7 +83,6 @@ flowchart TB
   EsrSession --> Composition
   Composition --> Controller
   Composition --> Environment
-  Controller --> OutputManager
   Controller --> Pipeline
   EsrSession --> Resolver
   EsrSession --> Snapshots
@@ -92,7 +90,7 @@ flowchart TB
   Preprocess --> Cluster
   Cluster --> Associate
   Associate --> Post
-  Post --> OutputManager
+  Post --> Controller
   Tools -. "observe\n观测" .-> EsrSession
 ```
 
@@ -120,8 +118,8 @@ sequenceDiagram
   Pipeline->>Pipeline: detection / preprocess / cluster 检测、预处理、聚类
   Pipeline->>Assoc: Update clusters 更新辐射源假设
   Assoc-->>Pipeline: hypotheses 假设列表
-  Pipeline-->>Controller: observation / emitter / truth outputs 三通道输出
-  note over Pipeline,Controller: InterceptPipelineResult 是纯三通道数据载体；当前无 pipeline 自报失败状态
+  Pipeline-->>Controller: three outputs + execution status 三通道与执行状态
+  note over Pipeline,Controller: InterceptPipelineResult 含三通道数据和 sensor_powered_off；普通空观测仍是已执行结果
   end
   Session-->>Result: output frame + validation + abort reason
   Session-->>Caller: EsrCycleResult 返回结构化结果
@@ -177,7 +175,8 @@ flowchart LR
   Assoc --> Hyp
   Raw --> Obs
   Hyp --> Emit
-  Hyp --> Truth
+  Raw --> Truth
+  Cycle --> Truth
   Obs --> Result
   Emit --> Result
   Truth --> Result
@@ -192,7 +191,7 @@ flowchart TB
   Detection --> Association["Association\n观测到假设"]
   Association --> Emitter["Emitter output\n系统估计假设"]
   InputTruth -. "evaluation only\n仅评估使用" .-> Truth["Truth evaluation output\n仿真评估通道"]
-  Association --> Truth
+  Detection --> Truth
 ```
 
 ## 2. 本模块使用的算法
@@ -211,7 +210,7 @@ flowchart TB
 | 特征编码 | `ObservationFeatureEncoder` | RF/PW/AOA/SNR 按尺度编码到特征空间 | pipeline 内部 |
 | 聚类 | `KdTreeClusterer` | 半径聚类、min-points、noise/border point 处理 | pipeline 内部 |
 | 假设关联 | `HypothesisAssociator` | cluster 到 track 的 gated matching、ID 稳定、miss 回收 | pipeline 内部 |
-| 输出管理 | `EsrOutputManager` | 输出帧 stamp、空帧和上一帧复用 | runtime 内部 |
+| 输出装配与缓存 | `EsrController` | stamp/move 三通道输出，维护最近有效帧、batch 和执行状态 | runtime 内部 |
 
 ### 2.2 拦截检测
 
@@ -235,8 +234,8 @@ flowchart TB
 
 验证入口：
 
-- `tests/unit/esr_algorithms_test.cpp`
-- `tests/integration/esr_session_test.cpp`
+- `tests/unit/electronic_surveillance_radar/esr_algorithms_test.cpp`
+- `tests/integration/electronic_surveillance_radar/esr_session_test.cpp`
 
 [evidence: tests/integration/electronic_surveillance_radar/esr_session_test.cpp::AltitudeAndSpectrumOccupancyAffectReceiverSnr]
 [evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::CycleInputPreservesAllFields]
@@ -263,7 +262,7 @@ Replay 的 cycle-input 位姿与 public `PoseState` 同为 double 精度；schem
 
 验证入口：
 
-- `tests/unit/esr_kdtree_clusterer_test.cpp`
+- `tests/unit/electronic_surveillance_radar/esr_kdtree_clusterer_test.cpp`
 
 ### 2.4 特征编码与聚类
 
@@ -278,7 +277,7 @@ Replay 的 cycle-input 位姿与 public `PoseState` 同为 double 精度；schem
 
 验证入口：
 
-- `tests/unit/esr_kdtree_clusterer_test.cpp`
+- `tests/unit/electronic_surveillance_radar/esr_kdtree_clusterer_test.cpp`
 
 ### 2.5 假设关联
 
@@ -289,7 +288,9 @@ Replay 的 cycle-input 位姿与 public `PoseState` 同为 double 精度；schem
 3. 对候选图执行一对一全局分配：先最大化匹配数量，再在最大匹配中最小化总距离；总代价相同时按 cluster input index、track hypothesis id 确定性裁决。
 4. 匹配 track 使用 `confidence_alpha` blending 更新 feature、bearing、mode、threat、confidence。
 5. 未匹配 cluster 创建新 hypothesis id。
-6. 未命中 track 累计 missed cycles，超过阈值后回收。
+6. 未命中 track 累计 missed cycles，达到 `max_missed_cycles` 阈值的当周期回收。
+
+[evidence: tests/unit/electronic_surveillance_radar/esr_hypothesis_associator_test.cpp::EsrHypothesisAssociatorTest.RecyclesTrackAfterConfiguredMissedCycles]
 
 模式和威胁推断：
 
@@ -345,7 +346,12 @@ payload 中的四个边界字段，并按中心角、硬件扫描范围和天线
 [evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.MissionDomainRejectsInvalidCenterAtomically]
 [evidence: tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp::EsrRuntimeConfigResolverTest.LeafOverridesAreValidatedAfterInvalidMissionScanValues]
 
-`ApplyRuntimeConfigWithResult()` 通过 `ResolveEsrRuntimeConfigPatch()` 校验 patch。有效 patch 立即写入 `resolved_config`，并同步到 pipeline/environment；无效 patch 拒绝且不污染现有配置。ESR 属于 `docs/common/contract.md` 定义的立即提交类，配置单向落定，不提供 session 层回滚。
+`ApplyRuntimeConfigWithResult()` 通过 `ResolveEsrRuntimeConfigPatch()` 合并 patch，并对最终被选择的 scan
+policy 做原子校验。这里的“有效/无效”当前只覆盖 scan rate、显式边界或中心角；resolver 尚未承诺对
+整块 mission/policy/environment 的所有领域值做统一语义校验。通过当前校验的 patch 立即写入
+`resolved_config`，并同步到 pipeline/environment；被拒绝的扫描 patch 不污染现有配置。是否建立全域
+runtime validation 继续登记在 `docs/common/open_questions.md`。ESR 属于 `docs/common/contract.md`
+定义的立即提交类，配置单向落定，不提供 session 层回滚。
 
 `InterceptPipeline::RunCycle()` 返回 `InterceptPipelineResult`。除 observation、emitter、truth
 evaluation 三通道外，它显式区分设备关机导致的未执行状态；controller 将其传播为
@@ -366,35 +372,50 @@ pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描
 
 验证入口：
 
-- `tests/unit/esr_controller_runtime_state_test.cpp`
-- `tests/unit/esr_runtime_config_resolver_test.cpp`
-- `tests/integration/esr_session_test.cpp`
+- `tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test.cpp`
+- `tests/unit/electronic_surveillance_radar/esr_runtime_config_resolver_test.cpp`
+- `tests/integration/electronic_surveillance_radar/esr_session_test.cpp`
 [evidence: tests/integration/electronic_surveillance_radar/esr_session_test.cpp::EsrSessionIntegrationTest.RuntimePatchCanDisableSensorWithoutReconstruction]
 
 ### 2.7 输出三通道与可观测性
 
-ESR 输出保持三通道：
+`EsrOutputFrame` 保持三通道；`EsrCycleResult` 在输出帧之外承载 validation、executed/reused 和 abort reason，pipeline 内部结果另含 powered-off 状态：
 
 - `observation_output`：设备观测。
 - `emitter_output`：系统估计 hypothesis。
 - `truth_evaluation_output`：仿真评估。
 
+`EsrController` 是输出帧装配和最近有效帧缓存的唯一 runtime owner；它直接写入 cycle/batch header，
+移动 pipeline 的三通道结果，并只在成功执行后推进 batch。模块不维护第二个 output-manager 状态或装配路径。
+[evidence: tests/unit/electronic_surveillance_radar/esr_controller_runtime_state_test.cpp::EsrControllerRuntimeStateTest.SuccessfulCyclesAdvanceBatchAndRejectedCycleDoesNot]
+
+`batch_id` 在 public `EsrOutputFrame`、controller 累积状态、FlatBuffers replay schema、codec 和 comparator
+中统一为 64 位无符号值。codec 不得把它缩窄到 32 位；大于 `UINT32_MAX` 的值必须无损 roundtrip。
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::EsrReplayCodecRoundtripTest.CycleResultPreservesBatchIdAboveUint32Max]
+
 名称字段和 truth identity 不进入真实输出通道。需要人读映射时通过 debug view 或 truth evaluation 关联回填。
 
 验证入口：
 
-- `tests/unit/esr_output_boundary_contract_test.cpp`
-- `tests/unit/esr_cycle_output_builder_test.cpp`
+- `tests/unit/electronic_surveillance_radar/esr_output_boundary_contract_test.cpp`
+- `tests/unit/electronic_surveillance_radar/esr_cycle_output_builder_test.cpp`
 - `tests/consumer/esr_output_observability_consumer.cpp`
-- `tests/unit/esr_replay_codec_roundtrip_test.cpp`
+- `tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp`
 
 ### 2.8 专项序列验证边界
 
 `batch_validation::electronic_surveillance_radar` 覆盖近同频辐射源角度交叉、密集辐射源静默、
-ESM/RWR/HGESM 切换、显式扫描边界重定向、关机恢复和无效输入恢复。一对一关联身份、静默源独占
-Lost、显式边界关闭后不残留、patch 原子性、非执行周期 lifecycle 静默以及 10/30/60/100 km
-trace 的确定性 replay 都是硬契约；强信号下距离趋势不敏感仍只作为物理 warning。场景 ID 与运行
-方式由 `examples/batch_validation/README.md` 维护。
+ESM/RWR/HGESM 切换、显式扫描边界重定向、关机恢复和无效输入恢复。所有场景的 trace replay
+失败、输出分叉或比较数量不一致都会使批量验证失败；sequence 场景另以 error 级结构化 check 验证：
+
+- 各场景预期的非执行周期数；
+- 无效输入场景的 failure marker 数；
+- 无效显式边界 patch 的原子拒绝；
+- 角度交叉、关机恢复和无效输入恢复三个场景的建立/恢复 hypothesis id 集合连续性。
+
+当前 batch 不实例化 `EsrEmitterLifecycleRecorder`，也不直接断言静默源独占 `Lost` 或关闭显式边界后
+无残留；这些语义不能作为 batch 已证明的硬契约。强信号下距离趋势不敏感仍只作为物理 warning。
+场景 ID、结构化 check 和运行方式由 `examples/batch_validation/README.md` 维护。
 
 ## 3. 非目标与边界
 

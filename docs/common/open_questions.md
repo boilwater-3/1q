@@ -5,11 +5,26 @@ Authority: 非规定性记录
 
 本文登记调查中发现但尚未定论的跨模块架构议题，不构成契约约束。条目推进到有结论时，应回写为契约规则（进 contract.md）或模块设计（进对应 design.md），并从本文移除。
 
-## 当前状态（2026-07-20 实时代码复核）
+## 当前状态（2026-07-21 实时代码复核）
 
 原 OQ-1、OQ-3、OQ-8、OQ-9、OQ-10a 至 OQ-10m 均已完成、拒绝或冻结；对应结论和测试证据已迁入
-`docs/common/contract.md` 及各模块 `design.md`。当前新增四项 SBIRS 非阻塞仿真边界，均不改变已经冻结的
-三种互斥跟踪模式，也不构成本批提交的实现要求。
+`docs/common/contract.md` 及各模块 `design.md`。当前保留一项 ESR runtime validation 边界和四项 SBIRS
+非阻塞仿真边界，均不构成已批准实现要求。
+
+## ESR 非阻塞架构边界
+
+### ESR-OQ-1：runtime patch 的全域语义校验
+
+- **现状证据**：`EsrRuntimeConfigPatch` 支持 mission、policy、environment 整域覆盖和扫描/模式叶子覆盖；
+  `ResolveEsrRuntimeConfigPatch()` 当前只原子校验合并后的 scan rate、显式边界或中心角。session/replay
+  schema 将工作模式、扫描起点和扫描顺序保存为整数，codec 当前直接转换为 public enum。
+- **未决问题**：是否应为 runtime patch 建立覆盖工作模式、扫描枚举、探测策略和大气上下文的统一领域校验，
+  并让静态配置、runtime resolver 与 replay decode 共享同一组不变量。
+- **当前边界**：不得把当前 resolver 描述成“验证整份 patch 的所有领域语义”；除扫描策略外的 runtime
+  字段仍按 trusted input 处理。未知枚举及非法 policy/environment 值的拒绝行为尚未形成正式契约。
+- **Stage A 进入条件**：先提交逐字段不变量矩阵，明确每个 mission/policy/environment/enum 字段的合法范围、
+  normalize 或 reject 规则及兼容要求；随后以未知枚举 decode 拒绝、非法整域 patch 原子无污染、静态与
+  runtime 校验一致性三组测试证明方案，再决定是否扩展 resolver/codec。
 
 ## SBIRS 非阻塞仿真边界
 

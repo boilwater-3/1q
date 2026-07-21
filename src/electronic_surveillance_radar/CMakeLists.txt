@@ -20,7 +20,6 @@ set(ESR_CORE_SOURCES
     session/EsrCycleOutputAdapter.cpp
     environment/EsrEnvironmentService.cpp
     runtime/EsrController.cpp
-    runtime/EsrOutputManager.cpp
     session/EsrInputValidation.cpp
     session/EsrEmitterLifecycleRecorder.cpp
     session/EsrOutputDebugViewBuilder.cpp
