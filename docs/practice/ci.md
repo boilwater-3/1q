@@ -1,7 +1,7 @@
 # CI 持续集成
 
 Status: active
-Last-reviewed: 2026-07-11
+Last-reviewed: 2026-07-21
 Authority: build & test infrastructure
 
 本仓库的持续集成（CI）由两个 GitHub Actions workflow 组成，按"快速门禁 vs 慢任务"分层。
@@ -10,7 +10,7 @@ Authority: build & test infrastructure
 
 | Workflow | 触发 | Job | 内容 | 阻断 PR |
 |---|---|---|---|---|
-| `ci.yml` | push / PR | **guard** | `-L contract`：17 个架构守护 + 契约测试，编译前先跑 | ✅ |
+| `ci.yml` | push / PR | **guard** | `-L contract`：运行 live CTest inventory 中的 compiled contract 与 script guards | ✅ |
 | `ci.yml` | push / PR | **build-test** | Debug 库/第一方示例构建 + 安装 consumer + `ci_required` + 全量 `unit` 分区 | ✅ |
 | `nightly.yml` | cron 02:00 + 手动 | **performance** | Release 构建 + 性能/cxx11 兼容 gate | ❌ |
 | `nightly.yml` | cron + 手动 | **flight-dynamic** | FD=ON + JSBSim 数据 + `unit::flight_dynamic` | ❌ |
@@ -20,9 +20,14 @@ Authority: build & test infrastructure
 
 ## 平台范围
 
-当前仅 macOS（`macos-14` arm64 runner）。理由：
+当前 CI 仅覆盖 macOS（`macos-14` arm64 runner）。理由：
 - macOS 路径下 Conan 提供全部依赖（含 JSBSim 预编译包 `jsbsim/1.3.1`），最干净可靠。
-- Windows 依赖与安装消费闭包尚未验证，因此项目不再公开 Windows preset；恢复前必须先建立真实的 configure/build/install-consumer 验证。
+- Windows Conan/no-Conan presets 和 `scripts/fetch_third_party.bat` 已存在，但依赖来源、下载校验和安装
+  consumer 闭包尚未按 contract 完成真实 Windows 验证，因此它们只是未验收脚手架，不是支持声明。
+
+Contract 测试数量不在本文硬编码；以配置后执行
+`ctest --preset <preset> -N -L contract` 的结果为准。当前集合同时包含按 domain 编译的 contract tests
+与源代码/script guards，新增或删除注册项时无需人工维护一个容易漂移的总数。
 
 ## 本地复现
 
@@ -78,7 +83,9 @@ GitHub 仓库 → **Actions** 标签页 → 左侧选 **Nightly** → 右上角 
 
 ## 扩展指南
 
-**新增 Windows job**：先新增并验证 Windows Conan preset，再在 `nightly.yml` 加 `runs-on: windows-latest` job。验收必须覆盖 JSBSim / HighFive 的依赖来源、configure、build 和安装后的 consumer；未满足前不要在文档或 presets 中声明 Windows 支持。
+**新增 Windows job**：先实现 `docs/common/contract.md` 冻结的 shell/GitHub 依赖 bootstrap，锁定版本和
+提交并校验下载内容；再在真实 Windows runner 上验证 configure、Debug/Release build、install 与独立
+consumer build/run。现有 Conan/no-Conan preset 只能作为候选入口，是否保留由全链证据决定。
 
 **新增 lint job**（clang-format/tidy）：在 `ci.yml` 加独立 job 跑 `cmake --build --target format-check`（需 runner 装 clang-format）。与功能测试解耦，格式问题不阻塞代码验证。
 

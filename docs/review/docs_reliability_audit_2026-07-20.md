@@ -1,401 +1,90 @@
-# `docs/` 文档可靠性审查报告
+# 文档可靠性审查闭环报告
 
 Status: draft
-Review-Date: 2026-07-20
-Review-Scope: `docs/` 当前待审文档，排除已迁入权威设计的 AR 和 `docs/flight_dynamic/design.md`
-Approval-State: SBIRS and ESR findings fully applied; remaining modules pending owner approval
-
-## 1. 审查目的与边界
-
-本报告用于审批当前 `docs/` 中已确认的过时、错误、夸大或证据断裂描述。它是非权威评审草案，
-不替代 `docs/common/contract.md` 或各模块 `design.md`。审批通过后，稳定结论应迁入相应权威文档，
-本草案随后删除。
-
-本轮边界：
-
-- 当前纳入 10 份文档：ESR、SAR、EOS、SBIRS 四份待审模块设计，`common/` 三份，`practice/` 三份。
-- AR 审查结论已经批准并迁入 `docs/airborne_radar/design.md`，本草案不再保留 AR 副本。
-- 按审批人指示排除 `docs/flight_dynamic/design.md`，不对其可靠性作任何判断。
-- 初始审查以只读方式核验 live `include/`、`src/`、`tests/`、`examples/`、`schemas/` 和 CMake。
-- 各模块由不同 subagent 独立复核；`common/` 与 `practice/` 由主审查线程交叉核验。
-- 结构守卫通过不等于语义可靠。本报告只把可由当前执行路径、DTO/schema、测试或构建配置直接支持的
-  项目列为“已确认”。
-
-严重度定义：
-
-- **P1**：会误导调用方理解 replay、输出、校验、构建/安装或运行时状态等外部契约。
-- **P2**：架构职责、算法顺序、验证强度或证据归属与 live 实现不符。
-- **P3**：名称、路径、数量、默认值或局部措辞过时，通常不直接改变行为理解。
-
-处置类型：
-
-- **D（docs-only）**：以 live 行为为事实来源，可直接修正文档。
-- **A（approval required）**：文档可能表达预期契约，而代码未实现；需审批“记录当前限制”还是另开代码批次。
-- **Q（question/defer）**：证据不足或需要 fresh build/characterization，本轮不得写成确定结论。
-
-## 2. 总体结论
-
-| 文档 | 结论 | 已确认问题概况 | 建议处置 |
-|---|---|---:|---|
-| `docs/electronic_surveillance_radar/design.md` | 已收口 | ESR-01～06 已迁入权威设计；Q1 已修复 | Q2 迁入 open questions |
-| `docs/sar/design.md` | 已收口 | SAR-01～09 已迁入权威设计；SAR-Q1 与 raw IQ replay 已修复 | 保持 design 为唯一权威 |
-| `docs/electro_optical_sensor/design.md` | 需修订 | 3 P1、3 P2、1 P3 | D + replay A |
-| `docs/space_based_infrared_sensor/design.md` | 第一类已处理、第二类待讨论 | 7 个事实/依据项已修或复核；9 个设计-实现分歧/术语项冻结 | 本轮仅 docs/comment 修订；B 类不裁决 |
-| `docs/common/contract.md` | 需修订/需裁决 | 异常、命名空间、模块数量、文档结构和关系图漂移 | D + 规范性 A |
-| `docs/common/usage.md` | 需修订 | 安装、Conan 消费、shared/static 和 C++ 标准描述错误 | D；安装承诺 A |
-| `docs/common/open_questions.md` | 非规定性记录 | 当前保留 ESR 1 项、SBIRS 4 项 | 按 Stage A 条件重新进入 |
-| `docs/practice/batch_validation.md` | 需修订 | 模块/场景数量、sequence、退出码、测试路径和硬门描述过时 | D |
-| `docs/practice/ci.md` | 需修订 | Windows preset 和 contract 数量过时 | D + Windows 策略 A |
-| `docs/practice/coverage.md` | 未发现确认问题 | 当前 script 与 branch-first 口径一致 | 保持 |
-
-结论不是“文档整体不可用”：多数物理链、DTO 分层、失败复用和 snapshot/replay 基础语义仍有 live
-证据。问题集中在近期新增能力没有同步到旧架构图、batch 文案把场景名称扩大成不存在的硬断言，以及
-replay/config 字段在 public DTO、schema、codec 和测试之间没有形成完整闭环。
-
-## 3. 审批用证据矩阵
-
-| Freeze item | 假设 | 主要证据 | 允许修订条件 | 否决/暂停条件 | 当前决策 |
-|---|---|---|---|---|---|
-| F1 模块架构图和执行顺序 | 文档图应对应当前真实调用链 | Session/Controller/Pipeline/Adapter live callers | 唯一调用链与图不一致 | 仅为明确标注的概念图 | pass：D |
-| F2 replay 能力边界 | 文档声称可回放的结果影响字段均进入 schema/codec/comparator | EOS/SAR schema、codec、ReplaySession | 结果影响字段缺失或输入被拒绝 | 文档已明确写出限制 | pass：A |
-| F3 初始化与 runtime 校验 | 文档必须区分 trusted create、report-only validation 和 atomic patch reject | `*Session::Create*`、resolver、contract tests | live 行为可直接判定 | 预期契约尚未确定 | pass：D |
-| F4 batch 硬契约 | “硬检查”必须存在对应 `checks.Add`/exit gate | 五个 batch executables | 有明确 check id 并影响退出码 | 仅由场景名称或 warning 推断 | pass：D |
-| F5 common 构建/异常契约 | active contract 应与构建标志和 live source 一致 | CMake flags、try/catch、presets | 事实性描述可核验 | 文档是尚未实现的强制规范 | narrow：A |
-| F6 安装/下游消费 | usage 示例必须能由当前 package/install 产物支持 | `conanfile.py`、ProjectInstall、consumer CI | package/export/target 闭环存在 | 仅源码依赖可获取 | pass：A |
-| F7 evidence 锚点 | evidence 应指向存在且能证明该陈述的测试 | `rg`、CTest inventory、test sources | 文件与具体测试均存在且语义相关 | 只有历史注释/旧行号 | pass：D |
-| F8 未确认算法疑点 | 不把未经 fresh build/characterization 的推断写成事实 | pending probes | 补齐可复现测试 | 只有静态推断或旧二进制 | defer：Q |
 
-## 4. 模块文档详细发现
-
-### 4.1 Electronic Surveillance Radar（已收口）
-
-ESR-01～ESR-06 的稳定结论已经迁入 `docs/electronic_surveillance_radar/design.md`；未接线的
-`EsrOutputManager` 已删除。ESR-Q1 已确认为 64→32 位 replay 窄化缺陷并修复，边界测试覆盖
-`UINT32_MAX + 1`。ESR-Q2 作为唯一未决项迁入 `docs/common/open_questions.md`，本审查稿不再保留
-ESR 的第二份规范性描述。
-
-### 4.2 Synthetic Aperture Radar（已收口）
-
-SAR-01～SAR-09 的稳定结论已经迁入 `docs/sar/design.md`。外部 raw IQ 的 samples、actual/ideal
-pulse states 已进入 cycle-input FlatBuffers、codec 和 trace/replay 闭环；L3 profile 已收口为
-`kL3Backprojection`，与 runtime 互斥规则一致，不再错误启用 L2。SAR-Q1
-因此关闭。本审查稿不再保留 SAR 的第二份规范性描述。
-
-### 4.3 Electro-Optical Sensor
-
-#### EOS-01（P1，D）初始化配置不会原子拒绝非法值
-
-- 文档位置：`docs/electro_optical_sensor/design.md:302,305`。
-- live 证据：`EosSession.h:72` 的 `Create()` 是 trusted path；`:75` 与 `EosSession.cpp:63` 表明
-  `CreateWithValidation()` 只报告 issues 且仍构造；
-  `eos_public_api_convenience_test.cpp:520` 明确锁定非法配置仍构造。只有
-  `EosRuntimeConfigResolver.cpp:117-202` 对 runtime patch 原子拒绝。
-- 建议：改成“初始化校验显式、报告式、非阻断；runtime patch 原子拒绝”。
-
-#### EOS-02（P1，A）replay 漏掉初始 `mission.power_on`
-
-- 文档位置：`docs/electro_optical_sensor/design.md:253,266`，并引用
-  `SessionConfigPreservesAllDomains`。
-- live 证据：
-  - `EosMissionConfig.h:26` 的 `power_on` 影响结果，mapper 在 `EosPipelineConfigMapper.cpp:68`
-    映射成 `sensor_enabled`，pipeline 在 `EosPipeline.cpp:387` 产生 powered-off abort。
-  - `schemas/replay/eos_session_replay.fbs:10` 的 mission table 没有该字段。
-  - `EosReplayFlatbufferCodec.cpp:313,363` 编解码也遗漏；roundtrip test 未设置/断言该字段。
-  - `EosReplaySession.cpp:115` 使用解码配置重建 session，因此初始关机 trace 可能按默认开机回放。
-- 建议：优先审批为代码/schema bundle；若暂不实现，文档必须明确限制，且不得继续用“AllDomains”证明完整性。
-
-#### EOS-03（P1，D）batch 硬检查和 sector retask 夸大
-
-- 文档位置：`docs/electro_optical_sensor/design.md:427-431`。
-- live 证据：`eos_batch_validation.cpp:499-518` 只硬检查 replay complete、nonexecuted、marker、
-  attribution 数量和帧内 detection id unique；未使用 lifecycle recorder，未提交非法 runtime patch。
-  `:402` 的所谓 sector retask 只改 scan rate，未改 sector bounds/center。
-- 建议：按现有 check id 收窄；FOV/lifecycle、atomic patch 和真正 sector retask 标为未覆盖。
-
-#### EOS-04（P2，D）range gate 不是 SNR 前过滤器
-
-- 文档位置：`docs/electro_optical_sensor/design.md:205,276,326`。
-- live 证据：`EosPipeline.cpp:401` 只有 FOV 触发前置 `continue`；`:518-544` 对 range 外目标仍构造
-  record 并计算 IR/visible/fused SNR，最后只把 range 合入 `detected`；
-  `eos_pipeline_test.cpp:104` 明确验证该行为。
-- 建议：写明 FOV 是 record membership gate，range 是最终 detection eligibility gate。
-
-#### EOS-05（P2，D）runtime resolver 错挂到 Controller
-
-- 文档位置：`docs/electro_optical_sensor/design.md:96,160-162`。
-- live 证据：`EosSession.cpp:87-102` 由 Session 直接 resolve、更新 internal config 并调用 pipeline；
-  `EosController.cpp:26` 没有 resolver 调用。
-- 建议：图改成 Session → Resolver → Session config → Pipeline。
-
-#### EOS-06（P2，D）`EosCycleOutputAdapter` 职责错误
-
-- 文档位置：`docs/electro_optical_sensor/design.md:137,155,277`。
-- live 证据：Controller 在 `EosController.cpp:125,159` 直接组装 frame/result；
-  `EosCycleOutputAdapter.cpp:8` 仅做外部坐标转换；debug/lifecycle 分别由
-  `EosOutputDebugViewBuilder.cpp:62`、`EosDetectionLifecycleRecorder.cpp:72` 作为 caller-side helper 消费。
-- 建议：重新划分 Controller、coordinate adapter、debug/lifecycle consumer。
-
-#### EOS-07（P3，D）preset 基线名称过时
-
-- 文档位置：`docs/electro_optical_sensor/design.md:296` 写 `default`。
-- live 证据：public enum 为 `EosEnvironmentPreset::kStandard`，example JSON 和 loader 也只使用
-  `kStandard` 名称。
-- 建议：写成 `standard (kStandard)`；表中数值仍正确。
-
-#### EOS-Q1（Q）未消费的 public 配置
-
-- `focal_length_m` 被 mapper 复制但当前 pipeline 未消费；`pressure_hpa` 被校验/replay，但环境模型只消费
-  湿度和温度。当前文档未明确声称二者影响结果，因此暂不判定为文档错误；可作为后续 config-effect
-  characterization 项。
-
-### 4.4 Space-Based Infrared Sensor
-
-SBIRS 第一类问题以及已批准的 B1–B6、B8、B9、环形扫描和 WideSearch-only 行为均已迁入
-`docs/space_based_infrared_sensor/design.md` 并由对应代码与测试固化。本报告不再保留这些已落定项的
-历史方案描述，避免与模块唯一设计权威形成第二份事实来源。
-
-TruthAssisted 双模式已经获批并落地：`Estimated`、`StrictTruthAssisted`、
-`SensorLikeTruthAssisted` 作为互斥正式模式，由模块 `design.md`、public DTO、runtime patch 与 replay
-契约共同固化。原专题草案已删除；不阻塞该契约的距离语义、分阶段误差统计、多目标随机顺序和
-Estimated 真值初始化问题登记在 `docs/common/open_questions.md`，不在本审查稿形成第二权威。
-
-## 5. Common 文档详细发现
-
-### 5.1 `docs/common/contract.md`
-
-#### COMMON-01（P1，A）异常契约与 live source/build 不一致
-
-- 文档位置：`docs/common/contract.md:125`，同时声称禁止异常并保证 `-fno-exceptions` 构建。
-- live 证据：`src/flight_dynamic/adapter/JsbsimAdapter.cpp:124-129,255-258` 和
-  `src/sar/output/ImageFormatter.cpp:163-200` 存在 try/catch；当前 CMake 未设置全项目 `-fno-exceptions`。
-- 风险：这是规范性 contract 与实现不一致，不能只把 contract 改成“允许异常”而不经审批。
-- 审批选择：C1 以 live 现状收窄规则；或 C2 保留禁止异常为目标并另开代码/构建整改。
-
-#### COMMON-02（P2，D）`src/common` 命名空间映射过度绝对
-
-- 文档位置：`:106-119`。
-- live 证据：`src/common/coordinate/PositionTransform.cpp:7-8` 使用 `oneq::coordinate`；
-  `src/common/replay/ReplayTrace.cpp:27-28` 使用 `oneq::replay`；
-  `src/common/trace/TraceSink.cpp:15-16` 使用 `oneq::trace`。
-- 建议：为 public-domain implementation carve-out，不能笼统规定全部 `oneq::common`。
-
-#### COMMON-03（P2，D）SBIRS 多处遗漏或计数仍为四模块
-
-- 文档位置：`:107,181,199,219`。
-- live 证据：contract 表格本身已列 AR/ESR/EOS/SAR/SBIRS；
-  `src/sbirs_sensor/session/SbirsSession.cpp:10-13` 也使用 session-owned Impl。
-- 建议：统一模块数量，补齐 SBIRS composition/runtime/config 叙述。
-
-#### COMMON-04（P2，D）`InterceptPipelineResult` 三通道陈述过时
-
-- 文档位置：`:210`。
-- live 证据：ESR result 已含 `sensor_powered_off`；同文 AR/ESR 源码行号锚点也已移动。
-- 建议：写三业务通道 + execution metadata，并换成测试名锚点。
-
-#### COMMON-05（P2，A）Windows bootstrap 规范与当前构建入口分叉
-
-- 文档位置：`:291-294`，规范要求 shell/GitHub bootstrap，不使用 Windows Conan。
-- live 证据：`CMakePresets.json:79-170` 已存在 Windows Conan 和 no-Conan presets；
-  `scripts/fetch_third_party.bat` 是 no-Conan 路径，但尚不能单凭 preset 存在证明完整支持。
-- 审批选择：保留规范并把 presets 标成未验收；或更新规范为双路径。需要真实 Windows configure/build/
-  install/consumer 证据后才能宣布支持。
-
-#### COMMON-06（P3，D）文档结构计数过时
-
-- 文档位置：`:348-351` 写 common 只有两份。
-- live 证据：`docs/common/usage.md` 是第三份；`check_docs_structure.cmake:49-52` 明确允许三份。
-- 建议：改成 contract/open_questions/usage 三份。
-
-#### COMMON-07（P2，D）模块关系图把概念输入画成直接依赖
-
-- 文档位置：`:359-426`，把 flight_dynamic 画成唯一平台状态生产者并直接连各传感器。
-- live 证据：传感器模块没有 include/dependency 到 flight_dynamic，而是各自消费 public `CycleInput` DTO。
-- 建议：明确图是 external orchestration concept，不能标成仓库内直接调用/依赖。
-
-### 5.2 `docs/common/usage.md`
-
-#### USAGE-01（P1，A）“零依赖安装”表述误导
-
-- 文档位置：`:5,9,11`，与同文 `:35` 要求 Conan cache 前置自相矛盾。
-- live 证据：consumer CI 使用 Conan toolchain；ProjectInstall 只携带有限 dependency metadata，
-  active spdlog/HighFive/JSBSim 等并未随 1q install tree 捆绑。
-- 建议：区分“无需手工管理 include/link target”与“无需准备第三方依赖”。后者当前不成立。
-
-#### USAGE-02（P1，A）Conan `requires = "1q/0.1"` 当前不能提供文档所称包
-
-- 文档位置：`:53-90`。
-- live 证据：`conanfile.py` 只有 name/version/dependency bootstrap，没有 `build()`、`package()`、
-  `package_info()`，因此不能导出库和 CMake target 给下游。
-- 建议：删除/标记为规划中的消费方式，或另开 Conan packaging 实现与 consumer proof。
-
-#### USAGE-03（P2，D）target 类型和语言标准默认值错误
-
-- 文档位置：`:100-104,119`。
-- live 证据：`ProjectOptions.cmake:6` 默认 `BUILD_SHARED_LIBS=ON`；`ProjectSetup.cmake:19-24`
-  默认 C++17；static define 在 `ProjectTargets.cmake:56-59` 条件启用。Local presets 强制 static 不等于
-  项目默认 static。
-- 建议：分别描述项目默认、preset override 和 consumer-visible define。
-
-#### USAGE-04（P3，D）依赖配置文件名大小写/拼写不精确
-
-- 文档位置：`:32`；live 文件包含 `nanoflann-config`、`flatbuffers-config` 等形式。
-- 建议：使用 install tree 实际文件名或避免承诺内部 config 文件清单。
-
-### 5.3 `docs/common/open_questions.md`
-
-未发现能够直接推翻当前“无开放问题”状态的证据。本文可以保持不变；但若审批把 replay/schema、
-Windows contract 或 Conan packaging 选为后续未决事项，应在是否进入 `open_questions.md` 之间另行裁决，
-不能由本审查草案自动提升。
-
-## 6. Practice 文档详细发现
-
-### 6.1 `docs/practice/batch_validation.md`
-
-#### BATCH-01（P1，D）模块和场景总数过时
-
-- 文档位置：`:13-17,46-51,91-105,154,174-180,192-200`，仍写四模块、92 场景并未描述 sequence。
-- live 证据：`examples/batch_validation/README.md:3-4,23-24` 和 CMake 当前注册五模块；
-  `--list-scenarios` 结果为 199 sweep + 31 sequence = 230：
-  - AR 52 + 6
-  - EOS 36 + 6
-  - ESR 48 + 6
-  - SAR 36 + 6
-  - SBIRS 27 + 7
-- 建议：以 README/可执行列举为 source of truth，并单列 sweep/sequence。
-
-#### BATCH-02（P1，D）replay divergence 不是 warning
-
-- 文档位置：`:167-170,208`，写 divergence 不影响退出码。
-- live 证据：五个 batch executable 均把 replay failure/divergence 记录为 Error，并在 error/check failure
-  时返回 2，例如 AR `ar_batch_validation.cpp:489-500,736-737`、EOS `:486-497,698`、
-  ESR `:444-455,672`、SAR `:467-477,688`、SBIRS `:374-385,528`。
-- 建议：明确 replay divergence 是 blocking error；物理趋势才是 warning。
-
-#### BATCH-03（P2/P3，D）测试路径和 matrix-test 概括过时
-
-- 文档位置：`:158` 的 EOS replay 路径应为
-  `tests/replay/electro_optical_sensor/eos_replay_session_test.cpp`。
-- `:205` 声称通用 `tests/unit/*_matrix_test` 硬门；当前 matrix tests 只在 SAR domain 找到，不能泛化五模块。
-- 建议：改成当前具体目标/文件，不使用不存在的通用 wildcard 契约。
-
-### 6.2 `docs/practice/ci.md`
-
-#### CI-01（P2，A）“没有 Windows preset”事实已过时，但支持状态未证明
-
-- 文档位置：`:25,81`。
-- live 证据：`CMakePresets.json:79-170` 已有 Windows Conan/no-Conan presets。
-- 建议：删除“preset 不存在”；是否写成“已支持 Windows”必须等待真实 Windows 全链证明。
-
-#### CI-02（P3，D）contract 数量过时
-
-- 文档位置：`:13` 写 17 个 guard。
-- live `ctest -N -L contract` 列出 18 个 script guards，连同 6 个 compiled contract tests 共 24。
-- 建议：避免硬编码易漂移总数，或说明统计口径并由 CTest inventory 生成。
-
-### 6.3 `docs/practice/coverage.md`
-
-未发现确认的过时内容。`llvm-ninja-coverage`、`tools/coverage_report.sh` 对 profraw placement 的所有权、
-`--label/--clean/--no-test` 等入口以及 branch-first 诊断口径与 live script 基本一致。
-
-## 7. 已确认仍准确的关键边界
-
-为避免审批时把文档误判为整体失效，以下内容已由 live 路径核验：
-
-- 各模块 public/internal 分层和默认 composition root 基本成立；没有新增 public pipeline/controller SPI。
-- ESR raw/canonical/hypothesis 三类业务输出和 powered-off 状态路径存在。
-- SAR phase-reference/image-quality 基础实现、raw/result/debug 分层和大部分 replay DTO 路径存在。
-- EOS IR/visible、Planck/传播/NEP、Lambertian、空间频谱、昼夜融合权重和 failure-marker continuation 有实现。
-- SBIRS 六状态集合、默认 EKF、可选 IMM、ATP/cue、snapshot 原子恢复和七个 sequence 场景存在。
-- `docs/common/open_questions.md` 和 `docs/practice/coverage.md` 本轮未找到确认的语义漂移。
-
-## 8. 待审批决策
-
-请逐项选择；推荐项已标注：
-
-### AP-1：事实性文档修订范围
-
-- [ ] **批准（推荐）**：一次性修订所有标记 D 的已确认项，不改代码/API/schema/tests。
-- [ ] 只修 P1，P2/P3 延后。
-- [ ] 指定需要排除的 finding ID：__________。
-
-### AP-2：replay 能力缺口
-
-- [x] SAR raw IQ replay 已完成 schema、codec、trace 与回放闭环，并迁入 SAR 权威设计。
-- [ ] EOS `power_on` replay 仍按 EOS 专项另行裁决。
-
-### AP-3：全项目异常规则
-
-- [ ] **推荐短期方案**：contract 写清当前存在第三方边界 try/catch、未保证 `-fno-exceptions`；另开规范收敛项。
-- [ ] 保留“禁止异常/必须 `-fno-exceptions`”为强制目标，并安排代码与构建整改。
-- [ ] 允许现状且删除禁止异常规范。
-
-### AP-4：Windows 支持口径
-
-- [ ] **批准（推荐）**：只陈述 Windows presets 已存在，但支持状态待真实 Windows 全链验证。
-- [ ] contract 固定 shell/GitHub bootstrap 为唯一认可路径，Conan presets 标为实验性。
-- [ ] 正式支持 Conan 与 no-Conan 双路径，并补两套 CI 证据。
-
-### AP-5：安装与 Conan 消费承诺
-
-- [ ] **批准（推荐）**：usage 删除“零依赖”和当前可 `requires=1q/0.1` 的承诺，改写为已验证 install/consumer 路径。
-- [ ] 保留承诺并另开 Conan package/export/consumer 实现批次。
-
-### AP-6：batch 文档强度
-
-- [ ] **批准（推荐）**：所有模块只列当前存在且影响退出码的 check ids；warning 与 hard error 明确分离。
-- [ ] 维持现有硬契约文字，并补齐缺失的 lifecycle/FOV/state continuity/atomic patch 检查。
-
-### AP-7：未确认项
-
-- [x] SAR 配置疑点已关闭：L3 profile 改名为 `kL3Backprojection`，且不再与 L1/L2 共存。
-- [ ] EOS 未消费配置继续 defer；其余模块未决项由各自权威设计或 open questions 管理。
-- [ ] 指定需要立即验证的 Q 项：__________。
-
-## 9. 审批后的建议冻结范围
-
-若 AP-1、AP-2 推荐项获批，下一批建议冻结为：
-
-### Frozen Contract（候选，尚未生效）
-
-Proven requirement:
-
-- active 文档必须与当前 live 调用链、字段、schema、验证入口和构建事实一致。
-
-Allowed scope:
-
-- `docs/common/*.md`
-- `docs/practice/*.md`
-- 五个纳入模块的 `docs/*/design.md`
-- 本报告仅用于跟踪；结论迁移完成后删除。
-
-Explicitly out of scope:
-
-- `docs/flight_dynamic/design.md`
-- `include/1q/`、`src/`、`schemas/`、生成头、tests、examples 和 CMake 行为
-- replay/schema 缺口的实现
-- Q 类未确认项
-- 放宽测试阈值、skip、known-limit 或 compatibility policy
-
-Acceptance gates:
-
-- `cmake -D SOURCE_DIR=/Users/aurora/Code/1q -P tests/contract/check_docs_structure.cmake`
-- `cmake -D SOURCE_DIR=/Users/aurora/Code/1q -P tests/contract/check_doc_legacy_term_guard.cmake`
-- `cmake -D SOURCE_DIR=/Users/aurora/Code/1q -P tests/contract/check_sar_doc_governance.cmake`
-- `cmake -D SOURCE_DIR=/Users/aurora/Code/1q -P tests/contract/check_install_manifest.cmake`
-- `cmake -D SOURCE_DIR=/Users/aurora/Code/1q -P tests/contract/check_public_api_boundary.cmake`
-- `git diff --check`
-- 对所有新增/替换的 `[evidence: ...]` 路径和测试名执行精确 `rg` 校验。
-
-## 10. 本报告的只读验证记录
-
-- 文档结构基线：common=3、modules=6、module_docs=6、review 在创建本草案前为 0、practice=3、violations=0。
-- `check_doc_legacy_term_guard`、`check_sar_doc_governance`、`check_install_manifest`、
-  `check_public_api_boundary` 均通过。
-- `ctest -N -L contract`：当前 24 个 contract entries（18 script + 6 compiled）。
-- 五个 batch executable 的 `--list-scenarios`：共 199 sweep + 31 sequence。
-- ESR/SAR 使用现有 release 测试二进制做聚焦验证；EOS/SBIRS 以 test listing、源码和不会生成输出的
-  scenario listing 为主，避免把旧构建产物误当成 current-source 唯一证据。
-- 审查结论以 live source/schema/test evidence 为主；结构守卫只作为形状证明。
-
-报告中的模块与 common/practice 项仍等待审批；在审批前，不应修改相应 active contract/design
-来提前固化尚未批准的 A/Q 类结论。
+**Review-Date:** 2026-07-20
+
+**Closure-Date:** 2026-07-21
+
+**Authority:** 非规范性审查记录；不得替代 `docs/common/contract.md`、各模块 `design.md` 或 `docs/practice/`。
+
+## 1. 范围与判定方法
+
+本轮以 live code、tests、schema、codec、runtime resolver、构建配置和模块权威设计为证据，复核文档中的事实描述。`flight_dynamic` 不作为被审查模块；它只在跨模块依赖或构建边界需要说明时出现。
+
+结论按以下类别归档：
+
+1. **过时事实**：描述曾经成立，但已落后于当前实现；
+2. **文档错误**：描述与当前可验证契约不符；
+3. **真实代码缺陷**：实现违反已经固化的设计或契约；
+4. **设计/实现分歧**：两者不同，但需要先裁决目标语义；
+5. **继续 defer**：当前没有足够证据或不属于本批范围。
+
+已裁决规则均迁入对应权威文档；未裁决边界只进入 `open_questions.md`。本报告不保存第二份设计方案。
+
+## 2. 总体状态
+
+| 范围 | 状态 | 权威落点 |
+|---|---|---|
+| AR | 已关闭 | `docs/airborne_radar/design.md` |
+| ESR | 已关闭；剩余非阻塞问题继续开放 | `docs/electronic_surveillance_radar/design.md`、`docs/common/open_questions.md` |
+| SAR | 已关闭 | `docs/sar/design.md` |
+| EOS | 已关闭 | `docs/electro_optical_sensor/design.md` |
+| SBIRS | 已关闭；剩余非阻塞仿真边界继续开放 | `docs/space_based_infrared_sensor/design.md`、`docs/common/open_questions.md` |
+| Common | 本批已关闭；Windows/MSVC 全链证明继续开放 | `docs/common/contract.md`、`docs/common/usage.md`、`docs/common/open_questions.md` |
+| Practice | 本批已关闭 | `docs/practice/batch_validation.md`、`docs/practice/ci.md` |
+
+## 3. Common 证据矩阵
+
+| 编号 | 原问题 | 证据判定 | 分类 | 处置 |
+|---|---|---|---|---|
+| COMMON-01 | “禁止异常”被写成全工具链 `-fno-exceptions` 保证 | 构建没有提供该全局保证；项目代码不应以抛异常表达失败，但现有第三方边界可捕获并转换成项目状态 | 文档错误 | 在 contract 固化为“不新增 throw；窄边界 catch 后转换”，删除虚假的编译器保证 |
+| COMMON-02 | `src/common` 被描述为只能使用 `oneq::common` | 共享实现既可实现公开域命名空间，也可承载 `oneq::common::<domain>` 内部设施 | 文档错误 | 按所有权和公开边界定义命名空间，不由目录名机械决定 |
+| COMMON-03 | Session 所有权只覆盖四个传感器模块 | live API 已包含 AR、EOS、ESR、SAR、SBIRS 五个模块，SBIRS 同样具有 Session/runtime patch 所有权 | 过时事实 | 更新为五模块契约 |
+| COMMON-04 | ESR 输出被概括成单一探测结果 | live 输出包含三类业务结果和 `sensor_powered_off` 执行元数据 | 过时事实 | contract 改为结构化结果与执行元数据 |
+| COMMON-05 | Windows preset 被当作 Windows 支持证明 | preset 和批处理脚本只证明存在脚手架，尚无真实 Windows 的依赖获取、配置、构建、安装和消费者闭环 | 设计/实现分歧 | 保留 shell/GitHub 依赖引导目标；证明门槛进入 COMMON-OQ-1 |
+| COMMON-06 | Common 文档清单漏掉 usage | 当前稳定文档为 contract、open questions、usage | 过时事实 | 文档治理清单和结构守卫同步更新 |
+| COMMON-07 | 数据流图暗示 flight_dynamic 直接驱动所有传感器 | 仓库内没有该直接依赖；CycleInput 由外部编排器构造，flight_dynamic 只是可选数据来源 | 文档错误 | 图示改为外部编排边界 |
+| USAGE-01 | 安装包被称为“零依赖” | 安装后的目标仍有公开头文件、标准库和按功能出现的第三方消费边界 | 文档错误 | 改为 1q 安装产物与 consumer-provided dependencies 的明确边界 |
+| USAGE-02 | 示例声明可直接使用 `requires = "1q/0.1"` | 当前 `conanfile.py` 负责依赖和工程构建环境，不提供完整 1Q Conan package 生命周期 | 文档错误 | 删除虚构的 Conan 消费契约，保留 CMake install/consumer 路径 |
+| USAGE-03 | 库类型和宏被写成固定值 | 目标类型跟随 `BUILD_SHARED_LIBS`；`ONEQ_STATIC_DEFINE` 仅用于静态消费 | 过时事实 | usage 按 live target 属性说明 |
+| USAGE-04 | C++ 标准和生成配置文件名被写死 | 默认标准为 C++17；生成文件和路径应由 CMake package contract 消费，不应由文档猜测 | 文档错误 | 只承诺已验证的 CMake target 用法 |
+| USAGE-05 | 安装逻辑声称会生成可移植第三方快照 | 查找路径硬编码目录与 `x86_64`，当前 Apple Silicon 构建实际找不到 Conan data；即使生成，header-only stand-in 也可能遮蔽真实二进制依赖 | 真实代码缺陷 | 删除不完整的第三方快照机制；安装树只导出 1q，自身依赖由 consumer 环境完整解析 |
+
+## 4. Practice 证据矩阵
+
+| 编号 | 原问题 | 证据判定 | 分类 | 处置 |
+|---|---|---|---|---|
+| BATCH-01 | 场景总数和模块分布为历史快照 | live `--list-scenarios` 为 199 个 sweep、31 个 sequence，共 230 个场景 | 过时事实 | 更新当前快照，并指定 `--list-scenarios` 为数量事实源 |
+| BATCH-02 | replay divergence 被描述为 warning | batch runner 将 trace/replay 失败或分叉视为阻塞错误并返回非零；只有物理趋势属于 warning | 文档错误 | 固化阻塞/告警边界 |
+| BATCH-03 | EOS replay 路径及通用 matrix 测试模式已失真 | EOS replay 测试位于专属 replay 目录；五模块不存在统一的 `tests/unit/*_matrix_test.cpp` 契约 | 过时事实 | 文档改为 live target、CTest label 和源码清单 |
+| CI-01 | Windows preset 存在即等于 Windows 支持 | 当前 CI 只在 macOS 运行；Windows 链尚未经真实 runner 证明 | 过时事实 | CI 文档明确“脚手架，不是支持声明”并引用 COMMON-OQ-1 |
+| CI-02 | contract 测试数量被硬编码 | 测试注册会随守卫和编译目标变化；数量不是稳定契约 | 过时事实 | CI 与文档只依赖 `contract` label，不固定计数 |
+
+## 5. 已冻结结论
+
+- 项目失败语义不得依赖 C++ 异常；不新增 `throw`。已有第三方边界只允许窄范围捕获并转换为项目状态。
+- `src/common` 的命名空间由公开域和所有权决定，不由目录名决定。
+- Common 契约覆盖五个传感器模块；跨模块周期输入由外部编排器拥有。
+- 安装文档不承诺零依赖，也不宣称当前仓库提供可 `requires` 的 1Q Conan 包。
+- 安装树不制造第三方包的局部替身；完整依赖 target 由 consumer 环境提供。
+- Windows preset/脚本目前是未验证脚手架。支持声明必须以真实 Windows 全链通过为准。
+- batch validation 中，结构化检查、trace/replay 失败和分叉是阻塞错误；物理趋势才是非阻塞告警。
+- 场景数量与 contract 测试清单属于 live inventory，不作为长期硬编码契约。
+
+## 6. 继续开放的问题
+
+唯一规范入口为 [`docs/common/open_questions.md`](../common/open_questions.md)：
+
+- COMMON-OQ-1：Windows/MSVC shell/GitHub 依赖引导及真实 runner 全链证明；
+- ESR-OQ-1：ESR 非阻塞仿真边界；
+- SBIRS-OQ-1～OQ-4：SBIRS 非阻塞仿真边界。
+
+## 7. 本批验证记录
+
+- live batch inventory：199 个 sweep + 31 个 sequence = 230；
+- 五个 `batch_validation::<module>` CTest 分区通过；
+- `contract::public_api`、文档结构、安装清单、public API 边界、legacy term、测试布局和 preset provider 守卫通过；
+- release preset 重新配置并构建相关公共 API 与 batch validation 目标；
+- release install 成功，独立 consumer 的 9 个可执行目标完成配置、编译和链接；
+- 完整 `contract` label 共 24 项通过。

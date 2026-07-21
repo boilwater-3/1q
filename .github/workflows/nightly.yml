@@ -12,7 +12,7 @@
 #   这些任务单次 10-20 分钟，放 PR 会拖慢反馈。nightly 跑足够频繁以捕捉回归。
 #
 # 手动触发: Actions 页 → nightly → Run workflow（便于随时验证修复）
-# 详见 docs/ci.md。
+# 详见 docs/practice/ci.md。
 
 name: Nightly
 

@@ -10,9 +10,9 @@
 # 收缩时第一方加载器、集成示例和批量验证目标同步迁移。
 #
 # 平台: 仅 macOS（macos-14, arm64）。Windows conan 路径 JSBSim 来源待核实，留后续。
-# 详见 docs/ci.md。
+# 详见 docs/practice/ci.md。
 #
-# 本地复现（见 docs/ci.md "本地复现" 一节）:
+# 本地复现（见 docs/practice/ci.md "本地复现" 一节）:
 #   bash scripts/bootstrap_conan.sh llvm-ninja-debug
 #   cmake --preset llvm-ninja-debug -D ENABLE_EXAMPLES=ON
 #   cmake --build --preset llvm-ninja-debug
@@ -42,7 +42,7 @@ env:
 jobs:
   # ─────────────────────────────────────────────────────────────────────
   # Job 1: guard — 架构守护，编译前先跑（最快反馈）
-  # 跑 -L contract: 17 个 cmake 守护脚本（include 方向/命名/API 边界等）+ contract gtest
+  # 跑 -L contract: live CTest inventory 中的 script guards + compiled contract partitions
   # 这些检查只读源码，不依赖编译产物，是项目"可执行架构规则"的核心。
   # ─────────────────────────────────────────────────────────────────────
   guard:
