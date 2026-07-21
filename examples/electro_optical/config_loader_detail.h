@@ -15,7 +15,6 @@ inline void LoadEosHardware(const examples::JsonValue& j,
   v->wavelength_lower_um = static_cast<float>(j["wavelength_lower_um"].AsDouble());
   v->wavelength_upper_um = static_cast<float>(j["wavelength_upper_um"].AsDouble());
   v->optical_aperture_m = static_cast<float>(j["optical_aperture_m"].AsDouble());
-  v->focal_length_m = static_cast<float>(j["focal_length_m"].AsDouble());
 }
 
 inline void LoadEosMission(const examples::JsonValue& j,

@@ -87,7 +87,7 @@ python3 examples/batch_validation/analyze_batch_results.py
 | 模块 | sequence 场景 ID |
 | --- | --- |
 | AR | `ar_seq_two_target_crossing`、`ar_seq_crossing_with_pulsed_jammer`、`ar_seq_tws_stt_tws`、`ar_seq_power_cycle`、`ar_seq_invalid_input_recovery`、`ar_seq_invalid_patch_atomic` |
-| EOS | `eos_seq_two_target_focal_crossing`、`eos_seq_day_twilight_night`、`eos_seq_fused_ir_visible_fused`、`eos_seq_sector_retask`、`eos_seq_power_cycle`、`eos_seq_invalid_input_recovery` |
+| EOS | `eos_seq_two_target_focal_crossing`、`eos_seq_day_twilight_night`、`eos_seq_fused_ir_visible_fused`、`eos_seq_scan_rate_retask`、`eos_seq_power_cycle`、`eos_seq_invalid_input_recovery` |
 | ESR | `esr_seq_two_emitter_angular_crossing`、`esr_seq_dense_emitters_with_silence`、`esr_seq_mode_switch`、`esr_seq_scan_bounds_retask`、`esr_seq_power_cycle`、`esr_seq_invalid_input_recovery` |
 | SAR | `sar_seq_multi_scatterer_resolution`、`sar_seq_squint_gate_recovery`、`sar_seq_raw_to_image`、`sar_seq_invalid_runtime_atomic`、`sar_seq_invalid_input_recovery`、`sar_seq_low_snr_recovery` |
 | SBIRS | `sbirs_seq_two_target_crossing_two_locks`、`sbirs_seq_three_target_one_lock_handoff`、`sbirs_seq_boost_maneuver_nis_reacquire`、`sbirs_seq_cue_latency_cross_velocity`、`sbirs_seq_occultation_reappearance`、`sbirs_seq_standby_mission_retask`、`sbirs_seq_invalid_input_recovery` |

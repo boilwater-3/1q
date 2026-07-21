@@ -15,7 +15,6 @@ eos_cfg::EosSessionConfig MakeFusedSearchConfig() {
   config.hardware.wavelength_lower_um = 3.0f;
   config.hardware.wavelength_upper_um = 5.0f;
   config.hardware.optical_aperture_m = 0.25f;
-  config.hardware.focal_length_m = 0.8f;
   config.mission.work_mode = eos_cfg::EosWorkMode::kFused;
   config.mission.scan_rate_deg_per_sec = 5.0f;
   config.mission.frame_rate_hz = 30.0f;
@@ -83,7 +82,6 @@ int main() {
   ReportF("hardware.wavelength_lower_um", bh.wavelength_lower_um, fh.wavelength_lower_um);
   ReportF("hardware.wavelength_upper_um", bh.wavelength_upper_um, fh.wavelength_upper_um);
   ReportF("hardware.optical_aperture_m", bh.optical_aperture_m, fh.optical_aperture_m);
-  ReportF("hardware.focal_length_m", bh.focal_length_m, fh.focal_length_m);
 
   // mission
   const auto& bm = builder_cfg.mission;

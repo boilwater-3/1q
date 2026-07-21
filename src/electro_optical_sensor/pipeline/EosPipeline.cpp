@@ -79,7 +79,8 @@ foundation::radiative_transfer::RadiativeTransferResult ComputePathRadiativeTran
   const float path_km = std::max(0.0f, range_m) * 1.0e-3f;
   const float altitude_km = ResolvePlatformAltitudeM(input) * 1.0e-3f;
   const float attenuation_per_km =
-      0.03f + 0.02f * cloud_ratio + 0.035f * aerosol_excess + 0.015f * turbulence_excess;
+      0.03f * environment_result.molecular_density_factor + 0.02f * cloud_ratio +
+      0.035f * aerosol_excess + 0.015f * turbulence_excess;
   const float altitude_relief_scale =
       oneq::common::numerics::Clamp(1.0f + 0.04f * altitude_km, 1.0f, 1.12f);
   const float derived_base_transmittance = oneq::common::numerics::Clamp(

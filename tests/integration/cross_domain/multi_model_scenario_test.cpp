@@ -263,7 +263,6 @@ eos_config::EosSessionConfig MakeEosConfigAirToAir() {
   config.hardware.wavelength_lower_um = 3.0f;
   config.hardware.wavelength_upper_um = 5.0f;
   config.hardware.optical_aperture_m = 0.25f;
-  config.hardware.focal_length_m = 0.8f;
   config.mission.work_mode = eos::config::EosWorkMode::kFused;
   config.mission.horizontal_fov_deg = 20.0f;
   config.mission.vertical_fov_deg = 8.0f;
@@ -330,7 +329,6 @@ eos_config::EosSessionConfig MakeEosConfigAirToGround() {
   config.hardware.wavelength_lower_um = 3.0f;
   config.hardware.wavelength_upper_um = 5.0f;
   config.hardware.optical_aperture_m = 0.25f;
-  config.hardware.focal_length_m = 0.8f;
   config.mission.work_mode = eos::config::EosWorkMode::kFused;
   config.mission.horizontal_fov_deg = 20.0f;
   config.mission.vertical_fov_deg = 8.0f;

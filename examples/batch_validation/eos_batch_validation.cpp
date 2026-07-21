@@ -133,7 +133,7 @@ std::vector<EosCase> BuildEosCases() {
 
 std::vector<EosCase> BuildEosSequenceCases() {
   const char* ids[] = {"eos_seq_two_target_focal_crossing", "eos_seq_day_twilight_night",
-                       "eos_seq_fused_ir_visible_fused", "eos_seq_sector_retask",
+                       "eos_seq_fused_ir_visible_fused", "eos_seq_scan_rate_retask",
                        "eos_seq_power_cycle", "eos_seq_invalid_input_recovery"};
   std::vector<EosCase> cases;
   for (const char* id : ids) {
@@ -399,7 +399,8 @@ ScenarioSummary RunEosScenario(const EosCase& c, const eos_config::EosSessionCon
                                                 eos_config::EosWorkMode::kFused;
         session.ApplyRuntimeConfig(patch);
       }
-      if (c.scenario_id == "eos_seq_sector_retask" && (cycle_index == 9U || cycle_index == 17U)) {
+      if (c.scenario_id == "eos_seq_scan_rate_retask" &&
+          (cycle_index == 9U || cycle_index == 17U)) {
         eos_config::EosRuntimeConfigPatch patch;
         patch.has_scan_rate_deg_per_sec = true;
         patch.scan_rate_deg_per_sec = cycle_index == 9U ? 35.0f : 12.0f;

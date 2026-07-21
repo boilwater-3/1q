@@ -131,6 +131,7 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
       return RejectPatch(current_config, true);
     }
     resolved.next_config.scan = patch.mission;
+    resolved.next_config.sensor_enabled = patch.mission.power_on;
     resolved.reset_scan_phase = true;
   }
 
@@ -195,9 +196,10 @@ EosRuntimeConfigResolveResult ResolveEosRuntimeConfigPatch(
   if (has_requested_update) {
     PROJECT_LOG_INFO(
         "[EosSession] runtime config patch applied: mission={} policy={} environment={} "
-        "work_mode={} scan_rate={} frame_rate={}",
+        "work_mode={} scan_rate={} frame_rate={} sensor_enabled={}",
         patch.has_mission, patch.has_policy, patch.has_environment,
-        patch.has_work_mode, patch.has_scan_rate_deg_per_sec, patch.has_frame_rate_hz);
+        patch.has_work_mode, patch.has_scan_rate_deg_per_sec, patch.has_frame_rate_hz,
+        patch.has_sensor_enabled);
   }
   return resolved;
 }

@@ -349,7 +349,6 @@ class EosModule {
        << "  wavelength_lower_um=" << hw_wavelength_lower_um_
        << " wavelength_upper_um=" << hw_wavelength_upper_um_
        << " aperture_m=" << hw_optical_aperture_m_
-       << " focal_length_m=" << hw_focal_length_m_
        << "\n  detectivity=" << hw_detector_detectivity_cm_sqrt_hz_per_w_
        << " area_cm2=" << hw_detector_area_cm2_
        << " depression=[" << hw_min_detection_depression_deg_
@@ -398,7 +397,6 @@ class EosModule {
     hw_wavelength_lower_um_ = static_cast<double>(hw.wavelength_lower_um);
     hw_wavelength_upper_um_ = static_cast<double>(hw.wavelength_upper_um);
     hw_optical_aperture_m_ = static_cast<double>(hw.optical_aperture_m);
-    hw_focal_length_m_ = static_cast<double>(hw.focal_length_m);
     hw_detector_detectivity_cm_sqrt_hz_per_w_ =
         static_cast<double>(hw.detector_detectivity_cm_sqrt_hz_per_w);
     hw_detector_area_cm2_ = static_cast<double>(hw.detector_area_cm2);
@@ -502,7 +500,6 @@ class EosModule {
   double hw_wavelength_lower_um_{0.0};
   double hw_wavelength_upper_um_{0.0};
   double hw_optical_aperture_m_{0.0};
-  double hw_focal_length_m_{0.0};
   double hw_detector_detectivity_cm_sqrt_hz_per_w_{0.0};
   double hw_detector_area_cm2_{0.0};
   double hw_min_detection_depression_deg_{0.0};

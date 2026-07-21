@@ -306,7 +306,7 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
   // hardware
   auto hw = eos::replay::CreateEosHardwareConfig(
       fbb, v.hardware.wavelength_lower_um, v.hardware.wavelength_upper_um,
-      v.hardware.optical_aperture_m, v.hardware.focal_length_m,
+      v.hardware.optical_aperture_m,
       v.hardware.detector_detectivity_cm_sqrt_hz_per_w, v.hardware.detector_area_cm2,
       v.hardware.min_detection_depression_deg, v.hardware.max_detection_depression_deg);
 
@@ -315,7 +315,7 @@ std::string EncodeEosSessionConfig(const config::EosSessionConfig& v) {
       fbb, static_cast<int32_t>(v.mission.work_mode), v.mission.horizontal_fov_deg,
       v.mission.vertical_fov_deg, v.mission.scan_rate_deg_per_sec, v.mission.frame_rate_hz,
       v.mission.scan_start_az_deg, v.mission.scan_end_az_deg, v.mission.scan_center_el_deg,
-      v.mission.boresight_depression_deg);
+      v.mission.boresight_depression_deg, v.mission.power_on);
 
   // policy detection
   auto pd = eos::replay::CreateEosPolicyDetectionConfig(
@@ -353,7 +353,6 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
     out->hardware.wavelength_lower_um = fb->hardware()->wavelength_lower_um();
     out->hardware.wavelength_upper_um = fb->hardware()->wavelength_upper_um();
     out->hardware.optical_aperture_m = fb->hardware()->optical_aperture_m();
-    out->hardware.focal_length_m = fb->hardware()->focal_length_m();
     out->hardware.detector_detectivity_cm_sqrt_hz_per_w =
         fb->hardware()->detector_detectivity_cm_sqrt_hz_per_w();
     out->hardware.detector_area_cm2 = fb->hardware()->detector_area_cm2();
@@ -371,6 +370,7 @@ bool DecodeEosSessionConfig(const std::string& bytes, config::EosSessionConfig* 
     out->mission.scan_end_az_deg = m->scan_end_az_deg();
     out->mission.scan_center_el_deg = m->scan_center_el_deg();
     out->mission.boresight_depression_deg = m->boresight_depression_deg();
+    out->mission.power_on = m->power_on();
   }
   if (fb->policy() && fb->policy()->detection()) {
     const auto* pd = fb->policy()->detection();
@@ -411,7 +411,7 @@ std::string EncodeEosRuntimeConfigPatch(const config::EosRuntimeConfigPatch& v) 
       fbb, static_cast<int32_t>(v.mission.work_mode), v.mission.horizontal_fov_deg,
       v.mission.vertical_fov_deg, v.mission.scan_rate_deg_per_sec, v.mission.frame_rate_hz,
       v.mission.scan_start_az_deg, v.mission.scan_end_az_deg, v.mission.scan_center_el_deg,
-      v.mission.boresight_depression_deg);
+      v.mission.boresight_depression_deg, v.mission.power_on);
   auto pd = eos::replay::CreateEosPolicyDetectionConfig(
       fbb, v.policy.detection.minimum_snr_db, v.policy.detection.detection_sensitivity_w,
       v.policy.detection.visible_reference_irradiance_w_m2);
@@ -509,6 +509,7 @@ bool DecodeEosRuntimeConfigPatch(const std::string& bytes, config::EosRuntimeCon
     out->mission.scan_end_az_deg = m->scan_end_az_deg();
     out->mission.scan_center_el_deg = m->scan_center_el_deg();
     out->mission.boresight_depression_deg = m->boresight_depression_deg();
+    out->mission.power_on = m->power_on();
   }
   return true;
 }

@@ -27,15 +27,23 @@ EnvironmentModelResult ResolveEnvironmentFactors(const EnvironmentModelInputs& i
   if (inputs.atmospheric_physics.enable_physical_model) {
     const float humidity = oneq::common::numerics::Clamp01(
         inputs.atmospheric_physics.relative_humidity);
+    const float pressure_hpa = oneq::common::numerics::SafePositive(
+        inputs.atmospheric_physics.pressure_hpa, 1013.25f);
+    const float temperature_k = oneq::common::numerics::SafePositive(
+        inputs.atmospheric_physics.temperature_k, 288.15f);
+    result.molecular_density_factor =
+        (pressure_hpa / 1013.25f) * (288.15f / temperature_k);
     result.aerosol_density_factor *= (1.0f + 0.3f * humidity);
     const float temp_deviation =
-        (inputs.atmospheric_physics.temperature_k - 288.15f) / 50.0f;
+        (temperature_k - 288.15f) / 50.0f;
     result.turbulence_factor *= (1.0f + 0.1f * std::fabs(temp_deviation));
   }
 
   result.aerosol_density_factor = oneq::common::numerics::SafePositive(result.aerosol_density_factor, 1.0f);
   result.turbulence_factor = oneq::common::numerics::SafePositive(result.turbulence_factor, 1.0f);
   result.path_radiance_scale_bias = oneq::common::numerics::SafePositive(result.path_radiance_scale_bias, 1.0f);
+  result.molecular_density_factor =
+      oneq::common::numerics::SafePositive(result.molecular_density_factor, 1.0f);
   return result;
 }
 

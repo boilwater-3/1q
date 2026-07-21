@@ -89,6 +89,39 @@ TEST(EosReplaySessionTest, ReplayEosTraceRoundtrip) {
   EXPECT_FALSE(replay_result.reached_failure_marker);
 }
 
+TEST(EosReplaySessionTest, ReplayInitialPoweredOffTraceRoundtrip) {
+  const std::string trace_dir = MakeTempTracePath("oneq-eos-powered-off-replay");
+  oneq::replay::ReplayTraceManifest manifest;
+  manifest.trace_id = "eos-powered-off-replay-test";
+  manifest.module = "electro_optical_sensor";
+  manifest.scenario_id = "unit-test";
+
+  {
+    std::shared_ptr<oneq::replay::ReplayTraceWriter> replay_writer(
+        new oneq::replay::ReplayTraceWriter(trace_dir, manifest, true));
+    config::EosSessionConfig config;
+    config.mission.power_on = false;
+    EosTraceSessionOptions options;
+    options.replay_writer = replay_writer;
+    options.trace_config_on_construct = true;
+    EosTraceSession session(config, options);
+
+    EosCycleInput input;
+    input.cycle_index = 1U;
+    input.dt_sec = 1.0f;
+    const EosCycleResult result = session.StepWithResult(input);
+    EXPECT_FALSE(result.executed_this_cycle);
+    EXPECT_EQ(result.abort_reason, EosPipelineAbortReason::kSensorPoweredOff);
+    replay_writer->Flush();
+  }
+
+  const EosReplaySessionResult replay_result = ReplayEosTrace(trace_dir);
+  EXPECT_TRUE(replay_result.ok) << replay_result.first_error;
+  EXPECT_EQ(replay_result.playback.applied_input_count, 1U);
+  EXPECT_EQ(replay_result.playback.compared_output_count, 1U);
+  EXPECT_FALSE(replay_result.playback.divergence_found);
+}
+
 TEST(EosReplaySessionTest, ReplayEosTraceDetectsDivergence) {
   const std::string trace_dir = MakeTempTracePath("oneq-eos-replay-divergence");
 

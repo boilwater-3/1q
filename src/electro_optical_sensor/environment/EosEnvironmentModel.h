@@ -26,6 +26,7 @@ struct EnvironmentModelResult {
   float aerosol_density_factor{1.0f};
   float turbulence_factor{1.0f};
   float path_radiance_scale_bias{1.0f};
+  float molecular_density_factor{1.0f};
 };
 
 /**

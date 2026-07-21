@@ -30,10 +30,11 @@ TEST(EosEnvironmentModelTest, CycleEnvironmentAlwaysModifiesPresetBaseline) {
   EXPECT_GT(observed_result.path_radiance_scale_bias, 1.0f);
 }
 
-TEST(EosEnvironmentModelTest, EnabledAtmosphericPhysicsAppliesHumidityAndTemperature) {
+TEST(EosEnvironmentModelTest, EnabledAtmosphericPhysicsAppliesHumidityTemperatureAndPressure) {
   EnvironmentModelInputs baseline_inputs;
   EnvironmentModelInputs physical_inputs = baseline_inputs;
   physical_inputs.atmospheric_physics.enable_physical_model = true;
+  physical_inputs.atmospheric_physics.pressure_hpa = 1200.0f;
   physical_inputs.atmospheric_physics.relative_humidity = 0.8f;
   physical_inputs.atmospheric_physics.temperature_k = 318.15f;
 
@@ -44,6 +45,22 @@ TEST(EosEnvironmentModelTest, EnabledAtmosphericPhysicsAppliesHumidityAndTempera
             baseline_result.aerosol_density_factor);
   EXPECT_GT(physical_result.turbulence_factor,
             baseline_result.turbulence_factor);
+  EXPECT_GT(physical_result.molecular_density_factor, 1.0f);
+}
+
+TEST(EosEnvironmentModelTest, MolecularDensityIncreasesWithPressureAtFixedTemperature) {
+  EnvironmentModelInputs low_pressure_inputs;
+  low_pressure_inputs.atmospheric_physics.enable_physical_model = true;
+  low_pressure_inputs.atmospheric_physics.pressure_hpa = 700.0f;
+
+  EnvironmentModelInputs high_pressure_inputs = low_pressure_inputs;
+  high_pressure_inputs.atmospheric_physics.pressure_hpa = 1200.0f;
+
+  const auto low_pressure_result = ResolveEnvironmentFactors(low_pressure_inputs);
+  const auto high_pressure_result = ResolveEnvironmentFactors(high_pressure_inputs);
+
+  EXPECT_GT(high_pressure_result.molecular_density_factor,
+            low_pressure_result.molecular_density_factor);
 }
 
 TEST(EosEnvironmentModelTest, InvalidOrNegativeInputsAreClampedToSafeRange) {

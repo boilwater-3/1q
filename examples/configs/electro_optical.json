@@ -2,8 +2,7 @@
   "hardware": {
     "wavelength_lower_um": 3.0,
     "wavelength_upper_um": 5.0,
-    "optical_aperture_m": 0.25,
-    "focal_length_m": 0.8
+    "optical_aperture_m": 0.25
   },
   "mission": {
     "work_mode": "kFused",

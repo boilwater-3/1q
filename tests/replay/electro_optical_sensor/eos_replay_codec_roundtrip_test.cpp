@@ -240,7 +240,6 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.wavelength_lower_um = 3.0f;
   config.hardware.wavelength_upper_um = 5.0f;
   config.hardware.optical_aperture_m = 0.3f;
-  config.hardware.focal_length_m = 0.9f;
   // mission
   config.mission.work_mode = config::EosWorkMode::kFused;
   config.mission.horizontal_fov_deg = 8.0f;
@@ -251,6 +250,7 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.mission.scan_end_az_deg = 70.0f;
   config.mission.scan_center_el_deg = 2.0f;
   config.mission.boresight_depression_deg = 50.0f;
+  config.mission.power_on = false;
   // policy - detection
   config.policy.detection.minimum_snr_db = 8.0f;
   config.policy.detection.detection_sensitivity_w = 2.0e-12f;
@@ -283,13 +283,13 @@ TEST(EosReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   // hardware
   EXPECT_FLOAT_EQ(decoded.hardware.wavelength_lower_um, 3.0f);
   EXPECT_FLOAT_EQ(decoded.hardware.optical_aperture_m, 0.3f);
-  EXPECT_FLOAT_EQ(decoded.hardware.focal_length_m, 0.9f);
   // mission
   EXPECT_EQ(decoded.mission.work_mode, config::EosWorkMode::kFused);
   EXPECT_FLOAT_EQ(decoded.mission.horizontal_fov_deg, 8.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan_rate_deg_per_sec, 25.0f);
   EXPECT_FLOAT_EQ(decoded.mission.frame_rate_hz, 30.0f);
   EXPECT_FLOAT_EQ(decoded.mission.scan_start_az_deg, -70.0f);
+  EXPECT_FALSE(decoded.mission.power_on);
   // policy
   EXPECT_FLOAT_EQ(decoded.policy.detection.minimum_snr_db, 8.0f);
   EXPECT_FLOAT_EQ(decoded.policy.detection.detection_sensitivity_w, 2.0e-12f);
@@ -316,6 +316,7 @@ TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.has_mission = true;
   patch.mission.work_mode = config::EosWorkMode::kInfraredOnly;
   patch.mission.scan_rate_deg_per_sec = 30.0f;
+  patch.mission.power_on = false;
   patch.has_policy = true;
   patch.policy.detection.minimum_snr_db = 10.0f;
   patch.policy.stray_light.enable_straylight_filter = true;
@@ -337,6 +338,7 @@ TEST(EosReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
 
   EXPECT_TRUE(decoded.has_mission);
   EXPECT_EQ(decoded.mission.work_mode, config::EosWorkMode::kInfraredOnly);
+  EXPECT_FALSE(decoded.mission.power_on);
   EXPECT_TRUE(decoded.has_policy);
   EXPECT_FLOAT_EQ(decoded.policy.detection.minimum_snr_db, 10.0f);
   EXPECT_TRUE(decoded.policy.stray_light.enable_straylight_filter);

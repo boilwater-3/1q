@@ -191,6 +191,36 @@ TEST(EosPipelineTest, AdaptiveRadiativeTransferModelProducesLowerSnrInSameScene)
             adaptive_frame.detections[0].fused_snr_linear);
 }
 
+TEST(EosPipelineTest, HigherPressureLowersSnrThroughMolecularAttenuation) {
+  config::execution::EosInternalExecutionConfig low_pressure_config = MakePipelineConfig();
+  low_pressure_config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
+  low_pressure_config.environment.atmospheric_physics.enable_physical_model = true;
+  low_pressure_config.environment.atmospheric_physics.pressure_hpa = 700.0f;
+
+  config::execution::EosInternalExecutionConfig high_pressure_config = low_pressure_config;
+  high_pressure_config.environment.atmospheric_physics.pressure_hpa = 1200.0f;
+
+  EosPipeline low_pressure_pipeline(low_pressure_config);
+  EosPipeline high_pressure_pipeline(high_pressure_config);
+  ::electro_optical_sensor::session::EosCycleInput input = MakeCycleInput(1.0f);
+  input.cycle_index = 7U;
+  input.platform_altitude_m = 0.0f;
+  input.environment.background_temperature_k = 240.0f;
+  input.environment.cloud_coverage_ratio = 0.0f;
+  session::EosSceneTarget target = MakeTarget(402U, -5.0f, 4000.0f, 12.0f);
+  target.appearance.apparent_temperature_k = 850.0f;
+  target.appearance.emissivity = 0.98f;
+  input.scene.push_back(target);
+
+  const auto low_pressure_frame = low_pressure_pipeline.RunCycle(input);
+  const auto high_pressure_frame = high_pressure_pipeline.RunCycle(input);
+
+  ASSERT_EQ(low_pressure_frame.detections.size(), 1U);
+  ASSERT_EQ(high_pressure_frame.detections.size(), 1U);
+  EXPECT_GT(low_pressure_frame.detections[0].fused_snr_linear,
+            high_pressure_frame.detections[0].fused_snr_linear);
+}
+
 TEST(EosPipelineTest, RuntimeEnvironmentAutomaticallyLowersSnrInHighWindScene) {
   config::execution::EosInternalExecutionConfig config = MakePipelineConfig();
   config.scan.work_mode = EosPipelineWorkMode::kInfraredOnly;
