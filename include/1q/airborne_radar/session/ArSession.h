@@ -17,6 +17,7 @@
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
+#include "1q/airborne_radar/session/ArRfCycle.h"
 #include "1q/api.hpp"
 #include "1q/foundation/SensorContract.h"
 
@@ -43,6 +44,16 @@ class ONEQ_API ArSession {
   ArSession& operator=(const ArSession&) = delete;
   ArSession(ArSession&&) noexcept;
   ArSession& operator=(ArSession&&) noexcept;
+
+  /** @brief 发布本周期实际发射并冻结接收机工作状态。 */
+  ArPrepareCycleResult PrepareCycle(const ArPrepareCycleInput& input);
+
+  /** @brief 使用冻结 RF scene 完成本周期接收、探测与跟踪。 */
+  ArCompleteCycleResult CompleteCycle(const ArPreparedCycleToken& token,
+                                      const ArCompleteCycleInput& input);
+
+  /** @brief 放弃待完成的接收阶段，但不回滚已发布发射。 */
+  ArAbandonCycleStatus AbandonCycle(const ArPreparedCycleToken& token);
 
   /**
    * @brief 执行一个不显式切场景的处理周期。
@@ -138,8 +149,8 @@ class ONEQ_API ArSession {
 
 // 跨域传感器会话形状契约：锚定 Step/StepWithResult 签名，防止伪对称漂移。
 // 注意：AR 主输出帧类型为 TrackOutputFrame（领域历史命名，非 ArOutputFrame）。
-ONEQ_SENSOR_SESSION_CONTRACT(session::ArSession, session::ArCycleInput,
-                             session::TrackOutputFrame, session::ArCycleResult);
+ONEQ_SENSOR_SESSION_CONTRACT(session::ArSession, session::ArCycleInput, session::TrackOutputFrame,
+                             session::ArCycleResult);
 
 }  // namespace airborne_radar
 

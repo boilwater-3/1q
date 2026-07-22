@@ -42,6 +42,7 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/ArOutputTypes.h"
     "airborne_radar/session/ArSceneTypes.h"
     "airborne_radar/session/ArReplaySession.h"
+    "airborne_radar/session/ArRfCycle.h"
     "airborne_radar/session/ArTrackLifecycleRecorder.h"
     "airborne_radar/session/ArTrackOutputDebugView.h"
     "airborne_radar/session/ArSession.h"

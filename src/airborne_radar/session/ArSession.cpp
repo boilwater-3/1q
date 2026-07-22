@@ -1,5 +1,8 @@
 #include "1q/airborne_radar/session/ArSession.h"
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include <utility>
 
 #include "airborne_radar/config/mapping/RuntimePatchMapper.h"
@@ -16,6 +19,55 @@
 namespace airborne_radar {
 namespace session {
 namespace {
+
+bool IsFinitePosition(const oneq::coordinate::EcefPositionM& value) {
+  return std::isfinite(value.x_m) && std::isfinite(value.y_m) && std::isfinite(value.z_m);
+}
+
+bool IsFiniteVelocity(const oneq::coordinate::EcefVelocityMps& value) {
+  return std::isfinite(value.x_mps) && std::isfinite(value.y_mps) && std::isfinite(value.z_mps);
+}
+
+bool SameEmissionIdentity(const oneq::electromagnetics::RfEmissionIdentity& left,
+                          const oneq::electromagnetics::RfEmissionIdentity& right) {
+  return left.platform_id == right.platform_id && left.equipment_id == right.equipment_id &&
+         left.emission_id == right.emission_id;
+}
+
+bool SamePreparedEmission(const oneq::electromagnetics::RfSceneEmission& left,
+                          const oneq::electromagnetics::RfSceneEmission& right) {
+  const auto& left_waveform = left.waveform;
+  const auto& right_waveform = right.waveform;
+  return SameEmissionIdentity(left.identity, right.identity) &&
+         left.position_ecef_m.x_m == right.position_ecef_m.x_m &&
+         left.position_ecef_m.y_m == right.position_ecef_m.y_m &&
+         left.position_ecef_m.z_m == right.position_ecef_m.z_m &&
+         left.velocity_ecef_mps.x_mps == right.velocity_ecef_mps.x_mps &&
+         left.velocity_ecef_mps.y_mps == right.velocity_ecef_mps.y_mps &&
+         left.velocity_ecef_mps.z_mps == right.velocity_ecef_mps.z_mps &&
+         left.antenna.boresight_ecef.x == right.antenna.boresight_ecef.x &&
+         left.antenna.boresight_ecef.y == right.antenna.boresight_ecef.y &&
+         left.antenna.boresight_ecef.z == right.antenna.boresight_ecef.z &&
+         left.antenna.peak_gain_dbi == right.antenna.peak_gain_dbi &&
+         left.antenna.half_power_beamwidth_deg == right.antenna.half_power_beamwidth_deg &&
+         left.antenna.sidelobe_level_db == right.antenna.sidelobe_level_db &&
+         left.antenna.backlobe_level_db == right.antenna.backlobe_level_db &&
+         left.antenna.cross_polarization_isolation_db ==
+             right.antenna.cross_polarization_isolation_db &&
+         left.polarization == right.polarization && left_waveform.kind == right_waveform.kind &&
+         left_waveform.activity_start_time_s == right_waveform.activity_start_time_s &&
+         left_waveform.activity_duration_s == right_waveform.activity_duration_s &&
+         left_waveform.center_frequency_hz == right_waveform.center_frequency_hz &&
+         left_waveform.occupied_bandwidth_hz == right_waveform.occupied_bandwidth_hz &&
+         left_waveform.transmit_power_w == right_waveform.transmit_power_w &&
+         left_waveform.pulse_width_s == right_waveform.pulse_width_s &&
+         left_waveform.pulse_repetition_interval_s == right_waveform.pulse_repetition_interval_s &&
+         left_waveform.first_pulse_time_s == right_waveform.first_pulse_time_s &&
+         left_waveform.pulse_count == right_waveform.pulse_count &&
+         left_waveform.pulse_jitter_fraction == right_waveform.pulse_jitter_fraction &&
+         left_waveform.timing_seed == right_waveform.timing_seed &&
+         left_waveform.timing_epoch == right_waveform.timing_epoch;
+}
 
 session::EnvironmentSceneState BuildSceneStateFromCycleInput(const ArCycleInput& cycle_input) {
   const ArEnvironmentInput& environment_input = cycle_input.environment;
@@ -262,6 +314,186 @@ struct ArSession::Impl {
     return BuildCycleResult(input);
   }
 
+  bool TokenMatches(const ArPreparedCycleToken& token) const {
+    return has_prepared_cycle && token.value != 0U && token.value == prepared_token.value &&
+           token.world_cycle_index == prepared_token.world_cycle_index;
+  }
+
+  ArPrepareCycleResult PrepareRfCycle(const ArPrepareCycleInput& input) {
+    ArPrepareCycleResult result;
+    if (has_prepared_cycle) {
+      result.status = ArPrepareCycleStatus::kBusy;
+      return result;
+    }
+    if (input.platform_id == 0U || input.world_cycle_index == 0U ||
+        !std::isfinite(input.window_start_time_s) || !std::isfinite(input.window_duration_s) ||
+        input.window_duration_s <= 0.0 ||
+        input.world_cycle_index > std::numeric_limits<std::uint32_t>::max() ||
+        !IsFinitePosition(input.platform_position_ecef_m) ||
+        !IsFiniteVelocity(input.platform_velocity_ecef_mps) ||
+        (has_world_chronology && input.window_start_time_s < last_world_window_end_s)) {
+      result.status = ArPrepareCycleStatus::kRejected;
+      return result;
+    }
+    if (!CommitPendingRuntimeConfig()) {
+      result.status = ArPrepareCycleStatus::kRejected;
+      return result;
+    }
+    FinalizePendingRuntimeConfig();
+    if (!runtime_state.execution_config.sensor_enabled) {
+      has_world_chronology = true;
+      last_world_window_end_s = input.window_start_time_s + input.window_duration_s;
+      result.status = ArPrepareCycleStatus::kPoweredOff;
+      return result;
+    }
+
+    const config::engineering::DetectionConfig& detection =
+        runtime_state.execution_config.detection.engineering;
+    const config::engineering::TransmitterConfig& transmitter = detection.transmitter;
+    const config::engineering::ReceiverConfig& receiver = detection.receiver;
+    if (transmitter.frequency_plan_hz.empty() || transmitter.prf_hz <= 0.0f) {
+      result.status = ArPrepareCycleStatus::kRejected;
+      return result;
+    }
+    const double carrier_hz =
+        transmitter.frequency_plan_hz[frequency_hop_index % transmitter.frequency_plan_hz.size()];
+    const double pulse_repetition_interval_s = 1.0 / static_cast<double>(transmitter.prf_hz);
+    const double pulse_count_value =
+        std::ceil(input.window_duration_s / pulse_repetition_interval_s);
+    if (!std::isfinite(pulse_count_value) || pulse_count_value < 1.0 ||
+        pulse_count_value > static_cast<double>(std::numeric_limits<std::uint32_t>::max())) {
+      result.status = ArPrepareCycleStatus::kRejected;
+      return result;
+    }
+
+    oneq::electromagnetics::RfSceneEmission emission;
+    emission.identity.platform_id = input.platform_id;
+    emission.identity.equipment_id = transmitter.equipment_id;
+    emission.identity.emission_id = next_emission_id;
+    emission.position_ecef_m = input.platform_position_ecef_m;
+    emission.velocity_ecef_mps = input.platform_velocity_ecef_mps;
+    emission.antenna.boresight_ecef = input.antenna_boresight_ecef;
+    emission.antenna.peak_gain_dbi = static_cast<double>(detection.antenna.main_beam_gain_db);
+    emission.antenna.half_power_beamwidth_deg = static_cast<double>(std::max(
+        detection.antenna.nominal_az_beamwidth_deg, detection.antenna.nominal_el_beamwidth_deg));
+    emission.antenna.sidelobe_level_db =
+        static_cast<double>(detection.antenna.pattern.max_sidelobe_level_db);
+    emission.antenna.backlobe_level_db =
+        static_cast<double>(detection.antenna.pattern.backlobe_level_db);
+    emission.antenna.cross_polarization_isolation_db =
+        static_cast<double>(receiver.cross_polarization_isolation_db);
+    emission.polarization = receiver.scene_polarization;
+    const double radiated_peak_power_w =
+        static_cast<double>(transmitter.peak_power_w) *
+        std::pow(10.0, -static_cast<double>(transmitter.transmit_loss_db) / 10.0);
+    if (!oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+            input.window_start_time_s, carrier_hz, static_cast<double>(transmitter.bandwidth_hz),
+            radiated_peak_power_w, static_cast<double>(transmitter.pulse_width_s),
+            pulse_repetition_interval_s, static_cast<std::uint32_t>(pulse_count_value), 0.0,
+            timing_seed, successful_prepare_count, &emission.waveform)) {
+      result.status = ArPrepareCycleStatus::kRejected;
+      return result;
+    }
+
+    oneq::electromagnetics::RfSceneReceiverState receiver_state;
+    receiver_state.platform_id = input.platform_id;
+    receiver_state.equipment_id = receiver.equipment_id;
+    receiver_state.position_ecef_m = input.platform_position_ecef_m;
+    receiver_state.velocity_ecef_mps = input.platform_velocity_ecef_mps;
+    receiver_state.antenna = emission.antenna;
+    receiver_state.polarization = receiver.scene_polarization;
+    receiver_state.window_start_time_s = input.window_start_time_s;
+    receiver_state.window_duration_s = input.window_duration_s;
+    receiver_state.center_frequency_hz = carrier_hz;
+    receiver_state.bandwidth_hz = static_cast<double>(receiver.preselector_bandwidth_hz);
+    receiver_state.receiver_system_loss_db = static_cast<double>(receiver.receive_loss_db);
+    receiver_state.minimum_far_field_range_m =
+        static_cast<double>(receiver.minimum_far_field_range_m);
+    receiver_state.co_site_paths = receiver.co_site_paths;
+
+    prepared_token.value = next_token_value++;
+    prepared_token.world_cycle_index = input.world_cycle_index;
+    prepared_input = input;
+    prepared_emission = emission;
+    prepared_receiver_state = receiver_state;
+    has_prepared_cycle = true;
+    has_world_chronology = true;
+    last_world_window_end_s = input.window_start_time_s + input.window_duration_s;
+    ++next_emission_id;
+    ++successful_prepare_count;
+
+    result.status = ArPrepareCycleStatus::kPrepared;
+    result.token = prepared_token;
+    result.has_emission = true;
+    result.emission = prepared_emission;
+    result.receiver_state = prepared_receiver_state;
+    return result;
+  }
+
+  ArCompleteCycleResult CompleteRfCycle(const ArPreparedCycleToken& token,
+                                        const ArCompleteCycleInput& input) {
+    ArCompleteCycleResult result;
+    if (!TokenMatches(token)) {
+      result.status = ArCompleteCycleStatus::kTokenMismatch;
+      return result;
+    }
+    result.world_cycle_index = prepared_token.world_cycle_index;
+    if (input.rf_scene.world_cycle_index != prepared_token.world_cycle_index ||
+        input.rf_scene.window_start_time_s != prepared_input.window_start_time_s ||
+        input.rf_scene.window_duration_s != prepared_input.window_duration_s ||
+        !oneq::electromagnetics::TryValidateRfSceneFrame(input.rf_scene)) {
+      result.status = ArCompleteCycleStatus::kRejected;
+      return result;
+    }
+    bool found_prepared_emission = false;
+    for (const auto& emission : input.rf_scene.emissions) {
+      if (SameEmissionIdentity(emission.identity, prepared_emission.identity)) {
+        if (!SamePreparedEmission(emission, prepared_emission)) {
+          result.status = ArCompleteCycleStatus::kRejected;
+          return result;
+        }
+        found_prepared_emission = true;
+      }
+    }
+    if (!found_prepared_emission) {
+      result.status = ArCompleteCycleStatus::kRejected;
+      return result;
+    }
+
+    ArCycleInput legacy_execution_input;
+    legacy_execution_input.cycle_index =
+        static_cast<std::uint32_t>(prepared_input.world_cycle_index);
+    legacy_execution_input.dt_sec = static_cast<float>(prepared_input.window_duration_s);
+    legacy_execution_input.platform_entity_id = prepared_input.platform_id;
+    legacy_execution_input.has_platform_ecef_kinematics = true;
+    legacy_execution_input.platform_position_ecef_m = prepared_input.platform_position_ecef_m;
+    legacy_execution_input.platform_velocity_ecef_mps = prepared_input.platform_velocity_ecef_mps;
+    legacy_execution_input.scene = input.targets;
+    legacy_execution_input.has_environment = true;
+    legacy_execution_input.environment.atmospheric_observation = input.atmospheric_observation;
+    legacy_execution_input.environment.atmospheric_context = input.atmospheric_context;
+    legacy_execution_input.environment.surface_observation = input.surface_observation;
+    const ArCycleResult cycle_result = RunCycle(legacy_execution_input);
+    if (!cycle_result.executed_this_cycle) {
+      result.status = ArCompleteCycleStatus::kRejected;
+      return result;
+    }
+    result.status = ArCompleteCycleStatus::kCompleted;
+    result.track_output_frame = cycle_result.track_output_frame;
+    has_prepared_cycle = false;
+    prepared_token = ArPreparedCycleToken{};
+    return result;
+  }
+
+  ArAbandonCycleStatus AbandonRfCycle(const ArPreparedCycleToken& token) {
+    if (!TokenMatches(token)) {
+      return ArAbandonCycleStatus::kTokenMismatch;
+    }
+    has_prepared_cycle = false;
+    prepared_token = ArPreparedCycleToken{};
+    return ArAbandonCycleStatus::kAbandoned;
+  }
+
   config::mapping::RuntimeConfigState runtime_state{};
   config::mapping::RuntimeConfigState pending_runtime_state{};
   bool has_pending_runtime_update{false};
@@ -269,6 +501,18 @@ struct ArSession::Impl {
   bool pending_environment_scenario_config_changed{false};
   bool pending_jamming_sensitivity_profile_changed{false};
   bool pipeline_config_synced{true};
+  bool has_prepared_cycle{false};
+  bool has_world_chronology{false};
+  double last_world_window_end_s{0.0};
+  std::uint64_t next_token_value{1U};
+  std::uint64_t next_emission_id{1U};
+  std::uint64_t successful_prepare_count{0U};
+  std::uint64_t timing_seed{0x41525f5052495f31ULL};
+  std::size_t frequency_hop_index{0U};
+  ArPreparedCycleToken prepared_token{};
+  ArPrepareCycleInput prepared_input{};
+  oneq::electromagnetics::RfSceneEmission prepared_emission{};
+  oneq::electromagnetics::RfSceneReceiverState prepared_receiver_state{};
   std::unique_ptr<MutableArContext> owned_ar_context;
   std::unique_ptr<signal::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;
@@ -309,6 +553,19 @@ ArSession::ArSession()
 ArSession::~ArSession() = default;
 ArSession::ArSession(ArSession&&) noexcept = default;
 ArSession& ArSession::operator=(ArSession&&) noexcept = default;
+
+ArPrepareCycleResult ArSession::PrepareCycle(const ArPrepareCycleInput& input) {
+  return impl_->PrepareRfCycle(input);
+}
+
+ArCompleteCycleResult ArSession::CompleteCycle(const ArPreparedCycleToken& token,
+                                               const ArCompleteCycleInput& input) {
+  return impl_->CompleteRfCycle(token, input);
+}
+
+ArAbandonCycleStatus ArSession::AbandonCycle(const ArPreparedCycleToken& token) {
+  return impl_->AbandonRfCycle(token);
+}
 
 ArSession ArSession::Create(const config::ArSessionConfig& config) {
   return ArSession(std::unique_ptr<ArSession::Impl>(
