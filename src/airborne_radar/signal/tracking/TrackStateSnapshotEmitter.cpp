@@ -160,7 +160,6 @@ session::TrackStateSnapshotList TrackStateSnapshotEmitter::BuildTrackStateSnapsh
                                       snapshot.acceleration_y * snapshot.acceleration_y +
                                       snapshot.acceleration_z * snapshot.acceleration_z);
     snapshot.rcs = track.rcs;
-    snapshot.jamming_detected = track.jamming_detected;
     snapshot.status = ToTrackStatus(track.status);
     snapshot.position_x = track.position(0);
     snapshot.position_y = track.position(1);
