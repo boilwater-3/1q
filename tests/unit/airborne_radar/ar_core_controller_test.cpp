@@ -153,23 +153,6 @@ class AbortingSignalPipeline : public signal::ISignalPipeline {
   bool should_execute_{false};
 };
 
-TEST_F(CoreControllerTest, RunOnceSubmitsCommands) {
-  const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
-  FakeRadarContext radar_context(input_state);
-
-  environment::EnvironmentService environment_service(BuildJammingEnvironmentConfig(12.0f));
-
-  signal::pipeline::SignalPipeline signal_pipeline;
-
-  extension::ArController controller(radar_context, signal_pipeline, environment_service);
-
-  controller.RunOnce();
-  EXPECT_TRUE(radar_context.SubmittedCommands().empty());
-  controller.RunOnce();
-  const auto& cmds = radar_context.SubmittedCommands();
-  EXPECT_GT(cmds.size(), 0u);
-}
-
 TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
   const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
@@ -193,7 +176,7 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 2.0f);
 }
 
-TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecision) {
+TEST_F(CoreControllerTest, LegacyEnvironmentFactsDoNotEnterDecisionFrame) {
   const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
   FakeRadarContext radar_context(input_state);
 
@@ -218,103 +201,13 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
 
   controller.RunOnce();
 
-  const session::EnvironmentSnapshot frozen_snapshot = environment_service.SampleEnvironment();
   const std::vector<signal::tracking::TrackMeasurement> measurements =
       signal_pipeline.GetLastTrackMeasurements();
 
   const session::DecisionInputFrame& decision_frame =
       controller.GetLatestDecisionObservation().input_frame;
-  EXPECT_TRUE(decision_frame.environment_jamming_detected);
-  EXPECT_EQ(decision_frame.environment_jamming_detected, frozen_snapshot.jamming_detected);
-  EXPECT_EQ(decision_frame.eccm_source_info.has_jamming_signal, frozen_snapshot.jamming_detected);
-  ASSERT_EQ(decision_frame.eccm_source_info.jammer_sources.size(),
-            frozen_snapshot.jammer_sources.size());
-  ASSERT_FALSE(decision_frame.eccm_source_info.jammer_sources.empty());
-  ASSERT_FALSE(frozen_snapshot.jammer_sources.empty());
-  EXPECT_FLOAT_EQ(decision_frame.eccm_source_info.jammer_sources.front().jammer_power_db,
-                  frozen_snapshot.jammer_sources.front().power_db);
+  EXPECT_TRUE(decision_frame.interference_observations.empty());
   ASSERT_EQ(measurements.size(), 1U);
-}
-
-TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
-  const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
-  FakeRadarContext radar_context(input_state);
-
-  environment::EnvironmentService environment_service;
-  signal::pipeline::SignalPipeline signal_pipeline;
-  extension::ArController controller(radar_context, signal_pipeline, environment_service);
-
-  controller.RunOnce();
-  EXPECT_FALSE(controller.GetLatestDecisionObservation().input_frame.environment_jamming_detected);
-
-  config::JammerEmitterState jammer_source;
-  jammer_source.technique = config::JammingTechnique::kNoiseSuppression;
-  jammer_source.power_db = 9.0f;
-  jammer_source.confidence = 1.0f;
-  jammer_source.position_x = 3746.07f;  // range 10000m * sin(22 deg)
-  jammer_source.position_y = 9271.84f;  // range 10000m * cos(22 deg)
-  jammer_source.position_z = 0.0f;      // elevation 0 deg
-  jammer_source.angular_span_deg = 12.0f;
-  environment_service.UpdateSceneState([&] {
-    session::EnvironmentSceneState s;
-    s.jammer_emitters.push_back(jammer_source);
-    return s;
-  }());
-
-  EXPECT_FALSE(environment_service.SampleEnvironment().jamming_detected);
-
-  controller.RunOnce();
-
-  EXPECT_TRUE(controller.GetLatestDecisionObservation().input_frame.environment_jamming_detected);
-  EXPECT_TRUE(environment_service.SampleEnvironment().jamming_detected);
-}
-
-TEST_F(CoreControllerTest, MapsMultiSourceJammingFactsIntoDecisionFrame) {
-  const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
-  FakeRadarContext radar_context(input_state);
-
-  config::EnvironmentScenarioConfig env_config;
-  config::JammerEmitterState deception_emitter;
-  deception_emitter.technique = config::JammingTechnique::kDeception;
-  deception_emitter.power_db = 9.0f;
-  deception_emitter.js_db = 7.5f;
-  deception_emitter.position_x = 5000.0f;   // range 10000m * sin(30 deg)
-  deception_emitter.position_y = 8660.25f;  // range 10000m * cos(30 deg)
-  deception_emitter.position_z = 874.887f;  // range 10000m * tan(5 deg)
-  deception_emitter.angular_span_deg = 8.0f;
-  deception_emitter.confidence = 0.95f;
-  env_config.jammer_sources.push_back(deception_emitter);
-  environment::EnvironmentService environment_service(env_config);
-
-  signal::pipeline::SignalPipeline signal_pipeline;
-  extension::ArController controller(radar_context, signal_pipeline, environment_service);
-
-  controller.RunOnce();
-
-  const session::EnvironmentSnapshot frozen_snapshot = environment_service.SampleEnvironment();
-  const session::DecisionInputFrame& decision_frame =
-      controller.GetLatestDecisionObservation().input_frame;
-  EXPECT_TRUE(decision_frame.environment_jamming_detected);
-  ASSERT_EQ(decision_frame.eccm_source_info.jammer_sources.size(), 1u);
-  ASSERT_EQ(frozen_snapshot.jammer_sources.size(), 1u);
-  const session::EccmJammerSourceInfo& mapped_source =
-      decision_frame.eccm_source_info.jammer_sources.front();
-  const session::JammerSourceFact& frozen_source = frozen_snapshot.jammer_sources.front();
-  EXPECT_EQ(mapped_source.technique, session::JammingTechnique::kDeception);
-  EXPECT_FLOAT_EQ(mapped_source.jammer_power_db, 9.0f);
-  EXPECT_FLOAT_EQ(mapped_source.jammer_to_signal_db, 7.5f);
-  EXPECT_FLOAT_EQ(mapped_source.frequency_overlap_ratio, frozen_source.frequency_overlap_ratio);
-  EXPECT_FLOAT_EQ(mapped_source.prf_lock_risk, frozen_source.prf_lock_risk);
-  EXPECT_NEAR(mapped_source.direction_deg.azimuth_deg, 30.0f, 1e-4f);
-  EXPECT_FLOAT_EQ(mapped_source.angular_span_deg, 8.0f);
-  EXPECT_EQ(decision_frame.association_quality_info.dominant_jamming_semantic,
-            config::JammingSemantic::kDeception);
-  EXPECT_GT(decision_frame.association_quality_info.jamming_severity, 0.0f);
-  EXPECT_GT(decision_frame.association_quality_info.association_stress, 0.0f);
-  EXPECT_EQ(decision_frame.perception_quality_info.input_target_count, 1u);
-  EXPECT_EQ(decision_frame.perception_quality_info.detection_count, 1u);
-  EXPECT_FLOAT_EQ(decision_frame.perception_quality_info.detection_rate, 1.0f);
-  EXPECT_FLOAT_EQ(decision_frame.perception_quality_info.detection_stress, 0.0f);
 }
 
 TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFirstCycle) {
@@ -482,25 +375,6 @@ TEST_F(CoreControllerTest, DuplicateExternalTargetIdRetainsPreviousValidOutputFr
     EXPECT_EQ(radar_context.SubmittedCommands()[i].type, previous_commands[i].type);
     EXPECT_EQ(radar_context.SubmittedCommands()[i].source, previous_commands[i].source);
   }
-}
-
-TEST_F(CoreControllerTest, NextCycleAppliesPendingControlProfileToSignalPipeline) {
-  const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
-  FakeRadarContext radar_context(input_state);
-
-  environment::EnvironmentService environment_service(BuildJammingEnvironmentConfig(12.0f));
-
-  signal::pipeline::SignalPipeline signal_pipeline;
-
-  extension::ArController controller(radar_context, signal_pipeline, environment_service);
-
-  controller.RunOnce();
-  EXPECT_EQ(signal_pipeline.GetControlProfile().version, 0u);
-  EXPECT_EQ(radar_context.LatestControlProfile().version, 0u);
-
-  controller.RunOnce();
-  EXPECT_GT(signal_pipeline.GetControlProfile().version, 0u);
-  EXPECT_EQ(controller.GetLastAppliedDecisionSource(), session::DecisionControlSource::kInternal);
 }
 
 TEST_F(CoreControllerTest, MatchingExternalResponseReplacesInternalBaseline) {

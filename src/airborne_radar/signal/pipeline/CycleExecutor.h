@@ -13,7 +13,6 @@
 #include "1q/airborne_radar/session/ArEnvironmentInput.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
-#include "1q/airborne_radar/config/JammingSemantics.h"
 #include "airborne_radar/signal/association/DataAssociation.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
@@ -54,9 +53,6 @@ struct CycleExecutionScratch {
   // 量测构建阶段中间数据
   std::vector<int> measurement_slots;
 
-  // 环境阶段输出（各后续阶段共享）
-  config::JammingSemantic dominant_jamming_semantic{config::JammingSemantic::kNone};
-  float jamming_severity{0.0f};
 };
 
 /**

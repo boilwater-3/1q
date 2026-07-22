@@ -11,9 +11,7 @@
 
 #include "1q/api.hpp"
 #include "1q/airborne_radar/session/ArInterferenceObservation.h"
-#include "1q/airborne_radar/session/DecisionSourceInfo.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
-#include "1q/airborne_radar/config/JammingSemantics.h"
 
 namespace airborne_radar {
 namespace session {
@@ -27,9 +25,6 @@ struct ONEQ_API AssociationQualityInfo {
   float missed_track_rate{0.0f}; /**< 当前周期漏失率 */
   float mean_match_cost{0.0f};   /**< 当前周期命中关联代价均值 */
   float p95_match_cost{0.0f};    /**< 当前周期命中关联代价 P95 */
-  config::JammingSemantic dominant_jamming_semantic{
-      config::JammingSemantic::kNone}; /**< 当前周期关联压力对应的主导干扰摘要类型 */
-  float jamming_severity{0.0f};       /**< 当前周期关联压力对应的残余干扰强度摘要，范围 [0, 1] */
   float association_stress{0.0f};     /**< 当前周期关联压力摘要，范围 [0, 1] */
 };
 
@@ -50,8 +45,6 @@ struct ONEQ_API PerceptionQualityInfo {
 struct ONEQ_API DecisionInputFrame {
   std::uint32_t cycle_index{0};                      /**< 当前周期号 */
   std::uint64_t batch_id{0};                         /**< 当前批号 */
-  bool environment_jamming_detected{false};          /**< 环境是否检测到干扰 */
-  EccmSourceInfo eccm_source_info{};                 /**< 供 ECCM 消费的干扰事实摘要 */
   ArInterferenceObservationList
       interference_observations{}; /**< 接收机 J/N 门控后的工程 RF 观测。 */
   AssociationQualityInfo association_quality_info{}; /**< 供决策层消费的关联质量摘要 */

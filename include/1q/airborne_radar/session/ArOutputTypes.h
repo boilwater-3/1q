@@ -10,7 +10,6 @@
 
 #include <cstddef>
 
-#include "1q/airborne_radar/config/JammingSemantics.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "1q/api.hpp"
@@ -46,9 +45,6 @@ struct ONEQ_API AssociationQualityMetrics {
   float missed_track_rate{0.0f};     /**< rate [0,1]: missed_track_count / prior_track_count */
   float mean_match_cost{0.0f};       /**< cost: 命中关联代价均值（仅统计 matches） */
   float p95_match_cost{0.0f};        /**< cost: 命中关联代价 P95（仅统计 matches） */
-  config::JammingSemantic dominant_jamming_semantic{
-      config::JammingSemantic::kNone}; /**< 当前周期关联质量对应的主导干扰摘要类型 */
-  float jamming_severity{0.0f};        /**< summary [0,1]: 当前周期关联质量对应的残余干扰强度 */
   float association_stress{0.0f};      /**< summary [0,1]: 当前周期的归一化关联压力 */
 };
 

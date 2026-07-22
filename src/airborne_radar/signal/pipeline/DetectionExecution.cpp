@@ -9,8 +9,6 @@
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
-#include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
-#include "airborne_radar/signal/pipeline/JammingEffects.h"
 #include "airborne_radar/signal/pipeline/PipelineTargetUtils.h"
 #include "common/atmosphere/AtmospherePhysics.h"
 #include "common/rcs/RcsPhysics.h"
@@ -163,7 +161,6 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 
 void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
                               const ExecutionConfig& config,
-                              const session::ArControlProfile& control_profile,
                               const session::EnvironmentSnapshot& environment_snapshot,
                               float platform_altitude_m, detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers) {
@@ -175,27 +172,8 @@ void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
 
   float clutter_w = ComputeEquivalentClutterNoiseW(config.detection.engineering,
                                                    environment_snapshot.clutter_power_db);
-  if (control_profile.enable_sidelobe_canceller &&
-      HasMultiSourceJammingFacts(environment_snapshot)) {
-    const bool has_sidelobe_source = std::find_if(environment_snapshot.jammer_sources.begin(),
-                                                  environment_snapshot.jammer_sources.end(),
-                                                  [](const session::JammerSourceFact& source) {
-                                                    return source.in_sidelobe;
-                                                  }) != environment_snapshot.jammer_sources.end();
-    clutter_w *= has_sidelobe_source ? 0.55f : 0.80f;
-  }
-
-  float jam_w = std::max(0.0f, config.jamming_effects.resolved_engineering_jam_noise_w);
-  if (HasMultiSourceJammingFacts(environment_snapshot)) {
-    const float thermal_noise_w = detection::RadarEquations::ComputeThermalNoisePower_W(
-        config.detection.engineering.transmitter, config.detection.engineering.receiver);
-    for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-      const session::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
-      jam_w += std::max(thermal_noise_w, 0.0f) *
-               ComputeLegacySourceJamToNoiseRatio(config.jamming_effects, source) *
-               ComputeResidualJammerFactor(control_profile, source);
-    }
-  }
+  const float jam_w =
+      std::max(0.0f, config.jamming_effects.resolved_engineering_jam_noise_w);
 
   detection::EnvironmentState env;
   env.propagation_loss_db =

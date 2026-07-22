@@ -6,44 +6,6 @@ namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 
-namespace {
-
-/** @brief 将环境层干扰源事实转换为 ECCM 干扰源信息。
- *  @param environment_source 环境快照中的干扰源事实。
- *  @return 填充后的 ECCM 干扰源信息。 */
-session::EccmJammerSourceInfo BuildEccmJammerSourceInfo(
-    const session::JammerSourceFact& environment_source) {
-  session::EccmJammerSourceInfo source_info;
-  source_info.technique = environment_source.technique;
-  source_info.jammer_power_db = environment_source.power_db;
-  source_info.jammer_to_signal_db = environment_source.js_db;
-  source_info.frequency_overlap_ratio = environment_source.frequency_overlap_ratio;
-  source_info.prf_lock_risk = environment_source.prf_lock_risk;
-  source_info.has_direction_deg = environment_source.has_direction_deg;
-  if (environment_source.has_direction_deg) {
-    source_info.direction_deg.azimuth_deg = environment_source.direction_deg.azimuth_deg;
-    source_info.direction_deg.elevation_deg = environment_source.direction_deg.elevation_deg;
-  }
-  source_info.angular_span_deg = environment_source.angular_span_deg;
-  source_info.jammer_in_sidelobe = environment_source.in_sidelobe;
-  source_info.confidence = environment_source.confidence;
-  return source_info;
-}
-
-}  // namespace
-
-session::EccmSourceInfo BuildEccmSourceInfo(
-    const session::EnvironmentSnapshot& environment_snapshot) {
-  session::EccmSourceInfo source_info;
-  source_info.has_jamming_signal = environment_snapshot.jamming_detected;
-  source_info.jammer_sources.reserve(environment_snapshot.jammer_sources.size());
-  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    source_info.jammer_sources.push_back(
-        BuildEccmJammerSourceInfo(environment_snapshot.jammer_sources[i]));
-  }
-  return source_info;
-}
-
 session::AssociationQualityInfo BuildAssociationQualityInfo(
     const AssociationQualityMetrics& metrics) {
   session::AssociationQualityInfo info;
@@ -52,8 +14,6 @@ session::AssociationQualityInfo BuildAssociationQualityInfo(
   info.missed_track_rate = metrics.missed_track_rate;
   info.mean_match_cost = metrics.mean_match_cost;
   info.p95_match_cost = metrics.p95_match_cost;
-  info.dominant_jamming_semantic = metrics.dominant_jamming_semantic;
-  info.jamming_severity = metrics.jamming_severity;
   info.association_stress = metrics.association_stress;
   return info;
 }

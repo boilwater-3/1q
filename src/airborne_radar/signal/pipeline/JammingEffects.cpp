@@ -14,36 +14,9 @@ namespace airborne_radar {
 namespace signal {
 namespace pipeline {
 
-using JammingEffectsConfig = ::airborne_radar::config::execution::JammingEffectsConfig;
-
 namespace {
 
-constexpr float kSidelobeCancellerResidual = 0.55f;
-constexpr float kAdaptiveBeamNarrowResidual = 0.72f;
-constexpr float kAdaptiveBeamWideResidual = 0.82f;
-constexpr float kAgilityFreqResidualMin = 0.35f;
-constexpr float kEccmRejitterResidualMin = 0.30f;
-constexpr float kBurnthroughResidualMin = 0.55f;
-constexpr float kResidualFactorMin = 0.15f;
-constexpr float kNoiseSidelobeCancellerFactor = 0.75f;
-constexpr float kDeceptionAgilityFactor = 0.65f;
-constexpr float kDeceptionRejitterFactor = 0.65f;
-constexpr float kRepeaterRejitterFactor = 0.60f;
-
-constexpr float kMixedSemanticDominanceRatio = 0.65f;
-constexpr float kMixedSemanticMinScore = 0.18f;
-constexpr float kUnknownNoiseSplitWeight = 0.5f;
-
-constexpr float kPhysicalWeightNoise = 1.0f;
-constexpr float kPhysicalWeightDeception = 0.20f;
-constexpr float kPhysicalWeightRepeater = 0.40f;
-constexpr float kPhysicalWeightUnknown = 0.70f;
 constexpr double kDegreesToRadians = 3.14159265358979323846 / 180.0;
-
-float ResolveJammerConfidenceWeight(const JammingEffectsConfig& cfg,
-                                    const session::JammerSourceFact& jammer_source) {
-  return utils::ClampFloat(jammer_source.confidence, cfg.confidence_weight_min, 1.0f);
-}
 
 bool TryBuildReceiverSite(const ExecutionConfig& config,
                           const session::EnvironmentSnapshot& environment_snapshot,
@@ -112,40 +85,7 @@ bool TryBuildReceiverSite(const ExecutionConfig& config,
   return true;
 }
 
-float ComputeTrackLevelJammingContribution(const session::ArControlProfile& control_profile,
-                                           const session::JammerSourceFact& jammer_source) {
-  const float confidence_weight = utils::ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
-  const float residual_factor = ComputeResidualJammerFactor(control_profile, jammer_source);
-  float contribution = 0.10f + 0.020f * utils::ClampFloat(jammer_source.power_db, 0.0f, 20.0f) +
-                       0.015f * utils::ClampFloat(jammer_source.js_db, 0.0f, 12.0f);
-
-  switch (jammer_source.technique) {
-    case config::JammingTechnique::kNoiseSuppression:
-      contribution += jammer_source.in_sidelobe ? 0.14f : 0.08f;
-      break;
-    case config::JammingTechnique::kDeception:
-      contribution += 0.25f * utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
-      contribution += 0.22f * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
-      break;
-    case config::JammingTechnique::kRepeater:
-      contribution += 0.18f * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
-      contribution += 0.14f * utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
-      break;
-    case config::JammingTechnique::kUnknown:
-    default:
-      contribution += 0.15f * utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
-      contribution += 0.12f * utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
-      break;
-  }
-
-  return utils::ClampFloat(contribution * confidence_weight * residual_factor, 0.0f, 1.0f);
-}
-
 }  // namespace
-
-bool HasMultiSourceJammingFacts(const session::EnvironmentSnapshot& environment_snapshot) {
-  return !environment_snapshot.jammer_sources.empty();
-}
 
 bool TryResolveEngineeringInterferencePowerW(
     const ExecutionConfig& config, const session::EnvironmentSnapshot& environment_snapshot,
@@ -184,161 +124,6 @@ bool TryResolveEngineeringInterferencePowerW(
   }
   *received_power_w = static_cast<float>(total_received_power_w);
   return true;
-}
-
-float ComputeResidualJammerFactor(const session::ArControlProfile& control_profile,
-                                  const session::JammerSourceFact& jammer_source) {
-  float residual_factor = 1.0f;
-
-  if (control_profile.enable_sidelobe_canceller && jammer_source.in_sidelobe) {
-    residual_factor *= kSidelobeCancellerResidual;
-  }
-  if (control_profile.enable_adaptive_beamforming) {
-    residual_factor = residual_factor * (jammer_source.angular_span_deg > 0.0f &&
-                                                 jammer_source.angular_span_deg <= 10.0f
-                                             ? kAdaptiveBeamNarrowResidual
-                                             : kAdaptiveBeamWideResidual);
-  }
-  if (control_profile.enable_agility_frequency && jammer_source.frequency_overlap_ratio > 0.0f) {
-    residual_factor *= utils::ClampFloat(1.0f - 0.50f * jammer_source.frequency_overlap_ratio,
-                                         kAgilityFreqResidualMin, 1.0f);
-  }
-  if (control_profile.enable_eccm_rejitter && jammer_source.prf_lock_risk > 0.0f) {
-    residual_factor *= utils::ClampFloat(1.0f - 0.55f * jammer_source.prf_lock_risk,
-                                         kEccmRejitterResidualMin, 1.0f);
-  }
-  if (control_profile.eccm_burnthrough_gain > 1.0f) {
-    residual_factor *= utils::ClampFloat(1.0f / control_profile.eccm_burnthrough_gain,
-                                         kBurnthroughResidualMin, 1.0f);
-  }
-
-  switch (jammer_source.technique) {
-    case config::JammingTechnique::kNoiseSuppression:
-      if (control_profile.enable_sidelobe_canceller && jammer_source.in_sidelobe) {
-        residual_factor *= kNoiseSidelobeCancellerFactor;
-      }
-      break;
-    case config::JammingTechnique::kDeception:
-      if (control_profile.enable_agility_frequency) {
-        residual_factor *= kDeceptionAgilityFactor;
-      }
-      if (control_profile.enable_eccm_rejitter) {
-        residual_factor *= kDeceptionRejitterFactor;
-      }
-      break;
-    case config::JammingTechnique::kRepeater:
-      if (control_profile.enable_eccm_rejitter) {
-        residual_factor *= kRepeaterRejitterFactor;
-      }
-      break;
-    case config::JammingTechnique::kUnknown:
-    default:
-      break;
-  }
-
-  return utils::ClampFloat(residual_factor, kResidualFactorMin, 1.0f);
-}
-
-float ComputeLegacySourceJamToNoiseRatio(const JammingEffectsConfig& cfg,
-                                         const session::JammerSourceFact& jammer_source) {
-  float source_weight = 1.0f;
-  switch (jammer_source.technique) {
-    case config::JammingTechnique::kNoiseSuppression:
-      source_weight = kPhysicalWeightNoise;
-      break;
-    case config::JammingTechnique::kDeception:
-      source_weight = kPhysicalWeightDeception;
-      break;
-    case config::JammingTechnique::kRepeater:
-      source_weight = kPhysicalWeightRepeater;
-      break;
-    case config::JammingTechnique::kUnknown:
-    default:
-      source_weight = kPhysicalWeightUnknown;
-      break;
-  }
-  return utils::DbToLinearPower(jammer_source.power_db) * source_weight *
-         ResolveJammerConfidenceWeight(cfg, jammer_source);
-}
-
-config::JammingSemantic ResolveDominantJammingSemantic(
-    const session::ArControlProfile& control_profile,
-    const session::EnvironmentSnapshot& environment_snapshot) {
-  if (!environment_snapshot.jamming_detected) {
-    return config::JammingSemantic::kNone;
-  }
-
-  if (!HasMultiSourceJammingFacts(environment_snapshot)) {
-    return config::JammingSemantic::kNone;
-  }
-
-  float type_scores[3] = {0.0f, 0.0f, 0.0f};
-  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    const session::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
-    const float contribution = ComputeTrackLevelJammingContribution(control_profile, source);
-    switch (source.technique) {
-      case config::JammingTechnique::kNoiseSuppression:
-        type_scores[0] += contribution;
-        break;
-      case config::JammingTechnique::kDeception:
-        type_scores[1] += contribution;
-        break;
-      case config::JammingTechnique::kRepeater:
-        type_scores[2] += contribution;
-        break;
-      case config::JammingTechnique::kUnknown:
-      default:
-        type_scores[0] += kUnknownNoiseSplitWeight * contribution;
-        type_scores[1] += kUnknownNoiseSplitWeight * contribution;
-        break;
-    }
-  }
-
-  std::size_t best_index = 0U;
-  std::size_t second_index = 1U;
-  for (std::size_t i = 1; i < 3U; ++i) {
-    if (type_scores[i] > type_scores[best_index]) {
-      second_index = best_index;
-      best_index = i;
-    } else if (i != best_index && type_scores[i] > type_scores[second_index]) {
-      second_index = i;
-    }
-  }
-
-  if (type_scores[best_index] <= 1e-6f) {
-    return config::JammingSemantic::kNone;
-  }
-  if (second_index != best_index &&
-      type_scores[second_index] >= kMixedSemanticDominanceRatio * type_scores[best_index] &&
-      type_scores[second_index] > kMixedSemanticMinScore) {
-    return config::JammingSemantic::kMixed;
-  }
-
-  if (best_index == 0U) {
-    return config::JammingSemantic::kNoiseSuppression;
-  }
-  if (best_index == 1U) {
-    return config::JammingSemantic::kDeception;
-  }
-  return config::JammingSemantic::kRepeater;
-}
-
-float ComputeTrackLevelJammingSeverity(const session::ArControlProfile& control_profile,
-                                       const session::EnvironmentSnapshot& environment_snapshot) {
-  if (!environment_snapshot.jamming_detected) {
-    return 0.0f;
-  }
-
-  if (!HasMultiSourceJammingFacts(environment_snapshot)) {
-    return 0.0f;
-  }
-
-  float total_severity = 0.0f;
-  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    total_severity += ComputeTrackLevelJammingContribution(control_profile,
-                                                           environment_snapshot.jammer_sources[i]);
-  }
-  return utils::ClampFloat(total_severity, 0.0f, 1.0f);
 }
 
 }  // namespace pipeline

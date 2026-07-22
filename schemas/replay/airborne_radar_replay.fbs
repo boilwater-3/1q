@@ -190,32 +190,7 @@ table AssociationQualityMetrics {
   missed_track_rate:float;
   mean_match_cost:float;
   p95_match_cost:float;
-  dominant_jamming_semantic:int;
-  jamming_severity:float;
   association_stress:float;
-}
-
-table EccmJammerDirectionDeg {
-  azimuth_deg:float;
-  elevation_deg:float;
-}
-
-table EccmJammerSourceInfo {
-  technique:int;
-  jammer_power_db:float;
-  jammer_to_signal_db:float;
-  frequency_overlap_ratio:float;
-  prf_lock_risk:float;
-  has_direction_deg:bool;
-  direction_deg:EccmJammerDirectionDeg;
-  angular_span_deg:float;
-  jammer_in_sidelobe:bool;
-  confidence:float;
-}
-
-table EccmSourceInfo {
-  has_jamming_signal:bool;
-  jammer_sources:[EccmJammerSourceInfo];
 }
 
 table ArInterferenceObservation {
@@ -238,8 +213,6 @@ table AssociationQualityInfo {
   missed_track_rate:float;
   mean_match_cost:float;
   p95_match_cost:float;
-  dominant_jamming_semantic:int;
-  jamming_severity:float;
   association_stress:float;
 }
 
@@ -253,8 +226,6 @@ table PerceptionQualityInfo {
 table DecisionInputFrame {
   cycle_index:uint;
   batch_id:ulong;
-  environment_jamming_detected:bool;
-  eccm_source_info:EccmSourceInfo;
   interference_observations:[ArInterferenceObservation];
   association_quality_info:AssociationQualityInfo;
   perception_quality_info:PerceptionQualityInfo;

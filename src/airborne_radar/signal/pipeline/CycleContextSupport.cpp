@@ -24,8 +24,6 @@ void ResetCycleExecutionScratch(const session::ArSceneTargetList& input_state,
   scratch.measurement_slots.assign(target_count, -1);
   scratch.target_geometry.resize(target_count);
   scratch.association_result = association::AssociationResult();
-  scratch.dominant_jamming_semantic = config::JammingSemantic::kNone;
-  scratch.jamming_severity = 0.0f;
 }
 
 void RefreshMeasurementCovariances(

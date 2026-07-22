@@ -60,22 +60,20 @@ bool ContainsDirectiveType(const std::vector<ext::TacticalProposal>& proposals,
 
 }  // namespace
 
-TEST(TacticalCoordinatorTest, HighThreatAndJamming) {
+TEST(TacticalCoordinatorTest, HighThreatAndReceiverRfObservation) {
   dp::TacticalCoordinator coordinator;
   ext::TacticalStateStore state_store;
 
   acm::DecisionInputFrame frame = BuildSingleTrackFrame(800.0f, 2.5f);
-  frame.environment_jamming_detected = true;
-  frame.eccm_source_info.has_jamming_signal = true;
-  acm::EccmJammerSourceInfo source;
-  source.technique = acm::JammingTechnique::kDeception;
-  source.jammer_power_db = 10.0f;
-  source.jammer_to_signal_db = 8.0f;
-  source.frequency_overlap_ratio = 0.9f;
-  source.prf_lock_risk = 0.9f;
-  source.jammer_in_sidelobe = true;
-  source.confidence = 1.0f;
-  frame.eccm_source_info.jammer_sources.push_back(source);
+  acm::ArInterferenceObservation observation;
+  observation.observation_id = 1U;
+  observation.estimated_off_boresight_deg = 8.0;
+  observation.estimated_center_frequency_hz = 3.0e9;
+  observation.estimated_bandwidth_hz = 2.0e6;
+  observation.estimated_waveform_kind =
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain;
+  observation.jammer_to_noise_db = 12.0;
+  frame.interference_observations.push_back(observation);
 
   const ext::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);

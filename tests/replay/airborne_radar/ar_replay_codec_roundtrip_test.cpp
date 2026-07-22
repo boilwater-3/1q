@@ -262,14 +262,10 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.association_quality_metrics.missed_track_rate = 0.33f;
   result.association_quality_metrics.mean_match_cost = 1.1f;
   result.association_quality_metrics.p95_match_cost = 2.2f;
-  result.association_quality_metrics.dominant_jamming_semantic =
-      config::JammingSemantic::kNoiseSuppression;
-  result.association_quality_metrics.jamming_severity = 0.6f;
   result.association_quality_metrics.association_stress = 0.7f;
   result.has_decision_observation = true;
   result.decision_observation.input_frame.cycle_index = 54U;
   result.decision_observation.input_frame.batch_id = 12U;
-  result.decision_observation.input_frame.environment_jamming_detected = true;
   session::ArInterferenceObservation interference_observation;
   interference_observation.observation_id = 1U;
   interference_observation.estimated_bearing_azimuth_deg = 12.0;
@@ -360,14 +356,10 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.missed_track_rate, 0.33f);
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.mean_match_cost, 1.1f);
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.p95_match_cost, 2.2f);
-  EXPECT_EQ(decoded.association_quality_metrics.dominant_jamming_semantic,
-            config::JammingSemantic::kNoiseSuppression);
-  EXPECT_FLOAT_EQ(decoded.association_quality_metrics.jamming_severity, 0.6f);
   EXPECT_FLOAT_EQ(decoded.association_quality_metrics.association_stress, 0.7f);
   EXPECT_TRUE(decoded.has_decision_observation);
   EXPECT_EQ(decoded.decision_observation.input_frame.cycle_index, 54U);
   EXPECT_EQ(decoded.decision_observation.input_frame.batch_id, 12U);
-  EXPECT_TRUE(decoded.decision_observation.input_frame.environment_jamming_detected);
   ASSERT_EQ(decoded.decision_observation.input_frame.interference_observations.size(), 1U);
   EXPECT_DOUBLE_EQ(decoded.decision_observation.input_frame.interference_observations[0]
                        .estimated_off_boresight_deg,

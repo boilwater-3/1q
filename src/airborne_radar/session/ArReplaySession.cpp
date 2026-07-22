@@ -113,38 +113,7 @@ bool AssociationQualityMetricsEqual(const session::AssociationQualityMetrics& le
          left.missed_track_rate == right.missed_track_rate &&
          left.mean_match_cost == right.mean_match_cost &&
          left.p95_match_cost == right.p95_match_cost &&
-         left.dominant_jamming_semantic == right.dominant_jamming_semantic &&
-         left.jamming_severity == right.jamming_severity &&
          left.association_stress == right.association_stress;
-}
-
-bool EccmJammerSourceInfoEqual(const session::EccmJammerSourceInfo& left,
-                               const session::EccmJammerSourceInfo& right) {
-  return left.technique == right.technique &&
-         left.jammer_power_db == right.jammer_power_db &&
-         left.jammer_to_signal_db == right.jammer_to_signal_db &&
-         left.frequency_overlap_ratio == right.frequency_overlap_ratio &&
-         left.prf_lock_risk == right.prf_lock_risk &&
-         left.has_direction_deg == right.has_direction_deg &&
-         left.direction_deg.azimuth_deg == right.direction_deg.azimuth_deg &&
-         left.direction_deg.elevation_deg == right.direction_deg.elevation_deg &&
-         left.angular_span_deg == right.angular_span_deg &&
-         left.jammer_in_sidelobe == right.jammer_in_sidelobe &&
-         left.confidence == right.confidence;
-}
-
-bool EccmSourceInfoEqual(const session::EccmSourceInfo& left,
-                         const session::EccmSourceInfo& right) {
-  if (left.has_jamming_signal != right.has_jamming_signal ||
-      left.jammer_sources.size() != right.jammer_sources.size()) {
-    return false;
-  }
-  for (std::size_t i = 0; i < left.jammer_sources.size(); ++i) {
-    if (!EccmJammerSourceInfoEqual(left.jammer_sources[i], right.jammer_sources[i])) {
-      return false;
-    }
-  }
-  return true;
 }
 
 bool ArInterferenceObservationEqual(const session::ArInterferenceObservation& left,
@@ -165,8 +134,6 @@ bool ArInterferenceObservationEqual(const session::ArInterferenceObservation& le
 bool DecisionInputFrameEqual(const session::DecisionInputFrame& left,
                              const session::DecisionInputFrame& right) {
   if (left.cycle_index != right.cycle_index || left.batch_id != right.batch_id ||
-      left.environment_jamming_detected != right.environment_jamming_detected ||
-      !EccmSourceInfoEqual(left.eccm_source_info, right.eccm_source_info) ||
       left.association_quality_info.match_rate != right.association_quality_info.match_rate ||
       left.association_quality_info.new_track_rate !=
           right.association_quality_info.new_track_rate ||
@@ -176,10 +143,6 @@ bool DecisionInputFrameEqual(const session::DecisionInputFrame& left,
           right.association_quality_info.mean_match_cost ||
       left.association_quality_info.p95_match_cost !=
           right.association_quality_info.p95_match_cost ||
-      left.association_quality_info.dominant_jamming_semantic !=
-          right.association_quality_info.dominant_jamming_semantic ||
-      left.association_quality_info.jamming_severity !=
-          right.association_quality_info.jamming_severity ||
       left.association_quality_info.association_stress !=
           right.association_quality_info.association_stress ||
       left.perception_quality_info.input_target_count !=

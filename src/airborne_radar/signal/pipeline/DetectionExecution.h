@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/ArEnvironmentInput.h"
 #include "airborne_radar/signal/detection/TargetGeometryResolver.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
@@ -42,7 +41,6 @@ struct DetectionExecutionBuffers {
  * @brief 执行物理化探测遍历，调用 SignalDetector 完成回波/SNR/检测判决并填充量测协方差。
  * @param[in] input 当前周期场景目标列表。
  * @param[in] config 运行时配置。
- * @param[in] control_profile 当前控制真值。
  * @param[in] environment_snapshot 当前周期环境快照。
  * @param[in] platform_altitude_m 平台海拔（单位：m），用于目标特定大气损耗计算。
  * @param[in] signal_detector 物理检测器；为 nullptr 时直接返回。
@@ -50,7 +48,6 @@ struct DetectionExecutionBuffers {
  */
 void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
                               const ExecutionConfig& config,
-                              const session::ArControlProfile& control_profile,
                               const session::EnvironmentSnapshot& environment_snapshot,
                               float platform_altitude_m, detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers);

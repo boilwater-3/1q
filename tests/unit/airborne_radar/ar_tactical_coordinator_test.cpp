@@ -129,336 +129,60 @@ TEST(TacticalCoordinatorTest, LowEvidenceTrackDoesNotTriggerAggressiveControl) {
   EXPECT_TRUE(result.proposals.empty());
 }
 
-TEST(TacticalCoordinatorTest, JammingEnvironmentGeneratesEccmProposals) {
+TEST(TacticalCoordinatorTest, ReceiverRfObservationGeneratesEccmProposals) {
   decision::TacticalCoordinator coordinator;
   session::TacticalStateStore state_store;
 
   session::DecisionInputFrame frame;
-  frame.cycle_index = 1u;
-  frame.batch_id = 1u;
-  frame.environment_jamming_detected = true;
-  frame.eccm_source_info.has_jamming_signal = true;
-  session::EccmJammerSourceInfo noise_source;
-  noise_source.technique = session::JammingTechnique::kNoiseSuppression;
-  noise_source.jammer_power_db = 11.0f;
-  noise_source.jammer_to_signal_db = 8.0f;
-  noise_source.frequency_overlap_ratio = 0.2f;
-  noise_source.prf_lock_risk = 0.1f;
-  noise_source.jammer_in_sidelobe = true;
-  noise_source.confidence = 1.0f;
-
-  session::EccmJammerSourceInfo deception_source;
-  deception_source.technique = session::JammingTechnique::kDeception;
-  deception_source.jammer_power_db = 5.0f;
-  deception_source.jammer_to_signal_db = 7.0f;
-  deception_source.frequency_overlap_ratio = 0.85f;
-  deception_source.prf_lock_risk = 0.9f;
-  deception_source.jammer_in_sidelobe = false;
-  deception_source.confidence = 1.0f;
-  frame.eccm_source_info.jammer_sources.push_back(noise_source);
-  frame.eccm_source_info.jammer_sources.push_back(deception_source);
+  frame.cycle_index = 1U;
+  frame.batch_id = 1U;
+  session::ArInterferenceObservation observation;
+  observation.observation_id = 1U;
+  observation.estimated_off_boresight_deg = 8.0;
+  observation.estimated_center_frequency_hz = 3.0e9;
+  observation.estimated_bandwidth_hz = 2.0e6;
+  observation.estimated_waveform_kind =
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain;
+  observation.jammer_to_noise_db = 12.0;
+  frame.interference_observations.push_back(observation);
   frame.tracks.push_back(BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
 
-  const session::TacticalDecisionResult result =
-      coordinator.Evaluate(frame, state_store);
-
-  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
-  ASSERT_GE(result.proposals.size(), 5u);
-
-  std::set<session::ControlDirectiveType> directive_types;
-  for (std::size_t i = 0; i < result.proposals.size(); ++i) {
-    directive_types.insert(result.proposals[i].directive.type);
-  }
-
-  EXPECT_NE(directive_types.find(session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER),
-            directive_types.end());
-  EXPECT_NE(directive_types.find(session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING),
-            directive_types.end());
-  EXPECT_NE(directive_types.find(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY),
-            directive_types.end());
-  EXPECT_NE(directive_types.find(session::ControlDirectiveType::REQUEST_ECCM_REJITTER),
-            directive_types.end());
-  EXPECT_NE(directive_types.find(session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN),
-            directive_types.end());
-}
-
-TEST(TacticalCoordinatorTest, DetailedEccmFactsSelectOnlyRelevantProposals) {
-  decision::TacticalCoordinator coordinator;
-  session::TacticalStateStore state_store;
-
-  session::DecisionInputFrame frame;
-  frame.cycle_index = 1u;
-  frame.batch_id = 1u;
-  frame.eccm_source_info.has_jamming_signal = true;
-  session::EccmJammerSourceInfo source;
-  source.technique = session::JammingTechnique::kUnknown;
-  source.jammer_power_db = 5.0f;
-  source.jammer_to_signal_db = 3.0f;
-  source.frequency_overlap_ratio = 0.8f;
-  source.prf_lock_risk = 0.2f;
-  source.jammer_in_sidelobe = false;
-  source.confidence = 1.0f;
-  frame.eccm_source_info.jammer_sources.push_back(source);
-  frame.tracks.push_back(BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
-
-  const session::TacticalDecisionResult result =
-      coordinator.Evaluate(frame, state_store);
+  const session::TacticalDecisionResult result = coordinator.Evaluate(frame, state_store);
 
   EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
   EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
-  EXPECT_TRUE(ContainsDirectiveType(result.proposals,
-                                    session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
-  EXPECT_FALSE(ContainsDirectiveType(
-      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
-  EXPECT_FALSE(
-      ContainsDirectiveType(result.proposals, session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
-  EXPECT_FALSE(ContainsDirectiveType(result.proposals,
-                                     session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
-}
-
-TEST(TacticalCoordinatorTest, LowConfidenceEccmSourceDoesNotGetArtificialWeightBoost) {
-  decision::TacticalCoordinator coordinator;
-  session::TacticalStateStore state_store;
-
-  session::DecisionInputFrame frame;
-  frame.cycle_index = 1u;
-  frame.batch_id = 1u;
-  frame.eccm_source_info.has_jamming_signal = true;
-
-  session::EccmJammerSourceInfo source;
-  source.technique = session::JammingTechnique::kDeception;
-  source.jammer_power_db = 4.0f;
-  source.jammer_to_signal_db = 3.0f;
-  source.frequency_overlap_ratio = 1.0f;
-  source.prf_lock_risk = 0.1f;
-  source.jammer_in_sidelobe = false;
-  source.confidence = 0.36f;
-  frame.eccm_source_info.jammer_sources.push_back(source);
-  frame.tracks.push_back(BuildTrack(220.0f, 2.0f, session::TrackStatus::kConfirmed));
-
-  const session::TacticalDecisionResult result =
-      coordinator.Evaluate(frame, state_store);
-
-  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
-  EXPECT_FALSE(ContainsDirectiveType(result.proposals,
-                                     session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
-}
-
-TEST(TacticalCoordinatorTest, MultiSourceEccmFactsCombineTypeSpecificCountermeasures) {
-  decision::TacticalCoordinator coordinator;
-  session::TacticalStateStore state_store;
-
-  session::DecisionInputFrame frame;
-  frame.cycle_index = 1u;
-  frame.batch_id = 1u;
-  frame.eccm_source_info.has_jamming_signal = true;
-
-  session::EccmJammerSourceInfo noise_source;
-  noise_source.technique = session::JammingTechnique::kNoiseSuppression;
-  noise_source.jammer_power_db = 11.0f;
-  noise_source.jammer_to_signal_db = 8.0f;
-  noise_source.frequency_overlap_ratio = 0.2f;
-  noise_source.prf_lock_risk = 0.1f;
-  noise_source.jammer_in_sidelobe = true;
-
-  session::EccmJammerSourceInfo deception_source;
-  deception_source.technique = session::JammingTechnique::kDeception;
-  deception_source.jammer_power_db = 4.0f;
-  deception_source.jammer_to_signal_db = 5.0f;
-  deception_source.frequency_overlap_ratio = 0.85f;
-  deception_source.prf_lock_risk = 0.9f;
-  deception_source.jammer_in_sidelobe = false;
-
-  frame.eccm_source_info.jammer_sources.push_back(noise_source);
-  frame.eccm_source_info.jammer_sources.push_back(deception_source);
-  frame.tracks.push_back(BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
-
-  const session::TacticalDecisionResult result =
-      coordinator.Evaluate(frame, state_store);
-
-  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
+      result.proposals, session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
   EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
-  EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
-  EXPECT_TRUE(ContainsDirectiveType(result.proposals,
-                                    session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
-  EXPECT_TRUE(
-      ContainsDirectiveType(result.proposals, session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
-  EXPECT_TRUE(ContainsDirectiveType(result.proposals,
-                                    session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
-  EXPECT_GT(
-      FindDirectivePriority(result.proposals,
-                            session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER),
-      FindDirectivePriority(result.proposals,
-                            session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
+      result.proposals, session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
+  EXPECT_EQ(state_store.last_decision_summary,
+            "protected-emission(receiver-rf-observation)");
 }
 
-TEST(TacticalCoordinatorTest,
-     LowConfidenceMultiSourceFactsDoNotTriggerAggressiveTypeSpecificActions) {
-  decision::TacticalCoordinator coordinator;
-  session::TacticalStateStore state_store;
-
-  session::DecisionInputFrame frame;
-  frame.cycle_index = 1u;
-  frame.batch_id = 1u;
-  frame.eccm_source_info.has_jamming_signal = true;
-
-  session::EccmJammerSourceInfo low_confidence_deception;
-  low_confidence_deception.technique = session::JammingTechnique::kDeception;
-  low_confidence_deception.jammer_power_db = 9.0f;
-  low_confidence_deception.jammer_to_signal_db = 8.0f;
-  low_confidence_deception.frequency_overlap_ratio = 0.95f;
-  low_confidence_deception.prf_lock_risk = 0.95f;
-  low_confidence_deception.confidence = 0.2f;
-
-  frame.eccm_source_info.jammer_sources.push_back(low_confidence_deception);
-  frame.tracks.push_back(BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
-
-  const session::TacticalDecisionResult result =
-      coordinator.Evaluate(frame, state_store);
-
-  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
-  EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
-  EXPECT_FALSE(ContainsDirectiveType(result.proposals,
-                                     session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
-  EXPECT_FALSE(
-      ContainsDirectiveType(result.proposals, session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
-  EXPECT_FALSE(ContainsDirectiveType(result.proposals,
-                                     session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
-}
-
-TEST(TacticalCoordinatorTest, AssociationStressCannotBackfillAnEccmTrigger) {
-  decision::TacticalCoordinator coordinator;
-  session::TacticalStateStore state_store;
-
-  session::DecisionInputFrame frame;
-  frame.cycle_index = 1u;
-  frame.batch_id = 1u;
-  frame.association_quality_info.dominant_jamming_semantic = config::JammingSemantic::kDeception;
-  frame.association_quality_info.jamming_severity = 0.7f;
-  frame.association_quality_info.association_stress = 0.35f;
-  frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
-
-  const session::TacticalDecisionResult result =
-      coordinator.Evaluate(frame, state_store);
-
-  EXPECT_EQ(result.selected_mode, session::TacticalMode::kBaseline);
-  EXPECT_TRUE(result.proposals.empty());
-  EXPECT_EQ(state_store.last_decision_summary, "baseline");
-}
-
-TEST(TacticalCoordinatorTest, AssociationStressDoesNotChangeEccmPriorityOrRationale) {
+TEST(TacticalCoordinatorTest, AssociationStressCannotTriggerOrBiasEccm) {
   decision::TacticalCoordinator coordinator;
   session::TacticalStateStore baseline_state_store;
   session::TacticalStateStore stressed_state_store;
 
   session::DecisionInputFrame baseline_frame;
-  baseline_frame.cycle_index = 1u;
-  baseline_frame.batch_id = 1u;
-  baseline_frame.eccm_source_info.has_jamming_signal = true;
-  session::EccmJammerSourceInfo baseline_source;
-  baseline_source.technique = session::JammingTechnique::kDeception;
-  baseline_source.jammer_power_db = 6.0f;
-  baseline_source.jammer_to_signal_db = 7.0f;
-  baseline_source.frequency_overlap_ratio = 0.7f;
-  baseline_source.prf_lock_risk = 0.7f;
-  baseline_source.confidence = 1.0f;
-  baseline_frame.eccm_source_info.jammer_sources.push_back(baseline_source);
+  baseline_frame.cycle_index = 1U;
+  baseline_frame.batch_id = 1U;
   baseline_frame.tracks.push_back(
       BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
-
   session::DecisionInputFrame stressed_frame = baseline_frame;
-  stressed_frame.association_quality_info.dominant_jamming_semantic =
-      config::JammingSemantic::kDeception;
-  stressed_frame.association_quality_info.jamming_severity = 0.8f;
-  stressed_frame.association_quality_info.association_stress = 0.5f;
-  stressed_frame.association_quality_info.mean_match_cost = 1.2f;
-  stressed_frame.association_quality_info.p95_match_cost = 2.4f;
+  stressed_frame.association_quality_info.match_rate = 0.1f;
+  stressed_frame.association_quality_info.missed_track_rate = 0.9f;
+  stressed_frame.association_quality_info.association_stress = 1.0f;
 
-  const session::TacticalDecisionResult baseline_result =
+  const session::TacticalDecisionResult baseline =
       coordinator.Evaluate(baseline_frame, baseline_state_store);
-  const session::TacticalDecisionResult stressed_result =
+  const session::TacticalDecisionResult stressed =
       coordinator.Evaluate(stressed_frame, stressed_state_store);
 
-  EXPECT_FLOAT_EQ(FindDirectivePriority(
-                      stressed_result.proposals,
-                      session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY),
-                  FindDirectivePriority(
-                      baseline_result.proposals,
-                      session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
-  EXPECT_FLOAT_EQ(FindDirectivePriority(
-                      stressed_result.proposals,
-                      session::ControlDirectiveType::REQUEST_ECCM_REJITTER),
-                  FindDirectivePriority(
-                      baseline_result.proposals,
-                      session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
-  EXPECT_EQ(FindDirectiveRationale(
-                stressed_result.proposals,
-                session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY),
-            FindDirectiveRationale(
-                baseline_result.proposals,
-                session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
+  EXPECT_EQ(baseline.selected_mode, session::TacticalMode::kBaseline);
+  EXPECT_EQ(stressed.selected_mode, session::TacticalMode::kBaseline);
+  EXPECT_TRUE(baseline.proposals.empty());
+  EXPECT_TRUE(stressed.proposals.empty());
 }
-
-TEST(TacticalCoordinatorTest, PoorAssociationQualityWithoutJammingSemanticDoesNotTriggerEccm) {
-  decision::TacticalCoordinator coordinator;
-  session::TacticalStateStore state_store;
-
-  session::DecisionInputFrame frame;
-  frame.cycle_index = 1u;
-  frame.batch_id = 1u;
-  frame.association_quality_info.match_rate = 0.1f;
-  frame.association_quality_info.missed_track_rate = 0.8f;
-  frame.association_quality_info.mean_match_cost = 2.5f;
-  frame.association_quality_info.p95_match_cost = 3.5f;
-  frame.association_quality_info.association_stress = 0.45f;
-  frame.association_quality_info.jamming_severity = 0.0f;
-  frame.association_quality_info.dominant_jamming_semantic = config::JammingSemantic::kNone;
-  frame.perception_quality_info.input_target_count = 4u;
-  frame.perception_quality_info.detection_count = 1u;
-  frame.perception_quality_info.detection_rate = 0.25f;
-  frame.perception_quality_info.detection_stress = 0.75f;
-  frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
-
-  const session::TacticalDecisionResult result =
-      coordinator.Evaluate(frame, state_store);
-
-  EXPECT_EQ(result.selected_mode, session::TacticalMode::kBaseline);
-  EXPECT_TRUE(result.proposals.empty());
-  EXPECT_EQ(state_store.last_decision_summary, "baseline(detection-pressure)");
-}
-
-TEST(TacticalCoordinatorTest, LegacyEnvironmentJammingSummaryExcludesAssociationPressure) {
-  decision::TacticalCoordinator coordinator;
-  session::TacticalStateStore state_store;
-
-  session::DecisionInputFrame frame;
-  frame.cycle_index = 1u;
-  frame.batch_id = 1u;
-  frame.environment_jamming_detected = true;
-  frame.eccm_source_info.has_jamming_signal = true;
-  frame.association_quality_info.dominant_jamming_semantic = config::JammingSemantic::kMixed;
-  frame.association_quality_info.jamming_severity = 0.8f;
-  frame.association_quality_info.association_stress = 0.5f;
-  frame.perception_quality_info.input_target_count = 4u;
-  frame.perception_quality_info.detection_count = 2u;
-  frame.perception_quality_info.detection_rate = 0.5f;
-  frame.perception_quality_info.detection_stress = 0.5f;
-  frame.tracks.push_back(BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
-
-  const session::TacticalDecisionResult result =
-      coordinator.Evaluate(frame, state_store);
-
-  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
-  EXPECT_EQ(state_store.last_decision_summary,
-            "protected-emission(legacy-environment-jamming+detection-pressure)");
-}
-
 TEST(TacticalCoordinatorTest, LpiProposalStopsWithoutFreshThreatEvidence) {
   decision::TacticalCoordinator coordinator;
   session::TacticalStateStore state_store;
@@ -491,8 +215,15 @@ TEST(TacticalCoordinatorTest, EccmProposalStopsWithoutFreshJammingEvidence) {
   session::DecisionInputFrame trigger_frame;
   trigger_frame.cycle_index = 1u;
   trigger_frame.batch_id = 1u;
-  trigger_frame.environment_jamming_detected = true;
-  trigger_frame.eccm_source_info.has_jamming_signal = true;
+  session::ArInterferenceObservation observation;
+  observation.observation_id = 1U;
+  observation.estimated_off_boresight_deg = 8.0;
+  observation.estimated_center_frequency_hz = 3.0e9;
+  observation.estimated_bandwidth_hz = 2.0e6;
+  observation.estimated_waveform_kind =
+      oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain;
+  observation.jammer_to_noise_db = 12.0;
+  trigger_frame.interference_observations.push_back(observation);
   trigger_frame.tracks.push_back(BuildTrack(260.0f, 2.2f, session::TrackStatus::kConfirmed));
   const session::TacticalDecisionResult trigger_result =
       coordinator.Evaluate(trigger_frame, state_store);

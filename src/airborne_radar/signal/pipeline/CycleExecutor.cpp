@@ -32,7 +32,7 @@ void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime) {
 }
 
 // ---------------------------------------------------------------------------
-// 环境阶段：写入 scratch.dominant_jamming_semantic / jamming_severity
+// 环境阶段：解析 RF v2 接收功率并同步周期配置。
 // ---------------------------------------------------------------------------
 
 bool RunEnvironmentPhase(CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
@@ -58,10 +58,6 @@ bool RunEnvironmentPhase(CycleExecutionContext& context, const CycleExecutionRun
     return false;
   }
 
-  scratch.dominant_jamming_semantic =
-      ResolveDominantJammingSemantic(runtime.control_profile, context.environment_snapshot);
-  scratch.jamming_severity =
-      ComputeTrackLevelJammingSeverity(runtime.control_profile, context.environment_snapshot);
   return true;
 }
 
@@ -79,7 +75,7 @@ void RunDetectionPhase(const CycleExecutionContext& context, const CycleExecutio
   detection_buffers.detection_succeeded = &scratch.detection_succeeded;
   detection_buffers.measurement_covariances = &scratch.measurement_covariances;
 
-  RunPhysicalDetectionPass(context.input_state, context.runtime_config, runtime.control_profile,
+  RunPhysicalDetectionPass(context.input_state, context.runtime_config,
                            context.environment_snapshot, context.platform_altitude_m,
                            runtime.signal_detector, &detection_buffers);
 }
@@ -120,26 +116,8 @@ void RunTrackFilterPhase(const CycleExecutionContext& context, const CycleExecut
 
 namespace {
 
-float ResolveAssociationFragilityWeight(config::JammingSemantic semantic) {
-  switch (semantic) {
-    case config::JammingSemantic::kDeception:
-      return 1.00f;
-    case config::JammingSemantic::kRepeater:
-      return 0.88f;
-    case config::JammingSemantic::kMixed:
-      return 0.94f;
-    case config::JammingSemantic::kNoiseSuppression:
-      return 0.60f;
-    case config::JammingSemantic::kNone:
-    default:
-      return 0.0f;
-  }
-}
-
 AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
-    const association::AssociationQualityMetrics& source,
-    config::JammingSemantic dominant_jamming_semantic, float jamming_severity,
-    float association_unassigned_cost) {
+    const association::AssociationQualityMetrics& source, float association_unassigned_cost) {
   AssociationQualityMetrics metrics;
   metrics.prior_track_count = source.prior_track_count;
   metrics.detection_count = source.detection_count;
@@ -151,8 +129,6 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
   metrics.missed_track_rate = source.missed_track_rate;
   metrics.mean_match_cost = source.mean_match_cost;
   metrics.p95_match_cost = source.p95_match_cost;
-  metrics.dominant_jamming_semantic = dominant_jamming_semantic;
-  metrics.jamming_severity = std::max(0.0f, std::min(1.0f, jamming_severity));
   const float normalized_cost_pressure =
       association_unassigned_cost > 1e-6f
           ? std::max(0.0f, std::min(1.0f, source.mean_match_cost / association_unassigned_cost))
@@ -161,11 +137,7 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
       0.20f + 0.30f * std::max(0.0f, std::min(1.0f, 1.0f - source.match_rate)) +
       0.20f * source.new_track_rate + 0.15f * source.missed_track_rate +
       0.15f * normalized_cost_pressure;
-  metrics.association_stress = std::max(
-      0.0f,
-      std::min(1.0f, metrics.jamming_severity *
-                         ResolveAssociationFragilityWeight(metrics.dominant_jamming_semantic) *
-                         operational_pressure));
+  metrics.association_stress = std::max(0.0f, std::min(1.0f, operational_pressure));
   return metrics;
 }
 
@@ -184,10 +156,9 @@ void CollectCycleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
   }
 
   scratch.association_quality_metrics = ToPipelineAssociationQualityMetrics(
-      scratch.association_result.quality_metrics, scratch.dominant_jamming_semantic,
-      scratch.jamming_severity, runtime_config.association.policy.unassigned_cost);
+      scratch.association_result.quality_metrics,
+      runtime_config.association.policy.unassigned_cost);
 
-  const session::EccmSourceInfo eccm_source_info = BuildEccmSourceInfo(environment_snapshot);
   const session::AssociationQualityInfo association_quality_info =
       BuildAssociationQualityInfo(scratch.association_quality_metrics);
   const session::PerceptionQualityInfo perception_quality_info =
@@ -203,8 +174,6 @@ void CollectCycleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
       session::DecisionInputFrame(auto_lifecycle_manager->BuildTrackStateSnapshots());
   scratch.decision_frame.cycle_index = cycle_index;
   scratch.decision_frame.batch_id = batch_id;
-  scratch.decision_frame.environment_jamming_detected = eccm_source_info.has_jamming_signal;
-  scratch.decision_frame.eccm_source_info = eccm_source_info;
   scratch.decision_frame.association_quality_info = association_quality_info;
   scratch.decision_frame.perception_quality_info = perception_quality_info;
 }

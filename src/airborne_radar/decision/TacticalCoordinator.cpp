@@ -83,9 +83,6 @@ std::string TacticalCoordinator::BuildDecisionSummary(
   std::vector<std::string> causes;
   if (!input_frame.interference_observations.empty()) {
     causes.push_back("receiver-rf-observation");
-  } else if (input_frame.environment_jamming_detected ||
-             input_frame.eccm_source_info.has_jamming_signal) {
-    causes.push_back("legacy-environment-jamming");
   }
   if (HasMeaningfulDetectionPressure(input_frame.perception_quality_info)) {
     causes.push_back("detection-pressure");
@@ -123,7 +120,6 @@ session::TacticalDecisionResult TacticalCoordinator::Evaluate(
 
   // ==== [1] 确定 ECCM 触发信号 ====
   const bool has_receiver_rf_observation = !input_frame.interference_observations.empty();
-  const bool has_legacy_jamming = input_frame.eccm_source_info.has_jamming_signal;
 
   // ==== [2] 威胁评估 ====
   const ThreatAssessmentEvaluator::Result threat_result =
@@ -141,12 +137,6 @@ session::TacticalDecisionResult TacticalCoordinator::Evaluate(
         eccm_evaluator_.Evaluate(input_frame.interference_observations, &all_proposals);
     PROJECT_LOG_DEBUG(
         "[TacticalCoordinator] Receiver RF observation passed J/N gate. Appending ECCM proposals.");
-  } else if (has_legacy_jamming) {
-    session::EccmSourceInfo eccm_input = input_frame.eccm_source_info;
-    eccm_result = eccm_evaluator_.Evaluate(eccm_input, input_frame.association_quality_info, false,
-                                           &all_proposals);
-    PROJECT_LOG_DEBUG(
-        "[TacticalCoordinator] Legacy environment jamming detected. Appending ECCM proposals.");
   } else {
     PROJECT_LOG_DEBUG("[TacticalCoordinator] Environment is clear. Continuing nominal operation.");
   }

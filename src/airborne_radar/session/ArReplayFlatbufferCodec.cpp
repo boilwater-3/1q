@@ -493,27 +493,6 @@ session::ArControlProfile DecodeArControlProfile(const fb::ArControlProfile* val
   return result;
 }
 
-flatbuffers::Offset<fb::EccmJammerSourceInfo> EncodeEccmJammerSourceInfo(
-    flatbuffers::FlatBufferBuilder* builder, const session::EccmJammerSourceInfo& value) {
-  return fb::CreateEccmJammerSourceInfo(
-      *builder, static_cast<int>(value.technique), value.jammer_power_db, value.jammer_to_signal_db,
-      value.frequency_overlap_ratio, value.prf_lock_risk, value.has_direction_deg,
-      fb::CreateEccmJammerDirectionDeg(*builder, value.direction_deg.azimuth_deg,
-                                       value.direction_deg.elevation_deg),
-      value.angular_span_deg, value.jammer_in_sidelobe, value.confidence);
-}
-
-flatbuffers::Offset<fb::EccmSourceInfo> EncodeEccmSourceInfo(
-    flatbuffers::FlatBufferBuilder* builder, const session::EccmSourceInfo& value) {
-  std::vector<flatbuffers::Offset<fb::EccmJammerSourceInfo>> source_offsets;
-  source_offsets.reserve(value.jammer_sources.size());
-  for (std::size_t i = 0; i < value.jammer_sources.size(); ++i) {
-    source_offsets.push_back(EncodeEccmJammerSourceInfo(builder, value.jammer_sources[i]));
-  }
-  return fb::CreateEccmSourceInfo(*builder, value.has_jamming_signal,
-                                  builder->CreateVector(source_offsets));
-}
-
 flatbuffers::Offset<fb::ArInterferenceObservation> EncodeArInterferenceObservation(
     flatbuffers::FlatBufferBuilder* builder,
     const session::ArInterferenceObservation& value) {
@@ -542,13 +521,10 @@ flatbuffers::Offset<fb::DecisionInputFrame> EncodeDecisionInputFrame(
   const session::AssociationQualityInfo& association = value.association_quality_info;
   const session::PerceptionQualityInfo& perception = value.perception_quality_info;
   return fb::CreateDecisionInputFrame(
-      *builder, value.cycle_index, value.batch_id, value.environment_jamming_detected,
-      EncodeEccmSourceInfo(builder, value.eccm_source_info),
-      builder->CreateVector(observation_offsets),
+      *builder, value.cycle_index, value.batch_id, builder->CreateVector(observation_offsets),
       fb::CreateAssociationQualityInfo(
           *builder, association.match_rate, association.new_track_rate,
           association.missed_track_rate, association.mean_match_cost, association.p95_match_cost,
-          static_cast<int>(association.dominant_jamming_semantic), association.jamming_severity,
           association.association_stress),
       fb::CreatePerceptionQualityInfo(*builder,
                                       static_cast<std::uint64_t>(perception.input_target_count),
@@ -593,42 +569,6 @@ flatbuffers::Offset<fb::ExternalDecisionResponse> EncodeExternalDecisionResponse
                                             EncodeTacticalProposals(builder, value.proposals));
 }
 
-session::EccmJammerSourceInfo DecodeEccmJammerSourceInfo(const fb::EccmJammerSourceInfo* value) {
-  session::EccmJammerSourceInfo result;
-  if (value != nullptr) {
-    result.technique = static_cast<session::JammingTechnique>(value->technique());
-    result.jammer_power_db = value->jammer_power_db();
-    result.jammer_to_signal_db = value->jammer_to_signal_db();
-    result.frequency_overlap_ratio = value->frequency_overlap_ratio();
-    result.prf_lock_risk = value->prf_lock_risk();
-    result.has_direction_deg = value->has_direction_deg();
-    if (value->direction_deg() != nullptr) {
-      result.direction_deg.azimuth_deg = value->direction_deg()->azimuth_deg();
-      result.direction_deg.elevation_deg = value->direction_deg()->elevation_deg();
-    }
-    result.angular_span_deg = value->angular_span_deg();
-    result.jammer_in_sidelobe = value->jammer_in_sidelobe();
-    result.confidence = value->confidence();
-  }
-  return result;
-}
-
-session::EccmSourceInfo DecodeEccmSourceInfo(const fb::EccmSourceInfo* value) {
-  session::EccmSourceInfo result;
-  if (value != nullptr) {
-    result.has_jamming_signal = value->has_jamming_signal();
-    const flatbuffers::Vector<flatbuffers::Offset<fb::EccmJammerSourceInfo>>* sources =
-        value->jammer_sources();
-    if (sources != nullptr) {
-      result.jammer_sources.reserve(sources->size());
-      for (flatbuffers::uoffset_t i = 0; i < sources->size(); ++i) {
-        result.jammer_sources.push_back(DecodeEccmJammerSourceInfo(sources->Get(i)));
-      }
-    }
-  }
-  return result;
-}
-
 session::ArInterferenceObservation DecodeArInterferenceObservation(
     const fb::ArInterferenceObservation* value) {
   session::ArInterferenceObservation result;
@@ -654,8 +594,6 @@ session::DecisionInputFrame DecodeDecisionInputFrame(const fb::DecisionInputFram
   if (value != nullptr) {
     result.cycle_index = value->cycle_index();
     result.batch_id = value->batch_id();
-    result.environment_jamming_detected = value->environment_jamming_detected();
-    result.eccm_source_info = DecodeEccmSourceInfo(value->eccm_source_info());
     if (value->interference_observations() != nullptr) {
       result.interference_observations.reserve(value->interference_observations()->size());
       for (flatbuffers::uoffset_t index = 0U;
@@ -671,9 +609,6 @@ session::DecisionInputFrame DecodeDecisionInputFrame(const fb::DecisionInputFram
       result.association_quality_info.missed_track_rate = association->missed_track_rate();
       result.association_quality_info.mean_match_cost = association->mean_match_cost();
       result.association_quality_info.p95_match_cost = association->p95_match_cost();
-      result.association_quality_info.dominant_jamming_semantic =
-          static_cast<config::JammingSemantic>(association->dominant_jamming_semantic());
-      result.association_quality_info.jamming_severity = association->jamming_severity();
       result.association_quality_info.association_stress = association->association_stress();
     }
     if (value->perception_quality_info() != nullptr) {
@@ -757,7 +692,6 @@ flatbuffers::Offset<fb::AssociationQualityMetrics> EncodeAssociationQualityMetri
       static_cast<std::uint64_t>(value.new_track_count),
       static_cast<std::uint64_t>(value.missed_track_count), value.match_rate, value.new_track_rate,
       value.missed_track_rate, value.mean_match_cost, value.p95_match_cost,
-      static_cast<int>(value.dominant_jamming_semantic), value.jamming_severity,
       value.association_stress);
 }
 
@@ -775,9 +709,6 @@ session::AssociationQualityMetrics DecodeAssociationQualityMetrics(
     result.missed_track_rate = value->missed_track_rate();
     result.mean_match_cost = value->mean_match_cost();
     result.p95_match_cost = value->p95_match_cost();
-    result.dominant_jamming_semantic =
-        static_cast<config::JammingSemantic>(value->dominant_jamming_semantic());
-    result.jamming_severity = value->jamming_severity();
     result.association_stress = value->association_stress();
   }
   return result;

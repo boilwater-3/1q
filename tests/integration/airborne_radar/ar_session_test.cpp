@@ -466,197 +466,6 @@ TEST(RadarJointIntegrationTest, StageOneMovingAirTargetsKeepStableEnemyOutputWit
   EXPECT_TRUE(radar_context.SubmittedCommands().empty());
 }
 
-TEST(RadarJointIntegrationTest,
-     StageTwoNoiseSuppressionInterferenceKeepsEnemyOutputAndEnablesEccm) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
-  environment::EnvironmentService environment_service;
-  ScenarioRadarContext radar_context;
-  radar_context.SetCycleDeltaTimeSec(1.0f);
-  extension::ArController controller(radar_context, signal_pipeline, environment_service);
-
-  session::ArSceneTargetList targets{
-      BuildAirTarget(301u, 60.0f, 0.0f, 0.0f, 1.0f, 180.0f, -6.0f, 16.0f),
-      BuildAirTarget(302u, 75.0f, 0.5f, 0.0f, 1.0f, 260.0f, 12.0f, 20.0f),
-      BuildAirTarget(303u, 90.0f, -0.5f, 0.0f, 1.1f, 340.0f, -10.0f, 24.0f),
-  };
-
-  const session::TrackOutputFrame baseline_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
-  ASSERT_EQ(session::CountTracksByStatus(baseline_frame, session::TrackStatus::kConfirmed),
-            targets.size());
-
-  AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
-  environment_service.UpdateSceneState([&] {
-    session::EnvironmentSceneState s;
-    s.jammer_emitters.push_back(BuildJammerEmitter(config::JammingTechnique::kNoiseSuppression,
-                                                   12.0f, 8.0f, 0.20f, 0.10f, true));
-    return s;
-  }());
-
-  const session::TrackOutputFrame jammed_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
-  ExpectFrameContainsTargets(jammed_frame, targets);
-
-  AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
-  const session::TrackOutputFrame protected_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
-  const session::ArControlProfile protected_profile = radar_context.LatestControlProfile();
-  EXPECT_TRUE(protected_profile.enable_sidelobe_canceller);
-  EXPECT_TRUE(protected_profile.enable_adaptive_beamforming);
-  EXPECT_GT(protected_profile.eccm_burnthrough_gain, 1.0f);
-  EXPECT_TRUE(
-      ContainsCommandType(radar_context, session::ArCommandType::ENABLE_SIDELOBE_CANCELLER));
-  EXPECT_TRUE(
-      ContainsCommandType(radar_context, session::ArCommandType::SET_ECCM_BURNTHROUGH_GAIN));
-  EXPECT_GT(protected_frame.tracks.size(), 0U);
-  EXPECT_GT(session::CountTracksByStatus(protected_frame, session::TrackStatus::kConfirmed), 0U);
-  ExpectFrameContainsTargets(protected_frame, targets);
-}
-
-TEST(RadarJointIntegrationTest,
-     StageTwoDeceptionInterferenceImprovesAssociationAfterProfileApplies) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
-  environment::EnvironmentService environment_service;
-  ScenarioRadarContext radar_context;
-  radar_context.SetCycleDeltaTimeSec(1.0f);
-  extension::ArController controller(radar_context, signal_pipeline, environment_service);
-
-  session::ArSceneTargetList targets{
-      BuildAirTarget(401u, 1.0f, 0.0f, 0.0f, 1.0f, 4.0f, 0.0f, 3.0f),
-  };
-
-  const session::TrackOutputFrame baseline_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
-  ASSERT_EQ(session::CountTracksByStatus(baseline_frame, session::TrackStatus::kConfirmed), 1U);
-
-  AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
-  environment_service.UpdateSceneState([&] {
-    session::EnvironmentSceneState s;
-    s.jammer_emitters.push_back(
-        BuildJammerEmitter(config::JammingTechnique::kDeception, 8.0f, 8.0f, 0.90f, 0.90f, false));
-    return s;
-  }());
-
-  const session::TrackOutputFrame cycle_2_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
-  const session::AssociationQualityMetrics cycle_2_metrics =
-      signal_pipeline.GetLastAssociationQualityMetrics();
-  EXPECT_EQ(cycle_2_metrics.dominant_jamming_semantic, config::JammingSemantic::kDeception);
-
-  AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
-  const session::TrackOutputFrame cycle_3_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
-  const session::AssociationQualityMetrics cycle_3_metrics =
-      signal_pipeline.GetLastAssociationQualityMetrics();
-  const session::ArControlProfile cycle_3_profile = radar_context.LatestControlProfile();
-  EXPECT_TRUE(cycle_3_profile.enable_agility_frequency);
-  EXPECT_TRUE(cycle_3_profile.enable_eccm_rejitter);
-  EXPECT_TRUE(ContainsCommandType(radar_context, session::ArCommandType::SET_AGILITY_FREQ));
-  EXPECT_TRUE(ContainsCommandType(radar_context, session::ArCommandType::SET_ECCM_REJITTER));
-
-  EXPECT_GT(session::CountTracksByStatus(cycle_3_frame, session::TrackStatus::kConfirmed), 0U);
-  ExpectFrameContainsTargets(cycle_3_frame, targets);
-  EXPECT_LE(cycle_3_metrics.association_stress, cycle_2_metrics.association_stress);
-  EXPECT_GE(cycle_3_metrics.match_rate, cycle_2_metrics.match_rate);
-}
-
-TEST(RadarJointIntegrationTest, StageTwoRepeaterInterferenceKeepsTrackOutputAndSustainsRejitter) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
-  environment::EnvironmentService environment_service;
-  ScenarioRadarContext radar_context;
-  radar_context.SetCycleDeltaTimeSec(1.0f);
-  extension::ArController controller(radar_context, signal_pipeline, environment_service);
-
-  session::ArSceneTargetList targets{
-      BuildAirTarget(501u, 2.0f, 0.0f, 0.0f, 1.0f, 8.0f, -1.0f, 3.0f),
-      BuildAirTarget(502u, 2.5f, 0.2f, 0.0f, 1.0f, 12.0f, 1.0f, 4.0f),
-  };
-
-  const session::TrackOutputFrame baseline_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
-  ASSERT_EQ(session::CountTracksByStatus(baseline_frame, session::TrackStatus::kConfirmed),
-            targets.size());
-
-  AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
-  environment_service.UpdateSceneState([&] {
-    session::EnvironmentSceneState s;
-    s.jammer_emitters.push_back(
-        BuildJammerEmitter(config::JammingTechnique::kRepeater, 7.5f, 7.0f, 0.10f, 0.95f, false));
-    return s;
-  }());
-
-  const session::TrackOutputFrame cycle_2_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
-  EXPECT_GT(cycle_2_frame.tracks.size(), 0U);
-
-  AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
-  const session::TrackOutputFrame cycle_3_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
-  const session::ArControlProfile cycle_3_profile = radar_context.LatestControlProfile();
-  EXPECT_TRUE(cycle_3_profile.enable_eccm_rejitter);
-  EXPECT_TRUE(cycle_3_profile.enable_adaptive_beamforming);
-  EXPECT_TRUE(ContainsCommandType(radar_context, session::ArCommandType::SET_ECCM_REJITTER));
-  EXPECT_TRUE(
-      ContainsCommandType(radar_context, session::ArCommandType::ENABLE_ADAPTIVE_BEAMFORMING));
-  EXPECT_GT(cycle_3_frame.tracks.size(), 0U);
-  EXPECT_GT(session::CountTracksByStatus(cycle_3_frame, session::TrackStatus::kConfirmed), 0U);
-  ExpectFrameContainsTargets(cycle_3_frame, targets);
-}
-
-TEST(RadarJointIntegrationTest,
-     StageTwoMixedInterferenceStacksCountermeasuresAndPreservesEnemyInfo) {
-  signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
-  environment::EnvironmentService environment_service;
-  ScenarioRadarContext radar_context;
-  radar_context.SetCycleDeltaTimeSec(1.0f);
-  extension::ArController controller(radar_context, signal_pipeline, environment_service);
-
-  session::ArSceneTargetList targets{
-      BuildAirTarget(601u, 4.0f, 0.0f, 0.0f, 1.0f, 14.0f, -4.0f, 4.0f),
-      BuildAirTarget(602u, 4.5f, 0.1f, 0.0f, 1.1f, 20.0f, 6.0f, 5.0f),
-      BuildAirTarget(603u, 5.0f, -0.1f, 0.0f, 1.0f, 28.0f, -3.0f, 6.0f),
-  };
-
-  const session::TrackOutputFrame baseline_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
-  ASSERT_EQ(session::CountTracksByStatus(baseline_frame, session::TrackStatus::kConfirmed),
-            targets.size());
-
-  AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
-  {
-    session::EnvironmentSceneState s;
-    s.jammer_emitters.push_back(BuildJammerEmitter(config::JammingTechnique::kNoiseSuppression,
-                                                   12.0f, 8.0f, 0.15f, 0.10f, true));
-    s.jammer_emitters.push_back(
-        BuildJammerEmitter(config::JammingTechnique::kDeception, 9.0f, 7.5f, 0.90f, 0.90f, false));
-    environment_service.UpdateSceneState(s);
-  }
-
-  const session::TrackOutputFrame cycle_2_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
-  EXPECT_GT(cycle_2_frame.tracks.size(), 0U);
-
-  AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
-  const session::TrackOutputFrame cycle_3_frame =
-      RunScenarioCycle(&controller, &radar_context, targets);
-  const session::ArControlProfile cycle_3_profile = radar_context.LatestControlProfile();
-  EXPECT_TRUE(cycle_3_profile.enable_sidelobe_canceller);
-  EXPECT_TRUE(cycle_3_profile.enable_agility_frequency);
-  EXPECT_TRUE(cycle_3_profile.enable_eccm_rejitter);
-  EXPECT_GT(cycle_3_profile.eccm_burnthrough_gain, 1.0f);
-  const auto track_map = BuildTrackMapByExternalId(cycle_3_frame);
-
-  ASSERT_EQ(cycle_3_frame.tracks.size(), targets.size());
-  ASSERT_EQ(session::CountTracksByStatus(cycle_3_frame, session::TrackStatus::kConfirmed),
-            targets.size());
-  ExpectFrameContainsTargets(cycle_3_frame, targets);
-  for (std::size_t i = 0; i < targets.size(); ++i) {
-    const session::TrackStateSnapshot& track = *track_map.at(targets[i].external_target_id);
-    EXPECT_GT(track.speed, 0.0f);
-    EXPECT_GT(track.position_z, 0.0f);
-  }
-}
-
 TEST(RadarJointIntegrationTest, MediumScaleStaticSearchMaintainsStableOutputAcrossTargetTiers) {
   const std::vector<std::size_t> target_tiers{10U, 50U, 100U};
   for (std::size_t tier_index = 0; tier_index < target_tiers.size(); ++tier_index) {
@@ -730,7 +539,7 @@ TEST(RadarJointIntegrationTest, MediumScaleDynamicSearchMaintainsStableAssociati
 }
 
 TEST(RadarJointIntegrationTest,
-     FrequentSceneSwitchingKeepsOutputReadableAndFreezesPerCycleEnvironment) {
+     LegacySceneSwitchingDoesNotDriveControlProfile) {
   signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
@@ -770,7 +579,7 @@ TEST(RadarJointIntegrationTest,
 
   ExpectNoZeroPublishedCycles(stats);
   ExpectBoundedCommandBurst(stats, 5U);
-  EXPECT_GT(changed_profile_cycles, 0U);
+  EXPECT_EQ(changed_profile_cycles, 0U);
 }
 
 TEST(RadarJointIntegrationTest, LongDurationMediumLoadPatrolKeepsMetricsBoundedWithoutDivergence) {
