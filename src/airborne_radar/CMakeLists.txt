@@ -7,6 +7,7 @@ set(AIRBORNE_ENGINE_SOURCES
     signal/association/Hypothesiser.cpp
     signal/association/LapjvSolver.cpp
     signal/detection/RadarEquations.cpp
+    signal/detection/ArRfFrontEndResolver.cpp
     signal/detection/SignalDetector.cpp
     signal/pipeline/ControlProfileEffects.cpp
     signal/pipeline/CycleContextSupport.cpp
