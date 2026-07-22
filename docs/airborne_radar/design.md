@@ -3,6 +3,7 @@
 Status: active
 Last-reviewed: 2026-07-22
 Authority: current airborne_radar module design
+RF-Interference-Architecture: frozen target; implementation pending
 
 本文描述 `airborne_radar` 当前架构、数据流和算法边界。跨模块 public API、builder、输出三层模型等共同规则见 `docs/common/contract.md`。
 
@@ -150,6 +151,9 @@ flowchart TB
 
 ### 1.4 执行时序图
 
+下图记录当前单阶段实现。工程 RF 的两阶段目标以 §1.7 为准；不得把该图解释为 AR 已能在同一
+world cycle 先发布实际发射、再消费冻结 RF scene。
+
 ```mermaid
 sequenceDiagram
   participant Caller as Caller / 调用方
@@ -206,6 +210,9 @@ sequenceDiagram
 ```
 
 ### 1.5 主数据流
+
+下图记录当前原型的数据流和 legacy 环境事实。最终工程 RF 输入/输出边界以 §1.7、§2.5 和
+`docs/common/contract.md` 的两阶段世界周期为准。
 
 ```mermaid
 flowchart LR
@@ -319,6 +326,46 @@ flowchart TB
   observation 和已采用来源 provenance；完整 proposal、待消费响应与 reducer 计数只属于内部
   `ArReplayCycleRecord`，不进入 public 业务结果。
 - 决策 SPI 不拥有输出结构，也不能绕过内部 output adapter 写系统输出。
+
+### 1.7 工程 RF 两阶段角色与状态所有权
+
+AR 在工程 RF 世界中同时是主动发射设备和接收设备。冻结目标架构采用
+`docs/common/contract.md` 定义的 prepare/emit 与 receive/complete 两阶段世界周期；当前单阶段
+`ArSession::Step*()` 和只消费外部 engineering emissions 的实现是迁移原型，不得据此宣称同周期
+AR→ESR/ECM 发射联动已经成立。
+
+```mermaid
+flowchart LR
+  Prior["上一成功发射周期的 ArControlProfile"] --> Prepare["prepare/emit\n解析实际频率/功率/PRF/波束/驻留"]
+  Prepare --> Tx["ArEmissionFrame\n本周期实际发射事实"]
+  Tx --> World["External orchestrator\n冻结 RfSceneFrame"]
+  World --> Receive["receive/complete\n固定接收状态"]
+  Receive --> Echo["双程 target echo resolver"]
+  Receive --> Incident["单程 external RF resolver"]
+  Echo --> Cells["range/Doppler/beam detection cells"]
+  Incident --> Cells
+  Cells --> Detect["SINR / Pfa / Pd / measurement covariance"]
+  Detect --> Track["association / filter / lifecycle"]
+  Detect --> JamObs["interference observation\nJ/N gate + estimated AoA/RF"]
+  Track --> Decision["N+1 internal/external decision observation"]
+  JamObs --> Decision
+```
+
+状态所有权固定如下：
+
+- transmitter state 由 AR session 的发射准备子状态唯一拥有，包括实际 waveform、frequency-hop phase、
+  PRI/rejitter phase、emission ID 和发射随机流。成功发布发射事实时提交；此后即使本模块 receive/complete
+  失败，也不得回滚已经被其它模块消费的发射历史。
+- receiver operating state 由 signal pipeline 在本周期冻结，包括接收波束/自适应零陷、调谐、预选器、
+  T/R blanking、检测窗口、系统损耗、噪声参数和最大线性输入功率。该状态对本周期所有目标和外部发射
+  相同，禁止逐目标临时重指向。
+- detection/association/tracking state 继续由 pipeline/lifecycle/filter 各自拥有；receive/complete 拒绝时
+  按两阶段 AR 接收侧事务边界恢复这些接收侧状态，但不恢复 transmitter state。当前单阶段 session 的
+  四子系统整体 rollback 是待迁移行为，不是发布后回滚发射事实的依据。
+- internal/external LPI/ECCM proposal 在下一次**成功发射准备**时消费。prepare 拒绝或关机不消费；
+  发射已经发布后才发生的接收侧失败不使同一 proposal 再次控制下一周期发射。
+- prepare/complete API、预校验和 token 的具体 public 形状尚未实现；实现前必须先以状态机测试证明
+  `idle → prepared/published → completed` 的唯一转换、重复调用拒绝、snapshot continuation 和 replay。
 
 ## 2. 本模块使用的算法
 
@@ -437,14 +484,16 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 [evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
 
-控制配置会反馈到扫描和波束：
+冻结目标中，控制配置必须反馈到可重放的实际发射或接收硬件状态：
 
 - LPI 可能降低发射功率或改变发射策略。
 - ECCM 可能启用频率捷变、rejitter、旁瓣抵消或自适应波束。
-- 频率捷变修改实际工作频率并重新计算时频重叠；旁瓣对消/自适应波束只修改方向相关接收增益；
-  烧穿提高有效发射功率，重频抖动修改实际脉冲时序。以上措施不直接改写关联、滤波或生命周期参数。
+- 频率捷变修改实际 carrier/tuning 并重新计算时频重叠；旁瓣对消/自适应波束只修改方向相关接收增益；
+  烧穿提高实际发射功率或脉冲能量，重频抖动修改实际参数化脉冲时序。以上措施不直接改写关联、滤波
+  或生命周期参数。
 
-相关测试覆盖坐标变换、扫描窗口、波束宽度、天线方向图、平台姿态耦合和控制配置跨周期生效。
+现有测试覆盖坐标变换、扫描窗口、波束宽度、天线方向图、平台姿态耦合和部分控制字段跨周期生效；
+它们尚未证明两阶段 actual emission、可重放 PRI/rejitter schedule、接收零陷或检测单元裕度已经实现。
 
 ### 2.5 统一物理探测与工程 RF 干扰链
 
@@ -454,24 +503,46 @@ AR 的探测门限属于 policy，不属于 hardware。`ArPolicyConfig::detectio
 [evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
 
-AR 不再提供 heuristic detection toggle 或启发式 pass；所有生产输入统一进入物理探测路径：
+AR 不再提供 heuristic detection toggle 或启发式 pass。冻结目标不是“把所有外部发射功率加到一个周期
+总噪声”，而是以下接收机与检测单元链：
 
-- 计算 clutter noise，并在旁瓣抵消等控制配置下调整。
-- `ArRfInterferenceResolver` 按当前波束、实际频率、驻留窗口、接收方向图、极化、系统损耗和 co-site
-  isolation 求解每个工程发射源的残余接收功率，并在 W 域确定性聚合；超过最大线性输入功率时报告饱和。
-- 对每个目标计算目标相关大气损失。
-- 可选使用物理 RCS 模型混合输入 RCS。
-- 通过 `BeamControlResolver` 得到波束增益。
-- 调用 `SignalDetector::Detect`：雷达方程计算 echo power，扣除接收机损耗；热噪声、杂波、干扰合成噪声基底；计算 SNR；用 CFAR Pfa、Swerling 模型和脉冲积累估算检测概率；低于 `min_snr_db` 时硬截断，否则做 Monte Carlo 判决。
-- 用 `MeasurementErrorModel` 将 SNR、波束宽度和带宽转为 range/angle error，再构造量测协方差。
+1. **实际发射与目标回波。** prepare/emit 解析本周期实际频率、发射功率/脉冲能量、带宽、PRF/抖动、
+   波束和驻留。每个目标由 AR 自有双程雷达方程计算 echo，包含本周期 transmit/receive gain、双程
+   传播、大气、RCS 和处理前损耗；目标不得转换成公共单程 emission。
+2. **外部入射 RF。** 冻结 `RfSceneFrame` 中的雷达、ECM 和其他发射经公共单程链路到达 AR 接收设备。
+   platform/equipment 路径决定 T/R blanking 或 co-site isolation，不能用零距离自由空间公式或单一实体 ID
+   猜测自扰。
+3. **前端账本。** 在实际接收方向图、预选器和 T/R 时序下聚合整个前端带宽的输入功率。超过
+   `maximum_linear_input_power_w` 时，本周期 receive/complete 仍是物理执行成功，但输出
+   `receiver_saturated` impairment，不生成目标量测或虚假 interference observation。
+4. **检测单元账本。** 在 range/Doppler/beam 以及实际 time-frequency window 内，为每个候选目标分别记录
+   echo、热噪声、杂波和未分辨外部 RF。噪声型 spot/barrage/sweep 以其实际 PSD、接收滤波响应和活动
+   占空进入单元；带外、错时或被零陷抑制的贡献为零。首期不把压制噪声解释成虚假目标。
+5. **处理后判决。** 匹配滤波、脉冲压缩、相参/非相参积累和其它 processing gain 只属于 AR。
+   统一计算 processed `SINR = echo / (thermal + clutter + interference)`，再由 policy 中的 Pfa、
+   Swerling/积累模型和最小 margin 得到 Pd；Monte Carlo 只采样检测事件。检测成功后才由 processed SINR、
+   波束宽度、带宽和有效脉冲数生成 range/angle 量测误差及协方差。
+6. **航迹影响。** 压制干扰只能通过量测存在性和量测协方差间接影响 association、Kalman、IMM 和
+   lifecycle；任何按 `jamming_detected`、ECCM profile 或 technique 直接缩放门限、过程噪声、失配容忍
+   或生命周期计数的路径都不属于目标架构。
 
-压制干扰只通过热噪声/杂波/干扰账本改变 SNR、检测概率和由 SNR 推导的量测协方差；不得直接缩放
-association、Kalman、IMM 或 lifecycle 配置。jammer observation 仅在接收机侧 J/N 门控通过时产生，
-其 AoA/频率误差由 J/N 与波束宽度驱动；source ID 只用于归属和 replay。
+AR 的 interference observation 是与目标 track 分离的接收机观测通道：
 
-[evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp]
-[evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp]
-[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
+- 只在独立能量/J/N 门通过后生成，不能由场景标签或 ECM source ID 直接生成；
+- 输出估计 bearing、center frequency、bandwidth、waveform class 和不确定度；误差由 J/N、接收波束和
+  有效观测时间驱动；
+- raw/decision observation 不包含 truth equipment/emission ID 或“敌方干扰意图”；稳定本地 observation ID
+  用于控制闭环，truth attribution 只进入 cycle result debug/replay；
+- interference-limited、masked 和 saturated 是接收机事实。legacy `jamming_detected` 只属于迁移适配，
+  不得作为工程路径的物理输入。
+
+ECCM 只能改变下一次成功发射/接收的实际硬件状态：频率捷变改变 carrier/tuning，重频抖动改变可重放的
+脉冲时序，旁瓣对消/自适应波束改变方向增益或零陷，烧穿改变发射功率/脉冲能量。每项措施必须用
+检测单元 interference、processed SINR、Pd 或量测协方差的变化证明，不能只断言 control profile 字段。
+
+现有 `ar_signal_pipeline_test`、`ar_signal_scan_schedule_test` 和 replay roundtrip 只证明原型物理探测、
+矩形 overlap 及字段保存；尚不能作为两阶段发射、检测单元账本、独立 interference observation 或
+设备级 co-site 路径已经完成的证据。实现完成后必须以新的 focused/integration/replay 测试替换本段说明。
 
 AR 只有一个频率来源：当前有效的 `transmitter.frequency_hz`。探测、传播、天线波长和物理 RCS
 全部消费该值；频率捷变更新它后，四条物理路径在同一周期使用同一频率。配置必须有限且大于 0，
@@ -508,17 +579,23 @@ association public 配置不再暴露 `unassigned_cost`、启用 hint 或第二�
 - lifecycle manager 管理 tentative/confirmed/lost、track pool 回收、association seeds 导出和 filter writeback。
 - 生产预测/更新使用 KF；策略可启用 IMM 生命周期作为多模型 KF 融合层。EKF、UDKF、SRIF 是 common 内部资产，不是 AR 的运行期配置路径；可复现性边界见 §2.10。
 
-这些质量指标不仅用于结果输出，也会被 decision frame 消费，成为关联压力驱动 ECCM 的依据。
+这些质量指标继续用于结果输出和一般质量退化诊断，但不得被解释为工程干扰观测，也不得生成 J/N、
+jammer attribution 或物理 ECCM 触发。它们最多驱动显式标记的保守 `quality_fallback`，且该 fallback
+不能声称已探测到干扰源。
 
 ### 2.7 决策帧、威胁评估、LPI 和 ECCM
 
 `ArController` 从 signal pipeline 得到 `DecisionInputFrame` 后调用 decision engine。默认实现是 `TacticalCoordinator`，其流程为：
 
-1. 确定 ECCM 触发信号。来源包括环境干扰事实，以及 association quality 异常时的后备触发。
+1. 确定控制触发来源。工程 ECCM 的物理来源只能是 §2.5 定义的接收机 interference observation；
+   legacy 环境干扰事实只能由隔离适配层转换，一般 association quality 异常只能进入不带干扰归属的
+   `quality_fallback`。
 2. 调用 `ThreatAssessmentEvaluator` 评估 tracks，生成威胁分类和 LPI source info。
 3. 调用 `LpiEvaluator`，在威胁场景下提出低截获概率发射控制 proposal。
-4. 如果存在干扰或关联压力后备触发，调用 `EccmEvaluator` 生成抗干扰 proposal。
-5. 根据关联质量对 deception/repeater/mixed 等语义的 proposal 做优先级偏置。
+4. 如果存在接收机 interference observation，调用 `EccmEvaluator` 生成抗干扰 proposal；如果只有
+   `quality_fallback`，只能选择预先冻结的保守恢复策略，不能构造 interference observation。
+5. deception/repeater/mixed 语义只允许留在 legacy adapter；工程压制路径不按 truth technique 或 source ID
+   改写 proposal 优先级。
 6. 按 active track keys 清理 `TacticalStateStore`，避免长期运行时状态无限增长。
 7. 输出目标分类、proposal、selected mode 和 decision summary。
 
@@ -538,15 +615,18 @@ LPI 激活时输出两个参数化 proposal：功率比例沿用威胁/距离分
 beamforming。[evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp::LpiEvaluatorTest.EmitsDynamicPowerAndCoupledDwellAcrossRangeBands]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.ExternalLpiParametersAlterNextPhysicalDetection]
 
-ECCM 保持既有干扰事实、关联压力和措施选择；烧穿达到既有评分阈值后输出
+当前原型 ECCM 仍消费 legacy 干扰事实和关联压力。迁移目标是改为消费接收机 interference observation；
+现有烧穿评分达到阈值后输出
 `clamp(1.0 + 0.25 * burnthrough_gain_score, 1.0, 2.0)`，且实际 proposal 必须落在
 `(1, 2]`。[evidence: tests/unit/airborne_radar/ar_eccm_evaluator_test.cpp::EccmEvaluatorTest.BurnthroughGainIsMonotonicAndClamped]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.ExternalBurnthroughGainAltersNextPhysicalDetection]
+这些测试只证明原型参数与探测结果发生变化，不证明触发输入已经去真值化，也不证明烧穿已进入
+两阶段 actual emission。
 
 ### 2.8 控制归约和跨周期反馈
 
 内部 baseline 或整包外部响应输出的是 tactical proposal，不是直接生效的硬件控制。
-`ControlReducer` 和 `ControlCommandMapper` 在下一成功周期开始前把二者之一变成唯一
+当前实现由 `ControlReducer` 和 `ControlCommandMapper` 在下一成功单阶段周期开始前把二者之一变成唯一
 `ArControlProfile`；外部与内部 proposals 不合并：
 
 - 不同域 proposal 会按优先级、策略表和冲突规则归并。
@@ -568,8 +648,13 @@ ECCM 保持既有干扰事实、关联压力和措施选择；烧穿达到既有
 [evidence: tests/unit/airborne_radar/ar_tactical_coordinator_test.cpp::ControlReducerTest.RejectsMissingNonFiniteOutOfRangeAndUnexpectedValues]
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::RejectsMismatchedDuplicateAndInvalidExternalResponses]
 
-controller 在一个周期开始时把当前 control profile 传给 signal pipeline，因此决策影响的是后续周期，不应假设同周期内 proposal 立即改变已经完成的探测。
-执行失败时 session 恢复 control profile、reducer 计数器、internal baseline 和待消费外部
+controller 在当前单阶段周期开始时把 control profile 传给 signal pipeline，因此决策影响后续周期，
+不应假设 proposal 立即改变已经完成的探测。两阶段目标将消费点收紧为下一次成功 prepare/emit：
+prepare 拒绝或关机保留 proposal；actual emission 一经发布即提交 transmitter profile、hop/PRI phase 和
+相关计数，后续 receive/complete 失败不得让同一 proposal 再次控制下一次发射。hold/cooldown 的“成功周期”
+在迁移后统一指成功发射准备周期，接收侧失败不撤销已经推进的发射控制窗口。
+
+当前单阶段执行失败时 session 恢复 control profile、reducer 计数器、internal baseline 和待消费外部
 响应；pipeline 快照由 session 所有，controller 快照只恢复 controller 自身状态，避免同一
 pipeline 被重复恢复。该响应可供下一次成功执行重试。
 [evidence: tests/unit/airborne_radar/ar_core_controller_test.cpp::CoreControllerTest.RuntimeRestoreRetainsPendingExternalResponseForRetry]

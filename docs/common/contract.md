@@ -3,6 +3,7 @@
 Status: active
 Last-reviewed: 2026-07-22
 Authority: common contract for all modules
+RF-Interference-Architecture: frozen target; implementation pending
 
 本文合并原顶层 public API customization、session config builder、三层输出可观测性和文档治理契约。模块级文档不得与本文冲突。
 
@@ -88,13 +89,78 @@ EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同�
 不共享传感器检测、受扰判决、ECCM 或资源规划算法。公共坐标统一为 ECEF 米/米每秒，频率为 Hz、
 带宽为 Hz、时间为 s、功率在线性域使用 W，损耗和增益使用 dB/dBi。
 
-- `RfEmission`/`RfEmissionSegment` 只描述发射实体、运动学、方向图、极化、波形类别和周期内时频功率分段；
-  禁止携带 `received_power`、J/S、J/N、`jamming_detected` 或成功概率。
-- `TryEvaluateRfLink` 是无异常、原子写回的单程链路入口。自由空间损耗、附加传播损耗、收发增益、
-  极化损耗、时频重叠和接收功率均进入 `RfLinkResult`；大气公共层只提供附加传播损耗。
-- 同一 `entity_id` 的收发路径不得代入零距离自由空间公式；接收硬件必须显式提供 co-site isolation，
-  缺失时整条链路拒绝。多源功率只允许在 W 域求和。
-- 非有限值、非法分段、负功率、重复 emission ID 和缺失 co-site isolation 均 fail closed，且不得部分修改输出。
+- 工程精度冻结为**检测单元/接收通道级统计模型**：高于“整个周期只有一个总接收功率”的原型，
+  但不生成复数 IQ、不模拟未标定的射频器件压缩曲线，也不实现新的欺骗/转发算法。
+- 发射事实必须区分 world cycle、platform、equipment 和 emission 四级 provenance。platform 用于同平台
+  判断，equipment 标识具体发射/接收设备，emission 标识一次实际发射。不得再用单一 `entity_id`
+  同时承担设备身份、同平台判断和待处理信号排除；co-site isolation 是“发射 equipment → 接收
+  equipment”的有向硬件路径。
+- 发射事实只描述实际运动学、发射天线、极化、波形类别和周期内时频功率活动，禁止携带
+  `received_power`、J/S、J/N、receiver impairment、`jamming_detected` 或成功概率。分段功率表示该
+  active interval 和占用带宽内的实际总发射功率；连续、参数化脉冲列和扫频必须能在不逐 IQ 采样、
+  不逐脉冲无界展开的前提下确定性计算时间/频率占用。具体 public DTO 形状须由 characterization
+  证明后再冻结，当前 `RfEmissionSegment` 不能被视为最终波形调度合同。
+- 公共单程链路只到达接收设备输入端：自由空间损耗、附加传播损耗、收发方向增益、极化损耗和
+  入射功率/功率谱密度属于公共纯函数结果。大气公共层只提供路径附加损耗。匹配滤波、脉冲压缩、
+  通道化、处理增益、热噪声账本、Pd/Pfa、receiver impairment、观测误差和 ECCM 均由具体传感器拥有。
+- AR 目标回波使用模块自有的双程雷达方程与 RCS，不得伪装成外部 `RfEmission` 后复用单程公式；
+  外部雷达、ECM 和其他 RF 源才走公共单程链路。ESR 接收面不预先区分“目标发射”和“干扰发射”，
+  所有实际发射先进入同一个冻结 RF scene，意图/阵营只允许进入仿真 truth-evaluation 或 attribution。
+- 有效带外发射或零时频重叠产生零贡献，不是错误。非有限值、非法活动区间/波形、负功率、重复
+  emission ID、缺失设备级 co-site isolation 和不支持的近场路径必须 fail closed，且不得部分写回。
+  超过已标定最大线性输入功率是合法物理结果：周期仍视为已执行并输出结构化 saturated impairment，
+  但不得伪造观测；它与输入/配置非法导致的整周期拒绝严格分离。
+
+#### 两阶段世界周期
+
+同一世界周期内的 RF 联动固定为“先形成实际发射，再冻结场景并接收”，禁止用下一周期转发掩盖
+主动传感器发射与被动接收之间的人为时延：
+
+```mermaid
+sequenceDiagram
+  participant O as External orchestrator
+  participant AR as AR transmitter/receiver
+  participant ECM as ECM transmitter
+  participant ESR as ESR receiver
+  O->>AR: prepare emission N using accepted prior control
+  O->>ECM: prepare emission N using ESR last-success observation
+  AR-->>O: actual AR emission facts N
+  ECM-->>O: actual ECM emission facts N
+  O->>O: validate and freeze RfSceneFrame N
+  O->>AR: complete receive N with frozen scene
+  O->>ESR: complete receive N with frozen scene
+  AR-->>O: target/interference observations and N+1 decision input
+  ESR-->>O: RF observations/hypotheses for a later ECM cycle
+```
+
+规则：
+
+1. orchestrator 是 world-cycle 顺序和冻结 `RfSceneFrame` 的唯一 owner；业务模块之间仍不直接调用。
+2. prepare/emit 阶段只能消费上一成功周期已经接受的控制或观测。ESR 的成功接收结果最早驱动下一
+   世界周期的 ECM 发射；AR 的内部/外部 LPI/ECCM proposal 最早驱动下一次成功发射准备。
+3. 发射一经成功发布就是该世界周期已经发生的物理事实，后续接收/跟踪失败不得回滚或改写它。
+   发射设备的 waveform/hop/PRI phase、emission ID 和发射随机流在发布时提交；接收机、检测、关联和
+   航迹状态由各自模块在 receive/complete 边界单独提交或回滚。
+4. prepare 输入拒绝或设备关机不发布发射，也不消费待应用控制。receive 输入拒绝不得让其他模块撤销
+   已冻结场景；本接收模块不提交接收/估计状态。物理饱和属于成功执行的接收结果。
+5. 同周期接收波束、调谐/预选器、通道/检测窗口、噪声参数和最大线性输入功率构成不可变 receiver
+   operating state。链路求解不得针对当前候选目标临时重指向或改调谐。
+6. prepare/complete 的最终 public API、opaque token 和预校验协议在实现批次中冻结；不得直接把现有
+   单阶段 `Step()` 拼成隐式一周期延迟兼容方案。
+
+#### 接收机影响分层
+
+AR/ESR 必须遵守同一物理分层，但各自拥有不同算法：
+
+1. **incident link**：公共单程链路得到每个 emission 到接收设备输入端的方向、功率/PSD 和重叠事实；
+2. **front-end ledger**：传感器按实际预选器/接收方向图聚合宽带输入并判断最大线性输入边界；
+3. **resolution-cell/channel ledger**：AR 按 range/Doppler/beam/time-frequency detection cell，ESR 按
+   tuner/channelizer/time-frequency-angle resolution cell 计算可分辨信号和未分辨干扰；
+4. **sensor decision**：AR 使用处理后 SINR/Pfa/Pd 生成量测，ESR 使用截获概率、SINR 和碰撞/掩蔽
+   结果生成脉冲或能量观测。只有这一层可以产生 receiver impairment 和测量不确定度。
+
+当前公共 link-budget characterization 只证明自由空间、矩形时频重叠、方向图、极化、co-site 和 W 域
+聚合的原型基元；它不证明两阶段周期、参数化波形、设备级隔离、前端/通道双账本或传感器探测闭环已经实现。
 
 [evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.DistanceDoublingLosesSixPointZeroTwoDb]
 [evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.TimeAndFrequencyOverlapScalePowerExactly]
@@ -230,6 +296,11 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
 |---|---|---|
 | **事务性提交** | patch 经 resolver 校验；配置延迟到下个周期边界原子落定；commit 或周期执行失败时，对持有跨周期累积状态的子系统做 capture/restore 完整恢复。 | `airborne_radar` |
 | **立即提交** | patch 经 resolver 校验；`TryApplyRuntimeConfig` 调用即生效，配置单向落定、不在 session 层回滚。若 pipeline 持有累积状态且执行可能失败，回滚边界由该模块在内部层（如 controller）声明，不上升为 session 层契约。 | `electronic_surveillance_radar`、`electro_optical_sensor`、`sar`、`sbirs_sensor` |
+
+上述表描述当前单阶段 session 实现。工程 RF 两阶段目标对 AR 增加一个不可回滚的 transmitter publish
+提交点：发射事实发布后，接收侧事务不得撤销 transmitter waveform/phase/ID 状态；当前四子系统整体
+snapshot/restore 只在单阶段迁移完成前成立。该变化必须在 prepare/complete 实现批次中同步修改状态
+所有权、runtime patch 影响矩阵和 replay，不能用文档解释绕过现有代码行为。
 
 规则：
 
@@ -424,7 +495,7 @@ flowchart LR
     O1[Track / Detection\n航迹 / 探测]
     O2[Detection / Classification\n检测 / 分类]
     O3[Intercept / ELINT\n截获 / 情报]
-    O6[RfEmissionFrame\n实际 RF 发射事实]
+    O6[RfEmissionFrame\nAR / ECM 实际 RF 发射事实]
     O4[SAR Image / SLC\n图像 / 复数据]
     O5[Infrared Detection\n天基红外检测]
   end
@@ -445,6 +516,7 @@ flowchart LR
   ORCH -->|SbirsCycleInput| SBIRS
 
   AR --> O1
+  AR --> O6
   EO --> O2
   ESR --> O3
   ESR -.->|上一成功周期去真值化 hypothesis| ORCH
@@ -457,7 +529,8 @@ flowchart LR
 读图规则：
 - 箭头表示概念数据流向，虚线表示可选来源或跨模块共享类型；它们不是 include/link 关系。
 - AR、ESR、EOS、SAR、SBIRS 之间没有库内直接调用。ECM 闭环是唯一已冻结的跨业务域 public DTO
-  编排：外部 orchestrator 用上一成功 ESR 周期的去真值化 hypothesis 构造 `EcmCycleInput`，再把周期 N
-  的 `EcmEmissionFrame` 作为 engineering interference 写入 AR/ESR；箭头不表示模块内部持有或调用。
+  编排原型；目标架构由“工程 RF 发射事实与单程链路”的两阶段世界周期定义。外部 orchestrator 在
+  prepare/emit 阶段收集 AR、ECM 和场景设备的实际发射，冻结同一 `RfSceneFrame(N)` 后再交给 AR/ESR
+  receive/complete。当前 `EcmCycleInput`/`EcmEmissionFrame` 接线不等于该目标架构已经完成。
 - `common/` 层提供坐标转换、大气物理、数值方法等跨模块共享类型，不作为独立运行时层。
 - `flight_dynamic` 不被任何传感器模块直接调用；平台状态也可由其它外部仿真源提供。

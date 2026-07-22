@@ -3,6 +3,7 @@
 Status: active
 Last-reviewed: 2026-07-22
 Authority: current electronic_surveillance_radar module design
+RF-Interference-Architecture: frozen target; implementation pending
 
 本文是 `electronic_surveillance_radar` 当前设计权威。它描述 ESR 的会话门面、拦截 pipeline、观测预处理、聚类、辐射源假设关联、输出三通道和运行期状态边界。
 
@@ -96,6 +97,9 @@ flowchart TB
 
 ### 1.4 执行时序图
 
+下图记录当前单阶段 `StepWithResult` 原型。工程 RF 目标接收时序以 §1.6 为准：ESR 只在 orchestrator
+冻结本世界周期的统一 RF scene 后执行 receive/complete。
+
 ```mermaid
 sequenceDiagram
   participant Caller as Caller 调用方
@@ -128,6 +132,8 @@ sequenceDiagram
 ### 1.5 数据流
 
 主链路展示输入如何变成三通道输出：
+
+该图中的 scene/environment 分流是当前实现；最终 RF 接收入口以 §1.6、§2.2 的意图中立统一场景为准。
 
 ```mermaid
 flowchart LR
@@ -194,6 +200,37 @@ flowchart TB
   Detection --> Truth
 ```
 
+### 1.6 工程 RF 接收角色与统一场景
+
+ESR 是纯接收设备，不拥有世界 RF 场景或其它模块。冻结目标是在 orchestrator 完成 prepare/emit 并冻结
+`RfSceneFrame(N)` 后，用一个不可变 receiver operating state 处理本周期全部发射。当前
+`scene_emitters + tagged engineering interference` 双输入和逐 emitter 求解是迁移原型，不是最终物理分类。
+
+```mermaid
+flowchart LR
+  Scene["Frozen RfSceneFrame\nall actual emissions"] --> Incident["one-way incident links"]
+  Rx["Receiver operating state\nbeam / preselector / tuning / channels"] --> Front["wideband front-end ledger"]
+  Incident --> Front
+  Front -->|over limit| Sat["receiver_saturated\nexecuted, no fabricated observation"]
+  Front --> Chan["channelizer / resolution cells"]
+  Chan --> Sep["resolvable candidates"]
+  Chan --> Mix["unresolved overlap\nmasking / pulse collision"]
+  Sep --> Detect["intercept probability / SINR / dwell"]
+  Mix --> Detect
+  Detect --> Obs["pulse or energy observations\nno truth identity"]
+  Obs --> Assoc["deinterleave / cluster / hypothesis"]
+  Truth["simulation truth catalog"] -. "evaluation only" .-> Eval["truth evaluation output"]
+  Obs --> Eval
+```
+
+所有雷达、ECM、通信式或其它 RF 发射在接收入口都是意图中立的实际发射。接收 pipeline 只依据波形、
+时频占用、方向和功率决定其是否可观测、可分辨或形成干扰；“敌方”“jammer”“普通 emitter”等角色只允许
+存在于独立 truth catalog、威胁数据库匹配结果或 attribution/debug，不得提前改变 raw detection gate。
+
+同周期 active receive beam、安装姿态、预选器、tuning window、channel plan、极化、噪声参数、最大线性
+输入功率和 equipment-level co-site isolation 构成唯一 receiver operating state。它由 pipeline/scheduler
+拥有并进入 snapshot/replay；处理不同候选 emission 时不得逐候选重指向天线、改调谐或改前端带宽。
+
 ## 2. 本模块使用的算法
 
 ### 2.1 算法总览
@@ -205,7 +242,7 @@ flowchart TB
 | 拦截门控 | `InterceptGate` | range、receiver window、dynamic range、SNR 等 joint constraints | pipeline 内部 |
 | 边界搜索 | `BoundarySearchSolver` | 单调谓词边界查找 | pipeline 内部 |
 | 角误差 | `AngleErrorModel` | 基于 SNR/系数/随机种子的 AOA 扰动 | pipeline 内部 |
-| RF 链路与干扰聚合 | `InterceptDetectionExecutor` + `TryEvaluateRfLink` | 目标与干扰共用单程链路，W 域聚合 | pipeline 内部 |
+| RF 接收与干扰影响 | 当前 `InterceptDetectionExecutor` + `TryEvaluateRfLink`；目标为 front-end/channel ledger | 当前逐 emitter 单程链路是原型；目标在固定 receiver state 下区分可分辨候选与未分辨干扰 | pipeline 内部 |
 | 观测预处理 | `ObservationPreprocessor` | 排序、有限值过滤、质量归一、窗口去重 | pipeline 内部 |
 | 特征编码 | `ObservationFeatureEncoder` | RF/PW/AOA/SNR 按尺度编码到特征空间 | pipeline 内部 |
 | 聚类 | `KdTreeClusterer` | 半径聚类、min-points、noise/border point 处理 | pipeline 内部 |
@@ -214,37 +251,43 @@ flowchart TB
 
 ### 2.2 拦截检测
 
-`InterceptDetectionExecutor` 将场景 emitter 转成 raw observation。关键步骤包括：
+冻结的 ESR 拦截链是“宽带前端 → 通道/分辨单元 → 观测提取 → 分选/假设”，而不是逐个 truth emitter
+把其它全部发射当成噪声：
 
-1. 计算平台到 emitter 的距离和接收机参考系方位/俯仰。
-2. 应用天线安装偏置。
-3. 计算 emitter beam overlap；历史默认 beam state 退化为全覆盖。
-4. 将普通辐射源与 ECM 工程发射统一映射为 `RfEmission`，使用公共 `TryEvaluateRfLink` 计算包含
-   收发方向图、极化、附加传播损耗和时频重叠的单程接收功率；处理某个信号时排除其自身，其余重叠源在 W 域聚合为干扰。
-5. 启用大气物理时，以 `platform_altitude_m` 作为接收端大气高度参考；更高高度通过气压、密度与
-   Blake 衰减改变传播附加损耗，而不是只进入 trace。
-6. 以 `1 + 9 * spectrum_occupancy_ratio` 放大接收机底噪与杂波底噪：0 严格退化，1 对应
-   +10 dB 环境噪声；占用率不参与主动 jammer 聚合，也不单独置 `is_jammed`。
-7. 结合统计检测参数、pulse count、integration mode、PFA 和 threshold scale 判断是否可检测。
-8. 由 J/N 或实际 SNR 损失门限产生 `is_jammed`；观测置信度只消费一次 SNR/质量结果，不再追加布尔惩罚。
-9. 总输入超过 `maximum_linear_input_power_w` 时输出结构化 `receiver_saturated`，不伪造观测，也不套用未标定压缩曲线。
+1. **单程入射事实。** 对冻结 scene 中每个实际 emission 计算到 ESR equipment 的单程 incident link。
+   exact emission ID 只用于避免同一候选重复计入，platform/equipment ID 用于 co-site 路径；不得因同平台
+   有多个发射设备而排除整个平台，也不得把 truth role 带入 detection。
+2. **宽带前端账本。** 用固定 receive beam、预选器和设备损耗聚合所有进入前端的功率。该账本独立于
+   当前调谐通道，用于最大线性输入、同平台泄漏和强带外 blocking 边界。超过标定上限时输出结构化
+   `receiver_saturated` impairment，本周期仍是 executed，但 observation/hypothesis 不生成新记录；不使用
+   未标定压缩曲线。
+3. **通道化与可分辨性。** 在 tuning/channel plan 内按 time-frequency-angle resolution cell 建立候选。
+   两个 emission 若能被通道、到达时间、脉冲参数或角度分辨，应分别进入 detection；只有落入同一不可分辨
+   单元的部分才作为彼此 interference，或按波形产生 pulse collision/masking。有效带外发射产生零通道
+   贡献，但仍可能通过已冻结的前端 blocking mask 影响饱和账本。
+4. **波形化观测。** 参数化脉冲列产生 pulse/PDW 类 observation，连续/宽带噪声和扫频产生 energy-band
+   observation。不能强迫所有 waveform 都伪造 PRI/pulse width；observation/hypothesis 必须携带稳定
+   waveform class 和仅对该类别有效的估计量/不确定度。
+5. **截获判决。** 每个候选使用通道输出 signal power、热噪声、未分辨 interference、有效驻留和脉冲
+   截获机会计算 post-channel SINR/intercept probability，再按固定随机子流采样 detection。测量噪声只能在
+   detection 成功后施加，不能反向改变接收波束、gate 或候选归并。
+6. **接收机影响。** `interference_limited`、`masked`、`pulse_collision`、`receiver_saturated` 是设备事实，
+   不表达发射方意图。原始 `is_jammed` 只能作为迁移字段；工程输出迁移后由结构化 impairment 取代。
+   observation confidence 只消费一次 detection/SINR 质量，不得因 impairment 布尔量重复惩罚。
+7. **分选与 hypothesis。** preprocess、cluster、deinterleave 和 associator 只能消费实际生成的 observation。
+   center frequency、bandwidth、PRI、pulse width、bearing 及不确定度来自观测统计；不得从 scene emitter
+   原样复制真值。truth equipment/emission ID 只进入 truth-evaluation comparator。
 
-限制：
+`spectrum_occupancy_ratio` 只能表示尚未显式建模的环境噪声/占用背景，并在 noise PSD 账本中有一次明确
+换算；一旦相同 RF 源已经作为 emission 输入，不得再通过 occupancy 标量重复计入。大气物理继续只提供
+单程附加传播损耗。
 
-- detection 输出是设备观测，不直接等同于 truth emitter。
-- 随机量必须受 config seed 和 runtime snapshot 管理；snapshot 只覆盖累积运行态，不覆盖配置。
+随机流至少按 pulse/intercept decision、measurement error、collision resolution 和 false-alarm consumer
+分离；定义未采样周期和稳定 emission/observation 排序，并由 pipeline snapshot 唯一拥有。相同输入、
+snapshot 和配置必须 continuation/replay 一致。
 
-验证入口：
-
-- `tests/unit/electronic_surveillance_radar/esr_algorithms_test.cpp`
-- `tests/integration/electronic_surveillance_radar/esr_session_test.cpp`
-
-[evidence: tests/integration/electronic_surveillance_radar/esr_session_test.cpp::AltitudeAndSpectrumOccupancyAffectReceiverSnr]
-[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::CycleInputPreservesAllFields]
-[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::CycleInputPreservesDoublePrecisionPose]
-[evidence: tests/replay/electronic_surveillance_radar/esr_replay_session_test.cpp::ReplayPreservesRealTenKilometerGeometry]
-[evidence: tests/unit/electronic_surveillance_radar/esr_rf_interference_test.cpp::EsrRfInterferenceTest.SameFrequencyEmissionLowersSnrWithoutBooleanQualityPenalty]
-[evidence: tests/unit/electronic_surveillance_radar/esr_rf_interference_test.cpp::EsrRfInterferenceTest.SaturationProducesStatusAndNoObservation]
+现有 altitude/occupancy、矩形 overlap、saturation 和 replay tests 只证明原型链路及字段保存；尚不能证明
+固定 receiver state、宽带/通道双账本、可分辨性、波形化 observation 或无真值分选已经实现。
 
 Replay 的 cycle-input 位姿与 public `PoseState` 同为 double 精度；schema/codec 不允许把位置、
 速度或欧拉角降为 float。输出比较继续使用严格判等，输入必须先做到可精确重组，不能用比较容差
@@ -328,15 +371,20 @@ pipeline 持有归一化扫描相位 `[0, 1)`：本周期先用 `floor(phase × 
 能够解析扫描相位的步长/速率组合，不能依赖 cycle index 隐式轮转波束。
 [evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp::MultiModelScenarioTest.AirToAirHeadOn]
 
-RF 调谐由 `EsrHardwareConfig::tuning_plan` 显式描述中心频率、带宽和成功周期驻留数；空计划表示全硬件
-频段驻留。当前接收窗口随 observation output 和 replay 一起记录，禁止用 cycle index 隐式轮转硬编码频段。
-接收硬件同时拥有方向图、极化、噪声、co-site isolation 和最大线性输入功率。工程输入与 legacy 输入
-使用 tagged mode 严格互斥，混合或模式/载荷不一致均整周期拒绝。
+RF 调谐由接收任务的 tuning/channel plan 显式描述中心频率、带宽和成功 receive/complete 周期驻留数；
+空计划表示全硬件频段驻留。调谐位置只在成功接收周期推进；validation rejection、receive 输入缺少
+冻结 RF scene、设备关机均冻结。当前 receiver operating state 必须随 observation output、snapshot 和 replay 记录，禁止按
+world cycle index 隐式轮转。接收硬件同时拥有方向图、极化、噪声、预选器/blocking mask、设备级
+co-site isolation 和最大线性输入功率。
 
-`EmitterHypothesis` 仅发布去真值化的中心频率、带宽、PRI、脉宽及不确定度；truth emitter ID 只允许
-出现在 truth-evaluation 通道。ECM sensor-driven adapter 只能复制这些估计字段。
-[evidence: tests/unit/electronic_countermeasure/ecm_session_test.cpp::EcmSessionTest.EsrAdapterCopiesOnlyDetruthEstimatedFields]
-[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp]
+最终工程输入是统一冻结 RF scene，不再以 `legacy / engineering` 标签改变接收物理链。迁移期 tagged
+mode 只负责把 legacy adapter 与新 scene 严格隔离；混合载荷原子拒绝，适配完成后删除旧 public jammer
+摘要，不把兼容标签保留为长期接收机概念。
+
+`EmitterHypothesis` 只发布由 observation 统计得到的 waveform class、中心频率、带宽、适用的 PRI/脉宽、
+bearing 及不确定度；truth platform/equipment/emission ID 只允许出现在 truth-evaluation 通道。ECM
+sensor-driven adapter 只能复制这些估计字段和稳定 hypothesis ID，不能访问 scene truth catalog。
+现有 adapter 测试只证明未复制 truth ID，不能证明数值估计已经去真值化。
 
 扫描窗口有两种互斥解释方式：
 
@@ -382,7 +430,9 @@ pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描
 - validation rejection 在进入 pipeline 前发生，`EsrCycleResult` 记录 `executed_this_cycle=false` 和 `kValidationRejected`。
 - 当前唯一的 pipeline 自报非执行状态是设备关机；它不是 output-contract failure，也不触发
   运行态回滚。新增其他 pipeline failure 必须使用显式内部结果状态并定义回滚边界。
-- 新增 ESR pipeline 失败语义前，必须先扩展 `InterceptPipelineResult` 或等价内部结果结构，使失败状态成为显式接口契约。
+- 统一 RF scene 迁移必须先扩展 `InterceptPipelineResult` 或等价内部结果结构：非法 scene/link 是未执行的
+  结构化失败并遵守接收侧回滚；`receiver_saturated` 是已执行的物理 impairment，不得复用失败状态或
+  伪造 observation。两者必须进入 snapshot/replay 和 public cycle result 的明确映射。
 
 验证入口：
 
