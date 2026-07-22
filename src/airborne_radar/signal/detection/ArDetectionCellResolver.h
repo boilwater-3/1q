@@ -16,10 +16,10 @@ namespace detection {
 
 /** @brief detection cell 所需的冻结雷达工作参数。 */
 struct ArDetectionCellConfig {
-  double carrier_frequency_hz{0.0};
+  oneq::electromagnetics::RfWaveformSchedule own_transmit_waveform{};
+  double receive_window_start_time_s{0.0};
+  double receive_window_duration_s{0.0};
   double matched_filter_bandwidth_hz{0.0};
-  double pulse_width_s{0.0};
-  double radiated_peak_power_w{0.0};
   double one_way_antenna_gain_dbi{0.0};
   double receiver_loss_db{0.0};
   double receiver_noise_figure_db{0.0};
@@ -50,7 +50,7 @@ struct ArDetectionCellResult {
 };
 
 /**
- * @brief 求解一个目标 detection cell；外部 incident link 以 W 聚合为压制干扰。
+ * @brief 求解一个目标 detection cell；外部 incident link 仅按目标单元内的时频重叠聚合。
  * @param[in] own_emission_identity 当前 AR 发射身份；该链路不会计入干扰。
  * @param[in] clutter_power_w 当前 cell 的杂波功率（W）。
  * @return 成功返回 true；非法输入原子拒绝且不修改 @p result。

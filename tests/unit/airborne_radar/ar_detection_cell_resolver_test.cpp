@@ -11,14 +11,29 @@ namespace {
 
 ArDetectionCellConfig MakeConfig() {
   ArDetectionCellConfig config;
-  config.carrier_frequency_hz = 10.0e9;
+  EXPECT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+      0.0, 10.0e9, 10.0e6, 1.0e6, 10.0e-6, 1.0e-3, 100U, 0.0, 11U, 0U,
+      &config.own_transmit_waveform));
+  config.receive_window_start_time_s = 0.0;
+  config.receive_window_duration_s = 1.0;
   config.matched_filter_bandwidth_hz = 10.0e6;
-  config.pulse_width_s = 10.0e-6;
-  config.radiated_peak_power_w = 1.0e6;
   config.one_way_antenna_gain_dbi = 35.0;
   config.receiver_loss_db = 2.0;
   config.receiver_noise_figure_db = 4.0;
   return config;
+}
+
+oneq::electromagnetics::RfIncidentLinkResult MakeIncidentLink(
+    const oneq::electromagnetics::RfWaveformSchedule& waveform, double received_power_w,
+    std::uint64_t emission_id = 6U) {
+  oneq::electromagnetics::RfIncidentLinkResult link;
+  link.identity = oneq::electromagnetics::RfEmissionIdentity{4U, 5U, emission_id};
+  link.emission_waveform = waveform;
+  link.receiver_platform_id = 1U;
+  link.receiver_equipment_id = 2U;
+  link.received_power_before_overlap_w = received_power_w;
+  link.received_power_w = received_power_w;
+  return link;
 }
 
 ArDetectionCellTarget MakeTarget(double range_m) {
@@ -50,9 +65,10 @@ TEST(ArDetectionCellResolverTest, SuppressionOnlyChangesSinrAndPulseCountDoesNot
   ArDetectionCellResult baseline;
   ASSERT_TRUE(TryResolveArDetectionCell(MakeConfig(), target, own, {}, 0.0, &baseline));
 
-  oneq::electromagnetics::RfIncidentLinkResult jammer;
-  jammer.identity = oneq::electromagnetics::RfEmissionIdentity{4U, 5U, 6U};
-  jammer.received_power_w = baseline.thermal_noise_power_w * 10.0;
+  oneq::electromagnetics::RfWaveformSchedule jammer_waveform;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
+      0.0, 1.0, 10.0e9, 10.0e6, 1.0, &jammer_waveform));
+  const auto jammer = MakeIncidentLink(jammer_waveform, baseline.thermal_noise_power_w * 10.0);
   ArDetectionCellResult jammed;
   ASSERT_TRUE(TryResolveArDetectionCell(MakeConfig(), target, own, {jammer}, 0.0, &jammed));
   EXPECT_LT(jammed.processed_single_pulse_sinr_db, baseline.processed_single_pulse_sinr_db);
@@ -64,6 +80,59 @@ TEST(ArDetectionCellResolverTest, SuppressionOnlyChangesSinrAndPulseCountDoesNot
   EXPECT_DOUBLE_EQ(more_pulses.processed_single_pulse_sinr_linear,
                    jammed.processed_single_pulse_sinr_linear);
   EXPECT_EQ(more_pulses.effective_pulse_count, 64U);
+}
+
+TEST(ArDetectionCellResolverTest, FrequencyAndPulseCellsRejectNonOverlappingEnergy) {
+  const oneq::electromagnetics::RfEmissionIdentity own{1U, 2U, 3U};
+  const ArDetectionCellConfig config = MakeConfig();
+  const ArDetectionCellTarget target = MakeTarget(10000.0);
+
+  oneq::electromagnetics::RfWaveformSchedule out_of_band_waveform;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
+      0.0, 1.0, 10.2e9, 1.0e6, 1.0, &out_of_band_waveform));
+  ArDetectionCellResult out_of_band;
+  ASSERT_TRUE(TryResolveArDetectionCell(
+      config, target, own, {MakeIncidentLink(out_of_band_waveform, 100.0)}, 0.0, &out_of_band));
+  EXPECT_DOUBLE_EQ(out_of_band.interference_power_w, 0.0);
+
+  const double echo_delay_s = 2.0 * target.range_m / 299792458.0;
+  oneq::electromagnetics::RfWaveformSchedule aligned_pulses;
+  oneq::electromagnetics::RfWaveformSchedule offset_pulses;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+      echo_delay_s, 10.0e9, 10.0e6, 1.0, 10.0e-6, 1.0e-3, 100U, 0.0, 21U, 0U,
+      &aligned_pulses));
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+      echo_delay_s + 20.0e-6, 10.0e9, 10.0e6, 1.0, 10.0e-6, 1.0e-3, 100U, 0.0,
+      22U, 0U, &offset_pulses));
+  ArDetectionCellResult aligned;
+  ArDetectionCellResult offset;
+  ASSERT_TRUE(TryResolveArDetectionCell(
+      config, target, own, {MakeIncidentLink(aligned_pulses, 2.0)}, 0.0, &aligned));
+  ASSERT_TRUE(TryResolveArDetectionCell(
+      config, target, own, {MakeIncidentLink(offset_pulses, 2.0)}, 0.0, &offset));
+  EXPECT_NEAR(aligned.interference_power_w, 2.0, 0.01);
+  EXPECT_DOUBLE_EQ(offset.interference_power_w, 0.0);
+}
+
+TEST(ArDetectionCellResolverTest, SweepDwellAndInputOrderAreResolvedDeterministically) {
+  const oneq::electromagnetics::RfEmissionIdentity own{1U, 2U, 3U};
+  const ArDetectionCellConfig config = MakeConfig();
+  const ArDetectionCellTarget target = MakeTarget(10000.0);
+  oneq::electromagnetics::RfWaveformSchedule sweep;
+  oneq::electromagnetics::RfWaveformSchedule noise;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfLinearSweepWaveform(
+      0.0, 1.0, 9.95e9, 10.05e9, 1.0e6, 1.0, 0.73e-3, &sweep));
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
+      0.0, 1.0, 10.0e9, 10.0e6, 1.0, &noise));
+  const auto first = MakeIncidentLink(sweep, 4.0, 7U);
+  const auto second = MakeIncidentLink(noise, 2.0, 8U);
+  ArDetectionCellResult forward;
+  ArDetectionCellResult reverse;
+  ASSERT_TRUE(TryResolveArDetectionCell(config, target, own, {first, second}, 0.0, &forward));
+  ASSERT_TRUE(TryResolveArDetectionCell(config, target, own, {second, first}, 0.0, &reverse));
+  EXPECT_GT(forward.interference_power_w, 2.0);
+  EXPECT_LT(forward.interference_power_w, 6.0);
+  EXPECT_DOUBLE_EQ(forward.interference_power_w, reverse.interference_power_w);
 }
 
 TEST(ArDetectionCellResolverTest, InvalidInputIsRejectedAtomically) {
