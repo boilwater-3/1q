@@ -92,6 +92,12 @@ bool IsValidRfV2DetectionContext(const RfV2DetectionContext& context) {
           oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain ||
       !std::isfinite(context.receive_window_start_time_s) ||
       !std::isfinite(context.receive_window_duration_s) ||
+      !std::isfinite(context.beam_pointing_deg.az_deg) ||
+      !std::isfinite(context.beam_pointing_deg.el_deg) ||
+      context.beam_pointing_deg.az_deg < -180.0f ||
+      context.beam_pointing_deg.az_deg > 180.0f ||
+      context.beam_pointing_deg.el_deg < -90.0f ||
+      context.beam_pointing_deg.el_deg > 90.0f ||
       context.receive_window_duration_s <= 0.0) {
     return false;
   }

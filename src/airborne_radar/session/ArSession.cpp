@@ -1,4 +1,5 @@
 #include "1q/airborne_radar/session/ArSession.h"
+#include "1q/coordinate/attitude_transform.h"
 #include "1q/coordinate/position_transform.h"
 
 #include <algorithm>
@@ -29,6 +30,38 @@ bool IsFinitePosition(const oneq::coordinate::EcefPositionM& value) {
 
 bool IsFiniteVelocity(const oneq::coordinate::EcefVelocityMps& value) {
   return std::isfinite(value.x_mps) && std::isfinite(value.y_mps) && std::isfinite(value.z_mps);
+}
+
+bool TryResolveEcefBoresight(const ArPrepareCycleInput& input,
+                             oneq::electromagnetics::RfSceneDirection* boresight_ecef) {
+  if (boresight_ecef == nullptr ||
+      !oneq::coordinate::IsFinite(input.radar_frame_attitude_deg) ||
+      !std::isfinite(input.beam_pointing_deg.az_deg) ||
+      !std::isfinite(input.beam_pointing_deg.el_deg) ||
+      input.beam_pointing_deg.az_deg < -180.0f || input.beam_pointing_deg.az_deg > 180.0f ||
+      input.beam_pointing_deg.el_deg < -90.0f || input.beam_pointing_deg.el_deg > 90.0f) {
+    return false;
+  }
+  constexpr double kPi = 3.14159265358979323846;
+  const double azimuth_rad = static_cast<double>(input.beam_pointing_deg.az_deg) * kPi / 180.0;
+  const double elevation_rad = static_cast<double>(input.beam_pointing_deg.el_deg) * kPi / 180.0;
+  const double cos_elevation = std::cos(elevation_rad);
+  const oneq::coordinate::Vector3d local_direction{
+      cos_elevation * std::cos(azimuth_rad), cos_elevation * std::sin(azimuth_rad),
+      std::sin(elevation_rad)};
+  const oneq::coordinate::Vector3d enu_direction = oneq::coordinate::RotateLocalToEnu(
+      local_direction.x, local_direction.y, local_direction.z,
+      input.radar_frame_attitude_deg);
+  oneq::coordinate::LlaPositionDegM platform_lla;
+  oneq::coordinate::Vector3d resolved_ecef;
+  if (!oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m, &platform_lla) ||
+      !oneq::coordinate::TryEnuToEcefDirection(enu_direction, platform_lla, &resolved_ecef)) {
+    return false;
+  }
+  boresight_ecef->x = resolved_ecef.x;
+  boresight_ecef->y = resolved_ecef.y;
+  boresight_ecef->z = resolved_ecef.z;
+  return true;
 }
 
 bool SameEmissionIdentity(const oneq::electromagnetics::RfEmissionIdentity& left,
@@ -432,7 +465,11 @@ struct ArSession::Impl {
     emission.identity.emission_id = next_emission_id;
     emission.position_ecef_m = input.platform_position_ecef_m;
     emission.velocity_ecef_mps = input.platform_velocity_ecef_mps;
-    emission.antenna.boresight_ecef = input.antenna_boresight_ecef;
+    if (!TryResolveEcefBoresight(input, &emission.antenna.boresight_ecef)) {
+      (void)Controller().RestoreRuntimeState(controller_state_before_prepare);
+      result.status = ArPrepareCycleStatus::kRejected;
+      return result;
+    }
     emission.antenna.peak_gain_dbi = static_cast<double>(detection.antenna.main_beam_gain_db);
     emission.antenna.half_power_beamwidth_deg = static_cast<double>(std::max(
         detection.antenna.nominal_az_beamwidth_deg, detection.antenna.nominal_el_beamwidth_deg));
@@ -470,7 +507,9 @@ struct ArSession::Impl {
       return result;
     }
 
-    oneq::electromagnetics::RfSceneReceiverState receiver_state;
+    ArReceiverOperatingState operating_state;
+    oneq::electromagnetics::RfSceneReceiverState& receiver_state =
+        operating_state.rf_receiver;
     receiver_state.platform_id = input.platform_id;
     receiver_state.equipment_id = receiver.equipment_id;
     receiver_state.position_ecef_m = input.platform_position_ecef_m;
@@ -492,12 +531,19 @@ struct ArSession::Impl {
     receiver_state.minimum_far_field_range_m =
         static_cast<double>(receiver.minimum_far_field_range_m);
     receiver_state.co_site_paths = receiver.co_site_paths;
+    operating_state.beam_pointing_deg = input.beam_pointing_deg;
+    operating_state.matched_filter_bandwidth_hz =
+        static_cast<double>(transmitter.bandwidth_hz);
+    operating_state.receiver_noise_figure_db = static_cast<double>(receiver.noise_figure_db);
+    operating_state.maximum_linear_input_power_w =
+        static_cast<double>(receiver.maximum_linear_input_power_w);
+    operating_state.transmit_receive_blanking_enabled = false;
 
     prepared_token.value = next_token_value++;
     prepared_token.world_cycle_index = input.world_cycle_index;
     prepared_input = input;
     prepared_emission = emission;
-    prepared_receiver_state = receiver_state;
+    prepared_operating_state = operating_state;
     has_prepared_cycle = true;
     has_world_chronology = true;
     last_world_window_end_s = input.window_start_time_s + input.window_duration_s;
@@ -509,7 +555,7 @@ struct ArSession::Impl {
     result.token = prepared_token;
     result.has_emission = true;
     result.emission = prepared_emission;
-    result.receiver_state = prepared_receiver_state;
+    result.operating_state = prepared_operating_state;
     return result;
   }
 
@@ -543,12 +589,10 @@ struct ArSession::Impl {
       return result;
     }
 
-    const config::engineering::ReceiverConfig& receiver_config =
-        runtime_state.execution_config.detection.engineering.receiver;
     signal::detection::ArRfFrontEndResult front_end;
     if (!signal::detection::TryResolveArRfFrontEnd(
-            input.rf_scene, prepared_receiver_state,
-            static_cast<double>(receiver_config.maximum_linear_input_power_w),
+            input.rf_scene, prepared_operating_state.rf_receiver,
+            prepared_operating_state.maximum_linear_input_power_w,
             oneq::electromagnetics::RfIncidentLinkConfig{}, &front_end)) {
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
@@ -559,9 +603,10 @@ struct ArSession::Impl {
     rf_v2_detection_context.own_emission_identity = prepared_emission.identity;
     rf_v2_detection_context.own_transmit_waveform = prepared_emission.waveform;
     rf_v2_detection_context.receive_window_start_time_s =
-        prepared_receiver_state.window_start_time_s;
+        prepared_operating_state.rf_receiver.window_start_time_s;
     rf_v2_detection_context.receive_window_duration_s =
-        prepared_receiver_state.window_duration_s;
+        prepared_operating_state.rf_receiver.window_duration_s;
+    rf_v2_detection_context.beam_pointing_deg = prepared_operating_state.beam_pointing_deg;
     rf_v2_detection_context.incident_links = front_end.incident_links;
     if (concrete_signal_pipeline_ == nullptr ||
         !concrete_signal_pipeline_->SetNextRfV2DetectionContext(rf_v2_detection_context)) {
@@ -579,7 +624,7 @@ struct ArSession::Impl {
           static_cast<double>(detection.transmitter.bandwidth_hz) *
           std::pow(10.0, static_cast<double>(detection.receiver.noise_figure_db) / 10.0);
       if (!signal::detection::TryResolveArInterferenceObservations(
-              input.rf_scene, prepared_receiver_state, prepared_emission.identity,
+              input.rf_scene, prepared_operating_state.rf_receiver, prepared_emission.identity,
               front_end.incident_links, thermal_noise_power_w,
               static_cast<double>(detection.receiver.interference_observation_jn_gate_db),
               &interference_observations)) {
@@ -646,7 +691,7 @@ struct ArSession::Impl {
   ArPreparedCycleToken prepared_token{};
   ArPrepareCycleInput prepared_input{};
   oneq::electromagnetics::RfSceneEmission prepared_emission{};
-  oneq::electromagnetics::RfSceneReceiverState prepared_receiver_state{};
+  ArReceiverOperatingState prepared_operating_state{};
   std::unique_ptr<MutableArContext> owned_ar_context;
   std::unique_ptr<signal::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;

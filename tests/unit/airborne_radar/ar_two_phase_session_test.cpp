@@ -14,15 +14,16 @@ ArPrepareCycleInput MakePrepareInput(std::uint64_t cycle_index, double start_tim
   input.window_duration_s = 0.1;
   input.platform_id = 10U;
   input.platform_position_ecef_m.x_m = 6378137.0;
-  input.antenna_boresight_ecef.x = 1.0;
+  input.beam_pointing_deg.az_deg = 0.0f;
+  input.beam_pointing_deg.el_deg = 0.0f;
   return input;
 }
 
 ArCompleteCycleInput MakeCompleteInput(const ArPrepareCycleResult& prepared) {
   ArCompleteCycleInput input;
   input.rf_scene.world_cycle_index = prepared.token.world_cycle_index;
-  input.rf_scene.window_start_time_s = prepared.receiver_state.window_start_time_s;
-  input.rf_scene.window_duration_s = prepared.receiver_state.window_duration_s;
+  input.rf_scene.window_start_time_s = prepared.operating_state.rf_receiver.window_start_time_s;
+  input.rf_scene.window_duration_s = prepared.operating_state.rf_receiver.window_duration_s;
   input.rf_scene.emissions.push_back(prepared.emission);
   return input;
 }
@@ -41,14 +42,19 @@ oneq::electromagnetics::RfSceneEmission MakeInBandJammer(const ArPrepareCycleRes
   jammer.identity.platform_id = 20U;
   jammer.identity.equipment_id = 21U;
   jammer.identity.emission_id = 22U;
-  jammer.position_ecef_m = prepared.receiver_state.position_ecef_m;
-  jammer.position_ecef_m.x_m += 1000.0;
-  jammer.antenna.boresight_ecef.x = -1.0;
+  const auto& receiver = prepared.operating_state.rf_receiver;
+  jammer.position_ecef_m = receiver.position_ecef_m;
+  jammer.position_ecef_m.x_m += receiver.antenna.boresight_ecef.x * 1000.0;
+  jammer.position_ecef_m.y_m += receiver.antenna.boresight_ecef.y * 1000.0;
+  jammer.position_ecef_m.z_m += receiver.antenna.boresight_ecef.z * 1000.0;
+  jammer.antenna.boresight_ecef.x = -receiver.antenna.boresight_ecef.x;
+  jammer.antenna.boresight_ecef.y = -receiver.antenna.boresight_ecef.y;
+  jammer.antenna.boresight_ecef.z = -receiver.antenna.boresight_ecef.z;
   jammer.antenna.peak_gain_dbi = 35.0;
-  jammer.polarization = prepared.receiver_state.polarization;
+  jammer.polarization = receiver.polarization;
   EXPECT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
-      prepared.receiver_state.window_start_time_s, prepared.receiver_state.window_duration_s,
-      prepared.receiver_state.center_frequency_hz, prepared.receiver_state.bandwidth_hz, 1.0e6,
+      receiver.window_start_time_s, receiver.window_duration_s, receiver.center_frequency_hz,
+      receiver.bandwidth_hz, 1.0e6,
       &jammer.waveform));
   return jammer;
 }
@@ -73,6 +79,23 @@ TEST(ArTwoPhaseSessionTest, EnforcesSingleTokenAndRetainsItAfterRejectedComplete
   EXPECT_EQ(completed.world_cycle_index, 1U);
   EXPECT_EQ(session.CompleteCycle(prepared.token, MakeCompleteInput(prepared)).status,
             ArCompleteCycleStatus::kTokenMismatch);
+}
+
+TEST(ArTwoPhaseSessionTest, PrepareDerivesEcefBoresightFromFrozenLocalBeam) {
+  ArSession session = ArSession::Create();
+  ArPrepareCycleInput input = MakePrepareInput(1U, 10.0);
+  input.beam_pointing_deg.az_deg = 90.0f;
+  const ArPrepareCycleResult prepared = session.PrepareCycle(input);
+  ASSERT_EQ(prepared.status, ArPrepareCycleStatus::kPrepared);
+
+  EXPECT_NEAR(prepared.emission.antenna.boresight_ecef.x, 0.0, 1.0e-12);
+  EXPECT_NEAR(prepared.emission.antenna.boresight_ecef.y, 0.0, 1.0e-12);
+  EXPECT_NEAR(prepared.emission.antenna.boresight_ecef.z, 1.0, 1.0e-12);
+  EXPECT_FLOAT_EQ(prepared.operating_state.beam_pointing_deg.az_deg, 90.0f);
+  EXPECT_DOUBLE_EQ(prepared.operating_state.rf_receiver.antenna.boresight_ecef.z,
+                   prepared.emission.antenna.boresight_ecef.z);
+  EXPECT_GT(prepared.operating_state.matched_filter_bandwidth_hz, 0.0);
+  EXPECT_GT(prepared.operating_state.maximum_linear_input_power_w, 0.0);
 }
 
 TEST(ArTwoPhaseSessionTest, AbandonReleasesReceiveStageWithoutReusingEmissionIdentity) {
@@ -220,10 +243,10 @@ TEST(ArTwoPhaseSessionTest, ExternalEccmChangesNextPreparedOperatingState) {
   EXPECT_DOUBLE_EQ(second.emission.waveform.center_frequency_hz, 3.1e9);
   EXPECT_GT(second.emission.waveform.pulse_jitter_fraction, 0.0);
   EXPECT_GT(second.emission.waveform.transmit_power_w, first.emission.waveform.transmit_power_w);
-  EXPECT_LT(second.receiver_state.antenna.sidelobe_level_db,
-            first.receiver_state.antenna.sidelobe_level_db);
-  EXPECT_LT(second.receiver_state.antenna.half_power_beamwidth_deg,
-            first.receiver_state.antenna.half_power_beamwidth_deg);
+  EXPECT_LT(second.operating_state.rf_receiver.antenna.sidelobe_level_db,
+            first.operating_state.rf_receiver.antenna.sidelobe_level_db);
+  EXPECT_LT(second.operating_state.rf_receiver.antenna.half_power_beamwidth_deg,
+            first.operating_state.rf_receiver.antenna.half_power_beamwidth_deg);
 }
 
 TEST(ArTwoPhaseSessionTest, ReceiverObservationDrivesNextPreparedOperatingState) {
@@ -246,8 +269,8 @@ TEST(ArTwoPhaseSessionTest, ReceiverObservationDrivesNextPreparedOperatingState)
   ASSERT_EQ(second.status, ArPrepareCycleStatus::kPrepared);
   EXPECT_DOUBLE_EQ(second.emission.waveform.center_frequency_hz, 3.1e9);
   EXPECT_GT(second.emission.waveform.transmit_power_w, first.emission.waveform.transmit_power_w);
-  EXPECT_LT(second.receiver_state.antenna.half_power_beamwidth_deg,
-            first.receiver_state.antenna.half_power_beamwidth_deg);
+  EXPECT_LT(second.operating_state.rf_receiver.antenna.half_power_beamwidth_deg,
+            first.operating_state.rf_receiver.antenna.half_power_beamwidth_deg);
 }
 
 }  // namespace

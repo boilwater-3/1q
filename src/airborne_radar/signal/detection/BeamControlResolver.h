@@ -30,6 +30,36 @@ struct ResolvedBeamState {
  */
 class BeamControlResolver {
  public:
+  /** @brief 使用 Prepare 已冻结的局部波束中心解析目标方向增益。 */
+  static ResolvedBeamState ResolveFrozen(
+      const config::engineering::AntennaConfig& antenna_config,
+      const config::ArOrientationConfig& orientation_config,
+      const TargetLookAnglesDeg& target_look_angles,
+      const config::AzimuthElevationDeg& frozen_beam_pointing_deg,
+      float wavelength_m = 0.0f) {
+    ResolvedBeamState state;
+    state.effective_beamwidth_deg =
+        ResolveEffectiveBeamwidth(antenna_config, orientation_config, wavelength_m);
+    state.beam_pointing_deg = frozen_beam_pointing_deg;
+    state.one_way_antenna_gain_db = antenna_config.main_beam_gain_db;
+    if (!antenna_config.enable_directional_pattern || !target_look_angles.has_look_angles) {
+      return state;
+    }
+    AntennaPatternBeamwidthDeg pattern_beamwidth;
+    pattern_beamwidth.az_beamwidth_deg = state.effective_beamwidth_deg.az_beamwidth_deg;
+    pattern_beamwidth.el_beamwidth_deg = state.effective_beamwidth_deg.el_beamwidth_deg;
+    AntennaLookOffsetDeg offset_deg;
+    offset_deg.delta_az_deg = target_look_angles.look_az_deg - state.beam_pointing_deg.az_deg;
+    offset_deg.delta_el_deg = target_look_angles.look_el_deg - state.beam_pointing_deg.el_deg;
+    state.one_way_antenna_gain_db =
+        EvaluateAntennaPattern(antenna_config.main_beam_gain_db, antenna_config.pattern,
+                               pattern_beamwidth, offset_deg, state.beam_pointing_deg,
+                               antenna_config.antenna_length_m, antenna_config.antenna_width_m,
+                               wavelength_m)
+            .gain_dbi;
+    return state;
+  }
+
   /**
    * @brief 解析当前探测使用的波束状态。
    * @param antenna_config 天线配置。

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/ArOutputTypes.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/electromagnetics/RfScene.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 
@@ -25,6 +26,7 @@ struct RfV2DetectionContext {
   oneq::electromagnetics::RfWaveformSchedule own_transmit_waveform{};
   double receive_window_start_time_s{0.0};
   double receive_window_duration_s{0.0};
+  config::AzimuthElevationDeg beam_pointing_deg{};
   std::vector<oneq::electromagnetics::RfIncidentLinkResult> incident_links{};
 };
 

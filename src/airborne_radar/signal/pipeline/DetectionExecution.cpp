@@ -217,10 +217,17 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
       target.swerling_type = config::profiles::SwerlingModel::kSwerling0;
     }
 
-    const detection::ResolvedBeamState beam_state = detection::BeamControlResolver::Resolve(
-        config.detection.engineering.antenna, config.detection.orientation,
-        config.detection.platform_attitude_deg, (*buffers->target_geometry)[i].look_angles_deg,
-        config::AzimuthElevationDeg{}, wavelength_m);
+    const detection::ResolvedBeamState beam_state =
+        rf_v2_detection_context == nullptr
+            ? detection::BeamControlResolver::Resolve(
+                  config.detection.engineering.antenna, config.detection.orientation,
+                  config.detection.platform_attitude_deg,
+                  (*buffers->target_geometry)[i].look_angles_deg,
+                  config::AzimuthElevationDeg{}, wavelength_m)
+            : detection::BeamControlResolver::ResolveFrozen(
+                  config.detection.engineering.antenna, config.detection.orientation,
+                  (*buffers->target_geometry)[i].look_angles_deg,
+                  rf_v2_detection_context->beam_pointing_deg, wavelength_m);
     detection::DetectionResult detection_result;
     if (rf_v2_detection_context == nullptr) {
       detection_result = signal_detector->Detect(target, env, beam_state.one_way_antenna_gain_db,

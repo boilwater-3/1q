@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/ArEnvironmentConfig.h"
+#include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/airborne_radar/session/ArInterferenceObservation.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/airborne_radar/session/ArTrackOutput.h"
@@ -34,7 +35,21 @@ struct ONEQ_API ArPrepareCycleInput {
   std::uint64_t platform_id{0U};                              /**< RF platform 身份；必须非零。 */
   oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 平台 ECEF 位置。 */
   oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps{};    /**< 平台 ECEF 速度。 */
-  oneq::electromagnetics::RfSceneDirection antenna_boresight_ecef{}; /**< 本周期实际波束轴。 */
+  oneq::coordinate::EulerAnglesDeg
+      radar_frame_attitude_deg{}; /**< 雷达局部框架相对 ENU 的姿态。 */
+  config::AzimuthElevationDeg beam_pointing_deg{}; /**< 雷达局部框架中的实际波束中心。 */
+};
+
+/** @brief Prepare 冻结并由同一 token 的 Complete 原样使用的接收工作状态。 */
+struct ONEQ_API ArReceiverOperatingState {
+  oneq::electromagnetics::RfSceneReceiverState rf_receiver{}; /**< 公共单程链路输入状态。 */
+  config::AzimuthElevationDeg beam_pointing_deg{};             /**< 雷达局部实际波束中心。 */
+  double matched_filter_bandwidth_hz{0.0};                     /**< 匹配滤波带宽。 */
+  double receiver_noise_figure_db{0.0};                        /**< 接收机噪声系数。 */
+  double maximum_linear_input_power_w{0.0};                    /**< 前端最大线性输入功率。 */
+  bool transmit_receive_blanking_enabled{false};               /**< 发射脉冲期间是否执行 T/R blanking。 */
+  std::vector<oneq::electromagnetics::RfSceneDirection>
+      adaptive_nulls_ecef{}; /**< 当前周期实际自适应零陷方向。 */
 };
 
 /** @brief Prepare 阶段状态。 */
@@ -51,8 +66,7 @@ struct ONEQ_API ArPrepareCycleResult {
   ArPreparedCycleToken token{};                                 /**< 成功时的待完成令牌。 */
   bool has_emission{false};                                     /**< 是否发布了实际发射。 */
   oneq::electromagnetics::RfSceneEmission emission{};           /**< 实际 AR 发射事实。 */
-  oneq::electromagnetics::RfSceneReceiverState
-      receiver_state{}; /**< Complete 使用的冻结接收状态。 */
+  ArReceiverOperatingState operating_state{}; /**< Complete 使用的冻结接收工作状态。 */
 };
 
 /** @brief Complete 阶段场景与目标输入。 */
