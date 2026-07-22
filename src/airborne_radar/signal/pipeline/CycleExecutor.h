@@ -95,13 +95,15 @@ struct CycleExecutionContext {
   CycleExecutionContext(const session::ArSceneTargetList& input_state,
                         const session::EnvironmentSnapshot& environment_snapshot,
                         std::uint32_t cycle_index, std::uint64_t batch_id,
-                        ExecutionConfig runtime_config, float platform_altitude_m)
+                        ExecutionConfig runtime_config, float platform_altitude_m,
+                        const RfV2DetectionContext* rf_v2_detection_context = nullptr)
       : input_state(input_state),
         environment_snapshot(environment_snapshot),
         cycle_index(cycle_index),
         batch_id(batch_id),
         platform_altitude_m(platform_altitude_m),
-        runtime_config(std::move(runtime_config)) {}
+        runtime_config(std::move(runtime_config)),
+        rf_v2_detection_context(rf_v2_detection_context) {}
 
   const session::ArSceneTargetList& input_state;
   const session::EnvironmentSnapshot& environment_snapshot;
@@ -109,6 +111,7 @@ struct CycleExecutionContext {
   std::uint64_t batch_id{0U};
   float platform_altitude_m{0.0f};
   ExecutionConfig runtime_config{};
+  const RfV2DetectionContext* rf_v2_detection_context{nullptr};
 };
 
 /**

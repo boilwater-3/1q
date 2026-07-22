@@ -37,7 +37,9 @@ void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime) {
 
 bool RunEnvironmentPhase(CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                          CycleExecutionScratch& scratch) {
-  if (!context.runtime_config.jamming_effects.has_rf_v2_interference_power &&
+  if (context.rf_v2_detection_context != nullptr) {
+    context.runtime_config.jamming_effects.resolved_engineering_jam_noise_w = 0.0f;
+  } else if (!context.runtime_config.jamming_effects.has_rf_v2_interference_power &&
       !TryResolveEngineeringInterferencePowerW(
           context.runtime_config, context.environment_snapshot,
           &context.runtime_config.jamming_effects.resolved_engineering_jam_noise_w)) {
@@ -65,7 +67,7 @@ bool RunEnvironmentPhase(CycleExecutionContext& context, const CycleExecutionRun
 // 检测阶段：写入 scratch 的 detection_* / target_geometry / measurement_covariances
 // ---------------------------------------------------------------------------
 
-void RunDetectionPhase(const CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
+bool RunDetectionPhase(const CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                        CycleExecutionScratch& scratch) {
   DetectionExecutionBuffers detection_buffers;
   detection_buffers.target_geometry = &scratch.target_geometry;
@@ -75,9 +77,10 @@ void RunDetectionPhase(const CycleExecutionContext& context, const CycleExecutio
   detection_buffers.detection_succeeded = &scratch.detection_succeeded;
   detection_buffers.measurement_covariances = &scratch.measurement_covariances;
 
-  RunPhysicalDetectionPass(context.input_state, context.runtime_config,
-                           context.environment_snapshot, context.platform_altitude_m,
-                           runtime.signal_detector, &detection_buffers);
+  return RunPhysicalDetectionPass(
+      context.input_state, context.runtime_config, context.environment_snapshot,
+      context.platform_altitude_m, context.rf_v2_detection_context, runtime.signal_detector,
+      &detection_buffers);
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +202,9 @@ bool ExecuteCycle(CycleExecutionContext& context, const CycleExecutionRuntime& r
     return false;
   }
   PrepareAssociationSeeds(runtime);
-  RunDetectionPhase(context, runtime, cycle_scratch);
+  if (!RunDetectionPhase(context, runtime, cycle_scratch)) {
+    return false;
+  }
   RunAssociationPhase(context, runtime, cycle_scratch);
   RunMeasurementBuildPhase(context, cycle_scratch);
   RunTrackFilterPhase(context, runtime, cycle_scratch);

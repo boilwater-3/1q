@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "airborne_radar/config/SignalEngineeringConfig.h"
+#include "airborne_radar/signal/detection/ArDetectionCellResolver.h"
 #include "airborne_radar/signal/detection/BeamControlResolver.h"
 #include "airborne_radar/signal/detection/MeasurementErrorModel.h"
 #include "airborne_radar/signal/detection/SignalDetector.h"
@@ -159,13 +160,18 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 
 }  // namespace
 
-void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
+bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
                               const ExecutionConfig& config,
                               const session::EnvironmentSnapshot& environment_snapshot,
-                              float platform_altitude_m, detection::SignalDetector* signal_detector,
+                              float platform_altitude_m,
+                              const RfV2DetectionContext* rf_v2_detection_context,
+                              detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers) {
-  if (signal_detector == nullptr || buffers == nullptr || !HasValidBuffers(*buffers)) {
-    return;
+  if (buffers == nullptr || !HasValidBuffers(*buffers)) {
+    return false;
+  }
+  if (signal_detector == nullptr) {
+    return true;
   }
 
   const std::size_t count = input.size();
@@ -215,8 +221,54 @@ void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
         config.detection.engineering.antenna, config.detection.orientation,
         config.detection.platform_attitude_deg, (*buffers->target_geometry)[i].look_angles_deg,
         config::AzimuthElevationDeg{}, wavelength_m);
-    const detection::DetectionResult detection_result = signal_detector->Detect(
-        target, env, beam_state.one_way_antenna_gain_db, config.detection.engineering.pulse_count);
+    detection::DetectionResult detection_result;
+    if (rf_v2_detection_context == nullptr) {
+      detection_result = signal_detector->Detect(target, env, beam_state.one_way_antenna_gain_db,
+                                                 config.detection.engineering.pulse_count);
+    } else {
+      const Eigen::Vector3f& position = (*buffers->target_geometry)[i].position_m;
+      const float position_norm = position.norm();
+      if (!std::isfinite(position_norm) || position_norm <= 0.0f) {
+        return false;
+      }
+      const Eigen::Vector3f relative_velocity(input[i].velocity_x, input[i].velocity_y,
+                                              input[i].velocity_z);
+      const double closing_radial_velocity_mps =
+          -static_cast<double>(relative_velocity.dot(position / position_norm));
+      const double two_way_propagation_loss_db = static_cast<double>(env.propagation_loss_db);
+      if (!std::isfinite(two_way_propagation_loss_db) || two_way_propagation_loss_db < 0.0) {
+        return false;
+      }
+      detection::ArDetectionCellConfig cell_config;
+      cell_config.own_transmit_waveform = rf_v2_detection_context->own_transmit_waveform;
+      cell_config.receive_window_start_time_s =
+          rf_v2_detection_context->receive_window_start_time_s;
+      cell_config.receive_window_duration_s =
+          rf_v2_detection_context->receive_window_duration_s;
+      cell_config.matched_filter_bandwidth_hz =
+          rf_v2_detection_context->own_transmit_waveform.occupied_bandwidth_hz;
+      cell_config.one_way_antenna_gain_dbi =
+          static_cast<double>(beam_state.one_way_antenna_gain_db);
+      cell_config.receiver_loss_db =
+          static_cast<double>(config.detection.engineering.receiver.receive_loss_db);
+      cell_config.receiver_noise_figure_db =
+          static_cast<double>(config.detection.engineering.receiver.noise_figure_db);
+      detection::ArDetectionCellTarget cell_target;
+      cell_target.range_m = static_cast<double>((*buffers->target_geometry)[i].range_m);
+      cell_target.closing_radial_velocity_mps = closing_radial_velocity_mps;
+      cell_target.rcs_m2 = static_cast<double>(effective_rcs_m2);
+      cell_target.two_way_additional_propagation_loss_db = two_way_propagation_loss_db;
+      cell_target.effective_pulse_count = static_cast<std::uint32_t>(
+          std::max(1, config.detection.engineering.pulse_count));
+      detection::ArDetectionCellResult cell_result;
+      if (!detection::TryResolveArDetectionCell(
+              cell_config, cell_target, rf_v2_detection_context->own_emission_identity,
+              rf_v2_detection_context->incident_links, static_cast<double>(clutter_w),
+              &cell_result)) {
+        return false;
+      }
+      detection_result = signal_detector->DetectResolvedCell(target, cell_result);
+    }
     const detection::MeasurementErrorState measurement_error =
         detection::MeasurementErrorModel::Compute(
             detection_result.snr_db, beam_state.effective_beamwidth_deg,
@@ -232,6 +284,7 @@ void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
         measurement_error.angle_error_std_rad,
         config.tracking.engineering.kalman_measurement_noise_std);
   }
+  return true;
 }
 
 }  // namespace pipeline

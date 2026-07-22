@@ -68,6 +68,29 @@ DetectionResult SignalDetector::Detect(const TargetReturn& target, const Environ
   return result;
 }
 
+DetectionResult SignalDetector::DetectResolvedCell(const TargetReturn& target,
+                                                   const ArDetectionCellResult& cell) {
+  DetectionResult result;
+  if (!std::isfinite(cell.echo_power_w) || cell.echo_power_w < 0.0 ||
+      !std::isfinite(cell.processed_single_pulse_sinr_db) ||
+      cell.effective_pulse_count == 0U) {
+    return result;
+  }
+  constexpr double kLinearFloor = 1.0e-300;
+  result.echo_power_dbw = static_cast<float>(
+      10.0 * std::log10(std::max(cell.echo_power_w, kLinearFloor)));
+  result.snr_db = static_cast<float>(cell.processed_single_pulse_sinr_db);
+  result.detection_prob = RadarEquations::ComputeDetectionProbability(
+      result.snr_db, config_.detection_policy.cfar_pfa, target.swerling_type,
+      static_cast<int>(cell.effective_pulse_count));
+  if (result.snr_db < config_.detection_policy.min_snr_db) {
+    result.detection_prob = 0.0f;
+    return result;
+  }
+  result.detected = RadarEquations::ThresholdDecision(result.detection_prob, rng_);
+  return result;
+}
+
 void SignalDetector::SetRandomSeed(unsigned int seed) { rng_.seed(seed); }
 
 }  // namespace detection

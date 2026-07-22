@@ -11,6 +11,7 @@
 
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
+#include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
 #include "airborne_radar/signal/tracking/TrackLifecycleTypes.h"
 
@@ -120,10 +121,11 @@ class SignalPipeline final : public ISignalPipeline {
   bool UpdateExecutionConfig(const ExecutionConfig& config);
 
   /**
-   * @brief 注入下一次成功周期使用的 RF v2 接收端干扰功率。
-   * @return 输入为有限非负 W 时返回 true；非法输入不改变待消费状态。
+   * @brief 注入下一次成功周期使用的 RF v2 detection 上下文。
+   * @return 全部发射身份、波形、窗口和 incident link 合法时返回 true。
+   * @note 输入被完整复制并纳入 runtime snapshot；失败不改变待消费状态。
    */
-  bool SetNextRfV2InterferencePowerW(float interference_power_w);
+  bool SetNextRfV2DetectionContext(const RfV2DetectionContext& context);
 
  private:
   struct Impl;

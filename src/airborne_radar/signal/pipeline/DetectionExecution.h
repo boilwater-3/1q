@@ -46,10 +46,12 @@ struct DetectionExecutionBuffers {
  * @param[in] signal_detector 物理检测器；为 nullptr 时直接返回。
  * @param[in,out] buffers 各目标缓冲区（按索引就地填充）。
  */
-void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
+bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
                               const ExecutionConfig& config,
                               const session::EnvironmentSnapshot& environment_snapshot,
-                              float platform_altitude_m, detection::SignalDetector* signal_detector,
+                              float platform_altitude_m,
+                              const RfV2DetectionContext* rf_v2_detection_context,
+                              detection::SignalDetector* signal_detector,
                               DetectionExecutionBuffers* buffers);
 
 }  // namespace pipeline

@@ -10,6 +10,7 @@
 #include <random>
 
 #include "airborne_radar/config/SignalEngineeringConfig.h"
+#include "airborne_radar/signal/detection/ArDetectionCellResolver.h"
 #include "airborne_radar/signal/detection/RadarEquations.h"
 
 namespace airborne_radar {
@@ -73,6 +74,13 @@ class SignalDetector {
   DetectionResult Detect(const TargetReturn& target, const EnvironmentState& env,
                          float one_way_antenna_gain_db = std::numeric_limits<float>::quiet_NaN(),
                          int pulse_count = 1);
+
+  /**
+   * @brief 对已完成物理 detection-cell 求解的结果执行 Pd 与随机门限判决。
+   * @note 本入口不重复计算回波、噪声、压缩或脉冲积累增益。
+   */
+  DetectionResult DetectResolvedCell(const TargetReturn& target,
+                                     const ArDetectionCellResult& cell);
   /**
    * @brief 设置随机种子（用于确定性回归测试）。
    * @param seed 随机数种子

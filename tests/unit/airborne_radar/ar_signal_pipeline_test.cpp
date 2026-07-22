@@ -84,6 +84,26 @@ session::ArSceneTarget BuildPhysicsTarget(float range_m, float rcs) {
   return target;
 }
 
+signal::pipeline::RfV2DetectionContext MakeRfV2DetectionContext(double jammer_power_w) {
+  signal::pipeline::RfV2DetectionContext context;
+  context.own_emission_identity = oneq::electromagnetics::RfEmissionIdentity{1U, 1U, 1U};
+  EXPECT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+      0.0, 3.0e9, 4.5e6, 1.0e6, 13.0e-6, 1.0 / 300.0, 300U, 0.0, 7U, 0U,
+      &context.own_transmit_waveform));
+  context.receive_window_start_time_s = 0.0;
+  context.receive_window_duration_s = 1.0;
+  oneq::electromagnetics::RfIncidentLinkResult jammer;
+  jammer.identity = oneq::electromagnetics::RfEmissionIdentity{2U, 1U, 2U};
+  EXPECT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
+      0.0, 1.0, 3.0e9, 4.5e6, 1.0, &jammer.emission_waveform));
+  jammer.receiver_platform_id = 1U;
+  jammer.receiver_equipment_id = 2U;
+  jammer.received_power_before_overlap_w = jammer_power_w;
+  jammer.received_power_w = jammer_power_w;
+  context.incident_links.push_back(jammer);
+  return context;
+}
+
 session::ArSceneTarget ToSceneTarget(const session::ArSceneTarget& target) {
   session::ArSceneTarget out;
   out.external_target_id = target.external_target_id;
@@ -826,8 +846,8 @@ TEST(SignalPipelineTest, RfV2InterferenceOnlySuppressesDetectionAndIsOneShot) {
                   .executed_this_cycle);
   ASSERT_FALSE(baseline_pipeline.GetLastTrackMeasurements().empty());
 
-  EXPECT_FALSE(jammed_pipeline.SetNextRfV2InterferencePowerW(-1.0f));
-  ASSERT_TRUE(jammed_pipeline.SetNextRfV2InterferencePowerW(1.0e6f));
+  EXPECT_FALSE(jammed_pipeline.SetNextRfV2DetectionContext({}));
+  ASSERT_TRUE(jammed_pipeline.SetNextRfV2DetectionContext(MakeRfV2DetectionContext(1.0e6)));
   ASSERT_TRUE(
       RunPipelineCycle(&jammed_pipeline, {target}, &jammed_environment, 1U).executed_this_cycle);
   EXPECT_TRUE(jammed_pipeline.GetLastTrackMeasurements().empty());
@@ -835,6 +855,22 @@ TEST(SignalPipelineTest, RfV2InterferenceOnlySuppressesDetectionAndIsOneShot) {
   ASSERT_TRUE(
       RunPipelineCycle(&jammed_pipeline, {target}, &jammed_environment, 2U).executed_this_cycle);
   EXPECT_FALSE(jammed_pipeline.GetLastTrackMeasurements().empty());
+}
+
+TEST(SignalPipelineTest, RuntimeSnapshotRestoresPendingRfV2DetectionContext) {
+  const config::ArSessionConfig config = MakeDetectionFocusedConfig();
+  environment::EnvironmentService environment_service;
+  signal::pipeline::SignalPipeline pipeline(config);
+  const session::ArSceneTarget target = BuildPhysicsTarget(1000.0f, 10.0f);
+
+  ASSERT_TRUE(pipeline.SetNextRfV2DetectionContext(MakeRfV2DetectionContext(1.0e6)));
+  const signal::SignalPipelineRuntimeState pending_snapshot = pipeline.CaptureRuntimeState();
+  ASSERT_TRUE(RunPipelineCycle(&pipeline, {target}, &environment_service, 1U).executed_this_cycle);
+  EXPECT_TRUE(pipeline.GetLastTrackMeasurements().empty());
+
+  pipeline.RestoreRuntimeState(pending_snapshot);
+  ASSERT_TRUE(RunPipelineCycle(&pipeline, {target}, &environment_service, 2U).executed_this_cycle);
+  EXPECT_TRUE(pipeline.GetLastTrackMeasurements().empty());
 }
 
 TEST(SignalPipelineTest, EccmDoesNotRetuneImmLifecycleParameters) {

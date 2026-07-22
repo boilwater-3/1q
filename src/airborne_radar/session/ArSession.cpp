@@ -508,20 +508,16 @@ struct ArSession::Impl {
     }
     result.receiver_impairment = front_end.receiver_saturated ? ArReceiverImpairment::kSaturated
                                                               : ArReceiverImpairment::kNone;
-    long double external_interference_power_w = 0.0L;
-    for (const auto& link : front_end.incident_links) {
-      if (!SameEmissionIdentity(link.identity, prepared_emission.identity)) {
-        external_interference_power_w += static_cast<long double>(link.received_power_w);
-      }
-    }
-    const double external_interference_power_double =
-        front_end.receiver_saturated ? 0.0 : static_cast<double>(external_interference_power_w);
+    signal::pipeline::RfV2DetectionContext rf_v2_detection_context;
+    rf_v2_detection_context.own_emission_identity = prepared_emission.identity;
+    rf_v2_detection_context.own_transmit_waveform = prepared_emission.waveform;
+    rf_v2_detection_context.receive_window_start_time_s =
+        prepared_receiver_state.window_start_time_s;
+    rf_v2_detection_context.receive_window_duration_s =
+        prepared_receiver_state.window_duration_s;
+    rf_v2_detection_context.incident_links = front_end.incident_links;
     if (concrete_signal_pipeline_ == nullptr ||
-        !std::isfinite(external_interference_power_double) ||
-        external_interference_power_double >
-            static_cast<double>(std::numeric_limits<float>::max()) ||
-        !concrete_signal_pipeline_->SetNextRfV2InterferencePowerW(
-            static_cast<float>(external_interference_power_double))) {
+        !concrete_signal_pipeline_->SetNextRfV2DetectionContext(rf_v2_detection_context)) {
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
     }
