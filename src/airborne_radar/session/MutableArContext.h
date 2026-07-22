@@ -13,7 +13,7 @@
 #include "1q/airborne_radar/session/ArCommand.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
-#include "1q/airborne_radar/session/ArCycleInput.h"
+#include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/foundation/pose_types.h"
 
 namespace airborne_radar {
@@ -67,11 +67,11 @@ class MutableArContext final {
   MutableArContext(MutableArContext&&) = delete;
   MutableArContext& operator=(MutableArContext&&) = delete;
 
-  /**
-   * @brief 以单周期输入刷新上下文，并清空本周期输出缓存。
-   * @param[in] input 单周期输入载荷。
-   */
-  void BeginCycle(const ArCycleInput& input);
+  /** @brief 以已验证的内部执行事实刷新上下文，并清空本周期输出缓存。 */
+  void BeginCycle(ArSceneTargetList scene_targets,
+                  const oneq::foundation::PoseState& platform_pose,
+                  float platform_altitude_m, float dt_sec,
+                  std::uint32_t cycle_index);
 
   /**
    * @brief 更新当前周期场景目标列表。

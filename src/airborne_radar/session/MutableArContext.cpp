@@ -28,12 +28,15 @@ MutableArContext::MutableArContext(ArSceneTargetList scene_targets)
       scene_targets_(new ArSceneTargetList(std::move(scene_targets))),
       cycle_index_(1U) {}
 
-void MutableArContext::BeginCycle(const ArCycleInput& input) {
-  SetSceneTargets(input.scene);
-  platform_pose_ = input.platform_pose;
-  platform_altitude_m_ = input.platform_altitude_m;
-  SetCycleDeltaTimeSec(input.dt_sec);
-  cycle_index_ = input.cycle_index;
+void MutableArContext::BeginCycle(ArSceneTargetList scene_targets,
+                                  const oneq::foundation::PoseState& platform_pose,
+                                  float platform_altitude_m, float dt_sec,
+                                  std::uint32_t cycle_index) {
+  SetSceneTargets(std::move(scene_targets));
+  platform_pose_ = platform_pose;
+  platform_altitude_m_ = platform_altitude_m;
+  SetCycleDeltaTimeSec(dt_sec);
+  cycle_index_ = cycle_index;
   ResetCycleOutputs();
 }
 

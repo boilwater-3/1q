@@ -33,25 +33,22 @@ static_assert(!std::is_move_constructible<MutableArContext>::value,
 static_assert(!std::is_move_assignable<MutableArContext>::value,
               "context identity must not be move assigned to another instance");
 
-ArCycleInput MakeCycleInput(std::uint32_t cycle_index, std::uint64_t target_id, float altitude_m,
-                            float dt_sec, double yaw_deg) {
-  ArCycleInput input;
-  input.cycle_index = cycle_index;
-  input.dt_sec = dt_sec;
-  input.platform_altitude_m = altitude_m;
-  input.platform_pose.attitude_deg.yaw_deg = yaw_deg;
-  input.platform_pose.attitude_deg.pitch_deg = -0.5 * yaw_deg;
-  input.platform_pose.attitude_deg.roll_deg = 0.25 * yaw_deg;
+void BeginContextCycle(MutableArContext* context, std::uint32_t cycle_index,
+                       std::uint64_t target_id, float altitude_m, float dt_sec,
+                       double yaw_deg) {
+  oneq::foundation::PoseState platform_pose;
+  platform_pose.attitude_deg.yaw_deg = yaw_deg;
+  platform_pose.attitude_deg.pitch_deg = -0.5 * yaw_deg;
+  platform_pose.attitude_deg.roll_deg = 0.25 * yaw_deg;
   ArSceneTarget target;
   target.external_target_id = target_id;
   target.target_name = "runtime-state-target";
-  input.scene.push_back(target);
-  return input;
+  context->BeginCycle(ArSceneTargetList{target}, platform_pose, altitude_m, dt_sec, cycle_index);
 }
 
 void SeedContext(MutableArContext* context, std::uint32_t cycle_index, std::uint64_t target_id,
                  float altitude_m, float dt_sec, double yaw_deg, std::uint64_t profile_version) {
-  context->BeginCycle(MakeCycleInput(cycle_index, target_id, altitude_m, dt_sec, yaw_deg));
+  BeginContextCycle(context, cycle_index, target_id, altitude_m, dt_sec, yaw_deg);
   context->SubmitControlCommand(ArCommand(ArCommandType::SET_AGILITY_FREQ, ArCommandSource::ECCM));
   ArControlProfile profile;
   profile.version = profile_version;

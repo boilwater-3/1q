@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArSession.h"
 
 namespace airborne_radar {
@@ -96,6 +97,23 @@ TEST(ArTwoPhaseSessionTest, PoweredOffAdvancesChronologyWithoutPublishingEmissio
 
   ArPrepareCycleInput stale = MakePrepareInput(2U, 10.05);
   EXPECT_EQ(session.PrepareCycle(stale).status, ArPrepareCycleStatus::kRejected);
+}
+
+TEST(ArTwoPhaseSessionTest, PatchSubmittedAfterPrepareWaitsForNextPrepare) {
+  ArSession session = ArSession::Create();
+  const ArPrepareCycleResult prepared = session.PrepareCycle(MakePrepareInput(1U, 10.0));
+  ASSERT_EQ(prepared.status, ArPrepareCycleStatus::kPrepared);
+
+  config::ArRuntimeConfigPatch patch;
+  patch.has_sensor_enabled = true;
+  patch.sensor_enabled = false;
+  ASSERT_TRUE(session.TryApplyRuntimeConfig(patch));
+
+  EXPECT_EQ(session.CompleteCycle(prepared.token, MakeCompleteInput(prepared)).status,
+            ArCompleteCycleStatus::kCompleted);
+  const ArPrepareCycleResult next = session.PrepareCycle(MakePrepareInput(2U, 10.1));
+  EXPECT_EQ(next.status, ArPrepareCycleStatus::kPoweredOff);
+  EXPECT_FALSE(next.has_emission);
 }
 
 TEST(ArTwoPhaseSessionTest, FrontEndSaturationCompletesWithStructuredImpairment) {

@@ -1,4 +1,5 @@
 #include "1q/airborne_radar/session/ArSession.h"
+#include "1q/coordinate/position_transform.h"
 
 #include <algorithm>
 #include <cmath>
@@ -92,6 +93,25 @@ session::EnvironmentSceneState BuildSceneStateFromCycleInput(const ArCycleInput&
   scene_state.rf_receiver_velocity_ecef_mps = cycle_input.platform_velocity_ecef_mps;
   return scene_state;
 }
+
+session::EnvironmentSceneState BuildSceneStateFromCompleteInput(
+    const ArCompleteCycleInput& input, const ArPrepareCycleInput& prepared_input) {
+  session::EnvironmentSceneState scene_state;
+  scene_state.atmospheric_physics = input.atmospheric_observation;
+  scene_state.atmospheric_context = input.atmospheric_context;
+  scene_state.vegetation_scatter_physics = input.surface_observation;
+  scene_state.has_rf_receiver_kinematics = true;
+  scene_state.rf_receiver_entity_id = prepared_input.platform_id;
+  scene_state.rf_receiver_position_ecef_m = prepared_input.platform_position_ecef_m;
+  scene_state.rf_receiver_velocity_ecef_mps = prepared_input.platform_velocity_ecef_mps;
+  return scene_state;
+}
+
+struct ArExecutionCycleResult {
+  bool executed{false};
+  session::SignalCycleAbortReason abort_reason{session::SignalCycleAbortReason::kNone};
+  TrackOutputFrame track_output_frame{};
+};
 
 }  // namespace
 
@@ -264,10 +284,18 @@ struct ArSession::Impl {
     return runtime_state_restored;
   }
 
-  ArCycleResult RunCycle(const ArCycleInput& input) {
-    const ValidationIssueList issues = ValidateInput(input);
+  ArExecutionCycleResult RunExecutionCycle(
+      std::uint32_t cycle_index, float dt_sec, float platform_altitude_m,
+      const oneq::foundation::PoseState& platform_pose, ArSceneTargetList scene_targets,
+      const session::EnvironmentSceneState* environment_scene_state,
+      bool commit_pending_runtime_config) {
+    ArExecutionCycleResult result;
+    ValidationIssueList issues = ValidateArCycleDeltaTime(dt_sec);
+    const ValidationIssueList target_issues = ValidateArSceneTargets(scene_targets);
+    issues.insert(issues.end(), target_issues.begin(), target_issues.end());
     if (HasValidationError(issues)) {
-      return BuildValidationErrorResult(input, issues);
+      result.abort_reason = session::SignalCycleAbortReason::kValidationRejected;
+      return result;
     }
 
     const ArContextRuntimeState radar_context_state = RadarContext().CaptureRuntimeState();
@@ -277,42 +305,61 @@ struct ArSession::Impl {
         EnvironmentService().CaptureRuntimeState();
     const extension::ArControllerRuntimeState controller_state = Controller().CaptureRuntimeState();
 
-    if (!CommitPendingRuntimeConfig()) {
+    if (commit_pending_runtime_config && !CommitPendingRuntimeConfig()) {
       (void)RestoreCycleRuntimeState(radar_context_state, pipeline_state, environment_state,
                                      controller_state);
-      return BuildExecutionAbortResult(input,
-                                       session::SignalCycleAbortReason::kRuntimePreparationFailed);
+      result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
+      return result;
     }
-
-    if (input.has_environment) {
-      EnvironmentService().UpdateSceneState(BuildSceneStateFromCycleInput(input));
+    if (environment_scene_state != nullptr) {
+      EnvironmentService().UpdateSceneState(*environment_scene_state);
     }
-    RadarContext().BeginCycle(input);
+    RadarContext().BeginCycle(std::move(scene_targets), platform_pose, platform_altitude_m, dt_sec,
+                              cycle_index);
     Controller().RunOnce();
 
     if (!Controller().ExecutedLatestCycle()) {
-      const session::SignalCycleAbortReason abort_reason =
-          Controller().GetLastSignalCycleAbortReason();
+      result.abort_reason = Controller().GetLastSignalCycleAbortReason();
       if (!RestoreCycleRuntimeState(radar_context_state, pipeline_state, environment_state,
                                     controller_state)) {
-        return BuildExecutionAbortResult(
-            input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
+        result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
+        return result;
       }
-      if (abort_reason == session::SignalCycleAbortReason::kSensorPoweredOff) {
-        // 关机是已接受的非执行边界，不是 pipeline 故障。先恢复本周期消费的控制/环境状态，
-        // 再单独对齐已验证的配置，使 pending 事务能够落定且外部决策仍留待下个成功周期。
+      if (commit_pending_runtime_config &&
+          result.abort_reason == session::SignalCycleAbortReason::kSensorPoweredOff) {
         if (!CommitPendingRuntimeConfig()) {
           (void)RestoreCycleRuntimeState(radar_context_state, pipeline_state, environment_state,
                                          controller_state);
-          return BuildExecutionAbortResult(
-              input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
+          result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
+          return result;
         }
         FinalizePendingRuntimeConfig();
       }
-      return BuildExecutionAbortResult(input, abort_reason);
+      return result;
     }
 
-    FinalizePendingRuntimeConfig();
+    if (commit_pending_runtime_config) {
+      FinalizePendingRuntimeConfig();
+    }
+    result.executed = true;
+    result.track_output_frame = Controller().GetLatestTrackOutputFrame();
+    return result;
+  }
+
+  ArCycleResult RunCycle(const ArCycleInput& input) {
+    const ValidationIssueList issues = ValidateInput(input);
+    if (HasValidationError(issues)) {
+      return BuildValidationErrorResult(input, issues);
+    }
+
+    const session::EnvironmentSceneState environment_scene_state =
+        BuildSceneStateFromCycleInput(input);
+    const ArExecutionCycleResult execution_result = RunExecutionCycle(
+        input.cycle_index, input.dt_sec, input.platform_altitude_m, input.platform_pose,
+        input.scene, input.has_environment ? &environment_scene_state : nullptr, true);
+    if (!execution_result.executed) {
+      return BuildExecutionAbortResult(input, execution_result.abort_reason);
+    }
     return BuildCycleResult(input);
   }
 
@@ -545,28 +592,26 @@ struct ArSession::Impl {
       return result;
     }
 
-    ArCycleInput legacy_execution_input;
-    legacy_execution_input.cycle_index =
-        static_cast<std::uint32_t>(prepared_input.world_cycle_index);
-    legacy_execution_input.dt_sec = static_cast<float>(prepared_input.window_duration_s);
-    legacy_execution_input.platform_entity_id = prepared_input.platform_id;
-    legacy_execution_input.has_platform_ecef_kinematics = true;
-    legacy_execution_input.platform_position_ecef_m = prepared_input.platform_position_ecef_m;
-    legacy_execution_input.platform_velocity_ecef_mps = prepared_input.platform_velocity_ecef_mps;
-    if (!front_end.receiver_saturated) {
-      legacy_execution_input.scene = input.targets;
+    oneq::coordinate::LlaPositionDegM platform_lla;
+    if (!oneq::coordinate::TryEcefToLla(prepared_input.platform_position_ecef_m,
+                                        &platform_lla)) {
+      result.status = ArCompleteCycleStatus::kRejected;
+      return result;
     }
-    legacy_execution_input.has_environment = true;
-    legacy_execution_input.environment.atmospheric_observation = input.atmospheric_observation;
-    legacy_execution_input.environment.atmospheric_context = input.atmospheric_context;
-    legacy_execution_input.environment.surface_observation = input.surface_observation;
-    const ArCycleResult cycle_result = RunCycle(legacy_execution_input);
-    if (!cycle_result.executed_this_cycle) {
+    const session::EnvironmentSceneState environment_scene_state =
+        BuildSceneStateFromCompleteInput(input, prepared_input);
+    const ArExecutionCycleResult execution_result = RunExecutionCycle(
+        static_cast<std::uint32_t>(prepared_input.world_cycle_index),
+        static_cast<float>(prepared_input.window_duration_s),
+        static_cast<float>(platform_lla.altitude_m), oneq::foundation::PoseState{},
+        front_end.receiver_saturated ? ArSceneTargetList{} : input.targets,
+        &environment_scene_state, false);
+    if (!execution_result.executed) {
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
     }
     result.status = ArCompleteCycleStatus::kCompleted;
-    result.track_output_frame = cycle_result.track_output_frame;
+    result.track_output_frame = execution_result.track_output_frame;
     result.interference_observations = interference_observations;
     has_prepared_cycle = false;
     prepared_token = ArPreparedCycleToken{};

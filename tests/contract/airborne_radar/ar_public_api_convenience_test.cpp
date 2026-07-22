@@ -153,6 +153,13 @@ session::ArCycleInput MakeCycleInput(session::ArSceneTargetList targets, float d
   return input;
 }
 
+void BeginContextFromCycleInput(session::MutableArContext* context,
+                                const session::ArCycleInput& input) {
+  ASSERT_NE(context, nullptr);
+  context->BeginCycle(input.scene, input.platform_pose, input.platform_altitude_m, input.dt_sec,
+                      input.cycle_index);
+}
+
 void ApplySceneStateToCycleInput(const session::EnvironmentSceneState& scene_state,
                                  session::ArCycleInput* input) {
   if (input == nullptr) {
@@ -435,7 +442,7 @@ TEST(PublicApiConvenienceTest, MutableRadarContextBeginsCycleAndResetsPerCycleCo
       },
       0.5f);
 
-  context.BeginCycle(input);
+  BeginContextFromCycleInput(&context, input);
   ASSERT_EQ(context.GetSceneTargets().size(), 1U);
   EXPECT_NEAR(context.GetPlatformAttitude().yaw_deg, 5.0f, 1e-5f);
   EXPECT_NEAR(context.GetCycleDeltaTimeSec(), 0.5f, 1e-5f);
@@ -454,7 +461,7 @@ TEST(PublicApiConvenienceTest, MutableRadarContextBeginsCycleAndResetsPerCycleCo
   EXPECT_EQ(context.GetLatestControlProfile().version, 4U);
 
   session::ArCycleInput second_input = MakeCycleInput({}, 1.25f);
-  context.BeginCycle(second_input);
+  BeginContextFromCycleInput(&context, second_input);
   EXPECT_TRUE(context.GetSubmittedCommands().empty());
   EXPECT_NEAR(context.GetCycleDeltaTimeSec(), 1.25f, 1e-5f);
   EXPECT_TRUE(context.HasLatestControlProfile());
@@ -916,7 +923,7 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   const session::TrackOutputFrame session_frame = session.Step(session_input);
 
   environment_service.UpdateSceneState(scene);
-  manual_context.BeginCycle(input);
+  BeginContextFromCycleInput(&manual_context, input);
   controller.RunOnce();
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
   const session::TrackOutputFrame manual_frame = controller.GetLatestTrackOutputFrame();
@@ -1258,7 +1265,7 @@ TEST(PublicApiConvenienceTest, RadarSessionStepWithResultMatchesManualChainUnder
   const session::ArCycleResult session_result = session.StepWithResult(session_input);
 
   environment_service.UpdateSceneState(scene);
-  manual_context.BeginCycle(input);
+  BeginContextFromCycleInput(&manual_context, input);
   controller.RunOnce();
 
   ASSERT_TRUE(controller.HasLatestTrackOutputFrame());
