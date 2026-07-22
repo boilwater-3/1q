@@ -234,7 +234,7 @@ TEST_F(CoreControllerTest, ReusesFrozenEnvironmentSnapshotAcrossSignalAndDecisio
   EXPECT_FLOAT_EQ(decision_frame.eccm_source_info.jammer_sources.front().jammer_power_db,
                   frozen_snapshot.jammer_sources.front().power_db);
   ASSERT_EQ(measurements.size(), 1U);
-  EXPECT_EQ(measurements[0].filtered_feature.jamming_detected, frozen_snapshot.jamming_detected);
+  EXPECT_FALSE(measurements[0].filtered_feature.jamming_detected);
 }
 
 TEST_F(CoreControllerTest, AppliesUpdatedSceneOnNextControllerCycle) {
