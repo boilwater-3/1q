@@ -12,6 +12,7 @@
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 #include "airborne_radar/session/ArSessionCompositionRoot.h"
 #include "airborne_radar/session/MutableArContext.h"
+#include "airborne_radar/signal/detection/ArRfFrontEndResolver.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "common/logging/ProjectLog.h"
@@ -460,6 +461,19 @@ struct ArSession::Impl {
       return result;
     }
 
+    const config::engineering::ReceiverConfig& receiver_config =
+        runtime_state.execution_config.detection.engineering.receiver;
+    signal::detection::ArRfFrontEndResult front_end;
+    if (!signal::detection::TryResolveArRfFrontEnd(
+            input.rf_scene, prepared_receiver_state,
+            static_cast<double>(receiver_config.maximum_linear_input_power_w),
+            oneq::electromagnetics::RfIncidentLinkConfig{}, &front_end)) {
+      result.status = ArCompleteCycleStatus::kRejected;
+      return result;
+    }
+    result.receiver_impairment = front_end.receiver_saturated ? ArReceiverImpairment::kSaturated
+                                                              : ArReceiverImpairment::kNone;
+
     ArCycleInput legacy_execution_input;
     legacy_execution_input.cycle_index =
         static_cast<std::uint32_t>(prepared_input.world_cycle_index);
@@ -468,7 +482,9 @@ struct ArSession::Impl {
     legacy_execution_input.has_platform_ecef_kinematics = true;
     legacy_execution_input.platform_position_ecef_m = prepared_input.platform_position_ecef_m;
     legacy_execution_input.platform_velocity_ecef_mps = prepared_input.platform_velocity_ecef_mps;
-    legacy_execution_input.scene = input.targets;
+    if (!front_end.receiver_saturated) {
+      legacy_execution_input.scene = input.targets;
+    }
     legacy_execution_input.has_environment = true;
     legacy_execution_input.environment.atmospheric_observation = input.atmospheric_observation;
     legacy_execution_input.environment.atmospheric_context = input.atmospheric_context;

@@ -156,8 +156,8 @@ struct ONEQ_API ReceiverConfig {
   float preselector_bandwidth_hz{20.0e6f};                  /**< 宽带前端预选器带宽（Hz）。 */
   oneq::electromagnetics::RfScenePolarization scene_polarization{
       oneq::electromagnetics::RfScenePolarization::kHorizontal}; /**< RF v2 接收极化。 */
-  std::vector<oneq::electromagnetics::RfCoSiteIsolationPath>
-      co_site_paths{}; /**< 以设备身份索引的有向同平台隔离路径。 */
+  std::vector<oneq::electromagnetics::RfCoSiteIsolationPath> co_site_paths{
+      {1U, 2U, 120.0}}; /**< 发射设备到接收设备的显式有向隔离路径。 */
 };
 
 /**

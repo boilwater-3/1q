@@ -72,6 +72,32 @@ TEST(ArTwoPhaseSessionTest, PoweredOffAdvancesChronologyWithoutPublishingEmissio
   EXPECT_EQ(session.PrepareCycle(stale).status, ArPrepareCycleStatus::kRejected);
 }
 
+TEST(ArTwoPhaseSessionTest, FrontEndSaturationCompletesWithStructuredImpairment) {
+  config::ArSessionConfig config;
+  config.hardware.receiver.maximum_linear_input_power_w = 1.0e-12f;
+  ArSession session = ArSession::Create(config);
+  const ArPrepareCycleResult prepared = session.PrepareCycle(MakePrepareInput(1U, 10.0));
+  ASSERT_EQ(prepared.status, ArPrepareCycleStatus::kPrepared);
+
+  const ArCompleteCycleResult completed =
+      session.CompleteCycle(prepared.token, MakeCompleteInput(prepared));
+  EXPECT_EQ(completed.status, ArCompleteCycleStatus::kCompleted);
+  EXPECT_EQ(completed.receiver_impairment, ArReceiverImpairment::kSaturated);
+  EXPECT_TRUE(completed.track_output_frame.tracks.empty());
+}
+
+TEST(ArTwoPhaseSessionTest, MissingPreparedReceiverCoSitePathRejectsAndRetainsToken) {
+  config::ArSessionConfig config;
+  config.hardware.receiver.co_site_paths.clear();
+  ArSession session = ArSession::Create(config);
+  const ArPrepareCycleResult prepared = session.PrepareCycle(MakePrepareInput(1U, 10.0));
+  ASSERT_EQ(prepared.status, ArPrepareCycleStatus::kPrepared);
+
+  EXPECT_EQ(session.CompleteCycle(prepared.token, MakeCompleteInput(prepared)).status,
+            ArCompleteCycleStatus::kRejected);
+  EXPECT_EQ(session.AbandonCycle(prepared.token), ArAbandonCycleStatus::kAbandoned);
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace airborne_radar

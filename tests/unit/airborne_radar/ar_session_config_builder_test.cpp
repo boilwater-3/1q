@@ -380,6 +380,11 @@ TEST(RadarSessionConfigValidationTest, ValidatesEngineeringTransmitterEnvelopeAn
 
 TEST(RadarSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
   config::ArSessionConfig session_config;
+  ASSERT_EQ(session_config.hardware.receiver.co_site_paths.size(), 1U);
+  EXPECT_EQ(session_config.hardware.receiver.co_site_paths.front().transmitter_equipment_id,
+            session_config.hardware.transmitter.equipment_id);
+  EXPECT_EQ(session_config.hardware.receiver.co_site_paths.front().receiver_equipment_id,
+            session_config.hardware.receiver.equipment_id);
   session_config.hardware.receiver.maximum_linear_input_power_w = 0.0f;
   auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_FALSE(issues.empty());
