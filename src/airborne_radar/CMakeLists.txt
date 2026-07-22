@@ -2,6 +2,7 @@
 
 # -- engine: 信号处理、检测、关联、跟踪（依赖 Eigen/Boost，算法密集） ---------------
 set(AIRBORNE_ENGINE_SOURCES
+    signal/detection/ArDetectionCellResolver.cpp
     signal/association/DataAssociation.cpp
     signal/association/DistanceMetric.cpp
     signal/association/Hypothesiser.cpp
