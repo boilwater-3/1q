@@ -11,8 +11,8 @@
 
 #include "1q/airborne_radar/config/ArPolicyConfig.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
-#include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
+#include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
@@ -57,6 +57,7 @@ struct ArControllerRuntimeState {
   std::uint32_t last_applied_decision_cycle_index{0U};
   std::uint64_t last_applied_decision_batch_id{0U};
   std::vector<session::TacticalProposal> last_applied_decision_proposals{};
+  bool control_prepared_for_cycle{false};
 };
 }  // namespace extension
 }  // namespace airborne_radar
@@ -79,17 +80,27 @@ class ArController {
    * @param[in] signal_pipeline 信号处理流水线引用。
    * @param[in] environment_service 环境服务引用。
    */
-  ArController(session::MutableArContext& ar_context,
-               signal::ISignalPipeline& signal_pipeline,
+  ArController(session::MutableArContext& ar_context, signal::ISignalPipeline& signal_pipeline,
                environment::IEnvironmentService& environment_service,
                config::DecisionControlConfig decision_control_config = {});
 
   /** @brief 原子更新后续成功周期使用的控制保持/冷却配置。 */
-  void UpdateDecisionControlConfig(
-      const config::DecisionControlConfig& decision_control_config);
+  void UpdateDecisionControlConfig(const config::DecisionControlConfig& decision_control_config);
 
   /** @brief 执行一次 AR 处理循环 */
   void RunOnce();
+
+  /**
+   * @brief 在发射发布前消费上一成功周期的待决策并冻结本周期控制真值。
+   * @return 本周期首次冻结返回 true；重复调用返回 false。
+   */
+  bool PrepareEmissionControl();
+
+  /** @brief 在 Abandon 后释放控制冻结标记，不回滚已消费的控制真值。 */
+  void ReleasePreparedEmissionControl();
+
+  /** @brief 获取当前已冻结的控制真值。 */
+  const session::ArControlProfile& GetControlProfile() const;
 
   /**
    * @brief 执行指定次数的处理循环（用于仿真或测试）。
@@ -173,7 +184,6 @@ class ArController {
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };
-
 
 }  // namespace extension
 }  // namespace airborne_radar

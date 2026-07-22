@@ -115,8 +115,7 @@ struct ArController::Impl {
   std::unique_ptr<extension::ControlCommandMapper> command_mapper;
 
   // -- 周期运行时状态
-  oneq::common::runtime::RuntimeCycleState<session::TrackOutputFrame,
-                                          session::ValidationIssueList>
+  oneq::common::runtime::RuntimeCycleState<session::TrackOutputFrame, session::ValidationIssueList>
       cycle_state{};
   bool last_cycle_executed{false};
   bool last_cycle_reused_previous_output{false};
@@ -135,6 +134,7 @@ struct ArController::Impl {
   std::uint32_t last_applied_decision_cycle_index{0U};
   std::uint64_t last_applied_decision_batch_id{0U};
   std::vector<session::TacticalProposal> last_applied_decision_proposals{};
+  bool control_prepared_for_cycle{false};
 
   /** @brief 构造使用默认 TacticalCoordinator 的控制器。 */
   Impl(session::MutableArContext& ctx, signal::ISignalPipeline& sig,
@@ -150,14 +150,16 @@ struct ArController::Impl {
   }
 
   /** @brief 重置每周期可变标志位。 */
-  void ResetPerCycleFlags() {
+  void ResetPerCycleFlags(bool preserve_prepared_control_attribution) {
     last_cycle_executed = false;
     last_cycle_reused_previous_output = false;
     last_signal_abort_reason = session::SignalCycleAbortReason::kNone;
-    last_applied_decision_source = session::DecisionControlSource::kNone;
-    last_applied_decision_cycle_index = 0U;
-    last_applied_decision_batch_id = 0U;
-    last_applied_decision_proposals.clear();
+    if (!preserve_prepared_control_attribution) {
+      last_applied_decision_source = session::DecisionControlSource::kNone;
+      last_applied_decision_cycle_index = 0U;
+      last_applied_decision_batch_id = 0U;
+      last_applied_decision_proposals.clear();
+    }
   }
 
   void ApplyPendingDecisionControl() {
@@ -187,8 +189,8 @@ ArController::ArController(session::MutableArContext& radar_context,
                            signal::ISignalPipeline& signal_pipeline,
                            environment::IEnvironmentService& environment_service,
                            config::DecisionControlConfig decision_control_config)
-    : impl_(new Impl(radar_context, signal_pipeline, environment_service,
-                     decision_control_config)) {}
+    : impl_(
+          new Impl(radar_context, signal_pipeline, environment_service, decision_control_config)) {}
 
 ArController::~ArController() = default;
 
@@ -199,7 +201,8 @@ void ArController::UpdateDecisionControlConfig(
 }
 
 void ArController::RunOnce() {
-  impl_->ResetPerCycleFlags();
+  const bool control_was_prepared = impl_->control_prepared_for_cycle;
+  impl_->ResetPerCycleFlags(control_was_prepared);
 
   const session::ArSceneTargetList& scene_targets = impl_->radar_context.GetSceneTargets();
   const config::PlatformAttitudeDeg platform_attitude = impl_->radar_context.GetPlatformAttitude();
@@ -234,7 +237,9 @@ void ArController::RunOnce() {
   // 执行信号流水线与决策引擎
   const session::ArSceneTargetList& targets = scene_targets;
 
-  impl_->ApplyPendingDecisionControl();
+  if (!control_was_prepared) {
+    impl_->ApplyPendingDecisionControl();
+  }
   impl_->radar_context.UpdateRadarControlProfile(impl_->control_profile);
   impl_->signal_pipeline.SetControlProfile(impl_->control_profile);
   impl_->signal_pipeline.UpdatePlatformAttitude(platform_attitude);
@@ -242,6 +247,7 @@ void ArController::RunOnce() {
 
   session::SignalCycleResult signal_result =
       impl_->signal_pipeline.RunCycle(targets, impl_->environment_service);
+  impl_->control_prepared_for_cycle = false;
 
   impl_->last_cycle_executed = signal_result.executed_this_cycle;
   impl_->last_signal_abort_reason = signal_result.abort_reason;
@@ -292,6 +298,27 @@ void ArController::RunOnce() {
   impl_->cycle_state.has_latest_output = true;
   impl_->last_cycle_reused_previous_output = false;
   ++impl_->cycle_state.next_batch_id;
+}
+
+bool ArController::PrepareEmissionControl() {
+  if (impl_->control_prepared_for_cycle) {
+    return false;
+  }
+  impl_->last_applied_decision_source = session::DecisionControlSource::kNone;
+  impl_->last_applied_decision_cycle_index = 0U;
+  impl_->last_applied_decision_batch_id = 0U;
+  impl_->last_applied_decision_proposals.clear();
+  impl_->ApplyPendingDecisionControl();
+  impl_->radar_context.UpdateRadarControlProfile(impl_->control_profile);
+  impl_->signal_pipeline.SetControlProfile(impl_->control_profile);
+  impl_->control_prepared_for_cycle = true;
+  return true;
+}
+
+void ArController::ReleasePreparedEmissionControl() { impl_->control_prepared_for_cycle = false; }
+
+const session::ArControlProfile& ArController::GetControlProfile() const {
+  return impl_->control_profile;
 }
 
 void ArController::RunCycles(std::size_t cycles) {
@@ -371,8 +398,8 @@ std::uint64_t ArController::GetLastAppliedDecisionBatchId() const {
   return impl_->last_applied_decision_batch_id;
 }
 
-const std::vector<session::TacticalProposal>&
-ArController::GetLastAppliedDecisionProposals() const {
+const std::vector<session::TacticalProposal>& ArController::GetLastAppliedDecisionProposals()
+    const {
   return impl_->last_applied_decision_proposals;
 }
 
@@ -396,8 +423,7 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.last_cycle_reused_previous_output = impl_->last_cycle_reused_previous_output;
   state.last_signal_abort_reason = impl_->last_signal_abort_reason;
   state.control_profile = impl_->control_profile;
-  state.control_reducer_config =
-      impl_->owned_decision_components.control_reducer->GetConfig();
+  state.control_reducer_config = impl_->owned_decision_components.control_reducer->GetConfig();
   state.control_reducer_state = impl_->owned_decision_components.control_reducer->GetRuntimeState();
   state.has_pending_internal_decision = impl_->has_pending_internal_decision;
   state.pending_internal_cycle_index = impl_->pending_internal_cycle_index;
@@ -411,6 +437,7 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.last_applied_decision_cycle_index = impl_->last_applied_decision_cycle_index;
   state.last_applied_decision_batch_id = impl_->last_applied_decision_batch_id;
   state.last_applied_decision_proposals = impl_->last_applied_decision_proposals;
+  state.control_prepared_for_cycle = impl_->control_prepared_for_cycle;
   return state;
 }
 
@@ -429,8 +456,7 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->last_cycle_reused_previous_output = state.last_cycle_reused_previous_output;
   impl_->last_signal_abort_reason = state.last_signal_abort_reason;
   impl_->control_profile = state.control_profile;
-  impl_->owned_decision_components.control_reducer->UpdateConfig(
-      state.control_reducer_config);
+  impl_->owned_decision_components.control_reducer->UpdateConfig(state.control_reducer_config);
   impl_->owned_decision_components.control_reducer->RestoreRuntimeState(
       state.control_reducer_state);
   impl_->has_pending_internal_decision = state.has_pending_internal_decision;
@@ -445,6 +471,7 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->last_applied_decision_cycle_index = state.last_applied_decision_cycle_index;
   impl_->last_applied_decision_batch_id = state.last_applied_decision_batch_id;
   impl_->last_applied_decision_proposals = state.last_applied_decision_proposals;
+  impl_->control_prepared_for_cycle = state.control_prepared_for_cycle;
   return true;
 }
 

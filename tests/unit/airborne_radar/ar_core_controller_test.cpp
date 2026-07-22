@@ -527,6 +527,33 @@ TEST_F(CoreControllerTest, MatchingExternalResponseReplacesInternalBaseline) {
   EXPECT_FLOAT_EQ(signal_pipeline.GetControlProfile().lpi_power_scale, 0.4f);
 }
 
+TEST_F(CoreControllerTest, MatchingExternalResponseCanBeConsumedBeforeEmission) {
+  FakeRadarContext radar_context(BuildSingleTarget(800.0f, 2.5f, false));
+  environment::EnvironmentService environment_service;
+  signal::pipeline::SignalPipeline signal_pipeline;
+  extension::ArController controller(radar_context, signal_pipeline, environment_service);
+
+  controller.RunOnce();
+  const session::DecisionInputFrame frame = controller.GetLatestDecisionObservation().input_frame;
+  session::ExternalDecisionResponse response;
+  response.source_cycle_index = frame.cycle_index;
+  response.source_batch_id = frame.batch_id;
+  response.proposals.push_back(session::TacticalProposal{
+      session::ControlDirective(session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
+                                session::ControlDirectiveSource::SURVIVABILITY),
+      60, "external agility"});
+  ASSERT_EQ(controller.SubmitExternalDecision(response),
+            session::ExternalDecisionSubmitStatus::kAccepted);
+
+  ASSERT_TRUE(controller.PrepareEmissionControl());
+  EXPECT_TRUE(controller.GetControlProfile().enable_agility_frequency);
+  EXPECT_TRUE(signal_pipeline.GetControlProfile().enable_agility_frequency);
+  EXPECT_FALSE(controller.PrepareEmissionControl());
+
+  controller.RunOnce();
+  EXPECT_EQ(controller.GetLastAppliedDecisionSource(), session::DecisionControlSource::kExternal);
+}
+
 TEST_F(CoreControllerTest, PublicDecisionControlConfigEnablesHoldWindow) {
   const session::ArSceneTargetList empty_scene;
   FakeRadarContext radar_context(empty_scene);

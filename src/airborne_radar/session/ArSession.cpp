@@ -357,8 +357,6 @@ struct ArSession::Impl {
       result.status = ArPrepareCycleStatus::kRejected;
       return result;
     }
-    const double carrier_hz =
-        transmitter.frequency_plan_hz[frequency_hop_index % transmitter.frequency_plan_hz.size()];
     const double pulse_repetition_interval_s = 1.0 / static_cast<double>(transmitter.prf_hz);
     const double pulse_count_value =
         std::ceil(input.window_duration_s / pulse_repetition_interval_s);
@@ -367,6 +365,19 @@ struct ArSession::Impl {
       result.status = ArPrepareCycleStatus::kRejected;
       return result;
     }
+    const extension::ArControllerRuntimeState controller_state_before_prepare =
+        Controller().CaptureRuntimeState();
+    if (!Controller().PrepareEmissionControl()) {
+      result.status = ArPrepareCycleStatus::kRejected;
+      return result;
+    }
+    const session::ArControlProfile& control_profile = Controller().GetControlProfile();
+    std::size_t selected_frequency_hop_index = frequency_hop_index;
+    if (control_profile.enable_agility_frequency && transmitter.frequency_plan_hz.size() > 1U) {
+      selected_frequency_hop_index =
+          (frequency_hop_index + 1U) % transmitter.frequency_plan_hz.size();
+    }
+    const double carrier_hz = transmitter.frequency_plan_hz[selected_frequency_hop_index];
 
     oneq::electromagnetics::RfSceneEmission emission;
     emission.identity.platform_id = input.platform_id;
@@ -385,14 +396,29 @@ struct ArSession::Impl {
     emission.antenna.cross_polarization_isolation_db =
         static_cast<double>(receiver.cross_polarization_isolation_db);
     emission.polarization = receiver.scene_polarization;
+    const double emission_control_scale =
+        control_profile.enable_lpi_power_control
+            ? std::max(0.0, static_cast<double>(control_profile.lpi_power_scale))
+            : 1.0;
+    const double requested_peak_power_w =
+        static_cast<double>(transmitter.peak_power_w) * emission_control_scale *
+        std::max(1.0, static_cast<double>(control_profile.eccm_burnthrough_gain));
+    const double energy_limited_peak_power_w =
+        static_cast<double>(transmitter.maximum_pulse_energy_j) /
+        static_cast<double>(transmitter.pulse_width_s);
+    const double actual_peak_power_w =
+        std::min({requested_peak_power_w, static_cast<double>(transmitter.maximum_peak_power_w),
+                  energy_limited_peak_power_w});
     const double radiated_peak_power_w =
-        static_cast<double>(transmitter.peak_power_w) *
+        actual_peak_power_w *
         std::pow(10.0, -static_cast<double>(transmitter.transmit_loss_db) / 10.0);
     if (!oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
             input.window_start_time_s, carrier_hz, static_cast<double>(transmitter.bandwidth_hz),
             radiated_peak_power_w, static_cast<double>(transmitter.pulse_width_s),
-            pulse_repetition_interval_s, static_cast<std::uint32_t>(pulse_count_value), 0.0,
-            timing_seed, successful_prepare_count, &emission.waveform)) {
+            pulse_repetition_interval_s, static_cast<std::uint32_t>(pulse_count_value),
+            control_profile.enable_eccm_rejitter ? 0.15 : 0.0, timing_seed,
+            successful_prepare_count, &emission.waveform)) {
+      (void)Controller().RestoreRuntimeState(controller_state_before_prepare);
       result.status = ArPrepareCycleStatus::kRejected;
       return result;
     }
@@ -403,6 +429,13 @@ struct ArSession::Impl {
     receiver_state.position_ecef_m = input.platform_position_ecef_m;
     receiver_state.velocity_ecef_mps = input.platform_velocity_ecef_mps;
     receiver_state.antenna = emission.antenna;
+    if (control_profile.enable_sidelobe_canceller) {
+      receiver_state.antenna.sidelobe_level_db -= 12.0;
+    }
+    if (control_profile.enable_adaptive_beamforming) {
+      receiver_state.antenna.half_power_beamwidth_deg *= 0.75;
+      receiver_state.antenna.sidelobe_level_db -= 6.0;
+    }
     receiver_state.polarization = receiver.scene_polarization;
     receiver_state.window_start_time_s = input.window_start_time_s;
     receiver_state.window_duration_s = input.window_duration_s;
@@ -423,6 +456,7 @@ struct ArSession::Impl {
     last_world_window_end_s = input.window_start_time_s + input.window_duration_s;
     ++next_emission_id;
     ++successful_prepare_count;
+    frequency_hop_index = selected_frequency_hop_index;
 
     result.status = ArPrepareCycleStatus::kPrepared;
     result.token = prepared_token;
@@ -545,6 +579,7 @@ struct ArSession::Impl {
     }
     has_prepared_cycle = false;
     prepared_token = ArPreparedCycleToken{};
+    Controller().ReleasePreparedEmissionControl();
     return ArAbandonCycleStatus::kAbandoned;
   }
 
