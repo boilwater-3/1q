@@ -37,12 +37,17 @@ table ArOrientationConfig {
 }
 
 table TransmitterConfig {
+  equipment_id:ulong;
   peak_power_w:float;
   frequency_hz:float;
   bandwidth_hz:float;
   pulse_width_s:float;
   prf_hz:float;
   transmit_loss_db:float;
+  maximum_peak_power_w:float;
+  maximum_duty_cycle:float;
+  maximum_pulse_energy_j:float;
+  frequency_plan_hz:[double];
 }
 
 table AntennaPatternConfig {
@@ -64,9 +69,26 @@ table AntennaConfig {
   antenna_width_m:float;
 }
 
+table RfCoSiteIsolationPath {
+  transmitter_equipment_id:ulong;
+  receiver_equipment_id:ulong;
+  isolation_db:double;
+}
+
 table ReceiverConfig {
+  equipment_id:ulong;
   noise_figure_db:float;
   receive_loss_db:float;
+  polarization:int;
+  cross_polarization_isolation_db:float;
+  minimum_far_field_range_m:float;
+  has_co_site_isolation:bool;
+  co_site_isolation_db:float;
+  maximum_linear_input_power_w:float;
+  preselector_bandwidth_hz:float;
+  interference_observation_jn_gate_db:float;
+  scene_polarization:int;
+  co_site_paths:[RfCoSiteIsolationPath];
 }
 
 table ArDetectionPolicyConfig {

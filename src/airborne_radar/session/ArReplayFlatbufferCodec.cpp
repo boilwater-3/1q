@@ -858,11 +858,21 @@ flatbuffers::Offset<session_fb::ArOrientationConfig> EncodeSessionOrientation(
 
 flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
     flatbuffers::FlatBufferBuilder* builder, const config::DetectionConfig& value) {
+  const auto frequency_plan = builder->CreateVector(value.transmitter.frequency_plan_hz);
+  session_fb::TransmitterConfigBuilder transmitter_builder(*builder);
+  transmitter_builder.add_equipment_id(value.transmitter.equipment_id);
+  transmitter_builder.add_peak_power_w(value.transmitter.peak_power_w);
+  transmitter_builder.add_frequency_hz(value.transmitter.frequency_hz);
+  transmitter_builder.add_bandwidth_hz(value.transmitter.bandwidth_hz);
+  transmitter_builder.add_pulse_width_s(value.transmitter.pulse_width_s);
+  transmitter_builder.add_prf_hz(value.transmitter.prf_hz);
+  transmitter_builder.add_transmit_loss_db(value.transmitter.transmit_loss_db);
+  transmitter_builder.add_maximum_peak_power_w(value.transmitter.maximum_peak_power_w);
+  transmitter_builder.add_maximum_duty_cycle(value.transmitter.maximum_duty_cycle);
+  transmitter_builder.add_maximum_pulse_energy_j(value.transmitter.maximum_pulse_energy_j);
+  transmitter_builder.add_frequency_plan_hz(frequency_plan);
   const flatbuffers::Offset<session_fb::TransmitterConfig> transmitter =
-      session_fb::CreateTransmitterConfig(
-          *builder, value.transmitter.peak_power_w, value.transmitter.frequency_hz,
-          value.transmitter.bandwidth_hz, value.transmitter.pulse_width_s, value.transmitter.prf_hz,
-          value.transmitter.transmit_loss_db);
+      transmitter_builder.Finish();
   const flatbuffers::Offset<session_fb::AntennaPatternConfig> pattern =
       session_fb::CreateAntennaPatternConfig(
           *builder, static_cast<int>(value.antenna.pattern.model_type),
@@ -873,8 +883,34 @@ flatbuffers::Offset<session_fb::DetectionConfig> EncodeSessionDetectionConfig(
       *builder, value.antenna.main_beam_gain_db, value.antenna.nominal_az_beamwidth_deg,
       value.antenna.nominal_el_beamwidth_deg, value.antenna.enable_directional_pattern, pattern,
       value.antenna.antenna_length_m, value.antenna.antenna_width_m);
-  const flatbuffers::Offset<session_fb::ReceiverConfig> receiver = session_fb::CreateReceiverConfig(
-      *builder, value.receiver.noise_figure_db, value.receiver.receive_loss_db);
+  std::vector<flatbuffers::Offset<session_fb::RfCoSiteIsolationPath>> co_site_paths;
+  co_site_paths.reserve(value.receiver.co_site_paths.size());
+  for (const oneq::electromagnetics::RfCoSiteIsolationPath& path :
+       value.receiver.co_site_paths) {
+    co_site_paths.push_back(session_fb::CreateRfCoSiteIsolationPath(
+        *builder, path.transmitter_equipment_id, path.receiver_equipment_id,
+        path.isolation_db));
+  }
+  session_fb::ReceiverConfigBuilder receiver_builder(*builder);
+  receiver_builder.add_equipment_id(value.receiver.equipment_id);
+  receiver_builder.add_noise_figure_db(value.receiver.noise_figure_db);
+  receiver_builder.add_receive_loss_db(value.receiver.receive_loss_db);
+  receiver_builder.add_polarization(static_cast<int>(value.receiver.polarization));
+  receiver_builder.add_cross_polarization_isolation_db(
+      value.receiver.cross_polarization_isolation_db);
+  receiver_builder.add_minimum_far_field_range_m(value.receiver.minimum_far_field_range_m);
+  receiver_builder.add_has_co_site_isolation(value.receiver.has_co_site_isolation);
+  receiver_builder.add_co_site_isolation_db(value.receiver.co_site_isolation_db);
+  receiver_builder.add_maximum_linear_input_power_w(
+      value.receiver.maximum_linear_input_power_w);
+  receiver_builder.add_preselector_bandwidth_hz(value.receiver.preselector_bandwidth_hz);
+  receiver_builder.add_interference_observation_jn_gate_db(
+      value.receiver.interference_observation_jn_gate_db);
+  receiver_builder.add_scene_polarization(
+      static_cast<int>(value.receiver.scene_polarization));
+  receiver_builder.add_co_site_paths(builder->CreateVector(co_site_paths));
+  const flatbuffers::Offset<session_fb::ReceiverConfig> receiver =
+      receiver_builder.Finish();
   const flatbuffers::Offset<session_fb::RcsPhysicsConfig> rcs_physics =
       session_fb::CreateRcsPhysicsConfig(
           *builder, value.rcs_physics.enable_physical_rcs, value.rcs_physics.physics_mix_ratio,
@@ -1046,12 +1082,20 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
   if (value != nullptr) {
     const session_fb::TransmitterConfig* transmitter = value->transmitter();
     if (transmitter != nullptr) {
+      result.transmitter.equipment_id = transmitter->equipment_id();
       result.transmitter.peak_power_w = transmitter->peak_power_w();
       result.transmitter.frequency_hz = transmitter->frequency_hz();
       result.transmitter.bandwidth_hz = transmitter->bandwidth_hz();
       result.transmitter.pulse_width_s = transmitter->pulse_width_s();
       result.transmitter.prf_hz = transmitter->prf_hz();
       result.transmitter.transmit_loss_db = transmitter->transmit_loss_db();
+      result.transmitter.maximum_peak_power_w = transmitter->maximum_peak_power_w();
+      result.transmitter.maximum_duty_cycle = transmitter->maximum_duty_cycle();
+      result.transmitter.maximum_pulse_energy_j = transmitter->maximum_pulse_energy_j();
+      if (transmitter->frequency_plan_hz() != nullptr) {
+        result.transmitter.frequency_plan_hz.assign(transmitter->frequency_plan_hz()->begin(),
+                                                    transmitter->frequency_plan_hz()->end());
+      }
     }
     const session_fb::AntennaConfig* antenna = value->antenna();
     if (antenna != nullptr) {
@@ -1075,8 +1119,36 @@ config::DetectionConfig DecodeSessionDetectionConfig(const session_fb::Detection
     }
     const session_fb::ReceiverConfig* receiver = value->receiver();
     if (receiver != nullptr) {
+      result.receiver.equipment_id = receiver->equipment_id();
       result.receiver.noise_figure_db = receiver->noise_figure_db();
       result.receiver.receive_loss_db = receiver->receive_loss_db();
+      result.receiver.polarization =
+          static_cast<oneq::electromagnetics::RfPolarization>(receiver->polarization());
+      result.receiver.cross_polarization_isolation_db =
+          receiver->cross_polarization_isolation_db();
+      result.receiver.minimum_far_field_range_m = receiver->minimum_far_field_range_m();
+      result.receiver.has_co_site_isolation = receiver->has_co_site_isolation();
+      result.receiver.co_site_isolation_db = receiver->co_site_isolation_db();
+      result.receiver.maximum_linear_input_power_w =
+          receiver->maximum_linear_input_power_w();
+      result.receiver.preselector_bandwidth_hz = receiver->preselector_bandwidth_hz();
+      result.receiver.interference_observation_jn_gate_db =
+          receiver->interference_observation_jn_gate_db();
+      result.receiver.scene_polarization =
+          static_cast<oneq::electromagnetics::RfScenePolarization>(
+              receiver->scene_polarization());
+      result.receiver.co_site_paths.clear();
+      if (receiver->co_site_paths() != nullptr) {
+        result.receiver.co_site_paths.reserve(receiver->co_site_paths()->size());
+        for (const session_fb::RfCoSiteIsolationPath* encoded :
+             *receiver->co_site_paths()) {
+          oneq::electromagnetics::RfCoSiteIsolationPath path;
+          path.transmitter_equipment_id = encoded->transmitter_equipment_id();
+          path.receiver_equipment_id = encoded->receiver_equipment_id();
+          path.isolation_db = encoded->isolation_db();
+          result.receiver.co_site_paths.push_back(path);
+        }
+      }
     }
     const session_fb::RcsPhysicsConfig* rcs_physics = value->rcs_physics();
     if (rcs_physics != nullptr) {

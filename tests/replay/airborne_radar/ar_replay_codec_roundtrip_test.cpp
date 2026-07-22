@@ -406,6 +406,24 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
 
 TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config::ArSessionConfig config;
+  config.hardware.transmitter.equipment_id = 41U;
+  config.hardware.transmitter.maximum_peak_power_w = 2.5e6f;
+  config.hardware.transmitter.maximum_duty_cycle = 0.08f;
+  config.hardware.transmitter.maximum_pulse_energy_j = 18.0f;
+  config.hardware.transmitter.frequency_plan_hz = {8.0e9, 8.2e9, 8.4e9};
+  config.hardware.receiver.equipment_id = 42U;
+  config.hardware.receiver.polarization =
+      oneq::electromagnetics::RfPolarization::kVertical;
+  config.hardware.receiver.cross_polarization_isolation_db = 27.0f;
+  config.hardware.receiver.minimum_far_field_range_m = 3.0f;
+  config.hardware.receiver.has_co_site_isolation = true;
+  config.hardware.receiver.co_site_isolation_db = 111.0f;
+  config.hardware.receiver.maximum_linear_input_power_w = 2.0e-4f;
+  config.hardware.receiver.preselector_bandwidth_hz = 32.0e6f;
+  config.hardware.receiver.interference_observation_jn_gate_db = 8.5f;
+  config.hardware.receiver.scene_polarization =
+      oneq::electromagnetics::RfScenePolarization::kVertical;
+  config.hardware.receiver.co_site_paths = {{41U, 42U, 117.0}, {43U, 42U, 104.0}};
   // hardware
   config.hardware.transmitter.peak_power_w = 50000.0f;
   config.hardware.transmitter.frequency_hz = 9.5e9f;
@@ -454,6 +472,24 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config::ArSessionConfig decoded;
   std::string error;
   ASSERT_TRUE(DecodeSessionConfigFlatbuffer(bytes, &decoded, &error)) << error;
+
+  EXPECT_EQ(decoded.hardware.transmitter.equipment_id, 41U);
+  EXPECT_FLOAT_EQ(decoded.hardware.transmitter.maximum_peak_power_w, 2.5e6f);
+  EXPECT_FLOAT_EQ(decoded.hardware.transmitter.maximum_duty_cycle, 0.08f);
+  EXPECT_FLOAT_EQ(decoded.hardware.transmitter.maximum_pulse_energy_j, 18.0f);
+  EXPECT_EQ(decoded.hardware.transmitter.frequency_plan_hz,
+            config.hardware.transmitter.frequency_plan_hz);
+  EXPECT_EQ(decoded.hardware.receiver.equipment_id, 42U);
+  EXPECT_EQ(decoded.hardware.receiver.polarization,
+            oneq::electromagnetics::RfPolarization::kVertical);
+  EXPECT_FLOAT_EQ(decoded.hardware.receiver.maximum_linear_input_power_w, 2.0e-4f);
+  EXPECT_FLOAT_EQ(decoded.hardware.receiver.preselector_bandwidth_hz, 32.0e6f);
+  EXPECT_EQ(decoded.hardware.receiver.scene_polarization,
+            oneq::electromagnetics::RfScenePolarization::kVertical);
+  ASSERT_EQ(decoded.hardware.receiver.co_site_paths.size(), 2U);
+  EXPECT_EQ(decoded.hardware.receiver.co_site_paths[0].transmitter_equipment_id, 41U);
+  EXPECT_EQ(decoded.hardware.receiver.co_site_paths[0].receiver_equipment_id, 42U);
+  EXPECT_DOUBLE_EQ(decoded.hardware.receiver.co_site_paths[0].isolation_db, 117.0);
 
   // hardware
   EXPECT_FLOAT_EQ(decoded.hardware.transmitter.peak_power_w, 50000.0f);
