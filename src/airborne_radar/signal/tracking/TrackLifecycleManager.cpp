@@ -534,9 +534,6 @@ void TrackLifecycleManager::ComputePhase(LifecycleUpdateScratch& scratch, const 
         track.velocity = Eigen::Vector3f(measurement.filtered_feature.observed_speed, 0.0f, 0.0f);
       }
       track.rcs = measurement.filtered_feature.rcs;
-      track.jamming_detected = measurement.filtered_feature.jamming_detected;
-      track.dominant_jamming_semantic = measurement.filtered_feature.dominant_jamming_semantic;
-      track.jamming_severity = measurement.filtered_feature.jamming_severity;
 
       PromoteState(track, cycle.cycle_index, true, cycle.extra_miss_tolerance);
 
@@ -687,9 +684,6 @@ void TrackLifecycleManager::ResetForReuse(TrackState& track) const {
   track.velocity.setZero();
   track.acceleration.setZero();
   track.rcs = 0.0f;
-  track.jamming_detected = false;
-  track.dominant_jamming_semantic = config::JammingSemantic::kNone;
-  track.jamming_severity = 0.0f;
   track.gaussian_state = GaussianTrackState();
 }
 
