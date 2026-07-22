@@ -503,6 +503,21 @@ bool TryEvaluateRfArrivalActivity(const RfWaveformSchedule& waveform,
   return true;
 }
 
+bool TryResolveRfPulseStartTime(const RfWaveformSchedule& waveform,
+                                std::uint32_t pulse_index, double* pulse_start_time_s) {
+  if (pulse_start_time_s == nullptr || !IsValidWaveform(waveform) ||
+      waveform.kind != RfSceneWaveformKind::kPulseTrain ||
+      pulse_index >= waveform.pulse_count) {
+    return false;
+  }
+  const double candidate = PulseStartTime(waveform, pulse_index);
+  if (!IsFinite(candidate)) {
+    return false;
+  }
+  *pulse_start_time_s = candidate;
+  return true;
+}
+
 bool TryValidateRfSceneFrame(const RfSceneFrame& scene) {
   if (scene.world_cycle_index == 0U || !IsFinite(scene.window_start_time_s) ||
       !IsFinite(scene.window_duration_s) || scene.window_duration_s <= 0.0) {

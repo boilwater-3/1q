@@ -170,6 +170,17 @@ ONEQ_API bool TryEvaluateRfArrivalActivity(const RfWaveformSchedule& waveform,
                                            double* arrival_center_frequency_hz);
 
 /**
+ * @brief 解析 pulse-train 中指定脉冲的实际绝对发射起点。
+ * @param[in] waveform 由 TryCreateRfPulseTrainWaveform 构造的波形。
+ * @param[in] pulse_index 从 0 开始的脉冲索引。
+ * @param[out] pulse_start_time_s 实际脉冲起点，包含确定性 jitter。
+ * @return 输入合法且索引存在时返回 true；失败时不修改输出。
+ */
+ONEQ_API bool TryResolveRfPulseStartTime(const RfWaveformSchedule& waveform,
+                                         std::uint32_t pulse_index,
+                                         double* pulse_start_time_s);
+
+/**
  * @brief 构造连续载波参数化波形。
  * @param[in] start_time_s 绝对 world-time 起点。
  * @param[in] duration_s 活动持续时间。

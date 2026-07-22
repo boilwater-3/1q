@@ -101,6 +101,10 @@ TEST(RfSceneTest, ArrivalActivityReplaysPulseJitterAndSweepFrequency) {
                                            &center_hz));
   EXPECT_FALSE(active);
   EXPECT_DOUBLE_EQ(center_hz, 0.0);
+  double pulse_start_s = 0.0;
+  ASSERT_TRUE(TryResolveRfPulseStartTime(pulse, 1U, &pulse_start_s));
+  EXPECT_GT(pulse_start_s, 10.0);
+  EXPECT_FALSE(TryResolveRfPulseStartTime(pulse, pulse.pulse_count, &pulse_start_s));
 
   RfWaveformSchedule sweep;
   ASSERT_TRUE(TryCreateRfLinearSweepWaveform(20.0, 2.0, 2.9e9, 3.1e9, 1.0e6, 50.0,
