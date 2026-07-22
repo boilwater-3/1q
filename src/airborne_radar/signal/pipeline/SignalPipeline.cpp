@@ -77,6 +77,8 @@ struct SignalPipelineSnapshot {
   std::uint64_t batch_id{1U};
   association::DataAssociationRuntimeState association_runtime{};
   tracking::TrackLifecycleRuntimeState lifecycle_runtime{};
+  bool has_pending_rf_v2_interference_power{false};
+  float pending_rf_v2_interference_power_w{0.0f};
 };
 
 struct RuntimeState {
@@ -151,6 +153,11 @@ struct SignalPipeline::Impl {
         runtime_execution.base_config, runtime_execution.control_profile);
     ExecutionConfig runtime_config = resolved.config;
     ApplyScanScheduleToRuntimeConfig(environment_snapshot.cycle_index, &runtime_config);
+    if (has_pending_rf_v2_interference_power) {
+      runtime_config.jamming_effects.has_rf_v2_interference_power = true;
+      runtime_config.jamming_effects.resolved_engineering_jam_noise_w =
+          pending_rf_v2_interference_power_w;
+    }
 
     CycleExecutionContext context(input_state, environment_snapshot,
                                   environment_snapshot.cycle_index, cycle_.batch_id,
@@ -162,6 +169,8 @@ struct SignalPipeline::Impl {
       result.abort_reason = session::SignalCycleAbortReason::kRuntimePreparationFailed;
       return result;
     }
+    has_pending_rf_v2_interference_power = false;
+    pending_rf_v2_interference_power_w = 0.0f;
 
     session::SignalCycleResult result;
     result.executed_this_cycle = true;
@@ -196,6 +205,8 @@ struct SignalPipeline::Impl {
     if (runtime_.owned.auto_lifecycle_manager != nullptr) {
       snapshot->lifecycle_runtime = runtime_.owned.auto_lifecycle_manager->CaptureRuntimeState();
     }
+    snapshot->has_pending_rf_v2_interference_power = has_pending_rf_v2_interference_power;
+    snapshot->pending_rf_v2_interference_power_w = pending_rf_v2_interference_power_w;
 
     SignalPipelineRuntimeState state;
     state.owner_identity = this;
@@ -231,6 +242,8 @@ struct SignalPipeline::Impl {
     cycle_.scratch.association_quality_metrics = snapshot->association_quality_metrics;
     cycle_.cycle_index = snapshot->cycle_index;
     cycle_.batch_id = snapshot->batch_id;
+    has_pending_rf_v2_interference_power = snapshot->has_pending_rf_v2_interference_power;
+    pending_rf_v2_interference_power_w = snapshot->pending_rf_v2_interference_power_w;
   }
 
   void SetAssociationSeeds(const std::vector<tracking::AssociationTrackSeed>& seeds) {
@@ -295,8 +308,15 @@ struct SignalPipeline::Impl {
   void SetControlProfile(const session::ArControlProfile& control_profile) {
     runtime_.config.control_profile_ = control_profile;
   }
-  session::ArControlProfile GetControlProfile() const {
-    return runtime_.config.control_profile_;
+  session::ArControlProfile GetControlProfile() const { return runtime_.config.control_profile_; }
+
+  bool SetNextRfV2InterferencePowerW(float interference_power_w) {
+    if (!std::isfinite(interference_power_w) || interference_power_w < 0.0f) {
+      return false;
+    }
+    has_pending_rf_v2_interference_power = true;
+    pending_rf_v2_interference_power_w = interference_power_w;
+    return true;
   }
 
   void RebuildOwnedComponents() {
@@ -311,6 +331,8 @@ struct SignalPipeline::Impl {
 
   RuntimeState runtime_;
   CycleState cycle_;
+  bool has_pending_rf_v2_interference_power{false};
+  float pending_rf_v2_interference_power_w{0.0f};
 };
 
 SignalPipeline::SignalPipeline(const ExecutionConfig& config)
@@ -318,6 +340,10 @@ SignalPipeline::SignalPipeline(const ExecutionConfig& config)
 
 SignalPipeline::SignalPipeline(const config::ArSessionConfig& config)
     : SignalPipeline(::airborne_radar::config::mapping::MapSessionToExecution(config)) {}
+
+bool SignalPipeline::SetNextRfV2InterferencePowerW(float interference_power_w) {
+  return impl_->SetNextRfV2InterferencePowerW(interference_power_w);
+}
 
 SignalPipeline::~SignalPipeline() = default;
 

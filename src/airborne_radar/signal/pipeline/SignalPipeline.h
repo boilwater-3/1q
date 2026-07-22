@@ -119,6 +119,12 @@ class SignalPipeline final : public ISignalPipeline {
    */
   bool UpdateExecutionConfig(const ExecutionConfig& config);
 
+  /**
+   * @brief 注入下一次成功周期使用的 RF v2 接收端干扰功率。
+   * @return 输入为有限非负 W 时返回 true；非法输入不改变待消费状态。
+   */
+  bool SetNextRfV2InterferencePowerW(float interference_power_w);
+
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;

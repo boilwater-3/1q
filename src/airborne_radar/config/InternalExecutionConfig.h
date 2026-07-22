@@ -43,6 +43,7 @@ namespace execution {
  */
 struct JammingEffectsConfig {
   float resolved_engineering_jam_noise_w{0.0f};
+  bool has_rf_v2_interference_power{false};
   float confidence_weight_min{0.25f};
 };
 

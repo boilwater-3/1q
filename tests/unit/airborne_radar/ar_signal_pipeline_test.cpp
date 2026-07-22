@@ -1086,6 +1086,29 @@ TEST(SignalPipelineTest, EngineeringRfInterferenceRejectsReceiverSaturationAtomi
   EXPECT_FLOAT_EQ(received_power_w, 123.0f);
 }
 
+TEST(SignalPipelineTest, RfV2InterferenceOnlySuppressesDetectionAndIsOneShot) {
+  config::ArSessionConfig config = MakeDetectionFocusedConfig();
+  environment::EnvironmentService baseline_environment;
+  environment::EnvironmentService jammed_environment;
+  signal::pipeline::SignalPipeline baseline_pipeline(config);
+  signal::pipeline::SignalPipeline jammed_pipeline(config);
+  const session::ArSceneTarget target = BuildPhysicsTarget(1000.0f, 10.0f);
+
+  ASSERT_TRUE(RunPipelineCycle(&baseline_pipeline, {target}, &baseline_environment, 1U)
+                  .executed_this_cycle);
+  ASSERT_FALSE(baseline_pipeline.GetLastTrackMeasurements().empty());
+
+  EXPECT_FALSE(jammed_pipeline.SetNextRfV2InterferencePowerW(-1.0f));
+  ASSERT_TRUE(jammed_pipeline.SetNextRfV2InterferencePowerW(1.0e6f));
+  ASSERT_TRUE(
+      RunPipelineCycle(&jammed_pipeline, {target}, &jammed_environment, 1U).executed_this_cycle);
+  EXPECT_TRUE(jammed_pipeline.GetLastTrackMeasurements().empty());
+
+  ASSERT_TRUE(
+      RunPipelineCycle(&jammed_pipeline, {target}, &jammed_environment, 2U).executed_this_cycle);
+  EXPECT_FALSE(jammed_pipeline.GetLastTrackMeasurements().empty());
+}
+
 TEST(SignalPipelineTest, EccmDoesNotRetuneImmLifecycleParameters) {
   config::ArSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,

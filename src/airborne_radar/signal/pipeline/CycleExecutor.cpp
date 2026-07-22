@@ -37,7 +37,8 @@ void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime) {
 
 bool RunEnvironmentPhase(CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                          CycleExecutionScratch& scratch) {
-  if (!TryResolveEngineeringInterferencePowerW(
+  if (!context.runtime_config.jamming_effects.has_rf_v2_interference_power &&
+      !TryResolveEngineeringInterferencePowerW(
           context.runtime_config, context.environment_snapshot,
           &context.runtime_config.jamming_effects.resolved_engineering_jam_noise_w)) {
     PROJECT_LOG_ERROR(
@@ -170,22 +171,9 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
   return metrics;
 }
 
-std::uint32_t ResolveLifecycleExtraMissTolerance(const session::ArControlProfile& control_profile) {
-  std::uint32_t extra_miss_tolerance = 0U;
-  if (control_profile.enable_sidelobe_canceller || control_profile.enable_agility_frequency ||
-      control_profile.enable_eccm_rejitter) {
-    extra_miss_tolerance += 1U;
-  }
-  if (control_profile.eccm_burnthrough_gain > 1.0f) {
-    extra_miss_tolerance += 1U;
-  }
-  return extra_miss_tolerance;
-}
-
 }  // namespace
 
-void CollectCycleOutputs(const session::ArControlProfile& control_profile,
-                         std::uint32_t cycle_index, std::uint64_t batch_id,
+void CollectCycleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
                          const ExecutionConfig& runtime_config,
                          const session::EnvironmentSnapshot& environment_snapshot,
                          const session::ArSceneTargetList& input_state,
@@ -211,7 +199,7 @@ void CollectCycleOutputs(const session::ArControlProfile& control_profile,
   cycle.cycle_index = cycle_index;
   cycle.batch_id = batch_id;
   cycle.dt_sec = environment_snapshot.cycle_dt_sec;
-  cycle.extra_miss_tolerance = ResolveLifecycleExtraMissTolerance(control_profile);
+  cycle.extra_miss_tolerance = 0U;
   auto_lifecycle_manager->Update(cycle, scratch.track_measurements);
   scratch.decision_frame =
       session::DecisionInputFrame(auto_lifecycle_manager->BuildTrackStateSnapshots());
@@ -226,9 +214,8 @@ void CollectCycleOutputs(const session::ArControlProfile& control_profile,
 void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
                      const CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                      CycleExecutionScratch& scratch) {
-  CollectCycleOutputs(runtime.control_profile, cycle_index, batch_id, context.runtime_config,
-                      context.environment_snapshot, context.input_state,
-                      &runtime.auto_lifecycle_manager, scratch);
+  CollectCycleOutputs(cycle_index, batch_id, context.runtime_config, context.environment_snapshot,
+                      context.input_state, &runtime.auto_lifecycle_manager, scratch);
 }
 
 }  // namespace
