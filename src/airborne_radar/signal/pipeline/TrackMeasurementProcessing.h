@@ -19,15 +19,12 @@ namespace pipeline {
  *
  * 读取 scratch.detection_succeeded / association_result / association_keys /
  * detection_margin_db / target_geometry / measurement_covariances /
- * dominant_jamming_semantic / jamming_severity；
  * 写入 scratch.measurement_slots / track_measurements。
  *
  * @param input          本周期输入目标列表。
- * @param jamming_detected 环境是否探测到干扰。
  * @param scratch        周期暂存区（读取探测/关联结果，写入量测）。
  */
 void BuildTrackMeasurementsPass(const session::ArSceneTargetList& input,
-                                bool jamming_detected,
                                 CycleExecutionScratch& scratch);
 
 /**
@@ -35,18 +32,15 @@ void BuildTrackMeasurementsPass(const session::ArSceneTargetList& input,
  *        并将滤波特征回写到对应的 track_measurements 槽位。
  *
  * 读取 scratch.detection_succeeded / detection_margin_db /
- * measurement_slots / track_measurements / dominant_jamming_semantic / jamming_severity；
+ * measurement_slots / track_measurements；
  * 写入 scratch.output_state / scratch.track_measurements（filtered_feature）。
  *
  * @param input          本周期输入目标列表。
- * @param jamming_detected 环境是否探测到干扰。
  * @param track_filter   轨迹滤波器引用。
  * @param scratch        周期暂存区。
  */
 void ApplyTrackFilterPass(const session::ArSceneTargetList& input,
-                          bool jamming_detected,
-                          tracking::TrackFilter& track_filter,
-                          CycleExecutionScratch& scratch);
+                          tracking::TrackFilter& track_filter, CycleExecutionScratch& scratch);
 
 }  // namespace pipeline
 }  // namespace signal

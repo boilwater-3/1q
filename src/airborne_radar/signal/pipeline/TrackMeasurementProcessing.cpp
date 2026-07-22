@@ -32,7 +32,6 @@ Eigen::Vector3f ResolveVelocityVector(const session::ArSceneTarget& target) {
 }  // namespace
 
 void BuildTrackMeasurementsPass(const session::ArSceneTargetList& input,
-                                bool jamming_detected,
                                 CycleExecutionScratch& scratch) {
   const std::size_t count = input.size();
   scratch.track_measurements.clear();
@@ -61,26 +60,17 @@ void BuildTrackMeasurementsPass(const session::ArSceneTargetList& input,
     measurement.raw_measurement.detection_margin_db = scratch.detection_margin_db[i];
     measurement.raw_measurement.position = scratch.target_geometry[i].position_m;
     measurement.raw_measurement.measurement_covariance = scratch.measurement_covariances[i];
-    measurement.filtered_feature.jamming_detected = jamming_detected;
-    measurement.filtered_feature.dominant_jamming_semantic = scratch.dominant_jamming_semantic;
-    measurement.filtered_feature.jamming_severity = scratch.jamming_severity;
-
     scratch.measurement_slots[i] = static_cast<int>(scratch.track_measurements.size());
     scratch.track_measurements.push_back(measurement);
   }
 }
 
 void ApplyTrackFilterPass(const session::ArSceneTargetList& input,
-                          bool jamming_detected,
-                          tracking::TrackFilter& track_filter,
-                          CycleExecutionScratch& scratch) {
+                          tracking::TrackFilter& track_filter, CycleExecutionScratch& scratch) {
   const std::size_t count = scratch.output_state.size();
   for (std::size_t i = 0; i < count; ++i) {
     tracking::TrackFilterContext filter_context;
     filter_context.detection_succeeded = scratch.detection_succeeded[i] != 0U;
-    filter_context.jamming_detected = jamming_detected;
-    filter_context.dominant_jamming_semantic = scratch.dominant_jamming_semantic;
-    filter_context.jamming_severity = scratch.jamming_severity;
     filter_context.detection_margin_db = scratch.detection_margin_db[i];
     scratch.output_state[i] = track_filter.Filter(input[i], filter_context);
 
@@ -94,9 +84,6 @@ void ApplyTrackFilterPass(const session::ArSceneTargetList& input,
     measurement.filtered_feature.observed_speed = ResolveSpeedMagnitude(scratch.output_state[i]);
     measurement.filtered_feature.velocity = ResolveVelocityVector(scratch.output_state[i]);
     measurement.filtered_feature.rcs = scratch.output_state[i].rcs;
-    measurement.filtered_feature.jamming_detected = jamming_detected;
-    measurement.filtered_feature.dominant_jamming_semantic = scratch.dominant_jamming_semantic;
-    measurement.filtered_feature.jamming_severity = scratch.jamming_severity;
   }
 }
 

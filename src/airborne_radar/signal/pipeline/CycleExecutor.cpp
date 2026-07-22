@@ -102,8 +102,7 @@ void RunAssociationPhase(const CycleExecutionContext& context, const CycleExecut
 
 void RunMeasurementBuildPhase(const CycleExecutionContext& context,
                               CycleExecutionScratch& scratch) {
-  BuildTrackMeasurementsPass(context.input_state, context.environment_snapshot.jamming_detected,
-                             scratch);
+  BuildTrackMeasurementsPass(context.input_state, scratch);
 }
 
 // ---------------------------------------------------------------------------
@@ -112,8 +111,7 @@ void RunMeasurementBuildPhase(const CycleExecutionContext& context,
 
 void RunTrackFilterPhase(const CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                          CycleExecutionScratch& scratch) {
-  ApplyTrackFilterPass(context.input_state, context.environment_snapshot.jamming_detected,
-                       runtime.track_filter, scratch);
+  ApplyTrackFilterPass(context.input_state, runtime.track_filter, scratch);
 }
 
 // ---------------------------------------------------------------------------

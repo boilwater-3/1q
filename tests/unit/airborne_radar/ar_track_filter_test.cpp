@@ -126,7 +126,6 @@ TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
 
   signal::tracking::TrackFilterContext context;
   context.detection_succeeded = true;
-  context.jamming_detected = false;
   context.detection_margin_db = 0.0f;
 
   const session::ArSceneTarget output = filter.Filter(input, context);
@@ -141,34 +140,12 @@ TEST(TrackFilterTest, AppliesConfiguredLossDecayDuringMiss) {
 
   signal::tracking::TrackFilterContext context;
   context.detection_succeeded = false;
-  context.jamming_detected = true;
   context.detection_margin_db = -10.0f;
 
   const session::ArSceneTarget output = filter.Filter(input, context);
 
   EXPECT_LT(SpeedOf(output), SpeedOf(input));
   EXPECT_LT(output.rcs, input.rcs);
-}
-
-TEST(TrackFilterTest, JammingSemanticDoesNotRetuneLossDecay) {
-  signal::tracking::TrackFilter filter;
-  const session::ArSceneTarget input(800.0f, 0.0f, 0.0f, 2.5f);
-
-  signal::tracking::TrackFilterContext noise_context;
-  noise_context.detection_succeeded = false;
-  noise_context.jamming_detected = true;
-  noise_context.dominant_jamming_semantic = config::JammingSemantic::kNoiseSuppression;
-  noise_context.jamming_severity = 0.8f;
-  noise_context.detection_margin_db = -10.0f;
-
-  signal::tracking::TrackFilterContext deception_context = noise_context;
-  deception_context.dominant_jamming_semantic = config::JammingSemantic::kDeception;
-
-  const session::ArSceneTarget noise_output = filter.Filter(input, noise_context);
-  const session::ArSceneTarget deception_output = filter.Filter(input, deception_context);
-
-  EXPECT_FLOAT_EQ(SpeedOf(deception_output), SpeedOf(noise_output));
-  EXPECT_FLOAT_EQ(deception_output.rcs, noise_output.rcs);
 }
 
 TEST(TrackFilterTest, DetectionSuccessPreservesSpeedAndRcs) {
