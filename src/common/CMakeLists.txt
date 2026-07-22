@@ -4,6 +4,7 @@ set(ONEQ_COMMON_SOURCES
     atmosphere/AtmospherePhysics.cpp
     atmosphere/StandardAtmosphere.cpp
     electromagnetics/RfLinkBudget.cpp
+    electromagnetics/RfScene.cpp
     environment/PropagationPhysicsImpl.cpp
     geometry/GeometryTransform.cpp
     coordinate/PositionTransform.cpp

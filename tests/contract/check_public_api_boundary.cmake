@@ -192,6 +192,7 @@ set(ENVIRONMENT_HEADERS
 
 set(ELECTROMAGNETICS_HEADERS
     "electromagnetics/RfLinkBudget.h"
+    "electromagnetics/RfScene.h"
 )
 
 set(ECM_HEADERS
