@@ -26,6 +26,32 @@ ArCompleteCycleInput MakeCompleteInput(const ArPrepareCycleResult& prepared) {
   return input;
 }
 
+ArSceneTarget MakeTarget() {
+  ArSceneTarget target;
+  target.external_target_id = 1U;
+  target.range_m = 1000.0f;
+  target.position_x = 1000.0f;
+  target.rcs = 10.0f;
+  return target;
+}
+
+oneq::electromagnetics::RfSceneEmission MakeInBandJammer(const ArPrepareCycleResult& prepared) {
+  oneq::electromagnetics::RfSceneEmission jammer;
+  jammer.identity.platform_id = 20U;
+  jammer.identity.equipment_id = 21U;
+  jammer.identity.emission_id = 22U;
+  jammer.position_ecef_m = prepared.receiver_state.position_ecef_m;
+  jammer.position_ecef_m.x_m += 1000.0;
+  jammer.antenna.boresight_ecef.x = -1.0;
+  jammer.antenna.peak_gain_dbi = 35.0;
+  jammer.polarization = prepared.receiver_state.polarization;
+  EXPECT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
+      prepared.receiver_state.window_start_time_s, prepared.receiver_state.window_duration_s,
+      prepared.receiver_state.center_frequency_hz, prepared.receiver_state.bandwidth_hz, 1.0e6,
+      &jammer.waveform));
+  return jammer;
+}
+
 TEST(ArTwoPhaseSessionTest, EnforcesSingleTokenAndRetainsItAfterRejectedComplete) {
   ArSession session = ArSession::Create();
   const ArPrepareCycleResult prepared = session.PrepareCycle(MakePrepareInput(1U, 10.0));
@@ -96,6 +122,37 @@ TEST(ArTwoPhaseSessionTest, MissingPreparedReceiverCoSitePathRejectsAndRetainsTo
   EXPECT_EQ(session.CompleteCycle(prepared.token, MakeCompleteInput(prepared)).status,
             ArCompleteCycleStatus::kRejected);
   EXPECT_EQ(session.AbandonCycle(prepared.token), ArAbandonCycleStatus::kAbandoned);
+}
+
+TEST(ArTwoPhaseSessionTest, RfSceneSuppressionReachesDetectionOnlyThroughReceivedPower) {
+  config::ArSessionConfig config;
+  config.hardware.receiver.maximum_linear_input_power_w = 1.0e6f;
+  config.policy.lifecycle.confirm_hits = 1U;
+  config.policy.detection.minimum_snr_db = -100.0f;
+  config.policy.detection.minimum_detection_margin_db = -100.0f;
+
+  ArSession baseline_session = ArSession::Create(config);
+  const ArPrepareCycleResult baseline_prepared =
+      baseline_session.PrepareCycle(MakePrepareInput(1U, 10.0));
+  ASSERT_EQ(baseline_prepared.status, ArPrepareCycleStatus::kPrepared);
+  ArCompleteCycleInput baseline_input = MakeCompleteInput(baseline_prepared);
+  baseline_input.targets.push_back(MakeTarget());
+  const ArCompleteCycleResult baseline =
+      baseline_session.CompleteCycle(baseline_prepared.token, baseline_input);
+  ASSERT_EQ(baseline.status, ArCompleteCycleStatus::kCompleted);
+  ASSERT_FALSE(baseline.track_output_frame.tracks.empty());
+
+  ArSession jammed_session = ArSession::Create(config);
+  const ArPrepareCycleResult jammed_prepared =
+      jammed_session.PrepareCycle(MakePrepareInput(1U, 10.0));
+  ASSERT_EQ(jammed_prepared.status, ArPrepareCycleStatus::kPrepared);
+  ArCompleteCycleInput jammed_input = MakeCompleteInput(jammed_prepared);
+  jammed_input.targets.push_back(MakeTarget());
+  jammed_input.rf_scene.emissions.push_back(MakeInBandJammer(jammed_prepared));
+  const ArCompleteCycleResult jammed =
+      jammed_session.CompleteCycle(jammed_prepared.token, jammed_input);
+  ASSERT_EQ(jammed.status, ArCompleteCycleStatus::kCompleted);
+  EXPECT_TRUE(jammed.track_output_frame.tracks.empty());
 }
 
 }  // namespace

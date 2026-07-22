@@ -473,6 +473,23 @@ struct ArSession::Impl {
     }
     result.receiver_impairment = front_end.receiver_saturated ? ArReceiverImpairment::kSaturated
                                                               : ArReceiverImpairment::kNone;
+    long double external_interference_power_w = 0.0L;
+    for (const auto& link : front_end.incident_links) {
+      if (!SameEmissionIdentity(link.identity, prepared_emission.identity)) {
+        external_interference_power_w += static_cast<long double>(link.received_power_w);
+      }
+    }
+    const double external_interference_power_double =
+        front_end.receiver_saturated ? 0.0 : static_cast<double>(external_interference_power_w);
+    if (concrete_signal_pipeline_ == nullptr ||
+        !std::isfinite(external_interference_power_double) ||
+        external_interference_power_double >
+            static_cast<double>(std::numeric_limits<float>::max()) ||
+        !concrete_signal_pipeline_->SetNextRfV2InterferencePowerW(
+            static_cast<float>(external_interference_power_double))) {
+      result.status = ArCompleteCycleStatus::kRejected;
+      return result;
+    }
 
     ArCycleInput legacy_execution_input;
     legacy_execution_input.cycle_index =
