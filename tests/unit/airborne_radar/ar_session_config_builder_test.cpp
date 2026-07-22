@@ -349,8 +349,33 @@ TEST(RadarSessionConfigValidationTest, RejectsInvalidTransmitterFrequency) {
   session_config.hardware.transmitter.frequency_hz = 0.0f;
 
   const auto issues = config::ValidateArSessionConfig(session_config);
-  ASSERT_EQ(issues.size(), 1U);
+  ASSERT_EQ(issues.size(), 2U);
   EXPECT_EQ(issues[0].code, config::ConfigValidationCode::kTransmitterFrequencyInvalid);
+  EXPECT_EQ(issues[1].code, config::ConfigValidationCode::kFrequencyPlanInvalid);
+}
+
+TEST(RadarSessionConfigValidationTest, ValidatesEngineeringTransmitterEnvelopeAndIdentity) {
+  config::ArSessionConfig session_config;
+  session_config.hardware.transmitter.frequency_plan_hz = {3.0e9, 3.1e9};
+  EXPECT_TRUE(config::ValidateArSessionConfig(session_config).empty());
+
+  session_config.hardware.transmitter.frequency_plan_hz = {3.1e9};
+  auto issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kFrequencyPlanInvalid);
+
+  session_config.hardware.transmitter.frequency_plan_hz = {3.0e9};
+  session_config.hardware.transmitter.maximum_peak_power_w = 5.0e5f;
+  issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.front().code,
+            config::ConfigValidationCode::kTransmitterOperatingEnvelopeInvalid);
+
+  session_config.hardware.transmitter.maximum_peak_power_w = 1.2e6f;
+  session_config.hardware.receiver.equipment_id = session_config.hardware.transmitter.equipment_id;
+  issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kEquipmentIdentityInvalid);
 }
 
 TEST(RadarSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
@@ -364,6 +389,15 @@ TEST(RadarSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
   session_config.hardware.receiver.has_co_site_isolation = true;
   session_config.hardware.receiver.co_site_isolation_db = 80.0f;
   EXPECT_TRUE(config::ValidateArSessionConfig(session_config).empty());
+
+  session_config.hardware.receiver.co_site_paths.push_back(
+      oneq::electromagnetics::RfCoSiteIsolationPath{1U, 2U, 80.0});
+  EXPECT_TRUE(config::ValidateArSessionConfig(session_config).empty());
+  session_config.hardware.receiver.co_site_paths.back().receiver_equipment_id = 3U;
+  issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.back().code, config::ConfigValidationCode::kReceiverRfHardwareInvalid);
+  session_config.hardware.receiver.co_site_paths.clear();
 
   session_config.hardware.receiver.polarization =
       static_cast<oneq::electromagnetics::RfPolarization>(255);

@@ -25,7 +25,9 @@ void ApplyDetectionSemanticConfig(profiles::ArHardwareProfile hardware_profile,
   switch (hardware_profile) {
     case profiles::ArHardwareProfile::kLongRangeHighPower:
       d.transmitter.peak_power_w = 5.0e6f;
+      d.transmitter.maximum_peak_power_w = 6.0e6f;
       d.transmitter.frequency_hz = 9.3e9f;
+      d.transmitter.frequency_plan_hz = {static_cast<double>(d.transmitter.frequency_hz)};
       d.transmitter.bandwidth_hz = 3.0e6f;
       d.transmitter.pulse_width_s = 18e-6f;
       d.transmitter.prf_hz = 220.0f;
@@ -35,6 +37,7 @@ void ApplyDetectionSemanticConfig(profiles::ArHardwareProfile hardware_profile,
     case profiles::ArHardwareProfile::kLightweightLpi:
       d.transmitter.peak_power_w = 3.5e5f;
       d.transmitter.frequency_hz = 10.0e9f;
+      d.transmitter.frequency_plan_hz = {static_cast<double>(d.transmitter.frequency_hz)};
       d.transmitter.bandwidth_hz = 8.0e6f;
       d.transmitter.pulse_width_s = 8e-6f;
       d.transmitter.prf_hz = 600.0f;
@@ -213,12 +216,47 @@ ValidationIssueList ValidateArSessionConfig(const config::ArSessionConfig& confi
   const config::ArOrientationConfig& orientation = config.mission.orientation;
   const config::detection::AntennaConfig& antenna = config.hardware.antenna;
   const config::detection::ReceiverConfig& receiver = config.hardware.receiver;
-  const float transmitter_frequency_hz = config.hardware.transmitter.frequency_hz;
+  const config::detection::TransmitterConfig& transmitter = config.hardware.transmitter;
+  const float transmitter_frequency_hz = transmitter.frequency_hz;
 
   if (!oneq::common::validation::IsFinite(transmitter_frequency_hz) ||
       transmitter_frequency_hz <= 0.0f) {
     push(ConfigValidationCode::kTransmitterFrequencyInvalid, "hardware.transmitter.frequency_hz",
          "Transmitter frequency must be finite and positive.");
+  }
+  bool frequency_plan_valid = !transmitter.frequency_plan_hz.empty();
+  bool contains_initial_frequency = false;
+  for (double frequency_hz : transmitter.frequency_plan_hz) {
+    frequency_plan_valid = frequency_plan_valid &&
+                           oneq::common::validation::IsFinite(frequency_hz) && frequency_hz > 0.0;
+    contains_initial_frequency =
+        contains_initial_frequency || frequency_hz == static_cast<double>(transmitter_frequency_hz);
+  }
+  if (!frequency_plan_valid || !contains_initial_frequency) {
+    push(ConfigValidationCode::kFrequencyPlanInvalid, "hardware.transmitter.frequency_plan_hz",
+         "Frequency plan must contain finite positive values and the initial carrier.");
+  }
+  const double duty_cycle =
+      static_cast<double>(transmitter.pulse_width_s) * static_cast<double>(transmitter.prf_hz);
+  const double pulse_energy_j = static_cast<double>(transmitter.peak_power_w) *
+                                static_cast<double>(transmitter.pulse_width_s);
+  if (!oneq::common::validation::IsFinite(transmitter.peak_power_w) ||
+      !oneq::common::validation::IsFinite(transmitter.maximum_peak_power_w) ||
+      !oneq::common::validation::IsFinite(transmitter.maximum_duty_cycle) ||
+      !oneq::common::validation::IsFinite(transmitter.maximum_pulse_energy_j) ||
+      transmitter.peak_power_w <= 0.0f || transmitter.maximum_peak_power_w <= 0.0f ||
+      transmitter.peak_power_w > transmitter.maximum_peak_power_w ||
+      transmitter.maximum_duty_cycle <= 0.0f || transmitter.maximum_duty_cycle > 1.0f ||
+      duty_cycle <= 0.0 || duty_cycle > transmitter.maximum_duty_cycle ||
+      transmitter.maximum_pulse_energy_j <= 0.0f ||
+      pulse_energy_j > transmitter.maximum_pulse_energy_j) {
+    push(ConfigValidationCode::kTransmitterOperatingEnvelopeInvalid, "hardware.transmitter",
+         "Transmitter power, duty cycle and pulse energy must stay inside hardware limits.");
+  }
+  if (transmitter.equipment_id == 0U || receiver.equipment_id == 0U ||
+      transmitter.equipment_id == receiver.equipment_id) {
+    push(ConfigValidationCode::kEquipmentIdentityInvalid, "hardware.*.equipment_id",
+         "Transmitter and receiver equipment identifiers must be non-zero and distinct.");
   }
   const bool known_receiver_polarization =
       receiver.polarization == oneq::electromagnetics::RfPolarization::kHorizontal ||
@@ -235,10 +273,22 @@ ValidationIssueList ValidateArSessionConfig(const config::ArSessionConfig& confi
        (!oneq::common::validation::IsFinite(receiver.co_site_isolation_db) ||
         receiver.co_site_isolation_db < 0.0f)) ||
       !oneq::common::validation::IsFinite(receiver.maximum_linear_input_power_w) ||
-      receiver.maximum_linear_input_power_w <= 0.0f) {
+      receiver.maximum_linear_input_power_w <= 0.0f ||
+      !oneq::common::validation::IsFinite(receiver.preselector_bandwidth_hz) ||
+      receiver.preselector_bandwidth_hz <= 0.0f) {
     push(ConfigValidationCode::kReceiverRfHardwareInvalid, "hardware.receiver",
          "Receiver RF polarization, isolation, far-field range and linear input limit must be "
          "valid.");
+  }
+  for (const auto& path : receiver.co_site_paths) {
+    if (path.transmitter_equipment_id == 0U ||
+        path.receiver_equipment_id != receiver.equipment_id ||
+        path.transmitter_equipment_id == path.receiver_equipment_id ||
+        !oneq::common::validation::IsFinite(path.isolation_db) || path.isolation_db < 0.0) {
+      push(ConfigValidationCode::kReceiverRfHardwareInvalid, "hardware.receiver.co_site_paths",
+           "Each co-site path must be a valid directed path into the receiver equipment.");
+      break;
+    }
   }
   const auto axis_geometry_valid = [transmitter_frequency_hz](float nominal_beamwidth_deg,
                                                               float aperture_m,

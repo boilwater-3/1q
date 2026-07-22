@@ -8,9 +8,13 @@
 #ifndef ONEQ_AIRBORNE_RADAR_CONFIG_AR_HARDWARE_CONFIG_H_
 #define ONEQ_AIRBORNE_RADAR_CONFIG_AR_HARDWARE_CONFIG_H_
 
+#include <cstdint>
+#include <vector>
+
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/api.hpp"
 #include "1q/electromagnetics/RfLinkBudget.h"
+#include "1q/electromagnetics/RfScene.h"
 
 namespace airborne_radar {
 namespace config {
@@ -139,8 +143,9 @@ struct ONEQ_API AntennaConfig {
  * @brief 接收机工程参数。
  */
 struct ONEQ_API ReceiverConfig {
-  float noise_figure_db{4.0f}; /**< 接收机噪声系数。 */
-  float receive_loss_db{2.0f}; /**< 接收链路损耗。 */
+  std::uint64_t equipment_id{2U}; /**< RF scene 中的接收设备身份；同平台内必须唯一。 */
+  float noise_figure_db{4.0f};    /**< 接收机噪声系数。 */
+  float receive_loss_db{2.0f};    /**< 接收链路损耗。 */
   oneq::electromagnetics::RfPolarization polarization{
       oneq::electromagnetics::RfPolarization::kHorizontal}; /**< 接收极化。 */
   float cross_polarization_isolation_db{30.0f};             /**< 正交极化隔离（dB）。 */
@@ -148,18 +153,28 @@ struct ONEQ_API ReceiverConfig {
   bool has_co_site_isolation{false};                        /**< 是否配置同平台耦合隔离。 */
   float co_site_isolation_db{0.0f};                         /**< 同平台耦合路径隔离（dB）。 */
   float maximum_linear_input_power_w{1.0e-3f};              /**< 线性接收上限（W）。 */
+  float preselector_bandwidth_hz{20.0e6f};                  /**< 宽带前端预选器带宽（Hz）。 */
+  oneq::electromagnetics::RfScenePolarization scene_polarization{
+      oneq::electromagnetics::RfScenePolarization::kHorizontal}; /**< RF v2 接收极化。 */
+  std::vector<oneq::electromagnetics::RfCoSiteIsolationPath>
+      co_site_paths{}; /**< 以设备身份索引的有向同平台隔离路径。 */
 };
 
 /**
  * @brief 发射机工程参数。
  */
 struct ONEQ_API TransmitterConfig {
-  float peak_power_w{1e6f};     /**< 峰值发射功率。 */
-  float frequency_hz{3e9f};     /**< 工作频率。 */
-  float bandwidth_hz{4.5e6f};   /**< 发射带宽。 */
-  float pulse_width_s{13e-6f};  /**< 脉宽。 */
-  float prf_hz{300.0f};         /**< 脉冲重复频率。 */
-  float transmit_loss_db{3.5f}; /**< 发射链路损耗。 */
+  std::uint64_t equipment_id{1U};      /**< RF scene 中的发射设备身份；同平台内必须唯一。 */
+  float peak_power_w{1e6f};            /**< 峰值发射功率。 */
+  float frequency_hz{3e9f};            /**< 工作频率。 */
+  float bandwidth_hz{4.5e6f};          /**< 发射带宽。 */
+  float pulse_width_s{13e-6f};         /**< 脉宽。 */
+  float prf_hz{300.0f};                /**< 脉冲重复频率。 */
+  float transmit_loss_db{3.5f};        /**< 发射链路损耗。 */
+  float maximum_peak_power_w{1.2e6f};  /**< 烧穿等控制不可越过的峰值功率上限。 */
+  float maximum_duty_cycle{0.10f};     /**< 允许的最大发射占空比，范围 (0, 1]。 */
+  float maximum_pulse_energy_j{20.0f}; /**< 单脉冲能量上限（J）。 */
+  std::vector<double> frequency_plan_hz{3.0e9}; /**< 允许 Prepare 选择的离散载频表。 */
 };
 
 /**

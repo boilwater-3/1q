@@ -23,17 +23,20 @@ namespace config {
  * 校验通过时返回空列表；存在问题时每个条目对应一项配置缺陷。
  */
 enum class ConfigValidationCode {
-  kNone = 0,                        /**< 无问题（默认占位）。 */
-  kCommandedBeamwidthAzNotPositive, /**< 指令态方位波束宽度启用时非有限或非正。 */
-  kCommandedBeamwidthElNotPositive, /**< 指令态俯仰波束宽度启用时非有限或非正。 */
-  kMechanicalScanLimitsSwappedAz,   /**< 机械方位扫描下限大于上限。 */
-  kMechanicalScanLimitsSwappedEl,   /**< 机械俯仰扫描下限大于上限。 */
-  kElectronicScanLimitsSwappedAz,   /**< 电子方位扫描下限大于上限。 */
-  kElectronicScanLimitsSwappedEl,   /**< 电子俯仰扫描下限大于上限。 */
-  kAntennaAzGeometryInvalid,        /**< 方位名义波束宽度或物理孔径无法解析。 */
-  kAntennaElGeometryInvalid,        /**< 俯仰名义波束宽度或物理孔径无法解析。 */
-  kTransmitterFrequencyInvalid,     /**< 发射频率非有限或非正。 */
-  kReceiverRfHardwareInvalid        /**< 接收极化、隔离或线性边界非法。 */
+  kNone = 0,                            /**< 无问题（默认占位）。 */
+  kCommandedBeamwidthAzNotPositive,     /**< 指令态方位波束宽度启用时非有限或非正。 */
+  kCommandedBeamwidthElNotPositive,     /**< 指令态俯仰波束宽度启用时非有限或非正。 */
+  kMechanicalScanLimitsSwappedAz,       /**< 机械方位扫描下限大于上限。 */
+  kMechanicalScanLimitsSwappedEl,       /**< 机械俯仰扫描下限大于上限。 */
+  kElectronicScanLimitsSwappedAz,       /**< 电子方位扫描下限大于上限。 */
+  kElectronicScanLimitsSwappedEl,       /**< 电子俯仰扫描下限大于上限。 */
+  kAntennaAzGeometryInvalid,            /**< 方位名义波束宽度或物理孔径无法解析。 */
+  kAntennaElGeometryInvalid,            /**< 俯仰名义波束宽度或物理孔径无法解析。 */
+  kTransmitterFrequencyInvalid,         /**< 发射频率非有限或非正。 */
+  kFrequencyPlanInvalid,                /**< 显式频率表为空、含非法值或不含初始载频。 */
+  kTransmitterOperatingEnvelopeInvalid, /**< 发射功率、占空比或脉冲能量越界。 */
+  kEquipmentIdentityInvalid,            /**< 发射与接收设备身份非法或冲突。 */
+  kReceiverRfHardwareInvalid            /**< 接收极化、隔离或线性边界非法。 */
 };
 
 /**
