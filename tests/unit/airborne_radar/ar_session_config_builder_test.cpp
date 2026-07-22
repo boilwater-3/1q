@@ -391,6 +391,13 @@ TEST(RadarSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
   EXPECT_EQ(issues.back().code, config::ConfigValidationCode::kReceiverRfHardwareInvalid);
 
   session_config.hardware.receiver.maximum_linear_input_power_w = 1.0e-3f;
+  session_config.hardware.receiver.interference_observation_jn_gate_db =
+      std::numeric_limits<float>::quiet_NaN();
+  issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.back().code, config::ConfigValidationCode::kReceiverRfHardwareInvalid);
+
+  session_config.hardware.receiver.interference_observation_jn_gate_db = 6.0f;
   session_config.hardware.receiver.has_co_site_isolation = true;
   session_config.hardware.receiver.co_site_isolation_db = 80.0f;
   EXPECT_TRUE(config::ValidateArSessionConfig(session_config).empty());

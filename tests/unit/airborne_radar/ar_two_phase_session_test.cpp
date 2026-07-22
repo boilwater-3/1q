@@ -110,6 +110,7 @@ TEST(ArTwoPhaseSessionTest, FrontEndSaturationCompletesWithStructuredImpairment)
   EXPECT_EQ(completed.status, ArCompleteCycleStatus::kCompleted);
   EXPECT_EQ(completed.receiver_impairment, ArReceiverImpairment::kSaturated);
   EXPECT_TRUE(completed.track_output_frame.tracks.empty());
+  EXPECT_TRUE(completed.interference_observations.empty());
 }
 
 TEST(ArTwoPhaseSessionTest, MissingPreparedReceiverCoSitePathRejectsAndRetainsToken) {
@@ -141,6 +142,7 @@ TEST(ArTwoPhaseSessionTest, RfSceneSuppressionReachesDetectionOnlyThroughReceive
       baseline_session.CompleteCycle(baseline_prepared.token, baseline_input);
   ASSERT_EQ(baseline.status, ArCompleteCycleStatus::kCompleted);
   ASSERT_FALSE(baseline.track_output_frame.tracks.empty());
+  EXPECT_TRUE(baseline.interference_observations.empty());
 
   ArSession jammed_session = ArSession::Create(config);
   const ArPrepareCycleResult jammed_prepared =
@@ -153,6 +155,10 @@ TEST(ArTwoPhaseSessionTest, RfSceneSuppressionReachesDetectionOnlyThroughReceive
       jammed_session.CompleteCycle(jammed_prepared.token, jammed_input);
   ASSERT_EQ(jammed.status, ArCompleteCycleStatus::kCompleted);
   EXPECT_TRUE(jammed.track_output_frame.tracks.empty());
+  ASSERT_EQ(jammed.interference_observations.size(), 1U);
+  EXPECT_EQ(jammed.interference_observations.front().observation_id, 1U);
+  EXPECT_GT(jammed.interference_observations.front().jammer_to_noise_db,
+            config.hardware.receiver.interference_observation_jn_gate_db);
 }
 
 }  // namespace

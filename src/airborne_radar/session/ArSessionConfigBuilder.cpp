@@ -275,7 +275,8 @@ ValidationIssueList ValidateArSessionConfig(const config::ArSessionConfig& confi
       !oneq::common::validation::IsFinite(receiver.maximum_linear_input_power_w) ||
       receiver.maximum_linear_input_power_w <= 0.0f ||
       !oneq::common::validation::IsFinite(receiver.preselector_bandwidth_hz) ||
-      receiver.preselector_bandwidth_hz <= 0.0f) {
+      receiver.preselector_bandwidth_hz <= 0.0f ||
+      !oneq::common::validation::IsFinite(receiver.interference_observation_jn_gate_db)) {
     push(ConfigValidationCode::kReceiverRfHardwareInvalid, "hardware.receiver",
          "Receiver RF polarization, isolation, far-field range and linear input limit must be "
          "valid.");

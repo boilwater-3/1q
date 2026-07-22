@@ -12,6 +12,7 @@
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 #include "airborne_radar/session/ArSessionCompositionRoot.h"
 #include "airborne_radar/session/MutableArContext.h"
+#include "airborne_radar/signal/detection/ArInterferenceObservationResolver.h"
 #include "airborne_radar/signal/detection/ArRfFrontEndResolver.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
@@ -490,6 +491,25 @@ struct ArSession::Impl {
       result.status = ArCompleteCycleStatus::kRejected;
       return result;
     }
+    std::vector<ArInterferenceObservation> interference_observations;
+    if (!front_end.receiver_saturated) {
+      constexpr double kBoltzmannJPerK = 1.380649e-23;
+      constexpr double kReferenceTemperatureK = 290.0;
+      const config::engineering::DetectionConfig& detection =
+          runtime_state.execution_config.detection.engineering;
+      const double thermal_noise_power_w =
+          kBoltzmannJPerK * kReferenceTemperatureK *
+          static_cast<double>(detection.transmitter.bandwidth_hz) *
+          std::pow(10.0, static_cast<double>(detection.receiver.noise_figure_db) / 10.0);
+      if (!signal::detection::TryResolveArInterferenceObservations(
+              input.rf_scene, prepared_receiver_state, prepared_emission.identity,
+              front_end.incident_links, thermal_noise_power_w,
+              static_cast<double>(detection.receiver.interference_observation_jn_gate_db),
+              &interference_observations)) {
+        result.status = ArCompleteCycleStatus::kRejected;
+        return result;
+      }
+    }
 
     ArCycleInput legacy_execution_input;
     legacy_execution_input.cycle_index =
@@ -513,6 +533,7 @@ struct ArSession::Impl {
     }
     result.status = ArCompleteCycleStatus::kCompleted;
     result.track_output_frame = cycle_result.track_output_frame;
+    result.interference_observations = interference_observations;
     has_prepared_cycle = false;
     prepared_token = ArPreparedCycleToken{};
     return result;

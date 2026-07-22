@@ -154,6 +154,7 @@ struct ONEQ_API ReceiverConfig {
   float co_site_isolation_db{0.0f};                         /**< 同平台耦合路径隔离（dB）。 */
   float maximum_linear_input_power_w{1.0e-3f};              /**< 线性接收上限（W）。 */
   float preselector_bandwidth_hz{20.0e6f};                  /**< 宽带前端预选器带宽（Hz）。 */
+  float interference_observation_jn_gate_db{6.0f};          /**< 干扰观测发布 J/N 门限（dB）。 */
   oneq::electromagnetics::RfScenePolarization scene_polarization{
       oneq::electromagnetics::RfScenePolarization::kHorizontal}; /**< RF v2 接收极化。 */
   std::vector<oneq::electromagnetics::RfCoSiteIsolationPath> co_site_paths{
