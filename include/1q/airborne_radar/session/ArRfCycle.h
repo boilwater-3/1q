@@ -69,6 +69,21 @@ enum class ArReceiverImpairment : std::uint8_t {
   kSaturated /**< 宽带前端总输入超过最大线性输入功率。 */
 };
 
+/** @brief AR 本机形成的去真值化干扰观测。 */
+struct ONEQ_API ArInterferenceObservation {
+  std::uint64_t observation_id{0U};            /**< 当前 Complete 结果内的稳定本地编号。 */
+  double estimated_bearing_azimuth_deg{0.0};   /**< ECEF 切平面方位估计。 */
+  double estimated_bearing_elevation_deg{0.0}; /**< ECEF 仰角估计。 */
+  double estimated_center_frequency_hz{0.0};   /**< 中心频率估计。 */
+  double estimated_bandwidth_hz{0.0};          /**< 占用带宽估计。 */
+  oneq::electromagnetics::RfSceneWaveformKind estimated_waveform_kind{
+      oneq::electromagnetics::RfSceneWaveformKind::kContinuous}; /**< 波形类别估计。 */
+  double jammer_to_noise_db{0.0};                                /**< 接收端 J/N（dB）。 */
+  double bearing_standard_deviation_deg{0.0};                    /**< 方位/俯仰一标准差。 */
+  double frequency_standard_deviation_hz{0.0};                   /**< 频率一标准差。 */
+  double bandwidth_standard_deviation_hz{0.0};                   /**< 带宽一标准差。 */
+};
+
 /** @brief Complete 阶段状态。 */
 enum class ArCompleteCycleStatus : std::uint8_t {
   kCompleted = 0, /**< 本周期已完成物理执行并产生新输出。 */
@@ -78,9 +93,11 @@ enum class ArCompleteCycleStatus : std::uint8_t {
 
 /** @brief Complete 阶段结果；仅 kCompleted 携带本周期输出。 */
 struct ONEQ_API ArCompleteCycleResult {
-  ArCompleteCycleStatus status{ArCompleteCycleStatus::kRejected};        /**< Complete 状态。 */
-  std::uint64_t world_cycle_index{0U};                                   /**< 结果所属世界周期。 */
-  TrackOutputFrame track_output_frame{};                                 /**< 本周期新轨迹帧。 */
+  ArCompleteCycleStatus status{ArCompleteCycleStatus::kRejected}; /**< Complete 状态。 */
+  std::uint64_t world_cycle_index{0U};                            /**< 结果所属世界周期。 */
+  TrackOutputFrame track_output_frame{};                          /**< 本周期新轨迹帧。 */
+  std::vector<ArInterferenceObservation>
+      interference_observations{}; /**< 仅通过 J/N 门的本机 RF 观测。 */
   ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone}; /**< 结构化接收机损伤。 */
 };
 
