@@ -167,7 +167,6 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
   snap.acceleration_z = 0.1f;
   snap.acceleration = 1.12f;
   snap.rcs = 2.5f;
-  snap.jamming_detected = true;
   snap.hit_count = 5U;
   snap.miss_count = 1U;
   frame.tracks.push_back(snap);
@@ -199,7 +198,6 @@ TEST(ArReplayCodecRoundtripTest, TrackOutputFramePreservesAllFields) {
   EXPECT_FLOAT_EQ(ds.position_z, 50.0f);
   EXPECT_FLOAT_EQ(ds.velocity_x, 30.0f);
   EXPECT_FLOAT_EQ(ds.rcs, 2.5f);
-  EXPECT_TRUE(ds.jamming_detected);
   EXPECT_EQ(ds.hit_count, 5U);
   EXPECT_EQ(ds.miss_count, 1U);
 }

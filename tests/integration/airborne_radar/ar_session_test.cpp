@@ -34,7 +34,6 @@ using ScenarioRadarContext = session::MutableArContext;
 struct CycleStats {
   std::size_t published_track_count{0U};
   std::size_t confirmed_track_count{0U};
-  std::size_t jamming_track_count{0U};
   std::size_t command_delta_count{0U};
   float association_stress{0.0f};
   float match_rate{0.0f};
@@ -219,16 +218,6 @@ bool ContainsCommandType(const ScenarioRadarContext& radar_context, session::ArC
   return false;
 }
 
-std::size_t CountJammingFlaggedTracks(const session::TrackOutputFrame& frame) {
-  std::size_t count = 0U;
-  for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    if (frame.tracks[i].jamming_detected) {
-      ++count;
-    }
-  }
-  return count;
-}
-
 config::JammerEmitterState BuildJammerEmitter(config::JammingTechnique technique, float power_db,
                                               float js_db, float frequency_overlap_ratio,
                                               float prf_lock_risk, bool in_sidelobe) {
@@ -310,7 +299,6 @@ CycleStats CaptureCycleStats(const session::TrackOutputFrame& frame,
   stats.published_track_count = frame.tracks.size();
   stats.confirmed_track_count =
       session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed);
-  stats.jamming_track_count = CountJammingFlaggedTracks(frame);
   stats.command_delta_count = radar_context.SubmittedCommands().size() - previous_command_count;
   stats.association_stress = metrics.association_stress;
   stats.match_rate = metrics.match_rate;
@@ -371,7 +359,6 @@ void ExpectReadableTrackOutputFrame(const session::TrackOutputFrame& frame,
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
     ExpectFiniteTrackState(frame.tracks[i]);
     EXPECT_NE(frame.tracks[i].association_key, 0U);
-    EXPECT_FALSE(frame.tracks[i].jamming_detected);
   }
 }
 
@@ -423,7 +410,6 @@ TEST(RadarJointIntegrationTest, StageOneGroundTargetsRemainStableWithoutInterfer
       const session::TrackStateSnapshot& track = *track_map.at(targets[i].external_target_id);
       EXPECT_NEAR(track.position_z, 0.0f, 1e-5f);
       EXPECT_NEAR(track.speed, 0.0f, 1e-5f);
-      EXPECT_FALSE(track.jamming_detected);
     }
   }
 
@@ -465,7 +451,6 @@ TEST(RadarJointIntegrationTest, StageOneMovingAirTargetsKeepStableEnemyOutputWit
                     target.velocity_z * target.velocity_z);
       EXPECT_GT(track.position_z, 0.0f);
       EXPECT_NEAR(track.speed, expected_speed, 1e-4f);
-      EXPECT_FALSE(track.jamming_detected);
 
       if (cycle > 0U) {
         EXPECT_EQ(track.association_key, previous_keys[target.external_target_id]);
@@ -510,7 +495,6 @@ TEST(RadarJointIntegrationTest,
 
   const session::TrackOutputFrame jammed_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  EXPECT_GT(CountJammingFlaggedTracks(jammed_frame), 0U);
   ExpectFrameContainsTargets(jammed_frame, targets);
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
@@ -526,7 +510,6 @@ TEST(RadarJointIntegrationTest,
       ContainsCommandType(radar_context, session::ArCommandType::SET_ECCM_BURNTHROUGH_GAIN));
   EXPECT_GT(protected_frame.tracks.size(), 0U);
   EXPECT_GT(session::CountTracksByStatus(protected_frame, session::TrackStatus::kConfirmed), 0U);
-  EXPECT_GT(CountJammingFlaggedTracks(protected_frame), 0U);
   ExpectFrameContainsTargets(protected_frame, targets);
 }
 
@@ -558,7 +541,6 @@ TEST(RadarJointIntegrationTest,
       RunScenarioCycle(&controller, &radar_context, targets);
   const session::AssociationQualityMetrics cycle_2_metrics =
       signal_pipeline.GetLastAssociationQualityMetrics();
-  EXPECT_GT(CountJammingFlaggedTracks(cycle_2_frame), 0U);
   EXPECT_EQ(cycle_2_metrics.dominant_jamming_semantic, config::JammingSemantic::kDeception);
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
@@ -605,7 +587,7 @@ TEST(RadarJointIntegrationTest, StageTwoRepeaterInterferenceKeepsTrackOutputAndS
 
   const session::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  EXPECT_GT(CountJammingFlaggedTracks(cycle_2_frame), 0U);
+  EXPECT_GT(cycle_2_frame.tracks.size(), 0U);
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   const session::TrackOutputFrame cycle_3_frame =
@@ -652,7 +634,7 @@ TEST(RadarJointIntegrationTest,
 
   const session::TrackOutputFrame cycle_2_frame =
       RunScenarioCycle(&controller, &radar_context, targets);
-  EXPECT_GT(CountJammingFlaggedTracks(cycle_2_frame), 0U);
+  EXPECT_GT(cycle_2_frame.tracks.size(), 0U);
 
   AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   const session::TrackOutputFrame cycle_3_frame =
@@ -667,13 +649,11 @@ TEST(RadarJointIntegrationTest,
   ASSERT_EQ(cycle_3_frame.tracks.size(), targets.size());
   ASSERT_EQ(session::CountTracksByStatus(cycle_3_frame, session::TrackStatus::kConfirmed),
             targets.size());
-  EXPECT_GT(CountJammingFlaggedTracks(cycle_3_frame), 0U);
   ExpectFrameContainsTargets(cycle_3_frame, targets);
   for (std::size_t i = 0; i < targets.size(); ++i) {
     const session::TrackStateSnapshot& track = *track_map.at(targets[i].external_target_id);
     EXPECT_GT(track.speed, 0.0f);
     EXPECT_GT(track.position_z, 0.0f);
-    EXPECT_TRUE(track.jamming_detected);
   }
 }
 
@@ -695,7 +675,6 @@ TEST(RadarJointIntegrationTest, MediumScaleStaticSearchMaintainsStableOutputAcro
                 target_tiers[tier_index]);
       EXPECT_FALSE(session::CountTracksByStatus(frame, session::TrackStatus::kLost) > 0U);
       ExpectFrameContainsTargets(frame, targets);
-      EXPECT_EQ(CountJammingFlaggedTracks(frame), 0U);
     }
     EXPECT_TRUE(radar_context.SubmittedCommands().empty());
   }
@@ -781,12 +760,6 @@ TEST(RadarJointIntegrationTest,
     ASSERT_GE(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed),
               targets.size());
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(targets));
-    if (script[cycle].expect_jamming) {
-      EXPECT_GT(stats.back().jamming_track_count, 0U);
-    } else {
-      EXPECT_EQ(stats.back().jamming_track_count, 0U);
-    }
-
     const std::uint64_t current_profile_version = radar_context.LatestControlProfile().version;
     if (current_profile_version != previous_profile_version) {
       ++changed_profile_cycles;
@@ -851,7 +824,6 @@ TEST(RadarJointIntegrationTest, LongDurationMediumLoadPatrolKeepsMetricsBoundedW
 
     EXPECT_GE(frame.tracks.size(), 24U);
     EXPECT_GE(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed), 24U);
-    EXPECT_LE(cycle_stats.jamming_track_count, targets.size());
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   }
 
@@ -947,7 +919,6 @@ TEST(RadarJointIntegrationTest, ExtremeRangeTargetsKeepFiniteStableOutputAcrossC
     for (std::size_t i = 0; i < targets.size(); ++i) {
       const session::TrackStateSnapshot& track = *track_map.at(targets[i].external_target_id);
       ExpectFiniteTrackState(track);
-      EXPECT_FALSE(track.jamming_detected);
       EXPECT_GT(track.association_key, 0U);
       EXPECT_GT(track.position_x, 0.0f);
       if (cycle > 0U) {
@@ -990,8 +961,6 @@ TEST(RadarJointIntegrationTest,
     const session::TrackStateSnapshot& fast_track = *track_map.at(9204u);
     ExpectFiniteTrackState(stationary_track);
     ExpectFiniteTrackState(fast_track);
-    EXPECT_FALSE(stationary_track.jamming_detected);
-    EXPECT_FALSE(fast_track.jamming_detected);
     EXPECT_NEAR(stationary_track.speed, 0.0f, 0.5f);
     EXPECT_GT(fast_track.speed, 150.0f);
 
@@ -1531,11 +1500,6 @@ TEST(RadarJointIntegrationTest,
     EXPECT_EQ(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed),
               targets.size());
     ExpectFrameContainsTargets(frame, targets);
-    if (script[cycle].expect_jamming) {
-      EXPECT_GT(cycle_stats.jamming_track_count, 0U);
-    } else {
-      EXPECT_EQ(cycle_stats.jamming_track_count, 0U);
-    }
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   }
 
@@ -1760,13 +1724,8 @@ TEST(RadarJointIntegrationTest, LongDurationPulsedInterferenceRecoversOnEveryCle
     EXPECT_EQ(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed),
               targets.size());
     ExpectFrameContainsTargets(frame, targets);
-    if (script[cycle].expect_jamming) {
-      EXPECT_GT(cycle_stats.jamming_track_count, 0U);
-    } else {
-      EXPECT_EQ(cycle_stats.jamming_track_count, 0U);
-      if ((cycle > 0U) && script[cycle - 1U].expect_jamming) {
-        ++clear_recovery_cycles;
-      }
+    if (!script[cycle].expect_jamming && (cycle > 0U) && script[cycle - 1U].expect_jamming) {
+      ++clear_recovery_cycles;
     }
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
   }
@@ -1985,9 +1944,6 @@ TEST(RadarJointIntegrationTest, SimultaneousTargetAndJammerVolatilityKeepsCurren
     EXPECT_GE(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed),
               batches[cycle].size());
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(batches[cycle]));
-    if (script[cycle].expect_jamming) {
-      EXPECT_GT(cycle_stats.jamming_track_count, 0U);
-    }
   }
 
   ExpectNoZeroPublishedCycles(stats);
@@ -2076,9 +2032,6 @@ TEST(RadarJointIntegrationTest, BatchReplacementAndPulsedInterferenceKeepCurrent
     EXPECT_GE(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed),
               batches[cycle].size());
     ExpectFrameContainsTargetIds(frame, ExtractTargetIds(batches[cycle]));
-    if (script[cycle].expect_jamming) {
-      EXPECT_GT(cycle_stats.jamming_track_count, 0U);
-    }
   }
 
   ExpectNoZeroPublishedCycles(stats);

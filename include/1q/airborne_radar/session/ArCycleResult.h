@@ -73,13 +73,6 @@ ONEQ_API session::TrackStateSnapshotList CollectConfirmedTracks(const TrackOutpu
 ONEQ_API session::TrackStateSnapshotList CollectLostTracks(const TrackOutputFrame& frame);
 
 /**
- * @brief 收集所有带干扰标记的轨迹。
- * @param[in] frame 轨迹输出帧。
- * @return jamming_detected 为 true 的轨迹快照拷贝列表。
- */
-ONEQ_API session::TrackStateSnapshotList CollectJammingTracks(const TrackOutputFrame& frame);
-
-/**
  * @brief 判断输出帧中是否包含指定外部目标 ID。
  * @param[in] frame 轨迹输出帧。
  * @param[in] external_target_id 目标外部 ID。
@@ -87,13 +80,6 @@ ONEQ_API session::TrackStateSnapshotList CollectJammingTracks(const TrackOutputF
  */
 ONEQ_API bool ContainsExternalTargetId(const TrackOutputFrame& frame,
                                        std::uint64_t external_target_id);
-
-/**
- * @brief 统计携带干扰标记的轨迹数量。
- * @param[in] frame 轨迹输出帧。
- * @return jamming_detected 为 true 的轨迹条数。
- */
-ONEQ_API std::size_t CountJammingTracks(const TrackOutputFrame& frame);
 
 /**
  * @brief 按生命周期状态统计轨迹数量。

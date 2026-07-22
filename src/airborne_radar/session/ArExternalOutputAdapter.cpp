@@ -86,7 +86,6 @@ bool TryMakeExternalTrackFromSnapshot(const session::TrackStateSnapshot& snapsho
       velocity_ecef.y_mps * velocity_ecef.y_mps +
       velocity_ecef.z_mps * velocity_ecef.z_mps));
   output->rcs = snapshot.rcs;
-  output->jamming_detected = snapshot.jamming_detected;
   output->hit_count = snapshot.hit_count;
   output->miss_count = snapshot.miss_count;
   output->target_probability = snapshot.target_probability;

@@ -22,15 +22,13 @@ namespace tests {
 
 namespace {
 
-session::TrackStateSnapshot BuildTrack(float speed, float rcs, session::TrackStatus status,
-                                bool jamming_detected = false) {
+session::TrackStateSnapshot BuildTrack(float speed, float rcs, session::TrackStatus status) {
   session::TrackStateSnapshot snapshot;
   snapshot.velocity_x = speed;
   snapshot.velocity_y = 0.0f;
   snapshot.velocity_z = 0.0f;
   snapshot.speed = std::sqrt(speed * speed);
   snapshot.rcs = rcs;
-  snapshot.jamming_detected = jamming_detected;
   snapshot.status = status;
   snapshot.association_key = static_cast<std::uint64_t>(speed * 10.0f + rcs * 10.0f);
   return snapshot;
@@ -159,8 +157,7 @@ TEST(TacticalCoordinatorTest, JammingEnvironmentGeneratesEccmProposals) {
   deception_source.confidence = 1.0f;
   frame.eccm_source_info.jammer_sources.push_back(noise_source);
   frame.eccm_source_info.jammer_sources.push_back(deception_source);
-  frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed, true));
+  frame.tracks.push_back(BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
 
   const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -202,8 +199,7 @@ TEST(TacticalCoordinatorTest, DetailedEccmFactsSelectOnlyRelevantProposals) {
   source.jammer_in_sidelobe = false;
   source.confidence = 1.0f;
   frame.eccm_source_info.jammer_sources.push_back(source);
-  frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed, true));
+  frame.tracks.push_back(BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
 
   const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -239,8 +235,7 @@ TEST(TacticalCoordinatorTest, LowConfidenceEccmSourceDoesNotGetArtificialWeightB
   source.jammer_in_sidelobe = false;
   source.confidence = 0.36f;
   frame.eccm_source_info.jammer_sources.push_back(source);
-  frame.tracks.push_back(
-      BuildTrack(220.0f, 2.0f, session::TrackStatus::kConfirmed, true));
+  frame.tracks.push_back(BuildTrack(220.0f, 2.0f, session::TrackStatus::kConfirmed));
 
   const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -277,8 +272,7 @@ TEST(TacticalCoordinatorTest, MultiSourceEccmFactsCombineTypeSpecificCountermeas
 
   frame.eccm_source_info.jammer_sources.push_back(noise_source);
   frame.eccm_source_info.jammer_sources.push_back(deception_source);
-  frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed, true));
+  frame.tracks.push_back(BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
 
   const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -320,8 +314,7 @@ TEST(TacticalCoordinatorTest,
   low_confidence_deception.confidence = 0.2f;
 
   frame.eccm_source_info.jammer_sources.push_back(low_confidence_deception);
-  frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed, true));
+  frame.tracks.push_back(BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
 
   const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -459,8 +452,7 @@ TEST(TacticalCoordinatorTest, EnvironmentJammingAndAssociationPressureAreBothRef
   frame.perception_quality_info.detection_count = 2u;
   frame.perception_quality_info.detection_rate = 0.5f;
   frame.perception_quality_info.detection_stress = 0.5f;
-  frame.tracks.push_back(
-      BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed, true));
+  frame.tracks.push_back(BuildTrack(200.0f, 2.0f, session::TrackStatus::kConfirmed));
 
   const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
@@ -504,8 +496,7 @@ TEST(TacticalCoordinatorTest, EccmProposalStopsWithoutFreshJammingEvidence) {
   trigger_frame.batch_id = 1u;
   trigger_frame.environment_jamming_detected = true;
   trigger_frame.eccm_source_info.has_jamming_signal = true;
-  trigger_frame.tracks.push_back(
-      BuildTrack(260.0f, 2.2f, session::TrackStatus::kConfirmed, true));
+  trigger_frame.tracks.push_back(BuildTrack(260.0f, 2.2f, session::TrackStatus::kConfirmed));
   const session::TacticalDecisionResult trigger_result =
       coordinator.Evaluate(trigger_frame, state_store);
   EXPECT_EQ(trigger_result.selected_mode, session::TacticalMode::kProtectedEmission);

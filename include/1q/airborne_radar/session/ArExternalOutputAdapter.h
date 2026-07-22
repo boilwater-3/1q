@@ -35,7 +35,6 @@ struct ONEQ_API ArExternalTrackKinematics {
 
   float speed{0.0f};              /**< 目标 ECEF 绝对速度模长（单位：m/s） */
   float rcs{0.0f};                /**< 目标估计雷达散射截面积（单位：平方米） */
-  bool jamming_detected{false};   /**< 该轨迹是否携带干扰观测标记 */
   std::uint32_t hit_count{0};     /**< 命中累计计数 */
   std::uint32_t miss_count{0};    /**< 连续失配计数 */
   float target_probability{0.0f}; /**< 决策层填充的目标分类置信度 */

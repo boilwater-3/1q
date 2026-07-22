@@ -211,7 +211,6 @@ bool ContainsIssueCode(const std::vector<session::ValidationIssue>& issues,
 
 session::TrackStateSnapshot MakeTrackStateSnapshot(float velocity_x, float velocity_y,
                                                    float velocity_z, float rcs,
-                                                   bool jamming_detected,
                                                    std::uint64_t external_target_id,
                                                    std::uint64_t association_key) {
   session::TrackStateSnapshot track;
@@ -221,7 +220,6 @@ session::TrackStateSnapshot MakeTrackStateSnapshot(float velocity_x, float veloc
   track.speed =
       std::sqrt(velocity_x * velocity_x + velocity_y * velocity_y + velocity_z * velocity_z);
   track.rcs = rcs;
-  track.jamming_detected = jamming_detected;
   track.external_target_id = external_target_id;
   track.association_key = association_key;
   return track;
@@ -761,12 +759,12 @@ TEST(PublicApiConvenienceTest, JammerSceneConstructionPopulatesTypedEmitters) {
   EXPECT_FLOAT_EQ(scene.jammer_emitters[2].position_z, -174.55f);
 }
 
-TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportUniqueDuplicateAndJammingSearch) {
+TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportUniqueAndDuplicateSearch) {
   session::TrackOutputFrame frame;
-  frame.tracks.push_back(MakeTrackStateSnapshot(10.0f, 0.0f, 0.0f, 1.0f, false, 401U, 1U));
-  frame.tracks.push_back(MakeTrackStateSnapshot(20.0f, 0.0f, 0.0f, 1.0f, true, 402U, 2U));
-  frame.tracks.push_back(MakeTrackStateSnapshot(21.0f, 0.0f, 0.0f, 1.1f, false, 402U, 3U));
-  frame.tracks.push_back(MakeTrackStateSnapshot(8.0f, 0.0f, 0.0f, 0.7f, true, 0U, 4U));
+  frame.tracks.push_back(MakeTrackStateSnapshot(10.0f, 0.0f, 0.0f, 1.0f, 401U, 1U));
+  frame.tracks.push_back(MakeTrackStateSnapshot(20.0f, 0.0f, 0.0f, 1.0f, 402U, 2U));
+  frame.tracks.push_back(MakeTrackStateSnapshot(21.0f, 0.0f, 0.0f, 1.1f, 402U, 3U));
+  frame.tracks.push_back(MakeTrackStateSnapshot(8.0f, 0.0f, 0.0f, 0.7f, 0U, 4U));
 
   const auto track_map = session::BuildTrackMapByExternalTargetId(frame);
   EXPECT_EQ(track_map.size(), 2U);
@@ -780,31 +778,29 @@ TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportUniqueDuplicateAndJammin
   EXPECT_TRUE(session::ContainsExternalTargetId(frame, 401U));
   EXPECT_TRUE(session::ContainsExternalTargetId(frame, 0U));
   EXPECT_FALSE(session::ContainsExternalTargetId(frame, 999U));
-  EXPECT_EQ(session::CountJammingTracks(frame), 2U);
   EXPECT_EQ(session::CountTracksByStatus(frame, session::TrackStatus::kTentative), 4U);
 }
 
-TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportAssociationKeyStatusAndJammingCollections) {
+TEST(PublicApiConvenienceTest, TrackOutputQueriesSupportAssociationKeyAndStatusCollections) {
   session::TrackOutputFrame frame;
   session::TrackStateSnapshot confirmed =
-      MakeTrackStateSnapshot(20.0f, 0.0f, 0.0f, 1.0f, false, 410U, 11U);
+      MakeTrackStateSnapshot(20.0f, 0.0f, 0.0f, 1.0f, 410U, 11U);
   confirmed.status = session::TrackStatus::kConfirmed;
   session::TrackStateSnapshot lost =
-      MakeTrackStateSnapshot(5.0f, 0.0f, 0.0f, 0.8f, false, 411U, 12U);
+      MakeTrackStateSnapshot(5.0f, 0.0f, 0.0f, 0.8f, 411U, 12U);
   lost.status = session::TrackStatus::kLost;
-  session::TrackStateSnapshot jammed =
-      MakeTrackStateSnapshot(18.0f, 0.0f, 0.0f, 1.2f, true, 412U, 13U);
-  jammed.status = session::TrackStatus::kConfirmed;
+  session::TrackStateSnapshot second_confirmed =
+      MakeTrackStateSnapshot(18.0f, 0.0f, 0.0f, 1.2f, 412U, 13U);
+  second_confirmed.status = session::TrackStatus::kConfirmed;
   frame.tracks.push_back(confirmed);
   frame.tracks.push_back(lost);
-  frame.tracks.push_back(jammed);
+  frame.tracks.push_back(second_confirmed);
 
   const auto track_map = session::BuildTrackMapByAssociationKey(frame);
   ASSERT_EQ(track_map.size(), 3U);
   EXPECT_EQ(track_map.at(13U).external_target_id, 412U);
   EXPECT_EQ(session::CollectConfirmedTracks(frame).size(), 2U);
   EXPECT_EQ(session::CollectLostTracks(frame).size(), 1U);
-  EXPECT_EQ(session::CollectJammingTracks(frame).size(), 1U);
   EXPECT_EQ(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed), 2U);
 }
 
@@ -881,7 +877,6 @@ TEST(PublicApiConvenienceTest, RadarSessionStepProducesReadableOutputWithoutInte
   EXPECT_EQ(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed), 2U);
   EXPECT_TRUE(session::ContainsExternalTargetId(frame, 501U));
   EXPECT_TRUE(session::ContainsExternalTargetId(frame, 502U));
-  EXPECT_EQ(session::CountJammingTracks(frame), 0U);
   EXPECT_TRUE(session.GetSubmittedCommands().empty());
   EXPECT_TRUE(session.HasLatestControlProfile());
 }
@@ -929,7 +924,6 @@ TEST(PublicApiConvenienceTest, RadarSessionSceneAwareStepMatchesManualController
   EXPECT_EQ(session_frame.tracks.size(), manual_frame.tracks.size());
   EXPECT_EQ(session::CountTracksByStatus(session_frame, session::TrackStatus::kConfirmed),
             session::CountTracksByStatus(manual_frame, session::TrackStatus::kConfirmed));
-  EXPECT_EQ(session::CountJammingTracks(session_frame), session::CountJammingTracks(manual_frame));
 
   const auto session_track_map = session::BuildTrackMapByExternalTargetId(session_frame);
   const auto manual_track_map = session::BuildTrackMapByExternalTargetId(manual_frame);
@@ -1029,7 +1023,6 @@ TEST(PublicApiConvenienceTest,
   EXPECT_EQ(frame_2.cycle_index, frame_1.cycle_index);
   EXPECT_EQ(frame_2.batch_id, frame_1.batch_id);
   EXPECT_EQ(frame_2.tracks.size(), frame_1.tracks.size());
-  EXPECT_EQ(session::CountJammingTracks(frame_2), session::CountJammingTracks(frame_1));
   EXPECT_TRUE(result_2.submitted_commands.empty());
   EXPECT_FALSE(result_2.has_control_profile);
   EXPECT_EQ(result_2.association_quality_metrics.detection_count, 0U);
@@ -1043,7 +1036,6 @@ TEST(PublicApiConvenienceTest,
   ApplySceneStateToCycleInput(clear_scene, &cycle_3);
   const session::TrackOutputFrame frame_3 = session.Step(cycle_3);
   EXPECT_GT(frame_3.tracks.size(), 0U);
-  EXPECT_EQ(session::CountJammingTracks(frame_3), 0U);
   EXPECT_TRUE(session::ContainsExternalTargetId(frame_3, 703U));
   EXPECT_TRUE(session::ContainsExternalTargetId(frame_3, 704U));
 }

@@ -339,8 +339,8 @@ flatbuffers::Offset<fb::DecisionTrackStateSnapshot> EncodeTrackStateSnapshot(
       *builder, value.association_key, value.external_target_id, static_cast<int>(value.status),
       value.position_x, value.position_y, value.position_z, value.velocity_x, value.velocity_y,
       value.velocity_z, value.speed, value.acceleration_x, value.acceleration_y,
-      value.acceleration_z, value.acceleration, value.rcs, value.jamming_detected, value.hit_count,
-      value.miss_count, builder->CreateString(value.target_type), value.target_probability,
+      value.acceleration_z, value.acceleration, value.rcs, value.hit_count, value.miss_count,
+      builder->CreateString(value.target_type), value.target_probability,
       builder->CreateString(value.target_name));
 }
 
@@ -367,7 +367,6 @@ session::TrackStateSnapshot DecodeTrackStateSnapshot(const fb::DecisionTrackStat
     result.acceleration_z = value->acceleration_z();
     result.acceleration = value->acceleration();
     result.rcs = value->rcs();
-    result.jamming_detected = value->jamming_detected();
     result.hit_count = value->hit_count();
     result.miss_count = value->miss_count();
     if (value->target_type() != nullptr) {

@@ -140,7 +140,6 @@ table DecisionTrackStateSnapshot {
   acceleration_z:float;
   acceleration:float;
   rcs:float;
-  jamming_detected:bool;
   hit_count:uint;
   miss_count:uint;
   target_type:string;

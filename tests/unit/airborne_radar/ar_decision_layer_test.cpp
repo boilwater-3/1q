@@ -26,20 +26,19 @@ namespace ext = airborne_radar::session;
 
 namespace {
 
-acm::TrackStateSnapshot MakeTrack(float vx, float vy, float vz, float rcs, bool jamming = false) {
+acm::TrackStateSnapshot MakeTrack(float vx, float vy, float vz, float rcs) {
   acm::TrackStateSnapshot track;
   track.velocity_x = vx;
   track.velocity_y = vy;
   track.velocity_z = vz;
   track.speed = std::sqrt(vx * vx + vy * vy + vz * vz);
   track.rcs = rcs;
-  track.jamming_detected = jamming;
   return track;
 }
 
-acm::DecisionInputFrame BuildSingleTrackFrame(float speed, float rcs, bool jamming) {
+acm::DecisionInputFrame BuildSingleTrackFrame(float speed, float rcs) {
   acm::DecisionInputFrame frame;
-  frame.tracks.push_back(MakeTrack(speed, 0.0f, 0.0f, rcs, jamming));
+  frame.tracks.push_back(MakeTrack(speed, 0.0f, 0.0f, rcs));
   frame.tracks.back().status = acm::TrackStatus::kConfirmed;
   return frame;
 }
@@ -65,7 +64,7 @@ TEST(TacticalCoordinatorTest, HighThreatAndJamming) {
   dp::TacticalCoordinator coordinator;
   ext::TacticalStateStore state_store;
 
-  acm::DecisionInputFrame frame = BuildSingleTrackFrame(800.0f, 2.5f, true);
+  acm::DecisionInputFrame frame = BuildSingleTrackFrame(800.0f, 2.5f);
   frame.environment_jamming_detected = true;
   frame.eccm_source_info.has_jamming_signal = true;
   acm::EccmJammerSourceInfo source;
@@ -97,7 +96,7 @@ TEST(TacticalCoordinatorTest, LowThreatClearEnvironment) {
   dp::TacticalCoordinator coordinator;
   ext::TacticalStateStore state_store;
 
-  const acm::DecisionInputFrame frame = BuildSingleTrackFrame(150.0f, 1.0f, false);
+  const acm::DecisionInputFrame frame = BuildSingleTrackFrame(150.0f, 1.0f);
   const ext::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
@@ -110,7 +109,7 @@ TEST(TacticalCoordinatorTest, HighThreatClearEnvironment) {
   dp::TacticalCoordinator coordinator;
   ext::TacticalStateStore state_store;
 
-  const acm::DecisionInputFrame frame = BuildSingleTrackFrame(900.0f, 5.0f, false);
+  const acm::DecisionInputFrame frame = BuildSingleTrackFrame(900.0f, 5.0f);
   const ext::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
@@ -130,7 +129,7 @@ TEST(TacticalCoordinatorTest, HighRcsCanPromoteThreatWithModerateSpeed) {
   dp::TacticalCoordinator coordinator;
   ext::TacticalStateStore state_store;
 
-  const acm::DecisionInputFrame frame = BuildSingleTrackFrame(180.0f, 4.2f, false);
+  const acm::DecisionInputFrame frame = BuildSingleTrackFrame(180.0f, 4.2f);
   const ext::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
@@ -160,7 +159,7 @@ TEST(ThreatAssessmentEvaluatorTest, RepositoryMatchProvidesProbability) {
   de::ThreatAssessmentEvaluator evaluator(&repository);
   ext::TacticalStateStore state_store;
 
-  const acm::DecisionInputFrame frame = BuildSingleTrackFrame(780.0f, 2.8f, true);
+  const acm::DecisionInputFrame frame = BuildSingleTrackFrame(780.0f, 2.8f);
 
   const de::ThreatAssessmentEvaluator::Result threat_result =
       evaluator.Evaluate(frame, state_store);

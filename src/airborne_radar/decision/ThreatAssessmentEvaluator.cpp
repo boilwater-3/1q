@@ -87,7 +87,6 @@ session::TargetCategory ThreatAssessmentEvaluator::IdentifyTarget(
     environment::FeatureVector input;
     input.Set("speed", track_snapshot.speed);
     input.Set("rcs", track_snapshot.rcs);
-    input.Set("jamming", track_snapshot.jamming_detected ? 1.0f : 0.0f);
 
     environment::MatchResult match_result;
     if (feature_repository_->QueryBestMatch(input, match_result)) {
@@ -118,7 +117,6 @@ float ThreatAssessmentEvaluator::ComputeThreatScore(
   float threat_score = 0.0f;
   const float track_speed = track_snapshot.speed;
   const float track_rcs = track_snapshot.rcs;
-  const bool jamming_detected = track_snapshot.jamming_detected;
 
   if (track_speed > 300.0f) {
     threat_score += 2.0f;
@@ -130,10 +128,6 @@ float ThreatAssessmentEvaluator::ComputeThreatScore(
     threat_score += 1.0f;
   } else if (track_rcs > 1.2f) {
     threat_score += 0.5f;
-  }
-
-  if (jamming_detected) {
-    threat_score += 1.0f;
   }
 
   if (track_snapshot.status == session::TrackStatus::kConfirmed) {

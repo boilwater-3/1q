@@ -65,16 +65,6 @@ session::TrackStateSnapshotList CollectLostTracks(const TrackOutputFrame& frame)
   return CollectTracksByStatus(frame, session::TrackStatus::kLost);
 }
 
-session::TrackStateSnapshotList CollectJammingTracks(const TrackOutputFrame& frame) {
-  session::TrackStateSnapshotList tracks;
-  for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    if (frame.tracks[i].jamming_detected) {
-      tracks.push_back(frame.tracks[i]);
-    }
-  }
-  return tracks;
-}
-
 bool ContainsExternalTargetId(const TrackOutputFrame& frame, std::uint64_t external_target_id) {
   for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
     if (frame.tracks[i].external_target_id == external_target_id) {
@@ -82,16 +72,6 @@ bool ContainsExternalTargetId(const TrackOutputFrame& frame, std::uint64_t exter
     }
   }
   return false;
-}
-
-std::size_t CountJammingTracks(const TrackOutputFrame& frame) {
-  std::size_t count = 0U;
-  for (std::size_t i = 0; i < frame.tracks.size(); ++i) {
-    if (frame.tracks[i].jamming_detected) {
-      ++count;
-    }
-  }
-  return count;
 }
 
 std::size_t CountTracksByStatus(const TrackOutputFrame& frame, session::TrackStatus status) {

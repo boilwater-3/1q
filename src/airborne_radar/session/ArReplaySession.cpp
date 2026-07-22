@@ -35,8 +35,8 @@ bool TrackStateSnapshotEqual(const session::TrackStateSnapshot& left,
          left.speed == right.speed && left.acceleration_x == right.acceleration_x &&
          left.acceleration_y == right.acceleration_y &&
          left.acceleration_z == right.acceleration_z && left.acceleration == right.acceleration &&
-         left.rcs == right.rcs && left.jamming_detected == right.jamming_detected &&
-         left.hit_count == right.hit_count && left.miss_count == right.miss_count &&
+         left.rcs == right.rcs && left.hit_count == right.hit_count &&
+         left.miss_count == right.miss_count &&
          left.target_type == right.target_type &&
          left.target_probability == right.target_probability;
 }

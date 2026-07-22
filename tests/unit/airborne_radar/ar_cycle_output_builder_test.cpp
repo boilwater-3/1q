@@ -245,7 +245,6 @@ TEST(RadarCycleOutputBuilderTest, OmittedCycleEnvironmentPreservesStaticEnvironm
       static_environment_session.StepWithResult(static_environment_input);
   ASSERT_FALSE(static_environment_result.has_validation_error);
   ASSERT_FALSE(static_environment_result.track_output_frame.tracks.empty());
-  EXPECT_FALSE(static_environment_result.track_output_frame.tracks[0].jamming_detected);
 
   airborne_radar::session::ArEnvironmentInput no_jammer_environment;
   no_jammer_environment.atmospheric_observation.pressure_hpa = 1013.25f;
@@ -262,7 +261,6 @@ TEST(RadarCycleOutputBuilderTest, OmittedCycleEnvironmentPreservesStaticEnvironm
       explicit_environment_session.StepWithResult(explicit_environment_input);
   ASSERT_FALSE(explicit_environment_result.has_validation_error);
   ASSERT_FALSE(explicit_environment_result.track_output_frame.tracks.empty());
-  EXPECT_FALSE(explicit_environment_result.track_output_frame.tracks[0].jamming_detected);
 }
 
 TEST(RadarCycleOutputBuilderTest, MultiCycleMovingTargetsStayNearExternalTruth) {
