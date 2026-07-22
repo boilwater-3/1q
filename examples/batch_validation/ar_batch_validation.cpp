@@ -29,14 +29,13 @@
 #include <vector>
 
 #include "1q/airborne_radar/airborne_radar.hpp"
+#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArCycleInputAdapter.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArReplaySession.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/ArTraceSession.h"
-#include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/coordinate/types.h"
-
 #include "batch_assertions.h"
 #include "batch_checks.h"
 #include "batch_cli.h"
@@ -47,8 +46,8 @@
 namespace ar = airborne_radar;
 namespace ar_config = airborne_radar::config;
 namespace ar_session = airborne_radar::session;
-using batch_validation::CsvWriter;
 using batch_validation::ContractCheckCollector;
+using batch_validation::CsvWriter;
 using batch_validation::ModuleName;
 using batch_validation::ReplayCheckResult;
 using batch_validation::Severity;
@@ -61,8 +60,8 @@ namespace {
 #endif
 
 constexpr const char* kDefaultOutputDir = "/tmp/1q/batch_validation/airborne_radar";
-constexpr std::uint32_t kNumCycles = 50;          ///< 每场景周期数（含预热）
-constexpr std::uint32_t kWarmupCycles = 8;        ///< 前 N 周期不计入"稳态"指标
+constexpr std::uint32_t kNumCycles = 50;    ///< 每场景周期数（含预热）
+constexpr std::uint32_t kWarmupCycles = 8;  ///< 前 N 周期不计入"稳态"指标
 constexpr const char* kTraceId = "ar-batch-validation";
 
 // =============================================================================
@@ -71,11 +70,11 @@ constexpr const char* kTraceId = "ar-batch-validation";
 
 /// 单个 AR 场景参数。
 struct ArCase {
-  std::string scenario_id;   ///< 场景标识（含参数编码，用于 trace 目录名）
-  double target_range_km;    ///< 目标相对雷达的初始斜距（km）
-  float rcs_m2;              ///< 目标 RCS（m^2）
-  int target_count;          ///< 目标数量
-  float min_snr_db_override; ///< 探测阈值覆盖；<0 表示沿用配置默认值
+  std::string scenario_id;    ///< 场景标识（含参数编码，用于 trace 目录名）
+  double target_range_km;     ///< 目标相对雷达的初始斜距（km）
+  float rcs_m2;               ///< 目标 RCS（m^2）
+  int target_count;           ///< 目标数量
+  float min_snr_db_override;  ///< 探测阈值覆盖；<0 表示沿用配置默认值
   bool sequence{false};       ///< 是否为跨周期专项场景
   std::string family{"parameter_sweep"};
 };
@@ -94,8 +93,7 @@ std::vector<ArCase> BuildArCases() {
       for (int n : counts) {
         ArCase c;
         c.min_snr_db_override = -1.0f;
-        std::snprintf(buf, sizeof(buf), "ar_r%03.0fkm_rcs%.2f_n%d", r, static_cast<double>(rcs),
-                      n);
+        std::snprintf(buf, sizeof(buf), "ar_r%03.0fkm_rcs%.2f_n%d", r, static_cast<double>(rcs), n);
         c.scenario_id = buf;
         c.target_range_km = r;
         c.rcs_m2 = rcs;
@@ -120,10 +118,12 @@ std::vector<ArCase> BuildArCases() {
 }
 
 std::vector<ArCase> BuildArSequenceCases() {
-  const char* ids[] = {
-      "ar_seq_two_target_crossing", "ar_seq_crossing_with_pulsed_jammer",
-      "ar_seq_tws_stt_tws", "ar_seq_power_cycle", "ar_seq_invalid_input_recovery",
-      "ar_seq_invalid_patch_atomic"};
+  const char* ids[] = {"ar_seq_two_target_crossing",
+                       "ar_seq_crossing_with_pulsed_jammer",
+                       "ar_seq_tws_stt_tws",
+                       "ar_seq_power_cycle",
+                       "ar_seq_invalid_input_recovery",
+                       "ar_seq_invalid_patch_atomic"};
   std::vector<ArCase> cases;
   for (const char* id : ids) {
     ArCase c;
@@ -133,11 +133,11 @@ std::vector<ArCase> BuildArSequenceCases() {
     c.target_count = std::strstr(id, "pulsed_jammer") == nullptr ? 2 : 3;
     c.min_snr_db_override = 2.0f;
     c.sequence = true;
-    c.family = std::strstr(id, "crossing") != nullptr ? "multi_target_crossing" :
-               std::strstr(id, "patch") != nullptr || std::strstr(id, "tws_stt") != nullptr ?
-                   "runtime_reconfiguration" :
-               std::strstr(id, "power") != nullptr ? "lifecycle_interruption" :
-                                                        "invalid_input_recovery";
+    c.family = std::strstr(id, "crossing") != nullptr ? "multi_target_crossing"
+               : std::strstr(id, "patch") != nullptr || std::strstr(id, "tws_stt") != nullptr
+                   ? "runtime_reconfiguration"
+               : std::strstr(id, "power") != nullptr ? "lifecycle_interruption"
+                                                     : "invalid_input_recovery";
     cases.push_back(c);
   }
   return cases;
@@ -183,8 +183,8 @@ ar_session::ArExternalPoseInput MakePlatformPose(std::uint32_t cycle_index) {
  * AR 输入位置为 ECEF；本函数把目标放在平台 ECEF 原点 + 沿 ECEF x 轴偏移 range_km。
  * 实际场景中目标会在本地系呈现该量级的斜距（足够驱动 SNR/距离趋势）。
  */
-std::vector<ar_session::ArExternalTargetInput> MakeTargets(
-    const ArCase& c, std::uint32_t cycle_index) {
+std::vector<ar_session::ArExternalTargetInput> MakeTargets(const ArCase& c,
+                                                           std::uint32_t cycle_index) {
   std::vector<ar_session::ArExternalTargetInput> targets;
   targets.reserve(static_cast<std::size_t>(c.target_count));
   const double base_offset_m = c.target_range_km * 1000.0;
@@ -202,8 +202,8 @@ std::vector<ar_session::ArExternalTargetInput> MakeTargets(
     t.kinematics.velocity_mps.y_mps = 0.0;
     t.kinematics.velocity_mps.z_mps = 0.0;
     if (c.sequence && c.scenario_id.find("crossing") != std::string::npos && k < 2) {
-      const double signed_offset = (k == 0 ? -1.0 : 1.0) *
-                                   (12.5 - static_cast<double>(cycle_index)) * 120.0;
+      const double signed_offset =
+          (k == 0 ? -1.0 : 1.0) * (12.5 - static_cast<double>(cycle_index)) * 120.0;
       t.kinematics.position_ecef_m.y_m += signed_offset;
       t.kinematics.velocity_mps.y_mps = k == 0 ? 120.0 : -120.0;
     }
@@ -234,7 +234,6 @@ ar_session::ArEnvironmentInput MakeEnvironment(std::uint32_t cycle_index) {
 ///
 /// @note 这些都是 ArSessionConfig 对外公开的字段，属于本框架正常使用的配置面。
 void ApplyCaseToConfig(const ArCase& c, ar_config::ArSessionConfig& config) {
-  config.hardware.enable_physics_detection = true;
   config.hardware.rcs_physics.enable_physical_rcs = true;
   config.hardware.rcs_physics.physics_mix_ratio = 1.0f;  // 完全物理估计
   if (c.min_snr_db_override >= 0.0f) {
@@ -247,7 +246,8 @@ void ApplyCaseToConfig(const ArCase& c, ar_config::ArSessionConfig& config) {
 // =============================================================================
 
 constexpr const char* kCycleHeader =
-    "scenario_id,suite,scenario_family,phase,cycle_index,executed_this_cycle,has_validation_error,abort_reason,"
+    "scenario_id,suite,scenario_family,phase,cycle_index,executed_this_cycle,has_validation_error,"
+    "abort_reason,"
     "prior_track_count,detection_count,matched_count,new_track_count,missed_track_count,"
     "match_rate,new_track_rate,missed_track_rate,mean_match_cost,p95_match_cost,"
     "jamming_severity,association_stress,confirmed_count,tentative_count,lost_count,"
@@ -261,9 +261,7 @@ constexpr const char* kScenarioHeader =
     "warning_count,error_count,warnings";
 
 /// 把 abort_reason 枚举转为整数（CSV 中便于筛选）。
-int AbortReasonToInt(ar_session::SignalCycleAbortReason r) {
-  return static_cast<int>(r);
-}
+int AbortReasonToInt(ar_session::SignalCycleAbortReason r) { return static_cast<int>(r); }
 
 // =============================================================================
 // 单场景执行
@@ -364,9 +362,8 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
   ApplyCaseToConfig(c, config);
 
   const std::string trace_dir = output_dir + "/traces/" + c.scenario_id;
-  auto replay_writer =
-      batch_validation::MakeReplayWriter(trace_dir, ModuleName::kAirborneRadar, kTraceId,
-                                         c.scenario_id);
+  auto replay_writer = batch_validation::MakeReplayWriter(trace_dir, ModuleName::kAirborneRadar,
+                                                          kTraceId, c.scenario_id);
 
   std::vector<CycleMetrics> metrics;
   const std::uint32_t cycle_count = CycleCount(c);
@@ -388,16 +385,16 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
       const std::uint32_t cycle_index = i + 1;
       const char* phase = PhaseFor(c, cycle_index);
       if (previous_phase == nullptr || std::strcmp(previous_phase, phase) != 0) {
-        std::fprintf(stderr, "  [phase] scenario=%s phase=%s cycle=%u\n",
-                     c.scenario_id.c_str(), phase, cycle_index);
+        std::fprintf(stderr, "  [phase] scenario=%s phase=%s cycle=%u\n", c.scenario_id.c_str(),
+                     phase, cycle_index);
         previous_phase = phase;
       }
 
       if (c.scenario_id == "ar_seq_tws_stt_tws" && (cycle_index == 9U || cycle_index == 17U)) {
         ar_config::ArRuntimeConfigPatch patch;
         patch.has_work_mode = true;
-        patch.work_mode = cycle_index == 9U ? ar_config::ArWorkMode::kStt
-                                            : ar_config::ArWorkMode::kTws;
+        patch.work_mode =
+            cycle_index == 9U ? ar_config::ArWorkMode::kStt : ar_config::ArWorkMode::kTws;
         session.ApplyRuntimeConfig(patch);
       }
       if (c.scenario_id == "ar_seq_power_cycle" && (cycle_index == 9U || cycle_index == 14U)) {
@@ -495,20 +492,22 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
   if (!replay.ok || replay.playback.divergence_found) {
     s.warnings.Error("replay failed: " + replay.first_error);
   } else if (replay.playback.compared_output_count != metrics.size()) {
-    s.warnings.Error("replay compared_count=" + std::to_string(replay.playback.compared_output_count) +
-                     " != steps=" + std::to_string(metrics.size()));
+    s.warnings.Error(
+        "replay compared_count=" + std::to_string(replay.playback.compared_output_count) +
+        " != steps=" + std::to_string(metrics.size()));
   }
 
   if (c.sequence) {
-    const std::size_t expected_nonexecuted =
-        c.scenario_id == "ar_seq_invalid_input_recovery" ? 2U :
-        c.scenario_id == "ar_seq_power_cycle" ? 5U : 0U;
-    s.expected_failure_count = c.scenario_id == "ar_seq_invalid_input_recovery" ? 2U :
-                               c.scenario_id == "ar_seq_invalid_patch_atomic" ? 1U : 0U;
-    checks.Add(c.scenario_id, "replay", cycle_count, "replay_complete",
-               std::to_string(metrics.size()), std::to_string(s.replay_compared),
-               replay.ok && !replay.playback.divergence_found &&
-                   s.replay_compared == metrics.size());
+    const std::size_t expected_nonexecuted = c.scenario_id == "ar_seq_invalid_input_recovery" ? 2U
+                                             : c.scenario_id == "ar_seq_power_cycle"          ? 5U
+                                                                                              : 0U;
+    s.expected_failure_count = c.scenario_id == "ar_seq_invalid_input_recovery" ? 2U
+                               : c.scenario_id == "ar_seq_invalid_patch_atomic" ? 1U
+                                                                                : 0U;
+    checks.Add(
+        c.scenario_id, "replay", cycle_count, "replay_complete", std::to_string(metrics.size()),
+        std::to_string(s.replay_compared),
+        replay.ok && !replay.playback.divergence_found && s.replay_compared == metrics.size());
     checks.Add(c.scenario_id, "recovery", cycle_count, "expected_nonexecuted_cycles",
                std::to_string(expected_nonexecuted), std::to_string(rejected_cycle_count),
                rejected_cycle_count == expected_nonexecuted);
@@ -573,8 +572,8 @@ void CheckCrossScenarioTrends(std::vector<ScenarioSummary>& summaries) {
   for (double rcs : rcs_set) {
     std::vector<double> ranges, confirmed;
     for (const auto& s : summaries) {
-      if (s.min_snr_db_override >= 0) continue;        // 仅默认阈值
-      if (s.target_count != 3) continue;               // 固定目标数消除噪声
+      if (s.min_snr_db_override >= 0) continue;  // 仅默认阈值
+      if (s.target_count != 3) continue;         // 固定目标数消除噪声
       if (std::abs(s.rcs_m2 - rcs) > 1e-6) continue;
       ranges.push_back(s.target_range_km);
       confirmed.push_back(s.steady_confirmed_mean);
@@ -589,8 +588,7 @@ void CheckCrossScenarioTrends(std::vector<ScenarioSummary>& summaries) {
         !batch_validation::IsMonotonicNonIncreasing(sorted_confirmed)) {
       // 找到该 RCS 组的所有场景，给最近距离最小的场景记 warning（代理）
       for (auto& s : summaries) {
-        if (s.min_snr_db_override >= 0 || s.target_count != 3 ||
-            std::abs(s.rcs_m2 - rcs) > 1e-6)
+        if (s.min_snr_db_override >= 0 || s.target_count != 3 || std::abs(s.rcs_m2 - rcs) > 1e-6)
           continue;
         s.warnings.Warn("cross-scenario: confirmed not monotonic-decreasing in range (rcs=" +
                         std::to_string(rcs) + ")");
@@ -631,9 +629,9 @@ int main(int argc, char** argv) {
     return 0;
   }
   if (!cli.scenario_id.empty()) {
-    cases.erase(std::remove_if(cases.begin(), cases.end(), [&](const ArCase& c) {
-                  return c.scenario_id != cli.scenario_id;
-                }), cases.end());
+    cases.erase(std::remove_if(cases.begin(), cases.end(),
+                               [&](const ArCase& c) { return c.scenario_id != cli.scenario_id; }),
+                cases.end());
   }
   if (cases.empty()) {
     std::fprintf(stderr, "FATAL: no scenario matched\n");
@@ -688,33 +686,32 @@ int main(int argc, char** argv) {
 
   // 5. 写场景汇总 CSV。
   for (const auto& s : summaries) {
-    std::fprintf(stderr,
-                 "  [scenario] module=AR id=%s physics_detection=1 physical_rcs=1 "
-                 "physics_mix_ratio=1.000 range_km=%.3f rcs_m2=%.3f targets=%d "
-                 "min_snr_db_override=%.3f executed=%u/%u confirmed=%.4f match_rate=%.4f "
-                 "missed_rate=%.4f jamming=%.4f replay_ok=%d compared=%llu divergence=%d "
-                 "warn=%zu error=%zu\n",
-                 s.scenario_id.c_str(), s.target_range_km, s.rcs_m2, s.target_count,
-                 s.min_snr_db_override, s.executed_cycles,
-                 s.scenario_id.find("_seq_") != std::string::npos ? 24U : kNumCycles,
-                 s.steady_confirmed_mean,
-                 s.steady_match_rate_mean, s.steady_missed_rate_mean, s.steady_jamming_mean,
-                 static_cast<int>(s.replay_ok),
-                 static_cast<unsigned long long>(s.replay_compared),
-                 static_cast<int>(s.replay_divergence),
-                 s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError));
     std::fprintf(
-        scenario_writer.file(),
-        "%s,%s,%s,%.3f,%.3f,%d,%.3f,%u,%u,%.4f,%.4f,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%zu,%llu,%zu,%zu,%s\n",
-        s.scenario_id.c_str(), s.suite.c_str(), s.scenario_family.c_str(),
-        s.target_range_km, s.rcs_m2, s.target_count, s.min_snr_db_override,
-        s.executed_cycles, s.warmup_confirmed_cycles, s.steady_confirmed_mean,
-        s.steady_match_rate_mean, s.steady_missed_rate_mean, s.steady_jamming_mean,
-        static_cast<int>(s.replay_ok), static_cast<unsigned long long>(s.replay_compared),
-        static_cast<int>(s.replay_divergence), s.expected_failure_count, s.contract_check_count,
-        s.contract_failure_count, static_cast<unsigned long long>(s.failure_marker_count),
-        s.warnings.Count(Severity::kWarning),
-        s.warnings.Count(Severity::kError), batch_validation::EscapeCsvField(s.warnings.JoinForCsv()).c_str());
+        stderr,
+        "  [scenario] module=AR id=%s physics_detection=1 physical_rcs=1 "
+        "physics_mix_ratio=1.000 range_km=%.3f rcs_m2=%.3f targets=%d "
+        "min_snr_db_override=%.3f executed=%u/%u confirmed=%.4f match_rate=%.4f "
+        "missed_rate=%.4f jamming=%.4f replay_ok=%d compared=%llu divergence=%d "
+        "warn=%zu error=%zu\n",
+        s.scenario_id.c_str(), s.target_range_km, s.rcs_m2, s.target_count, s.min_snr_db_override,
+        s.executed_cycles, s.scenario_id.find("_seq_") != std::string::npos ? 24U : kNumCycles,
+        s.steady_confirmed_mean, s.steady_match_rate_mean, s.steady_missed_rate_mean,
+        s.steady_jamming_mean, static_cast<int>(s.replay_ok),
+        static_cast<unsigned long long>(s.replay_compared), static_cast<int>(s.replay_divergence),
+        s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError));
+    std::fprintf(scenario_writer.file(),
+                 "%s,%s,%s,%.3f,%.3f,%d,%.3f,%u,%u,%.4f,%.4f,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%zu,%llu,"
+                 "%zu,%zu,%s\n",
+                 s.scenario_id.c_str(), s.suite.c_str(), s.scenario_family.c_str(),
+                 s.target_range_km, s.rcs_m2, s.target_count, s.min_snr_db_override,
+                 s.executed_cycles, s.warmup_confirmed_cycles, s.steady_confirmed_mean,
+                 s.steady_match_rate_mean, s.steady_missed_rate_mean, s.steady_jamming_mean,
+                 static_cast<int>(s.replay_ok), static_cast<unsigned long long>(s.replay_compared),
+                 static_cast<int>(s.replay_divergence), s.expected_failure_count,
+                 s.contract_check_count, s.contract_failure_count,
+                 static_cast<unsigned long long>(s.failure_marker_count),
+                 s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError),
+                 batch_validation::EscapeCsvField(s.warnings.JoinForCsv()).c_str());
   }
   scenario_writer.Flush();
   checks.WriteCsv(output_dir + "/checks.csv");
@@ -727,8 +724,8 @@ int main(int argc, char** argv) {
     if (!s.replay_ok || s.replay_divergence) ++replay_fail;
   }
   std::fprintf(stderr, "\n=== AR 批量验证完成 ===\n");
-  std::fprintf(stderr, "  场景数: %zu\n  周期 CSV: %s\n  场景 CSV: %s\n",
-               summaries.size(), cycles_csv.c_str(), scenarios_csv.c_str());
+  std::fprintf(stderr, "  场景数: %zu\n  周期 CSV: %s\n  场景 CSV: %s\n", summaries.size(),
+               cycles_csv.c_str(), scenarios_csv.c_str());
   std::fprintf(stderr, "  软断言 warning: %zu, error: %zu\n", total_warn, total_err);
   std::fprintf(stderr, "  回放失败场景: %zu\n", replay_fail);
   std::fprintf(stderr, "  trace 目录: %s/traces/<scenario_id>/\n", output_dir.c_str());

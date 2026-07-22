@@ -1,7 +1,7 @@
 # Electronic Surveillance Radar 当前设计
 
 Status: active
-Last-reviewed: 2026-07-18
+Last-reviewed: 2026-07-22
 Authority: current electronic_surveillance_radar module design
 
 本文是 `electronic_surveillance_radar` 当前设计权威。它描述 ESR 的会话门面、拦截 pipeline、观测预处理、聚类、辐射源假设关联、输出三通道和运行期状态边界。
@@ -38,7 +38,7 @@ ESR 模块模拟电子侦察接收机对辐射源的观测和估计。它的核�
 | 目录 | 职责 |
 |---|---|
 | `config/` | 内部执行配置 | `EsrInternalExecutionConfig` |
-| `environment/` | `EsrEnvironmentService` 和 suppression/deception/atmospheric 环境采样 |
+| `environment/` | `EsrEnvironmentService` 和传播附加损耗/legacy 兼容环境采样 |
 | `pipeline/` | 拦截 gate、检测执行、预处理、特征编码、Kd-tree 聚类、假设关联、后处理 |
 | `runtime/` | `EsrController` 和执行状态、输出缓存管理 |
 | `session/` | session 组合根、配置解析、runtime patch、输入/输出适配、trace/replay |
@@ -200,12 +200,12 @@ flowchart TB
 
 | 算法/部件 | 入口 | 当前角色 | Public 默认 |
 |---|---|---|---|
-| 环境采样 | `EsrEnvironmentService::SampleEnvironment` | suppression/deception/atmospheric 环境快照 | session 内部 |
+| 环境采样 | `EsrEnvironmentService::SampleEnvironment` | 传播附加损耗与 legacy 兼容环境快照 | session 内部 |
 | 扫描窗口 | `ScanPatternGenerator` | 根据扫描模式和运行期配置生成接收窗口 | pipeline 内部 |
 | 拦截门控 | `InterceptGate` | range、receiver window、dynamic range、SNR 等 joint constraints | pipeline 内部 |
 | 边界搜索 | `BoundarySearchSolver` | 单调谓词边界查找 | pipeline 内部 |
 | 角误差 | `AngleErrorModel` | 基于 SNR/系数/随机种子的 AOA 扰动 | pipeline 内部 |
-| 干扰聚合 | `JammingAggregator` | suppression/deception 通道分离和混合技术 fallback | pipeline 内部 |
+| RF 链路与干扰聚合 | `InterceptDetectionExecutor` + `TryEvaluateRfLink` | 目标与干扰共用单程链路，W 域聚合 | pipeline 内部 |
 | 观测预处理 | `ObservationPreprocessor` | 排序、有限值过滤、质量归一、窗口去重 | pipeline 内部 |
 | 特征编码 | `ObservationFeatureEncoder` | RF/PW/AOA/SNR 按尺度编码到特征空间 | pipeline 内部 |
 | 聚类 | `KdTreeClusterer` | 半径聚类、min-points、noise/border point 处理 | pipeline 内部 |
@@ -219,13 +219,15 @@ flowchart TB
 1. 计算平台到 emitter 的距离和接收机参考系方位/俯仰。
 2. 应用天线安装偏置。
 3. 计算 emitter beam overlap；历史默认 beam state 退化为全覆盖。
-4. 使用自由空间路径损耗和综合接收损耗估计接收功率。
+4. 将普通辐射源与 ECM 工程发射统一映射为 `RfEmission`，使用公共 `TryEvaluateRfLink` 计算包含
+   收发方向图、极化、附加传播损耗和时频重叠的单程接收功率；处理某个信号时排除其自身，其余重叠源在 W 域聚合为干扰。
 5. 启用大气物理时，以 `platform_altitude_m` 作为接收端大气高度参考；更高高度通过气压、密度与
    Blake 衰减改变传播附加损耗，而不是只进入 trace。
 6. 以 `1 + 9 * spectrum_occupancy_ratio` 放大接收机底噪与杂波底噪：0 严格退化，1 对应
    +10 dB 环境噪声；占用率不参与主动 jammer 聚合，也不单独置 `is_jammed`。
 7. 结合统计检测参数、pulse count、integration mode、PFA 和 threshold scale 判断是否可检测。
-8. 将 suppression/deception 影响写入观测质量或 false/confused observation 可能性。
+8. 由 J/N 或实际 SNR 损失门限产生 `is_jammed`；观测置信度只消费一次 SNR/质量结果，不再追加布尔惩罚。
+9. 总输入超过 `maximum_linear_input_power_w` 时输出结构化 `receiver_saturated`，不伪造观测，也不套用未标定压缩曲线。
 
 限制：
 
@@ -241,6 +243,8 @@ flowchart TB
 [evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::CycleInputPreservesAllFields]
 [evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::CycleInputPreservesDoublePrecisionPose]
 [evidence: tests/replay/electronic_surveillance_radar/esr_replay_session_test.cpp::ReplayPreservesRealTenKilometerGeometry]
+[evidence: tests/unit/electronic_surveillance_radar/esr_rf_interference_test.cpp::EsrRfInterferenceTest.SameFrequencyEmissionLowersSnrWithoutBooleanQualityPenalty]
+[evidence: tests/unit/electronic_surveillance_radar/esr_rf_interference_test.cpp::EsrRfInterferenceTest.SaturationProducesStatusAndNoObservation]
 
 Replay 的 cycle-input 位姿与 public `PoseState` 同为 double 精度；schema/codec 不允许把位置、
 速度或欧拉角降为 float。输出比较继续使用严格判等，输入必须先做到可精确重组，不能用比较容差
@@ -323,6 +327,16 @@ pipeline 持有归一化扫描相位 `[0, 1)`：本周期先用 `floor(phase × 
 因此 `scan_rate_hz × dt` 为整数时，相位会按物理周期回到同一点；需要观察完整扫描覆盖的场景必须选择
 能够解析扫描相位的步长/速率组合，不能依赖 cycle index 隐式轮转波束。
 [evidence: tests/integration/cross_domain/multi_model_scenario_test.cpp::MultiModelScenarioTest.AirToAirHeadOn]
+
+RF 调谐由 `EsrHardwareConfig::tuning_plan` 显式描述中心频率、带宽和成功周期驻留数；空计划表示全硬件
+频段驻留。当前接收窗口随 observation output 和 replay 一起记录，禁止用 cycle index 隐式轮转硬编码频段。
+接收硬件同时拥有方向图、极化、噪声、co-site isolation 和最大线性输入功率。工程输入与 legacy 输入
+使用 tagged mode 严格互斥，混合或模式/载荷不一致均整周期拒绝。
+
+`EmitterHypothesis` 仅发布去真值化的中心频率、带宽、PRI、脉宽及不确定度；truth emitter ID 只允许
+出现在 truth-evaluation 通道。ECM sensor-driven adapter 只能复制这些估计字段。
+[evidence: tests/unit/electronic_countermeasure/ecm_session_test.cpp::EcmSessionTest.EsrAdapterCopiesOnlyDetruthEstimatedFields]
+[evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp]
 
 扫描窗口有两种互斥解释方式：
 

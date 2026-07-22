@@ -60,8 +60,13 @@ struct ClusterSummary {
   float mean_az_deg{0.0f};                     /**< 簇均值方位（单位：deg） */
   float mean_el_deg{0.0f};                     /**< 簇均值俯仰（单位：deg） */
   double mean_rf_hz{0.0};                      /**< 簇均值载频（单位：Hz） */
+  double mean_bandwidth_hz{0.0};               /**< 簇均值占用带宽（单位：Hz） */
   double mean_pulse_width_s{0.0};              /**< 簇均值脉宽（单位：s） */
   double mean_pri_s{0.0};                      /**< 簇均值 PRI（单位：s） */
+  double rf_std_hz{0.0};                       /**< 簇中心频率估计标准差（单位：Hz） */
+  double bandwidth_std_hz{0.0};                /**< 簇带宽估计标准差（单位：Hz） */
+  double pri_std_s{0.0};                       /**< 簇 PRI 估计标准差（单位：s） */
+  double pulse_width_std_s{0.0};               /**< 簇脉宽估计标准差（单位：s） */
   float confidence_score{0.0f};                /**< 簇级置信度 */
   float deception_support_ratio{0.0f};         /**< 簇内欺骗受影响样本占比，范围 [0, 1] */
   float false_alarm_ratio{0.0f};               /**< 簇内伪观测占比，范围 [0, 1] */

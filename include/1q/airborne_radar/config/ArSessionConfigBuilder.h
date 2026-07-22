@@ -30,7 +30,6 @@ namespace config {
  * @code
  * auto config = ArSessionConfigBuilder()
  *                   .Detection()
- *                   .EnablePhysicsDetection(true)
  *                   .WithHardwareProfile(
  *                       profiles::ArHardwareProfile::kLongRangeHighPower)
  *                   .WithDetectionIntentProfile(
@@ -88,9 +87,7 @@ class ONEQ_API ArSessionConfigBuilder {
   friend class LifecycleEditor;
   friend class EnvironmentEditor;
 
-  bool enable_physics_detection_{false};
-  profiles::ArHardwareProfile hardware_profile_{
-      profiles::ArHardwareProfile::kGenericAirborneXBand};
+  profiles::ArHardwareProfile hardware_profile_{profiles::ArHardwareProfile::kGenericAirborneXBand};
   profiles::DetectionIntentProfile intent_profile_{profiles::DetectionIntentProfile::kBalanced};
   profiles::AntennaPatternProfile antenna_profile_{profiles::AntennaPatternProfile::kStandard};
   config::AzimuthElevationDeg antenna_boresight_offset_deg_{};
@@ -115,12 +112,6 @@ class ONEQ_API ArSessionConfigBuilder::DetectionEditor {
  public:
   explicit DetectionEditor(ArSessionConfigBuilder* builder) : builder_(builder) {}
 
-  /** @brief 开启或关闭物理探测链路。 */
-  DetectionEditor& EnablePhysicsDetection(bool enable = true) {
-    builder_->enable_physics_detection_ = enable;
-    builder_->detection_dirty_ = true;
-    return *this;
-  }
   /** @brief 设置硬件语义档位。 */
   DetectionEditor& WithHardwareProfile(profiles::ArHardwareProfile profile) {
     builder_->hardware_profile_ = profile;

@@ -46,6 +46,14 @@ struct ONEQ_API EmitterHypothesis {
   float bearing_az_deg{0.0f};                   /**< 方位线方位角（单位：deg） */
   float bearing_el_deg{0.0f};                   /**< 方位线俯仰角（单位：deg） */
   float bearing_std_deg{0.0f};                  /**< 方位测量标准差（单位：deg） */
+  double estimated_center_frequency_hz{0.0};   /**< 估计中心频率（单位：Hz） */
+  double estimated_bandwidth_hz{0.0};          /**< 估计占用带宽（单位：Hz） */
+  double estimated_pri_s{0.0};                 /**< 估计脉冲重复间隔（单位：s） */
+  double estimated_pulse_width_s{0.0};         /**< 估计脉宽（单位：s） */
+  double center_frequency_std_hz{0.0};         /**< 中心频率估计标准差（单位：Hz） */
+  double bandwidth_std_hz{0.0};                /**< 带宽估计标准差（单位：Hz） */
+  double pri_std_s{0.0};                       /**< PRI 估计标准差（单位：s） */
+  double pulse_width_std_s{0.0};               /**< 脉宽估计标准差（单位：s） */
   float confidence{0.0f};                       /**< 假设置信度，范围 [0, 1] */
   std::uint32_t last_seen_cycle{0U};            /**< 最近命中周期号 */
 };

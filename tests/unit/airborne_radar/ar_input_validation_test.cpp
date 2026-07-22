@@ -41,8 +41,8 @@ session::ArSceneTarget MakeValidTarget(std::uint64_t id = 1u) {
 }
 
 // 在 issues 列表中查找指定编码的第一条记录
-const session::ValidationIssue* FindIssue(
-    const std::vector<session::ValidationIssue>& issues, ValidationCode code) {
+const session::ValidationIssue* FindIssue(const std::vector<session::ValidationIssue>& issues,
+                                          ValidationCode code) {
   for (const auto& issue : issues) {
     if (issue.code == code) {
       return &issue;
@@ -256,8 +256,7 @@ TEST(RadarInputValidationTest, ZeroDtIsError) {
   input.scene.push_back(MakeValidTarget());
 
   const auto issues = ValidateArCycleInput(input);
-  const session::ValidationIssue* issue =
-      FindIssue(issues, ValidationCode::kInvalidCycleDeltaTime);
+  const session::ValidationIssue* issue = FindIssue(issues, ValidationCode::kInvalidCycleDeltaTime);
   ASSERT_NE(issue, nullptr);
   EXPECT_EQ(issue->severity, ValidationSeverity::kError);
   EXPECT_TRUE(HasValidationError(issues));
@@ -270,8 +269,7 @@ TEST(RadarInputValidationTest, NegativeDtIsError) {
   input.scene.push_back(MakeValidTarget());
 
   const auto issues = ValidateArCycleInput(input);
-  const session::ValidationIssue* issue =
-      FindIssue(issues, ValidationCode::kInvalidCycleDeltaTime);
+  const session::ValidationIssue* issue = FindIssue(issues, ValidationCode::kInvalidCycleDeltaTime);
   ASSERT_NE(issue, nullptr);
   EXPECT_EQ(issue->severity, ValidationSeverity::kError);
   EXPECT_TRUE(HasValidationError(issues));
@@ -387,8 +385,7 @@ TEST(RadarInputValidationTest, NonFinitePressureIsError) {
   session::ArCycleInput input;
   input.dt_sec = 1.0f;
   input.has_environment = true;
-  input.environment.atmospheric_observation.pressure_hpa =
-      std::numeric_limits<float>::quiet_NaN();
+  input.environment.atmospheric_observation.pressure_hpa = std::numeric_limits<float>::quiet_NaN();
   input.scene.push_back(MakeValidTarget());
 
   const auto issues = ValidateArCycleInput(input);
@@ -402,8 +399,7 @@ TEST(RadarInputValidationTest, NonFiniteAtmosphericContextIsError) {
   input.has_environment = true;
   input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
   input.environment.atmospheric_observation.temperature_k = 288.0f;
-  input.environment.atmospheric_context.solar_flux_f107 =
-      std::numeric_limits<float>::quiet_NaN();
+  input.environment.atmospheric_context.solar_flux_f107 = std::numeric_limits<float>::quiet_NaN();
   input.scene.push_back(MakeValidTarget());
 
   const auto issues = ValidateArCycleInput(input);
@@ -513,6 +509,80 @@ TEST(RadarInputValidationTest, FullyValidEnvironmentProducesNoError) {
   const auto issues = ValidateArCycleInput(input);
   EXPECT_EQ(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
   EXPECT_FALSE(HasValidationError(issues));
+}
+
+TEST(RadarInputValidationTest, EngineeringInterferenceRequiresMatchingTaggedPayload) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.scene.push_back(MakeValidTarget());
+  input.environment.interference.mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  oneq::electromagnetics::RfEmission emission;
+  emission.emission_id = 7;
+  oneq::electromagnetics::RfEmissionSegment segment;
+  segment.duration_s = 1.0;
+  segment.center_frequency_hz = 10.0e9;
+  segment.bandwidth_hz = 1.0e6;
+  segment.transmit_power_w = 100.0;
+  emission.segments.push_back(segment);
+  input.environment.interference.engineering_emissions.push_back(emission);
+
+  auto missing_site_issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(missing_site_issues, ValidationCode::kMissingEngineeringRfReceiverSite),
+            nullptr);
+
+  input.has_platform_ecef_kinematics = true;
+  EXPECT_FALSE(HasValidationError(ValidateArCycleInput(input)));
+
+  input.environment.interference.legacy_jammer_sources.push_back(config::JammerEmitterState{});
+  const auto mixed_issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(mixed_issues, ValidationCode::kInvalidInterferenceInput), nullptr);
+}
+
+TEST(RadarInputValidationTest, CompatibilityAndTaggedInterferenceCannotBeMixed) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.scene.push_back(MakeValidTarget());
+  input.environment.jammer_sources.push_back(config::JammerEmitterState{});
+  input.environment.interference.mode = oneq::electromagnetics::RfInterferenceMode::kLegacy;
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidInterferenceInput), nullptr);
+}
+
+TEST(RadarInputValidationTest, PlatformEcefPresenceAndFiniteValuesFailClosed) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.scene.push_back(MakeValidTarget());
+  input.platform_position_ecef_m.x_m = 1000.0;
+  auto mismatch_issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(mismatch_issues, ValidationCode::kPlatformEcefFlagMismatch), nullptr);
+
+  input.has_platform_ecef_kinematics = true;
+  input.platform_velocity_ecef_mps.z_mps = std::numeric_limits<double>::quiet_NaN();
+  auto invalid_issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(invalid_issues, ValidationCode::kInvalidPlatformEcefKinematics), nullptr);
+}
+
+TEST(RadarInputValidationTest, EngineeringInterferenceRejectsDuplicateEmissionIds) {
+  session::ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.scene.push_back(MakeValidTarget());
+  input.environment.interference.mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  oneq::electromagnetics::RfEmission emission;
+  emission.emission_id = 9;
+  oneq::electromagnetics::RfEmissionSegment segment;
+  segment.duration_s = 1.0;
+  segment.center_frequency_hz = 10.0e9;
+  segment.bandwidth_hz = 1.0e6;
+  segment.transmit_power_w = 10.0;
+  emission.segments.push_back(segment);
+  input.environment.interference.engineering_emissions = {emission, emission};
+
+  const auto issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidInterferenceInput), nullptr);
 }
 
 // ===========================================================================

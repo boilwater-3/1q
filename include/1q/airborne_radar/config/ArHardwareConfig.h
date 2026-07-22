@@ -10,6 +10,7 @@
 
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/api.hpp"
+#include "1q/electromagnetics/RfLinkBudget.h"
 
 namespace airborne_radar {
 namespace config {
@@ -109,11 +110,11 @@ enum class ONEQ_API AntennaPatternModelType {
  */
 struct ONEQ_API AntennaPatternConfig {
   AntennaPatternModelType model_type{
-      AntennaPatternModelType::kGaussianMainLobe};   /**< 主瓣模型类型。 */
-  float max_sidelobe_level_db{-20.0f};               /**< 最大旁瓣电平。 */
-  float backlobe_level_db{-35.0f};                   /**< 后瓣电平。 */
-  float scan_loss_coeff_db_per_deg2{0.0f};           /**< 扫描损失系数。 */
-  float max_scan_loss_db{6.0f};                      /**< 扫描损失上限。 */
+      AntennaPatternModelType::kGaussianMainLobe};    /**< 主瓣模型类型。 */
+  float max_sidelobe_level_db{-20.0f};                /**< 最大旁瓣电平。 */
+  float backlobe_level_db{-35.0f};                    /**< 后瓣电平。 */
+  float scan_loss_coeff_db_per_deg2{0.0f};            /**< 扫描损失系数。 */
+  float max_scan_loss_db{6.0f};                       /**< 扫描损失上限。 */
   config::AzimuthElevationDeg boresight_offset_deg{}; /**< 方向图相对安装轴偏置。 */
 };
 
@@ -121,11 +122,15 @@ struct ONEQ_API AntennaPatternConfig {
  * @brief 天线工程参数。
  */
 struct ONEQ_API AntennaConfig {
-  float main_beam_gain_db{35.0f};         /**< 主瓣峰值增益。 */
-  float nominal_az_beamwidth_deg{4.0f};   /**< 名义方位波束宽度；正值直接生效，0 表示从有效物理孔径推导。 */
-  float nominal_el_beamwidth_deg{4.0f};   /**< 名义俯仰波束宽度；正值直接生效，0 表示从有效物理孔径推导。 */
-  float antenna_length_m{0.0f};           /**< 物理方位孔径尺寸；正值参与波束推导和 sinc² 模式，0 表示未配置。 */
-  float antenna_width_m{0.0f};            /**< 物理俯仰孔径尺寸；正值参与波束推导和 sinc² 模式，0 表示未配置。 */
+  float main_beam_gain_db{35.0f}; /**< 主瓣峰值增益。 */
+  float nominal_az_beamwidth_deg{
+      4.0f}; /**< 名义方位波束宽度；正值直接生效，0 表示从有效物理孔径推导。 */
+  float nominal_el_beamwidth_deg{
+      4.0f}; /**< 名义俯仰波束宽度；正值直接生效，0 表示从有效物理孔径推导。 */
+  float antenna_length_m{
+      0.0f}; /**< 物理方位孔径尺寸；正值参与波束推导和 sinc² 模式，0 表示未配置。 */
+  float antenna_width_m{
+      0.0f}; /**< 物理俯仰孔径尺寸；正值参与波束推导和 sinc² 模式，0 表示未配置。 */
   AntennaPatternConfig pattern{};         /**< 方向图参数。 */
   bool enable_directional_pattern{false}; /**< 是否启用离轴方向图评估。 */
 };
@@ -136,6 +141,13 @@ struct ONEQ_API AntennaConfig {
 struct ONEQ_API ReceiverConfig {
   float noise_figure_db{4.0f}; /**< 接收机噪声系数。 */
   float receive_loss_db{2.0f}; /**< 接收链路损耗。 */
+  oneq::electromagnetics::RfPolarization polarization{
+      oneq::electromagnetics::RfPolarization::kHorizontal}; /**< 接收极化。 */
+  float cross_polarization_isolation_db{30.0f};             /**< 正交极化隔离（dB）。 */
+  float minimum_far_field_range_m{1.0f};                    /**< 远场公式最小适用距离（m）。 */
+  bool has_co_site_isolation{false};                        /**< 是否配置同平台耦合隔离。 */
+  float co_site_isolation_db{0.0f};                         /**< 同平台耦合路径隔离（dB）。 */
+  float maximum_linear_input_power_w{1.0e-3f};              /**< 线性接收上限（W）。 */
 };
 
 /**
@@ -168,11 +180,10 @@ struct ONEQ_API RcsPhysicsConfig {
  * @brief 探测聚合配置。
  */
 struct ONEQ_API DetectionConfig {
-  bool enable_physics_detection{false};     /**< 是否启用物理雷达方程检测链。 */
-  TransmitterConfig transmitter{};          /**< 发射机参数。 */
-  AntennaConfig antenna{};                  /**< 天线参数。 */
-  ReceiverConfig receiver{};                /**< 接收机参数。 */
-  RcsPhysicsConfig rcs_physics{};           /**< RCS 物理建模参数。 */
+  TransmitterConfig transmitter{}; /**< 发射机参数。 */
+  AntennaConfig antenna{};         /**< 天线参数。 */
+  ReceiverConfig receiver{};       /**< 接收机参数。 */
+  RcsPhysicsConfig rcs_physics{};  /**< RCS 物理建模参数。 */
 };
 
 }  // namespace detection

@@ -38,6 +38,10 @@ bool EsrCycleInputAdapter::Build(const EsrExternalPoseInput& platform,
   output->cycle_index = 0U;
   output->dt_sec = dt_sec;
   output->platform_altitude_m = static_cast<float>(reference.origin_lla.altitude_m);
+  output->platform_entity_id = platform.platform_entity_id;
+  output->has_platform_ecef_kinematics = true;
+  output->platform_position_ecef_m = platform.platform_position_ecef_m;
+  output->platform_velocity_ecef_mps = platform.platform_velocity_mps;
   output->environment = environment;
   output->scene.clear();
 

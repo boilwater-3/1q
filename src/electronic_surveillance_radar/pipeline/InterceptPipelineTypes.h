@@ -8,7 +8,9 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
+#include "1q/electronic_surveillance_radar/config/EsrHardwareConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrOutputTypes.h"
 
 namespace electronic_surveillance_radar {
@@ -33,10 +35,7 @@ struct InterceptDetectionConfig {
 /**
  * @brief InterceptIntegrationMode 表示统计检测中的积累模式。
  */
-enum class InterceptIntegrationMode {
-  kNonCoherent = 0,
-  kCoherent
-};
+enum class InterceptIntegrationMode { kNonCoherent = 0, kCoherent };
 
 /**
  * @brief InterceptStatisticalDetectionConfig 描述统计检测与门限映射参数。
@@ -154,6 +153,7 @@ struct InterceptRuntimeConfig {
   float antenna_mount_az_deg{0.0f};
   float antenna_mount_el_deg{0.0f};
   float scan_rate_hz{1.0f};
+  config::EsrHardwareConfig receiver_hardware{};
 };
 
 /**

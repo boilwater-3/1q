@@ -123,8 +123,8 @@ class RadarModule {
     ar_config::ArSessionConfig config;
     std::string error;
     if (!examples::LoadArSessionConfigFromFile(config_path.c_str(), &config, &error)) {
-      std::cerr << "[RadarModule] ERROR: failed to load config from " << config_path
-                << ": " << error << "\n";
+      std::cerr << "[RadarModule] ERROR: failed to load config from " << config_path << ": "
+                << error << "\n";
       return false;
     }
 
@@ -191,8 +191,7 @@ class RadarModule {
   // ==================== 订阅者模式 ====================
 
   /** @brief 运行期配置补丁回调类型。引擎通过回调修改补丁各字段以动态调整运行参数。 */
-  using ConfigPatchCallback =
-      std::function<void(ar_config::ArRuntimeConfigPatch& patch)>;
+  using ConfigPatchCallback = std::function<void(ar_config::ArRuntimeConfigPatch& patch)>;
 
   /**
    * @brief 注册运行期配置变更回调。
@@ -282,11 +281,10 @@ class RadarModule {
    * @param[out] output    外部 ECEF 轨迹输出
    * @return true  转换成功
    */
-  bool buildExternalOutput(
-      const ar_session::ArExternalPoseInput& platform,
-      ar_session::ArExternalTrackOutputFrame* output) const {
+  bool buildExternalOutput(const ar_session::ArExternalPoseInput& platform,
+                           ar_session::ArExternalTrackOutputFrame* output) const {
     return ar_session::ArCycleOutputAdapter::Build(platform, last_result_.track_output_frame,
-                                                     output);
+                                                   output);
   }
 
   // ==================== 回放 (Replay) ====================
@@ -328,30 +326,21 @@ class RadarModule {
   void printConfigSummary(std::ostream& os = std::cout) const {
     os << "=== RadarModule Config Summary ===\n"
        << "[Hardware]\n"
-       << "  peak_power_w=" << hw_peak_power_w_
-       << " freq_hz=" << hw_frequency_hz_
-       << " prf_hz=" << hw_prf_hz_
-       << " pulse_count=" << policy_pulse_count_
-       << "\n  gain_db=" << hw_main_beam_gain_db_
-       << " az_bw=" << hw_nominal_az_beamwidth_deg_
-       << " el_bw=" << hw_nominal_el_beamwidth_deg_
-       << " pfa=" << policy_pfa_
-       << " minimum_snr_db=" << policy_minimum_snr_db_
-       << "\n[Mission]\n"
+       << "  peak_power_w=" << hw_peak_power_w_ << " freq_hz=" << hw_frequency_hz_
+       << " prf_hz=" << hw_prf_hz_ << " pulse_count=" << policy_pulse_count_
+       << "\n  gain_db=" << hw_main_beam_gain_db_ << " az_bw=" << hw_nominal_az_beamwidth_deg_
+       << " el_bw=" << hw_nominal_el_beamwidth_deg_ << " pfa=" << policy_pfa_
+       << " minimum_snr_db=" << policy_minimum_snr_db_ << "\n[Mission]\n"
        << "  power_on=" << mission_power_on_
-       << " work_mode=" << static_cast<int>(mission_work_mode_)
-       << " scan_center=[" << mission_scan_center_az_deg_
-       << "," << mission_scan_center_el_deg_ << "]"
+       << " work_mode=" << static_cast<int>(mission_work_mode_) << " scan_center=["
+       << mission_scan_center_az_deg_ << "," << mission_scan_center_el_deg_ << "]"
        << "\n[Policy]\n"
        << "  kalman_filter=" << policy_enable_kalman_filter_
        << " noise_std=" << policy_kalman_measurement_noise_std_
-       << " confirm_hits=" << policy_confirm_hits_
-       << " max_miss=" << policy_max_miss_before_lost_
+       << " confirm_hits=" << policy_confirm_hits_ << " max_miss=" << policy_max_miss_before_lost_
        << "\n[Environment]\n"
-       << "  atmos_model=" << env_enable_atmospheric_model_
-       << " temp_k=" << env_temperature_k_
-       << " jamming_profile=" << static_cast<int>(env_jamming_sensitivity_profile_)
-       << "\n";
+       << "  atmos_model=" << env_enable_atmospheric_model_ << " temp_k=" << env_temperature_k_
+       << " jamming_profile=" << static_cast<int>(env_jamming_sensitivity_profile_) << "\n";
   }
 
  private:
@@ -366,7 +355,6 @@ class RadarModule {
   void flattenConfig(const ar_config::ArSessionConfig& config) {
     // ---- 硬件域 (Hardware / Detection) ----
     const auto& det = config.hardware;
-    hw_enable_physics_detection_ = det.enable_physics_detection;
 
     // Transmitter
     hw_peak_power_w_ = static_cast<double>(det.transmitter.peak_power_w);
@@ -388,10 +376,13 @@ class RadarModule {
     hw_antenna_pattern_model_ = det.antenna.pattern.model_type;
     hw_max_sidelobe_level_db_ = static_cast<double>(det.antenna.pattern.max_sidelobe_level_db);
     hw_backlobe_level_db_ = static_cast<double>(det.antenna.pattern.backlobe_level_db);
-    hw_scan_loss_coeff_db_per_deg2_ = static_cast<double>(det.antenna.pattern.scan_loss_coeff_db_per_deg2);
+    hw_scan_loss_coeff_db_per_deg2_ =
+        static_cast<double>(det.antenna.pattern.scan_loss_coeff_db_per_deg2);
     hw_max_scan_loss_db_ = static_cast<double>(det.antenna.pattern.max_scan_loss_db);
-    hw_boresight_offset_az_deg_ = static_cast<double>(det.antenna.pattern.boresight_offset_deg.az_deg);
-    hw_boresight_offset_el_deg_ = static_cast<double>(det.antenna.pattern.boresight_offset_deg.el_deg);
+    hw_boresight_offset_az_deg_ =
+        static_cast<double>(det.antenna.pattern.boresight_offset_deg.az_deg);
+    hw_boresight_offset_el_deg_ =
+        static_cast<double>(det.antenna.pattern.boresight_offset_deg.el_deg);
 
     // Receiver
     hw_noise_figure_db_ = static_cast<double>(det.receiver.noise_figure_db);
@@ -419,10 +410,14 @@ class RadarModule {
     mission_scan_center_az_deg_ = static_cast<double>(orient.scan_center_deg.az_deg);
     mission_scan_center_el_deg_ = static_cast<double>(orient.scan_center_deg.el_deg);
 
-    mission_mech_scan_az_min_deg_ = static_cast<double>(orient.mechanical_scan_limits_deg.az_min_deg);
-    mission_mech_scan_az_max_deg_ = static_cast<double>(orient.mechanical_scan_limits_deg.az_max_deg);
-    mission_mech_scan_el_min_deg_ = static_cast<double>(orient.mechanical_scan_limits_deg.el_min_deg);
-    mission_mech_scan_el_max_deg_ = static_cast<double>(orient.mechanical_scan_limits_deg.el_max_deg);
+    mission_mech_scan_az_min_deg_ =
+        static_cast<double>(orient.mechanical_scan_limits_deg.az_min_deg);
+    mission_mech_scan_az_max_deg_ =
+        static_cast<double>(orient.mechanical_scan_limits_deg.az_max_deg);
+    mission_mech_scan_el_min_deg_ =
+        static_cast<double>(orient.mechanical_scan_limits_deg.el_min_deg);
+    mission_mech_scan_el_max_deg_ =
+        static_cast<double>(orient.mechanical_scan_limits_deg.el_max_deg);
 
     mission_electronic_scan_az_min_deg_ =
         static_cast<double>(orient.electronic_scan_limits_deg.az_min_deg);
@@ -438,8 +433,10 @@ class RadarModule {
     mission_work_mode_ = orient.work_mode;
 
     mission_commanded_beamwidth_enabled_ = orient.commanded_beamwidth_enabled;
-    mission_commanded_az_beamwidth_deg_ = static_cast<double>(orient.commanded_beamwidth_deg.commanded_az_beamwidth_deg);
-    mission_commanded_el_beamwidth_deg_ = static_cast<double>(orient.commanded_beamwidth_deg.commanded_el_beamwidth_deg);
+    mission_commanded_az_beamwidth_deg_ =
+        static_cast<double>(orient.commanded_beamwidth_deg.commanded_az_beamwidth_deg);
+    mission_commanded_el_beamwidth_deg_ =
+        static_cast<double>(orient.commanded_beamwidth_deg.commanded_el_beamwidth_deg);
 
     mission_stabilization_mode_ = orient.stabilization_mode;
 
@@ -452,23 +449,22 @@ class RadarModule {
         static_cast<double>(policy.detection.minimum_detection_margin_db);
     policy_pulse_count_ = policy.detection.pulse_count;
 
-    policy_nominal_beamwidth_az_deg_ =
-        static_cast<double>(policy.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg);
-    policy_nominal_beamwidth_el_deg_ =
-        static_cast<double>(policy.beam_control.pointing.nominal_beamwidth_deg.commanded_el_beamwidth_deg);
+    policy_nominal_beamwidth_az_deg_ = static_cast<double>(
+        policy.beam_control.pointing.nominal_beamwidth_deg.commanded_az_beamwidth_deg);
+    policy_nominal_beamwidth_el_deg_ = static_cast<double>(
+        policy.beam_control.pointing.nominal_beamwidth_deg.commanded_el_beamwidth_deg);
 
     policy_azimuth_step_count_hint_ = policy.beam_control.scheduler.azimuth_step_count_hint;
-    policy_elevation_step_count_hint_ =
-        policy.beam_control.scheduler.elevation_step_count_hint;
-    policy_prefer_dense_tas_sampling_ =
-        policy.beam_control.scheduler.prefer_dense_tas_sampling;
+    policy_elevation_step_count_hint_ = policy.beam_control.scheduler.elevation_step_count_hint;
+    policy_prefer_dense_tas_sampling_ = policy.beam_control.scheduler.prefer_dense_tas_sampling;
 
-    policy_distance_gate_sigma_ =
-        static_cast<double>(policy.association.distance_gate_sigma);
+    policy_distance_gate_sigma_ = static_cast<double>(policy.association.distance_gate_sigma);
 
     policy_enable_kalman_filter_ = policy.tracking.enable_kalman_filter;
-    policy_kalman_measurement_noise_std_ = static_cast<double>(policy.tracking.kalman_measurement_noise_std);
-    policy_speed_decay_ratio_on_loss_ = static_cast<double>(policy.tracking.speed_decay_ratio_on_loss);
+    policy_kalman_measurement_noise_std_ =
+        static_cast<double>(policy.tracking.kalman_measurement_noise_std);
+    policy_speed_decay_ratio_on_loss_ =
+        static_cast<double>(policy.tracking.speed_decay_ratio_on_loss);
     policy_rcs_decay_ratio_on_loss_ = static_cast<double>(policy.tracking.rcs_decay_ratio_on_loss);
 
     policy_confirm_hits_ = policy.lifecycle.confirm_hits;
@@ -514,10 +510,10 @@ class RadarModule {
 
   /// 判断补丁中是否至少有一个字段被设置。
   static bool hasAnyPatch(const ar_config::ArRuntimeConfigPatch& patch) {
-    return patch.has_mission || patch.has_policy || patch.has_environment ||
-           patch.has_work_mode || patch.has_scan_center_deg ||
-           patch.has_dwell_center_deg || patch.has_commanded_beamwidth_deg ||
-           patch.has_commanded_beamwidth_enabled || patch.has_sensor_enabled;
+    return patch.has_mission || patch.has_policy || patch.has_environment || patch.has_work_mode ||
+           patch.has_scan_center_deg || patch.has_dwell_center_deg ||
+           patch.has_commanded_beamwidth_deg || patch.has_commanded_beamwidth_enabled ||
+           patch.has_sensor_enabled;
   }
 
   /// 构造默认环境输入（用于 stepImp 的默认值）。
@@ -557,7 +553,6 @@ class RadarModule {
   // ==================== 平铺的四域参数 ====================
 
   // -- 硬件域 (Hardware / Detection) --
-  bool hw_enable_physics_detection_{false};
   // Transmitter
   double hw_peak_power_w_{0.0};
   double hw_frequency_hz_{0.0};

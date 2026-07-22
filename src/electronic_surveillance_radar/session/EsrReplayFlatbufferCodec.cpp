@@ -15,6 +15,12 @@ namespace {
 esr::replay::Vec3 ToV(const oneq::foundation::Vector3f& v) {
   return {v.x, v.y, v.z};
 }
+esr::replay::Vec3 ToV(const oneq::coordinate::EcefPositionM& v) {
+  return {v.x_m, v.y_m, v.z_m};
+}
+esr::replay::Vec3 ToV(const oneq::coordinate::EcefVelocityMps& v) {
+  return {v.x_mps, v.y_mps, v.z_mps};
+}
 esr::replay::EulerDeg ToE(const oneq::foundation::EulerAnglesDeg& e) {
   return {e.yaw_deg, e.pitch_deg, e.roll_deg};
 }
@@ -54,6 +60,84 @@ oneq::foundation::PoseState FromPose(const esr::replay::PoseState* fb) {
   return out;
 }
 
+flatbuffers::Offset<esr::replay::RfEmission> BuildRfEmission(
+    flatbuffers::FlatBufferBuilder& fbb, const oneq::electromagnetics::RfEmission& emission) {
+  std::vector<flatbuffers::Offset<esr::replay::RfEmissionSegment>> segments;
+  for (const oneq::electromagnetics::RfEmissionSegment& segment : emission.segments) {
+    segments.push_back(esr::replay::CreateRfEmissionSegment(
+        fbb, segment.start_time_s, segment.duration_s, segment.center_frequency_hz,
+        segment.bandwidth_hz, segment.transmit_power_w));
+  }
+  esr::replay::RfUnitVector boresight(emission.antenna.boresight_ecef_unit.x,
+                                      emission.antenna.boresight_ecef_unit.y,
+                                      emission.antenna.boresight_ecef_unit.z);
+  auto antenna = esr::replay::CreateRfAntennaPattern(
+      fbb, &boresight, emission.antenna.peak_gain_dbi,
+      emission.antenna.half_power_beamwidth_deg, emission.antenna.sidelobe_level_db,
+      emission.antenna.backlobe_level_db,
+      emission.antenna.cross_polarization_isolation_db);
+  esr::replay::Vec3 position = ToV(emission.position_ecef_m);
+  esr::replay::Vec3 velocity = ToV(emission.velocity_ecef_mps);
+  esr::replay::RfEmissionBuilder builder(fbb);
+  builder.add_emission_id(emission.emission_id);
+  builder.add_entity_id(emission.entity_id);
+  builder.add_position_ecef_m(&position);
+  builder.add_velocity_ecef_mps(&velocity);
+  builder.add_antenna(antenna);
+  builder.add_polarization(static_cast<int32_t>(emission.polarization));
+  builder.add_waveform_kind(static_cast<int32_t>(emission.waveform_kind));
+  builder.add_segments(fbb.CreateVector(segments));
+  return builder.Finish();
+}
+
+oneq::electromagnetics::RfEmission FromRfEmission(const esr::replay::RfEmission* fb) {
+  oneq::electromagnetics::RfEmission emission;
+  if (fb == nullptr) {
+    return emission;
+  }
+  emission.emission_id = fb->emission_id();
+  emission.entity_id = fb->entity_id();
+  if (fb->position_ecef_m()) {
+    emission.position_ecef_m.x_m = fb->position_ecef_m()->x();
+    emission.position_ecef_m.y_m = fb->position_ecef_m()->y();
+    emission.position_ecef_m.z_m = fb->position_ecef_m()->z();
+  }
+  if (fb->velocity_ecef_mps()) {
+    emission.velocity_ecef_mps.x_mps = fb->velocity_ecef_mps()->x();
+    emission.velocity_ecef_mps.y_mps = fb->velocity_ecef_mps()->y();
+    emission.velocity_ecef_mps.z_mps = fb->velocity_ecef_mps()->z();
+  }
+  if (fb->antenna()) {
+    emission.antenna.peak_gain_dbi = fb->antenna()->peak_gain_dbi();
+    emission.antenna.half_power_beamwidth_deg = fb->antenna()->half_power_beamwidth_deg();
+    emission.antenna.sidelobe_level_db = fb->antenna()->sidelobe_level_db();
+    emission.antenna.backlobe_level_db = fb->antenna()->backlobe_level_db();
+    emission.antenna.cross_polarization_isolation_db =
+        fb->antenna()->cross_polarization_isolation_db();
+    if (fb->antenna()->boresight_ecef_unit()) {
+      emission.antenna.boresight_ecef_unit.x = fb->antenna()->boresight_ecef_unit()->x();
+      emission.antenna.boresight_ecef_unit.y = fb->antenna()->boresight_ecef_unit()->y();
+      emission.antenna.boresight_ecef_unit.z = fb->antenna()->boresight_ecef_unit()->z();
+    }
+  }
+  emission.polarization =
+      static_cast<oneq::electromagnetics::RfPolarization>(fb->polarization());
+  emission.waveform_kind =
+      static_cast<oneq::electromagnetics::RfWaveformKind>(fb->waveform_kind());
+  if (fb->segments()) {
+    for (const esr::replay::RfEmissionSegment* segment : *fb->segments()) {
+      oneq::electromagnetics::RfEmissionSegment decoded;
+      decoded.start_time_s = segment->start_time_s();
+      decoded.duration_s = segment->duration_s();
+      decoded.center_frequency_hz = segment->center_frequency_hz();
+      decoded.bandwidth_hz = segment->bandwidth_hz();
+      decoded.transmit_power_w = segment->transmit_power_w();
+      emission.segments.push_back(decoded);
+    }
+  }
+  return emission;
+}
+
 }  // namespace
 
 std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
@@ -77,6 +161,11 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
     eb.add_pulse_width_s(e.pulse_width_s);
     eb.add_pri_s(e.pri_s);
     eb.add_is_emitting(e.is_emitting);
+    esr::replay::Vec3 position_ecef = ToV(e.position_ecef_m);
+    esr::replay::Vec3 velocity_ecef = ToV(e.velocity_ecef_mps);
+    eb.add_has_ecef_kinematics(e.has_ecef_kinematics);
+    eb.add_position_ecef_m(&position_ecef);
+    eb.add_velocity_ecef_mps(&velocity_ecef);
     emitters.push_back(eb.Finish());
   }
 
@@ -87,14 +176,24 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
         fbb, static_cast<int32_t>(j.technique), j.active, j.center_hz, j.bandwidth_hz, j.power_w,
         j.deception_risk, j.confidence));
   }
+  std::vector<flatbuffers::Offset<esr::replay::RfEmission>> engineering_emissions;
+  for (const oneq::electromagnetics::RfEmission& emission : env.engineering_emissions) {
+    engineering_emissions.push_back(BuildRfEmission(fbb, emission));
+  }
   // EsrAtmosphericObservation is a FlatBuffers table, use Create helper
   auto atm = esr::replay::CreateEsrAtmosphericObservation(
       fbb, env.atmospheric_observation.relative_humidity_ratio,
       env.atmospheric_observation.precipitation_rate_mmph,
       env.atmospheric_observation.visibility_km);
-  auto env_fb = esr::replay::CreateEsrEnvironmentInput(
-      fbb, static_cast<int32_t>(env.propagation_profile), static_cast<int32_t>(env.clutter_density),
-      env.spectrum_occupancy_ratio, atm, fbb.CreateVector(jammers));
+  esr::replay::EsrEnvironmentInputBuilder env_builder(fbb);
+  env_builder.add_propagation_profile(static_cast<int32_t>(env.propagation_profile));
+  env_builder.add_clutter_density(static_cast<int32_t>(env.clutter_density));
+  env_builder.add_spectrum_occupancy_ratio(env.spectrum_occupancy_ratio);
+  env_builder.add_atmospheric_observation(atm);
+  env_builder.add_jammer_sources(fbb.CreateVector(jammers));
+  env_builder.add_interference_mode(static_cast<int32_t>(env.interference_mode));
+  env_builder.add_engineering_emissions(fbb.CreateVector(engineering_emissions));
+  auto env_fb = env_builder.Finish();
 
   auto platform = BuildPose(fbb, v.platform_pose);
   auto emitters_vec = fbb.CreateVector(emitters);
@@ -105,6 +204,12 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   b.add_scene_emitters(emitters_vec);
   b.add_environment(env_fb);
   b.add_platform_altitude_m(v.platform_altitude_m);
+  esr::replay::Vec3 platform_position_ecef = ToV(v.platform_position_ecef_m);
+  esr::replay::Vec3 platform_velocity_ecef = ToV(v.platform_velocity_ecef_mps);
+  b.add_platform_entity_id(v.platform_entity_id);
+  b.add_has_platform_ecef_kinematics(v.has_platform_ecef_kinematics);
+  b.add_platform_position_ecef_m(&platform_position_ecef);
+  b.add_platform_velocity_ecef_mps(&platform_velocity_ecef);
   fbb.Finish(b.Finish());
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -118,6 +223,18 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   out->cycle_index = fb->cycle_index();
   out->dt_sec = fb->dt_sec();
   out->platform_altitude_m = fb->platform_altitude_m();
+  out->platform_entity_id = fb->platform_entity_id();
+  out->has_platform_ecef_kinematics = fb->has_platform_ecef_kinematics();
+  if (fb->platform_position_ecef_m()) {
+    out->platform_position_ecef_m.x_m = fb->platform_position_ecef_m()->x();
+    out->platform_position_ecef_m.y_m = fb->platform_position_ecef_m()->y();
+    out->platform_position_ecef_m.z_m = fb->platform_position_ecef_m()->z();
+  }
+  if (fb->platform_velocity_ecef_mps()) {
+    out->platform_velocity_ecef_mps.x_mps = fb->platform_velocity_ecef_mps()->x();
+    out->platform_velocity_ecef_mps.y_mps = fb->platform_velocity_ecef_mps()->y();
+    out->platform_velocity_ecef_mps.z_mps = fb->platform_velocity_ecef_mps()->z();
+  }
   out->platform_pose = FromPose(fb->platform_pose());
   out->scene.clear();
   if (fb->scene_emitters()) {
@@ -125,6 +242,17 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
       session::EsrSceneEmitter ts{};
       ts.emitter_id = e->emitter_id();
       ts.emitter_name = e->emitter_name() ? e->emitter_name()->str() : std::string();
+      ts.has_ecef_kinematics = e->has_ecef_kinematics();
+      if (e->position_ecef_m()) {
+        ts.position_ecef_m.x_m = e->position_ecef_m()->x();
+        ts.position_ecef_m.y_m = e->position_ecef_m()->y();
+        ts.position_ecef_m.z_m = e->position_ecef_m()->z();
+      }
+      if (e->velocity_ecef_mps()) {
+        ts.velocity_ecef_mps.x_mps = e->velocity_ecef_mps()->x();
+        ts.velocity_ecef_mps.y_mps = e->velocity_ecef_mps()->y();
+        ts.velocity_ecef_mps.z_mps = e->velocity_ecef_mps()->z();
+      }
       ts.pose = FromPose(e->pose());
       ts.carrier_hz = e->carrier_hz();
       ts.bandwidth_hz = e->bandwidth_hz();
@@ -171,6 +299,20 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
         out->environment.jammer_sources.push_back(js);
       }
     }
+    const int32_t encoded_mode = e->interference_mode();
+    if (encoded_mode < 0) {
+      out->environment.interference_mode = out->environment.jammer_sources.empty()
+                                                ? oneq::electromagnetics::RfInterferenceMode::kNone
+                                                : oneq::electromagnetics::RfInterferenceMode::kLegacy;
+    } else {
+      out->environment.interference_mode =
+          static_cast<oneq::electromagnetics::RfInterferenceMode>(encoded_mode);
+    }
+    if (e->engineering_emissions()) {
+      for (const esr::replay::RfEmission* emission : *e->engineering_emissions()) {
+        out->environment.engineering_emissions.push_back(FromRfEmission(emission));
+      }
+    }
   }
   return true;
 }
@@ -182,13 +324,36 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
   // observation output
   std::vector<flatbuffers::Offset<esr::replay::EmitterObservation>> obs_vec;
   for (const auto& o : v.observation_output.observations) {
-    obs_vec.push_back(esr::replay::CreateEmitterObservation(
-        fbb, o.observation_id, o.timestamp_s, o.aoa_az_deg, o.aoa_el_deg, o.rf_hz, o.pulse_width_s,
-        o.amplitude_db, o.snr_db, static_cast<int32_t>(o.quality), o.is_jammed));
+    esr::replay::EmitterObservationBuilder builder(fbb);
+    builder.add_observation_id(o.observation_id);
+    builder.add_timestamp_s(o.timestamp_s);
+    builder.add_aoa_az_deg(o.aoa_az_deg);
+    builder.add_aoa_el_deg(o.aoa_el_deg);
+    builder.add_rf_hz(o.rf_hz);
+    builder.add_pulse_width_s(o.pulse_width_s);
+    builder.add_amplitude_db(o.amplitude_db);
+    builder.add_snr_db(o.snr_db);
+    builder.add_quality(static_cast<int32_t>(o.quality));
+    builder.add_is_jammed(o.is_jammed);
+    builder.add_bandwidth_hz(o.bandwidth_hz);
+    builder.add_pri_s(o.pri_s);
+    builder.add_rf_std_hz(o.rf_std_hz);
+    builder.add_bandwidth_std_hz(o.bandwidth_std_hz);
+    builder.add_pri_std_s(o.pri_std_s);
+    builder.add_pulse_width_std_s(o.pulse_width_std_s);
+    obs_vec.push_back(builder.Finish());
   }
-  auto obs_out = esr::replay::CreateObservationOutput(
-      fbb, static_cast<std::uint32_t>(v.observation_output.raw_observation_count),
-      static_cast<std::uint32_t>(v.observation_output.cluster_count), fbb.CreateVector(obs_vec));
+  esr::replay::ObservationOutputBuilder observation_builder(fbb);
+  observation_builder.add_raw_observation_count(
+      static_cast<std::uint32_t>(v.observation_output.raw_observation_count));
+  observation_builder.add_cluster_count(
+      static_cast<std::uint32_t>(v.observation_output.cluster_count));
+  observation_builder.add_observations(fbb.CreateVector(obs_vec));
+  observation_builder.add_receiver_center_frequency_hz(
+      v.observation_output.receiver_center_frequency_hz);
+  observation_builder.add_receiver_bandwidth_hz(v.observation_output.receiver_bandwidth_hz);
+  observation_builder.add_receiver_saturated(v.observation_output.receiver_saturated);
+  auto obs_out = observation_builder.Finish();
 
   // emitter output
   std::vector<flatbuffers::Offset<esr::replay::EmitterHypothesis>> hyp_vec;
@@ -197,10 +362,25 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
     for (const auto& c : h.candidate_classes) {
       cls_vec.push_back(fbb.CreateString(c));
     }
-    hyp_vec.push_back(esr::replay::CreateEmitterHypothesis(
-        fbb, h.hypothesis_id, fbb.CreateVector(cls_vec), static_cast<int32_t>(h.mode),
-        static_cast<int32_t>(h.threat_level), h.bearing_az_deg, h.bearing_el_deg, h.bearing_std_deg,
-        h.confidence, h.last_seen_cycle));
+    esr::replay::EmitterHypothesisBuilder builder(fbb);
+    builder.add_hypothesis_id(h.hypothesis_id);
+    builder.add_candidate_classes(fbb.CreateVector(cls_vec));
+    builder.add_mode(static_cast<int32_t>(h.mode));
+    builder.add_threat_level(static_cast<int32_t>(h.threat_level));
+    builder.add_bearing_az_deg(h.bearing_az_deg);
+    builder.add_bearing_el_deg(h.bearing_el_deg);
+    builder.add_bearing_std_deg(h.bearing_std_deg);
+    builder.add_confidence(h.confidence);
+    builder.add_last_seen_cycle(h.last_seen_cycle);
+    builder.add_estimated_center_frequency_hz(h.estimated_center_frequency_hz);
+    builder.add_estimated_bandwidth_hz(h.estimated_bandwidth_hz);
+    builder.add_estimated_pri_s(h.estimated_pri_s);
+    builder.add_estimated_pulse_width_s(h.estimated_pulse_width_s);
+    builder.add_center_frequency_std_hz(h.center_frequency_std_hz);
+    builder.add_bandwidth_std_hz(h.bandwidth_std_hz);
+    builder.add_pri_std_s(h.pri_std_s);
+    builder.add_pulse_width_std_s(h.pulse_width_std_s);
+    hyp_vec.push_back(builder.Finish());
   }
   auto em_out = esr::replay::CreateEmitterOutput(fbb, fbb.CreateVector(hyp_vec));
 
@@ -226,6 +406,9 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
     const auto* o = fb->observation_output();
     out->observation_output.raw_observation_count = o->raw_observation_count();
     out->observation_output.cluster_count = o->cluster_count();
+    out->observation_output.receiver_center_frequency_hz = o->receiver_center_frequency_hz();
+    out->observation_output.receiver_bandwidth_hz = o->receiver_bandwidth_hz();
+    out->observation_output.receiver_saturated = o->receiver_saturated();
     if (o->observations()) {
       for (const auto* obs : *o->observations()) {
         session::EmitterObservation rec{};
@@ -234,7 +417,13 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
         rec.aoa_az_deg = obs->aoa_az_deg();
         rec.aoa_el_deg = obs->aoa_el_deg();
         rec.rf_hz = obs->rf_hz();
+        rec.bandwidth_hz = obs->bandwidth_hz();
+        rec.pri_s = obs->pri_s();
         rec.pulse_width_s = obs->pulse_width_s();
+        rec.rf_std_hz = obs->rf_std_hz();
+        rec.bandwidth_std_hz = obs->bandwidth_std_hz();
+        rec.pri_std_s = obs->pri_std_s();
+        rec.pulse_width_std_s = obs->pulse_width_std_s();
         rec.amplitude_db = obs->amplitude_db();
         rec.snr_db = obs->snr_db();
         rec.quality = static_cast<session::EsrObservationQuality>(obs->quality());
@@ -254,6 +443,14 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
         hyp.bearing_az_deg = h->bearing_az_deg();
         hyp.bearing_el_deg = h->bearing_el_deg();
         hyp.bearing_std_deg = h->bearing_std_deg();
+        hyp.estimated_center_frequency_hz = h->estimated_center_frequency_hz();
+        hyp.estimated_bandwidth_hz = h->estimated_bandwidth_hz();
+        hyp.estimated_pri_s = h->estimated_pri_s();
+        hyp.estimated_pulse_width_s = h->estimated_pulse_width_s();
+        hyp.center_frequency_std_hz = h->center_frequency_std_hz();
+        hyp.bandwidth_std_hz = h->bandwidth_std_hz();
+        hyp.pri_std_s = h->pri_std_s();
+        hyp.pulse_width_std_s = h->pulse_width_std_s();
         hyp.confidence = h->confidence();
         hyp.last_seen_cycle = h->last_seen_cycle();
         if (h->candidate_classes()) {
@@ -356,12 +553,37 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
 
 std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
   flatbuffers::FlatBufferBuilder fbb(512);
-  auto hw = esr::replay::CreateEsrHardwareConfig(
-      fbb, v.hardware.receiver_band_lower_hz, v.hardware.receiver_band_upper_hz,
-      v.hardware.receiver_sensitivity_w, v.hardware.integrated_receive_loss_db,
-      v.hardware.beam_az_width_deg, v.hardware.beam_el_width_deg, v.hardware.az_scan_range_deg,
-      v.hardware.el_scan_range_deg, v.hardware.antenna_mount_az_deg,
-      v.hardware.antenna_mount_el_deg);
+  std::vector<flatbuffers::Offset<esr::replay::EsrTuningWindow>> tuning_plan;
+  for (const config::EsrTuningWindow& window : v.hardware.tuning_plan) {
+    tuning_plan.push_back(esr::replay::CreateEsrTuningWindow(
+        fbb, window.center_frequency_hz, window.bandwidth_hz, window.dwell_cycles));
+  }
+  esr::replay::EsrHardwareConfigBuilder hardware_builder(fbb);
+  hardware_builder.add_receiver_band_lower_hz(v.hardware.receiver_band_lower_hz);
+  hardware_builder.add_receiver_band_upper_hz(v.hardware.receiver_band_upper_hz);
+  hardware_builder.add_receiver_sensitivity_w(v.hardware.receiver_sensitivity_w);
+  hardware_builder.add_integrated_receive_loss_db(v.hardware.integrated_receive_loss_db);
+  hardware_builder.add_beam_az_width_deg(v.hardware.beam_az_width_deg);
+  hardware_builder.add_beam_el_width_deg(v.hardware.beam_el_width_deg);
+  hardware_builder.add_az_scan_range_deg(v.hardware.az_scan_range_deg);
+  hardware_builder.add_el_scan_range_deg(v.hardware.el_scan_range_deg);
+  hardware_builder.add_antenna_mount_az_deg(v.hardware.antenna_mount_az_deg);
+  hardware_builder.add_antenna_mount_el_deg(v.hardware.antenna_mount_el_deg);
+  hardware_builder.add_antenna_peak_gain_dbi(v.hardware.antenna_peak_gain_dbi);
+  hardware_builder.add_antenna_sidelobe_level_db(v.hardware.antenna_sidelobe_level_db);
+  hardware_builder.add_antenna_backlobe_level_db(v.hardware.antenna_backlobe_level_db);
+  hardware_builder.add_polarization(static_cast<int32_t>(v.hardware.polarization));
+  hardware_builder.add_cross_polarization_isolation_db(
+      v.hardware.cross_polarization_isolation_db);
+  hardware_builder.add_minimum_far_field_range_m(v.hardware.minimum_far_field_range_m);
+  hardware_builder.add_has_co_site_isolation(v.hardware.has_co_site_isolation);
+  hardware_builder.add_co_site_isolation_db(v.hardware.co_site_isolation_db);
+  hardware_builder.add_maximum_linear_input_power_w(v.hardware.maximum_linear_input_power_w);
+  hardware_builder.add_jamming_jn_threshold_db(v.hardware.jamming_jn_threshold_db);
+  hardware_builder.add_jamming_snr_loss_threshold_db(
+      v.hardware.jamming_snr_loss_threshold_db);
+  hardware_builder.add_tuning_plan(fbb.CreateVector(tuning_plan));
+  auto hw = hardware_builder.Finish();
   const auto& sc = v.mission.scan;
   auto scan = esr::replay::CreateEsrScanConfig(
       fbb, sc.scan_center_az_deg, sc.scan_center_el_deg, sc.scan_rate_hz,
@@ -407,6 +629,28 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
     out->hardware.el_scan_range_deg = h->el_scan_range_deg();
     out->hardware.antenna_mount_az_deg = h->antenna_mount_az_deg();
     out->hardware.antenna_mount_el_deg = h->antenna_mount_el_deg();
+    out->hardware.antenna_peak_gain_dbi = h->antenna_peak_gain_dbi();
+    out->hardware.antenna_sidelobe_level_db = h->antenna_sidelobe_level_db();
+    out->hardware.antenna_backlobe_level_db = h->antenna_backlobe_level_db();
+    out->hardware.polarization =
+        static_cast<oneq::electromagnetics::RfPolarization>(h->polarization());
+    out->hardware.cross_polarization_isolation_db = h->cross_polarization_isolation_db();
+    out->hardware.minimum_far_field_range_m = h->minimum_far_field_range_m();
+    out->hardware.has_co_site_isolation = h->has_co_site_isolation();
+    out->hardware.co_site_isolation_db = h->co_site_isolation_db();
+    out->hardware.maximum_linear_input_power_w = h->maximum_linear_input_power_w();
+    out->hardware.jamming_jn_threshold_db = h->jamming_jn_threshold_db();
+    out->hardware.jamming_snr_loss_threshold_db = h->jamming_snr_loss_threshold_db();
+    out->hardware.tuning_plan.clear();
+    if (h->tuning_plan()) {
+      for (const esr::replay::EsrTuningWindow* window : *h->tuning_plan()) {
+        config::EsrTuningWindow decoded;
+        decoded.center_frequency_hz = window->center_frequency_hz();
+        decoded.bandwidth_hz = window->bandwidth_hz();
+        decoded.dwell_cycles = window->dwell_cycles();
+        out->hardware.tuning_plan.push_back(decoded);
+      }
+    }
   }
   if (fb->mission()) {
     const auto* m = fb->mission();

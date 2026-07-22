@@ -49,7 +49,10 @@ bool IsDefaultEnvironmentInput(const ArEnvironmentInput& environment) {
              defaults.surface_observation.cover_profile &&
          environment.surface_observation.enable_physical_model ==
              defaults.surface_observation.enable_physical_model &&
-         environment.jammer_sources.empty();
+         environment.jammer_sources.empty() &&
+         environment.interference.mode == defaults.interference.mode &&
+         environment.interference.legacy_jammer_sources.empty() &&
+         environment.interference.engineering_emissions.empty();
 }
 
 void ValidatePlatformPose(const oneq::foundation::PoseState& platform_pose,
@@ -80,7 +83,112 @@ void ValidatePlatformAltitude(float platform_altitude_m, ValidationIssueList* is
                               "platform_altitude_m", "platform altitude must be finite"));
 }
 
-void ValidateEnvironmentInput(const ArEnvironmentInput& environment, ValidationIssueList* issues) {
+bool HasEngineeringInterference(const ArEnvironmentInput& environment) {
+  return environment.interference.mode == oneq::electromagnetics::RfInterferenceMode::kEngineering;
+}
+
+bool HasNonDefaultPlatformEcefKinematics(const ArCycleInput& input) {
+  return input.platform_position_ecef_m.x_m != 0.0 || input.platform_position_ecef_m.y_m != 0.0 ||
+         input.platform_position_ecef_m.z_m != 0.0 ||
+         input.platform_velocity_ecef_mps.x_mps != 0.0 ||
+         input.platform_velocity_ecef_mps.y_mps != 0.0 ||
+         input.platform_velocity_ecef_mps.z_mps != 0.0;
+}
+
+void ValidatePlatformEcefKinematics(const ArCycleInput& input, ValidationIssueList* issues) {
+  if (issues == nullptr) {
+    return;
+  }
+  if (!input.has_platform_ecef_kinematics) {
+    if (HasNonDefaultPlatformEcefKinematics(input)) {
+      issues->push_back(
+          MakeIssue(ValidationSeverity::kError, ValidationCode::kPlatformEcefFlagMismatch,
+                    ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
+                    "has_platform_ecef_kinematics",
+                    "platform ECEF data is present but has_platform_ecef_kinematics is false"));
+    }
+    if (input.has_environment && HasEngineeringInterference(input.environment)) {
+      issues->push_back(
+          MakeIssue(ValidationSeverity::kError, ValidationCode::kMissingEngineeringRfReceiverSite,
+                    ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
+                    "has_platform_ecef_kinematics",
+                    "engineering RF interference requires explicit platform ECEF kinematics"));
+    }
+    return;
+  }
+  const oneq::coordinate::EcefPositionM& position = input.platform_position_ecef_m;
+  const oneq::coordinate::EcefVelocityMps& velocity = input.platform_velocity_ecef_mps;
+  if (!IsFinite(position.x_m) || !IsFinite(position.y_m) || !IsFinite(position.z_m) ||
+      !IsFinite(velocity.x_mps) || !IsFinite(velocity.y_mps) || !IsFinite(velocity.z_mps)) {
+    issues->push_back(MakeIssue(
+        ValidationSeverity::kError, ValidationCode::kInvalidPlatformEcefKinematics,
+        ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1), "platform_ecef_kinematics",
+        "platform ECEF position and velocity must be finite"));
+  }
+}
+
+bool IsKnownInterferenceMode(oneq::electromagnetics::RfInterferenceMode mode) {
+  switch (mode) {
+    case oneq::electromagnetics::RfInterferenceMode::kNone:
+    case oneq::electromagnetics::RfInterferenceMode::kLegacy:
+    case oneq::electromagnetics::RfInterferenceMode::kEngineering:
+      return true;
+  }
+  return false;
+}
+
+bool IsValidLegacyJammer(const config::JammerEmitterState& jammer) {
+  return IsFinite(jammer.power_db) && IsFinite(jammer.js_db) && IsFinite(jammer.position_x) &&
+         IsFinite(jammer.position_y) && IsFinite(jammer.position_z) &&
+         IsFinite(jammer.angular_span_deg) && IsFinite(jammer.confidence) &&
+         jammer.power_db >= 0.0f && jammer.js_db >= 0.0f && jammer.angular_span_deg >= 0.0f &&
+         oneq::common::validation::IsRatio01(jammer.confidence);
+}
+
+void ValidateInterferenceInput(const ArEnvironmentInput& environment, float cycle_duration_s,
+                               ValidationIssueList* issues) {
+  if (issues == nullptr) {
+    return;
+  }
+  const config::ArInterferenceInput& input = environment.interference;
+  const bool has_compat_payload = !environment.jammer_sources.empty();
+  const bool has_legacy_payload = !input.legacy_jammer_sources.empty();
+  const bool has_engineering_payload = !input.engineering_emissions.empty();
+  bool valid = IsKnownInterferenceMode(input.mode);
+  if (has_compat_payload) {
+    valid = valid && input.mode == oneq::electromagnetics::RfInterferenceMode::kNone &&
+            !has_legacy_payload && !has_engineering_payload;
+  } else {
+    switch (input.mode) {
+      case oneq::electromagnetics::RfInterferenceMode::kNone:
+        valid = valid && !has_legacy_payload && !has_engineering_payload;
+        break;
+      case oneq::electromagnetics::RfInterferenceMode::kLegacy:
+        valid = valid && !has_engineering_payload;
+        break;
+      case oneq::electromagnetics::RfInterferenceMode::kEngineering:
+        valid = valid && !has_legacy_payload &&
+                oneq::electromagnetics::TryValidateRfEmissionFrame(
+                    input.engineering_emissions, static_cast<double>(cycle_duration_s));
+        break;
+    }
+  }
+  const config::JammerEmitterStateList& legacy_sources =
+      has_compat_payload ? environment.jammer_sources : input.legacy_jammer_sources;
+  for (const config::JammerEmitterState& jammer : legacy_sources) {
+    valid = valid && IsValidLegacyJammer(jammer);
+  }
+  if (!valid) {
+    issues->push_back(MakeIssue(
+        ValidationSeverity::kError, ValidationCode::kInvalidInterferenceInput,
+        ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
+        "environment.interference",
+        "interference mode and payload must be mutually consistent and RF facts must be valid"));
+  }
+}
+
+void ValidateEnvironmentInput(const ArEnvironmentInput& environment, float cycle_duration_s,
+                              ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
@@ -106,17 +214,14 @@ void ValidateEnvironmentInput(const ArEnvironmentInput& environment, ValidationI
   }
   for (std::size_t i = 0; i < environment.jammer_sources.size(); ++i) {
     const config::JammerEmitterState& jammer = environment.jammer_sources[i];
-    if (!IsFinite(jammer.power_db) || !IsFinite(jammer.js_db) || !IsFinite(jammer.position_x) ||
-        !IsFinite(jammer.position_y) || !IsFinite(jammer.position_z) ||
-        !IsFinite(jammer.angular_span_deg) || !IsFinite(jammer.confidence) ||
-        jammer.power_db < 0.0f || jammer.js_db < 0.0f || jammer.angular_span_deg < 0.0f ||
-        !oneq::common::validation::IsRatio01(jammer.confidence)) {
+    if (!IsValidLegacyJammer(jammer)) {
       issues->push_back(MakeIssue(
           ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
           ValidationLocationKind::kEnvironment, i, "environment.jammer_sources",
           "jammer source must contain finite non-negative powers/span and confidence in [0, 1]"));
     }
   }
+  ValidateInterferenceInput(environment, cycle_duration_s, issues);
 }
 
 /**
@@ -189,8 +294,9 @@ ValidationIssueList ValidateArCycleInput(const ArCycleInput& input) {
   ValidationIssueList issues = ValidateArCycleDeltaTime(input.dt_sec);
   ValidatePlatformPose(input.platform_pose, &issues);
   ValidatePlatformAltitude(input.platform_altitude_m, &issues);
+  ValidatePlatformEcefKinematics(input, &issues);
   if (input.has_environment) {
-    ValidateEnvironmentInput(input.environment, &issues);
+    ValidateEnvironmentInput(input.environment, input.dt_sec, &issues);
   } else if (!IsDefaultEnvironmentInput(input.environment)) {
     issues.push_back(
         MakeIssue(ValidationSeverity::kError, ValidationCode::kEnvironmentSnapshotFlagMismatch,
@@ -234,7 +340,7 @@ ValidationIssueList ValidateArSceneTargets(const ArSceneTargetList& targets) {
 
 bool HasValidationError(const ValidationIssueList& issues) {
   return oneq::common::validation::HasSeverity<ValidationIssueList, ValidationSeverity,
-                                                 &ValidationIssue::severity>(
+                                               &ValidationIssue::severity>(
       issues, ValidationSeverity::kError);
 }
 

@@ -333,8 +333,7 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   environment::EnvironmentService environment_service(env_config);
 
   signal::pipeline::SignalPipeline signal_pipeline;
-  const session::ArSceneTargetList input_state{
-      session::ArSceneTarget(800.0f, 0.0f, 0.0f, 2.5f)};
+  const session::ArSceneTargetList input_state{session::ArSceneTarget(800.0f, 0.0f, 0.0f, 2.5f)};
 
   const auto output_state = CloneSceneTargets(
       RunPipelineCycle(&signal_pipeline, input_state, &environment_service).updated_scene_targets);
@@ -342,54 +341,6 @@ TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
   ASSERT_EQ(output_state.size(), 1u);
   EXPECT_LE(SpeedOf(output_state[0]), SpeedOf(input_state[0]));
   EXPECT_LE(output_state[0].rcs, input_state[0].rcs);
-}
-
-TEST(SignalPipelineTest,
-     RcsPhysicsOverrideChangesMarginalHeuristicDetectionWhileDisabledPathStaysSame) {
-  config::ArSessionConfig baseline_config;
-  baseline_config.hardware.enable_physics_detection = false;
-  ApplyDetectionIntentProfile(&baseline_config,
-                              config::profiles::DetectionIntentProfile::kBalanced);
-  ApplyHardwareProfile(&baseline_config,
-                       config::profiles::ArHardwareProfile::kLongRangeHighPower);
-
-  config::EnvironmentScenarioConfig env_config;
-
-  const session::ArSceneTargetList input_state{BuildPhysicsTarget(4500.0f, 0.2f)};
-
-  environment::EnvironmentService baseline_environment(env_config);
-  signal::pipeline::SignalPipeline baseline_pipeline(baseline_config);
-  const session::SignalCycleResult baseline_result =
-      RunPipelineCycle(&baseline_pipeline, input_state, &baseline_environment);
-  const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
-
-  ASSERT_EQ(baseline_result.updated_scene_targets.size(), 1u);
-  EXPECT_FALSE(baseline_measurements.empty());
-
-  config::ArSessionConfig disabled_override_config = baseline_config;
-  ApplyRcsFusionProfile(&disabled_override_config, config::profiles::RcsFusionProfile::kDisabled);
-
-  environment::EnvironmentService disabled_environment(env_config);
-  signal::pipeline::SignalPipeline disabled_pipeline(disabled_override_config);
-  const session::SignalCycleResult disabled_result =
-      RunPipelineCycle(&disabled_pipeline, input_state, &disabled_environment);
-  const auto disabled_measurements = disabled_pipeline.GetLastTrackMeasurements();
-
-  ASSERT_EQ(disabled_result.updated_scene_targets.size(), 1u);
-  EXPECT_FALSE(disabled_measurements.empty());
-  EXPECT_FLOAT_EQ(disabled_result.updated_scene_targets[0].rcs,
-                  baseline_result.updated_scene_targets[0].rcs);
-
-  config::ArSessionConfig enabled_override_config = disabled_override_config;
-  ApplyRcsFusionProfile(&enabled_override_config, config::profiles::RcsFusionProfile::kEnhanced);
-
-  environment::EnvironmentService enabled_environment(env_config);
-  signal::pipeline::SignalPipeline enabled_pipeline(enabled_override_config);
-  RunPipelineCycle(&enabled_pipeline, input_state, &enabled_environment);
-  const auto enabled_measurements = enabled_pipeline.GetLastTrackMeasurements();
-
-  ASSERT_EQ(enabled_measurements.size(), 1u);
-  EXPECT_GT(enabled_measurements[0].raw_measurement.detection_margin_db, -2.0f);
 }
 
 TEST(SignalPipelineTest, PhysicalRcsUsesTransmitterFrequency) {
@@ -522,7 +473,6 @@ TEST(SignalPipelineTest, AutoLifecycleManagerCreationFailsWhenImmAssemblyIsInval
 
 TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMargin) {
   config::ArSessionConfig session_config;
-  session_config.hardware.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
 
@@ -550,7 +500,6 @@ TEST(SignalPipelineTest, ControlProfilePowerReductionLowersPhysicalDetectionMarg
 
 TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance) {
   config::ArSessionConfig session_config;
-  session_config.hardware.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   session_config.hardware.antenna.pattern.model_type =
@@ -579,52 +528,6 @@ TEST(SignalPipelineTest, AdaptiveBeamformingProfileTightensMeasurementCovariance
             baseline_measurements[0].raw_measurement.measurement_covariance(1, 1));
   EXPECT_LT(adaptive_measurements[0].raw_measurement.measurement_covariance(2, 2),
             baseline_measurements[0].raw_measurement.measurement_covariance(2, 2));
-}
-
-TEST(SignalPipelineTest, EccmProfileRelaxesHeuristicAssociationGateForSeededTracks) {
-  config::ArSessionConfig session_config;
-  ApplyTrackingPolicyProfile(&session_config,
-                             config::profiles::TrackingPolicyProfile::kFastAssociation);
-
-  environment::EnvironmentService environment_service;
-
-  session::ArSceneTarget target(100.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f);
-
-  target.position_x = 4.0f;
-  target.position_y = 0.0f;
-  target.position_z = 0.0f;
-  target.range_m = 4.0f;
-  const session::ArSceneTargetList input_state{target};
-
-  signal::tracking::AssociationTrackSeed seed;
-  seed.association_key = 7u;
-  seed.has_position = true;
-  seed.position = Eigen::Vector3f::Zero();
-  seed.has_gaussian_state = true;
-  seed.gaussian_state.mean = signal::tracking::StateVector::Zero();
-  seed.gaussian_state.covariance = signal::tracking::StateCovariance::Zero();
-
-  signal::pipeline::SignalPipeline baseline_pipeline(session_config);
-  baseline_pipeline.SetAssociationSeeds(
-      std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
-  RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
-  const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
-
-  session::ArControlProfile eccm_profile;
-  eccm_profile.enable_agility_frequency = true;
-  eccm_profile.enable_eccm_rejitter = true;
-  eccm_profile.eccm_burnthrough_gain = 1.5f;
-  signal::pipeline::SignalPipeline protected_pipeline(session_config);
-  protected_pipeline.SetAssociationSeeds(
-      std::vector<signal::tracking::AssociationTrackSeed>(1, seed));
-  protected_pipeline.SetControlProfile(eccm_profile);
-  RunPipelineCycle(&protected_pipeline, input_state, &environment_service);
-  const auto protected_measurements = protected_pipeline.GetLastTrackMeasurements();
-
-  ASSERT_EQ(baseline_measurements.size(), 1u);
-  ASSERT_EQ(protected_measurements.size(), 1u);
-  EXPECT_TRUE(baseline_measurements[0].raw_measurement.matched_existing_track);
-  EXPECT_TRUE(protected_measurements[0].raw_measurement.matched_existing_track);
 }
 
 TEST(SignalPipelineTest, AssociationQualityMetricsExposeTypeSpecificStressSummary) {
@@ -805,7 +708,6 @@ TEST(SignalPipelineTest, MatchedEccmLowersAssociationStressForDeceptionJamming) 
 
 TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) {
   config::ArSessionConfig session_config;
-  session_config.hardware.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   session_config.mission.orientation.scan_center_deg.az_deg = 0.0f;
@@ -845,7 +747,6 @@ TEST(SignalPipelineTest, EccmProfileMitigatesJammingPenaltyInPhysicalDetection) 
 
 TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
   config::ArSessionConfig session_config;
-  session_config.hardware.enable_physics_detection = true;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
   session_config.mission.orientation.scan_center_deg.az_deg = 0.0f;
@@ -900,47 +801,6 @@ TEST(SignalPipelineTest, DetailedJammingFactsModulatePhysicalEccmBenefit) {
             unfavorable_measurements[0].raw_measurement.detection_margin_db);
 }
 
-TEST(SignalPipelineTest, DeceptionJammingFactsShrinkPhysicalCovarianceWhenMatchedEccmEnabled) {
-  config::ArSessionConfig session_config;
-  session_config.hardware.enable_physics_detection = true;
-  ApplyDetectionIntentProfile(&session_config,
-                              config::profiles::DetectionIntentProfile::kDetectionPriority);
-
-  config::EnvironmentScenarioConfig env_config;
-  config::JammerEmitterState deception_source;
-  deception_source.technique = config::JammingTechnique::kDeception;
-  deception_source.power_db = -20.0f;
-  deception_source.js_db = 8.0f;
-  deception_source.position_x = 523.36f;   // range 10000m * sin(3 deg)
-  deception_source.position_y = 9986.30f;  // range 10000m * cos(3 deg)
-  deception_source.position_z = 174.55f;   // range 10000m * tan(1 deg)
-  deception_source.angular_span_deg = 8.0f;
-  deception_source.confidence = 1.0f;
-  env_config.jammer_sources.push_back(deception_source);
-  environment::EnvironmentService environment_service(env_config);
-
-  const session::ArSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
-
-  signal::pipeline::SignalPipeline baseline_pipeline(session_config);
-  RunPipelineCycle(&baseline_pipeline, input_state, &environment_service);
-  const auto baseline_measurements = baseline_pipeline.GetLastTrackMeasurements();
-
-  session::ArControlProfile protected_profile;
-  protected_profile.enable_agility_frequency = true;
-  protected_profile.enable_eccm_rejitter = true;
-  signal::pipeline::SignalPipeline protected_pipeline(session_config);
-  protected_pipeline.SetControlProfile(protected_profile);
-  RunPipelineCycle(&protected_pipeline, input_state, &environment_service);
-  const auto protected_measurements = protected_pipeline.GetLastTrackMeasurements();
-
-  ASSERT_EQ(baseline_measurements.size(), 1u);
-  ASSERT_EQ(protected_measurements.size(), 1u);
-  EXPECT_LT(protected_measurements[0].raw_measurement.measurement_covariance(0, 0),
-            baseline_measurements[0].raw_measurement.measurement_covariance(0, 0));
-  EXPECT_LT(protected_measurements[0].raw_measurement.measurement_covariance(1, 1),
-            baseline_measurements[0].raw_measurement.measurement_covariance(1, 1));
-}
-
 TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
   config::ArSessionConfig phase_zero_config;
   ApplyHardwareProfile(&phase_zero_config,
@@ -960,97 +820,6 @@ TEST(SignalPipelineTest, AgilityFrequencyHopPhaseControlsFrequencyDirection) {
 
   EXPECT_FLOAT_EQ(phase_zero_exec.detection.engineering.transmitter.frequency_hz, 1.015e9f);
   EXPECT_FLOAT_EQ(phase_one_exec.detection.engineering.transmitter.frequency_hz, 0.985e9f);
-}
-
-TEST(SignalPipelineTest, EccmProfileReducesHeuristicTrackingLossDecay) {
-  config::EnvironmentScenarioConfig env_config;
-  env_config.jammer_sources.push_back(MakeJammerEmitter(config::JammingTechnique::kUnknown, 45.0f));
-  environment::EnvironmentService environment_service(env_config);
-
-  session::ArSceneTarget target(800.0f, 0.0f, 0.0f, 2.5f);
-
-  target.position_x = 100.0f;
-  target.position_y = 0.0f;
-  target.position_z = 0.0f;
-  target.range_m = 100.0f;
-  const session::ArSceneTargetList input_state{target};
-
-  signal::pipeline::SignalPipeline baseline_pipeline;
-  const auto baseline_output =
-      CloneSceneTargets(RunPipelineCycle(&baseline_pipeline, input_state, &environment_service)
-                            .updated_scene_targets);
-
-  session::ArControlProfile eccm_profile;
-  eccm_profile.enable_sidelobe_canceller = true;
-  eccm_profile.enable_eccm_rejitter = true;
-  eccm_profile.eccm_burnthrough_gain = 1.5f;
-  signal::pipeline::SignalPipeline protected_pipeline;
-  protected_pipeline.SetControlProfile(eccm_profile);
-  const auto protected_output =
-      CloneSceneTargets(RunPipelineCycle(&protected_pipeline, input_state, &environment_service)
-                            .updated_scene_targets);
-
-  ASSERT_EQ(baseline_output.size(), 1u);
-  ASSERT_EQ(protected_output.size(), 1u);
-  EXPECT_GE(SpeedOf(protected_output[0]), SpeedOf(baseline_output[0]));
-  EXPECT_GE(protected_output[0].rcs, baseline_output[0].rcs);
-}
-
-TEST(SignalPipelineTest, DetailedJammingFactsModulateHeuristicEccmRelief) {
-  config::ArSessionConfig session_config;
-  ApplyDetectionIntentProfile(&session_config,
-                              config::profiles::DetectionIntentProfile::kDetectionPriority);
-
-  config::JammerEmitterState favorable_source =
-      MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f);
-  favorable_source.position_x = 5000.0f;   // range 10000m * sin(30 deg)
-  favorable_source.position_y = 8660.25f;  // range 10000m * cos(30 deg)
-  favorable_source.position_z = 1763.27f;  // range 10000m * tan(10 deg)
-  favorable_source.angular_span_deg = 32.0f;
-
-  config::EnvironmentScenarioConfig favorable_env_config =
-      MakeEnvironmentConfigWithJammers({favorable_source});
-  environment::EnvironmentService favorable_environment(favorable_env_config);
-
-  config::JammerEmitterState unfavorable_source =
-      MakeJammerEmitter(config::JammingTechnique::kUnknown, 12.0f);
-  unfavorable_source.position_x = 174.55f;   // range 10000m * sin(1 deg)
-  unfavorable_source.position_y = 9998.48f;  // range 10000m * cos(1 deg)
-  unfavorable_source.position_z = 0.0f;      // elevation 0 deg
-  unfavorable_source.angular_span_deg = 6.0f;
-  config::EnvironmentScenarioConfig unfavorable_env_config =
-      MakeEnvironmentConfigWithJammers({unfavorable_source});
-  environment::EnvironmentService unfavorable_environment(unfavorable_env_config);
-
-  session::ArSceneTarget target(800.0f, 0.0f, 0.0f, 2.5f, 1.0f, 0.0f, 0.0f);
-
-  target.position_x = 100.0f;
-  target.position_y = 0.0f;
-  target.position_z = 0.0f;
-  target.range_m = 100.0f;
-  const session::ArSceneTargetList input_state{target};
-
-  session::ArControlProfile eccm_profile;
-  eccm_profile.enable_sidelobe_canceller = true;
-  eccm_profile.enable_adaptive_beamforming = true;
-  eccm_profile.enable_agility_frequency = true;
-  eccm_profile.enable_eccm_rejitter = true;
-  eccm_profile.eccm_burnthrough_gain = 1.5f;
-
-  signal::pipeline::SignalPipeline favorable_pipeline(session_config);
-  favorable_pipeline.SetControlProfile(eccm_profile);
-  RunPipelineCycle(&favorable_pipeline, input_state, &favorable_environment);
-  const auto favorable_measurements = favorable_pipeline.GetLastTrackMeasurements();
-
-  signal::pipeline::SignalPipeline unfavorable_pipeline(session_config);
-  unfavorable_pipeline.SetControlProfile(eccm_profile);
-  RunPipelineCycle(&unfavorable_pipeline, input_state, &unfavorable_environment);
-  const auto unfavorable_measurements = unfavorable_pipeline.GetLastTrackMeasurements();
-
-  ASSERT_EQ(favorable_measurements.size(), 1u);
-  ASSERT_EQ(unfavorable_measurements.size(), 1u);
-  EXPECT_GT(favorable_measurements[0].raw_measurement.detection_margin_db,
-            unfavorable_measurements[0].raw_measurement.detection_margin_db);
 }
 
 TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUpdater) {
@@ -1112,7 +881,7 @@ TEST(SignalPipelineTest, AutoLifecycleAssemblyUsesControlProfileAdjustedKalmanUp
             baseline_seeds[0].gaussian_state.covariance(0, 0));
 }
 
-TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
+TEST(SignalPipelineTest, FrequencyAgilityDoesNotRetuneLifecycleTrackingParameters) {
   config::ArSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -1155,8 +924,8 @@ TEST(SignalPipelineTest, AutoLifecycleManagerSyncsRuntimeTuningAcrossCycles) {
       synced_manager->BuildAssociationSeeds();
   ASSERT_EQ(unsynced_seeds.size(), 1u);
   ASSERT_EQ(synced_seeds.size(), 1u);
-  EXPECT_GT(synced_seeds[0].gaussian_state.covariance(0, 0),
-            unsynced_seeds[0].gaussian_state.covariance(0, 0));
+  EXPECT_FLOAT_EQ(synced_seeds[0].gaussian_state.covariance(0, 0),
+                  unsynced_seeds[0].gaussian_state.covariance(0, 0));
 }
 
 TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOperational) {
@@ -1205,55 +974,119 @@ TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOpe
   EXPECT_EQ(retained_seeds[0].association_key, previous_seeds[0].association_key);
 }
 
-TEST(SignalPipelineTest, DeceptionJammingInflatesPhysicalCovarianceMoreThanNoiseSuppression) {
+TEST(SignalPipelineTest, EngineeringRfInterferenceUsesCurrentTuningAndLinearPower) {
   config::ArSessionConfig session_config;
-  session_config.hardware.enable_physics_detection = true;
-  ApplyDetectionIntentProfile(&session_config,
-                              config::profiles::DetectionIntentProfile::kDetectionPriority);
+  ExecutionConfig execution = config::mapping::MapSessionToExecution(session_config);
 
-  config::EnvironmentScenarioConfig noise_env_config;
-  config::JammerEmitterState noise_source;
-  noise_source.technique = config::JammingTechnique::kNoiseSuppression;
-  noise_source.power_db = -20.0f;
-  noise_source.js_db = 8.0f;
-  noise_source.position_x = 3420.20f;  // range 10000m * sin(20 deg)
-  noise_source.position_y = 9396.93f;  // range 10000m * cos(20 deg)
-  noise_source.position_z = 1227.85f;  // range 10000m * tan(7 deg)
-  noise_source.angular_span_deg = 30.0f;
-  noise_source.confidence = 1.0f;
-  noise_env_config.jammer_sources.push_back(noise_source);
-  environment::EnvironmentService noise_environment(noise_env_config);
+  session::EnvironmentSnapshot snapshot;
+  snapshot.cycle_dt_sec = 1.0f;
+  snapshot.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  snapshot.has_rf_receiver_kinematics = true;
+  snapshot.rf_receiver_entity_id = 100;
+  snapshot.rf_receiver_position_ecef_m.x_m = 6378137.0;
 
-  config::EnvironmentScenarioConfig deception_env_config;
-  config::JammerEmitterState deception_source;
-  deception_source.technique = config::JammingTechnique::kDeception;
-  deception_source.power_db = -20.0f;
-  deception_source.js_db = 8.0f;
-  deception_source.position_x = 523.36f;   // range 10000m * sin(3 deg)
-  deception_source.position_y = 9986.30f;  // range 10000m * cos(3 deg)
-  deception_source.position_z = 174.55f;   // range 10000m * tan(1 deg)
-  deception_source.angular_span_deg = 8.0f;
-  deception_source.confidence = 1.0f;
-  deception_env_config.jammer_sources.push_back(deception_source);
-  environment::EnvironmentService deception_environment(deception_env_config);
+  oneq::electromagnetics::RfEmission emission;
+  emission.emission_id = 1;
+  emission.entity_id = 200;
+  emission.position_ecef_m.x_m = 6378137.0;
+  emission.position_ecef_m.z_m = 10000.0;
+  emission.antenna.boresight_ecef_unit.x = 0.0;
+  emission.antenna.boresight_ecef_unit.z = -1.0;
+  emission.polarization = oneq::electromagnetics::RfPolarization::kHorizontal;
+  oneq::electromagnetics::RfEmissionSegment segment;
+  segment.duration_s = 1.0;
+  segment.center_frequency_hz = execution.detection.engineering.transmitter.frequency_hz;
+  segment.bandwidth_hz = execution.detection.engineering.transmitter.bandwidth_hz;
+  segment.transmit_power_w = 100.0;
+  emission.segments.push_back(segment);
+  snapshot.engineering_interference_emissions.push_back(emission);
 
-  const session::ArSceneTargetList input_state{BuildPhysicsTarget(200.0f, 10000.0f)};
+  float baseline_power_w = -1.0f;
+  ASSERT_TRUE(signal::pipeline::TryResolveEngineeringInterferencePowerW(execution, snapshot,
+                                                                        &baseline_power_w));
+  ASSERT_GT(baseline_power_w, 0.0f);
 
-  signal::pipeline::SignalPipeline noise_pipeline(session_config);
-  RunPipelineCycle(&noise_pipeline, input_state, &noise_environment);
-  const auto noise_measurements = noise_pipeline.GetLastTrackMeasurements();
+  snapshot.engineering_interference_emissions.front().segments.front().transmit_power_w = 200.0;
+  float doubled_power_w = -1.0f;
+  ASSERT_TRUE(signal::pipeline::TryResolveEngineeringInterferencePowerW(execution, snapshot,
+                                                                        &doubled_power_w));
+  EXPECT_NEAR(doubled_power_w / baseline_power_w, 2.0f, 1.0e-5f);
 
-  signal::pipeline::SignalPipeline deception_pipeline(session_config);
-  RunPipelineCycle(&deception_pipeline, input_state, &deception_environment);
-  const auto deception_measurements = deception_pipeline.GetLastTrackMeasurements();
-
-  ASSERT_EQ(noise_measurements.size(), 1u);
-  ASSERT_EQ(deception_measurements.size(), 1u);
-  EXPECT_GT(deception_measurements[0].raw_measurement.measurement_covariance(0, 0),
-            noise_measurements[0].raw_measurement.measurement_covariance(0, 0));
+  execution.detection.engineering.transmitter.frequency_hz *= 1.1f;
+  float out_of_band_power_w = -1.0f;
+  ASSERT_TRUE(signal::pipeline::TryResolveEngineeringInterferencePowerW(execution, snapshot,
+                                                                        &out_of_band_power_w));
+  EXPECT_FLOAT_EQ(out_of_band_power_w, 0.0f);
 }
 
-TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmParameters) {
+TEST(SignalPipelineTest, EngineeringCoSiteInterferenceRequiresConfiguredIsolation) {
+  config::ArSessionConfig session_config;
+  ExecutionConfig execution = config::mapping::MapSessionToExecution(session_config);
+  session::EnvironmentSnapshot snapshot;
+  snapshot.cycle_dt_sec = 1.0f;
+  snapshot.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  snapshot.has_rf_receiver_kinematics = true;
+  snapshot.rf_receiver_entity_id = 500;
+  snapshot.rf_receiver_position_ecef_m.x_m = 6378137.0;
+
+  oneq::electromagnetics::RfEmission emission;
+  emission.emission_id = 8;
+  emission.entity_id = snapshot.rf_receiver_entity_id;
+  emission.position_ecef_m = snapshot.rf_receiver_position_ecef_m;
+  oneq::electromagnetics::RfEmissionSegment segment;
+  segment.duration_s = 1.0;
+  segment.center_frequency_hz = execution.detection.engineering.transmitter.frequency_hz;
+  segment.bandwidth_hz = execution.detection.engineering.transmitter.bandwidth_hz;
+  segment.transmit_power_w = 10.0;
+  emission.segments.push_back(segment);
+  snapshot.engineering_interference_emissions.push_back(emission);
+
+  float received_power_w = -1.0f;
+  EXPECT_FALSE(signal::pipeline::TryResolveEngineeringInterferencePowerW(execution, snapshot,
+                                                                         &received_power_w));
+  EXPECT_FLOAT_EQ(received_power_w, -1.0f);
+
+  execution.detection.engineering.receiver.has_co_site_isolation = true;
+  execution.detection.engineering.receiver.co_site_isolation_db = 80.0f;
+  ASSERT_TRUE(signal::pipeline::TryResolveEngineeringInterferencePowerW(execution, snapshot,
+                                                                        &received_power_w));
+  const float expected_power_w = 10.0f * std::pow(10.0f, -82.0f / 10.0f);
+  EXPECT_NEAR(received_power_w, expected_power_w, expected_power_w * 1.0e-5f);
+}
+
+TEST(SignalPipelineTest, EngineeringRfInterferenceRejectsReceiverSaturationAtomically) {
+  config::ArSessionConfig session_config;
+  ExecutionConfig execution = config::mapping::MapSessionToExecution(session_config);
+  execution.detection.engineering.receiver.maximum_linear_input_power_w = 1.0e-12f;
+
+  session::EnvironmentSnapshot snapshot;
+  snapshot.cycle_dt_sec = 1.0f;
+  snapshot.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  snapshot.has_rf_receiver_kinematics = true;
+  snapshot.rf_receiver_entity_id = 100;
+  snapshot.rf_receiver_position_ecef_m.x_m = 6378137.0;
+
+  oneq::electromagnetics::RfEmission emission;
+  emission.emission_id = 1;
+  emission.entity_id = 200;
+  emission.position_ecef_m.x_m = 6378137.0;
+  emission.position_ecef_m.z_m = 1000.0;
+  emission.antenna.boresight_ecef_unit.z = -1.0;
+  oneq::electromagnetics::RfEmissionSegment segment;
+  segment.duration_s = 1.0;
+  segment.center_frequency_hz = execution.detection.engineering.transmitter.frequency_hz;
+  segment.bandwidth_hz = execution.detection.engineering.transmitter.bandwidth_hz;
+  segment.transmit_power_w = 1.0e6;
+  emission.segments.push_back(segment);
+  snapshot.engineering_interference_emissions.push_back(emission);
+
+  float received_power_w = 123.0f;
+  EXPECT_FALSE(signal::pipeline::TryResolveEngineeringInterferencePowerW(execution, snapshot,
+                                                                         &received_power_w));
+  EXPECT_FLOAT_EQ(received_power_w, 123.0f);
+}
+
+TEST(SignalPipelineTest, EccmDoesNotRetuneImmLifecycleParameters) {
   config::ArSessionConfig session_config;
   ApplyDetectionIntentProfile(&session_config,
                               config::profiles::DetectionIntentProfile::kDetectionPriority);
@@ -1294,8 +1127,8 @@ TEST(SignalPipelineTest, AutoImmLifecycleAssemblyUsesControlProfileAdjustedImmPa
 
   ASSERT_EQ(baseline_seeds.size(), 1u);
   ASSERT_EQ(protected_seeds.size(), 1u);
-  EXPECT_GT(protected_seeds[0].gaussian_state.covariance(0, 0),
-            baseline_seeds[0].gaussian_state.covariance(0, 0));
+  EXPECT_FLOAT_EQ(protected_seeds[0].gaussian_state.covariance(0, 0),
+                  baseline_seeds[0].gaussian_state.covariance(0, 0));
 }
 
 TEST(SignalPipelineTest, ExposesStructuredTrackMeasurements) {
@@ -1453,8 +1286,7 @@ TEST(SignalPipelineTest, UsesLifecycleAssociationSeedsByDefault) {
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{target}, &environment_service,
-                   1u);
+  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{target}, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(first_measurements.size(), 1u);
@@ -1464,8 +1296,7 @@ TEST(SignalPipelineTest, UsesLifecycleAssociationSeedsByDefault) {
 
   target.position_x = 10.2f;
   target.range_m = 10.2f;
-  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{target}, &environment_service,
-                   2u);
+  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{target}, &environment_service, 2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);
@@ -1499,8 +1330,7 @@ TEST(SignalPipelineTest, ClearManualAssociationSeedsKeepsLifecycleSeedsActive) {
   target.position_z = 0.0f;
   target.range_m = 10.0f;
 
-  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{target}, &environment_service,
-                   1u);
+  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{target}, &environment_service, 1u);
   const std::vector<signal::tracking::TrackMeasurement> first_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(first_measurements.size(), 1u);
@@ -1510,8 +1340,7 @@ TEST(SignalPipelineTest, ClearManualAssociationSeedsKeepsLifecycleSeedsActive) {
 
   target.position_x = 10.1f;
   target.range_m = 10.1f;
-  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{target}, &environment_service,
-                   2u);
+  RunPipelineCycle(&signal_pipeline, session::ArSceneTargetList{target}, &environment_service, 2u);
   const std::vector<signal::tracking::TrackMeasurement> second_measurements =
       signal_pipeline.GetLastTrackMeasurements();
   ASSERT_EQ(second_measurements.size(), 1u);

@@ -85,10 +85,8 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
       environment_service.SampleEnvironment();
 
   MutableEsrContext ctx;
-  const extension::InterceptPipelineConfig pipeline_config =
-      BuildPipelineConfig(config_);
-  const extension::InterceptRuntimeConfig runtime_config =
-      BuildRuntimeConfig(config_);
+  const extension::InterceptPipelineConfig pipeline_config = BuildPipelineConfig(config_);
+  const extension::InterceptRuntimeConfig runtime_config = BuildRuntimeConfig(config_);
   ctx.BeginCycle(input_state, environment_snapshot, pipeline_config, runtime_config);
 
   const InterceptDetectionOutput detection_output =
@@ -97,6 +95,10 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
   result = post_processing_executor_.Execute(detection_output.raw_records, ctx, preprocessor_,
                                              clusterer_, associator_, feature_scales_,
                                              next_hypothesis_id_);
+  result.observation_output.receiver_center_frequency_hz =
+      detection_output.receiver_center_frequency_hz;
+  result.observation_output.receiver_bandwidth_hz = detection_output.receiver_bandwidth_hz;
+  result.observation_output.receiver_saturated = detection_output.receiver_saturated;
 
   PROJECT_LOG_INFO("[InterceptPipeline] cycle_index={} raw_records={} clusters={} hypotheses={}",
                    input_state.cycle_index, detection_output.raw_records.size(),
@@ -121,8 +123,7 @@ extension::InterceptPipelineRuntimeState InterceptPipeline::CaptureRuntimeState(
   return state;
 }
 
-bool InterceptPipeline::RestoreRuntimeState(
-    const extension::InterceptPipelineRuntimeState& state) {
+bool InterceptPipeline::RestoreRuntimeState(const extension::InterceptPipelineRuntimeState& state) {
   if (state.owner_identity != this || state.schema_version != 2U) {
     return false;
   }
@@ -130,8 +131,8 @@ bool InterceptPipeline::RestoreRuntimeState(
   if (snapshot == nullptr) {
     return false;
   }
-  if (std::isfinite(snapshot->scan_phase_cycles) == 0 ||
-      snapshot->scan_phase_cycles < 0.0 || snapshot->scan_phase_cycles >= 1.0) {
+  if (std::isfinite(snapshot->scan_phase_cycles) == 0 || snapshot->scan_phase_cycles < 0.0 ||
+      snapshot->scan_phase_cycles >= 1.0) {
     return false;
   }
   rng_ = snapshot->rng;

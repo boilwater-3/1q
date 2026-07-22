@@ -123,6 +123,42 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
          "Elevation beamwidth must be positive.");
   }
 
+  const config::EsrHardwareConfig& hardware = config.hardware;
+  if (!oneq::common::validation::IsFinite(hardware.antenna_peak_gain_dbi) ||
+      !oneq::common::validation::IsFinite(hardware.antenna_sidelobe_level_db) ||
+      !oneq::common::validation::IsFinite(hardware.antenna_backlobe_level_db) ||
+      !oneq::common::validation::IsFinite(hardware.cross_polarization_isolation_db) ||
+      hardware.cross_polarization_isolation_db < 0.0f ||
+      !oneq::common::validation::IsFinite(hardware.minimum_far_field_range_m) ||
+      hardware.minimum_far_field_range_m <= 0.0f ||
+      !oneq::common::validation::IsFinite(hardware.co_site_isolation_db) ||
+      hardware.co_site_isolation_db < 0.0f ||
+      !oneq::common::validation::IsFinite(hardware.maximum_linear_input_power_w) ||
+      hardware.maximum_linear_input_power_w <= 0.0f ||
+      !oneq::common::validation::IsFinite(hardware.jamming_jn_threshold_db) ||
+      !oneq::common::validation::IsFinite(hardware.jamming_snr_loss_threshold_db) ||
+      static_cast<int>(hardware.polarization) <
+          static_cast<int>(oneq::electromagnetics::RfPolarization::kHorizontal) ||
+      static_cast<int>(hardware.polarization) >
+          static_cast<int>(oneq::electromagnetics::RfPolarization::kUnpolarized)) {
+    push(ConfigValidationCode::kReceiverRfHardwareInvalid, "hardware RF receiver fields",
+         "Receiver RF hardware parameters must be finite and physically valid.");
+  }
+  for (std::size_t i = 0; i < hardware.tuning_plan.size(); ++i) {
+    const EsrTuningWindow& window = hardware.tuning_plan[i];
+    const double lower_hz = window.center_frequency_hz - 0.5 * window.bandwidth_hz;
+    const double upper_hz = window.center_frequency_hz + 0.5 * window.bandwidth_hz;
+    if (!oneq::common::validation::IsFinite(window.center_frequency_hz) ||
+        !oneq::common::validation::IsFinite(window.bandwidth_hz) ||
+        window.center_frequency_hz <= 0.0 || window.bandwidth_hz <= 0.0 ||
+        window.dwell_cycles == 0U || lower_hz < hardware.receiver_band_lower_hz ||
+        upper_hz > hardware.receiver_band_upper_hz) {
+      push(ConfigValidationCode::kTuningPlanInvalid, "hardware.tuning_plan",
+           "Tuning windows must be finite, non-empty, and inside the hardware band.");
+      break;
+    }
+  }
+
   if (config.mission.scan.use_explicit_scan_bounds) {
     const bool bounds_finite =
         oneq::common::validation::IsFinite(config.mission.scan.scan_start_az_deg) &&
@@ -130,17 +166,15 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
         oneq::common::validation::IsFinite(config.mission.scan.scan_start_el_deg) &&
         oneq::common::validation::IsFinite(config.mission.scan.scan_end_el_deg);
     if (!bounds_finite) {
-      push(ConfigValidationCode::kExplicitScanBoundsNotFinite,
-           "mission.scan explicit bounds",
+      push(ConfigValidationCode::kExplicitScanBoundsNotFinite, "mission.scan explicit bounds",
            "Explicit scan bounds must all be finite.");
-    } else if (config.mission.scan.scan_start_az_deg >=
-               config.mission.scan.scan_end_az_deg) {
+    } else if (config.mission.scan.scan_start_az_deg >= config.mission.scan.scan_end_az_deg) {
       push(ConfigValidationCode::kExplicitScanBoundsAzSwapped,
            "mission.scan.scan_start_az_deg / scan_end_az_deg",
            "Scan start azimuth must be less than end azimuth.");
     }
-    if (bounds_finite && config.mission.scan.scan_start_el_deg >=
-                             config.mission.scan.scan_end_el_deg) {
+    if (bounds_finite &&
+        config.mission.scan.scan_start_el_deg >= config.mission.scan.scan_end_el_deg) {
       push(ConfigValidationCode::kExplicitScanBoundsElSwapped,
            "mission.scan.scan_start_el_deg / scan_end_el_deg",
            "Scan start elevation must be less than end elevation.");

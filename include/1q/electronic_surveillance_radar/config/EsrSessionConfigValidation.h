@@ -26,7 +26,9 @@ enum class ConfigValidationCode {
   kBeamElWidthNotPositive,      /**< 俯仰波束宽度 <= 0 */
   kExplicitScanBoundsAzSwapped, /**< 显式扫描方位起止颠倒 */
   kExplicitScanBoundsElSwapped, /**< 显式扫描俯仰起止颠倒 */
-  kExplicitScanBoundsNotFinite  /**< 显式扫描边界包含 NaN 或 Inf */
+  kExplicitScanBoundsNotFinite, /**< 显式扫描边界包含 NaN 或 Inf */
+  kReceiverRfHardwareInvalid,   /**< 接收天线、极化或线性输入边界非法 */
+  kTuningPlanInvalid            /**< 调谐窗口非法或超出硬件频段 */
 };
 
 /**

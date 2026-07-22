@@ -6,6 +6,34 @@ table Vector3f {
   z:float;
 }
 
+table Vector3d { x:double; y:double; z:double; }
+table RfUnitVector { x:double; y:double; z:double; }
+table RfAntennaPattern {
+  boresight_ecef_unit:RfUnitVector;
+  peak_gain_dbi:double;
+  half_power_beamwidth_deg:double;
+  sidelobe_level_db:double;
+  backlobe_level_db:double;
+  cross_polarization_isolation_db:double;
+}
+table RfEmissionSegment {
+  start_time_s:double;
+  duration_s:double;
+  center_frequency_hz:double;
+  bandwidth_hz:double;
+  transmit_power_w:double;
+}
+table RfEmission {
+  emission_id:ulong;
+  entity_id:ulong;
+  position_ecef_m:Vector3d;
+  velocity_ecef_mps:Vector3d;
+  antenna:RfAntennaPattern;
+  polarization:int;
+  waveform_kind:int;
+  segments:[RfEmissionSegment];
+}
+
 table EulerAnglesDeg {
   yaw_deg:float;
   pitch_deg:float;
@@ -68,6 +96,9 @@ table ArCycleEnvironmentInput {
   atmospheric_context:AtmosphericContext;
   surface_observation:SurfaceObservation;
   jammer_sources:[JammerSource];
+  // -1 marks traces created before tagged interference was introduced.
+  interference_mode:int = -1;
+  engineering_emissions:[RfEmission];
 }
 
 table ArCycleInput {
@@ -78,6 +109,10 @@ table ArCycleInput {
   has_environment:bool = false;
   environment:ArCycleEnvironmentInput;
   platform_altitude_m:float = 0.0;
+  platform_entity_id:ulong = 0;
+  has_platform_ecef_kinematics:bool = false;
+  platform_position_ecef_m:Vector3d;
+  platform_velocity_ecef_mps:Vector3d;
 }
 
 table TrackOutputFrame {

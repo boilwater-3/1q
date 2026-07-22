@@ -25,6 +25,7 @@ _oneq_add_replay_partition(common)
 _oneq_add_replay_partition(airborne_radar)
 _oneq_add_replay_partition(electro_optical_sensor)
 _oneq_add_replay_partition(electronic_surveillance_radar)
+_oneq_add_replay_partition(electronic_countermeasure)
 _oneq_add_replay_partition(sar)
 _oneq_add_replay_partition(sbirs_sensor)
 

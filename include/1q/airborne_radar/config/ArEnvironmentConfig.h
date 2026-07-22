@@ -11,8 +11,9 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/api.hpp"
 #include "1q/airborne_radar/session/DecisionSourceInfo.h"
+#include "1q/api.hpp"
+#include "1q/electromagnetics/RfLinkBudget.h"
 #include "1q/environment/AtmosphericTypes.h"
 
 namespace airborne_radar {
@@ -69,15 +70,27 @@ struct ONEQ_API JammerEmitterState {
   JammingTechnique technique{JammingTechnique::kUnknown}; /**< 干扰技术类型 */
   float power_db{0.0f};                                   /**< 干扰功率估计（单位：dB） */
   float js_db{0.0f};                                      /**< 干扰与信号比估计（单位：dB） */
-  float position_x{0.0f};                                 /**< 雷达局部笛卡尔坐标 x (m)，与 ArSceneTarget 同坐标系 */
-  float position_y{0.0f};                                 /**< 雷达局部笛卡尔坐标 y (m) */
-  float position_z{0.0f};                                 /**< 雷达局部笛卡尔坐标 z (m) */
-  float angular_span_deg{0.0f};                           /**< 干扰角域宽度（单位：deg） */
-  float confidence{1.0f};                                 /**< 干扰事实置信度，范围 [0, 1] */
+  float position_x{0.0f};       /**< 雷达局部笛卡尔坐标 x (m)，与 ArSceneTarget 同坐标系 */
+  float position_y{0.0f};       /**< 雷达局部笛卡尔坐标 y (m) */
+  float position_z{0.0f};       /**< 雷达局部笛卡尔坐标 z (m) */
+  float angular_span_deg{0.0f}; /**< 干扰角域宽度（单位：deg） */
+  float confidence{1.0f};       /**< 干扰事实置信度，范围 [0, 1] */
 };
 
 /** @brief 场景中的干扰源输入列表 */
 using JammerEmitterStateList = std::vector<JammerEmitterState>;
+
+/**
+ * @brief AR 单周期干扰输入的互斥 tagged payload。
+ * @note `kLegacy` 只读取 `legacy_jammer_sources`，`kEngineering` 只读取
+ *       `engineering_emissions`；不匹配或混合载荷由周期校验原子拒绝。
+ */
+struct ONEQ_API ArInterferenceInput {
+  oneq::electromagnetics::RfInterferenceMode mode{
+      oneq::electromagnetics::RfInterferenceMode::kNone}; /**< 当前载荷模式 */
+  JammerEmitterStateList legacy_jammer_sources{};         /**< 隔离的 legacy 摘要载荷 */
+  std::vector<oneq::electromagnetics::RfEmission> engineering_emissions{}; /**< RF 发射事实 */
+};
 
 /** @brief AtmosphericPhysicsConfig 复用统一环境模块基础气象观测类型。 */
 using AtmosphericPhysicsConfig = oneq::environment::AtmosphericObservation;
@@ -133,6 +146,7 @@ struct ONEQ_API EnvironmentScenarioConfig {
   AtmosphericDerivedContext atmospheric_context{};             /**< 场景时间/空间天气输入 */
   VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 场景植被散射输入 */
   JammerEmitterStateList jammer_sources{};                     /**< 场景干扰事实输入 */
+  ArInterferenceInput interference{}; /**< 新 tagged 干扰输入；不得与 jammer_sources 混用 */
 };
 
 /**

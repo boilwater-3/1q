@@ -66,6 +66,13 @@ TEST(EsrCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
   // Builder（一步构建）
   EsrCycleInput builder_input;
   ASSERT_TRUE(EsrCycleInputAdapter::Build(pose_input, {ext_emitter}, 1.0f, &builder_input));
+  EXPECT_TRUE(builder_input.has_platform_ecef_kinematics);
+  EXPECT_DOUBLE_EQ(builder_input.platform_position_ecef_m.x_m,
+                   pose_input.platform_position_ecef_m.x_m);
+  ASSERT_EQ(builder_input.scene.size(), 1U);
+  EXPECT_TRUE(builder_input.scene.front().has_ecef_kinematics);
+  EXPECT_DOUBLE_EQ(builder_input.scene.front().position_ecef_m.x_m,
+                   ext_emitter.kinematics.position_ecef_m.x_m);
 
   ASSERT_EQ(builder_input.scene.size(), 1U);
 

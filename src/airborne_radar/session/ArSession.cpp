@@ -6,9 +6,9 @@
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/runtime/ArController.h"
-#include "airborne_radar/session/MutableArContext.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 #include "airborne_radar/session/ArSessionCompositionRoot.h"
+#include "airborne_radar/session/MutableArContext.h"
 #include "airborne_radar/signal/pipeline/ISignalPipeline.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "common/logging/ProjectLog.h"
@@ -17,13 +17,25 @@ namespace airborne_radar {
 namespace session {
 namespace {
 
-session::EnvironmentSceneState BuildSceneStateFromEnvironmentInput(
-    const ArEnvironmentInput& environment_input) {
+session::EnvironmentSceneState BuildSceneStateFromCycleInput(const ArCycleInput& cycle_input) {
+  const ArEnvironmentInput& environment_input = cycle_input.environment;
   session::EnvironmentSceneState scene_state;
   scene_state.atmospheric_physics = environment_input.atmospheric_observation;
   scene_state.atmospheric_context = environment_input.atmospheric_context;
   scene_state.vegetation_scatter_physics = environment_input.surface_observation;
-  scene_state.jammer_emitters = environment_input.jammer_sources;
+  if (!environment_input.jammer_sources.empty()) {
+    scene_state.interference.mode = oneq::electromagnetics::RfInterferenceMode::kLegacy;
+    scene_state.interference.legacy_jammer_sources = environment_input.jammer_sources;
+  } else {
+    scene_state.interference = environment_input.interference;
+  }
+  if (scene_state.interference.mode == oneq::electromagnetics::RfInterferenceMode::kLegacy) {
+    scene_state.jammer_emitters = scene_state.interference.legacy_jammer_sources;
+  }
+  scene_state.has_rf_receiver_kinematics = cycle_input.has_platform_ecef_kinematics;
+  scene_state.rf_receiver_entity_id = cycle_input.platform_entity_id;
+  scene_state.rf_receiver_position_ecef_m = cycle_input.platform_position_ecef_m;
+  scene_state.rf_receiver_velocity_ecef_mps = cycle_input.platform_velocity_ecef_mps;
   return scene_state;
 }
 
@@ -91,7 +103,7 @@ struct ArSession::Impl {
   }
 
   ArCycleResult BuildValidationErrorResult(const ArCycleInput& input,
-                                              const ValidationIssueList& issues) const {
+                                           const ValidationIssueList& issues) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     if (Controller().HasLatestTrackOutputFrame()) {
@@ -105,7 +117,7 @@ struct ArSession::Impl {
   }
 
   ArCycleResult BuildExecutionAbortResult(const ArCycleInput& input,
-                                             session::SignalCycleAbortReason abort_reason) const {
+                                          session::SignalCycleAbortReason abort_reason) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
     if (Controller().HasLatestTrackOutputFrame()) {
@@ -156,14 +168,12 @@ struct ArSession::Impl {
           return false;
         }
       }
-      Controller().UpdateDecisionControlConfig(
-          state_to_commit.execution_config.decision_control);
+      Controller().UpdateDecisionControlConfig(state_to_commit.execution_config.decision_control);
       pipeline_config_synced = true;
     }
 
     if (should_sync_environment_model) {
-      EnvironmentService().UpdateModelConfig(
-          pending_runtime_state.environment_scenario_config);
+      EnvironmentService().UpdateModelConfig(pending_runtime_state.environment_scenario_config);
     }
     if (should_sync_jamming_sensitivity) {
       EnvironmentService().SetJammingSensitivityProfile(
@@ -188,8 +198,7 @@ struct ArSession::Impl {
       const signal::SignalPipelineRuntimeState& pipeline_state,
       const environment::EnvironmentServiceRuntimeState& environment_state,
       const extension::ArControllerRuntimeState& controller_state) {
-    const bool radar_context_restored =
-        RadarContext().RestoreRuntimeState(radar_context_state);
+    const bool radar_context_restored = RadarContext().RestoreRuntimeState(radar_context_state);
     SignalPipeline().RestoreRuntimeState(pipeline_state);
     EnvironmentService().RestoreRuntimeState(environment_state);
     const bool controller_restored = Controller().RestoreRuntimeState(controller_state);
@@ -208,11 +217,11 @@ struct ArSession::Impl {
     }
 
     const ArContextRuntimeState radar_context_state = RadarContext().CaptureRuntimeState();
-    const signal::SignalPipelineRuntimeState pipeline_state = SignalPipeline().CaptureRuntimeState();
+    const signal::SignalPipelineRuntimeState pipeline_state =
+        SignalPipeline().CaptureRuntimeState();
     const environment::EnvironmentServiceRuntimeState environment_state =
         EnvironmentService().CaptureRuntimeState();
-    const extension::ArControllerRuntimeState controller_state =
-        Controller().CaptureRuntimeState();
+    const extension::ArControllerRuntimeState controller_state = Controller().CaptureRuntimeState();
 
     if (!CommitPendingRuntimeConfig()) {
       (void)RestoreCycleRuntimeState(radar_context_state, pipeline_state, environment_state,
@@ -222,7 +231,7 @@ struct ArSession::Impl {
     }
 
     if (input.has_environment) {
-      EnvironmentService().UpdateSceneState(BuildSceneStateFromEnvironmentInput(input.environment));
+      EnvironmentService().UpdateSceneState(BuildSceneStateFromCycleInput(input));
     }
     RadarContext().BeginCycle(input);
     Controller().RunOnce();
@@ -278,18 +287,15 @@ ArDecisionReplayState ArSessionReplayAccess::CaptureDecisionState(const ArSessio
   ArDecisionReplayState replay_state;
   const extension::ArControllerRuntimeState controller_state =
       session.impl_->Controller().CaptureRuntimeState();
-  replay_state.has_pending_internal_decision =
-      controller_state.has_pending_internal_decision;
+  replay_state.has_pending_internal_decision = controller_state.has_pending_internal_decision;
   replay_state.pending_internal_cycle_index = controller_state.pending_internal_cycle_index;
   replay_state.pending_internal_batch_id = controller_state.pending_internal_batch_id;
   replay_state.pending_internal_proposals = controller_state.pending_internal_proposals;
   replay_state.applied_decision_source = controller_state.last_applied_decision_source;
-  replay_state.applied_decision_cycle_index =
-      controller_state.last_applied_decision_cycle_index;
+  replay_state.applied_decision_cycle_index = controller_state.last_applied_decision_cycle_index;
   replay_state.applied_decision_batch_id = controller_state.last_applied_decision_batch_id;
   replay_state.applied_decision_proposals = controller_state.last_applied_decision_proposals;
-  replay_state.has_pending_external_decision =
-      controller_state.has_pending_external_decision;
+  replay_state.has_pending_external_decision = controller_state.has_pending_external_decision;
   replay_state.pending_external_decision = controller_state.pending_external_decision;
   replay_state.reducer_state = controller_state.control_reducer_state;
   return replay_state;
@@ -310,7 +316,7 @@ ArSession ArSession::Create(const config::ArSessionConfig& config) {
 }
 
 ArSession ArSession::CreateWithValidation(const config::ArSessionConfig& config,
-                                                config::ValidationIssueList* issues) {
+                                          config::ValidationIssueList* issues) {
   const config::ValidationIssueList found = config::ValidateArSessionConfig(config);
   if (issues != nullptr) {
     *issues = found;

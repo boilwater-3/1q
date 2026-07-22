@@ -4,9 +4,8 @@ namespace airborne_radar {
 namespace session {
 
 bool ArCycleInputAdapter::Build(const ArExternalPoseInput& platform,
-                                const std::vector<ArExternalTargetInput>& targets,
-                                float dt_sec, ArCycleInput* output,
-                                ArCoordinateStatus* status) {
+                                const std::vector<ArExternalTargetInput>& targets, float dt_sec,
+                                ArCycleInput* output, ArCoordinateStatus* status) {
   if (!Build(platform, targets, dt_sec, ArEnvironmentInput{}, output, status)) {
     return false;
   }
@@ -15,9 +14,9 @@ bool ArCycleInputAdapter::Build(const ArExternalPoseInput& platform,
 }
 
 bool ArCycleInputAdapter::Build(const ArExternalPoseInput& platform,
-                                const std::vector<ArExternalTargetInput>& targets,
-                                float dt_sec, const ArEnvironmentInput& environment,
-                                ArCycleInput* output, ArCoordinateStatus* status) {
+                                const std::vector<ArExternalTargetInput>& targets, float dt_sec,
+                                const ArEnvironmentInput& environment, ArCycleInput* output,
+                                ArCoordinateStatus* status) {
   if (status != nullptr) {
     *status = ArCoordinateStatus::kOk;
   }
@@ -37,14 +36,18 @@ bool ArCycleInputAdapter::Build(const ArExternalPoseInput& platform,
   output->cycle_index = 0U;
   output->dt_sec = dt_sec;
   output->platform_altitude_m = static_cast<float>(reference.origin_lla.altitude_m);
+  output->platform_entity_id = platform.platform_entity_id;
+  output->has_platform_ecef_kinematics = true;
+  output->platform_position_ecef_m = platform.platform_position_ecef_m;
+  output->platform_velocity_ecef_mps = platform.platform_velocity_mps;
   output->has_environment = true;
   output->environment = environment;
   output->scene.clear();
 
   for (std::size_t i = 0; i < targets.size(); ++i) {
     ArSceneTarget target;
-    if (!TryMakeArTargetFromExternalKinematics(targets[i], reference,
-                                               output->platform_pose.velocity_mps, &target, status)) {
+    if (!TryMakeArTargetFromExternalKinematics(
+            targets[i], reference, output->platform_pose.velocity_mps, &target, status)) {
       return false;
     }
     output->scene.push_back(target);

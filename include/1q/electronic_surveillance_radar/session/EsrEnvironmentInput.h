@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
+#include "1q/electromagnetics/RfLinkBudget.h"
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 
 namespace electronic_surveillance_radar {
@@ -44,20 +45,12 @@ using EsrJammerSourceList = std::vector<EsrJammerSource>;
 /**
  * @brief EsrPropagationEnvironmentProfile 描述高层传播环境类型。
  */
-enum class ONEQ_API EsrPropagationEnvironmentProfile {
-  kOpen = 0,
-  kTypical = 1,
-  kComplex = 2
-};
+enum class ONEQ_API EsrPropagationEnvironmentProfile { kOpen = 0, kTypical = 1, kComplex = 2 };
 
 /**
  * @brief EsrClutterDensityLevel 描述高层杂波密度级别。
  */
-enum class ONEQ_API EsrClutterDensityLevel {
-  kLow = 0,
-  kMedium = 1,
-  kHigh = 2
-};
+enum class ONEQ_API EsrClutterDensityLevel { kLow = 0, kMedium = 1, kHigh = 2 };
 
 /**
  * @brief EsrAtmosphericObservation 描述外部可观测天气事实。
@@ -72,12 +65,15 @@ struct ONEQ_API EsrAtmosphericObservation {
  * @brief EsrEnvironmentInput 描述待冻结环境高层观测输入。
  */
 struct ONEQ_API EsrEnvironmentInput {
-  EsrPropagationEnvironmentProfile propagation_profile{
-      EsrPropagationEnvironmentProfile::kTypical};
+  EsrPropagationEnvironmentProfile propagation_profile{EsrPropagationEnvironmentProfile::kTypical};
   EsrClutterDensityLevel clutter_density{EsrClutterDensityLevel::kMedium};
   float spectrum_occupancy_ratio{0.0f}; /**< 频谱占用率 [0,1]；按 1+9ρ 放大接收机与杂波底噪 */
   EsrAtmosphericObservation atmospheric_observation{};
+  oneq::electromagnetics::RfInterferenceMode interference_mode{
+      oneq::electromagnetics::RfInterferenceMode::kNone}; /**< 干扰输入模式。 */
   EsrJammerSourceList jammer_sources{};
+  std::vector<oneq::electromagnetics::RfEmission>
+      engineering_emissions{}; /**< 工程 RF 发射事实。 */
 };
 
 /**
@@ -102,7 +98,11 @@ struct ONEQ_API EsrEnvironmentSnapshot {
   float deception_risk{0.0f};
   float spectrum_occupancy_ratio{0.0f}; /**< 冻结占用率；检测链按 1+9ρ 计算环境噪声倍率 */
   bool jamming_detected{false};
+  oneq::electromagnetics::RfInterferenceMode interference_mode{
+      oneq::electromagnetics::RfInterferenceMode::kNone}; /**< 冻结干扰模式。 */
   EsrJammerSourceList jammer_sources{};
+  std::vector<oneq::electromagnetics::RfEmission>
+      engineering_emissions{}; /**< 冻结工程发射事实。 */
 };
 
 /**
@@ -116,14 +116,14 @@ struct ONEQ_API EsrEnvironmentInputPatch {
   bool has_propagation_profile{false}; /**< 是否更新传播环境类型 */
   session::EsrPropagationEnvironmentProfile propagation_profile{
       session::EsrPropagationEnvironmentProfile::kTypical}; /**< 新传播环境类型 */
-  bool has_clutter_density{false};                              /**< 是否更新杂波密度 */
+  bool has_clutter_density{false};                          /**< 是否更新杂波密度 */
   session::EsrClutterDensityLevel clutter_density{
-      session::EsrClutterDensityLevel::kMedium}; /**< 新杂波密度 */
-  bool has_spectrum_occupancy_ratio{false};          /**< 是否更新频谱占用率 */
-  float spectrum_occupancy_ratio{0.0f};              /**< 新频谱占用率，范围 [0, 1] */
-  bool has_atmospheric_observation{false};           /**< 是否更新天气观测 */
+      session::EsrClutterDensityLevel::kMedium};                /**< 新杂波密度 */
+  bool has_spectrum_occupancy_ratio{false};                     /**< 是否更新频谱占用率 */
+  float spectrum_occupancy_ratio{0.0f};                         /**< 新频谱占用率，范围 [0, 1] */
+  bool has_atmospheric_observation{false};                      /**< 是否更新天气观测 */
   session::EsrAtmosphericObservation atmospheric_observation{}; /**< 新天气观测 */
-  bool has_jammer_sources{false};                                   /**< 是否更新干扰源列表 */
+  bool has_jammer_sources{false};                               /**< 是否更新干扰源列表 */
   session::EsrJammerSourceList jammer_sources{};                /**< 新干扰源列表 */
 };
 

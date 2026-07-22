@@ -6,25 +6,49 @@
 #ifndef ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_HARDWARE_CONFIG_H_
 #define ONEQ_ELECTRONIC_SURVEILLANCE_RADAR_CONFIG_ESR_HARDWARE_CONFIG_H_
 
+#include <cstdint>
+#include <vector>
+
 #include "1q/api.hpp"
+#include "1q/electromagnetics/RfLinkBudget.h"
 
 namespace electronic_surveillance_radar {
 namespace config {
+
+/** @brief EsrTuningWindow 描述可回放的接收调谐驻留窗口。 */
+struct ONEQ_API EsrTuningWindow {
+  double center_frequency_hz{0.0}; /**< 调谐中心频率（单位：Hz）。 */
+  double bandwidth_hz{0.0};        /**< 调谐带宽（单位：Hz）。 */
+  std::uint32_t dwell_cycles{1U};  /**< 连续驻留的成功周期数。 */
+};
 
 /**
  * @brief EsrHardwareConfig 描述 ESR 装备固有参数。
  */
 struct ONEQ_API EsrHardwareConfig {
-  double receiver_band_lower_hz{0.23e9};  /**< 接收频段下限（单位：Hz） */
-  double receiver_band_upper_hz{100.0e9}; /**< 接收频段上限（单位：Hz） */
-  float receiver_sensitivity_w{1.0e-12f}; /**< 接收机灵敏度（单位：W） */
-  float integrated_receive_loss_db{0.0f}; /**< 系统综合接收损耗（单位：dB） */
-  float beam_az_width_deg{5.0f};          /**< 方位波束宽度（单位：deg） */
-  float beam_el_width_deg{5.0f};          /**< 俯仰波束宽度（单位：deg） */
-  float az_scan_range_deg{120.0f};        /**< 方位扫描范围（单位：deg） */
-  float el_scan_range_deg{20.0f};         /**< 俯仰扫描范围（单位：deg） */
-  float antenna_mount_az_deg{0.0f};       /**< 天线中心方位相对角（单位：deg） */
-  float antenna_mount_el_deg{0.0f};       /**< 天线中心俯仰相对角（单位：deg） */
+  double receiver_band_lower_hz{0.23e9};   /**< 接收频段下限（单位：Hz） */
+  double receiver_band_upper_hz{100.0e9};  /**< 接收频段上限（单位：Hz） */
+  float receiver_sensitivity_w{1.0e-12f};  /**< 接收机灵敏度（单位：W） */
+  float integrated_receive_loss_db{0.0f};  /**< 系统综合接收损耗（单位：dB） */
+  float beam_az_width_deg{5.0f};           /**< 方位波束宽度（单位：deg） */
+  float beam_el_width_deg{5.0f};           /**< 俯仰波束宽度（单位：deg） */
+  float az_scan_range_deg{120.0f};         /**< 方位扫描范围（单位：deg） */
+  float el_scan_range_deg{20.0f};          /**< 俯仰扫描范围（单位：deg） */
+  float antenna_mount_az_deg{0.0f};        /**< 天线中心方位相对角（单位：deg） */
+  float antenna_mount_el_deg{0.0f};        /**< 天线中心俯仰相对角（单位：deg） */
+  float antenna_peak_gain_dbi{0.0f};       /**< 接收天线峰值增益（单位：dBi）。 */
+  float antenna_sidelobe_level_db{-30.0f}; /**< 旁瓣相对峰值电平（单位：dB）。 */
+  float antenna_backlobe_level_db{-40.0f}; /**< 后瓣相对峰值电平（单位：dB）。 */
+  oneq::electromagnetics::RfPolarization polarization{
+      oneq::electromagnetics::RfPolarization::kUnpolarized}; /**< 接收极化。 */
+  float cross_polarization_isolation_db{20.0f};              /**< 交叉极化隔离（单位：dB）。 */
+  float minimum_far_field_range_m{1.0f};                     /**< 远场公式最小距离（单位：m）。 */
+  bool has_co_site_isolation{false};                         /**< 是否配置同平台隔离。 */
+  float co_site_isolation_db{0.0f};                          /**< 同平台隔离（单位：dB）。 */
+  float maximum_linear_input_power_w{1.0e-3f};               /**< 最大线性输入功率（单位：W）。 */
+  float jamming_jn_threshold_db{3.0f};                       /**< 受扰判定 J/N 门限（单位：dB）。 */
+  float jamming_snr_loss_threshold_db{3.0f};  /**< 受扰判定 SNR 损失门限（单位：dB）。 */
+  std::vector<EsrTuningWindow> tuning_plan{}; /**< 显式调谐计划；空列表表示全硬件频段驻留。 */
 };
 
 }  // namespace config

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
+#include "1q/coordinate/types.h"
 #include "1q/foundation/pose_types.h"
 
 namespace electronic_surveillance_radar {
@@ -34,6 +35,9 @@ struct ONEQ_API EsrEmitterBeamState {
 struct ONEQ_API EsrSceneEmitter {
   std::uint64_t emitter_id{0U}; /**< 辐射源标识 */
   std::string emitter_name{};   /**< 可选辐射源名称，仅用于人读、trace 与调试视图，不参与关联 */
+  bool has_ecef_kinematics{false}; /**< 是否提供工程 RF 链路所需的 ECEF 运动学。 */
+  oneq::coordinate::EcefPositionM position_ecef_m{}; /**< 辐射源 ECEF 位置（m）。 */
+  oneq::coordinate::EcefVelocityMps velocity_ecef_mps{}; /**< 辐射源 ECEF 速度（m/s）。 */
   oneq::foundation::PoseState pose{}; /**< 辐射源位置、速度与姿态状态 */
   double carrier_hz{0.0};             /**< 发射中心频率（单位：Hz） */
   double bandwidth_hz{0.0};           /**< 发射带宽（单位：Hz） */

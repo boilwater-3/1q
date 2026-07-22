@@ -37,8 +37,14 @@ void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime) {
 
 bool RunEnvironmentPhase(CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                          CycleExecutionScratch& scratch) {
-  ApplyEnvironmentJammingFactsToRuntimeConfig(
-      runtime.control_profile, context.environment_snapshot, &context.runtime_config);
+  if (!TryResolveEngineeringInterferencePowerW(
+          context.runtime_config, context.environment_snapshot,
+          &context.runtime_config.jamming_effects.resolved_engineering_jam_noise_w)) {
+    PROJECT_LOG_ERROR(
+        "[SignalPipeline] environment phase aborted because engineering RF link resolution "
+        "failed.");
+    return false;
+  }
   RefreshMeasurementCovariances(
       scratch.target_geometry.size(),
       context.runtime_config.tracking.engineering.kalman_measurement_noise_std,
@@ -72,24 +78,17 @@ void RunDetectionPhase(const CycleExecutionContext& context, const CycleExecutio
   detection_buffers.detection_succeeded = &scratch.detection_succeeded;
   detection_buffers.measurement_covariances = &scratch.measurement_covariances;
 
-  if (context.runtime_config.detection.engineering.enable_physics_detection &&
-      runtime.signal_detector != nullptr) {
-    RunPhysicalDetectionPass(context.input_state, context.runtime_config, runtime.control_profile,
-                             context.environment_snapshot, context.platform_altitude_m,
-                             runtime.signal_detector, &detection_buffers);
-  } else {
-    RunHeuristicDetectionPass(context.input_state, context.runtime_config,
-                              runtime.control_profile, context.environment_snapshot,
-                              &detection_buffers);
-  }
+  RunPhysicalDetectionPass(context.input_state, context.runtime_config, runtime.control_profile,
+                           context.environment_snapshot, context.platform_altitude_m,
+                           runtime.signal_detector, &detection_buffers);
 }
 
 // ---------------------------------------------------------------------------
 // 关联阶段：写入 scratch.association_result / association_keys
 // ---------------------------------------------------------------------------
 
-void RunAssociationPhase(const CycleExecutionContext& context,
-                         const CycleExecutionRuntime& runtime, CycleExecutionScratch& scratch) {
+void RunAssociationPhase(const CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
+                         CycleExecutionScratch& scratch) {
   scratch.association_result = runtime.association_engine.AssociateDetections(
       context.input_state, scratch.detection_succeeded, scratch.measurement_covariances,
       context.environment_snapshot.cycle_dt_sec);
@@ -110,8 +109,8 @@ void RunMeasurementBuildPhase(const CycleExecutionContext& context,
 // 滤波阶段：写入 scratch.output_state / track_measurements.filtered_feature
 // ---------------------------------------------------------------------------
 
-void RunTrackFilterPhase(const CycleExecutionContext& context,
-                         const CycleExecutionRuntime& runtime, CycleExecutionScratch& scratch) {
+void RunTrackFilterPhase(const CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
+                         CycleExecutionScratch& scratch) {
   ApplyTrackFilterPass(context.input_state, context.environment_snapshot.jamming_detected,
                        runtime.track_filter, scratch);
 }
@@ -171,8 +170,7 @@ AssociationQualityMetrics ToPipelineAssociationQualityMetrics(
   return metrics;
 }
 
-std::uint32_t ResolveLifecycleExtraMissTolerance(
-    const session::ArControlProfile& control_profile) {
+std::uint32_t ResolveLifecycleExtraMissTolerance(const session::ArControlProfile& control_profile) {
   std::uint32_t extra_miss_tolerance = 0U;
   if (control_profile.enable_sidelobe_canceller || control_profile.enable_agility_frequency ||
       control_profile.enable_eccm_rejitter) {
@@ -239,8 +237,8 @@ void AssembleOutputs(std::uint32_t cycle_index, std::uint64_t batch_id,
 // 顶层入口
 // ---------------------------------------------------------------------------
 
-bool ExecuteCycle(CycleExecutionContext& context,
-                  const CycleExecutionRuntime& runtime, CycleExecutionScratch& cycle_scratch) {
+bool ExecuteCycle(CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
+                  CycleExecutionScratch& cycle_scratch) {
   ResetCycleExecutionScratch(context.input_state, cycle_scratch);
 
   if (!RunEnvironmentPhase(context, runtime, cycle_scratch)) {

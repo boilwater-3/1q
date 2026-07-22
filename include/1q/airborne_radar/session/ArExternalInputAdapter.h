@@ -26,6 +26,7 @@ namespace session {
  *       外部 Pose 结构没有该字段，因为对应示例适配器按传感器视轴与机体系对齐处理。
  */
 struct ONEQ_API ArExternalPoseInput {
+  std::uint64_t platform_entity_id{0}; /**< 平台实体标识；用于同平台 RF 耦合路径判定 */
   oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 平台位置（ECEF，m） */
   oneq::coordinate::EcefVelocityMps platform_velocity_mps{};  /**< 平台速度（ECEF，单位：m/s） */
   oneq::coordinate::EulerAnglesDeg platform_attitude_deg{};   /**< 平台姿态角（Body->ENU，deg） */

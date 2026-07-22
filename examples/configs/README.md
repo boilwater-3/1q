@@ -28,12 +28,11 @@
 
 详细字段说明见 `docs/public_model_config_manual.md`。
 
-### 物理链路开关提示
+### 物理链路提示
 
-`airborne_radar.json` 默认启用 `hardware.enable_physics_detection` 与
+AR 始终使用物理探测链。`airborne_radar.json` 启用
 `rcs_physics.enable_physical_rcs`，并将 `physics_mix_ratio` 设为 `1.0`，使示例直接体现
-距离衰减与目标 RCS 的物理趋势。若消费方需要完全确定性的简化检出路径，可在本地配置中
-显式关闭这两个开关。
+距离衰减与目标 RCS 的物理趋势。
 
 `sar.json` 的 `sample_rate_hz`、`pulse_width_s` 与 `range_sample_count` 必须满足
 `ceil(pulse_width_s * sample_rate_hz) <= range_sample_count`。当前示例配置已按

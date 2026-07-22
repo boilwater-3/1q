@@ -28,6 +28,7 @@ target_compile_features(${PROJECT_CORE_TARGET} PUBLIC "cxx_std_${PROJECT_CXX_STA
 add_subdirectory(common)
 add_subdirectory(airborne_radar)
 add_subdirectory(electronic_surveillance_radar)
+add_subdirectory(electronic_countermeasure)
 add_subdirectory(electro_optical_sensor)
 add_subdirectory(sbirs_sensor)
 add_subdirectory(sar)

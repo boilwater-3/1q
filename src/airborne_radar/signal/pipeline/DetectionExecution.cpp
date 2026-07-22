@@ -21,8 +21,8 @@ namespace pipeline {
 
 namespace {
 
-float ComputeEquivalentClutterNoiseW(
-    const config::engineering::DetectionConfig& detection_config, float clutter_power_db) {
+float ComputeEquivalentClutterNoiseW(const config::engineering::DetectionConfig& detection_config,
+                                     float clutter_power_db) {
   if (!std::isfinite(clutter_power_db)) {
     return 0.0f;
   }
@@ -41,9 +41,8 @@ float ComputeEquivalentClutterNoiseW(
 }
 
 float ComputeTargetSpecificAtmosphericLossDb(
-    const ExecutionConfig& exec_config,
-    const session::EnvironmentSnapshot& environment_snapshot, float platform_altitude_m,
-    const detection::ResolvedTargetGeometry& geometry) {
+    const ExecutionConfig& exec_config, const session::EnvironmentSnapshot& environment_snapshot,
+    float platform_altitude_m, const detection::ResolvedTargetGeometry& geometry) {
   if (!environment_snapshot.atmospheric_physics.enable_physical_model) {
     return 0.0f;
   }
@@ -58,9 +57,8 @@ float ComputeTargetSpecificAtmosphericLossDb(
   obs.solar_flux_f107 = environment_snapshot.atmospheric_context.solar_flux_f107;
   obs.geomagnetic_ap = environment_snapshot.atmospheric_context.geomagnetic_ap;
   const auto inputs = oneq::common::atmosphere::BuildPropagationInputs(
-      exec_config.detection.engineering.transmitter.frequency_hz,
-      std::max(geometry.range_m, 0.1f), platform_altitude_m,
-      std::max(platform_altitude_m + geometry.position_m.z(), 0.0f),
+      exec_config.detection.engineering.transmitter.frequency_hz, std::max(geometry.range_m, 0.1f),
+      platform_altitude_m, std::max(platform_altitude_m + geometry.position_m.z(), 0.0f),
       geometry.look_angles_deg.has_look_angles ? geometry.look_angles_deg.look_el_deg : 0.0f, obs);
   return oneq::common::atmosphere::EvaluateAtmosphericPropagation(inputs).total_physics_loss_db;
 }
@@ -70,7 +68,8 @@ float ComputeEquivalentRadiusM(float input_rcs_m2,
   const float min_radius_m = std::max(rcs_config.min_equivalent_radius_m, 1.0e-3f);
   const float max_radius_m = std::max(rcs_config.max_equivalent_radius_m, min_radius_m);
   const float safe_input_rcs_m2 = std::max(input_rcs_m2, 0.0f);
-  const float equivalent_radius_m = std::sqrt(safe_input_rcs_m2 / static_cast<float>(oneq::common::numerics::kPi));
+  const float equivalent_radius_m =
+      std::sqrt(safe_input_rcs_m2 / static_cast<float>(oneq::common::numerics::kPi));
   return oneq::common::numerics::Clamp(equivalent_radius_m, min_radius_m, max_radius_m);
 }
 
@@ -94,7 +93,9 @@ float ComputeEffectiveTargetRcsM2(const session::ArSceneTarget& target,
     return input_rcs_m2;
   }
 
-  const float wavenumber_k0 = 2.0f * static_cast<float>(oneq::common::numerics::kPi) * frequency_hz / static_cast<float>(oneq::common::numerics::kLightSpeed);
+  const float wavenumber_k0 = 2.0f * static_cast<float>(oneq::common::numerics::kPi) *
+                              frequency_hz /
+                              static_cast<float>(oneq::common::numerics::kLightSpeed);
   if (wavenumber_k0 <= 0.0f) {
     return input_rcs_m2;
   }
@@ -107,8 +108,8 @@ float ComputeEffectiveTargetRcsM2(const session::ArSceneTarget& target,
                                   ? std::fabs(geometry.look_angles_deg.look_el_deg)
                                   : 0.0f;
   const float psi_i_deg = oneq::common::numerics::Clamp(elevation_deg, 0.0f, 89.0f);
-  const float psi_s_deg =
-      oneq::common::numerics::Clamp(psi_i_deg + std::fabs(rcs_config.bistatic_psi_offset_deg), 0.0f, 89.0f);
+  const float psi_s_deg = oneq::common::numerics::Clamp(
+      psi_i_deg + std::fabs(rcs_config.bistatic_psi_offset_deg), 0.0f, 89.0f);
 
   const float cylinder_rcs_m2 =
       oneq::common::rcs::ComputeCylinderRcs(equivalent_radius_m, wavenumber_k0);
@@ -117,13 +118,15 @@ float ComputeEffectiveTargetRcsM2(const session::ArSceneTarget& target,
   const float planar_rcs_m2 =
       oneq::common::rcs::ComputePlanarPlateRcs(wavenumber_k0, equivalent_radius_m, elevation_deg);
 
-  const float cylinder_weight = oneq::common::numerics::Clamp(rcs_config.cylinder_weight, 0.0f, 1.0f);
+  const float cylinder_weight =
+      oneq::common::numerics::Clamp(rcs_config.cylinder_weight, 0.0f, 1.0f);
   const float physical_rcs_m2 = cylinder_weight * (0.5f * (cylinder_rcs_m2 + bistatic_rcs_m2)) +
                                 (1.0f - cylinder_weight) * planar_rcs_m2;
 
   const float min_rcs_m2 = std::max(rcs_config.min_rcs_m2, 0.0f);
   const float max_rcs_m2 = std::max(rcs_config.max_rcs_m2, min_rcs_m2);
-  const float clamped_physical_rcs_m2 = oneq::common::numerics::Clamp(physical_rcs_m2, min_rcs_m2, max_rcs_m2);
+  const float clamped_physical_rcs_m2 =
+      oneq::common::numerics::Clamp(physical_rcs_m2, min_rcs_m2, max_rcs_m2);
   return input_rcs_m2 * (1.0f - mix_ratio) + clamped_physical_rcs_m2 * mix_ratio;
 }
 
@@ -158,42 +161,6 @@ bool HasValidBuffers(const DetectionExecutionBuffers& buffers) {
 
 }  // namespace
 
-void RunHeuristicDetectionPass(const session::ArSceneTargetList& input,
-                               const ExecutionConfig& config,
-                               const session::ArControlProfile& control_profile,
-                               const session::EnvironmentSnapshot& environment_snapshot,
-                               DetectionExecutionBuffers* buffers) {
-  if (buffers == nullptr || !HasValidBuffers(*buffers)) {
-    return;
-  }
-
-  const std::size_t count = input.size();
-  const float signal_adjustment_db =
-      ComputeHeuristicSignalAdjustmentDb(config.control_profile_effects, control_profile);
-  for (std::size_t i = 0; i < count; ++i) {
-    (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
-    const float effective_rcs_m2 =
-        ComputeEffectiveTargetRcsM2(input[i], (*buffers->target_geometry)[i], config);
-    (*buffers->signal_term_db)[i] = effective_rcs_m2 * 6.0f + signal_adjustment_db;
-    (*buffers->speed_penalty_db)[i] = ResolveSpeedMagnitude(input[i]) * 0.002f;
-  }
-
-  const float jamming_penalty_db =
-      ComputeHeuristicJammingPenaltyDb(config.jamming_effects, environment_snapshot);
-  const float environment_penalty_db =
-      std::max(0.0f, environment_snapshot.propagation_loss_db * 0.2f +
-                         environment_snapshot.clutter_power_db * 0.3f + jamming_penalty_db -
-                         ComputeHeuristicEnvironmentReliefDb(
-                             config.jamming_effects, control_profile, environment_snapshot));
-  for (std::size_t i = 0; i < count; ++i) {
-    const float margin =
-        (*buffers->signal_term_db)[i] - (*buffers->speed_penalty_db)[i] - environment_penalty_db;
-    (*buffers->detection_margin_db)[i] = margin;
-    (*buffers->detection_succeeded)[i] =
-        static_cast<std::uint8_t>(margin >= config.detection.engineering.min_detection_margin_db);
-  }
-}
-
 void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
                               const ExecutionConfig& config,
                               const session::ArControlProfile& control_profile,
@@ -218,11 +185,14 @@ void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
     clutter_w *= has_sidelobe_source ? 0.55f : 0.80f;
   }
 
-  float jam_w = 0.0f;
+  float jam_w = std::max(0.0f, config.jamming_effects.resolved_engineering_jam_noise_w);
   if (HasMultiSourceJammingFacts(environment_snapshot)) {
+    const float thermal_noise_w = detection::RadarEquations::ComputeThermalNoisePower_W(
+        config.detection.engineering.transmitter, config.detection.engineering.receiver);
     for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
       const session::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
-      jam_w += ComputePhysicalSourceJamContributionW(config.jamming_effects, source) *
+      jam_w += std::max(thermal_noise_w, 0.0f) *
+               ComputeLegacySourceJamToNoiseRatio(config.jamming_effects, source) *
                ComputeResidualJammerFactor(control_profile, source);
     }
   }
@@ -234,9 +204,6 @@ void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
   env.jam_noise_w = jam_w;
 
   signal_detector->UpdateConfig(config.detection.engineering);
-
-  const float measurement_covariance_inflation = ComputeMeasurementCovarianceInflation(
-      config.jamming_effects, control_profile, environment_snapshot);
 
   constexpr float kSpeedOfLightMps = 299792458.0f;
   const float wavelength_m =
@@ -286,7 +253,6 @@ void RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
         (*buffers->target_geometry)[i], measurement_error.range_error_std_m,
         measurement_error.angle_error_std_rad,
         config.tracking.engineering.kalman_measurement_noise_std);
-    (*buffers->measurement_covariances)[i] *= measurement_covariance_inflation;
   }
 }
 

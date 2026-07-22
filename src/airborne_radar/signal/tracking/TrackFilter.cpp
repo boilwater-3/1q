@@ -50,23 +50,10 @@ void NormalizeOrFallback(float x, float y, float z, float& nx, float& ny, float&
   ny = fallback_y;
   nz = fallback_z;
 }
-/**
- * @brief 判断是否属于易导致关联脆弱的干扰语义。
- * @param semantic 当前主导干扰语义。
- * @return 属于 deception/repeater/mixed 时返回 true。
- */
-bool IsAssociationFragileJamming(config::JammingSemantic semantic) {
-  return semantic == config::JammingSemantic::kDeception ||
-         semantic == config::JammingSemantic::kRepeater ||
-         semantic == config::JammingSemantic::kMixed;
-}
-
 }  // namespace
 
-PredictedTrackState IdentityTrackPredictor::Predict(
-    const session::ArSceneTarget& input) const {
-  const bool has_velocity_axis =
-      HasNonZero3(input.velocity_x, input.velocity_y, input.velocity_z);
+PredictedTrackState IdentityTrackPredictor::Predict(const session::ArSceneTarget& input) const {
+  const bool has_velocity_axis = HasNonZero3(input.velocity_x, input.velocity_y, input.velocity_z);
   const float speed =
       has_velocity_axis ? VectorNorm3(input.velocity_x, input.velocity_y, input.velocity_z) : 0.0f;
 
@@ -80,24 +67,16 @@ PredictedTrackState IdentityTrackPredictor::Predict(
 SimpleTrackUpdater::SimpleTrackUpdater(TrackFilterConfig config) : config_(config) {}
 
 session::ArSceneTarget SimpleTrackUpdater::Update(const PredictedTrackState& predicted,
-                                                        const TrackFilterContext& context) const {
-  session::ArSceneTarget output(predicted.velocity_x, predicted.velocity_y,
-                                      predicted.velocity_z, predicted.rcs);
+                                                  const TrackFilterContext& context) const {
+  session::ArSceneTarget output(predicted.velocity_x, predicted.velocity_y, predicted.velocity_z,
+                                predicted.rcs);
   output.velocity_x = predicted.velocity_x;
   output.velocity_y = predicted.velocity_y;
   output.velocity_z = predicted.velocity_z;
 
   if (!context.detection_succeeded) {
-    float speed_decay_ratio = config_.speed_decay_ratio_on_loss;
-    float rcs_decay_ratio = config_.rcs_decay_ratio_on_loss;
-    if (context.jamming_detected &&
-        IsAssociationFragileJamming(context.dominant_jamming_semantic)) {
-      const float relief_scale = 0.10f * std::max(0.0f, context.jamming_severity);
-      speed_decay_ratio = std::min(0.995f, speed_decay_ratio + relief_scale);
-      rcs_decay_ratio = std::min(0.999f, rcs_decay_ratio + 1.2f * relief_scale);
-    }
-    const float decayed_speed = std::max(0.0f, predicted.speed * speed_decay_ratio);
-    output.rcs = std::max(0.05f, predicted.rcs * rcs_decay_ratio);
+    const float decayed_speed = std::max(0.0f, predicted.speed * config_.speed_decay_ratio_on_loss);
+    output.rcs = std::max(0.05f, predicted.rcs * config_.rcs_decay_ratio_on_loss);
 
     float dir_vx = 1.0f;
     float dir_vy = 0.0f;
@@ -117,7 +96,7 @@ void SimpleTrackUpdater::UpdateConfig(TrackFilterConfig config) { config_ = conf
 TrackFilter::TrackFilter(TrackFilterConfig config) : updater_(config) {}
 
 session::ArSceneTarget TrackFilter::Filter(const session::ArSceneTarget& input,
-                                                 const TrackFilterContext& context) const {
+                                           const TrackFilterContext& context) const {
   const PredictedTrackState predicted = predictor_.Predict(input);
   return updater_.Update(predicted, context);
 }

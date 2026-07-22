@@ -24,8 +24,8 @@
 
 #include "1q/airborne_radar/config/ArHardwareConfig.h"
 #include "1q/airborne_radar/config/ArMissionConfig.h"
-#include "1q/airborne_radar/config/ArPolicyConfig.h"
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
+#include "1q/airborne_radar/config/ArPolicyConfig.h"
 #include "airborne_radar/config/SignalEngineeringConfig.h"
 #include "airborne_radar/signal/tracking/LifecycleConfig.h"
 
@@ -42,38 +42,8 @@ namespace execution {
  * @note 所有字段均为经验标定参数，直接修改会改变信号链路抗干扰行为。
  */
 struct JammingEffectsConfig {
+  float resolved_engineering_jam_noise_w{0.0f};
   float confidence_weight_min{0.25f};
-  float heuristic_base_penalty_db{0.8f};
-  float heuristic_power_penalty_slope{0.18f};
-  float heuristic_noise_sidelobe_penalty{0.9f};
-  float heuristic_noise_frontlobe_ratio{0.4f};
-  float heuristic_noise_js_slope{0.4f};
-  float heuristic_deception_freq_penalty{1.8f};
-  float heuristic_deception_prf_penalty{1.2f};
-  float heuristic_repeater_prf_penalty{1.0f};
-  float heuristic_repeater_freq_penalty{0.8f};
-  float heuristic_unknown_freq_penalty{1.1f};
-  float heuristic_unknown_prf_penalty{0.9f};
-  float heuristic_unknown_sidelobe_penalty{0.6f};
-  float heuristic_unknown_frontlobe_penalty{0.2f};
-  float association_scale_max{2.5f};
-  float tracking_noise_scale_max{2.0f};
-  float measurement_noise_scale_max{1.8f};
-  float deception_association_step{0.18f};
-  float deception_tracking_step{0.12f};
-  float deception_measurement_step{0.10f};
-  float repeater_association_step{0.12f};
-  float repeater_tracking_step{0.15f};
-  float repeater_measurement_step{0.08f};
-  float noise_measurement_step{0.06f};
-  float unknown_association_step{0.08f};
-  float unknown_tracking_step{0.08f};
-  float unknown_measurement_step{0.05f};
-  float covariance_inflation_max{2.5f};
-  float covariance_deception_inflation_step{0.20f};
-  float covariance_repeater_inflation_step{0.16f};
-  float covariance_noise_inflation_step{0.08f};
-  float covariance_unknown_inflation_step{0.10f};
 };
 
 /**
@@ -88,10 +58,6 @@ struct ControlProfileEffectsConfig {
   float adaptive_beam_gain_boost_db{2.0f};
   float adaptive_beamwidth_scale{0.60f};
   float lpi_beamwidth_scale{0.75f};
-  float lpi_beam_signal_gain_db{1.0f};
-  float adaptive_beam_signal_gain_db{1.5f};
-  float eccm_speed_decay_bonus{0.05f};
-  float eccm_rcs_decay_bonus{0.08f};
 };
 
 /**
@@ -148,7 +114,7 @@ struct LifecycleExecutionConfig {
  * 各 pipeline phase 函数应只接收其所需的子配置引用，而非整个 InternalExecutionConfig。
  */
 struct InternalExecutionConfig {
-  bool sensor_enabled{true};  /**< 设备开关机状态 */
+  bool sensor_enabled{true};                        /**< 设备开关机状态 */
   config::DecisionControlConfig decision_control{}; /**< 跨周期 LPI/ECCM 保持与冷却策略 */
   DetectionExecutionConfig detection{};
   AssociationExecutionConfig association{};

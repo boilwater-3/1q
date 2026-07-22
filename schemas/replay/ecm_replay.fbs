@@ -1,0 +1,132 @@
+// ECM engineering jamming session/cycle replay payloads.
+
+namespace ecm.replay;
+
+struct Vec3 { x:double; y:double; z:double; }
+struct UnitVector { x:double; y:double; z:double; }
+
+table AntennaPattern {
+  boresight:UnitVector;
+  peak_gain_dbi:double;
+  half_power_beamwidth_deg:double;
+  sidelobe_level_db:double;
+  backlobe_level_db:double;
+  cross_polarization_isolation_db:double;
+}
+
+table EcmSessionConfig {
+  power_on:bool;
+  random_seed:uint32;
+  channel_count:uint32;
+  minimum_frequency_hz:double;
+  maximum_frequency_hz:double;
+  maximum_total_transmit_power_w:double;
+  maximum_channel_transmit_power_w:double;
+  thermal_capacity_j:double;
+  cooling_power_w:double;
+  spot_bandwidth_hz:double;
+  barrage_bandwidth_hz:double;
+  sweep_bandwidth_hz:double;
+  sweep_segment_count:uint32;
+  default_technique:int32;
+}
+
+table EcmRuntimeConfigPatch {
+  has_power_on:bool;
+  power_on:bool;
+  has_maximum_total_transmit_power_w:bool;
+  maximum_total_transmit_power_w:double;
+  has_default_technique:bool;
+  default_technique:int32;
+}
+
+table SensorObservation {
+  source_hypothesis_id:uint64;
+  estimated_center_frequency_hz:double;
+  estimated_bandwidth_hz:double;
+  estimated_pri_s:double;
+  estimated_pulse_width_s:double;
+  center_frequency_std_hz:double;
+  bandwidth_std_hz:double;
+  bearing_az_deg:double;
+  bearing_el_deg:double;
+  bearing_std_deg:double;
+  threat_score:float;
+  confidence:float;
+}
+
+table SensorObservationFrame {
+  source_esr_success_cycle_index:uint32;
+  observations:[SensorObservation];
+}
+
+table TruthThreat {
+  truth_entity_id:uint64;
+  center_frequency_hz:double;
+  bandwidth_hz:double;
+  threat_score:float;
+}
+
+table EcmCycleInput {
+  cycle_index:uint32;
+  dt_sec:double;
+  input_mode:int32;
+  platform_entity_id:uint64;
+  platform_position_ecef_m:Vec3;
+  platform_velocity_ecef_mps:Vec3;
+  transmit_antenna:AntennaPattern;
+  transmit_polarization:int32;
+  has_sensor_observation_frame:bool;
+  sensor_observation_frame:SensorObservationFrame;
+  truth_threats:[TruthThreat];
+}
+
+root_type EcmCycleInput;
+file_identifier "ECMC";
+
+table RfEmissionSegment {
+  start_time_s:double;
+  duration_s:double;
+  center_frequency_hz:double;
+  bandwidth_hz:double;
+  transmit_power_w:double;
+}
+
+table RfEmission {
+  emission_id:uint64;
+  entity_id:uint64;
+  position_ecef_m:Vec3;
+  velocity_ecef_mps:Vec3;
+  antenna:AntennaPattern;
+  polarization:int32;
+  waveform_kind:int32;
+  segments:[RfEmissionSegment];
+}
+
+table EcmEmissionFrame {
+  cycle_index:uint32;
+  source_esr_success_cycle_index:uint32;
+  emissions:[RfEmission];
+}
+
+table ResourceDecision {
+  source_observation_id:uint64;
+  truth_entity_id:uint64;
+  technique:int32;
+  channel_index:uint32;
+  allocated_power_w:double;
+  reason:string;
+}
+
+table EcmCycleResult {
+  input_cycle_index:uint32;
+  status:int32;
+  input_mode:int32;
+  truth_assisted:bool;
+  executed_this_cycle:bool;
+  used_glided_observation:bool;
+  observation_age_successful_ecm_cycles:uint32;
+  thermal_energy_j:double;
+  emission_frame:EcmEmissionFrame;
+  decisions:[ResourceDecision];
+}

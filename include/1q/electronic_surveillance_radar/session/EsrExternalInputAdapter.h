@@ -26,6 +26,7 @@ namespace session {
  *       机体系对齐处理。AR 的 Pose 结构多出 radar_mount_angles_deg 是雷达安装角需求。
  */
 struct ONEQ_API EsrExternalPoseInput {
+  std::uint64_t platform_entity_id{0U}; /**< 接收平台实体标识；同平台 RF 路径必须显式配置隔离。 */
   oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 平台位置（ECEF，m） */
   oneq::coordinate::EcefVelocityMps platform_velocity_mps{};  /**< 平台速度（ECEF，单位：m/s） */
   oneq::coordinate::EulerAnglesDeg platform_attitude_deg{};   /**< 平台姿态角（Body->ENU，deg） */

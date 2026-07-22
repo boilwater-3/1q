@@ -31,6 +31,14 @@ class HypothesisAssociator final {
     float bearing_az_deg{0.0f};
     float bearing_el_deg{0.0f};
     float bearing_std_deg{8.0f};
+    double estimated_center_frequency_hz{0.0};
+    double estimated_bandwidth_hz{0.0};
+    double estimated_pri_s{0.0};
+    double estimated_pulse_width_s{0.0};
+    double center_frequency_std_hz{0.0};
+    double bandwidth_std_hz{0.0};
+    double pri_std_s{0.0};
+    double pulse_width_std_s{0.0};
     float confidence{0.0f};
     std::uint32_t last_seen_cycle{0U};
     std::uint32_t hit_streak{0U};

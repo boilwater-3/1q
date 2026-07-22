@@ -294,7 +294,6 @@ TEST(CycleExecutorTest, EmptyInputKeepsWorkspaceOutputsEmpty) {
 
 TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
   ExecutionConfig exec_config;
-  exec_config.detection.engineering.enable_physics_detection = true;
   exec_config.detection.engineering.min_detection_margin_db = -300.0f;
   exec_config.detection.orientation.scan_center_deg.az_deg = 0.0f;
   exec_config.detection.orientation.scan_center_deg.el_deg = 0.0f;
@@ -348,7 +347,6 @@ TEST(CycleExecutorTest, PhysicalDetectionTreatsClutterDbAsThermalRelativeNoise) 
   const config::ArSessionConfig session_config =
       config::ArSessionConfigBuilder()
           .Detection()
-          .EnablePhysicsDetection(true)
           .WithHardwareProfile(config::profiles::ArHardwareProfile::kLongRangeHighPower)
           .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
           .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kStandard)
@@ -611,7 +609,6 @@ TEST(ScanScheduleResolverTest, TasIsDenserThanTwsAndKeepsSerpentineSemantics) {
 
 TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutcome) {
   config::ArSessionConfig session_config;
-  session_config.hardware.enable_physics_detection = true;
   session_config.policy.detection.pulse_count = 16;
   session_config.policy.detection.pfa = 2.0e-6f;
   session_config.policy.detection.minimum_snr_db = -12.0f;
@@ -709,7 +706,6 @@ TEST(SignalPipelineScanScheduleTest, RunCycleAdvancesBeamAndChangesDetectionOutc
 
 TEST(SignalPipelineScanScheduleTest, WorkModeSttReducesSweepCoverageComparedToTws) {
   config::ArSessionConfig tws_session;
-  tws_session.hardware.enable_physics_detection = true;
   tws_session.policy.detection.pulse_count = 16;
   tws_session.policy.detection.pfa = 2.0e-6f;
   tws_session.policy.detection.minimum_snr_db = -12.0f;

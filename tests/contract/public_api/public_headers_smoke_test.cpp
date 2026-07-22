@@ -43,6 +43,11 @@
 #include "1q/coordinate/position_transform.h"
 #include "1q/coordinate/types.h"
 #include "1q/coordinate/velocity_transform.h"
+#include "1q/electronic_countermeasure/EcmEsrAdapter.h"
+#include "1q/electronic_countermeasure/EcmReplaySession.h"
+#include "1q/electronic_countermeasure/EcmSession.h"
+#include "1q/electronic_countermeasure/EcmTraceSession.h"
+#include "1q/electronic_countermeasure/EcmTypes.h"
 #include "1q/electro_optical_sensor/config/EosEnvironmentConfig.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigBuilder.h"
 #include "1q/electro_optical_sensor/config/EosRuntimeConfigPatch.h"
@@ -279,7 +284,6 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
   config::ArSessionConfig config =
       config::ArSessionConfigBuilder()
           .Detection()
-          .EnablePhysicsDetection(true)
           .WithDetectionIntentProfile(config::profiles::DetectionIntentProfile::kDetectionPriority)
           .WithHardwareProfile(config::profiles::ArHardwareProfile::kLongRangeHighPower)
           .WithAntennaPatternProfile(config::profiles::AntennaPatternProfile::kLowSidelobe)
@@ -292,7 +296,6 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
           .End()
           .Build();
   config.mission.orientation.scan_center_deg = scan_center;
-  EXPECT_TRUE(config.hardware.enable_physics_detection);
   EXPECT_EQ(config.policy.detection.pulse_count, 16);
   EXPECT_FLOAT_EQ(config.hardware.transmitter.peak_power_w, 5.0e6f);
   EXPECT_FLOAT_EQ(config.hardware.antenna.pattern.max_sidelobe_level_db, -30.0f);

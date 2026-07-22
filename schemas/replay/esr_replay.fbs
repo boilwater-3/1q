@@ -46,6 +46,43 @@ table SceneEmitter {
   beam_state:   EmitterBeamState;
   is_emitting:  bool;
   emitter_name: string;
+  has_ecef_kinematics: bool = false;
+  position_ecef_m: Vec3;
+  velocity_ecef_mps: Vec3;
+}
+
+struct RfUnitVector {
+  x: double;
+  y: double;
+  z: double;
+}
+
+table RfAntennaPattern {
+  boresight_ecef_unit: RfUnitVector;
+  peak_gain_dbi: double;
+  half_power_beamwidth_deg: double;
+  sidelobe_level_db: double;
+  backlobe_level_db: double;
+  cross_polarization_isolation_db: double;
+}
+
+table RfEmissionSegment {
+  start_time_s: double;
+  duration_s: double;
+  center_frequency_hz: double;
+  bandwidth_hz: double;
+  transmit_power_w: double;
+}
+
+table RfEmission {
+  emission_id: uint64;
+  entity_id: uint64;
+  position_ecef_m: Vec3;
+  velocity_ecef_mps: Vec3;
+  antenna: RfAntennaPattern;
+  polarization: int32;
+  waveform_kind: int32;
+  segments: [RfEmissionSegment];
 }
 
 table EsrJammerSource {
@@ -70,6 +107,9 @@ table EsrEnvironmentInput {
   spectrum_occupancy_ratio: float;
   atmospheric_observation:  EsrAtmosphericObservation;
   jammer_sources:           [EsrJammerSource];
+  // -1 means a pre-tagged legacy payload; decoder infers none/legacy from the old field.
+  interference_mode:        int32 = -1;
+  engineering_emissions:    [RfEmission];
 }
 
 table EsrCycleInput {
@@ -79,6 +119,10 @@ table EsrCycleInput {
   scene_emitters:          [SceneEmitter];
   environment:             EsrEnvironmentInput;
   platform_altitude_m:     float = 0.0;
+  platform_entity_id:      uint64 = 0;
+  has_platform_ecef_kinematics: bool = false;
+  platform_position_ecef_m: Vec3;
+  platform_velocity_ecef_mps: Vec3;
 }
 
 root_type EsrCycleInput;
@@ -97,12 +141,21 @@ table EmitterObservation {
   snr_db:         double;
   quality:        int32;
   is_jammed:      bool;
+  bandwidth_hz:   double;
+  pri_s:          double;
+  rf_std_hz:      double;
+  bandwidth_std_hz: double;
+  pri_std_s:      double;
+  pulse_width_std_s: double;
 }
 
 table ObservationOutput {
   raw_observation_count: uint32;
   cluster_count:         uint32;
   observations:          [EmitterObservation];
+  receiver_center_frequency_hz: double;
+  receiver_bandwidth_hz: double;
+  receiver_saturated: bool;
 }
 
 table EmitterHypothesis {
@@ -115,6 +168,14 @@ table EmitterHypothesis {
   bearing_std_deg:   float;
   confidence:        float;
   last_seen_cycle:   uint32;
+  estimated_center_frequency_hz: double;
+  estimated_bandwidth_hz: double;
+  estimated_pri_s: double;
+  estimated_pulse_width_s: double;
+  center_frequency_std_hz: double;
+  bandwidth_std_hz: double;
+  pri_std_s: double;
+  pulse_width_std_s: double;
 }
 
 table EmitterOutput {

@@ -10,8 +10,7 @@ namespace config {
 
 namespace {
 
-void ApplyDetectionSemanticConfig(bool enable_physics_detection,
-                                  profiles::ArHardwareProfile hardware_profile,
+void ApplyDetectionSemanticConfig(profiles::ArHardwareProfile hardware_profile,
                                   profiles::DetectionIntentProfile intent_profile,
                                   profiles::AntennaPatternProfile antenna_profile,
                                   const config::AzimuthElevationDeg& antenna_boresight_offset_deg,
@@ -23,8 +22,6 @@ void ApplyDetectionSemanticConfig(bool enable_physics_detection,
   }
   auto& d = *detection_config;
   auto& policy = *detection_policy;
-  d.enable_physics_detection = enable_physics_detection;
-
   switch (hardware_profile) {
     case profiles::ArHardwareProfile::kLongRangeHighPower:
       d.transmitter.peak_power_w = 5.0e6f;
@@ -158,11 +155,11 @@ void ApplyLifecycleSemanticConfig(bool enable_imm_fusion,
 
 config::ArSessionConfig BuildDefaultSemanticSessionConfig() {
   config::ArSessionConfig config;
-  ApplyDetectionSemanticConfig(
-      false, profiles::ArHardwareProfile::kGenericAirborneXBand,
-      profiles::DetectionIntentProfile::kBalanced, profiles::AntennaPatternProfile::kStandard,
-      config::AzimuthElevationDeg(), profiles::RcsFusionProfile::kDisabled, &config.hardware,
-      &config.policy.detection);
+  ApplyDetectionSemanticConfig(profiles::ArHardwareProfile::kGenericAirborneXBand,
+                               profiles::DetectionIntentProfile::kBalanced,
+                               profiles::AntennaPatternProfile::kStandard,
+                               config::AzimuthElevationDeg(), profiles::RcsFusionProfile::kDisabled,
+                               &config.hardware, &config.policy.detection);
   ApplyTrackingSemanticConfig(false, profiles::TrackingPolicyProfile::kBalanced,
                               &config.policy.tracking, &config.policy.association);
   ApplyLifecycleSemanticConfig(false, profiles::LifecyclePolicyProfile::kBalanced,
@@ -184,10 +181,9 @@ config::ArSessionConfig ArSessionConfigBuilder::Build() const {
 
   if (detection_dirty_) {
     result.hardware = default_semantic.hardware;
-    ApplyDetectionSemanticConfig(enable_physics_detection_, hardware_profile_, intent_profile_,
-                                 antenna_profile_, antenna_boresight_offset_deg_,
-                                 rcs_fusion_profile_, &result.hardware,
-                                 &result.policy.detection);
+    ApplyDetectionSemanticConfig(hardware_profile_, intent_profile_, antenna_profile_,
+                                 antenna_boresight_offset_deg_, rcs_fusion_profile_,
+                                 &result.hardware, &result.policy.detection);
   }
 
   if (tracking_dirty_) {
@@ -216,29 +212,48 @@ ValidationIssueList ValidateArSessionConfig(const config::ArSessionConfig& confi
   };
   const config::ArOrientationConfig& orientation = config.mission.orientation;
   const config::detection::AntennaConfig& antenna = config.hardware.antenna;
+  const config::detection::ReceiverConfig& receiver = config.hardware.receiver;
   const float transmitter_frequency_hz = config.hardware.transmitter.frequency_hz;
 
   if (!oneq::common::validation::IsFinite(transmitter_frequency_hz) ||
       transmitter_frequency_hz <= 0.0f) {
-    push(ConfigValidationCode::kTransmitterFrequencyInvalid,
-         "hardware.transmitter.frequency_hz",
+    push(ConfigValidationCode::kTransmitterFrequencyInvalid, "hardware.transmitter.frequency_hz",
          "Transmitter frequency must be finite and positive.");
   }
-  const auto axis_geometry_valid =
-      [transmitter_frequency_hz](float nominal_beamwidth_deg, float aperture_m,
-                                 bool commanded_override_enabled) {
-        if (!oneq::common::validation::IsFinite(nominal_beamwidth_deg) ||
-            !oneq::common::validation::IsFinite(aperture_m) ||
-            nominal_beamwidth_deg < 0.0f || aperture_m < 0.0f) {
-          return false;
-        }
-        if (commanded_override_enabled || nominal_beamwidth_deg > 0.0f) {
-          return true;
-        }
-        return aperture_m > 0.0f &&
-               oneq::common::validation::IsFinite(transmitter_frequency_hz) &&
-               transmitter_frequency_hz > 0.0f;
-      };
+  const bool known_receiver_polarization =
+      receiver.polarization == oneq::electromagnetics::RfPolarization::kHorizontal ||
+      receiver.polarization == oneq::electromagnetics::RfPolarization::kVertical ||
+      receiver.polarization == oneq::electromagnetics::RfPolarization::kRightHandCircular ||
+      receiver.polarization == oneq::electromagnetics::RfPolarization::kLeftHandCircular ||
+      receiver.polarization == oneq::electromagnetics::RfPolarization::kUnpolarized;
+  if (!known_receiver_polarization ||
+      !oneq::common::validation::IsFinite(receiver.cross_polarization_isolation_db) ||
+      receiver.cross_polarization_isolation_db < 0.0f ||
+      !oneq::common::validation::IsFinite(receiver.minimum_far_field_range_m) ||
+      receiver.minimum_far_field_range_m <= 0.0f ||
+      (receiver.has_co_site_isolation &&
+       (!oneq::common::validation::IsFinite(receiver.co_site_isolation_db) ||
+        receiver.co_site_isolation_db < 0.0f)) ||
+      !oneq::common::validation::IsFinite(receiver.maximum_linear_input_power_w) ||
+      receiver.maximum_linear_input_power_w <= 0.0f) {
+    push(ConfigValidationCode::kReceiverRfHardwareInvalid, "hardware.receiver",
+         "Receiver RF polarization, isolation, far-field range and linear input limit must be "
+         "valid.");
+  }
+  const auto axis_geometry_valid = [transmitter_frequency_hz](float nominal_beamwidth_deg,
+                                                              float aperture_m,
+                                                              bool commanded_override_enabled) {
+    if (!oneq::common::validation::IsFinite(nominal_beamwidth_deg) ||
+        !oneq::common::validation::IsFinite(aperture_m) || nominal_beamwidth_deg < 0.0f ||
+        aperture_m < 0.0f) {
+      return false;
+    }
+    if (commanded_override_enabled || nominal_beamwidth_deg > 0.0f) {
+      return true;
+    }
+    return aperture_m > 0.0f && oneq::common::validation::IsFinite(transmitter_frequency_hz) &&
+           transmitter_frequency_hz > 0.0f;
+  };
 
   if (orientation.commanded_beamwidth_enabled) {
     if (!oneq::common::validation::IsFinite(

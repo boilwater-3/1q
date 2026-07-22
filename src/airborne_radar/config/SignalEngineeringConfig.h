@@ -9,8 +9,8 @@
 #include <cstdint>
 
 #include "1q/airborne_radar/config/ArHardwareConfig.h"
-#include "1q/airborne_radar/config/ArPolicyConfig.h"
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
+#include "1q/airborne_radar/config/ArPolicyConfig.h"
 
 namespace airborne_radar {
 namespace config {
@@ -31,7 +31,6 @@ struct DetectionPolicy {
 };
 
 struct DetectionConfig {
-  bool enable_physics_detection{false};
   TransmitterConfig transmitter{};
   AntennaConfig antenna{};
   ReceiverConfig receiver{};

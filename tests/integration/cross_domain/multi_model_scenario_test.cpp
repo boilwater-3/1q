@@ -19,10 +19,17 @@
 #include "1q/electro_optical_sensor/electro_optical_sensor.hpp"
 #include "1q/electro_optical_sensor/session/EosReplaySession.h"
 #include "1q/electro_optical_sensor/session/EosTraceSession.h"
+#include "1q/electronic_countermeasure/EcmEsrAdapter.h"
+#include "1q/electronic_countermeasure/EcmSession.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/replay/ReplayTrace.h"
+
+#if defined(ONEQ_TEST_FLIGHT_DYNAMIC_ENABLED)
+#include "1q/flight_dynamic/FlightManager.h"
+#include "1q/flight_dynamic/config/FlightDynamicConfig.h"
+#endif
 
 namespace ar = airborne_radar;
 namespace ar_session = airborne_radar::session;
@@ -38,6 +45,8 @@ namespace esr = electronic_surveillance_radar;
 namespace esr_session = electronic_surveillance_radar::session;
 namespace esr_env = electronic_surveillance_radar::session;
 namespace esr_config = electronic_surveillance_radar::config;
+namespace ecm_config = electronic_countermeasure::config;
+namespace ecm_session = electronic_countermeasure::session;
 
 namespace {
 
@@ -87,7 +96,7 @@ struct WorldState {
 // --- AR input conversion ---
 
 ar_session::ArExternalPoseInput ToArPlatform(const oneq::coordinate::EcefPositionM& pos,
-                                                const oneq::coordinate::EcefVelocityMps& vel) {
+                                             const oneq::coordinate::EcefVelocityMps& vel) {
   ar_session::ArExternalPoseInput p;
   p.platform_position_ecef_m = pos;
   p.platform_velocity_mps = vel;
@@ -124,7 +133,7 @@ ar_session::ArEnvironmentInput MakeArEnvironment() {
 }
 
 ar_session::ArCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
-                                         const ar_session::ArEnvironmentInputState& env_state) {
+                                      const ar_session::ArEnvironmentInputState& env_state) {
   ar_session::ArExternalPoseInput platform = ToArPlatform(ws.platform_pos, ws.platform_vel);
   std::vector<ar_session::ArExternalTargetInput> targets;
   targets.reserve(ws.targets.size());
@@ -235,7 +244,6 @@ ar_config::ArSessionConfig MakeArConfigAirToAir() {
   ar_config::ArSessionConfig config =
       ar_config::ArSessionConfigBuilder()
           .Detection()
-          .EnablePhysicsDetection(false)
           .WithHardwareProfile(ar_config::profiles::ArHardwareProfile::kLongRangeHighPower)
           .WithDetectionIntentProfile(
               ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
@@ -254,6 +262,8 @@ ar_config::ArSessionConfig MakeArConfigAirToAir() {
           .Build();
   config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
   config.mission.orientation.scan_center_deg = ar_config::AzimuthElevationDeg{};
+  config.hardware.receiver.has_co_site_isolation = true;
+  config.hardware.receiver.co_site_isolation_db = 80.0f;
   return config;
 }
 
@@ -293,6 +303,8 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
   config.mission.scan.scan_rate_hz = 0.1f;
   config.policy.detection.minimum_snr_db = 6.0f;
   config.policy.detection.enable_statistical_detection = true;
+  config.hardware.has_co_site_isolation = true;
+  config.hardware.co_site_isolation_db = 80.0f;
   return config;
 }
 
@@ -301,7 +313,6 @@ ar_config::ArSessionConfig MakeArConfigAirToGround() {
   ar_config::ArSessionConfig config =
       ar_config::ArSessionConfigBuilder()
           .Detection()
-          .EnablePhysicsDetection(false)
           .WithHardwareProfile(ar_config::profiles::ArHardwareProfile::kLongRangeHighPower)
           .WithDetectionIntentProfile(
               ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
@@ -1221,3 +1232,214 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
   EXPECT_GT(esr_obs_total, static_cast<std::size_t>(0))
       << "ESR should observe continuously emitting target during crossing";
 }
+
+TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
+  WorldState world;
+  world.platform_pos = EcefFromLla(35.0, 114.0, 10000.0);
+  world.platform_vel = oneq::coordinate::EcefVelocityMps{};
+
+  WorldTarget emitter;
+  emitter.id = 8201U;
+  emitter.pos = EcefFromLla(35.0, 114.05, 10000.0);
+  emitter.vel = oneq::coordinate::EcefVelocityMps{};
+  emitter.rcs = 20.0f;
+  emitter.temperature_k = 450.0f;
+  emitter.area_m2 = 20.0f;
+  emitter.carrier_hz = 10.0e9;
+  emitter.bandwidth_hz = 5.0e6;
+  emitter.tx_power_w = 5.0e7;
+  world.targets.push_back(emitter);
+
+  esr_config::EsrSessionConfig esr_config = MakeEsrConfigAirToAir();
+  esr_config.policy.detection.enable_statistical_detection = false;
+  esr_session::EsrSession esr = esr_session::EsrSession::Create(esr_config);
+  esr_session::EsrEnvironmentInput esr_environment;
+  esr_environment.clutter_density = esr_session::EsrClutterDensityLevel::kLow;
+  esr_environment.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
+
+  esr_session::EmitterHypothesisList hypotheses;
+  std::uint32_t source_esr_cycle = 0U;
+  for (std::uint32_t cycle = 1U; cycle <= 8U && hypotheses.empty(); ++cycle) {
+    esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle, esr_environment);
+    input.platform_entity_id = 7001U;
+    const esr_session::EsrCycleResult result = esr.StepWithResult(input);
+    ASSERT_FALSE(result.has_validation_error);
+    if (!result.output_frame.emitter_output.hypotheses.empty()) {
+      hypotheses = result.output_frame.emitter_output.hypotheses;
+      source_esr_cycle = cycle;
+    }
+  }
+  ASSERT_FALSE(hypotheses.empty());
+
+  ecm_session::EcmSensorObservationFrame sensor_frame;
+  ASSERT_TRUE(
+      ecm_session::TryBuildEcmSensorObservationFrame(hypotheses, source_esr_cycle, &sensor_frame));
+  ASSERT_FALSE(sensor_frame.observations.empty());
+  EXPECT_EQ(sensor_frame.source_esr_success_cycle_index, source_esr_cycle);
+
+  ecm_config::EcmSessionConfig ecm_config;
+  ecm_config.channel_count = 1U;
+  ecm_config.maximum_total_transmit_power_w = 1000.0;
+  ecm_config.maximum_channel_transmit_power_w = 1000.0;
+  ecm_config.default_technique = electronic_countermeasure::EcmTechnique::kSpot;
+  ecm_session::EcmSession ecm = ecm_session::EcmSession::Create(ecm_config);
+  ecm_session::EcmCycleInput ecm_input;
+  ecm_input.cycle_index = source_esr_cycle + 1U;
+  ecm_input.dt_sec = 1.0;
+  ecm_input.input_mode = electronic_countermeasure::EcmInputMode::kSensorDriven;
+  ecm_input.platform_entity_id = 7001U;
+  ecm_input.platform_position_ecef_m = world.platform_pos;
+  ecm_input.platform_velocity_ecef_mps = world.platform_vel;
+  ecm_input.has_sensor_observation_frame = true;
+  ecm_input.sensor_observation_frame = sensor_frame;
+  const ecm_session::EcmCycleResult ecm_result = ecm.StepWithResult(ecm_input);
+  ASSERT_EQ(ecm_result.status, ecm_session::EcmCycleStatus::kExecuted);
+  ASSERT_FALSE(ecm_result.emission_frame.emissions.empty());
+  EXPECT_EQ(ecm_result.emission_frame.source_esr_success_cycle_index, source_esr_cycle);
+
+  ar_session::ArSession ar = ar_session::ArSession::Create(MakeArConfigAirToAir());
+  ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
+  ar_session::ArCycleInput ar_input =
+      BuildArInput(world, 1.0f, source_esr_cycle + 1U, ar_environment_state);
+  ar_input.platform_entity_id = 7001U;
+  ar_input.environment.interference.mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  ar_input.environment.interference.engineering_emissions = ecm_result.emission_frame.emissions;
+  const ar_session::ArCycleResult ar_result = ar.StepWithResult(ar_input);
+  EXPECT_FALSE(ar_result.has_validation_error);
+  EXPECT_TRUE(ar_result.executed_this_cycle);
+  EXPECT_EQ(ar_result.abort_reason, ar_session::SignalCycleAbortReason::kNone);
+
+  esr_environment.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  esr_environment.engineering_emissions = ecm_result.emission_frame.emissions;
+  esr_session::EsrCycleInput esr_input =
+      BuildEsrInput(world, 1.0f, source_esr_cycle + 1U, esr_environment);
+  esr_input.platform_entity_id = 7001U;
+  const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);
+  EXPECT_FALSE(esr_result.has_validation_error);
+  EXPECT_EQ(esr_result.output_frame.cycle_index, source_esr_cycle + 1U);
+}
+
+#if defined(ONEQ_TEST_FLIGHT_DYNAMIC_ENABLED)
+TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
+  oneq::flight_dynamic::config::FlightDynamicConfig flight_config;
+  flight_config.aircraft_model = "c172x";
+  flight_config.aircraft_root_dir = FD_JSBSIM_ROOT_DIR;
+  flight_config.dt_sec = 0.02;
+  flight_config.do_trim = true;
+  flight_config.silent_mode = true;
+  flight_config.initial_kinematics.position_frame = oneq::coordinate::PositionFrame::kLla;
+  flight_config.initial_kinematics.position_lla_deg_m.latitude_deg = 35.0;
+  flight_config.initial_kinematics.position_lla_deg_m.longitude_deg = 114.0;
+  flight_config.initial_kinematics.position_lla_deg_m.altitude_m = 1000.0;
+  flight_config.initial_kinematics.velocity_mps.x_mps = 60.0;
+  flight_config.initial_kinematics.attitude_deg.yaw_deg = 90.0;
+
+  oneq::flight_dynamic::FlightManager flight(flight_config);
+  ASSERT_EQ(flight.GetState(), oneq::flight_dynamic::FlightManagerState::kReady);
+  ASSERT_TRUE(flight.Step(flight_config.dt_sec));
+  const oneq::flight_dynamic::model::VehicleState first_state = flight.GetVehicleState();
+  ASSERT_TRUE(flight.Step(flight_config.dt_sec));
+  const oneq::flight_dynamic::model::VehicleState second_state = flight.GetVehicleState();
+
+  const double radians_to_degrees = 180.0 / kPi;
+  const oneq::coordinate::EcefPositionM first_position =
+      EcefFromLla(first_state.latitude_rad * radians_to_degrees,
+                  first_state.longitude_rad * radians_to_degrees, first_state.altitude_geod_m);
+  const oneq::coordinate::EcefPositionM second_position =
+      EcefFromLla(second_state.latitude_rad * radians_to_degrees,
+                  second_state.longitude_rad * radians_to_degrees, second_state.altitude_geod_m);
+  const double state_dt_sec = second_state.sim_time_sec - first_state.sim_time_sec;
+  ASSERT_GT(state_dt_sec, 0.0);
+
+  WorldState world;
+  world.platform_pos = second_position;
+  world.platform_vel.x_mps = (second_position.x_m - first_position.x_m) / state_dt_sec;
+  world.platform_vel.y_mps = (second_position.y_m - first_position.y_m) / state_dt_sec;
+  world.platform_vel.z_mps = (second_position.z_m - first_position.z_m) / state_dt_sec;
+  const double ecef_speed_mps = std::sqrt(world.platform_vel.x_mps * world.platform_vel.x_mps +
+                                          world.platform_vel.y_mps * world.platform_vel.y_mps +
+                                          world.platform_vel.z_mps * world.platform_vel.z_mps);
+  EXPECT_GT(ecef_speed_mps, 1.0);
+
+  WorldTarget emitter;
+  emitter.id = 8301U;
+  emitter.pos = EcefFromLla(second_state.latitude_rad * radians_to_degrees,
+                            second_state.longitude_rad * radians_to_degrees + 0.05,
+                            second_state.altitude_geod_m);
+  emitter.vel = oneq::coordinate::EcefVelocityMps{};
+  emitter.rcs = 20.0f;
+  emitter.temperature_k = 450.0f;
+  emitter.area_m2 = 20.0f;
+  emitter.carrier_hz = 10.0e9;
+  emitter.bandwidth_hz = 5.0e6;
+  emitter.tx_power_w = 5.0e7;
+  world.targets.push_back(emitter);
+
+  esr_config::EsrSessionConfig esr_config = MakeEsrConfigAirToAir();
+  esr_config.policy.detection.enable_statistical_detection = false;
+  esr_session::EsrSession esr = esr_session::EsrSession::Create(esr_config);
+  esr_session::EsrEnvironmentInput esr_environment;
+  esr_environment.clutter_density = esr_session::EsrClutterDensityLevel::kLow;
+  esr_environment.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
+
+  esr_session::EmitterHypothesisList hypotheses;
+  std::uint32_t source_esr_cycle = 0U;
+  for (std::uint32_t cycle = 1U; cycle <= 8U && hypotheses.empty(); ++cycle) {
+    esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle, esr_environment);
+    input.platform_entity_id = 7002U;
+    const esr_session::EsrCycleResult result = esr.StepWithResult(input);
+    ASSERT_FALSE(result.has_validation_error);
+    if (!result.output_frame.emitter_output.hypotheses.empty()) {
+      hypotheses = result.output_frame.emitter_output.hypotheses;
+      source_esr_cycle = cycle;
+    }
+  }
+  ASSERT_FALSE(hypotheses.empty());
+
+  ecm_session::EcmSensorObservationFrame sensor_frame;
+  ASSERT_TRUE(
+      ecm_session::TryBuildEcmSensorObservationFrame(hypotheses, source_esr_cycle, &sensor_frame));
+  ASSERT_FALSE(sensor_frame.observations.empty());
+
+  ecm_config::EcmSessionConfig ecm_config;
+  ecm_config.channel_count = 1U;
+  ecm_config.maximum_total_transmit_power_w = 1000.0;
+  ecm_config.maximum_channel_transmit_power_w = 1000.0;
+  ecm_config.default_technique = electronic_countermeasure::EcmTechnique::kSpot;
+  ecm_session::EcmSession ecm = ecm_session::EcmSession::Create(ecm_config);
+  ecm_session::EcmCycleInput ecm_input;
+  ecm_input.cycle_index = source_esr_cycle + 1U;
+  ecm_input.dt_sec = 1.0;
+  ecm_input.input_mode = electronic_countermeasure::EcmInputMode::kSensorDriven;
+  ecm_input.platform_entity_id = 7002U;
+  ecm_input.platform_position_ecef_m = world.platform_pos;
+  ecm_input.platform_velocity_ecef_mps = world.platform_vel;
+  ecm_input.has_sensor_observation_frame = true;
+  ecm_input.sensor_observation_frame = sensor_frame;
+  const ecm_session::EcmCycleResult ecm_result = ecm.StepWithResult(ecm_input);
+  ASSERT_EQ(ecm_result.status, ecm_session::EcmCycleStatus::kExecuted);
+  ASSERT_FALSE(ecm_result.emission_frame.emissions.empty());
+  EXPECT_EQ(ecm_result.emission_frame.source_esr_success_cycle_index, source_esr_cycle);
+
+  ar_session::ArSession ar = ar_session::ArSession::Create(MakeArConfigAirToAir());
+  ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
+  ar_session::ArCycleInput ar_input =
+      BuildArInput(world, 1.0f, source_esr_cycle + 1U, ar_environment_state);
+  ar_input.platform_entity_id = 7002U;
+  ar_input.environment.interference.mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  ar_input.environment.interference.engineering_emissions = ecm_result.emission_frame.emissions;
+  const ar_session::ArCycleResult ar_result = ar.StepWithResult(ar_input);
+  EXPECT_FALSE(ar_result.has_validation_error);
+  EXPECT_TRUE(ar_result.executed_this_cycle);
+  EXPECT_EQ(ar_result.abort_reason, ar_session::SignalCycleAbortReason::kNone);
+
+  esr_environment.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  esr_environment.engineering_emissions = ecm_result.emission_frame.emissions;
+  esr_session::EsrCycleInput esr_input =
+      BuildEsrInput(world, 1.0f, source_esr_cycle + 1U, esr_environment);
+  esr_input.platform_entity_id = 7002U;
+  const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);
+  EXPECT_FALSE(esr_result.has_validation_error);
+  EXPECT_EQ(esr_result.output_frame.cycle_index, source_esr_cycle + 1U);
+}
+#endif

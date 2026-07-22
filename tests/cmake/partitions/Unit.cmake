@@ -70,6 +70,16 @@ if(_oneq_unit_electronic_surveillance_radar)
         TIMEOUT 60)
 endif()
 
+# electronic_countermeasure (ECM).
+file(GLOB _oneq_unit_electronic_countermeasure CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/unit/electronic_countermeasure/*_test.cpp")
+if(_oneq_unit_electronic_countermeasure)
+    oneq_add_test_partition(
+        TYPE unit DOMAIN electronic_countermeasure
+        SOURCES ${_oneq_unit_electronic_countermeasure}
+        TIMEOUT 60)
+endif()
+
 # electro_optical_sensor (EOS).
 file(GLOB _oneq_unit_electro_optical_sensor CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/unit/electro_optical_sensor/*_test.cpp")

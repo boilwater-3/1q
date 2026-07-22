@@ -16,6 +16,7 @@ set(_oneq_unit_partition_targets
     ${PROJECT_NAME}_examples_unit_tests
     ${PROJECT_NAME}_airborne_radar_unit_tests
     ${PROJECT_NAME}_electronic_surveillance_radar_unit_tests
+    ${PROJECT_NAME}_electronic_countermeasure_unit_tests
     ${PROJECT_NAME}_electro_optical_sensor_unit_tests
     ${PROJECT_NAME}_sbirs_sensor_unit_tests
     ${PROJECT_NAME}_sar_unit_tests
@@ -42,6 +43,9 @@ include(${CMAKE_CURRENT_LIST_DIR}/partitions/Performance.cmake)
 add_custom_target(${PROJECT_NAME}_performance_tests)
 if(TARGET ${PROJECT_NAME}_sar_performance_tests)
     add_dependencies(${PROJECT_NAME}_performance_tests ${PROJECT_NAME}_sar_performance_tests)
+endif()
+if(TARGET ${PROJECT_NAME}_cross_domain_performance_tests)
+    add_dependencies(${PROJECT_NAME}_performance_tests ${PROJECT_NAME}_cross_domain_performance_tests)
 endif()
 
 # --- integration partitions ------------------------------------------------
@@ -90,6 +94,7 @@ set(_oneq_replay_partition_targets
     ${PROJECT_NAME}_airborne_radar_replay_tests
     ${PROJECT_NAME}_electro_optical_sensor_replay_tests
     ${PROJECT_NAME}_electronic_surveillance_radar_replay_tests
+    ${PROJECT_NAME}_electronic_countermeasure_replay_tests
     ${PROJECT_NAME}_sar_replay_tests
     ${PROJECT_NAME}_sbirs_sensor_replay_tests)
 foreach(_p IN LISTS _oneq_replay_partition_targets)

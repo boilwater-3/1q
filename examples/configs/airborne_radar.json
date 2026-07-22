@@ -1,7 +1,6 @@
 {
   "hardware": {
     "detection": {
-      "enable_physics_detection": false,
       "transmitter": {
         "peak_power_w": 5000000.0,
         "frequency_hz": 9300000000.0,

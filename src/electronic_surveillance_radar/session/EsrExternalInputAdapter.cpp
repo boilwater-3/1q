@@ -149,6 +149,15 @@ bool TryMakeEsrSceneEmitterFromExternalInput(const EsrExternalEmitterInput& inpu
 
   emitter->emitter_id = input.emitter_id;
   emitter->emitter_name = input.emitter_name;
+  emitter->has_ecef_kinematics = true;
+  if (input.kinematics.position_frame == oneq::coordinate::PositionFrame::kEcef) {
+    emitter->position_ecef_m = input.kinematics.position_ecef_m;
+  } else if (!oneq::coordinate::TryLlaToEcef(input.kinematics.position_lla_deg_m,
+                                             &emitter->position_ecef_m)) {
+    SetStatus(EsrCoordinateStatus::kCoordinateTransformFail, status);
+    return false;
+  }
+  emitter->velocity_ecef_mps = input.kinematics.velocity_mps;
   emitter->pose.position_m = local_position;
   emitter->pose.velocity_mps = local_velocity;
   emitter->pose.attitude_deg = ToFoundationEuler(input.kinematics.attitude_deg);

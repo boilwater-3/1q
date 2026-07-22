@@ -53,7 +53,25 @@ void ValidatePlatformAltitude(float platform_altitude_m, ValidationIssueList* is
                               "platform_altitude_m", "platform altitude must be finite"));
 }
 
-void ValidateEnvironmentObservation(const EsrEnvironmentInput& observation,
+void ValidatePlatformRfKinematics(const EsrCycleInput& input, ValidationIssueList* issues) {
+  if (issues == nullptr || !input.has_platform_ecef_kinematics) {
+    return;
+  }
+  if (!IsFinite(input.platform_position_ecef_m.x_m) ||
+      !IsFinite(input.platform_position_ecef_m.y_m) ||
+      !IsFinite(input.platform_position_ecef_m.z_m) ||
+      !IsFinite(input.platform_velocity_ecef_mps.x_mps) ||
+      !IsFinite(input.platform_velocity_ecef_mps.y_mps) ||
+      !IsFinite(input.platform_velocity_ecef_mps.z_mps)) {
+    issues->push_back(MakeIssue(
+        ValidationSeverity::kError, ValidationCode::kNonFinitePlatformNumericField,
+        ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
+        "platform_position_ecef_m/platform_velocity_ecef_mps",
+        "enabled platform ECEF kinematics must be finite"));
+  }
+}
+
+void ValidateEnvironmentObservation(const EsrEnvironmentInput& observation, double cycle_duration_s,
                                     ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
@@ -67,6 +85,30 @@ void ValidateEnvironmentObservation(const EsrEnvironmentInput& observation,
         ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
         ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1), "environment",
         "environment observation must contain finite ratios in [0, 1] and positive visibility"));
+  }
+  const bool has_legacy = !observation.jammer_sources.empty();
+  const bool has_engineering = !observation.engineering_emissions.empty();
+  bool mode_matches_payload = false;
+  switch (observation.interference_mode) {
+    case oneq::electromagnetics::RfInterferenceMode::kNone:
+      mode_matches_payload = !has_legacy && !has_engineering;
+      break;
+    case oneq::electromagnetics::RfInterferenceMode::kLegacy:
+      mode_matches_payload = has_legacy && !has_engineering;
+      break;
+    case oneq::electromagnetics::RfInterferenceMode::kEngineering:
+      mode_matches_payload = !has_legacy && has_engineering;
+      break;
+    default:
+      break;
+  }
+  if (!mode_matches_payload ||
+      (has_engineering && !oneq::electromagnetics::TryValidateRfEmissionFrame(
+                              observation.engineering_emissions, cycle_duration_s))) {
+    issues->push_back(MakeIssue(
+        ValidationSeverity::kError, ValidationCode::kInvalidInterferenceInput,
+        ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
+        "environment.interference_mode", "interference mode and payload must match exactly"));
   }
   for (std::size_t i = 0; i < observation.jammer_sources.size(); ++i) {
     const session::EsrJammerSource& jammer = observation.jammer_sources[i];
@@ -156,6 +198,17 @@ void ValidateEmitter(const session::EsrSceneEmitter& emitter, std::size_t emitte
         ValidationLocationKind::kSceneEntity, emitter_index,
         "beam_state.az_beamwidth_deg/el_beamwidth_deg", "emitter beam width must be positive"));
   }
+  if (emitter.has_ecef_kinematics &&
+      (!IsFinite(emitter.position_ecef_m.x_m) || !IsFinite(emitter.position_ecef_m.y_m) ||
+       !IsFinite(emitter.position_ecef_m.z_m) || !IsFinite(emitter.velocity_ecef_mps.x_mps) ||
+       !IsFinite(emitter.velocity_ecef_mps.y_mps) ||
+       !IsFinite(emitter.velocity_ecef_mps.z_mps))) {
+    issues->push_back(MakeIssue(ValidationSeverity::kError,
+                                ValidationCode::kNonFiniteEmitterNumericField,
+                                ValidationLocationKind::kSceneEntity, emitter_index,
+                                "position_ecef_m/velocity_ecef_mps",
+                                "enabled emitter ECEF kinematics must be finite"));
+  }
 }
 
 }  // namespace
@@ -174,7 +227,17 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
   }
   ValidatePlatformPose(input.platform_pose, &issues);
   ValidatePlatformAltitude(input.platform_altitude_m, &issues);
-  ValidateEnvironmentObservation(input.environment, &issues);
+  ValidatePlatformRfKinematics(input, &issues);
+  ValidateEnvironmentObservation(input.environment, static_cast<double>(input.dt_sec), &issues);
+  if (input.environment.interference_mode ==
+          oneq::electromagnetics::RfInterferenceMode::kEngineering &&
+      !input.has_platform_ecef_kinematics) {
+    issues.push_back(MakeIssue(
+        ValidationSeverity::kError, ValidationCode::kInvalidInterferenceInput,
+        ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
+        "has_platform_ecef_kinematics",
+        "engineering interference requires explicit receiver ECEF kinematics"));
+  }
 
   for (std::size_t i = 0; i < input.scene.size(); ++i) {
     ValidateEmitter(input.scene[i], i, &issues);
@@ -185,7 +248,7 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
 
 bool HasValidationError(const ValidationIssueList& issues) {
   return oneq::common::validation::HasSeverity<ValidationIssueList, ValidationSeverity,
-                                                 &ValidationIssue::severity>(
+                                               &ValidationIssue::severity>(
       issues, ValidationSeverity::kError);
 }
 

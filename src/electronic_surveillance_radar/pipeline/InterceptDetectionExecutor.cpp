@@ -7,11 +7,11 @@
 #include <limits>
 #include <utility>
 
+#include "1q/electromagnetics/RfLinkBudget.h"
 #include "common/geometry/GeometryTransform.h"
 #include "common/logging/ProjectLog.h"
 #include "common/numerics/Constants.h"
 #include "common/numerics/NumericGuard.h"
-#include "common/numerics/SpectralNumerics.h"
 #include "common/timing/TimingRegimeModel.h"
 #include "common/validation/ValidationUtils.h"
 #include "electronic_surveillance_radar/environment/EsrSharedUtils.h"
@@ -31,32 +31,6 @@ namespace {
 
 double ResolveSpectrumOccupancyNoiseScale(float spectrum_occupancy_ratio) {
   return 1.0 + 9.0 * static_cast<double>(utils::Clamp01(spectrum_occupancy_ratio));
-}
-
-/**
- * @brief 电磁传播计算中使用的圆周率常量。
- * @note 代码行为依据：接收功率计算使用自由空间路径损耗模型中的 `4πR/λ` 项。
- */
-/**
- * @brief 以米每秒表示的光速常量。
- * @note 代码行为依据：波长通过 `λ = c/f` 计算，用于路径损耗估计。
- */
-/**
- * @brief 判断双精度浮点是否为有限数。
- * @param[in] value 输入值。
- * @return 有限数时返回 `true`。
- */
-
-/**
- * @brief 把综合接收损耗 dB 映射到接收功率比例。
- * @param[in] loss_db 综合接收损耗（单位：dB）。
- * @return 线性接收功率比例，范围 `(0, 1]`。
- */
-double ComputeReceiveLossScale(float loss_db) {
-  if (!std::isfinite(loss_db) || loss_db <= 0.0f) {
-    return 1.0;
-  }
-  return std::pow(10.0, -static_cast<double>(loss_db) / 10.0);
 }
 
 /**
@@ -233,28 +207,6 @@ oneq::common::timing::ResolvedCycleTimingState ResolveEmitterTimingState(
 }
 
 /**
- * @brief 计算自由空间模型下的接收功率。
- * @param[in] tx_power_w 发射功率（单位：W）。
- * @param[in] carrier_hz 载频（单位：Hz）。
- * @param[in] range_m 距离（单位：m）。
- * @param[in] propagation_loss_db 额外传播损耗（单位：dB）。
- * @return 接收功率（单位：W）。
- */
-double ComputeReceivedPowerW(double tx_power_w, double carrier_hz, float range_m,
-                             float propagation_loss_db) {
-  if (tx_power_w <= 0.0 || carrier_hz <= 0.0) {
-    return 0.0;
-  }
-  const double safe_range = std::max(static_cast<double>(range_m), 1.0);
-  const double wavelength = static_cast<double>(oneq::common::numerics::kLightSpeed) / carrier_hz;
-  const double fspl_linear = std::pow(
-      (4.0 * static_cast<double>(oneq::common::numerics::kPi) * safe_range) / wavelength, 2.0);
-  const double propagation_loss_linear =
-      std::pow(10.0, static_cast<double>(std::max(0.0f, propagation_loss_db)) / 10.0);
-  return tx_power_w / (fspl_linear * propagation_loss_linear);
-}
-
-/**
  * @brief 构造当前周期接收机工作频段窗口。
  * @param[in] cycle_index 当前周期号。
  * @param[in] runtime_config 会话运行态配置。
@@ -262,22 +214,194 @@ double ComputeReceivedPowerW(double tx_power_w, double carrier_hz, float range_m
  */
 std::pair<double, double> BuildReceiverWindow(
     std::uint32_t cycle_index, const extension::InterceptRuntimeConfig& runtime_config) {
+  const std::vector<config::EsrTuningWindow>& tuning_plan =
+      runtime_config.receiver_hardware.tuning_plan;
+  if (!tuning_plan.empty()) {
+    std::uint64_t total_dwell_cycles = 0U;
+    for (const config::EsrTuningWindow& window : tuning_plan) {
+      total_dwell_cycles += window.dwell_cycles;
+    }
+    if (total_dwell_cycles > 0U) {
+      std::uint64_t phase = static_cast<std::uint64_t>(cycle_index) % total_dwell_cycles;
+      for (const config::EsrTuningWindow& window : tuning_plan) {
+        if (phase < window.dwell_cycles) {
+          return std::make_pair(window.center_frequency_hz - 0.5 * window.bandwidth_hz,
+                                window.center_frequency_hz + 0.5 * window.bandwidth_hz);
+        }
+        phase -= window.dwell_cycles;
+      }
+    }
+  }
   if (runtime_config.use_fixed_receiver_window &&
       oneq::common::validation::IsFinite(runtime_config.receiver_lower_hz) &&
       oneq::common::validation::IsFinite(runtime_config.receiver_upper_hz) &&
       runtime_config.receiver_upper_hz > runtime_config.receiver_lower_hz) {
     return std::make_pair(runtime_config.receiver_lower_hz, runtime_config.receiver_upper_hz);
   }
-  struct BandWindow {
-    double lower_hz;
-    double upper_hz;
-  };
-  static const BandWindow kBandWindows[] = {
-      {0.23e9, 1.0e9},  {1.0e9, 2.0e9},   {2.0e9, 4.0e9},   {4.0e9, 8.0e9},   {8.0e9, 12.0e9},
-      {12.0e9, 18.0e9}, {18.0e9, 27.0e9}, {27.0e9, 40.0e9}, {40.0e9, 60.0e9}, {60.0e9, 100.0e9}};
-  const std::size_t window_index =
-      static_cast<std::size_t>(cycle_index) % (sizeof(kBandWindows) / sizeof(kBandWindows[0]));
-  return std::make_pair(kBandWindows[window_index].lower_hz, kBandWindows[window_index].upper_hz);
+  return std::make_pair(runtime_config.receiver_hardware.receiver_band_lower_hz,
+                        runtime_config.receiver_hardware.receiver_band_upper_hz);
+}
+
+oneq::coordinate::EcefPositionM ResolvePlatformLinkPosition(const MutableEsrContext& ctx) {
+  if (ctx.HasPlatformEcefKinematics()) {
+    return ctx.GetPlatformPositionEcefM();
+  }
+  oneq::coordinate::EcefPositionM position;
+  position.x_m = ctx.GetPlatformPose().position_m.x;
+  position.y_m = ctx.GetPlatformPose().position_m.y;
+  position.z_m = ctx.GetPlatformPose().position_m.z;
+  return position;
+}
+
+oneq::coordinate::EcefVelocityMps ResolvePlatformLinkVelocity(const MutableEsrContext& ctx) {
+  if (ctx.HasPlatformEcefKinematics()) {
+    return ctx.GetPlatformVelocityEcefMps();
+  }
+  oneq::coordinate::EcefVelocityMps velocity;
+  velocity.x_mps = ctx.GetPlatformPose().velocity_mps.x;
+  velocity.y_mps = ctx.GetPlatformPose().velocity_mps.y;
+  velocity.z_mps = ctx.GetPlatformPose().velocity_mps.z;
+  return velocity;
+}
+
+oneq::coordinate::EcefPositionM ResolveEmitterLinkPosition(
+    const session::EsrSceneEmitter& emitter, bool use_ecef) {
+  if (use_ecef && emitter.has_ecef_kinematics) {
+    return emitter.position_ecef_m;
+  }
+  oneq::coordinate::EcefPositionM position;
+  position.x_m = emitter.pose.position_m.x;
+  position.y_m = emitter.pose.position_m.y;
+  position.z_m = emitter.pose.position_m.z;
+  return position;
+}
+
+oneq::coordinate::EcefVelocityMps ResolveEmitterLinkVelocity(
+    const session::EsrSceneEmitter& emitter, bool use_ecef) {
+  if (use_ecef && emitter.has_ecef_kinematics) {
+    return emitter.velocity_ecef_mps;
+  }
+  oneq::coordinate::EcefVelocityMps velocity;
+  velocity.x_mps = emitter.pose.velocity_mps.x;
+  velocity.y_mps = emitter.pose.velocity_mps.y;
+  velocity.z_mps = emitter.pose.velocity_mps.z;
+  return velocity;
+}
+
+bool TryMakeDirection(const oneq::coordinate::EcefPositionM& from,
+                      const oneq::coordinate::EcefPositionM& to,
+                      oneq::electromagnetics::RfEcefUnitVector* direction) {
+  if (direction == nullptr) {
+    return false;
+  }
+  const double dx = to.x_m - from.x_m;
+  const double dy = to.y_m - from.y_m;
+  const double dz = to.z_m - from.z_m;
+  const double norm = std::sqrt(dx * dx + dy * dy + dz * dz);
+  if (!std::isfinite(norm) || norm <= 0.0) {
+    return false;
+  }
+  direction->x = dx / norm;
+  direction->y = dy / norm;
+  direction->z = dz / norm;
+  return true;
+}
+
+oneq::electromagnetics::RfReceiverSite BuildReceiverSite(
+    const MutableEsrContext& ctx, const session::EsrSceneEmitter& target,
+    const std::pair<double, double>& receiver_window) {
+  const config::EsrHardwareConfig& hardware = ctx.GetRuntimeConfig().receiver_hardware;
+  oneq::electromagnetics::RfReceiverSite receiver;
+  receiver.entity_id = ctx.GetPlatformEntityId() == 0U
+                           ? std::numeric_limits<std::uint64_t>::max()
+                           : ctx.GetPlatformEntityId();
+  receiver.position_ecef_m = ResolvePlatformLinkPosition(ctx);
+  receiver.velocity_ecef_mps = ResolvePlatformLinkVelocity(ctx);
+  receiver.window_duration_s = ctx.GetCycleDeltaTimeSec();
+  receiver.center_frequency_hz = 0.5 * (receiver_window.first + receiver_window.second);
+  receiver.bandwidth_hz = receiver_window.second - receiver_window.first;
+  receiver.receiver_system_loss_db = std::max(0.0f, hardware.integrated_receive_loss_db);
+  receiver.minimum_far_field_range_m = hardware.minimum_far_field_range_m;
+  receiver.has_co_site_isolation = hardware.has_co_site_isolation;
+  receiver.co_site_isolation_db = hardware.co_site_isolation_db;
+  receiver.polarization = hardware.polarization;
+  receiver.antenna.peak_gain_dbi = hardware.antenna_peak_gain_dbi;
+  receiver.antenna.half_power_beamwidth_deg =
+      std::max(1.0f, 0.5f * (hardware.beam_az_width_deg + hardware.beam_el_width_deg));
+  receiver.antenna.sidelobe_level_db = hardware.antenna_sidelobe_level_db;
+  receiver.antenna.backlobe_level_db = hardware.antenna_backlobe_level_db;
+  receiver.antenna.cross_polarization_isolation_db =
+      hardware.cross_polarization_isolation_db;
+  const oneq::coordinate::EcefPositionM target_position =
+      ResolveEmitterLinkPosition(target, ctx.HasPlatformEcefKinematics());
+  TryMakeDirection(receiver.position_ecef_m, target_position,
+                   &receiver.antenna.boresight_ecef_unit);
+  return receiver;
+}
+
+oneq::electromagnetics::RfEmission BuildSceneRfEmission(
+    const MutableEsrContext& ctx, const session::EsrSceneEmitter& emitter,
+    float beam_overlap_ratio) {
+  oneq::electromagnetics::RfEmission emission;
+  emission.emission_id = emitter.emitter_id;
+  emission.entity_id = emitter.emitter_id;
+  emission.position_ecef_m =
+      ResolveEmitterLinkPosition(emitter, ctx.HasPlatformEcefKinematics());
+  emission.velocity_ecef_mps =
+      ResolveEmitterLinkVelocity(emitter, ctx.HasPlatformEcefKinematics());
+  emission.waveform_kind = oneq::electromagnetics::RfWaveformKind::kPulsed;
+  TryMakeDirection(emission.position_ecef_m, ResolvePlatformLinkPosition(ctx),
+                   &emission.antenna.boresight_ecef_unit);
+  oneq::electromagnetics::RfEmissionSegment segment;
+  segment.duration_s = ctx.GetCycleDeltaTimeSec();
+  segment.center_frequency_hz = emitter.carrier_hz;
+  segment.bandwidth_hz = emitter.bandwidth_hz;
+  const double duty_ratio = emitter.pri_s > 0.0
+                                ? std::min(1.0, emitter.pulse_width_s / emitter.pri_s)
+                                : 1.0;
+  segment.transmit_power_w =
+      emitter.tx_power_w * duty_ratio * static_cast<double>(std::max(0.0f, beam_overlap_ratio));
+  emission.segments.push_back(segment);
+  return emission;
+}
+
+bool TryEvaluateSceneLink(const MutableEsrContext& ctx,
+                          const session::EsrSceneEmitter& emitter, float beam_overlap_ratio,
+                          const oneq::electromagnetics::RfReceiverSite& receiver,
+                          oneq::electromagnetics::RfLinkResult* result) {
+  oneq::electromagnetics::RfLinkEvaluationConfig link_config;
+  link_config.additional_propagation_loss_db =
+      std::max(0.0f, ctx.GetEnvironmentSnapshot().propagation_loss_db);
+  return oneq::electromagnetics::TryEvaluateRfLink(
+      BuildSceneRfEmission(ctx, emitter, beam_overlap_ratio), receiver, link_config, result);
+}
+
+bool TryResolveChannelPower(
+    const oneq::electromagnetics::RfEmission& emission,
+    const oneq::electromagnetics::RfLinkResult& tuned_receiver_link,
+    const oneq::electromagnetics::RfReceiverSite& signal_channel_receiver,
+    double* power_w) {
+  if (power_w == nullptr ||
+      emission.segments.size() != tuned_receiver_link.segment_results.size()) {
+    return false;
+  }
+  double candidate = 0.0;
+  for (std::size_t index = 0U; index < emission.segments.size(); ++index) {
+    double frequency_overlap = 0.0;
+    if (!oneq::electromagnetics::TryRfFrequencyOverlapFraction(
+            emission.segments[index].center_frequency_hz,
+            emission.segments[index].bandwidth_hz,
+            signal_channel_receiver.center_frequency_hz,
+            signal_channel_receiver.bandwidth_hz, &frequency_overlap)) {
+      return false;
+    }
+    const oneq::electromagnetics::RfSegmentLinkResult& segment_link =
+        tuned_receiver_link.segment_results[index];
+    candidate += segment_link.received_power_before_overlap_w *
+                 segment_link.time_overlap_fraction * frequency_overlap;
+  }
+  *power_w = candidate;
+  return true;
 }
 
 /**
@@ -318,8 +442,8 @@ std::size_t ResolveActiveBeamIndex(double* scan_phase_cycles, float dt_sec,
  * @param[in] is_jammed 是否受干扰显著影响。
  * @return 观测质量等级。
  */
-session::EsrObservationQuality ClassifyObservationQuality(float snr_db, bool is_jammed) {
-  if (!is_jammed && snr_db >= 18.0f) {
+session::EsrObservationQuality ClassifyObservationQuality(float snr_db) {
+  if (snr_db >= 18.0f) {
     return session::EsrObservationQuality::kHigh;
   }
   if (snr_db >= 10.0f) {
@@ -429,31 +553,30 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const MutableEsrCon
       InterceptComponentFactory::BuildAngleErrorModelConfig(ctx.GetPipelineConfig());
   const std::pair<double, double> receiver_window =
       BuildReceiverWindow(ctx.GetCycleIndex(), ctx.GetRuntimeConfig());
-  const double receive_loss_scale =
-      ComputeReceiveLossScale(ctx.GetRuntimeConfig().integrated_receive_loss_db);
+  output.receiver_center_frequency_hz = 0.5 * (receiver_window.first + receiver_window.second);
+  output.receiver_bandwidth_hz = receiver_window.second - receiver_window.first;
   const oneq::common::timing::StatisticalDetectionParams base_statistical_detection_params =
       ToTimingDetectionParams(ctx.GetPipelineConfig().statistical_detection);
 
   const auto& scene_emitters = ctx.GetSceneEmitters();
-  const auto& platform_pose = ctx.GetPlatformPose();
-  const auto& env_snapshot = ctx.GetEnvironmentSnapshot();
   const auto& config = ctx.GetPipelineConfig();
-  const auto& runtime_config = ctx.GetRuntimeConfig();
 
   output.raw_records.reserve(
       scene_emitters.size() *
       (1U + static_cast<std::size_t>(config.deception_model.max_false_observations_per_emitter)));
-  std::uniform_real_distribution<float> uniform_01(0.0f, 1.0f);
-
   for (std::size_t i = 0; i < scene_emitters.size(); ++i) {
     const session::EsrSceneEmitter& emitter = scene_emitters[i];
     if (!emitter.is_emitting || emitter.carrier_hz <= 0.0 || emitter.bandwidth_hz <= 0.0 ||
         emitter.tx_power_w <= 0.0) {
       continue;
     }
-    ProcessSingleEmitter(emitter, active_beam, receiver_window, receive_loss_scale,
-                         angle_error_config, base_statistical_detection_params, ctx, rng,
-                         next_observation_id, output.raw_records);
+    ProcessSingleEmitter(emitter, active_beam, receiver_window, angle_error_config,
+                         base_statistical_detection_params, ctx, rng, next_observation_id,
+                         output.raw_records, &output.receiver_saturated);
+    if (output.receiver_saturated) {
+      output.raw_records.clear();
+      break;
+    }
   }
 
   PROJECT_LOG_DEBUG("[InterceptDetection] cycle_index={} raw_records={}", ctx.GetCycleIndex(),
@@ -464,11 +587,11 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const MutableEsrCon
 
 void InterceptDetectionExecutor::ProcessSingleEmitter(
     const session::EsrSceneEmitter& emitter, const intercept::BeamPointingDeg& active_beam,
-    const std::pair<double, double>& receiver_window, double receive_loss_scale,
+    const std::pair<double, double>& receiver_window,
     const intercept::AngleErrorModelConfig& angle_error_config,
     const oneq::common::timing::StatisticalDetectionParams& base_statistical_detection_params,
     const MutableEsrContext& ctx, std::mt19937& rng, std::uint64_t& next_observation_id,
-    std::vector<RawObservationRecord>& raw_records) const {
+    std::vector<RawObservationRecord>& raw_records, bool* receiver_saturated) const {
   const auto& platform_pose = ctx.GetPlatformPose();
   const auto& env_snapshot = ctx.GetEnvironmentSnapshot();
   const auto& config = ctx.GetPipelineConfig();
@@ -491,21 +614,100 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
     emitter_detection_params.pulse_count = std::max(1U, timing_state.effective_pulse_count);
   }
 
-  const intercept::JammingAggregateResult jamming_result = intercept::JammingAggregator::Aggregate(
-      env_snapshot.jammer_sources, emitter.carrier_hz, emitter.bandwidth_hz);
-  const float suppression_noise_scale =
-      std::max(0.0f, config.suppression_model.suppression_noise_scale);
-  const double effective_suppression_power_w =
-      static_cast<double>(jamming_result.suppression_power_w) *
-      static_cast<double>(suppression_noise_scale);
-  const double ambient_noise_power_w =
-      static_cast<double>(config.detection.receiver_noise_floor_w) +
-      static_cast<double>(env_snapshot.clutter_noise_w);
-  const double noise_power_w = std::max(
-      ambient_noise_power_w *
-              ResolveSpectrumOccupancyNoiseScale(env_snapshot.spectrum_occupancy_ratio) +
-          effective_suppression_power_w,
+  const oneq::electromagnetics::RfReceiverSite receiver =
+      BuildReceiverSite(ctx, emitter, receiver_window);
+  oneq::electromagnetics::RfLinkResult target_link;
+  if (!TryEvaluateSceneLink(ctx, emitter, emitter_beam_overlap_ratio, receiver, &target_link)) {
+    return;
+  }
+  const double received_power_w = target_link.total_received_power_w;
+
+  oneq::electromagnetics::RfReceiverSite signal_channel_receiver = receiver;
+  const double signal_channel_lower_hz =
+      std::max(receiver_window.first, emitter.carrier_hz - 0.5 * emitter.bandwidth_hz);
+  const double signal_channel_upper_hz =
+      std::min(receiver_window.second, emitter.carrier_hz + 0.5 * emitter.bandwidth_hz);
+  if (signal_channel_upper_hz <= signal_channel_lower_hz) {
+    return;
+  }
+  signal_channel_receiver.center_frequency_hz =
+      0.5 * (signal_channel_lower_hz + signal_channel_upper_hz);
+  signal_channel_receiver.bandwidth_hz =
+      signal_channel_upper_hz - signal_channel_lower_hz;
+
+  double engineering_interference_power_w = 0.0;
+  double front_end_other_input_power_w = 0.0;
+  oneq::electromagnetics::RfLinkEvaluationConfig interference_link_config;
+  interference_link_config.additional_propagation_loss_db =
+      std::max(0.0f, env_snapshot.propagation_loss_db);
+  for (const session::EsrSceneEmitter& other : ctx.GetSceneEmitters()) {
+    if (!other.is_emitting || other.emitter_id == emitter.emitter_id || other.carrier_hz <= 0.0 ||
+        other.bandwidth_hz <= 0.0 || other.tx_power_w <= 0.0) {
+      continue;
+    }
+    const float other_beam_overlap = ComputeEmitterBeamOverlapRatio(platform_pose, other);
+    const oneq::electromagnetics::RfEmission other_emission =
+        BuildSceneRfEmission(ctx, other, other_beam_overlap);
+    oneq::electromagnetics::RfLinkResult front_end_link;
+    if (oneq::electromagnetics::TryEvaluateRfLink(
+            other_emission, receiver, interference_link_config, &front_end_link)) {
+      front_end_other_input_power_w += front_end_link.total_received_power_w;
+      double channel_power_w = 0.0;
+      if (TryResolveChannelPower(other_emission, front_end_link, signal_channel_receiver,
+                                &channel_power_w)) {
+        engineering_interference_power_w += channel_power_w;
+      }
+    }
+  }
+  if (env_snapshot.interference_mode ==
+      oneq::electromagnetics::RfInterferenceMode::kEngineering) {
+    for (const oneq::electromagnetics::RfEmission& engineering_emission :
+         env_snapshot.engineering_emissions) {
+      if (engineering_emission.entity_id == emitter.emitter_id) {
+        continue;
+      }
+      oneq::electromagnetics::RfLinkResult front_end_link;
+      if (oneq::electromagnetics::TryEvaluateRfLink(
+              engineering_emission, receiver, interference_link_config, &front_end_link)) {
+        front_end_other_input_power_w += front_end_link.total_received_power_w;
+        double channel_power_w = 0.0;
+        if (TryResolveChannelPower(engineering_emission, front_end_link,
+                                  signal_channel_receiver, &channel_power_w)) {
+          engineering_interference_power_w += channel_power_w;
+        }
+      }
+    }
+  }
+
+  intercept::JammingAggregateResult jamming_result;
+  double legacy_interference_power_w = 0.0;
+  if (env_snapshot.interference_mode == oneq::electromagnetics::RfInterferenceMode::kLegacy) {
+    jamming_result = intercept::JammingAggregator::Aggregate(
+        env_snapshot.jammer_sources, emitter.carrier_hz, emitter.bandwidth_hz);
+    legacy_interference_power_w =
+        static_cast<double>(jamming_result.suppression_power_w) *
+        static_cast<double>(std::max(0.0f, config.suppression_model.suppression_noise_scale));
+  }
+  const double interference_power_w =
+      std::max(0.0, engineering_interference_power_w + legacy_interference_power_w);
+  const double ambient_noise_power_w = std::max(
+      (static_cast<double>(config.detection.receiver_noise_floor_w) +
+       static_cast<double>(env_snapshot.clutter_noise_w)) *
+          ResolveSpectrumOccupancyNoiseScale(env_snapshot.spectrum_occupancy_ratio),
       kNumericFloor);
+  const double noise_power_w =
+      std::max(ambient_noise_power_w + interference_power_w, kNumericFloor);
+  const double total_receiver_input_power_w =
+      received_power_w + front_end_other_input_power_w + legacy_interference_power_w;
+  if (receiver_saturated != nullptr &&
+      total_receiver_input_power_w >
+          static_cast<double>(runtime_config.receiver_hardware.maximum_linear_input_power_w)) {
+    *receiver_saturated = true;
+    PROJECT_LOG_INFO("[InterceptDetection] receiver saturated input_w={:.6g} limit_w={:.6g}",
+                     total_receiver_input_power_w,
+                     runtime_config.receiver_hardware.maximum_linear_input_power_w);
+    return;
+  }
   const float static_threshold_snr_db = config.detection.minimum_snr_db;
   const float dynamic_threshold_snr_db =
       oneq::common::timing::ComputeDynamicThresholdSnrDb(noise_power_w, emitter_detection_params);
@@ -518,17 +720,13 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
       1.0f, config.detection.max_detect_range_m, config.detection.boundary_resolution_m,
       config.detection.boundary_max_iterations, [&](float candidate_range_m) {
         const double candidate_received_power_w =
-            ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz, candidate_range_m,
-                                  env_snapshot.propagation_loss_db) *
-            static_cast<double>(emitter_beam_overlap_ratio) * receive_loss_scale;
+            received_power_w * static_cast<double>(range_m) * static_cast<double>(range_m) /
+            std::max(static_cast<double>(candidate_range_m) * candidate_range_m, kNumericFloor);
         const float candidate_snr_db = ToDb(candidate_received_power_w / noise_power_w);
         return candidate_snr_db >= detection_threshold_snr_db;
       });
-  const double received_power_w = ComputeReceivedPowerW(emitter.tx_power_w, emitter.carrier_hz,
-                                                        range_m, env_snapshot.propagation_loss_db) *
-                                  static_cast<double>(emitter_beam_overlap_ratio) *
-                                  receive_loss_scale;
   const float snr_db = ToDb(received_power_w / noise_power_w);
+  const float baseline_snr_db = ToDb(received_power_w / ambient_noise_power_w);
 
   intercept::InterceptGateInput gate_input;
   gate_input.line_of_sight = emitter_beam_covered;
@@ -564,9 +762,12 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
   const double measured_el_deg = static_cast<double>(target_el_deg) +
                                  static_cast<double>(intercept::AngleErrorModel::SampleErrorDeg(
                                      snr_db, effective_beamwidth_deg, &rng, angle_error_config));
+  const float jn_db = ToDb(interference_power_w / ambient_noise_power_w);
+  const float snr_loss_db = baseline_snr_db - snr_db;
   const bool is_jammed =
-      effective_suppression_power_w >=
-      static_cast<double>(std::max(0.0f, config.suppression_model.suppression_mark_threshold_w));
+      interference_power_w > 0.0 &&
+      (jn_db >= runtime_config.receiver_hardware.jamming_jn_threshold_db ||
+       snr_loss_db >= runtime_config.receiver_hardware.jamming_snr_loss_threshold_db);
   const float deception_probability = utils::Clamp01(
       jamming_result.deception_risk * jamming_result.deception_weighted_overlap_ratio *
       std::max(0.0f, config.deception_model.false_alarm_probability_scale));
@@ -578,10 +779,23 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
   base_record.observation.aoa_az_deg = measured_az_deg;
   base_record.observation.aoa_el_deg = measured_el_deg;
   base_record.observation.rf_hz = emitter.carrier_hz;
+  base_record.observation.bandwidth_hz = emitter.bandwidth_hz;
+  base_record.observation.pri_s = emitter.pri_s;
   base_record.observation.pulse_width_s = emitter.pulse_width_s;
+  const double linear_snr = std::pow(10.0, static_cast<double>(snr_db) / 10.0);
+  const double relative_estimation_std =
+      std::max(1.0e-6, std::min(0.25, 1.0 / std::sqrt(std::max(linear_snr, 1.0e-12))));
+  base_record.observation.rf_std_hz =
+      std::max(1.0, emitter.bandwidth_hz * relative_estimation_std);
+  base_record.observation.bandwidth_std_hz =
+      std::max(1.0, emitter.bandwidth_hz * relative_estimation_std);
+  base_record.observation.pri_std_s =
+      std::max(1.0e-12, emitter.pri_s * relative_estimation_std);
+  base_record.observation.pulse_width_std_s =
+      std::max(1.0e-12, emitter.pulse_width_s * relative_estimation_std);
   base_record.observation.amplitude_db = static_cast<double>(ToDb(received_power_w));
   base_record.observation.snr_db = static_cast<double>(snr_db);
-  base_record.observation.quality = ClassifyObservationQuality(snr_db, is_jammed);
+  base_record.observation.quality = ClassifyObservationQuality(snr_db);
   base_record.observation.is_jammed = is_jammed;
 
   const std::uint32_t false_alarm_cap = config.deception_model.max_false_observations_per_emitter;

@@ -18,10 +18,8 @@ namespace config {
 namespace mapping {
 
 inline engineering::DetectionConfig ResolveDetectionEngineering(
-    const detection::DetectionConfig& hardware,
-    const ArDetectionPolicyConfig& policy) {
+    const detection::DetectionConfig& hardware, const ArDetectionPolicyConfig& policy) {
   engineering::DetectionConfig resolved;
-  resolved.enable_physics_detection = hardware.enable_physics_detection;
   resolved.transmitter = hardware.transmitter;
   resolved.antenna = hardware.antenna;
   resolved.receiver = hardware.receiver;
@@ -56,15 +54,13 @@ inline engineering::LifecycleRuntimeConfig ResolveLifecycleEngineering(
  * @param[in] model_count_hint 期望的 IMM 模型数量提示，小于 2 时按 2 处理。
  * @return 长度为实际模型数的差异系数向量，按运动噪声由低到高排列。
  */
-inline std::vector<float> BuildDefaultImmNoiseDiffCoeffs(
-    std::uint32_t model_count_hint) {
-  const std::size_t model_count = static_cast<std::size_t>(
-      model_count_hint < 2U ? 2U : model_count_hint);
+inline std::vector<float> BuildDefaultImmNoiseDiffCoeffs(std::uint32_t model_count_hint) {
+  const std::size_t model_count =
+      static_cast<std::size_t>(model_count_hint < 2U ? 2U : model_count_hint);
   std::vector<float> coeffs;
   coeffs.reserve(model_count);
   for (std::size_t i = 0; i < model_count; ++i) {
-    coeffs.push_back(
-        std::pow(10.0f, static_cast<float>(i) / static_cast<float>(model_count - 1)));
+    coeffs.push_back(std::pow(10.0f, static_cast<float>(i) / static_cast<float>(model_count - 1)));
   }
   return coeffs;
 }

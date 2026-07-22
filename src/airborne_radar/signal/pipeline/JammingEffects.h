@@ -6,8 +6,8 @@
 #ifndef AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_JAMMING_EFFECTS_H_
 #define AIRBORNE_RADAR_SRC_SIGNAL_PIPELINE_JAMMING_EFFECTS_H_
 
-#include "1q/airborne_radar/session/ArEnvironmentInput.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
+#include "1q/airborne_radar/session/ArEnvironmentInput.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineExecutionConfig.h"
 #include "airborne_radar/signal/pipeline/SignalPipelineRuntimeTypes.h"
 
@@ -23,6 +23,17 @@ namespace pipeline {
 bool HasMultiSourceJammingFacts(const session::EnvironmentSnapshot& environment_snapshot);
 
 /**
+ * @brief 按当前接收频率、波束和硬件解析工程 RF 干扰接收功率。
+ * @param[in] config 当前周期已解析执行配置。
+ * @param[in] environment_snapshot 当前周期冻结环境快照。
+ * @param[out] received_power_w 成功时写入全部发射源的线性功率和；失败时保持原值。
+ * @return 非工程模式返回零并成功；工程链路事实完整且全部可求解时返回 true。
+ */
+bool TryResolveEngineeringInterferencePowerW(
+    const ExecutionConfig& config, const session::EnvironmentSnapshot& environment_snapshot,
+    float* received_power_w);
+
+/**
  * @brief 计算在当前控制真值下单个干扰源的残余因子（0~1，越小表示抑制越强）。
  * @param[in] control_profile 当前控制真值（ECCM/自适应波束等）。
  * @param[in] jammer_source 单个干扰源事实。
@@ -32,46 +43,14 @@ float ComputeResidualJammerFactor(const session::ArControlProfile& control_profi
                                   const session::JammerSourceFact& jammer_source);
 
 /**
- * @brief 启发式计算单个干扰源的检测惩罚项（单位：dB）。
+ * @brief 计算 legacy 干扰摘要相对接收机热噪声的兼容比值。
  * @param[in] cfg 干扰效果配置。
  * @param[in] jammer_source 单个干扰源事实。
- * @return 经置信度加权后的源惩罚 dB。
+ * @return 无量纲噪声比，已按干扰类型权重与置信度加权。
  */
-float ComputeHeuristicSourcePenaltyDb(
+float ComputeLegacySourceJamToNoiseRatio(
     const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
-                                      const session::JammerSourceFact& jammer_source);
-
-/**
- * @brief 启发式累加所有干扰源的检测惩罚项（单位：dB）。
- * @param[in] cfg 干扰效果配置。
- * @param[in] environment_snapshot 当前周期环境快照。
- * @return 全部干扰源惩罚之和；无多源干扰时返回 0。
- */
-float ComputeHeuristicJammingPenaltyDb(
-    const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
-    const session::EnvironmentSnapshot& environment_snapshot);
-
-/**
- * @brief 物理化计算单个干扰源对接收机的噪声功率贡献（单位：W）。
- * @param[in] cfg 干扰效果配置。
- * @param[in] jammer_source 单个干扰源事实。
- * @return 干扰功率贡献（W），已按干扰类型权重与置信度加权。
- */
-float ComputePhysicalSourceJamContributionW(
-    const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
-                                            const session::JammerSourceFact& jammer_source);
-
-/**
- * @brief 计算当前干扰环境对量测协方差的膨胀因子（≥1）。
- * @param[in] cfg 干扰效果配置。
- * @param[in] control_profile 当前控制真值。
- * @param[in] environment_snapshot 当前周期环境快照。
- * @return 协方差膨胀因子，已钳位到 [1.0, covariance_inflation_max]；无多源干扰时返回 1.0。
- */
-float ComputeMeasurementCovarianceInflation(
-    const ::airborne_radar::config::execution::JammingEffectsConfig& cfg,
-    const session::ArControlProfile& control_profile,
-    const session::EnvironmentSnapshot& environment_snapshot);
+    const session::JammerSourceFact& jammer_source);
 
 /**
  * @brief 解析当前环境下的主导干扰语义。
@@ -89,21 +68,8 @@ config::JammingSemantic ResolveDominantJammingSemantic(
  * @param[in] environment_snapshot 当前周期环境快照。
  * @return 归一化严重度，钳位到 [0, 1]；未检测到干扰或无多源事实时返回 0。
  */
-float ComputeTrackLevelJammingSeverity(
-    const session::ArControlProfile& control_profile,
-    const session::EnvironmentSnapshot& environment_snapshot);
-
-/**
- * @brief 将干扰事实叠加到运行时配置（关联代价、跟踪噪声、量测噪声等缩放因子）。
- * @param[in] control_profile 当前控制真值。
- * @param[in] environment_snapshot 当前周期环境快照。
- * @param[in,out] runtime_config 待就地修改的运行时配置。
- * @note runtime_config 为 nullptr 或无多源干扰事实时直接返回。
- */
-void ApplyEnvironmentJammingFactsToRuntimeConfig(
-    const session::ArControlProfile& control_profile,
-    const session::EnvironmentSnapshot& environment_snapshot, ExecutionConfig* runtime_config);
-
+float ComputeTrackLevelJammingSeverity(const session::ArControlProfile& control_profile,
+                                       const session::EnvironmentSnapshot& environment_snapshot);
 
 }  // namespace pipeline
 }  // namespace signal

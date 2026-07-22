@@ -3,9 +3,9 @@
 // @file ar_environment_service_test.cpp
 // @brief 验证环境服务与场景管理的基础行为。
 
-#include <cmath>
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <initializer_list>
 #include <vector>
 
@@ -18,8 +18,7 @@ namespace tests {
 
 namespace {
 
-config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique,
-                                                  float power_db) {
+config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique, float power_db) {
   config::JammerEmitterState jammer;
   jammer.technique = technique;
   jammer.power_db = power_db;
@@ -122,9 +121,9 @@ TEST(EnvironmentServiceTest, FreezesSnapshotUntilNextCycle) {
   emitter.technique = config::JammingTechnique::kNoiseSuppression;
   emitter.power_db = 8.0f;
   emitter.confidence = 1.0f;
-  emitter.position_x = 3090.17f;    // range 10000m * sin(18 deg)
-  emitter.position_y = 9510.57f;    // range 10000m * cos(18 deg)
-  emitter.position_z = 174.55f;     // range 10000m * tan(1 deg)
+  emitter.position_x = 3090.17f;  // range 10000m * sin(18 deg)
+  emitter.position_y = 9510.57f;  // range 10000m * cos(18 deg)
+  emitter.position_z = 174.55f;   // range 10000m * tan(1 deg)
   emitter.angular_span_deg = 10.0f;
   session::EnvironmentSceneState scene_state;
   scene_state.jammer_emitters.push_back(emitter);
@@ -161,9 +160,9 @@ TEST(EnvironmentServiceTest, SupportsMultipleJammerSourcesInSnapshot) {
   noise_source.technique = config::JammingTechnique::kNoiseSuppression;
   noise_source.power_db = 9.0f;
   noise_source.js_db = 7.0f;
-  noise_source.position_x = 4067.36f;   // range 10000m * sin(24 deg)
-  noise_source.position_y = 9135.45f;   // range 10000m * cos(24 deg)
-  noise_source.position_z = 1227.85f;   // range 10000m * tan(7 deg)
+  noise_source.position_x = 4067.36f;  // range 10000m * sin(24 deg)
+  noise_source.position_y = 9135.45f;  // range 10000m * cos(24 deg)
+  noise_source.position_z = 1227.85f;  // range 10000m * tan(7 deg)
   noise_source.angular_span_deg = 30.0f;
   noise_source.confidence = 0.9f;
 
@@ -243,11 +242,10 @@ TEST(EnvironmentServiceTest, EmptyJammerSourcesProduceNoJammingFacts) {
 /// @brief 仅旁瓣属性为真且功率为零的结构化输入应被保留，但不应触发干扰探测。
 
 TEST(EnvironmentServiceTest, StructuredSidelobeFactIsPreservedWithoutDetection) {
-  config::JammerEmitterState source =
-      MakeJammerEmitter(config::JammingTechnique::kUnknown, 0.0f);
-  source.position_x = 5735.76f;    // range 10000m * sin(35 deg)
-  source.position_y = 8191.52f;    // range 10000m * cos(35 deg)
-  source.position_z = 1405.41f;    // range 10000m * tan(8 deg)
+  config::JammerEmitterState source = MakeJammerEmitter(config::JammingTechnique::kUnknown, 0.0f);
+  source.position_x = 5735.76f;  // range 10000m * sin(35 deg)
+  source.position_y = 8191.52f;  // range 10000m * cos(35 deg)
+  source.position_z = 1405.41f;  // range 10000m * tan(8 deg)
   source.angular_span_deg = 30.0f;
 
   environment::EnvironmentService service(MakeEnvironmentConfigWithJammers({source}));
@@ -305,9 +303,9 @@ TEST(EnvironmentServiceTest, EmitterOverlapRatioAboveOneIsClampedToOne) {
   source.technique = config::JammingTechnique::kDeception;
   source.power_db = 5.0f;
   source.js_db = 12.0f;
-  source.position_x = 0.0f;       // azimuth 0 deg
-  source.position_y = 10000.0f;   // forward
-  source.position_z = 0.0f;       // elevation 0 deg
+  source.position_x = 0.0f;      // azimuth 0 deg
+  source.position_y = 10000.0f;  // forward
+  source.position_z = 0.0f;      // elevation 0 deg
   source.angular_span_deg = 0.0f;
   source.confidence = 0.8f;
   config.jammer_sources.push_back(source);
@@ -381,6 +379,40 @@ TEST(EnvironmentServiceTest, KeepsAllJammerSourcesInSnapshot) {
   EXPECT_FLOAT_EQ(snapshot.jammer_sources[0].power_db, 3.0f);
   EXPECT_FLOAT_EQ(snapshot.jammer_sources[1].power_db, 12.0f);
   EXPECT_TRUE(snapshot.jamming_detected);
+}
+
+TEST(EnvironmentServiceTest, FreezesEngineeringRfFactsWithoutLegacyDerivation) {
+  environment::EnvironmentService service;
+  session::EnvironmentSceneState scene;
+  scene.interference.mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  oneq::electromagnetics::RfEmission emission;
+  emission.emission_id = 71;
+  emission.entity_id = 900;
+  oneq::electromagnetics::RfEmissionSegment segment;
+  segment.duration_s = 1.0;
+  segment.center_frequency_hz = 10.0e9;
+  segment.bandwidth_hz = 10.0e6;
+  segment.transmit_power_w = 500.0;
+  emission.segments.push_back(segment);
+  scene.interference.engineering_emissions.push_back(emission);
+  scene.has_rf_receiver_kinematics = true;
+  scene.rf_receiver_entity_id = 901;
+  scene.rf_receiver_position_ecef_m.x_m = 1000.0;
+  service.UpdateSceneState(scene);
+
+  session::EnvironmentCycleContext cycle;
+  cycle.cycle_index = 4U;
+  cycle.dt_sec = 1.0f;
+  service.BeginCycle(cycle);
+  const session::EnvironmentSnapshot snapshot = service.SampleEnvironment();
+
+  EXPECT_EQ(snapshot.interference_mode, oneq::electromagnetics::RfInterferenceMode::kEngineering);
+  ASSERT_EQ(snapshot.engineering_interference_emissions.size(), 1U);
+  EXPECT_EQ(snapshot.engineering_interference_emissions.front().emission_id, 71U);
+  EXPECT_TRUE(snapshot.has_rf_receiver_kinematics);
+  EXPECT_EQ(snapshot.rf_receiver_entity_id, 901U);
+  EXPECT_TRUE(snapshot.jammer_sources.empty());
+  EXPECT_FALSE(snapshot.jamming_detected);
 }
 
 // ============================================================================

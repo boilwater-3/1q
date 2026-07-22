@@ -88,7 +88,8 @@ table RcsPhysicsConfig {
 }
 
 table DetectionConfig {
-  enable_physics_detection:bool;
+  // Deprecated binary slot. Physical detection is unconditional in current runtimes.
+  enable_physics_detection:bool (deprecated);
   swerling_model:int;
   transmitter:TransmitterConfig;
   antenna:AntennaConfig;

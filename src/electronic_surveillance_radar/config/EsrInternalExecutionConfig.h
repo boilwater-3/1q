@@ -14,10 +14,10 @@
 #include <cmath>
 #include <cstdint>
 
+#include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrHardwareConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrMissionConfig.h"
 #include "1q/electronic_surveillance_radar/config/EsrPolicyConfig.h"
-#include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
@@ -136,13 +136,14 @@ using EnvironmentConfig = config::EsrEnvironmentScenarioConfig;
  * 替换原先的 ResolvedEsrSessionConfig + 分立的 pipeline/runtime/environment config。
  */
 struct EsrInternalExecutionConfig {
-  config::EsrHardwareConfig hardware{};            /**< 装备固有参数（using 别名直接赋值） */
-  config::EsrMissionConfig mission{};              /**< 任务域参数（using 别名直接赋值） */
-  extension::InterceptScanConfig resolved_scan{};  /**< 由 mission.scan + hardware 解析生成的扫描配置 */
-  DetectionConfig detection{};                     /**< 解析后的探测策略参数（SNR/PFA/脉冲/门限/统计） */
-  InterceptConfig intercept{};                     /**< 截获流水线配置（算法/预处理/检测子/聚类/频谱/建模） */
-  RuntimeConfig runtime{};                         /**< 运行期可变截获参数（积累器/跟踪关联） */
-  EnvironmentConfig environment{};                 /**< 环境执行态参数（大气物理/派生上下文/preset） */
+  config::EsrHardwareConfig hardware{}; /**< 装备固有参数（using 别名直接赋值） */
+  config::EsrMissionConfig mission{};   /**< 任务域参数（using 别名直接赋值） */
+  extension::InterceptScanConfig
+      resolved_scan{};             /**< 由 mission.scan + hardware 解析生成的扫描配置 */
+  DetectionConfig detection{};     /**< 解析后的探测策略参数（SNR/PFA/脉冲/门限/统计） */
+  InterceptConfig intercept{};     /**< 截获流水线配置（算法/预处理/检测子/聚类/频谱/建模） */
+  RuntimeConfig runtime{};         /**< 运行期可变截获参数（积累器/跟踪关联） */
+  EnvironmentConfig environment{}; /**< 环境执行态参数（大气物理/派生上下文/preset） */
 };
 
 /**
@@ -152,12 +153,14 @@ struct EsrInternalExecutionConfig {
  * @param[in] internal 内部执行态配置。
  * @return 扩展类型流水线配置。
  */
-inline extension::InterceptPipelineConfig BuildPipelineConfig(const EsrInternalExecutionConfig& internal) {
+inline extension::InterceptPipelineConfig BuildPipelineConfig(
+    const EsrInternalExecutionConfig& internal) {
   extension::InterceptPipelineConfig ext;
   ext.detection.receiver_noise_floor_w = internal.hardware.receiver_sensitivity_w;
   ext.detection.minimum_snr_db = internal.detection.minimum_snr_db;
   ext.detection.max_detect_range_m = internal.intercept.detection.max_detect_range_m;
-  ext.detection.min_dynamic_range_margin_db = internal.intercept.detection.min_dynamic_range_margin_db;
+  ext.detection.min_dynamic_range_margin_db =
+      internal.intercept.detection.min_dynamic_range_margin_db;
   ext.detection.boundary_resolution_m = internal.intercept.detection.boundary_resolution_m;
   ext.detection.boundary_max_iterations = internal.intercept.detection.boundary_max_iterations;
 
@@ -166,7 +169,8 @@ inline extension::InterceptPipelineConfig BuildPipelineConfig(const EsrInternalE
   ext.statistical_detection.pulse_count = internal.detection.pulse_count;
   ext.statistical_detection.integration_mode = internal.runtime.integrator.integration_mode;
   ext.statistical_detection.threshold_scale = internal.detection.threshold_scale;
-  ext.statistical_detection.enable_statistical_detection = internal.detection.enable_statistical_detection;
+  ext.statistical_detection.enable_statistical_detection =
+      internal.detection.enable_statistical_detection;
 
   ext.scan = internal.resolved_scan;
 
@@ -192,24 +196,35 @@ inline extension::InterceptPipelineConfig BuildPipelineConfig(const EsrInternalE
 
   ext.spectral_analysis = extension::InterceptSpectralAnalysisConfig();
   ext.spectral_analysis.enable = internal.intercept.spectral_analysis.enable;
-  ext.spectral_analysis.min_sequence_length = internal.intercept.spectral_analysis.min_sequence_length;
+  ext.spectral_analysis.min_sequence_length =
+      internal.intercept.spectral_analysis.min_sequence_length;
   ext.spectral_analysis.fft_length = internal.intercept.spectral_analysis.fft_length;
-  ext.spectral_analysis.broadband_occupancy_threshold = internal.intercept.spectral_analysis.broadband_occupancy_threshold;
-  ext.spectral_analysis.agile_stability_threshold_hz = internal.intercept.spectral_analysis.agile_stability_threshold_hz;
-  ext.spectral_analysis.agile_peak_sparsity_threshold = internal.intercept.spectral_analysis.agile_peak_sparsity_threshold;
-  ext.spectral_analysis.occupancy_peak_floor_ratio = internal.intercept.spectral_analysis.occupancy_peak_floor_ratio;
+  ext.spectral_analysis.broadband_occupancy_threshold =
+      internal.intercept.spectral_analysis.broadband_occupancy_threshold;
+  ext.spectral_analysis.agile_stability_threshold_hz =
+      internal.intercept.spectral_analysis.agile_stability_threshold_hz;
+  ext.spectral_analysis.agile_peak_sparsity_threshold =
+      internal.intercept.spectral_analysis.agile_peak_sparsity_threshold;
+  ext.spectral_analysis.occupancy_peak_floor_ratio =
+      internal.intercept.spectral_analysis.occupancy_peak_floor_ratio;
 
-  ext.suppression_model.suppression_noise_scale = internal.intercept.suppression.suppression_noise_scale;
-  ext.suppression_model.suppression_mark_threshold_w = internal.intercept.suppression.suppression_mark_threshold_w;
+  ext.suppression_model.suppression_noise_scale =
+      internal.intercept.suppression.suppression_noise_scale;
+  ext.suppression_model.suppression_mark_threshold_w =
+      internal.intercept.suppression.suppression_mark_threshold_w;
 
   ext.deception_model = extension::InterceptDeceptionModelConfig();
-  ext.deception_model.false_alarm_probability_scale = internal.intercept.deception.false_alarm_probability_scale;
-  ext.deception_model.confusion_probability_scale = internal.intercept.deception.confusion_probability_scale;
-  ext.deception_model.max_false_observations_per_emitter = internal.intercept.deception.max_false_observations_per_emitter;
+  ext.deception_model.false_alarm_probability_scale =
+      internal.intercept.deception.false_alarm_probability_scale;
+  ext.deception_model.confusion_probability_scale =
+      internal.intercept.deception.confusion_probability_scale;
+  ext.deception_model.max_false_observations_per_emitter =
+      internal.intercept.deception.max_false_observations_per_emitter;
   ext.deception_model.aoa_confusion_std_deg = internal.intercept.deception.aoa_confusion_std_deg;
   ext.deception_model.rf_confusion_ratio = internal.intercept.deception.rf_confusion_ratio;
   ext.deception_model.pw_confusion_ratio = internal.intercept.deception.pw_confusion_ratio;
-  ext.deception_model.cluster_confidence_penalty_scale = internal.intercept.deception.cluster_confidence_penalty_scale;
+  ext.deception_model.cluster_confidence_penalty_scale =
+      internal.intercept.deception.cluster_confidence_penalty_scale;
 
   ext.association.gate_distance = internal.runtime.track.gate_distance;
   ext.association.confirm_hits = internal.runtime.track.confirm_hits;
@@ -225,13 +240,15 @@ inline extension::InterceptPipelineConfig BuildPipelineConfig(const EsrInternalE
  * @param[in] internal 内部执行态配置。
  * @return 扩展类型运行时配置。
  */
-inline extension::InterceptRuntimeConfig BuildRuntimeConfig(const EsrInternalExecutionConfig& internal) {
+inline extension::InterceptRuntimeConfig BuildRuntimeConfig(
+    const EsrInternalExecutionConfig& internal) {
   extension::InterceptRuntimeConfig rt;
   rt.sensor_enabled = internal.mission.power_on;
   rt.antenna_mount_az_deg = internal.hardware.antenna_mount_az_deg;
   rt.antenna_mount_el_deg = internal.hardware.antenna_mount_el_deg;
   rt.integrated_receive_loss_db = internal.hardware.integrated_receive_loss_db;
   rt.scan_rate_hz = internal.mission.scan.scan_rate_hz;
+  rt.receiver_hardware = internal.hardware;
   // Use fixed receiver window when hardware band is valid
   if (std::isfinite(internal.hardware.receiver_band_lower_hz) &&
       std::isfinite(internal.hardware.receiver_band_upper_hz) &&

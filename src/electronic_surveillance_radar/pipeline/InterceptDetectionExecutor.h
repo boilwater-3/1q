@@ -30,6 +30,9 @@ namespace pipeline {
 struct InterceptDetectionOutput {
   std::vector<RawObservationRecord> raw_records;        /**< 检测产出的原始观测记录 */
   std::vector<intercept::BeamPointingDeg> scan_pattern; /**< 当前扫描图 */
+  double receiver_center_frequency_hz{0.0};             /**< 当前接收中心频率（单位：Hz）。 */
+  double receiver_bandwidth_hz{0.0};                    /**< 当前接收带宽（单位：Hz）。 */
+  bool receiver_saturated{false};                       /**< 是否发生接收机饱和。 */
 };
 
 /**
@@ -52,8 +55,7 @@ class InterceptDetectionExecutor {
    * @return 检测阶段输出。
    */
   InterceptDetectionOutput Execute(const MutableEsrContext& ctx, std::mt19937& rng,
-                                   std::uint64_t& next_observation_id,
-                                   double* scan_phase_cycles);
+                                   std::uint64_t& next_observation_id, double* scan_phase_cycles);
 
  private:
   /**
@@ -68,14 +70,15 @@ class InterceptDetectionExecutor {
    * @param rng 随机引擎。
    * @param next_observation_id 观测 ID 分配器。
    * @param raw_records 产出观测记录列表。
+   * @param receiver_saturated 接收机超出线性输入范围时置为 true。
    */
   void ProcessSingleEmitter(
       const session::EsrSceneEmitter& emitter, const intercept::BeamPointingDeg& active_beam,
-      const std::pair<double, double>& receiver_window, double receive_loss_scale,
+      const std::pair<double, double>& receiver_window,
       const intercept::AngleErrorModelConfig& angle_error_config,
       const oneq::common::timing::StatisticalDetectionParams& base_statistical_detection_params,
       const MutableEsrContext& ctx, std::mt19937& rng, std::uint64_t& next_observation_id,
-      std::vector<RawObservationRecord>& raw_records) const;
+      std::vector<RawObservationRecord>& raw_records, bool* receiver_saturated) const;
 };
 
 }  // namespace pipeline

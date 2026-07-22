@@ -20,9 +20,9 @@
 namespace airborne_radar {
 namespace session {
 
-using oneq::foundation::ValidationSeverity;
 using oneq::foundation::ValidationLocation;
 using oneq::foundation::ValidationLocationKind;
+using oneq::foundation::ValidationSeverity;
 
 /**
  * @brief ValidationCode 表示结构化校验问题类型。
@@ -38,7 +38,11 @@ enum class ONEQ_API ValidationCode {
   kDuplicateExternalTargetId,        /**< 外部标识符重复 */
   kNegativeRcs,                      /**< 目标 RCS 为负值 */
   kInvalidEnvironmentObservation,    /**< 环境观测字段非法 */
-  kEnvironmentSnapshotFlagMismatch   /**< 环境数据非默认但 has_environment=false */
+  kEnvironmentSnapshotFlagMismatch,  /**< 环境数据非默认但 has_environment=false */
+  kInvalidInterferenceInput,         /**< 干扰 mode 与载荷不一致或 RF 发射帧非法 */
+  kInvalidPlatformEcefKinematics,    /**< 平台 ECEF 运动学存在非有限字段 */
+  kMissingEngineeringRfReceiverSite, /**< 工程 RF 干扰缺少平台 ECEF 接收位置 */
+  kPlatformEcefFlagMismatch          /**< ECEF 数据非默认但存在性标志为 false */
 };
 
 /**

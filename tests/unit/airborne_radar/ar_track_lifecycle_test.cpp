@@ -296,7 +296,7 @@ TEST(TrackLifecycleManagerTest, ExtraMissToleranceDelaysLostTransition) {
   EXPECT_EQ(active_tracks[0]->miss_count, 1u);
 }
 
-TEST(TrackLifecycleManagerTest, DeceptionSummaryExtendsLocalMissToleranceOnMiss) {
+TEST(TrackLifecycleManagerTest, JammingSemanticDoesNotExtendLocalMissTolerance) {
   signal::tracking::BoostTrackPool deception_pool(2, 8);
   signal::tracking::LifecycleConfig config;
   config.confirm_hits = 1;
@@ -316,11 +316,6 @@ TEST(TrackLifecycleManagerTest, DeceptionSummaryExtendsLocalMissToleranceOnMiss)
 
   std::vector<const signal::tracking::TrackState*> active_tracks =
       deception_manager.GetActiveTracks();
-  ASSERT_EQ(active_tracks.size(), 1u);
-  EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kConfirmed);
-
-  deception_manager.Update(MakeCycle(3u, 4103u), {});
-  active_tracks = deception_manager.GetActiveTracks();
   ASSERT_EQ(active_tracks.size(), 1u);
   EXPECT_EQ(active_tracks[0]->status, signal::tracking::TrackStatus::kLost);
 

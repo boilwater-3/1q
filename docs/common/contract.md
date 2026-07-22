@@ -1,7 +1,7 @@
 # 跨模块契约
 
 Status: active
-Last-reviewed: 2026-07-21
+Last-reviewed: 2026-07-22
 Authority: common contract for all modules
 
 本文合并原顶层 public API customization、session config builder、三层输出可观测性和文档治理契约。模块级文档不得与本文冲突。
@@ -81,6 +81,25 @@ EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同�
 | 噪声/NEP | 不合并 | EOS 是背景抑制与 NEP 链；SBIRS 是 photon/thermal/readout RMS 与兼容 NEP 回退 |
 
 这不是未来共享 foundation 的禁止令：新的候选必须先证明上述语义完全相同，且不得以转换器、默认值或兼容层掩盖差异。
+
+### 工程 RF 发射事实与单程链路
+
+`oneq::electromagnetics` 是 AR、ESR 与 ECM 的公共 RF 事实域，只共享值类型、校验和链路预算纯函数，
+不共享传感器检测、受扰判决、ECCM 或资源规划算法。公共坐标统一为 ECEF 米/米每秒，频率为 Hz、
+带宽为 Hz、时间为 s、功率在线性域使用 W，损耗和增益使用 dB/dBi。
+
+- `RfEmission`/`RfEmissionSegment` 只描述发射实体、运动学、方向图、极化、波形类别和周期内时频功率分段；
+  禁止携带 `received_power`、J/S、J/N、`jamming_detected` 或成功概率。
+- `TryEvaluateRfLink` 是无异常、原子写回的单程链路入口。自由空间损耗、附加传播损耗、收发增益、
+  极化损耗、时频重叠和接收功率均进入 `RfLinkResult`；大气公共层只提供附加传播损耗。
+- 同一 `entity_id` 的收发路径不得代入零距离自由空间公式；接收硬件必须显式提供 co-site isolation，
+  缺失时整条链路拒绝。多源功率只允许在 W 域求和。
+- 非有限值、非法分段、负功率、重复 emission ID 和缺失 co-site isolation 均 fail closed，且不得部分修改输出。
+
+[evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.DistanceDoublingLosesSixPointZeroTwoDb]
+[evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.TimeAndFrequencyOverlapScalePowerExactly]
+[evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.AggregationIsOrderIndependentAndRejectsDuplicateIdsAtomically]
+[evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.InvalidInputsAndMissingCoSiteIsolationRejectAtomically]
 
 ### 折射率温标输入迁移
 
@@ -396,6 +415,7 @@ flowchart LR
     AR[airborne_radar\n机载雷达]
     EO[electro_optical_sensor\n光电传感器]
     ESR[electronic_surveillance_radar\n电子侦察]
+    ECM[electronic_countermeasure\n电子对抗]
     SAR[sar\n合成孔径雷达]
     SBIRS[space_based_infrared_sensor\n天基红外]
   end
@@ -404,6 +424,7 @@ flowchart LR
     O1[Track / Detection\n航迹 / 探测]
     O2[Detection / Classification\n检测 / 分类]
     O3[Intercept / ELINT\n截获 / 情报]
+    O6[RfEmissionFrame\n实际 RF 发射事实]
     O4[SAR Image / SLC\n图像 / 复数据]
     O5[Infrared Detection\n天基红外检测]
   end
@@ -419,18 +440,24 @@ flowchart LR
   ORCH -->|ArCycleInput| AR
   ORCH -->|EosCycleInput| EO
   ORCH -->|EsrCycleInput| ESR
+  ORCH -->|EcmCycleInput| ECM
   ORCH -->|SarCycleInput| SAR
   ORCH -->|SbirsCycleInput| SBIRS
 
   AR --> O1
   EO --> O2
   ESR --> O3
+  ESR -.->|上一成功周期去真值化 hypothesis| ORCH
+  ECM --> O6
+  O6 -->|周期 N engineering interference| ORCH
   SAR --> O4
   SBIRS --> O5
 ```
 
 读图规则：
 - 箭头表示概念数据流向，虚线表示可选来源或跨模块共享类型；它们不是 include/link 关系。
-- 没有传感器模块之间的直接数据流——各传感器独立处理平台状态和外部输入。
+- AR、ESR、EOS、SAR、SBIRS 之间没有库内直接调用。ECM 闭环是唯一已冻结的跨业务域 public DTO
+  编排：外部 orchestrator 用上一成功 ESR 周期的去真值化 hypothesis 构造 `EcmCycleInput`，再把周期 N
+  的 `EcmEmissionFrame` 作为 engineering interference 写入 AR/ESR；箭头不表示模块内部持有或调用。
 - `common/` 层提供坐标转换、大气物理、数值方法等跨模块共享类型，不作为独立运行时层。
 - `flight_dynamic` 不被任何传感器模块直接调用；平台状态也可由其它外部仿真源提供。

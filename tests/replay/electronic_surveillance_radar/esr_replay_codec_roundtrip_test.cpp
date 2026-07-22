@@ -34,6 +34,10 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   input.cycle_index = 3U;
   input.dt_sec = 0.1f;
   input.platform_altitude_m = 5000.0f;
+  input.platform_entity_id = 77U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  input.platform_velocity_ecef_mps.y_mps = 120.0;
   input.platform_pose.position_m.x = 1000.0f;
   input.platform_pose.position_m.y = 2000.0f;
   input.platform_pose.position_m.z = 3000.0f;
@@ -47,6 +51,9 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EsrSceneEmitter emitter;
   emitter.emitter_id = 1001U;
   emitter.emitter_name = "esr-emitter-alpha";
+  emitter.has_ecef_kinematics = true;
+  emitter.position_ecef_m.x_m = 6379137.0;
+  emitter.velocity_ecef_mps.y_mps = 100.0;
   emitter.carrier_hz = 9.5e9;
   emitter.bandwidth_hz = 5.0e6;
   emitter.tx_power_w = 1000.0;
@@ -68,6 +75,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   input.environment.atmospheric_observation.relative_humidity_ratio = 0.6f;
   input.environment.atmospheric_observation.precipitation_rate_mmph = 2.5f;
   input.environment.atmospheric_observation.visibility_km = 8.0f;
+  input.environment.interference_mode = oneq::electromagnetics::RfInterferenceMode::kLegacy;
 
   session::EsrJammerSource jammer;
   jammer.technique = session::EsrJammingTechnique::kNoiseSuppression;
@@ -88,6 +96,9 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_EQ(decoded.cycle_index, 3U);
   EXPECT_FLOAT_EQ(decoded.dt_sec, 0.1f);
   EXPECT_FLOAT_EQ(decoded.platform_altitude_m, 5000.0f);
+  EXPECT_EQ(decoded.platform_entity_id, 77U);
+  EXPECT_TRUE(decoded.has_platform_ecef_kinematics);
+  EXPECT_DOUBLE_EQ(decoded.platform_position_ecef_m.x_m, 6378137.0);
   EXPECT_FLOAT_EQ(decoded.platform_pose.position_m.x, 1000.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.velocity_mps.y, 10.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.attitude_deg.yaw_deg, 90.0f);
@@ -95,6 +106,8 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   ASSERT_EQ(decoded.scene.size(), 1U);
   EXPECT_EQ(decoded.scene[0].emitter_id, 1001U);
   EXPECT_EQ(decoded.scene[0].emitter_name, "esr-emitter-alpha");
+  EXPECT_TRUE(decoded.scene[0].has_ecef_kinematics);
+  EXPECT_DOUBLE_EQ(decoded.scene[0].position_ecef_m.x_m, 6379137.0);
   EXPECT_DOUBLE_EQ(decoded.scene[0].carrier_hz, 9.5e9);
   EXPECT_DOUBLE_EQ(decoded.scene[0].pulse_width_s, 1.0e-6);
   EXPECT_TRUE(decoded.scene[0].is_emitting);
@@ -112,6 +125,47 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
             session::EsrJammingTechnique::kNoiseSuppression);
   EXPECT_TRUE(decoded.environment.jammer_sources[0].active);
   EXPECT_DOUBLE_EQ(decoded.environment.jammer_sources[0].center_hz, 9.5e9);
+  EXPECT_EQ(decoded.environment.interference_mode,
+            oneq::electromagnetics::RfInterferenceMode::kLegacy);
+}
+
+TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesEngineeringRfSegments) {
+  EsrCycleInput input;
+  input.dt_sec = 1.0f;
+  input.platform_entity_id = 10U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  input.environment.interference_mode =
+      oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  oneq::electromagnetics::RfEmission emission;
+  emission.emission_id = 501U;
+  emission.entity_id = 50U;
+  emission.position_ecef_m.x_m = 6388137.0;
+  emission.antenna.peak_gain_dbi = 12.0;
+  emission.polarization = oneq::electromagnetics::RfPolarization::kVertical;
+  emission.waveform_kind = oneq::electromagnetics::RfWaveformKind::kSwept;
+  oneq::electromagnetics::RfEmissionSegment segment;
+  segment.start_time_s = 0.2;
+  segment.duration_s = 0.4;
+  segment.center_frequency_hz = 9.5e9;
+  segment.bandwidth_hz = 20.0e6;
+  segment.transmit_power_w = 800.0;
+  emission.segments.push_back(segment);
+  input.environment.engineering_emissions.push_back(emission);
+
+  EsrCycleInput decoded;
+  ASSERT_TRUE(DecodeEsrCycleInput(EncodeEsrCycleInput(input), &decoded));
+  EXPECT_EQ(decoded.environment.interference_mode,
+            oneq::electromagnetics::RfInterferenceMode::kEngineering);
+  ASSERT_EQ(decoded.environment.engineering_emissions.size(), 1U);
+  const oneq::electromagnetics::RfEmission& decoded_emission =
+      decoded.environment.engineering_emissions.front();
+  EXPECT_EQ(decoded_emission.emission_id, 501U);
+  EXPECT_DOUBLE_EQ(decoded_emission.antenna.peak_gain_dbi, 12.0);
+  EXPECT_EQ(decoded_emission.waveform_kind, oneq::electromagnetics::RfWaveformKind::kSwept);
+  ASSERT_EQ(decoded_emission.segments.size(), 1U);
+  EXPECT_DOUBLE_EQ(decoded_emission.segments.front().start_time_s, 0.2);
+  EXPECT_DOUBLE_EQ(decoded_emission.segments.front().transmit_power_w, 800.0);
 }
 
 TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesDoublePrecisionPose) {
@@ -175,6 +229,9 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   session::EsrOutputFrame frame;
   frame.cycle_index = 7U;
   frame.batch_id = 42U;
+  frame.observation_output.receiver_center_frequency_hz = 9.4e9;
+  frame.observation_output.receiver_bandwidth_hz = 20.0e6;
+  frame.observation_output.receiver_saturated = true;
 
   session::EmitterObservation obs;
   obs.observation_id = 100U;
@@ -182,7 +239,13 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   obs.aoa_az_deg = 45.0;
   obs.aoa_el_deg = -3.0;
   obs.rf_hz = 9.4e9;
+  obs.bandwidth_hz = 3.0e6;
+  obs.pri_s = 1.0e-3;
   obs.pulse_width_s = 2.0e-6;
+  obs.rf_std_hz = 1000.0;
+  obs.bandwidth_std_hz = 2000.0;
+  obs.pri_std_s = 1.0e-6;
+  obs.pulse_width_std_s = 1.0e-8;
   obs.amplitude_db = -80.0;
   obs.snr_db = 25.0;
   obs.quality = session::EsrObservationQuality::kHigh;
@@ -198,6 +261,14 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   hyp.bearing_az_deg = 44.5f;
   hyp.bearing_el_deg = -2.8f;
   hyp.bearing_std_deg = 0.5f;
+  hyp.estimated_center_frequency_hz = 9.4e9;
+  hyp.estimated_bandwidth_hz = 3.0e6;
+  hyp.estimated_pri_s = 1.0e-3;
+  hyp.estimated_pulse_width_s = 2.0e-6;
+  hyp.center_frequency_std_hz = 1000.0;
+  hyp.bandwidth_std_hz = 2000.0;
+  hyp.pri_std_s = 1.0e-6;
+  hyp.pulse_width_std_s = 1.0e-8;
   hyp.confidence = 0.85f;
   hyp.last_seen_cycle = 7U;
   frame.emitter_output.hypotheses.push_back(hyp);
@@ -217,12 +288,16 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
 
   EXPECT_EQ(decoded.cycle_index, 7U);
   EXPECT_EQ(decoded.batch_id, 42U);
+  EXPECT_DOUBLE_EQ(decoded.observation_output.receiver_center_frequency_hz, 9.4e9);
+  EXPECT_TRUE(decoded.observation_output.receiver_saturated);
 
   ASSERT_EQ(decoded.observation_output.observations.size(), 1U);
   EXPECT_EQ(decoded.observation_output.observations[0].observation_id, 100U);
   EXPECT_DOUBLE_EQ(decoded.observation_output.observations[0].timestamp_s, 12.5);
   EXPECT_DOUBLE_EQ(decoded.observation_output.observations[0].aoa_az_deg, 45.0);
   EXPECT_DOUBLE_EQ(decoded.observation_output.observations[0].rf_hz, 9.4e9);
+  EXPECT_DOUBLE_EQ(decoded.observation_output.observations[0].bandwidth_hz, 3.0e6);
+  EXPECT_DOUBLE_EQ(decoded.observation_output.observations[0].pri_s, 1.0e-3);
   EXPECT_DOUBLE_EQ(decoded.observation_output.observations[0].snr_db, 25.0);
   EXPECT_EQ(decoded.observation_output.observations[0].quality,
             session::EsrObservationQuality::kHigh);
@@ -235,6 +310,8 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   EXPECT_EQ(decoded.emitter_output.hypotheses[0].mode, session::EsrEmitterMode::kTracking);
   EXPECT_EQ(decoded.emitter_output.hypotheses[0].threat_level, session::EsrThreatLevel::kHigh);
   EXPECT_FLOAT_EQ(decoded.emitter_output.hypotheses[0].bearing_az_deg, 44.5f);
+  EXPECT_DOUBLE_EQ(decoded.emitter_output.hypotheses[0].estimated_bandwidth_hz, 3.0e6);
+  EXPECT_DOUBLE_EQ(decoded.emitter_output.hypotheses[0].estimated_pri_s, 1.0e-3);
   EXPECT_FLOAT_EQ(decoded.emitter_output.hypotheses[0].confidence, 0.85f);
   EXPECT_EQ(decoded.emitter_output.hypotheses[0].last_seen_cycle, 7U);
 
@@ -325,6 +402,16 @@ TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.integrated_receive_loss_db = 3.0f;
   config.hardware.beam_az_width_deg = 5.0f;
   config.hardware.antenna_mount_az_deg = 0.0f;
+  config.hardware.antenna_peak_gain_dbi = 8.0f;
+  config.hardware.polarization = oneq::electromagnetics::RfPolarization::kHorizontal;
+  config.hardware.has_co_site_isolation = true;
+  config.hardware.co_site_isolation_db = 70.0f;
+  config.hardware.maximum_linear_input_power_w = 2.0e-3f;
+  config::EsrTuningWindow tuning_window;
+  tuning_window.center_frequency_hz = 9.5e9;
+  tuning_window.bandwidth_hz = 20.0e6;
+  tuning_window.dwell_cycles = 3U;
+  config.hardware.tuning_plan.push_back(tuning_window);
   // mission + scan
   config.mission.power_on = true;
   config.mission.work_mode = config::EsrWorkMode::kHgesm;
@@ -367,6 +454,13 @@ TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_DOUBLE_EQ(decoded.hardware.receiver_band_upper_hz, 18.0e9);
   EXPECT_FLOAT_EQ(decoded.hardware.receiver_sensitivity_w, 1.0e-12f);
   EXPECT_FLOAT_EQ(decoded.hardware.integrated_receive_loss_db, 3.0f);
+  EXPECT_FLOAT_EQ(decoded.hardware.antenna_peak_gain_dbi, 8.0f);
+  EXPECT_EQ(decoded.hardware.polarization,
+            oneq::electromagnetics::RfPolarization::kHorizontal);
+  EXPECT_TRUE(decoded.hardware.has_co_site_isolation);
+  EXPECT_FLOAT_EQ(decoded.hardware.co_site_isolation_db, 70.0f);
+  ASSERT_EQ(decoded.hardware.tuning_plan.size(), 1U);
+  EXPECT_DOUBLE_EQ(decoded.hardware.tuning_plan.front().center_frequency_hz, 9.5e9);
   // mission
   EXPECT_TRUE(decoded.mission.power_on);
   EXPECT_EQ(decoded.mission.work_mode, config::EsrWorkMode::kHgesm);

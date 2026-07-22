@@ -32,7 +32,13 @@ struct ONEQ_API EmitterObservation {
   double aoa_az_deg{0.0};                               /**< 测得方位角（单位：deg） */
   double aoa_el_deg{0.0};                               /**< 测得俯仰角（单位：deg） */
   double rf_hz{0.0};                                    /**< 测得载频（单位：Hz） */
+  double bandwidth_hz{0.0};                             /**< 估计占用带宽（单位：Hz） */
+  double pri_s{0.0};                                    /**< 估计脉冲重复间隔（单位：s） */
   double pulse_width_s{0.0};                            /**< 测得脉宽（单位：s） */
+  double rf_std_hz{0.0};                                /**< 载频估计标准差（单位：Hz） */
+  double bandwidth_std_hz{0.0};                         /**< 带宽估计标准差（单位：Hz） */
+  double pri_std_s{0.0};                                /**< PRI 估计标准差（单位：s） */
+  double pulse_width_std_s{0.0};                        /**< 脉宽估计标准差（单位：s） */
   double amplitude_db{0.0};                             /**< 接收幅度（单位：dB） */
   double snr_db{0.0};                                   /**< 观测信噪比（单位：dB） */
   EsrObservationQuality quality{EsrObservationQuality::kLow}; /**< 观测质量等级 */

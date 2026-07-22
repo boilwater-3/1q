@@ -32,6 +32,7 @@ TEST(RadarCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
 
   // 准备外部输入
   ArExternalPoseInput pose_input;
+  pose_input.platform_entity_id = 42U;
   pose_input.platform_position_ecef_m = radar_ecef;
   pose_input.platform_velocity_mps.x_mps = 120.0f;
   pose_input.platform_velocity_mps.y_mps = -70.0f;
@@ -56,13 +57,20 @@ TEST(RadarCycleInputBuilderTest, BuilderMatchesTwoStepAdapter) {
 
   ArSceneTarget target_2step;
   ASSERT_TRUE(TryMakeArTargetFromExternalKinematics(target_input, reference,
-                                                  pose_2step.velocity_mps, &target_2step));
+                                                    pose_2step.velocity_mps, &target_2step));
 
   // Builder（一步构建）
   ArCycleInput builder_input;
   ASSERT_TRUE(ArCycleInputAdapter::Build(pose_input, {target_input}, 1.0f, &builder_input));
 
   EXPECT_FALSE(builder_input.has_environment);
+  EXPECT_EQ(builder_input.platform_entity_id, 42U);
+  EXPECT_TRUE(builder_input.has_platform_ecef_kinematics);
+  EXPECT_DOUBLE_EQ(builder_input.platform_position_ecef_m.x_m, radar_ecef.x_m);
+  EXPECT_DOUBLE_EQ(builder_input.platform_position_ecef_m.y_m, radar_ecef.y_m);
+  EXPECT_DOUBLE_EQ(builder_input.platform_position_ecef_m.z_m, radar_ecef.z_m);
+  EXPECT_DOUBLE_EQ(builder_input.platform_velocity_ecef_mps.x_mps,
+                   pose_input.platform_velocity_mps.x_mps);
   ASSERT_EQ(builder_input.scene.size(), 1U);
 
   const auto& builder_target = builder_input.scene[0];
@@ -123,8 +131,7 @@ TEST(RadarCycleInputBuilderTest, ExplicitEnvironmentSnapshotIsCopiedToCycleInput
   environment.atmospheric_observation.enable_physical_model = true;
   environment.atmospheric_observation.temperature_k = 301.0f;
   environment.atmospheric_context.solar_flux_f107 = 180.0f;
-  environment.surface_observation.cover_profile =
-      config::VegetationCoverProfile::kSparseWoodland;
+  environment.surface_observation.cover_profile = config::VegetationCoverProfile::kSparseWoodland;
   environment.jammer_sources.push_back(config::JammerEmitterState{});
   environment.jammer_sources[0].power_db = 12.0f;
 

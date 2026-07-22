@@ -20,6 +20,9 @@ target_link_libraries(esr_session_consumer PRIVATE 1q::1q)
 add_executable(esr_extension_consumer esr_extension_consumer.cpp)
 target_link_libraries(esr_extension_consumer PRIVATE 1q::1q)
 
+add_executable(ecm_session_consumer ecm_session_consumer.cpp)
+target_link_libraries(ecm_session_consumer PRIVATE 1q::1q)
+
 add_executable(eos_session_consumer eos_session_consumer.cpp)
 target_link_libraries(eos_session_consumer PRIVATE 1q::1q)
 

@@ -26,7 +26,12 @@ bool EmitterObservationEqual(const session::EmitterObservation& left,
                              const session::EmitterObservation& right) {
   return left.observation_id == right.observation_id && left.timestamp_s == right.timestamp_s &&
          left.aoa_az_deg == right.aoa_az_deg && left.aoa_el_deg == right.aoa_el_deg &&
-         left.rf_hz == right.rf_hz && left.pulse_width_s == right.pulse_width_s &&
+         left.rf_hz == right.rf_hz && left.bandwidth_hz == right.bandwidth_hz &&
+         left.pri_s == right.pri_s && left.pulse_width_s == right.pulse_width_s &&
+         left.rf_std_hz == right.rf_std_hz &&
+         left.bandwidth_std_hz == right.bandwidth_std_hz &&
+         left.pri_std_s == right.pri_std_s &&
+         left.pulse_width_std_s == right.pulse_width_std_s &&
          left.amplitude_db == right.amplitude_db && left.snr_db == right.snr_db &&
          left.quality == right.quality && left.is_jammed == right.is_jammed;
 }
@@ -37,6 +42,14 @@ bool EmitterHypothesisEqual(const session::EmitterHypothesis& left,
       left.threat_level != right.threat_level || left.bearing_az_deg != right.bearing_az_deg ||
       left.bearing_el_deg != right.bearing_el_deg ||
       left.bearing_std_deg != right.bearing_std_deg || left.confidence != right.confidence ||
+      left.estimated_center_frequency_hz != right.estimated_center_frequency_hz ||
+      left.estimated_bandwidth_hz != right.estimated_bandwidth_hz ||
+      left.estimated_pri_s != right.estimated_pri_s ||
+      left.estimated_pulse_width_s != right.estimated_pulse_width_s ||
+      left.center_frequency_std_hz != right.center_frequency_std_hz ||
+      left.bandwidth_std_hz != right.bandwidth_std_hz ||
+      left.pri_std_s != right.pri_std_s ||
+      left.pulse_width_std_s != right.pulse_width_std_s ||
       left.last_seen_cycle != right.last_seen_cycle ||
       left.candidate_classes.size() != right.candidate_classes.size()) {
     return false;
@@ -60,6 +73,9 @@ bool ObservationOutputFrameEqual(const session::ObservationOutputFrame& left,
                                  const session::ObservationOutputFrame& right) {
   if (left.raw_observation_count != right.raw_observation_count ||
       left.cluster_count != right.cluster_count ||
+      left.receiver_center_frequency_hz != right.receiver_center_frequency_hz ||
+      left.receiver_bandwidth_hz != right.receiver_bandwidth_hz ||
+      left.receiver_saturated != right.receiver_saturated ||
       left.observations.size() != right.observations.size()) {
     return false;
   }

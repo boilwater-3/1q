@@ -34,29 +34,6 @@ MeasurementVector BuildMeasurementVector(const TrackMeasurement& measurement) {
   z(2) = measurement.raw_measurement.position(2);
   return z;
 }
-/**
- * @brief 依据干扰态势补充局部失配容忍度。
- * @param track 当前轨迹状态。
- * @return 当前轨迹可获得的额外失配容忍周期数。
- */
-std::uint32_t ResolveLocalMissToleranceBonus(const TrackState& track) {
-  if (!track.jamming_detected || track.jamming_severity < 0.35f) {
-    return 0U;
-  }
-
-  switch (track.dominant_jamming_semantic) {
-    case config::JammingSemantic::kDeception:
-    case config::JammingSemantic::kRepeater:
-      return 1U;
-    case config::JammingSemantic::kMixed:
-      return track.jamming_severity >= 0.55f ? 1U : 0U;
-    case config::JammingSemantic::kNoiseSuppression:
-    case config::JammingSemantic::kNone:
-    default:
-      return 0U;
-  }
-}
-
 void UpdatePredictorConfigIfSupported(IKalmanPredictor* predictor, float noise_diff_coeff) {
   if (predictor == nullptr || std::isfinite(noise_diff_coeff) == 0 || noise_diff_coeff <= 0.0f) {
     return;
@@ -115,19 +92,18 @@ bool IsValidInitialWeights(const Eigen::VectorXf& initial_weights) {
 }  // namespace
 
 TrackLifecycleManager::TrackLifecycleManager(ITrackPool& pool, const LifecycleConfig& config,
-                                             IKalmanPredictor* predictor,
-                                             IKalmanUpdater* updater)
+                                             IKalmanPredictor* predictor, IKalmanUpdater* updater)
     : pool_(&pool),
       config_(config),
       tracks_by_key_(),
       kalman_predictor_(predictor),
       kalman_updater_(updater) {}
 
-TrackLifecycleManager::TrackLifecycleManager(
-    ITrackPool& pool, const LifecycleConfig& config,
-    const std::vector<IKalmanPredictor*>& imm_predictors,
-    const std::vector<IKalmanUpdater*>& imm_updaters,
-    const Eigen::MatrixXf& imm_transition_probability, const Eigen::VectorXf& imm_initial_weights)
+TrackLifecycleManager::TrackLifecycleManager(ITrackPool& pool, const LifecycleConfig& config,
+                                             const std::vector<IKalmanPredictor*>& imm_predictors,
+                                             const std::vector<IKalmanUpdater*>& imm_updaters,
+                                             const Eigen::MatrixXf& imm_transition_probability,
+                                             const Eigen::VectorXf& imm_initial_weights)
     : pool_(&pool),
       config_(config),
       tracks_by_key_(),
@@ -680,8 +656,7 @@ void TrackLifecycleManager::PromoteState(TrackState& track, std::uint32_t cycle_
 
   track.miss_count += 1;
   if (track.status == TrackStatus::kTentative || track.status == TrackStatus::kConfirmed) {
-    const std::uint32_t max_miss_before_lost =
-        config_.max_miss_before_lost + extra_miss_tolerance + ResolveLocalMissToleranceBonus(track);
+    const std::uint32_t max_miss_before_lost = config_.max_miss_before_lost + extra_miss_tolerance;
     if (track.miss_count > max_miss_before_lost) {
       track.status = TrackStatus::kLost;
     }

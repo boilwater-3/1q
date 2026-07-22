@@ -33,6 +33,10 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   input.cycle_index = 7U;
   input.dt_sec = 0.5f;
   input.platform_altitude_m = 1200.0f;
+  input.platform_entity_id = 77U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  input.platform_velocity_ecef_mps.y_mps = 150.0;
   input.platform_pose.position_m.x = 100.0f;
   input.platform_pose.position_m.y = 200.0f;
   input.platform_pose.position_m.z = 300.0f;
@@ -69,6 +73,9 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_EQ(decoded.cycle_index, 7U);
   EXPECT_FLOAT_EQ(decoded.dt_sec, input.dt_sec);
   EXPECT_FLOAT_EQ(decoded.platform_altitude_m, input.platform_altitude_m);
+  EXPECT_EQ(decoded.platform_entity_id, 77U);
+  EXPECT_TRUE(decoded.has_platform_ecef_kinematics);
+  EXPECT_DOUBLE_EQ(decoded.platform_position_ecef_m.x_m, 6378137.0);
   EXPECT_FLOAT_EQ(decoded.platform_pose.position_m.x, 100.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.velocity_mps.y, 20.0f);
   EXPECT_FLOAT_EQ(decoded.platform_pose.attitude_deg.yaw_deg, 45.0f);
@@ -81,6 +88,40 @@ TEST(ArReplayCodecRoundtripTest, CycleInputPreservesAllFields) {
   EXPECT_FLOAT_EQ(decoded.scene[0].range_m, 1234.5f);
   EXPECT_FLOAT_EQ(decoded.scene[0].position_x, 1234.0f);
   EXPECT_EQ(decoded.scene[0].target_swerling_type, 2);
+}
+
+TEST(ArReplayCodecRoundtripTest, CycleInputPreservesEngineeringRfInterference) {
+  ArCycleInput input;
+  input.dt_sec = 1.0f;
+  input.has_environment = true;
+  input.environment.interference.mode =
+      oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  oneq::electromagnetics::RfEmission emission;
+  emission.emission_id = 10U;
+  emission.entity_id = 20U;
+  emission.position_ecef_m.x_m = 6379137.0;
+  emission.antenna.peak_gain_dbi = 12.0;
+  emission.waveform_kind = oneq::electromagnetics::RfWaveformKind::kSwept;
+  oneq::electromagnetics::RfEmissionSegment segment;
+  segment.duration_s = 1.0;
+  segment.center_frequency_hz = 10.0e9;
+  segment.bandwidth_hz = 20.0e6;
+  segment.transmit_power_w = 500.0;
+  emission.segments.push_back(segment);
+  input.environment.interference.engineering_emissions.push_back(emission);
+
+  ArCycleInput decoded;
+  std::string error;
+  ASSERT_TRUE(DecodeCycleInputFlatbuffer(EncodeCycleInputFlatbuffer(input), &decoded, &error))
+      << error;
+  EXPECT_EQ(decoded.environment.interference.mode,
+            oneq::electromagnetics::RfInterferenceMode::kEngineering);
+  ASSERT_EQ(decoded.environment.interference.engineering_emissions.size(), 1U);
+  EXPECT_EQ(decoded.environment.interference.engineering_emissions.front().emission_id, 10U);
+  EXPECT_DOUBLE_EQ(decoded.environment.interference.engineering_emissions.front()
+                       .segments.front()
+                       .transmit_power_w,
+                   500.0);
 }
 
 TEST(ArReplayCodecRoundtripTest, CycleInputDecodesEmptyTargetList) {

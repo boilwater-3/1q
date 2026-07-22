@@ -148,13 +148,11 @@ JammerSourceFact NormalizeEmitterState(const JammerEmitterState& raw_source) {
     const float ground_range = std::sqrt(dx * dx + dy * dy);
     const float azimuth_rad = std::atan2(dx, dy);
     const float azimuth_deg = azimuth_rad * 180.0f / 3.14159265358979f;
-    const float elevation_rad =
-        (ground_range > 1e-6f) ? std::atan2(dz, ground_range) : 0.0f;
+    const float elevation_rad = (ground_range > 1e-6f) ? std::atan2(dz, ground_range) : 0.0f;
     const float elevation_deg = elevation_rad * 180.0f / 3.14159265358979f;
     normalized.has_direction_deg = true;
     normalized.direction_deg.azimuth_deg = WrapAzimuthDeg(azimuth_deg);
-    normalized.direction_deg.elevation_deg =
-        utils::ClampFloat(elevation_deg, -90.0f, 90.0f);
+    normalized.direction_deg.elevation_deg = utils::ClampFloat(elevation_deg, -90.0f, 90.0f);
   } else {
     normalized.has_direction_deg = false;
   }
@@ -181,9 +179,15 @@ EnvironmentSceneState BuildSceneStateFromModelConfig(const EnvironmentScenarioCo
   scene_state.atmospheric_physics = config.atmospheric_physics;
   scene_state.atmospheric_context = config.atmospheric_context;
   scene_state.vegetation_scatter_physics = config.vegetation_scatter_physics;
-  scene_state.jammer_emitters.reserve(config.jammer_sources.size());
-  scene_state.jammer_emitters.insert(scene_state.jammer_emitters.end(),
-                                     config.jammer_sources.begin(), config.jammer_sources.end());
+  if (!config.jammer_sources.empty()) {
+    scene_state.interference.mode = oneq::electromagnetics::RfInterferenceMode::kLegacy;
+    scene_state.interference.legacy_jammer_sources = config.jammer_sources;
+  } else {
+    scene_state.interference = config.interference;
+  }
+  if (scene_state.interference.mode == oneq::electromagnetics::RfInterferenceMode::kLegacy) {
+    scene_state.jammer_emitters = scene_state.interference.legacy_jammer_sources;
+  }
   return scene_state;
 }
 
@@ -266,10 +270,17 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
   frozen_snapshot_.clutter_power_db = propagation_result.clutter_power_db;
   frozen_snapshot_.atmospheric_physics = active_scene.atmospheric_physics;
   frozen_snapshot_.atmospheric_context = active_scene.atmospheric_context;
-  frozen_snapshot_.effective_k_factor = oneq::environment::ResolveEffectiveKFactor(
-      active_scene.atmospheric_physics);
-  frozen_snapshot_.effective_day_of_year = oneq::environment::ResolveEffectiveDayOfYear(
-      active_scene.atmospheric_context);
+  frozen_snapshot_.effective_k_factor =
+      oneq::environment::ResolveEffectiveKFactor(active_scene.atmospheric_physics);
+  frozen_snapshot_.effective_day_of_year =
+      oneq::environment::ResolveEffectiveDayOfYear(active_scene.atmospheric_context);
+  frozen_snapshot_.interference_mode = active_scene.interference.mode;
+  frozen_snapshot_.engineering_interference_emissions =
+      active_scene.interference.engineering_emissions;
+  frozen_snapshot_.has_rf_receiver_kinematics = active_scene.has_rf_receiver_kinematics;
+  frozen_snapshot_.rf_receiver_entity_id = active_scene.rf_receiver_entity_id;
+  frozen_snapshot_.rf_receiver_position_ecef_m = active_scene.rf_receiver_position_ecef_m;
+  frozen_snapshot_.rf_receiver_velocity_ecef_mps = active_scene.rf_receiver_velocity_ecef_mps;
   frozen_snapshot_.jammer_sources.clear();
   frozen_snapshot_.jammer_sources.reserve(active_scene.jammer_emitters.size());
   for (std::size_t i = 0; i < active_scene.jammer_emitters.size(); ++i) {

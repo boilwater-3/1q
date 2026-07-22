@@ -26,7 +26,7 @@ namespace session {
  * ArSession::Step() 的 ArCycleInput。
  *
  * @note AR 输入以当前雷达为局部坐标原点，`output.platform_pose.position_m`
- *       因此固定为 `(0,0,0)`；平台 ECEF 位置只用于建立局部参考系并转换目标相对位置。
+ *       因此固定为 `(0,0,0)`；平台 ECEF 运动学同时保留在输出中，供工程 RF 链路使用。
  */
 struct ONEQ_API ArCycleInputAdapter {
   /**
@@ -60,7 +60,6 @@ struct ONEQ_API ArCycleInputAdapter {
  private:
   ArCycleInputAdapter() = delete;
 };
-
 
 }  // namespace session
 }  // namespace airborne_radar

@@ -18,9 +18,9 @@
 namespace electronic_surveillance_radar {
 namespace session {
 
-using oneq::foundation::ValidationSeverity;
 using oneq::foundation::ValidationLocation;
 using oneq::foundation::ValidationLocationKind;
+using oneq::foundation::ValidationSeverity;
 
 /**
  * @brief ValidationCode 表示结构化校验编码。
@@ -38,7 +38,8 @@ enum class ONEQ_API ValidationCode {
   kEmitterPriLessThanPulseWidth,  /**< 辐射源 PRI 小于脉宽 */
   kInvalidEmitterBeamwidth,       /**< 辐射源波束宽度非法（<= 0） */
   kNonFiniteEmitterNumericField,  /**< 辐射源存在非有限数值字段 */
-  kInvalidEnvironmentObservation  /**< 环境观测字段非法 */
+  kInvalidEnvironmentObservation, /**< 环境观测字段非法 */
+  kInvalidInterferenceInput       /**< 干扰模式与载荷不一致或工程发射事实非法 */
 };
 
 /**

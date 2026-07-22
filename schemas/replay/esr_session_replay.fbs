@@ -7,6 +7,12 @@ namespace esr.replay;
 
 // ---- EsrSessionConfig ----
 
+table EsrTuningWindow {
+  center_frequency_hz: double;
+  bandwidth_hz: double;
+  dwell_cycles: uint32 = 1;
+}
+
 table EsrHardwareConfig {
   receiver_band_lower_hz:      double;
   receiver_band_upper_hz:      double;
@@ -18,6 +24,18 @@ table EsrHardwareConfig {
   el_scan_range_deg:           float;
   antenna_mount_az_deg:        float;
   antenna_mount_el_deg:        float;
+  antenna_peak_gain_dbi:       float = 0.0;
+  antenna_sidelobe_level_db:   float = -30.0;
+  antenna_backlobe_level_db:   float = -40.0;
+  polarization:                int32 = 4;
+  cross_polarization_isolation_db: float = 20.0;
+  minimum_far_field_range_m:   float = 1.0;
+  has_co_site_isolation:       bool = false;
+  co_site_isolation_db:        float = 0.0;
+  maximum_linear_input_power_w: float = 0.001;
+  jamming_jn_threshold_db:     float = 3.0;
+  jamming_snr_loss_threshold_db: float = 3.0;
+  tuning_plan:                 [EsrTuningWindow];
 }
 
 table EsrScanConfig {

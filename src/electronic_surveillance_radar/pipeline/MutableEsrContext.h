@@ -39,6 +39,14 @@ class MutableEsrContext final {
   float GetCycleDeltaTimeSec() const;
   /** @brief 返回侦察平台姿态状态的只读引用。 */
   const oneq::foundation::PoseState& GetPlatformPose() const;
+  /** @brief 返回接收平台实体标识。 */
+  std::uint64_t GetPlatformEntityId() const;
+  /** @brief 返回是否具有工程 RF 链路所需的平台 ECEF 运动学。 */
+  bool HasPlatformEcefKinematics() const;
+  /** @brief 返回接收平台 ECEF 位置。 */
+  const oneq::coordinate::EcefPositionM& GetPlatformPositionEcefM() const;
+  /** @brief 返回接收平台 ECEF 速度。 */
+  const oneq::coordinate::EcefVelocityMps& GetPlatformVelocityEcefMps() const;
   /** @brief 返回场景辐射源输入列表的只读引用。 */
   const session::EsrSceneEmitterList& GetSceneEmitters() const;
   /** @brief 返回当前周期环境快照的只读引用。 */
@@ -51,6 +59,10 @@ class MutableEsrContext final {
  private:
   std::uint32_t cycle_index_{0U};
   float dt_sec_{1.0f};
+  std::uint64_t platform_entity_id_{0U};
+  bool has_platform_ecef_kinematics_{false};
+  oneq::coordinate::EcefPositionM platform_position_ecef_m_{};
+  oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps_{};
   oneq::foundation::PoseState platform_pose_{};
   session::EsrSceneEmitterList scene_emitters_{};
   session::EsrEnvironmentSnapshot environment_snapshot_{};

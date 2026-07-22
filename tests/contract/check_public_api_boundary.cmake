@@ -190,6 +190,18 @@ set(ENVIRONMENT_HEADERS
     "environment/PropagationPhysics.h"
 )
 
+set(ELECTROMAGNETICS_HEADERS
+    "electromagnetics/RfLinkBudget.h"
+)
+
+set(ECM_HEADERS
+    "electronic_countermeasure/EcmEsrAdapter.h"
+    "electronic_countermeasure/EcmReplaySession.h"
+    "electronic_countermeasure/EcmSession.h"
+    "electronic_countermeasure/EcmTraceSession.h"
+    "electronic_countermeasure/EcmTypes.h"
+)
+
 set(SAR_MODULE_ENTRY_HEADERS
     "sar/sar.hpp"
 )
@@ -260,6 +272,8 @@ set(EXPECTED_PUBLIC_HEADERS
     ${SAR_CONFIG_HEADERS}
     ${SAR_SESSION_HEADERS}
     ${COORDINATE_HEADERS}
+    ${ELECTROMAGNETICS_HEADERS}
+    ${ECM_HEADERS}
     ${ENVIRONMENT_HEADERS}
     ${FOUNDATION_HEADERS}
 )
@@ -374,7 +388,7 @@ set(FORBIDDEN_BUILDER_METHOD_PATTERNS
     "ArSessionConfigBuilder[ \t]*&[ \t]*WithTracking[ \t]*\\("
     "ArSessionConfigBuilder[ \t]*&[ \t]*WithLifecycle[ \t]*\\("
     "ArSessionConfigBuilder[ \t]*&[ \t]*WithEnvironmentDefault[ \t]*\\("
-    "ArSessionConfigBuilder[ \t]*&[ \t]*EnablePhysicsDetection[ \t]*\\("
+    "EnablePhysicsDetection[ \t]*\\("
     "ArSessionConfigBuilder[ \t]*&[ \t]*WithMinDetectionMarginDb[ \t]*\\("
     "ArSessionConfigBuilder[ \t]*&[ \t]*WithPulseCount[ \t]*\\("
     "ArSessionConfigBuilder[ \t]*&[ \t]*WithTransmitterConfig[ \t]*\\("

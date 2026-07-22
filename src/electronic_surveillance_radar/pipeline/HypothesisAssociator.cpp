@@ -90,6 +90,11 @@ float Blend(float previous, float current, float alpha) {
   return (1.0f - a) * previous + a * current;
 }
 
+double BlendDouble(double previous, double current, float alpha) {
+  const double a = static_cast<double>(utils::Clamp01(alpha));
+  return (1.0 - a) * previous + a * current;
+}
+
 /**
  * @brief 计算簇到假设的距离。
  * @param[in] feature_a 特征向量 A。
@@ -277,6 +282,21 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
         Blend(track.bearing_az_deg, summary.mean_az_deg, config_.confidence_alpha);
     track.bearing_el_deg =
         Blend(track.bearing_el_deg, summary.mean_el_deg, config_.confidence_alpha);
+    track.estimated_center_frequency_hz = BlendDouble(
+        track.estimated_center_frequency_hz, summary.mean_rf_hz, config_.confidence_alpha);
+    track.estimated_bandwidth_hz = BlendDouble(
+        track.estimated_bandwidth_hz, summary.mean_bandwidth_hz, config_.confidence_alpha);
+    track.estimated_pri_s =
+        BlendDouble(track.estimated_pri_s, summary.mean_pri_s, config_.confidence_alpha);
+    track.estimated_pulse_width_s = BlendDouble(
+        track.estimated_pulse_width_s, summary.mean_pulse_width_s, config_.confidence_alpha);
+    track.center_frequency_std_hz = BlendDouble(
+        track.center_frequency_std_hz, summary.rf_std_hz, config_.confidence_alpha);
+    track.bandwidth_std_hz = BlendDouble(
+        track.bandwidth_std_hz, summary.bandwidth_std_hz, config_.confidence_alpha);
+    track.pri_std_s = BlendDouble(track.pri_std_s, summary.pri_std_s, config_.confidence_alpha);
+    track.pulse_width_std_s = BlendDouble(
+        track.pulse_width_std_s, summary.pulse_width_std_s, config_.confidence_alpha);
     const float base_bearing_std_deg = ComputeBaseBearingStdDeg(summary.support_count);
     track.bearing_std_deg = base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
     const float confidence_measurement =
@@ -311,6 +331,14 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
                                                     clusters[i].spectral_class_label);
     track.bearing_az_deg = clusters[i].mean_az_deg;
     track.bearing_el_deg = clusters[i].mean_el_deg;
+    track.estimated_center_frequency_hz = clusters[i].mean_rf_hz;
+    track.estimated_bandwidth_hz = clusters[i].mean_bandwidth_hz;
+    track.estimated_pri_s = clusters[i].mean_pri_s;
+    track.estimated_pulse_width_s = clusters[i].mean_pulse_width_s;
+    track.center_frequency_std_hz = clusters[i].rf_std_hz;
+    track.bandwidth_std_hz = clusters[i].bandwidth_std_hz;
+    track.pri_std_s = clusters[i].pri_std_s;
+    track.pulse_width_std_s = clusters[i].pulse_width_std_s;
     const float base_bearing_std_deg = ComputeBaseBearingStdDeg(clusters[i].support_count);
     track.bearing_std_deg = base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
     track.confidence = utils::Clamp01(clusters[i].confidence_score * (1.0f - 0.45f * deception_ratio));
@@ -358,6 +386,14 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     hypothesis.bearing_az_deg = tracks_[i].bearing_az_deg;
     hypothesis.bearing_el_deg = tracks_[i].bearing_el_deg;
     hypothesis.bearing_std_deg = tracks_[i].bearing_std_deg;
+    hypothesis.estimated_center_frequency_hz = tracks_[i].estimated_center_frequency_hz;
+    hypothesis.estimated_bandwidth_hz = tracks_[i].estimated_bandwidth_hz;
+    hypothesis.estimated_pri_s = tracks_[i].estimated_pri_s;
+    hypothesis.estimated_pulse_width_s = tracks_[i].estimated_pulse_width_s;
+    hypothesis.center_frequency_std_hz = tracks_[i].center_frequency_std_hz;
+    hypothesis.bandwidth_std_hz = tracks_[i].bandwidth_std_hz;
+    hypothesis.pri_std_s = tracks_[i].pri_std_s;
+    hypothesis.pulse_width_std_s = tracks_[i].pulse_width_std_s;
     hypothesis.confidence = tracks_[i].confidence;
     hypothesis.last_seen_cycle = tracks_[i].last_seen_cycle;
     hypotheses.push_back(hypothesis);

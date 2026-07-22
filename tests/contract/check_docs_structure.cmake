@@ -29,6 +29,7 @@ set(ALLOWED_DOC_DIRS
     "airborne_radar"
     "common"
     "electro_optical_sensor"
+    "electronic_countermeasure"
     "electronic_surveillance_radar"
     "flight_dynamic"
     "practice"
@@ -39,6 +40,7 @@ set(ALLOWED_DOC_DIRS
 set(BUSINESS_MODULE_DIRS
     "airborne_radar"
     "electro_optical_sensor"
+    "electronic_countermeasure"
     "electronic_surveillance_radar"
     "flight_dynamic"
     "sar"

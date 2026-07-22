@@ -12,7 +12,6 @@ namespace config {
 namespace mapping {
 namespace {
 
-
 RuntimeConfigResolveResult RejectPatch(const RuntimeConfigState& current_state,
                                        bool has_requested_update) {
   RuntimeConfigResolveResult rejected;
@@ -36,7 +35,8 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
 
   if (patch.has_dwell_center_deg) {
     has_requested_update = true;
-    if (!oneq::common::validation::IsFinite(patch.dwell_center_deg.az_deg) || !oneq::common::validation::IsFinite(patch.dwell_center_deg.el_deg)) {
+    if (!oneq::common::validation::IsFinite(patch.dwell_center_deg.az_deg) ||
+        !oneq::common::validation::IsFinite(patch.dwell_center_deg.el_deg)) {
       PROJECT_LOG_ERROR(
           "[ArSession] Rejecting runtime config patch due to non-finite dwell_center_deg "
           "(az_deg={}, el_deg={}).",
@@ -50,8 +50,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
   if (patch.has_environment) {
     has_requested_update = true;
     if (patch.environment.has_scenario_config) {
-      resolved.next_state.environment_scenario_config =
-          patch.environment.scenario_config;
+      resolved.next_state.environment_scenario_config = patch.environment.scenario_config;
       resolved.environment_scenario_config_changed = true;
     }
     if (patch.environment.has_jamming_sensitivity_profile) {
@@ -75,13 +74,11 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
         patch.policy.detection.pfa;
     next_execution_config.detection.engineering.detection_policy.min_snr_db =
         patch.policy.detection.minimum_snr_db;
-    next_execution_config.detection.engineering.pulse_count =
-        patch.policy.detection.pulse_count;
+    next_execution_config.detection.engineering.pulse_count = patch.policy.detection.pulse_count;
     next_execution_config.detection.engineering.min_detection_margin_db =
         patch.policy.detection.minimum_detection_margin_db;
     next_execution_config.association.policy.unassigned_cost =
-        patch.policy.association.distance_gate_sigma *
-        patch.policy.association.distance_gate_sigma;
+        patch.policy.association.distance_gate_sigma * patch.policy.association.distance_gate_sigma;
     next_execution_config.tracking.policy = patch.policy.tracking;
     next_execution_config.lifecycle.policy = patch.policy.lifecycle;
     policy_changed = true;
@@ -95,7 +92,8 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
   if (patch.has_scan_center_deg) {
-    if (!oneq::common::validation::IsFinite(patch.scan_center_deg.az_deg) || !oneq::common::validation::IsFinite(patch.scan_center_deg.el_deg)) {
+    if (!oneq::common::validation::IsFinite(patch.scan_center_deg.az_deg) ||
+        !oneq::common::validation::IsFinite(patch.scan_center_deg.el_deg)) {
       PROJECT_LOG_ERROR(
           "[ArSession] Rejecting runtime config patch due to non-finite scan_center_deg "
           "(az_deg={}, el_deg={}).",
@@ -107,8 +105,10 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
   if (patch.has_commanded_beamwidth_deg) {
-    if (!oneq::common::validation::IsFinite(patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg) ||
-        !oneq::common::validation::IsFinite(patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg)) {
+    if (!oneq::common::validation::IsFinite(
+            patch.commanded_beamwidth_deg.commanded_az_beamwidth_deg) ||
+        !oneq::common::validation::IsFinite(
+            patch.commanded_beamwidth_deg.commanded_el_beamwidth_deg)) {
       PROJECT_LOG_ERROR(
           "[ArSession] Rejecting runtime config patch due to non-finite "
           "commanded_beamwidth_deg (az_deg={}, el_deg={}).",
@@ -128,8 +128,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
     has_requested_update = true;
   }
 
-  const config::ArOrientationConfig& next_orientation =
-      next_execution_config.detection.orientation;
+  const config::ArOrientationConfig& next_orientation = next_execution_config.detection.orientation;
   if (next_orientation.commanded_beamwidth_enabled &&
       (next_orientation.commanded_beamwidth_deg.commanded_az_beamwidth_deg <= 0.0f ||
        next_orientation.commanded_beamwidth_deg.commanded_el_beamwidth_deg <= 0.0f)) {
@@ -148,8 +147,7 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
   }
 
   if (policy_changed) {
-    next_execution_config.tracking.engineering =
-        next_execution_config.tracking.policy;
+    next_execution_config.tracking.engineering = next_execution_config.tracking.policy;
     next_execution_config.lifecycle.engineering =
         ResolveLifecycleEngineering(next_execution_config.lifecycle.policy);
     if (next_execution_config.lifecycle.engineering.enable_imm_lifecycle) {
@@ -173,8 +171,6 @@ config::ArSessionConfig MapExecutionToSession(
     const execution::InternalExecutionConfig& execution_config) {
   config::ArSessionConfig config;
   config.mission.power_on = execution_config.sensor_enabled;
-  config.hardware.enable_physics_detection =
-      execution_config.detection.engineering.enable_physics_detection;
   config.hardware.transmitter = execution_config.detection.engineering.transmitter;
   config.hardware.antenna = execution_config.detection.engineering.antenna;
   config.hardware.receiver = execution_config.detection.engineering.receiver;
@@ -182,8 +178,7 @@ config::ArSessionConfig MapExecutionToSession(
   config.mission.orientation = execution_config.detection.orientation;
   config.policy.decision_control = execution_config.decision_control;
   config.policy.beam_control = execution_config.detection.beam_control;
-  config.policy.detection.pfa =
-      execution_config.detection.engineering.detection_policy.cfar_pfa;
+  config.policy.detection.pfa = execution_config.detection.engineering.detection_policy.cfar_pfa;
   config.policy.detection.minimum_snr_db =
       execution_config.detection.engineering.detection_policy.min_snr_db;
   config.policy.detection.pulse_count = execution_config.detection.engineering.pulse_count;
@@ -196,8 +191,7 @@ config::ArSessionConfig MapExecutionToSession(
   return config;
 }
 
-config::ArSessionConfig MapRuntimeStateToPipelineSession(
-    const RuntimeConfigState& runtime_state) {
+config::ArSessionConfig MapRuntimeStateToPipelineSession(const RuntimeConfigState& runtime_state) {
   config::ArSessionConfig config = MapExecutionToSession(runtime_state.execution_config);
   config.mission.orientation.scan_center_deg.az_deg += runtime_state.dwell_center_deg.az_deg;
   config.mission.orientation.scan_center_deg.el_deg += runtime_state.dwell_center_deg.el_deg;

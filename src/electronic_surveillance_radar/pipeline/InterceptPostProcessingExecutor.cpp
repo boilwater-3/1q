@@ -22,13 +22,11 @@ namespace {
 /**
  * @brief 构造观测级置信度。
  * @param[in] snr_db 观测信噪比（单位：dB）。
- * @param[in] is_jammed 是否受扰。
  * @return 置信度，范围 [0, 1]。
  */
-double ComputeObservationConfidence(double snr_db, bool is_jammed) {
+double ComputeObservationConfidence(double snr_db) {
   const float snr_score = utils::Clamp01(static_cast<float>((snr_db + 5.0) / 30.0));
-  const float jam_penalty = is_jammed ? 0.75f : 1.0f;
-  return static_cast<double>(utils::Clamp01(snr_score * jam_penalty));
+  return static_cast<double>(snr_score);
 }
 
 /**
@@ -168,13 +166,17 @@ ClusterSummary BuildClusterSummary(
   double confidence_acc = 0.0;
   std::size_t deception_affected_count = 0U;
   std::size_t false_alarm_count = 0U;
-  std::size_t matched_truth_count = 0U;
   double mean_snr_db = 0.0;
   double mean_az_deg = 0.0;
   double mean_el_deg = 0.0;
   double mean_rf_hz = 0.0;
+  double mean_bandwidth_hz = 0.0;
   double mean_pulse_width_s = 0.0;
   double mean_pri_s = 0.0;
+  double mean_rf_std_hz = 0.0;
+  double mean_bandwidth_std_hz = 0.0;
+  double mean_pri_std_s = 0.0;
+  double mean_pulse_width_std_s = 0.0;
 
   for (std::size_t i = 0; i < cluster_indices.size(); ++i) {
     const std::size_t index = cluster_indices[i];
@@ -185,13 +187,14 @@ ClusterSummary BuildClusterSummary(
     mean_az_deg += records[index].observation.aoa_az_deg;
     mean_el_deg += records[index].observation.aoa_el_deg;
     mean_rf_hz += records[index].observation.rf_hz;
+    mean_bandwidth_hz += records[index].observation.bandwidth_hz;
     mean_pulse_width_s += records[index].observation.pulse_width_s;
-    if (records[index].matched_truth) {
-      mean_pri_s += records[index].truth_pri_s;
-      ++matched_truth_count;
-    }
-    confidence_acc += ComputeObservationConfidence(records[index].observation.snr_db,
-                                                   records[index].observation.is_jammed);
+    mean_pri_s += records[index].observation.pri_s;
+    mean_rf_std_hz += records[index].observation.rf_std_hz;
+    mean_bandwidth_std_hz += records[index].observation.bandwidth_std_hz;
+    mean_pri_std_s += records[index].observation.pri_std_s;
+    mean_pulse_width_std_s += records[index].observation.pulse_width_std_s;
+    confidence_acc += ComputeObservationConfidence(records[index].observation.snr_db);
     if (records[index].deception_affected) {
       ++deception_affected_count;
     }
@@ -214,10 +217,13 @@ ClusterSummary BuildClusterSummary(
   summary.mean_az_deg = static_cast<float>(mean_az_deg * inv_count_d);
   summary.mean_el_deg = static_cast<float>(mean_el_deg * inv_count_d);
   summary.mean_rf_hz = mean_rf_hz * inv_count_d;
+  summary.mean_bandwidth_hz = mean_bandwidth_hz * inv_count_d;
   summary.mean_pulse_width_s = mean_pulse_width_s * inv_count_d;
-  if (matched_truth_count > 0U) {
-    summary.mean_pri_s = mean_pri_s / static_cast<double>(matched_truth_count);
-  }
+  summary.mean_pri_s = mean_pri_s * inv_count_d;
+  summary.rf_std_hz = mean_rf_std_hz * inv_count_d;
+  summary.bandwidth_std_hz = mean_bandwidth_std_hz * inv_count_d;
+  summary.pri_std_s = mean_pri_std_s * inv_count_d;
+  summary.pulse_width_std_s = mean_pulse_width_std_s * inv_count_d;
   summary.deception_support_ratio = static_cast<float>(deception_affected_count) * inv_count;
   summary.false_alarm_ratio = static_cast<float>(false_alarm_count) * inv_count;
   const float deception_penalty =
@@ -261,7 +267,7 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
     association.matched = records[i].matched_truth && records[i].truth_emitter_id != 0U;
     association.confidence =
         association.matched ? static_cast<float>(ComputeObservationConfidence(
-                                  records[i].observation.snr_db, records[i].observation.is_jammed))
+                                  records[i].observation.snr_db))
                             : 0.1f;
     result.truth_evaluation_output.associations.push_back(association);
     if (association.matched) {

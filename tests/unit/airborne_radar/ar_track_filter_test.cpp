@@ -46,15 +46,14 @@ session::EnvironmentCycleContext MakeEnvironmentCycle(std::uint32_t cycle_index)
 
 template <typename PipelineType>
 session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
-                                              const session::ArSceneTargetList& input_state,
-                                              environment::EnvironmentService* environment_service,
-                                              std::uint32_t cycle_index = 1u) {
+                                            const session::ArSceneTargetList& input_state,
+                                            environment::EnvironmentService* environment_service,
+                                            std::uint32_t cycle_index = 1u) {
   environment_service->BeginCycle(MakeEnvironmentCycle(cycle_index));
   return pipeline->RunCycle(input_state, *environment_service);
 }
 
-config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique,
-                                                  float power_db) {
+config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique, float power_db) {
   config::JammerEmitterState jammer;
   jammer.technique = technique;
   jammer.power_db = power_db;
@@ -136,7 +135,7 @@ TEST(TrackFilterTest, KeepsStateWhenDetectionIsStable) {
   EXPECT_FLOAT_EQ(output.rcs, input.rcs);
 }
 
-TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
+TEST(TrackFilterTest, AppliesConfiguredLossDecayDuringMiss) {
   signal::tracking::TrackFilter filter;
   const session::ArSceneTarget input(800.0f, 0.0f, 0.0f, 2.5f);
 
@@ -151,7 +150,7 @@ TEST(TrackFilterTest, AppliesLossDecayAndJammingPenalty) {
   EXPECT_LT(output.rcs, input.rcs);
 }
 
-TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression) {
+TEST(TrackFilterTest, JammingSemanticDoesNotRetuneLossDecay) {
   signal::tracking::TrackFilter filter;
   const session::ArSceneTarget input(800.0f, 0.0f, 0.0f, 2.5f);
 
@@ -168,8 +167,8 @@ TEST(TrackFilterTest, DeceptionJammingRetainsMoreTrackEnergyThanNoiseSuppression
   const session::ArSceneTarget noise_output = filter.Filter(input, noise_context);
   const session::ArSceneTarget deception_output = filter.Filter(input, deception_context);
 
-  EXPECT_GT(SpeedOf(deception_output), SpeedOf(noise_output));
-  EXPECT_GT(deception_output.rcs, noise_output.rcs);
+  EXPECT_FLOAT_EQ(SpeedOf(deception_output), SpeedOf(noise_output));
+  EXPECT_FLOAT_EQ(deception_output.rcs, noise_output.rcs);
 }
 
 TEST(TrackFilterTest, DetectionSuccessPreservesSpeedAndRcs) {
@@ -238,8 +237,7 @@ TEST(TrackFilterTest, ConsecutiveMissesMonotonicallyReduceSpeed) {
   float prev_speed = 500.0f;
   for (int i = 0; i < 5; ++i) {
     state = filter.Filter(state, miss_ctx);
-    EXPECT_LT(SpeedOf(state), prev_speed)
-        << "Speed should decrease at miss #" << (i + 1);
+    EXPECT_LT(SpeedOf(state), prev_speed) << "Speed should decrease at miss #" << (i + 1);
     prev_speed = SpeedOf(state);
   }
 }

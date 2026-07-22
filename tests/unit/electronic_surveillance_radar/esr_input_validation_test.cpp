@@ -94,6 +94,47 @@ TEST(EsrInputValidationTest, EmptySceneInputIsAllowed) {
   EXPECT_TRUE(issues.empty());
 }
 
+TEST(EsrInputValidationTest, EngineeringInterferenceRejectsMixedLegacyPayload) {
+  EsrCycleInput input;
+  input.dt_sec = 1.0f;
+  input.environment.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  input.environment.jammer_sources.push_back(EsrJammerSource{});
+  oneq::electromagnetics::RfEmission emission;
+  emission.emission_id = 1U;
+  emission.entity_id = 2U;
+  oneq::electromagnetics::RfEmissionSegment segment;
+  segment.duration_s = 1.0;
+  segment.center_frequency_hz = 10.0e9;
+  segment.bandwidth_hz = 1.0e6;
+  segment.transmit_power_w = 10.0;
+  emission.segments.push_back(segment);
+  input.environment.engineering_emissions.push_back(emission);
+
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidInterferenceInput));
+  EXPECT_TRUE(HasValidationError(issues));
+}
+
+TEST(EsrInputValidationTest, EngineeringInterferenceRequiresPlatformEcefKinematics) {
+  EsrCycleInput input;
+  input.dt_sec = 1.0f;
+  input.environment.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
+  oneq::electromagnetics::RfEmission emission;
+  emission.emission_id = 1U;
+  emission.entity_id = 2U;
+  oneq::electromagnetics::RfEmissionSegment segment;
+  segment.duration_s = 1.0;
+  segment.center_frequency_hz = 10.0e9;
+  segment.bandwidth_hz = 1.0e6;
+  segment.transmit_power_w = 10.0;
+  emission.segments.push_back(segment);
+  input.environment.engineering_emissions.push_back(emission);
+
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidInterferenceInput));
+  EXPECT_TRUE(HasValidationError(issues));
+}
+
 TEST(EsrInputValidationTest, NonFiniteEmitterNumericFieldIsReported) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
@@ -253,8 +294,7 @@ TEST(EsrInputValidationTest, NonPositiveVisibilityIsReported) {
 TEST(EsrInputValidationTest, NonFiniteVisibilityIsReported) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
-  input.environment.atmospheric_observation.visibility_km =
-      std::numeric_limits<float>::infinity();
+  input.environment.atmospheric_observation.visibility_km = std::numeric_limits<float>::infinity();
   input.scene.push_back(MakeValidEmitter());
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
@@ -265,11 +305,11 @@ TEST(EsrInputValidationTest, InvalidJammerSourceIsReported) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
   session::EsrJammerSource jammer;
-  jammer.center_hz = -1.0e9;       // 负频率
-  jammer.bandwidth_hz = 0.0;       // 无效（非负但后续 ratio 也测）
-  jammer.power_w = -10.0f;         // 负功率
-  jammer.deception_risk = 2.0f;    // 超出 [0,1]
-  jammer.confidence = -0.5f;       // 超出 [0,1]
+  jammer.center_hz = -1.0e9;     // 负频率
+  jammer.bandwidth_hz = 0.0;     // 无效（非负但后续 ratio 也测）
+  jammer.power_w = -10.0f;       // 负功率
+  jammer.deception_risk = 2.0f;  // 超出 [0,1]
+  jammer.confidence = -0.5f;     // 超出 [0,1]
   input.environment.jammer_sources.push_back(jammer);
   input.scene.push_back(MakeValidEmitter());
 
@@ -297,6 +337,8 @@ TEST(EsrInputValidationTest, NonFiniteJammerFieldIsReported) {
 TEST(EsrInputValidationTest, ValidEnvironmentProducesNoError) {
   EsrCycleInput input;
   input.dt_sec = 1.0f;
+  input.environment.interference_mode =
+      oneq::electromagnetics::RfInterferenceMode::kLegacy;
   input.environment.spectrum_occupancy_ratio = 0.3f;
   input.environment.atmospheric_observation.relative_humidity_ratio = 0.6f;
   input.environment.atmospheric_observation.precipitation_rate_mmph = 1.0f;

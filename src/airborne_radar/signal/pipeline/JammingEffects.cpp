@@ -2,7 +2,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
+#include <vector>
 
+#include "1q/coordinate/attitude_transform.h"
+#include "1q/coordinate/position_transform.h"
+#include "airborne_radar/signal/detection/BeamwidthResolution.h"
 #include "airborne_radar/utils/MathUtils.h"
 
 namespace airborne_radar {
@@ -33,15 +38,82 @@ constexpr float kPhysicalWeightNoise = 1.0f;
 constexpr float kPhysicalWeightDeception = 0.20f;
 constexpr float kPhysicalWeightRepeater = 0.40f;
 constexpr float kPhysicalWeightUnknown = 0.70f;
+constexpr double kDegreesToRadians = 3.14159265358979323846 / 180.0;
 
 float ResolveJammerConfidenceWeight(const JammingEffectsConfig& cfg,
                                     const session::JammerSourceFact& jammer_source) {
   return utils::ClampFloat(jammer_source.confidence, cfg.confidence_weight_min, 1.0f);
 }
 
-float ComputeTrackLevelJammingContribution(
-    const session::ArControlProfile& control_profile,
-    const session::JammerSourceFact& jammer_source) {
+bool TryBuildReceiverSite(const ExecutionConfig& config,
+                          const session::EnvironmentSnapshot& environment_snapshot,
+                          oneq::electromagnetics::RfReceiverSite* receiver) {
+  if (receiver == nullptr || !environment_snapshot.has_rf_receiver_kinematics) {
+    return false;
+  }
+  oneq::coordinate::LlaPositionDegM receiver_lla;
+  if (!oneq::coordinate::TryEcefToLla(environment_snapshot.rf_receiver_position_ecef_m,
+                                      &receiver_lla)) {
+    return false;
+  }
+
+  const double azimuth_rad =
+      static_cast<double>(config.detection.orientation.scan_center_deg.az_deg) * kDegreesToRadians;
+  const double elevation_rad =
+      static_cast<double>(config.detection.orientation.scan_center_deg.el_deg) * kDegreesToRadians;
+  const double cos_elevation = std::cos(elevation_rad);
+  oneq::coordinate::Vector3d local_direction;
+  local_direction.x = std::sin(azimuth_rad) * cos_elevation;
+  local_direction.y = std::cos(azimuth_rad) * cos_elevation;
+  local_direction.z = std::sin(elevation_rad);
+  oneq::coordinate::EulerAnglesDeg attitude;
+  attitude.yaw_deg = config.detection.platform_attitude_deg.yaw_deg;
+  attitude.pitch_deg = config.detection.platform_attitude_deg.pitch_deg;
+  attitude.roll_deg = config.detection.platform_attitude_deg.roll_deg;
+  const oneq::coordinate::Vector3d enu_direction = oneq::coordinate::RotateLocalToEnu(
+      local_direction.x, local_direction.y, local_direction.z, attitude);
+  oneq::coordinate::Vector3d ecef_direction;
+  if (!oneq::coordinate::TryEnuToEcefDirection(enu_direction, receiver_lla, &ecef_direction)) {
+    return false;
+  }
+
+  const config::engineering::DetectionConfig& detection_config = config.detection.engineering;
+  const config::engineering::ReceiverConfig& receiver_config = detection_config.receiver;
+  const float frequency_hz = detection_config.transmitter.frequency_hz;
+  const float wavelength_m = frequency_hz > 0.0f ? 299792458.0f / frequency_hz : 0.0f;
+  const detection::EffectiveBeamwidthDeg beamwidth = detection::ResolveEffectiveBeamwidth(
+      detection_config.antenna, config.detection.orientation, wavelength_m);
+
+  receiver->entity_id = environment_snapshot.rf_receiver_entity_id;
+  receiver->position_ecef_m = environment_snapshot.rf_receiver_position_ecef_m;
+  receiver->velocity_ecef_mps = environment_snapshot.rf_receiver_velocity_ecef_mps;
+  receiver->polarization = receiver_config.polarization;
+  receiver->window_start_time_s = 0.0;
+  receiver->window_duration_s = static_cast<double>(environment_snapshot.cycle_dt_sec);
+  receiver->center_frequency_hz = static_cast<double>(frequency_hz);
+  receiver->bandwidth_hz = static_cast<double>(detection_config.transmitter.bandwidth_hz);
+  receiver->receiver_system_loss_db = static_cast<double>(receiver_config.receive_loss_db);
+  receiver->minimum_far_field_range_m =
+      static_cast<double>(receiver_config.minimum_far_field_range_m);
+  receiver->has_co_site_isolation = receiver_config.has_co_site_isolation;
+  receiver->co_site_isolation_db = static_cast<double>(receiver_config.co_site_isolation_db);
+  receiver->antenna.boresight_ecef_unit.x = ecef_direction.x;
+  receiver->antenna.boresight_ecef_unit.y = ecef_direction.y;
+  receiver->antenna.boresight_ecef_unit.z = ecef_direction.z;
+  receiver->antenna.peak_gain_dbi = static_cast<double>(detection_config.antenna.main_beam_gain_db);
+  receiver->antenna.half_power_beamwidth_deg =
+      static_cast<double>(std::max(beamwidth.az_beamwidth_deg, beamwidth.el_beamwidth_deg));
+  receiver->antenna.sidelobe_level_db =
+      static_cast<double>(detection_config.antenna.pattern.max_sidelobe_level_db);
+  receiver->antenna.backlobe_level_db =
+      static_cast<double>(detection_config.antenna.pattern.backlobe_level_db);
+  receiver->antenna.cross_polarization_isolation_db =
+      static_cast<double>(receiver_config.cross_polarization_isolation_db);
+  return true;
+}
+
+float ComputeTrackLevelJammingContribution(const session::ArControlProfile& control_profile,
+                                           const session::JammerSourceFact& jammer_source) {
   const float confidence_weight = utils::ClampFloat(jammer_source.confidence, 0.25f, 1.0f);
   const float residual_factor = ComputeResidualJammerFactor(control_profile, jammer_source);
   float contribution = 0.10f + 0.020f * utils::ClampFloat(jammer_source.power_db, 0.0f, 20.0f) +
@@ -73,6 +145,45 @@ float ComputeTrackLevelJammingContribution(
 
 bool HasMultiSourceJammingFacts(const session::EnvironmentSnapshot& environment_snapshot) {
   return !environment_snapshot.jammer_sources.empty();
+}
+
+bool TryResolveEngineeringInterferencePowerW(
+    const ExecutionConfig& config, const session::EnvironmentSnapshot& environment_snapshot,
+    float* received_power_w) {
+  if (received_power_w == nullptr) {
+    return false;
+  }
+  if (environment_snapshot.interference_mode !=
+      oneq::electromagnetics::RfInterferenceMode::kEngineering) {
+    *received_power_w = 0.0f;
+    return true;
+  }
+  oneq::electromagnetics::RfReceiverSite receiver;
+  if (!TryBuildReceiverSite(config, environment_snapshot, &receiver)) {
+    return false;
+  }
+  oneq::electromagnetics::RfLinkEvaluationConfig link_config;
+  link_config.additional_propagation_loss_db =
+      std::max(0.0, 0.5 * static_cast<double>(environment_snapshot.atmospheric_physics_loss_db));
+  std::vector<oneq::electromagnetics::RfLinkResult> links;
+  links.reserve(environment_snapshot.engineering_interference_emissions.size());
+  for (const oneq::electromagnetics::RfEmission& emission :
+       environment_snapshot.engineering_interference_emissions) {
+    oneq::electromagnetics::RfLinkResult link;
+    if (!oneq::electromagnetics::TryEvaluateRfLink(emission, receiver, link_config, &link)) {
+      return false;
+    }
+    links.push_back(link);
+  }
+  double total_received_power_w = 0.0;
+  if (!oneq::electromagnetics::TryAggregateRfReceivedPower(links, &total_received_power_w) ||
+      total_received_power_w > static_cast<double>(std::numeric_limits<float>::max()) ||
+      total_received_power_w >
+          static_cast<double>(config.detection.engineering.receiver.maximum_linear_input_power_w)) {
+    return false;
+  }
+  *received_power_w = static_cast<float>(total_received_power_w);
+  return true;
 }
 
 float ComputeResidualJammerFactor(const session::ArControlProfile& control_profile,
@@ -128,61 +239,8 @@ float ComputeResidualJammerFactor(const session::ArControlProfile& control_profi
   return utils::ClampFloat(residual_factor, kResidualFactorMin, 1.0f);
 }
 
-float ComputeHeuristicSourcePenaltyDb(const JammingEffectsConfig& cfg,
-                                      const session::JammerSourceFact& jammer_source) {
-  const float confidence_weight = ResolveJammerConfidenceWeight(cfg, jammer_source);
-  float penalty_db =
-      cfg.heuristic_base_penalty_db +
-      cfg.heuristic_power_penalty_slope * utils::ClampFloat(jammer_source.power_db, 0.0f, 20.0f);
-
-  switch (jammer_source.technique) {
-    case config::JammingTechnique::kNoiseSuppression:
-      penalty_db += cfg.heuristic_noise_sidelobe_penalty *
-                    (jammer_source.in_sidelobe ? 1.0f : cfg.heuristic_noise_frontlobe_ratio);
-      penalty_db +=
-          cfg.heuristic_noise_js_slope * utils::ClampFloat(jammer_source.js_db, 0.0f, 12.0f) / 6.0f;
-      break;
-    case config::JammingTechnique::kDeception:
-      penalty_db += cfg.heuristic_deception_freq_penalty *
-                    utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
-      penalty_db += cfg.heuristic_deception_prf_penalty *
-                    utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
-      break;
-    case config::JammingTechnique::kRepeater:
-      penalty_db += cfg.heuristic_repeater_prf_penalty *
-                    utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
-      penalty_db += cfg.heuristic_repeater_freq_penalty *
-                    utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
-      break;
-    case config::JammingTechnique::kUnknown:
-    default:
-      penalty_db += cfg.heuristic_unknown_freq_penalty *
-                    utils::ClampFloat(jammer_source.frequency_overlap_ratio, 0.0f, 1.0f);
-      penalty_db += cfg.heuristic_unknown_prf_penalty *
-                    utils::ClampFloat(jammer_source.prf_lock_risk, 0.0f, 1.0f);
-      penalty_db += jammer_source.in_sidelobe ? cfg.heuristic_unknown_sidelobe_penalty
-                                              : cfg.heuristic_unknown_frontlobe_penalty;
-      break;
-  }
-
-  return penalty_db * confidence_weight;
-}
-
-float ComputeHeuristicJammingPenaltyDb(
-    const JammingEffectsConfig& cfg, const session::EnvironmentSnapshot& environment_snapshot) {
-  if (!HasMultiSourceJammingFacts(environment_snapshot)) {
-    return 0.0f;
-  }
-
-  float penalty_db = 0.0f;
-  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    penalty_db += ComputeHeuristicSourcePenaltyDb(cfg, environment_snapshot.jammer_sources[i]);
-  }
-  return penalty_db;
-}
-
-float ComputePhysicalSourceJamContributionW(const JammingEffectsConfig& cfg,
-                                            const session::JammerSourceFact& jammer_source) {
+float ComputeLegacySourceJamToNoiseRatio(const JammingEffectsConfig& cfg,
+                                         const session::JammerSourceFact& jammer_source) {
   float source_weight = 1.0f;
   switch (jammer_source.technique) {
     case config::JammingTechnique::kNoiseSuppression:
@@ -201,40 +259,6 @@ float ComputePhysicalSourceJamContributionW(const JammingEffectsConfig& cfg,
   }
   return utils::DbToLinearPower(jammer_source.power_db) * source_weight *
          ResolveJammerConfidenceWeight(cfg, jammer_source);
-}
-
-float ComputeMeasurementCovarianceInflation(
-    const JammingEffectsConfig& cfg, const session::ArControlProfile& control_profile,
-    const session::EnvironmentSnapshot& environment_snapshot) {
-  if (!HasMultiSourceJammingFacts(environment_snapshot)) {
-    return 1.0f;
-  }
-
-  float inflation = 1.0f;
-  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    const session::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
-    const float residual_factor = ComputeResidualJammerFactor(control_profile, source);
-    const float confidence_weight = ResolveJammerConfidenceWeight(cfg, source);
-    switch (source.technique) {
-      case config::JammingTechnique::kDeception:
-        inflation += cfg.covariance_deception_inflation_step * confidence_weight * residual_factor *
-                     (1.0f + source.frequency_overlap_ratio);
-        break;
-      case config::JammingTechnique::kRepeater:
-        inflation += cfg.covariance_repeater_inflation_step * confidence_weight * residual_factor *
-                     (1.0f + source.prf_lock_risk);
-        break;
-      case config::JammingTechnique::kNoiseSuppression:
-        inflation += cfg.covariance_noise_inflation_step * confidence_weight * residual_factor *
-                     (source.in_sidelobe ? 1.0f : 0.5f);
-        break;
-      case config::JammingTechnique::kUnknown:
-      default:
-        inflation += cfg.covariance_unknown_inflation_step * confidence_weight * residual_factor;
-        break;
-    }
-  }
-  return utils::ClampFloat(inflation, 1.0f, cfg.covariance_inflation_max);
 }
 
 config::JammingSemantic ResolveDominantJammingSemantic(
@@ -299,9 +323,8 @@ config::JammingSemantic ResolveDominantJammingSemantic(
   return config::JammingSemantic::kRepeater;
 }
 
-float ComputeTrackLevelJammingSeverity(
-    const session::ArControlProfile& control_profile,
-    const session::EnvironmentSnapshot& environment_snapshot) {
+float ComputeTrackLevelJammingSeverity(const session::ArControlProfile& control_profile,
+                                       const session::EnvironmentSnapshot& environment_snapshot) {
   if (!environment_snapshot.jamming_detected) {
     return 0.0f;
   }
@@ -317,62 +340,6 @@ float ComputeTrackLevelJammingSeverity(
   }
   return utils::ClampFloat(total_severity, 0.0f, 1.0f);
 }
-
-void ApplyEnvironmentJammingFactsToRuntimeConfig(
-    const session::ArControlProfile& control_profile,
-    const session::EnvironmentSnapshot& environment_snapshot, ExecutionConfig* runtime_config) {
-  if (runtime_config == nullptr || !HasMultiSourceJammingFacts(environment_snapshot)) {
-    return;
-  }
-  const JammingEffectsConfig& cfg = runtime_config->jamming_effects;
-
-  float association_scale = 1.0f;
-  float tracking_noise_scale = 1.0f;
-  float measurement_noise_scale = 1.0f;
-
-  for (std::size_t i = 0; i < environment_snapshot.jammer_sources.size(); ++i) {
-    const session::JammerSourceFact& source = environment_snapshot.jammer_sources[i];
-    const float residual_factor = ComputeResidualJammerFactor(control_profile, source);
-    const float confidence_weight = ResolveJammerConfidenceWeight(cfg, source);
-
-    switch (source.technique) {
-      case config::JammingTechnique::kDeception:
-        association_scale += cfg.deception_association_step * confidence_weight * residual_factor *
-                             (1.0f + source.frequency_overlap_ratio);
-        tracking_noise_scale += cfg.deception_tracking_step * confidence_weight * residual_factor *
-                                (1.0f + source.prf_lock_risk);
-        measurement_noise_scale +=
-            cfg.deception_measurement_step * confidence_weight * residual_factor;
-        break;
-      case config::JammingTechnique::kRepeater:
-        association_scale += cfg.repeater_association_step * confidence_weight * residual_factor *
-                             (1.0f + source.prf_lock_risk);
-        tracking_noise_scale += cfg.repeater_tracking_step * confidence_weight * residual_factor *
-                                (1.0f + source.prf_lock_risk);
-        measurement_noise_scale +=
-            cfg.repeater_measurement_step * confidence_weight * residual_factor;
-        break;
-      case config::JammingTechnique::kNoiseSuppression:
-        measurement_noise_scale += cfg.noise_measurement_step * confidence_weight * residual_factor;
-        break;
-      case config::JammingTechnique::kUnknown:
-      default:
-        association_scale += cfg.unknown_association_step * confidence_weight * residual_factor;
-        tracking_noise_scale += cfg.unknown_tracking_step * confidence_weight * residual_factor;
-        measurement_noise_scale +=
-            cfg.unknown_measurement_step * confidence_weight * residual_factor;
-        break;
-    }
-  }
-
-  runtime_config->association.policy.unassigned_cost *=
-      utils::ClampFloat(association_scale, 1.0f, cfg.association_scale_max);
-  runtime_config->tracking.kalman_noise_diff_coeff *=
-      utils::ClampFloat(tracking_noise_scale, 1.0f, cfg.tracking_noise_scale_max);
-  runtime_config->tracking.engineering.kalman_measurement_noise_std *=
-      utils::ClampFloat(measurement_noise_scale, 1.0f, cfg.measurement_noise_scale_max);
-}
-
 
 }  // namespace pipeline
 }  // namespace signal

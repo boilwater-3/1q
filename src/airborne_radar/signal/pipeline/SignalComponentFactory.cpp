@@ -63,9 +63,7 @@ OwnedSignalComponents SignalComponentFactory::BuildOwnedPipelineComponents(
     components.kalman_updater.reset(new tracking::KalmanUpdater(upd_cfg));
   }
 
-  if (config.detection.engineering.enable_physics_detection) {
-    components.signal_detector.reset(new detection::SignalDetector(config.detection.engineering));
-  }
+  components.signal_detector.reset(new detection::SignalDetector(config.detection.engineering));
   return components;
 }
 
@@ -87,8 +85,8 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
     const std::size_t model_count = config.lifecycle.imm_model_noise_diff_coeffs.size();
     bool imm_ready = true;
     if (model_count == 0U) {
-      LogLifecycleAssemblyConfigViolation("IMM enabled but lifecycle.imm_model_noise_diff_coeffs is empty",
-                                          model_count);
+      LogLifecycleAssemblyConfigViolation(
+          "IMM enabled but lifecycle.imm_model_noise_diff_coeffs is empty", model_count);
       imm_ready = false;
     }
     if (model_count > 3U) {
@@ -114,15 +112,13 @@ LifecycleAssemblyArtifacts SignalComponentFactory::BuildLifecycleAssemblyArtifac
 
         tracking::KalmanPredictorConfig imm_pred_cfg;
         imm_pred_cfg.noise_diff_coeff = std::max(noise_diff_coeff, 0.001f);
-        artifacts.imm_predictors_owned.push_back(
-            std::unique_ptr<tracking::IKalmanPredictor>(
-                new tracking::KalmanPredictor(imm_pred_cfg)));
+        artifacts.imm_predictors_owned.push_back(std::unique_ptr<tracking::IKalmanPredictor>(
+            new tracking::KalmanPredictor(imm_pred_cfg)));
         tracking::KalmanUpdaterConfig imm_upd_cfg;
         imm_upd_cfg.measurement_noise_std =
             std::max(config.tracking.engineering.kalman_measurement_noise_std, 0.001f);
         artifacts.imm_updaters_owned.push_back(
-            std::unique_ptr<tracking::IKalmanUpdater>(
-                new tracking::KalmanUpdater(imm_upd_cfg)));
+            std::unique_ptr<tracking::IKalmanUpdater>(new tracking::KalmanUpdater(imm_upd_cfg)));
         artifacts.imm_predictors.push_back(artifacts.imm_predictors_owned.back().get());
         artifacts.imm_updaters.push_back(artifacts.imm_updaters_owned.back().get());
       }
@@ -196,8 +192,6 @@ Eigen::VectorXf SignalComponentFactory::BuildImmInitialWeights(const ExecutionCo
   };
   return imm_defaults::BuildInitialWeights(config, model_count, report);
 }
-
-
 
 }  // namespace pipeline
 }  // namespace signal

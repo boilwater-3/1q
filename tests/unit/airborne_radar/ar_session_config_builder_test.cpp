@@ -36,7 +36,6 @@ config::ArSessionConfig MakeDetectionFocusedConfig() {
 TEST(RadarSessionConfigBuilderTest, DefaultConstructionPreservesSemanticDefaults) {
   const auto config = config::ArSessionConfigBuilder().Build();
 
-  EXPECT_FALSE(config.hardware.enable_physics_detection);
   EXPECT_FLOAT_EQ(config.policy.detection.minimum_detection_margin_db, -2.0f);
   EXPECT_EQ(config.policy.detection.pulse_count, 10);
   EXPECT_FALSE(config.policy.tracking.enable_kalman_filter);
@@ -56,7 +55,6 @@ TEST(RadarSessionConfigBuilderTest, ExistingBuilderBasePreservesSemanticValues) 
 
 TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEditingEnvironment) {
   config::ArSessionConfig base_config{};
-  base_config.hardware.enable_physics_detection = true;
   base_config.hardware.transmitter.peak_power_w = 7.5e6f;
   base_config.hardware.transmitter.frequency_hz = 9.7e9f;
   base_config.policy.tracking.enable_kalman_filter = true;
@@ -71,7 +69,6 @@ TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEdi
           .End()
           .Build();
 
-  EXPECT_TRUE(rebuilt.hardware.enable_physics_detection);
   EXPECT_FLOAT_EQ(rebuilt.hardware.transmitter.peak_power_w, 7.5e6f);
   EXPECT_FLOAT_EQ(rebuilt.hardware.transmitter.frequency_hz, 9.7e9f);
   EXPECT_TRUE(rebuilt.policy.tracking.enable_kalman_filter);
@@ -86,7 +83,6 @@ TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
   const auto config =
       config::ArSessionConfigBuilder()
           .Detection()
-          .EnablePhysicsDetection(true)
           .WithHardwareProfile(config::profiles::ArHardwareProfile::kLongRangeHighPower)
           .WithDetectionIntentProfile(
               config::profiles::DetectionIntentProfile::kTrackStabilityPriority)
@@ -95,7 +91,6 @@ TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
           .End()
           .Build();
 
-  EXPECT_TRUE(config.hardware.enable_physics_detection);
   EXPECT_FLOAT_EQ(config.hardware.transmitter.peak_power_w, 5.0e6f);
   EXPECT_EQ(config.policy.detection.pulse_count, 8);
   EXPECT_FLOAT_EQ(config.hardware.antenna.pattern.max_sidelobe_level_db, -30.0f);
@@ -200,9 +195,9 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
 TEST(RadarSessionConfigBuilderTest, WithRuntimeConfigPatchOverridesWholePatch) {
   // 先用链式逐字段构造一份补丁
   const config::ArRuntimeConfigPatch seed = config::ArRuntimeConfigBuilder()
-                                                   .WithWorkMode(config::ArWorkMode::kStt)
-                                                   .WithSensorEnabled(true)
-                                                   .Build();
+                                                .WithWorkMode(config::ArWorkMode::kStt)
+                                                .WithSensorEnabled(true)
+                                                .Build();
   ASSERT_TRUE(seed.has_work_mode);
   ASSERT_TRUE(seed.has_sensor_enabled);
 
@@ -239,7 +234,6 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
 
 TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig) {
   config::ArSessionConfig detailed_config{};
-  detailed_config.hardware.enable_physics_detection = true;
   detailed_config.hardware.transmitter.peak_power_w = 5.0e6f;
   detailed_config.hardware.transmitter.frequency_hz = 9.3e9f;
   detailed_config.hardware.transmitter.bandwidth_hz = 10.0e6f;
@@ -257,7 +251,6 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   detailed_config.environment.jamming_sensitivity_profile =
       config::JammingSensitivityProfile::kStrict;
 
-  EXPECT_TRUE(detailed_config.hardware.enable_physics_detection);
   EXPECT_FLOAT_EQ(detailed_config.hardware.transmitter.peak_power_w, 5.0e6f);
   EXPECT_FLOAT_EQ(detailed_config.hardware.transmitter.frequency_hz, 9.3e9f);
   EXPECT_EQ(detailed_config.mission.orientation.work_mode, config::ArWorkMode::kTas);
@@ -343,8 +336,7 @@ TEST(RadarSessionConfigValidationTest, RejectsMissingOrNonFiniteAntennaGeometry)
   config::ArSessionConfig session_config;
   session_config.hardware.antenna.nominal_az_beamwidth_deg = 0.0f;
   session_config.hardware.antenna.antenna_length_m = 0.0f;
-  session_config.hardware.antenna.antenna_width_m =
-      std::numeric_limits<float>::quiet_NaN();
+  session_config.hardware.antenna.antenna_width_m = std::numeric_limits<float>::quiet_NaN();
 
   const auto issues = config::ValidateArSessionConfig(session_config);
   ASSERT_EQ(issues.size(), 2U);
@@ -361,13 +353,31 @@ TEST(RadarSessionConfigValidationTest, RejectsInvalidTransmitterFrequency) {
   EXPECT_EQ(issues[0].code, config::ConfigValidationCode::kTransmitterFrequencyInvalid);
 }
 
+TEST(RadarSessionConfigValidationTest, ValidatesReceiverRfHardwareBoundary) {
+  config::ArSessionConfig session_config;
+  session_config.hardware.receiver.maximum_linear_input_power_w = 0.0f;
+  auto issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.back().code, config::ConfigValidationCode::kReceiverRfHardwareInvalid);
+
+  session_config.hardware.receiver.maximum_linear_input_power_w = 1.0e-3f;
+  session_config.hardware.receiver.has_co_site_isolation = true;
+  session_config.hardware.receiver.co_site_isolation_db = 80.0f;
+  EXPECT_TRUE(config::ValidateArSessionConfig(session_config).empty());
+
+  session_config.hardware.receiver.polarization =
+      static_cast<oneq::electromagnetics::RfPolarization>(255);
+  issues = config::ValidateArSessionConfig(session_config);
+  ASSERT_FALSE(issues.empty());
+  EXPECT_EQ(issues.back().code, config::ConfigValidationCode::kReceiverRfHardwareInvalid);
+}
+
 TEST(RadarSessionCreateWithValidationTest, BuildsSessionAndReportsNoIssuesForHealthyConfig) {
   config::ArSessionConfig config;
   config.policy.lifecycle.enable_imm_lifecycle = false;
 
   config::ValidationIssueList issues;
-  const session::ArSession session =
-      session::ArSession::CreateWithValidation(config, &issues);
+  const session::ArSession session = session::ArSession::CreateWithValidation(config, &issues);
 
   EXPECT_TRUE(issues.empty());
   (void)session;
@@ -379,12 +389,10 @@ TEST(RadarSessionCreateWithValidationTest, ReportsIssuesButStillConstructsSessio
   invalid.mission.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
 
   config::ValidationIssueList issues;
-  const session::ArSession session =
-      session::ArSession::CreateWithValidation(invalid, &issues);
+  const session::ArSession session = session::ArSession::CreateWithValidation(invalid, &issues);
 
   ASSERT_EQ(issues.size(), 1U);
-  EXPECT_EQ(issues.front().code,
-            config::ConfigValidationCode::kMechanicalScanLimitsSwappedAz);
+  EXPECT_EQ(issues.front().code, config::ConfigValidationCode::kMechanicalScanLimitsSwappedAz);
   (void)session;  // 会话仍被构造，调用方据 issues 决策
 }
 
@@ -393,8 +401,7 @@ TEST(RadarSessionCreateWithValidationTest, AcceptsNullIssuesWithoutCrash) {
   invalid.mission.orientation.mechanical_scan_limits_deg.az_min_deg = 10.0f;
   invalid.mission.orientation.mechanical_scan_limits_deg.az_max_deg = -10.0f;
 
-  const session::ArSession session =
-      session::ArSession::CreateWithValidation(invalid, nullptr);
+  const session::ArSession session = session::ArSession::CreateWithValidation(invalid, nullptr);
   (void)session;  // nullptr 时仅构造，不写回 issues
 }
 

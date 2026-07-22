@@ -26,6 +26,23 @@ inline void LoadEsrHardware(const examples::JsonValue& j,
   v->el_scan_range_deg = static_cast<float>(j["el_scan_range_deg"].AsDouble());
   v->antenna_mount_az_deg = static_cast<float>(j["antenna_mount_az_deg"].AsDouble());
   v->antenna_mount_el_deg = static_cast<float>(j["antenna_mount_el_deg"].AsDouble());
+  v->antenna_peak_gain_dbi = static_cast<float>(j["antenna_peak_gain_dbi"].AsDouble());
+  v->antenna_sidelobe_level_db =
+      static_cast<float>(j["antenna_sidelobe_level_db"].AsDouble());
+  v->antenna_backlobe_level_db =
+      static_cast<float>(j["antenna_backlobe_level_db"].AsDouble());
+  v->cross_polarization_isolation_db =
+      static_cast<float>(j["cross_polarization_isolation_db"].AsDouble());
+  v->minimum_far_field_range_m =
+      static_cast<float>(j["minimum_far_field_range_m"].AsDouble());
+  v->has_co_site_isolation = j["has_co_site_isolation"].AsBool();
+  v->co_site_isolation_db = static_cast<float>(j["co_site_isolation_db"].AsDouble());
+  v->maximum_linear_input_power_w =
+      static_cast<float>(j["maximum_linear_input_power_w"].AsDouble());
+  v->jamming_jn_threshold_db =
+      static_cast<float>(j["jamming_jn_threshold_db"].AsDouble());
+  v->jamming_snr_loss_threshold_db =
+      static_cast<float>(j["jamming_snr_loss_threshold_db"].AsDouble());
 }
 
 inline void LoadEsrScanPolicy(const examples::JsonValue& j,

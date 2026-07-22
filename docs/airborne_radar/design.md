@@ -1,7 +1,7 @@
 # Airborne Radar 当前设计
 
 Status: active
-Last-reviewed: 2026-07-20
+Last-reviewed: 2026-07-22
 Authority: current airborne_radar module design
 
 本文描述 `airborne_radar` 当前架构、数据流和算法边界。跨模块 public API、builder、输出三层模型等共同规则见 `docs/common/contract.md`。
@@ -95,7 +95,7 @@ flowchart TB
   subgraph Signal["Signal pipeline / 信号与航迹流水线"]
     Env["EnvironmentService\n冻结环境快照 / 内部派生干扰判定"]
     Schedule["ScanScheduleResolver\n扫描调度与驻留中心"]
-    Detect["DetectionExecution\n启发式或物理探测"]
+    Detect["DetectionExecution\n统一物理探测链"]
     Assoc["DataAssociation\nMahalanobis 代价 / LAPJV 分配"]
     Track["TrackLifecycle + Filters\nKF / IMM(KF) 生产链"]
     DecisionFrame["DecisionFrameBuilders\n航迹 / 感知质量 / ECCM 来源"]
@@ -330,7 +330,7 @@ flowchart TB
 | 环境冻结与传播 | `EnvironmentService`、`PropagationModel`、`AtmospherePhysics`（`common/` 共享层） | 管理 pending/active scene，冻结周期环境，计算传播损失/杂波/大气物理 | `ar_environment_service_test`、`ar_propagation_model_test`、`ar_atmosphere_physics_test` |
 | 干扰源语义化 | `NormalizeEmitterState`、jamming threshold utils | 将 jammer emitter 转成方向、旁瓣、频率重叠、PRF 锁定风险等事实 | `ar_environment_service_test`、`ar_tactical_coordinator_test` |
 | 扫描和波束控制 | `ScanScheduleResolver`、`BeamControlResolver`、orientation utils | 解析扫描中心、安装/机体/平台坐标、波束增益和波束宽度 | `ar_signal_scan_schedule_test`、`ar_orientation_utils_test`、`ar_antenna_pattern_utils_test` |
-| 探测执行 | `RunHeuristicDetectionPass`、`RunPhysicalDetectionPass`、`SignalDetector` | 生成探测成功标志、SNR/margin、量测协方差 | `ar_signal_detection_test`、`ar_signal_pipeline_test` |
+| 探测执行 | `RunPhysicalDetectionPass`、`SignalDetector`、`ArRfInterferenceResolver` | 统一物理链生成 SNR、检测概率和量测协方差；工程干扰按接收功率进入噪声账本 | `ar_signal_detection_test`、`ar_signal_pipeline_test` |
 | RCS 与大气物理 | `ComputeEffectiveTargetRcsM2`、`ComputeTargetSpecificAtmosphericLossDb` | 可选物理 RCS、大气传播损失、目标相关损失修正 | `ar_rcs_physics_test`、`ar_atmosphere_physics_test` |
 | 数据关联 | `DataAssociationEngine`、`DenseCostHypothesiser`、`LapjvSolver` | 默认生产路径；基于位置量测、协方差和 track seeds 进行 assignment | `ar_signal_association_test`、`ar_lapjv_solver_test` |
 | 航迹过滤与生命周期 | `TrackFilter`、`TrackLifecycleManager`、KF、IMM(KF) | 更新航迹、处理 missed detection、确认/丢失/回收；EKF/UDKF/SRIF 仅见 §2.10 评估/否决表 | `ar_track_filter_test`、`ar_track_lifecycle_test`、`ar_advanced_filter_test` |
@@ -403,7 +403,9 @@ pending 状态。
 - 根据技术类型、J/S、置信度、方向聚焦推导频率重叠。
 - 根据技术类型、功率、置信度和前瓣/旁瓣推导 PRF lock risk。
 
-这些干扰事实既影响 physical detection 的 jam noise，也进入 ECCM source info 和 association-pressure 后处理。
+legacy 干扰事实只由兼容适配层消费；工程压制干扰由 `RfEmission` 经公共单程链路求解后进入物理噪声账本。
+两种表示由 tagged mode 严格互斥，模式与载荷不一致或新旧载荷并存时整周期拒绝。legacy 欺骗/转发
+不得与工程压制链重复施加。
 
 ### 2.4 扫描调度、坐标和波束控制
 
@@ -439,11 +441,12 @@ AR 的探测不是只按目标 range 计算。目标必须先被解析到当前�
 
 - LPI 可能降低发射功率或改变发射策略。
 - ECCM 可能启用频率捷变、rejitter、旁瓣抵消或自适应波束。
-- 控制效果通过 `ControlProfileEffects` 和 `JammingEffects` 进入下一周期探测。
+- 频率捷变修改实际工作频率并重新计算时频重叠；旁瓣对消/自适应波束只修改方向相关接收增益；
+  烧穿提高有效发射功率，重频抖动修改实际脉冲时序。以上措施不直接改写关联、滤波或生命周期参数。
 
 相关测试覆盖坐标变换、扫描窗口、波束宽度、天线方向图、平台姿态耦合和控制配置跨周期生效。
 
-### 2.5 探测执行：启发式路径与物理路径
+### 2.5 统一物理探测与工程 RF 干扰链
 
 AR 的探测门限属于 policy，不属于 hardware。`ArPolicyConfig::detection` 统一承载
 `minimum_snr_db`、`pfa`、`pulse_count` 和 `minimum_detection_margin_db`；hardware 只描述发射机、
@@ -451,27 +454,24 @@ AR 的探测门限属于 policy，不属于 hardware。`ArPolicyConfig::detectio
 [evidence: tests/unit/airborne_radar/ar_session_config_builder_test.cpp]
 [evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
 
-`DetectionExecution` 提供两类探测路径：
-
-启发式路径：
-
-- 解析目标几何。
-- 可选计算物理 RCS，并把 RCS 转成 signal term。
-- 根据目标速度形成 speed penalty。
-- 根据传播损失、杂波、干扰和控制配置 relief 形成 environment penalty。
-- 以 detection margin 是否超过阈值判断探测成功。
-
-物理路径：
+AR 不再提供 heuristic detection toggle 或启发式 pass；所有生产输入统一进入物理探测路径：
 
 - 计算 clutter noise，并在旁瓣抵消等控制配置下调整。
-- 汇总多干扰源 jam noise，并根据控制配置计算 residual jammer factor。
+- `ArRfInterferenceResolver` 按当前波束、实际频率、驻留窗口、接收方向图、极化、系统损耗和 co-site
+  isolation 求解每个工程发射源的残余接收功率，并在 W 域确定性聚合；超过最大线性输入功率时报告饱和。
 - 对每个目标计算目标相关大气损失。
 - 可选使用物理 RCS 模型混合输入 RCS。
 - 通过 `BeamControlResolver` 得到波束增益。
 - 调用 `SignalDetector::Detect`：雷达方程计算 echo power，扣除接收机损耗；热噪声、杂波、干扰合成噪声基底；计算 SNR；用 CFAR Pfa、Swerling 模型和脉冲积累估算检测概率；低于 `min_snr_db` 时硬截断，否则做 Monte Carlo 判决。
 - 用 `MeasurementErrorModel` 将 SNR、波束宽度和带宽转为 range/angle error，再构造量测协方差。
 
-物理路径的关键边界是：目标 RCS、环境传播、干扰、波束增益和量测协方差都参与结果。不能只用“目标距离近就探测成功”描述 AR 行为。
+压制干扰只通过热噪声/杂波/干扰账本改变 SNR、检测概率和由 SNR 推导的量测协方差；不得直接缩放
+association、Kalman、IMM 或 lifecycle 配置。jammer observation 仅在接收机侧 J/N 门控通过时产生，
+其 AoA/频率误差由 J/N 与波束宽度驱动；source ID 只用于归属和 replay。
+
+[evidence: tests/unit/airborne_radar/ar_signal_pipeline_test.cpp]
+[evidence: tests/unit/airborne_radar/ar_signal_scan_schedule_test.cpp]
+[evidence: tests/replay/airborne_radar/ar_replay_codec_roundtrip_test.cpp]
 
 AR 只有一个频率来源：当前有效的 `transmitter.frequency_hz`。探测、传播、天线波长和物理 RCS
 全部消费该值；频率捷变更新它后，四条物理路径在同一周期使用同一频率。配置必须有限且大于 0，
@@ -504,7 +504,7 @@ association public 配置不再暴露 `unassigned_cost`、启用 hint 或第二�
 航迹层进一步处理 confirmed/lost/recycled 状态：
 
 - `TrackFilter` 在 missed detection 时衰减速度和 RCS。
-- deception/repeater/mixed 等关联脆弱干扰会放缓速度/RCS 衰减，避免把干扰导致的短时丢失误判成目标消失。
+- legacy deception/repeater/mixed 的兼容效果仅允许留在隔离适配路径；工程压制干扰不得改变速度/RCS 衰减。
 - lifecycle manager 管理 tentative/confirmed/lost、track pool 回收、association seeds 导出和 filter writeback。
 - 生产预测/更新使用 KF；策略可启用 IMM 生命周期作为多模型 KF 融合层。EKF、UDKF、SRIF 是 common 内部资产，不是 AR 的运行期配置路径；可复现性边界见 §2.10。
 

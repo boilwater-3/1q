@@ -37,6 +37,9 @@ using TruthAssociationRecordList = std::vector<TruthAssociationRecord>;
 struct ONEQ_API ObservationOutputFrame {
   std::size_t raw_observation_count{0U};
   std::size_t cluster_count{0U};
+  double receiver_center_frequency_hz{0.0}; /**< 本周期接收调谐中心频率（单位：Hz）。 */
+  double receiver_bandwidth_hz{0.0};        /**< 本周期接收调谐带宽（单位：Hz）。 */
+  bool receiver_saturated{false};           /**< 本周期是否超过最大线性输入功率。 */
   session::EmitterObservationList observations{};
 };
 

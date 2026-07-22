@@ -21,9 +21,8 @@ flight_dynamic 不在本框架范围内。
 两者互补：matrix_test 是 CI 门控，本框架是"用大量场景证明模块泛用性"的数据采集与分析工具。
 
 当前共有 230 个场景：保留 199 个 sweep（AR 52、EOS 36、ESR 48、SAR 36、SBIRS 27），
-并新增 31 个 sequence（AR 6、EOS 6、ESR 6、SAR 6、SBIRS 7）。AR 验证器在
-构造每个会话前显式设置 `enable_physics_detection=true`、`enable_physical_rcs=true`
-和 `physics_mix_ratio=1.0`，不依赖 JSON 默认值。
+并新增 31 个 sequence（AR 6、EOS 6、ESR 6、SAR 6、SBIRS 7）。AR 已统一使用物理探测链；验证器在
+构造每个会话前显式设置 `enable_physical_rcs=true` 和 `physics_mix_ratio=1.0`，不依赖 JSON 默认值。
 
 ## 目录结构
 

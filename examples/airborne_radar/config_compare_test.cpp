@@ -27,7 +27,6 @@ ar_config::ArSessionConfig MakeWideAreaSearchConfig() {
   ar_config::ArSessionConfig config =
       ar_config::ArSessionConfigBuilder()
           .Detection()
-          .EnablePhysicsDetection(false)
           .WithHardwareProfile(ar_config::profiles::ArHardwareProfile::kLongRangeHighPower)
           .WithDetectionIntentProfile(
               ar_config::profiles::DetectionIntentProfile::kDetectionPriority)
@@ -158,15 +157,12 @@ void CheckRcsPhysics(const ar_config::detection::RcsPhysicsConfig& a,
   CHECK_EQ(a.bistatic_psi_offset_deg, b.bistatic_psi_offset_deg, "rcs.bistatic_psi_offset_deg");
 }
 
-void CompareConfigs(const ar_config::ArSessionConfig& a,
-                    const ar_config::ArSessionConfig& b) {
+void CompareConfigs(const ar_config::ArSessionConfig& a, const ar_config::ArSessionConfig& b) {
   std::cout << "=== Comparing SessionConfig ===\n";
 
   // hardware
   const auto& da = a.hardware;
   const auto& db = b.hardware;
-  CHECK_BOOL(da.enable_physics_detection, db.enable_physics_detection,
-             "detection.enable_physics_detection");
   CheckTransmitter(da.transmitter, db.transmitter);
   CheckAntenna(da.antenna, db.antenna);
   CheckReceiver(da.receiver, db.receiver);
@@ -219,8 +215,7 @@ void CompareConfigs(const ar_config::ArSessionConfig& a,
              "beam_control.scheduler.prefer_dense_tas_sampling");
 
   // association
-  CHECK_EQ(a.policy.association.distance_gate_sigma,
-           b.policy.association.distance_gate_sigma,
+  CHECK_EQ(a.policy.association.distance_gate_sigma, b.policy.association.distance_gate_sigma,
            "association.distance_gate_sigma");
 
   // tracking

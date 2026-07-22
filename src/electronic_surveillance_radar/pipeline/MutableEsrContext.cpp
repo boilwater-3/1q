@@ -9,6 +9,10 @@ void MutableEsrContext::BeginCycle(const session::EsrCycleInput& input,
                                    const extension::InterceptRuntimeConfig& runtime_config) {
   cycle_index_ = input.cycle_index;
   dt_sec_ = input.dt_sec;
+  platform_entity_id_ = input.platform_entity_id;
+  has_platform_ecef_kinematics_ = input.has_platform_ecef_kinematics;
+  platform_position_ecef_m_ = input.platform_position_ecef_m;
+  platform_velocity_ecef_mps_ = input.platform_velocity_ecef_mps;
   platform_pose_ = input.platform_pose;
   scene_emitters_ = input.scene;
   environment_snapshot_ = environment_snapshot;
@@ -22,6 +26,20 @@ float MutableEsrContext::GetCycleDeltaTimeSec() const { return dt_sec_; }
 
 const oneq::foundation::PoseState& MutableEsrContext::GetPlatformPose() const {
   return platform_pose_;
+}
+
+std::uint64_t MutableEsrContext::GetPlatformEntityId() const { return platform_entity_id_; }
+
+bool MutableEsrContext::HasPlatformEcefKinematics() const {
+  return has_platform_ecef_kinematics_;
+}
+
+const oneq::coordinate::EcefPositionM& MutableEsrContext::GetPlatformPositionEcefM() const {
+  return platform_position_ecef_m_;
+}
+
+const oneq::coordinate::EcefVelocityMps& MutableEsrContext::GetPlatformVelocityEcefMps() const {
+  return platform_velocity_ecef_mps_;
 }
 
 const session::EsrSceneEmitterList& MutableEsrContext::GetSceneEmitters() const {

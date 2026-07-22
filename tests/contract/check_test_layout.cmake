@@ -42,18 +42,18 @@ foreach(_e IN LISTS _entries)
 endforeach()
 
 set(_unit_domains
-    common examples airborne_radar electronic_surveillance_radar
+    common examples airborne_radar electronic_surveillance_radar electronic_countermeasure
     electro_optical_sensor sbirs_sensor sar flight_dynamic)
 set(_integration_domains
     airborne_radar electro_optical_sensor electronic_surveillance_radar
     sbirs_sensor cross_domain)
 set(_replay_domains
-    common airborne_radar electro_optical_sensor electronic_surveillance_radar
+    common airborne_radar electro_optical_sensor electronic_surveillance_radar electronic_countermeasure
     sar sbirs_sensor)
 set(_contract_domains
     public_api airborne_radar electro_optical_sensor electronic_surveillance_radar
     sar sbirs_sensor)
-set(_performance_domains sar)
+set(_performance_domains sar cross_domain)
 set(_compatibility_domains public_api sar)
 
 foreach(_type IN ITEMS unit integration replay contract performance compatibility)

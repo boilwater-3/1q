@@ -43,7 +43,13 @@ ClusterSummary MakeCluster(float x, float y, float az_deg, float el_deg, double 
   summary.mean_az_deg = az_deg;
   summary.mean_el_deg = el_deg;
   summary.mean_rf_hz = rf_hz;
+  summary.mean_bandwidth_hz = 2.0e6;
   summary.mean_pulse_width_s = 1.0e-6;
+  summary.mean_pri_s = 1.0e-3;
+  summary.rf_std_hz = 1000.0;
+  summary.bandwidth_std_hz = 2000.0;
+  summary.pri_std_s = 1.0e-6;
+  summary.pulse_width_std_s = 1.0e-8;
   summary.confidence_score = 0.8f;
   summary.deception_support_ratio = deception_support_ratio;
   summary.spectral_class_label = spectral_label;
@@ -78,6 +84,11 @@ TEST(EsrHypothesisAssociatorTest, MaintainsStableIdsAcrossMatchedCycles) {
   EXPECT_EQ(cycle_1[1].hypothesis_id, cycle_2[1].hypothesis_id);
   EXPECT_EQ(cycle_2[0].last_seen_cycle, 11U);
   EXPECT_EQ(cycle_2[1].last_seen_cycle, 11U);
+  EXPECT_GT(cycle_2[0].estimated_center_frequency_hz, 10.0e9);
+  EXPECT_DOUBLE_EQ(cycle_2[0].estimated_bandwidth_hz, 2.0e6);
+  EXPECT_DOUBLE_EQ(cycle_2[0].estimated_pri_s, 1.0e-3);
+  EXPECT_DOUBLE_EQ(cycle_2[0].estimated_pulse_width_s, 1.0e-6);
+  EXPECT_GT(cycle_2[0].center_frequency_std_hz, 0.0);
 }
 
 TEST(EsrHypothesisAssociatorTest, CreatesNewTrackWhenTwoClustersCompeteOneTrack) {
