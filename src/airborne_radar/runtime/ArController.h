@@ -10,8 +10,8 @@
 #include <memory>
 
 #include "1q/airborne_radar/config/ArPolicyConfig.h"
-#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
+#include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/environment/IEnvironmentService.h"

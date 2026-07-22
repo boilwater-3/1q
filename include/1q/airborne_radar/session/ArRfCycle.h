@@ -10,9 +10,9 @@
 #include <vector>
 
 #include "1q/airborne_radar/config/ArEnvironmentConfig.h"
-#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArInterferenceObservation.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
+#include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
 #include "1q/electromagnetics/RfScene.h"

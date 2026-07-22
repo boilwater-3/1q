@@ -24,5 +24,6 @@
 #include "1q/airborne_radar/session/ArExternalOutputAdapter.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
 #include "1q/airborne_radar/session/ArSession.h"
+#include "1q/airborne_radar/session/ArTrackOutput.h"
 
 #endif  // ONEQ_AIRBORNE_RADAR_AIRBORNE_RADAR_HPP_

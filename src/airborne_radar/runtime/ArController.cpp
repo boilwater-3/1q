@@ -8,7 +8,7 @@
 #include <set>
 
 #include "1q/airborne_radar/session/ArControlProfile.h"
-#include "1q/airborne_radar/session/ArCycleResult.h"
+#include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "airborne_radar/decision/ControlReducer.h"
 #include "airborne_radar/decision/TacticalCoordinator.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
