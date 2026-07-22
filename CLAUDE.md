@@ -86,8 +86,9 @@ Evidence references point to existing test files and specific test cases (not br
 
 ## Batch Refactoring Safety
 
-- Never run terminal commands (e.g., `sed`, `awk`, scripts) or perform automated bulk edits without importantly verifying the exact command on 1-2 files first.
-- Never modify more than 5 files concurrently without intermediate build and test validation to prevent mass codebase corruption and cascading repair cycles.
+- Automated bulk edits (for example `sed`, `awk`, scripts, or mechanical text replacement) must first verify the exact command on 1-2 files, then proceed in batches of at most 5 files.
+- Hand-written semantic refactors must be committed as the smallest buildable and testable dependency closure; they are not subject to a fixed file-count limit.
+- Before a large refactor, enumerate the affected dependency closure. Run intermediate build and test validation at real compileable boundaries rather than splitting one semantic migration only to satisfy a file count.
 
 ## Done Means
 - The chosen preset builds successfully.
