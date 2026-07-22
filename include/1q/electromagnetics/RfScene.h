@@ -130,6 +130,7 @@ struct ONEQ_API RfIncidentLinkConfig {
 /** @brief 一个 emission 到接收设备输入端的统计级入射链路结果。 */
 struct ONEQ_API RfIncidentLinkResult {
   RfEmissionIdentity identity{};
+  RfWaveformSchedule emission_waveform{}; /**< 发射端参数化波形。 */
   std::uint64_t receiver_platform_id{0};
   std::uint64_t receiver_equipment_id{0};
   bool is_co_site{false};
@@ -151,6 +152,22 @@ struct ONEQ_API RfIncidentLinkResult {
   double received_power_w{0.0};
   double received_power_spectral_density_w_per_hz{0.0};
 };
+
+/**
+ * @brief 求参数化波形在接收端某一绝对时刻的活动状态和到达中心频率。
+ * @param[in] waveform 发射端参数化波形。
+ * @param[in] propagation_delay_s 单程传播时延。
+ * @param[in] doppler_shift_hz 接收约定的单程 Doppler。
+ * @param[in] arrival_time_s 接收端绝对 world time。
+ * @param[out] active 该时刻是否存在到达 RF 活动。
+ * @param[out] arrival_center_frequency_hz 活动时的到达中心频率；不活动时为 0。
+ * @return 输入合法时返回 true；失败时不修改输出。
+ */
+ONEQ_API bool TryEvaluateRfArrivalActivity(const RfWaveformSchedule& waveform,
+                                           double propagation_delay_s,
+                                           double doppler_shift_hz, double arrival_time_s,
+                                           bool* active,
+                                           double* arrival_center_frequency_hz);
 
 /**
  * @brief 构造连续载波参数化波形。

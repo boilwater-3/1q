@@ -444,6 +444,65 @@ bool TryCreateRfLinearSweepWaveform(double start_time_s, double duration_s,
   return true;
 }
 
+bool TryEvaluateRfArrivalActivity(const RfWaveformSchedule& waveform,
+                                  double propagation_delay_s, double doppler_shift_hz,
+                                  double arrival_time_s, bool* active,
+                                  double* arrival_center_frequency_hz) {
+  if (active == nullptr || arrival_center_frequency_hz == nullptr ||
+      !IsValidWaveform(waveform) || !IsFinite(propagation_delay_s) ||
+      propagation_delay_s < 0.0 || !IsFinite(doppler_shift_hz) ||
+      !IsFinite(arrival_time_s)) {
+    return false;
+  }
+
+  bool candidate_active = false;
+  double candidate_frequency_hz = 0.0;
+  const double emission_time_s = arrival_time_s - propagation_delay_s;
+  const double activity_end_s =
+      waveform.activity_start_time_s + waveform.activity_duration_s;
+  if (emission_time_s >= waveform.activity_start_time_s && emission_time_s < activity_end_s) {
+    if (waveform.kind == RfSceneWaveformKind::kPulseTrain) {
+      std::uint32_t low = 0U;
+      std::uint32_t high = waveform.pulse_count;
+      while (low < high) {
+        const std::uint32_t middle = low + (high - low) / 2U;
+        if (PulseStartTime(waveform, middle) <= emission_time_s) {
+          low = middle + 1U;
+        } else {
+          high = middle;
+        }
+      }
+      if (low > 0U) {
+        const double pulse_start_s = PulseStartTime(waveform, low - 1U);
+        candidate_active = emission_time_s >= pulse_start_s &&
+                           emission_time_s < pulse_start_s + waveform.pulse_width_s;
+      }
+      candidate_frequency_hz = waveform.center_frequency_hz + doppler_shift_hz;
+    } else if (waveform.kind == RfSceneWaveformKind::kLinearSweep) {
+      double phase =
+          std::fmod(emission_time_s - waveform.activity_start_time_s, waveform.sweep_period_s) /
+          waveform.sweep_period_s;
+      if (phase < 0.0) {
+        phase += 1.0;
+      }
+      candidate_active = true;
+      candidate_frequency_hz =
+          waveform.sweep_start_frequency_hz +
+          phase * (waveform.sweep_stop_frequency_hz - waveform.sweep_start_frequency_hz) +
+          doppler_shift_hz;
+    } else {
+      candidate_active = true;
+      candidate_frequency_hz = waveform.center_frequency_hz + doppler_shift_hz;
+    }
+  }
+  if (candidate_active && (!IsFinite(candidate_frequency_hz) || candidate_frequency_hz <= 0.0)) {
+    return false;
+  }
+  *active = candidate_active;
+  *arrival_center_frequency_hz = candidate_active ? candidate_frequency_hz : 0.0;
+  return true;
+}
+
 bool TryValidateRfSceneFrame(const RfSceneFrame& scene) {
   if (scene.world_cycle_index == 0U || !IsFinite(scene.window_start_time_s) ||
       !IsFinite(scene.window_duration_s) || scene.window_duration_s <= 0.0) {
@@ -485,6 +544,7 @@ bool TryEvaluateRfIncidentLink(const RfSceneEmission& emission,
 
   RfIncidentLinkResult candidate;
   candidate.identity = emission.identity;
+  candidate.emission_waveform = emission.waveform;
   candidate.receiver_platform_id = receiver.platform_id;
   candidate.receiver_equipment_id = receiver.equipment_id;
   candidate.is_co_site = is_co_site;

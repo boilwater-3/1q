@@ -87,6 +87,29 @@ TEST(RfSceneTest, PulseTrainAndSweepUseParameterizedTimeFrequencyOccupancy) {
   EXPECT_LT(sweep_link.frequency_overlap_fraction, 0.20);
 }
 
+TEST(RfSceneTest, ArrivalActivityReplaysPulseJitterAndSweepFrequency) {
+  RfWaveformSchedule pulse;
+  ASSERT_TRUE(TryCreateRfPulseTrainWaveform(10.0, 3.0e9, 1.0e6, 100.0, 1.0e-3,
+                                            10.0e-3, 4U, 0.15, 123U, 9U, &pulse));
+  bool active = false;
+  double center_hz = 0.0;
+  ASSERT_TRUE(TryEvaluateRfArrivalActivity(pulse, 0.25, 1200.0, 10.2505, &active,
+                                           &center_hz));
+  EXPECT_TRUE(active);
+  EXPECT_DOUBLE_EQ(center_hz, 3.0e9 + 1200.0);
+  ASSERT_TRUE(TryEvaluateRfArrivalActivity(pulse, 0.25, 1200.0, 10.255, &active,
+                                           &center_hz));
+  EXPECT_FALSE(active);
+  EXPECT_DOUBLE_EQ(center_hz, 0.0);
+
+  RfWaveformSchedule sweep;
+  ASSERT_TRUE(TryCreateRfLinearSweepWaveform(20.0, 2.0, 2.9e9, 3.1e9, 1.0e6, 50.0,
+                                             1.0, &sweep));
+  ASSERT_TRUE(TryEvaluateRfArrivalActivity(sweep, 0.5, -500.0, 21.0, &active, &center_hz));
+  EXPECT_TRUE(active);
+  EXPECT_NEAR(center_hz, 3.0e9 - 500.0, 1.0e-6);
+}
+
 TEST(RfSceneTest, CoSiteRequiresDirectedEquipmentPath) {
   RfSceneReceiverState receiver = MakeReceiver();
   receiver.platform_id = 10U;
