@@ -73,6 +73,32 @@ bool IsValidExternalProposal(const session::TacticalProposal& proposal) {
   return requires_value ? HasValidRequestedValue(directive) : !directive.has_requested_value;
 }
 
+bool IsValidInterferenceObservationList(
+    const session::ArInterferenceObservationList& observations) {
+  for (std::size_t index = 0U; index < observations.size(); ++index) {
+    const session::ArInterferenceObservation& observation = observations[index];
+    if (observation.observation_id != static_cast<std::uint64_t>(index + 1U) ||
+        !std::isfinite(observation.estimated_bearing_azimuth_deg) ||
+        !std::isfinite(observation.estimated_bearing_elevation_deg) ||
+        !std::isfinite(observation.estimated_off_boresight_deg) ||
+        observation.estimated_off_boresight_deg < 0.0 ||
+        !std::isfinite(observation.estimated_center_frequency_hz) ||
+        observation.estimated_center_frequency_hz <= 0.0 ||
+        !std::isfinite(observation.estimated_bandwidth_hz) ||
+        observation.estimated_bandwidth_hz <= 0.0 ||
+        !std::isfinite(observation.jammer_to_noise_db) ||
+        !std::isfinite(observation.bearing_standard_deviation_deg) ||
+        observation.bearing_standard_deviation_deg < 0.0 ||
+        !std::isfinite(observation.frequency_standard_deviation_hz) ||
+        observation.frequency_standard_deviation_hz < 0.0 ||
+        !std::isfinite(observation.bandwidth_standard_deviation_hz) ||
+        observation.bandwidth_standard_deviation_hz < 0.0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 extension::ControlReducerConfig MapDecisionControlConfig(
     const config::DecisionControlConfig& config) {
   extension::ControlReducerConfig mapped;
@@ -135,6 +161,7 @@ struct ArController::Impl {
   std::uint64_t last_applied_decision_batch_id{0U};
   std::vector<session::TacticalProposal> last_applied_decision_proposals{};
   bool control_prepared_for_cycle{false};
+  session::ArInterferenceObservationList prepared_interference_observations{};
 
   /** @brief 构造使用默认 TacticalCoordinator 的控制器。 */
   Impl(session::MutableArContext& ctx, signal::ISignalPipeline& sig,
@@ -260,6 +287,8 @@ void ArController::RunOnce() {
   session::DecisionInputFrame decision_frame = signal_result.decision_frame;
   decision_frame.cycle_index = stamp.cycle_index;
   decision_frame.batch_id = stamp.batch_id;
+  decision_frame.interference_observations = impl_->prepared_interference_observations;
+  impl_->prepared_interference_observations.clear();
 
   session::TrackOutputFrame track_output_frame;
   track_output_frame.cycle_index = stamp.cycle_index;
@@ -315,7 +344,19 @@ bool ArController::PrepareEmissionControl() {
   return true;
 }
 
-void ArController::ReleasePreparedEmissionControl() { impl_->control_prepared_for_cycle = false; }
+bool ArController::SetPreparedInterferenceObservations(
+    const session::ArInterferenceObservationList& observations) {
+  if (!impl_->control_prepared_for_cycle || !IsValidInterferenceObservationList(observations)) {
+    return false;
+  }
+  impl_->prepared_interference_observations = observations;
+  return true;
+}
+
+void ArController::ReleasePreparedEmissionControl() {
+  impl_->control_prepared_for_cycle = false;
+  impl_->prepared_interference_observations.clear();
+}
 
 const session::ArControlProfile& ArController::GetControlProfile() const {
   return impl_->control_profile;
@@ -438,6 +479,7 @@ extension::ArControllerRuntimeState ArController::CaptureRuntimeState() const {
   state.last_applied_decision_batch_id = impl_->last_applied_decision_batch_id;
   state.last_applied_decision_proposals = impl_->last_applied_decision_proposals;
   state.control_prepared_for_cycle = impl_->control_prepared_for_cycle;
+  state.prepared_interference_observations = impl_->prepared_interference_observations;
   return state;
 }
 
@@ -472,6 +514,7 @@ bool ArController::RestoreRuntimeState(const extension::ArControllerRuntimeState
   impl_->last_applied_decision_batch_id = state.last_applied_decision_batch_id;
   impl_->last_applied_decision_proposals = state.last_applied_decision_proposals;
   impl_->control_prepared_for_cycle = state.control_prepared_for_cycle;
+  impl_->prepared_interference_observations = state.prepared_interference_observations;
   return true;
 }
 

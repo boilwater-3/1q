@@ -208,6 +208,30 @@ TEST(ArTwoPhaseSessionTest, ExternalEccmChangesNextPreparedOperatingState) {
             first.receiver_state.antenna.half_power_beamwidth_deg);
 }
 
+TEST(ArTwoPhaseSessionTest, ReceiverObservationDrivesNextPreparedOperatingState) {
+  config::ArSessionConfig config;
+  config.hardware.transmitter.frequency_plan_hz = {3.0e9, 3.1e9};
+  config.hardware.transmitter.maximum_peak_power_w = 2.0e6f;
+  config.hardware.receiver.maximum_linear_input_power_w = 1.0e6f;
+  ArSession session = ArSession::Create(config);
+
+  const ArPrepareCycleResult first = session.PrepareCycle(MakePrepareInput(1U, 10.0));
+  ASSERT_EQ(first.status, ArPrepareCycleStatus::kPrepared);
+  ArCompleteCycleInput complete_input = MakeCompleteInput(first);
+  complete_input.rf_scene.emissions.push_back(MakeInBandJammer(first));
+  const ArCompleteCycleResult completed = session.CompleteCycle(first.token, complete_input);
+  ASSERT_EQ(completed.status, ArCompleteCycleStatus::kCompleted);
+  ASSERT_EQ(completed.interference_observations.size(), 1U);
+  EXPECT_NEAR(completed.interference_observations[0].estimated_off_boresight_deg, 0.0, 1.0e-9);
+
+  const ArPrepareCycleResult second = session.PrepareCycle(MakePrepareInput(2U, 10.1));
+  ASSERT_EQ(second.status, ArPrepareCycleStatus::kPrepared);
+  EXPECT_DOUBLE_EQ(second.emission.waveform.center_frequency_hz, 3.1e9);
+  EXPECT_GT(second.emission.waveform.transmit_power_w, first.emission.waveform.transmit_power_w);
+  EXPECT_LT(second.receiver_state.antenna.half_power_beamwidth_deg,
+            first.receiver_state.antenna.half_power_beamwidth_deg);
+}
+
 }  // namespace
 }  // namespace session
 }  // namespace airborne_radar

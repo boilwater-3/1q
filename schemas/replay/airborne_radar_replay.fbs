@@ -218,6 +218,20 @@ table EccmSourceInfo {
   jammer_sources:[EccmJammerSourceInfo];
 }
 
+table ArInterferenceObservation {
+  observation_id:ulong;
+  estimated_bearing_azimuth_deg:double;
+  estimated_bearing_elevation_deg:double;
+  estimated_off_boresight_deg:double;
+  estimated_center_frequency_hz:double;
+  estimated_bandwidth_hz:double;
+  estimated_waveform_kind:int;
+  jammer_to_noise_db:double;
+  bearing_standard_deviation_deg:double;
+  frequency_standard_deviation_hz:double;
+  bandwidth_standard_deviation_hz:double;
+}
+
 table AssociationQualityInfo {
   match_rate:float;
   new_track_rate:float;
@@ -241,6 +255,7 @@ table DecisionInputFrame {
   batch_id:ulong;
   environment_jamming_detected:bool;
   eccm_source_info:EccmSourceInfo;
+  interference_observations:[ArInterferenceObservation];
   association_quality_info:AssociationQualityInfo;
   perception_quality_info:PerceptionQualityInfo;
   tracks:[TrackStateSnapshot];

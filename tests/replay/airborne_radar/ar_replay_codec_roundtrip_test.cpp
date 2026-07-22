@@ -270,6 +270,21 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.decision_observation.input_frame.cycle_index = 54U;
   result.decision_observation.input_frame.batch_id = 12U;
   result.decision_observation.input_frame.environment_jamming_detected = true;
+  session::ArInterferenceObservation interference_observation;
+  interference_observation.observation_id = 1U;
+  interference_observation.estimated_bearing_azimuth_deg = 12.0;
+  interference_observation.estimated_bearing_elevation_deg = 3.0;
+  interference_observation.estimated_off_boresight_deg = 8.0;
+  interference_observation.estimated_center_frequency_hz = 3.1e9;
+  interference_observation.estimated_bandwidth_hz = 2.0e6;
+  interference_observation.estimated_waveform_kind =
+      oneq::electromagnetics::RfSceneWaveformKind::kBandLimitedNoise;
+  interference_observation.jammer_to_noise_db = 14.0;
+  interference_observation.bearing_standard_deviation_deg = 0.5;
+  interference_observation.frequency_standard_deviation_hz = 1000.0;
+  interference_observation.bandwidth_standard_deviation_hz = 2000.0;
+  result.decision_observation.input_frame.interference_observations.push_back(
+      interference_observation);
   result.decision_observation.input_frame.association_quality_info.match_rate = 0.75f;
   result.decision_observation.input_frame.perception_quality_info.input_target_count = 2U;
   result.decision_observation.input_frame.tracks.push_back(snap);
@@ -353,6 +368,13 @@ TEST(ArReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_EQ(decoded.decision_observation.input_frame.cycle_index, 54U);
   EXPECT_EQ(decoded.decision_observation.input_frame.batch_id, 12U);
   EXPECT_TRUE(decoded.decision_observation.input_frame.environment_jamming_detected);
+  ASSERT_EQ(decoded.decision_observation.input_frame.interference_observations.size(), 1U);
+  EXPECT_DOUBLE_EQ(decoded.decision_observation.input_frame.interference_observations[0]
+                       .estimated_off_boresight_deg,
+                   8.0);
+  EXPECT_EQ(decoded.decision_observation.input_frame.interference_observations[0]
+                .estimated_waveform_kind,
+            oneq::electromagnetics::RfSceneWaveformKind::kBandLimitedNoise);
   EXPECT_FLOAT_EQ(decoded.decision_observation.input_frame.association_quality_info.match_rate,
                   0.75f);
   EXPECT_EQ(decoded.decision_observation.input_frame.perception_quality_info.input_target_count,

@@ -514,6 +514,18 @@ flatbuffers::Offset<fb::EccmSourceInfo> EncodeEccmSourceInfo(
                                   builder->CreateVector(source_offsets));
 }
 
+flatbuffers::Offset<fb::ArInterferenceObservation> EncodeArInterferenceObservation(
+    flatbuffers::FlatBufferBuilder* builder,
+    const session::ArInterferenceObservation& value) {
+  return fb::CreateArInterferenceObservation(
+      *builder, value.observation_id, value.estimated_bearing_azimuth_deg,
+      value.estimated_bearing_elevation_deg, value.estimated_off_boresight_deg,
+      value.estimated_center_frequency_hz, value.estimated_bandwidth_hz,
+      static_cast<int>(value.estimated_waveform_kind), value.jammer_to_noise_db,
+      value.bearing_standard_deviation_deg, value.frequency_standard_deviation_hz,
+      value.bandwidth_standard_deviation_hz);
+}
+
 flatbuffers::Offset<fb::DecisionInputFrame> EncodeDecisionInputFrame(
     flatbuffers::FlatBufferBuilder* builder, const session::DecisionInputFrame& value) {
   std::vector<flatbuffers::Offset<fb::TrackStateSnapshot>> track_offsets;
@@ -521,11 +533,18 @@ flatbuffers::Offset<fb::DecisionInputFrame> EncodeDecisionInputFrame(
   for (std::size_t i = 0; i < value.tracks.size(); ++i) {
     track_offsets.push_back(EncodeTrackSnapshot(builder, value.tracks[i]));
   }
+  std::vector<flatbuffers::Offset<fb::ArInterferenceObservation>> observation_offsets;
+  observation_offsets.reserve(value.interference_observations.size());
+  for (const session::ArInterferenceObservation& observation :
+       value.interference_observations) {
+    observation_offsets.push_back(EncodeArInterferenceObservation(builder, observation));
+  }
   const session::AssociationQualityInfo& association = value.association_quality_info;
   const session::PerceptionQualityInfo& perception = value.perception_quality_info;
   return fb::CreateDecisionInputFrame(
       *builder, value.cycle_index, value.batch_id, value.environment_jamming_detected,
       EncodeEccmSourceInfo(builder, value.eccm_source_info),
+      builder->CreateVector(observation_offsets),
       fb::CreateAssociationQualityInfo(
           *builder, association.match_rate, association.new_track_rate,
           association.missed_track_rate, association.mean_match_cost, association.p95_match_cost,
@@ -610,6 +629,26 @@ session::EccmSourceInfo DecodeEccmSourceInfo(const fb::EccmSourceInfo* value) {
   return result;
 }
 
+session::ArInterferenceObservation DecodeArInterferenceObservation(
+    const fb::ArInterferenceObservation* value) {
+  session::ArInterferenceObservation result;
+  if (value != nullptr) {
+    result.observation_id = value->observation_id();
+    result.estimated_bearing_azimuth_deg = value->estimated_bearing_azimuth_deg();
+    result.estimated_bearing_elevation_deg = value->estimated_bearing_elevation_deg();
+    result.estimated_off_boresight_deg = value->estimated_off_boresight_deg();
+    result.estimated_center_frequency_hz = value->estimated_center_frequency_hz();
+    result.estimated_bandwidth_hz = value->estimated_bandwidth_hz();
+    result.estimated_waveform_kind = static_cast<oneq::electromagnetics::RfSceneWaveformKind>(
+        value->estimated_waveform_kind());
+    result.jammer_to_noise_db = value->jammer_to_noise_db();
+    result.bearing_standard_deviation_deg = value->bearing_standard_deviation_deg();
+    result.frequency_standard_deviation_hz = value->frequency_standard_deviation_hz();
+    result.bandwidth_standard_deviation_hz = value->bandwidth_standard_deviation_hz();
+  }
+  return result;
+}
+
 session::DecisionInputFrame DecodeDecisionInputFrame(const fb::DecisionInputFrame* value) {
   session::DecisionInputFrame result;
   if (value != nullptr) {
@@ -617,6 +656,14 @@ session::DecisionInputFrame DecodeDecisionInputFrame(const fb::DecisionInputFram
     result.batch_id = value->batch_id();
     result.environment_jamming_detected = value->environment_jamming_detected();
     result.eccm_source_info = DecodeEccmSourceInfo(value->eccm_source_info());
+    if (value->interference_observations() != nullptr) {
+      result.interference_observations.reserve(value->interference_observations()->size());
+      for (flatbuffers::uoffset_t index = 0U;
+           index < value->interference_observations()->size(); ++index) {
+        result.interference_observations.push_back(
+            DecodeArInterferenceObservation(value->interference_observations()->Get(index)));
+      }
+    }
     if (value->association_quality_info() != nullptr) {
       const fb::AssociationQualityInfo* association = value->association_quality_info();
       result.association_quality_info.match_rate = association->match_rate();

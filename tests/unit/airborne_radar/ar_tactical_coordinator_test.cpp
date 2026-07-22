@@ -330,7 +330,7 @@ TEST(TacticalCoordinatorTest,
                                      session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
 }
 
-TEST(TacticalCoordinatorTest, AssociationStressCanBackfillDeceptionDrivenEccmTrigger) {
+TEST(TacticalCoordinatorTest, AssociationStressCannotBackfillAnEccmTrigger) {
   decision::TacticalCoordinator coordinator;
   session::TacticalStateStore state_store;
 
@@ -346,21 +346,12 @@ TEST(TacticalCoordinatorTest, AssociationStressCanBackfillDeceptionDrivenEccmTri
   const session::TacticalDecisionResult result =
       coordinator.Evaluate(frame, state_store);
 
-  EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
-  EXPECT_TRUE(ContainsDirectiveType(result.proposals,
-                                    session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
-  EXPECT_TRUE(
-      ContainsDirectiveType(result.proposals, session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
-  EXPECT_TRUE(ContainsDirectiveType(
-      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_ADAPTIVE_BEAMFORMING));
-  EXPECT_FALSE(ContainsDirectiveType(
-      result.proposals, session::ControlDirectiveType::REQUEST_ENABLE_SIDELOBE_CANCELLER));
-  EXPECT_FALSE(ContainsDirectiveType(result.proposals,
-                                     session::ControlDirectiveType::REQUEST_ECCM_BURNTHROUGH_GAIN));
-  EXPECT_EQ(state_store.last_decision_summary, "protected-emission(association-pressure)");
+  EXPECT_EQ(result.selected_mode, session::TacticalMode::kBaseline);
+  EXPECT_TRUE(result.proposals.empty());
+  EXPECT_EQ(state_store.last_decision_summary, "baseline");
 }
 
-TEST(TacticalCoordinatorTest, AssociationStressRaisesTypeSpecificEccmPriorityWithoutMutatingFacts) {
+TEST(TacticalCoordinatorTest, AssociationStressDoesNotChangeEccmPriorityOrRationale) {
   decision::TacticalCoordinator coordinator;
   session::TacticalStateStore baseline_state_store;
   session::TacticalStateStore stressed_state_store;
@@ -393,18 +384,24 @@ TEST(TacticalCoordinatorTest, AssociationStressRaisesTypeSpecificEccmPriorityWit
   const session::TacticalDecisionResult stressed_result =
       coordinator.Evaluate(stressed_frame, stressed_state_store);
 
-  EXPECT_GT(FindDirectivePriority(stressed_result.proposals,
-                                  session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY),
-            FindDirectivePriority(baseline_result.proposals,
-                                  session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
-  EXPECT_GT(FindDirectivePriority(stressed_result.proposals,
-                                  session::ControlDirectiveType::REQUEST_ECCM_REJITTER),
-            FindDirectivePriority(baseline_result.proposals,
-                                  session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
-  EXPECT_NE(FindDirectiveRationale(stressed_result.proposals,
-                                   session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY)
-                .find("association stress"),
-            std::string::npos);
+  EXPECT_FLOAT_EQ(FindDirectivePriority(
+                      stressed_result.proposals,
+                      session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY),
+                  FindDirectivePriority(
+                      baseline_result.proposals,
+                      session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
+  EXPECT_FLOAT_EQ(FindDirectivePriority(
+                      stressed_result.proposals,
+                      session::ControlDirectiveType::REQUEST_ECCM_REJITTER),
+                  FindDirectivePriority(
+                      baseline_result.proposals,
+                      session::ControlDirectiveType::REQUEST_ECCM_REJITTER));
+  EXPECT_EQ(FindDirectiveRationale(
+                stressed_result.proposals,
+                session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY),
+            FindDirectiveRationale(
+                baseline_result.proposals,
+                session::ControlDirectiveType::REQUEST_AGILITY_FREQUENCY));
 }
 
 TEST(TacticalCoordinatorTest, PoorAssociationQualityWithoutJammingSemanticDoesNotTriggerEccm) {
@@ -436,7 +433,7 @@ TEST(TacticalCoordinatorTest, PoorAssociationQualityWithoutJammingSemanticDoesNo
   EXPECT_EQ(state_store.last_decision_summary, "baseline(detection-pressure)");
 }
 
-TEST(TacticalCoordinatorTest, EnvironmentJammingAndAssociationPressureAreBothReflectedInSummary) {
+TEST(TacticalCoordinatorTest, LegacyEnvironmentJammingSummaryExcludesAssociationPressure) {
   decision::TacticalCoordinator coordinator;
   session::TacticalStateStore state_store;
 
@@ -459,7 +456,7 @@ TEST(TacticalCoordinatorTest, EnvironmentJammingAndAssociationPressureAreBothRef
 
   EXPECT_EQ(result.selected_mode, session::TacticalMode::kProtectedEmission);
   EXPECT_EQ(state_store.last_decision_summary,
-            "protected-emission(environment-jamming+association-pressure+detection-pressure)");
+            "protected-emission(legacy-environment-jamming+detection-pressure)");
 }
 
 TEST(TacticalCoordinatorTest, LpiProposalStopsWithoutFreshThreatEvidence) {

@@ -147,6 +147,21 @@ bool EccmSourceInfoEqual(const session::EccmSourceInfo& left,
   return true;
 }
 
+bool ArInterferenceObservationEqual(const session::ArInterferenceObservation& left,
+                                    const session::ArInterferenceObservation& right) {
+  return left.observation_id == right.observation_id &&
+         left.estimated_bearing_azimuth_deg == right.estimated_bearing_azimuth_deg &&
+         left.estimated_bearing_elevation_deg == right.estimated_bearing_elevation_deg &&
+         left.estimated_off_boresight_deg == right.estimated_off_boresight_deg &&
+         left.estimated_center_frequency_hz == right.estimated_center_frequency_hz &&
+         left.estimated_bandwidth_hz == right.estimated_bandwidth_hz &&
+         left.estimated_waveform_kind == right.estimated_waveform_kind &&
+         left.jammer_to_noise_db == right.jammer_to_noise_db &&
+         left.bearing_standard_deviation_deg == right.bearing_standard_deviation_deg &&
+         left.frequency_standard_deviation_hz == right.frequency_standard_deviation_hz &&
+         left.bandwidth_standard_deviation_hz == right.bandwidth_standard_deviation_hz;
+}
+
 bool DecisionInputFrameEqual(const session::DecisionInputFrame& left,
                              const session::DecisionInputFrame& right) {
   if (left.cycle_index != right.cycle_index || left.batch_id != right.batch_id ||
@@ -175,8 +190,15 @@ bool DecisionInputFrameEqual(const session::DecisionInputFrame& left,
           right.perception_quality_info.detection_rate ||
       left.perception_quality_info.detection_stress !=
           right.perception_quality_info.detection_stress ||
+      left.interference_observations.size() != right.interference_observations.size() ||
       left.tracks.size() != right.tracks.size()) {
     return false;
+  }
+  for (std::size_t index = 0U; index < left.interference_observations.size(); ++index) {
+    if (!ArInterferenceObservationEqual(left.interference_observations[index],
+                                        right.interference_observations[index])) {
+      return false;
+    }
   }
   for (std::size_t i = 0; i < left.tracks.size(); ++i) {
     if (!TrackStateSnapshotEqual(left.tracks[i], right.tracks[i])) {

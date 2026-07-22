@@ -46,29 +46,6 @@ class TacticalCoordinator final {
 
  private:
   /**
-   * @brief 当环境未报干扰但关联质量异常时，补填 ECCM 触发信号。
-   *
-   * 条件：dominant_jamming_semantic ∈ {Deception, Repeater, Mixed}
-   * 且 severity ≥ 0.35、stress ≥ 0.18。
-   * @param[in] association_quality_info 当前周期关联质量摘要。
-   * @return 满足补填条件时返回 true。
-   */
-  static bool ShouldBackfillEccmTrigger(
-      const session::AssociationQualityInfo& association_quality_info);
-
-  /**
-   * @brief 关联质量驱动的 ECCM 优先级偏置后处理。
-   *
-   * 在 EccmEvaluator 返回后，根据关联质量（severity、stress、match cost、semantic）
-   * 对已生成的 ECCM proposals 进行优先级调整。
-   * @param[in] association_quality_info 当前周期关联质量摘要。
-   * @param[out] proposals 待调整优先级的 ECCM 提案列表（原地修改）。
-   */
-  static void ApplyAssociationDrivenPriorityBias(
-      const session::AssociationQualityInfo& association_quality_info,
-      std::vector<session::TacticalProposal>* proposals);
-
-  /**
    * @brief 构建决策摘要字符串。
    */
   static std::string BuildDecisionSummary(

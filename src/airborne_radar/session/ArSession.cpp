@@ -544,6 +544,10 @@ struct ArSession::Impl {
         return result;
       }
     }
+    if (!Controller().SetPreparedInterferenceObservations(interference_observations)) {
+      result.status = ArCompleteCycleStatus::kRejected;
+      return result;
+    }
 
     ArCycleInput legacy_execution_input;
     legacy_execution_input.cycle_index =

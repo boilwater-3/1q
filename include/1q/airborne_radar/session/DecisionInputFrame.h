@@ -10,6 +10,7 @@
 #include <cstdint>
 
 #include "1q/api.hpp"
+#include "1q/airborne_radar/session/ArInterferenceObservation.h"
 #include "1q/airborne_radar/session/DecisionSourceInfo.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/config/JammingSemantics.h"
@@ -51,6 +52,8 @@ struct ONEQ_API DecisionInputFrame {
   std::uint64_t batch_id{0};                         /**< 当前批号 */
   bool environment_jamming_detected{false};          /**< 环境是否检测到干扰 */
   EccmSourceInfo eccm_source_info{};                 /**< 供 ECCM 消费的干扰事实摘要 */
+  ArInterferenceObservationList
+      interference_observations{}; /**< 接收机 J/N 门控后的工程 RF 观测。 */
   AssociationQualityInfo association_quality_info{}; /**< 供决策层消费的关联质量摘要 */
   PerceptionQualityInfo perception_quality_info{};   /**< 供决策层消费的探测质量摘要 */
   TrackStateSnapshotList tracks{};                /**< 当前周期可见的轨迹快照 */

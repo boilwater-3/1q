@@ -58,6 +58,7 @@ struct ArControllerRuntimeState {
   std::uint64_t last_applied_decision_batch_id{0U};
   std::vector<session::TacticalProposal> last_applied_decision_proposals{};
   bool control_prepared_for_cycle{false};
+  session::ArInterferenceObservationList prepared_interference_observations{};
 };
 }  // namespace extension
 }  // namespace airborne_radar
@@ -95,6 +96,14 @@ class ArController {
    * @return 本周期首次冻结返回 true；重复调用返回 false。
    */
   bool PrepareEmissionControl();
+
+  /**
+   * @brief 写入当前已准备周期的去真值化干扰观测。
+   * @param[in] observations Complete 阶段由接收机链路生成的观测列表。
+   * @return 全部观测有效并原子替换成功时返回 true。
+   */
+  bool SetPreparedInterferenceObservations(
+      const session::ArInterferenceObservationList& observations);
 
   /** @brief 在 Abandon 后释放控制冻结标记，不回滚已消费的控制真值。 */
   void ReleasePreparedEmissionControl();

@@ -54,6 +54,15 @@ class EccmEvaluator final {
   };
 
   /**
+   * @brief 根据接收机形成的去真值化 RF 观测生成 ECCM 提案。
+   * @param[in] observations 已通过 J/N 门限的本地观测。
+   * @param[out] proposals 追加 ECCM 提案的输出列表。
+   * @return 本周期 ECCM 激活状态与来源。
+   */
+  Result Evaluate(const session::ArInterferenceObservationList& observations,
+                  std::vector<session::TacticalProposal>* proposals);
+
+  /**
    * @brief 基于环境干扰事实生成 ECCM 战术提案（基础重载）。
    *
    * @deprecated 生产路径已迁移到带 `AssociationQualityInfo` 的关联重载：
@@ -133,6 +142,11 @@ class EccmEvaluator final {
   /** @brief 累加单个可信干扰源事实对五种 ECCM 措施的评分。 */
   static void AccumulateMultiSourceEccmFacts(
       const session::EccmJammerSourceInfo& source,
+      EccmProposalSelection* selection);
+
+  /** @brief 累加单个接收机 RF 观测对实际 ECCM 手段的评分。 */
+  static void AccumulateInterferenceObservation(
+      const session::ArInterferenceObservation& observation,
       EccmProposalSelection* selection);
 
   /** @brief 构建提案解释文本。 */

@@ -43,12 +43,14 @@ double ObservableBandwidthHz(const oneq::electromagnetics::RfWaveformSchedule& w
   return waveform.occupied_bandwidth_hz;
 }
 
-using ObservationSortKey = std::tuple<double, double, double, double, std::uint8_t, double>;
+using ObservationSortKey =
+    std::tuple<double, double, double, double, double, std::uint8_t, double>;
 
 ObservationSortKey MakeSortKey(const session::ArInterferenceObservation& observation) {
   return std::make_tuple(
       observation.estimated_bearing_azimuth_deg, observation.estimated_bearing_elevation_deg,
-      observation.estimated_center_frequency_hz, observation.estimated_bandwidth_hz,
+      observation.estimated_off_boresight_deg, observation.estimated_center_frequency_hz,
+      observation.estimated_bandwidth_hz,
       static_cast<std::uint8_t>(observation.estimated_waveform_kind),
       observation.jammer_to_noise_db);
 }
@@ -99,6 +101,14 @@ bool TryResolveArInterferenceObservations(
     session::ArInterferenceObservation observation;
     observation.estimated_bearing_azimuth_deg = std::atan2(y, x) * kRadiansToDegrees;
     observation.estimated_bearing_elevation_deg = std::asin(z / range_m) * kRadiansToDegrees;
+    const double direction_x = x / range_m;
+    const double direction_y = y / range_m;
+    const double direction_z = z / range_m;
+    const double boresight_dot =
+        std::max(-1.0, std::min(1.0, direction_x * receiver.antenna.boresight_ecef.x +
+                                        direction_y * receiver.antenna.boresight_ecef.y +
+                                        direction_z * receiver.antenna.boresight_ecef.z));
+    observation.estimated_off_boresight_deg = std::acos(boresight_dot) * kRadiansToDegrees;
     observation.estimated_center_frequency_hz = CenterFrequencyHz(emission->waveform);
     observation.estimated_bandwidth_hz = ObservableBandwidthHz(emission->waveform);
     observation.estimated_waveform_kind = emission->waveform.kind;

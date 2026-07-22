@@ -39,6 +39,7 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/ArExternalInputAdapter.h"
     "airborne_radar/session/ArExternalOutputAdapter.h"
     "airborne_radar/session/ArInputValidation.h"
+    "airborne_radar/session/ArInterferenceObservation.h"
     "airborne_radar/session/ArOutputTypes.h"
     "airborne_radar/session/ArSceneTypes.h"
     "airborne_radar/session/ArReplaySession.h"
