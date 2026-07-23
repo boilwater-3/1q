@@ -146,12 +146,14 @@ ar_session::ArCycleResult Step(SceneState& s, float dt) {
   }
 
   ar_session::ArCycleInput input;
-  if (!ar_session::ArCycleInputAdapter::Build(
-          platform, target_inputs, dt, s.env_state.Snapshot(), &input)) {
-    std::cerr << "AR scene: cycle " << s.cycle << " build failed\n";
-    std::exit(1);
-  }
   input.cycle_index = s.cycle;
+  input.cycle_start_time_s =
+      static_cast<double>(s.cycle - 1U) * static_cast<double>(dt);
+  input.dt_sec = dt;
+  platform.platform_entity_id = 1U;
+  input.platform = platform;
+  input.targets = target_inputs;
+  input.environment = s.env_state.Snapshot();
 
   ar_session::ArCycleResult result = s.session.StepWithResult(input);
   if (result.has_validation_error) ++s.validation_errors;

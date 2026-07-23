@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/session/ArSceneTypes.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArTrackLifecycleRecorder.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
@@ -24,9 +24,9 @@ namespace {
 
 namespace ar_model = ::airborne_radar::session;
 
-ArSceneTarget MakeNamedTarget(std::uint64_t id, const std::string& name) {
-  ArSceneTarget target;
-  target.external_target_id = id;
+ArTargetInput MakeNamedTarget(std::uint64_t id, const std::string& name) {
+  ArTargetInput target;
+  target.target_id = id;
   target.target_name = name;
   target.rcs = 1.0f;
   return target;
@@ -62,7 +62,8 @@ ArCycleResult MakeCycleResult(std::uint64_t cycle_index, bool completed,
 
 // debug view：把 track 输出 + 输入目标表合成；name 经 external_target_id 回填。
 TEST(RadarTrackOutputDebugViewTest, BuildMapsTracksBackToNamedTargets) {
-  const ArSceneTargetList targets = {MakeNamedTarget(701U, "alpha"), MakeNamedTarget(702U, "beta"),
+  const ArTargetInputList targets = {MakeNamedTarget(701U, "alpha"),
+                                     MakeNamedTarget(702U, "beta"),
                                      MakeNamedTarget(0U, "no-id")};
 
   ArCycleResult result =
@@ -93,7 +94,7 @@ TEST(RadarTrackOutputDebugViewTest, BuildMapsTracksBackToNamedTargets) {
 
 // debug view：未完成周期时所有目标标记为 kCycleNotCompleted。
 TEST(RadarTrackOutputDebugViewTest, NonCompletedCycleMarksAllTargetsAsNonCompleted) {
-  const ArSceneTargetList targets = {MakeNamedTarget(701U, "alpha")};
+  const ArTargetInputList targets = {MakeNamedTarget(701U, "alpha")};
 
   ArCycleResult result = MakeCycleResult(9U, /*completed=*/false, {});
   const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(targets, result);
@@ -104,7 +105,7 @@ TEST(RadarTrackOutputDebugViewTest, NonCompletedCycleMarksAllTargetsAsNonComplet
 
 // lifecycle recorder：首次确认 → 更新 → 丢失；未跟踪默认不产生事件。
 TEST(RadarTrackLifecycleRecorderTest, TracksFirstConfirmedUpdatedLost) {
-  const ArSceneTargetList targets = {MakeNamedTarget(800U, "gamma")};
+  const ArTargetInputList targets = {MakeNamedTarget(800U, "gamma")};
 
   ArTrackLifecycleRecorder recorder;
 
@@ -132,7 +133,7 @@ TEST(RadarTrackLifecycleRecorderTest, TracksFirstConfirmedUpdatedLost) {
 }
 
 TEST(RadarTrackLifecycleRecorderTest, NonCompletedCyclePreservesConfirmedState) {
-  const ArSceneTargetList targets = {MakeNamedTarget(801U, "recoverable")};
+  const ArTargetInputList targets = {MakeNamedTarget(801U, "recoverable")};
   ArTrackLifecycleRecorder recorder(ArTrackLifecycleRecorderConfig{true});
   ArCycleResult confirmed = MakeCycleResult(
       1U, true, {MakeTrackSnapshot(801U, "recoverable", session::TrackStatus::kConfirmed)});
@@ -148,7 +149,7 @@ TEST(RadarTrackLifecycleRecorderTest, NonCompletedCyclePreservesConfirmedState) 
 
 // lifecycle recorder：未跟踪目标默认不产生事件；开启后产生 kNotTracked。
 TEST(RadarTrackLifecycleRecorderTest, NotTrackedEventsRequireExplicitEnable) {
-  const ArSceneTargetList targets = {MakeNamedTarget(900U, "delta")};
+  const ArTargetInputList targets = {MakeNamedTarget(900U, "delta")};
 
   // 默认配置：无 track 的目标不产生事件。
   ArTrackLifecycleRecorder recorder;
@@ -167,7 +168,7 @@ TEST(RadarTrackLifecycleRecorderTest, NotTrackedEventsRequireExplicitEnable) {
 
 // lifecycle recorder：external_target_id=0 的目标不参与生命周期记录（无法关联）。
 TEST(RadarTrackLifecycleRecorderTest, ZeroIdTargetsAreSkipped) {
-  const ArSceneTargetList targets = {MakeNamedTarget(0U, "no-id")};
+  const ArTargetInputList targets = {MakeNamedTarget(0U, "no-id")};
 
   ArTrackLifecycleRecorder diagnose_recorder(ArTrackLifecycleRecorderConfig{true});
   ArCycleResult result = MakeCycleResult(1U, /*completed=*/true, {});

@@ -32,7 +32,6 @@ set(AR_PUBLIC_PRIMARY_HEADERS
 # ── AR 会话域
 set(AR_SESSION_HEADERS
     "airborne_radar/session/ArCycleInput.h"
-    "airborne_radar/session/ArCycleInputAdapter.h"
     "airborne_radar/session/ArCycleOutputAdapter.h"
     "airborne_radar/session/ArCycleResult.h"
     "airborne_radar/session/ArEnvironmentInput.h"

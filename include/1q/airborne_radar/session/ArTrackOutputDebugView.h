@@ -78,7 +78,7 @@ class ONEQ_API ArTrackOutputDebugViewBuilder {
    * @param[in] result 当前周期结果（用于查询轨迹状态与接收机损伤）。
    * @return 合成的单周期轨迹输出调试视图。
    */
-  static ArTrackOutputDebugView Build(const ArSceneTargetList& targets,
+  static ArTrackOutputDebugView Build(const ArTargetInputList& targets,
                                       const ArCycleResult& result);
 };
 

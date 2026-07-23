@@ -91,7 +91,7 @@ class ONEQ_API ArTrackLifecycleRecorder {
    * @param[in] result 当前周期结果（用于查询关联轨迹状态）。
    * @return 本周期产生的生命周期事件列表（可能为空）。
    */
-  std::vector<ArTrackLifecycleEvent> Update(const ArSceneTargetList& targets,
+  std::vector<ArTrackLifecycleEvent> Update(const ArTargetInputList& targets,
                                             const ArCycleResult& result);
 
   /**

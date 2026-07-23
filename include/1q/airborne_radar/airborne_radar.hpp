@@ -16,7 +16,6 @@
 #include "1q/airborne_radar/config/JammingSemantics.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/airborne_radar/session/ArCycleInput.h"
-#include "1q/airborne_radar/session/ArCycleInputAdapter.h"
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArEnvironmentInput.h"

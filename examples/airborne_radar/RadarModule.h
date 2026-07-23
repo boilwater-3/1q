@@ -147,8 +147,7 @@ class RadarModule {
    *   3. 调用 Session::StepWithResult
    *   4. 缓存结果
    *
-   * 外部引擎应使用 ArCycleInputAdapter::Build 构造 ArCycleInput，
-   * 或直接填充各字段后传入。
+   * 外部引擎直接填充 ArCycleInput 的周期、平台、目标、自然环境与干扰字段。
    *
    * @param[in] input  本周期完整输入
    */
@@ -185,7 +184,8 @@ class RadarModule {
     ++cycle_index_;
 
     // 4. 记录生命周期事件（三视图之一）
-    lifecycle_events_ = lifecycle_recorder_.Update(last_input_, last_result_);
+    lifecycle_events_ =
+        lifecycle_recorder_.Update(last_input_.targets, last_result_);
   }
 
   // ==================== 订阅者模式 ====================
@@ -264,7 +264,8 @@ class RadarModule {
    * 显示每个输入目标是否有对应 track、track status、位置、速度、RCS 等。
    */
   ar_session::ArTrackOutputDebugView buildLastDebugView() const {
-    return ar_session::ArTrackOutputDebugViewBuilder::Build(last_input_, last_result_);
+    return ar_session::ArTrackOutputDebugViewBuilder::Build(
+        last_input_.targets, last_result_);
   }
 
   /** @brief 返回最近一次的生命周期事件列表（三视图之一）。 */

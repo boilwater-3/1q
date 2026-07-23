@@ -330,15 +330,16 @@ int main(int argc, char** argv) {
     env.atmospheric_context.has_simulation_unix_seconds = true;
     env.atmospheric_context.simulation_unix_seconds = 1770000000 + i;
 
-    if (!ar_session::ArCycleInputAdapter::Build(
-            platform, target_inputs, 1.0f, env, &input)) {
-      std::cerr << "  周期 " << (i + 1) << "：ArCycleInputAdapter::Build 失败\n";
-      return 1;
-    }
     input.cycle_index = i + 1;
+    input.cycle_start_time_s = static_cast<double>(i);
+    input.dt_sec = 1.0;
+    platform.platform_entity_id = 1U;
+    input.platform = platform;
+    input.targets = target_inputs;
+    input.environment = env;
 
     // ---- 推进目标位置（简单欧拉积分） ----
-    const float dt = input.dt_sec;
+    const double dt = input.dt_sec;
     for (auto& mt : targets) {
       mt.x_m += mt.vx_mps * dt;
       mt.y_m += mt.vy_mps * dt;
@@ -377,7 +378,9 @@ int main(int argc, char** argv) {
                 << ar_session::CountTracksByStatus(
                        result.track_output_frame,
                        ar_session::TrackStatus::kTentative)
-                << (result.executed_this_cycle ? "" : " [未执行]")
+                << (result.status == ar_session::ArCycleStatus::kCompleted
+                        ? ""
+                        : " [未完成]")
                 << "\n";
     }
   }
@@ -418,15 +421,19 @@ int main(int argc, char** argv) {
   }
   std::cout << "  指令数: " << final_result.submitted_commands.size() << "\n"
             << "  校验错误: " << (final_result.has_validation_error ? "是" : "否") << "\n"
-            << "  执行成功: " << (final_result.executed_this_cycle ? "是" : "否") << "\n\n";
+            << "  执行成功: "
+            << (final_result.status == ar_session::ArCycleStatus::kCompleted
+                    ? "是"
+                    : "否")
+            << "\n\n";
 
   // --- 视图二：ArTrackOutputDebugView（调试视图）---
   ar_session::ArTrackOutputDebugView debug_view = radar.buildLastDebugView();
   std::cout << "[视图二] ArTrackOutputDebugView — 人读排查视图\n"
-            << "  输入周期: " << debug_view.input_cycle_index << "\n"
+            << "  世界周期: " << debug_view.world_cycle_index << "\n"
             << "  输出周期: " << debug_view.output_cycle_index << "\n"
-            << "  执行: " << (debug_view.executed_this_cycle ? "是" : "否")
-            << " 复用: " << (debug_view.reused_previous_output ? "是" : "否") << "\n"
+            << "  完成: " << (debug_view.completed_this_cycle ? "是" : "否")
+            << "\n"
             << "  轨迹状态:\n";
   for (std::size_t k = 0; k < debug_view.tracks.size(); ++k) {
     const auto& d = debug_view.tracks[k];
@@ -456,7 +463,7 @@ int main(int argc, char** argv) {
       case ar_session::ArTrackLifecycleEventKind::kNotTracked:
         kind_str = "未跟踪"; break;
     }
-    std::cout << "    [" << k << "] cycle=" << e.cycle_index
+    std::cout << "    [" << k << "] cycle=" << e.world_cycle_index
               << " target_id=" << e.external_target_id
               << " kind=" << kind_str
               << " key=" << e.association_key

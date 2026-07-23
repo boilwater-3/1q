@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/session/ArSceneTypes.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 
@@ -25,9 +25,9 @@ namespace airborne_radar {
 namespace session {
 namespace {
 
-ArSceneTarget MakeTarget(std::uint64_t id, const std::string& name) {
-  ArSceneTarget target;
-  target.external_target_id = id;
+ArTargetInput MakeTarget(std::uint64_t id, const std::string& name) {
+  ArTargetInput target;
+  target.target_id = id;
   target.target_name = name;
   target.rcs = 1.0f;
   return target;
@@ -59,7 +59,7 @@ ArCycleResult MakeResult(std::uint64_t cycle_index,
 // 这锁定 name 不参与关联——若 name 误入关联键，同名目标会冲突。
 TEST(RarOutputBoundaryContractTest, SameNameDifferentIdDoesNotBreakAssociation) {
   // 两个同名目标，不同 ID。
-  const ArSceneTargetList targets = {MakeTarget(1001U, "shared-name"),
+  const ArTargetInputList targets = {MakeTarget(1001U, "shared-name"),
                                      MakeTarget(1002U, "shared-name")};
 
   ArCycleResult result =
@@ -77,7 +77,7 @@ TEST(RarOutputBoundaryContractTest, SameNameDifferentIdDoesNotBreakAssociation) 
 
 // 合同：空 name 不影响 track 关联与 debug view 回填（name 是可选标签）。
 TEST(RarOutputBoundaryContractTest, EmptyNameDoesNotAffectAssociation) {
-  const ArSceneTargetList targets = {MakeTarget(2001U, "")};
+  const ArTargetInputList targets = {MakeTarget(2001U, "")};
 
   ArCycleResult result =
       MakeResult(1U, {MakeSnapshot(2001U, "", session::TrackStatus::kConfirmed)});

@@ -48,7 +48,6 @@ set(AIRBORNE_CORE_SOURCES
     runtime/ArController.cpp
     session/ArSessionCompositionRoot.cpp
     session/ArExternalInputAdapter.cpp
-    session/ArCycleInputAdapter.cpp
     session/ArExternalOutputAdapter.cpp
     session/ArCycleOutputAdapter.cpp
     session/ArTrackOutputDebugViewBuilder.cpp

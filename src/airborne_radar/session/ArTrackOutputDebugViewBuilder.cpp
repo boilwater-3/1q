@@ -27,10 +27,10 @@ const session::TrackStateSnapshot* FindTrackByExternalTargetId(
   return nullptr;
 }
 
-ArDebugTrackState BuildTrackState(const ArSceneTarget& target,
+ArDebugTrackState BuildTrackState(const ArTargetInput& target,
                                   const ArCycleResult& cycle_result) {
   ArDebugTrackState state;
-  state.external_target_id = target.external_target_id;
+  state.external_target_id = target.target_id;
   state.target_name = target.target_name;
   state.present_in_input = true;
   if (cycle_result.status != ArCycleStatus::kCompleted) {
@@ -38,7 +38,7 @@ ArDebugTrackState BuildTrackState(const ArSceneTarget& target,
     return state;
   }
   const session::TrackStateSnapshot* track =
-      FindTrackByExternalTargetId(cycle_result.track_output_frame, target.external_target_id);
+      FindTrackByExternalTargetId(cycle_result.track_output_frame, target.target_id);
   if (track == nullptr) {
     // external_target_id 为 0（未知）的输入目标无法按 ID 关联到 track。
     state.status = ArDebugTrackStatus::kNotInOutput;
@@ -60,7 +60,7 @@ ArDebugTrackState BuildTrackState(const ArSceneTarget& target,
 
 }  // namespace
 
-ArTrackOutputDebugView ArTrackOutputDebugViewBuilder::Build(const ArSceneTargetList& targets,
+ArTrackOutputDebugView ArTrackOutputDebugViewBuilder::Build(const ArTargetInputList& targets,
                                                             const ArCycleResult& result) {
   ArTrackOutputDebugView view;
   view.world_cycle_index = result.input_cycle_index;
@@ -68,7 +68,7 @@ ArTrackOutputDebugView ArTrackOutputDebugViewBuilder::Build(const ArSceneTargetL
   view.completed_this_cycle = result.status == ArCycleStatus::kCompleted;
   view.receiver_impairment = result.receiver_impairment;
   view.tracks.reserve(targets.size());
-  for (const ArSceneTarget& target : targets) {
+  for (const ArTargetInput& target : targets) {
     view.tracks.push_back(BuildTrackState(target, result));
   }
   return view;

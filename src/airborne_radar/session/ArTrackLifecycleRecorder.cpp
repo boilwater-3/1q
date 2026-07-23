@@ -30,11 +30,11 @@ ArTrackLifecycleReason InferReason(const session::TrackStateSnapshot* track) {
   return ArTrackLifecycleReason::kUnknown;
 }
 
-ArTrackLifecycleEvent MakeBaseEvent(const ArSceneTarget& target,
+ArTrackLifecycleEvent MakeBaseEvent(const ArTargetInput& target,
                                     const ArCycleResult& result) {
   ArTrackLifecycleEvent event;
   event.world_cycle_index = result.input_cycle_index;
-  event.external_target_id = target.external_target_id;
+  event.external_target_id = target.target_id;
   event.target_name = target.target_name;
   return event;
 }
@@ -56,20 +56,20 @@ ArTrackLifecycleRecorder& ArTrackLifecycleRecorder::operator=(ArTrackLifecycleRe
     default;
 
 std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
-    const ArSceneTargetList& targets, const ArCycleResult& result) {
+    const ArTargetInputList& targets, const ArCycleResult& result) {
   std::vector<ArTrackLifecycleEvent> events;
   if (result.status != ArCycleStatus::kCompleted) {
     return events;
   }
   events.reserve(targets.size());
-  for (const ArSceneTarget& target : targets) {
+  for (const ArTargetInput& target : targets) {
     // external_target_id 为 0 的输入目标无法按 ID 关联，跳过生命周期记录。
-    if (target.external_target_id == 0U) {
+    if (target.target_id == 0U) {
       continue;
     }
-    TargetState& state = impl_->states[target.external_target_id];
+    TargetState& state = impl_->states[target.target_id];
     const session::TrackStateSnapshot* track =
-        FindTrackByExternalTargetId(result.track_output_frame, target.external_target_id);
+        FindTrackByExternalTargetId(result.track_output_frame, target.target_id);
     const bool confirmed_now =
         track != nullptr && track->status == session::TrackStatus::kConfirmed;
 

@@ -11,7 +11,6 @@
 
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
-#include "1q/airborne_radar/session/ArCycleInputAdapter.h"
 #include "1q/airborne_radar/session/ArCycleOutputAdapter.h"
 #include "1q/coordinate/position_transform.h"
 
@@ -19,7 +18,6 @@ namespace {
 
 using airborne_radar::session::TrackStateSnapshot;
 using airborne_radar::session::ArCycleInput;
-using airborne_radar::session::ArCycleInputAdapter;
 using airborne_radar::session::ArCycleOutputAdapter;
 using airborne_radar::session::ArCycleResult;
 using airborne_radar::session::ArExternalPoseInput;

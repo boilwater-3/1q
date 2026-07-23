@@ -153,7 +153,7 @@ MovingAirTarget MakeMovingAirTarget(std::uint64_t id, double x_m, double y_m, do
 /// 每个周期：
 ///   1. 构造平台位姿（ECEF 位置 + 速度 + 姿态）
 ///   2. 构造所有目标的运动学输入
-///   3. 通过 ArCycleInputAdapter 组装完整输入
+///   3. 直接组装 ArCycleInput 的周期、平台、目标与环境字段
 ///   4. 调用 session.StepWithResult 获得输出
 ///   5. 根据返回的 dt 推进目标位置（简单欧拉积分）
 bool RunMovingTargetsScenario() {
@@ -200,15 +200,16 @@ bool RunMovingTargetsScenario() {
 
     // 组装周期输入：平台位姿 + 目标列表 + 时间步长(秒) + 环境快照
     ar_session::ArCycleInput input;
-    if (!ar_session::ArCycleInputAdapter::Build(platform, target_kinematics, 1.0f,
-                                                   environment_state.Snapshot(), &input)) {
-      std::cerr << "ar-moving: cycle " << (i + 1) << " build failed\n";
-      return false;
-    }
     input.cycle_index = i + 1;
+    input.cycle_start_time_s = static_cast<double>(i);
+    input.dt_sec = 1.0;
+    platform.platform_entity_id = 1U;
+    input.platform = platform;
+    input.targets = target_kinematics;
+    input.environment = environment_state.Snapshot();
 
     // 使用返回的 dt 推进目标位置（简单欧拉积分）
-    const float dt = input.dt_sec;
+    const double dt = input.dt_sec;
     for (auto& mt : targets) {
       mt.pos.x_m += mt.vel.x_mps * dt;
       mt.pos.y_m += mt.vel.y_mps * dt;

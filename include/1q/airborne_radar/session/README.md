@@ -23,7 +23,6 @@
 ## 适配器
 - [ArExternalInputAdapter](ArExternalInputAdapter.h) — 外部输入适配器（平台姿态 → 雷达坐标系）
 - [ArExternalOutputAdapter](ArExternalOutputAdapter.h) — 外部输出适配器（雷达航迹 → 平台坐标系）
-- [ArCycleInputAdapter](ArCycleInputAdapter.h) — 周期输入一步构造器
 - [ArCycleOutputAdapter](ArCycleOutputAdapter.h) — 周期输出适配器（内部帧 → ECEF 输出帧）
 
 ## 会话
