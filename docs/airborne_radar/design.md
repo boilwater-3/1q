@@ -531,6 +531,32 @@ ECCM 只能改变下一次成功发射/接收的实际硬件状态：频率捷�
 脉冲时序，旁瓣对消/自适应波束改变方向增益或零陷，烧穿改变发射功率/脉冲能量。每项措施必须用
 检测单元 interference、processed SINR、Pd 或量测协方差的变化证明，不能只断言 control profile 字段。
 
+**噪声基准与饱和降级语义。** 上述链路中存在两个物理上不同的热噪声基准，必须显式区分，不得混用：
+
+- **前端 J/N 门控基准。** `CompleteRfCycle` 计算 J/N 门限使用的热噪声
+  `k·T·transmitter.bandwidth_hz·noise_figure`，口径是匹配滤波/预选器带宽下的整前端噪声功率，用于
+  判断某条外部 emission 是否达到 `interference_observation_jn_gate_db` 而被记录为可观测干扰。它由
+  `ArInterferenceObservationResolver` 消费。
+- **检测单元 SINR 基准。** `ArDetectionCellResolver` 计算 processed SINR 时使用的热噪声
+  `k·T·matched_filter_bandwidth_hz·noise_figure`，口径是单个 range-Doppler-beam-time-frequency
+  detection cell 的噪声功率，进入分母 `thermal + clutter + interference`。
+
+二者带宽口径不同（整前端预选器 vs 单 cell 匹配滤波）是有意的：前者回答“前端能否察觉这个干扰源”，
+后者回答“这个 cell 的信干噪比是多少”。它们分别服务两个独立的物理问题，不是同一量的重复实现，
+不得合并或互相替换。修改任一带宽口径必须同步本节与对应 resolver 测试。
+
+前端饱和与 ECCM 的关系是降级而非触发：当 `total_incident_power_w > maximum_linear_input_power_w`
+时，本周期输出 `receiver_saturated` impairment 并**跳过** `TryResolveArInterferenceObservations`，
+因此饱和周期不产生 interference observation，`EccmEvaluator.Evaluate()` 因观测为空而返回未激活。
+这是有意语义——前端被烧穿后接收机无法可靠测向，强行生成 J/N 门控观测会输出不可信的 AoA/RF，故
+饱和走单独的结构化降级路径（输出 impairment、本周期无目标量测），不经 ECCM 控制闭环。`receiver_saturated`
+作为独立 cycle result 字段输出，供上层 orchestrator 做平台级决策；ECCM 的旁瓣对消/自适应波束触发只
+依赖未饱和但过 J/N 门的观测，发生在干扰使 SINR 恶化但前端仍线性的区间。
+[evidence: tests/unit/airborne_radar/ar_rf_front_end_resolver_test.cpp]
+[evidence: tests/unit/airborne_radar/ar_interference_observation_resolver_test.cpp::GatesByJOverNAndIsOrderIndependent]
+[evidence: tests/unit/airborne_radar/ar_detection_cell_resolver_test.cpp]
+[evidence: tests/unit/airborne_radar/ar_eccm_evaluator_test.cpp]
+
 `ar_rf_session_test`、`ar_detection_cell_resolver_test`、`ar_signal_pipeline_test` 和 AR replay tests 覆盖
 RF scene 校验、检测单元时频重叠、接收饱和、干扰观测门控与单周期 replay。跨模块场景和性能测试证明
 RF v2 frame 能由 ECM 直接赋给 AR，ESR 保持独立的 v1 迁移适配直到其接收链重构完成。

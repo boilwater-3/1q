@@ -449,6 +449,12 @@ struct ArSession::Impl {
       return result;
     }
 
+    // The complete-phase RF scene is authored from the prepared token's
+    // authoritative cycle window, not from input.interference: FrameMatchesCycle()
+    // has already guaranteed that any non-empty interference frame matches this
+    // window, while an empty (defaulted) interference frame carries zero window
+    // fields that must be populated here so the AR emission and any external
+    // emissions share one validated window before the front-end link check.
     ArCompleteCycleInput complete_input;
     complete_input.rf_scene = input.interference;
     complete_input.rf_scene.world_cycle_index = input.cycle_index;
