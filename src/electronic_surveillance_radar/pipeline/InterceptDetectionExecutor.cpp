@@ -630,6 +630,7 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const MutableEsrCon
     if (!ProcessRfV2Frame(ctx, active_beam, receiver_window, angle_error_config,
                           base_statistical_detection_params, rng, next_observation_id,
                           &output)) {
+      output.rf_v2_rejected = true;
       PROJECT_LOG_ERROR("[InterceptDetection] RF v2 front-end rejected cycle_index={}",
                         ctx.GetCycleIndex());
     }

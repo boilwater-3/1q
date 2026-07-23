@@ -131,6 +131,18 @@ TEST(EsrRfV2DetectionTest, TuningPlanUsesCompletedReceiveCyclesRatherThanInputCy
   EXPECT_DOUBLE_EQ(after_one_completed.receiver_center_frequency_hz, 10.0e9);
 }
 
+TEST(EsrRfV2DetectionTest, MissingCoSitePathRejectsTheV2CycleBeforeProducingObservation) {
+  session::EsrCycleInput input = MakeInput();
+  oneq::electromagnetics::RfSceneEmission emission = MakeEmission(1U, 10.0e9, 1.0e6);
+  emission.identity.platform_id = input.platform_entity_id;
+  emission.identity.equipment_id = 99U;
+  input.rf_emission_frame.emissions.push_back(emission);
+
+  const InterceptDetectionOutput output = RunDetection(input);
+  EXPECT_TRUE(output.rf_v2_rejected);
+  EXPECT_TRUE(output.raw_records.empty());
+}
+
 }  // namespace
 }  // namespace pipeline
 }  // namespace electronic_surveillance_radar

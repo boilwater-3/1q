@@ -65,7 +65,8 @@ enum class EsrPipelineAbortReason {
   kValidationRejected,          /**< 因输入级严重校验问题（Error）而主动放弃计算 */
   kRuntimeStateRestoreRejected, /**< 因运行时状态恢复失败引发阻断 */
   kOutputContractViolation,     /**< pipeline 输出违反内部契约 */
-  kSensorPoweredOff = 4         /**< 设备关机，pipeline 未执行 */
+  kSensorPoweredOff = 4,        /**< 设备关机，pipeline 未执行 */
+  kRfReceiverRejected = 5       /**< RF v2 接收机链路前置条件不成立 */
 };
 
 }  // namespace session

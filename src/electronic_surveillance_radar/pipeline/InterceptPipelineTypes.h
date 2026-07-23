@@ -180,6 +180,7 @@ struct InterceptPipelineResult {
   EmitterOutputFrame emitter_output{};
   TruthEvaluationFrame truth_evaluation_output{};
   bool sensor_powered_off{false}; /**< 设备关机导致本周期未执行，而非合法空观测。 */
+  bool rf_v2_rejected{false}; /**< RF v2 前端无法在不破坏物理合同的前提下求解。 */
 };
 
 /**

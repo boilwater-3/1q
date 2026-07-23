@@ -89,9 +89,19 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
   const extension::InterceptRuntimeConfig runtime_config = BuildRuntimeConfig(config_);
   ctx.BeginCycle(input_state, environment_snapshot, pipeline_config, runtime_config);
 
+  const std::mt19937 rng_before_detection = rng_;
+  const double scan_phase_before_detection = scan_phase_cycles_;
+  const std::uint64_t next_observation_id_before_detection = next_observation_id_;
   const InterceptDetectionOutput detection_output =
       detection_executor_.Execute(ctx, rng_, next_observation_id_, &scan_phase_cycles_,
                                   completed_receive_cycles_);
+  if (detection_output.rf_v2_rejected) {
+    rng_ = rng_before_detection;
+    scan_phase_cycles_ = scan_phase_before_detection;
+    next_observation_id_ = next_observation_id_before_detection;
+    result.rf_v2_rejected = true;
+    return result;
+  }
 
   result = post_processing_executor_.Execute(detection_output.raw_records, ctx, preprocessor_,
                                              clusterer_, associator_, feature_scales_,

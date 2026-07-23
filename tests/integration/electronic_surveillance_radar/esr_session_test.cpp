@@ -15,6 +15,7 @@
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
+#include "1q/electromagnetics/RfScene.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -40,6 +41,29 @@ EsrCycleInput MakeBaseInput() {
   emitter.pri_s = 1.0e-4;
   emitter.is_emitting = true;
   input.scene.push_back(emitter);
+  return input;
+}
+
+EsrCycleInput MakeInvalidCoSiteRfV2Input() {
+  EsrCycleInput input;
+  input.cycle_index = 9U;
+  input.cycle_start_time_s = 10.0;
+  input.dt_sec = 1.0f;
+  input.platform_entity_id = 1U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  input.has_rf_emission_frame = true;
+  input.rf_emission_frame.world_cycle_index = input.cycle_index;
+  input.rf_emission_frame.window_start_time_s = input.cycle_start_time_s;
+  input.rf_emission_frame.window_duration_s = input.dt_sec;
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = input.platform_entity_id;
+  emission.identity.equipment_id = 99U;
+  emission.identity.emission_id = 1U;
+  emission.position_ecef_m = input.platform_position_ecef_m;
+  EXPECT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
+      input.cycle_start_time_s, input.dt_sec, 10.0e9, 1.0e6, 100.0, &emission.waveform));
+  input.rf_emission_frame.emissions.push_back(emission);
   return input;
 }
 
@@ -90,6 +114,18 @@ TEST(EsrSessionIntegrationTest, StepWithResultProducesThreeChannelOutput) {
 
   EXPECT_FALSE(result.has_validation_error);
   EXPECT_EQ(result.output_frame.cycle_index, 1U);
+}
+
+TEST(EsrSessionIntegrationTest, V2ReceiverRejectionDoesNotExecuteOrCreateOutput) {
+  config::EsrSessionConfig config = MakeSessionConfig();
+  config.hardware.receiver_equipment_id = 2U;
+  EsrSession session = EsrSession::Create(config);
+
+  const EsrCycleResult result = session.StepWithResult(MakeInvalidCoSiteRfV2Input());
+  EXPECT_FALSE(result.executed_this_cycle);
+  EXPECT_EQ(result.abort_reason, EsrPipelineAbortReason::kRfReceiverRejected);
+  EXPECT_FALSE(result.reused_previous_output);
+  EXPECT_EQ(result.output_frame.cycle_index, 0U);
 }
 
 TEST(EsrSessionIntegrationTest, AltitudeAndSpectrumOccupancyAffectReceiverSnr) {

@@ -33,6 +33,7 @@ struct InterceptDetectionOutput {
   double receiver_center_frequency_hz{0.0};             /**< 当前接收中心频率（单位：Hz）。 */
   double receiver_bandwidth_hz{0.0};                    /**< 当前接收带宽（单位：Hz）。 */
   bool receiver_saturated{false};                       /**< 是否发生接收机饱和。 */
+  bool rf_v2_rejected{false}; /**< RF v2 链路无法原子求解，调用方必须回滚周期状态。 */
 };
 
 /**

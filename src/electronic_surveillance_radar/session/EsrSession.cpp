@@ -56,7 +56,9 @@ struct EsrSession::Impl {
         Controller().GetLastInterceptCycleAbortReason() !=
             session::EsrPipelineAbortReason::kValidationRejected &&
         Controller().GetLastInterceptCycleAbortReason() !=
-            session::EsrPipelineAbortReason::kSensorPoweredOff) {
+            session::EsrPipelineAbortReason::kSensorPoweredOff &&
+        Controller().GetLastInterceptCycleAbortReason() !=
+            session::EsrPipelineAbortReason::kRfReceiverRejected) {
       Pipeline().RestoreRuntimeState(pipeline_state);
       Controller().RestoreRuntimeState(controller_state);
     }
