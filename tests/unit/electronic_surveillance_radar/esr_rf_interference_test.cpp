@@ -92,7 +92,7 @@ InterceptDetectionOutput RunDetection(const session::EsrEnvironmentSnapshot& env
   return executor.Execute(context, rng, next_observation_id, &scan_phase_cycles, 0U);
 }
 
-TEST(EsrRfInterferenceTest, SameFrequencyEmissionLowersSnrWithoutBooleanQualityPenalty) {
+TEST(EsrRfInterferenceTest, SameFrequencyEmissionLowersSnrWithoutQualityPenalty) {
   session::EsrEnvironmentSnapshot baseline_environment;
   const InterceptDetectionOutput baseline = RunDetection(baseline_environment, 1.0f);
   ASSERT_EQ(baseline.raw_records.size(), 1U);
@@ -107,7 +107,6 @@ TEST(EsrRfInterferenceTest, SameFrequencyEmissionLowersSnrWithoutBooleanQualityP
   ASSERT_EQ(jammed.raw_records.size(), 1U);
   EXPECT_LT(jammed.raw_records.front().observation.snr_db,
             baseline.raw_records.front().observation.snr_db);
-  EXPECT_TRUE(jammed.raw_records.front().observation.is_jammed);
   EXPECT_EQ(jammed.raw_records.front().observation.quality,
             session::EsrObservationQuality::kHigh);
 }
@@ -127,7 +126,6 @@ TEST(EsrRfInterferenceTest, OutOfBandEmissionContributesNoInterference) {
   ASSERT_EQ(out_of_band.raw_records.size(), 1U);
   EXPECT_DOUBLE_EQ(out_of_band.raw_records.front().observation.snr_db,
                    baseline.raw_records.front().observation.snr_db);
-  EXPECT_FALSE(out_of_band.raw_records.front().observation.is_jammed);
 }
 
 TEST(EsrRfInterferenceTest, SceneEmitterOutsideSignalChannelDoesNotReduceTargetSnr) {
@@ -145,7 +143,6 @@ TEST(EsrRfInterferenceTest, SceneEmitterOutsideSignalChannelDoesNotReduceTargetS
   ASSERT_NE(target_record, nullptr);
   EXPECT_DOUBLE_EQ(target_record->observation.snr_db,
                    baseline.raw_records.front().observation.snr_db);
-  EXPECT_FALSE(target_record->observation.is_jammed);
 }
 
 TEST(EsrRfInterferenceTest, SaturationProducesStatusAndNoObservation) {

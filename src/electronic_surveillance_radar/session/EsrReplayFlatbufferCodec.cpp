@@ -451,7 +451,6 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
     builder.add_amplitude_db(o.amplitude_db);
     builder.add_snr_db(o.snr_db);
     builder.add_quality(static_cast<int32_t>(o.quality));
-    builder.add_is_jammed(o.is_jammed);
     builder.add_bandwidth_hz(o.bandwidth_hz);
     builder.add_pri_s(o.pri_s);
     builder.add_rf_std_hz(o.rf_std_hz);
@@ -544,7 +543,6 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
         rec.amplitude_db = obs->amplitude_db();
         rec.snr_db = obs->snr_db();
         rec.quality = static_cast<session::EsrObservationQuality>(obs->quality());
-        rec.is_jammed = obs->is_jammed();
         out->observation_output.observations.push_back(rec);
       }
     }

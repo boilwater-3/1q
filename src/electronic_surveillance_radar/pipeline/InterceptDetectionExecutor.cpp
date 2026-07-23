@@ -443,7 +443,6 @@ std::size_t ResolveActiveBeamIndex(double* scan_phase_cycles, float dt_sec,
 /**
  * @brief 按观测条件映射观测质量等级。
  * @param[in] snr_db 观测信噪比（单位：dB）。
- * @param[in] is_jammed 是否受干扰显著影响。
  * @return 观测质量等级。
  */
 session::EsrObservationQuality ClassifyObservationQuality(float snr_db) {
@@ -588,7 +587,6 @@ RawObservationRecord BuildDeceptionRecord(const RawObservationRecord& template_r
     record.observation.snr_db -= static_cast<double>(snr_loss_dist(*rng));
   }
   record.observation.quality = session::EsrObservationQuality::kLow;
-  record.observation.is_jammed = false;
   record.truth_emitter_id = 0U;
   record.truth_pri_s = 0.0;
   record.matched_truth = false;
@@ -798,7 +796,6 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     record.observation.amplitude_db = ToDb(signal.received_power_w);
     record.observation.snr_db = snr_db;
     record.observation.quality = ClassifyObservationQuality(static_cast<float>(snr_db));
-    record.observation.is_jammed = false;
     record.truth_emitter_id = 0U;
     record.truth_pri_s = 0.0;
     record.matched_truth = false;
@@ -948,7 +945,6 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
         return candidate_snr_db >= detection_threshold_snr_db;
       });
   const float snr_db = ToDb(received_power_w / noise_power_w);
-  const float baseline_snr_db = ToDb(received_power_w / ambient_noise_power_w);
 
   intercept::InterceptGateInput gate_input;
   gate_input.line_of_sight = emitter_beam_covered;
@@ -984,12 +980,6 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
   const double measured_el_deg = static_cast<double>(target_el_deg) +
                                  static_cast<double>(intercept::AngleErrorModel::SampleErrorDeg(
                                      snr_db, effective_beamwidth_deg, &rng, angle_error_config));
-  const float jn_db = ToDb(interference_power_w / ambient_noise_power_w);
-  const float snr_loss_db = baseline_snr_db - snr_db;
-  const bool is_jammed =
-      interference_power_w > 0.0 &&
-      (jn_db >= runtime_config.receiver_hardware.jamming_jn_threshold_db ||
-       snr_loss_db >= runtime_config.receiver_hardware.jamming_snr_loss_threshold_db);
   const float deception_probability = utils::Clamp01(
       jamming_result.deception_risk * jamming_result.deception_weighted_overlap_ratio *
       std::max(0.0f, config.deception_model.false_alarm_probability_scale));
@@ -1018,7 +1008,6 @@ void InterceptDetectionExecutor::ProcessSingleEmitter(
   base_record.observation.amplitude_db = static_cast<double>(ToDb(received_power_w));
   base_record.observation.snr_db = static_cast<double>(snr_db);
   base_record.observation.quality = ClassifyObservationQuality(snr_db);
-  base_record.observation.is_jammed = is_jammed;
 
   const std::uint32_t false_alarm_cap = config.deception_model.max_false_observations_per_emitter;
   bool detection_passed = gate_decision.passed && has_available_pulses;

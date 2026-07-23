@@ -156,7 +156,6 @@ TEST(EsrSessionIntegrationTest, AltitudeAndSpectrumOccupancyAffectReceiverSnr) {
   EXPECT_NEAR(occupied_result.output_frame.observation_output.observations.front().snr_db,
               low_result.output_frame.observation_output.observations.front().snr_db - 10.0,
               1.0e-4);
-  EXPECT_FALSE(occupied_result.output_frame.observation_output.observations.front().is_jammed);
 }
 
 TEST(EsrSessionIntegrationTest, WorkModeMappingMakesHgesmMoreDetectableThanRwr) {

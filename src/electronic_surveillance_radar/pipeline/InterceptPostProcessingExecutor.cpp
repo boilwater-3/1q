@@ -201,7 +201,6 @@ ClusterSummary BuildClusterSummary(
     if (records[index].synthetic_false_alarm) {
       ++false_alarm_count;
     }
-    summary.any_jammed = summary.any_jammed || records[index].observation.is_jammed;
     if (records[index].observation.snr_db > representative_snr) {
       representative = index;
       representative_snr = records[index].observation.snr_db;

@@ -42,7 +42,6 @@ struct ONEQ_API EmitterObservation {
   double amplitude_db{0.0};                             /**< 接收幅度（单位：dB） */
   double snr_db{0.0};                                   /**< 观测信噪比（单位：dB） */
   EsrObservationQuality quality{EsrObservationQuality::kLow}; /**< 观测质量等级 */
-  bool is_jammed{false};                                /**< 该观测是否受干扰显著影响 */
 };
 
 /** @brief EmitterObservationList 表示观测记录列表。 */

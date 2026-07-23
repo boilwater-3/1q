@@ -197,7 +197,6 @@ table EmitterObservation {
   amplitude_db:   double;
   snr_db:         double;
   quality:        int32;
-  is_jammed:      bool;
   bandwidth_hz:   double;
   pri_s:          double;
   rf_std_hz:      double;

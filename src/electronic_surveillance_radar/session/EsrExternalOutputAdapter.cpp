@@ -73,7 +73,6 @@ bool TryMakeExternalObservationFromRecord(const session::EmitterObservation& obs
   output->amplitude_db = observation.amplitude_db;
   output->snr_db = observation.snr_db;
   output->quality = observation.quality;
-  output->is_jammed = observation.is_jammed;
   return true;
 }
 

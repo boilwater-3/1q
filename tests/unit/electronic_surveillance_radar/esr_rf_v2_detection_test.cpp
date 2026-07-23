@@ -94,7 +94,6 @@ TEST(EsrRfV2DetectionTest, EmitsDeclassifiedObservationFromRfFrame) {
   EXPECT_NEAR(record.observation.rf_hz, 10.0e9, 1.0);
   EXPECT_GT(record.observation.bandwidth_hz, 0.0);
   EXPECT_GT(record.observation.snr_db, -20.0);
-  EXPECT_FALSE(record.observation.is_jammed);
 }
 
 TEST(EsrRfV2DetectionTest, SameChannelEmissionReducesSnrWithoutBooleanPenalty) {
@@ -109,7 +108,6 @@ TEST(EsrRfV2DetectionTest, SameChannelEmissionReducesSnrWithoutBooleanPenalty) {
   ASSERT_EQ(interfered.raw_records.size(), 2U);
   EXPECT_LT(interfered.raw_records.front().observation.snr_db,
             baseline.raw_records.front().observation.snr_db);
-  EXPECT_FALSE(interfered.raw_records.front().observation.is_jammed);
 }
 
 TEST(EsrRfV2DetectionTest, SaturationCompletesWithoutFabricatedObservation) {

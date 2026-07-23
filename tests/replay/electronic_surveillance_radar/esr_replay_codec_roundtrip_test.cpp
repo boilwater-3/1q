@@ -294,7 +294,6 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   obs.amplitude_db = -80.0;
   obs.snr_db = 25.0;
   obs.quality = session::EsrObservationQuality::kHigh;
-  obs.is_jammed = false;
   frame.observation_output.observations.push_back(obs);
 
   session::EmitterHypothesis hyp;
@@ -346,7 +345,6 @@ TEST(EsrReplayCodecRoundtripTest, OutputFramePreservesAllFields) {
   EXPECT_DOUBLE_EQ(decoded.observation_output.observations[0].snr_db, 25.0);
   EXPECT_EQ(decoded.observation_output.observations[0].quality,
             session::EsrObservationQuality::kHigh);
-  EXPECT_FALSE(decoded.observation_output.observations[0].is_jammed);
 
   ASSERT_EQ(decoded.emitter_output.hypotheses.size(), 1U);
   EXPECT_EQ(decoded.emitter_output.hypotheses[0].hypothesis_id, 10U);

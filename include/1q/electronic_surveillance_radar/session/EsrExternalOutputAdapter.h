@@ -33,7 +33,6 @@ struct ONEQ_API EsrExternalObservation {
   double amplitude_db{0.0};                       /**< 接收幅度（单位：dB） */
   double snr_db{0.0};                             /**< 观测信噪比（单位：dB） */
   session::EsrObservationQuality quality{session::EsrObservationQuality::kLow}; /**< 观测质量 */
-  bool is_jammed{false}; /**< 是否受干扰显著影响 */
 };
 
 /** @brief EsrExternalObservationList 表示外部观测输出集合。 */

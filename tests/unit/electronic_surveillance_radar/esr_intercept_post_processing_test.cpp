@@ -100,27 +100,6 @@ TEST(InterceptPostProcessingExecutorTest, ClusterWithSpectralAnalysisLabelsEmitt
   EXPECT_GT(result.observation_output.raw_observation_count, 0u);
 }
 
-TEST(InterceptPostProcessingExecutorTest, JammedObservationSetsConfidencePenalty) {
-  std::vector<RawObservationRecord> records;
-  RawObservationRecord jammed = MakeRecord(200U, 1.0, 9.0e9, 5.0f, 0.5f, 10.0f);
-  jammed.observation.is_jammed = true;
-  records.push_back(jammed);
-
-  MutableEsrContext ctx = MakeContext(false);
-  ObservationPreprocessor preprocessor;
-  KdTreeClusterer clusterer;
-  HypothesisAssociator associator;
-  ObservationFeatureScales feature_scales;
-  std::uint64_t next_id = 1U;
-
-  InterceptPostProcessingExecutor executor;
-  const extension::InterceptPipelineResult result =
-      executor.Execute(records, ctx, preprocessor, clusterer, associator,
-                       feature_scales, next_id);
-
-  EXPECT_GT(result.observation_output.raw_observation_count, 0u);
-}
-
 TEST(InterceptPostProcessingExecutorTest, UnmatchedRecordWithDeceptionFlag) {
   std::vector<RawObservationRecord> records;
   RawObservationRecord rec = MakeRecord(300U, 1.0, 8.0e9, 20.0f, 2.0f, 12.0f);
