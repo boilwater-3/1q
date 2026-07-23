@@ -41,7 +41,8 @@ EcmCycleInput MakeSensorInput(std::uint32_t cycle_index, bool has_frame) {
   input.platform_position_ecef_m.x_m = 6378137.0;
   input.has_sensor_observation_frame = has_frame;
   if (has_frame) {
-    input.sensor_observation_frame.source_esr_success_cycle_index = cycle_index - 1U;
+    input.sensor_observation_frame.source_esr_batch_id =
+        static_cast<std::uint64_t>(cycle_index - 1U);
     input.sensor_observation_frame.observations.push_back(
         MakeObservation(10U, 10.0e9, 0.9f));
   }
@@ -53,7 +54,7 @@ TEST(EcmSessionTest, SensorFrameGlidesTwoSuccessfulCyclesThenSafelyStops) {
   const EcmCycleResult fresh = session.StepWithResult(MakeSensorInput(2U, true));
   ASSERT_EQ(fresh.status, EcmCycleStatus::kExecuted);
   ASSERT_EQ(fresh.emission_frame.emissions.size(), 1U);
-  EXPECT_EQ(fresh.source_esr_success_cycle_index, 1U);
+  EXPECT_EQ(fresh.source_esr_batch_id, 1U);
 
   const EcmCycleResult glide_one = session.StepWithResult(MakeSensorInput(3U, false));
   EXPECT_EQ(glide_one.status, EcmCycleStatus::kExecuted);
@@ -322,9 +323,9 @@ TEST(EcmSessionTest, EsrAdapterCopiesOnlyDetruthEstimatedFields) {
   hypotheses.push_back(hypothesis);
 
   EcmSensorObservationFrame frame;
-  ASSERT_TRUE(TryBuildEcmSensorObservationFrame(hypotheses, 7U, &frame));
+  ASSERT_TRUE(TryBuildEcmSensorObservationFrame(hypotheses, 700U, &frame));
   ASSERT_EQ(frame.observations.size(), 1U);
-  EXPECT_EQ(frame.source_esr_success_cycle_index, 7U);
+  EXPECT_EQ(frame.source_esr_batch_id, 700U);
   EXPECT_EQ(frame.observations.front().source_hypothesis_id, 55U);
   EXPECT_DOUBLE_EQ(frame.observations.front().estimated_center_frequency_hz, 10.0e9);
   EXPECT_FLOAT_EQ(frame.observations.front().threat_score, 0.8f);

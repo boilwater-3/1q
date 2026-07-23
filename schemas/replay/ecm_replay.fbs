@@ -57,7 +57,7 @@ table SensorObservation {
 }
 
 table SensorObservationFrame {
-  source_esr_success_cycle_index:uint32;
+  source_esr_batch_id:uint64;
   observations:[SensorObservation];
 }
 
@@ -144,7 +144,7 @@ table EcmCycleResult {
   executed_this_cycle:bool;
   used_glided_observation:bool;
   observation_age_successful_ecm_cycles:uint32;
-  source_esr_success_cycle_index:uint32;
+  source_esr_batch_id:uint64;
   thermal_energy_j:double;
   emission_frame:EcmEmissionFrame;
   decisions:[ResourceDecision];

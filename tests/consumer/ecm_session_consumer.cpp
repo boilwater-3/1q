@@ -25,7 +25,7 @@ int main() {
   esr_session::EmitterHypothesisList hypotheses;
   hypotheses.push_back(hypothesis);
   ecm::session::EcmSensorObservationFrame frame;
-  if (!ecm::session::TryBuildEcmSensorObservationFrame(hypotheses, 4U, &frame)) {
+  if (!ecm::session::TryBuildEcmSensorObservationFrame(hypotheses, 400U, &frame)) {
     return 1;
   }
 
@@ -45,7 +45,7 @@ int main() {
   input.sensor_observation_frame = frame;
   const ecm::session::EcmCycleResult result = session.StepWithResult(input);
   if (result.status != ecm::session::EcmCycleStatus::kExecuted ||
-      result.source_esr_success_cycle_index != 4U ||
+      result.source_esr_batch_id != 400U ||
       result.emission_frame.emissions.empty()) {
     return 2;
   }

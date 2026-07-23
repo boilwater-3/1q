@@ -61,7 +61,7 @@ flatbuffers::Offset<ecm::replay::SensorObservationFrame> BuildSensorFrame(
         observation.threat_score, observation.confidence));
   }
   return ecm::replay::CreateSensorObservationFrame(
-      builder, frame.source_esr_success_cycle_index, builder.CreateVector(observations));
+      builder, frame.source_esr_batch_id, builder.CreateVector(observations));
 }
 
 EcmSensorObservationFrame DecodeSensorFrame(
@@ -70,7 +70,7 @@ EcmSensorObservationFrame DecodeSensorFrame(
   if (encoded == nullptr) {
     return frame;
   }
-  frame.source_esr_success_cycle_index = encoded->source_esr_success_cycle_index();
+  frame.source_esr_batch_id = encoded->source_esr_batch_id();
   if (encoded->observations()) {
     for (const ecm::replay::SensorObservation* value : *encoded->observations()) {
       EcmSensorObservation observation;
@@ -326,7 +326,7 @@ std::string EncodeEcmCycleResult(const EcmCycleResult& value) {
       static_cast<int32_t>(value.input_mode), value.truth_assisted,
       value.executed_this_cycle, value.used_glided_observation,
       value.observation_age_successful_ecm_cycles,
-      value.source_esr_success_cycle_index, value.thermal_energy_j, emission_frame,
+      value.source_esr_batch_id, value.thermal_energy_j, emission_frame,
       builder.CreateVector(decisions)));
   return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
@@ -350,8 +350,8 @@ bool DecodeEcmCycleResult(const std::string& bytes, EcmCycleResult* output) {
   decoded.used_glided_observation = value->used_glided_observation();
   decoded.observation_age_successful_ecm_cycles =
       value->observation_age_successful_ecm_cycles();
-  decoded.source_esr_success_cycle_index =
-      value->source_esr_success_cycle_index();
+  decoded.source_esr_batch_id =
+      value->source_esr_batch_id();
   decoded.thermal_energy_j = value->thermal_energy_j();
   if (value->emission_frame()) {
     decoded.emission_frame.world_cycle_index =

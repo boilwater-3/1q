@@ -82,7 +82,13 @@ struct ONEQ_API EcmSensorObservation {
 
 /** @brief 一个成功 ESR 周期发布的去真值化观测帧。 */
 struct ONEQ_API EcmSensorObservationFrame {
-  std::uint32_t source_esr_success_cycle_index{0U};
+  /**
+   * @brief 发布该帧的 ESR 成功批次的 batch_id（即 ESR 只在成功执行周期自增的批次序号）。
+   * @note 作为 fresh-frame provenance：必须非 0、且相对上一帧单调递增。这是 ESR 实际发布的批次
+   *       出处，不是调用方随手填的本地 cycle 号；伪造单调递增的 batch_id 仍属违反合同。
+   *       注意：source world cycle（绑定世界周期）尚未实现，见 design.md §2 的 prototype 限制。
+   */
+  std::uint64_t source_esr_batch_id{0U};
   std::vector<EcmSensorObservation> observations{};
 };
 
@@ -139,7 +145,7 @@ struct ONEQ_API EcmCycleResult {
   bool executed_this_cycle{false};
   bool used_glided_observation{false};
   std::uint32_t observation_age_successful_ecm_cycles{0U};
-  std::uint32_t source_esr_success_cycle_index{0U};
+  std::uint64_t source_esr_batch_id{0U};
   double thermal_energy_j{0.0};
   oneq::electromagnetics::RfEmissionFrame emission_frame{};
   std::vector<EcmResourceDecision> decisions{};

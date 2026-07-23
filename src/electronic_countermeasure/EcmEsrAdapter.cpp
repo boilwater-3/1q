@@ -42,12 +42,15 @@ bool IsValidHypothesis(
 
 bool TryBuildEcmSensorObservationFrame(
     const electronic_surveillance_radar::session::EmitterHypothesisList& hypotheses,
-    std::uint32_t source_esr_success_cycle_index, EcmSensorObservationFrame* output) {
-  if (output == nullptr) {
+    std::uint64_t source_esr_batch_id, EcmSensorObservationFrame* output) {
+  if (output == nullptr || source_esr_batch_id == 0U) {
+    // A fresh frame must carry a real ESR published batch_id (provenance); zero
+    // means "no real ESR success batch" and is rejected so callers cannot supply
+    // an unbound frame. See design.md §2 prototype limitation.
     return false;
   }
   EcmSensorObservationFrame candidate;
-  candidate.source_esr_success_cycle_index = source_esr_success_cycle_index;
+  candidate.source_esr_batch_id = source_esr_batch_id;
   std::set<std::uint64_t> hypothesis_ids;
   for (const electronic_surveillance_radar::session::EmitterHypothesis& hypothesis : hypotheses) {
     if (!IsValidHypothesis(hypothesis) ||

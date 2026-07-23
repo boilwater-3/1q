@@ -93,7 +93,11 @@ bool IsValidInput(const EcmCycleInput& input) {
     if (!input.truth_threats.empty() ||
         (!input.has_sensor_observation_frame &&
          (!input.sensor_observation_frame.observations.empty() ||
-          input.sensor_observation_frame.source_esr_success_cycle_index != 0U))) {
+          input.sensor_observation_frame.source_esr_batch_id != 0U)) ||
+        (input.has_sensor_observation_frame &&
+         input.sensor_observation_frame.source_esr_batch_id == 0U)) {
+      // A present sensor frame must carry a real ESR batch_id (fresh-frame
+      // provenance); an absent frame must not carry a stale batch_id.
       return false;
     }
     std::set<std::uint64_t> ids;
@@ -103,8 +107,7 @@ bool IsValidInput(const EcmCycleInput& input) {
         return false;
       }
     }
-    return !input.has_sensor_observation_frame ||
-           input.sensor_observation_frame.source_esr_success_cycle_index < input.cycle_index;
+    return true;
   }
   if (input.input_mode != EcmInputMode::kTruthAssisted || input.has_sensor_observation_frame ||
       !input.sensor_observation_frame.observations.empty()) {
@@ -342,8 +345,11 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
   if (input.input_mode == EcmInputMode::kSensorDriven) {
     if (input.has_sensor_observation_frame) {
       if (candidate_has_last_frame &&
-          input.sensor_observation_frame.source_esr_success_cycle_index <=
-              candidate_last_frame.source_esr_success_cycle_index) {
+          input.sensor_observation_frame.source_esr_batch_id <=
+              candidate_last_frame.source_esr_batch_id) {
+        // Fresh-frame provenance: a new frame must come from a strictly later
+        // ESR success batch than the last consumed one (replays/stale frames
+        // rejected). batch_id is the ESR monotonic success sequence.
         result.status = EcmCycleStatus::kRejectedInvalidInput;
         result.thermal_energy_j = impl_->thermal_energy_j;
         return result;
@@ -357,8 +363,8 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
           candidate_age <= kMaximumGlideSuccessfulCycles;
     }
     if (candidate_has_last_frame && candidate_age <= kMaximumGlideSuccessfulCycles) {
-      result.source_esr_success_cycle_index =
-          candidate_last_frame.source_esr_success_cycle_index;
+      result.source_esr_batch_id =
+          candidate_last_frame.source_esr_batch_id;
       for (const EcmSensorObservation& observation : candidate_last_frame.observations) {
         SchedulingThreat threat;
         threat.observation_id = observation.source_hypothesis_id;

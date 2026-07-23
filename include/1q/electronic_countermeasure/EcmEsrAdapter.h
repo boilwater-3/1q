@@ -17,11 +17,13 @@ namespace session {
 
 /**
  * @brief 将 ESR 去真值化假设转换为 sensor-driven ECM 观测帧。
- * @return 输入估计量均有限且物理字段合法时返回 true；失败时不修改输出。
+ * @param source_esr_batch_id 发布该帧的 ESR 成功批次 batch_id（ESR 只在成功执行周期自增的批次序号），
+ *        作为 fresh-frame provenance；必须非 0。取自 EsrOutputFrame::batch_id。
+ * @return 输入估计量均有限且物理字段合法、且 batch_id 非 0 时返回 true；失败时不修改输出。
  */
 ONEQ_API bool TryBuildEcmSensorObservationFrame(
     const electronic_surveillance_radar::session::EmitterHypothesisList& hypotheses,
-    std::uint32_t source_esr_success_cycle_index, EcmSensorObservationFrame* output);
+    std::uint64_t source_esr_batch_id, EcmSensorObservationFrame* output);
 
 }  // namespace session
 }  // namespace electronic_countermeasure

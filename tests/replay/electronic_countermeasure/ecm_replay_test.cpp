@@ -48,7 +48,7 @@ EcmCycleInput MakeInput(std::uint32_t cycle_index, bool fresh) {
   input.transmit_antenna.peak_gain_dbi = 10.0;
   input.has_sensor_observation_frame = fresh;
   if (fresh) {
-    input.sensor_observation_frame.source_esr_success_cycle_index = cycle_index - 1U;
+    input.sensor_observation_frame.source_esr_batch_id = static_cast<std::uint64_t>(cycle_index - 1U);
     EcmSensorObservation observation;
     observation.source_hypothesis_id = 42U;
     observation.estimated_center_frequency_hz = 10.0e9;
@@ -71,7 +71,7 @@ TEST(EcmReplayCodecTest, InputAndResultPreserveProvenanceAndRfSegments) {
   ASSERT_TRUE(DecodeEcmCycleInput(EncodeEcmCycleInput(input), &decoded_input));
   EXPECT_EQ(decoded_input.cycle_index, 2U);
   EXPECT_DOUBLE_EQ(decoded_input.cycle_start_time_s, 0.5);
-  EXPECT_EQ(decoded_input.sensor_observation_frame.source_esr_success_cycle_index, 1U);
+  EXPECT_EQ(decoded_input.sensor_observation_frame.source_esr_batch_id, 1U);
   ASSERT_EQ(decoded_input.sensor_observation_frame.observations.size(), 1U);
   EXPECT_DOUBLE_EQ(decoded_input.sensor_observation_frame.observations.front()
                        .estimated_center_frequency_hz,
@@ -84,7 +84,7 @@ TEST(EcmReplayCodecTest, InputAndResultPreserveProvenanceAndRfSegments) {
   EcmCycleResult decoded_result;
   ASSERT_TRUE(DecodeEcmCycleResult(EncodeEcmCycleResult(result), &decoded_result));
   EXPECT_EQ(decoded_result.status, EcmCycleStatus::kExecuted);
-  EXPECT_EQ(decoded_result.source_esr_success_cycle_index, 1U);
+  EXPECT_EQ(decoded_result.source_esr_batch_id, 1U);
   ASSERT_EQ(decoded_result.emission_frame.emissions.size(), 1U);
   EXPECT_EQ(decoded_result.emission_frame.emissions.front().waveform.kind,
             oneq::electromagnetics::RfSceneWaveformKind::kLinearSweep);

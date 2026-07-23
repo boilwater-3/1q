@@ -1336,6 +1336,7 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
 
   esr_session::EmitterHypothesisList hypotheses;
   std::uint32_t source_esr_cycle = 0U;
+  std::uint64_t source_esr_batch = 0U;
   for (std::uint32_t cycle = 1U; cycle <= 8U && hypotheses.empty(); ++cycle) {
     esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle, esr_environment);
     input.platform_entity_id = 7001U;
@@ -1344,15 +1345,16 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
     if (!result.output_frame.emitter_output.hypotheses.empty()) {
       hypotheses = result.output_frame.emitter_output.hypotheses;
       source_esr_cycle = cycle;
+      source_esr_batch = result.output_frame.batch_id;
     }
   }
   ASSERT_FALSE(hypotheses.empty());
 
   ecm_session::EcmSensorObservationFrame sensor_frame;
   ASSERT_TRUE(
-      ecm_session::TryBuildEcmSensorObservationFrame(hypotheses, source_esr_cycle, &sensor_frame));
+      ecm_session::TryBuildEcmSensorObservationFrame(hypotheses, source_esr_batch, &sensor_frame));
   ASSERT_FALSE(sensor_frame.observations.empty());
-  EXPECT_EQ(sensor_frame.source_esr_success_cycle_index, source_esr_cycle);
+  EXPECT_EQ(sensor_frame.source_esr_batch_id, source_esr_batch);
 
   ecm_config::EcmSessionConfig ecm_config;
   ecm_config.transmitter_equipment_id = 101U;
@@ -1374,7 +1376,7 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
   const ecm_session::EcmCycleResult ecm_result = ecm.StepWithResult(ecm_input);
   ASSERT_EQ(ecm_result.status, ecm_session::EcmCycleStatus::kExecuted);
   ASSERT_FALSE(ecm_result.emission_frame.emissions.empty());
-  EXPECT_EQ(ecm_result.source_esr_success_cycle_index, source_esr_cycle);
+  EXPECT_EQ(ecm_result.source_esr_batch_id, source_esr_batch);
 
   ar_config::ArSessionConfig ar_config = MakeArConfigAirToAir();
   ar_config.hardware.receiver.co_site_paths.push_back(
@@ -1466,6 +1468,7 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
 
   esr_session::EmitterHypothesisList hypotheses;
   std::uint32_t source_esr_cycle = 0U;
+  std::uint64_t source_esr_batch = 0U;
   for (std::uint32_t cycle = 1U; cycle <= 8U && hypotheses.empty(); ++cycle) {
     esr_session::EsrCycleInput input = BuildEsrInput(world, 1.0f, cycle, esr_environment);
     input.platform_entity_id = 7002U;
@@ -1474,13 +1477,14 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
     if (!result.output_frame.emitter_output.hypotheses.empty()) {
       hypotheses = result.output_frame.emitter_output.hypotheses;
       source_esr_cycle = cycle;
+      source_esr_batch = result.output_frame.batch_id;
     }
   }
   ASSERT_FALSE(hypotheses.empty());
 
   ecm_session::EcmSensorObservationFrame sensor_frame;
   ASSERT_TRUE(
-      ecm_session::TryBuildEcmSensorObservationFrame(hypotheses, source_esr_cycle, &sensor_frame));
+      ecm_session::TryBuildEcmSensorObservationFrame(hypotheses, source_esr_batch, &sensor_frame));
   ASSERT_FALSE(sensor_frame.observations.empty());
 
   ecm_config::EcmSessionConfig ecm_config;
@@ -1503,7 +1507,7 @@ TEST(MultiModelScenarioTest, FlightDynamicDrivesSensorEcmClosedLoop) {
   const ecm_session::EcmCycleResult ecm_result = ecm.StepWithResult(ecm_input);
   ASSERT_EQ(ecm_result.status, ecm_session::EcmCycleStatus::kExecuted);
   ASSERT_FALSE(ecm_result.emission_frame.emissions.empty());
-  EXPECT_EQ(ecm_result.source_esr_success_cycle_index, source_esr_cycle);
+  EXPECT_EQ(ecm_result.source_esr_batch_id, source_esr_batch);
 
   ar_session::ArSession ar = ar_session::ArSession::Create(MakeArConfigAirToAir());
   ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());

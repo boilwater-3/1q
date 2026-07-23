@@ -39,16 +39,22 @@ trace/replay 门面，不公开 planner SPI。raw output 是公共 RF v2 `RfEmis
 - `kTruthAssisted` 只接受独立 `EcmTruthThreat`；结果与 replay 显式标记 `truth_assisted`。
 - 两种载荷不得混合；模式与载荷不一致时原子拒绝，拒绝周期不推进成功周期、滑行年龄、热状态或随机流。
 - 世界周期 N 的 ECM 发射只消费 N 之前最近一个成功 ESR 周期的观测；fresh
-  frame 必须带可验证的 source world cycle、source ESR success sequence 和 source batch provenance，不能
-  仅满足“小于 N”就重置为新鲜。没有新观测时最多滑行两个成功 ECM 发射准备周期，第三个安全停发。
+  frame 必须携带 `source_esr_batch_id`（ESR 只在成功执行周期自增的批次序号 `batch_id`，同时充当
+  success sequence 和 batch provenance），必须非零且相对上一帧严格单调递增——仅满足“小于 N”不再
+  接受。**原型限制**：`source_world_cycle`（与跨模块世界周期的绑定）为冻结目标；当前 `batch_id`
+  提供 ESR-internal 出处但调用方理论上仍可伪造单调递增的 batch_id，合同已显式要求匹配 ESR
+  实发 `EsrOutputFrame::batch_id`，最终防伪依赖于 ESR→ECM 调用方的可信传递。没有新观测时最多
+  滑行两个成功 ECM 发射准备周期，第三个安全停发。
 - 关机和输入拒绝不产生发射，也不推进滑行年龄、热状态、随机流或 emission ID。成功发布的
   emission 是已发生的世界事实；后续 AR/ESR receive 失败不得回滚 ECM 功率、热能、调度相位或 ID。
 - SensorDriven 与 TruthAssisted 的所有来源字段、缓存和 replay attribution 必须完全互斥。切换模式时
   旧 sensor cache 立即失效；TruthAssisted 成功周期不得让旧 sensor frame 在切回后重新获得新鲜年龄。
 
-原型证据（不构成 fresh provenance、模式切换失效或两阶段提交的目标验收）：
+原型证据（不构成模式切换失效、两阶段提交或 cross-world-cycle provenance 的目标验收；fresh
+batch-id freshness 已实现，ESR 实发 `batch_id` 通过 adapter 传入 frame）：
 `ecm_session_test.cpp::SensorFrameGlidesTwoSuccessfulCyclesThenSafelyStops`、
-`RejectedMixedModeDoesNotAdvanceSuccessfulState`、`TruthAssistedOwnershipIsExplicitAndSeparate`。
+`RejectedMixedModeDoesNotAdvanceSuccessfulState`、`TruthAssistedOwnershipIsExplicitAndSeparate`、
+`ecm_session_test.cpp::EsrAdapterCopiesOnlyDetruthEstimatedFields`（验证 adapter 正确传递 batch_id）。
 
 ## 3. 调度、资源与确定性
 
@@ -101,8 +107,13 @@ AR 直接消费 ECM 发布的 `RfEmissionFrame`，不消费 ECM 自己计算的 
 飞行动力学状态导出 ECEF 运动学，并验证 ESR(N-1) → ECM(N) → AR(N) 的值类型闭环；传感器和 ECM
 仍不直接依赖飞行动力学模块。
 
+注：ECM replay schema `ecm_replay.fbs` 中有 `EcmEmissionFrame` table——这只是 FlatBuffers 容器名，不是
+C++ 类型；C++ 代码统一使用 `oneq::electromagnetics::RfEmissionFrame`(即 `RfSceneFrame` 的公共别名)。
+replay 比较以字节级比较(`EncodeEcmCycleResult(actual) != event.payload_bytes`)为最终仲裁；decode 路径
+不重新执行 `TryValidateRfSceneFrame`，篡改 trace 会导致字节比较自然触发 divergence，无需二次校验。
+
 现有 replay、cross-domain 和 performance tests 只证明单阶段原型接线、基本 provenance 字段与 P95；尚不能
-证明 fresh-frame 严格来源、模式切换失效、参数化 waveform、两阶段提交、完整 snapshot/replay 往返或统一
+证明 fresh-frame cross-world-cycle 绑定、模式切换失效、参数化 waveform、两阶段提交、完整 snapshot/replay 往返或统一
 RF scene 已实现。注:快照恢复侧的嵌套 observation / 重复 ID / 标志一致性校验已实现(见 §3 证据);
 此处 "完整 snapshot/replay 往返" 仍指 replay schema 端到端往返(EcmRuntimeState 当前不进 replay schema),
 而非恢复侧校验深度。
