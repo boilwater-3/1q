@@ -29,6 +29,7 @@ enum class ONEQ_API ValidationCode {
   kNone = 0,                      /**< 无问题占位值 */
   kInvalidCycleDeltaTime,         /**< 周期步长非法（<= 0） */
   kNonFiniteCycleDeltaTime,       /**< 周期步长非有限值 */
+  kInvalidCycleStartTime,         /**< 周期绝对起点非法 */
   kNonFinitePlatformNumericField, /**< 平台存在非有限数值字段 */
   kInvalidEmitterFrequency,       /**< 辐射源频率非法（<= 0） */
   kInvalidEmitterBandwidth,       /**< 辐射源带宽非法（<= 0） */
@@ -39,7 +40,8 @@ enum class ONEQ_API ValidationCode {
   kInvalidEmitterBeamwidth,       /**< 辐射源波束宽度非法（<= 0） */
   kNonFiniteEmitterNumericField,  /**< 辐射源存在非有限数值字段 */
   kInvalidEnvironmentObservation, /**< 环境观测字段非法 */
-  kInvalidInterferenceInput       /**< 干扰模式与载荷不一致或工程发射事实非法 */
+  kInvalidInterferenceInput,      /**< 干扰模式与载荷不一致或工程发射事实非法 */
+  kInvalidRfEmissionFrame         /**< RF v2 发射帧非法或与周期窗口不匹配 */
 };
 
 /**

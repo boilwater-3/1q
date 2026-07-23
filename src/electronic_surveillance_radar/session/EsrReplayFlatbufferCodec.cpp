@@ -138,6 +138,113 @@ oneq::electromagnetics::RfEmission FromRfEmission(const esr::replay::RfEmission*
   return emission;
 }
 
+flatbuffers::Offset<esr::replay::RfSceneFrame> BuildRfSceneFrame(
+    flatbuffers::FlatBufferBuilder& fbb,
+    const oneq::electromagnetics::RfEmissionFrame& frame) {
+  std::vector<flatbuffers::Offset<esr::replay::RfSceneEmission>> emissions;
+  emissions.reserve(frame.emissions.size());
+  for (const oneq::electromagnetics::RfSceneEmission& emission : frame.emissions) {
+    esr::replay::RfSceneDirection boresight(emission.antenna.boresight_ecef.x,
+                                            emission.antenna.boresight_ecef.y,
+                                            emission.antenna.boresight_ecef.z);
+    const auto antenna = esr::replay::CreateRfSceneAntennaPattern(
+        fbb, &boresight, emission.antenna.peak_gain_dbi,
+        emission.antenna.half_power_beamwidth_deg, emission.antenna.sidelobe_level_db,
+        emission.antenna.backlobe_level_db,
+        emission.antenna.cross_polarization_isolation_db);
+    const oneq::electromagnetics::RfWaveformSchedule& waveform = emission.waveform;
+    const auto waveform_fb = esr::replay::CreateRfWaveformSchedule(
+        fbb, static_cast<int32_t>(waveform.kind), waveform.activity_start_time_s,
+        waveform.activity_duration_s, waveform.center_frequency_hz,
+        waveform.occupied_bandwidth_hz, waveform.transmit_power_w, waveform.pulse_width_s,
+        waveform.pulse_repetition_interval_s, waveform.first_pulse_time_s, waveform.pulse_count,
+        waveform.pulse_jitter_fraction, waveform.timing_seed, waveform.timing_epoch,
+        waveform.sweep_start_frequency_hz, waveform.sweep_stop_frequency_hz,
+        waveform.sweep_period_s);
+    const esr::replay::Vec3 position = ToV(emission.position_ecef_m);
+    const esr::replay::Vec3 velocity = ToV(emission.velocity_ecef_mps);
+    emissions.push_back(esr::replay::CreateRfSceneEmission(
+        fbb, emission.identity.platform_id, emission.identity.equipment_id,
+        emission.identity.emission_id, &position, &velocity, antenna,
+        static_cast<int32_t>(emission.polarization), waveform_fb));
+  }
+  return esr::replay::CreateRfSceneFrame(
+      fbb, frame.world_cycle_index, frame.window_start_time_s, frame.window_duration_s,
+      fbb.CreateVector(emissions));
+}
+
+oneq::electromagnetics::RfEmissionFrame FromRfSceneFrame(
+    const esr::replay::RfSceneFrame* fb) {
+  oneq::electromagnetics::RfEmissionFrame frame;
+  if (fb == nullptr) {
+    return frame;
+  }
+  frame.world_cycle_index = fb->world_cycle_index();
+  frame.window_start_time_s = fb->window_start_time_s();
+  frame.window_duration_s = fb->window_duration_s();
+  if (!fb->emissions()) {
+    return frame;
+  }
+  frame.emissions.reserve(fb->emissions()->size());
+  for (const esr::replay::RfSceneEmission* source : *fb->emissions()) {
+    if (source == nullptr) {
+      continue;
+    }
+    oneq::electromagnetics::RfSceneEmission emission;
+    emission.identity.platform_id = source->platform_id();
+    emission.identity.equipment_id = source->equipment_id();
+    emission.identity.emission_id = source->emission_id();
+    if (source->position_ecef_m()) {
+      emission.position_ecef_m.x_m = source->position_ecef_m()->x();
+      emission.position_ecef_m.y_m = source->position_ecef_m()->y();
+      emission.position_ecef_m.z_m = source->position_ecef_m()->z();
+    }
+    if (source->velocity_ecef_mps()) {
+      emission.velocity_ecef_mps.x_mps = source->velocity_ecef_mps()->x();
+      emission.velocity_ecef_mps.y_mps = source->velocity_ecef_mps()->y();
+      emission.velocity_ecef_mps.z_mps = source->velocity_ecef_mps()->z();
+    }
+    if (source->antenna()) {
+      emission.antenna.peak_gain_dbi = source->antenna()->peak_gain_dbi();
+      emission.antenna.half_power_beamwidth_deg =
+          source->antenna()->half_power_beamwidth_deg();
+      emission.antenna.sidelobe_level_db = source->antenna()->sidelobe_level_db();
+      emission.antenna.backlobe_level_db = source->antenna()->backlobe_level_db();
+      emission.antenna.cross_polarization_isolation_db =
+          source->antenna()->cross_polarization_isolation_db();
+      if (source->antenna()->boresight_ecef()) {
+        emission.antenna.boresight_ecef.x = source->antenna()->boresight_ecef()->x();
+        emission.antenna.boresight_ecef.y = source->antenna()->boresight_ecef()->y();
+        emission.antenna.boresight_ecef.z = source->antenna()->boresight_ecef()->z();
+      }
+    }
+    emission.polarization = static_cast<oneq::electromagnetics::RfScenePolarization>(
+        source->polarization());
+    if (source->waveform()) {
+      const esr::replay::RfWaveformSchedule* waveform = source->waveform();
+      emission.waveform.kind =
+          static_cast<oneq::electromagnetics::RfSceneWaveformKind>(waveform->kind());
+      emission.waveform.activity_start_time_s = waveform->activity_start_time_s();
+      emission.waveform.activity_duration_s = waveform->activity_duration_s();
+      emission.waveform.center_frequency_hz = waveform->center_frequency_hz();
+      emission.waveform.occupied_bandwidth_hz = waveform->occupied_bandwidth_hz();
+      emission.waveform.transmit_power_w = waveform->transmit_power_w();
+      emission.waveform.pulse_width_s = waveform->pulse_width_s();
+      emission.waveform.pulse_repetition_interval_s = waveform->pulse_repetition_interval_s();
+      emission.waveform.first_pulse_time_s = waveform->first_pulse_time_s();
+      emission.waveform.pulse_count = waveform->pulse_count();
+      emission.waveform.pulse_jitter_fraction = waveform->pulse_jitter_fraction();
+      emission.waveform.timing_seed = waveform->timing_seed();
+      emission.waveform.timing_epoch = waveform->timing_epoch();
+      emission.waveform.sweep_start_frequency_hz = waveform->sweep_start_frequency_hz();
+      emission.waveform.sweep_stop_frequency_hz = waveform->sweep_stop_frequency_hz();
+      emission.waveform.sweep_period_s = waveform->sweep_period_s();
+    }
+    frame.emissions.push_back(emission);
+  }
+  return frame;
+}
+
 }  // namespace
 
 std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
@@ -197,6 +304,8 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
 
   auto platform = BuildPose(fbb, v.platform_pose);
   auto emitters_vec = fbb.CreateVector(emitters);
+  const flatbuffers::Offset<esr::replay::RfSceneFrame> rf_emission_frame =
+      v.has_rf_emission_frame ? BuildRfSceneFrame(fbb, v.rf_emission_frame) : 0;
   esr::replay::EsrCycleInputBuilder b(fbb);
   b.add_cycle_index(v.cycle_index);
   b.add_dt_sec(v.dt_sec);
@@ -210,6 +319,11 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   b.add_has_platform_ecef_kinematics(v.has_platform_ecef_kinematics);
   b.add_platform_position_ecef_m(&platform_position_ecef);
   b.add_platform_velocity_ecef_mps(&platform_velocity_ecef);
+  b.add_cycle_start_time_s(v.cycle_start_time_s);
+  b.add_has_rf_emission_frame(v.has_rf_emission_frame);
+  if (v.has_rf_emission_frame) {
+    b.add_rf_emission_frame(rf_emission_frame);
+  }
   fbb.Finish(b.Finish());
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -221,10 +335,13 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   }
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrCycleInput>(bytes.data());
   out->cycle_index = fb->cycle_index();
+  out->cycle_start_time_s = fb->cycle_start_time_s();
   out->dt_sec = fb->dt_sec();
   out->platform_altitude_m = fb->platform_altitude_m();
   out->platform_entity_id = fb->platform_entity_id();
   out->has_platform_ecef_kinematics = fb->has_platform_ecef_kinematics();
+  out->has_rf_emission_frame = fb->has_rf_emission_frame();
+  out->rf_emission_frame = FromRfSceneFrame(fb->rf_emission_frame());
   if (fb->platform_position_ecef_m()) {
     out->platform_position_ecef_m.x_m = fb->platform_position_ecef_m()->x();
     out->platform_position_ecef_m.y_m = fb->platform_position_ecef_m()->y();

@@ -225,6 +225,24 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
                                ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
                                "dt_sec", "cycle delta time must be positive"));
   }
+  if (!IsFinite(input.cycle_start_time_s)) {
+    issues.push_back(MakeIssue(ValidationSeverity::kError, ValidationCode::kInvalidCycleStartTime,
+                               ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1),
+                               "cycle_start_time_s", "cycle start time must be finite"));
+  }
+  if (input.has_rf_emission_frame) {
+    const oneq::electromagnetics::RfEmissionFrame& frame = input.rf_emission_frame;
+    const bool window_matches = frame.world_cycle_index == input.cycle_index &&
+                                frame.window_start_time_s == input.cycle_start_time_s &&
+                                frame.window_duration_s == static_cast<double>(input.dt_sec);
+    if (!window_matches || !oneq::electromagnetics::TryValidateRfSceneFrame(frame)) {
+      issues.push_back(MakeIssue(ValidationSeverity::kError,
+                                 ValidationCode::kInvalidRfEmissionFrame,
+                                 ValidationLocationKind::kGlobal,
+                                 static_cast<std::size_t>(-1), "rf_emission_frame",
+                                 "RF emission frame must be valid and match the cycle window"));
+    }
+  }
   ValidatePlatformPose(input.platform_pose, &issues);
   ValidatePlatformAltitude(input.platform_altitude_m, &issues);
   ValidatePlatformRfKinematics(input, &issues);

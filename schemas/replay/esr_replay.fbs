@@ -85,6 +85,60 @@ table RfEmission {
   segments: [RfEmissionSegment];
 }
 
+// ---- RF v2 scene exchange ----
+
+struct RfSceneDirection {
+  x: double;
+  y: double;
+  z: double;
+}
+
+table RfSceneAntennaPattern {
+  boresight_ecef: RfSceneDirection;
+  peak_gain_dbi: double;
+  half_power_beamwidth_deg: double;
+  sidelobe_level_db: double;
+  backlobe_level_db: double;
+  cross_polarization_isolation_db: double;
+}
+
+table RfWaveformSchedule {
+  kind: int32;
+  activity_start_time_s: double;
+  activity_duration_s: double;
+  center_frequency_hz: double;
+  occupied_bandwidth_hz: double;
+  transmit_power_w: double;
+  pulse_width_s: double;
+  pulse_repetition_interval_s: double;
+  first_pulse_time_s: double;
+  pulse_count: uint32;
+  pulse_jitter_fraction: double;
+  timing_seed: uint64;
+  timing_epoch: uint64;
+  sweep_start_frequency_hz: double;
+  sweep_stop_frequency_hz: double;
+  sweep_period_s: double;
+}
+
+table RfSceneEmission {
+  platform_id: uint64;
+  equipment_id: uint64;
+  emission_id: uint64;
+  position_ecef_m: Vec3;
+  velocity_ecef_mps: Vec3;
+  antenna: RfSceneAntennaPattern;
+  polarization: int32;
+  waveform: RfWaveformSchedule;
+}
+
+table RfSceneFrame {
+  world_cycle_index: uint64;
+  window_start_time_s: double;
+  window_duration_s: double;
+  emissions: [RfSceneEmission];
+}
+
 table EsrJammerSource {
   technique:       int32;
   active:          bool;
@@ -123,6 +177,9 @@ table EsrCycleInput {
   has_platform_ecef_kinematics: bool = false;
   platform_position_ecef_m: Vec3;
   platform_velocity_ecef_mps: Vec3;
+  cycle_start_time_s: double = 0.0;
+  has_rf_emission_frame: bool = false;
+  rf_emission_frame: RfSceneFrame;
 }
 
 root_type EsrCycleInput;

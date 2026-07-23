@@ -168,6 +168,51 @@ TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesEngineeringRfSegments) {
   EXPECT_DOUBLE_EQ(decoded_emission.segments.front().transmit_power_w, 800.0);
 }
 
+TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesRfV2EmissionFrame) {
+  EsrCycleInput input;
+  input.cycle_index = 17U;
+  input.cycle_start_time_s = 42.5;
+  input.dt_sec = 0.25f;
+  input.has_rf_emission_frame = true;
+  input.rf_emission_frame.world_cycle_index = input.cycle_index;
+  input.rf_emission_frame.window_start_time_s = input.cycle_start_time_s;
+  input.rf_emission_frame.window_duration_s = input.dt_sec;
+
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = 70U;
+  emission.identity.equipment_id = 71U;
+  emission.identity.emission_id = 72U;
+  emission.position_ecef_m.x_m = 6378137.0;
+  emission.velocity_ecef_mps.y_mps = 120.0;
+  emission.antenna.peak_gain_dbi = 15.0;
+  emission.antenna.boresight_ecef.y = 1.0;
+  emission.polarization = oneq::electromagnetics::RfScenePolarization::kVertical;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+      input.cycle_start_time_s, 9.5e9, 2.0e6, 400.0, 5.0e-6, 1.0e-3, 20U, 0.05, 123U, 9U,
+      &emission.waveform));
+  input.rf_emission_frame.emissions.push_back(emission);
+
+  EsrCycleInput decoded;
+  ASSERT_TRUE(DecodeEsrCycleInput(EncodeEsrCycleInput(input), &decoded));
+  EXPECT_EQ(decoded.cycle_index, input.cycle_index);
+  EXPECT_DOUBLE_EQ(decoded.cycle_start_time_s, input.cycle_start_time_s);
+  EXPECT_TRUE(decoded.has_rf_emission_frame);
+  EXPECT_EQ(decoded.rf_emission_frame.world_cycle_index, input.cycle_index);
+  EXPECT_DOUBLE_EQ(decoded.rf_emission_frame.window_start_time_s, input.cycle_start_time_s);
+  EXPECT_DOUBLE_EQ(decoded.rf_emission_frame.window_duration_s, input.dt_sec);
+  ASSERT_EQ(decoded.rf_emission_frame.emissions.size(), 1U);
+  const oneq::electromagnetics::RfSceneEmission& decoded_emission =
+      decoded.rf_emission_frame.emissions.front();
+  EXPECT_EQ(decoded_emission.identity.platform_id, 70U);
+  EXPECT_EQ(decoded_emission.identity.equipment_id, 71U);
+  EXPECT_EQ(decoded_emission.identity.emission_id, 72U);
+  EXPECT_EQ(decoded_emission.waveform.kind,
+            oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain);
+  EXPECT_EQ(decoded_emission.waveform.timing_seed, 123U);
+  EXPECT_EQ(decoded_emission.waveform.timing_epoch, 9U);
+  EXPECT_EQ(decoded_emission.waveform.pulse_count, 20U);
+}
+
 TEST(EsrReplayCodecRoundtripTest, CycleInputPreservesDoublePrecisionPose) {
   EsrCycleInput input;
   input.platform_pose.position_m.x = -4226.1319451063564;

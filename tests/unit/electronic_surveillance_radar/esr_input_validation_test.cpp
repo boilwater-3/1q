@@ -35,6 +35,22 @@ bool ContainsCode(const ValidationIssueList& issues, ValidationCode code) {
   return false;
 }
 
+void AddValidRfV2EmissionFrame(EsrCycleInput* input) {
+  ASSERT_NE(input, nullptr);
+  input->has_rf_emission_frame = true;
+  input->rf_emission_frame.world_cycle_index = input->cycle_index;
+  input->rf_emission_frame.window_start_time_s = input->cycle_start_time_s;
+  input->rf_emission_frame.window_duration_s = input->dt_sec;
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = 10U;
+  emission.identity.equipment_id = 11U;
+  emission.identity.emission_id = 12U;
+  emission.position_ecef_m.x_m = 6378137.0;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
+      input->cycle_start_time_s, input->dt_sec, 10.0e9, 2.0e6, 10.0, &emission.waveform));
+  input->rf_emission_frame.emissions.push_back(emission);
+}
+
 /**
  * @brief 构造最小可用辐射源输入。
  * @return 最小可用辐射源输入。
@@ -92,6 +108,30 @@ TEST(EsrInputValidationTest, EmptySceneInputIsAllowed) {
 
   EXPECT_FALSE(HasValidationError(issues));
   EXPECT_TRUE(issues.empty());
+}
+
+TEST(EsrInputValidationTest, ValidRfV2EmissionFrameIsAllowed) {
+  EsrCycleInput input;
+  input.cycle_index = 4U;
+  input.cycle_start_time_s = 10.0;
+  input.dt_sec = 1.0f;
+  AddValidRfV2EmissionFrame(&input);
+
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
+  EXPECT_FALSE(ContainsCode(issues, ValidationCode::kInvalidRfEmissionFrame));
+}
+
+TEST(EsrInputValidationTest, RfV2EmissionFrameMustMatchCycleWindow) {
+  EsrCycleInput input;
+  input.cycle_index = 4U;
+  input.cycle_start_time_s = 10.0;
+  input.dt_sec = 1.0f;
+  AddValidRfV2EmissionFrame(&input);
+  input.rf_emission_frame.window_start_time_s += 0.1;
+
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidRfEmissionFrame));
+  EXPECT_TRUE(HasValidationError(issues));
 }
 
 TEST(EsrInputValidationTest, EngineeringInterferenceRejectsMixedLegacyPayload) {
