@@ -12,6 +12,7 @@
 #include "1q/airborne_radar/config/ArEnvironmentConfig.h"
 #include "1q/airborne_radar/config/ArOrientationConfig.h"
 #include "1q/airborne_radar/session/ArInterferenceObservation.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
@@ -77,12 +78,6 @@ struct ONEQ_API ArCompleteCycleInput {
   config::AtmosphericPhysicsConfig atmospheric_observation{};   /**< 大气传播输入。 */
   config::AtmosphericDerivedContext atmospheric_context{};      /**< 时间与空间天气输入。 */
   config::VegetationScatterPhysicsConfig surface_observation{}; /**< 地表杂波输入。 */
-};
-
-/** @brief 接收机结构化损伤状态。 */
-enum class ArReceiverImpairment : std::uint8_t {
-  kNone = 0, /**< 接收机在线性区工作。 */
-  kSaturated /**< 宽带前端总输入超过最大线性输入功率。 */
 };
 
 /** @brief Complete 阶段状态。 */

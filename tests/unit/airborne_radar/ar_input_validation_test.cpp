@@ -1,12 +1,7 @@
 // Copyright 2026. All Rights Reserved.
 //
-// @file radar_input_validation_test.cpp
-// @brief 验证雷达周期输入校验器的边界行为，覆盖以下缺口：
-//   - 笛卡尔位置与斜距的组合有效性语义
-//   - 负距离 / 零距离的错误判定
-//   - 非有限数（NaN / Inf）全字段检测
-//   - 重复外部关联键、未知外部关联键、负 RCS 的级别判定
-//   - 周期步长 (dt) 的有效性校验
+// @file ar_input_validation_test.cpp
+// @brief 验证 AR 内部目标与单周期用户输入的原子校验合同。
 
 #include <gtest/gtest.h>
 
@@ -14,9 +9,8 @@
 #include <limits>
 #include <vector>
 
-#include "1q/airborne_radar/config/ArEnvironmentConfig.h"
-#include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
+#include "1q/coordinate/position_transform.h"
 
 namespace airborne_radar {
 namespace tests {
@@ -29,21 +23,41 @@ using session::ValidationSeverity;
 
 namespace {
 
-// 构造一个最简有效目标（位于 X 轴方向 1000m，有速度和外部关联键）
-session::ArSceneTarget MakeValidTarget(std::uint64_t id = 1u) {
-  session::ArSceneTarget t(100.0f, 0.0f, 0.0f, 1.0f);
-  t.external_target_id = id;
-  t.position_x = 1000.0f;
-  t.position_y = 0.0f;
-  t.position_z = 0.0f;
-  t.range_m = 1000.0f;
-  return t;
+session::ArSceneTarget MakeValidLocalTarget(std::uint64_t id = 1U) {
+  session::ArSceneTarget target(100.0f, 0.0f, 0.0f, 1.0f);
+  target.external_target_id = id;
+  target.position_x = 1000.0f;
+  target.range_m = 1000.0f;
+  return target;
 }
 
-// 在 issues 列表中查找指定编码的第一条记录
-const session::ValidationIssue* FindIssue(const std::vector<session::ValidationIssue>& issues,
-                                          ValidationCode code) {
-  for (const auto& issue : issues) {
+session::ArCycleInput MakeValidCycleInput() {
+  session::ArCycleInput input;
+  input.cycle_index = 1U;
+  input.cycle_start_time_s = 0.0;
+  input.dt_sec = 0.5;
+  input.platform.platform_entity_id = 42U;
+
+  oneq::coordinate::LlaPositionDegM platform_lla;
+  platform_lla.latitude_deg = 31.0;
+  platform_lla.longitude_deg = 121.0;
+  platform_lla.altitude_m = 1000.0;
+  EXPECT_TRUE(oneq::coordinate::TryLlaToEcef(
+      platform_lla, &input.platform.platform_position_ecef_m));
+
+  session::ArTargetInput target;
+  target.target_id = 7U;
+  target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+  target.kinematics.position_ecef_m = input.platform.platform_position_ecef_m;
+  target.kinematics.position_ecef_m.x_m += 5000.0;
+  target.rcs = 2.0f;
+  input.targets.push_back(target);
+  return input;
+}
+
+const session::ValidationIssue* FindIssue(
+    const std::vector<session::ValidationIssue>& issues, ValidationCode code) {
+  for (const session::ValidationIssue& issue : issues) {
     if (issue.code == code) {
       return &issue;
     }
@@ -51,154 +65,78 @@ const session::ValidationIssue* FindIssue(const std::vector<session::ValidationI
   return nullptr;
 }
 
+void AddValidInterferenceEmission(session::ArCycleInput* input) {
+  ASSERT_NE(input, nullptr);
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = 99U;
+  emission.identity.equipment_id = 5U;
+  emission.identity.emission_id = 1U;
+  emission.position_ecef_m = input->platform.platform_position_ecef_m;
+  emission.position_ecef_m.x_m += 10000.0;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
+      input->cycle_start_time_s, input->dt_sec, 10.0e9, 5.0e6, 100.0,
+      &emission.waveform));
+  input->interference.world_cycle_index = input->cycle_index;
+  input->interference.window_start_time_s = input->cycle_start_time_s;
+  input->interference.window_duration_s = input->dt_sec;
+  input->interference.emissions.push_back(emission);
+}
+
 }  // namespace
 
-// ===========================================================================
-// 笛卡尔位置与斜距组合语义
-// ===========================================================================
-
-/// @brief 目标位于原点 (0,0,0) 且 range_m <= 0 → 必须报 kMissingRangeAndCartesianPosition。
-TEST(RadarInputValidationTest, OriginWithNoRangeIsError) {
+TEST(ArSceneTargetValidationTest, OriginRequiresPositiveRange) {
   session::ArSceneTarget target;
-  target.external_target_id = 1u;
-  target.position_x = 0.0f;
-  target.position_y = 0.0f;
-  target.position_z = 0.0f;
-  target.range_m = 0.0f;  // 无有效斜距
+  target.external_target_id = 1U;
   target.rcs = 1.0f;
 
-  const auto issues = ValidateArSceneTargets({target});
+  const session::ValidationIssueList issues = ValidateArSceneTargets({target});
   EXPECT_TRUE(HasValidationError(issues));
   EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
 }
 
-/// @brief 目标位于原点 (0,0,0) 但 range_m > 0 → 斜距有效，不报位置缺失错误。
-TEST(RadarInputValidationTest, OriginWithPositiveRangeIsValid) {
+TEST(ArSceneTargetValidationTest, PositiveRangeAllowsOrigin) {
   session::ArSceneTarget target;
-  target.external_target_id = 1u;
-  target.position_x = 0.0f;
-  target.position_y = 0.0f;
-  target.position_z = 0.0f;
-  target.range_m = 5000.0f;  // 斜距有效
+  target.external_target_id = 1U;
+  target.range_m = 5000.0f;
   target.rcs = 1.0f;
 
-  const auto issues = ValidateArSceneTargets({target});
-  EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
+  const session::ValidationIssueList issues = ValidateArSceneTargets({target});
   EXPECT_FALSE(HasValidationError(issues));
 }
 
-/// @brief 目标具有有效笛卡尔位置且 range_m <= 0 → 不报位置缺失错误。
-TEST(RadarInputValidationTest, FlaggedCartesianPositionWithNonPositiveRangeIsValid) {
+TEST(ArSceneTargetValidationTest, CartesianPositionAllowsMissingRange) {
   session::ArSceneTarget target;
-  target.external_target_id = 1u;
-  target.position_x = 3000.0f;  // 有笛卡尔位置
-  target.position_y = 0.0f;
-  target.position_z = 0.0f;
-  target.range_m = 0.0f;  // 无斜距
-  target.rcs = 1.0f;
-
-  const auto issues = ValidateArSceneTargets({target});
-  EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
-}
-
-/// @brief 非零坐标自动视为有效笛卡尔位置，即使 range_m <= 0 也不报位置缺失错误。
-TEST(RadarInputValidationTest, NonZeroCoordinatesImpliesCartesianPositionAndIsValid) {
-  session::ArSceneTarget target;
-  target.external_target_id = 1u;
+  target.external_target_id = 1U;
   target.position_x = 3000.0f;
-  target.position_y = 0.0f;
-  target.position_z = 0.0f;
-  target.range_m = 0.0f;
   target.rcs = 1.0f;
 
-  const auto issues = ValidateArSceneTargets({target});
-  EXPECT_EQ(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
+  const session::ValidationIssueList issues = ValidateArSceneTargets({target});
   EXPECT_FALSE(HasValidationError(issues));
 }
 
-/// @brief 原点 (0,0,0) 且 range_m <= 0 → 报位置缺失错误。
-TEST(RadarInputValidationTest, OriginWithNoRangeIsErrorEvenWithoutPositionFlag) {
-  session::ArSceneTarget target;
-  target.external_target_id = 1u;
-  target.position_x = 0.0f;
-  target.position_y = 0.0f;
-  target.position_z = 0.0f;
-  target.range_m = 0.0f;
-  target.rcs = 1.0f;
-
-  const auto issues = ValidateArSceneTargets({target});
-  EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
-}
-
-/// @brief 目标 range_m 为负值且无有效笛卡尔位置 → 同样报错。
-TEST(RadarInputValidationTest, NegativeRangeWithNoPositionIsError) {
-  session::ArSceneTarget target;
-  target.external_target_id = 1u;
-  target.position_x = 0.0f;
-  target.position_y = 0.0f;
-  target.position_z = 0.0f;
-  target.range_m = -100.0f;
-  target.rcs = 1.0f;
-
-  const auto issues = ValidateArSceneTargets({target});
-  EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kMissingRangeAndCartesianPosition), nullptr);
-}
-
-// ===========================================================================
-// 非有限数字段检测
-// ===========================================================================
-
-/// @brief 位置字段含 NaN → 报 kNonFiniteTargetField（Error 级别）。
-TEST(RadarInputValidationTest, NanPositionFieldIsError) {
-  session::ArSceneTarget target = MakeValidTarget();
-  target.position_x = std::numeric_limits<float>::quiet_NaN();
-
-  const auto issues = ValidateArSceneTargets({target});
-  EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kNonFiniteTargetField), nullptr);
-}
-
-/// @brief 速度字段含 Inf → 报 kNonFiniteTargetField。
-TEST(RadarInputValidationTest, InfVelocityFieldIsError) {
-  session::ArSceneTarget target = MakeValidTarget();
+TEST(ArSceneTargetValidationTest, NonFiniteFieldsReject) {
+  session::ArSceneTarget target = MakeValidLocalTarget();
   target.velocity_y = std::numeric_limits<float>::infinity();
 
-  const auto issues = ValidateArSceneTargets({target});
+  const session::ValidationIssueList issues = ValidateArSceneTargets({target});
   EXPECT_TRUE(HasValidationError(issues));
   EXPECT_NE(FindIssue(issues, ValidationCode::kNonFiniteTargetField), nullptr);
 }
 
-/// @brief RCS 字段含 NaN → 报 kNonFiniteTargetField。
-TEST(RadarInputValidationTest, NanRcsFieldIsError) {
-  session::ArSceneTarget target = MakeValidTarget();
-  target.rcs = std::numeric_limits<float>::quiet_NaN();
+TEST(ArSceneTargetValidationTest, DuplicateIdentityRejects) {
+  session::ArSceneTarget first = MakeValidLocalTarget(42U);
+  session::ArSceneTarget second = MakeValidLocalTarget(42U);
+  second.position_x = 2000.0f;
+  second.range_m = 2000.0f;
 
-  const auto issues = ValidateArSceneTargets({target});
+  const session::ValidationIssueList issues = ValidateArSceneTargets({first, second});
   EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kNonFiniteTargetField), nullptr);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kDuplicateExternalTargetId), nullptr);
 }
 
-/// @brief range_m 字段含 -Inf → 报 kNonFiniteTargetField。
-TEST(RadarInputValidationTest, NegativeInfRangeFieldIsError) {
-  session::ArSceneTarget target = MakeValidTarget();
-  target.range_m = -std::numeric_limits<float>::infinity();
-
-  const auto issues = ValidateArSceneTargets({target});
-  EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kNonFiniteTargetField), nullptr);
-}
-
-// ===========================================================================
-// 外部关联键与 RCS 级别判定
-// ===========================================================================
-
-/// @brief external_target_id == 0 表示外部关联键未知 → kInfo 级别（不阻断执行）。
-TEST(RadarInputValidationTest, ZeroExternalIdIsInfo) {
-  session::ArSceneTarget target = MakeValidTarget(0u);
-
-  const auto issues = ValidateArSceneTargets({target});
+TEST(ArSceneTargetValidationTest, UnknownIdentityIsInformational) {
+  const session::ValidationIssueList issues =
+      ValidateArSceneTargets({MakeValidLocalTarget(0U)});
   const session::ValidationIssue* issue =
       FindIssue(issues, ValidationCode::kUnknownExternalTargetId);
   ASSERT_NE(issue, nullptr);
@@ -206,398 +144,132 @@ TEST(RadarInputValidationTest, ZeroExternalIdIsInfo) {
   EXPECT_FALSE(HasValidationError(issues));
 }
 
-/// @brief 同一非零 external_target_id 出现两次 → Error 级别。
-TEST(RadarInputValidationTest, DuplicateExternalIdIsError) {
-  session::ArSceneTarget t1 = MakeValidTarget(42u);
-  session::ArSceneTarget t2 = MakeValidTarget(42u);
-  t2.position_x = 2000.0f;
-  t2.range_m = 2000.0f;
-
-  const auto issues = ValidateArSceneTargets({t1, t2});
-  const session::ValidationIssue* issue =
-      FindIssue(issues, ValidationCode::kDuplicateExternalTargetId);
-  ASSERT_NE(issue, nullptr);
-  EXPECT_EQ(issue->severity, ValidationSeverity::kError);
-  EXPECT_TRUE(HasValidationError(issues));
-}
-
-/// @brief 负 RCS → Warning 级别（不阻断执行）。
-TEST(RadarInputValidationTest, NegativeRcsIsWarning) {
-  session::ArSceneTarget target = MakeValidTarget();
+TEST(ArSceneTargetValidationTest, NegativeRcsIsWarning) {
+  session::ArSceneTarget target = MakeValidLocalTarget();
   target.rcs = -0.5f;
 
-  const auto issues = ValidateArSceneTargets({target});
+  const session::ValidationIssueList issues = ValidateArSceneTargets({target});
   const session::ValidationIssue* issue = FindIssue(issues, ValidationCode::kNegativeRcs);
   ASSERT_NE(issue, nullptr);
   EXPECT_EQ(issue->severity, ValidationSeverity::kWarning);
   EXPECT_FALSE(HasValidationError(issues));
 }
 
-// ===========================================================================
-// 周期步长 (dt) 校验
-// ===========================================================================
-
-/// @brief 正常正值 dt → 无问题。
-TEST(RadarInputValidationTest, PositiveDtIsValid) {
-  session::ArCycleInput input;
-  input.dt_sec = 0.5f;
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_FALSE(HasValidationError(issues));
-  EXPECT_EQ(FindIssue(issues, ValidationCode::kInvalidCycleDeltaTime), nullptr);
-  EXPECT_EQ(FindIssue(issues, ValidationCode::kNonFiniteCycleDeltaTime), nullptr);
+TEST(ArCycleInputValidationTest, FullyValidInputProducesNoErrors) {
+  EXPECT_FALSE(HasValidationError(ValidateArCycleInput(MakeValidCycleInput())));
 }
 
-/// @brief dt == 0 → Error 级别（kInvalidCycleDeltaTime）。
-TEST(RadarInputValidationTest, ZeroDtIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = 0.0f;
-  input.scene.push_back(MakeValidTarget());
+TEST(ArCycleInputValidationTest, CycleIndexMustBeNonZero) {
+  session::ArCycleInput input = MakeValidCycleInput();
+  input.cycle_index = 0U;
 
-  const auto issues = ValidateArCycleInput(input);
-  const session::ValidationIssue* issue = FindIssue(issues, ValidationCode::kInvalidCycleDeltaTime);
-  ASSERT_NE(issue, nullptr);
-  EXPECT_EQ(issue->severity, ValidationSeverity::kError);
+  const session::ValidationIssueList issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidCycleIndex), nullptr);
   EXPECT_TRUE(HasValidationError(issues));
 }
 
-/// @brief dt < 0 → Error 级别（kInvalidCycleDeltaTime）。
-TEST(RadarInputValidationTest, NegativeDtIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = -1.0f;
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  const session::ValidationIssue* issue = FindIssue(issues, ValidationCode::kInvalidCycleDeltaTime);
-  ASSERT_NE(issue, nullptr);
-  EXPECT_EQ(issue->severity, ValidationSeverity::kError);
-  EXPECT_TRUE(HasValidationError(issues));
-}
-
-/// @brief dt 为 NaN → Error 级别（kNonFiniteCycleDeltaTime）。
-TEST(RadarInputValidationTest, NanDtIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = std::numeric_limits<float>::quiet_NaN();
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kNonFiniteCycleDeltaTime), nullptr);
-}
-
-/// @brief dt 为 Inf → Error 级别（kNonFiniteCycleDeltaTime）。
-TEST(RadarInputValidationTest, InfDtIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = std::numeric_limits<float>::infinity();
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kNonFiniteCycleDeltaTime), nullptr);
-}
-
-/// @brief platform_pose 任意字段为非有限数时应报 kNonFinitePlatformNumericField。
-TEST(RadarInputValidationTest, NonFinitePlatformPoseIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.platform_pose.attitude_deg.yaw_deg = std::numeric_limits<float>::quiet_NaN();
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_TRUE(HasValidationError(issues));
-  EXPECT_NE(FindIssue(issues, ValidationCode::kNonFinitePlatformNumericField), nullptr);
-}
-
-/// @brief 未提供环境快照时，不应校验默认构造的 environment 字段。
-TEST(RadarInputValidationTest, OmittedEnvironmentSnapshotDoesNotValidateEnvironmentDefaults) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = false;
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_EQ(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
-  EXPECT_EQ(FindIssue(issues, ValidationCode::kEnvironmentSnapshotFlagMismatch), nullptr);
-  EXPECT_FALSE(HasValidationError(issues));
-}
-
-/// @brief 填入环境数据却漏置 has_environment 时，应显式报错，避免静默跳过环境链路。
-TEST(RadarInputValidationTest, EnvironmentDataWithoutPresenceFlagIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = false;
-  input.environment.atmospheric_observation.pressure_hpa = 900.0f;
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kEnvironmentSnapshotFlagMismatch), nullptr);
-  EXPECT_TRUE(HasValidationError(issues));
-}
-
-/// @brief 显式提供环境快照时，环境字段仍应按原规则校验。
-TEST(RadarInputValidationTest, ExplicitEnvironmentSnapshotIsValidated) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.environment.atmospheric_observation.pressure_hpa = -1.0f;
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
-  EXPECT_TRUE(HasValidationError(issues));
-}
-
-// ===========================================================================
-// 环境观测校验补充分支（atmospheric context / jammer_sources）
-// ===========================================================================
-
-/// @brief 大气温度非正时应报 kInvalidEnvironmentObservation。
-TEST(RadarInputValidationTest, NonPositiveAtmosphericTemperatureIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
-  input.environment.atmospheric_observation.temperature_k = 0.0f;
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
-  EXPECT_TRUE(HasValidationError(issues));
-}
-
-/// @brief 湿度超出 [0,1] 应报错。
-TEST(RadarInputValidationTest, HumidityOutOfRangeIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
-  input.environment.atmospheric_observation.temperature_k = 288.0f;
-  input.environment.atmospheric_observation.relative_humidity = 1.5f;
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
-}
-
-/// @brief 非有限大气气压应报错。
-TEST(RadarInputValidationTest, NonFinitePressureIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.environment.atmospheric_observation.pressure_hpa = std::numeric_limits<float>::quiet_NaN();
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
-}
-
-/// @brief 大气派生上下文字段非有限时应报错。
-TEST(RadarInputValidationTest, NonFiniteAtmosphericContextIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
-  input.environment.atmospheric_observation.temperature_k = 288.0f;
-  input.environment.atmospheric_context.solar_flux_f107 = std::numeric_limits<float>::quiet_NaN();
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
-}
-
-/// @brief 干扰源功率为负时应报错。
-TEST(RadarInputValidationTest, NegativeJammerPowerIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
-  input.environment.atmospheric_observation.temperature_k = 288.0f;
-  config::JammerEmitterState jammer;
-  jammer.power_db = -10.0f;
-  input.environment.jammer_sources.push_back(jammer);
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
-}
-
-/// @brief 干扰源置信度超出 [0,1] 应报错。
-TEST(RadarInputValidationTest, JammerConfidenceOutOfRangeIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
-  input.environment.atmospheric_observation.temperature_k = 288.0f;
-  config::JammerEmitterState jammer;
-  jammer.power_db = 10.0f;
-  jammer.js_db = 5.0f;
-  jammer.confidence = 1.5f;
-  input.environment.jammer_sources.push_back(jammer);
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
-}
-
-/// @brief 干扰源角度跨度为负应报错。
-TEST(RadarInputValidationTest, NegativeJammerAngularSpanIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
-  input.environment.atmospheric_observation.temperature_k = 288.0f;
-  config::JammerEmitterState jammer;
-  jammer.power_db = 10.0f;
-  jammer.js_db = 5.0f;
-  jammer.angular_span_deg = -5.0f;
-  input.environment.jammer_sources.push_back(jammer);
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
-}
-
-/// @brief 干扰源位置非有限应报错。
-TEST(RadarInputValidationTest, NonFiniteJammerPositionIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
-  input.environment.atmospheric_observation.temperature_k = 288.0f;
-  config::JammerEmitterState jammer;
-  jammer.power_db = 10.0f;
-  jammer.js_db = 5.0f;
-  jammer.position_z = std::numeric_limits<float>::infinity();
-  input.environment.jammer_sources.push_back(jammer);
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
-}
-
-/// @brief 平台高度非有限应报错。
-TEST(RadarInputValidationTest, NonFinitePlatformAltitudeIsError) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.platform_altitude_m = std::numeric_limits<float>::quiet_NaN();
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kNonFinitePlatformNumericField), nullptr);
-}
-
-/// @brief 完整有效的环境输入不产生错误。
-TEST(RadarInputValidationTest, FullyValidEnvironmentProducesNoError) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.environment.atmospheric_observation.pressure_hpa = 1013.0f;
-  input.environment.atmospheric_observation.temperature_k = 288.0f;
-  input.environment.atmospheric_observation.relative_humidity = 0.5f;
-  input.environment.atmospheric_context.solar_flux_f107 = 150.0f;
-  input.environment.atmospheric_context.solar_flux_f107a = 120.0f;
-  input.environment.atmospheric_context.geomagnetic_ap = 10.0f;
-  config::JammerEmitterState jammer;
-  jammer.power_db = 10.0f;
-  jammer.js_db = 5.0f;
-  jammer.angular_span_deg = 30.0f;
-  jammer.confidence = 0.9f;
-  input.environment.jammer_sources.push_back(jammer);
-  input.scene.push_back(MakeValidTarget());
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_EQ(FindIssue(issues, ValidationCode::kInvalidEnvironmentObservation), nullptr);
-  EXPECT_FALSE(HasValidationError(issues));
-}
-
-TEST(RadarInputValidationTest, EngineeringInterferenceRequiresMatchingTaggedPayload) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.scene.push_back(MakeValidTarget());
-  input.environment.interference.mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
-  oneq::electromagnetics::RfEmission emission;
-  emission.emission_id = 7;
-  oneq::electromagnetics::RfEmissionSegment segment;
-  segment.duration_s = 1.0;
-  segment.center_frequency_hz = 10.0e9;
-  segment.bandwidth_hz = 1.0e6;
-  segment.transmit_power_w = 100.0;
-  emission.segments.push_back(segment);
-  input.environment.interference.engineering_emissions.push_back(emission);
-
-  auto missing_site_issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(missing_site_issues, ValidationCode::kMissingEngineeringRfReceiverSite),
+TEST(ArCycleInputValidationTest, CycleStartMustBeFiniteAndNonNegative) {
+  session::ArCycleInput input = MakeValidCycleInput();
+  input.cycle_start_time_s = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidCycleStartTime),
             nullptr);
 
-  input.has_platform_ecef_kinematics = true;
+  input.cycle_start_time_s = -1.0;
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidCycleStartTime),
+            nullptr);
+}
+
+TEST(ArCycleInputValidationTest, CycleDurationMustBeFiniteAndPositive) {
+  session::ArCycleInput input = MakeValidCycleInput();
+  input.dt_sec = 0.0;
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidCycleDeltaTime),
+            nullptr);
+
+  input.dt_sec = -1.0;
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidCycleDeltaTime),
+            nullptr);
+
+  input.dt_sec = std::numeric_limits<double>::infinity();
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input),
+                      ValidationCode::kNonFiniteCycleDeltaTime),
+            nullptr);
+}
+
+TEST(ArCycleInputValidationTest, PlatformIdentityAndWorldKinematicsAreRequired) {
+  session::ArCycleInput input = MakeValidCycleInput();
+  input.platform.platform_entity_id = 0U;
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidPlatformInput),
+            nullptr);
+
+  input = MakeValidCycleInput();
+  input.platform.platform_velocity_mps.z_mps =
+      std::numeric_limits<double>::quiet_NaN();
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidPlatformInput),
+            nullptr);
+}
+
+TEST(ArCycleInputValidationTest, InvalidOrDuplicateWorldTargetsReject) {
+  session::ArCycleInput input = MakeValidCycleInput();
+  input.targets.front().kinematics.position_ecef_m.x_m =
+      std::numeric_limits<double>::quiet_NaN();
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input), ValidationCode::kInvalidTargetInput),
+            nullptr);
+
+  input = MakeValidCycleInput();
+  input.targets.push_back(input.targets.front());
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input),
+                      ValidationCode::kDuplicateExternalTargetId),
+            nullptr);
+}
+
+TEST(ArCycleInputValidationTest, NaturalEnvironmentIsValidatedIndependently) {
+  session::ArCycleInput input = MakeValidCycleInput();
+  input.environment.atmospheric_observation.temperature_k = 0.0f;
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input),
+                      ValidationCode::kInvalidEnvironmentObservation),
+            nullptr);
+
+  input = MakeValidCycleInput();
+  input.environment.atmospheric_observation.relative_humidity = 1.5f;
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input),
+                      ValidationCode::kInvalidEnvironmentObservation),
+            nullptr);
+
+  input = MakeValidCycleInput();
+  input.environment.atmospheric_context.solar_flux_f107 =
+      std::numeric_limits<float>::quiet_NaN();
+  EXPECT_NE(FindIssue(ValidateArCycleInput(input),
+                      ValidationCode::kInvalidEnvironmentObservation),
+            nullptr);
+}
+
+TEST(ArCycleInputValidationTest, NonEmptyInterferenceMustMatchCycleWindow) {
+  session::ArCycleInput input = MakeValidCycleInput();
+  AddValidInterferenceEmission(&input);
+  input.interference.world_cycle_index += 1U;
+
+  const session::ValidationIssueList issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInterferenceFrameMismatch), nullptr);
+  EXPECT_TRUE(HasValidationError(issues));
+}
+
+TEST(ArCycleInputValidationTest, InvalidRfFactsRejectAtomically) {
+  session::ArCycleInput input = MakeValidCycleInput();
+  AddValidInterferenceEmission(&input);
+  input.interference.emissions.front().identity.emission_id = 0U;
+
+  const session::ValidationIssueList issues = ValidateArCycleInput(input);
+  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidInterferenceInput), nullptr);
+  EXPECT_TRUE(HasValidationError(issues));
+}
+
+TEST(ArCycleInputValidationTest, EmptyInterferenceNeedsNoMetadata) {
+  session::ArCycleInput input = MakeValidCycleInput();
+  input.interference.world_cycle_index = 999U;
+  input.interference.window_start_time_s = -10.0;
+  input.interference.window_duration_s = -1.0;
+
   EXPECT_FALSE(HasValidationError(ValidateArCycleInput(input)));
-
-  input.environment.interference.legacy_jammer_sources.push_back(config::JammerEmitterState{});
-  const auto mixed_issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(mixed_issues, ValidationCode::kInvalidInterferenceInput), nullptr);
-}
-
-TEST(RadarInputValidationTest, CompatibilityAndTaggedInterferenceCannotBeMixed) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.scene.push_back(MakeValidTarget());
-  input.environment.jammer_sources.push_back(config::JammerEmitterState{});
-  input.environment.interference.mode = oneq::electromagnetics::RfInterferenceMode::kLegacy;
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidInterferenceInput), nullptr);
-}
-
-TEST(RadarInputValidationTest, PlatformEcefPresenceAndFiniteValuesFailClosed) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.scene.push_back(MakeValidTarget());
-  input.platform_position_ecef_m.x_m = 1000.0;
-  auto mismatch_issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(mismatch_issues, ValidationCode::kPlatformEcefFlagMismatch), nullptr);
-
-  input.has_platform_ecef_kinematics = true;
-  input.platform_velocity_ecef_mps.z_mps = std::numeric_limits<double>::quiet_NaN();
-  auto invalid_issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(invalid_issues, ValidationCode::kInvalidPlatformEcefKinematics), nullptr);
-}
-
-TEST(RadarInputValidationTest, EngineeringInterferenceRejectsDuplicateEmissionIds) {
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.has_environment = true;
-  input.scene.push_back(MakeValidTarget());
-  input.environment.interference.mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
-  oneq::electromagnetics::RfEmission emission;
-  emission.emission_id = 9;
-  oneq::electromagnetics::RfEmissionSegment segment;
-  segment.duration_s = 1.0;
-  segment.center_frequency_hz = 10.0e9;
-  segment.bandwidth_hz = 1.0e6;
-  segment.transmit_power_w = 10.0;
-  emission.segments.push_back(segment);
-  input.environment.interference.engineering_emissions = {emission, emission};
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_NE(FindIssue(issues, ValidationCode::kInvalidInterferenceInput), nullptr);
-}
-
-// ===========================================================================
-// 完全有效输入 — 基线 Smoke Test
-// ===========================================================================
-
-/// @brief 完全合法输入 → 无任何问题。
-TEST(RadarInputValidationTest, FullyValidInputProducesNoIssues) {
-  session::ArCycleInput input;
-  input.dt_sec = 0.5f;
-  input.scene.push_back(MakeValidTarget(101u));
-  input.scene.push_back(MakeValidTarget(102u));
-
-  const auto issues = ValidateArCycleInput(input);
-  EXPECT_TRUE(issues.empty());
 }
 
 }  // namespace tests

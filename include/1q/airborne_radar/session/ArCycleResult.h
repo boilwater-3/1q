@@ -15,6 +15,7 @@
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
+#include "1q/airborne_radar/session/ArInterferenceObservation.h"
 #include "1q/airborne_radar/session/ArOutputTypes.h"
 #include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "1q/api.hpp"
@@ -22,23 +23,35 @@
 namespace airborne_radar {
 namespace session {
 
+/** @brief AR 单周期执行状态；该枚举是结果有效性的唯一真相。 */
+enum class ArCycleStatus : std::uint8_t {
+  kCompleted = 0,
+  kPoweredOff,
+  kRejectedInvalidInput,
+  kRejectedInvalidConfig,
+  kRejectedExecution,
+};
+
+/** @brief 接收机结构化损伤状态。 */
+enum class ArReceiverImpairment : std::uint8_t { kNone = 0, kSaturated };
+
 /**
  * @brief ArCycleResult 描述单周期执行后的聚合观测结果。
- * @note `track_output_frame`、`submitted_commands`、`control_profile` 与
- *       `association_quality_metrics` 只有在 `executed_this_cycle=true` 时才代表本周期
- *       有效计算结果；失败/abort 周期会保留默认值或上一有效输出，不能按真实零值参与统计。
+ * @note 只有 `status == kCompleted` 时携带本周期输出；拒绝周期不复用上一帧。
  */
 struct ONEQ_API ArCycleResult {
   std::uint32_t input_cycle_index{0U};   /**< 本次调用输入周期号，用于失败结果与 trace 归属 */
+  ArCycleStatus status{ArCycleStatus::kRejectedInvalidInput}; /**< 周期执行状态。 */
   TrackOutputFrame track_output_frame{}; /**< 当前调用返回的轨迹输出帧 */
+  oneq::electromagnetics::RfEmissionFrame emission_frame{}; /**< 本周期实际 AR 发射。 */
+  ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone};
+  ArInterferenceObservationList interference_observations{};
   std::vector<session::ArCommand>
       submitted_commands{};                /**< 当前周期已提交的控制指令；若未执行则为空 */
   ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
   bool has_validation_error{false};        /**< 是否存在 error 级输入问题 */
-  bool executed_this_cycle{false}; /**< 当前调用是否真正执行了 signal/decision/control 链路 */
   session::SignalCycleAbortReason abort_reason{
       session::SignalCycleAbortReason::kNone}; /**< 若下游主链路 abort，给出结构化原因 */
-  bool reused_previous_output{false}; /**< 当前 `track_output_frame` 是否复用了上一有效周期输出 */
   bool has_control_profile{false};    /**< 当前周期是否产出了可归属到本周期的控制真值 */
   session::ArControlProfile control_profile{}; /**< 当前周期控制真值；若未执行则保持默认值 */
   session::AssociationQualityMetrics

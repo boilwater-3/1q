@@ -29,6 +29,8 @@ using oneq::foundation::ValidationSeverity;
  */
 enum class ONEQ_API ValidationCode {
   kNone = 0,                         /**< 无问题占位值 */
+  kInvalidCycleIndex,
+  kInvalidCycleStartTime,
   kInvalidCycleDeltaTime,            /**< 周期步长非法（<= 0） */
   kNonFiniteCycleDeltaTime,          /**< 周期步长不是有限值 */
   kNonFinitePlatformNumericField,    /**< 平台位姿字段存在非有限值 */
@@ -42,7 +44,10 @@ enum class ONEQ_API ValidationCode {
   kInvalidInterferenceInput,         /**< 干扰 mode 与载荷不一致或 RF 发射帧非法 */
   kInvalidPlatformEcefKinematics,    /**< 平台 ECEF 运动学存在非有限字段 */
   kMissingEngineeringRfReceiverSite, /**< 工程 RF 干扰缺少平台 ECEF 接收位置 */
-  kPlatformEcefFlagMismatch          /**< ECEF 数据非默认但存在性标志为 false */
+  kPlatformEcefFlagMismatch,         /**< ECEF 数据非默认但存在性标志为 false */
+  kInvalidPlatformInput,
+  kInvalidTargetInput,
+  kInterferenceFrameMismatch
 };
 
 /**
@@ -64,7 +69,7 @@ using ValidationIssueList = std::vector<ValidationIssue>;
  * @param[in] dt_sec 当前周期步长（单位：秒）。
  * @return 校验问题列表。
  */
-ONEQ_API ValidationIssueList ValidateArCycleDeltaTime(float dt_sec);
+ONEQ_API ValidationIssueList ValidateArCycleDeltaTime(double dt_sec);
 
 /**
  * @brief 校验完整周期输入。

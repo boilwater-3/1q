@@ -105,28 +105,6 @@ bool SamePreparedEmission(const oneq::electromagnetics::RfSceneEmission& left,
          left_waveform.timing_epoch == right_waveform.timing_epoch;
 }
 
-session::EnvironmentSceneState BuildSceneStateFromCycleInput(const ArCycleInput& cycle_input) {
-  const ArEnvironmentInput& environment_input = cycle_input.environment;
-  session::EnvironmentSceneState scene_state;
-  scene_state.atmospheric_physics = environment_input.atmospheric_observation;
-  scene_state.atmospheric_context = environment_input.atmospheric_context;
-  scene_state.vegetation_scatter_physics = environment_input.surface_observation;
-  if (!environment_input.jammer_sources.empty()) {
-    scene_state.interference.mode = oneq::electromagnetics::RfInterferenceMode::kLegacy;
-    scene_state.interference.legacy_jammer_sources = environment_input.jammer_sources;
-  } else {
-    scene_state.interference = environment_input.interference;
-  }
-  if (scene_state.interference.mode == oneq::electromagnetics::RfInterferenceMode::kLegacy) {
-    scene_state.jammer_emitters = scene_state.interference.legacy_jammer_sources;
-  }
-  scene_state.has_rf_receiver_kinematics = cycle_input.has_platform_ecef_kinematics;
-  scene_state.rf_receiver_entity_id = cycle_input.platform_entity_id;
-  scene_state.rf_receiver_position_ecef_m = cycle_input.platform_position_ecef_m;
-  scene_state.rf_receiver_velocity_ecef_mps = cycle_input.platform_velocity_ecef_mps;
-  return scene_state;
-}
-
 session::EnvironmentSceneState BuildSceneStateFromCompleteInput(
     const ArCompleteCycleInput& input, const ArPrepareCycleInput& prepared_input) {
   session::EnvironmentSceneState scene_state;
@@ -173,35 +151,37 @@ struct ArSession::Impl {
         static_cast<signal::pipeline::SignalPipeline*>(owned_signal_pipeline.get());
   }
 
-  ArCycleResult BuildCycleResult(const ArCycleInput& input) const {
+  ArCycleResult BuildCompletedCycleResult(
+      const ArCycleInput& input, const ValidationIssueList& issues,
+      const ArPrepareCycleResult& prepared,
+      const ArCompleteCycleResult& completed) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    if (Controller().HasLatestTrackOutputFrame()) {
-      result.track_output_frame = Controller().GetLatestTrackOutputFrame();
+    result.status = ArCycleStatus::kCompleted;
+    result.track_output_frame = completed.track_output_frame;
+    result.emission_frame.world_cycle_index = input.cycle_index;
+    result.emission_frame.window_start_time_s = input.cycle_start_time_s;
+    result.emission_frame.window_duration_s = input.dt_sec;
+    if (prepared.has_emission) {
+      result.emission_frame.emissions.push_back(prepared.emission);
     }
-    result.executed_this_cycle = Controller().ExecutedLatestCycle();
-    result.abort_reason = Controller().GetLastSignalCycleAbortReason();
-    result.reused_previous_output = Controller().ReusedPreviousTrackOutputLatestCycle();
-    if (result.executed_this_cycle) {
-      result.submitted_commands = RadarContext().GetSubmittedCommands();
-    }
-    result.validation_issues = Controller().GetLastValidationIssues();
-    result.has_validation_error = Controller().HasValidationError();
-    result.has_control_profile =
-        result.executed_this_cycle && RadarContext().HasLatestControlProfile();
+    result.receiver_impairment = completed.receiver_impairment;
+    result.interference_observations = completed.interference_observations;
+    result.submitted_commands = RadarContext().GetSubmittedCommands();
+    result.validation_issues = issues;
+    result.has_validation_error = false;
+    result.has_control_profile = RadarContext().HasLatestControlProfile();
     if (result.has_control_profile) {
       result.control_profile = RadarContext().GetLatestControlProfile();
     }
-    if (result.executed_this_cycle) {
-      result.association_quality_metrics = SignalPipeline().GetLastAssociationQualityMetrics();
-      result.has_decision_observation = Controller().HasLatestDecisionObservation();
-      if (result.has_decision_observation) {
-        result.decision_observation = Controller().GetLatestDecisionObservation();
-      }
-      result.applied_decision_source = Controller().GetLastAppliedDecisionSource();
-      result.applied_decision_cycle_index = Controller().GetLastAppliedDecisionCycleIndex();
-      result.applied_decision_batch_id = Controller().GetLastAppliedDecisionBatchId();
+    result.association_quality_metrics = SignalPipeline().GetLastAssociationQualityMetrics();
+    result.has_decision_observation = completed.has_decision_observation;
+    if (result.has_decision_observation) {
+      result.decision_observation = completed.decision_observation;
     }
+    result.applied_decision_source = Controller().GetLastAppliedDecisionSource();
+    result.applied_decision_cycle_index = Controller().GetLastAppliedDecisionCycleIndex();
+    result.applied_decision_batch_id = Controller().GetLastAppliedDecisionBatchId();
     return result;
   }
 
@@ -213,10 +193,7 @@ struct ArSession::Impl {
                                            const ValidationIssueList& issues) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    if (Controller().HasLatestTrackOutputFrame()) {
-      result.track_output_frame = Controller().GetLatestTrackOutputFrame();
-    }
-    result.reused_previous_output = Controller().HasLatestTrackOutputFrame();
+    result.status = ArCycleStatus::kRejectedInvalidInput;
     result.abort_reason = session::SignalCycleAbortReason::kValidationRejected;
     result.validation_issues = issues;
     result.has_validation_error = HasValidationError(issues);
@@ -227,10 +204,7 @@ struct ArSession::Impl {
                                           session::SignalCycleAbortReason abort_reason) const {
     ArCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    if (Controller().HasLatestTrackOutputFrame()) {
-      result.track_output_frame = Controller().GetLatestTrackOutputFrame();
-    }
-    result.reused_previous_output = Controller().HasLatestTrackOutputFrame();
+    result.status = ArCycleStatus::kRejectedExecution;
     result.abort_reason = abort_reason;
     return result;
   }
@@ -385,15 +359,129 @@ struct ArSession::Impl {
       return BuildValidationErrorResult(input, issues);
     }
 
-    const session::EnvironmentSceneState environment_scene_state =
-        BuildSceneStateFromCycleInput(input);
-    const ArExecutionCycleResult execution_result = RunExecutionCycle(
-        input.cycle_index, input.dt_sec, input.platform_altitude_m, input.platform_pose,
-        input.scene, input.has_environment ? &environment_scene_state : nullptr, true);
-    if (!execution_result.executed) {
-      return BuildExecutionAbortResult(input, execution_result.abort_reason);
+    oneq::coordinate::LocalFrameReference reference;
+    oneq::foundation::PoseState platform_pose;
+    if (!TryMakeArPoseFromExternalKinematics(input.platform, &reference, &platform_pose)) {
+      return BuildValidationErrorResult(input, issues);
     }
-    return BuildCycleResult(input);
+    ArSceneTargetList local_targets;
+    for (const ArTargetInput& target : input.targets) {
+      ArSceneTarget local_target;
+      if (!TryMakeArTargetFromExternalKinematics(target, reference,
+                                                 platform_pose.velocity_mps,
+                                                 &local_target)) {
+        return BuildValidationErrorResult(input, issues);
+      }
+      local_targets.push_back(local_target);
+    }
+
+    const ArContextRuntimeState radar_context_state = RadarContext().CaptureRuntimeState();
+    const signal::SignalPipelineRuntimeState pipeline_state =
+        SignalPipeline().CaptureRuntimeState();
+    const environment::EnvironmentServiceRuntimeState environment_state =
+        EnvironmentService().CaptureRuntimeState();
+    const extension::ArControllerRuntimeState controller_state =
+        Controller().CaptureRuntimeState();
+    const config::mapping::RuntimeConfigState saved_runtime_state = runtime_state;
+    const config::mapping::RuntimeConfigState saved_pending_runtime_state = pending_runtime_state;
+    const bool saved_has_pending_runtime_update = has_pending_runtime_update;
+    const bool saved_pending_execution_config_changed = pending_execution_config_changed;
+    const bool saved_pending_environment_scenario_config_changed =
+        pending_environment_scenario_config_changed;
+    const bool saved_pending_jamming_sensitivity_profile_changed =
+        pending_jamming_sensitivity_profile_changed;
+    const bool saved_pipeline_config_synced = pipeline_config_synced;
+    const bool saved_has_prepared_cycle = has_prepared_cycle;
+    const bool saved_has_world_chronology = has_world_chronology;
+    const double saved_last_world_window_end_s = last_world_window_end_s;
+    const std::uint64_t saved_next_token_value = next_token_value;
+    const std::uint64_t saved_next_emission_id = next_emission_id;
+    const std::uint64_t saved_successful_prepare_count = successful_prepare_count;
+    const std::size_t saved_frequency_hop_index = frequency_hop_index;
+    const ArPreparedCycleToken saved_prepared_token = prepared_token;
+    const ArPrepareCycleInput saved_prepared_input = prepared_input;
+    const oneq::electromagnetics::RfSceneEmission saved_prepared_emission =
+        prepared_emission;
+    const ArReceiverOperatingState saved_prepared_operating_state =
+        prepared_operating_state;
+
+    const auto restore_user_cycle = [&]() {
+      const bool restored =
+          RestoreCycleRuntimeState(radar_context_state, pipeline_state, environment_state,
+                                   controller_state);
+      runtime_state = saved_runtime_state;
+      pending_runtime_state = saved_pending_runtime_state;
+      has_pending_runtime_update = saved_has_pending_runtime_update;
+      pending_execution_config_changed = saved_pending_execution_config_changed;
+      pending_environment_scenario_config_changed =
+          saved_pending_environment_scenario_config_changed;
+      pending_jamming_sensitivity_profile_changed =
+          saved_pending_jamming_sensitivity_profile_changed;
+      pipeline_config_synced = saved_pipeline_config_synced;
+      has_prepared_cycle = saved_has_prepared_cycle;
+      has_world_chronology = saved_has_world_chronology;
+      last_world_window_end_s = saved_last_world_window_end_s;
+      next_token_value = saved_next_token_value;
+      next_emission_id = saved_next_emission_id;
+      successful_prepare_count = saved_successful_prepare_count;
+      frequency_hop_index = saved_frequency_hop_index;
+      prepared_token = saved_prepared_token;
+      prepared_input = saved_prepared_input;
+      prepared_emission = saved_prepared_emission;
+      prepared_operating_state = saved_prepared_operating_state;
+      return restored;
+    };
+
+    ArPrepareCycleInput prepare_input;
+    prepare_input.world_cycle_index = input.cycle_index;
+    prepare_input.window_start_time_s = input.cycle_start_time_s;
+    prepare_input.window_duration_s = input.dt_sec;
+    prepare_input.platform_id = input.platform.platform_entity_id;
+    prepare_input.platform_position_ecef_m = input.platform.platform_position_ecef_m;
+    prepare_input.platform_velocity_ecef_mps = input.platform.platform_velocity_mps;
+    prepare_input.radar_frame_attitude_deg = ComposeRadarAttitudeDeg(
+        input.platform.platform_attitude_deg, input.platform.radar_mount_angles_deg);
+    prepare_input.beam_pointing_deg =
+        runtime_state.execution_config.detection.orientation.scan_center_deg;
+    prepare_input.beam_pointing_deg.az_deg += runtime_state.dwell_center_deg.az_deg;
+    prepare_input.beam_pointing_deg.el_deg += runtime_state.dwell_center_deg.el_deg;
+
+    const ArPrepareCycleResult prepared = PrepareRfCycle(prepare_input);
+    if (prepared.status == ArPrepareCycleStatus::kPoweredOff) {
+      ArCycleResult result;
+      result.input_cycle_index = input.cycle_index;
+      result.status = ArCycleStatus::kPoweredOff;
+      result.validation_issues = issues;
+      result.abort_reason = session::SignalCycleAbortReason::kSensorPoweredOff;
+      return result;
+    }
+    if (prepared.status != ArPrepareCycleStatus::kPrepared) {
+      (void)restore_user_cycle();
+      ArCycleResult result = BuildExecutionAbortResult(
+          input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
+      result.status = ArCycleStatus::kRejectedInvalidConfig;
+      result.validation_issues = issues;
+      return result;
+    }
+
+    ArCompleteCycleInput complete_input;
+    complete_input.rf_scene = input.interference;
+    complete_input.rf_scene.world_cycle_index = input.cycle_index;
+    complete_input.rf_scene.window_start_time_s = input.cycle_start_time_s;
+    complete_input.rf_scene.window_duration_s = input.dt_sec;
+    complete_input.rf_scene.emissions.push_back(prepared.emission);
+    complete_input.targets = local_targets;
+    complete_input.atmospheric_observation = input.environment.atmospheric_observation;
+    complete_input.atmospheric_context = input.environment.atmospheric_context;
+    complete_input.surface_observation = input.environment.surface_observation;
+    const ArCompleteCycleResult completed =
+        CompleteRfCycle(prepared.token, complete_input);
+    if (completed.status != ArCompleteCycleStatus::kCompleted) {
+      (void)restore_user_cycle();
+      return BuildExecutionAbortResult(
+          input, session::SignalCycleAbortReason::kRuntimePreparationFailed);
+    }
+    return BuildCompletedCycleResult(input, issues, prepared, completed);
   }
 
   bool TokenMatches(const ArPreparedCycleToken& token) const {

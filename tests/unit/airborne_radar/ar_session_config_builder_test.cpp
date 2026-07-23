@@ -227,7 +227,11 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
   session.ApplyRuntimeConfig(patch);
 
   session::ArCycleInput input;
-  input.dt_sec = 1.0f;
+  input.cycle_index = 1U;
+  input.cycle_start_time_s = 0.0;
+  input.dt_sec = 1.0;
+  input.platform.platform_entity_id = 42U;
+  input.platform.platform_position_ecef_m.x_m = 6378137.0;
   const session::ArCycleResult result = session.StepWithResult(input);
   EXPECT_FALSE(result.has_validation_error);
 }

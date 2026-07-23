@@ -9,7 +9,6 @@ bool ArCycleInputAdapter::Build(const ArExternalPoseInput& platform,
   if (!Build(platform, targets, dt_sec, ArEnvironmentInput{}, output, status)) {
     return false;
   }
-  output->has_environment = false;
   return true;
 }
 
@@ -29,29 +28,26 @@ bool ArCycleInputAdapter::Build(const ArExternalPoseInput& platform,
   }
 
   oneq::coordinate::LocalFrameReference reference;
-  if (!TryMakeArPoseFromExternalKinematics(platform, &reference, &output->platform_pose, status)) {
+  oneq::foundation::PoseState platform_pose;
+  if (!TryMakeArPoseFromExternalKinematics(platform, &reference, &platform_pose, status)) {
     return false;
   }
-
-  output->cycle_index = 0U;
-  output->dt_sec = dt_sec;
-  output->platform_altitude_m = static_cast<float>(reference.origin_lla.altitude_m);
-  output->platform_entity_id = platform.platform_entity_id;
-  output->has_platform_ecef_kinematics = true;
-  output->platform_position_ecef_m = platform.platform_position_ecef_m;
-  output->platform_velocity_ecef_mps = platform.platform_velocity_mps;
-  output->has_environment = true;
-  output->environment = environment;
-  output->scene.clear();
-
-  for (std::size_t i = 0; i < targets.size(); ++i) {
-    ArSceneTarget target;
-    if (!TryMakeArTargetFromExternalKinematics(
-            targets[i], reference, output->platform_pose.velocity_mps, &target, status)) {
+  for (std::size_t index = 0U; index < targets.size(); ++index) {
+    ArSceneTarget local_target;
+    if (!TryMakeArTargetFromExternalKinematics(targets[index], reference,
+                                               platform_pose.velocity_mps,
+                                               &local_target, status)) {
       return false;
     }
-    output->scene.push_back(target);
   }
+
+  output->cycle_index = 1U;
+  output->cycle_start_time_s = 0.0;
+  output->dt_sec = dt_sec;
+  output->platform = platform;
+  output->targets = targets;
+  output->environment = environment;
+  output->interference = oneq::electromagnetics::RfEmissionFrame{};
   return true;
 }
 

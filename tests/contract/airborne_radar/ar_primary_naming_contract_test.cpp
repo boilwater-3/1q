@@ -14,12 +14,21 @@
 namespace airborne_radar {
 namespace {
 
+session::ArCycleInput MakeMinimalArInput() {
+  session::ArCycleInput input;
+  input.cycle_index = 1U;
+  input.cycle_start_time_s = 0.0;
+  input.dt_sec = 1.0;
+  input.platform.platform_entity_id = 42U;
+  input.platform.platform_position_ecef_m.x_m = 6378137.0;
+  return input;
+}
+
 TEST(ArPrimaryNamingContractTest, PreferredArNamesConstructAndStepSession) {
   config::ArSessionConfig config = config::ArSessionConfigBuilder().Build();
   session::ArSession session = session::ArSession::Create(config);
 
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
+  const session::ArCycleInput input = MakeMinimalArInput();
   const session::ValidationIssueList issues = session::ValidateArCycleInput(input);
   EXPECT_FALSE(session::HasValidationError(issues));
 
@@ -34,9 +43,7 @@ TEST(ArPrimaryNamingContractTest, PreferredArRuntimePatchAppliesThroughSession) 
 
   EXPECT_TRUE(session.TryApplyRuntimeConfig(patch));
 
-  session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  const session::ArCycleResult result = session.StepWithResult(input);
+  const session::ArCycleResult result = session.StepWithResult(MakeMinimalArInput());
   EXPECT_FALSE(result.has_validation_error);
 }
 
