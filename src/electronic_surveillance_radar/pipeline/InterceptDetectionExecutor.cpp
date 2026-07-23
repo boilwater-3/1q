@@ -216,7 +216,8 @@ oneq::common::timing::ResolvedCycleTimingState ResolveEmitterTimingState(
  * @return 接收机频段 `[lower, upper]`，单位 Hz。
  */
 std::pair<double, double> BuildReceiverWindow(
-    std::uint32_t cycle_index, const extension::InterceptRuntimeConfig& runtime_config) {
+    std::uint64_t completed_receive_cycles,
+    const extension::InterceptRuntimeConfig& runtime_config) {
   const std::vector<config::EsrTuningWindow>& tuning_plan =
       runtime_config.receiver_hardware.tuning_plan;
   if (!tuning_plan.empty()) {
@@ -225,7 +226,7 @@ std::pair<double, double> BuildReceiverWindow(
       total_dwell_cycles += window.dwell_cycles;
     }
     if (total_dwell_cycles > 0U) {
-      std::uint64_t phase = static_cast<std::uint64_t>(cycle_index) % total_dwell_cycles;
+      std::uint64_t phase = completed_receive_cycles % total_dwell_cycles;
       for (const config::EsrTuningWindow& window : tuning_plan) {
         if (phase < window.dwell_cycles) {
           return std::make_pair(window.center_frequency_hz - 0.5 * window.bandwidth_hz,
@@ -601,7 +602,8 @@ RawObservationRecord BuildDeceptionRecord(const RawObservationRecord& template_r
 InterceptDetectionOutput InterceptDetectionExecutor::Execute(const MutableEsrContext& ctx,
                                                              std::mt19937& rng,
                                                              std::uint64_t& next_observation_id,
-                                                             double* scan_phase_cycles) {
+                                                             double* scan_phase_cycles,
+                                                             std::uint64_t completed_receive_cycles) {
   InterceptDetectionOutput output;
 
   const intercept::ScanPatternConfig scan_pattern_config =
@@ -618,7 +620,7 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const MutableEsrCon
   const intercept::AngleErrorModelConfig angle_error_config =
       InterceptComponentFactory::BuildAngleErrorModelConfig(ctx.GetPipelineConfig());
   const std::pair<double, double> receiver_window =
-      BuildReceiverWindow(ctx.GetCycleIndex(), ctx.GetRuntimeConfig());
+      BuildReceiverWindow(completed_receive_cycles, ctx.GetRuntimeConfig());
   output.receiver_center_frequency_hz = 0.5 * (receiver_window.first + receiver_window.second);
   output.receiver_bandwidth_hz = receiver_window.second - receiver_window.first;
   const oneq::common::timing::StatisticalDetectionParams base_statistical_detection_params =

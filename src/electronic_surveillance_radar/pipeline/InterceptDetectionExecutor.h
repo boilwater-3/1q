@@ -55,7 +55,8 @@ class InterceptDetectionExecutor {
    * @return 检测阶段输出。
    */
   InterceptDetectionOutput Execute(const MutableEsrContext& ctx, std::mt19937& rng,
-                                   std::uint64_t& next_observation_id, double* scan_phase_cycles);
+                                   std::uint64_t& next_observation_id, double* scan_phase_cycles,
+                                   std::uint64_t completed_receive_cycles);
 
  private:
   /**

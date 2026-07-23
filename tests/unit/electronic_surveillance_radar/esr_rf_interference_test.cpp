@@ -89,7 +89,7 @@ InterceptDetectionOutput RunDetection(const session::EsrEnvironmentSnapshot& env
   std::mt19937 rng(42U);
   std::uint64_t next_observation_id = 1U;
   double scan_phase_cycles = 0.0;
-  return executor.Execute(context, rng, next_observation_id, &scan_phase_cycles);
+  return executor.Execute(context, rng, next_observation_id, &scan_phase_cycles, 0U);
 }
 
 TEST(EsrRfInterferenceTest, SameFrequencyEmissionLowersSnrWithoutBooleanQualityPenalty) {

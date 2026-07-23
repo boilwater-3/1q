@@ -41,7 +41,9 @@ oneq::electromagnetics::RfSceneEmission MakeEmission(std::uint64_t emission_id,
 }
 
 InterceptDetectionOutput RunDetection(const session::EsrCycleInput& input,
-                                      float maximum_linear_input_power_w = 10.0f) {
+                                      float maximum_linear_input_power_w = 10.0f,
+                                      std::uint64_t completed_receive_cycles = 0U,
+                                      bool use_tuning_plan = false) {
   extension::InterceptPipelineConfig pipeline_config;
   pipeline_config.detection.minimum_snr_db = -20.0f;
   pipeline_config.statistical_detection.enable_statistical_detection = false;
@@ -57,6 +59,17 @@ InterceptDetectionOutput RunDetection(const session::EsrCycleInput& input,
   runtime_config.receiver_hardware.beam_az_width_deg = 120.0f;
   runtime_config.receiver_hardware.beam_el_width_deg = 120.0f;
   runtime_config.receiver_hardware.maximum_linear_input_power_w = maximum_linear_input_power_w;
+  if (use_tuning_plan) {
+    config::EsrTuningWindow first_window;
+    first_window.center_frequency_hz = 9.5e9;
+    first_window.bandwidth_hz = 1.0e6;
+    first_window.dwell_cycles = 1U;
+    config::EsrTuningWindow second_window;
+    second_window.center_frequency_hz = 10.0e9;
+    second_window.bandwidth_hz = 1.0e6;
+    second_window.dwell_cycles = 1U;
+    runtime_config.receiver_hardware.tuning_plan = {first_window, second_window};
+  }
 
   session::EsrEnvironmentSnapshot environment;
   MutableEsrContext context;
@@ -65,7 +78,8 @@ InterceptDetectionOutput RunDetection(const session::EsrCycleInput& input,
   std::mt19937 rng(42U);
   std::uint64_t next_observation_id = 1U;
   double scan_phase_cycles = 0.0;
-  return executor.Execute(context, rng, next_observation_id, &scan_phase_cycles);
+  return executor.Execute(context, rng, next_observation_id, &scan_phase_cycles,
+                          completed_receive_cycles);
 }
 
 TEST(EsrRfV2DetectionTest, EmitsDeclassifiedObservationFromRfFrame) {
@@ -104,6 +118,17 @@ TEST(EsrRfV2DetectionTest, SaturationCompletesWithoutFabricatedObservation) {
   const InterceptDetectionOutput output = RunDetection(input, 1.0e-4f);
   EXPECT_TRUE(output.receiver_saturated);
   EXPECT_TRUE(output.raw_records.empty());
+}
+
+TEST(EsrRfV2DetectionTest, TuningPlanUsesCompletedReceiveCyclesRatherThanInputCycleIndex) {
+  session::EsrCycleInput input = MakeInput();
+  input.cycle_index = 999U;
+  input.rf_emission_frame.world_cycle_index = input.cycle_index;
+
+  const InterceptDetectionOutput initial = RunDetection(input, 10.0f, 0U, true);
+  const InterceptDetectionOutput after_one_completed = RunDetection(input, 10.0f, 1U, true);
+  EXPECT_DOUBLE_EQ(initial.receiver_center_frequency_hz, 9.5e9);
+  EXPECT_DOUBLE_EQ(after_one_completed.receiver_center_frequency_hz, 10.0e9);
 }
 
 }  // namespace

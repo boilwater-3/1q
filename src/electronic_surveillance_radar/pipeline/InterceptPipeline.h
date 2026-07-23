@@ -90,6 +90,7 @@ class InterceptPipeline final {
   InterceptPostProcessingExecutor post_processing_executor_{};
   std::mt19937 rng_{};
   double scan_phase_cycles_{0.0};
+  std::uint64_t completed_receive_cycles_{0U};
   std::uint64_t next_observation_id_{1U};
   std::uint64_t next_hypothesis_id_{1U};
 };

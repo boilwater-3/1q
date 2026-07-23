@@ -90,7 +90,8 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
   ctx.BeginCycle(input_state, environment_snapshot, pipeline_config, runtime_config);
 
   const InterceptDetectionOutput detection_output =
-      detection_executor_.Execute(ctx, rng_, next_observation_id_, &scan_phase_cycles_);
+      detection_executor_.Execute(ctx, rng_, next_observation_id_, &scan_phase_cycles_,
+                                  completed_receive_cycles_);
 
   result = post_processing_executor_.Execute(detection_output.raw_records, ctx, preprocessor_,
                                              clusterer_, associator_, feature_scales_,
@@ -99,6 +100,7 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
       detection_output.receiver_center_frequency_hz;
   result.observation_output.receiver_bandwidth_hz = detection_output.receiver_bandwidth_hz;
   result.observation_output.receiver_saturated = detection_output.receiver_saturated;
+  ++completed_receive_cycles_;
 
   PROJECT_LOG_INFO("[InterceptPipeline] cycle_index={} raw_records={} clusters={} hypotheses={}",
                    input_state.cycle_index, detection_output.raw_records.size(),
@@ -112,19 +114,20 @@ extension::InterceptPipelineRuntimeState InterceptPipeline::CaptureRuntimeState(
   auto snapshot = std::make_shared<PipelineRuntimeSnapshot>();
   snapshot->rng = rng_;
   snapshot->scan_phase_cycles = scan_phase_cycles_;
+  snapshot->completed_receive_cycles = completed_receive_cycles_;
   snapshot->next_observation_id = next_observation_id_;
   snapshot->next_hypothesis_id = next_hypothesis_id_;
   snapshot->tracks = associator_.CaptureTracks();
 
   extension::InterceptPipelineRuntimeState state;
   state.owner_identity = this;
-  state.schema_version = 2U;
+  state.schema_version = 3U;
   CapturePipelineSnapshot(state, snapshot);
   return state;
 }
 
 bool InterceptPipeline::RestoreRuntimeState(const extension::InterceptPipelineRuntimeState& state) {
-  if (state.owner_identity != this || state.schema_version != 2U) {
+  if (state.owner_identity != this || state.schema_version != 3U) {
     return false;
   }
   const auto* snapshot = RestorePipelineSnapshot(state);
@@ -137,6 +140,7 @@ bool InterceptPipeline::RestoreRuntimeState(const extension::InterceptPipelineRu
   }
   rng_ = snapshot->rng;
   scan_phase_cycles_ = snapshot->scan_phase_cycles;
+  completed_receive_cycles_ = snapshot->completed_receive_cycles;
   next_observation_id_ = snapshot->next_observation_id;
   next_hypothesis_id_ = snapshot->next_hypothesis_id;
   associator_.RestoreTracks(snapshot->tracks);
