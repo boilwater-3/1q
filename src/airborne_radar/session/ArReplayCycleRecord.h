@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "1q/airborne_radar/session/ArCycleResult.h"
+#include "1q/airborne_radar/session/ArRfCycle.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "airborne_radar/decision/ControlReducer.h"
 
@@ -38,12 +39,55 @@ struct ArReplayCycleRecord {
   ArDecisionReplayState decision_state{};
 };
 
+/** @brief 两阶段 RF replay 逐操作比对所需的会话拥有状态。 */
+struct ArSessionReplayState {
+  bool has_prepared_cycle{false};
+  ArPreparedCycleToken prepared_token{};
+  bool has_world_chronology{false};
+  double last_world_window_end_s{0.0};
+  std::uint64_t next_token_value{1U};
+  std::uint64_t next_emission_id{1U};
+  std::uint64_t successful_prepare_count{0U};
+  std::uint64_t timing_seed{0U};
+  std::uint64_t frequency_hop_index{0U};
+  bool has_pending_runtime_update{false};
+  bool pending_execution_config_changed{false};
+  bool pending_environment_scenario_config_changed{false};
+  bool pending_jamming_sensitivity_profile_changed{false};
+  ArDecisionReplayState decision_state{};
+};
+
+struct ArPrepareReplayRecord {
+  ArPrepareCycleResult result{};
+  ArSessionReplayState session_state{};
+};
+
+struct ArCompleteReplayOperationInput {
+  ArPreparedCycleToken token{};
+  ArCompleteCycleInput input{};
+};
+
+struct ArCompleteReplayRecord {
+  ArCompleteCycleResult result{};
+  ArSessionReplayState session_state{};
+};
+
+struct ArAbandonReplayOperationInput {
+  ArPreparedCycleToken token{};
+};
+
+struct ArAbandonReplayRecord {
+  ArAbandonCycleStatus status{ArAbandonCycleStatus::kTokenMismatch};
+  ArSessionReplayState session_state{};
+};
+
 class ArSession;
 
 /** @brief 仅供 AR replay 包装器读取 ArSession 内部快照的窄访问适配器。 */
 class ArSessionReplayAccess {
  public:
   static ArDecisionReplayState CaptureDecisionState(const ArSession& session);
+  static ArSessionReplayState CaptureSessionState(const ArSession& session);
 };
 
 }  // namespace session

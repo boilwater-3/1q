@@ -212,10 +212,11 @@ TEST(ArTwoPhaseSessionTest, ExternalEccmChangesNextPreparedOperatingState) {
   const ArCompleteCycleResult first_complete =
       session.CompleteCycle(first.token, MakeCompleteInput(first));
   ASSERT_EQ(first_complete.status, ArCompleteCycleStatus::kCompleted);
+  ASSERT_TRUE(first_complete.has_decision_observation);
 
   ExternalDecisionResponse response;
-  response.source_cycle_index = first_complete.track_output_frame.cycle_index;
-  response.source_batch_id = first_complete.track_output_frame.batch_id;
+  response.source_cycle_index = first_complete.decision_observation.input_frame.cycle_index;
+  response.source_batch_id = first_complete.decision_observation.input_frame.batch_id;
   response.proposals.push_back(
       TacticalProposal{ControlDirective(ControlDirectiveType::REQUEST_AGILITY_FREQUENCY,
                                         ControlDirectiveSource::SURVIVABILITY),

@@ -14,6 +14,7 @@
 #include "1q/airborne_radar/session/ArInterferenceObservation.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/airborne_radar/session/ArTrackOutput.h"
+#include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
 #include "1q/electromagnetics/RfScene.h"
@@ -98,6 +99,8 @@ struct ONEQ_API ArCompleteCycleResult {
   TrackOutputFrame track_output_frame{};                          /**< 本周期新轨迹帧。 */
   ArInterferenceObservationList interference_observations{}; /**< 仅通过 J/N 门的本机 RF 观测。 */
   ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone}; /**< 结构化接收机损伤。 */
+  bool has_decision_observation{false};       /**< 是否发布了供外部 N+1 决策消费的观测。 */
+  DecisionObservation decision_observation{}; /**< 带 source cycle/batch 的外部决策输入。 */
 };
 
 /** @brief Abandon 阶段状态。 */

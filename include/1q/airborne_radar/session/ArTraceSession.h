@@ -12,7 +12,6 @@
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/session/ArSession.h"
@@ -70,18 +69,15 @@ class ONEQ_API ArTraceSession {
 
   ~ArTraceSession();
 
-  /**
-   * @brief 执行一个处理周期，同时记录输入与输出（行为同 ArSession::Step）。
-   * @param[in] input 当前周期输入。
-   * @return 当前周期生成的轨迹输出帧拷贝。
-   */
-  TrackOutputFrame Step(const ArCycleInput& input);
-  /**
-   * @brief 执行一个处理周期并返回聚合结果，同时记录输入与输出（行为同 ArSession::StepWithResult）。
-   * @param[in] input 当前周期输入。
-   * @return 当前周期聚合结果。
-   */
-  ArCycleResult StepWithResult(const ArCycleInput& input);
+  /** @brief 记录并执行发射准备；Prepare 结果在发射发布后立即写入 replay。 */
+  ArPrepareCycleResult PrepareCycle(const ArPrepareCycleInput& input);
+
+  /** @brief 记录并执行接收、探测与跟踪完成阶段。 */
+  ArCompleteCycleResult CompleteCycle(const ArPreparedCycleToken& token,
+                                      const ArCompleteCycleInput& input);
+
+  /** @brief 记录并执行待完成接收阶段的显式放弃。 */
+  ArAbandonCycleStatus AbandonCycle(const ArPreparedCycleToken& token);
 
   /**
    * @brief 应用运行期可变配置补丁并记录（透传给内部 ArSession）。
@@ -89,21 +85,12 @@ class ONEQ_API ArTraceSession {
    */
   void ApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 
-  /** @brief 尝试应用运行期配置补丁；仅在底层会话接受补丁后写入 replay trace。 */
+  /** @brief 尝试应用运行期配置补丁；接受或拒绝结果均写入 replay trace。 */
   bool TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch);
 
-  /** @brief 提交外部 LPI/ECCM 决策；仅接受的决策会作为独立 replay 输入事件写入。 */
+  /** @brief 提交外部 LPI/ECCM 决策；接受或拒绝结果均作为 replay 输入事件写入。 */
   session::ExternalDecisionSubmitStatus SubmitExternalDecision(
       const session::ExternalDecisionResponse& response);
-
-  /** @brief 获取当前周期已提交的控制指令（透传）。 */
-  const std::vector<session::ArCommand>& GetSubmittedCommands() const;
-  /** @brief 判断是否已保存最新控制真值（透传）。 */
-  bool HasLatestControlProfile() const;
-  /** @brief 获取最近一次控制真值（透传）。 */
-  const session::ArControlProfile& GetLatestControlProfile() const;
-  /** @brief 获取最近一次关联质量观测指标（透传）。 */
-  session::AssociationQualityMetrics GetLastAssociationQualityMetrics() const;
 
   /** @brief 获取被包装的底层 ArSession（只读）。 */
   const ArSession& session() const;

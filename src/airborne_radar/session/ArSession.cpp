@@ -658,6 +658,10 @@ struct ArSession::Impl {
     result.status = ArCompleteCycleStatus::kCompleted;
     result.track_output_frame = execution_result.track_output_frame;
     result.interference_observations = interference_observations;
+    result.has_decision_observation = Controller().HasLatestDecisionObservation();
+    if (result.has_decision_observation) {
+      result.decision_observation = Controller().GetLatestDecisionObservation();
+    }
     has_prepared_cycle = false;
     prepared_token = ArPreparedCycleToken{};
     return result;
@@ -721,6 +725,27 @@ ArDecisionReplayState ArSessionReplayAccess::CaptureDecisionState(const ArSessio
   replay_state.has_pending_external_decision = controller_state.has_pending_external_decision;
   replay_state.pending_external_decision = controller_state.pending_external_decision;
   replay_state.reducer_state = controller_state.control_reducer_state;
+  return replay_state;
+}
+
+ArSessionReplayState ArSessionReplayAccess::CaptureSessionState(const ArSession& session) {
+  ArSessionReplayState replay_state;
+  replay_state.has_prepared_cycle = session.impl_->has_prepared_cycle;
+  replay_state.prepared_token = session.impl_->prepared_token;
+  replay_state.has_world_chronology = session.impl_->has_world_chronology;
+  replay_state.last_world_window_end_s = session.impl_->last_world_window_end_s;
+  replay_state.next_token_value = session.impl_->next_token_value;
+  replay_state.next_emission_id = session.impl_->next_emission_id;
+  replay_state.successful_prepare_count = session.impl_->successful_prepare_count;
+  replay_state.timing_seed = session.impl_->timing_seed;
+  replay_state.frequency_hop_index = static_cast<std::uint64_t>(session.impl_->frequency_hop_index);
+  replay_state.has_pending_runtime_update = session.impl_->has_pending_runtime_update;
+  replay_state.pending_execution_config_changed = session.impl_->pending_execution_config_changed;
+  replay_state.pending_environment_scenario_config_changed =
+      session.impl_->pending_environment_scenario_config_changed;
+  replay_state.pending_jamming_sensitivity_profile_changed =
+      session.impl_->pending_jamming_sensitivity_profile_changed;
+  replay_state.decision_state = CaptureDecisionState(session);
   return replay_state;
 }
 

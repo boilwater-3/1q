@@ -3,10 +3,10 @@
  * @brief 机载雷达（AR）批量场景验证。
  *
  * @par 目标
- * 通过公开 Session 接口（ArTraceSession + ArCycleInputAdapter）对 AR 模块做多场景
+ * 通过公开两阶段 Session 接口对 AR 模块做多场景
  * 参数扫描，证明其在不同目标距离 / RCS / 目标数 / 探测阈值下的泛用性：
- *   - 采集周期级 + 场景汇总级 CSV 指标（关联质量、航迹统计）。
- *   - 对关键物理趋势做软断言（距离↑→确认率↓、RCS↓→漏失率↑ 等），违反记 kWarning。
+ *   - 采集周期级 + 场景汇总级 CSV 指标（两阶段状态、受损、干扰观测和航迹统计）。
+ *   - 对关键物理趋势做软断言（距离↑→确认率↓），违反记 kWarning。
  *   - 每个场景用 ReplayTraceWriter 录制可回放 trace，并立即用 ReplayArTrace 做确定性
  *     回归（分叉检测），回放结果写入汇总 CSV 的 replay_ok 列。
  *
@@ -31,7 +31,6 @@
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/session/ArCycleInputAdapter.h"
-#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArReplaySession.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/ArTraceSession.h"
@@ -246,22 +245,16 @@ void ApplyCaseToConfig(const ArCase& c, ar_config::ArSessionConfig& config) {
 // =============================================================================
 
 constexpr const char* kCycleHeader =
-    "scenario_id,suite,scenario_family,phase,cycle_index,executed_this_cycle,has_validation_error,"
-    "abort_reason,"
-    "prior_track_count,detection_count,matched_count,new_track_count,missed_track_count,"
-    "match_rate,new_track_rate,missed_track_rate,mean_match_cost,p95_match_cost,"
-    "jamming_severity,association_stress,confirmed_count,tentative_count,lost_count,"
-    "jamming_track_count";
+    "scenario_id,suite,scenario_family,phase,cycle_index,prepare_status,complete_status,"
+    "completed,receiver_impairment,interference_observation_count,max_jammer_to_noise_db,"
+    "confirmed_count,tentative_count,lost_count";
 
 constexpr const char* kScenarioHeader =
     "scenario_id,suite,scenario_family,target_range_km,rcs_m2,target_count,min_snr_db_override,"
-    "executed_cycles,warmup_confirmed_cycles,steady_confirmed_mean,steady_match_rate_mean,"
-    "steady_missed_rate_mean,steady_jamming_mean,replay_ok,replay_compared,replay_divergence,"
+    "executed_cycles,warmup_confirmed_cycles,steady_confirmed_mean,steady_jamming_mean,"
+    "replay_ok,replay_compared,replay_divergence,"
     "expected_failure_count,contract_check_count,contract_failure_count,failure_marker_count,"
     "warning_count,error_count,warnings";
-
-/// 把 abort_reason 枚举转为整数（CSV 中便于筛选）。
-int AbortReasonToInt(ar_session::SignalCycleAbortReason r) { return static_cast<int>(r); }
 
 // =============================================================================
 // 单场景执行
@@ -270,52 +263,126 @@ int AbortReasonToInt(ar_session::SignalCycleAbortReason r) { return static_cast<
 /// 周期级指标快照（写周期 CSV + 聚合场景级）。
 struct CycleMetrics {
   std::uint32_t cycle_index{0};
-  bool executed{false};
-  bool has_validation_error{false};
-  int abort_reason{0};
-  std::size_t prior_track_count{0};
-  std::size_t detection_count{0};
-  std::size_t matched_count{0};
-  std::size_t new_track_count{0};
-  std::size_t missed_track_count{0};
+  ar_session::ArPrepareCycleStatus prepare_status{ar_session::ArPrepareCycleStatus::kRejected};
+  ar_session::ArCompleteCycleStatus complete_status{ar_session::ArCompleteCycleStatus::kRejected};
+  bool completed{false};
+  ar_session::ArReceiverImpairment receiver_impairment{ar_session::ArReceiverImpairment::kNone};
   std::size_t confirmed{0};
   std::size_t tentative{0};
   std::size_t lost{0};
-  std::size_t jamming{0};
-  float match_rate{0.0f};
-  float new_track_rate{0.0f};
-  float missed_rate{0.0f};
-  float jamming_severity{0.0f};
-  float association_stress{0.0f};
-  float mean_match_cost{0.0f};
-  float p95_match_cost{0.0f};
+  std::size_t interference_observation_count{0};
+  double max_jammer_to_noise_db{0.0};
 };
 
-/// 从 CycleResult 提取周期指标。
-CycleMetrics ExtractCycleMetrics(const ar_session::ArCycleResult& r) {
+struct BatchCycleResult {
+  std::uint32_t cycle_index{0U};
+  bool completed{false};
+  ar_session::ArPrepareCycleStatus prepare_status{ar_session::ArPrepareCycleStatus::kRejected};
+  ar_session::ArCompleteCycleStatus complete_status{ar_session::ArCompleteCycleStatus::kRejected};
+  std::size_t replay_operation_count{0U};
+  ar_session::TrackOutputFrame track_output_frame{};
+  ar_session::ArInterferenceObservationList interference_observations{};
+  ar_session::ArReceiverImpairment receiver_impairment{ar_session::ArReceiverImpairment::kNone};
+};
+
+BatchCycleResult RunBatchCycle(ar_session::ArTraceSession* session,
+                               const ar_session::ArCycleInput& input, bool include_pulsed_jammer) {
+  BatchCycleResult result;
+  result.cycle_index = input.cycle_index;
+  if (session == nullptr) {
+    return result;
+  }
+  ar_session::ArPrepareCycleInput prepare;
+  prepare.world_cycle_index = input.cycle_index;
+  prepare.window_start_time_s = static_cast<double>(input.cycle_index - 1U);
+  prepare.window_duration_s = static_cast<double>(input.dt_sec);
+  prepare.platform_id = input.platform_entity_id == 0U ? 10U : input.platform_entity_id;
+  prepare.platform_position_ecef_m = input.platform_position_ecef_m;
+  prepare.platform_velocity_ecef_mps = input.platform_velocity_ecef_mps;
+  prepare.radar_frame_attitude_deg.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
+  prepare.radar_frame_attitude_deg.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
+  prepare.radar_frame_attitude_deg.roll_deg = input.platform_pose.attitude_deg.roll_deg;
+  const ar_session::ArPrepareCycleResult prepared = session->PrepareCycle(prepare);
+  result.replay_operation_count = 1U;
+  result.prepare_status = prepared.status;
+  if (prepared.status == ar_session::ArPrepareCycleStatus::kPoweredOff) {
+    return result;
+  }
+  if (prepared.status != ar_session::ArPrepareCycleStatus::kPrepared) {
+    return result;
+  }
+
+  ar_session::ArCompleteCycleInput complete;
+  complete.rf_scene.world_cycle_index = prepare.world_cycle_index;
+  complete.rf_scene.window_start_time_s = prepare.window_start_time_s;
+  complete.rf_scene.window_duration_s = prepare.window_duration_s;
+  complete.rf_scene.emissions.push_back(prepared.emission);
+  if (include_pulsed_jammer) {
+    oneq::electromagnetics::RfSceneEmission jammer;
+    jammer.identity.platform_id = 20U;
+    jammer.identity.equipment_id = 21U;
+    jammer.identity.emission_id = 100000U + prepare.world_cycle_index;
+    const auto& receiver = prepared.operating_state.rf_receiver;
+    constexpr double kJammerRangeM = 20000.0;
+    jammer.position_ecef_m = receiver.position_ecef_m;
+    jammer.position_ecef_m.x_m += receiver.antenna.boresight_ecef.x * kJammerRangeM;
+    jammer.position_ecef_m.y_m += receiver.antenna.boresight_ecef.y * kJammerRangeM;
+    jammer.position_ecef_m.z_m += receiver.antenna.boresight_ecef.z * kJammerRangeM;
+    jammer.antenna.boresight_ecef.x = -receiver.antenna.boresight_ecef.x;
+    jammer.antenna.boresight_ecef.y = -receiver.antenna.boresight_ecef.y;
+    jammer.antenna.boresight_ecef.z = -receiver.antenna.boresight_ecef.z;
+    jammer.antenna.peak_gain_dbi = 20.0;
+    jammer.antenna.half_power_beamwidth_deg = 30.0;
+    jammer.polarization = receiver.polarization;
+    constexpr double kPulseWidthS = 2.0e-4;
+    constexpr double kPulseRepetitionIntervalS = 1.0e-3;
+    constexpr std::uint32_t kPulseCount = 1000U;
+    if (!oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
+            prepare.window_start_time_s, receiver.center_frequency_hz, receiver.bandwidth_hz, 10.0,
+            kPulseWidthS, kPulseRepetitionIntervalS, kPulseCount, 0.0, 0x4241544348ULL,
+            prepare.world_cycle_index, &jammer.waveform)) {
+      (void)session->AbandonCycle(prepared.token);
+      ++result.replay_operation_count;
+      return result;
+    }
+    complete.rf_scene.emissions.push_back(jammer);
+  }
+  complete.targets = input.scene;
+  complete.atmospheric_observation = input.environment.atmospheric_observation;
+  complete.atmospheric_context = input.environment.atmospheric_context;
+  complete.surface_observation = input.environment.surface_observation;
+  const ar_session::ArCompleteCycleResult completed =
+      session->CompleteCycle(prepared.token, complete);
+  ++result.replay_operation_count;
+  result.complete_status = completed.status;
+  if (completed.status != ar_session::ArCompleteCycleStatus::kCompleted) {
+    (void)session->AbandonCycle(prepared.token);
+    ++result.replay_operation_count;
+    return result;
+  }
+  result.completed = true;
+  result.track_output_frame = completed.track_output_frame;
+  result.interference_observations = completed.interference_observations;
+  result.receiver_impairment = completed.receiver_impairment;
+  return result;
+}
+
+/// 从两阶段 RF 周期结果提取公开输出指标。
+CycleMetrics ExtractCycleMetrics(const BatchCycleResult& r) {
   CycleMetrics m;
-  m.cycle_index = r.input_cycle_index;
-  m.executed = r.executed_this_cycle;
-  m.has_validation_error = r.has_validation_error;
-  m.abort_reason = AbortReasonToInt(r.abort_reason);
+  m.cycle_index = r.cycle_index;
+  m.prepare_status = r.prepare_status;
+  m.complete_status = r.complete_status;
+  m.completed = r.completed;
+  m.receiver_impairment = r.receiver_impairment;
   const auto& f = r.track_output_frame;
   m.confirmed = ar_session::CountTracksByStatus(f, ar_session::TrackStatus::kConfirmed);
   m.tentative = ar_session::CountTracksByStatus(f, ar_session::TrackStatus::kTentative);
   m.lost = ar_session::CountTracksByStatus(f, ar_session::TrackStatus::kLost);
-  m.jamming = ar_session::CountJammingTracks(f);
-  const auto& q = r.association_quality_metrics;
-  m.prior_track_count = q.prior_track_count;
-  m.detection_count = q.detection_count;
-  m.matched_count = q.matched_count;
-  m.new_track_count = q.new_track_count;
-  m.missed_track_count = q.missed_track_count;
-  m.match_rate = q.match_rate;
-  m.new_track_rate = q.new_track_rate;
-  m.missed_rate = q.missed_track_rate;
-  m.jamming_severity = q.jamming_severity;
-  m.association_stress = q.association_stress;
-  m.mean_match_cost = q.mean_match_cost;
-  m.p95_match_cost = q.p95_match_cost;
+  m.interference_observation_count = r.interference_observations.size();
+  for (const auto& observation : r.interference_observations) {
+    m.max_jammer_to_noise_db = std::max(m.max_jammer_to_noise_db, observation.jammer_to_noise_db);
+  }
   return m;
 }
 
@@ -331,8 +398,6 @@ struct ScenarioSummary {
   std::uint32_t executed_cycles{0};
   std::uint32_t warmup_confirmed_cycles{0};
   double steady_confirmed_mean{0.0};
-  double steady_match_rate_mean{0.0};
-  double steady_missed_rate_mean{0.0};
   double steady_jamming_mean{0.0};
   bool replay_ok{false};
   std::uint64_t replay_compared{0};
@@ -372,8 +437,9 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
   std::uint64_t established_key = 0U;
   std::uint64_t recovered_key = 0U;
   bool invalid_patch_rejected = false;
+  std::size_t replay_operation_count = 0U;
 
-  // 录制 scope：TraceSession + 所有 Step 包在内，结尾 Flush。
+  // 录制 scope：TraceSession + 所有 Prepare/Complete/Abandon 操作包在内，结尾 Flush。
   {
     ar_session::ArTraceSessionOptions options;
     options.replay_writer = replay_writer;
@@ -437,8 +503,10 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
         input.scene[1].external_target_id = input.scene[0].external_target_id;
       }
 
-      const ar_session::ArCycleResult result = session.StepWithResult(input);
-      if (!result.executed_this_cycle) ++rejected_cycle_count;
+      const BatchCycleResult result =
+          RunBatchCycle(&session, input, c.scenario_id == "ar_seq_crossing_with_pulsed_jammer");
+      replay_operation_count += result.replay_operation_count;
+      if (!result.completed) ++rejected_cycle_count;
       const auto track_map = ar_session::BuildTrackMapByExternalTargetId(result.track_output_frame);
       const auto track_it = track_map.find(1000U);
       if (track_it != track_map.end()) {
@@ -449,38 +517,28 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
       metrics.push_back(m);
 
       // 周期级 CSV（含未执行周期，便于诊断）。
-      std::fprintf(cycle_writer.file(),
-                   "%s,%s,%s,%s,%u,%d,%d,%d,%zu,%zu,%zu,%zu,%zu,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,"
-                   "%.5f,%zu,%zu,%zu,%zu\n",
+      std::fprintf(cycle_writer.file(), "%s,%s,%s,%s,%u,%d,%d,%d,%d,%zu,%.5f,%zu,%zu,%zu\n",
                    c.scenario_id.c_str(), c.sequence ? "sequence" : "sweep", c.family.c_str(),
-                   phase, m.cycle_index, static_cast<int>(m.executed),
-                   static_cast<int>(m.has_validation_error), m.abort_reason, m.prior_track_count,
-                   m.detection_count, m.matched_count, m.new_track_count, m.missed_track_count,
-                   static_cast<double>(m.match_rate), static_cast<double>(m.new_track_rate),
-                   static_cast<double>(m.missed_rate), static_cast<double>(m.mean_match_cost),
-                   static_cast<double>(m.p95_match_cost), static_cast<double>(m.jamming_severity),
-                   static_cast<double>(m.association_stress), m.confirmed, m.tentative, m.lost,
-                   m.jamming);
+                   phase, m.cycle_index, static_cast<int>(m.prepare_status),
+                   static_cast<int>(m.complete_status), static_cast<int>(m.completed),
+                   static_cast<int>(m.receiver_impairment), m.interference_observation_count,
+                   m.max_jammer_to_noise_db, m.confirmed, m.tentative, m.lost);
     }
     replay_writer->Flush();
   }  // TraceSession 析构
 
-  // ---- 聚合场景级指标（仅统计 executed 周期，warmup 后为"稳态"窗口）----
+  // ---- 聚合场景级指标（仅统计 completed 周期，warmup 后为"稳态"窗口）----
   for (const auto& m : metrics) {
-    if (m.executed) ++s.executed_cycles;
+    if (m.completed) ++s.executed_cycles;
     if (m.cycle_index <= kWarmupCycles && m.confirmed > 0) ++s.warmup_confirmed_cycles;
   }
-  std::vector<double> steady_confirmed, steady_match_rate, steady_missed_rate, steady_jamming;
+  std::vector<double> steady_confirmed, steady_jamming;
   for (const auto& m : metrics) {
-    if (!m.executed || m.cycle_index <= kWarmupCycles) continue;
+    if (!m.completed || m.cycle_index <= kWarmupCycles) continue;
     steady_confirmed.push_back(static_cast<double>(m.confirmed));
-    steady_match_rate.push_back(static_cast<double>(m.match_rate));
-    steady_missed_rate.push_back(static_cast<double>(m.missed_rate));
-    steady_jamming.push_back(static_cast<double>(m.jamming_severity));
+    steady_jamming.push_back(m.max_jammer_to_noise_db);
   }
   s.steady_confirmed_mean = batch_validation::Mean(steady_confirmed);
-  s.steady_match_rate_mean = batch_validation::Mean(steady_match_rate);
-  s.steady_missed_rate_mean = batch_validation::Mean(steady_missed_rate);
   s.steady_jamming_mean = batch_validation::Mean(steady_jamming);
 
   // ---- 回放（writer 已析构，trace 落盘完整）----
@@ -491,10 +549,10 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
   s.failure_marker_count = replay.playback.failure_marker_count;
   if (!replay.ok || replay.playback.divergence_found) {
     s.warnings.Error("replay failed: " + replay.first_error);
-  } else if (replay.playback.compared_output_count != metrics.size()) {
+  } else if (replay.playback.compared_output_count != replay_operation_count) {
     s.warnings.Error(
         "replay compared_count=" + std::to_string(replay.playback.compared_output_count) +
-        " != steps=" + std::to_string(metrics.size()));
+        " != operations=" + std::to_string(replay_operation_count));
   }
 
   if (c.sequence) {
@@ -504,15 +562,14 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
     s.expected_failure_count = c.scenario_id == "ar_seq_invalid_input_recovery" ? 2U
                                : c.scenario_id == "ar_seq_invalid_patch_atomic" ? 1U
                                                                                 : 0U;
-    checks.Add(
-        c.scenario_id, "replay", cycle_count, "replay_complete", std::to_string(metrics.size()),
-        std::to_string(s.replay_compared),
-        replay.ok && !replay.playback.divergence_found && s.replay_compared == metrics.size());
+    checks.Add(c.scenario_id, "replay", cycle_count, "replay_complete",
+               std::to_string(replay_operation_count), std::to_string(s.replay_compared),
+               replay.ok && !replay.playback.divergence_found &&
+                   s.replay_compared == replay_operation_count);
     checks.Add(c.scenario_id, "recovery", cycle_count, "expected_nonexecuted_cycles",
                std::to_string(expected_nonexecuted), std::to_string(rejected_cycle_count),
                rejected_cycle_count == expected_nonexecuted);
-    const std::uint64_t expected_markers =
-        c.scenario_id == "ar_seq_invalid_input_recovery" ? 2U : 0U;
+    const std::uint64_t expected_markers = 0U;
     checks.Add(c.scenario_id, "replay", cycle_count, "failure_marker_count",
                std::to_string(expected_markers), std::to_string(s.failure_marker_count),
                s.failure_marker_count == expected_markers);
@@ -541,11 +598,7 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
                         std::to_string(s.steady_confirmed_mean));
       }
     }
-    // ② match_rate 应在 [0,1]
-    if (s.steady_match_rate_mean < 0.0 || s.steady_match_rate_mean > 1.0) {
-      s.warnings.Warn("match_rate out of [0,1]: " + std::to_string(s.steady_match_rate_mean));
-    }
-    // ③ 距离↑ 时确认数应单调↓（仅默认阈值组内比较，由跨场景趋势检查完成，此处单场景不判）
+    // ② 距离↑ 时确认数应单调↓（仅默认阈值组内比较，由跨场景趋势检查完成，此处单场景不判）
   }
 
   batch_validation::LogReplayResult(
@@ -553,7 +606,7 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
       ReplayCheckResult{replay.ok, replay.playback.divergence_found,
                         replay.playback.compared_output_count, replay.playback.applied_input_count,
                         replay.reached_failure_marker, replay.first_error},
-      metrics.size());
+      replay_operation_count);
   s.warnings.DumpToStderr(c.scenario_id + ": ");
 
   return s;
@@ -690,28 +743,26 @@ int main(int argc, char** argv) {
         stderr,
         "  [scenario] module=AR id=%s physics_detection=1 physical_rcs=1 "
         "physics_mix_ratio=1.000 range_km=%.3f rcs_m2=%.3f targets=%d "
-        "min_snr_db_override=%.3f executed=%u/%u confirmed=%.4f match_rate=%.4f "
-        "missed_rate=%.4f jamming=%.4f replay_ok=%d compared=%llu divergence=%d "
+        "min_snr_db_override=%.3f executed=%u/%u confirmed=%.4f "
+        "jamming=%.4f replay_ok=%d compared=%llu divergence=%d "
         "warn=%zu error=%zu\n",
         s.scenario_id.c_str(), s.target_range_km, s.rcs_m2, s.target_count, s.min_snr_db_override,
         s.executed_cycles, s.scenario_id.find("_seq_") != std::string::npos ? 24U : kNumCycles,
-        s.steady_confirmed_mean, s.steady_match_rate_mean, s.steady_missed_rate_mean,
-        s.steady_jamming_mean, static_cast<int>(s.replay_ok),
+        s.steady_confirmed_mean, s.steady_jamming_mean, static_cast<int>(s.replay_ok),
         static_cast<unsigned long long>(s.replay_compared), static_cast<int>(s.replay_divergence),
         s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError));
-    std::fprintf(scenario_writer.file(),
-                 "%s,%s,%s,%.3f,%.3f,%d,%.3f,%u,%u,%.4f,%.4f,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%zu,%llu,"
-                 "%zu,%zu,%s\n",
-                 s.scenario_id.c_str(), s.suite.c_str(), s.scenario_family.c_str(),
-                 s.target_range_km, s.rcs_m2, s.target_count, s.min_snr_db_override,
-                 s.executed_cycles, s.warmup_confirmed_cycles, s.steady_confirmed_mean,
-                 s.steady_match_rate_mean, s.steady_missed_rate_mean, s.steady_jamming_mean,
-                 static_cast<int>(s.replay_ok), static_cast<unsigned long long>(s.replay_compared),
-                 static_cast<int>(s.replay_divergence), s.expected_failure_count,
-                 s.contract_check_count, s.contract_failure_count,
-                 static_cast<unsigned long long>(s.failure_marker_count),
-                 s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError),
-                 batch_validation::EscapeCsvField(s.warnings.JoinForCsv()).c_str());
+    std::fprintf(
+        scenario_writer.file(),
+        "%s,%s,%s,%.3f,%.3f,%d,%.3f,%u,%u,%.4f,%.4f,%d,%llu,%d,%zu,%zu,%zu,%llu,"
+        "%zu,%zu,%s\n",
+        s.scenario_id.c_str(), s.suite.c_str(), s.scenario_family.c_str(), s.target_range_km,
+        s.rcs_m2, s.target_count, s.min_snr_db_override, s.executed_cycles,
+        s.warmup_confirmed_cycles, s.steady_confirmed_mean, s.steady_jamming_mean,
+        static_cast<int>(s.replay_ok), static_cast<unsigned long long>(s.replay_compared),
+        static_cast<int>(s.replay_divergence), s.expected_failure_count, s.contract_check_count,
+        s.contract_failure_count, static_cast<unsigned long long>(s.failure_marker_count),
+        s.warnings.Count(Severity::kWarning), s.warnings.Count(Severity::kError),
+        batch_validation::EscapeCsvField(s.warnings.JoinForCsv()).c_str());
   }
   scenario_writer.Flush();
   checks.WriteCsv(output_dir + "/checks.csv");

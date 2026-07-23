@@ -1332,6 +1332,386 @@ config::ArEnvironmentConfig DecodeEnvironmentDefaultConfig(
   return result;
 }
 
+flatbuffers::Offset<fb::Vector3d> EncodeRfV2Position(flatbuffers::FlatBufferBuilder* builder,
+                                                     const oneq::coordinate::EcefPositionM& value) {
+  return fb::CreateVector3d(*builder, value.x_m, value.y_m, value.z_m);
+}
+
+flatbuffers::Offset<fb::Vector3d> EncodeRfV2Velocity(
+    flatbuffers::FlatBufferBuilder* builder, const oneq::coordinate::EcefVelocityMps& value) {
+  return fb::CreateVector3d(*builder, value.x_mps, value.y_mps, value.z_mps);
+}
+
+flatbuffers::Offset<fb::RfSceneDirectionV2> EncodeRfV2Direction(
+    flatbuffers::FlatBufferBuilder* builder,
+    const oneq::electromagnetics::RfSceneDirection& value) {
+  return fb::CreateRfSceneDirectionV2(*builder, value.x, value.y, value.z);
+}
+
+flatbuffers::Offset<fb::RfSceneAntennaPatternV2> EncodeRfV2Antenna(
+    flatbuffers::FlatBufferBuilder* builder,
+    const oneq::electromagnetics::RfSceneAntennaPattern& value) {
+  return fb::CreateRfSceneAntennaPatternV2(
+      *builder, EncodeRfV2Direction(builder, value.boresight_ecef), value.peak_gain_dbi,
+      value.half_power_beamwidth_deg, value.sidelobe_level_db, value.backlobe_level_db,
+      value.cross_polarization_isolation_db);
+}
+
+flatbuffers::Offset<fb::RfEmissionIdentityV2> EncodeRfV2Identity(
+    flatbuffers::FlatBufferBuilder* builder,
+    const oneq::electromagnetics::RfEmissionIdentity& value) {
+  return fb::CreateRfEmissionIdentityV2(*builder, value.platform_id, value.equipment_id,
+                                        value.emission_id);
+}
+
+flatbuffers::Offset<fb::RfWaveformScheduleV2> EncodeRfV2Waveform(
+    flatbuffers::FlatBufferBuilder* builder,
+    const oneq::electromagnetics::RfWaveformSchedule& value) {
+  return fb::CreateRfWaveformScheduleV2(
+      *builder, static_cast<int>(value.kind), value.activity_start_time_s,
+      value.activity_duration_s, value.center_frequency_hz, value.occupied_bandwidth_hz,
+      value.transmit_power_w, value.pulse_width_s, value.pulse_repetition_interval_s,
+      value.first_pulse_time_s, value.pulse_count, value.pulse_jitter_fraction, value.timing_seed,
+      value.timing_epoch, value.sweep_start_frequency_hz, value.sweep_stop_frequency_hz,
+      value.sweep_period_s);
+}
+
+flatbuffers::Offset<fb::RfSceneEmissionV2> EncodeRfV2Emission(
+    flatbuffers::FlatBufferBuilder* builder, const oneq::electromagnetics::RfSceneEmission& value) {
+  return fb::CreateRfSceneEmissionV2(*builder, EncodeRfV2Identity(builder, value.identity),
+                                     EncodeRfV2Position(builder, value.position_ecef_m),
+                                     EncodeRfV2Velocity(builder, value.velocity_ecef_mps),
+                                     EncodeRfV2Antenna(builder, value.antenna),
+                                     static_cast<int>(value.polarization),
+                                     EncodeRfV2Waveform(builder, value.waveform));
+}
+
+flatbuffers::Offset<fb::RfSceneFrameV2> EncodeRfV2Scene(
+    flatbuffers::FlatBufferBuilder* builder, const oneq::electromagnetics::RfSceneFrame& value) {
+  std::vector<flatbuffers::Offset<fb::RfSceneEmissionV2>> emissions;
+  emissions.reserve(value.emissions.size());
+  for (const auto& emission : value.emissions) {
+    emissions.push_back(EncodeRfV2Emission(builder, emission));
+  }
+  return fb::CreateRfSceneFrameV2(*builder, value.world_cycle_index, value.window_start_time_s,
+                                  value.window_duration_s, builder->CreateVector(emissions));
+}
+
+flatbuffers::Offset<fb::RfSceneReceiverStateV2> EncodeRfV2Receiver(
+    flatbuffers::FlatBufferBuilder* builder,
+    const oneq::electromagnetics::RfSceneReceiverState& value) {
+  std::vector<flatbuffers::Offset<fb::RfCoSiteIsolationPathV2>> paths;
+  paths.reserve(value.co_site_paths.size());
+  for (const auto& path : value.co_site_paths) {
+    paths.push_back(fb::CreateRfCoSiteIsolationPathV2(
+        *builder, path.transmitter_equipment_id, path.receiver_equipment_id, path.isolation_db));
+  }
+  return fb::CreateRfSceneReceiverStateV2(
+      *builder, value.platform_id, value.equipment_id,
+      EncodeRfV2Position(builder, value.position_ecef_m),
+      EncodeRfV2Velocity(builder, value.velocity_ecef_mps),
+      EncodeRfV2Antenna(builder, value.antenna), static_cast<int>(value.polarization),
+      value.window_start_time_s, value.window_duration_s, value.center_frequency_hz,
+      value.bandwidth_hz, value.receiver_system_loss_db, value.minimum_far_field_range_m,
+      builder->CreateVector(paths));
+}
+
+flatbuffers::Offset<fb::ArPreparedCycleTokenV2> EncodePreparedToken(
+    flatbuffers::FlatBufferBuilder* builder, const ArPreparedCycleToken& value) {
+  return fb::CreateArPreparedCycleTokenV2(*builder, value.value, value.world_cycle_index);
+}
+
+flatbuffers::Offset<fb::ArReceiverOperatingStateV2> EncodeReceiverOperatingState(
+    flatbuffers::FlatBufferBuilder* builder, const ArReceiverOperatingState& value) {
+  std::vector<flatbuffers::Offset<fb::RfSceneDirectionV2>> nulls;
+  nulls.reserve(value.adaptive_nulls_ecef.size());
+  for (const auto& direction : value.adaptive_nulls_ecef) {
+    nulls.push_back(EncodeRfV2Direction(builder, direction));
+  }
+  return fb::CreateArReceiverOperatingStateV2(
+      *builder, EncodeRfV2Receiver(builder, value.rf_receiver),
+      fb::CreateAzimuthElevationDeg32(*builder, value.beam_pointing_deg.az_deg,
+                                      value.beam_pointing_deg.el_deg),
+      value.matched_filter_bandwidth_hz, value.receiver_noise_figure_db,
+      value.maximum_linear_input_power_w, value.transmit_receive_blanking_enabled,
+      builder->CreateVector(nulls));
+}
+
+flatbuffers::Offset<fb::ArPrepareCycleInputV2> EncodePrepareInput(
+    flatbuffers::FlatBufferBuilder* builder, const ArPrepareCycleInput& value) {
+  return fb::CreateArPrepareCycleInputV2(
+      *builder, value.world_cycle_index, value.window_start_time_s, value.window_duration_s,
+      value.platform_id, EncodeRfV2Position(builder, value.platform_position_ecef_m),
+      EncodeRfV2Velocity(builder, value.platform_velocity_ecef_mps),
+      fb::CreateEulerAnglesDeg64(*builder, value.radar_frame_attitude_deg.yaw_deg,
+                                 value.radar_frame_attitude_deg.pitch_deg,
+                                 value.radar_frame_attitude_deg.roll_deg),
+      fb::CreateAzimuthElevationDeg32(*builder, value.beam_pointing_deg.az_deg,
+                                      value.beam_pointing_deg.el_deg));
+}
+
+flatbuffers::Offset<fb::ArPrepareCycleResultV2> EncodePrepareResult(
+    flatbuffers::FlatBufferBuilder* builder, const ArPrepareCycleResult& value) {
+  return fb::CreateArPrepareCycleResultV2(
+      *builder, static_cast<int>(value.status), EncodePreparedToken(builder, value.token),
+      value.has_emission, EncodeRfV2Emission(builder, value.emission),
+      EncodeReceiverOperatingState(builder, value.operating_state));
+}
+
+flatbuffers::Offset<fb::ArSessionReplayStateV2> EncodeSessionReplayState(
+    flatbuffers::FlatBufferBuilder* builder, const ArSessionReplayState& value) {
+  return fb::CreateArSessionReplayStateV2(
+      *builder, value.has_prepared_cycle, EncodePreparedToken(builder, value.prepared_token),
+      value.has_world_chronology, value.last_world_window_end_s, value.next_token_value,
+      value.next_emission_id, value.successful_prepare_count, value.timing_seed,
+      value.frequency_hop_index, value.has_pending_runtime_update,
+      value.pending_execution_config_changed, value.pending_environment_scenario_config_changed,
+      value.pending_jamming_sensitivity_profile_changed,
+      EncodeDecisionReplayState(builder, value.decision_state));
+}
+
+oneq::coordinate::EcefPositionM DecodeRfV2Position(const fb::Vector3d* value) {
+  oneq::coordinate::EcefPositionM result;
+  if (value != nullptr) {
+    result.x_m = value->x();
+    result.y_m = value->y();
+    result.z_m = value->z();
+  }
+  return result;
+}
+
+oneq::coordinate::EcefVelocityMps DecodeRfV2Velocity(const fb::Vector3d* value) {
+  oneq::coordinate::EcefVelocityMps result;
+  if (value != nullptr) {
+    result.x_mps = value->x();
+    result.y_mps = value->y();
+    result.z_mps = value->z();
+  }
+  return result;
+}
+
+oneq::electromagnetics::RfSceneDirection DecodeRfV2Direction(const fb::RfSceneDirectionV2* value) {
+  oneq::electromagnetics::RfSceneDirection result;
+  if (value != nullptr) {
+    result.x = value->x();
+    result.y = value->y();
+    result.z = value->z();
+  }
+  return result;
+}
+
+oneq::electromagnetics::RfSceneAntennaPattern DecodeRfV2Antenna(
+    const fb::RfSceneAntennaPatternV2* value) {
+  oneq::electromagnetics::RfSceneAntennaPattern result;
+  if (value != nullptr) {
+    result.boresight_ecef = DecodeRfV2Direction(value->boresight_ecef());
+    result.peak_gain_dbi = value->peak_gain_dbi();
+    result.half_power_beamwidth_deg = value->half_power_beamwidth_deg();
+    result.sidelobe_level_db = value->sidelobe_level_db();
+    result.backlobe_level_db = value->backlobe_level_db();
+    result.cross_polarization_isolation_db = value->cross_polarization_isolation_db();
+  }
+  return result;
+}
+
+oneq::electromagnetics::RfWaveformSchedule DecodeRfV2Waveform(
+    const fb::RfWaveformScheduleV2* value) {
+  oneq::electromagnetics::RfWaveformSchedule result;
+  if (value != nullptr) {
+    result.kind = static_cast<oneq::electromagnetics::RfSceneWaveformKind>(value->kind());
+    result.activity_start_time_s = value->activity_start_time_s();
+    result.activity_duration_s = value->activity_duration_s();
+    result.center_frequency_hz = value->center_frequency_hz();
+    result.occupied_bandwidth_hz = value->occupied_bandwidth_hz();
+    result.transmit_power_w = value->transmit_power_w();
+    result.pulse_width_s = value->pulse_width_s();
+    result.pulse_repetition_interval_s = value->pulse_repetition_interval_s();
+    result.first_pulse_time_s = value->first_pulse_time_s();
+    result.pulse_count = value->pulse_count();
+    result.pulse_jitter_fraction = value->pulse_jitter_fraction();
+    result.timing_seed = value->timing_seed();
+    result.timing_epoch = value->timing_epoch();
+    result.sweep_start_frequency_hz = value->sweep_start_frequency_hz();
+    result.sweep_stop_frequency_hz = value->sweep_stop_frequency_hz();
+    result.sweep_period_s = value->sweep_period_s();
+  }
+  return result;
+}
+
+oneq::electromagnetics::RfSceneEmission DecodeRfV2Emission(const fb::RfSceneEmissionV2* value) {
+  oneq::electromagnetics::RfSceneEmission result;
+  if (value != nullptr) {
+    if (value->identity() != nullptr) {
+      result.identity.platform_id = value->identity()->platform_id();
+      result.identity.equipment_id = value->identity()->equipment_id();
+      result.identity.emission_id = value->identity()->emission_id();
+    }
+    result.position_ecef_m = DecodeRfV2Position(value->position_ecef_m());
+    result.velocity_ecef_mps = DecodeRfV2Velocity(value->velocity_ecef_mps());
+    result.antenna = DecodeRfV2Antenna(value->antenna());
+    result.polarization =
+        static_cast<oneq::electromagnetics::RfScenePolarization>(value->polarization());
+    result.waveform = DecodeRfV2Waveform(value->waveform());
+  }
+  return result;
+}
+
+oneq::electromagnetics::RfSceneFrame DecodeRfV2Scene(const fb::RfSceneFrameV2* value) {
+  oneq::electromagnetics::RfSceneFrame result;
+  if (value != nullptr) {
+    result.world_cycle_index = value->world_cycle_index();
+    result.window_start_time_s = value->window_start_time_s();
+    result.window_duration_s = value->window_duration_s();
+    if (value->emissions() != nullptr) {
+      result.emissions.reserve(value->emissions()->size());
+      for (const fb::RfSceneEmissionV2* emission : *value->emissions()) {
+        result.emissions.push_back(DecodeRfV2Emission(emission));
+      }
+    }
+  }
+  return result;
+}
+
+oneq::electromagnetics::RfSceneReceiverState DecodeRfV2Receiver(
+    const fb::RfSceneReceiverStateV2* value) {
+  oneq::electromagnetics::RfSceneReceiverState result;
+  if (value != nullptr) {
+    result.platform_id = value->platform_id();
+    result.equipment_id = value->equipment_id();
+    result.position_ecef_m = DecodeRfV2Position(value->position_ecef_m());
+    result.velocity_ecef_mps = DecodeRfV2Velocity(value->velocity_ecef_mps());
+    result.antenna = DecodeRfV2Antenna(value->antenna());
+    result.polarization =
+        static_cast<oneq::electromagnetics::RfScenePolarization>(value->polarization());
+    result.window_start_time_s = value->window_start_time_s();
+    result.window_duration_s = value->window_duration_s();
+    result.center_frequency_hz = value->center_frequency_hz();
+    result.bandwidth_hz = value->bandwidth_hz();
+    result.receiver_system_loss_db = value->receiver_system_loss_db();
+    result.minimum_far_field_range_m = value->minimum_far_field_range_m();
+    if (value->co_site_paths() != nullptr) {
+      result.co_site_paths.reserve(value->co_site_paths()->size());
+      for (const fb::RfCoSiteIsolationPathV2* encoded : *value->co_site_paths()) {
+        oneq::electromagnetics::RfCoSiteIsolationPath path;
+        path.transmitter_equipment_id = encoded->transmitter_equipment_id();
+        path.receiver_equipment_id = encoded->receiver_equipment_id();
+        path.isolation_db = encoded->isolation_db();
+        result.co_site_paths.push_back(path);
+      }
+    }
+  }
+  return result;
+}
+
+ArPreparedCycleToken DecodePreparedToken(const fb::ArPreparedCycleTokenV2* value) {
+  ArPreparedCycleToken result;
+  if (value != nullptr) {
+    result.value = value->value();
+    result.world_cycle_index = value->world_cycle_index();
+  }
+  return result;
+}
+
+ArReceiverOperatingState DecodeReceiverOperatingState(const fb::ArReceiverOperatingStateV2* value) {
+  ArReceiverOperatingState result;
+  if (value != nullptr) {
+    result.rf_receiver = DecodeRfV2Receiver(value->rf_receiver());
+    if (value->beam_pointing_deg() != nullptr) {
+      result.beam_pointing_deg.az_deg = value->beam_pointing_deg()->az_deg();
+      result.beam_pointing_deg.el_deg = value->beam_pointing_deg()->el_deg();
+    }
+    result.matched_filter_bandwidth_hz = value->matched_filter_bandwidth_hz();
+    result.receiver_noise_figure_db = value->receiver_noise_figure_db();
+    result.maximum_linear_input_power_w = value->maximum_linear_input_power_w();
+    result.transmit_receive_blanking_enabled = value->transmit_receive_blanking_enabled();
+    if (value->adaptive_nulls_ecef() != nullptr) {
+      result.adaptive_nulls_ecef.reserve(value->adaptive_nulls_ecef()->size());
+      for (const fb::RfSceneDirectionV2* direction : *value->adaptive_nulls_ecef()) {
+        result.adaptive_nulls_ecef.push_back(DecodeRfV2Direction(direction));
+      }
+    }
+  }
+  return result;
+}
+
+ArPrepareCycleInput DecodePrepareInput(const fb::ArPrepareCycleInputV2* value) {
+  ArPrepareCycleInput result;
+  if (value != nullptr) {
+    result.world_cycle_index = value->world_cycle_index();
+    result.window_start_time_s = value->window_start_time_s();
+    result.window_duration_s = value->window_duration_s();
+    result.platform_id = value->platform_id();
+    result.platform_position_ecef_m = DecodeRfV2Position(value->platform_position_ecef_m());
+    result.platform_velocity_ecef_mps = DecodeRfV2Velocity(value->platform_velocity_ecef_mps());
+    if (value->radar_frame_attitude_deg() != nullptr) {
+      result.radar_frame_attitude_deg.yaw_deg = value->radar_frame_attitude_deg()->yaw_deg();
+      result.radar_frame_attitude_deg.pitch_deg = value->radar_frame_attitude_deg()->pitch_deg();
+      result.radar_frame_attitude_deg.roll_deg = value->radar_frame_attitude_deg()->roll_deg();
+    }
+    if (value->beam_pointing_deg() != nullptr) {
+      result.beam_pointing_deg.az_deg = value->beam_pointing_deg()->az_deg();
+      result.beam_pointing_deg.el_deg = value->beam_pointing_deg()->el_deg();
+    }
+  }
+  return result;
+}
+
+ArPrepareCycleResult DecodePrepareResult(const fb::ArPrepareCycleResultV2* value) {
+  ArPrepareCycleResult result;
+  if (value != nullptr) {
+    result.status = static_cast<ArPrepareCycleStatus>(value->status());
+    result.token = DecodePreparedToken(value->token());
+    result.has_emission = value->has_emission();
+    result.emission = DecodeRfV2Emission(value->emission());
+    result.operating_state = DecodeReceiverOperatingState(value->operating_state());
+  }
+  return result;
+}
+
+ArSessionReplayState DecodeSessionReplayState(const fb::ArSessionReplayStateV2* value) {
+  ArSessionReplayState result;
+  if (value != nullptr) {
+    result.has_prepared_cycle = value->has_prepared_cycle();
+    result.prepared_token = DecodePreparedToken(value->prepared_token());
+    result.has_world_chronology = value->has_world_chronology();
+    result.last_world_window_end_s = value->last_world_window_end_s();
+    result.next_token_value = value->next_token_value();
+    result.next_emission_id = value->next_emission_id();
+    result.successful_prepare_count = value->successful_prepare_count();
+    result.timing_seed = value->timing_seed();
+    result.frequency_hop_index = value->frequency_hop_index();
+    result.has_pending_runtime_update = value->has_pending_runtime_update();
+    result.pending_execution_config_changed = value->pending_execution_config_changed();
+    result.pending_environment_scenario_config_changed =
+        value->pending_environment_scenario_config_changed();
+    result.pending_jamming_sensitivity_profile_changed =
+        value->pending_jamming_sensitivity_profile_changed();
+    result.decision_state = DecodeDecisionReplayState(value->decision_state());
+  }
+  return result;
+}
+
+template <typename FlatbufferType>
+const FlatbufferType* TryGetReplayRoot(const std::string& payload_bytes, const char* payload_name,
+                                       std::string* error) {
+  if (payload_bytes.empty()) {
+    if (error != nullptr) {
+      *error = std::string("empty ") + payload_name + " flatbuffers payload";
+    }
+    return nullptr;
+  }
+  const std::uint8_t* data = reinterpret_cast<const std::uint8_t*>(payload_bytes.data());
+  flatbuffers::Verifier verifier(data, payload_bytes.size());
+  const FlatbufferType* root = flatbuffers::GetRoot<FlatbufferType>(data);
+  if (root == nullptr || !root->Verify(verifier)) {
+    if (error != nullptr) {
+      *error = std::string("invalid ") + payload_name + " flatbuffers payload";
+    }
+    return nullptr;
+  }
+  return root;
+}
+
 }  // namespace
 
 std::string EncodeCycleInputFlatbuffer(const ArCycleInput& input) {
@@ -1577,6 +1957,290 @@ bool DecodeReplayCycleRecordFlatbuffer(const std::string& payload_bytes,
 
   record->result = DecodeCycleResult(root->result());
   record->decision_state = DecodeDecisionReplayState(root->decision_state());
+  return true;
+}
+
+std::string EncodePrepareCycleInputFlatbuffer(const ArPrepareCycleInput& input) {
+  flatbuffers::FlatBufferBuilder builder;
+  const auto root = EncodePrepareInput(&builder, input);
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodePrepareCycleInputFlatbuffer(const std::string& payload_bytes, ArPrepareCycleInput* input,
+                                       std::string* error) {
+  if (input == nullptr) {
+    if (error != nullptr) {
+      *error = "null ArPrepareCycleInput output";
+    }
+    return false;
+  }
+  const auto* root =
+      TryGetReplayRoot<fb::ArPrepareCycleInputV2>(payload_bytes, "ArPrepareCycleInputV2", error);
+  if (root == nullptr) {
+    return false;
+  }
+  *input = DecodePrepareInput(root);
+  return true;
+}
+
+std::string EncodePrepareReplayRecordFlatbuffer(const ArPrepareReplayRecord& record) {
+  flatbuffers::FlatBufferBuilder builder;
+  const auto root =
+      fb::CreateArPrepareReplayRecordV2(builder, EncodePrepareResult(&builder, record.result),
+                                        EncodeSessionReplayState(&builder, record.session_state));
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodePrepareReplayRecordFlatbuffer(const std::string& payload_bytes,
+                                         ArPrepareReplayRecord* record, std::string* error) {
+  if (record == nullptr) {
+    if (error != nullptr) {
+      *error = "null ArPrepareReplayRecord output";
+    }
+    return false;
+  }
+  const auto* root = TryGetReplayRoot<fb::ArPrepareReplayRecordV2>(
+      payload_bytes, "ArPrepareReplayRecordV2", error);
+  if (root == nullptr) {
+    return false;
+  }
+  record->result = DecodePrepareResult(root->result());
+  record->session_state = DecodeSessionReplayState(root->session_state());
+  return true;
+}
+
+std::string EncodeCompleteReplayOperationInputFlatbuffer(
+    const ArCompleteReplayOperationInput& operation) {
+  flatbuffers::FlatBufferBuilder builder;
+  std::vector<flatbuffers::Offset<fb::ArSceneTarget>> targets;
+  targets.reserve(operation.input.targets.size());
+  for (const auto& target : operation.input.targets) {
+    targets.push_back(EncodeSceneTarget(&builder, target));
+  }
+  const auto root = fb::CreateArCompleteReplayOperationInputV2(
+      builder, EncodePreparedToken(&builder, operation.token),
+      EncodeRfV2Scene(&builder, operation.input.rf_scene), builder.CreateVector(targets),
+      EncodeCycleAtmosphericObservation(&builder, operation.input.atmospheric_observation),
+      EncodeCycleAtmosphericContext(&builder, operation.input.atmospheric_context),
+      EncodeCycleSurfaceObservation(&builder, operation.input.surface_observation));
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeCompleteReplayOperationInputFlatbuffer(const std::string& payload_bytes,
+                                                  ArCompleteReplayOperationInput* operation,
+                                                  std::string* error) {
+  if (operation == nullptr) {
+    if (error != nullptr) {
+      *error = "null ArCompleteReplayOperationInput output";
+    }
+    return false;
+  }
+  const auto* root = TryGetReplayRoot<fb::ArCompleteReplayOperationInputV2>(
+      payload_bytes, "ArCompleteReplayOperationInputV2", error);
+  if (root == nullptr) {
+    return false;
+  }
+  ArCompleteReplayOperationInput decoded;
+  decoded.token = DecodePreparedToken(root->token());
+  decoded.input.rf_scene = DecodeRfV2Scene(root->rf_scene());
+  if (root->targets() != nullptr) {
+    decoded.input.targets.reserve(root->targets()->size());
+    for (const fb::ArSceneTarget* target : *root->targets()) {
+      decoded.input.targets.push_back(DecodeSceneTarget(target));
+    }
+  }
+  decoded.input.atmospheric_observation =
+      DecodeCycleAtmosphericObservation(root->atmospheric_observation());
+  decoded.input.atmospheric_context = DecodeCycleAtmosphericContext(root->atmospheric_context());
+  decoded.input.surface_observation = DecodeCycleSurfaceObservation(root->surface_observation());
+  *operation = decoded;
+  return true;
+}
+
+std::string EncodeCompleteReplayRecordFlatbuffer(const ArCompleteReplayRecord& record) {
+  flatbuffers::FlatBufferBuilder builder;
+  std::vector<flatbuffers::Offset<fb::ArInterferenceObservation>> observations;
+  observations.reserve(record.result.interference_observations.size());
+  for (const auto& observation : record.result.interference_observations) {
+    observations.push_back(EncodeArInterferenceObservation(&builder, observation));
+  }
+  const auto result = fb::CreateArCompleteCycleResultV2(
+      builder, static_cast<int>(record.result.status), record.result.world_cycle_index,
+      EncodeTrackOutputFrame(&builder, record.result.track_output_frame),
+      builder.CreateVector(observations), static_cast<int>(record.result.receiver_impairment),
+      record.result.has_decision_observation,
+      EncodeDecisionObservation(&builder, record.result.decision_observation));
+  const auto root = fb::CreateArCompleteReplayRecordV2(
+      builder, result, EncodeSessionReplayState(&builder, record.session_state));
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeCompleteReplayRecordFlatbuffer(const std::string& payload_bytes,
+                                          ArCompleteReplayRecord* record, std::string* error) {
+  if (record == nullptr) {
+    if (error != nullptr) {
+      *error = "null ArCompleteReplayRecord output";
+    }
+    return false;
+  }
+  const auto* root = TryGetReplayRoot<fb::ArCompleteReplayRecordV2>(
+      payload_bytes, "ArCompleteReplayRecordV2", error);
+  if (root == nullptr || root->result() == nullptr) {
+    return false;
+  }
+  ArCompleteReplayRecord decoded;
+  decoded.result.status = static_cast<ArCompleteCycleStatus>(root->result()->status());
+  decoded.result.world_cycle_index = root->result()->world_cycle_index();
+  decoded.result.track_output_frame = DecodeTrackOutputFrame(root->result()->track_output_frame());
+  if (root->result()->interference_observations() != nullptr) {
+    decoded.result.interference_observations.reserve(
+        root->result()->interference_observations()->size());
+    for (const fb::ArInterferenceObservation* observation :
+         *root->result()->interference_observations()) {
+      decoded.result.interference_observations.push_back(
+          DecodeArInterferenceObservation(observation));
+    }
+  }
+  decoded.result.receiver_impairment =
+      static_cast<ArReceiverImpairment>(root->result()->receiver_impairment());
+  decoded.result.has_decision_observation = root->result()->has_decision_observation();
+  decoded.result.decision_observation =
+      DecodeDecisionObservation(root->result()->decision_observation());
+  decoded.session_state = DecodeSessionReplayState(root->session_state());
+  *record = decoded;
+  return true;
+}
+
+std::string EncodeAbandonReplayOperationInputFlatbuffer(
+    const ArAbandonReplayOperationInput& operation) {
+  flatbuffers::FlatBufferBuilder builder;
+  const auto root = fb::CreateArAbandonReplayOperationInputV2(
+      builder, EncodePreparedToken(&builder, operation.token));
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeAbandonReplayOperationInputFlatbuffer(const std::string& payload_bytes,
+                                                 ArAbandonReplayOperationInput* operation,
+                                                 std::string* error) {
+  if (operation == nullptr) {
+    if (error != nullptr) {
+      *error = "null ArAbandonReplayOperationInput output";
+    }
+    return false;
+  }
+  const auto* root = TryGetReplayRoot<fb::ArAbandonReplayOperationInputV2>(
+      payload_bytes, "ArAbandonReplayOperationInputV2", error);
+  if (root == nullptr) {
+    return false;
+  }
+  operation->token = DecodePreparedToken(root->token());
+  return true;
+}
+
+std::string EncodeAbandonReplayRecordFlatbuffer(const ArAbandonReplayRecord& record) {
+  flatbuffers::FlatBufferBuilder builder;
+  const auto root =
+      fb::CreateArAbandonReplayRecordV2(builder, static_cast<int>(record.status),
+                                        EncodeSessionReplayState(&builder, record.session_state));
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeAbandonReplayRecordFlatbuffer(const std::string& payload_bytes,
+                                         ArAbandonReplayRecord* record, std::string* error) {
+  if (record == nullptr) {
+    if (error != nullptr) {
+      *error = "null ArAbandonReplayRecord output";
+    }
+    return false;
+  }
+  const auto* root = TryGetReplayRoot<fb::ArAbandonReplayRecordV2>(
+      payload_bytes, "ArAbandonReplayRecordV2", error);
+  if (root == nullptr) {
+    return false;
+  }
+  record->status = static_cast<ArAbandonCycleStatus>(root->status());
+  record->session_state = DecodeSessionReplayState(root->session_state());
+  return true;
+}
+
+std::string EncodeRuntimeConfigAttemptFlatbuffer(const config::ArRuntimeConfigPatch& patch,
+                                                 bool accepted) {
+  const std::string patch_payload = EncodeRuntimeConfigPatchFlatbuffer(patch);
+  flatbuffers::FlatBufferBuilder builder;
+  const auto root = fb::CreateArRuntimeConfigAttemptV2(
+      builder,
+      builder.CreateVector(reinterpret_cast<const std::uint8_t*>(patch_payload.data()),
+                           patch_payload.size()),
+      accepted);
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeRuntimeConfigAttemptFlatbuffer(const std::string& payload_bytes,
+                                          config::ArRuntimeConfigPatch* patch, bool* accepted,
+                                          std::string* error) {
+  if (patch == nullptr || accepted == nullptr) {
+    if (error != nullptr) {
+      *error = "null ArRuntimeConfigAttempt output";
+    }
+    return false;
+  }
+  const auto* root = TryGetReplayRoot<fb::ArRuntimeConfigAttemptV2>(
+      payload_bytes, "ArRuntimeConfigAttemptV2", error);
+  if (root == nullptr || root->patch_payload() == nullptr) {
+    return false;
+  }
+  const std::string patch_payload(reinterpret_cast<const char*>(root->patch_payload()->Data()),
+                                  root->patch_payload()->size());
+  if (!DecodeRuntimeConfigPatchFlatbuffer(patch_payload, patch, error)) {
+    return false;
+  }
+  *accepted = root->accepted();
+  return true;
+}
+
+std::string EncodeExternalDecisionAttemptFlatbuffer(
+    const session::ExternalDecisionResponse& response,
+    session::ExternalDecisionSubmitStatus status) {
+  const std::string response_payload = EncodeExternalDecisionResponseFlatbuffer(response);
+  flatbuffers::FlatBufferBuilder builder;
+  const auto root = fb::CreateArExternalDecisionAttemptV2(
+      builder,
+      builder.CreateVector(reinterpret_cast<const std::uint8_t*>(response_payload.data()),
+                           response_payload.size()),
+      static_cast<int>(status));
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeExternalDecisionAttemptFlatbuffer(const std::string& payload_bytes,
+                                             session::ExternalDecisionResponse* response,
+                                             session::ExternalDecisionSubmitStatus* status,
+                                             std::string* error) {
+  if (response == nullptr || status == nullptr) {
+    if (error != nullptr) {
+      *error = "null ArExternalDecisionAttempt output";
+    }
+    return false;
+  }
+  const auto* root = TryGetReplayRoot<fb::ArExternalDecisionAttemptV2>(
+      payload_bytes, "ArExternalDecisionAttemptV2", error);
+  if (root == nullptr || root->response_payload() == nullptr) {
+    return false;
+  }
+  const std::string response_payload(
+      reinterpret_cast<const char*>(root->response_payload()->Data()),
+      root->response_payload()->size());
+  if (!DecodeExternalDecisionResponseFlatbuffer(response_payload, response, error)) {
+    return false;
+  }
+  *status = static_cast<session::ExternalDecisionSubmitStatus>(root->status());
   return true;
 }
 

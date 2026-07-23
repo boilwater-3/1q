@@ -132,18 +132,147 @@ ar_session::ArEnvironmentInput MakeArEnvironment() {
   return env;
 }
 
-ar_session::ArCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
-                                      const ar_session::ArEnvironmentInputState& env_state) {
+struct ArRfTestCycleInput {
+  ar_session::ArPrepareCycleInput prepare{};
+  ar_session::ArCompleteCycleInput complete{};
+  bool include_noise_jammer{false};
+  bool valid{false};
+};
+
+struct ArRfTestCycleResult {
+  bool accepted{false};
+  ar_session::TrackOutputFrame track_output_frame{};
+  ar_session::ArInterferenceObservationList interference_observations{};
+  ar_session::ArReceiverImpairment receiver_impairment{ar_session::ArReceiverImpairment::kNone};
+};
+
+ArRfTestCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
+                                const ar_session::ArEnvironmentInputState& env_state) {
   ar_session::ArExternalPoseInput platform = ToArPlatform(ws.platform_pos, ws.platform_vel);
+  platform.platform_entity_id = 10U;
   std::vector<ar_session::ArExternalTargetInput> targets;
   targets.reserve(ws.targets.size());
   for (const auto& t : ws.targets) {
     targets.push_back(ToArTarget(t));
   }
-  ar_session::ArCycleInput input;
-  ar_session::ArCycleInputAdapter::Build(platform, targets, dt, env_state.Snapshot(), &input);
-  input.cycle_index = cycle_index;
+  ArRfTestCycleInput input;
+  oneq::coordinate::LocalFrameReference reference;
+  oneq::foundation::PoseState platform_pose;
+  if (!ar_session::TryMakeArPoseFromExternalKinematics(platform, &reference, &platform_pose)) {
+    return input;
+  }
+  input.prepare.world_cycle_index = cycle_index;
+  input.prepare.window_start_time_s =
+      static_cast<double>(cycle_index - 1U) * static_cast<double>(dt);
+  input.prepare.window_duration_s = dt;
+  input.prepare.platform_id = platform.platform_entity_id;
+  input.prepare.platform_position_ecef_m = platform.platform_position_ecef_m;
+  input.prepare.platform_velocity_ecef_mps = platform.platform_velocity_mps;
+  input.prepare.radar_frame_attitude_deg = ar_session::ComposeRadarAttitudeDeg(
+      platform.platform_attitude_deg, platform.radar_mount_angles_deg);
+  input.complete.targets.reserve(targets.size());
+  for (const ar_session::ArExternalTargetInput& target_input : targets) {
+    ar_session::ArSceneTarget target;
+    if (!ar_session::TryMakeArTargetFromExternalKinematics(target_input, reference,
+                                                           platform_pose.velocity_mps, &target)) {
+      return ArRfTestCycleInput{};
+    }
+    input.complete.targets.push_back(target);
+  }
+  const ar_session::ArEnvironmentInput environment = env_state.Snapshot();
+  input.complete.atmospheric_observation = environment.atmospheric_observation;
+  input.complete.atmospheric_context = environment.atmospheric_context;
+  input.complete.surface_observation = environment.surface_observation;
+  input.include_noise_jammer = !environment.jammer_sources.empty();
+  input.valid = true;
   return input;
+}
+
+ArRfTestCycleResult RunArCycle(ar_session::ArTraceSession* session,
+                               const ArRfTestCycleInput& input) {
+  ArRfTestCycleResult result;
+  if (session == nullptr || !input.valid) {
+    return result;
+  }
+  const ar_session::ArPrepareCycleResult prepared = session->PrepareCycle(input.prepare);
+  if (prepared.status == ar_session::ArPrepareCycleStatus::kPoweredOff) {
+    result.accepted = true;
+    return result;
+  }
+  if (prepared.status != ar_session::ArPrepareCycleStatus::kPrepared) {
+    return result;
+  }
+  ar_session::ArCompleteCycleInput complete = input.complete;
+  complete.rf_scene.world_cycle_index = input.prepare.world_cycle_index;
+  complete.rf_scene.window_start_time_s = input.prepare.window_start_time_s;
+  complete.rf_scene.window_duration_s = input.prepare.window_duration_s;
+  complete.rf_scene.emissions.push_back(prepared.emission);
+  if (input.include_noise_jammer) {
+    oneq::electromagnetics::RfSceneEmission jammer;
+    jammer.identity.platform_id = 20U;
+    jammer.identity.equipment_id = 21U;
+    jammer.identity.emission_id = 100000U + input.prepare.world_cycle_index;
+    const auto& receiver = prepared.operating_state.rf_receiver;
+    jammer.position_ecef_m = receiver.position_ecef_m;
+    jammer.position_ecef_m.x_m += receiver.antenna.boresight_ecef.x * 1000.0;
+    jammer.position_ecef_m.y_m += receiver.antenna.boresight_ecef.y * 1000.0;
+    jammer.position_ecef_m.z_m += receiver.antenna.boresight_ecef.z * 1000.0;
+    jammer.antenna.boresight_ecef.x = -receiver.antenna.boresight_ecef.x;
+    jammer.antenna.boresight_ecef.y = -receiver.antenna.boresight_ecef.y;
+    jammer.antenna.boresight_ecef.z = -receiver.antenna.boresight_ecef.z;
+    jammer.antenna.peak_gain_dbi = 35.0;
+    jammer.polarization = receiver.polarization;
+    if (!oneq::electromagnetics::TryCreateRfNoiseWaveform(
+            receiver.window_start_time_s, receiver.window_duration_s, receiver.center_frequency_hz,
+            receiver.bandwidth_hz, 1.0e6, &jammer.waveform)) {
+      return result;
+    }
+    complete.rf_scene.emissions.push_back(jammer);
+  }
+  const ar_session::ArCompleteCycleResult completed =
+      session->CompleteCycle(prepared.token, complete);
+  result.accepted = completed.status == ar_session::ArCompleteCycleStatus::kCompleted;
+  if (result.accepted) {
+    result.track_output_frame = completed.track_output_frame;
+    result.interference_observations = completed.interference_observations;
+    result.receiver_impairment = completed.receiver_impairment;
+  }
+  return result;
+}
+
+std::vector<oneq::electromagnetics::RfSceneEmission> ConvertEcmEmissionsToRfV2(
+    const std::vector<oneq::electromagnetics::RfEmission>& emissions, double world_window_start_s) {
+  std::vector<oneq::electromagnetics::RfSceneEmission> converted;
+  for (const auto& emission : emissions) {
+    for (std::size_t index = 0U; index < emission.segments.size(); ++index) {
+      const auto& segment = emission.segments[index];
+      oneq::electromagnetics::RfSceneEmission rf_v2;
+      rf_v2.identity.platform_id = emission.entity_id;
+      rf_v2.identity.equipment_id = 100U + emission.emission_id;
+      rf_v2.identity.emission_id = emission.emission_id * 100U + index + 1U;
+      rf_v2.position_ecef_m = emission.position_ecef_m;
+      rf_v2.velocity_ecef_mps = emission.velocity_ecef_mps;
+      rf_v2.antenna.boresight_ecef.x = emission.antenna.boresight_ecef_unit.x;
+      rf_v2.antenna.boresight_ecef.y = emission.antenna.boresight_ecef_unit.y;
+      rf_v2.antenna.boresight_ecef.z = emission.antenna.boresight_ecef_unit.z;
+      rf_v2.antenna.peak_gain_dbi = emission.antenna.peak_gain_dbi;
+      rf_v2.antenna.half_power_beamwidth_deg = emission.antenna.half_power_beamwidth_deg;
+      rf_v2.antenna.sidelobe_level_db = emission.antenna.sidelobe_level_db;
+      rf_v2.antenna.backlobe_level_db = emission.antenna.backlobe_level_db;
+      rf_v2.antenna.cross_polarization_isolation_db =
+          emission.antenna.cross_polarization_isolation_db;
+      rf_v2.polarization =
+          static_cast<oneq::electromagnetics::RfScenePolarization>(emission.polarization);
+      if (!oneq::electromagnetics::TryCreateRfNoiseWaveform(
+              world_window_start_s + segment.start_time_s, segment.duration_s,
+              segment.center_frequency_hz, segment.bandwidth_hz, segment.transmit_power_w,
+              &rf_v2.waveform)) {
+        return {};
+      }
+      converted.push_back(rf_v2);
+    }
+  }
+  return converted;
 }
 
 // --- EOS input conversion ---
@@ -557,8 +686,8 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
     const std::uint32_t cycle = i + 1;
 
     auto ar_input = BuildArInput(ws, dt, cycle, ar_env_state);
-    auto ar_result = ar_session.StepWithResult(ar_input);
-    EXPECT_FALSE(ar_result.has_validation_error) << "AR validation error at cycle " << cycle;
+    auto ar_result = RunArCycle(&ar_session, ar_input);
+    EXPECT_TRUE(ar_result.accepted) << "AR cycle rejected at cycle " << cycle;
     if (ar_result.track_output_frame.tracks.size() > ar_tracks_max) {
       ar_tracks_max = static_cast<std::uint32_t>(ar_result.track_output_frame.tracks.size());
     }
@@ -620,8 +749,8 @@ TEST(MultiModelScenarioTest, AirToAirHeadOn) {
   // Replay 验证
   const auto ar_replay = ar_session::ReplayArTrace(ar_trace);
   ExpectReplayOk(ar_replay, "Scene1");
-  EXPECT_EQ(ar_replay.playback.applied_input_count, num_cycles);
-  EXPECT_EQ(ar_replay.playback.compared_output_count, num_cycles);
+  EXPECT_EQ(ar_replay.playback.applied_input_count, 2U * num_cycles);
+  EXPECT_EQ(ar_replay.playback.compared_output_count, 2U * num_cycles);
 
   const auto eos_replay = eos_session::ReplayEosTrace(eos_trace);
   ExpectReplayOk(eos_replay, "Scene1");
@@ -773,8 +902,8 @@ TEST(MultiModelScenarioTest, AirToGroundLookDown) {
     }
 
     auto ar_in = BuildArInput(ws, dt, cycle, ar_env_st);
-    auto ar_res = ar_sess.StepWithResult(ar_in);
-    EXPECT_FALSE(ar_res.has_validation_error) << "AR validation error at cycle " << cycle;
+    auto ar_res = RunArCycle(&ar_sess, ar_in);
+    EXPECT_TRUE(ar_res.accepted) << "AR cycle rejected at cycle " << cycle;
     for (const auto& trk : ar_res.track_output_frame.tracks) {
       ar_has_track = true;
       if (std::isnan(trk.position_z)) ar_nan_detected = true;
@@ -991,13 +1120,12 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
     const std::uint32_t cycle = i + 1;
 
     auto ar_in = BuildArInput(ws, dt, cycle, ar_env_st);
-    auto ar_res = ar_sess.StepWithResult(ar_in);
-    EXPECT_FALSE(ar_res.has_validation_error) << "AR validation error at cycle " << cycle;
-    for (const auto& trk : ar_res.track_output_frame.tracks) {
-      if (trk.jamming_detected) {
-        ar_jamming_detected = true;
-        ar_jamming_track_count++;
-      }
+    auto ar_res = RunArCycle(&ar_sess, ar_in);
+    EXPECT_TRUE(ar_res.accepted) << "AR cycle rejected at cycle " << cycle;
+    if (!ar_res.interference_observations.empty() ||
+        ar_res.receiver_impairment == ar_session::ArReceiverImpairment::kSaturated) {
+      ar_jamming_detected = true;
+      ar_jamming_track_count += static_cast<std::uint32_t>(ar_res.interference_observations.size());
     }
 
     auto eos_in = BuildEosInput(ws, dt, cycle, eos_env);
@@ -1168,8 +1296,8 @@ TEST(MultiModelScenarioTest, ZeroDopplerCrossing) {
     const std::uint32_t cycle = i + 1;
 
     auto ar_in = BuildArInput(ws, dt, cycle, ar_env_st);
-    auto ar_res = ar_sess.StepWithResult(ar_in);
-    EXPECT_FALSE(ar_res.has_validation_error) << "AR validation error at cycle " << cycle;
+    auto ar_res = RunArCycle(&ar_sess, ar_in);
+    EXPECT_TRUE(ar_res.accepted) << "AR cycle rejected at cycle " << cycle;
     for (const auto& trk : ar_res.track_output_frame.tracks) {
       ar_track_count++;
       if (std::isnan(trk.position_x) || std::isnan(trk.position_y) || std::isnan(trk.position_z) ||
@@ -1297,17 +1425,19 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
   ASSERT_FALSE(ecm_result.emission_frame.emissions.empty());
   EXPECT_EQ(ecm_result.emission_frame.source_esr_success_cycle_index, source_esr_cycle);
 
-  ar_session::ArSession ar = ar_session::ArSession::Create(MakeArConfigAirToAir());
+  ar_config::ArSessionConfig ar_config = MakeArConfigAirToAir();
+  ar_config.hardware.receiver.co_site_paths.push_back(
+      {101U, ar_config.hardware.receiver.equipment_id, 100.0});
+  ar_session::ArTraceSession ar(ar_config, ar_session::ArTraceSessionOptions{nullptr, false});
   ar_session::ArEnvironmentInputState ar_environment_state(MakeArEnvironment());
-  ar_session::ArCycleInput ar_input =
+  ArRfTestCycleInput ar_input =
       BuildArInput(world, 1.0f, source_esr_cycle + 1U, ar_environment_state);
-  ar_input.platform_entity_id = 7001U;
-  ar_input.environment.interference.mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
-  ar_input.environment.interference.engineering_emissions = ecm_result.emission_frame.emissions;
-  const ar_session::ArCycleResult ar_result = ar.StepWithResult(ar_input);
-  EXPECT_FALSE(ar_result.has_validation_error);
-  EXPECT_TRUE(ar_result.executed_this_cycle);
-  EXPECT_EQ(ar_result.abort_reason, ar_session::SignalCycleAbortReason::kNone);
+  ar_input.prepare.platform_id = 7001U;
+  ar_input.complete.rf_scene.emissions = ConvertEcmEmissionsToRfV2(
+      ecm_result.emission_frame.emissions, ar_input.prepare.window_start_time_s);
+  ASSERT_FALSE(ar_input.complete.rf_scene.emissions.empty());
+  const ArRfTestCycleResult ar_result = RunArCycle(&ar, ar_input);
+  EXPECT_TRUE(ar_result.accepted);
 
   esr_environment.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
   esr_environment.engineering_emissions = ecm_result.emission_frame.emissions;
