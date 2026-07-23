@@ -1325,6 +1325,351 @@ ArSessionReplayState DecodeSessionReplayState(const fb::ArSessionReplayStateV2* 
   return result;
 }
 
+flatbuffers::Offset<fb::EulerAnglesDeg64> EncodeEulerAnglesV3(
+    flatbuffers::FlatBufferBuilder* builder,
+    const oneq::coordinate::EulerAnglesDeg& value) {
+  return fb::CreateEulerAnglesDeg64(*builder, value.yaw_deg, value.pitch_deg,
+                                    value.roll_deg);
+}
+
+oneq::coordinate::EulerAnglesDeg DecodeEulerAnglesV3(
+    const fb::EulerAnglesDeg64* value) {
+  oneq::coordinate::EulerAnglesDeg result;
+  if (value != nullptr) {
+    result.yaw_deg = value->yaw_deg();
+    result.pitch_deg = value->pitch_deg();
+    result.roll_deg = value->roll_deg();
+  }
+  return result;
+}
+
+flatbuffers::Offset<fb::EcefVelocityV3> EncodeEcefVelocityV3(
+    flatbuffers::FlatBufferBuilder* builder,
+    const oneq::coordinate::EcefVelocityMps& value) {
+  return fb::CreateEcefVelocityV3(*builder, value.x_mps, value.y_mps, value.z_mps);
+}
+
+oneq::coordinate::EcefVelocityMps DecodeEcefVelocityV3(
+    const fb::EcefVelocityV3* value) {
+  oneq::coordinate::EcefVelocityMps result;
+  if (value != nullptr) {
+    result.x_mps = value->x_mps();
+    result.y_mps = value->y_mps();
+    result.z_mps = value->z_mps();
+  }
+  return result;
+}
+
+flatbuffers::Offset<fb::ArPlatformInputV3> EncodePlatformInputV3(
+    flatbuffers::FlatBufferBuilder* builder, const ArPlatformInput& value) {
+  return fb::CreateArPlatformInputV3(
+      *builder, value.platform_entity_id,
+      EncodeRfV2Position(builder, value.platform_position_ecef_m),
+      EncodeEcefVelocityV3(builder, value.platform_velocity_mps),
+      EncodeEulerAnglesV3(builder, value.platform_attitude_deg),
+      EncodeEulerAnglesV3(builder, value.radar_mount_angles_deg));
+}
+
+ArPlatformInput DecodePlatformInputV3(const fb::ArPlatformInputV3* value) {
+  ArPlatformInput result;
+  if (value != nullptr) {
+    result.platform_entity_id = value->platform_entity_id();
+    result.platform_position_ecef_m =
+        DecodeRfV2Position(value->platform_position_ecef_m());
+    result.platform_velocity_mps =
+        DecodeEcefVelocityV3(value->platform_velocity_mps());
+    result.platform_attitude_deg =
+        DecodeEulerAnglesV3(value->platform_attitude_deg());
+    result.radar_mount_angles_deg =
+        DecodeEulerAnglesV3(value->radar_mount_angles_deg());
+  }
+  return result;
+}
+
+flatbuffers::Offset<fb::ExternalKinematicsV3> EncodeExternalKinematicsV3(
+    flatbuffers::FlatBufferBuilder* builder,
+    const oneq::coordinate::ExternalKinematics& value) {
+  const oneq::coordinate::LlaPositionDegM& lla = value.position_lla_deg_m;
+  return fb::CreateExternalKinematicsV3(
+      *builder, static_cast<int>(value.position_frame),
+      EncodeRfV2Position(builder, value.position_ecef_m),
+      fb::CreateLlaPositionV3(*builder, lla.latitude_deg, lla.longitude_deg,
+                              lla.altitude_m),
+      EncodeEcefVelocityV3(builder, value.velocity_mps),
+      EncodeEulerAnglesV3(builder, value.attitude_deg));
+}
+
+oneq::coordinate::ExternalKinematics DecodeExternalKinematicsV3(
+    const fb::ExternalKinematicsV3* value) {
+  oneq::coordinate::ExternalKinematics result;
+  if (value != nullptr) {
+    result.position_frame =
+        static_cast<oneq::coordinate::PositionFrame>(value->position_frame());
+    result.position_ecef_m = DecodeRfV2Position(value->position_ecef_m());
+    if (value->position_lla_deg_m() != nullptr) {
+      result.position_lla_deg_m.latitude_deg =
+          value->position_lla_deg_m()->latitude_deg();
+      result.position_lla_deg_m.longitude_deg =
+          value->position_lla_deg_m()->longitude_deg();
+      result.position_lla_deg_m.altitude_m =
+          value->position_lla_deg_m()->altitude_m();
+    }
+    result.velocity_mps = DecodeEcefVelocityV3(value->velocity_mps());
+    result.attitude_deg = DecodeEulerAnglesV3(value->attitude_deg());
+  }
+  return result;
+}
+
+flatbuffers::Offset<fb::ArTargetInputV3> EncodeTargetInputV3(
+    flatbuffers::FlatBufferBuilder* builder, const ArTargetInput& value) {
+  return fb::CreateArTargetInputV3(
+      *builder, value.target_id, builder->CreateString(value.target_name),
+      EncodeExternalKinematicsV3(builder, value.kinematics), value.rcs,
+      value.swerling_type);
+}
+
+ArTargetInput DecodeTargetInputV3(const fb::ArTargetInputV3* value) {
+  ArTargetInput result;
+  if (value != nullptr) {
+    result.target_id = value->target_id();
+    if (value->target_name() != nullptr) {
+      result.target_name = value->target_name()->str();
+    }
+    result.kinematics = DecodeExternalKinematicsV3(value->kinematics());
+    result.rcs = value->rcs();
+    result.swerling_type = value->swerling_type();
+  }
+  return result;
+}
+
+flatbuffers::Offset<fb::ArCycleInputV3> EncodeCycleInputV3(
+    flatbuffers::FlatBufferBuilder* builder, const ArCycleInput& value) {
+  std::vector<flatbuffers::Offset<fb::ArTargetInputV3>> targets;
+  targets.reserve(value.targets.size());
+  for (const ArTargetInput& target : value.targets) {
+    targets.push_back(EncodeTargetInputV3(builder, target));
+  }
+  const ArEnvironmentInput& environment = value.environment;
+  return fb::CreateArCycleInputV3(
+      *builder, value.cycle_index, value.cycle_start_time_s, value.dt_sec,
+      EncodePlatformInputV3(builder, value.platform), builder->CreateVector(targets),
+      fb::CreateArEnvironmentInputV3(
+          *builder,
+          EncodeCycleAtmosphericObservation(
+              builder, environment.atmospheric_observation),
+          EncodeCycleAtmosphericContext(builder, environment.atmospheric_context),
+          EncodeCycleSurfaceObservation(builder, environment.surface_observation)),
+      EncodeRfV2Scene(builder, value.interference));
+}
+
+ArCycleInput DecodeCycleInputV3(const fb::ArCycleInputV3* value) {
+  ArCycleInput result;
+  if (value != nullptr) {
+    result.cycle_index = value->cycle_index();
+    result.cycle_start_time_s = value->cycle_start_time_s();
+    result.dt_sec = value->dt_sec();
+    result.platform = DecodePlatformInputV3(value->platform());
+    if (value->targets() != nullptr) {
+      result.targets.reserve(value->targets()->size());
+      for (const fb::ArTargetInputV3* target : *value->targets()) {
+        result.targets.push_back(DecodeTargetInputV3(target));
+      }
+    }
+    if (value->environment() != nullptr) {
+      result.environment.atmospheric_observation =
+          DecodeCycleAtmosphericObservation(
+              value->environment()->atmospheric_observation());
+      result.environment.atmospheric_context =
+          DecodeCycleAtmosphericContext(
+              value->environment()->atmospheric_context());
+      result.environment.surface_observation =
+          DecodeCycleSurfaceObservation(
+              value->environment()->surface_observation());
+    }
+    result.interference = DecodeRfV2Scene(value->interference());
+  }
+  return result;
+}
+
+flatbuffers::Offset<fb::AssociationQualityMetricsV3>
+EncodeAssociationQualityMetricsV3(
+    flatbuffers::FlatBufferBuilder* builder,
+    const AssociationQualityMetrics& value) {
+  return fb::CreateAssociationQualityMetricsV3(
+      *builder, static_cast<std::uint64_t>(value.prior_track_count),
+      static_cast<std::uint64_t>(value.detection_count),
+      static_cast<std::uint64_t>(value.matched_count),
+      static_cast<std::uint64_t>(value.new_track_count),
+      static_cast<std::uint64_t>(value.missed_track_count), value.match_rate,
+      value.new_track_rate, value.missed_track_rate, value.mean_match_cost,
+      value.p95_match_cost, value.association_stress);
+}
+
+AssociationQualityMetrics DecodeAssociationQualityMetricsV3(
+    const fb::AssociationQualityMetricsV3* value) {
+  AssociationQualityMetrics result;
+  if (value != nullptr) {
+    result.prior_track_count =
+        static_cast<std::size_t>(value->prior_track_count());
+    result.detection_count = static_cast<std::size_t>(value->detection_count());
+    result.matched_count = static_cast<std::size_t>(value->matched_count());
+    result.new_track_count = static_cast<std::size_t>(value->new_track_count());
+    result.missed_track_count =
+        static_cast<std::size_t>(value->missed_track_count());
+    result.match_rate = value->match_rate();
+    result.new_track_rate = value->new_track_rate();
+    result.missed_track_rate = value->missed_track_rate();
+    result.mean_match_cost = value->mean_match_cost();
+    result.p95_match_cost = value->p95_match_cost();
+    result.association_stress = value->association_stress();
+  }
+  return result;
+}
+
+flatbuffers::Offset<fb::ArCycleResultV3> EncodeCycleResultV3(
+    flatbuffers::FlatBufferBuilder* builder, const ArCycleResult& value) {
+  std::vector<flatbuffers::Offset<fb::ArInterferenceObservation>> observations;
+  observations.reserve(value.interference_observations.size());
+  for (const ArInterferenceObservation& observation :
+       value.interference_observations) {
+    observations.push_back(
+        EncodeArInterferenceObservation(builder, observation));
+  }
+  std::vector<flatbuffers::Offset<fb::ArCommandV3>> commands;
+  commands.reserve(value.submitted_commands.size());
+  for (const ArCommand& command : value.submitted_commands) {
+    commands.push_back(fb::CreateArCommandV3(
+        *builder, static_cast<int>(command.type),
+        static_cast<int>(command.source)));
+  }
+  std::vector<flatbuffers::Offset<fb::ValidationIssueV3>> issues;
+  issues.reserve(value.validation_issues.size());
+  for (const ValidationIssue& issue : value.validation_issues) {
+    issues.push_back(fb::CreateValidationIssueV3(
+        *builder, static_cast<int>(issue.severity), static_cast<int>(issue.code),
+        static_cast<int>(issue.location.kind),
+        static_cast<std::uint64_t>(issue.location.entity_index),
+        builder->CreateString(issue.field), builder->CreateString(issue.message)));
+  }
+  return fb::CreateArCycleResultV3(
+      *builder, value.input_cycle_index, static_cast<int>(value.status),
+      EncodeTrackOutputFrame(builder, value.track_output_frame),
+      EncodeRfV2Scene(builder, value.emission_frame),
+      static_cast<int>(value.receiver_impairment),
+      builder->CreateVector(observations), builder->CreateVector(commands),
+      builder->CreateVector(issues), value.has_validation_error,
+      static_cast<int>(value.abort_reason), value.has_control_profile,
+      EncodeArControlProfile(builder, value.control_profile),
+      EncodeAssociationQualityMetricsV3(builder,
+                                        value.association_quality_metrics),
+      value.has_decision_observation,
+      EncodeDecisionObservation(builder, value.decision_observation),
+      static_cast<int>(value.applied_decision_source),
+      value.applied_decision_cycle_index, value.applied_decision_batch_id);
+}
+
+ArCycleResult DecodeCycleResultV3(const fb::ArCycleResultV3* value) {
+  ArCycleResult result;
+  if (value == nullptr) {
+    return result;
+  }
+  result.input_cycle_index = value->input_cycle_index();
+  result.status = static_cast<ArCycleStatus>(value->status());
+  result.track_output_frame = DecodeTrackOutputFrame(value->track_output_frame());
+  result.emission_frame = DecodeRfV2Scene(value->emission_frame());
+  result.receiver_impairment =
+      static_cast<ArReceiverImpairment>(value->receiver_impairment());
+  if (value->interference_observations() != nullptr) {
+    result.interference_observations.reserve(
+        value->interference_observations()->size());
+    for (const fb::ArInterferenceObservation* observation :
+         *value->interference_observations()) {
+      result.interference_observations.push_back(
+          DecodeArInterferenceObservation(observation));
+    }
+  }
+  if (value->submitted_commands() != nullptr) {
+    result.submitted_commands.reserve(value->submitted_commands()->size());
+    for (const fb::ArCommandV3* command : *value->submitted_commands()) {
+      result.submitted_commands.push_back(
+          ArCommand(static_cast<ArCommandType>(command->type()),
+                    static_cast<ArCommandSource>(command->source())));
+    }
+  }
+  if (value->validation_issues() != nullptr) {
+    result.validation_issues.reserve(value->validation_issues()->size());
+    for (const fb::ValidationIssueV3* encoded : *value->validation_issues()) {
+      ValidationIssue issue;
+      issue.severity =
+          static_cast<ValidationSeverity>(encoded->severity());
+      issue.code = static_cast<ValidationCode>(encoded->code());
+      issue.location.kind =
+          static_cast<ValidationLocationKind>(encoded->location_kind());
+      issue.location.entity_index =
+          static_cast<std::size_t>(encoded->entity_index());
+      if (encoded->field() != nullptr) {
+        issue.field = encoded->field()->str();
+      }
+      if (encoded->message() != nullptr) {
+        issue.message = encoded->message()->str();
+      }
+      result.validation_issues.push_back(issue);
+    }
+  }
+  result.has_validation_error = value->has_validation_error();
+  result.abort_reason =
+      static_cast<SignalCycleAbortReason>(value->abort_reason());
+  result.has_control_profile = value->has_control_profile();
+  result.control_profile = DecodeArControlProfile(value->control_profile());
+  result.association_quality_metrics =
+      DecodeAssociationQualityMetricsV3(value->association_quality_metrics());
+  result.has_decision_observation = value->has_decision_observation();
+  result.decision_observation =
+      DecodeDecisionObservation(value->decision_observation());
+  result.applied_decision_source =
+      static_cast<DecisionControlSource>(value->applied_decision_source());
+  result.applied_decision_cycle_index =
+      value->applied_decision_cycle_index();
+  result.applied_decision_batch_id = value->applied_decision_batch_id();
+  return result;
+}
+
+flatbuffers::Offset<fb::ArSessionReplayStateV3> EncodeSessionReplayStateV3(
+    flatbuffers::FlatBufferBuilder* builder,
+    const ArSessionReplayState& value) {
+  return fb::CreateArSessionReplayStateV3(
+      *builder, value.has_world_chronology, value.last_world_window_end_s,
+      value.next_emission_id, value.successful_prepare_count, value.timing_seed,
+      value.frequency_hop_index, value.has_pending_runtime_update,
+      value.pending_execution_config_changed,
+      value.pending_environment_scenario_config_changed,
+      value.pending_jamming_sensitivity_profile_changed,
+      EncodeDecisionReplayState(builder, value.decision_state));
+}
+
+ArSessionReplayState DecodeSessionReplayStateV3(
+    const fb::ArSessionReplayStateV3* value) {
+  ArSessionReplayState result;
+  if (value != nullptr) {
+    result.has_world_chronology = value->has_world_chronology();
+    result.last_world_window_end_s = value->last_world_window_end_s();
+    result.next_emission_id = value->next_emission_id();
+    result.successful_prepare_count = value->successful_prepare_count();
+    result.timing_seed = value->timing_seed();
+    result.frequency_hop_index = value->frequency_hop_index();
+    result.has_pending_runtime_update = value->has_pending_runtime_update();
+    result.pending_execution_config_changed =
+        value->pending_execution_config_changed();
+    result.pending_environment_scenario_config_changed =
+        value->pending_environment_scenario_config_changed();
+    result.pending_jamming_sensitivity_profile_changed =
+        value->pending_jamming_sensitivity_profile_changed();
+    result.decision_state =
+        DecodeDecisionReplayState(value->decision_state());
+  }
+  return result;
+}
+
 template <typename FlatbufferType>
 const FlatbufferType* TryGetReplayRoot(const std::string& payload_bytes, const char* payload_name,
                                        std::string* error) {
@@ -1385,6 +1730,65 @@ bool DecodeExternalDecisionResponseFlatbuffer(const std::string& payload_bytes,
   }
 
   *response = DecodeExternalDecisionResponse(root);
+  return true;
+}
+
+std::string EncodeCycleInputFlatbuffer(const ArCycleInput& input) {
+  flatbuffers::FlatBufferBuilder builder;
+  const flatbuffers::Offset<fb::ArCycleInputV3> root =
+      EncodeCycleInputV3(&builder, input);
+  builder.Finish(root, fb::ArCycleInputV3Identifier());
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes,
+                                ArCycleInput* input, std::string* error) {
+  if (input == nullptr) {
+    if (error != nullptr) {
+      *error = "null ArCycleInput output";
+    }
+    return false;
+  }
+  const fb::ArCycleInputV3* root =
+      TryGetReplayRoot<fb::ArCycleInputV3>(payload_bytes, "ArCycleInputV3",
+                                           error);
+  if (root == nullptr) {
+    return false;
+  }
+  *input = DecodeCycleInputV3(root);
+  return true;
+}
+
+std::string EncodeCycleReplayRecordFlatbuffer(
+    const ArCycleReplayRecord& record) {
+  flatbuffers::FlatBufferBuilder builder;
+  const flatbuffers::Offset<fb::ArCycleReplayRecordV3> root =
+      fb::CreateArCycleReplayRecordV3(
+          builder, EncodeCycleResultV3(&builder, record.result),
+          EncodeSessionReplayStateV3(&builder, record.session_state));
+  builder.Finish(root);
+  return oneq::common::replay::CopyFinishedFlatbuffer(builder);
+}
+
+bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
+                                       ArCycleReplayRecord* record,
+                                       std::string* error) {
+  if (record == nullptr) {
+    if (error != nullptr) {
+      *error = "null ArCycleReplayRecord output";
+    }
+    return false;
+  }
+  const fb::ArCycleReplayRecordV3* root =
+      TryGetReplayRoot<fb::ArCycleReplayRecordV3>(
+          payload_bytes, "ArCycleReplayRecordV3", error);
+  if (root == nullptr || root->result() == nullptr ||
+      root->session_state() == nullptr) {
+    return false;
+  }
+  record->result = DecodeCycleResultV3(root->result());
+  record->session_state =
+      DecodeSessionReplayStateV3(root->session_state());
   return true;
 }
 

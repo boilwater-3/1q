@@ -69,15 +69,11 @@ class ONEQ_API ArTraceSession {
 
   ~ArTraceSession();
 
-  /** @brief 记录并执行发射准备；Prepare 结果在发射发布后立即写入 replay。 */
-  ArPrepareCycleResult PrepareCycle(const ArPrepareCycleInput& input);
+  /** @brief 记录并执行一个单周期，返回当前周期轨迹帧。 */
+  TrackOutputFrame Step(const ArCycleInput& input);
 
-  /** @brief 记录并执行接收、探测与跟踪完成阶段。 */
-  ArCompleteCycleResult CompleteCycle(const ArPreparedCycleToken& token,
-                                      const ArCompleteCycleInput& input);
-
-  /** @brief 记录并执行待完成接收阶段的显式放弃。 */
-  ArAbandonCycleStatus AbandonCycle(const ArPreparedCycleToken& token);
+  /** @brief 记录并执行一个单周期，返回结构化聚合结果。 */
+  ArCycleResult StepWithResult(const ArCycleInput& input);
 
   /**
    * @brief 应用运行期可变配置补丁并记录（透传给内部 ArSession）。

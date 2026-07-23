@@ -247,145 +247,121 @@ TEST(ArReplayCodecRoundtripTest, FailureMarkerPreservesAllFields) {
   EXPECT_EQ(decoded.diagnostics_payload, "{\"track_count\":128}");
 }
 
-TEST(ArReplayCodecRoundtripTest, RfV2PreparePayloadPreservesEmissionAndSessionState) {
-  ArPrepareCycleInput input;
-  input.world_cycle_index = 71U;
-  input.window_start_time_s = 12.5;
-  input.window_duration_s = 0.25;
-  input.platform_id = 901U;
-  input.platform_position_ecef_m.x_m = 6378137.0;
-  input.platform_velocity_ecef_mps.y_mps = 210.0;
-  input.radar_frame_attitude_deg.yaw_deg = 17.25;
-  input.beam_pointing_deg.az_deg = -4.5f;
-
-  ArPrepareCycleInput decoded_input;
-  std::string error;
-  ASSERT_TRUE(DecodePrepareCycleInputFlatbuffer(EncodePrepareCycleInputFlatbuffer(input),
-                                                &decoded_input, &error))
-      << error;
-  EXPECT_EQ(decoded_input.world_cycle_index, 71U);
-  EXPECT_DOUBLE_EQ(decoded_input.window_start_time_s, 12.5);
-  EXPECT_DOUBLE_EQ(decoded_input.radar_frame_attitude_deg.yaw_deg, 17.25);
-  EXPECT_FLOAT_EQ(decoded_input.beam_pointing_deg.az_deg, -4.5f);
-
-  ArPrepareReplayRecord record;
-  record.result.status = ArPrepareCycleStatus::kPrepared;
-  record.result.token = {9U, 71U};
-  record.result.has_emission = true;
-  record.result.emission.identity = {901U, 11U, 99U};
-  record.result.emission.position_ecef_m = input.platform_position_ecef_m;
-  record.result.emission.antenna.boresight_ecef.y = 1.0;
-  record.result.emission.polarization = oneq::electromagnetics::RfScenePolarization::kVertical;
-  record.result.emission.waveform.kind = oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain;
-  record.result.emission.waveform.center_frequency_hz = 9.1e9;
-  record.result.emission.waveform.timing_seed = 123456U;
-  record.result.emission.waveform.timing_epoch = 7U;
-  record.result.operating_state.rf_receiver.platform_id = 901U;
-  record.result.operating_state.rf_receiver.equipment_id = 12U;
-  record.result.operating_state.rf_receiver.co_site_paths = {{11U, 12U, 118.0}};
-  record.result.operating_state.matched_filter_bandwidth_hz = 7.5e6;
-  record.result.operating_state.adaptive_nulls_ecef.push_back({0.0, 1.0, 0.0});
-  record.session_state.has_prepared_cycle = true;
-  record.session_state.prepared_token = record.result.token;
-  record.session_state.next_token_value = 10U;
-  record.session_state.next_emission_id = 100U;
-  record.session_state.successful_prepare_count = 8U;
-  record.session_state.timing_seed = 123456U;
-  record.session_state.frequency_hop_index = 2U;
-  record.session_state.has_pending_runtime_update = true;
-  record.session_state.decision_state.has_pending_external_decision = true;
-  record.session_state.decision_state.pending_external_decision.source_cycle_index = 70U;
-
-  ArPrepareReplayRecord decoded_record;
-  ASSERT_TRUE(DecodePrepareReplayRecordFlatbuffer(EncodePrepareReplayRecordFlatbuffer(record),
-                                                  &decoded_record, &error))
-      << error;
-  EXPECT_EQ(decoded_record.result.status, ArPrepareCycleStatus::kPrepared);
-  EXPECT_EQ(decoded_record.result.token.value, 9U);
-  EXPECT_EQ(decoded_record.result.emission.identity.emission_id, 99U);
-  EXPECT_DOUBLE_EQ(decoded_record.result.emission.waveform.center_frequency_hz, 9.1e9);
-  ASSERT_EQ(decoded_record.result.operating_state.rf_receiver.co_site_paths.size(), 1U);
-  EXPECT_DOUBLE_EQ(decoded_record.result.operating_state.rf_receiver.co_site_paths[0].isolation_db,
-                   118.0);
-  EXPECT_EQ(decoded_record.session_state.next_emission_id, 100U);
-  EXPECT_TRUE(decoded_record.session_state.has_pending_runtime_update);
-  EXPECT_TRUE(decoded_record.session_state.decision_state.has_pending_external_decision);
-}
-
-TEST(ArReplayCodecRoundtripTest, RfV2CompleteAndAbandonPayloadsPreserveProtocolState) {
-  ArCompleteReplayOperationInput operation;
-  operation.token = {5U, 81U};
-  operation.input.rf_scene.world_cycle_index = 81U;
-  operation.input.rf_scene.window_start_time_s = 21.0;
-  operation.input.rf_scene.window_duration_s = 0.5;
+TEST(ArReplayCodecRoundtripTest, SingleCycleInputPreservesWorldAndRfFacts) {
+  ArCycleInput input;
+  input.cycle_index = 71U;
+  input.cycle_start_time_s = 12.5;
+  input.dt_sec = 0.25;
+  input.platform.platform_entity_id = 901U;
+  input.platform.platform_position_ecef_m.x_m = 6378137.0;
+  input.platform.platform_velocity_mps.y_mps = 210.0;
+  input.platform.platform_attitude_deg.yaw_deg = 17.25;
+  input.platform.radar_mount_angles_deg.pitch_deg = -2.5;
+  ArTargetInput target;
+  target.target_id = 123U;
+  target.target_name = "replay-target";
+  target.kinematics.position_frame = oneq::coordinate::PositionFrame::kLla;
+  target.kinematics.position_lla_deg_m.latitude_deg = 31.2;
+  target.kinematics.position_lla_deg_m.longitude_deg = 121.5;
+  target.kinematics.position_lla_deg_m.altitude_m = 8000.0;
+  target.kinematics.velocity_mps.z_mps = 8.0;
+  target.rcs = 3.5f;
+  target.swerling_type = 2;
+  input.targets.push_back(target);
+  input.environment.atmospheric_observation.temperature_k = 284.0f;
+  input.interference.world_cycle_index = 71U;
+  input.interference.window_start_time_s = 12.5;
+  input.interference.window_duration_s = 0.25;
   oneq::electromagnetics::RfSceneEmission emission;
   emission.identity = {700U, 1U, 33U};
-  emission.waveform.kind = oneq::electromagnetics::RfSceneWaveformKind::kLinearSweep;
-  emission.waveform.sweep_start_frequency_hz = 8.0e9;
-  emission.waveform.sweep_stop_frequency_hz = 10.0e9;
-  operation.input.rf_scene.emissions.push_back(emission);
-  ArSceneTarget target;
-  target.external_target_id = 123U;
-  target.target_name = "replay-target";
-  operation.input.targets.push_back(target);
-  operation.input.atmospheric_observation.temperature_k = 284.0f;
+  emission.position_ecef_m.x_m = 6388137.0;
+  ASSERT_TRUE(oneq::electromagnetics::TryCreateRfLinearSweepWaveform(
+      12.5, 0.25, 8.0e9, 10.0e9, 1.0e6, 1000.0, 0.1,
+      &emission.waveform));
+  input.interference.emissions.push_back(emission);
 
+  ArCycleInput decoded;
   std::string error;
-  ArCompleteReplayOperationInput decoded_operation;
-  ASSERT_TRUE(DecodeCompleteReplayOperationInputFlatbuffer(
-      EncodeCompleteReplayOperationInputFlatbuffer(operation), &decoded_operation, &error))
+  ASSERT_TRUE(DecodeCycleInputFlatbuffer(EncodeCycleInputFlatbuffer(input),
+                                         &decoded, &error))
       << error;
-  EXPECT_EQ(decoded_operation.token.world_cycle_index, 81U);
-  ASSERT_EQ(decoded_operation.input.rf_scene.emissions.size(), 1U);
-  EXPECT_EQ(decoded_operation.input.rf_scene.emissions[0].waveform.kind,
+  EXPECT_EQ(decoded.cycle_index, 71U);
+  EXPECT_DOUBLE_EQ(decoded.cycle_start_time_s, 12.5);
+  EXPECT_DOUBLE_EQ(decoded.platform.platform_attitude_deg.yaw_deg, 17.25);
+  EXPECT_DOUBLE_EQ(decoded.platform.radar_mount_angles_deg.pitch_deg, -2.5);
+  ASSERT_EQ(decoded.targets.size(), 1U);
+  EXPECT_EQ(decoded.targets.front().target_name, "replay-target");
+  EXPECT_EQ(decoded.targets.front().kinematics.position_frame,
+            oneq::coordinate::PositionFrame::kLla);
+  EXPECT_DOUBLE_EQ(
+      decoded.targets.front().kinematics.position_lla_deg_m.longitude_deg,
+      121.5);
+  ASSERT_EQ(decoded.interference.emissions.size(), 1U);
+  EXPECT_EQ(decoded.interference.emissions.front().waveform.kind,
             oneq::electromagnetics::RfSceneWaveformKind::kLinearSweep);
-  ASSERT_EQ(decoded_operation.input.targets.size(), 1U);
-  EXPECT_EQ(decoded_operation.input.targets[0].target_name, "replay-target");
+}
 
-  ArCompleteReplayRecord record;
-  record.result.status = ArCompleteCycleStatus::kCompleted;
-  record.result.world_cycle_index = 81U;
+TEST(ArReplayCodecRoundtripTest, SingleCycleRecordPreservesResultAndState) {
+  ArCycleReplayRecord record;
+  record.result.input_cycle_index = 81U;
+  record.result.status = ArCycleStatus::kCompleted;
   record.result.track_output_frame.cycle_index = 81U;
+  record.result.emission_frame.world_cycle_index = 81U;
   ArInterferenceObservation observation;
   observation.observation_id = 91U;
   observation.jammer_to_noise_db = 14.0;
   record.result.interference_observations.push_back(observation);
   record.result.receiver_impairment = ArReceiverImpairment::kSaturated;
+  record.result.submitted_commands.push_back(
+      ArCommand(ArCommandType::SET_AGILITY_FREQ, ArCommandSource::ECCM));
+  ValidationIssue issue;
+  issue.severity = ValidationSeverity::kWarning;
+  issue.code = ValidationCode::kNegativeRcs;
+  issue.location.kind = ValidationLocationKind::kSceneEntity;
+  issue.location.entity_index = 3U;
+  issue.field = "rcs";
+  issue.message = "negative rcs";
+  record.result.validation_issues.push_back(issue);
+  record.result.has_control_profile = true;
+  record.result.control_profile.version = 4U;
+  record.result.association_quality_metrics.matched_count = 5U;
+  record.result.association_quality_metrics.match_rate = 0.75f;
   record.result.has_decision_observation = true;
   record.result.decision_observation.input_frame.cycle_index = 81U;
   record.result.decision_observation.input_frame.batch_id = 82U;
+  record.result.applied_decision_source = DecisionControlSource::kExternal;
+  record.session_state.has_world_chronology = true;
+  record.session_state.last_world_window_end_s = 21.5;
   record.session_state.next_emission_id = 34U;
+  record.session_state.successful_prepare_count = 7U;
+  record.session_state.frequency_hop_index = 2U;
+  record.session_state.has_pending_runtime_update = true;
+  record.session_state.decision_state.has_pending_external_decision = true;
 
-  ArCompleteReplayRecord decoded_record;
-  ASSERT_TRUE(DecodeCompleteReplayRecordFlatbuffer(EncodeCompleteReplayRecordFlatbuffer(record),
-                                                   &decoded_record, &error))
+  ArCycleReplayRecord decoded;
+  std::string error;
+  ASSERT_TRUE(DecodeCycleReplayRecordFlatbuffer(
+      EncodeCycleReplayRecordFlatbuffer(record), &decoded, &error))
       << error;
-  EXPECT_EQ(decoded_record.result.status, ArCompleteCycleStatus::kCompleted);
-  EXPECT_EQ(decoded_record.result.world_cycle_index, 81U);
-  EXPECT_EQ(decoded_record.result.receiver_impairment, ArReceiverImpairment::kSaturated);
-  ASSERT_TRUE(decoded_record.result.has_decision_observation);
-  EXPECT_EQ(decoded_record.result.decision_observation.input_frame.cycle_index, 81U);
-  EXPECT_EQ(decoded_record.result.decision_observation.input_frame.batch_id, 82U);
-  ASSERT_EQ(decoded_record.result.interference_observations.size(), 1U);
-  EXPECT_DOUBLE_EQ(decoded_record.result.interference_observations[0].jammer_to_noise_db, 14.0);
-
-  ArAbandonReplayOperationInput abandon_input;
-  abandon_input.token = operation.token;
-  ArAbandonReplayOperationInput decoded_abandon_input;
-  ASSERT_TRUE(DecodeAbandonReplayOperationInputFlatbuffer(
-      EncodeAbandonReplayOperationInputFlatbuffer(abandon_input), &decoded_abandon_input, &error))
-      << error;
-  EXPECT_EQ(decoded_abandon_input.token.value, 5U);
-
-  ArAbandonReplayRecord abandon_record;
-  abandon_record.status = ArAbandonCycleStatus::kAbandoned;
-  abandon_record.session_state.next_token_value = 6U;
-  ArAbandonReplayRecord decoded_abandon_record;
-  ASSERT_TRUE(DecodeAbandonReplayRecordFlatbuffer(
-      EncodeAbandonReplayRecordFlatbuffer(abandon_record), &decoded_abandon_record, &error))
-      << error;
-  EXPECT_EQ(decoded_abandon_record.status, ArAbandonCycleStatus::kAbandoned);
-  EXPECT_EQ(decoded_abandon_record.session_state.next_token_value, 6U);
+  EXPECT_EQ(decoded.result.status, ArCycleStatus::kCompleted);
+  EXPECT_EQ(decoded.result.receiver_impairment,
+            ArReceiverImpairment::kSaturated);
+  ASSERT_EQ(decoded.result.interference_observations.size(), 1U);
+  EXPECT_DOUBLE_EQ(
+      decoded.result.interference_observations.front().jammer_to_noise_db,
+      14.0);
+  ASSERT_EQ(decoded.result.submitted_commands.size(), 1U);
+  EXPECT_EQ(decoded.result.submitted_commands.front().type,
+            ArCommandType::SET_AGILITY_FREQ);
+  ASSERT_EQ(decoded.result.validation_issues.size(), 1U);
+  EXPECT_EQ(decoded.result.validation_issues.front().field, "rcs");
+  EXPECT_EQ(decoded.result.association_quality_metrics.matched_count, 5U);
+  EXPECT_TRUE(decoded.result.has_decision_observation);
+  EXPECT_EQ(decoded.result.decision_observation.input_frame.batch_id, 82U);
+  EXPECT_EQ(decoded.session_state.next_emission_id, 34U);
+  EXPECT_TRUE(decoded.session_state.has_pending_runtime_update);
+  EXPECT_TRUE(
+      decoded.session_state.decision_state.has_pending_external_decision);
 }
 
 TEST(ArReplayCodecRoundtripTest, AttemptsPreserveRejectedRuntimeAndDecisionResults) {

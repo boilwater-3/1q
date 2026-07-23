@@ -32,7 +32,7 @@ struct ArDecisionReplayState {
   decision::ControlReducerRuntimeState reducer_state{};
 };
 
-/** @brief 两阶段 RF replay 逐操作比对所需的会话拥有状态。 */
+/** @brief replay 比对所需的会话拥有状态。 */
 struct ArSessionReplayState {
   bool has_prepared_cycle{false};
   ArPreparedCycleToken prepared_token{};
@@ -48,6 +48,12 @@ struct ArSessionReplayState {
   bool pending_environment_scenario_config_changed{false};
   bool pending_jamming_sensitivity_profile_changed{false};
   ArDecisionReplayState decision_state{};
+};
+
+/** @brief 单周期用户门面一次调用的结果与调用后状态。 */
+struct ArCycleReplayRecord {
+  ArCycleResult result{};
+  ArSessionReplayState session_state{};
 };
 
 struct ArPrepareReplayRecord {

@@ -179,7 +179,7 @@ table FailureMarker {
   last_event_sequence:ulong;
 }
 
-// RF scene v2 replay payloads. AR traces exclusively use these two-stage records.
+// RF scene v2 replay payloads.
 table RfSceneDirectionV2 { x:double; y:double; z:double; }
 table RfSceneAntennaPatternV2 {
   boresight_ecef:RfSceneDirectionV2;
@@ -330,5 +330,108 @@ table ArExternalDecisionAttemptV2 {
   status:int;
 }
 
-root_type ArPrepareCycleInputV2;
-file_identifier "ARP2";
+// Single-cycle AR user facade. Two-stage records above are obsolete and are not
+// accepted by the current replay dispatcher.
+table LlaPositionV3 {
+  latitude_deg:double;
+  longitude_deg:double;
+  altitude_m:double;
+}
+table EcefVelocityV3 { x_mps:double; y_mps:double; z_mps:double; }
+table ArPlatformInputV3 {
+  platform_entity_id:ulong;
+  platform_position_ecef_m:Vector3d;
+  platform_velocity_mps:EcefVelocityV3;
+  platform_attitude_deg:EulerAnglesDeg64;
+  radar_mount_angles_deg:EulerAnglesDeg64;
+}
+table ExternalKinematicsV3 {
+  position_frame:int;
+  position_ecef_m:Vector3d;
+  position_lla_deg_m:LlaPositionV3;
+  velocity_mps:EcefVelocityV3;
+  attitude_deg:EulerAnglesDeg64;
+}
+table ArTargetInputV3 {
+  target_id:ulong;
+  target_name:string;
+  kinematics:ExternalKinematicsV3;
+  rcs:float;
+  swerling_type:int;
+}
+table ArEnvironmentInputV3 {
+  atmospheric_observation:AtmosphericObservation;
+  atmospheric_context:AtmosphericContext;
+  surface_observation:SurfaceObservation;
+}
+table ArCycleInputV3 {
+  cycle_index:uint;
+  cycle_start_time_s:double;
+  dt_sec:double;
+  platform:ArPlatformInputV3;
+  targets:[ArTargetInputV3];
+  environment:ArEnvironmentInputV3;
+  interference:RfSceneFrameV2;
+}
+table ArCommandV3 { type:int; source:int; }
+table ValidationIssueV3 {
+  severity:int;
+  code:int;
+  location_kind:int;
+  entity_index:ulong;
+  field:string;
+  message:string;
+}
+table AssociationQualityMetricsV3 {
+  prior_track_count:ulong;
+  detection_count:ulong;
+  matched_count:ulong;
+  new_track_count:ulong;
+  missed_track_count:ulong;
+  match_rate:float;
+  new_track_rate:float;
+  missed_track_rate:float;
+  mean_match_cost:float;
+  p95_match_cost:float;
+  association_stress:float;
+}
+table ArCycleResultV3 {
+  input_cycle_index:uint;
+  status:int;
+  track_output_frame:TrackOutputFrame;
+  emission_frame:RfSceneFrameV2;
+  receiver_impairment:int;
+  interference_observations:[ArInterferenceObservation];
+  submitted_commands:[ArCommandV3];
+  validation_issues:[ValidationIssueV3];
+  has_validation_error:bool;
+  abort_reason:int;
+  has_control_profile:bool;
+  control_profile:ArControlProfile;
+  association_quality_metrics:AssociationQualityMetricsV3;
+  has_decision_observation:bool;
+  decision_observation:DecisionObservation;
+  applied_decision_source:int;
+  applied_decision_cycle_index:uint;
+  applied_decision_batch_id:ulong;
+}
+table ArSessionReplayStateV3 {
+  has_world_chronology:bool;
+  last_world_window_end_s:double;
+  next_emission_id:ulong;
+  successful_prepare_count:ulong;
+  timing_seed:ulong;
+  frequency_hop_index:ulong;
+  has_pending_runtime_update:bool;
+  pending_execution_config_changed:bool;
+  pending_environment_scenario_config_changed:bool;
+  pending_jamming_sensitivity_profile_changed:bool;
+  decision_state:ArDecisionReplayState;
+}
+table ArCycleReplayRecordV3 {
+  result:ArCycleResultV3;
+  session_state:ArSessionReplayStateV3;
+}
+
+root_type ArCycleInputV3;
+file_identifier "ARC3";

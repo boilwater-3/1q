@@ -2,7 +2,7 @@
  * @file ArReplayFlatbufferCodec.h
  * @brief 提供 AR 会话回放（replay）相关结构的 FlatBuffers 序列化/反序列化编解码。
  *
- * 涵盖 RF v2 两阶段操作、会话配置、运行期补丁与失败标记等记录的编解码。
+ * 涵盖 RF v2 单周期输入/结果、会话配置、运行期补丁与失败标记等记录的编解码。
  * 所有 Decode* 函数在解析失败时返回 false 并通过输出参数回填错误描述。
  */
 
@@ -19,6 +19,14 @@
 
 namespace airborne_radar {
 namespace session {
+
+/** @brief 编解码 AR 单周期用户输入与结果记录。 */
+std::string EncodeCycleInputFlatbuffer(const ArCycleInput& input);
+bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, ArCycleInput* input,
+                                std::string* error);
+std::string EncodeCycleReplayRecordFlatbuffer(const ArCycleReplayRecord& record);
+bool DecodeCycleReplayRecordFlatbuffer(const std::string& payload_bytes,
+                                       ArCycleReplayRecord* record, std::string* error);
 
 /** @brief 将外部 LPI/ECCM 决策响应编码为独立 replay 输入 payload。 */
 std::string EncodeExternalDecisionResponseFlatbuffer(
