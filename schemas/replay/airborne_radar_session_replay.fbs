@@ -194,22 +194,10 @@ table VegetationScatterPhysicsConfig {
   enable_physical_model:bool;
 }
 
-table JammerEmitterState {
-  technique:int;
-  power_db:float;
-  js_db:float;
-  position_x:float;
-  position_y:float;
-  position_z:float;
-  angular_span_deg:float;
-  confidence:float;
-}
-
 table EnvironmentScenarioConfig {
   atmospheric_physics:AtmosphericPhysicsConfig;
   atmospheric_context:AtmosphericDerivedContext;
   vegetation_scatter_physics:VegetationScatterPhysicsConfig;
-  jammer_sources:[JammerEmitterState];
 }
 
 table EnvironmentDefaultConfig {
@@ -219,8 +207,6 @@ table EnvironmentDefaultConfig {
 table EnvironmentRuntimeConfigPatch {
   has_scenario_config:bool;
   scenario_config:EnvironmentScenarioConfig;
-  has_jamming_sensitivity_profile:bool;
-  jamming_sensitivity_profile:int;
 }
 
 table ArRuntimeConfigPatch {
@@ -248,7 +234,6 @@ table ArSessionConfig {
   hardware_detection:DetectionConfig;
   mission_orientation:ArOrientationConfig;
   policy:ArPolicyConfig;
-  jamming_sensitivity_profile:int;
   environment_default_config:EnvironmentDefaultConfig;
   power_on:bool = true;
 }

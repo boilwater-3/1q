@@ -49,27 +49,53 @@ std::vector<rf::RfEmission> MakeRfEmissions() {
   return emissions;
 }
 
-ar_session::ArCycleInput MakeArInput(const std::vector<rf::RfEmission>& emissions) {
+rf::RfEmissionFrame MakeArInterferenceFrame(
+    const std::vector<rf::RfEmission>& emissions, std::uint32_t cycle_index,
+    double cycle_start_time_s) {
+  rf::RfEmissionFrame frame;
+  frame.world_cycle_index = cycle_index;
+  frame.window_start_time_s = cycle_start_time_s;
+  frame.window_duration_s = 1.0;
+  frame.emissions.reserve(emissions.size());
+  for (const rf::RfEmission& legacy : emissions) {
+    rf::RfSceneEmission emission;
+    emission.identity.platform_id = legacy.entity_id;
+    emission.identity.equipment_id = 1U;
+    emission.identity.emission_id = legacy.emission_id;
+    emission.position_ecef_m = legacy.position_ecef_m;
+    emission.velocity_ecef_mps = legacy.velocity_ecef_mps;
+    emission.antenna.boresight_ecef.x = legacy.antenna.boresight_ecef_unit.x;
+    emission.antenna.boresight_ecef.y = legacy.antenna.boresight_ecef_unit.y;
+    emission.antenna.boresight_ecef.z = legacy.antenna.boresight_ecef_unit.z;
+    emission.antenna.peak_gain_dbi = legacy.antenna.peak_gain_dbi;
+    emission.polarization = rf::RfScenePolarization::kHorizontal;
+    const rf::RfEmissionSegment& segment = legacy.segments.front();
+    EXPECT_TRUE(rf::TryCreateRfNoiseWaveform(
+        cycle_start_time_s, frame.window_duration_s, segment.center_frequency_hz,
+        segment.bandwidth_hz, segment.transmit_power_w, &emission.waveform));
+    frame.emissions.push_back(emission);
+  }
+  return frame;
+}
+
+ar_session::ArCycleInput MakeArInput() {
   ar_session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  input.platform_entity_id = 1U;
-  input.has_platform_ecef_kinematics = true;
-  input.platform_position_ecef_m.x_m = 6378137.0;
-  input.has_environment = true;
-  input.environment.interference.mode = rf::RfInterferenceMode::kEngineering;
-  input.environment.interference.engineering_emissions = emissions;
-  input.scene.reserve(kArTargetCount);
+  input.dt_sec = 1.0;
+  input.platform.platform_entity_id = 1U;
+  input.platform.platform_position_ecef_m.x_m = 6378137.0;
+  input.targets.reserve(kArTargetCount);
   for (std::size_t i = 0U; i < kArTargetCount; ++i) {
-    ar_session::ArSceneTarget target;
-    target.external_target_id = i + 1U;
-    target.position_x = 10000.0f + 50.0f * static_cast<float>(i);
-    target.position_y = 10.0f * static_cast<float>(static_cast<int>(i % 21U) - 10);
-    target.position_z = 5.0f * static_cast<float>(static_cast<int>(i % 11U) - 5);
-    target.range_m = std::sqrt(target.position_x * target.position_x +
-                               target.position_y * target.position_y +
-                               target.position_z * target.position_z);
+    ar_session::ArExternalTargetInput target;
+    target.target_id = i + 1U;
+    target.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
+    target.kinematics.position_ecef_m.x_m =
+        6378137.0 + 10000.0 + 50.0 * static_cast<double>(i);
+    target.kinematics.position_ecef_m.y_m =
+        10.0 * static_cast<double>(static_cast<int>(i % 21U) - 10);
+    target.kinematics.position_ecef_m.z_m =
+        5.0 * static_cast<double>(static_cast<int>(i % 11U) - 5);
     target.rcs = 10.0f;
-    input.scene.push_back(target);
+    input.targets.push_back(target);
   }
   return input;
 }
@@ -121,13 +147,16 @@ TEST(RfInterferencePerformanceTest, FullScaleCyclesMeetReleaseP95Budget) {
   esr_config.policy.detection.enable_statistical_detection = false;
   esr_session::EsrSession esr = esr_session::EsrSession::Create(esr_config);
 
-  ar_session::ArCycleInput ar_input = MakeArInput(emissions);
+  ar_session::ArCycleInput ar_input = MakeArInput();
   esr_session::EsrCycleInput esr_input = MakeEsrInput(emissions);
   std::vector<double> elapsed_ms;
   elapsed_ms.reserve(kMeasuredCycles);
 
   for (std::uint32_t cycle = 1U; cycle <= kWarmupCycles + kMeasuredCycles; ++cycle) {
     ar_input.cycle_index = cycle;
+    ar_input.cycle_start_time_s = static_cast<double>(cycle - 1U);
+    ar_input.interference =
+        MakeArInterferenceFrame(emissions, cycle, ar_input.cycle_start_time_s);
     esr_input.cycle_index = cycle;
     const std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     const ar_session::ArCycleResult ar_result = ar.StepWithResult(ar_input);

@@ -19,7 +19,6 @@
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
 #include "1q/airborne_radar/config/ArSessionConfigBuilder.h"
-#include "1q/airborne_radar/config/JammingSemantics.h"
 #include "1q/airborne_radar/config/airborne_radar_config.hpp"
 #include "1q/airborne_radar/session/ArCommand.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
@@ -35,7 +34,6 @@
 #include "1q/airborne_radar/session/ControlDirective.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
-#include "1q/airborne_radar/session/DecisionSourceInfo.h"
 #include "1q/airborne_radar/session/TrackStateSnapshot.h"
 #include "1q/api.hpp"
 #include "1q/coordinate/attitude_transform.h"
@@ -266,12 +264,9 @@ TEST(PublicHeadersSmokeTest, FourDomainHeadersDefineIndependentConfigTypes) {
   session_cfg.mission = mission;
   session_cfg.policy = policy;
   session_cfg.environment = env;
-  session_cfg.environment.jamming_sensitivity_profile = config::JammingSensitivityProfile::kStrict;
   EXPECT_EQ(session_cfg.policy.detection.pulse_count, 32);
   EXPECT_FLOAT_EQ(session_cfg.mission.orientation.scan_center_deg.az_deg, 45.0f);
   EXPECT_EQ(session_cfg.policy.lifecycle.confirm_hits, 2U);
-  EXPECT_EQ(session_cfg.environment.jamming_sensitivity_profile,
-            config::JammingSensitivityProfile::kStrict);
 }
 
 TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields) {
@@ -289,9 +284,6 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
           .Lifecycle()
           .WithLifecyclePolicyProfile(config::profiles::LifecyclePolicyProfile::kFastConfirm)
           .End()
-          .Environment()
-          .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kRelaxed)
-          .End()
           .Build();
   config.mission.orientation.scan_center_deg = scan_center;
   EXPECT_EQ(config.policy.detection.pulse_count, 16);
@@ -299,9 +291,6 @@ TEST(PublicHeadersSmokeTest, RadarSessionBuilderCanConfigureLeafAndDomainFields)
   EXPECT_FLOAT_EQ(config.hardware.antenna.pattern.max_sidelobe_level_db, -30.0f);
   EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, -12.0f);
   EXPECT_EQ(config.policy.lifecycle.confirm_hits, 1U);
-  EXPECT_EQ(config.environment.jamming_sensitivity_profile,
-            config::JammingSensitivityProfile::kRelaxed);
-
   config::EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
   config::ArEnvironmentConfig env;

@@ -12,6 +12,11 @@ Status: draft
 `docs/airborne_radar/design.md`、`docs/electronic_surveillance_radar/design.md` 或
 `docs/electronic_countermeasure/design.md`。
 
+**AR follow-up (2026-07-23):** AR 已完成 RF v2 单周期门面、detection-cell 接收链、结构化饱和、
+J/N 门控干扰观测、实际 ECCM 状态与 legacy jammer 删除。下文的 baseline 证据矩阵保留为历史审查事实；
+RF-AR-01、RF-AR-02 以及 RF-MIG-01 的 AR 范围已经关闭。ESR 与 ECM 条目继续为 draft，不能因 AR
+收口而视为完成。
+
 ## 1. 范围与结论
 
 本轮只审查基线提交中的公共 RF 基元、ECM、AR/ESR 工程压制干扰路径、trace/replay、
@@ -66,8 +71,8 @@ ESR 的接收天线方向与扫描事实不一致，并会静默吞掉工程链�
 
 | 编号 | 生产者 → 消费者 | live evidence | 分类 | 优先级 | 判定 |
 |---|---|---|---|---|---|
-| RF-AR-01 | engineering emission → AR detection/ECCM | `JammingEffects.cpp`、`EnvironmentService.cpp::RefreshFrozenSnapshotFromActiveScene`、`CycleExecutor.cpp::BuildEccmSourceInfo` | C/A | P1 | 工程功率进入 SNR，但 `jamming_detected`、jammer source 和 ECCM 原始观测仍只来自 legacy 摘要 |
-| RF-AR-02 | ECCM profile → AR lifecycle/timing | `CycleExecutor.cpp::ResolveLifecycleExtraMissTolerance`、`ControlProfileEffects.cpp` | C | P1 | 频率捷变、旁瓣对消、重频抖动和烧穿仍直接增加失配容忍；重频抖动只改 PRF，未形成分段脉冲时序重叠 |
+| RF-AR-01 | engineering emission → AR detection/ECCM | historical baseline: `JammingEffects.cpp`、`EnvironmentService.cpp::RefreshFrozenSnapshotFromActiveScene`; follow-up: `RfEmissionFrame`、`ArRfInterferenceResolver`、`ArInterferenceObservationResolver` | closed (AR) | P1 | AR 现以 RF v2 实际发射进入前端/detection-cell 账本，并以 J/N 门控的去真值化 observation 驱动 ECCM；legacy 摘要已删除 |
+| RF-AR-02 | ECCM profile → AR lifecycle/timing | historical baseline: `ControlProfileEffects.cpp`; follow-up: `ArControlProfile` actual waveform/receiver-state resolution | closed (AR) | P1 | 频率捷变、旁瓣对消、重频抖动和烧穿改变实际载频、方向增益、脉冲时序或能量；不再直接改 association/filter/lifecycle |
 | RF-ECM-01 | ESR(N-1) → ECM(N) | `EcmSession.cpp::IsValidInput`、`EcmSession::StepWithResult` | C | P1 | 新观测只要求来源周期小于 ECM 周期，旧帧可被当作新鲜帧；TruthAssisted 仍可残留非零 sensor 来源周期 |
 | RF-ECM-02 | cached observation → glide/safe stop | `EcmSession.cpp::StepWithResult` | C | P1 | TruthAssisted 成功周期不老化缓存的 sensor frame，模式切回后可能复活超过两周期的旧观测 |
 | RF-ECM-03 | ECM input/config → emission frame | `EcmSession.cpp::IsValidConfig`、`IsValidInput`、`BuildEmission` | C | P1 | 发射天线/极化未校验；只按威胁中心频率筛选，阻塞和扫频分段可越过硬件频率上下界；生成后未做 frame 级原子校验 |
@@ -80,7 +85,7 @@ ESR 的接收天线方向与扫描事实不一致，并会静默吞掉工程链�
 | RF-COMMON-01 | public emission → direct link evaluation | `RfLinkBudget.cpp::IsValidSegment`、`TryEvaluateRfLink` | C | P2 | frame validator 拒绝负起始时间，直接 `TryEvaluateRfLink()` 却会接受负 `start_time_s`，公共 API 合同不一致 |
 | RF-TEST-01 | ESR→ECM→AR/ESR integration → acceptance | `multi_model_scenario_test.cpp` | D | P2 | 现有闭环测试主要证明载荷接线和周期执行，未证明 SNR 恶化、interference observation、下一成功周期 ECCM、频率适配和资源重新分配 |
 | RF-PERF-01 | 64/1000/1000 workload → performance gate | `rf_interference_performance_test.cpp` | D | P2 | 已测 100 周期 P95，但只断言无 validation error，未断言实际执行，也没有预热后持续内存增长证明 |
-| RF-MIG-01 | legacy/public/example → engineering-only closure | public AR/ESR headers、replay schemas、`examples/` | A/D | P2 | legacy public jammer 字段仍广泛存在；没有 ECM umbrella header、独立示例或 batch 场景，迁移删除门尚未满足 |
+| RF-MIG-01 | legacy/public/example → engineering-only closure | public AR/ESR headers、replay schemas、`examples/` | partial: AR closed; ESR/ECM open | P2 | AR 已删除 legacy public jammer、adapter 与旧 replay 路径，并迁移示例/consumer/batch/performance；ESR/ECM 的独立迁移删除门仍未满足 |
 
 ## 5. P1 阻塞项详述
 
@@ -191,7 +196,8 @@ apply 结果并比较，而不是假设所有记录都成功。
 
 ## 8. 实施关闭顺序
 
-继续遵守每批最多 5 个文件、Release 构建和聚焦测试通过后再进入下一批：
+自动化批量编辑须先在 1–2 个文件验证，并以最多 5 个文件为一批；手工语义重构按最小可构建、
+可测试依赖闭包提交，并在真实可编译边界验证：
 
 1. **公共模型与世界编排。** 先 characterization platform/equipment/emission 身份、参数化 pulse/sweep、
    严格单程链路和设备级 co-site；再冻结 prepare/emit、scene validation/freeze、receive/complete 状态机。

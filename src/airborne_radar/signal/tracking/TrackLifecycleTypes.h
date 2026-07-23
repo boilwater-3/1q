@@ -11,7 +11,6 @@
 #include <cstdint>
 #include <string>
 
-#include "1q/airborne_radar/config/JammingSemantics.h"
 #include "airborne_radar/signal/tracking/GaussianTrackState.h"
 
 namespace airborne_radar {

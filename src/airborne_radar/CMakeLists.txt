@@ -17,7 +17,6 @@ set(AIRBORNE_ENGINE_SOURCES
     signal/pipeline/DecisionFrameBuilders.cpp
     signal/pipeline/DetectionExecution.cpp
     signal/pipeline/ImmMatrixDefaults.cpp
-    signal/pipeline/JammingEffects.cpp
     signal/pipeline/SignalPipeline.cpp
     signal/pipeline/TrackMeasurementProcessing.cpp
     signal/pipeline/RuntimeAssemblySupport.cpp
@@ -57,7 +56,6 @@ set(AIRBORNE_CORE_SOURCES
     session/ArSession.cpp
     environment/FeatureRepository.cpp
     environment/EnvironmentService.cpp
-    environment/EnvironmentPhysics.cpp
     environment/SceneManager.cpp
     environment/PropagationModel.cpp
     session/ArReplayFlatbufferCodec.cpp

@@ -12,8 +12,7 @@
  * - TrackingExecutionConfig：航迹滤波与卡尔曼
  * - LifecycleExecutionConfig：航迹生命周期与 IMM
  *
- * 跨域共享的 JammingEffectsConfig 与 ControlProfileEffectsConfig
- * 保留在顶层。
+ * 跨域共享的 ControlProfileEffectsConfig 保留在顶层。
  */
 
 #ifndef AIRBORNE_RADAR_SRC_CONFIG_EXECUTION_INTERNAL_EXECUTION_CONFIG_H_
@@ -32,20 +31,6 @@
 namespace airborne_radar {
 namespace config {
 namespace execution {
-
-/**
- * @brief ECM 干扰效果调参集合 (POD)。
- *
- * 汇总各类干扰源 (噪声/欺骗/转发/未知) 下的启发式置信度门限、惩罚权重，
- * 以及在 association/tracking/measurement 各环节施加的渐进式缩放步长与
- * 协方差膨胀步长，供 JammingEffects 模块逐周期计算干扰退化量使用。
- * @note 所有字段均为经验标定参数，直接修改会改变信号链路抗干扰行为。
- */
-struct JammingEffectsConfig {
-  float resolved_engineering_jam_noise_w{0.0f};
-  bool has_rf_v2_interference_power{false};
-  float confidence_weight_min{0.25f};
-};
 
 /**
  * @brief 控制策略 (control profile) 对应的天线/波束增益效果参数 (POD)。
@@ -111,7 +96,7 @@ struct LifecycleExecutionConfig {
 /**
  * @brief 唯一内部执行配置真值。
  *
- * 按 domain 将字段组织为四个子配置，外加跨域共享的干扰/控制效果配置。
+ * 按 domain 将字段组织为四个子配置，外加跨域共享的控制效果配置。
  * 各 pipeline phase 函数应只接收其所需的子配置引用，而非整个 InternalExecutionConfig。
  */
 struct InternalExecutionConfig {
@@ -121,7 +106,6 @@ struct InternalExecutionConfig {
   AssociationExecutionConfig association{};
   TrackingExecutionConfig tracking{};
   LifecycleExecutionConfig lifecycle{};
-  JammingEffectsConfig jamming_effects{};
   ControlProfileEffectsConfig control_profile_effects{};
 };
 

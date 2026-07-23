@@ -2,20 +2,6 @@ namespace oneq.replay.airborne_radar.fb;
 
 table Vector3d { x:double; y:double; z:double; }
 
-table ArSceneTarget {
-  external_target_id:ulong;
-  velocity_x:float;
-  velocity_y:float;
-  velocity_z:float;
-  rcs:float;
-  range_m:float;
-  position_x:float;
-  position_y:float;
-  position_z:float;
-  target_swerling_type:int;
-  target_name:string;
-}
-
 table AtmosphericObservation {
   enable_physical_model:bool;
   pressure_hpa:float;
@@ -226,101 +212,8 @@ table RfSceneFrameV2 {
   window_duration_s:double;
   emissions:[RfSceneEmissionV2];
 }
-table RfCoSiteIsolationPathV2 {
-  transmitter_equipment_id:ulong;
-  receiver_equipment_id:ulong;
-  isolation_db:double;
-}
-table RfSceneReceiverStateV2 {
-  platform_id:ulong;
-  equipment_id:ulong;
-  position_ecef_m:Vector3d;
-  velocity_ecef_mps:Vector3d;
-  antenna:RfSceneAntennaPatternV2;
-  polarization:int;
-  window_start_time_s:double;
-  window_duration_s:double;
-  center_frequency_hz:double;
-  bandwidth_hz:double;
-  receiver_system_loss_db:double;
-  minimum_far_field_range_m:double;
-  co_site_paths:[RfCoSiteIsolationPathV2];
-}
 table EulerAnglesDeg64 { yaw_deg:double; pitch_deg:double; roll_deg:double; }
 table AzimuthElevationDeg32 { az_deg:float; el_deg:float; }
-table ArPreparedCycleTokenV2 { value:ulong; world_cycle_index:ulong; }
-table ArPrepareCycleInputV2 {
-  world_cycle_index:ulong;
-  window_start_time_s:double;
-  window_duration_s:double;
-  platform_id:ulong;
-  platform_position_ecef_m:Vector3d;
-  platform_velocity_ecef_mps:Vector3d;
-  radar_frame_attitude_deg:EulerAnglesDeg64;
-  beam_pointing_deg:AzimuthElevationDeg32;
-}
-table ArReceiverOperatingStateV2 {
-  rf_receiver:RfSceneReceiverStateV2;
-  beam_pointing_deg:AzimuthElevationDeg32;
-  matched_filter_bandwidth_hz:double;
-  receiver_noise_figure_db:double;
-  maximum_linear_input_power_w:double;
-  transmit_receive_blanking_enabled:bool;
-  adaptive_nulls_ecef:[RfSceneDirectionV2];
-}
-table ArPrepareCycleResultV2 {
-  status:int;
-  token:ArPreparedCycleTokenV2;
-  has_emission:bool;
-  emission:RfSceneEmissionV2;
-  operating_state:ArReceiverOperatingStateV2;
-}
-table ArSessionReplayStateV2 {
-  has_prepared_cycle:bool;
-  prepared_token:ArPreparedCycleTokenV2;
-  has_world_chronology:bool;
-  last_world_window_end_s:double;
-  next_token_value:ulong;
-  next_emission_id:ulong;
-  successful_prepare_count:ulong;
-  timing_seed:ulong;
-  frequency_hop_index:ulong;
-  has_pending_runtime_update:bool;
-  pending_execution_config_changed:bool;
-  pending_environment_scenario_config_changed:bool;
-  pending_jamming_sensitivity_profile_changed:bool;
-  decision_state:ArDecisionReplayState;
-}
-table ArPrepareReplayRecordV2 {
-  result:ArPrepareCycleResultV2;
-  session_state:ArSessionReplayStateV2;
-}
-table ArCompleteReplayOperationInputV2 {
-  token:ArPreparedCycleTokenV2;
-  rf_scene:RfSceneFrameV2;
-  targets:[ArSceneTarget];
-  atmospheric_observation:AtmosphericObservation;
-  atmospheric_context:AtmosphericContext;
-  surface_observation:SurfaceObservation;
-}
-table ArCompleteCycleResultV2 {
-  status:int;
-  world_cycle_index:ulong;
-  track_output_frame:TrackOutputFrame;
-  interference_observations:[ArInterferenceObservation];
-  receiver_impairment:int;
-  has_decision_observation:bool;
-  decision_observation:DecisionObservation;
-}
-table ArCompleteReplayRecordV2 {
-  result:ArCompleteCycleResultV2;
-  session_state:ArSessionReplayStateV2;
-}
-table ArAbandonReplayOperationInputV2 { token:ArPreparedCycleTokenV2; }
-table ArAbandonReplayRecordV2 {
-  status:int;
-  session_state:ArSessionReplayStateV2;
-}
 table ArRuntimeConfigAttemptV2 {
   patch_payload:[ubyte];
   accepted:bool;
@@ -330,8 +223,8 @@ table ArExternalDecisionAttemptV2 {
   status:int;
 }
 
-// Single-cycle AR user facade. Two-stage records above are obsolete and are not
-// accepted by the current replay dispatcher.
+// Single-cycle AR user facade. Two-stage AR records were deliberately removed;
+// current replay accepts only V3 cycle records.
 table LlaPositionV3 {
   latitude_deg:double;
   longitude_deg:double;
@@ -425,7 +318,6 @@ table ArSessionReplayStateV3 {
   has_pending_runtime_update:bool;
   pending_execution_config_changed:bool;
   pending_environment_scenario_config_changed:bool;
-  pending_jamming_sensitivity_profile_changed:bool;
   decision_state:ArDecisionReplayState;
 }
 table ArCycleReplayRecordV3 {

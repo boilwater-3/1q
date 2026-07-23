@@ -14,7 +14,6 @@ namespace environment {
 
 // Using declarations for types migrated to config:: and session::
 using config::EnvironmentScenarioConfig;
-using config::JammingSensitivityProfile;
 using session::EnvironmentCycleContext;
 using session::EnvironmentSnapshot;
 using session::EnvironmentSceneState;
@@ -26,7 +25,6 @@ struct EnvironmentServiceRuntimeState {
   EnvironmentSceneState active_scene_state{};
   EnvironmentSceneState pending_scene_state{};
   EnvironmentCycleContext active_cycle_context{};
-  JammingSensitivityProfile jamming_sensitivity_profile{JammingSensitivityProfile::kBalanced};
 };
 
 /**
@@ -65,12 +63,6 @@ class IEnvironmentService {
    * @param[in] config 新环境模型配置。
    */
   virtual void UpdateModelConfig(const EnvironmentScenarioConfig& config) = 0;
-
-  /**
-   * @brief 设置干扰判定灵敏度语义档位。
-   * @param[in] profile 灵敏度语义档位。
-   */
-    virtual void SetJammingSensitivityProfile(JammingSensitivityProfile profile) = 0;
 
   /**
    * @brief 捕获当前环境服务运行态快照。

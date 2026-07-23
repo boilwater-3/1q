@@ -10,14 +10,12 @@
 
 #include "1q/airborne_radar/config/ArEnvironmentConfig.h"
 #include "airborne_radar/environment/IEnvironmentService.h"
-#include "airborne_radar/environment/JammingThresholdUtils.h"
 
 namespace airborne_radar {
 namespace environment {
 
 // Using declarations for types migrated to config:: and session::
 using config::EnvironmentScenarioConfig;
-using config::JammingSensitivityProfile;
 using session::EnvironmentCycleContext;
 using session::EnvironmentSnapshot;
 using session::EnvironmentSceneState;
@@ -72,12 +70,6 @@ class EnvironmentService final : public environment::IEnvironmentService {
   void UpdateModelConfig(const EnvironmentScenarioConfig& config) override;
 
   /**
-   * @brief 设置干扰判定灵敏度语义档位。
-   * @param[in] profile 干扰判定灵敏度语义档位。
-   */
-  void SetJammingSensitivityProfile(JammingSensitivityProfile profile) override;
-
-  /**
    * @brief 捕获当前环境服务运行态快照。
    * @return 可用于失败回滚的环境运行态快照。
    */
@@ -96,9 +88,6 @@ class EnvironmentService final : public environment::IEnvironmentService {
   std::unique_ptr<PropagationModel> propagation_model_;
   EnvironmentSnapshot frozen_snapshot_{};
   EnvironmentCycleContext current_cycle_context_{};
-  JammingSensitivityProfile jamming_sensitivity_profile_{JammingSensitivityProfile::kBalanced};
-  float effective_jamming_detection_threshold_db_{
-      ResolveJammingDetectionThresholdDb(JammingSensitivityProfile::kBalanced)};
 };
 
 }  // namespace environment

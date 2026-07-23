@@ -6,7 +6,6 @@
 #include "airborne_radar/signal/pipeline/CycleContextSupport.h"
 #include "airborne_radar/signal/pipeline/DecisionFrameBuilders.h"
 #include "airborne_radar/signal/pipeline/DetectionExecution.h"
-#include "airborne_radar/signal/pipeline/JammingEffects.h"
 #include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/ScanScheduleResolver.h"
 #include "airborne_radar/signal/pipeline/TrackMeasurementProcessing.h"
@@ -32,22 +31,11 @@ void PrepareAssociationSeeds(const CycleExecutionRuntime& runtime) {
 }
 
 // ---------------------------------------------------------------------------
-// 环境阶段：解析 RF v2 接收功率并同步周期配置。
+// 环境阶段：同步周期配置。
 // ---------------------------------------------------------------------------
 
 bool RunEnvironmentPhase(CycleExecutionContext& context, const CycleExecutionRuntime& runtime,
                          CycleExecutionScratch& scratch) {
-  if (context.rf_v2_detection_context != nullptr) {
-    context.runtime_config.jamming_effects.resolved_engineering_jam_noise_w = 0.0f;
-  } else if (!context.runtime_config.jamming_effects.has_rf_v2_interference_power &&
-      !TryResolveEngineeringInterferencePowerW(
-          context.runtime_config, context.environment_snapshot,
-          &context.runtime_config.jamming_effects.resolved_engineering_jam_noise_w)) {
-    PROJECT_LOG_ERROR(
-        "[SignalPipeline] environment phase aborted because engineering RF link resolution "
-        "failed.");
-    return false;
-  }
   RefreshMeasurementCovariances(
       scratch.target_geometry.size(),
       context.runtime_config.tracking.engineering.kalman_measurement_noise_std,

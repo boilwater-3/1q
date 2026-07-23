@@ -25,7 +25,6 @@ set(AR_PUBLIC_PRIMARY_HEADERS
     "airborne_radar/config/ArSessionConfigBuilder.h"
     "airborne_radar/config/ArSessionConfigValidation.h"
     "airborne_radar/config/ArOrientationConfig.h"
-    "airborne_radar/config/JammingSemantics.h"
     "airborne_radar/config/airborne_radar_config.hpp"
 )
 
@@ -52,7 +51,6 @@ set(AR_SESSION_HEADERS
     "airborne_radar/session/ControlDirective.h"
     "airborne_radar/session/DecisionControlTypes.h"
     "airborne_radar/session/DecisionInputFrame.h"
-    "airborne_radar/session/DecisionSourceInfo.h"
     "airborne_radar/session/TrackStateSnapshot.h"
 )
 

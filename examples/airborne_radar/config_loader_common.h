@@ -41,15 +41,6 @@ inline airborne_radar::config::StabilizationMode StabilizationFromString(
   return airborne_radar::config::StabilizationMode::kBodyStabilized;
 }
 
-inline airborne_radar::config::JammingSensitivityProfile JammingSensFromString(
-    const std::string& s) {
-  using namespace airborne_radar::config;
-  if (s == "kRelaxed") return JammingSensitivityProfile::kRelaxed;
-  if (s == "kBalanced") return JammingSensitivityProfile::kBalanced;
-  if (s == "kStrict") return JammingSensitivityProfile::kStrict;
-  return JammingSensitivityProfile::kBalanced;
-}
-
 inline airborne_radar::config::VegetationCoverProfile VegCoverFromString(
     const std::string& s) {
   using namespace airborne_radar::config;

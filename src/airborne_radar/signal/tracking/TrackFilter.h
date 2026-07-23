@@ -6,7 +6,6 @@
 #ifndef AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_
 #define AIRBORNE_RADAR_SIGNAL_TRACKING_TRACK_FILTER_H_
 
-#include "1q/airborne_radar/config/JammingSemantics.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 
 namespace airborne_radar {

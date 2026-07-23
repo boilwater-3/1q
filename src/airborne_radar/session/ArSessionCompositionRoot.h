@@ -35,9 +35,6 @@ struct ArSessionComposition {
   config::ArMissionConfig runtime_mission{};
   config::ArPolicyConfig runtime_policy{};
   config::EnvironmentScenarioConfig runtime_environment_scenario_config{};
-  config::JammingSensitivityProfile runtime_jamming_sensitivity_profile{
-      config::JammingSensitivityProfile::kBalanced};
-
   std::unique_ptr<MutableArContext> owned_ar_context;
   std::unique_ptr<signal::ISignalPipeline> owned_signal_pipeline;
   std::unique_ptr<environment::IEnvironmentService> owned_environment_service;

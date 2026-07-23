@@ -53,7 +53,7 @@ TEST(RadarSessionConfigBuilderTest, ExistingBuilderBasePreservesSemanticValues) 
   EXPECT_EQ(config.policy.lifecycle.confirm_hits, 1U);
 }
 
-TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEditingEnvironment) {
+TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreserved) {
   config::ArSessionConfig base_config{};
   base_config.hardware.transmitter.peak_power_w = 7.5e6f;
   base_config.hardware.transmitter.frequency_hz = 9.7e9f;
@@ -63,11 +63,7 @@ TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEdi
   base_config.policy.lifecycle.confirm_hits = 2U;
 
   const config::ArSessionConfig rebuilt =
-      config::ArSessionConfigBuilder(base_config)
-          .Environment()
-          .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
-          .End()
-          .Build();
+      config::ArSessionConfigBuilder(base_config).Build();
 
   EXPECT_FLOAT_EQ(rebuilt.hardware.transmitter.peak_power_w, 7.5e6f);
   EXPECT_FLOAT_EQ(rebuilt.hardware.transmitter.frequency_hz, 9.7e9f);
@@ -75,8 +71,6 @@ TEST(RadarSessionConfigBuilderTest, ExistingDetailedConfigIsPreservedWhenOnlyEdi
   EXPECT_FLOAT_EQ(rebuilt.policy.tracking.kalman_measurement_noise_std, 4.5f);
   EXPECT_TRUE(rebuilt.policy.lifecycle.enable_imm_lifecycle);
   EXPECT_EQ(rebuilt.policy.lifecycle.confirm_hits, 2U);
-  EXPECT_EQ(rebuilt.environment.jamming_sensitivity_profile,
-            config::JammingSensitivityProfile::kStrict);
 }
 
 TEST(RadarSessionConfigBuilderTest, DetectionSemanticEditorsApplyCorrectly) {
@@ -117,32 +111,9 @@ TEST(RadarSessionConfigBuilderTest, TrackingAndLifecycleSemanticEditorsApplyCorr
   EXPECT_EQ(config.policy.lifecycle.max_lost_cycles, 8U);
 }
 
-TEST(RadarSessionConfigBuilderTest, EnvironmentEditorAppliesSemanticProfile) {
-  config::AzimuthElevationDeg scan_center;
-  scan_center.az_deg = 8.0f;
-  scan_center.el_deg = -2.0f;
-
-  auto config = config::ArSessionConfigBuilder()
-                    .Environment()
-                    .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
-                    .End()
-                    .Build();
-  config.mission.orientation.work_mode = config::ArWorkMode::kTas;
-  config.mission.orientation.scan_center_deg = scan_center;
-
-  EXPECT_EQ(config.mission.orientation.work_mode, config::ArWorkMode::kTas);
-  EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.az_deg, 8.0f);
-  EXPECT_FLOAT_EQ(config.mission.orientation.scan_center_deg.el_deg, -2.0f);
-  EXPECT_EQ(config.environment.jamming_sensitivity_profile,
-            config::JammingSensitivityProfile::kStrict);
-}
-
 TEST(RadarSessionConfigBuilderTest, BuiltConfigCanConstructRadarSession) {
-  const auto config = config::ArSessionConfigBuilder(MakeDetectionFocusedConfig())
-                          .Environment()
-                          .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
-                          .End()
-                          .Build();
+  const auto config =
+      config::ArSessionConfigBuilder(MakeDetectionFocusedConfig()).Build();
   session::ArSession session = session::ArSession::Create(config);
   EXPECT_TRUE(session.HasLatestControlProfile() == false ||
               session.HasLatestControlProfile() == true);
@@ -168,7 +139,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
           .WithDwellCenterDeg(dwell_center)
           .WithCommandedBeamwidthDeg(commanded_beamwidth)
           .WithCommandedBeamwidthEnabled(true)
-          .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
+          .WithEnvironmentScenarioConfig(config::EnvironmentScenarioConfig{})
           .Build();
 
   EXPECT_TRUE(patch.has_work_mode);
@@ -185,9 +156,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimeConfigBuilderBuildsPatchFlagsAndValue
   EXPECT_TRUE(patch.has_commanded_beamwidth_enabled);
   EXPECT_TRUE(patch.commanded_beamwidth_enabled);
   EXPECT_TRUE(patch.has_environment);
-  EXPECT_TRUE(patch.environment.has_jamming_sensitivity_profile);
-  EXPECT_EQ(patch.environment.jamming_sensitivity_profile,
-            config::JammingSensitivityProfile::kStrict);
+  EXPECT_TRUE(patch.environment.has_scenario_config);
 }
 
 // P3-b：四域 RuntimeConfigBuilder 形状对齐——必须提供 WithRuntimeConfigPatch 整块覆盖入口，
@@ -221,7 +190,7 @@ TEST(RadarSessionConfigBuilderTest, RuntimePatchCanBeAppliedWithoutReconstructin
       config::ArRuntimeConfigBuilder()
           .WithWorkMode(config::ArWorkMode::kTas)
           .WithCommandedBeamwidthEnabled(true)
-          .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
+          .WithEnvironmentScenarioConfig(config::EnvironmentScenarioConfig{})
           .Build();
 
   session.ApplyRuntimeConfig(patch);
@@ -252,8 +221,8 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   detailed_config.policy.lifecycle.confirm_hits = 2U;
   detailed_config.policy.lifecycle.max_miss_before_lost = 1U;
   detailed_config.policy.lifecycle.max_lost_cycles = 4U;
-  detailed_config.environment.jamming_sensitivity_profile =
-      config::JammingSensitivityProfile::kStrict;
+  detailed_config.environment.scenario_config.atmospheric_physics
+      .enable_physical_model = true;
 
   EXPECT_FLOAT_EQ(detailed_config.hardware.transmitter.peak_power_w, 5.0e6f);
   EXPECT_FLOAT_EQ(detailed_config.hardware.transmitter.frequency_hz, 9.3e9f);
@@ -261,8 +230,8 @@ TEST(RadarSessionConfigBuilderTest, DetailedBuilderProducesDetailedSessionConfig
   EXPECT_FLOAT_EQ(detailed_config.policy.tracking.kalman_measurement_noise_std, 7.5f);
   EXPECT_EQ(detailed_config.policy.lifecycle.confirm_hits, 2U);
   EXPECT_TRUE(detailed_config.policy.lifecycle.enable_imm_lifecycle);
-  EXPECT_EQ(detailed_config.environment.jamming_sensitivity_profile,
-            config::JammingSensitivityProfile::kStrict);
+  EXPECT_TRUE(detailed_config.environment.scenario_config.atmospheric_physics
+                  .enable_physical_model);
 }
 
 TEST(RadarSessionConfigBuilderTest, DetailedBuiltConfigCanConstructRadarSession) {

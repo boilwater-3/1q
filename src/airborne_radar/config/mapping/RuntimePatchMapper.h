@@ -21,8 +21,6 @@ namespace mapping {
 struct RuntimeConfigState {
   execution::InternalExecutionConfig execution_config{};
   config::EnvironmentScenarioConfig environment_scenario_config{};
-  config::JammingSensitivityProfile jamming_sensitivity_profile{
-      config::JammingSensitivityProfile::kBalanced};
   config::AzimuthElevationDeg dwell_center_deg{};
 };
 
@@ -35,7 +33,6 @@ struct RuntimeConfigResolveResult {
   bool is_valid{true};
   bool execution_config_changed{false};
   bool environment_scenario_config_changed{false};
-  bool jamming_sensitivity_profile_changed{false};
 };
 
 /**

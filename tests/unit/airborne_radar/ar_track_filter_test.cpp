@@ -53,22 +53,6 @@ session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
   return pipeline->RunCycle(input_state, *environment_service);
 }
 
-config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique, float power_db) {
-  config::JammerEmitterState jammer;
-  jammer.technique = technique;
-  jammer.power_db = power_db;
-  jammer.confidence = 1.0f;
-  return jammer;
-}
-
-config::EnvironmentScenarioConfig MakeEnvironmentConfigWithJammers(
-    std::initializer_list<config::JammerEmitterState> jammer_sources) {
-  config::EnvironmentScenarioConfig config;
-  config.jammer_sources.insert(config.jammer_sources.end(), jammer_sources.begin(),
-                               jammer_sources.end());
-  return config;
-}
-
 void ApplyDetectionIntentProfile(config::ArSessionConfig* config,
                                  config::profiles::DetectionIntentProfile profile) {
   if (config == nullptr) {

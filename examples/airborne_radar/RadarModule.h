@@ -341,7 +341,7 @@ class RadarModule {
        << " confirm_hits=" << policy_confirm_hits_ << " max_miss=" << policy_max_miss_before_lost_
        << "\n[Environment]\n"
        << "  atmos_model=" << env_enable_atmospheric_model_ << " temp_k=" << env_temperature_k_
-       << " jamming_profile=" << static_cast<int>(env_jamming_sensitivity_profile_) << "\n";
+       << " vegetation=" << static_cast<int>(env_vegetation_cover_profile_) << "\n";
   }
 
  private:
@@ -492,7 +492,6 @@ class RadarModule {
     env_vegetation_cover_profile_ = scenario.vegetation_scatter_physics.cover_profile;
     env_enable_vegetation_scatter_ = scenario.vegetation_scatter_physics.enable_physical_model;
 
-    env_jamming_sensitivity_profile_ = env.jamming_sensitivity_profile;
   }
 
   /**
@@ -665,9 +664,6 @@ class RadarModule {
   ar_config::VegetationCoverProfile env_vegetation_cover_profile_{
       ar_config::VegetationCoverProfile::kDisabled};
   bool env_enable_vegetation_scatter_{false};
-  // Jamming
-  ar_config::JammingSensitivityProfile env_jamming_sensitivity_profile_{
-      ar_config::JammingSensitivityProfile::kBalanced};
 };
 
 #endif  // EXAMPLES_RADAR_MODULE_H_

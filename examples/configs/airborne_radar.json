@@ -106,9 +106,7 @@
       "vegetation_scatter_physics": {
         "cover_profile": "kDisabled",
         "enable_physical_model": false
-      },
-      "jammer_sources": []
+      }
     }
-  },
-  "jamming_sensitivity_profile": "kBalanced"
+  }
 }

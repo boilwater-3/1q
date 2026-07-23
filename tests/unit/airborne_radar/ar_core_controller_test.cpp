@@ -57,16 +57,6 @@ config::ArSessionConfig MakeDetectionFocusedConfig() {
       .Build();
 }
 
-config::EnvironmentScenarioConfig BuildJammingEnvironmentConfig(float jammer_power_db) {
-  config::EnvironmentScenarioConfig config;
-  config::JammerEmitterState jammer;
-  jammer.technique = config::JammingTechnique::kUnknown;
-  jammer.power_db = jammer_power_db;
-  jammer.confidence = 1.0f;
-  config.jammer_sources.push_back(jammer);
-  return config;
-}
-
 }  // namespace
 
 using FakeRadarContext = session::MutableArContext;
@@ -174,40 +164,6 @@ TEST_F(CoreControllerTest, PushesPlatformAttitudeIntoSignalPipelineBeforeRun) {
   EXPECT_FLOAT_EQ(cached_platform_attitude.yaw_deg, 18.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.pitch_deg, -4.0f);
   EXPECT_FLOAT_EQ(cached_platform_attitude.roll_deg, 2.0f);
-}
-
-TEST_F(CoreControllerTest, LegacyEnvironmentFactsDoNotEnterDecisionFrame) {
-  const session::ArSceneTargetList input_state = BuildSingleTarget(800.0f, 2.5f, false);
-  FakeRadarContext radar_context(input_state);
-
-  environment::EnvironmentService environment_service;
-  config::JammerEmitterState jammer_source;
-  jammer_source.technique = config::JammingTechnique::kDeception;
-  jammer_source.power_db = 10.0f;
-  jammer_source.confidence = 1.0f;
-  jammer_source.js_db = 7.0f;
-  jammer_source.position_x = 0.0f;
-  jammer_source.position_y = 10000.0f;
-  jammer_source.position_z = 174.55f;
-  jammer_source.angular_span_deg = 5.0f;
-  environment_service.UpdateSceneState([&] {
-    session::EnvironmentSceneState s;
-    s.jammer_emitters.push_back(jammer_source);
-    return s;
-  }());
-
-  signal::pipeline::SignalPipeline signal_pipeline;
-  extension::ArController controller(radar_context, signal_pipeline, environment_service);
-
-  controller.RunOnce();
-
-  const std::vector<signal::tracking::TrackMeasurement> measurements =
-      signal_pipeline.GetLastTrackMeasurements();
-
-  const session::DecisionInputFrame& decision_frame =
-      controller.GetLatestDecisionObservation().input_frame;
-  EXPECT_TRUE(decision_frame.interference_observations.empty());
-  ASSERT_EQ(measurements.size(), 1U);
 }
 
 TEST_F(CoreControllerTest, DefaultLifecyclePathBuildsTentativeDecisionFrameOnFirstCycle) {
@@ -544,7 +500,7 @@ TEST_F(CoreControllerTest, ExternalBurnthroughGainAltersNextPhysicalDetection) {
 
 TEST_F(CoreControllerTest, EmptyExternalResponseExplicitlyDisablesInternalControl) {
   FakeRadarContext radar_context(BuildSingleTarget(800.0f, 2.5f, false));
-  environment::EnvironmentService environment_service(BuildJammingEnvironmentConfig(12.0f));
+  environment::EnvironmentService environment_service;
   signal::pipeline::SignalPipeline signal_pipeline;
   extension::ArController controller(radar_context, signal_pipeline, environment_service);
 

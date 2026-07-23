@@ -18,7 +18,6 @@ config::ArSessionConfig BuildRuntimeSessionConfig(const ArSessionComposition& co
   config.mission = composition.runtime_mission;
   config.policy = composition.runtime_policy;
   config.environment.scenario_config = composition.runtime_environment_scenario_config;
-  config.environment.jamming_sensitivity_profile = composition.runtime_jamming_sensitivity_profile;
   return config;
 }
 
@@ -28,16 +27,7 @@ ArSessionComposition BuildCompositionBase(const config::ArSessionConfig& config)
   composition.runtime_mission = config.mission;
   composition.runtime_policy = config.policy;
   composition.runtime_environment_scenario_config = config.environment.scenario_config;
-  composition.runtime_jamming_sensitivity_profile = config.environment.jamming_sensitivity_profile;
   return composition;
-}
-
-void SyncEnvironmentJammingThreshold(ArSessionComposition* composition) {
-  if (composition == nullptr || composition->environment_service == nullptr) {
-    return;
-  }
-  composition->environment_service->SetJammingSensitivityProfile(
-      composition->runtime_jamming_sensitivity_profile);
 }
 
 }  // namespace
@@ -59,7 +49,6 @@ ArSessionComposition ArSessionCompositionRoot::ComposeDefault(
   composition.signal_pipeline = composition.owned_signal_pipeline.get();
   composition.environment_service = composition.owned_environment_service.get();
   composition.controller = composition.owned_controller.get();
-  SyncEnvironmentJammingThreshold(&composition);
   return composition;
 }
 

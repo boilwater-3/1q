@@ -27,34 +27,6 @@ std::size_t CountTracksByStatus(const session::TrackStateSnapshotList& tracks,
   return count;
 }
 
-flatbuffers::Offset<fb::ArSceneTarget> EncodeSceneTarget(flatbuffers::FlatBufferBuilder* builder,
-                                                         const ArSceneTarget& value) {
-  return fb::CreateArSceneTarget(
-      *builder, value.external_target_id, value.velocity_x, value.velocity_y, value.velocity_z,
-      value.rcs, value.range_m, value.position_x, value.position_y, value.position_z,
-      value.target_swerling_type, builder->CreateString(value.target_name));
-}
-
-ArSceneTarget DecodeSceneTarget(const fb::ArSceneTarget* value) {
-  ArSceneTarget result;
-  if (value != nullptr) {
-    result.external_target_id = value->external_target_id();
-    result.velocity_x = value->velocity_x();
-    result.velocity_y = value->velocity_y();
-    result.velocity_z = value->velocity_z();
-    result.rcs = value->rcs();
-    result.range_m = value->range_m();
-    result.position_x = value->position_x();
-    result.position_y = value->position_y();
-    result.position_z = value->position_z();
-    result.target_swerling_type = value->target_swerling_type();
-    if (value->target_name() != nullptr) {
-      result.target_name = value->target_name()->str();
-    }
-  }
-  return result;
-}
-
 flatbuffers::Offset<fb::AtmosphericObservation> EncodeCycleAtmosphericObservation(
     flatbuffers::FlatBufferBuilder* builder, const config::AtmosphericPhysicsConfig& value) {
   return fb::CreateAtmosphericObservation(*builder, value.enable_physical_model, value.pressure_hpa,
@@ -615,29 +587,13 @@ EncodeSessionVegetationScatterPhysicsConfig(flatbuffers::FlatBufferBuilder* buil
       *builder, static_cast<int>(value.cover_profile), value.enable_physical_model);
 }
 
-flatbuffers::Offset<session_fb::JammerEmitterState> EncodeSessionJammerEmitterState(
-    flatbuffers::FlatBufferBuilder* builder, const config::JammerEmitterState& value) {
-  return session_fb::CreateJammerEmitterState(
-      *builder, static_cast<int>(value.technique), value.power_db, value.js_db, value.position_x,
-      value.position_y, value.position_z, value.angular_span_deg, value.confidence);
-}
-
 flatbuffers::Offset<session_fb::EnvironmentScenarioConfig> EncodeSessionEnvironmentScenarioConfig(
     flatbuffers::FlatBufferBuilder* builder, const config::EnvironmentScenarioConfig& value) {
-  std::vector<flatbuffers::Offset<session_fb::JammerEmitterState>> jammer_sources;
-  jammer_sources.reserve(value.jammer_sources.size());
-  for (std::size_t i = 0; i < value.jammer_sources.size(); ++i) {
-    jammer_sources.push_back(EncodeSessionJammerEmitterState(builder, value.jammer_sources[i]));
-  }
-
-  const flatbuffers::Offset<
-      flatbuffers::Vector<flatbuffers::Offset<session_fb::JammerEmitterState>>>
-      source_vector = builder->CreateVector(jammer_sources);
   return session_fb::CreateEnvironmentScenarioConfig(
       *builder, EncodeSessionAtmosphericPhysicsConfig(builder, value.atmospheric_physics),
       EncodeSessionAtmosphericDerivedContext(builder, value.atmospheric_context),
-      EncodeSessionVegetationScatterPhysicsConfig(builder, value.vegetation_scatter_physics),
-      source_vector);
+      EncodeSessionVegetationScatterPhysicsConfig(
+          builder, value.vegetation_scatter_physics));
 }
 
 flatbuffers::Offset<session_fb::EnvironmentRuntimeConfigPatch>
@@ -645,8 +601,7 @@ EncodeSessionEnvironmentRuntimeConfigPatch(flatbuffers::FlatBufferBuilder* build
                                            const config::EnvironmentRuntimeConfigPatch& value) {
   return session_fb::CreateEnvironmentRuntimeConfigPatch(
       *builder, value.has_scenario_config,
-      EncodeSessionEnvironmentScenarioConfig(builder, value.scenario_config),
-      value.has_jamming_sensitivity_profile, static_cast<int>(value.jamming_sensitivity_profile));
+      EncodeSessionEnvironmentScenarioConfig(builder, value.scenario_config));
 }
 
 config::EulerAnglesDeg DecodeSessionEulerAngles(const session_fb::EulerAnglesDeg* value) {
@@ -899,22 +854,6 @@ config::VegetationScatterPhysicsConfig DecodeSessionVegetationScatterPhysicsConf
   return result;
 }
 
-config::JammerEmitterState DecodeSessionJammerEmitterState(
-    const session_fb::JammerEmitterState* value) {
-  config::JammerEmitterState result;
-  if (value != nullptr) {
-    result.technique = static_cast<config::JammingTechnique>(value->technique());
-    result.power_db = value->power_db();
-    result.js_db = value->js_db();
-    result.position_x = value->position_x();
-    result.position_y = value->position_y();
-    result.position_z = value->position_z();
-    result.angular_span_deg = value->angular_span_deg();
-    result.confidence = value->confidence();
-  }
-  return result;
-}
-
 config::EnvironmentScenarioConfig DecodeSessionEnvironmentScenarioConfig(
     const session_fb::EnvironmentScenarioConfig* value) {
   config::EnvironmentScenarioConfig result;
@@ -925,15 +864,6 @@ config::EnvironmentScenarioConfig DecodeSessionEnvironmentScenarioConfig(
         DecodeSessionAtmosphericDerivedContext(value->atmospheric_context());
     result.vegetation_scatter_physics =
         DecodeSessionVegetationScatterPhysicsConfig(value->vegetation_scatter_physics());
-    result.jammer_sources.clear();
-    const flatbuffers::Vector<flatbuffers::Offset<session_fb::JammerEmitterState>>* jammer_sources =
-        value->jammer_sources();
-    if (jammer_sources != nullptr) {
-      result.jammer_sources.reserve(jammer_sources->size());
-      for (flatbuffers::uoffset_t i = 0; i < jammer_sources->size(); ++i) {
-        result.jammer_sources.push_back(DecodeSessionJammerEmitterState(jammer_sources->Get(i)));
-      }
-    }
   }
   return result;
 }
@@ -944,9 +874,6 @@ config::EnvironmentRuntimeConfigPatch DecodeSessionEnvironmentRuntimeConfigPatch
   if (value != nullptr) {
     result.has_scenario_config = value->has_scenario_config();
     result.scenario_config = DecodeSessionEnvironmentScenarioConfig(value->scenario_config());
-    result.has_jamming_sensitivity_profile = value->has_jamming_sensitivity_profile();
-    result.jamming_sensitivity_profile =
-        static_cast<config::JammingSensitivityProfile>(value->jamming_sensitivity_profile());
   }
   return result;
 }
@@ -1029,25 +956,6 @@ flatbuffers::Offset<fb::RfSceneFrameV2> EncodeRfV2Scene(
   }
   return fb::CreateRfSceneFrameV2(*builder, value.world_cycle_index, value.window_start_time_s,
                                   value.window_duration_s, builder->CreateVector(emissions));
-}
-
-flatbuffers::Offset<fb::RfSceneReceiverStateV2> EncodeRfV2Receiver(
-    flatbuffers::FlatBufferBuilder* builder,
-    const oneq::electromagnetics::RfSceneReceiverState& value) {
-  std::vector<flatbuffers::Offset<fb::RfCoSiteIsolationPathV2>> paths;
-  paths.reserve(value.co_site_paths.size());
-  for (const auto& path : value.co_site_paths) {
-    paths.push_back(fb::CreateRfCoSiteIsolationPathV2(
-        *builder, path.transmitter_equipment_id, path.receiver_equipment_id, path.isolation_db));
-  }
-  return fb::CreateRfSceneReceiverStateV2(
-      *builder, value.platform_id, value.equipment_id,
-      EncodeRfV2Position(builder, value.position_ecef_m),
-      EncodeRfV2Velocity(builder, value.velocity_ecef_mps),
-      EncodeRfV2Antenna(builder, value.antenna), static_cast<int>(value.polarization),
-      value.window_start_time_s, value.window_duration_s, value.center_frequency_hz,
-      value.bandwidth_hz, value.receiver_system_loss_db, value.minimum_far_field_range_m,
-      builder->CreateVector(paths));
 }
 
 oneq::coordinate::EcefPositionM DecodeRfV2Position(const fb::Vector3d* value) {
@@ -1146,37 +1054,6 @@ oneq::electromagnetics::RfSceneFrame DecodeRfV2Scene(const fb::RfSceneFrameV2* v
       result.emissions.reserve(value->emissions()->size());
       for (const fb::RfSceneEmissionV2* emission : *value->emissions()) {
         result.emissions.push_back(DecodeRfV2Emission(emission));
-      }
-    }
-  }
-  return result;
-}
-
-oneq::electromagnetics::RfSceneReceiverState DecodeRfV2Receiver(
-    const fb::RfSceneReceiverStateV2* value) {
-  oneq::electromagnetics::RfSceneReceiverState result;
-  if (value != nullptr) {
-    result.platform_id = value->platform_id();
-    result.equipment_id = value->equipment_id();
-    result.position_ecef_m = DecodeRfV2Position(value->position_ecef_m());
-    result.velocity_ecef_mps = DecodeRfV2Velocity(value->velocity_ecef_mps());
-    result.antenna = DecodeRfV2Antenna(value->antenna());
-    result.polarization =
-        static_cast<oneq::electromagnetics::RfScenePolarization>(value->polarization());
-    result.window_start_time_s = value->window_start_time_s();
-    result.window_duration_s = value->window_duration_s();
-    result.center_frequency_hz = value->center_frequency_hz();
-    result.bandwidth_hz = value->bandwidth_hz();
-    result.receiver_system_loss_db = value->receiver_system_loss_db();
-    result.minimum_far_field_range_m = value->minimum_far_field_range_m();
-    if (value->co_site_paths() != nullptr) {
-      result.co_site_paths.reserve(value->co_site_paths()->size());
-      for (const fb::RfCoSiteIsolationPathV2* encoded : *value->co_site_paths()) {
-        oneq::electromagnetics::RfCoSiteIsolationPath path;
-        path.transmitter_equipment_id = encoded->transmitter_equipment_id();
-        path.receiver_equipment_id = encoded->receiver_equipment_id();
-        path.isolation_db = encoded->isolation_db();
-        result.co_site_paths.push_back(path);
       }
     }
   }
@@ -1501,7 +1378,6 @@ flatbuffers::Offset<fb::ArSessionReplayStateV3> EncodeSessionReplayStateV3(
       value.frequency_hop_index, value.has_pending_runtime_update,
       value.pending_execution_config_changed,
       value.pending_environment_scenario_config_changed,
-      value.pending_jamming_sensitivity_profile_changed,
       EncodeDecisionReplayState(builder, value.decision_state));
 }
 
@@ -1520,8 +1396,6 @@ ArSessionReplayState DecodeSessionReplayStateV3(
         value->pending_execution_config_changed();
     result.pending_environment_scenario_config_changed =
         value->pending_environment_scenario_config_changed();
-    result.pending_jamming_sensitivity_profile_changed =
-        value->pending_jamming_sensitivity_profile_changed();
     result.decision_state =
         DecodeDecisionReplayState(value->decision_state());
   }
@@ -1731,7 +1605,6 @@ std::string EncodeSessionConfigFlatbuffer(const config::ArSessionConfig& config)
       builder, EncodeSessionDetectionConfig(&builder, config.hardware),
       EncodeSessionOrientation(&builder, config.mission.orientation),
       EncodeSessionPolicyConfig(&builder, config.policy),
-      static_cast<int>(config.environment.jamming_sensitivity_profile),
       EncodeEnvironmentDefaultConfig(&builder, config.environment), config.mission.power_on);
   builder.Finish(root, session_fb::ArSessionConfigIdentifier());
 
@@ -1768,8 +1641,6 @@ bool DecodeSessionConfigFlatbuffer(const std::string& payload_bytes,
   config->mission.power_on = root->power_on();
   config->policy = DecodeSessionPolicyConfig(root->policy());
   config->environment = DecodeEnvironmentDefaultConfig(root->environment_default_config());
-  config->environment.jamming_sensitivity_profile =
-      static_cast<config::JammingSensitivityProfile>(root->jamming_sensitivity_profile());
   return true;
 }
 

@@ -98,8 +98,9 @@ EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同�
 - 发射事实只描述实际运动学、发射天线、极化、波形类别和周期内时频功率活动，禁止携带
   `received_power`、J/S、J/N、receiver impairment、`jamming_detected` 或成功概率。分段功率表示该
   active interval 和占用带宽内的实际总发射功率；连续、参数化脉冲列和扫频必须能在不逐 IQ 采样、
-  不逐脉冲无界展开的前提下确定性计算时间/频率占用。具体 public DTO 形状须由 characterization
-  证明后再冻结，当前 `RfEmissionSegment` 不能被视为最终波形调度合同。
+  不逐脉冲无界展开的前提下确定性计算时间/频率占用。公共 DTO 已冻结为
+  `RfEmissionFrame` / `RfSceneFrame`、`RfSceneEmission` 和参数化 `RfWaveformSchedule`；旧
+  `RfEmissionSegment` 仅为尚未迁移模块保留的 v1 兼容类型，AR 不得使用。
 - 公共单程链路只到达接收设备输入端：自由空间损耗、附加传播损耗、收发方向增益、极化损耗和
   入射功率/功率谱密度属于公共纯函数结果。大气公共层只提供路径附加损耗。匹配滤波、脉冲压缩、
   通道化、处理增益、热噪声账本、Pd/Pfa、receiver impairment、观测误差和 ECCM 均由具体传感器拥有。
@@ -157,11 +158,11 @@ AR/ESR 必须遵守同一物理分层，但各自拥有不同算法：
 4. **sensor decision**：AR 使用处理后 SINR/Pfa/Pd 生成量测，ESR 使用截获概率、SINR 和碰撞/掩蔽
    结果生成脉冲或能量观测。只有这一层可以产生 receiver impairment 和测量不确定度。
 
-当前公共 link-budget characterization 只证明自由空间、矩形时频重叠、方向图、极化、co-site 和 W 域
-聚合的原型基元；它不证明两阶段周期、参数化波形、设备级隔离、前端/通道双账本或传感器探测闭环已经实现。
+公共 RF v2 characterization 已覆盖自由空间、参数化 pulse/sweep 占用、传播时延、Doppler、设备级
+co-site 和 W/PSD 域聚合。它仍不替代各传感器的前端/通道账本、检测统计或资源调度验收。
 
 [evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.DistanceDoublingLosesSixPointZeroTwoDb]
-[evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.TimeAndFrequencyOverlapScalePowerExactly]
+[evidence: tests/unit/common/common_rf_scene_test.cpp::RfSceneTest.PropagationDelayDopplerAndPriorCycleArrivalAreExplicit]
 [evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.AggregationIsOrderIndependentAndRejectsDuplicateIdsAtomically]
 [evidence: tests/unit/common/common_rf_link_budget_test.cpp::RfLinkBudgetTest.InvalidInputsAndMissingCoSiteIsolationRejectAtomically]
 
@@ -295,10 +296,9 @@ raw pointer 回填组件关系，但 `Impl` 长期持有状态不得同时保存
 | **事务性提交** | patch 经 resolver 校验；配置延迟到下个周期边界原子落定；commit 或周期执行失败时，对持有跨周期累积状态的子系统做 capture/restore 完整恢复。 | `airborne_radar` |
 | **立即提交** | patch 经 resolver 校验；`TryApplyRuntimeConfig` 调用即生效，配置单向落定、不在 session 层回滚。若 pipeline 持有累积状态且执行可能失败，回滚边界由该模块在内部层（如 controller）声明，不上升为 session 层契约。 | `electronic_surveillance_radar`、`electro_optical_sensor`、`sar`、`sbirs_sensor` |
 
-上述表描述当前单阶段 session 实现。工程 RF 两阶段目标对 AR 增加一个不可回滚的 transmitter publish
-提交点：发射事实发布后，接收侧事务不得撤销 transmitter waveform/phase/ID 状态；当前四子系统整体
-snapshot/restore 只在单阶段迁移完成前成立。该变化必须在 prepare/complete 实现批次中同步修改状态
-所有权、runtime patch 影响矩阵和 replay，不能用文档解释绕过现有代码行为。
+AR 仍以单周期 `StepWithResult()` 作为公共接口。其内部先提交实际发射事实，再完成接收、检测和跟踪；
+发射提交后，后续接收侧失败不得撤销 waveform/phase/ID 状态。AR replay 与 runtime patch 必须保存该
+内部提交边界；调用方不管理 prepare/complete 阶段。
 
 规则：
 

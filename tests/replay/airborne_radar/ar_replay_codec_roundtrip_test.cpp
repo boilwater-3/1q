@@ -65,9 +65,7 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.policy.decision_control.eccm_hold_cycles_after_request = 3U;
   config.policy.decision_control.lpi_cooldown_cycles_after_release = 4U;
   config.policy.decision_control.eccm_cooldown_cycles_after_release = 5U;
-  // jamming_sensitivity_profile
-  config.environment.jamming_sensitivity_profile = config::JammingSensitivityProfile::kStrict;
-  // environment (previously missing from codec!)
+  // natural environment
   config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
   config.environment.scenario_config.atmospheric_physics.pressure_hpa = 1010.0f;
   config.environment.scenario_config.atmospheric_physics.temperature_k = 290.0f;
@@ -77,15 +75,6 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.environment.scenario_config.vegetation_scatter_physics.enable_physical_model = true;
   config.environment.scenario_config.vegetation_scatter_physics.cover_profile =
       config::VegetationCoverProfile::kSparseWoodland;
-  config::JammerEmitterState jammer;
-  jammer.technique = config::JammingTechnique::kNoiseSuppression;
-  jammer.power_db = 25.0f;
-  jammer.js_db = 8.0f;
-  jammer.position_x = 5000.0f;     // range 10000m * sin(30 deg)
-  jammer.position_y = 8660.25f;    // range 10000m * cos(30 deg)
-  jammer.position_z = 874.887f;    // range 10000m * tan(5 deg)
-  config.environment.scenario_config.jammer_sources.push_back(jammer);
-
   const std::string bytes = EncodeSessionConfigFlatbuffer(config);
   ASSERT_FALSE(bytes.empty());
 
@@ -132,9 +121,7 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_EQ(decoded.policy.decision_control.eccm_hold_cycles_after_request, 3U);
   EXPECT_EQ(decoded.policy.decision_control.lpi_cooldown_cycles_after_release, 4U);
   EXPECT_EQ(decoded.policy.decision_control.eccm_cooldown_cycles_after_release, 5U);
-  // jamming_sensitivity_profile
-  EXPECT_EQ(decoded.environment.jamming_sensitivity_profile, config::JammingSensitivityProfile::kStrict);
-  // environment (previously broken!)
+  // natural environment
   EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.pressure_hpa, 1010.0f);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.temperature_k, 290.0f);
@@ -145,13 +132,6 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_TRUE(decoded.environment.scenario_config.vegetation_scatter_physics.enable_physical_model);
   EXPECT_EQ(decoded.environment.scenario_config.vegetation_scatter_physics.cover_profile,
             config::VegetationCoverProfile::kSparseWoodland);
-  ASSERT_EQ(decoded.environment.scenario_config.jammer_sources.size(), 1U);
-  EXPECT_EQ(decoded.environment.scenario_config.jammer_sources[0].technique,
-            config::JammingTechnique::kNoiseSuppression);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].power_db, 25.0f);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].position_x, 5000.0f);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].position_y, 8660.25f);
-  EXPECT_FLOAT_EQ(decoded.environment.scenario_config.jammer_sources[0].position_z, 874.887f);
 }
 
 // ---------------------------------------------------------------------------
@@ -177,9 +157,6 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   patch.has_commanded_beamwidth_enabled = true;
   patch.commanded_beamwidth_enabled = true;
   patch.has_environment = true;
-  patch.environment.has_jamming_sensitivity_profile = true;
-  patch.environment.jamming_sensitivity_profile =
-      config::JammingSensitivityProfile::kStrict;
   patch.environment.has_scenario_config = true;
   patch.environment.scenario_config.atmospheric_physics.relative_humidity = 0.45f;
 
@@ -206,9 +183,6 @@ TEST(ArReplayCodecRoundtripTest, RuntimeConfigPatchPreservesAllFields) {
   EXPECT_TRUE(decoded.has_commanded_beamwidth_enabled);
   EXPECT_TRUE(decoded.commanded_beamwidth_enabled);
   EXPECT_TRUE(decoded.has_environment);
-  EXPECT_TRUE(decoded.environment.has_jamming_sensitivity_profile);
-  EXPECT_EQ(decoded.environment.jamming_sensitivity_profile,
-            config::JammingSensitivityProfile::kStrict);
   EXPECT_TRUE(decoded.environment.has_scenario_config);
   EXPECT_FLOAT_EQ(
       decoded.environment.scenario_config.atmospheric_physics.relative_humidity,

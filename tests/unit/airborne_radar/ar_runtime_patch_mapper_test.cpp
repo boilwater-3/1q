@@ -78,15 +78,13 @@ TEST(ArRuntimePatchMapperTest, DwellPatchContributesToPipelinePointing) {
                   2.0f);
 }
 
-TEST(ArRuntimePatchMapperTest, EnvironmentPatchUpdatesModelAndThreshold) {
+TEST(ArRuntimePatchMapperTest, EnvironmentPatchUpdatesNaturalModel) {
   RuntimeConfigState current_state;
   current_state.environment_scenario_config.atmospheric_physics.enable_physical_model = false;
-  current_state.jamming_sensitivity_profile = config::JammingSensitivityProfile::kBalanced;
 
   ArRuntimeConfigPatch patch =
       ArRuntimeConfigBuilder()
           .WithEnvironmentScenarioConfig(config::EnvironmentScenarioConfig{})
-          .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
           .Build();
   patch.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
 
@@ -95,22 +93,18 @@ TEST(ArRuntimePatchMapperTest, EnvironmentPatchUpdatesModelAndThreshold) {
   EXPECT_TRUE(resolved.has_requested_update);
   EXPECT_TRUE(resolved.is_valid);
   EXPECT_TRUE(resolved.environment_scenario_config_changed);
-  EXPECT_TRUE(resolved.jamming_sensitivity_profile_changed);
   EXPECT_TRUE(
       resolved.next_state.environment_scenario_config.atmospheric_physics.enable_physical_model);
-  EXPECT_EQ(resolved.next_state.jamming_sensitivity_profile,
-            config::JammingSensitivityProfile::kStrict);
 }
 
 TEST(ArRuntimePatchMapperTest, InvalidPatchIsRejectedAtomically) {
   RuntimeConfigState current_state;
   current_state.execution_config.detection.orientation.scan_center_deg.az_deg = 1.0f;
   current_state.execution_config.detection.orientation.scan_center_deg.el_deg = 2.0f;
-  current_state.jamming_sensitivity_profile = config::JammingSensitivityProfile::kBalanced;
 
   ArRuntimeConfigPatch patch =
       ArRuntimeConfigBuilder()
-          .WithJammingSensitivityProfile(config::JammingSensitivityProfile::kStrict)
+          .WithEnvironmentScenarioConfig(config::EnvironmentScenarioConfig{})
           .Build();
   patch.has_scan_center_deg = true;
   patch.scan_center_deg.az_deg = std::numeric_limits<float>::quiet_NaN();
@@ -122,11 +116,8 @@ TEST(ArRuntimePatchMapperTest, InvalidPatchIsRejectedAtomically) {
   EXPECT_FALSE(resolved.is_valid);
   EXPECT_FALSE(resolved.execution_config_changed);
   EXPECT_FALSE(resolved.environment_scenario_config_changed);
-  EXPECT_FALSE(resolved.jamming_sensitivity_profile_changed);
   EXPECT_FLOAT_EQ(resolved.next_state.execution_config.detection.orientation.scan_center_deg.az_deg,
                   1.0f);
-  EXPECT_EQ(resolved.next_state.jamming_sensitivity_profile,
-            config::JammingSensitivityProfile::kBalanced);
 }
 
 TEST(ArRuntimePatchMapperTest, EnabledNonPositiveBeamwidthIsRejectedAtomically) {

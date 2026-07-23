@@ -178,14 +178,11 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
 
   float clutter_w = ComputeEquivalentClutterNoiseW(config.detection.engineering,
                                                    environment_snapshot.clutter_power_db);
-  const float jam_w =
-      std::max(0.0f, config.jamming_effects.resolved_engineering_jam_noise_w);
-
   detection::EnvironmentState env;
   env.propagation_loss_db =
       environment_snapshot.propagation_loss_db - environment_snapshot.atmospheric_physics_loss_db;
   env.clutter_noise_w = clutter_w;
-  env.jam_noise_w = jam_w;
+  env.jam_noise_w = 0.0f;  // RF v2 interference is resolved in the detection-cell path below.
 
   signal_detector->UpdateConfig(config.detection.engineering);
 

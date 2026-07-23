@@ -134,7 +134,6 @@ ar_session::ArEnvironmentInput MakeArEnvironment() {
 
 struct ArRfTestCycleInput {
   ar_session::ArCycleInput cycle{};
-  bool include_noise_jammer{false};
   bool valid{false};
 };
 
@@ -163,9 +162,31 @@ ArRfTestCycleInput BuildArInput(const WorldState& ws, float dt, std::uint32_t cy
   input.cycle.targets = targets;
   const ar_session::ArEnvironmentInput environment = env_state.Snapshot();
   input.cycle.environment = environment;
-  input.include_noise_jammer = !environment.jammer_sources.empty();
   input.valid = true;
   return input;
+}
+
+oneq::electromagnetics::RfEmissionFrame MakeNoiseInterferenceFrame(
+    const ar_session::ArCycleInput& cycle) {
+  oneq::electromagnetics::RfEmissionFrame frame;
+  frame.world_cycle_index = cycle.cycle_index;
+  frame.window_start_time_s = cycle.cycle_start_time_s;
+  frame.window_duration_s = cycle.dt_sec;
+  oneq::electromagnetics::RfSceneEmission jammer;
+  jammer.identity.platform_id = 20U;
+  jammer.identity.equipment_id = 21U;
+  jammer.identity.emission_id = 100000U + cycle.cycle_index;
+  jammer.position_ecef_m = cycle.platform.platform_position_ecef_m;
+  jammer.position_ecef_m.x_m += 1000.0;
+  jammer.antenna.boresight_ecef.x = -1.0;
+  jammer.antenna.peak_gain_dbi = 35.0;
+  if (!oneq::electromagnetics::TryCreateRfNoiseWaveform(
+          cycle.cycle_start_time_s, cycle.dt_sec, 9.3e9, 20.0e6, 1.0e18,
+          &jammer.waveform)) {
+    return oneq::electromagnetics::RfEmissionFrame{};
+  }
+  frame.emissions.push_back(jammer);
+  return frame;
 }
 
 ArRfTestCycleResult RunArCycle(ar_session::ArTraceSession* session,
@@ -175,25 +196,6 @@ ArRfTestCycleResult RunArCycle(ar_session::ArTraceSession* session,
     return result;
   }
   ar_session::ArCycleInput cycle = input.cycle;
-  if (input.include_noise_jammer) {
-    oneq::electromagnetics::RfSceneEmission jammer;
-    jammer.identity.platform_id = 20U;
-    jammer.identity.equipment_id = 21U;
-    jammer.identity.emission_id = 100000U + cycle.cycle_index;
-    jammer.position_ecef_m = cycle.platform.platform_position_ecef_m;
-    jammer.position_ecef_m.x_m += 1000.0;
-    jammer.antenna.boresight_ecef.x = -1.0;
-    jammer.antenna.peak_gain_dbi = 35.0;
-    cycle.interference.world_cycle_index = cycle.cycle_index;
-    cycle.interference.window_start_time_s = cycle.cycle_start_time_s;
-    cycle.interference.window_duration_s = cycle.dt_sec;
-    if (!oneq::electromagnetics::TryCreateRfNoiseWaveform(
-            cycle.cycle_start_time_s, cycle.dt_sec, 9.3e9, 20.0e6,
-            1.0e18, &jammer.waveform)) {
-      return result;
-    }
-    cycle.interference.emissions.push_back(jammer);
-  }
   const ar_session::ArCycleResult completed = session->StepWithResult(cycle);
   result.accepted = completed.status == ar_session::ArCycleStatus::kCompleted ||
                     completed.status == ar_session::ArCycleStatus::kPoweredOff;
@@ -351,9 +353,6 @@ ar_config::ArSessionConfig MakeArConfigAirToAir() {
           .Lifecycle()
           .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
           .End()
-          .Environment()
-          .WithJammingSensitivityProfile(ar_env::JammingSensitivityProfile::kBalanced)
-          .End()
           .Build();
   config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
   config.mission.orientation.scan_center_deg = ar_config::AzimuthElevationDeg{};
@@ -419,9 +418,6 @@ ar_config::ArSessionConfig MakeArConfigAirToGround() {
           .End()
           .Lifecycle()
           .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
-          .End()
-          .Environment()
-          .WithJammingSensitivityProfile(ar_env::JammingSensitivityProfile::kBalanced)
           .End()
           .Build();
   config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
@@ -1003,9 +999,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   const float dt = 1.0f;
   const std::uint32_t num_cycles = 40;
 
-  // AR config with strict jamming sensitivity
   auto ar_cfg = MakeArConfigAirToAir();
-  ar_cfg.environment.jamming_sensitivity_profile = ar_env::JammingSensitivityProfile::kStrict;
 
   const std::string ar_trace = MakeTempTraceDir("multi-scene3-ar");
   oneq::replay::ReplayTraceManifest ar_mf;
@@ -1047,18 +1041,8 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   esr_opts.trace_config_on_construct = true;
   esr_session::EsrTraceSession esr_sess(MakeEsrConfigAirToAir(), esr_opts);
 
-  // AR 环境含干扰源（目标 B 为 100MW 伴随干扰机）
+  // AR 自然环境与外部 RF 发射事实分离；目标 B 的伴随干扰由 RF frame 表达。
   ar_session::ArEnvironmentInput ar_env_base = MakeArEnvironment();
-  ar_env::JammerEmitterState jammer;
-  jammer.technique = ar_env::JammingTechnique::kNoiseSuppression;
-  jammer.power_db = 80.0f;  // 100MW in dB
-  jammer.js_db = 20.0f;
-  jammer.position_x = 0.0f;      // azimuth 0 deg (forward)
-  jammer.position_y = 10000.0f;  // forward direction
-  jammer.position_z = 0.0f;      // elevation 0 deg
-  jammer.angular_span_deg = 5.0f;
-  jammer.confidence = 1.0f;
-  ar_env_base.jammer_sources.push_back(jammer);
   ar_session::ArEnvironmentInputState ar_env_st(ar_env_base);
   eos_session::EosEnvironmentInput eos_env;
   eos_env.solar_altitude_deg = -15.0f;  // 夜间
@@ -1074,8 +1058,7 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
   esr_env.propagation_profile = esr_session::EsrPropagationEnvironmentProfile::kOpen;
 
   // 物理验证累积器
-  bool ar_jamming_detected = false;
-  std::uint32_t ar_jamming_track_count = 0;
+  bool ar_interference_observed = false;
   float eos_ir_snr_max = 0.0f;
   float eos_vis_snr_max = 0.0f;
   int eos_ir_detected = 0;
@@ -1086,12 +1069,12 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
     const std::uint32_t cycle = i + 1;
 
     auto ar_in = BuildArInput(ws, dt, cycle, ar_env_st);
+    ar_in.cycle.interference = MakeNoiseInterferenceFrame(ar_in.cycle);
     auto ar_res = RunArCycle(&ar_sess, ar_in);
     EXPECT_TRUE(ar_res.accepted) << "AR cycle rejected at cycle " << cycle;
     if (!ar_res.interference_observations.empty() ||
         ar_res.receiver_impairment == ar_session::ArReceiverImpairment::kSaturated) {
-      ar_jamming_detected = true;
-      ar_jamming_track_count += static_cast<std::uint32_t>(ar_res.interference_observations.size());
+      ar_interference_observed = true;
     }
 
     auto eos_in = BuildEosInput(ws, dt, cycle, eos_env);
@@ -1127,9 +1110,9 @@ TEST(MultiModelScenarioTest, DenseFormationAndJamming) {
 
   // ---- 物理逻辑验证 ----
 
-  // AR: 100MW 伴随干扰机 + kStrict 灵敏度 + 显式干扰源环境输入 → 应检测到干扰
-  EXPECT_TRUE(ar_jamming_detected)
-      << "AR should detect jamming from 100MW escort jammer (explicit env input)";
+  // AR: 显式 RF 发射 frame 应通过接收链形成干扰观测或饱和。
+  EXPECT_TRUE(ar_interference_observed)
+      << "AR should observe the explicit escort RF emission frame";
 
   // EOS: 夜间红外模式 → 可见光 SNR 应远低于红外 SNR
   if (eos_ir_detected > 0) {

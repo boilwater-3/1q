@@ -9,41 +9,11 @@
 #define ONEQ_AIRBORNE_RADAR_SESSION_AR_ENVIRONMENT_INPUT_H_
 
 #include <cstdint>
-#include <vector>
-
 #include "1q/airborne_radar/config/ArEnvironmentConfig.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
 namespace session {
-
-/**
- * @brief JammerDirectionDeg 表示干扰来向角。
- */
-struct ONEQ_API JammerDirectionDeg {
-  float azimuth_deg{0.0f};   /**< 干扰来向方位角（单位：deg） */
-  float elevation_deg{0.0f}; /**< 干扰来向俯仰角（单位：deg） */
-};
-
-/**
- * @brief JammerSourceFact 表示单周期冻结后的干扰事实输出。
- * @note 其中 overlap/prf/sidelobe 等量由库内基于场景事实与运行状态派生。
- */
-struct ONEQ_API JammerSourceFact {
-  config::JammingTechnique technique{config::JammingTechnique::kUnknown}; /**< 干扰技术类型 */
-  float power_db{0.0f};                /**< 干扰功率估计（单位：dB） */
-  float js_db{0.0f};                   /**< 干扰与信号比估计（单位：dB） */
-  float frequency_overlap_ratio{0.0f}; /**< 干扰与当前工作频率的重叠度，范围 [0, 1] */
-  float prf_lock_risk{0.0f};           /**< 干扰对当前 PRF 锁定的风险度，范围 [0, 1] */
-  bool has_direction_deg{false};       /**< 是否具有可用的干扰来向方位/俯仰角 */
-  JammerDirectionDeg direction_deg{};  /**< 干扰来向角（仅在 has_direction_deg=true 时有效） */
-  float angular_span_deg{0.0f};        /**< 干扰角域宽度（单位：deg） */
-  bool in_sidelobe{false};             /**< 干扰是否主要经由旁瓣进入 */
-  float confidence{1.0f};              /**< 干扰事实置信度，范围 [0, 1] */
-};
-
-/** @brief 单周期内可见的干扰源列表 */
-using JammerSourceFactList = std::vector<JammerSourceFact>;
 
 /**
  * @brief ArEnvironmentInputPatch 表示调用方侧环境事实状态的局部更新。
@@ -59,10 +29,6 @@ struct ONEQ_API ArEnvironmentInputPatch {
   config::AtmosphericDerivedContext atmospheric_context{};      /**< 新时间/空间天气输入 */
   bool has_surface_observation{false};                          /**< 是否更新地表/植被输入 */
   config::VegetationScatterPhysicsConfig surface_observation{}; /**< 新地表/植被输入 */
-  bool has_jammer_sources{false};                               /**< 是否更新干扰源列表 */
-  config::JammerEmitterStateList jammer_sources{};              /**< 新干扰源列表 */
-  bool has_interference{false};                                 /**< 是否更新 tagged 干扰输入 */
-  config::ArInterferenceInput interference{};                   /**< 新 tagged 干扰输入 */
 };
 
 /**
@@ -86,16 +52,6 @@ struct ONEQ_API EnvironmentSnapshot {
   config::AtmosphericDerivedContext atmospheric_context{}; /**< 当前周期时间/空间天气上下文输入 */
   float effective_k_factor{4.0f / 3.0f};   /**< 当前周期自动推导的有效地球半径因子 */
   std::int32_t effective_day_of_year{172}; /**< 当前周期自动推导的年积日 */
-  JammerSourceFactList jammer_sources{};   /**< 当前周期可见的多源干扰事实 */
-  std::vector<oneq::electromagnetics::RfEmission>
-      engineering_interference_emissions{}; /**< RF 发射事实 */
-  oneq::electromagnetics::RfInterferenceMode interference_mode{
-      oneq::electromagnetics::RfInterferenceMode::kNone}; /**< 当前冻结干扰表示模式 */
-  bool has_rf_receiver_kinematics{false};                 /**< 是否具有 RF 接收站 ECEF 运动学 */
-  std::uint64_t rf_receiver_entity_id{0};                 /**< RF 接收平台实体 ID */
-  oneq::coordinate::EcefPositionM rf_receiver_position_ecef_m{};     /**< RF 接收位置 */
-  oneq::coordinate::EcefVelocityMps rf_receiver_velocity_ecef_mps{}; /**< RF 接收速度 */
-  bool jamming_detected{false};                                      /**< 是否检测到干扰 */
 };
 
 /**
@@ -105,12 +61,6 @@ struct ONEQ_API EnvironmentSceneState {
   config::AtmosphericPhysicsConfig atmospheric_physics{};  /**< 可选物理传播参数 */
   config::AtmosphericDerivedContext atmospheric_context{}; /**< 可选时间/空间天气上下文 */
   config::VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 可选植被散射参数 */
-  config::JammerEmitterStateList jammer_emitters{}; /**< 当前场景中的干扰源输入 */
-  config::ArInterferenceInput interference{};       /**< tagged 干扰输入 */
-  bool has_rf_receiver_kinematics{false};           /**< 是否提供接收平台 ECEF 运动学 */
-  std::uint64_t rf_receiver_entity_id{0};           /**< 接收平台实体 ID */
-  oneq::coordinate::EcefPositionM rf_receiver_position_ecef_m{};     /**< 接收平台 ECEF 位置 */
-  oneq::coordinate::EcefVelocityMps rf_receiver_velocity_ecef_mps{}; /**< 接收平台 ECEF 速度 */
 };
 
 /**
@@ -120,8 +70,6 @@ struct ONEQ_API ArEnvironmentInput {
   config::AtmosphericPhysicsConfig atmospheric_observation{};   /**< 当前周期气象/电离层输入 */
   config::AtmosphericDerivedContext atmospheric_context{};      /**< 当前周期时间/空间天气输入 */
   config::VegetationScatterPhysicsConfig surface_observation{}; /**< 当前周期地表/植被输入 */
-  config::JammerEmitterStateList jammer_sources{};              /**< 当前周期干扰源事实输入 */
-  config::ArInterferenceInput interference{};                   /**< 新 tagged 干扰输入 */
 };
 
 /**
@@ -156,12 +104,6 @@ class ONEQ_API ArEnvironmentInputState {
     }
     if (patch.has_surface_observation) {
       snapshot_.surface_observation = patch.surface_observation;
-    }
-    if (patch.has_jammer_sources) {
-      snapshot_.jammer_sources = patch.jammer_sources;
-    }
-    if (patch.has_interference) {
-      snapshot_.interference = patch.interference;
     }
     return *this;
   }

@@ -33,8 +33,7 @@ int main() {
   built_config.mission.orientation.scan_center_deg.el_deg = 0.0f;
   built_config.policy.tracking.enable_kalman_filter = true;
   built_config.policy.lifecycle.confirm_hits = 3;
-  built_config.environment.jamming_sensitivity_profile =
-      airborne_radar::config::ResolveJammingSensitivityProfile(5.0f);
+  built_config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
 
   // 3. Session construction from builder config
   airborne_radar::session::ArSession session =
@@ -89,8 +88,8 @@ int main() {
       airborne_radar::config::ArRuntimeConfigBuilder()
           .WithWorkMode(airborne_radar::config::ArWorkMode::kTas)
           .WithScanCenterDeg(scan_center_deg)
-          .WithJammingSensitivityProfile(
-              airborne_radar::config::ResolveJammingSensitivityProfile(8.0f))
+          .WithEnvironmentScenarioConfig(
+              airborne_radar::config::EnvironmentScenarioConfig{})
           .WithCommandedBeamwidthEnabled(true)
           .Build();
   session.ApplyRuntimeConfig(runtime_patch);

@@ -59,15 +59,6 @@ class ONEQ_API ArRuntimeConfigBuilder {
     return *this;
   }
 
-  /** @brief 更新干扰判定灵敏度语义档位。 */
-  ArRuntimeConfigBuilder& WithJammingSensitivityProfile(
-      config::JammingSensitivityProfile profile) noexcept {
-    patch_.has_environment = true;
-    patch_.environment.has_jamming_sensitivity_profile = true;
-    patch_.environment.jamming_sensitivity_profile = profile;
-    return *this;
-  }
-
   /** @brief 更新雷达工作模式（命名对齐 EOS/ESR 的 WithWorkMode）。 */
   ArRuntimeConfigBuilder& WithWorkMode(ArWorkMode work_mode) noexcept {
     patch_.has_work_mode = true;

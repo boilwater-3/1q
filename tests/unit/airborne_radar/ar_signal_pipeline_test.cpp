@@ -19,7 +19,6 @@
 #include "airborne_radar/config/mapping/SessionToExecutionMapper.h"
 #include "airborne_radar/environment/EnvironmentService.h"
 #include "airborne_radar/signal/pipeline/ControlProfileEffects.h"
-#include "airborne_radar/signal/pipeline/JammingEffects.h"
 #include "airborne_radar/signal/pipeline/RuntimeAssemblySupport.h"
 #include "airborne_radar/signal/pipeline/SignalPipeline.h"
 #include "airborne_radar/signal/tracking/ITrackLifecycleManager.h"
@@ -179,22 +178,6 @@ session::SignalCycleResult RunPipelineCycle(PipelineType* pipeline,
   return pipeline->RunCycle(ToSceneTargets(input_state), *environment_service);
 }
 
-config::JammerEmitterState MakeJammerEmitter(config::JammingTechnique technique, float power_db) {
-  config::JammerEmitterState jammer;
-  jammer.technique = technique;
-  jammer.power_db = power_db;
-  jammer.confidence = 1.0f;
-  return jammer;
-}
-
-config::EnvironmentScenarioConfig MakeEnvironmentConfigWithJammers(
-    std::initializer_list<config::JammerEmitterState> jammer_sources) {
-  config::EnvironmentScenarioConfig config;
-  config.jammer_sources.insert(config.jammer_sources.end(), jammer_sources.begin(),
-                               jammer_sources.end());
-  return config;
-}
-
 void ApplyHardwareProfile(config::ArSessionConfig* config,
                           config::profiles::ArHardwareProfile profile) {
   if (config == nullptr) {
@@ -345,22 +328,6 @@ TEST(SignalPipelineTest, KeepsTrackStableWhenDetectionMarginIsEnough) {
   ASSERT_EQ(output_state.size(), 1u);
   EXPECT_FLOAT_EQ(SpeedOf(output_state[0]), SpeedOf(input_state[0]));
   EXPECT_FLOAT_EQ(output_state[0].rcs, input_state[0].rcs);
-}
-
-TEST(SignalPipelineTest, DegradesTrackWhenDetectionMarginIsTooLow) {
-  config::EnvironmentScenarioConfig env_config;
-  env_config.jammer_sources.push_back(MakeJammerEmitter(config::JammingTechnique::kUnknown, 40.0f));
-  environment::EnvironmentService environment_service(env_config);
-
-  signal::pipeline::SignalPipeline signal_pipeline;
-  const session::ArSceneTargetList input_state{session::ArSceneTarget(800.0f, 0.0f, 0.0f, 2.5f)};
-
-  const auto output_state = CloneSceneTargets(
-      RunPipelineCycle(&signal_pipeline, input_state, &environment_service).updated_scene_targets);
-
-  ASSERT_EQ(output_state.size(), 1u);
-  EXPECT_LE(SpeedOf(output_state[0]), SpeedOf(input_state[0]));
-  EXPECT_LE(output_state[0].rcs, input_state[0].rcs);
 }
 
 TEST(SignalPipelineTest, PhysicalRcsUsesTransmitterFrequency) {
@@ -720,118 +687,6 @@ TEST(SignalPipelineTest, InvalidTopologyRebuildKeepsPreviousLifecycleAssemblyOpe
       lifecycle_manager->BuildAssociationSeeds();
   ASSERT_EQ(retained_seeds.size(), 1u);
   EXPECT_EQ(retained_seeds[0].association_key, previous_seeds[0].association_key);
-}
-
-TEST(SignalPipelineTest, EngineeringRfInterferenceUsesCurrentTuningAndLinearPower) {
-  config::ArSessionConfig session_config;
-  ExecutionConfig execution = config::mapping::MapSessionToExecution(session_config);
-
-  session::EnvironmentSnapshot snapshot;
-  snapshot.cycle_dt_sec = 1.0f;
-  snapshot.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
-  snapshot.has_rf_receiver_kinematics = true;
-  snapshot.rf_receiver_entity_id = 100;
-  snapshot.rf_receiver_position_ecef_m.x_m = 6378137.0;
-
-  oneq::electromagnetics::RfEmission emission;
-  emission.emission_id = 1;
-  emission.entity_id = 200;
-  emission.position_ecef_m.x_m = 6378137.0;
-  emission.position_ecef_m.z_m = 10000.0;
-  emission.antenna.boresight_ecef_unit.x = 0.0;
-  emission.antenna.boresight_ecef_unit.z = -1.0;
-  emission.polarization = oneq::electromagnetics::RfPolarization::kHorizontal;
-  oneq::electromagnetics::RfEmissionSegment segment;
-  segment.duration_s = 1.0;
-  segment.center_frequency_hz = execution.detection.engineering.transmitter.frequency_hz;
-  segment.bandwidth_hz = execution.detection.engineering.transmitter.bandwidth_hz;
-  segment.transmit_power_w = 100.0;
-  emission.segments.push_back(segment);
-  snapshot.engineering_interference_emissions.push_back(emission);
-
-  float baseline_power_w = -1.0f;
-  ASSERT_TRUE(signal::pipeline::TryResolveEngineeringInterferencePowerW(execution, snapshot,
-                                                                        &baseline_power_w));
-  ASSERT_GT(baseline_power_w, 0.0f);
-
-  snapshot.engineering_interference_emissions.front().segments.front().transmit_power_w = 200.0;
-  float doubled_power_w = -1.0f;
-  ASSERT_TRUE(signal::pipeline::TryResolveEngineeringInterferencePowerW(execution, snapshot,
-                                                                        &doubled_power_w));
-  EXPECT_NEAR(doubled_power_w / baseline_power_w, 2.0f, 1.0e-5f);
-
-  execution.detection.engineering.transmitter.frequency_hz *= 1.1f;
-  float out_of_band_power_w = -1.0f;
-  ASSERT_TRUE(signal::pipeline::TryResolveEngineeringInterferencePowerW(execution, snapshot,
-                                                                        &out_of_band_power_w));
-  EXPECT_FLOAT_EQ(out_of_band_power_w, 0.0f);
-}
-
-TEST(SignalPipelineTest, EngineeringCoSiteInterferenceRequiresConfiguredIsolation) {
-  config::ArSessionConfig session_config;
-  ExecutionConfig execution = config::mapping::MapSessionToExecution(session_config);
-  session::EnvironmentSnapshot snapshot;
-  snapshot.cycle_dt_sec = 1.0f;
-  snapshot.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
-  snapshot.has_rf_receiver_kinematics = true;
-  snapshot.rf_receiver_entity_id = 500;
-  snapshot.rf_receiver_position_ecef_m.x_m = 6378137.0;
-
-  oneq::electromagnetics::RfEmission emission;
-  emission.emission_id = 8;
-  emission.entity_id = snapshot.rf_receiver_entity_id;
-  emission.position_ecef_m = snapshot.rf_receiver_position_ecef_m;
-  oneq::electromagnetics::RfEmissionSegment segment;
-  segment.duration_s = 1.0;
-  segment.center_frequency_hz = execution.detection.engineering.transmitter.frequency_hz;
-  segment.bandwidth_hz = execution.detection.engineering.transmitter.bandwidth_hz;
-  segment.transmit_power_w = 10.0;
-  emission.segments.push_back(segment);
-  snapshot.engineering_interference_emissions.push_back(emission);
-
-  float received_power_w = -1.0f;
-  EXPECT_FALSE(signal::pipeline::TryResolveEngineeringInterferencePowerW(execution, snapshot,
-                                                                         &received_power_w));
-  EXPECT_FLOAT_EQ(received_power_w, -1.0f);
-
-  execution.detection.engineering.receiver.has_co_site_isolation = true;
-  execution.detection.engineering.receiver.co_site_isolation_db = 80.0f;
-  ASSERT_TRUE(signal::pipeline::TryResolveEngineeringInterferencePowerW(execution, snapshot,
-                                                                        &received_power_w));
-  const float expected_power_w = 10.0f * std::pow(10.0f, -82.0f / 10.0f);
-  EXPECT_NEAR(received_power_w, expected_power_w, expected_power_w * 1.0e-5f);
-}
-
-TEST(SignalPipelineTest, EngineeringRfInterferenceRejectsReceiverSaturationAtomically) {
-  config::ArSessionConfig session_config;
-  ExecutionConfig execution = config::mapping::MapSessionToExecution(session_config);
-  execution.detection.engineering.receiver.maximum_linear_input_power_w = 1.0e-12f;
-
-  session::EnvironmentSnapshot snapshot;
-  snapshot.cycle_dt_sec = 1.0f;
-  snapshot.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
-  snapshot.has_rf_receiver_kinematics = true;
-  snapshot.rf_receiver_entity_id = 100;
-  snapshot.rf_receiver_position_ecef_m.x_m = 6378137.0;
-
-  oneq::electromagnetics::RfEmission emission;
-  emission.emission_id = 1;
-  emission.entity_id = 200;
-  emission.position_ecef_m.x_m = 6378137.0;
-  emission.position_ecef_m.z_m = 1000.0;
-  emission.antenna.boresight_ecef_unit.z = -1.0;
-  oneq::electromagnetics::RfEmissionSegment segment;
-  segment.duration_s = 1.0;
-  segment.center_frequency_hz = execution.detection.engineering.transmitter.frequency_hz;
-  segment.bandwidth_hz = execution.detection.engineering.transmitter.bandwidth_hz;
-  segment.transmit_power_w = 1.0e6;
-  emission.segments.push_back(segment);
-  snapshot.engineering_interference_emissions.push_back(emission);
-
-  float received_power_w = 123.0f;
-  EXPECT_FALSE(signal::pipeline::TryResolveEngineeringInterferencePowerW(execution, snapshot,
-                                                                         &received_power_w));
-  EXPECT_FLOAT_EQ(received_power_w, 123.0f);
 }
 
 TEST(SignalPipelineTest, RfV2InterferenceOnlySuppressesDetectionAndIsOneShot) {

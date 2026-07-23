@@ -26,7 +26,7 @@ enum class ONEQ_API ArDebugTrackStatus {
   kTentative = 1,        /**< 轨迹处于候选状态。 */
   kLost = 2,             /**< 轨迹处于丢失状态。 */
   kNotInOutput = 3,      /**< 输入目标在本周期输出中无对应 track。 */
-  kCycleNotCompleted = 4 /**< Complete 未成功，无法判定状态。 */
+  kCycleNotCompleted = 4 /**< 本周期未成功完成，无法判定状态。 */
 };
 
 /**

@@ -44,7 +44,6 @@ struct ArSessionReplayState {
   bool has_pending_runtime_update{false};
   bool pending_execution_config_changed{false};
   bool pending_environment_scenario_config_changed{false};
-  bool pending_jamming_sensitivity_profile_changed{false};
   ArDecisionReplayState decision_state{};
 };
 

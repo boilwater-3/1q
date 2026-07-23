@@ -41,10 +41,12 @@ struct CycleStats {
 
 struct SceneScriptStep {
   session::EnvironmentSceneState scene_state{};
-  bool expect_jamming{false};
+  bool expect_adverse_environment{false};
 
-  SceneScriptStep(const session::EnvironmentSceneState& scene_state_in, bool expect_jamming_in)
-      : scene_state(scene_state_in), expect_jamming(expect_jamming_in) {}
+  SceneScriptStep(const session::EnvironmentSceneState& scene_state_in,
+                  bool expect_adverse_environment_in)
+      : scene_state(scene_state_in),
+        expect_adverse_environment(expect_adverse_environment_in) {}
 };
 
 config::ArSessionConfig MakeJointIntegrationSessionConfig() {
@@ -218,50 +220,39 @@ bool ContainsCommandType(const ScenarioRadarContext& radar_context, session::ArC
   return false;
 }
 
-config::JammerEmitterState BuildJammerEmitter(config::JammingTechnique technique, float power_db,
-                                              float js_db, float frequency_overlap_ratio,
-                                              float prf_lock_risk, bool in_sidelobe) {
-  config::JammerEmitterState emitter;
-  emitter.technique = technique;
-  emitter.power_db = power_db;
-  emitter.confidence = 1.0f;
-  emitter.js_db = js_db;
-  emitter.position_x = in_sidelobe ? 3420.20f : 0.0f;      // sin(20 deg)*10000 or 0
-  emitter.position_y = in_sidelobe ? 9396.93f : 10000.0f;  // cos(20 deg)*10000 or 10000
-  emitter.position_z = 0.0f;                               // elevation 0 deg
-  emitter.angular_span_deg = 6.0f + 16.0f * frequency_overlap_ratio + 8.0f * prf_lock_risk;
-  return emitter;
-}
-
 session::EnvironmentSceneState MakeClearScene() { return session::EnvironmentSceneState{}; }
 
-session::EnvironmentSceneState MakeNoiseScene() {
+session::EnvironmentSceneState MakeHumidAtmosphereScene() {
   session::EnvironmentSceneState scene;
-  scene.jammer_emitters.push_back(BuildJammerEmitter(config::JammingTechnique::kNoiseSuppression,
-                                                     11.0f, 8.0f, 0.20f, 0.10f, true));
+  scene.atmospheric_physics.enable_physical_model = true;
+  scene.atmospheric_physics.pressure_hpa = 1005.0f;
+  scene.atmospheric_physics.temperature_k = 302.0f;
+  scene.atmospheric_physics.relative_humidity = 0.9f;
   return scene;
 }
 
-session::EnvironmentSceneState MakeDeceptionScene() {
+session::EnvironmentSceneState MakeForestScene() {
   session::EnvironmentSceneState scene;
-  scene.jammer_emitters.push_back(
-      BuildJammerEmitter(config::JammingTechnique::kDeception, 8.0f, 8.0f, 0.90f, 0.90f, false));
+  scene.vegetation_scatter_physics.enable_physical_model = true;
+  scene.vegetation_scatter_physics.cover_profile =
+      config::VegetationCoverProfile::kConiferousForest;
   return scene;
 }
 
-session::EnvironmentSceneState MakeRepeaterScene() {
+session::EnvironmentSceneState MakeSpaceWeatherScene() {
   session::EnvironmentSceneState scene;
-  scene.jammer_emitters.push_back(
-      BuildJammerEmitter(config::JammingTechnique::kRepeater, 8.5f, 7.0f, 0.15f, 0.95f, false));
+  scene.atmospheric_context.has_day_of_year = true;
+  scene.atmospheric_context.day_of_year = 355;
+  scene.atmospheric_context.solar_flux_f107 = 210.0f;
+  scene.atmospheric_context.geomagnetic_ap = 18.0f;
   return scene;
 }
 
-session::EnvironmentSceneState MakeMixedScene() {
-  session::EnvironmentSceneState scene;
-  scene.jammer_emitters.push_back(BuildJammerEmitter(config::JammingTechnique::kNoiseSuppression,
-                                                     12.0f, 8.0f, 0.18f, 0.10f, true));
-  scene.jammer_emitters.push_back(
-      BuildJammerEmitter(config::JammingTechnique::kDeception, 9.0f, 7.5f, 0.90f, 0.90f, false));
+session::EnvironmentSceneState MakeAdverseNaturalScene() {
+  session::EnvironmentSceneState scene = MakeHumidAtmosphereScene();
+  scene.vegetation_scatter_physics.enable_physical_model = true;
+  scene.vegetation_scatter_physics.cover_profile =
+      config::VegetationCoverProfile::kTropicalDense;
   return scene;
 }
 
@@ -539,7 +530,7 @@ TEST(RadarJointIntegrationTest, MediumScaleDynamicSearchMaintainsStableAssociati
 }
 
 TEST(RadarJointIntegrationTest,
-     LegacySceneSwitchingDoesNotDriveControlProfile) {
+     NaturalEnvironmentSwitchingDoesNotDirectlyDriveControlProfile) {
   signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
@@ -548,9 +539,14 @@ TEST(RadarJointIntegrationTest,
   session::ArSceneTargetList targets = BuildMixedPatrolTargets(20U, 100.0f, -5.0f, 6.0f);
 
   const std::vector<SceneScriptStep> script{
-      {MakeClearScene(), false},   {MakeNoiseScene(), true},  {MakeDeceptionScene(), true},
-      {MakeClearScene(), false},   {MakeMixedScene(), true},  {MakeClearScene(), false},
-      {MakeRepeaterScene(), true}, {MakeClearScene(), false},
+      {MakeClearScene(), false},
+      {MakeHumidAtmosphereScene(), true},
+      {MakeForestScene(), true},
+      {MakeClearScene(), false},
+      {MakeAdverseNaturalScene(), true},
+      {MakeClearScene(), false},
+      {MakeSpaceWeatherScene(), true},
+      {MakeClearScene(), false},
   };
 
   std::vector<CycleStats> stats;
@@ -605,16 +601,16 @@ TEST(RadarJointIntegrationTest, LongDurationMediumLoadPatrolKeepsMetricsBoundedW
       const std::size_t phase = (cycle / 24U) % 5U;
       switch (phase) {
         case 1U:
-          environment_service.UpdateSceneState(MakeNoiseScene());
+          environment_service.UpdateSceneState(MakeHumidAtmosphereScene());
           break;
         case 2U:
-          environment_service.UpdateSceneState(MakeMixedScene());
+          environment_service.UpdateSceneState(MakeAdverseNaturalScene());
           break;
         case 3U:
           environment_service.UpdateSceneState(MakeClearScene());
           break;
         case 4U:
-          environment_service.UpdateSceneState(MakeDeceptionScene());
+          environment_service.UpdateSceneState(MakeForestScene());
           break;
         case 0U:
         default:
@@ -1280,7 +1276,7 @@ TEST(RadarJointIntegrationTest, InputOrderingPermutationKeepsExternalIdentitySta
 }
 
 TEST(RadarJointIntegrationTest,
-     PulsedInterferenceKeepsOutputRecoverableAcrossSingleCycleJammingBursts) {
+     NaturalEnvironmentTransitionsKeepOutputRecoverable) {
   signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
@@ -1290,8 +1286,12 @@ TEST(RadarJointIntegrationTest,
       BuildMixedPatrolTargetsWithBaseId(18U, 13000u, 200.0f, -4.0f, 8.0f);
 
   const std::vector<SceneScriptStep> script{
-      {MakeClearScene(), false}, {MakeNoiseScene(), true},  {MakeClearScene(), false},
-      {MakeMixedScene(), true},  {MakeClearScene(), false}, {MakeRepeaterScene(), true},
+      {MakeClearScene(), false},
+      {MakeHumidAtmosphereScene(), true},
+      {MakeClearScene(), false},
+      {MakeAdverseNaturalScene(), true},
+      {MakeClearScene(), false},
+      {MakeSpaceWeatherScene(), true},
       {MakeClearScene(), false},
   };
 
@@ -1502,7 +1502,7 @@ TEST(RadarJointIntegrationTest,
   }
 }
 
-TEST(RadarJointIntegrationTest, LongDurationPulsedInterferenceRecoversOnEveryClearWindow) {
+TEST(RadarJointIntegrationTest, LongDurationNaturalEnvironmentRecoversOnEveryClearWindow) {
   signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
@@ -1512,10 +1512,18 @@ TEST(RadarJointIntegrationTest, LongDurationPulsedInterferenceRecoversOnEveryCle
       BuildMixedPatrolTargetsWithBaseId(20U, 18000u, 220.0f, -6.0f, 8.0f);
 
   const std::vector<SceneScriptStep> script{
-      {MakeClearScene(), false},   {MakeNoiseScene(), true},     {MakeClearScene(), false},
-      {MakeClearScene(), false},   {MakeMixedScene(), true},     {MakeClearScene(), false},
-      {MakeRepeaterScene(), true}, {MakeClearScene(), false},    {MakeNoiseScene(), true},
-      {MakeClearScene(), false},   {MakeDeceptionScene(), true}, {MakeClearScene(), false},
+      {MakeClearScene(), false},
+      {MakeHumidAtmosphereScene(), true},
+      {MakeClearScene(), false},
+      {MakeClearScene(), false},
+      {MakeAdverseNaturalScene(), true},
+      {MakeClearScene(), false},
+      {MakeSpaceWeatherScene(), true},
+      {MakeClearScene(), false},
+      {MakeHumidAtmosphereScene(), true},
+      {MakeClearScene(), false},
+      {MakeForestScene(), true},
+      {MakeClearScene(), false},
   };
 
   std::vector<CycleStats> stats;
@@ -1533,7 +1541,8 @@ TEST(RadarJointIntegrationTest, LongDurationPulsedInterferenceRecoversOnEveryCle
     EXPECT_EQ(session::CountTracksByStatus(frame, session::TrackStatus::kConfirmed),
               targets.size());
     ExpectFrameContainsTargets(frame, targets);
-    if (!script[cycle].expect_jamming && (cycle > 0U) && script[cycle - 1U].expect_jamming) {
+    if (!script[cycle].expect_adverse_environment && (cycle > 0U) &&
+        script[cycle - 1U].expect_adverse_environment) {
       ++clear_recovery_cycles;
     }
     AdvanceTargets(radar_context.GetCycleDeltaTimeSec(), &targets);
@@ -1720,7 +1729,8 @@ TEST(RadarJointIntegrationTest, UltraHighAltitudeTargetsRemainTrackableAcrossCyc
   }
 }
 
-TEST(RadarJointIntegrationTest, SimultaneousTargetAndJammerVolatilityKeepsCurrentEnemySetReadable) {
+TEST(RadarJointIntegrationTest,
+     SimultaneousTargetAndNaturalEnvironmentVolatilityKeepsCurrentEnemySetReadable) {
   signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
@@ -1735,8 +1745,11 @@ TEST(RadarJointIntegrationTest, SimultaneousTargetAndJammerVolatilityKeepsCurren
       BuildMixedPatrolTargetsWithBaseId(8U, 23400u, 160.0f, -14.0f, 7.0f),
   };
   const std::vector<SceneScriptStep> script{
-      {MakeClearScene(), false}, {MakeNoiseScene(), true},    {MakeClearScene(), false},
-      {MakeMixedScene(), true},  {MakeRepeaterScene(), true},
+      {MakeClearScene(), false},
+      {MakeHumidAtmosphereScene(), true},
+      {MakeClearScene(), false},
+      {MakeAdverseNaturalScene(), true},
+      {MakeSpaceWeatherScene(), true},
   };
 
   std::vector<CycleStats> stats;
@@ -1807,7 +1820,8 @@ TEST(RadarJointIntegrationTest, LongDurationCycleDeltaAndGeometryVolatilityKeeps
   ExpectBoundedCommandBurst(stats, 5U);
 }
 
-TEST(RadarJointIntegrationTest, BatchReplacementAndPulsedInterferenceKeepCurrentEnemySetVisible) {
+TEST(RadarJointIntegrationTest,
+     BatchReplacementAndNaturalEnvironmentChangesKeepCurrentEnemySetVisible) {
   signal::pipeline::SignalPipeline signal_pipeline(MakeJointIntegrationSessionConfig());
   environment::EnvironmentService environment_service;
   ScenarioRadarContext radar_context;
@@ -1823,8 +1837,12 @@ TEST(RadarJointIntegrationTest, BatchReplacementAndPulsedInterferenceKeepCurrent
       BuildMixedPatrolTargetsWithBaseId(15U, 25500u, 380.0f, 6.0f, 11.0f),
   };
   const std::vector<SceneScriptStep> script{
-      {MakeClearScene(), false}, {MakeNoiseScene(), true},  {MakeClearScene(), false},
-      {MakeMixedScene(), true},  {MakeClearScene(), false}, {MakeRepeaterScene(), true},
+      {MakeClearScene(), false},
+      {MakeHumidAtmosphereScene(), true},
+      {MakeClearScene(), false},
+      {MakeAdverseNaturalScene(), true},
+      {MakeClearScene(), false},
+      {MakeSpaceWeatherScene(), true},
   };
 
   std::vector<CycleStats> stats;
@@ -1863,8 +1881,12 @@ TEST(RadarJointIntegrationTest, LongDurationExtremeRcsAndAltitudeMixKeepsMetrics
   };
 
   const std::vector<SceneScriptStep> script{
-      {MakeClearScene(), false},    {MakeNoiseScene(), true},  {MakeClearScene(), false},
-      {MakeDeceptionScene(), true}, {MakeClearScene(), false}, {MakeMixedScene(), true},
+      {MakeClearScene(), false},
+      {MakeHumidAtmosphereScene(), true},
+      {MakeClearScene(), false},
+      {MakeForestScene(), true},
+      {MakeClearScene(), false},
+      {MakeAdverseNaturalScene(), true},
   };
 
   std::vector<CycleStats> stats;
@@ -1904,8 +1926,8 @@ TEST(RadarJointIntegrationTest, PhysicsPulseWidthRetuningStaysWithinBoundedWindo
       BuildMixedPatrolTargetsWithBaseId(24U, 27000u, 260.0f, -6.0f, 10.0f);
   const std::vector<SceneScriptStep> script{
       {MakeClearScene(), false},
-      {MakeNoiseScene(), true},
-      {MakeMixedScene(), true},
+      {MakeHumidAtmosphereScene(), true},
+      {MakeAdverseNaturalScene(), true},
       {MakeClearScene(), false},
   };
 

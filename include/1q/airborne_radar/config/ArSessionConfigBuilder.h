@@ -36,9 +36,6 @@ namespace config {
  *                       profiles::DetectionIntentProfile::kDetectionPriority)
  *                   .End()
  *                   .Environment()
- *                   .WithJammingSensitivityProfile(
- *                       config::JammingSensitivityProfile::kStrict)
- *                   .End()
  *                   .Build();
  * @endcode
  */
@@ -199,12 +196,6 @@ class ONEQ_API ArSessionConfigBuilder::LifecycleEditor {
 class ONEQ_API ArSessionConfigBuilder::EnvironmentEditor {
  public:
   explicit EnvironmentEditor(ArSessionConfigBuilder* builder) : builder_(builder) {}
-
-  /** @brief 设置干扰判定灵敏度语义档位。 */
-  EnvironmentEditor& WithJammingSensitivityProfile(config::JammingSensitivityProfile profile) {
-    builder_->base_config_.environment.jamming_sensitivity_profile = profile;
-    return *this;
-  }
 
   ArSessionConfigBuilder& End() { return *builder_; }
 

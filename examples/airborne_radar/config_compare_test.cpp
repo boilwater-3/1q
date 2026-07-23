@@ -39,9 +39,6 @@ ar_config::ArSessionConfig MakeWideAreaSearchConfig() {
           .Lifecycle()
           .WithLifecyclePolicyProfile(ar_config::profiles::LifecyclePolicyProfile::kFastConfirm)
           .End()
-          .Environment()
-          .WithJammingSensitivityProfile(ar_env::JammingSensitivityProfile::kBalanced)
-          .End()
           .Build();
   config.mission.orientation.work_mode = ar_config::ArWorkMode::kTas;
   config.mission.orientation.scan_center_deg = MakeAzEl(0.0f, 0.0f);
@@ -276,10 +273,6 @@ void CompareConfigs(const ar_config::ArSessionConfig& a, const ar_config::ArSess
              b.environment.scenario_config.vegetation_scatter_physics.enable_physical_model,
              "veg.enable_physical_model");
 
-  // jamming_sensitivity_profile
-  CHECK_INT(static_cast<int>(a.environment.jamming_sensitivity_profile),
-            static_cast<int>(b.environment.jamming_sensitivity_profile),
-            "jamming_sensitivity_profile");
 }
 
 }  // namespace

@@ -107,15 +107,11 @@ bool SamePreparedEmission(const oneq::electromagnetics::RfSceneEmission& left,
 }
 
 session::EnvironmentSceneState BuildSceneStateFromCompleteInput(
-    const ArCompleteCycleInput& input, const ArPrepareCycleInput& prepared_input) {
+    const ArCompleteCycleInput& input) {
   session::EnvironmentSceneState scene_state;
   scene_state.atmospheric_physics = input.atmospheric_observation;
   scene_state.atmospheric_context = input.atmospheric_context;
   scene_state.vegetation_scatter_physics = input.surface_observation;
-  scene_state.has_rf_receiver_kinematics = true;
-  scene_state.rf_receiver_entity_id = prepared_input.platform_id;
-  scene_state.rf_receiver_position_ecef_m = prepared_input.platform_position_ecef_m;
-  scene_state.rf_receiver_velocity_ecef_mps = prepared_input.platform_velocity_ecef_mps;
   return scene_state;
 }
 
@@ -141,11 +137,8 @@ struct ArSession::Impl {
     initial_session_config.policy = composition.runtime_policy;
     initial_session_config.environment.scenario_config =
         composition.runtime_environment_scenario_config;
-    initial_session_config.environment.jamming_sensitivity_profile =
-        composition.runtime_jamming_sensitivity_profile;
     runtime_state.execution_config = config::mapping::MapSessionToExecution(initial_session_config);
     runtime_state.environment_scenario_config = composition.runtime_environment_scenario_config;
-    runtime_state.jamming_sensitivity_profile = composition.runtime_jamming_sensitivity_profile;
     pending_runtime_state = runtime_state;
 
     concrete_signal_pipeline_ =
@@ -220,11 +213,7 @@ struct ArSession::Impl {
         !pipeline_config_synced || (has_pending_runtime_update && pending_execution_config_changed);
     const bool should_sync_environment_model =
         has_pending_runtime_update && pending_environment_scenario_config_changed;
-    const bool should_sync_jamming_sensitivity =
-        has_pending_runtime_update && pending_jamming_sensitivity_profile_changed;
-
-    if (!should_sync_pipeline && !should_sync_environment_model &&
-        !should_sync_jamming_sensitivity) {
+    if (!should_sync_pipeline && !should_sync_environment_model) {
       return true;
     }
 
@@ -257,10 +246,6 @@ struct ArSession::Impl {
     if (should_sync_environment_model) {
       EnvironmentService().UpdateModelConfig(pending_runtime_state.environment_scenario_config);
     }
-    if (should_sync_jamming_sensitivity) {
-      EnvironmentService().SetJammingSensitivityProfile(
-          pending_runtime_state.jamming_sensitivity_profile);
-    }
     return true;
   }
 
@@ -272,7 +257,6 @@ struct ArSession::Impl {
     has_pending_runtime_update = false;
     pending_execution_config_changed = false;
     pending_environment_scenario_config_changed = false;
-    pending_jamming_sensitivity_profile_changed = false;
   }
 
   bool RestoreCycleRuntimeState(
@@ -389,8 +373,6 @@ struct ArSession::Impl {
     const bool saved_pending_execution_config_changed = pending_execution_config_changed;
     const bool saved_pending_environment_scenario_config_changed =
         pending_environment_scenario_config_changed;
-    const bool saved_pending_jamming_sensitivity_profile_changed =
-        pending_jamming_sensitivity_profile_changed;
     const bool saved_pipeline_config_synced = pipeline_config_synced;
     const bool saved_has_prepared_cycle = has_prepared_cycle;
     const bool saved_has_world_chronology = has_world_chronology;
@@ -416,8 +398,6 @@ struct ArSession::Impl {
       pending_execution_config_changed = saved_pending_execution_config_changed;
       pending_environment_scenario_config_changed =
           saved_pending_environment_scenario_config_changed;
-      pending_jamming_sensitivity_profile_changed =
-          saved_pending_jamming_sensitivity_profile_changed;
       pipeline_config_synced = saved_pipeline_config_synced;
       has_prepared_cycle = saved_has_prepared_cycle;
       has_world_chronology = saved_has_world_chronology;
@@ -737,7 +717,7 @@ struct ArSession::Impl {
       return result;
     }
     const session::EnvironmentSceneState environment_scene_state =
-        BuildSceneStateFromCompleteInput(input, prepared_input);
+        BuildSceneStateFromCompleteInput(input);
     const ArExecutionCycleResult execution_result = RunExecutionCycle(
         static_cast<std::uint32_t>(prepared_input.world_cycle_index),
         static_cast<float>(prepared_input.window_duration_s),
@@ -775,7 +755,6 @@ struct ArSession::Impl {
   bool has_pending_runtime_update{false};
   bool pending_execution_config_changed{false};
   bool pending_environment_scenario_config_changed{false};
-  bool pending_jamming_sensitivity_profile_changed{false};
   bool pipeline_config_synced{true};
   bool has_prepared_cycle{false};
   bool has_world_chronology{false};
@@ -833,8 +812,6 @@ ArSessionReplayState ArSessionReplayAccess::CaptureSessionState(const ArSession&
   replay_state.pending_execution_config_changed = session.impl_->pending_execution_config_changed;
   replay_state.pending_environment_scenario_config_changed =
       session.impl_->pending_environment_scenario_config_changed;
-  replay_state.pending_jamming_sensitivity_profile_changed =
-      session.impl_->pending_jamming_sensitivity_profile_changed;
   replay_state.decision_state = CaptureDecisionState(session);
   return replay_state;
 }
@@ -909,9 +886,6 @@ bool ArSession::TryApplyRuntimeConfig(const config::ArRuntimeConfigPatch& patch)
   impl_->pending_environment_scenario_config_changed =
       impl_->pending_environment_scenario_config_changed ||
       resolved.environment_scenario_config_changed;
-  impl_->pending_jamming_sensitivity_profile_changed =
-      impl_->pending_jamming_sensitivity_profile_changed ||
-      resolved.jamming_sensitivity_profile_changed;
   return true;
 }
 

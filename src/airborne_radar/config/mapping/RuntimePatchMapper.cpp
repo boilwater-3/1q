@@ -53,11 +53,6 @@ RuntimeConfigResolveResult ApplyRuntimePatch(const RuntimeConfigState& current_s
       resolved.next_state.environment_scenario_config = patch.environment.scenario_config;
       resolved.environment_scenario_config_changed = true;
     }
-    if (patch.environment.has_jamming_sensitivity_profile) {
-      resolved.next_state.jamming_sensitivity_profile =
-          patch.environment.jamming_sensitivity_profile;
-      resolved.jamming_sensitivity_profile_changed = true;
-    }
   }
 
   if (patch.has_mission) {

@@ -20,7 +20,7 @@ namespace session {
  * @note 该类型不携带 truth platform、equipment 或 emission 身份。
  */
 struct ONEQ_API ArInterferenceObservation {
-  std::uint64_t observation_id{0U};            /**< 当前 Complete 结果内的稳定本地编号。 */
+  std::uint64_t observation_id{0U};            /**< 当前周期结果内的稳定本地编号。 */
   double estimated_bearing_azimuth_deg{0.0};   /**< ECEF 切平面方位估计。 */
   double estimated_bearing_elevation_deg{0.0}; /**< ECEF 仰角估计。 */
   double estimated_off_boresight_deg{0.0};     /**< 相对冻结接收波束轴的夹角估计。 */
