@@ -1,50 +1,6 @@
 namespace oneq.replay.airborne_radar.fb;
 
-table Vector3f {
-  x:float;
-  y:float;
-  z:float;
-}
-
 table Vector3d { x:double; y:double; z:double; }
-table RfUnitVector { x:double; y:double; z:double; }
-table RfAntennaPattern {
-  boresight_ecef_unit:RfUnitVector;
-  peak_gain_dbi:double;
-  half_power_beamwidth_deg:double;
-  sidelobe_level_db:double;
-  backlobe_level_db:double;
-  cross_polarization_isolation_db:double;
-}
-table RfEmissionSegment {
-  start_time_s:double;
-  duration_s:double;
-  center_frequency_hz:double;
-  bandwidth_hz:double;
-  transmit_power_w:double;
-}
-table RfEmission {
-  emission_id:ulong;
-  entity_id:ulong;
-  position_ecef_m:Vector3d;
-  velocity_ecef_mps:Vector3d;
-  antenna:RfAntennaPattern;
-  polarization:int;
-  waveform_kind:int;
-  segments:[RfEmissionSegment];
-}
-
-table EulerAnglesDeg {
-  yaw_deg:float;
-  pitch_deg:float;
-  roll_deg:float;
-}
-
-table PoseState {
-  position_m:Vector3f;
-  velocity_mps:Vector3f;
-  attitude_deg:EulerAnglesDeg;
-}
 
 table ArSceneTarget {
   external_target_id:ulong;
@@ -78,41 +34,6 @@ table AtmosphericContext {
 table SurfaceObservation {
   cover_profile:int;
   enable_physical_model:bool;
-}
-
-table JammerSource {
-  technique:int;
-  power_db:float;
-  js_db:float;
-  position_x:float;
-  position_y:float;
-  position_z:float;
-  angular_span_deg:float;
-  confidence:float;
-}
-
-table ArCycleEnvironmentInput {
-  atmospheric_observation:AtmosphericObservation;
-  atmospheric_context:AtmosphericContext;
-  surface_observation:SurfaceObservation;
-  jammer_sources:[JammerSource];
-  // -1 marks traces created before tagged interference was introduced.
-  interference_mode:int = -1;
-  engineering_emissions:[RfEmission];
-}
-
-table ArCycleInput {
-  cycle_index:uint = 0;
-  dt_sec:float = 1.0;
-  platform_pose:PoseState;
-  scene:[ArSceneTarget];
-  has_environment:bool = false;
-  environment:ArCycleEnvironmentInput;
-  platform_altitude_m:float = 0.0;
-  platform_entity_id:ulong = 0;
-  has_platform_ecef_kinematics:bool = false;
-  platform_position_ecef_m:Vector3d;
-  platform_velocity_ecef_mps:Vector3d;
 }
 
 table TrackOutputFrame {
@@ -151,20 +72,6 @@ table TrackStateSnapshot {
   state:DecisionTrackStateSnapshot;
 }
 
-table ValidationIssue {
-  severity:int;
-  code:int;
-  location_kind:int;
-  entity_index:int;
-  field:string;
-  message:string;
-}
-
-table ArCommand {
-  type:int;
-  source:int;
-}
-
 table ArControlProfile {
   version:ulong;
   enable_lpi_power_control:bool;
@@ -177,20 +84,6 @@ table ArControlProfile {
   enable_adaptive_beamforming:bool;
   enable_eccm_rejitter:bool;
   eccm_burnthrough_gain:float;
-}
-
-table AssociationQualityMetrics {
-  prior_track_count:ulong;
-  detection_count:ulong;
-  matched_count:ulong;
-  new_track_count:ulong;
-  missed_track_count:ulong;
-  match_rate:float;
-  new_track_rate:float;
-  missed_track_rate:float;
-  mean_match_cost:float;
-  p95_match_cost:float;
-  association_stress:float;
 }
 
 table ArInterferenceObservation {
@@ -256,25 +149,6 @@ table ExternalDecisionResponse {
   proposals:[TacticalProposal];
 }
 
-table ArCycleResult {
-  input_cycle_index:uint;
-  track_output_frame:TrackOutputFrame;
-  submitted_commands:[ArCommand];
-  validation_issues:[ValidationIssue];
-  has_validation_error:bool;
-  executed_this_cycle:bool;
-  abort_reason:int;
-  reused_previous_output:bool;
-  has_control_profile:bool;
-  control_profile:ArControlProfile;
-  association_quality_metrics:AssociationQualityMetrics;
-  has_decision_observation:bool;
-  decision_observation:DecisionObservation;
-  applied_decision_source:int;
-  applied_decision_cycle_index:uint;
-  applied_decision_batch_id:ulong;
-}
-
 table ArDecisionReplayState {
   has_pending_internal_decision:bool;
   pending_internal_cycle_index:uint;
@@ -292,11 +166,6 @@ table ArDecisionReplayState {
   eccm_cooldown_cycles_remaining:uint;
 }
 
-table ArReplayCycleRecord {
-  result:ArCycleResult;
-  decision_state:ArDecisionReplayState;
-}
-
 table FailureMarker {
   error_code:string;
   message:string;
@@ -310,8 +179,7 @@ table FailureMarker {
   last_event_sequence:ulong;
 }
 
-// RF scene v2 replay payloads. The v1 tables above remain only until the AR
-// single-stage public path is deleted; new AR traces exclusively use these.
+// RF scene v2 replay payloads. AR traces exclusively use these two-stage records.
 table RfSceneDirectionV2 { x:double; y:double; z:double; }
 table RfSceneAntennaPatternV2 {
   boresight_ecef:RfSceneDirectionV2;
@@ -462,5 +330,5 @@ table ArExternalDecisionAttemptV2 {
   status:int;
 }
 
-root_type ArCycleInput;
-file_identifier "ARCI";
+root_type ArPrepareCycleInputV2;
+file_identifier "ARP2";

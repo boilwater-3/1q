@@ -2,7 +2,7 @@
  * @file ArReplayFlatbufferCodec.h
  * @brief 提供 AR 会话回放（replay）相关结构的 FlatBuffers 序列化/反序列化编解码。
  *
- * 涵盖单周期输入/输出/结果、会话配置、运行期补丁与失败标记等记录的编解码。
+ * 涵盖 RF v2 两阶段操作、会话配置、运行期补丁与失败标记等记录的编解码。
  * 所有 Decode* 函数在解析失败时返回 false 并通过输出参数回填错误描述。
  */
 
@@ -13,8 +13,6 @@
 
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
-#include "1q/airborne_radar/session/ArCycleInput.h"
-#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArRfCycle.h"
 #include "1q/replay/ReplayTrace.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
@@ -22,64 +20,13 @@
 namespace airborne_radar {
 namespace session {
 
-/**
- * @brief 将单周期输入帧编码为 FlatBuffers 字节串。
- * @param[in] input 待编码的单周期输入帧。
- * @return 序列化后的二进制 payload（std::string）。
- */
-std::string EncodeCycleInputFlatbuffer(const ArCycleInput& input);
-/**
- * @brief 从 FlatBuffers 字节串解码单周期输入帧。
- * @param[in] payload_bytes 序列化后的二进制 payload。
- * @param[out] input 解码成功的输入帧输出指针（非空）。
- * @param[out] error 解析失败时回填的错误描述。
- * @return 解析成功返回 true；失败返回 false 并填充 error。
- */
-bool DecodeCycleInputFlatbuffer(const std::string& payload_bytes, ArCycleInput* input,
-                                std::string* error);
-/**
- * @brief 将轨迹输出帧编码为 FlatBuffers 字节串。
- * @param[in] output_frame 待编码的轨迹输出帧。
- * @return 序列化后的二进制 payload（std::string）。
- */
-std::string EncodeTrackOutputFrameFlatbuffer(const session::TrackOutputFrame& output_frame);
-/**
- * @brief 从 FlatBuffers 字节串解码轨迹输出帧。
- * @param[in] payload_bytes 序列化后的二进制 payload。
- * @param[out] output_frame 解码成功的输出帧输出指针（非空）。
- * @param[out] error 解析失败时回填的错误描述。
- * @return 解析成功返回 true；失败返回 false 并填充 error。
- */
-bool DecodeTrackOutputFrameFlatbuffer(const std::string& payload_bytes,
-                                      session::TrackOutputFrame* output_frame, std::string* error);
-/**
- * @brief 将单周期结果编码为 FlatBuffers 字节串。
- * @param[in] result 待编码的单周期结果。
- * @return 序列化后的二进制 payload（std::string）。
- */
-std::string EncodeCycleResultFlatbuffer(const ArCycleResult& result);
-/**
- * @brief 从 FlatBuffers 字节串解码单周期结果。
- * @param[in] payload_bytes 序列化后的二进制 payload。
- * @param[out] result 解码成功的结果输出指针（非空）。
- * @param[out] error 解析失败时回填的错误描述。
- * @return 解析成功返回 true；失败返回 false 并填充 error。
- */
-bool DecodeCycleResultFlatbuffer(const std::string& payload_bytes, ArCycleResult* result,
-                                 std::string* error);
 /** @brief 将外部 LPI/ECCM 决策响应编码为独立 replay 输入 payload。 */
 std::string EncodeExternalDecisionResponseFlatbuffer(
     const session::ExternalDecisionResponse& response);
 /** @brief 从独立 replay 输入 payload 解码外部 LPI/ECCM 决策响应。 */
-bool DecodeExternalDecisionResponseFlatbuffer(
-    const std::string& payload_bytes, session::ExternalDecisionResponse* response,
-    std::string* error);
-/** @brief 将 replay 专用周期记录编码为 FlatBuffers payload。 */
-std::string EncodeReplayCycleRecordFlatbuffer(const ArReplayCycleRecord& record);
-/** @brief 从 FlatBuffers payload 解码 replay 专用周期记录。 */
-bool DecodeReplayCycleRecordFlatbuffer(const std::string& payload_bytes,
-                                       ArReplayCycleRecord* record, std::string* error);
-
+bool DecodeExternalDecisionResponseFlatbuffer(const std::string& payload_bytes,
+                                              session::ExternalDecisionResponse* response,
+                                              std::string* error);
 /** @brief 编解码 RF v2 Prepare 输入与逐操作结果记录。 */
 std::string EncodePrepareCycleInputFlatbuffer(const ArPrepareCycleInput& input);
 bool DecodePrepareCycleInputFlatbuffer(const std::string& payload_bytes, ArPrepareCycleInput* input,

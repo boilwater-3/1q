@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArRfCycle.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "airborne_radar/decision/ControlReducer.h"
@@ -31,12 +30,6 @@ struct ArDecisionReplayState {
   bool has_pending_external_decision{false};
   session::ExternalDecisionResponse pending_external_decision{};
   decision::ControlReducerRuntimeState reducer_state{};
-};
-
-/** @brief replay 的单周期输出记录，由公开业务结果和内部决策状态组成。 */
-struct ArReplayCycleRecord {
-  ArCycleResult result{};
-  ArDecisionReplayState decision_state{};
 };
 
 /** @brief 两阶段 RF replay 逐操作比对所需的会话拥有状态。 */

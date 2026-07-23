@@ -231,7 +231,7 @@ TEST(ArRfTraceSessionTest, RejectsLegacySingleStageTracePayload) {
   oneq::replay::ReplayTraceWriter writer(trace_dir, manifest, true);
   WriteEvent(&writer, "session_config", "ArSessionConfig",
              EncodeSessionConfigFlatbuffer(config::ArSessionConfig{}));
-  WriteEvent(&writer, "cycle_input", "ArCycleInput", EncodeCycleInputFlatbuffer(ArCycleInput{}));
+  WriteEvent(&writer, "cycle_input", "ArCycleInput", "retired-v1-payload");
   ASSERT_EQ(writer.Flush(), oneq::replay::ReplayTraceWriteStatus::kSuccess);
 
   const ArReplaySessionResult replay = ReplayArTrace(trace_dir);
