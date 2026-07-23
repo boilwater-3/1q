@@ -111,42 +111,40 @@ EOS 的 `detector_area_cm2` 与 `detector_detectivity_cm_sqrt_hz_per_w` 共同�
   超过已标定最大线性输入功率是合法物理结果：周期仍视为已执行并输出结构化 saturated impairment，
   但不得伪造观测；它与输入/配置非法导致的整周期拒绝严格分离。
 
-#### 两阶段世界周期
+#### 单周期 RF 数据交换
 
-同一世界周期内的 RF 联动固定为“先形成实际发射，再冻结场景并接收”，禁止用下一周期转发掩盖
-主动传感器发射与被动接收之间的人为时延：
+普通调用方以各模块既有的 `Step()` / `StepWithResult()` 形状推进一个世界周期。ECM 发布的
+`RfEmissionFrame(N)` 可以直接写入 AR 周期输入的独立 `interference` 字段；调用方不需要创建
+RF scene、回填 AR 自身发射、管理 token，或调用 prepare/complete 状态机：
 
 ```mermaid
 sequenceDiagram
-  participant O as External orchestrator
-  participant AR as AR transmitter/receiver
-  participant ECM as ECM transmitter
-  participant ESR as ESR receiver
-  O->>AR: prepare emission N using accepted prior control
-  O->>ECM: prepare emission N using ESR last-success observation
-  AR-->>O: actual AR emission facts N
-  ECM-->>O: actual ECM emission facts N
-  O->>O: validate and freeze RfSceneFrame N
-  O->>AR: complete receive N with frozen scene
-  O->>ESR: complete receive N with frozen scene
-  AR-->>O: target/interference observations and N+1 decision input
-  ESR-->>O: RF observations/hypotheses for a later ECM cycle
+  participant Caller as Simulation loop
+  participant ECM as ECM
+  participant AR as AR
+  participant ESR as ESR
+  Caller->>ECM: StepWithResult ECM(N), optionally using ESR(N-1)
+  ECM-->>Caller: RfEmissionFrame(N)
+  Caller->>AR: StepWithResult AR(N, interference=frame)
+  AR-->>Caller: tracks, impairment, observations, AR emission
+  Caller->>ESR: StepWithResult ESR(N), optionally using AR emission
+  ESR-->>Caller: hypotheses for a later ECM cycle
 ```
 
 规则：
 
-1. orchestrator 是 world-cycle 顺序和冻结 `RfSceneFrame` 的唯一 owner；业务模块之间仍不直接调用。
-2. prepare/emit 阶段只能消费上一成功周期已经接受的控制或观测。ESR 的成功接收结果最早驱动下一
-   世界周期的 ECM 发射；AR 的内部/外部 LPI/ECCM proposal 最早驱动下一次成功发射准备。
-3. 发射一经成功发布就是该世界周期已经发生的物理事实，后续接收/跟踪失败不得回滚或改写它。
-   发射设备的 waveform/hop/PRI phase、emission ID 和发射随机流在发布时提交；接收机、检测、关联和
-   航迹状态由各自模块在 receive/complete 边界单独提交或回滚。
-4. prepare 输入拒绝或设备关机不发布发射，也不消费待应用控制。receive 输入拒绝不得让其他模块撤销
-   已冻结场景；本接收模块不提交接收/估计状态。物理饱和属于成功执行的接收结果。
-5. 同周期接收波束、调谐/预选器、通道/检测窗口、噪声参数和最大线性输入功率构成不可变 receiver
-   operating state。链路求解不得针对当前候选目标临时重指向或改调谐。
-6. prepare/complete 的最终 public API、opaque token 和预校验协议在实现批次中冻结；不得直接把现有
-   单阶段 `Step()` 拼成隐式一周期延迟兼容方案。
+1. 业务模块之间不直接调用；调用方只转交公共值类型。这种顺序调用是普通仿真主循环，不是额外的
+   RF orchestrator 产品或用户可见状态机。
+2. ESR 的成功观测最早驱动下一成功 ECM 周期；ECM 当周期发布的干扰帧可以由同周期 AR 直接消费。
+   AR 的内部/外部 LPI/ECCM proposal 最早驱动下一成功 AR 周期。
+3. 每个输入显式携带绝对周期起点和时长。非空 RF frame 必须与消费者周期窗口完全一致；空 frame
+   表示没有外部 RF 干扰，不要求虚构身份或 mode。
+4. 模块在返回成功结果时原子提交本周期发射、接收、检测和累积状态。输入拒绝不消费 emission ID、
+   hop/PRI phase、随机流、待应用控制或跟踪状态；设备关机只推进世界 chronology。
+5. 同周期接收波束、调谐/预选器、通道/检测窗口、噪声参数和最大线性输入功率仍构成不可变 receiver
+   operating state，但由传感器会话内部冻结。
+6. `PrepareCycle` / `CompleteCycle` / `AbandonCycle` 和 opaque token 不属于公共传感器合同；需要的发射
+   准备与接收分层只作为模块内部事务步骤存在。
 
 #### 接收机影响分层
 
@@ -508,7 +506,7 @@ flowchart LR
   TGT --> ORCH
   IQ -.->|可选输入| ORCH
   EMIT --> ORCH
-  ORCH -->|ArCycleInput| AR
+  ORCH -->|ArCycleInput + interference frame| AR
   ORCH -->|EosCycleInput| EO
   ORCH -->|EsrCycleInput| ESR
   ORCH -->|EcmCycleInput| ECM
@@ -528,9 +526,8 @@ flowchart LR
 
 读图规则：
 - 箭头表示概念数据流向，虚线表示可选来源或跨模块共享类型；它们不是 include/link 关系。
-- AR、ESR、EOS、SAR、SBIRS 之间没有库内直接调用。ECM 闭环是唯一已冻结的跨业务域 public DTO
-  编排原型；目标架构由“工程 RF 发射事实与单程链路”的两阶段世界周期定义。外部 orchestrator 在
-  prepare/emit 阶段收集 AR、ECM 和场景设备的实际发射，冻结同一 `RfSceneFrame(N)` 后再交给 AR/ESR
-  receive/complete。当前 `EcmCycleInput`/`EcmEmissionFrame` 接线不等于该目标架构已经完成。
+- AR、ESR、EOS、SAR、SBIRS 之间没有库内直接调用。ECM 输出公共 `RfEmissionFrame(N)`，AR 在自己的
+  单周期输入中直接消费它；AR 返回的实际发射也可按同样方式提供给 ESR。调用方负责普通周期顺序，
+  但不拥有 RF scene freeze、token 或传感器内部事务状态。
 - `common/` 层提供坐标转换、大气物理、数值方法等跨模块共享类型，不作为独立运行时层。
 - `flight_dynamic` 不被任何传感器模块直接调用；平台状态也可由其它外部仿真源提供。

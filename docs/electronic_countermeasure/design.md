@@ -26,11 +26,11 @@ flowchart LR
   Session -.-> Trace["Trace / Replay\n输入出处和累积调度状态"]
 ```
 
-公共面只提供 `EcmSessionConfig`、runtime patch、`EcmCycleInput`、`EcmCycleResult`、
-`EcmEmissionFrame`、ESR adapter 和 trace/replay 门面，不公开 planner SPI。raw output 只包含实际发射事实；
-资源选择原因、truth-assisted 归属和预期调度语义只进入 result/debug。
+公共面只提供 `EcmSessionConfig`、runtime patch、`EcmCycleInput`、`EcmCycleResult`、ESR adapter 和
+trace/replay 门面，不公开 planner SPI。raw output 是公共 RF v2 `RfEmissionFrame`，可直接赋给
+`ArCycleInput::interference`；资源选择原因、truth-assisted 归属和预期调度语义只进入 result/debug。
 
-当前 `EcmSession::Step*()` 是把校验、调度和发布合在一次调用中的迁移原型。目标 ECM 只拥有
+`EcmSession::StepWithResult()` 把校验、调度和发布合在一次原子调用中。ECM 只拥有
 prepare/emit，不拥有 receive/complete；最终 API/token 形状必须与 common 两阶段状态机一起冻结，不能
 通过在 ECM 内等待 AR/ESR 结果形成隐式反向依赖。
 

@@ -26,8 +26,9 @@ AR 的决策扩展点是同进程步间 observation/response seam：
 当前模块的稳定外部使用方式是：
 
 1. 用 `ArSessionConfig` 或 builder 描述硬件、任务、策略、环境四域配置。
-2. 用 `ArCycleInput` 或 adapter 提供平台姿态、高度、目标、环境和干扰源。
-3. 调用 `ArSession::Step()` 获取 track output，或调用 `ArSession::StepWithResult()` 获取结构化执行结果。
+2. 用 `ArCycleInput` 提供绝对周期时间、单一世界坐标平台状态、目标、自然环境和独立 interference frame。
+3. 调用 `ArSession::Step()` 获取本周期 track output，或调用 `ArSession::StepWithResult()` 获取结构化执行结果；
+   拒绝周期不复用上一帧。
 4. 如需自定义 LPI/ECCM，读取结果中的 observation，外部评估后调用 `SubmitExternalDecision()`。
 5. 如需调整运行期参数，使用 runtime patch；patch 提交失败时必须保持各子系统状态一致。
 
@@ -327,19 +328,19 @@ flowchart TB
   `ArReplayCycleRecord`，不进入 public 业务结果。
 - 决策 SPI 不拥有输出结构，也不能绕过内部 output adapter 写系统输出。
 
-### 1.7 工程 RF 两阶段角色与状态所有权
+### 1.7 工程 RF 单周期角色与状态所有权
 
-AR 在工程 RF 世界中同时是主动发射设备和接收设备。冻结目标架构采用
-`docs/common/contract.md` 定义的 prepare/emit 与 receive/complete 两阶段世界周期；当前单阶段
-`ArSession::Step*()` 和只消费外部 engineering emissions 的实现是迁移原型，不得据此宣称同周期
-AR→ESR/ECM 发射联动已经成立。
+AR 在工程 RF 世界中同时是主动发射设备和接收设备。面向普通调用方的唯一周期模型是一次输入、
+一次结果。AR 内部仍按“准备实际发射、冻结接收状态、求解外部 RF、探测与跟踪”分层，但这些步骤
+不形成 public token 或外部状态机。
 
 ```mermaid
 flowchart LR
-  Prior["上一成功发射周期的 ArControlProfile"] --> Prepare["prepare/emit\n解析实际频率/功率/PRF/波束/驻留"]
-  Prepare --> Tx["ArEmissionFrame\n本周期实际发射事实"]
-  Tx --> World["External orchestrator\n冻结 RfSceneFrame"]
-  World --> Receive["receive/complete\n固定接收状态"]
+  Input["ArCycleInput\nplatform / targets / environment / interference"] --> Prepare["internal prepare\n解析实际频率/功率/PRF/波束/驻留"]
+  Prior["上一成功周期的 ArControlProfile"] --> Prepare
+  Prepare --> Tx["本周期实际 AR emission"]
+  Tx --> World["internal RF frame\nAR emission + interference"]
+  World --> Receive["internal receive\n固定接收状态"]
   Receive --> Echo["双程 target echo resolver"]
   Receive --> Incident["单程 external RF resolver"]
   Echo --> Cells["range/Doppler/beam detection cells"]
@@ -349,23 +350,22 @@ flowchart LR
   Detect --> JamObs["interference observation\nJ/N gate + estimated AoA/RF"]
   Track --> Decision["N+1 internal/external decision observation"]
   JamObs --> Decision
+  Track --> Result["ArCycleResult\ntracks / impairment / AR emission"]
 ```
 
 状态所有权固定如下：
 
-- transmitter state 由 AR session 的发射准备子状态唯一拥有，包括实际 waveform、frequency-hop phase、
-  PRI/rejitter phase、emission ID 和发射随机流。成功发布发射事实时提交；此后即使本模块 receive/complete
-  失败，也不得回滚已经被其它模块消费的发射历史。
+- transmitter state 由 AR session 的内部发射准备子状态唯一拥有，包括实际 waveform、frequency-hop
+  phase、PRI/rejitter phase、emission ID 和发射随机流。完整单周期成功时与结果原子提交；输入或内部
+  执行拒绝不得消费这些状态。
 - receiver operating state 由 signal pipeline 在本周期冻结，包括接收波束/自适应零陷、调谐、预选器、
   T/R blanking、检测窗口、系统损耗、噪声参数和最大线性输入功率。该状态对本周期所有目标和外部发射
   相同，禁止逐目标临时重指向。
-- detection/association/tracking state 继续由 pipeline/lifecycle/filter 各自拥有；receive/complete 拒绝时
-  按两阶段 AR 接收侧事务边界恢复这些接收侧状态，但不恢复 transmitter state。当前单阶段 session 的
-  四子系统整体 rollback 是待迁移行为，不是发布后回滚发射事实的依据。
-- internal/external LPI/ECCM proposal 在下一次**成功发射准备**时消费。prepare 拒绝或关机不消费；
-  发射已经发布后才发生的接收侧失败不使同一 proposal 再次控制下一周期发射。
-- prepare/complete API、预校验和 token 的具体 public 形状尚未实现；实现前必须先以状态机测试证明
-  `idle → prepared/published → completed` 的唯一转换、重复调用拒绝、snapshot continuation 和 replay。
+- detection/association/tracking state 继续由 pipeline/lifecycle/filter 各自拥有；单周期拒绝时恢复全部
+  本周期候选状态，饱和则是成功物理周期并推进 missed-detection。
+- internal/external LPI/ECCM proposal 在下一次**成功单周期执行**时消费；输入拒绝或关机不消费。
+- `PrepareCycle` / `CompleteCycle` / `AbandonCycle`、opaque token 和 scene freeze 不进入公共头、示例、
+  trace 门面或安装消费者。
 
 ## 2. 本模块使用的算法
 
