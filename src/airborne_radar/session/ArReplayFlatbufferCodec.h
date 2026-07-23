@@ -13,7 +13,8 @@
 
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
 #include "1q/airborne_radar/config/ArSessionConfig.h"
-#include "1q/airborne_radar/session/ArRfCycle.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/replay/ReplayTrace.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
 
@@ -35,34 +36,6 @@ std::string EncodeExternalDecisionResponseFlatbuffer(
 bool DecodeExternalDecisionResponseFlatbuffer(const std::string& payload_bytes,
                                               session::ExternalDecisionResponse* response,
                                               std::string* error);
-/** @brief 编解码 RF v2 Prepare 输入与逐操作结果记录。 */
-std::string EncodePrepareCycleInputFlatbuffer(const ArPrepareCycleInput& input);
-bool DecodePrepareCycleInputFlatbuffer(const std::string& payload_bytes, ArPrepareCycleInput* input,
-                                       std::string* error);
-std::string EncodePrepareReplayRecordFlatbuffer(const ArPrepareReplayRecord& record);
-bool DecodePrepareReplayRecordFlatbuffer(const std::string& payload_bytes,
-                                         ArPrepareReplayRecord* record, std::string* error);
-
-/** @brief 编解码 RF v2 Complete 操作输入与逐操作结果记录。 */
-std::string EncodeCompleteReplayOperationInputFlatbuffer(
-    const ArCompleteReplayOperationInput& operation);
-bool DecodeCompleteReplayOperationInputFlatbuffer(const std::string& payload_bytes,
-                                                  ArCompleteReplayOperationInput* operation,
-                                                  std::string* error);
-std::string EncodeCompleteReplayRecordFlatbuffer(const ArCompleteReplayRecord& record);
-bool DecodeCompleteReplayRecordFlatbuffer(const std::string& payload_bytes,
-                                          ArCompleteReplayRecord* record, std::string* error);
-
-/** @brief 编解码 RF v2 Abandon 操作输入与逐操作结果记录。 */
-std::string EncodeAbandonReplayOperationInputFlatbuffer(
-    const ArAbandonReplayOperationInput& operation);
-bool DecodeAbandonReplayOperationInputFlatbuffer(const std::string& payload_bytes,
-                                                 ArAbandonReplayOperationInput* operation,
-                                                 std::string* error);
-std::string EncodeAbandonReplayRecordFlatbuffer(const ArAbandonReplayRecord& record);
-bool DecodeAbandonReplayRecordFlatbuffer(const std::string& payload_bytes,
-                                         ArAbandonReplayRecord* record, std::string* error);
-
 /** @brief 编解码带接受状态的运行期补丁与外部决策尝试。 */
 std::string EncodeRuntimeConfigAttemptFlatbuffer(const config::ArRuntimeConfigPatch& patch,
                                                  bool accepted);

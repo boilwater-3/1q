@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/session/ArRfCycle.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -53,9 +53,9 @@ struct ONEQ_API ArDebugTrackState {
  * @brief 单周期的轨迹输出调试视图聚合。
  */
 struct ONEQ_API ArTrackOutputDebugView {
-  std::uint64_t world_cycle_index{0U};  /**< Complete 所属世界周期号 */
+  std::uint64_t world_cycle_index{0U};  /**< 单周期结果所属世界周期号 */
   std::uint32_t output_cycle_index{0U}; /**< 输出帧内部周期号 */
-  bool completed_this_cycle{false};     /**< Complete 是否成功 */
+  bool completed_this_cycle{false};     /**< 单周期执行是否成功 */
   ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone}; /**< 接收机损伤 */
   std::vector<ArDebugTrackState> tracks{}; /**< 逐输入目标的调试轨迹状态 */
 };
@@ -70,16 +70,16 @@ struct ONEQ_API ArTrackOutputDebugView {
 class ONEQ_API ArTrackOutputDebugViewBuilder {
  public:
   /**
-   * @brief 把 Complete 结果与目标事实合成为开发可读轨迹状态。
+   * @brief 把单周期结果与目标事实合成为开发可读轨迹状态。
    *
    * 只读组合，不反向影响 signal/decision pipeline；按输入目标逐项合成调试状态。
    *
    * @param[in] targets 当前周期目标事实（用于遍历输入目标表）。
-   * @param[in] result 当前周期 Complete 结果（用于查询轨迹状态与接收机损伤）。
+   * @param[in] result 当前周期结果（用于查询轨迹状态与接收机损伤）。
    * @return 合成的单周期轨迹输出调试视图。
    */
   static ArTrackOutputDebugView Build(const ArSceneTargetList& targets,
-                                      const ArCompleteCycleResult& result);
+                                      const ArCycleResult& result);
 };
 
 

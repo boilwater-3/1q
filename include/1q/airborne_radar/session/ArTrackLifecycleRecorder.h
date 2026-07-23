@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/session/ArRfCycle.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {
@@ -82,17 +82,17 @@ class ONEQ_API ArTrackLifecycleRecorder {
   ArTrackLifecycleRecorder& operator=(ArTrackLifecycleRecorder&&) noexcept;
 
   /**
-   * @brief 基于目标事实与 Complete 结果产出生命周期事件。
+   * @brief 基于目标事实与单周期结果产出生命周期事件。
    *
    * 仅处理 `external_target_id != 0` 的输入目标；按确认/更新/丢失/未跟踪规则
    * 生成事件，未跟踪事件仅在配置开启时产生。
    *
    * @param[in] targets 当前周期目标事实（用于遍历输入目标表）。
-   * @param[in] result 当前周期 Complete 结果（用于查询关联轨迹状态）。
+   * @param[in] result 当前周期结果（用于查询关联轨迹状态）。
    * @return 本周期产生的生命周期事件列表（可能为空）。
    */
   std::vector<ArTrackLifecycleEvent> Update(const ArSceneTargetList& targets,
-                                            const ArCompleteCycleResult& result);
+                                            const ArCycleResult& result);
 
   /**
    * @brief 清空内部轨迹状态，回到初始状态。

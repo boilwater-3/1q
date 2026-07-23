@@ -8,7 +8,8 @@
 
 #include <vector>
 
-#include "1q/airborne_radar/session/ArRfCycle.h"
+#include "1q/airborne_radar/session/ArInterferenceObservation.h"
+#include "1q/electromagnetics/RfScene.h"
 
 namespace airborne_radar {
 namespace signal {

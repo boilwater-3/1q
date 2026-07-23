@@ -31,9 +31,9 @@ ArTrackLifecycleReason InferReason(const session::TrackStateSnapshot* track) {
 }
 
 ArTrackLifecycleEvent MakeBaseEvent(const ArSceneTarget& target,
-                                    const ArCompleteCycleResult& result) {
+                                    const ArCycleResult& result) {
   ArTrackLifecycleEvent event;
-  event.world_cycle_index = result.world_cycle_index;
+  event.world_cycle_index = result.input_cycle_index;
   event.external_target_id = target.external_target_id;
   event.target_name = target.target_name;
   return event;
@@ -56,9 +56,9 @@ ArTrackLifecycleRecorder& ArTrackLifecycleRecorder::operator=(ArTrackLifecycleRe
     default;
 
 std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
-    const ArSceneTargetList& targets, const ArCompleteCycleResult& result) {
+    const ArSceneTargetList& targets, const ArCycleResult& result) {
   std::vector<ArTrackLifecycleEvent> events;
-  if (result.status != ArCompleteCycleStatus::kCompleted) {
+  if (result.status != ArCycleStatus::kCompleted) {
     return events;
   }
   events.reserve(targets.size());

@@ -9,7 +9,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "1q/airborne_radar/session/ArRfCycle.h"
+#include "1q/airborne_radar/session/ArCycleInput.h"
+#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/DecisionControlTypes.h"
 #include "airborne_radar/decision/ControlReducer.h"
 
@@ -34,11 +35,8 @@ struct ArDecisionReplayState {
 
 /** @brief replay 比对所需的会话拥有状态。 */
 struct ArSessionReplayState {
-  bool has_prepared_cycle{false};
-  ArPreparedCycleToken prepared_token{};
   bool has_world_chronology{false};
   double last_world_window_end_s{0.0};
-  std::uint64_t next_token_value{1U};
   std::uint64_t next_emission_id{1U};
   std::uint64_t successful_prepare_count{0U};
   std::uint64_t timing_seed{0U};
@@ -53,30 +51,6 @@ struct ArSessionReplayState {
 /** @brief 单周期用户门面一次调用的结果与调用后状态。 */
 struct ArCycleReplayRecord {
   ArCycleResult result{};
-  ArSessionReplayState session_state{};
-};
-
-struct ArPrepareReplayRecord {
-  ArPrepareCycleResult result{};
-  ArSessionReplayState session_state{};
-};
-
-struct ArCompleteReplayOperationInput {
-  ArPreparedCycleToken token{};
-  ArCompleteCycleInput input{};
-};
-
-struct ArCompleteReplayRecord {
-  ArCompleteCycleResult result{};
-  ArSessionReplayState session_state{};
-};
-
-struct ArAbandonReplayOperationInput {
-  ArPreparedCycleToken token{};
-};
-
-struct ArAbandonReplayRecord {
-  ArAbandonCycleStatus status{ArAbandonCycleStatus::kTokenMismatch};
   ArSessionReplayState session_state{};
 };
 

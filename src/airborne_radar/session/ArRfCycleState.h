@@ -1,10 +1,10 @@
 /**
- * @file ArRfCycle.h
- * @brief 定义 AR 工程 RF 两阶段周期协议的公共值类型。
+ * @file ArRfCycleState.h
+ * @brief 定义 AR 单周期门面内部的 RF 准备与接收状态。
  */
 
-#ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_RF_CYCLE_H_
-#define ONEQ_AIRBORNE_RADAR_SESSION_AR_RF_CYCLE_H_
+#ifndef AIRBORNE_RADAR_SESSION_AR_RF_CYCLE_STATE_H_
+#define AIRBORNE_RADAR_SESSION_AR_RF_CYCLE_STATE_H_
 
 #include <cstdint>
 #include <vector>
@@ -24,13 +24,13 @@ namespace airborne_radar {
 namespace session {
 
 /** @brief Prepare 阶段的不透明周期令牌。 */
-struct ONEQ_API ArPreparedCycleToken {
+struct ArPreparedCycleToken {
   std::uint64_t value{0U};             /**< 会话内单调令牌值；0 表示无效。 */
   std::uint64_t world_cycle_index{0U}; /**< 令牌所属世界周期。 */
 };
 
 /** @brief Prepare 请求；world time 由外部 orchestrator 唯一拥有。 */
-struct ONEQ_API ArPrepareCycleInput {
+struct ArPrepareCycleInput {
   std::uint64_t world_cycle_index{0U};                        /**< 世界周期号。 */
   double window_start_time_s{0.0};                            /**< 接收窗口绝对起始时间（s）。 */
   double window_duration_s{0.0};                              /**< 接收窗口持续时间（s）。 */
@@ -43,7 +43,7 @@ struct ONEQ_API ArPrepareCycleInput {
 };
 
 /** @brief Prepare 冻结并由同一 token 的 Complete 原样使用的接收工作状态。 */
-struct ONEQ_API ArReceiverOperatingState {
+struct ArReceiverOperatingState {
   oneq::electromagnetics::RfSceneReceiverState rf_receiver{}; /**< 公共单程链路输入状态。 */
   config::AzimuthElevationDeg beam_pointing_deg{};             /**< 雷达局部实际波束中心。 */
   double matched_filter_bandwidth_hz{0.0};                     /**< 匹配滤波带宽。 */
@@ -63,7 +63,7 @@ enum class ArPrepareCycleStatus : std::uint8_t {
 };
 
 /** @brief Prepare 阶段结果。 */
-struct ONEQ_API ArPrepareCycleResult {
+struct ArPrepareCycleResult {
   ArPrepareCycleStatus status{ArPrepareCycleStatus::kRejected}; /**< Prepare 状态。 */
   ArPreparedCycleToken token{};                                 /**< 成功时的待完成令牌。 */
   bool has_emission{false};                                     /**< 是否发布了实际发射。 */
@@ -72,7 +72,7 @@ struct ONEQ_API ArPrepareCycleResult {
 };
 
 /** @brief Complete 阶段场景与目标输入。 */
-struct ONEQ_API ArCompleteCycleInput {
+struct ArCompleteCycleInput {
   oneq::electromagnetics::RfSceneFrame rf_scene{}; /**< orchestrator 冻结的 RF v2 场景。 */
   ArSceneTargetList targets{};                     /**< 本周期目标事实。 */
   config::AtmosphericPhysicsConfig atmospheric_observation{};   /**< 大气传播输入。 */
@@ -88,7 +88,7 @@ enum class ArCompleteCycleStatus : std::uint8_t {
 };
 
 /** @brief Complete 阶段结果；仅 kCompleted 携带本周期输出。 */
-struct ONEQ_API ArCompleteCycleResult {
+struct ArCompleteCycleResult {
   ArCompleteCycleStatus status{ArCompleteCycleStatus::kRejected}; /**< Complete 状态。 */
   std::uint64_t world_cycle_index{0U};                            /**< 结果所属世界周期。 */
   TrackOutputFrame track_output_frame{};                          /**< 本周期新轨迹帧。 */
@@ -107,4 +107,4 @@ enum class ArAbandonCycleStatus : std::uint8_t {
 }  // namespace session
 }  // namespace airborne_radar
 
-#endif  // ONEQ_AIRBORNE_RADAR_SESSION_AR_RF_CYCLE_H_
+#endif  // AIRBORNE_RADAR_SESSION_AR_RF_CYCLE_STATE_H_

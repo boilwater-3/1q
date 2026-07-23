@@ -17,7 +17,6 @@
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/ArCycleInput.h"
 #include "1q/airborne_radar/session/ArCycleResult.h"
-#include "1q/airborne_radar/session/ArRfCycle.h"
 #include "1q/api.hpp"
 #include "1q/foundation/SensorContract.h"
 
@@ -45,23 +44,11 @@ class ONEQ_API ArSession {
   ArSession(ArSession&&) noexcept;
   ArSession& operator=(ArSession&&) noexcept;
 
-  /** @brief 发布本周期实际发射并冻结接收机工作状态。 */
-  ArPrepareCycleResult PrepareCycle(const ArPrepareCycleInput& input);
-
-  /** @brief 使用冻结 RF scene 完成本周期接收、探测与跟踪。 */
-  ArCompleteCycleResult CompleteCycle(const ArPreparedCycleToken& token,
-                                      const ArCompleteCycleInput& input);
-
-  /** @brief 放弃待完成的接收阶段，但不回滚已发布发射。 */
-  ArAbandonCycleStatus AbandonCycle(const ArPreparedCycleToken& token);
-
   /**
    * @brief 执行一个不显式切场景的处理周期。
    * @param[in] input 当前周期输入。
    * @return 当前周期生成的轨迹输出帧拷贝。
-   * @note 输入容错：`dt_sec ≤ 0` 或其他非法输入时，函数不抛异常，
-   *       会以尽力而为出发返回上一周期有效状态，输出帧中
-   *       `tracks` 可能为空。
+   * @note 非法或被拒绝的周期返回默认的当前帧，不复用历史输出。
    */
   TrackOutputFrame Step(const ArCycleInput& input);
 
@@ -69,10 +56,8 @@ class ONEQ_API ArSession {
    * @brief 执行一个不显式切场景的处理周期，并返回聚合结果。
    * @param[in] input 当前周期输入。
    * @return 当前周期聚合结果。
-   * @note 输入容错：行为与 `Step()` 一致；可通过结果中的
-   *       `executed_this_cycle` / `reused_previous_output`
-   *       区分"本周期实际执行"与"仅回退上一有效输出"；若下游主链路 abort，
-   *       可进一步通过 `abort_reason` 区分具体原因。
+   * @note `status` 是结果有效性的唯一真相；只有 `kCompleted` 携带本周期
+   *       探测/跟踪输出，`kPoweredOff` 只推进世界时间。
    */
   ArCycleResult StepWithResult(const ArCycleInput& input);
 

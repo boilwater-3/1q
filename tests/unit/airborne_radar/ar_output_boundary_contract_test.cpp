@@ -43,11 +43,11 @@ session::TrackStateSnapshot MakeSnapshot(std::uint64_t id, const std::string& na
   return snapshot;
 }
 
-ArCompleteCycleResult MakeResult(std::uint64_t cycle_index,
-                                 std::vector<session::TrackStateSnapshot> tracks) {
-  ArCompleteCycleResult result;
-  result.status = ArCompleteCycleStatus::kCompleted;
-  result.world_cycle_index = cycle_index;
+ArCycleResult MakeResult(std::uint64_t cycle_index,
+                         std::vector<session::TrackStateSnapshot> tracks) {
+  ArCycleResult result;
+  result.status = ArCycleStatus::kCompleted;
+  result.input_cycle_index = cycle_index;
   result.track_output_frame.cycle_index = cycle_index;
   result.track_output_frame.tracks = std::move(tracks);
   return result;
@@ -62,7 +62,7 @@ TEST(RarOutputBoundaryContractTest, SameNameDifferentIdDoesNotBreakAssociation) 
   const ArSceneTargetList targets = {MakeTarget(1001U, "shared-name"),
                                      MakeTarget(1002U, "shared-name")};
 
-  ArCompleteCycleResult result =
+  ArCycleResult result =
       MakeResult(1U, {MakeSnapshot(1001U, "shared-name", session::TrackStatus::kConfirmed),
                       MakeSnapshot(1002U, "shared-name", session::TrackStatus::kConfirmed)});
 
@@ -79,7 +79,7 @@ TEST(RarOutputBoundaryContractTest, SameNameDifferentIdDoesNotBreakAssociation) 
 TEST(RarOutputBoundaryContractTest, EmptyNameDoesNotAffectAssociation) {
   const ArSceneTargetList targets = {MakeTarget(2001U, "")};
 
-  ArCompleteCycleResult result =
+  ArCycleResult result =
       MakeResult(1U, {MakeSnapshot(2001U, "", session::TrackStatus::kConfirmed)});
 
   const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(targets, result);

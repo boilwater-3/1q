@@ -47,11 +47,12 @@ session::TrackStateSnapshot MakeTrackSnapshot(std::uint64_t external_target_id, 
   return snapshot;
 }
 
-ArCompleteCycleResult MakeCycleResult(std::uint64_t cycle_index, bool completed,
-                                      std::vector<session::TrackStateSnapshot> tracks) {
-  ArCompleteCycleResult result;
-  result.status = completed ? ArCompleteCycleStatus::kCompleted : ArCompleteCycleStatus::kRejected;
-  result.world_cycle_index = cycle_index;
+ArCycleResult MakeCycleResult(std::uint64_t cycle_index, bool completed,
+                              std::vector<session::TrackStateSnapshot> tracks) {
+  ArCycleResult result;
+  result.status = completed ? ArCycleStatus::kCompleted
+                            : ArCycleStatus::kRejectedExecution;
+  result.input_cycle_index = cycle_index;
   result.track_output_frame.cycle_index = cycle_index;
   result.track_output_frame.tracks = std::move(tracks);
   return result;
@@ -64,7 +65,7 @@ TEST(RadarTrackOutputDebugViewTest, BuildMapsTracksBackToNamedTargets) {
   const ArSceneTargetList targets = {MakeNamedTarget(701U, "alpha"), MakeNamedTarget(702U, "beta"),
                                      MakeNamedTarget(0U, "no-id")};
 
-  ArCompleteCycleResult result =
+  ArCycleResult result =
       MakeCycleResult(5U, /*executed=*/true,
                       {MakeTrackSnapshot(701U, "alpha", session::TrackStatus::kConfirmed),
                        MakeTrackSnapshot(702U, "beta", session::TrackStatus::kTentative)});
@@ -94,7 +95,7 @@ TEST(RadarTrackOutputDebugViewTest, BuildMapsTracksBackToNamedTargets) {
 TEST(RadarTrackOutputDebugViewTest, NonCompletedCycleMarksAllTargetsAsNonCompleted) {
   const ArSceneTargetList targets = {MakeNamedTarget(701U, "alpha")};
 
-  ArCompleteCycleResult result = MakeCycleResult(9U, /*completed=*/false, {});
+  ArCycleResult result = MakeCycleResult(9U, /*completed=*/false, {});
   const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(targets, result);
   ASSERT_EQ(view.tracks.size(), 1U);
   EXPECT_EQ(view.tracks[0].status, ArDebugTrackStatus::kCycleNotCompleted);
@@ -108,7 +109,7 @@ TEST(RadarTrackLifecycleRecorderTest, TracksFirstConfirmedUpdatedLost) {
   ArTrackLifecycleRecorder recorder;
 
   // 周期 1：首次确认。
-  ArCompleteCycleResult first = MakeCycleResult(
+  ArCycleResult first = MakeCycleResult(
       1U, /*completed=*/true, {MakeTrackSnapshot(800U, "gamma", session::TrackStatus::kConfirmed)});
   std::vector<ArTrackLifecycleEvent> events = recorder.Update(targets, first);
   ASSERT_EQ(events.size(), 1U);
@@ -116,14 +117,14 @@ TEST(RadarTrackLifecycleRecorderTest, TracksFirstConfirmedUpdatedLost) {
   EXPECT_EQ(events[0].target_name, "gamma");
 
   // 周期 2：已确认 → 更新。
-  ArCompleteCycleResult second = MakeCycleResult(
+  ArCycleResult second = MakeCycleResult(
       2U, /*completed=*/true, {MakeTrackSnapshot(800U, "gamma", session::TrackStatus::kConfirmed)});
   events = recorder.Update(targets, second);
   ASSERT_EQ(events.size(), 1U);
   EXPECT_EQ(events[0].kind, ArTrackLifecycleEventKind::kUpdated);
 
   // 周期 3：丢失。
-  ArCompleteCycleResult lost = MakeCycleResult(
+  ArCycleResult lost = MakeCycleResult(
       3U, /*completed=*/true, {MakeTrackSnapshot(800U, "gamma", session::TrackStatus::kLost)});
   events = recorder.Update(targets, lost);
   ASSERT_EQ(events.size(), 1U);
@@ -133,13 +134,13 @@ TEST(RadarTrackLifecycleRecorderTest, TracksFirstConfirmedUpdatedLost) {
 TEST(RadarTrackLifecycleRecorderTest, NonCompletedCyclePreservesConfirmedState) {
   const ArSceneTargetList targets = {MakeNamedTarget(801U, "recoverable")};
   ArTrackLifecycleRecorder recorder(ArTrackLifecycleRecorderConfig{true});
-  ArCompleteCycleResult confirmed = MakeCycleResult(
+  ArCycleResult confirmed = MakeCycleResult(
       1U, true, {MakeTrackSnapshot(801U, "recoverable", session::TrackStatus::kConfirmed)});
   ASSERT_EQ(recorder.Update(targets, confirmed).front().kind,
             ArTrackLifecycleEventKind::kFirstConfirmed);
-  ArCompleteCycleResult rejected = MakeCycleResult(2U, false, {});
+  ArCycleResult rejected = MakeCycleResult(2U, false, {});
   EXPECT_TRUE(recorder.Update(targets, rejected).empty());
-  confirmed.world_cycle_index = 3U;
+  confirmed.input_cycle_index = 3U;
   const std::vector<ArTrackLifecycleEvent> recovered = recorder.Update(targets, confirmed);
   ASSERT_EQ(recovered.size(), 1U);
   EXPECT_EQ(recovered.front().kind, ArTrackLifecycleEventKind::kUpdated);
@@ -151,7 +152,7 @@ TEST(RadarTrackLifecycleRecorderTest, NotTrackedEventsRequireExplicitEnable) {
 
   // 默认配置：无 track 的目标不产生事件。
   ArTrackLifecycleRecorder recorder;
-  ArCompleteCycleResult no_track = MakeCycleResult(1U, /*completed=*/true, {});
+  ArCycleResult no_track = MakeCycleResult(1U, /*completed=*/true, {});
   std::vector<ArTrackLifecycleEvent> events = recorder.Update(targets, no_track);
   EXPECT_TRUE(events.empty());
 
@@ -169,7 +170,7 @@ TEST(RadarTrackLifecycleRecorderTest, ZeroIdTargetsAreSkipped) {
   const ArSceneTargetList targets = {MakeNamedTarget(0U, "no-id")};
 
   ArTrackLifecycleRecorder diagnose_recorder(ArTrackLifecycleRecorderConfig{true});
-  ArCompleteCycleResult result = MakeCycleResult(1U, /*completed=*/true, {});
+  ArCycleResult result = MakeCycleResult(1U, /*completed=*/true, {});
   std::vector<ArTrackLifecycleEvent> events = diagnose_recorder.Update(targets, result);
   EXPECT_TRUE(events.empty());
 }

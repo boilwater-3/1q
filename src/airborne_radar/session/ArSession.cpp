@@ -12,6 +12,7 @@
 #include "airborne_radar/environment/IEnvironmentService.h"
 #include "airborne_radar/runtime/ArController.h"
 #include "airborne_radar/session/ArReplayCycleRecord.h"
+#include "airborne_radar/session/ArRfCycleState.h"
 #include "airborne_radar/session/ArSessionCompositionRoot.h"
 #include "airborne_radar/session/MutableArContext.h"
 #include "airborne_radar/signal/detection/ArInterferenceObservationResolver.h"
@@ -441,10 +442,14 @@ struct ArSession::Impl {
     prepare_input.platform_velocity_ecef_mps = input.platform.platform_velocity_mps;
     prepare_input.radar_frame_attitude_deg = ComposeRadarAttitudeDeg(
         input.platform.platform_attitude_deg, input.platform.radar_mount_angles_deg);
+    const config::mapping::RuntimeConfigState& next_operating_state =
+        has_pending_runtime_update ? pending_runtime_state : runtime_state;
     prepare_input.beam_pointing_deg =
-        runtime_state.execution_config.detection.orientation.scan_center_deg;
-    prepare_input.beam_pointing_deg.az_deg += runtime_state.dwell_center_deg.az_deg;
-    prepare_input.beam_pointing_deg.el_deg += runtime_state.dwell_center_deg.el_deg;
+        next_operating_state.execution_config.detection.orientation.scan_center_deg;
+    prepare_input.beam_pointing_deg.az_deg +=
+        next_operating_state.dwell_center_deg.az_deg;
+    prepare_input.beam_pointing_deg.el_deg +=
+        next_operating_state.dwell_center_deg.el_deg;
 
     const ArPrepareCycleResult prepared = PrepareRfCycle(prepare_input);
     if (prepared.status == ArPrepareCycleStatus::kPoweredOff) {
@@ -818,11 +823,8 @@ ArDecisionReplayState ArSessionReplayAccess::CaptureDecisionState(const ArSessio
 
 ArSessionReplayState ArSessionReplayAccess::CaptureSessionState(const ArSession& session) {
   ArSessionReplayState replay_state;
-  replay_state.has_prepared_cycle = session.impl_->has_prepared_cycle;
-  replay_state.prepared_token = session.impl_->prepared_token;
   replay_state.has_world_chronology = session.impl_->has_world_chronology;
   replay_state.last_world_window_end_s = session.impl_->last_world_window_end_s;
-  replay_state.next_token_value = session.impl_->next_token_value;
   replay_state.next_emission_id = session.impl_->next_emission_id;
   replay_state.successful_prepare_count = session.impl_->successful_prepare_count;
   replay_state.timing_seed = session.impl_->timing_seed;
@@ -845,19 +847,6 @@ ArSession::ArSession()
 ArSession::~ArSession() = default;
 ArSession::ArSession(ArSession&&) noexcept = default;
 ArSession& ArSession::operator=(ArSession&&) noexcept = default;
-
-ArPrepareCycleResult ArSession::PrepareCycle(const ArPrepareCycleInput& input) {
-  return impl_->PrepareRfCycle(input);
-}
-
-ArCompleteCycleResult ArSession::CompleteCycle(const ArPreparedCycleToken& token,
-                                               const ArCompleteCycleInput& input) {
-  return impl_->CompleteRfCycle(token, input);
-}
-
-ArAbandonCycleStatus ArSession::AbandonCycle(const ArPreparedCycleToken& token) {
-  return impl_->AbandonRfCycle(token);
-}
 
 ArSession ArSession::Create(const config::ArSessionConfig& config) {
   return ArSession(std::unique_ptr<ArSession::Impl>(

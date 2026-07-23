@@ -28,12 +28,12 @@ const session::TrackStateSnapshot* FindTrackByExternalTargetId(
 }
 
 ArDebugTrackState BuildTrackState(const ArSceneTarget& target,
-                                  const ArCompleteCycleResult& cycle_result) {
+                                  const ArCycleResult& cycle_result) {
   ArDebugTrackState state;
   state.external_target_id = target.external_target_id;
   state.target_name = target.target_name;
   state.present_in_input = true;
-  if (cycle_result.status != ArCompleteCycleStatus::kCompleted) {
+  if (cycle_result.status != ArCycleStatus::kCompleted) {
     state.status = ArDebugTrackStatus::kCycleNotCompleted;
     return state;
   }
@@ -61,11 +61,11 @@ ArDebugTrackState BuildTrackState(const ArSceneTarget& target,
 }  // namespace
 
 ArTrackOutputDebugView ArTrackOutputDebugViewBuilder::Build(const ArSceneTargetList& targets,
-                                                            const ArCompleteCycleResult& result) {
+                                                            const ArCycleResult& result) {
   ArTrackOutputDebugView view;
-  view.world_cycle_index = result.world_cycle_index;
+  view.world_cycle_index = result.input_cycle_index;
   view.output_cycle_index = result.track_output_frame.cycle_index;
-  view.completed_this_cycle = result.status == ArCompleteCycleStatus::kCompleted;
+  view.completed_this_cycle = result.status == ArCycleStatus::kCompleted;
   view.receiver_impairment = result.receiver_impairment;
   view.tracks.reserve(targets.size());
   for (const ArSceneTarget& target : targets) {

@@ -18,6 +18,7 @@
 #include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArInputValidation.h"
 #include "1q/airborne_radar/session/ArSession.h"
+#include "1q/coordinate/position_transform.h"
 
 int main() {
   // 1. Builder config construction
@@ -41,7 +42,15 @@ int main() {
 
   // 4. Input construction + validation
   airborne_radar::session::ArCycleInput input;
-  input.dt_sec = 1.0f;
+  input.cycle_index = 1U;
+  input.cycle_start_time_s = 0.0;
+  input.dt_sec = 1.0;
+  input.platform.platform_entity_id = 1U;
+  oneq::coordinate::LlaPositionDegM platform_lla;
+  if (!oneq::coordinate::TryLlaToEcef(
+          platform_lla, &input.platform.platform_position_ecef_m)) {
+    return 1;
+  }
   const std::vector<airborne_radar::session::ValidationIssue> issues =
       airborne_radar::session::ValidateArCycleInput(input);
   if (airborne_radar::session::HasValidationError(issues)) {
@@ -68,10 +77,9 @@ int main() {
   (void)has_profile;
   const std::size_t command_count = result.submitted_commands.size();
   (void)command_count;
-  const bool executed_this_cycle = result.executed_this_cycle;
-  (void)executed_this_cycle;
-  const bool reused_previous_output = result.reused_previous_output;
-  (void)reused_previous_output;
+  const bool completed =
+      result.status == airborne_radar::session::ArCycleStatus::kCompleted;
+  (void)completed;
 
   // 8. RuntimeConfigBuilder hot-switch
   airborne_radar::config::AzimuthElevationDeg scan_center_deg;
@@ -88,8 +96,9 @@ int main() {
   session.ApplyRuntimeConfig(runtime_patch);
 
   // 9. Second cycle after runtime config change
-  airborne_radar::session::ArCycleInput input_2;
-  input_2.dt_sec = 1.0f;
+  airborne_radar::session::ArCycleInput input_2 = input;
+  input_2.cycle_index = 3U;
+  input_2.cycle_start_time_s = 2.0;
   const airborne_radar::session::ArCycleResult result_2 = session.StepWithResult(input_2);
   if (result_2.has_validation_error) {
     return 4;

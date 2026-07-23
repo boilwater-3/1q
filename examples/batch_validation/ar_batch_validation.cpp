@@ -30,7 +30,6 @@
 
 #include "1q/airborne_radar/airborne_radar.hpp"
 #include "1q/airborne_radar/config/ArRuntimeConfigPatch.h"
-#include "1q/airborne_radar/session/ArCycleInputAdapter.h"
 #include "1q/airborne_radar/session/ArReplaySession.h"
 #include "1q/airborne_radar/session/ArSession.h"
 #include "1q/airborne_radar/session/ArTraceSession.h"
@@ -245,7 +244,7 @@ void ApplyCaseToConfig(const ArCase& c, ar_config::ArSessionConfig& config) {
 // =============================================================================
 
 constexpr const char* kCycleHeader =
-    "scenario_id,suite,scenario_family,phase,cycle_index,prepare_status,complete_status,"
+    "scenario_id,suite,scenario_family,phase,cycle_index,cycle_status,"
     "completed,receiver_impairment,interference_observation_count,max_jammer_to_noise_db,"
     "confirmed_count,tentative_count,lost_count";
 
@@ -263,8 +262,7 @@ constexpr const char* kScenarioHeader =
 /// 周期级指标快照（写周期 CSV + 聚合场景级）。
 struct CycleMetrics {
   std::uint32_t cycle_index{0};
-  ar_session::ArPrepareCycleStatus prepare_status{ar_session::ArPrepareCycleStatus::kRejected};
-  ar_session::ArCompleteCycleStatus complete_status{ar_session::ArCompleteCycleStatus::kRejected};
+  ar_session::ArCycleStatus status{ar_session::ArCycleStatus::kRejectedInvalidInput};
   bool completed{false};
   ar_session::ArReceiverImpairment receiver_impairment{ar_session::ArReceiverImpairment::kNone};
   std::size_t confirmed{0};
@@ -277,87 +275,54 @@ struct CycleMetrics {
 struct BatchCycleResult {
   std::uint32_t cycle_index{0U};
   bool completed{false};
-  ar_session::ArPrepareCycleStatus prepare_status{ar_session::ArPrepareCycleStatus::kRejected};
-  ar_session::ArCompleteCycleStatus complete_status{ar_session::ArCompleteCycleStatus::kRejected};
-  std::size_t replay_operation_count{0U};
+  ar_session::ArCycleStatus status{ar_session::ArCycleStatus::kRejectedInvalidInput};
+  std::size_t replay_operation_count{1U};
   ar_session::TrackOutputFrame track_output_frame{};
   ar_session::ArInterferenceObservationList interference_observations{};
   ar_session::ArReceiverImpairment receiver_impairment{ar_session::ArReceiverImpairment::kNone};
 };
 
 BatchCycleResult RunBatchCycle(ar_session::ArTraceSession* session,
-                               const ar_session::ArCycleInput& input, bool include_pulsed_jammer) {
+                               const ar_session::ArCycleInput& input,
+                               const ar_config::ArSessionConfig& config,
+                               bool include_pulsed_jammer) {
   BatchCycleResult result;
   result.cycle_index = input.cycle_index;
   if (session == nullptr) {
+    result.replay_operation_count = 0U;
     return result;
   }
-  ar_session::ArPrepareCycleInput prepare;
-  prepare.world_cycle_index = input.cycle_index;
-  prepare.window_start_time_s = static_cast<double>(input.cycle_index - 1U);
-  prepare.window_duration_s = static_cast<double>(input.dt_sec);
-  prepare.platform_id = input.platform_entity_id == 0U ? 10U : input.platform_entity_id;
-  prepare.platform_position_ecef_m = input.platform_position_ecef_m;
-  prepare.platform_velocity_ecef_mps = input.platform_velocity_ecef_mps;
-  prepare.radar_frame_attitude_deg.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
-  prepare.radar_frame_attitude_deg.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
-  prepare.radar_frame_attitude_deg.roll_deg = input.platform_pose.attitude_deg.roll_deg;
-  const ar_session::ArPrepareCycleResult prepared = session->PrepareCycle(prepare);
-  result.replay_operation_count = 1U;
-  result.prepare_status = prepared.status;
-  if (prepared.status == ar_session::ArPrepareCycleStatus::kPoweredOff) {
-    return result;
-  }
-  if (prepared.status != ar_session::ArPrepareCycleStatus::kPrepared) {
-    return result;
-  }
-
-  ar_session::ArCompleteCycleInput complete;
-  complete.rf_scene.world_cycle_index = prepare.world_cycle_index;
-  complete.rf_scene.window_start_time_s = prepare.window_start_time_s;
-  complete.rf_scene.window_duration_s = prepare.window_duration_s;
-  complete.rf_scene.emissions.push_back(prepared.emission);
+  ar_session::ArCycleInput cycle = input;
   if (include_pulsed_jammer) {
     oneq::electromagnetics::RfSceneEmission jammer;
     jammer.identity.platform_id = 20U;
     jammer.identity.equipment_id = 21U;
-    jammer.identity.emission_id = 100000U + prepare.world_cycle_index;
-    const auto& receiver = prepared.operating_state.rf_receiver;
+    jammer.identity.emission_id = 100000U + cycle.cycle_index;
     constexpr double kJammerRangeM = 20000.0;
-    jammer.position_ecef_m = receiver.position_ecef_m;
-    jammer.position_ecef_m.x_m += receiver.antenna.boresight_ecef.x * kJammerRangeM;
-    jammer.position_ecef_m.y_m += receiver.antenna.boresight_ecef.y * kJammerRangeM;
-    jammer.position_ecef_m.z_m += receiver.antenna.boresight_ecef.z * kJammerRangeM;
-    jammer.antenna.boresight_ecef.x = -receiver.antenna.boresight_ecef.x;
-    jammer.antenna.boresight_ecef.y = -receiver.antenna.boresight_ecef.y;
-    jammer.antenna.boresight_ecef.z = -receiver.antenna.boresight_ecef.z;
+    jammer.position_ecef_m = cycle.platform.platform_position_ecef_m;
+    jammer.position_ecef_m.x_m += kJammerRangeM;
+    jammer.antenna.boresight_ecef.x = -1.0;
     jammer.antenna.peak_gain_dbi = 20.0;
     jammer.antenna.half_power_beamwidth_deg = 30.0;
-    jammer.polarization = receiver.polarization;
     constexpr double kPulseWidthS = 2.0e-4;
     constexpr double kPulseRepetitionIntervalS = 1.0e-3;
     constexpr std::uint32_t kPulseCount = 1000U;
     if (!oneq::electromagnetics::TryCreateRfPulseTrainWaveform(
-            prepare.window_start_time_s, receiver.center_frequency_hz, receiver.bandwidth_hz, 10.0,
+            cycle.cycle_start_time_s,
+            static_cast<double>(config.hardware.transmitter.frequency_hz),
+            static_cast<double>(config.hardware.transmitter.bandwidth_hz), 10.0,
             kPulseWidthS, kPulseRepetitionIntervalS, kPulseCount, 0.0, 0x4241544348ULL,
-            prepare.world_cycle_index, &jammer.waveform)) {
-      (void)session->AbandonCycle(prepared.token);
-      ++result.replay_operation_count;
+            cycle.cycle_index, &jammer.waveform)) {
       return result;
     }
-    complete.rf_scene.emissions.push_back(jammer);
+    cycle.interference.world_cycle_index = cycle.cycle_index;
+    cycle.interference.window_start_time_s = cycle.cycle_start_time_s;
+    cycle.interference.window_duration_s = cycle.dt_sec;
+    cycle.interference.emissions.push_back(jammer);
   }
-  complete.targets = input.scene;
-  complete.atmospheric_observation = input.environment.atmospheric_observation;
-  complete.atmospheric_context = input.environment.atmospheric_context;
-  complete.surface_observation = input.environment.surface_observation;
-  const ar_session::ArCompleteCycleResult completed =
-      session->CompleteCycle(prepared.token, complete);
-  ++result.replay_operation_count;
-  result.complete_status = completed.status;
-  if (completed.status != ar_session::ArCompleteCycleStatus::kCompleted) {
-    (void)session->AbandonCycle(prepared.token);
-    ++result.replay_operation_count;
+  const ar_session::ArCycleResult completed = session->StepWithResult(cycle);
+  result.status = completed.status;
+  if (completed.status != ar_session::ArCycleStatus::kCompleted) {
     return result;
   }
   result.completed = true;
@@ -371,8 +336,7 @@ BatchCycleResult RunBatchCycle(ar_session::ArTraceSession* session,
 CycleMetrics ExtractCycleMetrics(const BatchCycleResult& r) {
   CycleMetrics m;
   m.cycle_index = r.cycle_index;
-  m.prepare_status = r.prepare_status;
-  m.complete_status = r.complete_status;
+  m.status = r.status;
   m.completed = r.completed;
   m.receiver_impairment = r.receiver_impairment;
   const auto& f = r.track_output_frame;
@@ -489,22 +453,25 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
       ar_session::ArEnvironmentInput env = MakeEnvironment(cycle_index);
 
       ar_session::ArCycleInput input;
-      ar_session::ArCoordinateStatus status;
-      if (!ar_session::ArCycleInputAdapter::Build(platform, targets, 1.0f, env, &input, &status)) {
-        s.warnings.Error("ArCycleInputAdapter::Build failed at cycle " +
-                         std::to_string(cycle_index));
-        break;
-      }
       input.cycle_index = cycle_index;
+      input.cycle_start_time_s = static_cast<double>(cycle_index - 1U);
+      input.dt_sec = 1.0;
+      if (platform.platform_entity_id == 0U) {
+        platform.platform_entity_id = 10U;
+      }
+      input.platform = platform;
+      input.targets = targets;
+      input.environment = env;
       if (c.scenario_id == "ar_seq_invalid_input_recovery" && cycle_index == 9U) {
-        input.dt_sec = 0.0f;
+        input.dt_sec = 0.0;
       } else if (c.scenario_id == "ar_seq_invalid_input_recovery" && cycle_index == 10U &&
-                 input.scene.size() >= 2U) {
-        input.scene[1].external_target_id = input.scene[0].external_target_id;
+                 input.targets.size() >= 2U) {
+        input.targets[1].target_id = input.targets[0].target_id;
       }
 
       const BatchCycleResult result =
-          RunBatchCycle(&session, input, c.scenario_id == "ar_seq_crossing_with_pulsed_jammer");
+          RunBatchCycle(&session, input, config,
+                        c.scenario_id == "ar_seq_crossing_with_pulsed_jammer");
       replay_operation_count += result.replay_operation_count;
       if (!result.completed) ++rejected_cycle_count;
       const auto track_map = ar_session::BuildTrackMapByExternalTargetId(result.track_output_frame);
@@ -517,10 +484,10 @@ ScenarioSummary RunArScenario(const ArCase& c, const ar_config::ArSessionConfig&
       metrics.push_back(m);
 
       // 周期级 CSV（含未执行周期，便于诊断）。
-      std::fprintf(cycle_writer.file(), "%s,%s,%s,%s,%u,%d,%d,%d,%d,%zu,%.5f,%zu,%zu,%zu\n",
+      std::fprintf(cycle_writer.file(), "%s,%s,%s,%s,%u,%d,%d,%d,%zu,%.5f,%zu,%zu,%zu\n",
                    c.scenario_id.c_str(), c.sequence ? "sequence" : "sweep", c.family.c_str(),
-                   phase, m.cycle_index, static_cast<int>(m.prepare_status),
-                   static_cast<int>(m.complete_status), static_cast<int>(m.completed),
+                   phase, m.cycle_index, static_cast<int>(m.status),
+                   static_cast<int>(m.completed),
                    static_cast<int>(m.receiver_impairment), m.interference_observation_count,
                    m.max_jammer_to_noise_db, m.confirmed, m.tentative, m.lost);
     }

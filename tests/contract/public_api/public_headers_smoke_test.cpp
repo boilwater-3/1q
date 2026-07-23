@@ -172,13 +172,11 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
   session_config.environment.scenario_config.atmospheric_physics.enable_physical_model = true;
 
   session::ArCycleInput input;
-  input.dt_sec = 1.0f;
-  session::ArEnvironmentInputState environment_state(input.environment);
-  session::ArEnvironmentInputPatch environment_patch;
-  environment_patch.has_jammer_sources = true;
-  environment_patch.jammer_sources.push_back(config::JammerEmitterState{});
-  input.environment = environment_state.Update(environment_patch).Snapshot();
-  input.has_environment = true;
+  input.cycle_index = 1U;
+  input.cycle_start_time_s = 0.0;
+  input.dt_sec = 1.0;
+  input.platform.platform_entity_id = 1U;
+  input.platform.platform_position_ecef_m = origin_ecef;
   const std::vector<session::ValidationIssue> issues = session::ValidateArCycleInput(input);
 
   EXPECT_FALSE(session::HasValidationError(issues));
@@ -192,28 +190,14 @@ TEST(PublicHeadersSmokeTest, StablePublicSurfaceSupportsMinimalUsage) {
                                                          .Build();
   session.ApplyRuntimeConfig(runtime_patch);
   const session::ArCycleResult result = session.StepWithResult(input);
-  session::ArPrepareCycleInput trace_prepare_input;
-  trace_prepare_input.world_cycle_index = 1U;
-  trace_prepare_input.window_start_time_s = 0.0;
-  trace_prepare_input.window_duration_s = 1.0;
-  trace_prepare_input.platform_id = 1U;
-  trace_prepare_input.platform_position_ecef_m = origin_ecef;
-  const session::ArPrepareCycleResult trace_prepared =
-      trace_session.PrepareCycle(trace_prepare_input);
-  ASSERT_EQ(trace_prepared.status, session::ArPrepareCycleStatus::kPrepared);
-  session::ArCompleteCycleInput trace_complete_input;
-  trace_complete_input.rf_scene.world_cycle_index = 1U;
-  trace_complete_input.rf_scene.window_start_time_s = 0.0;
-  trace_complete_input.rf_scene.window_duration_s = 1.0;
-  trace_complete_input.rf_scene.emissions.push_back(trace_prepared.emission);
-  const session::ArCompleteCycleResult trace_result =
-      trace_session.CompleteCycle(trace_prepared.token, trace_complete_input);
+  const session::ArCycleResult trace_result =
+      trace_session.StepWithResult(input);
   const std::size_t confirmed_tracks =
       session::CountTracksByStatus(result.track_output_frame, session::TrackStatus::kConfirmed);
 
   EXPECT_GE(confirmed_tracks, 0U);
   EXPECT_GE(result.association_quality_metrics.detection_count, 0U);
-  EXPECT_EQ(trace_result.status, session::ArCompleteCycleStatus::kCompleted);
+  EXPECT_EQ(trace_result.status, session::ArCycleStatus::kCompleted);
 }
 
 TEST(PublicHeadersSmokeTest, SbirsPublicSurfaceSupportsMinimalUsage) {
