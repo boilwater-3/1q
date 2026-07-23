@@ -3,7 +3,7 @@
 Status: active
 Last-reviewed: 2026-07-22
 Authority: current electronic_surveillance_radar module design
-RF-Interference-Architecture: frozen target; implementation pending
+RF-Interference-Architecture: frozen migration; RF v2 receiver implementation in progress
 
 本文是 `electronic_surveillance_radar` 当前设计权威。它描述 ESR 的会话门面、拦截 pipeline、观测预处理、聚类、辐射源假设关联、输出三通道和运行期状态边界。
 
@@ -97,8 +97,8 @@ flowchart TB
 
 ### 1.4 执行时序图
 
-下图记录当前单阶段 `StepWithResult` 原型。工程 RF 目标接收时序以 §1.6 为准：ESR 只在 orchestrator
-冻结本世界周期的统一 RF scene 后执行 receive/complete。
+ESR 保持单阶段 `StepWithResult` 门面。调用方在周期输入中提供一个公共 `RfEmissionFrame`；ESR 在内部
+冻结接收工作状态、求解入射链路并生成本周期输出，不暴露 orchestrator、token 或 receive/complete 协议。
 
 ```mermaid
 sequenceDiagram
@@ -133,18 +133,18 @@ sequenceDiagram
 
 主链路展示输入如何变成三通道输出：
 
-该图中的 scene/environment 分流是当前实现；最终 RF 接收入口以 §1.6、§2.2 的意图中立统一场景为准。
+自然环境与 RF 发射事实分开输入。RF 发射帧是意图中立的统一入口，不再将“目标辐射源”和“干扰源”分流。
 
 ```mermaid
 flowchart LR
   subgraph Input["输入层 Input"]
     Config["EsrSessionConfig\n硬件 / 任务 / 策略 / 环境"]
-    Cycle["EsrCycleInput\n平台 / 辐射源 / 外部环境输入"]
+    Cycle["EsrCycleInput\n周期 / 平台 / 自然环境 / RfEmissionFrame"]
     Patch["EsrRuntimeConfigPatch\n运行期变更"]
   end
 
   subgraph Detect["检测层 Detection"]
-    Env["EnvironmentSnapshot\nsuppression / deception / atmospheric"]
+    Env["EnvironmentSnapshot\natmospheric / clutter"]
     Gate["InterceptGate\n范围 / 频段 / 扫描窗口 / SNR 门"]
     Angle["AngleErrorModel\nAOA 误差采样"]
     Raw["RawObservationRecord\n原始观测记录"]
@@ -202,13 +202,14 @@ flowchart TB
 
 ### 1.6 工程 RF 接收角色与统一场景
 
-ESR 是纯接收设备，不拥有世界 RF 场景或其它模块。冻结目标是在 orchestrator 完成 prepare/emit 并冻结
-`RfSceneFrame(N)` 后，用一个不可变 receiver operating state 处理本周期全部发射。当前
-`scene_emitters + tagged engineering interference` 双输入和逐 emitter 求解是迁移原型，不是最终物理分类。
+ESR 是纯接收设备，不拥有其它模块，也不要求调用方运行额外的 RF 状态机。调用方把当前周期的实际发射
+填入 `RfEmissionFrame`，ESR 用一个不可变 receiver operating state 处理帧内全部发射。一个 frame 可以
+包含 AR、ECM 或其他 RF 发射；它们在接收链中没有“目标/干扰”角色差异。旧 `scene_emitters`、tagged
+interference、legacy jammer 和欺骗注入仅是待删除原型，不属于最终公共合同。
 
 ```mermaid
 flowchart LR
-  Scene["Frozen RfSceneFrame\nall actual emissions"] --> Incident["one-way incident links"]
+  Scene["RfEmissionFrame\nall actual emissions"] --> Incident["one-way incident links"]
   Rx["Receiver operating state\nbeam / preselector / tuning / channels"] --> Front["wideband front-end ledger"]
   Incident --> Front
   Front -->|over limit| Sat["receiver_saturated\nexecuted, no fabricated observation"]
