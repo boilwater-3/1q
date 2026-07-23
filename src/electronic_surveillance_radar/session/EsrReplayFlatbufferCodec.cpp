@@ -250,43 +250,7 @@ oneq::electromagnetics::RfEmissionFrame FromRfSceneFrame(
 std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   flatbuffers::FlatBufferBuilder fbb(1024);
 
-  std::vector<flatbuffers::Offset<esr::replay::SceneEmitter>> emitters;
-  for (const auto& e : v.scene) {
-    auto pose = BuildPose(fbb, e.pose);
-    auto emitter_name = fbb.CreateString(e.emitter_name);
-    auto beam = esr::replay::CreateEmitterBeamState(
-        fbb, e.beam_state.center_az_deg, e.beam_state.center_el_deg, e.beam_state.az_beamwidth_deg,
-        e.beam_state.el_beamwidth_deg, e.beam_state.beam_state_valid);
-    esr::replay::SceneEmitterBuilder eb(fbb);
-    eb.add_emitter_id(e.emitter_id);
-    eb.add_emitter_name(emitter_name);
-    eb.add_pose(pose);
-    eb.add_beam_state(beam);
-    eb.add_carrier_hz(e.carrier_hz);
-    eb.add_bandwidth_hz(e.bandwidth_hz);
-    eb.add_tx_power_w(e.tx_power_w);
-    eb.add_pulse_width_s(e.pulse_width_s);
-    eb.add_pri_s(e.pri_s);
-    eb.add_is_emitting(e.is_emitting);
-    esr::replay::Vec3 position_ecef = ToV(e.position_ecef_m);
-    esr::replay::Vec3 velocity_ecef = ToV(e.velocity_ecef_mps);
-    eb.add_has_ecef_kinematics(e.has_ecef_kinematics);
-    eb.add_position_ecef_m(&position_ecef);
-    eb.add_velocity_ecef_mps(&velocity_ecef);
-    emitters.push_back(eb.Finish());
-  }
-
   const auto& env = v.environment;
-  std::vector<flatbuffers::Offset<esr::replay::EsrJammerSource>> jammers;
-  for (const auto& j : env.jammer_sources) {
-    jammers.push_back(esr::replay::CreateEsrJammerSource(
-        fbb, static_cast<int32_t>(j.technique), j.active, j.center_hz, j.bandwidth_hz, j.power_w,
-        j.deception_risk, j.confidence));
-  }
-  std::vector<flatbuffers::Offset<esr::replay::RfEmission>> engineering_emissions;
-  for (const oneq::electromagnetics::RfEmission& emission : env.engineering_emissions) {
-    engineering_emissions.push_back(BuildRfEmission(fbb, emission));
-  }
   // EsrAtmosphericObservation is a FlatBuffers table, use Create helper
   auto atm = esr::replay::CreateEsrAtmosphericObservation(
       fbb, env.atmospheric_observation.relative_humidity_ratio,
@@ -297,20 +261,15 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   env_builder.add_clutter_density(static_cast<int32_t>(env.clutter_density));
   env_builder.add_spectrum_occupancy_ratio(env.spectrum_occupancy_ratio);
   env_builder.add_atmospheric_observation(atm);
-  env_builder.add_jammer_sources(fbb.CreateVector(jammers));
-  env_builder.add_interference_mode(static_cast<int32_t>(env.interference_mode));
-  env_builder.add_engineering_emissions(fbb.CreateVector(engineering_emissions));
   auto env_fb = env_builder.Finish();
 
   auto platform = BuildPose(fbb, v.platform_pose);
-  auto emitters_vec = fbb.CreateVector(emitters);
-  const flatbuffers::Offset<esr::replay::RfSceneFrame> rf_emission_frame =
-      v.has_rf_emission_frame ? BuildRfSceneFrame(fbb, v.rf_emission_frame) : 0;
+  const flatbuffers::Offset<esr::replay::RfSceneFrame> interference =
+      BuildRfSceneFrame(fbb, v.interference);
   esr::replay::EsrCycleInputBuilder b(fbb);
   b.add_cycle_index(v.cycle_index);
   b.add_dt_sec(v.dt_sec);
   b.add_platform_pose(platform);
-  b.add_scene_emitters(emitters_vec);
   b.add_environment(env_fb);
   b.add_platform_altitude_m(v.platform_altitude_m);
   esr::replay::Vec3 platform_position_ecef = ToV(v.platform_position_ecef_m);
@@ -320,10 +279,7 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   b.add_platform_position_ecef_m(&platform_position_ecef);
   b.add_platform_velocity_ecef_mps(&platform_velocity_ecef);
   b.add_cycle_start_time_s(v.cycle_start_time_s);
-  b.add_has_rf_emission_frame(v.has_rf_emission_frame);
-  if (v.has_rf_emission_frame) {
-    b.add_rf_emission_frame(rf_emission_frame);
-  }
+  b.add_interference(interference);
   fbb.Finish(b.Finish());
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -340,8 +296,7 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   out->platform_altitude_m = fb->platform_altitude_m();
   out->platform_entity_id = fb->platform_entity_id();
   out->has_platform_ecef_kinematics = fb->has_platform_ecef_kinematics();
-  out->has_rf_emission_frame = fb->has_rf_emission_frame();
-  out->rf_emission_frame = FromRfSceneFrame(fb->rf_emission_frame());
+  out->interference = FromRfSceneFrame(fb->interference());
   if (fb->platform_position_ecef_m()) {
     out->platform_position_ecef_m.x_m = fb->platform_position_ecef_m()->x();
     out->platform_position_ecef_m.y_m = fb->platform_position_ecef_m()->y();
@@ -353,40 +308,6 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
     out->platform_velocity_ecef_mps.z_mps = fb->platform_velocity_ecef_mps()->z();
   }
   out->platform_pose = FromPose(fb->platform_pose());
-  out->scene.clear();
-  if (fb->scene_emitters()) {
-    for (const auto* e : *fb->scene_emitters()) {
-      session::EsrSceneEmitter ts{};
-      ts.emitter_id = e->emitter_id();
-      ts.emitter_name = e->emitter_name() ? e->emitter_name()->str() : std::string();
-      ts.has_ecef_kinematics = e->has_ecef_kinematics();
-      if (e->position_ecef_m()) {
-        ts.position_ecef_m.x_m = e->position_ecef_m()->x();
-        ts.position_ecef_m.y_m = e->position_ecef_m()->y();
-        ts.position_ecef_m.z_m = e->position_ecef_m()->z();
-      }
-      if (e->velocity_ecef_mps()) {
-        ts.velocity_ecef_mps.x_mps = e->velocity_ecef_mps()->x();
-        ts.velocity_ecef_mps.y_mps = e->velocity_ecef_mps()->y();
-        ts.velocity_ecef_mps.z_mps = e->velocity_ecef_mps()->z();
-      }
-      ts.pose = FromPose(e->pose());
-      ts.carrier_hz = e->carrier_hz();
-      ts.bandwidth_hz = e->bandwidth_hz();
-      ts.tx_power_w = e->tx_power_w();
-      ts.pulse_width_s = e->pulse_width_s();
-      ts.pri_s = e->pri_s();
-      ts.is_emitting = e->is_emitting();
-      if (e->beam_state()) {
-        ts.beam_state.center_az_deg = e->beam_state()->center_az_deg();
-        ts.beam_state.center_el_deg = e->beam_state()->center_el_deg();
-        ts.beam_state.az_beamwidth_deg = e->beam_state()->az_beamwidth_deg();
-        ts.beam_state.el_beamwidth_deg = e->beam_state()->el_beamwidth_deg();
-        ts.beam_state.beam_state_valid = e->beam_state()->beam_state_valid();
-      }
-      out->scene.push_back(ts);
-    }
-  }
   out->environment = {};
   if (fb->environment()) {
     const auto* e = fb->environment();
@@ -402,33 +323,6 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
           e->atmospheric_observation()->precipitation_rate_mmph();
       out->environment.atmospheric_observation.visibility_km =
           e->atmospheric_observation()->visibility_km();
-    }
-    if (e->jammer_sources()) {
-      for (const auto* j : *e->jammer_sources()) {
-        EsrJammerSource js{};
-        js.technique = static_cast<EsrJammingTechnique>(j->technique());
-        js.active = j->active();
-        js.center_hz = j->center_hz();
-        js.bandwidth_hz = j->bandwidth_hz();
-        js.power_w = j->power_w();
-        js.deception_risk = j->deception_risk();
-        js.confidence = j->confidence();
-        out->environment.jammer_sources.push_back(js);
-      }
-    }
-    const int32_t encoded_mode = e->interference_mode();
-    if (encoded_mode < 0) {
-      out->environment.interference_mode = out->environment.jammer_sources.empty()
-                                                ? oneq::electromagnetics::RfInterferenceMode::kNone
-                                                : oneq::electromagnetics::RfInterferenceMode::kLegacy;
-    } else {
-      out->environment.interference_mode =
-          static_cast<oneq::electromagnetics::RfInterferenceMode>(encoded_mode);
-    }
-    if (e->engineering_emissions()) {
-      for (const esr::replay::RfEmission* emission : *e->engineering_emissions()) {
-        out->environment.engineering_emissions.push_back(FromRfEmission(emission));
-      }
     }
   }
   return true;

@@ -160,17 +160,12 @@ table EsrEnvironmentInput {
   clutter_density:          int32;
   spectrum_occupancy_ratio: float;
   atmospheric_observation:  EsrAtmosphericObservation;
-  jammer_sources:           [EsrJammerSource];
-  // -1 means a pre-tagged legacy payload; decoder infers none/legacy from the old field.
-  interference_mode:        int32 = -1;
-  engineering_emissions:    [RfEmission];
 }
 
 table EsrCycleInput {
   cycle_index:             uint32;
   dt_sec:                  float;
   platform_pose:           PoseState;
-  scene_emitters:          [SceneEmitter];
   environment:             EsrEnvironmentInput;
   platform_altitude_m:     float = 0.0;
   platform_entity_id:      uint64 = 0;
@@ -178,8 +173,7 @@ table EsrCycleInput {
   platform_position_ecef_m: Vec3;
   platform_velocity_ecef_mps: Vec3;
   cycle_start_time_s: double = 0.0;
-  has_rf_emission_frame: bool = false;
-  rf_emission_frame: RfSceneFrame;
+  interference: RfSceneFrame;
 }
 
 root_type EsrCycleInput;

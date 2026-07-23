@@ -16,6 +16,22 @@
 namespace electronic_surveillance_radar {
 namespace session {
 
+/** @deprecated Internal legacy support pending executor deletion. */
+enum class ONEQ_API EsrJammingTechnique { kUnknown = 0, kNoiseSuppression, kDeception, kMixed };
+
+/** @deprecated Internal legacy support pending executor deletion. */
+struct ONEQ_API EsrJammerSource {
+  EsrJammingTechnique technique{EsrJammingTechnique::kUnknown};
+  bool active{false};
+  double center_hz{0.0};
+  double bandwidth_hz{0.0};
+  float power_w{0.0f};
+  float deception_risk{0.0f};
+  float confidence{1.0f};
+};
+
+using EsrJammerSourceList = std::vector<EsrJammerSource>;
+
 /** @brief ESR 会话输入三维向量别名。 */
 using EsrVector3f = oneq::foundation::Vector3f;
 

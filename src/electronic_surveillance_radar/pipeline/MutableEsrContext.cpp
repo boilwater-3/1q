@@ -16,9 +16,7 @@ void MutableEsrContext::BeginCycle(const session::EsrCycleInput& input,
   platform_position_ecef_m_ = input.platform_position_ecef_m;
   platform_velocity_ecef_mps_ = input.platform_velocity_ecef_mps;
   platform_pose_ = input.platform_pose;
-  scene_emitters_ = input.scene;
-  has_rf_emission_frame_ = input.has_rf_emission_frame;
-  rf_emission_frame_ = input.rf_emission_frame;
+  interference_ = input.interference;
   environment_snapshot_ = environment_snapshot;
   pipeline_config_ = pipeline_config;
   runtime_config_ = runtime_config;
@@ -50,14 +48,12 @@ const oneq::coordinate::EcefVelocityMps& MutableEsrContext::GetPlatformVelocityE
   return platform_velocity_ecef_mps_;
 }
 
-const session::EsrSceneEmitterList& MutableEsrContext::GetSceneEmitters() const {
-  return scene_emitters_;
+const oneq::electromagnetics::RfEmissionFrame& MutableEsrContext::GetInterference() const {
+  return interference_;
 }
 
-bool MutableEsrContext::HasRfEmissionFrame() const { return has_rf_emission_frame_; }
-
-const oneq::electromagnetics::RfEmissionFrame& MutableEsrContext::GetRfEmissionFrame() const {
-  return rf_emission_frame_;
+const session::EsrSceneEmitterList& MutableEsrContext::GetSceneEmitters() const {
+  return legacy_scene_emitters_;
 }
 
 const session::EsrEnvironmentSnapshot& MutableEsrContext::GetEnvironmentSnapshot() const {

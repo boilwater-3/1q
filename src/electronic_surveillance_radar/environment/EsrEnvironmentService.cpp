@@ -18,8 +18,6 @@ using session::EsrClutterDensityLevel;
 using session::EsrEnvironmentCycleContext;
 using session::EsrEnvironmentInput;
 using session::EsrEnvironmentSnapshot;
-using session::EsrJammerSource;
-using session::EsrJammingTechnique;
 using session::EsrPropagationEnvironmentProfile;
 
 namespace {
@@ -77,36 +75,6 @@ float ResolveClutterNoiseW(const session::EsrEnvironmentInput& observation,
   }
 }
 
-float ResolveJammingDetectionThresholdW(const config::EsrEnvironmentScenarioConfig& config) {
-  switch (config.preset) {
-    case config::EsrEnvironmentPreset::kLowClutter:
-      return 8.0e-10f;
-    case config::EsrEnvironmentPreset::kJammed:
-      return 5.0e-9f;
-    case config::EsrEnvironmentPreset::kDenseClutter:
-    case config::EsrEnvironmentPreset::kStandard:
-    default:
-      return 2.0e-9f;
-  }
-}
-
-/**
- * @brief 规范化单个干扰源输入。
- * @param[in] raw_source 原始输入。
- * @return 规范化后的干扰源。
- */
-EsrJammerSource NormalizeJammerSource(const EsrJammerSource& raw_source) {
-  EsrJammerSource normalized = raw_source;
-  normalized.power_w = utils::ClampNonNegative(raw_source.power_w);
-  normalized.bandwidth_hz = std::max(0.0, raw_source.bandwidth_hz);
-  normalized.deception_risk = utils::Clamp01(raw_source.deception_risk);
-  normalized.confidence = utils::Clamp01(raw_source.confidence);
-  normalized.technique = utils::ResolveTechnique(normalized);
-  normalized.active =
-      raw_source.active && normalized.power_w > 0.0f && normalized.bandwidth_hz > 0.0;
-  return normalized;
-}
-
 /**
  * @brief 根据周期上下文构造冻结快照。
  * @param[in] cycle_context 周期上下文。
@@ -141,36 +109,6 @@ session::EsrEnvironmentSnapshot BuildSnapshot(
   snapshot.propagation_loss_db = utils::ClampNonNegative(semantic_loss_db + physical_loss_db);
   snapshot.clutter_noise_w = ResolveClutterNoiseW(observation, config);
   snapshot.spectrum_occupancy_ratio = utils::Clamp01(observation.spectrum_occupancy_ratio);
-  snapshot.interference_mode = observation.interference_mode;
-  snapshot.engineering_emissions = observation.engineering_emissions;
-
-  snapshot.jammer_sources.clear();
-  snapshot.jammer_sources.reserve(observation.jammer_sources.size());
-  snapshot.suppression_power_w = 0.0f;
-  snapshot.deception_risk = 0.0f;
-  float deception_clear_probability = 1.0f;
-  for (std::size_t i = 0; i < observation.jammer_sources.size(); ++i) {
-    const EsrJammerSource source = NormalizeJammerSource(observation.jammer_sources[i]);
-    snapshot.jammer_sources.push_back(source);
-    if (!source.active) {
-      continue;
-    }
-
-    const float weighted_power = source.power_w * source.confidence;
-    if (utils::HasSuppressionEffect(source.technique)) {
-      snapshot.suppression_power_w += weighted_power;
-    }
-    if (utils::HasDeceptionEffect(source.technique)) {
-      const float source_risk = utils::Clamp01(source.deception_risk * source.confidence);
-      const float safe_source_risk = std::isfinite(source_risk) ? source_risk : 0.0f;
-      deception_clear_probability *= (1.0f - safe_source_risk);
-      deception_clear_probability = utils::Clamp01(deception_clear_probability);
-    }
-  }
-  snapshot.deception_risk = utils::Clamp01(1.0f - deception_clear_probability);
-
-  snapshot.jamming_detected =
-      snapshot.suppression_power_w >= ResolveJammingDetectionThresholdW(config);
   return snapshot;
 }
 

@@ -15,15 +15,11 @@ set(ESR_ENGINE_SOURCES
 # -- core: 会话、运行时、环境、输出（粘合层，依赖轻） --------------------------
 set(ESR_CORE_SOURCES
     session/EsrSessionConfigBuilder.cpp
-    session/EsrExternalInputAdapter.cpp
-    session/EsrCycleInputAdapter.cpp
     session/EsrExternalOutputAdapter.cpp
     session/EsrCycleOutputAdapter.cpp
     environment/EsrEnvironmentService.cpp
     runtime/EsrController.cpp
     session/EsrInputValidation.cpp
-    session/EsrEmitterLifecycleRecorder.cpp
-    session/EsrOutputDebugViewBuilder.cpp
     session/EsrSessionCompositionRoot.cpp
     session/EsrResolutionRules.cpp
     session/EsrSessionConfigResolver.cpp

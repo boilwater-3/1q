@@ -7,6 +7,7 @@
 #define ELECTRONIC_SURVEILLANCE_RADAR_ESR_SHARED_UTILS_H_
 
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
 #include "common/numerics/ClampUtils.h"
 
 namespace electronic_surveillance_radar {

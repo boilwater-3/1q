@@ -68,16 +68,16 @@ bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
                                double receiver_bandwidth_hz,
                                double additional_propagation_loss_db,
                                EsrRfV2FrontEndResult* result) {
-  if (result == nullptr || !input.has_rf_emission_frame ||
+  if (result == nullptr ||
       !input.has_platform_ecef_kinematics || input.platform_entity_id == 0U ||
       hardware.receiver_equipment_id == 0U || !IsFinite(receiver_center_frequency_hz) ||
       receiver_center_frequency_hz <= 0.0 || !IsFinite(receiver_bandwidth_hz) ||
       receiver_bandwidth_hz <= 0.0 || !IsFinite(additional_propagation_loss_db) ||
       additional_propagation_loss_db < 0.0 ||
-      !oneq::electromagnetics::TryValidateRfSceneFrame(input.rf_emission_frame) ||
-      input.rf_emission_frame.world_cycle_index != input.cycle_index ||
-      input.rf_emission_frame.window_start_time_s != input.cycle_start_time_s ||
-      input.rf_emission_frame.window_duration_s != static_cast<double>(input.dt_sec)) {
+      !oneq::electromagnetics::TryValidateRfSceneFrame(input.interference) ||
+      input.interference.world_cycle_index != input.cycle_index ||
+      input.interference.window_start_time_s != input.cycle_start_time_s ||
+      input.interference.window_duration_s != static_cast<double>(input.dt_sec)) {
     return false;
   }
 
@@ -119,9 +119,9 @@ bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
 
   oneq::electromagnetics::RfIncidentLinkConfig link_config;
   link_config.additional_propagation_loss_db = additional_propagation_loss_db;
-  candidate.incident_links.reserve(input.rf_emission_frame.emissions.size());
+  candidate.incident_links.reserve(input.interference.emissions.size());
   for (const oneq::electromagnetics::RfSceneEmission& emission :
-       input.rf_emission_frame.emissions) {
+       input.interference.emissions) {
     oneq::electromagnetics::RfIncidentLinkResult link;
     if (!oneq::electromagnetics::TryEvaluateRfIncidentLink(emission, receiver, link_config,
                                                            &link)) {

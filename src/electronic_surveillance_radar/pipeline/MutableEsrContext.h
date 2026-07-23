@@ -8,6 +8,7 @@
 
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
+#include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
@@ -51,11 +52,10 @@ class MutableEsrContext final {
   const oneq::coordinate::EcefPositionM& GetPlatformPositionEcefM() const;
   /** @brief 返回接收平台 ECEF 速度。 */
   const oneq::coordinate::EcefVelocityMps& GetPlatformVelocityEcefMps() const;
-  /** @brief 返回场景辐射源输入列表的只读引用。 */
+  /** @brief 返回当前周期冻结的实际 RF 发射。 */
+  const oneq::electromagnetics::RfEmissionFrame& GetInterference() const;
+  /** @deprecated Legacy executor support only; always empty for public RF v2 input. */
   const session::EsrSceneEmitterList& GetSceneEmitters() const;
-  /** @brief 返回当前周期的 RF v2 发射帧；调用方先检查 HasRfEmissionFrame。 */
-  bool HasRfEmissionFrame() const;
-  const oneq::electromagnetics::RfEmissionFrame& GetRfEmissionFrame() const;
   /** @brief 返回当前周期环境快照的只读引用。 */
   const session::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const;
   /** @brief 返回流水线配置的只读引用。 */
@@ -73,9 +73,8 @@ class MutableEsrContext final {
   oneq::coordinate::EcefPositionM platform_position_ecef_m_{};
   oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps_{};
   oneq::foundation::PoseState platform_pose_{};
-  session::EsrSceneEmitterList scene_emitters_{};
-  bool has_rf_emission_frame_{false};
-  oneq::electromagnetics::RfEmissionFrame rf_emission_frame_{};
+  oneq::electromagnetics::RfEmissionFrame interference_{};
+  session::EsrSceneEmitterList legacy_scene_emitters_{};
   session::EsrEnvironmentSnapshot environment_snapshot_{};
   extension::InterceptPipelineConfig pipeline_config_{};
   extension::InterceptRuntimeConfig runtime_config_{};

@@ -53,7 +53,14 @@ class StubEnvironmentService final : public environment::IEsrEnvironmentService 
 session::EsrCycleInput MakeValidInput(std::uint32_t cycle_index) {
   session::EsrCycleInput input;
   input.cycle_index = cycle_index;
+  input.cycle_start_time_s = static_cast<double>(cycle_index);
   input.dt_sec = 1.0f;
+  input.platform_entity_id = 1U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  input.interference.world_cycle_index = cycle_index;
+  input.interference.window_start_time_s = input.cycle_start_time_s;
+  input.interference.window_duration_s = input.dt_sec;
   return input;
 }
 
@@ -201,6 +208,7 @@ TEST(EsrControllerRuntimeStateTest, ScanPhaseUsesFullPatternCycleRateAndVariable
 
   session::EsrCycleInput input = MakeValidInput(1U);
   input.dt_sec = 0.2f;
+  input.interference.window_duration_s = input.dt_sec;
   pipeline.RunCycle(input, env);
   EXPECT_NEAR(ReadScanPhase(pipeline), 0.1, 5.0e-8);
 
@@ -208,12 +216,14 @@ TEST(EsrControllerRuntimeStateTest, ScanPhaseUsesFullPatternCycleRateAndVariable
   pipeline.UpdateConfig(config);
   EXPECT_NEAR(ReadScanPhase(pipeline), 0.1, 5.0e-8);
   input.dt_sec = 0.15f;
+  input.interference.window_duration_s = input.dt_sec;
   pipeline.RunCycle(input, env);
   EXPECT_NEAR(ReadScanPhase(pipeline), 0.4, 5.0e-8);
 
   config.mission.scan.scan_rate_hz = 5.0f;
   pipeline.UpdateConfig(config);
   input.dt_sec = 0.25f;
+  input.interference.window_duration_s = input.dt_sec;
   pipeline.RunCycle(input, env);
   EXPECT_NEAR(ReadScanPhase(pipeline), 0.65, 5.0e-8);
 }
@@ -225,6 +235,7 @@ TEST(EsrControllerRuntimeStateTest, ScanGeometryResetPowerFreezeAndSnapshotResto
   StubEnvironmentService env;
   session::EsrCycleInput input = MakeValidInput(1U);
   input.dt_sec = 0.2f;
+  input.interference.window_duration_s = input.dt_sec;
   pipeline.RunCycle(input, env);
   const extension::InterceptPipelineRuntimeState saved = pipeline.CaptureRuntimeState();
   EXPECT_NEAR(ReadScanPhase(pipeline), 0.1, 5.0e-8);

@@ -9,8 +9,8 @@
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
 #include "1q/electromagnetics/RfScene.h"
+#include "1q/foundation/pose_types.h"
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -28,9 +28,7 @@ struct ONEQ_API EsrCycleInput {
   oneq::coordinate::EcefPositionM platform_position_ecef_m{}; /**< 接收平台 ECEF 位置（m）。 */
   oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps{}; /**< 接收平台 ECEF 速度（m/s）。 */
   oneq::foundation::PoseState platform_pose{};      /**< 侦察平台局部姿态与运动状态 */
-  bool has_rf_emission_frame{false}; /**< 是否使用工程 RF v2 发射帧；迁移完成后该标志删除。 */
-  oneq::electromagnetics::RfEmissionFrame rf_emission_frame{}; /**< 当前周期全部实际 RF 发射。 */
-  EsrSceneEmitterList scene{};       /**< 当前周期场景辐射源输入列表 */
+  oneq::electromagnetics::RfEmissionFrame interference{}; /**< 当前周期全部实际 RF 发射。 */
   EsrEnvironmentInput environment{}; /**< 本周期环境高层观测输入 */
 };
 

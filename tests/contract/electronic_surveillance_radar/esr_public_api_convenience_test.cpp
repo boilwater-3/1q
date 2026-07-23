@@ -11,11 +11,10 @@
 #include <string>
 #include <vector>
 
-#include "1q/coordinate/position_transform.h"
+#include "1q/electromagnetics/RfScene.h"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigBuilder.h"
 #include "1q/electronic_surveillance_radar/config/EsrSessionConfigValidation.h"
-#include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 
@@ -31,19 +30,6 @@ bool ContainsEsrIssueCode(const std::vector<session::ValidationIssue>& issues,
     }
   }
   return false;
-}
-
-session::EsrSceneEmitter MakeEmitter(std::uint64_t id) {
-  session::EsrSceneEmitter emitter;
-  emitter.emitter_id = id;
-  emitter.pose.position_m.x = 1200.0f;
-  emitter.pose.position_m.z = 5200.0f;
-  emitter.carrier_hz = 10.0e9;
-  emitter.bandwidth_hz = 2.0e6;
-  emitter.tx_power_w = 5.0e7;
-  emitter.pulse_width_s = 1.0e-6;
-  emitter.pri_s = 1.0e-4;
-  return emitter;
 }
 
 config::EsrSessionConfig MakeSessionConfig() {
@@ -250,10 +236,7 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) 
   input.dt_sec = 0.0f;
   input.platform_pose.position_m.x = std::numeric_limits<float>::infinity();
 
-  session::EsrSceneEmitter invalid_emitter;
-  invalid_emitter.emitter_id = 0U;
-  invalid_emitter.carrier_hz = -1.0;
-  input.scene.push_back(invalid_emitter);
+  input.platform_entity_id = 0U;
 
   const session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
 
@@ -263,75 +246,22 @@ TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) 
   EXPECT_TRUE(session::HasValidationError(issues));
 }
 
-TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsPoseFromExternalKinematics) {
-  oneq::coordinate::LocalFrameReference reference;
-  reference.origin_lla.latitude_deg = 0.0;
-  reference.origin_lla.longitude_deg = 0.0;
-  reference.origin_lla.altitude_m = 0.0;
-
-  oneq::coordinate::LlaPositionDegM target_lla;
-  target_lla.latitude_deg = 0.0;
-  target_lla.longitude_deg = 0.001;
-  target_lla.altitude_m = 0.0;
-
-  oneq::coordinate::EcefPositionM target_ecef;
-  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(target_lla, &target_ecef));
-
-  session::EsrExternalPoseInput pose_input;
-  pose_input.platform_position_ecef_m = target_ecef;
-
-  oneq::foundation::PoseState pose;
-  ASSERT_TRUE(session::TryMakeEsrPoseFromExternalKinematics(pose_input, reference, &pose));
-  EXPECT_GT(pose.position_m.x, 100.0f);
-}
-
-TEST(EsrPublicApiConvenienceTest, CoordinateUtilsBuildsSceneEmitterFromExternalInput) {
-  oneq::coordinate::LocalFrameReference reference;
-  reference.origin_lla.latitude_deg = 0.0;
-  reference.origin_lla.longitude_deg = 0.0;
-  reference.origin_lla.altitude_m = 0.0;
-
-  oneq::coordinate::LlaPositionDegM emitter_lla;
-  emitter_lla.latitude_deg = 0.0;
-  emitter_lla.longitude_deg = 0.001;
-  emitter_lla.altitude_m = 0.0;
-
-  oneq::coordinate::EcefPositionM emitter_ecef;
-  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(emitter_lla, &emitter_ecef));
-
-  session::EsrExternalEmitterInput input;
-  input.emitter_id = 1001U;
-  input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-  input.kinematics.position_ecef_m = emitter_ecef;
-  input.kinematics.velocity_mps.x_mps = 3.0f;  // ECEF X → ENU Up at lat=0,lon=0
-  input.kinematics.velocity_mps.y_mps = 1.0f;  // ECEF Y → ENU East
-  input.kinematics.velocity_mps.z_mps = 2.0f;  // ECEF Z → ENU North
-  input.carrier_hz = 10.0e9;
-  input.bandwidth_hz = 2.0e6;
-  input.tx_power_w = 5.0e7;
-  input.pulse_width_s = 1.0e-6;
-  input.pri_s = 1.0e-4;
-
-  session::EsrSceneEmitter emitter;
-  session::EsrCoordinateStatus status = session::EsrCoordinateStatus::kCoordinateTransformFail;
-  ASSERT_TRUE(
-      session::TryMakeEsrSceneEmitterFromExternalInput(input, reference, &emitter, &status));
-  EXPECT_EQ(status, session::EsrCoordinateStatus::kOk);
-  EXPECT_EQ(emitter.emitter_id, 1001U);
-  EXPECT_GT(emitter.pose.position_m.x, 100.0f);
-  EXPECT_NEAR(emitter.pose.velocity_mps.x, 1.0f, 1.0e-5f);
-}
-
 TEST(EsrPublicApiConvenienceTest, SessionStepAndRuntimePatchWorkTogether) {
   session::EsrSession session = session::EsrSession::Create(MakeSessionConfig());
 
   session::EsrCycleInput input;
-  input.cycle_index = 0U;
+  input.cycle_index = 1U;
+  input.cycle_start_time_s = 10.0;
   input.dt_sec = 1.0f;
-  input.scene.push_back(MakeEmitter(1001U));
+  input.platform_entity_id = 1U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  input.interference.world_cycle_index = input.cycle_index;
+  input.interference.window_start_time_s = input.cycle_start_time_s;
+  input.interference.window_duration_s = input.dt_sec;
 
   const session::EsrCycleResult baseline = session.StepWithResult(input);
-  EXPECT_FALSE(baseline.has_validation_error);
+  EXPECT_EQ(baseline.status, session::EsrCycleExecutionStatus::kCompleted);
 
   const config::EsrRuntimeConfigPatch patch =
       config::EsrRuntimeConfigBuilder().WithSensorEnabled(false).Build();

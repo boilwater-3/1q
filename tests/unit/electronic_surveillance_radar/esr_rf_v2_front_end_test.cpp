@@ -15,10 +15,9 @@ session::EsrCycleInput MakeInput() {
   input.platform_entity_id = 1U;
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
-  input.has_rf_emission_frame = true;
-  input.rf_emission_frame.world_cycle_index = input.cycle_index;
-  input.rf_emission_frame.window_start_time_s = input.cycle_start_time_s;
-  input.rf_emission_frame.window_duration_s = input.dt_sec;
+  input.interference.world_cycle_index = input.cycle_index;
+  input.interference.window_start_time_s = input.cycle_start_time_s;
+  input.interference.window_duration_s = input.dt_sec;
   return input;
 }
 
@@ -46,8 +45,8 @@ config::EsrHardwareConfig MakeHardware() {
 
 TEST(EsrRfV2FrontEndTest, ResolvesEveryEmissionOnceAndAggregatesInStableOrder) {
   session::EsrCycleInput input = MakeInput();
-  input.rf_emission_frame.emissions.push_back(MakeEmission(2U, 2000.0, 10.0));
-  input.rf_emission_frame.emissions.push_back(MakeEmission(1U, 1000.0, 10.0));
+  input.interference.emissions.push_back(MakeEmission(2U, 2000.0, 10.0));
+  input.interference.emissions.push_back(MakeEmission(1U, 1000.0, 10.0));
 
   EsrRfV2FrontEndResult result;
   ASSERT_TRUE(TryResolveEsrRfV2FrontEnd(input, MakeHardware(), 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
@@ -61,7 +60,7 @@ TEST(EsrRfV2FrontEndTest, ResolvesEveryEmissionOnceAndAggregatesInStableOrder) {
 
 TEST(EsrRfV2FrontEndTest, RejectsUnmatchedFrameBeforeProducingResult) {
   session::EsrCycleInput input = MakeInput();
-  input.rf_emission_frame.window_start_time_s += 0.1;
+  input.interference.window_start_time_s += 0.1;
   EsrRfV2FrontEndResult result;
   EXPECT_FALSE(TryResolveEsrRfV2FrontEnd(input, MakeHardware(), 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
                                          &result));
@@ -72,7 +71,7 @@ TEST(EsrRfV2FrontEndTest, RequiresEquipmentSpecificCoSiteIsolation) {
   oneq::electromagnetics::RfSceneEmission emission = MakeEmission(1U, 0.0, 10.0);
   emission.identity.platform_id = input.platform_entity_id;
   emission.identity.equipment_id = 99U;
-  input.rf_emission_frame.emissions.push_back(emission);
+  input.interference.emissions.push_back(emission);
   EsrRfV2FrontEndResult result;
   EXPECT_FALSE(TryResolveEsrRfV2FrontEnd(input, MakeHardware(), 0.0, 0.0, 10.0e9, 2.0e6, 0.0,
                                          &result));

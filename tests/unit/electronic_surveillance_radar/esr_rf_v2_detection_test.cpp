@@ -19,10 +19,9 @@ session::EsrCycleInput MakeInput() {
   input.platform_entity_id = 1U;
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;
-  input.has_rf_emission_frame = true;
-  input.rf_emission_frame.world_cycle_index = input.cycle_index;
-  input.rf_emission_frame.window_start_time_s = input.cycle_start_time_s;
-  input.rf_emission_frame.window_duration_s = input.dt_sec;
+  input.interference.world_cycle_index = input.cycle_index;
+  input.interference.window_start_time_s = input.cycle_start_time_s;
+  input.interference.window_duration_s = input.dt_sec;
   return input;
 }
 
@@ -84,7 +83,7 @@ InterceptDetectionOutput RunDetection(const session::EsrCycleInput& input,
 
 TEST(EsrRfV2DetectionTest, EmitsDeclassifiedObservationFromRfFrame) {
   session::EsrCycleInput input = MakeInput();
-  input.rf_emission_frame.emissions.push_back(MakeEmission(1U, 10.0e9, 1.0e6));
+  input.interference.emissions.push_back(MakeEmission(1U, 10.0e9, 1.0e6));
 
   const InterceptDetectionOutput output = RunDetection(input);
   ASSERT_EQ(output.raw_records.size(), 1U);
@@ -98,12 +97,12 @@ TEST(EsrRfV2DetectionTest, EmitsDeclassifiedObservationFromRfFrame) {
 
 TEST(EsrRfV2DetectionTest, SameChannelEmissionReducesSnrWithoutBooleanPenalty) {
   session::EsrCycleInput baseline_input = MakeInput();
-  baseline_input.rf_emission_frame.emissions.push_back(MakeEmission(1U, 10.0e9, 1.0e6));
+  baseline_input.interference.emissions.push_back(MakeEmission(1U, 10.0e9, 1.0e6));
   const InterceptDetectionOutput baseline = RunDetection(baseline_input);
   ASSERT_EQ(baseline.raw_records.size(), 1U);
 
   session::EsrCycleInput interfered_input = baseline_input;
-  interfered_input.rf_emission_frame.emissions.push_back(MakeEmission(2U, 10.0e9, 1.0e8));
+  interfered_input.interference.emissions.push_back(MakeEmission(2U, 10.0e9, 1.0e8));
   const InterceptDetectionOutput interfered = RunDetection(interfered_input);
   ASSERT_EQ(interfered.raw_records.size(), 2U);
   EXPECT_LT(interfered.raw_records.front().observation.snr_db,
@@ -112,7 +111,7 @@ TEST(EsrRfV2DetectionTest, SameChannelEmissionReducesSnrWithoutBooleanPenalty) {
 
 TEST(EsrRfV2DetectionTest, SaturationCompletesWithoutFabricatedObservation) {
   session::EsrCycleInput input = MakeInput();
-  input.rf_emission_frame.emissions.push_back(MakeEmission(1U, 10.0e9, 1.0e12));
+  input.interference.emissions.push_back(MakeEmission(1U, 10.0e9, 1.0e12));
   const InterceptDetectionOutput output = RunDetection(input, 1.0e-4f);
   EXPECT_TRUE(output.receiver_saturated);
   EXPECT_TRUE(output.raw_records.empty());
@@ -121,7 +120,7 @@ TEST(EsrRfV2DetectionTest, SaturationCompletesWithoutFabricatedObservation) {
 TEST(EsrRfV2DetectionTest, TuningPlanUsesCompletedReceiveCyclesRatherThanInputCycleIndex) {
   session::EsrCycleInput input = MakeInput();
   input.cycle_index = 999U;
-  input.rf_emission_frame.world_cycle_index = input.cycle_index;
+  input.interference.world_cycle_index = input.cycle_index;
 
   const InterceptDetectionOutput initial = RunDetection(input, 10.0f, 0U, true);
   const InterceptDetectionOutput after_one_completed = RunDetection(input, 10.0f, 1U, true);
@@ -134,7 +133,7 @@ TEST(EsrRfV2DetectionTest, MissingCoSitePathRejectsTheV2CycleBeforeProducingObse
   oneq::electromagnetics::RfSceneEmission emission = MakeEmission(1U, 10.0e9, 1.0e6);
   emission.identity.platform_id = input.platform_entity_id;
   emission.identity.equipment_id = 99U;
-  input.rf_emission_frame.emissions.push_back(emission);
+  input.interference.emissions.push_back(emission);
 
   const InterceptDetectionOutput output = RunDetection(input);
   EXPECT_TRUE(output.rf_v2_rejected);

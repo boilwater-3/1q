@@ -12,35 +12,10 @@
 #include "1q/api.hpp"
 #include "1q/electromagnetics/RfLinkBudget.h"
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
+#include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
-
-/**
- * @brief EsrJammingTechnique 表示干扰技术类型。
- */
-enum class ONEQ_API EsrJammingTechnique {
-  kUnknown = 0,      /**< 未知或未分类干扰 */
-  kNoiseSuppression, /**< 压制式/噪声式干扰 */
-  kDeception,        /**< 欺骗式干扰 */
-  kMixed             /**< 压制与欺骗并存 */
-};
-
-/**
- * @brief EsrJammerSource 描述场景中的单个干扰源输入。
- */
-struct ONEQ_API EsrJammerSource {
-  EsrJammingTechnique technique{EsrJammingTechnique::kUnknown};
-  bool active{false};
-  double center_hz{0.0};
-  double bandwidth_hz{0.0};
-  float power_w{0.0f};
-  float deception_risk{0.0f};
-  float confidence{1.0f};
-};
-
-/** @brief EsrJammerSourceList 表示干扰源列表。 */
-using EsrJammerSourceList = std::vector<EsrJammerSource>;
 
 /**
  * @brief EsrPropagationEnvironmentProfile 描述高层传播环境类型。
@@ -69,11 +44,6 @@ struct ONEQ_API EsrEnvironmentInput {
   EsrClutterDensityLevel clutter_density{EsrClutterDensityLevel::kMedium};
   float spectrum_occupancy_ratio{0.0f}; /**< 频谱占用率 [0,1]；按 1+9ρ 放大接收机与杂波底噪 */
   EsrAtmosphericObservation atmospheric_observation{};
-  oneq::electromagnetics::RfInterferenceMode interference_mode{
-      oneq::electromagnetics::RfInterferenceMode::kNone}; /**< 干扰输入模式。 */
-  EsrJammerSourceList jammer_sources{};
-  std::vector<oneq::electromagnetics::RfEmission>
-      engineering_emissions{}; /**< 工程 RF 发射事实。 */
 };
 
 /**
@@ -94,15 +64,14 @@ struct ONEQ_API EsrEnvironmentSnapshot {
   float dt_sec{0.0f};
   float propagation_loss_db{0.0f};
   float clutter_noise_w{0.0f};
-  float suppression_power_w{0.0f};
-  float deception_risk{0.0f};
   float spectrum_occupancy_ratio{0.0f}; /**< 冻结占用率；检测链按 1+9ρ 计算环境噪声倍率 */
-  bool jamming_detected{false};
+  /** @deprecated Dead legacy-executor state pending source deletion. */
   oneq::electromagnetics::RfInterferenceMode interference_mode{
-      oneq::electromagnetics::RfInterferenceMode::kNone}; /**< 冻结干扰模式。 */
+      oneq::electromagnetics::RfInterferenceMode::kNone};
+  /** @deprecated Dead legacy-executor state pending source deletion. */
   EsrJammerSourceList jammer_sources{};
-  std::vector<oneq::electromagnetics::RfEmission>
-      engineering_emissions{}; /**< 冻结工程发射事实。 */
+  /** @deprecated Dead legacy-executor state pending source deletion. */
+  std::vector<oneq::electromagnetics::RfEmission> engineering_emissions{};
 };
 
 /**
@@ -123,8 +92,6 @@ struct ONEQ_API EsrEnvironmentInputPatch {
   float spectrum_occupancy_ratio{0.0f};                         /**< 新频谱占用率，范围 [0, 1] */
   bool has_atmospheric_observation{false};                      /**< 是否更新天气观测 */
   session::EsrAtmosphericObservation atmospheric_observation{}; /**< 新天气观测 */
-  bool has_jammer_sources{false};                               /**< 是否更新干扰源列表 */
-  session::EsrJammerSourceList jammer_sources{};                /**< 新干扰源列表 */
 };
 
 /**
@@ -152,9 +119,6 @@ class ONEQ_API EsrEnvironmentInputState {
     }
     if (patch.has_atmospheric_observation) {
       snapshot_.atmospheric_observation = patch.atmospheric_observation;
-    }
-    if (patch.has_jammer_sources) {
-      snapshot_.jammer_sources = patch.jammer_sources;
     }
     return *this;
   }

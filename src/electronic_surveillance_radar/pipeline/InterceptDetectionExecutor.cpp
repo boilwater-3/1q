@@ -624,41 +624,13 @@ InterceptDetectionOutput InterceptDetectionExecutor::Execute(const MutableEsrCon
   const oneq::common::timing::StatisticalDetectionParams base_statistical_detection_params =
       ToTimingDetectionParams(ctx.GetPipelineConfig().statistical_detection);
 
-  if (ctx.HasRfEmissionFrame()) {
-    if (!ProcessRfV2Frame(ctx, active_beam, receiver_window, angle_error_config,
-                          base_statistical_detection_params, rng, next_observation_id,
-                          &output)) {
-      output.rf_v2_rejected = true;
-      PROJECT_LOG_ERROR("[InterceptDetection] RF v2 front-end rejected cycle_index={}",
-                        ctx.GetCycleIndex());
-    }
-    return output;
+  if (!ProcessRfV2Frame(ctx, active_beam, receiver_window, angle_error_config,
+                        base_statistical_detection_params, rng, next_observation_id,
+                        &output)) {
+    output.rf_v2_rejected = true;
+    PROJECT_LOG_ERROR("[InterceptDetection] RF v2 front-end rejected cycle_index={}",
+                      ctx.GetCycleIndex());
   }
-
-  const auto& scene_emitters = ctx.GetSceneEmitters();
-  const auto& config = ctx.GetPipelineConfig();
-
-  output.raw_records.reserve(
-      scene_emitters.size() *
-      (1U + static_cast<std::size_t>(config.deception_model.max_false_observations_per_emitter)));
-  for (std::size_t i = 0; i < scene_emitters.size(); ++i) {
-    const session::EsrSceneEmitter& emitter = scene_emitters[i];
-    if (!emitter.is_emitting || emitter.carrier_hz <= 0.0 || emitter.bandwidth_hz <= 0.0 ||
-        emitter.tx_power_w <= 0.0) {
-      continue;
-    }
-    ProcessSingleEmitter(emitter, active_beam, receiver_window, angle_error_config,
-                         base_statistical_detection_params, ctx, rng, next_observation_id,
-                         output.raw_records, &output.receiver_saturated);
-    if (output.receiver_saturated) {
-      output.raw_records.clear();
-      break;
-    }
-  }
-
-  PROJECT_LOG_DEBUG("[InterceptDetection] cycle_index={} raw_records={}", ctx.GetCycleIndex(),
-                    output.raw_records.size());
-
   return output;
 }
 
@@ -687,7 +659,7 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     return true;
   }
 
-  const auto& emissions = ctx.GetRfEmissionFrame().emissions;
+  const auto& emissions = ctx.GetInterference().emissions;
   std::vector<const oneq::electromagnetics::RfSceneEmission*> sorted_emissions;
   sorted_emissions.reserve(emissions.size());
   for (const oneq::electromagnetics::RfSceneEmission& emission : emissions) {
