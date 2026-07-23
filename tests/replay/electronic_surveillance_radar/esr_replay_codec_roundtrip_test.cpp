@@ -441,9 +441,12 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesBatchIdAboveUint32Max) {
 TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config::EsrSessionConfig config;
   // hardware
+  config.hardware.receiver_equipment_id = 43U;
   config.hardware.receiver_band_lower_hz = 0.5e9;
   config.hardware.receiver_band_upper_hz = 18.0e9;
   config.hardware.receiver_sensitivity_w = 1.0e-12f;
+  config.hardware.receiver_noise_figure_db = 6.5f;
+  config.hardware.receiver_reference_temperature_k = 295.0f;
   config.hardware.integrated_receive_loss_db = 3.0f;
   config.hardware.beam_az_width_deg = 5.0f;
   config.hardware.antenna_mount_az_deg = 0.0f;
@@ -451,6 +454,10 @@ TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.hardware.polarization = oneq::electromagnetics::RfPolarization::kHorizontal;
   config.hardware.has_co_site_isolation = true;
   config.hardware.co_site_isolation_db = 70.0f;
+  config::EsrCoSiteIsolationPath co_site_path;
+  co_site_path.transmitter_equipment_id = 44U;
+  co_site_path.isolation_db = 73.0;
+  config.hardware.co_site_paths.push_back(co_site_path);
   config.hardware.maximum_linear_input_power_w = 2.0e-3f;
   config::EsrTuningWindow tuning_window;
   tuning_window.center_frequency_hz = 9.5e9;
@@ -495,15 +502,21 @@ TEST(EsrReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   ASSERT_TRUE(DecodeEsrSessionConfig(bytes, &decoded));
 
   // hardware
+  EXPECT_EQ(decoded.hardware.receiver_equipment_id, 43U);
   EXPECT_DOUBLE_EQ(decoded.hardware.receiver_band_lower_hz, 0.5e9);
   EXPECT_DOUBLE_EQ(decoded.hardware.receiver_band_upper_hz, 18.0e9);
   EXPECT_FLOAT_EQ(decoded.hardware.receiver_sensitivity_w, 1.0e-12f);
+  EXPECT_FLOAT_EQ(decoded.hardware.receiver_noise_figure_db, 6.5f);
+  EXPECT_FLOAT_EQ(decoded.hardware.receiver_reference_temperature_k, 295.0f);
   EXPECT_FLOAT_EQ(decoded.hardware.integrated_receive_loss_db, 3.0f);
   EXPECT_FLOAT_EQ(decoded.hardware.antenna_peak_gain_dbi, 8.0f);
   EXPECT_EQ(decoded.hardware.polarization,
             oneq::electromagnetics::RfPolarization::kHorizontal);
   EXPECT_TRUE(decoded.hardware.has_co_site_isolation);
   EXPECT_FLOAT_EQ(decoded.hardware.co_site_isolation_db, 70.0f);
+  ASSERT_EQ(decoded.hardware.co_site_paths.size(), 1U);
+  EXPECT_EQ(decoded.hardware.co_site_paths.front().transmitter_equipment_id, 44U);
+  EXPECT_DOUBLE_EQ(decoded.hardware.co_site_paths.front().isolation_db, 73.0);
   ASSERT_EQ(decoded.hardware.tuning_plan.size(), 1U);
   EXPECT_DOUBLE_EQ(decoded.hardware.tuning_plan.front().center_frequency_hz, 9.5e9);
   // mission

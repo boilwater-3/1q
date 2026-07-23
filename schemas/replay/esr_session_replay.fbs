@@ -13,10 +13,18 @@ table EsrTuningWindow {
   dwell_cycles: uint32 = 1;
 }
 
+table EsrCoSiteIsolationPath {
+  transmitter_equipment_id: uint64;
+  isolation_db: double;
+}
+
 table EsrHardwareConfig {
+  receiver_equipment_id:      uint64 = 1;
   receiver_band_lower_hz:      double;
   receiver_band_upper_hz:      double;
   receiver_sensitivity_w:      float;
+  receiver_noise_figure_db:    float = 5.0;
+  receiver_reference_temperature_k: float = 290.0;
   integrated_receive_loss_db:  float;
   beam_az_width_deg:           float;
   beam_el_width_deg:           float;
@@ -32,6 +40,7 @@ table EsrHardwareConfig {
   minimum_far_field_range_m:   float = 1.0;
   has_co_site_isolation:       bool = false;
   co_site_isolation_db:        float = 0.0;
+  co_site_paths:               [EsrCoSiteIsolationPath];
   maximum_linear_input_power_w: float = 0.001;
   jamming_jn_threshold_db:     float = 3.0;
   jamming_snr_loss_threshold_db: float = 3.0;

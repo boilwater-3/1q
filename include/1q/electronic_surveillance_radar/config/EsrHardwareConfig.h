@@ -11,6 +11,7 @@
 
 #include "1q/api.hpp"
 #include "1q/electromagnetics/RfLinkBudget.h"
+#include "1q/electromagnetics/RfScene.h"
 
 namespace electronic_surveillance_radar {
 namespace config {
@@ -22,13 +23,22 @@ struct ONEQ_API EsrTuningWindow {
   std::uint32_t dwell_cycles{1U};  /**< 连续驻留的成功周期数。 */
 };
 
+/** @brief ESR 接收设备的有向同平台隔离路径。 */
+struct ONEQ_API EsrCoSiteIsolationPath {
+  std::uint64_t transmitter_equipment_id{0U};
+  double isolation_db{0.0};
+};
+
 /**
  * @brief EsrHardwareConfig 描述 ESR 装备固有参数。
  */
 struct ONEQ_API EsrHardwareConfig {
+  std::uint64_t receiver_equipment_id{1U}; /**< RF v2 接收设备身份。 */
   double receiver_band_lower_hz{0.23e9};   /**< 接收频段下限（单位：Hz） */
   double receiver_band_upper_hz{100.0e9};  /**< 接收频段上限（单位：Hz） */
   float receiver_sensitivity_w{1.0e-12f};  /**< 接收机灵敏度（单位：W） */
+  float receiver_noise_figure_db{5.0f}; /**< 接收机噪声系数（单位：dB）。 */
+  float receiver_reference_temperature_k{290.0f}; /**< 噪声参考温度（单位：K）。 */
   float integrated_receive_loss_db{0.0f};  /**< 系统综合接收损耗（单位：dB） */
   float beam_az_width_deg{5.0f};           /**< 方位波束宽度（单位：deg） */
   float beam_el_width_deg{5.0f};           /**< 俯仰波束宽度（单位：deg） */
@@ -45,6 +55,7 @@ struct ONEQ_API EsrHardwareConfig {
   float minimum_far_field_range_m{1.0f};                     /**< 远场公式最小距离（单位：m）。 */
   bool has_co_site_isolation{false};                         /**< 是否配置同平台隔离。 */
   float co_site_isolation_db{0.0f};                          /**< 同平台隔离（单位：dB）。 */
+  std::vector<EsrCoSiteIsolationPath> co_site_paths{}; /**< RF v2 有向同平台隔离路径。 */
   float maximum_linear_input_power_w{1.0e-3f};               /**< 最大线性输入功率（单位：W）。 */
   float jamming_jn_threshold_db{3.0f};                       /**< 受扰判定 J/N 门限（单位：dB）。 */
   float jamming_snr_loss_threshold_db{3.0f};  /**< 受扰判定 SNR 损失门限（单位：dB）。 */

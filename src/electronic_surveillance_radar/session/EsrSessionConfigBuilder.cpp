@@ -124,7 +124,12 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
   }
 
   const config::EsrHardwareConfig& hardware = config.hardware;
-  if (!oneq::common::validation::IsFinite(hardware.antenna_peak_gain_dbi) ||
+  if (hardware.receiver_equipment_id == 0U ||
+      !oneq::common::validation::IsFinite(hardware.receiver_noise_figure_db) ||
+      hardware.receiver_noise_figure_db < 0.0f ||
+      !oneq::common::validation::IsFinite(hardware.receiver_reference_temperature_k) ||
+      hardware.receiver_reference_temperature_k <= 0.0f ||
+      !oneq::common::validation::IsFinite(hardware.antenna_peak_gain_dbi) ||
       !oneq::common::validation::IsFinite(hardware.antenna_sidelobe_level_db) ||
       !oneq::common::validation::IsFinite(hardware.antenna_backlobe_level_db) ||
       !oneq::common::validation::IsFinite(hardware.cross_polarization_isolation_db) ||
@@ -143,6 +148,15 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
           static_cast<int>(oneq::electromagnetics::RfPolarization::kUnpolarized)) {
     push(ConfigValidationCode::kReceiverRfHardwareInvalid, "hardware RF receiver fields",
          "Receiver RF hardware parameters must be finite and physically valid.");
+  }
+  for (const config::EsrCoSiteIsolationPath& path : hardware.co_site_paths) {
+    if (path.transmitter_equipment_id == 0U ||
+        path.transmitter_equipment_id == hardware.receiver_equipment_id ||
+        !oneq::common::validation::IsFinite(path.isolation_db) || path.isolation_db < 0.0) {
+      push(ConfigValidationCode::kReceiverRfHardwareInvalid, "hardware.co_site_paths",
+           "Co-site paths require a distinct non-zero transmitter equipment ID and non-negative isolation.");
+      break;
+    }
   }
   for (std::size_t i = 0; i < hardware.tuning_plan.size(); ++i) {
     const EsrTuningWindow& window = hardware.tuning_plan[i];

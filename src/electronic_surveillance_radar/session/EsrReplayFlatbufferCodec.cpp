@@ -675,10 +675,19 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
     tuning_plan.push_back(esr::replay::CreateEsrTuningWindow(
         fbb, window.center_frequency_hz, window.bandwidth_hz, window.dwell_cycles));
   }
+  std::vector<flatbuffers::Offset<esr::replay::EsrCoSiteIsolationPath>> co_site_paths;
+  for (const config::EsrCoSiteIsolationPath& path : v.hardware.co_site_paths) {
+    co_site_paths.push_back(esr::replay::CreateEsrCoSiteIsolationPath(
+        fbb, path.transmitter_equipment_id, path.isolation_db));
+  }
   esr::replay::EsrHardwareConfigBuilder hardware_builder(fbb);
+  hardware_builder.add_receiver_equipment_id(v.hardware.receiver_equipment_id);
   hardware_builder.add_receiver_band_lower_hz(v.hardware.receiver_band_lower_hz);
   hardware_builder.add_receiver_band_upper_hz(v.hardware.receiver_band_upper_hz);
   hardware_builder.add_receiver_sensitivity_w(v.hardware.receiver_sensitivity_w);
+  hardware_builder.add_receiver_noise_figure_db(v.hardware.receiver_noise_figure_db);
+  hardware_builder.add_receiver_reference_temperature_k(
+      v.hardware.receiver_reference_temperature_k);
   hardware_builder.add_integrated_receive_loss_db(v.hardware.integrated_receive_loss_db);
   hardware_builder.add_beam_az_width_deg(v.hardware.beam_az_width_deg);
   hardware_builder.add_beam_el_width_deg(v.hardware.beam_el_width_deg);
@@ -695,6 +704,7 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
   hardware_builder.add_minimum_far_field_range_m(v.hardware.minimum_far_field_range_m);
   hardware_builder.add_has_co_site_isolation(v.hardware.has_co_site_isolation);
   hardware_builder.add_co_site_isolation_db(v.hardware.co_site_isolation_db);
+  hardware_builder.add_co_site_paths(fbb.CreateVector(co_site_paths));
   hardware_builder.add_maximum_linear_input_power_w(v.hardware.maximum_linear_input_power_w);
   hardware_builder.add_jamming_jn_threshold_db(v.hardware.jamming_jn_threshold_db);
   hardware_builder.add_jamming_snr_loss_threshold_db(
@@ -736,9 +746,12 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
   const auto* fb = flatbuffers::GetRoot<esr::replay::EsrSessionConfig>(bytes.data());
   if (fb->hardware()) {
     const auto* h = fb->hardware();
+    out->hardware.receiver_equipment_id = h->receiver_equipment_id();
     out->hardware.receiver_band_lower_hz = h->receiver_band_lower_hz();
     out->hardware.receiver_band_upper_hz = h->receiver_band_upper_hz();
     out->hardware.receiver_sensitivity_w = h->receiver_sensitivity_w();
+    out->hardware.receiver_noise_figure_db = h->receiver_noise_figure_db();
+    out->hardware.receiver_reference_temperature_k = h->receiver_reference_temperature_k();
     out->hardware.integrated_receive_loss_db = h->integrated_receive_loss_db();
     out->hardware.beam_az_width_deg = h->beam_az_width_deg();
     out->hardware.beam_el_width_deg = h->beam_el_width_deg();
@@ -755,6 +768,15 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
     out->hardware.minimum_far_field_range_m = h->minimum_far_field_range_m();
     out->hardware.has_co_site_isolation = h->has_co_site_isolation();
     out->hardware.co_site_isolation_db = h->co_site_isolation_db();
+    out->hardware.co_site_paths.clear();
+    if (h->co_site_paths()) {
+      for (const esr::replay::EsrCoSiteIsolationPath* path : *h->co_site_paths()) {
+        config::EsrCoSiteIsolationPath decoded;
+        decoded.transmitter_equipment_id = path->transmitter_equipment_id();
+        decoded.isolation_db = path->isolation_db();
+        out->hardware.co_site_paths.push_back(decoded);
+      }
+    }
     out->hardware.maximum_linear_input_power_w = h->maximum_linear_input_power_w();
     out->hardware.jamming_jn_threshold_db = h->jamming_jn_threshold_db();
     out->hardware.jamming_snr_loss_threshold_db = h->jamming_snr_loss_threshold_db();
