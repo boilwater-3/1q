@@ -41,9 +41,8 @@ struct InterceptDetectionOutput {
  *
  * 职责：
  *   - 生成当前周期扫描图
- *   - 遍历场景辐射源，执行截获门限判定
- *   - 施加欺骗扰动与虚警注入
- *   - 输出带真值标注的原始观测记录
+ *   - 对冻结 RF v2 发射帧求解接收链和截获门限
+ *   - 输出去真值化的原始观测记录
  */
 class InterceptDetectionExecutor {
  public:
@@ -60,28 +59,6 @@ class InterceptDetectionExecutor {
                                    std::uint64_t completed_receive_cycles);
 
  private:
-  /**
-   * @brief 单个辐射源的截获判定与观测记录生成。
-   * @param emitter 当前辐射源真值。
-   * @param active_beam 当前周期激活波束。
-   * @param receiver_window 当前接收频段窗口。
-   * @param receive_loss_scale 综合接收损耗线性比例。
-   * @param angle_error_config 测角误差模型配置。
-   * @param base_statistical_detection_params 统计检测基线参数。
-   * @param ctx 周期上下文（只读部分）。
-   * @param rng 随机引擎。
-   * @param next_observation_id 观测 ID 分配器。
-   * @param raw_records 产出观测记录列表。
-   * @param receiver_saturated 接收机超出线性输入范围时置为 true。
-   */
-  void ProcessSingleEmitter(
-      const session::EsrSceneEmitter& emitter, const intercept::BeamPointingDeg& active_beam,
-      const std::pair<double, double>& receiver_window,
-      const intercept::AngleErrorModelConfig& angle_error_config,
-      const oneq::common::timing::StatisticalDetectionParams& base_statistical_detection_params,
-      const MutableEsrContext& ctx, std::mt19937& rng, std::uint64_t& next_observation_id,
-      std::vector<RawObservationRecord>& raw_records, bool* receiver_saturated) const;
-
   /** @brief 使用统一 RF v2 发射帧执行接收、信道竞争和去真值化量测。 */
   bool ProcessRfV2Frame(
       const MutableEsrContext& ctx, const intercept::BeamPointingDeg& active_beam,
