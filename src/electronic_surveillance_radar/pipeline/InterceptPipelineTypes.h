@@ -129,19 +129,6 @@ struct InterceptSuppressionModelConfig {
 };
 
 /**
- * @brief InterceptDeceptionModelConfig 描述欺骗分量建模参数。
- */
-struct InterceptDeceptionModelConfig {
-  float false_alarm_probability_scale{1.0f};
-  float confusion_probability_scale{0.6f};
-  std::uint32_t max_false_observations_per_emitter{1U};
-  float aoa_confusion_std_deg{4.0f};
-  float rf_confusion_ratio{0.02f};
-  float pw_confusion_ratio{0.35f};
-  float cluster_confidence_penalty_scale{0.55f};
-};
-
-/**
  * @brief InterceptRuntimeConfig 描述会话层注入的运行态参数。
  */
 struct InterceptRuntimeConfig {
@@ -169,7 +156,6 @@ struct InterceptPipelineConfig {
   InterceptSpectralAnalysisConfig spectral_analysis{};
   InterceptAssociationConfig association{};
   InterceptSuppressionModelConfig suppression_model{};
-  InterceptDeceptionModelConfig deception_model{};
 };
 
 /**

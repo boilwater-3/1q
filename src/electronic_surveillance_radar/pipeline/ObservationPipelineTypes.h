@@ -38,15 +38,10 @@ struct ObservationFeatureScales {
 };
 
 /**
- * @brief RawObservationRecord 表示带真值评估上下文的观测记录。
+ * @brief RawObservationRecord 表示去真值化的观测记录。
  */
 struct RawObservationRecord {
   session::EmitterObservation observation{}; /**< 观测记录 */
-  std::uint64_t truth_emitter_id{0U};      /**< 真值辐射源标识 */
-  double truth_pri_s{0.0};                  /**< 真值 PRI（单位：s），伪观测为 0 */
-  bool matched_truth{true};                 /**< 是否来自真实辐射源链路 */
-  bool deception_affected{false};           /**< 是否受到欺骗分量影响 */
-  bool synthetic_false_alarm{false};        /**< 是否为欺骗注入的伪观测 */
 };
 
 /**
@@ -68,8 +63,6 @@ struct ClusterSummary {
   double pri_std_s{0.0};                       /**< 簇 PRI 估计标准差（单位：s） */
   double pulse_width_std_s{0.0};               /**< 簇脉宽估计标准差（单位：s） */
   float confidence_score{0.0f};                /**< 簇级置信度 */
-  float deception_support_ratio{0.0f};         /**< 簇内欺骗受影响样本占比，范围 [0, 1] */
-  float false_alarm_ratio{0.0f};               /**< 簇内伪观测占比，范围 [0, 1] */
   float spectral_main_frequency_stability_hz{0.0f}; /**< 主频稳定度（单位：Hz） */
   float spectral_peak_sparsity{0.0f};               /**< 谱峰稀疏度，范围 [0, 1] */
   float spectral_bandwidth_occupancy{0.0f};         /**< 带宽占用度，范围 [0, 1] */

@@ -10,9 +10,7 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/electromagnetics/RfLinkBudget.h"
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
-#include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
 
 namespace electronic_surveillance_radar {
 namespace session {
@@ -65,13 +63,6 @@ struct ONEQ_API EsrEnvironmentSnapshot {
   float propagation_loss_db{0.0f};
   float clutter_noise_w{0.0f};
   float spectrum_occupancy_ratio{0.0f}; /**< 冻结占用率；检测链按 1+9ρ 计算环境噪声倍率 */
-  /** @deprecated Dead legacy-executor state pending source deletion. */
-  oneq::electromagnetics::RfInterferenceMode interference_mode{
-      oneq::electromagnetics::RfInterferenceMode::kNone};
-  /** @deprecated Dead legacy-executor state pending source deletion. */
-  EsrJammerSourceList jammer_sources{};
-  /** @deprecated Dead legacy-executor state pending source deletion. */
-  std::vector<oneq::electromagnetics::RfEmission> engineering_emissions{};
 };
 
 /**

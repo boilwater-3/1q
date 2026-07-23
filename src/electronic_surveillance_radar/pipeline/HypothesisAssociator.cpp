@@ -56,22 +56,14 @@ session::EsrThreatLevel InferThreatFromCluster(session::EsrEmitterMode mode, flo
 /**
  * @brief 构造候选类别列表。
  * @param[in] rf_hz 均值载频（单位：Hz）。
- * @param[in] deception_support_ratio 欺骗支持度，范围 [0, 1]。
  * @return 候选类别字符串列表。
  */
-std::vector<std::string> BuildCandidateClasses(double rf_hz, float deception_support_ratio,
+std::vector<std::string> BuildCandidateClasses(double rf_hz,
                                                const std::string& spectral_class_label) {
   const intercept::RadarBand band = intercept::BandClassifier::Classify(rf_hz);
   std::vector<std::string> classes;
   classes.push_back(std::string("RADAR_BAND_") + intercept::BandClassifier::ToString(band));
   classes.push_back("RADAR_EMITTER");
-  const float deception_ratio = utils::Clamp01(deception_support_ratio);
-  if (deception_ratio >= 0.6f) {
-    classes.push_back("POSSIBLE_DECEPTION");
-  }
-  if (deception_ratio >= 0.3f) {
-    classes.push_back("AMBIGUOUS_CLASS");
-  }
   if (!spectral_class_label.empty()) {
     classes.push_back(spectral_class_label);
   }
@@ -267,7 +259,6 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     }
     TrackState& track = tracks_[track_index];
     const ClusterSummary& summary = clusters[cluster_index];
-    const float deception_ratio = utils::Clamp01(summary.deception_support_ratio);
 
     for (std::size_t dim = 0; dim < kObservationFeatureDimension; ++dim) {
       track.feature.values[dim] =
@@ -276,8 +267,7 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     }
     track.mode = InferModeFromCluster(summary);
     track.threat_level = InferThreatFromCluster(track.mode, summary.mean_snr_db);
-    track.candidate_classes =
-        BuildCandidateClasses(summary.mean_rf_hz, deception_ratio, summary.spectral_class_label);
+    track.candidate_classes = BuildCandidateClasses(summary.mean_rf_hz, summary.spectral_class_label);
     track.bearing_az_deg =
         Blend(track.bearing_az_deg, summary.mean_az_deg, config_.confidence_alpha);
     track.bearing_el_deg =
@@ -298,9 +288,8 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     track.pulse_width_std_s = BlendDouble(
         track.pulse_width_std_s, summary.pulse_width_std_s, config_.confidence_alpha);
     const float base_bearing_std_deg = ComputeBaseBearingStdDeg(summary.support_count);
-    track.bearing_std_deg = base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
-    const float confidence_measurement =
-        utils::Clamp01(summary.confidence_score * (1.0f - 0.45f * deception_ratio));
+    track.bearing_std_deg = base_bearing_std_deg;
+    const float confidence_measurement = utils::Clamp01(summary.confidence_score);
     track.confidence = Blend(track.confidence, confidence_measurement, config_.confidence_alpha);
     track.last_seen_cycle = cycle_index;
     ++track.hit_streak;
@@ -323,12 +312,11 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     if (next_hypothesis_id != nullptr) {
       track.hypothesis_id = (*next_hypothesis_id)++;
     }
-    const float deception_ratio = utils::Clamp01(clusters[i].deception_support_ratio);
     track.feature = clusters[i].centroid_feature;
     track.mode = InferModeFromCluster(clusters[i]);
     track.threat_level = InferThreatFromCluster(track.mode, clusters[i].mean_snr_db);
-    track.candidate_classes = BuildCandidateClasses(clusters[i].mean_rf_hz, deception_ratio,
-                                                    clusters[i].spectral_class_label);
+    track.candidate_classes =
+        BuildCandidateClasses(clusters[i].mean_rf_hz, clusters[i].spectral_class_label);
     track.bearing_az_deg = clusters[i].mean_az_deg;
     track.bearing_el_deg = clusters[i].mean_el_deg;
     track.estimated_center_frequency_hz = clusters[i].mean_rf_hz;
@@ -340,8 +328,8 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     track.pri_std_s = clusters[i].pri_std_s;
     track.pulse_width_std_s = clusters[i].pulse_width_std_s;
     const float base_bearing_std_deg = ComputeBaseBearingStdDeg(clusters[i].support_count);
-    track.bearing_std_deg = base_bearing_std_deg * (1.0f + 0.8f * deception_ratio);
-    track.confidence = utils::Clamp01(clusters[i].confidence_score * (1.0f - 0.45f * deception_ratio));
+    track.bearing_std_deg = base_bearing_std_deg;
+    track.confidence = utils::Clamp01(clusters[i].confidence_score);
     track.last_seen_cycle = cycle_index;
     track.hit_streak = 1U;
     track.missed_cycles = 0U;

@@ -79,17 +79,6 @@ struct InterceptSuppressionModelConfig {
   float suppression_mark_threshold_w{1.0e-12f};
 };
 
-/** @brief 欺骗分量建模子配置。 */
-struct InterceptDeceptionModelConfig {
-  float false_alarm_probability_scale{1.0f};
-  float confusion_probability_scale{0.6f};
-  std::uint32_t max_false_observations_per_emitter{1U};
-  float aoa_confusion_std_deg{4.0f};
-  float rf_confusion_ratio{0.02f};
-  float pw_confusion_ratio{0.35f};
-  float cluster_confidence_penalty_scale{0.55f};
-};
-
 /** @brief 截获流水线子装配。 */
 struct InterceptConfig {
   InterceptDetectionConfig detection{};
@@ -98,7 +87,6 @@ struct InterceptConfig {
   InterceptClusterConfig cluster{};
   InterceptSpectralAnalysisConfig spectral_analysis{};
   InterceptSuppressionModelConfig suppression{};
-  InterceptDeceptionModelConfig deception{};
 };
 
 // ── Runtime 子配置 ─────────────────────────────────────────────────
@@ -212,19 +200,6 @@ inline extension::InterceptPipelineConfig BuildPipelineConfig(
       internal.intercept.suppression.suppression_noise_scale;
   ext.suppression_model.suppression_mark_threshold_w =
       internal.intercept.suppression.suppression_mark_threshold_w;
-
-  ext.deception_model = extension::InterceptDeceptionModelConfig();
-  ext.deception_model.false_alarm_probability_scale =
-      internal.intercept.deception.false_alarm_probability_scale;
-  ext.deception_model.confusion_probability_scale =
-      internal.intercept.deception.confusion_probability_scale;
-  ext.deception_model.max_false_observations_per_emitter =
-      internal.intercept.deception.max_false_observations_per_emitter;
-  ext.deception_model.aoa_confusion_std_deg = internal.intercept.deception.aoa_confusion_std_deg;
-  ext.deception_model.rf_confusion_ratio = internal.intercept.deception.rf_confusion_ratio;
-  ext.deception_model.pw_confusion_ratio = internal.intercept.deception.pw_confusion_ratio;
-  ext.deception_model.cluster_confidence_penalty_scale =
-      internal.intercept.deception.cluster_confidence_penalty_scale;
 
   ext.association.gate_distance = internal.runtime.track.gate_distance;
   ext.association.confirm_hits = internal.runtime.track.confirm_hits;

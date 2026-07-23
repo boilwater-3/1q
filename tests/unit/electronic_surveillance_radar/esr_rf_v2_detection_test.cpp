@@ -88,8 +88,6 @@ TEST(EsrRfV2DetectionTest, EmitsDeclassifiedObservationFromRfFrame) {
   const InterceptDetectionOutput output = RunDetection(input);
   ASSERT_EQ(output.raw_records.size(), 1U);
   const RawObservationRecord& record = output.raw_records.front();
-  EXPECT_EQ(record.truth_emitter_id, 0U);
-  EXPECT_FALSE(record.matched_truth);
   EXPECT_NEAR(record.observation.rf_hz, 10.0e9, 1.0);
   EXPECT_GT(record.observation.bandwidth_hz, 0.0);
   EXPECT_GT(record.observation.snr_db, -20.0);

@@ -55,14 +55,6 @@ EsrInternalExecutionConfig MapSessionToInternal(const config::EsrSessionConfig& 
   exec.intercept.suppression.suppression_noise_scale = 1.0f;
   exec.intercept.suppression.suppression_mark_threshold_w = 1.0e-12f;
 
-  exec.intercept.deception.false_alarm_probability_scale = 1.0f;
-  exec.intercept.deception.confusion_probability_scale = 0.6f;
-  exec.intercept.deception.max_false_observations_per_emitter = 1U;
-  exec.intercept.deception.aoa_confusion_std_deg = 4.0f;
-  exec.intercept.deception.rf_confusion_ratio = 0.02f;
-  exec.intercept.deception.pw_confusion_ratio = 0.35f;
-  exec.intercept.deception.cluster_confidence_penalty_scale = 0.55f;
-
   // Runtime sub-configs
   exec.runtime.integrator.integration_mode = extension::InterceptIntegrationMode::kNonCoherent;
   exec.runtime.track.gate_distance = 1.2f;

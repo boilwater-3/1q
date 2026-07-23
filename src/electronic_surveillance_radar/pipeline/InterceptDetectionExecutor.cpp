@@ -291,9 +291,6 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     record.observation.amplitude_db = ToDb(signal.received_power_w);
     record.observation.snr_db = snr_db;
     record.observation.quality = ClassifyObservationQuality(static_cast<float>(snr_db));
-    record.truth_emitter_id = 0U;
-    record.truth_pri_s = 0.0;
-    record.matched_truth = false;
     output->raw_records.push_back(record);
   }
   return true;

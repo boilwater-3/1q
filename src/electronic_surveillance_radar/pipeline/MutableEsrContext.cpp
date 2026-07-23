@@ -52,10 +52,6 @@ const oneq::electromagnetics::RfEmissionFrame& MutableEsrContext::GetInterferenc
   return interference_;
 }
 
-const session::EsrSceneEmitterList& MutableEsrContext::GetSceneEmitters() const {
-  return legacy_scene_emitters_;
-}
-
 const session::EsrEnvironmentSnapshot& MutableEsrContext::GetEnvironmentSnapshot() const {
   return environment_snapshot_;
 }

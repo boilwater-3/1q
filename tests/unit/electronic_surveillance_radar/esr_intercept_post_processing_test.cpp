@@ -4,7 +4,7 @@
  *
  * 现有测试只覆盖 ObservationPreprocessor / KdTreeClusterer / HypothesisAssociator
  * 的隔离行为，从不调用 Execute。本测试直接驱动 Execute，覆盖簇摘要、
- * 频谱分析、真值评估、缺失关联等分支。
+ * 频谱分析与缺失关联等分支。
  */
 
 #include <gtest/gtest.h>
@@ -27,7 +27,6 @@ namespace pipeline {
 namespace {
 
 using session::EsrCycleInput;
-using session::EsrSceneEmitter;
 
 // 构造一个最小可用的辐射源记录（复制自 esr_kdtree_clusterer_test 的 MakeRecord 惯例）
 RawObservationRecord MakeRecord(std::uint64_t observation_id, double timestamp_s,
@@ -40,8 +39,6 @@ RawObservationRecord MakeRecord(std::uint64_t observation_id, double timestamp_s
   record.observation.aoa_az_deg = az_deg;
   record.observation.aoa_el_deg = el_deg;
   record.observation.snr_db = snr_db;
-  record.truth_emitter_id = 100U;
-  record.matched_truth = true;
   return record;
 }
 
@@ -100,12 +97,9 @@ TEST(InterceptPostProcessingExecutorTest, ClusterWithSpectralAnalysisLabelsEmitt
   EXPECT_GT(result.observation_output.raw_observation_count, 0u);
 }
 
-TEST(InterceptPostProcessingExecutorTest, UnmatchedRecordWithDeceptionFlag) {
+TEST(InterceptPostProcessingExecutorTest, SingleDeclassifiedRecordProducesOutput) {
   std::vector<RawObservationRecord> records;
   RawObservationRecord rec = MakeRecord(300U, 1.0, 8.0e9, 20.0f, 2.0f, 12.0f);
-  rec.matched_truth = false;
-  rec.deception_affected = true;
-  rec.synthetic_false_alarm = true;
   records.push_back(rec);
 
   MutableEsrContext ctx = MakeContext(false);

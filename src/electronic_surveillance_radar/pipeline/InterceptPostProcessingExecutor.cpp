@@ -145,7 +145,6 @@ void PopulateClusterSpectralSummary(
  * @param[in] cluster_indices 簇内观测索引。
  * @param[in] records 预处理后的观测记录。
  * @param[in] features 观测特征向量。
- * @param[in] deception_config 欺骗建模配置。
  * @param[in] spectral_config 频谱分析配置。
  * @return 簇摘要。
  */
@@ -153,7 +152,6 @@ ClusterSummary BuildClusterSummary(
     const std::vector<std::size_t>& cluster_indices,
     const std::vector<RawObservationRecord>& records,
     const std::vector<ObservationFeatureVector>& features,
-    const extension::InterceptDeceptionModelConfig& deception_config,
     const extension::InterceptSpectralAnalysisConfig& spectral_config) {
   ClusterSummary summary;
   if (cluster_indices.empty()) {
@@ -164,8 +162,6 @@ ClusterSummary BuildClusterSummary(
   std::size_t representative = cluster_indices[0];
   double representative_snr = records[representative].observation.snr_db;
   double confidence_acc = 0.0;
-  std::size_t deception_affected_count = 0U;
-  std::size_t false_alarm_count = 0U;
   double mean_snr_db = 0.0;
   double mean_az_deg = 0.0;
   double mean_el_deg = 0.0;
@@ -195,12 +191,6 @@ ClusterSummary BuildClusterSummary(
     mean_pri_std_s += records[index].observation.pri_std_s;
     mean_pulse_width_std_s += records[index].observation.pulse_width_std_s;
     confidence_acc += ComputeObservationConfidence(records[index].observation.snr_db);
-    if (records[index].deception_affected) {
-      ++deception_affected_count;
-    }
-    if (records[index].synthetic_false_alarm) {
-      ++false_alarm_count;
-    }
     if (records[index].observation.snr_db > representative_snr) {
       representative = index;
       representative_snr = records[index].observation.snr_db;
@@ -223,13 +213,8 @@ ClusterSummary BuildClusterSummary(
   summary.bandwidth_std_hz = mean_bandwidth_std_hz * inv_count_d;
   summary.pri_std_s = mean_pri_std_s * inv_count_d;
   summary.pulse_width_std_s = mean_pulse_width_std_s * inv_count_d;
-  summary.deception_support_ratio = static_cast<float>(deception_affected_count) * inv_count;
-  summary.false_alarm_ratio = static_cast<float>(false_alarm_count) * inv_count;
-  const float deception_penalty =
-      1.0f - utils::Clamp01(deception_config.cluster_confidence_penalty_scale *
-                            summary.deception_support_ratio);
-  summary.confidence_score = utils::Clamp01(
-      static_cast<float>(confidence_acc * inv_count_d * static_cast<double>(deception_penalty)));
+  summary.confidence_score =
+      utils::Clamp01(static_cast<float>(confidence_acc * inv_count_d));
   summary.representative_index = representative;
   PopulateClusterSpectralSummary(cluster_indices, records, spectral_config, &summary);
   return summary;
@@ -253,25 +238,10 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
   PROJECT_LOG_DEBUG("[InterceptPostProcess] raw={} preprocessed={}", raw_records.size(),
                     records.size());
 
-  // Extract observations & truth evaluation (merged single pass)
+  // Extract only declassified observations; RF v2 does not carry truth association.
   result.observation_output.observations.reserve(records.size());
-  const auto& scene_emitters = ctx.GetSceneEmitters();
-  std::set<std::uint64_t> observed_truth_ids;
   for (std::size_t i = 0; i < records.size(); ++i) {
     result.observation_output.observations.push_back(records[i].observation);
-
-    session::TruthAssociationRecord association;
-    association.observation_id = records[i].observation.observation_id;
-    association.truth_emitter_id = records[i].truth_emitter_id;
-    association.matched = records[i].matched_truth && records[i].truth_emitter_id != 0U;
-    association.confidence =
-        association.matched ? static_cast<float>(ComputeObservationConfidence(
-                                  records[i].observation.snr_db))
-                            : 0.1f;
-    result.truth_evaluation_output.associations.push_back(association);
-    if (association.matched) {
-      observed_truth_ids.insert(records[i].truth_emitter_id);
-    }
   }
 
   // Feature encoding
@@ -300,9 +270,8 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
   std::vector<ClusterSummary> cluster_summaries;
   cluster_summaries.reserve(cluster_result.clusters.size());
   for (std::size_t i = 0; i < cluster_result.clusters.size(); ++i) {
-    cluster_summaries.push_back(BuildClusterSummary(cluster_result.clusters[i], records, features,
-                                                    config.deception_model,
-                                                    config.spectral_analysis));
+    cluster_summaries.push_back(
+        BuildClusterSummary(cluster_result.clusters[i], records, features, config.spectral_analysis));
   }
 
   // Hypothesis association
@@ -312,21 +281,6 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
   PROJECT_LOG_INFO("[InterceptPostProcess] cycle_index={} clusters={} hypotheses={}",
                    ctx.GetCycleIndex(), cluster_result.clusters.size(),
                    result.emitter_output.hypotheses.size());
-
-  for (std::size_t i = 0; i < scene_emitters.size(); ++i) {
-    if (!scene_emitters[i].is_emitting) {
-      continue;
-    }
-    if (observed_truth_ids.find(scene_emitters[i].emitter_id) != observed_truth_ids.end()) {
-      continue;
-    }
-    session::TruthAssociationRecord missed_association;
-    missed_association.observation_id = 0U;
-    missed_association.truth_emitter_id = scene_emitters[i].emitter_id;
-    missed_association.matched = false;
-    missed_association.confidence = 0.0f;
-    result.truth_evaluation_output.associations.push_back(missed_association);
-  }
 
   return result;
 }

@@ -8,7 +8,6 @@
 
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrSceneTypes.h"
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
 
 namespace electronic_surveillance_radar {
@@ -54,8 +53,6 @@ class MutableEsrContext final {
   const oneq::coordinate::EcefVelocityMps& GetPlatformVelocityEcefMps() const;
   /** @brief 返回当前周期冻结的实际 RF 发射。 */
   const oneq::electromagnetics::RfEmissionFrame& GetInterference() const;
-  /** @deprecated Legacy executor support only; always empty for public RF v2 input. */
-  const session::EsrSceneEmitterList& GetSceneEmitters() const;
   /** @brief 返回当前周期环境快照的只读引用。 */
   const session::EsrEnvironmentSnapshot& GetEnvironmentSnapshot() const;
   /** @brief 返回流水线配置的只读引用。 */
@@ -74,7 +71,6 @@ class MutableEsrContext final {
   oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps_{};
   oneq::foundation::PoseState platform_pose_{};
   oneq::electromagnetics::RfEmissionFrame interference_{};
-  session::EsrSceneEmitterList legacy_scene_emitters_{};
   session::EsrEnvironmentSnapshot environment_snapshot_{};
   extension::InterceptPipelineConfig pipeline_config_{};
   extension::InterceptRuntimeConfig runtime_config_{};

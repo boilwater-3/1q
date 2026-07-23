@@ -32,7 +32,7 @@ namespace {
  * @return 簇摘要。
  */
 ClusterSummary MakeCluster(float x, float y, float az_deg, float el_deg, double rf_hz, float snr_db,
-                           std::size_t support_count, float deception_support_ratio = 0.0f,
+                           std::size_t support_count,
                            const std::string& spectral_label = std::string()) {
   ClusterSummary summary;
   summary.centroid_feature.values =
@@ -51,7 +51,6 @@ ClusterSummary MakeCluster(float x, float y, float az_deg, float el_deg, double 
   summary.pri_std_s = 1.0e-6;
   summary.pulse_width_std_s = 1.0e-8;
   summary.confidence_score = 0.8f;
-  summary.deception_support_ratio = deception_support_ratio;
   summary.spectral_class_label = spectral_label;
   return summary;
 }
@@ -131,9 +130,9 @@ TEST(EsrHypothesisAssociatorTest, UsesMaximumCardinalityAssignmentBeforeMinimumD
   std::uint64_t next_hypothesis_id = 1U;
   std::vector<ClusterSummary> clusters_cycle_1;
   clusters_cycle_1.push_back(
-      MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "TRACK_ZERO"));
+      MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 12.0f, 3U, "TRACK_ZERO"));
   clusters_cycle_1.push_back(
-      MakeCluster(1.0f, 0.0f, 1.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "TRACK_ONE"));
+      MakeCluster(1.0f, 0.0f, 1.0f, 0.0f, 10.0e9, 12.0f, 3U, "TRACK_ONE"));
   const session::EmitterHypothesisList cycle_1 =
       associator.Update(25U, clusters_cycle_1, &next_hypothesis_id);
   ASSERT_EQ(cycle_1.size(), 2U);
@@ -141,9 +140,9 @@ TEST(EsrHypothesisAssociatorTest, UsesMaximumCardinalityAssignmentBeforeMinimumD
 
   std::vector<ClusterSummary> clusters_cycle_2;
   clusters_cycle_2.push_back(
-      MakeCluster(0.4f, 0.0f, 4.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "FLEXIBLE"));
+      MakeCluster(0.4f, 0.0f, 4.0f, 0.0f, 10.0e9, 12.0f, 3U, "FLEXIBLE"));
   clusters_cycle_2.push_back(
-      MakeCluster(-0.5f, 0.0f, -5.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "CONSTRAINED"));
+      MakeCluster(-0.5f, 0.0f, -5.0f, 0.0f, 10.0e9, 12.0f, 3U, "CONSTRAINED"));
   const session::EmitterHypothesisList cycle_2 =
       associator.Update(26U, clusters_cycle_2, &next_hypothesis_id);
 
@@ -181,8 +180,8 @@ TEST(EsrHypothesisAssociatorTest, EqualCostPerfectMatchingUsesClusterThenHypothe
   ASSERT_EQ(associator.Update(27U, initial_clusters, &next_hypothesis_id).size(), 2U);
 
   std::vector<ClusterSummary> tied_clusters;
-  tied_clusters.push_back(MakeCluster(0.0f, 0.0f, 2.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "FIRST"));
-  tied_clusters.push_back(MakeCluster(-1.0f, 0.0f, 3.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SECOND"));
+  tied_clusters.push_back(MakeCluster(0.0f, 0.0f, 2.0f, 0.0f, 10.0e9, 12.0f, 3U, "FIRST"));
+  tied_clusters.push_back(MakeCluster(-1.0f, 0.0f, 3.0f, 0.0f, 10.0e9, 12.0f, 3U, "SECOND"));
   ASSERT_EQ(associator.Update(28U, tied_clusters, &next_hypothesis_id).size(), 2U);
 
   const std::vector<HypothesisAssociator::TrackState> tracks = associator.CaptureTracks();
@@ -222,7 +221,7 @@ TEST(EsrHypothesisAssociatorTest, RecyclesTrackAfterConfiguredMissedCycles) {
   EXPECT_TRUE(cycle_3.empty());
 }
 
-TEST(EsrHypothesisAssociatorTest, HighDeceptionSupportLowersConfidenceAndAddsAmbiguousClass) {
+TEST(EsrHypothesisAssociatorTest, EquivalentClustersHaveEquivalentConfidence) {
   extension::InterceptAssociationConfig config;
   config.gate_distance = 1.0f;
   config.confirm_hits = 1U;
@@ -233,28 +232,25 @@ TEST(EsrHypothesisAssociatorTest, HighDeceptionSupportLowersConfidenceAndAddsAmb
 
   std::uint64_t next_hypothesis_id = 1U;
   std::vector<ClusterSummary> clusters;
-  clusters.push_back(MakeCluster(0.0f, 0.0f, 1.0f, 0.1f, 10.0e9, 14.0f, 3U, 0.0f));
-  clusters.push_back(MakeCluster(5.0f, 5.0f, 2.0f, 0.2f, 12.0e9, 14.0f, 3U, 0.8f));
+  clusters.push_back(MakeCluster(0.0f, 0.0f, 1.0f, 0.1f, 10.0e9, 14.0f, 3U));
+  clusters.push_back(MakeCluster(5.0f, 5.0f, 2.0f, 0.2f, 12.0e9, 14.0f, 3U));
 
   const session::EmitterHypothesisList hypotheses =
       associator.Update(40U, clusters, &next_hypothesis_id);
   ASSERT_EQ(hypotheses.size(), 2U);
 
   const session::EmitterHypothesis* clean_hypothesis = nullptr;
-  const session::EmitterHypothesis* deceptive_hypothesis = nullptr;
+  const session::EmitterHypothesis* second_hypothesis = nullptr;
   for (std::size_t i = 0; i < hypotheses.size(); ++i) {
     if (hypotheses[i].bearing_az_deg < 1.5f) {
       clean_hypothesis = &hypotheses[i];
     } else {
-      deceptive_hypothesis = &hypotheses[i];
+      second_hypothesis = &hypotheses[i];
     }
   }
   ASSERT_NE(clean_hypothesis, static_cast<const session::EmitterHypothesis*>(nullptr));
-  ASSERT_NE(deceptive_hypothesis, static_cast<const session::EmitterHypothesis*>(nullptr));
-  EXPECT_LT(deceptive_hypothesis->confidence, clean_hypothesis->confidence);
-  EXPECT_NE(std::find(deceptive_hypothesis->candidate_classes.begin(),
-                      deceptive_hypothesis->candidate_classes.end(), "AMBIGUOUS_CLASS"),
-            deceptive_hypothesis->candidate_classes.end());
+  ASSERT_NE(second_hypothesis, static_cast<const session::EmitterHypothesis*>(nullptr));
+  EXPECT_FLOAT_EQ(second_hypothesis->confidence, clean_hypothesis->confidence);
 }
 
 TEST(EsrHypothesisAssociatorTest, AppendsSpectralClassWithoutReplacingBandClass) {
@@ -266,7 +262,7 @@ TEST(EsrHypothesisAssociatorTest, AppendsSpectralClassWithoutReplacingBandClass)
   std::uint64_t next_hypothesis_id = 1U;
   std::vector<ClusterSummary> clusters;
   clusters.push_back(
-      MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 14.0f, 5U, 0.0f, "SPECTRAL_BROADBAND"));
+      MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 14.0f, 5U, "SPECTRAL_BROADBAND"));
 
   const session::EmitterHypothesisList hypotheses =
       associator.Update(50U, clusters, &next_hypothesis_id);
@@ -308,7 +304,7 @@ TEST(EsrHypothesisAssociatorTest, TieDistanceAssociationUsesStableClusterOrder) 
   std::uint64_t next_hypothesis_id = 1U;
   std::vector<ClusterSummary> cycle_1_clusters;
   cycle_1_clusters.push_back(
-      MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SPECTRAL_A"));
+      MakeCluster(0.0f, 0.0f, 0.0f, 0.0f, 10.0e9, 12.0f, 3U, "SPECTRAL_A"));
   const session::EmitterHypothesisList cycle_1 =
       associator.Update(70U, cycle_1_clusters, &next_hypothesis_id);
   ASSERT_EQ(cycle_1.size(), 1U);
@@ -316,9 +312,9 @@ TEST(EsrHypothesisAssociatorTest, TieDistanceAssociationUsesStableClusterOrder) 
 
   std::vector<ClusterSummary> cycle_2_clusters;
   cycle_2_clusters.push_back(
-      MakeCluster(0.5f, 0.0f, 1.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SPECTRAL_FIRST"));
+      MakeCluster(0.5f, 0.0f, 1.0f, 0.0f, 10.0e9, 12.0f, 3U, "SPECTRAL_FIRST"));
   cycle_2_clusters.push_back(
-      MakeCluster(-0.5f, 0.0f, -1.0f, 0.0f, 10.0e9, 12.0f, 3U, 0.0f, "SPECTRAL_SECOND"));
+      MakeCluster(-0.5f, 0.0f, -1.0f, 0.0f, 10.0e9, 12.0f, 3U, "SPECTRAL_SECOND"));
   const session::EmitterHypothesisList cycle_2 =
       associator.Update(71U, cycle_2_clusters, &next_hypothesis_id);
   ASSERT_EQ(cycle_2.size(), 2U);

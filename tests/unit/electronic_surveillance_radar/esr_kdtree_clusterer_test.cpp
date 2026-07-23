@@ -43,8 +43,6 @@ RawObservationRecord MakeRecord(std::uint64_t observation_id, double timestamp_s
   record.observation.aoa_az_deg = az_deg;
   record.observation.aoa_el_deg = el_deg;
   record.observation.snr_db = snr_db;
-  record.truth_emitter_id = 12345U;
-  record.matched_truth = true;
   return record;
 }
 
