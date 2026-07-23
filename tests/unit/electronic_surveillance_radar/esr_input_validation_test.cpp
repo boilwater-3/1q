@@ -115,6 +115,8 @@ TEST(EsrInputValidationTest, ValidRfV2EmissionFrameIsAllowed) {
   input.cycle_index = 4U;
   input.cycle_start_time_s = 10.0;
   input.dt_sec = 1.0f;
+  input.platform_entity_id = 1U;
+  input.has_platform_ecef_kinematics = true;
   AddValidRfV2EmissionFrame(&input);
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
@@ -126,8 +128,25 @@ TEST(EsrInputValidationTest, RfV2EmissionFrameMustMatchCycleWindow) {
   input.cycle_index = 4U;
   input.cycle_start_time_s = 10.0;
   input.dt_sec = 1.0f;
+  input.platform_entity_id = 1U;
+  input.has_platform_ecef_kinematics = true;
   AddValidRfV2EmissionFrame(&input);
   input.rf_emission_frame.window_start_time_s += 0.1;
+
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
+  EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidRfEmissionFrame));
+  EXPECT_TRUE(HasValidationError(issues));
+}
+
+TEST(EsrInputValidationTest, RfV2EmissionFrameRejectsLegacyPayloadMix) {
+  EsrCycleInput input;
+  input.cycle_index = 4U;
+  input.cycle_start_time_s = 10.0;
+  input.dt_sec = 1.0f;
+  input.platform_entity_id = 1U;
+  input.has_platform_ecef_kinematics = true;
+  AddValidRfV2EmissionFrame(&input);
+  input.scene.push_back(MakeValidEmitter());
 
   const ValidationIssueList issues = ValidateEsrCycleInput(input);
   EXPECT_TRUE(ContainsCode(issues, ValidationCode::kInvalidRfEmissionFrame));

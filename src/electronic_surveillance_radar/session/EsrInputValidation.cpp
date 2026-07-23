@@ -242,6 +242,22 @@ ValidationIssueList ValidateEsrCycleInput(const EsrCycleInput& input) {
                                  static_cast<std::size_t>(-1), "rf_emission_frame",
                                  "RF emission frame must be valid and match the cycle window"));
     }
+    if (!input.scene.empty() ||
+        input.environment.interference_mode != oneq::electromagnetics::RfInterferenceMode::kNone ||
+        !input.environment.jammer_sources.empty() ||
+        !input.environment.engineering_emissions.empty()) {
+      issues.push_back(MakeIssue(
+          ValidationSeverity::kError, ValidationCode::kInvalidRfEmissionFrame,
+          ValidationLocationKind::kGlobal, static_cast<std::size_t>(-1), "rf_emission_frame",
+          "RF v2 emission frames cannot be mixed with legacy scene or interference payloads"));
+    }
+    if (!input.has_platform_ecef_kinematics || input.platform_entity_id == 0U) {
+      issues.push_back(MakeIssue(
+          ValidationSeverity::kError, ValidationCode::kInvalidRfEmissionFrame,
+          ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
+          "platform_entity_id/has_platform_ecef_kinematics",
+          "RF v2 reception requires a non-zero platform identity and ECEF kinematics"));
+    }
   }
   ValidatePlatformPose(input.platform_pose, &issues);
   ValidatePlatformAltitude(input.platform_altitude_m, &issues);

@@ -79,6 +79,15 @@ class InterceptDetectionExecutor {
       const oneq::common::timing::StatisticalDetectionParams& base_statistical_detection_params,
       const MutableEsrContext& ctx, std::mt19937& rng, std::uint64_t& next_observation_id,
       std::vector<RawObservationRecord>& raw_records, bool* receiver_saturated) const;
+
+  /** @brief 使用统一 RF v2 发射帧执行接收、信道竞争和去真值化量测。 */
+  bool ProcessRfV2Frame(
+      const MutableEsrContext& ctx, const intercept::BeamPointingDeg& active_beam,
+      const std::pair<double, double>& receiver_window,
+      const intercept::AngleErrorModelConfig& angle_error_config,
+      const oneq::common::timing::StatisticalDetectionParams& base_statistical_detection_params,
+      std::mt19937& rng, std::uint64_t& next_observation_id,
+      InterceptDetectionOutput* output) const;
 };
 
 }  // namespace pipeline
