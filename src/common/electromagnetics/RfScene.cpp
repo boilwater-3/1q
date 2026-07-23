@@ -178,8 +178,10 @@ double PulseJitterUnit(const RfWaveformSchedule& waveform, std::uint32_t pulse_i
 }
 
 double PulseStartTime(const RfWaveformSchedule& waveform, std::uint32_t pulse_index) {
-  const double jitter = PulseJitterUnit(waveform, pulse_index) * waveform.pulse_jitter_fraction *
-                        waveform.pulse_repetition_interval_s;
+  const double jitter = pulse_index == 0U ? 0.0
+                                          : PulseJitterUnit(waveform, pulse_index) *
+                                                waveform.pulse_jitter_fraction *
+                                                waveform.pulse_repetition_interval_s;
   return waveform.first_pulse_time_s +
          static_cast<double>(pulse_index) * waveform.pulse_repetition_interval_s + jitter;
 }
@@ -399,11 +401,11 @@ bool TryCreateRfPulseTrainWaveform(double first_pulse_time_s, double center_freq
   const double jitter_margin = std::max(0.0, jitter_fraction) * pulse_repetition_interval_s;
   RfWaveformSchedule candidate;
   candidate.kind = RfSceneWaveformKind::kPulseTrain;
-  candidate.activity_start_time_s = first_pulse_time_s - jitter_margin;
+  candidate.activity_start_time_s = first_pulse_time_s;
   candidate.activity_duration_s =
       pulse_count == 0U ? 0.0
                         : static_cast<double>(pulse_count - 1U) * pulse_repetition_interval_s +
-                              pulse_width_s + 2.0 * jitter_margin;
+                              pulse_width_s + jitter_margin;
   candidate.center_frequency_hz = center_frequency_hz;
   candidate.occupied_bandwidth_hz = bandwidth_hz;
   candidate.transmit_power_w = peak_power_w;

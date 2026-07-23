@@ -114,6 +114,28 @@ TEST(RfSceneTest, ArrivalActivityReplaysPulseJitterAndSweepFrequency) {
   EXPECT_NEAR(center_hz, 3.0e9 - 500.0, 1.0e-6);
 }
 
+TEST(RfSceneTest, PulseJitterKeepsFirstPulseAtDeclaredWorldTime) {
+  RfWaveformSchedule pulse;
+  ASSERT_TRUE(TryCreateRfPulseTrainWaveform(10.0, 3.0e9, 1.0e6, 100.0, 1.0e-3, 10.0e-3, 32U, 0.15,
+                                            123U, 9U, &pulse));
+  EXPECT_DOUBLE_EQ(pulse.activity_start_time_s, 10.0);
+
+  double first_pulse_start_s = 0.0;
+  ASSERT_TRUE(TryResolveRfPulseStartTime(pulse, 0U, &first_pulse_start_s));
+  EXPECT_DOUBLE_EQ(first_pulse_start_s, 10.0);
+
+  const double activity_end_s = pulse.activity_start_time_s + pulse.activity_duration_s;
+  double previous_pulse_start_s = first_pulse_start_s;
+  for (std::uint32_t index = 1U; index < pulse.pulse_count; ++index) {
+    double pulse_start_s = 0.0;
+    ASSERT_TRUE(TryResolveRfPulseStartTime(pulse, index, &pulse_start_s));
+    EXPECT_GT(pulse_start_s, previous_pulse_start_s);
+    EXPECT_GE(pulse_start_s, pulse.activity_start_time_s);
+    EXPECT_LE(pulse_start_s + pulse.pulse_width_s, activity_end_s);
+    previous_pulse_start_s = pulse_start_s;
+  }
+}
+
 TEST(RfSceneTest, CoSiteRequiresDirectedEquipmentPath) {
   RfSceneReceiverState receiver = MakeReceiver();
   receiver.platform_id = 10U;
