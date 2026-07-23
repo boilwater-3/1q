@@ -30,18 +30,24 @@ struct ONEQ_API EsrOutputFrame {
   session::TruthEvaluationFrame truth_evaluation_output{}; /**< 真值评估输出通道 */
 };
 
+/** @brief 单周期 ESR 执行状态；只有 completed 携带本周期输出。 */
+enum class ONEQ_API EsrCycleExecutionStatus {
+  kCompleted = 0,
+  kRejected = 1,
+  kPoweredOff = 2,
+};
+
 /**
  * @brief EsrCycleResult 描述电子侦察会话单周期聚合结果。
- * @note `output_frame` 只有在 `executed_this_cycle=true` 时才代表本周期有效计算结果；
- *       失败/abort 周期会保留默认值或上一有效输出，不能按真实零值参与统计。
+ * @note `output_frame` 只有在 `status=kCompleted` 时才代表本周期有效计算结果；
+ *       拒绝和关机周期不复用历史输出。
  */
 struct ONEQ_API EsrCycleResult {
   std::uint32_t input_cycle_index{0U}; /**< 本次调用输入周期号，用于失败结果与 trace 归属 */
   EsrOutputFrame output_frame{};       /**< 当前周期输出帧 */
   session::ValidationIssueList validation_issues{}; /**< 当前周期输入校验结果 */
   bool has_validation_error{false};                 /**< 是否存在 error 级输入问题 */
-  bool executed_this_cycle{false};                  /**< 当前调用是否真正执行了 pipeline */
-  bool reused_previous_output{false}; /**< 当前 output_frame 是否复用了上一有效周期输出 */
+  EsrCycleExecutionStatus status{EsrCycleExecutionStatus::kRejected}; /**< 周期执行真相。 */
   session::EsrPipelineAbortReason abort_reason{
       session::EsrPipelineAbortReason::kNone}; /**< 若 downstream 链路 abort，给出结构化原因 */
 };

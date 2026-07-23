@@ -22,7 +22,7 @@ EsrDebugEmitterState BuildEmitterState(const EsrSceneEmitter& emitter, const Esr
   state.emitter_id = emitter.emitter_id;
   state.emitter_name = emitter.emitter_name;
   state.present_in_input = true;
-  if (!result.executed_this_cycle) {
+  if (result.status != EsrCycleExecutionStatus::kCompleted) {
     state.status = EsrDebugEmitterStatus::kCycleNotExecuted;
     return state;
   }
@@ -50,8 +50,7 @@ EsrOutputDebugView EsrOutputDebugViewBuilder::Build(const EsrCycleInput& input,
   EsrOutputDebugView view;
   view.input_cycle_index = result.input_cycle_index;
   view.output_cycle_index = result.output_frame.cycle_index;
-  view.executed_this_cycle = result.executed_this_cycle;
-  view.reused_previous_output = result.reused_previous_output;
+  view.status = result.status;
   view.has_validation_error = result.has_validation_error;
   view.abort_reason = result.abort_reason;
   view.emitters.reserve(input.scene.size());

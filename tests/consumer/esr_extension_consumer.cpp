@@ -28,7 +28,8 @@ int main() {
   input.dt_sec = 1.0f;
 
   const electronic_surveillance_radar::session::EsrCycleResult result = session.StepWithResult(input);
-  if (!result.executed_this_cycle) {
+  if (result.status !=
+      electronic_surveillance_radar::session::EsrCycleExecutionStatus::kCompleted) {
     return 1;
   }
   (void)result.output_frame.observation_output.observations.size();

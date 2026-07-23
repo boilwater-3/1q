@@ -626,7 +626,7 @@ std::string EncodeEsrCycleResult(const EsrCycleResult& v) {
   }
   fbb.Finish(esr::replay::CreateEsrCycleResult(
       fbb, v.input_cycle_index, frame, fbb.CreateVector(issues), v.has_validation_error,
-      v.executed_this_cycle, v.reused_previous_output, static_cast<int32_t>(v.abort_reason)));
+      static_cast<int32_t>(v.status), static_cast<int32_t>(v.abort_reason)));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
 
@@ -639,8 +639,7 @@ bool DecodeEsrCycleResult(const std::string& bytes, EsrCycleResult* out) {
   out->input_cycle_index = fb->input_cycle_index();
   PopulateOutputFrame(fb->output_frame(), &out->output_frame);
   out->has_validation_error = fb->has_validation_error();
-  out->executed_this_cycle = fb->executed_this_cycle();
-  out->reused_previous_output = fb->reused_previous_output();
+  out->status = static_cast<EsrCycleExecutionStatus>(fb->status());
   out->abort_reason = static_cast<session::EsrPipelineAbortReason>(fb->abort_reason());
   out->validation_issues.clear();
   if (fb->validation_issues()) {

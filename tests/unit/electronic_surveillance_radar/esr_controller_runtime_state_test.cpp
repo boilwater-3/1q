@@ -72,7 +72,7 @@ TEST(EsrControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
   EsrController controller(pipeline, env);
 
   controller.RunOnce(MakeValidInput(1U));
-  ASSERT_TRUE(controller.ExecutedLatestCycle());
+  ASSERT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kCompleted);
   const EsrControllerRuntimeState snapshot = controller.CaptureRuntimeState();
 
   controller.RunOnce(MakeValidInput(2U));
@@ -81,8 +81,7 @@ TEST(EsrControllerRuntimeStateTest, CaptureAndRestoreRoundTripState) {
   controller.RestoreRuntimeState(snapshot);
   EXPECT_TRUE(controller.HasLatestInterceptOutputFrame());
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 1U);
-  EXPECT_TRUE(controller.ExecutedLatestCycle());
-  EXPECT_FALSE(controller.ReusedPreviousInterceptOutputLatestCycle());
+  EXPECT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kCompleted);
 }
 
 TEST(EsrControllerRuntimeStateTest, SuccessfulCyclesAdvanceBatchAndRejectedCycleDoesNot) {
@@ -92,7 +91,7 @@ TEST(EsrControllerRuntimeStateTest, SuccessfulCyclesAdvanceBatchAndRejectedCycle
   const std::uint64_t initial_batch_id = controller.CaptureRuntimeState().next_batch_id;
 
   controller.RunOnce(MakeValidInput(10U));
-  ASSERT_TRUE(controller.ExecutedLatestCycle());
+  ASSERT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kCompleted);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 10U);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().batch_id, initial_batch_id);
   EXPECT_EQ(controller.CaptureRuntimeState().next_batch_id, initial_batch_id + 1U);
@@ -100,13 +99,12 @@ TEST(EsrControllerRuntimeStateTest, SuccessfulCyclesAdvanceBatchAndRejectedCycle
   session::EsrCycleInput invalid_input = MakeValidInput(11U);
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
-  EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_TRUE(controller.ReusedPreviousInterceptOutputLatestCycle());
+  EXPECT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kRejected);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().batch_id, initial_batch_id);
   EXPECT_EQ(controller.CaptureRuntimeState().next_batch_id, initial_batch_id + 1U);
 
   controller.RunOnce(MakeValidInput(12U));
-  ASSERT_TRUE(controller.ExecutedLatestCycle());
+  ASSERT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kCompleted);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 12U);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().batch_id, initial_batch_id + 1U);
   EXPECT_EQ(controller.CaptureRuntimeState().next_batch_id, initial_batch_id + 2U);
@@ -149,14 +147,13 @@ TEST(EsrControllerRuntimeStateTest, ValidationRejectSetsAbortReasonAndReusesPrev
   EsrController controller(pipeline, env);
 
   controller.RunOnce(MakeValidInput(40U));
-  ASSERT_TRUE(controller.ExecutedLatestCycle());
+  ASSERT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kCompleted);
 
   session::EsrCycleInput invalid_input = MakeValidInput(41U);
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
 
-  EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_TRUE(controller.ReusedPreviousInterceptOutputLatestCycle());
+  EXPECT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kRejected);
   EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), session::EsrPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 40U);
 }
@@ -171,8 +168,7 @@ TEST(EsrControllerRuntimeStateTest, FirstValidationRejectDoesNotCreateOutputFram
   controller.RunOnce(invalid_input);
 
   EXPECT_FALSE(controller.HasLatestInterceptOutputFrame());
-  EXPECT_FALSE(controller.ExecutedLatestCycle());
-  EXPECT_FALSE(controller.ReusedPreviousInterceptOutputLatestCycle());
+  EXPECT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kRejected);
   EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), session::EsrPipelineAbortReason::kValidationRejected);
 }
 
@@ -183,7 +179,7 @@ TEST(EsrControllerRuntimeStateTest,
   EsrController controller(pipeline, env);
 
   controller.RunOnce(MakeValidInput(100U));
-  ASSERT_TRUE(controller.ExecutedLatestCycle());
+  ASSERT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kCompleted);
 
   const auto pipeline_state = pipeline.CaptureRuntimeState();
   const auto controller_state = controller.CaptureRuntimeState();
@@ -192,10 +188,9 @@ TEST(EsrControllerRuntimeStateTest,
   invalid_input.dt_sec = 0.0f;
   controller.RunOnce(invalid_input);
 
-  EXPECT_FALSE(controller.ExecutedLatestCycle());
+  EXPECT_EQ(controller.GetLatestCycleStatus(), session::EsrCycleExecutionStatus::kRejected);
   EXPECT_EQ(controller.GetLastInterceptCycleAbortReason(), session::EsrPipelineAbortReason::kValidationRejected);
   EXPECT_EQ(controller.GetLatestInterceptOutputFrame().cycle_index, 100U);
-  EXPECT_TRUE(controller.ReusedPreviousInterceptOutputLatestCycle());
 }
 
 TEST(EsrControllerRuntimeStateTest, ScanPhaseUsesFullPatternCycleRateAndVariableStep) {

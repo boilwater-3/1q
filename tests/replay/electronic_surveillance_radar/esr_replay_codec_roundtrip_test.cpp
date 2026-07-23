@@ -381,8 +381,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   result.output_frame.observation_output.observations.push_back(obs);
 
   result.has_validation_error = true;
-  result.executed_this_cycle = true;
-  result.reused_previous_output = false;
+  result.status = session::EsrCycleExecutionStatus::kCompleted;
   result.abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
 
   ValidationIssue issue;
@@ -405,8 +404,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesAllFields) {
   EXPECT_DOUBLE_EQ(decoded.output_frame.observation_output.observations[0].snr_db, 20.0);
 
   EXPECT_TRUE(decoded.has_validation_error);
-  EXPECT_TRUE(decoded.executed_this_cycle);
-  EXPECT_FALSE(decoded.reused_previous_output);
+  EXPECT_EQ(decoded.status, session::EsrCycleExecutionStatus::kCompleted);
   EXPECT_EQ(decoded.abort_reason, session::EsrPipelineAbortReason::kValidationRejected);
 
   ASSERT_EQ(decoded.validation_issues.size(), 1U);
@@ -422,7 +420,7 @@ TEST(EsrReplayCodecRoundtripTest, CycleResultPreservesBatchIdAboveUint32Max) {
   result.output_frame.cycle_index = 6U;
   result.output_frame.batch_id =
       static_cast<std::uint64_t>(std::numeric_limits<std::uint32_t>::max()) + 1U;
-  result.executed_this_cycle = true;
+  result.status = session::EsrCycleExecutionStatus::kCompleted;
 
   const std::string bytes = EncodeEsrCycleResult(result);
   ASSERT_FALSE(bytes.empty());

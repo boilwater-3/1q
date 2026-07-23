@@ -272,8 +272,7 @@ table EsrCycleResult {
   output_frame:         EsrOutputFrame;
   validation_issues:    [ValidationIssue];
   has_validation_error: bool;
-  executed_this_cycle:  bool = false;
-  reused_previous_output: bool = false;
+  status:               int32 = 1;
   abort_reason:         int32 = 0;
 }
 

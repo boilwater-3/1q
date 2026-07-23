@@ -136,7 +136,7 @@ TEST(EsrReplaySessionTest, ReplayPreservesRealTenKilometerGeometry) {
     options.replay_writer = replay_writer;
     EsrTraceSession session(config, options);
     const EsrCycleResult result = session.StepWithResult(input);
-    ASSERT_TRUE(result.executed_this_cycle);
+    ASSERT_EQ(result.status, EsrCycleExecutionStatus::kCompleted);
     ASSERT_EQ(result.output_frame.observation_output.observations.size(), 1U);
     replay_writer->Flush();
   }

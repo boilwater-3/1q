@@ -30,7 +30,7 @@ std::string BuildEsrOutputPayload(const EsrCycleResult& result) {
   os << "{"
      << "\"cycle_index\":" << frame.cycle_index << ","
      << "\"batch_id\":" << frame.batch_id << ","
-     << "\"executed\":" << (result.executed_this_cycle ? "true" : "false") << ","
+     << "\"status\":" << static_cast<int>(result.status) << ","
      << "\"raw_observation_count\":" << frame.observation_output.raw_observation_count << ","
      << "\"observation_count\":" << frame.observation_output.observations.size() << ","
      << "\"cluster_count\":" << frame.observation_output.cluster_count << ","

@@ -144,9 +144,7 @@ bool EsrCycleResultEqual(const EsrCycleResult& left, const EsrCycleResult& right
   return left.input_cycle_index == right.input_cycle_index &&
          EsrOutputFrameEqual(left.output_frame, right.output_frame) &&
          EsrValidationIssueListEqual(left.validation_issues, right.validation_issues) &&
-         left.has_validation_error == right.has_validation_error &&
-         left.executed_this_cycle == right.executed_this_cycle &&
-         left.reused_previous_output == right.reused_previous_output &&
+         left.has_validation_error == right.has_validation_error && left.status == right.status &&
          left.abort_reason == right.abort_reason;
 }
 

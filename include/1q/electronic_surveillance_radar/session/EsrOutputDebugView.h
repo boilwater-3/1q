@@ -48,8 +48,7 @@ struct ONEQ_API EsrDebugEmitterState {
 struct ONEQ_API EsrOutputDebugView {
   std::uint32_t input_cycle_index{0U};                                  /**< 输入周期号 */
   std::uint32_t output_cycle_index{0U};                                 /**< 输出帧周期号 */
-  bool executed_this_cycle{false};                                      /**< 本周期是否执行了核心 pipeline */
-  bool reused_previous_output{false};                                   /**< 是否复用了上一有效输出 */
+  EsrCycleExecutionStatus status{EsrCycleExecutionStatus::kRejected};  /**< 本周期执行状态。 */
   bool has_validation_error{false};                                     /**< 是否存在 error 级输入问题 */
   session::EsrPipelineAbortReason abort_reason{session::EsrPipelineAbortReason::kNone}; /**< 周期终止原因 */
   std::vector<EsrDebugEmitterState> emitters{};                         /**< 逐辐射源调试状态 */

@@ -59,7 +59,7 @@ EsrEmitterLifecycleRecorder& EsrEmitterLifecycleRecorder::operator=(EsrEmitterLi
 std::vector<EsrEmitterLifecycleEvent> EsrEmitterLifecycleRecorder::Update(const EsrCycleInput& input,
                                                                            const EsrCycleResult& result) {
   std::vector<EsrEmitterLifecycleEvent> events;
-  if (!result.executed_this_cycle) {
+  if (result.status != EsrCycleExecutionStatus::kCompleted) {
     return events;
   }
   events.reserve(input.scene.size());
@@ -67,7 +67,8 @@ std::vector<EsrEmitterLifecycleEvent> EsrEmitterLifecycleRecorder::Update(const 
     EmitterState& state = impl_->states[emitter.emitter_id];
     const session::TruthAssociationRecord* association =
         FindAssociation(emitter.emitter_id, result.output_frame.truth_evaluation_output);
-    const bool observed_now = result.executed_this_cycle && association != nullptr;
+    const bool observed_now = result.status == EsrCycleExecutionStatus::kCompleted &&
+                              association != nullptr;
     if (observed_now) {
       EsrEmitterLifecycleEvent event = MakeBaseEvent(emitter, result);
       event.kind = state.observed ? EsrEmitterLifecycleEventKind::kUpdated

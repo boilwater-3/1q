@@ -31,7 +31,8 @@ struct EsrControllerRuntimeState {
   session::EsrOutputFrame latest_output{};
   session::ValidationIssueList last_validation_issues{};
   std::uint64_t next_batch_id{0U};
-  bool last_cycle_executed{false};
+  session::EsrCycleExecutionStatus last_cycle_status{
+      session::EsrCycleExecutionStatus::kRejected};
   session::EsrPipelineAbortReason last_abort_reason{
       session::EsrPipelineAbortReason::kNone};
   extension::InterceptPipelineRuntimeState pipeline_state{};
@@ -80,17 +81,8 @@ class EsrController {
    */
   const session::ValidationIssueList& GetLastValidationIssues() const;
 
-  /**
-   * @brief 最近一次 RunOnce 是否执行了核心 pipeline。
-   * @return 若执行了核心 pipeline 则返回 true。
-   */
-  bool ExecutedLatestCycle() const;
-
-  /**
-   * @brief 最近一次 RunOnce 是否复用了上一有效输出。
-   * @return 若复用了上一有效输出则返回 true。
-   */
-  bool ReusedPreviousInterceptOutputLatestCycle() const;
+  /** @brief 返回最近一次 RunOnce 的周期执行状态。 */
+  session::EsrCycleExecutionStatus GetLatestCycleStatus() const;
 
   /**
    * @brief 最近一次 RunOnce 的周期终止原因。

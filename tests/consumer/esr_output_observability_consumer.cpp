@@ -36,7 +36,7 @@ int main() {
   // 2. 手填一个含 truth association 的结果。
   esr::session::EsrCycleResult result;
   result.input_cycle_index = input.cycle_index;
-  result.executed_this_cycle = true;
+  result.status = esr::session::EsrCycleExecutionStatus::kCompleted;
   result.output_frame.cycle_index = input.cycle_index;
   esr::session::TruthAssociationRecord association;
   association.observation_id = 100U;

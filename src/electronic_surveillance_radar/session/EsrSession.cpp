@@ -27,13 +27,13 @@ struct EsrSession::Impl {
   EsrCycleResult BuildCycleResult(const session::EsrCycleInput& input) const {
     EsrCycleResult result;
     result.input_cycle_index = input.cycle_index;
-    if (Controller().HasLatestInterceptOutputFrame()) {
+    if (Controller().GetLatestCycleStatus() == EsrCycleExecutionStatus::kCompleted &&
+        Controller().HasLatestInterceptOutputFrame()) {
       result.output_frame = Controller().GetLatestInterceptOutputFrame();
     }
     result.validation_issues = Controller().GetLastValidationIssues();
     result.has_validation_error = session::HasValidationError(result.validation_issues);
-    result.executed_this_cycle = Controller().ExecutedLatestCycle();
-    result.reused_previous_output = Controller().ReusedPreviousInterceptOutputLatestCycle();
+    result.status = Controller().GetLatestCycleStatus();
     result.abort_reason = Controller().GetLastInterceptCycleAbortReason();
     return result;
   }
@@ -51,8 +51,8 @@ struct EsrSession::Impl {
 
     // 按 docs/common/contract.md「运行期配置提交策略」，ESR 属立即提交类，配置不在
     // session 层回滚。关机由 pipeline 显式上报，且没有推进任何累积状态；保留该
-    // 非执行结果与最近有效输出。其他非 validation abort 才回滚运行态。
-    if (!Controller().ExecutedLatestCycle() &&
+    // 非执行结果；结果 DTO 不回传最近有效输出。其他非 validation abort 才回滚运行态。
+    if (Controller().GetLatestCycleStatus() == EsrCycleExecutionStatus::kRejected &&
         Controller().GetLastInterceptCycleAbortReason() !=
             session::EsrPipelineAbortReason::kValidationRejected &&
         Controller().GetLastInterceptCycleAbortReason() !=

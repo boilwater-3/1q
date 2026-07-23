@@ -21,8 +21,8 @@ struct EsrController::Impl {
   oneq::common::runtime::RuntimeCycleState<session::EsrOutputFrame,
                                           session::ValidationIssueList>
       runtime_state{};
-  bool last_cycle_executed{false};
-  bool last_cycle_reused_previous_output{false};
+  session::EsrCycleExecutionStatus last_cycle_status{
+      session::EsrCycleExecutionStatus::kRejected};
   session::EsrPipelineAbortReason last_abort_reason{session::EsrPipelineAbortReason::kNone};
 };
 
@@ -42,9 +42,8 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   impl_->runtime_state.last_validation_issues = issues;
 
   if (session::HasValidationError(issues)) {
-    impl_->last_cycle_executed = false;
+    impl_->last_cycle_status = session::EsrCycleExecutionStatus::kRejected;
     impl_->last_abort_reason = session::EsrPipelineAbortReason::kValidationRejected;
-    impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
     PROJECT_LOG_WARN("ESR validation rejected for cycle_index={}", stamp.cycle_index);
     return;
   }
@@ -63,16 +62,14 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   extension::InterceptPipelineResult pipeline_result =
       impl_->pipeline.RunCycle(input, impl_->environment_service);
   if (pipeline_result.rf_v2_rejected) {
-    impl_->last_cycle_executed = false;
+    impl_->last_cycle_status = session::EsrCycleExecutionStatus::kRejected;
     impl_->last_abort_reason = session::EsrPipelineAbortReason::kRfReceiverRejected;
-    impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
     PROJECT_LOG_WARN("ESR RF v2 receiver rejected cycle_index={}", stamp.cycle_index);
     return;
   }
   if (pipeline_result.sensor_powered_off) {
-    impl_->last_cycle_executed = false;
+    impl_->last_cycle_status = session::EsrCycleExecutionStatus::kPoweredOff;
     impl_->last_abort_reason = session::EsrPipelineAbortReason::kSensorPoweredOff;
-    impl_->last_cycle_reused_previous_output = impl_->runtime_state.has_latest_output;
     return;
   }
   session::EsrOutputFrame output_frame;
@@ -84,8 +81,7 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
 
   impl_->runtime_state.latest_output = std::move(output_frame);
   impl_->runtime_state.has_latest_output = true;
-  impl_->last_cycle_executed = true;
-  impl_->last_cycle_reused_previous_output = false;
+  impl_->last_cycle_status = session::EsrCycleExecutionStatus::kCompleted;
   impl_->last_abort_reason = session::EsrPipelineAbortReason::kNone;
   ++impl_->runtime_state.next_batch_id;
   PROJECT_LOG_DEBUG(
@@ -105,10 +101,8 @@ const session::ValidationIssueList& EsrController::GetLastValidationIssues() con
   return impl_->runtime_state.last_validation_issues;
 }
 
-bool EsrController::ExecutedLatestCycle() const { return impl_->last_cycle_executed; }
-
-bool EsrController::ReusedPreviousInterceptOutputLatestCycle() const {
-  return impl_->last_cycle_reused_previous_output;
+session::EsrCycleExecutionStatus EsrController::GetLatestCycleStatus() const {
+  return impl_->last_cycle_status;
 }
 
 session::EsrPipelineAbortReason EsrController::GetLastInterceptCycleAbortReason() const {
@@ -127,7 +121,7 @@ EsrControllerRuntimeState EsrController::CaptureRuntimeState() const {
   state.latest_output = impl_->runtime_state.latest_output;
   state.last_validation_issues = impl_->runtime_state.last_validation_issues;
   state.next_batch_id = impl_->runtime_state.next_batch_id;
-  state.last_cycle_executed = impl_->last_cycle_executed;
+  state.last_cycle_status = impl_->last_cycle_status;
   state.last_abort_reason = impl_->last_abort_reason;
   state.pipeline_state = impl_->pipeline.CaptureRuntimeState();
   return state;
@@ -146,7 +140,7 @@ bool EsrController::RestoreRuntimeState(const EsrControllerRuntimeState& state) 
   impl_->runtime_state.latest_output = state.latest_output;
   impl_->runtime_state.last_validation_issues = state.last_validation_issues;
   impl_->runtime_state.next_batch_id = state.next_batch_id;
-  impl_->last_cycle_executed = state.last_cycle_executed;
+  impl_->last_cycle_status = state.last_cycle_status;
   impl_->last_abort_reason = state.last_abort_reason;
   return true;
 }

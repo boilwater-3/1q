@@ -197,7 +197,7 @@ TEST(EsrCycleOutputBuilderTest, DebugViewMapsTruthAssociationsBackToNamedEmitter
 
   esr_session::EsrCycleResult result;
   result.input_cycle_index = input.cycle_index;
-  result.executed_this_cycle = true;
+  result.status = electronic_surveillance_radar::session::EsrCycleExecutionStatus::kCompleted;
   result.output_frame.cycle_index = input.cycle_index;
   ::electronic_surveillance_radar::session::TruthAssociationRecord association;
   association.observation_id = 9001U;
@@ -231,7 +231,7 @@ TEST(EsrCycleOutputBuilderTest, LifecycleRecorderTracksObservedLostAndOptionalNo
 
   esr_session::EsrCycleResult first_result;
   first_result.input_cycle_index = input.cycle_index;
-  first_result.executed_this_cycle = true;
+  first_result.status = electronic_surveillance_radar::session::EsrCycleExecutionStatus::kCompleted;
   first_result.output_frame.cycle_index = input.cycle_index;
   ::electronic_surveillance_radar::session::TruthAssociationRecord association;
   association.observation_id = 8001U;
@@ -249,7 +249,7 @@ TEST(EsrCycleOutputBuilderTest, LifecycleRecorderTracksObservedLostAndOptionalNo
 
   esr_session::EsrCycleResult second_result;
   second_result.input_cycle_index = 31U;
-  second_result.executed_this_cycle = true;
+  second_result.status = electronic_surveillance_radar::session::EsrCycleExecutionStatus::kCompleted;
   second_result.output_frame.cycle_index = 31U;
   events = recorder.Update(input, second_result);
   ASSERT_EQ(events.size(), 1U);
@@ -273,7 +273,7 @@ TEST(EsrCycleOutputBuilderTest, NonExecutedCyclePreservesObservedState) {
   input.scene.push_back(emitter);
   esr_session::EsrCycleResult observed;
   observed.input_cycle_index = 1U;
-  observed.executed_this_cycle = true;
+  observed.status = electronic_surveillance_radar::session::EsrCycleExecutionStatus::kCompleted;
   esr_session::TruthAssociationRecord association;
   association.observation_id = 9U;
   association.truth_emitter_id = 203U;
