@@ -41,6 +41,7 @@ std::string MakeTempTracePath() {
 EcmCycleInput MakeInput(std::uint32_t cycle_index, bool fresh) {
   EcmCycleInput input;
   input.cycle_index = cycle_index;
+  input.cycle_start_time_s = 0.5 * static_cast<double>(cycle_index - 1U);
   input.dt_sec = 0.5;
   input.platform_entity_id = 900U;
   input.platform_position_ecef_m.x_m = 6378137.0;
@@ -69,6 +70,7 @@ TEST(EcmReplayCodecTest, InputAndResultPreserveProvenanceAndRfSegments) {
   EcmCycleInput decoded_input;
   ASSERT_TRUE(DecodeEcmCycleInput(EncodeEcmCycleInput(input), &decoded_input));
   EXPECT_EQ(decoded_input.cycle_index, 2U);
+  EXPECT_DOUBLE_EQ(decoded_input.cycle_start_time_s, 0.5);
   EXPECT_EQ(decoded_input.sensor_observation_frame.source_esr_success_cycle_index, 1U);
   ASSERT_EQ(decoded_input.sensor_observation_frame.observations.size(), 1U);
   EXPECT_DOUBLE_EQ(decoded_input.sensor_observation_frame.observations.front()
@@ -82,10 +84,10 @@ TEST(EcmReplayCodecTest, InputAndResultPreserveProvenanceAndRfSegments) {
   EcmCycleResult decoded_result;
   ASSERT_TRUE(DecodeEcmCycleResult(EncodeEcmCycleResult(result), &decoded_result));
   EXPECT_EQ(decoded_result.status, EcmCycleStatus::kExecuted);
-  EXPECT_EQ(decoded_result.emission_frame.source_esr_success_cycle_index, 1U);
+  EXPECT_EQ(decoded_result.source_esr_success_cycle_index, 1U);
   ASSERT_EQ(decoded_result.emission_frame.emissions.size(), 1U);
-  EXPECT_EQ(decoded_result.emission_frame.emissions.front().segments.size(),
-            config.sweep_segment_count);
+  EXPECT_EQ(decoded_result.emission_frame.emissions.front().waveform.kind,
+            oneq::electromagnetics::RfSceneWaveformKind::kLinearSweep);
   EXPECT_DOUBLE_EQ(decoded_result.thermal_energy_j, result.thermal_energy_j);
 }
 

@@ -33,6 +33,7 @@ EcmSensorObservation MakeObservation(std::uint64_t id, double center_hz, float t
 EcmCycleInput MakeSensorInput(std::uint32_t cycle_index, bool has_frame) {
   EcmCycleInput input;
   input.cycle_index = cycle_index;
+  input.cycle_start_time_s = static_cast<double>(cycle_index - 1U);
   input.dt_sec = 1.0;
   input.input_mode = EcmInputMode::kSensorDriven;
   input.platform_entity_id = 900U;
@@ -51,7 +52,7 @@ TEST(EcmSessionTest, SensorFrameGlidesTwoSuccessfulCyclesThenSafelyStops) {
   const EcmCycleResult fresh = session.StepWithResult(MakeSensorInput(2U, true));
   ASSERT_EQ(fresh.status, EcmCycleStatus::kExecuted);
   ASSERT_EQ(fresh.emission_frame.emissions.size(), 1U);
-  EXPECT_EQ(fresh.emission_frame.source_esr_success_cycle_index, 1U);
+  EXPECT_EQ(fresh.source_esr_success_cycle_index, 1U);
 
   const EcmCycleResult glide_one = session.StepWithResult(MakeSensorInput(3U, false));
   EXPECT_EQ(glide_one.status, EcmCycleStatus::kExecuted);
@@ -86,6 +87,42 @@ TEST(EcmSessionTest, RejectedMixedModeDoesNotAdvanceSuccessfulState) {
   EXPECT_EQ(retry.observation_age_successful_ecm_cycles, 1U);
 }
 
+TEST(EcmSessionTest, PublishedFrameUsesAbsoluteTimeAndEquipmentIdentity) {
+  config::EcmSessionConfig config;
+  config.transmitter_equipment_id = 17U;
+  EcmSession session = EcmSession::Create(config);
+
+  const EcmCycleResult result = session.StepWithResult(MakeSensorInput(2U, true));
+  ASSERT_EQ(result.status, EcmCycleStatus::kExecuted);
+  EXPECT_EQ(result.emission_frame.world_cycle_index, 2U);
+  EXPECT_DOUBLE_EQ(result.emission_frame.window_start_time_s, 1.0);
+  EXPECT_DOUBLE_EQ(result.emission_frame.window_duration_s, 1.0);
+  ASSERT_EQ(result.emission_frame.emissions.size(), 1U);
+  EXPECT_EQ(result.emission_frame.emissions.front().identity.platform_id, 900U);
+  EXPECT_EQ(result.emission_frame.emissions.front().identity.equipment_id, 17U);
+  EXPECT_DOUBLE_EQ(
+      result.emission_frame.emissions.front().waveform.activity_start_time_s, 1.0);
+}
+
+TEST(EcmSessionTest, PoweredOffAdvancesChronologyWithoutConsumingEmissionId) {
+  config::EcmSessionConfig config;
+  config.power_on = false;
+  EcmSession session = EcmSession::Create(config);
+  EXPECT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status,
+            EcmCycleStatus::kPoweredOff);
+
+  config::EcmRuntimeConfigPatch patch;
+  patch.has_power_on = true;
+  patch.power_on = true;
+  ASSERT_TRUE(session.ApplyRuntimeConfig(patch).applied);
+  EXPECT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status,
+            EcmCycleStatus::kRejectedInvalidInput);
+  const EcmCycleResult next = session.StepWithResult(MakeSensorInput(3U, true));
+  ASSERT_EQ(next.status, EcmCycleStatus::kExecuted);
+  ASSERT_EQ(next.emission_frame.emissions.size(), 1U);
+  EXPECT_EQ(next.emission_frame.emissions.front().identity.emission_id, 1U);
+}
+
 TEST(EcmSessionTest, ChannelAndPowerBudgetsAreConservedForAllTechniques) {
   for (EcmTechnique technique :
        {EcmTechnique::kSpot, EcmTechnique::kBarrage, EcmTechnique::kSweep}) {
@@ -111,8 +148,8 @@ TEST(EcmSessionTest, ChannelAndPowerBudgetsAreConservedForAllTechniques) {
     }
     EXPECT_LE(allocated_power_w, 1000.0);
     if (technique == EcmTechnique::kSweep) {
-      EXPECT_EQ(result.emission_frame.emissions.front().segments.size(),
-                config.sweep_segment_count);
+      EXPECT_EQ(result.emission_frame.emissions.front().waveform.kind,
+                oneq::electromagnetics::RfSceneWaveformKind::kLinearSweep);
     }
   }
 }
@@ -121,6 +158,7 @@ TEST(EcmSessionTest, TruthAssistedOwnershipIsExplicitAndSeparate) {
   EcmSession session = EcmSession::Create();
   EcmCycleInput input;
   input.cycle_index = 1U;
+  input.cycle_start_time_s = 0.0;
   input.input_mode = EcmInputMode::kTruthAssisted;
   input.platform_entity_id = 900U;
   EcmTruthThreat truth;
@@ -135,7 +173,7 @@ TEST(EcmSessionTest, TruthAssistedOwnershipIsExplicitAndSeparate) {
   EXPECT_TRUE(result.truth_assisted);
   ASSERT_EQ(result.decisions.size(), 1U);
   EXPECT_EQ(result.decisions.front().truth_entity_id, 77U);
-  EXPECT_EQ(result.emission_frame.emissions.front().entity_id, 900U);
+  EXPECT_EQ(result.emission_frame.emissions.front().identity.platform_id, 900U);
 }
 
 TEST(EcmSessionTest, SweepSnapshotContinuationIsDeterministic) {
@@ -152,16 +190,14 @@ TEST(EcmSessionTest, SweepSnapshotContinuationIsDeterministic) {
 
   ASSERT_EQ(first.emission_frame.emissions.size(), 1U);
   ASSERT_EQ(replayed.emission_frame.emissions.size(), 1U);
-  EXPECT_EQ(first.emission_frame.emissions.front().emission_id,
-            replayed.emission_frame.emissions.front().emission_id);
-  ASSERT_EQ(first.emission_frame.emissions.front().segments.size(),
-            replayed.emission_frame.emissions.front().segments.size());
-  for (std::size_t index = 0U; index < first.emission_frame.emissions.front().segments.size();
-       ++index) {
-    EXPECT_DOUBLE_EQ(first.emission_frame.emissions.front().segments[index].center_frequency_hz,
-                     replayed.emission_frame.emissions.front().segments[index]
-                         .center_frequency_hz);
-  }
+  EXPECT_EQ(first.emission_frame.emissions.front().identity.emission_id,
+            replayed.emission_frame.emissions.front().identity.emission_id);
+  EXPECT_DOUBLE_EQ(first.emission_frame.emissions.front().waveform.sweep_start_frequency_hz,
+                   replayed.emission_frame.emissions.front()
+                       .waveform.sweep_start_frequency_hz);
+  EXPECT_DOUBLE_EQ(first.emission_frame.emissions.front().waveform.sweep_stop_frequency_hz,
+                   replayed.emission_frame.emissions.front()
+                       .waveform.sweep_stop_frequency_hz);
 }
 
 TEST(EcmSessionTest, SnapshotFollowsImplAcrossFacadeMoveAndRejectsForeignSession) {

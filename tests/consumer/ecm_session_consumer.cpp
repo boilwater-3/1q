@@ -37,6 +37,7 @@ int main() {
 
   ecm::session::EcmCycleInput input;
   input.cycle_index = 5U;
+  input.cycle_start_time_s = 4.0;
   input.input_mode = ecm::EcmInputMode::kSensorDriven;
   input.platform_entity_id = 99U;
   input.platform_position_ecef_m.x_m = 6378137.0;
@@ -44,7 +45,7 @@ int main() {
   input.sensor_observation_frame = frame;
   const ecm::session::EcmCycleResult result = session.StepWithResult(input);
   if (result.status != ecm::session::EcmCycleStatus::kExecuted ||
-      result.emission_frame.source_esr_success_cycle_index != 4U ||
+      result.source_esr_success_cycle_index != 4U ||
       result.emission_frame.emissions.empty()) {
     return 2;
   }

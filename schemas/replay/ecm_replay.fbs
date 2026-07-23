@@ -17,6 +17,7 @@ table AntennaPattern {
 table EcmSessionConfig {
   power_on:bool;
   random_seed:uint32;
+  transmitter_equipment_id:uint64;
   channel_count:uint32;
   minimum_frequency_hz:double;
   maximum_frequency_hz:double;
@@ -69,6 +70,7 @@ table TruthThreat {
 
 table EcmCycleInput {
   cycle_index:uint32;
+  cycle_start_time_s:double;
   dt_sec:double;
   input_mode:int32;
   platform_entity_id:uint64;
@@ -84,28 +86,44 @@ table EcmCycleInput {
 root_type EcmCycleInput;
 file_identifier "ECMC";
 
-table RfEmissionSegment {
-  start_time_s:double;
-  duration_s:double;
+table RfEmissionIdentity {
+  platform_id:uint64;
+  equipment_id:uint64;
+  emission_id:uint64;
+}
+
+table RfWaveformSchedule {
+  kind:int32;
+  activity_start_time_s:double;
+  activity_duration_s:double;
   center_frequency_hz:double;
-  bandwidth_hz:double;
+  occupied_bandwidth_hz:double;
   transmit_power_w:double;
+  pulse_width_s:double;
+  pulse_repetition_interval_s:double;
+  first_pulse_time_s:double;
+  pulse_count:uint32;
+  pulse_jitter_fraction:double;
+  timing_seed:uint64;
+  timing_epoch:uint64;
+  sweep_start_frequency_hz:double;
+  sweep_stop_frequency_hz:double;
+  sweep_period_s:double;
 }
 
 table RfEmission {
-  emission_id:uint64;
-  entity_id:uint64;
+  identity:RfEmissionIdentity;
   position_ecef_m:Vec3;
   velocity_ecef_mps:Vec3;
   antenna:AntennaPattern;
   polarization:int32;
-  waveform_kind:int32;
-  segments:[RfEmissionSegment];
+  waveform:RfWaveformSchedule;
 }
 
 table EcmEmissionFrame {
-  cycle_index:uint32;
-  source_esr_success_cycle_index:uint32;
+  world_cycle_index:uint64;
+  window_start_time_s:double;
+  window_duration_s:double;
   emissions:[RfEmission];
 }
 
@@ -126,6 +144,7 @@ table EcmCycleResult {
   executed_this_cycle:bool;
   used_glided_observation:bool;
   observation_age_successful_ecm_cycles:uint32;
+  source_esr_success_cycle_index:uint32;
   thermal_energy_j:double;
   emission_frame:EcmEmissionFrame;
   decisions:[ResourceDecision];

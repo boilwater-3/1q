@@ -21,10 +21,10 @@ ecm::replay::Vec3 ToVec(const oneq::coordinate::EcefVelocityMps& value) {
 
 flatbuffers::Offset<ecm::replay::AntennaPattern> BuildAntenna(
     flatbuffers::FlatBufferBuilder& builder,
-    const oneq::electromagnetics::RfAntennaPattern& antenna) {
-  ecm::replay::UnitVector boresight(antenna.boresight_ecef_unit.x,
-                                    antenna.boresight_ecef_unit.y,
-                                    antenna.boresight_ecef_unit.z);
+    const oneq::electromagnetics::RfSceneAntennaPattern& antenna) {
+  ecm::replay::UnitVector boresight(antenna.boresight_ecef.x,
+                                    antenna.boresight_ecef.y,
+                                    antenna.boresight_ecef.z);
   return ecm::replay::CreateAntennaPattern(
       builder, &boresight, antenna.peak_gain_dbi, antenna.half_power_beamwidth_deg,
       antenna.sidelobe_level_db, antenna.backlobe_level_db,
@@ -32,14 +32,14 @@ flatbuffers::Offset<ecm::replay::AntennaPattern> BuildAntenna(
 }
 
 void DecodeAntenna(const ecm::replay::AntennaPattern* encoded,
-                   oneq::electromagnetics::RfAntennaPattern* output) {
+                   oneq::electromagnetics::RfSceneAntennaPattern* output) {
   if (encoded == nullptr || output == nullptr) {
     return;
   }
   if (encoded->boresight()) {
-    output->boresight_ecef_unit.x = encoded->boresight()->x();
-    output->boresight_ecef_unit.y = encoded->boresight()->y();
-    output->boresight_ecef_unit.z = encoded->boresight()->z();
+    output->boresight_ecef.x = encoded->boresight()->x();
+    output->boresight_ecef.y = encoded->boresight()->y();
+    output->boresight_ecef.z = encoded->boresight()->z();
   }
   output->peak_gain_dbi = encoded->peak_gain_dbi();
   output->half_power_beamwidth_deg = encoded->half_power_beamwidth_deg();
@@ -94,28 +94,37 @@ EcmSensorObservationFrame DecodeSensorFrame(
 
 flatbuffers::Offset<ecm::replay::RfEmission> BuildEmission(
     flatbuffers::FlatBufferBuilder& builder,
-    const oneq::electromagnetics::RfEmission& emission) {
-  std::vector<flatbuffers::Offset<ecm::replay::RfEmissionSegment>> segments;
-  for (const oneq::electromagnetics::RfEmissionSegment& segment : emission.segments) {
-    segments.push_back(ecm::replay::CreateRfEmissionSegment(
-        builder, segment.start_time_s, segment.duration_s, segment.center_frequency_hz,
-        segment.bandwidth_hz, segment.transmit_power_w));
-  }
+    const oneq::electromagnetics::RfSceneEmission& emission) {
   ecm::replay::Vec3 position = ToVec(emission.position_ecef_m);
   ecm::replay::Vec3 velocity = ToVec(emission.velocity_ecef_mps);
+  auto identity = ecm::replay::CreateRfEmissionIdentity(
+      builder, emission.identity.platform_id, emission.identity.equipment_id,
+      emission.identity.emission_id);
+  const oneq::electromagnetics::RfWaveformSchedule& waveform = emission.waveform;
+  auto encoded_waveform = ecm::replay::CreateRfWaveformSchedule(
+      builder, static_cast<int32_t>(waveform.kind), waveform.activity_start_time_s,
+      waveform.activity_duration_s, waveform.center_frequency_hz,
+      waveform.occupied_bandwidth_hz, waveform.transmit_power_w, waveform.pulse_width_s,
+      waveform.pulse_repetition_interval_s, waveform.first_pulse_time_s,
+      waveform.pulse_count, waveform.pulse_jitter_fraction, waveform.timing_seed,
+      waveform.timing_epoch, waveform.sweep_start_frequency_hz,
+      waveform.sweep_stop_frequency_hz, waveform.sweep_period_s);
   return ecm::replay::CreateRfEmission(
-      builder, emission.emission_id, emission.entity_id, &position, &velocity,
+      builder, identity, &position, &velocity,
       BuildAntenna(builder, emission.antenna), static_cast<int32_t>(emission.polarization),
-      static_cast<int32_t>(emission.waveform_kind), builder.CreateVector(segments));
+      encoded_waveform);
 }
 
-oneq::electromagnetics::RfEmission DecodeEmission(const ecm::replay::RfEmission* encoded) {
-  oneq::electromagnetics::RfEmission emission;
+oneq::electromagnetics::RfSceneEmission DecodeEmission(const ecm::replay::RfEmission* encoded) {
+  oneq::electromagnetics::RfSceneEmission emission;
   if (encoded == nullptr) {
     return emission;
   }
-  emission.emission_id = encoded->emission_id();
-  emission.entity_id = encoded->entity_id();
+  if (encoded->identity()) {
+    emission.identity.platform_id = encoded->identity()->platform_id();
+    emission.identity.equipment_id = encoded->identity()->equipment_id();
+    emission.identity.emission_id = encoded->identity()->emission_id();
+  }
   if (encoded->position_ecef_m()) {
     emission.position_ecef_m.x_m = encoded->position_ecef_m()->x();
     emission.position_ecef_m.y_m = encoded->position_ecef_m()->y();
@@ -128,19 +137,26 @@ oneq::electromagnetics::RfEmission DecodeEmission(const ecm::replay::RfEmission*
   }
   DecodeAntenna(encoded->antenna(), &emission.antenna);
   emission.polarization =
-      static_cast<oneq::electromagnetics::RfPolarization>(encoded->polarization());
-  emission.waveform_kind =
-      static_cast<oneq::electromagnetics::RfWaveformKind>(encoded->waveform_kind());
-  if (encoded->segments()) {
-    for (const ecm::replay::RfEmissionSegment* value : *encoded->segments()) {
-      oneq::electromagnetics::RfEmissionSegment segment;
-      segment.start_time_s = value->start_time_s();
-      segment.duration_s = value->duration_s();
-      segment.center_frequency_hz = value->center_frequency_hz();
-      segment.bandwidth_hz = value->bandwidth_hz();
-      segment.transmit_power_w = value->transmit_power_w();
-      emission.segments.push_back(segment);
-    }
+      static_cast<oneq::electromagnetics::RfScenePolarization>(encoded->polarization());
+  if (encoded->waveform()) {
+    const ecm::replay::RfWaveformSchedule* value = encoded->waveform();
+    emission.waveform.kind =
+        static_cast<oneq::electromagnetics::RfSceneWaveformKind>(value->kind());
+    emission.waveform.activity_start_time_s = value->activity_start_time_s();
+    emission.waveform.activity_duration_s = value->activity_duration_s();
+    emission.waveform.center_frequency_hz = value->center_frequency_hz();
+    emission.waveform.occupied_bandwidth_hz = value->occupied_bandwidth_hz();
+    emission.waveform.transmit_power_w = value->transmit_power_w();
+    emission.waveform.pulse_width_s = value->pulse_width_s();
+    emission.waveform.pulse_repetition_interval_s = value->pulse_repetition_interval_s();
+    emission.waveform.first_pulse_time_s = value->first_pulse_time_s();
+    emission.waveform.pulse_count = value->pulse_count();
+    emission.waveform.pulse_jitter_fraction = value->pulse_jitter_fraction();
+    emission.waveform.timing_seed = value->timing_seed();
+    emission.waveform.timing_epoch = value->timing_epoch();
+    emission.waveform.sweep_start_frequency_hz = value->sweep_start_frequency_hz();
+    emission.waveform.sweep_stop_frequency_hz = value->sweep_stop_frequency_hz();
+    emission.waveform.sweep_period_s = value->sweep_period_s();
   }
   return emission;
 }
@@ -150,7 +166,8 @@ oneq::electromagnetics::RfEmission DecodeEmission(const ecm::replay::RfEmission*
 std::string EncodeEcmSessionConfig(const config::EcmSessionConfig& value) {
   flatbuffers::FlatBufferBuilder builder;
   builder.Finish(ecm::replay::CreateEcmSessionConfig(
-      builder, value.power_on, value.random_seed, value.channel_count,
+      builder, value.power_on, value.random_seed, value.transmitter_equipment_id,
+      value.channel_count,
       value.minimum_frequency_hz, value.maximum_frequency_hz,
       value.maximum_total_transmit_power_w, value.maximum_channel_transmit_power_w,
       value.thermal_capacity_j, value.cooling_power_w, value.spot_bandwidth_hz,
@@ -172,6 +189,7 @@ bool DecodeEcmSessionConfig(const std::string& bytes, config::EcmSessionConfig* 
   config::EcmSessionConfig decoded;
   decoded.power_on = value->power_on();
   decoded.random_seed = value->random_seed();
+  decoded.transmitter_equipment_id = value->transmitter_equipment_id();
   decoded.channel_count = value->channel_count();
   decoded.minimum_frequency_hz = value->minimum_frequency_hz();
   decoded.maximum_frequency_hz = value->maximum_frequency_hz();
@@ -230,7 +248,8 @@ std::string EncodeEcmCycleInput(const EcmCycleInput& value) {
   ecm::replay::Vec3 position = ToVec(value.platform_position_ecef_m);
   ecm::replay::Vec3 velocity = ToVec(value.platform_velocity_ecef_mps);
   builder.Finish(ecm::replay::CreateEcmCycleInput(
-      builder, value.cycle_index, value.dt_sec, static_cast<int32_t>(value.input_mode),
+      builder, value.cycle_index, value.cycle_start_time_s, value.dt_sec,
+      static_cast<int32_t>(value.input_mode),
       value.platform_entity_id, &position, &velocity,
       BuildAntenna(builder, value.transmit_antenna),
       static_cast<int32_t>(value.transmit_polarization), value.has_sensor_observation_frame,
@@ -250,6 +269,7 @@ bool DecodeEcmCycleInput(const std::string& bytes, EcmCycleInput* output) {
       flatbuffers::GetRoot<ecm::replay::EcmCycleInput>(bytes.data());
   EcmCycleInput decoded;
   decoded.cycle_index = value->cycle_index();
+  decoded.cycle_start_time_s = value->cycle_start_time_s();
   decoded.dt_sec = value->dt_sec();
   decoded.input_mode = static_cast<EcmInputMode>(value->input_mode());
   decoded.platform_entity_id = value->platform_entity_id();
@@ -265,7 +285,8 @@ bool DecodeEcmCycleInput(const std::string& bytes, EcmCycleInput* output) {
   }
   DecodeAntenna(value->transmit_antenna(), &decoded.transmit_antenna);
   decoded.transmit_polarization =
-      static_cast<oneq::electromagnetics::RfPolarization>(value->transmit_polarization());
+      static_cast<oneq::electromagnetics::RfScenePolarization>(
+          value->transmit_polarization());
   decoded.has_sensor_observation_frame = value->has_sensor_observation_frame();
   decoded.sensor_observation_frame = DecodeSensorFrame(value->sensor_observation_frame());
   if (value->truth_threats()) {
@@ -285,12 +306,14 @@ bool DecodeEcmCycleInput(const std::string& bytes, EcmCycleInput* output) {
 std::string EncodeEcmCycleResult(const EcmCycleResult& value) {
   flatbuffers::FlatBufferBuilder builder;
   std::vector<flatbuffers::Offset<ecm::replay::RfEmission>> emissions;
-  for (const oneq::electromagnetics::RfEmission& emission : value.emission_frame.emissions) {
+  for (const oneq::electromagnetics::RfSceneEmission& emission :
+       value.emission_frame.emissions) {
     emissions.push_back(BuildEmission(builder, emission));
   }
   auto emission_frame = ecm::replay::CreateEcmEmissionFrame(
-      builder, value.emission_frame.cycle_index,
-      value.emission_frame.source_esr_success_cycle_index, builder.CreateVector(emissions));
+      builder, value.emission_frame.world_cycle_index,
+      value.emission_frame.window_start_time_s, value.emission_frame.window_duration_s,
+      builder.CreateVector(emissions));
   std::vector<flatbuffers::Offset<ecm::replay::ResourceDecision>> decisions;
   for (const EcmResourceDecision& decision : value.decisions) {
     decisions.push_back(ecm::replay::CreateResourceDecision(
@@ -302,7 +325,8 @@ std::string EncodeEcmCycleResult(const EcmCycleResult& value) {
       builder, value.input_cycle_index, static_cast<int32_t>(value.status),
       static_cast<int32_t>(value.input_mode), value.truth_assisted,
       value.executed_this_cycle, value.used_glided_observation,
-      value.observation_age_successful_ecm_cycles, value.thermal_energy_j, emission_frame,
+      value.observation_age_successful_ecm_cycles,
+      value.source_esr_success_cycle_index, value.thermal_energy_j, emission_frame,
       builder.CreateVector(decisions)));
   return oneq::common::replay::CopyFinishedFlatbuffer(builder);
 }
@@ -326,11 +350,16 @@ bool DecodeEcmCycleResult(const std::string& bytes, EcmCycleResult* output) {
   decoded.used_glided_observation = value->used_glided_observation();
   decoded.observation_age_successful_ecm_cycles =
       value->observation_age_successful_ecm_cycles();
+  decoded.source_esr_success_cycle_index =
+      value->source_esr_success_cycle_index();
   decoded.thermal_energy_j = value->thermal_energy_j();
   if (value->emission_frame()) {
-    decoded.emission_frame.cycle_index = value->emission_frame()->cycle_index();
-    decoded.emission_frame.source_esr_success_cycle_index =
-        value->emission_frame()->source_esr_success_cycle_index();
+    decoded.emission_frame.world_cycle_index =
+        value->emission_frame()->world_cycle_index();
+    decoded.emission_frame.window_start_time_s =
+        value->emission_frame()->window_start_time_s();
+    decoded.emission_frame.window_duration_s =
+        value->emission_frame()->window_duration_s();
     if (value->emission_frame()->emissions()) {
       for (const ecm::replay::RfEmission* emission :
            *value->emission_frame()->emissions()) {

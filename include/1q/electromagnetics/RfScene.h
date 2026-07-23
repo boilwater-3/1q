@@ -98,6 +98,12 @@ struct ONEQ_API RfSceneFrame {
   std::vector<RfSceneEmission> emissions{};
 };
 
+/**
+ * @brief 模块间直接交换的 RF 发射事实帧。
+ * @note 该名称是普通调用方合同；`RfSceneFrame` 保留为 RF 求解器内部语义别名。
+ */
+using RfEmissionFrame = RfSceneFrame;
+
 /** @brief 同平台发射设备到接收设备的有向硬件隔离路径。 */
 struct ONEQ_API RfCoSiteIsolationPath {
   std::uint64_t transmitter_equipment_id{0};

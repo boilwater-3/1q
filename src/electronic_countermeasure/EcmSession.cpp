@@ -21,7 +21,8 @@ bool IsKnownTechnique(EcmTechnique technique) {
 }
 
 bool IsValidConfig(const config::EcmSessionConfig& config) {
-  return config.channel_count > 0U && std::isfinite(config.minimum_frequency_hz) &&
+  return config.transmitter_equipment_id != 0U && config.channel_count > 0U &&
+         std::isfinite(config.minimum_frequency_hz) &&
          std::isfinite(config.maximum_frequency_hz) && config.minimum_frequency_hz > 0.0 &&
          config.maximum_frequency_hz > config.minimum_frequency_hz &&
          std::isfinite(config.maximum_total_transmit_power_w) &&
@@ -57,7 +58,9 @@ bool IsValidSensorObservation(const EcmSensorObservation& observation) {
 }
 
 bool IsValidInput(const EcmCycleInput& input) {
-  if (!std::isfinite(input.dt_sec) || input.dt_sec <= 0.0 ||
+  if (input.cycle_index == 0U || input.platform_entity_id == 0U ||
+      !std::isfinite(input.cycle_start_time_s) || input.cycle_start_time_s < 0.0 ||
+      !std::isfinite(input.dt_sec) || input.dt_sec <= 0.0 ||
       !std::isfinite(input.platform_position_ecef_m.x_m) ||
       !std::isfinite(input.platform_position_ecef_m.y_m) ||
       !std::isfinite(input.platform_position_ecef_m.z_m) ||
@@ -107,54 +110,70 @@ struct SchedulingThreat {
   float score{0.0f};
 };
 
-oneq::electromagnetics::RfEmission BuildEmission(
+bool IsFeasibleThreat(const SchedulingThreat& threat,
+                      const config::EcmSessionConfig& config) {
+  double occupied_bandwidth_hz = config.spot_bandwidth_hz;
+  if (config.default_technique == EcmTechnique::kBarrage) {
+    occupied_bandwidth_hz = std::max(config.barrage_bandwidth_hz, threat.bandwidth_hz);
+  } else if (config.default_technique == EcmTechnique::kSweep) {
+    occupied_bandwidth_hz = config.sweep_bandwidth_hz;
+  }
+  return threat.center_frequency_hz - 0.5 * occupied_bandwidth_hz >=
+             config.minimum_frequency_hz &&
+         threat.center_frequency_hz + 0.5 * occupied_bandwidth_hz <=
+             config.maximum_frequency_hz;
+}
+
+bool TryBuildEmission(
     const EcmCycleInput& input, const config::EcmSessionConfig& config,
     const SchedulingThreat& threat, double allocated_power_w, std::uint32_t channel_index,
-    std::uint64_t emission_id, std::mt19937* scheduling_rng) {
-  oneq::electromagnetics::RfEmission emission;
-  emission.emission_id = emission_id;
-  emission.entity_id = input.platform_entity_id;
+    std::uint64_t emission_id, std::mt19937* scheduling_rng,
+    oneq::electromagnetics::RfSceneEmission* output) {
+  if (output == nullptr) {
+    return false;
+  }
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = input.platform_entity_id;
+  emission.identity.equipment_id = config.transmitter_equipment_id;
+  emission.identity.emission_id = emission_id;
   emission.position_ecef_m = input.platform_position_ecef_m;
   emission.velocity_ecef_mps = input.platform_velocity_ecef_mps;
   emission.antenna = input.transmit_antenna;
   emission.polarization = input.transmit_polarization;
   const EcmTechnique technique = config.default_technique;
   if (technique == EcmTechnique::kSweep) {
-    emission.waveform_kind = oneq::electromagnetics::RfWaveformKind::kSwept;
-    std::uint32_t phase = 0U;
+    bool reverse_sweep = false;
     if (scheduling_rng != nullptr) {
-      std::uniform_int_distribution<std::uint32_t> distribution(0U,
-                                                                 config.sweep_segment_count - 1U);
-      phase = distribution(*scheduling_rng);
+      std::uniform_int_distribution<std::uint32_t> distribution(0U, 1U);
+      reverse_sweep = distribution(*scheduling_rng) != 0U;
     }
-    const double duration_s = input.dt_sec / static_cast<double>(config.sweep_segment_count);
-    const double segment_bandwidth_hz =
+    double start_frequency_hz = threat.center_frequency_hz - 0.5 * config.sweep_bandwidth_hz;
+    double stop_frequency_hz = threat.center_frequency_hz + 0.5 * config.sweep_bandwidth_hz;
+    if (reverse_sweep) {
+      std::swap(start_frequency_hz, stop_frequency_hz);
+    }
+    const double instantaneous_bandwidth_hz =
         config.sweep_bandwidth_hz / static_cast<double>(config.sweep_segment_count);
-    for (std::uint32_t index = 0U; index < config.sweep_segment_count; ++index) {
-      const std::uint32_t frequency_index = (index + phase) % config.sweep_segment_count;
-      oneq::electromagnetics::RfEmissionSegment segment;
-      segment.start_time_s = duration_s * static_cast<double>(index);
-      segment.duration_s = duration_s;
-      segment.center_frequency_hz =
-          threat.center_frequency_hz - 0.5 * config.sweep_bandwidth_hz +
-          (static_cast<double>(frequency_index) + 0.5) * segment_bandwidth_hz;
-      segment.bandwidth_hz = segment_bandwidth_hz;
-      segment.transmit_power_w = allocated_power_w;
-      emission.segments.push_back(segment);
+    if (!oneq::electromagnetics::TryCreateRfLinearSweepWaveform(
+            input.cycle_start_time_s, input.dt_sec, start_frequency_hz,
+            stop_frequency_hz, instantaneous_bandwidth_hz, allocated_power_w,
+            input.dt_sec, &emission.waveform)) {
+      return false;
     }
   } else {
-    emission.waveform_kind = oneq::electromagnetics::RfWaveformKind::kNoise;
-    oneq::electromagnetics::RfEmissionSegment segment;
-    segment.duration_s = input.dt_sec;
-    segment.center_frequency_hz = threat.center_frequency_hz;
-    segment.bandwidth_hz = technique == EcmTechnique::kBarrage
-                               ? std::max(config.barrage_bandwidth_hz, threat.bandwidth_hz)
-                               : config.spot_bandwidth_hz;
-    segment.transmit_power_w = allocated_power_w;
-    emission.segments.push_back(segment);
+    const double bandwidth_hz = technique == EcmTechnique::kBarrage
+                                    ? std::max(config.barrage_bandwidth_hz,
+                                               threat.bandwidth_hz)
+                                    : config.spot_bandwidth_hz;
+    if (!oneq::electromagnetics::TryCreateRfNoiseWaveform(
+            input.cycle_start_time_s, input.dt_sec, threat.center_frequency_hz,
+            bandwidth_hz, allocated_power_w, &emission.waveform)) {
+      return false;
+    }
   }
   (void)channel_index;
-  return emission;
+  *output = emission;
+  return true;
 }
 
 }  // namespace
@@ -168,6 +187,9 @@ struct EcmSession::Impl {
   EcmSensorObservationFrame last_sensor_frame{};
   std::uint32_t observation_age_successful_ecm_cycles{0U};
   std::uint32_t last_successful_cycle_index{0U};
+  bool has_world_chronology{false};
+  std::uint32_t last_world_cycle_index{0U};
+  double last_world_window_end_time_s{0.0};
   std::uint64_t next_emission_id{1U};
   double thermal_energy_j{0.0};
   std::mt19937 scheduling_rng{};
@@ -188,14 +210,19 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
   result.input_cycle_index = input.cycle_index;
   result.input_mode = input.input_mode;
   result.truth_assisted = input.input_mode == EcmInputMode::kTruthAssisted;
-  result.emission_frame.cycle_index = input.cycle_index;
+  result.emission_frame.world_cycle_index = input.cycle_index;
+  result.emission_frame.window_start_time_s = input.cycle_start_time_s;
+  result.emission_frame.window_duration_s = input.dt_sec;
   if (!IsValidConfig(impl_->active_config)) {
     result.status = EcmCycleStatus::kRejectedInvalidConfig;
     result.thermal_energy_j = impl_->thermal_energy_j;
     return result;
   }
   if (!IsValidInput(input) ||
-      (impl_->has_successful_cycle && input.cycle_index <= impl_->last_successful_cycle_index)) {
+      (impl_->has_successful_cycle && input.cycle_index <= impl_->last_successful_cycle_index) ||
+      (impl_->has_world_chronology &&
+       (input.cycle_index <= impl_->last_world_cycle_index ||
+        input.cycle_start_time_s < impl_->last_world_window_end_time_s))) {
     result.status = EcmCycleStatus::kRejectedInvalidInput;
     result.thermal_energy_j = impl_->thermal_energy_j;
     return result;
@@ -203,6 +230,9 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
   if (!impl_->active_config.power_on) {
     result.status = EcmCycleStatus::kPoweredOff;
     result.thermal_energy_j = impl_->thermal_energy_j;
+    impl_->has_world_chronology = true;
+    impl_->last_world_cycle_index = input.cycle_index;
+    impl_->last_world_window_end_time_s = input.cycle_start_time_s + input.dt_sec;
     return result;
   }
 
@@ -233,7 +263,7 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
           candidate_age <= kMaximumGlideSuccessfulCycles;
     }
     if (candidate_has_last_frame && candidate_age <= kMaximumGlideSuccessfulCycles) {
-      result.emission_frame.source_esr_success_cycle_index =
+      result.source_esr_success_cycle_index =
           candidate_last_frame.source_esr_success_cycle_index;
       for (const EcmSensorObservation& observation : candidate_last_frame.observations) {
         SchedulingThreat threat;
@@ -264,8 +294,7 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
            std::make_pair(rhs.observation_id, rhs.truth_entity_id);
   });
   threats.erase(std::remove_if(threats.begin(), threats.end(), [&](const SchedulingThreat& threat) {
-                  return threat.center_frequency_hz < impl_->active_config.minimum_frequency_hz ||
-                         threat.center_frequency_hz > impl_->active_config.maximum_frequency_hz;
+                  return !IsFeasibleThreat(threat, impl_->active_config);
                 }),
                 threats.end());
 
@@ -291,13 +320,29 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
     decision.allocated_power_w = allocated_power_w;
     decision.reason = "highest-threat feasible channel allocation";
     result.decisions.push_back(decision);
-    result.emission_frame.emissions.push_back(BuildEmission(
-        input, impl_->active_config, threats[index], allocated_power_w,
-        static_cast<std::uint32_t>(index), candidate_next_emission_id++, &candidate_rng));
+    oneq::electromagnetics::RfSceneEmission emission;
+    if (!TryBuildEmission(input, impl_->active_config, threats[index], allocated_power_w,
+                          static_cast<std::uint32_t>(index), candidate_next_emission_id,
+                          &candidate_rng, &emission)) {
+      result.status = EcmCycleStatus::kRejectedInvalidConfig;
+      result.decisions.clear();
+      result.emission_frame.emissions.clear();
+      result.thermal_energy_j = impl_->thermal_energy_j;
+      return result;
+    }
+    ++candidate_next_emission_id;
+    result.emission_frame.emissions.push_back(emission);
     remaining_power_w -= allocated_power_w;
     candidate_thermal_energy_j += allocated_power_w * input.dt_sec;
   }
 
+  if (!oneq::electromagnetics::TryValidateRfSceneFrame(result.emission_frame)) {
+    result.status = EcmCycleStatus::kRejectedInvalidConfig;
+    result.decisions.clear();
+    result.emission_frame.emissions.clear();
+    result.thermal_energy_j = impl_->thermal_energy_j;
+    return result;
+  }
   result.executed_this_cycle = true;
   result.status = result.emission_frame.emissions.empty()
                       ? EcmCycleStatus::kSafeStopNoFreshObservation
@@ -310,6 +355,9 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
   impl_->last_sensor_frame = candidate_last_frame;
   impl_->observation_age_successful_ecm_cycles = candidate_age;
   impl_->last_successful_cycle_index = input.cycle_index;
+  impl_->has_world_chronology = true;
+  impl_->last_world_cycle_index = input.cycle_index;
+  impl_->last_world_window_end_time_s = input.cycle_start_time_s + input.dt_sec;
   impl_->next_emission_id = candidate_next_emission_id;
   impl_->thermal_energy_j = candidate_thermal_energy_j;
   impl_->scheduling_rng = candidate_rng;
@@ -354,6 +402,9 @@ EcmRuntimeState EcmSession::CaptureRuntimeState() const {
   state.observation_age_successful_ecm_cycles =
       impl_->observation_age_successful_ecm_cycles;
   state.last_successful_cycle_index = impl_->last_successful_cycle_index;
+  state.has_world_chronology = impl_->has_world_chronology;
+  state.last_world_cycle_index = impl_->last_world_cycle_index;
+  state.last_world_window_end_time_s = impl_->last_world_window_end_time_s;
   state.next_emission_id = impl_->next_emission_id;
   state.thermal_energy_j = impl_->thermal_energy_j;
   std::ostringstream stream;
@@ -365,6 +416,9 @@ EcmRuntimeState EcmSession::CaptureRuntimeState() const {
 bool EcmSession::RestoreRuntimeState(const EcmRuntimeState& state) {
   if (state.owner_identity != impl_.get() || state.schema_version != kRuntimeStateSchemaVersion ||
       !IsValidConfig(state.active_config) || !std::isfinite(state.thermal_energy_j) ||
+      !std::isfinite(state.last_world_window_end_time_s) ||
+      (state.has_world_chronology && state.last_world_window_end_time_s <= 0.0) ||
+      (!state.has_world_chronology && state.last_world_cycle_index != 0U) ||
       state.thermal_energy_j < 0.0 || state.thermal_energy_j > state.active_config.thermal_capacity_j ||
       state.next_emission_id == 0U ||
       (!state.has_last_sensor_frame &&
@@ -384,6 +438,9 @@ bool EcmSession::RestoreRuntimeState(const EcmRuntimeState& state) {
   impl_->observation_age_successful_ecm_cycles =
       state.observation_age_successful_ecm_cycles;
   impl_->last_successful_cycle_index = state.last_successful_cycle_index;
+  impl_->has_world_chronology = state.has_world_chronology;
+  impl_->last_world_cycle_index = state.last_world_cycle_index;
+  impl_->last_world_window_end_time_s = state.last_world_window_end_time_s;
   impl_->next_emission_id = state.next_emission_id;
   impl_->thermal_energy_j = state.thermal_energy_j;
   impl_->scheduling_rng = candidate_rng;

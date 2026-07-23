@@ -12,7 +12,7 @@
 
 #include "1q/api.hpp"
 #include "1q/coordinate/types.h"
-#include "1q/electromagnetics/RfLinkBudget.h"
+#include "1q/electromagnetics/RfScene.h"
 
 namespace electronic_countermeasure {
 
@@ -35,6 +35,7 @@ namespace config {
 struct ONEQ_API EcmSessionConfig {
   bool power_on{true};
   std::uint32_t random_seed{20260722U};
+  std::uint64_t transmitter_equipment_id{1U};
   std::uint32_t channel_count{4U};
   double minimum_frequency_hz{0.23e9};
   double maximum_frequency_hz{40.0e9};
@@ -96,24 +97,18 @@ struct ONEQ_API EcmTruthThreat {
 /** @brief ECM 单周期输入。 */
 struct ONEQ_API EcmCycleInput {
   std::uint32_t cycle_index{0U};
+  double cycle_start_time_s{0.0};
   double dt_sec{1.0};
   EcmInputMode input_mode{EcmInputMode::kSensorDriven};
   std::uint64_t platform_entity_id{0U};
   oneq::coordinate::EcefPositionM platform_position_ecef_m{};
   oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps{};
-  oneq::electromagnetics::RfAntennaPattern transmit_antenna{};
-  oneq::electromagnetics::RfPolarization transmit_polarization{
-      oneq::electromagnetics::RfPolarization::kUnpolarized};
+  oneq::electromagnetics::RfSceneAntennaPattern transmit_antenna{};
+  oneq::electromagnetics::RfScenePolarization transmit_polarization{
+      oneq::electromagnetics::RfScenePolarization::kUnpolarized};
   bool has_sensor_observation_frame{false};
   EcmSensorObservationFrame sensor_observation_frame{};
   std::vector<EcmTruthThreat> truth_threats{};
-};
-
-/** @brief ECM 实际发射事实帧；不含预期效果和接收机侧判决。 */
-struct ONEQ_API EcmEmissionFrame {
-  std::uint32_t cycle_index{0U};
-  std::uint32_t source_esr_success_cycle_index{0U};
-  std::vector<oneq::electromagnetics::RfEmission> emissions{};
 };
 
 /** @brief 单个资源分配决策，仅用于 result/debug。 */
@@ -144,8 +139,9 @@ struct ONEQ_API EcmCycleResult {
   bool executed_this_cycle{false};
   bool used_glided_observation{false};
   std::uint32_t observation_age_successful_ecm_cycles{0U};
+  std::uint32_t source_esr_success_cycle_index{0U};
   double thermal_energy_j{0.0};
-  EcmEmissionFrame emission_frame{};
+  oneq::electromagnetics::RfEmissionFrame emission_frame{};
   std::vector<EcmResourceDecision> decisions{};
 };
 
@@ -165,6 +161,9 @@ struct ONEQ_API EcmRuntimeState {
   EcmSensorObservationFrame last_sensor_frame{};
   std::uint32_t observation_age_successful_ecm_cycles{0U};
   std::uint32_t last_successful_cycle_index{0U};
+  bool has_world_chronology{false};
+  std::uint32_t last_world_cycle_index{0U};
+  double last_world_window_end_time_s{0.0};
   std::uint64_t next_emission_id{1U};
   double thermal_energy_j{0.0};
   std::string scheduling_rng_state{};
