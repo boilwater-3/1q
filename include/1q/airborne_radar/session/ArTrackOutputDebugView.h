@@ -12,24 +12,21 @@
 #include <string>
 #include <vector>
 
+#include "1q/airborne_radar/session/ArRfCycle.h"
 #include "1q/api.hpp"
-#include "1q/airborne_radar/session/ArCycleResult.h"
 
 namespace airborne_radar {
 namespace session {
-
-// 前向声明：Build 参数为 const 引用，header 无需完整类型，避免拉入 ArCycleInput 重依赖。
-struct ArCycleInput;
 
 /**
  * @brief 调试视图下的轨迹状态分类（含周期未执行/输出中缺失等诊断态）。
  */
 enum class ONEQ_API ArDebugTrackStatus {
-  kConfirmed = 0,       /**< 轨迹处于已确认状态。 */
-  kTentative = 1,       /**< 轨迹处于候选状态。 */
-  kLost = 2,            /**< 轨迹处于丢失状态。 */
-  kNotInOutput = 3,     /**< 输入目标在本周期输出中无对应 track。 */
-  kCycleNotExecuted = 4 /**< 本周期主链路未真正执行，无法判定状态。 */
+  kConfirmed = 0,        /**< 轨迹处于已确认状态。 */
+  kTentative = 1,        /**< 轨迹处于候选状态。 */
+  kLost = 2,             /**< 轨迹处于丢失状态。 */
+  kNotInOutput = 3,      /**< 输入目标在本周期输出中无对应 track。 */
+  kCycleNotCompleted = 4 /**< Complete 未成功，无法判定状态。 */
 };
 
 /**
@@ -56,13 +53,11 @@ struct ONEQ_API ArDebugTrackState {
  * @brief 单周期的轨迹输出调试视图聚合。
  */
 struct ONEQ_API ArTrackOutputDebugView {
-  std::uint32_t input_cycle_index{0U};                               /**< 本次调用输入周期号 */
-  std::uint32_t output_cycle_index{0U};                              /**< 输出帧周期号 */
-  bool executed_this_cycle{false};                                   /**< 本周期主链路是否真正执行 */
-  bool reused_previous_output{false};                                /**< 输出是否复用了上一有效周期 */
-  bool has_validation_error{false};                                  /**< 是否存在 error 级输入问题 */
-  session::SignalCycleAbortReason abort_reason{session::SignalCycleAbortReason::kNone}; /**< abort 原因 */
-  std::vector<ArDebugTrackState> tracks{};                           /**< 逐输入目标的调试轨迹状态 */
+  std::uint64_t world_cycle_index{0U};  /**< Complete 所属世界周期号 */
+  std::uint32_t output_cycle_index{0U}; /**< 输出帧内部周期号 */
+  bool completed_this_cycle{false};     /**< Complete 是否成功 */
+  ArReceiverImpairment receiver_impairment{ArReceiverImpairment::kNone}; /**< 接收机损伤 */
+  std::vector<ArDebugTrackState> tracks{}; /**< 逐输入目标的调试轨迹状态 */
 };
 
 /**
@@ -75,15 +70,16 @@ struct ONEQ_API ArTrackOutputDebugView {
 class ONEQ_API ArTrackOutputDebugViewBuilder {
  public:
   /**
-   * @brief 把轨迹输出帧、执行结果与输入目标表合成为开发可读轨迹状态。
+   * @brief 把 Complete 结果与目标事实合成为开发可读轨迹状态。
    *
    * 只读组合，不反向影响 signal/decision pipeline；按输入目标逐项合成调试状态。
    *
-   * @param[in] input 当前周期输入（用于遍历输入目标表）。
-   * @param[in] result 当前周期执行结果（用于查询轨迹状态与执行标志）。
+   * @param[in] targets 当前周期目标事实（用于遍历输入目标表）。
+   * @param[in] result 当前周期 Complete 结果（用于查询轨迹状态与接收机损伤）。
    * @return 合成的单周期轨迹输出调试视图。
    */
-  static ArTrackOutputDebugView Build(const ArCycleInput& input, const ArCycleResult& result);
+  static ArTrackOutputDebugView Build(const ArSceneTargetList& targets,
+                                      const ArCompleteCycleResult& result);
 };
 
 

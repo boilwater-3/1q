@@ -1,7 +1,5 @@
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
 
-#include "1q/airborne_radar/session/ArCycleInput.h"
-
 namespace airborne_radar {
 namespace session {
 
@@ -29,13 +27,14 @@ const session::TrackStateSnapshot* FindTrackByExternalTargetId(
   return nullptr;
 }
 
-ArDebugTrackState BuildTrackState(const ArSceneTarget& target, const ArCycleResult& cycle_result) {
+ArDebugTrackState BuildTrackState(const ArSceneTarget& target,
+                                  const ArCompleteCycleResult& cycle_result) {
   ArDebugTrackState state;
   state.external_target_id = target.external_target_id;
   state.target_name = target.target_name;
   state.present_in_input = true;
-  if (!cycle_result.executed_this_cycle) {
-    state.status = ArDebugTrackStatus::kCycleNotExecuted;
+  if (cycle_result.status != ArCompleteCycleStatus::kCompleted) {
+    state.status = ArDebugTrackStatus::kCycleNotCompleted;
     return state;
   }
   const session::TrackStateSnapshot* track =
@@ -61,17 +60,15 @@ ArDebugTrackState BuildTrackState(const ArSceneTarget& target, const ArCycleResu
 
 }  // namespace
 
-ArTrackOutputDebugView ArTrackOutputDebugViewBuilder::Build(const ArCycleInput& input,
-                                                             const ArCycleResult& result) {
+ArTrackOutputDebugView ArTrackOutputDebugViewBuilder::Build(const ArSceneTargetList& targets,
+                                                            const ArCompleteCycleResult& result) {
   ArTrackOutputDebugView view;
-  view.input_cycle_index = result.input_cycle_index;
+  view.world_cycle_index = result.world_cycle_index;
   view.output_cycle_index = result.track_output_frame.cycle_index;
-  view.executed_this_cycle = result.executed_this_cycle;
-  view.reused_previous_output = result.reused_previous_output;
-  view.has_validation_error = result.has_validation_error;
-  view.abort_reason = result.abort_reason;
-  view.tracks.reserve(input.scene.size());
-  for (const ArSceneTarget& target : input.scene) {
+  view.completed_this_cycle = result.status == ArCompleteCycleStatus::kCompleted;
+  view.receiver_impairment = result.receiver_impairment;
+  view.tracks.reserve(targets.size());
+  for (const ArSceneTarget& target : targets) {
     view.tracks.push_back(BuildTrackState(target, result));
   }
   return view;

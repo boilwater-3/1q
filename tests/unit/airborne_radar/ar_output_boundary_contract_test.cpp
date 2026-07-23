@@ -17,11 +17,9 @@
 #include <string>
 #include <vector>
 
-#include "1q/airborne_radar/session/TrackStateSnapshot.h"
-#include "1q/airborne_radar/session/ArCycleInput.h"
-#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArSceneTypes.h"
 #include "1q/airborne_radar/session/ArTrackOutputDebugView.h"
+#include "1q/airborne_radar/session/TrackStateSnapshot.h"
 
 namespace airborne_radar {
 namespace session {
@@ -45,10 +43,11 @@ session::TrackStateSnapshot MakeSnapshot(std::uint64_t id, const std::string& na
   return snapshot;
 }
 
-ArCycleResult MakeResult(std::uint32_t cycle_index, std::vector<session::TrackStateSnapshot> tracks) {
-  ArCycleResult result;
-  result.input_cycle_index = cycle_index;
-  result.executed_this_cycle = true;
+ArCompleteCycleResult MakeResult(std::uint64_t cycle_index,
+                                 std::vector<session::TrackStateSnapshot> tracks) {
+  ArCompleteCycleResult result;
+  result.status = ArCompleteCycleStatus::kCompleted;
+  result.world_cycle_index = cycle_index;
   result.track_output_frame.cycle_index = cycle_index;
   result.track_output_frame.tracks = std::move(tracks);
   return result;
@@ -59,16 +58,15 @@ ArCycleResult MakeResult(std::uint32_t cycle_index, std::vector<session::TrackSt
 // 合同：同名不同 ID 是合法输入，两个 track 互不干扰，name 各自回填。
 // 这锁定 name 不参与关联——若 name 误入关联键，同名目标会冲突。
 TEST(RarOutputBoundaryContractTest, SameNameDifferentIdDoesNotBreakAssociation) {
-  ArCycleInput input;
-  input.cycle_index = 1U;
   // 两个同名目标，不同 ID。
-  input.scene = {MakeTarget(1001U, "shared-name"), MakeTarget(1002U, "shared-name")};
+  const ArSceneTargetList targets = {MakeTarget(1001U, "shared-name"),
+                                     MakeTarget(1002U, "shared-name")};
 
-  ArCycleResult result =
+  ArCompleteCycleResult result =
       MakeResult(1U, {MakeSnapshot(1001U, "shared-name", session::TrackStatus::kConfirmed),
                       MakeSnapshot(1002U, "shared-name", session::TrackStatus::kConfirmed)});
 
-  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(input, result);
+  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(targets, result);
   ASSERT_EQ(view.tracks.size(), 2U);
   // 两个同名目标各自关联到不同 ID 的 track，不互相吞并。
   EXPECT_EQ(view.tracks[0].external_target_id, 1001U);
@@ -79,14 +77,12 @@ TEST(RarOutputBoundaryContractTest, SameNameDifferentIdDoesNotBreakAssociation) 
 
 // 合同：空 name 不影响 track 关联与 debug view 回填（name 是可选标签）。
 TEST(RarOutputBoundaryContractTest, EmptyNameDoesNotAffectAssociation) {
-  ArCycleInput input;
-  input.cycle_index = 1U;
-  input.scene = {MakeTarget(2001U, "")};
+  const ArSceneTargetList targets = {MakeTarget(2001U, "")};
 
-  ArCycleResult result =
+  ArCompleteCycleResult result =
       MakeResult(1U, {MakeSnapshot(2001U, "", session::TrackStatus::kConfirmed)});
 
-  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(input, result);
+  const ArTrackOutputDebugView view = ArTrackOutputDebugViewBuilder::Build(targets, result);
   ASSERT_EQ(view.tracks.size(), 1U);
   EXPECT_TRUE(view.tracks[0].has_track);
   EXPECT_TRUE(view.tracks[0].target_name.empty());

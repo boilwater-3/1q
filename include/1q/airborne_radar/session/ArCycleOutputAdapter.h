@@ -8,9 +8,9 @@
 #ifndef ONEQ_AIRBORNE_RADAR_SESSION_AR_CYCLE_OUTPUT_ADAPTER_H_
 #define ONEQ_AIRBORNE_RADAR_SESSION_AR_CYCLE_OUTPUT_ADAPTER_H_
 
-#include "1q/airborne_radar/session/ArCycleResult.h"
 #include "1q/airborne_radar/session/ArExternalInputAdapter.h"
 #include "1q/airborne_radar/session/ArExternalOutputAdapter.h"
+#include "1q/airborne_radar/session/ArTrackOutput.h"
 #include "1q/api.hpp"
 
 namespace airborne_radar {

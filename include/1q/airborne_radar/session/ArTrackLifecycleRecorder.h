@@ -13,14 +13,11 @@
 #include <string>
 #include <vector>
 
+#include "1q/airborne_radar/session/ArRfCycle.h"
 #include "1q/api.hpp"
-#include "1q/airborne_radar/session/ArCycleResult.h"
 
 namespace airborne_radar {
 namespace session {
-
-// 前向声明：Update 参数为 const 引用，header 无需完整类型，避免拉入 ArCycleInput 重依赖。
-struct ArCycleInput;
 
 /**
  * @brief 轨迹生命周期事件类型。
@@ -45,7 +42,7 @@ enum class ONEQ_API ArTrackLifecycleReason {
  * @brief 单条轨迹生命周期事件记录。
  */
 struct ONEQ_API ArTrackLifecycleEvent {
-  std::uint32_t cycle_index{0U};                                      /**< 触发该事件的周期号 */
+  std::uint64_t world_cycle_index{0U};                                /**< 触发该事件的世界周期号 */
   std::uint64_t external_target_id{0U};                               /**< 输入目标外部标识符 */
   std::string target_name{};                                          /**< 目标名称（人读标签） */
   ArTrackLifecycleEventKind kind{ArTrackLifecycleEventKind::kUpdated}; /**< 事件类型 */
@@ -68,7 +65,7 @@ struct ONEQ_API ArTrackLifecycleRecorderConfig {
  * 生命周期贴合 AR 的 TrackStatus(kTentative/kConfirmed/kLost)：
  * 首次进入 kConfirmed 产生 kFirstConfirmed；已确认周期更新产生 kUpdated；
  * 进入 kLost 产生 kLost；输入目标无对应 track 且开启诊断时产生 kNotTracked。
- * 非执行周期不产生事件，也不推进记录器状态。
+ * 非 completed 周期不产生事件，也不推进记录器状态。
  * 私有状态(含 unordered_map)与判定逻辑见 .cpp，避免在 public header 暴露实现细节。
  */
 class ONEQ_API ArTrackLifecycleRecorder {
@@ -85,16 +82,17 @@ class ONEQ_API ArTrackLifecycleRecorder {
   ArTrackLifecycleRecorder& operator=(ArTrackLifecycleRecorder&&) noexcept;
 
   /**
-   * @brief 基于单周期输入与执行结果产出生命周期事件。
+   * @brief 基于目标事实与 Complete 结果产出生命周期事件。
    *
    * 仅处理 `external_target_id != 0` 的输入目标；按确认/更新/丢失/未跟踪规则
    * 生成事件，未跟踪事件仅在配置开启时产生。
    *
-   * @param[in] input 当前周期输入（用于遍历输入目标表）。
-   * @param[in] result 当前周期执行结果（用于查询关联轨迹状态）。
+   * @param[in] targets 当前周期目标事实（用于遍历输入目标表）。
+   * @param[in] result 当前周期 Complete 结果（用于查询关联轨迹状态）。
    * @return 本周期产生的生命周期事件列表（可能为空）。
    */
-  std::vector<ArTrackLifecycleEvent> Update(const ArCycleInput& input, const ArCycleResult& result);
+  std::vector<ArTrackLifecycleEvent> Update(const ArSceneTargetList& targets,
+                                            const ArCompleteCycleResult& result);
 
   /**
    * @brief 清空内部轨迹状态，回到初始状态。

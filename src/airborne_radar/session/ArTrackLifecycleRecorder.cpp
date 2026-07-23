@@ -3,8 +3,6 @@
 #include <unordered_map>
 #include <utility>
 
-#include "1q/airborne_radar/session/ArCycleInput.h"
-
 namespace airborne_radar {
 namespace session {
 
@@ -32,9 +30,10 @@ ArTrackLifecycleReason InferReason(const session::TrackStateSnapshot* track) {
   return ArTrackLifecycleReason::kUnknown;
 }
 
-ArTrackLifecycleEvent MakeBaseEvent(const ArSceneTarget& target, const ArCycleResult& result) {
+ArTrackLifecycleEvent MakeBaseEvent(const ArSceneTarget& target,
+                                    const ArCompleteCycleResult& result) {
   ArTrackLifecycleEvent event;
-  event.cycle_index = result.input_cycle_index;
+  event.world_cycle_index = result.world_cycle_index;
   event.external_target_id = target.external_target_id;
   event.target_name = target.target_name;
   return event;
@@ -57,13 +56,13 @@ ArTrackLifecycleRecorder& ArTrackLifecycleRecorder::operator=(ArTrackLifecycleRe
     default;
 
 std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
-    const ArCycleInput& input, const ArCycleResult& result) {
+    const ArSceneTargetList& targets, const ArCompleteCycleResult& result) {
   std::vector<ArTrackLifecycleEvent> events;
-  if (!result.executed_this_cycle) {
+  if (result.status != ArCompleteCycleStatus::kCompleted) {
     return events;
   }
-  events.reserve(input.scene.size());
-  for (const ArSceneTarget& target : input.scene) {
+  events.reserve(targets.size());
+  for (const ArSceneTarget& target : targets) {
     // external_target_id 为 0 的输入目标无法按 ID 关联，跳过生命周期记录。
     if (target.external_target_id == 0U) {
       continue;
@@ -72,7 +71,7 @@ std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
     const session::TrackStateSnapshot* track =
         FindTrackByExternalTargetId(result.track_output_frame, target.external_target_id);
     const bool confirmed_now =
-        result.executed_this_cycle && track != nullptr && track->status == session::TrackStatus::kConfirmed;
+        track != nullptr && track->status == session::TrackStatus::kConfirmed;
 
     if (confirmed_now) {
       ArTrackLifecycleEvent event = MakeBaseEvent(target, result);
@@ -88,8 +87,7 @@ std::vector<ArTrackLifecycleEvent> ArTrackLifecycleRecorder::Update(
       continue;
     }
 
-    const bool lost_now =
-        result.executed_this_cycle && track != nullptr && track->status == session::TrackStatus::kLost;
+    const bool lost_now = track != nullptr && track->status == session::TrackStatus::kLost;
     if (lost_now && state.confirmed) {
       ArTrackLifecycleEvent event = MakeBaseEvent(target, result);
       event.kind = ArTrackLifecycleEventKind::kLost;
