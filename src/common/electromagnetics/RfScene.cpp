@@ -525,9 +525,15 @@ bool TryValidateRfSceneFrame(const RfSceneFrame& scene) {
       !IsFinite(scene.window_duration_s) || scene.window_duration_s <= 0.0) {
     return false;
   }
-  std::set<std::uint64_t> emission_ids;
+  typedef std::tuple<std::uint64_t, std::uint64_t, std::uint64_t> IdentityKey;
+  std::set<IdentityKey> emission_identities;
   for (const RfSceneEmission& emission : scene.emissions) {
-    if (!IsValidEmission(emission) || !emission_ids.insert(emission.identity.emission_id).second) {
+    const IdentityKey identity =
+        std::make_tuple(emission.identity.platform_id,
+                        emission.identity.equipment_id,
+                        emission.identity.emission_id);
+    if (!IsValidEmission(emission) ||
+        !emission_identities.insert(identity).second) {
       return false;
     }
   }

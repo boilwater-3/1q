@@ -167,7 +167,14 @@ TEST(RfSceneTest, ValidationAndAggregationFailClosedAndIgnoreInputOrder) {
   scene.emissions.push_back(MakeNoiseEmission(2U, 2000.0, 10.0));
   EXPECT_TRUE(TryValidateRfSceneFrame(scene));
   scene.emissions[1].identity.emission_id = 1U;
+  EXPECT_TRUE(TryValidateRfSceneFrame(scene));
+  scene.emissions[1].identity.platform_id =
+      scene.emissions[0].identity.platform_id;
+  scene.emissions[1].identity.equipment_id =
+      scene.emissions[0].identity.equipment_id;
   EXPECT_FALSE(TryValidateRfSceneFrame(scene));
+  scene.emissions[1].identity.platform_id = 102U;
+  scene.emissions[1].identity.equipment_id = 202U;
   scene.emissions[1].identity.emission_id = 2U;
   scene.emissions[1].waveform.transmit_power_w = std::numeric_limits<double>::quiet_NaN();
   EXPECT_FALSE(TryValidateRfSceneFrame(scene));
