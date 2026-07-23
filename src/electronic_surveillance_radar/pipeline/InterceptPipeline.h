@@ -7,7 +7,6 @@
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_INTERCEPT_PIPELINE_H_
 
 #include <cstdint>
-#include <random>
 
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
 #include "electronic_surveillance_radar/config/EsrInternalExecutionConfig.h"
@@ -50,7 +49,7 @@ class InterceptPipeline final {
   /**
    * @brief 捕获 pipeline 累积运行期状态快照。
    *
-   * 快照仅含累积量（rng、next_observation_id、next_hypothesis_id、tracks），
+   * 快照仅含累积量（next_observation_id、next_hypothesis_id、tracks），
    * **不含 config_ / feature_scales_**。配置是无累积的派生源（每 RunCycle 从
    * config_ 重新派生 pipeline_config/runtime_config），且 UpdateConfig 换 config
    * 时有意保留 tracks，故 config 与累积状态是独立状态空间。
@@ -66,7 +65,7 @@ class InterceptPipeline final {
    * @param[in] state CaptureRuntimeState 产生的快照。
    * @return owner_identity/schema 不匹配或快照损坏时返回 false。
    *
-   * 只恢复累积量（rng/scan phase/id/tracks），不恢复配置。参见 CaptureRuntimeState doc。
+   * 只恢复累积量（scan phase/id/tracks），不恢复配置。参见 CaptureRuntimeState doc。
    */
   bool RestoreRuntimeState(const extension::InterceptPipelineRuntimeState& state);
 
@@ -88,7 +87,6 @@ class InterceptPipeline final {
   HypothesisAssociator associator_{};
   InterceptDetectionExecutor detection_executor_{};
   InterceptPostProcessingExecutor post_processing_executor_{};
-  std::mt19937 rng_{};
   double scan_phase_cycles_{0.0};
   std::uint64_t completed_receive_cycles_{0U};
   std::uint64_t next_observation_id_{1U};

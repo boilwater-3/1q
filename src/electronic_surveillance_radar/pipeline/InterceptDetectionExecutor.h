@@ -10,7 +10,6 @@
 #define ELECTRONIC_SURVEILLANCE_RADAR_SRC_PIPELINE_INTERCEPT_DETECTION_EXECUTOR_H_
 
 #include <cstdint>
-#include <random>
 #include <utility>
 #include <vector>
 
@@ -49,13 +48,12 @@ class InterceptDetectionExecutor {
   /**
    * @brief 执行截获检测。
    * @param[in] ctx 周期上下文。
-   * @param[in,out] rng 随机引擎。
    * @param[in,out] next_observation_id 观测 ID 分配器。
    * @param[in,out] scan_phase_cycles 归一化完整扫描图循环相位。
    * @return 检测阶段输出。
    */
-  InterceptDetectionOutput Execute(const MutableEsrContext& ctx, std::mt19937& rng,
-                                   std::uint64_t& next_observation_id, double* scan_phase_cycles,
+  InterceptDetectionOutput Execute(const MutableEsrContext& ctx, std::uint64_t& next_observation_id,
+                                   double* scan_phase_cycles,
                                    std::uint64_t completed_receive_cycles);
 
  private:
@@ -65,8 +63,7 @@ class InterceptDetectionExecutor {
       const std::pair<double, double>& receiver_window,
       const intercept::AngleErrorModelConfig& angle_error_config,
       const oneq::common::timing::StatisticalDetectionParams& base_statistical_detection_params,
-      std::mt19937& rng, std::uint64_t& next_observation_id,
-      InterceptDetectionOutput* output) const;
+      std::uint64_t& next_observation_id, InterceptDetectionOutput* output) const;
 };
 
 }  // namespace pipeline

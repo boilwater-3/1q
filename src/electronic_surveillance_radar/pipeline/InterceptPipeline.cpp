@@ -52,11 +52,7 @@ bool HasSameScanGeometry(const extension::InterceptScanConfig& lhs,
 }  // namespace
 
 InterceptPipeline::InterceptPipeline(EsrInternalExecutionConfig config)
-    : config_(std::move(config)),
-      associator_(BuildAssociationConfig(config_.runtime.track)),
-      rng_(config_.intercept.algorithm.random_seed == 0U
-               ? 1U
-               : config_.intercept.algorithm.random_seed) {
+    : config_(std::move(config)), associator_(BuildAssociationConfig(config_.runtime.track)) {
   feature_scales_ = BuildFeatureScales(config_.intercept.cluster);
 }
 
@@ -89,14 +85,11 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
   const extension::InterceptRuntimeConfig runtime_config = BuildRuntimeConfig(config_);
   ctx.BeginCycle(input_state, environment_snapshot, pipeline_config, runtime_config);
 
-  const std::mt19937 rng_before_detection = rng_;
   const double scan_phase_before_detection = scan_phase_cycles_;
   const std::uint64_t next_observation_id_before_detection = next_observation_id_;
-  const InterceptDetectionOutput detection_output =
-      detection_executor_.Execute(ctx, rng_, next_observation_id_, &scan_phase_cycles_,
-                                  completed_receive_cycles_);
+  const InterceptDetectionOutput detection_output = detection_executor_.Execute(
+      ctx, next_observation_id_, &scan_phase_cycles_, completed_receive_cycles_);
   if (detection_output.rf_v2_rejected) {
-    rng_ = rng_before_detection;
     scan_phase_cycles_ = scan_phase_before_detection;
     next_observation_id_ = next_observation_id_before_detection;
     result.rf_v2_rejected = true;
@@ -122,7 +115,6 @@ extension::InterceptPipelineResult InterceptPipeline::RunCycle(
 
 extension::InterceptPipelineRuntimeState InterceptPipeline::CaptureRuntimeState() const {
   auto snapshot = std::make_shared<PipelineRuntimeSnapshot>();
-  snapshot->rng = rng_;
   snapshot->scan_phase_cycles = scan_phase_cycles_;
   snapshot->completed_receive_cycles = completed_receive_cycles_;
   snapshot->next_observation_id = next_observation_id_;
@@ -148,7 +140,6 @@ bool InterceptPipeline::RestoreRuntimeState(const extension::InterceptPipelineRu
       snapshot->scan_phase_cycles >= 1.0) {
     return false;
   }
-  rng_ = snapshot->rng;
   scan_phase_cycles_ = snapshot->scan_phase_cycles;
   completed_receive_cycles_ = snapshot->completed_receive_cycles;
   next_observation_id_ = snapshot->next_observation_id;

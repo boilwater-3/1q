@@ -15,7 +15,7 @@ void MutableEsrContext::BeginCycle(const session::EsrCycleInput& input,
   has_platform_ecef_kinematics_ = input.has_platform_ecef_kinematics;
   platform_position_ecef_m_ = input.platform_position_ecef_m;
   platform_velocity_ecef_mps_ = input.platform_velocity_ecef_mps;
-  platform_pose_ = input.platform_pose;
+  platform_attitude_deg_ = input.platform_attitude_deg;
   interference_ = input.interference;
   environment_snapshot_ = environment_snapshot;
   pipeline_config_ = pipeline_config;
@@ -30,8 +30,8 @@ double MutableEsrContext::GetCycleStartTimeSec() const { return cycle_start_time
 
 float MutableEsrContext::GetCycleDeltaTimeSec() const { return dt_sec_; }
 
-const oneq::foundation::PoseState& MutableEsrContext::GetPlatformPose() const {
-  return platform_pose_;
+const oneq::coordinate::EulerAnglesDeg& MutableEsrContext::GetPlatformAttitude() const {
+  return platform_attitude_deg_;
 }
 
 std::uint64_t MutableEsrContext::GetPlatformEntityId() const { return platform_entity_id_; }

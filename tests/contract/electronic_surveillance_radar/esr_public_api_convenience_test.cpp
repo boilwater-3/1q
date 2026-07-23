@@ -234,7 +234,7 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {
 TEST(EsrPublicApiConvenienceTest, InputValidationReportsErrorsForBoundaryCases) {
   session::EsrCycleInput input;
   input.dt_sec = 0.0f;
-  input.platform_pose.position_m.x = std::numeric_limits<float>::infinity();
+  input.platform_attitude_deg.yaw_deg = std::numeric_limits<double>::infinity();
 
   input.platform_entity_id = 0U;
 

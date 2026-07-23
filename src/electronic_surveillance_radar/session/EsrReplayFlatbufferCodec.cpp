@@ -12,52 +12,14 @@ namespace electronic_surveillance_radar {
 namespace session {
 namespace {
 
-esr::replay::Vec3 ToV(const oneq::foundation::Vector3f& v) {
-  return {v.x, v.y, v.z};
-}
 esr::replay::Vec3 ToV(const oneq::coordinate::EcefPositionM& v) {
   return {v.x_m, v.y_m, v.z_m};
 }
 esr::replay::Vec3 ToV(const oneq::coordinate::EcefVelocityMps& v) {
   return {v.x_mps, v.y_mps, v.z_mps};
 }
-esr::replay::EulerDeg ToE(const oneq::foundation::EulerAnglesDeg& e) {
+esr::replay::EulerDeg ToE(const oneq::coordinate::EulerAnglesDeg& e) {
   return {e.yaw_deg, e.pitch_deg, e.roll_deg};
-}
-
-flatbuffers::Offset<esr::replay::PoseState> BuildPose(flatbuffers::FlatBufferBuilder& b,
-                                                      const oneq::foundation::PoseState& v) {
-  esr::replay::PoseStateBuilder pb(b);
-  auto pos = ToV(v.position_m);
-  pb.add_position_m(&pos);
-  auto vel = ToV(v.velocity_mps);
-  pb.add_velocity_mps(&vel);
-  auto att = ToE(v.attitude_deg);
-  pb.add_attitude_deg(&att);
-  return pb.Finish();
-}
-
-oneq::foundation::PoseState FromPose(const esr::replay::PoseState* fb) {
-  oneq::foundation::PoseState out{};
-  if (!fb) {
-    return out;
-  }
-  if (fb->position_m()) {
-    out.position_m.x = fb->position_m()->x();
-    out.position_m.y = fb->position_m()->y();
-    out.position_m.z = fb->position_m()->z();
-  }
-  if (fb->velocity_mps()) {
-    out.velocity_mps.x = fb->velocity_mps()->x();
-    out.velocity_mps.y = fb->velocity_mps()->y();
-    out.velocity_mps.z = fb->velocity_mps()->z();
-  }
-  if (fb->attitude_deg()) {
-    out.attitude_deg.yaw_deg = fb->attitude_deg()->yaw_deg();
-    out.attitude_deg.pitch_deg = fb->attitude_deg()->pitch_deg();
-    out.attitude_deg.roll_deg = fb->attitude_deg()->roll_deg();
-  }
-  return out;
 }
 
 flatbuffers::Offset<esr::replay::RfSceneFrame> BuildRfSceneFrame(
@@ -185,21 +147,20 @@ std::string EncodeEsrCycleInput(const EsrCycleInput& v) {
   env_builder.add_atmospheric_observation(atm);
   auto env_fb = env_builder.Finish();
 
-  auto platform = BuildPose(fbb, v.platform_pose);
   const flatbuffers::Offset<esr::replay::RfSceneFrame> interference =
       BuildRfSceneFrame(fbb, v.interference);
   esr::replay::EsrCycleInputBuilder b(fbb);
   b.add_cycle_index(v.cycle_index);
   b.add_dt_sec(v.dt_sec);
-  b.add_platform_pose(platform);
   b.add_environment(env_fb);
-  b.add_platform_altitude_m(v.platform_altitude_m);
   esr::replay::Vec3 platform_position_ecef = ToV(v.platform_position_ecef_m);
   esr::replay::Vec3 platform_velocity_ecef = ToV(v.platform_velocity_ecef_mps);
   b.add_platform_entity_id(v.platform_entity_id);
   b.add_has_platform_ecef_kinematics(v.has_platform_ecef_kinematics);
   b.add_platform_position_ecef_m(&platform_position_ecef);
   b.add_platform_velocity_ecef_mps(&platform_velocity_ecef);
+  const esr::replay::EulerDeg platform_attitude = ToE(v.platform_attitude_deg);
+  b.add_platform_attitude_deg(&platform_attitude);
   b.add_cycle_start_time_s(v.cycle_start_time_s);
   b.add_interference(interference);
   fbb.Finish(b.Finish());
@@ -215,7 +176,6 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
   out->cycle_index = fb->cycle_index();
   out->cycle_start_time_s = fb->cycle_start_time_s();
   out->dt_sec = fb->dt_sec();
-  out->platform_altitude_m = fb->platform_altitude_m();
   out->platform_entity_id = fb->platform_entity_id();
   out->has_platform_ecef_kinematics = fb->has_platform_ecef_kinematics();
   out->interference = FromRfSceneFrame(fb->interference());
@@ -229,7 +189,11 @@ bool DecodeEsrCycleInput(const std::string& bytes, EsrCycleInput* out) {
     out->platform_velocity_ecef_mps.y_mps = fb->platform_velocity_ecef_mps()->y();
     out->platform_velocity_ecef_mps.z_mps = fb->platform_velocity_ecef_mps()->z();
   }
-  out->platform_pose = FromPose(fb->platform_pose());
+  if (fb->platform_attitude_deg()) {
+    out->platform_attitude_deg.yaw_deg = fb->platform_attitude_deg()->yaw_deg();
+    out->platform_attitude_deg.pitch_deg = fb->platform_attitude_deg()->pitch_deg();
+    out->platform_attitude_deg.roll_deg = fb->platform_attitude_deg()->roll_deg();
+  }
   out->environment = {};
   if (fb->environment()) {
     const auto* e = fb->environment();

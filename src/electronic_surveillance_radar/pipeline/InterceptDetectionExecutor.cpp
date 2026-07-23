@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <random>
 #include <utility>
 
 #include "1q/coordinate/attitude_transform.h"
@@ -19,6 +20,28 @@ namespace pipeline {
 namespace {
 
 using oneq::common::numerics::kNumericFloor;
+
+constexpr std::uint64_t kDetectionRandomDomain = 0x4553524454454354ULL;
+constexpr std::uint64_t kAngleRandomDomain = 0x455352414e474c45ULL;
+
+std::uint64_t Mix64(std::uint64_t value) {
+  value += 0x9e3779b97f4a7c15ULL;
+  value = (value ^ (value >> 30U)) * 0xbf58476d1ce4e5b9ULL;
+  value = (value ^ (value >> 27U)) * 0x94d049bb133111ebULL;
+  return value ^ (value >> 31U);
+}
+
+std::mt19937 MakeEmissionRandomStream(unsigned int session_seed, std::uint32_t cycle_index,
+                                      const oneq::electromagnetics::RfEmissionIdentity& identity,
+                                      std::uint64_t domain) {
+  std::uint64_t seed = Mix64(static_cast<std::uint64_t>(session_seed));
+  seed ^= Mix64(static_cast<std::uint64_t>(cycle_index));
+  seed ^= Mix64(identity.platform_id);
+  seed ^= Mix64(identity.equipment_id);
+  seed ^= Mix64(identity.emission_id);
+  seed ^= Mix64(domain);
+  return std::mt19937(static_cast<std::mt19937::result_type>(seed ^ (seed >> 32U)));
+}
 
 float ToDb(double ratio) {
   return static_cast<float>(10.0 * std::log10(std::max(ratio, kNumericFloor)));
@@ -124,7 +147,8 @@ double ResolveChannelPowerW(const oneq::electromagnetics::RfIncidentLinkResult& 
 bool TryResolveLookAngles(const oneq::electromagnetics::RfSceneReceiverState& receiver,
                           const oneq::electromagnetics::RfIncidentLinkResult& link,
                           const oneq::electromagnetics::RfSceneEmission& emission,
-                          const oneq::foundation::PoseState& platform_pose, double* azimuth_deg,
+                          const oneq::coordinate::EulerAnglesDeg& platform_attitude_deg,
+                          double* azimuth_deg,
                           double* elevation_deg) {
   if (azimuth_deg == nullptr || elevation_deg == nullptr || !std::isfinite(link.path_length_m) ||
       link.path_length_m <= 0.0 || link.is_co_site) {
@@ -136,12 +160,8 @@ bool TryResolveLookAngles(const oneq::electromagnetics::RfSceneReceiverState& re
       !oneq::coordinate::TryEcefToEnu(emission.position_ecef_m, receiver_lla, &enu)) {
     return false;
   }
-  oneq::coordinate::EulerAnglesDeg attitude;
-  attitude.yaw_deg = platform_pose.attitude_deg.yaw_deg;
-  attitude.pitch_deg = platform_pose.attitude_deg.pitch_deg;
-  attitude.roll_deg = platform_pose.attitude_deg.roll_deg;
   const oneq::coordinate::Vector3d local = oneq::coordinate::RotateEnuToLocal(
-      enu.east_m, enu.north_m, enu.up_m, attitude);
+      enu.east_m, enu.north_m, enu.up_m, platform_attitude_deg);
   const double horizontal = std::hypot(local.x, local.y);
   if (!std::isfinite(horizontal) || horizontal <= 0.0) {
     return false;
@@ -151,31 +171,53 @@ bool TryResolveLookAngles(const oneq::electromagnetics::RfSceneReceiverState& re
   return std::isfinite(*azimuth_deg) && std::isfinite(*elevation_deg);
 }
 
+struct ArrivalBearing {
+  bool defined{false};
+  double azimuth_deg{0.0};
+  double elevation_deg{0.0};
+};
+
+bool IsAngularResolutionCellShared(const ArrivalBearing& left, const ArrivalBearing& right,
+                                   double beamwidth_deg) {
+  if (!left.defined || !right.defined || !std::isfinite(beamwidth_deg) || beamwidth_deg <= 0.0) {
+    return true;
+  }
+  constexpr double kDegToRad = 3.14159265358979323846 / 180.0;
+  const double left_azimuth = left.azimuth_deg * kDegToRad;
+  const double left_elevation = left.elevation_deg * kDegToRad;
+  const double right_azimuth = right.azimuth_deg * kDegToRad;
+  const double right_elevation = right.elevation_deg * kDegToRad;
+  const double cosine =
+      std::sin(left_elevation) * std::sin(right_elevation) +
+      std::cos(left_elevation) * std::cos(right_elevation) * std::cos(left_azimuth - right_azimuth);
+  const double separation_deg = std::acos(std::max(-1.0, std::min(1.0, cosine))) / kDegToRad;
+  return std::isfinite(separation_deg) && separation_deg < beamwidth_deg;
+}
+
 }  // namespace
 
-InterceptDetectionOutput InterceptDetectionExecutor::Execute(const MutableEsrContext& ctx,
-                                                             std::mt19937& rng,
-                                                             std::uint64_t& next_observation_id,
-                                                             double* scan_phase_cycles,
-                                                             std::uint64_t completed_receive_cycles) {
+InterceptDetectionOutput InterceptDetectionExecutor::Execute(
+    const MutableEsrContext& ctx, std::uint64_t& next_observation_id, double* scan_phase_cycles,
+    std::uint64_t completed_receive_cycles) {
   InterceptDetectionOutput output;
   output.scan_pattern = intercept::ScanPatternGenerator::Generate(
       InterceptComponentFactory::BuildScanPatternConfig(ctx.GetPipelineConfig()));
   if (output.scan_pattern.empty()) {
     output.scan_pattern.push_back(intercept::BeamPointingDeg());
   }
-  const intercept::BeamPointingDeg active_beam = output.scan_pattern[ResolveActiveBeamIndex(
-      scan_phase_cycles, ctx.GetCycleDeltaTimeSec(), output.scan_pattern.size(),
-      ctx.GetRuntimeConfig())];
+  const intercept::BeamPointingDeg active_beam =
+      output
+          .scan_pattern[ResolveActiveBeamIndex(scan_phase_cycles, ctx.GetCycleDeltaTimeSec(),
+                                               output.scan_pattern.size(), ctx.GetRuntimeConfig())];
   const std::pair<double, double> receiver_window =
       BuildReceiverWindow(completed_receive_cycles, ctx.GetRuntimeConfig());
   output.receiver_center_frequency_hz = 0.5 * (receiver_window.first + receiver_window.second);
   output.receiver_bandwidth_hz = receiver_window.second - receiver_window.first;
-  if (!ProcessRfV2Frame(ctx, active_beam, receiver_window,
-                        InterceptComponentFactory::BuildAngleErrorModelConfig(
-                            ctx.GetPipelineConfig()),
-                        ToTimingDetectionParams(ctx.GetPipelineConfig().statistical_detection),
-                        rng, next_observation_id, &output)) {
+  if (!ProcessRfV2Frame(
+          ctx, active_beam, receiver_window,
+          InterceptComponentFactory::BuildAngleErrorModelConfig(ctx.GetPipelineConfig()),
+          ToTimingDetectionParams(ctx.GetPipelineConfig().statistical_detection),
+          next_observation_id, &output)) {
     output.rf_v2_rejected = true;
   }
   return output;
@@ -185,18 +227,17 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     const MutableEsrContext& ctx, const intercept::BeamPointingDeg& active_beam,
     const std::pair<double, double>& receiver_window,
     const intercept::AngleErrorModelConfig& angle_error_config,
-    const oneq::common::timing::StatisticalDetectionParams& base_detection, std::mt19937& rng,
+    const oneq::common::timing::StatisticalDetectionParams& base_detection,
     std::uint64_t& next_observation_id, InterceptDetectionOutput* output) const {
   if (output == nullptr) {
     return false;
   }
   EsrRfV2FrontEndResult front_end;
-  if (!TryResolveEsrRfV2FrontEnd(ctx.GetCycleInput(), ctx.GetRuntimeConfig().receiver_hardware,
-                                 active_beam.az_deg, active_beam.el_deg,
-                                 0.5 * (receiver_window.first + receiver_window.second),
-                                 receiver_window.second - receiver_window.first,
-                                 std::max(0.0f, ctx.GetEnvironmentSnapshot().propagation_loss_db),
-                                 &front_end)) {
+  if (!TryResolveEsrRfV2FrontEnd(
+          ctx.GetCycleInput(), ctx.GetRuntimeConfig().receiver_hardware, active_beam.az_deg,
+          active_beam.el_deg, 0.5 * (receiver_window.first + receiver_window.second),
+          receiver_window.second - receiver_window.first,
+          std::max(0.0f, ctx.GetEnvironmentSnapshot().propagation_loss_db), &front_end)) {
     return false;
   }
   output->receiver_center_frequency_hz = front_end.receiver.center_frequency_hz;
@@ -209,14 +250,15 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
   for (const oneq::electromagnetics::RfSceneEmission& emission : ctx.GetInterference().emissions) {
     emissions.push_back(&emission);
   }
-  std::sort(emissions.begin(), emissions.end(), [](const oneq::electromagnetics::RfSceneEmission* a,
-                                                    const oneq::electromagnetics::RfSceneEmission* b) {
-    return a->identity.platform_id != b->identity.platform_id
-               ? a->identity.platform_id < b->identity.platform_id
-               : a->identity.equipment_id != b->identity.equipment_id
-                     ? a->identity.equipment_id < b->identity.equipment_id
-                     : a->identity.emission_id < b->identity.emission_id;
-  });
+  std::sort(emissions.begin(), emissions.end(),
+            [](const oneq::electromagnetics::RfSceneEmission* a,
+               const oneq::electromagnetics::RfSceneEmission* b) {
+              return a->identity.platform_id != b->identity.platform_id
+                         ? a->identity.platform_id < b->identity.platform_id
+                     : a->identity.equipment_id != b->identity.equipment_id
+                         ? a->identity.equipment_id < b->identity.equipment_id
+                         : a->identity.emission_id < b->identity.emission_id;
+            });
   if (emissions.size() != front_end.incident_links.size()) {
     return false;
   }
@@ -225,13 +267,27 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
   const double thermal_noise = kBoltzmannJPerK * hardware.receiver_reference_temperature_k *
                                front_end.receiver.bandwidth_hz *
                                std::pow(10.0, hardware.receiver_noise_figure_db / 10.0);
-  const double ambient_noise = std::max(
-      thermal_noise + static_cast<double>(ctx.GetEnvironmentSnapshot().clutter_noise_w),
-      kNumericFloor);
+  const double ambient_noise =
+      std::max(thermal_noise + static_cast<double>(ctx.GetEnvironmentSnapshot().clutter_noise_w),
+               kNumericFloor);
   const double beamwidth = std::max(1.0, std::max(static_cast<double>(hardware.beam_az_width_deg),
-                                                   static_cast<double>(hardware.beam_el_width_deg)));
-  std::uniform_real_distribution<float> uniform_01(0.0f, 1.0f);
-  for (std::size_t signal_index = 0U; signal_index < front_end.incident_links.size(); ++signal_index) {
+                                                  static_cast<double>(hardware.beam_el_width_deg)));
+  std::vector<ArrivalBearing> bearings(front_end.incident_links.size());
+  for (std::size_t index = 0U; index < front_end.incident_links.size(); ++index) {
+    if (front_end.incident_links[index].is_co_site ||
+        front_end.incident_links[index].received_power_w <= 0.0) {
+      continue;
+    }
+    ArrivalBearing& bearing = bearings[index];
+    if (!TryResolveLookAngles(front_end.receiver, front_end.incident_links[index],
+                              *emissions[index], ctx.GetPlatformAttitude(), &bearing.azimuth_deg,
+                              &bearing.elevation_deg)) {
+      return false;
+    }
+    bearing.defined = true;
+  }
+  for (std::size_t signal_index = 0U; signal_index < front_end.incident_links.size();
+       ++signal_index) {
     const oneq::electromagnetics::RfIncidentLinkResult& signal =
         front_end.incident_links[signal_index];
     if (signal.received_power_w <= 0.0) {
@@ -246,42 +302,53 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     const double bandwidth_hz = signal.emission_waveform.occupied_bandwidth_hz;
     double interference = 0.0;
     for (std::size_t other = 0U; other < front_end.incident_links.size(); ++other) {
-      if (other != signal_index) {
-        interference += ResolveChannelPowerW(front_end.incident_links[other], center_hz, bandwidth_hz);
+      if (other != signal_index &&
+          IsAngularResolutionCellShared(bearings[signal_index], bearings[other], beamwidth)) {
+        interference +=
+            ResolveChannelPowerW(front_end.incident_links[other], center_hz, bandwidth_hz);
       }
     }
-    const double snr_db = ToDb(signal.received_power_w / std::max(ambient_noise + interference, kNumericFloor));
+    const double snr_db =
+        ToDb(signal.received_power_w / std::max(ambient_noise + interference, kNumericFloor));
     oneq::common::timing::StatisticalDetectionParams detection = base_detection;
-    detection.pulse_count = signal.emission_waveform.kind == oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain
-                                ? std::max(1U, static_cast<std::uint32_t>(std::round(
-                                      signal.emission_waveform.pulse_count * signal.time_overlap_fraction)))
-                                : 1U;
-    const float threshold = ctx.GetPipelineConfig().statistical_detection.enable_statistical_detection
-                                ? std::max(ctx.GetPipelineConfig().detection.minimum_snr_db,
-                                           oneq::common::timing::ComputeDynamicThresholdSnrDb(
-                                               ambient_noise + interference, detection))
-                                : ctx.GetPipelineConfig().detection.minimum_snr_db;
+    detection.pulse_count =
+        signal.emission_waveform.kind == oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain
+            ? std::max(1U,
+                       static_cast<std::uint32_t>(std::round(signal.emission_waveform.pulse_count *
+                                                             signal.time_overlap_fraction)))
+            : 1U;
+    const float threshold =
+        ctx.GetPipelineConfig().statistical_detection.enable_statistical_detection
+            ? std::max(ctx.GetPipelineConfig().detection.minimum_snr_db,
+                       oneq::common::timing::ComputeDynamicThresholdSnrDb(
+                           ambient_noise + interference, detection))
+            : ctx.GetPipelineConfig().detection.minimum_snr_db;
+    std::mt19937 detection_rng = MakeEmissionRandomStream(
+        ctx.GetPipelineConfig().algorithm.random_seed, ctx.GetCycleInput().cycle_index,
+        signal.identity, kDetectionRandomDomain);
+    std::uniform_real_distribution<float> uniform_01(0.0f, 1.0f);
     if (snr_db < threshold ||
         (ctx.GetPipelineConfig().statistical_detection.enable_statistical_detection &&
-         uniform_01(rng) >= oneq::common::timing::ComputeStatisticalDetectionProbability(
-                               static_cast<float>(snr_db), threshold, detection))) {
+         uniform_01(detection_rng) >= oneq::common::timing::ComputeStatisticalDetectionProbability(
+                                          static_cast<float>(snr_db), threshold, detection))) {
       continue;
     }
-    double azimuth = 0.0;
-    double elevation = 0.0;
-    if (!TryResolveLookAngles(front_end.receiver, signal, *emissions[signal_index],
-                              ctx.GetPlatformPose(), &azimuth, &elevation)) {
-      return false;
-    }
-    const double relative_std = std::max(1.0e-6, std::min(0.25, 1.0 / std::sqrt(
-        std::max(std::pow(10.0, snr_db / 10.0), 1.0e-12))));
+    const double relative_std = std::max(
+        1.0e-6, std::min(0.25, 1.0 / std::sqrt(std::max(std::pow(10.0, snr_db / 10.0), 1.0e-12))));
     RawObservationRecord record;
+    std::mt19937 angle_rng = MakeEmissionRandomStream(ctx.GetPipelineConfig().algorithm.random_seed,
+                                                      ctx.GetCycleInput().cycle_index,
+                                                      signal.identity, kAngleRandomDomain);
     record.observation.observation_id = next_observation_id++;
     record.observation.timestamp_s = signal.arrival_start_time_s;
-    record.observation.aoa_az_deg = azimuth + intercept::AngleErrorModel::SampleErrorDeg(
-        static_cast<float>(snr_db), static_cast<float>(beamwidth), &rng, angle_error_config);
-    record.observation.aoa_el_deg = elevation + intercept::AngleErrorModel::SampleErrorDeg(
-        static_cast<float>(snr_db), static_cast<float>(beamwidth), &rng, angle_error_config);
+    record.observation.aoa_az_deg = bearings[signal_index].azimuth_deg +
+                                    intercept::AngleErrorModel::SampleErrorDeg(
+                                        static_cast<float>(snr_db), static_cast<float>(beamwidth),
+                                        &angle_rng, angle_error_config);
+    record.observation.aoa_el_deg = bearings[signal_index].elevation_deg +
+                                    intercept::AngleErrorModel::SampleErrorDeg(
+                                        static_cast<float>(snr_db), static_cast<float>(beamwidth),
+                                        &angle_rng, angle_error_config);
     record.observation.rf_hz = center_hz;
     record.observation.bandwidth_hz = bandwidth_hz;
     if (signal.emission_waveform.kind == oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain) {

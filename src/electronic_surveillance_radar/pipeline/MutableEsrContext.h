@@ -41,8 +41,8 @@ class MutableEsrContext final {
   double GetCycleStartTimeSec() const;
   /** @brief 返回当前周期步长（单位：s）。 */
   float GetCycleDeltaTimeSec() const;
-  /** @brief 返回侦察平台姿态状态的只读引用。 */
-  const oneq::foundation::PoseState& GetPlatformPose() const;
+  /** @brief 返回侦察平台姿态的只读引用。 */
+  const oneq::coordinate::EulerAnglesDeg& GetPlatformAttitude() const;
   /** @brief 返回接收平台实体标识。 */
   std::uint64_t GetPlatformEntityId() const;
   /** @brief 返回是否具有工程 RF 链路所需的平台 ECEF 运动学。 */
@@ -69,7 +69,7 @@ class MutableEsrContext final {
   bool has_platform_ecef_kinematics_{false};
   oneq::coordinate::EcefPositionM platform_position_ecef_m_{};
   oneq::coordinate::EcefVelocityMps platform_velocity_ecef_mps_{};
-  oneq::foundation::PoseState platform_pose_{};
+  oneq::coordinate::EulerAnglesDeg platform_attitude_deg_{};
   oneq::electromagnetics::RfEmissionFrame interference_{};
   session::EsrEnvironmentSnapshot environment_snapshot_{};
   extension::InterceptPipelineConfig pipeline_config_{};

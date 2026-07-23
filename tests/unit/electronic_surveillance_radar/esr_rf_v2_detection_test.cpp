@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
-#include <random>
 
 #include "1q/electromagnetics/RfScene.h"
 #include "electronic_surveillance_radar/pipeline/InterceptDetectionExecutor.h"
@@ -25,8 +25,8 @@ session::EsrCycleInput MakeInput() {
   return input;
 }
 
-oneq::electromagnetics::RfSceneEmission MakeEmission(std::uint64_t emission_id,
-                                                      double center_hz, double power_w) {
+oneq::electromagnetics::RfSceneEmission MakeEmission(std::uint64_t emission_id, double center_hz,
+                                                     double power_w) {
   oneq::electromagnetics::RfSceneEmission emission;
   emission.identity.platform_id = 10U + emission_id;
   emission.identity.equipment_id = 20U + emission_id;
@@ -34,18 +34,20 @@ oneq::electromagnetics::RfSceneEmission MakeEmission(std::uint64_t emission_id,
   emission.position_ecef_m.x_m = 6378137.0;
   emission.position_ecef_m.y_m = 1000.0;
   emission.antenna.boresight_ecef.y = -1.0;
-  EXPECT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(
-      10.0, 1.0, center_hz, 1.0e6, power_w, &emission.waveform));
+  EXPECT_TRUE(oneq::electromagnetics::TryCreateRfNoiseWaveform(10.0, 1.0, center_hz, 1.0e6, power_w,
+                                                               &emission.waveform));
   return emission;
 }
 
 InterceptDetectionOutput RunDetection(const session::EsrCycleInput& input,
                                       float maximum_linear_input_power_w = 10.0f,
                                       std::uint64_t completed_receive_cycles = 0U,
-                                      bool use_tuning_plan = false) {
+                                      bool use_tuning_plan = false,
+                                      bool enable_statistical_detection = false,
+                                      float beamwidth_deg = 120.0f) {
   extension::InterceptPipelineConfig pipeline_config;
   pipeline_config.detection.minimum_snr_db = -20.0f;
-  pipeline_config.statistical_detection.enable_statistical_detection = false;
+  pipeline_config.statistical_detection.enable_statistical_detection = enable_statistical_detection;
   pipeline_config.scan.scan_start_az_deg = 0.0f;
   pipeline_config.scan.scan_end_az_deg = 0.0f;
   pipeline_config.scan.scan_start_el_deg = 0.0f;
@@ -55,8 +57,8 @@ InterceptDetectionOutput RunDetection(const session::EsrCycleInput& input,
   runtime_config.receiver_hardware.receiver_equipment_id = 2U;
   runtime_config.receiver_hardware.receiver_band_lower_hz = 9.99e9;
   runtime_config.receiver_hardware.receiver_band_upper_hz = 10.01e9;
-  runtime_config.receiver_hardware.beam_az_width_deg = 120.0f;
-  runtime_config.receiver_hardware.beam_el_width_deg = 120.0f;
+  runtime_config.receiver_hardware.beam_az_width_deg = beamwidth_deg;
+  runtime_config.receiver_hardware.beam_el_width_deg = beamwidth_deg;
   runtime_config.receiver_hardware.maximum_linear_input_power_w = maximum_linear_input_power_w;
   if (use_tuning_plan) {
     config::EsrTuningWindow first_window;
@@ -74,10 +76,9 @@ InterceptDetectionOutput RunDetection(const session::EsrCycleInput& input,
   MutableEsrContext context;
   context.BeginCycle(input, environment, pipeline_config, runtime_config);
   InterceptDetectionExecutor executor;
-  std::mt19937 rng(42U);
   std::uint64_t next_observation_id = 1U;
   double scan_phase_cycles = 0.0;
-  return executor.Execute(context, rng, next_observation_id, &scan_phase_cycles,
+  return executor.Execute(context, next_observation_id, &scan_phase_cycles,
                           completed_receive_cycles);
 }
 
@@ -105,6 +106,47 @@ TEST(EsrRfV2DetectionTest, SameChannelEmissionReducesSnrWithoutBooleanPenalty) {
   ASSERT_EQ(interfered.raw_records.size(), 2U);
   EXPECT_LT(interfered.raw_records.front().observation.snr_db,
             baseline.raw_records.front().observation.snr_db);
+}
+
+TEST(EsrRfV2DetectionTest, AngularlyResolvedSameFrequencySourceDoesNotEnterInterferenceCell) {
+  session::EsrCycleInput baseline_input = MakeInput();
+  baseline_input.interference.emissions.push_back(MakeEmission(1U, 10.0e9, 1.0e6));
+  const InterceptDetectionOutput baseline =
+      RunDetection(baseline_input, 10.0f, 0U, false, false, 10.0f);
+  ASSERT_EQ(baseline.raw_records.size(), 1U);
+
+  session::EsrCycleInput separated_input = baseline_input;
+  oneq::electromagnetics::RfSceneEmission separated = MakeEmission(2U, 10.0e9, 1.0e8);
+  separated.position_ecef_m.x_m += 1000.0;
+  separated.position_ecef_m.y_m = 1000.0;
+  separated.antenna.boresight_ecef.x = -1.0;
+  separated.antenna.boresight_ecef.y = -1.0;
+  separated_input.interference.emissions.push_back(separated);
+  const InterceptDetectionOutput separated_output =
+      RunDetection(separated_input, 10.0f, 0U, false, false, 10.0f);
+  ASSERT_EQ(separated_output.raw_records.size(), 2U);
+  EXPECT_DOUBLE_EQ(separated_output.raw_records.front().observation.snr_db,
+                   baseline.raw_records.front().observation.snr_db);
+}
+
+TEST(EsrRfV2DetectionTest, EmissionOrderDoesNotChangeSemanticRandomMeasurements) {
+  session::EsrCycleInput forward = MakeInput();
+  forward.interference.emissions.push_back(MakeEmission(2U, 10.0e9, 1.0e6));
+  forward.interference.emissions.push_back(MakeEmission(1U, 10.0e9, 1.0e6));
+  session::EsrCycleInput reverse = forward;
+  std::reverse(reverse.interference.emissions.begin(), reverse.interference.emissions.end());
+
+  const InterceptDetectionOutput forward_output = RunDetection(forward, 10.0f, 0U, false, true);
+  const InterceptDetectionOutput reverse_output = RunDetection(reverse, 10.0f, 0U, false, true);
+  ASSERT_EQ(forward_output.raw_records.size(), reverse_output.raw_records.size());
+  for (std::size_t index = 0U; index < forward_output.raw_records.size(); ++index) {
+    const session::EmitterObservation& left = forward_output.raw_records[index].observation;
+    const session::EmitterObservation& right = reverse_output.raw_records[index].observation;
+    EXPECT_EQ(left.observation_id, right.observation_id);
+    EXPECT_DOUBLE_EQ(left.aoa_az_deg, right.aoa_az_deg);
+    EXPECT_DOUBLE_EQ(left.aoa_el_deg, right.aoa_el_deg);
+    EXPECT_DOUBLE_EQ(left.snr_db, right.snr_db);
+  }
 }
 
 TEST(EsrRfV2DetectionTest, SaturationCompletesWithoutFabricatedObservation) {

@@ -18,7 +18,7 @@ std::string BuildEsrInputPayload(const EsrCycleInput& input) {
   os << "{"
      << "\"cycle_index\":" << input.cycle_index << ","
      << "\"dt_sec\":" << input.dt_sec << ","
-     << "\"platform_altitude_m\":" << input.platform_altitude_m << ","
+     << "\"platform_yaw_deg\":" << input.platform_attitude_deg.yaw_deg << ","
      << "\"rf_emission_count\":" << input.interference.emissions.size()
      << "}";
   return os.str();

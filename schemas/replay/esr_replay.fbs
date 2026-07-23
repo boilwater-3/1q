@@ -19,12 +19,6 @@ struct EulerDeg {
   roll_deg:  double;
 }
 
-table PoseState {
-  position_m:   Vec3;
-  velocity_mps: Vec3;
-  attitude_deg: EulerDeg;
-}
-
 // ---- EsrCycleInput ----
 
 // ---- RF v2 scene exchange ----
@@ -97,13 +91,12 @@ table EsrEnvironmentInput {
 table EsrCycleInput {
   cycle_index:             uint32;
   dt_sec:                  float;
-  platform_pose:           PoseState;
   environment:             EsrEnvironmentInput;
-  platform_altitude_m:     float = 0.0;
   platform_entity_id:      uint64 = 0;
   has_platform_ecef_kinematics: bool = false;
   platform_position_ecef_m: Vec3;
   platform_velocity_ecef_mps: Vec3;
+  platform_attitude_deg: EulerDeg;
   cycle_start_time_s: double = 0.0;
   interference: RfSceneFrame;
 }

@@ -12,7 +12,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <random>
 #include <vector>
 
 #include "electronic_surveillance_radar/pipeline/InterceptPipelineTypes.h"
@@ -25,7 +24,6 @@ namespace pipeline {
  * @brief ESR 流水线运行态私有快照，封装需要跨周期持久化的可变状态。
  */
 struct PipelineRuntimeSnapshot {
-  std::mt19937 rng;                                 /**< 随机引擎状态 */
   double scan_phase_cycles{0.0};                    /**< 归一化扫描循环相位 */
   std::uint64_t completed_receive_cycles{0U};       /**< 已完成物理接收周期数 */
   std::uint64_t next_observation_id{1U};             /**< 观测 ID 分配器 */

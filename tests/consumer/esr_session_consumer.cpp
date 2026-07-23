@@ -55,7 +55,6 @@ int main() {
   esr::session::EsrCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
-  input.platform_altitude_m = 5000.0f;
   input.platform_entity_id = 100U;
   input.has_platform_ecef_kinematics = true;
   input.platform_position_ecef_m.x_m = 6378137.0;

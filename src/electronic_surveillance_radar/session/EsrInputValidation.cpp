@@ -22,18 +22,13 @@ void ValidatePlatform(const EsrCycleInput& input, ValidationIssueList* issues) {
   if (issues == nullptr) {
     return;
   }
-  if (!IsFinite(input.platform_altitude_m) ||
-      !IsFinite(input.platform_pose.position_m.x) || !IsFinite(input.platform_pose.position_m.y) ||
-      !IsFinite(input.platform_pose.position_m.z) ||
-      !IsFinite(input.platform_pose.velocity_mps.x) || !IsFinite(input.platform_pose.velocity_mps.y) ||
-      !IsFinite(input.platform_pose.velocity_mps.z) ||
-      !IsFinite(input.platform_pose.attitude_deg.yaw_deg) ||
-      !IsFinite(input.platform_pose.attitude_deg.pitch_deg) ||
-      !IsFinite(input.platform_pose.attitude_deg.roll_deg)) {
+  if (!IsFinite(input.platform_attitude_deg.yaw_deg) ||
+      !IsFinite(input.platform_attitude_deg.pitch_deg) ||
+      !IsFinite(input.platform_attitude_deg.roll_deg)) {
     issues->push_back(MakeIssue(
         ValidationSeverity::kError, ValidationCode::kNonFinitePlatformNumericField,
         ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1), "platform",
-        "platform altitude and pose must contain only finite values"));
+        "platform attitude must contain only finite values"));
   }
   if (!input.has_platform_ecef_kinematics || input.platform_entity_id == 0U ||
       !IsFinite(input.platform_position_ecef_m.x_m) ||

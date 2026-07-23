@@ -65,8 +65,9 @@ session::EsrCycleInput MakeValidInput(std::uint32_t cycle_index) {
 }
 
 double ReadScanPhase(const pipeline::InterceptPipeline& pipeline) {
+  const extension::InterceptPipelineRuntimeState state = pipeline.CaptureRuntimeState();
   const pipeline::PipelineRuntimeSnapshot* snapshot =
-      pipeline::RestorePipelineSnapshot(pipeline.CaptureRuntimeState());
+      pipeline::RestorePipelineSnapshot(state);
   EXPECT_NE(snapshot, nullptr);
   return snapshot == nullptr ? -1.0 : snapshot->scan_phase_cycles;
 }

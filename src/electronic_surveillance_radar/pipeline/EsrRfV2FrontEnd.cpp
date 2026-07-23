@@ -36,9 +36,7 @@ bool TryResolveBoresight(const session::EsrCycleInput& input, double beam_az_deg
   const double elevation_rad = beam_el_deg * kPi / 180.0;
   const double cos_elevation = std::cos(elevation_rad);
   oneq::coordinate::EulerAnglesDeg attitude;
-  attitude.yaw_deg = input.platform_pose.attitude_deg.yaw_deg;
-  attitude.pitch_deg = input.platform_pose.attitude_deg.pitch_deg;
-  attitude.roll_deg = input.platform_pose.attitude_deg.roll_deg;
+  attitude = input.platform_attitude_deg;
   const oneq::coordinate::Vector3d enu_direction = oneq::coordinate::RotateLocalToEnu(
       cos_elevation * std::cos(azimuth_rad), cos_elevation * std::sin(azimuth_rad),
       std::sin(elevation_rad), attitude);
