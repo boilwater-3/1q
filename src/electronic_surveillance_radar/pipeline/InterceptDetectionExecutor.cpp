@@ -237,6 +237,11 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     if (signal.received_power_w <= 0.0) {
       continue;
     }
+    // 同平台发射可进入前端噪声/饱和账本，却没有可定义的外部 AoA；将其作为
+    // ESR 发射源观测发布会伪造方向信息。它仍保留在下面对其他入射信号的干扰求和中。
+    if (signal.is_co_site) {
+      continue;
+    }
     const double center_hz = ResolveCenterFrequencyHz(signal);
     const double bandwidth_hz = signal.emission_waveform.occupied_bandwidth_hz;
     double interference = 0.0;

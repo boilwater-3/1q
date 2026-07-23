@@ -5,10 +5,10 @@
  * 覆盖要点：
  *   - EsrSessionConfigBuilder 语义 profile 构造会话配置
  *   - 直接字段赋值构造详细会话配置
- *   - EsrCycleInput + EsrSceneEmitter 构造场景输入
+ *   - EsrCycleInput + RfEmissionFrame 构造周期输入
  *   - EsrInputValidation 输入校验
  *   - EsrSession 构造、Step、StepWithResult 调用
- *   - EsrOutputFrame 三通道输出字段可访问
+ *   - EsrOutputFrame 的观测与假设输出字段可访问
  *   - EsrRuntimeConfigBuilder 热切换（传感器开关、扫描率、接收窗、检测门限）
  */
 
@@ -51,24 +51,17 @@ int main() {
   // 3. Session construction
   auto session = esr::session::EsrSession::Create(config);
 
-  // 4. CycleInput with a valid emitter
+  // 4. CycleInput with an empty, valid RF frame.
   esr::session::EsrCycleInput input;
   input.cycle_index = 1U;
   input.dt_sec = 1.0f;
   input.platform_altitude_m = 5000.0f;
-
-  esr::session::EsrSceneEmitter emitter;
-  emitter.emitter_id = 1001U;
-  emitter.pose.position_m.x = 1000.0f;
-  emitter.pose.position_m.y = 0.0f;
-  emitter.pose.position_m.z = 5000.0f;
-  emitter.carrier_hz = 10.0e9;
-  emitter.bandwidth_hz = 2.0e6;
-  emitter.tx_power_w = 1.0e6;
-  emitter.pulse_width_s = 1.0e-6;
-  emitter.pri_s = 1.0e-4;
-  emitter.is_emitting = true;
-  input.scene.push_back(emitter);
+  input.platform_entity_id = 100U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  input.interference.world_cycle_index = input.cycle_index;
+  input.interference.window_start_time_s = input.cycle_start_time_s;
+  input.interference.window_duration_s = input.dt_sec;
 
   // 5. Input validation
   const esr::session::ValidationIssueList issues = esr::session::ValidateEsrCycleInput(input);
@@ -85,14 +78,12 @@ int main() {
   // 7. Step (output-only)
   const esr::session::EsrOutputFrame step_frame = session.Step(input);
 
-  // 8. Access three-channel output
+  // 8. Access sensor-facing output.
   const std::size_t obs_count = result.output_frame.observation_output.observations.size();
   const std::size_t hyp_count = result.output_frame.emitter_output.hypotheses.size();
-  const std::size_t assoc_count = result.output_frame.truth_evaluation_output.associations.size();
   const std::uint32_t cycle_index = result.output_frame.cycle_index;
   (void)obs_count;
   (void)hyp_count;
-  (void)assoc_count;
   (void)cycle_index;
 
   // 9. RuntimeConfigBuilder: disable sensor

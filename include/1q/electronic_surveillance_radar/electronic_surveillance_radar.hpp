@@ -10,7 +10,6 @@
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
 #include "1q/electronic_surveillance_radar/config/EsrEnvironmentConfig.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleOutputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"

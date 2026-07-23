@@ -3,11 +3,10 @@
  * @brief 电子侦察（ESR）批量场景验证。
  *
  * @par 目标
- * 通过公开 Session 接口（EsrTraceSession + EsrCycleInputAdapter）对 ESR 模块做多场景
+ * 通过公开 Session 接口（EsrTraceSession + RF v2 发射帧）对 ESR 模块做多场景
  * 参数扫描，验证其在不同辐射源距离 / 载频 / 频谱占用率下的泛用性：
- *   - 采集周期级 CSV（观测通道、侦察假设通道、真值评估通道三类指标）。
- *   - 软断言：高占用率场景观测受扰增多；近距离 + 高载频真值匹配率 ≥ 远距离；
- *     假设置信度 ∈ [0,1]。
+ *   - 采集周期级 CSV（观测、侦察假设与接收机状态）。
+ *   - 软断言：假设置信度 ∈ [0,1]。
  *   - 每场景录制可回放 trace，用 ReplayEsrTrace 做确定性回归。
  *
  * @par 运行方式
@@ -25,12 +24,10 @@
 #include <system_error>
 #include <vector>
 
-#include "1q/coordinate/types.h"
+#include "1q/electromagnetics/RfScene.h"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/electronic_surveillance_radar/config/EsrRuntimeConfigPatch.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrCycleResult.h"
-#include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrReplaySession.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
@@ -145,58 +142,43 @@ std::string JoinIds(const std::vector<std::uint64_t>& ids) {
 // 输入构造
 // =============================================================================
 
-esr_session::EsrExternalPoseInput MakePlatform(std::uint32_t cycle_index) {
-  esr_session::EsrExternalPoseInput p;
-  // 固定平台 ECEF（与 integration_demo 同一参考点，z+9000 模拟高空平台）。
-  p.platform_position_ecef_m.x_m = -2289512.0;
-  p.platform_position_ecef_m.y_m = 4909946.0;
-  p.platform_position_ecef_m.z_m = 3640982.0 + 9000.0;
-  (void)cycle_index;
-  p.platform_attitude_deg.yaw_deg = 0.0;
-  p.platform_attitude_deg.pitch_deg = 0.0;
-  p.platform_attitude_deg.roll_deg = 0.0;
-  return p;
-}
+esr_session::EsrEnvironmentInput MakeEnvironment(float spectrum_occupancy);
 
-std::vector<esr_session::EsrExternalEmitterInput> MakeEmitters(const EsrCase& c,
-                                                               std::uint32_t cycle_index) {
-  std::vector<esr_session::EsrExternalEmitterInput> emitters;
-  esr_session::EsrExternalEmitterInput e;
-  e.emitter_id = 2001;
-  e.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-  // 辐射源放在平台 + 沿 ECEF y 轴偏移 range_km（与 integration_demo 同向）。
-  const double off = c.emitter_range_km * 1000.0;
-  e.kinematics.position_ecef_m.x_m = -2289512.0;
-  e.kinematics.position_ecef_m.y_m = 4909946.0 + off;
-  e.kinematics.position_ecef_m.z_m = 3640982.0 + 5000.0;
-  e.carrier_hz = c.carrier_ghz * 1.0e9;
-  e.bandwidth_hz = 2.0e6;        // 2 MHz（与 demo 一致）
-  e.tx_power_w = 5.0e7;          // 50 MW（与 demo 一致，确保远距离可截获）
-  e.pulse_width_s = 1.0e-6;      // 1 us
-  e.pri_s = 1.0e-4;             // 0.1 ms（10 kHz PRF，与 demo 一致）
-  e.is_emitting = true;
-  emitters.push_back(e);
-  if (c.sequence && (c.scenario_id.find("crossing") != std::string::npos ||
-                     c.scenario_id.find("dense_emitters") != std::string::npos)) {
-    const int count = c.scenario_id.find("dense_emitters") != std::string::npos ? 3 : 2;
-    emitters.clear();
-    for (int i = 0; i < count; ++i) {
-      esr_session::EsrExternalEmitterInput item = e;
-      item.emitter_id = 2001U + static_cast<std::uint64_t>(i);
-      item.carrier_hz += static_cast<double>(i) * 5.0e6;
-      const double crossing_step_m = 120.0;
-      const double crossing_offset =
-          (i == 0 ? -1.0 : i == 1 ? 1.0 : 0.35) *
-          (12.5 - static_cast<double>(cycle_index)) * crossing_step_m;
-      item.kinematics.position_ecef_m.x_m += crossing_offset;
-      if (c.scenario_id.find("dense_emitters") != std::string::npos && i == 1 &&
-          cycle_index >= 9U && cycle_index <= 12U) {
-        item.is_emitting = false;
-      }
-      emitters.push_back(item);
-    }
+esr_session::EsrCycleInput MakeInput(const EsrCase& c, std::uint32_t cycle_index) {
+  esr_session::EsrCycleInput input;
+  input.cycle_index = cycle_index;
+  input.cycle_start_time_s = static_cast<double>(cycle_index - 1U);
+  input.dt_sec = 1.0f;
+  input.platform_entity_id = 9001U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m.x_m = -2289512.0;
+  input.platform_position_ecef_m.y_m = 4909946.0;
+  input.platform_position_ecef_m.z_m = 3650982.0;
+  input.environment = MakeEnvironment(c.spectrum_occupancy);
+  input.interference.world_cycle_index = cycle_index;
+  input.interference.window_start_time_s = input.cycle_start_time_s;
+  input.interference.window_duration_s = input.dt_sec;
+  const std::uint32_t count = c.sequence && c.scenario_id.find("dense_emitters") != std::string::npos
+                                  ? 3U
+                                  : c.sequence && c.scenario_id.find("crossing") != std::string::npos ? 2U : 1U;
+  for (std::uint32_t index = 0U; index < count; ++index) {
+    if (c.scenario_id.find("dense_emitters") != std::string::npos && index == 1U &&
+        cycle_index >= 9U && cycle_index <= 12U) continue;
+    oneq::electromagnetics::RfSceneEmission emission;
+    emission.identity.platform_id = 2001U + index;
+    emission.identity.equipment_id = 1U;
+    emission.identity.emission_id = index + 1U;
+    emission.position_ecef_m = input.platform_position_ecef_m;
+    emission.position_ecef_m.y_m += c.emitter_range_km * 1000.0;
+    emission.position_ecef_m.x_m += (static_cast<double>(index) - 0.5) *
+                                      (12.5 - static_cast<double>(cycle_index)) * 120.0;
+    emission.antenna.peak_gain_dbi = 30.0;
+    emission.polarization = oneq::electromagnetics::RfScenePolarization::kHorizontal;
+    if (oneq::electromagnetics::TryCreateRfNoiseWaveform(
+            input.cycle_start_time_s, input.dt_sec, c.carrier_ghz * 1.0e9 + index * 5.0e6,
+            2.0e6, 5.0e7, &emission.waveform)) input.interference.emissions.push_back(emission);
   }
-  return emitters;
+  return input;
 }
 
 esr_session::EsrEnvironmentInput MakeEnvironment(float spectrum_occupancy) {
@@ -213,14 +195,13 @@ esr_session::EsrEnvironmentInput MakeEnvironment(float spectrum_occupancy) {
 
 constexpr const char* kCycleHeader =
     "scenario_id,suite,scenario_family,phase,cycle_index,executed_this_cycle,has_validation_error,abort_reason,"
-    "raw_observation_count,cluster_count,obs_jammed_count,obs_snr_db_mean,"
-    "hypothesis_count,hypothesis_confidence_mean,hypothesis_confidence_p95,"
-    "truth_matched_count,truth_total_count,truth_match_rate";
+    "raw_observation_count,cluster_count,receiver_saturated,obs_snr_db_mean,"
+    "hypothesis_count,hypothesis_confidence_mean,hypothesis_confidence_p95";
 
 constexpr const char* kScenarioHeader =
     "scenario_id,suite,scenario_family,emitter_range_km,carrier_ghz,spectrum_occupancy,executed_cycles,"
-    "steady_obs_count_mean,steady_hyp_confidence_mean,steady_truth_match_rate_mean,"
-    "steady_jammed_mean,replay_ok,replay_compared,replay_divergence,warning_count,"
+    "steady_obs_count_mean,steady_hyp_confidence_mean,steady_receiver_saturated_mean,"
+    "replay_ok,replay_compared,replay_divergence,warning_count,"
     "error_count,expected_failure_count,contract_check_count,contract_failure_count,"
     "failure_marker_count,warnings";
 
@@ -240,15 +221,12 @@ struct CycleMetrics {
   std::size_t hyp_count{0};
   double hyp_conf_mean{0.0};
   double hyp_conf_p95{0.0};
-  std::size_t truth_matched{0};
-  std::size_t truth_total{0};
-  double truth_match_rate{0.0};
 };
 
 CycleMetrics ExtractCycleMetrics(const esr_session::EsrCycleResult& r) {
   CycleMetrics m;
   m.cycle_index = r.input_cycle_index;
-  m.executed = r.executed_this_cycle;
+  m.executed = r.status == esr_session::EsrCycleExecutionStatus::kCompleted;
   m.has_validation_error = r.has_validation_error;
   m.abort_reason = static_cast<int>(r.abort_reason);
 
@@ -257,7 +235,6 @@ CycleMetrics ExtractCycleMetrics(const esr_session::EsrCycleResult& r) {
   m.cluster = of.cluster_count;
   std::vector<double> snrs;
   for (const auto& o : of.observations) {
-    if (o.is_jammed) ++m.jammed;
     snrs.push_back(o.snr_db);
   }
   m.obs_snr_mean = batch_validation::Mean(snrs);
@@ -269,14 +246,7 @@ CycleMetrics ExtractCycleMetrics(const esr_session::EsrCycleResult& r) {
   m.hyp_conf_mean = batch_validation::Mean(confs);
   m.hyp_conf_p95 = batch_validation::Percentile(confs, 95.0);
 
-  const auto& tf = r.output_frame.truth_evaluation_output;
-  m.truth_total = tf.associations.size();
-  for (const auto& a : tf.associations) {
-    if (a.matched) ++m.truth_matched;
-  }
-  m.truth_match_rate =
-      (m.truth_total > 0) ? static_cast<double>(m.truth_matched) / static_cast<double>(m.truth_total)
-                          : 0.0;
+  m.jammed = of.receiver_saturated ? 1U : 0U;
   return m;
 }
 
@@ -384,27 +354,13 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
         patch.sensor_enabled = cycle_index == 14U;
         session.ApplyRuntimeConfig(patch);
       }
-      esr_session::EsrExternalPoseInput platform = MakePlatform(cycle_index);
-      std::vector<esr_session::EsrExternalEmitterInput> emitters = MakeEmitters(c, cycle_index);
-      esr_session::EsrEnvironmentInput env = MakeEnvironment(c.spectrum_occupancy);
-
-      esr_session::EsrCycleInput input;
-      esr_session::EsrCoordinateStatus status;
-      if (!esr_session::EsrCycleInputAdapter::Build(platform, emitters, 1.0f, env, &input, &status)) {
-        s.warnings.Error("EsrCycleInputAdapter::Build failed at cycle " +
-                         std::to_string(cycle_index));
-        break;
-      }
-      input.cycle_index = cycle_index;
+      esr_session::EsrCycleInput input = MakeInput(c, cycle_index);
       if (c.scenario_id == "esr_seq_invalid_input_recovery" && cycle_index == 9U) {
         input.dt_sec = 0.0f;
-      } else if (c.scenario_id == "esr_seq_invalid_input_recovery" && cycle_index == 10U &&
-                 !input.scene.empty()) {
-        input.scene[0].pri_s = input.scene[0].pulse_width_s * 0.5f;
       }
 
       const esr_session::EsrCycleResult result = session.StepWithResult(input);
-      if (!result.executed_this_cycle) ++nonexecuted_count;
+      if (result.status != esr_session::EsrCycleExecutionStatus::kCompleted) ++nonexecuted_count;
       if (cycle_index == 8U || cycle_index == 24U) {
         std::vector<std::uint64_t>& ids = cycle_index == 8U ? established_ids : recovered_ids;
         for (const auto& hypothesis : result.output_frame.emitter_output.hypotheses) {
@@ -416,29 +372,27 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
       metrics.push_back(m);
 
       std::fprintf(cycle_writer.file(),
-                   "%s,%s,%s,%s,%u,%d,%d,%d,%zu,%zu,%zu,%.5f,%zu,%.5f,%.5f,%zu,%zu,%.5f\n",
+                   "%s,%s,%s,%s,%u,%d,%d,%d,%zu,%zu,%zu,%.5f,%zu,%.5f,%.5f\n",
                    c.scenario_id.c_str(), c.sequence ? "sequence" : "sweep", c.family.c_str(),
                    phase, m.cycle_index, static_cast<int>(m.executed),
                    static_cast<int>(m.has_validation_error), m.abort_reason, m.raw_obs, m.cluster,
-                   m.jammed, m.obs_snr_mean, m.hyp_count, m.hyp_conf_mean, m.hyp_conf_p95,
-                   m.truth_matched, m.truth_total, m.truth_match_rate);
+                   m.jammed, m.obs_snr_mean, m.hyp_count, m.hyp_conf_mean, m.hyp_conf_p95);
     }
     replay_writer->Flush();
   }
 
   // 聚合
-  std::vector<double> steady_obs, steady_conf, steady_match, steady_jammed;
+  std::vector<double> steady_obs, steady_conf, steady_jammed;
   for (const auto& m : metrics) {
     if (m.executed) ++s.executed_cycles;
     if (!m.executed || m.cycle_index <= kWarmupCycles) continue;
     steady_obs.push_back(static_cast<double>(m.raw_obs));
     steady_conf.push_back(m.hyp_conf_mean);
-    steady_match.push_back(m.truth_match_rate);
     steady_jammed.push_back(static_cast<double>(m.jammed));
   }
   s.steady_obs_count_mean = batch_validation::Mean(steady_obs);
   s.steady_hyp_confidence_mean = batch_validation::Mean(steady_conf);
-  s.steady_truth_match_rate_mean = batch_validation::Mean(steady_match);
+  s.steady_truth_match_rate_mean = 0.0;
   s.steady_jammed_mean = batch_validation::Mean(steady_jammed);
 
   // 回放
@@ -492,11 +446,6 @@ ScenarioSummary RunEsrScenario(const EsrCase& c, const esr_config::EsrSessionCon
     if (s.steady_hyp_confidence_mean < 0.0 || s.steady_hyp_confidence_mean > 1.0) {
       s.warnings.Warn("hypothesis confidence out of [0,1]: " +
                       std::to_string(s.steady_hyp_confidence_mean));
-    }
-    // ② 真值匹配率应 ∈ [0,1]
-    if (s.steady_truth_match_rate_mean < 0.0 || s.steady_truth_match_rate_mean > 1.0) {
-      s.warnings.Warn("truth match_rate out of [0,1]: " +
-                      std::to_string(s.steady_truth_match_rate_mean));
     }
   }
 

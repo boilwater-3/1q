@@ -131,7 +131,7 @@ sequenceDiagram
 
 ### 1.5 数据流
 
-主链路展示输入如何变成三通道输出：
+主链路展示输入如何变成两个去真值化输出通道：
 
 自然环境与 RF 发射事实分开输入。RF 发射帧是意图中立的统一入口，不再将“目标辐射源”和“干扰源”分流。
 
@@ -164,7 +164,6 @@ flowchart LR
   subgraph Output["输出层 Output"]
     Obs["observation_output\n设备观测"]
     Emit["emitter_output\n系统估计"]
-    Truth["truth_evaluation_output\n仿真评估"]
     Result["EsrCycleResult\n执行状态 / 诊断 / replay"]
   end
 
@@ -181,8 +180,8 @@ flowchart LR
   Assoc --> Hyp
   Raw --> Obs
   Hyp --> Emit
-  Raw --> Truth
-  Cycle --> Truth
+  Obs --> Result
+  Emit --> Result
   Obs --> Result
   Emit --> Result
   Truth --> Result
@@ -428,7 +427,7 @@ pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描
 
 设计含义：
 
-- validation rejection 在进入 pipeline 前发生，`EsrCycleResult` 记录 `executed_this_cycle=false` 和 `kValidationRejected`。
+- validation rejection 在进入 pipeline 前发生，`EsrCycleResult.status=kRejected` 且不返回历史输出。
 - 当前唯一的 pipeline 自报非执行状态是设备关机；它不是 output-contract failure，也不触发
   运行态回滚。新增其他 pipeline failure 必须使用显式内部结果状态并定义回滚边界。
 - 统一 RF scene 迁移必须先扩展 `InterceptPipelineResult` 或等价内部结果结构：非法 scene/link 是未执行的
@@ -442,13 +441,13 @@ pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描
 - `tests/integration/electronic_surveillance_radar/esr_session_test.cpp`
 [evidence: tests/integration/electronic_surveillance_radar/esr_session_test.cpp::EsrSessionIntegrationTest.RuntimePatchCanDisableSensorWithoutReconstruction]
 
-### 2.7 输出三通道与可观测性
+### 2.7 输出与可观测性
 
-`EsrOutputFrame` 保持三通道；`EsrCycleResult` 在输出帧之外承载 validation、executed/reused 和 abort reason，pipeline 内部结果另含 powered-off 状态：
+`EsrOutputFrame` 只发布两个去真值化通道；`EsrCycleResult` 以 `status` 作为本周期执行真相，并承载 validation 与 abort reason：
 
 - `observation_output`：设备观测。
 - `emitter_output`：系统估计 hypothesis。
-- `truth_evaluation_output`：仿真评估。
+- `receiver_saturated` 是 completed 周期的结构化 impairment：不伪造观测，但按正常物理周期推进接收状态。
 
 `EsrController` 是输出帧装配和最近有效帧缓存的唯一 runtime owner；它直接写入 cycle/batch header，
 移动 pipeline 的三通道结果，并只在成功执行后推进 batch。模块不维护第二个 output-manager 状态或装配路径。
@@ -458,13 +457,12 @@ pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描
 中统一为 64 位无符号值。codec 不得把它缩窄到 32 位；大于 `UINT32_MAX` 的值必须无损 roundtrip。
 [evidence: tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp::EsrReplayCodecRoundtripTest.CycleResultPreservesBatchIdAboveUint32Max]
 
-名称字段和 truth identity 不进入真实输出通道。需要人读映射时通过 debug view 或 truth evaluation 关联回填。
+truth identity、外部坐标适配输出与 debug view 不属于 ESR 公共输出合同；消费者只使用观测和 hypothesis 的估计字段。
 
 验证入口：
 
-- `tests/unit/electronic_surveillance_radar/esr_output_boundary_contract_test.cpp`
-- `tests/unit/electronic_surveillance_radar/esr_cycle_output_builder_test.cpp`
-- `tests/consumer/esr_output_observability_consumer.cpp`
+- `tests/contract/public_api/public_headers_smoke_test.cpp`
+- `tests/consumer/esr_session_consumer.cpp`
 - `tests/replay/electronic_surveillance_radar/esr_replay_codec_roundtrip_test.cpp`
 
 ### 2.8 专项序列验证边界
@@ -478,14 +476,14 @@ ESM/RWR/HGESM 切换、显式扫描边界重定向、关机恢复和无效输入
 - 无效显式边界 patch 的原子拒绝；
 - 角度交叉、关机恢复和无效输入恢复三个场景的建立/恢复 hypothesis id 集合连续性。
 
-当前 batch 不实例化 `EsrEmitterLifecycleRecorder`，也不直接断言静默源独占 `Lost` 或关闭显式边界后
-无残留；这些语义不能作为 batch 已证明的硬契约。强信号下距离趋势不敏感仍只作为物理 warning。
+batch 不含 truth matching、legacy lifecycle recorder 或旧输入适配器；它以 RF v2 发射帧构造场景，并以
+回放、执行状态、观测数、hypothesis 置信度与接收机饱和状态验证合同。
 场景 ID、结构化 check 和运行方式由 `examples/batch_validation/README.md` 维护。
 
 ## 3. 非目标与边界
 
 - 不暴露用户自定义 pipeline/controller/environment service。
-- 不把 truth evaluation 合并进真实 observation/hypothesis 输出。
+- 不把 truth identity 或预计算受扰结论合并进真实 observation/hypothesis 输出。
 - 不把 pipeline internal context、runtime snapshot 或 generated replay header 当成 public API。
 - 不通过日志文本判断状态；调用方应使用 `EsrCycleResult`。
 

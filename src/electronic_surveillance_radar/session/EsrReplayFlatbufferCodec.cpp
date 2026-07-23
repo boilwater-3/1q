@@ -60,84 +60,6 @@ oneq::foundation::PoseState FromPose(const esr::replay::PoseState* fb) {
   return out;
 }
 
-flatbuffers::Offset<esr::replay::RfEmission> BuildRfEmission(
-    flatbuffers::FlatBufferBuilder& fbb, const oneq::electromagnetics::RfEmission& emission) {
-  std::vector<flatbuffers::Offset<esr::replay::RfEmissionSegment>> segments;
-  for (const oneq::electromagnetics::RfEmissionSegment& segment : emission.segments) {
-    segments.push_back(esr::replay::CreateRfEmissionSegment(
-        fbb, segment.start_time_s, segment.duration_s, segment.center_frequency_hz,
-        segment.bandwidth_hz, segment.transmit_power_w));
-  }
-  esr::replay::RfUnitVector boresight(emission.antenna.boresight_ecef_unit.x,
-                                      emission.antenna.boresight_ecef_unit.y,
-                                      emission.antenna.boresight_ecef_unit.z);
-  auto antenna = esr::replay::CreateRfAntennaPattern(
-      fbb, &boresight, emission.antenna.peak_gain_dbi,
-      emission.antenna.half_power_beamwidth_deg, emission.antenna.sidelobe_level_db,
-      emission.antenna.backlobe_level_db,
-      emission.antenna.cross_polarization_isolation_db);
-  esr::replay::Vec3 position = ToV(emission.position_ecef_m);
-  esr::replay::Vec3 velocity = ToV(emission.velocity_ecef_mps);
-  esr::replay::RfEmissionBuilder builder(fbb);
-  builder.add_emission_id(emission.emission_id);
-  builder.add_entity_id(emission.entity_id);
-  builder.add_position_ecef_m(&position);
-  builder.add_velocity_ecef_mps(&velocity);
-  builder.add_antenna(antenna);
-  builder.add_polarization(static_cast<int32_t>(emission.polarization));
-  builder.add_waveform_kind(static_cast<int32_t>(emission.waveform_kind));
-  builder.add_segments(fbb.CreateVector(segments));
-  return builder.Finish();
-}
-
-oneq::electromagnetics::RfEmission FromRfEmission(const esr::replay::RfEmission* fb) {
-  oneq::electromagnetics::RfEmission emission;
-  if (fb == nullptr) {
-    return emission;
-  }
-  emission.emission_id = fb->emission_id();
-  emission.entity_id = fb->entity_id();
-  if (fb->position_ecef_m()) {
-    emission.position_ecef_m.x_m = fb->position_ecef_m()->x();
-    emission.position_ecef_m.y_m = fb->position_ecef_m()->y();
-    emission.position_ecef_m.z_m = fb->position_ecef_m()->z();
-  }
-  if (fb->velocity_ecef_mps()) {
-    emission.velocity_ecef_mps.x_mps = fb->velocity_ecef_mps()->x();
-    emission.velocity_ecef_mps.y_mps = fb->velocity_ecef_mps()->y();
-    emission.velocity_ecef_mps.z_mps = fb->velocity_ecef_mps()->z();
-  }
-  if (fb->antenna()) {
-    emission.antenna.peak_gain_dbi = fb->antenna()->peak_gain_dbi();
-    emission.antenna.half_power_beamwidth_deg = fb->antenna()->half_power_beamwidth_deg();
-    emission.antenna.sidelobe_level_db = fb->antenna()->sidelobe_level_db();
-    emission.antenna.backlobe_level_db = fb->antenna()->backlobe_level_db();
-    emission.antenna.cross_polarization_isolation_db =
-        fb->antenna()->cross_polarization_isolation_db();
-    if (fb->antenna()->boresight_ecef_unit()) {
-      emission.antenna.boresight_ecef_unit.x = fb->antenna()->boresight_ecef_unit()->x();
-      emission.antenna.boresight_ecef_unit.y = fb->antenna()->boresight_ecef_unit()->y();
-      emission.antenna.boresight_ecef_unit.z = fb->antenna()->boresight_ecef_unit()->z();
-    }
-  }
-  emission.polarization =
-      static_cast<oneq::electromagnetics::RfPolarization>(fb->polarization());
-  emission.waveform_kind =
-      static_cast<oneq::electromagnetics::RfWaveformKind>(fb->waveform_kind());
-  if (fb->segments()) {
-    for (const esr::replay::RfEmissionSegment* segment : *fb->segments()) {
-      oneq::electromagnetics::RfEmissionSegment decoded;
-      decoded.start_time_s = segment->start_time_s();
-      decoded.duration_s = segment->duration_s();
-      decoded.center_frequency_hz = segment->center_frequency_hz();
-      decoded.bandwidth_hz = segment->bandwidth_hz();
-      decoded.transmit_power_w = segment->transmit_power_w();
-      emission.segments.push_back(decoded);
-    }
-  }
-  return emission;
-}
-
 flatbuffers::Offset<esr::replay::RfSceneFrame> BuildRfSceneFrame(
     flatbuffers::FlatBufferBuilder& fbb,
     const oneq::electromagnetics::RfEmissionFrame& frame) {
@@ -394,16 +316,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
   }
   auto em_out = esr::replay::CreateEmitterOutput(fbb, fbb.CreateVector(hyp_vec));
 
-  // truth output
-  std::vector<flatbuffers::Offset<esr::replay::TruthAssociationRecord>> ta_vec;
-  for (const auto& a : v.truth_evaluation_output.associations) {
-    ta_vec.push_back(esr::replay::CreateTruthAssociationRecord(
-        fbb, a.observation_id, a.truth_emitter_id, a.matched, static_cast<float>(a.confidence)));
-  }
-  auto truth_out = esr::replay::CreateTruthEvaluationOutput(fbb, fbb.CreateVector(ta_vec));
-
-  return esr::replay::CreateEsrOutputFrame(fbb, v.cycle_index, v.batch_id, obs_out, em_out,
-                                           truth_out);
+  return esr::replay::CreateEsrOutputFrame(fbb, v.cycle_index, v.batch_id, obs_out, em_out);
 }
 
 void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutputFrame* out) {
@@ -470,19 +383,6 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
           }
         }
         out->emitter_output.hypotheses.push_back(hyp);
-      }
-    }
-  }
-  if (fb->truth_evaluation_output()) {
-    const auto* t = fb->truth_evaluation_output();
-    if (t->associations()) {
-      for (const auto* a : *t->associations()) {
-        session::TruthAssociationRecord rec{};
-        rec.observation_id = a->observation_id();
-        rec.truth_emitter_id = a->truth_emitter_id();
-        rec.matched = a->matched();
-        rec.confidence = a->confidence();
-        out->truth_evaluation_output.associations.push_back(rec);
       }
     }
   }

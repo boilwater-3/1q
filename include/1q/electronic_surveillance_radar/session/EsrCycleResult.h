@@ -19,15 +19,13 @@ namespace electronic_surveillance_radar {
 namespace session {
 
 /**
- * @brief EsrOutputFrame 表示电子侦察模块的三通道聚合输出。
- * @warning `emitter_output` 不应包含任何真值直通字段。
+ * @brief EsrOutputFrame 表示电子侦察模块的去真值化输出。
  */
 struct ONEQ_API EsrOutputFrame {
   std::uint32_t cycle_index{0U};                           /**< 当前周期号 */
   std::uint64_t batch_id{0U};                              /**< 当前批次号 */
   session::ObservationOutputFrame observation_output{};    /**< 传感器观测输出通道 */
   session::EmitterOutputFrame emitter_output{};            /**< 侦察假设输出通道 */
-  session::TruthEvaluationFrame truth_evaluation_output{}; /**< 真值评估输出通道 */
 };
 
 /** @brief 单周期 ESR 执行状态；只有 completed 携带本周期输出。 */

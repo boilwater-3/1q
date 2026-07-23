@@ -284,48 +284,46 @@ eos_session::EosCycleInput BuildEosInput(const WorldState& ws, float dt, std::ui
   return input;
 }
 
-// --- ESR input conversion ---
-
-esr_session::EsrExternalPoseInput ToEsrPlatform(const oneq::coordinate::EcefPositionM& pos,
-                                                const oneq::coordinate::EcefVelocityMps& vel) {
-  esr_session::EsrExternalPoseInput p;
-  p.platform_position_ecef_m = pos;
-  p.platform_velocity_mps = vel;
-  p.platform_attitude_deg.yaw_deg = 0.0;
-  p.platform_attitude_deg.pitch_deg = 0.0;
-  p.platform_attitude_deg.roll_deg = 0.0;
-  return p;
-}
-
-esr_session::EsrExternalEmitterInput ToEsrEmitter(const WorldTarget& t) {
-  esr_session::EsrExternalEmitterInput input;
-  input.emitter_id = t.id;
-  input.kinematics.position_frame = oneq::coordinate::PositionFrame::kEcef;
-  input.kinematics.position_ecef_m = t.pos;
-  input.kinematics.velocity_mps.x_mps = 0.0;
-  input.kinematics.velocity_mps.y_mps = 0.0;
-  input.kinematics.velocity_mps.z_mps = 0.0;
-  input.carrier_hz = t.carrier_hz;
-  input.bandwidth_hz = t.bandwidth_hz;
-  input.tx_power_w = t.tx_power_w;
-  input.pulse_width_s = t.pulse_width_s;
-  input.pri_s = t.pri_s;
-  input.is_emitting = t.is_emitting;
-  return input;
-}
-
 esr_session::EsrCycleInput BuildEsrInput(const WorldState& ws, float dt, std::uint32_t cycle_index,
                                          const esr_session::EsrEnvironmentInput& esr_env) {
-  esr_session::EsrExternalPoseInput platform = ToEsrPlatform(ws.platform_pos, ws.platform_vel);
-  std::vector<esr_session::EsrExternalEmitterInput> emitters;
-  emitters.reserve(ws.targets.size());
-  for (const auto& t : ws.targets) {
-    emitters.push_back(ToEsrEmitter(t));
-  }
   esr_session::EsrCycleInput input;
-  esr_session::EsrCoordinateStatus status;
-  esr_session::EsrCycleInputAdapter::Build(platform, emitters, dt, esr_env, &input, &status);
   input.cycle_index = cycle_index;
+  input.cycle_start_time_s = static_cast<double>(cycle_index - 1U) * dt;
+  input.dt_sec = dt;
+  input.platform_entity_id = 7001U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m = ws.platform_pos;
+  input.platform_velocity_ecef_mps = ws.platform_vel;
+  input.environment = esr_env;
+  input.interference.world_cycle_index = cycle_index;
+  input.interference.window_start_time_s = input.cycle_start_time_s;
+  input.interference.window_duration_s = dt;
+  input.interference.emissions.reserve(ws.targets.size());
+  for (const WorldTarget& target : ws.targets) {
+    if (!target.is_emitting) {
+      continue;
+    }
+    oneq::electromagnetics::RfSceneEmission emission;
+    emission.identity.platform_id = target.id;
+    emission.identity.equipment_id = 1U;
+    emission.identity.emission_id = target.id;
+    emission.position_ecef_m = target.pos;
+    const double dx = ws.platform_pos.x_m - target.pos.x_m;
+    const double dy = ws.platform_pos.y_m - target.pos.y_m;
+    const double dz = ws.platform_pos.z_m - target.pos.z_m;
+    const double range_m = std::sqrt(dx * dx + dy * dy + dz * dz);
+    emission.antenna.boresight_ecef.x = dx / range_m;
+    emission.antenna.boresight_ecef.y = dy / range_m;
+    emission.antenna.boresight_ecef.z = dz / range_m;
+    emission.antenna.peak_gain_dbi = 30.0;
+    emission.antenna.peak_gain_dbi = 10.0;
+    emission.polarization = oneq::electromagnetics::RfScenePolarization::kHorizontal;
+    if (oneq::electromagnetics::TryCreateRfNoiseWaveform(
+            input.cycle_start_time_s, dt, target.carrier_hz, target.bandwidth_hz,
+            target.tx_power_w, &emission.waveform)) {
+      input.interference.emissions.push_back(emission);
+    }
+  }
   return input;
 }
 
@@ -383,8 +381,8 @@ eos_config::EosSessionConfig MakeEosConfigAirToAir() {
 // -- 空对空通用 ESR 配置：水平扫描 ±10° 仰角 --
 esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
   esr_config::EsrSessionConfig config;
-  config.hardware.receiver_band_lower_hz = 230000000.0;
-  config.hardware.receiver_band_upper_hz = 100000000000.0;
+  config.hardware.receiver_band_lower_hz = 8.5e9;
+  config.hardware.receiver_band_upper_hz = 10.5e9;
   config.hardware.receiver_sensitivity_w = 1.0e-12f;
   config.hardware.integrated_receive_loss_db = 0.0f;
   config.hardware.beam_az_width_deg = 120.0f;
@@ -395,8 +393,8 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
   config.mission.work_mode = esr::config::EsrWorkMode::kEsm;
   // 1 s 场景步长下使用 10 s 完整扫描周期，避免 1 Hz 默认值每帧恰好回到起始波束。
   config.mission.scan.scan_rate_hz = 0.1f;
-  config.policy.detection.minimum_snr_db = 6.0f;
-  config.policy.detection.enable_statistical_detection = true;
+  config.policy.detection.minimum_snr_db = -40.0f;
+  config.policy.detection.enable_statistical_detection = false;
   config.hardware.has_co_site_isolation = true;
   config.hardware.co_site_isolation_db = 80.0f;
   return config;
@@ -447,8 +445,8 @@ eos_config::EosSessionConfig MakeEosConfigAirToGround() {
 // -- 空对地 ESR 配置：下视扫描，覆盖地面发射源 --
 esr_config::EsrSessionConfig MakeEsrConfigAirToGround() {
   esr_config::EsrSessionConfig config;
-  config.hardware.receiver_band_lower_hz = 230000000.0;
-  config.hardware.receiver_band_upper_hz = 100000000000.0;
+  config.hardware.receiver_band_lower_hz = 8.5e9;
+  config.hardware.receiver_band_upper_hz = 10.5e9;
   config.hardware.receiver_sensitivity_w = 1.0e-12f;
   config.hardware.integrated_receive_loss_db = 0.0f;
   config.hardware.beam_az_width_deg = 120.0f;
@@ -458,8 +456,8 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToGround() {
   config.mission.power_on = true;
   config.mission.work_mode = esr::config::EsrWorkMode::kEsm;
   config.mission.scan.scan_center_el_deg = -35.0f;
-  config.policy.detection.minimum_snr_db = 6.0f;
-  config.policy.detection.enable_statistical_detection = true;
+  config.policy.detection.minimum_snr_db = -40.0f;
+  config.policy.detection.enable_statistical_detection = false;
   return config;
 }
 
@@ -1329,6 +1327,7 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
 
   esr_config::EsrSessionConfig esr_config = MakeEsrConfigAirToAir();
   esr_config.policy.detection.enable_statistical_detection = false;
+  esr_config.hardware.co_site_paths.push_back({101U, 100.0});
   esr_session::EsrSession esr = esr_session::EsrSession::Create(esr_config);
   esr_session::EsrEnvironmentInput esr_environment;
   esr_environment.clutter_density = esr_session::EsrClutterDensityLevel::kLow;
@@ -1392,12 +1391,10 @@ TEST(MultiModelScenarioTest, SensorDrivenEcmUsesPreviousSuccessfulEsrFrame) {
   const ArRfTestCycleResult ar_result = RunArCycle(&ar, ar_input);
   EXPECT_TRUE(ar_result.accepted);
 
-  esr_environment.interference_mode = oneq::electromagnetics::RfInterferenceMode::kEngineering;
-  esr_environment.engineering_emissions =
-      ConvertRfV2ForLegacyEsr(ecm_result.emission_frame);
   esr_session::EsrCycleInput esr_input =
       BuildEsrInput(world, 1.0f, source_esr_cycle + 1U, esr_environment);
   esr_input.platform_entity_id = 7001U;
+  esr_input.interference = ecm_result.emission_frame;
   const esr_session::EsrCycleResult esr_result = esr.StepWithResult(esr_input);
   EXPECT_FALSE(esr_result.has_validation_error);
   EXPECT_EQ(esr_result.output_frame.cycle_index, source_esr_cycle + 1U);

@@ -62,13 +62,6 @@ bool EmitterHypothesisEqual(const session::EmitterHypothesis& left,
   return true;
 }
 
-bool TruthAssociationRecordEqual(const session::TruthAssociationRecord& left,
-                                 const session::TruthAssociationRecord& right) {
-  return left.observation_id == right.observation_id &&
-         left.truth_emitter_id == right.truth_emitter_id && left.matched == right.matched &&
-         left.confidence == right.confidence;
-}
-
 bool ObservationOutputFrameEqual(const session::ObservationOutputFrame& left,
                                  const session::ObservationOutputFrame& right) {
   if (left.raw_observation_count != right.raw_observation_count ||
@@ -100,24 +93,10 @@ bool EmitterOutputFrameEqual(const session::EmitterOutputFrame& left,
   return true;
 }
 
-bool TruthEvaluationFrameEqual(const session::TruthEvaluationFrame& left,
-                               const session::TruthEvaluationFrame& right) {
-  if (left.associations.size() != right.associations.size()) {
-    return false;
-  }
-  for (std::size_t i = 0; i < left.associations.size(); ++i) {
-    if (!TruthAssociationRecordEqual(left.associations[i], right.associations[i])) {
-      return false;
-    }
-  }
-  return true;
-}
-
 bool EsrOutputFrameEqual(const EsrOutputFrame& left, const EsrOutputFrame& right) {
   return left.cycle_index == right.cycle_index && left.batch_id == right.batch_id &&
          ObservationOutputFrameEqual(left.observation_output, right.observation_output) &&
-         EmitterOutputFrameEqual(left.emitter_output, right.emitter_output) &&
-         TruthEvaluationFrameEqual(left.truth_evaluation_output, right.truth_evaluation_output);
+         EmitterOutputFrameEqual(left.emitter_output, right.emitter_output);
 }
 
 bool EsrValidationIssueEqual(const ValidationIssue& left, const ValidationIssue& right) {

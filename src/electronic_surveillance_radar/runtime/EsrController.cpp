@@ -77,7 +77,6 @@ void EsrController::RunOnce(const session::EsrCycleInput& input) {
   output_frame.batch_id = stamp.batch_id;
   output_frame.observation_output = std::move(pipeline_result.observation_output);
   output_frame.emitter_output = std::move(pipeline_result.emitter_output);
-  output_frame.truth_evaluation_output = std::move(pipeline_result.truth_evaluation_output);
 
   impl_->runtime_state.latest_output = std::move(output_frame);
   impl_->runtime_state.has_latest_output = true;

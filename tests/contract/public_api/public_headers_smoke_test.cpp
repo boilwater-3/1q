@@ -69,12 +69,8 @@
 #include "1q/electronic_surveillance_radar/config/electronic_surveillance_radar_config.hpp"
 #include "1q/electronic_surveillance_radar/electronic_surveillance_radar.hpp"
 #include "1q/electronic_surveillance_radar/session/EsrCycleInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrCycleInputAdapter.h"
-#include "1q/electronic_surveillance_radar/session/EsrEmitterLifecycleRecorder.h"
 #include "1q/electronic_surveillance_radar/session/EsrEnvironmentInput.h"
-#include "1q/electronic_surveillance_radar/session/EsrExternalInputAdapter.h"
 #include "1q/electronic_surveillance_radar/session/EsrInputValidation.h"
-#include "1q/electronic_surveillance_radar/session/EsrOutputDebugView.h"
 #include "1q/electronic_surveillance_radar/session/EsrSession.h"
 #include "1q/electronic_surveillance_radar/session/EsrTraceSession.h"
 #include "1q/environment/AtmosphericTypes.h"
@@ -335,27 +331,12 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
   environment_patch.has_spectrum_occupancy_ratio = true;
   environment_patch.spectrum_occupancy_ratio = 0.25f;
   input.environment = environment_state.Update(environment_patch).Snapshot();
-  session::EsrSceneEmitter emitter;
-  emitter.emitter_id = 1001U;
-  emitter.pose.position_m.x = 1200.0f;
-  emitter.carrier_hz = 10.0e9;
-  emitter.bandwidth_hz = 2.0e6;
-  emitter.tx_power_w = 5.0e7;
-  emitter.pulse_width_s = 1.0e-6;
-  emitter.pri_s = 1.0e-4;
-  input.scene.push_back(emitter);
-
-  oneq::coordinate::LocalFrameReference esr_reference;
-  esr_reference.origin_lla.latitude_deg = 0.0;
-  esr_reference.origin_lla.longitude_deg = 0.0;
-  esr_reference.origin_lla.altitude_m = 0.0;
-  oneq::coordinate::EcefPositionM esr_origin_ecef;
-  ASSERT_TRUE(oneq::coordinate::TryLlaToEcef(esr_reference.origin_lla, &esr_origin_ecef));
-  session::EsrExternalPoseInput esr_pose_input;
-  esr_pose_input.platform_position_ecef_m = esr_origin_ecef;
-  oneq::foundation::PoseState esr_pose;
-  ASSERT_TRUE(
-      session::TryMakeEsrPoseFromExternalKinematics(esr_pose_input, esr_reference, &esr_pose));
+  input.platform_entity_id = 100U;
+  input.has_platform_ecef_kinematics = true;
+  input.platform_position_ecef_m.x_m = 6378137.0;
+  input.interference.world_cycle_index = input.cycle_index;
+  input.interference.window_start_time_s = input.cycle_start_time_s;
+  input.interference.window_duration_s = input.dt_sec;
 
   const session::ValidationIssueList issues = session::ValidateEsrCycleInput(input);
   EXPECT_FALSE(session::HasValidationError(issues));
@@ -370,8 +351,7 @@ TEST(PublicHeadersSmokeTest, EsrPublicSurfaceSupportsMinimalUsage) {
 
   EXPECT_GE(result.output_frame.observation_output.observations.size(), 0U);
   EXPECT_GE(result.output_frame.emitter_output.hypotheses.size(), 0U);
-  EXPECT_GE(result.output_frame.truth_evaluation_output.associations.size(), 0U);
-  EXPECT_GE(trace_result.output_frame.truth_evaluation_output.associations.size(), 0U);
+  EXPECT_GE(trace_result.output_frame.emitter_output.hypotheses.size(), 0U);
 }
 
 }  // namespace

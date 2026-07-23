@@ -27,64 +27,6 @@ table PoseState {
 
 // ---- EsrCycleInput ----
 
-table EmitterBeamState {
-  center_az_deg:    double;
-  center_el_deg:    double;
-  az_beamwidth_deg: double;
-  el_beamwidth_deg: double;
-  beam_state_valid: bool;
-}
-
-table SceneEmitter {
-  emitter_id:   uint64;
-  pose:         PoseState;
-  carrier_hz:   double;
-  bandwidth_hz: double;
-  tx_power_w:   double;
-  pulse_width_s: double;
-  pri_s:        double;
-  beam_state:   EmitterBeamState;
-  is_emitting:  bool;
-  emitter_name: string;
-  has_ecef_kinematics: bool = false;
-  position_ecef_m: Vec3;
-  velocity_ecef_mps: Vec3;
-}
-
-struct RfUnitVector {
-  x: double;
-  y: double;
-  z: double;
-}
-
-table RfAntennaPattern {
-  boresight_ecef_unit: RfUnitVector;
-  peak_gain_dbi: double;
-  half_power_beamwidth_deg: double;
-  sidelobe_level_db: double;
-  backlobe_level_db: double;
-  cross_polarization_isolation_db: double;
-}
-
-table RfEmissionSegment {
-  start_time_s: double;
-  duration_s: double;
-  center_frequency_hz: double;
-  bandwidth_hz: double;
-  transmit_power_w: double;
-}
-
-table RfEmission {
-  emission_id: uint64;
-  entity_id: uint64;
-  position_ecef_m: Vec3;
-  velocity_ecef_mps: Vec3;
-  antenna: RfAntennaPattern;
-  polarization: int32;
-  waveform_kind: int32;
-  segments: [RfEmissionSegment];
-}
-
 // ---- RF v2 scene exchange ----
 
 struct RfSceneDirection {
@@ -137,16 +79,6 @@ table RfSceneFrame {
   window_start_time_s: double;
   window_duration_s: double;
   emissions: [RfSceneEmission];
-}
-
-table EsrJammerSource {
-  technique:       int32;
-  active:          bool;
-  center_hz:       double;
-  bandwidth_hz:    double;
-  power_w:         float;
-  deception_risk:  float;
-  confidence:      float;
 }
 
 table EsrAtmosphericObservation {
@@ -232,23 +164,11 @@ table EmitterOutput {
   hypotheses:   [EmitterHypothesis];
 }
 
-table TruthAssociationRecord {
-  observation_id:   uint64;
-  truth_emitter_id: uint64;
-  matched:          bool;
-  confidence:       float;
-}
-
-table TruthEvaluationOutput {
-  associations:            [TruthAssociationRecord];
-}
-
 table EsrOutputFrame {
   cycle_index:           uint32;
   batch_id:              uint64;
   observation_output:    ObservationOutput;
   emitter_output:        EmitterOutput;
-  truth_evaluation_output: TruthEvaluationOutput;
 }
 
 // ---- EsrCycleResult (cycle_output via StepWithResult) ----
