@@ -5,6 +5,7 @@ set(ESR_ENGINE_SOURCES
     pipeline/MutableEsrContext.cpp
     pipeline/HypothesisAssociator.cpp
     pipeline/InterceptDetectionExecutor.cpp
+    pipeline/EsrRfV2FrontEnd.cpp
     pipeline/InterceptPostProcessingExecutor.cpp
     pipeline/InterceptPipeline.cpp
     pipeline/KdTreeClusterer.cpp
