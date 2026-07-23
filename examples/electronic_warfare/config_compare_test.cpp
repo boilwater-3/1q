@@ -32,8 +32,6 @@ esr_cfg::EsrSessionConfig MakeEmitterSearchConfig() {
   config.hardware.beam_az_width_deg = 120.0f;
   config.hardware.beam_el_width_deg = 40.0f;
   config.hardware.antenna_peak_gain_dbi = 20.0f;
-  config.hardware.has_co_site_isolation = true;
-  config.hardware.co_site_isolation_db = 90.0f;
   return config;
 }
 
@@ -101,16 +99,8 @@ int main() {
           fh.cross_polarization_isolation_db);
   ReportF("hardware.minimum_far_field_range_m", bh.minimum_far_field_range_m,
           fh.minimum_far_field_range_m);
-  ReportB("hardware.has_co_site_isolation", bh.has_co_site_isolation,
-          fh.has_co_site_isolation);
-  ReportF("hardware.co_site_isolation_db", bh.co_site_isolation_db,
-          fh.co_site_isolation_db);
   ReportF("hardware.maximum_linear_input_power_w", bh.maximum_linear_input_power_w,
           fh.maximum_linear_input_power_w);
-  ReportF("hardware.jamming_jn_threshold_db", bh.jamming_jn_threshold_db,
-          fh.jamming_jn_threshold_db);
-  ReportF("hardware.jamming_snr_loss_threshold_db", bh.jamming_snr_loss_threshold_db,
-          fh.jamming_snr_loss_threshold_db);
 
   // mission
   const auto& bm = builder_cfg.mission;

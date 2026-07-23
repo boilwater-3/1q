@@ -35,14 +35,8 @@ inline void LoadEsrHardware(const examples::JsonValue& j,
       static_cast<float>(j["cross_polarization_isolation_db"].AsDouble());
   v->minimum_far_field_range_m =
       static_cast<float>(j["minimum_far_field_range_m"].AsDouble());
-  v->has_co_site_isolation = j["has_co_site_isolation"].AsBool();
-  v->co_site_isolation_db = static_cast<float>(j["co_site_isolation_db"].AsDouble());
   v->maximum_linear_input_power_w =
       static_cast<float>(j["maximum_linear_input_power_w"].AsDouble());
-  v->jamming_jn_threshold_db =
-      static_cast<float>(j["jamming_jn_threshold_db"].AsDouble());
-  v->jamming_snr_loss_threshold_db =
-      static_cast<float>(j["jamming_snr_loss_threshold_db"].AsDouble());
 }
 
 inline void LoadEsrScanPolicy(const examples::JsonValue& j,

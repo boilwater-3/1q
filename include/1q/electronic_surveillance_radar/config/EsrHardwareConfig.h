@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "1q/api.hpp"
-#include "1q/electromagnetics/RfLinkBudget.h"
 #include "1q/electromagnetics/RfScene.h"
 
 namespace electronic_surveillance_radar {
@@ -49,16 +48,12 @@ struct ONEQ_API EsrHardwareConfig {
   float antenna_peak_gain_dbi{0.0f};       /**< 接收天线峰值增益（单位：dBi）。 */
   float antenna_sidelobe_level_db{-30.0f}; /**< 旁瓣相对峰值电平（单位：dB）。 */
   float antenna_backlobe_level_db{-40.0f}; /**< 后瓣相对峰值电平（单位：dB）。 */
-  oneq::electromagnetics::RfPolarization polarization{
-      oneq::electromagnetics::RfPolarization::kUnpolarized}; /**< 接收极化。 */
+  oneq::electromagnetics::RfScenePolarization polarization{
+      oneq::electromagnetics::RfScenePolarization::kUnpolarized}; /**< 接收极化。 */
   float cross_polarization_isolation_db{20.0f};              /**< 交叉极化隔离（单位：dB）。 */
   float minimum_far_field_range_m{1.0f};                     /**< 远场公式最小距离（单位：m）。 */
-  bool has_co_site_isolation{false};                         /**< 是否配置同平台隔离。 */
-  float co_site_isolation_db{0.0f};                          /**< 同平台隔离（单位：dB）。 */
   std::vector<EsrCoSiteIsolationPath> co_site_paths{}; /**< RF v2 有向同平台隔离路径。 */
   float maximum_linear_input_power_w{1.0e-3f};               /**< 最大线性输入功率（单位：W）。 */
-  float jamming_jn_threshold_db{3.0f};                       /**< 受扰判定 J/N 门限（单位：dB）。 */
-  float jamming_snr_loss_threshold_db{3.0f};  /**< 受扰判定 SNR 损失门限（单位：dB）。 */
   std::vector<EsrTuningWindow> tuning_plan{}; /**< 显式调谐计划；空列表表示全硬件频段驻留。 */
 };
 

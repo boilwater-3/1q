@@ -38,12 +38,8 @@ table EsrHardwareConfig {
   polarization:                int32 = 4;
   cross_polarization_isolation_db: float = 20.0;
   minimum_far_field_range_m:   float = 1.0;
-  has_co_site_isolation:       bool = false;
-  co_site_isolation_db:        float = 0.0;
   co_site_paths:               [EsrCoSiteIsolationPath];
   maximum_linear_input_power_w: float = 0.001;
-  jamming_jn_threshold_db:     float = 3.0;
-  jamming_snr_loss_threshold_db: float = 3.0;
   tuning_plan:                 [EsrTuningWindow];
 }
 

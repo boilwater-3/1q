@@ -54,11 +54,6 @@ bool TryResolveBoresight(const session::EsrCycleInput& input, double beam_az_deg
   return true;
 }
 
-oneq::electromagnetics::RfScenePolarization ToScenePolarization(
-    oneq::electromagnetics::RfPolarization value) {
-  return static_cast<oneq::electromagnetics::RfScenePolarization>(value);
-}
-
 }  // namespace
 
 bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
@@ -101,7 +96,7 @@ bool TryResolveEsrRfV2FrontEnd(const session::EsrCycleInput& input,
   receiver.antenna.backlobe_level_db = static_cast<double>(hardware.antenna_backlobe_level_db);
   receiver.antenna.cross_polarization_isolation_db =
       static_cast<double>(hardware.cross_polarization_isolation_db);
-  receiver.polarization = ToScenePolarization(hardware.polarization);
+  receiver.polarization = hardware.polarization;
   receiver.co_site_paths.reserve(hardware.co_site_paths.size());
   for (const config::EsrCoSiteIsolationPath& path : hardware.co_site_paths) {
     oneq::electromagnetics::RfCoSiteIsolationPath resolved_path;

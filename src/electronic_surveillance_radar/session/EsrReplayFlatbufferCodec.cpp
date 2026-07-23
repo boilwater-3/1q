@@ -493,13 +493,8 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
   hardware_builder.add_cross_polarization_isolation_db(
       v.hardware.cross_polarization_isolation_db);
   hardware_builder.add_minimum_far_field_range_m(v.hardware.minimum_far_field_range_m);
-  hardware_builder.add_has_co_site_isolation(v.hardware.has_co_site_isolation);
-  hardware_builder.add_co_site_isolation_db(v.hardware.co_site_isolation_db);
   hardware_builder.add_co_site_paths(fbb.CreateVector(co_site_paths));
   hardware_builder.add_maximum_linear_input_power_w(v.hardware.maximum_linear_input_power_w);
-  hardware_builder.add_jamming_jn_threshold_db(v.hardware.jamming_jn_threshold_db);
-  hardware_builder.add_jamming_snr_loss_threshold_db(
-      v.hardware.jamming_snr_loss_threshold_db);
   hardware_builder.add_tuning_plan(fbb.CreateVector(tuning_plan));
   auto hw = hardware_builder.Finish();
   const auto& sc = v.mission.scan;
@@ -554,11 +549,9 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
     out->hardware.antenna_sidelobe_level_db = h->antenna_sidelobe_level_db();
     out->hardware.antenna_backlobe_level_db = h->antenna_backlobe_level_db();
     out->hardware.polarization =
-        static_cast<oneq::electromagnetics::RfPolarization>(h->polarization());
+        static_cast<oneq::electromagnetics::RfScenePolarization>(h->polarization());
     out->hardware.cross_polarization_isolation_db = h->cross_polarization_isolation_db();
     out->hardware.minimum_far_field_range_m = h->minimum_far_field_range_m();
-    out->hardware.has_co_site_isolation = h->has_co_site_isolation();
-    out->hardware.co_site_isolation_db = h->co_site_isolation_db();
     out->hardware.co_site_paths.clear();
     if (h->co_site_paths()) {
       for (const esr::replay::EsrCoSiteIsolationPath* path : *h->co_site_paths()) {
@@ -569,8 +562,6 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
       }
     }
     out->hardware.maximum_linear_input_power_w = h->maximum_linear_input_power_w();
-    out->hardware.jamming_jn_threshold_db = h->jamming_jn_threshold_db();
-    out->hardware.jamming_snr_loss_threshold_db = h->jamming_snr_loss_threshold_db();
     out->hardware.tuning_plan.clear();
     if (h->tuning_plan()) {
       for (const esr::replay::EsrTuningWindow* window : *h->tuning_plan()) {

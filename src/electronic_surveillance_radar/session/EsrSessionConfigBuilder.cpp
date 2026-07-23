@@ -136,16 +136,12 @@ ValidationIssueList ValidateEsrSessionConfig(const config::EsrSessionConfig& con
       hardware.cross_polarization_isolation_db < 0.0f ||
       !oneq::common::validation::IsFinite(hardware.minimum_far_field_range_m) ||
       hardware.minimum_far_field_range_m <= 0.0f ||
-      !oneq::common::validation::IsFinite(hardware.co_site_isolation_db) ||
-      hardware.co_site_isolation_db < 0.0f ||
       !oneq::common::validation::IsFinite(hardware.maximum_linear_input_power_w) ||
       hardware.maximum_linear_input_power_w <= 0.0f ||
-      !oneq::common::validation::IsFinite(hardware.jamming_jn_threshold_db) ||
-      !oneq::common::validation::IsFinite(hardware.jamming_snr_loss_threshold_db) ||
       static_cast<int>(hardware.polarization) <
-          static_cast<int>(oneq::electromagnetics::RfPolarization::kHorizontal) ||
+          static_cast<int>(oneq::electromagnetics::RfScenePolarization::kHorizontal) ||
       static_cast<int>(hardware.polarization) >
-          static_cast<int>(oneq::electromagnetics::RfPolarization::kUnpolarized)) {
+          static_cast<int>(oneq::electromagnetics::RfScenePolarization::kUnpolarized)) {
     push(ConfigValidationCode::kReceiverRfHardwareInvalid, "hardware RF receiver fields",
          "Receiver RF hardware parameters must be finite and physically valid.");
   }
