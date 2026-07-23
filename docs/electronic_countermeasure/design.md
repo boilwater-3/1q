@@ -65,13 +65,29 @@ pattern、polarization 和 pointing，scheduler 只能选择 waveform、channel�
 replay，再把 pointing 写入实际 emission fact。
 
 随机性按 waveform scheduling、tie-break 和其它实际消费者分离；每条流定义无发射/拒绝周期是否采样，
-不得由 threat 输入顺序隐式改变。scheduling state、next emission ID、最近 ESR 帧、逐威胁年龄、滑行年龄、
-成功 prepare sequence、热能和活动配置均由 session 快照唯一拥有。快照只可恢复到捕获它的同一 session
-实例，恢复前完整校验所有嵌套 observation、重复 ID、provenance、模式组合和随机状态，失败不得部分修改。
+不得由 threat 输入顺序隐式改变。实现上 session 维护两条独立 `std::mt19937` 流：scheduling 流
+专责 sweep 方向采样，tie-break 流专责等分排序；两者均从会话 `random_seed` 经 splitmix32 终结符
+按各自 domain tag 派生（与 SBIRS `DeriveMeasurementSeed` 同约定），互相不相关。无发射/拒绝/
+关机周期两条流都不采样。tie-break 流的消耗量只等于“参与排队的可行威胁唯一 ID 数”，scheduling
+流的消耗量只等于“实际生成的 sweep emission 数”，二者都与 threat 输入顺序无关；具体地，tie-break
+键在排序前按威胁稳定 ID 的规范序（而非输入序）逐 ID 派生并回填到威胁，使排序比较器保持纯函数，
+相同威胁集合在任意输入顺序下产出相同的 {ID → 键} 映射与相同的最终排序。scheduling state、next
+emission ID、最近 ESR 帧、逐威胁年龄、滑行年龄、成功 prepare sequence、热能、两条随机流和活动
+配置均由 session 快照唯一拥有。快照只可恢复到捕获它的同一 session 实例，恢复前完整校验所有嵌套
+observation、重复 ID、provenance、模式组合和随机状态（含两条流的反序列化），失败不得部分修改。
 
-原型证据（不构成参数化 waveform、设备 provenance 或多随机流目标验收）：
+原型证据（不构成参数化 waveform、设备 provenance 目标验收；多随机流分离与快照嵌套校验已实现）：
 `ecm_session_test.cpp::ChannelAndPowerBudgetsAreConservedForAllTechniques`、
-`SweepSnapshotContinuationIsDeterministic`。
+`SweepSnapshotContinuationIsDeterministic`、
+`ecm_scheduler_order_invariance_test.cpp::DistinctScoresKeepSweepSequenceAcrossPermutations`、
+`ecm_scheduler_order_invariance_test.cpp::TiedScoresTieBreakIsOrderIndependent`、
+`ecm_scheduler_order_invariance_test.cpp::DifferentSeedsProduceDifferentSweepSequence`、
+`ecm_session_test.cpp::SnapshotFollowsImplAcrossFacadeMoveAndRejectsForeignSession`、
+`ecm_session_test.cpp::RestoreRejectsDirtySnapshotAndLeavesSessionUntouched`、
+`ecm_session_test.cpp::RestoreRejectsShallowInconsistencyRegression`。
+恢复校验现在逐项复用输入侧的 `IsValidSensorObservation` 与 hypothesis ID 唯一性,并断言
+`has_successful_cycle↔last_successful_cycle_index` 一致;脏快照(无效观测、重复 ID、标志/索引不一致、
+`has_last_sensor_frame=false` 但仍有观测)在 fail-closed 下被拒绝且不部分修改 session。
 
 ## 4. Trace、replay 与联动
 
@@ -86,8 +102,10 @@ AR 直接消费 ECM 发布的 `RfEmissionFrame`，不消费 ECM 自己计算的 
 仍不直接依赖飞行动力学模块。
 
 现有 replay、cross-domain 和 performance tests 只证明单阶段原型接线、基本 provenance 字段与 P95；尚不能
-证明 fresh-frame 严格来源、模式切换失效、参数化 waveform、两阶段提交、完整 snapshot/replay 或统一
-RF scene 已实现。
+证明 fresh-frame 严格来源、模式切换失效、参数化 waveform、两阶段提交、完整 snapshot/replay 往返或统一
+RF scene 已实现。注:快照恢复侧的嵌套 observation / 重复 ID / 标志一致性校验已实现(见 §3 证据);
+此处 "完整 snapshot/replay 往返" 仍指 replay schema 端到端往返(EcmRuntimeState 当前不进 replay schema),
+而非恢复侧校验深度。
 
 ## 5. 非目标与变更规则
 

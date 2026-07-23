@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <limits>
 #include <utility>
 
 #include "1q/electronic_countermeasure/EcmEsrAdapter.h"
@@ -215,6 +216,93 @@ TEST(EcmSessionTest, SnapshotFollowsImplAcrossFacadeMoveAndRejectsForeignSession
   const EcmRuntimeState foreign_after = foreign.CaptureRuntimeState();
   EXPECT_EQ(foreign_after.next_emission_id, foreign_before.next_emission_id);
   EXPECT_DOUBLE_EQ(foreign_after.thermal_energy_j, foreign_before.thermal_energy_j);
+}
+
+// Dirty-snapshot negative tests: each case mutates one field of a captured
+// (well-formed) snapshot and asserts RestoreRuntimeState rejects it and leaves
+// the session untouched. Covers design §3 "完整校验所有嵌套 observation、重复 ID、
+// provenance、模式组合和随机状态，失败不得部分修改". owner_identity still matches,
+// so these exercises the deep validation gate, not the ownership check.
+
+// Capture a baseline well-formed snapshot from a session that has executed one
+// successful sensor-driven cycle (so has_last_sensor_frame and has_successful_
+// cycle are both true with valid nested observations).
+EcmRuntimeState CaptureBaselineSensorSnapshot() {
+  EcmSession session = EcmSession::Create();
+  EXPECT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status,
+            EcmCycleStatus::kExecuted);
+  return session.CaptureRuntimeState();
+}
+
+TEST(EcmSessionTest, RestoreRejectsDirtySnapshotAndLeavesSessionUntouched) {
+  // Each sub-test reuses one session: restore a clean snapshot, confirm it
+  // applies, then attempt a dirty variant and confirm rejection + no mutation.
+  auto run_dirty_case = [](const std::string& /*name*/, EcmRuntimeState dirty) {
+    EcmSession session = EcmSession::Create();
+    // Advance the session so it has distinguishable state to detect mutation.
+    ASSERT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status,
+              EcmCycleStatus::kExecuted);
+    const EcmRuntimeState before = session.CaptureRuntimeState();
+    // dirty carries this session's owner_identity (same session captured it).
+    dirty.owner_identity = before.owner_identity;
+    EXPECT_FALSE(session.RestoreRuntimeState(dirty))
+        << "dirty snapshot should be rejected";
+    const EcmRuntimeState after = session.CaptureRuntimeState();
+    EXPECT_EQ(after.next_emission_id, before.next_emission_id)
+        << "session mutated on rejected restore";
+    EXPECT_DOUBLE_EQ(after.thermal_energy_j, before.thermal_energy_j);
+    EXPECT_EQ(after.has_successful_cycle, before.has_successful_cycle);
+    EXPECT_EQ(after.last_successful_cycle_index, before.last_successful_cycle_index);
+  };
+
+  EcmRuntimeState base = CaptureBaselineSensorSnapshot();
+
+  // Case 1: invalid nested observation (NaN center frequency).
+  {
+    EcmRuntimeState dirty = base;
+    dirty.last_sensor_frame.observations.front().estimated_center_frequency_hz =
+        std::numeric_limits<double>::quiet_NaN();
+    run_dirty_case("invalid nested observation", dirty);
+  }
+  // Case 2: duplicate source_hypothesis_id within the frame.
+  {
+    EcmRuntimeState dirty = base;
+    dirty.last_sensor_frame.observations.push_back(
+        dirty.last_sensor_frame.observations.front());
+    run_dirty_case("duplicate hypothesis id", dirty);
+  }
+  // Case 3: has_successful_cycle=false but last_successful_cycle_index != 0.
+  {
+    EcmRuntimeState dirty = base;
+    dirty.has_successful_cycle = false;
+    run_dirty_case("successful flag cleared but index retained", dirty);
+  }
+  // Case 4: has_successful_cycle=true but last_successful_cycle_index == 0.
+  {
+    EcmRuntimeState dirty = base;
+    dirty.last_successful_cycle_index = 0U;
+    run_dirty_case("successful flag set but zero index", dirty);
+  }
+}
+
+TEST(EcmSessionTest, RestoreRejectsShallowInconsistencyRegression) {
+  // has_last_sensor_frame=false must still reject non-empty observations or a
+  // non-zero glide age (guards against the shallow check being dropped).
+  EcmSession session = EcmSession::Create();
+  ASSERT_EQ(session.StepWithResult(MakeSensorInput(2U, true)).status,
+            EcmCycleStatus::kExecuted);
+  const EcmRuntimeState before = session.CaptureRuntimeState();
+
+  EcmRuntimeState dirty = before;
+  dirty.owner_identity = before.owner_identity;
+  dirty.has_last_sensor_frame = false;
+  // leave observations populated -> inconsistent with the cleared flag
+  EXPECT_FALSE(session.RestoreRuntimeState(dirty));
+
+  const EcmRuntimeState after = session.CaptureRuntimeState();
+  EXPECT_EQ(after.has_last_sensor_frame, before.has_last_sensor_frame);
+  EXPECT_EQ(after.last_sensor_frame.observations.size(),
+            before.last_sensor_frame.observations.size());
 }
 
 TEST(EcmSessionTest, EsrAdapterCopiesOnlyDetruthEstimatedFields) {

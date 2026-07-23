@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <random>
 #include <set>
 #include <sstream>
@@ -12,8 +13,27 @@ namespace electronic_countermeasure {
 namespace session {
 namespace {
 
-const std::uint32_t kRuntimeStateSchemaVersion = 1U;
+const std::uint32_t kRuntimeStateSchemaVersion = 2U;
 const std::uint32_t kMaximumGlideSuccessfulCycles = 2U;
+
+// Derive independent RNG sub-streams from the single config seed via a splitmix32
+// finalizer keyed by a per-consumer domain tag, mirroring the SBIRS
+// DeriveMeasurementSeed convention (src/sbirs_sensor/pipeline/SbirsPipeline.cpp).
+// Two streams with the same base seed but distinct tags are uncorrelated.
+std::uint32_t DeriveStreamSeed(std::uint32_t base_seed, std::uint32_t domain_tag) {
+  std::uint32_t value = base_seed ^ domain_tag;
+  value ^= value >> 16U;
+  value *= 0x7feb352dU;
+  value ^= value >> 15U;
+  value *= 0x846ca68bU;
+  value ^= value >> 16U;
+  return value == 0U ? 1U : value;
+}
+
+// FourCC-style domain tags: scheduling drives sweep direction, tie-break drives
+// equal-score ordering. Each consumer keeps its own mt19937 seeded independently.
+const std::uint32_t kSchedulingDomain = UINT32_C(0x53434844);  // "SCHD"
+const std::uint32_t kTieBreakDomain = UINT32_C(0x54494542);    // "TIEB"
 
 bool IsKnownTechnique(EcmTechnique technique) {
   return technique == EcmTechnique::kSpot || technique == EcmTechnique::kBarrage ||
@@ -102,13 +122,83 @@ bool IsValidInput(const EcmCycleInput& input) {
   return true;
 }
 
+// Validate the internal consistency of a runtime-state snapshot beyond the
+// scalar bounds already checked in RestoreRuntimeState. Mirrors the design §3
+// requirement to "完整校验所有嵌套 observation、重复 ID、provenance、模式组合和
+// 随机状态". Returns true only when the snapshot could have been produced by a
+// well-formed session (so an externally/replay-constructed dirty snapshot is
+// rejected before it can pollute impl_).
+bool SnapshotInternallyConsistent(const EcmRuntimeState& state) {
+  // has_successful_cycle must agree with last_successful_cycle_index: a session
+  // that has never succeeded has index 0, and any successful cycle recorded a
+  // non-zero cycle_index (cycle_index == 0U is an invalid input).
+  if (state.has_successful_cycle == (state.last_successful_cycle_index == 0U)) {
+    return false;
+  }
+  if (!state.has_last_sensor_frame) {
+    // Without a retained sensor frame there must be no cached observations and
+    // the glide age must be zero (preserves the prior shallow guard).
+    return state.last_sensor_frame.observations.empty() &&
+           state.observation_age_successful_ecm_cycles == 0U;
+  }
+  // Nested observation validation: every observation must be individually valid
+  // and source_hypothesis_id must be unique within the frame (matches the input
+  // contract enforced by IsValidInput for kSensorDriven).
+  std::set<std::uint64_t> hypothesis_ids;
+  for (const EcmSensorObservation& observation : state.last_sensor_frame.observations) {
+    if (!IsValidSensorObservation(observation) ||
+        !hypothesis_ids.insert(observation.source_hypothesis_id).second) {
+      return false;
+    }
+  }
+  return true;
+}
+
 struct SchedulingThreat {
   std::uint64_t observation_id{0U};
   std::uint64_t truth_entity_id{0U};
   double center_frequency_hz{0.0};
   double bandwidth_hz{0.0};
   float score{0.0f};
+  // Deterministic per-threat pseudo-random key used as the tie-break in the
+  // sort comparator. Pre-derived (see AssignTieBreakKeys) so the comparator
+  // remains a pure function; the draw order is independent of threat input order.
+  std::uint32_t tie_break_key{0U};
 };
+
+// Stable per-threat identity: sensor-driven threats carry observation_id, truth
+// threats carry truth_entity_id. Only one is ever non-zero per threat.
+std::uint64_t ThreatStableId(const SchedulingThreat& threat) {
+  return threat.observation_id != 0U ? threat.observation_id : threat.truth_entity_id;
+}
+
+// Derive a deterministic, input-order-independent pseudo-random tie-break key for
+// each threat. The tie_break_rng is consumed exactly once per *unique* threat id,
+// in canonical (sorted) id order — NOT in input order — so the same set of threats
+// always yields the same {id -> key} mapping regardless of how they were supplied.
+// This satisfies design §3: tie-break draws depend only on the threat set, never on
+// input order, and the sort comparator stays a pure function (no RNG in the lambda).
+void AssignTieBreakKeys(std::vector<SchedulingThreat>* threats, std::mt19937* tie_break_rng) {
+  if (threats == nullptr || tie_break_rng == nullptr || threats->empty()) {
+    return;
+  }
+  // Collect unique stable ids and canonicalize their order (pure id comparison).
+  std::set<std::uint64_t> unique_ids;
+  for (const SchedulingThreat& threat : *threats) {
+    unique_ids.insert(ThreatStableId(threat));
+  }
+  // Draw one 32-bit word per unique id in canonical order; combine id + draw into
+  // a final key so even ids drawn from correlated words diverge.
+  std::map<std::uint64_t, std::uint32_t> keys;
+  std::uniform_int_distribution<std::uint32_t> distribution;
+  for (std::uint64_t id : unique_ids) {
+    const std::uint32_t draw = distribution(*tie_break_rng);
+    keys[id] = DeriveStreamSeed(static_cast<std::uint32_t>(id), draw);
+  }
+  for (SchedulingThreat& threat : *threats) {
+    threat.tie_break_key = keys[ThreatStableId(threat)];
+  }
+}
 
 bool IsFeasibleThreat(const SchedulingThreat& threat,
                       const config::EcmSessionConfig& config) {
@@ -179,8 +269,10 @@ bool TryBuildEmission(
 }  // namespace
 
 struct EcmSession::Impl {
-  explicit Impl(config::EcmSessionConfig value) : active_config(std::move(value)),
-                                                   scheduling_rng(active_config.random_seed) {}
+  explicit Impl(config::EcmSessionConfig value)
+      : active_config(std::move(value)),
+        scheduling_rng(DeriveStreamSeed(active_config.random_seed, kSchedulingDomain)),
+        tie_break_rng(DeriveStreamSeed(active_config.random_seed, kTieBreakDomain)) {}
   config::EcmSessionConfig active_config{};
   bool has_successful_cycle{false};
   bool has_last_sensor_frame{false};
@@ -193,6 +285,7 @@ struct EcmSession::Impl {
   std::uint64_t next_emission_id{1U};
   double thermal_energy_j{0.0};
   std::mt19937 scheduling_rng{};
+  std::mt19937 tie_break_rng{};
 };
 
 EcmSession::EcmSession() : impl_(new Impl(config::EcmSessionConfig())) {}
@@ -240,7 +333,8 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
   EcmSensorObservationFrame candidate_last_frame = impl_->last_sensor_frame;
   std::uint32_t candidate_age = impl_->observation_age_successful_ecm_cycles;
   std::uint64_t candidate_next_emission_id = impl_->next_emission_id;
-  std::mt19937 candidate_rng = impl_->scheduling_rng;
+  std::mt19937 candidate_scheduling_rng = impl_->scheduling_rng;
+  std::mt19937 candidate_tie_break_rng = impl_->tie_break_rng;
   double candidate_thermal_energy_j = std::max(
       0.0, impl_->thermal_energy_j - impl_->active_config.cooling_power_w * input.dt_sec);
   std::vector<SchedulingThreat> threats;
@@ -285,18 +379,26 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
     }
   }
 
+  // Filter infeasible threats first: only threats that actually compete for
+  // channels participate in the tie-break, so tie_break_rng consumption equals
+  // the count of feasible candidates (input-order-independent).
+  threats.erase(std::remove_if(threats.begin(), threats.end(), [&](const SchedulingThreat& threat) {
+                  return !IsFeasibleThreat(threat, impl_->active_config);
+                }),
+                threats.end());
+  // Pre-derive a deterministic tie-break key per threat before sorting, so the
+  // comparator below is a pure function (no RNG inside it) and the draw sequence
+  // depends only on the feasible threat set, not on input order.
+  AssignTieBreakKeys(&threats, &candidate_tie_break_rng);
   std::stable_sort(threats.begin(), threats.end(), [](const SchedulingThreat& lhs,
                                                        const SchedulingThreat& rhs) {
     if (lhs.score != rhs.score) {
       return lhs.score > rhs.score;
     }
-    return std::make_pair(lhs.observation_id, lhs.truth_entity_id) <
-           std::make_pair(rhs.observation_id, rhs.truth_entity_id);
+    // Same score: order by the pre-derived pseudo-random key (pure comparison).
+    // Keys are unique per threat id, so this fully breaks ties deterministically.
+    return lhs.tie_break_key < rhs.tie_break_key;
   });
-  threats.erase(std::remove_if(threats.begin(), threats.end(), [&](const SchedulingThreat& threat) {
-                  return !IsFeasibleThreat(threat, impl_->active_config);
-                }),
-                threats.end());
 
   const std::size_t selected_count =
       std::min<std::size_t>(threats.size(), impl_->active_config.channel_count);
@@ -323,7 +425,7 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
     oneq::electromagnetics::RfSceneEmission emission;
     if (!TryBuildEmission(input, impl_->active_config, threats[index], allocated_power_w,
                           static_cast<std::uint32_t>(index), candidate_next_emission_id,
-                          &candidate_rng, &emission)) {
+                          &candidate_scheduling_rng, &emission)) {
       result.status = EcmCycleStatus::kRejectedInvalidConfig;
       result.decisions.clear();
       result.emission_frame.emissions.clear();
@@ -360,7 +462,8 @@ EcmCycleResult EcmSession::StepWithResult(const EcmCycleInput& input) {
   impl_->last_world_window_end_time_s = input.cycle_start_time_s + input.dt_sec;
   impl_->next_emission_id = candidate_next_emission_id;
   impl_->thermal_energy_j = candidate_thermal_energy_j;
-  impl_->scheduling_rng = candidate_rng;
+  impl_->scheduling_rng = candidate_scheduling_rng;
+  impl_->tie_break_rng = candidate_tie_break_rng;
   return result;
 }
 
@@ -407,9 +510,12 @@ EcmRuntimeState EcmSession::CaptureRuntimeState() const {
   state.last_world_window_end_time_s = impl_->last_world_window_end_time_s;
   state.next_emission_id = impl_->next_emission_id;
   state.thermal_energy_j = impl_->thermal_energy_j;
-  std::ostringstream stream;
-  stream << impl_->scheduling_rng;
-  state.scheduling_rng_state = stream.str();
+  std::ostringstream scheduling_stream;
+  scheduling_stream << impl_->scheduling_rng;
+  state.scheduling_rng_state = scheduling_stream.str();
+  std::ostringstream tie_break_stream;
+  tie_break_stream << impl_->tie_break_rng;
+  state.tie_break_rng_state = tie_break_stream.str();
   return state;
 }
 
@@ -420,15 +526,19 @@ bool EcmSession::RestoreRuntimeState(const EcmRuntimeState& state) {
       (state.has_world_chronology && state.last_world_window_end_time_s <= 0.0) ||
       (!state.has_world_chronology && state.last_world_cycle_index != 0U) ||
       state.thermal_energy_j < 0.0 || state.thermal_energy_j > state.active_config.thermal_capacity_j ||
-      state.next_emission_id == 0U ||
-      (!state.has_last_sensor_frame &&
-       (!state.last_sensor_frame.observations.empty() ||
-        state.observation_age_successful_ecm_cycles != 0U))) {
+      state.next_emission_id == 0U || !SnapshotInternallyConsistent(state)) {
     return false;
   }
-  std::istringstream stream(state.scheduling_rng_state);
-  std::mt19937 candidate_rng;
-  if (!(stream >> candidate_rng)) {
+  // Parse both RNG streams into local candidates before mutating impl_; on any
+  // parse failure the session is left untouched (fail-closed, no partial restore).
+  std::istringstream scheduling_stream(state.scheduling_rng_state);
+  std::mt19937 candidate_scheduling_rng;
+  if (!(scheduling_stream >> candidate_scheduling_rng)) {
+    return false;
+  }
+  std::istringstream tie_break_stream(state.tie_break_rng_state);
+  std::mt19937 candidate_tie_break_rng;
+  if (!(tie_break_stream >> candidate_tie_break_rng)) {
     return false;
   }
   impl_->active_config = state.active_config;
@@ -443,7 +553,8 @@ bool EcmSession::RestoreRuntimeState(const EcmRuntimeState& state) {
   impl_->last_world_window_end_time_s = state.last_world_window_end_time_s;
   impl_->next_emission_id = state.next_emission_id;
   impl_->thermal_energy_j = state.thermal_energy_j;
-  impl_->scheduling_rng = candidate_rng;
+  impl_->scheduling_rng = candidate_scheduling_rng;
+  impl_->tie_break_rng = candidate_tie_break_rng;
   return true;
 }
 

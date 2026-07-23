@@ -167,6 +167,7 @@ struct ONEQ_API EcmRuntimeState {
   std::uint64_t next_emission_id{1U};
   double thermal_energy_j{0.0};
   std::string scheduling_rng_state{};
+  std::string tie_break_rng_state{};
 };
 
 }  // namespace session
