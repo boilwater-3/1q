@@ -143,14 +143,15 @@ TEST(EsrRfV2DetectionTest, EmitsDeclassifiedObservationFromRfFrame) {
 
 TEST(EsrRfV2DetectionTest, SameChannelEmissionReducesSnrWithoutBooleanPenalty) {
   session::EsrCycleInput baseline_input = MakeInput();
-  baseline_input.rf_emissions.emissions.push_back(MakeEmission(1U, 10.0e9, 1.0e6));
+  baseline_input.rf_emissions.emissions.push_back(MakeEmission(1U, 10.0e9, 1.0e8));
   const InterceptDetectionOutput baseline = RunDetection(baseline_input);
   ASSERT_EQ(baseline.raw_records.size(), 1U);
 
   session::EsrCycleInput interfered_input = baseline_input;
-  interfered_input.rf_emissions.emissions.push_back(MakeEmission(2U, 10.0e9, 1.0e8));
+  interfered_input.rf_emissions.emissions.push_back(MakeEmission(2U, 10.0e9, 1.0e6));
   const InterceptDetectionOutput interfered = RunDetection(interfered_input);
-  ASSERT_EQ(interfered.raw_records.size(), 2U);
+  // 同一时频角单元只发布最强候选；较弱源进入该单元干扰账本。
+  ASSERT_EQ(interfered.raw_records.size(), 1U);
   EXPECT_LT(interfered.raw_records.front().observation.snr_db,
             baseline.raw_records.front().observation.snr_db);
 }
