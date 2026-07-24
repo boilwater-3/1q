@@ -3,7 +3,7 @@
 Status: active
 Last-reviewed: 2026-07-22
 Authority: common contract for all modules
-RF-Interference-Architecture: frozen target; implementation pending
+RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-module status in each design.md)
 
 本文合并原顶层 public API customization、session config builder、三层输出可观测性和文档治理契约。模块级文档不得与本文冲突。
 

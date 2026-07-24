@@ -3,13 +3,14 @@
 Status: active
 Last-reviewed: 2026-07-22
 Authority: current electronic_countermeasure module design
-RF-Interference-Architecture: frozen target; implementation pending
+RF-Interference-Architecture: frozen target; AR/ESR/ECM RF v2 implemented (per-module status in each design.md)
 
 本文是 `electronic_countermeasure` 的唯一设计权威。公共 RF 单位、链路、co-site 与输出分层规则见
 `docs/common/contract.md`。首期精度为参数化 RF 活动/发射调度级，不生成复数 IQ，仅实现点频、阻塞和
 扫频压制干扰；接收机链路预算、受扰状态和探测结果不属于 ECM。
-首期不实现欺骗/转发；AR 已无 legacy adapter，尚未迁移的 ESR v1 兼容路径必须与 ECM 的 RF v2
-压制发射严格隔离。SAR/EOS/SBIRS 不在当前联动范围。
+首期不实现欺骗/转发；AR 已无 legacy adapter，ESR 已迁移到 RF v2 接收。ECM 的 RF v2 压制发射与
+ESR/AR 的接收侧状态严格隔离：ECM 只发布实际 `RfEmissionFrame`，不消费接收机的 J/S、J/N、受扰状态
+或探测结果。SAR/EOS/SBIRS 不在当前联动范围。
 
 ## 1. 架构与边界
 
@@ -22,7 +23,7 @@ flowchart LR
   Scheduler --> Raw["RfEmissionFrame(N)\n实际 waveform schedule"]
   Raw --> AR["AR(N).interference"]
   Session --> Result["EcmCycleResult\n模式 / 决策原因 / 热状态"]
-  Raw --> ESR2["ESR 后续统一 RF 场景迁移"]
+  Raw --> ESR2["ESR(N).interference 当前统一 RF 接收"]
   Session -.-> Trace["Trace / Replay\n输入出处和累积调度状态"]
 ```
 
@@ -102,10 +103,10 @@ ECM schema 必须记录输入模式、完整 ESR provenance、actual waveform sc
 result。回放按 prepare/emit 事件重建 session 并严格比较发布事实，不能忽略出处、无发射周期或
 truth-assisted 标记；空补丁和被拒 patch 也必须复现原 apply result。
 
-AR 直接消费 ECM 发布的 `RfEmissionFrame`，不消费 ECM 自己计算的 J/S、J/N 或预期效果。ESR 的
-统一 RF v2 接收链仍待迁移；它的 v1 兼容输入不得转换回 AR。启用 `flight_dynamic` 时，跨域验收从连续
-飞行动力学状态导出 ECEF 运动学，并验证 ESR(N-1) → ECM(N) → AR(N) 的值类型闭环；传感器和 ECM
-仍不直接依赖飞行动力学模块。
+AR 与 ESR 都直接消费 ECM 发布的 `RfEmissionFrame`（分别进入各自的 `interference` 输入字段），不
+消费 ECM 自己计算的 J/S、J/N 或预期效果；任何一方都不把该帧回转为 AR/ESR v1 输入。启用
+`flight_dynamic` 时，跨域验收从连续飞行动力学状态导出 ECEF 运动学，并验证 ESR(N-1) → ECM(N) → AR(N)
+的值类型闭环；传感器和 ECM 仍不直接依赖飞行动力学模块。
 
 注：ECM replay schema `ecm_replay.fbs` 中有 `EcmEmissionFrame` table——这只是 FlatBuffers 容器名，不是
 C++ 类型；C++ 代码统一使用 `oneq::electromagnetics::RfEmissionFrame`(即 `RfSceneFrame` 的公共别名)。
@@ -113,8 +114,8 @@ replay 比较以字节级比较(`EncodeEcmCycleResult(actual) != event.payload_b
 不重新执行 `TryValidateRfSceneFrame`，篡改 trace 会导致字节比较自然触发 divergence，无需二次校验。
 
 现有 replay、cross-domain 和 performance tests 只证明单阶段原型接线、基本 provenance 字段与 P95；尚不能
-证明 fresh-frame cross-world-cycle 绑定、模式切换失效、参数化 waveform、两阶段提交、完整 snapshot/replay 往返或统一
-RF scene 已实现。注:快照恢复侧的嵌套 observation / 重复 ID / 标志一致性校验已实现(见 §3 证据);
+证明 ECM 侧的 fresh-frame cross-world-cycle 绑定、模式切换失效、参数化 waveform 或完整 ECM snapshot/replay
+schema 端到端往返。注:快照恢复侧的嵌套 observation / 重复 ID / 标志一致性校验已实现(见 §3 证据);
 此处 "完整 snapshot/replay 往返" 仍指 replay schema 端到端往返(EcmRuntimeState 当前不进 replay schema),
 而非恢复侧校验深度。
 

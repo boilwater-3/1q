@@ -573,7 +573,8 @@ ECCM 只能改变下一次成功发射/接收的实际硬件状态：频率捷�
 
 `ar_rf_session_test`、`ar_detection_cell_resolver_test`、`ar_signal_pipeline_test` 和 AR replay tests 覆盖
 RF scene 校验、检测单元时频重叠、接收饱和、干扰观测门控与单周期 replay。跨模块场景和性能测试证明
-RF v2 frame 能由 ECM 直接赋给 AR，ESR 保持独立的 v1 迁移适配直到其接收链重构完成。
+RF v2 frame 能由 ECM 直接赋给 AR 与 ESR：两者都通过各自的 `interference` 字段消费 ECM 发布的
+`RfEmissionFrame`，不经过 v1 迁移适配。
 
 AR 只有一个频率来源：当前有效的 `transmitter.frequency_hz`。探测、传播、天线波长和物理 RCS
 全部消费该值；频率捷变更新它后，四条物理路径在同一周期使用同一频率。配置必须有限且大于 0，

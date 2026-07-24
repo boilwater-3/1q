@@ -196,7 +196,7 @@ flowchart TB
   Association --> Emitter["Emitter output\n系统估计假设"]
 ```
 
-### 1.6 工程 RF 接收角色与统一场景
+### 1.6 工程 RF 接收角色与意图中立输入
 
 ESR 是纯接收设备，不拥有其它模块，也不要求调用方运行额外的 RF 状态机。调用方把当前周期的实际发射
 填入 `RfEmissionFrame`，ESR 用一个不可变 receiver operating state 处理帧内全部发射。一个 frame 可以
@@ -420,9 +420,11 @@ pipeline/controller 的 `CaptureRuntimeState()` / `RestoreRuntimeState()` 只描
 - validation rejection 在进入 pipeline 前发生，`EsrCycleResult.status=kRejected` 且不返回历史输出。
 - 当前唯一的 pipeline 自报非执行状态是设备关机；它不是 output-contract failure，也不触发
   运行态回滚。新增其他 pipeline failure 必须使用显式内部结果状态并定义回滚边界。
-- 统一 RF scene 迁移必须先扩展 `InterceptPipelineResult` 或等价内部结果结构：非法 scene/link 是未执行的
-  结构化失败并遵守接收侧回滚；`receiver_saturated` 是已执行的物理 impairment，不得复用失败状态或
-  伪造 observation。两者必须进入 snapshot/replay 和 public cycle result 的明确映射。
+- 统一 RF scene 是当前输入合同（非待迁移项）：`EsrCycleInput` 的 `RfEmissionFrame` 直接承载本周期
+  全部实际发射，`InterceptPipelineResult` 已承载结构化执行状态，`receiver_saturated` 已作为已执行物理
+  impairment 进入 snapshot/replay 与 public cycle result。
+- 未来若新增其他 pipeline-failure 原因，必须先扩展 `InterceptPipelineResult` 或等价内部结果结构以定义
+  显式回滚边界；非法 scene/link 仍属未执行的结构化失败，饱和仍属已执行 impairment，二者不得混用。
 
 验证入口：
 
