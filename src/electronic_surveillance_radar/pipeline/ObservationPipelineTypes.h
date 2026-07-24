@@ -67,6 +67,7 @@ struct ClusterSummary {
   float spectral_peak_sparsity{0.0f};               /**< 谱峰稀疏度，范围 [0, 1] */
   float spectral_bandwidth_occupancy{0.0f};         /**< 带宽占用度，范围 [0, 1] */
   std::string spectral_class_label{};               /**< 频谱分类标签 */
+  session::EsrWaveformClass waveform_class{session::EsrWaveformClass::kPulse}; /**< 波形类别 */
 };
 
 }  // namespace pipeline

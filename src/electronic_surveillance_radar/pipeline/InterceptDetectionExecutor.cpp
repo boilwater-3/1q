@@ -131,6 +131,22 @@ double ResolveCenterFrequencyHz(const oneq::electromagnetics::RfIncidentLinkResu
   return waveform.center_frequency_hz + link.doppler_shift_hz;
 }
 
+session::EsrWaveformClass MapWaveformKindToClass(
+    oneq::electromagnetics::RfSceneWaveformKind kind) {
+  switch (kind) {
+    case oneq::electromagnetics::RfSceneWaveformKind::kPulseTrain:
+      return session::EsrWaveformClass::kPulse;
+    case oneq::electromagnetics::RfSceneWaveformKind::kContinuous:
+      return session::EsrWaveformClass::kContinuous;
+    case oneq::electromagnetics::RfSceneWaveformKind::kLinearSweep:
+      return session::EsrWaveformClass::kSweep;
+    case oneq::electromagnetics::RfSceneWaveformKind::kBandLimitedNoise:
+      return session::EsrWaveformClass::kNoise;
+    default:
+      return session::EsrWaveformClass::kPulse;
+  }
+}
+
 double ResolveChannelPowerW(const oneq::electromagnetics::RfIncidentLinkResult& source,
                             double channel_center_hz, double channel_bandwidth_hz) {
   if (!std::isfinite(channel_center_hz) || !std::isfinite(channel_bandwidth_hz) ||
@@ -411,6 +427,7 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     record.observation.amplitude_db = ToDb(signal.received_power_w);
     record.observation.snr_db = snr_db;
     record.observation.quality = ClassifyObservationQuality(static_cast<float>(snr_db));
+    record.observation.waveform_class = MapWaveformKindToClass(signal.emission_waveform.kind);
     output->raw_records.push_back(record);
   }
   return true;

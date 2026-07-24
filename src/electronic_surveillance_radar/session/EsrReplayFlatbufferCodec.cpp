@@ -237,6 +237,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
     builder.add_bandwidth_std_hz(o.bandwidth_std_hz);
     builder.add_pri_std_s(o.pri_std_s);
     builder.add_pulse_width_std_s(o.pulse_width_std_s);
+    builder.add_waveform_class(static_cast<int32_t>(o.waveform_class));
     obs_vec.push_back(builder.Finish());
   }
   esr::replay::ObservationOutputBuilder observation_builder(fbb);
@@ -276,6 +277,7 @@ flatbuffers::Offset<esr::replay::EsrOutputFrame> CreateEsrOutputFrameTable(
     builder.add_bandwidth_std_hz(h.bandwidth_std_hz);
     builder.add_pri_std_s(h.pri_std_s);
     builder.add_pulse_width_std_s(h.pulse_width_std_s);
+    builder.add_waveform_class(static_cast<int32_t>(h.waveform_class));
     hyp_vec.push_back(builder.Finish());
   }
   auto em_out = esr::replay::CreateEmitterOutput(fbb, fbb.CreateVector(hyp_vec));
@@ -314,6 +316,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
         rec.amplitude_db = obs->amplitude_db();
         rec.snr_db = obs->snr_db();
         rec.quality = static_cast<session::EsrObservationQuality>(obs->quality());
+        rec.waveform_class = static_cast<session::EsrWaveformClass>(obs->waveform_class());
         out->observation_output.observations.push_back(rec);
       }
     }
@@ -339,6 +342,7 @@ void PopulateOutputFrame(const esr::replay::EsrOutputFrame* fb, session::EsrOutp
         hyp.pulse_width_std_s = h->pulse_width_std_s();
         hyp.confidence = h->confidence();
         hyp.last_seen_cycle = h->last_seen_cycle();
+        hyp.waveform_class = static_cast<session::EsrWaveformClass>(h->waveform_class());
         if (h->candidate_classes()) {
           for (const auto* c : *h->candidate_classes()) {
             if (c) {

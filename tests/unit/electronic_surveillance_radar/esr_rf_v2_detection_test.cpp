@@ -54,6 +54,35 @@ oneq::electromagnetics::RfSceneEmission MakePulseTrainEmission(std::uint64_t emi
   return emission;
 }
 
+oneq::electromagnetics::RfSceneEmission MakeContinuousEmission(std::uint64_t emission_id,
+                                                                double center_hz, double power_w) {
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = 10U + emission_id;
+  emission.identity.equipment_id = 20U + emission_id;
+  emission.identity.emission_id = emission_id;
+  emission.position_ecef_m.x_m = 6378137.0;
+  emission.position_ecef_m.y_m = 1000.0;
+  emission.antenna.boresight_ecef.y = -1.0;
+  EXPECT_TRUE(oneq::electromagnetics::TryCreateRfContinuousWaveform(
+      10.0, 1.0, center_hz, 1.0e6, power_w, &emission.waveform));
+  return emission;
+}
+
+oneq::electromagnetics::RfSceneEmission MakeSweepEmission(std::uint64_t emission_id,
+                                                           double start_hz, double stop_hz,
+                                                           double power_w) {
+  oneq::electromagnetics::RfSceneEmission emission;
+  emission.identity.platform_id = 10U + emission_id;
+  emission.identity.equipment_id = 20U + emission_id;
+  emission.identity.emission_id = emission_id;
+  emission.position_ecef_m.x_m = 6378137.0;
+  emission.position_ecef_m.y_m = 1000.0;
+  emission.antenna.boresight_ecef.y = -1.0;
+  EXPECT_TRUE(oneq::electromagnetics::TryCreateRfLinearSweepWaveform(
+      10.0, 1.0, start_hz, stop_hz, 1.0e6, power_w, 1.0, &emission.waveform));
+  return emission;
+}
+
 InterceptDetectionOutput RunDetection(const session::EsrCycleInput& input,
                                       float maximum_linear_input_power_w = 10.0f,
                                       std::uint64_t completed_receive_cycles = 0U,
@@ -239,6 +268,43 @@ TEST(EsrRfV2DetectionTest, MeasurementNoiseIsOrderInvariant) {
     EXPECT_DOUBLE_EQ(left.pri_s, right.pri_s);
     EXPECT_DOUBLE_EQ(left.pulse_width_s, right.pulse_width_s);
   }
+}
+
+TEST(EsrRfV2DetectionTest, WaveformClassPropagatesToObservation) {
+  // 四种波形类别分别构造 emission，驱动检测，断言 observation.waveform_class 映射正确。
+  session::EsrCycleInput pulse_input = MakeInput();
+  pulse_input.rf_emissions.emissions.push_back(MakePulseTrainEmission(1U, 10.0e9, 1.0e6));
+  session::EsrCycleInput continuous_input = MakeInput();
+  continuous_input.rf_emissions.emissions.push_back(MakeContinuousEmission(2U, 10.0e9, 1.0e6));
+  session::EsrCycleInput sweep_input = MakeInput();
+  sweep_input.rf_emissions.emissions.push_back(MakeSweepEmission(3U, 9.95e9, 10.05e9, 1.0e6));
+  session::EsrCycleInput noise_input = MakeInput();
+  noise_input.rf_emissions.emissions.push_back(MakeEmission(4U, 10.0e9, 1.0e6));
+
+  const InterceptDetectionOutput pulse_output = RunDetection(pulse_input);
+  const InterceptDetectionOutput continuous_output = RunDetection(continuous_input);
+  const InterceptDetectionOutput sweep_output = RunDetection(sweep_input);
+  const InterceptDetectionOutput noise_output = RunDetection(noise_input);
+
+  ASSERT_EQ(pulse_output.raw_records.size(), 1U);
+  ASSERT_EQ(continuous_output.raw_records.size(), 1U);
+  ASSERT_EQ(sweep_output.raw_records.size(), 1U);
+  ASSERT_EQ(noise_output.raw_records.size(), 1U);
+
+  EXPECT_EQ(pulse_output.raw_records.front().observation.waveform_class,
+            session::EsrWaveformClass::kPulse);
+  EXPECT_EQ(continuous_output.raw_records.front().observation.waveform_class,
+            session::EsrWaveformClass::kContinuous);
+  EXPECT_EQ(sweep_output.raw_records.front().observation.waveform_class,
+            session::EsrWaveformClass::kSweep);
+  EXPECT_EQ(noise_output.raw_records.front().observation.waveform_class,
+            session::EsrWaveformClass::kNoise);
+
+  // 非脉冲类别不应有物理 PRI/PW；字段为 0。
+  EXPECT_DOUBLE_EQ(continuous_output.raw_records.front().observation.pri_s, 0.0);
+  EXPECT_DOUBLE_EQ(continuous_output.raw_records.front().observation.pulse_width_s, 0.0);
+  EXPECT_DOUBLE_EQ(sweep_output.raw_records.front().observation.pri_s, 0.0);
+  EXPECT_DOUBLE_EQ(sweep_output.raw_records.front().observation.pulse_width_s, 0.0);
 }
 
 }  // namespace

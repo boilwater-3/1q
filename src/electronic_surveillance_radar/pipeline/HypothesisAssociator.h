@@ -28,6 +28,7 @@ class HypothesisAssociator final {
     std::vector<std::string> candidate_classes{};
     session::EsrEmitterMode mode{session::EsrEmitterMode::kUnknown};
     session::EsrThreatLevel threat_level{session::EsrThreatLevel::kLow};
+    session::EsrWaveformClass waveform_class{session::EsrWaveformClass::kPulse};
     float bearing_az_deg{0.0f};
     float bearing_el_deg{0.0f};
     float bearing_std_deg{8.0f};

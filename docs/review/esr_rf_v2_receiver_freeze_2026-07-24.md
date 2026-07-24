@@ -168,8 +168,8 @@ flight_dynamic 生产代码不在本轮范围。
 | F8 | ✅ done | `1617a45c` | 删 `ConvertRfV2ForLegacyEsr` + 死赋值；gated 测试改直传 RF 帧。 |
 | F1 | ✅ done | `94e803e9` | `interference`→`rf_emissions` 全 ESR 闭包改名（含 `.fbs` wire key）。 |
 | F7 | ✅ done | `cf26935a` | 删 batch 死指标 `truth_match_rate`/`jammed`；修 `scenarios.csv` 列错位。 |
-| F2 | 🔜 next | — | 测量模型替代真值复制。F3/F5 前置。 |
-| F3 | pending | — | pulse/energy 观测拆分；依赖 F2。 |
+| F2 | ✅ done | `e13eff23` | 测量模型替代真值复制。4 个 AngleErrorModel 风格头文件 + RNG domain 常量 + fill 块重写。 |
+| F3 | ✅ done | — | pulse/energy waveform class 标签 + class-aware 聚类分流 + kContinuousIllumination mode。 |
 | F4 | pending | — | O(N²)→分辨单元账本。 |
 | F5 | pending | — | linear-sweep 瞬时频率驻留。 |
 

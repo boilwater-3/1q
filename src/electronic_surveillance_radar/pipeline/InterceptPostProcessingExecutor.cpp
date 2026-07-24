@@ -201,6 +201,7 @@ ClusterSummary BuildClusterSummary(
   for (std::size_t dim = 0; dim < kObservationFeatureDimension; ++dim) {
     summary.centroid_feature.values[dim] *= inv_count;
   }
+  summary.waveform_class = records[representative].observation.waveform_class;
   const double inv_count_d = static_cast<double>(inv_count);
   summary.mean_snr_db = static_cast<float>(mean_snr_db * inv_count_d);
   summary.mean_az_deg = static_cast<float>(mean_az_deg * inv_count_d);
@@ -251,19 +252,55 @@ extension::InterceptPipelineResult InterceptPostProcessingExecutor::Execute(
     features.push_back(ObservationFeatureEncoder::Encode(records[i].observation, feature_scales));
   }
 
-  // Clustering
-  KdTreeClusterResult cluster_result = clusterer.Cluster(features, config.cluster);
-  for (std::size_t i = 0; i < cluster_result.noise_indices.size(); ++i) {
-    std::vector<std::size_t> singleton(1U, cluster_result.noise_indices[i]);
-    cluster_result.clusters.push_back(singleton);
+  // Clustering — partition features by waveform class so that observations of
+  // disjoint physical classes (pulse vs continuous/sweep/noise) never land in
+  // the same cluster. KdTreeClusterer stays class-agnostic; the partition lives
+  // here. Each bucket clusters independently, then local bucket indices are
+  // remapped back to global record indices before merging into a single vector.
+  std::vector<std::vector<std::size_t>> global_clusters;
+  std::vector<std::size_t> class_order;
+  class_order.push_back(static_cast<std::size_t>(session::EsrWaveformClass::kPulse));
+  class_order.push_back(static_cast<std::size_t>(session::EsrWaveformClass::kContinuous));
+  class_order.push_back(static_cast<std::size_t>(session::EsrWaveformClass::kSweep));
+  class_order.push_back(static_cast<std::size_t>(session::EsrWaveformClass::kNoise));
+  for (std::size_t class_value : class_order) {
+    const auto current_class = static_cast<session::EsrWaveformClass>(class_value);
+    std::vector<ObservationFeatureVector> bucket_features;
+    std::vector<std::size_t> local_to_global;
+    bucket_features.reserve(records.size());
+    local_to_global.reserve(records.size());
+    for (std::size_t i = 0U; i < records.size(); ++i) {
+      if (records[i].observation.waveform_class == current_class) {
+        bucket_features.push_back(features[i]);
+        local_to_global.push_back(i);
+      }
+    }
+    if (bucket_features.empty()) {
+      continue;
+    }
+    KdTreeClusterResult bucket_result = clusterer.Cluster(bucket_features, config.cluster);
+    for (std::size_t i = 0U; i < bucket_result.clusters.size(); ++i) {
+      std::vector<std::size_t> global_cluster;
+      global_cluster.reserve(bucket_result.clusters[i].size());
+      for (std::size_t j = 0U; j < bucket_result.clusters[i].size(); ++j) {
+        global_cluster.push_back(local_to_global[bucket_result.clusters[i][j]]);
+      }
+      global_clusters.push_back(std::move(global_cluster));
+    }
+    for (std::size_t i = 0U; i < bucket_result.noise_indices.size(); ++i) {
+      std::vector<std::size_t> singleton(1U, local_to_global[bucket_result.noise_indices[i]]);
+      global_clusters.push_back(std::move(singleton));
+    }
   }
-  std::sort(cluster_result.clusters.begin(), cluster_result.clusters.end(),
+  std::sort(global_clusters.begin(), global_clusters.end(),
             [](const std::vector<std::size_t>& lhs, const std::vector<std::size_t>& rhs) {
               if (lhs.empty() || rhs.empty()) {
                 return lhs.size() < rhs.size();
               }
               return lhs.front() < rhs.front();
             });
+  KdTreeClusterResult cluster_result;
+  cluster_result.clusters = std::move(global_clusters);
   result.observation_output.cluster_count = cluster_result.clusters.size();
 
   // Cluster summaries

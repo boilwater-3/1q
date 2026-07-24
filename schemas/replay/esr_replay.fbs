@@ -122,6 +122,7 @@ table EmitterObservation {
   bandwidth_std_hz: double;
   pri_std_s:      double;
   pulse_width_std_s: double;
+  waveform_class: int32 = 0;
 }
 
 table ObservationOutput {
@@ -151,6 +152,7 @@ table EmitterHypothesis {
   bandwidth_std_hz: double;
   pri_std_s: double;
   pulse_width_std_s: double;
+  waveform_class: int32 = 0;
 }
 
 table EmitterOutput {

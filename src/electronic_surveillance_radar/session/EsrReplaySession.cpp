@@ -33,7 +33,7 @@ bool EmitterObservationEqual(const session::EmitterObservation& left,
          left.pri_std_s == right.pri_std_s &&
          left.pulse_width_std_s == right.pulse_width_std_s &&
          left.amplitude_db == right.amplitude_db && left.snr_db == right.snr_db &&
-         left.quality == right.quality;
+         left.quality == right.quality && left.waveform_class == right.waveform_class;
 }
 
 bool EmitterHypothesisEqual(const session::EmitterHypothesis& left,
@@ -51,6 +51,7 @@ bool EmitterHypothesisEqual(const session::EmitterHypothesis& left,
       left.pri_std_s != right.pri_std_s ||
       left.pulse_width_std_s != right.pulse_width_std_s ||
       left.last_seen_cycle != right.last_seen_cycle ||
+      left.waveform_class != right.waveform_class ||
       left.candidate_classes.size() != right.candidate_classes.size()) {
     return false;
   }

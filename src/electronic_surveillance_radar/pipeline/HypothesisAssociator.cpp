@@ -24,6 +24,18 @@ namespace {
  * @return 工作模式。
  */
 session::EsrEmitterMode InferModeFromCluster(const ClusterSummary& summary) {
+  // energy 类不经过 pri/pw 阈值：连续波照射 / 扫频搜索 / 噪声非可跟踪。
+  // 仅 pulse 类保留 pri/pw 阈值推断 search/tracking/guidance。
+  switch (summary.waveform_class) {
+    case session::EsrWaveformClass::kContinuous:
+      return session::EsrEmitterMode::kContinuousIllumination;
+    case session::EsrWaveformClass::kSweep:
+      return session::EsrEmitterMode::kSearch;
+    case session::EsrWaveformClass::kNoise:
+      return session::EsrEmitterMode::kUnknown;
+    case session::EsrWaveformClass::kPulse:
+      break;
+  }
   const bool has_valid_pri = std::isfinite(summary.mean_pri_s) && summary.mean_pri_s > 0.0;
   if (summary.mean_pulse_width_s < 1.5e-6 && (!has_valid_pri || summary.mean_pri_s >= 1.5e-4)) {
     return session::EsrEmitterMode::kSearch;
@@ -44,7 +56,8 @@ session::EsrEmitterMode InferModeFromCluster(const ClusterSummary& summary) {
  * @return 威胁等级。
  */
 session::EsrThreatLevel InferThreatFromCluster(session::EsrEmitterMode mode, float mean_snr_db) {
-  if (mode == session::EsrEmitterMode::kGuidance || mean_snr_db >= 20.0f) {
+  if (mode == session::EsrEmitterMode::kGuidance ||
+      mode == session::EsrEmitterMode::kContinuousIllumination || mean_snr_db >= 20.0f) {
     return session::EsrThreatLevel::kHigh;
   }
   if (mode == session::EsrEmitterMode::kTracking || mean_snr_db >= 10.0f) {
@@ -267,6 +280,7 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     }
     track.mode = InferModeFromCluster(summary);
     track.threat_level = InferThreatFromCluster(track.mode, summary.mean_snr_db);
+    track.waveform_class = summary.waveform_class;
     track.candidate_classes = BuildCandidateClasses(summary.mean_rf_hz, summary.spectral_class_label);
     track.bearing_az_deg =
         Blend(track.bearing_az_deg, summary.mean_az_deg, config_.confidence_alpha);
@@ -315,6 +329,7 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     track.feature = clusters[i].centroid_feature;
     track.mode = InferModeFromCluster(clusters[i]);
     track.threat_level = InferThreatFromCluster(track.mode, clusters[i].mean_snr_db);
+    track.waveform_class = clusters[i].waveform_class;
     track.candidate_classes =
         BuildCandidateClasses(clusters[i].mean_rf_hz, clusters[i].spectral_class_label);
     track.bearing_az_deg = clusters[i].mean_az_deg;
@@ -384,6 +399,7 @@ session::EmitterHypothesisList HypothesisAssociator::Update(
     hypothesis.pulse_width_std_s = tracks_[i].pulse_width_std_s;
     hypothesis.confidence = tracks_[i].confidence;
     hypothesis.last_seen_cycle = tracks_[i].last_seen_cycle;
+    hypothesis.waveform_class = tracks_[i].waveform_class;
     hypotheses.push_back(hypothesis);
   }
   return hypotheses;
