@@ -159,3 +159,50 @@ flight_dynamic 生产代码不在本轮范围。
   校验时间窗口、拒绝重复 identity）。本轮无证据，defer。
 - **F2 收窄预案**：若 PRI/PW 无可标定估计器，先冻结 RF + 带宽测量模型，PRI/PW 保持真值复制并以
   `known_limit` 标注，留待后续证据。
+
+## 7. Stage B 进度（2026-07-24 更新）
+
+| 项 | 状态 | 提交 | 说明 |
+|---|---|---|---|
+| F6 | ✅ done | `ee2c2a54` | ECEF 可定位性前置校验；新增 `kUnlocatablePlatformEcef`。 |
+| F8 | ✅ done | `1617a45c` | 删 `ConvertRfV2ForLegacyEsr` + 死赋值；gated 测试改直传 RF 帧。 |
+| F1 | ✅ done | `94e803e9` | `interference`→`rf_emissions` 全 ESR 闭包改名（含 `.fbs` wire key）。 |
+| F7 | ✅ done | `cf26935a` | 删 batch 死指标 `truth_match_rate`/`jammed`；修 `scenarios.csv` 列错位。 |
+| F2 | 🔜 next | — | 测量模型替代真值复制。F3/F5 前置。 |
+| F3 | pending | — | pulse/energy 观测拆分；依赖 F2。 |
+| F4 | pending | — | O(N²)→分辨单元账本。 |
+| F5 | pending | — | linear-sweep 瞬时频率驻留。 |
+
+## 8. Stage B 实施中发现的新 follow-up（未在原冻结矩阵）
+
+下列两项在 F1/F7 实施中由数据暴露，超出已冻结项范围，记录为独立排查项：
+
+- **FU-1：sequence 场景既有结构化检查失败**。F7 收口时对比 F7 前后 `checks.csv` 字节一致，确认
+  F7 未引入失败；但发现 5 个 sequence 场景的结构化检查既有失败：
+  - `esr_seq_invalid_input_recovery`：`expected_nonexecuted_cycles`、`failure_marker_count`、
+    `hypothesis_identity_continuity`。
+  - `esr_seq_power_cycle`、`esr_seq_two_emitter_angular_crossing`：`hypothesis_identity_continuity`。
+  - `esr_seq_dense_emitters_with_silence`、`esr_seq_mode_switch`：同类 recovery/replay 检查。
+  
+  这些失败与去真值化/RF 指标无关，属于 sequence recovery 逻辑或检查期望值本身，需独立排查。
+  注意：batch 进程 `exit code` 仍为非零（`total_err>0 || checks.FailureCount()>0`），但这些失败在
+  本轮和上一轮均稳定存在、未被任何 commit 触发变化。
+
+- **FU-2：sweep 场景几何在稳态不产生观测**。F7 数据分析发现，所有 sweep 场景（r010–r100km /
+  fc02–fc18 / occ0.10–0.95）在全部 40 周期内 `raw_observation_count`、`hypothesis_count`、
+  `receiver_saturated` 恒为 0——ESR 完成执行却从不检测到辐射源。这是场景几何（辐射源与扫描波束
+  时空关系）问题，不是接收机缺陷。直接后果：距离/占用率对观测/估计的趋势软断言无从建立
+  （F7 据此删除了两个空趋势块）。要验证 F2 测量模型的真实误差行为，需要先让 sweep 场景在稳态产生
+  可分辨观测；这会影响 F2 的验证策略（见 §9）。
+
+## 9. F2 验证策略前提（由 FU-2 引出）
+
+F2 的验收门要求"测量误差随 SNR/驻留/波束宽度单调变化"——但当前 sweep 场景在稳态不产生任何观测，
+无法在 batch 层验证该单调性。因此 F2 的验证分两层：
+
+- **单元/特征测试层**：直接构造固定 SNR/驻留/脉冲数/带宽/波束宽度的 incident link，断言观测中心 ≠
+  truth 中心、误差落在发布 σ 内、随 SNR 单调下降。这是 F2 的主验证路径，不依赖 batch 场景几何。
+- **batch 层**：F2 落地后 batch 仍以执行状态、replay、sequence 结构化恢复检查为主；观测/估计趋势
+  软断言待 FU-2 解决后再恢复（与 F7 删除趋势块的注释一致）。
+
+若 FU-2 在 F2 之前解决（场景几何调整为稳态可观测），则 F2 可直接在 batch 层补回观测/SNR 趋势软断言。
