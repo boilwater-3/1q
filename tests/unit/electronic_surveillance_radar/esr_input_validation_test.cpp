@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <limits>
 
 #include "1q/electromagnetics/RfScene.h"
@@ -40,6 +41,22 @@ TEST(EsrInputValidationTest, RejectsMissingReceiverIdentityOrEcefKinematics) {
   input.platform_entity_id = 0U;
   input.has_platform_ecef_kinematics = false;
   EXPECT_TRUE(HasValidationError(ValidateEsrCycleInput(input)));
+}
+
+TEST(EsrInputValidationTest, RejectsUnlocatablePlatformEcef) {
+  // 地心点 (0,0,0) 是 finite 的，能通过既有 finite 校验，但 TryEcefToLla 因范数过小而失败；
+  // 此类输入必须在输入校验即被拒绝，而不是延迟到 pipeline 运行期被伪装成 RF-link 拒绝。
+  EsrCycleInput input = MakeValidInput();
+  input.platform_position_ecef_m.x_m = 0.0;
+  input.platform_position_ecef_m.y_m = 0.0;
+  input.platform_position_ecef_m.z_m = 0.0;
+  const ValidationIssueList issues = ValidateEsrCycleInput(input);
+  ASSERT_TRUE(HasValidationError(issues));
+  const auto it = std::find_if(
+      issues.begin(), issues.end(),
+      [](const ValidationIssue& issue) { return issue.code == ValidationCode::kUnlocatablePlatformEcef; });
+  ASSERT_NE(it, issues.end());
+  EXPECT_EQ(it->location.kind, ValidationLocationKind::kPlatform);
 }
 
 TEST(EsrInputValidationTest, RejectsNonFiniteWorldTimeAndEnvironment) {

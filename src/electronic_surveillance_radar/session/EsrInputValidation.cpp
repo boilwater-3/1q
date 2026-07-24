@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <string>
 
+#include "1q/coordinate/position_transform.h"
+#include "1q/coordinate/types.h"
 #include "common/validation/ValidationUtils.h"
 
 namespace electronic_surveillance_radar {
@@ -42,6 +44,18 @@ void ValidatePlatform(const EsrCycleInput& input, ValidationIssueList* issues) {
         ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
         "platform_entity_id/platform_ecef_kinematics",
         "RF reception requires a non-zero platform identity and finite ECEF kinematics"));
+    return;
+  }
+  // 可定位性前置校验：接收链后续要把平台 ECEF 转 WGS84 LLA / ENU 求 AoA。一个 finite 但
+  // 不可定位的点（如地心）会通过上面的 finite 校验，却在 pipeline 运行期失败并被伪装成
+  // RF-link 拒绝。这里用与运行期相同的 TryEcefToLla 提前判定，让非法 ECEF 在输入校验即拒。
+  oneq::coordinate::LlaPositionDegM platform_lla;
+  if (!oneq::coordinate::TryEcefToLla(input.platform_position_ecef_m, &platform_lla)) {
+    issues->push_back(MakeIssue(
+        ValidationSeverity::kError, ValidationCode::kUnlocatablePlatformEcef,
+        ValidationLocationKind::kPlatform, static_cast<std::size_t>(-1),
+        "platform_position_ecef_m",
+        "platform ECEF must be geolocatable (convertible to a valid WGS84 LLA)"));
   }
 }
 

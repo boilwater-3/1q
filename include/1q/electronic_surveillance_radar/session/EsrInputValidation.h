@@ -41,7 +41,8 @@ enum class ONEQ_API ValidationCode {
   kNonFiniteEmitterNumericField,  /**< 辐射源存在非有限数值字段 */
   kInvalidEnvironmentObservation, /**< 环境观测字段非法 */
   kInvalidInterferenceInput,      /**< 干扰模式与载荷不一致或工程发射事实非法 */
-  kInvalidRfEmissionFrame         /**< RF v2 发射帧非法或与周期窗口不匹配 */
+  kInvalidRfEmissionFrame,        /**< RF v2 发射帧非法或与周期窗口不匹配 */
+  kUnlocatablePlatformEcef        /**< 接收平台 ECEF 不可转换为合法 WGS84 LLA */
 };
 
 /**
