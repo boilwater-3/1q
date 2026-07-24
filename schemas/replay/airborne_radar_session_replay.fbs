@@ -181,14 +181,6 @@ table AtmosphericPhysicsConfig {
   relative_humidity:float;
 }
 
-table AtmosphericDerivedContext {
-  has_simulation_unix_seconds:bool;
-  simulation_unix_seconds:long;
-  solar_flux_f107a:float;
-  solar_flux_f107:float;
-  geomagnetic_ap:float;
-}
-
 table VegetationScatterPhysicsConfig {
   cover_profile:int;
   enable_physical_model:bool;
@@ -196,7 +188,6 @@ table VegetationScatterPhysicsConfig {
 
 table EnvironmentScenarioConfig {
   atmospheric_physics:AtmosphericPhysicsConfig;
-  atmospheric_context:AtmosphericDerivedContext;
   vegetation_scatter_physics:VegetationScatterPhysicsConfig;
 }
 

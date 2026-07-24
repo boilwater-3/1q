@@ -21,20 +21,6 @@ TEST(PropagationModelTest, NegativeTerrainReflectionYieldsNetGainPassesThroughUn
   EXPECT_FLOAT_EQ(result.clutter_power_db, 3.0f);
 }
 
-TEST(PropagationModelTest, OptionalAtmosphericPhysicsAddsExtraLossWhenEnabled) {
-  session::EnvironmentSceneState baseline_scene;
-
-  session::EnvironmentSceneState physics_scene = baseline_scene;
-  physics_scene.atmospheric_physics.enable_physical_model = true;
-  physics_scene.atmospheric_physics.relative_humidity = 0.75f;
-
-  environment::PropagationModel propagation_model;
-  const environment::PropagationResult baseline_result = propagation_model.Evaluate(baseline_scene);
-  const environment::PropagationResult physics_result = propagation_model.Evaluate(physics_scene);
-
-  EXPECT_GT(physics_result.propagation_loss_db, baseline_result.propagation_loss_db);
-}
-
 TEST(PropagationModelTest, OptionalVegetationScatterPhysicsRaisesClutterWhenEnabled) {
   session::EnvironmentSceneState baseline_scene;
 

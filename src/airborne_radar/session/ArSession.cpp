@@ -110,7 +110,6 @@ session::EnvironmentSceneState BuildSceneStateFromCompleteInput(
     const ArCompleteCycleInput& input) {
   session::EnvironmentSceneState scene_state;
   scene_state.atmospheric_physics = input.atmospheric_observation;
-  scene_state.atmospheric_context = input.atmospheric_context;
   scene_state.vegetation_scatter_physics = input.surface_observation;
   return scene_state;
 }
@@ -463,7 +462,6 @@ struct ArSession::Impl {
     complete_input.rf_scene.emissions.push_back(prepared.emission);
     complete_input.targets = local_targets;
     complete_input.atmospheric_observation = input.environment.atmospheric_observation;
-    complete_input.atmospheric_context = input.environment.atmospheric_context;
     complete_input.surface_observation = input.environment.surface_observation;
     const ArCompleteCycleResult completed =
         CompleteRfCycle(prepared.token, complete_input);

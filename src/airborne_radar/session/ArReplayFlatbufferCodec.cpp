@@ -33,13 +33,6 @@ flatbuffers::Offset<fb::AtmosphericObservation> EncodeCycleAtmosphericObservatio
                                           value.temperature_k, value.relative_humidity);
 }
 
-flatbuffers::Offset<fb::AtmosphericContext> EncodeCycleAtmosphericContext(
-    flatbuffers::FlatBufferBuilder* builder, const config::AtmosphericDerivedContext& value) {
-  return fb::CreateAtmosphericContext(*builder, value.has_simulation_unix_seconds,
-                                      value.simulation_unix_seconds, value.solar_flux_f107a,
-                                      value.solar_flux_f107, value.geomagnetic_ap);
-}
-
 flatbuffers::Offset<fb::SurfaceObservation> EncodeCycleSurfaceObservation(
     flatbuffers::FlatBufferBuilder* builder, const config::VegetationScatterPhysicsConfig& value) {
   return fb::CreateSurfaceObservation(*builder, static_cast<int>(value.cover_profile),
@@ -54,19 +47,6 @@ config::AtmosphericPhysicsConfig DecodeCycleAtmosphericObservation(
     result.pressure_hpa = value->pressure_hpa();
     result.temperature_k = value->temperature_k();
     result.relative_humidity = value->relative_humidity();
-  }
-  return result;
-}
-
-config::AtmosphericDerivedContext DecodeCycleAtmosphericContext(
-    const fb::AtmosphericContext* value) {
-  config::AtmosphericDerivedContext result;
-  if (value != nullptr) {
-    result.has_simulation_unix_seconds = value->has_simulation_unix_seconds();
-    result.simulation_unix_seconds = value->simulation_unix_seconds();
-    result.solar_flux_f107a = value->solar_flux_f107a();
-    result.solar_flux_f107 = value->solar_flux_f107();
-    result.geomagnetic_ap = value->geomagnetic_ap();
   }
   return result;
 }
@@ -573,13 +553,6 @@ flatbuffers::Offset<session_fb::AtmosphericPhysicsConfig> EncodeSessionAtmospher
                                                     value.relative_humidity);
 }
 
-flatbuffers::Offset<session_fb::AtmosphericDerivedContext> EncodeSessionAtmosphericDerivedContext(
-    flatbuffers::FlatBufferBuilder* builder, const config::AtmosphericDerivedContext& value) {
-  return session_fb::CreateAtmosphericDerivedContext(
-      *builder, value.has_simulation_unix_seconds, value.simulation_unix_seconds,
-      value.solar_flux_f107a, value.solar_flux_f107, value.geomagnetic_ap);
-}
-
 flatbuffers::Offset<session_fb::VegetationScatterPhysicsConfig>
 EncodeSessionVegetationScatterPhysicsConfig(flatbuffers::FlatBufferBuilder* builder,
                                             const config::VegetationScatterPhysicsConfig& value) {
@@ -591,7 +564,6 @@ flatbuffers::Offset<session_fb::EnvironmentScenarioConfig> EncodeSessionEnvironm
     flatbuffers::FlatBufferBuilder* builder, const config::EnvironmentScenarioConfig& value) {
   return session_fb::CreateEnvironmentScenarioConfig(
       *builder, EncodeSessionAtmosphericPhysicsConfig(builder, value.atmospheric_physics),
-      EncodeSessionAtmosphericDerivedContext(builder, value.atmospheric_context),
       EncodeSessionVegetationScatterPhysicsConfig(
           builder, value.vegetation_scatter_physics));
 }
@@ -831,19 +803,6 @@ config::AtmosphericPhysicsConfig DecodeSessionAtmosphericPhysicsConfig(
   return result;
 }
 
-config::AtmosphericDerivedContext DecodeSessionAtmosphericDerivedContext(
-    const session_fb::AtmosphericDerivedContext* value) {
-  config::AtmosphericDerivedContext result;
-  if (value != nullptr) {
-    result.has_simulation_unix_seconds = value->has_simulation_unix_seconds();
-    result.simulation_unix_seconds = value->simulation_unix_seconds();
-    result.solar_flux_f107a = value->solar_flux_f107a();
-    result.solar_flux_f107 = value->solar_flux_f107();
-    result.geomagnetic_ap = value->geomagnetic_ap();
-  }
-  return result;
-}
-
 config::VegetationScatterPhysicsConfig DecodeSessionVegetationScatterPhysicsConfig(
     const session_fb::VegetationScatterPhysicsConfig* value) {
   config::VegetationScatterPhysicsConfig result;
@@ -860,8 +819,6 @@ config::EnvironmentScenarioConfig DecodeSessionEnvironmentScenarioConfig(
   if (value != nullptr) {
     result.atmospheric_physics =
         DecodeSessionAtmosphericPhysicsConfig(value->atmospheric_physics());
-    result.atmospheric_context =
-        DecodeSessionAtmosphericDerivedContext(value->atmospheric_context());
     result.vegetation_scatter_physics =
         DecodeSessionVegetationScatterPhysicsConfig(value->vegetation_scatter_physics());
   }
@@ -1192,7 +1149,6 @@ flatbuffers::Offset<fb::ArCycleInputV3> EncodeCycleInputV3(
           *builder,
           EncodeCycleAtmosphericObservation(
               builder, environment.atmospheric_observation),
-          EncodeCycleAtmosphericContext(builder, environment.atmospheric_context),
           EncodeCycleSurfaceObservation(builder, environment.surface_observation)),
       EncodeRfV2Scene(builder, value.interference));
 }
@@ -1214,9 +1170,6 @@ ArCycleInput DecodeCycleInputV3(const fb::ArCycleInputV3* value) {
       result.environment.atmospheric_observation =
           DecodeCycleAtmosphericObservation(
               value->environment()->atmospheric_observation());
-      result.environment.atmospheric_context =
-          DecodeCycleAtmosphericContext(
-              value->environment()->atmospheric_context());
       result.environment.surface_observation =
           DecodeCycleSurfaceObservation(
               value->environment()->surface_observation());

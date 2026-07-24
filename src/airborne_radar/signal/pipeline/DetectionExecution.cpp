@@ -51,10 +51,6 @@ float ComputeTargetSpecificAtmosphericLossDb(
   obs.temperature_k = environment_snapshot.atmospheric_physics.temperature_k;
   obs.relative_humidity = environment_snapshot.atmospheric_physics.relative_humidity;
   obs.k_factor = environment_snapshot.effective_k_factor;
-  obs.day_of_year = environment_snapshot.effective_day_of_year;
-  obs.solar_flux_f107a = environment_snapshot.atmospheric_context.solar_flux_f107a;
-  obs.solar_flux_f107 = environment_snapshot.atmospheric_context.solar_flux_f107;
-  obs.geomagnetic_ap = environment_snapshot.atmospheric_context.geomagnetic_ap;
   const auto inputs = oneq::common::atmosphere::BuildPropagationInputs(
       exec_config.detection.engineering.transmitter.frequency_hz, std::max(geometry.range_m, 0.1f),
       platform_altitude_m, std::max(platform_altitude_m + geometry.position_m.z(), 0.0f),
@@ -179,8 +175,7 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
   float clutter_w = ComputeEquivalentClutterNoiseW(config.detection.engineering,
                                                    environment_snapshot.clutter_power_db);
   detection::EnvironmentState env;
-  env.propagation_loss_db =
-      environment_snapshot.propagation_loss_db - environment_snapshot.atmospheric_physics_loss_db;
+  env.propagation_loss_db = environment_snapshot.propagation_loss_db;
   env.clutter_noise_w = clutter_w;
   env.jam_noise_w = 0.0f;  // RF v2 interference is resolved in the detection-cell path below.
 
@@ -195,8 +190,7 @@ bool RunPhysicalDetectionPass(const session::ArSceneTargetList& input,
   for (std::size_t i = 0; i < count; ++i) {
     (*buffers->target_geometry)[i] = detection::TargetGeometryResolver::Resolve(input[i]);
     env.propagation_loss_db =
-        environment_snapshot.propagation_loss_db -
-        environment_snapshot.atmospheric_physics_loss_db +
+        environment_snapshot.propagation_loss_db +
         ComputeTargetSpecificAtmosphericLossDb(config, environment_snapshot, platform_altitude_m,
                                                (*buffers->target_geometry)[i]);
     const float effective_rcs_m2 =

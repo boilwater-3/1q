@@ -9,14 +9,6 @@ table AtmosphericObservation {
   relative_humidity:float;
 }
 
-table AtmosphericContext {
-  has_simulation_unix_seconds:bool;
-  simulation_unix_seconds:long;
-  solar_flux_f107a:float;
-  solar_flux_f107:float;
-  geomagnetic_ap:float;
-}
-
 table SurfaceObservation {
   cover_profile:int;
   enable_physical_model:bool;
@@ -254,7 +246,6 @@ table ArTargetInputV3 {
 }
 table ArEnvironmentInputV3 {
   atmospheric_observation:AtmosphericObservation;
-  atmospheric_context:AtmosphericContext;
   surface_observation:SurfaceObservation;
 }
 table ArCycleInputV3 {

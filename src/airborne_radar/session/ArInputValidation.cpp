@@ -38,14 +38,6 @@ void ValidateEnvironmentInput(const ArEnvironmentInput& environment,
         "environment.atmospheric_observation",
         "atmospheric observation requires positive pressure/temperature and humidity in [0, 1]"));
   }
-  const config::AtmosphericDerivedContext& context = environment.atmospheric_context;
-  if (!IsFinite(context.solar_flux_f107a) || !IsFinite(context.solar_flux_f107) ||
-      !IsFinite(context.geomagnetic_ap)) {
-    issues->push_back(MakeIssue(
-        ValidationSeverity::kError, ValidationCode::kInvalidEnvironmentObservation,
-        ValidationLocationKind::kEnvironment, static_cast<std::size_t>(-1),
-        "environment.atmospheric_context", "atmospheric context must be finite"));
-  }
 }
 
 bool FrameMatchesCycle(const ArCycleInput& input) {

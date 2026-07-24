@@ -70,8 +70,6 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   config.environment.scenario_config.atmospheric_physics.pressure_hpa = 1010.0f;
   config.environment.scenario_config.atmospheric_physics.temperature_k = 290.0f;
   config.environment.scenario_config.atmospheric_physics.relative_humidity = 0.6f;
-  config.environment.scenario_config.atmospheric_context.has_simulation_unix_seconds = true;
-  config.environment.scenario_config.atmospheric_context.simulation_unix_seconds = 1700000000LL;
   config.environment.scenario_config.vegetation_scatter_physics.enable_physical_model = true;
   config.environment.scenario_config.vegetation_scatter_physics.cover_profile =
       config::VegetationCoverProfile::kSparseWoodland;
@@ -126,9 +124,6 @@ TEST(ArReplayCodecRoundtripTest, SessionConfigPreservesAllDomains) {
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.pressure_hpa, 1010.0f);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.temperature_k, 290.0f);
   EXPECT_FLOAT_EQ(decoded.environment.scenario_config.atmospheric_physics.relative_humidity, 0.6f);
-  EXPECT_TRUE(decoded.environment.scenario_config.atmospheric_context.has_simulation_unix_seconds);
-  EXPECT_EQ(decoded.environment.scenario_config.atmospheric_context.simulation_unix_seconds,
-            1700000000LL);
   EXPECT_TRUE(decoded.environment.scenario_config.vegetation_scatter_physics.enable_physical_model);
   EXPECT_EQ(decoded.environment.scenario_config.vegetation_scatter_physics.cover_profile,
             config::VegetationCoverProfile::kSparseWoodland);

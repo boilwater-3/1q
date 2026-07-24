@@ -18,19 +18,6 @@ namespace config {
 using AtmosphericPhysicsConfig = oneq::environment::AtmosphericObservation;
 
 /**
- * @brief AtmosphericDerivedContext 复用统一环境模块空间天气上下文类型。
- *
- * 字段包含：k_factor, day_of_year, solar_flux, geomagnetic_ap,
- * simulation_unix_seconds（从原 AR 独有类型吸收）。
- * 解析函数统一到 oneq::environment 命名空间。
- */
-using AtmosphericDerivedContext = oneq::environment::SpaceWeatherContext;
-
-// 注意：ResolveEffectiveKFactor / ResolveEffectiveDayOfYear 的 AR 命名空间包装
-// 已移除。类型统一后，调用方直接使用 oneq::environment 中的 inline 版本即可。
-// 需要使用时 include "1q/environment/AtmosphericTypes.h"。
-
-/**
  * @brief 地表植被覆盖档位。
  *
  * 选择档位后自动填写叶片尺寸、介电常数、叶片密度、
@@ -58,14 +45,16 @@ struct ONEQ_API VegetationScatterPhysicsConfig {
  * @brief EnvironmentScenarioConfig 描述对外场景输入（不暴露内部传播/杂波调参项）。
  *
  * @par 类型合约
- * - 仅承载外部输入事实（气象观测、时间/空间天气、植被场景）。
+ * - 仅承载外部输入事实（气象观测、植被场景）。
  * - 不包含内部算法调参字段（如传播损耗系数、杂波增益）。
- * - 不包含运行期派生量（如 effective_k_factor、effective_day_of_year）。
+ * - 不包含运行期派生量（如 effective_k_factor）。
+ * - 不暴露 SpaceWeatherContext（空间天气上下文）：其字段（k_factor、day_of_year、
+ *   solar_flux、geomagnetic_ap、simulation_unix_seconds）在当前 GTD7 大气模型
+ *   退化为 ISA 标准大气的情况下全部未被消费，属未接入的死输入，故不对外开放。
  * - 新增字段须为外部可观测或可注入的场景事实，不得引入内部调参项。
  */
 struct ONEQ_API EnvironmentScenarioConfig {
   AtmosphericPhysicsConfig atmospheric_physics{};              /**< 场景气象/电离层输入 */
-  AtmosphericDerivedContext atmospheric_context{};             /**< 场景时间/空间天气输入 */
   VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 场景植被散射输入 */
 };
 

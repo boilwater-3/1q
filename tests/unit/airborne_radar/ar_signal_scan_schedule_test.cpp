@@ -310,7 +310,6 @@ TEST(CycleExecutorTest, PhysicalAtmosphereUsesPlatformAbsoluteAltitude) {
   environment_snapshot.atmospheric_physics.temperature_k = 288.15f;
   environment_snapshot.atmospheric_physics.relative_humidity = 0.5f;
   environment_snapshot.effective_k_factor = 4.0f / 3.0f;
-  environment_snapshot.effective_day_of_year = 172;
 
   session::ArSceneTarget target(220.0f, 0.0f, 0.0f, 1.0e6f);
   target.position_x = 50000.0f;

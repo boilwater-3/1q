@@ -46,11 +46,9 @@ TEST(EsrRuntimeConfigResolverTest, ValidPatchUpdatesRuntimePipelineAndEnvironmen
       resolved.next_config.environment.atmospheric_physics.relative_humidity, 0.66f);
 }
 
-TEST(EsrRuntimeConfigResolverTest, AtmosphericPhysicsOnlyDoesNotOverridePresetOrContext) {
+TEST(EsrRuntimeConfigResolverTest, AtmosphericPhysicsOnlyDoesNotOverridePreset) {
   EsrInternalExecutionConfig current_config;
   current_config.environment.preset = config::EsrEnvironmentPreset::kDenseClutter;
-  current_config.environment.atmospheric_context.has_k_factor = true;
-  current_config.environment.atmospheric_context.k_factor = 1.45f;
 
   config::EsrAtmosphericPhysicsConfig atmospheric_physics;
   atmospheric_physics.enable_physical_model = true;
@@ -69,37 +67,6 @@ TEST(EsrRuntimeConfigResolverTest, AtmosphericPhysicsOnlyDoesNotOverridePresetOr
             config::EsrEnvironmentPreset::kDenseClutter);
   EXPECT_TRUE(resolved.next_config.environment.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(resolved.next_config.environment.atmospheric_physics.pressure_hpa, 950.0f);
-  EXPECT_TRUE(resolved.next_config.environment.atmospheric_context.has_k_factor);
-  EXPECT_FLOAT_EQ(resolved.next_config.environment.atmospheric_context.k_factor, 1.45f);
-}
-
-TEST(EsrRuntimeConfigResolverTest, AtmosphericContextOnlyDoesNotOverridePresetOrPhysics) {
-  EsrInternalExecutionConfig current_config;
-  current_config.environment.preset = config::EsrEnvironmentPreset::kLowClutter;
-  current_config.environment.atmospheric_physics.enable_physical_model = true;
-  current_config.environment.atmospheric_physics.relative_humidity = 0.42f;
-
-  config::EsrAtmosphericDerivedContext atmospheric_context;
-  atmospheric_context.has_day_of_year = true;
-  atmospheric_context.day_of_year = 245;
-  atmospheric_context.solar_flux_f107 = 180.0f;
-
-  const config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
-                                          .WithAtmosphericContext(atmospheric_context)
-                                          .Build();
-  const EsrRuntimeConfigResolveResult resolved =
-      ResolveEsrRuntimeConfigPatch(current_config, patch);
-
-  EXPECT_TRUE(resolved.environment_model_config_changed);
-  EXPECT_EQ(resolved.next_config.environment.preset,
-            config::EsrEnvironmentPreset::kLowClutter);
-  EXPECT_TRUE(resolved.next_config.environment.atmospheric_physics.enable_physical_model);
-  EXPECT_FLOAT_EQ(resolved.next_config.environment.atmospheric_physics.relative_humidity,
-                  0.42f);
-  EXPECT_TRUE(resolved.next_config.environment.atmospheric_context.has_day_of_year);
-  EXPECT_EQ(resolved.next_config.environment.atmospheric_context.day_of_year, 245);
-  EXPECT_FLOAT_EQ(resolved.next_config.environment.atmospheric_context.solar_flux_f107,
-                  180.0f);
 }
 
 TEST(EsrRuntimeConfigResolverTest, MultiEnvironmentSubdomainsCanBeUpdatedInSinglePatch) {
@@ -109,13 +76,9 @@ TEST(EsrRuntimeConfigResolverTest, MultiEnvironmentSubdomainsCanBeUpdatedInSingl
   config::EsrAtmosphericPhysicsConfig atmospheric_physics;
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.relative_humidity = 0.9f;
-  config::EsrAtmosphericDerivedContext atmospheric_context;
-  atmospheric_context.has_k_factor = true;
-  atmospheric_context.k_factor = 1.37f;
 
   const config::EsrRuntimeConfigPatch patch = esr_config::EsrRuntimeConfigBuilder()
                                           .WithAtmosphericPhysicsConfig(atmospheric_physics)
-                                          .WithAtmosphericContext(atmospheric_context)
                                           .Build();
   const EsrRuntimeConfigResolveResult resolved =
       ResolveEsrRuntimeConfigPatch(current_config, patch);
@@ -126,8 +89,6 @@ TEST(EsrRuntimeConfigResolverTest, MultiEnvironmentSubdomainsCanBeUpdatedInSingl
   EXPECT_TRUE(resolved.next_config.environment.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(resolved.next_config.environment.atmospheric_physics.relative_humidity,
                   0.9f);
-  EXPECT_TRUE(resolved.next_config.environment.atmospheric_context.has_k_factor);
-  EXPECT_FLOAT_EQ(resolved.next_config.environment.atmospheric_context.k_factor, 1.37f);
 }
 
 TEST(EsrRuntimeConfigResolverTest, MissionDomainPatchUpdatesMissionAndResolvedScan) {

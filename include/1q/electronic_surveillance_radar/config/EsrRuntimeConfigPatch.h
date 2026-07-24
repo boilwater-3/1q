@@ -37,8 +37,6 @@ struct ExplicitScanBounds {
 struct ONEQ_API EsrEnvironmentRuntimeConfigPatch {
   bool has_atmospheric_physics{false};
   EsrAtmosphericPhysicsConfig atmospheric_physics{};
-  bool has_atmospheric_context{false};
-  EsrAtmosphericDerivedContext atmospheric_context{};
 };
 
 /**
@@ -47,7 +45,7 @@ struct ONEQ_API EsrEnvironmentRuntimeConfigPatch {
  * 支持两类运行期更新：
  * 1) 整域覆盖：mission、policy、environment；
  * 2) 叶子覆盖：传感器开关、工作模式、扫描率、扫描中心、显式扫描边界等。
- * 其中 environment 仅允许模型叶子字段（如 atmospheric_physics/context），
+ * 其中 environment 仅允许模型叶子字段（如 atmospheric_physics），
  * 不支持 runtime preset 热更新。
  * 当整域与叶子同时出现时，先应用整域再应用叶子，叶子具有最终优先级。
  */

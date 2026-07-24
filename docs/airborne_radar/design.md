@@ -428,9 +428,23 @@ pending 状态。
 
 环境快照包含：
 
-- 大气物理观测和派生上下文，例如压力、温度、湿度、K 因子、年积日、太阳和地磁参数。
+- 大气物理观测（压力、温度、湿度）与自动推导的有效 K 因子；仅在
+  `enable_physical_model=true` 时进入逐目标大气损耗计算，影响 SNR/检测概率。
 - 地表/植被散射物理，用于影响杂波。
-- 传播损失和大气物理损失。
+- 基线传播损耗（固定常量之和：基线 + 大气衰减 + 地形反射）。
+
+> 大气物理附加损耗由信号层 `ComputeTargetSpecificAtmosphericLossDb` 用**每个目标的
+> 真实几何**（真实斜距、平台/目标高度、波束仰角、发射频率）计算，不在环境层重复
+> 计算。环境层早期曾用硬编码几何（10 GHz / 10 km / 1 km / 5°）算一次大气损耗再
+> 由信号层减去重加，该重复计算（净贡献为 0 的死计算）已移除，`EnvironmentSnapshot`
+> 不再承载 `atmospheric_physics_loss_db` 字段。
+
+> 拒绝暴露 `SpaceWeatherContext`（年积日、太阳流量 F10.7、地磁 Ap、仿真 Unix
+> 时间戳等空间天气上下文）：这些字段在当前 GTD7 大气模型退化为 ISA 标准大气
+> 的情况下全部未被消费（`src/common/atmosphere/AtmospherePhysics.cpp` 中被
+> `(void)` 丢弃），属未接入的死输入，故不对外开放。仿真时间统一以
+> `ArCycleInput::cycle_start_time_s` 为唯一来源。未来若恢复完整 GTD7/电离层
+> 模型，再作为新能力重新引入。
 
 `ArEnvironmentInput` 与 `EnvironmentSnapshot` 只承载自然环境事实；它们不包含 jammer、J/S、J/N、
 干扰检测布尔值或预计算接收功率。AR 的外部 RF 输入是独立的

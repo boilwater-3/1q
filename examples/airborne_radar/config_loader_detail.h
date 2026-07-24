@@ -175,16 +175,6 @@ inline void LoadAtmosObservation(const examples::JsonValue& j,
   v->relative_humidity = static_cast<float>(j["relative_humidity"].AsDouble());
 }
 
-inline void LoadAtmosContext(const examples::JsonValue& j,
-                             airborne_radar::config::AtmosphericDerivedContext* v) {
-  if (j.IsNull()) return;
-  v->has_simulation_unix_seconds = j["has_simulation_unix_seconds"].AsBool();
-  v->simulation_unix_seconds = static_cast<std::int64_t>(j["simulation_unix_seconds"].AsInt());
-  v->solar_flux_f107a = static_cast<float>(j["solar_flux_f107a"].AsDouble());
-  v->solar_flux_f107 = static_cast<float>(j["solar_flux_f107"].AsDouble());
-  v->geomagnetic_ap = static_cast<float>(j["geomagnetic_ap"].AsDouble());
-}
-
 inline void LoadVegScatter(const examples::JsonValue& j,
                            airborne_radar::config::VegetationScatterPhysicsConfig* v) {
   if (j.IsNull()) return;
@@ -196,7 +186,6 @@ inline void LoadScenario(const examples::JsonValue& j,
                          airborne_radar::config::EnvironmentScenarioConfig* v) {
   if (j.IsNull()) return;
   LoadAtmosObservation(j["atmospheric_physics"], &v->atmospheric_physics);
-  LoadAtmosContext(j["atmospheric_context"], &v->atmospheric_context);
   LoadVegScatter(j["vegetation_scatter_physics"], &v->vegetation_scatter_physics);
 }
 

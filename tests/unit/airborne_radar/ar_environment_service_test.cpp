@@ -18,28 +18,23 @@ TEST(EnvironmentServiceTest, InitialSnapshotContainsFiniteNaturalEffects) {
 
   const session::EnvironmentSnapshot snapshot = service.SampleEnvironment();
   EXPECT_TRUE(std::isfinite(snapshot.propagation_loss_db));
-  EXPECT_TRUE(std::isfinite(snapshot.atmospheric_physics_loss_db));
   EXPECT_TRUE(std::isfinite(snapshot.clutter_power_db));
   EXPECT_EQ(snapshot.cycle_index, 0U);
   EXPECT_FLOAT_EQ(snapshot.cycle_dt_sec, 0.0f);
 }
 
-TEST(EnvironmentServiceTest, DerivesAtmosphericInputsFromObservationAndTime) {
+TEST(EnvironmentServiceTest, DerivesAtmosphericInputsFromObservation) {
   config::EnvironmentScenarioConfig scenario;
   scenario.atmospheric_physics.enable_physical_model = true;
   scenario.atmospheric_physics.pressure_hpa = 950.0f;
   scenario.atmospheric_physics.temperature_k = 300.0f;
   scenario.atmospheric_physics.relative_humidity = 0.9f;
-  scenario.atmospheric_context.has_simulation_unix_seconds = true;
-  scenario.atmospheric_context.simulation_unix_seconds = 1704067200;
 
   environment::EnvironmentService service(scenario);
   const session::EnvironmentSnapshot snapshot = service.SampleEnvironment();
 
-  EXPECT_GT(snapshot.atmospheric_physics_loss_db, 0.0f);
   EXPECT_GT(snapshot.effective_k_factor, 1.0f);
   EXPECT_LT(snapshot.effective_k_factor, 2.0f);
-  EXPECT_EQ(snapshot.effective_day_of_year, 1);
 }
 
 TEST(EnvironmentServiceTest, VegetationPhysicsIncreasesClutter) {
@@ -63,8 +58,6 @@ TEST(EnvironmentServiceTest, PendingSceneBecomesVisibleAtBeginCycle) {
   session::EnvironmentSceneState pending;
   pending.atmospheric_physics.enable_physical_model = true;
   pending.atmospheric_physics.relative_humidity = 0.95f;
-  pending.atmospheric_context.has_day_of_year = true;
-  pending.atmospheric_context.day_of_year = 220;
   pending.vegetation_scatter_physics.enable_physical_model = true;
   pending.vegetation_scatter_physics.cover_profile =
       config::VegetationCoverProfile::kTropicalDense;
@@ -82,7 +75,6 @@ TEST(EnvironmentServiceTest, PendingSceneBecomesVisibleAtBeginCycle) {
   EXPECT_EQ(committed.cycle_index, 7U);
   EXPECT_FLOAT_EQ(committed.cycle_dt_sec, 0.25f);
   EXPECT_TRUE(committed.atmospheric_physics.enable_physical_model);
-  EXPECT_EQ(committed.effective_day_of_year, 220);
   EXPECT_GT(committed.clutter_power_db, initial.clutter_power_db);
 }
 
@@ -90,8 +82,8 @@ TEST(EnvironmentServiceTest, RuntimeStateRestoresActiveAndPendingScenes) {
   environment::EnvironmentService service;
 
   session::EnvironmentSceneState active;
-  active.atmospheric_context.has_day_of_year = true;
-  active.atmospheric_context.day_of_year = 30;
+  active.atmospheric_physics.enable_physical_model = true;
+  active.atmospheric_physics.temperature_k = 270.0f;
   service.UpdateSceneState(active);
   session::EnvironmentCycleContext cycle;
   cycle.cycle_index = 3U;
@@ -99,14 +91,14 @@ TEST(EnvironmentServiceTest, RuntimeStateRestoresActiveAndPendingScenes) {
   service.BeginCycle(cycle);
 
   session::EnvironmentSceneState pending = active;
-  pending.atmospheric_context.day_of_year = 200;
+  pending.atmospheric_physics.temperature_k = 290.0f;
   service.UpdateSceneState(pending);
   const environment::EnvironmentServiceRuntimeState saved =
       service.CaptureRuntimeState();
 
   session::EnvironmentSceneState replacement;
-  replacement.atmospheric_context.has_day_of_year = true;
-  replacement.atmospheric_context.day_of_year = 300;
+  replacement.atmospheric_physics.enable_physical_model = true;
+  replacement.atmospheric_physics.temperature_k = 310.0f;
   service.UpdateSceneState(replacement);
   service.BeginCycle(session::EnvironmentCycleContext{9U, 1.0f});
 
@@ -114,9 +106,11 @@ TEST(EnvironmentServiceTest, RuntimeStateRestoresActiveAndPendingScenes) {
   const session::EnvironmentSnapshot restored = service.SampleEnvironment();
   EXPECT_EQ(restored.cycle_index, 3U);
   EXPECT_FLOAT_EQ(restored.cycle_dt_sec, 0.5f);
-  EXPECT_EQ(restored.effective_day_of_year, 30);
-  EXPECT_EQ(service.GetPendingSceneState().atmospheric_context.day_of_year,
-            200);
+  EXPECT_FLOAT_EQ(
+      restored.atmospheric_physics.temperature_k, 270.0f);
+  EXPECT_FLOAT_EQ(
+      service.GetPendingSceneState().atmospheric_physics.temperature_k,
+      290.0f);
 }
 
 TEST(SceneManagerTest, CommitsPendingNaturalSceneOnlyAtCycleBoundary) {

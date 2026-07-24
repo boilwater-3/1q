@@ -11,7 +11,6 @@ session::EnvironmentSceneState BuildSceneStateFromModelConfig(
     const config::EnvironmentScenarioConfig& config) {
   session::EnvironmentSceneState scene_state;
   scene_state.atmospheric_physics = config.atmospheric_physics;
-  scene_state.atmospheric_context = config.atmospheric_context;
   scene_state.vegetation_scatter_physics =
       config.vegetation_scatter_physics;
   return scene_state;
@@ -90,17 +89,11 @@ void EnvironmentService::RefreshFrozenSnapshotFromActiveScene() {
   frozen_snapshot_.cycle_dt_sec = current_cycle_context_.dt_sec;
   frozen_snapshot_.propagation_loss_db =
       propagation_result.propagation_loss_db;
-  frozen_snapshot_.atmospheric_physics_loss_db =
-      propagation_result.atmospheric_physics_loss_db;
   frozen_snapshot_.clutter_power_db = propagation_result.clutter_power_db;
   frozen_snapshot_.atmospheric_physics = active_scene.atmospheric_physics;
-  frozen_snapshot_.atmospheric_context = active_scene.atmospheric_context;
   frozen_snapshot_.effective_k_factor =
       oneq::environment::ResolveEffectiveKFactor(
           active_scene.atmospheric_physics);
-  frozen_snapshot_.effective_day_of_year =
-      oneq::environment::ResolveEffectiveDayOfYear(
-          active_scene.atmospheric_context);
 }
 
 }  // namespace environment

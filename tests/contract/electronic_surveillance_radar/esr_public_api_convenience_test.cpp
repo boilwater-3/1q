@@ -176,9 +176,6 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
   config::EsrAtmosphericPhysicsConfig atmospheric_physics;
   atmospheric_physics.enable_physical_model = true;
   atmospheric_physics.relative_humidity = 0.65f;
-  config::EsrAtmosphericDerivedContext atmospheric_context;
-  atmospheric_context.has_day_of_year = true;
-  atmospheric_context.day_of_year = 210;
 
   const config::EsrRuntimeConfigPatch patch =
       config::EsrRuntimeConfigBuilder()
@@ -189,7 +186,6 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
           .WithScanCenterElDeg(5.0f)
           .WithExplicitScanBoundsDeg(-30.0f, 30.0f, -10.0f, 10.0f)
           .WithAtmosphericPhysicsConfig(atmospheric_physics)
-          .WithAtmosphericContext(atmospheric_context)
           .Build();
 
   EXPECT_TRUE(patch.has_sensor_enabled);
@@ -206,9 +202,6 @@ TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSetsSemanticFields) {
   EXPECT_TRUE(patch.environment.has_atmospheric_physics);
   EXPECT_TRUE(patch.environment.atmospheric_physics.enable_physical_model);
   EXPECT_FLOAT_EQ(patch.environment.atmospheric_physics.relative_humidity, 0.65f);
-  EXPECT_TRUE(patch.environment.has_atmospheric_context);
-  EXPECT_TRUE(patch.environment.atmospheric_context.has_day_of_year);
-  EXPECT_EQ(patch.environment.atmospheric_context.day_of_year, 210);
 }
 
 TEST(EsrPublicApiConvenienceTest, RuntimeConfigBuilderSupportsDomainOverrides) {

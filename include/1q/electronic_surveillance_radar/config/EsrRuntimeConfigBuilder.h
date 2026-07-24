@@ -104,13 +104,6 @@ class ONEQ_API EsrRuntimeConfigBuilder {
     patch_.environment.atmospheric_physics = atmospheric_physics;
     return *this;
   }
-  EsrRuntimeConfigBuilder& WithAtmosphericContext(
-      const config::EsrAtmosphericDerivedContext& atmospheric_context) noexcept {
-    patch_.has_environment = true;
-    patch_.environment.has_atmospheric_context = true;
-    patch_.environment.atmospheric_context = atmospheric_context;
-    return *this;
-  }
   config::EsrRuntimeConfigPatch Build() const noexcept { return patch_; }
 
  private:

@@ -83,20 +83,11 @@ inline void LoadEsrAtmosObs(const examples::JsonValue& j,
   v->relative_humidity = static_cast<float>(j["relative_humidity"].AsDouble());
 }
 
-inline void LoadEsrAtmosCtx(const examples::JsonValue& j,
-                            oneq::environment::SpaceWeatherContext* v) {
-  if (j.IsNull()) return;
-  v->solar_flux_f107a = static_cast<float>(j["solar_flux_f107a"].AsDouble());
-  v->solar_flux_f107 = static_cast<float>(j["solar_flux_f107"].AsDouble());
-  v->geomagnetic_ap = static_cast<float>(j["geomagnetic_ap"].AsDouble());
-}
-
 inline void LoadEsrScenario(const examples::JsonValue& j,
                             electronic_surveillance_radar::config::EsrEnvironmentScenarioConfig* v) {
   if (j.IsNull()) return;
   v->preset = EsrPresetFromString(j["preset"].AsString());
   LoadEsrAtmosObs(j["atmospheric_physics"], &v->atmospheric_physics);
-  LoadEsrAtmosCtx(j["atmospheric_context"], &v->atmospheric_context);
 }
 
 inline void LoadEsrEnvironment(const examples::JsonValue& j,

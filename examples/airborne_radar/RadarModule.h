@@ -483,12 +483,6 @@ class RadarModule {
     env_temperature_k_ = static_cast<double>(scenario.atmospheric_physics.temperature_k);
     env_relative_humidity_ = static_cast<double>(scenario.atmospheric_physics.relative_humidity);
 
-    env_has_simulation_unix_seconds_ = scenario.atmospheric_context.has_simulation_unix_seconds;
-    env_simulation_unix_seconds_ = scenario.atmospheric_context.simulation_unix_seconds;
-    env_solar_flux_f107a_ = static_cast<double>(scenario.atmospheric_context.solar_flux_f107a);
-    env_solar_flux_f107_ = static_cast<double>(scenario.atmospheric_context.solar_flux_f107);
-    env_geomagnetic_ap_ = static_cast<double>(scenario.atmospheric_context.geomagnetic_ap);
-
     env_vegetation_cover_profile_ = scenario.vegetation_scatter_physics.cover_profile;
     env_enable_vegetation_scatter_ = scenario.vegetation_scatter_physics.enable_physical_model;
 
@@ -523,11 +517,6 @@ class RadarModule {
     env.atmospheric_observation.pressure_hpa = 1013.25f;
     env.atmospheric_observation.temperature_k = 288.15f;
     env.atmospheric_observation.relative_humidity = 0.5f;
-    env.atmospheric_context.has_simulation_unix_seconds = true;
-    env.atmospheric_context.simulation_unix_seconds = 1770000000;
-    env.atmospheric_context.solar_flux_f107a = 150.0f;
-    env.atmospheric_context.solar_flux_f107 = 150.0f;
-    env.atmospheric_context.geomagnetic_ap = 4.0f;
     return env;
   }
 
@@ -654,12 +643,6 @@ class RadarModule {
   double env_pressure_hpa_{0.0};
   double env_temperature_k_{0.0};
   double env_relative_humidity_{0.0};
-  // Atmospheric context
-  bool env_has_simulation_unix_seconds_{false};
-  std::int64_t env_simulation_unix_seconds_{0};
-  double env_solar_flux_f107a_{0.0};
-  double env_solar_flux_f107_{0.0};
-  double env_geomagnetic_ap_{0.0};
   // Vegetation scatter
   ar_config::VegetationCoverProfile env_vegetation_cover_profile_{
       ar_config::VegetationCoverProfile::kDisabled};

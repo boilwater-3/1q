@@ -25,8 +25,6 @@ struct ONEQ_API PropagationInputs {
   float target_altitude_m{1.0e3f};   /**< 目标高度（单位：m） */
   float elevation_deg{5.0f};         /**< 传播仰角（单位：deg） */
   AtmosphericObservation observation{}; /**< 大气观测输入 */
-  bool has_space_weather_context{false};        /**< 是否提供空间天气上下文 */
-  SpaceWeatherContext space_weather_context{};  /**< 空间天气高级上下文（可选） */
 };
 
 /**
@@ -43,9 +41,7 @@ struct ONEQ_API PropagationResult {
 /**
  * @brief 计算传播路径的物理附加损耗。
  *
- * 当 PropagationInputs.has_space_weather_context 为 true 时，
- * 使用 SpaceWeatherContext 中的 k_factor/day_of_year/solar_flux/geomagnetic_ap；
- * 否则从 AtmosphericObservation 推导 k_factor，其余使用默认值。
+ * 从 AtmosphericObservation 推导 k_factor，基于气压/温度/湿度计算传播物理附加损耗。
  *
  * @param[in] inputs 传播物理模型输入。
  * @return 传播物理模型输出。
@@ -62,7 +58,7 @@ ONEQ_API PropagationResult EvaluatePropagation(const PropagationInputs& inputs);
  * @param[in] target_altitude_m 目标高度（单位：m）。
  * @param[in] elevation_deg 仰角（单位：deg）。
  * @param[in] observation 大气观测输入。
- * @return 构造好的 PropagationInputs（has_space_weather_context 为 false）。
+ * @return 构造好的 PropagationInputs。
  */
 ONEQ_API PropagationInputs BuildPropagationInputs(
     float frequency_hz, float path_length_m, float radar_altitude_m,

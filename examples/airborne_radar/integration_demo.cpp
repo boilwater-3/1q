@@ -327,8 +327,6 @@ int main(int argc, char** argv) {
     ar_session::ArCycleInput input;
     ar_session::ArEnvironmentInput env;
     env.atmospheric_observation.enable_physical_model = false;
-    env.atmospheric_context.has_simulation_unix_seconds = true;
-    env.atmospheric_context.simulation_unix_seconds = 1770000000 + i;
 
     input.cycle_index = i + 1;
     input.cycle_start_time_s = static_cast<double>(i);

@@ -52,13 +52,6 @@
         "pressure_hpa": 1013.25,
         "temperature_k": 288.15,
         "relative_humidity": 0.5
-      },
-      "atmospheric_context": {
-        "has_simulation_unix_seconds": false,
-        "simulation_unix_seconds": 0,
-        "solar_flux_f107a": 150.0,
-        "solar_flux_f107": 150.0,
-        "geomagnetic_ap": 4.0
       }
     }
   }

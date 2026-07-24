@@ -96,13 +96,6 @@
         "temperature_k": 288.15,
         "relative_humidity": 0.5
       },
-      "atmospheric_context": {
-        "has_simulation_unix_seconds": false,
-        "simulation_unix_seconds": 0,
-        "solar_flux_f107a": 150.0,
-        "solar_flux_f107": 150.0,
-        "geomagnetic_ap": 4.0
-      },
       "vegetation_scatter_physics": {
         "cover_profile": "kDisabled",
         "enable_physical_model": false

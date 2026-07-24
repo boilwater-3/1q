@@ -234,13 +234,6 @@ TEST(ArCycleInputValidationTest, NaturalEnvironmentIsValidatedIndependently) {
   EXPECT_NE(FindIssue(ValidateArCycleInput(input),
                       ValidationCode::kInvalidEnvironmentObservation),
             nullptr);
-
-  input = MakeValidCycleInput();
-  input.environment.atmospheric_context.solar_flux_f107 =
-      std::numeric_limits<float>::quiet_NaN();
-  EXPECT_NE(FindIssue(ValidateArCycleInput(input),
-                      ValidationCode::kInvalidEnvironmentObservation),
-            nullptr);
 }
 
 TEST(ArCycleInputValidationTest, NonEmptyInterferenceMustMatchCycleWindow) {

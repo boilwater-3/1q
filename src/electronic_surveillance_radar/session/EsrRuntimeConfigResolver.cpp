@@ -31,10 +31,6 @@ void ApplyEnvironmentRuntimePatch(const config::EsrEnvironmentRuntimeConfigPatch
     resolved->environment.atmospheric_physics = env_patch.atmospheric_physics;
     *env_changed = true;
   }
-  if (env_patch.has_atmospheric_context) {
-    resolved->environment.atmospheric_context = env_patch.atmospheric_context;
-    *env_changed = true;
-  }
 }
 
 }  // namespace

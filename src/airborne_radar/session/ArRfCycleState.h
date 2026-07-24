@@ -76,7 +76,6 @@ struct ArCompleteCycleInput {
   oneq::electromagnetics::RfSceneFrame rf_scene{}; /**< orchestrator 冻结的 RF v2 场景。 */
   ArSceneTargetList targets{};                     /**< 本周期目标事实。 */
   config::AtmosphericPhysicsConfig atmospheric_observation{};   /**< 大气传播输入。 */
-  config::AtmosphericDerivedContext atmospheric_context{};      /**< 时间与空间天气输入。 */
   config::VegetationScatterPhysicsConfig surface_observation{}; /**< 地表杂波输入。 */
 };
 

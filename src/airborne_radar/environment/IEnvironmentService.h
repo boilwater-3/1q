@@ -7,7 +7,7 @@
 #define AIRBORNE_RADAR_ENVIRONMENT_I_ENVIRONMENT_SERVICE_H_
 
 #include "1q/airborne_radar/config/ArEnvironmentConfig.h"
-#include "1q/airborne_radar/session/ArEnvironmentInput.h"
+#include "airborne_radar/environment/EnvironmentTypes.h"
 
 namespace airborne_radar {
 namespace environment {

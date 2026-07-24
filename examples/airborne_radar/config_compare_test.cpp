@@ -249,22 +249,6 @@ void CompareConfigs(const ar_config::ArSessionConfig& a, const ar_config::ArSess
            b.environment.scenario_config.atmospheric_physics.relative_humidity,
            "atmos.relative_humidity");
 
-  CHECK_BOOL(a.environment.scenario_config.atmospheric_context.has_simulation_unix_seconds,
-             b.environment.scenario_config.atmospheric_context.has_simulation_unix_seconds,
-             "atmos_ctx.has_simulation_unix_seconds");
-  CHECK_INT(a.environment.scenario_config.atmospheric_context.simulation_unix_seconds,
-            b.environment.scenario_config.atmospheric_context.simulation_unix_seconds,
-            "atmos_ctx.simulation_unix_seconds");
-  CHECK_EQ(a.environment.scenario_config.atmospheric_context.solar_flux_f107a,
-           b.environment.scenario_config.atmospheric_context.solar_flux_f107a,
-           "atmos_ctx.solar_flux_f107a");
-  CHECK_EQ(a.environment.scenario_config.atmospheric_context.solar_flux_f107,
-           b.environment.scenario_config.atmospheric_context.solar_flux_f107,
-           "atmos_ctx.solar_flux_f107");
-  CHECK_EQ(a.environment.scenario_config.atmospheric_context.geomagnetic_ap,
-           b.environment.scenario_config.atmospheric_context.geomagnetic_ap,
-           "atmos_ctx.geomagnetic_ap");
-
   CHECK_INT(
       static_cast<int>(a.environment.scenario_config.vegetation_scatter_physics.cover_profile),
       static_cast<int>(b.environment.scenario_config.vegetation_scatter_physics.cover_profile),

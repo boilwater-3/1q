@@ -1,6 +1,6 @@
 /**
  * @file AtmosphericTypes.h
- * @brief 定义跨模块复用的大气观测与空间天气上下文类型。
+ * @brief 定义跨模块复用的大气观测类型。
  *
  * 统一 AR/ESR/EOS 各模块中重复定义的大气输入类型，作为唯一公开来源。
  */
@@ -10,7 +10,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdint>
 
 #include "1q/api.hpp"
 
@@ -26,31 +25,6 @@ struct ONEQ_API AtmosphericObservation {
   float temperature_k{288.15f};      /**< 温度（单位：K） */
   float relative_humidity{0.5f};     /**< 相对湿度，范围 [0, 1] */
 };
-
-/**
- * @brief SpaceWeatherContext 描述时间/空间天气高级上下文输入。
- */
-struct ONEQ_API SpaceWeatherContext {
-  bool has_k_factor{false};        /**< 是否显式提供地球有效半径因子 */
-  float k_factor{4.0f / 3.0f};     /**< 地球有效半径因子 */
-  bool has_day_of_year{false};     /**< 是否显式提供年积日 */
-  std::int32_t day_of_year{172};   /**< 年积日 [1, 366] */
-  float solar_flux_f107a{150.0f};  /**< 平滑太阳流量指数 */
-  float solar_flux_f107{150.0f};   /**< 当日太阳流量指数 */
-  float geomagnetic_ap{4.0f};      /**< 地磁活动指数 */
-  bool has_simulation_unix_seconds{false};   /**< 是否显式提供仿真 UTC 秒级时间戳 */
-  std::int64_t simulation_unix_seconds{0};   /**< 仿真 UTC 秒级时间戳（Unix epoch） */
-};
-
-/**
- * @brief 推导有效 k_factor（优先显式输入，否则使用默认近似）。
- */
-inline float ResolveEffectiveKFactor(const SpaceWeatherContext& context) {
-  if (context.has_k_factor) {
-    return context.k_factor;
-  }
-  return 4.0f / 3.0f;
-}
 
 /**
  * @brief 从基础气象观测推导有效 k_factor（基于近地层折射率梯度）。
@@ -87,28 +61,6 @@ inline float ResolveEffectiveKFactor(const AtmosphericObservation& obs) {
     return 4.0f / 3.0f;
   }
   return derived_k_factor;
-}
-
-/**
- * @brief 从 Unix 秒级时间戳推导年积日。
- * @param[in] unix_seconds Unix epoch 秒数。
- * @return 年积日 [1, 366]。
- */
-ONEQ_API std::int32_t ResolveEffectiveDayOfYearFromUnix(std::int64_t unix_seconds);
-
-/**
- * @brief 推导有效 day_of_year。
- *
- * 优先级：has_day_of_year > has_simulation_unix_seconds（推导）> 默认 172。
- */
-inline std::int32_t ResolveEffectiveDayOfYear(const SpaceWeatherContext& context) {
-  if (context.has_day_of_year) {
-    return context.day_of_year;
-  }
-  if (context.has_simulation_unix_seconds) {
-    return ResolveEffectiveDayOfYearFromUnix(context.simulation_unix_seconds);
-  }
-  return 172;
 }
 
 }  // namespace environment

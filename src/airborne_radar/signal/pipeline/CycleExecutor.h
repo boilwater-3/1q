@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-#include "1q/airborne_radar/session/ArEnvironmentInput.h"
+#include "airborne_radar/environment/EnvironmentTypes.h"
 #include "1q/airborne_radar/session/ArControlProfile.h"
 #include "1q/airborne_radar/session/DecisionInputFrame.h"
 #include "airborne_radar/signal/association/DataAssociation.h"

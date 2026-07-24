@@ -239,15 +239,6 @@ session::EnvironmentSceneState MakeForestScene() {
   return scene;
 }
 
-session::EnvironmentSceneState MakeSpaceWeatherScene() {
-  session::EnvironmentSceneState scene;
-  scene.atmospheric_context.has_day_of_year = true;
-  scene.atmospheric_context.day_of_year = 355;
-  scene.atmospheric_context.solar_flux_f107 = 210.0f;
-  scene.atmospheric_context.geomagnetic_ap = 18.0f;
-  return scene;
-}
-
 session::EnvironmentSceneState MakeAdverseNaturalScene() {
   session::EnvironmentSceneState scene = MakeHumidAtmosphereScene();
   scene.vegetation_scatter_physics.enable_physical_model = true;
@@ -545,7 +536,6 @@ TEST(RadarJointIntegrationTest,
       {MakeClearScene(), false},
       {MakeAdverseNaturalScene(), true},
       {MakeClearScene(), false},
-      {MakeSpaceWeatherScene(), true},
       {MakeClearScene(), false},
   };
 
@@ -1291,7 +1281,6 @@ TEST(RadarJointIntegrationTest,
       {MakeClearScene(), false},
       {MakeAdverseNaturalScene(), true},
       {MakeClearScene(), false},
-      {MakeSpaceWeatherScene(), true},
       {MakeClearScene(), false},
   };
 
@@ -1518,7 +1507,6 @@ TEST(RadarJointIntegrationTest, LongDurationNaturalEnvironmentRecoversOnEveryCle
       {MakeClearScene(), false},
       {MakeAdverseNaturalScene(), true},
       {MakeClearScene(), false},
-      {MakeSpaceWeatherScene(), true},
       {MakeClearScene(), false},
       {MakeHumidAtmosphereScene(), true},
       {MakeClearScene(), false},
@@ -1749,7 +1737,6 @@ TEST(RadarJointIntegrationTest,
       {MakeHumidAtmosphereScene(), true},
       {MakeClearScene(), false},
       {MakeAdverseNaturalScene(), true},
-      {MakeSpaceWeatherScene(), true},
   };
 
   std::vector<CycleStats> stats;
@@ -1842,7 +1829,6 @@ TEST(RadarJointIntegrationTest,
       {MakeClearScene(), false},
       {MakeAdverseNaturalScene(), true},
       {MakeClearScene(), false},
-      {MakeSpaceWeatherScene(), true},
   };
 
   std::vector<CycleStats> stats;

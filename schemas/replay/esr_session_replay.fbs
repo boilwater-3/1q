@@ -79,20 +79,9 @@ table EsrAtmosphericPhysicsConfig {
   relative_humidity:     float;
 }
 
-table EsrAtmosphericDerivedContext {
-  has_k_factor:    bool;
-  k_factor:        float;
-  has_day_of_year: bool;
-  day_of_year:     int32;
-  solar_flux_f107a: float;
-  solar_flux_f107:  float;
-  geomagnetic_ap:   float;
-}
-
 table EsrEnvironmentConfig {
   preset:              int32;
   atmospheric_physics: EsrAtmosphericPhysicsConfig;
-  atmospheric_context: EsrAtmosphericDerivedContext;
 }
 
 table EsrSessionConfig {
@@ -110,8 +99,6 @@ file_identifier "ESRS";
 table EsrEnvironmentRuntimeConfigPatch {
   has_atmospheric_physics: bool;
   atmospheric_physics:     EsrAtmosphericPhysicsConfig;
-  has_atmospheric_context: bool;
-  atmospheric_context:     EsrAtmosphericDerivedContext;
 }
 
 table EsrRuntimeConfigPatch {

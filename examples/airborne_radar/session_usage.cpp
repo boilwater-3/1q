@@ -90,11 +90,6 @@ ar_session::ArEnvironmentInput MakeInitialEnvironmentInput() {
   environment.atmospheric_observation.pressure_hpa = 1010.0f;
   environment.atmospheric_observation.temperature_k = 290.0f;
   environment.atmospheric_observation.relative_humidity = 0.45f;
-  environment.atmospheric_context.has_simulation_unix_seconds = true;
-  environment.atmospheric_context.simulation_unix_seconds = 1770000000;
-  environment.atmospheric_context.solar_flux_f107a = 145.0f;
-  environment.atmospheric_context.solar_flux_f107 = 148.0f;
-  environment.atmospheric_context.geomagnetic_ap = 5.0f;
   environment.surface_observation.cover_profile = ar_env::VegetationCoverProfile::kOpenGrassland;
   environment.surface_observation.enable_physical_model = true;
   return environment;

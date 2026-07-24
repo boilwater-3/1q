@@ -5,7 +5,6 @@
 #include <cmath>
 #include <vector>
 
-#include "1q/environment/PropagationPhysics.h"
 #include "common/atmosphere/AtmospherePhysics.h"
 #include "common/rcs/RcsPhysics.h"
 
@@ -153,21 +152,9 @@ float ComputeVegetationClutterMultiplier(
 
 PropagationResult PropagationModel::Evaluate(const EnvironmentSceneState& scene_state) const {
   PropagationResult result;
-  float physical_loss_db = 0.0f;
-  if (scene_state.atmospheric_physics.enable_physical_model) {
-    oneq::environment::AtmosphericObservation obs;
-    obs.pressure_hpa = scene_state.atmospheric_physics.pressure_hpa;
-    obs.temperature_k = scene_state.atmospheric_physics.temperature_k;
-    obs.relative_humidity = scene_state.atmospheric_physics.relative_humidity;
-    oneq::environment::PropagationInputs inputs = oneq::environment::BuildPropagationInputs(
-        10.0e9f, 10.0e3f, 1.0e3f, 1.0e3f, 5.0f, obs);
-    physical_loss_db =
-        oneq::environment::EvaluatePropagation(inputs).total_physics_loss_db;
-  }
-  result.atmospheric_physics_loss_db = physical_loss_db;
   result.propagation_loss_db = kInternalBasePropagationLossDb +
                                kInternalAtmosphericAttenuationDb +
-                               kInternalTerrainReflectionDb + physical_loss_db;
+                               kInternalTerrainReflectionDb;
   float clutter_power_db = kInternalBaselineClutterPowerDb;
   const VegetationScatterPhysicsConfig vegetation_config =
       ResolveVegetationScatterConfig(scene_state.vegetation_scatter_physics);

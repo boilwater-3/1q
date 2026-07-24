@@ -25,42 +25,8 @@ namespace session {
 struct ONEQ_API ArEnvironmentInputPatch {
   bool has_atmospheric_observation{false};                      /**< 是否更新气象/电离层输入 */
   config::AtmosphericPhysicsConfig atmospheric_observation{};   /**< 新气象/电离层输入 */
-  bool has_atmospheric_context{false};                          /**< 是否更新时间/空间天气输入 */
-  config::AtmosphericDerivedContext atmospheric_context{};      /**< 新时间/空间天气输入 */
   bool has_surface_observation{false};                          /**< 是否更新地表/植被输入 */
   config::VegetationScatterPhysicsConfig surface_observation{}; /**< 新地表/植被输入 */
-};
-
-/**
- * @brief EnvironmentCycleContext 描述环境层周期冻结上下文。
- */
-struct ONEQ_API EnvironmentCycleContext {
-  std::uint32_t cycle_index{0U}; /**< 当前周期号 */
-  float dt_sec{0.0f};            /**< 当前周期步长（单位：s） */
-};
-
-/**
- * @brief EnvironmentSnapshot 用于封装单个处理周期内的环境快照。
- */
-struct ONEQ_API EnvironmentSnapshot {
-  std::uint32_t cycle_index{0U};           /**< 当前周期号 */
-  float cycle_dt_sec{0.0f};                /**< 当前周期步长（单位：s） */
-  float propagation_loss_db{0.0f};         /**< 传播损耗（单位：dB） */
-  float atmospheric_physics_loss_db{0.0f}; /**< 传播损耗中的大气物理附加项（单位：dB） */
-  float clutter_power_db{0.0f};            /**< 杂波功率估计（单位：dB） */
-  config::AtmosphericPhysicsConfig atmospheric_physics{};  /**< 当前周期启用的大气物理参数 */
-  config::AtmosphericDerivedContext atmospheric_context{}; /**< 当前周期时间/空间天气上下文输入 */
-  float effective_k_factor{4.0f / 3.0f};   /**< 当前周期自动推导的有效地球半径因子 */
-  std::int32_t effective_day_of_year{172}; /**< 当前周期自动推导的年积日 */
-};
-
-/**
- * @brief EnvironmentSceneState 描述环境层待冻结的场景状态。
- */
-struct ONEQ_API EnvironmentSceneState {
-  config::AtmosphericPhysicsConfig atmospheric_physics{};  /**< 可选物理传播参数 */
-  config::AtmosphericDerivedContext atmospheric_context{}; /**< 可选时间/空间天气上下文 */
-  config::VegetationScatterPhysicsConfig vegetation_scatter_physics{}; /**< 可选植被散射参数 */
 };
 
 /**
@@ -68,7 +34,6 @@ struct ONEQ_API EnvironmentSceneState {
  */
 struct ONEQ_API ArEnvironmentInput {
   config::AtmosphericPhysicsConfig atmospheric_observation{};   /**< 当前周期气象/电离层输入 */
-  config::AtmosphericDerivedContext atmospheric_context{};      /**< 当前周期时间/空间天气输入 */
   config::VegetationScatterPhysicsConfig surface_observation{}; /**< 当前周期地表/植被输入 */
 };
 
@@ -98,9 +63,6 @@ class ONEQ_API ArEnvironmentInputState {
   ArEnvironmentInputState& Update(const ArEnvironmentInputPatch& patch) {
     if (patch.has_atmospheric_observation) {
       snapshot_.atmospheric_observation = patch.atmospheric_observation;
-    }
-    if (patch.has_atmospheric_context) {
-      snapshot_.atmospheric_context = patch.atmospheric_context;
     }
     if (patch.has_surface_observation) {
       snapshot_.surface_observation = patch.surface_observation;

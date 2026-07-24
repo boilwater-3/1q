@@ -215,13 +215,12 @@ std::vector<ar_session::ArExternalTargetInput> MakeTargets(const ArCase& c,
 
 /// 构造默认环境（关闭物理大气模型，避免引入额外衰减干扰趋势）。
 ar_session::ArEnvironmentInput MakeEnvironment(std::uint32_t cycle_index) {
+  (void)cycle_index;
   ar_session::ArEnvironmentInput env;
   env.atmospheric_observation.enable_physical_model = false;
   env.atmospheric_observation.pressure_hpa = 1013.25f;
   env.atmospheric_observation.temperature_k = 288.15f;
   env.atmospheric_observation.relative_humidity = 0.5f;
-  env.atmospheric_context.has_simulation_unix_seconds = true;
-  env.atmospheric_context.simulation_unix_seconds = 1770000000 + cycle_index;
   return env;
 }
 

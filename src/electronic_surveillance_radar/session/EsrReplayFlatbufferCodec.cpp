@@ -478,12 +478,7 @@ std::string EncodeEsrSessionConfig(const config::EsrSessionConfig& v) {
   auto ap = esr::replay::CreateEsrAtmosphericPhysicsConfig(
       fbb, es.atmospheric_physics.enable_physical_model, es.atmospheric_physics.pressure_hpa,
       es.atmospheric_physics.temperature_k, es.atmospheric_physics.relative_humidity);
-  auto ac = esr::replay::CreateEsrAtmosphericDerivedContext(
-      fbb, es.atmospheric_context.has_k_factor, es.atmospheric_context.k_factor,
-      es.atmospheric_context.has_day_of_year, es.atmospheric_context.day_of_year,
-      es.atmospheric_context.solar_flux_f107a, es.atmospheric_context.solar_flux_f107,
-      es.atmospheric_context.geomagnetic_ap);
-  auto env = esr::replay::CreateEsrEnvironmentConfig(fbb, static_cast<int32_t>(es.preset), ap, ac);
+  auto env = esr::replay::CreateEsrEnvironmentConfig(fbb, static_cast<int32_t>(es.preset), ap);
   fbb.Finish(esr::replay::CreateEsrSessionConfig(fbb, hw, mission, policy, env));
   return oneq::common::replay::CopyFinishedFlatbuffer(fbb);
 }
@@ -577,17 +572,6 @@ bool DecodeEsrSessionConfig(const std::string& bytes, config::EsrSessionConfig* 
       out->environment.scenario_config.atmospheric_physics.relative_humidity =
           ap->relative_humidity();
     }
-    if (e->atmospheric_context()) {
-      const auto* ac = e->atmospheric_context();
-      out->environment.scenario_config.atmospheric_context.has_k_factor = ac->has_k_factor();
-      out->environment.scenario_config.atmospheric_context.k_factor = ac->k_factor();
-      out->environment.scenario_config.atmospheric_context.has_day_of_year = ac->has_day_of_year();
-      out->environment.scenario_config.atmospheric_context.day_of_year = ac->day_of_year();
-      out->environment.scenario_config.atmospheric_context.solar_flux_f107a =
-          ac->solar_flux_f107a();
-      out->environment.scenario_config.atmospheric_context.solar_flux_f107 = ac->solar_flux_f107();
-      out->environment.scenario_config.atmospheric_context.geomagnetic_ap = ac->geomagnetic_ap();
-    }
   }
   return true;
 }
@@ -598,13 +582,8 @@ std::string EncodeEsrRuntimeConfigPatch(const config::EsrRuntimeConfigPatch& v) 
   auto ap = esr::replay::CreateEsrAtmosphericPhysicsConfig(
       fbb, ev.atmospheric_physics.enable_physical_model, ev.atmospheric_physics.pressure_hpa,
       ev.atmospheric_physics.temperature_k, ev.atmospheric_physics.relative_humidity);
-  auto ac = esr::replay::CreateEsrAtmosphericDerivedContext(
-      fbb, ev.atmospheric_context.has_k_factor, ev.atmospheric_context.k_factor,
-      ev.atmospheric_context.has_day_of_year, ev.atmospheric_context.day_of_year,
-      ev.atmospheric_context.solar_flux_f107a, ev.atmospheric_context.solar_flux_f107,
-      ev.atmospheric_context.geomagnetic_ap);
   auto env_patch = esr::replay::CreateEsrEnvironmentRuntimeConfigPatch(
-      fbb, ev.has_atmospheric_physics, ap, ev.has_atmospheric_context, ac);
+      fbb, ev.has_atmospheric_physics, ap);
   flatbuffers::Offset<esr::replay::EsrMissionConfig> mission;
   if (v.has_mission) {
     const auto& sc = v.mission.scan;
@@ -707,23 +686,6 @@ bool DecodeEsrRuntimeConfigPatch(const std::string& bytes, config::EsrRuntimeCon
           ec->atmospheric_physics()->temperature_k();
       out->environment.atmospheric_physics.relative_humidity =
           ec->atmospheric_physics()->relative_humidity();
-    }
-    out->environment.has_atmospheric_context = ec->has_atmospheric_context();
-    if (ec->atmospheric_context()) {
-      out->environment.atmospheric_context.has_k_factor =
-          ec->atmospheric_context()->has_k_factor();
-      out->environment.atmospheric_context.k_factor =
-          ec->atmospheric_context()->k_factor();
-      out->environment.atmospheric_context.has_day_of_year =
-          ec->atmospheric_context()->has_day_of_year();
-      out->environment.atmospheric_context.day_of_year =
-          ec->atmospheric_context()->day_of_year();
-      out->environment.atmospheric_context.solar_flux_f107a =
-          ec->atmospheric_context()->solar_flux_f107a();
-      out->environment.atmospheric_context.solar_flux_f107 =
-          ec->atmospheric_context()->solar_flux_f107();
-      out->environment.atmospheric_context.geomagnetic_ap =
-          ec->atmospheric_context()->geomagnetic_ap();
     }
   }
   return true;

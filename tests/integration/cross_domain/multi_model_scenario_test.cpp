@@ -126,7 +126,6 @@ ar_session::ArEnvironmentInput MakeArEnvironment() {
   env.atmospheric_observation.pressure_hpa = 1010.0f;
   env.atmospheric_observation.temperature_k = 290.0f;
   env.atmospheric_observation.relative_humidity = 0.45f;
-  env.atmospheric_context.has_simulation_unix_seconds = false;
   env.surface_observation.cover_profile = ar_env::VegetationCoverProfile::kOpenGrassland;
   env.surface_observation.enable_physical_model = false;
   return env;
@@ -395,8 +394,8 @@ esr_config::EsrSessionConfig MakeEsrConfigAirToAir() {
   config.mission.scan.scan_rate_hz = 0.1f;
   config.policy.detection.minimum_snr_db = -40.0f;
   config.policy.detection.enable_statistical_detection = false;
-  config.hardware.has_co_site_isolation = true;
-  config.hardware.co_site_isolation_db = 80.0f;
+  config.hardware.co_site_paths.push_back(
+      esr_config::EsrCoSiteIsolationPath{1U, 80.0});
   return config;
 }
 

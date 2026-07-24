@@ -9,7 +9,6 @@
 namespace electronic_surveillance_radar {
 namespace environment {
 
-using config::EsrAtmosphericDerivedContext;
 using config::EsrAtmosphericPhysicsConfig;
 using config::EsrEnvironmentConfig;
 using config::EsrEnvironmentScenarioConfig;
@@ -89,7 +88,6 @@ session::EsrEnvironmentSnapshot BuildSnapshot(
   snapshot.dt_sec = cycle_context.dt_sec;
   const session::EsrEnvironmentInput& observation = cycle_context.observation;
   const config::EsrAtmosphericPhysicsConfig& atmospheric_physics = config.atmospheric_physics;
-  const config::EsrAtmosphericDerivedContext& atmospheric_context = config.atmospheric_context;
   float physical_loss_db = 0.0f;
   if (atmospheric_physics.enable_physical_model) {
     oneq::environment::AtmosphericObservation obs;
@@ -100,8 +98,6 @@ session::EsrEnvironmentSnapshot BuildSnapshot(
         kDefaultAtmosphereFrequencyHz, kDefaultAtmospherePathLengthM,
         std::max(0.0f, cycle_context.platform_altitude_m),
         std::max(0.0f, cycle_context.platform_altitude_m), kDefaultAtmosphereElevationDeg, obs);
-    inputs.has_space_weather_context = true;
-    inputs.space_weather_context = atmospheric_context;
     physical_loss_db = oneq::environment::EvaluatePropagation(inputs).total_physics_loss_db;
   }
   const float semantic_loss_db = ResolvePropagationProfileLossDb(observation.propagation_profile) +

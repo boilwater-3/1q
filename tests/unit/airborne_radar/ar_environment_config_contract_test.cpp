@@ -34,8 +34,6 @@ TEST(ArEnvironmentTypeContractTest, RuntimePatchPreservesExplicitScenario) {
   patch.has_scenario_config = true;
   patch.scenario_config.atmospheric_physics.enable_physical_model = true;
   patch.scenario_config.atmospheric_physics.temperature_k = 301.0f;
-  patch.scenario_config.atmospheric_context.has_day_of_year = true;
-  patch.scenario_config.atmospheric_context.day_of_year = 42;
   patch.scenario_config.vegetation_scatter_physics.enable_physical_model =
       true;
   patch.scenario_config.vegetation_scatter_physics.cover_profile =
@@ -44,7 +42,6 @@ TEST(ArEnvironmentTypeContractTest, RuntimePatchPreservesExplicitScenario) {
   EXPECT_TRUE(patch.has_scenario_config);
   EXPECT_FLOAT_EQ(patch.scenario_config.atmospheric_physics.temperature_k,
                   301.0f);
-  EXPECT_EQ(patch.scenario_config.atmospheric_context.day_of_year, 42);
   EXPECT_EQ(
       patch.scenario_config.vegetation_scatter_physics.cover_profile,
       config::VegetationCoverProfile::kSparseWoodland);
@@ -52,14 +49,10 @@ TEST(ArEnvironmentTypeContractTest, RuntimePatchPreservesExplicitScenario) {
 
 TEST(ArEnvironmentDerivedValueTest, AtmosphericDefaultsRemainStable) {
   const config::AtmosphericPhysicsConfig physics;
-  const config::AtmosphericDerivedContext context;
 
   EXPECT_FLOAT_EQ(physics.pressure_hpa, 1013.25f);
   EXPECT_FLOAT_EQ(physics.temperature_k, 288.15f);
   EXPECT_FLOAT_EQ(physics.relative_humidity, 0.5f);
-  EXPECT_FALSE(context.has_simulation_unix_seconds);
-  EXPECT_FLOAT_EQ(context.solar_flux_f107a, 150.0f);
-  EXPECT_FLOAT_EQ(context.geomagnetic_ap, 4.0f);
 }
 
 TEST(ArEnvironmentDerivedValueTest, DerivesKFactorFromObservation) {
@@ -74,19 +67,9 @@ TEST(ArEnvironmentDerivedValueTest, DerivesKFactorFromObservation) {
   EXPECT_LT(k_factor, 2.0f);
 }
 
-TEST(ArEnvironmentDerivedValueTest, DerivesDayOfYearFromWorldTimestamp) {
-  config::AtmosphericDerivedContext context;
-  context.has_simulation_unix_seconds = true;
-  context.simulation_unix_seconds = 1704067200;
-
-  EXPECT_EQ(oneq::environment::ResolveEffectiveDayOfYear(context), 1);
-}
-
 TEST(ArEnvironmentInputStateTest, PatchUpdatesOnlySelectedNaturalFacts) {
   session::ArEnvironmentInput initial;
   initial.atmospheric_observation.temperature_k = 280.0f;
-  initial.atmospheric_context.has_day_of_year = true;
-  initial.atmospheric_context.day_of_year = 10;
   initial.surface_observation.cover_profile =
       config::VegetationCoverProfile::kOpenGrassland;
 
@@ -98,7 +81,6 @@ TEST(ArEnvironmentInputStateTest, PatchUpdatesOnlySelectedNaturalFacts) {
 
   const session::ArEnvironmentInput snapshot = state.Snapshot();
   EXPECT_FLOAT_EQ(snapshot.atmospheric_observation.temperature_k, 305.0f);
-  EXPECT_EQ(snapshot.atmospheric_context.day_of_year, 10);
   EXPECT_EQ(snapshot.surface_observation.cover_profile,
             config::VegetationCoverProfile::kOpenGrassland);
 }
