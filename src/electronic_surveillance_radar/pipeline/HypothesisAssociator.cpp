@@ -170,6 +170,12 @@ std::vector<std::size_t> ComputeGlobalAssignment(
   for (std::size_t cluster_index = 0; cluster_index < clusters.size(); ++cluster_index) {
     AddResidualEdge(source, cluster_offset + cluster_index, 0.0, 0, &graph);
     for (std::size_t track_index = 0; track_index < tracks.size(); ++track_index) {
+      // Waveform class is an observable physical discriminator.  A class
+      // change must start a distinct hypothesis rather than silently blend a
+      // pulse train into a continuous, sweep, or noise emitter track.
+      if (clusters[cluster_index].waveform_class != tracks[track_index].waveform_class) {
+        continue;
+      }
       const double distance = static_cast<double>(
           ComputeDistance(clusters[cluster_index].centroid_feature, tracks[track_index].feature));
       if (std::isfinite(distance) && distance <= gate_distance) {

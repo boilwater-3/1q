@@ -260,8 +260,8 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
           std::max(0.0f, ctx.GetEnvironmentSnapshot().propagation_loss_db), &front_end)) {
     return false;
   }
-  output->receiver_center_frequency_hz = front_end.receiver.center_frequency_hz;
-  output->receiver_bandwidth_hz = front_end.receiver.bandwidth_hz;
+  output->receiver_center_frequency_hz = front_end.channel_receiver.center_frequency_hz;
+  output->receiver_bandwidth_hz = front_end.channel_receiver.bandwidth_hz;
   output->receiver_saturated = front_end.receiver_saturated;
   if (front_end.receiver_saturated) {
     return true;
@@ -279,37 +279,37 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
                          ? a->identity.equipment_id < b->identity.equipment_id
                          : a->identity.emission_id < b->identity.emission_id;
             });
-  if (emissions.size() != front_end.incident_links.size()) {
+  if (emissions.size() != front_end.channel_incident_links.size()) {
     return false;
   }
   constexpr double kBoltzmannJPerK = 1.380649e-23;
   const config::EsrHardwareConfig& hardware = ctx.GetRuntimeConfig().receiver_hardware;
   const double thermal_noise = kBoltzmannJPerK * hardware.receiver_reference_temperature_k *
-                               front_end.receiver.bandwidth_hz *
+                               front_end.channel_receiver.bandwidth_hz *
                                std::pow(10.0, hardware.receiver_noise_figure_db / 10.0);
   const double ambient_noise =
       std::max(thermal_noise + static_cast<double>(ctx.GetEnvironmentSnapshot().clutter_noise_w),
                kNumericFloor);
   const double beamwidth = std::max(1.0, std::max(static_cast<double>(hardware.beam_az_width_deg),
                                                   static_cast<double>(hardware.beam_el_width_deg)));
-  std::vector<ArrivalBearing> bearings(front_end.incident_links.size());
-  for (std::size_t index = 0U; index < front_end.incident_links.size(); ++index) {
-    if (front_end.incident_links[index].is_co_site ||
-        front_end.incident_links[index].received_power_w <= 0.0) {
+  std::vector<ArrivalBearing> bearings(front_end.channel_incident_links.size());
+  for (std::size_t index = 0U; index < front_end.channel_incident_links.size(); ++index) {
+    if (front_end.channel_incident_links[index].is_co_site ||
+        front_end.channel_incident_links[index].received_power_w <= 0.0) {
       continue;
     }
     ArrivalBearing& bearing = bearings[index];
-    if (!TryResolveLookAngles(front_end.receiver, front_end.incident_links[index],
+    if (!TryResolveLookAngles(front_end.channel_receiver, front_end.channel_incident_links[index],
                               *emissions[index], ctx.GetPlatformAttitude(), &bearing.azimuth_deg,
                               &bearing.elevation_deg)) {
       return false;
     }
     bearing.defined = true;
   }
-  for (std::size_t signal_index = 0U; signal_index < front_end.incident_links.size();
+  for (std::size_t signal_index = 0U; signal_index < front_end.channel_incident_links.size();
        ++signal_index) {
     const oneq::electromagnetics::RfIncidentLinkResult& signal =
-        front_end.incident_links[signal_index];
+        front_end.channel_incident_links[signal_index];
     if (signal.received_power_w <= 0.0) {
       continue;
     }
@@ -321,11 +321,11 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     const double center_hz = ResolveCenterFrequencyHz(signal);
     const double bandwidth_hz = signal.emission_waveform.occupied_bandwidth_hz;
     double interference = 0.0;
-    for (std::size_t other = 0U; other < front_end.incident_links.size(); ++other) {
+    for (std::size_t other = 0U; other < front_end.channel_incident_links.size(); ++other) {
       if (other != signal_index &&
           IsAngularResolutionCellShared(bearings[signal_index], bearings[other], beamwidth)) {
         interference +=
-            ResolveChannelPowerW(front_end.incident_links[other], center_hz, bandwidth_hz);
+            ResolveChannelPowerW(front_end.channel_incident_links[other], center_hz, bandwidth_hz);
       }
     }
     const double snr_db =
@@ -381,7 +381,7 @@ bool InterceptDetectionExecutor::ProcessRfV2Frame(
     // identity-keyed 随机子流（纯派生，无跨周期可变 RNG 状态），保证输入顺序无关与 replay
     // 字节级确定。
     const float channel_bandwidth_hz =
-        static_cast<float>(front_end.receiver.bandwidth_hz);
+        static_cast<float>(front_end.channel_receiver.bandwidth_hz);
     const float occupied_bandwidth_hz_f = static_cast<float>(bandwidth_hz);
     std::mt19937 rf_rng =
         MakeEmissionRandomStream(session_seed, cycle_index, signal.identity, kRfRandomDomain);

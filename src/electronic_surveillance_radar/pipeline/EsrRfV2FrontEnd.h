@@ -17,8 +17,13 @@ namespace pipeline {
 
 /** @brief RF v2 ESR 前端在一个冻结接收窗口的求解结果。 */
 struct EsrRfV2FrontEndResult {
-  oneq::electromagnetics::RfSceneReceiverState receiver{};
-  std::vector<oneq::electromagnetics::RfIncidentLinkResult> incident_links{};
+  // The physical preselector is intentionally wider than the tuned channel.
+  // Every incident signal in this band contributes to front-end blocking and
+  // saturation; only channel links are eligible for intercept processing.
+  oneq::electromagnetics::RfSceneReceiverState front_end_receiver{};
+  oneq::electromagnetics::RfSceneReceiverState channel_receiver{};
+  std::vector<oneq::electromagnetics::RfIncidentLinkResult> front_end_incident_links{};
+  std::vector<oneq::electromagnetics::RfIncidentLinkResult> channel_incident_links{};
   double total_incident_power_w{0.0};
   bool receiver_saturated{false};
 };
